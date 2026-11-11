@@ -123,8 +123,10 @@ func TestEngineClosePreservesBinderAfterConsumedNativeRelease(t *testing.T) {
 		t.Fatal("failed real TLS accounting setup", state)
 	}
 	before := manager.Stats().LiveReferences
-	if before != baseline+3 {
-		t.Fatal("fixture does not have only the background and two binder references", baseline, before)
+	// The rule manager's label rewriter (rule_manager::m_rwr) holds three
+	// scratch references for the engine's life.
+	if before != baseline+6 {
+		t.Fatal("fixture does not have only the background and two binder references and the label rewriter scratch", baseline, before)
 	}
 	blocks := runtime.Stats().LiveBlocks
 	err = engine.Close()
@@ -134,7 +136,9 @@ func TestEngineClosePreservesBinderAfterConsumedNativeRelease(t *testing.T) {
 	if engine.relations != relations || engine.background != background {
 		t.Fatal("engine disposed later owners after its binder failed")
 	}
-	if manager.Stats().LiveReferences+1 != before || runtime.Stats().LiveBlocks >= blocks {
+	// The rule manager's label rewriter released its three scratch
+	// references before the binder's consumed release.
+	if manager.Stats().LiveReferences+4 != before || runtime.Stats().LiveBlocks >= blocks {
 		t.Fatal("binder failure did not consume exactly one AST reference and a native allocation", before, manager.Stats().LiveReferences, blocks, runtime.Stats().LiveBlocks)
 	}
 	if _, err = manager.GetRefCount(last); !errors.Is(err, ast.ErrASTHandle) {

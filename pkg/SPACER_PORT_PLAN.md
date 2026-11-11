@@ -285,7 +285,16 @@ tags` hourly. Commit with explicit pathspecs, no amend, no Co-Authored-By.
    PropagationFormula and CheckBounded only from tests. Left as is.] Check: fixedpoint_pdr_initial_trace (12926),
    pdr_recursive_trace (9291), pdr_utvpi_fragment (3465),
    pdr_general_arithmetic_fragment (754).
-3. **T1 hnf retention.** Check: fp_spacer_quantifier_abstraction.
+3. **T1 hnf retention.** Check: fp_spacer_quantifier_abstraction. [Done.
+   The holders were rule_manager::m_head/m_body (final head and body apps
+   kept until the next mk_horn_rule, now RuleManager.hornHead/hornBody)
+   and rule_manager::m_rwr, the label_rewriter member whose rewriter cache
+   keeps every app it rewrote until ~rule_manager (now RuleManager.labels;
+   g3 built one per mk_rule call). The quantifier hoister also built the
+   iff/ite `or` pair left to right; the source evaluates mk_and's
+   arguments right to left. quantifier_abstraction 67 -> 77;
+   fp_spacer_array_blast (T2) became identical: its last holder was this
+   cache, not the context rewriter's.]
 4. **T2 context rewriter cache lifetime** (and the array_blast member
    rewriter). Check: fp_spacer_array_blast, fp_spacer_bit_blast,
    fp_spacer_array_eq_rewrite.

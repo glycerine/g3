@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
-	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/qe"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -88,12 +87,7 @@ func (m *RuleManager) addFormulaWithProof(set *RuleSet, formula, proof ast.ASTHa
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, m.manager.DelRef(&proofRef)) }()
-	labels, err := rewriter.NewLabelRewriter(m.manager)
-	if err != nil {
-		return err
-	}
-	defer func() { resultErr = errors.Join(resultErr, labels.Close()) }()
-	if err = labels.RemoveLabels(formulaRef, proofRef); err != nil {
+	if err = m.labels.RemoveLabels(formulaRef, proofRef); err != nil {
 		return err
 	}
 	formula, err = m.manager.RefGet(formulaRef)

@@ -242,13 +242,15 @@ func (m *RuleManager) newRuleFromFormulaWithSymbol(formula ast.ASTHandle, name s
 	if err := m.checkRuleName(name); err != nil {
 		return nil, err
 	}
-	// m_body/m_head are rule_manager members: mk_horn_rule's terms live
-	// until the next rule resets them (m_body.reset()).
-	if err := m.releaseHornTemporaries(); err != nil {
+	// m_body.reset(): the previous rule's body apps are released first;
+	// m_head is replaced once extract_horn has the new head.
+	if err := m.releaseHornBody(); err != nil {
 		return nil, err
 	}
+	// temporaries are the locals of extract_horn, hoist_compound and
+	// mk_negations: nodes the body no longer holds die after mk_negations.
 	var temporaries []ast.ASTRef
-	defer func() { m.hornTemporaries = temporaries }()
+	defer func() { resultErr = errors.Join(resultErr, closeASTRefs(m.manager, temporaries)) }()
 	kind, err := m.manager.GetKind(formula)
 	if err != nil {
 		return nil, err
@@ -300,6 +302,10 @@ func (m *RuleManager) newRuleFromFormulaWithSymbol(formula ast.ASTHandle, name s
 	if err != nil {
 		return nil, err
 	}
+	// extract_horn: head = ensure_app(e2) replaces m_head.
+	if err = m.setHornHead(head); err != nil {
+		return nil, err
+	}
 	used, err := ast.NewASTUsedVars(m.manager)
 	if err != nil {
 		return nil, err
@@ -319,6 +325,10 @@ func (m *RuleManager) newRuleFromFormulaWithSymbol(formula ast.ASTHandle, name s
 	}
 	head, err = m.hoistCompoundPredicate(head, &next, &body, &temporaries)
 	if err != nil {
+		return nil, err
+	}
+	// hoist_compound assigns the hoisted head into m_head.
+	if err = m.setHornHead(head); err != nil {
 		return nil, err
 	}
 	for i := 0; i < originalBody; i++ {
@@ -361,20 +371,55 @@ func (m *RuleManager) newRuleFromFormulaWithSymbol(formula ast.ASTHandle, name s
 			}
 		}
 	}
+	// m_body holds the final body apps (mk_negations stripped the nots);
+	// the construction locals die here, before mk builds the rule.
+	for _, expression := range body {
+		if err = m.pinTemporary(&m.hornBody, expression); err != nil {
+			return nil, err
+		}
+	}
+	err = closeASTRefs(m.manager, temporaries)
+	temporaries = nil
+	if err != nil {
+		return nil, err
+	}
 	return m.NewRuleWithSymbol(head, body, negated, name)
+}
+
+// setHornHead is an assignment to m_head: the new head is held before the
+// previous one is released.
+func (m *RuleManager) setHornHead(head ast.ASTHandle) error {
+	fresh, err := m.manager.NewRef(head)
+	if err != nil {
+		return err
+	}
+	previous := m.hornHead
+	m.hornHead = fresh
+	if previous != (ast.ASTRef{}) {
+		return m.manager.DelRef(&previous)
+	}
+	return nil
 }
 
 // ReleaseHornTemporaries drops the terms the last rule conversion keeps in
 // m_body/m_head; the next conversion would release them anyway.
 func (m *RuleManager) ReleaseHornTemporaries() error { return m.releaseHornTemporaries() }
 
-// releaseHornTemporaries is m_body.reset(): forward release.
+// releaseHornTemporaries releases m_head, then m_body (destruction order).
 func (m *RuleManager) releaseHornTemporaries() (result error) {
-	for i := range m.hornTemporaries {
-		if m.hornTemporaries[i] != (ast.ASTRef{}) {
-			result = errors.Join(result, m.manager.DelRef(&m.hornTemporaries[i]))
+	if m.hornHead != (ast.ASTRef{}) {
+		result = m.manager.DelRef(&m.hornHead)
+	}
+	return errors.Join(result, m.releaseHornBody())
+}
+
+// releaseHornBody is m_body.reset(): forward release.
+func (m *RuleManager) releaseHornBody() (result error) {
+	for i := range m.hornBody {
+		if m.hornBody[i] != (ast.ASTRef{}) {
+			result = errors.Join(result, m.manager.DelRef(&m.hornBody[i]))
 		}
 	}
-	m.hornTemporaries = nil
+	m.hornBody = nil
 	return result
 }

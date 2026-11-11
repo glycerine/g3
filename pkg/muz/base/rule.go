@@ -60,11 +60,17 @@ type RuleManager struct {
 	normalizer     *HornNormalizer
 	predicates     map[ast.ASTHandle]ast.ASTRef
 	predicateOrder []ast.ASTHandle // insertion order, released forward
-	// hornTemporaries are mk_horn_rule's m_body/m_head terms, kept until
-	// the next rule.
-	hornTemporaries []ast.ASTRef
-	closed          bool
-	cleanupPending  bool
+	// hornBody and hornHead are rule_manager::m_body and m_head: the last
+	// mk_horn_rule's final body apps (negation stripped) and head, kept
+	// until the next rule or destruction.
+	hornBody []ast.ASTRef
+	hornHead ast.ASTRef
+	// labels is rule_manager::m_rwr: one label_rewriter for the manager's
+	// life, whose rewriter cache keeps every app it rewrote (identity
+	// results included) until destruction.
+	labels         *rewriter.LabelRewriter
+	closed         bool
+	cleanupPending bool
 }
 
 func NewRuleManager(manager *ast.ASTManager) (*RuleManager, error) {
@@ -75,7 +81,14 @@ func NewRuleManager(manager *ast.ASTManager) (*RuleManager, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &RuleManager{manager: manager, normalizer: normalizer, predicates: make(map[ast.ASTHandle]ast.ASTRef)}, nil
+	labels, err := rewriter.NewLabelRewriter(manager)
+	if err != nil {
+		if labels != nil {
+			err = errors.Join(err, labels.Close())
+		}
+		return nil, errors.Join(err, normalizer.Close())
+	}
+	return &RuleManager{manager: manager, normalizer: normalizer, labels: labels, predicates: make(map[ast.ASTHandle]ast.ASTRef)}, nil
 }
 
 func (m *RuleManager) open() error {
@@ -764,10 +777,17 @@ func (m *RuleManager) Close() error {
 		return err
 	}
 	m.cleanupPending = true
-	if err := m.releaseHornTemporaries(); err != nil {
-		return err
+	// ~rule_manager destroys m_rwr, then m_hnf, then m_head, then m_body.
+	if m.labels != nil {
+		if err := m.labels.Close(); err != nil {
+			return err
+		}
+		m.labels = nil
 	}
 	if err := m.normalizer.Close(); err != nil {
+		return err
+	}
+	if err := m.releaseHornTemporaries(); err != nil {
 		return err
 	}
 	for _, declaration := range m.predicateOrder {

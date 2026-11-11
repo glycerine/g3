@@ -166,6 +166,10 @@ func testRuleProofComposition(t *testing.T, withSlice, withCoalesce bool, stop i
 	}
 	succeeded := false
 	if stop >= 0 {
+		// derivedVariables builds a rule from the proof fact, which replaces
+		// the rule manager's retained m_head/m_body terms; release them on
+		// both sides of the comparison.
+		coneMust(t, f.rules.ReleaseHornTemporaries())
 		before := m.Stats().LiveReferences
 		count, e := m.GetRefCount(proof)
 		coneMust(t, e)
@@ -196,6 +200,7 @@ func testRuleProofComposition(t *testing.T, withSlice, withCoalesce bool, stop i
 			succeeded = true
 			coneMust(t, m.DelRef(&attempt))
 		}
+		coneMust(t, f.rules.ReleaseHornTemporaries())
 		if m.Stats().LiveReferences != before {
 			t.Fatal("composition failure changed reference accounting", stop, m.Stats().LiveReferences, before)
 		}

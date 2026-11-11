@@ -799,11 +799,7 @@ func (m *RuleManager) addFormula(set *RuleSet, formula ast.ASTHandle, name usymb
 	if set == nil || set.manager != m {
 		return ErrRuleSetOwner
 	}
-	labelRewriter, err := rewriter.NewLabelRewriter(m.manager)
-	if err != nil {
-		return err
-	}
-	defer func() { resultErr = errors.Join(resultErr, labelRewriter.Close()) }()
+	labelRewriter := m.labels
 	formulaReference, err := m.manager.NewRef(formula)
 	if err != nil {
 		return err

@@ -118,7 +118,9 @@ func testHornCleanupConsumedRelease(t *testing.T, bodyCleanup bool) {
 		}
 	} else {
 		err = rm.Close()
-		if !errors.Is(err, arena.ErrBounds) || rm.closed || !rm.cleanupPending || len(rm.predicates) != 0 || m.Stats().LiveReferences+1 != before || rt.Stats().LiveBlocks >= blocks {
+		// m_rwr's three scratch references are released before the
+		// predicate table's consumed release.
+		if !errors.Is(err, arena.ErrBounds) || rm.closed || !rm.cleanupPending || len(rm.predicates) != 0 || m.Stats().LiveReferences+4 != before || rt.Stats().LiveBlocks >= blocks {
 			t.Fatal("consumed RuleManager frontier", err, rm.closed, rm.cleanupPending, len(rm.predicates), before, m.Stats().LiveReferences, blocks, rt.Stats().LiveBlocks)
 		}
 		if err = rm.RegisterPredicate(d); !errors.Is(err, ErrRuleOwner) {

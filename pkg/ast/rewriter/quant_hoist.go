@@ -455,11 +455,14 @@ func (s *quantifierHoistState) pull(fml ast.ASTHandle, qt *quantifierType, useFr
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		a, e := s.mkOr([]ast.ASTHandle{negative, thenPart}, false)
+		// m.mk_and(m.mk_or(ntt1, tt2), m.mk_or(tt1, tt3)): the source build
+		// evaluates the arguments right to left, so the second or is
+		// created first.
+		b, e := s.mkOr([]ast.ASTHandle{positive, elsePart}, false)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		b, e := s.mkOr([]ast.ASTHandle{positive, elsePart}, false)
+		a, e := s.mkOr([]ast.ASTHandle{negative, thenPart}, false)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
@@ -510,11 +513,13 @@ func (s *quantifierHoistState) pull(fml ast.ASTHandle, qt *quantifierType, useFr
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		a, e := s.mkOr([]ast.ASTHandle{np, q}, false)
+		// m.mk_and(m.mk_or(ntt1, tt2), m.mk_or(ntt2, tt1)): right-to-left
+		// argument evaluation creates the second or first.
+		b, e := s.mkOr([]ast.ASTHandle{nq, p}, false)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		b, e := s.mkOr([]ast.ASTHandle{nq, p}, false)
+		a, e := s.mkOr([]ast.ASTHandle{np, q}, false)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}

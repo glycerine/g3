@@ -123,8 +123,10 @@ func TestEngineClosePreservesRuleManagerAfterConsumedNativeRelease(t *testing.T)
 		t.Fatal("failed real TLS accounting setup", state)
 	}
 	before, blocks := manager.Stats().LiveReferences, runtime.Stats().LiveBlocks
-	if before != baseline+3 {
-		t.Fatal("fixture does not have only background and two predicate references", baseline, before)
+	// The rule manager's label rewriter (rule_manager::m_rwr) holds three
+	// scratch references for the engine's life.
+	if before != baseline+6 {
+		t.Fatal("fixture does not have only background and two predicate references and the label rewriter scratch", baseline, before)
 	}
 	err = engine.Close()
 	if !errors.Is(err, arena.ErrBounds) || engine.closed || !engine.closing || engine.rules != rules {
@@ -133,7 +135,9 @@ func TestEngineClosePreservesRuleManagerAfterConsumedNativeRelease(t *testing.T)
 	if engine.binder != binder || engine.relations != relations || engine.background != background {
 		t.Fatal("engine disposed later owners after its rule manager failed")
 	}
-	if manager.Stats().LiveReferences+1 != before || runtime.Stats().LiveBlocks+1 != blocks {
+	// The label rewriter's three scratch references go first (m_rwr is
+	// destroyed before the predicate table), then the consumed predicate.
+	if manager.Stats().LiveReferences+4 != before || runtime.Stats().LiveBlocks+1 != blocks {
 		t.Fatal("failure did not consume exactly one predicate reference and native allocation", before, manager.Stats().LiveReferences, blocks, runtime.Stats().LiveBlocks)
 	}
 	live, consumed := 0, 0
