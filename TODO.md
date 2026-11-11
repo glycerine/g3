@@ -1526,7 +1526,12 @@ Found while matching `-st` output against `build/z3` on
     matches there because format-node ids overlap and these merges
     leave no [assign] record.
 
-29. **Open (2026-11-10): fixedpoint_relation_representations.** z3 builds
+29. **DONE (2026-11-10): fixedpoint_relation_representations.** The
+    (iff var true) is table_base::to_formula in rel_context::query's
+    eager m_answer; g3 now builds it when a finite-table query succeeds.
+    Still lazy: query clones (expression queries), which
+    TestExpressionAnswerAllocationFailureKeepsPublishedQuery relies on,
+    and the Karr/udoc/interval backends. Original note: z3 builds
     `(iff var true)` for each query of a Bool relation (after the query
     application `(Sparse x)`); g3 does not. The source is neither
     ensure_app, fix_unbound_vars nor mk_query (gdb shows no hits there);
