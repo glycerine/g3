@@ -314,6 +314,18 @@ func (p *RuleInlinerPlugin) resolve(target *base.Rule, tailIndex int, source *ba
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, releaseTransformRefs(p.manager, renaming)) }()
+	// rule_unifier::apply normalizes the resolvent (fix_unbound_vars, the
+	// interpreted-tail simplifier) before try_to_inline_rule calls
+	// resolve_rule: the hyper-resolution proof concludes the final rule and
+	// no rewrite proof is attached.
+	normalized, err := p.normalizeResolvedRule(resolved)
+	if err != nil {
+		return nil, err
+	}
+	if normalized == nil {
+		return nil, nil
+	}
+	resolved = normalized
 	variables, subst := unifier.variables, unifier.subst
 	if targetProof, hasProof, proofErr := target.Proof(); proofErr != nil {
 		return nil, errors.Join(proofErr, resolved.Close())
@@ -388,7 +400,7 @@ func (p *RuleInlinerPlugin) resolve(target *base.Rule, tailIndex int, source *ba
 			return nil, errors.Join(subErr, resolved.Close())
 		}
 	}
-	return p.normalizeResolvedRule(resolved)
+	return resolved, nil
 }
 
 // NormalizeResolvedRule applies the source rule-unifier postprocessing and

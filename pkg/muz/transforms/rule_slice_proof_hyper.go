@@ -501,6 +501,24 @@ func (c *SliceProofConverter) resolveProof(first *base.Rule, firstProof ast.ASTR
 	if err = c.mapResolvedPositiveTails(first, rule, tailIndex, substitutions[0], tailMap); err != nil {
 		return rule, proof, err
 	}
+	// m_unifier.apply(*r1, idx, *r2, r3) normalizes the resolvent
+	// (fix_unbound_vars, the interpreted-tail simplifier) before
+	// resolve_rule concludes it with the unifier's substitutions.
+	normalizer := NewRuleInlinerPluginWithServices(m, c.rules, nil, false, false, c.normalizationParams, c.normalizationGlobals, 100)
+	if c.normalization != nil {
+		normalizer.SetNormalizationParams(*c.normalization)
+	}
+	normalized, cause := normalizer.NormalizeResolvedRule(rule)
+	if cause = errors.Join(cause, normalizer.Close()); cause != nil {
+		return rule, proof, cause
+	}
+	if normalized == nil {
+		return rule, proof, fmt.Errorf("%w: normalized resolvent is inconsistent", ErrSliceProofUnsupported)
+	}
+	if err = rule.Close(); err != nil {
+		return normalized, proof, err
+	}
+	rule = normalized
 	formula, err := rule.ToFormula()
 	if err != nil {
 		return rule, proof, err
