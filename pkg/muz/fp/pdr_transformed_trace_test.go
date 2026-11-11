@@ -157,14 +157,17 @@ func TestPDRTransformedTraceStreamFailureKeepsLaterOperandErrors(t *testing.T) {
 					t.Fatal("failed trace published a query result")
 				}
 			}
-			if delta := int64(e.manager.Stats().LiveReferences) - int64(before); delta != perQuery {
-				t.Fatal("trace failure lost owners", delta, perQuery)
-			}
+			// A trace failure after check_reset keeps the new m_old_rules and
+			// the previous m_pdr_rules, as the source does; the next query
+			// replaces both, so the owners balance once it succeeds.
 			tags.Disable("pdr")
 			status, err = e.QueryPredicate(q)
 			fragmentMust(t, err)
 			if status != lbool.True {
 				t.Fatal("query retry", status)
+			}
+			if delta := int64(e.manager.Stats().LiveReferences) - int64(before); delta != 2*perQuery {
+				t.Fatal("trace failure lost owners", delta, 2*perQuery)
 			}
 		})
 	}

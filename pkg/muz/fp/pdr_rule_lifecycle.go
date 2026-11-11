@@ -4,6 +4,7 @@ package fp
 // src/muz/pdr/pdr_dl_interface.cpp.
 
 import (
+	"errors"
 	"github.com/glycerine/g3/pkg/muz/base"
 )
 
@@ -15,7 +16,27 @@ func (e *PropositionalEngine) advanceRuleRevision() {
 	e.revision++
 }
 
-func (e *PropositionalEngine) checkPDRSourceRules() error {
+func (e *PropositionalEngine) checkPDRSourceRules() (resultErr error) {
+	// check_reset ends with m_old_rules.replace_rules(new_rules): the previous
+	// query's rules (its query rule included) are released here, before the
+	// transformations.
+	defer func() {
+		if resultErr != nil {
+			return
+		}
+		snapshot, err := snapshotHornRules(e.set)
+		if err != nil {
+			resultErr = err
+			return
+		}
+		if e.pdrSourceRules != nil {
+			if err = e.pdrSourceRules.Close(); err != nil {
+				resultErr = errors.Join(err, snapshot.Close())
+				return
+			}
+		}
+		e.pdrSourceRules = snapshot
+	}()
 	// check_reset runs whenever m_old_rules is nonempty; the context it
 	// resets may be the fresh one updt_params just built.
 	if e.pdrSourceRules == nil {

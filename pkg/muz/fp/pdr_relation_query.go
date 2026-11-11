@@ -186,7 +186,9 @@ func (e *PropositionalEngine) queryRelationMkQuery(declaration ast.ASTHandle, so
 	if err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, e.removeQueryRule(queryRule)) }()
+	// queryRule is a retained owner of the set's rule: release it once the
+	// rule leaves the set.
+	defer func() { resultErr = errors.Join(resultErr, e.removeQueryRule(queryRule), queryRule.Close()) }()
 	// mk_query's locals die when it returns; engine_base's q stays alive
 	// for the whole query.
 	err = closeASTRefs(e.manager, roots)
@@ -260,10 +262,10 @@ func (e *PropositionalEngine) lastRuleWithHead(head ast.ASTHandle) (*base.Rule, 
 	}
 	declaration, err := rule.HeadDeclaration()
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, rule.Close())
 	}
 	if declaration != head {
-		return nil, ast.ErrASTDomain
+		return nil, errors.Join(ast.ErrASTDomain, rule.Close())
 	}
 	return rule, nil
 }

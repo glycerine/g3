@@ -291,14 +291,12 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 	if err != nil {
 		return lbool.Undef, errors.Join(err, closeContext())
 	}
-	sourceSnapshot, err := snapshotHornRules(e.set)
-	if err != nil {
-		return lbool.Undef, errors.Join(err, snapshot.Close(), closeContext())
-	}
+	// m_old_rules was already replaced by check_reset.
+	sourceSnapshot := e.pdrSourceRules
 	keepSnapshot := false
 	defer func() {
 		if !keepSnapshot {
-			resultErr = errors.Join(resultErr, snapshot.Close(), sourceSnapshot.Close())
+			resultErr = errors.Join(resultErr, snapshot.Close())
 		}
 	}()
 	installed := false
@@ -343,8 +341,16 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 		if err = e.clearPDRPreprocessing(); err != nil {
 			return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
 		}
-	} else if err = e.closePDRForReplacement(); err != nil {
-		return lbool.Undef, errors.Join(err, closeContext())
+	} else {
+		// m_old_rules belongs to dl_interface and survives the context
+		// rebuild; check_reset already replaced it for this query.
+		source := e.pdrSourceRules
+		e.pdrSourceRules = nil
+		err = e.closePDRForReplacement()
+		e.pdrSourceRules = source
+		if err != nil {
+			return lbool.Undef, errors.Join(err, closeContext())
+		}
 	}
 	if err = context.SetAuxiliaryPredicates(auxiliary); err != nil {
 		return lbool.Undef, errors.Join(err, closeContext())
