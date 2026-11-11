@@ -118,36 +118,31 @@ func releaseNormalizeRefs(manager *ast.ASTManager, values []ast.ASTRef) error {
 	return result
 }
 
-func normalizeAdhocReplacement(manager *ast.ASTManager, family ast.FamilyID, value ast.ASTHandle) (ast.ASTHandle, bool, error) {
-	kind, err := manager.GetKind(value)
-	if err != nil || kind != ast.ASTApp {
+// normalizeAdhocReduce is adhoc_rewriter_cfg::reduce_app(f, args): it sees
+// the rewritten arguments before any application is built.
+func normalizeAdhocReduce(manager *ast.ASTManager, family ast.FamilyID, decl ast.ASTHandle, args []ast.ASTHandle) (ast.ASTHandle, bool, error) {
+	fid, err := manager.GetFamilyID(decl)
+	if err != nil {
 		return ast.ASTHandle{}, false, err
 	}
-	if yes, child, notErr := manager.IsNot(value); notErr != nil {
-		return ast.ASTHandle{}, false, notErr
-	} else if yes {
-		if nested, grandchild, nestedErr := manager.IsNot(child); nestedErr != nil {
-			return ast.ASTHandle{}, false, nestedErr
-		} else if nested {
-			return grandchild, true, nil
+	op, err := manager.GetDeclKind(decl)
+	if err != nil {
+		return ast.ASTHandle{}, false, err
+	}
+	if fid == manager.BasicFamilyID() && op == ast.ASTOpNot {
+		if len(args) != 1 {
+			return ast.ASTHandle{}, false, nil
 		}
+		// not (not e) ==> e
+		if nested, grandchild, err := manager.IsNot(args[0]); err != nil || nested {
+			return grandchild, nested, err
+		}
+		return ast.ASTHandle{}, false, nil
 	}
-	fid, err := manager.GetFamilyID(value)
-	if err != nil || fid != family {
-		return ast.ASTHandle{}, false, err
+	if fid != family || (op != 2 && op != 3) || len(args) != 2 {
+		return ast.ASTHandle{}, false, nil
 	}
-	op, err := manager.GetDeclKind(value)
-	if err != nil || (op != 2 && op != 3) {
-		return ast.ASTHandle{}, false, err
-	}
-	left, err := manager.GetArg(value, 0)
-	if err != nil {
-		return ast.ASTHandle{}, false, err
-	}
-	right, err := manager.GetArg(value, 1)
-	if err != nil {
-		return ast.ASTHandle{}, false, err
-	}
+	left, right := args[0], args[1]
 	sort, err := manager.GetSort(left)
 	if err != nil {
 		return ast.ASTHandle{}, false, err
@@ -164,6 +159,7 @@ func normalizeAdhocReplacement(manager *ast.ASTManager, family ast.FamilyID, val
 	if err != nil || !numeral || (op == 2 && text != "-1") || (op == 3 && text != "1") {
 		return ast.ASTHandle{}, false, err
 	}
+	// t <= -1 ==> !(t >= 0); t >= 1 ==> !(t <= 0)
 	zero, err := manager.ArithmeticIntegerNumeralText("0")
 	if err != nil {
 		return ast.ASTHandle{}, false, err
@@ -272,18 +268,27 @@ func normalizeAdhoc(manager *ast.ASTManager, root ast.ASTRef) (resultErr error) 
 			changed = changed || children[i] != child
 		}
 		rebuilt := current.node
-		if changed {
-			switch kind {
-			case ast.ASTApp:
-				decl, err := manager.GetDecl(current.node)
-				if err != nil {
+		switch kind {
+		case ast.ASTApp:
+			// rewriter_tpl::process_app: reduce_app on the new arguments,
+			// then mk_app only when it fails and an argument changed.
+			decl, err := manager.GetDecl(current.node)
+			if err != nil {
+				return err
+			}
+			replacement, replaced, err := normalizeAdhocReduce(manager, family, decl, children)
+			if err != nil {
+				return err
+			}
+			if replaced {
+				rebuilt = replacement
+			} else if changed {
+				if rebuilt, err = manager.MkApp(decl, children); err != nil {
 					return err
 				}
-				rebuilt, err = manager.MkApp(decl, children)
-				if err != nil {
-					return err
-				}
-			case ast.ASTQuantifier:
+			}
+		case ast.ASTQuantifier:
+			if changed {
 				rebuilt, err = manager.UpdateQuantifierAnnotations(current.node, children[1:1+current.patterns], children[1+current.patterns:], children[0])
 				if err != nil {
 					return err
@@ -295,16 +300,6 @@ func normalizeAdhoc(manager *ast.ASTManager, root ast.ASTRef) (resultErr error) 
 			return err
 		}
 		owned = append(owned, ref)
-		replacement, replace, err := normalizeAdhocReplacement(manager, family, rebuilt)
-		if err != nil {
-			return err
-		}
-		if replace {
-			if err = manager.SetRef(ref, replacement); err != nil {
-				return err
-			}
-			rebuilt = replacement
-		}
 		cache[current.node] = rebuilt
 	}
 	return manager.SetRef(root, cache[handle])

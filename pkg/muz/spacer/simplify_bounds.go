@@ -65,6 +65,12 @@ func simplifyBounds(manager *ast.ASTManager, context *uparams.ParamsContext, glo
 			}
 		}
 	}()
+	// scoped_no_proof _no_pf_(m) precedes the goal and outlives the tactics.
+	noProof, err := ast.NewScopedNoProof(manager)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, noProof.Close()) }()
 	goal, err := tactic.NewGoal(manager, false, false, false)
 	if err != nil {
 		return nil, err
