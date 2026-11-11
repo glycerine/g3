@@ -245,12 +245,27 @@ func (p *ArrayEqRewritePlugin) transformRule(rule *base.Rule, destination *base.
 			tails, negated = append(tails, tail), append(negated, false)
 		}
 	}
-	owned := make([]ast.ASTRef, 0)
-	defer func() {
-		for i := len(owned) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, p.manager.DelRef(&owned[i]))
+	// instantiate_rule's locals die in reverse declaration order: pr,
+	// res_conjs (front to back), the th_rewriter t, array_eq_classes, and
+	// new_tail (front to back). A new_tail element assignment holds the new
+	// value before releasing the replaced one.
+	releaseForward := func(refs []ast.ASTRef) (result error) {
+		for i := range refs {
+			if refs[i] != (ast.ASTRef{}) {
+				result = errors.Join(result, p.manager.DelRef(&refs[i]))
+			}
 		}
-	}()
+		return result
+	}
+	newTail := make([]ast.ASTRef, 0, len(tails))
+	defer func() { resultErr = errors.Join(resultErr, releaseForward(newTail)) }()
+	for _, tail := range tails {
+		ref, makeErr := p.manager.NewRef(tail)
+		if makeErr != nil {
+			return nil, makeErr
+		}
+		newTail = append(newTail, ref)
+	}
 	for _, members := range equivalences.classes() {
 		representative := members[0]
 		for _, member := range members {
@@ -269,7 +284,11 @@ func (p *ArrayEqRewritePlugin) transformRule(rule *base.Rule, destination *base.
 				if replaceErr != nil {
 					return nil, replaceErr
 				}
-				owned = append(owned, ref)
+				previous := newTail[i]
+				newTail[i] = ref
+				if replaceErr = p.manager.DelRef(&previous); replaceErr != nil {
+					return nil, replaceErr
+				}
 				tails[i], replaceErr = p.manager.RefGet(ref)
 				if replaceErr != nil {
 					return nil, replaceErr
@@ -285,7 +304,7 @@ func (p *ArrayEqRewritePlugin) transformRule(rule *base.Rule, destination *base.
 			if makeErr != nil {
 				return nil, makeErr
 			}
-			owned = append(owned, held)
+			newTail = append(newTail, held)
 			tails, negated = append(tails, equality), append(negated, false)
 		}
 	}
@@ -306,6 +325,8 @@ func (p *ArrayEqRewritePlugin) transformRule(rule *base.Rule, destination *base.
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, rewriter.Close()) }()
+	var resConjs []ast.ASTRef
+	defer func() { resultErr = errors.Join(resultErr, releaseForward(resConjs)) }()
 	// The C++ transform runs th_rewriter over every retained tail, including
 	// predicate applications whose arguments contain interpreted array terms.
 	for i := 0; i < len(tails); i++ {
@@ -313,7 +334,7 @@ func (p *ArrayEqRewritePlugin) transformRule(rule *base.Rule, destination *base.
 		if makeErr != nil {
 			return nil, makeErr
 		}
-		owned = append(owned, ref)
+		resConjs = append(resConjs, ref)
 		if makeErr = rewriter.Rewrite(tails[i], ref); makeErr != nil {
 			return nil, makeErr
 		}
@@ -330,7 +351,8 @@ func (p *ArrayEqRewritePlugin) transformRule(rule *base.Rule, destination *base.
 	if err != nil {
 		return nil, err
 	}
-	// mk_rule(m.mk_implies(m.mk_and(res_conjs), r.get_head()), ...).
+	// mk_rule(m.mk_implies(m.mk_and(res_conjs), r.get_head()), ...): the raw
+	// formula is released as soon as mk_rule returns.
 	conjunction, err := p.manager.MkFamilyApp(0, ast.ASTOpAnd, nil, tails)
 	if err != nil {
 		return nil, err
@@ -343,11 +365,12 @@ func (p *ArrayEqRewritePlugin) transformRule(rule *base.Rule, destination *base.
 	if err != nil {
 		return nil, err
 	}
-	owned = append(owned, held)
 	if p.mkRule == nil {
-		return p.rules.NewRuleWithSymbol(head, tails, negated, name)
+		made, makeErr := p.rules.NewRuleWithSymbol(head, tails, negated, name)
+		return made, errors.Join(makeErr, p.manager.DelRef(&held))
 	}
-	return nil, p.mkRule(destination, formula, name)
+	err = p.mkRule(destination, formula, name)
+	return nil, errors.Join(err, p.manager.DelRef(&held))
 }
 
 // SetRuleMaker supplies rule_manager::mk_rule.
