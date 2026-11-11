@@ -425,7 +425,7 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 	if err != nil {
 		return SMTConflictResolution{}, fmt.Errorf("conflict maximum level (%s, literal %d): %w", conflict.Kind(), notLiteral, err)
 	}
-	if err = r.state.dynamicAck.recordConflictUses(r.expander, originalConflict); err != nil {
+	if err = r.state.dynamicAck.recordConflictUses(r.expander); err != nil {
 		return SMTConflictResolution{}, err
 	}
 	result := SMTConflictResolution{ConflictLevel: conflictLevel}

@@ -257,7 +257,7 @@ func (m *smtDynAckManager) propagate() (bool, error) {
 	return len(candidates) != 0, nil
 }
 
-func (m *smtDynAckManager) recordConflictUses(expander *SMTAntecedentExpander, conflict SMTBooleanJustification) error {
+func (m *smtDynAckManager) recordConflictUses(expander *SMTAntecedentExpander) error {
 	if m == nil || m.closed || expander == nil {
 		return ast.ErrASTHandle
 	}
@@ -273,16 +273,8 @@ func (m *smtDynAckManager) recordConflictUses(expander *SMTAntecedentExpander, c
 			}
 		}
 	}
-	if object, ok := conflict.Justification(); ok {
-		switch value := object.(type) {
-		case *SMTEqualityConflictJustification:
-			if value.Equality.Kind() == SMTEqualityJustificationCongruence {
-				if err := m.schedule.conflictCongruence(value.First.owner, value.Second.owner, m.strategy); err != nil {
-					return err
-				}
-			}
-		}
-	}
+	// cg_conflict_eh is reported by add_eq and propagate_bool_enode_assignment,
+	// not by conflict resolution.
 	expander.ResetUses()
 	return nil
 }
