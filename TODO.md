@@ -1766,3 +1766,28 @@ Found while matching `-st` output against `build/z3` on
     source. Related: attachBooleanEnode sets mergeTruthValue on an
     existing enode without a trail (smtcore/smt_internalizer.go), which
     context::mk_enode never does.
+
+37. **In progress (2026-11-11): remaining full-log differences outside
+    PDR/spacer.** Full logs are 620 identical / 40 differ (stdout 651/662
+    unchanged). Fixed this session, each now matching z3's whole trace:
+    quant_seq_regex_backjump, quant_seq_bounded_regex_backjump
+    (ed791f2de), qfufbv_ackr_incsat_lazy/_eager (b16d97a91),
+    sat_pb_bv_pipeline (79db10e61), array_canonical_constructor_reads
+    (e3f1bbe02), bv_integer_conversion_scopes (d998ec55f). Moved further:
+    card2bv_weighted_models 148 -> 39844 (45f4be0c2, QF_FD takes
+    setup_unknown), bv_fixed_cache_scopes 1834 -> 4191 (c06c89c5c, gate
+    and root clause proof wrappers). Open leads:
+    - card2bv_weighted_models 39844: at the final kernel close, z3's
+      descending pop sweep frees the bit2bool atoms (#107/#106, ...)
+      in place. g3 frees them after the sweep, so the bool-var and enode
+      trail order (or an extra holder) differs.
+    - bv_native_operator_models 623: a theory_bv clause in g3 has an extra
+      literal (not (= (not ((_ bit2bool 2) a)) ((_ bit2bool 3) a))) that
+      z3's clause [b?, b2, b3] lacks. Find the clause's creator
+      (likely the bit equality/diseq expansion).
+    - bv_fixed_cache_scopes 4191: proof terms (symm/th-lemma) get
+      different ids.
+    - qe_rec_free_boolean (z3 segfaults) and pb_strengthening_proof (z3
+      aborts while printing the proof) cannot be compared.
+    - lra_propagation_mode_updates and arithmetic_eq_options: item 27.
+    - nlqsat_*, datatype_cycle_proof: recorded ask-first deviations.
