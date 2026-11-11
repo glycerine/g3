@@ -128,57 +128,60 @@ type PropositionalEngine struct {
 	dualityMBQI                  bool
 	pdr                          *muzpdr.Context
 	pdrRules                     *base.RuleSet
-	pdrSourceRules               *base.RuleSet
-	pdrRuleRevision              uint64
-	pdrQuery                     ast.ASTHandle
-	pdrTraceQuery                ast.ASTHandle // borrowed only during the enclosing expression-query call
-	pdrDerived                   map[ast.ASTHandle]ast.ASTHandle
-	pdrPredicates                map[ast.ASTHandle]ast.ASTHandle
-	pdrSlices                    map[ast.ASTHandle][]bool
-	pdrQuantified                map[ast.ASTHandle]ast.ASTHandle
-	pdrInstantiated              map[ast.ASTHandle]ast.ASTHandle
-	pdrBitBlasted                map[ast.ASTHandle]ast.ASTHandle
-	pdrScaled                    map[ast.ASTHandle]ast.ASTHandle
-	pdrMagic                     map[ast.ASTHandle]ast.ASTHandle
-	pdrKarr                      map[ast.ASTHandle]rel.KarrMatrix
-	pdrConversions               []hornModelConversion
-	pdrProof                     ast.ASTRef
-	pdrSliceProof                bool
-	pdrStatistics                muzpdr.StatisticsSnapshot
-	pdrDisposal                  *pdrContextDisposal
-	bmcStatistics                statistics.Statistics
-	bmcTrace                     []*base.Rule
-	bmcProof                     ast.ASTRef
-	tabAnswer                    ast.ASTRef
-	tabSession                   *tab.Session
-	tabSessionBorrowed           bool
-	tabUnfold                    uint32
-	tabUnfoldFail                uint32
-	tabSubsumed                  uint32
-	spacer                       *muzspacer.Context
-	spacerDisposal               *spacerContextDisposal
-	spacerStatistics             muzspacer.StatisticsSnapshot
-	scopes                       []*base.RuleSet
-	popPhase                     contextPopPhase
-	pendingUpdate                *pendingRuleUpdate
-	rawRules                     []rawRuleFormula
-	rawRuleScopes                [][]rawRuleFormula
-	retiredRawRules              []rawRuleFormula
-	assertions                   []ast.ASTRef
-	assertionScopes              []int
-	predicates                   map[ast.ASTHandle]*predicateState
-	predicateOrder               []ast.ASTHandle
-	auxiliary                    map[ast.ASTHandle]bool
-	compiled                     bool
-	queried                      bool
-	queryReady                   bool
-	queryClone                   *PropositionalEngine
-	queryCloneDisposal           *queryCloneCleanup
-	queryCleanup                 []*queryCloneCleanup
-	queryCloneRevision           uint64
-	queryClonePredicate          ast.ASTHandle
-	queryRelations               []ast.ASTHandle
-	queryRelationsSet            bool
+	// pdrRetiredRules is m_pdr_rules after a parameter update rebuilt the
+	// context: it is released when the next query replaces it.
+	pdrRetiredRules     *base.RuleSet
+	pdrSourceRules      *base.RuleSet
+	pdrRuleRevision     uint64
+	pdrQuery            ast.ASTHandle
+	pdrTraceQuery       ast.ASTHandle // borrowed only during the enclosing expression-query call
+	pdrDerived          map[ast.ASTHandle]ast.ASTHandle
+	pdrPredicates       map[ast.ASTHandle]ast.ASTHandle
+	pdrSlices           map[ast.ASTHandle][]bool
+	pdrQuantified       map[ast.ASTHandle]ast.ASTHandle
+	pdrInstantiated     map[ast.ASTHandle]ast.ASTHandle
+	pdrBitBlasted       map[ast.ASTHandle]ast.ASTHandle
+	pdrScaled           map[ast.ASTHandle]ast.ASTHandle
+	pdrMagic            map[ast.ASTHandle]ast.ASTHandle
+	pdrKarr             map[ast.ASTHandle]rel.KarrMatrix
+	pdrConversions      []hornModelConversion
+	pdrProof            ast.ASTRef
+	pdrSliceProof       bool
+	pdrStatistics       muzpdr.StatisticsSnapshot
+	pdrDisposal         *pdrContextDisposal
+	bmcStatistics       statistics.Statistics
+	bmcTrace            []*base.Rule
+	bmcProof            ast.ASTRef
+	tabAnswer           ast.ASTRef
+	tabSession          *tab.Session
+	tabSessionBorrowed  bool
+	tabUnfold           uint32
+	tabUnfoldFail       uint32
+	tabSubsumed         uint32
+	spacer              *muzspacer.Context
+	spacerDisposal      *spacerContextDisposal
+	spacerStatistics    muzspacer.StatisticsSnapshot
+	scopes              []*base.RuleSet
+	popPhase            contextPopPhase
+	pendingUpdate       *pendingRuleUpdate
+	rawRules            []rawRuleFormula
+	rawRuleScopes       [][]rawRuleFormula
+	retiredRawRules     []rawRuleFormula
+	assertions          []ast.ASTRef
+	assertionScopes     []int
+	predicates          map[ast.ASTHandle]*predicateState
+	predicateOrder      []ast.ASTHandle
+	auxiliary           map[ast.ASTHandle]bool
+	compiled            bool
+	queried             bool
+	queryReady          bool
+	queryClone          *PropositionalEngine
+	queryCloneDisposal  *queryCloneCleanup
+	queryCleanup        []*queryCloneCleanup
+	queryCloneRevision  uint64
+	queryClonePredicate ast.ASTHandle
+	queryRelations      []ast.ASTHandle
+	queryRelationsSet   bool
 	// relAnswer is rel_context::m_answer for the finite-table path: built
 	// when the query ends and replaced (old released) by the next one.
 	relAnswer ast.ASTRef
@@ -3348,6 +3351,10 @@ func (e *PropositionalEngine) Close() (result error) {
 	if e.pdrRules != nil {
 		result = errors.Join(result, e.pdrRules.Close())
 		e.pdrRules = nil
+	}
+	if e.pdrRetiredRules != nil {
+		result = errors.Join(result, e.pdrRetiredRules.Close())
+		e.pdrRetiredRules = nil
 	}
 	if e.pdrSourceRules != nil {
 		result = errors.Join(result, e.pdrSourceRules.Close())
