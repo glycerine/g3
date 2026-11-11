@@ -23,7 +23,7 @@ import (
 )
 
 type commandParser struct {
-	sortContext string // parse_sort's context for unknown_sort messages
+	sortContext        string // parse_sort's context for unknown_sort messages
 	context            *cmd_context.Context
 	scanner            *Scanner
 	filename           string
