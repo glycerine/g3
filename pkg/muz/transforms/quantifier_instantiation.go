@@ -248,14 +248,21 @@ func (p *QuantifierInstantiationPlugin) patternedQuantifier(q ast.ASTHandle) (_ 
 	return result, nil
 }
 
-func (p *QuantifierInstantiationPlugin) instantiate(q ast.ASTHandle, graph *quantifierEGraph, constantsToVariables *astrewriter.ExprSafeReplace) (instances []ast.ASTRef, resultErr error) {
+// instantiate is instantiate_quantifier(q, conjs). owner is the expr_ref qe
+// holding q: pattern inference assigns over it (the pre-pattern quantifier
+// dies there) and it dies when this call returns.
+func (p *QuantifierInstantiationPlugin) instantiate(owner ast.ASTRef, q ast.ASTHandle, graph *quantifierEGraph, constantsToVariables *astrewriter.ExprSafeReplace) (instances []ast.ASTRef, resultErr error) {
+	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&owner)) }()
 	patterned, err := p.patternedQuantifier(q)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&patterned)) }()
 	q, err = p.manager.RefGet(patterned)
 	if err != nil {
+		return nil, errors.Join(err, p.manager.DelRef(&patterned))
+	}
+	err = p.manager.SetRef(owner, q)
+	if err = errors.Join(err, p.manager.DelRef(&patterned)); err != nil {
 		return nil, err
 	}
 	declarations, err := p.manager.GetNumDeclarations(q)
@@ -530,8 +537,7 @@ func (p *QuantifierInstantiationPlugin) transformRule(rule *base.Rule, destinati
 		if makeErr != nil {
 			return nil, false, errors.Join(makeErr, p.manager.DelRef(&quantifierRef))
 		}
-		instances, makeErr := p.instantiate(quantifier, graph, constantsToVariables)
-		makeErr = errors.Join(makeErr, p.manager.DelRef(&quantifierRef))
+		instances, makeErr := p.instantiate(quantifierRef, quantifier, graph, constantsToVariables)
 		if makeErr != nil {
 			for i := len(instances) - 1; i >= 0; i-- {
 				makeErr = errors.Join(makeErr, p.manager.DelRef(&instances[i]))
