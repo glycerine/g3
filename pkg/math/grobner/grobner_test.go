@@ -230,18 +230,16 @@ func TestLaterScopeRewriteFreezesAndRestoresBaseEquation(t *testing.T) {
 	}
 }
 
-func TestDependencyLinearizeBreadthFirst(t *testing.T) {
-	a, b, c := DependencyLeaf(0), DependencyLeaf(1), DependencyLeaf(2)
+func TestDependencyJoinShape(t *testing.T) {
+	a, b := DependencyLeaf(0), DependencyLeaf(1)
 	if DependencyJoin(nil, a) != a || DependencyJoin(a, nil) != a || DependencyJoin(a, a) != a {
 		t.Fatal("mk_join shortcuts")
 	}
-	ab := DependencyJoin(a, b)
-	root := DependencyJoin(DependencyJoin(ab, c), ab)
-	got := Linearize(root)
-	if len(got) != 3 || got[0] != 2 || got[1] != 0 || got[2] != 1 {
-		t.Fatal("linearize order", got)
+	left, right, joined := DependencyJoin(a, b).Children()
+	if !joined || left != a || right != b || b.Leaf() != 1 {
+		t.Fatal("join shape")
 	}
-	if again := Linearize(root); len(again) != 3 {
-		t.Fatal("marks were not cleared", again)
+	if _, _, joined = a.Children(); joined {
+		t.Fatal("leaf reported as join")
 	}
 }

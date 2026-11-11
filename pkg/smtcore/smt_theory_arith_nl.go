@@ -1480,9 +1480,10 @@ const (
 // pointer), translated back to bound dependencies when a conflict or a new
 // bound needs a justification.
 type smtArithGbDeps struct {
-	t      *SMTTheoryArith
-	bounds []smtArithBound
-	index  map[smtArithBound]int
+	t         *SMTTheoryArith
+	bounds    []smtArithBound
+	index     map[smtArithBound]int
+	converted map[*grobner.Dependency]*smtArithmeticBoundDependency
 }
 
 func (d *smtArithGbDeps) close() error { return nil }
@@ -1503,26 +1504,38 @@ func (d *smtArithGbDeps) join(a, b *grobner.Dependency) (*grobner.Dependency, er
 	return grobner.DependencyJoin(a, b), nil
 }
 
-// toBoundDependency translates a grobner dependency to the bound dependency
-// with the same leaves, each bound once in linearize order.
+// toBoundDependency maps a grobner dependency to the bound dependency of
+// the same shape: in the source both are one v_dependency tree, so shared
+// nodes stay shared and linearize visits the leaves in the same order.
 func (d *smtArithGbDeps) toBoundDependency(dep *grobner.Dependency) (*smtArithmeticBoundDependency, error) {
+	if dep == nil {
+		return nil, nil
+	}
+	if d.converted == nil {
+		d.converted = make(map[*grobner.Dependency]*smtArithmeticBoundDependency)
+	}
+	if done, found := d.converted[dep]; found {
+		return done, nil
+	}
 	var result *smtArithmeticBoundDependency
-	seen := make(map[int]bool)
-	for _, i := range grobner.Linearize(dep) {
+	if left, right, joined := dep.Children(); joined {
+		l, err := d.toBoundDependency(left)
+		if err != nil {
+			return nil, err
+		}
+		r, err := d.toBoundDependency(right)
+		if err != nil {
+			return nil, err
+		}
+		result = d.t.depManager.Join(l, r)
+	} else {
+		i := dep.Leaf()
 		if i < 0 || i >= len(d.bounds) {
 			return nil, ast.ErrASTDomain
 		}
-		if seen[i] {
-			continue
-		}
-		seen[i] = true
-		leaf := d.t.mkLeaf(d.bounds[i])
-		if result == nil {
-			result = leaf
-		} else {
-			result = d.t.depManager.Join(result, leaf)
-		}
+		result = d.t.mkLeaf(d.bounds[i])
 	}
+	d.converted[dep] = result
 	return result, nil
 }
 
