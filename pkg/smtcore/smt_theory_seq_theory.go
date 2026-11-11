@@ -127,55 +127,69 @@ func (t *SMTTheorySeq) FinalCheck() (status SMTFinalCheckStatus, result error) {
 	t.newPropagation = false
 	if t.simplifyAndSolveEqs() {
 		t.stats.solveEqs++
+		t.traceFinalStep("solve_eqs", 255)
 		return SMTFinalCheckContinue, nil
 	}
 	if t.checkContains() {
 		t.stats.propagateContains++
+		t.traceFinalStep("propagate_contains", 260)
 		return SMTFinalCheckContinue, nil
 	}
 	if t.solveNqs(0) {
 		t.stats.solveNqs++
+		t.traceFinalStep("solve_nqs", 265)
 		return SMTFinalCheckContinue, nil
 	}
 	if t.fixedLengthAll() {
 		t.stats.fixedLength++
+		t.traceFinalStep("fixed_length", 270)
 		return SMTFinalCheckContinue, nil
 	}
 	if t.checkIntString() {
 		t.stats.intString++
+		t.traceFinalStep("int_string", 275)
 		return SMTFinalCheckContinue, nil
 	}
 	if t.reduceLengthEqAll() {
 		t.stats.branchVariable++
+		t.traceFinalStep("reduce length", 280)
 		return SMTFinalCheckContinue, nil
 	}
 	if t.branchUnitVariable() {
 		t.stats.branchVariable++
+		t.traceFinalStep("branch_unit_variable", 285)
 		return SMTFinalCheckContinue, nil
 	}
 	if t.branchBinaryVariableAll() || t.branchVariableMb() {
 		t.stats.branchVariable++
+		t.traceFinalStep("branch_variable", 290)
 		return SMTFinalCheckContinue, nil
 	}
 	if t.branchVariable() {
 		t.stats.branchVariable++
+		t.traceFinalStep("branch_variable", 295)
 		return SMTFinalCheckContinue, nil
 	}
 	if t.checkLengthCoherence() {
 		t.stats.checkLengthCoherence++
+		t.traceFinalStep("check_length_coherence", 300)
 		return SMTFinalCheckContinue, nil
 	}
 	if !t.checkExtensionality() {
 		t.stats.extensionality++
+		t.traceFinalStep("extensionality", 305)
 		return SMTFinalCheckContinue, nil
 	}
 	if t.propagateAutomata() {
 		t.stats.propagateAutomata++
+		t.traceFinalStep("propagate_automata", 310)
 		return SMTFinalCheckContinue, nil
 	}
 	if t.isSolved() {
+		t.traceFinalStep("is_solved", 314)
 		return SMTFinalCheckDone, nil
 	}
+	t.traceFinalStep("give_up", 317)
 	return SMTFinalCheckGiveUp, nil
 }
 

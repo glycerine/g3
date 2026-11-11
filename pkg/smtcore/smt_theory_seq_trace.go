@@ -19,6 +19,14 @@ func (t *SMTTheorySeq) traceAddAxiom(lits []SMTLiteral) {
 	emitSMTTrace("seq", "add_axiom", "src/smt/theory_seq.cpp", 3865, "assert:\n"+t.state.traceLiteralsVerbose(lits)+"\n")
 }
 
+// traceFinalStep is final_check_eh's TRACE("seq", tout << ">>" << step).
+func (t *SMTTheorySeq) traceFinalStep(step string, line int) {
+	if !smtTraceEnabled("seq") {
+		return
+	}
+	emitSMTTrace("seq", "final_check_eh", "src/smt/theory_seq.cpp", line, ">>"+step+"\n")
+}
+
 func (t *SMTTheorySeq) traceDequeAxiom(n ast.ASTHandle) {
 	if !smtTraceEnabled("seq") {
 		return

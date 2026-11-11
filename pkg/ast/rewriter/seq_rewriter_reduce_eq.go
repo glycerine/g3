@@ -742,7 +742,15 @@ func (r *SequenceRewriter) isStringN(es []ast.ASTHandle) (string, bool, error) {
 			out = append(out, s1...)
 			continue
 		}
-		b, ok, err := r.manager.SequenceUnitByteElementValue(e)
+		// is_unit(es[i], e) && bv.is_numeral(e, val, sz)
+		element, unit, err := r.manager.SequenceUnitArgument(e)
+		if err != nil {
+			return "", false, err
+		}
+		if !unit {
+			return "", false, nil
+		}
+		b, ok, err := r.manager.SequenceUnitByteElementValue(element)
 		if err != nil {
 			return "", false, err
 		}

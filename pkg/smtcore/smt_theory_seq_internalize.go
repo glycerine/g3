@@ -187,7 +187,16 @@ func (t *SMTTheorySeq) addStoiValAxiom(e ast.ASTHandle) bool {
 }
 
 // mkAddN is m_autil.mk_add(n, args): one n-ary application.
+// mkAddN is arith_util::mk_add(n, args): one application argument is
+// returned as is.
 func (t *SMTTheorySeq) mkAddN(args []ast.ASTHandle) ast.ASTHandle {
+	if len(args) == 1 {
+		kind, err := t.m.GetKind(args[0])
+		t.chk(err)
+		if kind == ast.ASTApp {
+			return args[0]
+		}
+	}
 	fid, err := t.m.ArithmeticFamilyID()
 	t.chk(err)
 	return t.must(t.m.MkFamilyApp(fid, smtArithOpAdd, nil, args))
