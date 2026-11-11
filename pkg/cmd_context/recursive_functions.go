@@ -104,10 +104,19 @@ func (c *Context) DefineRecursiveFunction(declaration ast.ASTHandle, names []usy
 		if err != nil {
 			return err
 		}
+		equalityPin := len(pins) - 3 // pins: ..., eq, left pattern, right pattern
 		definition, err = pin(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: domain, Names: names, Body: definition, QID: qid, Weight: 0, Patterns: []ast.ASTHandle{leftPattern, rightPattern}}))
 		if err != nil {
 			return err
 		}
+		// The source's pats[2] are raw pointers and `eq = mk_forall(...)`
+		// releases the equality: only the quantifier holds them now.
+		for i := equalityPin; i < equalityPin+3; i++ {
+			if err = m.DelRef(&pins[i]); err != nil {
+				return err
+			}
+		}
+		pins = append(pins[:equalityPin], pins[equalityPin+3:]...)
 	}
 	return c.Assert(definition, "")
 }
