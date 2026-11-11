@@ -70,6 +70,28 @@ func (b *smtConflictProofBuilder) bvFixedEqualityProof(j *smtBVFixedEqualityJust
 	if len(left) != len(right) {
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
+	// The first mk_proof pass pushes each uncached bit literal on the todo
+	// stack, which builds the last one first; prefetch in that order.
+	var pending []SMTLiteral
+	for index := range left {
+		for _, literal := range []SMTLiteral{left[index], right[index]} {
+			if literal.Var() == SMTTrueBoolVar {
+				continue
+			}
+			truth, err := j.trueBit(literal)
+			if err != nil {
+				return ast.ASTHandle{}, err
+			}
+			if _, found := b.literal[truth]; !found && truth != SMTTrueLiteral {
+				pending = append(pending, truth)
+			}
+		}
+	}
+	for i := len(pending) - 1; i >= 0; i-- {
+		if _, err := b.literalProof(pending[i]); err != nil {
+			return ast.ASTHandle{}, err
+		}
+	}
 	parents := make([]ast.ASTHandle, 0, 2*len(left))
 	visited := true
 	for index := range left {
@@ -126,6 +148,15 @@ func (j *smtBVBitEqualityJustification) MarkAntecedents(marker SMTAntecedentMark
 }
 
 func (b *smtConflictProofBuilder) bvBitEqualityProof(j *smtBVBitEqualityJustification) (ast.ASTHandle, error) {
+	// get_proof(m_v1, m_v2) and then get_proof(m_antecedent) push their
+	// todos in that order; the LIFO loop builds the antecedent first.
+	if _, found := b.equality[smtEnodePairKey{j.first, j.second}]; !found && j.antecedent.Var() != SMTTrueBoolVar {
+		if _, cached := b.literal[j.antecedent]; !cached {
+			if _, err := b.literalProof(j.antecedent); err != nil {
+				return ast.ASTHandle{}, err
+			}
+		}
+	}
 	parents := make([]ast.ASTHandle, 0, 2)
 	visited := true
 	equality, err := b.equalityProof(j.first, j.second)
