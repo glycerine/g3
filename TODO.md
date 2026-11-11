@@ -1547,8 +1547,25 @@ Found while matching `-st` output against `build/z3` on
     creates the maximize!! constants. Port opt::context::optimize/normalize
     in source order.
 
-31. **Open (2026-11-10): PDR/spacer query pipeline lifetimes (about 40
-    fixedpoint_* and fp_spacer_* vectors).** g3's
+31. **In progress (2026-11-11): PDR/spacer query pipeline lifetimes (about 40
+    fixedpoint_* and fp_spacer_* vectors).** Plan: pkg/PDR_PORT_PLAN.md.
+    Done so far:
+    - D1, the member rule_substitution: 7b8a4cca5.
+    - D2, nested simplifiers on the context rewriter: 3f1cc9e78.
+    - D3, the coalesce/unfold block and inliner teardown order: ced248afc.
+    - The init_rule locals: d008dfdf3.
+    - The mk_slice update_rule locals: eff9414ba.
+    - The context::init_rules obj_map order: f884bc751.
+    - D11, reduce_disequalities: 945143dae.
+    - Named pdr_proxy constants: 58bfef495.
+    The survey shows 20 of 55 identical, and the PDR logs advance by
+    100 to 2600 lines. Remaining:
+    - bucket A: quantifier_abstraction (the hnf m_body holder),
+      array_blast and array_eq_rewrite (rewriter cache), bit_blast,
+      mutual_inv, nonlinear_inlining, quantifier_instantiation,
+      pdr_background and pdr_integer (D6, cross-query retention);
+    - bucket C (D10, spacer asserted(true));
+    - further PDR solve-phase differences. g3's
     muz/fp queryRelationMkQuery is a reimplementation of
     engine_base::query -> pdr::dl_interface::query ->
     apply_default_transformation. Term lifetimes differ as a result. In
