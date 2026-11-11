@@ -1584,7 +1584,10 @@ Found while matching `-st` output against `build/z3` on
     sliced_compound_head), where (<= #53 #29) stays in g3's
     MaximizeBVSharing rewriter cache until kernel close, but z3 frees it
     at the asserted_formulas pop. The likely cause is a different refcount
-    at the bv-sharing rewrite, which made the node cacheable. Remaining:
+    at the bv-sharing rewrite, which made the node cacheable. Second open
+    lead: fixedpoint_spacer_datatype_state line 2470, where g3's model
+    evaluator (ArithRewriter.cancelMonomials -> numeralForTerm) creates an
+    Int numeral that z3 still holds alive. Find the holder z3 keeps. Remaining:
     - bucket A: quantifier_abstraction (the hnf m_body holder),
       array_blast and array_eq_rewrite (rewriter cache), bit_blast,
       mutual_inv, nonlinear_inlining, quantifier_instantiation,
