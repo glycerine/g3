@@ -406,6 +406,7 @@ func (k *SMTKernel) configurePreprocessingParamsCore(context *uparams.ParamsCont
 	}
 	k.internalizer.theoryRewriter = value
 	k.internalizer.assertedPopFlush = k.flushAssertedCache
+	k.internalizer.baseScopePop = k.dropUnsatProof
 	if err = value.SetSubstitution(&k.assertedSubstitution); err != nil {
 		return err
 	}
@@ -667,6 +668,7 @@ func (k *SMTKernel) UpdateParams(params *uparams.ParamsRef) error {
 	if err == nil {
 		k.internalizer.theoryRewriter = k.preprocessor
 		k.internalizer.assertedPopFlush = k.flushAssertedCache
+		k.internalizer.baseScopePop = k.dropUnsatProof
 		k.preprocess = enabled
 		k.preprocessState = state
 		k.assertedPhaseReady = false
@@ -1044,6 +1046,14 @@ func (k *SMTKernel) Push() error {
 		_, err := fmt.Fprintf(out, "after push: %d\n", len(k.scopes))
 		return err
 	})
+}
+
+// dropUnsatProof is m_unsat_proof = nullptr at a base-scope pop.
+func (k *SMTKernel) dropUnsatProof() error {
+	if k.unsatProof == (ast.ASTRef{}) {
+		return nil
+	}
+	return k.manager.ResetRef(k.unsatProof)
 }
 
 func (k *SMTKernel) Pop(count uint32) error {

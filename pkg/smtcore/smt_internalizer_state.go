@@ -163,6 +163,9 @@ type SMTInternalizerState struct {
 	// assertedPopFlush is asserted_formulas::pop_scope's flush_cache, which
 	// pop_scope_core runs on every context pop, search backjumps included.
 	assertedPopFlush func() error
+	// baseScopePop is pop_scope_core's base-scope step for a scope that was
+	// not inconsistent at its push: the context drops m_unsat_proof.
+	baseScopePop func() error
 	// userPop is set while SMTKernel.Pop drives PopScopes; the kernel then
 	// flushes after the asserted formulas shrink, where pop_scope does.
 	userPop                    bool
@@ -1377,6 +1380,12 @@ func (s *SMTInternalizerState) PopScopes(count uint32) error {
 	s.popActive = true
 	defer func() { s.popActive = active }()
 	if pop.stage == 0 {
+		if !pop.preserve && !s.scopes[pop.level].inconsistent && s.baseScopePop != nil {
+			// new_lvl < m_base_lvl && !bs.m_inconsistent: m_unsat_proof = nullptr.
+			if err := s.baseScopePop(); err != nil {
+				return err
+			}
+		}
 		if pop.preserve {
 			if len(pop.learned) != 0 {
 				if err := s.releasePreservedLearnedClauses(pop.learned); err != nil {
@@ -1633,6 +1642,7 @@ func (s *SMTInternalizerState) Close() error {
 	s.closed = true
 	s.theoryRewriter = nil
 	s.assertedPopFlush = nil
+	s.baseScopePop = nil
 	s.smtParams = nil
 	s.context = nil
 	s.manager = nil
