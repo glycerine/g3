@@ -1489,7 +1489,14 @@ Found while matching `-st` output against `build/z3` on
     lra_propagation_mode_updates trace builds one extra model numeral.
     Ask before removing the repair.
 
-28. **Open (2026-11-10): automaton compress has a case z3 lacks.**
+28. **Partly done (2026-11-11, 220c9c04a): the extra compress case is
+    removed.** quant_seq_symbolic_int_prefix's stdout matches and its
+    trace matches to line 28478. Still open: the merge-order divergence
+    at 28478 (below). Note: with trace=true, g3 writes the trace file one
+    byte per syscall; this vector's trace then exceeds fullcmp's 30s
+    limit. A per-stream bufio broke ordering, because borrowed streams
+    share the fd. Buffering needs a shared file-level writer.
+    Original note: **automaton compress has a case z3 lacks.**
     pkg/math/automata/automaton_compress_source.go has a final case
     (`out_degree(src) == 1 && (final(src) || !final(dst))`: copy dst's
     out-moves to src) that z3 4.7.1's automaton::compress does not have.
