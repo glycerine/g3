@@ -1566,9 +1566,13 @@ Found while matching `-st` output against `build/z3` on
       initial check_sat, optsmt::setup's empty scoped push, and then
       gia_pareto's own check_sat. pareto_bit_vector reaches 4396 and
       pareto_soft 58.
-    - Still missing: optsmt::setup's add_objective for arithmetic
-      objectives, and update_lower. pareto_optimization stops at 80
-      (likely there).
+    - pareto_optimization (x, y in [0,3]) stops at line 80 because the
+      MaxSAT-conversion fallback applies to it, yet z3 terminates on it.
+      The fallback cannot predict which inputs z3 finishes on (z3 hangs
+      on the 0-1 case with (= (+ x y) 1) but not on this one). Decision
+      needed: either drop the fallback, which is faithful and makes
+      TestOptimizationArithmeticEngineSetupSkipsParetoContinuation
+      hang as z3 does, or keep it.
     - The second-check sat on the negative soft case is still open.
     - TestParetoCanceledImprovementDropsBackendAndAllowsFreshSearch is
       brittle: a resource limit hit while building the candidate model
