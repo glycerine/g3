@@ -40,7 +40,7 @@ func (g *smtModelFinderAUFGraph) collectSelectVars(quantifier, term ast.ASTHandl
 		if err != nil {
 			return err
 		}
-		g.selects = append(g.selects, smtModelFinderSelectVar{quantifier: quantifier, selectTerm: term, position: position, variable: variable})
+		g.appendSelect(smtModelFinderSelectVar{quantifier: quantifier, selectTerm: term, position: position, variable: variable})
 	}
 	return nil
 }
@@ -151,47 +151,43 @@ func (g *smtModelFinderAUFGraph) processSelectVars() error {
 	return nil
 }
 
-func (g *smtModelFinderAUFGraph) populateSelectVars(quantifier ast.ASTHandle) error {
+// populateSelectVar is one select_var qinfo's populate_inst_sets.
+func (g *smtModelFinderAUFGraph) populateSelectVar(info smtModelFinderSelectVar) error {
 	m := g.finder.manager
-	for _, info := range g.selects {
-		if info.quantifier != quantifier {
+	array, err := m.GetArg(info.selectTerm, 0)
+	if err != nil {
+		return err
+	}
+	arrays, err := g.matchingArrays(array)
+	if err != nil {
+		return err
+	}
+	declaration, err := m.GetDecl(info.selectTerm)
+	if err != nil {
+		return err
+	}
+	for _, node := range arrays {
+		function, err := g.arrayFunction(node.owner)
+		if err != nil {
+			return err
+		}
+		if function.IsNull() {
 			continue
 		}
-		array, err := m.GetArg(info.selectTerm, 0)
-		if err != nil {
-			return err
+		argument := g.arguments[smtModelFinderAUFKey{function, info.position - 1}]
+		if argument == nil {
+			return ast.ErrASTDomain
 		}
-		arrays, err := g.matchingArrays(array)
-		if err != nil {
-			return err
-		}
-		declaration, err := m.GetDecl(info.selectTerm)
-		if err != nil {
-			return err
-		}
-		for _, node := range arrays {
-			function, err := g.arrayFunction(node.owner)
-			if err != nil {
-				return err
-			}
-			if function.IsNull() {
+		for _, parent := range node.parents {
+			if !g.finder.state.isRelevant(parent.owner) || parent.declaration != declaration {
 				continue
 			}
-			argument := g.arguments[smtModelFinderAUFKey{function, info.position - 1}]
-			if argument == nil {
+			if info.position >= uint32(len(parent.arguments)) {
 				return ast.ErrASTDomain
 			}
-			for _, parent := range node.parents {
-				if !g.finder.state.isRelevant(parent.owner) || parent.declaration != declaration {
-					continue
-				}
-				if info.position >= uint32(len(parent.arguments)) {
-					return ast.ErrASTDomain
-				}
-				index := parent.arguments[info.position]
-				if _, err := argument.insert(index.owner, index.Generation()); err != nil {
-					return err
-				}
+			index := parent.arguments[info.position]
+			if _, err := argument.insert(index.owner, index.Generation()); err != nil {
+				return err
 			}
 		}
 	}

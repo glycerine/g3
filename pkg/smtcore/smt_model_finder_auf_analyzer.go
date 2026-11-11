@@ -15,6 +15,7 @@ type smtModelFinderQInfo struct {
 	fvars    []smtModelFinderFVar
 	literals []smtModelFinderAUFLiteral
 	selects  []smtModelFinderSelectVar
+	order    []smtModelFinderQInfoRef // m_qinfo_vect order across kinds
 	refs     []ast.ASTRef
 }
 
@@ -30,7 +31,7 @@ func (f *SMTModelFinder) analyzeQInfos(quantifier ast.ASTHandle) error {
 	collector := newSMTModelFinderAUFGraph(f)
 	err := collector.collectFVars(quantifier)
 	info := &smtModelFinderQInfo{
-		fvars: collector.fvars, literals: collector.literals, selects: collector.selects, refs: collector.refs,
+		fvars: collector.fvars, literals: collector.literals, selects: collector.selects, order: collector.qorder, refs: collector.refs,
 	}
 	if err != nil {
 		return errors.Join(err, info.close(f.manager))
@@ -45,13 +46,16 @@ func (g *smtModelFinderAUFGraph) addQInfo(quantifier ast.ASTHandle) error {
 	if info == nil {
 		return ast.ErrASTDomain
 	}
-	for _, fvar := range info.fvars {
-		g.appendFVar(fvar)
+	for _, ref := range info.order {
+		switch ref.kind {
+		case qinfoFVar:
+			g.appendFVar(info.fvars[ref.index])
+		case qinfoLiteral:
+			g.appendLiteral(info.literals[ref.index])
+		case qinfoSelect:
+			g.appendSelect(info.selects[ref.index])
+		}
 	}
-	for _, literal := range info.literals {
-		g.appendLiteral(literal)
-	}
-	g.selects = append(g.selects, info.selects...)
 	return nil
 }
 
@@ -65,6 +69,7 @@ func (g *smtModelFinderAUFGraph) appendFVar(info smtModelFinderFVar) {
 			return
 		}
 	}
+	g.qorder = append(g.qorder, smtModelFinderQInfoRef{qinfoFVar, len(g.fvars)})
 	g.fvars = append(g.fvars, info)
 }
 
@@ -79,7 +84,14 @@ func (g *smtModelFinderAUFGraph) appendLiteral(info smtModelFinderAUFLiteral) {
 			return
 		}
 	}
+	g.qorder = append(g.qorder, smtModelFinderQInfoRef{qinfoLiteral, len(g.literals)})
 	g.literals = append(g.literals, info)
+}
+
+// appendSelect is insert_qinfo for a select_var.
+func (g *smtModelFinderAUFGraph) appendSelect(info smtModelFinderSelectVar) {
+	g.qorder = append(g.qorder, smtModelFinderQInfoRef{qinfoSelect, len(g.selects)})
+	g.selects = append(g.selects, info)
 }
 
 func (g *smtModelFinderAUFGraph) collectTerm(quantifier, term ast.ASTHandle) error {

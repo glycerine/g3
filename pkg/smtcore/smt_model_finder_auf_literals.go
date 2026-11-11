@@ -198,39 +198,35 @@ func (g *smtModelFinderAUFGraph) processLiterals() error {
 	return nil
 }
 
-func (g *smtModelFinderAUFGraph) populateLiterals(quantifier ast.ASTHandle) error {
-	for _, info := range g.literals {
-		if info.quantifier != quantifier {
-			continue
+// populateLiteral is one literal qinfo's populate_inst_sets.
+func (g *smtModelFinderAUFGraph) populateLiteral(info smtModelFinderAUFLiteral) error {
+	node := g.uvars[smtModelFinderAUFKey{info.quantifier, info.first}]
+	switch info.kind {
+	case aufDisequalGround, aufOrderedGround:
+		if _, err := node.insert(info.term, 0); err != nil {
+			return err
 		}
-		node := g.uvars[smtModelFinderAUFKey{info.quantifier, info.first}]
-		switch info.kind {
-		case aufDisequalGround, aufOrderedGround:
-			if _, err := node.insert(info.term, 0); err != nil {
-				return err
+	case aufEqualGround:
+		uninterpreted, err := g.finder.manager.IsUninterpretedSort(node.sort)
+		if err != nil {
+			return err
+		}
+		if !uninterpreted {
+			return nil
+		}
+		// For x=t on an uninterpreted sort, the source includes every
+		// relevant context term of that sort (paper section 4.1).
+		for _, enode := range g.finder.state.context.enodes.all() {
+			if !g.finder.state.isRelevant(enode.owner) {
+				continue
 			}
-		case aufEqualGround:
-			uninterpreted, err := g.finder.manager.IsUninterpretedSort(node.sort)
+			sort, err := g.finder.manager.GetSort(enode.owner)
 			if err != nil {
 				return err
 			}
-			if !uninterpreted {
-				continue
-			}
-			// For x=t on an uninterpreted sort, the source includes every
-			// relevant context term of that sort (paper section 4.1).
-			for _, enode := range g.finder.state.context.enodes.all() {
-				if !g.finder.state.isRelevant(enode.owner) {
-					continue
-				}
-				sort, err := g.finder.manager.GetSort(enode.owner)
-				if err != nil {
+			if sort == node.sort {
+				if _, err = node.insert(enode.owner, enode.Generation()); err != nil {
 					return err
-				}
-				if sort == node.sort {
-					if _, err = node.insert(enode.owner, enode.Generation()); err != nil {
-						return err
-					}
 				}
 			}
 		}

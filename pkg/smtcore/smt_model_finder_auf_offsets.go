@@ -123,26 +123,25 @@ func (g *smtModelFinderAUFGraph) copyInstances(from, to *smtModelFinderAUFNode, 
 	return nil
 }
 
-func (g *smtModelFinderAUFGraph) populateOffsets(quantifier ast.ASTHandle) error {
-	for _, info := range g.fvars {
-		if info.quantifier != quantifier || info.offset.IsNull() {
-			continue
-		}
-		argument := g.arguments[smtModelFinderAUFKey{info.function, info.position}].root()
-		variable := g.uvars[smtModelFinderAUFKey{info.quantifier, info.variable}].root()
-		if argument == variable {
-			// Source uses only ground-context arguments for this case: no
-			// finite fixed point exists for a nonzero offset within a class.
-			continue
-		}
-		// The second population pass enforces A_f_i-k subset S_j followed
-		// by S_j+k subset A_f_i, preserving each source generation.
-		if err := g.copyInstances(argument, variable, info.offset, false); err != nil {
-			return err
-		}
-		if err := g.copyInstances(variable, argument, info.offset, true); err != nil {
-			return err
-		}
+// populateOffset is f_var_plus_offset::populate_inst_sets2.
+func (g *smtModelFinderAUFGraph) populateOffset(info smtModelFinderFVar) error {
+	if info.offset.IsNull() {
+		return nil
+	}
+	argument := g.arguments[smtModelFinderAUFKey{info.function, info.position}].root()
+	variable := g.uvars[smtModelFinderAUFKey{info.quantifier, info.variable}].root()
+	if argument == variable {
+		// Source uses only ground-context arguments for this case: no
+		// finite fixed point exists for a nonzero offset within a class.
+		return nil
+	}
+	// The second population pass enforces A_f_i-k subset S_j followed
+	// by S_j+k subset A_f_i, preserving each source generation.
+	if err := g.copyInstances(argument, variable, info.offset, false); err != nil {
+		return err
+	}
+	if err := g.copyInstances(variable, argument, info.offset, true); err != nil {
+		return err
 	}
 	return nil
 }

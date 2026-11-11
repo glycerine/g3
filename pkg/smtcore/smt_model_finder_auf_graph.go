@@ -36,6 +36,21 @@ type smtModelFinderAUFGraph struct {
 	selects        []smtModelFinderSelectVar
 	witnesses      map[ast.ASTHandle]ast.ASTHandle
 	analysisSeen   map[smtModelFinderAnalysisKey]uint8
+	// qorder is quantifier_info::m_qinfo_vect's order across kinds.
+	qorder []smtModelFinderQInfoRef
+}
+
+type smtModelFinderQInfoKind uint8
+
+const (
+	qinfoFVar smtModelFinderQInfoKind = iota
+	qinfoLiteral
+	qinfoSelect
+)
+
+type smtModelFinderQInfoRef struct {
+	kind  smtModelFinderQInfoKind
+	index int
 }
 
 func newSMTModelFinderAUFGraph(finder *SMTModelFinder) *smtModelFinderAUFGraph {
@@ -154,62 +169,76 @@ func (g *smtModelFinderAUFGraph) build(quantifiers []ast.ASTHandle) error {
 			}
 		}
 	}
+	// quantifier_info::populate_inst_sets: every qinfo in analysis order,
+	// then the second pass (f_var_plus_offset copies) in the same order.
 	for _, quantifier := range quantifiers {
-		if err := g.populateFunctionArguments(quantifier); err != nil {
-			return err
+		for _, ref := range g.qorder {
+			var err error
+			switch ref.kind {
+			case qinfoFVar:
+				if g.fvars[ref.index].quantifier == quantifier {
+					err = g.populateFunctionArgument(g.fvars[ref.index])
+				}
+			case qinfoLiteral:
+				if g.literals[ref.index].quantifier == quantifier {
+					err = g.populateLiteral(g.literals[ref.index])
+				}
+			case qinfoSelect:
+				if g.selects[ref.index].quantifier == quantifier {
+					err = g.populateSelectVar(g.selects[ref.index])
+				}
+			}
+			if err != nil {
+				return err
+			}
 		}
-		if err := g.populateLiterals(quantifier); err != nil {
-			return err
-		}
-		if err := g.populateSelectVars(quantifier); err != nil {
-			return err
-		}
-		if err := g.populateOffsets(quantifier); err != nil {
-			return err
+		for _, ref := range g.qorder {
+			if ref.kind == qinfoFVar && g.fvars[ref.index].quantifier == quantifier {
+				if err := g.populateOffset(g.fvars[ref.index]); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil
 }
 
-func (g *smtModelFinderAUFGraph) populateFunctionArguments(quantifier ast.ASTHandle) error {
+// populateFunctionArgument is f_var::populate_inst_sets (and
+// f_var_plus_offset's first pass) for one qinfo.
+func (g *smtModelFinderAUFGraph) populateFunctionArgument(info smtModelFinderFVar) error {
 	context := g.finder.state.context
-	for _, info := range g.fvars {
-		if info.quantifier != quantifier {
+	node := g.arguments[smtModelFinderAUFKey{info.function, info.position}]
+	if !info.offset.IsNull() {
+		variable := g.uvars[smtModelFinderAUFKey{info.quantifier, info.variable}].root()
+		argument := node.root()
+		if argument != variable && (argument.mono || variable.mono) {
+			argument.mono, variable.mono = true, true
+		}
+	}
+	for _, application := range context.byDeclaration[info.function] {
+		if application == nil || !g.finder.state.isRelevant(application.owner) {
 			continue
 		}
-		node := g.arguments[smtModelFinderAUFKey{info.function, info.position}]
-		if !info.offset.IsNull() {
-			variable := g.uvars[smtModelFinderAUFKey{info.quantifier, info.variable}].root()
-			argument := node.root()
-			if argument != variable && (argument.mono || variable.mono) {
-				argument.mono, variable.mono = true, true
-			}
+		if info.position >= uint32(len(application.arguments)) {
+			return ast.ErrASTDomain
 		}
-		for _, application := range context.byDeclaration[info.function] {
-			if application == nil || !g.finder.state.isRelevant(application.owner) {
-				continue
-			}
-			if info.position >= uint32(len(application.arguments)) {
-				return ast.ErrASTDomain
-			}
-			// Source f_var explicitly requires the original argument enode.
-			// Its class representative can hide necessary MBQI instances.
-			argument := application.arguments[info.position]
-			if !info.offset.IsNull() && node.root() == g.uvars[smtModelFinderAUFKey{info.quantifier, info.variable}].root() {
-				// A fresh arith_rewriter per relevant enode, as in the source.
-				arith, err := g.localArithRewriter()
-				if err != nil {
-					return err
-				}
-				err = g.insertShifted(arith, node, argument.owner, info.offset, argument.Generation(), false)
-				if err = errors.Join(err, arith.Close()); err != nil {
-					return err
-				}
-				continue
-			}
-			if _, err := node.insert(argument.owner, argument.Generation()); err != nil {
+		// Source f_var explicitly requires the original argument enode.
+		// Its class representative can hide necessary MBQI instances.
+		argument := application.arguments[info.position]
+		if !info.offset.IsNull() && node.root() == g.uvars[smtModelFinderAUFKey{info.quantifier, info.variable}].root() {
+			// A fresh arith_rewriter per relevant enode, as in the source.
+			arith, err := g.localArithRewriter()
+			if err != nil {
 				return err
 			}
+			err = g.insertShifted(arith, node, argument.owner, info.offset, argument.Generation(), false)
+			if err = errors.Join(err, arith.Close()); err != nil {
+				return err
+			}
+			continue
+		}
+		if _, err := node.insert(argument.owner, argument.Generation()); err != nil {
+			return err
 		}
 	}
 	return nil
