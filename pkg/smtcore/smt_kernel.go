@@ -1672,17 +1672,23 @@ func (k *SMTKernel) Close() error {
 		}
 		k.bvSharing = nil
 	}
-	if k.unsatProof != (ast.ASTRef{}) {
-		if err := k.manager.DelRef(&k.unsatProof); err != nil {
-			return err
+	// ~context runs flush() (undo_trail_stack(0) releases the enodes and
+	// Boolean variables) before the members die in reverse declaration
+	// order: m_unsat_proof and m_conflict_resolution go first, long before
+	// the theories, the model generator and the asserted formulas.
+	releaseConflictState := func() error {
+		if k.unsatProof != (ast.ASTRef{}) {
+			if err := k.manager.DelRef(&k.unsatProof); err != nil {
+				return err
+			}
 		}
-	}
-	// m_conflict_resolution is declared just before m_unsat_proof.
-	if k.conflictResolver != nil {
-		if err := k.conflictResolver.Close(); err != nil {
-			return err
+		if k.conflictResolver != nil {
+			if err := k.conflictResolver.Close(); err != nil {
+				return err
+			}
+			k.conflictResolver = nil
 		}
-		k.conflictResolver = nil
+		return nil
 	}
 	if k.pendingSetupLRA != nil {
 		if err := k.pendingSetupLRA.Close(); err != nil {
@@ -1691,10 +1697,23 @@ func (k *SMTKernel) Close() error {
 		k.pendingSetupLRA = nil
 	}
 	if k.internalizer != nil {
+		previous := k.internalizer.afterFlush
+		k.internalizer.afterFlush = func() error {
+			if err := releaseConflictState(); err != nil {
+				return err
+			}
+			if previous != nil {
+				return previous()
+			}
+			return nil
+		}
 		if err := k.internalizer.Close(); err != nil {
 			return err
 		}
 		k.internalizer = nil
+	}
+	if err := releaseConflictState(); err != nil {
+		return err
 	}
 	if err := k.releaseContextModels(); err != nil {
 		return err
