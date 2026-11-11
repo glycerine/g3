@@ -51,10 +51,6 @@ func (a *Automaton) compressSource() {
 					a.removeMove(previous)
 					a.add(Move{Source: previous.Source, Destination: destination, Condition: previous.Condition, Epsilon: previous.Epsilon})
 				}
-			case len(a.out[source]) == 1 && (a.IsFinal(source) || !a.IsFinal(destination)):
-				for _, next := range append([]Move(nil), a.out[destination]...) {
-					a.add(Move{Source: source, Destination: next.Destination, Condition: next.Condition, Epsilon: next.Epsilon})
-				}
 			default:
 				index++
 				continue

@@ -44,7 +44,9 @@ func TestAutomatonEpsilonClosureFinalLoopsAndSequence(t *testing.T) {
 		t.Fatal("final-to-initial loop")
 	}
 	a.Compress()
-	if !a.IsEpsilonFree() || !a.Accepts([]uint32{7, 7}) {
+	// z3 4.7.1's compress keeps the final-to-initial epsilon move of a
+	// final source (0 -7-> 3, 3 -e-> 0), so only the language is checked.
+	if !a.Accepts([]uint32{7}) || !a.Accepts([]uint32{7, 7}) || a.Accepts(nil) {
 		t.Fatal("compressed language", a.Moves())
 	}
 	sequence := Sequence([]uint32{4, 5, 6})
