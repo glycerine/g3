@@ -56,7 +56,7 @@ func (q *datalogBitBlastQuery) register(transformer *base.RuleTransformer, conte
 	if err != nil {
 		return err
 	}
-	planner, err := transforms.NewBitBlastPlugin(e.manager, e.rules, context, globals, 22000)
+	planner, err := transforms.NewBitBlastPlugin(e.manager, e.rules, e.contextRewriter(), context, globals, 22000)
 	if err != nil {
 		return err
 	}

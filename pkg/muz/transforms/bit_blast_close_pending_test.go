@@ -117,7 +117,7 @@ func testBitBlastPendingChildren(t *testing.T, completed bool) {
 	if !valid {
 		t.Fatal("invalid fixture")
 	}
-	plugin, err = NewBitBlastPlugin(m, rules, parameters, globals, 1)
+	plugin, err = NewBitBlastPlugin(m, rules, nil, parameters, globals, 1)
 	must(err)
 	defer func() { must(plugin.Close()) }()
 	transformed, err := plugin.Transform(set)

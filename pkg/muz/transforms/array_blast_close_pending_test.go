@@ -122,7 +122,7 @@ func testArrayBlastPendingChildren(t *testing.T, completed bool) {
 	if !valid {
 		t.Fatal("invalid fixture")
 	}
-	plugin, err = NewArrayBlastPlugin(m, rules, parameters, globals, 1)
+	plugin, err = NewArrayBlastPlugin(m, rules, nil, parameters, globals, 1)
 	must(err)
 	defer func() { must(plugin.Close()) }()
 	transformed, err := plugin.Transform(set)

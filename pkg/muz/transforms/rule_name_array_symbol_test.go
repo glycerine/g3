@@ -67,7 +67,7 @@ func TestArrayTransformsPreserveRuleNameSymbols(t *testing.T) {
 				var plugin base.RuleTransformPlugin
 				switch transform {
 				case "blast":
-					plugin, err = transforms.NewArrayBlastPlugin(m, f.rules, f.globals.Context, f.globals, 35999)
+					plugin, err = transforms.NewArrayBlastPlugin(m, f.rules, nil, f.globals.Context, f.globals, 35999)
 				case "equalities":
 					plugin, err = transforms.NewArrayEqRewritePlugin(m, f.rules, f.globals.Context, f.globals, 34998)
 				case "instantiation":

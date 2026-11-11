@@ -345,7 +345,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 		}
 	}
 	if bitBlast {
-		bitBlaster, err = transforms.NewBitBlastPlugin(e.manager, e.rules, e.params, e.globals, 35000)
+		bitBlaster, err = transforms.NewBitBlastPlugin(e.manager, e.rules, e.contextRewriter(), e.params, e.globals, 35000)
 		if err != nil {
 			return nil, errors.Join(err, transformer.Close())
 		}
@@ -383,7 +383,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 		}
 	}
 	if arrayBlast && !quantifyArrays {
-		blast, makeErr := transforms.NewArrayBlastPlugin(e.manager, e.rules, e.params, e.globals, 35999)
+		blast, makeErr := transforms.NewArrayBlastPlugin(e.manager, e.rules, e.contextRewriter(), e.params, e.globals, 35999)
 		if makeErr != nil {
 			return nil, errors.Join(makeErr, transformer.Close())
 		}

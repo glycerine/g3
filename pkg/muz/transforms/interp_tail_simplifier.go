@@ -59,6 +59,16 @@ func NewInterpTailSimplifierPlugin(manager *ast.ASTManager, rules *base.RuleMana
 
 // NewInterpTailSimplifierPluginShared borrows the context rewriter, whose
 // caches outlive the plugin as in the source.
+// newNestedInterpTailSimplifier is a plugin-member mk_interp_tail_simplifier:
+// the source's simplifier always uses ctx.get_rewriter(); a nil context
+// rewriter (standalone use) gives it its own.
+func newNestedInterpTailSimplifier(manager *ast.ASTManager, rules *base.RuleManager, contextRewriter *astrewriter.TheoryRewriter, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, priority uint32) (*InterpTailSimplifierPlugin, error) {
+	if contextRewriter != nil {
+		return NewInterpTailSimplifierPluginShared(manager, rules, contextRewriter, context, globals, priority)
+	}
+	return NewInterpTailSimplifierPlugin(manager, rules, context, globals, priority)
+}
+
 func NewInterpTailSimplifierPluginShared(manager *ast.ASTManager, rules *base.RuleManager, rewriter *astrewriter.TheoryRewriter, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, priority uint32) (*InterpTailSimplifierPlugin, error) {
 	if rewriter == nil {
 		return NewInterpTailSimplifierPlugin(manager, rules, context, globals, priority)

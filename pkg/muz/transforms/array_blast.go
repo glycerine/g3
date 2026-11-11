@@ -26,7 +26,7 @@ type ArrayBlastPlugin struct {
 	closing    bool
 }
 
-func NewArrayBlastPlugin(manager *ast.ASTManager, rules *base.RuleManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, priority uint32) (_ *ArrayBlastPlugin, resultErr error) {
+func NewArrayBlastPlugin(manager *ast.ASTManager, rules *base.RuleManager, contextRewriter *astrewriter.TheoryRewriter, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, priority uint32) (_ *ArrayBlastPlugin, resultErr error) {
 	if manager == nil || rules == nil || context == nil || globals == nil {
 		return nil, base.ErrRuleTransformerOwner
 	}
@@ -43,7 +43,7 @@ func NewArrayBlastPlugin(manager *ast.ASTManager, rules *base.RuleManager, conte
 	if err != nil {
 		return nil, err
 	}
-	simplifier, err := NewInterpTailSimplifierPlugin(manager, rules, context, globals, priority)
+	simplifier, err := newNestedInterpTailSimplifier(manager, rules, contextRewriter, context, globals, priority)
 	if err != nil {
 		return nil, errors.Join(err, rewriter.Close())
 	}

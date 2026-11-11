@@ -97,7 +97,7 @@ func TestArrayBlastEliminatesStoreDefinitionAndSelectPairs(t *testing.T) {
 	if !valid {
 		t.Fatal("array blast source is unstratified")
 	}
-	plugin, err := transforms.NewArrayBlastPlugin(manager, rules, globals.Context, globals, 35999)
+	plugin, err := transforms.NewArrayBlastPlugin(manager, rules, nil, globals.Context, globals, 35999)
 	coneMust(t, err)
 	transformer := base.NewRuleTransformer()
 	coneMust(t, transformer.Register(plugin))

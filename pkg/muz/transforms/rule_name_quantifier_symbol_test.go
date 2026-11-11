@@ -167,7 +167,7 @@ func TestBitBlastPreservesRuleNameSymbolKinds(t *testing.T) {
 		addQuantifierTransformNamedRule(t, f, head, []ast.ASTHandle{condition}, name)
 	}
 	original := snapshotQuantifierTransformRules(t, f.set)
-	plugin, err := transforms.NewBitBlastPlugin(f.manager, f.rules, f.globals.Context, f.globals, 35000)
+	plugin, err := transforms.NewBitBlastPlugin(f.manager, f.rules, nil, f.globals.Context, f.globals, 35000)
 	coneMust(t, err)
 	defer func() { coneMust(t, plugin.Close()) }()
 	result, err := plugin.Transform(f.set)

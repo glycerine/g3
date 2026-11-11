@@ -190,14 +190,14 @@ func bitBlastAssertedProof(manager *ast.ASTManager, formula ast.ASTHandle) (proo
 	return manager.MkProofAsserted(formula)
 }
 
-func NewBitBlastPlugin(manager *ast.ASTManager, rules *base.RuleManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, priority uint32) (_ *BitBlastPlugin, resultErr error) {
+func NewBitBlastPlugin(manager *ast.ASTManager, rules *base.RuleManager, contextRewriter *astrewriter.TheoryRewriter, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, priority uint32) (_ *BitBlastPlugin, resultErr error) {
 	params := bitblaster.DefaultRewriterParams()
 	params.BlastFull, params.BlastQuant = true, true
 	blaster, err := bitblaster.NewBitBlasterRewriter(manager, &params)
 	if err != nil {
 		return nil, err
 	}
-	simplifier, err := NewInterpTailSimplifierPlugin(manager, rules, context, globals, priority)
+	simplifier, err := newNestedInterpTailSimplifier(manager, rules, contextRewriter, context, globals, priority)
 	if err != nil {
 		return nil, errors.Join(err, blaster.Close())
 	}

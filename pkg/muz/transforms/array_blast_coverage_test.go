@@ -9,7 +9,7 @@ import (
 
 func newArrayBlastCoveragePlugin(t *testing.T, f *coneFixture) *transforms.ArrayBlastPlugin {
 	t.Helper()
-	plugin, err := transforms.NewArrayBlastPlugin(f.manager, f.rules, f.globals.Context, f.globals, 35999)
+	plugin, err := transforms.NewArrayBlastPlugin(f.manager, f.rules, nil, f.globals.Context, f.globals, 35999)
 	coneMust(t, err)
 	t.Cleanup(func() { coneMust(t, plugin.Close()) })
 	return plugin

@@ -75,7 +75,7 @@ func TestBitBlastExpandsBitVectorPredicateSignatures(t *testing.T) {
 	if !valid {
 		t.Fatal("source rule set is not stratified")
 	}
-	plugin, err := transforms.NewBitBlastPlugin(manager, rules, globals.Context, globals, 35000)
+	plugin, err := transforms.NewBitBlastPlugin(manager, rules, nil, globals.Context, globals, 35000)
 	coneMust(t, err)
 	transformer := base.NewRuleTransformer()
 	coneMust(t, transformer.Register(plugin))
@@ -171,7 +171,7 @@ func TestBitBlastStopsBeforeRulesWhenManagerIsCanceled(t *testing.T) {
 	coneMust(t, err)
 	coneMust(t, set.Add(rule))
 	coneMust(t, rule.Close())
-	plugin, err := transforms.NewBitBlastPlugin(manager, rules, globals.Context, globals, 35000)
+	plugin, err := transforms.NewBitBlastPlugin(manager, rules, nil, globals.Context, globals, 35000)
 	coneMust(t, err)
 	t.Cleanup(func() { coneMust(t, plugin.Close()) })
 	manager.Limit.Cancel()
@@ -194,7 +194,7 @@ func TestBitBlastRebuildsRulesWithoutBitVectorTerms(t *testing.T) {
 	if !valid {
 		t.Fatal("plain rule fixture is unstratified")
 	}
-	plugin, err := transforms.NewBitBlastPlugin(f.manager, f.rules, f.globals.Context, f.globals, 35000)
+	plugin, err := transforms.NewBitBlastPlugin(f.manager, f.rules, nil, f.globals.Context, f.globals, 35000)
 	coneMust(t, err)
 	defer func() { coneMust(t, plugin.Close()) }()
 	result, err := plugin.Transform(f.set)
@@ -241,7 +241,7 @@ func TestBitBlastFallsBackToOriginalWhenPreSimplifierDropsRule(t *testing.T) {
 	coneMust(t, err)
 	coneMust(t, set.Add(rule))
 	coneMust(t, rule.Close())
-	plugin, err := transforms.NewBitBlastPlugin(manager, rules, globals.Context, globals, 35000)
+	plugin, err := transforms.NewBitBlastPlugin(manager, rules, nil, globals.Context, globals, 35000)
 	coneMust(t, err)
 	defer func() { coneMust(t, plugin.Close()) }()
 	result, err := plugin.Transform(set)
