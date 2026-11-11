@@ -1769,6 +1769,16 @@ Found while matching `-st` output against `build/z3` on
     ported search tree (qe/expr_quantifier_tree*.go) is already there;
     a faithful fix routes the tactic through eliminate_block with the
     plugin set and deletes the cascade. Large port.
+    Plan (2026-11-11): (1) a generic eliminate_block(vars, fml) built from
+    eliminateQuantifierScalarSearch (qe/quantifier_tactic_arith_search.go)
+    that registers bool, bv, arith, array, datatype and dl plugins in
+    pop_context's order on one SolverContext, with all of the block's
+    variables; (2) quant_elim_new::eliminate_exists (per variable unless
+    eliminate_variables_as_block) and eliminate_exists_bind/forall_bind;
+    (3) expr_quant_elim::elim's todo walk calling it, with m_plugins reuse
+    (push_context/pop_context keep one quant_elim_plugin); (4) delete the
+    cascade in rewriteQuantifierScalar and the eliminateQuantifier*
+    strategy entry points. Check every qe_* vector stays identical.
 
 36. **DONE (2026-11-11, ee08ebb36): theory_str mk_eq_atom audit.** 107
     sites now use MkEqAtom; the source's raw m.mk_eq sites (concat length
