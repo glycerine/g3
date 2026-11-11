@@ -132,6 +132,7 @@ func (p *PredicateTransformer) CheckReachability(obligation *ProofObligation) (r
 	if err != nil {
 		return nil, err
 	}
+	// reach_assumps: maxsmt resets and repopulates the vector through SoftRefs.
 	defer func() { resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, references)) }()
 	extension, err := p.manager.RefGet(p.extendLiteral)
 	if err != nil {
@@ -153,6 +154,7 @@ func (p *PredicateTransformer) CheckReachability(obligation *ProofObligation) (r
 		Level:           &level,
 		WeakAbstraction: p.weakAbstraction,
 		Weakness:        &weakness,
+		SoftRefs:        &references,
 	})
 	if err != nil {
 		if check != nil {

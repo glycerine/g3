@@ -38,6 +38,11 @@ type PropCheckOptions struct {
 	SolverID        uint32
 	WeakAbstraction bool
 	Weakness        *uint32
+	// SoftRefs are the caller's references to the soft formulas (the
+	// expr_ref_vector soft that maxsmt resets and repopulates). When set,
+	// maxsmt releases them once the soft formulas are being minimized and
+	// appends references for the kept soft formulas.
+	SoftRefs *[]ast.ASTRef
 }
 
 type PropCheckResult struct {
@@ -233,21 +238,37 @@ func containsHandle(values []ast.ASTHandle, want ast.ASTHandle) bool {
 	return false
 }
 
-func (p *PropSolver) maxSMT(context *ItpSolver, hard, soft []ast.ASTHandle) (_ lbool.LBool, _ []ast.ASTHandle, resultErr error) {
+func (p *PropSolver) maxSMT(context *ItpSolver, hard, soft []ast.ASTHandle, softRefs *[]ast.ASTRef) (_ lbool.LBool, _ []ast.ASTHandle, resultErr error) {
 	hardSize := len(hard)
+	// hard.append(soft): the local vector references every assumption.
 	assumptions := append(append([]ast.ASTHandle(nil), hard...), soft...)
 	references, err := refsFromHandles(p.manager, assumptions)
 	if err != nil {
 		return lbool.Undef, nil, err
 	}
+	// expr_ref saved: the soft formula most recently found in the core.
+	saved, err := p.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return lbool.Undef, nil, errors.Join(err, releaseNormalizeRefs(p.manager, references))
+	}
 	defer func() {
+		// hard.resize(hard_sz) releases the remaining soft formulas front
+		// to back; saved dies when maxsmt returns.
 		for i := range references {
 			resultErr = errors.Join(resultErr, p.manager.DelRef(&references[i]))
 		}
+		resultErr = errors.Join(resultErr, p.manager.DelRef(&saved))
 	}()
 	status, err := context.CheckSat(assumptions)
 	if err != nil || status != lbool.False || len(soft) == 0 {
 		return status, append([]ast.ASTHandle(nil), soft...), err
+	}
+	// soft.reset(): the caller's references die here.
+	if softRefs != nil {
+		if err = releaseNormalizeRefs(p.manager, *softRefs); err != nil {
+			return lbool.Undef, nil, err
+		}
+		*softRefs = nil
 	}
 	remaining := assumptions
 	for len(remaining) > hardSize {
@@ -261,8 +282,19 @@ func (p *PropSolver) maxSMT(context *ItpSolver, hard, soft []ast.ASTHandle) (_ l
 			if !containsHandle(core, remaining[i]) {
 				continue
 			}
-			remaining[i] = remaining[len(remaining)-1]
-			remaining = remaining[:len(remaining)-1]
+			// saved = hard.get(i) releases the previously saved formula;
+			// hard[i] = hard.back() releases the vector's reference.
+			if err = p.manager.SetRef(saved, remaining[i]); err != nil {
+				return lbool.Undef, nil, err
+			}
+			last := len(remaining) - 1
+			remaining[i] = remaining[last]
+			remaining = remaining[:last]
+			if err = p.manager.DelRef(&references[i]); err != nil {
+				return lbool.Undef, nil, err
+			}
+			references[i] = references[last]
+			references = references[:last]
 			found = true
 			break
 		}
@@ -277,7 +309,18 @@ func (p *PropSolver) maxSMT(context *ItpSolver, hard, soft []ast.ASTHandle) (_ l
 	if status != lbool.True {
 		return status, nil, err
 	}
-	return status, append([]ast.ASTHandle(nil), remaining[hardSize:]...), nil
+	// soft.push_back(hard.get(i)) for the kept soft formulas.
+	kept := append([]ast.ASTHandle(nil), remaining[hardSize:]...)
+	if softRefs != nil {
+		for _, formula := range kept {
+			reference, err := p.manager.NewRef(formula)
+			if err != nil {
+				return lbool.Undef, nil, err
+			}
+			*softRefs = append(*softRefs, reference)
+		}
+	}
+	return status, kept, nil
 }
 
 func refsFromHandles(manager *ast.ASTManager, values []ast.ASTHandle) (_ []ast.ASTRef, resultErr error) {
@@ -427,7 +470,7 @@ func (p *PropSolver) CheckAssumptions(hard, soft []ast.ASTHandle, options PropCh
 			}
 		}
 	}
-	status, keptSoft, err := p.maxSMT(context, flatHard, soft)
+	status, keptSoft, err := p.maxSMT(context, flatHard, soft, options.SoftRefs)
 	if err != nil {
 		return nil, err
 	}

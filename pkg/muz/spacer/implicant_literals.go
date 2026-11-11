@@ -136,6 +136,17 @@ func computeImplicantLiteralsWith(manager *ast.ASTManager, mev *modelEvaluatorUt
 	// Source expr_ref locals and m_todo own generated expressions. Keep
 	// native references until extraction finishes, including failure exits.
 	var generated []ast.ASTHandle
+	// releaseGenerated drops an expr_ref local that the source destroys
+	// before the call ends.
+	releaseGenerated := func(h ast.ASTHandle) error {
+		for i := len(generated) - 1; i >= 0; i-- {
+			if generated[i] == h {
+				generated = append(generated[:i], generated[i+1:]...)
+				return manager.DecRef(h)
+			}
+		}
+		return nil
+	}
 	ownGenerated := func(h ast.ASTHandle, err error) (ast.ASTHandle, error) {
 		if err != nil {
 			return h, err
@@ -287,6 +298,11 @@ func computeImplicantLiteralsWith(manager *ast.ASTManager, mev *modelEvaluatorUt
 						literal = left
 					} else {
 						literal, evalErr = ownGenerated(manager.MkArithmeticLT(b, a))
+						// expr_ref u dies at the end of the block; res holds
+						// the reversed literal.
+						if evalErr == nil {
+							evalErr = releaseGenerated(left)
+						}
 					}
 				}
 			}

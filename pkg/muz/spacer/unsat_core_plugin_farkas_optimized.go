@@ -115,7 +115,7 @@ func (p *UnsatCoreOptimizedFarkasPlugin) combine(terms []farkasTerm) (resultErr 
 	if err != nil {
 		return err
 	}
-	negated, err := p.learner.manager.MkNot(complement)
+	negated, err := p.learner.manager.MkNotSimplified(complement) // ast_util mk_not strips the negation
 	if err != nil {
 		return err
 	}

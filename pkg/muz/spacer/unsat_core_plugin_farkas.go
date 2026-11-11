@@ -99,7 +99,7 @@ func (p *UnsatCoreFarkasPlugin) ComputePartialCore(step ast.ASTHandle) (resultEr
 		if err != nil {
 			return errors.Join(err, p.learner.manager.DelRef(&combined))
 		}
-		negated, err := p.learner.manager.MkNot(weighted)
+		negated, err := p.learner.manager.MkNotSimplified(weighted) // ast_util mk_not strips the negation
 		if err != nil {
 			return errors.Join(err, p.learner.manager.DelRef(&combined))
 		}

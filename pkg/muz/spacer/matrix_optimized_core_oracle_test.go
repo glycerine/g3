@@ -72,8 +72,9 @@ func TestOptimizedFarkasMultirowCoreSourceOracle(t *testing.T) {
 		t.Fatalf("got %d core lemmas, want 2", len(learner.core))
 	}
 	want := []string{
-		"(not (not (<= (+ matrix-oracle-x matrix-oracle-y) 0)))",
-		"(not (not (<= (+ matrix-oracle-y matrix-oracle-z) 0)))",
+		// ast_util mk_not strips the negation farkas_util::get returns.
+		"(<= (+ matrix-oracle-x matrix-oracle-y) 0)",
+		"(<= (+ matrix-oracle-y matrix-oracle-z) 0)",
 	}
 	for i, ref := range learner.core {
 		h, err := manager.RefGet(ref)
