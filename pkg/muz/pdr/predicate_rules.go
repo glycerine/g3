@@ -162,6 +162,19 @@ type predicateRuleBuilder struct {
 	initialRef ast.ASTRef
 	// ruleTheory is init_rule's local th_rewriter, live for one rule.
 	ruleTheory *rewriter.TheoryRewriter
+	// ruleConj is init_rule's local expr_ref_vector conj.
+	ruleConj []ast.ASTRef
+	// finishRule releases init_rule's locals (set by normalizeRule).
+	finishRule func(failed error) error
+}
+
+// pinConj is conj.push_back(e).
+func (b *predicateRuleBuilder) pinConj(handle ast.ASTHandle) error {
+	reference, err := b.transformer.manager.NewRef(handle)
+	if err == nil {
+		b.ruleConj = append(b.ruleConj, reference)
+	}
+	return err
 }
 
 func (b *predicateRuleBuilder) pin(handle ast.ASTHandle) error {
@@ -208,6 +221,28 @@ func (b *predicateRuleBuilder) rewrite(formula ast.ASTHandle) (ast.ASTHandle, er
 	}
 	b.references = append(b.references, out)
 	return result, nil
+}
+
+// rewriteInPlace is th_rewriter::operator()(expr_ref& term): the result
+// replaces term's value (releasing the old one) and the temporary dies.
+func (b *predicateRuleBuilder) rewriteInPlace(term ast.ASTRef, formula ast.ASTHandle) (result ast.ASTHandle, err error) {
+	manager := b.transformer.manager
+	out, err := manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	defer func() { err = errors.Join(err, manager.DelRef(&out)) }()
+	theory := b.theory
+	if b.ruleTheory != nil {
+		theory = b.ruleTheory
+	}
+	if err = theory.Rewrite(formula, out); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if result, err = manager.RefGet(out); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return result, manager.SetRef(term, result)
 }
 
 func (b *predicateRuleBuilder) blastTermITE(formula ast.ASTHandle) (ast.ASTHandle, error) {
@@ -290,7 +325,7 @@ func (b *predicateRuleBuilder) initializeAtom(atom ast.ASTHandle, variables *[]a
 				if y != nil {
 					return nil, y
 				}
-				if y = b.pin(equality); y != nil {
+				if y = b.pinConj(equality); y != nil {
 					return nil, y
 				}
 				*conjunction = append(*conjunction, equality)
@@ -301,7 +336,7 @@ func (b *predicateRuleBuilder) initializeAtom(atom ast.ASTHandle, variables *[]a
 		if x != nil {
 			return nil, x
 		}
-		if x = b.pin(equality); x != nil {
+		if x = b.pinConj(equality); x != nil {
 			return nil, x
 		}
 		*conjunction = append(*conjunction, equality)
@@ -352,8 +387,19 @@ func (b *predicateRuleBuilder) substitute(expression ast.ASTHandle, variables []
 	if err != nil {
 		return ast.ASTHandle{}, errors.Join(err, b.transformer.manager.DelRef(&out))
 	}
-	b.references = append(b.references, out)
+	// tmp is pushed on conj.
+	b.ruleConj = append(b.ruleConj, out)
 	return result, nil
+}
+
+// releaseForward is an expr_ref_vector destructor: front to back.
+func (b *predicateRuleBuilder) releaseForward(refs []ast.ASTRef) (result error) {
+	for i := range refs {
+		if refs[i] != (ast.ASTRef{}) {
+			result = errors.Join(result, b.transformer.manager.DelRef(&refs[i]))
+		}
+	}
+	return result
 }
 
 func (b *predicateRuleBuilder) normalizeRule(source *base.Rule) (result *normalizedRule, resultErr error) {
@@ -362,9 +408,54 @@ func (b *predicateRuleBuilder) normalizeRule(source *base.Rule) (result *normali
 		return nil, err
 	}
 	result = &normalizedRule{rule: owned}
+	// init_rule's locals die at its return in reverse declaration order:
+	// fml and the flattened tail, then var_reprs, then conj. What the rule
+	// keeps (the transition and the var_reprs copy) gets its own refs.
+	mark := len(b.references)
+	end := -1 // len(b.references) when normalizeRule returns
+	defer func() { end = len(b.references) }()
+	b.ruleConj = nil
+	var tailRefs []ast.ASTRef
+	// The caller runs finishRule after init = mk_or(init, fml) and after
+	// the local th_rewriter dies.
+	b.finishRule = func(failed error) (resultErr error) {
+		var kept []ast.ASTRef
+		if failed == nil {
+			ref, err := b.transformer.manager.NewRef(result.transition)
+			if err != nil {
+				resultErr = err
+			} else {
+				kept = append(kept, ref)
+			}
+			for _, v := range result.instances {
+				if resultErr != nil || v.IsNull() {
+					continue
+				}
+				ref, err := b.transformer.manager.NewRef(v)
+				if err != nil {
+					resultErr = err
+					continue
+				}
+				kept = append(kept, ref)
+			}
+		}
+		if end < 0 {
+			end = len(b.references)
+		}
+		locals := append([]ast.ASTRef(nil), b.references[mark:end]...)
+		later := append([]ast.ASTRef(nil), b.references[end:]...)
+		b.references = append(append(b.references[:mark], kept...), later...)
+		for i := range tailRefs {
+			resultErr = errors.Join(resultErr, b.transformer.owner.releaseNotAndRef(&tailRefs[i]))
+		}
+		resultErr = errors.Join(resultErr, b.releaseForward(locals), b.releaseForward(b.ruleConj))
+		b.ruleConj = nil
+		b.finishRule = nil
+		return resultErr
+	}
 	defer func() {
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, owned.Close())
+			resultErr = errors.Join(resultErr, b.finishRule(resultErr), owned.Close())
 			result = nil
 		}
 	}()
@@ -423,12 +514,6 @@ func (b *predicateRuleBuilder) normalizeRule(source *base.Rule) (result *normali
 		return nil, err
 	}
 	// Source flatten_and owns its vector, including synthesized negations.
-	var tailRefs []ast.ASTRef
-	defer func() {
-		for i := len(tailRefs) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, b.transformer.owner.releaseNotAndRef(&tailRefs[i]))
-		}
-	}()
 	for _, tail := range interpreted {
 		ref, x := b.transformer.manager.NewRef(tail)
 		if x != nil {
@@ -455,12 +540,14 @@ func (b *predicateRuleBuilder) normalizeRule(source *base.Rule) (result *normali
 			return nil, b.nonGroundTailError(ground)
 		}
 	}
-	// fml = pm.mk_and(conj), then th_rewriter.
+	// fml = pm.mk_and(conj); rw(fml) rewrites the expr_ref in place, so
+	// the conjunction dies as soon as the rewrite returns.
 	formula, err := b.mkAnd(conjunction)
 	if err != nil {
 		return nil, err
 	}
-	result.transition, err = b.rewrite(formula)
+	fml := b.references[len(b.references)-1]
+	result.transition, err = b.rewriteInPlace(fml, formula)
 	if err != nil {
 		return nil, err
 	}
@@ -675,7 +762,11 @@ func (p *PredicateTransformer) InitializeRules(transformers map[ast.ASTHandle]*P
 			initial, x = builder.extendInitial(initial, normalized)
 		}
 		builder.ruleTheory = nil
-		if x = errors.Join(x, ruleTheory.Close()); x != nil {
+		x = errors.Join(x, ruleTheory.Close())
+		if builder.finishRule != nil {
+			x = errors.Join(x, builder.finishRule(x))
+		}
+		if x != nil {
 			return x
 		}
 	}
