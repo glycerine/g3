@@ -22,6 +22,18 @@ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLear
 			if len(saved.sourceAtoms) != len(saved.clause.literals) {
 				return ast.ErrASTDomain
 			}
+			// A clause whose watched variables survived the pop is still
+			// watched: reinit_clauses removes those watches first, since the
+			// clause may get new watch literals.
+			if record := &s.clauses[saved.recordIndex]; saved.bindHead == 0 && record.clause == saved.clause {
+				for record.closeWatches < 2 {
+					literal := saved.clause.literals[record.closeWatches]
+					if !s.watches[literal.Negated().Index()].RemoveClause(saved.clause) {
+						return ast.ErrASTDomain
+					}
+					record.closeWatches++
+				}
+			}
 			for saved.bindHead < len(saved.sourceAtoms) {
 				atom := saved.sourceAtoms[saved.bindHead]
 				not, _, err := s.manager.IsNot(atom.expression)

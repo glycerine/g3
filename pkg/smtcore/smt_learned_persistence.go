@@ -194,25 +194,38 @@ func (s *SMTInternalizerState) preserveLearnedClauses(limit int) ([]smtPreserved
 	if livePop {
 		booleanLimit = s.scopes[s.pendingPop.level].booleanLimit + int(SMTFirstBoolVar)
 	}
-	for index := limit; index < len(s.clauses); index++ {
-		// The pop compacts s.clauses to the records keepClauseAcrossPop keeps,
-		// binary lemmas (no clause object) included; count every kept slot.
-		keeps := livePop && s.keepClauseAcrossPop(&s.clauses[index])
+	start := limit
+	if livePop {
+		// reinit_clauses walks m_clauses_to_reinit[m_scope_lvl+1..lim], which
+		// also holds older lemmas re-pushed by an earlier reinit.
+		start = 0
+	}
+	for index := start; index < len(s.clauses); index++ {
 		clause := s.clauses[index].clause
-		if clause == nil || !clause.IsLemma() {
-			if keeps {
-				kept++
+		recordIndex := index
+		if index >= limit {
+			// The pop compacts s.clauses to the records keepClauseAcrossPop
+			// keeps, binary lemmas (no clause object) included; count every
+			// kept slot.
+			keeps := livePop && s.keepClauseAcrossPop(&s.clauses[index])
+			if clause == nil || !clause.IsLemma() {
+				if keeps {
+					kept++
+				}
+				continue
 			}
+			recordIndex = limit + kept
+			kept++
+		} else if clause == nil || !clause.IsLemma() {
 			continue
 		}
-		recordIndex := limit + kept
-		kept++
 		if livePop {
 			retired := false
 			for _, literal := range clause.literals {
 				retired = retired || int(literal.Var()) >= booleanLimit
 			}
-			if !retired && !(clause.InReinitStack() && !clause.ReinternalizeAtoms()) {
+			inBucket := clause.InReinitStack() && clause.reinitLevel > uint32(s.pendingPop.level) && clause.reinitLevel <= s.scopeLevel
+			if !retired && !inBucket {
 				// C++ keeps the object, proof owner, literal storage and watches.
 				// There is no snapshot or reconstruction for surviving bindings.
 				continue
