@@ -161,6 +161,9 @@ func (p *PredicateTransformer) MakeReachFact(obligation *ProofObligation, rule *
 			return nil, fmt.Errorf("spacer: reach fact implicant result: %w", err)
 		}
 		defer func() {
+			if implicantRef == (ast.ASTRef{}) {
+				return
+			}
 			if closeErr := p.manager.DelRef(&implicantRef); closeErr != nil {
 				resultErr = errors.Join(resultErr, fmt.Errorf("spacer: reach fact implicant cleanup: %w", closeErr))
 			}
@@ -170,15 +173,14 @@ func (p *PredicateTransformer) MakeReachFact(obligation *ProofObligation, rule *
 			return nil, fmt.Errorf("spacer: reach fact path cleanup: %w", err)
 		}
 	}
-	projectedRef, remaining, err := temporary.project(true, false, md, variables, formula)
+	// qe_project(m, vars, res, ...): res is reassigned inside.
+	res := &resRef
+	if reachDNF {
+		res = &implicantRef
+	}
+	projectedRef, remaining, err := temporary.project(true, false, md, variables, formula, res)
 	if err != nil {
 		return nil, fmt.Errorf("spacer: reach fact projection: %w", err)
-	}
-	// qe_project assigns its result into res.
-	if resRef != (ast.ASTRef{}) {
-		if err = p.manager.DelRef(&resRef); err != nil {
-			return nil, errors.Join(fmt.Errorf("spacer: reach fact path cleanup: %w", err), p.manager.DelRef(&projectedRef), releaseNormalizeRefs(p.manager, remaining))
-		}
 	}
 	defer func() {
 		if closeErr := errors.Join(p.manager.DelRef(&projectedRef), releaseNormalizeRefs(p.manager, remaining)); closeErr != nil {

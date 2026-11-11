@@ -256,10 +256,12 @@ func (d *Derivation) projectIfNonempty(force bool, md *model.ModelCore, variable
 		result, err := d.parent.transformer.manager.NewRef(formula)
 		return result, nil, err
 	}
-	return d.project(force, true, md, variables, formula)
+	return d.project(force, true, md, variables, formula, nil)
 }
 
-func (d *Derivation) project(force, reduceAllSelects bool, md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle) (result ast.ASTRef, remaining []ast.ASTRef, resultErr error) {
+// project is qe_project(m, vars, fml, ...). consume, when given, is the
+// caller's expr_ref fml: the projection releases it at its first reassignment.
+func (d *Derivation) project(force, reduceAllSelects bool, md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle, consume *ast.ASTRef) (result ast.ASTRef, remaining []ast.ASTRef, resultErr error) {
 	manager := d.parent.transformer.manager
 	defer func() {
 		if resultErr != nil {
@@ -278,9 +280,9 @@ func (d *Derivation) project(force, reduceAllSelects bool, md *model.ModelCore, 
 	defer func() { resultErr = errors.Join(resultErr, projector.Close()) }()
 	var projected *qe.LegacyProjectionResult
 	if d.parent.transformer.owner.useNativeMBP {
-		projected, err = projector.ProjectNativeArithmetic(md, variables, formula, reduceAllSelects, !force)
+		projected, err = projector.ProjectNativeArithmeticOwned(md, variables, formula, reduceAllSelects, !force, consume)
 	} else {
-		projected, err = projector.Project(md, variables, formula, reduceAllSelects, !force)
+		projected, err = projector.ProjectOwned(md, variables, formula, reduceAllSelects, !force, consume)
 	}
 	if err != nil {
 		return ast.ASTRef{}, nil, err

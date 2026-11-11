@@ -89,12 +89,19 @@ func (p *PredicateTransformer) CreateDerivationChild(obligation *ProofObligation
 		return nil, err
 	}
 	variables = append(variables, skolems...)
-	projected, remaining, err := derivation.project(p.groundCTI, true, md, variables, implicant)
+	// qe_project reassigns the implicant's expr_ref in place.
+	var consume *ast.ASTRef
+	if held, getErr := p.manager.RefGet(derivation.transition); getErr == nil && held == implicant {
+		consume = &derivation.transition
+	}
+	projected, remaining, err := derivation.project(p.groundCTI, true, md, variables, implicant, consume)
 	if err != nil {
 		return nil, err
 	}
-	if err = p.manager.DelRef(&derivation.transition); err != nil {
-		return nil, errors.Join(err, p.manager.DelRef(&projected), releaseNormalizeRefs(p.manager, remaining))
+	if derivation.transition != (ast.ASTRef{}) {
+		if err = p.manager.DelRef(&derivation.transition); err != nil {
+			return nil, errors.Join(err, p.manager.DelRef(&projected), releaseNormalizeRefs(p.manager, remaining))
+		}
 	}
 	derivation.transition = projected
 	derivation.appendExistentials(remaining)

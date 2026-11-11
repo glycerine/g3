@@ -209,17 +209,29 @@ func (p *LegacyProjection) substituteModelValues(md *model.ModelCore, formula as
 }
 
 func (p *LegacyProjection) Project(md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle, reduceAllSelects, retainFailures bool) (*LegacyProjectionResult, error) {
-	return p.project(md, variables, formula, reduceAllSelects, retainFailures, false)
+	return p.project(md, variables, formula, reduceAllSelects, retainFailures, false, nil)
 }
 
 // ProjectNativeArithmetic follows Spacer's qe_project with use_native_mbp:
 // Boolean and array stages stay unchanged, and only arithmetic uses native MBP.
 // The native arithmetic call forces elimination independently of retainFailures.
 func (p *LegacyProjection) ProjectNativeArithmetic(md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle, reduceAllSelects, retainFailures bool) (*LegacyProjectionResult, error) {
-	return p.project(md, variables, formula, reduceAllSelects, retainFailures, true)
+	return p.project(md, variables, formula, reduceAllSelects, retainFailures, true, nil)
 }
 
-func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle, reduceAllSelects, retainFailures, nativeArithmetic bool) (result *LegacyProjectionResult, resultErr error) {
+// ProjectOwned is Project for a caller whose expr_ref fml owns formula:
+// qe_project reassigns fml right after its initial flattening, so the
+// reference consume is released there and is zero on return.
+func (p *LegacyProjection) ProjectOwned(md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle, reduceAllSelects, retainFailures bool, consume *ast.ASTRef) (*LegacyProjectionResult, error) {
+	return p.project(md, variables, formula, reduceAllSelects, retainFailures, false, consume)
+}
+
+// ProjectNativeArithmeticOwned is ProjectNativeArithmetic with an owned input.
+func (p *LegacyProjection) ProjectNativeArithmeticOwned(md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle, reduceAllSelects, retainFailures bool, consume *ast.ASTRef) (*LegacyProjectionResult, error) {
+	return p.project(md, variables, formula, reduceAllSelects, retainFailures, true, consume)
+}
+
+func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle, reduceAllSelects, retainFailures, nativeArithmetic bool, consume *ast.ASTRef) (result *LegacyProjectionResult, resultErr error) {
 	if p == nil || p.closing || p.manager == nil || md == nil || md.Manager() != p.manager {
 		return nil, ast.ErrASTHandle
 	}
@@ -251,6 +263,13 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 			return nil, err
 		}
 		if err = p.manager.SetRef(current, flattened); err != nil {
+			return nil, err
+		}
+	}
+	// fml = m.mk_and(flat) (or flat.get(0)) replaces the caller's expr_ref;
+	// its previous value dies here.
+	if consume != nil && *consume != (ast.ASTRef{}) {
+		if err = p.manager.DelRef(consume); err != nil {
 			return nil, err
 		}
 	}
