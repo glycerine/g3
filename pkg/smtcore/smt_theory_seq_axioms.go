@@ -240,28 +240,32 @@ func (t *SMTTheorySeq) arith(e ast.ASTHandle) *SMTTheoryArith {
 	return a
 }
 
-// getArithValue is get_arith_value(ctx, afid, e, v).
-func (t *SMTTheorySeq) getArithValue(e ast.ASTHandle) (*big.Rat, bool) {
+// getArithValue is get_arith_value(ctx, afid, e, v) followed by the
+// caller's is_numeral(v, val); v is the caller's expr_ref.
+func (t *SMTTheorySeq) getArithValue(e ast.ASTHandle, v *seqExprRef) (*big.Rat, bool) {
 	a := t.arith(e)
 	if a == nil {
 		return nil, false
 	}
-	v, ok, err := a.GetTheoryValue(t.enodeOf(e))
+	value, ok, err := a.GetTheoryValue(t.enodeOf(e))
 	t.chk(err)
 	if !ok {
 		return nil, false
 	}
-	return t.isNumeral(v)
+	t.chk(v.set(value))
+	return t.isNumeral(value)
 }
 
 func (t *SMTTheorySeq) getNumValue(e ast.ASTHandle) (*big.Rat, bool) {
+	_val := t.exprRef(ast.ASTHandle{})
+	defer func() { t.chk(_val.release()) }()
 	if !t.eInternalized(e) {
 		return nil, false
 	}
 	n := t.enodeOf(e)
 	next := n
 	for {
-		if val, ok := t.getArithValue(next.Owner()); ok && val.IsInt() {
+		if val, ok := t.getArithValue(next.Owner(), &_val); ok && val.IsInt() {
 			return val, true
 		}
 		next = next.Next()
@@ -275,6 +279,8 @@ func (t *SMTTheorySeq) lowerBound(_e ast.ASTHandle) (*big.Rat, bool) {
 	x := t.loc()
 	defer x.drop()
 	e := t.ref(x, t.mkLength(_e), nil)
+	_lo := t.exprRef(ast.ASTHandle{})
+	defer func() { t.chk(_lo.release()) }()
 	a := t.arith(e)
 	if a == nil {
 		return nil, false
@@ -284,6 +290,7 @@ func (t *SMTTheorySeq) lowerBound(_e ast.ASTHandle) (*big.Rat, bool) {
 	if !ok {
 		return nil, false
 	}
+	t.chk(_lo.set(lo))
 	v, ok := t.isNumeral(lo)
 	return v, ok && v.IsInt()
 }
@@ -293,6 +300,8 @@ func (t *SMTTheorySeq) upperBound(_e ast.ASTHandle) (*big.Rat, bool) {
 	defer x.drop()
 	e := t.ref(x, t.mkLength(_e), nil)
 	a := t.arith(e)
+	_hi := t.exprRef(ast.ASTHandle{})
+	defer func() { t.chk(_hi.release()) }()
 	if a == nil {
 		return nil, false
 	}
@@ -301,6 +310,7 @@ func (t *SMTTheorySeq) upperBound(_e ast.ASTHandle) (*big.Rat, bool) {
 	if !ok {
 		return nil, false
 	}
+	t.chk(_hi.set(hi))
 	v, ok := t.isNumeral(hi)
 	return v, ok && v.IsInt()
 }
@@ -308,9 +318,13 @@ func (t *SMTTheorySeq) upperBound(_e ast.ASTHandle) (*big.Rat, bool) {
 // getLengthValue is get_length(e, val).
 func (t *SMTTheorySeq) getLengthValue(e ast.ASTHandle) (*big.Rat, bool) {
 	val := new(big.Rat)
+	// expr_ref len(m), len_val(m): len_val is destroyed first.
+	ln, lenVal := t.exprRef(ast.ASTHandle{}), t.exprRef(ast.ASTHandle{})
+	defer func() {
+		t.chk(lenVal.release())
+		t.chk(ln.release())
+	}()
 	todo := []ast.ASTHandle{e}
-	x := t.loc()
-	defer x.drop()
 	for len(todo) != 0 {
 		c := todo[len(todo)-1]
 		todo = todo[:len(todo)-1]
@@ -325,11 +339,11 @@ func (t *SMTTheorySeq) getLengthValue(e ast.ASTHandle) (*big.Rat, bool) {
 		} else if !t.hasLength(c) {
 			return nil, false
 		} else {
-			ln := t.ref(x, t.mkLength(c), nil)
-			if !t.eInternalized(ln) {
+			t.chk(ln.set(t.mkLength(c)))
+			if !t.eInternalized(ln.h) {
 				return nil, false
 			}
-			val1, ok := t.getArithValue(ln)
+			val1, ok := t.getArithValue(ln.h, &lenVal)
 			if !ok {
 				return nil, false
 			}
