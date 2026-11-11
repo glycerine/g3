@@ -1558,8 +1558,22 @@ Found while matching `-st` output against `build/z3` on
     - The context::init_rules obj_map order: f884bc751.
     - D11, reduce_disequalities: 945143dae.
     - Named pdr_proxy constants: 58bfef495.
-    The survey shows 20 of 55 identical, and the PDR logs advance by
-    100 to 2600 lines. Remaining:
+    - Every context scope pushes/pops asserted_formulas' m_bv_sharing:
+      f2a3352ec.
+    - pdr is_invariant: raw mk_not and pm.mk_and: 23f3f72da.
+    - spacer virtual_solver resets m_proof first; elim_aux_assertions
+      pins only the proofs it creates: c00abc6d8.
+    - create_children implicant via m_brwr.mk_and; array utils use the
+      raw mk_and and own no-proof th_rewriters: ae62458ad.
+    - simplify_bounds under scoped_no_proof; the adhoc normalizer
+      reduces before it builds: b04ac59ca.
+    - One unit_subsumption_tactic per simplify_formulas (spacer and
+      pdr); prop_solver, pred_transformer and context teardown order:
+      ad647a088 (and the premise fix 4d90cdee5).
+    - Diff logic adds bound axioms only under m_arith_add_binary_bounds:
+      27c6dd86a.
+    The survey shows 26 of 55 identical (fp_spacer_arith_inv now among
+    them), and the full logs are at 606/659. Remaining:
     - bucket A: quantifier_abstraction (the hnf m_body holder),
       array_blast and array_eq_rewrite (rewriter cache), bit_blast,
       mutual_inv, nonlinear_inlining, quantifier_instantiation,
