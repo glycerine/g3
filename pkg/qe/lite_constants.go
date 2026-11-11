@@ -120,6 +120,11 @@ func (l *Lite) EliminateConstants(variables *[]ast.ASTRef, formula ast.ASTRef) (
 			if err != nil {
 				return err
 			}
+			// tmp = to_quantifier(tmp)->get_expr(): the reduced quantifier is
+			// now held only by the der proof.
+			if err = l.manager.SetRef(tmp, body); err != nil {
+				return err
+			}
 			used, err := ast.NewASTUsedVars(l.manager)
 			if err != nil {
 				return err
