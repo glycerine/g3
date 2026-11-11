@@ -1489,9 +1489,20 @@ Found while matching `-st` output against `build/z3` on
     lra_propagation_mode_updates trace builds one extra model numeral.
     Ask before removing the repair.
 
-28. **Partly done (2026-11-11, 220c9c04a): the extra compress case is
-    removed.** (Correction to 2dabccc4c: the 28478 divergence is still
-    open after d998ec55f.) quant_seq_symbolic_int_prefix's stdout matches and its
+28. **Mostly done (2026-11-11).** quant_seq_symbolic_int_prefix now
+    matches z3 for the whole trace g3 writes in 30s (578684 lines; z3
+    writes 15.3M lines in that time, since g3 writes the trace one byte
+    per syscall). The fixes:
+    - f68224d31: process_justifications bounds each m_todo_js pass by its
+      size before the pass, so the 28478 resolve order matches.
+    - cd38ee773: theory_seq's get_num_value, lower_bound, upper_bound and
+      get_length hold the arithmetic value in an expr_ref (61428).
+    - 0ec94b600: the reinit selection walks m_clauses_to_reinit buckets,
+      including re-pushed older lemmas (95570).
+    Remaining: the trace writer's per-byte writes (a shared file-level
+    buffer), after which longer comparisons are practical.
+    History: **Partly done (220c9c04a): the extra compress case is
+    removed.** quant_seq_symbolic_int_prefix's stdout matches and its
     trace matches to line 28478. Still open: the merge-order divergence
     at 28478 (below). Note: with trace=true, g3 writes the trace file one
     byte per syscall; this vector's trace then exceeds fullcmp's 30s
