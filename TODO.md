@@ -1562,11 +1562,17 @@ Found while matching `-st` output against `build/z3` on
       This needs a faithful gia_pareto port.
     - Fixed (cdbaef450): pareto now takes over init_solver's opt_solver
       (no second kernel), and pareto_bit_vector reaches line 2124.
-    - Next: there, g3's dominance formula (pbge/pble over the
-      normalized objectives) appears where z3 pops, re-checks and pushes.
-      Port gia_pareto::operator()/mk_dominates/mk_not_dominated_by in
-      source order. That should also fix the second-check sat on the
-      negative soft case.
+    - Fixed (2026-11-11): a fresh pareto check now runs optimize()'s
+      initial check_sat, optsmt::setup's empty scoped push, and then
+      gia_pareto's own check_sat. pareto_bit_vector reaches 4396 and
+      pareto_soft 58.
+    - Still missing: optsmt::setup's add_objective for arithmetic
+      objectives, and update_lower. pareto_optimization stops at 80
+      (likely there).
+    - The second-check sat on the negative soft case is still open.
+    - TestParetoCanceledImprovementDropsBackendAndAllowsFreshSearch is
+      brittle: a resource limit hit while building the candidate model
+      returns an error instead of unknown (budgets 5000-12000 fail).
     - Recorded ask-first deviation: z3 4.7.1 does not terminate on 0-1
       arithmetic pareto objectives once normalize makes them MaxSAT, so g3
       keeps the un-normalized path there.
