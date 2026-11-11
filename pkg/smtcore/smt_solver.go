@@ -1347,6 +1347,10 @@ func (s *SMTSolver) ApplyQuantElimSettings() error {
 	k := s.kernel
 	k.preprocessState.SimplifyBitToInt = true
 	k.arithState.EnumConstMod = true
+	if k.smtParams != nil {
+		// The flet is on m_fparams itself, which setup_arith reads.
+		k.smtParams.arith.state.EnumConstMod = true
+	}
 	k.bvState.EnableInt2BV = true
 	if err := k.configureArithmeticTheories(k.arithState); err != nil {
 		return err

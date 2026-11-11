@@ -44,6 +44,14 @@ func (k *SMTKernel) setupBasicArithmetic() (result error) {
 			if existing.NumVariables() == 0 && !k.copiedArithmeticPlugin {
 				existing.useMixedExt()
 			}
+			// theory_arith reads the context's theory_arith_params by
+			// reference, so setup-time changes (pdr's eager_eq_axioms,
+			// bound_prop, ...) reach an already registered plugin.
+			// (m_random and m_eager_gcd were fixed by the constructor.) A
+			// copied plugin keeps its source's parameters (mk_fresh).
+			if !k.copiedArithmeticPlugin {
+				existing.params = arithmetic
+			}
 			return nil
 		}
 		theory, err = NewSMTTheoryArith(family, false)
