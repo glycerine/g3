@@ -1790,4 +1790,10 @@ Found while matching `-st` output against `build/z3` on
     - qe_rec_free_boolean (z3 segfaults) and pb_strengthening_proof (z3
       aborts while printing the proof) cannot be compared.
     - lra_propagation_mode_updates and arithmetic_eq_options: item 27.
+    - nla2bv_real_models 1711: in bv2real_util::align_divisors
+      (mk_le -> align_divisors -> mk_bv_mul(rational, t)), z3 frees a
+      transient bv numeral (#76) right after building the bvmul. g3 keeps
+      it, so a later numeral gets a fresh id. Compare
+      tactic/arith/bv2real_util.go mulAdopting/alignLocals with
+      mk_bv_mul's s1/t1 locals and mk_extend's numeral case.
     - nlqsat_*, datatype_cycle_proof: recorded ask-first deviations.
