@@ -91,7 +91,7 @@ func TestSpacerDatatypeExpansionSourceFieldOrderAndOrientation(t *testing.T) {
 				if direct && reverse {
 					selectedTerm, lhs, rhs = value, values, variables
 				}
-				recognizer, err := m.DatatypeConstructorRecognizer(ctor)
+				recognizer, err := m.DatatypeConstructorIs(ctor)
 				depthMust(t, err)
 				expectedRecognizer := own(m.MkApp(recognizer, []ast.ASTHandle{selectedTerm}))
 				if expanded[0] != expectedRecognizer {

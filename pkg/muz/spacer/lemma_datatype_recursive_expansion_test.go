@@ -51,13 +51,13 @@ func TestSpacerDatatypeExpansionRevisitsAppendedConstructorField(t *testing.T) {
 	if len(expanded.literals) != 2 {
 		t.Fatal("appended constructor field equality was not revisited", len(expanded.literals))
 	}
-	succRecognizer, err := m.DatatypeConstructorRecognizer(constructors[1])
+	succRecognizer, err := m.DatatypeConstructorIs(constructors[1])
 	depthMust(t, err)
 	wantOuter := own(m.MkApp(succRecognizer, []ast.ASTHandle{term}))
 	accessors, err := m.DatatypeConstructorAccessors(constructors[1])
 	depthMust(t, err)
 	selected := own(m.MkApp(accessors[0], []ast.ASTHandle{term}))
-	zeroRecognizer, err := m.DatatypeConstructorRecognizer(constructors[0])
+	zeroRecognizer, err := m.DatatypeConstructorIs(constructors[0])
 	depthMust(t, err)
 	wantField := own(m.MkApp(zeroRecognizer, []ast.ASTHandle{selected}))
 	if expanded.literals[0] != wantOuter || expanded.literals[1] != wantField {

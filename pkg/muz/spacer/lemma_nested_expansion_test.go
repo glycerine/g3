@@ -124,19 +124,19 @@ func testNestedMixedLiteralExpansion(t *testing.T, reverse bool, stop int64) boo
 	depthMust(t, e)
 	number := own(m.MkApp(innerAccess[0], []ast.ASTHandle{child}))
 	selectedBits := own(m.MkApp(innerAccess[1], []ast.ASTHandle{child}))
-	outerRecognizer, e := m.DatatypeConstructorRecognizer(outerCtor)
+	outerRecognizer, e := m.DatatypeConstructorIs(outerCtor)
 	depthMust(t, e)
-	innerRecognizer, e := m.DatatypeConstructorRecognizer(innerCtor)
+	innerRecognizer, e := m.DatatypeConstructorIs(innerCtor)
 	depthMust(t, e)
 	expected := []ast.ASTHandle{own(m.MkApp(outerRecognizer, []ast.ASTHandle{term})), own(m.MkApp(innerRecognizer, []ast.ASTHandle{child})), own(m.MkArithmeticLE(suffix, two)), own(m.MkArithmeticGE(suffix, two)), own(m.MkArithmeticLE(number, seven)), own(m.MkArithmeticGE(number, seven)), own(m.MkEq(flag, truth))}
-	one := own(m.BitVectorNumeralUnsigned(1, 1))
+	bvFamily, e := m.BitVectorUtilityFamilyID()
+	depthMust(t, e)
+	one := own(m.MkFamilyApp(bvFamily, 1, nil, nil)) // OP_BIT1
 	for bit := uint32(0); bit < 3; bit++ {
 		selected := own(m.MkBitVectorExtract(bit, bit, selectedBits))
-		// Appended positive bit equalities are visited again by the
-		// source loop; its one-bit expansion adds this raw extraction.
-		if bit > 0 && bit != 1 {
-			selected = own(m.MkBitVectorExtract(0, 0, selected))
-		}
+		// The appended bit equalities compare against the bit1 application,
+		// which bv.is_numeral does not accept, so the source loop leaves
+		// them as they are when it visits them again.
 		lit := own(m.MkEq(one, selected))
 		if bit == 1 {
 			lit = own(m.MkNot(lit))

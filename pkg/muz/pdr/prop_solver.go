@@ -562,7 +562,8 @@ func (p *PropSolver) expandEqualities(atoms []ast.ASTHandle) (result []ast.ASTHa
 			}
 			continue
 		}
-		recognizer, err := p.manager.DatatypeConstructorRecognizer(constructor)
+		// func_decl* r = dt.get_constructor_is(f): the OP_DT_IS recognizer.
+		recognizer, err := p.manager.DatatypeConstructorIs(constructor)
 		if err != nil {
 			return nil, references, generated, err
 		}

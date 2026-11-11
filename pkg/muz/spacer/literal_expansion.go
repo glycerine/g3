@@ -49,15 +49,16 @@ func (e *literalExpansion) finish(literals []ast.ASTHandle) error {
 	return nil
 }
 
+// Close releases the vector's references first to last (expr_ref_vector's
+// destructor and reset dec_ref from the front).
 func (e *literalExpansion) Close() (result error) {
 	for len(e.refs) != 0 {
-		i := len(e.refs) - 1
-		consumed, err := e.manager.DecRefConsumed(e.refs[i])
+		consumed, err := e.manager.DecRefConsumed(e.refs[0])
 		result = errors.Join(result, err)
 		if !consumed {
 			return result
 		}
-		e.refs = e.refs[:i]
+		e.refs = e.refs[1:]
 	}
 	e.literals = nil
 	return result

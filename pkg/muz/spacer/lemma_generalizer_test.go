@@ -245,7 +245,8 @@ func TestExpandInductiveDatatypeAndBitVectorEqualities(t *testing.T) {
 	if len(datatypeExpanded) != 5 {
 		t.Fatal("expanded datatype equality size", len(datatypeExpanded))
 	}
-	if kind, kindErr := manager.GetDeclKind(datatypeExpanded[0]); kindErr != nil || kind != ast.ASTDatatypeRecognizer {
+	// dt.get_constructor_is(f): the OP_DT_IS recognizer.
+	if kind, kindErr := manager.GetDeclKind(datatypeExpanded[0]); kindErr != nil || kind != ast.ASTDatatypeIs {
 		t.Fatal("datatype recognizer literal", kind, kindErr)
 	}
 	for index, expected := range []int32{2, 3, 2, 3} {

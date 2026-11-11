@@ -74,10 +74,15 @@ func TestExpandInductiveBitVectorEqualityFiniteOracle(t *testing.T) {
 					}
 					one, err := m.GetArg(atom, 0)
 					must(err)
-					text, matched, err := m.BitVectorNumeralText(one)
+					// m.mk_app(bv.get_family_id(), OP_BIT1): the bit1 application.
+					oneKind, err := m.GetDeclKind(one)
 					must(err)
-					if !matched || text != "1" {
-						t.Fatal("expanded bit does not compare to one", text)
+					oneFamily, err := m.GetFamilyID(one)
+					must(err)
+					bvFamily, err := m.BitVectorUtilityFamilyID()
+					must(err)
+					if oneKind != 1 || oneFamily != bvFamily {
+						t.Fatal("expanded bit does not compare to bit1", oneKind, oneFamily)
 					}
 					extract, err := m.GetArg(atom, 1)
 					must(err)

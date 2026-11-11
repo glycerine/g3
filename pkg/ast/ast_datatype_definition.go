@@ -594,6 +594,26 @@ func (m *ASTManager) DatatypeConstructorRecognizer(constructor ASTHandle) (ASTHa
 	return ASTHandle{}, ErrASTDomain
 }
 
+// DatatypeConstructorIs is util::get_constructor_is: the OP_DT_IS recognizer
+// (named "is", parameterized by the constructor) over the constructor's range.
+func (m *ASTManager) DatatypeConstructorIs(constructor ASTHandle) (ASTHandle, error) {
+	if err := m.lock(); err != nil {
+		return ASTHandle{}, err
+	}
+	defer m.mu.Unlock()
+	c, err := m.requireKind(constructor, ASTFuncDecl)
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	p0, err := m.newParameterAST(m.external(c))
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	decl, err := m.datatypeDecl(ASTDatatypeIs, []ASTParameter{p0}, []ASTHandle{m.external(m.declAt(c.slot).rangeSort)}, ASTHandle{})
+	err = errors.Join(err, m.dropParameter(p0))
+	return m.external(decl), err
+}
+
 func (m *ASTManager) DatatypeRecognizerConstructorIndex(recognizer ASTHandle) (uint32, bool, error) {
 	if err := m.lock(); err != nil {
 		return 0, false, err

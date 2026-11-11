@@ -228,7 +228,8 @@ func (p *PredicateTransformer) expandInductiveDatatypeEquality(owner *literalExp
 	if err != nil || declKind != ast.ASTDatatypeConstructor {
 		return nil, false, err
 	}
-	recognizer, err := p.manager.DatatypeConstructorRecognizer(constructor)
+	// func_decl* r = dt.get_constructor_is(f): the OP_DT_IS recognizer.
+	recognizer, err := p.manager.DatatypeConstructorIs(constructor)
 	if err != nil {
 		return nil, false, err
 	}
@@ -294,15 +295,22 @@ func (p *PredicateTransformer) expandInductiveBitVectorEquality(owner *literalEx
 	if _, ok := integer.SetString(text, 10); !ok {
 		return nil, false, ast.ErrASTDomain
 	}
-	one, err := owner.keep(p.manager.BitVectorNumeralUnsigned(1, 1))
+	bvFamily, err := p.manager.BitVectorUtilityFamilyID()
 	if err != nil {
-		return nil, false, fmt.Errorf("construct bit-vector one: %w", err)
+		return nil, false, err
 	}
 	result := make([]ast.ASTHandle, 0, width)
 	for bit := uint32(0); bit < width; bit++ {
+		// m.mk_eq(m.mk_app(bv.get_family_id(), OP_BIT1), bv.mk_extract(j, j, c)):
+		// the extract is built first (right-to-left argument evaluation),
+		// and bit1 is the OP_BIT1 application, not a numeral.
 		extract, err := owner.keep(p.manager.MkBitVectorExtract(bit, bit, term))
 		if err != nil {
 			return nil, false, err
+		}
+		one, err := owner.keep(p.manager.MkFamilyApp(bvFamily, 1, nil, nil))
+		if err != nil {
+			return nil, false, fmt.Errorf("construct bit1: %w", err)
 		}
 		literal, err := owner.keep(p.manager.MkEq(one, extract))
 		if err != nil {
