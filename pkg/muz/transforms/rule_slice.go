@@ -441,7 +441,7 @@ func (p *RuleSlicePlugin) updateApplication(application ast.ASTHandle) (ast.ASTH
 	return p.manager.MkApp(derived, kept)
 }
 
-func (p *RuleSlicePlugin) updateRule(rule *base.Rule, variables *[]uint32) (*base.Rule, error) {
+func (p *RuleSlicePlugin) updateRule(rule *base.Rule, variables *[]uint32) (_ *base.Rule, resultErr error) {
 	headDecl, err := rule.HeadDeclaration()
 	if err != nil {
 		return nil, err
@@ -472,12 +472,36 @@ func (p *RuleSlicePlugin) updateRule(rule *base.Rule, variables *[]uint32) (*bas
 		}
 		return rule.Retain()
 	}
+	// update_rule's locals app_ref_vector tail, app_ref head and
+	// expr_ref_vector conjs hold the sliced atoms until it returns (the new
+	// rule may hold renamed copies); they die in reverse declaration order.
+	var tailRefs, conjRefs []ast.ASTRef
+	headRef := ast.ASTRef{}
+	defer func() {
+		for _, refs := range [][]ast.ASTRef{conjRefs, {headRef}, tailRefs} {
+			for i := range refs {
+				if refs[i] != (ast.ASTRef{}) {
+					resultErr = errors.Join(resultErr, p.manager.DelRef(&refs[i]))
+				}
+			}
+		}
+	}()
+	hold := func(refs *[]ast.ASTRef, h ast.ASTHandle) error {
+		ref, holdErr := p.manager.NewRef(h)
+		if holdErr == nil {
+			*refs = append(*refs, ref)
+		}
+		return holdErr
+	}
 	head, err := rule.Head()
 	if err != nil {
 		return nil, err
 	}
 	head, err = p.updateApplication(head)
 	if err != nil {
+		return nil, err
+	}
+	if headRef, err = p.manager.NewRef(head); err != nil {
 		return nil, err
 	}
 	total, err := rule.TailSize()
@@ -495,6 +519,9 @@ func (p *RuleSlicePlugin) updateRule(rule *base.Rule, variables *[]uint32) (*bas
 		if getErr != nil {
 			return nil, getErr
 		}
+		if getErr = hold(&tailRefs, tail); getErr != nil {
+			return nil, getErr
+		}
 		tails = append(tails, tail)
 		// C++ update_rule calls rule_manager::mk with a null negation array,
 		// so rewriting a rule clears every negative-tail flag.
@@ -505,6 +532,14 @@ func (p *RuleSlicePlugin) updateRule(rule *base.Rule, variables *[]uint32) (*bas
 		return nil, err
 	}
 	for _, conjunct := range conjuncts {
+		if err = hold(&conjRefs, conjunct); err != nil {
+			return nil, err
+		}
+	}
+	for _, conjunct := range conjuncts {
+		if err = hold(&tailRefs, conjunct); err != nil {
+			return nil, err
+		}
 		tails = append(tails, conjunct)
 		negated = append(negated, false)
 	}
