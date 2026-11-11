@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/tactic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
@@ -36,7 +37,27 @@ func TestUnitSubsumptionUsesIncrementalPropagationAndDeletionOrder(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := UnitSubsumptionKeep(manager, []ast.ASTHandle{weak, a, a, truth}, nil, SMTSolverConfig{Params: params})
+	us, err := NewUnitSubsumptionTactic(manager, nil, SMTSolverConfig{Params: params})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = us.Close() }()
+	g, err := tactic.NewGoal(manager, false, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = g.Close() }()
+	for _, f := range []ast.ASTHandle{weak, a, a, truth} {
+		if err = g.Assert(f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	result := &tactic.TacticResult{}
+	defer func() { _ = result.Close() }()
+	if err = us.Apply(g, result); err != nil {
+		t.Fatal(err)
+	}
+	got, err := result.Goals[0].AppendFormulas(nil)
 	if err != nil {
 		t.Fatal(err)
 	}

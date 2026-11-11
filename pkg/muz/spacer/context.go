@@ -1004,15 +1004,15 @@ func (c *Context) Reset() (result error) {
 	// Keep every old predicate's cover until all allocation-capable solver
 	// retirements finish. update_rules can then expose or inherit those covers
 	// again when a virtual solver's disabled-guard assertion refuses allocation.
-	for index := len(c.order) - 1; index >= 0; index-- {
-		if transformer := c.transformers[c.order[index]]; transformer != nil {
+	// context::reset deallocates the transformers in m_rels table order.
+	for _, declaration := range c.order {
+		if transformer := c.transformers[declaration]; transformer != nil {
 			if err := transformer.closeSolvers(); err != nil {
 				return err
 			}
 		}
 	}
-	for index := len(c.order) - 1; index >= 0; index-- {
-		declaration := c.order[index]
+	for _, declaration := range c.order {
 		if transformer := c.transformers[declaration]; transformer != nil {
 			if err := transformer.Close(); err != nil {
 				result = errors.Join(result, err)
@@ -1041,8 +1041,8 @@ func (c *Context) Close() (result error) {
 	if c.manager == nil {
 		return ErrContextOwner
 	}
-	for index := len(c.order) - 1; index >= 0; index-- {
-		declaration := c.order[index]
+	// ~context runs reset(): the transformers go in m_rels table order.
+	for _, declaration := range c.order {
 		if transformer := c.transformers[declaration]; transformer != nil {
 			if err := transformer.Close(); err != nil {
 				result = errors.Join(result, err)

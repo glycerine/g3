@@ -9,6 +9,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/tactic"
 )
 
 type FrameTransformer interface {
@@ -17,7 +18,9 @@ type FrameTransformer interface {
 	IsInvariant(level uint32, formula ast.ASTHandle) (invariant bool, solverLevel uint32, err error)
 }
 
-// Simplify removes same-level lemmas subsumed by unit propagation.
+// Simplify is pred_transformer::frames::simplify_formulas: one
+// unit-subsumption tactic and one goal serve every frame and the infinity
+// frame, and only a level with more than one lemma is simplified.
 func (f *Frames) Simplify(owner *Manager) (resultErr error) {
 	if err := f.open(); err != nil {
 		return err
@@ -28,62 +31,121 @@ func (f *Frames) Simplify(owner *Manager) (resultErr error) {
 	if err := f.sort(); err != nil {
 		return err
 	}
-	deleted := make([]bool, len(f.lemmas))
-	for begin := 0; begin < len(f.lemmas); {
-		level, err := f.lemmas[begin].Level()
-		if err != nil {
+	simplifier, err := smtcore.NewUnitSubsumptionTactic(f.manager, nil, owner.contexts[0].config)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, simplifier.Close()) }()
+	lemmasSize := len(f.lemmas)
+	g, err := tactic.NewGoal(f.manager, false, false, false)
+	if err != nil {
+		return err
+	}
+	// Locals die in reverse: g, then new_lemmas, then the simplifier.
+	defer func() { resultErr = errors.Join(resultErr, g.Close()) }()
+	newLemmas := make([]*Lemma, 0, lemmasSize)
+	used := make([]bool, lemmasSize)
+	j := 0
+	for i := uint32(0); i <= f.size; i++ {
+		if err = g.ResetAll(); err != nil {
 			return err
 		}
-		end := begin + 1
-		for end < len(f.lemmas) {
-			candidateLevel, err := f.lemmas[end].Level()
+		level := InfinityLevel
+		if i < f.size {
+			level = i
+		}
+		begin := j
+		for ; j < lemmasSize; j++ {
+			lemmaLevel, err := f.lemmas[j].Level()
 			if err != nil {
 				return err
 			}
-			if candidateLevel != level {
+			if lemmaLevel > level {
 				break
 			}
-			end++
-		}
-		if end-begin > 1 {
-			formulas := make([]ast.ASTHandle, end-begin)
-			for index := begin; index < end; index++ {
-				formulas[index-begin], err = f.lemmas[index].Body()
+			if lemmaLevel == level {
+				body, err := f.lemmas[j].Body()
 				if err != nil {
 					return err
 				}
-			}
-			config := owner.contexts[0].config
-			kept, err := smtcore.UnitSubsumptionKeep(f.manager, formulas, &owner.solverParams, config)
-			if err != nil {
-				return err
-			}
-			remaining := make(map[ast.ASTHandle]int, len(kept))
-			for _, formula := range kept {
-				remaining[formula]++
-			}
-			for index, formula := range formulas {
-				if remaining[formula] != 0 {
-					remaining[formula]--
-				} else {
-					deleted[begin+index] = true
+				if err = g.Assert(body); err != nil {
+					return err
 				}
 			}
 		}
-		begin = end
-	}
-	kept := f.lemmas[:0]
-	for index, lemma := range f.lemmas {
-		if !deleted[index] {
-			kept = append(kept, lemma)
+		end := j
+		sz := end - begin
+		if sz <= 0 {
 			continue
 		}
-		if err := lemma.Close(); err != nil {
-			resultErr = errors.Join(resultErr, err)
+		if sz == 1 {
+			newLemmas = append(newLemmas, f.lemmas[begin])
+			used[begin] = true
+			continue
+		}
+		if err = f.simplifyLevel(simplifier, g, begin, end, &newLemmas, used); err != nil {
+			return err
 		}
 	}
-	f.lemmas = kept
+	if len(newLemmas) < len(f.lemmas) {
+		for index, lemma := range f.lemmas {
+			if !used[index] {
+				resultErr = errors.Join(resultErr, lemma.Close())
+			}
+		}
+		f.lemmas = newLemmas
+		f.sorted = false
+		resultErr = errors.Join(resultErr, f.sort())
+	}
 	return resultErr
+}
+
+// simplifyLevel runs the simplifier on the level's goal and keeps the lemmas
+// whose expressions remain. A remaining form takes the first unused lemma
+// with that expression.
+func (f *Frames) simplifyLevel(simplifier *smtcore.UnitSubsumptionTactic, g *tactic.Goal, begin, end int, newLemmas *[]*Lemma, used []bool) (resultErr error) {
+	result := &tactic.TacticResult{}
+	defer func() { resultErr = errors.Join(resultErr, result.Close()) }()
+	if err := simplifier.Apply(g, result); err != nil {
+		return err
+	}
+	if len(result.Goals) != 1 {
+		return ast.ErrASTDomain
+	}
+	r := result.Goals[0]
+	size, err := r.Size()
+	if err != nil {
+		return err
+	}
+	if int(size) == end-begin {
+		for n := begin; n < end; n++ {
+			*newLemmas = append(*newLemmas, f.lemmas[n])
+			used[n] = true
+		}
+		return nil
+	}
+	for k := uint32(0); k < size; k++ {
+		form, err := r.Form(k)
+		if err != nil {
+			return err
+		}
+		found := false
+		for n := begin; n < end && !found; n++ {
+			body, err := f.lemmas[n].Body()
+			if err != nil {
+				return err
+			}
+			if !used[n] && body == form {
+				*newLemmas = append(*newLemmas, f.lemmas[n])
+				used[n] = true
+				found = true
+			}
+		}
+		if !found {
+			return ast.ErrASTDomain // ENSURE(found)
+		}
+	}
+	return nil
 }
 
 type Frames struct {

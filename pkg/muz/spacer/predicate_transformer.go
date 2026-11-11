@@ -671,44 +671,46 @@ func (p *PredicateTransformer) Close() (result error) {
 	if p.closed {
 		return nil
 	}
-	if p.frames != nil {
-		if p.obligations != nil {
-			result = errors.Join(result, p.obligations.Close())
-		}
-		result = errors.Join(result, p.frames.Close())
-	}
-	if p.solver != nil {
-		result = errors.Join(result, p.solver.Close())
-	}
+	// ~pred_transformer: the body releases the rule instances and
+	// transitions, then the members die in reverse declaration order:
+	// m_reach_case_vars, m_extend_lit, m_initial_state, m_transition,
+	// m_reach_facts, m_frames, m_pobs, m_solver, m_rules, m_sig, m_head.
 	if p.manager != nil {
-		for i := len(p.reachFacts) - 1; i >= 0; i-- {
-			result = errors.Join(result, p.reachFacts[i].Close())
-		}
-		result = errors.Join(result, releaseNormalizeRefs(p.manager, p.reachCaseVariables))
-		for i := len(p.rules) - 1; i >= 0; i-- {
-			result = errors.Join(result, p.rules[i].rule.Close())
-		}
 		for i := len(p.ruleReferences) - 1; i >= 0; i-- {
 			if p.ruleReferences[i] != (ast.ASTRef{}) {
 				result = errors.Join(result, p.manager.DelRef(&p.ruleReferences[i]))
 			}
 		}
-		if p.extendLiteral != (ast.ASTRef{}) {
-			result = errors.Join(result, p.manager.DelRef(&p.extendLiteral))
+		result = errors.Join(result, releaseNormalizeRefs(p.manager, p.reachCaseVariables))
+		for _, ref := range []*ast.ASTRef{&p.extendLiteral, &p.initial, &p.transition} {
+			if *ref != (ast.ASTRef{}) {
+				result = errors.Join(result, p.manager.DelRef(ref))
+			}
 		}
-		for i := len(p.signature) - 1; i >= 0; i-- {
+		for i := range p.reachFacts {
+			result = errors.Join(result, p.reachFacts[i].Close())
+		}
+	}
+	if p.frames != nil {
+		result = errors.Join(result, p.frames.Close())
+		if p.obligations != nil {
+			result = errors.Join(result, p.obligations.Close())
+		}
+	}
+	if p.solver != nil {
+		result = errors.Join(result, p.solver.Close())
+	}
+	if p.manager != nil {
+		for i := len(p.rules) - 1; i >= 0; i-- {
+			result = errors.Join(result, p.rules[i].rule.Close())
+		}
+		for i := range p.signature {
 			if p.signature[i] != (ast.ASTRef{}) {
 				result = errors.Join(result, p.manager.DelRef(&p.signature[i]))
 			}
 		}
 		if p.head != (ast.ASTRef{}) {
 			result = errors.Join(result, p.manager.DelRef(&p.head))
-		}
-		if p.transition != (ast.ASTRef{}) {
-			result = errors.Join(result, p.manager.DelRef(&p.transition))
-		}
-		if p.initial != (ast.ASTRef{}) {
-			result = errors.Join(result, p.manager.DelRef(&p.initial))
 		}
 	}
 	if result == nil {

@@ -149,6 +149,11 @@ func TestSpacerFramesSimplifySameLevelLemmasByUnitPropagation(t *testing.T) {
 	fixture := &frameTransformerFixture{levels: make(map[ast.ASTHandle]uint32)}
 	frames, err := spacer.NewFrames(manager, fixture)
 	spacerMust(t, err)
+	// simplify_formulas visits frames 0..m_size-1 and then infinity, so the
+	// lemma levels must be existing frames.
+	for i := 0; i < 4; i++ {
+		spacerMust(t, frames.AddFrame())
+	}
 	weakLemma, err := spacer.NewLemma(owner, weak, 2)
 	spacerMust(t, err)
 	strongLemma, err := spacer.NewLemma(owner, a, 2)

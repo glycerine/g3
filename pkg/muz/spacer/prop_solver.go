@@ -79,7 +79,10 @@ type PropSolver struct {
 	levelPositive []ast.ASTHandle
 	levelNegative []ast.ASTHandle
 	levelAtoms    map[ast.ASTHandle]bool
-	references    []ast.ASTRef
+	// positiveRefs and negativeRefs are m_pos_level_atoms and
+	// m_neg_level_atoms.
+	positiveRefs []ast.ASTRef
+	negativeRefs []ast.ASTRef
 	keepProxy     bool
 	ownedBackends [2]*VirtualSolver
 	closed        bool
@@ -122,12 +125,12 @@ func (p *PropSolver) open() error {
 	return nil
 }
 
-func (p *PropSolver) pin(expression ast.ASTHandle) error {
+func (p *PropSolver) pin(vector *[]ast.ASTRef, expression ast.ASTHandle) error {
 	reference, err := p.manager.NewRef(expression)
 	if err != nil {
 		return err
 	}
-	p.references = append(p.references, reference)
+	*vector = append(*vector, reference)
 	return nil
 }
 
@@ -140,14 +143,14 @@ func (p *PropSolver) addLevel() error {
 	if err != nil {
 		return err
 	}
-	if err = p.pin(positive); err != nil {
+	if err = p.pin(&p.positiveRefs, positive); err != nil {
 		return err
 	}
 	negative, err := p.manager.MkNot(positive)
 	if err != nil {
 		return err
 	}
-	if err = p.pin(negative); err != nil {
+	if err = p.pin(&p.negativeRefs, negative); err != nil {
 		return err
 	}
 	p.levelPositive = append(p.levelPositive, positive)
@@ -515,6 +518,20 @@ func (p *PropSolver) Close() (result error) {
 		return nil
 	}
 	p.closing = true
+	// Members die in reverse declaration order: m_neg_level_atoms and then
+	// m_pos_level_atoms (each front to back) before m_contexts[1], [0].
+	if p.manager != nil {
+		for _, vector := range [][]ast.ASTRef{p.negativeRefs, p.positiveRefs} {
+			for i := range vector {
+				if vector[i] != (ast.ASTRef{}) {
+					if err := p.manager.DelRef(&vector[i]); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		p.negativeRefs, p.positiveRefs = nil, nil
+	}
 	for i := len(p.contexts) - 1; i >= 0; i-- {
 		if p.contexts[i] != nil {
 			if err := p.contexts[i].Close(); err != nil {
@@ -527,17 +544,9 @@ func (p *PropSolver) Close() (result error) {
 	// m_solvers are raw pointers into the virtual_solver_factory, which
 	// destroys them.
 	p.ownedBackends = [2]*VirtualSolver{}
-	if p.manager != nil {
-		for i := len(p.references) - 1; i >= 0; i-- {
-			if p.references[i] != (ast.ASTRef{}) {
-				result = errors.Join(result, p.manager.DelRef(&p.references[i]))
-			}
-		}
-	}
 	if result != nil {
 		return result
 	}
-	p.references = nil
 	p.manager = nil
 	p.closing = false
 	p.closed = true

@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
@@ -491,11 +492,12 @@ func (p *PredicateTransformer) Formulas(level uint32, addAxioms bool) (ast.ASTHa
 	return p.manager.RefGet(ref)
 }
 
-// SimplifyFormulas applies the source unit-subsumption pass independently to
-// the invariant frame and every finite frame. The property-level index and
-// solver assertions intentionally remain unchanged: source PDR simplifies the
-// exported frame vectors, not the incremental solver state.
-func (p *PredicateTransformer) SimplifyFormulas() error {
+// SimplifyFormulas is pred_transformer::simplify_formulas: one
+// unit-subsumption tactic applied to the invariant frame and then every
+// finite frame. The property-level index and solver assertions remain
+// unchanged: source PDR simplifies the exported frame vectors, not the
+// incremental solver state.
+func (p *PredicateTransformer) SimplifyFormulas() (resultErr error) {
 	if err := p.open(); err != nil {
 		return err
 	}
@@ -503,18 +505,59 @@ func (p *PredicateTransformer) SimplifyFormulas() error {
 	if contexts == nil || contexts.config.Params == nil {
 		return ErrPredicateTransformerOwner
 	}
-	var err error
-	p.invariants, err = smtcore.UnitSubsumptionKeep(p.manager, p.invariants, contexts.params, contexts.config)
+	us, err := smtcore.NewUnitSubsumptionTactic(p.manager, nil, contexts.config)
 	if err != nil {
 		return err
 	}
+	defer func() { resultErr = errors.Join(resultErr, us.Close()) }()
+	if p.invariants, err = p.simplifyFormulasWith(us, p.invariants); err != nil {
+		return err
+	}
 	for index := range p.levels {
-		p.levels[index], err = smtcore.UnitSubsumptionKeep(p.manager, p.levels[index], contexts.params, contexts.config)
-		if err != nil {
+		if p.levels[index], err = p.simplifyFormulasWith(us, p.levels[index]); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// simplifyFormulasWith is simplify_formulas(tac, v): v becomes the forms of
+// the tactic's result goal. A form the goal rewrote is held with the frame's
+// other references.
+func (p *PredicateTransformer) simplifyFormulasWith(us *smtcore.UnitSubsumptionTactic, v []ast.ASTHandle) (_ []ast.ASTHandle, resultErr error) {
+	g, err := tactic.NewGoal(p.manager, false, false, false)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, g.Close()) }()
+	for _, e := range v {
+		if err = g.Assert(e); err != nil {
+			return nil, err
+		}
+	}
+	result := &tactic.TacticResult{}
+	defer func() { resultErr = errors.Join(resultErr, result.Close()) }()
+	if err = us.Apply(g, result); err != nil {
+		return nil, err
+	}
+	if len(result.Goals) != 1 {
+		return nil, ast.ErrASTDomain
+	}
+	forms, err := result.Goals[0].AppendFormulas(nil)
+	if err != nil {
+		return nil, err
+	}
+	for _, form := range forms {
+		if _, held := p.propertyLevel[form]; held {
+			continue
+		}
+		reference, err := p.manager.NewRef(form)
+		if err != nil {
+			return nil, err
+		}
+		p.references = append(p.references, reference)
+	}
+	return forms, nil
 }
 
 func (p *PredicateTransformer) CheckReachable(level uint32, state ast.ASTHandle, wantCore, wantModel bool) (PropCheckResult, error) {
