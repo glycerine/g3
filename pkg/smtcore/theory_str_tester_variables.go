@@ -17,6 +17,17 @@ func (t *SMTStringTheory) stringTesterSubjectName(subject ast.ASTHandle) (name s
 	if err != nil {
 		return "", err
 	}
+	// mk_ismt2_pp prints through ast_smt2_pp's format_ref, which frees the
+	// document when printing ends.
+	formats, err := m.GetFormatManager()
+	if err != nil {
+		return "", err
+	}
+	owner, err := formats.NewRef(format)
+	if err != nil {
+		return "", err
+	}
+	defer func() { result = errors.Join(result, formats.DelRef(&owner)) }()
 	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: m.Budget()})
 	if err != nil {
 		return "", err
