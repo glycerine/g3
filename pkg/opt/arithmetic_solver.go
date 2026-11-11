@@ -91,6 +91,9 @@ func (r *ArithmeticResult) Close() error {
 // blockers cannot mutate the command context's ordinary incremental solver.
 type ArithmeticSolver struct {
 	backend *smtcore.SMTSolver
+	// detached marks a backend handed to another owner (gia_pareto runs
+	// on opt::context's m_solver); Close then leaves it open.
+	detached bool
 	sat     *satsolver.Solver // update_solver's mk_inc_sat_solver
 	// softEngines are the maxsmt m_msolver engines, kept for
 	// commit_assignment until Close.
@@ -1221,11 +1224,23 @@ func (s *ArithmeticSolver) Close() error {
 			s.preprocessorCleanup = false
 		}
 	}
-	err = errors.Join(err, s.backend.Close())
+	if !s.detached {
+		err = errors.Join(err, s.backend.Close())
+	}
 	if err == nil {
 		s.backend = nil
 	}
 	return err
+}
+
+// DetachBackend hands the optimization SMT solver to the caller, which then
+// owns it; the ArithmeticSolver must not be used afterwards except Close.
+func (s *ArithmeticSolver) DetachBackend() *smtcore.SMTSolver {
+	if s == nil || s.backend == nil || s.detached {
+		return nil
+	}
+	s.detached = true
+	return s.backend
 }
 
 // optUpperOf is m_upper[i]; optsmt::add initializes it to +infinity.

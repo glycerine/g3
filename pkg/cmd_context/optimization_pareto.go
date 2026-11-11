@@ -216,9 +216,17 @@ func (c *Context) closeParetoBackend() error {
 }
 
 func (c *Context) newParetoBackend(assumptions []ast.ASTHandle) (backend *smtcore.SMTSolver, resultErr error) {
-	backend, err := smtcore.NewOptimizationSMTSolver(c.manager, &c.params, c.logic, c.config)
-	if err != nil {
-		return nil, err
+	// gia_pareto runs on opt::context's m_solver, the opt_solver that
+	// init_solver built; take it over when this check created one.
+	var err error
+	if c.preparedOptimizer != nil {
+		backend = c.preparedOptimizer.DetachBackend()
+	}
+	if backend == nil {
+		backend, err = smtcore.NewOptimizationSMTSolver(c.manager, &c.params, c.logic, c.config)
+		if err != nil {
+			return nil, err
+		}
 	}
 	published := false
 	ownedBackend := backend
