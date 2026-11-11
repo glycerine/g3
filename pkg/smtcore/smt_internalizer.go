@@ -839,18 +839,17 @@ func (s *SMTInternalizerState) clauseLiteralExpressions(literals []SMTLiteral) (
 	result := make([]ast.ASTHandle, len(literals))
 	for index, literal := range literals {
 		// The reserved true variable has no boolExpr entry in the Go
-		// table. Gate definitions still include true/false literals before
-		// clause simplification, so reconstruct their source expressions.
+		// table. mk_clause_def_axiom maps it through m_bool_var2expr, so
+		// true_literal is true and false_literal is the raw (not true).
 		if literal == SMTTrueLiteral || literal == SMTFalseLiteral {
-			var err error
-			if literal == SMTTrueLiteral {
-				result[index], err = s.manager.MkTrue()
-			} else {
-				result[index], err = s.manager.MkFalse()
+			truth, err := s.manager.MkTrue()
+			if err == nil && literal == SMTFalseLiteral {
+				truth, err = s.manager.MkNot(truth)
 			}
 			if err != nil {
 				return nil, err
 			}
+			result[index] = truth
 			continue
 		}
 		expression, err := s.BoolExpression(literal.Var())

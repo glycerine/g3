@@ -39,7 +39,13 @@ func TestSMTInternalizerGateProofReservedConstants(t *testing.T) {
 		}
 		value, err := m.GetArg(fact, 1)
 		astTestMust(t, err)
-		if (constant == SMTTrueLiteral && !m.IsTrue(value)) || (constant == SMTFalseLiteral && !m.IsFalse(value)) {
+		// mk_clause_def_axiom reads m_bool_var2expr[true_bool_var]:
+		// false_literal is the raw (not true).
+		negatedTrue := false
+		if notTrue, child, err := m.IsNot(value); err == nil && notTrue {
+			negatedTrue = m.IsTrue(child)
+		}
+		if (constant == SMTTrueLiteral && !m.IsTrue(value)) || (constant == SMTFalseLiteral && !negatedTrue) {
 			t.Fatal("reserved literal proof expression", constant, value)
 		}
 	}
