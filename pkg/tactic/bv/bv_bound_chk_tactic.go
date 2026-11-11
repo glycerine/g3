@@ -341,5 +341,6 @@ func (t *BVBoundCheckTactic) rewriteGoal(g *tactic.Goal) (err error) {
 	}
 	// Source calls only default cfg.cleanup(), not rewriter cleanup/reset.
 	t.current.configuration.DefaultConfiguration.Cleanup()
-	return nil
+	// expr_ref new_curr is a local of imp::operator(): it dies here.
+	return t.manager.ResetRef(t.current.out)
 }
