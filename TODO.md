@@ -1577,7 +1577,7 @@ Found while matching `-st` output against `build/z3` on
     (ef71015dc). The first diff in recursive_mutual_and_arguments moved
     from line 916 to line 1135.
 
-34. **Open (2026-11-10): persistent auf_solver.** In z3,
+34. **DONE (2026-11-10, e1f607765): persistent auf_solver.** In z3,
     model_finder::m_auf_solver lives with the model finder. process_auf
     resets it at its start: flush_nodes deletes the nodes in m_nodes
     order, each root deleting its set in table order. set_model resets
@@ -1591,5 +1591,6 @@ Found while matching `-st` output against `build/z3` on
     g3 builds a transient graph per FixModel, copies each variable's
     set into per-quantifier f.sets, re-evaluates without a cache, and
     releases sets per quantifier. As a result, recursive_mutual_and_arguments
-    line 1136 recycles ids in a different order, because the sets and
-    eval results die in a different order.
+    line 1136 recycled ids in a different order, because the sets and
+    eval results died in a different order. g3 now follows the source
+    lifecycle, and recursive_mutual_and_arguments is identical.
