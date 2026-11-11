@@ -1735,3 +1735,28 @@ Found while matching `-st` output against `build/z3` on
     line 1136 recycled ids in a different order, because the sets and
     eval results died in a different order. g3 now follows the source
     lifecycle, and recursive_mutual_and_arguments is identical.
+
+35. **Open (2026-11-11): qe tactic top-level flow.** qe_cooper_symbolic_blast
+    (now no longer timing out) differs at line 53: z3's qe_tactic runs
+    expr_quant_elim::elim -> quant_elim_new::eliminate_exists_bind ->
+    eliminate_block, which builds the plugins (mk_arith_plugin's
+    arith_qe_util numerals come first) and then the quant_elim_plugin
+    search. g3's rewriteQuantifierScalar
+    (qe/quantifier_tactic_bool_recursive.go) runs its own cascade
+    (eliminateQuantifierBoolUnits, ...ArithmeticEquations,
+    ...ArithmeticClosed, ...ArithmeticSearch, ...), so
+    ConjunctionEnum.ExtractEqualities runs before any plugin exists. The
+    ported search tree (qe/expr_quantifier_tree*.go) is already there;
+    a faithful fix routes the tactic through eliminate_block with the
+    plugin set and deletes the cascade. Large port.
+
+36. **Open (2026-11-11): theory_str mk_eq_atom audit.** z3's theory_str
+    builds equalities with ctx.mk_eq_atom (461 sites; raw m.mk_eq only
+    at lines 1038, 10734, 11069-11110 and 11714). g3's theory_str still
+    calls m.MkEq at about 115 sites, so String equalities can keep the
+    wrong orientation (mk_eq_atom puts the lower id on the left; Int
+    sides go through arith_util::mk_eq). ed791f2de fixed the
+    automaton-path sites. Convert the rest site by site against the
+    source. Related: attachBooleanEnode sets mergeTruthValue on an
+    existing enode without a trail (smtcore/smt_internalizer.go), which
+    context::mk_enode never does.
