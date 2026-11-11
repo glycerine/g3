@@ -49,6 +49,9 @@ func (d *EqualityDER) applyQuantifierSubstitution(c *equalityDERCall, q ast.ASTH
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	// apply_substitution's expr_ref locals (t, new_e, the pattern buffers)
+	// die at its return, before reduce_quantifier1 builds the der proof.
+	mark := len(c.refs)
 	out, err := c.ref(ast.ASTHandle{})
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -103,7 +106,10 @@ func (d *EqualityDER) applyQuantifierSubstitution(c *equalityDERCall, q ast.ASTH
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	return c.hold(result)
+	if err = c.releaseFromReverse(mark, []ast.ASTHandle{result}); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return result, nil
 }
 func (d *EqualityDER) reduceQuantifierOnce(c *equalityDERCall, q ast.ASTHandle) (ast.ASTHandle, error) {
 	n, err := d.manager.GetNumDeclarations(q)

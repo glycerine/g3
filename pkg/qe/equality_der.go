@@ -76,6 +76,25 @@ func (c *equalityDERCall) releaseFrom(mark int, kept []ast.ASTHandle) error {
 	return closeEqualityRefs(c.owner.manager, scope)
 }
 
+// releaseFromReverse is releaseFrom for a C++ frame whose expr_ref locals
+// are destroyed in reverse declaration order.
+func (c *equalityDERCall) releaseFromReverse(mark int, kept []ast.ASTHandle) error {
+	scope := append([]ast.ASTRef(nil), c.refs[mark:]...)
+	c.refs = c.refs[:mark]
+	for _, h := range kept {
+		if _, err := c.hold(h); err != nil {
+			return errors.Join(err, closeEqualityRefs(c.owner.manager, scope))
+		}
+	}
+	var result error
+	for i := len(scope) - 1; i >= 0; i-- {
+		if scope[i] != (ast.ASTRef{}) {
+			result = errors.Join(result, c.owner.manager.DelRef(&scope[i]))
+		}
+	}
+	return result
+}
+
 func closeEqualityRefs(m *ast.ASTManager, refs []ast.ASTRef) (result error) {
 	for i := range refs {
 		if refs[i] != (ast.ASTRef{}) {
