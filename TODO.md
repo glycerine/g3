@@ -1650,7 +1650,15 @@ Found while matching `-st` output against `build/z3` on
     (1) other ConvertFormula callers have the same mux-lifetime retention
     and should move to caller-owned refs where the source uses a local
     expr_ref; (2) at pdr_initial_trace 12926, (= #38 #29) from
-    qe-lite's abstraction outlives z3's copy. Tools: $W/build_g3rc.sh
+    qe-lite's abstraction outlives z3's copy. (3) pdr_background 548:
+    `query!0 #25` (mk_query's head application) is held by g3's query rule
+    in e.set until removeQueryRule after solve; z3 has freed it before the
+    first true-axiom. z3's dl_interface::query calls replace_rules(old_rules)
+    before solve, but check_reset's m_old_rules also keeps the post-mk_query
+    rules, so z3's rule head is likely a different term (mk_rule's variable
+    normalization) and the original app dies with mk_query's locals.
+    Compare g3's makeQueryHead/newRuleWithHeadPolicy with
+    rule_manager::mk_query/mk_rule. Tools: $W/build_g3rc.sh
     (G3_RC_ID=n logs every inc/dec of that main-manager node with a
     short stack into the trace).
     Open lead: fixedpoint_pdr_initial_trace (also recursive_trace and
