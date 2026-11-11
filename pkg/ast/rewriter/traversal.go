@@ -182,6 +182,7 @@ func (r *Traversal) EnableModelBooleanShortCircuit() error {
 	r.engine.modelBooleanShortCircuit = true
 	return nil
 }
+
 // ProofGen is m_proof_gen, fixed when the rewriter was constructed.
 func (r *Traversal) ProofGen() bool { return r != nil && r.engine.core.proofGen }
 
