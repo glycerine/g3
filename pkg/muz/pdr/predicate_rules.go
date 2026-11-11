@@ -1005,31 +1005,6 @@ func (p *PredicateTransformer) PropagationFormula(level uint32) (result ast.ASTH
 	return result, nil
 }
 
-// IsInvariant tests a property against the current frame. The inductive form
-// also adds tag-guarded self-predecessor assumptions.
-func (p *PredicateTransformer) IsInvariant(level uint32, property ast.ASTHandle, inductive, wantCore bool) (bool, bool, []ast.ASTHandle, error) {
-	if err := p.open(); err != nil {
-		return false, false, nil, err
-	}
-	if level == InfinityLevel {
-		return false, false, nil, ast.ErrASTDomain
-	}
-	negated, err := p.manager.MkNotSimplified(property)
-	if err != nil {
-		return false, false, nil, err
-	}
-	assumptions := []ast.ASTHandle{negated}
-	if inductive {
-		additional, x := p.makeAssumptions(p.head, property)
-		if x != nil {
-			return false, false, nil, x
-		}
-		assumptions = append(assumptions, additional...)
-	}
-	result, err := p.solver.CheckAtLevel(level, assumptions, wantCore, false)
-	return result.Status == lbool.False, result.AssumesLevel, result.Core, err
-}
-
 // inductiveAssumptionsRef builds the source check_inductive formula. Its
 // output owns the conjunction after temporary state roots are released.
 func (p *PredicateTransformer) inductiveAssumptionsRef(literals []ast.ASTHandle) (result ast.ASTRef, resultErr error) {

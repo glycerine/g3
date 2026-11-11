@@ -530,26 +530,37 @@ func (p *PredicateTransformer) CheckReachable(level uint32, state ast.ASTHandle,
 	return p.solver.CheckAtLevel(level, []ast.ASTHandle{state}, wantCore, wantModel)
 }
 
-// IsInvariantAtLevel tests whether the current frames refute not(property).
-func (p *PredicateTransformer) IsInvariantAtLevel(level uint32, property ast.ASTHandle, wantCore bool) (bool, bool, []ast.ASTHandle, error) {
+// IsInvariantAtLevel is pred_transformer::is_invariant(level, states, false,
+// assumes_level, core): conj = [mk_not(states)], tmp = pm.mk_and(conj), and
+// check_conjunction_as_assumptions(tmp) at the selected level.
+func (p *PredicateTransformer) IsInvariantAtLevel(level uint32, property ast.ASTHandle, wantCore bool) (_ bool, _ bool, _ []ast.ASTHandle, resultErr error) {
 	if err := p.open(); err != nil {
 		return false, false, nil, err
 	}
 	if level == InfinityLevel {
 		return false, false, nil, ast.ErrASTDomain
 	}
-	negated, err := p.manager.MkNotSimplified(property)
+	negated, err := p.manager.MkNot(property)
 	if err != nil {
 		return false, false, nil, err
 	}
-	// The caller's expr_ref keeps the negated property alive through the
-	// check (the safe-assumption definitions release theirs on return).
-	held, err := p.manager.NewRef(negated)
+	conj, err := p.manager.NewRef(negated)
 	if err != nil {
 		return false, false, nil, err
 	}
-	result, err := p.CheckReachable(level, negated, wantCore, false)
-	err = errors.Join(err, p.manager.DelRef(&held))
+	tmp, err := p.owner.AndRef([]ast.ASTHandle{negated})
+	if err != nil {
+		return false, false, nil, errors.Join(err, p.manager.DelRef(&conj))
+	}
+	// Locals are destroyed in reverse: tmp, then conj.
+	defer func() {
+		resultErr = errors.Join(resultErr, p.owner.releaseNotAndRef(&tmp), p.manager.DelRef(&conj))
+	}()
+	assumption, err := p.manager.RefGet(tmp)
+	if err != nil {
+		return false, false, nil, err
+	}
+	result, err := p.solver.CheckAtLevel(level, []ast.ASTHandle{assumption}, wantCore, false)
 	return result.Status == lbool.False, result.AssumesLevel, result.Core, err
 }
 
