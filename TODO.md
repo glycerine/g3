@@ -1510,7 +1510,13 @@ Found while matching `-st` output against `build/z3` on
     (not #258) first in z3 and last in g3, and the later check-sat
     (line 6 of stdout) then runs past 60s. Still open: find that
     conflict's source (not seq setConflict/propagateLit, whose order
-    matches).
+    matches). Found: it is an eq_conflict_justification (two interpreted
+    roots merged). Its get_antecedents, the LIFO m_todo_eqs drain and
+    eq2literals all match the source, so the different antecedent order
+    must come from the enode proof tree (m_trans edge direction chosen
+    in add_eq/merge, e.g. class-size or interpreted-root swaps). Next
+    step: compare merge directions on this vector (trace the
+    [merge]/add_eq records).
 
 29. **Open (2026-11-10): fixedpoint_relation_representations.** z3 builds
     `(iff var true)` for each query of a Bool relation (after the query
