@@ -1509,3 +1509,22 @@ Found while matching `-st` output against `build/z3` on
     ensure_app, fix_unbound_vars nor mk_query (gdb shows no hits there);
     the next candidates are the rel_context query path and relation
     plugins.
+
+30. **Open (2026-11-10): opt pareto pipeline order.** In
+    pareto_bit_vector_optimization, z3's opt::context::optimize runs
+    init_solver first: the opt_solver's smt::kernel builds the qi_queue
+    cost-parser variables, then the objectives are purified into fresh
+    maximize!!N constants, and only then are the objectives bit-blasted.
+    g3 bit-blasts the objectives before it builds the solver, and never
+    creates the maximize!! constants. Port opt::context::optimize/normalize
+    in source order.
+
+31. **Open (2026-11-10): PDR/spacer query pipeline lifetimes (about 40
+    fixedpoint_* and fp_spacer_* vectors).** g3's
+    muz/fp queryRelationMkQuery is a reimplementation of
+    engine_base::query -> pdr::dl_interface::query ->
+    apply_default_transformation. Term lifetimes differ as a result. In
+    fixedpoint_pdr_bit_blast, `(p x)` and `(= x x)` survive in z3 until
+    ~mk_interp_tail_simplifier, when the rule transformer is destroyed
+    at the end of apply_default_transformation; g3 frees them before it
+    builds `query!0!bv!2`. Port the transformer ownership structure.
