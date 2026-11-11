@@ -1565,10 +1565,31 @@ Found while matching `-st` output against `build/z3` on
     format string (#238) that g3 has already freed and rebuilds. Track
     format-manager deletions to find the earlier lifetime difference.
 
-33. **rewriteAdd (2026-11-10).** g3's add rewrite now has
-    mk_nflat_add_core's BR_FAILED exits. recursive_mutual_and_arguments
-    line 917 is not the rewrite itself: g3 rewrites the -3 offset sum
-    earlier than z3. The instantiation sets already walk obj_map order and
-    from/to roots differ, so the remaining suspect is the order of
-    f_var_plus_offset populate passes across quantifiers and qinfos
-    (populate_inst_sets vs populate_inst_sets2).
+33. **DONE (2026-11-10): rewriteAdd and model finder analysis order.**
+    g3's add rewrite has mk_nflat_add_core's BR_FAILED exits (7a6d9b7d7).
+    The line-917 difference came from the model finder.
+    populate_inst_sets now walks one qinfo order (8c6134371). The
+    quantifier_analyzer traversal is the source worklist, with m_ftodo
+    and m_ttodo as LIFO stacks; visit_term shares m_pos_cache, so a
+    Boolean term's positive visit is skipped (d9c4bd2d0).
+    cleanup_func_interp uses the source todo stack and trail (c49a25293).
+    A copied theory_seq builds its kernel at register_plugin
+    (ef71015dc). The first diff in recursive_mutual_and_arguments moved
+    from line 916 to line 1135.
+
+34. **Open (2026-11-10): persistent auf_solver.** In z3,
+    model_finder::m_auf_solver lives with the model finder. process_auf
+    resets it at its start: flush_nodes deletes the nodes in m_nodes
+    order, each root deleting its set in table order. set_model resets
+    the eval cache. The eval cache (m_eval_cache[2] plus the
+    m_eval_cache_range trail) memoizes model evaluations.
+    get_uvar_inst_set reads the node root set, or
+    qinfo->get_macro_based_inst_set for macro-satisfied quantifiers.
+    ~model_finder runs reset() (the quantifier_infos) and then destroys
+    its members in reverse order. ~auf_solver runs flush_nodes and then
+    reset_eval_cache.
+    g3 builds a transient graph per FixModel, copies each variable's
+    set into per-quantifier f.sets, re-evaluates without a cache, and
+    releases sets per quantifier. As a result, recursive_mutual_and_arguments
+    line 1136 recycles ids in a different order, because the sets and
+    eval results die in a different order.
