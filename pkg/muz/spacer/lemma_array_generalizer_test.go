@@ -74,10 +74,17 @@ func TestArrayEqualityGeneralizerStrengthensContradictoryLiteral(t *testing.T) {
 		t.Fatal("array constant collection", constants)
 	}
 	secondBefore, thirdBefore := owner.contexts[1].created, owner.contexts[2].created
-	strengthened, applicable, err := transformer.strengthenArrayEqualities([]ast.ASTHandle{disequality})
+	strengthened, checker, applicable, err := transformer.strengthenArrayEqualities([]ast.ASTHandle{disequality})
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		if checker != nil {
+			if err := checker.Close(); err != nil {
+				t.Error(err)
+			}
+		}
+	}()
 	defer func() {
 		if err := releaseNormalizeRefs(manager, strengthened); err != nil {
 			t.Error(err)
@@ -102,9 +109,16 @@ func TestArrayEqualityGeneralizerStrengthensContradictoryLiteral(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	unchanged, applicable, err := transformer.strengthenArrayEqualities([]ast.ASTHandle{truth})
+	unchanged, unchangedChecker, applicable, err := transformer.strengthenArrayEqualities([]ast.ASTHandle{truth})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if unchangedChecker != nil {
+		defer func() {
+			if err := unchangedChecker.Close(); err != nil {
+				t.Error(err)
+			}
+		}()
 	}
 	defer func() {
 		if err := releaseNormalizeRefs(manager, unchanged); err != nil {

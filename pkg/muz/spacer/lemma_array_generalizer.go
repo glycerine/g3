@@ -121,50 +121,57 @@ func (p *PredicateTransformer) collectArrayConstants(root ast.ASTHandle) ([]ast.
 	return result, nil
 }
 
-func (p *PredicateTransformer) strengthenArrayEqualities(core []ast.ASTHandle) (result []ast.ASTRef, applicable bool, resultErr error) {
+// strengthenArrayEqualities returns the strengthened literals and the
+// smt::kernel they were checked with: the kernel is a local of the source
+// generalizer and dies after check_inductive, so the caller closes it.
+func (p *PredicateTransformer) strengthenArrayEqualities(core []ast.ASTHandle) (result []ast.ASTRef, checker *smtcore.SMTSolver, applicable bool, resultErr error) {
 	conjunction, err := p.manager.MkAndArray(core)
 	if err != nil {
-		return nil, false, err
+		return nil, nil, false, err
 	}
 	declarations, err := p.collectArrayConstants(conjunction)
 	if err != nil || len(declarations) <= 1 || len(declarations) >= 8 {
 		if err != nil {
-			return nil, false, err
+			return nil, nil, false, err
 		}
 		refs, err := refsFromHandles(p.manager, core)
-		return refs, false, err
+		return refs, nil, false, err
 	}
 	// Source core, eqs and lits are owning expr_ref_vectors. Keep candidates
 	// alive across speculative solver pops and transfer owning output refs.
 	coreRefs, err := refsFromHandles(p.manager, core)
 	if err != nil {
-		return nil, false, err
+		return nil, nil, false, err
 	}
 	attempt := &arrayGeneralizerAttempt{manager: p.manager, core: coreRefs}
 	defer func() {
 		resultErr = finishArrayGeneralizerAttempt(attempt, resultErr)
 		if resultErr != nil {
 			result = nil
+			if checker != nil {
+				resultErr = errors.Join(resultErr, checker.Close())
+				checker = nil
+			}
 		}
 	}()
 	equalities := make([]ast.ASTHandle, 0, len(declarations)*(len(declarations)-1)/2)
 	for left := 0; left < len(declarations); left++ {
 		leftValue, err := p.manager.MkApp(declarations[left], nil)
 		if err != nil {
-			return nil, false, err
+			return nil, nil, false, err
 		}
 		for right := left + 1; right < len(declarations); right++ {
 			rightValue, err := p.manager.MkApp(declarations[right], nil)
 			if err != nil {
-				return nil, false, err
+				return nil, nil, false, err
 			}
 			equality, err := p.manager.MkEq(leftValue, rightValue)
 			if err != nil {
-				return nil, false, err
+				return nil, nil, false, err
 			}
 			ref, err := p.manager.NewRef(equality)
 			if err != nil {
-				return nil, false, err
+				return nil, nil, false, err
 			}
 			attempt.candidates = append(attempt.candidates, ref)
 			equalities = append(equalities, equality)
@@ -174,54 +181,55 @@ func (p *PredicateTransformer) strengthenArrayEqualities(core []ast.ASTHandle) (
 	// kernel over the second parameter family, not a pooled virtual solver
 	// (whose assertions would be guarded by its predicate).
 	family := p.owner.contexts[1]
-	checker, err := smtcore.NewSMTSolver(p.manager, family.params, "", family.config)
+	kernel, err := smtcore.NewSMTSolver(p.manager, family.params, "", family.config)
 	if err != nil {
-		return nil, false, err
+		return nil, nil, false, err
 	}
-	attempt.checker = checker
+	attempt.checker = kernel
 	result = make([]ast.ASTRef, 0, len(core))
 	for _, literal := range core {
-		if err = checker.Push(); err != nil {
-			return nil, false, err
+		if err = kernel.Push(); err != nil {
+			return nil, nil, false, err
 		}
-		if err = checker.Assert(literal); err != nil {
-			return nil, false, errors.Join(fmt.Errorf("assert array core literal: %w", err), checker.Pop(1))
+		if err = kernel.Assert(literal); err != nil {
+			return nil, nil, false, errors.Join(fmt.Errorf("assert array core literal: %w", err), kernel.Pop(1))
 		}
 		strengthened := literal
 		for _, equality := range equalities {
-			if err = checker.Push(); err != nil {
-				return nil, false, errors.Join(err, checker.Pop(1))
+			if err = kernel.Push(); err != nil {
+				return nil, nil, false, errors.Join(err, kernel.Pop(1))
 			}
-			if err = checker.Assert(equality); err != nil {
-				return nil, false, errors.Join(fmt.Errorf("assert candidate array equality: %w", err), checker.Pop(2))
+			if err = kernel.Assert(equality); err != nil {
+				return nil, nil, false, errors.Join(fmt.Errorf("assert candidate array equality: %w", err), kernel.Pop(2))
 			}
-			status, checkErr := checker.CheckSat(nil)
-			popErr := checker.Pop(1)
+			status, checkErr := kernel.CheckSat(nil)
+			popErr := kernel.Pop(1)
 			if checkErr != nil {
-				return nil, false, errors.Join(fmt.Errorf("check candidate array equality: %w", checkErr), popErr, checker.Pop(1))
+				return nil, nil, false, errors.Join(fmt.Errorf("check candidate array equality: %w", checkErr), popErr, kernel.Pop(1))
 			}
 			if popErr != nil {
-				return nil, false, errors.Join(popErr, checker.Pop(1))
+				return nil, nil, false, errors.Join(popErr, kernel.Pop(1))
 			}
 			if status == lbool.False {
 				strengthened, err = p.manager.MkNot(equality)
 				if err != nil {
-					return nil, false, errors.Join(err, checker.Pop(1))
+					return nil, nil, false, errors.Join(err, kernel.Pop(1))
 				}
 				break
 			}
 		}
 		ref, err := p.manager.NewRef(strengthened)
 		if err != nil {
-			return nil, false, errors.Join(err, checker.Pop(1))
+			return nil, nil, false, errors.Join(err, kernel.Pop(1))
 		}
 		result = append(result, ref)
 		attempt.output = result
-		if err = checker.Pop(1); err != nil {
-			return nil, false, err
+		if err = kernel.Pop(1); err != nil {
+			return nil, nil, false, err
 		}
 	}
-	return result, true, nil
+	attempt.checker = nil
+	return result, kernel, true, nil
 }
 
 func (p *PredicateTransformer) generalizeArrayEqualityLemma(obligation *ProofObligation, lemma *Lemma) (_ *Lemma, resultErr error) {
@@ -229,7 +237,13 @@ func (p *PredicateTransformer) generalizeArrayEqualityLemma(obligation *ProofObl
 	if err != nil {
 		return lemma, err
 	}
-	strengthened, applicable, err := p.strengthenArrayEqualities(cube)
+	strengthened, checker, applicable, err := p.strengthenArrayEqualities(cube)
+	// At the source generalizer's return lits die first, then the kernel.
+	defer func() {
+		if checker != nil {
+			resultErr = errors.Join(resultErr, checker.Close())
+		}
+	}()
 	defer func() { resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, strengthened)) }()
 	if err != nil {
 		return lemma, err

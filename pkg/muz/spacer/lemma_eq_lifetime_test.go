@@ -111,8 +111,11 @@ func TestSpacerArrayGeneralizerOwnsCandidateAcrossSolverPop(t *testing.T) {
 	pin, err := m.NewRef(literal)
 	depthMust(t, err)
 	defer func() { depthMust(t, m.DelRef(&pin)) }()
-	strengthened, applicable, err := c.transformers[f.query].strengthenArrayEqualities([]ast.ASTHandle{literal})
+	strengthened, checker, applicable, err := c.transformers[f.query].strengthenArrayEqualities([]ast.ASTHandle{literal})
 	depthMust(t, err)
+	if checker != nil {
+		defer func() { depthMust(t, checker.Close()) }()
+	}
 	if !applicable || len(strengthened) != 1 {
 		t.Fatal("expected a strengthened array disequality")
 	}

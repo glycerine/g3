@@ -23,14 +23,29 @@ func (p *PredicateTransformer) checkInductiveCube(cube []ast.ASTHandle, level ui
 			core = nil
 		}
 	}()
-	conjunction, err := p.manager.MkAndArray(cube)
+	// states = m.mk_not(pm.mk_and(state)): the bool rewriter's flat and
+	// under a raw not (a double negation stays), held to the return.
+	conjunctionRef, err := p.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return nil, 0, false, err
 	}
-	states, err := p.manager.PushNot(conjunction)
+	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&conjunctionRef)) }()
+	if err = p.owner.boolean.MkAnd(cube, conjunctionRef); err != nil {
+		return nil, 0, false, err
+	}
+	conjunction, err := p.manager.RefGet(conjunctionRef)
 	if err != nil {
 		return nil, 0, false, err
 	}
+	states, err := p.manager.MkNot(conjunction)
+	if err != nil {
+		return nil, 0, false, err
+	}
+	statesRef, err := p.manager.NewRef(states)
+	if err != nil {
+		return nil, 0, false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&statesRef)) }()
 	head, err := p.Head()
 	if err != nil {
 		return nil, 0, false, err
