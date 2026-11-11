@@ -66,24 +66,65 @@ func (q *SMTQIQueueSchedule) HasWork() bool {
 	return q != nil && len(q.newEntries) != 0
 }
 
-// ScheduleNew applies the eager threshold. promoted identifies entries whose
-// instantiated formula is already known to conflict, matching qi_promote_unsat.
+// instantiateNew is qi_queue::instantiate's walk over m_new_entries: an
+// entry within the eager cost threshold is instantiated at once; a costlier
+// one is instantiated when promote reports that it produces a conflict
+// (m_qi_promote_unsat with checker::is_unsat), and delayed otherwise.
+// Every hundred entries the resource limits are checked, and the walk stops
+// when they are exceeded. m_new_entries is then reset.
+func (q *SMTQIQueueSchedule) instantiateNew(promote func(SMTQIQueueEntry) (bool, error), instantiate func(SMTQIQueueEntry) error, exceeded func() (bool, error)) error {
+	if q == nil {
+		return ast.ErrASTHandle
+	}
+	sinceLastCheck := 0
+	for i := range q.newEntries {
+		entry := q.newEntries[i]
+		if entry.Cost <= q.eagerThreshold {
+			entry.Instantiated = true
+			if err := instantiate(entry); err != nil {
+				return err
+			}
+		} else if promoted, err := promote(entry); err != nil {
+			return err
+		} else if promoted {
+			entry.Instantiated = true
+			if err := instantiate(entry); err != nil {
+				return err
+			}
+		} else {
+			q.delayedEntries = append(q.delayedEntries, entry)
+		}
+		check := sinceLastCheck > 100
+		sinceLastCheck++
+		if check && exceeded != nil {
+			stop, err := exceeded()
+			if err != nil {
+				return err
+			}
+			if stop {
+				break
+			}
+			sinceLastCheck = 0
+		}
+	}
+	q.newEntries = nil
+	return nil
+}
+
+// ScheduleNew runs instantiateNew with promoted marking the conflicting
+// entries, returning the entries to instantiate in order.
 func (q *SMTQIQueueSchedule) ScheduleNew(promoted map[*SMTFingerprint]bool) ([]SMTQIQueueEntry, error) {
 	if q == nil {
 		return nil, ast.ErrASTHandle
 	}
 	ready := make([]SMTQIQueueEntry, 0, len(q.newEntries))
-	for i := range q.newEntries {
-		entry := q.newEntries[i]
-		if entry.Cost <= q.eagerThreshold || promoted[entry.Fingerprint] {
-			entry.Instantiated = true
-			ready = append(ready, entry)
-		} else {
-			q.delayedEntries = append(q.delayedEntries, entry)
-		}
-	}
-	q.newEntries = nil
-	return ready, nil
+	err := q.instantiateNew(func(entry SMTQIQueueEntry) (bool, error) {
+		return promoted[entry.Fingerprint], nil
+	}, func(entry SMTQIQueueEntry) error {
+		ready = append(ready, entry)
+		return nil
+	}, nil)
+	return ready, err
 }
 
 // FinalCheck selects delayed entries exactly as qi_queue::final_check_eh. The

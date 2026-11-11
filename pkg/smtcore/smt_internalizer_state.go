@@ -127,6 +127,9 @@ type SMTInternalizerState struct {
 	// onQuantifierFlush runs when context::flush sets m_qmanager = nullptr:
 	// ~qi_queue releases its cost function's variables there.
 	onQuantifierFlush func() error
+	// resourceLimitsExceeded is context::resource_limits_exceeded (it
+	// records the search failure).
+	resourceLimitsExceeded func() (bool, error)
 	// paramsContext and globals are the kernel's parameter services, borrowed
 	// by theories that build their own rewriters (theory_fpa's converter).
 	paramsContext         *uparams.ParamsContext

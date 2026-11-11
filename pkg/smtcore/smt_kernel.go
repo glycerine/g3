@@ -30,6 +30,8 @@ type SMTKernelAssertion struct {
 }
 
 type SMTKernel struct {
+	// activeSearch is the running search session (m_searching).
+	activeSearch         *smtSearchSession
 	trueProofInitialized bool                       // context::init's proof branch has run
 	queueWarnings        *diagnostic.WarningService // Borrowed factory diagnostics; nil uses process warnings.
 	caseSplitQueue       *SMTActivityCaseSplitQueue
@@ -198,6 +200,7 @@ func NewSMTKernel(manager *ast.ASTManager, quantifiers *SMTQuantifierRegistry) (
 	}
 	internalizer.afterFlush = kernel.releaseContextModels
 	internalizer.onQuantifierFlush = kernel.closeQuantifierCosts
+	internalizer.resourceLimitsExceeded = kernel.resourceLimitsExceeded
 	internalizer.assertedHasQuantifiers = &kernel.assertedHasQuantifiers
 	internalizer.assertedInconsistent = &kernel.assertedInconsistent
 	internalizer.assertedFormulas = &kernel.assertions

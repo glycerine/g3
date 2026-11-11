@@ -383,28 +383,19 @@ func (q *SMTQuantifierManager) PopScopes(count uint32) error {
 	return nil
 }
 
-func (q *SMTQuantifierManager) promotedEntries() (map[*SMTFingerprint]bool, error) {
-	promoted := make(map[*SMTFingerprint]bool)
+// promoteUnsatEntry is m_qi_promote_unsat && m_checker.is_unsat(...).
+func (q *SMTQuantifierManager) promoteUnsatEntry(entry SMTQIQueueEntry) (bool, error) {
 	if !q.promoteUnsat {
-		return promoted, nil
+		return false, nil
 	}
-	for _, entry := range q.registry.schedule.newEntries {
-		if entry.Fingerprint == nil {
-			return nil, ast.ErrASTDomain
-		}
-		body, err := q.state.manager.GetQuantifierBody(entry.Fingerprint.data)
-		if err != nil {
-			return nil, err
-		}
-		unsat, err := q.checker.IsUnsatisfiable(body, entry.Fingerprint.args)
-		if err != nil {
-			return nil, err
-		}
-		if unsat {
-			promoted[entry.Fingerprint] = true
-		}
+	if entry.Fingerprint == nil {
+		return false, ast.ErrASTDomain
 	}
-	return promoted, nil
+	body, err := q.state.manager.GetQuantifierBody(entry.Fingerprint.data)
+	if err != nil {
+		return false, err
+	}
+	return q.checker.IsUnsatisfiable(body, entry.Fingerprint.args)
 }
 
 func (q *SMTQuantifierManager) instantiate(entries []SMTQIQueueEntry) (resultErr error) {
@@ -447,15 +438,11 @@ func (q *SMTQuantifierManager) Propagate() error {
 		return err
 	}
 	q.notifyNewEnodes()
-	promoted, err := q.promotedEntries()
-	if err != nil {
-		return err
-	}
-	entries, err := q.registry.schedule.ScheduleNew(promoted)
-	if err != nil {
-		return err
-	}
-	return q.instantiate(entries)
+	// qi_queue::instantiate: entries are decided and instantiated one at a
+	// time, so a promoted entry's check sees the earlier instances.
+	return q.registry.schedule.instantiateNew(q.promoteUnsatEntry, func(entry SMTQIQueueEntry) error {
+		return q.instantiate([]SMTQIQueueEntry{entry})
+	}, q.state.resourceLimitsExceeded)
 }
 
 func (q *SMTQuantifierManager) active(quantifier ast.ASTHandle) bool {

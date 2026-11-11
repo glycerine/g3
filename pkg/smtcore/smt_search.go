@@ -366,7 +366,41 @@ func (k *SMTKernel) beginSearch() (*smtSearchSession, error) {
 	if k.assumptions != nil {
 		k.internalizer.searchUserBaseLevel--
 	}
+	k.activeSearch = session // m_searching
 	return session, nil
+}
+
+// resourceLimitsExceeded is context::resource_limits_exceeded: the timer
+// and progress checks apply only while searching; cancellation and memory
+// always.
+func (k *SMTKernel) resourceLimitsExceeded() (bool, error) {
+	if session := k.activeSearch; session != nil {
+		if k.lastFailure != SMTFailureOK {
+			return true, nil
+		}
+		return k.searchResourceLimitExceeded(session.timer, &session.nextProgressSample)
+	}
+	exceeded, err := k.manager.Canceled()
+	if err != nil {
+		return false, err
+	}
+	if exceeded {
+		if k.manager.Limit.CancelFlag() {
+			k.lastFailure = SMTFailureCanceled
+		} else {
+			k.lastFailure = SMTFailureResourceLimit
+		}
+		return true, nil
+	}
+	above, err := k.aboveMemoryWatermark()
+	if err != nil {
+		return false, err
+	}
+	if above {
+		k.lastFailure = SMTFailureMemory
+		return true, nil
+	}
+	return false, nil
 }
 
 // endSearch is end_search: it closes the session's timer and the search
@@ -374,6 +408,9 @@ func (k *SMTKernel) beginSearch() (*smtSearchSession, error) {
 // leaves its scopes in place; the next assert, push, pop or check restores
 // the base level through pop_to_base_lvl.
 func (k *SMTKernel) endSearch(session *smtSearchSession) (resultErr error) {
+	if k.activeSearch == session {
+		k.activeSearch = nil
+	}
 	if closeErr := session.timer.Close(); closeErr != nil {
 		resultErr = errors.Join(resultErr, fmt.Errorf("smt search close timer: %w", closeErr))
 	}
