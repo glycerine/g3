@@ -26,6 +26,9 @@ type spacerNormalizedRule struct {
 }
 
 type spacerRuleBuilder struct {
+	// conj is init_rule's expr_ref_vector conj: the init_atom equalities,
+	// released by conj.reset() once fml = mk_and(conj) holds them.
+	conj        []ast.ASTRef
 	transformer *PredicateTransformer
 	all         map[ast.ASTHandle]*PredicateTransformer
 	theory      *rewriter.TheoryRewriter
@@ -43,6 +46,25 @@ func (b *spacerRuleBuilder) pin(handle ast.ASTHandle) error {
 		b.references = append(b.references, reference)
 	}
 	return err
+}
+
+func (b *spacerRuleBuilder) pinConj(handle ast.ASTHandle) error {
+	reference, err := b.transformer.manager.NewRef(handle)
+	if err == nil {
+		b.conj = append(b.conj, reference)
+	}
+	return err
+}
+
+// releaseConj is conj.reset(): front to back.
+func (b *spacerRuleBuilder) releaseConj() (result error) {
+	for i := range b.conj {
+		if b.conj[i] != (ast.ASTRef{}) {
+			result = errors.Join(result, b.transformer.manager.DelRef(&b.conj[i]))
+		}
+	}
+	b.conj = nil
+	return result
 }
 
 func (b *spacerRuleBuilder) fresh(prefix string, sort ast.ASTHandle) (ast.ASTHandle, error) {
@@ -224,7 +246,7 @@ func (b *spacerRuleBuilder) initializeAtom(atom ast.ASTHandle, variables *[]ast.
 				if err != nil {
 					return nil, err
 				}
-				if err = b.pin(equality); err != nil {
+				if err = b.pinConj(equality); err != nil {
 					return nil, err
 				}
 				*conjunction = append(*conjunction, equality)
@@ -235,7 +257,7 @@ func (b *spacerRuleBuilder) initializeAtom(atom ast.ASTHandle, variables *[]ast.
 		if err != nil {
 			return nil, err
 		}
-		if err = b.pin(equality); err != nil {
+		if err = b.pinConj(equality); err != nil {
 			return nil, err
 		}
 		*conjunction = append(*conjunction, equality)
@@ -348,6 +370,8 @@ func (b *spacerRuleBuilder) normalizeRule(source *base.Rule) (result *spacerNorm
 			result = nil
 		}
 	}()
+	// conj's entries left by a failure die with the frame.
+	defer func() { resultErr = errors.Join(resultErr, b.releaseConj()) }()
 	watch, err := stopwatch.NewScopedWatch(&b.transformer.initializeWatch, false)
 	if err != nil {
 		return nil, err
@@ -440,6 +464,10 @@ func (b *spacerRuleBuilder) normalizeRule(source *base.Rule) (result *spacerNorm
 	}
 	if err == nil {
 		err = b.assignLocal(&fml, formula)
+	}
+	// conj.reset(): fml now holds the conjuncts; then tmp dies with its block.
+	if err == nil {
+		err = b.releaseConj()
 	}
 	if err = errors.Join(err, b.transformer.manager.DelRef(&tmp)); err != nil {
 		return nil, err
