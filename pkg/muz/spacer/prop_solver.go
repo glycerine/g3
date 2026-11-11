@@ -81,8 +81,8 @@ type PropSolver struct {
 	levelAtoms    map[ast.ASTHandle]bool
 	// positiveRefs and negativeRefs are m_pos_level_atoms and
 	// m_neg_level_atoms.
-	positiveRefs []ast.ASTRef
-	negativeRefs []ast.ASTRef
+	positiveRefs  []ast.ASTRef
+	negativeRefs  []ast.ASTRef
 	keepProxy     bool
 	ownedBackends [2]*VirtualSolver
 	closed        bool
