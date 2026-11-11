@@ -74,7 +74,11 @@ type ItpSolver struct {
 	assumptions     []ast.ASTRef
 	firstAssumption uint32
 	proxied         bool
-	closed          bool
+	// elimSub is m_elim_proxies_sub (cores off, proofs on): each fresh proxy
+	// maps to true with an asserted(true) proof, inserted when it is made.
+	elimSub    ast.ASTExprSubstitution
+	elimSubSet bool
+	closed     bool
 }
 
 func NewItpSolver(backend solver.Solver, config ItpSolverConfig) (*ItpSolver, error) {
@@ -94,7 +98,18 @@ func NewItpSolver(backend solver.Solver, config ItpSolverConfig) (*ItpSolver, er
 	if manager == nil || config.Params.Symbols() != manager.Symbols {
 		return nil, ErrITPSolverOwner
 	}
-	return &ItpSolver{manager: manager, backend: backend, config: config, baseDefinitions: newItpDefinitions()}, nil
+	s := &ItpSolver{manager: manager, backend: backend, config: config, baseDefinitions: newItpDefinitions()}
+	// m_elim_proxies_sub(m, false, true): Spacer builds its solvers with
+	// proofs enabled, which the source asserts; follow the manager's mode.
+	proofs, err := manager.ProofsEnabled()
+	if err != nil {
+		return nil, err
+	}
+	if s.elimSub, err = manager.NewExprSubstitutionPolicy(false, proofs); err != nil {
+		return nil, err
+	}
+	s.elimSubSet = true
+	return s, nil
 }
 
 func (s *ItpSolver) open() error {
@@ -123,7 +138,12 @@ func (s *ItpSolver) freshProxy() (ast.ASTHandle, error) {
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	proxy, err := s.manager.MkFreshConst(fmt.Sprintf("spacer_proxy!%d", len(s.proxies)), boolean)
+	// m.mk_const(symbol("spacer_proxy!N"), bool): named, not fresh.
+	name, err := s.manager.Symbols.Intern(fmt.Sprintf("spacer_proxy!%d", len(s.proxies)))
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	proxy, err := s.manager.MkConst(name, boolean)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -132,6 +152,24 @@ func (s *ItpSolver) freshProxy() (ast.ASTHandle, error) {
 		return ast.ASTHandle{}, err
 	}
 	s.proxies = append(s.proxies, reference)
+	// -- add the new proxy to proxy eliminator
+	truth, err := s.manager.MkTrue()
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	proof, err := s.manager.MkProofAsserted(truth)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if proof.IsNull() {
+		// mk_asserted returns m_undef_proof when proofs are disabled.
+		if proof, err = s.manager.UndefProof(); err != nil {
+			return ast.ASTHandle{}, err
+		}
+	}
+	if err = s.manager.ExprSubstitutionInsert(s.elimSub, proxy, truth, proof, ast.ASTDependency{}); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	s.activeProxies++
 	return proxy, nil
 }
@@ -428,6 +466,8 @@ func (s *ItpSolver) SetProduceModels(enabled bool) error {
 	return s.backend.SetProduceModels(enabled)
 }
 
+// eliminateProxies is elim_proxies(v): f = mk_and(v) is rewritten by an
+// expr_simp_replacer over m_elim_proxies_sub, and v becomes flatten_and(f).
 func (s *ItpSolver) eliminateProxies(values []ast.ASTRef) (_ []ast.ASTRef, resultErr error) {
 	defer func() {
 		for i := range values {
@@ -436,78 +476,82 @@ func (s *ItpSolver) eliminateProxies(values []ast.ASTRef) (_ []ast.ASTRef, resul
 			}
 		}
 	}()
-	proofs, err := s.manager.ProofsEnabled()
-	if err != nil {
-		return nil, err
-	}
-	substitution, err := s.manager.NewExprSubstitutionPolicy(false, proofs)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, s.manager.DelExprSubstitution(&substitution)) }()
-	truth, err := s.manager.MkTrue()
-	if err != nil {
-		return nil, err
-	}
-	var proof ast.ASTHandle
-	if proofs {
-		proof, err = s.manager.MkProofAsserted(truth)
+	handles := make([]ast.ASTHandle, len(values))
+	for i := range values {
+		h, err := s.manager.RefGet(values[i])
 		if err != nil {
 			return nil, err
 		}
+		handles[i] = h
 	}
-	for _, reference := range s.proxies {
-		proxy, err := s.manager.RefGet(reference)
-		if err != nil {
-			return nil, err
-		}
-		if err = s.manager.ExprSubstitutionInsert(substitution, proxy, truth, proof, ast.ASTDependency{}); err != nil {
-			return nil, err
-		}
-	}
-	replacer, err := rewriter.NewDefaultExprReplacer(s.manager)
+	conjunction, err := s.manager.MkAndArray(handles)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, replacer.Close()) }()
-	if err = replacer.SetSubstitution(&substitution); err != nil {
+	f, err := s.manager.NewRef(conjunction)
+	if err != nil {
 		return nil, err
 	}
-	result := make([]ast.ASTRef, 0, len(values))
-	committed := false
-	defer func() {
-		if !committed {
-			for i := range result {
-				resultErr = errors.Join(resultErr, s.manager.DelRef(&result[i]))
+	defer func() { resultErr = errors.Join(resultErr, s.manager.DelRef(&f)) }()
+	replacer, err := rewriter.NewSimplifyingExprReplacer(s.manager, s.config.Params, s.config.Globals, nil)
+	if err != nil {
+		if replacer != nil {
+			err = errors.Join(err, replacer.Close())
+		}
+		return nil, err
+	}
+	if s.elimSubSet {
+		if err = replacer.SetSubstitution(&s.elimSub); err != nil {
+			return nil, errors.Join(err, replacer.Close())
+		}
+	}
+	rewritten, err := s.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return nil, errors.Join(err, replacer.Close())
+	}
+	err = replacer.Rewrite(conjunction, rewritten)
+	if err == nil {
+		var h ast.ASTHandle
+		if h, err = s.manager.RefGet(rewritten); err == nil {
+			err = s.manager.SetRef(f, h)
+		}
+	}
+	err = errors.Join(err, s.manager.DelRef(&rewritten), replacer.Close())
+	if err != nil {
+		return nil, err
+	}
+	// v.reset(); flatten_and(f, v)
+	for i := range values {
+		if values[i] != (ast.ASTRef{}) {
+			if err = s.manager.DelRef(&values[i]); err != nil {
+				return nil, err
 			}
 		}
-	}()
-	for i := range values {
-		handle, err := s.manager.RefGet(values[i])
-		if err != nil {
-			return nil, err
-		}
-		rewritten, err := s.manager.NewRef(ast.ASTHandle{})
-		if err != nil {
-			return nil, err
-		}
-		if err = replacer.Rewrite(handle, rewritten); err != nil {
-			resultErr = errors.Join(err, s.manager.DelRef(&rewritten))
-			return nil, resultErr
-		}
-		rewrittenHandle, err := s.manager.RefGet(rewritten)
-		if err != nil {
-			_ = s.manager.DelRef(&rewritten)
-			return nil, err
-		}
-		if !s.manager.IsTrue(rewrittenHandle) {
-			result = append(result, rewritten)
-		} else if err = s.manager.DelRef(&rewritten); err != nil {
-			return nil, err
-		}
 	}
-	committed = true
+	h, err := s.manager.RefGet(f)
+	if err != nil {
+		return nil, err
+	}
+	flattened, err := s.manager.FlattenAnd([]ast.ASTHandle{h})
+	if err != nil {
+		return nil, err
+	}
+	result := make([]ast.ASTRef, 0, len(flattened))
+	for _, conjunct := range flattened {
+		ref, err := s.manager.NewRef(conjunct)
+		if err != nil {
+			return nil, errors.Join(err, closeASTRefSlice(s.manager, result))
+		}
+		result = append(result, ref)
+	}
 	return result, nil
+}
+
+func closeASTRefSlice(m *ast.ASTManager, refs []ast.ASTRef) (result error) {
+	for i := range refs {
+		result = errors.Join(result, m.DelRef(&refs[i]))
+	}
+	return result
 }
 
 // ItpCore extracts the retained old-style Spacer Farkas core. Returned
@@ -611,7 +655,12 @@ func (s *ItpSolver) Close() (result error) {
 		return nil
 	}
 	// ~itp_solver leaves the wrapped solver's scopes alone; the
-	// virtual_solver pops them when its factory destroys it.
+	// virtual_solver pops them when its factory destroys it. Members die
+	// in reverse order: m_elim_proxies_sub first.
+	if s.elimSubSet {
+		result = errors.Join(result, s.manager.DelExprSubstitution(&s.elimSub))
+		s.elimSubSet = false
+	}
 	result = errors.Join(result, s.trimAssumptions(0))
 	for i := len(s.scopes) - 1; i >= 0; i-- {
 		result = errors.Join(result, s.scopes[i].close(s.manager))
