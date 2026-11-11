@@ -1556,3 +1556,11 @@ Found while matching `-st` output against `build/z3` on
     ~mk_interp_tail_simplifier, when the rule transformer is destroyed
     at the end of apply_default_transformation; g3 frees them before it
     builds `query!0!bv!2`. Port the transformer ownership structure.
+
+32. **Pretty-printer format ids (2026-11-10).** Fixed: get-consequences
+    prints its vector as one ast_smt2_pp document (82381f483), and
+    theory_str tester names release their mk_ismt2_pp document
+    (7e04eec53). Three generic/legacy string vectors now match. Still
+    open: bv_integer_conversion_scopes line 92987, where z3 reuses a live
+    format string (#238) that g3 has already freed and rebuilds. Track
+    format-manager deletions to find the earlier lifetime difference.
