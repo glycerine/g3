@@ -324,6 +324,11 @@ func (d *EqualityDER) reduceVariableSet(c *equalityDERCall, conjs *[]ast.ASTRef)
 			return false, err
 		}
 		if len(c.order) != 0 {
+			// expr_ref r(m), new_r(m): r = m.mk_and(conjs); m_subst(r, ..,
+			// new_r); m_rewriter(new_r) assigns over new_r (the substituted
+			// term dies there); conjs.reset(); flatten_and(new_r, conjs);
+			// then new_r and r die at the block's end.
+			rootIndex := len(c.refs)
 			root, err := d.manager.MkAndArray(args)
 			if err != nil {
 				return false, err
@@ -335,16 +340,23 @@ func (d *EqualityDER) reduceVariableSet(c *equalityDERCall, conjs *[]ast.ASTRef)
 			if err != nil {
 				return false, err
 			}
+			substitutedIndex := len(c.refs)
 			substituted, err := d.substitute(c, root, bindings)
 			if err != nil {
 				return false, err
 			}
+			outIndex := len(c.refs)
 			out, err := c.ref(ast.ASTHandle{})
 			if err != nil {
 				return false, err
 			}
 			if err = d.rewriter.Rewrite(substituted, out); err != nil {
 				return false, err
+			}
+			if substitutedIndex+1 == outIndex {
+				if err = d.manager.DelRef(&c.refs[substitutedIndex]); err != nil {
+					return false, err
+				}
 			}
 			result, err := d.manager.RefGet(out)
 			if err != nil {
@@ -361,6 +373,12 @@ func (d *EqualityDER) reduceVariableSet(c *equalityDERCall, conjs *[]ast.ASTRef)
 				if err = d.appendConjunction(conjs, part); err != nil {
 					return false, err
 				}
+			}
+			if err = d.manager.DelRef(&c.refs[outIndex]); err != nil {
+				return false, err
+			}
+			if err = d.manager.DelRef(&c.refs[rootIndex]); err != nil {
+				return false, err
 			}
 			reduced = true
 		}
