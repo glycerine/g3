@@ -153,7 +153,13 @@ func (p *commandParser) simplifyCommand() (resultErr error) {
 		if e != nil {
 			return e
 		}
-		if e = p.context.WriteExpression(p.out, proofExpression); e != nil {
+		// ast_smt_pp pp(m); pp.display_expr_smt2(out, pr): the smt_printer,
+		// not the format-based pretty printer.
+		printer, e := ast.NewLegacySMTPrinter(m)
+		if e != nil {
+			return e
+		}
+		if e = printer.DisplayExpr(p.out, proofExpression, nil); e != nil {
 			return e
 		}
 		if _, e = fmt.Fprintln(p.out); e != nil {
