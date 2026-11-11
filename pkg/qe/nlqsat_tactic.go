@@ -243,7 +243,7 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 		return err
 	}
 	defer func() { err = errors.Join(err, preparation.Close()) }()
-	if err = preparation.hoist(t.mode, formulaRef); err != nil {
+	if err = preparation.hoistNL(t.mode, formulaRef); err != nil {
 		return err
 	}
 	if err = preparation.ackermannizeDivisions(formulaRef); err != nil {
@@ -257,7 +257,7 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	if err != nil {
 		return err
 	}
-	truth, err := t.manager.MkFreshConst("nlqsat-is-true", boolean)
+	truth, err := t.manager.MkFreshConst("is_true", boolean)
 	if err != nil {
 		return err
 	}

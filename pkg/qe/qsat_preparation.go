@@ -427,3 +427,83 @@ func (p *qsatPreparation) getVariables(level uint32, out *[]ast.ASTRef) error {
 	}
 	return nil
 }
+
+// hoistNL is nlqsat::hoist: free variables, then pull_quantifier blocks
+// alternating from forall (elim_t) or exists. Unlike qsat's hoist it removes
+// no labels, filters no variables and initializes no levels; its
+// quantifier_hoister and pred_abs are locals.
+func (p *qsatPreparation) hoistNL(mode qsatMode, formula ast.ASTRef) (err error) {
+	if err = p.open(); err != nil {
+		return err
+	}
+	if mode != qsatSAT && mode != qsatQE {
+		return ast.ErrASTDomain
+	}
+	if err = p.drain(); err != nil {
+		return err
+	}
+	c := &qsatPreparationCall{owner: p}
+	p.pending = append(p.pending, c)
+	defer p.finish(c, &err)
+	c.hoister, err = rewriter.NewQuantifierHoister(p.manager, p.config.Context, p.config.Globals, nil)
+	if err != nil {
+		return err
+	}
+	h, err := p.manager.RefGet(formula)
+	if err != nil {
+		return err
+	}
+	if err = p.abstraction.GetFreeVariables(h, &c.variables); err != nil {
+		return err
+	}
+	if err = p.appendRefs(&p.freeVariables, c.variables); err != nil {
+		return err
+	}
+	if err = p.appendBlock(c.variables); err != nil {
+		return err
+	}
+	if err = p.clearRefs(&c.variables); err != nil {
+		return err
+	}
+	forall := mode == qsatQE
+	if err = c.pullNow(forall, formula); err != nil {
+		return err
+	}
+	if forall {
+		err = p.appendBlock(c.variables)
+	} else {
+		err = p.appendRefs(&p.variables[len(p.variables)-1], c.variables)
+	}
+	if err != nil {
+		return err
+	}
+	for {
+		forall = !forall
+		if err = p.clearRefs(&c.variables); err != nil {
+			return err
+		}
+		if err = c.pullNow(forall, formula); err != nil {
+			return err
+		}
+		if err = p.appendBlock(c.variables); err != nil {
+			return err
+		}
+		if len(c.variables) == 0 {
+			return nil
+		}
+	}
+}
+
+// pullNow is pull, with the hoister's result released when the call returns.
+func (c *qsatPreparationCall) pullNow(forall bool, formula ast.ASTRef) error {
+	if err := c.pull(forall, formula); err != nil {
+		return err
+	}
+	last := len(c.results) - 1
+	if err := c.results[last].Close(); err != nil {
+		c.retain(err)
+		return err
+	}
+	c.results = c.results[:last]
+	return nil
+}
