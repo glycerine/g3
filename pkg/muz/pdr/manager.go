@@ -231,6 +231,14 @@ func (m *Manager) FormulaOldToNew(formula ast.ASTHandle, old uint32, homogeneous
 	return m.mux.ConvertFormula(formula, oldIndex(old), 0, homogeneous)
 }
 
+// FormulaOldToNewRef is formula_o2n into a caller-owned expr_ref.
+func (m *Manager) FormulaOldToNewRef(formula ast.ASTHandle, old uint32, homogeneous bool) (ast.ASTRef, error) {
+	if err := m.open(); err != nil {
+		return ast.ASTRef{}, err
+	}
+	return m.mux.convertFormulaRef(formula, oldIndex(old), 0, homogeneous)
+}
+
 func (m *Manager) FormulaNewToOld(formula ast.ASTHandle, old uint32, homogeneous bool) (ast.ASTHandle, error) {
 	if err := m.open(); err != nil {
 		return ast.ASTHandle{}, err

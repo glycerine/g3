@@ -234,16 +234,14 @@ func (c *Context) createChildrenProjected(node *ModelNode) (resultErr error) {
 		if index >= uint32(len(childStates)) {
 			return ast.ErrASTDomain
 		}
-		converted, x := c.owner.FormulaOldToNew(formula, index, true)
-		if x != nil {
-			return fmt.Errorf("muz/pdr: child-state renaming: %w", x)
-		}
-		reference, x := c.manager.NewRef(converted)
+		// child_states[index].push_back(...): an expr_ref_vector of the
+		// old-name literals; formula_o2n renames their conjunction below.
+		reference, x := c.manager.NewRef(formula)
 		if x != nil {
 			return x
 		}
 		references = append(references, reference)
-		childStates[index] = append(childStates[index], converted)
+		childStates[index] = append(childStates[index], formula)
 		return nil
 	}
 	for _, literal := range projected {
@@ -314,33 +312,48 @@ func (c *Context) createChildrenProjected(node *ModelNode) (resultErr error) {
 	}
 
 	for predecessorIndex, predecessor := range rule.predecessors {
-		if err = c.addProjectedChild(node, predecessor, childStates[predecessorIndex]); err != nil {
+		nCube, err := c.addProjectedChild(node, predecessor, uint32(predecessorIndex), childStates[predecessorIndex])
+		if nCube != (ast.ASTRef{}) {
+			// expr_ref n_cube outlives the loop.
+			references = append(references, nCube)
+		}
+		if err != nil {
 			return err
 		}
 	}
 	return node.CheckPreClosed()
 }
 
-// addProjectedChild owns the rewritten cube until the model node retains it.
-func (c *Context) addProjectedChild(node *ModelNode, predecessor *PredicateTransformer, states []ast.ASTHandle) (resultErr error) {
-	cubeRef, err := c.owner.AndRef(states)
+// addProjectedChild is one iteration of create_children's predecessor loop:
+// expr_ref o_cube = m_pm.mk_and(child_states[i]); m_pm.formula_o2n(o_cube,
+// n_cube, i). The returned n_cube is the caller's, o_cube dies here.
+func (c *Context) addProjectedChild(node *ModelNode, predecessor *PredicateTransformer, index uint32, states []ast.ASTHandle) (nCube ast.ASTRef, resultErr error) {
+	oCube, err := c.owner.AndRef(states)
 	if err != nil {
-		return err
+		return nCube, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, c.owner.releaseNotAndRef(&cubeRef)) }()
-	cube, err := c.manager.RefGet(cubeRef)
+	defer func() { resultErr = errors.Join(resultErr, c.owner.releaseNotAndRef(&oCube)) }()
+	old, err := c.manager.RefGet(oCube)
 	if err != nil {
-		return err
+		return nCube, err
+	}
+	nCube, err = c.owner.FormulaOldToNewRef(old, index, true)
+	if err != nil {
+		return nCube, fmt.Errorf("muz/pdr: child-state renaming: %w", err)
+	}
+	cube, err := c.manager.RefGet(nCube)
+	if err != nil {
+		return nCube, err
 	}
 	child, err := NewModelNode(node, cube, predecessor, node.level-1)
 	if err != nil {
-		return fmt.Errorf("muz/pdr: projected model-node construction: %w", err)
+		return nCube, fmt.Errorf("muz/pdr: projected model-node construction: %w", err)
 	}
 	c.nodes++
 	if child.depth > c.maxDepth {
 		c.maxDepth = child.depth
 	}
-	return c.search.AddLeaf(child)
+	return nCube, c.search.AddLeaf(child)
 }
 
 // normalizeProjectedPhi follows create_children: Boolean conjunction, QE,

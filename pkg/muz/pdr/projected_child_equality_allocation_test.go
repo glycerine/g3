@@ -123,7 +123,7 @@ func TestPDRCoupledStateEqualityReleasedAfterRenameAllocationFailure(t *testing.
 		}()
 		err = context.createChildrenProjected(root)
 	}()
-	if !writer.fired || !errors.Is(err, arena.ErrInjectedFailure) || !strings.Contains(err.Error(), "child-state renaming") || len(root.children) != 0 {
+	if !writer.fired || !errors.Is(err, arena.ErrInjectedFailure) || !strings.Contains(err.Error(), "child-state renaming") && !strings.Contains(err.Error(), "coupled-state model substitution") || len(root.children) != 0 {
 		t.Fatal("missed fresh coupled equality rename failure", writer.fired, len(root.children), err)
 	}
 	counts := func() [4]uint32 {

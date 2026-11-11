@@ -35,14 +35,18 @@ func TestPDRProjectedChildCubeUsesSourceBooleanRewriter(t *testing.T) {
 	closureMust(t, err)
 	defer func() { closureMust(t, m.DelRef(&notRef)); closureMust(t, m.DelRef(&pRef)) }()
 	before := m.Stats().LiveReferences
-	closureMust(t, context.addProjectedChild(root, transformer, []ast.ASTHandle{p, p}))
+	nCube, err := context.addProjectedChild(root, transformer, 0, []ast.ASTHandle{p, p})
+	closureMust(t, err)
+	closureMust(t, m.DelRef(&nCube))
 	if len(root.children) != 1 || root.children[0].state != p {
 		t.Fatal("duplicate child literals did not collapse", root.children)
 	}
 	if got := m.Stats().LiveReferences; got != before+1 {
 		t.Fatalf("duplicate child owns %d references; want %d", got, before+1)
 	}
-	closureMust(t, context.addProjectedChild(root, transformer, []ast.ASTHandle{p, notP}))
+	nCube, err = context.addProjectedChild(root, transformer, 0, []ast.ASTHandle{p, notP})
+	closureMust(t, err)
+	closureMust(t, m.DelRef(&nCube))
 	if len(root.children) != 2 || !m.IsFalse(root.children[1].state) {
 		t.Fatal("complementary child literals did not reduce to false")
 	}
