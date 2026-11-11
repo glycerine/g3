@@ -223,5 +223,7 @@ func (r *sharingImplementation) apply(goal *tactic.Goal) (err error) {
 			err = ast.ErrASTDomain
 		}
 	}
-	return err
+	// new_pr and new_curr are locals of imp::operator(), destroyed in that
+	// order when it returns.
+	return errors.Join(err, m.ResetRef(r.proof), m.ResetRef(r.out))
 }

@@ -413,7 +413,8 @@ func (t *BVSizeReductionTactic) reduce(g *tactic.Goal, result *tactic.TacticResu
 			return 0, false, e
 		}
 		if bad {
-			return count, false, nil
+			// expr_ref new_f dies with the early return.
+			return count, false, m.ResetRef(r.out)
 		}
 		f, e := g.Form(i)
 		if e != nil {
@@ -447,6 +448,10 @@ func (t *BVSizeReductionTactic) reduce(g *tactic.Goal, result *tactic.TacticResu
 		return 0, false, err
 	}
 	if err = t.releaseConverters(r, true, true); err != nil {
+		return 0, false, err
+	}
+	// new_f is scoped to the substitution block, after m_mc and m_fmc reset.
+	if err = m.ResetRef(r.out); err != nil {
 		return 0, false, err
 	}
 	return count, true, nil

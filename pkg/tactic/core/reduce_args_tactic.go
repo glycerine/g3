@@ -296,6 +296,10 @@ func (t *ReduceArgsTactic) runReduceArgs(g *tactic.Goal, result *tactic.TacticRe
 				if err = g.Update(i, h, ast.ASTHandle{}, ast.ASTDependency{}); err != nil {
 					return err
 				}
+				// expr_ref new_f is local to the loop body.
+				if err = t.manager.ResetRef(f.out); err != nil {
+					return err
+				}
 			}
 			if err = tactic.ReportTacticProgress(":reduced-funcs", uint32(len(f.candidates))); err != nil {
 				return err

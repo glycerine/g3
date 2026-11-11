@@ -473,7 +473,9 @@ func (t *BV1BlasterTactic) Apply(g *tactic.Goal, result *tactic.TacticResult) (e
 	// Source calls cfg.cleanup(), whose default implementation is a no-op.
 	// The raw tactic retains its mapping/cache; the clean factory rebuilds it.
 	r.DefaultConfiguration.Cleanup()
-	return nil
+	// new_pr and new_curr are locals of imp::operator(), destroyed in that
+	// order when it returns.
+	return errors.Join(t.manager.ResetRef(r.proof), t.manager.ResetRef(r.out))
 }
 func (t *BV1BlasterTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	if err := t.open(); err != nil {

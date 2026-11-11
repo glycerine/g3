@@ -451,7 +451,12 @@ func (t *BitBlasterTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult)
 	}); err != nil {
 		return err
 	}
-	return r.active.Cleanup()
+	if err = r.active.Cleanup(); err != nil {
+		return err
+	}
+	// new_pr and new_curr are locals of imp::operator(), destroyed in that
+	// order after m_rewriter->cleanup().
+	return errors.Join(t.manager.ResetRef(r.proof), t.manager.ResetRef(r.out))
 }
 func (t *BitBlasterTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	if err := t.open(); err != nil {
