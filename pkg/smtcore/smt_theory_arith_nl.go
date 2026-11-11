@@ -1475,83 +1475,48 @@ const (
 	smtArithGbMaxDefaultWeight = 7
 )
 
-// smtArithGbDeps carries v_dependency values through the grobner solver,
-// whose dependencies are AST dependencies: each bound is an AST leaf (an
-// integer numeral holding its index in bounds), translated back to bound
-// dependencies when a conflict or a new bound needs a justification.
+// smtArithGbDeps carries v_dependency values through the grobner solver:
+// each bound is a leaf holding its index in bounds (the source's bound
+// pointer), translated back to bound dependencies when a conflict or a new
+// bound needs a justification.
 type smtArithGbDeps struct {
 	t      *SMTTheoryArith
 	bounds []smtArithBound
 	index  map[smtArithBound]int
-	leaves []ast.ASTHandle
-	exprs  smtArithExprs
-	owned  []ast.ASTDependency
 }
 
-func (d *smtArithGbDeps) close() (result error) {
-	m := d.t.state.manager
-	for i := len(d.owned) - 1; i >= 0; i-- {
-		result = errors.Join(result, m.DependencyDec(d.owned[i]))
-	}
-	d.owned = nil
-	return errors.Join(result, d.exprs.release())
-}
+func (d *smtArithGbDeps) close() error { return nil }
 
-func (d *smtArithGbDeps) retain(dep ast.ASTDependency, err error) (ast.ASTDependency, error) {
-	if err != nil || dep.IsNull() {
-		return dep, err
-	}
-	if err = d.t.state.manager.DependencyInc(dep); err != nil {
-		return dep, err
-	}
-	d.owned = append(d.owned, dep)
-	return dep, nil
-}
-
-// leaf is m_dep_manager.mk_leaf(b).
-func (d *smtArithGbDeps) leaf(b smtArithBound) (ast.ASTDependency, error) {
+// leaf is m_dep_manager.mk_leaf(b): the leaf holds the bound's index.
+func (d *smtArithGbDeps) leaf(b smtArithBound) (*grobner.Dependency, error) {
 	i, found := d.index[b]
 	if !found {
 		i = len(d.bounds)
-		h, err := d.t.mkNumeral(&d.exprs, big.NewRat(int64(i), 1), true)
-		if err != nil {
-			return ast.ASTDependency{}, err
-		}
 		d.bounds = append(d.bounds, b)
-		d.leaves = append(d.leaves, h)
 		d.index[b] = i
 	}
-	return d.retain(d.t.state.manager.DependencyLeaf(d.leaves[i]))
+	return grobner.DependencyLeaf(i), nil
 }
 
 // join is m_dep_manager.mk_join(a, b).
-func (d *smtArithGbDeps) join(a, b ast.ASTDependency) (ast.ASTDependency, error) {
-	if a.IsNull() {
-		return b, nil
-	}
-	if b.IsNull() {
-		return a, nil
-	}
-	return d.retain(d.t.state.manager.DependencyJoin(a, b))
+func (d *smtArithGbDeps) join(a, b *grobner.Dependency) (*grobner.Dependency, error) {
+	return grobner.DependencyJoin(a, b), nil
 }
 
 // toBoundDependency translates a grobner dependency to the bound dependency
-// with the same leaves.
-func (d *smtArithGbDeps) toBoundDependency(dep ast.ASTDependency) (*smtArithmeticBoundDependency, error) {
-	if dep.IsNull() {
-		return nil, nil
-	}
-	values, err := d.t.state.manager.DependencyLinearize(dep, nil)
-	if err != nil {
-		return nil, err
-	}
+// with the same leaves, each bound once in linearize order.
+func (d *smtArithGbDeps) toBoundDependency(dep *grobner.Dependency) (*smtArithmeticBoundDependency, error) {
 	var result *smtArithmeticBoundDependency
-	for _, h := range values {
-		r, ok := d.t.isNumeral(h)
-		if !ok || !r.IsInt() || r.Num().Int64() < 0 || int(r.Num().Int64()) >= len(d.bounds) {
+	seen := make(map[int]bool)
+	for _, i := range grobner.Linearize(dep) {
+		if i < 0 || i >= len(d.bounds) {
 			return nil, ast.ErrASTDomain
 		}
-		leaf := d.t.mkLeaf(d.bounds[r.Num().Int64()])
+		if seen[i] {
+			continue
+		}
+		seen[i] = true
+		leaf := d.t.mkLeaf(d.bounds[i])
 		if result == nil {
 			result = leaf
 		} else {
@@ -1589,7 +1554,7 @@ func (t *SMTTheoryArith) initGrobnerVarOrder(nlCluster []SMTTheoryVar, gb *grobn
 // mkGbMonomial creates coeff*m with fixed variables replaced by their
 // values; dep and alreadyFound collect the fixed variables used. It returns
 // nil when the monomial simplifies to 0.
-func (t *SMTTheoryArith) mkGbMonomial(c *big.Rat, m ast.ASTHandle, gb *grobner.Solver, deps *smtArithGbDeps, dep *ast.ASTDependency, alreadyFound map[SMTTheoryVar]bool) (*grobner.Monomial, error) {
+func (t *SMTTheoryArith) mkGbMonomial(c *big.Rat, m ast.ASTHandle, gb *grobner.Solver, deps *smtArithGbDeps, dep **grobner.Dependency, alreadyFound map[SMTTheoryVar]bool) (*grobner.Monomial, error) {
 	var vars []ast.ASTHandle
 	coeff := new(big.Rat).Set(c)
 	procVar := func(v ast.ASTHandle) error {
@@ -1658,7 +1623,7 @@ func (t *SMTTheoryArith) mkGbMonomial(c *big.Rat, m ast.ASTHandle, gb *grobner.S
 // substituted.
 func (t *SMTTheoryArith) addRowToGb(r *smtArithmeticRow, gb *grobner.Solver, deps *smtArithGbDeps) error {
 	var monomials []*grobner.Monomial
-	var dep ast.ASTDependency
+	var dep *grobner.Dependency
 	alreadyFound := make(map[SMTTheoryVar]bool) // m_tmp_var_set
 	for i := range r.entries {
 		it := &r.entries[i]
@@ -1680,7 +1645,7 @@ func (t *SMTTheoryArith) addRowToGb(r *smtArithmeticRow, gb *grobner.Solver, dep
 // pure monomial v, with fixed variables substituted.
 func (t *SMTTheoryArith) addMonomialDefToGb(v SMTTheoryVar, gb *grobner.Solver, deps *smtArithGbDeps) error {
 	var monomials []*grobner.Monomial
-	var dep ast.ASTDependency
+	var dep *grobner.Dependency
 	alreadyFound := make(map[SMTTheoryVar]bool)
 	m := t.var2expr(v)
 	newM, err := t.mkGbMonomial(big.NewRat(1, 1), m, gb, deps, &dep, alreadyFound)
@@ -2104,7 +2069,7 @@ func (t *SMTTheoryArith) computeGrobner(nlCluster []SMTTheoryVar) (result smtAri
 	if err != nil {
 		return smtArithGbFail, err
 	}
-	deps := &smtArithGbDeps{t: t, index: make(map[smtArithBound]int), exprs: smtArithExprs{m: t.state.manager}}
+	deps := &smtArithGbDeps{t: t, index: make(map[smtArithBound]int)}
 	defer func() { err = errors.Join(err, gb.Close(), deps.close()) }()
 	if err = t.initGrobner(nlCluster, gb, deps); err != nil {
 		return smtArithGbFail, err

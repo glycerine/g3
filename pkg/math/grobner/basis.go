@@ -73,20 +73,9 @@ func (s *Solver) copyEquation(e *Equation) (*Equation, error) {
 	return r, nil
 }
 
-func (s *Solver) replaceDependency(e *Equation, added ast.ASTDependency) error {
-	joined, err := s.manager.DependencyJoin(e.dependency, added)
-	if err != nil {
-		return err
-	}
-	if joined == e.dependency {
-		return nil
-	}
-	if err = s.manager.DependencyInc(joined); err != nil {
-		return err
-	}
-	err = s.manager.DependencyDec(e.dependency)
-	e.dependency = joined
-	return err
+func (s *Solver) replaceDependency(e *Equation, added *Dependency) error {
+	e.dependency = DependencyJoin(e.dependency, added)
+	return nil
 }
 
 // reduce returns the target (or its scope-safe copy), whether a reduction was
@@ -357,11 +346,7 @@ func (s *Solver) superpose(a, b *Equation) error {
 		return nil
 	}
 	s.numNew++
-	dep, err := s.manager.DependencyJoin(a.dependency, b.dependency)
-	if err != nil {
-		return err
-	}
-	e, err := s.initEquation(ms, dep)
+	e, err := s.initEquation(ms, DependencyJoin(a.dependency, b.dependency))
 	if err != nil {
 		return err
 	}

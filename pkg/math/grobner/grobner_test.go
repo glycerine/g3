@@ -77,8 +77,8 @@ func TestBasisReducesNonlinearEquation(t *testing.T) {
 	f := newFixture(t)
 	x, y := f.variable(t, "x"), f.variable(t, "y")
 
-	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, x, y), monomial(t, f.s, -1)}, ast.ASTDependency{}))
-	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, x), monomial(t, f.s, -1)}, ast.ASTDependency{}))
+	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, x, y), monomial(t, f.s, -1)}, nil))
+	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, x), monomial(t, f.s, -1)}, nil))
 	done, err := f.s.ComputeBasis(100)
 	must(t, err)
 	if !done {
@@ -112,8 +112,8 @@ func TestBasisReducesNonlinearEquation(t *testing.T) {
 func TestBasisSuperposesSharedLeadingFactor(t *testing.T) {
 	f := newFixture(t)
 	x, y, z := f.variable(t, "x"), f.variable(t, "y"), f.variable(t, "z")
-	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, x, y), monomial(t, f.s, -1)}, ast.ASTDependency{}))
-	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, x, z), monomial(t, f.s, -1)}, ast.ASTDependency{}))
+	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, x, y), monomial(t, f.s, -1)}, nil))
+	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, x, z), monomial(t, f.s, -1)}, nil))
 	done, err := f.s.ComputeBasis(100)
 	must(t, err)
 	if !done || f.s.NumNewEquations() == 0 || f.s.Stats.Superpose == 0 {
@@ -144,13 +144,8 @@ func TestWeightsScopesDependenciesAndDisplay(t *testing.T) {
 	}
 	must(t, f.s.DelMonomial(m))
 
-	leafX, err := f.m.DependencyLeaf(x)
-	must(t, err)
-	must(t, f.m.DependencyInc(leafX))
-	leafY, err := f.m.DependencyLeaf(y)
-	must(t, err)
-	must(t, f.m.DependencyInc(leafY))
-	t.Cleanup(func() { must(t, f.m.DependencyDec(leafY)); must(t, f.m.DependencyDec(leafX)) })
+	leafX := DependencyLeaf(0)
+	leafY := DependencyLeaf(1)
 	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, x), monomial(t, f.s, -1)}, leafX))
 	must(t, f.s.Push())
 	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, y), monomial(t, f.s, -1)}, leafY))
@@ -187,7 +182,7 @@ func TestExpressionAssertionAndInconsistency(t *testing.T) {
 	must(t, err)
 	eq, err := f.m.MkEq(lhs, rhs)
 	must(t, err)
-	must(t, f.s.AssertEquality(eq, ast.ASTDependency{}))
+	must(t, f.s.AssertEquality(eq, nil))
 	if len(f.s.Equations()) != 1 {
 		t.Fatal("expression equality was not asserted")
 	}
@@ -196,7 +191,7 @@ func TestExpressionAssertionAndInconsistency(t *testing.T) {
 		t.Fatal("equality was not normalized")
 	}
 
-	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, x)}, ast.ASTDependency{}))
+	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, x)}, nil))
 	_, err = f.s.ComputeBasis(100)
 	must(t, err)
 	if !f.s.Inconsistent() {
@@ -210,7 +205,7 @@ func TestExpressionAssertionAndInconsistency(t *testing.T) {
 func TestLaterScopeRewriteFreezesAndRestoresBaseEquation(t *testing.T) {
 	f := newFixture(t)
 	x, y := f.variable(t, "x"), f.variable(t, "y")
-	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, x, y), monomial(t, f.s, -1)}, ast.ASTDependency{}))
+	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, x, y), monomial(t, f.s, -1)}, nil))
 	done, err := f.s.ComputeBasis(100)
 	must(t, err)
 	if !done || len(f.s.Equations()) != 1 {
@@ -219,7 +214,7 @@ func TestLaterScopeRewriteFreezesAndRestoresBaseEquation(t *testing.T) {
 	base := f.s.Equations()[0]
 
 	must(t, f.s.Push())
-	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, x), monomial(t, f.s, -1)}, ast.ASTDependency{}))
+	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, x), monomial(t, f.s, -1)}, nil))
 	done, err = f.s.ComputeBasis(100)
 	must(t, err)
 	if !done || len(f.s.Equations()) < 2 {
@@ -232,5 +227,21 @@ func TestLaterScopeRewriteFreezesAndRestoresBaseEquation(t *testing.T) {
 	}
 	if base.Monomial(0).Degree() != 2 {
 		t.Fatal("base equation was destructively simplified across a scope")
+	}
+}
+
+func TestDependencyLinearizeBreadthFirst(t *testing.T) {
+	a, b, c := DependencyLeaf(0), DependencyLeaf(1), DependencyLeaf(2)
+	if DependencyJoin(nil, a) != a || DependencyJoin(a, nil) != a || DependencyJoin(a, a) != a {
+		t.Fatal("mk_join shortcuts")
+	}
+	ab := DependencyJoin(a, b)
+	root := DependencyJoin(DependencyJoin(ab, c), ab)
+	got := Linearize(root)
+	if len(got) != 3 || got[0] != 2 || got[1] != 0 || got[2] != 1 {
+		t.Fatal("linearize order", got)
+	}
+	if again := Linearize(root); len(again) != 3 {
+		t.Fatal("marks were not cleared", again)
 	}
 }

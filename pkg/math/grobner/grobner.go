@@ -63,7 +63,7 @@ type Equation struct {
 	index      uint32
 	linear     bool
 	monomials  []*Monomial
-	dependency ast.ASTDependency
+	dependency *Dependency
 	owner      *Solver
 	live       bool
 }
@@ -81,8 +81,8 @@ func (e *Equation) Monomials() []*Monomial {
 	}
 	return append([]*Monomial(nil), e.monomials...)
 }
-func (e *Equation) Dependency() ast.ASTDependency { return e.dependency }
-func (e *Equation) IsLinearCombination() bool     { return e.linear }
+func (e *Equation) Dependency() *Dependency   { return e.dependency }
+func (e *Equation) IsLinearCombination() bool { return e.linear }
 
 type equationSet struct {
 	items []*Equation
@@ -438,16 +438,13 @@ func (s *Solver) simplifyMonomials(ms []*Monomial) ([]*Monomial, error) {
 	return keep, nil
 }
 
-func (s *Solver) initEquation(ms []*Monomial, dep ast.ASTDependency) (*Equation, error) {
-	if err := s.manager.DependencyInc(dep); err != nil {
-		return nil, err
-	}
+func (s *Solver) initEquation(ms []*Monomial, dep *Dependency) (*Equation, error) {
 	e := &Equation{scope: s.ScopeLevel(), index: uint32(len(s.equations)), linear: true, monomials: ms, dependency: dep, owner: s, live: true}
 	s.equations = append(s.equations, e)
 	return e, nil
 }
 
-func (s *Solver) AssertMonomialsZero(ms []*Monomial, dep ast.ASTDependency) error {
+func (s *Solver) AssertMonomialsZero(ms []*Monomial, dep *Dependency) error {
 	if err := s.check(); err != nil {
 		return err
 	}
@@ -472,7 +469,7 @@ func (s *Solver) AssertMonomialsZero(ms []*Monomial, dep ast.ASTDependency) erro
 	return nil
 }
 
-func (s *Solver) AssertExpressionsZero(expressions []ast.ASTHandle, dep ast.ASTDependency) error {
+func (s *Solver) AssertExpressionsZero(expressions []ast.ASTHandle, dep *Dependency) error {
 	coeffs := make([]big.Rat, len(expressions))
 	for i := range coeffs {
 		coeffs[i].SetInt64(1)
@@ -480,7 +477,7 @@ func (s *Solver) AssertExpressionsZero(expressions []ast.ASTHandle, dep ast.ASTD
 	return s.AssertWeightedExpressionsZero(coeffs, expressions, dep)
 }
 
-func (s *Solver) AssertWeightedExpressionsZero(coeffs []big.Rat, expressions []ast.ASTHandle, dep ast.ASTDependency) error {
+func (s *Solver) AssertWeightedExpressionsZero(coeffs []big.Rat, expressions []ast.ASTHandle, dep *Dependency) error {
 	if err := s.check(); err != nil {
 		return err
 	}
@@ -523,7 +520,7 @@ func (s *Solver) extractAdd(h ast.ASTHandle) ([]ast.ASTHandle, error) {
 	}
 }
 
-func (s *Solver) AssertEquality(eq ast.ASTHandle, dep ast.ASTDependency) error {
+func (s *Solver) AssertEquality(eq ast.ASTHandle, dep *Dependency) error {
 	if err := s.check(); err != nil {
 		return err
 	}
@@ -583,7 +580,7 @@ func (s *Solver) AssertMonomialTautology(h ast.ASTHandle) error {
 		_ = s.delMonomial(a)
 		return err
 	}
-	return s.AssertMonomialsZero([]*Monomial{a, b}, ast.ASTDependency{})
+	return s.AssertMonomialsZero([]*Monomial{a, b}, nil)
 }
 
 func (s *Solver) deleteEquation(e *Equation) error {
@@ -599,7 +596,7 @@ func (s *Solver) deleteEquation(e *Equation) error {
 	for _, m := range e.monomials {
 		result = errors.Join(result, s.delMonomial(m))
 	}
-	result = errors.Join(result, s.manager.DependencyDec(e.dependency))
+	e.dependency = nil
 	e.monomials = nil
 	e.live = false
 	return result
