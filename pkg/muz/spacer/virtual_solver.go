@@ -551,13 +551,15 @@ func (s *VirtualSolver) Close() (result error) {
 		// A later native release may consume a reference and still fail.
 		s.guardDisabled = true
 	}
-	for index := len(s.assertions) - 1; index >= 0; index-- {
+	// Members die in reverse declaration order: m_proof, then
+	// m_assertions (an expr_ref_vector, released front to back), m_pred.
+	if s.proof != (ast.ASTRef{}) {
+		result = errors.Join(result, s.factory.manager.DelRef(&s.proof))
+	}
+	for index := range s.assertions {
 		if s.assertions[index] != (ast.ASTRef{}) {
 			result = errors.Join(result, s.factory.manager.DelRef(&s.assertions[index]))
 		}
-	}
-	if s.proof != (ast.ASTRef{}) {
-		result = errors.Join(result, s.factory.manager.DelRef(&s.proof))
 	}
 	if s.predicate != (ast.ASTRef{}) {
 		result = errors.Join(result, s.factory.manager.DelRef(&s.predicate))

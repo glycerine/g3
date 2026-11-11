@@ -243,7 +243,11 @@ func (k *SMTKernel) preprocessAssertionWithMode(formula, proof ast.ASTHandle, re
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
-	if proofs {
+	// m_rewriter(e, r, pr) generates proofs when the rewriter was built
+	// with proofs (m_proof_gen); m.proofs_enabled() only decides below
+	// whether that proof is combined with the input proof.
+	proofGen := k.preprocessor.ProofGen()
+	if proofGen {
 		err = k.preprocessor.RewriteWithProof(formula, resultRef, proofRef)
 	} else {
 		err = k.preprocessor.Rewrite(formula, resultRef)
@@ -259,6 +263,12 @@ func (k *SMTKernel) preprocessAssertionWithMode(formula, proof ast.ASTHandle, re
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
 	resultProof = proof
+	if !proofs && proofGen {
+		// The source's pr then keeps the rewriter's proof.
+		if resultProof, err = k.manager.RefGet(proofRef); err != nil {
+			return ast.ASTHandle{}, ast.ASTHandle{}, err
+		}
+	}
 	if proofs && (mode != assertedProofAssertExpr || result != formula) {
 		rewriteProof, getErr := k.manager.RefGet(proofRef)
 		if getErr != nil {

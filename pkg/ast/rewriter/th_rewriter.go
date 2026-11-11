@@ -1181,6 +1181,10 @@ func (r *TheoryRewriter) FreshDefault() (*TheoryRewriter, error) {
 	return NewTheoryRewriter(r.manager, r.context, r.globals, nil)
 }
 
+// ProofGen reports whether the rewriter generates proofs (m_proof_gen,
+// fixed at construction; the manager's proof mode may change later).
+func (r *TheoryRewriter) ProofGen() bool { return r != nil && r.traversal.ProofGen() }
+
 func (r *TheoryRewriter) RewriteWithProof(term ast.ASTHandle, out, proof ast.ASTRef) error {
 	if err := r.open(); err != nil {
 		return err
