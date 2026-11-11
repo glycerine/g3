@@ -212,7 +212,9 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 				return err
 			}
 			conflict = wrapped
-			s.ownedJustifications = append(s.ownedJustifications, justification)
+			if justification != s.registeredJustification {
+				s.ownedJustifications = append(s.ownedJustifications, justification)
+			}
 		}
 		s.setBooleanConflict(conflict, SMTNullLiteral)
 		return nil
@@ -226,7 +228,7 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 			before := len(s.assignedLiterals)
 			beforeAssignment := s.assignment[kept[0].Index()]
 			err = s.AssignLiteral(kept[0], wrapped)
-			if err == nil || len(s.assignedLiterals) != before || s.assignment[kept[0].Index()] != beforeAssignment {
+			if (err == nil || len(s.assignedLiterals) != before || s.assignment[kept[0].Index()] != beforeAssignment) && justification != s.registeredJustification {
 				s.ownedJustifications = append(s.ownedJustifications, justification)
 			}
 			return err
@@ -311,7 +313,9 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 		clause.atoms[1], clause.atoms[secondWatch] = clause.atoms[secondWatch], clause.atoms[1]
 		clause.atoms[0], clause.atoms[firstWatch] = clause.atoms[firstWatch], clause.atoms[0]
 	}
-	if kind == SMTClauseAux && owner != nil {
+	if kind == SMTClauseAux && owner != nil && owner == s.registeredJustification {
+		owner = nil
+	} else if kind == SMTClauseAux && owner != nil {
 		// mk_justification puts a justification with a del_eh in
 		// m_justifications: it dies with its scope (or flush), not with the
 		// auxiliary clause, which clause::deallocate leaves alone.
@@ -890,7 +894,26 @@ func (s *SMTInternalizerState) addGateClause(literals []SMTLiteral) error {
 	if err != nil {
 		return err
 	}
-	return s.addClause(literals, false, proof)
+	return s.addWrappedProofClause(literals, false, proof)
+}
+
+// addWrappedProofClause is mk_clause(lits, mk_justification(
+// justification_proof_wrapper(*this, pr))) of mk_gate_clause and
+// mk_root_clause: the wrapper joins m_justifications before mk_clause, so its
+// proof dies with the scope even when the clause simplifies away.
+func (s *SMTInternalizerState) addWrappedProofClause(literals []SMTLiteral, root bool, proof ast.ASTHandle) error {
+	if proof.IsNull() {
+		return s.addClause(literals, root, proof)
+	}
+	wrapper, err := NewSMTJustificationProofWrapper(s.manager, proof, true)
+	if err != nil {
+		return err
+	}
+	s.ownedJustifications = append(s.ownedJustifications, wrapper)
+	previous := s.registeredJustification
+	s.registeredJustification = wrapper
+	defer func() { s.registeredJustification = previous }()
+	return s.addClauseKindWithJustificationAndDeleteHandler(literals, root, SMTClauseAux, ast.ASTHandle{}, wrapper, nil)
 }
 
 func (s *SMTInternalizerState) rootClauseProof(literals []SMTLiteral, assertionProof ast.ASTHandle) (ast.ASTHandle, error) {
@@ -937,7 +960,7 @@ func (s *SMTInternalizerState) addRootClause(literals []SMTLiteral, assertionPro
 	if err != nil {
 		return err
 	}
-	return s.addClause(literals, true, proof)
+	return s.addWrappedProofClause(literals, true, proof)
 }
 
 // assignRootLiteral is the assign of context::assert_default, which justifies

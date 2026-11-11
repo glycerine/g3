@@ -121,6 +121,9 @@ type smtPendingEquality struct {
 }
 
 type SMTInternalizerState struct {
+	// registeredJustification is a wrapper already in ownedJustifications
+	// (mk_justification), which mk_clause must not register again.
+	registeredJustification SMTJustification
 	// reinitSeq orders pushes onto m_clauses_to_reinit.
 	reinitSeq uint64
 	// afterFlush runs in Close between context::flush and the destruction
