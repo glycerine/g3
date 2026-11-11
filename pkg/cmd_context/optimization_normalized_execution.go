@@ -33,12 +33,9 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	// Pareto skips normalize: z3 4.7's gia_pareto does not terminate once
 	// normalize turns 0-1 objectives into MaxSAT sums (z3 times out on
 	// test vectors the frontier enumeration here completes).
-	useSimplifier := !paretoContinuation && !boxContinuation
-	// optimize(): init_solver precedes normalize(), Pareto included.
-	// Recorded deviation (TODO item 30): z3 4.7's gia_pareto does not
-	// terminate once normalize turns a 0-1 maximize/minimize objective into
-	// a MaxSAT sum, so that one case keeps the un-normalized objectives.
-	if !paretoContinuation && !boxContinuation {
+	useSimplifier := !paretoContinuation && !boxContinuation && priority != "pareto"
+	// optimize(): init_solver precedes normalize() on the lex path.
+	if !paretoContinuation && !boxContinuation && priority != "pareto" {
 		if c.preparedOptimizer, err = c.createOptimizer(); err != nil {
 			return nil, err
 		}
@@ -82,19 +79,7 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 		if err != nil {
 			return nil, errors.Join(err, simplified.Close())
 		}
-		converted := false
-		if !simplified.inconsistent && priority == "pareto" {
-			if converted, err = paretoObjectiveBecomesMaxSAT(c.manager, original, simplified.decoded); err != nil {
-				return nil, errors.Join(err, simplified.Close())
-			}
-		}
-		if converted {
-			if err = simplified.Close(); err != nil {
-				return nil, err
-			}
-			simplified = nil
-			useSimplifier = false
-		} else if simplified.inconsistent {
+		if simplified.inconsistent {
 			if err = simplified.Close(); err != nil {
 				return nil, errors.Join(err, formulaSet.Close())
 			}
@@ -398,74 +383,4 @@ func (c *Context) finishNormalizedPurification(purifier *opt.ObjectivePurifier) 
 	}
 	c.optimizationModelConverter = combined
 	return &set, nil
-}
-
-// paretoObjectiveBecomesMaxSAT reports whether the normalized objectives
-// would turn an arithmetic maximize/minimize objective into a MaxSAT sum.
-func paretoObjectiveBecomesMaxSAT(m *ast.ASTManager, original []optimizationObjective, decoded opt.DecodedFormulaSet) (_ bool, resultErr error) {
-	// Only an arithmetic objective can become a 0-1 MaxSAT sum; skip the
-	// tentative decomposition (and its AST work) otherwise.
-	arithmetic, err := m.ArithmeticFamilyID()
-	if err != nil {
-		return false, err
-	}
-	anyArithmetic := false
-	for i := range original {
-		if original[i].soft {
-			continue
-		}
-		sort, err := m.GetSort(original[i].expression)
-		if err != nil {
-			return false, err
-		}
-		family, err := m.GetFamilyID(sort)
-		if err != nil {
-			return false, err
-		}
-		anyArithmetic = anyArithmetic || family == arithmetic
-	}
-	if !anyArithmetic {
-		return false, nil
-	}
-	byIndex := make([]opt.DecodedFormulaObjective, len(original))
-	found := make([]bool, len(original))
-	for _, objective := range decoded.Objectives {
-		if objective.Index < 0 || objective.Index >= len(original) || found[objective.Index] {
-			return false, ast.ErrASTDomain
-		}
-		byIndex[objective.Index], found[objective.Index] = objective, true
-	}
-	for i := range byIndex {
-		if !found[i] {
-			byIndex[i] = originalDecodedObjective(&original[i])
-		}
-	}
-	decomposer, err := opt.NewObjectiveDecomposer(m, nil)
-	if err != nil {
-		return false, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, decomposer.Close()) }()
-	tentative := decoded
-	tentative.Objectives = byIndex
-	decomposed, _, err := decomposer.Decompose(tentative)
-	if err != nil {
-		return false, err
-	}
-	for i, d := range decomposed {
-		if i >= len(original) || original[i].soft || !d.Converted {
-			continue
-		}
-		sort, err := m.GetSort(original[i].expression)
-		if err != nil {
-			return false, err
-		}
-		family, err := m.GetFamilyID(sort)
-		if err != nil {
-			return false, err
-		}
-		if family == arithmetic {
-			return true, nil
-		}
-	}
-	return false, nil
 }
