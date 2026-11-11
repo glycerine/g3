@@ -8,8 +8,8 @@ import (
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
-	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/ast/proofs"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/smtcore"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
