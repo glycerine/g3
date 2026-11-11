@@ -388,10 +388,23 @@ func (t *SMTTheorySeq) rewriteTh(x *seqRefs, e ast.ASTHandle) ast.ASTHandle {
 	return t.rewriteWith(x, e, r)
 }
 
+// rewriteWith is m_rewrite(e) on an expr_ref local: the result is assigned
+// into the slot that holds e, releasing e's old value after the new one is
+// referenced. An e not held by x gets a fresh slot.
 func (t *SMTTheorySeq) rewriteWith(x *seqRefs, e ast.ASTHandle, r *rewriter.TheoryRewriter) ast.ASTHandle {
 	out, err := t.m.NewRef(e)
 	t.chk(err)
 	x.refs = append(x.refs, out)
 	t.chk(r.Rewrite(e, out))
-	return t.must(t.m.RefGet(out))
+	result := t.must(t.m.RefGet(out))
+	last := len(x.refs) - 1
+	for k := last - 1; k >= 0; k-- {
+		if t.must(t.m.RefGet(x.refs[k])) == e {
+			t.chk(t.m.DelRef(&x.refs[k]))
+			x.refs[k] = x.refs[last]
+			x.refs = x.refs[:last]
+			break
+		}
+	}
+	return result
 }
