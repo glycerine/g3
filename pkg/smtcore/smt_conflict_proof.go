@@ -277,13 +277,15 @@ func (b *smtConflictProofBuilder) literalProof(literal SMTLiteral) (ast.ASTHandl
 	if proof, found := b.literal[literal]; found {
 		return proof, nil
 	}
-	expression, err := b.literalExpression(literal)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
 	variable := literal.Var()
 	justification := b.state.booleanData[variable].Justification()
 	if _, hypothesis := b.marked[variable]; hypothesis || justification.Kind() == SMTBooleanJustificationAxiom {
+		// get_proof(l, js): only the hypothesis case builds the literal's
+		// expression (literal2expr) itself.
+		expression, err := b.literalExpression(literal)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
 		proof, err := b.state.manager.MkProofHypothesis(expression)
 		if err == nil {
 			b.literal[literal] = proof
