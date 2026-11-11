@@ -191,6 +191,42 @@ func (b *smtConflictProofBuilder) equalityBranchProofs(node, ancestor *SMTEnode)
 	return proofs, nil
 }
 
+// equalityEdgeSteps appends the antecedent steps of get_proof(n1, n2, js):
+// the equation's literal, the justification object, or the congruence's
+// argument equalities.
+func (b *smtConflictProofBuilder) equalityEdgeSteps(steps []func() error, n1, n2 *SMTEnode, j SMTEqualityJustification) []func() error {
+	switch j.Kind() {
+	case SMTEqualityJustificationEquation:
+		if literal, ok := j.Literal(); ok {
+			steps = append(steps, func() error { _, err := b.literalProof(literal); return err })
+		}
+	case SMTEqualityJustificationObject:
+		if object, ok := j.Justification(); ok && object != nil {
+			steps = append(steps, func() error { _, err := b.objectProof(object); return err })
+		}
+	case SMTEqualityJustificationCongruence:
+		commuted, _ := j.UsedCommutativity()
+		if n1 == nil || n2 == nil || len(n1.arguments) != len(n2.arguments) {
+			break
+		}
+		var pairs [][2]*SMTEnode
+		if commuted && len(n1.arguments) == 2 {
+			pairs = [][2]*SMTEnode{{n1.arguments[0], n2.arguments[1]}, {n1.arguments[1], n2.arguments[0]}}
+		} else {
+			for i := range n1.arguments {
+				pairs = append(pairs, [2]*SMTEnode{n1.arguments[i], n2.arguments[i]})
+			}
+		}
+		for _, p := range pairs {
+			if p[0] != p[1] {
+				p := p
+				steps = append(steps, func() error { _, err := b.equalityProof(p[0], p[1]); return err })
+			}
+		}
+	}
+	return steps
+}
+
 // prefetchEquality is visit_eq_justications(lhs, rhs) and the todo loop: the
 // steps of the lhs branch, then of the rhs branch, push their antecedents in
 // order, and the LIFO loop builds the last one first.
@@ -199,37 +235,7 @@ func (b *smtConflictProofBuilder) prefetchEquality(first, second, common *SMTEno
 	visit := func(node, ancestor *SMTEnode) {
 		for node != nil && node != ancestor {
 			next := node.trans.Target
-			j := node.trans.Justification
-			n1, n2 := node, next
-			switch j.Kind() {
-			case SMTEqualityJustificationEquation:
-				if literal, ok := j.Literal(); ok {
-					steps = append(steps, func() error { _, err := b.literalProof(literal); return err })
-				}
-			case SMTEqualityJustificationObject:
-				if object, ok := j.Justification(); ok && object != nil {
-					steps = append(steps, func() error { _, err := b.objectProof(object); return err })
-				}
-			case SMTEqualityJustificationCongruence:
-				commuted, _ := j.UsedCommutativity()
-				if n2 == nil || len(n1.arguments) != len(n2.arguments) {
-					break
-				}
-				var pairs [][2]*SMTEnode
-				if commuted && len(n1.arguments) == 2 {
-					pairs = [][2]*SMTEnode{{n1.arguments[0], n2.arguments[1]}, {n1.arguments[1], n2.arguments[0]}}
-				} else {
-					for i := range n1.arguments {
-						pairs = append(pairs, [2]*SMTEnode{n1.arguments[i], n2.arguments[i]})
-					}
-				}
-				for _, p := range pairs {
-					if p[0] != p[1] {
-						p := p
-						steps = append(steps, func() error { _, err := b.equalityProof(p[0], p[1]); return err })
-					}
-				}
-			}
+			steps = b.equalityEdgeSteps(steps, node, next, node.trans.Justification)
 			node = next
 		}
 	}
@@ -501,6 +507,19 @@ func (b *smtConflictProofBuilder) prefetchObject(object SMTJustification) error 
 	case *SMTExtTheoryEqualityPropagationJustification:
 		literals(v.Literals)
 		equalities(v.Equalities)
+	case *SMTEqualityConflictJustification:
+		// eq_conflict_justification::mk_proof: get_proof(n1, root(n1)),
+		// get_proof(n1, n2, js), get_proof(n2, root(n2)); the todo loop
+		// builds the last missing antecedent first.
+		if v.First != nil && v.Second != nil && v.First.root != nil && v.Second.root != nil {
+			if v.First != v.First.root {
+				equalities([]SMTEnodePair{{v.First, v.First.root}})
+			}
+			steps = b.equalityEdgeSteps(steps, v.First, v.Second, v.Equality)
+			if v.Second != v.Second.root {
+				equalities([]SMTEnodePair{{v.Second, v.Second.root}})
+			}
+		}
 	case *SMTModusPonensIffJustification:
 		// mp_iff_justification::mk_proof: get_proof(n1, n2), then get_proof(l).
 		if v.First != nil && v.Second != nil && v.First != v.Second {
