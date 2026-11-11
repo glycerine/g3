@@ -1560,8 +1560,13 @@ Found while matching `-st` output against `build/z3` on
     - z3 answers sat on the second check after a single negative-weight
       soft objective; g3 (before and after this change) answers unsat.
       This needs a faithful gia_pareto port.
-    - The next log divergences: pareto_bit_vector 225, an extra
-      attach-enode pair, i.e. a second kernel.
+    - Fixed (cdbaef450): pareto now takes over init_solver's opt_solver
+      (no second kernel), and pareto_bit_vector reaches line 2124.
+    - Next: there, g3's dominance formula (pbge/pble over the
+      normalized objectives) appears where z3 pops, re-checks and pushes.
+      Port gia_pareto::operator()/mk_dominates/mk_not_dominated_by in
+      source order. That should also fix the second-check sat on the
+      negative soft case.
     - Recorded ask-first deviation: z3 4.7.1 does not terminate on 0-1
       arithmetic pareto objectives once normalize makes them MaxSAT, so g3
       keeps the un-normalized path there.
