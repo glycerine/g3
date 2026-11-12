@@ -237,6 +237,21 @@ func (t *sourceStratifier) process() ([][]ast.ASTHandle, error) {
 // the predicate dependencies are populated per head predicate in
 // m_head2rules table order (each head's rules in insertion order), and the
 // strongly connected components are returned masters first, each in its
+// GroupedHeads lists the head declarations in m_head2rules table order
+// (rule_set::begin_grouped_rules).
+func (s *RuleSet) GroupedHeads() ([]ast.ASTHandle, error) {
+	if err := s.open(); err != nil {
+		return nil, err
+	}
+	var heads []ast.ASTHandle
+	if s.headTable != nil {
+		for _, entry := range s.headTable.Entries() {
+			heads = append(heads, entry.Key)
+		}
+	}
+	return heads, nil
+}
+
 // item_set table order.
 func (s *RuleSet) SourceStrata() ([][]ast.ASTHandle, error) {
 	if err := s.open(); err != nil {

@@ -135,7 +135,8 @@ func (p *RelationExplanationProduct) filterNumericInterpreted(condition ast.ASTH
 			resultErr = errors.Join(resultErr, manager.DelRef(&references[i]))
 		}
 	}()
-	for variable, sort := range sorts {
+	for _, variable := range sortedRelVariables(sorts) {
+		sort := sorts[variable]
 		column, found := columns[variable]
 		if !found || column < 0 || column >= len(p.finiteSorts) || p.finiteSorts[column] != sort {
 			return ErrTableRelation

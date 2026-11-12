@@ -143,7 +143,10 @@ func remapBoundCondition(manager *ast.ASTManager, condition ast.ASTHandle, varia
 			resultErr = errors.Join(resultErr, manager.DelRef(&roots[i]))
 		}
 	}()
-	for variable, column := range variables {
+	// Ascending variable index: each binding is a new AST (Go map order
+	// would be random).
+	for _, variable := range sortedVariableIndexes(variables) {
+		column := variables[variable]
 		binding, err := manager.MkVar(column, sorts[column])
 		if err != nil {
 			return result, err

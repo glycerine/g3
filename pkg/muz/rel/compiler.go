@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -903,7 +904,10 @@ func (c *finiteCompiler) prepareTail(rule *base.Rule, application ast.ASTHandle,
 		}
 		current, signature, owned = result, projected, true
 	}
-	for _, columns := range variableColumns {
+	// dl_compiler.cpp compile_rule_evaluation_run walks its int2ints
+	// var_indexes (u_map) in table order, the keys inserted in column order.
+	for _, variable := range uMapOrder(variablesByFirstColumn(variableColumns)) {
+		columns := variableColumns[variable]
 		if len(columns) < 2 {
 			continue
 		}
@@ -932,8 +936,9 @@ func (c *finiteCompiler) twoTailBody(rule finiteCompiledRule, sources [2]uint32)
 	}
 	leftJoin := make([]int, 0)
 	rightJoin := make([]int, 0)
-	for variable, leftColumns := range leftVariables {
-		rightColumns := rightVariables[variable]
+	// variable_intersection::populate scans the left columns in order.
+	for _, variable := range variablesByFirstColumn(leftVariables) {
+		leftColumns, rightColumns := leftVariables[variable], rightVariables[variable]
 		if len(leftColumns) != 0 && len(rightColumns) != 0 {
 			leftJoin = append(leftJoin, leftColumns[0])
 			rightJoin = append(rightJoin, rightColumns[0])
@@ -1116,7 +1121,24 @@ func (c *finiteCompiler) filterNegatives(rule finiteCompiledRule, predicate ast.
 		}
 		targetColumns := make([]int, 0, len(negativeVariables))
 		negativeColumns := make([]int, 0, len(negativeVariables))
-		for variable, columns := range negativeVariables {
+		// neg_intersection.populate scans the positive result columns in
+		// order (t_cols ascending).
+		negativeOrder := make([]uint32, 0, len(negativeVariables))
+		for variable := range negativeVariables {
+			negativeOrder = append(negativeOrder, variable)
+		}
+		slices.SortFunc(negativeOrder, func(a, b uint32) int {
+			ta, tb := variableColumns[a], variableColumns[b]
+			if len(ta) == 0 || len(tb) == 0 {
+				return len(ta) - len(tb)
+			}
+			if ta[0] != tb[0] {
+				return ta[0] - tb[0]
+			}
+			return negativeVariables[a][0] - negativeVariables[b][0]
+		})
+		for _, variable := range negativeOrder {
+			columns := negativeVariables[variable]
 			target := variableColumns[variable]
 			if len(target) == 0 || len(columns) == 0 {
 				return 0, Signature{}, false, false, nil, ErrCompilerUnsupported

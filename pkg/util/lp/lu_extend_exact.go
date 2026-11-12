@@ -2,7 +2,24 @@ package lp
 
 // Source: src/util/lp/lu.h:308-366, retained mpq/pair extension (lar_solver.h:853,902-925).
 
-import "github.com/glycerine/g3/pkg/util/numeral"
+import (
+	"slices"
+
+	"github.com/glycerine/g3/pkg/util/numeral"
+)
+
+// addLastRowsOrder is the replacement order for add_last_rows_to_B. The
+// source iterates a std::unordered_set<unsigned> (libstdc++ bucket order);
+// that order is not reproduced (STL port), so ascending column order is used
+// to keep the factorization deterministic (Go map order is random).
+func addLastRowsOrder(columns map[uint32]struct{}) []uint32 {
+	keys := make([]uint32, 0, len(columns))
+	for j := range columns {
+		keys = append(keys, j)
+	}
+	slices.Sort(keys)
+	return keys
+}
 
 func (m *PairLU) ColumnsToReplaceForAddLastRows(heading []int32) (columns map[uint32]struct{}, err error) {
 	if err = m.ready(); err != nil {
@@ -68,7 +85,7 @@ func (m *PairLU) AddLastRowsToB(heading []int32, columns map[uint32]struct{}) (e
 	if err = m.wExtension.Resize(n); err != nil {
 		return err
 	}
-	for j := range columns {
+	for _, j := range addLastRowsOrder(columns) {
 		if uint64(j) >= uint64(len(heading)) {
 			return ErrBounds
 		}

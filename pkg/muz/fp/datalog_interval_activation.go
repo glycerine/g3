@@ -229,7 +229,9 @@ func (a *intervalDatalogActivation) clone(rules *base.RuleSet) (_ *intervalDatal
 			resultErr = errors.Join(resultErr, copyActivation.close())
 		}
 	}()
-	for declaration, entry := range a.store.entries {
+	// Declaration order: the checks build formulas (Go map order is random).
+	for _, declaration := range a.store.order {
+		entry := a.store.entries[declaration]
 		relation, err := entry.relation.Clone()
 		if err != nil {
 			return nil, err
@@ -264,7 +266,8 @@ func (a *intervalDatalogActivation) query(declarations []ast.ASTHandle, widen bo
 	}
 	evaluator.formulaCheck = a.formulaCheck
 	if a.formulaCheck != nil {
-		for declaration, entry := range a.store.entries {
+		for _, declaration := range a.store.order {
+			entry := a.store.entries[declaration]
 			if err = rel.VerifyIntervalRelationClone(a.manager, entry.sorts, *a.formulaCheck, entry.relation, evaluator.relations[declaration]); err != nil {
 				return lbool.Undef, errors.Join(err, evaluator.Close())
 			}

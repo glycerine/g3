@@ -3,6 +3,7 @@ package duality
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/ast"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -86,7 +87,16 @@ func NewHistoryProposer(old, newGraph *RPFP) (out *HistoryProposer, result error
 		newConstants[key] = h
 	}
 	background := make(map[ast.ASTHandle]ast.ASTHandle)
+	// The source walks a hash_space::hash_set<func_decl>; AST id order keeps
+	// the translation (AST creation in the new manager) deterministic.
+	oldConstants := make([]ast.ASTHandle, 0, len(old.vocabulary.constants))
+	oldIDs := make(map[ast.ASTHandle]uint32, len(old.vocabulary.constants))
 	for h := range old.vocabulary.constants {
+		oldConstants = append(oldConstants, h)
+		oldIDs[h], _ = old.context.manager.GetASTID(h)
+	}
+	slices.SortFunc(oldConstants, func(a, b ast.ASTHandle) int { return int(oldIDs[a]) - int(oldIDs[b]) })
+	for _, h := range oldConstants {
 		translated, err := translate(h)
 		if err != nil {
 			return nil, err

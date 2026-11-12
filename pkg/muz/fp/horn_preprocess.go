@@ -5,6 +5,7 @@ package fp
 
 import (
 	"errors"
+	"slices"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
@@ -97,13 +98,54 @@ const (
 	hornConvertInline
 )
 
+// hornConversionKeys lists keys in order first, then any remaining keys of
+// set in AST id order of their values (Go map order is random).
+func hornConversionKeys(m *ast.ASTManager, order []ast.ASTHandle, keys []ast.ASTHandle, value func(ast.ASTHandle) ast.ASTHandle) []ast.ASTHandle {
+	present := make(map[ast.ASTHandle]bool, len(keys))
+	for _, key := range keys {
+		present[key] = true
+	}
+	result := make([]ast.ASTHandle, 0, len(keys))
+	for _, key := range order {
+		if present[key] {
+			result = append(result, key)
+			delete(present, key)
+		}
+	}
+	rest := make([]ast.ASTHandle, 0, len(present))
+	for _, key := range keys {
+		if present[key] {
+			rest = append(rest, key)
+		}
+	}
+	ids := make(map[ast.ASTHandle]uint32, len(rest))
+	for _, key := range rest {
+		ids[key], _ = m.GetASTID(value(key))
+	}
+	slices.SortFunc(rest, func(a, b ast.ASTHandle) int { return int(ids[a]) - int(ids[b]) })
+	return append(result, rest...)
+}
+
+// freshPredicateKeys orders an old -> fresh map by order, then by the fresh
+// declarations' AST ids (creation order).
+func freshPredicateKeys(m *ast.ASTManager, order []ast.ASTHandle, fresh map[ast.ASTHandle]ast.ASTHandle) []ast.ASTHandle {
+	keys := make([]ast.ASTHandle, 0, len(fresh))
+	for key := range fresh {
+		keys = append(keys, key)
+	}
+	return hornConversionKeys(m, order, keys, func(key ast.ASTHandle) ast.ASTHandle { return fresh[key] })
+}
+
 type hornModelConversion struct {
 	kind       hornModelConversionKind
 	predicates map[ast.ASTHandle]ast.ASTHandle
 	columns    map[ast.ASTHandle][]bool
 	karr       map[ast.ASTHandle]rel.KarrMatrix
-	cone       transforms.ConeModelStep
-	inline     []transforms.InlineModelRule
+	// order lists the predicates (or karr) keys in the source model
+	// converter's iteration order; nil means AST id order.
+	order  []ast.ASTHandle
+	cone   transforms.ConeModelStep
+	inline []transforms.InlineModelRule
 }
 
 func closeHornModelConversions(conversions []hornModelConversion) (result error) {

@@ -15,9 +15,11 @@ import (
 // Info owns both sides of each abstraction and the substitution borrowed by
 // its default replacer. The manager outlives this counted owner.
 type Info struct {
-	self                              *Info
-	manager                           *ast.ASTManager
-	terms                             map[ast.ASTHandle]ast.ASTHandle
+	self    *Info
+	manager *ast.ASTManager
+	terms   map[ast.ASTHandle]ast.ASTHandle
+	// table is m_t2c's obj_map<app, app*> layout; translate walks it.
+	table                             *ast.ObjMap
 	constants                         map[ast.ASTHandle]ast.ASTHandle
 	held                              []ast.ASTHandle
 	replacer                          *rewriter.DefaultExprReplacer
@@ -48,7 +50,7 @@ func NewInfo(m *ast.ASTManager) (*Info, error) {
 	if err := m.Budget().Reserve(n); err != nil {
 		return nil, err
 	}
-	i := &Info{manager: m, terms: make(map[ast.ASTHandle]ast.ASTHandle), constants: make(map[ast.ASTHandle]ast.ASTHandle), header: n}
+	i := &Info{manager: m, terms: make(map[ast.ASTHandle]ast.ASTHandle), table: ast.NewObjMap(m), constants: make(map[ast.ASTHandle]ast.ASTHandle), header: n}
 	i.self = i
 	var err error
 	i.replacer, err = rewriter.NewDefaultExprReplacer(m)
@@ -121,6 +123,9 @@ func (i *Info) SetAbstraction(term, constant ast.ASTHandle) error {
 	if err = i.hold(constant); err != nil {
 		return err
 	}
+	if err = i.table.Insert(term, [2]ast.ASTHandle{constant}); err != nil {
+		return err
+	}
 	i.terms[term] = constant
 	i.constants[d] = term
 	return nil
@@ -176,7 +181,9 @@ func (i *Info) Translate(tr *ast.ASTTranslation) (result *Info, err error) {
 			result = nil
 		}
 	}()
-	for term, constant := range i.terms {
+	// ackr_info::translate walks m_t2c in table order.
+	for _, entry := range i.table.Entries() {
+		term, constant := entry.Key, entry.Value[0]
 		t, e := tr.Translate(term)
 		if e != nil {
 			return result, e
@@ -223,7 +230,7 @@ func (i *Info) Close() error {
 		}
 		i.replacer = nil
 	}
-	i.terms = nil
+	i.terms, i.table = nil, nil
 	i.constants = nil
 	i.manager.Budget().Release(i.header)
 	i.header = 0

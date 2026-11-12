@@ -76,7 +76,10 @@ func (a *boundIntervalDatalogActivation) remapBoundIntervalCondition(condition a
 			resultErr = errors.Join(resultErr, a.manager.DelRef(&roots[i]))
 		}
 	}()
-	for variable, column := range variables {
+	// Ascending variable index: each binding is a new AST (Go map order
+	// would be random).
+	for _, variable := range sortedVariableIndexes(variables) {
+		column := variables[variable]
 		value, cause := a.manager.MkVar(column, sorts[column])
 		if cause != nil {
 			return result, cause

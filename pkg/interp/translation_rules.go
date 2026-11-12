@@ -139,7 +139,7 @@ func (t *FullTranslation) translateMain(proof ast.ASTHandle, expectClause bool, 
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		for hypothesis := range hypotheses {
+		for _, hypothesis := range t.hypothesesByID(hypotheses) {
 			negated, e := t.base.manager.MkNot(hypothesis)
 			if e != nil {
 				return ast.ASTHandle{}, e
@@ -178,7 +178,7 @@ func (t *FullTranslation) translateMain(proof ast.ASTHandle, expectClause bool, 
 			if e != nil {
 				return ast.ASTHandle{}, e
 			}
-			for hypothesis := range hypotheses {
+			for _, hypothesis := range t.hypothesesByID(hypotheses) {
 				negated, e := t.base.manager.MkNot(hypothesis)
 				if e != nil {
 					return ast.ASTHandle{}, e

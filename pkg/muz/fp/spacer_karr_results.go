@@ -135,8 +135,15 @@ func (e *PropositionalEngine) applySpacerKarrInvariant(destination *model.ModelC
 	return interpretation.SetElse(body)
 }
 
-func (e *PropositionalEngine) applyHornKarrInvariants(destination *model.ModelCore, invariants map[ast.ASTHandle]rel.KarrMatrix) error {
-	for declaration, matrix := range invariants {
+func (e *PropositionalEngine) applyHornKarrInvariants(destination *model.ModelCore, invariants map[ast.ASTHandle]rel.KarrMatrix, order []ast.ASTHandle) error {
+	// add_invariant_model_converter walks m_funcs, filled in the loop rules'
+	// begin_grouped_rules order (KarrInvariantsPlugin.ModelInvariantOrder).
+	keys := make([]ast.ASTHandle, 0, len(invariants))
+	for declaration := range invariants {
+		keys = append(keys, declaration)
+	}
+	for _, declaration := range hornConversionKeys(e.manager, order, keys, func(key ast.ASTHandle) ast.ASTHandle { return key }) {
+		matrix := invariants[declaration]
 		if matrix.Len() != 0 {
 			if err := e.applySpacerKarrInvariant(destination, declaration, matrix); err != nil {
 				return err

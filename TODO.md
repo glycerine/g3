@@ -2395,3 +2395,20 @@ Leads:
   round-wide call scope; exprQEBranchVariables.Close order vs obj_map.
 - tactic catch sites that only accept rewriter exceptions where C++ catches
   z3_exception (audit IsRewriterException uses).
+
+## Go map iteration audit, part 2 (2026-11-12)
+
+316 sites in muz/*, util/lp, duality, interp, ackermannization (portcheck,
+cmd/partial-list unreachable): 273 order-insensitive, 14 fixed to the C++
+order (dl_compiler var_indexes u_map, variable_intersection, neg_intersection,
+bound_relation uint_set, spacer slice/scale/quantifier-abstraction/karr
+model converters, iz3translate AstSet, ackr_info m_t2c), 19 made
+deterministic in the closest order (no ported C++ order), 1 lead.
+Leads: lu_extend add_last_rows_to_B iterates std::unordered_set<unsigned>
+(libstdc++ order would extend the STL exception beyond lar_term - needs the
+user's approval; ascending for now); lar_conflict_certificate debug
+"left side =" in unordered_map order; mk_slice converter order;
+array-instantiation/scale/magic predicate registration use AST id order;
+ackr Info.Close reverse order vs ~ackr_info table order; iz3hash hash_set
+order; with fixedpoint.xform.karr on Int predicates z3 4.7.1 errors "Rule
+contains infinite sorts" but g3 runs on.

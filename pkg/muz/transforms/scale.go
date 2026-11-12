@@ -11,10 +11,13 @@ import (
 )
 
 type ScalePlugin struct {
-	manager      *ast.ASTManager
-	rules        *base.RuleManager
-	priority     uint32
-	oldToNew     map[ast.ASTHandle]ast.ASTHandle
+	manager  *ast.ASTManager
+	rules    *base.RuleManager
+	priority uint32
+	oldToNew map[ast.ASTHandle]ast.ASTHandle
+	// newOrder lists oldToNew's keys in scale_model_converter::m_new2old
+	// (obj_map keyed by the new declaration) table order.
+	newOrder     []ast.ASTHandle
 	closed       bool
 	closing      bool
 	cleaning     bool
@@ -40,6 +43,12 @@ func (p *ScalePlugin) FreshPredicates() map[ast.ASTHandle]ast.ASTHandle {
 	return result
 }
 
+// FreshPredicateOrder lists FreshPredicates' keys in the model converter's
+// m_new2old table order.
+func (p *ScalePlugin) FreshPredicateOrder() []ast.ASTHandle {
+	return append([]ast.ASTHandle(nil), p.newOrder...)
+}
+
 type scaleRuleState struct {
 	plugin   *ScalePlugin
 	sigma    uint32
@@ -47,6 +56,8 @@ type scaleRuleState struct {
 	eqs      []ast.ASTHandle
 	cache    map[ast.ASTHandle]ast.ASTHandle
 	fresh    map[ast.ASTHandle]ast.ASTHandle
+	// freshOrder lists fresh's keys in first-creation order (add_new2old).
+	freshOrder *[]ast.ASTHandle
 }
 
 func (s *scaleRuleState) pin(handle ast.ASTHandle) (ast.ASTHandle, error) {
@@ -96,6 +107,7 @@ func (s *scaleRuleState) predicate(source, destination *base.RuleSet, applicatio
 			return ast.ASTHandle{}, getErr
 		}
 		s.fresh[old] = fresh
+		*s.freshOrder = append(*s.freshOrder, old)
 	}
 	// Each result needs the current source metadata even when the scaled
 	// declaration was already created by an earlier transformation.
@@ -264,13 +276,14 @@ func (p *ScalePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultEr
 		return nil, err
 	}
 	fresh := make(map[ast.ASTHandle]ast.ASTHandle)
+	var freshOrder []ast.ASTHandle
 	for i := 0; i < count; i++ {
 		rule, getErr := source.Rule(i)
 		if getErr != nil {
 			return nil, getErr
 		}
 		p.pendingRules = append(p.pendingRules, rule)
-		state := &scaleRuleState{plugin: p, realSort: realSort, cache: make(map[ast.ASTHandle]ast.ASTHandle), fresh: fresh}
+		state := &scaleRuleState{plugin: p, realSort: realSort, cache: make(map[ast.ASTHandle]ast.ASTHandle), fresh: fresh, freshOrder: &freshOrder}
 		state.sigma, getErr = ruleVariableCount(p.manager, rule)
 		var replacement *base.Rule
 		if getErr == nil {
@@ -337,8 +350,18 @@ func (p *ScalePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultEr
 			return nil, getErr
 		}
 	}
-	for old, declaration := range fresh {
-		p.oldToNew[old] = declaration
+	// scale_model_converter::add_new2old inserts into an obj_map keyed by
+	// the new declaration; its model conversion walks that table.
+	table := ast.NewObjMap(p.manager)
+	for _, old := range freshOrder {
+		p.oldToNew[old] = fresh[old]
+		if err := table.Insert(fresh[old], [2]ast.ASTHandle{old}); err != nil {
+			return nil, err
+		}
+	}
+	p.newOrder = p.newOrder[:0]
+	for _, entry := range table.Entries() {
+		p.newOrder = append(p.newOrder, entry.Value[0])
 	}
 	p.pendingSets = p.pendingSets[:len(p.pendingSets)-1]
 	keep = true
@@ -397,6 +420,6 @@ func (p *ScalePlugin) Close() error {
 		return err
 	}
 	p.closed = true
-	p.oldToNew = nil
+	p.oldToNew, p.newOrder = nil, nil
 	return nil
 }

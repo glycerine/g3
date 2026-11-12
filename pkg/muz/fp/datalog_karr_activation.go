@@ -198,7 +198,13 @@ func (a *karrDatalogActivation) reset() error {
 	if a == nil || a.closed {
 		return ErrKarrDatalogFragment
 	}
-	for d, r := range a.seeds {
+	sortedDecls := make([]ast.ASTHandle, 0, len(a.seeds))
+	for declaration := range a.seeds {
+		sortedDecls = append(sortedDecls, declaration)
+	}
+	ast.SortHandles(sortedDecls) // deterministic: checks build formulas; Go map order is random
+	for _, d := range sortedDecls {
+		r := a.seeds[d]
 		empty := rel.NewKarrEmpty(r.Dimension(), func() bool { return a.checkpoint() == nil }, a.formulaChecker)
 		if a.formulaChecker != nil {
 			sorts, err := a.relationSorts(d)
@@ -357,7 +363,12 @@ func (a *karrDatalogActivation) query(declarations []ast.ASTHandle) (lbool.LBool
 		marks[d] = 2
 		return nil
 	}
+	visitOrder := make([]ast.ASTHandle, 0, len(snapshot))
 	for d := range snapshot {
+		visitOrder = append(visitOrder, d)
+	}
+	ast.SortHandles(visitOrder) // deterministic; Go map order is random
+	for _, d := range visitOrder {
 		if err := visit(d); err != nil {
 			return lbool.Undef, err
 		}

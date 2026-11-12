@@ -159,10 +159,11 @@ func (r *BoundRelation) addBound(left, right uint32, strict bool) error {
 			continue
 		}
 		source := &r.columns[item.column]
-		for next := range source.lt {
+		// uint_set iterates ascending.
+		for _, next := range sortedBoundIndices(source.lt) {
 			todo = append(todo, pending{next, true})
 		}
-		for next := range source.le {
+		for _, next := range sortedBoundIndices(source.le) {
 			todo = append(todo, pending{next, item.strict})
 		}
 		if item.strict {

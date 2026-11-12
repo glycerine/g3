@@ -270,7 +270,9 @@ func (r *boundDatalogRuntime) clone(rules *base.RuleSet) (_ *boundDatalogRuntime
 			resultErr = errors.Join(resultErr, copyRuntime.close())
 		}
 	}()
-	for declaration, entry := range r.entries {
+	// Declaration order: the checks build formulas (Go map order is random).
+	for _, declaration := range r.order {
+		entry := r.entries[declaration]
 		copyRuntime.entries[declaration].seed = entry.seed.Clone()
 		if copyRuntime.formulaCheck != nil {
 			if err := rel.VerifyBoundRelationClone(r.manager, entry.sorts, *copyRuntime.formulaCheck, entry.seed, copyRuntime.entries[declaration].seed); err != nil {
@@ -653,7 +655,9 @@ func (r *boundDatalogRuntime) reset() error {
 	if err := r.discardSimilarity(); err != nil {
 		return err
 	}
-	for _, entry := range r.entries {
+	// Declaration order: newRelation's check builds formulas.
+	for _, declaration := range r.order {
+		entry := r.entries[declaration]
 		seed, err := r.newRelation(entry.sorts, false)
 		if err != nil {
 			return err

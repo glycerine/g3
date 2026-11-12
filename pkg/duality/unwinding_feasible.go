@@ -7,6 +7,7 @@ import (
 	"github.com/glycerine/g3/pkg/interp"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"slices"
 )
 
 func (u *Unwinding) NodePastRecursionBound(node *Node) (bool, error) {
@@ -23,7 +24,16 @@ func (u *Unwinding) nodePastRecursionBound(node *Node, report bool) (bool, error
 	if u.RecursionBound < 0 {
 		return false, nil
 	}
-	for original, count := range u.backEdges[node] {
+	// The source walks a hash_map<Node *, int> keyed by pointer (no stable
+	// order); node number order keeps the reported cut-off deterministic.
+	backs := u.backEdges[node]
+	originals := make([]*Node, 0, len(backs))
+	for original := range backs {
+		originals = append(originals, original)
+	}
+	slices.SortFunc(originals, func(a, b *Node) int { return a.Number - b.Number })
+	for _, original := range originals {
+		count := backs[original]
 		if uint64(count) > uint64(original.RecursionBound) {
 			if report && u.graph.streamReporter != nil {
 				name, err := u.graph.streamReporter.nodeName(original)

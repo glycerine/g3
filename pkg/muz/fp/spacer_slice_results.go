@@ -425,25 +425,31 @@ func (e *PropositionalEngine) expandHornModel(source *model.Model, conversions [
 			source = converted
 			core = source.Core()
 		case hornConvertBitBlast:
-			for original, derived := range conversion.predicates {
+			// bit_blast_model_converter walks m_new_funcs (creation order).
+			for _, original := range freshPredicateKeys(e.manager, conversion.order, conversion.predicates) {
+				derived := conversion.predicates[original]
 				if err := e.expandSpacerBitBlastedFunction(core, original, derived); err != nil {
 					return nil, err
 				}
 			}
 		case hornConvertScale:
-			for original, derived := range conversion.predicates {
+			// scale_model_converter walks its m_new2old obj_map.
+			for _, original := range freshPredicateKeys(e.manager, conversion.order, conversion.predicates) {
+				derived := conversion.predicates[original]
 				if err := e.expandSpacerScaledFunction(core, original, derived); err != nil {
 					return nil, err
 				}
 			}
 		case hornConvertQuantifier:
-			for original, derived := range conversion.predicates {
+			// qa_model_converter walks m_new_funcs (creation order).
+			for _, original := range freshPredicateKeys(e.manager, conversion.order, conversion.predicates) {
+				derived := conversion.predicates[original]
 				if err := e.expandSpacerQuantifiedFunction(core, original, derived); err != nil {
 					return nil, err
 				}
 			}
 		case hornConvertKarr:
-			if err := e.applyHornKarrInvariants(core, conversion.karr); err != nil {
+			if err := e.applyHornKarrInvariants(core, conversion.karr, conversion.order); err != nil {
 				return nil, err
 			}
 		case hornConvertCone:

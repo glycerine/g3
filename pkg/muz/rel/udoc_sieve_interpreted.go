@@ -52,7 +52,7 @@ func (r *UDocSieve) FilterInterpreted(condition ast.ASTHandle, columns map[uint3
 			resultErr = errors.Join(resultErr, r.manager.DelRef(&refs[index]))
 		}
 	}()
-	for variable := range sorts {
+	for _, variable := range sortedRelVariables(sorts) {
 		if used.Contains(variable).IsNull() {
 			continue
 		}

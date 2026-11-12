@@ -17,8 +17,11 @@ type QuantifierAbstractionPlugin struct {
 	rules    *base.RuleManager
 	priority uint32
 	oldToNew map[ast.ASTHandle]ast.ASTHandle
-	mkRule   ArrayInstantiationRuleMaker
-	closed   bool
+	// order lists oldToNew's keys in creation order (the model converter's
+	// m_old_funcs vector).
+	order  []ast.ASTHandle
+	mkRule ArrayInstantiationRuleMaker
+	closed bool
 }
 
 // SetRuleMaker supplies rule_manager::mk_rule.
@@ -152,6 +155,12 @@ func (p *QuantifierAbstractionPlugin) FreshPredicates() map[ast.ASTHandle]ast.AS
 	return result
 }
 
+// FreshPredicateOrder lists FreshPredicates' keys in creation order, the
+// order of qa_model_converter's m_old_funcs / m_new_funcs vectors.
+func (p *QuantifierAbstractionPlugin) FreshPredicateOrder() []ast.ASTHandle {
+	return append([]ast.ASTHandle(nil), p.order...)
+}
+
 func (p *QuantifierAbstractionPlugin) arraySort(sort ast.ASTHandle) (bool, error) {
 	family, err := p.manager.GetFamilyID(sort)
 	if err != nil {
@@ -243,6 +252,7 @@ func (p *QuantifierAbstractionPlugin) declarePredicate(source, destination *base
 		return ast.ASTHandle{}, false, err
 	}
 	p.oldToNew[old] = fresh
+	p.order = append(p.order, old)
 	return fresh, true, nil
 }
 
@@ -591,6 +601,7 @@ func (p *QuantifierAbstractionPlugin) Transform(source *base.RuleSet) (_ *base.R
 		}
 	}
 	p.oldToNew = make(map[ast.ASTHandle]ast.ASTHandle)
+	p.order = nil
 	result, err := base.NewRuleSet(p.rules)
 	if err != nil {
 		return nil, err
@@ -626,6 +637,6 @@ func (p *QuantifierAbstractionPlugin) Close() error {
 		return base.ErrRuleTransformerOwner
 	}
 	p.closed = true
-	p.oldToNew = nil
+	p.oldToNew, p.order = nil, nil
 	return nil
 }

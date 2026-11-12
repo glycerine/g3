@@ -98,7 +98,10 @@ func (e *IntervalDatalogEvaluator) remapIntervalCondition(condition ast.ASTHandl
 			resultErr = errors.Join(resultErr, e.manager.DelRef(&roots[i]))
 		}
 	}()
-	for variable, column := range variables {
+	// Ascending variable index: each binding is a new AST (Go map order
+	// would be random).
+	for _, variable := range sortedVariableIndexes(variables) {
+		column := variables[variable]
 		h, err := e.manager.MkVar(column, sorts[column])
 		if err != nil {
 			return result, err

@@ -21,6 +21,7 @@ type KarrInvariantsPlugin struct {
 	closed     bool
 	invariants map[ast.ASTHandle]rel.KarrMatrix
 	model      map[ast.ASTHandle]rel.KarrMatrix
+	modelOrder []ast.ASTHandle
 }
 
 func NewKarrInvariantsPlugin(manager *ast.ASTManager, rules *base.RuleManager, priority uint32) *KarrInvariantsPlugin {
@@ -42,6 +43,12 @@ func (p *KarrInvariantsPlugin) ModelInvariants() map[ast.ASTHandle]rel.KarrMatri
 		result[declaration] = rel.CloneKarrMatrix(matrix)
 	}
 	return result
+}
+
+// ModelInvariantOrder lists ModelInvariants' keys in the order the source
+// model converter (add_invariant_model_converter::m_funcs) holds them.
+func (p *KarrInvariantsPlugin) ModelInvariantOrder() []ast.ASTHandle {
+	return append([]ast.ASTHandle(nil), p.modelOrder...)
 }
 
 func (p *KarrInvariantsPlugin) predicateOrder(source *base.RuleSet) ([]ast.ASTHandle, error) {
@@ -887,6 +894,20 @@ func (p *KarrInvariantsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet,
 	if err != nil {
 		return nil, err
 	}
+	// update_rules adds the model converter's invariants walking the loop
+	// rules' begin_grouped_rules (m_head2rules table order).
+	heads, err := loopRules.GroupedHeads()
+	if err != nil {
+		return nil, err
+	}
+	p.modelOrder = p.modelOrder[:0]
+	for _, head := range heads {
+		if original, found := loop.newToOld[head]; found {
+			if _, present := p.model[original]; present {
+				p.modelOrder = append(p.modelOrder, original)
+			}
+		}
+	}
 	annotated, err := p.updateRules(loopRules, forward)
 	if err != nil {
 		return nil, err
@@ -908,6 +929,6 @@ func (p *KarrInvariantsPlugin) Close() error {
 	}
 	p.closed = true
 	p.invariants = nil
-	p.model = nil
+	p.model, p.modelOrder = nil, nil
 	return nil
 }

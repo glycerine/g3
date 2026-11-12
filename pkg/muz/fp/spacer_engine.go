@@ -449,7 +449,8 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	}
 	if err == nil && quantifierAbstraction != nil {
 		quantifiedPredicates = quantifierAbstraction.FreshPredicates()
-		for _, declaration := range quantifiedPredicates {
+		for _, original := range freshPredicateKeys(e.manager, quantifierAbstraction.FreshPredicateOrder(), quantifiedPredicates) {
+			declaration := quantifiedPredicates[original]
 			state, stateErr := e.predicateState(declaration)
 			if stateErr != nil {
 				err = stateErr
@@ -460,7 +461,8 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	}
 	if err == nil && arrayInstantiation != nil {
 		instantiatedPredicates = arrayInstantiation.FreshPredicates()
-		for _, declaration := range instantiatedPredicates {
+		for _, original := range freshPredicateKeys(e.manager, nil, instantiatedPredicates) {
+			declaration := instantiatedPredicates[original]
 			state, stateErr := e.predicateState(declaration)
 			if stateErr != nil {
 				err = fmt.Errorf("muz/fp: array-instantiated predicate state: %w", stateErr)
@@ -471,7 +473,8 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	}
 	if err == nil && bitBlaster != nil {
 		bitBlastedPredicates = bitBlaster.FreshPredicates()
-		for _, declaration := range bitBlastedPredicates {
+		for _, original := range freshPredicateKeys(e.manager, bitBlaster.FreshPredicateOrder(), bitBlastedPredicates) {
+			declaration := bitBlastedPredicates[original]
 			state, stateErr := e.predicateState(declaration)
 			if stateErr != nil {
 				err = fmt.Errorf("muz/fp: bit-blasted predicate state: %w", stateErr)
@@ -482,7 +485,8 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	}
 	if err == nil && scaler != nil {
 		scaledPredicates = scaler.FreshPredicates()
-		for _, declaration := range scaledPredicates {
+		for _, original := range freshPredicateKeys(e.manager, nil, scaledPredicates) {
+			declaration := scaledPredicates[original]
 			state, stateErr := e.predicateState(declaration)
 			if stateErr != nil {
 				err = fmt.Errorf("muz/fp: scaled predicate state: %w", stateErr)
@@ -493,7 +497,8 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	}
 	if err == nil && magicTransformer != nil {
 		magicPredicates = magicTransformer.AnswerPredicates()
-		for _, declaration := range magicPredicates {
+		for _, original := range freshPredicateKeys(e.manager, nil, magicPredicates) {
+			declaration := magicPredicates[original]
 			state, stateErr := e.predicateState(declaration)
 			if stateErr != nil {
 				err = fmt.Errorf("muz/fp: magic answer predicate state: %w", stateErr)
@@ -571,13 +576,13 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	appendConeSteps(initialConeSteps)
 	initialConeSteps = nil
 	if len(quantifiedPredicates) != 0 {
-		modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertQuantifier, predicates: quantifiedPredicates})
+		modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertQuantifier, predicates: quantifiedPredicates, order: quantifierAbstraction.FreshPredicateOrder()})
 	}
 	if len(scaledPredicates) != 0 {
-		modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertScale, predicates: scaledPredicates})
+		modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertScale, predicates: scaledPredicates, order: scaler.FreshPredicateOrder()})
 	}
 	if len(karrInvariants) != 0 {
-		modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertKarr, karr: karrInvariants})
+		modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertKarr, karr: karrInvariants, order: karrTransformer.ModelInvariantOrder()})
 	}
 	appendInlineRules := func(index int) {
 		if index < len(inlineModelRules) && len(inlineModelRules[index]) != 0 {
@@ -595,7 +600,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	appendSubsumptionSteps(0)
 	appendInlineRules(0)
 	if len(bitBlastedPredicates) != 0 {
-		modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertBitBlast, predicates: bitBlastedPredicates})
+		modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertBitBlast, predicates: bitBlastedPredicates, order: bitBlaster.FreshPredicateOrder()})
 	}
 	appendConeSteps(laterConeSteps)
 	laterConeSteps = nil

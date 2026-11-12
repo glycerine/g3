@@ -21,6 +21,9 @@ type bitBlastExpansion struct {
 	source   *base.RuleSet
 	target   *base.RuleSet
 	oldToNew map[ast.ASTHandle]ast.ASTHandle
+	// order lists oldToNew's keys in creation order (the model converter's
+	// m_old_funcs vector).
+	order []ast.ASTHandle
 	// args, fVars, gVars are expand_mkbv_cfg's m_args, m_f_vars, m_g_vars:
 	// reset on each reduce_app, released when the configuration dies.
 	args, fVars, gVars []ast.ASTRef
@@ -150,6 +153,7 @@ func (c *bitBlastExpansion) ReduceApp(declaration ast.ASTHandle, arguments ast.A
 			return astrewriter.RewriteFailed, err
 		}
 		c.oldToNew[declaration] = fresh
+		c.order = append(c.order, declaration)
 	}
 	application, err := c.manager.MkApp(fresh, flat)
 	if err != nil {
@@ -204,6 +208,7 @@ func NewBitBlastPlugin(manager *ast.ASTManager, rules *base.RuleManager, context
 	p := &BitBlastPlugin{manager: manager, rules: rules, simplifier: simplifier, blaster: blaster, priority: priority}
 	p.expansion.manager, p.expansion.rules = manager, rules
 	p.expansion.oldToNew = make(map[ast.ASTHandle]ast.ASTHandle)
+	p.expansion.order = nil
 	return p, nil
 }
 
@@ -217,6 +222,12 @@ func (p *BitBlastPlugin) FreshPredicates() map[ast.ASTHandle]ast.ASTHandle {
 		result[old] = fresh
 	}
 	return result
+}
+
+// FreshPredicateOrder lists FreshPredicates' keys in creation order, the
+// order of bit_blast_model_converter's m_old_funcs / m_new_funcs vectors.
+func (p *BitBlastPlugin) FreshPredicateOrder() []ast.ASTHandle {
+	return append([]ast.ASTHandle(nil), p.expansion.order...)
 }
 
 func (p *BitBlastPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
@@ -428,7 +439,7 @@ func (p *BitBlastPlugin) Close() error {
 		p.simplifier = nil
 	}
 	p.expansion.source, p.expansion.target = nil, nil
-	p.expansion.oldToNew = nil
+	p.expansion.oldToNew, p.expansion.order = nil, nil
 	p.closed = true
 	return nil
 }

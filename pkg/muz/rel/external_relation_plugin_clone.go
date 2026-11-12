@@ -150,7 +150,13 @@ func (p *ExternalRelationPlugin) ClonePredicatesTo(destination *RelationManager)
 			result = nil
 		}
 	}()
-	for predicate, source := range p.predicates {
+	// Deterministic (AST id) order: each clone makes a fresh constant.
+	predicates := make([]ast.ASTHandle, 0, len(p.predicates))
+	for predicate := range p.predicates {
+		predicates = append(predicates, predicate)
+	}
+	for _, predicate := range handlesByID(p.ast, predicates) {
+		source := p.predicates[predicate]
 		owner.pending, err = cloneExternalPredicateRelation(source, target)
 		if err != nil {
 			return nil, err

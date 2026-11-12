@@ -64,7 +64,7 @@ func (m *FloatLU) AddLastRowsToB(heading []int32, columns map[uint32]struct{}) (
 	if err = m.wExtension.Resize(n); err != nil {
 		return err
 	}
-	for j := range columns {
+	for _, j := range addLastRowsOrder(columns) {
 		if uint64(j) >= uint64(len(heading)) {
 			return ErrBounds
 		}

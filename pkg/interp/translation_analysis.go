@@ -6,6 +6,7 @@ package interp
 import (
 	"errors"
 	"math"
+	"slices"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -293,6 +294,19 @@ func (t *FullTranslation) Locality(proof ast.ASTHandle) (int, error) {
 		return -1, nil
 	}
 	return result, nil
+}
+
+// hypothesesByID lists a hypothesis set in iz3translate's AstSet order:
+// std::set<ast> under less<ast_r>, ascending AST id.
+func (t *FullTranslation) hypothesesByID(set map[ast.ASTHandle]struct{}) []ast.ASTHandle {
+	keys := make([]ast.ASTHandle, 0, len(set))
+	ids := make(map[ast.ASTHandle]uint32, len(set))
+	for key := range set {
+		keys = append(keys, key)
+		ids[key], _ = t.base.manager.ast.GetASTID(key)
+	}
+	slices.SortFunc(keys, func(a, b ast.ASTHandle) int { return int(ids[a]) - int(ids[b]) })
+	return keys
 }
 
 func cloneHandleSet(source map[ast.ASTHandle]struct{}) map[ast.ASTHandle]struct{} {
