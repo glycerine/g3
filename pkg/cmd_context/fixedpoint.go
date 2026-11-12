@@ -262,6 +262,49 @@ func (c *Context) prepareFixedpointQuery(params *uparams.ParamsRef, includeCurre
 	return engine, nil
 }
 
+// FixedpointQueryCommandParams returns dl_query_cmd's parameter object after
+// parametric_cmd::prepare's m_params.reset(). The command object outlives
+// each query, so a datalog context still sharing it loses its values too.
+func (c *Context) FixedpointQueryCommandParams() (*uparams.ParamsRef, error) {
+	if err := c.valid(); err != nil {
+		return nil, err
+	}
+	params := c.config.Globals.Context
+	if c.fixedpointQueryCmdParams.Owner == 0 && c.fixedpointQueryCmdParams.Slot == 0 {
+		value, err := params.NewValue()
+		if err != nil {
+			return nil, err
+		}
+		c.fixedpointQueryCmdParams = value
+	}
+	if err := params.Reset(&c.fixedpointQueryCmdParams); err != nil {
+		return nil, err
+	}
+	return &c.fixedpointQueryCmdParams, nil
+}
+
+// UpdateFixedpointContextParams is dlctx.updt_params(m_params): the context's
+// m_params_ref.copy shares the command's object while it has none of its own
+// and otherwise merges the command's values into its (copy-on-write) object.
+// The returned borrowed value holds the context's effective parameters.
+func (c *Context) UpdateFixedpointContextParams() (*uparams.ParamsRef, error) {
+	if err := c.valid(); err != nil {
+		return nil, err
+	}
+	params := c.config.Globals.Context
+	if c.fixedpointContextParams.Owner == 0 && c.fixedpointContextParams.Slot == 0 {
+		value, err := params.NewValue()
+		if err != nil {
+			return nil, err
+		}
+		c.fixedpointContextParams = value
+	}
+	if err := params.Copy(&c.fixedpointContextParams, &c.fixedpointQueryCmdParams); err != nil {
+		return nil, err
+	}
+	return &c.fixedpointContextParams, nil
+}
+
 func (c *Context) QueryFixedpoint(declaration ast.ASTHandle) (lbool.LBool, error) {
 	return c.QueryFixedpointWithParams(declaration, nil)
 }

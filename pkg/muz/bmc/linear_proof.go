@@ -92,7 +92,7 @@ func (c *Compiler) linearProofStep(rm *base.RuleManager, rule *base.Rule, index,
 	if err != nil {
 		return nil, ast.ASTRef{}, err
 	}
-	return c.linearProofStepWithBindings(rm, rule, bindings, previous, previousProof, normalizer, ast.ASTProofPosition{First: 1, Second: 0}, false, false)
+	return c.linearProofStepWithBindings(rm, rule, bindings, previous, previousProof, normalizer, ast.ASTProofPosition{First: 0, Second: 1}, false, false)
 }
 
 // linearProofStepWithBindings takes ownership of all supplied references.

@@ -2432,6 +2432,11 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 	}
 	if e.backend == "tab" {
 		e.compiled = false
+		if !e.auxiliary[declaration] {
+			// engine_base::query builds R(#0..) (existentially closed) and
+			// tab's imp::query adds the query!N rule through mk_query.
+			return e.queryRelationExpression(declaration)
+		}
 		return e.queryTabPredicate(declaration)
 	}
 	status, err := e.queryDatalogPredicates([]ast.ASTHandle{declaration})

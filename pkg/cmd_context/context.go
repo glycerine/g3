@@ -99,6 +99,11 @@ type Context struct {
 	debugExpressions     map[string]ast.ASTRef
 	borrowedManager      bool
 	fixedpoint           *muzfp.PropositionalEngine
+	// fixedpointQueryCmdParams is dl_query_cmd's parametric m_params, which
+	// lives as long as the command table; fixedpointContextParams is the
+	// datalog::context's m_params_ref, recreated with the context.
+	fixedpointQueryCmdParams uparams.ParamsRef
+	fixedpointContextParams  uparams.ParamsRef
 	datalogDisplay       *base.DatalogContext
 	solver               solver.Solver
 	tacticResult         *solver.SimpleCheckSatResult
@@ -1676,6 +1681,11 @@ func (c *Context) resetManagerState() error {
 		}
 		c.fixedpoint = nil
 	}
+	if c.fixedpointContextParams.Slot != 0 {
+		if err := c.config.Globals.Context.Del(&c.fixedpointContextParams); err != nil {
+			return err
+		}
+	}
 	if c.datalogDisplay != nil {
 		if _, err := c.manager.ProofMode(); err != nil {
 			return err
@@ -1751,6 +1761,11 @@ func (c *Context) Close() error {
 	}
 	if err := c.resetManagerState(); err != nil {
 		return err
+	}
+	if c.fixedpointQueryCmdParams.Slot != 0 {
+		if err := c.config.Globals.Context.Del(&c.fixedpointQueryCmdParams); err != nil {
+			return err
+		}
 	}
 	if c.userTactics != nil {
 		c.userTactics.DeleteAll()

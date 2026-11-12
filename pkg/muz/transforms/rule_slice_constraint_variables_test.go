@@ -175,8 +175,7 @@ func testRuleSliceConstraintVariables(t *testing.T, mixedSparse, reverse, swappe
 	position := ast.ASTProofPosition{First: 1}
 	premiseSubstitution := [][]ast.ASTHandle{{selected}, {selected, constraintVariable}}
 	if reverse {
-		parents[0], parents[1] = parents[1], parents[0]
-		premiseSubstitution[0], premiseSubstitution[1] = premiseSubstitution[1], premiseSubstitution[0]
+		// The bmc linear (0, 1) layout keeps the consumer first.
 		position = ast.ASTProofPosition{Second: 1}
 	}
 	inner, err := m.MkProofHyperResolve(parents, formula, []ast.ASTProofPosition{position}, premiseSubstitution)
@@ -254,7 +253,13 @@ func testRuleSliceConstraintVariables(t *testing.T, mixedSparse, reverse, swappe
 	}
 	checker, err := proofs.NewChecker(m)
 	coneMust(t, err)
-	for _, checked := range []ast.ASTHandle{outer, handle} {
+	checkedProofs := []ast.ASTHandle{outer, handle}
+	if reverse {
+		// The source (0, 1) input layout is not checker-valid; only the
+		// reconstructed proof is.
+		checkedProofs = checkedProofs[1:]
+	}
+	for _, checked := range checkedProofs {
 		valid, conditions, err := checker.Check(checked)
 		coneMust(t, err)
 		defer func() {

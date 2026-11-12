@@ -19,7 +19,9 @@ func (c *Context) FindFunctionDeclaration(name string, indices []uint32, domain 
 	}
 	if builtins := c.builtins[name]; len(builtins) != 0 {
 		op := builtins[0]
-		if len(domain) > 0 {
+		// Source hack: only a nonzero first kind with a nonempty domain
+		// consults domain[0]'s family.
+		if op.kind != 0 && len(domain) > 0 {
 			family, e := m.GetFamilyID(domain[0])
 			if e != nil {
 				return declaration, e
@@ -46,8 +48,15 @@ func (c *Context) FindFunctionDeclaration(name string, indices []uint32, domain 
 			}
 		}
 		declaration, err = m.MkFamilyFuncDecl(op.family, op.kind, parameters, domain, rangeSort)
-		if err != nil && domain == nil {
-			return declaration, fmt.Errorf("invalid function declaration reference, must provide signature for builtin symbol %s: %w", name, err)
+		if domain == nil {
+			// The bare form catches ast_exception and reports one message.
+			if err != nil || declaration.IsNull() {
+				return ast.ASTHandle{}, fmt.Errorf("invalid function declaration reference, must provide signature for builtin symbol %s", name)
+			}
+			return declaration, nil
+		}
+		if err == nil && declaration.IsNull() {
+			return declaration, fmt.Errorf("invalid function declaration reference, invalid builtin reference %s", name)
 		}
 		return declaration, err
 	}
@@ -66,20 +75,27 @@ func (c *Context) FindFunctionDeclaration(name string, indices []uint32, domain 
 	if len(indices) != 0 {
 		return declaration, fmt.Errorf("invalid indexed function declaration reference, unknown builtin function %s", name)
 	}
-	for _, candidate := range c.functions[name] {
-		if domain != nil {
-			arity, e := m.GetArity(candidate)
-			if e != nil {
-				return declaration, e
-			}
-			if int(arity) != len(domain) {
-				continue
-			}
+	// func_decls::find returns a sole declaration without consulting the
+	// signature; only overloaded names are matched by range, arity, domain.
+	candidates := c.functions[name]
+	if domain == nil {
+		if len(candidates) > 1 {
+			return declaration, fmt.Errorf("ambiguous function declaration reference, provide full signature to disumbiguate (<symbol> (<sort>*) <sort>) %s", name)
+		}
+	} else if len(candidates) > 1 {
+		for _, candidate := range candidates {
 			rangeValue, e := m.GetRange(candidate)
 			if e != nil {
 				return declaration, e
 			}
 			if rangeValue != rangeSort {
+				continue
+			}
+			arity, e := m.GetArity(candidate)
+			if e != nil {
+				return declaration, e
+			}
+			if int(arity) != len(domain) {
 				continue
 			}
 			matches := true
@@ -88,21 +104,21 @@ func (c *Context) FindFunctionDeclaration(name string, indices []uint32, domain 
 				if e != nil {
 					return declaration, e
 				}
-				matches = matches && actual == sort
+				if actual != sort {
+					matches = false
+					break
+				}
 			}
-			if !matches {
-				continue
+			if matches {
+				return candidate, nil
 			}
 		}
-		if !declaration.IsNull() {
-			return ast.ASTHandle{}, fmt.Errorf("ambiguous function declaration reference, provide full signature to disambiguate %s", name)
-		}
-		declaration = candidate
-	}
-	if declaration.IsNull() {
 		return declaration, fmt.Errorf("invalid function declaration reference, unknown function %s", name)
 	}
-	return declaration, nil
+	if len(candidates) == 0 {
+		return declaration, fmt.Errorf("invalid function declaration reference, unknown function %s", name)
+	}
+	return candidates[0], nil
 }
 
 // IsNullaryFunction reports whether a bare name resolves to one zero-arity

@@ -2510,3 +2510,34 @@ and fp vectors, mbqi_auflia_arith_macro_lifetimes,
 qe_bv_uf_exists_expansion) whose traces matched as far as they ran.
 Largest open item: constant-factor speed (6-11x slower than z3 on identical
 searches; trace=true 4-5x slower).
+
+## Fixedpoint leads (2026-11-12, late)
+
+FIXED: parser error texts (ambiguous constant "disumbiguate", faithful
+parse_func_decl_ref with all its messages and the find-before-next column,
+cmd_context::find_func_decl / func_decls::find, query argument messages,
+parse_sort(context) errors at every sort site, indexed identifier messages);
+bmc linear/qlinear hyper-res positions (0,1) and the slice converter's
+tail-0 unification; tab relation query via engine_base::query + mk_query;
+query params persistence (params_ref copy-on-write semantics); karr: the
+inner datalog context's check_rules makes every karr run error "Rule
+contains infinite sorts" as in z3 4.7.1. Vectors fp_parser_ambiguous_constant,
+fp_query_func_decl_ref_errors, fp_query_builtin_macro_refs,
+parser_error_sort_contexts, fp_bmc_linear_hyper_res_positions,
+fp_pdr_karr_infinite_sorts, fp_pdr_karr_bv_loop_counter,
+fp_query_params_persist, fp_tab_relation_query (stdout-identical; traces
+of the bmc/karr/tab ones still differ, see leads).
+DECIDED (user, 2026-11-12): keep g3's datalog Int/Real column support
+(bound/interval/external-interval backends) as a deliberate deviation;
+z3 4.7.1's DATALOG check_rules rejects any Int/Real relation column with
+"Rule contains infinite sorts" and answers unknown. Do not add
+check_infinite_sorts to checkDatalogEarlyRuleProperties.
+Leads: datalog statistics (:dl.unary_singleton / :dl.union accumulate across
+queries in z3; :max-memory/:memory/:num-allocs/:rlimit-count missing from
+:print-statistics); tab trace from line 61 (and #1 temporary, eager answer
+proof); clp/bmc construct the engine before flushing rules; duality @Fail!0
+vs implication order; pdr/spacer probe divergences (~824, ~13274); datalog
+inliner after an earlier query (m_preds_with_facts / output predicates
+across scoped_query); karr loop-counter mk-var/app order; qlinear
+eval_q(md, sub[j], i) audit; slice proof converter positions; dead karr
+fixpoint machinery and unsliced-proof retry.

@@ -4,6 +4,7 @@ package transforms_test
 // including symbolic-magic seeds and loop-counter restoration.
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -149,19 +150,16 @@ func TestAuxiliaryTransformRuleNameSymbols(t *testing.T) {
 						predicate := auxiliaryNamedKarrProgram(t, f, name)
 						plugin := transforms.NewKarrInvariantsPlugin(m, f.rules, 1)
 						t.Cleanup(func() { coneMust(t, plugin.Close()) })
-						result, err = plugin.Transform(f.set)
-						coneMust(t, err)
-						t.Cleanup(func() { coneMust(t, result.Close()) })
-						checkAuxiliaryRuleNames(t, result, 2, name)
-						step, err := result.Rule(1)
-						coneMust(t, err)
-						tails, err := step.TailSize()
-						coneMust(t, err)
-						head, err := step.HeadDeclaration()
-						coneMust(t, err)
-						coneMust(t, step.Close())
-						if tails <= 3 || head != predicate {
-							t.Fatal("Karr did not append invariants and restore the original head", tails, head)
+						_ = predicate
+						// The inner datalog context's check_rules rejects the
+						// loop counter's Int column, naming the first rule.
+						karrResult, err := plugin.Transform(f.set)
+						if karrResult != nil {
+							coneMust(t, karrResult.Close())
+						}
+						var property *base.RulePropertyError
+						if !errors.As(err, &property) || property.Kind != base.RulePropertyInfiniteSort {
+							t.Fatal("Karr inner datalog context accepted infinite sorts", err)
 						}
 					}
 					count, err := f.set.Len()

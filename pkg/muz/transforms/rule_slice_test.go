@@ -644,7 +644,6 @@ func TestRuleSliceGeneratesProofsForRewrittenRules(t *testing.T) {
 					positions     []ast.ASTProofPosition
 					substitutions [][]ast.ASTHandle
 				}{
-					{[]ast.ASTProofPosition{{First: 0, Second: 1}}, [][]ast.ASTHandle{nil, nil}},
 					{[]ast.ASTProofPosition{{First: 1, Second: 0}}, [][]ast.ASTHandle{{v}, nil}},
 				} {
 					node, cause := f.manager.MkProofHyperResolve([]ast.ASTHandle{slicedProofs[goal], slicedProofs[p]}, goalApp, unsupported.positions, unsupported.substitutions)
@@ -978,16 +977,18 @@ func TestRuleSliceConvertsNonlinearResolutionPositions(t *testing.T) {
 					[][]ast.ASTHandle{nil, nil, nil})
 				coneMust(t, e)
 				if reverse {
-					remaining, _, e := goals[0].Tail(order[1])
+					// translate_hyper_res ignores a (0, k) layout and resolves
+					// tail 0 of the first premise, as bmc linear proofs record.
+					remaining, _, e := goals[0].Tail(1)
 					coneMust(t, e)
 					middleFact, e := m.MkImplies(remaining, goalApp)
 					coneMust(t, e)
-					middle, e := m.MkProofHyperResolve([]ast.ASTHandle{factProofs[order[0]], goalProof}, middleFact, []ast.ASTProofPosition{{Second: uint32(order[0] + 1)}}, [][]ast.ASTHandle{nil, nil})
+					middle, e := m.MkProofHyperResolve([]ast.ASTHandle{goalProof, factProofs[0]}, middleFact, []ast.ASTProofPosition{{Second: 1}}, [][]ast.ASTHandle{nil, nil})
 					coneMust(t, e)
 					middlePin, e := m.NewRef(middle)
 					coneMust(t, e)
 					defer func() { coneMust(t, m.DelRef(&middlePin)) }()
-					original, e = m.MkProofHyperResolve([]ast.ASTHandle{middle, factProofs[order[1]]}, goalApp, []ast.ASTProofPosition{{First: 1}}, [][]ast.ASTHandle{nil, nil})
+					original, e = m.MkProofHyperResolve([]ast.ASTHandle{middle, factProofs[1]}, goalApp, []ast.ASTProofPosition{{First: 1}}, [][]ast.ASTHandle{nil, nil})
 					coneMust(t, e)
 				}
 				expected := goalApp
@@ -1000,7 +1001,7 @@ func TestRuleSliceConvertsNonlinearResolutionPositions(t *testing.T) {
 					coneMust(t, e)
 					middleFact, e := m.MkImplies(body, finishApp)
 					coneMust(t, e)
-					middle, e := m.MkProofHyperResolve([]ast.ASTHandle{goalProof, finalProof}, middleFact, []ast.ASTProofPosition{{Second: 1}}, [][]ast.ASTHandle{nil, nil})
+					middle, e := m.MkProofHyperResolve([]ast.ASTHandle{finalProof, goalProof}, middleFact, []ast.ASTProofPosition{{Second: 1}}, [][]ast.ASTHandle{nil, nil})
 					coneMust(t, e)
 					middlePin, e := m.NewRef(middle)
 					coneMust(t, e)
@@ -1898,7 +1899,7 @@ func TestRuleSliceProofSubstitutesDerivedPremise(t *testing.T) {
 			}
 			position := ast.ASTProofPosition{First: 1}
 			if reverse {
-				ps[0], ps[1] = ps[1], ps[0]
+				// The bmc linear (0, 1) layout keeps the consumer first.
 				position = ast.ASTProofPosition{Second: 1}
 			}
 			qVar := app(derivedQ, x)

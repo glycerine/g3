@@ -221,9 +221,15 @@ func TestSMT2BMCRecursiveCertificate(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	if err != nil || !valid {
-		t.Fatalf("invalid recursive BMC proof: valid=%v error=%v", valid, err)
+	// Linear BMC records the source hyper-resolution positions (0, 1)
+	// (dl_bmc_engine.cpp), which the proof checker's set_false rejects.
+	if err == nil && valid {
+		t.Fatal("source (0, 1) BMC positions passed structural checking")
 	}
+	if err := checker.ReleaseSideConditions(conditions); err != nil {
+		t.Fatal(err)
+	}
+	conditions = nil
 	solver, err := context.NewSimpleSolver()
 	if err != nil {
 		t.Fatal(err)

@@ -215,7 +215,7 @@ func (c *Context) MakeApp(name string, args []ast.ASTHandle, indices []ast.ASTPa
 		return m.MkApp(declarations[0], args)
 	}
 	if len(args) == 0 && rangeSort.IsNull() && len(c.functions[name]) > 1 {
-		return ast.ASTHandle{}, fmt.Errorf("ambiguous constant reference %s; use (as <symbol> <sort>)", name)
+		return ast.ASTHandle{}, fmt.Errorf("ambiguous constant reference, more than one constant with the same sort, use a qualified expression (as <symbol> <sort>) to disumbiguate %s", name)
 	}
 	var match ast.ASTHandle
 	for _, decl := range c.functions[name] {

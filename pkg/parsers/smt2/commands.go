@@ -343,11 +343,11 @@ func (p *commandParser) fixedpointQuery(declaration ast.ASTHandle) (status lbool
 		return lbool.Undef, false, false, false, err
 	}
 	context := globals.Context
-	options, err := context.NewValue()
+	// parametric_cmd::prepare resets the command's persistent m_params.
+	options, err := p.context.FixedpointQueryCommandParams()
 	if err != nil {
 		return lbool.Undef, false, false, false, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, context.Del(&options)) }()
 	descriptions, err := globals.SourceModuleDescriptorsName("fixedpoint")
 	if err != nil {
 		return lbool.Undef, false, false, false, err
@@ -368,7 +368,7 @@ func (p *commandParser) fixedpointQuery(declaration ast.ASTHandle) (status lbool
 		if kind == uparams.ParamInvalid {
 			return lbool.Undef, false, false, false, fmt.Errorf("unsupported fixedpoint query parameter :%s", key)
 		}
-		if err = p.tacticParameter(context, &options, key, kind); err != nil {
+		if err = p.tacticParameter(context, options, key, kind); err != nil {
 			return lbool.Undef, false, false, false, err
 		}
 	}
@@ -380,18 +380,26 @@ func (p *commandParser) fixedpointQuery(declaration ast.ASTHandle) (status lbool
 		return lbool.Undef, false, false, false, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, context.Del(&module)) }()
+	effective := options
+	if !p.ignoreChecks {
+		// dl_query_cmd::execute: dlctx.updt_params(m_params). The print
+		// options are then read back from the context's parameters.
+		if effective, err = p.context.UpdateFixedpointContextParams(); err != nil {
+			return lbool.Undef, false, false, false, err
+		}
+	}
 	answerName, statisticsName, certificateName := "print_answer", "print_statistics", "print_certificate"
-	printAnswer, err = context.GetBoolFallbackName(&options, &answerName, &module, false)
+	printAnswer, err = context.GetBoolFallbackName(effective, &answerName, &module, false)
 	if err == nil {
-		printStatistics, err = context.GetBoolFallbackName(&options, &statisticsName, &module, false)
+		printStatistics, err = context.GetBoolFallbackName(effective, &statisticsName, &module, false)
 	}
 	if err == nil {
-		printCertificate, err = context.GetBoolFallbackName(&options, &certificateName, &module, false)
+		printCertificate, err = context.GetBoolFallbackName(effective, &certificateName, &module, false)
 	}
 	if err != nil || p.ignoreChecks {
 		return lbool.Undef, printAnswer, printStatistics, printCertificate, err
 	}
-	status, err = p.context.QueryFixedpointCommandWithParams(declaration, &options)
+	status, err = p.context.QueryFixedpointCommandWithParams(declaration, effective)
 	return status, printAnswer, printStatistics, printCertificate, err
 }
 
@@ -1644,15 +1652,17 @@ func (p *commandParser) qualifiedIdentifier() (string, []identifierIndex, error)
 		name, err := p.symbol()
 		return name, nil, err
 	}
-	if err := p.expect(LeftParenToken); err != nil {
+	if p.token != LeftParenToken {
+		return "", nil, errors.New("invalid (indexed) identifier, '(_' or symbol expected")
+	}
+	if err := p.advance(); err != nil {
 		return "", nil, err
 	}
-	marker, err := p.symbol()
-	if err != nil {
-		return "", nil, err
+	if p.token != SymbolToken || p.scanner.ID() != "_" {
+		return "", nil, errors.New("invalid indexed identifier, '_' expected")
 	}
-	if marker != "_" {
-		return "", nil, fmt.Errorf("invalid indexed identifier, '_' expected")
+	if err := p.advance(); err != nil {
+		return "", nil, err
 	}
 	return p.indexedExpression()
 }
@@ -1670,6 +1680,14 @@ func (p *commandParser) unknownSort(name string) error {
 // parse_indexed_sort and push_sort_app_frame call it.
 func unknownSortError(name string) error {
 	return errors.New("unknown sort '" + name + "'")
+}
+
+// sortContextError is parse_sort's std::string(context) + " " + message.
+func (p *commandParser) sortContextError(message string) error {
+	if p.sortContext == "" {
+		return errors.New(message)
+	}
+	return errors.New(p.sortContext + " " + message)
 }
 
 // sortIn is parse_sort(context): the context prefixes unknown-sort errors.
@@ -1724,8 +1742,20 @@ func (p *commandParser) sort() (ast.ASTHandle, error) {
 		}
 		return p.pin(value, nil)
 	}
-	if err := p.expect(LeftParenToken); err != nil {
+	// parse_sort(context): a ')' with no open sort frame, a token that is
+	// neither identifier nor '(', and a non-identifier after '(' each have
+	// their own message.
+	if p.token == RightParenToken {
+		return ast.ASTHandle{}, p.sortContextError("invalid sort, unexpected ')'")
+	}
+	if p.token != LeftParenToken {
+		return ast.ASTHandle{}, fmt.Errorf("invalid sort, symbol, '_' or '(' expected")
+	}
+	if err := p.advance(); err != nil {
 		return ast.ASTHandle{}, err
+	}
+	if p.token != SymbolToken {
+		return ast.ASTHandle{}, p.sortContextError("invalid sort, symbol or '_' expected")
 	}
 	// push_sort_app_frame looks the constructor up before next(), so an
 	// unknown sort reports the name token's own position.

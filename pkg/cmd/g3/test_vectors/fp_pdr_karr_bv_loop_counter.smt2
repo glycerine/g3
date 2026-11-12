@@ -1,0 +1,8 @@
+(set-option :fixedpoint.engine pdr)
+(set-option :fixedpoint.xform.karr true)
+(declare-rel p ((_ BitVec 2)))
+(declare-rel goal ())
+(declare-var x (_ BitVec 2))
+(rule (p #b00))
+(rule (=> (p #b11) goal))
+(query goal)

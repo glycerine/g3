@@ -17,7 +17,9 @@ func TestSMT2FunctionDeclarationReferenceErrors(t *testing.T) {
 		{"ambiguous", "(declare-fun f (Bool) Bool) (declare-fun f (Int) Bool)", "(_ as-array f)", "ambiguous function declaration reference"},
 		{"macro", "(define-fun f ((x Bool)) Bool x)", "(_ as-array f)", "macros"},
 		{"signed-macro", "(define-fun f ((x Bool)) Bool x)", "(_ as-array (f (Bool) Bool))", "macros"},
-		{"wrong-signature", "(declare-fun f (Bool) Bool)", "(_ as-array (f (Int) Bool))", "unknown function"},
+		// func_decls::find returns a sole declaration without checking its
+		// signature, so only an overloaded name rejects a wrong signature.
+		{"wrong-signature", "(declare-fun f (Bool) Bool) (declare-fun f (Real) Bool)", "(_ as-array (f (Int) Bool))", "unknown function"},
 		{"indexed-user-function", "(declare-fun f (Bool) Bool)", "(_ as-array ((_ f 1) (Bool) Bool))", "unknown builtin function"},
 		{"empty-index-list", "", "(_ as-array)", "index expected"},
 		{"empty-builtin-index", "", "(_ as-array ((_ extract) ((_ BitVec 4)) (_ BitVec 2)))", "index expected"},

@@ -869,6 +869,9 @@ func (p *KarrInvariantsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet,
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, loopRules.Close()) }()
+	if err = p.checkInnerDatalogRules(loopRules); err != nil {
+		return nil, err
+	}
 	forward, err := p.getInvariants(loopRules)
 	if err != nil || forward == nil {
 		return nil, err
@@ -921,6 +924,27 @@ func (p *KarrInvariantsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet,
 		return nil, errors.Join(err, result.Close())
 	}
 	return result, nil
+}
+
+// checkInnerDatalogRules is get_invariants' inner context: its engine is
+// datalog, so rel_query's get_rules flush runs context::check_rules on the
+// loop-counter rules. The counter column is an Int, so any rule fails
+// check_infinite_sorts and the default_exception aborts the outer query.
+func (p *KarrInvariantsPlugin) checkInnerDatalogRules(rules *base.RuleSet) (resultErr error) {
+	properties, err := base.NewRuleProperties(p.rules)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, properties.Close()) }()
+	if err = properties.Collect(rules); err != nil {
+		return err
+	}
+	for _, check := range []func() error{properties.CheckQuantifierFree, properties.CheckUninterpretedFree, properties.CheckNestedFree, properties.CheckInfiniteSorts} {
+		if err = check(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (p *KarrInvariantsPlugin) Close() error {

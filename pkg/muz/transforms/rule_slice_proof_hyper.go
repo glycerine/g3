@@ -23,8 +23,9 @@ type slicedProofResult struct {
 // use Horn conversion for compound predicate heads. Derived substitutions
 // require an unambiguous variable correspondence from predicate columns and,
 // when needed, structurally matching interpreted constraints. Source
-// nonlinear nodes use forward body-to-head pivots; reverse source nodes are
-// binary. Other pivot layouts return ErrSliceProofUnsupported.
+// nonlinear nodes use forward body-to-head pivots. As translate_hyper_res
+// does, a (0, k) pivot resolves tail 0 of the accumulated first premise;
+// other pivot layouts return ErrSliceProofUnsupported.
 // Coalesce derivations and configured rule-normalization rewrite wrappers
 // are reconstructed from their translated parents.
 // Unrecognized nodes and hyper-resolution without mapped premise rules pass
@@ -348,30 +349,17 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 			if cause != nil {
 				return value, cause
 			}
-			if position.First == 0 && position.Second > 0 && len(premises) == 2 {
-				positive, cause := other.rule.PositiveTailSize()
-				if cause != nil {
-					return value, cause
-				}
-				if position.Second > uint32(positive) {
-					return value, fmt.Errorf("%w: reverse resolution position", ErrSliceProofUnsupported)
-				}
-				var reverseMap []int
-				next, nextProof, cause := c.resolveProof(other.rule, other.proof, value.rule, value.proof, int(position.Second-1), &reverseMap)
-				if cause != nil {
-					return value, cause
-				}
-				cause = errors.Join(value.rule.Close(), m.DelRef(&value.proof))
-				value.rule, value.proof = next, nextProof
-				if cause != nil {
-					return value, cause
-				}
-				continue
-			}
-			if position.First == 0 || position.Second != 0 {
+			var originalIndex uint32
+			if position.First == 0 {
+				// translate_hyper_res ignores positions and always unifies
+				// tail 0 of the accumulated rule ("brittle. TBD get index
+				// from positions"); bmc linear records (0, 1).
+				originalIndex = 0
+			} else if position.Second != 0 {
 				return value, fmt.Errorf("%w: resolution positions", ErrSliceProofUnsupported)
+			} else {
+				originalIndex = position.First - 1
 			}
-			originalIndex := position.First - 1
 			if originalIndex >= uint32(originalPositive) || seenPositions[originalIndex] {
 				return value, fmt.Errorf("%w: invalid or repeated body position", ErrSliceProofUnsupported)
 			}

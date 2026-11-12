@@ -4,6 +4,7 @@ package transforms_test
 // invariant discovery over a two-coordinate affine recurrence.
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -73,26 +74,24 @@ func TestKarrInvariantsAnnotatesAffineRecurrence(t *testing.T) {
 	if !valid {
 		t.Fatal("Karr fixture is unstratified")
 	}
+	// get_invariants queries an inner datalog context, whose check_rules
+	// rejects the loop counter's Int column before any Karr analysis.
 	transformer := base.NewRuleTransformer()
 	plugin := transforms.NewKarrInvariantsPlugin(manager, rules, 36010)
 	coneMust(t, transformer.Register(plugin))
 	t.Cleanup(func() { coneMust(t, transformer.Close()) })
-	modified, err := transformer.Apply(set)
-	coneMust(t, err)
-	if !modified {
-		t.Fatal("Karr transformer did not annotate the recurrence")
+	_, err = transformer.Apply(set)
+	requireKarrInfiniteSort(t, err, "Rule contains infinite sorts in rule base:\nkarr-affine-p(0,2,0).\n")
+}
+
+func requireKarrInfiniteSort(t *testing.T, err error, message string) {
+	t.Helper()
+	var property *base.RulePropertyError
+	if !errors.As(err, &property) || property.Kind != base.RulePropertyInfiniteSort {
+		t.Fatal("Karr inner datalog context accepted infinite sorts", err)
 	}
-	if matrix := plugin.ModelInvariants()[predicate]; matrix.Len() == 0 || len(matrix.A[0]) != 2 {
-		t.Fatal("Karr model invariant was not projected back to the original predicate", matrix)
-	}
-	transformed, err := set.Rule(1)
-	coneMust(t, err)
-	t.Cleanup(func() { coneMust(t, transformed.Close()) })
-	if tails, getErr := transformed.TailSize(); getErr != nil || tails <= 3 {
-		t.Fatalf("Karr invariant was not appended: tails=%d err=%v", tails, getErr)
-	}
-	if declaration, getErr := transformed.HeadDeclaration(); getErr != nil || declaration != predicate {
-		t.Fatal("loop-counter predicate was not reverted", declaration, getErr)
+	if message != "" && property.SourceMessage != message {
+		t.Fatalf("source message %q, want %q", property.SourceMessage, message)
 	}
 }
 
@@ -115,12 +114,12 @@ func TestKarrInvariantsStopsAfterCanceledForwardAnalysis(t *testing.T) {
 	plugin := transforms.NewKarrInvariantsPlugin(manager, rules, 36010)
 	t.Cleanup(func() { coneMust(t, plugin.Close()) })
 	manager.Limit.Cancel()
+	// The inner context's check_rules runs before any cancellation check.
 	result, err := plugin.Transform(set)
-	coneMust(t, err)
 	if result != nil {
 		coneMust(t, result.Close())
-		t.Fatal("canceled forward analysis continued to reverse analysis")
 	}
+	requireKarrInfiniteSort(t, err, "")
 }
 
 func TestKarrInvariantsSkipsNegatedPrograms(t *testing.T) {

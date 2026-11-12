@@ -18,7 +18,7 @@ func (p *commandParser) validateFixedpointQueryDeclaration(declaration ast.ASTHa
 		return err
 	}
 	if family != ast.NullFamilyID {
-		return fmt.Errorf("invalid query argument: expected uninterpreted function name")
+		return fmt.Errorf("Invalid query argument, expected uinterpreted function name, but argument is interpreted")
 	}
 	predicates, err := p.context.FixedpointPredicates()
 	if err != nil {
@@ -29,5 +29,5 @@ func (p *commandParser) validateFixedpointQueryDeclaration(declaration ast.ASTHa
 			return nil
 		}
 	}
-	return fmt.Errorf("invalid query argument: expected a predicate registered as a relation")
+	return fmt.Errorf("Invalid query argument, expected a predicate registered as a relation")
 }
