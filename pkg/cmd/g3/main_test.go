@@ -814,27 +814,26 @@ var scriptResults = map[string]string{
 	"quantified_ematching_relevancy.smt2":          "unsat\nunsat\n",
 	"quantified_model_relevancy.smt2":              "sat\n(((f 7) 7) ((f 11) 11))\nunsat\nsat\n(((f 11) 11))\n",
 	"integer_uf_model_relevancy.smt2":              "sat\n(((distinct x y) true) ((distinct (f x) (f y)) true))\nunsat\nsat\n(((distinct x y) true) ((distinct (f x) (f y)) true))\n",
-	// arithmetic_eq_options: excluded, g3 fixes a z3 4.7.1 relevancy bug (test_vectors/z3_bug_exclusions.txt).
-	// "arithmetic_eq_options.smt2":                   "unsat\nsat\nunsat\nsat\nunsat\nsat\n",
-	"rational_square_interval_scopes.smt2":   "unsat\nsat\nsat\n((d (/ 121.0 225.0)) (|squared difference| (/ 121.0 225.0)) ((let ((q d)) (+ q 0)) (/ 121.0 225.0)))\nunsat\nsat\nsat\n",
-	"shared_bound_queue.smt2":                "unknown\nsat\n((x 2.0) ((f x) 0.0) ((f z) 0.0))\nsat\n",
-	"shared_nonlinear_model.smt2":            "sat\nunknown\nsat\nsat\n((x 2.0) (y 1.0) (z (- 1.0)) ((f z) 0.0))\n",
-	"row_conflict_relaxation.smt2":           "unsat\nsat\nsat\n",
-	"grobner_factor_dependencies.smt2":       "unsat\nsat\nsat\n",
-	"nested_bound_dependency_scopes.smt2":    "unsat\nsat\nunsat\nsat\n",
-	"nonlinear_bound_provenance_scopes.smt2": "sat\nunsat\nsat\nunsat\nsat\n",
-	"integer_bound_provenance_scopes.smt2":   "unsat\nunsat\nsat\n",
-	"mixed_cut_bound_provenance_scopes.smt2": "unsat\nsat\n",
-	"integer_euclidean_scopes.smt2":          "unsat\nsat\n((x 1) (y 1))\n",
-	"mixed_euclidean_large_integer.smt2":     "sat\n((x 1) (y 1))\n",
-	"integer_equality_branch_scopes.smt2":    "unsat\nsat\n((x 1) (y 1))\n",
-	"integer_branch_cut_scopes.smt2":         "sat\n((x 0) (y 1))\nunsat\nsat\n",
-	"mixed_gomory_scopes.smt2":               "unsat\nsat\n",
-	"integer_freedom_patch_scopes.smt2":      "sat\n((x 1) (y 2))\nunsat\nsat\n",
-	"mixed_integer_freedom_patch.smt2":       "sat\n((x 1) (y 2))\nsat\nunsat\nsat\n",
-	"shared_linear_expression_bounds.smt2":   "unsat\nunsat\nsat\n",
-	"row_bound_propagation_scopes.smt2":      "unsat\n(x_strict y_lower blocked_sum)\nsat\n((x (/ 3.0 2.0))\n (y 2.0)\n ((+ x y) (/ 7.0 2.0)))\n",
-	"sequence_word_equations_relations.smt2": "unsat\nsat\n((x \"aa\"))\nsat\n((x \"ab\"))\nsat\n((x \"bc\"))\nsat\n((x \"ab\"))\nsat\nunsat\nsat\nsat\nsat\nsat\nsat\nsat\n",
+	"arithmetic_eq_options.smt2":                   "unsat\nsat\nunsat\nsat\nunsat\nsat\n",
+	"rational_square_interval_scopes.smt2":         "unsat\nsat\nsat\n((d (/ 121.0 225.0)) (|squared difference| (/ 121.0 225.0)) ((let ((q d)) (+ q 0)) (/ 121.0 225.0)))\nunsat\nsat\nsat\n",
+	"shared_bound_queue.smt2":                      "unknown\nsat\n((x 2.0) ((f x) 0.0) ((f z) 0.0))\nsat\n",
+	"shared_nonlinear_model.smt2":                  "sat\nunknown\nsat\nsat\n((x 2.0) (y 1.0) (z (- 1.0)) ((f z) 0.0))\n",
+	"row_conflict_relaxation.smt2":                 "unsat\nsat\nsat\n",
+	"grobner_factor_dependencies.smt2":             "unsat\nsat\nsat\n",
+	"nested_bound_dependency_scopes.smt2":          "unsat\nsat\nunsat\nsat\n",
+	"nonlinear_bound_provenance_scopes.smt2":       "sat\nunsat\nsat\nunsat\nsat\n",
+	"integer_bound_provenance_scopes.smt2":         "unsat\nunsat\nsat\n",
+	"mixed_cut_bound_provenance_scopes.smt2":       "unsat\nsat\n",
+	"integer_euclidean_scopes.smt2":                "unsat\nsat\n((x 1) (y 1))\n",
+	"mixed_euclidean_large_integer.smt2":           "sat\n((x 1) (y 1))\n",
+	"integer_equality_branch_scopes.smt2":          "unsat\nsat\n((x 1) (y 1))\n",
+	"integer_branch_cut_scopes.smt2":               "sat\n((x 0) (y 1))\nunsat\nsat\n",
+	"mixed_gomory_scopes.smt2":                     "unsat\nsat\n",
+	"integer_freedom_patch_scopes.smt2":            "sat\n((x 1) (y 2))\nunsat\nsat\n",
+	"mixed_integer_freedom_patch.smt2":             "sat\n((x 1) (y 2))\nsat\nunsat\nsat\n",
+	"shared_linear_expression_bounds.smt2":         "unsat\nunsat\nsat\n",
+	"row_bound_propagation_scopes.smt2":            "unsat\n(x_strict y_lower blocked_sum)\nsat\n((x (/ 3.0 2.0))\n (y 2.0)\n ((+ x y) (/ 7.0 2.0)))\n",
+	"sequence_word_equations_relations.smt2":       "unsat\nsat\n((x \"aa\"))\nsat\n((x \"ab\"))\nsat\n((x \"bc\"))\nsat\n((x \"ab\"))\nsat\nunsat\nsat\nsat\nsat\nsat\nsat\nsat\n",
 	// sequence_helper_inventory: excluded, g3 fixes a z3 4.7.1 automaton product bug (test_vectors/z3_bug_exclusions.txt).
 	// "sequence_helper_inventory.smt2":               "unsat\nsat\nunsat\nsat\nunsat\nunsat\nunsat\nunsat\nunsat\nunsat\nunsat\nunsat\nsat\n",
 	"mixed_equality_and_ite_join.smt2":            "sat\nunsat\nunsat\nunsat\nsat\n",
@@ -1366,7 +1365,9 @@ func TestSMTLibRunnerCommandLine(t *testing.T) {
 // The retained C++ executable can return models violating p and (or a b)
 // after changing relevancy from 0 to 2. Keep this case outside the strict
 // comparison table: require valid Go models and expose the reference defect.
-func TestSMTLibRunnerRelevancyUpdatesKeepModelsValidWithKnownCPPDefect(t *testing.T) {
+// The fork's backport of upstream z3 5dfe4a4b4 keeps relevancy from being
+// raised after setup, so models stay valid (z3 4.7.1 printed p = false).
+func TestSMTLibRunnerRelevancyUpdatesKeepModelsValid(t *testing.T) {
 	script, err := os.ReadFile(filepath.Join("test_vectors", "relevancy_update_scopes.smt2"))
 	if err != nil {
 		t.Fatal(err)

@@ -2,13 +2,6 @@
 # deliberately fixes a z3 4.7.1 bug that they expose. Details, reproductions
 # and code locations: TODO.md, section "z3 4.7.1 bugs fixed in g3".
 #
-# Relevancy after an smt.relevancy option update (g3 fix:
-# pkg/smtcore/smt_kernel.go repairRelevancy; z3 bug:
-# src/smt/smt_relevancy.cpp mark_as_relevant). Reproduction:
-# test_vectors/relevancy_update_scopes.smt2.
-lra_propagation_mode_updates
-arithmetic_eq_options
-#
 # Symbolic automaton product ignores epsilon closure (g3 fix:
 # pkg/ast/rewriter/seq_rewriter_automaton.go closureIsFinal; z3 bug:
 # src/math/automata/symbolic_automata_def.h mk_product). Reproduction:

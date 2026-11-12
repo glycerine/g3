@@ -1922,52 +1922,36 @@ Moved: fixedpoint_pdr_recursive_trace -> 22942, fixedpoint_finite_relations
   (occurs_check_explain no longer adds the extra closing pair); the vector is
   now identical. Revert with `git revert ee39d9490` if that was unwanted.
 
-## z3 4.7.1 bugs fixed in g3 (decided 2026-11-11; keep the fixes)
+## z3 4.7.1 bugs fixed in g3 (decided 2026-11-11)
 
-g3 deliberately does not reproduce these z3 4.7.1 bugs. The vectors they
-affect are listed in pkg/cmd/g3/test_vectors/z3_bug_exclusions.txt and are
-left out of z3 trace/output identity testing (golden_trace_vectors.txt and
-cmd/g3/main_test.go carry commented-out entries pointing there).
+Two upstream z3 fixes were backported into the fork's src/ AND ported into
+g3 (2026-11-11), so g3 and the fork agree again and those vectors are back
+in identity testing:
 
-Upstream status (checked 2026-11-11 against Z3Prover/z3 30c74fcce, z3
-4.17.0, built natively out of tree): neither reproduction fails there, so no
-upstream report is needed.
-- Relevancy: fixed upstream by 5dfe4a4b4 (2019-11-23, "ensure relevancy
-  isn't increased between calls"). context::relevancy_lvl() now returns
-  min(m_relevancy_lvl, m_fparams.m_relevancy_lvl), and setup_context only
-  lowers m_relevancy_lvl once configured, so raising smt.relevancy later
-  cannot re-enable relevancy filtering over unmarked assertions. Upstream
-  prints p = true, (or a b) = true for relevancy_update_scopes.smt2.
-- Automaton product: src/math/automata was deleted upstream by fcd3a70c9
-  (2025-08-07, "remove theory_str and classes that are only used by it");
-  the sequence solver no longer uses symbolic_automata::mk_product.
-  Upstream answers sat with x = "" for z3_bug_automaton_product.smt2.
+- **Relevancy** (upstream 5dfe4a4b4): the smt context keeps its own
+  m_relevancy_lvl, 2 until the first setup_context, then the configured
+  level; later setups only lower it. z3 4.7.1 let a later
+  set-option :smt.relevancy 2 re-enable filtering over assertions
+  internalized without relevancy, giving models that violate them
+  (relevancy_update_scopes printed p = false). g3's former repairRelevancy
+  workaround is gone. Fork: src/smt/smt_context.{h,cpp},
+  smt_internalizer.cpp. g3: SMTKernel.setupContextRelevancy and the array
+  theory's register-time relevancy (theory_array::init). Note: the case-split
+  queue warning still reads the parameter, because the queue is created in
+  the context constructor.
+- **Pareto hang** (upstream e18702330, fix #1699): opt_context::mk_cmp
+  evaluates objectives with model completion. Without it an objective the
+  model leaves undefined (a 0-1 variable introduced by preprocessing) stayed
+  symbolic, the dominance bound was trivially true, and gia_pareto looped
+  forever (x, y in [0,3] with x + y = 1 or 3). Fork: src/opt/opt_context.cpp.
+  g3: cmd_context mk_cmp/pareto evaluation; the non-z3 MaxSAT-avoidance
+  fallback was removed.
 
-1. **Models violate assertions after re-enabling relevancy** (was item 27).
-   - Reproduction: pkg/cmd/g3/test_vectors/relevancy_update_scopes.smt2.
-     It sets smt.relevancy 0, asserts p and (or a b), checks, then pushes
-     and sets smt.relevancy 2. z3 4.7.1 then prints the model
-     ((p false) ((or a b) false)) for every later sat check, although p
-     and (or a b) are asserted. g3 prints p = true, (or a b) = true.
-   - Cause in z3: context::internalize_assertion calls mark_as_relevant on
-     each root assertion, but relevancy_propagator_imp::mark_as_relevant
-     (src/smt/smt_relevancy.cpp) returns immediately while relevancy is
-     off. A later set-option goes through smt_solver::updt_params
-     (src/smt/smt_solver.cpp), which re-reads m_relevancy_lvl into the
-     shared smt_params (src/smt/params/smt_params.cpp,
-     updt_local_params). Relevancy is now on, but nothing re-marks the
-     already internalized root assertions, so the model generator treats
-     them as irrelevant and leaves their atoms unconstrained.
-   - g3 fix: SMTKernel.repairRelevancy (pkg/smtcore/smt_kernel.go, set in
-     the params update and in smt_solver_optimization.go) re-marks every
-     cached assertion relevant and restores its watches before each check.
-     Test: TestSMTLibRunnerRelevancyUpdatesKeepModelsValidWithKnownCPPDefect.
-   - Excluded vectors: lra_propagation_mode_updates and
-     arithmetic_eq_options. Without the repair both match z3's full trace
-     exactly (checked 2026-11-11); with it, the repair's extra model work
-     (one extra model numeral) changes their traces.
+One deliberate deviation remains. Its vectors are listed in
+pkg/cmd/g3/test_vectors/z3_bug_exclusions.txt and left out of z3 identity
+testing (main_test.go carries a commented-out entry pointing there):
 
-2. **Regex intersection product ignores epsilon closure** (was part of
+- **Regex intersection product ignores epsilon closure** (was part of
    item 21).
    - Reproduction: pkg/cmd/g3/test_vectors/z3_bug_automaton_product.smt2:
        (declare-const x String)
@@ -1986,3 +1970,5 @@ upstream report is needed.
      Test: string_regex_automaton_product_test.
    - Excluded vector: sequence_helper_inventory (its trace first differs at
      line 21357, where the product automaton's final states differ).
+   - Upstream: no fix to borrow; src/math/automata was deleted by
+     fcd3a70c9 (2025-08-07), and z3 4.17.0 answers sat with x = "".

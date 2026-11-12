@@ -223,7 +223,7 @@ lra_backend_core
 lra_backend_division
 lra_backend_models_scopes
 lra_backend_shared
-# lra_propagation_mode_updates: excluded, g3 fixes a z3 4.7.1 relevancy bug (see z3_bug_exclusions.txt)
+lra_propagation_mode_updates
 max_bv_sharing_atomic_limit
 max_bv_sharing_limit_recovery
 max_bv_sharing_model_scopes
