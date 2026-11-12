@@ -2253,3 +2253,13 @@ Leads:
 - ASTManager.FlattenOr leaves its fresh negations unowned; callers in
   der_rewrite, pdr/manager, spacer/inductive_property and qe/lite_indices
   may differ in id reuse (FlattenOrHeld is the model).
+
+## Command sweep (2026-11-12)
+
+get-info/get-option/echo/statistics, datatypes and define-sort, simplify
+options, push/pop/reset/exit, BV/FP/string get-value and proofs were compared
+with the fork: all identical except runtime statistics (memory, allocs) and
+:reason-unknown after a search on the incremental smt solver. FIXED: the
+kernel's unknown starts as "unknown" (context::m_unknown) and smt_solver
+reports last_failure_as_string() for every status, not only l_undef. Vector
+reason_unknown_after_search.

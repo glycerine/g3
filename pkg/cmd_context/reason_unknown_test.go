@@ -62,7 +62,9 @@ func TestCommandContextReasonUnknownStateAndEscaping(t *testing.T) {
 	if status != lbool.True {
 		t.Fatal("recovery status", status)
 	}
-	wantReason("")
+	// The incremental smt solver reports last_failure_as_string(): m_unknown
+	// ("unknown") after an OK search, as the fork prints.
+	wantReason("unknown")
 	contextMust(t, c.Pop(1))
 	wantReason(noCheck)
 	contextMust(t, c.Close())

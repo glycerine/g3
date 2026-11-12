@@ -757,14 +757,14 @@ func (s *SMTSolver) checkSatCore(assumptions []ast.ASTHandle, setup bool) (lbool
 			return lbool.Undef, err
 		}
 	}
-	if status == lbool.Undef {
-		reason, reasonErr := s.kernel.ReasonUnknown()
-		if reasonErr != nil {
-			return lbool.Undef, reasonErr
-		}
-		if err = result.SetReasonUnknown(reason); err != nil {
-			return lbool.Undef, err
-		}
+	// smt_solver::reason_unknown is m_context.last_failure_as_string() for
+	// every status: after sat/unsat an OK search reports m_unknown.
+	reason, reasonErr := s.kernel.ReasonUnknown()
+	if reasonErr != nil {
+		return lbool.Undef, reasonErr
+	}
+	if err = result.SetReasonUnknown(reason); err != nil {
+		return lbool.Undef, err
 	}
 	labels, labelsErr := s.kernel.Labels()
 	if labelsErr != nil {
