@@ -1,0 +1,5 @@
+(set-option :produce-models true)
+(declare-const x (_ FloatingPoint 3 5))
+(assert (= ((_ fp.to_ubv 4) RNE x) #x3))
+(check-sat)
+(get-model)

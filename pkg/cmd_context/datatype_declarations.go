@@ -79,7 +79,10 @@ func (c *Context) InstantiateSort(name string, arguments []ast.ASTHandle) (resul
 		return ast.ASTHandle{}, fmt.Errorf("invalid number of parameters to sort constructor %s: got %d, want %d", name, len(arguments), arity)
 	}
 	if arity == 0 {
-		return c.sorts[name], nil
+		if _, alias := c.sortDefinitionInfos[name]; alias {
+			return c.sorts[name], c.instantiateSortDefinitionInfos(name, nil, nil)
+		}
+		return c.sorts[name], c.saveSortInfo(c.sorts[name], name, nil)
 	}
 	functionsStart := len(c.functionTrail)
 	defer func() {
@@ -120,7 +123,8 @@ func (c *Context) InstantiateSort(name string, arguments []ast.ASTHandle) (resul
 	if err = c.ensureDatatypeFunctions(result); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	return result, nil
+	// instantiate_datatype: save_info(r, p, n, s).
+	return result, c.saveSortInfo(result, name, arguments)
 }
 
 func (c *Context) ensureDatatypeFunctions(sort ast.ASTHandle) error {

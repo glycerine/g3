@@ -334,6 +334,9 @@ type ASTManager struct {
 	ppFrameSerial                                  uint64
 	// Actual dependency DAG owner is bound eagerly to this manager and allocator.
 	dependencies astDependencyManager
+	// smt2SortInfoTable is the command context's pp_env sort printer while
+	// it formats output; nil selects the base SMT2 environment.
+	smt2SortInfoTable SMT2SortInfoTable
 }
 
 func astNextOrigin() (uint64, error) {

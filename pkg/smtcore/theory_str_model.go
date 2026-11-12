@@ -84,7 +84,7 @@ func (t *SMTStringTheory) InitializeModel(generator *SMTModelGenerator) error {
 
 func (t *SMTStringTheory) ModelValue(node *SMTEnode, generator *SMTModelGenerator) (SMTModelValueProcedure, error) {
 	state, err := t.State()
-	if err != nil || node == nil || !t.IsAttachedToVariable(node) || generator == nil || generator.manager != state.manager {
+	if err != nil || node == nil || !t.HasVariable(node.TheoryVar(t.FamilyID())) || generator == nil || generator.manager != state.manager {
 		if err == nil {
 			err = ast.ErrASTDomain
 		}

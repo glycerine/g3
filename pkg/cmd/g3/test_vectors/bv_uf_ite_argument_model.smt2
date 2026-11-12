@@ -1,0 +1,8 @@
+(set-option :produce-models true)
+(declare-const a Bool)
+(declare-const v (_ BitVec 4))
+(declare-fun h ((_ BitVec 4)) (_ BitVec 4))
+(assert (bvule (h (ite a (h v) v)) v))
+(check-sat)
+(get-info :reason-unknown)
+(get-model)

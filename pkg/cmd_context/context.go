@@ -91,23 +91,31 @@ type builtin struct {
 // NewStandaloneContext. The AST manager and solver initialize on first use,
 // so set-logic and proof options take effect before their construction.
 type Context struct {
-	config                         smtcore.SMTSolverConfig
-	parameters                     *smtcore.ContextParams
-	params                         uparams.ParamsRef
-	paramsReady                    bool
-	manager                        *ast.ASTManager
-	debugExpressions               map[string]ast.ASTRef
-	borrowedManager                bool
-	fixedpoint                     *muzfp.PropositionalEngine
-	datalogDisplay                 *base.DatalogContext
-	solver                         solver.Solver
-	tacticResult                   *solver.SimpleCheckSatResult
-	retainedSolverResult           solver.Solver
-	logic                          string
-	functions                      map[string][]ast.ASTHandle
-	sorts                          map[string]ast.ASTHandle
-	sortArities                    map[string]uint32
-	sortConstructors               map[string]sortConstructorDeclaration
+	config               smtcore.SMTSolverConfig
+	parameters           *smtcore.ContextParams
+	params               uparams.ParamsRef
+	paramsReady          bool
+	manager              *ast.ASTManager
+	debugExpressions     map[string]ast.ASTRef
+	borrowedManager      bool
+	fixedpoint           *muzfp.PropositionalEngine
+	datalogDisplay       *base.DatalogContext
+	solver               solver.Solver
+	tacticResult         *solver.SimpleCheckSatResult
+	retainedSolverResult solver.Solver
+	logic                string
+	functions            map[string][]ast.ASTHandle
+	sorts                map[string]ast.ASTHandle
+	sortArities          map[string]uint32
+	sortConstructors     map[string]sortConstructorDeclaration
+	// sortInfos is pdecl_manager::m_sort2info (sortInfoOrder keeps its
+	// insertion order for release); sortDefinitionInfos holds each
+	// define-sort body's psort applications; psortRecording is non-nil
+	// while such a body is parsed.
+	sortInfos                      map[ast.ASTHandle]*sortInfoRecord
+	sortInfoOrder                  []ast.ASTHandle
+	sortDefinitionInfos            map[string][]pendingSortInfo
+	psortRecording                 *[]pendingSortInfo
 	sortConstructorTrail           []string
 	builtins                       map[string][]builtin
 	functionTrail, sortTrail       []declaration
@@ -1058,7 +1066,20 @@ func (c *Context) SortDeclared(name string) bool {
 	return c.BuiltinSortAvailable(name)
 }
 
+// LookupSort is find_psort_decl(name)->instantiate(pm()) for a sort name:
+// the instantiation also saves the sort's printing info.
 func (c *Context) LookupSort(name string) (ast.ASTHandle, error) {
+	r, err := c.lookupSort(name)
+	if err != nil {
+		return r, err
+	}
+	if _, alias := c.sortDefinitionInfos[name]; alias {
+		return r, c.instantiateSortDefinitionInfos(name, nil, nil)
+	}
+	return r, c.saveSortInfo(r, name, nil)
+}
+
+func (c *Context) lookupSort(name string) (ast.ASTHandle, error) {
 	m, err := c.Manager()
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -1334,6 +1355,9 @@ func (c *Context) restoreDeclarations(functions, sorts int) error {
 		row := &c.sortTrail[i]
 		delete(c.sorts, row.name)
 		delete(c.sortArities, row.name)
+		if err := c.releaseSortDefinitionInfos(row.name); err != nil {
+			return err
+		}
 		if err := c.manager.DelRef(&row.ref); err != nil {
 			return err
 		}
@@ -1478,7 +1502,8 @@ func (c *Context) WriteModelAtModelIndex(out io.Writer, modelIndex uint32) (resu
 	if _, err = io.WriteString(out, "(model \n"); err != nil {
 		return err
 	}
-	if err = m.WriteSMT2(out, c.config.Params, c.config.Globals, 2); err != nil {
+	// model_smt2_pp(out, *this, *md, 2) prints with cmd_context's pp_env.
+	if err = c.withPPEnv(func() error { return m.WriteSMT2(out, c.config.Params, c.config.Globals, 2) }); err != nil {
 		return err
 	}
 	_, err = io.WriteString(out, ")\n")
@@ -1665,6 +1690,9 @@ func (c *Context) resetManagerState() error {
 			return err
 		}
 		if err := c.restoreSortConstructors(0); err != nil {
+			return err
+		}
+		if err := c.resetSortInfo(); err != nil {
 			return err
 		}
 		if !c.borrowedManager {

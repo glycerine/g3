@@ -872,7 +872,7 @@ func (t *SMTIntegerDiffTheory) InitializeModel(generator *SMTModelGenerator) err
 }
 
 func (t *SMTIntegerDiffTheory) ModelValue(node *SMTEnode, generator *SMTModelGenerator) (SMTModelValueProcedure, error) {
-	if t == nil || generator == nil || node == nil || !t.IsAttachedToVariable(node) {
+	if t == nil || generator == nil || node == nil || !t.HasVariable(node.TheoryVar(t.FamilyID())) {
 		return nil, ast.ErrASTDomain
 	}
 	state, err := t.State()

@@ -637,6 +637,12 @@ func (t *SMTBitVectorTheory) InternalizeTerm(expression ast.ASTHandle) (bool, er
 		}
 		return true, nil
 	}
+	if op == 37 || op == 40 {
+		spliced, err := t.internalizeSplice(expression, node, op, count)
+		if err != nil || spliced {
+			return spliced, err
+		}
+	}
 	bits, err := t.bitsFor(expression)
 	if err != nil {
 		return false, err
@@ -1221,8 +1227,10 @@ func (t *SMTBitVectorTheory) ModelValue(node *SMTEnode, generator *SMTModelGener
 	if err = bvAssert(1596, "v != null_theory_var", func() (bool, error) { return variable != SMTNullTheoryVar, nil }); err != nil {
 		return nil, err
 	}
-	// Invalid foreign/stale variable slots have no defined source access.
-	if !t.IsAttachedToVariable(node) {
+	// n is a class root whose theory variable may belong to another enode
+	// of the class (merge moves the variable to the new root), so only the
+	// slot must be valid. Invalid stale slots have no defined source access.
+	if !t.HasVariable(variable) {
 		return nil, ast.ErrASTDomain
 	}
 	value, fixed, err := t.fixedLiteralValue(variable)

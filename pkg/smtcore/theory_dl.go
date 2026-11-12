@@ -427,7 +427,7 @@ func (t *SMTDatalogTheory) ModelValue(node *SMTEnode, generator *SMTModelGenerat
 	if err != nil {
 		return nil, err
 	}
-	if node == nil || generator == nil || generator.manager != state.manager || !t.IsAttachedToVariable(node) {
+	if node == nil || generator == nil || generator.manager != state.manager || !t.HasVariable(node.TheoryVar(t.FamilyID())) {
 		return nil, ast.ErrASTDomain
 	}
 	return &smtDatalogValueProcedure{theory: t, node: node}, nil

@@ -2338,12 +2338,28 @@ tmp dir), comparing answers and full stdout (with get-model) with the fork.
 - Lead: other proto_model factories still pick values in insertion order
   where C++ walks an obj_hashtable begin(): user_sort_factory.go,
   datalog_factory.go, structured.go, array_factory.go, datatype_factory.go.
-- OPEN (worker running): model building fails with "build state model
-  values: g3: AST source precondition" (answer unknown, z3 sat) for e.g.
-  (and (not (= x y)) (not (= x 3)) (not (= y 3))) plus (= v (ite c u #x3));
-  also (bvule (h (ite a (h v) v)) v) and fp.to_ubv with an uninterpreted
-  BitVec predicate. About 1 in 200 random LIA+BV+UF scripts.
-- Lead: (_ bv 4) vs (_ BitVec 4) for sorts the user never wrote
-  (pdecl_manager::pp sort_info); predeclared List datatype without a logic
+- FIXED: model building failed with "build state model values: g3: AST
+  source precondition" (unknown where z3 says sat; ~1 in 200 random
+  LIA+BV+UF scripts, e.g. (and (not (= x y)) (not (= x 3)) (not (= y 3)))
+  with (= v (ite c u #x3))). Theory ModelValue required the class root to
+  own its theory variable; C++ mk_value just takes n->get_th_var(), which
+  after a merge belongs to another member (SMTTheoryBase.HasVariable; bv,
+  array, lra, diff-logic, dl, utvpi, fpa, str). Also: theory_fpa applies
+  fpa2bv updt_local_params (rewriter.hi_fp_unspecified=false, so the
+  fp.to_ubv unspecified UF parts are built); theory_bv internalizes concat /
+  extract by copying m_bits literals; arith_rewriter mk_abs_core builds its
+  ite arguments right to left; pdecl_manager sort_info / pp ported
+  (cmd_context/sort_info.go), so unreferenced sorts print as (_ bv 4).
+  Vectors fp_to_ubv_uf_model, fp_to_ubv_sort_print, bv_uf_ite_argument_model,
+  lia_bv_ite_distinct_model, sort_info_model_printing.
+  Leads: fuzz seed (gen.py 1126; job tmp m_gen_1126.smt2) model values still
+  differ - trace diverges at line 308 in freed-id reuse after bvsmod/bvshl
+  bit-blasting (bit-blaster temporaries dec_ref order); fp_to_ubv_uf_model
+  trace diverges at line 989,210 (theory_bv propagate_bits / assign_bit
+  order); get-model function order (BV-range UF g printed after a Seq-range
+  UF h); sort_info approximations (datatype field sorts saved at parse
+  time, complete_model instantiate, only get-model/WriteExpression/WriteSort
+  use the cmd_context pp_env).
+- Lead: predeclared List datatype without a logic
   (needs lazy pdecl psorts; g3's sort parameters are real uninterpreted sorts
   and allocate ids, so predeclaring at init would shift ids).

@@ -464,7 +464,7 @@ func (t *SMTUTVPITheory) ModelValue(node *SMTEnode, generator *SMTModelGenerator
 		return nil, ast.ErrASTDomain
 	}
 	v := node.TheoryVar(t.FamilyID())
-	if !t.IsAttachedToVariable(node) || v < 0 || int(v) >= len(t.values) {
+	if !t.HasVariable(v) || int(v) >= len(t.values) {
 		return nil, ast.ErrASTDomain
 	}
 	expression, err := t.state.manager.ArithmeticNumeralRat(&t.values[v], t.graph.integer[v])

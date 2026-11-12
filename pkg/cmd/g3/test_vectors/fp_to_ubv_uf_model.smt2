@@ -1,0 +1,7 @@
+(set-option :produce-models true)
+(declare-const x (_ FloatingPoint 3 5))
+(declare-fun g ((_ BitVec 4)) Bool)
+(assert (= ((_ fp.to_ubv 4) RNE x) #x3))
+(assert (g ((_ fp.to_ubv 4) RTZ x)))
+(check-sat)
+(get-model)

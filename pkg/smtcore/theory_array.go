@@ -923,7 +923,7 @@ func (t *SMTArrayTheory) arrayTableModelValue(node *SMTEnode, generator *SMTMode
 }
 
 func (t *SMTArrayTheory) ModelValue(node *SMTEnode, generator *SMTModelGenerator) (SMTModelValueProcedure, error) {
-	if node == nil || generator == nil || !t.IsAttachedToVariable(node) || generator.model == nil {
+	if node == nil || generator == nil || !t.HasVariable(node.TheoryVar(t.FamilyID())) || generator.model == nil {
 		return nil, ast.ErrASTDomain
 	}
 	sort, err := generator.manager.GetSort(node.owner)

@@ -70,6 +70,16 @@ func (c *Context) DefineSort(name string, formals []ast.ASTHandle, body ast.ASTH
 	if c.sortNameAvailable(name) {
 		return fmt.Errorf("sort already defined %s", name)
 	}
+	// parse_psort's body applications, instantiated with the definition.
+	pending := c.endPSort()
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, c.releasePending(pending))
+		}
+	}()
+	if c.sortDefinitionInfos == nil {
+		c.sortDefinitionInfos = make(map[string][]pendingSortInfo)
+	}
 	if len(formals) == 0 {
 		ref, e := m.NewRef(body)
 		if e != nil {
@@ -77,6 +87,7 @@ func (c *Context) DefineSort(name string, formals []ast.ASTHandle, body ast.ASTH
 		}
 		c.sorts[name] = body
 		c.sortTrail = append(c.sortTrail, declaration{name, body, ref})
+		c.sortDefinitionInfos[name] = pending
 		return nil
 	}
 	symbol, err := m.Symbols.Intern(name)
@@ -107,6 +118,7 @@ func (c *Context) DefineSort(name string, formals []ast.ASTHandle, body ast.ASTH
 	declaration.refs = append(declaration.refs, ref)
 	c.sortConstructors[name] = declaration
 	c.sortConstructorTrail = append(c.sortConstructorTrail, name)
+	c.sortDefinitionInfos[name] = pending
 	return nil
 }
 
@@ -115,7 +127,11 @@ func (c *Context) instantiateSortConstructor(declaration sortConstructorDeclarat
 		return ast.ASTHandle{}, fmt.Errorf("invalid number of parameters to sort constructor %s: got %d, want %d", declaration.name, len(arguments), declaration.arity)
 	}
 	if declaration.definition {
-		return c.manager.SubstituteSort(declaration.body, declaration.formals, arguments)
+		result, err = c.manager.SubstituteSort(declaration.body, declaration.formals, arguments)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		return result, c.instantiateSortDefinitionInfos(declaration.name, declaration.formals, arguments)
 	}
 	parameters := make([]ast.ASTParameter, 0, len(arguments))
 	created := make([]ast.ASTParameter, 0, len(arguments))
@@ -132,7 +148,12 @@ func (c *Context) instantiateSortConstructor(declaration sortConstructorDeclarat
 		created = append(created, parameter)
 		parameters = append(parameters, parameter)
 	}
-	return c.manager.MkUninterpretedSort(declaration.symbol, parameters)
+	result, err = c.manager.MkUninterpretedSort(declaration.symbol, parameters)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	// psort_user_decl::instantiate: save_info(r, this, n, s).
+	return result, c.saveSortInfo(result, declaration.name, arguments)
 }
 
 func (c *Context) restoreSortConstructors(size int) (result error) {
@@ -141,6 +162,7 @@ func (c *Context) restoreSortConstructors(size int) (result error) {
 		name := c.sortConstructorTrail[i]
 		declaration := c.sortConstructors[name]
 		delete(c.sortConstructors, name)
+		result = errors.Join(result, c.releaseSortDefinitionInfos(name))
 		for j := len(declaration.refs) - 1; j >= 0; j-- {
 			result = errors.Join(result, c.manager.DelRef(&declaration.refs[j]))
 		}

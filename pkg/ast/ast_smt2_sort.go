@@ -75,6 +75,9 @@ func (m *ASTManager) smt2SortView(h ASTHandle) (smt2SortView, error) {
 // SMT2PPSort builds the base SMT2 environment's sort document. The command
 // context's separate parametric-sort override is a different source owner.
 func (m *ASTManager) SMT2PPSort(sort ASTHandle) (result ASTHandle, resultErr error) {
+	if table := m.smt2SortInfoTable; table != nil {
+		return m.pdeclPPSort(table, sort)
+	}
 	documents, err := newASTFormatDocuments(m)
 	if err != nil {
 		return ASTHandle{}, err

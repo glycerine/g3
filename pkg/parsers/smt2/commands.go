@@ -591,13 +591,16 @@ func (p *commandParser) command() (bool, error) {
 		}
 		previous := p.sortParams
 		p.sortParams = byName
+		// parse_psort: the body's sort applications instantiate with the
+		// definition.
+		p.context.BeginPSort()
 		body, bodyErr := p.sort()
 		p.sortParams = previous
 		if bodyErr != nil {
-			return false, bodyErr
+			return false, errors.Join(bodyErr, p.context.AbortPSort())
 		}
 		if err = p.requireEnd(); err != nil {
-			return false, err
+			return false, errors.Join(err, p.context.AbortPSort())
 		}
 		if err = p.context.DefineSort(name, formals, body); err != nil {
 			return false, err
@@ -1752,13 +1755,19 @@ func (p *commandParser) sort() (ast.ASTHandle, error) {
 		if err = p.advance(); err != nil {
 			return ast.ASTHandle{}, err
 		}
+		var indexed ast.ASTHandle
 		if name == "FloatingPoint" && len(indices) == 2 {
-			return p.pin(m.FloatingPointSort(indices[0], indices[1]))
-		}
-		if name != "BitVec" || len(indices) != 1 {
+			indexed, err = p.pin(m.FloatingPointSort(indices[0], indices[1]))
+		} else if name != "BitVec" || len(indices) != 1 {
 			return ast.ASTHandle{}, fmt.Errorf("unsupported indexed sort %s", name)
+		} else {
+			indexed, err = p.pin(m.BitVectorSort(indices[0]))
 		}
-		return p.pin(m.BitVectorSort(indices[0]))
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		// psort_builtin_decl::instantiate saves the indexed sort info.
+		return indexed, p.context.SaveIndexedSortInfo(indexed, name, indices)
 	}
 	if _, found := p.datatypeHeaders[name]; !found && !p.context.SortDeclared(name) {
 		return ast.ASTHandle{}, &ScannerError{Message: unknownSortError(name).Error(), Line: nameLine, Column: namePos}
@@ -1778,7 +1787,11 @@ func (p *commandParser) sort() (ast.ASTHandle, error) {
 		if len(sorts) < 2 {
 			return ast.ASTHandle{}, fmt.Errorf("array sort expects at least one index sort and a range sort")
 		}
-		return p.pin(m.MkArraySort(ast.SliceArguments(sorts[:len(sorts)-1]), sorts[len(sorts)-1]))
+		array, err := p.pin(m.MkArraySort(ast.SliceArguments(sorts[:len(sorts)-1]), sorts[len(sorts)-1]))
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		return array, p.context.SaveSortInfo(array, name, sorts)
 	}
 	if name == "Seq" || name == "RegEx" {
 		var sorts []ast.ASTHandle
@@ -1814,7 +1827,10 @@ func (p *commandParser) sort() (ast.ASTHandle, error) {
 		if err = errors.Join(err, m.DelParameter(&parameter)); err != nil {
 			return ast.ASTHandle{}, err
 		}
-		return p.pin(value, nil)
+		if value, err = p.pin(value, nil); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		return value, p.context.SaveSortInfo(value, name, sorts)
 	}
 	var arguments []ast.ASTHandle
 	for p.token != RightParenToken {

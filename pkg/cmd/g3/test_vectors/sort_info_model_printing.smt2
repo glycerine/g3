@@ -1,0 +1,20 @@
+; pdecl_manager::pp: sorts print through the psort declaration the user
+; instantiated them with (Float32, aliases' bodies); unreferenced builtin
+; sorts with integer parameters print by their internal name ((_ bv n)).
+(set-option :produce-models true)
+(declare-const x Float32)
+(declare-const y (_ FloatingPoint 8 24))
+(define-sort BV4 () (_ BitVec 4))
+(declare-const b BV4)
+(declare-fun g (Int) BV4)
+(define-sort MyArr (T) (Array T T))
+(declare-const ma (MyArr Real))
+(declare-const z (_ FloatingPoint 3 5))
+(assert (fp.isNaN x))
+(assert (fp.isNaN y))
+(assert (= (g 2) b))
+(assert (= (select ma 1.0) 2.0))
+(assert (= ((_ fp.to_sbv 3) RTZ z) #b011))
+(check-sat)
+(get-model)
+(get-value (x b ma ((_ fp.to_sbv 3) RTZ z)))

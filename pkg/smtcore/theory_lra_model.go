@@ -33,7 +33,7 @@ func (t *SMTLRATheory) GetTheoryValue(node *SMTEnode) (ast.ASTHandle, bool, erro
 	if err = t.numeric.ready(); err != nil {
 		return ast.ASTHandle{}, false, err
 	}
-	if !t.IsAttachedToVariable(node) || !t.canGetModelValue(node.TheoryVar(t.FamilyID())) {
+	if !t.HasVariable(node.TheoryVar(t.FamilyID())) || !t.canGetModelValue(node.TheoryVar(t.FamilyID())) {
 		return ast.ASTHandle{}, false, nil
 	}
 	value, err := t.cachedModelValue(node.TheoryVar(t.FamilyID()))
@@ -151,7 +151,7 @@ func (t *SMTLRATheory) ModelValue(node *SMTEnode, g *SMTModelGenerator) (SMTMode
 	if err != nil {
 		return nil, err
 	}
-	if node == nil || g == nil || g.manager != s.manager || !t.IsAttachedToVariable(node) || t.modelOwner == nil || t.modelOwner.generator != g {
+	if node == nil || g == nil || g.manager != s.manager || !t.HasVariable(node.TheoryVar(t.FamilyID())) || t.modelOwner == nil || t.modelOwner.generator != g {
 		return nil, ast.ErrASTDomain
 	}
 	if err = g.open(); err != nil {

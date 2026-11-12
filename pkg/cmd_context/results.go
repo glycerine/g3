@@ -62,7 +62,11 @@ func (c *Context) WriteExpression(out io.Writer, expression ast.ASTHandle) (resu
 
 // WriteExpressionIndented applies the source display indentation to the format.
 func (c *Context) WriteExpressionIndented(out io.Writer, expression ast.ASTHandle, indent uint32) error {
-	format, err := c.manager.SMT2PPExprTree(expression, nil)
+	var format ast.ASTHandle
+	err := c.withPPEnv(func() (e error) {
+		format, e = c.manager.SMT2PPExprTree(expression, nil)
+		return e
+	})
 	if err != nil {
 		return err
 	}
@@ -95,7 +99,11 @@ func (c *Context) writeOwnedFormat(out io.Writer, format ast.ASTHandle, indent u
 
 // WriteSort prints a sort using the command context's SMT-LIB formatter.
 func (c *Context) WriteSort(out io.Writer, sort ast.ASTHandle, indent uint32) error {
-	format, err := c.manager.SMT2PPSort(sort)
+	var format ast.ASTHandle
+	err := c.withPPEnv(func() (e error) {
+		format, e = c.manager.SMT2PPSort(sort)
+		return e
+	})
 	if err != nil {
 		return err
 	}

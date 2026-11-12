@@ -102,6 +102,15 @@ func (t *SMTFloatingPointTheory) Initialize(state *SMTInternalizerState) (result
 		return errors.Join(fmt.Errorf("floating-point rewriter construction: %w", err), converter.Close())
 	}
 	t.rewriter = rw
+	// m_rw(m, m_converter, params_ref()): the fpa2bv_rewriter_cfg
+	// constructor's updt_local_params sets the converter's
+	// hi_fp_unspecified from the "rewriter" module (default false),
+	// overriding the converter constructor's true.
+	if err = t.applyRewriterHighUnspecified(state); err != nil {
+		err = errors.Join(err, t.rewriter.Close(), t.converter.Close())
+		t.rewriter, t.converter = nil, nil
+		return fmt.Errorf("floating-point rewriter parameters: %w", err)
+	}
 	// theory_fpa's constructor: p.set_bool("arith_lhs", true) on m_th_rw.
 	if err = t.initializeTheoryRewriter(state); err != nil {
 		if t.thRewriter != nil {
@@ -112,6 +121,20 @@ func (t *SMTFloatingPointTheory) Initialize(state *SMTInternalizerState) (result
 		return fmt.Errorf("floating-point theory rewriter construction: %w", err)
 	}
 	return nil
+}
+
+// applyRewriterHighUnspecified is fpa2bv_rewriter_cfg::updt_local_params
+// with theory_fpa's empty params_ref.
+func (t *SMTFloatingPointTheory) applyRewriterHighUnspecified(state *SMTInternalizerState) error {
+	settings, err := astfpa.NewFPA2BVRewriterParams(state.paramsContext, state.globals, nil)
+	if err != nil {
+		return err
+	}
+	high, err := settings.HighFPUnspecified()
+	if err = errors.Join(err, settings.Close()); err != nil {
+		return err
+	}
+	return t.rewriter.SetHighUnspecified(high)
 }
 
 func (t *SMTFloatingPointTheory) initializeTheoryRewriter(state *SMTInternalizerState) (result error) {
@@ -626,7 +649,7 @@ func smtFPAEnodeDependency(node *SMTEnode) ([]SMTModelValueDependency, error) {
 }
 
 func (t *SMTFloatingPointTheory) ModelValue(node *SMTEnode, generator *SMTModelGenerator) (_ SMTModelValueProcedure, result error) {
-	if node == nil || generator == nil || generator.model == nil || !t.IsAttachedToVariable(node) {
+	if node == nil || generator == nil || generator.model == nil || !t.HasVariable(node.TheoryVar(t.FamilyID())) {
 		return nil, ast.ErrASTDomain
 	}
 	state, err := t.State()

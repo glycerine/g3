@@ -464,3 +464,78 @@ func (t *SMTBitVectorTheory) acBinaryBits(call *smtBVExpressionCall, expression 
 	}
 	return bits, true, nil
 }
+
+// internalizeSplice is internalize_concat / internalize_extract: the new
+// variable's m_bits are the arguments' m_bits literals, added with add_bit
+// and followed by find_wpos. No bit expression is built (literal2expr would
+// create transient negations the source never makes). It reports false,
+// with no effect, when an argument's bits are not held as literals, so the
+// caller's expression path handles it.
+func (t *SMTBitVectorTheory) internalizeSplice(expression ast.ASTHandle, node *SMTEnode, operation int32, count uint32) (bool, error) {
+	s := t.state
+	arguments := make([]ast.ASTHandle, count)
+	nodes := make([]*SMTEnode, count)
+	for i := range arguments {
+		argument, err := s.manager.GetArg(expression, uint32(i))
+		if err != nil {
+			return false, err
+		}
+		arguments[i] = argument
+		nodes[i] = s.context.enodes.get(argument)
+		if nodes[i] == nil {
+			return false, nil
+		}
+		if v := nodes[i].TheoryVar(t.FamilyID()); v != SMTNullTheoryVar {
+			width, err := s.manager.BitVectorSize(argument)
+			if err != nil {
+				return false, err
+			}
+			if !t.literalBits[argument] || int(v) >= len(t.bitLiterals) || uint64(len(t.bitLiterals[v])) != uint64(width) {
+				return false, nil
+			}
+		}
+	}
+	var low, high uint32
+	if operation == 40 {
+		var err error
+		if high, err = t.parameter(expression, 0); err != nil {
+			return false, err
+		}
+		if low, err = t.parameter(expression, 1); err != nil {
+			return false, err
+		}
+		if err = assertBVExtractBounds(low, high); err != nil {
+			return false, err
+		}
+	}
+	variable := node.TheoryVar(t.FamilyID())
+	var literals []SMTLiteral
+	// internalize_concat visits the arguments from last to first;
+	// get_arg_var creates a missing variable and its bits on the way.
+	for k := len(arguments) - 1; k >= 0; k-- {
+		v, err := t.nativeVariable(nodes[k])
+		if err != nil {
+			return false, err
+		}
+		if int(v) >= len(t.bitLiterals) {
+			return false, ast.ErrASTDomain
+		}
+		bits := t.bitLiterals[v]
+		if operation == 40 {
+			if uint64(high) >= uint64(len(bits)) {
+				return false, ast.ErrASTDomain
+			}
+			bits = bits[low : high+1]
+		}
+		literals = append(literals, bits...)
+	}
+	t.bits[expression] = nil
+	t.literalBits[expression] = true
+	t.bitTrail = append(t.bitTrail, expression)
+	for index, literal := range literals {
+		if err := t.registerBitLiteral(expression, uint32(index), literal); err != nil {
+			return false, err
+		}
+	}
+	return true, t.findWatchedPosition(variable)
+}

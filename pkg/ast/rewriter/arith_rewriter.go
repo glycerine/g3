@@ -1167,15 +1167,18 @@ func (r *ArithRewriter) rewriteAbs(arg ast.ASTHandle, out ast.ASTRef) (RewriteSt
 		}
 		integer = sortKind == 1
 	}
+	// mk_ite(mk_ge(arg, mk_numeral(0)), arg, mk_uminus(arg)): z3 4.7.1's
+	// g++ build evaluates the call arguments right to left, so the
+	// negation is created before the zero and the comparison.
+	negative, err := r.app(arithOpUMinus, arg)
+	if err != nil {
+		return RewriteFailed, err
+	}
 	zero, err := r.makeNumeral(new(big.Rat), integer)
 	if err != nil {
 		return RewriteFailed, err
 	}
 	ge, err := r.app(arithOpGE, arg, zero)
-	if err != nil {
-		return RewriteFailed, err
-	}
-	negative, err := r.app(arithOpUMinus, arg)
 	if err != nil {
 		return RewriteFailed, err
 	}

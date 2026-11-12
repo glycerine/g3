@@ -151,6 +151,12 @@ func (t *SMTTheoryBase) IsAttachedToVariable(node *SMTEnode) bool {
 	return variable >= 0 && int(variable) < len(t.variables) && t.variables[variable] == node
 }
 
+// HasVariable reports whether variable names a live variable of this
+// theory. A class root's get_th_var may name another enode's variable.
+func (t *SMTTheoryBase) HasVariable(variable SMTTheoryVar) bool {
+	return t != nil && variable >= 0 && int(variable) < len(t.variables)
+}
+
 func (t *SMTTheoryBase) Enode(variable SMTTheoryVar) (*SMTEnode, error) {
 	if t == nil || variable < 0 || int(variable) >= len(t.variables) {
 		return nil, ast.ErrASTDomain
