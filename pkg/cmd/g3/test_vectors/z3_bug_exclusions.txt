@@ -8,3 +8,9 @@
 # test_vectors/z3_bug_automaton_product.smt2.
 sequence_helper_inventory
 z3_bug_automaton_product
+#
+# qe array solve_store ignores coinciding store indices (g3 fix:
+# pkg/qe/qe_array_plugin_store.go TryStoreEquality; z3 bug:
+# src/qe/qe_array_plugin.cpp solve_store). Reproduction:
+# test_vectors/z3_bug_qe_nested_store.smt2.
+z3_bug_qe_nested_store

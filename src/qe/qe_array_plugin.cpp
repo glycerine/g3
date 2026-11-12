@@ -220,6 +220,14 @@ namespace qe {
             // t[i] = v
             // store(t, i, v)[j] = u
             //
+            // g3 note (z3 bug, still present in upstream z3 4.17.0; see g3
+            // TODO.md "z3 4.7.1 bugs fixed in g3"): the second condition is
+            // wrong when i = j, because the outer store overwrites u, so
+            // store(t, i, v)[j] = v and the result demands u = v. The correct
+            // condition is t[i] = v and (i = j or t[j] = u). Reproduction:
+            // g3 pkg/cmd/g3/test_vectors/z3_bug_qe_nested_store.smt2, which
+            // is sat but answers unsat under (then qe smt). g3's fix:
+            // pkg/qe/qe_array_plugin_store.go TryStoreEquality.
             unsigned idx = 0;
             vector<ptr_vector<expr> > args;
             if (is_store_update(lhs, idx, rhs, args)) {

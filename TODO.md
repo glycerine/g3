@@ -1972,3 +1972,25 @@ testing (main_test.go carries a commented-out entry pointing there):
      line 21357, where the product automaton's final states differ).
    - Upstream: no fix to borrow; src/math/automata was deleted by
      fcd3a70c9 (2025-08-07), and z3 4.17.0 answers sat with x = "".
+
+- **qe array solve_store ignores coinciding store indices** (found while
+  porting item 35; STILL PRESENT in upstream z3 4.17.0 at 30c74fcce, so a
+  candidate for an upstream PR).
+   - Reproduction: pkg/cmd/g3/test_vectors/z3_bug_qe_nested_store.smt2:
+       (declare-const b (Array Int Int)) (declare-const i Int) (declare-const j Int)
+       (declare-const v1 Int) (declare-const v2 Int)
+       (assert (exists ((a (Array Int Int))) (= b (store (store a i v1) j v2))))
+       (assert (= i j)) (assert (= v1 0)) (assert (= v2 1))
+       (check-sat-using (then qe smt))
+     Both z3 4.7.1 and z3 4.17.0 answer unsat; plain (check-sat) says sat,
+     which is correct (the outer store overwrites v1).
+   - Cause in z3: qe_array_plugin::solve_store (src/qe/qe_array_plugin.cpp)
+     turns store(store(A, j, u), i, v) = t into t[i] = v and
+     store(t, i, v)[j] = u. When i = j the second literal is v = u. The
+     correct condition is t[i] = v and (i = j or t[j] = u), generalized to
+     every inner write and multidimensional indices.
+   - g3 fix: ArrayPlugin.TryStoreEquality (pkg/qe/qe_array_plugin_store.go,
+     commit a15af8166) guards each inner write's equation with
+     (or (= index outer-index) ...). Test: TestArrayPluginNestedStoreElimination.
+   - Affected: nested-store qe outputs differ from z3 (quantifier_tactic
+     array equation tests); no comparison vector besides the reproduction.
