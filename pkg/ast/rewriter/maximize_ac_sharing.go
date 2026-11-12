@@ -297,8 +297,11 @@ type MaximizeBVSharing struct {
 	manager   *ast.ASTManager
 	config    *MaximizeBVSharingConfiguration
 	traversal *Traversal
-	header    uint64
-	closed    bool
+	// proofs is rewriter_tpl's m_proof_gen, fixed at construction from
+	// m.proofs_enabled().
+	proofs bool
+	header uint64
+	closed bool
 }
 
 func NewMaximizeBVSharing(m *ast.ASTManager) (*MaximizeBVSharing, error) {
@@ -312,7 +315,15 @@ func NewMaximizeBVSharing(m *ast.ASTManager) (*MaximizeBVSharing, error) {
 	}
 	r := &MaximizeBVSharing{manager: m, config: c, header: bytes}
 	r.self = r
-	r.traversal, e = NewTraversal(m, c)
+	// maximize_bv_sharing_rw(m): rewriter_tpl(m, m.proofs_enabled(), m_cfg).
+	if r.proofs, e = m.ProofsEnabled(); e != nil {
+		return r, e
+	}
+	if r.proofs {
+		r.traversal, e = NewProofTraversal(m, c)
+	} else {
+		r.traversal, e = NewTraversal(m, c)
+	}
 	return r, e
 }
 
@@ -326,6 +337,11 @@ func (r *MaximizeBVSharing) open() error {
 func (r *MaximizeBVSharing) Rewrite(root ast.ASTHandle, out, proof ast.ASTRef) error {
 	if e := r.open(); e != nil {
 		return e
+	}
+	// In proof mode the source traversal builds the per-application rewrite
+	// and monotonicity proofs.
+	if r.proofs {
+		return r.traversal.RewriteWithProof(root, out, proof)
 	}
 	if e := r.traversal.Rewrite(root, out); e != nil {
 		return e
