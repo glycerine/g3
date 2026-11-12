@@ -1868,3 +1868,27 @@ Found while matching `-st` output against `build/z3` on
       tactic/arith/bv2real_util.go mulAdopting/alignLocals with
       mk_bv_mul's s1/t1 locals and mk_extend's numeral case.
     - nlqsat_*, datatype_cycle_proof: recorded ask-first deviations.
+
+## Status 2026-11-11 (late): full-log 647 identical / 13 differ; make tags green
+
+Newly identical: fixedpoint_pdr_initial_trace (get_rule/update_models in the
+caller's proof mode, asserted_formulas proof handling without proofs,
+diff-logic/utvpi internalize_eq_eh, get_trace ownership),
+card2bv_weighted_models (theory_bv mk_bits keeps only literals),
+sequence_word_equations_relations (scoped_vector::pop_scope front to back).
+Moved: fixedpoint_pdr_recursive_trace -> 22942, fixedpoint_finite_relations
+97 -> 308. Open leads:
+- fixedpoint_finite_relations 308: record_transformed_rules ->
+  rule_set::reset releases rules front to back (rule_ref_vector::reset);
+  g3's RuleSet.resetContentsUnchecked (muz/base/rule_set.go) goes back to
+  front. Touches every rule set: re-check all fixedpoint/spacer/pdr vectors.
+- qe_cooper_symbolic_blast (item 35): a work-in-progress port of
+  expr_quant_elim / quant_elim_new / eliminate_block that replaces the
+  quantifier_tactic cascade is saved (NOT applied, its ./qe tests fail) at
+  /var/tmp/g3-job-487c9ee8/patches/qe_cooper_eliminate_block_wip.patch;
+  it moved the first diff 53 -> 92. Next: quant_elim_plugin::pop's
+  solve_vars over all plugins (arith_qe_util::extract_equalities, then
+  array conj_enum::extract_equalities) instead of solveExprQEBoolUnits.
+- datatype_cycle_proof: ee39d9490 changed this recorded ask-first deviation
+  (occurs_check_explain no longer adds the extra closing pair); the vector is
+  now identical. Revert with `git revert ee39d9490` if that was unwanted.
