@@ -1,6 +1,7 @@
 package qe
 
 import (
+	"errors"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -34,24 +35,33 @@ func (p *ArithmeticPlugin) Substitute(variable *ast.ContainsApp, value *numeral.
 	if err != nil {
 		return err
 	}
+	// subst: get_def runs before get_cache replaces fml.
+	if definition != nil {
+		s, err := b.substitution(p.manager)
+		if err != nil {
+			return err
+		}
+		d, err := p.branchDefinition(b.Selection, s)
+		if err != nil {
+			return err
+		}
+		h := ast.ASTHandle{}
+		if d != (ast.ASTRef{}) {
+			if h, err = p.manager.RefGet(d); err == nil {
+				err = p.manager.SetRef(*definition, h)
+			}
+			if err = errors.Join(err, p.manager.DelRef(&d)); err != nil {
+				return err
+			}
+		} else if err = p.manager.SetRef(*definition, h); err != nil {
+			return err
+		}
+	}
 	result, err := p.manager.RefGet(b.Result)
 	if err != nil {
 		return err
 	}
-	if err = p.manager.SetRef(formula, result); err != nil {
-		return err
-	}
-	if definition != nil {
-		if b.Definition == (ast.ASTRef{}) {
-			return p.manager.SetRef(*definition, ast.ASTHandle{})
-		}
-		d, err := p.manager.RefGet(b.Definition)
-		if err != nil {
-			return err
-		}
-		return p.manager.SetRef(*definition, d)
-	}
-	return nil
+	return p.manager.SetRef(formula, result)
 }
 
 func (p *ArithmeticPlugin) Project(variable *ast.ContainsApp, value *numeral.OwnedRational, formula ast.ASTRef) (bool, error) {

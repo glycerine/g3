@@ -377,7 +377,7 @@ func (q *quantElimNew) eliminateExists(vars []ast.ASTHandle, fml ast.ASTRef, fre
 	return lbool.True, nil
 }
 
-func (q *quantElimNew) eliminateBlock(vars []ast.ASTHandle, fml ast.ASTRef, free *[]ast.ASTRef) (lbool.LBool, error) {
+func (q *quantElimNew) eliminateBlock(vars []ast.ASTHandle, fml ast.ASTRef, free *[]ast.ASTRef) (_ lbool.LBool, err error) {
 	m := q.manager
 	if err := qeCheckpoint(m, q.config); err != nil {
 		return lbool.Undef, err
@@ -393,6 +393,13 @@ func (q *quantElimNew) eliminateBlock(vars []ast.ASTHandle, fml ast.ASTRef, free
 	if quantified {
 		return lbool.Undef, appendQEFreeVars(m, free, vars)
 	}
+	// expr_ref fml0(fml, m): the input formula stays alive until
+	// eliminate_block returns, after check and push_context's reset.
+	fml0, err := m.NewRef(value)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer func() { err = errors.Join(err, m.DelRef(&fml0)) }()
 	th, err := q.popContext()
 	if err != nil {
 		return lbool.Undef, err

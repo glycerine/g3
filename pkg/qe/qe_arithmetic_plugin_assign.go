@@ -37,14 +37,9 @@ func (p *ArithmeticPlugin) Assign(variable *ast.ContainsApp, formula ast.ASTHand
 	if err != nil {
 		return err
 	}
-	var definition ast.ASTRef
 	defer func() {
 		if resultErr != nil {
-			var definitionErr error
-			if definition != (ast.ASTRef{}) {
-				definitionErr = p.manager.DelRef(&definition)
-			}
-			resultErr = errors.Join(resultErr, definitionErr, p.manager.DelRef(&result))
+			resultErr = errors.Join(resultErr, p.manager.DelRef(&result))
 		}
 	}()
 	substitution, _, err := p.applyCooper(target, e.processor, result)
@@ -60,11 +55,10 @@ func (p *ArithmeticPlugin) Assign(variable *ast.ContainsApp, formula ast.ASTHand
 		// m_util.simplify(result) before add_cache.
 		err = p.simplify(result)
 	}
-	if err == nil {
-		definition, err = p.branchDefinition(selection, substitution)
-	}
 	if err != nil {
 		return err
 	}
-	return p.storeBranch(key, result, definition, selection, p.pendingFresh[freshStart:])
+	// add_cache keeps x_t's coefficient and term; the definition is built
+	// only when subst asks for it (get_def).
+	return p.storeBranch(key, result, substitution, selection, p.pendingFresh[freshStart:])
 }

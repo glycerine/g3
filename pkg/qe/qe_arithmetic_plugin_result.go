@@ -7,12 +7,27 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
+// ArithmeticPluginBranch is the m_subst branch_formula entry: the branch
+// result, the x_t substitution (coefficient and term, nil without Cooper),
+// and the selection get_def reads when subst asks for a definition.
 type ArithmeticPluginBranch struct {
 	Result      ast.ASTRef
-	Definition  ast.ASTRef
 	Coefficient *big.Rat
+	Term        ast.ASTRef
 	Selection   ArithmeticBranchSelection
 	Fresh       []ast.ASTRef
+}
+
+// substitution rebuilds x_t from the cached coefficient and term.
+func (b *ArithmeticPluginBranch) substitution(m *ast.ASTManager) (*arithmeticBranchSubstitution, error) {
+	if b.Term == (ast.ASTRef{}) {
+		return nil, nil
+	}
+	term, err := m.RefGet(b.Term)
+	if err != nil {
+		return nil, err
+	}
+	return &arithmeticBranchSubstitution{coefficient: new(big.Rat).Set(b.Coefficient), term: term}, nil
 }
 
 func (b *ArithmeticPluginBranch) close(m *ast.ASTManager) error {
@@ -24,21 +39,33 @@ func (b *ArithmeticPluginBranch) close(m *ast.ASTManager) error {
 		definitionErr = errors.Join(definitionErr, m.DelRef(&b.Fresh[i]))
 	}
 	b.Fresh = nil
-	if b.Definition != (ast.ASTRef{}) {
-		definitionErr = m.DelRef(&b.Definition)
+	definitionErr = errors.Join(definitionErr, m.DelRef(&b.Result))
+	if b.Term != (ast.ASTRef{}) {
+		definitionErr = errors.Join(definitionErr, m.DelRef(&b.Term))
 	}
-	return errors.Join(definitionErr, m.DelRef(&b.Result))
+	return definitionErr
 }
 
-func (p *ArithmeticPlugin) storeBranch(key ArithmeticBranchKey, result, definition ast.ASTRef, selection ArithmeticBranchSelection, fresh []ast.ASTRef) (err error) {
+func (p *ArithmeticPlugin) storeBranch(key ArithmeticBranchKey, result ast.ASTRef, substitution *arithmeticBranchSubstitution, selection ArithmeticBranchSelection, fresh []ast.ASTRef) (err error) {
 	var copies []ast.ASTRef
+	var term ast.ASTRef
 	defer func() {
 		if err != nil {
 			for i := len(copies) - 1; i >= 0; i-- {
 				err = errors.Join(err, p.manager.DelRef(&copies[i]))
 			}
+			if term != (ast.ASTRef{}) {
+				err = errors.Join(err, p.manager.DelRef(&term))
+			}
 		}
 	}()
+	coefficient := big.NewRat(1, 1)
+	if substitution != nil {
+		coefficient = new(big.Rat).Set(substitution.coefficient)
+		if term, err = p.manager.NewRef(substitution.term); err != nil {
+			return err
+		}
+	}
 	for _, ref := range fresh {
 		h, cause := p.manager.RefGet(ref)
 		if cause != nil {
@@ -55,7 +82,7 @@ func (p *ArithmeticPlugin) storeBranch(key ArithmeticBranchKey, result, definiti
 			return err
 		}
 	}
-	p.branches[key] = &ArithmeticPluginBranch{Result: result, Definition: definition, Selection: selection, Coefficient: big.NewRat(1, 1), Fresh: copies}
+	p.branches[key] = &ArithmeticPluginBranch{Result: result, Coefficient: coefficient, Term: term, Selection: selection, Fresh: copies}
 	return nil
 }
 

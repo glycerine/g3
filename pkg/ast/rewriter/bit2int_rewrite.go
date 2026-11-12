@@ -133,22 +133,33 @@ func (b *Bit2Int) visitApplication(term ast.ASTHandle) (result error) {
 	}
 	comparisonKind := family == b.manager.BasicFamilyID() && kind == ast.ASTOpEq || family == b.arithFamily && kind >= 2 && kind <= 5
 	if comparisonKind && len(args) >= 2 {
+		// The source condition is one && chain: is_bv_poly(e1) &&
+		// is_bv_poly(e2) && mk_add(pos1, neg2) && mk_add(neg1, pos2) &&
+		// mk_comp, so a failed step skips the remaining ones.
 		leftPos, leftNeg, leftPoly, err := b.isBVPoly(&call, args[0])
 		if err != nil {
 			return err
 		}
-		rightPos, rightNeg, rightPoly, err := b.isBVPoly(&call, args[1])
-		if err != nil {
-			return err
+		var rightPos, rightNeg ast.ASTHandle
+		rightPoly := false
+		if leftPoly {
+			rightPos, rightNeg, rightPoly, err = b.isBVPoly(&call, args[1])
+			if err != nil {
+				return err
+			}
 		}
 		if leftPoly && rightPoly {
 			left, ok, err := b.mkAdd(&call, leftPos, rightNeg)
 			if err != nil {
 				return err
 			}
-			right, ok2, err := b.mkAdd(&call, leftNeg, rightPos)
-			if err != nil {
-				return err
+			var right ast.ASTHandle
+			ok2 := false
+			if ok {
+				right, ok2, err = b.mkAdd(&call, leftNeg, rightPos)
+				if err != nil {
+					return err
+				}
 			}
 			if ok && ok2 {
 				mode, reverse, comparison := bit2IntEQ, false, false

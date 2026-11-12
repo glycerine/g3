@@ -87,11 +87,15 @@ func partitionExprQETree(node *exprQETree, variables *exprQEBranchVariables, par
 	return result, err
 }
 
+// Close releases the partition the way quant_elim_plugin::pop's locals
+// die: expr_ref fml_closed(m), fml_open(m), fml_mixed(m) are destroyed in
+// reverse declaration order, so mixed goes first, then open, then closed
+// (closePartitionRefs releases its arguments back to front).
 func (p *exprQETreePartition) Close() error {
 	if p == nil || p.manager == nil {
 		return nil
 	}
-	if err := closePartitionRefs(p.manager, &p.closed, &p.mixed, &p.open); err != nil {
+	if err := closePartitionRefs(p.manager, &p.closed, &p.open, &p.mixed); err != nil {
 		return err
 	}
 	p.manager = nil
