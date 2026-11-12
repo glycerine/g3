@@ -712,13 +712,13 @@ func (s *RuleSet) resetContentsUnchecked() error {
 		return err
 	}
 	s.cleanupPending = true
+	// m_rules.reset(): rule_ref_vector releases front to back.
 	for len(s.rules) > 0 {
-		last := len(s.rules) - 1
-		if err := s.rules[last].Close(); err != nil {
+		if err := s.rules[0].Close(); err != nil {
 			return err
 		}
-		s.rules[last] = nil
-		s.rules = s.rules[:last]
+		s.rules[0] = nil
+		s.rules = s.rules[1:]
 	}
 	for _, declaration := range s.outputOrder {
 		reference, held := s.outputs[declaration]
@@ -736,11 +736,11 @@ func (s *RuleSet) resetContentsUnchecked() error {
 			return err
 		}
 	}
+	// m_refs.reset(): front to back.
 	for len(s.mappingReferences) > 0 {
-		last := len(s.mappingReferences) - 1
-		err := s.manager.manager.DelRef(&s.mappingReferences[last])
-		if s.mappingReferences[last] == (ast.ASTRef{}) {
-			s.mappingReferences = s.mappingReferences[:last]
+		err := s.manager.manager.DelRef(&s.mappingReferences[0])
+		if s.mappingReferences[0] == (ast.ASTRef{}) {
+			s.mappingReferences = s.mappingReferences[1:]
 		}
 		if err != nil {
 			return err

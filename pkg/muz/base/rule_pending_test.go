@@ -210,7 +210,8 @@ func TestRuleClosePreservesOwnersDuringASTInvocation(t *testing.T) {
 	if !valid {
 		t.Fatal("invalid partial reset fixture")
 	}
-	blocked := partial.rules[0]
+	// rule_ref_vector::reset releases front to back: block the last rule.
+	blocked := partial.rules[1]
 	recorder2 := NewCostRecorder()
 	defer func() { must(recorder2.Close()) }()
 	must(recorder2.Start(blocked.state.accounting))
