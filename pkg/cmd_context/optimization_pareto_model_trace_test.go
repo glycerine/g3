@@ -107,6 +107,9 @@ func TestParetoLiveModelVerbosePrecedesDominanceTrace(t *testing.T) {
 	negative, err := c.manager.MkArithmeticNeg(x)
 	contextMust(t, err)
 	contextMust(t, c.AddObjective(negative, true))
+	// optimize() runs a lone objective as execute(obj, true, false); only
+	// several objectives reach gia_pareto.
+	contextMust(t, c.AddObjective(x, true))
 	stream := paretoModelVerboseStream(t, c, 1)
 	w := &paretoTraceWriter{}
 	tags := diagnostic.NewTraceTagsWithWriter(w)

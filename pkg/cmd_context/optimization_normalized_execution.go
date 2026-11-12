@@ -276,9 +276,13 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 			c.optimizationPreprocessor = c.optimizationModelConverter
 		}
 	}
+	// optimize(): a single objective runs execute(m_objectives[0], true,
+	// false) whatever the priority; only several objectives reach
+	// execute_pareto or execute_box. (The m_pareto1 toggle set there is
+	// cleared by the next optimize()'s clear_state before it is read.)
 	if boxContinuation {
 		optimized, err = c.checkOptimizeBox(assumptions, true)
-	} else if priority == "pareto" {
+	} else if priority == "pareto" && len(c.objectives) > 1 {
 		if err = c.clearOptimizationBoxModels(); err != nil {
 			return nil, err
 		}
@@ -289,7 +293,7 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 			// normalization; keep its value transforms.
 			c.optimizationParetoPurification.decomposed = paretoValueTransforms(decomposed)
 		}
-	} else if priority == "box" {
+	} else if priority == "box" && len(c.objectives) > 1 {
 		optimized, err = c.checkOptimizeBox(assumptions, continuation)
 	} else {
 		if err = c.clearOptimizationBoxModels(); err != nil {

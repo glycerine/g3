@@ -67,6 +67,25 @@ func (c *Context) simplifyOptimizationFormulas(set *opt.ObjectiveFormulaSet) (re
 			result = nil
 		}
 	}()
+	// simplify_fmls returns (its fmls.reset() and its result goals and
+	// input goal gone) before from_fmls decodes the objectives.
+	formulas, err := c.simplifyOptimizationGoal(set, result)
+	if err != nil {
+		return nil, err
+	}
+	if result.inconsistent {
+		return result, nil
+	}
+	if err = c.decodeOptimizationFormulas(set, formulas, result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// simplifyOptimizationGoal is simplify_fmls: it runs m_simplify on a goal
+// of set's formulas and returns the result goal's formulas, which
+// result.refs holds (normalize's fmls vector).
+func (c *Context) simplifyOptimizationGoal(set *opt.ObjectiveFormulaSet, result *optimizationSimplifiedFormulas) (formulas []ast.ASTHandle, resultErr error) {
 	formulas, err := set.Handles()
 	if err != nil {
 		return nil, err
@@ -231,10 +250,21 @@ func (c *Context) simplifyOptimizationFormulas(set *opt.ObjectiveFormulaSet) (re
 	}
 	if inconsistent {
 		result.inconsistent = true
-		return result, nil
+		return nil, nil
 	}
 	count, err := output.Size()
 	if err != nil {
+		return nil, err
+	}
+	if applied.ModelConverter != nil {
+		if err = applied.ModelConverter.IncRef(); err != nil {
+			return nil, err
+		}
+		result.model = applied.ModelConverter
+	}
+	// fmls.reset(): to_fmls's formulas, the original objective-function
+	// applications included, go before the simplified ones are copied.
+	if err = set.ReleaseFormulas(); err != nil {
 		return nil, err
 	}
 	formulas = make([]ast.ASTHandle, count)
@@ -249,9 +279,14 @@ func (c *Context) simplifyOptimizationFormulas(set *opt.ObjectiveFormulaSet) (re
 		}
 		result.refs = append(result.refs, ref)
 	}
+	return formulas, nil
+}
+
+func (c *Context) decodeOptimizationFormulas(set *opt.ObjectiveFormulaSet, formulas []ast.ASTHandle, result *optimizationSimplifiedFormulas) (err error) {
+	m := c.manager
 	result.decoded, err = set.DecodeHandles(formulas)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	// from_fmls keeps the hard constraints and each objective's terms in
 	// the context; normalize's fmls vector (refs) is released by
@@ -269,23 +304,17 @@ func (c *Context) simplifyOptimizationFormulas(set *opt.ObjectiveFormulaSet) (re
 	}
 	for _, h := range result.decoded.Hard {
 		if err = hold(h); err != nil {
-			return nil, err
+			return err
 		}
 	}
 	for _, objective := range result.decoded.Objectives {
 		for _, h := range append([]ast.ASTHandle{objective.Term, objective.OriginalTerm}, objective.SoftTerms...) {
 			if err = hold(h); err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
-	if applied.ModelConverter != nil {
-		if err = applied.ModelConverter.IncRef(); err != nil {
-			return nil, err
-		}
-		result.model = applied.ModelConverter
-	}
-	return result, nil
+	return nil
 }
 
 // releaseFormulas is the end of normalize: its fmls vector (the simplified

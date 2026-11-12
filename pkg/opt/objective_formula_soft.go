@@ -15,13 +15,9 @@ func (c *ObjectiveFormulaCodec) normalizeSoft(args []ast.ASTHandle, metadata obj
 		if weight.Sign() < 0 {
 			weight.Neg(&weight)
 			offset.Sub(&offset, &weight)
-			if c.manager.IsTrue(argument) {
-				argument, err = c.manager.MkFalse()
-			} else if c.manager.IsFalse(argument) {
-				argument, err = c.manager.MkTrue()
-			} else {
-				argument, err = c.manager.MkNot(argument)
-			}
+			// is_maxsat: arg = mk_not(m, arg) (ast_util: strips a leading
+			// not and folds the Boolean constants).
+			argument, err = c.manager.MkNotSimplified(argument)
 			if err != nil {
 				return nil, nil, offset, err
 			}

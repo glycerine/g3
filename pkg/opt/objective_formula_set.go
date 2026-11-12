@@ -104,6 +104,22 @@ func (s *ObjectiveFormulaSet) DetachDeclarations() []ast.ASTRef {
 	return refs
 }
 
+// ReleaseFormulas is simplify_fmls' fmls.reset(): to_fmls's formulas go
+// front to back, while the marker declarations and source metadata stay
+// for from_fmls.
+func (s *ObjectiveFormulaSet) ReleaseFormulas() (result error) {
+	if err := s.open(); err != nil {
+		return err
+	}
+	for i := range s.formulas {
+		result = errors.Join(result, s.manager.DelRef(&s.formulas[i]))
+	}
+	if result == nil {
+		s.formulas = nil
+	}
+	return result
+}
+
 func (s *ObjectiveFormulaSet) Close() (result error) {
 	if s == nil || s.manager == nil {
 		return ast.ErrASTHandle

@@ -1587,9 +1587,18 @@ Found while matching `-st` output against `build/z3` on
     - The pareto vectors' logs advance to 224/78/32 (from 12/38/29), and
       stdout still matches.
     Open:
-    - z3 answers sat on the second check after a single negative-weight
-      soft objective; g3 (before and after this change) answers unsat.
-      This needs a faithful gia_pareto port.
+    - Fixed (2026-11-11): the second-check unsat after a single soft
+      objective under pareto (or box). optimize() runs a lone objective
+      as execute(obj, true, false) whatever the priority; its m_pareto1
+      toggle is cleared by the next clear_state before it is read, so z3
+      answers sat on every check. Not specific to negative weights: a
+      single maximize objective did the same, and box too. Two further
+      fixes the negative-weight case exposed: maxsmt_solver_base::init
+      evaluates the initial model without completion (maxres then runs
+      its assumption check), and simplify_fmls' fmls.reset() releases
+      to_fmls's objective applications before from_fmls's mk_not.
+      Vectors: pareto_single_negative_soft,
+      pareto_single_objective_negative_softs, box_single_objective_rechecks.
     - Fixed (cdbaef450): pareto now takes over init_solver's opt_solver
       (no second kernel), and pareto_bit_vector reaches line 2124.
     - Fixed (2026-11-11): a fresh pareto check now runs optimize()'s
@@ -1603,7 +1612,6 @@ Found while matching `-st` output against `build/z3` on
       needed: either drop the fallback, which is faithful and makes
       TestOptimizationArithmeticEngineSetupSkipsParetoContinuation
       hang as z3 does, or keep it.
-    - The second-check sat on the negative soft case is still open.
     - TestParetoCanceledImprovementDropsBackendAndAllowsFreshSearch is
       brittle: a resource limit hit while building the candidate model
       returns an error instead of unknown (budgets 5000-12000 fail).
@@ -1999,3 +2007,16 @@ testing (main_test.go carries a commented-out entry pointing there):
      (or (= index outer-index) ...). Test: TestArrayPluginNestedStoreElimination.
    - Affected: nested-store qe outputs differ from z3 (quantifier_tactic
      array equation tests); no comparison vector besides the reproduction.
+
+## Open leads (2026-11-11, late)
+
+- recursive_mutual_boolean_model: the fork z3 runs for more than 400 s on it
+  (both before and after today's backports), while g3 answers at once with the
+  expected model; the trace first differs at line 1100. g3 therefore takes a
+  different search path than z3 (recursive-function unfolding under
+  AUFLIA with :auto_config false). Find where g3 departs from z3 at line 1100.
+- pareto with a soft and an arithmetic objective together (e.g. assert-soft a
+  plus (minimize x)) diverges early in the trace while stdout matches: the
+  fork creates a named bound atom |-3 <= (* (- 1) x)| and an attach-enode
+  that g3 never makes (opt_solver / theory_arith bounds inside gia_pareto).
+  Reproductions in /var/tmp/g3-wt-paretoneg.work (s2.smt2, s4.smt2).

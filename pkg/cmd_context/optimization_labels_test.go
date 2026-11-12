@@ -80,7 +80,17 @@ func TestOptimizationPublishesRelevantLabels(t *testing.T) {
 					t.Fatalf("cached box labels = %q", got)
 				}
 			}
-			if priority == "pareto" || priority == "box" {
+			if priority == "pareto" {
+				// optimize() runs a lone objective as execute(obj, true,
+				// false) under any priority, and clear_state resets the
+				// m_pareto1 toggle first: z3 answers sat again.
+				status, err = c.CheckSat(nil)
+				contextMust(t, err)
+				if status != lbool.True {
+					t.Fatal("single-objective pareto recheck status", status)
+				}
+			}
+			if priority == "box" {
 				status, err = c.CheckSat(nil)
 				contextMust(t, err)
 				if status != lbool.False {

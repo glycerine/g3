@@ -50,7 +50,9 @@ func (e *maxResEngine) updateCandidateModel(result *ArithmeticResult, md *model.
 	if md == nil {
 		return errMaxResState
 	}
-	cost, satisfied, assignment, err := e.solver.evaluateSoftDetailed(e.objective, md)
+	// maxsmt_solver_base::init evaluates the initial model without
+	// completion; update_assignment's is_true completes it.
+	cost, satisfied, assignment, err := e.solver.evaluateSoftAssignment(e.objective, md, !e.initialCandidate)
 	if err != nil {
 		return errors.Join(fmt.Errorf("maxres candidate objective: %w", err), md.DecRef())
 	}
