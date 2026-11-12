@@ -1,10 +1,9 @@
 package transforms
 
 // Source: src/muz/rel/dl_mk_simple_joins.cpp planner::m_pinned ownership.
-// Its Go converter owners must remain reachable when native cleanup is refused.
+// The planner is local to mk_simple_joins::operator().
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -15,7 +14,10 @@ import (
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func TestSimpleJoinsClosePreservesAuxiliaryPins(t *testing.T) {
+// TestSimpleJoinsReleasesPlannerPinsOnReturn checks that the planner-local
+// m_pinned terms, including apply_binary_rule's new literals, are released
+// when Transform returns, while the produced rules keep their own terms.
+func TestSimpleJoinsReleasesPlannerPinsOnReturn(t *testing.T) {
 	must := func(err error) {
 		t.Helper()
 		if err != nil {
@@ -23,25 +25,7 @@ func TestSimpleJoinsClosePreservesAuxiliaryPins(t *testing.T) {
 		}
 	}
 	budget := arena.NewBudget(1 << 28)
-	var plugin *SimpleJoinsPlugin
-	active, callbacks, intact := false, 0, true
-	var original []ast.ASTRef
-	var fresh, origin ast.ASTHandle
-	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: func(f memory.Failure) error {
-		if active {
-			callbacks++
-			for i := 0; i < 2; i++ {
-				cause := plugin.Close()
-				intact = intact && errors.Is(cause, ast.ErrASTPending) && !plugin.closed && len(plugin.pins) == len(original)
-				for j := range plugin.pins {
-					intact = intact && plugin.pins[j] == original[j]
-				}
-				_, visible := plugin.FreshPredicateOrigin(fresh)
-				intact = intact && !visible && plugin.origins[fresh] == origin
-			}
-		}
-		return f
-	}})
+	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64})
 	must(err)
 	numbers, err := numeral.NewRationalService(numeral.RationalServiceConfig{Integers: numeral.IntegerConfig{Memory: runtime, Profile: memory.SmallAllocatorProfile{PointerBits: 64, Debug: true}, Cells: arena.Config{Budget: budget}, Words: arena.VectorConfig{Descriptors: arena.Config{Budget: budget}}}})
 	must(err)
@@ -58,8 +42,6 @@ func TestSimpleJoinsClosePreservesAuxiliaryPins(t *testing.T) {
 			t.Fatal("fixture leaked bytes", budget.Used())
 		}
 	}()
-	_, err = m.RegisterArithmeticPlugin()
-	must(err)
 	boolean, err := m.MkBoolSort()
 	must(err)
 	rules, err := base.NewRuleManager(m)
@@ -82,20 +64,22 @@ func TestSimpleJoinsClosePreservesAuxiliaryPins(t *testing.T) {
 	must(err)
 	must(set.Add(rule))
 	must(rule.Close())
-	plugin = NewSimpleJoinsPlugin(m, rules, 0)
+	plugin := NewSimpleJoinsPlugin(m, rules, 0)
 	defer func() { must(plugin.Close()) }()
 	transformed, err := plugin.Transform(set)
 	must(err)
-	if transformed == nil || len(plugin.pins) == 0 || len(plugin.FreshPredicates()) != 1 {
-		t.Fatal("fixture did not create pinned join")
+	if transformed == nil || len(plugin.FreshPredicates()) != 1 {
+		t.Fatal("fixture did not create a join")
 	}
 	defer func() { must(transformed.Close()) }()
-	original = append([]ast.ASTRef(nil), plugin.pins...)
-	fresh = plugin.FreshPredicates()[0]
-	origin, err = m.GetDecl(apps[3])
+	if len(plugin.keyPins) != 0 {
+		t.Fatal("planner pins outlived the transformation", len(plugin.keyPins))
+	}
+	fresh := plugin.FreshPredicates()[0]
+	origin, err := m.GetDecl(apps[3])
 	must(err)
 	if actual, found := plugin.FreshPredicateOrigin(fresh); !found || actual != origin {
-		t.Fatal("join origin missing before cleanup", actual, found)
+		t.Fatal("join origin missing", actual, found)
 	}
 	joined, err := transformed.Rule(0)
 	must(err)
@@ -103,35 +87,9 @@ func TestSimpleJoinsClosePreservesAuxiliaryPins(t *testing.T) {
 		t.Fatal("join did not reduce positive tails", n, e)
 	}
 	must(joined.Close())
-	value, err := numbers.NewValue()
-	must(err)
-	defer func() { must(numbers.Del(&value)) }()
-	must(numbers.SetString(&value, "18446744073709551617/18446744073709551619"))
-	must(runtime.SetMaxCount(uint64(runtime.State().GlobalCount) + 1))
-	var invocation ast.ASTArithmeticNumeralInvocation
-	active = true
-	_, body := m.ArithmeticNumeralWithInvocation(&value, false, &invocation)
-	active = false
-	must(runtime.SetMaxCount(0))
-	must(m.CleanupArithmeticNumeralInvocation(&invocation))
-	if body == nil || callbacks == 0 || !intact {
-		t.Fatal("refused close lost join pins", body, callbacks, intact)
-	}
-	if len(plugin.FreshPredicates()) != 0 {
-		t.Fatal("closing plugin published fresh predicates")
-	}
-	if next, cause := plugin.Transform(set); !errors.Is(cause, base.ErrRuleTransformerOwner) || next != nil {
-		t.Fatal("closing plugin accepted transformation", cause)
-	}
-	for _, pin := range original {
-		h, e := m.RefGet(pin)
-		must(e)
-		_, e = m.GetKind(h)
-		must(e)
-	}
 	must(plugin.Close())
 	must(plugin.Close())
-	if !plugin.closed || plugin.pins != nil || plugin.fresh != nil || plugin.origins != nil {
-		t.Fatal("retry did not release join pins")
+	if !plugin.closed || plugin.fresh != nil || plugin.origins != nil {
+		t.Fatal("close did not release plugin state")
 	}
 }

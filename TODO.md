@@ -2424,12 +2424,20 @@ RelationManager.GroundCondition does what should_remove does: var_subst
 (context m_var_subst, std_order) then the plain rewriter on the ground term.
 Vectors datalog_query_sequence_{negation,no_print,three,repeat}
 (stdout-identical).
-Leads: their traces still differ (line ~172): compiler.go filterInterpreted
-evaluates conditions one by one where dl_compiler::compile_rule builds one
-mk_and and renames variables to columns (make_filter_interpreted_and_project);
-filter sites raise an error when the ground condition is neither true nor
-false where should_remove keeps the fact; audit other users of state left on
-ctx.get_rewriter() (SetSubstitution).
+DONE (2026-11-12): traces now identical too. compile_rule's interpreted
+tail is one mk_and, renamed to columns with var_subst, emitted as a single
+filter_interpreted / filter_interpreted_and_project (prepareInterpreted +
+filterInterpreted); facts are removed only when the ground condition is
+false (should_remove), default_table_filter_not_equal_fn ported; simple
+joins' planner pins die when the transform returns; rel_context m_code lives
+until the next saturate.
+Leads: ground interpreted tail with nothing bound (C++ filters a void
+register); explanation-product filter on mixed conjunctions is split per
+conjunct (finite_product_relation_plugin::filter_interpreted_fn iterates
+tuples) and errors on a mixed non-conjunction; m_ectx is closed per round
+instead of reset at the next saturate; simple_joins structure differs from
+join_planner; audit other state left on ctx.get_rewriter()
+(SetSubstitution).
 
 ## Re-fuzz after the fixes (2026-11-12)
 

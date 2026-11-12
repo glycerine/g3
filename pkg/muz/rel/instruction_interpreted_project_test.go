@@ -224,10 +224,25 @@ func TestFiniteCompilerFusedFilterRemapsSurvivingColumns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The rule owns its head and tails; hold them as it would.
+	for _, owned := range []ast.ASTHandle{head, yTrue} {
+		reference, err := f.ast.NewRef(owned)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = f.ast.DelRef(&reference) })
+	}
 	current := compiler.fresh(signature)
+	rule := finiteCompiledRule{head: head, interpreted: []ast.ASTHandle{yTrue}}
+	variableColumns := map[uint32][]int{0: {0}, 1: {1}}
+	binding := &interpretedBinding{}
+	t.Cleanup(func() { _ = binding.release(f.ast) })
+	prepared, preparedSignature, preparedOwned, preparedPresent, err := compiler.prepareInterpreted(rule, q, current, signature, false, true, variableColumns, binding)
+	if err != nil || prepared != current || preparedOwned || !preparedPresent || !preparedSignature.equal(signature) {
+		t.Fatal("prepared bound interpreted condition", prepared, preparedOwned, preparedPresent, err)
+	}
 	result, projected, owned, present, columns, err := compiler.filterInterpreted(
-		finiteCompiledRule{head: head, interpreted: []ast.ASTHandle{yTrue}}, q,
-		current, signature, false, true, map[uint32][]int{0: {0}, 1: {1}},
+		rule, q, current, signature, false, true, variableColumns, binding,
 	)
 	if err != nil {
 		t.Fatal(err)

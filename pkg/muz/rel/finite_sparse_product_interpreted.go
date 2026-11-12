@@ -7,7 +7,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 )
 
-// FilterInterpreted keeps rows for which condition rewrites to true after
+// FilterInterpreted removes rows for which condition rewrites to false after
 // substituting the finite values in relation-column order.
 func (p *FiniteSparseProduct) FilterInterpreted(condition ast.ASTHandle, theory *rewriter.TheoryRewriter) error {
 	if err := p.open(); err != nil {
@@ -100,11 +100,6 @@ func (p *FiniteSparseProduct) evaluateInterpreted(condition ast.ASTHandle, theor
 	if err != nil {
 		return false, err
 	}
-	if m.IsTrue(value) {
-		return true, nil
-	}
-	if m.IsFalse(value) {
-		return false, nil
-	}
-	return false, ErrTableRelation
+	// should_remove removes a row only when the instance rewrites to false.
+	return !m.IsFalse(value), nil
 }

@@ -9,6 +9,15 @@ import (
 )
 
 func (r *TableRelation) acceptsInterpretedFact(rewriter *astrewriter.TheoryRewriter, conditions []ast.ASTHandle, columns map[uint32]int, sorts map[uint32]ast.ASTHandle, fact Fact) (accepted bool, resultErr error) {
+	if len(conditions) == 1 {
+		filter, matched, err := r.manager.notEqualFilter(conditions[0])
+		if err != nil {
+			return false, err
+		}
+		if matched {
+			return filter.keeps(columns, fact)
+		}
+	}
 	bindings := make([]ast.ASTHandle, tableRelationBindingSize(sorts))
 	references := make([]ast.ASTRef, 0, len(sorts)+len(conditions))
 	defer func() {
@@ -45,9 +54,8 @@ func (r *TableRelation) acceptsInterpretedFact(rewriter *astrewriter.TheoryRewri
 		if r.manager.manager.IsFalse(rewritten) {
 			return false, nil
 		}
-		if !r.manager.manager.IsTrue(rewritten) {
-			return false, ErrTableRelation
-		}
+		// should_remove removes a fact only when the ground condition
+		// rewrites to false; any other result keeps it.
 	}
 	return true, nil
 }

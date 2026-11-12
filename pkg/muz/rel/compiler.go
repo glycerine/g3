@@ -1240,7 +1240,101 @@ func (c *finiteCompiler) relationSortsForVariables(signature Signature, variable
 	return result, nil
 }
 
-func (c *finiteCompiler) filterInterpreted(rule finiteCompiledRule, predicate ast.ASTHandle, current uint32, signature Signature, owned, present bool, variableColumns map[uint32][]int) (uint32, Signature, bool, bool, map[uint32][]int, error) {
+// interpretedBinding holds compile_rule's binding vector: binding[n-v] is
+// the column variable for rule variable v. The vector lives until the end of
+// compile_rule, so its references are released by release.
+type interpretedBinding struct {
+	binding []ast.ASTHandle
+	refs    []ast.ASTRef
+}
+
+func (b *interpretedBinding) release(m *ast.ASTManager) (result error) {
+	if b == nil {
+		return nil
+	}
+	for index := len(b.refs) - 1; index >= 0; index-- {
+		result = errors.Join(result, m.DelRef(&b.refs[index]))
+	}
+	b.refs = nil
+	return result
+}
+
+// prepareInterpreted ports compile_rule's "add unbound columns for
+// interpreted filter" block (dl_compiler.cpp 602-640): the interpreted tail
+// is conjoined, unbound condition variables receive total columns, and every
+// condition variable is bound to a variable naming its (last) column.
+func (c *finiteCompiler) prepareInterpreted(rule finiteCompiledRule, predicate ast.ASTHandle, current uint32, signature Signature, owned, present bool, variableColumns map[uint32][]int, binding *interpretedBinding) (_ uint32, _ Signature, _ bool, _ bool, resultErr error) {
+	condition, err := c.manager.MkAndArray(rule.interpreted)
+	if err != nil {
+		return 0, Signature{}, false, false, err
+	}
+	conditionRef, err := c.manager.NewRef(condition)
+	if err != nil {
+		return 0, Signature{}, false, false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, c.manager.DelRef(&conditionRef)) }()
+	freeVars, err := astrewriter.NewExprFreeVars(c.manager)
+	if err != nil {
+		return 0, Signature{}, false, false, err
+	}
+	if err = freeVars.Collect(condition); err != nil {
+		return 0, Signature{}, false, false, err
+	}
+	size := freeVars.Size()
+	binding.binding = make([]ast.ASTHandle, size+1)
+	for variable := uint32(0); variable < size; variable++ {
+		if !freeVars.Contains(variable) {
+			continue
+		}
+		variableSort, err := freeVars.Get(variable)
+		if err != nil {
+			return 0, Signature{}, false, false, err
+		}
+		var column int
+		if columns := variableColumns[variable]; len(columns) != 0 {
+			column = columns[len(columns)-1]
+		} else {
+			sortSize, err := c.manager.GetSortSize(variableSort)
+			if err != nil || !sortSize.IsFinite() {
+				return 0, Signature{}, false, false, errors.Join(err, ErrCompilerUnsupported)
+			}
+			domain, err := sortSize.Size()
+			if err != nil {
+				return 0, Signature{}, false, false, err
+			}
+			total, err := c.totalRegister(rule.rule, predicate, variableSort, domain)
+			if err != nil {
+				return 0, Signature{}, false, false, err
+			}
+			column = signature.Len()
+			if !present {
+				column = 0
+			}
+			current, signature, owned, present, err = c.appendColumn(current, signature, owned, present, total, domain, rule.rule)
+			if err != nil {
+				return 0, Signature{}, false, false, err
+			}
+			variableColumns[variable] = []int{column}
+		}
+		renamed, err := c.manager.MkVar(uint32(column), variableSort)
+		if err != nil {
+			return 0, Signature{}, false, false, err
+		}
+		reference, err := c.manager.NewRef(renamed)
+		if err != nil {
+			return 0, Signature{}, false, false, err
+		}
+		binding.refs = append(binding.refs, reference)
+		binding.binding[size-variable] = renamed
+	}
+	return current, signature, owned, present, nil
+}
+
+// filterInterpreted ports compile_rule's "enforce interpreted tail
+// predicates" block (dl_compiler.cpp 682-740): one conjoined condition is
+// renamed to column variables and filtered, projecting away the columns of
+// variables absent from the head.
+func (c *finiteCompiler) filterInterpreted(rule finiteCompiledRule, predicate ast.ASTHandle, current uint32, signature Signature, owned, present bool, variableColumns map[uint32][]int, binding *interpretedBinding) (_ uint32, _ Signature, _ bool, _ bool, _ map[uint32][]int, resultErr error) {
 	if !present {
 		seed, err := c.emptyTotalRegister(rule.rule, predicate)
 		if err != nil {
@@ -1248,45 +1342,15 @@ func (c *finiteCompiler) filterInterpreted(rule finiteCompiledRule, predicate as
 		}
 		current, present = seed, true
 	}
-	variables := make(map[uint32]ast.ASTHandle)
-	for _, condition := range rule.interpreted {
-		if err := c.conditionVariables(condition, variables); err != nil {
-			return 0, Signature{}, false, false, nil, err
-		}
+	condition, err := c.manager.MkAndArray(rule.interpreted)
+	if err != nil {
+		return 0, Signature{}, false, false, nil, err
 	}
-	order := make([]int, 0, len(variables))
-	for variable := range variables {
-		order = append(order, int(variable))
+	conditionRef, err := c.manager.NewRef(condition)
+	if err != nil {
+		return 0, Signature{}, false, false, nil, err
 	}
-	sort.Ints(order)
-	for _, raw := range order {
-		variable := uint32(raw)
-		if len(variableColumns[variable]) != 0 {
-			continue
-		}
-		size, err := c.manager.GetSortSize(variables[variable])
-		if err != nil || !size.IsFinite() {
-			return 0, Signature{}, false, false, nil, errors.Join(err, ErrCompilerUnsupported)
-		}
-		domain, err := size.Size()
-		if err != nil {
-			return 0, Signature{}, false, false, nil, err
-		}
-		total, err := c.totalRegister(rule.rule, predicate, variables[variable], domain)
-		if err != nil {
-			return 0, Signature{}, false, false, nil, err
-		}
-		column := signature.Len()
-		current, signature, owned, present, err = c.appendColumn(current, signature, owned, present, total, domain, rule.rule)
-		if err != nil {
-			return 0, Signature{}, false, false, nil, err
-		}
-		variableColumns[variable] = []int{column}
-	}
-	columns := make(map[uint32]int, len(variables))
-	for variable := range variables {
-		columns[variable] = variableColumns[variable][0]
-	}
+	defer func() { resultErr = errors.Join(resultErr, c.manager.DelRef(&conditionRef)) }()
 	sourceVariableColumns := copyVariableColumns(variableColumns)
 	headVariables := make(map[uint32]ast.ASTHandle)
 	if err := c.conditionVariables(rule.head, headVariables); err != nil {
@@ -1301,32 +1365,6 @@ func (c *finiteCompiler) filterInterpreted(rule finiteCompiledRule, predicate as
 		delete(variableColumns, variable)
 	}
 	if len(removed) != 0 {
-		sort.Ints(removed)
-		allVariableSorts, err := c.ruleVariableSorts(rule)
-		if err != nil {
-			return 0, Signature{}, false, false, nil, err
-		}
-		relationSorts, err := c.relationSortsForVariables(signature, sourceVariableColumns, allVariableSorts)
-		if err != nil {
-			return 0, Signature{}, false, false, nil, err
-		}
-		projected, err := projectedSignature(signature, removed)
-		if err != nil {
-			return 0, Signature{}, false, false, nil, err
-		}
-		result := current
-		if owned {
-			c.signatures[result] = projected
-		} else {
-			result = c.fresh(projected)
-		}
-		instruction, err := NewFilterInterpretedAndProjectInstruction(c.manager, c.relations, c.guard, current, rule.interpreted, columns, variables, relationSorts, removed, result)
-		if err != nil {
-			return 0, Signature{}, false, false, nil, err
-		}
-		if err = c.emit(instruction, rule.rule); err != nil {
-			return 0, Signature{}, false, false, nil, err
-		}
 		offsets := make([]int, signature.Len())
 		for _, removedColumn := range removed {
 			for column := removedColumn; column < len(offsets); column++ {
@@ -1338,26 +1376,89 @@ func (c *finiteCompiler) filterInterpreted(rule finiteCompiledRule, predicate as
 				variableColumns[variable][index] = column - offsets[column]
 			}
 		}
-		return result, projected, true, present, variableColumns, nil
 	}
-	if !owned {
-		clone := c.fresh(signature)
-		if err := c.emit(NewCloneInstruction(current, clone), rule.rule); err != nil {
+	renamedRef, err := c.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return 0, Signature{}, false, false, nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, c.manager.DelRef(&renamedRef)) }()
+	if c.relations.varSubst == nil {
+		return 0, Signature{}, false, false, nil, ErrCompilerUnsupported
+	}
+	err = c.relations.varSubst.Substitute(condition, binding.binding, renamedRef)
+	err = errors.Join(err, c.relations.varSubst.Reset())
+	if err != nil {
+		return 0, Signature{}, false, false, nil, err
+	}
+	renamed, err := c.manager.RefGet(renamedRef)
+	if err != nil {
+		return 0, Signature{}, false, false, nil, err
+	}
+	columns, sorts, err := c.renamedConditionColumns(renamed)
+	if err != nil {
+		return 0, Signature{}, false, false, nil, err
+	}
+	if len(removed) == 0 {
+		if !owned {
+			clone := c.fresh(signature)
+			if err := c.emit(NewCloneInstruction(current, clone), rule.rule); err != nil {
+				return 0, Signature{}, false, false, nil, err
+			}
+			current, owned = clone, true
+		}
+		instruction, err := NewFilterInterpretedInstruction(c.manager, c.relations, c.guard, current, []ast.ASTHandle{renamed}, columns, sorts)
+		if err != nil {
 			return 0, Signature{}, false, false, nil, err
 		}
-		current, owned = clone, true
+		if err = c.emit(instruction, rule.rule); err != nil {
+			return 0, Signature{}, false, false, nil, err
+		}
+		return current, signature, owned, present, variableColumns, nil
 	}
-	instruction, err := NewFilterInterpretedInstruction(c.manager, c.relations, c.guard, current, rule.interpreted, columns, variables)
+	sort.Ints(removed)
+	allVariableSorts, err := c.ruleVariableSorts(rule)
+	if err != nil {
+		return 0, Signature{}, false, false, nil, err
+	}
+	relationSorts, err := c.relationSortsForVariables(signature, sourceVariableColumns, allVariableSorts)
+	if err != nil {
+		return 0, Signature{}, false, false, nil, err
+	}
+	projected, err := projectedSignature(signature, removed)
+	if err != nil {
+		return 0, Signature{}, false, false, nil, err
+	}
+	result := current
+	if owned {
+		c.signatures[result] = projected
+	} else {
+		result = c.fresh(projected)
+	}
+	instruction, err := NewFilterInterpretedAndProjectInstruction(c.manager, c.relations, c.guard, current, []ast.ASTHandle{renamed}, columns, sorts, relationSorts, removed, result)
 	if err != nil {
 		return 0, Signature{}, false, false, nil, err
 	}
 	if err = c.emit(instruction, rule.rule); err != nil {
 		return 0, Signature{}, false, false, nil, err
 	}
-	return current, signature, owned, present, variableColumns, nil
+	return result, projected, true, present, variableColumns, nil
 }
 
-func (c *finiteCompiler) compileRule(rule finiteCompiledRule, delta uint32, tailSources [2]uint32) error {
+// renamedConditionColumns lists the column variables of a renamed condition;
+// each variable index is its column.
+func (c *finiteCompiler) renamedConditionColumns(renamed ast.ASTHandle) (map[uint32]int, map[uint32]ast.ASTHandle, error) {
+	sorts := make(map[uint32]ast.ASTHandle)
+	if err := c.conditionVariables(renamed, sorts); err != nil {
+		return nil, nil, err
+	}
+	columns := make(map[uint32]int, len(sorts))
+	for variable := range sorts {
+		columns[variable] = int(variable)
+	}
+	return columns, sorts, nil
+}
+
+func (c *finiteCompiler) compileRule(rule finiteCompiledRule, delta uint32, tailSources [2]uint32) (resultErr error) {
 	predicate, err := c.manager.GetDecl(rule.head)
 	if err != nil {
 		return err
@@ -1382,6 +1483,14 @@ func (c *finiteCompiler) compileRule(rule finiteCompiledRule, delta uint32, tail
 	if err != nil {
 		return err
 	}
+	binding := &interpretedBinding{}
+	defer func() { resultErr = errors.Join(resultErr, binding.release(c.manager)) }()
+	if len(rule.interpreted) != 0 {
+		current, signature, owned, present, err = c.prepareInterpreted(rule, predicate, current, signature, owned, present, variableColumns, binding)
+		if err != nil {
+			return err
+		}
+	}
 	if len(rule.negative) != 0 {
 		current, signature, owned, present, variableColumns, err = c.filterNegatives(rule, predicate, current, signature, owned, present, variableColumns)
 		if err != nil {
@@ -1389,7 +1498,7 @@ func (c *finiteCompiler) compileRule(rule finiteCompiledRule, delta uint32, tail
 		}
 	}
 	if len(rule.interpreted) != 0 {
-		current, signature, owned, present, variableColumns, err = c.filterInterpreted(rule, predicate, current, signature, owned, present, variableColumns)
+		current, signature, owned, present, variableColumns, err = c.filterInterpreted(rule, predicate, current, signature, owned, present, variableColumns, binding)
 		if err != nil {
 			return err
 		}

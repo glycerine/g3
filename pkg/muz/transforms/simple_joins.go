@@ -21,10 +21,10 @@ type SimpleJoinsPlugin struct {
 	priority  uint32
 	fresh     []ast.ASTHandle
 	origins   map[ast.ASTHandle]ast.ASTHandle
-	pins      []ast.ASTRef
-	// keyPins is join_planner::m_pinned for get_key's normalized pair terms:
-	// the planner is local to mk_simple_joins::operator(), so they are
-	// released (front to back) when Transform returns.
+	// keyPins is join_planner::m_pinned for get_key's normalized pair terms
+	// and apply_binary_rule's new literals: the planner is local to
+	// mk_simple_joins::operator(), so they are released (front to back)
+	// when Transform returns.
 	keyPins []ast.ASTRef
 	closed  bool
 	closing bool
@@ -201,7 +201,9 @@ func (p *SimpleJoinsPlugin) auxiliary(pair normalizedPair, outside []ast.ASTHand
 	if err != nil {
 		return ast.ASTHandle{}, definition, err
 	}
-	p.pins = append(p.pins, pin)
+	// apply_binary_rule pins new_lit in join_planner::m_pinned, next to
+	// get_key's normalized terms, so it is released with them.
+	p.keyPins = append(p.keyPins, pin)
 	return head, definition, nil
 }
 
@@ -369,17 +371,6 @@ func (p *SimpleJoinsPlugin) Close() error {
 	if err := p.releaseKeyPins(); err != nil {
 		return err
 	}
-	for len(p.pins) != 0 {
-		last := len(p.pins) - 1
-		err := p.manager.DelRef(&p.pins[last])
-		if p.pins[last] == (ast.ASTRef{}) {
-			p.pins = p.pins[:last]
-		}
-		if err != nil {
-			return err
-		}
-	}
-	p.pins = nil
 	p.fresh = nil
 	p.origins = nil
 	p.closed = true

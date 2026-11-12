@@ -66,6 +66,19 @@ func (i *interpretedFilterInstruction) open() error {
 }
 
 func (i *interpretedFilterInstruction) accepts(fact Fact) (accepted bool, resultErr error) {
+	if len(i.conditions) == 1 {
+		condition, err := i.manager.RefGet(i.conditions[0])
+		if err != nil {
+			return false, err
+		}
+		filter, matched, err := i.relations.notEqualFilter(condition)
+		if err != nil {
+			return false, err
+		}
+		if matched {
+			return filter.keeps(i.variableColumns, fact)
+		}
+	}
 	var maximum uint32
 	for _, variable := range sortedRelVariables(i.variableSorts) {
 		if variable > maximum {
@@ -119,9 +132,8 @@ func (i *interpretedFilterInstruction) accepts(fact Fact) (accepted bool, result
 		if i.manager.IsFalse(rewritten) {
 			return false, nil
 		}
-		if !i.manager.IsTrue(rewritten) {
-			return false, ErrInstruction
-		}
+		// should_remove removes a fact only when the ground condition
+		// rewrites to false; any other result keeps it.
 	}
 	return true, nil
 }

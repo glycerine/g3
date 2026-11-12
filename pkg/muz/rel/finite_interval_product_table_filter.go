@@ -104,11 +104,6 @@ func (p *FiniteIntervalProduct) evaluateTableCondition(condition ast.ASTHandle, 
 	if err != nil {
 		return false, err
 	}
-	if m.IsTrue(value) {
-		return true, nil
-	}
-	if m.IsFalse(value) {
-		return false, nil
-	}
-	return false, ErrTableRelation
+	// should_remove removes a row only when the instance rewrites to false.
+	return !m.IsFalse(value), nil
 }

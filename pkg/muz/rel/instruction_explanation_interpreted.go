@@ -124,40 +124,8 @@ func (i *interpretedFilterInstruction) performExplanationFilter(context *Executi
 		if err != nil {
 			return false, err
 		}
-		finite, explanation, err := i.explanationConditionVariables(product, condition)
-		if err != nil {
+		if err = i.explanationFilterCondition(product, condition); err != nil {
 			return false, err
-		}
-		if len(explanation) != 0 {
-			// Source-generated explanation records contain only rule-sort variables.
-			// Mixed arithmetic/rule records still need the row-specialization path.
-			if len(finite) != 0 {
-				return false, ErrInstruction
-			}
-			if err = i.assignExplanationCondition(product, condition, explanation); err != nil {
-				return false, err
-			}
-			continue
-		}
-		// The existing finite evaluator receives only this condition's variables;
-		// rule-sort columns are never decoded as bounded table elements.
-		finiteFilter := *i
-		finiteFilter.conditions = []ast.ASTRef{reference}
-		finiteFilter.variableSorts = finite
-		rows, err := product.table.Facts()
-		if err != nil {
-			return false, err
-		}
-		for _, row := range rows {
-			accepted, err := finiteFilter.accepts(row[:len(row)-1])
-			if err != nil {
-				return false, err
-			}
-			if !accepted {
-				if _, err = product.table.Remove(row); err != nil {
-					return false, err
-				}
-			}
 		}
 	}
 	count, err := product.Len()
@@ -168,4 +136,72 @@ func (i *interpretedFilterInstruction) performExplanationFilter(context *Executi
 		return true, context.MakeEmpty(i.register)
 	}
 	return true, nil
+}
+
+// explanationFilterCondition applies one condition to an explanation product.
+// The compiler conjoins a rule's interpreted tail; a conjunction mixing
+// rule-sort and finite variables is applied conjunct by conjunct, as the
+// product filter separates its table and explanation parts.
+func (i *interpretedFilterInstruction) explanationFilterCondition(product *FiniteExplanationProduct, condition ast.ASTHandle) (resultErr error) {
+	finite, explanation, err := i.explanationConditionVariables(product, condition)
+	if err != nil {
+		return err
+	}
+	if len(explanation) != 0 {
+		if len(finite) != 0 {
+			family, err := i.manager.GetFamilyID(condition)
+			if err != nil {
+				return err
+			}
+			kind, err := i.manager.GetDeclKind(condition)
+			if err != nil {
+				return err
+			}
+			// Mixed arithmetic/rule records still need the row-specialization path.
+			if family != i.manager.BasicFamilyID() || kind != ast.ASTOpAnd {
+				return ErrInstruction
+			}
+			count, err := i.manager.GetNumArgs(condition)
+			if err != nil {
+				return err
+			}
+			for index := uint32(0); index < count; index++ {
+				conjunct, err := i.manager.GetArg(condition, index)
+				if err != nil {
+					return err
+				}
+				if err = i.explanationFilterCondition(product, conjunct); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+		return i.assignExplanationCondition(product, condition, explanation)
+	}
+	// The existing finite evaluator receives only this condition's variables;
+	// rule-sort columns are never decoded as bounded table elements.
+	reference, err := i.manager.NewRef(condition)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, i.manager.DelRef(&reference)) }()
+	finiteFilter := *i
+	finiteFilter.conditions = []ast.ASTRef{reference}
+	finiteFilter.variableSorts = finite
+	rows, err := product.table.Facts()
+	if err != nil {
+		return err
+	}
+	for _, row := range rows {
+		accepted, err := finiteFilter.accepts(row[:len(row)-1])
+		if err != nil {
+			return err
+		}
+		if !accepted {
+			if _, err = product.table.Remove(row); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

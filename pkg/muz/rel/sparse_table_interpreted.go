@@ -62,8 +62,18 @@ func (t *SparseTable) FilterInterpreted(manager *RelationManager, sorts []ast.AS
 	if err != nil {
 		return err
 	}
+	notEqual, notEqualMatched, err := manager.notEqualFilter(condition)
+	if err != nil {
+		return err
+	}
 	removed := make([]Fact, 0)
 	for _, fact := range facts {
+		if notEqualMatched {
+			if fact[notEqual.variable] == notEqual.value {
+				removed = append(removed, fact)
+			}
+			continue
+		}
 		bindings := make([]ast.ASTHandle, len(sorts))
 		refs := make([]ast.ASTRef, 0, freeVars.Size()+1)
 		accepted, evalErr := func() (bool, error) {

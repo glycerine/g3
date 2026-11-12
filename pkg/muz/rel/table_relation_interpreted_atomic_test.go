@@ -1,13 +1,12 @@
 package rel
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func TestTableRelationInterpretedFailureIsAtomic(t *testing.T) {
+func TestTableRelationInterpretedUnreducedKeepsFacts(t *testing.T) {
 	f := newTableRelationFixture(t)
 	rewriter := tableRelationTheoryRewriter(t, f.ast)
 	relation, _ := NewTableRelation(f.relations, []ast.ASTHandle{f.boolean})
@@ -23,10 +22,17 @@ func TestTableRelationInterpretedFailureIsAtomic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = relation.FilterInterpreted(rewriter, []ast.ASTHandle{condition}, nil, nil); !errors.Is(err, ErrTableRelation) {
+	reference, err := f.ast.NewRef(condition)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.ast.DelRef(&reference) }()
+	// should_remove removes a fact only when the ground condition rewrites
+	// to false; an unreduced condition keeps every fact.
+	if err = relation.FilterInterpreted(rewriter, []ast.ASTHandle{condition}, nil, nil); err != nil {
 		t.Fatal("unreduced condition", err)
 	}
 	if relation.NumRows() != 2 {
-		t.Fatal("partial mutation", relation.NumRows())
+		t.Fatal("unreduced condition removed rows", relation.NumRows())
 	}
 }

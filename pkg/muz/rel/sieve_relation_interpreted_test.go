@@ -1,7 +1,6 @@
 package rel
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -79,7 +78,7 @@ func TestSieveInterpretedFilterSelectedAndIgnoredColumns(t *testing.T) {
 	}
 }
 
-func TestSieveInterpretedFilterGroundFailureAndAtomicUnknown(t *testing.T) {
+func TestSieveInterpretedFilterGroundFalseAndUnknownKeeps(t *testing.T) {
 	f := newTableRelationFixture(t)
 	theory := tableRelationTheoryRewriter(t, f.ast)
 	sorts := []ast.ASTHandle{f.boolean}
@@ -114,11 +113,12 @@ func TestSieveInterpretedFilterGroundFailureAndAtomicUnknown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = relation.FilterInterpreted(f.relations, sorts, theory, unknown); !errors.Is(err, ErrSieve) {
+	// should_remove keeps facts whose instance does not rewrite to false.
+	if err = relation.FilterInterpreted(f.relations, sorts, theory, unknown); err != nil {
 		t.Fatal("unknown filter", err)
 	}
 	if relation.NumInnerRows() != 2 {
-		t.Fatal("failed filter mutated rows", relation.NumInnerRows())
+		t.Fatal("unknown filter removed rows", relation.NumInnerRows())
 	}
 	if err = relation.FilterInterpreted(f.relations, sorts, theory, f.falsehood); err != nil {
 		t.Fatal(err)
