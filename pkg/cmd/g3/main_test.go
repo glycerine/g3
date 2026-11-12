@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	"array_model_entry_order.smt2":                 "sat\n(model \n  (define-fun A () (Array Int Real)\n    (_ as-array k!2))\n  (define-fun a () Bool\n    true)\n  (define-fun y () Int\n    2)\n  (define-fun x () Int\n    2)\n  (define-fun A2 () (Array Int Real)\n    (_ as-array k!0))\n  (define-fun r () Real\n    0.0)\n  (define-fun k!0 ((x!0 Int)) Real\n    1.0)\n  (define-fun k!1 ((x!0 Int)) Real\n    (ite (= x!0 2) 6.0\n      1.0))\n  (define-fun k!2 ((x!0 Int)) Real\n    (ite (= x!0 2) 6.0\n    (ite (= x!0 4) (/ 1.0 3.0)\n      1.0)))\n)\nsat\n",
+	"array_model_some_value_order.smt2":            "sat\n(model \n  (define-fun A () (Array Int Real)\n    (_ as-array k!0))\n  (define-fun s () Real\n    (- 2.0))\n  (define-fun a () Bool\n    true)\n  (define-fun A2 () (Array Int Real)\n    (_ as-array k!0))\n  (define-fun r () Real\n    (- 2.0))\n  (define-fun k!0 ((x!0 Int)) Real\n    1.0)\n)\nsat\n",
 	"fixedpoint_spacer_bv_state.smt2":              "unsat\nsat\nunsat\n",
 	"fixedpoint_spacer_datatype_state.smt2":        "unsat\nsat\nunsat\n",
 	"qfnra_nlsat_named.smt2":                       "sat\nunsat\nsat\nsat\nunsat\n",

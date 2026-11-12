@@ -344,6 +344,18 @@ func (o *ObjMap) Entries() []ObjMapEntry {
 	return out
 }
 
+// FirstKeys lists up to n keys from the start of iteration (table) order,
+// as begin() and its successors.
+func (o *ObjMap) FirstKeys(n int) []ASTHandle {
+	out := make([]ASTHandle, 0, n)
+	for i := 0; i < len(o.table) && len(out) < n; i++ {
+		if o.table[i].state == objMapUsed {
+			out = append(out, o.table[i].Key)
+		}
+	}
+	return out
+}
+
 // Reset is core_hashtable::reset, which halves a mostly free large table.
 func (o *ObjMap) Reset() {
 	if o.size == 0 && o.numDeleted == 0 {

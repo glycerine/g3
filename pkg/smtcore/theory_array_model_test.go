@@ -90,7 +90,7 @@ func TestSMTArrayModelDefaultPartitionAndStoreSelectPropagation(t *testing.T) {
 					}
 				}
 				containsRead := func(node *SMTEnode) bool {
-					for _, entry := range data.selects[node.root] {
+					for _, entry := range data.selects[node.root].entries() {
 						if entry.owner == read {
 							return true
 						}

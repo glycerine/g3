@@ -14,12 +14,20 @@ import (
 type numeralValueSet struct {
 	values []ast.ASTHandle
 	seen   map[ast.ASTHandle]struct{}
-	next   big.Rat
+	// table is obj_hashtable<expr> m_values: begin() and its successors,
+	// read by get_some_value(s), follow its table order.
+	table *ast.ObjMap
+	next  big.Rat
 }
 
-// numeralFactory implements the retained rational simple_factory. A slice plus
-// membership map replaces the source unordered set; selection among registered
-// values uses insertion order rather than exposing C++ hash-table layout.
+func (s *numeralValueSet) add(value ast.ASTHandle) error {
+	s.seen[value] = struct{}{}
+	s.values = append(s.values, value)
+	return s.table.Insert(value, [2]ast.ASTHandle{})
+}
+
+// numeralFactory implements the retained rational simple_factory. Selection
+// among registered values follows the source obj_hashtable order.
 type numeralFactory struct {
 	manager   *ast.ASTManager
 	family    ast.FamilyID
@@ -74,7 +82,7 @@ func (f *numeralFactory) valueSet(sort ast.ASTHandle) (*numeralValueSet, error) 
 	if set == nil {
 		// Preserve simple_factory::get_value_set publication order: the set and
 		// map entry precede the owning sort-vector push.
-		set = &numeralValueSet{seen: make(map[ast.ASTHandle]struct{})}
+		set = &numeralValueSet{seen: make(map[ast.ASTHandle]struct{}), table: ast.NewObjMap(f.manager)}
 		f.sets[sort] = set
 		ref, err := f.manager.NewRef(sort)
 		if err != nil {
@@ -113,8 +121,9 @@ func (f *numeralFactory) insert(value *big.Rat, sort ast.ASTHandle) (ast.ASTHand
 			return ast.ASTHandle{}, false, err
 		}
 		f.values = append(f.values, ref)
-		set.seen[numeral] = struct{}{}
-		set.values = append(set.values, numeral)
+		if err := set.add(numeral); err != nil {
+			return ast.ASTHandle{}, false, err
+		}
 		fresh = true
 	}
 	if err := simpleFactoryAssert(125, "set->m_values.contains(new_val)", func() bool { _, ok := set.seen[numeral]; return ok }); err != nil {
@@ -128,7 +137,7 @@ func (f *numeralFactory) SomeValue(sort ast.ASTHandle) (ast.ASTHandle, error) {
 		return ast.ASTHandle{}, err
 	}
 	if set := f.sets[sort]; set != nil && len(set.values) != 0 {
-		return set.values[0], nil
+		return set.table.FirstKeys(1)[0], nil
 	}
 	value, _, err := f.insert(big.NewRat(0, 1), sort)
 	return value, err
@@ -140,14 +149,15 @@ func (f *numeralFactory) SomeValues(sort ast.ASTHandle, first, second ast.ASTRef
 	}
 	set, exists := f.sets[sort]
 	if exists && len(set.values) >= 2 {
-		if err := f.manager.SetRef(first, set.values[0]); err != nil {
+		keys := set.table.FirstKeys(2)
+		if err := f.manager.SetRef(first, keys[0]); err != nil {
 			return false, err
 		}
-		if err := f.manager.SetRef(second, set.values[1]); err != nil {
+		if err := f.manager.SetRef(second, keys[1]); err != nil {
 			return false, err
 		}
 	} else if exists && len(set.values) == 1 {
-		if err := f.manager.SetRef(first, set.values[0]); err != nil {
+		if err := f.manager.SetRef(first, set.table.FirstKeys(1)[0]); err != nil {
 			return false, err
 		}
 		value, _, err := f.insert(big.NewRat(0, 1), sort)
@@ -268,9 +278,7 @@ func (f *numeralFactory) RegisterValue(value ast.ASTHandle) error {
 		return err
 	}
 	f.values = append(f.values, ref)
-	set.seen[value] = struct{}{}
-	set.values = append(set.values, value)
-	return nil
+	return set.add(value)
 }
 
 // Member destruction releases sorts before the value vector. Values keep

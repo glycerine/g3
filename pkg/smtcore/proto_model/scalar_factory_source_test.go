@@ -412,17 +412,26 @@ func TestScalarFactorySourceWarmSelectionAndClosedAssertionOwner(t *testing.T) {
 			hold, err := m.NewRef(first)
 			protoMust(t, err)
 			defer func() { protoMust(t, m.DelRef(&hold)) }()
+			// Warm selection reads the value set in its obj_hashtable
+			// order, which need not be the order the pair was made in.
+			warm, err := p.SomeValue(sort)
+			protoMust(t, err)
+			warmFirst, warmSecond, ok, err := protoTestSomeValues(t, m, p, sort)
+			protoMust(t, err)
+			if !ok || warmFirst != warm || (warmFirst != first && warmFirst != second) || (warmSecond != first && warmSecond != second) {
+				t.Fatal("warm pair selection")
+			}
 			live := diagnostic.BorrowProcessDebugContext()
 			d, _ := scalarFactoryDebugActions(t, "T")
 			protoMust(t, d.Close())
 			value, err := p.SomeValue(sort)
 			protoMust(t, err)
-			if value != first {
+			if value != warm {
 				t.Fatal("assertion-free warm selection changed value")
 			}
 			a, b, ok, err := protoTestSomeValues(t, m, p, sort)
 			if diagnostic.DebugBuild {
-				if !errors.Is(err, arena.ErrClosed) || ok || a != first || b != second {
+				if !errors.Is(err, arena.ErrClosed) || ok || a != warmFirst || b != warmSecond {
 					t.Fatal("warm pair line171 prefix", a, b, ok, err)
 				}
 			} else if err != nil || !ok {

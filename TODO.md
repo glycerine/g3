@@ -2322,3 +2322,28 @@ by slot/handle instead of obj_hashtable order; cmd_context
 clearDebugExpressions releases in name order; quick-checker vector-of-
 hashtables copy layout. Not yet audited: muz (~220 sites), duality, interp,
 qe, util/lp.
+
+## Differential fuzzing (2026-11-12)
+
+Random Bool/LIA/BV/UF and Real/array/UF scripts (fuzz generators in the job
+tmp dir), comparing answers and full stdout (with get-model) with the fork.
+- FIXED: array model entry order. theory_array_base select_set is a
+  ptr_hashtable (sel_hash = composite hash of the select index roots; insert
+  replaces an equal entry); mk_value and propagate_selects_to_store_parents
+  walk it in table order (smtArraySelectSet). The array else value comes from
+  simple_factory::get_some_value = *m_values.begin() of an obj_hashtable:
+  numeralValueSet keeps an ObjMap (ObjMap.FirstKeys). About 1 in 4 random
+  array scripts printed different models before. Vectors
+  array_model_entry_order, array_model_some_value_order.
+- Lead: other proto_model factories still pick values in insertion order
+  where C++ walks an obj_hashtable begin(): user_sort_factory.go,
+  datalog_factory.go, structured.go, array_factory.go, datatype_factory.go.
+- OPEN (worker running): model building fails with "build state model
+  values: g3: AST source precondition" (answer unknown, z3 sat) for e.g.
+  (and (not (= x y)) (not (= x 3)) (not (= y 3))) plus (= v (ite c u #x3));
+  also (bvule (h (ite a (h v) v)) v) and fp.to_ubv with an uninterpreted
+  BitVec predicate. About 1 in 200 random LIA+BV+UF scripts.
+- Lead: (_ bv 4) vs (_ BitVec 4) for sorts the user never wrote
+  (pdecl_manager::pp sort_info); predeclared List datatype without a logic
+  (needs lazy pdecl psorts; g3's sort parameters are real uninterpreted sorts
+  and allocate ids, so predeclaring at init would shift ids).

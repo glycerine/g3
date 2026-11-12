@@ -8,7 +8,128 @@ import (
 	"io"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/hash"
 )
+
+// smtArraySelectSet is theory_array_base::select_set, a
+// ptr_hashtable<enode, sel_hash, sel_eq> (src/util/hashtable.h
+// core_hashtable). Model construction iterates it, so the array entries
+// follow its table order: open addressing on sel_hash, which hashes the
+// roots of the select's index arguments. Entries are never removed.
+type smtArraySelectSet struct {
+	table []smtArraySelectEntry
+	size  int
+}
+
+type smtArraySelectEntry struct {
+	read *SMTEnode
+	hash uint32
+}
+
+func newSMTArraySelectSet() *smtArraySelectSet {
+	return &smtArraySelectSet{table: make([]smtArraySelectEntry, 8)} // DEFAULT_HASHTABLE_INITIAL_CAPACITY
+}
+
+// smtArraySelectHash is sel_hash: get_composite_hash with a zero kind hash
+// over the root hashes of the index arguments.
+func smtArraySelectHash(read *SMTEnode) (uint32, error) {
+	n := uint32(len(read.arguments) - 1)
+	if n == 0 {
+		return 0, ast.ErrASTDomain
+	}
+	var failure error
+	h := hash.Composite(0, n, func(i uint32) uint32 {
+		v, err := read.arguments[i+1].root.Hash()
+		if err != nil && failure == nil {
+			failure = err
+		}
+		return v
+	})
+	return h, failure
+}
+
+func smtArraySelectMove(source, target []smtArraySelectEntry) {
+	mask := uint32(len(target) - 1)
+	for _, entry := range source {
+		if entry.read == nil {
+			continue
+		}
+		begin := int(entry.hash & mask)
+		placed := false
+		for i := begin; i < len(target) && !placed; i++ {
+			if target[i].read == nil {
+				target[i], placed = entry, true
+			}
+		}
+		for i := 0; i < begin && !placed; i++ {
+			if target[i].read == nil {
+				target[i], placed = entry, true
+			}
+		}
+	}
+}
+
+// find is core_hashtable::find under sel_eq.
+func (s *smtArraySelectSet) find(read *SMTEnode) (*SMTEnode, error) {
+	h, err := smtArraySelectHash(read)
+	if err != nil {
+		return nil, err
+	}
+	mask := uint32(len(s.table) - 1)
+	begin := int(h & mask)
+	for k := 0; k < len(s.table); k++ {
+		curr := &s.table[(begin+k)&int(mask)]
+		if curr.read == nil {
+			return nil, nil
+		}
+		if curr.hash == h && sameArrayModelIndices(curr.read, read) {
+			return curr.read, nil
+		}
+	}
+	return nil, nil
+}
+
+// insert is core_hashtable::insert: an equal entry has its data replaced.
+func (s *smtArraySelectSet) insert(read *SMTEnode) error {
+	if s.size<<2 > len(s.table)*3 {
+		target := make([]smtArraySelectEntry, len(s.table)<<1)
+		smtArraySelectMove(s.table, target)
+		s.table = target
+	}
+	h, err := smtArraySelectHash(read)
+	if err != nil {
+		return err
+	}
+	mask := uint32(len(s.table) - 1)
+	begin := int(h & mask)
+	for k := 0; k < len(s.table); k++ {
+		curr := &s.table[(begin+k)&int(mask)]
+		if curr.read == nil {
+			*curr = smtArraySelectEntry{read: read, hash: h}
+			s.size++
+			return nil
+		}
+		if curr.hash == h && sameArrayModelIndices(curr.read, read) {
+			curr.read = read
+			return nil
+		}
+	}
+	return ast.ErrASTDomain
+}
+
+// entries lists the set in table (iteration) order.
+func (s *smtArraySelectSet) entries() []*SMTEnode {
+	if s == nil {
+		return nil
+	}
+	result := make([]*SMTEnode, 0, s.size)
+	for _, entry := range s.table {
+		if entry.read != nil {
+			result = append(result, entry.read)
+		}
+	}
+	return result
+}
 
 type smtArrayModelElse struct {
 	expression ast.ASTHandle
@@ -20,7 +141,7 @@ type smtArrayModelData struct {
 	defaults      []*SMTEnode
 	elseValues    []smtArrayModelElse
 	unspecified   bool
-	selects       map[*SMTEnode][]*SMTEnode
+	selects       map[*SMTEnode]*smtArraySelectSet
 	selectDomains []*SMTEnode
 }
 
@@ -100,7 +221,7 @@ func (t *SMTArrayTheory) prepareArrayModel(generator *SMTModelGenerator) error {
 	d := &smtArrayModelData{
 		parents: make([]int, len(t.variables)), defaults: make([]*SMTEnode, len(t.variables)),
 		elseValues: make([]smtArrayModelElse, len(t.variables)), unspecified: true,
-		selects: make(map[*SMTEnode][]*SMTEnode),
+		selects: make(map[*SMTEnode]*smtArraySelectSet),
 	}
 	t.modelData = d
 	for i := range d.parents {
@@ -205,7 +326,7 @@ func (t *SMTArrayTheory) prepareArrayModel(generator *SMTModelGenerator) error {
 	var todo []smtArrayEnodePair
 	domains := append([]*SMTEnode(nil), d.selectDomains...)
 	for _, root := range domains {
-		for _, read := range append([]*SMTEnode(nil), d.selects[root]...) {
+		for _, read := range d.selects[root].entries() {
 			if err := t.propagateModelSelect(root, read, generator, &todo); err != nil {
 				return err
 			}
@@ -220,21 +341,28 @@ func (t *SMTArrayTheory) prepareArrayModel(generator *SMTModelGenerator) error {
 	return nil
 }
 
-func (d *smtArrayModelData) addSelect(root, read *SMTEnode) (bool, error) {
-	entries, exists := d.selects[root]
+// selectSet is get_select_set: the root's set, created and recorded in the
+// domain list on first use.
+func (d *smtArrayModelData) selectSet(root *SMTEnode) *smtArraySelectSet {
+	set, exists := d.selects[root]
 	if !exists {
+		set = newSMTArraySelectSet()
+		d.selects[root] = set
 		d.selectDomains = append(d.selectDomains, root)
 	}
-	for _, previous := range entries {
-		if sameArrayModelIndices(previous, read) {
-			if previous.root != read.root {
-				return false, fmt.Errorf("array model repeated index has distinct value roots %v and %v: %w", previous.owner, read.owner, ast.ErrASTDomain)
-			}
-			return false, nil
-		}
+	return set
+}
+
+func (d *smtArrayModelData) addSelect(root, read *SMTEnode) (bool, error) {
+	set := d.selectSet(root)
+	previous, err := set.find(read)
+	if err != nil {
+		return false, err
 	}
-	d.selects[root] = append(entries, read)
-	return true, nil
+	if previous != nil && previous.root != read.root {
+		return false, fmt.Errorf("array model repeated index has distinct value roots %v and %v: %w", previous.owner, read.owner, ast.ErrASTDomain)
+	}
+	return previous == nil, set.insert(read)
 }
 
 func sameArrayModelIndices(first, second *SMTEnode) bool {
@@ -264,21 +392,13 @@ func (t *SMTArrayTheory) propagateModelSelect(root, read *SMTEnode, generator *S
 		if len(parent.arguments) != len(read.arguments)+1 {
 			return ast.ErrASTDomain
 		}
-		entries, exists := t.modelData.selects[parent.root]
-		if !exists {
-			t.modelData.selects[parent.root] = nil
-			t.modelData.selectDomains = append(t.modelData.selectDomains, parent.root)
-		}
-		present := false
-		for _, previous := range entries {
-			if sameArrayModelIndices(previous, read) {
-				present = true
-				break
-			}
+		previous, err := t.modelData.selectSet(parent.root).find(read)
+		if err != nil {
+			return err
 		}
 		// Native upward propagation keeps an existing store-side entry. It
 		// does not replace it with the base-side read for the same indices.
-		if present {
+		if previous != nil {
 			continue
 		}
 		overwritten := true

@@ -897,7 +897,8 @@ func (t *SMTArrayTheory) arrayTableModelValue(node *SMTEnode, generator *SMTMode
 			procedure.fallback = fallback.expression
 		}
 	}
-	for _, read := range data.selects[node.root] {
+	reads := data.selects[node.root].entries()
+	for _, read := range reads {
 		if len(read.arguments) != int(arity)+1 {
 			return nil, ast.ErrASTDomain
 		}
@@ -915,7 +916,7 @@ func (t *SMTArrayTheory) arrayTableModelValue(node *SMTEnode, generator *SMTMode
 		procedure.dependencies = append(procedure.dependencies, dependency)
 		procedure.entries++
 	}
-	if err := t.traceArrayModelValue(generator, node, data.selects[node.root], data.defaults[root]); err != nil {
+	if err := t.traceArrayModelValue(generator, node, reads, data.defaults[root]); err != nil {
 		return nil, err
 	}
 	return procedure, nil
