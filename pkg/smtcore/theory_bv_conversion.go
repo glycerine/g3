@@ -14,6 +14,38 @@ import (
 type smtBVExpressionCall struct {
 	theory *SMTBitVectorTheory
 	refs   []ast.ASTRef
+	// groups[i] is the start in refs of the i-th get_arg_bits vector.
+	groups []int
+}
+
+// fetch is get_arg_bits into a fresh local expr_ref_vector that the caller
+// owns: the returned refs are no longer released by close.
+func (c *smtBVExpressionCall) fetch(expression ast.ASTHandle) ([]ast.ASTHandle, []ast.ASTRef, error) {
+	start := len(c.refs)
+	bits, err := c.bits(expression)
+	if err != nil {
+		return nil, nil, err
+	}
+	refs := append([]ast.ASTRef(nil), c.refs[start:]...)
+	c.refs = c.refs[:start]
+	c.groups = c.groups[:len(c.groups)-1]
+	return bits, refs, nil
+}
+
+// handOffArguments moves the get_arg_bits locals (arg1_bits, arg2_bits, ...)
+// to the theory temporaries, which die with the term's other internalize_*
+// locals after init_bits: in reverse declaration order, each vector front
+// to back.
+func (c *smtBVExpressionCall) handOffArguments() {
+	t := c.theory
+	end := len(c.refs)
+	for i := len(c.groups) - 1; i >= 0; i-- {
+		t.temporary = append(t.temporary, c.refs[c.groups[i]:end]...)
+		end = c.groups[i]
+	}
+	// Refs held before the first get_arg_bits keep their close order.
+	head := append([]ast.ASTRef(nil), c.refs[:end]...)
+	c.refs, c.groups = head, nil
 }
 
 func (c *smtBVExpressionCall) hold(h ast.ASTHandle, err error) (ast.ASTHandle, error) {
@@ -26,6 +58,27 @@ func (c *smtBVExpressionCall) hold(h ast.ASTHandle, err error) (ast.ASTHandle, e
 	}
 	return h, err
 }
+// releaseArguments runs the destructors of the get_arg_bits locals
+// (arg1_bits, arg2_bits, ...): reverse declaration order, each vector
+// front to back. Refs held before the first get_arg_bits stay for close.
+func (c *smtBVExpressionCall) releaseArguments() (result error) {
+	if len(c.groups) == 0 {
+		return nil
+	}
+	m := c.theory.state.manager
+	end := len(c.refs)
+	for i := len(c.groups) - 1; i >= 0; i-- {
+		for k := c.groups[i]; k < end; k++ {
+			if c.refs[k] != (ast.ASTRef{}) {
+				result = errors.Join(result, m.DelRef(&c.refs[k]))
+			}
+		}
+		end = c.groups[i]
+	}
+	c.refs, c.groups = c.refs[:end], nil
+	return result
+}
+
 func (c *smtBVExpressionCall) close() (result error) {
 	for i := len(c.refs) - 1; i >= 0; i-- {
 		result = errors.Join(result, c.theory.state.manager.DelRef(&c.refs[i]))
@@ -56,6 +109,7 @@ func (c *smtBVExpressionCall) bits(expression ast.ASTHandle) ([]ast.ASTHandle, e
 	if v < 0 || int(v) >= len(t.bitLiterals) {
 		return nil, ast.ErrASTDomain
 	}
+	c.groups = append(c.groups, len(c.refs))
 	bits := make([]ast.ASTHandle, 0, len(t.bitLiterals[v]))
 	for _, literal := range t.bitLiterals[v] {
 		bit, err := c.hold(s.literalExpression(literal))

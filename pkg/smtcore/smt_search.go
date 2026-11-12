@@ -156,12 +156,16 @@ func (s *SMTInternalizerState) reinternalizeLemmaAtoms(atoms []smtRetainedLemmaA
 				literal = literal.Negated()
 			}
 		}
+		literals[index] = literal
+	}
+	// restore_relevancy runs after every literal is rebuilt; each
+	// context::mark_as_relevant propagates relevancy before the next.
+	for _, atom := range atoms {
 		if atom.relevant && s.relevancy != nil && !s.relevancy.IsRelevant(atom.expression) {
-			if err = s.relevancy.MarkRelevant(atom.expression); err != nil {
+			if err := s.markRelevant(atom.expression); err != nil {
 				return nil, err
 			}
 		}
-		literals[index] = literal
 	}
 	return literals, nil
 }

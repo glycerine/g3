@@ -95,7 +95,12 @@ func (t *SMTBitVectorTheory) traceBVAssignBit(consequent, antecedent SMTLiteral,
 		if err = antecedent.DisplayCompact(out, state.manager, state.boolExpr); err != nil {
 			return err
 		}
-		if _, err = fmt.Fprintf(out, " #%d #%d idx: %d\npropagate_eqc: %t\n", firstID, secondID, index, propagateClass); err != nil {
+		// The source streams the bool without std::boolalpha: 0 or 1.
+		eqc := 0
+		if propagateClass {
+			eqc = 1
+		}
+		if _, err = fmt.Fprintf(out, " #%d #%d idx: %d\npropagate_eqc: %d\n", firstID, secondID, index, eqc); err != nil {
 			return err
 		}
 		return nil

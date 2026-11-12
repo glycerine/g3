@@ -9,9 +9,12 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
+// releaseGroups runs the expr_ref_vector destructors of locals declared
+// in the order given: C++ destroys locals in reverse declaration order,
+// and each ref_vector dec_refs its elements front to back.
 func releaseGroups(m *ast.ASTManager, groups ...[]ast.ASTRef) (result error) {
-	for _, refs := range groups {
-		result = errors.Join(result, releaseRefs(m, refs))
+	for i := len(groups) - 1; i >= 0; i-- {
+		result = errors.Join(result, releaseRefs(m, groups[i]))
 	}
 	return result
 }

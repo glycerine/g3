@@ -24,7 +24,12 @@ func (e *Engine) MkUnsignedMulNoOverflow(a, b []ast.ASTHandle, out ast.ASTRef) (
 		return err
 	}
 	refs := make([]ast.ASTRef, 4)
-	defer func() { result = errors.Join(result, releaseRefs(m, product), releaseRefs(m, refs)) }()
+	// C++ destroys tmp, v, ovf, overflow, overflow2 (holding v),
+	// overflow1 (holding mult_cout[sz]) and then mult_cout, so v is
+	// last released after overflow and before mult_cout.
+	defer func() {
+		result = errors.Join(result, releaseRefs(m, []ast.ASTRef{refs[2], refs[0], refs[3], refs[1]}), releaseRefs(m, product))
+	}()
 	for i := range refs {
 		refs[i], err = m.NewRef(falsehood)
 		if err != nil {
@@ -93,7 +98,11 @@ func (e *Engine) signedMulBound(a, b []ast.ASTHandle, positiveOverflow bool, out
 		return err
 	}
 	refs := make([]ast.ASTRef, 8)
-	defer func() { result = errors.Join(result, releaseRefs(m, product), releaseRefs(m, refs)) }()
+	// C++ destroys sign, a_acc, b, a, tmp, v, overflow, overflow2
+	// (holding v), overflow1 and then mult_cout.
+	defer func() {
+		result = errors.Join(result, releaseRefs(m, []ast.ASTRef{refs[6], refs[5], refs[4], refs[3], refs[2], refs[7], refs[1], refs[0]}), releaseRefs(m, product))
+	}()
 	for i := range refs {
 		refs[i], err = m.NewRef(falsehood)
 		if err != nil {

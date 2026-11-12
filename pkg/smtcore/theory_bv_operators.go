@@ -188,6 +188,9 @@ func (t *SMTBitVectorTheory) operationBits(expression ast.ASTHandle, operation i
 	}
 	if operation == 42 || operation == 43 || operation == 44 {
 		bit, err := t.nativeAtomDefinition(operation, arguments)
+		if err == nil {
+			call.handOffArguments()
+		}
 		return []ast.ASTHandle{bit}, true, err
 	}
 	engine, err := t.nativeBitBlaster()
@@ -332,7 +335,9 @@ func (t *SMTBitVectorTheory) operationBits(expression ast.ASTHandle, operation i
 	if err != nil {
 		return nil, true, err
 	}
-	bits, err = t.adoptBitBlasterRefs(refs)
+	if bits, err = t.adoptBitBlasterRefs(refs); err == nil {
+		call.handOffArguments()
+	}
 	return bits, true, err
 }
 
@@ -435,33 +440,59 @@ func (t *SMTBitVectorTheory) acBinaryBits(call *smtBVExpressionCall, expression 
 	case 36:
 		binary = engine.MkXnor
 	}
-	bits, err := call.bits(arguments[len(arguments)-1])
+	// The locals arg_bits, bits and new_bits: arg_bits.reset() precedes
+	// each get_arg_bits, new_bits.reset() each blast, then bits.swap.
+	var argRefs, newRefs []ast.ASTRef
+	bits, bitRefs, err := call.fetch(arguments[len(arguments)-1])
 	if err != nil {
 		return nil, true, err
 	}
+	m := t.state.manager
+	release := func(refs []ast.ASTRef) error {
+		var err error
+		for i := range refs {
+			if refs[i] != (ast.ASTRef{}) {
+				err = errors.Join(err, m.DelRef(&refs[i]))
+			}
+		}
+		return err
+	}
+	fail := func(err error) ([]ast.ASTHandle, bool, error) {
+		return nil, true, errors.Join(err, release(newRefs), release(bitRefs), release(argRefs))
+	}
 	for i := len(arguments) - 2; i >= 0; i-- {
-		argBits, err := call.bits(arguments[i])
+		err = release(argRefs)
+		argRefs = nil
 		if err != nil {
-			return nil, true, err
+			return fail(err)
+		}
+		var argBits []ast.ASTHandle
+		if argBits, argRefs, err = call.fetch(arguments[i]); err != nil {
+			return fail(err)
 		}
 		if err = assertBVOperatorWidth(733, "arg_bits.size() == bits.size()", argBits, bits); err != nil {
-			return nil, true, err
+			return fail(err)
 		}
-		refs, err := binary(argBits, bits)
+		err = release(newRefs)
+		newRefs = nil
 		if err != nil {
-			return nil, true, err
+			return fail(err)
 		}
-		if bits, err = t.adoptBitBlasterRefs(refs); err != nil {
-			return nil, true, err
+		if newRefs, err = binary(argBits, bits); err != nil {
+			return fail(err)
 		}
-		// The local expr_ref_vector bits: the next get_arg_bits may
-		// release the shared temporaries.
-		for _, bit := range bits {
-			if _, err = call.hold(bit, nil); err != nil {
-				return nil, true, err
+		bitRefs, newRefs = newRefs, bitRefs
+		bits = make([]ast.ASTHandle, len(bitRefs))
+		for k := range bitRefs {
+			if bits[k], err = m.RefGet(bitRefs[k]); err != nil {
+				return fail(err)
 			}
 		}
 	}
+	// Destruction after init_bits: new_bits, bits, arg_bits.
+	t.temporary = append(t.temporary, newRefs...)
+	t.temporary = append(t.temporary, bitRefs...)
+	t.temporary = append(t.temporary, argRefs...)
 	return bits, true, nil
 }
 

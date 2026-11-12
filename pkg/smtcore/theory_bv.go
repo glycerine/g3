@@ -491,7 +491,10 @@ func (t *SMTBitVectorTheory) InternalizeAtom(expression ast.ASTHandle, gateConte
 		if argErr != nil {
 			return false, argErr
 		}
-		return t.bridgeAtom(expression, definition, true)
+		// internalize_le and MK_NO_OVFL: s_le and le die first, then
+		// arg2_bits and arg1_bits.
+		handled, argErr := t.bridgeAtom(expression, definition, true)
+		return handled, errors.Join(argErr, call.releaseArguments())
 	}
 	return t.internalizeBitProjection(expression)
 }
@@ -699,9 +702,15 @@ func (t *SMTBitVectorTheory) InternalizeTerm(expression ast.ASTHandle) (bool, er
 		// Native mk_bits does not run init_bits/find_wpos.
 		return true, t.releaseBitOwner(expression)
 	}
-	// Source init_bits calls find_wpos immediately. All bits may already be
-	// fixed when a new compound term reuses an existing circuit.
-	if err = t.findWatchedPosition(state.context.enodes.get(expression).TheoryVar(t.FamilyID())); err != nil {
+	variable := state.context.enodes.get(expression).TheoryVar(t.FamilyID())
+	if op == smtBVOpNumeral {
+		// internalize_num calls fixed_var_eh directly, not find_wpos.
+		if err = t.fixedVariable(variable); err != nil {
+			return false, err
+		}
+	} else if err = t.findWatchedPosition(variable); err != nil {
+		// Source init_bits calls find_wpos immediately. All bits may already
+		// be fixed when a new compound term reuses an existing circuit.
 		return false, err
 	}
 	return true, t.releaseBitOwner(expression)
@@ -715,6 +724,22 @@ func (t *SMTBitVectorTheory) releaseBitOwner(expression ast.ASTHandle) error {
 	if err != nil {
 		return err
 	}
+	// The owner is a Go-only root over the same bits; drop it first so the
+	// internalize_* locals, recorded in their C++ destruction order (for
+	// example carry, bits, arg2_bits, arg1_bits), decide which node dies when.
+	if owner, found := t.bitOwners[expression]; found {
+		delete(t.bitOwners, expression)
+		t.bits[expression] = nil
+		t.literalBits[expression] = true
+		for i := range owner {
+			if owner[i] == (ast.ASTRef{}) {
+				continue
+			}
+			if err := state.manager.DelRef(&owner[i]); err != nil {
+				return err
+			}
+		}
+	}
 	if locals := t.bitLocals[expression]; len(locals) != 0 {
 		delete(t.bitLocals, expression)
 		for i := range locals {
@@ -724,21 +749,6 @@ func (t *SMTBitVectorTheory) releaseBitOwner(expression ast.ASTHandle) error {
 			if err := state.manager.DelRef(&locals[i]); err != nil {
 				return err
 			}
-		}
-	}
-	owner, found := t.bitOwners[expression]
-	if !found {
-		return nil
-	}
-	delete(t.bitOwners, expression)
-	t.bits[expression] = nil
-	t.literalBits[expression] = true
-	for i := range owner {
-		if owner[i] == (ast.ASTRef{}) {
-			continue
-		}
-		if err := state.manager.DelRef(&owner[i]); err != nil {
-			return err
 		}
 	}
 	return nil

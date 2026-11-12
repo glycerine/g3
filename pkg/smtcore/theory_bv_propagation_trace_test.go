@@ -45,7 +45,7 @@ func TestSMTBVBitPropagationSourceTrace(t *testing.T) {
 		for _, want := range []string{
 			fmt.Sprintf("-------- [bv_bit_prop] propagate_bits src/smt/theory_bv.cpp:1203 ---------\npropagating #%d[0] = l_true\n", leftID),
 			fmt.Sprintf("-------- [bv_bit_prop] propagate_bits src/smt/theory_bv.cpp:1214 ---------\npropagating #%d[0] = l_undef\n", rightID),
-			fmt.Sprintf("-------- [bv_bit_prop] assign_bit src/smt/theory_bv.cpp:1242 ---------\nassigning: #%d using #%d #%d #%d idx: 0\npropagate_eqc: false\n", qID, pID, leftID, rightID),
+			fmt.Sprintf("-------- [bv_bit_prop] assign_bit src/smt/theory_bv.cpp:1242 ---------\nassigning: #%d using #%d #%d #%d idx: 0\npropagate_eqc: 0\n", qID, pID, leftID, rightID),
 			"-------- [assign_bit_bug] assign_bit src/smt/theory_bv.cpp:1269 ---------\ncurr->m_var: v",
 			"-------- [bv_bit_prop] propagate_bits src/smt/theory_bv.cpp:1232 ---------\ndone propagating\n",
 		} {

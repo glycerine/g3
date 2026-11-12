@@ -405,3 +405,19 @@ func (s *SMTInternalizerState) traceClauseDetail(c *SMTClause, levels []uint32) 
 	}
 	return b.String()
 }
+
+// traceAssignRelevancy is assign_core's TRACE("relevancy") record.
+func (s *SMTInternalizerState) traceAssignRelevancy(l SMTLiteral) {
+	if !smtTraceEnabled("relevancy") {
+		return
+	}
+	bit := func(b bool) string {
+		if b {
+			return "1"
+		}
+		return "0"
+	}
+	relevant := s.relevancy != nil && s.relevancy.IsRelevant(s.boolExpr[l.Var()])
+	emitSMTTrace("relevancy", "assign_core", "src/smt/smt_context.cpp", 312,
+		"is_atom: "+bit(s.booleanData[l.Var()].IsAtom())+" is relevant: "+bit(relevant)+"\n")
+}

@@ -2439,3 +2439,25 @@ strings/datatypes): 2 differ. gen.py seed 3183: one BV model value differs
 1126). gen3.py seed 3097: z3 answers sat in 8 s, g3 runs past 30 s; g3's
 trace is an exact prefix of z3's (4.6M of 36M lines), so the search is the
 same and g3 is only slower (constant-factor performance, see the qsat note).
+
+## BV model values / bit-blaster lifetimes (2026-11-12)
+
+FIXED: random LIA+BV+UF scripts printing different BV model values.
+Bit-blaster expr_ref_vector groups now die in reverse declaration order
+(smod/sdiv/srem/ext rotate; overflow helpers); theory_bv keeps get_arg_bits
+locals alive until after init_bits and hands them off in C++ destruction
+order (MK_UNARY/MK_BINARY/MK_AC_BINARY, sub, reductions); BV atom argument
+bits release arg2 then arg1, each front to back; restore_relevancy after a
+conflict marks and propagates after all lemma atoms are rebuilt
+(context::mark_as_relevant); internalize_num calls fixed_var_eh directly;
+bv_bit_prop prints 0/1; TRACE("relevancy") in assign_core. Fuzz seeds
+5000-6200 now all match. Vectors bv_blast_temporaries_model_values,
+bv_blast_temporaries_smod_order, bv_internalize_arg_bits_lifetime,
+bv_conflict_restore_relevancy, bv_atom_arg_bits_release_order (their full
+trace=true runs exceed the 30 s fullcmp timeout).
+Leads: func-decl delete order (decl ids 2147483xxx) differs; mk_neg /
+mk_adder / mk_subtracter release cin vs not_a in the other order; C++
+relevancy mark_as_relevant sets every ring member relevant without the
+already-relevant check (duplicate atom-queue entries); dead generic AC case
+in operationBits; trace=true is 4-5x slower than z3 (format objects for
+model/[assign] pretty printing dominate).

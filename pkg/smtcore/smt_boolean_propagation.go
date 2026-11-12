@@ -63,6 +63,7 @@ func (s *SMTInternalizerState) assignLiteralCore(literal SMTLiteral, justificati
 	}
 	data.PhaseAvailable = true
 	data.Phase = !literal.Sign()
+	s.traceAssignRelevancy(literal)
 	if err := s.appendAssignedLiteral(literal); err != nil {
 		return err
 	}
