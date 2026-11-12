@@ -450,7 +450,9 @@ func TestSMT2NegativeSoftParetoOptimizationEndToEnd(t *testing.T) {
 		t.Fatal(err, output.String())
 	}
 	got := strings.Join(strings.Fields(output.String()), " ")
-	want := "sat (objectives (x (- 2)) ) ((a false)) unsat"
+	// A lone objective runs as execute(obj, true, false) whatever the
+	// priority, so the recheck is sat as in z3 (TODO item 30).
+	want := "sat (objectives (x (- 2)) ) ((a false)) sat"
 	if got != want {
 		t.Fatal("negative soft Pareto normalization", got, "want", want)
 	}
