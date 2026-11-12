@@ -2430,3 +2430,12 @@ mk_and and renames variables to columns (make_filter_interpreted_and_project);
 filter sites raise an error when the ground condition is neither true nor
 false where should_remove keeps the fact; audit other users of state left on
 ctx.get_rewriter() (SetSubstitution).
+
+## Re-fuzz after the fixes (2026-11-12)
+
+1200 fresh random scripts (gen.py/gen2.py with get-model, gen3.py
+strings/datatypes): 2 differ. gen.py seed 3183: one BV model value differs
+(likely the bit-blaster temporary dec_ref / freed-id reuse lead, as seed
+1126). gen3.py seed 3097: z3 answers sat in 8 s, g3 runs past 30 s; g3's
+trace is an exact prefix of z3's (4.6M of 36M lines), so the search is the
+same and g3 is only slower (constant-factor performance, see the qsat note).
