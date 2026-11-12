@@ -139,6 +139,10 @@ func (k *SMTKernel) assertedGreater(left, right ast.ASTHandle, depth map[ast.AST
 }
 
 func (k *SMTKernel) addAssertionSubstitution(assertion SMTKernelAssertion, depth map[ast.ASTHandle]uint32) error {
+	proofs, err := k.manager.ProofsEnabled()
+	if err != nil {
+		return err
+	}
 	ground, err := k.manager.IsGround(assertion.Formula)
 	if err != nil {
 		return err
@@ -163,9 +167,10 @@ func (k *SMTKernel) addAssertionSubstitution(assertion SMTKernelAssertion, depth
 				if err = k.traceAssertedRewrite(511, "insert ", right, left); err != nil {
 					return err
 				}
-				proof := assertion.Proof
-				if !proof.IsNull() {
-					proof, err = k.manager.MkProofSymmetry(proof)
+				// m.proofs_enabled() ? m.mk_symmetry(pr) : nullptr
+				proof := ast.ASTHandle{}
+				if proofs {
+					proof, err = k.manager.MkProofSymmetry(assertion.Proof)
 					if err != nil {
 						return err
 					}
@@ -180,7 +185,8 @@ func (k *SMTKernel) addAssertionSubstitution(assertion SMTKernelAssertion, depth
 	if err != nil {
 		return err
 	}
-	proof := assertion.Proof
+	// pr1 = m.proofs_enabled() ? m.mk_iff_{false,true}(pr) : nullptr
+	proof := ast.ASTHandle{}
 	if isNot, child, err := k.manager.IsNot(assertion.Formula); err != nil {
 		return err
 	} else if isNot {
@@ -189,11 +195,11 @@ func (k *SMTKernel) addAssertionSubstitution(assertion SMTKernelAssertion, depth
 		if err != nil {
 			return err
 		}
-		if !proof.IsNull() {
-			proof, err = k.manager.MkProofIffFalse(proof)
+		if proofs && !assertion.Proof.IsNull() {
+			proof, err = k.manager.MkProofIffFalse(assertion.Proof)
 		}
-	} else if !proof.IsNull() {
-		proof, err = k.manager.MkProofIffTrue(proof)
+	} else if proofs && !assertion.Proof.IsNull() {
+		proof, err = k.manager.MkProofIffTrue(assertion.Proof)
 	}
 	if err != nil {
 		return err

@@ -55,9 +55,8 @@ func (c *Context) Proof(queryDeclaration ast.ASTHandle) (result ast.ASTRef, resu
 		}
 		return result, ast.ErrASTDomain
 	}
-	if err = c.updateTraceModels(root); err != nil {
-		return result, err
-	}
+	// context::get_proof's scoped_proof covers get_proof_trace, including
+	// its update_models.
 	proofsEnabled, err := c.manager.ProofsEnabled()
 	if err != nil {
 		return result, err
@@ -67,6 +66,9 @@ func (c *Context) Proof(queryDeclaration ast.ASTHandle) (result ast.ASTRef, resu
 			return result, err
 		}
 		defer func() { resultErr = errors.Join(resultErr, c.manager.ToggleProofMode(ast.ASTProofDisabled)) }()
+	}
+	if err = c.updateTraceModels(root); err != nil {
+		return result, err
 	}
 	return c.reducedProofTrace(root)
 }

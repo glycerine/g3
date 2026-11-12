@@ -202,14 +202,22 @@ func (c *Context) selectedTraceRule(node *ModelNode) (result *normalizedRule, re
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, c.manager.DelRef(&iniStateRef)) }()
-	// Proof export temporarily enables proof construction, but this query
-	// must use the proof mode in which the live PDR solver was initialized.
-	restoreProofMode, err := c.enterPDRProofMode()
+	// check_conjunction_as_assumptions(ini_state), outside any level scope,
+	// in the caller's proof mode: dl_interface::query restored the original
+	// mode before get_answer, while get_proof runs under scoped_proof.
+	// Deviation: g3's kernel refuses proof construction in a solver that
+	// was initialized without proofs (z3 release builds skip that SASSERT),
+	// so a proof-enabled caller of a proof-free PDR run checks without them.
+	proofsEnabled, err := c.manager.ProofsEnabled()
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, restoreProofMode()) }()
-	// check_conjunction_as_assumptions(ini_state), outside any level scope.
+	if proofsEnabled && !c.proofActive {
+		if err = c.manager.ToggleProofMode(ast.ASTProofDisabled); err != nil {
+			return nil, err
+		}
+		defer func() { resultErr = errors.Join(resultErr, c.manager.ToggleProofMode(ast.ASTProofEnabled)) }()
+	}
 	check, err := node.transformer.solver.CheckAssumptions([]ast.ASTHandle{iniState}, false, true)
 	if err != nil {
 		return nil, err
