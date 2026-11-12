@@ -124,9 +124,10 @@ func TestEngineClosePreservesRuleManagerAfterConsumedNativeRelease(t *testing.T)
 	}
 	before, blocks := manager.Stats().LiveReferences, runtime.Stats().LiveBlocks
 	// The rule manager's label rewriter (rule_manager::m_rwr) holds three
-	// scratch references for the engine's life.
-	if before != baseline+6 {
-		t.Fatal("fixture does not have only background and two predicate references and the label rewriter scratch", baseline, before)
+	// scratch references for the engine's life, as does the relation
+	// manager's context var_subst (context::m_var_subst).
+	if before != baseline+9 {
+		t.Fatal("fixture does not have only background and two predicate references and the label rewriter and var_subst scratch", baseline, before)
 	}
 	err = engine.Close()
 	if !errors.Is(err, arena.ErrBounds) || engine.closed || !engine.closing || engine.rules != rules {

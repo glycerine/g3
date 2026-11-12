@@ -109,7 +109,7 @@ func (i *interpretedFilterInstruction) accepts(fact Fact) (accepted bool, result
 			return false, err
 		}
 		references = append(references, out)
-		if err = i.rewriter.RewriteWithBindings(handle, bindings, out); err != nil {
+		if err = i.relations.GroundCondition(i.rewriter, handle, bindings, out); err != nil {
 			return false, err
 		}
 		rewritten, err := i.manager.RefGet(out)

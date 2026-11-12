@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
+	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/smtcore"
 )
 
@@ -30,7 +31,10 @@ type RelationManager struct {
 	explanationUDocOwned    bool
 	explanationNumericKind  string
 	explanationNumericCheck *smtcore.SMTSolverConfig
-	closed                  bool
+	// varSubst is the context var_subst used to ground interpreted
+	// conditions (GroundCondition).
+	varSubst *astrewriter.VarSubstitution
+	closed   bool
 }
 
 func NewRelationManager(manager *ast.ASTManager) (*RelationManager, error) {
@@ -40,7 +44,16 @@ func NewRelationManager(manager *ast.ASTManager) (*RelationManager, error) {
 	if err := manager.RegisterDeclarationPlugins(); err != nil {
 		return nil, err
 	}
-	return &RelationManager{manager: manager, relations: make(map[ast.ASTHandle]*HashTable), finite: make(map[ast.ASTHandle]FiniteTable), explanations: make(map[ast.ASTHandle]*FiniteExplanationProduct), relationLevel: make(map[ast.ASTHandle]*RelationExplanationProduct), saturated: make(map[ast.ASTHandle]bool), layout: ast.NewObjMap(manager), defaultFinite: "hashtable"}, nil
+	// context::m_var_subst (std_order = true) is a context member built
+	// with the context; the relation manager owns it here.
+	varSubst, err := astrewriter.NewVarSubstitution(manager, true)
+	if err != nil {
+		if varSubst != nil {
+			err = errors.Join(err, varSubst.Close())
+		}
+		return nil, err
+	}
+	return &RelationManager{manager: manager, relations: make(map[ast.ASTHandle]*HashTable), finite: make(map[ast.ASTHandle]FiniteTable), explanations: make(map[ast.ASTHandle]*FiniteExplanationProduct), relationLevel: make(map[ast.ASTHandle]*RelationExplanationProduct), saturated: make(map[ast.ASTHandle]bool), layout: ast.NewObjMap(manager), defaultFinite: "hashtable", varSubst: varSubst}, nil
 }
 
 func (m *RelationManager) open() error {
@@ -204,6 +217,10 @@ func (m *RelationManager) Close() (result error) {
 	}
 	m.explanationUDoc = nil
 	m.explanationUDocOwned = false
+	if m.varSubst != nil {
+		result = errors.Join(result, m.varSubst.Close())
+		m.varSubst = nil
+	}
 	m.closed = true
 	m.manager = nil
 	m.relations = nil

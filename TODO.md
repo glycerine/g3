@@ -2412,3 +2412,21 @@ array-instantiation/scale/magic predicate registration use AST id order;
 ackr Info.Close reverse order vs ~ackr_info table order; iz3hash hash_set
 order; with fixedpoint.xform.karr on Int predicates z3 4.7.1 errors "Rule
 contains infinite sorts" but g3 runs on.
+
+## Datalog wrong answer across queries (2026-11-12)
+
+FIXED (correctness): a second datalog query could return wrong tuples
+(dlq: nopath answered (3,7) instead of {(4,1),(7,7),(4,4)} after a q1 query).
+g3 evaluated interpreted filter conditions with RewriteWithBindings on the
+context's shared rewriter, which kept the last fact's bindings; the next
+query's interpreted-tail simplifier then rewrote (= a c) to (= a #x2). Now
+RelationManager.GroundCondition does what should_remove does: var_subst
+(context m_var_subst, std_order) then the plain rewriter on the ground term.
+Vectors datalog_query_sequence_{negation,no_print,three,repeat}
+(stdout-identical).
+Leads: their traces still differ (line ~172): compiler.go filterInterpreted
+evaluates conditions one by one where dl_compiler::compile_rule builds one
+mk_and and renames variables to columns (make_filter_interpreted_and_project);
+filter sites raise an error when the ground condition is neither true nor
+false where should_remove keeps the fact; audit other users of state left on
+ctx.get_rewriter() (SetSubstitution).

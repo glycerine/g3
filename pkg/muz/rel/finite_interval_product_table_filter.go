@@ -97,7 +97,7 @@ func (p *FiniteIntervalProduct) evaluateTableCondition(condition ast.ASTHandle, 
 		return false, err
 	}
 	refs = append(refs, out)
-	if err = theory.RewriteWithBindings(condition, bindings, out); err != nil {
+	if err = p.manager.GroundCondition(theory, condition, bindings, out); err != nil {
 		return false, err
 	}
 	value, err := m.RefGet(out)

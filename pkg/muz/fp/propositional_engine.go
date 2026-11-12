@@ -1668,7 +1668,7 @@ func (e *PropositionalEngine) rewriteCondition(expression ast.ASTHandle, binding
 		return false, err
 	}
 	references = append(references, out)
-	if err = e.guard.RewriteWithBindings(expression, bindings, out); err != nil {
+	if err = e.relations.GroundCondition(e.guard, expression, bindings, out); err != nil {
 		return false, err
 	}
 	rewritten, err := e.manager.RefGet(out)

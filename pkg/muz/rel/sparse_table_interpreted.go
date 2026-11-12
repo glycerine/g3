@@ -92,7 +92,7 @@ func (t *SparseTable) FilterInterpreted(manager *RelationManager, sorts []ast.AS
 				return false, newErr
 			}
 			refs = append(refs, output)
-			if rewriteErr := rewriter.RewriteWithBindings(condition, bindings, output); rewriteErr != nil {
+			if rewriteErr := manager.GroundCondition(rewriter, condition, bindings, output); rewriteErr != nil {
 				return false, rewriteErr
 			}
 			result, getErr := managerAST.RefGet(output)

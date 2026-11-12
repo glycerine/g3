@@ -93,7 +93,7 @@ func (p *FiniteSparseProduct) evaluateInterpreted(condition ast.ASTHandle, theor
 		return false, err
 	}
 	refs = append(refs, output)
-	if err = theory.RewriteWithBindings(condition, bindings, output); err != nil {
+	if err = p.manager.GroundCondition(theory, condition, bindings, output); err != nil {
 		return false, err
 	}
 	value, err := m.RefGet(output)

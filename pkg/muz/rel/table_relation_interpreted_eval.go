@@ -35,7 +35,7 @@ func (r *TableRelation) acceptsInterpretedFact(rewriter *astrewriter.TheoryRewri
 			return false, err
 		}
 		references = append(references, out)
-		if err = rewriter.RewriteWithBindings(condition, bindings, out); err != nil {
+		if err = r.manager.GroundCondition(rewriter, condition, bindings, out); err != nil {
 			return false, err
 		}
 		rewritten, err := r.manager.manager.RefGet(out)
