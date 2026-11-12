@@ -94,24 +94,30 @@ func TestSMTBinaryClausePublicationAssignsDuringContinuation(t *testing.T) {
 			_, s, _, _, xs := smtPBWatchFixture(t, []int64{1, 1, 1}, 2, false)
 			s.binaryClauseOptimization = true
 			s.relevancy = nil
-			astTestMust(t, s.AssignLiteral(xs[0], NewSMTBooleanAxiom()))
+			// mk_clause case 2 watches the sorted literals (l1, l2) and
+			// assigns l1 only when l2 is false: falsify the literal that
+			// sorts second.
+			if xs[0].Var() >= xs[1].Var() {
+				t.Fatal("fixture variable order changed")
+			}
+			astTestMust(t, s.AssignLiteral(xs[1], NewSMTBooleanAxiom()))
 			if conflicting {
-				astTestMust(t, s.AssignLiteral(xs[0].Negated(), NewSMTBooleanAxiom()))
+				astTestMust(t, s.AssignLiteral(xs[1].Negated(), NewSMTBooleanAxiom()))
 			}
 			first, _ := s.Conflict()
 			count := s.statistics.NumConflicts
-			astTestMust(t, s.addClauseKindWithJustificationAndDeleteHandler([]SMTLiteral{xs[1], xs[0].Negated()}, false, SMTClauseAuxLemma, ast.ASTHandle{}, nil, nil))
-			value, err := s.Assignment(xs[1])
+			astTestMust(t, s.addClauseKindWithJustificationAndDeleteHandler([]SMTLiteral{xs[1].Negated(), xs[0]}, false, SMTClauseAuxLemma, ast.ASTHandle{}, nil, nil))
+			value, err := s.Assignment(xs[0])
 			astTestMust(t, err)
 			if value != lbool.True || len(s.clauses) != 1 || !s.clauses[0].Binary {
 				t.Fatal("source binary-clause publication lost its immediate assignment", value, len(s.clauses))
 			}
-			reason, ok := s.booleanData[xs[1].Var()].Justification().Literal()
-			if !ok || reason != xs[0] {
+			reason, ok := s.booleanData[xs[0].Var()].Justification().Literal()
+			if !ok || reason != xs[1] {
 				t.Fatal("wrong source binary antecedent", reason, ok)
 			}
 			got, _ := s.Conflict()
-			if conflicting && (got != first || s.ConflictLiteral() != xs[0] || s.statistics.NumConflicts != count) {
+			if conflicting && (got != first || s.ConflictLiteral() != xs[1] || s.statistics.NumConflicts != count) {
 				t.Fatal("binary publication replaced the first conflict")
 			}
 		})

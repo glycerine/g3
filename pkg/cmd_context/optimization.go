@@ -43,6 +43,26 @@ func (c *Context) clearOptimizationBoxModels() error {
 	return err
 }
 
+// retireOptimizationBoxModels ends the box results' hand-out (clear_state)
+// while m_box_models stay alive until the next execute_box resets them.
+func (c *Context) retireOptimizationBoxModels() error {
+	c.optimizationBoxRetired = append(c.optimizationBoxRetired, c.optimizationBoxModels...)
+	c.optimizationBoxModels = nil
+	c.optimizationBoxValues = nil
+	c.optimizationBoxLabels = nil
+	c.optimizationBoxReasonUnknown = ""
+	return nil
+}
+
+// releaseRetiredOptimizationBoxModels is execute_box's m_box_models.reset().
+func (c *Context) releaseRetiredOptimizationBoxModels() error {
+	err := releaseOptimizationBoxModels(c.optimizationBoxRetired)
+	if err == nil {
+		c.optimizationBoxRetired = nil
+	}
+	return err
+}
+
 func cloneOptimizationBoxValues(source []opt.ObjectiveValue) []opt.ObjectiveValue {
 	result := make([]opt.ObjectiveValue, len(source))
 	for i := range source {
@@ -504,7 +524,7 @@ func (c *Context) runOptimize(assumptions []ast.ASTHandle, execute func(*opt.Ari
 func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation bool) (optimized *opt.ArithmeticResult, resultErr error) {
 	fresh := !continuation || !c.optimizationBoxActive
 	if fresh {
-		if err := c.clearOptimizationBoxModels(); err != nil {
+		if err := c.retireOptimizationBoxModels(); err != nil {
 			return nil, err
 		}
 		c.optimizationBoxNext = 0
@@ -549,7 +569,13 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 	c.optimizationBoxNext++
 	// The first call runs optimize(); execute_box computes every
 	// objective's model, and later calls hand them out in turn.
-	combined, err := c.runOptimize(assumptions, (*opt.ArithmeticSolver).ExecuteBox)
+	combined, err := c.runOptimize(assumptions, func(optimizer *opt.ArithmeticSolver) (*opt.ArithmeticResult, error) {
+		// execute_box: m_box_index = 1; m_box_models.reset().
+		if err := c.releaseRetiredOptimizationBoxModels(); err != nil {
+			return nil, err
+		}
+		return optimizer.ExecuteBox()
+	})
 	if err != nil {
 		if combined != nil {
 			err = errors.Join(err, combined.Close())

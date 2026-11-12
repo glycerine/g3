@@ -241,12 +241,27 @@ func (c *Context) releaseParetoInitialModel() error {
 
 func (c *Context) closeParetoBackend() error {
 	c.optimizationParetoActive = false
+	if optimizer := c.optimizationParetoOptimizer; optimizer != nil {
+		// optsmt's m_objs and m_lower_fmls stay with opt::context until
+		// import_scoped_state's m_optsmt.reset().
+		c.optimizationOptsmt = append(c.optimizationOptsmt, optimizer.DetachObjectiveTerms()...)
+		if err := optimizer.Close(); err != nil {
+			return err
+		}
+		c.optimizationParetoOptimizer = nil
+	}
 	if c.optimizationParetoBackend != nil {
 		if err := c.optimizationParetoBackend.Close(); err != nil {
 			return err
 		}
 		c.optimizationParetoBackend = nil
 	}
+	return c.releaseParetoPurification()
+}
+
+// releaseParetoPurification drops normalize's pareto objectives and their
+// purification (opt::context::reset_maxsmts with the objective state).
+func (c *Context) releaseParetoPurification() error {
 	if state := c.optimizationParetoPurification; state != nil {
 		if state.converter != nil {
 			if err := state.converter.DecRef(); err != nil {
@@ -267,7 +282,8 @@ func (c *Context) newParetoBackend(assumptions []ast.ASTHandle) (backend *smtcor
 	// init_solver built; take it over when this check created one.
 	var err error
 	if c.preparedOptimizer != nil {
-		backend = c.preparedOptimizer.DetachBackend()
+		c.optimizationParetoOptimizer, c.preparedOptimizer = c.preparedOptimizer, nil
+		backend = c.optimizationParetoOptimizer.DetachBackend()
 	}
 	if backend == nil {
 		backend, err = smtcore.NewOptimizationSMTSolver(c.manager, &c.params, c.logic, c.config)
@@ -291,6 +307,22 @@ func (c *Context) newParetoBackend(assumptions []ast.ASTHandle) (backend *smtcor
 				return nil, err
 			}
 			break
+		}
+	}
+	// optimize(): internalize() rewrites the arithmetic objectives
+	// (optsmt::add) before the hard constraints are asserted.
+	if optimizer := c.optimizationParetoOptimizer; optimizer != nil {
+		objectives := c.objectives
+		if state := c.optimizationParetoPurification; state != nil {
+			objectives = state.objectives
+		}
+		for i := range objectives {
+			if objectives[i].soft || objectives[i].bitVector {
+				continue
+			}
+			if err = optimizer.InternalizeObjective(objectives[i].expression, objectives[i].maximize); err != nil {
+				return nil, err
+			}
 		}
 	}
 	hard := make([]ast.ASTHandle, len(c.assertions))
@@ -358,12 +390,11 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 	}
 	if status == lbool.True && fresh {
 		// optimize(): after a sat initial check, optsmt::setup forces the
-		// base level with an empty scoped push, and execute_pareto's
-		// gia_pareto then runs its own check_sat.
-		if err = backend.Push(); err != nil {
-			return nil, err
-		}
-		if err = backend.Pop(1); err != nil {
+		// base level with an empty scoped push and adds the objectives to
+		// the arithmetic theory; update_lower() then makes each arithmetic
+		// objective's m_lower_fmls bound from m_model, and execute_pareto's
+		// gia_pareto runs its own check_sat.
+		if err = c.setupParetoOptsmt(backend); err != nil {
 			return nil, err
 		}
 		if status, err = backend.CheckSat(nil); err != nil {
@@ -484,9 +515,18 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 	if err = c.assertParetoFormula(backend, best, false); err != nil {
 		return nil, err
 	}
-	// execute_pareto's yield: m_model takes the pareto engine's model.
+	// execute_pareto's yield: m_model takes the pareto engine's model;
+	// update_bound(true) then update_bound(false) evaluate it.
 	if err = c.releaseParetoInitialModel(); err != nil {
 		return nil, err
+	}
+	if optimizer := c.optimizationParetoOptimizer; optimizer != nil {
+		if err = optimizer.UpdateLowerFrom(best); err != nil {
+			return nil, err
+		}
+		if err = optimizer.UpdateUpperFrom(best); err != nil {
+			return nil, err
+		}
 	}
 	values, err := c.evaluateParetoModel(best)
 	if err != nil {
@@ -529,4 +569,28 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 		}
 	}
 	return result, nil
+}
+
+// setupParetoOptsmt is optsmt::setup followed by optimize()'s
+// update_lower() for the pareto run.
+func (c *Context) setupParetoOptsmt(backend *smtcore.SMTSolver) error {
+	optimizer := c.optimizationParetoOptimizer
+	if optimizer == nil {
+		if err := backend.Push(); err != nil {
+			return err
+		}
+		return backend.Pop(1)
+	}
+	if err := optimizer.SetupOptsmt(); err != nil {
+		return err
+	}
+	for i := range c.objectives {
+		if c.objectives[i].soft || c.objectives[i].bitVector {
+			continue
+		}
+		if err := optimizer.AddObjective(c.objectives[i].expression, c.objectives[i].maximize); err != nil {
+			return err
+		}
+	}
+	return optimizer.UpdateLowerFrom(c.optimizationParetoInitialModel)
 }

@@ -788,6 +788,24 @@ func (g *SMTModelGenerator) FinalModel() (*model.Model, error) {
 	return result, nil
 }
 
+// FinalModelRetained is FinalModel for context::update_model: the proto
+// model stays alive (m_proto_model) and is handed to the caller.
+func (g *SMTModelGenerator) FinalModelRetained() (*model.Model, *protomodel.ProtoModel, error) {
+	if err := g.open(); err != nil {
+		return nil, nil, err
+	}
+	if g.model == nil {
+		return nil, nil, ast.ErrASTDomain
+	}
+	result, err := g.model.FinalModelRetained()
+	if err != nil {
+		return nil, nil, err
+	}
+	proto := g.model
+	g.model = nil
+	return result, proto, nil
+}
+
 func (g *SMTModelGenerator) Value(node *SMTEnode) (ast.ASTHandle, error) {
 	if err := g.open(); err != nil {
 		return ast.ASTHandle{}, err

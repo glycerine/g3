@@ -8,6 +8,7 @@ import (
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/math/simplex"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -46,6 +47,12 @@ func (s *SMTSolver) saveOptimizationModel(index uint32) error {
 	}
 	s.optimization.models[index] = md
 	return nil
+}
+
+// OptimizationObjectiveGE is opt_solver::mk_ge(var, val): false or true for
+// an infinite val, otherwise the theory's bound atom.
+func (s *SMTSolver) OptimizationObjectiveGE(index uint32, filter *tactic.FilterModelConverter, value simplex.Infinitesimal) (ast.ASTHandle, error) {
+	return s.optimizationObjectiveGE(index, filter, SMTArithmeticObjectiveValue{Finite: value})
 }
 
 func (s *SMTSolver) optimizationObjectiveGE(index uint32, filter *tactic.FilterModelConverter, value SMTArithmeticObjectiveValue) (ast.ASTHandle, error) {

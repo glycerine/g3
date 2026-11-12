@@ -253,27 +253,8 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 		}
 		return s.assignLiteral(kept[0])
 	}
-	firstWatch, secondWatch := 0, 1
-	if kind == SMTClauseLearned {
-		watch, err := s.selectLearnedWatchLiteral(kept)
-		if err != nil {
-			return err
-		}
-		kept[1], kept[watch] = kept[watch], kept[1]
-		secondWatch = watch
-	} else if kind == SMTClauseAuxLemma {
-		first, err := s.selectWatchLiteral(kept, 0)
-		if err != nil {
-			return err
-		}
-		kept[0], kept[first] = kept[first], kept[0]
-		second, err := s.selectWatchLiteral(kept, 1)
-		if err != nil {
-			return err
-		}
-		kept[1], kept[second] = kept[second], kept[1]
-		firstWatch, secondWatch = first, second
-	}
+	// mk_clause case 2 tries use_binary_clause_opt on the literals as
+	// simplified, before the default case selects watch literals.
 	// use_binary_clause_opt: a lemma (any kind but aux) is refused only at
 	// relevancy level 2 or more, and may be stored above scope 0; an aux
 	// clause only at scope 0. Both need base level 0 and atoms internalized
@@ -302,6 +283,27 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 		}
 		s.statistics.NumMkBinClause++
 		return nil
+	}
+	firstWatch, secondWatch := 0, 1
+	if kind == SMTClauseLearned {
+		watch, err := s.selectLearnedWatchLiteral(kept)
+		if err != nil {
+			return err
+		}
+		kept[1], kept[watch] = kept[watch], kept[1]
+		secondWatch = watch
+	} else if kind == SMTClauseAuxLemma {
+		first, err := s.selectWatchLiteral(kept, 0)
+		if err != nil {
+			return err
+		}
+		kept[0], kept[first] = kept[first], kept[0]
+		second, err := s.selectWatchLiteral(kept, 1)
+		if err != nil {
+			return err
+		}
+		kept[1], kept[second] = kept[second], kept[1]
+		firstWatch, secondWatch = first, second
 	}
 	clause, owner, err := s.makeClauseWithJustificationAndDeleteHandler(kept, kind, proof, justification, deleteHandler)
 	if err != nil {

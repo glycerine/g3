@@ -274,7 +274,7 @@ type smtSearchSession struct {
 // pass instead of re-exploring the conflicting branch.
 func (k *SMTKernel) search() (result lbool.LBool, resultErr error) {
 	// scoped_mk_model: m_proto_model = nullptr; m_model = nullptr.
-	if err := k.releaseProtoTrail(); err != nil {
+	if err := errors.Join(k.releaseUpdateProto(), k.releaseProtoTrail()); err != nil {
 		return lbool.Undef, err
 	}
 	if err := k.releaseStaleModel(); err != nil {

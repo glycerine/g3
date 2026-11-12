@@ -181,6 +181,20 @@ func (p *ProtoModel) Cleanup() error {
 }
 
 func (p *ProtoModel) FinalModel() (*model.Model, error) {
+	result, err := p.FinalModelRetained()
+	if err != nil {
+		return nil, err
+	}
+	if err = p.Close(); err != nil {
+		return nil, errors.Join(err, result.Close())
+	}
+	return result, nil
+}
+
+// FinalModelRetained is proto_model::mk_model without dropping the proto
+// model: context::update_model keeps m_proto_model after m_model is made.
+// The caller closes p later.
+func (p *ProtoModel) FinalModelRetained() (*model.Model, error) {
 	if err := p.open(); err != nil {
 		return nil, err
 	}
@@ -200,9 +214,6 @@ func (p *ProtoModel) FinalModel() (*model.Model, error) {
 		if err = result.RegisterUniverse(s, p.user.KnownUniverse(s)); err != nil {
 			return fail(err)
 		}
-	}
-	if err = p.Close(); err != nil {
-		return fail(err)
 	}
 	return result, nil
 }

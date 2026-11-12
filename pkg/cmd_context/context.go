@@ -136,18 +136,26 @@ type Context struct {
 	optimizationSimplify       tactic.Tactic
 	optimizationModelConverter tactic.ModelConverter
 	// preparedOptimizer is the backend init_solver creates before normalize.
-	preparedOptimizer              *opt.ArithmeticSolver
-	softObjectiveIndex             map[string]int
-	softObjectiveTrail             []int
-	optimizationBoxNext            int
-	optimizationBoxActive          bool
-	optimizationBoxModels          []*model.ModelCore
-	optimizationBoxValues          []opt.ObjectiveValue
-	optimizationBoxLabels          []usymbol.Symbol
-	optimizationBoxReasonUnknown   string
-	optimizationException          string
-	optimizationParetoActive       bool
-	optimizationParetoBackend      *smtcore.SMTSolver
+	preparedOptimizer     *opt.ArithmeticSolver
+	softObjectiveIndex    map[string]int
+	softObjectiveTrail    []int
+	optimizationBoxNext   int
+	optimizationBoxActive bool
+	optimizationBoxModels []*model.ModelCore
+	// optimizationBoxRetired holds m_box_models after the execution that
+	// produced them ended: opt::context resets them only when the next
+	// execute_box starts (or with the context).
+	optimizationBoxRetired       []*model.ModelCore
+	optimizationBoxValues        []opt.ObjectiveValue
+	optimizationBoxLabels        []usymbol.Symbol
+	optimizationBoxReasonUnknown string
+	optimizationException        string
+	optimizationParetoActive     bool
+	optimizationParetoBackend    *smtcore.SMTSolver
+	// optimizationParetoOptimizer is the pareto run's m_opt_solver/optsmt
+	// side: the internalized arithmetic objectives, their theory variables
+	// and m_lower_fmls bound atoms (its backend is optimizationParetoBackend).
+	optimizationParetoOptimizer    *opt.ArithmeticSolver
 	optimizationParetoPurification *paretoPurification
 	// optimizationParetoInitialModel is opt::context::m_model from
 	// optimize()'s initial check, held until execute_pareto's yield (or
@@ -1236,7 +1244,18 @@ func (c *Context) Pop(count uint32) error {
 	if err := c.solver.Pop(count); err != nil {
 		return err
 	}
-	// m_opt->pop(n): m_optsmt.reset() and m_hard_constraints.reset().
+	// m_opt->pop(n): clear_state (set_pareto(nullptr), m_model.reset()),
+	// reset_maxsmts, m_optsmt.reset() and m_hard_constraints.reset().
+	c.finishParetoSearch()
+	if err := c.releaseParetoInitialModel(); err != nil {
+		return err
+	}
+	if err := c.releaseParetoPurification(); err != nil {
+		return err
+	}
+	if c.optimizationParetoOptimizer != nil {
+		c.optimizationOptsmt = append(c.optimizationOptsmt, c.optimizationParetoOptimizer.DetachObjectiveTerms()...)
+	}
 	if err := c.releaseOptimizationTerms(); err != nil {
 		return err
 	}
@@ -1338,7 +1357,7 @@ func (c *Context) CheckSat(assumptions []ast.ASTHandle) (status lbool.LBool, err
 			return lbool.Undef, err
 		}
 	} else {
-		if err = c.clearOptimizationBoxModels(); err != nil {
+		if err = c.retireOptimizationBoxModels(); err != nil {
 			return lbool.Undef, err
 		}
 		c.progressError = nil
@@ -1546,6 +1565,9 @@ func (c *Context) resetManagerState() error {
 		return err
 	}
 	if err := c.clearOptimizationBoxModels(); err != nil {
+		return err
+	}
+	if err := c.releaseRetiredOptimizationBoxModels(); err != nil {
 		return err
 	}
 	if err := c.releaseOptimizationTerms(); err != nil {

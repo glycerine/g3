@@ -2063,3 +2063,21 @@ and probe matches the fork. Two deliberate differences remain:
 Leads: tseitin's imp lives as long as nlqsat's m_nftactic (g3 releases it per
 Apply); tseitin get_lit with a sign uses g3's simplifying mkNot where C++
 mk_lit calls m.mk_not.
+
+## Optimization leads after the pareto/box setup port (2026-11-12)
+
+Pareto now runs optimize()'s internalize, optsmt::setup, update_lower and
+update_bound; box uses optsmt::geometric_opt for the default engine. Open:
+- box_same_term_three_objectives (QF_IDL, random initial activity): z3
+  registers only the IDL theory, while g3's smtInstallRetainedSetup keeps
+  theory_seq, whose final_check (reduce_length_eq / branch_variable) draws
+  get_random_value twice more, shifting activities (trace differs at 193;
+  stdout matches).
+- box with softs and min/max under push/pop: a model value numeral dies
+  earlier in g3; in z3 it lives in optsmt::m_models (never cleared by
+  optsmt::reset) and/or the old opt_solver's m_models.
+- farkas/symba box engines keep g3's old pre-check structure.
+- lex update_bound ignores m_adjust_value.
+- An unbounded pareto frontier (assert-soft a plus (minimize x) with x
+  unbounded) enumerates forever in both z3 and g3; g3's trace matches z3's
+  prefix up to the timeout.

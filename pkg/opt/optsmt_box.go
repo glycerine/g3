@@ -59,6 +59,11 @@ func (s *ArithmeticSolver) CheckBox() (result *ArithmeticResult, resultErr error
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, s.backend.Pop(1)) }()
+	if s.optsmtEngine != "farkas" && s.optsmtEngine != "symba" {
+		// optsmt::box: geometric_opt runs inside the scoped push, starting
+		// from the m_lower/m_lower_fmls that update_lower left.
+		return s.geometricBox(result)
+	}
 	status, err := s.backend.CheckSat(nil)
 	if err != nil {
 		return nil, err
@@ -545,4 +550,334 @@ func (o *maxSMTASTOwner) take(ref ast.ASTRef) error {
 	}
 	o.refs = append(o.refs, ref)
 	return nil
+}
+
+// boxOrigin maps a box objective to its index in the solver that built the
+// box (optsmt's objective index for m_lower and m_lower_fmls).
+func (s *ArithmeticSolver) boxOrigin(k int) int {
+	if s.boxIndices == nil {
+		return k
+	}
+	return s.boxIndices[k]
+}
+
+// lowerFormula is m_lower_fmls[i]; optsmt::add initializes it to true.
+func (s *ArithmeticSolver) lowerFormula(i int) (ast.ASTHandle, error) {
+	if i < len(s.lowerFmls) && s.lowerFmls[i] != (ast.ASTRef{}) {
+		return s.manager.RefGet(s.lowerFmls[i])
+	}
+	return s.manager.MkTrue()
+}
+
+// setLowerFormula is m_lower_fmls[i] = f.
+func (s *ArithmeticSolver) setLowerFormula(i int, f ast.ASTHandle) error {
+	held, err := s.manager.NewRef(f)
+	if err != nil {
+		return err
+	}
+	for len(s.lowerFmls) <= i {
+		s.lowerFmls = append(s.lowerFmls, ast.ASTRef{})
+	}
+	if s.lowerFmls[i] != (ast.ASTRef{}) {
+		if err = s.manager.DelRef(&s.lowerFmls[i]); err != nil {
+			return errors.Join(err, s.manager.DelRef(&held))
+		}
+	}
+	s.lowerFmls[i] = held
+	return nil
+}
+
+// geometricBox is optsmt::geometric_opt for box(). lower is the entry copy
+// of m_lower that get_max_delta measures progress against.
+func (s *ArithmeticSolver) geometricBox(result *ArithmeticResult) (_ *ArithmeticResult, resultErr error) {
+	n := len(s.objectives)
+	lower := make([]simplex.Infinitesimal, n)
+	for k := range lower {
+		current := s.optLowerOf(s.boxOrigin(k))
+		lower[k] = current.Clone()
+	}
+	// expr_ref bound(m)
+	var bound ast.ASTRef
+	defer func() {
+		if bound != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, s.manager.DelRef(&bound))
+		}
+	}()
+	replaceBound := func(h ast.ASTHandle) error {
+		held, err := s.manager.NewRef(h)
+		if err != nil {
+			return err
+		}
+		if bound != (ast.ASTRef{}) {
+			if err = s.manager.DelRef(&bound); err != nil {
+				return errors.Join(err, s.manager.DelRef(&held))
+			}
+		}
+		bound = held
+		return nil
+	}
+	// optsmt::m_models: the opt_solver model taken when set_max accepts.
+	models := make([]*model.ModelCore, n)
+	defer func() {
+		for _, md := range models {
+			if md != nil {
+				resultErr = errors.Join(resultErr, md.DecRef())
+			}
+		}
+	}()
+	var delta big.Int
+	delta.SetInt64(1)
+	one := big.NewInt(1)
+	var steps, stepIncs, numScopes uint32
+	deltaIndex := 0
+	status := lbool.True
+	for {
+		canceled, err := s.manager.Canceled()
+		if err != nil {
+			return nil, err
+		}
+		if canceled {
+			break
+		}
+		status, err = s.backend.CheckSat(nil)
+		if err != nil {
+			return nil, err
+		}
+		if status == lbool.True {
+			if err = s.replaceModel(result); err != nil {
+				return nil, err
+			}
+			held, err := s.boxUpdateLower(models)
+			if err != nil {
+				return nil, err
+			}
+			// bound = update_lower(): the old bound goes after disj.
+			if bound != (ast.ASTRef{}) {
+				if err = s.manager.DelRef(&bound); err != nil {
+					return nil, errors.Join(err, s.manager.DelRef(&held))
+				}
+			}
+			bound = held
+			if !s.boxMaxDelta(lower) {
+				delta.SetInt64(1)
+			} else if steps > stepIncs {
+				delta.Lsh(&delta, 1)
+				stepIncs++
+				steps = 0
+			} else {
+				steps++
+			}
+			if delta.Cmp(one) > 0 {
+				if err = s.backend.Push(); err != nil {
+					return nil, err
+				}
+				numScopes++
+				// only try to improve delta_index.
+				i := s.boxOrigin(deltaIndex)
+				current := s.optLowerOf(i)
+				jump := current.Clone()
+				jump.Main.Add(&jump.Main, new(big.Rat).SetInt(&delta))
+				ge, err := s.backend.OptimizationObjectiveGE(s.objectives[deltaIndex].backendIndex, s.filter, jump)
+				if err != nil {
+					return nil, err
+				}
+				if err = replaceBound(ge); err != nil {
+					return nil, err
+				}
+			}
+			h, err := s.manager.RefGet(bound)
+			if err != nil {
+				return nil, err
+			}
+			if err = s.backend.Assert(h); err != nil {
+				return nil, err
+			}
+		} else if status == lbool.False && delta.Cmp(one) > 0 {
+			steps, stepIncs = 0, 0
+			delta.SetInt64(1)
+			numScopes--
+			if err = s.backend.Pop(1); err != nil {
+				return nil, err
+			}
+		} else {
+			break
+		}
+	}
+	if numScopes != 0 {
+		if err := s.backend.Pop(numScopes); err != nil {
+			return nil, err
+		}
+	}
+	canceled, err := s.manager.Canceled()
+	if err != nil {
+		return nil, err
+	}
+	if canceled || status == lbool.Undef {
+		result.Status = lbool.Undef
+		result.ReasonUnknown, err = s.backend.ReasonUnknown()
+		return result, err
+	}
+	// set the solution tight.
+	for k := range s.objectives {
+		i := s.boxOrigin(k)
+		s.setOptUpper(i, s.optLowerOf(i))
+	}
+	result.Status, result.Optimal = lbool.True, true
+	result.ObjectiveModels = make([]*model.ModelCore, n)
+	for k := range s.objectives {
+		md := models[k]
+		models[k] = nil
+		if md == nil {
+			// update_lower's initial bound came without an optsmt model;
+			// keep the opt_solver's saved one.
+			if md, err = s.backend.AcquireSavedObjectiveModel(s.objectives[k].backendIndex); err != nil {
+				return nil, err
+			}
+			if md == nil {
+				return nil, ast.ErrASTHandle
+			}
+		}
+		result.ObjectiveModels[k] = md
+		current := s.optLowerOf(s.boxOrigin(k))
+		value := smtcore.SMTArithmeticObjectiveValue{Finite: current.Clone()}
+		value.Unbounded = value.Finite.Infinity.Sign() > 0
+		result.Values[k].Arithmetic = s.orient(k, value)
+		if err = s.captureArithmeticModel(k, &result.Values[k], md); err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// boxMaxDelta is optsmt::get_max_delta: whether an integer objective's
+// finite m_lower moved past the entry value lower.
+func (s *ArithmeticSolver) boxMaxDelta(lower []simplex.Infinitesimal) bool {
+	var maxDelta simplex.Infinitesimal
+	for k := range s.objectives {
+		if !s.objectives[k].integer {
+			continue
+		}
+		current := s.optLowerOf(s.boxOrigin(k))
+		if current.Infinity.Sign() != 0 {
+			continue
+		}
+		var d simplex.Infinitesimal
+		d.Set(&current)
+		d.Sub(&lower[k])
+		if d.Cmp(&maxDelta) > 0 {
+			maxDelta = d
+		}
+	}
+	return maxDelta.Sign() > 0
+}
+
+// boxUpdateLower is optsmt::update_lower: maximize_objectives(disj), then
+// set_max(m_lower, get_objective_values(), disj); it returns mk_or(disj).
+func (s *ArithmeticSolver) boxUpdateLower(models []*model.ModelCore) (_ ast.ASTRef, resultErr error) {
+	n := len(s.objectives)
+	// expr_ref_vector disj(m)
+	disj := make([]ast.ASTRef, 0, n)
+	defer func() {
+		for i := range disj {
+			resultErr = errors.Join(resultErr, s.manager.DelRef(&disj[i]))
+		}
+	}()
+	values := make([]smtcore.SMTArithmeticObjectiveValue, n)
+	// opt_solver::maximize_objectives: one expr_ref blocker shared by
+	// every maximize_objective call.
+	err := func() (err error) {
+		var blocker ast.ASTRef
+		defer func() {
+			if blocker != (ast.ASTRef{}) {
+				err = errors.Join(err, s.manager.DelRef(&blocker))
+			}
+		}()
+		for k := range s.objectives {
+			if values[k], err = s.backend.MaximizeOptimizationObjectiveInto(s.objectives[k].backendIndex, s.filter, &blocker); err != nil {
+				return err
+			}
+			h, err := s.manager.RefGet(blocker)
+			if err != nil {
+				return err
+			}
+			ref, err := s.manager.NewRef(h)
+			if err != nil {
+				return err
+			}
+			disj = append(disj, ref)
+		}
+		return nil
+	}()
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	setDisj := func(k int, h ast.ASTHandle) error {
+		ref, err := s.manager.NewRef(h)
+		if err != nil {
+			return err
+		}
+		err = s.manager.DelRef(&disj[k])
+		disj[k] = ref
+		return err
+	}
+	for k := range s.objectives {
+		i := s.boxOrigin(k)
+		src := savedValue(values[k])
+		dst := s.optLowerOf(i)
+		if src.Cmp(&dst) >= 0 {
+			s.setOptLower(i, src)
+			md, err := s.backend.AcquireSavedObjectiveModel(s.objectives[k].backendIndex)
+			if err != nil {
+				return ast.ASTRef{}, err
+			}
+			if models[k] != nil {
+				err = models[k].DecRef()
+			}
+			models[k] = md
+			if err != nil {
+				return ast.ASTRef{}, err
+			}
+			h, err := s.manager.RefGet(disj[k])
+			if err != nil {
+				return ast.ASTRef{}, err
+			}
+			if err = s.setLowerFormula(i, h); err != nil {
+				return ast.ASTRef{}, err
+			}
+			if src.Infinity.Sign() > 0 {
+				falsity, err := s.manager.MkFalse()
+				if err != nil {
+					return ast.ASTRef{}, err
+				}
+				if err = s.setLowerFormula(i, falsity); err != nil {
+					return ast.ASTRef{}, err
+				}
+				if err = setDisj(k, falsity); err != nil {
+					return ast.ASTRef{}, err
+				}
+			}
+			continue
+		}
+		f, err := s.lowerFormula(i)
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		if !s.manager.IsTrue(f) {
+			if err = setDisj(k, f); err != nil {
+				return ast.ASTRef{}, err
+			}
+		}
+	}
+	args := make([]ast.ASTHandle, n)
+	for k := range disj {
+		if args[k], err = s.manager.RefGet(disj[k]); err != nil {
+			return ast.ASTRef{}, err
+		}
+	}
+	or, err := s.manager.MkOrArray(args)
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	// The returned expr_ref holds mk_or(disj) while disj goes away.
+	return s.manager.NewRef(or)
 }

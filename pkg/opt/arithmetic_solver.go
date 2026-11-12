@@ -107,9 +107,12 @@ type ArithmeticSolver struct {
 	optLowerSet []bool
 	// optUpper is optsmt::m_upper (internal orientation; +infinity until
 	// geometric_lex sets it tight).
-	optUpper            []simplex.Infinitesimal
-	optUpperSet         []bool
-	internalized        []internalizedObjective
+	optUpper     []simplex.Infinitesimal
+	optUpperSet  []bool
+	internalized []internalizedObjective
+	// boxIndices maps a box copy's objectives to the parent's indices
+	// (m_lower, m_lower_fmls); nil for the identity.
+	boxIndices          []int
 	manager             *ast.ASTManager
 	config              smtcore.SMTSolverConfig
 	optsmtEngine        string
@@ -1071,11 +1074,40 @@ func (s *ArithmeticSolver) UpdateLower() error {
 	return s.updateLowerFrom(s.initial.Model)
 }
 
-// updateLowerFrom is context::update_lower over m_model md.
-func (s *ArithmeticSolver) updateLowerFrom(md *model.ModelCore) (resultErr error) {
-	if md == nil {
+// UpdateLowerFrom is update_bound(true) over m_model md, as
+// execute_pareto's yield runs it on the pareto engine's model.
+func (s *ArithmeticSolver) UpdateLowerFrom(md *model.ModelCore) error {
+	if s == nil || s.backend == nil {
+		return ast.ErrASTHandle
+	}
+	return s.updateLowerFrom(md)
+}
+
+// ApplyObjectiveFilter is fix_model's m_fm(mdl, 0) step: it hides the
+// bound constants mk_ge registered with the filter.
+func (s *ArithmeticSolver) ApplyObjectiveFilter(ref *tactic.ModelRef) error {
+	if s == nil || s.filter == nil {
 		return nil
 	}
+	return s.filter.ApplyUnindexed(ref)
+}
+
+// updateLowerFrom is context::update_lower over m_model md.
+func (s *ArithmeticSolver) updateLowerFrom(md *model.ModelCore) error {
+	return s.updateBoundFrom(md, true)
+}
+
+// UpdateUpperFrom is update_bound(false) over m_model md.
+func (s *ArithmeticSolver) UpdateUpperFrom(md *model.ModelCore) error {
+	if s == nil || s.backend == nil {
+		return ast.ErrASTHandle
+	}
+	return s.updateBoundFrom(md, false)
+}
+
+// evalInto is m_model->eval(t, val): a model_evaluator lives for the one
+// call; its result replaces *val before the evaluator (and its cache) goes.
+func (s *ArithmeticSolver) evalInto(md *model.ModelCore, t ast.ASTHandle, val *ast.ASTRef) (resultErr error) {
 	evaluator, err := model.NewModelEvaluator(md, s.config.ModelEvaluator)
 	if err != nil {
 		if evaluator != nil {
@@ -1084,26 +1116,63 @@ func (s *ArithmeticSolver) updateLowerFrom(md *model.ModelCore) (resultErr error
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
+	ref, err := evaluator.EvaluateValue(t)
+	if err != nil {
+		return err
+	}
+	if *val != (ast.ASTRef{}) {
+		if err = s.manager.DelRef(val); err != nil {
+			return errors.Join(err, s.manager.DelRef(&ref))
+		}
+	}
+	*val = ref
+	return nil
+}
+
+// updateBoundFrom is context::update_bound(is_lower) over m_model md
+// (evaluation without model completion): arithmetic objectives update
+// optsmt's m_lower (with m_lower_fmls[idx] = mk_ge(idx, v)) or m_upper;
+// MaxSMT objectives evaluate their soft terms.
+func (s *ArithmeticSolver) updateBoundFrom(md *model.ModelCore, isLower bool) (resultErr error) {
+	if md == nil {
+		return nil
+	}
+	// expr_ref val(m)
+	var val ast.ASTRef
+	defer func() {
+		if val != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, s.manager.DelRef(&val))
+		}
+	}()
 	for i := range s.objectives {
 		objective := &s.objectives[i]
-		if objective.soft || objective.term == (ast.ASTRef{}) {
+		if objective.soft {
+			for _, ref := range objective.softTerms {
+				term, err := s.manager.RefGet(ref)
+				if err != nil {
+					return err
+				}
+				if err = s.evalInto(md, term, &val); err != nil {
+					return err
+				}
+			}
+			continue
+		}
+		if objective.term == (ast.ASTRef{}) {
 			continue
 		}
 		term, err := s.manager.RefGet(objective.term)
 		if err != nil {
 			return err
 		}
-		ref, err := evaluator.EvaluateValue(term)
+		if err = s.evalInto(md, term, &val); err != nil {
+			return err
+		}
+		h, err := s.manager.RefGet(val)
 		if err != nil {
 			return err
 		}
-		h, err := s.manager.RefGet(ref)
-		var text string
-		var matched bool
-		if err == nil {
-			text, _, matched, err = s.manager.ArithmeticNumeralText(h)
-		}
-		err = errors.Join(err, s.manager.DelRef(&ref))
+		text, _, matched, err := s.manager.ArithmeticNumeralText(h)
 		if err != nil {
 			return err
 		}
@@ -1117,13 +1186,17 @@ func (s *ArithmeticSolver) updateLowerFrom(md *model.ModelCore) (resultErr error
 		if !objective.maximize {
 			value.Neg(value)
 		}
-		lower := simplex.RationalInfinitesimal(value)
-		bound, err := s.backend.MakeObjectiveLowerBound(objective.backendIndex, s.filter, lower)
+		bound := simplex.RationalInfinitesimal(value)
+		if !isLower {
+			s.setOptUpper(i, bound)
+			continue
+		}
+		ge, err := s.backend.MakeObjectiveLowerBound(objective.backendIndex, s.filter, bound)
 		if err != nil {
 			return err
 		}
-		s.setOptLower(i, lower)
-		held, err := s.manager.NewRef(bound)
+		s.setOptLower(i, bound)
+		held, err := s.manager.NewRef(ge)
 		if err != nil {
 			return err
 		}

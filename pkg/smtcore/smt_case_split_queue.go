@@ -105,17 +105,7 @@ func (q *SMTActivityCaseSplitQueue) PrepareConflict() error {
 	if q.phaseSelection != 3 && q.phaseSelection != 4 {
 		return nil
 	}
-	start := 0
-	if q.state.scopeLevel != 0 {
-		if len(q.state.scopes) == 0 {
-			return ast.ErrASTDomain
-		}
-		start = q.state.scopes[len(q.state.scopes)-1].assignedLimit
-	}
-	for _, literal := range q.state.assignedLiterals[start:] {
-		q.state.booleanData[literal.Var()].PhaseAvailable = false
-	}
-	return nil
+	return q.state.forgetPhaseOfVarsInCurrentLevel()
 }
 
 func (q *SMTActivityCaseSplitQueue) occurrencePhase(variable int32) bool {

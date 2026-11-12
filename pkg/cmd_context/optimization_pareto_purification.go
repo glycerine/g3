@@ -96,8 +96,11 @@ func (c *Context) prepareParetoPurification() (resultErr error) {
 func (c *Context) filterParetoModel(raw *model.ModelCore) (_ *model.ModelCore, resultErr error) {
 	state := c.optimizationParetoPurification
 	filtered, err := state.purifier.FilterModel(raw)
-	if err != nil || state.converter == nil {
+	if err != nil {
 		return filtered, err
+	}
+	if state.converter == nil && c.optimizationParetoOptimizer == nil {
+		return filtered, nil
 	}
 	var reference tactic.ModelRef
 	if err = reference.Set(filtered); err != nil {
@@ -107,7 +110,13 @@ func (c *Context) filterParetoModel(raw *model.ModelCore) (_ *model.ModelCore, r
 	if err = filtered.DecRef(); err != nil {
 		return nil, err
 	}
-	if err = state.converter.ApplyModel(&reference, 0); err != nil {
+	if state.converter != nil {
+		if err = state.converter.ApplyModel(&reference, 0); err != nil {
+			return nil, err
+		}
+	}
+	// fix_model ends with m_fm(mdl, 0): mk_ge's bound constants.
+	if err = c.optimizationParetoOptimizer.ApplyObjectiveFilter(&reference); err != nil {
 		return nil, err
 	}
 	output, err := reference.Get()

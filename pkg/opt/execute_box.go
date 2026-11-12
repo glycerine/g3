@@ -5,6 +5,9 @@ package opt
 import (
 	"errors"
 
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/math/simplex"
+
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
@@ -38,8 +41,12 @@ func (s *ArithmeticSolver) ExecuteBox() (result *ArithmeticResult, resultErr err
 	}
 	// lbool r = m_optsmt.box();
 	if len(arith) != 0 {
+		// The box copy shares optsmt's m_lower, m_upper and m_lower_fmls,
+		// indexed by the parent's objectives.
+		s.sizeOptsmtBounds()
 		box := *s
 		box.objectives = make([]arithmeticObjective, 0, len(arith))
+		box.boxIndices = arith
 		for _, i := range arith {
 			box.objectives = append(box.objectives, s.objectives[i])
 		}
@@ -108,4 +115,20 @@ func (s *ArithmeticSolver) ExecuteBox() (result *ArithmeticResult, resultErr err
 		result.ModelFiltered = !s.rawModels
 	}
 	return result, nil
+}
+
+// sizeOptsmtBounds gives m_lower, m_upper and m_lower_fmls an entry per
+// objective so a box copy updates the same storage.
+func (s *ArithmeticSolver) sizeOptsmtBounds() {
+	for len(s.optLower) < len(s.objectives) {
+		s.optLower = append(s.optLower, simplex.Infinitesimal{})
+		s.optLowerSet = append(s.optLowerSet, false)
+	}
+	for len(s.optUpper) < len(s.objectives) {
+		s.optUpper = append(s.optUpper, simplex.Infinitesimal{})
+		s.optUpperSet = append(s.optUpperSet, false)
+	}
+	for len(s.lowerFmls) < len(s.objectives) {
+		s.lowerFmls = append(s.lowerFmls, ast.ASTRef{})
+	}
 }

@@ -122,13 +122,14 @@ func (c *MaximizeBVSharingConfiguration) restoreEntries(limit int) error {
 		i := len(c.entries) - 1
 		e := &c.entries[i]
 		delete(c.cache, e.key)
-		if e.secondRef != (ast.ASTRef{}) {
-			if x := c.manager.DelRef(&e.secondRef); x != nil {
+		// restore_entries: m.dec_ref(e->m_arg1), then m.dec_ref(e->m_arg2).
+		if e.firstRef != (ast.ASTRef{}) {
+			if x := c.manager.DelRef(&e.firstRef); x != nil {
 				return x
 			}
 		}
-		if e.firstRef != (ast.ASTRef{}) {
-			if x := c.manager.DelRef(&e.firstRef); x != nil {
+		if e.secondRef != (ast.ASTRef{}) {
+			if x := c.manager.DelRef(&e.secondRef); x != nil {
 				return x
 			}
 		}

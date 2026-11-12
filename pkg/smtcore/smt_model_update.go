@@ -46,7 +46,9 @@ func (k *SMTKernel) UpdateModel(refinalize bool) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	generated, err := k.finalizeGeneratedModel(generator)
+	// update_model: m_model = m_proto_model->mk_model(), and m_proto_model
+	// stays.
+	generated, err := k.finalizeGeneratedModelKeep(generator, true)
 	if err != nil {
 		return false, err
 	}

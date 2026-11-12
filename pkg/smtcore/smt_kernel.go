@@ -16,6 +16,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/ast/rewriter/bit_blaster"
 	"github.com/glycerine/g3/pkg/model"
+	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -79,6 +80,10 @@ type SMTKernel struct {
 	// no longer the result, but held until the next mk_proto_model replaces
 	// it (or the context is destroyed).
 	staleModel *model.Model
+	// updateProto is the m_proto_model an update_model call left alive; it
+	// goes when the next mk_proto_model replaces it, when a search's
+	// scoped_mk_model clears it, or with the context.
+	updateProto *protomodel.ProtoModel
 	// generatorPins is model_generator::m_asts: the values a model
 	// generation pinned stay alive until the next mk_proto_model resets the
 	// generator (or the context is destroyed), and are released forward.
@@ -511,17 +516,25 @@ func (k *SMTKernel) buildCandidateModelGenerator() (*SMTModelGenerator, error) {
 	if err := k.releaseGeneratorPins(); err != nil {
 		return nil, err
 	}
-	if err := k.releaseProtoTrail(); err != nil {
-		return nil, err
+	// A proto model left by an earlier update_model (scoped_mk_model drops
+	// the search's own) stays m_proto_model until the new one replaces it.
+	previousTrail := k.protoTrail
+	k.protoTrail = nil
+	releasePrevious := func() (result error) {
+		for i := range previousTrail {
+			result = errors.Join(result, k.manager.DelRef(&previousTrail[i]))
+		}
+		previousTrail = nil
+		return result
 	}
 	generator, err := NewSMTModelGenerator(k.manager)
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, releasePrevious())
 	}
 	generator.pinSink = &k.generatorPins
 	generator.trailSink = &k.protoTrail
 	fail := func(cause error) (*SMTModelGenerator, error) {
-		return nil, errors.Join(cause, generator.Close())
+		return nil, errors.Join(cause, generator.Close(), releasePrevious())
 	}
 	if err = generator.SetContext(k.checker); err != nil {
 		return fail(err)
@@ -534,6 +547,11 @@ func (k *SMTKernel) buildCandidateModelGenerator() (*SMTModelGenerator, error) {
 		return fail(fmt.Errorf("build state model values: %w", err))
 	}
 	if err = generator.registerAssertedMacros(k.assertedMacros); err != nil {
+		return fail(err)
+	}
+	// m_proto_model = m_model_generator->mk_model(): the previous proto
+	// model goes now.
+	if err = errors.Join(k.releaseUpdateProto(), releasePrevious()); err != nil {
 		return fail(err)
 	}
 	if manager := k.internalizer.quantifierManager; manager != nil && manager.modelFinder != nil {
@@ -1414,6 +1432,9 @@ func (k *SMTKernel) releaseContextModels() error {
 	if err := k.releaseStaleModel(); err != nil {
 		return err
 	}
+	if err := k.releaseUpdateProto(); err != nil {
+		return err
+	}
 	return k.releaseProtoTrail()
 }
 
@@ -1453,9 +1474,39 @@ func (k *SMTKernel) releaseStaleModel() error {
 
 // finalizeGeneratedModel consumes the generator and returns one model
 // reference for the kernel, without changing the currently published model.
+// releaseUpdateProto drops the proto model update_model kept.
+func (k *SMTKernel) releaseUpdateProto() error {
+	if k.updateProto == nil {
+		return nil
+	}
+	proto := k.updateProto
+	k.updateProto = nil
+	return proto.Close()
+}
+
 func (k *SMTKernel) finalizeGeneratedModel(generator *SMTModelGenerator) (*model.Model, error) {
+	return k.finalizeGeneratedModelKeep(generator, false)
+}
+
+// finalizeGeneratedModelKeep is finalizeGeneratedModel; with keep, the
+// proto model stays m_proto_model (context::update_model).
+func (k *SMTKernel) finalizeGeneratedModelKeep(generator *SMTModelGenerator, keep bool) (*model.Model, error) {
 	fail := func(cause error) (*model.Model, error) { return nil, errors.Join(cause, generator.Close()) }
-	generated, err := generator.FinalModel()
+	var generated *model.Model
+	var err error
+	if keep {
+		var proto *protomodel.ProtoModel
+		generated, proto, err = generator.FinalModelRetained()
+		if err != nil {
+			return fail(err)
+		}
+		if err = k.releaseUpdateProto(); err != nil {
+			return nil, errors.Join(err, proto.Close(), generated.Close(), generator.Close())
+		}
+		k.updateProto = proto
+	} else {
+		generated, err = generator.FinalModel()
+	}
 	if err != nil {
 		return fail(err)
 	}

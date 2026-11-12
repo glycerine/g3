@@ -140,6 +140,14 @@ func (k *SMTKernel) resolveCheckConflict() (result lbool.LBool, resultErr error)
 	if !found {
 		return lbool.Undef, ast.ErrASTDomain
 	}
+	// resolve_conflict: PS_CACHING_CONSERVATIVE(2) forget the phases
+	// assigned in the current level before resolving (smt_params default
+	// phase_selection is 3).
+	if k.smtParams == nil || k.smtParams.state.PhaseSelection == 3 || k.smtParams.state.PhaseSelection == 4 {
+		if err := k.internalizer.forgetPhaseOfVarsInCurrentLevel(); err != nil {
+			return lbool.Undef, err
+		}
+	}
 	resolver, err := k.contextResolver()
 	if err != nil {
 		return lbool.Undef, err
@@ -168,4 +176,19 @@ func (k *SMTKernel) resolveCheckConflict() (result lbool.LBool, resultErr error)
 		return lbool.Undef, err
 	}
 	return lbool.False, nil
+}
+
+// forgetPhaseOfVarsInCurrentLevel is context::forget_phase_of_vars_in_current_level.
+func (s *SMTInternalizerState) forgetPhaseOfVarsInCurrentLevel() error {
+	start := 0
+	if s.scopeLevel != 0 {
+		if len(s.scopes) == 0 {
+			return ast.ErrASTDomain
+		}
+		start = s.scopes[len(s.scopes)-1].assignedLimit
+	}
+	for _, literal := range s.assignedLiterals[start:] {
+		s.booleanData[literal.Var()].PhaseAvailable = false
+	}
+	return nil
 }

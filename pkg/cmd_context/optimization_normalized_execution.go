@@ -283,7 +283,7 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	if boxContinuation {
 		optimized, err = c.checkOptimizeBox(assumptions, true)
 	} else if priority == "pareto" && len(c.objectives) > 1 {
-		if err = c.clearOptimizationBoxModels(); err != nil {
+		if err = c.retireOptimizationBoxModels(); err != nil {
 			return nil, err
 		}
 		c.optimizationBoxActive = false
@@ -296,7 +296,7 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	} else if priority == "box" && len(c.objectives) > 1 {
 		optimized, err = c.checkOptimizeBox(assumptions, continuation)
 	} else {
-		if err = c.clearOptimizationBoxModels(); err != nil {
+		if err = c.retireOptimizationBoxModels(); err != nil {
 			return nil, err
 		}
 		c.optimizationBoxActive = false
