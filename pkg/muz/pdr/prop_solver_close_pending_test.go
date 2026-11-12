@@ -30,9 +30,9 @@ func TestPropSolverClosePreservesCoreAndFrameRootsDuringNativeRefusal(t *testing
 		if active && !callback {
 			callback = true
 			core := solver.coreReferences[0]
-			frame := solver.references[0]
+			frame := solver.negativeRefs[0]
 			closeErr = solver.Close()
-			if !errors.Is(closeErr, ast.ErrASTPending) || !solver.closing || solver.closed || solver.manager == nil || len(solver.coreReferences) != 1 || solver.coreReferences[0] != core || len(solver.references) != 1 || solver.references[0] != frame {
+			if !errors.Is(closeErr, ast.ErrASTPending) || !solver.closing || solver.closed || solver.manager == nil || len(solver.coreReferences) != 1 || solver.coreReferences[0] != core || len(solver.negativeRefs) != 1 || solver.negativeRefs[0] != frame {
 				t.Fatalf("refused proposition-solver cleanup lost an AST owner: %v", closeErr)
 			}
 			if _, err := solver.UseFarkas(); !errors.Is(err, ast.ErrASTPending) {
@@ -61,7 +61,7 @@ func TestPropSolverClosePreservesCoreAndFrameRootsDuringNativeRefusal(t *testing
 	must(err)
 	contexts := &SMTContextManager{active: 1}
 	context := &SMTContext{parent: contexts, solver: &smtcore.SMTSolver{}}
-	solver = &PropSolver{manager: manager, contexts: contexts, context: context, coreReferences: []ast.ASTRef{core}, references: []ast.ASTRef{frame}}
+	solver = &PropSolver{manager: manager, contexts: contexts, context: context, coreReferences: []ast.ASTRef{core}, negativeRefs: []ast.ASTRef{frame}}
 
 	value, err := numbers.NewValue()
 	must(err)
@@ -72,13 +72,13 @@ func TestPropSolverClosePreservesCoreAndFrameRootsDuringNativeRefusal(t *testing
 	_, body := manager.ArithmeticNumeralWithInvocation(&value, false, &invocation)
 	active = false
 	must(runtime.SetMaxCount(0))
-	if body == nil || !callback || !errors.Is(closeErr, ast.ErrASTPending) || !context.closed || contexts.active != 0 || len(solver.coreReferences) != 1 || len(solver.references) != 1 {
+	if body == nil || !callback || !errors.Is(closeErr, ast.ErrASTPending) || context.closed || len(solver.coreReferences) != 1 || len(solver.negativeRefs) != 1 {
 		t.Fatal("native guard did not refuse proposition-solver cleanup", body, callback, closeErr)
 	}
 	must(manager.CleanupArithmeticNumeralInvocation(&invocation))
 	must(solver.Close())
 	must(solver.Close())
-	if !solver.closed || solver.closing || solver.manager != nil || solver.contexts != nil || solver.coreReferences != nil || solver.references != nil {
+	if !solver.closed || solver.closing || solver.manager != nil || solver.contexts != nil || solver.coreReferences != nil || solver.negativeRefs != nil || !context.closed || contexts.active != 0 {
 		t.Fatal("proposition-solver cleanup retry did not finish")
 	}
 

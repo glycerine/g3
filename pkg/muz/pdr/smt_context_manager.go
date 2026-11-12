@@ -253,7 +253,8 @@ func (m *SMTContextManager) resetSolvers(preserveStatistics bool) (result error)
 	if m.active != 0 {
 		return fmt.Errorf("%w: %d contexts remain active", ErrSMTContextOwner, m.active)
 	}
-	for index := len(m.solvers) - 1; index >= 0; index-- {
+	// ~smt_context_manager deletes m_contexts front to back.
+	for index := 0; index < len(m.solvers); index++ {
 		solver := m.solvers[index]
 		if solver == nil {
 			continue
@@ -285,7 +286,8 @@ func (m *SMTContextManager) resetSolvers(preserveStatistics bool) (result error)
 			delete(m.retiring, solver)
 		}
 	}
-	for index := len(m.predicates) - 1; index >= 0; index-- {
+	// m_predicate_list (app_ref_vector) releases front to back.
+	for index := 0; index < len(m.predicates); index++ {
 		if m.predicates[index] != (ast.ASTRef{}) {
 			result = errors.Join(result, m.manager.DelRef(&m.predicates[index]))
 		}

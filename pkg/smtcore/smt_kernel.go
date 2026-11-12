@@ -1677,12 +1677,6 @@ func (k *SMTKernel) Close() error {
 	if err := k.clearUnsatCore(); err != nil {
 		return err
 	}
-	if k.bvSharing != nil {
-		if err := k.bvSharing.Close(); err != nil {
-			return err
-		}
-		k.bvSharing = nil
-	}
 	// ~context runs flush() (undo_trail_stack(0) releases the enodes and
 	// Boolean variables) before the members die in reverse declaration
 	// order: m_unsat_proof and m_conflict_resolution go first, long before
@@ -1745,6 +1739,14 @@ func (k *SMTKernel) Close() error {
 			return err
 		}
 		k.patternInference = nil
+	}
+	// m_bv_sharing is declared after the macro finder and before the
+	// simplify_fmls members, so it dies between them.
+	if k.bvSharing != nil {
+		if err := k.bvSharing.Close(); err != nil {
+			return err
+		}
+		k.bvSharing = nil
 	}
 	if k.assertedMacros != nil {
 		if err := k.assertedMacros.Close(); err != nil {

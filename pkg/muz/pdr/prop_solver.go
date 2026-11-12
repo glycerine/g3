@@ -31,17 +31,22 @@ type PropCheckResult struct {
 // expansion terms remain valid until the next check or Close. A nonnil model
 // is an owning model reference and must be released by the caller.
 type PropSolver struct {
-	manager        *ast.ASTManager
-	contexts       *SMTContextManager
-	context        *SMTContext
-	delayScope     *SMTDelayScope
-	name           string
-	levelPositive  []ast.ASTHandle
-	levelNegative  []ast.ASTHandle
-	levelAtoms     map[ast.ASTHandle]bool
-	proxies        []ast.ASTHandle
-	auxiliary      map[ast.ASTHandle]bool
-	references     []ast.ASTRef
+	manager       *ast.ASTManager
+	contexts      *SMTContextManager
+	context       *SMTContext
+	delayScope    *SMTDelayScope
+	name          string
+	levelPositive []ast.ASTHandle
+	levelNegative []ast.ASTHandle
+	levelAtoms    map[ast.ASTHandle]bool
+	proxies       []ast.ASTHandle
+	auxiliary     map[ast.ASTHandle]bool
+	// m_pos_level_atoms, m_neg_level_atoms and m_proxies own their atoms;
+	// ~prop_solver destroys m_proxies, then the negative and positive level
+	// atoms (each front to back), and finally m_ctx.
+	positiveRefs   []ast.ASTRef
+	negativeRefs   []ast.ASTRef
+	proxyRefs      []ast.ASTRef
 	coreReferences []ast.ASTRef
 	useFarkas      bool
 	subsetCore     bool
@@ -137,12 +142,12 @@ func (p *PropSolver) SetSubsetBasedCore(enabled bool) error {
 	return nil
 }
 
-func (p *PropSolver) pin(handle ast.ASTHandle) error {
+func (p *PropSolver) pin(vector *[]ast.ASTRef, handle ast.ASTHandle) error {
 	reference, err := p.manager.NewRef(handle)
 	if err != nil {
 		return err
 	}
-	p.references = append(p.references, reference)
+	*vector = append(*vector, reference)
 	return nil
 }
 
@@ -156,14 +161,14 @@ func (p *PropSolver) addLevel() error {
 	if err != nil {
 		return err
 	}
-	if err = p.pin(positive); err != nil {
+	if err = p.pin(&p.positiveRefs, positive); err != nil {
 		return err
 	}
 	negative, err := p.manager.MkNot(positive)
 	if err != nil {
 		return err
 	}
-	if err = p.pin(negative); err != nil {
+	if err = p.pin(&p.negativeRefs, negative); err != nil {
 		return err
 	}
 	declaration, err := p.manager.GetDecl(positive)
@@ -289,7 +294,7 @@ func (p *PropSolver) proxy(index uint32) (ast.ASTHandle, error) {
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if err = p.pin(proxy); err != nil {
+	if err = p.pin(&p.proxyRefs, proxy); err != nil {
 		return ast.ASTHandle{}, err
 	}
 	declaration, err := p.manager.GetDecl(proxy)
@@ -1131,31 +1136,29 @@ func (p *PropSolver) Close() (result error) {
 	if result = p.finishDelay(); result != nil {
 		return result
 	}
+	if result = p.clearCoreReferences(); result != nil {
+		return result
+	}
+	for _, vector := range []*[]ast.ASTRef{&p.proxyRefs, &p.negativeRefs, &p.positiveRefs} {
+		for len(*vector) != 0 {
+			result = p.manager.DelRef(&(*vector)[0])
+			if (*vector)[0] == (ast.ASTRef{}) {
+				*vector = (*vector)[1:]
+			}
+			if result != nil {
+				return result
+			}
+		}
+	}
 	if p.context != nil {
 		if result = p.context.Close(); result != nil {
 			return result
 		}
 	}
-	if result = p.clearCoreReferences(); result != nil {
-		return result
-	}
-	for len(p.references) != 0 {
-		index := len(p.references) - 1
-		result = p.manager.DelRef(&p.references[index])
-		if p.references[index] == (ast.ASTRef{}) {
-			p.references = p.references[:index]
-		}
-		if result != nil {
-			return result
-		}
-		if len(p.references) != index {
-			return ast.ErrASTPending
-		}
-	}
 	p.context = nil
 	p.manager = nil
 	p.contexts = nil
-	p.references = nil
+	p.positiveRefs, p.negativeRefs, p.proxyRefs = nil, nil, nil
 	p.closing = false
 	p.closed = true
 	return nil
