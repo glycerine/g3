@@ -2087,7 +2087,13 @@ and probe matches the fork. Two deliberate differences remain:
 DONE (2026-11-12): tseitin get_lit's sign case uses a plain MkNot
 (mk_lit's m.mk_not); inv keeps the simplifying mkNot. No vector exposed it
 (tseitin's own rewriter folds true/false first). Lead: tseitin's imp lives
-as long as nlqsat's m_nftactic (g3 releases it per Apply).
+as long as nlqsat's m_nftactic (g3 releases it per Apply); no vector or
+combinator probe ((then tseitin-cnf simplify ...)) shows it.
+FIXED (2026-11-12): tseitin-cnf failed on any goal containing and
+("operator not supported"): the or_else fallback's simplifier was built
+with a params value freed when the factory returned, so elim_and never
+applied. It is now using_params(simplify(p), simp_p) as in z3. Vector
+tseitin_cnf_and_fallback.
 
 ## Optimization leads after the pareto/box setup port (2026-11-12)
 

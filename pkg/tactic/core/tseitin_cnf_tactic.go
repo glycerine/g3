@@ -133,7 +133,14 @@ func MakeTseitinCNFTactic(m *ast.ASTManager, c *uparams.ParamsContext, g *uparam
 	if err != nil {
 		return nil, err
 	}
-	simplify := hold(MakeSimplifyTactic(m, c, g, &settings))
+	// using_params(mk_simplify_tactic(m, p), simp_p): the simplifier is
+	// built with p and receives simp_p (elim_and, blast_distinct) from the
+	// using_params wrapper when it runs.
+	inner := hold(MakeSimplifyTactic(m, c, g, p))
+	if err != nil {
+		return nil, err
+	}
+	simplify := hold(tactic.NewUsingParamsTactic(c, inner, &settings))
 	if err != nil {
 		return nil, err
 	}
