@@ -61,12 +61,16 @@ func (e *RulePropertyError) Error() string {
 // RuleProperties borrows the rules of the latest collected set.
 // RuleManager supplies the source predicate classifier and AST manager.
 type RuleProperties struct {
-	self          *RuleProperties
-	rules         *RuleManager
-	manager       *ast.ASTManager
-	quantifier    *Rule
-	uninterpreted *Rule
-	uninterpDecl  ast.ASTHandle
+	self    *RuleProperties
+	rules   *RuleManager
+	manager *ast.ASTManager
+	// quantifiers and uninterpFuns are m_quantifiers and m_uninterp_funs
+	// (obj_map<quantifier, rule*> and obj_map<func_decl, rule*>): the check
+	// reports the entry at begin(), so table order is observable. Num is an
+	// index into collected, the rules of the latest collected set.
+	quantifiers   *ast.ObjMap
+	uninterpFuns  *ast.ObjMap
+	collected     []*Rule
 	nested        []*Rule
 	negative      *Rule
 	infinite      *Rule
@@ -91,7 +95,7 @@ func NewRuleProperties(rules *RuleManager) (*RuleProperties, error) {
 	if err := rules.open(); err != nil {
 		return nil, err
 	}
-	p := &RuleProperties{rules: rules, manager: rules.manager}
+	p := &RuleProperties{rules: rules, manager: rules.manager, quantifiers: ast.NewObjMap(rules.manager), uninterpFuns: ast.NewObjMap(rules.manager)}
 	p.self = p
 	return p, nil
 }
@@ -104,9 +108,13 @@ func (p *RuleProperties) open() error {
 }
 
 func (p *RuleProperties) clearState() {
-	p.quantifier = nil
-	p.uninterpreted = nil
-	p.uninterpDecl = ast.ASTHandle{}
+	if p.quantifiers != nil {
+		p.quantifiers.Reset()
+	}
+	if p.uninterpFuns != nil {
+		p.uninterpFuns.Reset()
+	}
+	p.collected = nil
 	p.nested = nil
 	p.negative = nil
 	p.infinite = nil
@@ -126,117 +134,171 @@ func (p *RuleProperties) appendNested(rule *Rule) {
 	}
 }
 
-func (p *RuleProperties) collectExpression(rule *Rule, root ast.ASTHandle, visited map[ast.ASTHandle]bool) error {
-	stack := []ast.ASTHandle{root}
+// collectExpression is for_each_expr_core<rule_properties, expr_sparse_mark,
+// MarkAll=true, IgnorePatterns=false>: a post-order walk whose visited mark
+// is shared by every rule of the collected set.
+func (p *RuleProperties) collectExpression(ruleIndex int, root ast.ASTHandle, visited map[ast.ASTHandle]bool) error {
+	if visited[root] {
+		return nil
+	}
+	visited[root] = true
+	type frame struct {
+		expr ast.ASTHandle
+		next uint32
+	}
+	stack := []frame{{expr: root}}
 	for len(stack) != 0 {
-		i := len(stack) - 1
-		expression := stack[i]
-		stack = stack[:i]
-		if visited[expression] {
-			continue
-		}
-		visited[expression] = true
-		kind, err := p.manager.GetKind(expression)
+		top := len(stack) - 1
+		current := stack[top].expr
+		kind, err := p.manager.GetKind(current)
 		if err != nil {
 			return err
 		}
+		var children uint32
 		switch kind {
 		case ast.ASTVar:
+			stack = stack[:top]
 			continue
-		case ast.ASTQuantifier:
-			if p.quantifier == nil {
-				p.quantifier = rule
-			}
-			body, e := p.manager.GetQuantifierBody(expression)
-			if e != nil {
-				return e
-			}
-			stack = append(stack, body)
-			patterns, e := p.manager.GetNumPatterns(expression)
-			if e != nil {
-				return e
-			}
-			for j := uint32(0); j < patterns; j++ {
-				child, x := p.manager.GetPattern(expression, j)
-				if x != nil {
-					return x
-				}
-				stack = append(stack, child)
-			}
-			noPatterns, e := p.manager.GetNumNoPatterns(expression)
-			if e != nil {
-				return e
-			}
-			for j := uint32(0); j < noPatterns; j++ {
-				child, x := p.manager.GetNoPattern(expression, j)
-				if x != nil {
-					return x
-				}
-				stack = append(stack, child)
-			}
 		case ast.ASTApp:
-			predicate, e := p.rules.isPredicate(expression)
+			if children, err = p.manager.GetNumArgs(current); err != nil {
+				return err
+			}
+		case ast.ASTQuantifier:
+			patterns, e := p.manager.GetNumPatterns(current)
 			if e != nil {
 				return e
 			}
-			declaration, e := p.manager.GetDecl(expression)
+			noPatterns, e := p.manager.GetNumNoPatterns(current)
 			if e != nil {
 				return e
 			}
-			if predicate {
-				p.appendNested(rule)
-			} else {
-				family, x := p.manager.GetFamilyID(declaration)
-				if x != nil {
-					return x
-				}
-				if family == ast.NullFamilyID {
-					rangeSort, x := p.manager.GetRange(declaration)
-					if x != nil {
-						return x
-					}
-					isRuleSort, x := p.manager.IsDatalogRuleSort(rangeSort)
-					if x != nil {
-						return x
-					}
-					if !isRuleSort && p.uninterpreted == nil {
-						p.uninterpreted, p.uninterpDecl = rule, declaration
-					}
-				}
-				if datatypeFamily, x := p.manager.DatatypeFamilyID(); x == nil && family == datatypeFamily {
-					declKind, x := p.manager.GetDeclKind(declaration)
-					if x != nil {
-						return x
-					}
-					if declKind == ast.ASTDatatypeAccessor {
-						argument, x := p.manager.GetArg(expression, 0)
-						if x != nil {
-							return x
-						}
-						sort, x := p.manager.GetSort(argument)
-						if x != nil {
-							return x
-						}
-						constructors, x := p.manager.DatatypeConstructors(sort)
-						if x != nil {
-							return x
-						}
-						if len(constructors) > 1 && p.uninterpreted == nil {
-							p.uninterpreted, p.uninterpDecl = rule, declaration
-						}
-					}
-				}
-			}
-			arguments, e := p.manager.GetNumArgs(expression)
+			children = 1 + patterns + noPatterns
+		default:
+			return ErrRuleProperties
+		}
+		pushed := false
+		for !pushed && stack[top].next < children {
+			index := stack[top].next
+			stack[top].next++
+			child, e := p.quantifierOrAppChild(current, kind, index)
 			if e != nil {
 				return e
 			}
-			for j := arguments; j > 0; j-- {
-				child, x := p.manager.GetArg(expression, j-1)
-				if x != nil {
-					return x
+			if visited[child] {
+				continue
+			}
+			visited[child] = true
+			childKind, e := p.manager.GetKind(child)
+			if e != nil {
+				return e
+			}
+			switch childKind {
+			case ast.ASTVar:
+			case ast.ASTApp:
+				if kind == ast.ASTApp {
+					n, x := p.manager.GetNumArgs(child)
+					if x != nil {
+						return x
+					}
+					if n == 0 {
+						if x = p.collectApp(ruleIndex, child); x != nil {
+							return x
+						}
+						continue
+					}
 				}
-				stack = append(stack, child)
+				stack = append(stack, frame{expr: child})
+				pushed = true
+			default:
+				stack = append(stack, frame{expr: child})
+				pushed = true
+			}
+		}
+		if pushed {
+			continue
+		}
+		stack = stack[:top]
+		if kind == ast.ASTApp {
+			err = p.collectApp(ruleIndex, current)
+		} else {
+			err = p.quantifiers.InsertNum(current, uint64(ruleIndex))
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p *RuleProperties) quantifierOrAppChild(e ast.ASTHandle, kind ast.ASTKind, index uint32) (ast.ASTHandle, error) {
+	if kind == ast.ASTApp {
+		return p.manager.GetArg(e, index)
+	}
+	if index == 0 {
+		return p.manager.GetQuantifierBody(e)
+	}
+	patterns, err := p.manager.GetNumPatterns(e)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if index <= patterns {
+		return p.manager.GetPattern(e, index-1)
+	}
+	return p.manager.GetNoPattern(e, index-1-patterns)
+}
+
+// collectApp is rule_properties::operator()(app*).
+func (p *RuleProperties) collectApp(ruleIndex int, expression ast.ASTHandle) error {
+	predicate, err := p.rules.isPredicate(expression)
+	if err != nil {
+		return err
+	}
+	if predicate {
+		p.appendNested(p.collected[ruleIndex])
+		return nil
+	}
+	declaration, err := p.manager.GetDecl(expression)
+	if err != nil {
+		return err
+	}
+	family, err := p.manager.GetFamilyID(declaration)
+	if err != nil {
+		return err
+	}
+	if family == ast.NullFamilyID {
+		rangeSort, x := p.manager.GetRange(declaration)
+		if x != nil {
+			return x
+		}
+		isRuleSort, x := p.manager.IsDatalogRuleSort(rangeSort)
+		if x != nil {
+			return x
+		}
+		if !isRuleSort {
+			return p.uninterpFuns.InsertNum(declaration, uint64(ruleIndex))
+		}
+		return nil
+	}
+	if datatypeFamily, x := p.manager.DatatypeFamilyID(); x == nil && family == datatypeFamily {
+		declKind, x := p.manager.GetDeclKind(declaration)
+		if x != nil {
+			return x
+		}
+		if declKind == ast.ASTDatatypeAccessor {
+			argument, x := p.manager.GetArg(expression, 0)
+			if x != nil {
+				return x
+			}
+			sort, x := p.manager.GetSort(argument)
+			if x != nil {
+				return x
+			}
+			constructors, x := p.manager.DatatypeConstructors(sort)
+			if x != nil {
+				return x
+			}
+			if len(constructors) > 1 {
+				return p.uninterpFuns.InsertNum(declaration, uint64(ruleIndex))
 			}
 		}
 	}
@@ -258,6 +320,7 @@ func (p *RuleProperties) Collect(set *RuleSet) error {
 		return err
 	}
 	visited := make(map[ast.ASTHandle]bool)
+	p.collected = append([]*Rule(nil), set.rules[:count]...)
 	for i := 0; i < count; i++ {
 		// Source rule_properties keeps raw rule pointers: the collected set
 		// owns its rules, and collection takes no references.
@@ -284,7 +347,7 @@ func (p *RuleProperties) Collect(set *RuleSet) error {
 			if x != nil {
 				return x
 			}
-			if x = p.collectExpression(rule, tail, visited); x != nil {
+			if x = p.collectExpression(i, tail, visited); x != nil {
 				return x
 			}
 		}
@@ -337,12 +400,13 @@ func (p *RuleProperties) CheckQuantifierFree() error {
 	if err := p.open(); err != nil {
 		return err
 	}
-	if p.quantifier != nil {
+	if entries := p.quantifiers.Entries(); len(entries) != 0 {
+		rule := p.collected[entries[0].Num]
 		var display strings.Builder
-		if err := p.rules.WriteRuleDisplay(&display, p.quantifier); err != nil {
+		if err := p.rules.WriteRuleDisplay(&display, rule); err != nil {
 			return err
 		}
-		return &RulePropertyError{Kind: RulePropertyQuantifier, RuleName: rulePropertyName(p.quantifier), SourceMessage: "cannot process quantifier in rule " + display.String()}
+		return &RulePropertyError{Kind: RulePropertyQuantifier, RuleName: rulePropertyName(rule), SourceMessage: "cannot process quantifier in rule " + display.String()}
 	}
 	return nil
 }
@@ -351,18 +415,20 @@ func (p *RuleProperties) CheckUninterpretedFree() error {
 	if err := p.open(); err != nil {
 		return err
 	}
-	if p.uninterpreted == nil {
+	entries := p.uninterpFuns.Entries()
+	if len(entries) == 0 {
 		return nil
 	}
+	rule := p.collected[entries[0].Num]
 	name := ""
-	if symbol, err := p.manager.GetASTName(p.uninterpDecl); err == nil {
+	if symbol, err := p.manager.GetASTName(entries[0].Key); err == nil {
 		name, _ = p.manager.Symbols.Display(symbol)
 	}
 	var display strings.Builder
-	if err := p.rules.WriteRuleDisplay(&display, p.uninterpreted); err != nil {
+	if err := p.rules.WriteRuleDisplay(&display, rule); err != nil {
 		return err
 	}
-	return &RulePropertyError{Kind: RulePropertyUninterpreted, RuleName: rulePropertyName(p.uninterpreted), Symbol: name, SourceMessage: "Uninterpreted '" + name + "' in " + display.String()}
+	return &RulePropertyError{Kind: RulePropertyUninterpreted, RuleName: rulePropertyName(rule), Symbol: name, SourceMessage: "Uninterpreted '" + name + "' in " + display.String()}
 }
 
 func (p *RuleProperties) CheckNestedFree() error {

@@ -383,3 +383,151 @@ func (m *ASTManager) FlattenOr(result []ASTHandle) ([]ASTHandle, error) {
 	defer m.mu.Unlock()
 	return m.astUtilFlattenOr(result)
 }
+
+// FlattenOrHeld is flatten_or(fml, expr_ref_vector&) into a fresh owning
+// vector: the returned references are the vector's, which the caller
+// releases in order (expr_ref_vector destruction). A negation that
+// flatten_or creates and later replaces is deleted at once, as the vector
+// stops holding it.
+func (m *ASTManager) FlattenOrHeld(formula ASTHandle) (_ []ASTRef, resultErr error) {
+	if e := m.lock(); e != nil {
+		return nil, e
+	}
+	defer m.mu.Unlock()
+	result, e := m.astUtilFlattenOrWith([]ASTHandle{formula}, &flattenOwned{m: m})
+	if e != nil {
+		return nil, e
+	}
+	out := make([]ASTRef, 0, len(result))
+	for _, h := range result {
+		ref, e := m.newRef(h)
+		if e != nil {
+			for i := range out {
+				e = errors.Join(e, m.delRef(&out[i]))
+			}
+			return nil, e
+		}
+		out = append(out, ref)
+	}
+	return out, nil
+}
+
+func (m *ASTManager) astUtilFlattenOrWith(result []ASTHandle, owned *flattenOwned) ([]ASTHandle, error) {
+	for i := 0; i < len(result); {
+		r, e := m.requireExpr(result[i])
+		if e != nil {
+			return result, e
+		}
+		if yes, e := m.astUtilOperator(r, ASTOpOr); e != nil {
+			return result, e
+		} else if yes {
+			a := m.appAt(r.slot)
+			for j := uint32(0); j < a.count; j++ {
+				child, e := m.readInternal(a.args, j)
+				if e != nil {
+					return result, e
+				}
+				result = append(result, m.external(child))
+			}
+			old := result[i]
+			result[i] = result[len(result)-1]
+			result = result[:len(result)-1]
+			if e = owned.drop(old); e != nil {
+				return result, e
+			}
+			continue
+		}
+		inner, isNot, e := m.astUtilUnary(r, ASTOpNot)
+		if e != nil {
+			return result, e
+		}
+		if isNot {
+			if twice, yes, e := m.astUtilUnary(inner, ASTOpNot); e != nil {
+				return result, e
+			} else if yes {
+				old := result[i]
+				result[i] = m.external(twice)
+				if e = owned.drop(old); e != nil {
+					return result, e
+				}
+				continue
+			}
+			if yes, e := m.astUtilOperator(inner, ASTOpAnd); e != nil {
+				return result, e
+			} else if yes {
+				a := m.appAt(inner.slot)
+				for j := uint32(0); j < a.count; j++ {
+					child, e := m.readInternal(a.args, j)
+					if e != nil {
+						return result, e
+					}
+					negated, e := m.astUtilRawNot(child)
+					if e != nil {
+						return result, e
+					}
+					owned.hold(negated)
+					result = append(result, m.external(negated))
+				}
+				old := result[i]
+				result[i] = result[len(result)-1]
+				result = result[:len(result)-1]
+				if e = owned.drop(old); e != nil {
+					return result, e
+				}
+				continue
+			}
+			if inner == m.trueApp {
+				old := result[i]
+				result[i] = result[len(result)-1]
+				result = result[:len(result)-1]
+				if e = owned.drop(old); e != nil {
+					return result, e
+				}
+				continue
+			}
+			if inner == m.falseApp {
+				for _, h := range result {
+					if e = owned.drop(h); e != nil {
+						return result, e
+					}
+				}
+				return []ASTHandle{m.external(m.trueApp)}, nil
+			}
+		}
+		if left, right, yes, e := m.astUtilBinary(r, ASTOpImplies); e != nil {
+			return result, e
+		} else if yes {
+			result = append(result, m.external(right))
+			negated, e := m.astUtilRawNot(left)
+			if e != nil {
+				return result, e
+			}
+			owned.hold(negated)
+			old := result[i]
+			result[i] = m.external(negated)
+			if e = owned.drop(old); e != nil {
+				return result, e
+			}
+			continue
+		}
+		if r == m.falseApp {
+			old := result[i]
+			result[i] = result[len(result)-1]
+			result = result[:len(result)-1]
+			if e = owned.drop(old); e != nil {
+				return result, e
+			}
+			continue
+		}
+		if r == m.trueApp {
+			for _, h := range result {
+				if e = owned.drop(h); e != nil {
+					return result, e
+				}
+			}
+			return []ASTHandle{m.external(m.trueApp)}, nil
+		}
+		i++
+	}
+	return result, nil
+}

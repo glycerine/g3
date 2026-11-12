@@ -2229,3 +2229,27 @@ Remaining sweep differences: horn / horn-simplify error text and behaviour
 Lead: ufbv_tactic_arith_goal trace line 79 - inside ufbv's SMT backend g3
 internalizes (= (f z) (+ z 1)) before the Real bound atoms; z3 follows
 assertion order.
+
+## horn tactic errors (2026-11-12)
+
+DONE: horn / horn-simplify on unsupported goals match the fork in text,
+trace and engine choice: rule_properties source messages surface as
+default_exception text (HornTacticException; check-sat-using prints
+"tactic failed: ...", apply keeps line/column), Collect walks post-order
+into obj_maps (z3 reports m_uninterp_funs.begin()), horn rules are named
+<null>, horn-simplify selects the engine and runs check_rules, datalog rule
+checks run right after flush_add_rules, get_formula_kind's flatten_or args
+are held (FlattenOrHeld). Vectors horn_tactic_nested_recursive_error,
+horn_tactic_uninterpreted_error, horn_tactic_datalog_uninterpreted_error.
+Leads:
+- Process exit code for a script with an error: z3 exits 1, g3 exits 103
+  (ErrorParser), e.g. (assert x).
+- checkDatalogEarlyRuleProperties skips check_infinite_sorts (kept for the
+  integer-relation extension); z3's DATALOG check_rules includes it, so a
+  declare-sort relation under the datalog engine may differ.
+- Other datalog flush callers (propositional_engine.go flushes,
+  pdr_relation_query.go) may still run property checks later than z3; audit
+  against fixedpoint (query ...) traces.
+- ASTManager.FlattenOr leaves its fresh negations unowned; callers in
+  der_rewrite, pdr/manager, spacer/inductive_property and qe/lite_indices
+  may differ in id reuse (FlattenOrHeld is the model).

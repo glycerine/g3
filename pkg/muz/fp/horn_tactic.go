@@ -297,12 +297,15 @@ func (t *HornTactic) normalizePolarity(formula ast.ASTHandle, temporaries *[]ast
 // has at most one positive predicate; clauses without one are query bodies.
 // As get_formula_kind(expr_ref& f) it reassigns f when it builds a new
 // formula; its locals die on return after that assignment: body (forward),
-// then the normalized tmp.
+// the flatten_or args vector (forward), then the normalized tmp.
 func (t *HornTactic) classify(formula ast.ASTHandle, f ast.ASTRef) (rule bool, normalized ast.ASTHandle, err error) {
-	var tmpHeld, bodyHeld []ast.ASTRef
+	var tmpHeld, argsHeld, bodyHeld []ast.ASTRef
 	defer func() {
 		for i := range bodyHeld {
 			err = errors.Join(err, t.manager.DelRef(&bodyHeld[i]))
+		}
+		for i := range argsHeld {
+			err = errors.Join(err, t.manager.DelRef(&argsHeld[i]))
 		}
 		for i := range tmpHeld {
 			err = errors.Join(err, t.manager.DelRef(&tmpHeld[i]))
@@ -312,9 +315,16 @@ func (t *HornTactic) classify(formula ast.ASTHandle, f ast.ASTRef) (rule bool, n
 	if err != nil {
 		return false, normalized, err
 	}
-	arguments, err := t.manager.FlattenOr([]ast.ASTHandle{analysis})
+	// expr_ref_vector args: flatten_or's result, released after body.
+	argsHeld, err = t.manager.FlattenOrHeld(analysis)
 	if err != nil {
 		return false, normalized, err
+	}
+	arguments := make([]ast.ASTHandle, len(argsHeld))
+	for i := range argsHeld {
+		if arguments[i], err = t.manager.RefGet(argsHeld[i]); err != nil {
+			return false, normalized, err
+		}
 	}
 	body := make([]ast.ASTHandle, 0, len(arguments))
 	var head ast.ASTHandle
@@ -384,6 +394,9 @@ func (t *HornTactic) classify(formula ast.ASTHandle, f ast.ASTRef) (rule bool, n
 }
 
 func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultErr error) {
+	// Rule-property and rule-head failures escape as the source
+	// default_exception text (deferred first, so it sees every cleanup join).
+	defer func() { resultErr = hornTacticException(resultErr) }()
 	if err := t.open(); err != nil || goal == nil || goal.Manager() != t.manager {
 		return errors.Join(err, tactic.NewTacticException("invalid Horn goal"))
 	}
@@ -459,7 +472,7 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 			return x
 		}
 		if isRule {
-			if x = engine.AddRule(normalized, "horn-tactic"); x != nil {
+			if x = engine.AddRule(normalized, ""); x != nil {
 				return x
 			}
 		} else {
@@ -504,7 +517,7 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 			if y != nil {
 				return y
 			}
-			if y = engine.AddRule(rule, "horn-query"); y != nil {
+			if y = engine.AddRule(rule, ""); y != nil {
 				return y
 			}
 		}

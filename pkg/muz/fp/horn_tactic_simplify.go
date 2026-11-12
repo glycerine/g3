@@ -22,8 +22,20 @@ func (t *HornTactic) simplifyGoal(goal *tactic.Goal, out *tactic.TacticResult, e
 		return err
 	}
 	// m_ctx.get_rules(); // flush adding rules.
+	// Source flush_add_rules ends with check_rules, whose property checks
+	// follow get_engine(), configured here from the pending rules.
+	if err := engine.SelectEngine("auto-config"); err != nil {
+		return err
+	}
 	if err := engine.flushPendingRules(); err != nil {
 		return err
+	}
+	if engine.backend == EngineDatalog.String() {
+		// flushPendingRules defers the Datalog checks to the query; the
+		// simplify path has no query, so check_rules runs them here.
+		if err := engine.checkSourceRules(); err != nil {
+			return err
+		}
 	}
 	if _, err := engine.set.Finalize(); err != nil {
 		return err

@@ -88,6 +88,13 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if err := e.flushPendingRules(); err != nil {
 		return lbool.Undef, err
 	}
+	if e.backend == "datalog" {
+		// flush_add_rules ends with check_rules before rel_context::query
+		// builds its query predicate and rule.
+		if err := e.checkDatalogEarlyRuleProperties(); err != nil {
+			return lbool.Undef, err
+		}
+	}
 	// Source context::query calls ensure_engine before dl_interface::query
 	// reaches mk_query. PDR and Spacer construct their actual contexts in the
 	// interface constructor, so a later hoist/compaction failure still forbids
