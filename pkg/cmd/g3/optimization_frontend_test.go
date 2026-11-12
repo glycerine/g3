@@ -113,7 +113,7 @@ func TestOptimizationFrontendResourceLimitedSortMaxBounds(t *testing.T) {
 	if err := runArguments(args, strings.NewReader(input), &output); err != nil {
 		t.Fatal(err, output.String())
 	}
-	if got, want := output.String(), "unknown\n  [0:3]\n"; got != want {
+	if got, want := output.String(), "unknown\n  [0:2]\n"; got != want {
 		t.Fatalf("resource-limited SortMax output = %q, want %q", got, want)
 	}
 }

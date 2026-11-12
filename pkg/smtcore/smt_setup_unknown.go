@@ -2,7 +2,11 @@ package smtcore
 
 // Source: src/smt/smt_setup.cpp setup_unknown(static_features&).
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
 
 func (k *SMTKernel) withSetupLogic(logic string, action func() error) error {
 	previous := k.setupLogic
@@ -124,6 +128,156 @@ func (k *SMTKernel) installIntegerArithmeticSetup(arithmetic SMTArithState) erro
 	}
 	if err = k.replaceUnusedSetupArithmetic(theory); err != nil {
 		return err
+	}
+	return nil
+}
+
+// Plugin families in the order setup_unknown(st) registers them.
+const (
+	smtSetupArith = iota
+	smtSetupArray
+	smtSetupBV
+	smtSetupDatatype
+	smtSetupDatalog
+	smtSetupSeq
+	smtSetupPB
+	smtSetupFPA
+)
+
+// smtUnknownStaticPlugins returns the plugins registered by the profile
+// setup_unknown(st) selects, in registration order. setup_unknown() and the
+// quantified profile register every plugin; the quantified profile calls
+// setup_datatypes before setup_bv.
+func smtUnknownStaticPlugins(f *ast.StaticFeatures) []int {
+	all := []int{smtSetupArith, smtSetupArray, smtSetupBV, smtSetupDatatype, smtSetupDatalog, smtSetupSeq, smtSetupPB, smtSetupFPA}
+	if f.NumQuantifiers != 0 {
+		// setup_AUFLIA(false)/setup_AUFLIRA(false), setup_datatypes, setup_bv,
+		// setup_dl, setup_seq_str, setup_card, setup_fpa.
+		return []int{smtSetupArith, smtSetupArray, smtSetupDatatype, smtSetupBV, smtSetupDatalog, smtSetupSeq, smtSetupPB, smtSetupFPA}
+	}
+	if f.NumNonUFTheories() == 0 {
+		return nil // setup_QF_UF(st)
+	}
+	n := f.NumTheories()
+	difference := (f.NumDiffTerms != 0 || f.NumDiffEqualities != 0 || f.NumDiffInequalities != 0) && f.NumArithEqualities == f.NumDiffEqualities && f.NumArithTerms == f.NumDiffTerms && f.NumArithInequalities == f.NumDiffInequalities
+	arithmetic := f.NumArithEqualities != 0 || f.NumArithTerms != 0 || f.NumArithInequalities != 0
+	arith := []int{smtSetupArith}
+	switch {
+	case n == 1 && difference:
+		if f.HasReal != f.HasInt {
+			return arith // setup_QF_RDL(st) / setup_QF_IDL(st)
+		}
+		return all
+	case n == 2 && f.HasUF() && difference:
+		if !f.HasReal && f.HasInt {
+			return arith // setup_QF_UFIDL(st)
+		}
+		return all
+	case n == 1 && arithmetic:
+		return arith // setup_QF_LIRA(st) / setup_QF_LRA(st) / setup_QF_LIA(st)
+	case n == 2 && f.HasUF() && arithmetic:
+		if !f.HasReal || !f.HasInt && f.NumNonLinear == 0 {
+			return arith // setup_QF_UFLIA(st) / setup_QF_UFLRA()
+		}
+		return all
+	case n == 1 && f.HasBitVector:
+		return []int{smtSetupBV} // setup_QF_BV
+	case n == 1 && f.HasFloatingPoint, n == 2 && f.HasFloatingPoint && f.HasBitVector:
+		return []int{smtSetupBV, smtSetupFPA} // setup_QF_FP / setup_QF_FPBV
+	case n == 1 && f.HasArrays:
+		return []int{smtSetupArray} // setup_QF_AX(st)
+	case n == 2 && f.HasUF() && f.HasArrays && f.HasBitVector:
+		return []int{smtSetupBV, smtSetupArray} // setup_QF_AUFBV
+	case n == 2 && f.HasUF() && f.HasArrays && f.HasInt:
+		return []int{smtSetupArith, smtSetupArray} // setup_QF_AUFLIA
+	}
+	return all
+}
+
+func (k *SMTKernel) smtSetupPluginFamily(plugin int) (ast.FamilyID, error) {
+	m := k.manager
+	switch plugin {
+	case smtSetupArith:
+		return m.ArithmeticFamilyID()
+	case smtSetupArray:
+		return m.ArrayFamilyID()
+	case smtSetupBV:
+		return m.RegisterBitVectorPlugin()
+	case smtSetupDatatype:
+		return m.RegisterDatatypePlugin()
+	case smtSetupDatalog:
+		return m.RegisterDatalogPlugin()
+	case smtSetupSeq:
+		return m.RegisterSequencePlugin()
+	case smtSetupPB:
+		return m.RegisterPseudoBooleanPlugin()
+	case smtSetupFPA:
+		return m.RegisterFloatingPointPlugin()
+	}
+	return ast.NullFamilyID, ast.ErrASTDomain
+}
+
+// setupUnknownStaticPlugins makes the context's plugin set the one
+// setup_unknown(st) registers. Go eagerly installs the full setup_unknown()
+// plugin set at construction; the source registers only the selected
+// profile's plugins at the first check, so unselected placeholders are
+// dropped (they would otherwise take final_check rotation slots and run
+// their own final checks) and the rest take the profile's order.
+func (k *SMTKernel) setupUnknownStaticPlugins(useStaticFeatures bool) (result error) {
+	if !useStaticFeatures || !k.smtState.AutoConfig || k.setupPluginsCopied ||
+		!smtLogicUsesUnknownSetup(k.setupLogic) || !smtAutoConfigUsesUnknownSetup(k.setupLogic) {
+		return nil
+	}
+	s := k.internalizer
+	if len(s.scopes) != 0 || s.theoriesSetup {
+		return ast.ErrASTDomain
+	}
+	features, err := k.setupStaticFeatures(true)
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, features.Close()) }()
+	setupFamilies := make(map[ast.FamilyID]bool, smtSetupFPA+1)
+	for plugin := smtSetupArith; plugin <= smtSetupFPA; plugin++ {
+		family, err := k.smtSetupPluginFamily(plugin)
+		if err != nil {
+			return err
+		}
+		setupFamilies[family] = true
+	}
+	plugins := smtUnknownStaticPlugins(features)
+	order := make([]SMTTheoryInternalizer, 0, len(s.theoryOrder))
+	keep := make(map[SMTTheoryInternalizer]bool, len(plugins))
+	for _, plugin := range plugins {
+		family, err := k.smtSetupPluginFamily(plugin)
+		if err != nil {
+			return err
+		}
+		if theory := s.theories[family]; theory != nil && !keep[theory] {
+			keep[theory] = true
+			order = append(order, theory)
+		}
+	}
+	var dropped []SMTTheoryInternalizer
+	for _, theory := range s.theoryOrder {
+		if !setupFamilies[theory.FamilyID()] {
+			// Plugins registered outside setup keep their relative order.
+			order = append(order, theory)
+		} else if !keep[theory] {
+			dropped = append(dropped, theory)
+		}
+	}
+	s.theoryOrder = order
+	for _, theory := range dropped {
+		delete(s.theories, theory.FamilyID())
+		if theory == k.sequenceSetupPlaceholder {
+			k.sequenceSetupPlaceholder = nil
+		}
+		if closer, ok := theory.(interface{ Close() error }); ok {
+			if err := closer.Close(); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

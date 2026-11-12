@@ -289,7 +289,7 @@ func smtInstallRetainedSetup(kernel *SMTKernel, manager *ast.ASTManager, logic s
 			return err
 		}
 	}
-	if smtLogicUsesArrays(logic) {
+	installArrays := func() error {
 		family, err := manager.ArrayFamilyID()
 		if err != nil {
 			return err
@@ -301,8 +301,9 @@ func smtInstallRetainedSetup(kernel *SMTKernel, manager *ast.ASTManager, logic s
 		if err = kernel.RegisterTheory(theory); err != nil {
 			return err
 		}
+		return nil
 	}
-	if smtLogicUsesBitVectors(logic) {
+	installBitVectors := func() error {
 		name, err := manager.Symbols.Intern("bv")
 		if err != nil {
 			return err
@@ -316,6 +317,26 @@ func smtInstallRetainedSetup(kernel *SMTKernel, manager *ast.ASTManager, logic s
 			return theoryErr
 		}
 		if err = kernel.RegisterTheory(theory); err != nil {
+			return err
+		}
+		return nil
+	}
+	// setup_QF_AUFBV (setup_default and setup_auto_config for these logics)
+	// registers theory_bv before theory_array; setup_unknown() (CFG_BASIC)
+	// and every other profile register arrays first.
+	bitVectorsFirst := kernel.smtState.AutoConfig && (logic == "QF_AUFBV" || logic == "QF_ABV" || logic == "QF_UFBV")
+	if bitVectorsFirst && smtLogicUsesBitVectors(logic) {
+		if err := installBitVectors(); err != nil {
+			return err
+		}
+	}
+	if smtLogicUsesArrays(logic) {
+		if err := installArrays(); err != nil {
+			return err
+		}
+	}
+	if !bitVectorsFirst && smtLogicUsesBitVectors(logic) {
+		if err := installBitVectors(); err != nil {
 			return err
 		}
 	}

@@ -2068,11 +2068,15 @@ mk_lit calls m.mk_not.
 
 Pareto now runs optimize()'s internalize, optsmt::setup, update_lower and
 update_bound; box uses optsmt::geometric_opt for the default engine. Open:
-- box_same_term_three_objectives (QF_IDL, random initial activity): z3
-  registers only the IDL theory, while g3's smtInstallRetainedSetup keeps
-  theory_seq, whose final_check (reduce_length_eq / branch_variable) draws
-  get_random_value twice more, shifting activities (trace differs at 193;
-  stdout matches).
+- (fixed) box_same_term_three_objectives (QF_IDL, random initial
+  activity) is now trace-identical: setup_unknown(st) registers only the
+  selected profile's plugins (here theory_i_arith), so
+  setupUnknownStaticPlugins drops the unselected eager placeholders (their
+  final checks, e.g. theory_seq's random draws, and final_check rotation
+  slots) and takes the profile order (quantified profile: datatypes before
+  bv). Kernels whose plugins were copied from a set-up context keep the
+  eager set (context::copy_plugins order is not modelled yet). QF_AUFBV,
+  QF_ABV and QF_UFBV under auto_config register bv before arrays.
 - box with softs and min/max under push/pop: a model value numeral dies
   earlier in g3; in z3 it lives in optsmt::m_models (never cleared by
   optsmt::reset) and/or the old opt_solver's m_models.
@@ -2081,3 +2085,11 @@ update_bound; box uses optsmt::geometric_opt for the default engine. Open:
 - An unbounded pareto frontier (assert-soft a plus (minimize x) with x
   unbounded) enumerates forever in both z3 and g3; g3's trace matches z3's
   prefix up to the timeout.
+- Theory registration leads (after setupUnknownStaticPlugins, 2026-11-12):
+  kernels with copied plugins (auxiliary MBQI solvers, translate) still start
+  from the full eager set with the copies swapped in, where z3 has the
+  source's theory set in source order with the destination profile's missing
+  plugins appended; the CFG_BASIC path (auto_config=false) with an explicit
+  logic installs that logic's subset, where z3's setup_unknown() registers
+  every theory; the sortmax smt2 equivalent of the wcnf frontend test
+  (/var/tmp/g3-wt-idlseq.work/sm.smt2) differs at trace line 75 (pre-existing).

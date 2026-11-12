@@ -97,6 +97,9 @@ func (k *SMTKernel) setupAssertedBounds(useStaticFeatures bool) error {
 	if err := k.setupSequenceBackend(useStaticFeatures); err != nil {
 		return err
 	}
+	if err := k.setupUnknownStaticPlugins(useStaticFeatures); err != nil {
+		return err
+	}
 	k.setupAssertedPolicies()
 	k.preprocessingSetupDone = true
 	return nil
