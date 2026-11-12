@@ -229,13 +229,16 @@ func TestSMTArrayTranslationInitializationUpdatesCorrectParameterOwner(t *testin
 		family, err := m.ArrayFamilyID()
 		astTestMust(t, err)
 		core := smtArrayCore(dest.kernel.internalizer.theories[family])
-		if core.simple != simple || core.arrayConfig.Laziness != 0 {
-			t.Fatal("copied init did not disable lazy registration")
+		// context::copy registers the copied plugins on a fresh context whose
+		// relevancy level is still 2 (fork backport of upstream z3 5dfe4a4b4),
+		// so theory_array::init keeps lazy registration despite relevancy 0
+		// in the target parameters.
+		if core.simple != simple || core.arrayConfig.Laziness == 0 {
+			t.Fatal("copied init disabled lazy registration before setup")
 		}
-		wantSourceLazy := uint32(0)
-		if simple {
-			wantSourceLazy = 1
-		}
+		// The copied init no longer disables laziness, so the source owner
+		// (shared by the full array theory) keeps lazy registration too.
+		wantSourceLazy := uint32(1)
 		if source.kernel.smtParams.array.state.Laziness != wantSourceLazy {
 			t.Fatal("copied init mutated incorrect owner", simple)
 		}

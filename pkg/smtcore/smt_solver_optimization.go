@@ -45,11 +45,8 @@ func (s *SMTSolver) setOptimizationRelevancy(level uint32) {
 	k := s.kernel
 	k.smtParams.state.RelevancyLvl = level
 	k.smtState.RelevancyLvl = level
-	if !k.relevancy.enabled && level > 0 {
-		k.repairRelevancy = true
-	}
-	k.relevancy.enabled = level > 0
-	k.internalizer.relevancyLevel = level
+	// opt_solver changes only m_params; the context level follows at the
+	// next setup_context (only downward once configured).
 }
 
 func (s *SMTSolver) adjustOptimizationResult(status lbool.LBool) lbool.LBool {

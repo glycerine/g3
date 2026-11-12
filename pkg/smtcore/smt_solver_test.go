@@ -425,7 +425,9 @@ func TestSMTSolverInstallsAndUpdatesRetainedSMTParameters(t *testing.T) {
 	t.Cleanup(func() { astTestMust(t, solver.Close()) })
 	internalizer := solver.kernel.internalizer
 	manager := internalizer.dynamicAck
-	if !internalizer.binaryClauseOptimization || solver.kernel.relevancy.enabled || manager.strategy != dynAckConflictResolution || !manager.equalities ||
+	// relevancy 0 lives in the parameter; the context level stays 2 until
+	// the first setup_context (fork backport of upstream z3 5dfe4a4b4).
+	if !internalizer.binaryClauseOptimization || solver.kernel.smtState.RelevancyLvl != 0 || !solver.kernel.relevancy.enabled || manager.strategy != dynAckConflictResolution || !manager.equalities ||
 		manager.pairs.threshold != 7 || manager.triples.threshold != 7 || manager.schedule.gcEvery != 23 ||
 		manager.schedule.factor != 0.25 || manager.pairs.decay != 0.75 {
 		t.Fatal("constructor did not install SMT parameters", internalizer.binaryClauseOptimization, manager.strategy, manager.equalities,

@@ -224,8 +224,6 @@ func smtInstallRetainedSetup(kernel *SMTKernel, manager *ast.ASTManager, logic s
 		kernel.arithState.Reflect = false
 		kernel.arithState.PropagationThreshold = 1000
 		kernel.preprocessState.NNFCNF = false
-		kernel.relevancy.enabled = false
-		kernel.internalizer.relevancyLevel = 0
 	}
 	install := func(family ast.FamilyID, name string) error {
 		dummy, err := NewSMTDummyTheory(family, name)

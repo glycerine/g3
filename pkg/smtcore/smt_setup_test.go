@@ -58,7 +58,9 @@ func TestSMTQFUFLIASetupOwnsInternalArithmeticThresholdAcrossUpdates(t *testing.
 			}
 			checkThreshold()
 			if tc.threshold == 1000 {
-				if s.kernel.smtParams.state.RelevancyLvl != 0 || s.kernel.smtState.RelevancyLvl != 0 || s.kernel.relevancy.enabled || s.kernel.internalizer.relevancyLevel != 0 {
+				// setup writes the parameter; the context level (2 until the
+				// first setup_context) takes it at the first check or push.
+				if s.kernel.smtParams.state.RelevancyLvl != 0 || s.kernel.smtState.RelevancyLvl != 0 || s.kernel.relevancyConfigured || s.kernel.internalizer.relevancyLevel != 2 {
 					t.Fatal("QF_UFLIA relevancy setup was not applied")
 				}
 				if s.kernel.smtParams.arith.state.Reflect || s.kernel.arithState.Reflect || s.kernel.smtParams.preprocess.state.NNFCNF || s.kernel.preprocessState.NNFCNF {

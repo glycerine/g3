@@ -68,6 +68,7 @@ type SMTArrayTheory struct {
 	arrayMergeError                       error
 	parameterOwner                        *SMTArrayParams
 	schedulingReady                       bool
+	relevantAtInit                        bool // ctx->relevancy() when registered
 	modelData                             *smtArrayModelData
 	sortDeclarations                      map[ast.ASTHandle][]ast.ASTHandle
 	sortTrail                             []ast.ASTHandle

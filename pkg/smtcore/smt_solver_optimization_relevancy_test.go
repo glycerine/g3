@@ -12,10 +12,27 @@ import (
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
+// optimizationCheckRelevancy checks the shared parameter; the context level
+// is 2 (context::context) until the first setup_context and follows the
+// parameter after it.
 func optimizationCheckRelevancy(t *testing.T, s *SMTSolver, want uint32) {
 	t.Helper()
-	if s.kernel.smtParams.state.RelevancyLvl != want || s.kernel.smtState.RelevancyLvl != want || s.kernel.internalizer.relevancyLevel != want || s.kernel.relevancy.enabled != (want > 0) {
+	context := want
+	if !s.kernel.relevancyConfigured {
+		context = 2
+	}
+	if s.kernel.smtParams.state.RelevancyLvl != want || s.kernel.smtState.RelevancyLvl != want || s.kernel.internalizer.relevancyLevel != context || s.kernel.relevancy.enabled != (context > 0) {
 		t.Fatal("optimization relevance state", want, s.kernel.smtParams.state.RelevancyLvl, s.kernel.smtState.RelevancyLvl, s.kernel.internalizer.relevancyLevel, s.kernel.relevancy.enabled)
+	}
+}
+
+// optimizationCheckRelevancyLevels separates the shared parameter from the
+// context level (fork backport of upstream z3 5dfe4a4b4): once configured,
+// the context level only follows the parameter downward.
+func optimizationCheckRelevancyLevels(t *testing.T, s *SMTSolver, param, context uint32) {
+	t.Helper()
+	if s.kernel.smtParams.state.RelevancyLvl != param || s.kernel.smtState.RelevancyLvl != param || s.kernel.contextRelevancyLvl != context || s.kernel.internalizer.relevancyLevel != context || s.kernel.relevancy.enabled != (context > 0) {
+		t.Fatal("optimization relevance levels", param, context, s.kernel.smtState.RelevancyLvl, s.kernel.contextRelevancyLvl, s.kernel.internalizer.relevancyLevel, s.kernel.relevancy.enabled)
 	}
 }
 
@@ -84,15 +101,15 @@ func TestOptimizationSolverQuantifiedAssertionEnablesRelevanceBeforeSimplificati
 	if status != lbool.True {
 		t.Fatal(status)
 	}
+	// opt_solver::assert_expr raises m_params.m_relevancy_lvl to 2 for a
+	// quantified assertion, but the configured context keeps level 0, so the
+	// roots internalized without relevancy stay in the model.
 	q := optimizationTrueQuantifier(t, m)
 	astTestMust(t, s.Push())
 	astTestMust(t, s.Assert(q))
-	optimizationCheckRelevancy(t, s, 2)
-	if !s.kernel.repairRelevancy {
-		t.Fatal("already internalized roots lack relevance repair")
-	}
+	optimizationCheckRelevancyLevels(t, s, 2, 0)
 	astTestMust(t, s.Assert(p))
-	optimizationCheckRelevancy(t, s, 2)
+	optimizationCheckRelevancyLevels(t, s, 2, 0)
 	status, err = s.CheckSat(nil)
 	astTestMust(t, err)
 	if status != lbool.True {
@@ -112,7 +129,7 @@ func TestOptimizationSolverQuantifiedAssertionEnablesRelevanceBeforeSimplificati
 	}
 	astTestMust(t, md.DecRef())
 	astTestMust(t, s.Pop(1))
-	optimizationCheckRelevancy(t, s, 2)
+	optimizationCheckRelevancyLevels(t, s, 2, 0)
 }
 
 func TestOptimizationSolverParameterUpdateDoesNotReapplyConstructorRule(t *testing.T) {

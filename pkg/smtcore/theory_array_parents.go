@@ -28,6 +28,15 @@ func (c *smtArrayUnionContext) MergeEH(root, child, _, _ uint32) {
 	}
 }
 
+// Initialize is register_plugin's theory init: it records ctx->relevancy().
+func (t *SMTArrayTheory) Initialize(state *SMTInternalizerState) error {
+	if err := t.SMTTheoryBase.Initialize(state); err != nil {
+		return err
+	}
+	t.relevantAtInit = state.relevancy != nil && state.relevancy.enabled
+	return nil
+}
+
 func (t *SMTArrayTheory) Setup() error {
 	if t.schedulingReady {
 		return nil
@@ -36,7 +45,11 @@ func (t *SMTArrayTheory) Setup() error {
 	if err != nil {
 		return err
 	}
-	if s.relevancy == nil || !s.relevancy.enabled {
+	// theory_array::init: if (!ctx->relevancy()) m_array_laziness = 0, read
+	// when the plugin is registered (inside m_setup, before setup_context
+	// installs the logic's relevancy level).
+	_ = s
+	if !t.relevantAtInit {
 		t.arrayConfig.Laziness = 0
 		if t.parameterOwner != nil {
 			t.parameterOwner.state.Laziness = 0

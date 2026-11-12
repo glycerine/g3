@@ -38,17 +38,22 @@ type SMTKernel struct {
 	booleanSetupSeeded   bool
 	smtParamsBorrowed    bool
 
-	manager         *ast.ASTManager
-	checker         *SMTCheckerContext
-	relevancy       *SMTRelevancyPropagator
-	repairRelevancy bool
-	internalizer    *SMTInternalizerState
-	assertions      []SMTKernelAssertion
-	assertedHead    int
-	scopes          []int
-	pendingPop      *smtKernelPendingPop
-	unsatCore       []ast.ASTHandle
-	unsatProof      ast.ASTRef
+	manager   *ast.ASTManager
+	checker   *SMTCheckerContext
+	relevancy *SMTRelevancyPropagator
+	// contextRelevancyLvl is context::m_relevancy_lvl (fork backport of
+	// upstream z3 5dfe4a4b4): first setup takes the parameter's level, and
+	// later setups (check, push) may only lower it. relevancyConfigured marks
+	// that the first setup_context has run.
+	contextRelevancyLvl uint32
+	relevancyConfigured bool
+	internalizer        *SMTInternalizerState
+	assertions          []SMTKernelAssertion
+	assertedHead        int
+	scopes              []int
+	pendingPop          *smtKernelPendingPop
+	unsatCore           []ast.ASTHandle
+	unsatProof          ast.ASTRef
 	// conflictResolver is m_conflict_resolution: one per context, so its
 	// m_lemma_proof outlives each search until the next conflict.
 	conflictResolver *SMTConflictResolver
@@ -360,8 +365,8 @@ func (k *SMTKernel) configurePreprocessingParamsCore(context *uparams.ParamsCont
 	if err = k.configureQueueHeuristics(fullState, false); err != nil {
 		return errors.Join(err, closeSMTKernelParams(full, borrowSource))
 	}
-	k.relevancy.enabled = fullState.RelevancyLvl > 0
-	k.internalizer.relevancyLevel = fullState.RelevancyLvl
+	// context::context: m_relevancy_lvl(2) until the first setup_context.
+	k.setContextRelevancy(2)
 	k.internalizer.newCore2thEq = fullState.NewCore2thEq
 	k.smtParams = full
 	k.smtParamsBorrowed = borrowSource
@@ -600,11 +605,9 @@ func (k *SMTKernel) UpdateParams(params *uparams.ParamsRef) error {
 	if err = k.configureQueueHeuristics(paramsState, false); err != nil {
 		return err
 	}
-	if !k.relevancy.enabled && paramsState.RelevancyLvl > 0 {
-		k.repairRelevancy = true
-	}
-	k.relevancy.enabled = paramsState.RelevancyLvl > 0
-	k.internalizer.relevancyLevel = paramsState.RelevancyLvl
+	// smt_solver::updt_params only changes the shared parameter; the context
+	// level takes it at the first setup_context and afterwards only follows
+	// it downward (check or push).
 	k.internalizer.newCore2thEq = paramsState.NewCore2thEq
 	k.smtState = paramsState
 	if k.patternInference != nil {
@@ -989,6 +992,7 @@ func (k *SMTKernel) Push() error {
 	if err := k.setupAssertedBounds(false); err != nil {
 		return err
 	}
+	k.setupContextRelevancy()
 	if err := k.configureQueueHeuristics(k.smtState, !k.booleanSetupSeeded); err != nil {
 		return err
 	}
@@ -1266,6 +1270,7 @@ func (k *SMTKernel) configureCheck(useStaticFeatures bool) error {
 	if err := k.setupAssertedBounds(useStaticFeatures); err != nil {
 		return fmt.Errorf("smt kernel configure asserted bounds: %w", err)
 	}
+	k.setupContextRelevancy()
 	if err := k.configureQueueHeuristics(k.smtState, !k.booleanSetupSeeded); err != nil {
 		return fmt.Errorf("smt kernel configure Boolean heuristics: %w", err)
 	}
@@ -1282,30 +1287,6 @@ func (k *SMTKernel) internalizeCheckAssertions() error {
 	}
 	if k.assertedFormulasInconsistent() || k.internalizer.Inconsistent() {
 		return nil
-	}
-	// BUG FIX relative to z3 4.7.1 (TODO.md "z3 4.7.1 bugs fixed in g3",
-	// item 27). Cached assertions may have been internalized while relevancy
-	// filtering was disabled (smt.relevancy 0). In z3,
-	// relevancy_propagator_imp::mark_as_relevant (src/smt/smt_relevancy.cpp)
-	// returns early while relevancy is off, and when a later set-option turns
-	// it back on (smt_solver::updt_params -> smt_params::updt_local_params
-	// re-reads m_relevancy_lvl) nothing marks those root assertions relevant;
-	// the model generator then omits them and z3 prints a model violating an
-	// asserted formula (repro: test_vectors/relevancy_update_scopes.smt2,
-	// where z3 prints p = false after (assert p)). g3 re-marks the cached
-	// assertions relevant before each check. Consequence: the full trace
-	// logs of lra_propagation_mode_updates and arithmetic_eq_options differ
-	// from z3's, so those vectors are excluded from trace-identity testing
-	// (test_vectors/z3_bug_exclusions.txt).
-	if k.repairRelevancy && k.relevancy.enabled {
-		for _, assertion := range k.assertions[:k.assertedHead] {
-			if err := k.internalizer.markRelevant(assertion.Formula); err != nil {
-				return fmt.Errorf("smt kernel mark asserted formulas relevant: %w", err)
-			}
-			if err := k.relevancy.restoreExpressionWatches(assertion.Formula); err != nil {
-				return fmt.Errorf("smt kernel restore asserted relevance watches: %w", err)
-			}
-		}
 	}
 	return nil
 }
@@ -1854,4 +1835,26 @@ func (k *SMTKernel) contextResolver() (*SMTConflictResolver, error) {
 		k.conflictResolver = resolver
 	}
 	return k.conflictResolver, nil
+}
+
+// setContextRelevancy installs the context's relevancy level: relevancy()
+// and the internalizer read it, not the shared parameter.
+func (k *SMTKernel) setContextRelevancy(level uint32) {
+	k.contextRelevancyLvl = level
+	k.relevancy.enabled = level > 0
+	k.internalizer.relevancyLevel = level
+}
+
+// setupContextRelevancy is setup_context's relevancy step (fork backport of
+// upstream z3 5dfe4a4b4). The first setup takes the configured level; every
+// later setup lowers it to min(parameter, context level). Raising
+// smt.relevancy afterwards therefore cannot leave assertions that were
+// internalized without relevancy unmarked (which made z3 4.7.1 report
+// models violating them, e.g. test_vectors/relevancy_update_scopes.smt2).
+func (k *SMTKernel) setupContextRelevancy() {
+	level := k.smtState.RelevancyLvl
+	if !k.relevancyConfigured || level < k.contextRelevancyLvl {
+		k.setContextRelevancy(level)
+	}
+	k.relevancyConfigured = true
 }

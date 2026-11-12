@@ -44,8 +44,6 @@ func (k *SMTKernel) setupSimpleLogicPolicy(useStaticFeatures bool) (result error
 func (k *SMTKernel) applySimpleSetupPolicy() error {
 	k.smtState = k.smtParams.state
 	k.preprocessState = k.smtParams.preprocess.state
-	k.relevancy.enabled = k.smtState.RelevancyLvl > 0
-	k.internalizer.relevancyLevel = k.smtState.RelevancyLvl
 	// First-push setup precedes Boolean variable creation, so the selected
 	// random initial-activity policy must reach the internalizer immediately.
 	if err := k.internalizer.configureBooleanHeuristics(k.smtState); err != nil {

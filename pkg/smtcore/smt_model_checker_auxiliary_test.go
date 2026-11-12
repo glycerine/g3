@@ -34,7 +34,7 @@ func TestSMTModelCheckerAuxiliarySnapshotAndConcretePlugins(t *testing.T) {
 	c := s.kernel.internalizer.quantifierManager.modelChecker
 	astTestMust(t, c.initAuxiliaryContext())
 	a := c.auxiliaryContext
-	if a.logic != (symbol.Symbol{}) || a.kernel.setupLogic != "" || a.kernel.smtState.RelevancyLvl != 0 || a.kernel.relevancy.enabled || a.kernel.smtState.CaseSplitStrategy != 0 || a.kernel.smtState.MaxConflicts != 17 {
+	if a.logic != (symbol.Symbol{}) || a.kernel.setupLogic != "" || a.kernel.smtState.RelevancyLvl != 0 || a.kernel.relevancyConfigured || a.kernel.contextRelevancyLvl != 2 || a.kernel.smtState.CaseSplitStrategy != 0 || a.kernel.smtState.MaxConflicts != 17 {
 		t.Fatal("auxiliary did not use the source snapshot overrides", a.kernel.smtState)
 	}
 	if !a.kernel.copiedArithmeticPlugin || a.kernel.copiedBVOwner == nil || !a.kernel.copiedArrayPlugin {
