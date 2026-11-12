@@ -367,17 +367,17 @@ func (b *VariableBinder) Close() (result error) {
 		return nil
 	}
 	b.closing = true
+	// ~bind_variables: m_vars (an app_ref_vector) releases front to back.
 	for len(b.references) != 0 {
-		last := len(b.references) - 1
 		var err error
-		if b.references[last] != (ast.ASTRef{}) {
-			err = b.manager.DelRef(&b.references[last])
+		if b.references[0] != (ast.ASTRef{}) {
+			err = b.manager.DelRef(&b.references[0])
 		}
-		if b.references[last] == (ast.ASTRef{}) {
+		if b.references[0] == (ast.ASTRef{}) {
 			// Native destruction may consume a reference before reporting an
 			// error. Never replay that decrement when Close is retried.
-			b.references = b.references[:last]
-			b.variables = b.variables[:last]
+			b.references = b.references[1:]
+			b.variables = b.variables[1:]
 		}
 		if err != nil {
 			return err

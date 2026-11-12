@@ -52,6 +52,9 @@ func (e *PropositionalEngine) datalogInliner(context *uparams.ParamsContext, glo
 	}
 	plugin.SetNormalizationParams(normalization)
 	plugin.SetLinearBranching(branching)
+	// mk_rule_inliner::operator() allocates its horn_subsume_model_converter
+	// only when the context has a model converter; rel_query installs none.
+	plugin.SetModelConverter(e.contextModelConverter)
 	if err := plugin.PreserveFacts(protected); err != nil {
 		return nil, errors.Join(err, plugin.Close())
 	}

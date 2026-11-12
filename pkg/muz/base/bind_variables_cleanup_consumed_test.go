@@ -13,7 +13,8 @@ import (
 )
 
 // Drive the real signed TLS accounting lane below its lower bound while the
-// last variable's rational declaration parameter is being destroyed. The AST
+// first variable's rational declaration parameter is being destroyed
+// (~bind_variables releases m_vars front to back). The AST
 // reference is consumed even though the physical release reports an error.
 func TestVariableBinderCloseRetriesAfterConsumedNativeRelease(t *testing.T) {
 	must := func(err error) {
@@ -37,8 +38,6 @@ func TestVariableBinderCloseRetriesAfterConsumedNativeRelease(t *testing.T) {
 	must(err)
 	first, err := manager.MkFreshConst("binder-before-consumed-release", boolean)
 	must(err)
-	must(binder.AddVariable(first))
-	remaining := binder.references[0]
 
 	scoped, err := numeral.NewScopedInt(numbers.Manager.Z)
 	must(err)
@@ -60,7 +59,8 @@ func TestVariableBinderCloseRetriesAfterConsumedNativeRelease(t *testing.T) {
 	last, err := manager.MkApp(declaration, nil)
 	must(err)
 	must(binder.AddVariable(last))
-	consumed := binder.references[1]
+	must(binder.AddVariable(first))
+	consumed, remaining := binder.references[0], binder.references[1]
 	must(manager.DelFuncDeclInfo(&info))
 	must(manager.DelParameter(&parameter))
 	must(numbers.Del(&value))

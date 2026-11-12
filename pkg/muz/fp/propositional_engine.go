@@ -3396,6 +3396,13 @@ func (e *PropositionalEngine) Close() (result error) {
 	if err := e.closeBoundIntervalDatalog(); err != nil {
 		return errors.Join(result, err)
 	}
+	// ~context -> context::reset(): m_rule_set.reset() releases the rules
+	// front to back before m_rule_fmls.reset().
+	if e.set != nil {
+		if err := e.set.Reset(); err != nil {
+			return errors.Join(result, err)
+		}
+	}
 	e.retiredRawRules = append(e.retiredRawRules, e.rawRules...)
 	e.rawRules = nil
 	for _, scope := range e.rawRuleScopes {
@@ -3477,9 +3484,33 @@ func (e *PropositionalEngine) Close() (result error) {
 		result = errors.Join(result, e.manager.DelRef(&e.assertions[i]))
 	}
 	e.assertions = nil
-	if e.guard != nil {
-		result = errors.Join(result, e.guard.Close())
-		e.guard = nil
+	if e.ddnf.registry != nil && !e.ddnf.registryBorrowed {
+		e.ddnf.registry.Close()
+		e.ddnf.registry = nil
+	}
+	trailErr := e.ddnf.closeTrail(e.manager)
+	result = errors.Join(result, trailErr)
+	if trailErr == nil {
+		e.ddnf = ddnfEngineState{}
+	}
+	// ~context destroys its members in reverse declaration order:
+	// m_rule_set, m_bind_variables, m_rule_properties, m_rule_manager (whose
+	// m_qe precedes its rule temporaries), and finally m_rewriter.
+	if e.set != nil {
+		result = errors.Join(result, e.set.Close())
+		e.set = nil
+	}
+	if e.binder != nil {
+		if err := e.binder.Close(); err != nil {
+			return errors.Join(result, err)
+		}
+		e.binder = nil
+	}
+	if e.ruleProperties != nil {
+		if err := e.ruleProperties.Close(); err != nil {
+			return errors.Join(result, err)
+		}
+		e.ruleProperties = nil
 	}
 	if e.unboundLite != nil {
 		if err := e.unboundLite.Close(); err != nil {
@@ -3491,36 +3522,15 @@ func (e *PropositionalEngine) Close() (result error) {
 		result = errors.Join(result, e.unboundCooperation.Close())
 		e.unboundCooperation = nil
 	}
-	if e.ddnf.registry != nil && !e.ddnf.registryBorrowed {
-		e.ddnf.registry.Close()
-		e.ddnf.registry = nil
-	}
-	trailErr := e.ddnf.closeTrail(e.manager)
-	result = errors.Join(result, trailErr)
-	if trailErr == nil {
-		e.ddnf = ddnfEngineState{}
-	}
-	if e.ruleProperties != nil {
-		if err := e.ruleProperties.Close(); err != nil {
-			return errors.Join(result, err)
-		}
-		e.ruleProperties = nil
-	}
-	if e.set != nil {
-		result = errors.Join(result, e.set.Close())
-		e.set = nil
-	}
 	if e.rules != nil {
 		if err := e.rules.Close(); err != nil {
 			return errors.Join(result, err)
 		}
 		e.rules = nil
 	}
-	if e.binder != nil {
-		if err := e.binder.Close(); err != nil {
-			return errors.Join(result, err)
-		}
-		e.binder = nil
+	if e.guard != nil {
+		result = errors.Join(result, e.guard.Close())
+		e.guard = nil
 	}
 	if e.relations != nil {
 		if err := e.relations.Close(); err != nil {

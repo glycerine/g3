@@ -16,6 +16,9 @@ func TestDatalogInliningPreservesFactsModelsAndQueryScope(t *testing.T) {
 		serviceFree, disabled, facts bool
 		moduleDisabled, localEnable  bool
 		eagerOnly, linearOnly        bool
+		// relQueryOnly leaves m_mc null as the SMT2 query command's
+		// rel_query does: the inliner records no removed-rule models.
+		relQueryOnly bool
 	}{
 		{name: "default"},
 		{name: "without-services", serviceFree: true},
@@ -25,6 +28,7 @@ func TestDatalogInliningPreservesFactsModelsAndQueryScope(t *testing.T) {
 		{name: "local-override", moduleDisabled: true, localEnable: true},
 		{name: "eager-only", eagerOnly: true},
 		{name: "linear-only", linearOnly: true},
+		{name: "rel-query-null-model-converter", relQueryOnly: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			must := func(err error) { t.Helper(); fragmentMust(t, err) }
@@ -50,6 +54,9 @@ func TestDatalogInliningPreservesFactsModelsAndQueryScope(t *testing.T) {
 			}
 			must(err)
 			t.Cleanup(func() { must(e.Close()) })
+			if !tc.relQueryOnly {
+				InstallContextModelConverter(e) // a prior context::query installed m_mc
+			}
 			must(e.SelectEngine("datalog"))
 			if tc.disabled || tc.localEnable || tc.eagerOnly || tc.linearOnly {
 				local := globals.Context.EmptyValue()
@@ -104,6 +111,14 @@ func TestDatalogInliningPreservesFactsModelsAndQueryScope(t *testing.T) {
 			enabled := !tc.disabled && (!tc.moduleDisabled || tc.localEnable) && !tc.facts
 			eliminated, err := e.hornInlineEliminated(e.datalogConversions, middle)
 			must(err)
+			if tc.relQueryOnly {
+				// mk_rule_inliner allocates no horn_subsume_model_converter
+				// and mk_coi_filter records nothing without m_mc.
+				if eliminated || len(e.datalogConversions) != 0 {
+					t.Fatal("null model converter captured conversions", eliminated, len(e.datalogConversions))
+				}
+				return
+			}
 			if eliminated != enabled {
 				t.Fatal("default inlining or fact/parameter protection", eliminated, enabled)
 			}

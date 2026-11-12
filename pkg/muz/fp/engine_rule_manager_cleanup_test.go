@@ -37,7 +37,7 @@ func TestEngineClosePreservesRuleManagerAfterConsumedNativeRelease(t *testing.T)
 	baseline := manager.Stats().LiveReferences
 	engine, err := NewPropositionalEngine(manager)
 	must(err)
-	rules, binder, relations, background := engine.rules, engine.binder, engine.relations, engine.background
+	rules, relations, background := engine.rules, engine.relations, engine.background
 	var recovery memory.Block
 	t.Cleanup(func() {
 		finish := func(close func() error) {
@@ -132,8 +132,12 @@ func TestEngineClosePreservesRuleManagerAfterConsumedNativeRelease(t *testing.T)
 	if !errors.Is(err, arena.ErrBounds) || engine.closed || !engine.closing || engine.rules != rules {
 		t.Fatal("engine discarded its interrupted rule manager", err, engine.closed, engine.closing, engine.rules == rules)
 	}
-	if engine.binder != binder || engine.relations != relations || engine.background != background {
+	if engine.relations != relations || engine.background != background {
 		t.Fatal("engine disposed later owners after its rule manager failed")
+	}
+	// ~context destroys m_bind_variables before m_rule_manager.
+	if engine.binder != nil {
+		t.Fatal("engine kept its binder past the rule manager's failure")
 	}
 	// The label rewriter's three scratch references go first (m_rwr is
 	// destroyed before the predicate table), then the consumed predicate.

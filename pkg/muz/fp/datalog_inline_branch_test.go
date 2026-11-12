@@ -31,6 +31,7 @@ func TestDatalogLinearInliningBranchParametersAndFacts(t *testing.T) {
 			e, err := NewPropositionalEngineWithServices(m, globals.Context, globals)
 			must(err)
 			t.Cleanup(func() { must(e.Close()) })
+			InstallContextModelConverter(e) // a prior context::query installed m_mc
 			must(e.SelectEngine("datalog"))
 			if tc.local {
 				local := globals.Context.EmptyValue()

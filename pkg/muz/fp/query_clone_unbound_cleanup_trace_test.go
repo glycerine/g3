@@ -79,8 +79,13 @@ func TestExpressionQueryClonePreservesUnboundReducerAfterNativeCleanupFailure(t 
 					t.Fatal("failed query did not preserve exactly its discarded clone")
 				}
 				clone := f.e.queryCleanup[0].clone
-				if clone.closed || !clone.closing || clone.unboundLite == nil || clone.unboundCooperation == nil || clone.set == nil || clone.rules == nil || clone.binder == nil || clone.relations == nil {
+				if clone.closed || !clone.closing || clone.unboundLite == nil || clone.unboundCooperation == nil || clone.rules == nil || clone.relations == nil {
 					t.Fatal("clone abandoned its interrupted reducer or later owners", clone.closed, clone.unboundLite, clone.unboundCooperation)
+				}
+				// ~context destroys m_rule_set and m_bind_variables before
+				// m_rule_manager and its m_qe.
+				if clone.set != nil || clone.binder != nil {
+					t.Fatal("clone kept owners that precede its reducer", clone.set, clone.binder)
 				}
 				original, message := receipt.OriginalCause(), cause.Error()
 				switch resume {

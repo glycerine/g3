@@ -15,9 +15,10 @@ import (
 
 // The context's binder member must survive a later physical cleanup error,
 // even after the engine's initial AST admission guard has succeeded. Drive the
-// native TLS accounting lane below its lower bound while the last variable's
-// rational declaration parameter is destroyed; the reference is consumed but
-// the binder's preceding variable still needs a later engine Close retry.
+// native TLS accounting lane below its lower bound while the first variable's
+// rational declaration parameter is destroyed (~bind_variables releases m_vars
+// front to back); the reference is consumed but the binder's following
+// variable still needs a later engine Close retry.
 func TestEngineClosePreservesBinderAfterConsumedNativeRelease(t *testing.T) {
 	must := func(err error) {
 		t.Helper()
@@ -74,7 +75,6 @@ func TestEngineClosePreservesBinderAfterConsumedNativeRelease(t *testing.T) {
 	must(err)
 	first, err := manager.MkFreshConst("binder-before-consumed-release", boolean)
 	must(err)
-	must(engine.RegisterVariable(first))
 
 	scoped, err := numeral.NewScopedInt(numbers.Manager.Z)
 	must(err)
@@ -96,6 +96,7 @@ func TestEngineClosePreservesBinderAfterConsumedNativeRelease(t *testing.T) {
 	last, err := manager.MkApp(declaration, nil)
 	must(err)
 	must(engine.RegisterVariable(last))
+	must(engine.RegisterVariable(first))
 	must(manager.DelFuncDeclInfo(&info))
 	must(manager.DelParameter(&parameter))
 	must(numbers.Del(&value))
@@ -136,9 +137,9 @@ func TestEngineClosePreservesBinderAfterConsumedNativeRelease(t *testing.T) {
 	if engine.relations != relations || engine.background != background {
 		t.Fatal("engine disposed later owners after its binder failed")
 	}
-	// The rule manager's label rewriter released its three scratch
-	// references before the binder's consumed release.
-	if manager.Stats().LiveReferences+4 != before || runtime.Stats().LiveBlocks >= blocks {
+	// ~context destroys m_bind_variables before m_rule_manager, so the
+	// label rewriter's three scratch references are still held.
+	if manager.Stats().LiveReferences+1 != before || runtime.Stats().LiveBlocks >= blocks {
 		t.Fatal("binder failure did not consume exactly one AST reference and a native allocation", before, manager.Stats().LiveReferences, blocks, runtime.Stats().LiveBlocks)
 	}
 	if _, err = manager.GetRefCount(last); !errors.Is(err, ast.ErrASTHandle) {
