@@ -1,6 +1,7 @@
 package qe
 
 import (
+	"errors"
 	"github.com/glycerine/g3/pkg/util/statistics"
 	"testing"
 
@@ -479,5 +480,67 @@ func TestNLQAnswerSimplificationUsesPriorProjectedClauses(t *testing.T) {
 	fmMust(t, err)
 	if !f.r.manager.IsFalse(rewritten) {
 		t.Fatal("prior negative projection did not simplify its atom to false")
+	}
+}
+
+// is_pure_proc (nlqsat.cpp:471-511) rejects a goal outside NRA before any
+// NLSAT state is built: an Int-sorted bound variable in either mode, and a
+// non-numeral division in nlqe (elim_t) mode, where it is not purified.
+func TestNLQSATTacticRejectsGoalsOutsideNRA(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		eliminate bool
+		formula   func(*fmFixture) ast.ASTHandle
+	}{
+		{name: "nlqsat-integer-variable", formula: func(f *fmFixture) ast.ASTHandle {
+			n := f.variable(0, f.integer)
+			name, err := f.r.manager.Symbols.Intern("n")
+			fmMust(f.t, err)
+			body := f.own(f.r.manager.MkArithmeticGE(n, n))
+			return f.own(f.r.manager.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []usymbol.Symbol{name}, Body: body}))
+		}},
+		{name: "nlqe-integer-variable", eliminate: true, formula: func(f *fmFixture) ast.ASTHandle {
+			n := f.variable(0, f.integer)
+			name, err := f.r.manager.Symbols.Intern("n")
+			fmMust(f.t, err)
+			body := f.own(f.r.manager.MkArithmeticGE(n, n))
+			return f.own(f.r.manager.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []usymbol.Symbol{name}, Body: body}))
+		}},
+		{name: "nlqe-symbolic-division", eliminate: true, formula: func(f *fmFixture) ast.ASTHandle {
+			a := f.constant("purity-a", f.real)
+			x := f.variable(0, f.real)
+			name, err := f.r.manager.Symbols.Intern("x")
+			fmMust(f.t, err)
+			quotient := f.own(f.r.manager.MkArithmeticDiv(a, x))
+			body := f.own(f.r.manager.MkEq(quotient, a))
+			return f.own(f.r.manager.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.real}, Names: []usymbol.Symbol{name}, Body: body}))
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFMFixture(t)
+			formula := tc.formula(f)
+			var runner *NLQSATTactic
+			var err error
+			if tc.eliminate {
+				runner, err = NewNLQETactic(f.r.manager, f.r.config)
+			} else {
+				runner, err = NewNLQSATTactic(f.r.manager, f.r.config)
+			}
+			fmMust(t, err)
+			t.Cleanup(func() { fmMust(t, runner.Close()) })
+			goal := f.goal(false, false)
+			result := f.result()
+			fmMust(t, goal.Assert(formula))
+			err = runner.Apply(goal, result)
+			var exception basetactic.TacticException
+			if !errors.As(err, &exception) || exception.Message() != "not NRA" {
+				t.Fatalf("Apply error %v; want tactic exception \"not NRA\"", err)
+			}
+			size, cause := goal.Size()
+			fmMust(t, cause)
+			if size != 1 {
+				t.Fatal("rejected goal was modified", size)
+			}
+		})
 	}
 }

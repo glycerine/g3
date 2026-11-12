@@ -246,7 +246,7 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	if err = preparation.hoistNL(t.mode, formulaRef); err != nil {
 		return err
 	}
-	if err = preparation.ackermannizeDivisions(formulaRef); err != nil {
+	if err = preparation.ackermannizeDivisions(t.mode, formulaRef); err != nil {
 		return err
 	}
 	formula, err = t.manager.RefGet(formulaRef)

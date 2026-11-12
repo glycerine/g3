@@ -23,7 +23,9 @@ func TestSMTLibRunnerQSATAndQuantifierElimination(t *testing.T) {
 		{"qe_rec_blocked_terms.smt2", "unsat\n", "", false},
 		{"qe_rec_free_boolean.smt2", "sat\n", "", true},
 		{"qsat_scopes.smt2", "sat\nunsat\nsat\n((k 3))\n", "", false},
-		{"nlqsat_nonlinear_quantifiers.smt2", "sat\nsat\nsat\nunsat\nunsat\nunsat\n", "unknown\nunknown\nsat\nunsat\nunknown\nunknown\n", false},
+		// nlqsat's is_pure_proc rejects the Int numerals' to_real coercions
+		// ("not NRA"), so those goals end unknown, as in the C++ build.
+		{"nlqsat_nonlinear_quantifiers.smt2", "unknown\nunknown\nsat\nunsat\nunknown\nunknown\n", "", false},
 		{"nra_portfolio.smt2", "sat\nsat\nunsat\nsat\n", "", false},
 		{"nra_solver_quantifiers.smt2", "sat\nsat\nunsat\nsat\n", "", false},
 		{"nlqsat_models.smt2", "sat\n((k 3.0))\nsat\n((k 3.0))\n", "", false},
@@ -76,7 +78,9 @@ func TestSMTLibRunnerNLQSATProjection(t *testing.T) {
 	if err = run(bytes.NewReader(script), &out); err != nil {
 		t.Fatal(err, out.String())
 	}
-	if want := "unsat\nsat\nsat\n"; out.String() != want {
+	// Every goal holds a to_real coercion of an Int numeral, which nlqsat's
+	// is_pure_proc rejects as "not NRA" (nlqsat.cpp:482-507).
+	if want := "unknown\nunknown\nunknown\n"; out.String() != want {
 		t.Fatalf("native output %q; want %q", out.String(), want)
 	}
 }
