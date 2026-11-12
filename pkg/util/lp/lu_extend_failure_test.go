@@ -40,7 +40,10 @@ func TestLPExactLUExtensionAllocationCensus(t *testing.T) {
 					heading := []int32{0, 1, -1}
 					h.budget.FailAfter(ordinal)
 
-					err = p.AddLastRowsToB(heading, map[uint32]struct{}{0: {}, 1: {}})
+					columns := NewStdUnorderedUintSet()
+					columns.Insert(0)
+					columns.Insert(1)
+					err = p.AddLastRowsToB(heading, columns)
 
 					h.budget.FailAfter(-1)
 					if err == nil {
@@ -94,7 +97,7 @@ func TestLPLUExtensionLiteralGuardsAndPrefixes(t *testing.T) {
 				h.must(err)
 				defer func() { h.must(p.Close()) }()
 				heading := []int32{0, 1, -1, -1, -1}
-				columns := map[uint32]struct{}{}
+				columns := NewStdUnorderedUintSet()
 				want := error(nil)
 				switch phase {
 				case "empty":
@@ -115,13 +118,13 @@ func TestLPLUExtensionLiteralGuardsAndPrefixes(t *testing.T) {
 						want = ErrAssertion
 					}
 				case "negative heading":
-					columns[2] = struct{}{}
+					columns.Insert(2)
 					want = ErrBounds
 					if sourceDebugEnabled {
 						want = ErrAssertion
 					}
 				case "column bounds":
-					columns[5] = struct{}{}
+					columns.Insert(5)
 					want = ErrBounds
 				case "shrink":
 					a.Rows = a.Rows[:1]
@@ -150,7 +153,7 @@ func TestLPLUExtensionLiteralGuardsAndPrefixes(t *testing.T) {
 					h.must(a.AddRow())
 					fa.AddRow()
 					heading[2] = 2
-					columns[2] = struct{}{}
+					columns.Insert(2)
 				}
 				switch phase {
 				case "heading bounds":

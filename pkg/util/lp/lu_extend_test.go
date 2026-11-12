@@ -98,7 +98,14 @@ func TestLPLUExtensionIndependentBasisOracle(t *testing.T) {
 						}
 					}
 				}
-				if !reflect.DeepEqual(fc, want) || !reflect.DeepEqual(pc, want) {
+				asSet := func(c *StdUnorderedUintSet) map[uint32]struct{} {
+					out := map[uint32]struct{}{}
+					for _, k := range c.Keys() {
+						out[k] = struct{}{}
+					}
+					return out
+				}
+				if !reflect.DeepEqual(asSet(fc), want) || !reflect.DeepEqual(asSet(pc), want) || !reflect.DeepEqual(fc.Keys(), pc.Keys()) {
 					t.Fatal("affected set", fc, pc, want)
 				}
 				lpStaticMust(t, f.AddLastRowsToB(heading, fc))

@@ -24,11 +24,11 @@ func (m *FloatLU) AdjustDimensionWithMatrixA() (err error) {
 
 // ColumnsToReplaceForAddLastRows returns the unordered set of basis columns
 // present in newly appended rows. Native map iteration replaces unordered_set.
-func (m *FloatLU) ColumnsToReplaceForAddLastRows(heading []int32) (columns map[uint32]struct{}, err error) {
+func (m *FloatLU) ColumnsToReplaceForAddLastRows(heading []int32) (columns *StdUnorderedUintSet, err error) {
 	if err = m.ready(); err != nil {
 		return nil, err
 	}
-	columns = make(map[uint32]struct{})
+	columns = NewStdUnorderedUintSet()
 	if uint64(m.A.ColumnCount()) != uint64(len(heading)) {
 		if err = sourceAssertionFailure(); err != nil {
 			return columns, err
@@ -40,14 +40,14 @@ func (m *FloatLU) ColumnsToReplaceForAddLastRows(heading []int32) (columns map[u
 				return columns, ErrBounds
 			}
 			if heading[c.Column] >= 0 {
-				columns[c.Column] = struct{}{}
+				columns.Insert(c.Column)
 			}
 		}
 	}
 	return columns, nil
 }
 
-func (m *FloatLU) AddLastRowsToB(heading []int32, columns map[uint32]struct{}) (err error) {
+func (m *FloatLU) AddLastRowsToB(heading []int32, columns *StdUnorderedUintSet) (err error) {
 	if err = m.ready(); err != nil {
 		return err
 	}
@@ -64,7 +64,13 @@ func (m *FloatLU) AddLastRowsToB(heading []int32, columns map[uint32]struct{}) (
 	if err = m.wExtension.Resize(n); err != nil {
 		return err
 	}
-	for _, j := range addLastRowsOrder(columns) {
+	// !!! ORDER MATTERS: iterate columns.Keys(), the libstdc++
+	// std::unordered_set<unsigned> order (std_unordered_set.go, a deliberate
+	// user-approved STL-order exception). z3 replaces the columns in that
+	// order and breaks on degeneration, so sorting or using a Go map here
+	// would make the factorization diverge from z3. Guarded by
+	// TestStdUnorderedUintSetMatchesLibstdcxx - keep it green.
+	for _, j := range columns.Keys() {
 		if uint64(j) >= uint64(len(heading)) {
 			return ErrBounds
 		}

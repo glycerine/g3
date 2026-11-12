@@ -19,7 +19,7 @@ type SmallLUTestDriver struct {
 	Basis, NBasis   []uint32
 	Heading         []int32
 	PrintedBasis    *FloatDenseMatrix
-	Replacements    map[uint32]struct{}
+	Replacements    *StdUnorderedUintSet
 	CompletedPivots uint32
 	Extended        bool
 	settings        *Settings

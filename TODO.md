@@ -2411,9 +2411,12 @@ order (dl_compiler var_indexes u_map, variable_intersection, neg_intersection,
 bound_relation uint_set, spacer slice/scale/quantifier-abstraction/karr
 model converters, iz3translate AstSet, ackr_info m_t2c), 19 made
 deterministic in the closest order (no ported C++ order), 1 lead.
-Leads: lu_extend add_last_rows_to_B iterates std::unordered_set<unsigned>
-(libstdc++ order would extend the STL exception beyond lar_term - needs the
-user's approval; ascending for now); lar_conflict_certificate debug
+DONE (2026-11-12, user-approved STL exception 3): lu_extend add_last_rows_to_B
+iterates std::unordered_set<unsigned> in libstdc++ order
+(util/lp/std_unordered_set.go, positive control
+src/test/stl_unordered_set_order_control.cpp, vector
+lra_lu_extend_add_last_rows with smt.arith.solver 6 + lp.simplex_strategy 2).
+Leads: lar_conflict_certificate debug
 "left side =" in unordered_map order; mk_slice converter order;
 array-instantiation/scale/magic predicate registration use AST id order;
 ackr Info.Close reverse order vs ~ackr_info table order; iz3hash hash_set
@@ -2506,5 +2509,4 @@ and qe_rec_free_boolean; 8 timeouts are trace=true runs past 30 s (new BV
 and fp vectors, mbqi_auflia_arith_macro_lifetimes,
 qe_bv_uf_exists_expansion) whose traces matched as far as they ran.
 Largest open item: constant-factor speed (6-11x slower than z3 on identical
-searches; trace=true 4-5x slower). Pending user decision: libstdc++
-unordered_set order for util/lp lu_extend.
+searches; trace=true 4-5x slower).

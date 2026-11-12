@@ -18,7 +18,7 @@ func (s *LARSolver) AddLastRowsToPairLU(r *PairPrimalCoreSolver) (err error) {
 		if e != nil {
 			return e
 		}
-		if uint64(f.RefactorCounter)+uint64(len(columns)) >= 200 || f.HasDenseSubmatrix() {
+		if uint64(f.RefactorCounter)+uint64(columns.Len()) >= 200 || f.HasDenseSubmatrix() {
 			if err = f.Close(); err != nil {
 				return err
 			}
@@ -56,7 +56,7 @@ func (s *LARSolver) AddLastRowsToFloatLU(r *FloatPrimalCoreSolver) (err error) {
 		if e != nil {
 			return e
 		}
-		if uint64(f.RefactorCounter)+uint64(len(columns)) >= 200 || f.HasDenseSubmatrix() {
+		if uint64(f.RefactorCounter)+uint64(columns.Len()) >= 200 || f.HasDenseSubmatrix() {
 			f.Close()
 			r.Factorization = nil
 		} else {
