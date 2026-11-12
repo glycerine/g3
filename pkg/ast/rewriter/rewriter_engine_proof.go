@@ -47,7 +47,11 @@ func (r *rewriterEngine) finishProof(fr rewriterFrame, value, proof ast.ASTHandl
 	return r.setNewChildIfDifferent(fr.curr, value)
 }
 
-func (r *rewriterEngine) rewrittenProof(fr rewriterFrame) (err error) {
+// rewrittenProof completes a rewritten application. keep is the
+// REWRITE_BUILTIN continuation, which leaves m_r and m_pr assigned (they hold
+// the result and its proof until the next assignment); the immediate path
+// after visit clears both.
+func (r *rewriterEngine) rewrittenProof(fr rewriterFrame, keep bool) (err error) {
 	c, m := &r.core, r.core.manager
 	if len(c.results) < 2 || len(c.proofResults) < 2 {
 		return ast.ErrASTDomain
@@ -65,7 +69,9 @@ func (r *rewriterEngine) rewrittenProof(fr rewriterFrame) (err error) {
 	if e = m.SetRef(r.pr, proof); e != nil {
 		return e
 	}
-	defer func() { err = errors.Join(err, m.ResetRef(r.pr), m.ResetRef(r.r)) }()
+	if !keep {
+		defer func() { err = errors.Join(err, m.ResetRef(r.pr), m.ResetRef(r.r)) }()
+	}
 	if e = shrinkRewriterRoots(m, &c.results, uint32(len(c.results)-2)); e != nil {
 		return e
 	}
@@ -203,7 +209,7 @@ func (r *rewriterEngine) processAppProof() error {
 				return e
 			}
 			if done {
-				e = r.rewrittenProof(fr)
+				e = r.rewrittenProof(fr, false)
 			}
 			if reset := m.ResetRef(r.r); e == nil {
 				e = reset
@@ -236,7 +242,7 @@ func (r *rewriterEngine) processAppProof() error {
 		}
 		return r.finishProof(fr, value, proof, false)
 	case 1:
-		return r.rewrittenProof(fr)
+		return r.rewrittenProof(fr, true)
 	default:
 		return ast.ErrASTDomain
 	}
