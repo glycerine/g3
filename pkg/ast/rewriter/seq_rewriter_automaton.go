@@ -422,6 +422,15 @@ func (a *sequenceAutomaton) epsilonClosure(state int) []int {
 	return result
 }
 
+// closureIsFinal is a BUG FIX relative to z3 4.7.1 (TODO.md "z3 4.7.1 bugs
+// fixed in g3"). symbolic_automata::mk_product
+// (src/math/automata/symbolic_automata_def.h) tests is_final_state, which
+// ignores epsilon moves, so ("" | a) & ("" | b) has an empty product and z3
+// answers unsat for x in that intersection although x = "" is a solution.
+// g3 treats a state as final when its epsilon closure contains a final
+// state. sequence_helper_inventory's trace differs from z3's because of
+// this, so it is excluded from trace-identity testing
+// (test_vectors/z3_bug_exclusions.txt).
 func (a *sequenceAutomaton) closureIsFinal(state int) bool {
 	for _, candidate := range a.epsilonClosure(state) {
 		if a.finals[candidate] {

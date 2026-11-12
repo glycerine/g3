@@ -379,6 +379,15 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_produ
     pair2id.insert(init_pair, 0);
     moves_t mvs;
     unsigned_vector final;
+    // g3 note (z3 4.7.1 bug, see g3 TODO.md "z3 4.7.1 bugs fixed in g3"):
+    // is_final_state ignores epsilon moves, so a state that reaches a final
+    // state only through epsilon transitions is treated as non-final. For
+    // ("" | a) & ("" | b) neither initial state is final by itself and the
+    // product comes out empty, so z3 reports
+    //   (assert (str.in.re x (re.inter (re.union (str.to.re "") (str.to.re "a"))
+    //                                  (re.union (str.to.re "") (str.to.re "b")))))
+    // unsat although x = "" satisfies it. g3 uses the epsilon closure
+    // (pkg/ast/rewriter/seq_rewriter_automaton.go closureIsFinal).
     if (a.is_final_state(a.init()) && b.is_final_state(b.init())) {
         final.push_back(0);
     }

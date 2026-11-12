@@ -1283,9 +1283,20 @@ func (k *SMTKernel) internalizeCheckAssertions() error {
 	if k.assertedFormulasInconsistent() || k.internalizer.Inconsistent() {
 		return nil
 	}
-	// Cached assertions may have been internalized while relevancy filtering
-	// was disabled. Reestablish their root relevance before each check so a
-	// live option update or scope pop cannot omit them from the next model.
+	// BUG FIX relative to z3 4.7.1 (TODO.md "z3 4.7.1 bugs fixed in g3",
+	// item 27). Cached assertions may have been internalized while relevancy
+	// filtering was disabled (smt.relevancy 0). In z3,
+	// relevancy_propagator_imp::mark_as_relevant (src/smt/smt_relevancy.cpp)
+	// returns early while relevancy is off, and when a later set-option turns
+	// it back on (smt_solver::updt_params -> smt_params::updt_local_params
+	// re-reads m_relevancy_lvl) nothing marks those root assertions relevant;
+	// the model generator then omits them and z3 prints a model violating an
+	// asserted formula (repro: test_vectors/relevancy_update_scopes.smt2,
+	// where z3 prints p = false after (assert p)). g3 re-marks the cached
+	// assertions relevant before each check. Consequence: the full trace
+	// logs of lra_propagation_mode_updates and arithmetic_eq_options differ
+	// from z3's, so those vectors are excluded from trace-identity testing
+	// (test_vectors/z3_bug_exclusions.txt).
 	if k.repairRelevancy && k.relevancy.enabled {
 		for _, assertion := range k.assertions[:k.assertedHead] {
 			if err := k.internalizer.markRelevant(assertion.Formula); err != nil {

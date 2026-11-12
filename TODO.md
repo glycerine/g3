@@ -1492,8 +1492,8 @@ Found while matching `-st` output against `build/z3` on
     k.repairRelevancy && k.relevancy.enabled` block in the check path,
     smtcore/smt_kernel.go), lra_propagation_mode_updates and
     arithmetic_eq_options both match z3's full trace exactly. They are the
-    only vectors in the comparison set that the repair affects. Decision
-    needed.
+    only vectors in the comparison set that the repair affects.
+    DECIDED (2026-11-11): keep the repair; see "z3 4.7.1 bugs fixed in g3".
 
 28. **Mostly done (2026-11-11).** quant_seq_symbolic_int_prefix now
     matches z3 for the whole trace g3 writes in 30s (578684 lines; z3
@@ -1904,3 +1904,55 @@ Moved: fixedpoint_pdr_recursive_trace -> 22942, fixedpoint_finite_relations
 - datatype_cycle_proof: ee39d9490 changed this recorded ask-first deviation
   (occurs_check_explain no longer adds the extra closing pair); the vector is
   now identical. Revert with `git revert ee39d9490` if that was unwanted.
+
+## z3 4.7.1 bugs fixed in g3 (decided 2026-11-11; keep the fixes)
+
+g3 deliberately does not reproduce these z3 4.7.1 bugs. The vectors they
+affect are listed in pkg/cmd/g3/test_vectors/z3_bug_exclusions.txt and are
+left out of z3 trace/output identity testing (golden_trace_vectors.txt and
+cmd/g3/main_test.go carry commented-out entries pointing there). Both are
+candidates for upstream bug reports.
+
+1. **Models violate assertions after re-enabling relevancy** (was item 27).
+   - Reproduction: pkg/cmd/g3/test_vectors/relevancy_update_scopes.smt2.
+     It sets smt.relevancy 0, asserts p and (or a b), checks, then pushes
+     and sets smt.relevancy 2. z3 4.7.1 then prints the model
+     ((p false) ((or a b) false)) for every later sat check, although p
+     and (or a b) are asserted. g3 prints p = true, (or a b) = true.
+   - Cause in z3: context::internalize_assertion calls mark_as_relevant on
+     each root assertion, but relevancy_propagator_imp::mark_as_relevant
+     (src/smt/smt_relevancy.cpp) returns immediately while relevancy is
+     off. A later set-option goes through smt_solver::updt_params
+     (src/smt/smt_solver.cpp), which re-reads m_relevancy_lvl into the
+     shared smt_params (src/smt/params/smt_params.cpp,
+     updt_local_params). Relevancy is now on, but nothing re-marks the
+     already internalized root assertions, so the model generator treats
+     them as irrelevant and leaves their atoms unconstrained.
+   - g3 fix: SMTKernel.repairRelevancy (pkg/smtcore/smt_kernel.go, set in
+     the params update and in smt_solver_optimization.go) re-marks every
+     cached assertion relevant and restores its watches before each check.
+     Test: TestSMTLibRunnerRelevancyUpdatesKeepModelsValidWithKnownCPPDefect.
+   - Excluded vectors: lra_propagation_mode_updates and
+     arithmetic_eq_options. Without the repair both match z3's full trace
+     exactly (checked 2026-11-11); with it, the repair's extra model work
+     (one extra model numeral) changes their traces.
+
+2. **Regex intersection product ignores epsilon closure** (was part of
+   item 21).
+   - Reproduction: pkg/cmd/g3/test_vectors/z3_bug_automaton_product.smt2:
+       (declare-const x String)
+       (assert (str.in.re x (re.inter (re.union (str.to.re "") (str.to.re "a"))
+                                      (re.union (str.to.re "") (str.to.re "b")))))
+       (check-sat)
+     z3 4.7.1 answers unsat; the correct answer is sat with x = "" (g3).
+   - Cause in z3: symbolic_automata::mk_product
+     (src/math/automata/symbolic_automata_def.h) decides final product
+     states with is_final_state, which does not follow epsilon moves. The
+     automata for ("" | a) and ("" | b) reach their final states from the
+     initial state only through epsilon transitions, so no product state
+     is final and the intersection is empty.
+   - g3 fix: sequenceAutomaton.closureIsFinal
+     (pkg/ast/rewriter/seq_rewriter_automaton.go) uses the epsilon closure.
+     Test: string_regex_automaton_product_test.
+   - Excluded vector: sequence_helper_inventory (its trace first differs at
+     line 21357, where the product automaton's final states differ).

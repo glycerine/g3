@@ -814,7 +814,8 @@ var scriptResults = map[string]string{
 	"quantified_ematching_relevancy.smt2":          "unsat\nunsat\n",
 	"quantified_model_relevancy.smt2":              "sat\n(((f 7) 7) ((f 11) 11))\nunsat\nsat\n(((f 11) 11))\n",
 	"integer_uf_model_relevancy.smt2":              "sat\n(((distinct x y) true) ((distinct (f x) (f y)) true))\nunsat\nsat\n(((distinct x y) true) ((distinct (f x) (f y)) true))\n",
-	"arithmetic_eq_options.smt2":                   "unsat\nsat\nunsat\nsat\nunsat\nsat\n",
+	// arithmetic_eq_options: excluded, g3 fixes a z3 4.7.1 relevancy bug (test_vectors/z3_bug_exclusions.txt).
+	// "arithmetic_eq_options.smt2":                   "unsat\nsat\nunsat\nsat\nunsat\nsat\n",
 	"rational_square_interval_scopes.smt2":         "unsat\nsat\nsat\n((d (/ 121.0 225.0)) (|squared difference| (/ 121.0 225.0)) ((let ((q d)) (+ q 0)) (/ 121.0 225.0)))\nunsat\nsat\nsat\n",
 	"shared_bound_queue.smt2":                      "unknown\nsat\n((x 2.0) ((f x) 0.0) ((f z) 0.0))\nsat\n",
 	"shared_nonlinear_model.smt2":                  "sat\nunknown\nsat\nsat\n((x 2.0) (y 1.0) (z (- 1.0)) ((f z) 0.0))\n",
@@ -834,7 +835,8 @@ var scriptResults = map[string]string{
 	"shared_linear_expression_bounds.smt2":         "unsat\nunsat\nsat\n",
 	"row_bound_propagation_scopes.smt2":            "unsat\n(x_strict y_lower blocked_sum)\nsat\n((x (/ 3.0 2.0))\n (y 2.0)\n ((+ x y) (/ 7.0 2.0)))\n",
 	"sequence_word_equations_relations.smt2":       "unsat\nsat\n((x \"aa\"))\nsat\n((x \"ab\"))\nsat\n((x \"bc\"))\nsat\n((x \"ab\"))\nsat\nunsat\nsat\nsat\nsat\nsat\nsat\nsat\n",
-	"sequence_helper_inventory.smt2":               "unsat\nsat\nunsat\nsat\nunsat\nunsat\nunsat\nunsat\nunsat\nunsat\nunsat\nunsat\nsat\n",
+	// sequence_helper_inventory: excluded, g3 fixes a z3 4.7.1 automaton product bug (test_vectors/z3_bug_exclusions.txt).
+	// "sequence_helper_inventory.smt2":               "unsat\nsat\nunsat\nsat\nunsat\nunsat\nunsat\nunsat\nunsat\nunsat\nunsat\nunsat\nsat\n",
 	"mixed_equality_and_ite_join.smt2":             "sat\nunsat\nunsat\nunsat\nsat\n",
 	"integer_gcd_scopes.smt2":                      "unsat\nsat\n",
 	"integer_extended_gcd.smt2":                    "unsat\nsat\n",

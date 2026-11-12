@@ -326,6 +326,14 @@ namespace smt {
            already marked. 
         */
         void mark_as_relevant(expr * n) override {
+            // g3 note (z3 4.7.1 bug, see g3 TODO.md "z3 4.7.1 bugs fixed
+            // in g3"): an assertion internalized while smt.relevancy is 0
+            // returns here without being marked relevant. If relevancy is
+            // later switched on (set-option :smt.relevancy 2, which
+            // smt_solver::updt_params copies into the shared smt_params),
+            // nothing re-marks those root assertions, so model generation
+            // skips them and can report a model that violates them.
+            // g3 repairs this in pkg/smtcore/smt_kernel.go (repairRelevancy).
             if (!enabled())
                 return;
             if (!is_relevant_core(n)) {
