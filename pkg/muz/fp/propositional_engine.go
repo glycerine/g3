@@ -200,28 +200,33 @@ type PropositionalEngine struct {
 	// rule set: the transformed rules outlive the query and the Spacer
 	// context, whose transformers only point at them.
 	spacerTransformedRules *base.RuleSet
-	spacerRevision         uint64
-	spacerOriginalQuery    ast.ASTHandle
-	spacerQuery            ast.ASTHandle
-	spacerPredicates       map[ast.ASTHandle]ast.ASTHandle
-	spacerSlices           map[ast.ASTHandle][]bool
-	spacerQuantified       map[ast.ASTHandle]ast.ASTHandle
-	spacerInstantiated     map[ast.ASTHandle]ast.ASTHandle
-	spacerBitBlasted       map[ast.ASTHandle]ast.ASTHandle
-	spacerScaled           map[ast.ASTHandle]ast.ASTHandle
-	spacerMagic            map[ast.ASTHandle]ast.ASTHandle
-	spacerKarr             map[ast.ASTHandle]rel.KarrMatrix
-	spacerConversions      []hornModelConversion
-	lastStatus             string
-	forceProofTrace        bool
-	queryParams            uparams.ParamsRef
-	queryParamsReady       bool
-	queryParamsReceipt     uparams.ParamsDecrementReceipt
-	datalogStats           statistics.Statistics
-	datalogElapsed         float64
-	closed                 bool
-	closing                bool
-	ddnf                   ddnfEngineState
+	// datalogTransformedRules is the context's m_transformed_rule_set for the
+	// relational engine: rel_context::saturate ends with
+	// record_transformed_rules, so the last query's transformed rules stay
+	// alive until the next saturation records its own.
+	datalogTransformedRules *base.RuleSet
+	spacerRevision          uint64
+	spacerOriginalQuery     ast.ASTHandle
+	spacerQuery             ast.ASTHandle
+	spacerPredicates        map[ast.ASTHandle]ast.ASTHandle
+	spacerSlices            map[ast.ASTHandle][]bool
+	spacerQuantified        map[ast.ASTHandle]ast.ASTHandle
+	spacerInstantiated      map[ast.ASTHandle]ast.ASTHandle
+	spacerBitBlasted        map[ast.ASTHandle]ast.ASTHandle
+	spacerScaled            map[ast.ASTHandle]ast.ASTHandle
+	spacerMagic             map[ast.ASTHandle]ast.ASTHandle
+	spacerKarr              map[ast.ASTHandle]rel.KarrMatrix
+	spacerConversions       []hornModelConversion
+	lastStatus              string
+	forceProofTrace         bool
+	queryParams             uparams.ParamsRef
+	queryParamsReady        bool
+	queryParamsReceipt      uparams.ParamsDecrementReceipt
+	datalogStats            statistics.Statistics
+	datalogElapsed          float64
+	closed                  bool
+	closing                 bool
+	ddnf                    ddnfEngineState
 
 	datalogTransformCleanup *datalogTransformOwners
 
@@ -2635,6 +2640,20 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	return e.queryFiniteDatalogWithRestarts(declarations)
 }
 
+// recordDatalogTransformedRules is context::record_transformed_rules:
+// m_transformed_rule_set.replace_rules(m_rule_set) releases the previous
+// query's transformed rules before retaining the current ones.
+func (e *PropositionalEngine) recordDatalogTransformedRules() error {
+	if e.datalogTransformedRules == nil {
+		set, err := base.NewRuleSet(e.rules)
+		if err != nil {
+			return err
+		}
+		e.datalogTransformedRules = set
+	}
+	return e.datalogTransformedRules.ReplaceRules(e.set)
+}
+
 func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHandle, round *datalogRestartRound) (status lbool.LBool, resultErr error) {
 	queryScope, err := e.beginDatalogQueryScope(declarations)
 	if err != nil {
@@ -2739,6 +2758,10 @@ func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHand
 	}
 	if round.interrupted {
 		return lbool.Undef, nil
+	}
+	// The saturation loop has ended: m_context.record_transformed_rules().
+	if err = e.recordDatalogTransformedRules(); err != nil {
+		return lbool.Undef, err
 	}
 	if len(bitBlast.columns) != 0 {
 		// Publish checker shadows before rebuilding original BV tables; a
@@ -3420,6 +3443,10 @@ func (e *PropositionalEngine) Close() (result error) {
 	if e.spacerTransformedRules != nil {
 		result = errors.Join(result, e.spacerTransformedRules.Close())
 		e.spacerTransformedRules = nil
+	}
+	if e.datalogTransformedRules != nil {
+		result = errors.Join(result, e.datalogTransformedRules.Close())
+		e.datalogTransformedRules = nil
 	}
 	if e.spacerRules != nil {
 		result = errors.Join(result, e.spacerRules.Close())

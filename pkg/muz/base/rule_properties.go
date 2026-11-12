@@ -28,7 +28,7 @@ type RulePropertyError struct {
 	RuleName string
 	Symbol   string
 	// SourceMessage preserves the source diagnostic while the offending rule
-	// is still owned by the property collector.
+	// is still alive in the collected set.
 	SourceMessage string
 }
 
@@ -58,13 +58,12 @@ func (e *RulePropertyError) Error() string {
 	}
 }
 
-// RuleProperties owns the rule references retained by the latest collection.
+// RuleProperties borrows the rules of the latest collected set.
 // RuleManager supplies the source predicate classifier and AST manager.
 type RuleProperties struct {
 	self          *RuleProperties
 	rules         *RuleManager
 	manager       *ast.ASTManager
-	owned         []*Rule
 	quantifier    *Rule
 	uninterpreted *Rule
 	uninterpDecl  ast.ASTHandle
@@ -116,13 +115,6 @@ func (p *RuleProperties) clearState() {
 func (p *RuleProperties) Reset() error {
 	if err := p.open(); err != nil {
 		return err
-	}
-	for len(p.owned) != 0 {
-		i := len(p.owned) - 1
-		if err := p.owned[i].Close(); err != nil {
-			return err
-		}
-		p.owned = p.owned[:i]
 	}
 	p.clearState()
 	return nil
@@ -267,11 +259,9 @@ func (p *RuleProperties) Collect(set *RuleSet) error {
 	}
 	visited := make(map[ast.ASTHandle]bool)
 	for i := 0; i < count; i++ {
-		rule, e := set.Rule(i)
-		if e != nil {
-			return e
-		}
-		p.owned = append(p.owned, rule)
+		// Source rule_properties keeps raw rule pointers: the collected set
+		// owns its rules, and collection takes no references.
+		rule := set.rules[i]
 		if p.negative == nil {
 			negative, x := rule.HasNegation()
 			if x != nil {

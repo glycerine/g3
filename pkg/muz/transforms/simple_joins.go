@@ -22,8 +22,12 @@ type SimpleJoinsPlugin struct {
 	fresh     []ast.ASTHandle
 	origins   map[ast.ASTHandle]ast.ASTHandle
 	pins      []ast.ASTRef
-	closed    bool
-	closing   bool
+	// keyPins is join_planner::m_pinned for get_key's normalized pair terms:
+	// the planner is local to mk_simple_joins::operator(), so they are
+	// released (front to back) when Transform returns.
+	keyPins []ast.ASTRef
+	closed  bool
+	closing bool
 }
 
 type sharedJoinKey struct {
@@ -265,6 +269,8 @@ func (p *SimpleJoinsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, strata.Close()) }()
+	// ~join_planner runs before rs_aux_copy's destructor.
+	defer func() { resultErr = errors.Join(resultErr, p.releaseKeyPins()) }()
 	if err = strata.AddRules(source); err != nil {
 		return nil, err
 	}
@@ -341,11 +347,28 @@ func (p *SimpleJoinsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 	return result, nil
 }
 
+func (p *SimpleJoinsPlugin) releaseKeyPins() error {
+	for len(p.keyPins) != 0 {
+		err := p.manager.DelRef(&p.keyPins[0])
+		if p.keyPins[0] == (ast.ASTRef{}) {
+			p.keyPins = p.keyPins[1:]
+		}
+		if err != nil {
+			return err
+		}
+	}
+	p.keyPins = nil
+	return nil
+}
+
 func (p *SimpleJoinsPlugin) Close() error {
 	if p == nil {
 		return base.ErrRuleTransformerOwner
 	}
 	p.closing = true
+	if err := p.releaseKeyPins(); err != nil {
+		return err
+	}
 	for len(p.pins) != 0 {
 		last := len(p.pins) - 1
 		err := p.manager.DelRef(&p.pins[last])

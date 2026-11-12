@@ -189,6 +189,13 @@ func (p *SimpleJoinsPlugin) normalizePair(first, second ast.ASTHandle) (normaliz
 	if leftID > rightID {
 		result.terms[0], result.terms[1] = result.terms[1], result.terms[0]
 	}
+	for _, term := range result.terms {
+		pin, x := p.manager.NewRef(term)
+		if x != nil {
+			return normalizedPair{}, x
+		}
+		p.keyPins = append(p.keyPins, pin)
+	}
 	result.key = normalizedPairKey{left: result.terms[0], right: result.terms[1]}
 	return result, nil
 }
