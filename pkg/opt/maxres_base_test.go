@@ -13,7 +13,8 @@ func TestMaxResBaseAggregatesSortsAndRemovesAssumptions(t *testing.T) {
 	manager := newWeightedSoftFixture(t).manager
 	a := maxResTestBool(t, manager, "maxres-base-a")
 	b := maxResTestBool(t, manager, "maxres-base-b")
-	engine := &maxResEngine{solver: &ArithmeticSolver{manager: manager}, weights: make(map[ast.ASTHandle]*big.Rat)}
+	engine := &maxResEngine{solver: &ArithmeticSolver{manager: manager}, trail: maxSMTASTOwner{manager: manager}, weights: make(map[ast.ASTHandle]*big.Rat)}
+	defer engine.close()
 	if err := engine.addAssumption(a, big.NewRat(2, 3)); err != nil {
 		t.Fatal(err)
 	}

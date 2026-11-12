@@ -13,7 +13,7 @@ func TestMaxResSplitCoreRetainsOnlyWeightResiduals(t *testing.T) {
 	manager := newWeightedSoftFixture(t).manager
 	p := maxResTestBool(t, manager, "maxres-split-p")
 	q := maxResTestBool(t, manager, "maxres-split-q")
-	engine := maxResEngine{solver: &ArithmeticSolver{manager: manager}, owner: maxSMTASTOwner{manager: manager}, weights: make(map[ast.ASTHandle]*big.Rat)}
+	engine := maxResEngine{solver: &ArithmeticSolver{manager: manager}, trail: maxSMTASTOwner{manager: manager}, defOwner: maxSMTASTOwner{manager: manager}, baseTrail: maxSMTASTOwner{manager: manager}, weights: make(map[ast.ASTHandle]*big.Rat)}
 	defer engine.close()
 	if err := engine.addAssumption(p, big.NewRat(5, 2)); err != nil {
 		t.Fatal(err)

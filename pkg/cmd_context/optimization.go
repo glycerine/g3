@@ -63,6 +63,15 @@ func (c *Context) releaseRetiredOptimizationBoxModels() error {
 	return err
 }
 
+// optimizationBoxUndefValues are the values of an l_undef box
+// continuation: the display bounds of the execution that produced it.
+func (c *Context) optimizationBoxUndefValues() []opt.ObjectiveValue {
+	if len(c.optimizationBoxDisplay) == len(c.objectives) {
+		return cloneOptimizationBoxValues(c.optimizationBoxDisplay)
+	}
+	return make([]opt.ObjectiveValue, len(c.objectives))
+}
+
 func cloneOptimizationBoxValues(source []opt.ObjectiveValue) []opt.ObjectiveValue {
 	result := make([]opt.ObjectiveValue, len(source))
 	for i := range source {
@@ -76,6 +85,8 @@ func cloneOptimizationBoxValues(source []opt.ObjectiveValue) []opt.ObjectiveValu
 		result[i].SourceLower.Set(&source[i].SourceLower)
 		result[i].SourceUpper.Set(&source[i].SourceUpper)
 		result[i].SoftAssignment = append([]bool(nil), source[i].SoftAssignment...)
+		result[i].DisplayLower = source[i].DisplayLower.Clone()
+		result[i].DisplayUpper = source[i].DisplayUpper.Clone()
 	}
 	return result
 }
@@ -359,7 +370,12 @@ func (c *Context) createOptimizer() (optimizer *opt.ArithmeticSolver, resultErr 
 	if err != nil {
 		return nil, err
 	}
-	return opt.NewArithmeticSolver(c.manager, &solverParams, c.logic, c.config)
+	optimizer, err = opt.NewArithmeticSolver(c.manager, &solverParams, c.logic, c.config)
+	if err != nil {
+		return nil, err
+	}
+	optimizer.SetOptsmtModels(&c.optimizationOptsmtModels)
+	return optimizer, nil
 }
 
 func (c *Context) newOptimizer(assumptions []ast.ASTHandle, deferHard bool) (optimizer *opt.ArithmeticSolver, resultErr error) {
@@ -538,7 +554,7 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 					Status:        lbool.Undef,
 					ReasonUnknown: c.optimizationBoxReasonUnknown,
 					Labels:        append([]usymbol.Symbol(nil), c.optimizationBoxLabels...),
-					Values:        make([]opt.ObjectiveValue, len(c.objectives)),
+					Values:        c.optimizationBoxUndefValues(),
 				}, nil
 			}
 			c.optimizationBoxActive = false
@@ -585,6 +601,9 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 	if combined.Status != lbool.True || !combined.Optimal || len(combined.ObjectiveModels) != len(c.objectives) {
 		if combined.Status == lbool.Undef {
 			c.optimizationBoxReasonUnknown = combined.ReasonUnknown
+			// display_assignment keeps reading the same optsmt/maxsmt
+			// bounds through the later l_undef execute_box calls.
+			c.optimizationBoxDisplay = cloneOptimizationBoxValues(combined.Values)
 		}
 		return combined, nil
 	}
@@ -592,11 +611,14 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 	c.optimizationBoxModels = combined.ObjectiveModels
 	combined.ObjectiveModels = nil
 	c.optimizationBoxValues = cloneOptimizationBoxValues(combined.Values)
-	if selected >= len(c.optimizationBoxModels) || c.optimizationBoxModels[selected] == nil {
+	if selected >= len(c.optimizationBoxModels) {
 		return nil, errors.Join(ast.ErrASTHandle, c.clearOptimizationBoxModels(), combined.Close())
 	}
-	if err = c.optimizationBoxModels[selected].IncRef(); err != nil {
-		return nil, errors.Join(err, c.clearOptimizationBoxModels(), combined.Close())
+	// m_model = m_box_models[0], possibly null.
+	if c.optimizationBoxModels[selected] != nil {
+		if err = c.optimizationBoxModels[selected].IncRef(); err != nil {
+			return nil, errors.Join(err, c.clearOptimizationBoxModels(), combined.Close())
+		}
 	}
 	if combined.Model != nil {
 		previous := combined.Model
@@ -690,10 +712,23 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 		return lbool.Undef, err
 	}
 	c.publishOptimizationBounds(optimized)
+	for i := range c.objectives {
+		c.objectives[i].displayReady = false
+		if !completed && i < len(optimized.Values) && optimized.Values[i].DisplayValid {
+			c.objectives[i].displayReady = true
+			c.objectives[i].displayLower = optimized.Values[i].DisplayLower.Clone()
+			c.objectives[i].displayUpper = optimized.Values[i].DisplayUpper.Clone()
+		}
+	}
 	if completed && len(c.objectives) == len(optimized.Values) {
 		for i := range c.objectives {
+			c.objectives[i].softInterval = false
 			if c.objectives[i].soft {
 				c.objectives[i].softValue.Set(&optimized.Values[i].SoftCost)
+				if optimized.Values[i].SoftInterval {
+					c.objectives[i].softInterval = true
+					c.objectives[i].softUpper.Set(&optimized.Values[i].SoftUpper)
+				}
 			} else if c.objectives[i].bitVector {
 				c.objectives[i].softValue.Set(&optimized.Values[i].SoftCost)
 				if c.objectives[i].maximize {
@@ -749,7 +784,7 @@ func (c *Context) WriteObjectives(out io.Writer) error {
 		return err
 	}
 	for _, objective := range c.objectives {
-		if !objective.valueReady {
+		if !objective.valueReady && !objective.displayReady {
 			return fmt.Errorf("objective value is not available")
 		}
 		if _, err := io.WriteString(out, " ("); err != nil {
@@ -767,7 +802,15 @@ func (c *Context) WriteObjectives(out io.Writer) error {
 		if _, err := io.WriteString(out, " "); err != nil {
 			return err
 		}
-		if objective.soft || objective.bitVector {
+		if !objective.valueReady {
+			if err := c.writeDisplayBounds(out, &objective.displayLower, &objective.displayUpper); err != nil {
+				return err
+			}
+		} else if objective.soft && objective.softInterval {
+			if err := c.writeSoftObjectiveInterval(out, &objective.softValue, &objective.softUpper); err != nil {
+				return err
+			}
+		} else if objective.soft || objective.bitVector {
 			if err := c.writeSoftObjectiveValue(out, &objective.softValue); err != nil {
 				return err
 			}
@@ -781,6 +824,72 @@ func (c *Context) WriteObjectives(out io.Writer) error {
 		}
 	}
 	_, err := io.WriteString(out, ")\n")
+	return err
+}
+
+// writeSoftObjectiveInterval is out << "  (interval " << get_lower(i) << " "
+// << get_upper(i) << ")": each to_expr runs just before it is printed, and
+// both temporaries live to the end of the statement.
+func (c *Context) writeSoftObjectiveInterval(out io.Writer, lower, upper *big.Rat) error {
+	lowerValue := simplex.RationalInfinitesimal(lower)
+	upperValue := simplex.RationalInfinitesimal(upper)
+	return c.writeInterval(out, &lowerValue, &upperValue)
+}
+
+// writeDisplayBounds is display_assignment's value: the interval when
+// get_lower_as_num(i) != get_upper_as_num(i), else get_lower(i).
+func (c *Context) writeDisplayBounds(out io.Writer, lower, upper *simplex.Infinitesimal) error {
+	if lower.Cmp(upper) != 0 {
+		return c.writeInterval(out, lower, upper)
+	}
+	ref, err := opt.ArithmeticValueExpression(c.manager, lower, toExprInteger(lower))
+	if err != nil {
+		return err
+	}
+	h, err := c.manager.RefGet(ref)
+	if err == nil {
+		err = c.WriteExpression(out, h)
+	}
+	return errors.Join(err, c.manager.DelRef(&ref))
+}
+
+// toExprInteger is to_expr's is_int: no infinitesimal and an integral
+// rational part.
+func toExprInteger(v *simplex.Infinitesimal) bool {
+	return v.Epsilon.Sign() == 0 && v.Main.IsInt()
+}
+
+// writeInterval writes "(interval " get_lower(i) " " get_upper(i) ")".
+func (c *Context) writeInterval(out io.Writer, lower, upper *simplex.Infinitesimal) (resultErr error) {
+	var refs []ast.ASTRef
+	defer func() {
+		for i := len(refs) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, c.manager.DelRef(&refs[i]))
+		}
+	}()
+	if _, err := io.WriteString(out, " (interval "); err != nil {
+		return err
+	}
+	for i, bound := range []*simplex.Infinitesimal{lower, upper} {
+		if i == 1 {
+			if _, err := io.WriteString(out, " "); err != nil {
+				return err
+			}
+		}
+		ref, err := opt.ArithmeticValueExpression(c.manager, bound, toExprInteger(bound))
+		if err != nil {
+			return err
+		}
+		refs = append(refs, ref)
+		h, err := c.manager.RefGet(ref)
+		if err == nil {
+			err = c.WriteExpression(out, h)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	_, err := io.WriteString(out, ")")
 	return err
 }
 

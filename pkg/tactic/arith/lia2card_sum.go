@@ -25,12 +25,12 @@ func (s *PBSum) Close() error {
 	if s == nil {
 		return nil
 	}
+	// args.reset() and ~expr_ref_vector release front to back.
 	for len(s.refs) > 0 {
-		i := len(s.refs) - 1
-		if err := s.manager.DelRef(&s.refs[i]); err != nil {
+		if err := s.manager.DelRef(&s.refs[0]); err != nil {
 			return err
 		}
-		s.refs = s.refs[:i]
+		s.refs = s.refs[1:]
 	}
 	s.Args = nil
 	s.Coefficients = nil

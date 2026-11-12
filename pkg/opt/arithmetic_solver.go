@@ -40,6 +40,14 @@ type ObjectiveValue struct {
 	SourceBoundsValid    bool
 	SoftAssignment       []bool
 	Soft                 bool
+	// SoftInterval: display_assignment's get_lower_as_num(i) !=
+	// get_upper_as_num(i) for a MaxSMT objective; SoftLower and SoftUpper
+	// are then the adjusted endpoints.
+	SoftInterval bool
+	// DisplayValid marks display_assignment's get_lower_as_num(i) and
+	// get_upper_as_num(i) after a search that ended undecided.
+	DisplayValid               bool
+	DisplayLower, DisplayUpper simplex.Infinitesimal
 }
 
 // ArithmeticResult owns the best model retained by one optimization check.
@@ -127,6 +135,84 @@ type ArithmeticSolver struct {
 	// rawModels keeps m_model/m_box_models unfixed: the caller applies
 	// FixModel (fix_model) when a model is requested, as get_model does.
 	rawModels bool
+	// maxsmtLower and maxsmtUpper are each maxsmt's m_lower and m_upper,
+	// which update_bound sets from a model's soft cost.
+	maxsmtLower, maxsmtUpper []big.Rat
+	// optsmtModels is optsmt::m_models, owned by opt::context: optsmt::reset
+	// never clears it, so its entries outlive the run that set them.
+	optsmtModels *OptsmtModels
+}
+
+// OptsmtModels is optsmt::m_models (sref_vector<model>). optsmt::reset
+// leaves it alone; set_max replaces entries and ~context releases them.
+type OptsmtModels struct {
+	models []*model.ModelCore
+}
+
+// SetOptsmtModels attaches opt::context's optsmt::m_models.
+func (s *ArithmeticSolver) SetOptsmtModels(models *OptsmtModels) {
+	if s != nil {
+		s.optsmtModels = models
+	}
+}
+
+// set is m_models.set(i, md): md gains a reference before the old entry
+// loses its own.
+func (o *OptsmtModels) set(i int, md *model.ModelCore) error {
+	if md != nil {
+		if err := md.IncRef(); err != nil {
+			return err
+		}
+	}
+	for len(o.models) <= i {
+		o.models = append(o.models, nil)
+	}
+	old := o.models[i]
+	o.models[i] = md
+	if old != nil {
+		return old.DecRef()
+	}
+	return nil
+}
+
+// setOwned is m_models.set(i, md) for an md reference the caller hands
+// over.
+func (o *OptsmtModels) setOwned(i int, md *model.ModelCore) error {
+	for len(o.models) <= i {
+		o.models = append(o.models, nil)
+	}
+	old := o.models[i]
+	o.models[i] = md
+	if old != nil {
+		return old.DecRef()
+	}
+	return nil
+}
+
+// get is optsmt::get_model(i), a new reference.
+func (o *OptsmtModels) get(i int) (*model.ModelCore, error) {
+	if i >= len(o.models) || o.models[i] == nil {
+		return nil, nil
+	}
+	if err := o.models[i].IncRef(); err != nil {
+		return nil, err
+	}
+	return o.models[i], nil
+}
+
+// Close releases the entries front to back, as ~sref_vector does.
+func (o *OptsmtModels) Close() (result error) {
+	if o == nil {
+		return nil
+	}
+	for i := range o.models {
+		if o.models[i] != nil {
+			result = errors.Join(result, o.models[i].DecRef())
+			o.models[i] = nil
+		}
+	}
+	o.models = nil
+	return result
 }
 
 // SetRawModels makes results keep raw models (see FixModel).
@@ -951,6 +1037,9 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 				result.ReasonUnknown, resultErr = s.backend.ReasonUnknown()
 			}
 		}
+		if resultErr == nil && result != nil && result.Status == lbool.Undef {
+			s.fillDisplayBounds(result)
+		}
 		if resultErr == nil && result != nil && result.Model != nil && !s.rawModels {
 			resultErr = s.filterResultModel(result)
 		}
@@ -1004,6 +1093,8 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 				for j := i + 1; j < len(s.objectives); j++ {
 					if !s.objectives[j].soft {
 						result.Values[j].ArithmeticOpenBounds = true
+					} else {
+						s.unexecutedSoftBounds(j, &result.Values[j])
 					}
 				}
 				result.Status, result.Optimal = lbool.True, true
@@ -1147,7 +1238,8 @@ func (s *ArithmeticSolver) updateBoundFrom(md *model.ModelCore, isLower bool) (r
 	for i := range s.objectives {
 		objective := &s.objectives[i]
 		if objective.soft {
-			for _, ref := range objective.softTerms {
+			var r big.Rat
+			for j, ref := range objective.softTerms {
 				term, err := s.manager.RefGet(ref)
 				if err != nil {
 					return err
@@ -1155,6 +1247,23 @@ func (s *ArithmeticSolver) updateBoundFrom(md *model.ModelCore, isLower bool) (r
 				if err = s.evalInto(md, term, &val); err != nil {
 					return err
 				}
+				h, err := s.manager.RefGet(val)
+				if err != nil {
+					return err
+				}
+				if !s.manager.IsTrue(h) && j < len(objective.softWeights) {
+					r.Add(&r, objective.softWeights[j])
+				}
+			}
+			for len(s.maxsmtLower) < len(s.objectives) {
+				s.maxsmtLower = append(s.maxsmtLower, big.Rat{})
+				s.maxsmtUpper = append(s.maxsmtUpper, big.Rat{})
+			}
+			// is_lower: ms.update_upper(r); otherwise ms.update_lower(r).
+			if isLower {
+				s.maxsmtUpper[i].Set(&r)
+			} else {
+				s.maxsmtLower[i].Set(&r)
 			}
 			continue
 		}
@@ -1209,6 +1318,72 @@ func (s *ArithmeticSolver) updateBoundFrom(md *model.ModelCore, isLower bool) (r
 			}
 		}
 		s.lowerFmls[i] = held
+	}
+	return nil
+}
+
+// fillDisplayBounds records get_lower_as_num/get_upper_as_num of every
+// objective for display_assignment after an undecided search: m_optsmt's
+// m_lower/m_upper through m_adjust_value for arithmetic objectives, the
+// maxsmt bounds for MaxSMT ones.
+func (s *ArithmeticSolver) fillDisplayBounds(result *ArithmeticResult) {
+	for i := range s.objectives {
+		if i >= len(result.Values) {
+			return
+		}
+		value := &result.Values[i]
+		if s.objectives[i].soft {
+			if !value.SoftBoundsValid {
+				s.unexecutedSoftBounds(i, value)
+			}
+			value.DisplayLower = simplex.RationalInfinitesimal(&value.SoftLower)
+			value.DisplayUpper = simplex.RationalInfinitesimal(&value.SoftUpper)
+			value.DisplayValid = true
+			continue
+		}
+		if s.objectives[i].term == (ast.ASTRef{}) {
+			continue
+		}
+		lower, upper := s.optLowerOf(i), s.optUpperOf(i)
+		if s.objectives[i].maximize {
+			value.DisplayLower, value.DisplayUpper = lower.Clone(), upper.Clone()
+		} else {
+			// O_MINIMIZE: adjust(m_upper) and adjust(m_lower), negated.
+			value.DisplayLower, value.DisplayUpper = upper.Clone(), lower.Clone()
+			value.DisplayLower.Neg()
+			value.DisplayUpper.Neg()
+		}
+		value.DisplayValid = true
+	}
+}
+
+// unexecutedSoftBounds is get_lower_as_num/get_upper_as_num of a maxsmt
+// that never ran (m_msolver is null): m_adjust_value(m_lower) and
+// m_adjust_value(m_upper), the offset being the objective's soft offset.
+func (s *ArithmeticSolver) unexecutedSoftBounds(i int, value *ObjectiveValue) {
+	value.SoftLower.Set(&s.objectives[i].softOffset)
+	value.SoftUpper.Set(&s.objectives[i].softOffset)
+	if i < len(s.maxsmtLower) {
+		value.SoftLower.Add(&value.SoftLower, &s.maxsmtLower[i])
+		value.SoftUpper.Add(&value.SoftUpper, &s.maxsmtUpper[i])
+	}
+	value.SoftCost.Set(&value.SoftLower)
+	value.SoftBoundsValid = true
+	value.SoftInterval = value.SoftLower.Cmp(&value.SoftUpper) != 0
+}
+
+// ResetMaxSMTs is opt::context::reset_maxsmts: the maxsmt objects, with
+// their m_msolver engines, go away while the opt_solver stays.
+func (s *ArithmeticSolver) ResetMaxSMTs() error {
+	if s == nil {
+		return nil
+	}
+	for len(s.softEngines) != 0 {
+		entry := s.softEngines[0]
+		s.softEngines = s.softEngines[1:]
+		if err := entry.engine.close(); err != nil {
+			return fmt.Errorf("close MaxSMT engine: %w", err)
+		}
 	}
 	return nil
 }

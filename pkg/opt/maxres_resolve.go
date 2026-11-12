@@ -12,12 +12,13 @@ import (
 
 // freshBool is mk_fresh_bool: a fresh Boolean constant whose declaration
 // the filter model converter hides.
-func (e *maxResEngine) freshBool(prefix string) (ast.ASTHandle, error) {
+// The result lands in the caller's local (dd, asum), which holds it.
+func (e *maxResEngine) freshBool(prefix string, into *maxResLocal) (ast.ASTHandle, error) {
 	boolean, err := e.solver.manager.MkBoolSort()
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	proxy, err := e.owner.hold(e.solver.manager.MkFreshConst(prefix, boolean))
+	proxy, err := into.set(e.solver.manager.MkFreshConst(prefix, boolean))
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -74,7 +75,7 @@ func (e *maxResEngine) updateModel(def, value ast.ASTHandle) (resultErr error) {
 }
 
 func (e *maxResEngine) implies(a, b ast.ASTHandle) (ast.ASTHandle, error) {
-	return e.owner.hold(e.solver.manager.MkImplies(a, b))
+	return e.defOwner.hold(e.solver.manager.MkImplies(a, b))
 }
 
 // maxResLocal is an expr_ref/app_ref local: assignment takes the new value
@@ -124,6 +125,8 @@ func (e *maxResEngine) maxResolve(core []ast.ASTHandle, weight *big.Rat) (result
 	m := e.solver.manager
 	fml, asum, cls := &maxResLocal{m: m}, &maxResLocal{m: m}, &maxResLocal{m: m}
 	d, dd := &maxResLocal{m: m}, &maxResLocal{m: m}
+	// m_B.reset(); m_B.append(core)
+	e.lastCore = append(e.lastCore[:0], core...)
 	defer func() {
 		// Destruction runs in reverse declaration order: dd, d, cls, asum, fml.
 		for _, l := range []*maxResLocal{dd, d, cls, asum, fml} {
@@ -146,14 +149,11 @@ func (e *maxResEngine) maxResolve(core []ast.ASTHandle, weight *big.Rat) (result
 			if err != nil {
 				return err
 			}
-			if _, err = e.owner.hold(next, nil); err != nil { // m_trail
+			if _, err = e.trail.hold(next, nil); err != nil { // m_trail
 				return err
 			}
 		default:
-			fresh, err := e.freshBool("d")
-			if err == nil {
-				_, err = dd.set(fresh, nil)
-			}
+			fresh, err := e.freshBool("d", dd)
 			if err != nil {
 				return err
 			}
@@ -184,10 +184,7 @@ func (e *maxResEngine) maxResolve(core []ast.ASTHandle, weight *big.Rat) (result
 				return err
 			}
 		}
-		fresh, err := e.freshBool("a")
-		if err == nil {
-			_, err = asum.set(fresh, nil)
-		}
+		fresh, err := e.freshBool("a", asum)
 		if err != nil {
 			return err
 		}

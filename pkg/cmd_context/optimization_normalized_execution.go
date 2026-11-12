@@ -129,6 +129,7 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 			for i := range byIndex {
 				if !found[i] {
 					byIndex[i] = originalDecodedObjective(&original[i])
+					byIndex[i].HardPosition = len(source.Hard)
 				}
 			}
 			source.Objectives = byIndex
@@ -177,7 +178,14 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 		if purifier, err = c.beginNormalizedPurification(source.Hard); err != nil {
 			return nil, err
 		}
-		decomposer.SetEach(func(_ int, objective opt.DecomposedObjective) error {
+		decomposer.SetEach(func(index int, objective opt.DecomposedObjective) error {
+			position := len(source.Hard)
+			if index < len(source.Objectives) {
+				position = source.Objectives[index].HardPosition
+			}
+			if e := purifier.AdvanceHard(position); e != nil {
+				return e
+			}
 			_, e := purifier.PurifyObjective(objective)
 			return e
 		})
@@ -188,6 +196,9 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	}
 	var purified *opt.PurifiedObjectiveSet
 	if simplified != nil {
+		if err = purifier.AdvanceHard(-1); err != nil {
+			return nil, err
+		}
 		if purified, err = c.finishNormalizedPurification(purifier); err != nil {
 			return nil, err
 		}
@@ -414,7 +425,7 @@ func (c *Context) beginNormalizedPurification(hard []ast.ASTHandle) (*opt.Object
 		return nil, err
 	}
 	c.optimizationPurifier = purifier
-	return purifier, purifier.Begin(hard)
+	return purifier, purifier.BeginPending(hard)
 }
 
 // finishNormalizedPurification: when purify added fresh constants,

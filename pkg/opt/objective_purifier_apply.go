@@ -21,11 +21,32 @@ func (p *ObjectivePurifier) Purify(hard []ast.ASTHandle, objectives []Decomposed
 
 // Begin is from_fmls pushing the hard formulas onto m_hard_constraints.
 func (p *ObjectivePurifier) Begin(hard []ast.ASTHandle) error {
+	if err := p.BeginPending(hard); err != nil {
+		return err
+	}
+	return p.AdvanceHard(len(hard))
+}
+
+// BeginPending starts from_fmls without pushing the hard formulas yet:
+// AdvanceHard pushes them as the goal walk reaches them, so definitions
+// of an objective land after the hard formulas that precede it.
+func (p *ObjectivePurifier) BeginPending(hard []ast.ASTHandle) error {
 	if err := p.open(); err != nil {
 		return err
 	}
 	p.set = PurifiedObjectiveSet{Hard: make([]ast.ASTHandle, 0, len(hard))}
-	for _, formula := range hard {
+	p.pendingHard, p.nextHard = hard, 0
+	return nil
+}
+
+// AdvanceHard is from_fmls's m_hard_constraints.push_back(fml) for the
+// pending hard formulas before position n (all of them when n < 0).
+func (p *ObjectivePurifier) AdvanceHard(n int) error {
+	if n < 0 || n > len(p.pendingHard) {
+		n = len(p.pendingHard)
+	}
+	for ; p.nextHard < n; p.nextHard++ {
+		formula := p.pendingHard[p.nextHard]
 		if _, err := p.holdInto(&p.hardRefs, formula); err != nil {
 			return err
 		}

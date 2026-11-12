@@ -2077,11 +2077,34 @@ update_bound; box uses optsmt::geometric_opt for the default engine. Open:
   bv). Kernels whose plugins were copied from a set-up context keep the
   eager set (context::copy_plugins order is not modelled yet). QF_AUFBV,
   QF_ABV and QF_UFBV under auto_config register bv before arrays.
-- box with softs and min/max under push/pop: a model value numeral dies
-  earlier in g3; in z3 it lives in optsmt::m_models (never cleared by
-  optsmt::reset) and/or the old opt_solver's m_models.
-- farkas/symba box engines keep g3's old pre-check structure.
-- lex update_bound ignores m_adjust_value.
+- Done (box_soft_minmax_push_pop): optsmt::m_models is opt::context
+  state (cmd_context optimizationOptsmtModels), never cleared by
+  optsmt::reset; execute_box hands out get_model(j), null entries
+  included. The same vector needed: opt pop runs reset_maxsmts on the
+  retained optimizer; ~maxres releases m_csmodel, m_trail, m_mus, m_defs,
+  m_asms, m_B, then maxsmt_solver_base::m_trail (separate owners, add_soft /
+  cs block / upper block formulas are locals); from_fmls pushes purify
+  definitions at the objective's position among the hard formulas
+  (HardPosition), which fixes the asserted_formulas substitution layout;
+  lia_rewriter_cfg::args (PBSum) releases front to back.
+- Done (lex_unexecuted_soft_offset_interval, ..._continuation):
+  update_bound sets maxsmt m_upper/m_lower from the model's soft cost;
+  a lex run that stops at an unbounded objective displays the later MaxSMT
+  objectives as (interval adjust(m_lower) adjust(m_upper)).
+- Done (box_farkas_engine, box_symba_engine, box_farkas_real_unknown_bounds,
+  lex_symba_unknown_bounds, lex_farkas_unknown_bounds): farkas_opt /
+  update_upper and symba_opt ported (symba's locals outlive geometric_opt);
+  get-objectives after an undecided box/lex run prints display_assignment's
+  get_lower_as_num/get_upper_as_num (optsmt m_lower/m_upper, maxsmt bounds),
+  also for later l_undef box continuations.
+- Leads: lex minimize of a non-variable term ((minimize (- x)), then more
+  objectives): g3's captureArithmeticModel evaluates the term right after
+  the objective, creating its value numeral before update_bound does.
+  A Real objective that is unbounded in lex (maximize y, y Real) gets
+  (>= y c) where z3's theory_mi_arith mk_ge builds (> y c). Lex/box runs
+  after (push)(assert ...) diverge in case-split order on fresh bound atoms
+  (also with the default engine: box soft+min/max+push vectors l3g-style);
+  symba box after pop frees the run-1 purify terms in a different order.
 - An unbounded pareto frontier (assert-soft a plus (minimize x) with x
   unbounded) enumerates forever in both z3 and g3; g3's trace matches z3's
   prefix up to the timeout.

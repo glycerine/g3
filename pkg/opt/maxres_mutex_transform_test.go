@@ -14,7 +14,7 @@ func TestMaxResMutexTransformPreservesTotalWithExactLowerOffset(t *testing.T) {
 	a := maxResTestBool(t, manager, "maxres-rmutex-a")
 	b := maxResTestBool(t, manager, "maxres-rmutex-b")
 	c := maxResTestBool(t, manager, "maxres-rmutex-c")
-	engine := maxResEngine{solver: &ArithmeticSolver{manager: manager}, owner: maxSMTASTOwner{manager: manager}}
+	engine := maxResEngine{solver: &ArithmeticSolver{manager: manager}, trail: maxSMTASTOwner{manager: manager}, defOwner: maxSMTASTOwner{manager: manager}, baseTrail: maxSMTASTOwner{manager: manager}}
 	defer engine.close()
 	newSoft := newSoftWeightMap(manager)
 	for _, entry := range []struct {

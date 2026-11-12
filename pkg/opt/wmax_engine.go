@@ -34,14 +34,14 @@ func newWMaxEngine(s *ArithmeticSolver, objective *arithmeticObjective, index in
 		solver: s, objective: objective, index: index,
 		weights: make(map[ast.ASTHandle]*big.Rat), proxies: make(map[ast.ASTHandle]ast.ASTHandle),
 	}
-	prepared.owner.manager = s.manager
+	prepared.baseTrail.manager = s.manager
 	prepared.lower.Set(&objective.softOffset)
 	terms, err := prepared.preprocessMutexes(objective)
 	if err != nil {
-		return nil, errors.Join(err, prepared.owner.close())
+		return nil, errors.Join(err, prepared.baseTrail.close())
 	}
-	e := &wmaxEngine{solver: s, objective: objective, index: index, owner: prepared.owner}
-	prepared.owner = maxSMTASTOwner{}
+	e := &wmaxEngine{solver: s, objective: objective, index: index, owner: prepared.baseTrail}
+	prepared.baseTrail = maxSMTASTOwner{}
 	e.lower.Set(&prepared.lower)
 	e.mutexes, e.mutexTerms = prepared.stats.Mutexes, prepared.stats.MutexTerms
 	e.owner.manager = s.manager

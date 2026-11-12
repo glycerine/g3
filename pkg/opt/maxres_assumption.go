@@ -16,6 +16,10 @@ func (e *maxResEngine) addAssumption(expression ast.ASTHandle, weight *big.Rat) 
 		old.Add(old, weight)
 		return nil
 	}
+	// new_assumption: m_asms.push_back(e); m_trail.push_back(e)
+	if _, err := e.trail.hold(expression, nil); err != nil {
+		return err
+	}
 	e.weights[expression] = new(big.Rat).Set(weight)
 	e.active = append(e.active, expression)
 	e.stats.Assumptions++

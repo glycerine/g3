@@ -28,6 +28,9 @@ func (s *ArithmeticSolver) ExecuteBox() (result *ArithmeticResult, resultErr err
 	}
 	result.InitialLabels = append(result.InitialLabels[:0], result.Labels...)
 	defer func() {
+		if resultErr == nil && result.Status == lbool.Undef {
+			s.fillDisplayBounds(result)
+		}
 		if resultErr != nil {
 			resultErr = errors.Join(resultErr, result.Close())
 			result = nil

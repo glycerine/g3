@@ -28,6 +28,8 @@ func (e *maxResEngine) correctionResolve(correction []ast.ASTHandle, weight *big
 			resultErr = errors.Join(resultErr, l.release())
 		}
 	}()
+	// m_B.reset(); m_B.append(cs)
+	e.lastCore = append(e.lastCore[:0], correction...)
 	if _, err := d.set(m.MkFalse()); err != nil {
 		return err
 	}
@@ -42,10 +44,7 @@ func (e *maxResEngine) correctionResolve(correction []ast.ASTHandle, weight *big
 			return err
 		}
 		if i > 2 {
-			fresh, err := e.freshBool("d")
-			if err == nil {
-				_, err = d.set(fresh, nil)
-			}
+			fresh, err := e.freshBool("d", d)
 			var h ast.ASTHandle
 			if err == nil {
 				h, err = fml.set(e.implies(fresh, clause))
@@ -62,10 +61,7 @@ func (e *maxResEngine) correctionResolve(correction []ast.ASTHandle, weight *big
 		} else if _, err = d.set(clause, nil); err != nil {
 			return err
 		}
-		fresh, err := e.freshBool("a")
-		if err == nil {
-			_, err = asum.set(fresh, nil)
-		}
+		fresh, err := e.freshBool("a", asum)
 		var h ast.ASTHandle
 		if err == nil {
 			h, err = fml.set(e.implies(fresh, bi1))

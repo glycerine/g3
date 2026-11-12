@@ -36,6 +36,9 @@ type DecodedFormulaObjective struct {
 	// Index is the objective's position; from_fmls updates only the
 	// objectives whose function applications survive simplification.
 	Index int
+	// HardPosition counts the hard formulas before this objective's
+	// formula: from_fmls pushes its purify definitions after them.
+	HardPosition int
 }
 
 type DecodedFormulaSet struct {

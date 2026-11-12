@@ -16,9 +16,12 @@ type ObjectivePurifier struct {
 	// source keeps only through those two.
 	objectiveRefs []purifiedObjectiveRefs
 	hardRefs      []ast.ASTRef
-	stats         ObjectivePurificationStats
-	set           PurifiedObjectiveSet
-	closed        bool
+	// pendingHard are the goal's hard formulas from_fmls has not reached.
+	pendingHard []ast.ASTHandle
+	nextHard    int
+	stats       ObjectivePurificationStats
+	set         PurifiedObjectiveSet
+	closed      bool
 	// detached: the filter (fm) was handed to m_model_converter, whose
 	// reference releases it.
 	detached bool

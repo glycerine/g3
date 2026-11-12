@@ -36,7 +36,7 @@ func (e *maxResEngine) transformMutex(mutex []ast.ASTHandle, newSoft *softWeight
 	var weight big.Rat
 	for i := len(sorted); i > 0; {
 		i--
-		soft, err := e.owner.hold(e.solver.manager.MkOrArgs(sorted[:i+1]))
+		soft, err := e.baseTrail.hold(e.solver.manager.MkOrArgs(sorted[:i+1]))
 		if err != nil {
 			return err
 		}

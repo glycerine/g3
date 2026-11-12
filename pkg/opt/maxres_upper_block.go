@@ -2,7 +2,10 @@ package opt
 
 // Source: src/opt/maxres.cpp add_upper_bound_block.
 
-import "math/big"
+import (
+	"errors"
+	"math/big"
+)
 
 func (e *maxResEngine) assertUpperBound(satisfied *big.Rat) error {
 	if !e.upperBoundEligible() {
@@ -12,11 +15,12 @@ func (e *maxResEngine) assertUpperBound(satisfied *big.Rat) error {
 	if err != nil {
 		return err
 	}
-	block, err = e.owner.hold(block, nil)
-	if err != nil {
-		return err
+	// expr_ref fml is add_upper_bound_block's local.
+	fml := &maxResLocal{m: e.solver.manager}
+	if block, err = fml.set(block, nil); err == nil {
+		err = e.solver.solver().Assert(block)
 	}
-	if err = e.solver.solver().Assert(block); err != nil {
+	if err = errors.Join(err, fml.release()); err != nil {
 		return err
 	}
 	e.stats.UpperBoundBlocks++

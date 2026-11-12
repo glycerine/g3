@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/math/simplex"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/base"
 	muzfp "github.com/glycerine/g3/pkg/muz/fp"
@@ -43,24 +44,31 @@ type assertion struct {
 	displayText     string
 }
 type optimizationObjective struct {
-	expression  ast.ASTHandle
-	ref         ast.ASTRef
-	value       smtcore.SMTArithmeticObjectiveValue
-	modelValue  smtcore.SMTArithmeticObjectiveValue
-	softTerms   []optimizationSoftTerm
-	softValue   big.Rat
-	softOffset  big.Rat
-	boundLower  big.Rat
-	boundUpper  big.Rat
-	id          string
-	maximize    bool
-	soft        bool
-	bitVector   bool
-	bitWidth    uint32
-	interval    bool
-	openBounds  bool
-	valueReady  bool
-	boundsReady bool
+	expression ast.ASTHandle
+	ref        ast.ASTRef
+	value      smtcore.SMTArithmeticObjectiveValue
+	modelValue smtcore.SMTArithmeticObjectiveValue
+	softTerms  []optimizationSoftTerm
+	softValue  big.Rat
+	// softUpper/softInterval: a MaxSMT objective displayed as
+	// (interval get_lower(i) get_upper(i)), softValue being the lower end.
+	softUpper    big.Rat
+	softInterval bool
+	// displayReady: display_assignment's bounds after an undecided search.
+	displayReady               bool
+	displayLower, displayUpper simplex.Infinitesimal
+	softOffset                 big.Rat
+	boundLower                 big.Rat
+	boundUpper                 big.Rat
+	id                         string
+	maximize                   bool
+	soft                       bool
+	bitVector                  bool
+	bitWidth                   uint32
+	interval                   bool
+	openBounds                 bool
+	valueReady                 bool
+	boundsReady                bool
 	// verify* are a converted objective's m_adjust_value (from_fmls), used
 	// with expression (m_term) by verify_model.
 	verifyConverted bool
@@ -145,13 +153,19 @@ type Context struct {
 	// optimizationBoxRetired holds m_box_models after the execution that
 	// produced them ended: opt::context resets them only when the next
 	// execute_box starts (or with the context).
-	optimizationBoxRetired       []*model.ModelCore
+	optimizationBoxRetired []*model.ModelCore
+	// optimizationOptsmtModels is optsmt::m_models; optsmt::reset never
+	// clears it, so it lives with opt::context.
+	optimizationOptsmtModels     opt.OptsmtModels
 	optimizationBoxValues        []opt.ObjectiveValue
 	optimizationBoxLabels        []usymbol.Symbol
 	optimizationBoxReasonUnknown string
-	optimizationException        string
-	optimizationParetoActive     bool
-	optimizationParetoBackend    *smtcore.SMTSolver
+	// optimizationBoxDisplay is the display bounds of the last l_undef
+	// box execution.
+	optimizationBoxDisplay    []opt.ObjectiveValue
+	optimizationException     string
+	optimizationParetoActive  bool
+	optimizationParetoBackend *smtcore.SMTSolver
 	// optimizationParetoOptimizer is the pareto run's m_opt_solver/optsmt
 	// side: the internalized arithmetic objectives, their theory variables
 	// and m_lower_fmls bound atoms (its backend is optimizationParetoBackend).
@@ -1253,6 +1267,9 @@ func (c *Context) Pop(count uint32) error {
 	if err := c.releaseParetoPurification(); err != nil {
 		return err
 	}
+	if err := c.retainedOptimizer.ResetMaxSMTs(); err != nil {
+		return err
+	}
 	if c.optimizationParetoOptimizer != nil {
 		c.optimizationOptsmt = append(c.optimizationOptsmt, c.optimizationParetoOptimizer.DetachObjectiveTerms()...)
 	}
@@ -1568,6 +1585,9 @@ func (c *Context) resetManagerState() error {
 		return err
 	}
 	if err := c.releaseRetiredOptimizationBoxModels(); err != nil {
+		return err
+	}
+	if err := c.optimizationOptsmtModels.Close(); err != nil {
 		return err
 	}
 	if err := c.releaseOptimizationTerms(); err != nil {
