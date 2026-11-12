@@ -2363,3 +2363,35 @@ tmp dir), comparing answers and full stdout (with get-model) with the fork.
 - Lead: predeclared List datatype without a logic
   (needs lazy pdecl psorts; g3's sort parameters are real uninterpreted sorts
   and allocate ids, so predeclaring at init would shift ids).
+
+## qe/qsat BV goals, qe-sat, seq fuzz failures (2026-11-12)
+
+FIXED (qe): (apply qe) on a BV+UF exists expanded the disjunction in a
+different order - SolverNNFAdapter kept private ContainsApp caches that
+outlived quant_elim_plugin::reset (now m_s.contains(i)); m_subfml lives
+until the plugin's next check (persistent quantElimPlugin.subfml); qsat
+project/project_qe/add_assumption locals in their own call scope; get_nnf
+on a quantifier keeps the formula (qe-sat on array foralls failed with
+ErrASTDomain); qe-sat check_success reports TACTIC_CANCELED_MSG. Vectors
+qe_bv_uf_exists_expansion, qe_sat_array_forall_index,
+qe_sat_real_int_nested_exists_canceled.
+FIXED (seq): solve_unit_eq(vec) dropped the mk_concat reference before
+add_solution reset the solution-map cache ("invalid AST owner" on
+(str.prefixof "a" (str.substr t 0 x))); seq_rewriter mk_seq_extract ported
+faithfully (constant position past the end, 32-bit is_unsigned limits and
+wraparound, unit loop, zero-unit mk_concat exception; simplify catches
+ASTException as z3_exception). gen3 string/datatype fuzz seeds 1-1600 now
+match. Vectors seq_prefix_substr_variable_length,
+seq_extract_constant_position_bounds, seq_contains_extract_past_end.
+Leads:
+- qsat is ~6x and qe-sat ~11x slower than z3 on the BV+UF goal with the
+  same search statistics (flat profile; 122 MB vs 4.7 MB reported memory -
+  check retention); rlimit count differs (2705746 vs 8175552).
+- qe-sat construction order: z3's sat_tactic builds m_solver, m_qe_rw
+  (simplify_solver_context plugins) and m_ctx_rewriter once per tactic; g3
+  builds kernels per Apply and an arith plugin per quantifier, so qe-sat
+  traces diverge near line 57-62.
+- other qsat helpers (maximizeCore, getCore) keep temporaries in the
+  round-wide call scope; exprQEBranchVariables.Close order vs obj_map.
+- tactic catch sites that only accept rewriter exceptions where C++ catches
+  z3_exception (audit IsRewriterException uses).

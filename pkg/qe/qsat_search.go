@@ -162,6 +162,30 @@ func (c *qsatSearchCall) hold(h ast.ASTHandle, err error) (ast.ASTHandle, error)
 	_, err = c.ref(h)
 	return h, err
 }
+
+// releaseHeld ends the newest reference to h taken by hold or ref, as a
+// C++ temporary expr_ref is released at the end of its full-expression.
+func (c *qsatSearchCall) releaseHeld(h ast.ASTHandle) error {
+	m := c.owner.manager
+	for i := len(c.refs) - 1; i >= 0; i-- {
+		if c.refs[i] == (ast.ASTRef{}) {
+			continue
+		}
+		v, err := m.RefGet(c.refs[i])
+		if err != nil {
+			return err
+		}
+		if v != h {
+			continue
+		}
+		if err = m.DelRef(&c.refs[i]); err != nil {
+			return err
+		}
+		c.refs = append(c.refs[:i], c.refs[i+1:]...)
+		return nil
+	}
+	return ast.ErrASTHandle
+}
 func (c *qsatSearchCall) vector() *[]ast.ASTRef {
 	v := new([]ast.ASTRef)
 	c.vectors = append(c.vectors, v)

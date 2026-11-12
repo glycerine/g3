@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/messages"
 )
 
 // projectPartial removes one variable using the current model and publishes
@@ -105,13 +106,13 @@ func (c *satSolverContext) projectPartial(index uint32, source *model.Model, rw 
 		defer func() { err = errors.Join(err, plugin.Close()) }()
 		projected, err = plugin.ProjectModel(c.contains[index], source, c.formula, config)
 	default:
-		return tactic.NewTacticException("qe-sat projection has no plugin for variable sort")
+		return tactic.NewTacticException(messages.Canceled) // check_success
 	}
 	if err != nil {
 		return err
 	}
 	if !projected {
-		return tactic.NewTacticException("qe-sat projection failed")
+		return tactic.NewTacticException(messages.Canceled) // check_success
 	}
 	current, err := c.manager.RefGet(c.formula)
 	if err != nil {

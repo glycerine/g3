@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 // SequenceRewriter borrows its AST manager and implements the retained theory
@@ -502,48 +503,60 @@ func (r *SequenceRewriter) RewriteExtract(a, position, length ast.ASTHandle, out
 	if err != nil {
 		return RewriteFailed, err
 	}
-	if constant && posNumeral && sizeNumeral {
-		textLength := new(big.Int).SetUint64(uint64(len(text)))
-		if pos.Cmp(textLength) >= 0 {
-			return r.assignEmptyLike(a, out)
+	// case 1.1: pos >= length(base), whatever the length argument.
+	if constant && posNumeral && pos.Cmp(new(big.Int).SetUint64(uint64(len(text)))) >= 0 {
+		return r.assignEmptyLike(a, out)
+	}
+	// constantPos &= pos.is_unsigned(); constantLen &= len.is_unsigned().
+	posNumeral = posNumeral && pos.IsUint64() && pos.Uint64() <= math.MaxUint32
+	sizeNumeral = sizeNumeral && size.IsUint64() && size.Uint64() <= math.MaxUint32
+	if !posNumeral || !sizeNumeral {
+		return RewriteFailed, nil
+	}
+	start, count := uint32(pos.Uint64()), uint32(size.Uint64())
+	if constant {
+		// The source adds the unsigned positions with 32-bit wraparound and
+		// hands zstring::extract an int length.
+		n := int64(len(text))
+		offset, last := int64(start), n
+		if start+count < uint32(n) {
+			last = min(offset+int64(int32(count)), n)
 		}
-		end := new(big.Int).Add(new(big.Int).Set(pos), size)
-		if end.Cmp(textLength) > 0 {
-			end.Set(textLength)
+		piece := ""
+		if offset < last {
+			piece = text[offset:last]
 		}
-		startIndex := int(pos.Uint64())
-		endIndex := int(end.Uint64())
-		result, err := r.manager.MkString(text[startIndex:endIndex])
+		result, err := r.manager.MkString(piece)
 		if err != nil {
 			return RewriteFailed, err
 		}
 		return RewriteDone, r.manager.SetRef(out, result)
 	}
-	if !posNumeral || !sizeNumeral || !pos.IsUint64() || !size.IsUint64() {
-		return RewriteFailed, nil
-	}
 	leaves, err := r.manager.SequenceFlattenConcat(a)
 	if err != nil {
 		return RewriteFailed, err
 	}
-	for _, leaf := range leaves {
-		unit, e := r.manager.IsSequenceUnit(leaf)
+	var parts []ast.ASTHandle
+	for i := 0; i < len(leaves) && count > 0; i++ {
+		unit, e := r.manager.IsSequenceUnit(leaves[i])
 		if e != nil {
 			return RewriteFailed, e
 		}
 		if !unit {
 			return RewriteFailed, nil
 		}
+		if start == 0 {
+			parts = append(parts, leaves[i])
+			count--
+		} else {
+			start--
+		}
 	}
-	start, count := pos.Uint64(), size.Uint64()
-	if start >= uint64(len(leaves)) {
-		return r.assignEmptyLike(a, out)
+	if len(parts) == 0 {
+		// mk_concat(bs) of no units: seq_decl_plugin::mk_assoc_fun raises.
+		return RewriteFailed, ast.ASTException{DefaultException: z3exception.NewDefaultException("Invalid function application. At least one argument expected")}
 	}
-	end := start + count
-	if end < start || end > uint64(len(leaves)) {
-		end = uint64(len(leaves))
-	}
-	return r.assignSequenceParts(leaves[start:end], a, out)
+	return r.assignSequenceParts(parts, a, out)
 }
 
 func (r *SequenceRewriter) RewriteAt(a, index ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {

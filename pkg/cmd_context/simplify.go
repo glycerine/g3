@@ -194,7 +194,8 @@ func (c *Context) simplifyWithDetails(expression ast.ASTHandle, params *uparams.
 		return result, proof, details, errors.Join(rewriteErr, err)
 	}
 	if rewriteErr != nil {
-		if !catchFailure || !rewriter.IsRewriterException(rewriteErr) {
+		var astException ast.ASTException
+		if !catchFailure || !rewriter.IsRewriterException(rewriteErr) && !errors.As(rewriteErr, &astException) {
 			return result, proof, details, rewriteErr
 		}
 		details.Failed = true

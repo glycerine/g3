@@ -154,7 +154,9 @@ func TestQENNFAtomIndexFeedsBooleanPolarizedSolver(t *testing.T) {
 	conjs, err := NewConjunctionEnum(f.r.manager, normalized)
 	fmMust(t, err)
 	defer func() { fmMust(t, conjs.Close()) }()
-	result, solved, err := plugin.Solve(f.adapter.contains[0], normalized, conjs, atoms)
+	contains0, err := f.context.Contains(0)
+	fmMust(t, err)
+	result, solved, err := plugin.Solve(contains0, normalized, conjs, atoms)
 	fmMust(t, err)
 	if !solved || result == nil {
 		t.Fatal("normalized atom index did not drive Boolean solve")
@@ -162,7 +164,7 @@ func TestQENNFAtomIndexFeedsBooleanPolarizedSolver(t *testing.T) {
 	defer func() { fmMust(t, result.Close()) }()
 	h, err := f.r.manager.RefGet(result.Formula)
 	fmMust(t, err)
-	if found, cause := f.adapter.contains[0].Check(h); cause != nil || found {
+	if found, cause := contains0.Check(h); cause != nil || found {
 		t.Fatal("Boolean solve retained normalized target", found, cause)
 	}
 }

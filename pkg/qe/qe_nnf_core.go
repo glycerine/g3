@@ -1,6 +1,15 @@
 package qe
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
+
+// errQENNFNotApp is nnf::get_nnf returning false: a relevant subterm is not
+// an application (a quantifier), and the source abandons the conversion,
+// leaving the formula unchanged.
+var errQENNFNotApp = errors.New("qe nnf: relevant non-application")
 
 func (n *QENNFNormalizer) toNNF(expression ast.ASTHandle, positive bool) (ast.ASTHandle, error) {
 	key := qeNNFKey{expression, positive}
@@ -22,8 +31,11 @@ func (n *QENNFNormalizer) toNNF(expression ast.ASTHandle, positive bool) (ast.AS
 		return n.remember(key, value)
 	}
 	kind, err := n.manager.GetKind(expression)
-	if err != nil || kind != ast.ASTApp {
-		return ast.ASTHandle{}, ast.ErrASTDomain
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if kind != ast.ASTApp {
+		return ast.ASTHandle{}, errQENNFNotApp
 	}
 	family, err := n.manager.GetFamilyID(expression)
 	if err != nil {

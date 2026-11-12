@@ -68,6 +68,10 @@ func (n *QENNFNormalizer) Normalize(formula ast.ASTRef) (index *BoolAtomIndex, r
 		return nil, err
 	}
 	nnf, err := n.toNNF(root, true)
+	if errors.Is(err, errQENNFNotApp) {
+		// get_nnf(fml, true) returned false: fml keeps its input value.
+		nnf, err = root, nil
+	}
 	if err != nil {
 		return nil, err
 	}

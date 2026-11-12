@@ -1,0 +1,8 @@
+(declare-const A (Array Int Int))
+(declare-const n Int)
+(assert (forall ((i Int)) (=> (and (<= 0 i) (< i n)) (>= (select A i) i))))
+(assert (> n 2))
+(assert (< (select A 1) 5))
+(assert (not (= (select A 0) (select A 1))))
+(apply qe-sat)
+(check-sat-using qe-sat)

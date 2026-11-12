@@ -12,9 +12,19 @@ import (
 type maxRelevantExpr struct {
 	manager             *ast.ASTManager
 	formula, subformula ast.ASTRef
+	// external marks subformula as the caller's m_subfml member: it is
+	// assigned in place and outlives this result.
+	external bool
 }
 
 func extractMaxRelevantExpr(m *ast.ASTManager, adapter *SolverNNFAdapter, formula ast.ASTHandle) (result *maxRelevantExpr, err error) {
+	return extractMaxRelevantExprInto(m, adapter, formula, ast.ASTRef{})
+}
+
+// extractMaxRelevantExprInto is get_max_relevant(is_relevant, f, m_subfml)
+// with m_subfml the caller-owned reference subfml (when non-zero): its
+// previous value is released only when the walk assigns it.
+func extractMaxRelevantExprInto(m *ast.ASTManager, adapter *SolverNNFAdapter, formula ast.ASTHandle, subfml ast.ASTRef) (result *maxRelevantExpr, err error) {
 	if m == nil || adapter == nil {
 		return nil, ast.ErrASTHandle
 	}
@@ -29,8 +39,9 @@ func extractMaxRelevantExpr(m *ast.ASTManager, adapter *SolverNNFAdapter, formul
 	if err != nil {
 		return result, err
 	}
-	result.subformula, err = m.NewRef(formula)
-	if err != nil {
+	if subfml != (ast.ASTRef{}) {
+		result.subformula, result.external = subfml, true
+	} else if result.subformula, err = m.NewRef(formula); err != nil {
 		return result, err
 	}
 	var visit func(ast.ASTHandle) error
@@ -122,6 +133,9 @@ func extractMaxRelevantExpr(m *ast.ASTManager, adapter *SolverNNFAdapter, formul
 func (r *maxRelevantExpr) Close() error {
 	if r == nil || r.manager == nil {
 		return nil
+	}
+	if r.external {
+		r.subformula = ast.ASTRef{}
 	}
 	for _, ref := range []*ast.ASTRef{&r.subformula, &r.formula} {
 		if *ref != (ast.ASTRef{}) {

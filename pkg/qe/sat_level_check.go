@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/messages"
 )
 
 type satLevelResult struct {
@@ -57,11 +58,8 @@ func (s *satLevels) check(index uint32, context ast.ASTHandle) (result *satLevel
 		result.assignments = append(result.assignments, ref)
 	}
 	if status == lbool.Undef {
-		reason, e := solver.ReasonUnknown()
-		if e != nil {
-			return result, e
-		}
-		return result, tactic.NewTacticException(reason)
+		// check_success(r != l_undef) throws TACTIC_CANCELED_MSG.
+		return result, tactic.NewTacticException(messages.Canceled)
 	}
 	result.sat = status == lbool.True
 	if result.sat && index == 0 {

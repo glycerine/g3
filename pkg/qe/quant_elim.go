@@ -454,6 +454,10 @@ type quantElimPlugin struct {
 	nnf          *QENNFNormalizer
 	freeVars     []ast.ASTRef
 	literals     exprQELiterals
+	// subfml is m_subfml: get_max_relevant assigns it in check and
+	// quant_elim_plugin::reset leaves it, so it lives until the next check
+	// of this plugin or its destruction.
+	subfml ast.ASTRef
 }
 
 func newQuantElimPlugin(q *quantElimNew) (th *quantElimPlugin, err error) {
@@ -636,6 +640,9 @@ func (th *quantElimPlugin) Close() (err error) {
 		th.context = nil
 	}
 	err = errors.Join(err, th.literals.reset(th.manager))
+	if th.subfml != (ast.ASTRef{}) {
+		err = errors.Join(err, th.manager.DelRef(&th.subfml))
+	}
 	if th.solver != nil {
 		err = errors.Join(err, th.solver.Close())
 		th.solver = nil
@@ -721,7 +728,12 @@ func (th *quantElimPlugin) check(vars []ast.ASTHandle, assumption ast.ASTRef, fm
 	if err != nil {
 		return err
 	}
-	relevant, err := extractMaxRelevantExpr(m, th.adapter, work)
+	if th.subfml == (ast.ASTRef{}) {
+		if th.subfml, err = m.NewRef(ast.ASTHandle{}); err != nil {
+			return err
+		}
+	}
+	relevant, err := extractMaxRelevantExprInto(m, th.adapter, work, th.subfml)
 	if err != nil {
 		return err
 	}

@@ -297,11 +297,16 @@ func (t *SMTTheorySeq) mkEqdep(l, r ast.ASTHandle, dep *seqDep) seqEq {
 }
 
 // solveUnitEqVec is solve_unit_eq(l, r, deps) on vectors.
+// The expr_ref temporary mk_concat returns lives through add_solution,
+// whose m_rep.update resets the cache trail that may hold the only other
+// reference to the hash-consed concat.
 func (t *SMTTheorySeq) solveUnitEqVec(l, r []ast.ASTHandle, deps *seqDep) bool {
-	if len(l) == 1 && t.isVar(l[0]) && !t.occursVec(l[0], r) && t.addSolution(l[0], t.mkConcatSorted(r, t.sortOf(l[0])), deps) {
+	x := t.loc()
+	defer x.drop()
+	if len(l) == 1 && t.isVar(l[0]) && !t.occursVec(l[0], r) && t.addSolution(l[0], t.ref(x, t.mkConcatSorted(r, t.sortOf(l[0])), nil), deps) {
 		return true
 	}
-	if len(r) == 1 && t.isVar(r[0]) && !t.occursVec(r[0], l) && t.addSolution(r[0], t.mkConcatSorted(l, t.sortOf(r[0])), deps) {
+	if len(r) == 1 && t.isVar(r[0]) && !t.occursVec(r[0], l) && t.addSolution(r[0], t.ref(x, t.mkConcatSorted(l, t.sortOf(r[0])), nil), deps) {
 		return true
 	}
 	return false

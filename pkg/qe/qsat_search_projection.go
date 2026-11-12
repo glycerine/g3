@@ -170,7 +170,19 @@ func (s *qsatSearch) negateCore(c *qsatSearchCall, core []ast.ASTRef) (result as
 	defer func() { err = errors.Join(err, s.manager.DelRef(&temporary)) }()
 	return c.hold(s.manager.PushNot(and))
 }
-func (s *qsatSearch) addAssumption(c *qsatSearchCall, formula ast.ASTHandle) error {
+
+// addAssumption is qsat::add_assumption; its locals (eq, b) end when it
+// returns.
+func (s *qsatSearch) addAssumption(formula ast.ASTHandle) error {
+	c := s.call()
+	if err := s.addAssumptionCore(c, formula); err != nil {
+		// Failed-call owners stay on pending for the outer cleanup receipt.
+		return err
+	}
+	return s.closeRound(c)
+}
+
+func (s *qsatSearch) addAssumptionCore(c *qsatSearchCall, formula ast.ASTHandle) error {
 	r, err := c.ref(ast.ASTHandle{})
 	if err != nil {
 		return err
@@ -197,7 +209,18 @@ func (s *qsatSearch) addAssumption(c *qsatSearchCall, formula ast.ASTHandle) err
 	}
 	return s.preparation.abstraction.SetExpressionLevel(b, EmptyMaxLevel())
 }
-func (s *qsatSearch) projectQE(c *qsatSearchCall, core *[]ast.ASTRef) error {
+
+// projectQE is qsat::project_qe; its local fml ends when it returns.
+func (s *qsatSearch) projectQE(_ *qsatSearchCall, core *[]ast.ASTRef) error {
+	c := s.call()
+	if err := s.projectQECore(c, core); err != nil {
+		// Failed-call owners stay on pending for the outer cleanup receipt.
+		return err
+	}
+	return s.closeRound(c)
+}
+
+func (s *qsatSearch) projectQECore(c *qsatSearchCall, core *[]ast.ASTRef) error {
 	if s.level != 1 {
 		return ast.ErrASTDomain
 	}
@@ -238,7 +261,7 @@ func (s *qsatSearch) projectQE(c *qsatSearchCall, core *[]ast.ASTRef) error {
 		if err != nil {
 			return err
 		}
-		if err = s.addAssumption(c, fml); err != nil {
+		if err = s.addAssumption(fml); err != nil {
 			return err
 		}
 		if err = s.appendRef(&s.answers, fml); err != nil {
@@ -250,10 +273,22 @@ func (s *qsatSearch) projectQE(c *qsatSearchCall, core *[]ast.ASTRef) error {
 	}
 	return s.pop(1)
 }
-func (s *qsatSearch) project(c *qsatSearchCall, core *[]ast.ASTRef) (bool, error) {
+func (s *qsatSearch) project(_ *qsatSearchCall, core *[]ast.ASTRef) (bool, error) {
 	if err := s.getCore(core, s.level); err != nil {
 		return false, err
 	}
+	// project's own locals (expr_ref fml; expr_ref_vector defs) end when
+	// project returns, defs before fml, not with the check_sat round.
+	c := s.call()
+	ok, err := s.projectCore(c, core)
+	if err != nil {
+		// Failed-call owners stay on pending for the outer cleanup receipt.
+		return ok, err
+	}
+	return ok, s.closeRound(c)
+}
+
+func (s *qsatSearch) projectCore(c *qsatSearchCall, core *[]ast.ASTRef) (bool, error) {
 	if err := s.preparation.abstraction.emit("project", 891, func(w io.Writer) error {
 		if e := s.display(w); e != nil {
 			return e
@@ -283,21 +318,35 @@ func (s *qsatSearch) project(c *qsatSearchCall, core *[]ast.ASTRef) (bool, error
 	if err = s.appendRefs(&s.freeVariables, s.projectionVariables); err != nil {
 		return false, err
 	}
-	fml, err := s.negateCore(c, *core)
+	// fml = negate_core(core): one expr_ref, later reassigned by mk_abstract.
+	negated, err := s.negateCore(c, *core)
 	if err != nil {
 		return false, err
 	}
+	fmlRef := c.refs[len(c.refs)-1] // negateCore's hold
+	fml := negated
 	defs := c.vector()
 	level := EmptyMaxLevel()
 	if err = s.preparation.abstraction.AbstractAtoms(fml, &level, defs); err != nil {
 		return false, err
 	}
-	d, err := c.conjunction(*defs)
-	if err != nil {
-		return false, err
-	}
-	if err = s.assertBoth(d); err != nil {
-		return false, err
+	// m_ex/m_fa.assert_expr(mk_and(defs)): the conjunction is a temporary
+	// of each statement.
+	for i := 0; i < 2; i++ {
+		d, e := c.conjunction(*defs)
+		if e != nil {
+			return false, e
+		}
+		kernel := s.exists
+		if i == 1 {
+			kernel = s.forall
+		}
+		if e = kernel.assertExpression(d); e != nil {
+			return false, e
+		}
+		if e = c.releaseHeld(d); e != nil {
+			return false, e
+		}
 	}
 	var scopes uint32
 	if level.Max() == NoQuantifierLevel {
@@ -331,16 +380,13 @@ func (s *qsatSearch) project(c *qsatSearchCall, core *[]ast.ASTRef) (bool, error
 		return false, err
 	}
 	if s.level == 0 && s.mode != qsatSAT {
-		err = s.addAssumption(c, fml)
+		err = s.addAssumption(fml)
 	} else {
-		r, e := c.ref(fml)
-		if e != nil {
-			return false, e
-		}
-		if err = s.preparation.abstraction.MakeAbstract(fml, r); err != nil {
+		// fml = m_pred_abs.mk_abstract(fml)
+		if err = s.preparation.abstraction.MakeAbstract(fml, fmlRef); err != nil {
 			return false, err
 		}
-		h, e := s.manager.RefGet(r)
+		h, e := s.manager.RefGet(fmlRef)
 		if e != nil {
 			return false, e
 		}

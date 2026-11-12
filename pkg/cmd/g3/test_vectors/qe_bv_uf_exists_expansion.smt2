@@ -1,0 +1,7 @@
+(declare-fun h ((_ BitVec 8)) (_ BitVec 8))
+(declare-const c (_ BitVec 8))
+(assert (forall ((v (_ BitVec 8))) (bvule (h v) (bvadd v #x10))))
+(assert (exists ((w (_ BitVec 8))) (= (h w) c)))
+(assert (bvugt c #x20))
+(assert (= ((_ extract 0 0) c) #b1))
+(apply qe)
