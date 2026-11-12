@@ -2203,3 +2203,29 @@ Leads:
 - fp.to_real variant: trace diverges at line 13,372 (arith * / + id order).
 - qe call arenas (liteCall / vector arenas) still hold refs until a call
   ends; other qe paths likely have the qe_lite kind of lifetime difference.
+
+## Tactic sweep fixes (2026-11-12)
+
+Every registered tactic was run as (apply T) and (check-sat-using T) on
+small Bool/LIA, LRA/UF and BV goals, comparing stdout with the fork.
+FIXED:
+- ufbv / bv: "arena: closed". The ufbv-rewriter adapter took ownership of
+  the caller's input goal (TakeGoal), so repeat's result cleanup closed it.
+  It now borrows the goal (AddGoal) and drops the duplicate reference
+  (Goal.ReleaseDuplicateReference). Vector ufbv_tactic_arith_goal
+  (stdout-identical).
+- qfnra: g3 hand-built the nlsat route (different purify, depth 16 vs 25)
+  and added fail-if-undecided after the first two routes, so an undecided
+  nlsat result fell through to smt (sat where z3 says unknown). It now uses
+  try_for(qfnra-nlsat) exactly as mk_qfnra_tactic. Vector
+  qfnra_uf_nlsat_undecided; all 34 QF_NRA vectors stay trace-identical.
+- subpaving: the simplify stages lacked using_params (as tseitin-cnf did),
+  so arith_lhs/elim_and never applied.
+- collect-statistics keys use smt2_printer's func_decl form
+  ((declare-fun + (Int Int) Int)). Vector collect_statistics_decl_keys.
+- nlsat: z3's "eliminate distinct operator (use tactic ...)" message.
+Remaining sweep differences: horn / horn-simplify error text and behaviour
+(worker running); sine-filter (the fork dumps core); qfbv-sls (timing).
+Lead: ufbv_tactic_arith_goal trace line 79 - inside ufbv's SMT backend g3
+internalizes (= (f z) (+ z 1)) before the Real bound atoms; z3 follows
+assertion order.

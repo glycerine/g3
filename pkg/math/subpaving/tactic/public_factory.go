@@ -95,7 +95,16 @@ func NewSubpavingTactic(m *ast.ASTManager, c *params.ParamsContext, g *params.Gl
 		return nil, err
 	}
 	defer func() { err = errors.Join(err, closePublicSimplifyParams(c, &firstParams, &secondParams)) }()
-	first, err := tacticcore.MakeSimplifyTactic(m, c, g, &firstParams)
+	// using_params(mk_simplify_tactic(m, p), simp_p)
+	firstInner, err := tacticcore.MakeSimplifyTactic(m, c, g, p)
+	if err != nil {
+		return nil, err
+	}
+	if err = firstInner.IncRef(); err != nil {
+		return nil, err
+	}
+	defer func() { err = errors.Join(err, firstInner.DecRef()) }()
+	first, err := goaltactic.NewUsingParamsTactic(c, firstInner, &firstParams)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +112,16 @@ func NewSubpavingTactic(m *ast.ASTManager, c *params.ParamsContext, g *params.Gl
 		return nil, err
 	}
 	defer func() { err = errors.Join(err, first.DecRef()) }()
-	second, err := tacticcore.MakeSimplifyTactic(m, c, g, &secondParams)
+	// using_params(mk_simplify_tactic(m, p), simp2_p)
+	secondInner, err := tacticcore.MakeSimplifyTactic(m, c, g, p)
+	if err != nil {
+		return nil, err
+	}
+	if err = secondInner.IncRef(); err != nil {
+		return nil, err
+	}
+	defer func() { err = errors.Join(err, secondInner.DecRef()) }()
+	second, err := goaltactic.NewUsingParamsTactic(c, secondInner, &secondParams)
 	if err != nil {
 		return nil, err
 	}

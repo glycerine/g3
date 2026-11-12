@@ -144,12 +144,14 @@ func (t *RewriterTacticAdapter) Apply(goal *tactic.Goal, result *tactic.TacticRe
 	if published != goal {
 		return errors.Join(ast.ErrASTDomain, published.DecRef())
 	}
-	if err = result.TakeGoal(goal); err != nil {
-		return errors.Join(err, published.DecRef())
+	// RewriterTactic publishes the source goal_ref_buffer reference to the
+	// input goal, which the caller still owns. The result borrows the goal
+	// (as for other in-place tactics) and the duplicate reference is dropped;
+	// owning it here let TacticResult.Reset close the caller's goal.
+	if err = result.AddGoal(goal); err != nil {
+		return errors.Join(err, published.ReleaseDuplicateReference())
 	}
-	// RewriterTactic publishes the source goal_ref_buffer reference. Transfer
-	// that exact incremented reference into the common result owner.
-	return nil
+	return published.ReleaseDuplicateReference()
 }
 func (t *RewriterTacticAdapter) UpdateParams(*uparams.ParamsRef) error         { return t.open() }
 func (t *RewriterTacticAdapter) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }

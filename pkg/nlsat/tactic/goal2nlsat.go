@@ -22,7 +22,7 @@ import (
 var (
 	ErrGoalNotCNF                = errors.New("convert goal into cnf before applying nlsat")
 	ErrGoalNeedsSimplify         = errors.New("apply simplify before applying nlsat")
-	ErrGoalNeedsDistinctElim     = errors.New("eliminate distinct before applying nlsat")
+	ErrGoalNeedsDistinctElim     = errors.New("eliminate distinct operator (use tactic '(using-params simplify :blast-distinct true)') before applying nlsat")
 	ErrGoalNeedsArithmeticPurify = errors.New("apply purify-arith before applying nlsat")
 	ErrGoalNeedsTermITE          = errors.New("eliminate term-ite before applying nlsat")
 )

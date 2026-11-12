@@ -6,7 +6,6 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
-	nlsattactic "github.com/glycerine/g3/pkg/nlsat/tactic"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/tactic/arith"
@@ -48,20 +47,11 @@ func NewQFNRATactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SMTS
 	}
 	main := copyParams()
 	p0, p1, p2 := copyParams(), copyParams(), copyParams()
-	for _, params := range []*uparams.ParamsRef{p0, p1, p2} {
-		b.boolean(params, "elim_and", true)
-		b.boolean(params, "blast_distinct", true)
-	}
 	b.boolean(p0, "inline_vars", true)
 	b.uint(p1, "seed", 11)
 	b.boolean(p1, "factor", false)
 	b.uint(p2, "seed", 13)
 	b.boolean(p2, "factor", false)
-	factorName := "factor"
-	factor0, factorErr := c.GetBoolName(p0, &factorName, true)
-	if factorErr != nil && b.err == nil {
-		b.err = factorErr
-	}
 	bounded4, bounded6 := copyParams(), copyParams()
 	b.uint(bounded4, "nla2bv_max_bv_size", 4)
 	b.uint(bounded6, "nla2bv_max_bv_size", 6)
@@ -71,35 +61,13 @@ func NewQFNRATactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SMTS
 	simplify := func(params *uparams.ParamsRef) tactic.Tactic {
 		return b.using(b.clean(b.keep(core.NewSimplifyTactic(m, c, g, nil))), params)
 	}
-	nlsatRoute := func(params *uparams.ParamsRef, factorEnabled bool, timeout uint32, requireDecision bool) tactic.Tactic {
-		purifyParams := copyParams()
-		b.boolean(purifyParams, "complete", false)
-		backend := b.using(b.keep(nlsattactic.NewNLSATTactic(m, c, g, params, config.ModelEvaluator)), params)
+	// try_for(mk_qfnra_nlsat_tactic(m, pN), ms): the same strategy as the
+	// registered qfnra-nlsat tactic (which adds elim_and/blast_distinct and
+	// reads factor itself), with no fail_if_undecided after it.
+	nlsatRoute := func(params *uparams.ParamsRef, timeout uint32) tactic.Tactic {
+		route := b.keep(NewQFNRANLSATTactic(m, params, config))
 		if timeout != 0 {
-			backend = b.timed(backend, timeout)
-		}
-		factor := b.keep(tactic.NewSkipTactic(), nil)
-		if factorEnabled {
-			factor = b.clean(b.keep(arith.NewFactorTactic(m, c, g, params, config.ModelEvaluator)))
-		}
-		route := b.then(
-			simplify(params),
-			b.clean(b.keep(arith.NewQFNRAPurifyTactic(m, c, g, purifyParams, config.ModelEvaluator))),
-			b.keep(core.NewPropagateValuesTactic(m, c, g, nil)),
-			b.clean(b.keep(core.NewSolveEquationsTactic(m, c, g, params, config.ModelEvaluator))),
-			b.clean(b.keep(arith.NewQFNRAPurifyTactic(m, c, g, purifyParams, config.ModelEvaluator))),
-			b.clean(b.keep(core.NewEliminateUnconstrainedTactic(m, c, g, params, config.ModelEvaluator))),
-			b.clean(b.keep(core.NewEliminateTermITETactic(m, c, g, params, config.ModelEvaluator))),
-			factor,
-			b.clean(b.keep(core.NewSolveEquationsTactic(m, c, g, params, config.ModelEvaluator))),
-			b.clean(b.keep(arith.NewQFNRAPurifyTactic(m, c, g, purifyParams, config.ModelEvaluator))),
-			simplify(params),
-			b.clean(b.keep(core.NewTseitinCNFCoreTactic(m, c, g, params, config.ModelEvaluator))),
-			simplify(params),
-			backend,
-		)
-		if requireDecision {
-			route = b.then(route, b.keep(tactic.NewFailIfUndecidedTactic(), nil))
+			route = b.timed(route, timeout)
 		}
 		return route
 	}
@@ -118,12 +86,12 @@ func NewQFNRATactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SMTS
 		simplify(main),
 		b.keep(core.NewPropagateValuesTactic(m, c, g, nil)),
 		b.otherwise(
-			nlsatRoute(p0, factor0, 5000, true),
-			nlsatRoute(p1, false, 10000, true),
+			nlsatRoute(p0, 5000),
+			nlsatRoute(p1, 10000),
 			bounded(bounded4),
 			timedSMT,
 			bounded(bounded6),
-			nlsatRoute(p2, false, 0, false),
+			nlsatRoute(p2, 0),
 		),
 	)
 	if b.err != nil {

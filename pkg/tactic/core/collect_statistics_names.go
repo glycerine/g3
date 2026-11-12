@@ -122,7 +122,9 @@ func collectStatisticsFormat(m *ast.ASTManager, h ast.ASTHandle, sort bool) (tex
 	if sort {
 		format, err = m.SMT2PPSort(h)
 	} else {
-		format, err = m.SMT2FdeclRef(h)
+		// ss << mk_ismt2_pp(f, m, prms): smt2_printer's func_decl form,
+		// (declare-fun name (domain...) range) with pp_fdecl_name.
+		format, err = m.SMT2PPDeclareFun(h)
 	}
 	if err != nil {
 		return "", err

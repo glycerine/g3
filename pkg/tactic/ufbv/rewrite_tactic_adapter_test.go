@@ -21,8 +21,18 @@ func TestUFBVRewriterCommonTacticAdapterBalancesGoalReference(t *testing.T) {
 	var result tactic.TacticResult
 	t.Cleanup(func() { cacheMust(t, result.Close()) })
 	cacheMust(t, runner.Apply(goal, &result))
-	if len(result.Goals) != 1 || result.Goals[0] != goal || goal.RefCount != before+1 {
+	// The result borrows the caller's goal: no extra reference survives, and
+	// releasing the result must not close the goal (the "arena: closed"
+	// failure of the ufbv/bv tactics under repeat).
+	if len(result.Goals) != 1 || result.Goals[0] != goal || goal.RefCount != before {
 		t.Fatal("common adapter goal ownership", len(result.Goals), result.Goals[0], goal.RefCount, before)
+	}
+	cacheMust(t, result.Reset())
+	if goal.Closed {
+		t.Fatal("releasing the adapter result closed the caller's goal")
+	}
+	if _, err = goal.Size(); err != nil {
+		t.Fatal(err)
 	}
 }
 

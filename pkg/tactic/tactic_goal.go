@@ -327,6 +327,20 @@ func (g *Goal) DecRefConsumed() (bool, error) {
 	}
 	return true, nil
 }
+
+// ReleaseDuplicateReference drops a reference that a callee added to a goal
+// its caller still owns (directly or through another reference), without
+// destroying the goal when the count returns to zero.
+func (g *Goal) ReleaseDuplicateReference() error {
+	if e := g.open(); e != nil {
+		return e
+	}
+	if g.RefCount == 0 {
+		return arena.ErrBounds
+	}
+	g.RefCount--
+	return nil
+}
 func (g *Goal) resetCore() error {
 	// m().del(m_forms); m().del(m_proofs); m().del(m_dependencies)
 	e := g.exprArrays().release(&g.forms)
