@@ -254,7 +254,12 @@ func (n *explanationAssumptions) addQuadraticRootLiteral(k AtomKind, y, index ui
 	if err != nil {
 		return false, err
 	}
-	derivative, err := keep(core.Add(twoAY, b))
+	sum, err := keep(core.Add(twoAY, b))
+	if err != nil {
+		return false, err
+	}
+	// p_diff = m_pm.normalize(p_diff) (nlsat_explain.cpp:792).
+	derivative, err := keep(n.search.store.atoms.ineq.pm.Normalize(sum))
 	if err != nil {
 		return false, err
 	}

@@ -2040,3 +2040,26 @@ testing (main_test.go carries a commented-out entry pointing there):
   fork creates a named bound atom |-3 <= (* (- 1) x)| and an attach-enode
   that g3 never makes (opt_solver / theory_arith bounds inside gia_pareto).
   Reproductions in /var/tmp/g3-wt-paretoneg.work (s2.smt2, s4.smt2).
+
+## nlqsat init_expr2var port (2026-11-12)
+
+init_expr2var is ported; with the nlsat explain fixes (normalize in
+mk_quadratic_root, simplify's lower-stage pass, signed projection's zero
+start), the nlqsat mbp/mk_model lifetimes, tseitin scope-ordered locals (which
+also fixed a real soundness bug: ite_extra clauses lacked the chain context),
+and the unknown-tactic error column, every nlqsat/nra/qe/nlsat/qfnra vector
+and probe matches the fork. Two deliberate differences remain:
+- nlsat reorder: g3 renames a root atom's variable on reorder; the fork does
+  not, and on restore_order deletes lemmas whose old root variable is below
+  the renamed polynomial's max variable. g3 applies the fork's deletion test
+  and additionally deletes a lemma whose renamed root is ill-formed, so it
+  never keeps a lemma the fork has invalidated (traces match on all vectors).
+- nlqe (dead code in z3 4.7.1, TBD_TACTIC): the C++ loop adds only level-1
+  projections to the answer, so a clause projected at a deeper universal
+  level over free variables is dropped and the answer becomes true. g3's
+  projectQE also adds such clauses (universal level, clause level 0), as the
+  source comment "is_forall() && clevel.max() == 0" suggests. Not reachable
+  from z3 4.7.1 ("unknown tactic nlqe"), so no identity vector is affected.
+Leads: tseitin's imp lives as long as nlqsat's m_nftactic (g3 releases it per
+Apply); tseitin get_lit with a sign uses g3's simplifying mkNot where C++
+mk_lit calls m.mk_not.

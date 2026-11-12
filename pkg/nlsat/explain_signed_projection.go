@@ -209,15 +209,14 @@ func (n *explanationAssumptions) signedProject(ps *polynomial.PolynomialRefVecto
 	if err != nil {
 		return err
 	}
+	// scoped_anum lub(m_am), glb(m_am) start at zero, not at the infinities
+	// (nlsat_explain.cpp:1625): a root only replaces lub when it is below the
+	// current lub, and glb when it is above the current glb, with indices
+	// starting at 0.
 	var lower, upper polynomial.Algebraic
-	lowerValid, upperValid := false, false
 	defer func() {
-		if upperValid {
-			err = errors.Join(err, am.Del(&upper))
-		}
-		if lowerValid {
-			err = errors.Join(err, am.Del(&lower))
-		}
+		err = errors.Join(err, am.Del(&upper))
+		err = errors.Join(err, am.Del(&lower))
 	}()
 	var lowerIndex, upperIndex, lowerCount, upperCount uint32
 	for i := uint32(0); i < count; i++ {
@@ -244,37 +243,30 @@ func (n *explanationAssumptions) signedProject(ps *polynomial.PolynomialRefVecto
 			if err = atomAssert("nlsat_explain.cpp", 1635, "s != 0", order != 0); err != nil {
 				return err
 			}
+			hasUpper = hasUpper || order < 0
+			hasLower = hasLower || order > 0
 			if order < 0 {
-				hasUpper = true
-				better := !upperValid
-				if upperValid {
-					order, err = am.Compare(root, &upper)
-					if err != nil {
-						return err
-					}
-					better = order < 0
+				below, err := am.Compare(root, &upper)
+				if err != nil {
+					return err
 				}
-				if better {
+				if below < 0 {
+					upperIndex = i
 					if err = am.Copy(&upper, root); err != nil {
 						return err
 					}
-					upperValid, upperIndex = true, i
 				}
-			} else if order > 0 {
-				hasLower = true
-				better := !lowerValid
-				if lowerValid {
-					order, err = am.Compare(&lower, root)
-					if err != nil {
-						return err
-					}
-					better = order < 0
+			}
+			if order > 0 {
+				above, err := am.Compare(&lower, root)
+				if err != nil {
+					return err
 				}
-				if better {
+				if above < 0 {
+					lowerIndex = i
 					if err = am.Copy(&lower, root); err != nil {
 						return err
 					}
-					lowerValid, lowerIndex = true, i
 				}
 			}
 		}

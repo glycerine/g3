@@ -467,6 +467,12 @@ func (c *GoalCompiler) ContainsUnsupported() (bool, error) {
 	return false, nil
 }
 
+// AlgebraicNumeral is arith_util::mk_numeral(anum, is_int); integral is false
+// for the source's mk_to_int(mk_numeral(v, false)) fallback.
+func (c *GoalCompiler) AlgebraicNumeral(value *polynomial.Algebraic, integer bool) (result ast.ASTHandle, integral bool, err error) {
+	return c.algebraicNumeral(value, integer)
+}
+
 func (c *GoalCompiler) algebraicNumeral(value *polynomial.Algebraic, integer bool) (result ast.ASTHandle, integral bool, err error) {
 	algebraic, err := c.solver.AlgebraicManager()
 	if err != nil {
@@ -524,20 +530,10 @@ func (c *GoalCompiler) algebraicNumeral(value *polynomial.Algebraic, integer boo
 // Model constructs the source constant-only model after a SAT check. A false
 // supported result leaves the goal undecided, matching nlsat_tactic.
 func (c *GoalCompiler) Model() (result *model.Model, supported bool, err error) {
-	return c.model(nil, false)
+	return c.model()
 }
 
-// ModelForExpressions reconstructs only the requested frontend constants.
-// Quantified frontends use it to exclude bound and auxiliary constants.
-func (c *GoalCompiler) ModelForExpressions(expressions []ast.ASTHandle) (result *model.Model, supported bool, err error) {
-	include := make(map[ast.ASTHandle]bool, len(expressions))
-	for _, expression := range expressions {
-		include[expression] = true
-	}
-	return c.model(include, true)
-}
-
-func (c *GoalCompiler) model(include map[ast.ASTHandle]bool, filtered bool) (result *model.Model, supported bool, err error) {
+func (c *GoalCompiler) model() (result *model.Model, supported bool, err error) {
 	unsupported, err := c.ContainsUnsupported()
 	if err != nil || unsupported {
 		return nil, !unsupported, err
@@ -549,7 +545,7 @@ func (c *GoalCompiler) model(include map[ast.ASTHandle]bool, filtered bool) (res
 	supported = true
 	createdModel := result
 	defer func() {
-		if err != nil || (filtered && !supported) {
+		if err != nil {
 			err = errors.Join(err, createdModel.Close())
 			result = nil
 		}
@@ -565,9 +561,6 @@ func (c *GoalCompiler) model(include map[ast.ASTHandle]bool, filtered bool) (res
 	}
 	sortExprVarBindings(terms)
 	for _, entry := range terms {
-		if filtered && !include[entry.Expr] {
-			continue
-		}
 		var value polynomial.Algebraic
 		if err = c.solver.Value(entry.Variable, &value); err != nil {
 			return nil, false, err
@@ -608,9 +601,6 @@ func (c *GoalCompiler) model(include map[ast.ASTHandle]bool, filtered bool) (res
 	}
 	sortExprVarBindings(atoms)
 	for _, entry := range atoms {
-		if filtered && !include[entry.Expr] {
-			continue
-		}
 		value, cause := c.solver.BooleanValue(sat.BoolVar(entry.Variable))
 		if cause != nil {
 			return nil, false, cause

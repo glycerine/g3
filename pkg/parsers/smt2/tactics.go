@@ -23,6 +23,9 @@ import (
 // combinator paths where the native factory returns its child unchanged.
 func (p *commandParser) parseTactic() (result tactic.Tactic, err error) {
 	if p.token == SymbolToken {
+		// sexpr2tactic reports an unknown tactic at the symbol's own
+		// sexpr position (tactic_cmds.cpp), not at the following token.
+		line, column := p.scanner.Line(), p.scanner.Position()
 		name, e := p.symbol()
 		if e != nil {
 			return nil, e
@@ -34,6 +37,9 @@ func (p *commandParser) parseTactic() (result tactic.Tactic, err error) {
 		}
 		result, err = p.context.NewBuiltinTacticWithOutput(name, p.out)
 		if err != nil {
+			if strings.HasPrefix(err.Error(), "invalid tactic, unknown tactic ") {
+				return nil, &ScannerError{Message: err.Error(), Line: line, Column: column}
+			}
 			return nil, err
 		}
 		if err = result.IncRef(); err != nil {

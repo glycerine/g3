@@ -49,7 +49,31 @@ func (n *explanationAssumptions) selectCoreEquality(core *scopedLiteralVector, m
 	return selected, nil
 }
 
-func (n *explanationAssumptions) rewriteEqualityLiteral(literal sat.Literal, info *explanationEqualityInfo, max uint32) (result sat.Literal, modified bool, err error) {
+// holdLiteral is scoped_literal::operator=: it retains l before releasing
+// the literal previously held, which the release may delete.
+func (n *explanationAssumptions) holdLiteral(held *sat.Literal, l sat.Literal) error {
+	if err := n.search.store.atoms.incRef(l.Variable()); err != nil {
+		return err
+	}
+	old := *held
+	*held = l
+	return n.search.store.atoms.decRef(old.Variable())
+}
+
+// rewriteEqualityLiteral is simplify(literal l, eq_info&, var max,
+// scoped_literal& new_lit) (nlsat_explain.cpp:1069-1182); held is new_lit.
+func (n *explanationAssumptions) rewriteEqualityLiteral(literal sat.Literal, info *explanationEqualityInfo, max uint32, held *sat.Literal) (modified bool, err error) {
+	result, modified, err := n.rewriteEqualityLiteralCore(literal, info, max, held)
+	if err != nil {
+		return modified, err
+	}
+	if result != *held {
+		err = n.holdLiteral(held, result)
+	}
+	return modified, err
+}
+
+func (n *explanationAssumptions) rewriteEqualityLiteralCore(literal sat.Literal, info *explanationEqualityInfo, max uint32, held *sat.Literal) (result sat.Literal, modified bool, err error) {
 	atom, err := n.search.store.literalAtom(literal)
 	if err != nil {
 		return result, false, err
@@ -167,8 +191,13 @@ func (n *explanationAssumptions) rewriteEqualityLiteral(literal sat.Literal, inf
 	if err != nil {
 		return result, false, err
 	}
+	// new_lit = m_solver.mk_ineq_literal(...)
+	if err = n.holdLiteral(held, result); err != nil {
+		return result, false, err
+	}
 	if literal.Sign() {
 		result = result.Negated()
+		*held = result
 	}
 	if result == TrueLiteral || result == FalseLiteral {
 		return result, true, nil
@@ -228,13 +257,28 @@ func (n *explanationAssumptions) simplifyCoreWithEquality(core *scopedLiteralVec
 		return false, err
 	}
 	info := explanationEqualityInfo{equality: equality, variable: variable, degree: degree, leading: leading, leadingSign: leadingSign, leadingConstant: leadingConstant}
+	// scoped_literal new_lit(m_solver), released when simplify returns.
+	held := sat.DefaultLiteral()
+	defer func() { err = errors.Join(err, n.holdLiteral(&held, sat.DefaultLiteral())) }()
 	j := uint32(0)
-	for _, literal := range append([]sat.Literal(nil), core.result...) {
-		newLiteral, changed, rewriteErr := n.rewriteEqualityLiteral(literal, &info, max)
-		if rewriteErr != nil {
-			return false, rewriteErr
+	for i := 0; i < len(core.result); i++ {
+		literal := core.result[i]
+		// new_lit = null_literal
+		if err = n.holdLiteral(&held, sat.DefaultLiteral()); err != nil {
+			return false, err
 		}
-		modified = modified || changed
+		if _, err = n.rewriteEqualityLiteral(literal, &info, max, &held); err != nil {
+			return false, err
+		}
+		newLiteral := held
+		if newLiteral == literal {
+			if err = core.set(j, literal); err != nil {
+				return false, err
+			}
+			j++
+			continue
+		}
+		modified = true
 		if newLiteral == TrueLiteral {
 			continue
 		}
@@ -274,8 +318,13 @@ func (n *explanationAssumptions) simplifyCoreEqualities(core *scopedLiteralVecto
 			break
 		}
 		modified, err := n.simplifyCoreWithEquality(core, equality, max)
-		if err != nil || !modified {
+		if err != nil {
 			return err
+		}
+		if !modified {
+			// The source breaks here; the lower-stage equations below
+			// still apply.
+			break
 		}
 	}
 	for len(core.result) != 0 {
@@ -300,8 +349,13 @@ func (n *explanationAssumptions) simplifyCoreEqualities(core *scopedLiteralVecto
 	return nil
 }
 
+// selectLowerStageEquality is select_lower_stage_eq (nlsat_explain.cpp:1271-
+// 1308): for each non-root literal of C, each factor p and each variable y of
+// p in m_pm.vars first-encounter order with y < max, m_x2eq[y] is the
+// candidate.
 func (n *explanationAssumptions) selectLowerStageEquality(core *scopedLiteralVector, max uint32) (*InequalityAtom, error) {
 	polynomials := n.search.store.atoms.ineq.core
+	var xs []uint32
 	for _, literal := range core.result {
 		atom, err := n.search.store.literalAtom(literal)
 		if err != nil {
@@ -312,9 +366,22 @@ func (n *explanationAssumptions) selectLowerStageEquality(core *scopedLiteralVec
 			continue
 		}
 		for _, factor := range inequality.factors {
-			for variable := uint32(0); variable < max && uint64(variable) < uint64(len(n.search.store.vars.equalities)); variable++ {
+			xs, err = explanationPolynomialVars(polynomials, factor.Polynomial, xs[:0])
+			if err != nil {
+				return nil, err
+			}
+			for _, variable := range xs {
+				if variable >= max || uint64(variable) >= uint64(len(n.search.store.vars.equalities)) {
+					continue
+				}
 				candidate, ok := n.search.store.vars.equalities[variable].(*InequalityAtom)
-				if !ok || candidate == nil || len(candidate.factors) != 1 || candidate.factors[0].Even {
+				if !ok || candidate == nil {
+					continue
+				}
+				if err = atomAssert("nlsat_explain.cpp", 1294, "to_ineq_atom(eq)->size() == 1", len(candidate.factors) == 1); err != nil {
+					return nil, err
+				}
+				if len(candidate.factors) != 1 || candidate.factors[0].Even {
 					continue
 				}
 				equality := candidate.factors[0].Polynomial
@@ -340,4 +407,44 @@ func (n *explanationAssumptions) selectLowerStageEquality(core *scopedLiteralVec
 		}
 	}
 	return nil, nil
+}
+
+// explanationPolynomialVars is polynomial::manager::vars: the distinct
+// variables of p in first-encounter order over its monomials.
+func explanationPolynomialVars(core *polynomial.MultivariatePolynomialCore, p polynomial.Polynomial, out []uint32) ([]uint32, error) {
+	monomials, err := core.MonomialManager()
+	if err != nil {
+		return nil, err
+	}
+	info, err := core.Info(p)
+	if err != nil {
+		return nil, err
+	}
+	for i := uint32(0); i < info.Size; i++ {
+		monomial, err := core.TermMonomial(p, i)
+		if err != nil {
+			return nil, err
+		}
+		monomialInfo, err := monomials.Info(monomial)
+		if err != nil {
+			return nil, err
+		}
+		for j := uint32(0); j < monomialInfo.Size; j++ {
+			power, err := monomials.ReadPower(monomial, j)
+			if err != nil {
+				return nil, err
+			}
+			seen := false
+			for _, x := range out {
+				if x == power.Var {
+					seen = true
+					break
+				}
+			}
+			if !seen {
+				out = append(out, power.Var)
+			}
+		}
+	}
+	return out, nil
 }

@@ -187,3 +187,59 @@ func TestTseitinCNFCommonPatternAndBoundedDistributivity(t *testing.T) {
 		})
 	}
 }
+
+// The ite_extra clauses of a chained ite keep the chain context
+// (MK_ITE_CLS pushes onto ctx): for (or f (ite a b (ite c d e))) the source
+// emits (or a d e (not k!0)) and (or a (not d) (not e) k!0); without a they
+// would force d or e even where the chain takes b.
+func TestTseitinCNFITEExtraClausesKeepChainContext(t *testing.T) {
+	m, c, g, services := solveEqFixture(t)
+	runner, err := NewTseitinCNFCoreTactic(m, c, g, nil, services)
+	simplifyMust(t, err)
+	t.Cleanup(func() { simplifyMust(t, runner.Close()) })
+	a := tseitinAtoms(t, m, 6)
+	inner, err := m.MkIte(a[2], a[3], a[4])
+	simplifyMust(t, err)
+	outer, err := m.MkIte(a[0], a[1], inner)
+	simplifyMust(t, err)
+	formula, err := m.MkOr(a[5], outer)
+	simplifyMust(t, err)
+	goal, err := tactic.NewGoal(m, false, true, false)
+	simplifyMust(t, err)
+	t.Cleanup(func() { simplifyMust(t, goal.Close()) })
+	simplifyMust(t, goal.Assert(formula))
+	var result tactic.TacticResult
+	t.Cleanup(func() { simplifyMust(t, result.Close()) })
+	simplifyMust(t, runner.Apply(goal, &result))
+	size, err := goal.Size()
+	simplifyMust(t, err)
+	found := 0
+	for i := uint32(0); i < size; i++ {
+		h, e := goal.Form(i)
+		simplifyMust(t, e)
+		n, e := m.GetNumArgs(h)
+		simplifyMust(t, e)
+		if n != 4 {
+			continue
+		}
+		args := map[ast.ASTHandle]bool{}
+		negated := map[ast.ASTHandle]bool{}
+		for j := uint32(0); j < n; j++ {
+			arg, e := m.GetArg(h, j)
+			simplifyMust(t, e)
+			if yes, inner, e := m.IsNot(arg); e != nil {
+				simplifyMust(t, e)
+			} else if yes {
+				negated[inner] = true
+				continue
+			}
+			args[arg] = true
+		}
+		if args[a[0]] && (args[a[3]] && args[a[4]] || negated[a[3]] && negated[a[4]]) {
+			found++
+		}
+	}
+	if found != 2 {
+		t.Fatal("ite_extra clauses lost the chain context", found, size)
+	}
+}

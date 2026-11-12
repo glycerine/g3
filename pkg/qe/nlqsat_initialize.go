@@ -1,6 +1,6 @@
 package qe
 
-// Source: src/qe/nlqsat.cpp:650-713.
+// Source: src/qe/nlqsat.cpp:650-726.
 
 import (
 	"errors"
@@ -11,6 +11,53 @@ import (
 	nlsattactic "github.com/glycerine/g3/pkg/nlsat/tactic"
 	"github.com/glycerine/g3/pkg/sat"
 )
+
+// initExpr2Var is nlqsat::init_expr2var (nlqsat.cpp:709-726): before
+// goal2nlsat runs, every hoisted variable, block by block, receives its NLSAT
+// Boolean or real variable, so goal2nlsat reuses those numbers.
+func initExpr2Var(solver *nlsat.Solver, compiler *nlsattactic.GoalCompiler, blocks [][]ast.ASTRef) error {
+	if solver == nil || compiler == nil {
+		return arena.ErrConfig
+	}
+	manager, err := compiler.AtomMapping().Manager()
+	if err != nil {
+		return err
+	}
+	boolean, err := manager.MkBoolSort()
+	if err != nil {
+		return err
+	}
+	for _, block := range blocks {
+		for _, ref := range block {
+			variable, err := manager.RefGet(ref)
+			if err != nil {
+				return err
+			}
+			sort, err := manager.GetSort(variable)
+			if err != nil {
+				return err
+			}
+			if sort == boolean {
+				b, err := solver.MkBoolVar()
+				if err != nil {
+					return err
+				}
+				if err = compiler.AtomMapping().Insert(variable, uint32(b)); err != nil {
+					return err
+				}
+				continue
+			}
+			x, err := solver.MkVar(false)
+			if err != nil {
+				return err
+			}
+			if err = compiler.TermMapping().Insert(variable, x); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
 
 func newNLQSearchFromCompiler(solver *nlsat.Solver, compiler *nlsattactic.GoalCompiler, blocks [][]ast.ASTRef, isTrue ast.ASTHandle) (*nlqSearch, error) {
 	return newNLQSearchFromCompilerMode(solver, compiler, blocks, isTrue, qsatSAT)

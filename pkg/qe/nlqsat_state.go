@@ -119,35 +119,6 @@ func (n *nlqState) saveModel() error {
 	return nil
 }
 
-func (n *nlqState) saveAssumptionModel(assumptions []sat.Literal) error {
-	if err := n.saveModel(); err != nil {
-		return err
-	}
-	// CheckAssumptions removes its temporary unit clauses before returning.
-	// Variables used only to guard a projected QE clause can consequently be
-	// absent from the solver's saved Boolean assignment even though their
-	// assumption fixes the value needed by the model-based projection.
-	for _, literal := range assumptions {
-		variable := int(literal.Variable())
-		for len(n.booleanModel) <= variable {
-			n.booleanModel = append(n.booleanModel, lbool.Undef)
-		}
-		value := lbool.True
-		if literal.Sign() {
-			value = lbool.False
-		}
-		if current := n.booleanModel[variable]; current == lbool.Undef {
-			n.booleanModel[variable] = value
-		} else if current != value {
-			return arena.ErrConfig
-		}
-	}
-	if nlqExists(n.level()) {
-		n.answerBoolean = append(n.answerBoolean[:0], n.booleanModel...)
-	}
-	return nil
-}
-
 func (n *nlqState) restoreModel() error {
 	if !n.validModel {
 		return arena.ErrConfig
@@ -156,16 +127,6 @@ func (n *nlqState) restoreModel() error {
 		return err
 	}
 	return n.solver.SetBooleanValues(n.booleanModel)
-}
-
-func (n *nlqState) restoreAnswerModel() error {
-	if !n.answerValid {
-		return arena.ErrConfig
-	}
-	if err := n.solver.SetRealValues(n.answerReal); err != nil {
-		return err
-	}
-	return n.solver.SetBooleanValues(n.answerBoolean)
 }
 
 func (n *nlqState) addCurrentLiteral(out *[]sat.Literal, literal sat.Literal) error {
@@ -214,7 +175,13 @@ func (n *nlqState) getLevel(literal sat.Literal) (MaxLevel, error) {
 	}
 	for _, variable := range variables {
 		if uint64(variable) >= uint64(len(n.realLevels)) {
-			return level, arena.ErrBounds
+			// goal2nlsat gives a non-polynomial term such as (/ a 2.0) its
+			// own NLSAT variable, which no quantifier block binds, so
+			// m_rvar2level[v] reads past the end of the svector. The fork's
+			// trace shows that read returning zeroed storage, max_level
+			// {m_ex = 0, m_fa = 0} ("e0 a0"), so the literal joins level 0.
+			level.Merge(MaxLevel{})
+			continue
 		}
 		level.Merge(n.realLevels[variable])
 	}

@@ -34,7 +34,8 @@ type tseitinInvocation struct {
 	occs          *tactic.GoalSharedOccurrences
 	cache         map[ast.ASTHandle]ast.ASTHandle
 	frames        []tseitinFrame
-	owned         []ast.ASTRef
+	freshRefs     []ast.ASTRef // m_fresh_vars
+	domainRefs    []ast.ASTRef // m_cache_domain
 	clauses       []tseitinClause
 	fresh         []ast.ASTHandle
 	currDep       ast.ASTDependency
@@ -57,14 +58,21 @@ func newTseitinInvocation(t *TseitinCNFTactic) (_ *tseitinInvocation, err error)
 	return &tseitinInvocation{owner: t, rw: rw, occs: occs, cache: make(map[ast.ASTHandle]ast.ASTHandle)}, nil
 }
 func (c *tseitinInvocation) close() (err error) {
-	for i := len(c.clauses) - 1; i >= 0; i-- {
+	// The imp members end in reverse declaration order: m_deps, m_clauses,
+	// m_fresh_vars, then m_cache_domain, each vector in index order.
+	for i := range c.clauses {
 		if !c.clauses[i].dep.IsNull() {
 			err = errors.Join(err, c.owner.manager.DependencyDec(c.clauses[i].dep))
 		}
+	}
+	for i := range c.clauses {
 		err = errors.Join(err, c.owner.manager.DelRef(&c.clauses[i].ref))
 	}
-	for i := len(c.owned) - 1; i >= 0; i-- {
-		err = errors.Join(err, c.owner.manager.DelRef(&c.owned[i]))
+	for i := range c.freshRefs {
+		err = errors.Join(err, c.owner.manager.DelRef(&c.freshRefs[i]))
+	}
+	for i := range c.domainRefs {
+		err = errors.Join(err, c.owner.manager.DelRef(&c.domainRefs[i]))
 	}
 	if c.occs != nil {
 		err = errors.Join(err, c.occs.Close())
@@ -74,10 +82,86 @@ func (c *tseitinInvocation) close() (err error) {
 	}
 	return err
 }
-func (c *tseitinInvocation) hold(h ast.ASTHandle) (ast.ASTHandle, error) {
+
+// tseitinRef is one expr_ref/app_ref local of the source matchers:
+// assignment retains the new value before releasing the old one, and the
+// release at the end of the source scope may delete a temporary.
+type tseitinRef struct {
+	m   *ast.ASTManager
+	ref ast.ASTRef
+	h   ast.ASTHandle
+	set bool
+}
+
+func (c *tseitinInvocation) newRef() *tseitinRef { return &tseitinRef{m: c.owner.manager} }
+func (r *tseitinRef) get() ast.ASTHandle         { return r.h }
+func (r *tseitinRef) assign(h ast.ASTHandle) error {
+	next, err := r.m.NewRef(h)
+	if err != nil {
+		return err
+	}
+	if r.set {
+		err = r.m.DelRef(&r.ref)
+	}
+	r.ref, r.h, r.set = next, h, true
+	return err
+}
+func (r *tseitinRef) release() error {
+	if !r.set {
+		return nil
+	}
+	r.set = false
+	r.h = ast.ASTHandle{}
+	return r.m.DelRef(&r.ref)
+}
+
+// releaseRefs ends source locals in the given (reverse declaration) order.
+func releaseRefs(refs ...*tseitinRef) (err error) {
+	for _, r := range refs {
+		err = errors.Join(err, r.release())
+	}
+	return err
+}
+
+// tseitinBuffer is an expr_ref_buffer: pushes retain, the destructor
+// releases in index order.
+type tseitinBuffer struct {
+	m    *ast.ASTManager
+	refs []ast.ASTRef
+	hs   []ast.ASTHandle
+}
+
+func (c *tseitinInvocation) newBuffer() *tseitinBuffer { return &tseitinBuffer{m: c.owner.manager} }
+func (b *tseitinBuffer) push(h ast.ASTHandle) error {
+	r, err := b.m.NewRef(h)
+	if err != nil {
+		return err
+	}
+	b.refs = append(b.refs, r)
+	b.hs = append(b.hs, h)
+	return nil
+}
+func (b *tseitinBuffer) pop() error {
+	i := len(b.refs) - 1
+	err := b.m.DelRef(&b.refs[i])
+	b.refs, b.hs = b.refs[:i], b.hs[:i]
+	return err
+}
+func (b *tseitinBuffer) handles() []ast.ASTHandle { return append([]ast.ASTHandle(nil), b.hs...) }
+func (b *tseitinBuffer) release() (err error) {
+	for i := range b.refs {
+		err = errors.Join(err, b.m.DelRef(&b.refs[i]))
+	}
+	b.refs, b.hs = nil, nil
+	return err
+}
+
+// hold retains h in one of the source's member vectors, m_fresh_vars or
+// m_cache_domain.
+func (c *tseitinInvocation) hold(owned *[]ast.ASTRef, h ast.ASTHandle) (ast.ASTHandle, error) {
 	r, err := c.owner.manager.NewRef(h)
 	if err == nil {
-		c.owned = append(c.owned, r)
+		*owned = append(*owned, r)
 	}
 	return h, err
 }
@@ -186,11 +270,7 @@ func (c *tseitinInvocation) mkNot(h ast.ASTHandle) (ast.ASTHandle, error) {
 	if a, yes, e := c.notArg(h); e != nil || yes {
 		return a, e
 	}
-	x, e := m.MkNot(h)
-	if e != nil {
-		return x, e
-	}
-	return c.hold(x)
+	return m.MkNot(h)
 }
 func (c *tseitinInvocation) lit(h ast.ASTHandle, sign bool) (ast.ASTHandle, error) {
 	for {
@@ -261,7 +341,7 @@ func (c *tseitinInvocation) freshVar() (ast.ASTHandle, error) {
 	if e != nil {
 		return v, e
 	}
-	v, e = c.hold(v)
+	v, e = c.hold(&c.freshRefs, v)
 	if e == nil {
 		c.fresh = append(c.fresh, v)
 		c.numAux++
@@ -269,7 +349,7 @@ func (c *tseitinInvocation) freshVar() (ast.ASTHandle, error) {
 	return v, e
 }
 func (c *tseitinInvocation) cacheResult(term, value ast.ASTHandle) error {
-	if _, e := c.hold(term); e != nil {
+	if _, e := c.hold(&c.domainRefs, term); e != nil {
 		return e
 	}
 	c.cache[term] = value
@@ -383,7 +463,7 @@ func (c *tseitinInvocation) visitAll(first bool, terms ...ast.ASTHandle) (tseiti
 	}
 	return tseitinDone, nil
 }
-func (c *tseitinInvocation) matchNot(t ast.ASTHandle, first, root bool) (tseitinMatch, error) {
+func (c *tseitinInvocation) matchNot(t ast.ASTHandle, first, root bool) (_ tseitinMatch, err error) {
 	a, yes, e := c.notArg(t)
 	if e != nil || !yes {
 		return tseitinNo, e
@@ -394,18 +474,58 @@ func (c *tseitinInvocation) matchNot(t ast.ASTHandle, first, root bool) (tseitin
 			return r, e
 		}
 	}
+	nla := c.newRef()
+	defer func() { err = errors.Join(err, nla.release()) }()
+	h, e := c.lit(a, true)
+	if e != nil {
+		return tseitinNo, e
+	}
+	if e = nla.assign(h); e != nil {
+		return tseitinNo, e
+	}
 	if root {
-		l, e := c.lit(a, true)
-		if e != nil {
-			return tseitinNo, e
-		}
-		if e = c.clause(l); e != nil {
+		if e = c.clause(nla.get()); e != nil {
 			return tseitinNo, e
 		}
 	}
 	return tseitinDone, nil
 }
-func (c *tseitinInvocation) matchOr3And(t ast.ASTHandle, first, root bool) (tseitinMatch, error) {
+
+// assignLit is get_lit(n, sign, r).
+func (c *tseitinInvocation) assignLit(r *tseitinRef, n ast.ASTHandle, sign bool) error {
+	h, e := c.lit(n, sign)
+	if e != nil {
+		return e
+	}
+	return r.assign(h)
+}
+
+// assignInv is inv(n, r).
+func (c *tseitinInvocation) assignInv(r *tseitinRef, n ast.ASTHandle) error {
+	h, e := c.mkNot(n)
+	if e != nil {
+		return e
+	}
+	return r.assign(h)
+}
+
+// assignFresh is k = mk_fresh(); nk = m.mk_not(k); the caller caches k.
+func (c *tseitinInvocation) assignFresh(k, nk *tseitinRef) error {
+	v, e := c.freshVar()
+	if e != nil {
+		return e
+	}
+	if e = k.assign(v); e != nil {
+		return e
+	}
+	n, e := c.owner.manager.MkNot(v)
+	if e != nil {
+		return e
+	}
+	return nk.assign(n)
+}
+
+func (c *tseitinInvocation) matchOr3And(t ast.ASTHandle, first, root bool) (_ tseitinMatch, err error) {
 	a, b, d, yes, e := c.or3and(t)
 	if e != nil || !yes {
 		return tseitinNo, e
@@ -416,48 +536,38 @@ func (c *tseitinInvocation) matchOr3And(t ast.ASTHandle, first, root bool) (tsei
 			return r, e
 		}
 	}
-	na, e := c.lit(a, true)
-	if e != nil {
-		return tseitinNo, e
-	}
-	nb, e := c.lit(b, true)
-	if e != nil {
-		return tseitinNo, e
-	}
-	nd, e := c.lit(d, true)
-	if e != nil {
+	nla, nlb, nlc := c.newRef(), c.newRef(), c.newRef()
+	defer func() { err = errors.Join(err, releaseRefs(nlc, nlb, nla)) }()
+	if e = errors.Join(c.assignLit(nla, a, true), c.assignLit(nlb, b, true), c.assignLit(nlc, d, true)); e != nil {
 		return tseitinNo, e
 	}
 	if root {
-		return tseitinDone, errors.Join(c.clause(na, nb), c.clause(na, nd), c.clause(nb, nd))
+		return tseitinDone, errors.Join(c.clause(nla.get(), nlb.get()), c.clause(nla.get(), nlc.get()), c.clause(nlb.get(), nlc.get()))
 	}
-	k, e := c.freshVar()
+	k, nk := c.newRef(), c.newRef()
+	la, lb, lc := c.newRef(), c.newRef(), c.newRef()
+	defer func() { err = errors.Join(err, releaseRefs(lc, lb, la, nk, k)) }()
+	if e = c.assignFresh(k, nk); e != nil {
+		return tseitinNo, e
+	}
+	e = errors.Join(c.clause(nk.get(), nla.get(), nlb.get()), c.clause(nk.get(), nla.get(), nlc.get()), c.clause(nk.get(), nlb.get(), nlc.get()))
 	if e != nil {
 		return tseitinNo, e
 	}
-	nk, e := c.mkNot(k)
-	if e != nil {
+	if e = errors.Join(c.assignInv(la, nla.get()), c.assignInv(lb, nlb.get()), c.assignInv(lc, nlc.get())); e != nil {
 		return tseitinNo, e
 	}
-	la, e := c.mkNot(na)
-	if e != nil {
-		return tseitinNo, e
-	}
-	lb, e := c.mkNot(nb)
-	if e != nil {
-		return tseitinNo, e
-	}
-	ld, e := c.mkNot(nd)
-	if e != nil {
-		return tseitinNo, e
-	}
-	e = errors.Join(c.clause(nk, na, nb), c.clause(nk, na, nd), c.clause(nk, nb, nd), c.clause(k, la, lb), c.clause(k, la, ld), c.clause(k, lb, ld))
+	e = errors.Join(c.clause(k.get(), la.get(), lb.get()), c.clause(k.get(), la.get(), lc.get()), c.clause(k.get(), lb.get(), lc.get()))
 	if e == nil {
-		e = c.cacheResult(t, k)
+		e = c.cacheResult(t, k.get())
+	}
+	if e == nil {
+		// The else block's la..lc, k and nk end before nla..nlc.
+		e = releaseRefs(lc, lb, la, nk, k)
 	}
 	return tseitinDone, e
 }
-func (c *tseitinInvocation) matchIff3(t ast.ASTHandle, first, root bool) (tseitinMatch, error) {
+func (c *tseitinInvocation) matchIff3(t ast.ASTHandle, first, root bool) (_ tseitinMatch, err error) {
 	a, b, d, yes, e := c.iff3(t)
 	if e != nil || !yes {
 		return tseitinNo, e
@@ -468,48 +578,34 @@ func (c *tseitinInvocation) matchIff3(t ast.ASTHandle, first, root bool) (tseiti
 			return r, e
 		}
 	}
-	la, e := c.lit(a, false)
-	if e != nil {
+	la, lb, lc := c.newRef(), c.newRef(), c.newRef()
+	nla, nlb, nlc := c.newRef(), c.newRef(), c.newRef()
+	defer func() { err = errors.Join(err, releaseRefs(nlc, nlb, nla, lc, lb, la)) }()
+	if e = errors.Join(c.assignLit(la, a, false), c.assignLit(lb, b, false), c.assignLit(lc, d, false)); e != nil {
 		return tseitinNo, e
 	}
-	lb, e := c.lit(b, false)
-	if e != nil {
-		return tseitinNo, e
-	}
-	ld, e := c.lit(d, false)
-	if e != nil {
-		return tseitinNo, e
-	}
-	na, e := c.mkNot(la)
-	if e != nil {
-		return tseitinNo, e
-	}
-	nb, e := c.mkNot(lb)
-	if e != nil {
-		return tseitinNo, e
-	}
-	nd, e := c.mkNot(ld)
-	if e != nil {
+	if e = errors.Join(c.assignInv(nla, la.get()), c.assignInv(nlb, lb.get()), c.assignInv(nlc, lc.get())); e != nil {
 		return tseitinNo, e
 	}
 	if root {
-		return tseitinDone, errors.Join(c.clause(la, lb, ld), c.clause(la, nb, nd), c.clause(na, lb, nd), c.clause(na, nb, ld))
+		return tseitinDone, errors.Join(c.clause(la.get(), lb.get(), lc.get()), c.clause(la.get(), nlb.get(), nlc.get()), c.clause(nla.get(), lb.get(), nlc.get()), c.clause(nla.get(), nlb.get(), lc.get()))
 	}
-	k, e := c.freshVar()
-	if e != nil {
+	k, nk := c.newRef(), c.newRef()
+	defer func() { err = errors.Join(err, releaseRefs(nk, k)) }()
+	if e = c.assignFresh(k, nk); e != nil {
 		return tseitinNo, e
 	}
-	nk, e := c.mkNot(k)
-	if e != nil {
-		return tseitinNo, e
-	}
-	e = errors.Join(c.clause(nk, la, lb, ld), c.clause(nk, la, nb, nd), c.clause(nk, na, lb, nd), c.clause(nk, na, nb, ld), c.clause(k, na, nb, nd), c.clause(k, na, lb, ld), c.clause(k, la, nb, ld), c.clause(k, la, lb, nd))
+	e = errors.Join(c.clause(nk.get(), la.get(), lb.get(), lc.get()), c.clause(nk.get(), la.get(), nlb.get(), nlc.get()), c.clause(nk.get(), nla.get(), lb.get(), nlc.get()), c.clause(nk.get(), nla.get(), nlb.get(), lc.get()),
+		c.clause(k.get(), nla.get(), nlb.get(), nlc.get()), c.clause(k.get(), nla.get(), lb.get(), lc.get()), c.clause(k.get(), la.get(), nlb.get(), lc.get()), c.clause(k.get(), la.get(), lb.get(), nlc.get()))
 	if e == nil {
-		e = c.cacheResult(t, k)
+		e = c.cacheResult(t, k.get())
+	}
+	if e == nil {
+		e = releaseRefs(nk, k)
 	}
 	return tseitinDone, e
 }
-func (c *tseitinInvocation) matchIff(t ast.ASTHandle, first, root bool) (tseitinMatch, error) {
+func (c *tseitinInvocation) matchIff(t ast.ASTHandle, first, root bool) (_ tseitinMatch, err error) {
 	a, b, yes, e := c.iff(t)
 	if e != nil || !yes {
 		return tseitinNo, e
@@ -520,36 +616,29 @@ func (c *tseitinInvocation) matchIff(t ast.ASTHandle, first, root bool) (tseitin
 			return r, e
 		}
 	}
-	la, e := c.lit(a, false)
-	if e != nil {
+	la, lb := c.newRef(), c.newRef()
+	nla, nlb := c.newRef(), c.newRef()
+	defer func() { err = errors.Join(err, releaseRefs(nlb, nla, lb, la)) }()
+	if e = errors.Join(c.assignLit(la, a, false), c.assignLit(lb, b, false)); e != nil {
 		return tseitinNo, e
 	}
-	lb, e := c.lit(b, false)
-	if e != nil {
-		return tseitinNo, e
-	}
-	na, e := c.mkNot(la)
-	if e != nil {
-		return tseitinNo, e
-	}
-	nb, e := c.mkNot(lb)
-	if e != nil {
+	if e = errors.Join(c.assignInv(nla, la.get()), c.assignInv(nlb, lb.get())); e != nil {
 		return tseitinNo, e
 	}
 	if root {
-		return tseitinDone, errors.Join(c.clause(la, nb), c.clause(na, lb))
+		return tseitinDone, errors.Join(c.clause(la.get(), nlb.get()), c.clause(nla.get(), lb.get()))
 	}
-	k, e := c.freshVar()
-	if e != nil {
+	k, nk := c.newRef(), c.newRef()
+	defer func() { err = errors.Join(err, releaseRefs(nk, k)) }()
+	if e = c.assignFresh(k, nk); e != nil {
 		return tseitinNo, e
 	}
-	nk, e := c.mkNot(k)
-	if e != nil {
-		return tseitinNo, e
-	}
-	e = errors.Join(c.clause(nk, la, nb), c.clause(nk, na, lb), c.clause(k, na, nb), c.clause(k, la, lb))
+	e = errors.Join(c.clause(nk.get(), la.get(), nlb.get()), c.clause(nk.get(), nla.get(), lb.get()), c.clause(k.get(), nla.get(), nlb.get()), c.clause(k.get(), la.get(), lb.get()))
 	if e == nil {
-		e = c.cacheResult(t, k)
+		e = c.cacheResult(t, k.get())
+	}
+	if e == nil {
+		e = releaseRefs(nk, k)
 	}
 	return tseitinDone, e
 }
@@ -605,7 +694,7 @@ func (c *tseitinInvocation) visitIteChain(t ast.ASTHandle) (bool, error) {
 		return visited, nil
 	}
 }
-func (c *tseitinInvocation) matchIte(t ast.ASTHandle, first, root bool) (tseitinMatch, error) {
+func (c *tseitinInvocation) matchIte(t ast.ASTHandle, first, root bool) (_ tseitinMatch, err error) {
 	if _, yes, e := c.iteArgs(t); e != nil || !yes {
 		return tseitinNo, e
 	}
@@ -618,118 +707,124 @@ func (c *tseitinInvocation) matchIte(t ast.ASTHandle, first, root bool) (tseitin
 			return tseitinContinue, nil
 		}
 	}
-	var k, nk ast.ASTHandle
-	var e error
+	ctx, exPos, exNeg := c.newBuffer(), c.newBuffer(), c.newBuffer()
+	la, lb, lc := c.newRef(), c.newRef(), c.newRef()
+	nla, nlb, nlc := c.newRef(), c.newRef(), c.newRef()
+	k, nk := c.newRef(), c.newRef()
+	defer func() {
+		err = errors.Join(err, releaseRefs(nk, k, nlc, nlb, nla, lc, lb, la), exNeg.release(), exPos.release(), ctx.release())
+	}()
 	if !root {
-		k, e = c.freshVar()
-		if e != nil {
+		if e := c.assignFresh(k, nk); e != nil {
 			return tseitinNo, e
 		}
-		nk, e = c.mkNot(k)
-		if e != nil {
-			return tseitinNo, e
-		}
-		if e = c.cacheResult(t, k); e != nil {
+		if e := c.cacheResult(t, k.get()); e != nil {
 			return tseitinNo, e
 		}
 	}
-	ctx, exPos, exNeg := []ast.ASTHandle{}, []ast.ASTHandle{}, []ast.ASTHandle{}
+	// MK_ITE_CLS and MK_ITE_ROOT_CLS: the clause of ctx followed by ls.
+	cls := func(ls ...ast.ASTHandle) (e error) {
+		for _, l := range ls {
+			if e = ctx.push(l); e != nil {
+				return e
+			}
+		}
+		e = c.clause(ctx.handles()...)
+		for range ls {
+			e = errors.Join(e, ctx.pop())
+		}
+		return e
+	}
 	ite := t
-	add := func(extra []ast.ASTHandle, ls ...ast.ASTHandle) error {
-		x := append(append([]ast.ASTHandle{}, extra...), ls...)
-		return c.clause(x...)
-	}
 	for {
 		a, _, x := c.iteArgs(ite)
 		if x != nil {
 			return tseitinNo, x
 		}
-		la, x := c.lit(a[0], false)
-		if x != nil {
+		if x = c.assignLit(la, a[0], false); x != nil {
 			return tseitinNo, x
 		}
-		na, x := c.mkNot(la)
-		if x != nil {
+		if x = c.assignInv(nla, la.get()); x != nil {
 			return tseitinNo, x
 		}
 		if c.owner.iteChains {
 			if _, yes, x := c.unsharedIte(a[1]); x != nil {
 				return tseitinNo, x
 			} else if yes {
-				lc, x := c.lit(a[2], false)
-				if x != nil {
+				if x = c.assignLit(lc, a[2], false); x != nil {
 					return tseitinNo, x
 				}
 				if root {
-					x = add(ctx, la, lc)
+					x = cls(la.get(), lc.get())
 				} else {
-					nc, y := c.mkNot(lc)
-					if y != nil {
-						return tseitinNo, y
+					if x = c.assignInv(nlc, lc.get()); x != nil {
+						return tseitinNo, x
 					}
-					x = errors.Join(add(ctx, la, lc, nk), add(ctx, la, nc, k))
-					if c.owner.iteExtra {
-						exNeg = append(exNeg, lc)
-						exPos = append(exPos, nc)
+					x = errors.Join(cls(la.get(), lc.get(), nk.get()), cls(la.get(), nlc.get(), k.get()))
+					if x == nil && c.owner.iteExtra {
+						x = errors.Join(exNeg.push(lc.get()), exPos.push(nlc.get()))
 					}
+				}
+				if x == nil {
+					x = ctx.push(nla.get())
 				}
 				if x != nil {
 					return tseitinNo, x
 				}
-				ctx = append(ctx, na)
 				ite = a[1]
 				continue
 			}
 			if _, yes, x := c.unsharedIte(a[2]); x != nil {
 				return tseitinNo, x
 			} else if yes {
-				lb, x := c.lit(a[1], false)
-				if x != nil {
+				if x = c.assignLit(lb, a[1], false); x != nil {
 					return tseitinNo, x
 				}
 				if root {
-					x = add(ctx, na, lb)
+					x = cls(nla.get(), lb.get())
 				} else {
-					nb, y := c.mkNot(lb)
-					if y != nil {
-						return tseitinNo, y
+					if x = c.assignInv(nlb, lb.get()); x != nil {
+						return tseitinNo, x
 					}
-					x = errors.Join(add(ctx, na, lb, nk), add(ctx, na, nb, k))
-					if c.owner.iteExtra {
-						exNeg = append(exNeg, lb)
-						exPos = append(exPos, nb)
+					x = errors.Join(cls(nla.get(), lb.get(), nk.get()), cls(nla.get(), nlb.get(), k.get()))
+					if x == nil && c.owner.iteExtra {
+						x = errors.Join(exNeg.push(lb.get()), exPos.push(nlb.get()))
 					}
+				}
+				if x == nil {
+					x = ctx.push(la.get())
 				}
 				if x != nil {
 					return tseitinNo, x
 				}
-				ctx = append(ctx, la)
 				ite = a[2]
 				continue
 			}
 		}
-		lb, x := c.lit(a[1], false)
-		if x != nil {
-			return tseitinNo, x
-		}
-		lc, x := c.lit(a[2], false)
-		if x != nil {
+		if x = errors.Join(c.assignLit(lb, a[1], false), c.assignLit(lc, a[2], false)); x != nil {
 			return tseitinNo, x
 		}
 		if root {
-			x = errors.Join(add(ctx, na, lb), add(ctx, la, lc))
+			x = errors.Join(cls(nla.get(), lb.get()), cls(la.get(), lc.get()))
 		} else {
-			nb, y := c.mkNot(lb)
-			if y != nil {
-				return tseitinNo, y
+			if x = errors.Join(c.assignInv(nlb, lb.get()), c.assignInv(nlc, lc.get())); x != nil {
+				return tseitinNo, x
 			}
-			nc, y := c.mkNot(lc)
-			if y != nil {
-				return tseitinNo, y
-			}
-			x = errors.Join(add(ctx, na, lb, nk), add(ctx, la, lc, nk), add(ctx, na, nb, k), add(ctx, la, nc, k))
-			if c.owner.iteExtra {
-				x = errors.Join(x, add(nil, lb, lc, nk), add(nil, nb, nc, k), add(exNeg, lb, lc, nk), add(exPos, nb, nc, k))
+			x = errors.Join(cls(nla.get(), lb.get(), nk.get()), cls(la.get(), lc.get(), nk.get()), cls(nla.get(), nlb.get(), k.get()), cls(la.get(), nlc.get(), k.get()))
+			if x == nil && c.owner.iteExtra {
+				x = errors.Join(cls(lb.get(), lc.get(), nk.get()), cls(nlb.get(), nlc.get(), k.get()))
+				if x == nil {
+					x = errors.Join(exNeg.push(lb.get()), exNeg.push(lc.get()), exNeg.push(nk.get()))
+				}
+				if x == nil {
+					x = c.clause(exNeg.handles()...)
+				}
+				if x == nil {
+					x = errors.Join(exPos.push(nlb.get()), exPos.push(nlc.get()), exPos.push(k.get()))
+				}
+				if x == nil {
+					x = c.clause(exPos.handles()...)
+				}
 			}
 		}
 		return tseitinDone, x
@@ -773,7 +868,7 @@ func (c *tseitinInvocation) distributiveChoices(args []ast.ASTHandle, visit bool
 	}
 	return choices, used, nil
 }
-func (c *tseitinInvocation) matchOr(t ast.ASTHandle, first, root bool) (tseitinMatch, error) {
+func (c *tseitinInvocation) matchOr(t ast.ASTHandle, first, root bool) (_ tseitinMatch, err error) {
 	args, yes, e := c.isOp(t, ast.ASTOpOr)
 	if e != nil || !yes {
 		return tseitinNo, e
@@ -799,99 +894,125 @@ func (c *tseitinInvocation) matchOr(t ast.ASTHandle, first, root bool) (tseitinM
 			return tseitinContinue, nil
 		}
 	}
-	var k, nk ast.ASTHandle
+	k, nk := c.newRef(), c.newRef()
+	defer func() { err = errors.Join(err, releaseRefs(nk, k)) }()
 	if !root {
-		k, e = c.freshVar()
-		if e != nil {
+		if e = c.assignFresh(k, nk); e != nil {
 			return tseitinNo, e
 		}
-		nk, e = c.mkNot(k)
-		if e != nil {
-			return tseitinNo, e
-		}
-		if e = c.cacheResult(t, k); e != nil {
+		if e = c.cacheResult(t, k.get()); e != nil {
 			return tseitinNo, e
 		}
 	}
-	choices, distributed, e := c.distributiveChoices(args, false)
-	if e != nil {
-		return tseitinNo, e
+	blowupLimit := c.owner.distributivityBlowup
+	distributivity := false
+	if c.owner.distributivity {
+		for _, a := range args {
+			inner, yes, x := c.distributiveArg(a)
+			if x != nil {
+				return tseitinNo, x
+			}
+			if yes && uint32(len(inner)) < blowupLimit {
+				distributivity = true
+				break
+			}
+		}
 	}
-	if !distributed {
-		lits := make([]ast.ASTHandle, len(args))
-		for i, a := range args {
-			if lits[i], e = c.lit(a, false); e != nil {
+	if !distributivity {
+		lits, l := c.newBuffer(), c.newRef()
+		defer func() { err = errors.Join(err, l.release(), lits.release()) }()
+		for _, a := range args {
+			if e = c.assignLit(l, a, false); e != nil {
+				return tseitinNo, e
+			}
+			if e = lits.push(l.get()); e != nil {
 				return tseitinNo, e
 			}
 		}
 		if root {
-			return tseitinDone, c.clause(lits...)
-		}
-		for _, l := range lits {
-			nl, x := c.mkNot(l)
-			if x != nil {
-				return tseitinNo, x
+			e = c.clause(lits.handles()...)
+		} else {
+			for _, h := range lits.handles() {
+				if e = c.assignInv(l, h); e != nil {
+					return tseitinNo, e
+				}
+				if e = c.clause(l.get(), k.get()); e != nil {
+					return tseitinNo, e
+				}
 			}
-			if x = c.clause(nl, k); x != nil {
-				return tseitinNo, x
+			if e = lits.push(nk.get()); e == nil {
+				e = c.clause(lits.handles()...)
 			}
 		}
-		return tseitinDone, c.clause(append(lits, nk)...)
+		if e == nil {
+			e = errors.Join(l.release(), lits.release())
+		}
+		if e == nil {
+			e = releaseRefs(nk, k)
+		}
+		return tseitinDone, e
 	}
-	converted := make([][]ast.ASTHandle, len(choices))
-	indices := make([]int, len(choices))
-	for i, group := range choices {
-		inner, expanded, x := c.distributiveArg(args[i])
+	buffer, l, nl := c.newBuffer(), c.newRef(), c.newRef()
+	defer func() { err = errors.Join(err, releaseRefs(nl, l), buffer.release()) }()
+	sizes := make([]int, 0, len(args))
+	offsets := make([]int, 0, len(args))
+	blowup := uint32(1)
+	for _, a := range args {
+		offsets = append(offsets, len(buffer.hs))
+		inner, expandable, x := c.distributiveArg(a)
 		if x != nil {
 			return tseitinNo, x
 		}
-		if expanded && len(group) > 1 {
-			converted[i] = make([]ast.ASTHandle, len(inner))
-			back := make([]ast.ASTHandle, 0, len(inner)+1)
-			for j, a := range inner {
-				l, x := c.lit(a, true)
-				if x != nil {
-					return tseitinNo, x
+		n := uint32(len(inner))
+		if expandable && n < blowupLimit && blowup*n < blowupLimit && blowup < blowup*n {
+			sizes = append(sizes, len(inner))
+			blowup *= n
+			lits := c.newBuffer()
+			for _, b := range inner {
+				if x = c.assignLit(nl, b, true); x == nil {
+					x = buffer.push(nl.get())
 				}
-				converted[i][j] = l
-				if !root {
-					nl, y := c.mkNot(l)
-					if y != nil {
-						return tseitinNo, y
+				if x == nil && !root {
+					if x = c.assignInv(l, nl.get()); x == nil {
+						x = lits.push(l.get())
 					}
-					back = append(back, nl)
+				}
+				if x != nil {
+					return tseitinNo, errors.Join(x, lits.release())
 				}
 			}
 			if !root {
-				back = append(back, k)
-				if x = c.clause(back...); x != nil {
-					return tseitinNo, x
+				if x = lits.push(k.get()); x == nil {
+					x = c.clause(lits.handles()...)
 				}
 			}
-		} else {
-			l, x := c.lit(args[i], false)
-			if x != nil {
+			if x = errors.Join(x, lits.release()); x != nil {
 				return tseitinNo, x
 			}
-			converted[i] = []ast.ASTHandle{l}
-			if !root {
-				nl, y := c.mkNot(l)
-				if y != nil {
-					return tseitinNo, y
-				}
-				if x = c.clause(nl, k); x != nil {
-					return tseitinNo, x
-				}
+			continue
+		}
+		sizes = append(sizes, 1)
+		if x = c.assignLit(l, a, false); x == nil {
+			x = buffer.push(l.get())
+		}
+		if x == nil && !root {
+			if x = c.assignInv(nl, l.get()); x == nil {
+				x = c.clause(nl.get(), k.get())
 			}
 		}
+		if x != nil {
+			return tseitinNo, x
+		}
 	}
+	// product_iterator_next over the per-argument choices.
+	indices := make([]int, len(sizes))
 	for {
-		clause := make([]ast.ASTHandle, 0, len(converted)+1)
-		for i := range converted {
-			clause = append(clause, converted[i][indices[i]])
+		clause := make([]ast.ASTHandle, 0, len(sizes)+1)
+		for i := range sizes {
+			clause = append(clause, buffer.hs[offsets[i]+indices[i]])
 		}
 		if !root {
-			clause = append(clause, nk)
+			clause = append(clause, nk.get())
 		}
 		if e = c.clause(clause...); e != nil {
 			return tseitinNo, e
@@ -899,7 +1020,7 @@ func (c *tseitinInvocation) matchOr(t ast.ASTHandle, first, root bool) (tseitinM
 		pos := 0
 		for ; pos < len(indices); pos++ {
 			indices[pos]++
-			if indices[pos] < len(converted[pos]) {
+			if indices[pos] < sizes[pos] {
 				break
 			}
 			indices[pos] = 0
@@ -908,7 +1029,11 @@ func (c *tseitinInvocation) matchOr(t ast.ASTHandle, first, root bool) (tseitinM
 			break
 		}
 	}
-	return tseitinDone, nil
+	e = errors.Join(releaseRefs(nl, l), buffer.release())
+	if e == nil {
+		e = releaseRefs(nk, k)
+	}
+	return tseitinDone, e
 }
 
 func (c *tseitinInvocation) process(root ast.ASTHandle, dep ast.ASTDependency) error {
@@ -918,11 +1043,11 @@ func (c *tseitinInvocation) process(root ast.ASTHandle, dep ast.ASTDependency) e
 		return e
 	}
 	if visited {
-		l, e := c.lit(root, false)
-		if e != nil {
-			return e
+		l := c.newRef()
+		if e := c.assignLit(l, root, false); e != nil {
+			return errors.Join(e, l.release())
 		}
-		return c.clause(l)
+		return errors.Join(c.clause(l.get()), l.release())
 	}
 	for len(c.frames) > 0 {
 		if e := c.checkpoint(); e != nil {

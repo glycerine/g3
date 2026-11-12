@@ -31,6 +31,7 @@ type nlqSearch struct {
 	answers         []ast.ASTRef
 	extra           []sat.Literal
 	first, second   *nlsat.LiteralVector
+	held            *nlsat.LiteralVector
 	rounds          uint32
 	closed          bool
 }
@@ -164,6 +165,13 @@ func (s *nlqSearch) projectCube(core []sat.Literal, projectionLevel uint32) (lev
 	if err = current.Literals(&values); err != nil {
 		return level, nil, err
 	}
+	// mbp returns: its local new_result releases the previous projection
+	// step's literals (nlqsat.cpp:205-226). current stands for the caller's
+	// clause cl, released after the caller adds the clause and pops.
+	if err = next.Reset(); err != nil {
+		return level, nil, err
+	}
+	s.held = current
 	level = EmptyMaxLevel()
 	clause = make([]sat.Literal, len(values), len(values)+1)
 	for i, literal := range values {
@@ -227,7 +235,20 @@ func (s *nlqSearch) projectConflict(core []sat.Literal) error {
 			return arena.ErrConfig
 		}
 	}
-	return s.state.pop(scopes)
+	if err = s.state.pop(scopes); err != nil {
+		return err
+	}
+	return s.releaseHeld()
+}
+
+// releaseHeld ends project()'s clause cl, releasing the projected literals.
+func (s *nlqSearch) releaseHeld() error {
+	if s.held == nil {
+		return nil
+	}
+	held := s.held
+	s.held = nil
+	return held.Reset()
 }
 
 func (s *nlqSearch) clauseFormula(clause []sat.Literal) (result ast.ASTRef, err error) {
@@ -323,19 +344,29 @@ func (s *nlqSearch) projectQE(core []sat.Literal) (err error) {
 	if err = s.solver.AddClause(clause, nlsat.Assumption{}); err != nil {
 		return fmt.Errorf("add projected clause: %w", err)
 	}
-	if level == 1 {
+	// The source adds only level-1 projections to the answer (nlqsat.cpp:363,
+	// with the comment "is_forall() && clevel.max() == 0"). nlqe is dead code
+	// in z3 4.7.1 (TBD_TACTIC), and that rule is unsound: a clause projected
+	// at a deeper universal level whose literals mention only free variables
+	// also removes a region where the negated input holds, through its
+	// assumption literal, and a final level-0 conflict over that assumption
+	// then leaves the region out of the answer. Such a clause is a conjunct
+	// of the answer as well.
+	if level == 1 || !nlqExists(level) && dependency.Max() == 0 {
 		if err = s.addAnswer(&formula); err != nil {
 			return fmt.Errorf("retain simplified projection answer: %w", err)
 		}
+	}
+	if level == 1 {
 		if err = s.state.pop(1); err != nil {
 			return fmt.Errorf("pop final projection: %w", err)
 		}
-		return nil
+		return s.releaseHeld()
 	}
 	if err = s.state.pop(2); err != nil {
 		return fmt.Errorf("pop projection pair: %w", err)
 	}
-	return nil
+	return s.releaseHeld()
 }
 
 func (s *nlqSearch) answer() (ast.ASTRef, error) {
@@ -411,7 +442,7 @@ func (s *nlqSearch) check() (lbool.LBool, error) {
 		}
 		switch status {
 		case lbool.True:
-			if err = s.state.saveAssumptionModel(assumptions); err != nil {
+			if err = s.state.saveModel(); err != nil {
 				return lbool.Undef, fmt.Errorf("nlqsat save model at level %d: %w", s.state.level(), err)
 			}
 			if err = s.state.push(); err != nil {

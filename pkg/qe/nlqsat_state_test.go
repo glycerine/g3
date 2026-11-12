@@ -107,8 +107,4 @@ func TestNLQStateModelScopesAssumptionsAndPredicateLevels(t *testing.T) {
 	if !state.answerValid {
 		t.Fatal("existential answer model was cleared by backtracking")
 	}
-	fmMust(t, state.restoreAnswerModel())
-	if value, cause := solver.LiteralValue(literals[2]); cause != nil || value != lbool.True {
-		t.Fatal("restored existential answer model", value, cause)
-	}
 }

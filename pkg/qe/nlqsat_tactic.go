@@ -265,11 +265,31 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	if err != nil {
 		return err
 	}
+	// hoist's fml = m.mk_iff(is_true, fml) replaces operator()'s formula,
+	// which keeps the definition alive until the tactic returns.
+	if err = t.manager.SetRef(formulaRef, definition); err != nil {
+		return err
+	}
 	cnfGoal, err := tactic.NewGoal(t.manager, false, false, false)
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, cnfGoal.Close()) }()
+	// hoist's goal g and goal_ref_buffer result end with hoist, after
+	// goal2nlsat: releaseCNF runs right after Compile.
+	cnfReleased := false
+	var cnfResult *tactic.TacticResult
+	releaseCNF := func() error {
+		if cnfReleased {
+			return nil
+		}
+		cnfReleased = true
+		var e error
+		if cnfResult != nil {
+			e = cnfResult.Close()
+		}
+		return errors.Join(e, cnfGoal.Close())
+	}
+	defer func() { err = errors.Join(err, releaseCNF()) }()
 	if err = cnfGoal.Assert(definition); err != nil {
 		return err
 	}
@@ -282,8 +302,7 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 		return err
 	}
 	defer func() { err = errors.Join(err, cnf.DecRef()) }()
-	cnfResult := &tactic.TacticResult{}
-	defer func() { err = errors.Join(err, cnfResult.Close()) }()
+	cnfResult = &tactic.TacticResult{}
 	if err = cnf.Apply(cnfGoal, cnfResult); err != nil {
 		return err
 	}
@@ -334,8 +353,14 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	if err = compiler.SetFactor(false); err != nil {
 		return err
 	}
+	if err = initExpr2Var(solver, compiler, preparation.variables); err != nil {
+		return err
+	}
 	if err = compiler.Compile(cnfGoal); err != nil {
 		return tactic.NewTacticException(err.Error())
+	}
+	if err = releaseCNF(); err != nil {
+		return err
 	}
 	search, err := newNLQSearchFromCompilerMode(solver, compiler, preparation.variables, truth, t.mode)
 	if err != nil {
@@ -361,45 +386,12 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 		}
 		defer func() { err = errors.Join(err, t.manager.DelRef(&answer)) }()
 	}
-	if status == lbool.True && t.mode == qsatSAT {
-		models, cause := goal.ModelsEnabled()
-		if cause != nil {
-			return cause
-		}
-		if models {
-			free := make([]ast.ASTHandle, len(preparation.freeVariables))
-			for i, ref := range preparation.freeVariables {
-				free[i], cause = t.manager.RefGet(ref)
-				if cause != nil {
-					return cause
-				}
-			}
-			if len(free) != 0 {
-				if cause = search.state.restoreAnswerModel(); cause != nil {
-					return cause
-				}
-			}
-			modelValue, supported, cause := compiler.ModelForExpressions(free)
-			if cause != nil {
-				return cause
-			}
-			if supported && modelValue != nil {
-				var held tactic.ModelRef
-				if cause = held.Set(modelValue.Core()); cause != nil {
-					return errors.Join(cause, modelValue.Close())
-				}
-				defer func() { err = errors.Join(err, held.Close()) }()
-				converter, createErr := tactic.NewStoredModel(modelValue.Core())
-				if createErr != nil {
-					return createErr
-				}
-				if cause = result.SetModelConverter(converter); cause != nil {
-					return errors.Join(cause, converter.Close())
-				}
-			}
-		}
-	}
+	// in->reset(); in->inc_depth(); then the answer, false, or the model
+	// (nlqsat.cpp:836-857).
 	if err = goal.Reset(); err != nil {
+		return err
+	}
+	if err = goal.IncDepth(); err != nil {
 		return err
 	}
 	if t.mode == qsatQE {
@@ -418,9 +410,39 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 		if err = goal.Assert(falsity); err != nil {
 			return err
 		}
-	}
-	if err = goal.IncDepth(); err != nil {
-		return err
+	} else {
+		models, cause := goal.ModelsEnabled()
+		if cause != nil {
+			return cause
+		}
+		if models {
+			free := make(map[ast.ASTHandle]bool, len(preparation.freeVariables))
+			for _, ref := range preparation.freeVariables {
+				h, cause := t.manager.RefGet(ref)
+				if cause != nil {
+					return cause
+				}
+				free[h] = true
+			}
+			// VERIFY(mk_model(mc)): ok is false only for an irrational
+			// Int value, which the NRA-only input excludes.
+			modelValue, _, cause := search.mkModel(t.manager, compiler, free, search.isTrue)
+			if cause != nil {
+				return cause
+			}
+			var held tactic.ModelRef
+			if cause = held.Set(modelValue.Core()); cause != nil {
+				return errors.Join(cause, modelValue.Close())
+			}
+			defer func() { err = errors.Join(err, held.Close()) }()
+			converter, createErr := tactic.NewStoredModel(modelValue.Core())
+			if createErr != nil {
+				return createErr
+			}
+			if cause = result.SetModelConverter(converter); cause != nil {
+				return errors.Join(cause, converter.Close())
+			}
+		}
 	}
 	return result.AddGoal(goal)
 }

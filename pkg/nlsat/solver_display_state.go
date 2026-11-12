@@ -12,7 +12,9 @@ import (
 
 func (s *Solver) displayBooleanAssignment(out io.Writer) error {
 	for variable, atom := range s.atoms.bools.atoms {
-		if atom != nil || s.atoms.bools.dead[variable] {
+		// display_bool_assignment prints every value without an atom,
+		// including retained values of dead variables.
+		if atom != nil {
 			continue
 		}
 		value := s.atoms.bools.values[variable]

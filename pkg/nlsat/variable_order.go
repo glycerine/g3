@@ -241,6 +241,9 @@ func (s *Solver) ReorderVariables(permutation []uint32) (resultErr error) {
 	}
 	// A root atom's distinguished variable must follow its polynomial through
 	// the same permutation. Update the existing interning table as well.
+	// previousRoot keeps each root's variable before the permutation for the
+	// source's ill-formed test below.
+	previousRoot := make(map[*RootAtom]uint32)
 	for _, atom := range s.atoms.bools.atoms {
 		root, ok := atom.(*RootAtom)
 		if !ok || root == nil {
@@ -251,6 +254,7 @@ func (s *Solver) ReorderVariables(permutation []uint32) (resultErr error) {
 			return ErrSearchOwner
 		}
 		s.atoms.eraseRoot(owner)
+		previousRoot[root] = root.x
 		root.x = permutation[root.x]
 		owner.hash, err = root.Hash(core)
 		if err != nil {
@@ -260,7 +264,13 @@ func (s *Solver) ReorderVariables(permutation []uint32) (resultErr error) {
 		owner.inTable = true
 	}
 	// Source reorder removes learned clauses whose root atoms are ill-formed
-	// in the new variable order.
+	// (del_ill_formed_lemmas, nlsat_solver.cpp:2102-2135). The source renames
+	// the polynomial but leaves root_atom::m_x unchanged, so it tests the
+	// variable from before the permutation against the renamed polynomial;
+	// that test keeps the deleted lemmas, and with them the recycled Boolean
+	// variables, identical to the fork's. A lemma the fork keeps is deleted
+	// as well when its remapped root is ill-formed here: the fork's copy then
+	// constrains the unrenamed variable, a lemma g3 does not reproduce.
 	for _, clause := range append([]*Clause(nil), s.clauses.learned...) {
 		illFormed := false
 		for _, literal := range clause.Literals() {
@@ -273,7 +283,11 @@ func (s *Solver) ReorderVariables(permutation []uint32) (resultErr error) {
 				if e != nil {
 					return e
 				}
-				if maximum != NullVariable && root.x < maximum {
+				x, found := previousRoot[root]
+				if !found {
+					return ErrSearchOwner
+				}
+				if maximum != NullVariable && (x < maximum || root.x < maximum) {
 					illFormed = true
 					break
 				}
