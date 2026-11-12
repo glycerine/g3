@@ -194,7 +194,9 @@ func (a *smtArithmeticEqualityAdapter) mkAxiomsSource(n1, n2 *SMTEnode) (result 
 		return err
 	}
 	// already_processed_trail
-	a.processed[pair] = struct{}{}
+	if err = a.markProcessed(m, pair); err != nil {
+		return err
+	}
 	a.trail = append(a.trail, pair)
 	if err = smtArithEqTrace(tags, "arith_eq_adapter_profile", "mk_axioms", 179, always, func(out io.Writer) error {
 		return smtWriteTheoryText(out, fmt.Sprintf("insert #%d #%d\n", id1, id2))

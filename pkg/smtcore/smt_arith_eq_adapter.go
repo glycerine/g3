@@ -22,15 +22,19 @@ type smtArithmeticEqualityPair struct {
 type smtArithmeticEqualityAdapter struct {
 	owner     *SMTTheoryBase
 	processed map[smtArithmeticEqualityPair]struct{}
-	trail     []smtArithmeticEqualityPair
-	limits    []int
-	restart   []smtArithmeticEqualityPair
-	hint      []ast.ASTParameter
-	numAxioms uint64
-	lazy      bool
-	binary    bool
-	trace     *diagnostic.TraceTags
-	source    bool // mk_axioms of the source (SMTTheoryArith)
+	// processedTable is m_already_processed's obj_pair_map layout, with each
+	// pair's hash captured at insertion, for its table-order display.
+	processedTable *ast.ObjMap
+	processedHash  map[smtArithmeticEqualityPair]uint32
+	trail          []smtArithmeticEqualityPair
+	limits         []int
+	restart        []smtArithmeticEqualityPair
+	hint           []ast.ASTParameter
+	numAxioms      uint64
+	lazy           bool
+	binary         bool
+	trace          *diagnostic.TraceTags
+	source         bool // mk_axioms of the source (SMTTheoryArith)
 }
 
 func newSMTArithmeticEqualityAdapter(owner *SMTTheoryBase) (*smtArithmeticEqualityAdapter, error) {
@@ -41,6 +45,32 @@ func newSMTArithmeticEqualityAdapter(owner *SMTTheoryBase) (*smtArithmeticEquali
 		owner:     owner,
 		processed: make(map[smtArithmeticEqualityPair]struct{}),
 	}, nil
+}
+
+// markProcessed is m_already_processed.insert(n1, n2, d); the enode hash is
+// its owner's.
+func (a *smtArithmeticEqualityAdapter) markProcessed(m *ast.ASTManager, pair smtArithmeticEqualityPair) error {
+	if a.processedTable == nil {
+		a.processedTable = ast.NewObjMap(m)
+		a.processedHash = make(map[smtArithmeticEqualityPair]uint32)
+	}
+	hash, err := a.processedTable.PairHash(pair.first, pair.second)
+	if err != nil {
+		return err
+	}
+	a.processed[pair] = struct{}{}
+	a.processedHash[pair] = hash
+	a.processedTable.InsertPairKeys(pair.first, pair.second, hash)
+	return nil
+}
+
+// unmarkProcessed is already_processed_trail::undo (erase(n1, n2)).
+func (a *smtArithmeticEqualityAdapter) unmarkProcessed(pair smtArithmeticEqualityPair) {
+	delete(a.processed, pair)
+	if hash, found := a.processedHash[pair]; found {
+		delete(a.processedHash, pair)
+		a.processedTable.ErasePairKeys(pair.first, pair.second, hash)
+	}
 }
 
 func (a *smtArithmeticEqualityAdapter) traceTags() *diagnostic.TraceTags {
@@ -236,7 +266,9 @@ func (a *smtArithmeticEqualityAdapter) MkAxioms(left, right SMTTheoryVar) error 
 	}); err != nil {
 		return err
 	}
-	a.processed[pair] = struct{}{}
+	if err = a.markProcessed(state.manager, pair); err != nil {
+		return err
+	}
 	a.trail = append(a.trail, pair)
 	booleanStart := len(state.boolExpr)
 	equality, err := state.manager.MkEq(pair.first, pair.second)
@@ -260,7 +292,7 @@ func (a *smtArithmeticEqualityAdapter) MkAxioms(left, right SMTTheoryVar) error 
 		err = state.Internalize(equality, true)
 	}
 	if err != nil {
-		delete(a.processed, pair)
+		a.unmarkProcessed(pair)
 		a.trail = a.trail[:len(a.trail)-1]
 		return err
 	}
@@ -462,7 +494,7 @@ func (a *smtArithmeticEqualityAdapter) PopScopes(count uint32) error {
 	level := len(a.limits) - int(count)
 	limit := a.limits[level]
 	for index := len(a.trail); index > limit; index-- {
-		delete(a.processed, a.trail[index-1])
+		a.unmarkProcessed(a.trail[index-1])
 	}
 	a.trail = a.trail[:limit]
 	a.limits = a.limits[:level]
@@ -482,8 +514,7 @@ func (a *smtArithmeticEqualityAdapter) ResetStatistics() {
 	}
 }
 
-// Source arith_eq_adapter.cpp:269-279. Its native hash-table iteration order
-// is unspecified; only each canonical pair's literal record is prescribed.
+// Source arith_eq_adapter.cpp:269-279, in m_already_processed table order.
 // Context enodes retain the borrowed AST handles through the pair's scope.
 func (a *smtArithmeticEqualityAdapter) DisplayAlreadyProcessed(out io.Writer) error {
 	if a == nil || a.owner == nil || out == nil {
@@ -493,7 +524,13 @@ func (a *smtArithmeticEqualityAdapter) DisplayAlreadyProcessed(out io.Writer) er
 	if err != nil {
 		return err
 	}
-	for pair := range a.processed {
+	var pairs []smtArithmeticEqualityPair
+	if a.processedTable != nil {
+		for _, entry := range a.processedTable.Entries() {
+			pairs = append(pairs, smtArithmeticEqualityPair{first: entry.Key, second: entry.Value[0]})
+		}
+	}
+	for _, pair := range pairs {
 		first, err := state.manager.GetASTID(pair.first)
 		if err != nil {
 			return err

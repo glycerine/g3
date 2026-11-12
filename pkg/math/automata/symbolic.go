@@ -107,9 +107,15 @@ func (s *Symbolic) determinize(source *Automaton, flipAcceptance bool) (*Automat
 		id := todo[len(todo)-1]
 		todo = todo[:len(todo)-1]
 		states := sets[id]
-		var expanded []Move
+		// get_moves_from_states walks the uint_set in ascending order.
+		ordered := make([]int, 0, len(states))
 		for state := range states {
-			expanded = append(expanded, source.ExpandedMovesFrom(state, true)...)
+			ordered = append(ordered, int(state))
+		}
+		sort.Ints(ordered)
+		var expanded []Move
+		for _, state := range ordered {
+			expanded = append(expanded, source.ExpandedMovesFrom(uint32(state), true)...)
 		}
 		conditions := make([]uint32, len(expanded))
 		for i := range expanded {

@@ -37,6 +37,15 @@ type checkWork struct {
 	assumptions []ast.ASTHandle
 	held        []ast.ASTHandle
 	original    map[ast.ASTHandle]ast.ASTHandle
+	// originalOrder is asm2fml's obj_map<expr, expr*> table layout.
+	originalOrder *ast.ObjMap
+}
+
+// satDeps is dep2asm: lit maps each dependency to its assumption literal,
+// keys lists the dependencies in dep2asm table order.
+type satDeps struct {
+	lit  map[ast.ASTHandle]sat.Literal
+	keys []ast.ASTHandle
 }
 
 // Solver implements the retained incremental SAT state machine, including
@@ -594,9 +603,9 @@ func (s *Solver) internalizeFormulas() (status lbool.LBool, err error) {
 	}
 	return status, err
 }
-func (s *Solver) internalizeAssumptions(asms []ast.ASTHandle) (status lbool.LBool, deps map[ast.ASTHandle]sat.Literal, err error) {
+func (s *Solver) internalizeAssumptions(asms []ast.ASTHandle) (status lbool.LBool, deps satDeps, err error) {
 	defer func() { err = errors.Join(err, s.drainGoals()) }()
-	deps = make(map[ast.ASTHandle]sat.Literal)
+	deps.lit = make(map[ast.ASTHandle]sat.Literal)
 	if len(asms) == 0 && len(s.tracked) == 0 {
 		s.assumptions = s.assumptions[:0]
 		return lbool.True, deps, nil
@@ -625,13 +634,16 @@ func (s *Solver) internalizeAssumptions(asms []ast.ASTHandle) (status lbool.LBoo
 		return lbool.Undef, deps, err
 	}
 	for _, b := range bindings {
-		deps[b.Expression] = b.Literal
+		if _, found := deps.lit[b.Expression]; !found {
+			deps.keys = append(deps.keys, b.Expression)
+		}
+		deps.lit[b.Expression] = b.Literal
 	}
 	s.assumptions = s.assumptions[:0]
 	j := 0
 	for group, forms := range [][]ast.ASTHandle{asms, s.tracked} {
 		for i, f := range forms {
-			if l, found := deps[f]; found {
+			if l, found := deps.lit[f]; found {
 				s.assumptions = append(s.assumptions, l)
 				if group == 0 && len(s.weights) > 0 {
 					// Only the explicit assumptions compact source m_weights;
@@ -649,7 +661,7 @@ func (s *Solver) internalizeAssumptions(asms []ast.ASTHandle) (status lbool.LBoo
 			}
 		}
 	}
-	if ast.ASTSourceDebug && len(deps) != len(s.assumptions) {
+	if ast.ASTSourceDebug && len(deps.lit) != len(s.assumptions) {
 		return lbool.Undef, deps, ast.ErrASTDomain
 	}
 	return status, deps, nil
@@ -687,7 +699,7 @@ func (s *Solver) CheckSat(asms []ast.ASTHandle) (status lbool.LBool, err error) 
 	if err = s.core.PopToBaseLevel(); err != nil {
 		return lbool.Undef, err
 	}
-	w := &checkWork{owner: s, original: make(map[ast.ASTHandle]ast.ASTHandle)}
+	w := &checkWork{owner: s, original: make(map[ast.ASTHandle]ast.ASTHandle), originalOrder: ast.NewObjMap(s.manager)}
 	s.checks = append(s.checks, w)
 	for _, f := range asms {
 		literal, e := s.isLiteral(f)
@@ -721,6 +733,9 @@ func (s *Solver) CheckSat(asms []ast.ASTHandle) (status lbool.LBool, err error) 
 		}
 		w.assumptions = append(w.assumptions, a)
 		w.original[a] = f
+		if e = w.originalOrder.Insert(a, [2]ast.ASTHandle{f}); e != nil {
+			return lbool.Undef, e
+		}
 	}
 	if err = s.emitVector("check_sat", 156, w.assumptions); err != nil {
 		return lbool.Undef, err
@@ -747,7 +762,7 @@ func (s *Solver) CheckSat(asms []ast.ASTHandle) (status lbool.LBool, err error) 
 		return status, err
 	}
 	if status == lbool.False && len(s.assumptions) > 0 {
-		if err = s.extractCore(deps, w.original); err != nil {
+		if err = s.extractCore(deps, w.original, w.originalOrder); err != nil {
 			return status, err
 		}
 	}
@@ -756,7 +771,9 @@ func (s *Solver) CheckSat(asms []ast.ASTHandle) (status lbool.LBool, err error) 
 		if e != nil {
 			return status, e
 		}
-		for f, l := range deps {
+		// check_assumptions walks dep2asm in table order.
+		for _, f := range deps.keys {
+			l := deps.lit[f]
 			value, e := values.Read(l.Variable())
 			if e != nil {
 				return status, e
@@ -774,14 +791,11 @@ func (s *Solver) CheckSat(asms []ast.ASTHandle) (status lbool.LBool, err error) 
 	}
 	return status, nil
 }
-func (s *Solver) extractCore(deps map[ast.ASTHandle]sat.Literal, originals map[ast.ASTHandle]ast.ASTHandle) error {
-	if err := s.emitCore(deps, originals); err != nil {
+func (s *Solver) extractCore(deps satDeps, originals map[ast.ASTHandle]ast.ASTHandle, originalOrder *ast.ObjMap) error {
+	if err := s.emitCore(deps, originalOrder); err != nil {
 		return err
 	}
-	inverse := make(map[uint32]ast.ASTHandle)
-	for f, l := range deps {
-		inverse[l.Index()] = f
-	}
+	inverse := satAsm2Dep(deps)
 	if err := releaseRoots(s.manager, &s.unsatCore, 0); err != nil {
 		return err
 	}
@@ -811,6 +825,17 @@ func (s *Solver) extractCore(deps map[ast.ASTHandle]sat.Literal, originals map[a
 	}
 	return nil
 }
+
+// satAsm2Dep is extract_asm2dep: u_map from literal index to dependency,
+// filled in dep2asm table order (a later entry overwrites).
+func satAsm2Dep(deps satDeps) map[uint32]ast.ASTHandle {
+	inverse := make(map[uint32]ast.ASTHandle, len(deps.keys))
+	for _, f := range deps.keys {
+		inverse[deps.lit[f].Index()] = f
+	}
+	return inverse
+}
+
 func (s *Solver) UnsatCore() ([]ast.ASTHandle, error) {
 	if err := s.open(); err != nil {
 		return nil, err

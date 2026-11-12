@@ -38,6 +38,8 @@ type Tracker struct {
 	scoreOrder     []ast.ASTHandle
 	uplinks        map[ast.ASTHandle][]ast.ASTHandle
 	entryPoints    map[ast.ASTHandle]ast.ASTHandle
+	// entryOrder is m_entry_points' obj_map<func_decl, expr*> table order.
+	entryOrder     *ast.ObjMap
 	topExpressions map[ast.ASTHandle]struct{}
 	weights        map[ast.ASTHandle]uint32
 	constants      []ast.ASTHandle
@@ -70,6 +72,7 @@ func NewTracker(manager *ast.ASTManager, numbers *numeral.IntegerManager, powers
 		scores:         make(map[ast.ASTHandle]*trackerValueScore),
 		uplinks:        make(map[ast.ASTHandle][]ast.ASTHandle),
 		entryPoints:    make(map[ast.ASTHandle]ast.ASTHandle),
+		entryOrder:     ast.NewObjMap(manager),
 		topExpressions: make(map[ast.ASTHandle]struct{}),
 		weights:        make(map[ast.ASTHandle]uint32),
 		constantSet:    make(map[ast.ASTHandle]struct{}),
@@ -345,8 +348,21 @@ func (t *Tracker) setEntryPoint(decl, expr ast.ASTHandle) error {
 	if err = t.requireExpr(expr); err != nil {
 		return err
 	}
+	if _, err = t.entryOrder.InsertIfNotThere(decl); err != nil {
+		return err
+	}
 	t.entryPoints[decl] = expr
 	return nil
+}
+
+// entryPointDecls lists m_entry_points' keys in table order.
+func (t *Tracker) entryPointDecls() []ast.ASTHandle {
+	entries := t.entryOrder.Entries()
+	decls := make([]ast.ASTHandle, len(entries))
+	for i := range entries {
+		decls[i] = entries[i].Key
+	}
+	return decls
 }
 func (t *Tracker) EntryPoint(decl ast.ASTHandle) (ast.ASTHandle, error) {
 	if err := t.open(); err != nil {
@@ -451,6 +467,7 @@ func (t *Tracker) Close() error {
 		t.closeScore++
 	}
 	t.scores, t.uplinks, t.entryPoints, t.topExpressions, t.weights, t.constantSet = nil, nil, nil, nil, nil, nil
+	t.entryOrder = nil
 	t.scoreOrder = nil
 	t.constants = nil
 	t.closed = true

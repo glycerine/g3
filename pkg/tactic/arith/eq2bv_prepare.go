@@ -6,7 +6,6 @@ package arith
 import (
 	"errors"
 	"math/bits"
-	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/bitutil"
@@ -63,7 +62,7 @@ func eq2bvPrepare(m *ast.ASTManager, bounds *BoundManager, roots []ast.ASTHandle
 		return nil, ast.ErrASTHandle
 	}
 	nonfd := make(map[ast.ASTHandle]bool)
-	maxima, err := eq2bvCollect(m, roots, nonfd)
+	maxima, order, err := eq2bvCollectOrdered(m, roots, nonfd)
 	if err != nil {
 		return nil, err
 	}
@@ -72,19 +71,12 @@ func eq2bvPrepare(m *ast.ASTManager, bounds *BoundManager, roots []ast.ASTHandle
 			return nil, err
 		}
 	}
-	type indexed struct {
-		h  ast.ASTHandle
-		id uint32
+	// cleanup_fd and the bound assertions walk m_max in table order.
+	type indexed struct{ h ast.ASTHandle }
+	ordered := make([]indexed, 0, len(order))
+	for _, h := range order {
+		ordered = append(ordered, indexed{h})
 	}
-	ordered := make([]indexed, 0, len(maxima))
-	for h := range maxima {
-		id, e := m.GetASTID(h)
-		if e != nil {
-			return nil, e
-		}
-		ordered = append(ordered, indexed{h, id})
-	}
-	sort.Slice(ordered, func(i, j int) bool { return ordered[i].id < ordered[j].id })
 	plan = &eq2bvReplacements{manager: m, nonfd: nonfd}
 	defer func() {
 		if err != nil {

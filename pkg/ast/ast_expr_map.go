@@ -7,9 +7,12 @@ package ast
 // retained AST, API and Spacer consumers. The map owns one key and value
 // reference per entry and, when enabled, one proof reference.
 type ASTExprMap struct {
-	self        *ASTExprMap
-	manager     *ASTManager
-	entries     map[astNodeRef]*astExprMapEntry
+	self    *ASTExprMap
+	manager *ASTManager
+	entries map[astNodeRef]*astExprMapEntry
+	// order is m_expr2expr's table layout (m_expr2pr gets the same inserts
+	// and erases, so shares it): reset and Pairs iterate in table order.
+	order       *ObjMap
 	pending     []astNodeRef
 	storeProofs bool
 	closed      bool
@@ -33,7 +36,7 @@ func NewASTExprMap(m *ASTManager) (*ASTExprMap, error) {
 		return nil, e
 	}
 	defer m.mu.Unlock()
-	s := &ASTExprMap{manager: m, storeProofs: m.proofMode != ASTProofDisabled, entries: make(map[astNodeRef]*astExprMapEntry)}
+	s := &ASTExprMap{manager: m, storeProofs: m.proofMode != ASTProofDisabled, entries: make(map[astNodeRef]*astExprMapEntry), order: newHeldObjMap(m)}
 	s.self = s
 	return s, nil
 }
@@ -43,7 +46,7 @@ func NewASTExprMapWithProofs(m *ASTManager, storeProofs bool) (*ASTExprMap, erro
 		return nil, e
 	}
 	defer m.mu.Unlock()
-	s := &ASTExprMap{manager: m, storeProofs: storeProofs, entries: make(map[astNodeRef]*astExprMapEntry)}
+	s := &ASTExprMap{manager: m, storeProofs: storeProofs, entries: make(map[astNodeRef]*astExprMapEntry), order: newHeldObjMap(m)}
 	s.self = s
 	return s, nil
 }
@@ -107,6 +110,9 @@ func (s *ASTExprMap) Insert(key, value, proof ASTHandle) error {
 		}
 		entry = &astExprMapEntry{key: k, value: v, keyOwned: true, valueOwned: true}
 		s.entries[k] = entry
+		if e = s.order.Insert(m.external(k), [2]ASTHandle{}); e != nil {
+			return e
+		}
 	} else {
 		old := entry.value
 		if e = s.release(m, old); e != nil {
@@ -173,10 +179,23 @@ func (s *ASTExprMap) Pairs() ([]ASTExprMapPair, error) {
 	}
 	defer m.mu.Unlock()
 	pairs := make([]ASTExprMapPair, 0, len(s.entries))
-	for _, entry := range s.entries {
+	for _, entry := range s.orderedEntries(m) {
 		pairs = append(pairs, ASTExprMapPair{Key: m.external(entry.key), Value: m.external(entry.value)})
 	}
 	return pairs, nil
+}
+
+// orderedEntries lists the entries in obj_map table order.
+func (s *ASTExprMap) orderedEntries(m *ASTManager) []*astExprMapEntry {
+	out := make([]*astExprMapEntry, 0, len(s.entries))
+	for _, slot := range s.order.Entries() {
+		if r, e := m.internal(slot.Key); e == nil {
+			if entry := s.entries[r]; entry != nil {
+				out = append(out, entry)
+			}
+		}
+	}
+	return out
 }
 
 func (s *ASTExprMap) releaseProof(m *ASTManager, entry *astExprMapEntry) error {
@@ -252,6 +271,9 @@ func (s *ASTExprMap) Erase(key ASTHandle) error {
 	}
 	// Source removes the map entry before releasing its references.
 	delete(s.entries, k)
+	if e = s.order.Erase(key); e != nil {
+		return e
+	}
 	if entry.valueOwned {
 		entry.valueOwned = false
 		if e = s.release(m, entry.value); e != nil {
@@ -271,19 +293,22 @@ func (s *ASTExprMap) Erase(key ASTHandle) error {
 }
 
 func (s *ASTExprMap) resetLocked(m *ASTManager) error {
-	// Source reset first releases all proof values, then each expression key
-	// and value. Map traversal order itself is not a source contract.
-	for _, entry := range s.entries {
+	// Source reset (dec_ref_values on m_expr2pr, then dec_ref_key_values on
+	// m_expr2expr) releases all proof values, then each key and value, in
+	// table order.
+	ordered := s.orderedEntries(m)
+	for _, entry := range ordered {
 		if e := s.releaseProof(m, entry); e != nil {
 			return e
 		}
 	}
-	for key, entry := range s.entries {
+	for _, entry := range ordered {
 		if e := s.releaseKeyValue(m, entry); e != nil {
 			return e
 		}
-		delete(s.entries, key)
+		delete(s.entries, entry.key)
 	}
+	s.order.Reset()
 	return s.drainPending(m)
 }
 
@@ -306,6 +331,7 @@ func (s *ASTExprMap) Flush() error {
 		return e
 	}
 	s.entries = make(map[astNodeRef]*astExprMapEntry)
+	s.order.Finalize()
 	return nil
 }
 
@@ -320,6 +346,7 @@ func (s *ASTExprMap) SetStoreProofs(flag bool) error {
 			return e
 		}
 		s.entries = make(map[astNodeRef]*astExprMapEntry)
+		s.order.Finalize()
 		s.storeProofs = flag
 	}
 	return nil

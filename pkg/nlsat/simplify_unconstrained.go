@@ -56,10 +56,8 @@ func (s *unconstrainedEqualitySimplifier) eliminatePass() (uint32, error) {
 			s.solver.search.simplifications++
 		}
 	}
-	for clause := range s.removed {
-		if err = s.solver.clauses.deleteClause(clause); err != nil {
-			return count, err
-		}
+	if err = s.solver.deleteRemovedClauses(s.removed); err != nil {
+		return count, err
 	}
 	return count, nil
 }

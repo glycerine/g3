@@ -301,7 +301,8 @@ func (s *SearchTracker) Reset() error {
 	if err := s.open(); err != nil {
 		return err
 	}
-	for _, entry := range s.base.entryPoints {
+	for _, decl := range s.base.entryPointDecls() {
+		entry := s.base.entryPoints[decl]
 		if err := s.base.SetValue(entry, &s.base.zero); err != nil {
 			return err
 		}
@@ -315,7 +316,8 @@ func (s *SearchTracker) Randomize() (result error) {
 	}
 	temp := numeral.NewInt(0)
 	defer func() { result = errors.Join(result, s.base.numbers.Del(&temp)) }()
-	for decl, entry := range s.base.entryPoints {
+	for _, decl := range s.base.entryPointDecls() {
+		entry := s.base.entryPoints[decl]
 		sort, err := s.base.manager.GetRange(decl)
 		if err != nil {
 			return err

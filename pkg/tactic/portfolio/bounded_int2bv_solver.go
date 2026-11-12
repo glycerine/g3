@@ -39,13 +39,16 @@ type BoundedInt2BVSolver struct {
 	bvDecls, intDecls            []ast.ASTHandle
 	limits                       []uint32
 	int2bv, bv2int               map[ast.ASTHandle]ast.ASTHandle
-	offsets                      map[ast.ASTHandle]big.Rat
-	consequences                 []ast.ASTRef
-	pending                      *boundedInt2BVCall
-	status                       lbool.LBool
-	refs                         uint32
-	header                       uint64
-	closing, closed              bool
+	// int2bvOrder is m_int2bv's obj_map<func_decl, func_decl*> table
+	// layout; extend_model walks it.
+	int2bvOrder     *ast.ObjMap
+	offsets         map[ast.ASTHandle]big.Rat
+	consequences    []ast.ASTRef
+	pending         *boundedInt2BVCall
+	status          lbool.LBool
+	refs            uint32
+	header          uint64
+	closing, closed bool
 }
 
 var _ solver.Solver = (*BoundedInt2BVSolver)(nil)
@@ -83,7 +86,7 @@ func NewBoundedInt2BVSolver(m *ast.ASTManager, c *uparams.ParamsContext, p *upar
 	if err = m.Budget().Reserve(n); err != nil {
 		return nil, err
 	}
-	s := &BoundedInt2BVSolver{manager: m, context: c, backend: backend, status: lbool.Undef, header: n, services: services, int2bv: make(map[ast.ASTHandle]ast.ASTHandle), bv2int: make(map[ast.ASTHandle]ast.ASTHandle), offsets: make(map[ast.ASTHandle]big.Rat)}
+	s := &BoundedInt2BVSolver{manager: m, context: c, backend: backend, status: lbool.Undef, header: n, services: services, int2bv: make(map[ast.ASTHandle]ast.ASTHandle), int2bvOrder: ast.NewObjMap(m), bv2int: make(map[ast.ASTHandle]ast.ASTHandle), offsets: make(map[ast.ASTHandle]big.Rat)}
 	s.self = s
 	s.parameters, err = c.NewValue()
 	if err == nil {
@@ -181,6 +184,7 @@ func (s *BoundedInt2BVSolver) Close() error {
 	}
 	clear(s.offsets)
 	clear(s.int2bv)
+	s.int2bvOrder.Reset()
 	clear(s.bv2int)
 	if err := s.releaseDecls(&s.intDecls, 0); err != nil {
 		return err
@@ -305,6 +309,9 @@ func (s *BoundedInt2BVSolver) PopCore(n uint32) error {
 		size := len(s.limits) - int(n)
 		lim := s.limits[size]
 		for i := len(s.intDecls) - 1; i >= int(lim); i-- {
+			if err := s.int2bvOrder.Erase(s.intDecls[i]); err != nil {
+				return err
+			}
 			delete(s.int2bv, s.intDecls[i])
 			delete(s.bv2int, s.bvDecls[i])
 			delete(s.offsets, s.bvDecls[i])

@@ -305,7 +305,8 @@ func (s *BoundedInt2BVSolver) AcquireModel() (_ *model.ModelCore, err error) {
 	if err != nil {
 		return fail(err)
 	}
-	for f, bv := range s.int2bv {
+	for _, slot := range s.int2bvOrder.Entries() {
+		f, bv := slot.Key, s.int2bv[slot.Key]
 		value, e := c.definition(bv)
 		if e != nil {
 			return fail(e)
@@ -519,6 +520,9 @@ func (s *BoundedInt2BVSolver) introduceBVConstant(c *boundedInt2BVCall, f ast.AS
 	defer func() { result = errors.Join(result, m.DelRef(&bRef)) }()
 	bv, err = m.GetDecl(b)
 	if err != nil {
+		return bv, err
+	}
+	if err = s.int2bvOrder.Insert(f, [2]ast.ASTHandle{bv}); err != nil {
 		return bv, err
 	}
 	s.int2bv[f] = bv

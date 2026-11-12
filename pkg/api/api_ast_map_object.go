@@ -23,7 +23,20 @@ type apiASTMapEntry struct {
 type apiASTMapObject struct {
 	object  apiObject
 	entries map[ast.ASTHandle]*apiASTMapEntry
+	// order is m_map's obj_map<ast, ast*> table layout: keys, to_string and
+	// reset (dec_ref_key_values) walk it.
+	order   *ast.ObjMap
 	pending []ast.ASTHandle
+}
+
+// orderedKeys lists the keys in table order.
+func (a *apiASTMapObject) orderedKeys() []ast.ASTHandle {
+	entries := a.order.Entries()
+	keys := make([]ast.ASTHandle, len(entries))
+	for i := range entries {
+		keys[i] = entries[i].Key
+	}
+	return keys
 }
 
 func newAPIASTMapObject(c *apiContextResults) (*apiASTMapObject, error) {
@@ -37,6 +50,7 @@ func newAPIASTMapObject(c *apiContextResults) (*apiASTMapObject, error) {
 	a := &apiASTMapObject{}
 	c.traceASTMapAllocated(a, n)
 	a.entries = make(map[ast.ASTHandle]*apiASTMapEntry)
+	a.order = ast.NewObjMap(c.manager)
 	a.object = apiObject{context: c, destructor: a, ownerBytes: n}
 	a.object.self = &a.object
 	id, e := c.addObject(&a.object)
@@ -78,6 +92,9 @@ func (a *apiASTMapObject) insert(key, value ast.ASTHandle) error {
 	if !found {
 		// Source insert_if_not_there2 publishes a null value before INC.
 		entry = &apiASTMapEntry{}
+		if _, e := a.order.InsertIfNotThere(key); e != nil {
+			return e
+		}
 		a.entries[key] = entry
 	}
 	if !entry.valueOwned {
@@ -143,11 +160,7 @@ func (a *apiASTMapObject) keys() ([]ast.ASTHandle, error) {
 	if e := a.check(); e != nil {
 		return nil, e
 	}
-	keys := make([]ast.ASTHandle, 0, len(a.entries))
-	for key := range a.entries {
-		keys = append(keys, key)
-	}
-	return keys, nil
+	return a.orderedKeys(), nil
 }
 
 // keyVector implements Z3_ast_map_keys. Unlike keys, the returned object owns
@@ -163,7 +176,7 @@ func (a *apiASTMapObject) keyVector() (*apiASTVectorObject, error) {
 	if e = a.object.context.saveObject(&v.object); e != nil {
 		return v, e
 	}
-	for key := range a.entries {
+	for _, key := range a.orderedKeys() {
 		if e = v.push(key); e != nil {
 			return v, e
 		}
@@ -181,7 +194,8 @@ func (a *apiASTMapObject) string() (string, error) {
 	}
 	var out bytes.Buffer
 	out.WriteString("(ast-map")
-	for key, entry := range a.entries {
+	for _, key := range a.orderedKeys() {
+		entry := a.entries[key]
 		out.WriteString("\n  (")
 		if e = writeAPIAST(printer, &out, key, 0); e != nil {
 			return "", e
@@ -217,6 +231,9 @@ func (a *apiASTMapObject) erase(key ast.ASTHandle) error {
 	}
 	// Source erases the table entry before decrementing key then value.
 	delete(a.entries, key)
+	if e := a.order.Erase(key); e != nil {
+		return e
+	}
 	if entry.keyOwned {
 		entry.keyOwned = false
 		if e := a.dec(key); e != nil {
@@ -239,6 +256,25 @@ func (a *apiASTMapObject) reset() error {
 }
 
 func (a *apiASTMapObject) resetCore() error {
+	if a.order != nil {
+		for _, key := range a.orderedKeys() {
+			entry := a.entries[key]
+			if entry.keyOwned {
+				entry.keyOwned = false
+				if e := a.dec(key); e != nil {
+					return e
+				}
+			}
+			if entry.valueOwned {
+				entry.valueOwned = false
+				if e := a.dec(entry.value); e != nil {
+					return e
+				}
+			}
+			delete(a.entries, key)
+		}
+		a.order.Reset()
+	}
 	for key, entry := range a.entries {
 		if entry.keyOwned {
 			entry.keyOwned = false

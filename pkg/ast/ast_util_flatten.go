@@ -326,9 +326,13 @@ func (m *ASTManager) FlattenAndOwned(refs []ASTRef) (_ []ASTRef, resultErr error
 		pool[handles[i]] = append(pool[handles[i]], refs[i])
 		owned.initial[r.node]++
 	}
+	// poolOrder lists pool's keys in the order they were first added.
+	poolOrder := append([]ASTHandle(nil), handles...)
 	defer func() {
 		if resultErr != nil {
-			for _, list := range pool {
+			for _, h := range poolOrder {
+				list := pool[h]
+				delete(pool, h)
 				for i := range list {
 					resultErr = errors.Join(resultErr, m.delRef(&list[i]))
 				}
@@ -359,13 +363,17 @@ func (m *ASTManager) FlattenAndOwned(refs []ASTRef) (_ []ASTRef, resultErr error
 		if e != nil {
 			for j := 0; j < i; j++ {
 				pool[result[j]] = append(pool[result[j]], out[j])
+				poolOrder = append(poolOrder, result[j])
 			}
 			return nil, e
 		}
 		out[i] = ref
 	}
-	// References of inputs flatten_and removed without a replacement (true).
-	for _, list := range pool {
+	// References of inputs flatten_and removed without a replacement (true),
+	// in input-vector order.
+	for _, h := range handles {
+		list := pool[h]
+		delete(pool, h)
 		for i := range list {
 			if e := m.delRef(&list[i]); e != nil {
 				return nil, e

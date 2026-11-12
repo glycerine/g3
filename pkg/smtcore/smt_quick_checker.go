@@ -34,6 +34,12 @@ type SMTQuickChecker struct {
 	checkCache map[smtQuickCheckKey]bool
 	canonCache map[ast.ASTHandle]ast.ASTHandle
 	newExprs   []ast.ASTRef
+	// The collector's m_candidates and m_tmp_candidates: obj_hashtable<enode>
+	// sets (enode hash is its owner's hash) that persist across queries, so
+	// their table layouts, and candidate order, follow the source.
+	collCandidates []*ast.ObjMap
+	collTemporary  []*ast.ObjMap
+	collNodes      map[ast.ASTHandle]*SMTEnode
 }
 
 func NewSMTQuickChecker(context *SMTCheckerContext, rw *rewriter.TheoryRewriter, registry *SMTQuantifierRegistry) (*SMTQuickChecker, error) {
@@ -71,7 +77,7 @@ func (q *SMTQuickChecker) collectorCheckArg(node *SMTEnode, parent ast.ASTHandle
 	return false
 }
 
-func (q *SMTQuickChecker) collectCore(expression, parent ast.ASTHandle, parentPosition uint32, conservative bool, found []bool, sets []map[*SMTEnode]struct{}, temporary []map[*SMTEnode]struct{}, cache map[smtQuickCollectorEntry]struct{}) error {
+func (q *SMTQuickChecker) collectCore(expression, parent ast.ASTHandle, parentPosition uint32, conservative bool, found []bool, sets []*ast.ObjMap, temporary []*ast.ObjMap, cache map[smtQuickCollectorEntry]struct{}) error {
 	decl, err := q.context.manager.GetDecl(expression)
 	if err != nil {
 		return err
@@ -98,15 +104,21 @@ func (q *SMTQuickChecker) collectCore(expression, parent ast.ASTHandle, parentPo
 				return nil
 			}
 			if found[index] && conservative {
-				if len(sets[index]) == 0 {
+				if sets[index].Len() == 0 {
 					continue
 				}
-				clear(temporary[index])
+				temporary[index].Reset()
 				for _, current := range q.context.byDeclaration[decl] {
 					if q.context.isRelevant(current.owner) && current.IsCongruenceRoot() && q.collectorCheckArg(current, parent, parentPosition, true) && position < uint32(len(current.arguments)) {
 						root := current.arguments[position].root
-						if _, present := sets[index][root]; present {
-							temporary[index][root] = struct{}{}
+						present, err := sets[index].Contains(root.owner)
+						if err != nil {
+							return err
+						}
+						if present {
+							if _, err = temporary[index].InsertIfNotThere(root.owner); err != nil {
+								return err
+							}
 						}
 					}
 				}
@@ -116,7 +128,11 @@ func (q *SMTQuickChecker) collectCore(expression, parent ast.ASTHandle, parentPo
 			found[index] = true
 			for _, current := range q.context.byDeclaration[decl] {
 				if q.context.isRelevant(current.owner) && current.IsCongruenceRoot() && q.collectorCheckArg(current, parent, parentPosition, conservative) && position < uint32(len(current.arguments)) {
-					sets[index][current.arguments[position].root] = struct{}{}
+					root := current.arguments[position].root
+					q.collNodes[root.owner] = root
+					if _, err := sets[index].InsertIfNotThere(root.owner); err != nil {
+						return err
+					}
 				}
 			}
 			continue
@@ -136,7 +152,7 @@ func (q *SMTQuickChecker) collectCore(expression, parent ast.ASTHandle, parentPo
 	return nil
 }
 
-func (q *SMTQuickChecker) collect(expression, parent ast.ASTHandle, position uint32, conservative bool, found []bool, sets []map[*SMTEnode]struct{}, temporary []map[*SMTEnode]struct{}, cache map[smtQuickCollectorEntry]struct{}) error {
+func (q *SMTQuickChecker) collect(expression, parent ast.ASTHandle, position uint32, conservative bool, found []bool, sets []*ast.ObjMap, temporary []*ast.ObjMap, cache map[smtQuickCollectorEntry]struct{}) error {
 	kind, err := q.context.manager.GetKind(expression)
 	if err != nil {
 		return err
@@ -174,18 +190,31 @@ func (q *SMTQuickChecker) CollectCandidates(quantifier ast.ASTHandle, conservati
 		return nil, err
 	}
 	found := make([]bool, count)
-	sets := make([]map[*SMTEnode]struct{}, count)
-	temporary := make([]map[*SMTEnode]struct{}, count)
-	for index := range sets {
-		sets[index] = make(map[*SMTEnode]struct{})
-		temporary[index] = make(map[*SMTEnode]struct{})
+	// collector::init: reserve(m_num_vars+1), then reset m_candidates[i]
+	// for i < m_num_vars; m_tmp_candidates keeps its tables.
+	for len(q.collCandidates) < int(count)+1 {
+		q.collCandidates = append(q.collCandidates, ast.NewObjMap(q.context.manager))
+		q.collTemporary = append(q.collTemporary, ast.NewObjMap(q.context.manager))
 	}
+	for index := uint32(0); index < count; index++ {
+		q.collCandidates[index].Reset()
+	}
+	if q.collNodes == nil {
+		q.collNodes = make(map[ast.ASTHandle]*SMTEnode)
+	}
+	clear(q.collNodes)
+	sets, temporary := q.collCandidates[:count], q.collTemporary[:count]
 	if err = q.collect(body, ast.ASTHandle{}, 0, conservative, found, sets, temporary, make(map[smtQuickCollectorEntry]struct{})); err != nil {
 		return nil, err
 	}
+	// save_result walks each set in table order.
 	result := make([][]*SMTEnode, count)
 	for index := range sets {
-		for candidate := range sets[index] {
+		for _, entry := range sets[index].Entries() {
+			candidate := q.collNodes[entry.Key]
+			if candidate == nil {
+				return nil, ast.ErrASTDomain
+			}
 			result[index] = append(result[index], candidate)
 		}
 	}

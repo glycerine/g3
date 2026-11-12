@@ -92,8 +92,8 @@ func (e *Evaluator) updateNodes(search *SearchTracker, starts []ast.ASTHandle, s
 
 func (e *Evaluator) UpdateAll(search *SearchTracker) error {
 	starts := make([]ast.ASTHandle, 0, len(e.tracker.entryPoints))
-	for _, entry := range e.tracker.entryPoints {
-		starts = append(starts, entry)
+	for _, decl := range e.tracker.entryPointDecls() {
+		starts = append(starts, e.tracker.entryPoints[decl])
 	}
 	return e.updateNodes(search, starts, true)
 }

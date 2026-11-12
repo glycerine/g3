@@ -46,6 +46,10 @@ func (t *Tracker) initializeApp(node ast.ASTHandle) (result error) {
 		return err
 	}
 	if _, found := t.entryPoints[decl]; !found {
+		// m_entry_points.insert_if_not_there(d, n)
+		if _, err = t.entryOrder.InsertIfNotThere(decl); err != nil {
+			return err
+		}
 		t.entryPoints[decl] = node
 	}
 	if _, found := t.constantSet[decl]; !found {

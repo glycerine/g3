@@ -13,18 +13,20 @@ import (
 
 type bvSizeSubstitution struct{ value ast.ASTExprSubstitution }
 type bvSizeReductionImplementation struct {
-	family        ast.FamilyID
-	lower, upper  map[ast.ASTHandle]*big.Int
-	keys          map[ast.ASTHandle]bool
-	held, scratch []ast.ASTHandle
-	replacer      *rewriter.DefaultExprReplacer
-	out           ast.ASTRef
-	substitutions []*bvSizeSubstitution
-	active        *bvSizeSubstitution
-	extension     *tactic.ExtensionModelConverter
-	filter        *tactic.FilterModelConverter
-	pending       []tactic.ModelConverter
-	ready         bool
+	family       ast.FamilyID
+	lower, upper map[ast.ASTHandle]*big.Int
+	// m_signed_lowers and m_signed_uppers table orders.
+	lowerOrder, upperOrder *ast.ObjMap
+	keys                   map[ast.ASTHandle]bool
+	held, scratch          []ast.ASTHandle
+	replacer               *rewriter.DefaultExprReplacer
+	out                    ast.ASTRef
+	substitutions          []*bvSizeSubstitution
+	active                 *bvSizeSubstitution
+	extension              *tactic.ExtensionModelConverter
+	filter                 *tactic.FilterModelConverter
+	pending                []tactic.ModelConverter
+	ready                  bool
 }
 
 func bvSizeSigned(v *big.Int, width uint32) *big.Int {
@@ -63,9 +65,13 @@ func (t *BVSizeReductionTactic) updateBound(r *bvSizeReductionImplementation, h 
 		}
 		r.keys[h] = true
 	}
-	table := r.upper
+	table, order := r.upper, r.upperOrder
 	if lower {
-		table = r.lower
+		table, order = r.lower, r.lowerOrder
+	}
+	// update_signed_{lower,upper}: insert_if_not_there2, then improve.
+	if _, err := order.InsertIfNotThere(h); err != nil {
+		return err
 	}
 	old, found := table[h]
 	if !found || (lower && old.Cmp(v) < 0) || (!lower && v.Cmp(old) < 0) {
@@ -311,7 +317,9 @@ func (t *BVSizeReductionTactic) reduce(g *tactic.Goal, result *tactic.TacticResu
 		if err = t.traceBounds(r); err != nil {
 			return 0, false, err
 		}
-		for variable, lo := range r.lower {
+		for _, slot := range r.lowerOrder.Entries() {
+			variable := slot.Key
+			lo := r.lower[variable]
 			width, e := m.BitVectorSize(variable)
 			if e != nil {
 				return 0, false, e

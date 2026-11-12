@@ -4,7 +4,6 @@ package arith
 
 import (
 	"errors"
-	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -78,21 +77,29 @@ func recover01Apply(goal *tactic.Goal, rw *rewriter.TheoryRewriter, services mod
 	}
 	type group struct {
 		decl ast.ASTHandle
-		id   uint32
 	}
-	ordered := make([]group, 0, len(groups))
 	saved := make(map[ast.ASTHandle]bool)
+	clauseDecl := make(map[ast.ASTHandle]ast.ASTHandle)
 	for decl, clauses := range groups {
-		id, e := m.GetASTID(decl)
-		if e != nil {
-			return e
-		}
-		ordered = append(ordered, group{decl, id})
 		for _, clause := range clauses {
 			saved[clause] = true
+			clauseDecl[clause] = decl
 		}
 	}
-	sort.Slice(ordered, func(i, j int) bool { return ordered[i].id < ordered[j].id })
+	// m_var2clauses (obj_map<func_decl, ptr_vector<app>>) gains each key at
+	// its first saved clause, in goal order; process walks it in table order.
+	table := ast.NewObjMap(m)
+	for _, root := range roots {
+		if decl, found := clauseDecl[root]; found {
+			if _, e := table.InsertIfNotThere(decl); e != nil {
+				return e
+			}
+		}
+	}
+	ordered := make([]group, 0, len(groups))
+	for _, slot := range table.Entries() {
+		ordered = append(ordered, group{decl: slot.Key})
+	}
 	for _, root := range roots {
 		if !saved[root] {
 			if err = newGoal.Assert(root); err != nil {

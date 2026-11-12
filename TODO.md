@@ -2285,3 +2285,28 @@ Leads: other recognizers may return ErrASTDomain on quantifier/variable
 inputs where C++ checks is_app (GetFamilyID/GetDeclKind on a quantifier fail
 through declIdentity); pb_preprocess parse (tactic/core/pb_preprocess_terms.go)
 calls GetFamilyID after the PB check without an is_app guard.
+
+## Go map iteration audit, core packages (2026-11-12)
+
+168 range-over-map sites in smtcore, ast, tactic (minus ufbv), sat, nlsat,
+model, opt, cmd_context, parsers, api, util/params, math/automata,
+math/hilbert: 111 order-insensitive, 36 fixed to z3 container order, 21
+deterministic but unfaithful (leads). Two real run-to-run nondeterminism
+bugs fixed: bv_size_reduction (signed bound maps drove fresh constants and
+substitutions) and SLS (Randomize/Reset/UpdateAll over entry points). Other
+fixes: ASTExprMap pairs/reset (expr_map order; api_qe, Z3_ast_map),
+flatten leftovers, bv_bounds is_sat/rewrite, quick_checker candidate sets,
+arith_eq_adapter display order, implied_equalities sort/value order,
+sat dep2asm/asm2fml order, recover_01/degree_shift/eq2bv table order,
+bounded_int2bv extend_model, api ast_map, automata determinization. New
+ast helpers: ObjMap.Finalize, pair-keyed ObjMap helpers.
+Leads (21 sites): theory_str (~15, sorted by handle instead of table order;
+only generic_string_z3str3_free_models uses z3str3 and matches today);
+smt_implied_equalities is not a faithful port (model loop vs per-value
+representatives, array fallback, filter_basic/reduce_value missing,
+union-find root choice); tactic_sine TRACE("sine") and re-push order;
+smt_deterministic_order.go helpers and macro_manager publishForbidden sort
+by slot/handle instead of obj_hashtable order; cmd_context
+clearDebugExpressions releases in name order; quick-checker vector-of-
+hashtables copy layout. Not yet audited: muz (~220 sites), duality, interp,
+qe, util/lp.

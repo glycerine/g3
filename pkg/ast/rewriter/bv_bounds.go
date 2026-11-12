@@ -25,13 +25,27 @@ const (
 )
 
 // BVBounds is the source polynomial-time interval checker for bit-vector
-// constraints. Native maps and slices replace obj_map and vector storage.
+// constraints. Native maps hold the values; the ObjMaps beside them hold the
+// obj_map<app, ...> table layouts that the source iterates.
 type BVBounds struct {
 	self                       *BVBounds
 	manager                    *ast.ASTManager
 	lowers, uppers, singletons map[ast.ASTHandle]*big.Int
 	negative                   map[ast.ASTHandle][]bvBoundInterval
-	okay, closed               bool
+	// m_unsigned_lowers, m_unsigned_uppers, m_singletons and
+	// m_negative_intervals table orders.
+	lowerOrder, upperOrder, singletonOrder, negativeOrder *ast.ObjMap
+	okay, closed                                          bool
+}
+
+// bvBoundsKeys lists a table's keys in iteration order.
+func bvBoundsKeys(o *ast.ObjMap) []ast.ASTHandle {
+	entries := o.Entries()
+	keys := make([]ast.ASTHandle, len(entries))
+	for i := range entries {
+		keys[i] = entries[i].Key
+	}
+	return keys
 }
 
 func NewBVBounds(m *ast.ASTManager) (*BVBounds, error) {
@@ -73,6 +87,8 @@ func (b *BVBounds) Reset() {
 	b.uppers = make(map[ast.ASTHandle]*big.Int)
 	b.singletons = make(map[ast.ASTHandle]*big.Int)
 	b.negative = make(map[ast.ASTHandle][]bvBoundInterval)
+	b.lowerOrder, b.upperOrder = ast.NewObjMap(b.manager), ast.NewObjMap(b.manager)
+	b.singletonOrder, b.negativeOrder = ast.NewObjMap(b.manager), ast.NewObjMap(b.manager)
 	b.okay = true
 }
 
@@ -271,7 +287,13 @@ func (b *BVBounds) BoundLower(value ast.ASTHandle, lower *big.Int) (bool, error)
 	if err = b.traceValue("bound_lo", 524, "lower ", value, ":"+lower.String()); err != nil {
 		return false, err
 	}
-	if current, found := b.lowers[value]; !found || current.Cmp(lower) < 0 {
+	current, found := b.lowers[value]
+	if !found {
+		if _, err = b.lowerOrder.InsertIfNotThere(value); err != nil {
+			return false, err
+		}
+	}
+	if !found || current.Cmp(lower) < 0 {
 		b.lowers[value] = bvCopy(lower)
 	}
 	return b.okay, nil
@@ -291,7 +313,13 @@ func (b *BVBounds) BoundUpper(value ast.ASTHandle, upper *big.Int) (bool, error)
 	if err = b.traceValue("bound_up", 535, "upper ", value, ":"+upper.String()); err != nil {
 		return false, err
 	}
-	if current, found := b.uppers[value]; !found || upper.Cmp(current) < 0 {
+	current, found := b.uppers[value]
+	if !found {
+		if _, err = b.upperOrder.InsertIfNotThere(value); err != nil {
+			return false, err
+		}
+	}
+	if !found || upper.Cmp(current) < 0 {
 		b.uppers[value] = bvCopy(upper)
 	}
 	return b.okay, nil
@@ -307,6 +335,11 @@ func (b *BVBounds) addNegative(value ast.ASTHandle, lo, hi *big.Int) error {
 	}
 	if err = b.traceValue("add_neg_bound", 545, "negative bound ", value, ":"+lo.String()+";"+hi.String()); err != nil {
 		return err
+	}
+	if _, found := b.negative[value]; !found {
+		if _, err = b.negativeOrder.InsertIfNotThere(value); err != nil {
+			return err
+		}
 	}
 	b.negative[value] = append(b.negative[value], bvBoundInterval{lo: bvCopy(lo), hi: bvCopy(hi), value: value})
 	return nil
@@ -514,6 +547,9 @@ func (b *BVBounds) satisfiableValue(value ast.ASTHandle) (result bool, err error
 			if err = b.traceValue("record_singleton", 600, "singleton:", value, ":"+newLo.String()); err != nil {
 				return false, err
 			}
+			if _, err = b.singletonOrder.InsertIfNotThere(value); err != nil {
+				return false, err
+			}
 			b.singletons[value] = bvCopy(newLo)
 		}
 	}
@@ -527,9 +563,12 @@ func (b *BVBounds) IsSatisfiable() (bool, error) {
 	if !b.okay {
 		return false, nil
 	}
+	// Source is_sat walks m_unsigned_lowers, m_unsigned_uppers, then
+	// m_negative_intervals in table order. is_sat(v) only finds or adds
+	// keys of the other tables, so a snapshot of each is its iteration.
 	seen := make(map[ast.ASTHandle]bool)
-	for _, table := range []map[ast.ASTHandle]*big.Int{b.lowers, b.uppers} {
-		for value := range table {
+	for _, table := range []*ast.ObjMap{b.lowerOrder, b.upperOrder} {
+		for _, value := range bvBoundsKeys(table) {
 			if seen[value] {
 				continue
 			}
@@ -539,7 +578,7 @@ func (b *BVBounds) IsSatisfiable() (bool, error) {
 			}
 		}
 	}
-	for value := range b.negative {
+	for _, value := range bvBoundsKeys(b.negativeOrder) {
 		if seen[value] {
 			continue
 		}
@@ -661,7 +700,8 @@ func (b *BVBounds) Rewrite(limit uint32, declaration ast.ASTHandle, arguments as
 	if len(remaining) == int(arguments.Count()) && !hasSingleton {
 		return RewriteFailed, nil
 	}
-	for value, singleton := range b.singletons {
+	for _, value := range bvBoundsKeys(b.singletonOrder) {
+		singleton := b.singletons[value]
 		width, e := b.manager.BitVectorSize(value)
 		if e != nil {
 			return RewriteFailed, e

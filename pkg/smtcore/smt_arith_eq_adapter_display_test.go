@@ -162,6 +162,12 @@ func TestSMTArithmeticAdapterTraceBadbitContinuesOperandsAndNativeErases(t *test
 	invalid := smtArithmeticEqualityPair{first: dead, second: y}
 	f.a.arithEqAdapter.processed[invalid] = struct{}{}
 	defer delete(f.a.arithEqAdapter.processed, invalid)
+	if f.a.arithEqAdapter.processedTable == nil {
+		f.a.arithEqAdapter.processedTable = ast.NewObjMap(f.m)
+		f.a.arithEqAdapter.processedHash = make(map[smtArithmeticEqualityPair]uint32)
+	}
+	f.a.arithEqAdapter.processedTable.InsertPairKeys(dead, y, 0)
+	defer f.a.arithEqAdapter.processedTable.ErasePairKeys(dead, y, 0)
 	writer := &arithmeticAdapterTraceWriter{owner: f.a, refuse: true}
 	tags := diagnostic.NewTraceTagsWithWriter(writer)
 	tags.Enable("arith_eq_adapter_info")

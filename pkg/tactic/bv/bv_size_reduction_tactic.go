@@ -89,7 +89,7 @@ func MakeBVSizeReductionTactic(m *ast.ASTManager, c *uparams.ParamsContext, g *u
 	return w, nil
 }
 func (t *BVSizeReductionTactic) build() (r *bvSizeReductionImplementation, err error) {
-	r = &bvSizeReductionImplementation{lower: make(map[ast.ASTHandle]*big.Int), upper: make(map[ast.ASTHandle]*big.Int), keys: make(map[ast.ASTHandle]bool)}
+	r = &bvSizeReductionImplementation{lower: make(map[ast.ASTHandle]*big.Int), upper: make(map[ast.ASTHandle]*big.Int), lowerOrder: ast.NewObjMap(t.manager), upperOrder: ast.NewObjMap(t.manager), keys: make(map[ast.ASTHandle]bool)}
 	r.family, err = t.manager.BitVectorUtilityFamilyID()
 	if err != nil {
 		return r, err
@@ -183,6 +183,7 @@ func (t *BVSizeReductionTactic) closeImplementation(r *bvSizeReductionImplementa
 	}
 	r.lower = nil
 	r.upper = nil
+	r.lowerOrder, r.upperOrder = nil, nil
 	r.keys = nil
 	return nil
 }

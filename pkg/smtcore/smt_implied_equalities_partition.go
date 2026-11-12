@@ -12,6 +12,9 @@ func (e *smtImpliedEqualityEngine) partition() error {
 		if err != nil {
 			return fmt.Errorf("implied equality term %d sort: %w", index, err)
 		}
+		if _, err = e.sortOrder.InsertIfNotThere(sort); err != nil {
+			return err
+		}
 		e.bySort[sort] = append(e.bySort[sort], uint32(index))
 	}
 	return nil

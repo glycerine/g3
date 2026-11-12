@@ -8,6 +8,7 @@ import (
 
 func (e *smtImpliedEqualityEngine) modelPartition(indices []uint32, evaluator smtImpliedEqualityEvaluator) (result error) {
 	buckets := make(map[ast.ASTHandle][]uint32)
+	var bucketOrder []ast.ASTHandle // first-appearance order
 	nonValues := make([]uint32, 0)
 	refs := make([]ast.ASTRef, 0, len(indices))
 	defer func() {
@@ -34,11 +35,14 @@ func (e *smtImpliedEqualityEngine) modelPartition(indices []uint32, evaluator sm
 			nonValues = append(nonValues, index)
 			continue
 		}
+		if _, seen := buckets[value]; !seen {
+			bucketOrder = append(bucketOrder, value)
+		}
 		buckets[value] = append(buckets[value], index)
 	}
 	e.stats.ValueBuckets += uint32(len(buckets))
-	for _, bucket := range buckets {
-		if err := e.exact(bucket); err != nil {
+	for _, value := range bucketOrder {
+		if err := e.exact(buckets[value]); err != nil {
 			return err
 		}
 	}

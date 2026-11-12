@@ -6,7 +6,6 @@ package arith
 import (
 	"errors"
 	"math/big"
-	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -101,23 +100,16 @@ func degreeShiftPrepareWithCheckpoint(m *ast.ASTManager, roots []ast.ASTHandle, 
 	if m == nil {
 		return nil, ast.ErrASTHandle
 	}
-	degrees, err := degreeShiftCandidatesWithCheckpoint(m, roots, checkpoint)
+	degrees, order, err := degreeShiftCandidatesOrdered(m, roots, checkpoint)
 	if err != nil {
 		return nil, err
 	}
-	type item struct {
-		h  ast.ASTHandle
-		id uint32
+	// prepare_substitution walks m_var2degree in table order.
+	type item struct{ h ast.ASTHandle }
+	items := make([]item, 0, len(order))
+	for _, h := range order {
+		items = append(items, item{h})
 	}
-	items := make([]item, 0, len(degrees))
-	for h := range degrees {
-		id, e := m.GetASTID(h)
-		if e != nil {
-			return nil, e
-		}
-		items = append(items, item{h, id})
-	}
-	sort.Slice(items, func(i, j int) bool { return items[i].id < items[j].id })
 	plan = &degreeShiftPlan{manager: m}
 	defer func() {
 		if err != nil {

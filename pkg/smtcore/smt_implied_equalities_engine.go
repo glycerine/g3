@@ -16,7 +16,9 @@ func (e *smtImpliedEqualityEngine) run() (result error) {
 			defer func() { result = errors.Join(result, evaluator.Close()) }()
 		}
 	}
-	for sort, indices := range e.bySort {
+	// get_implied_equalities_impl walks sort2term_ids in table order.
+	for _, slot := range e.sortOrder.Entries() {
+		sort, indices := slot.Key, e.bySort[slot.Key]
 		if !modelBased || e.isArraySort(sort) {
 			e.stats.FallbackTerms += uint32(len(indices))
 			if err := e.exact(indices); err != nil {

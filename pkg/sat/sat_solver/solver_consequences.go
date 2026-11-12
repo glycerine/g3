@@ -243,7 +243,7 @@ func (s *Solver) GetConsequences(asms, variables []ast.ASTHandle) (status lbool.
 	}
 	if status == lbool.False {
 		if len(s.assumptions) > 0 {
-			err = s.extractCore(deps, nil)
+			err = s.extractCore(deps, nil, nil)
 		}
 		return status, nil, err
 	}
@@ -270,10 +270,7 @@ func (s *Solver) GetConsequences(asms, variables []ast.ASTHandle) (status lbool.
 		}
 		byVariable[row[0].Variable()] = i
 	}
-	inverse := make(map[uint32]ast.ASTHandle)
-	for f, l := range deps {
-		inverse[l.Index()] = f
-	}
+	inverse := satAsm2Dep(deps)
 	for _, v := range variables {
 		consequence, found, e := s.fixedVariable(v, byVariable, rows, inverse)
 		if e != nil {

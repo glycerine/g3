@@ -102,7 +102,8 @@ func (t *BVSizeReductionTactic) traceBounds(r *bvSizeReductionImplementation) er
 		if _, err := io.WriteString(w, "m_signed_lowers: \n"); err != nil {
 			return err
 		}
-		for v, bound := range r.lower {
+		for _, slot := range r.lowerOrder.Entries() {
+			v, bound := slot.Key, r.lower[slot.Key]
 			if err := t.writeSizeExpr(w, v); err != nil {
 				return err
 			}
@@ -113,7 +114,8 @@ func (t *BVSizeReductionTactic) traceBounds(r *bvSizeReductionImplementation) er
 		if _, err := io.WriteString(w, "m_signed_uppers: \n"); err != nil {
 			return err
 		}
-		for v, bound := range r.upper {
+		for _, slot := range r.upperOrder.Entries() {
+			v, bound := slot.Key, r.upper[slot.Key]
 			if err := t.writeSizeExpr(w, v); err != nil {
 				return err
 			}

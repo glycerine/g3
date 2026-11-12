@@ -98,9 +98,10 @@ func (s *Solver) emitVariable(v ast.ASTHandle, variables []sat.BoolVar, complete
 	}
 	return nil
 }
-func (s *Solver) emitCore(deps map[ast.ASTHandle]sat.Literal, originals map[ast.ASTHandle]ast.ASTHandle) error {
+func (s *Solver) emitCore(deps satDeps, originals *ast.ObjMap) error {
 	return s.emit("extract_core", 606, func(out io.Writer) error {
-		for f, l := range deps {
+		for _, f := range deps.keys {
+			l := deps.lit[f]
 			if err := s.writeExpression(out, f); err != nil {
 				return err
 			}
@@ -111,7 +112,12 @@ func (s *Solver) emitCore(deps map[ast.ASTHandle]sat.Literal, originals map[ast.
 		if _, err := io.WriteString(out, "asm2fml: "); err != nil {
 			return err
 		}
-		for a, f := range originals {
+		var asm2fml []ast.ObjMapEntry
+		if originals != nil {
+			asm2fml = originals.Entries()
+		}
+		for _, entry := range asm2fml {
+			a, f := entry.Key, entry.Value[0]
 			if err := s.writeExpression(out, a); err != nil {
 				return err
 			}

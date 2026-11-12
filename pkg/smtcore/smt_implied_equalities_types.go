@@ -23,10 +23,12 @@ type smtImpliedEqualityEngine struct {
 	manager *ast.ASTManager
 	terms   []ast.ASTHandle
 	bySort  map[ast.ASTHandle][]uint32
-	classes smtImpliedEqualityClasses
-	stats   SMTImpliedEqualityStats
+	// sortOrder is sort2term_ids' obj_map<sort, term_ids> table layout.
+	sortOrder *ast.ObjMap
+	classes   smtImpliedEqualityClasses
+	stats     SMTImpliedEqualityStats
 }
 
 func newSMTImpliedEqualityEngine(s solver.Solver, m *ast.ASTManager, terms []ast.ASTHandle) *smtImpliedEqualityEngine {
-	return &smtImpliedEqualityEngine{solver: s, manager: m, terms: terms, bySort: make(map[ast.ASTHandle][]uint32), classes: newSMTImpliedEqualityClasses(len(terms))}
+	return &smtImpliedEqualityEngine{solver: s, manager: m, terms: terms, bySort: make(map[ast.ASTHandle][]uint32), sortOrder: ast.NewObjMap(m), classes: newSMTImpliedEqualityClasses(len(terms))}
 }
