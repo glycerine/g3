@@ -49,6 +49,8 @@ func NewSMTUTVPITheory(family ast.FamilyID) (*SMTUTVPITheory, error) {
 	if err != nil {
 		return nil, err
 	}
+	// theory_utvpi uses arith_eq_adapter::mk_axioms itself.
+	adapter.source = true
 	t := &SMTUTVPITheory{SMTTheoryBase: base, adapter: adapter, graph: newSMTUTVPIGraph(), zero: SMTNullTheoryVar, byBool: make(map[int32]int)}
 	t.syntax.SMTTheoryBase, t.syntax.equalityAdapter = base, adapter
 	return t, nil
@@ -365,24 +367,35 @@ func (t *SMTUTVPITheory) FinalCheck() (SMTFinalCheckStatus, error) {
 	return SMTFinalCheckDone, nil
 }
 
+// InternalizeEquality is theory_utvpi::internalize_eq_eh: only
+// (= (+ x y) k) and (= (- x y) k), in either orientation, force the
+// equality axioms, since such sums are not utvpi terms.
 func (t *SMTUTVPITheory) InternalizeEquality(expression ast.ASTHandle, variable int32) error {
-	left, err := t.state.manager.GetArg(expression, 0)
+	lhs, err := t.state.manager.GetArg(expression, 0)
 	if err != nil {
 		return err
 	}
-	sort, err := t.state.manager.GetSort(left)
+	rhs, err := t.state.manager.GetArg(expression, 1)
 	if err != nil {
 		return err
 	}
-	integer, err := t.syntax.integerSort(sort)
+	if _, numeral, err := t.syntax.numeral(rhs); err != nil {
+		return err
+	} else if numeral {
+		lhs, rhs = rhs, lhs
+	}
+	if _, numeral, err := t.syntax.numeral(rhs); err != nil || !numeral {
+		return err
+	}
+	op, arithmetic, err := t.syntax.operation(lhs)
 	if err != nil {
 		return err
 	}
-	if integer {
-		return t.syntax.InternalizeEquality(expression, variable)
+	if arithmetic && (op == smtArithOpAdd || op == smtArithOpSub) {
+		// force axioms for (= (+ x y) k)
+		return t.adapter.mkAxiomsSource(t.state.context.enodes.get(lhs), t.state.context.enodes.get(rhs))
 	}
-	real := SMTRealDiffTheory{SMTIntegerDiffTheory: &t.syntax}
-	return real.InternalizeEquality(expression, variable)
+	return nil
 }
 
 func (t *SMTUTVPITheory) NewEquality(left, right SMTTheoryVar) error {

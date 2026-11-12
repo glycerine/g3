@@ -574,86 +574,10 @@ func (t *SMTRealDiffTheory) Restart() error {
 	return t.equalityAdapter.Restart()
 }
 
+// InternalizeEquality is theory_diff_logic<rdl_ext>::internalize_eq_eh,
+// the same template as the integer theory's.
 func (t *SMTRealDiffTheory) InternalizeEquality(expression ast.ASTHandle, variable int32) error {
-	state, err := t.State()
-	if err != nil {
-		return err
-	}
-	left, err := state.manager.GetArg(expression, 0)
-	if err != nil {
-		return err
-	}
-	if t.mixed {
-		sort, err := state.manager.GetSort(left)
-		if err != nil {
-			return err
-		}
-		integer, err := t.integerSort(sort)
-		if err != nil {
-			return err
-		}
-		if integer {
-			return t.SMTIntegerDiffTheory.InternalizeEquality(expression, variable)
-		}
-	}
-	right, err := state.manager.GetArg(expression, 1)
-	if err != nil {
-		return err
-	}
-	minusOne, err := state.manager.ArithmeticNumeralRat(big.NewRat(-1, 1), false)
-	if err != nil {
-		return err
-	}
-	negativeRight, err := state.manager.MkFamilyApp(t.FamilyID(), smtArithOpMul, nil, []ast.ASTHandle{minusOne, right})
-	if err != nil {
-		return err
-	}
-	difference, err := state.manager.MkFamilyApp(t.FamilyID(), smtArithOpAdd, nil, []ast.ASTHandle{left, negativeRight})
-	if err != nil {
-		return err
-	}
-	zero, err := state.manager.ArithmeticNumeralRat(new(big.Rat), false)
-	if err != nil {
-		return err
-	}
-	lower, err := state.manager.MkFamilyApp(t.FamilyID(), smtArithOpLE, nil, []ast.ASTHandle{difference, zero})
-	if err != nil {
-		return err
-	}
-	upper, err := state.manager.MkFamilyApp(t.FamilyID(), smtArithOpGE, nil, []ast.ASTHandle{difference, zero})
-	if err != nil {
-		return err
-	}
-	if err = state.Internalize(lower, true); err != nil {
-		return err
-	}
-	if err = state.Internalize(upper, true); err != nil {
-		return err
-	}
-	lowerLiteral, err := state.Literal(lower)
-	if err != nil {
-		return err
-	}
-	upperLiteral, err := state.Literal(upper)
-	if err != nil {
-		return err
-	}
-	equality := NewSMTLiteral(variable, false)
-	if err = state.addTheoryAxiom(t.FamilyID(), []SMTLiteral{equality.Negated(), lowerLiteral}); err != nil {
-		return err
-	}
-	if err = state.addTheoryAxiom(t.FamilyID(), []SMTLiteral{equality.Negated(), upperLiteral}); err != nil {
-		return err
-	}
-	if err = state.addTheoryAxiom(t.FamilyID(), []SMTLiteral{equality, lowerLiteral.Negated(), upperLiteral.Negated()}); err != nil {
-		return err
-	}
-	if t.addBinaryBounds {
-		if err = state.addTheoryAxiom(t.FamilyID(), []SMTLiteral{lowerLiteral, upperLiteral}); err != nil {
-			return err
-		}
-	}
-	return t.equalityAdapter.AddRelevancy(left, right, expression, lower, upper)
+	return t.SMTIntegerDiffTheory.InternalizeEquality(expression, variable)
 }
 
 func (t *SMTRealDiffTheory) NewEquality(left, right SMTTheoryVar) error {

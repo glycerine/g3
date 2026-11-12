@@ -205,10 +205,14 @@ type assertedProofMode uint8
 const (
 	// assert_expr: pr = (e == r) ? in_pr : mk_modus_ponens(in_pr, pr).
 	assertedProofAssertExpr assertedProofMode = iota
-	// propagate_values, nnf_cnf: mk_modus_ponens(pr, pr1) always.
+	// propagate_values: mk_modus_ponens(pr, pr1) always; without proofs the
+	// rewriter's own proof is stored.
 	assertedProofAlways
 	// simplify_fmls: if (!pr) pr = mk_rewrite(f, r); mk_modus_ponens(pr0, pr).
 	assertedProofSimplify
+	// nnf_cnf: pr = nullptr; if (m.proofs_enabled()) pr = mk_modus_ponens(..),
+	// so without proofs the rewriter's proof is dropped.
+	assertedProofNNF
 )
 
 // preprocessAssertionMode is preprocessAssertion with a pass's proof rule.
@@ -229,10 +233,11 @@ func (k *SMTKernel) preprocessAssertionMode(formula, proof ast.ASTHandle, mode a
 	return k.preprocessAssertionWithMode(formula, proof, resultRef, proofRef, mode)
 }
 
-// preprocessAssertionWith is m_rewriter(n, r1, pr1) with the caller's r1
-// and pr1, which the rewrite overwrites (so their old values may die there).
+// preprocessAssertionWith is nnf_cnf's m_rewriter(n, r1, pr1) with the caller's
+// r1 and pr1, which the rewrite overwrites (so their old values may die
+// there). Its only caller is the NNF row loop.
 func (k *SMTKernel) preprocessAssertionWith(formula, proof ast.ASTHandle, resultRef, proofRef ast.ASTRef) (result, resultProof ast.ASTHandle, err error) {
-	return k.preprocessAssertionWithMode(formula, proof, resultRef, proofRef, assertedProofAlways)
+	return k.preprocessAssertionWithMode(formula, proof, resultRef, proofRef, assertedProofNNF)
 }
 
 func (k *SMTKernel) preprocessAssertionWithMode(formula, proof ast.ASTHandle, resultRef, proofRef ast.ASTRef, mode assertedProofMode) (result, resultProof ast.ASTHandle, err error) {
@@ -263,7 +268,7 @@ func (k *SMTKernel) preprocessAssertionWithMode(formula, proof ast.ASTHandle, re
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
 	resultProof = proof
-	if !proofs && proofGen {
+	if !proofs && proofGen && mode != assertedProofNNF {
 		// The source's pr then keeps the rewriter's proof.
 		if resultProof, err = k.manager.RefGet(proofRef); err != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, err

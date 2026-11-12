@@ -177,6 +177,12 @@ func (k *SMTKernel) appendSimplifiedAssertion(batch *macros.FormulaBatch, assert
 		if value != assertion.Formula {
 			row.Proof = mp
 		}
+	} else if value != assertion.Formula {
+		// Without proofs, push_assertion(result, result_pr) stores the
+		// simplifier's own proof (a reflexivity when it generates proofs).
+		if row.Proof, err = k.manager.RefGet(proof); err != nil {
+			return err
+		}
 	}
 	if err = k.appendTransformedAssertion(batch, assertion, row.Expression, row.Proof); err != nil {
 		return err

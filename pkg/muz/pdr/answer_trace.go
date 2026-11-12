@@ -139,6 +139,14 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, complete, includeRoot
 				return nil, fmt.Errorf("pdr: instantiate trace tail %d: %w", index, y)
 			}
 		}
+		// mk_instantiate's rule_manager::substitute rebuilds the rule with
+		// rule_manager::mk, which fills the interpreted tails from the end:
+		// the instantiated rule lists them in reverse.
+		if len(rule.instances) != 0 {
+			for i, j := uninterpreted, tailSize-1; i < j; i, j = i+1, j-1 {
+				tails[i], tails[j] = tails[j], tails[i]
+			}
+		}
 		pending := make([]ast.ASTHandle, len(work))
 		for i := range work {
 			pending[i] = work[i].predicate
@@ -211,29 +219,41 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, complete, includeRoot
 		if complete && (iteration != 0 || includeRoot) || iteration != 0 && (anchor == nil || current.node.transformer == anchor) {
 			constraints = append(constraints, predicate)
 		}
+		// The interpreted tails become constraints first; the uninterpreted
+		// tails are instantiated as predicates only for a node with children.
 		appliedTails := make([]ast.ASTHandle, len(tails))
-		for i := range tails {
+		for i := uninterpreted; i < len(tails); i++ {
 			appliedTails[i], x = apply(tails[i], 1, false)
 			if x != nil {
 				_ = substitution.Close()
 				return nil, x
 			}
-			if i >= uninterpreted {
-				constraints = append(constraints, appliedTails[i])
+			constraints = append(constraints, appliedTails[i])
+		}
+		children, x := current.node.Children()
+		if x != nil {
+			_ = substitution.Close()
+			return nil, x
+		}
+		if len(children) == 0 {
+			if x = substitution.Close(); x != nil {
+				return nil, x
+			}
+			continue
+		}
+		if len(children) != uninterpreted {
+			_ = substitution.Close()
+			return nil, fmt.Errorf("pdr: trace has %d children for %d uninterpreted tails: %w", len(children), uninterpreted, ast.ErrASTDomain)
+		}
+		for i := 0; i < uninterpreted; i++ {
+			appliedTails[i], x = apply(tails[i], 1, false)
+			if x != nil {
+				_ = substitution.Close()
+				return nil, x
 			}
 		}
 		if x = substitution.Close(); x != nil {
 			return nil, x
-		}
-		children, x := current.node.Children()
-		if x != nil {
-			return nil, x
-		}
-		if len(children) == 0 {
-			continue
-		}
-		if len(children) != uninterpreted {
-			return nil, fmt.Errorf("pdr: trace has %d children for %d uninterpreted tails: %w", len(children), uninterpreted, ast.ErrASTDomain)
 		}
 		// get_trace appends children in rule-tail order and pops the last
 		// child first. Keep its LIFO traversal and matching predicate pairing.

@@ -225,13 +225,10 @@ func (k *SMTKernel) rewritePendingAssertion(index int) (bool, error) {
 	if k.manager.IsFalse(formula) {
 		k.assertedInconsistent = true
 	}
-	proofs, err := k.manager.ProofsEnabled()
-	if err != nil {
-		return false, err
-	}
-	// propagate_values(i) replaces m_formulas[i] with (new_n, mp(pr, new_pr))
-	// even when new_n == n.
-	if formula == old.Formula && !(proofs && k.preprocess && proof != old.Proof) {
+	// propagate_values(i) replaces m_formulas[i] with (new_n, new_pr) even
+	// when new_n == n: new_pr is mp(pr, new_pr) with proofs, else the
+	// rewriter's own proof (a reflexivity when it generates proofs).
+	if formula == old.Formula && !(k.preprocess && proof != old.Proof) {
 		if k.preprocess {
 			err = k.manager.DecRef(formula)
 			if !proof.IsNull() {

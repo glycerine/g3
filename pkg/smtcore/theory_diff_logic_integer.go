@@ -45,6 +45,7 @@ type SMTIntegerDiffTheory struct {
 	scopes          []smtIntegerDiffScope
 	nonDifference   bool
 	addBinaryBounds bool
+	eagerEqAxioms   bool
 	equalityAdapter *smtArithmeticEqualityAdapter
 	optimization    smtDiffOptimization
 	statistics      smtDiffStatistics
@@ -55,6 +56,7 @@ func (t *SMTIntegerDiffTheory) ConfigureArithmetic(config SMTArithState) error {
 		return ast.ErrASTHandle
 	}
 	t.addBinaryBounds = config.AddBinaryBounds
+	t.eagerEqAxioms = config.EagerEqAxioms
 	t.equalityAdapter.binary = config.AddBinaryBounds
 	t.equalityAdapter.lazy = config.LazyAdapter
 	return nil
@@ -75,6 +77,8 @@ func NewSMTIntegerDiffTheory(family ast.FamilyID) (*SMTIntegerDiffTheory, error)
 	if err != nil {
 		return nil, err
 	}
+	// theory_diff_logic uses arith_eq_adapter::mk_axioms itself.
+	theory.equalityAdapter.source = true
 	return theory, nil
 }
 
@@ -719,74 +723,120 @@ func (t *SMTIntegerDiffTheory) Restart() error {
 	return t.equalityAdapter.Restart()
 }
 
+// InternalizeEquality is theory_diff_logic::internalize_eq_eh. Equality
+// axioms are forced only for (= (+ x (* -1 y)) k), which is not a
+// difference-logic term, or eagerly when both sides are theory variables;
+// otherwise new_eq_eh/new_diseq_eh create them through the adapter.
 func (t *SMTIntegerDiffTheory) InternalizeEquality(expression ast.ASTHandle, variable int32) error {
 	state, err := t.State()
 	if err != nil {
 		return err
 	}
-	left, err := state.manager.GetArg(expression, 0)
+	lhs, err := state.manager.GetArg(expression, 0)
 	if err != nil {
 		return err
 	}
-	right, err := state.manager.GetArg(expression, 1)
+	rhs, err := state.manager.GetArg(expression, 1)
 	if err != nil {
 		return err
 	}
-	minusOne, err := state.manager.ArithmeticNumeralRat(big.NewRat(-1, 1), true)
+	op, arithmetic, err := t.operation(lhs)
 	if err != nil {
 		return err
 	}
-	negativeRight, err := state.manager.MkFamilyApp(t.FamilyID(), smtArithOpMul, nil, []ast.ASTHandle{minusOne, right})
-	if err != nil {
-		return err
-	}
-	difference, err := state.manager.MkFamilyApp(t.FamilyID(), smtArithOpAdd, nil, []ast.ASTHandle{left, negativeRight})
-	if err != nil {
-		return err
-	}
-	zero, err := state.manager.ArithmeticNumeralRat(new(big.Rat), true)
-	if err != nil {
-		return err
-	}
-	lower, err := state.manager.MkFamilyApp(t.FamilyID(), smtArithOpLE, nil, []ast.ASTHandle{difference, zero})
-	if err != nil {
-		return err
-	}
-	upper, err := state.manager.MkFamilyApp(t.FamilyID(), smtArithOpGE, nil, []ast.ASTHandle{difference, zero})
-	if err != nil {
-		return err
-	}
-	if err = state.Internalize(lower, true); err != nil {
-		return err
-	}
-	if err = state.Internalize(upper, true); err != nil {
-		return err
-	}
-	lowerLiteral, err := state.Literal(lower)
-	if err != nil {
-		return err
-	}
-	upperLiteral, err := state.Literal(upper)
-	if err != nil {
-		return err
-	}
-	equality := NewSMTLiteral(variable, false)
-	if err = state.addTheoryAxiom(t.FamilyID(), []SMTLiteral{equality.Negated(), lowerLiteral}); err != nil {
-		return err
-	}
-	if err = state.addTheoryAxiom(t.FamilyID(), []SMTLiteral{equality.Negated(), upperLiteral}); err != nil {
-		return err
-	}
-	if err = state.addTheoryAxiom(t.FamilyID(), []SMTLiteral{equality, lowerLiteral.Negated(), upperLiteral.Negated()}); err != nil {
-		return err
-	}
-	if t.addBinaryBounds {
-		if err = state.addTheoryAxiom(t.FamilyID(), []SMTLiteral{lowerLiteral, upperLiteral}); err != nil {
+	if arithmetic && op == smtArithOpAdd {
+		count, err := state.manager.GetNumArgs(lhs)
+		if err != nil {
 			return err
 		}
+		if count == 2 {
+			second, err := state.manager.GetArg(lhs, 1)
+			if err != nil {
+				return err
+			}
+			negative, err := t.isNegative(second)
+			if err != nil {
+				return err
+			}
+			_, isNumeral, err := t.numeral(rhs)
+			if err != nil {
+				return err
+			}
+			if negative && isNumeral {
+				// force axioms for (= (+ x (* -1 y)) k)
+				return t.equalityAdapter.mkAxiomsSource(state.context.enodes.get(lhs), state.context.enodes.get(rhs))
+			}
+		}
 	}
-	return t.equalityAdapter.AddRelevancy(left, right, expression, lower, upper)
+	if t.eagerEqAxioms {
+		n1 := state.context.enodes.get(lhs)
+		n2 := state.context.enodes.get(rhs)
+		if n1 != nil && n2 != nil && n1 != n2 &&
+			n1.TheoryVar(t.FamilyID()) != SMTNullTheoryVar && n2.TheoryVar(t.FamilyID()) != SMTNullTheoryVar {
+			return t.equalityAdapter.mkAxiomsSource(n1, n2)
+		}
+	}
+	return nil
 }
+
+// isNegative is theory_diff_logic::is_negative: (* -1 y), (* y -1),
+// or the same products with (- 1) as the coefficient.
+func (t *SMTIntegerDiffTheory) isNegative(expression ast.ASTHandle) (bool, error) {
+	state, err := t.State()
+	if err != nil {
+		return false, err
+	}
+	op, arithmetic, err := t.operation(expression)
+	if err != nil || !arithmetic || op != smtArithOpMul {
+		return false, err
+	}
+	if count, err := state.manager.GetNumArgs(expression); err != nil || count != 2 {
+		return false, err
+	}
+	a0, err := state.manager.GetArg(expression, 0)
+	if err != nil {
+		return false, err
+	}
+	a1, err := state.manager.GetArg(expression, 1)
+	if err != nil {
+		return false, err
+	}
+	isApp := func(h ast.ASTHandle) (bool, error) {
+		kind, err := state.manager.GetKind(h)
+		return kind == ast.ASTApp, err
+	}
+	if _, numeral, err := t.numeral(a1); err != nil {
+		return false, err
+	} else if numeral {
+		a0, a1 = a1, a0
+	}
+	if value, numeral, err := t.numeral(a0); err != nil {
+		return false, err
+	} else if numeral && value.Cmp(big.NewRat(-1, 1)) == 0 {
+		return isApp(a1)
+	}
+	if op, arithmetic, err := t.operation(a1); err != nil {
+		return false, err
+	} else if arithmetic && op == smtArithOpUMinus {
+		a0, a1 = a1, a0
+	}
+	op, arithmetic, err = t.operation(a0)
+	if err != nil || !arithmetic || op != smtArithOpUMinus {
+		return false, err
+	}
+	if count, err := state.manager.GetNumArgs(a0); err != nil || count != 1 {
+		return false, err
+	}
+	a2, err := state.manager.GetArg(a0, 0)
+	if err != nil {
+		return false, err
+	}
+	if value, numeral, err := t.numeral(a2); err != nil || !numeral || value.Cmp(big.NewRat(1, 1)) != 0 {
+		return false, err
+	}
+	return isApp(a1)
+}
+
 func (t *SMTIntegerDiffTheory) NewEquality(left, right SMTTheoryVar) error {
 	return t.equalityAdapter.NewEquality(left, right)
 }

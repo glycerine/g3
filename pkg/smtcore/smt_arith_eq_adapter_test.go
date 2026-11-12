@@ -101,6 +101,8 @@ func TestSMTArithmeticEqualityAdapterBinaryBoundsAndLazyRestart(t *testing.T) {
 
 func TestSMTArithmeticEqualityAdapterDefersGeneratedRelevancy(t *testing.T) {
 	f := newSMTIntegerDiffFixture(t)
+	// mk_axioms registers arith_eq_relevancy_eh only under ctx.relevancy().
+	f.state.relevancyLevel = 2
 	astTestMust(t, f.state.Internalize(f.x, false))
 	astTestMust(t, f.state.Internalize(f.y, false))
 	left := f.state.context.enodes.get(f.x).TheoryVar(f.family)
