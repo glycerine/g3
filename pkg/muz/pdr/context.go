@@ -35,7 +35,10 @@ type Context struct {
 	lite         *qe.Lite
 	// newLite builds create_children's local qe_lite with the context's
 	// parameters.
-	newLite                  func() (*qe.Lite, error)
+	newLite func() (*qe.Lite, error)
+	// pendingLites keeps a create_children qe_lite whose close was refused,
+	// so Context.Close can retry it.
+	pendingLites             []*qe.Lite
 	projectionTheory         *rewriter.TheoryRewriter
 	projectionTheoryReady    bool
 	projectionTheoryBorrowed bool
@@ -880,6 +883,12 @@ func (c *Context) Close() (result error) {
 			return err
 		}
 		c.implicant = nil
+	}
+	for len(c.pendingLites) != 0 {
+		if err := c.pendingLites[0].Close(); err != nil {
+			return err
+		}
+		c.pendingLites = c.pendingLites[1:]
 	}
 	if c.lite != nil {
 		if err := c.lite.Close(); err != nil {

@@ -12,9 +12,18 @@ import (
 )
 
 func (c *Context) completeTraceAnswer(root *ModelNode) (result ast.ASTRef, resultErr error) {
-	constraints, err := c.unifiedTraceConstraints(root, true, true)
+	constraints, err := c.unifiedTraceConstraints(root, true, true, func(handles []ast.ASTHandle) error {
+		formula, x := c.manager.MkAndArray(handles)
+		if x == nil {
+			result, x = c.manager.NewRef(formula)
+		}
+		return x
+	})
 	if err != nil {
-		return result, fmt.Errorf("pdr: unify complete proof trace: %w", err)
+		if result != (ast.ASTRef{}) {
+			err = errors.Join(err, c.manager.DelRef(&result))
+		}
+		return ast.ASTRef{}, fmt.Errorf("pdr: unify complete proof trace: %w", err)
 	}
 	defer func() {
 		resultErr = errors.Join(resultErr, closeASTRefs(c.manager, constraints))
@@ -23,18 +32,7 @@ func (c *Context) completeTraceAnswer(root *ModelNode) (result ast.ASTRef, resul
 			result = ast.ASTRef{}
 		}
 	}()
-	handles := make([]ast.ASTHandle, len(constraints))
-	for index := range constraints {
-		handles[index], err = c.manager.RefGet(constraints[index])
-		if err != nil {
-			return result, err
-		}
-	}
-	formula, err := c.manager.MkAndArray(handles)
-	if err != nil {
-		return result, err
-	}
-	return c.manager.NewRef(formula)
+	return result, nil
 }
 
 // Proof reconstructs the latest reachable Horn derivation as a hyper-

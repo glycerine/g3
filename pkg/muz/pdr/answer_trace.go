@@ -14,6 +14,7 @@ import (
 type traceObligation struct {
 	node      *ModelNode
 	predicate ast.ASTHandle
+	ref       ast.ASTRef
 }
 
 func (c *Context) traceMaximumVariable(expressions ...[]ast.ASTHandle) (uint32, error) {
@@ -31,7 +32,9 @@ func (c *Context) traceMaximumVariable(expressions ...[]ast.ASTHandle) (uint32, 
 	return used.MaxFoundVarIndexPlusOne(), nil
 }
 
-func (c *Context) unifiedTraceConstraints(root *ModelNode, complete, includeRoot bool) (result []ast.ASTRef, resultErr error) {
+// finish receives the final constraints while get_trace's locals are still
+// alive: pm.mk_and(result) runs before they are destroyed.
+func (c *Context) unifiedTraceConstraints(root *ModelNode, complete, includeRoot bool, finish func([]ast.ASTHandle) error) (result []ast.ASTRef, resultErr error) {
 	phase := "update models"
 	defer func() {
 		if resultErr != nil {
@@ -55,17 +58,6 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, complete, includeRoot
 			result = nil
 		}
 	}()
-	hold := func(reference ast.ASTRef, err error) (ast.ASTHandle, error) {
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		handle, err := c.manager.RefGet(reference)
-		if err != nil {
-			return ast.ASTHandle{}, errors.Join(err, c.manager.DelRef(&reference))
-		}
-		owned = append(owned, reference)
-		return handle, nil
-	}
 	rootRule, err := c.selectedTraceRule(root)
 	if err != nil {
 		return nil, fmt.Errorf("pdr: select root trace rule: %w", err)
@@ -74,8 +66,11 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, complete, includeRoot
 	if err != nil {
 		return nil, err
 	}
-	work := []traceObligation{{node: root, predicate: head}}
-	constraints := make([]ast.ASTHandle, 0)
+	headRef, err := c.manager.NewRef(head) // predicates.push_back(rule->get_head())
+	if err != nil {
+		return nil, err
+	}
+	work := []traceObligation{{node: root, predicate: head, ref: headRef}}
 	var anchor *PredicateTransformer
 	if !complete {
 		anchor, err = traceRecursiveAnchor(root)
@@ -101,12 +96,54 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, complete, includeRoot
 			resultErr = errors.Join(resultErr, fmt.Errorf("pdr: close trace unifier: %w", x))
 		}
 	}()
+	// get_trace's locals: expr_ref tmp, the substitution, and the
+	// instantiated rule (rule_ref rule) outlive each iteration; the
+	// constraint and predicate vectors own their entries.
+	tmp, err := c.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return nil, err
+	}
+	owned = append(owned, tmp)
+	substitution, err := astsubst.New(c.manager)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if x := substitution.Close(); x != nil {
+			resultErr = errors.Join(resultErr, fmt.Errorf("pdr: close trace substitution: %w", x))
+		}
+	}()
+	var instantiated []ast.ASTRef
+	defer func() { resultErr = errors.Join(resultErr, closeASTRefs(c.manager, instantiated)) }()
+	var constraintRefs []ast.ASTRef
+	defer func() { resultErr = errors.Join(resultErr, closeASTRefs(c.manager, constraintRefs)) }()
+	defer func() {
+		for i := range work {
+			if work[i].ref != (ast.ASTRef{}) {
+				resultErr = errors.Join(resultErr, c.manager.DelRef(&work[i].ref))
+			}
+		}
+	}()
+	// tmp = result; vec[i] = tmp.
+	setTmp := func(reference ast.ASTRef) (ast.ASTHandle, error) {
+		handle, y := c.manager.RefGet(reference)
+		if y == nil {
+			y = c.manager.SetRef(tmp, handle)
+		}
+		return handle, errors.Join(y, c.manager.DelRef(&reference))
+	}
+	instantiate := func(node *ModelNode, rule *normalizedRule, expression ast.ASTHandle) (ast.ASTHandle, error) {
+		reference, y := c.instantiateTraceExpression(node, rule, expression)
+		if y != nil {
+			return ast.ASTHandle{}, y
+		}
+		instantiated = append(instantiated, reference)
+		return c.manager.RefGet(reference)
+	}
 	iteration := 0
 	for len(work) != 0 {
 		phase = fmt.Sprintf("select rule %d", iteration)
-		last := len(work) - 1
-		current := work[last]
-		work = work[:last]
+		current := work[len(work)-1]
 		rule, x := c.selectedTraceRule(current.node)
 		if x != nil {
 			return nil, fmt.Errorf("pdr: select trace rule: %w", x)
@@ -116,7 +153,12 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, complete, includeRoot
 			return nil, x
 		}
 		phase = fmt.Sprintf("instantiate rule %d", iteration)
-		instantiatedHead, x := hold(c.instantiateTraceExpression(current.node, rule, rawHead))
+		// r1 = r0 in mk_instantiate releases the previous instantiation.
+		if x = closeASTRefs(c.manager, instantiated); x != nil {
+			return nil, x
+		}
+		instantiated = instantiated[:0]
+		instantiatedHead, x := instantiate(current.node, rule, rawHead)
 		if x != nil {
 			return nil, fmt.Errorf("pdr: instantiate trace head: %w", x)
 		}
@@ -134,7 +176,7 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, complete, includeRoot
 			if y != nil {
 				return nil, y
 			}
-			tails[index], y = hold(c.instantiateTraceExpression(current.node, rule, tail))
+			tails[index], y = instantiate(current.node, rule, tail)
 			if y != nil {
 				return nil, fmt.Errorf("pdr: instantiate trace tail %d: %w", index, y)
 			}
@@ -147,27 +189,31 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, complete, includeRoot
 				tails[i], tails[j] = tails[j], tails[i]
 			}
 		}
+		constraints := make([]ast.ASTHandle, len(constraintRefs))
+		for i := range constraintRefs {
+			if constraints[i], x = c.manager.RefGet(constraintRefs[i]); x != nil {
+				return nil, x
+			}
+		}
 		pending := make([]ast.ASTHandle, len(work))
 		for i := range work {
 			pending[i] = work[i].predicate
 		}
 		phase = fmt.Sprintf("measure variables %d", iteration)
-		maximum, x := c.traceMaximumVariable(constraints, pending, []ast.ASTHandle{current.predicate, instantiatedHead}, tails)
+		maximum, x := c.traceMaximumVariable(constraints, pending, []ast.ASTHandle{instantiatedHead}, tails)
 		if x != nil {
 			return nil, x
 		}
-		substitution, x := astsubst.New(c.manager)
-		if x != nil {
+		// subst.reset(); subst.reserve(2, max_var+1)
+		if x = substitution.Reset(); x != nil {
 			return nil, x
 		}
 		if x = substitution.Reserve(2, maximum); x != nil {
-			_ = substitution.Close()
 			return nil, x
 		}
 		phase = fmt.Sprintf("unify predicates %d", iteration)
 		unified, x := unifier.UnifyPair(current.predicate, instantiatedHead, substitution, true)
 		if x != nil || !unified {
-			_ = substitution.Close()
 			if x != nil {
 				return nil, x
 			}
@@ -182,10 +228,11 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, complete, includeRoot
 			if y = substitution.Apply(2, deltas, astsubst.NewExprOffset(expression, offset), applied); y != nil {
 				return ast.ASTHandle{}, errors.Join(y, c.manager.DelRef(&applied))
 			}
-			handle, y := hold(applied, nil)
+			handle, y := setTmp(applied)
 			if y != nil || !rewrite {
 				return handle, y
 			}
+			// dctx.get_rewriter()(tmp)
 			rewritten, y := c.manager.NewRef(ast.ASTHandle{})
 			if y != nil {
 				return ast.ASTHandle{}, y
@@ -193,74 +240,87 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, complete, includeRoot
 			if y = theory.Rewrite(handle, rewritten); y != nil {
 				return ast.ASTHandle{}, errors.Join(y, c.manager.DelRef(&rewritten))
 			}
-			return hold(rewritten, nil)
+			return setTmp(rewritten)
 		}
 		phase = "apply unifier"
-		for i := range constraints {
-			constraints[i], x = apply(constraints[i], 0, true)
-			if x != nil {
-				_ = substitution.Close()
-				return nil, x
+		for i := range constraintRefs {
+			value, y := apply(constraints[i], 0, true)
+			if y == nil {
+				y = c.manager.SetRef(constraintRefs[i], value)
+			}
+			if y != nil {
+				return nil, y
 			}
 		}
+		// predicates holds the pending obligations with the current one last.
 		for i := range work {
-			work[i].predicate, x = apply(work[i].predicate, 0, false)
-			if x != nil {
-				_ = substitution.Close()
-				return nil, x
+			value, y := apply(work[i].predicate, 0, false)
+			if y == nil {
+				y = c.manager.SetRef(work[i].ref, value)
 			}
+			if y != nil {
+				return nil, y
+			}
+			work[i].predicate = value
 		}
-		predicate, x := apply(current.predicate, 0, false)
-		if x != nil {
-			_ = substitution.Close()
-			return nil, x
-		}
+		predicate := work[len(work)-1].predicate
 		// get_trace's first flag: the root head (query!N) is never a constraint.
 		if complete && (iteration != 0 || includeRoot) || iteration != 0 && (anchor == nil || current.node.transformer == anchor) {
-			constraints = append(constraints, predicate)
+			reference, y := c.manager.NewRef(predicate)
+			if y != nil {
+				return nil, y
+			}
+			constraintRefs = append(constraintRefs, reference)
+		}
+		// predicates.pop_back()
+		popped := work[len(work)-1]
+		work = work[:len(work)-1]
+		if x = c.manager.DelRef(&popped.ref); x != nil {
+			return nil, x
 		}
 		// The interpreted tails become constraints first; the uninterpreted
 		// tails are instantiated as predicates only for a node with children.
-		appliedTails := make([]ast.ASTHandle, len(tails))
 		for i := uninterpreted; i < len(tails); i++ {
-			appliedTails[i], x = apply(tails[i], 1, false)
-			if x != nil {
-				_ = substitution.Close()
-				return nil, x
+			value, y := apply(tails[i], 1, false)
+			if y != nil {
+				return nil, y
 			}
-			constraints = append(constraints, appliedTails[i])
+			reference, y := c.manager.NewRef(value)
+			if y != nil {
+				return nil, y
+			}
+			constraintRefs = append(constraintRefs, reference)
 		}
 		children, x := current.node.Children()
 		if x != nil {
-			_ = substitution.Close()
 			return nil, x
 		}
 		if len(children) == 0 {
-			if x = substitution.Close(); x != nil {
-				return nil, x
-			}
 			continue
 		}
 		if len(children) != uninterpreted {
-			_ = substitution.Close()
 			return nil, fmt.Errorf("pdr: trace has %d children for %d uninterpreted tails: %w", len(children), uninterpreted, ast.ErrASTDomain)
-		}
-		for i := 0; i < uninterpreted; i++ {
-			appliedTails[i], x = apply(tails[i], 1, false)
-			if x != nil {
-				_ = substitution.Close()
-				return nil, x
-			}
-		}
-		if x = substitution.Close(); x != nil {
-			return nil, x
 		}
 		// get_trace appends children in rule-tail order and pops the last
 		// child first. Keep its LIFO traversal and matching predicate pairing.
-		for i := 0; i < len(children); i++ {
-			work = append(work, traceObligation{node: children[i], predicate: appliedTails[i]})
+		for i := 0; i < uninterpreted; i++ {
+			value, y := apply(tails[i], 1, false)
+			if y != nil {
+				return nil, y
+			}
+			reference, y := c.manager.NewRef(value)
+			if y != nil {
+				return nil, y
+			}
+			work = append(work, traceObligation{node: children[i], predicate: value, ref: reference})
 		}
 		iteration++
+	}
+	constraints := make([]ast.ASTHandle, len(constraintRefs))
+	for i := range constraintRefs {
+		if constraints[i], err = c.manager.RefGet(constraintRefs[i]); err != nil {
+			return nil, err
+		}
 	}
 
 	phase = "build ground replacement"
@@ -352,15 +412,17 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, complete, includeRoot
 		if x = replacer.Rewrite(constraint, replaced); x != nil {
 			return nil, errors.Join(x, c.manager.DelRef(&replaced))
 		}
-		replacedHandle, x := hold(replaced, nil)
+		replacedHandle, x := c.manager.RefGet(replaced)
 		if x != nil {
-			return nil, x
+			return nil, errors.Join(x, c.manager.DelRef(&replaced))
 		}
 		rewritten, x := c.manager.NewRef(ast.ASTHandle{})
 		if x != nil {
-			return nil, x
+			return nil, errors.Join(x, c.manager.DelRef(&replaced))
 		}
-		if x = theory.Rewrite(replacedHandle, rewritten); x != nil {
+		// tmp is rewritten in place: the replaced value dies here.
+		x = theory.Rewrite(replacedHandle, rewritten)
+		if x = errors.Join(x, c.manager.DelRef(&replaced)); x != nil {
 			return nil, errors.Join(x, c.manager.DelRef(&rewritten))
 		}
 		handle, x := c.manager.RefGet(rewritten)
@@ -374,6 +436,18 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, complete, includeRoot
 			continue
 		}
 		result = append(result, rewritten)
+	}
+	if finish != nil {
+		handles := make([]ast.ASTHandle, len(result))
+		for i := range result {
+			if handles[i], err = c.manager.RefGet(result[i]); err != nil {
+				return nil, err
+			}
+		}
+		phase = "combine"
+		if err = finish(handles); err != nil {
+			return nil, err
+		}
 	}
 	phase = "cleanup"
 	return result, nil

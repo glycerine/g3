@@ -186,7 +186,12 @@ func (c *Context) createChildrenProjected(node *ModelNode) (resultErr error) {
 	if err != nil {
 		return err
 	}
-	defer func() { resultErr = errors.Join(resultErr, lite.Close()) }()
+	defer func() {
+		if x := lite.Close(); x != nil {
+			c.pendingLites = append(c.pendingLites, lite)
+			resultErr = errors.Join(resultErr, x)
+		}
+	}()
 	formulaRef, err := c.normalizeProjectedPhiWith(lite, forms, &variableRefs, modelCore.DerivedModel())
 	if err != nil {
 		return err

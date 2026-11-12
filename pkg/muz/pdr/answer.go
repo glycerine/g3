@@ -553,31 +553,29 @@ func (c *Context) Answer(queryDeclaration ast.ASTHandle) (result ast.ASTRef, res
 			return c.manager.NewRef(truth)
 		}
 	}
-	constraints, err := c.unifiedTraceConstraints(root, c.fullTraceAnswer, false)
+	constraints, err := c.unifiedTraceConstraints(root, c.fullTraceAnswer, false, func(handles []ast.ASTHandle) error {
+		var formula ast.ASTHandle
+		var x error
+		if len(handles) == 0 {
+			formula, x = c.manager.MkTrue()
+		} else {
+			formula, x = c.manager.MkAndArgs(handles)
+		}
+		if x != nil {
+			return fmt.Errorf("pdr: combine answer constraints: %w", x)
+		}
+		if result, x = c.manager.NewRef(formula); x != nil {
+			return fmt.Errorf("pdr: retain answer formula: %w", x)
+		}
+		return nil
+	})
 	if err != nil {
-		return result, fmt.Errorf("pdr: unify trace: %w", err)
+		if result != (ast.ASTRef{}) {
+			err = errors.Join(err, c.manager.DelRef(&result))
+		}
+		return ast.ASTRef{}, fmt.Errorf("pdr: unify trace: %w", err)
 	}
 	owner := &pdrAnswerExportOwner{manager: c.manager, temporaries: constraints}
 	defer owner.finish(&result, &resultErr)
-	handles := make([]ast.ASTHandle, len(constraints))
-	for i := range constraints {
-		handles[i], err = c.manager.RefGet(constraints[i])
-		if err != nil {
-			return result, fmt.Errorf("pdr: read answer constraint %d: %w", i, err)
-		}
-	}
-	var formula ast.ASTHandle
-	if len(handles) == 0 {
-		formula, err = c.manager.MkTrue()
-	} else {
-		formula, err = c.manager.MkAndArgs(handles)
-	}
-	if err != nil {
-		return result, fmt.Errorf("pdr: combine answer constraints: %w", err)
-	}
-	result, err = c.manager.NewRef(formula)
-	if err != nil {
-		return result, fmt.Errorf("pdr: retain answer formula: %w", err)
-	}
 	return result, nil
 }
