@@ -247,7 +247,7 @@ func (m *ASTManager) mkAppCoreArguments(decl astNodeRef, args AppArguments) (res
 		}
 		if actual != expected {
 			m.freeNodeStorage(r)
-			return astNodeRef{}, ErrASTDomain
+			return astNodeRef{}, &astArgumentSortError{decl: decl, actual: actual, index: i}
 		}
 	}
 	v.args, e = m.newASTPayloadArguments(args)
@@ -289,7 +289,7 @@ func (m *ASTManager) mkAppArguments(decl astNodeRef, args AppArguments) (result 
 		return astNodeRef{}, e
 	}
 	if mismatch && (!f.LeftAssociative && !f.RightAssociative && !f.Chainable || int(args.count) < 2 && fid == 0 && !(f.LeftAssociative && f.RightAssociative)) {
-		return astNodeRef{}, ErrASTDomain
+		return astNodeRef{}, &astArgumentCountError{decl: decl, count: args.count}
 	}
 	defer func() {
 		if cause == nil && result.slot != 0 {
@@ -384,12 +384,16 @@ func (m *ASTManager) MkApp(decl ASTHandle, args []ASTHandle) (ASTHandle, error) 
 	if e := m.lock(); e != nil {
 		return ASTHandle{}, e
 	}
-	defer m.mu.Unlock()
 	d, e := m.requireKind(decl, ASTFuncDecl)
 	if e != nil {
+		m.mu.Unlock()
 		return ASTHandle{}, e
 	}
 	r, e := m.mkApp(d, args)
+	m.mu.Unlock()
+	if e != nil {
+		return m.external(r), m.formatSortErrors(e)
+	}
 	return m.external(r), e
 }
 func (m *ASTManager) MkQuantifier(spec ASTQuantifierSpec) (ASTHandle, error) {

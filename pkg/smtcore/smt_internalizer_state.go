@@ -1023,7 +1023,7 @@ func (s *SMTInternalizerState) flushQuantifiers() error {
 	return nil
 }
 
-func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
+func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops uint32) error {
 	// context::pop_scope's undo_trail_stack for enode value trails.
 	if err := s.enodeTrail.Undo(scope.enodeTrailMark); err != nil {
 		return err
@@ -1234,6 +1234,16 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 	if scope.justificationLimit < 0 || scope.justificationLimit > len(s.ownedJustifications) {
 		return ast.ErrASTDomain
 	}
+	// pop_scope_core: m_relevancy_propagator->pop follows del_clauses and
+	// precedes undo_trail_stack.
+	if relevancyPops != 0 && s.relevancy != nil && (s.pendingPop == nil || !s.pendingPop.relevancyPopped) {
+		if err := s.relevancy.PopScopes(relevancyPops); err != nil {
+			return err
+		}
+		if s.pendingPop != nil {
+			s.pendingPop.relevancyPopped = true
+		}
+	}
 	// undo_trail_stack: mk_enode and mk_bool_var entries, newest first.
 	for {
 		enodeMore := len(s.enodeStack) > scope.enodeLimit
@@ -1376,6 +1386,11 @@ type smtInternalizerPendingPop struct {
 	learned  []smtPreservedLearnedClause
 	// quantifiersPopped and assertedPopped make stage 5 resumable.
 	quantifiersPopped, assertedPopped bool
+	// qmanagerPopped marks pop_scope_core's leading m_qmanager->pop: the
+	// plugin, then the qi_queue instances.
+	qmanagerPopped bool
+	// relevancyPopped makes popTo's relevancy pop run once across retries.
+	relevancyPopped bool
 }
 
 // smtPopOwnerReleaser is a theory that keeps Go owners of atoms the context
@@ -1412,6 +1427,22 @@ func (s *SMTInternalizerState) PopScopes(count uint32) error {
 	active := s.popActive
 	s.popActive = true
 	defer func() { s.popActive = active }()
+	if pop.stage == 0 && !pop.qmanagerPopped {
+		// pop_scope_core begins with m_qmanager->pop(num_scopes):
+		// default_qm_plugin::pop, then m_qi_queue.pop_scope.
+		if s.quantifierManager != nil {
+			if err := s.quantifierManager.PopScopes(count); err != nil {
+				return err
+			}
+		}
+		if s.quantifiers != nil && !s.quantifiers.popScheduled {
+			if err := s.quantifiers.schedule.PopScopes(count); err != nil {
+				return err
+			}
+			s.quantifiers.popScheduled = true
+		}
+		pop.qmanagerPopped = true
+	}
 	if pop.stage == 0 {
 		if !pop.preserve && !s.scopes[pop.level].inconsistent && s.baseScopePop != nil {
 			// new_lvl < m_base_lvl && !bs.m_inconsistent: m_unsat_proof = nullptr.
@@ -1445,17 +1476,13 @@ func (s *SMTInternalizerState) PopScopes(count uint32) error {
 				}
 			}
 		}
-		if err := s.popTo(s.scopes[pop.level]); err != nil {
+		if err := s.popTo(s.scopes[pop.level], count); err != nil {
 			return err
 		}
 		pop.stage++
 	}
 	if pop.stage == 2 {
-		if s.relevancy != nil {
-			if err := s.relevancy.PopScopes(count); err != nil {
-				return err
-			}
-		}
+		// The relevancy pop ran inside popTo, in pop_scope_core order.
 		pop.stage++
 	}
 	if pop.stage == 3 {
@@ -1478,11 +1505,7 @@ func (s *SMTInternalizerState) PopScopes(count uint32) error {
 		pop.stage++
 	}
 	if pop.stage == 4 {
-		if s.quantifierManager != nil {
-			if err := s.quantifierManager.PopScopes(count); err != nil {
-				return err
-			}
-		}
+		// m_qmanager->pop ran first (stage 0).
 		pop.stage++
 	}
 	if pop.stage == 5 {
@@ -1568,7 +1591,7 @@ func (s *SMTInternalizerState) Close() error {
 	// variables, then m_qmanager = nullptr (plugin, the qi_queue instances
 	// and substitution cache); popTo runs flushQuantifiers between them.
 	s.flushQuantifiersInPop = true
-	if err := s.popTo(smtInternalizerScope{}); err != nil {
+	if err := s.popTo(smtInternalizerScope{}, 0); err != nil {
 		return fmt.Errorf("close SMT root scope: %w", err)
 	}
 	if err := s.releaseJustificationsTo(0); err != nil {

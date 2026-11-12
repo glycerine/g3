@@ -3,7 +3,9 @@ package ast
 // Actual basic_decl_plugin constructor, lazy declaration caches, and dispatch.
 
 import (
+	"errors"
 	"math"
+	"strconv"
 
 	"github.com/glycerine/g3/pkg/arena"
 )
@@ -105,7 +107,77 @@ func (m *ASTManager) joinSorts(a, b astNodeRef) (astNodeRef, error) {
 		}
 		return b, nil
 	}
-	return astNodeRef{}, ErrASTDomain
+	return astNodeRef{}, &astSortJoinError{a: a, b: b}
+}
+
+// astSortJoinError is basic_decl_plugin::join's ast_exception. The sorts are
+// printed once the manager lock is released (formatSortErrors).
+type astSortJoinError struct{ a, b astNodeRef }
+
+func (e *astSortJoinError) Error() string { return ErrASTDomain.Error() }
+func (e *astSortJoinError) Unwrap() error { return ErrASTDomain }
+
+// astArgumentCountError is ast_manager::mk_app's type_error exception.
+type astArgumentCountError struct {
+	decl  astNodeRef
+	count uint32
+}
+
+func (e *astArgumentCountError) Error() string { return ErrASTDomain.Error() }
+func (e *astArgumentCountError) Unwrap() error { return ErrASTDomain }
+
+// astArgumentSortError is ast_manager::check_args's exception.
+type astArgumentSortError struct {
+	decl, actual astNodeRef
+	index        uint32
+}
+
+func (e *astArgumentSortError) Error() string { return ErrASTDomain.Error() }
+func (e *astArgumentSortError) Unwrap() error { return ErrASTDomain }
+
+// ASTSortError is an ast_exception raised by a basic declaration's sort
+// check; it still satisfies errors.Is(err, ErrASTDomain).
+type ASTSortError struct{ Message string }
+
+func (e *ASTSortError) Error() string { return e.Message }
+func (e *ASTSortError) Unwrap() error { return ErrASTDomain }
+
+// formatSortErrors renders a pending join failure as the source message
+// "Sorts <s1> and <s2> are incompatible". The manager must be unlocked.
+func (m *ASTManager) formatSortErrors(e error) error {
+	var count *astArgumentCountError
+	if errors.As(e, &count) {
+		decl, err := m.smt2PPDeclString(m.external(count.decl))
+		if err != nil {
+			return e
+		}
+		return &ASTSortError{Message: "Wrong number of arguments (" + strconv.FormatUint(uint64(count.count), 10) + ") passed to function " + decl}
+	}
+	var mismatch *astArgumentSortError
+	if errors.As(e, &mismatch) {
+		decl, err := m.smt2PPDeclString(m.external(mismatch.decl))
+		if err != nil {
+			return e
+		}
+		sort, err := m.SMT2PPSortString(m.external(mismatch.actual))
+		if err != nil {
+			return e
+		}
+		return &ASTSortError{Message: "Sort mismatch at argument #" + strconv.FormatUint(uint64(mismatch.index)+1, 10) + " for function " + decl + " supplied sort is " + sort}
+	}
+	var join *astSortJoinError
+	if !errors.As(e, &join) {
+		return e
+	}
+	first, err := m.SMT2PPSortString(m.external(join.a))
+	if err != nil {
+		return e
+	}
+	second, err := m.SMT2PPSortString(m.external(join.b))
+	if err != nil {
+		return e
+	}
+	return &ASTSortError{Message: "Sorts " + first + " and " + second + " are incompatible"}
 }
 func (m *ASTManager) cachedEquality(k int32, sort astNodeRef) (astNodeRef, error) {
 	id := m.nodeAt(sort.slot).id - (1 << 31)
@@ -198,7 +270,7 @@ func (m *ASTManager) basicDecl(k int32, ps []ASTParameter, domain []ASTHandle) (
 	case ASTOpDistinct:
 		for i := 1; i < len(domain); i++ {
 			if domain[i] != domain[0] {
-				return astNodeRef{}, ErrASTDomain
+				return astNodeRef{}, &ASTSortError{Message: "Sort mismatch between first argument and argument " + strconv.Itoa(i+1)}
 			}
 		}
 		return m.basicNamedDecl("distinct", k, domain, m.basic.boolSort, ASTFuncFlags{Pairwise: true}, nil, false)

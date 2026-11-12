@@ -1046,6 +1046,18 @@ type UnknownSortError struct{ Name string }
 
 func (e *UnknownSortError) Error() string { return "unknown sort " + e.Name }
 
+// SortDeclared is find_psort_decl(name) != nullptr: a user sort, a sort
+// constructor, or a builtin sort installed for the current logic.
+func (c *Context) SortDeclared(name string) bool {
+	if _, found := c.sortConstructors[name]; found {
+		return true
+	}
+	if _, found := c.sorts[name]; found {
+		return true
+	}
+	return c.BuiltinSortAvailable(name)
+}
+
 func (c *Context) LookupSort(name string) (ast.ASTHandle, error) {
 	m, err := c.Manager()
 	if err != nil {

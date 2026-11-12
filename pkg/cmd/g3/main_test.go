@@ -978,6 +978,35 @@ var scriptResults = map[string]string{
 	"setup_basic_qf_fp_with_int.smt2":                   "sat\n(model \n  (define-fun f () (_ FloatingPoint 3 5)\n    (fp #b0 #b010 #x0))\n  (define-fun y () Int\n    1)\n  (define-fun x () Int\n    1)\n)\n",
 	"maxres_single_correction_set.smt2":                 "sat\n(objectives\n ( 3)\n)\n(model \n  (define-fun y () Int\n    0)\n  (define-fun x () Int\n    8)\n)\n",
 	"setup_unknown_uflra_ground.smt2":                   "sat\n(model \n  (define-fun y () Real\n    (- (/ 5.0 2.0)))\n  (define-fun x () Real\n    (- 5.0))\n  (define-fun f ((x!0 Real)) Real\n    (ite (= x!0 (- 5.0)) (- (/ 1.0 2.0))\n    (ite (= x!0 (- (/ 5.0 2.0))) (- (/ 15.0 2.0))\n      (- (/ 1.0 2.0)))))\n)\n",
+	"parser_error_unknown_names_qf_lia.smt2":            "(error \"line 2 column 18: unknown sort 'Array'\")\n(error \"line 4 column 11: unknown constant y\")\n(error \"line 5 column 15: unknown function/constant f\")\n(error \"line 6 column 19: unknown function/constant g\")\n(error \"line 7 column 16: Parsing function declaration. Expecting sort list '(': unknown sort 'Foo'\")\n(error \"line 8 column 21: unknown constant a\")\nsat\n",
+	"parser_error_unknown_sorts_functions_qf_lia.smt2":  "(error \"line 3 column 27: unknown sort 'BitVec'\")\n(error \"line 4 column 35: unknown sort 'FloatingPoint'\")\n(error \"line 5 column 18: unknown sort 'Seq'\")\n(error \"line 6 column 18: unknown sort 'RegEx'\")\n(error \"line 7 column 18: unknown sort 'Foo'\")\n(error \"line 8 column 17: unknown sort 'Array'\")\n(error \"line 9 column 19: unknown sort 'Array'\")\n(error \"line 10 column 25: invalid use of indexed indentifier, unknown builtin function foo\")\n(error \"line 11 column 31: invalid use of indexed indentifier, unknown builtin function extract\")\n(error \"line 12 column 22: Sorts Int and (_ BitVec 4) are incompatible\")\n(error \"line 13 column 23: unknown function/constant bvadd\")\n(error \"line 14 column 23: unknown constant y\")\n(error \"line 15 column 26: unknown function/constant g\")\n(error \"line 16 column 21: unknown sort 'Array'\")\n(error \"line 17 column 17: unknown constant w\")\nsat\n",
+	"parser_error_sort_mismatch_qf_lia.smt2":            "(error \"line 3 column 16: Sorts Int and (_ BitVec 4) are incompatible\")\n(error \"line 4 column 22: Sorts Int and (_ BitVec 4) are incompatible\")\n(error \"line 5 column 24: Sorts Int and (_ BitVec 4) are incompatible\")\n(error \"line 6 column 29: Sort mismatch between first argument and argument 2\")\n(error \"line 7 column 22: Sorts (_ BitVec 4) and Int are incompatible\")\n",
+	"parser_error_application_messages.smt2":            "(error \"line 5 column 21: Sorts Int and Bool are incompatible\")\n(error \"line 6 column 15: Sort mismatch at argument #1 for function (declare-fun f (Int) Int) supplied sort is Bool\")\n(error \"line 7 column 12: Wrong number of arguments (1) passed to function (declare-fun g (Int Int) Bool)\")\n(error \"line 8 column 17: Wrong number of arguments (2) passed to function (declare-fun f (Int) Int)\")\n(error \"line 9 column 18: invalid sorted variables: unknown sort 'Foo'\")\n(error \"line 10 column 25: Invalid function definition: unknown sort 'Bar'\")\n(error \"line 11 column 20: Parsing function declaration. Expecting sort list '(': unknown sort 'Baz'\")\n(error \"line 12 column 22: Invalid function declaration: unknown sort 'Baz'\")\n(error \"line 13 column 20: invalid sorted variables: unknown sort 'Qux'\")\n(error \"line 14 column 14: Sort mismatch at argument #2 for function (declare-fun + (Int Int) Int) supplied sort is Bool\")\n(error \"line 15 column 16: Sort mismatch at argument #1 for function (declare-fun and (Bool Bool) Bool) supplied sort is Int\")\n(error \"line 16 column 10: invalid function application, arguments missing\")\n(error \"line 17 column 24: select requires 0 arguments, but was provided with 2 arguments\")\n(error \"line 18 column 31: operator is applied to arguments of the wrong sort\")\n(error \"line 19 column 24: invalid bit-vector constant, index expected\")\n(error \"line 20 column 24: Wrong number of arguments (0) passed to function (declare-fun f (Int) Int)\")\n(error \"line 21 column 19: invalid datatype declaration, unknown sort 'Zork'\")\nsat\n",
+	"parser_error_set_logic_after_init.smt2":            "(error \"line 3 column 11: logic must be set before initialization\")\nsat\n",
+	"fpa_to_sbv_propagate_values_cleanup.smt2":          "sat\n((f (fp #b0 #b110 #x0))\n (((_ fp.to_sbv 4) RTZ f) #x3))\n",
+	"fpa_add_ite_argument_order.smt2":                   "sat\n(model \n  (define-fun f () (_ FloatingPoint 3 5)\n    (fp #b0 #b001 #xc))\n  (define-fun g () (_ FloatingPoint 3 5)\n    (fp #b0 #b100 #x2))\n)\n",
+	"mbqi_auflia_arith_macro_lifetimes.smt2":            "sat\n((a 3)\n (b 2)\n ((f a) 8)\n ((h a b) 10))\n",
+}
+
+// parseErrorScripts are scriptResults vectors whose expected output holds
+// parser errors: run returns the first reported error, and the C++ reference
+// exits with a nonzero status.
+var parseErrorScripts = map[string]bool{
+	"parser_error_unknown_names_qf_lia.smt2":           true,
+	"parser_error_unknown_sorts_functions_qf_lia.smt2": true,
+	"parser_error_sort_mismatch_qf_lia.smt2":           true,
+	"parser_error_application_messages.smt2":           true,
+	"parser_error_set_logic_after_init.smt2":           true,
+}
+
+// expectedParseError checks run's error against the first error line of a
+// parseErrorScripts vector's expected output.
+func expectedParseError(name string, err error) bool {
+	if !parseErrorScripts[name] || err == nil {
+		return false
+	}
+	first := strings.SplitN(scriptResults[name], "\n", 2)[0]
+	return first == "(error \""+err.Error()+"\")"
 }
 
 func TestSMTLibRunnerScripts(t *testing.T) {
@@ -995,7 +1024,10 @@ func TestSMTLibRunnerScripts(t *testing.T) {
 			if sourceDebugModusPonensRefusal(t, name, err, &out) {
 				return
 			}
-			if err != nil {
+			if parseErrorScripts[name] && !expectedParseError(name, err) {
+				t.Fatal("expected the first parser error", err, out.String())
+			}
+			if err != nil && !parseErrorScripts[name] {
 				t.Fatal(err, out.String())
 			}
 			if canonicalReferenceOutput(name, out.String()) != canonicalReferenceOutput(name, expected) {
@@ -1024,13 +1056,14 @@ func sourceDebugModusPonensRefusal(t *testing.T, name string, err error, out *by
 // The native executable is a release build. Its macro substitution accepts
 // Int arguments in Real binders, while rewriter_def.h:49 asserts exact binder
 // and replacement sorts in source debug builds, before application coercion.
+// The error is reported where pop_app_frame runs mk_app: the closing paren.
 func sourceDebugMacroCoercionRefusal(t *testing.T, name string, err error, out *bytes.Buffer) bool {
 	t.Helper()
 	if !ast.ASTSourceDebug || name != "definition_coercions.smt2" {
 		return false
 	}
-	wantOutput := "(error \"line 3 column 26: " + ast.ErrASTDomain.Error() + "\")\nsat\n"
-	if err == nil || err.Error() != "line 3 column 26: "+ast.ErrASTDomain.Error() || out.String() != wantOutput {
+	wantOutput := "(error \"line 3 column 24: " + ast.ErrASTDomain.Error() + "\")\nsat\n"
+	if err == nil || err.Error() != "line 3 column 24: "+ast.ErrASTDomain.Error() || out.String() != wantOutput {
 		t.Fatalf("source debug macro-binding sort assertion err=%q output=%q", err, out.String())
 	}
 	return true
@@ -1052,7 +1085,7 @@ func TestSMTLibRunnerCPPReference(t *testing.T) {
 			var goOutput bytes.Buffer
 			err = run(bytes.NewReader(script), &goOutput)
 			debugRefusal := sourceDebugMacroCoercionRefusal(t, name, err, &goOutput)
-			if err != nil && !debugRefusal {
+			if err != nil && !debugRefusal && !expectedParseError(name, err) {
 				t.Fatal(err, goOutput.String())
 			}
 			cmd := exec.Command(reference, "-in")
@@ -1077,7 +1110,7 @@ func TestSMTLibRunnerCPPReference(t *testing.T) {
 				t.Log("known reference Boolean-recursive model-evaluation loop; integer mutual recursion remains an exact C++ oracle")
 				return
 			}
-			if err != nil {
+			if err != nil && !parseErrorScripts[name] {
 				t.Fatal("C++ reference", err, string(cppOutput), cppDiagnostics.String())
 			}
 			if debugRefusal {

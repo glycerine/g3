@@ -253,8 +253,11 @@ func (m *ASTManager) MkFamilyApp(fid FamilyID, k int32, ps []ASTParameter, args 
 	if e := m.lock(); e != nil {
 		return ASTHandle{}, e
 	}
-	defer m.mu.Unlock()
 	r, e := m.mkFamilyApp(fid, k, ps, args)
+	m.mu.Unlock()
+	if e != nil {
+		return m.external(r), m.formatSortErrors(e)
+	}
 	return m.external(r), e
 }
 

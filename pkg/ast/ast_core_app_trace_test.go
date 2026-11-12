@@ -2,6 +2,7 @@ package ast
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 
 	udiag "github.com/glycerine/g3/pkg/util/diagnostic"
@@ -31,7 +32,7 @@ func TestASTChainableTraceOnlyOnLongNonflatBranch(t *testing.T) {
 		t.Fatal("disabled chainable trace", err, output.String())
 	}
 	tags.Enable("chainable")
-	if _, err := m.MkApp(decl, args[:1]); err != ErrASTDomain || output.Len() != 0 {
+	if _, err := m.MkApp(decl, args[:1]); !errors.Is(err, ErrASTDomain) || output.Len() != 0 {
 		t.Fatal("source basic-family unary precondition", err, output.String())
 	}
 	if _, err := m.MkApp(decl, args[:2]); err != nil || output.Len() != 0 {

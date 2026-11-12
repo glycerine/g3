@@ -1,0 +1,8 @@
+(set-logic QF_FP)
+(declare-const f (_ FloatingPoint 3 5))
+(declare-const g (_ FloatingPoint 3 5))
+(assert (fp.lt f g))
+(assert (fp.isNormal f))
+(assert (fp.gt (fp.add RNE f g) ((_ to_fp 3 5) RNE 2.0)))
+(check-sat)
+(get-model)

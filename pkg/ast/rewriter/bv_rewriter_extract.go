@@ -222,7 +222,9 @@ func (p *BVRewriter) bvExtractBody(v *bvExtractInvocation, high, low uint32, arg
 				if e != nil {
 					return failed, RewriteFailed, e
 				}
-				for i := uint32(1); i < 3; i++ {
+				// GCC evaluates the mk_ite arguments right to left, so the
+				// else-branch extract is created first.
+				for i := uint32(2); i >= 1; i-- {
 					v.ite[i], e = m.GetArg(arg, i)
 					if e == nil {
 						v.ite[i], e = p.extract.Apply(high, low, v.ite[i])

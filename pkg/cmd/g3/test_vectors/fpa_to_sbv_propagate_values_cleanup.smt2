@@ -1,0 +1,8 @@
+(set-logic QF_FP)
+(declare-const f (_ FloatingPoint 3 5))
+(declare-const g (_ FloatingPoint 3 5))
+(assert (fp.lt f g))
+(assert (fp.isNormal f))
+(assert (= ((_ fp.to_sbv 4) RTZ f) #x3))
+(check-sat)
+(get-value (f ((_ fp.to_sbv 4) RTZ f)))

@@ -17,6 +17,17 @@ func smtRelevancyBool(t testing.TB, m *ast.ASTManager, name string) ast.ASTHandl
 	return value
 }
 
+// smtRelevancyPinnedBool pins the fixture: the relevancy propagator owns
+// references to relevant expressions and trail nodes, as
+// relevancy_propagator_imp's expr_ref_vector and push_trail do, so a pop
+// would otherwise delete an unowned constant.
+func smtRelevancyPinnedBool(t *testing.T, m *ast.ASTManager, name string) ast.ASTHandle {
+	t.Helper()
+	value := smtRelevancyBool(t, m, name)
+	astTestPin(t, m, value)
+	return value
+}
+
 func TestSMTRelevancyNegatedArgumentsAndLiteralWatches(t *testing.T) {
 	for _, conjunction := range []bool{false, true} {
 		for _, assignedFirst := range []bool{false, true} {
@@ -211,12 +222,12 @@ func TestSMTRelevancySharedAssignmentWatches(t *testing.T) {
 
 func TestSMTRelevancyDependenciesWatchesScopesAndEqualityClasses(t *testing.T) {
 	m := astTestManager(t)
-	a := smtRelevancyBool(t, m, "rel-dep-a")
-	b := smtRelevancyBool(t, m, "rel-dep-b")
-	target := smtRelevancyBool(t, m, "rel-dep-target")
-	pairTarget := smtRelevancyBool(t, m, "rel-pair-target")
-	condition := smtRelevancyBool(t, m, "rel-watch-condition")
-	watchTarget := smtRelevancyBool(t, m, "rel-watch-target")
+	a := smtRelevancyPinnedBool(t, m, "rel-dep-a")
+	b := smtRelevancyPinnedBool(t, m, "rel-dep-b")
+	target := smtRelevancyPinnedBool(t, m, "rel-dep-target")
+	pairTarget := smtRelevancyPinnedBool(t, m, "rel-pair-target")
+	condition := smtRelevancyPinnedBool(t, m, "rel-watch-condition")
+	watchTarget := smtRelevancyPinnedBool(t, m, "rel-watch-target")
 	context, err := NewSMTCheckerContext(m)
 	astTestMust(t, err)
 	propagator, err := NewSMTRelevancyPropagator(context, true)

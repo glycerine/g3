@@ -554,7 +554,12 @@ func (k *SMTKernel) buildCandidateModelGenerator() (*SMTModelGenerator, error) {
 	}
 	// m_proto_model = m_model_generator->mk_model(): the previous proto
 	// model goes now.
-	if err = errors.Join(k.releaseUpdateProto(), releasePrevious()); err != nil {
+	// A predecessor MBQI rejected is that m_proto_model too.
+	var retired error
+	if manager := k.internalizer.quantifierManager; manager != nil {
+		retired = manager.releaseRetiredProto()
+	}
+	if err = errors.Join(k.releaseUpdateProto(), retired, releasePrevious()); err != nil {
 		return fail(err)
 	}
 	if manager := k.internalizer.quantifierManager; manager != nil && manager.modelFinder != nil {
@@ -572,12 +577,6 @@ func (k *SMTKernel) buildCandidateModelGenerator() (*SMTModelGenerator, error) {
 	}
 	if k.smtState.ModelCompact {
 		if err = generator.model.Compress(); err != nil {
-			return fail(err)
-		}
-	}
-	// m_proto_model = mk_model(): a rejected predecessor dies now.
-	if manager := k.internalizer.quantifierManager; manager != nil {
-		if err = manager.releaseRetiredProto(); err != nil {
 			return fail(err)
 		}
 	}
@@ -1716,7 +1715,11 @@ func (k *SMTKernel) Close() error {
 	if err := k.clearLiteralResults(); err != nil {
 		return err
 	}
-	// context::flush begins with m_model_generator->reset() (m_asts).
+	// context::flush begins with m_relevancy_propagator = nullptr, then
+	// m_model_generator->reset() (m_asts).
+	if err := k.relevancy.release(); err != nil {
+		return err
+	}
 	if err := k.releaseGeneratorPins(); err != nil {
 		return err
 	}

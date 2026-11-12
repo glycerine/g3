@@ -3,6 +3,8 @@ package macros
 // Source: src/ast/macros/macro_util.cpp:36-353,748-829.
 
 import (
+	"errors"
+
 	"github.com/glycerine/g3/pkg/ast"
 )
 
@@ -704,6 +706,29 @@ func (u *Util) collectArithmeticSide(lhs, rhs, atom ast.ASTHandle, declarations 
 		if !macro && !hint {
 			continue
 		}
+		if e = u.collectArithmeticCandidate(lhs, rhs, atom, argument, head, arguments, declarations, inequality, negative, hint, candidates); e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
+// collectArithmeticCandidate is the candidate block of
+// collect_arith_macro_candidates: its expr_ref rest and def die at the end
+// of the block, def first.
+func (u *Util) collectArithmeticCandidate(lhs, rhs, atom, argument, head ast.ASTHandle, arguments []ast.ASTHandle, declarations uint32, inequality, negative, hint bool, candidates *Candidates) (err error) {
+	m := u.manager
+	var restRef, definitionRef ast.ASTRef
+	defer func() {
+		if definitionRef != (ast.ASTRef{}) {
+			err = errors.Join(err, m.DelRef(&definitionRef))
+		}
+		if restRef != (ast.ASTRef{}) {
+			err = errors.Join(err, m.DelRef(&restRef))
+		}
+	}()
+	{
+		var e error
 		rest := make([]ast.ASTHandle, 0, len(arguments)-1)
 		for _, value := range arguments {
 			if value != argument {
@@ -718,6 +743,9 @@ func (u *Util) collectArithmeticSide(lhs, rhs, atom ast.ASTHandle, declarations 
 		if e != nil {
 			return e
 		}
+		if restRef, e = m.NewRef(restTerm); e != nil {
+			return e
+		}
 		definition := ast.ASTHandle{}
 		if negative {
 			definition, e = u.MkSub(restTerm, rhs)
@@ -727,13 +755,16 @@ func (u *Util) collectArithmeticSide(lhs, rhs, atom ast.ASTHandle, declarations 
 		if e != nil {
 			return e
 		}
+		if definitionRef, e = m.NewRef(definition); e != nil {
+			return e
+		}
 		if hint {
 			valid, e := u.isPolyHint(definition, head, ast.ASTHandle{})
 			if e != nil {
 				return e
 			}
 			if !valid {
-				continue
+				return nil
 			}
 		}
 		condition := ast.ASTHandle{}

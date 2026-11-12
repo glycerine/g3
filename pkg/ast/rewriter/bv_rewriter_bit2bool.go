@@ -134,19 +134,21 @@ func (p *BVPolynomialRewriter) RewriteBit2Bool(lhs, rhs ast.ASTHandle, out ast.A
 			if e != nil {
 				return st, e
 			}
-			a, e := m.GetArg(lhs, 1)
-			if e != nil {
-				return st, e
-			}
-			left, e := m.MkEq(a, rhs)
-			if e != nil {
-				return st, e
-			}
-			a, e = m.GetArg(lhs, 2)
+			// GCC evaluates the mk_ite arguments right to left: the
+			// else-branch equality is created first.
+			a, e := m.GetArg(lhs, 2)
 			if e != nil {
 				return st, e
 			}
 			right, e := m.MkEq(a, rhs)
+			if e != nil {
+				return st, e
+			}
+			a, e = m.GetArg(lhs, 1)
+			if e != nil {
+				return st, e
+			}
+			left, e := m.MkEq(a, rhs)
 			if e != nil {
 				return st, e
 			}

@@ -61,3 +61,37 @@ func (m *ASTManager) wellSortedMismatchWarning(w wellSortedWarning, c *uparams.P
 	}
 	return out.String()
 }
+
+// SMT2PPSortString is mk_pp(s, m) for a sort with the default parameters.
+func (m *ASTManager) SMT2PPSortString(sort ASTHandle) (text string, result error) {
+	out, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: m.BudgetField})
+	if err != nil {
+		return "", err
+	}
+	defer func() { result = errors.Join(result, out.Close()) }()
+	formatted, err := m.SMT2PPSort(sort)
+	if err != nil {
+		return "", err
+	}
+	if err = m.PrintFormatTransient(out, formatted, nil, nil, nil); err != nil {
+		return "", err
+	}
+	return out.String()
+}
+
+// smt2PPDeclString is mk_pp(f, m) for a function declaration.
+func (m *ASTManager) smt2PPDeclString(decl ASTHandle) (text string, result error) {
+	out, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: m.BudgetField})
+	if err != nil {
+		return "", err
+	}
+	defer func() { result = errors.Join(result, out.Close()) }()
+	formatted, err := m.SMT2PPDeclareFun(decl)
+	if err != nil {
+		return "", err
+	}
+	if err = m.PrintFormatTransient(out, formatted, nil, nil, nil); err != nil {
+		return "", err
+	}
+	return out.String()
+}

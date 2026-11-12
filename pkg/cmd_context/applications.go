@@ -200,7 +200,8 @@ func (c *Context) MakeApp(name string, args []ast.ASTHandle, indices []ast.ASTPa
 		return m.MkFamilyApp(op.family, op.kind, indices, args)
 	}
 	if len(indices) != 0 {
-		return ast.ASTHandle{}, fmt.Errorf("invalid use of indexed identifier, unknown builtin function %s", name)
+		// "indentifier" (sic) is z3 4.7.1's spelling (cmd_context.cpp:1048).
+		return ast.ASTHandle{}, fmt.Errorf("invalid use of indexed indentifier, unknown builtin function %s", name)
 	}
 	if len(c.functions[name]) == 0 {
 		if len(args) == 0 {

@@ -482,17 +482,11 @@ func (t *PropagateValuesTactic) pushResult(goal *tactic.Goal, index uint32, valu
 	return nil
 }
 
+// clearSubstitution is the scoped_ptr m_subst release: the old substitution
+// is deallocated without touching m_r, which keeps the stale pointer (and its
+// cache and used dependencies) until the next set_substitution resets it or
+// ~th_rewriter destroys it.
 func (t *PropagateValuesTactic) clearSubstitution() error {
-	// A failed constructor can leave a partial rewriter with no substitution.
-	// Close can release that owner; its public methods require initialization.
-	if t.hasSubstitution && t.rewriter != nil {
-		if err := t.rewriter.SetSubstitution(nil); err != nil {
-			return err
-		}
-		if err := t.rewriter.ResetUsedDependencies(); err != nil {
-			return err
-		}
-	}
 	if t.hasSubstitution {
 		if err := t.manager.DelExprSubstitution(&t.substitution); err != nil {
 			return err
@@ -533,15 +527,18 @@ func (t *PropagateValuesTactic) Reset() error                           { return
 func (t *PropagateValuesTactic) SetLogic(usymbol.Symbol) error          { return t.open() }
 func (t *PropagateValuesTactic) SetProgressCallback(func(uint32)) error { return t.open() }
 
+// releaseImplementation is ~imp: members die in reverse declaration order
+// (m_r, m_subst, m_goal, m_occs), so m_occs goes first, then m_subst, and
+// m_r with its rewrite cache last.
 func (t *PropagateValuesTactic) releaseImplementation() error {
-	if err := t.clearSubstitution(); err != nil {
-		return err
-	}
 	if t.occs != nil {
 		if err := t.occs.Close(); err != nil {
 			return err
 		}
 		t.occs = nil
+	}
+	if err := t.clearSubstitution(); err != nil {
+		return err
 	}
 	if t.rewriter != nil {
 		if err := t.rewriter.Close(); err != nil {

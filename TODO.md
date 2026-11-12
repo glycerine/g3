@@ -2169,3 +2169,37 @@ update_bound; box uses optsmt::geometric_opt for the default engine. Open:
   restrictive logic differ (column later than z3's, z3 quotes 'Array', z3
   4.7.1 spells "indentifier"); MBQI scripts differ in free-list id reuse
   (UFNIA line 71, AUFLIA line 562; r/mq*.smt2).
+## fp ite order, SMT2 error text, MBQI lifetimes (2026-11-12)
+
+DONE: bv_rewriter mk_extract/mk_bit2bool build ite arguments else-first
+(GCC right-to-left evaluation); bit_blaster mk_le releases locals in scope
+order; propagate_values ~imp order. SMT2 parser errors match the fork in
+text and column (unknown sort/constant/function, indexed identifiers with
+z3's "indentifier" spelling, sort mismatches, wrong arity, array messages,
+set-logic after init). MBQI: qe_lite reduce_quantifier scoped locals, proto
+model released when replaced, qi_queue instance lifetimes, relevancy
+propagator owns its references (pop inside popTo), quantifier pop first,
+macro_util arith macro candidate locals. New vectors fpa_add_ite_argument_order,
+fpa_to_sbv_propagate_values_cleanup, mbqi_auflia_arith_macro_lifetimes,
+parser_error_* (5). Now stdout-identical: closest_theory_variables_proof,
+pb_native_watches_proof, pb_simplex_proof,
+pending_reset_assertions_native_sort_init.
+Leads:
+- Model printing of internal sorts: pdecl_manager::pp uses m_sort2info, so a
+  BitVec sort the user never wrote (range of fp.to_ubv/fp.to_sbv in
+  get-model) prints as (_ bv 4) in z3 but (_ BitVec 4) in g3 (line wrapping
+  differs too). Needs the sort_info save/pp port (pdecl.cpp:732-1045).
+- With no logic set, z3 predeclares the parametric List datatype
+  (pm().mk_plist_decl(), cmd_context.cpp:725); g3 says unknown sort 'List'.
+- mq_UFNIA line 2,295,926: after a base-level conflict and [pop] 1 2, BCP
+  assigns (not #1036) and #1037 in the opposite order (watch list or clause
+  literal order).
+- mq3_UFLIA line 603,652: antecedent literals of a clause in reverse order
+  during conflict resolution (MBQI or dyn_ack clause literal order).
+- mq_AUFLIRA line 65,185: two theory-propagated bound atoms on the same
+  variable and bound assigned in the opposite order ((not #268), #269,
+  justification -1); check var_occs / implied-bound iteration.
+- mq_ALL / mq_NONE / mq_AUFLIA ~1.95M lines: not investigated.
+- fp.to_real variant: trace diverges at line 13,372 (arith * / + id order).
+- qe call arenas (liteCall / vector arenas) still hold refs until a call
+  ends; other qe paths likely have the qe_lite kind of lifetime difference.

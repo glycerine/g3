@@ -127,6 +127,10 @@ func (p *SMTRelevancyPropagator) setRelevant(expression ast.ASTHandle) error {
 		return nil
 	}
 	p.context.relevant.set(expression, true)
+	// m_relevant_exprs is an expr_ref_vector: it owns a reference.
+	if err := p.context.manager.IncRef(expression); err != nil {
+		return err
+	}
 	p.relevant = append(p.relevant, expression)
 	p.newlyRelevant = append(p.newlyRelevant, expression)
 	if p.internalizer != nil {
@@ -233,7 +237,9 @@ func (p *SMTRelevancyPropagator) addHandler(source ast.ASTHandle, handler smtRel
 		return p.invoke(handler)
 	}
 	p.handlers[source] = append(p.handlers[source], handler)
-	p.trail = append(p.trail, smtRelevancyTrail{kind: smtRelevancyHandlerTrail, expression: source})
+	if err := p.pushTrail(smtRelevancyTrail{kind: smtRelevancyHandlerTrail, expression: source}); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -287,10 +293,14 @@ func (p *SMTRelevancyPropagator) addWatch(expression ast.ASTHandle, value bool, 
 	case lbool.Undef:
 		if value {
 			p.positiveWatch[expression] = append(p.positiveWatch[expression], handler)
-			p.trail = append(p.trail, smtRelevancyTrail{kind: smtRelevancyPositiveWatchTrail, expression: expression})
+			if err := p.pushTrail(smtRelevancyTrail{kind: smtRelevancyPositiveWatchTrail, expression: expression}); err != nil {
+				return err
+			}
 		} else {
 			p.negativeWatch[expression] = append(p.negativeWatch[expression], handler)
-			p.trail = append(p.trail, smtRelevancyTrail{kind: smtRelevancyNegativeWatchTrail, expression: expression})
+			if err := p.pushTrail(smtRelevancyTrail{kind: smtRelevancyNegativeWatchTrail, expression: expression}); err != nil {
+				return err
+			}
 		}
 		return nil
 	default:
@@ -876,6 +886,12 @@ func (p *SMTRelevancyPropagator) PopScopes(count uint32) error {
 		p.context.relevant.del(p.relevant[index-1])
 		p.traceUnmark(p.relevant[index-1])
 	}
+	// m_relevant_exprs.shrink releases the popped references first to last.
+	for index := scope.relevantLimit; index < len(p.relevant); index++ {
+		if err := p.context.manager.DecRef(p.relevant[index]); err != nil {
+			return err
+		}
+	}
 	p.relevant = p.relevant[:scope.relevantLimit]
 	p.qhead = len(p.relevant)
 	kept := p.newlyRelevant[:0]
@@ -901,8 +917,62 @@ func (p *SMTRelevancyPropagator) PopScopes(count uint32) error {
 		default:
 			return ast.ErrASTDomain
 		}
+		p.trail = p.trail[:index-1]
+		if err := p.context.manager.DecRef(entry.expression); err != nil {
+			return err
+		}
 	}
 	p.trail = p.trail[:scope.trailLimit]
 	p.scopes = p.scopes[:newLevel]
+	return nil
+}
+
+// pushTrail is relevancy_propagator_imp::push_trail: the trail owns a
+// reference to its node.
+func (p *SMTRelevancyPropagator) pushTrail(entry smtRelevancyTrail) error {
+	if err := p.context.manager.IncRef(entry.expression); err != nil {
+		return err
+	}
+	p.trail = append(p.trail, entry)
+	return nil
+}
+
+// release is ~relevancy_propagator_imp (context::flush): undo_trail(0)
+// releases the trail newest first, then ~m_relevant_exprs releases the
+// relevant expressions first to last.
+func (p *SMTRelevancyPropagator) release() error {
+	if p == nil || p.context == nil {
+		return nil
+	}
+	for index := len(p.trail); index > 0; index-- {
+		entry := p.trail[index-1]
+		switch entry.kind {
+		case smtRelevancyHandlerTrail:
+			handlers := p.handlers[entry.expression]
+			p.handlers[entry.expression] = handlers[:len(handlers)-1]
+		case smtRelevancyPositiveWatchTrail:
+			handlers := p.positiveWatch[entry.expression]
+			p.positiveWatch[entry.expression] = handlers[:len(handlers)-1]
+		case smtRelevancyNegativeWatchTrail:
+			handlers := p.negativeWatch[entry.expression]
+			p.negativeWatch[entry.expression] = handlers[:len(handlers)-1]
+		}
+		p.trail = p.trail[:index-1]
+		if err := p.context.manager.DecRef(entry.expression); err != nil {
+			return err
+		}
+	}
+	for len(p.relevant) != 0 {
+		expression := p.relevant[0]
+		p.context.relevant.del(expression)
+		p.relevant = p.relevant[1:]
+		if err := p.context.manager.DecRef(expression); err != nil {
+			return err
+		}
+	}
+	p.relevant = nil
+	p.newlyRelevant = nil
+	p.scopes = nil
+	p.qhead = 0
 	return nil
 }

@@ -1,6 +1,7 @@
 package qe
 
 import (
+	"errors"
 	"io"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -125,18 +126,18 @@ func (l *Lite) eliminateConjunctions(c *liteCall, indices []uint32, indexOfBound
 		if err != nil {
 			return err
 		}
-		tmp, err := c.ref(h)
+		// expr_ref fml is scoped to this block and released on return,
+		// after fmls[index] = fml.
+		tmp, err := l.manager.NewRef(h)
 		if err != nil {
 			return err
 		}
-		if err = l.eliminateExpression(c, indices, indexOfBound, tmp); err != nil {
-			return err
+		if err = l.eliminateExpression(c, indices, indexOfBound, tmp); err == nil {
+			if h, err = l.manager.RefGet(tmp); err == nil {
+				err = l.manager.SetRef((*forms)[index], h)
+			}
 		}
-		h, err = l.manager.RefGet(tmp)
-		if err != nil {
-			return err
-		}
-		return l.manager.SetRef((*forms)[index], h)
+		return errors.Join(err, l.manager.DelRef(&tmp))
 	}
 	if err = l.traceVector(2464, *forms); err != nil {
 		return err
@@ -179,47 +180,25 @@ func (l *Lite) EliminateIndices(indices []uint32, indexOfBound bool, formula ast
 	defer l.finish(c, &err)
 	return l.eliminateExpression(c, indices, indexOfBound, formula)
 }
-func (l *Lite) eliminateExpression(c *liteCall, indices []uint32, indexOfBound bool, formula ast.ASTRef) error {
-	h, err := l.manager.RefGet(formula)
+func (l *Lite) eliminateExpression(c *liteCall, indices []uint32, indexOfBound bool, formula ast.ASTRef) (err error) {
+	m := l.manager
+	h, err := m.RefGet(formula)
 	if err != nil {
 		return err
 	}
-	hs, err := l.manager.FlattenOr([]ast.ASTHandle{h})
+	hs, err := m.FlattenOr([]ast.ASTHandle{h})
 	if err != nil {
 		return err
 	}
-	disjs, err := c.vector(hs)
-	if err != nil {
+	// expr_ref_vector disjs is a local: ~ref_vector releases it in forward
+	// order when the function returns.
+	disjs := new([]ast.ASTRef)
+	defer func() { err = errors.Join(err, releaseLiteVectorForward(m, disjs)) }()
+	if err = appendLiteVector(m, disjs, hs); err != nil {
 		return err
 	}
-	for _, disj := range *disjs {
-		h, err := l.manager.RefGet(disj)
-		if err != nil {
-			return err
-		}
-		conjs, err := c.vector([]ast.ASTHandle{h})
-		if err != nil {
-			return err
-		}
-		if err = l.eliminateConjunctions(c, indices, indexOfBound, conjs); err != nil {
-			return err
-		}
-		args, err := l.expressions(*conjs)
-		if err != nil {
-			return err
-		}
-		boolean, err := c.boolean()
-		if err != nil {
-			return err
-		}
-		if err = boolean.MkAnd(args, formula); err != nil {
-			return err
-		}
-		h, err = l.manager.RefGet(formula)
-		if err != nil {
-			return err
-		}
-		if err = l.manager.SetRef(disj, h); err != nil {
+	for i := range *disjs {
+		if err = l.eliminateDisjunct(c, indices, indexOfBound, formula, (*disjs)[i]); err != nil {
 			return err
 		}
 	}
@@ -232,4 +211,61 @@ func (l *Lite) eliminateExpression(c *liteCall, indices []uint32, indexOfBound b
 		return err
 	}
 	return boolean.MkOr(args, formula)
+}
+
+// eliminateDisjunct is one loop body of the expression overload; its
+// expr_ref_vector conjs dies at the end of the iteration, after disjs[i] = fml.
+func (l *Lite) eliminateDisjunct(c *liteCall, indices []uint32, indexOfBound bool, formula, disj ast.ASTRef) (err error) {
+	m := l.manager
+	h, err := m.RefGet(disj)
+	if err != nil {
+		return err
+	}
+	conjs := new([]ast.ASTRef)
+	defer func() { err = errors.Join(err, releaseLiteVectorForward(m, conjs)) }()
+	if err = appendLiteVector(m, conjs, []ast.ASTHandle{h}); err != nil {
+		return err
+	}
+	if err = l.eliminateConjunctions(c, indices, indexOfBound, conjs); err != nil {
+		return err
+	}
+	args, err := l.expressions(*conjs)
+	if err != nil {
+		return err
+	}
+	boolean, err := c.boolean()
+	if err != nil {
+		return err
+	}
+	if err = boolean.MkAnd(args, formula); err != nil {
+		return err
+	}
+	h, err = m.RefGet(formula)
+	if err != nil {
+		return err
+	}
+	return m.SetRef(disj, h)
+}
+
+// appendLiteVector pushes new references onto a caller-owned vector.
+func appendLiteVector(m *ast.ASTManager, v *[]ast.ASTRef, hs []ast.ASTHandle) error {
+	for _, h := range hs {
+		ref, err := m.NewRef(h)
+		if err != nil {
+			return err
+		}
+		*v = append(*v, ref)
+	}
+	return nil
+}
+
+// releaseLiteVectorForward is ~ref_vector: dec_ref from first to last.
+func releaseLiteVectorForward(m *ast.ASTManager, v *[]ast.ASTRef) (result error) {
+	for i := range *v {
+		if (*v)[i] != (ast.ASTRef{}) {
+			result = errors.Join(result, m.DelRef(&(*v)[i]))
+		}
+	}
+	*v = (*v)[:0]
+	return result
 }

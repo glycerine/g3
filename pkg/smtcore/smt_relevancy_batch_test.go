@@ -100,8 +100,8 @@ func TestSMTRelevancyBatchScopesRestorePendingAndDeliveredAssignments(t *testing
 	for _, deliver := range []bool{false, true} {
 		m := astTestManager(t)
 		_, p, s := smtInternalizerFixture(t, m, nil)
-		a := smtRelevancyBool(t, m, "scope-deferred-assignment")
-		target := smtRelevancyBool(t, m, "scope-deferred-target")
+		a := smtRelevancyPinnedBool(t, m, "scope-deferred-assignment")
+		target := smtRelevancyPinnedBool(t, m, "scope-deferred-target")
 		astTestMust(t, s.Internalize(a, true))
 		astTestMust(t, p.AddWatchTarget(a, true, target))
 		literal, err := s.Literal(a)

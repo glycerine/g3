@@ -177,6 +177,30 @@ func (b *SMTQIInstanceBuilder) Prepare(entry SMTQIQueueEntry) (*SMTQIPreparedIns
 // instance lemma. A nil result means the current context already satisfies the
 // substituted body.
 func (b *SMTQIInstanceBuilder) Materialize(prepared *SMTQIPreparedInstance, rw *rewriter.TheoryRewriter, stat *SMTQuantifierStat, scope uint32) (result *SMTQIInstance, err error) {
+	var locals smtQIInstanceLocals
+	defer func() { err = errors.Join(err, locals.release(b.manager)) }()
+	return b.materialize(prepared, rw, stat, scope, &locals)
+}
+
+// smtQIInstanceLocals are qi_queue::instantiate's expr_ref s_instance and
+// proof_ref pr: they die when instantiate returns, after [end-of-instance].
+type smtQIInstanceLocals struct {
+	simplified, rewriteProof ast.ASTRef
+}
+
+// release destroys the locals in reverse declaration order: pr, then
+// s_instance.
+func (l *smtQIInstanceLocals) release(m *ast.ASTManager) (err error) {
+	if l.rewriteProof != (ast.ASTRef{}) {
+		err = m.DelRef(&l.rewriteProof)
+	}
+	if l.simplified != (ast.ASTRef{}) {
+		err = errors.Join(err, m.DelRef(&l.simplified))
+	}
+	return err
+}
+
+func (b *SMTQIInstanceBuilder) materialize(prepared *SMTQIPreparedInstance, rw *rewriter.TheoryRewriter, stat *SMTQuantifierStat, scope uint32, locals *smtQIInstanceLocals) (result *SMTQIInstance, err error) {
 	if b == nil || b.manager == nil || prepared == nil || prepared.manager != b.manager || prepared.closed || rw == nil || rw.Manager() != b.manager || stat == nil {
 		return nil, ast.ErrASTDomain
 	}
@@ -187,11 +211,11 @@ func (b *SMTQIInstanceBuilder) Materialize(prepared *SMTQIPreparedInstance, rw *
 	if err != nil {
 		return nil, err
 	}
-	simplified, err := b.manager.NewRef(ast.ASTHandle{})
+	locals.simplified, err = b.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return nil, err
 	}
-	defer func() { err = errors.Join(err, b.manager.DelRef(&simplified)) }()
+	simplified := locals.simplified
 	proofs, err := b.manager.ProofsEnabled()
 	if err != nil {
 		return nil, err
@@ -206,11 +230,11 @@ func (b *SMTQIInstanceBuilder) Materialize(prepared *SMTQIPreparedInstance, rw *
 		}
 		return b.Finish(prepared, rewritten, stat, scope)
 	}
-	rewriteProof, err := b.manager.NewRef(ast.ASTHandle{})
+	locals.rewriteProof, err = b.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return nil, err
 	}
-	defer func() { err = errors.Join(err, b.manager.DelRef(&rewriteProof)) }()
+	rewriteProof := locals.rewriteProof
 	if err = rw.RewriteWithProof(instance, simplified, rewriteProof); err != nil {
 		return nil, err
 	}
@@ -228,11 +252,13 @@ func (b *SMTQIInstanceBuilder) Materialize(prepared *SMTQIPreparedInstance, rw *
 // MaterializeAndInternalize completes qi_queue::instantiate through the
 // concrete SMT internalizer. The returned object retains the source queue's
 // lemma/proof ownership until its caller closes or scopes it.
-func (b *SMTQIInstanceBuilder) MaterializeAndInternalize(prepared *SMTQIPreparedInstance, rw *rewriter.TheoryRewriter, stat *SMTQuantifierStat, scope uint32, internalizer *SMTInternalizerState) (*SMTQIInstance, error) {
+func (b *SMTQIInstanceBuilder) MaterializeAndInternalize(prepared *SMTQIPreparedInstance, rw *rewriter.TheoryRewriter, stat *SMTQuantifierStat, scope uint32, internalizer *SMTInternalizerState) (_ *SMTQIInstance, resultErr error) {
 	if internalizer == nil || internalizer.manager != b.manager {
 		return nil, ast.ErrASTDomain
 	}
-	result, err := b.Materialize(prepared, rw, stat, scope)
+	var locals smtQIInstanceLocals
+	defer func() { resultErr = errors.Join(resultErr, locals.release(b.manager)) }()
+	result, err := b.materialize(prepared, rw, stat, scope, &locals)
 	if err != nil {
 		return result, fmt.Errorf("rewrite and finish instance: %w", err)
 	}

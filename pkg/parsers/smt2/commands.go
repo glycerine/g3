@@ -412,14 +412,17 @@ func (p *commandParser) command() (bool, error) {
 		}
 		success = false
 	case "set-logic":
+		// set_logic_cmd::set_next_arg runs cmd_context::set_logic on the
+		// symbol before next() and before the closing ')' is checked.
+		logicLine, logicPos := p.scanner.Line(), p.scanner.Position()
 		logic, err := p.symbol()
 		if err != nil {
 			return false, err
 		}
-		if err = p.requireEnd(); err != nil {
-			return false, err
-		}
 		if err = p.context.SetLogic(logic); err != nil {
+			return false, positionedError(err, logicLine, logicPos)
+		}
+		if err = p.requireEnd(); err != nil {
 			return false, err
 		}
 	case "set-option":
@@ -1660,6 +1663,12 @@ func (p *commandParser) unknownSort(name string) error {
 	return errors.New(msg + "unknown sort '" + name + "'")
 }
 
+// unknownSortError is smt2parser::unknown_sort(id) without a context, as
+// parse_indexed_sort and push_sort_app_frame call it.
+func unknownSortError(name string) error {
+	return errors.New("unknown sort '" + name + "'")
+}
+
 // sortIn is parse_sort(context): the context prefixes unknown-sort errors.
 func (p *commandParser) sortIn(context string) (ast.ASTHandle, error) {
 	saved := p.sortContext
@@ -1715,17 +1724,33 @@ func (p *commandParser) sort() (ast.ASTHandle, error) {
 	if err := p.expect(LeftParenToken); err != nil {
 		return ast.ASTHandle{}, err
 	}
+	// push_sort_app_frame looks the constructor up before next(), so an
+	// unknown sort reports the name token's own position.
+	nameLine, namePos := p.scanner.Line(), p.scanner.Position()
 	name, err := p.symbol()
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	if name == "_" {
-		name, indices, err := p.indexed()
+		// parse_indexed_sort: check_identifier_next consumes the sort name
+		// before find_psort_decl, so the error is at the following token.
+		name, err := p.symbol()
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
 		if !p.context.BuiltinSortAvailable(name) {
-			return ast.ASTHandle{}, fmt.Errorf("unknown sort %s", name)
+			return ast.ASTHandle{}, unknownSortError(name)
+		}
+		var indices []uint32
+		for p.token != RightParenToken {
+			value, err := p.unsigned()
+			if err != nil {
+				return ast.ASTHandle{}, err
+			}
+			indices = append(indices, value)
+		}
+		if err = p.advance(); err != nil {
+			return ast.ASTHandle{}, err
 		}
 		if name == "FloatingPoint" && len(indices) == 2 {
 			return p.pin(m.FloatingPointSort(indices[0], indices[1]))
@@ -1735,10 +1760,10 @@ func (p *commandParser) sort() (ast.ASTHandle, error) {
 		}
 		return p.pin(m.BitVectorSort(indices[0]))
 	}
+	if _, found := p.datatypeHeaders[name]; !found && !p.context.SortDeclared(name) {
+		return ast.ASTHandle{}, &ScannerError{Message: unknownSortError(name).Error(), Line: nameLine, Column: namePos}
+	}
 	if name == "Array" {
-		if !p.context.BuiltinSortAvailable(name) {
-			return ast.ASTHandle{}, fmt.Errorf("unknown sort %s", name)
-		}
 		var sorts []ast.ASTHandle
 		for p.token != RightParenToken {
 			value, err := p.sort()
@@ -1756,9 +1781,6 @@ func (p *commandParser) sort() (ast.ASTHandle, error) {
 		return p.pin(m.MkArraySort(ast.SliceArguments(sorts[:len(sorts)-1]), sorts[len(sorts)-1]))
 	}
 	if name == "Seq" || name == "RegEx" {
-		if !p.context.BuiltinSortAvailable(name) {
-			return ast.ASTHandle{}, fmt.Errorf("unknown sort %s", name)
-		}
 		var sorts []ast.ASTHandle
 		for p.token != RightParenToken {
 			value, err := p.sort()
@@ -1884,8 +1906,11 @@ func parseBitVectorName(name string) (string, bool) {
 
 func (p *commandParser) parseBVNumeral(name string, indices []identifierIndex) (ast.ASTHandle, error) {
 	text, ok := parseBitVectorName(name)
-	if !ok || len(indices) != 1 || !indices[0].function.IsNull() {
+	if !ok {
 		return ast.ASTHandle{}, fmt.Errorf("invalid bit-vector numeral")
+	}
+	if len(indices) != 1 || !indices[0].function.IsNull() {
+		return ast.ASTHandle{}, fmt.Errorf("invalid bit-vector constant, index expected")
 	}
 	// A decimal SMT-LIB bv numeral is integral and may exceed machine width.
 	value, ok := new(big.Rat).SetString(text)

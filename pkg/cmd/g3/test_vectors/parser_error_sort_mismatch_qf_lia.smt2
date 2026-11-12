@@ -1,0 +1,7 @@
+(set-logic QF_LIA)
+(declare-const x Int)
+(assert (= x #x1))
+(assert (= x (_ bv1 4)))
+(assert (= x (_ bv1 4) x))
+(assert (distinct x (_ bv1 4)))
+(assert (= (_ bv1 4) x))

@@ -21,7 +21,17 @@ func (e *Engine) mkLE(signed bool, a, b []ast.ASTHandle, out ast.ASTRef) (result
 		}
 		temps[i] = ref
 	}
-	defer func() { result = errors.Join(result, releaseRefs(m, temps)) }()
+	// C++ destroys the block-scoped not_b first, then the function locals
+	// in reverse declaration order (i1, i2, i3, not_a): not_a, i3, i2, i1.
+	defer func() {
+		if len(temps) == 5 {
+			result = errors.Join(result, releaseRefs(m, temps[4:5]))
+		}
+		result = errors.Join(result, releaseRefs(m, temps[0:1]))
+		result = errors.Join(result, releaseRefs(m, temps[3:4]))
+		result = errors.Join(result, releaseRefs(m, temps[2:3]))
+		result = errors.Join(result, releaseRefs(m, temps[1:2]))
+	}()
 	notA, i1, i2, i3 := temps[0], temps[1], temps[2], temps[3]
 	if err := e.config.simplify(ast.ASTOpNot, notA, a[0]); err != nil {
 		return err

@@ -4,6 +4,8 @@ package ast
 // src/ast/array_decl_plugin.cpp:120-137,235-306,446-465,498-512;
 // src/ast/ast.cpp:2030-2036.
 
+import "fmt"
+
 const (
 	ASTArrayOpStore int32 = iota
 	ASTArrayOpSelect
@@ -136,8 +138,11 @@ func (m *ASTManager) arrayDecl(k int32, ps []ASTParameter, domain []ASTHandle, r
 	if k != ASTArrayOpSelect && k != ASTArrayOpStore {
 		return astNodeRef{}, ErrASTDomain
 	}
-	if len(domain) < 2 || k == ASTArrayOpStore && len(domain) < 3 {
-		return astNodeRef{}, ErrASTDomain
+	if k == ASTArrayOpSelect && len(domain) <= 1 {
+		return astNodeRef{}, &ASTSortError{Message: "select takes at least two arguments"}
+	}
+	if k == ASTArrayOpStore && len(domain) < 3 {
+		return astNodeRef{}, &ASTSortError{Message: "store takes at least 3 arguments"}
 	}
 	sort, e := m.requireKind(domain[0], ASTSort)
 	if e != nil {
@@ -149,19 +154,24 @@ func (m *ASTManager) arrayDecl(k int32, ps []ASTParameter, domain []ASTHandle, r
 			return astNodeRef{}, e
 		}
 		if fid != p.family || kind != 0 {
-			return astNodeRef{}, ErrASTDomain
+			return astNodeRef{}, &ASTSortError{Message: "store expects the first argument sort to be an array"}
 		}
 	}
-	info, e := m.sortInfo(m.sortAt(sort.slot).info)
-	if e != nil {
-		return astNodeRef{}, e
+	var info *astInfoRecord
+	parameters := uint32(0)
+	if m.sortAt(sort.slot).info != (ASTSortInfo{}) {
+		info, e = m.sortInfo(m.sortAt(sort.slot).info)
+		if e != nil {
+			return astNodeRef{}, e
+		}
+		parameters = info.count
 	}
-	expected := uint64(info.count)
-	if k == ASTArrayOpStore {
-		expected++
+	if k == ASTArrayOpSelect && uint64(len(domain)) != uint64(parameters) {
+		return astNodeRef{}, &ASTSortError{Message: fmt.Sprintf("select requires %d arguments, but was provided with %d arguments", parameters, len(domain))}
 	}
-	if uint64(len(domain)) != expected {
-		return astNodeRef{}, ErrASTDomain
+	if k == ASTArrayOpStore && uint64(len(domain)) != uint64(parameters)+1 {
+		// "arguments" without a leading space is z3 4.7.1's text.
+		return astNodeRef{}, &ASTSortError{Message: fmt.Sprintf("store expects the first argument to be an array taking %d, instead it was passed %darguments", parameters+1, len(domain)-1)}
 	}
 	normalized := []ASTHandle{domain[0]}
 	count := info.count
@@ -182,7 +192,7 @@ func (m *ASTManager) arrayDecl(k int32, ps []ASTParameter, domain []ASTHandle, r
 			return astNodeRef{}, e
 		}
 		if !compatible {
-			return astNodeRef{}, ErrASTDomain
+			return astNodeRef{}, &ASTSortError{Message: "domain sort and parameter do not match"}
 		}
 		normalized = append(normalized, m.external(expected))
 	}

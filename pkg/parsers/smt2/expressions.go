@@ -274,6 +274,9 @@ func (p *commandParser) expressionWithQuantifier(quantifier *ast.ASTQuantifierSp
 			err = p.advance()
 		}
 	case SymbolToken:
+		// parse_expr_name calls mk_const before next(): its errors carry the
+		// symbol token's position.
+		symbolLine, symbolPos := p.scanner.Line(), p.scanner.Position()
 		name, e := p.symbol()
 		if e != nil {
 			return ast.ASTHandle{}, "", e
@@ -292,6 +295,7 @@ func (p *commandParser) expressionWithQuantifier(quantifier *ast.ASTQuantifierSp
 			return result, "", err
 		}
 		result, err = p.indexedApplication(name, nil, nil, ast.ASTHandle{})
+		err = positionedError(err, symbolLine, symbolPos)
 	case LeftParenToken:
 		if err := p.advance(); err != nil {
 			return ast.ASTHandle{}, "", err
@@ -400,11 +404,16 @@ func (p *commandParser) expressionWithQuantifier(quantifier *ast.ASTQuantifierSp
 			}
 			args = append(args, arg)
 		}
+		// pop_app_frame runs mk_app at the closing ')' before next().
+		closeLine, closePos := p.scanner.Line(), p.scanner.Position()
+		if len(args) == 0 {
+			return ast.ASTHandle{}, "", &ScannerError{Message: "invalid function application, arguments missing", Line: closeLine, Column: closePos}
+		}
 		if err := p.advance(); err != nil {
 			return ast.ASTHandle{}, "", err
 		}
 		result, err = p.indexedApplication(name, indices, args, rangeSort)
-		return result, "", err
+		return result, "", positionedError(err, closeLine, closePos)
 	default:
 		return ast.ASTHandle{}, "", fmt.Errorf("invalid expression, unexpected input")
 	}
@@ -574,4 +583,17 @@ func (p *commandParser) letExpression() (value ast.ASTHandle, named string, resu
 	}
 	result = p.expect(RightParenToken)
 	return value, named, result
+}
+
+// positionedError attaches the source position at which the C++ parser
+// raised err, unless err already carries one.
+func positionedError(err error, line, column int) error {
+	if err == nil {
+		return nil
+	}
+	var positioned *ScannerError
+	if errors.As(err, &positioned) {
+		return err
+	}
+	return &ScannerError{Message: err.Error(), Line: line, Column: column}
 }
