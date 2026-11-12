@@ -22,7 +22,7 @@ func NewNonlinearArithmeticUtil(manager *ast.ASTManager) (*NonlinearArithmeticUt
 	if manager == nil {
 		return nil, ast.ErrASTHandle
 	}
-	term, err := NewArithmeticQETermUtil(manager)
+	term, err := NewArithmeticQETermUtil(manager, Config{})
 	if err != nil {
 		return nil, err
 	}

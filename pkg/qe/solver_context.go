@@ -7,6 +7,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/smtcore"
 )
 
 // SolverPlugin is the dependency-ready portion of qe_solver_plugin used by
@@ -34,6 +35,33 @@ type SolverContext struct {
 	closing         uint32
 	containsClosing uint32
 	closed          bool
+	// owner is the quant_elim_plugin this context belongs to; blast_or
+	// reaches quant_elim_new through it.
+	owner *quantElimPlugin
+	// tree is set while quant_elim_plugin::solve_vars runs: the variables,
+	// contains, elim_var and add_var callbacks are then those of the search
+	// tree's current node.
+	tree *exprQETreeContext
+	// sink is set while a plugin assigns a branch of the quant_elim_plugin
+	// search tree: add_constraint then asserts at once over the new node.
+	sink *exprQEConstraintSink
+}
+
+// exprQEConstraintSink is quant_elim_plugin::add_constraint's m_current and
+// m_solver.
+type exprQEConstraintSink struct {
+	current *exprQETree
+	solver  *smtcore.SMTSolver
+}
+
+// addConstraint is i_solver_context::add_constraint(use_var, lit). Outside a
+// quant_elim_plugin branch assignment it reports false and the plugin keeps
+// the constraint for its own host.
+func (c *SolverContext) addConstraint(useVariable bool, literal ast.ASTHandle) (bool, error) {
+	if c == nil || c.sink == nil {
+		return false, nil
+	}
+	return true, assertExprQETreeConstraint(c.sink.current, c.sink.solver, useVariable, literal)
 }
 
 func NewSolverContext(manager *ast.ASTManager, variables []ast.ASTHandle) (*SolverContext, error) {
@@ -72,12 +100,18 @@ func (c *SolverContext) NumVariables() (uint32, error) {
 	if err := c.open(); err != nil {
 		return 0, err
 	}
+	if c.tree != nil {
+		return uint32(len(c.tree.current.variables)), nil
+	}
 	return uint32(len(c.variables)), nil
 }
 
 func (c *SolverContext) Variable(index uint32) (ast.ASTHandle, error) {
 	if err := c.open(); err != nil {
 		return ast.ASTHandle{}, err
+	}
+	if c.tree != nil {
+		return c.tree.variable(index)
 	}
 	if index >= uint32(len(c.variables)) {
 		return ast.ASTHandle{}, arena.ErrBounds
@@ -89,6 +123,18 @@ func (c *SolverContext) Variable(index uint32) (ast.ASTHandle, error) {
 func (c *SolverContext) IsVariable(expression ast.ASTHandle) (index uint32, found bool, err error) {
 	if err = c.open(); err != nil {
 		return 0, false, err
+	}
+	if c.tree != nil {
+		for i := range c.tree.current.variables {
+			variable, e := c.tree.variable(uint32(i))
+			if e != nil {
+				return 0, false, e
+			}
+			if variable == expression {
+				return uint32(i), true, nil
+			}
+		}
+		return 0, false, nil
 	}
 	for i, variable := range c.variables {
 		if variable == expression {

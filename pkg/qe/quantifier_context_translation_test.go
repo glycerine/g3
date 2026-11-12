@@ -49,12 +49,12 @@ func TestQuantifierContextTranslationCopiesParametersAndOptions(t *testing.T) {
 	fmMust(t, err)
 	quantified, err := target.r.manager.HasQuantifiers(h)
 	fmMust(t, err)
-	// The source arithmetic factory replaces linear elimination with
-	// nlarith_plugin when qe_nonlinear is true. Its branch builder rejects a
-	// mixed arithmetic/uninterpreted body such as x=3 && P(x), so this formula
-	// remains quantified after translation just as it does in C++.
-	if !quantified {
-		t.Fatal("translated nonlinear tactic unexpectedly eliminated unsupported mixed formula")
+	// quant_elim_plugin::solve_vars runs every plugin's solve before any
+	// branching; the array plugin's solve_eq eliminates x := 3 even when
+	// qe_nonlinear selects nlarith_plugin, so z3 4.7.1 reduces
+	// (exists x (and (= x 3) (P x))) to (P 3) under qe :qe_nonlinear true.
+	if quantified {
+		t.Fatal("translated nonlinear tactic did not solve the defining equation")
 	}
 }
 

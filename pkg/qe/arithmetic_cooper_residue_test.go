@@ -20,7 +20,7 @@ func TestArithmeticCooperBoundedResidueAllocationFrontiers(t *testing.T) {
 			context, err := NewSolverContext(m, nil)
 			fmMust(t, err)
 			defer func() { fmMust(t, context.Close()) }()
-			plugin, err := NewArithmeticPlugin(context)
+			plugin, err := NewArithmeticPlugin(context, f.r.config)
 			fmMust(t, err)
 			fmMust(t, context.AddPlugin(plugin))
 			runtime := &ArithmeticCooperRuntime{plugin: plugin}

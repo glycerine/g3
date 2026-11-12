@@ -21,7 +21,7 @@ func TestExprQEDatatypeSearchEliminatesRecognizedEquality(t *testing.T) {
 	defer func() { fmMust(t, m.DelRef(&bound)) }()
 	quantifier, err := m.RefGet(bound)
 	fmMust(t, err)
-	result, complete, err := eliminateQuantifierDatatypeSearch(m, quantifier, f.r.config)
+	result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("datatype search did not eliminate the variable")
@@ -58,7 +58,7 @@ func TestExprQEDatatypeSearchContinuesAfterFreshVariable(t *testing.T) {
 	defer func() { fmMust(t, m.DelRef(&bound)) }()
 	quantifier, err := m.RefGet(bound)
 	fmMust(t, err)
-	result, complete, err := eliminateQuantifierDatatypeSearch(m, quantifier, f.r.config)
+	result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("search did not finish after introducing a datatype variable")
@@ -93,7 +93,7 @@ func TestExprQEDatatypeSearchWithBothEqualityPolarities(t *testing.T) {
 	defer func() { fmMust(t, m.DelRef(&bound)) }()
 	quantifier, err := m.RefGet(bound)
 	fmMust(t, err)
-	result, complete, err := eliminateQuantifierDatatypeSearch(m, quantifier, f.r.config)
+	result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("both-polarity datatype search did not finish")
@@ -141,9 +141,9 @@ func TestQuantifierDatatypeBlocks(t *testing.T) {
 			var result ast.ASTRef
 			var complete bool
 			if mixed {
-				result, complete, err = eliminateQuantifierMixed(m, q, f.r.config)
+				result, complete, err = qeTestEliminate(m, q, f.r.config)
 			} else {
-				result, complete, err = eliminateQuantifierDatatypeBlock(m, q, f.r.config)
+				result, complete, err = qeTestEliminate(m, q, f.r.config)
 			}
 			fmMust(t, err)
 			if !complete {
@@ -174,7 +174,7 @@ func TestQuantifierDatatypeBlockUniversal(t *testing.T) {
 	y := f.own(m.MkVar(0, d.list))
 	body := f.own(m.MkEq(x, y))
 	q := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{d.list, d.list}, Names: []symbol.Symbol{symbol.Numerical(0), symbol.Numerical(1)}, Body: body}))
-	result, complete, err := eliminateQuantifierDatatypeBlock(m, q, f.r.config)
+	result, complete, err := qeTestEliminate(m, q, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("universal datatype block was not eliminated")
@@ -208,7 +208,7 @@ func TestExprQEFreshVariablePolicy(t *testing.T) {
 	datatypes, err := NewDatatypeSolverPlugin(context)
 	fmMust(t, err)
 	fmMust(t, context.AddPlugin(datatypes))
-	arithmetic, err := NewArithmeticPlugin(context)
+	arithmetic, err := NewArithmeticPlugin(context, f.r.config)
 	fmMust(t, err)
 	fmMust(t, context.AddPlugin(arithmetic))
 	bitVectors, err := NewBitVectorPlugin(context)

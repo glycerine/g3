@@ -43,8 +43,15 @@ func exprQENewVariablesSupported(variables *exprQEBranchVariables, context *Solv
 
 // searchExprQEScalarTree explores model-selected scalar assignments and
 // Boolean partitions. Unsupported plugin branches report incomplete.
-func searchExprQEScalarTree(root *exprQETree, variables *exprQEBranchVariables, context *SolverContext, plugin *BoolPlugin, partitioner *ConjunctionPartitioner, solver *smtcore.SMTSolver, config Config, rw *rewriter.TheoryRewriter, nnf *QENNFNormalizer) (result ast.ASTRef, complete bool, err error) {
-	if root == nil || root.manager == nil || root.formula == (ast.ASTRef{}) || variables == nil || context == nil || plugin == nil || partitioner == nil || solver == nil || rw == nil || nnf == nil || config.Cooperation == nil {
+func searchExprQEScalarTree(root *exprQETree, variables *exprQEBranchVariables, context *SolverContext, plugin *BoolPlugin, partitioner *ConjunctionPartitioner, solver *smtcore.SMTSolver, config Config, rw *rewriter.TheoryRewriter, nnf *QENNFNormalizer, boolRw *rewriter.BoolRewriter, free *[]ast.ASTRef) (result ast.ASTRef, complete bool, err error) {
+	var sat bool
+	return searchExprQEScalarTreeSat(root, variables, context, plugin, partitioner, solver, config, rw, nnf, boolRw, free, &sat)
+}
+
+// searchExprQEScalarTreeSat also reports check's is_sat: whether any
+// branch was satisfiable.
+func searchExprQEScalarTreeSat(root *exprQETree, variables *exprQEBranchVariables, context *SolverContext, plugin *BoolPlugin, partitioner *ConjunctionPartitioner, solver *smtcore.SMTSolver, config Config, rw *rewriter.TheoryRewriter, nnf *QENNFNormalizer, boolRw *rewriter.BoolRewriter, free *[]ast.ASTRef, sat *bool) (result ast.ASTRef, complete bool, err error) {
+	if root == nil || root.manager == nil || root.formula == (ast.ASTRef{}) || variables == nil || context == nil || plugin == nil || partitioner == nil || solver == nil || rw == nil || nnf == nil || boolRw == nil || free == nil || config.Cooperation == nil {
 		return result, false, ast.ErrASTHandle
 	}
 	m := root.manager
@@ -53,12 +60,7 @@ func searchExprQEScalarTree(root *exprQETree, variables *exprQEBranchVariables, 
 			err = errors.Join(err, m.DelRef(&result))
 		}
 	}()
-	var free []ast.ASTRef
-	defer func() {
-		for i := range free {
-			err = errors.Join(err, m.DelRef(&free[i]))
-		}
-	}()
+	isSat := false
 search:
 	for {
 		canceled, e := m.Canceled()
@@ -81,6 +83,7 @@ search:
 		if status == lbool.False {
 			break
 		}
+		isSat = true
 		md, e := solver.AcquireModel()
 		if e != nil || md == nil {
 			return result, false, errors.Join(e, ast.ErrASTDomain)
@@ -155,12 +158,12 @@ search:
 		}
 		if e == nil && step == exprQEChooseVariable {
 			var outcome exprQEPopStatus
-			current, outcome, e = popExprQEBoolTree(current, variables, context, plugin, partitioner, solver, eval, md, config, rw, nnf, &free, false)
+			current, outcome, e = popExprQEBoolTree(current, variables, context, plugin, partitioner, solver, eval, md, config, rw, nnf, free, false)
 			if e == nil && outcome == exprQEPopNeedsPartition {
 				part, cause := partitionExprQETree(current, variables, partitioner)
 				if cause == nil {
 					var done bool
-					done, cause = processExprQEScalarPartition(current, part, solver, config)
+					done, cause = processExprQEScalarPartition(current, part, context, solver, config)
 					cause = errors.Join(cause, part.Close())
 					if cause == nil && !done {
 						outcome = exprQEPopNoBranch
@@ -178,8 +181,15 @@ search:
 			return result, false, e
 		}
 	}
-	if len(free) != 0 {
-		return result, false, nil
+	*sat = isSat
+	if !isSat {
+		// quant_elim_plugin::check: fml = m.mk_false().
+		falseValue, e := m.MkFalse()
+		if e != nil {
+			return result, false, e
+		}
+		result, err = m.NewRef(falseValue)
+		return result, err == nil, err
 	}
 	leaves, err := root.leaves()
 	if err != nil {
@@ -197,15 +207,12 @@ search:
 			return result, false, err
 		}
 	}
-	formula, err := m.MkOrArgs(forms)
+	// m_root.get_leaves(result); m_bool_rewriter.mk_or(result, fml).
+	result, err = m.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return result, false, err
 	}
-	result, err = m.NewRef(formula)
-	if err != nil {
-		return result, false, err
-	}
-	if err = rw.Rewrite(formula, result); err != nil {
+	if err = boolRw.MkOr(forms, result); err != nil {
 		return result, false, err
 	}
 	return result, true, nil

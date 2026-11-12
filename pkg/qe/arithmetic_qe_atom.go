@@ -28,22 +28,7 @@ func (u *ArithmeticQETermUtil) relation(expression ast.ASTHandle) (kind int32, l
 }
 
 func (u *ArithmeticQETermUtil) strictZero(expression ast.ASTHandle) (ast.ASTRef, error) {
-	integer, err := u.isInteger(expression)
-	if err != nil {
-		return ast.ASTRef{}, err
-	}
-	if !integer {
-		return u.comparisonZero(expression, true)
-	}
-	minusOne, err := u.manager.ArithmeticIntegerNumeralText("-1")
-	if err != nil {
-		return ast.ASTRef{}, err
-	}
-	comparison, err := u.manager.MkArithmeticLE(expression, minusOne)
-	if err != nil {
-		return ast.ASTRef{}, err
-	}
-	return u.manager.NewRef(comparison)
+	return u.mkLt(expression)
 }
 
 func (u *ArithmeticQETermUtil) pairBoolean(left, right ast.ASTRef, conjunction bool) (result ast.ASTRef, resultErr error) {

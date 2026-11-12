@@ -27,21 +27,79 @@ func (u *ArithmeticQETermUtil) scale(value *big.Rat, term ast.ASTHandle) (ast.AS
 	return u.manager.NewRef(product)
 }
 
+// comparisonZero is arith_qe_util::mk_lt(e) when strict and mk_le(e)
+// otherwise. The caller owns the returned reference.
 func (u *ArithmeticQETermUtil) comparisonZero(expression ast.ASTHandle, strict bool) (ast.ASTRef, error) {
+	if strict {
+		return u.mkLt(expression)
+	}
+	return u.mkLe(expression)
+}
+
+// mkLe is arith_qe_util::mk_le: simplify(e), then
+// m_arith_rewriter.mk_le(e, 0).
+func (u *ArithmeticQETermUtil) mkLe(expression ast.ASTHandle) (result ast.ASTRef, err error) {
+	if u.theory == nil || u.arith == nil {
+		return result, ast.ErrASTHandle
+	}
+	m := u.manager
+	// mk_zero(e) reads e's sort; e may be released by the rewrite.
 	zero, err := u.zero(expression)
 	if err != nil {
-		return ast.ASTRef{}, err
+		return result, err
 	}
-	var comparison ast.ASTHandle
-	if strict {
-		comparison, err = u.manager.MkArithmeticLT(expression, zero)
+	tmp, err := m.NewRef(expression)
+	if err != nil {
+		return result, err
+	}
+	defer func() { err = errors.Join(err, m.DelRef(&tmp)) }()
+	if err = u.theory.Rewrite(expression, tmp); err != nil {
+		return result, err
+	}
+	simplified, err := m.RefGet(tmp)
+	if err != nil {
+		return result, err
+	}
+	return u.arith.MkLe2(simplified, zero)
+}
+
+// mkLt is arith_qe_util::mk_lt.
+func (u *ArithmeticQETermUtil) mkLt(expression ast.ASTHandle) (result ast.ASTRef, err error) {
+	if u.theory == nil {
+		return result, ast.ErrASTHandle
+	}
+	m := u.manager
+	var value ast.ASTHandle
+	if r, numeral, e := u.numeral(expression); e != nil {
+		return result, e
+	} else if numeral {
+		value, err = m.MkBoolVal(r.Sign() < 0)
+	} else if integer, e := u.isInteger(expression); e != nil {
+		return result, e
+	} else if integer {
+		var minusOne ast.ASTHandle
+		if minusOne, err = m.ArithmeticIntegerNumeralText("-1"); err == nil {
+			value, err = m.MkArithmeticLE(expression, minusOne)
+		}
 	} else {
-		comparison, err = u.manager.MkArithmeticLE(expression, zero)
+		var zero, le ast.ASTHandle
+		if zero, err = u.zero(expression); err == nil {
+			le, err = m.MkArithmeticLE(zero, expression)
+		}
+		if err == nil {
+			value, err = m.MkNot(le)
+		}
 	}
 	if err != nil {
-		return ast.ASTRef{}, err
+		return result, err
 	}
-	return u.manager.NewRef(comparison)
+	if result, err = m.NewRef(value); err != nil {
+		return result, err
+	}
+	if err = u.theory.Rewrite(value, result); err != nil {
+		return result, errors.Join(err, m.DelRef(&result))
+	}
+	return result, nil
 }
 
 // MakeBound constructs b*t <= a*s. Strict integer bounds use e+1 <= 0.
@@ -195,6 +253,7 @@ func (u *ArithmeticQETermUtil) MakeMin(arguments []ast.ASTHandle) (ast.ASTRef, e
 	return u.minMax(arguments, false)
 }
 
+// MakeDivides is arith_qe_util::mk_divides: 0 = (mod simplify(e) n).
 func (u *ArithmeticQETermUtil) MakeDivides(divisor *big.Rat, expression ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	if resultErr = u.open(); resultErr != nil {
 		return result, resultErr
@@ -202,39 +261,62 @@ func (u *ArithmeticQETermUtil) MakeDivides(divisor *big.Rat, expression ast.ASTH
 	if divisor == nil || !divisor.IsInt() {
 		return result, ast.ErrASTDomain
 	}
-	k, err := u.numeralFor(divisor, expression)
+	if u.theory == nil || u.arith == nil || u.boolRw == nil {
+		return result, ast.ErrASTHandle
+	}
+	m := u.manager
+	tmp1, err := m.NewRef(expression)
 	if err != nil {
 		return result, err
 	}
-	modular, err := u.manager.MkFamilyApp(u.family, 13, nil, []ast.ASTHandle{expression, k})
+	defer func() { resultErr = errors.Join(resultErr, m.DelRef(&tmp1)) }()
+	if err = u.theory.Rewrite(expression, tmp1); err != nil {
+		return result, err
+	}
+	simplified, err := m.RefGet(tmp1)
 	if err != nil {
 		return result, err
 	}
-	modularRef, err := u.manager.NewRef(modular)
+	n, err := m.ArithmeticNumeralRat(divisor, true)
 	if err != nil {
 		return result, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, u.manager.DelRef(&modularRef)) }()
-	zero, err := u.zero(expression)
+	tmp2, err := u.arith.MkMod2(simplified, n)
 	if err != nil {
 		return result, err
 	}
-	equality, err := u.manager.MkEq(zero, modular)
+	defer func() { resultErr = errors.Join(resultErr, m.DelRef(&tmp2)) }()
+	modular, err := m.RefGet(tmp2)
 	if err != nil {
 		return result, err
 	}
-	return u.manager.NewRef(equality)
+	zero, err := m.ArithmeticNumeralRat(new(big.Rat), true)
+	if err != nil {
+		return result, err
+	}
+	if result, err = m.NewRef(ast.ASTHandle{}); err != nil {
+		return result, err
+	}
+	if err = u.boolRw.MkEq(zero, modular, result); err != nil {
+		return result, errors.Join(err, m.DelRef(&result))
+	}
+	return result, nil
 }
 
-func (u *ArithmeticQETermUtil) MakeFlatAnd(left, right ast.ASTHandle) (ast.ASTRef, error) {
-	if err := u.open(); err != nil {
-		return ast.ASTRef{}, err
+// MakeFlatAnd is arith_qe_util::mk_flat_and: the conjuncts of both
+// arguments through m_bool_rewriter.mk_and.
+func (u *ArithmeticQETermUtil) MakeFlatAnd(left, right ast.ASTHandle) (result ast.ASTRef, err error) {
+	if err = u.open(); err != nil {
+		return result, err
+	}
+	if u.boolRw == nil {
+		return result, ast.ErrASTHandle
 	}
 	parts := make([]ast.ASTHandle, 0, 4)
 	for _, expression := range []ast.ASTHandle{left, right} {
 		args, conjunction, err := u.operation(expression, u.manager.BasicFamilyID(), ast.ASTOpAnd)
 		if err != nil {
-			return ast.ASTRef{}, err
+			return result, err
 		}
 		if conjunction {
 			parts = append(parts, args...)
@@ -242,9 +324,11 @@ func (u *ArithmeticQETermUtil) MakeFlatAnd(left, right ast.ASTHandle) (ast.ASTRe
 			parts = append(parts, expression)
 		}
 	}
-	combined, err := u.manager.MkAndArray(parts)
-	if err != nil {
-		return ast.ASTRef{}, err
+	if result, err = u.manager.NewRef(ast.ASTHandle{}); err != nil {
+		return result, err
 	}
-	return u.manager.NewRef(combined)
+	if err = u.boolRw.MkAnd(parts, result); err != nil {
+		return result, errors.Join(err, u.manager.DelRef(&result))
+	}
+	return result, nil
 }

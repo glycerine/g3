@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -32,7 +33,7 @@ func TestQuantifierBoolUnitsEliminateExistentialAndUniversal(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: tc.forall, Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: tc.body}))
-			result, complete, err := eliminateQuantifierBoolUnits(m, quantifier, f.r.config)
+			result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 			fmMust(t, err)
 			if complete != tc.complete {
 				t.Fatal("unexpected completion status", complete)
@@ -44,10 +45,21 @@ func TestQuantifierBoolUnitsEliminateExistentialAndUniversal(t *testing.T) {
 				return
 			}
 			defer func() { fmMust(t, m.DelRef(&result)) }()
+			// expr_quant_elim keeps the irrelevant conjuncts around the
+			// eliminated subformula ((and r true)); compare simplified forms.
+			simplified, err := m.NewRef(ast.ASTHandle{})
+			fmMust(t, err)
+			defer func() { fmMust(t, m.DelRef(&simplified)) }()
 			value, err := m.RefGet(result)
 			fmMust(t, err)
+			rw, err := rewriter.NewTheoryRewriter(m, f.r.config.Context, f.r.config.Globals, nil)
+			fmMust(t, err)
+			defer func() { fmMust(t, rw.Close()) }()
+			fmMust(t, rw.Rewrite(value, simplified))
+			value, err = m.RefGet(simplified)
+			fmMust(t, err)
 			if value != tc.want {
-				t.Fatal("incorrect quantifier result")
+				t.Fatal("incorrect quantifier result", value, tc.want)
 			}
 		})
 	}
@@ -62,7 +74,7 @@ func TestQuantifierBoolIndependentPredicatePartitions(t *testing.T) {
 	right := f.predicate("qe-partition-right", y)
 	body := f.own(m.MkAnd(left, right))
 	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.boolean, f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0), symbol.Numerical(1)}, Body: body}))
-	result, complete, err := eliminateQuantifierBoolUnits(m, quantifier, f.r.config)
+	result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("independent Boolean predicate partitions were not eliminated")

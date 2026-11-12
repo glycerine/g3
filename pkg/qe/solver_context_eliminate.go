@@ -14,6 +14,9 @@ func (c *SolverContext) EliminateVariable(index uint32, formula, definition ast.
 	if err := c.open(); err != nil {
 		return err
 	}
+	if c.tree != nil {
+		return c.tree.eliminate(index, formula, definition)
+	}
 	if index >= uint32(len(c.variables)) {
 		return arena.ErrBounds
 	}

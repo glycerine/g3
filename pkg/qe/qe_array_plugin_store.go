@@ -10,6 +10,15 @@ import (
 
 // TryStoreEquality solves a store chain equated to rhs. It publishes the
 // consistency constraints in the formula and appends one fresh value per store.
+//
+// BUG FIX relative to z3 (TODO.md "z3 4.7.1 bugs fixed in g3"; still present
+// in upstream z3 4.17.0): solve_store (src/qe/qe_array_plugin.cpp) requires
+// store(t, i, v)[j] = u for store(store(A, j, u), i, v) = t, which is false
+// when i = j because the outer store overwrites u. g3 guards each inner
+// write's constraint with the disjunction "some outer write uses the same
+// index" (or (= i j) ...). Reproduction:
+// test_vectors/z3_bug_qe_nested_store.smt2 (sat; z3 answers unsat under
+// (then qe smt)).
 func (p *ArrayPlugin) TryStoreEquality(lhs, rhs, formula ast.ASTHandle) (solved bool, err error) {
 	idx, levels, ok, e := p.arrayChain(lhs, rhs, ast.ASTArrayOpStore)
 	if e != nil || !ok {

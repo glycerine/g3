@@ -127,31 +127,50 @@ func (c *ConjunctionEnum) arithmeticRelation(expression ast.ASTHandle) (kind int
 	return kind, left, right, err == nil, err
 }
 
-// ExtractEqualities returns owning references. Arithmetic equalities become
-// lhs-rhs. Opposite <=/>= inequalities become one lhs-rhs equality in the
-// source scan order.
+// ExtractEqualities is conj_enum::extract_equalities. It returns owning
+// references: arithmetic equalities become lhs-rhs; opposite <=/>=
+// inequalities become one lhs-rhs equality in the source scan order. The
+// temporaries are released as the source's expr_refs are (tmp2, tmp1, then
+// the trail front to back).
 func (c *ConjunctionEnum) ExtractEqualities() (result []ast.ASTRef, err error) {
 	if err = c.open(); err != nil {
 		return nil, err
 	}
+	m := c.manager
 	defer func() {
 		if err == nil {
 			return
 		}
-		for i := len(result) - 1; i >= 0; i-- {
-			err = errors.Join(err, c.manager.DelRef(&result[i]))
+		for i := range result {
+			err = errors.Join(err, m.DelRef(&result[i]))
 		}
 		result = nil
 	}()
 	seen := make(map[ast.ASTHandle]bool)
 	var trail []ast.ASTRef
+	tmp1, err := m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return nil, err
+	}
+	tmp2, err := m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return nil, errors.Join(err, m.DelRef(&tmp1))
+	}
 	defer func() {
-		for i := len(trail) - 1; i >= 0; i-- {
-			err = errors.Join(err, c.manager.DelRef(&trail[i]))
+		err = errors.Join(err, m.DelRef(&tmp2), m.DelRef(&tmp1))
+		for i := range trail {
+			err = errors.Join(err, m.DelRef(&trail[i]))
 		}
 	}()
+	push := func(out *[]ast.ASTRef, h ast.ASTHandle) error {
+		ref, cause := m.NewRef(h)
+		if cause == nil {
+			*out = append(*out, ref)
+		}
+		return cause
+	}
 	for i := range c.items {
-		expression, cause := c.manager.RefGet(c.items[i])
+		expression, cause := m.RefGet(c.items[i])
 		if cause != nil {
 			return nil, cause
 		}
@@ -162,35 +181,34 @@ func (c *ConjunctionEnum) ExtractEqualities() (result []ast.ASTRef, err error) {
 		if !matched {
 			continue
 		}
-		difference, cause := c.manager.MkArithmeticSub(left, right)
+		difference, cause := m.MkArithmeticSub(left, right)
+		if cause == nil {
+			cause = m.SetRef(tmp1, difference)
+		}
 		if cause != nil {
 			return nil, cause
 		}
 		if kind == qeConjunctionEquality {
-			ref, cause := c.manager.NewRef(difference)
-			if cause != nil {
+			if cause = push(&result, difference); cause != nil {
 				return nil, cause
 			}
-			result = append(result, ref)
 			continue
 		}
-		reverse, cause := c.manager.MkArithmeticSub(right, left)
+		reverse, cause := m.MkArithmeticSub(right, left)
+		if cause == nil {
+			cause = m.SetRef(tmp2, reverse)
+		}
 		if cause != nil {
 			return nil, cause
 		}
 		if seen[reverse] {
-			ref, cause := c.manager.NewRef(difference)
-			if cause != nil {
-				return nil, cause
-			}
-			result = append(result, ref)
+			cause = push(&result, difference)
 		} else {
-			ref, cause := c.manager.NewRef(difference)
-			if cause != nil {
-				return nil, cause
-			}
-			trail = append(trail, ref)
+			cause = push(&trail, difference)
 			seen[difference] = true
+		}
+		if cause != nil {
+			return nil, cause
 		}
 	}
 	return result, nil

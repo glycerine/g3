@@ -20,7 +20,7 @@ func TestQuantifierBitVectorSearch(t *testing.T) {
 			sum := f.own(m.MkBitVectorAdd(x, y))
 			body := f.own(m.MkEq(sum, one))
 			quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: forall, Sorts: []ast.ASTHandle{sort}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
-			result, complete, err := eliminateQuantifierBitVectorSearch(m, quantifier, f.r.config)
+			result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 			fmMust(t, err)
 			if !complete {
 				t.Fatal("bit-vector quantifier was not eliminated")
@@ -54,7 +54,7 @@ func TestQuantifierBitVectorBlockSearch(t *testing.T) {
 			z := f.constant("bv-block-free", sort)
 			body := f.own(m.MkEq(f.own(m.MkBitVectorAdd(x, y)), z))
 			quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: forall, Sorts: []ast.ASTHandle{sort, sort}, Names: []symbol.Symbol{symbol.Numerical(0), symbol.Numerical(1)}, Body: body}))
-			result, complete, err := eliminateQuantifierBitVectorBlock(m, quantifier, f.r.config)
+			result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 			fmMust(t, err)
 			if !complete {
 				t.Fatal("bit-vector block was not eliminated")

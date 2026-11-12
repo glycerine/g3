@@ -57,10 +57,26 @@ func TestQuantifierTacticQuantifierFreeGoalAndUnsupportedQuantifier(t *testing.T
 	if depth != 1 {
 		t.Fatal("source QE tactic did not advance the goal", depth)
 	}
+	// z3 4.7.1 keeps x free (no plugin branches on x*x) but returns the
+	// normalized body: (not (exists ((x Int)) (<= (* x x) b))).
 	form, err := quantified.Form(0)
 	fmMust(t, err)
-	if form != q {
-		t.Fatal("unsupported quantifier was not preserved", form)
+	isNot, inner, err := m.IsNot(form)
+	fmMust(t, err)
+	if !isNot {
+		t.Fatal("universal quantifier was not negated", form)
+	}
+	forall, err := m.IsForall(inner)
+	fmMust(t, err)
+	kind, err := m.GetKind(inner)
+	fmMust(t, err)
+	if kind != ast.ASTQuantifier || forall {
+		t.Fatal("unsupported quantifier was not rebound existentially", inner)
+	}
+	body, err := m.GetQuantifierBody(inner)
+	fmMust(t, err)
+	if op, err := m.GetDeclKind(body); err != nil || op != 2 {
+		t.Fatal("negated body is not the normalized <= atom", op, err)
 	}
 }
 
@@ -73,7 +89,13 @@ func TestQuantifierTacticSourceProofModeClearsUnavailableRewriteProof(t *testing
 	defer func() { fmMust(t, port.Close()) }()
 	v := f.own(m.MkVar(0, f.boolean))
 	r := f.constant("qe-proof-free-condition", f.boolean)
-	body := f.own(m.MkAnd(v, r))
+	// (exists v (and v r)) is not used here: quant_elim_plugin::check
+	// substitutes the eliminated subformula back into (and true r), and
+	// goal::slow_process then calls mk_and_elim on qe_tactic's null proof,
+	// which crashes z3 4.7.1 under :produce-proofs. This body reduces to r
+	// in z3 4.7.1 in proof mode.
+	notV := f.own(m.MkNot(v))
+	body := f.own(m.MkAnd(f.own(m.MkOr(v, r)), f.own(m.MkOr(notV, r))))
 	quantified := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
 	goal := f.goal(true, false)
 	proof := f.own(m.MkProofAsserted(quantified))
@@ -158,10 +180,19 @@ func TestQuantifierTacticBooleanUnitsAndUnsupportedArithmetic(t *testing.T) {
 	if eliminated != r {
 		t.Fatal("supported Boolean quantifier did not simplify alongside an unsupported one", eliminated)
 	}
+	// z3 4.7.1 rebinds the free x over the normalized atom:
+	// (exists ((x Int)) (<= (+ b (* (- 1) x x)) (- 1))).
 	retained, err := mixed.Form(1)
 	fmMust(t, err)
-	if retained != unsupported {
-		t.Fatal("unsupported arithmetic quantifier was not preserved", retained)
+	kind, err := m.GetKind(retained)
+	fmMust(t, err)
+	if kind != ast.ASTQuantifier {
+		t.Fatal("unsupported arithmetic quantifier was eliminated", retained)
+	}
+	body, err := m.GetQuantifierBody(retained)
+	fmMust(t, err)
+	if op, err := m.GetDeclKind(body); err != nil || op != 2 || retained == unsupported {
+		t.Fatal("unsupported arithmetic quantifier body was not normalized", op, err)
 	}
 }
 

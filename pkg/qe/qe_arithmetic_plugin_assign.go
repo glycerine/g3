@@ -57,6 +57,10 @@ func (p *ArithmeticPlugin) Assign(variable *ast.ContainsApp, formula ast.ASTHand
 		err = p.rewriteFinite(e, target, selection, result)
 	}
 	if err == nil {
+		// m_util.simplify(result) before add_cache.
+		err = p.simplify(result)
+	}
+	if err == nil {
 		definition, err = p.branchDefinition(selection, substitution)
 	}
 	if err != nil {

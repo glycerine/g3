@@ -8,11 +8,9 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
-	"github.com/glycerine/g3/pkg/tactic"
 )
 
-// projectFull existentially abstracts one variable and invokes the available
-// quantifier elimination traversal. Unsupported inputs leave the context intact.
+// projectFull is solver_context::project_var_full.
 func (c *satSolverContext) projectFull(index uint32, rw *rewriter.TheoryRewriter, config Config) (err error) {
 	if c == nil || c.closed || rw == nil {
 		return ast.ErrASTHandle
@@ -46,12 +44,19 @@ func (c *satSolverContext) projectFull(index uint32, rw *rewriter.TheoryRewriter
 	if err != nil {
 		return err
 	}
-	projected, complete, err := rewriteQuantifierScalar(m, q, config)
+	// expr_quant_elim qelim(m, m_fparams); qelim(m.mk_true(), m_fml, result)
+	truth, err := m.MkTrue()
 	if err != nil {
 		return err
 	}
-	if !complete {
-		return tactic.NewTacticException("qe-sat full projection could not eliminate variable")
+	qelim := newExprQuantElim(m, config)
+	projected, err := qelim.run(truth, q)
+	err = errors.Join(err, qelim.Close())
+	if err != nil {
+		if projected != (ast.ASTRef{}) {
+			err = errors.Join(err, m.DelRef(&projected))
+		}
+		return err
 	}
 	defer func() { err = errors.Join(err, m.DelRef(&projected)) }()
 	value, err := m.RefGet(projected)

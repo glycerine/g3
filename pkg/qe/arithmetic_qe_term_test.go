@@ -20,6 +20,7 @@ type arithmeticQEFixture struct {
 	integer, real ast.ASTHandle
 	x, y          ast.ASTHandle
 	rx, ry        ast.ASTHandle
+	config        qe.Config
 }
 
 func arithmeticQEMust(t *testing.T, err error) {
@@ -40,9 +41,12 @@ func newArithmeticQEFixture(t *testing.T) *arithmeticQEFixture {
 	arithmeticQEMust(t, err)
 	real, err := command.LookupSort("Real")
 	arithmeticQEMust(t, err)
-	u, err := qe.NewArithmeticQETermUtil(m)
+	g, err := command.GlobalParameters()
 	arithmeticQEMust(t, err)
-	f := &arithmeticQEFixture{t: t, manager: m, util: u, integer: integer, real: real}
+	config := qe.Config{Context: g.Context, Globals: g}
+	u, err := qe.NewArithmeticQETermUtil(m, config)
+	arithmeticQEMust(t, err)
+	f := &arithmeticQEFixture{t: t, manager: m, util: u, integer: integer, real: real, config: config}
 	f.x = f.pin(m.MkFreshConst("qe-arith-x", integer))
 	f.y = f.pin(m.MkFreshConst("qe-arith-y", integer))
 	f.rx = f.pin(m.MkFreshConst("qe-arith-rx", real))
@@ -124,7 +128,8 @@ func TestArithmeticQERelationAndDivisibilityMatching(t *testing.T) {
 	}
 	h, err := f.manager.RefGet(polynomial)
 	arithmeticQEMust(t, err)
-	if kind, err := f.manager.GetDeclKind(h); err != nil || kind != 7 {
+	// is_le_ge_core: p = mk_sub(p, a2); simplify(p) gives x + -1*y.
+	if kind, err := f.manager.GetDeclKind(h); err != nil || kind != 6 {
 		t.Fatal("<= normalization kind", kind, err)
 	}
 	arithmeticQEMust(t, f.manager.DelRef(&polynomial))
@@ -136,8 +141,9 @@ func TestArithmeticQERelationAndDivisibilityMatching(t *testing.T) {
 	}
 	h, err = f.manager.RefGet(polynomial)
 	arithmeticQEMust(t, err)
-	if kind, err := f.manager.GetDeclKind(h); err != nil || kind != 7 {
-		t.Fatal("> 0 did not produce reversed difference", kind, err)
+	// is_lt: y > 0 gives p = mk_sub(0, y), simplified to -1*y.
+	if kind, err := f.manager.GetDeclKind(h); err != nil || kind != 9 {
+		t.Fatal("> 0 did not produce the negated term", kind, err)
 	}
 	arithmeticQEMust(t, f.manager.DelRef(&polynomial))
 
@@ -174,8 +180,9 @@ func TestArithmeticQEBoundsAbsMinMaxAndFlattening(t *testing.T) {
 	arithmeticQEMust(t, err)
 	h, err = f.manager.RefGet(strict)
 	arithmeticQEMust(t, err)
-	if kind, err := f.manager.GetDeclKind(h); err != nil || kind != 4 {
-		t.Fatal("real strict bound kind", kind, err)
+	// mk_strict_bound over reals is mk_lt: not (0 <= e), simplified.
+	if not, _, err := f.manager.IsNot(h); err != nil || !not {
+		t.Fatal("real strict bound is not mk_lt's negated <=", err)
 	}
 	arithmeticQEMust(t, f.manager.DelRef(&strict))
 

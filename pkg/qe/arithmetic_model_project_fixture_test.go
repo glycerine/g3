@@ -35,7 +35,7 @@ func newArithmeticModelFixture(t *testing.T, real bool, value string) *arithmeti
 	fmMust(t, err)
 	f.context, err = NewSolverContext(f.r.manager, []ast.ASTHandle{f.x})
 	fmMust(t, err)
-	f.plugin, err = NewArithmeticPlugin(f.context)
+	f.plugin, err = NewArithmeticPlugin(f.context, f.r.config)
 	fmMust(t, err)
 	f.model, err = model.NewModel(f.r.manager)
 	fmMust(t, err)

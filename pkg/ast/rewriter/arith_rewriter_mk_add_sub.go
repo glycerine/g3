@@ -52,3 +52,46 @@ func (r *ArithRewriter) mkBinary(kind int32, a1, a2 ast.ASTHandle) (out ast.ASTR
 	}
 	return out, nil
 }
+
+// MkLe2 is arith_rewriter::mk_le(arg1, arg2, result): mk_le_core, or the
+// plain application when it fails. The caller owns the returned reference.
+func (r *ArithRewriter) MkLe2(a1, a2 ast.ASTHandle) (out ast.ASTRef, err error) {
+	if err = r.open(); err != nil {
+		return ast.ASTRef{}, err
+	}
+	m := r.manager
+	sort, err := m.GetSort(a1)
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	boolSort, err := m.MkBoolSort()
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	decl, err := m.MkFamilyFuncDecl(r.family, arithOpLE, nil, []ast.ASTHandle{sort, sort}, boolSort)
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	if out, err = m.NewRef(ast.ASTHandle{}); err != nil {
+		return ast.ASTRef{}, err
+	}
+	args := []ast.ASTHandle{a1, a2}
+	status, err := r.MkAppCore(decl, ast.SliceArguments(args), out)
+	if err == nil && status == RewriteFailed {
+		var app ast.ASTHandle
+		if app, err = m.MkFamilyApp(r.family, arithOpLE, nil, args); err == nil {
+			err = m.SetRef(out, app)
+		}
+	}
+	if err != nil {
+		return ast.ASTRef{}, errors.Join(err, m.DelRef(&out))
+	}
+	return out, nil
+}
+
+// MkMod2 is arith_rewriter::mk_mod(arg1, arg2, result): mk_mod_core, or
+// the plain application when it fails. The caller owns the returned
+// reference.
+func (r *ArithRewriter) MkMod2(a1, a2 ast.ASTHandle) (ast.ASTRef, error) {
+	return r.mkBinary(arithOpMod, a1, a2)
+}

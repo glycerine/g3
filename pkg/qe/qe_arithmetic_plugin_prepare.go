@@ -41,9 +41,14 @@ func (p *ArithmeticPlugin) Prepare(variable *ast.ContainsApp, formula ast.ASTHan
 			normalized := atom
 			var owned ast.ASTRef
 			if polarity == 1 {
-				owned, _, cause = p.util.NormalizeAtom(atom, false)
+				var handled bool
+				owned, handled, cause = p.util.NormalizeAtom(atom, false)
 				if cause != nil {
 					return false, cause
+				}
+				if !handled {
+					// get_bound(not e) fails for a non-arithmetic atom.
+					return false, nil
 				}
 				normalized, cause = p.manager.RefGet(owned)
 				if cause != nil {

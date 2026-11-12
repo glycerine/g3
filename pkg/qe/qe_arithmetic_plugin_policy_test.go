@@ -27,7 +27,7 @@ func newArithmeticPluginFixture(t *testing.T, real bool) *arithmeticPluginFixtur
 	context, err := qe.NewSolverContext(f.manager, []ast.ASTHandle{target})
 	pluginMust(t, err)
 	f.context = context
-	plugin, err := qe.NewArithmeticPlugin(context)
+	plugin, err := qe.NewArithmeticPlugin(context, f.config)
 	pluginMust(t, err)
 	f.plugin = plugin
 	t.Cleanup(func() { pluginMust(t, plugin.Close()); pluginMust(t, context.Close()); pluginMust(t, contains.Close()) })

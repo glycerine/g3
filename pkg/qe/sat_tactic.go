@@ -200,7 +200,7 @@ func (t *QESATTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (err er
 		return err
 	}
 	defer func() { err = errors.Join(err, m.DelRef(&ref)) }()
-	preprocessed, err := simplifyQEExpression(m, conjunction)
+	preprocessed, err := simplifyQEExpression(m, t.config, conjunction)
 	if err != nil {
 		return err
 	}

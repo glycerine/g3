@@ -56,7 +56,7 @@ func TestQuantifierTacticEliminatesDatalogBlocks(t *testing.T) {
 				Forall: forall, Sorts: []ast.ASTHandle{sort, sort},
 				Names: []symbol.Symbol{symbol.Numerical(0), symbol.Numerical(1)}, Body: body,
 			}))
-			result, complete, err := rewriteQuantifierScalar(m, q, f.r.config)
+			result, complete, err := qeTestEliminate(m, q, f.r.config)
 			fmMust(t, err)
 			if !complete {
 				t.Fatal("finite-domain block was not eliminated")
@@ -95,7 +95,7 @@ func TestQuantifierMixedBooleanAndDatalogBlock(t *testing.T) {
 		Sorts: []ast.ASTHandle{boolean, sort},
 		Names: []symbol.Symbol{symbol.Numerical(0), symbol.Numerical(1)}, Body: body,
 	}))
-	result, complete, err := rewriteQuantifierScalar(m, q, f.r.config)
+	result, complete, err := qeTestEliminate(m, q, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("mixed Boolean and finite-domain quantifier was not eliminated")
@@ -123,7 +123,7 @@ func TestQuantifierTacticEliminatesDatalogDisequalities(t *testing.T) {
 	defer func() { fmMust(t, m.DelRef(&quantifierRef)) }()
 	quantifier, err := m.RefGet(quantifierRef)
 	fmMust(t, err)
-	result, complete, err := rewriteQuantifierScalar(m, quantifier, f.r.config)
+	result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("finite-domain disequalities were not eliminated")

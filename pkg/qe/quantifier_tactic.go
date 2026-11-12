@@ -24,6 +24,7 @@ type QuantifierTactic struct {
 	params              uparams.ParamsRef
 	options             quantifierTacticOptions
 	stats               *statistics.Statistics
+	qe                  *exprQuantElim
 	refs                uint32
 	bytes               uint64
 	paramsReady, closed bool
@@ -43,6 +44,7 @@ func NewQuantifierTactic(m *ast.ASTManager, params *uparams.ParamsRef, config Co
 		return nil, err
 	}
 	t := &QuantifierTactic{manager: m, config: config, stats: statistics.New(), bytes: size}
+	t.qe = newExprQuantElim(m, config)
 	t.self = t
 	var err error
 	t.params, err = config.Context.NewValue()
@@ -93,6 +95,12 @@ func (t *QuantifierTactic) Close() error {
 	}
 	if t.closed {
 		return nil
+	}
+	if t.qe != nil {
+		if err := t.qe.Close(); err != nil {
+			return err
+		}
+		t.qe = nil
 	}
 	if t.paramsReady {
 		if err := t.config.Context.Del(&t.params); err != nil {
@@ -225,27 +233,25 @@ func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (r
 			return e
 		}
 		if quantified {
-			var complete bool
 			qeConfig := t.config
 			qeConfig.eliminateVariablesAsBlock = t.options.eliminateVariablesAsBlock
 			qeConfig.eliminateVariablesAsBlockSet = true
 			qeConfig.nonlinearQuantifierElimination = t.options.nonlinear
 			qeConfig.produceModels = produceModels
-			qeConfig.qeStatistics = runStats
-			updates[i], complete, e = rewriteQuantifierScalar(t.manager, form, qeConfig)
+			t.qe.config = qeConfig
+			t.qe.initQE()
+			t.qe.qe.eliminateVariablesAsBlock = t.options.eliminateVariablesAsBlock
+			truth, e := t.manager.MkTrue()
+			if e != nil {
+				return e
+			}
+			// m_qe(m.mk_true(), f, new_f)
+			updates[i], e = t.qe.run(truth, form)
 			if e != nil {
 				if onlyArithmeticBranchUnsupported(e) {
 					return tactic.NewTacticException(errArithmeticBranchUnsupported.Error())
 				}
 				return e
-			}
-			if !complete {
-				// qe_tactic updates every quantified formula and leaves the
-				// quantifier in place when no plugin can eliminate it.
-				updates[i], e = t.manager.NewRef(form)
-				if e != nil {
-					return e
-				}
 			}
 			// qe_tactic updates each formula immediately, before checking the
 			// next goal entry. Keep that publication order so later cancellation
@@ -274,6 +280,10 @@ func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (r
 		return err
 	}
 	if err = out.AddGoal(goal); err != nil {
+		return err
+	}
+	// m_st.reset(); m_imp->collect_statistics(m_st)
+	if err = t.qe.collectStatistics(runStats); err != nil {
 		return err
 	}
 	t.stats = runStats

@@ -62,14 +62,13 @@ func (c *satSolverContext) projectPartial(index uint32, source *model.Model, rw 
 		}
 		projected = true
 	case arithmetic:
-		plugin, e := NewArithmeticPlugin(context)
+		plugin, e := NewArithmeticPlugin(context, config)
 		if e != nil {
 			return e
 		}
 		if e = context.AddPlugin(plugin); e != nil {
 			return errors.Join(e, plugin.Close())
 		}
-		plugin.util.theory = rw
 		adapter, e := NewSolverNNFAdapter(context)
 		if e != nil {
 			return e

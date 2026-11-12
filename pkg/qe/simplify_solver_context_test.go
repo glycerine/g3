@@ -16,7 +16,7 @@ func TestSimplifyExistsBooleanArithmeticFixedPoint(t *testing.T) {
 	equation := f.own(m.MkEq(x, f.number("3")))
 	inequality := f.own(m.MkArithmeticLE(z, x))
 	formula := f.own(m.MkAndArgs([]ast.ASTHandle{b, equation, inequality}))
-	result, err := simplifyExists(m, []ast.ASTHandle{b, x, z}, formula)
+	result, err := simplifyExists(m, f.r.config, []ast.ASTHandle{b, x, z}, formula)
 	fmMust(t, err)
 	defer func() { fmMust(t, result.Close()) }()
 	if len(result.variables) != 1 {
@@ -49,7 +49,7 @@ func TestSimplifyExistsLeavesUnsolvedVariable(t *testing.T) {
 	m := f.r.manager
 	x := f.constant("simplify-unsolved-x", f.integer)
 	formula := f.own(m.MkArithmeticLE(x, f.number("1")))
-	result, err := simplifyExists(m, []ast.ASTHandle{x}, formula)
+	result, err := simplifyExists(m, f.r.config, []ast.ASTHandle{x}, formula)
 	fmMust(t, err)
 	defer func() { fmMust(t, result.Close()) }()
 	value, err := m.RefGet(result.formula)
@@ -69,7 +69,7 @@ func TestSimplifyExistsOwnsFreshArithmeticVariables(t *testing.T) {
 	sum := f.own(m.MkArithmeticAdd(twoX, threeY))
 	lhs := f.own(m.MkArithmeticAdd(sum, f.number("1")))
 	formula := f.own(m.MkEq(lhs, f.number("0")))
-	result, err := simplifyExists(m, []ast.ASTHandle{x, y}, formula)
+	result, err := simplifyExists(m, f.r.config, []ast.ASTHandle{x, y}, formula)
 	fmMust(t, err)
 	defer func() { fmMust(t, result.Close()) }()
 	if len(result.variables) != 1 {
@@ -91,7 +91,7 @@ func TestSimplifyExistsOwnsFreshArithmeticVariables(t *testing.T) {
 	fmMust(t, abstractor.MkExists([]ast.ASTHandle{remaining}, body, quantified))
 	q, err := m.RefGet(quantified)
 	fmMust(t, err)
-	projected, complete, err := rewriteQuantifierScalar(m, q, f.r.config)
+	projected, complete, err := qeTestEliminate(m, q, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("fresh-variable formula could not be eliminated")

@@ -73,12 +73,14 @@ func TestBit2IntExtractionAlignmentAndCacheFoundation(t *testing.T) {
 	}
 
 	astTestMust(t, b.cacheResult(bv2int, left))
-	if len(b.cache) != 1 || len(b.keys) != 1 {
-		t.Fatal("cache insertion", len(b.cache), len(b.keys))
+	if size, err := b.cache.Size(); err != nil || size != 1 {
+		t.Fatal("cache insertion", size, err)
 	}
+	// flush_cache is act_cache::cleanup: an entry never found since its
+	// insertion is unused and is removed.
 	astTestMust(t, b.flushCache())
-	if len(b.cache) != 0 || len(b.keys) != 0 {
-		t.Fatal("cache flush", len(b.cache), len(b.keys))
+	if size, err := b.cache.Size(); err != nil || size != 0 {
+		t.Fatal("cache flush", size, err)
 	}
 }
 

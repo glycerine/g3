@@ -53,14 +53,15 @@ type Bit2Int struct {
 	self                  *Bit2Int
 	manager               *ast.ASTManager
 	bvFamily, arithFamily ast.FamilyID
-	cache                 map[ast.ASTHandle]ast.ASTRef
-	keys                  []ast.ASTHandle
-	bit0                  ast.ASTRef
-	params                *uparams.ParamsContext
-	globals               *uparams.GlobalParams
-	bv                    *BVRewriter
-	header                uint64
-	closed                bool
+	// cache is m_cache, an act_cache: keys and values stay referenced and
+	// flush_cache (cleanup) keeps the entries used since the last flush.
+	cache   *ast.ActivityCache
+	bit0    ast.ASTRef
+	params  *uparams.ParamsContext
+	globals *uparams.GlobalParams
+	bv      *BVRewriter
+	header  uint64
+	closed  bool
 }
 
 func NewBit2Int(m *ast.ASTManager) (*Bit2Int, error) {
@@ -71,9 +72,12 @@ func NewBit2Int(m *ast.ASTManager) (*Bit2Int, error) {
 	if err := m.Budget().Reserve(bytes); err != nil {
 		return nil, err
 	}
-	b := &Bit2Int{manager: m, cache: make(map[ast.ASTHandle]ast.ASTRef), header: bytes}
+	b := &Bit2Int{manager: m, header: bytes}
 	b.self = b
 	var err error
+	if b.cache, err = ast.NewActivityCache(m, nil); err != nil {
+		return b, err
+	}
 	b.arithFamily, err = m.RegisterArithmeticPlugin()
 	if err != nil {
 		return b, err
@@ -206,29 +210,17 @@ func (b *Bit2Int) alignSizes(c *bit2IntCall, left, right ast.ASTHandle) (ast.AST
 	return left, right, err
 }
 
-func (b *Bit2Int) flushCache() (result error) {
-	for i := len(b.keys); i > 0; {
-		i--
-		key := b.keys[i]
-		ref := b.cache[key]
-		delete(b.cache, key)
-		result = errors.Join(result, b.manager.DelRef(&ref))
+// flushCache is bit2int::flush_cache: m_cache.cleanup().
+func (b *Bit2Int) flushCache() error {
+	if b.cache == nil {
+		return nil
 	}
-	b.keys = b.keys[:0]
-	return result
+	return b.cache.Cleanup()
 }
 
+// cacheResult is bit2int::cache_result: m_cache.insert(n, r).
 func (b *Bit2Int) cacheResult(key, value ast.ASTHandle) error {
-	if prior, ok := b.cache[key]; ok {
-		return b.manager.SetRef(prior, value)
-	}
-	ref, err := b.manager.NewRef(value)
-	if err != nil {
-		return err
-	}
-	b.cache[key] = ref
-	b.keys = append(b.keys, key)
-	return nil
+	return b.cache.Insert(key, value)
 }
 
 func (b *Bit2Int) Close() (result error) {
@@ -238,9 +230,12 @@ func (b *Bit2Int) Close() (result error) {
 	if b.closed {
 		return nil
 	}
-	result = errors.Join(result, b.flushCache())
+	// ~bit2int: m_bit0, then m_cache, then m_rewriter.
 	if b.bit0 != (ast.ASTRef{}) {
 		result = errors.Join(result, b.manager.DelRef(&b.bit0))
+	}
+	if b.cache != nil {
+		result = errors.Join(result, b.cache.Close())
 	}
 	if b.bv != nil {
 		result = errors.Join(result, b.bv.Close())

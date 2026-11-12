@@ -56,6 +56,9 @@ func (p *DatalogPlugin) branch(variable *ast.ContainsApp, formula ast.ASTHandle,
 }
 
 func (p *DatalogPlugin) addConstraint(h ast.ASTHandle) error {
+	if done, err := p.context.addConstraint(true, h); done || err != nil {
+		return err
+	}
 	ref, e := p.manager.NewRef(h)
 	if e != nil {
 		return e

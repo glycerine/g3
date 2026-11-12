@@ -57,17 +57,15 @@ func drainExprQEConstraints(constraints []ArithmeticConstraint, node *exprQETree
 	m := node.manager
 	defer func() {
 		for i := range constraints {
-			if constraints[i].Formula != (ast.ASTRef{}) {
-				err = errors.Join(err, m.DelRef(&constraints[i].Formula))
-			}
+			err = errors.Join(err, constraints[i].release(m))
 		}
 	}()
 	for _, constraint := range constraints {
-		h, e := m.RefGet(constraint.Formula)
+		lits, e := constraint.literals(m)
 		if e != nil {
 			return e
 		}
-		if e = assertExprQETreeConstraint(node, solver, constraint.UseVariable, h); e != nil {
+		if e = assertExprQETreeConstraint(node, solver, constraint.UseVariable, lits...); e != nil {
 			return e
 		}
 	}

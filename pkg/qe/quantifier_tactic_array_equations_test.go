@@ -72,14 +72,25 @@ func TestQuantifierArrayEquationsProjection(t *testing.T) {
 			defer func() { fmMust(t, m.DelRef(&bound)) }()
 			quantifier, err := m.RefGet(bound)
 			fmMust(t, err)
-			result, complete, err := eliminateQuantifierArrayEquations(m, quantifier, f.r.config)
+			result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 			fmMust(t, err)
-			if !complete {
-				t.Fatal("array equations were not eliminated")
-			}
 			defer func() { fmMust(t, m.DelRef(&result)) }()
 			value, err := m.RefGet(result)
 			fmMust(t, err)
+			// z3 4.7.1 keeps these quantified: selects alone are not solved
+			// (the array stays bound), and solve_store's fresh w values stay
+			// bound over nested stores.
+			retained := map[string]ast.ASTHandle{"single-select": sort, "two-selects": sort, "disjunction": sort, "guarded-disjunction": sort, "nested-stores": f.integer, "three-stores": f.integer}
+			if boundSort, ok := retained[name]; ok {
+				if complete {
+					t.Fatal("array quantifier was eliminated where z3 keeps it")
+				}
+				qeTestRequireBoundSort(t, m, value, boundSort)
+				return
+			}
+			if !complete {
+				t.Fatal("array equations were not eliminated")
+			}
 			difference := f.own(m.MkNot(f.own(m.MkEq(value, expected))))
 			kernel := qsatKernelOwner(t, f)
 			solver, err := kernel.solver()
@@ -119,23 +130,42 @@ func TestQuantifierArrayMultidimensionalStoreProjection(t *testing.T) {
 	defer func() { fmMust(t, m.DelRef(&bound)) }()
 	quantifier, err := m.RefGet(bound)
 	fmMust(t, err)
-	result, complete, err := eliminateQuantifierArrayEquations(m, quantifier, f.r.config)
+	_ = expected
+	result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 	fmMust(t, err)
-	if !complete {
-		t.Fatal("multidimensional array equation was not eliminated")
-	}
 	defer func() { fmMust(t, m.DelRef(&result)) }()
+	// z3 4.7.1 eliminates the array but keeps solve_store's fresh values
+	// bound: (exists ((w!8 Int) (w!10 Int)) ...).
+	if complete {
+		t.Fatal("multidimensional store values were not kept bound")
+	}
 	value, err := m.RefGet(result)
 	fmMust(t, err)
-	difference := f.own(m.MkNot(f.own(m.MkEq(value, expected))))
-	kernel := qsatKernelOwner(t, f)
-	solver, err := kernel.solver()
+	qeTestRequireBoundSort(t, m, value, f.integer)
+}
+
+// qeTestRequireBoundSort requires an existential quantifier (possibly under
+// the expression root) whose bound variables all have the given sort.
+func qeTestRequireBoundSort(t *testing.T, m *ast.ASTManager, value, sort ast.ASTHandle) {
+	t.Helper()
+	kind, err := m.GetKind(value)
 	fmMust(t, err)
-	fmMust(t, solver.AssertFormula(difference))
-	status, err := solver.CheckSat(nil)
+	if kind != ast.ASTQuantifier {
+		t.Fatal("expected an existential quantifier", kind)
+	}
+	forall, err := m.IsForall(value)
 	fmMust(t, err)
-	if status != lbool.False {
-		t.Fatal("multidimensional store projection differs from expected", status)
+	n, err := m.GetNumDeclarations(value)
+	fmMust(t, err)
+	if forall || n == 0 {
+		t.Fatal("expected bound existential variables")
+	}
+	for i := uint32(0); i < n; i++ {
+		got, err := m.GetDeclarationSort(value, i)
+		fmMust(t, err)
+		if got != sort {
+			t.Fatal("bound variable sort", i)
+		}
 	}
 }
 
@@ -152,9 +182,15 @@ func TestQuantifierArrayDisjunctionUnderNegationIsNotDistributed(t *testing.T) {
 	defer func() { fmMust(t, m.DelRef(&bound)) }()
 	quantifier, err := m.RefGet(bound)
 	fmMust(t, err)
-	result, complete, err := eliminateQuantifierArrayEquations(m, quantifier, f.r.config)
+	// z3 4.7.1 keeps the array bound over the NNF body:
+	// (exists ((x!0 (Array Int Int))) (and (not (= x!0 b)) (not (= x!0 c)))).
+	result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 	fmMust(t, err)
-	if complete || result != (ast.ASTRef{}) {
+	defer func() { fmMust(t, m.DelRef(&result)) }()
+	if complete {
 		t.Fatal("negative disjunction was incorrectly projected")
 	}
+	value, err := m.RefGet(result)
+	fmMust(t, err)
+	qeTestRequireBoundSort(t, m, value, sort)
 }

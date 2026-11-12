@@ -9,10 +9,11 @@ import (
 	"github.com/glycerine/g3/pkg/smtcore"
 )
 
-// processExprQEScalarPartition eliminates each independent group in source
-// reverse order, then installs and blocks the resulting unit branch.
-func processExprQEScalarPartition(node *exprQETree, partition *exprQETreePartition, solver *smtcore.SMTSolver, config Config) (complete bool, err error) {
-	if node == nil || node.manager == nil || partition == nil || partition.manager != node.manager || !partition.split || solver == nil {
+// processExprQEScalarPartition is quant_elim_plugin::process_partition: each
+// independent group goes through quant_elim_new::eliminate_exists in source
+// reverse order, then the result is installed as a unit branch and blocked.
+func processExprQEScalarPartition(node *exprQETree, partition *exprQETreePartition, context *SolverContext, solver *smtcore.SMTSolver, config Config) (complete bool, err error) {
+	if node == nil || node.manager == nil || partition == nil || partition.manager != node.manager || !partition.split || solver == nil || context == nil || context.owner == nil {
 		return false, ast.ErrASTHandle
 	}
 	m := node.manager
@@ -33,36 +34,9 @@ func processExprQEScalarPartition(node *exprQETree, partition *exprQETreePartiti
 		if !ok {
 			break
 		}
-		current, e := m.RefGet(formula)
-		if e != nil {
-			return false, e
-		}
-		bound, e := bindExprQuantifierVariables(m, group, current)
-		if e != nil {
-			return false, e
-		}
-		boundValue, e := m.RefGet(bound)
-		if e != nil {
-			return false, errors.Join(e, m.DelRef(&bound))
-		}
-		kind, e := m.GetKind(boundValue)
-		if e != nil {
-			return false, errors.Join(e, m.DelRef(&bound))
-		}
-		if kind == ast.ASTQuantifier {
-			eliminated, done, cause := rewriteQuantifierScalar(m, boundValue, config)
-			if cause != nil || !done {
-				return false, errors.Join(cause, m.DelRef(&bound))
-			}
-			h, cause := m.RefGet(eliminated)
-			if cause == nil {
-				cause = m.SetRef(formula, h)
-			}
-			cause = errors.Join(cause, m.DelRef(&eliminated), m.DelRef(&bound))
-			if cause != nil {
-				return false, cause
-			}
-		} else if e = m.DelRef(&bound); e != nil {
+		// m_qe.eliminate_exists(vars, fml, m_free_vars, m_get_first, m_defs)
+		th := context.owner
+		if _, e = th.qe.eliminateExists(group, formula, &th.freeVars); e != nil {
 			return false, e
 		}
 	}

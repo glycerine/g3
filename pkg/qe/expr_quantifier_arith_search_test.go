@@ -29,7 +29,7 @@ func TestExprQEArithmeticSearchRetestsPropagation(t *testing.T) {
 	boolPlugin, err := NewBoolPlugin(context)
 	fmMust(t, err)
 	fmMust(t, context.AddPlugin(boolPlugin))
-	arithPlugin, err := NewArithmeticPlugin(context)
+	arithPlugin, err := NewArithmeticPlugin(context, f.r.config)
 	fmMust(t, err)
 	fmMust(t, context.AddPlugin(arithPlugin))
 	adapter, err := NewSolverNNFAdapter(context)
@@ -41,7 +41,6 @@ func TestExprQEArithmeticSearchRetestsPropagation(t *testing.T) {
 	rw, err := rewriter.NewTheoryRewriter(m, f.r.config.Context, f.r.config.Globals, nil)
 	fmMust(t, err)
 	defer func() { fmMust(t, rw.Close()) }()
-	arithPlugin.util.theory = rw
 	partitioner, err := NewConjunctionPartitioner(m)
 	fmMust(t, err)
 	defer func() { fmMust(t, partitioner.Close()) }()
@@ -57,7 +56,13 @@ func TestExprQEArithmeticSearchRetestsPropagation(t *testing.T) {
 	fmMust(t, root.initialize(formula))
 	fmMust(t, variables.consume(root))
 	fmMust(t, normalizeExprQETree(root, rw, nnf))
-	result, complete, err := searchExprQEScalarTree(root, variables, context, boolPlugin, partitioner, solver, f.r.config, rw, nnf)
+	var free []ast.ASTRef
+	defer func() {
+		for i := range free {
+			fmMust(t, m.DelRef(&free[i]))
+		}
+	}()
+	result, complete, err := searchExprQEScalarTree(root, variables, context, boolPlugin, partitioner, solver, f.r.config, rw, nnf, qeTestBoolRewriter(t, f), &free)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("arithmetic search was incomplete")
@@ -90,7 +95,7 @@ func TestExprQEArithmeticSearchWithBoundedCooperResidue(t *testing.T) {
 	defer func() { fmMust(t, m.DelRef(&bound)) }()
 	quantifier, err := m.RefGet(bound)
 	fmMust(t, err)
-	result, complete, err := eliminateQuantifierArithmeticSearch(m, quantifier, f.r.config)
+	result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("Cooper search did not finish")
@@ -124,7 +129,7 @@ func TestExprQENestedModuloProjection(t *testing.T) {
 	defer func() { fmMust(t, m.DelRef(&bound)) }()
 	quantifier, err := m.RefGet(bound)
 	fmMust(t, err)
-	result, complete, err := eliminateQuantifierArithmeticSearch(m, quantifier, f.r.config)
+	result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("nested modulo search did not finish")

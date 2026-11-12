@@ -19,8 +19,11 @@ type exprQETree struct {
 	children                      []*exprQETree
 	branchIndex                   map[string]int
 	simplifiers                   []exprQETreeSimplifier
-	branches                      big.Rat
-	pure                          bool
+	// literals is the owning quant_elim_plugin's m_literals, shared by
+	// every node; nil for trees built outside a plugin.
+	literals *exprQELiterals
+	branches big.Rat
+	pure     bool
 }
 
 func newExprQETree(m *ast.ASTManager, config Config, parent *exprQETree, assignment ast.ASTHandle) (result *exprQETree, err error) {
@@ -44,6 +47,7 @@ func newExprQETree(m *ast.ASTManager, config Config, parent *exprQETree, assignm
 	}
 	if parent != nil {
 		result.simplifiers = append(result.simplifiers, parent.simplifiers...)
+		result.literals = parent.literals
 	}
 	return result, nil
 }

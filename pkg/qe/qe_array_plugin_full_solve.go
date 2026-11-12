@@ -20,7 +20,8 @@ func (p *ArrayPlugin) Solve(conjs *ConjunctionEnum, formula ast.ASTHandle) (solv
 		return false, err
 	}
 	defer func() {
-		for i := len(equalities) - 1; i >= 0; i-- {
+		// expr_ref_vector destruction releases front to back.
+		for i := range equalities {
 			err = errors.Join(err, p.manager.DelRef(&equalities[i]))
 		}
 	}()

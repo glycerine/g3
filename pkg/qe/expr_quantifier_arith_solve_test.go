@@ -7,6 +7,10 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 )
 
+// TestExprQEArithmeticSolvePublishesFreshVariable follows
+// arith_qe_util::solve_linear through quant_elim_plugin's add_var and
+// elim_var: 2x + 3y + 1 = 0 has no unit coefficient, so x is replaced by a
+// definition over a fresh integer that joins the unit branch's variables.
 func TestExprQEArithmeticSolvePublishesFreshVariable(t *testing.T) {
 	f := qsatKernelFixture(t)
 	m := f.r.manager
@@ -16,30 +20,17 @@ func TestExprQEArithmeticSolvePublishesFreshVariable(t *testing.T) {
 	ctx, err := NewSolverContext(m, []ast.ASTHandle{x, y})
 	fmMust(t, err)
 	defer func() { fmMust(t, ctx.Close()) }()
-	plugin, err := NewArithmeticPlugin(ctx)
+	plugin, err := NewArithmeticPlugin(ctx, f.r.config)
 	fmMust(t, err)
-	defer func() { fmMust(t, plugin.Close()) }()
+	fmMust(t, ctx.AddPlugin(plugin))
+	rw, err := rewriter.NewTheoryRewriter(m, f.r.config.Context, f.r.config.Globals, nil)
+	fmMust(t, err)
+	defer func() { fmMust(t, rw.Close()) }()
 	twoX := f.own(m.MkArithmeticMul(f.number("2"), x))
 	threeY := f.own(m.MkArithmeticMul(f.number("3"), y))
 	linear := f.own(m.MkArithmeticAdd(twoX, threeY))
 	left := f.own(m.MkArithmeticAdd(linear, f.number("1")))
 	formula := f.own(m.MkEq(left, f.number("0")))
-	conjs, err := NewConjunctionEnum(m, formula)
-	fmMust(t, err)
-	defer func() { fmMust(t, conjs.Close()) }()
-	solved, err := plugin.Solve(conjs, formula)
-	fmMust(t, err)
-	if !solved {
-		t.Fatal("equation was not solved")
-	}
-	result, err := plugin.TakeEquationElimination()
-	fmMust(t, err)
-	if result == nil || len(result.Fresh) != 1 {
-		t.Fatal("expected fresh integer result")
-	}
-	defer func() { fmMust(t, result.Close()) }()
-	fresh, err := m.RefGet(result.Fresh[0])
-	fmMust(t, err)
 	vars, err := newExprQEBranchVariables(m)
 	fmMust(t, err)
 	defer func() { fmMust(t, vars.Close()) }()
@@ -50,29 +41,34 @@ func TestExprQEArithmeticSolvePublishesFreshVariable(t *testing.T) {
 	defer func() { fmMust(t, root.Close()) }()
 	fmMust(t, root.initialize(formula))
 	fmMust(t, vars.consume(root))
-	normCtx, err := NewSolverContext(m, []ast.ASTHandle{y, fresh})
-	fmMust(t, err)
-	defer func() { fmMust(t, normCtx.Close()) }()
-	adapter, err := NewSolverNNFAdapter(normCtx)
+	adapter, err := NewSolverNNFAdapter(ctx)
 	fmMust(t, err)
 	defer func() { fmMust(t, adapter.Close()) }()
 	nnf, err := NewQENNFNormalizer(m, adapter, adapter, f.r.config)
 	fmMust(t, err)
 	defer func() { fmMust(t, nnf.Close()) }()
-	rw, err := rewriter.NewTheoryRewriter(m, f.r.config.Context, f.r.config.Globals, nil)
+	tree := &exprQETreeContext{current: root, variables: vars, config: f.r.config, rw: rw, nnf: nnf}
+	conjs, err := NewConjunctionEnum(m, formula)
 	fmMust(t, err)
-	defer func() { fmMust(t, rw.Close()) }()
-	child, err := applyExprQEArithmeticResult(root, vars, ctx, result, f.r.config, rw, nnf)
+	defer func() { fmMust(t, conjs.Close()) }()
+	ctx.tree = tree
+	solved, err := plugin.Solve(conjs, formula)
+	ctx.tree = nil
 	fmMust(t, err)
+	if !solved {
+		t.Fatal("equation was not solved")
+	}
+	child := tree.current
 	if !root.isUnit() || len(child.variables) != 2 || len(vars.pending) != 0 {
 		t.Fatal("fresh variable not published in unit branch")
 	}
-	for i, want := range []ast.ASTHandle{y, fresh} {
-		got, e := m.RefGet(child.variables[i])
-		fmMust(t, e)
-		if got != want {
-			t.Fatal("child variables", i)
-		}
+	fresh, err := m.RefGet(child.variables[1])
+	fmMust(t, err)
+	if fresh == x || fresh == y {
+		t.Fatal("unit branch lacks the fresh variable")
+	}
+	if _, ok := vars.index[fresh]; !ok {
+		t.Fatal("fresh variable was not added to the branch tables")
 	}
 	definition, err := child.definitions.Definition(0)
 	fmMust(t, err)

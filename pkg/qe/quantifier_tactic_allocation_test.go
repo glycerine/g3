@@ -39,11 +39,11 @@ func TestQuantifierScalarAllocationFrontiers(t *testing.T) {
 					var complete bool
 					switch name {
 					case "boolean":
-						result, complete, err = eliminateQuantifierBoolUnits(m, q, f.r.config)
+						result, complete, err = qeTestEliminate(m, q, f.r.config)
 					case "arithmetic-equation":
-						result, complete, err = eliminateQuantifierArithmeticEquations(m, q, f.r.config)
+						result, complete, err = qeTestEliminate(m, q, f.r.config)
 					case "arithmetic-search":
-						result, complete, err = eliminateQuantifierArithmeticSearch(m, q, f.r.config)
+						result, complete, err = qeTestEliminate(m, q, f.r.config)
 					}
 					m.Budget().FailAfter(-1)
 					if result != (ast.ASTRef{}) {

@@ -38,8 +38,9 @@ func TestExprQETreeEliminationCreatesNormalizedUnitBranch(t *testing.T) {
 	fmMust(t, err)
 	defer func() { fmMust(t, rw.Close()) }()
 	formula := f.own(m.MkImplies(z, y))
-	child, err := eliminateExprQETreeVariable(root, 0, formula, z, vars, f.r.config, rw, nnf)
-	fmMust(t, err)
+	tree := &exprQETreeContext{current: root, variables: vars, config: f.r.config, rw: rw, nnf: nnf}
+	fmMust(t, tree.eliminate(0, formula, z))
+	child := tree.current
 	if !root.isUnit() || child.parent != root || len(child.variables) != 2 || len(vars.pending) != 0 {
 		t.Fatal("incorrect unit branch state")
 	}

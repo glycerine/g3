@@ -270,6 +270,9 @@ func (p *DatatypeSolverPlugin) assignEqualityBranch(target, formula ast.ASTHandl
 		return ast.ErrASTDomain
 	}
 	add := func(h ast.ASTHandle) error {
+		if done, err := p.context.addConstraint(true, h); done || err != nil {
+			return err
+		}
 		ref, err := p.manager.NewRef(h)
 		if err == nil {
 			p.constraints = append(p.constraints, ArithmeticConstraint{UseVariable: true, Formula: ref})

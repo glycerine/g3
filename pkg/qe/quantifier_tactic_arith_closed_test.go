@@ -18,12 +18,12 @@ func TestQuantifierArithmeticClosedInequality(t *testing.T) {
 	body := f.own(m.MkAnd(positive, r))
 	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
 	m.ResourceLimit().Cancel()
-	_, _, canceled := eliminateQuantifierArithmeticClosed(m, quantifier, f.r.config)
+	_, _, canceled := qeTestEliminate(m, quantifier, f.r.config)
 	m.ResourceLimit().ResetCancel()
 	if canceled == nil {
 		t.Fatal("canceled closed inequality succeeded")
 	}
-	result, complete, err := eliminateQuantifierArithmeticClosed(m, quantifier, f.r.config)
+	result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("independent inequality was not eliminated")
@@ -31,12 +31,17 @@ func TestQuantifierArithmeticClosedInequality(t *testing.T) {
 	defer func() { fmMust(t, m.DelRef(&result)) }()
 	value, err := m.RefGet(result)
 	fmMust(t, err)
-	if value != r {
+	// quant_elim_plugin::check splits (and (> x 0) r) by relevance
+	// (get_max_relevant), eliminates x from (> x 0) alone and substitutes
+	// the result back: expr_quant_elim yields (and r true); qe_tactic's goal
+	// update then reduces it to r, as z3 4.7.1 prints for (apply qe).
+	truth := f.own(m.MkTrue())
+	if value != f.own(m.MkAnd(r, truth)) {
 		t.Fatal("closed condition was not preserved")
 	}
 	nonnegative := f.own(m.MkArithmeticGE(x, zero))
 	forall := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: nonnegative}))
-	falseResult, complete, err := eliminateQuantifierArithmeticClosed(m, forall, f.r.config)
+	falseResult, complete, err := qeTestEliminate(m, forall, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("universal inequality was not eliminated")
@@ -49,30 +54,26 @@ func TestQuantifierArithmeticClosedInequality(t *testing.T) {
 	}
 	dependentUniversal := f.own(m.MkArithmeticGT(x, y))
 	forallDependent := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: dependentUniversal}))
-	equationResult, equationDone, err := eliminateQuantifierArithmeticEquations(m, forallDependent, f.r.config)
+	// z3 4.7.1 decides both quantifiers over a free bound: (forall x (> x y))
+	// is false and (exists x (> x y)) is true under (apply qe).
+	universal, done, err := qeTestEliminate(m, forallDependent, f.r.config)
 	fmMust(t, err)
-	if equationDone || equationResult != (ast.ASTRef{}) {
-		if equationResult != (ast.ASTRef{}) {
-			fmMust(t, m.DelRef(&equationResult))
-		}
-		t.Fatal("dependent inequality was reported as an equation")
+	defer func() { fmMust(t, m.DelRef(&universal)) }()
+	if !done {
+		t.Fatal("universal inequality depending on a free symbol was not eliminated")
 	}
-	unexpectedUniversal, done, err := eliminateQuantifierArithmeticClosed(m, forallDependent, f.r.config)
-	fmMust(t, err)
-	if done || unexpectedUniversal != (ast.ASTRef{}) {
-		if unexpectedUniversal != (ast.ASTRef{}) {
-			fmMust(t, m.DelRef(&unexpectedUniversal))
-		}
-		t.Fatal("universal inequality depending on a free symbol was prematurely eliminated")
+	if value, err := m.RefGet(universal); err != nil || !m.IsFalse(value) {
+		t.Fatal("not every integer exceeds a free bound", err)
 	}
 	dependent := f.own(m.MkArithmeticGT(x, y))
-	unsupported := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: dependent}))
-	unexpected, complete, err := eliminateQuantifierArithmeticClosed(m, unsupported, f.r.config)
+	existential := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: dependent}))
+	witness, complete, err := qeTestEliminate(m, existential, f.r.config)
 	fmMust(t, err)
-	if complete || unexpected != (ast.ASTRef{}) {
-		if unexpected != (ast.ASTRef{}) {
-			fmMust(t, m.DelRef(&unexpected))
-		}
-		t.Fatal("inequality depending on a free symbol was prematurely eliminated")
+	defer func() { fmMust(t, m.DelRef(&witness)) }()
+	if !complete {
+		t.Fatal("inequality depending on a free symbol was not eliminated")
+	}
+	if value, err := m.RefGet(witness); err != nil || !m.IsTrue(value) {
+		t.Fatal("some integer exceeds every free bound", err)
 	}
 }

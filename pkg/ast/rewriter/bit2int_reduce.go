@@ -2,7 +2,11 @@ package rewriter
 
 // Source: src/ast/rewriter/bit2int.cpp:109-183.
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
 
 type bit2IntComparison uint8
 
@@ -106,7 +110,7 @@ func (b *Bit2Int) mkArithmetic(c *bit2IntCall, kind int32, args ...ast.ASTHandle
 	return b.holdCall(c, h, err)
 }
 
-func (b *Bit2Int) mkAdd(c *bit2IntCall, left, right ast.ASTHandle) (ast.ASTHandle, bool, error) {
+func (b *Bit2Int) mkAddCore(c *bit2IntCall, left, right ast.ASTHandle) (ast.ASTHandle, bool, error) {
 	l, lok, err := b.extractBV(c, left)
 	if err != nil || !lok || l.sign {
 		return ast.ASTHandle{}, false, err
@@ -153,7 +157,7 @@ func (b *Bit2Int) mkAdd(c *bit2IntCall, left, right ast.ASTHandle) (ast.ASTHandl
 	return result, err == nil, err
 }
 
-func (b *Bit2Int) mkComp(c *bit2IntCall, mode bit2IntComparison, left, right ast.ASTHandle) (ast.ASTHandle, bool, error) {
+func (b *Bit2Int) mkCompCore(c *bit2IntCall, mode bit2IntComparison, left, right ast.ASTHandle) (ast.ASTHandle, bool, error) {
 	l, lok, err := b.extractBV(c, left)
 	if err != nil || !lok || l.sign {
 		return ast.ASTHandle{}, false, err
@@ -195,7 +199,7 @@ func (b *Bit2Int) mkComp(c *bit2IntCall, mode bit2IntComparison, left, right ast
 	return result, true, nil
 }
 
-func (b *Bit2Int) mkMul(c *bit2IntCall, left, right ast.ASTHandle) (ast.ASTHandle, bool, error) {
+func (b *Bit2Int) mkMulCore(c *bit2IntCall, left, right ast.ASTHandle) (ast.ASTHandle, bool, error) {
 	l, lok, err := b.extractBV(c, left)
 	if err != nil || !lok {
 		return ast.ASTHandle{}, false, err
@@ -235,4 +239,35 @@ func (b *Bit2Int) mkMul(c *bit2IntCall, left, right ast.ASTHandle) (ast.ASTHandl
 		}
 	}
 	return result, true, nil
+}
+
+// bit2IntLocal runs one of bit2int's mk_add, mk_comp or mk_mul bodies with
+// their tmp1, tmp2, tmp3 expr_refs in a local scope: the result is held by
+// the caller's scope and the temporaries are released when the function
+// returns, as the source's locals are.
+func (b *Bit2Int) bit2IntLocal(c *bit2IntCall, body func(local *bit2IntCall) (ast.ASTHandle, bool, error)) (result ast.ASTHandle, ok bool, err error) {
+	local := &bit2IntCall{owner: b}
+	result, ok, err = body(local)
+	if err == nil && ok {
+		result, err = c.hold(result)
+	}
+	if cause := local.close(); cause != nil {
+		err = errors.Join(err, cause)
+	}
+	if err != nil {
+		return ast.ASTHandle{}, false, err
+	}
+	return result, ok, nil
+}
+
+func (b *Bit2Int) mkAdd(c *bit2IntCall, left, right ast.ASTHandle) (ast.ASTHandle, bool, error) {
+	return b.bit2IntLocal(c, func(local *bit2IntCall) (ast.ASTHandle, bool, error) { return b.mkAddCore(local, left, right) })
+}
+
+func (b *Bit2Int) mkComp(c *bit2IntCall, mode bit2IntComparison, left, right ast.ASTHandle) (ast.ASTHandle, bool, error) {
+	return b.bit2IntLocal(c, func(local *bit2IntCall) (ast.ASTHandle, bool, error) { return b.mkCompCore(local, mode, left, right) })
+}
+
+func (b *Bit2Int) mkMul(c *bit2IntCall, left, right ast.ASTHandle) (ast.ASTHandle, bool, error) {
+	return b.bit2IntLocal(c, func(local *bit2IntCall) (ast.ASTHandle, bool, error) { return b.mkMulCore(local, left, right) })
 }

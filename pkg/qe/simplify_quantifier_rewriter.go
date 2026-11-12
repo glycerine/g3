@@ -13,13 +13,13 @@ import (
 
 // SimplifyQuantifiers performs the source QE simplification used by QE-SAT
 // and Datalog rule normalization. The caller owns the returned reference.
-func SimplifyQuantifiers(m *ast.ASTManager, expression ast.ASTHandle) (ast.ASTRef, error) {
-	return simplifyQEExpression(m, expression)
+func SimplifyQuantifiers(m *ast.ASTManager, config Config, expression ast.ASTHandle) (ast.ASTRef, error) {
+	return simplifyQEExpression(m, config, expression)
 }
 
 // simplifyQEExpression visits unannotated quantifiers bottom-up and simplifies
 // their bodies without requiring every quantified variable to be eliminated.
-func simplifyQEExpression(m *ast.ASTManager, expression ast.ASTHandle) (result ast.ASTRef, err error) {
+func simplifyQEExpression(m *ast.ASTManager, config Config, expression ast.ASTHandle) (result ast.ASTRef, err error) {
 	if m == nil {
 		return result, ast.ErrASTHandle
 	}
@@ -56,7 +56,7 @@ func simplifyQEExpression(m *ast.ASTManager, expression ast.ASTHandle) (result a
 		if e != nil {
 			return result, e
 		}
-		child, e := simplifyQEExpression(m, body)
+		child, e := simplifyQEExpression(m, config, body)
 		if e != nil {
 			return result, e
 		}
@@ -74,7 +74,7 @@ func simplifyQEExpression(m *ast.ASTManager, expression ast.ASTHandle) (result a
 			return result, e
 		}
 		defer func() { err = errors.Join(err, m.DelRef(&updatedRef)) }()
-		return simplifyQEQuantifier(m, updated)
+		return simplifyQEQuantifier(m, config, updated)
 	case ast.ASTApp:
 		n, e := m.GetNumArgs(expression)
 		if e != nil {
@@ -93,7 +93,7 @@ func simplifyQEExpression(m *ast.ASTManager, expression ast.ASTHandle) (result a
 			if x != nil {
 				return result, x
 			}
-			ref, x := simplifyQEExpression(m, old)
+			ref, x := simplifyQEExpression(m, config, old)
 			if x != nil {
 				return result, x
 			}
@@ -120,7 +120,7 @@ func simplifyQEExpression(m *ast.ASTManager, expression ast.ASTHandle) (result a
 	}
 }
 
-func simplifyQEQuantifier(m *ast.ASTManager, quantifier ast.ASTHandle) (result ast.ASTRef, err error) {
+func simplifyQEQuantifier(m *ast.ASTManager, config Config, quantifier ast.ASTHandle) (result ast.ASTRef, err error) {
 	defer func() {
 		if err != nil && result != (ast.ASTRef{}) {
 			err = errors.Join(err, m.DelRef(&result))
@@ -157,7 +157,7 @@ func simplifyQEQuantifier(m *ast.ASTManager, quantifier ast.ASTHandle) (result a
 		return result, err
 	}
 	defer func() { err = errors.Join(err, m.DelRef(&bodyRef)) }()
-	simplified, err := simplifyExists(m, vars, body)
+	simplified, err := simplifyExists(m, config, vars, body)
 	if err != nil {
 		return result, err
 	}

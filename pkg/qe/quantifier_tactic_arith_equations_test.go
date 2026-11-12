@@ -19,12 +19,12 @@ func TestQuantifierArithmeticUnitEquationElimination(t *testing.T) {
 	body := f.own(m.MkAnd(equality, positive))
 	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
 	m.ResourceLimit().Cancel()
-	_, _, canceled := eliminateQuantifierArithmeticEquations(m, quantifier, f.r.config)
+	_, _, canceled := qeTestEliminate(m, quantifier, f.r.config)
 	m.ResourceLimit().ResetCancel()
 	if canceled == nil {
 		t.Fatal("canceled arithmetic elimination succeeded")
 	}
-	result, complete, err := eliminateQuantifierArithmeticEquations(m, quantifier, f.r.config)
+	result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("integer unit equation was not eliminated")
@@ -46,7 +46,7 @@ func TestQuantifierArithmeticUnitEquationElimination(t *testing.T) {
 	}
 	notEquality := f.own(m.MkNot(equality))
 	forall := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: notEquality}))
-	falseResult, complete, err := eliminateQuantifierArithmeticEquations(m, forall, f.r.config)
+	falseResult, complete, err := qeTestEliminate(m, forall, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("universal disequality was not eliminated")
@@ -68,7 +68,7 @@ func TestQuantifierArithmeticRealEquationElimination(t *testing.T) {
 	product := f.own(m.MkArithmeticMul(two, x))
 	equality := f.own(m.MkEq(product, y))
 	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.real}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: equality}))
-	result, complete, err := eliminateQuantifierArithmeticEquations(m, quantifier, f.r.config)
+	result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("real equation was not eliminated")
@@ -92,7 +92,7 @@ func TestQuantifierArithmeticEquationFreshVariable(t *testing.T) {
 	left := f.own(m.MkArithmeticAdd(linear, f.number("1")))
 	body := f.own(m.MkEq(left, f.number("0")))
 	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer, f.integer}, Names: []symbol.Symbol{symbol.Numerical(0), symbol.Numerical(1)}, Body: body}))
-	result, complete, err := eliminateQuantifierArithmeticEquations(m, quantifier, f.r.config)
+	result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("integer equation with a fresh variable was not eliminated")
@@ -112,7 +112,7 @@ func TestQuantifierArithmeticEquationImpossibleDivisibility(t *testing.T) {
 	twoX := f.own(m.MkArithmeticMul(f.number("2"), x))
 	body := f.own(m.MkEq(twoX, f.number("1")))
 	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
-	result, complete, err := eliminateQuantifierArithmeticEquations(m, quantifier, f.r.config)
+	result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("impossible integer equation was not decided")
@@ -134,7 +134,7 @@ func TestQuantifierArithmeticEquationBoundsAndFreeDivisibility(t *testing.T) {
 	upper := f.own(m.MkArithmeticLE(x, y))
 	bounds := f.own(m.MkAnd(lower, upper))
 	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: bounds}))
-	result, complete, err := eliminateQuantifierArithmeticEquations(m, quantifier, f.r.config)
+	result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("opposing bounds were not eliminated as an equation")
@@ -148,12 +148,21 @@ func TestQuantifierArithmeticEquationBoundsAndFreeDivisibility(t *testing.T) {
 	twoX := f.own(m.MkArithmeticMul(f.number("2"), x))
 	divisibility := f.own(m.MkEq(twoX, y))
 	dependent := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: divisibility}))
-	unexpected, complete, err := eliminateQuantifierArithmeticEquations(m, dependent, f.r.config)
+	// solve_linear's Omega step (x = y/2 via an auxiliary integer) and the
+	// arithmetic branches leave the divisibility condition on y: z3 4.7.1
+	// reduces (exists x (= (* 2 x) y)) to (= 0 (mod y 2)).
+	divisible, complete, err := qeTestEliminate(m, dependent, f.r.config)
 	fmMust(t, err)
-	if complete || unexpected != (ast.ASTRef{}) {
-		if unexpected != (ast.ASTRef{}) {
-			fmMust(t, m.DelRef(&unexpected))
-		}
-		t.Fatal("free divisibility condition was prematurely eliminated")
+	defer func() { fmMust(t, m.DelRef(&divisible)) }()
+	if !complete {
+		t.Fatal("free divisibility condition was not eliminated")
+	}
+	value, err = m.RefGet(divisible)
+	fmMust(t, err)
+	arithmetic, err := m.ArithmeticFamilyID()
+	fmMust(t, err)
+	modulus := f.own(m.MkFamilyApp(arithmetic, 13, nil, []ast.ASTHandle{y, f.number("2")}))
+	if value != f.own(m.MkEq(f.number("0"), modulus)) {
+		t.Fatal("free divisibility condition is not 0 = y mod 2")
 	}
 }

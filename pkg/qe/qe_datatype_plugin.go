@@ -225,6 +225,13 @@ func (p *DatatypeSolverPlugin) Assign(variable *ast.ContainsApp, formula ast.AST
 		return err
 	}
 	if ref != (ast.ASTRef{}) {
+		h, e := p.manager.RefGet(ref)
+		if e != nil {
+			return errors.Join(e, p.manager.DelRef(&ref))
+		}
+		if done, e := p.context.addConstraint(true, h); done || e != nil {
+			return errors.Join(e, p.manager.DelRef(&ref))
+		}
 		p.constraints = append(p.constraints, ArithmeticConstraint{UseVariable: true, Formula: ref})
 	}
 	return nil

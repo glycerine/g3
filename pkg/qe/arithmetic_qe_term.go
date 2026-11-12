@@ -14,15 +14,25 @@ import (
 // ArithmeticQETermUtil is the dependency-closed arithmetic term and bound
 // foundation used by the retained arithmetic QE plugin.
 type ArithmeticQETermUtil struct {
-	self     *ArithmeticQETermUtil
-	manager  *ast.ASTManager
-	family   ast.FamilyID
-	theory   *rewriter.TheoryRewriter
-	qeConfig *Config
-	closed   bool
+	self    *ArithmeticQETermUtil
+	manager *ast.ASTManager
+	family  ast.FamilyID
+	// theory, arith and boolRw are arith_qe_util's m_rewriter,
+	// m_arith_rewriter and m_bool_rewriter (default parameters), owned when
+	// the util is built with parameter services.
+	theory *rewriter.TheoryRewriter
+	arith  *rewriter.ArithRewriter
+	boolRw *rewriter.BoolRewriter
+	// context is the i_solver_context whose blast_or expands symbolic
+	// Cooper disjunctions; nil outside a quant_elim_plugin.
+	context *SolverContext
+	closed  bool
 }
 
-func NewArithmeticQETermUtil(manager *ast.ASTManager) (*ArithmeticQETermUtil, error) {
+// NewArithmeticQETermUtil builds arith_qe_util. With parameter services in
+// config it owns its default th_rewriter, arith_rewriter and bool_rewriter;
+// without them only the term decomposition helpers are available.
+func NewArithmeticQETermUtil(manager *ast.ASTManager, config Config) (*ArithmeticQETermUtil, error) {
 	if manager == nil {
 		return nil, ast.ErrASTHandle
 	}
@@ -32,6 +42,19 @@ func NewArithmeticQETermUtil(manager *ast.ASTManager) (*ArithmeticQETermUtil, er
 	}
 	u := &ArithmeticQETermUtil{manager: manager, family: family}
 	u.self = u
+	if config.Context == nil {
+		return u, nil
+	}
+	u.theory, err = rewriter.NewTheoryRewriter(manager, config.Context, config.Globals, nil)
+	if err == nil {
+		u.arith, err = rewriter.NewArithRewriter(manager, config.Context, config.Globals, nil)
+	}
+	if err == nil {
+		u.boolRw, err = rewriter.NewBoolRewriter(manager, config.Context, config.Globals, nil)
+	}
+	if err != nil {
+		return nil, errors.Join(err, u.Close())
+	}
 	return u, nil
 }
 
@@ -52,8 +75,23 @@ func (u *ArithmeticQETermUtil) Close() error {
 	if u.closed {
 		return nil
 	}
+	var err error
+	if u.boolRw != nil {
+		err = errors.Join(err, u.boolRw.Close())
+	}
+	if u.arith != nil {
+		err = errors.Join(err, u.arith.Close())
+	}
+	if u.theory != nil {
+		err = errors.Join(err, u.theory.Close())
+	}
+	if err != nil {
+		return err
+	}
 	u.theory = nil
-	u.qeConfig = nil
+	u.arith = nil
+	u.boolRw = nil
+	u.context = nil
 	u.closed = true
 	return nil
 }

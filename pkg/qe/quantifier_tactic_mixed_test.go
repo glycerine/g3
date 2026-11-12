@@ -19,7 +19,7 @@ func TestQuantifierMixedBooleanArithmeticGroups(t *testing.T) {
 	positive := f.own(m.MkArithmeticGT(x, zero))
 	body := f.own(m.MkAndArray([]ast.ASTHandle{b, equality, positive}))
 	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.boolean, f.integer}, Names: []symbol.Symbol{symbol.Numerical(0), symbol.Numerical(1)}, Body: body}))
-	result, complete, err := eliminateQuantifierMixed(m, quantifier, f.r.config)
+	result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("mixed Boolean and integer block was not eliminated")
@@ -41,7 +41,7 @@ func TestQuantifierMixedBooleanArithmeticGroups(t *testing.T) {
 	}
 	independentBody := f.own(m.MkAnd(b, positive))
 	independent := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.boolean, f.integer}, Names: []symbol.Symbol{symbol.Numerical(0), symbol.Numerical(1)}, Body: independentBody}))
-	independentResult, complete, err := eliminateQuantifierMixed(m, independent, f.r.config)
+	independentResult, complete, err := qeTestEliminate(m, independent, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("independent mixed inequality was not eliminated")
@@ -55,7 +55,7 @@ func TestQuantifierMixedBooleanArithmeticGroups(t *testing.T) {
 	notEq := f.own(m.MkNot(equality))
 	implies := f.own(m.MkImplies(b, notEq))
 	forall := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.boolean, f.integer}, Names: []symbol.Symbol{symbol.Numerical(0), symbol.Numerical(1)}, Body: implies}))
-	falseResult, complete, err := eliminateQuantifierMixed(m, forall, f.r.config)
+	falseResult, complete, err := qeTestEliminate(m, forall, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("universal mixed block was not eliminated")
@@ -115,7 +115,7 @@ func TestQuantifierMixedArrayAndBitVectorGroups(t *testing.T) {
 			defer func() { fmMust(t, m.DelRef(&bound)) }()
 			quantifier, err := m.RefGet(bound)
 			fmMust(t, err)
-			result, complete, err := eliminateQuantifierMixed(m, quantifier, f.r.config)
+			result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 			fmMust(t, err)
 			if !complete {
 				t.Fatal("mixed theory block was not eliminated")

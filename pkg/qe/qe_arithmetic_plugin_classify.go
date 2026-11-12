@@ -80,16 +80,11 @@ func (p *ArithmeticPlugin) Weight(*ast.ContainsApp, ast.ASTHandle) (uint32, erro
 	}
 	return 2, nil
 }
+
+// Solve is arith_plugin::solve: m_util.solve(conjs, fml).
 func (p *ArithmeticPlugin) Solve(conjunctions *ConjunctionEnum, formula ast.ASTHandle) (bool, error) {
 	if err := p.open(); err != nil {
 		return false, err
 	}
-	if err := p.discardPendingEquation(); err != nil {
-		return false, err
-	}
-	result, solved, err := p.solveEquation(conjunctions, formula)
-	if err == nil && solved {
-		p.pendingEquation = result
-	}
-	return solved, err
+	return p.solve(conjunctions, formula)
 }

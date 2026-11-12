@@ -18,7 +18,7 @@ func TestQuantifierArithmeticSearchSymbolicBounds(t *testing.T) {
 	upper := f.own(m.MkArithmeticLE(x, zero))
 	body := f.own(m.MkAnd(lower, upper))
 	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
-	result, complete, err := eliminateQuantifierArithmeticSearch(m, quantifier, f.r.config)
+	result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("symbolic bounds were not eliminated")
@@ -40,7 +40,7 @@ func TestQuantifierArithmeticSearchSymbolicBounds(t *testing.T) {
 	}
 	greater := f.own(m.MkArithmeticGT(x, y))
 	forall := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: greater}))
-	falseResult, complete, err := eliminateQuantifierArithmeticSearch(m, forall, f.r.config)
+	falseResult, complete, err := qeTestEliminate(m, forall, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("unbounded universal comparison was not eliminated")
@@ -63,7 +63,7 @@ func TestQuantifierArithmeticSearchStrictBounds(t *testing.T) {
 	upper := f.own(m.MkArithmeticLT(x, oneAbove))
 	body := f.own(m.MkAnd(lower, upper))
 	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
-	result, complete, err := eliminateQuantifierArithmeticSearch(m, quantifier, f.r.config)
+	result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("empty integer interval was not eliminated")
@@ -81,7 +81,7 @@ func TestQuantifierArithmeticSearchStrictBounds(t *testing.T) {
 	rUpper := f.own(m.MkArithmeticLT(r, bound))
 	rBody := f.own(m.MkAnd(rLower, rUpper))
 	realQuantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.real}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: rBody}))
-	realResult, complete, err := eliminateQuantifierArithmeticSearch(m, realQuantifier, f.r.config)
+	realResult, complete, err := qeTestEliminate(m, realQuantifier, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("real open interval was not eliminated")
@@ -141,7 +141,7 @@ func TestQuantifierArithmeticSearchTwoSymbolicBounds(t *testing.T) {
 				expected = f.own(m.MkArithmeticLE(lower, upper))
 			}
 			quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: tc.forall, Sorts: []ast.ASTHandle{sort}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
-			result, complete, err := eliminateQuantifierArithmeticSearch(m, quantifier, f.r.config)
+			result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 			fmMust(t, err)
 			if !complete {
 				t.Fatal("two-symbolic-bound case was not eliminated")
@@ -176,7 +176,7 @@ func TestQuantifierArithmeticSearchOneUnitCoefficient(t *testing.T) {
 	lower := f.own(m.MkArithmeticGE(x, z))
 	body := f.own(m.MkAnd(upper, lower))
 	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
-	result, complete, err := eliminateQuantifierArithmeticSearch(m, quantifier, f.r.config)
+	result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("integer bounds with one unit coefficient were not eliminated")
@@ -211,7 +211,7 @@ func TestQuantifierArithmeticSearchDivisibility(t *testing.T) {
 			product := f.own(m.MkArithmeticMul(coefficient, x))
 			body := f.own(m.MkEq(product, y))
 			quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
-			result, complete, err := eliminateQuantifierArithmeticSearch(m, quantifier, f.r.config)
+			result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
 			fmMust(t, err)
 			if !complete {
 				t.Fatal("integer divisibility was not eliminated")

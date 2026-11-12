@@ -302,3 +302,9 @@ func (l *Lite) Close() error {
 	l.closed = true
 	return nil
 }
+
+// Config returns the parameters this eliminator was built with; the
+// Datalog unbound-variable fixer reuses them for the QE simplifier.
+func (l *Lite) Config() Config {
+	return l.config
+}

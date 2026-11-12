@@ -38,6 +38,12 @@ func TestRuleFixUnboundFailureOwnsFreshBindings(t *testing.T) {
 				ruleMust(t, err)
 				ruleMust(t, r.Close())
 			}
+			// One complete fix warms the QE simplifier: its arith plugin builds
+			// arith_qe_util's default th_rewriter, arith_rewriter and
+			// bool_rewriter, which intern persistent manager state.
+			warmed, _, err := f.rules.FixUnboundVariables(rule, f.lite, true)
+			ruleMust(t, err)
+			ruleMust(t, warmed.Close())
 			before := m.Stats()
 			m.Budget().FailAfter(stop)
 			fixed, _, cause := f.rules.FixUnboundVariables(rule, f.lite, true)

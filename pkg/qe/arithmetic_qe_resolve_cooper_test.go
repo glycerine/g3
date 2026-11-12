@@ -16,10 +16,16 @@ func TestArithmeticQECooperResolutionMatchesSolver(t *testing.T) {
 			x := f.constant("cooper-check-x", f.integer)
 			left := f.constant("cooper-check-left", f.integer)
 			right := f.constant("cooper-check-right", f.integer)
-			u, err := NewArithmeticQETermUtil(m)
+			u, err := NewArithmeticQETermUtil(m, f.r.config)
 			fmMust(t, err)
 			defer func() { fmMust(t, u.Close()) }()
-			u.qeConfig = &f.r.config
+			// quant_elim_new owns the plugin sets blast_or pushes.
+			q := &quantElimNew{manager: m, config: f.r.config, eliminateVariablesAsBlock: true}
+			defer func() { fmMust(t, q.Close()) }()
+			th, err := newQuantElimPlugin(q)
+			fmMust(t, err)
+			defer func() { fmMust(t, th.Close()) }()
+			u.context = th.context
 			result, handled, err := u.ResolveUnitOrReal(x, false, big.NewRat(coefficients[0], 1), left, big.NewRat(coefficients[1], 1), right)
 			fmMust(t, err)
 			if !handled {

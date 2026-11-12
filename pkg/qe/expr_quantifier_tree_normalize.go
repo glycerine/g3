@@ -25,13 +25,17 @@ func normalizeExprQETree(node *exprQETree, rw *rewriter.TheoryRewriter, nnf *QEN
 	if err = rw.Rewrite(root, node.formula); err != nil {
 		return err
 	}
-	for _, simplifier := range node.simplifiers {
-		for {
+	// while (simplified): the first plugin, in family order, that simplifies
+	// restarts the scan.
+	for simplified := true; simplified; {
+		simplified = false
+		for _, simplifier := range node.simplifiers {
 			changed, cause := simplifier.Simplify(node.formula, rw)
 			if cause != nil {
 				return cause
 			}
-			if !changed {
+			if changed {
+				simplified = true
 				break
 			}
 		}

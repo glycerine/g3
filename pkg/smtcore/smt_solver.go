@@ -438,6 +438,12 @@ func (s *SMTSolver) AcquireModel() (*model.ModelCore, error) {
 	return s.acquireOptimizationModel(md)
 }
 
+// Inconsistent is smt::kernel::inconsistent: the context is in conflict at
+// its current scope.
+func (s *SMTSolver) Inconsistent() bool {
+	return s.open() == nil && s.kernel.Inconsistent()
+}
+
 func (s *SMTSolver) Proof() (ast.ASTHandle, error) {
 	if err := s.open(); err != nil {
 		return ast.ASTHandle{}, err

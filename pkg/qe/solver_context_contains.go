@@ -13,6 +13,9 @@ func (c *SolverContext) Contains(index uint32) (*ast.ContainsApp, error) {
 	if err := c.open(); err != nil {
 		return nil, err
 	}
+	if c.tree != nil {
+		return c.tree.contains(index)
+	}
 	if index >= uint32(len(c.variables)) {
 		return nil, arena.ErrBounds
 	}

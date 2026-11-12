@@ -61,7 +61,13 @@ func TestExprQEBoolSearchMatchesBranchExpansion(t *testing.T) {
 			fmMust(t, root.initialize(formula))
 			fmMust(t, variables.consume(root))
 			fmMust(t, normalizeExprQETree(root, rw, nnf))
-			result, complete, err := searchExprQEScalarTree(root, variables, context, plugin, partitioner, solver, f.r.config, rw, nnf)
+			var free []ast.ASTRef
+			defer func() {
+				for i := range free {
+					fmMust(t, m.DelRef(&free[i]))
+				}
+			}()
+			result, complete, err := searchExprQEScalarTree(root, variables, context, plugin, partitioner, solver, f.r.config, rw, nnf, qeTestBoolRewriter(t, f), &free)
 			fmMust(t, err)
 			if !complete {
 				t.Fatal("Boolean search did not finish")

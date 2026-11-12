@@ -7,53 +7,106 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 )
 
-func TestExprQEBoolSolvePrefersUnitConjunctOrder(t *testing.T) {
+// exprQESolveFixture is a search tree over Boolean p, q whose solver
+// context carries a Boolean plugin, as quant_elim_plugin's does.
+type exprQESolveFixture struct {
+	f         *fmFixture
+	m         *ast.ASTManager
+	p, q      ast.ASTHandle
+	ctx       *SolverContext
+	plugin    *BoolPlugin
+	variables *exprQEBranchVariables
+	root      *exprQETree
+	tree      *exprQETreeContext
+}
+
+func newExprQESolveFixture(t *testing.T, name string, formula func(m *ast.ASTManager, p, q ast.ASTHandle) (ast.ASTHandle, error)) *exprQESolveFixture {
+	t.Helper()
 	f := qsatKernelFixture(t)
 	m := f.r.manager
-	p := f.constant("solve-p", f.boolean)
-	q := f.constant("solve-q", f.boolean)
+	s := &exprQESolveFixture{f: f, m: m}
+	s.p = f.constant(name+"-p", f.boolean)
+	s.q = f.constant(name+"-q", f.boolean)
 	truth := f.own(m.MkTrue())
-	ctx, err := NewSolverContext(m, []ast.ASTHandle{p, q})
+	var err error
+	s.ctx, err = NewSolverContext(m, []ast.ASTHandle{s.p, s.q})
 	fmMust(t, err)
-	defer func() { fmMust(t, ctx.Close()) }()
-	plugin, err := NewBoolPlugin(ctx)
+	t.Cleanup(func() { fmMust(t, s.ctx.Close()) })
+	s.plugin, err = NewBoolPlugin(s.ctx)
 	fmMust(t, err)
-	defer func() { fmMust(t, plugin.Close()) }()
-	vars, err := newExprQEBranchVariables(m)
+	fmMust(t, s.ctx.AddPlugin(s.plugin))
+	adapter, err := NewSolverNNFAdapter(s.ctx)
 	fmMust(t, err)
-	defer func() { fmMust(t, vars.Close()) }()
-	fmMust(t, vars.add(q))
-	fmMust(t, vars.add(p))
-	root, err := newExprQETree(m, f.r.config, nil, truth)
+	t.Cleanup(func() { fmMust(t, adapter.Close()) })
+	nnf, err := NewQENNFNormalizer(m, adapter, adapter, f.r.config)
 	fmMust(t, err)
-	defer func() { fmMust(t, root.Close()) }()
-	formula := f.own(m.MkAnd(p, q))
-	fmMust(t, root.initialize(formula))
-	fmMust(t, vars.consume(root))
-	root.atoms, err = NewBoolAtomIndex(m, []ast.ASTHandle{p, q}, nil)
+	t.Cleanup(func() { fmMust(t, nnf.Close()) })
+	rw, err := rewriter.NewTheoryRewriter(m, f.r.config.Context, f.r.config.Globals, nil)
+	fmMust(t, err)
+	t.Cleanup(func() { fmMust(t, rw.Close()) })
+	s.variables, err = newExprQEBranchVariables(m)
+	fmMust(t, err)
+	t.Cleanup(func() { fmMust(t, s.variables.Close()) })
+	fmMust(t, s.variables.add(s.q))
+	fmMust(t, s.variables.add(s.p))
+	s.root, err = newExprQETree(m, f.r.config, nil, truth)
+	fmMust(t, err)
+	t.Cleanup(func() { fmMust(t, s.root.Close()) })
+	fml := f.own(formula(m, s.p, s.q))
+	fmMust(t, s.root.initialize(fml))
+	fmMust(t, s.variables.consume(s.root))
+	s.root.atoms, err = NewBoolAtomIndex(m, []ast.ASTHandle{s.p, s.q}, nil)
+	fmMust(t, err)
+	s.tree = &exprQETreeContext{current: s.root, variables: s.variables, config: f.r.config, rw: rw, nnf: nnf}
+	return s
+}
+
+// solveOnce runs the Boolean plugin's solve callback once with the context
+// bound to the tree, as solve_vars does.
+func (s *exprQESolveFixture) solveOnce(t *testing.T) bool {
+	t.Helper()
+	formula, err := s.m.RefGet(s.tree.current.formula)
+	fmMust(t, err)
+	conjs, err := NewConjunctionEnum(s.m, formula)
+	fmMust(t, err)
+	defer func() { fmMust(t, conjs.Close()) }()
+	s.ctx.tree = s.tree
+	defer func() { s.ctx.tree = nil }()
+	solved, err := s.plugin.SolveContext(conjs, formula, s.tree.current.atoms)
+	fmMust(t, err)
+	return solved
+}
+
+func TestExprQEBoolSolvePrefersUnitConjunctOrder(t *testing.T) {
+	s := newExprQESolveFixture(t, "solve", func(m *ast.ASTManager, p, q ast.ASTHandle) (ast.ASTHandle, error) { return m.MkAnd(p, q) })
+	m := s.m
+	formula, err := m.RefGet(s.root.formula)
 	fmMust(t, err)
 	conjs, err := NewConjunctionEnum(m, formula)
 	fmMust(t, err)
-	defer func() { fmMust(t, conjs.Close()) }()
 	first, err := conjs.At(0)
 	fmMust(t, err)
-	wantIndex, err := root.variableIndex(first)
+	fmMust(t, conjs.Close())
+	wantIndex, err := s.root.variableIndex(first)
 	fmMust(t, err)
 	if wantIndex != 1 {
 		t.Fatal("test did not distinguish conjunct and variable order")
 	}
-	index, result, found, err := chooseExprQEBoolElimination(root, vars, plugin, conjs)
-	fmMust(t, err)
-	if !found || int(index) != wantIndex {
-		t.Fatal("first unit conjunct was not selected", index)
+	if !s.solveOnce(t) || !s.root.isUnit() {
+		t.Fatal("unit conjunct was not solved")
 	}
-	defer func() { fmMust(t, result.Close()) }()
-	definition, err := m.RefGet(result.Definition)
+	selected, err := m.RefGet(s.root.selected)
+	fmMust(t, err)
+	if selected != first {
+		t.Fatal("first unit conjunct was not selected")
+	}
+	child := s.tree.current
+	definition, err := child.definitions.Definition(0)
 	fmMust(t, err)
 	if !m.IsTrue(definition) {
 		t.Fatal("unit definition")
 	}
-	rewritten, err := m.RefGet(result.Formula)
+	rewritten, err := m.RefGet(child.formula)
 	fmMust(t, err)
 	contains, err := ast.NewContainsApp(m, first)
 	fmMust(t, err)
@@ -63,18 +116,22 @@ func TestExprQEBoolSolvePrefersUnitConjunctOrder(t *testing.T) {
 	if yes {
 		t.Fatal("eliminated variable remains")
 	}
-	polarized := f.own(m.MkOr(p, q))
-	fmMust(t, root.initialize(polarized))
-	polarConjs, err := NewConjunctionEnum(m, polarized)
+}
+
+func TestExprQEBoolSolvePolarizedVariableOrder(t *testing.T) {
+	s := newExprQESolveFixture(t, "solve-polar", func(m *ast.ASTManager, p, q ast.ASTHandle) (ast.ASTHandle, error) { return m.MkOr(p, q) })
+	m := s.m
+	want, err := m.RefGet(s.root.variables[0])
 	fmMust(t, err)
-	defer func() { fmMust(t, polarConjs.Close()) }()
-	index, polarityResult, found, err := chooseExprQEBoolElimination(root, vars, plugin, polarConjs)
+	if !s.solveOnce(t) {
+		t.Fatal("polarized variable was not solved")
+	}
+	selected, err := m.RefGet(s.root.selected)
 	fmMust(t, err)
-	if !found || index != 0 {
+	if selected != want {
 		t.Fatal("first polarized variable was not selected")
 	}
-	defer func() { fmMust(t, polarityResult.Close()) }()
-	definition, err = m.RefGet(polarityResult.Definition)
+	definition, err := s.tree.current.definitions.Definition(0)
 	fmMust(t, err)
 	if !m.IsTrue(definition) {
 		t.Fatal("positive polarity definition")
@@ -82,45 +139,13 @@ func TestExprQEBoolSolvePrefersUnitConjunctOrder(t *testing.T) {
 }
 
 func TestExprQEBoolSolveCreatesUnitBranch(t *testing.T) {
-	f := qsatKernelFixture(t)
-	m := f.r.manager
-	p := f.constant("solve-unit-p", f.boolean)
-	q := f.constant("solve-unit-q", f.boolean)
-	truth := f.own(m.MkTrue())
-	ctx, err := NewSolverContext(m, []ast.ASTHandle{p, q})
-	fmMust(t, err)
-	defer func() { fmMust(t, ctx.Close()) }()
-	plugin, err := NewBoolPlugin(ctx)
-	fmMust(t, err)
-	defer func() { fmMust(t, plugin.Close()) }()
-	adapter, err := NewSolverNNFAdapter(ctx)
-	fmMust(t, err)
-	defer func() { fmMust(t, adapter.Close()) }()
-	nnf, err := NewQENNFNormalizer(m, adapter, adapter, f.r.config)
-	fmMust(t, err)
-	defer func() { fmMust(t, nnf.Close()) }()
-	rw, err := rewriter.NewTheoryRewriter(m, f.r.config.Context, f.r.config.Globals, nil)
-	fmMust(t, err)
-	defer func() { fmMust(t, rw.Close()) }()
-	variables, err := newExprQEBranchVariables(m)
-	fmMust(t, err)
-	defer func() { fmMust(t, variables.Close()) }()
-	fmMust(t, variables.add(q))
-	fmMust(t, variables.add(p))
-	root, err := newExprQETree(m, f.r.config, nil, truth)
-	fmMust(t, err)
-	defer func() { fmMust(t, root.Close()) }()
-	formula := f.own(m.MkAnd(p, q))
-	fmMust(t, root.initialize(formula))
-	fmMust(t, variables.consume(root))
-	root.atoms, err = NewBoolAtomIndex(m, []ast.ASTHandle{p, q}, nil)
-	fmMust(t, err)
-	conjs, err := NewConjunctionEnum(m, formula)
-	fmMust(t, err)
-	defer func() { fmMust(t, conjs.Close()) }()
-	child, solved, err := solveExprQEBool(root, variables, plugin, conjs, f.r.config, rw, nnf)
-	fmMust(t, err)
-	if !solved || !root.isUnit() || child == nil || len(child.variables) != 1 {
+	s := newExprQESolveFixture(t, "solve-unit", func(m *ast.ASTManager, p, q ast.ASTHandle) (ast.ASTHandle, error) { return m.MkAnd(p, q) })
+	m := s.m
+	if !s.solveOnce(t) {
+		t.Fatal("Boolean solve did not solve")
+	}
+	child := s.tree.current
+	if !s.root.isUnit() || child == s.root || len(child.variables) != 1 {
 		t.Fatal("Boolean solve did not publish unit branch")
 	}
 	remaining, err := m.RefGet(child.variables[0])
@@ -137,43 +162,12 @@ func TestExprQEBoolSolveCreatesUnitBranch(t *testing.T) {
 	}
 }
 
-func TestExprQEBoolSolveRepeatsUntilFixedPoint(t *testing.T) {
-	f := qsatKernelFixture(t)
-	m := f.r.manager
-	p := f.constant("solve-loop-p", f.boolean)
-	q := f.constant("solve-loop-q", f.boolean)
-	truth := f.own(m.MkTrue())
-	ctx, err := NewSolverContext(m, []ast.ASTHandle{p, q})
-	fmMust(t, err)
-	defer func() { fmMust(t, ctx.Close()) }()
-	plugin, err := NewBoolPlugin(ctx)
-	fmMust(t, err)
-	defer func() { fmMust(t, plugin.Close()) }()
-	adapter, err := NewSolverNNFAdapter(ctx)
-	fmMust(t, err)
-	defer func() { fmMust(t, adapter.Close()) }()
-	nnf, err := NewQENNFNormalizer(m, adapter, adapter, f.r.config)
-	fmMust(t, err)
-	defer func() { fmMust(t, nnf.Close()) }()
-	rw, err := rewriter.NewTheoryRewriter(m, f.r.config.Context, f.r.config.Globals, nil)
-	fmMust(t, err)
-	defer func() { fmMust(t, rw.Close()) }()
-	variables, err := newExprQEBranchVariables(m)
-	fmMust(t, err)
-	defer func() { fmMust(t, variables.Close()) }()
-	fmMust(t, variables.add(q))
-	fmMust(t, variables.add(p))
-	root, err := newExprQETree(m, f.r.config, nil, truth)
-	fmMust(t, err)
-	defer func() { fmMust(t, root.Close()) }()
-	formula := f.own(m.MkAnd(p, q))
-	fmMust(t, root.initialize(formula))
-	fmMust(t, variables.consume(root))
-	root.atoms, err = NewBoolAtomIndex(m, []ast.ASTHandle{p, q}, nil)
-	fmMust(t, err)
-	leaf, err := solveExprQEBoolUnits(root, variables, plugin, f.r.config, rw, nnf)
-	fmMust(t, err)
-	if !root.isUnit() || !root.children[0].isUnit() || len(leaf.variables) != 0 {
+func TestExprQESolveVarsRepeatsUntilFixedPoint(t *testing.T) {
+	s := newExprQESolveFixture(t, "solve-loop", func(m *ast.ASTManager, p, q ast.ASTHandle) (ast.ASTHandle, error) { return m.MkAnd(p, q) })
+	m := s.m
+	fmMust(t, solveExprQEVars(s.tree, s.ctx))
+	leaf := s.tree.current
+	if !s.root.isUnit() || !s.root.children[0].isUnit() || len(leaf.variables) != 0 {
 		t.Fatal("expected two successive unit eliminations")
 	}
 	result, err := m.RefGet(leaf.formula)
@@ -181,9 +175,11 @@ func TestExprQEBoolSolveRepeatsUntilFixedPoint(t *testing.T) {
 	if !m.IsTrue(result) {
 		t.Fatal("expected the eliminated conjunction to simplify to true")
 	}
-	again, err := solveExprQEBoolUnits(leaf, variables, plugin, f.r.config, rw, nnf)
-	fmMust(t, err)
-	if again != leaf {
+	if s.ctx.tree != nil {
+		t.Fatal("solve_vars left the context bound to the tree")
+	}
+	fmMust(t, solveExprQEVars(s.tree, s.ctx))
+	if s.tree.current != leaf {
 		t.Fatal("fixed point produced another branch")
 	}
 }

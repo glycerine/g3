@@ -37,7 +37,7 @@ func (r *qeSimplifyResult) Close() error {
 
 // simplifyExists solves source Boolean units and arithmetic equations to a
 // fixed point. Inputs are borrowed; the result owns its formula and variables.
-func simplifyExists(m *ast.ASTManager, variables []ast.ASTHandle, formula ast.ASTHandle) (result *qeSimplifyResult, err error) {
+func simplifyExists(m *ast.ASTManager, config Config, variables []ast.ASTHandle, formula ast.ASTHandle) (result *qeSimplifyResult, err error) {
 	if m == nil {
 		return nil, ast.ErrASTHandle
 	}
@@ -58,7 +58,7 @@ func simplifyExists(m *ast.ASTManager, variables []ast.ASTHandle, formula ast.AS
 		return result, err
 	}
 	defer func() { err = errors.Join(err, boolean.Close()) }()
-	arithmetic, err := NewArithmeticPlugin(context)
+	arithmetic, err := NewArithmeticPlugin(context, config)
 	if err != nil {
 		return result, err
 	}
@@ -92,19 +92,6 @@ func simplifyExists(m *ast.ASTManager, variables []ast.ASTHandle, formula ast.AS
 		solved, e := boolean.SolveContext(conjs, f, atoms)
 		if e == nil && !solved {
 			solved, e = arithmetic.Solve(conjs, f)
-			if e == nil && solved {
-				var equation *ArithmeticEquationElimination
-				equation, e = arithmetic.TakeEquationElimination()
-				if e == nil && equation == nil {
-					e = ast.ErrASTDomain
-				}
-				if e == nil {
-					e = publishSimplifyArithmetic(m, context, equation)
-				}
-				if equation != nil {
-					e = errors.Join(e, equation.Close())
-				}
-			}
 		}
 		e = errors.Join(e, conjs.Close())
 		if e != nil {
@@ -140,32 +127,4 @@ func simplifyExists(m *ast.ASTManager, variables []ast.ASTHandle, formula ast.AS
 		result.variables = append(result.variables, ref)
 	}
 	return result, nil
-}
-
-func publishSimplifyArithmetic(m *ast.ASTManager, context *SolverContext, equation *ArithmeticEquationElimination) error {
-	for _, fresh := range equation.Fresh {
-		ref, err := m.CopyRef(fresh)
-		if err != nil {
-			return err
-		}
-		h, err := m.RefGet(ref)
-		if err == nil {
-			err = context.adoptVariable(h, &ref)
-		}
-		if ref != (ast.ASTRef{}) {
-			err = errors.Join(err, m.DelRef(&ref))
-		}
-		if err != nil {
-			return err
-		}
-	}
-	formula, err := m.RefGet(equation.Formula)
-	if err != nil {
-		return err
-	}
-	definition, err := m.RefGet(equation.Definition)
-	if err != nil {
-		return err
-	}
-	return context.EliminateVariable(equation.VariableIndex, formula, definition)
 }

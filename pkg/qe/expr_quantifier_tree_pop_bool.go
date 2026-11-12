@@ -1,6 +1,6 @@
 package qe
 
-// Source: src/qe/qe.cpp, pop for the Boolean solver-plugin subset.
+// Source: src/qe/qe.cpp, quant_elim_plugin::pop.
 
 import (
 	"errors"
@@ -20,14 +20,15 @@ const (
 	exprQEPopNoBranch
 )
 
-// popExprQEBoolTree solves Boolean units, blocks completed paths, and routes
-// remaining nodes through partition analysis and variable selection. It does
-// not yet perform the recursive independent-partition elimination.
+// popExprQEBoolTree is quant_elim_plugin::pop: solve_vars, then completed
+// paths are blocked and remaining nodes are routed through partition
+// analysis and variable selection.
 func popExprQEBoolTree(node *exprQETree, variables *exprQEBranchVariables, context *SolverContext, plugin *BoolPlugin, partitioner *ConjunctionPartitioner, solver *smtcore.SMTSolver, evaluator *model.ModelEvaluator, modelCore *model.ModelCore, config Config, rw *rewriter.TheoryRewriter, nnf *QENNFNormalizer, freeVariables *[]ast.ASTRef, withDefinitions bool) (result *exprQETree, status exprQEPopStatus, err error) {
-	current, err := solveExprQEBoolUnits(node, variables, plugin, config, rw, nnf)
-	if err != nil {
+	tree := &exprQETreeContext{current: node, variables: variables, config: config, rw: rw, nnf: nnf}
+	if err = solveExprQEVars(tree, context); err != nil {
 		return nil, exprQEPopNoBranch, err
 	}
+	current := tree.current
 	blocked, err := blockExprQETreeIfSolved(current, solver)
 	if err != nil {
 		return nil, exprQEPopNoBranch, err
@@ -50,12 +51,11 @@ func popExprQEBoolTree(node *exprQETree, variables *exprQEBranchVariables, conte
 	if handled {
 		return child, exprQEPopCompleted, nil
 	}
-	selected, err := chooseExprQETreeBranch(current, variables, context, solver, freeVariables)
-	if err != nil {
+	// constrain_assignment: when find_min_weight frees every remaining
+	// variable no branch is set and final_check goes on; the next pop finds
+	// no free variables and blocks the assignment.
+	if _, err = chooseExprQETreeBranch(current, variables, context, solver, freeVariables); err != nil {
 		return nil, exprQEPopNoBranch, err
 	}
-	if selected {
-		return current, exprQEPopBranchSelected, nil
-	}
-	return current, exprQEPopNoBranch, nil
+	return current, exprQEPopBranchSelected, nil
 }

@@ -24,6 +24,9 @@ func (p *NonlinearArithmeticPlugin) Assign(variable *ast.ContainsApp, formula as
 	if err != nil {
 		return err
 	}
+	if done, err := p.context.addConstraint(true, h); done || err != nil {
+		return err
+	}
 	r, err := p.manager.NewRef(h)
 	if err != nil {
 		return err

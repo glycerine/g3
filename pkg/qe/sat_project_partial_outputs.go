@@ -19,17 +19,15 @@ func (c *satSolverContext) takePartialArithmeticOutputs(plugin *ArithmeticPlugin
 	}
 	defer func() {
 		for i := range constraints {
-			if constraints[i].Formula != (ast.ASTRef{}) {
-				err = errors.Join(err, m.DelRef(&constraints[i].Formula))
-			}
+			err = errors.Join(err, constraints[i].release(m))
 		}
 	}()
 	for _, constraint := range constraints {
-		h, e := m.RefGet(constraint.Formula)
+		lits, e := constraint.literals(m)
 		if e != nil {
 			return e
 		}
-		if e = c.addConstraint(constraint.UseVariable, h); e != nil {
+		if e = c.addConstraint(constraint.UseVariable, lits...); e != nil {
 			return e
 		}
 	}

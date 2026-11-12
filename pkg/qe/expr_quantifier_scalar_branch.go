@@ -72,6 +72,22 @@ func stepExprQEScalarBranch(parent *exprQETree, variables *exprQEBranchVariables
 		if e != nil {
 			return nil, status, e
 		}
+		// plugin(x).assign runs with m_current at the new child, so its
+		// add_constraint calls assert over the child's path at once.
+		var assignContext *SolverContext
+		switch p := plugin.(type) {
+		case *ArithmeticPlugin:
+			assignContext = p.context
+		case *NonlinearArithmeticPlugin:
+			assignContext = p.context
+		case *DatatypeSolverPlugin:
+			assignContext = p.context
+		case *DatalogPlugin:
+			assignContext = p.context
+		}
+		if assignContext != nil {
+			assignContext.sink = &exprQEConstraintSink{current: child, solver: solver}
+		}
 		switch p := plugin.(type) {
 		case *BoolPlugin:
 			e = p.Assign(variables.entries[entry].contains, formula, &n)
@@ -85,6 +101,9 @@ func stepExprQEScalarBranch(parent *exprQETree, variables *exprQEBranchVariables
 			e = p.Assign(variables.entries[entry].contains, formula, &n)
 		case *DatalogPlugin:
 			e = p.Assign(variables.entries[entry].contains, formula, &n)
+		}
+		if assignContext != nil {
+			assignContext.sink = nil
 		}
 		if e != nil {
 			return nil, status, e

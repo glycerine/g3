@@ -323,7 +323,7 @@ func (m *RuleManager) FixUnboundVariables(rule *Rule, lite *qe.Lite, enabled boo
 	if err = errors.Join(err, m.manager.SetRef(fixedRef, fixed)); err != nil {
 		return nil, false, err
 	}
-	simplified, err := qe.SimplifyQuantifiers(m.manager, fixed)
+	simplified, err := qe.SimplifyQuantifiers(m.manager, lite.Config(), fixed)
 	if err != nil {
 		return nil, false, err
 	}

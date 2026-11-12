@@ -18,6 +18,10 @@ func (c *SolverContext) AddVariable(variable ast.ASTHandle) error {
 	if err != nil || kind != ast.ASTApp {
 		return errors.Join(ast.ErrASTDomain, err)
 	}
+	if c.tree != nil {
+		// quant_elim_plugin::add_var: m_new_vars and the branch tables.
+		return c.tree.variables.add(variable)
+	}
 	c.variables = append(c.variables, variable)
 	c.variableOwners = append(c.variableOwners, ast.ASTRef{})
 	c.contains = append(c.contains, nil)
@@ -40,6 +44,12 @@ func (c *SolverContext) adoptVariable(variable ast.ASTHandle, owner *ast.ASTRef)
 	if h != variable {
 		return ast.ErrASTDomain
 	}
+	if c.tree != nil {
+		if err = c.AddVariable(variable); err != nil {
+			return err
+		}
+		return c.manager.DelRef(owner)
+	}
 	if err = c.AddVariable(variable); err != nil {
 		return err
 	}
@@ -53,5 +63,31 @@ func (c *SolverContext) Variables() ([]ast.ASTHandle, error) {
 	if err := c.open(); err != nil {
 		return nil, err
 	}
+	if c.tree != nil {
+		result := make([]ast.ASTHandle, len(c.tree.current.variables))
+		for i := range result {
+			var err error
+			if result[i], err = c.tree.variable(uint32(i)); err != nil {
+				return nil, err
+			}
+		}
+		return result, nil
+	}
 	return append([]ast.ASTHandle(nil), c.variables...), nil
+}
+
+// resetVariables is the variable half of quant_elim_plugin::reset: the
+// current node's free variables, their contains_app objects and the
+// published formula are dropped; registered plugins stay.
+func (c *SolverContext) resetVariables() error {
+	if err := c.open(); err != nil {
+		return err
+	}
+	if err := c.closeMutationState(); err != nil {
+		return err
+	}
+	c.containsClosing = 0
+	c.variables = nil
+	c.variableOwners = nil
+	return nil
 }

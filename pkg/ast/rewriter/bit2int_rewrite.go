@@ -9,13 +9,10 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
+// cached is bit2int::get_cached's m_cache.find(n).
 func (b *Bit2Int) cached(term ast.ASTHandle) (ast.ASTHandle, bool, error) {
-	ref, ok := b.cache[term]
-	if !ok {
-		return ast.ASTHandle{}, false, nil
-	}
-	h, err := b.manager.RefGet(ref)
-	return h, true, err
+	h, err := b.cache.Find(term)
+	return h, err == nil && !h.IsNull(), err
 }
 
 func (b *Bit2Int) rewrittenArguments(term ast.ASTHandle) ([]ast.ASTHandle, error) {
