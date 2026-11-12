@@ -62,8 +62,8 @@ func TestUFBVFormulaProcessorReschedulesEarlierFormulaAndPublishesResults(t *tes
 	// That rule reschedules the already processed expression for rewriting.
 	output, e := processor.run([]ast.ASTHandle{q, and})
 	cacheMust(t, e)
-	if len(output) != 2 || len(processor.back.processed) != 1 || len(processor.index.rules) != 1 || len(processor.back.todo) != 0 {
-		t.Fatal("source processed/rule partition and empty main todo", len(output), len(processor.back.processed), len(processor.index.rules), processor.back.todo)
+	if len(output) != 2 || processor.back.processed.Len() != 1 || len(processor.index.rules) != 1 || len(processor.back.todo) != 0 {
+		t.Fatal("source processed/rule partition and empty main todo", len(output), processor.back.processed.Len(), len(processor.index.rules), processor.back.todo)
 	}
 	seen := map[ast.ASTHandle]bool{}
 	for _, h := range output {

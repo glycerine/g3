@@ -10,8 +10,11 @@ import (
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
+// rewriteForwardSet is quantifier_set (obj_hashtable<quantifier>), allocated
+// with initial capacity 1; rewrite1 and the final output follow its table
+// order.
 type rewriteForwardSet struct {
-	values    []ast.ASTHandle
+	values    *ast.ObjMap
 	header    uint64
 	traceLive bool
 }
@@ -24,15 +27,17 @@ type demodulatorRule struct {
 
 // rewriteRuleIndex is the concrete UFBV forward index and demodulator map.
 // Each indexed rule owns one reference to its quantifier, LHS and RHS.
+// byFunc is the lookup side of m_fwd_idx; funcOrder keeps its table order.
 type rewriteRuleIndex struct {
-	manager *ast.ASTManager
-	trace   *diagnostic.TraceTags
-	matcher *matchSubst
-	byFunc  map[ast.ASTHandle]*rewriteForwardSet
-	rules   map[ast.ASTHandle]demodulatorRule
-	owned   []ast.ASTHandle
-	closing bool
-	closed  bool
+	manager   *ast.ASTManager
+	trace     *diagnostic.TraceTags
+	matcher   *matchSubst
+	byFunc    map[ast.ASTHandle]*rewriteForwardSet
+	funcOrder *ast.ObjMap
+	rules     map[ast.ASTHandle]demodulatorRule
+	owned     []ast.ASTHandle
+	closing   bool
+	closed    bool
 }
 
 func newRewriteRuleIndex(m *ast.ASTManager) (*rewriteRuleIndex, error) {
@@ -42,8 +47,9 @@ func newRewriteRuleIndex(m *ast.ASTManager) (*rewriteRuleIndex, error) {
 	}
 	return &rewriteRuleIndex{
 		manager: m, matcher: matcher,
-		byFunc: make(map[ast.ASTHandle]*rewriteForwardSet),
-		rules:  make(map[ast.ASTHandle]demodulatorRule),
+		byFunc:    make(map[ast.ASTHandle]*rewriteForwardSet),
+		funcOrder: ast.NewObjMap(m),
+		rules:     make(map[ast.ASTHandle]demodulatorRule),
 	}, nil
 }
 
@@ -226,6 +232,10 @@ func (r *rewriteRuleIndex) insert(quantifier, lhs, rhs ast.ASTHandle) error {
 		if e != nil {
 			return e
 		}
+		if e = r.funcOrder.Insert(f, [2]ast.ASTHandle{}); e != nil {
+			r.releaseForwardSet(set)
+			return e
+		}
 		r.byFunc[f] = set
 	}
 	start := len(r.owned)
@@ -241,7 +251,9 @@ func (r *rewriteRuleIndex) insert(quantifier, lhs, rhs ast.ASTHandle) error {
 		return e
 	}
 	r.owned = append(r.owned, rhs)
-	set.values = append(set.values, quantifier)
+	if e = set.values.Insert(quantifier, [2]ast.ASTHandle{}); e != nil {
+		return e
+	}
 	r.rules[quantifier] = demodulatorRule{function: f, quantifier: quantifier, lhs: lhs, rhs: rhs, ownedStart: start}
 	return nil
 }
@@ -274,6 +286,11 @@ func (r *rewriteRuleIndex) remove(f, quantifier ast.ASTHandle) error {
 	if !found || rule.function != f {
 		return ast.ErrASTDomain
 	}
+	// The quantifier's last reference may go below; erase uses its hash.
+	hash, e := r.manager.GetHash(quantifier)
+	if e != nil {
+		return e
+	}
 	rule.removing = true
 	r.rules[quantifier] = rule
 	for _, offset := range []int{1, 2, 0} {
@@ -297,15 +314,7 @@ func (r *rewriteRuleIndex) remove(f, quantifier ast.ASTHandle) error {
 		}
 	}
 	delete(r.rules, quantifier)
-	for i, q := range set.values {
-		if q == quantifier {
-			copy(set.values[i:], set.values[i+1:])
-			set.values[len(set.values)-1] = ast.ASTHandle{}
-			set.values = set.values[:len(set.values)-1]
-			return nil
-		}
-	}
-	return ast.ErrASTDomain
+	return set.values.EraseHash(quantifier, hash)
 }
 
 // tryRewrite is rewrite1: it skips arity mismatches and tries each indexed
@@ -321,7 +330,7 @@ func (r *rewriteRuleIndex) tryRewrite(f ast.ASTHandle, args []ast.ASTHandle) (as
 	if e := r.traceTrying(f, args); e != nil {
 		return ast.ASTRef{}, false, e
 	}
-	for _, q := range set.values {
+	for _, q := range objSetKeys(set.values) {
 		rule, found := r.rules[q]
 		if !found {
 			if enabled, e := forwardAssertionEnabled(); e != nil {
@@ -389,6 +398,13 @@ func (r *rewriteRuleIndex) close() error {
 	if e := r.matcher.close(); e != nil {
 		return e
 	}
+	// ~ufbv_rewriter: reset_dealloc_values(m_fwd_idx) in table order.
+	for _, f := range objSetKeys(r.funcOrder) {
+		if set, found := r.byFunc[f]; found {
+			r.releaseForwardSet(set)
+			delete(r.byFunc, f)
+		}
+	}
 	for f, set := range r.byFunc {
 		r.releaseForwardSet(set)
 		delete(r.byFunc, f)
@@ -412,6 +428,7 @@ func (r *rewriteRuleIndex) close() error {
 		}
 	}
 	r.byFunc = nil
+	r.funcOrder = nil
 	r.rules = nil
 	r.closed = true
 	return nil

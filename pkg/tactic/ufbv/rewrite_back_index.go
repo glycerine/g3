@@ -5,16 +5,20 @@ package ufbv
 import "github.com/glycerine/g3/pkg/ast"
 
 // rewriteBackIndex is the concrete UFBV m_back_idx/m_processed/m_todo state.
-// Forward and backward object sets use native Go maps of AST identities.
+// m_processed and each expr_set are obj_hashtable<expr>; their table order
+// (AST hash, insertion and removal history) fixes the rescheduling order and
+// the order of the rewriter's output formulas, so they use ast.ObjMap.
+// byDecl is the lookup side of m_back_idx; declOrder keeps its table order.
 type rewriteBackSet struct {
-	values map[ast.ASTHandle]struct{}
+	values *ast.ObjMap
 	header uint64
 }
 
 type rewriteBackIndex struct {
 	manager   *ast.ASTManager
 	byDecl    map[ast.ASTHandle]*rewriteBackSet
-	processed map[ast.ASTHandle]struct{}
+	declOrder *ast.ObjMap
+	processed *ast.ObjMap
 	todo      []ast.ASTHandle
 	owned     []ast.ASTHandle
 	closed    bool
@@ -27,8 +31,22 @@ func newRewriteBackIndex(m *ast.ASTManager) (*rewriteBackIndex, error) {
 	return &rewriteBackIndex{
 		manager:   m,
 		byDecl:    make(map[ast.ASTHandle]*rewriteBackSet),
-		processed: make(map[ast.ASTHandle]struct{}),
+		declOrder: ast.NewObjMap(m),
+		processed: ast.NewObjMap(m),
 	}, nil
+}
+
+// objSetKeys lists an obj_hashtable's keys in iteration (table) order.
+func objSetKeys(set *ast.ObjMap) []ast.ASTHandle {
+	if set == nil {
+		return nil
+	}
+	entries := set.Entries()
+	keys := make([]ast.ASTHandle, len(entries))
+	for i, entry := range entries {
+		keys[i] = entry.Key
+	}
+	return keys
 }
 
 func (r *rewriteBackIndex) check() error {
@@ -146,8 +164,8 @@ func (r *rewriteBackIndex) addProcessed(expr ast.ASTHandle) error {
 	if e != nil {
 		return e
 	}
-	if _, present := r.processed[expr]; present {
-		return nil
+	if present, e := r.processed.Contains(expr); e != nil || present {
+		return e
 	}
 	for _, f := range decls {
 		if _, e := r.ensureBackSet(f); e != nil {
@@ -160,9 +178,13 @@ func (r *rewriteBackIndex) addProcessed(expr ast.ASTHandle) error {
 		return e
 	}
 	r.owned = append(r.owned, expr)
-	r.processed[expr] = struct{}{}
+	if e := r.processed.Insert(expr, [2]ast.ASTHandle{}); e != nil {
+		return e
+	}
 	for _, f := range decls {
-		r.byDecl[f].values[expr] = struct{}{}
+		if e := r.byDecl[f].values.Insert(expr, [2]ast.ASTHandle{}); e != nil {
+			return e
+		}
 	}
 	return nil
 }
@@ -173,23 +195,31 @@ func (r *rewriteBackIndex) rescheduleProcessed(f ast.ASTHandle) error {
 	if e := r.check(); e != nil {
 		return e
 	}
-	var values map[ast.ASTHandle]struct{}
-	if set, found := r.byDecl[f]; found {
-		if set == nil {
-			if e := assertBackIndexSetPresent(518); e != nil {
+	set, found := r.byDecl[f]
+	if !found {
+		return nil
+	}
+	if set == nil {
+		if e := assertBackIndexSetPresent(518); e != nil {
+			return e
+		}
+		return ast.ErrASTDomain
+	}
+	// expr_set temp: the processed members of f's set, in that set's order,
+	// then visited in temp's own table order.
+	temp := ast.NewObjMap(r.manager)
+	for _, expr := range objSetKeys(set.values) {
+		active, e := r.processed.Contains(expr)
+		if e != nil {
+			return e
+		}
+		if active {
+			if e := temp.Insert(expr, [2]ast.ASTHandle{}); e != nil {
 				return e
 			}
-			return ast.ErrASTDomain
-		}
-		values = set.values
-	}
-	selected := make([]ast.ASTHandle, 0, len(values))
-	for expr := range values {
-		if _, active := r.processed[expr]; active {
-			selected = append(selected, expr)
 		}
 	}
-	for _, expr := range selected {
+	for _, expr := range objSetKeys(temp) {
 		decls, e := r.declarations(expr)
 		if e != nil {
 			return e
@@ -200,7 +230,9 @@ func (r *rewriteBackIndex) rescheduleProcessed(f ast.ASTHandle) error {
 			return e
 		}
 		r.todo = append(r.todo, expr)
-		delete(r.processed, expr)
+		if e := r.processed.Erase(expr); e != nil {
+			return e
+		}
 		for _, d := range decls {
 			if e := r.removeBackOccurrence(d, expr); e != nil {
 				return e
@@ -262,10 +294,12 @@ func (r *rewriteBackIndex) close() error {
 			return ast.ErrASTPending
 		}
 	}
-	for _, set := range r.byDecl {
-		r.releaseBackSet(set)
+	// ~ufbv_rewriter: reset_dealloc_values(m_back_idx) in table order.
+	for _, f := range objSetKeys(r.declOrder) {
+		r.releaseBackSet(r.byDecl[f])
 	}
 	r.byDecl = nil
+	r.declOrder = nil
 	r.processed = nil
 	r.closed = true
 	return nil

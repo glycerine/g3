@@ -14,7 +14,7 @@ func ruleIndexConsistent(r *rewriteRuleIndex) bool {
 		if set == nil {
 			return false
 		}
-		for _, q := range set.values {
+		for _, q := range objSetKeys(set.values) {
 			rule, found := r.rules[q]
 			if !found || rule.removing || rule.function != f {
 				return false

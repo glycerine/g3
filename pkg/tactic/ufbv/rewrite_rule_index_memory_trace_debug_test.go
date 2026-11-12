@@ -59,7 +59,7 @@ func TestRewriteForwardSetMemoryWrapperRetainsEmptySetUntilClose(t *testing.T) {
 		t.Fatal("source quantifier-set allocation", set, b.Used(), start, size)
 	}
 	cacheMust(t, r.remove(decl, quantifier))
-	if len(set.values) != 0 || b.Used() != start+size {
+	if set.values.Len() != 0 || b.Used() != start+size {
 		t.Fatal("source retains empty forward set", set, b.Used())
 	}
 	cacheMust(t, r.close())

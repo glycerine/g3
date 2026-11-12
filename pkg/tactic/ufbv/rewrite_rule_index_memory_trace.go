@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strconv"
 
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
@@ -17,7 +18,7 @@ func (r *rewriteRuleIndex) newForwardSet() (*rewriteForwardSet, error) {
 	if e := r.manager.Budget().Reserve(n); e != nil {
 		return nil, e
 	}
-	set := &rewriteForwardSet{header: n}
+	set := &rewriteForwardSet{values: ast.NewObjMapCapacity(r.manager, 1), header: n}
 	tags := r.manager.BorrowMemoryTraceTags()
 	if diagnostic.DebugBuild && tags.ShouldTrace("memory") {
 		_ = tags.EmitConditional("memory", "allocate", "src/util/memory_manager.cpp", 209,

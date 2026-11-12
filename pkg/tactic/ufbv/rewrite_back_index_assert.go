@@ -27,6 +27,5 @@ func (r *rewriteBackIndex) removeBackOccurrence(d, expr ast.ASTHandle) error {
 		}
 		return ast.ErrASTDomain
 	}
-	delete(set.values, expr)
-	return nil
+	return set.values.Erase(expr)
 }

@@ -45,6 +45,16 @@ func NewObjMap(m *ASTManager) *ObjMap {
 	return &ObjMap{manager: m, table: make([]ObjMapEntry, objMapInitialCapacity)}
 }
 
+// NewObjMapCapacity is obj_map / obj_hashtable constructed with an explicit
+// initial capacity, which must be a power of two (for example the source's
+// alloc(quantifier_set, 1)).
+func NewObjMapCapacity(m *ASTManager, capacity int) *ObjMap {
+	if capacity < 1 || capacity&(capacity-1) != 0 {
+		capacity = objMapInitialCapacity
+	}
+	return &ObjMap{manager: m, table: make([]ObjMapEntry, capacity)}
+}
+
 // newHeldObjMap is NewObjMap for callers that hold the manager lock.
 func newHeldObjMap(m *ASTManager) *ObjMap {
 	o := NewObjMap(m)
@@ -288,6 +298,12 @@ func (o *ObjMap) Erase(key ASTHandle) error {
 	}
 	o.removeAt(i)
 	return nil
+}
+
+// EraseHash is Erase for a key whose hash the caller captured before the
+// key's last reference may have been released.
+func (o *ObjMap) EraseHash(key ASTHandle, hash uint32) error {
+	return o.eraseHash(key, hash)
 }
 
 // eraseHash erases a key whose hash the caller captured (the key may

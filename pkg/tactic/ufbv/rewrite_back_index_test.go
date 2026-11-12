@@ -65,14 +65,14 @@ func TestRewriteBackIndexReschedulesProcessedAcrossQuantifierAnnotations(t *test
 	for _, h := range []ast.ASTHandle{both, q, ga} {
 		cacheMust(t, r.addProcessed(h))
 	}
-	if len(r.byDecl[f].values) != 2 || len(r.byDecl[g].values) != 3 || r.byDecl[constant] != nil || len(r.processed) != 3 {
+	if r.byDecl[f].values.Len() != 2 || r.byDecl[g].values.Len() != 3 || r.byDecl[constant] != nil || r.processed.Len() != 3 {
 		t.Fatal("back index must visit body and no-pattern, but skip constants and interpreted conjunctions")
 	}
 	cacheMust(t, r.rescheduleProcessed(f))
-	if len(r.processed) != 1 || len(r.todo) != 2 || len(r.byDecl[f].values) != 0 || len(r.byDecl[g].values) != 1 {
+	if r.processed.Len() != 1 || len(r.todo) != 2 || r.byDecl[f].values.Len() != 0 || r.byDecl[g].values.Len() != 1 {
 		t.Fatal("reschedule must snapshot f occurrences then erase all their back-index memberships")
 	}
-	if _, found := r.processed[ga]; !found {
+	if found, e := r.processed.Contains(ga); e != nil || !found {
 		t.Fatal("unrelated g-only expression was rescheduled")
 	}
 	queued := map[ast.ASTHandle]bool{}
@@ -116,12 +116,12 @@ func TestRewriteBackIndexSetAllocationRefusalCanRetry(t *testing.T) {
 	t.Cleanup(func() { cacheMust(t, r.close()) })
 	before := m.Budget().Used()
 	m.Budget().FailAfter(0)
-	if e := r.addProcessed(fx); !errors.Is(e, arena.ErrInjectedFailure) || len(r.byDecl) != 0 || len(r.processed) != 0 || len(r.owned) != 0 || m.Budget().Used() != before {
+	if e := r.addProcessed(fx); !errors.Is(e, arena.ErrInjectedFailure) || len(r.byDecl) != 0 || r.processed.Len() != 0 || len(r.owned) != 0 || m.Budget().Used() != before {
 		t.Fatal("refused expr-set allocation published an incomplete back index", e, r.byDecl, r.processed, r.owned)
 	}
 	m.Budget().FailAfter(-1)
 	cacheMust(t, r.addProcessed(fx))
-	if len(r.byDecl[f].values) != 1 {
+	if r.byDecl[f].values.Len() != 1 {
 		t.Fatal("retry did not index the expression", r.byDecl[f])
 	}
 }
@@ -155,12 +155,12 @@ func TestRewriteBackIndexChildFirstAllocationRefusalPrefix(t *testing.T) {
 	if e := r.addProcessed(fgx); !errors.Is(e, arena.ErrInjectedFailure) {
 		t.Fatal("second declaration allocation refusal", e)
 	}
-	if r.byDecl[g] == nil || r.byDecl[f] != nil || len(r.processed) != 0 || len(r.owned) != 0 || m.Budget().Used() != before+r.byDecl[g].header {
+	if r.byDecl[g] == nil || r.byDecl[f] != nil || r.processed.Len() != 0 || len(r.owned) != 0 || m.Budget().Used() != before+r.byDecl[g].header {
 		t.Fatal("source child-first allocation prefix", r.byDecl, r.processed, r.owned, m.Budget().Used())
 	}
 	m.Budget().FailAfter(-1)
 	cacheMust(t, r.addProcessed(fgx))
-	if len(r.byDecl[g].values) != 1 || len(r.byDecl[f].values) != 1 {
+	if r.byDecl[g].values.Len() != 1 || r.byDecl[f].values.Len() != 1 {
 		t.Fatal("retry did not complete both declaration memberships")
 	}
 }

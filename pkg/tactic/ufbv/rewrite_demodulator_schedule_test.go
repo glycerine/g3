@@ -76,8 +76,8 @@ func TestRewriteDemodulatorRescheduleMatchesAnnotationsAndTransfersRoot(t *testi
 	cacheMust(t, back.addDemodulator(forward, qDifferent))
 	cacheMust(t, back.addProcessed(qProcessed))
 	cacheMust(t, back.addProcessed(fa))
-	if len(back.byDecl[f].values) != 4 {
-		t.Fatal("back index missed quantified annotation or processed occurrences", len(back.byDecl[f].values))
+	if back.byDecl[f].values.Len() != 4 {
+		t.Fatal("back index missed quantified annotation or processed occurrences", back.byDecl[f].values.Len())
 	}
 	cacheMust(t, back.rescheduleDemodulators(forward, f, fa))
 	if tags.ShouldTrace("demodulator") && !strings.Contains(trace.String(), "reschedule_demodulators src/tactic/ufbv/ufbv_rewriter.cpp:637 ---------\nRescheduling: \n") {
@@ -89,8 +89,8 @@ func TestRewriteDemodulatorRescheduleMatchesAnnotationsAndTransfersRoot(t *testi
 	if _, found := forward.rules[qDifferent]; !found {
 		t.Fatal("nonmatching demodulator was removed")
 	}
-	if len(back.todo) != 1 || back.todo[0] != qAnnotation || len(back.byDecl[f].values) != 3 {
-		t.Fatal("rescheduling must move only the matched quantified occurrence", back.todo, len(back.byDecl[f].values))
+	if len(back.todo) != 1 || back.todo[0] != qAnnotation || back.byDecl[f].values.Len() != 3 {
+		t.Fatal("rescheduling must move only the matched quantified occurrence", back.todo, back.byDecl[f].values.Len())
 	}
 	if !ruleIndexConsistent(forward) {
 		t.Fatal("forward index inconsistent after rescheduling")

@@ -55,7 +55,7 @@ func TestRewriteBackSetMemoryWrapperRetainsEmptySetUntilClose(t *testing.T) {
 		t.Fatal("source expr-set allocation", set, b.Used(), start, size)
 	}
 	cacheMust(t, r.rescheduleProcessed(f))
-	if len(set.values) != 0 || b.Used() != start+size {
+	if set.values.Len() != 0 || b.Used() != start+size {
 		t.Fatal("source retains empty back set", set, b.Used())
 	}
 	cacheMust(t, r.close())

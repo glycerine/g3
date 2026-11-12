@@ -99,7 +99,7 @@ func TestRewriteBackIndexTypedRootRejectsInvalidSourcePointer(t *testing.T) {
 	if e := r.addProcessed(ast.ASTHandle{}); !errors.Is(e, ast.ErrASTHandle) {
 		t.Fatal("invalid typed root reached the source back-index visitor", e)
 	}
-	if len(r.byDecl) != 0 || len(r.processed) != 0 || len(r.owned) != 0 || m.Budget().Used() != before {
+	if len(r.byDecl) != 0 || r.processed.Len() != 0 || len(r.owned) != 0 || m.Budget().Used() != before {
 		t.Fatal("invalid root published back-index state", r.byDecl, r.processed, r.owned, m.Budget().Used(), before)
 	}
 }

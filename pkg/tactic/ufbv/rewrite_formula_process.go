@@ -112,7 +112,7 @@ func (r *formulaProcessor) run(formulas []ast.ASTHandle) (output []ast.ASTHandle
 			return output, e
 		}
 	}
-	for h := range r.back.processed {
+	for _, h := range objSetKeys(r.back.processed) {
 		if e := publish(h); e != nil {
 			return output, e
 		}
@@ -120,8 +120,12 @@ func (r *formulaProcessor) run(formulas []ast.ASTHandle) (output []ast.ASTHandle
 			return output, e
 		}
 	}
-	for _, qs := range r.index.byFunc {
-		for _, q := range qs.values {
+	for _, f := range objSetKeys(r.index.funcOrder) {
+		qs := r.index.byFunc[f]
+		if qs == nil {
+			continue
+		}
+		for _, q := range objSetKeys(qs.values) {
 			if e := publish(q); e != nil {
 				return output, e
 			}

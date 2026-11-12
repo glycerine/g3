@@ -27,7 +27,11 @@ func (r *rewriteBackIndex) ensureBackSet(f ast.ASTHandle) (*rewriteBackSet, erro
 	if e := r.manager.Budget().Reserve(n); e != nil {
 		return nil, e
 	}
-	set := &rewriteBackSet{values: make(map[ast.ASTHandle]struct{}), header: n}
+	if e := r.declOrder.Insert(f, [2]ast.ASTHandle{}); e != nil {
+		r.manager.Budget().Release(n)
+		return nil, e
+	}
+	set := &rewriteBackSet{values: ast.NewObjMap(r.manager), header: n}
 	r.byDecl[f] = set
 	tags := r.manager.BorrowMemoryTraceTags()
 	if diagnostic.DebugBuild && tags.ShouldTrace("memory") {

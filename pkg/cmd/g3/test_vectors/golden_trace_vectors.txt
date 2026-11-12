@@ -502,6 +502,7 @@ theory_aware_case_split_scopes
 ufbv_macro_tactics
 ufbv_solver
 ufbv_tactic
+ufbv_tactic_arith_goal
 uf_congruence
 ufidl_congruence_equality_bounds
 ufidl_congruence_models

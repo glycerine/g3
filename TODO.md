@@ -2226,9 +2226,18 @@ FIXED:
 - nlsat: z3's "eliminate distinct operator (use tactic ...)" message.
 Remaining sweep differences: horn / horn-simplify error text and behaviour
 (worker running); sine-filter (the fork dumps core); qfbv-sls (timing).
-Lead: ufbv_tactic_arith_goal trace line 79 - inside ufbv's SMT backend g3
-internalizes (= (f z) (+ z 1)) before the Real bound atoms; z3 follows
-assertion order.
+FIXED (2026-11-12): ufbv_tactic_arith_goal trace. Cause: the ufbv rewriter
+(demodulator) walked Go maps (random order) where ufbv_rewriter.cpp walks
+obj_hashtable/obj_map in table order (m_processed, m_fwd_idx and each
+quantifier_set for the output; reschedule_processed, reschedule_demodulators,
+rewrite1's first match, destructor frees). Now ast.ObjMap throughout
+(NewObjMapCapacity(1) for quantifier_set, EraseHash). Note: in the 4.7.1
+registry the name ufbv-rewriter maps to mk_quasi_macros_tactic, so only
+`ufbv` exercises the demodulator. Leads: rewrite_cache.go / match_subst*.go
+use Go maps for lookups only (re-check if ever iterated); other packages may
+iterate Go maps where C++ walks hashtables (audit worker running over
+smtcore/ast/tactic/sat/nlsat/model/opt/cmd_context/parsers; muz, duality,
+interp and qe still to audit: 505 range-over-map sites in total).
 
 ## horn tactic errors (2026-11-12)
 

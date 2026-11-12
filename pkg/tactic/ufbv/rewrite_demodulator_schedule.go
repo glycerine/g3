@@ -111,7 +111,9 @@ func (r *rewriteBackIndex) addDemodulator(index *rewriteRuleIndex, q ast.ASTHand
 		}
 	}
 	for _, f := range decls {
-		r.byDecl[f].values[q] = struct{}{}
+		if e := r.byDecl[f].values.Insert(q, [2]ast.ASTHandle{}); e != nil {
+			return e
+		}
 	}
 	return nil
 }
@@ -126,21 +128,25 @@ func (r *rewriteBackIndex) rescheduleDemodulators(index *rewriteRuleIndex, f, lh
 	if index == nil || index.manager != r.manager || index.check() != nil {
 		return ast.ErrASTDomain
 	}
-	var values map[ast.ASTHandle]struct{}
-	if set, found := r.byDecl[f]; found {
-		if set == nil {
-			if e := assertBackIndexSetPresent(607); e != nil {
-				return e
-			}
-			return ast.ErrASTDomain
+	set, found := r.byDecl[f]
+	if !found {
+		return nil
+	}
+	if set == nil {
+		if e := assertBackIndexSetPresent(607); e != nil {
+			return e
 		}
-		values = set.values
+		return ast.ErrASTDomain
 	}
-	occurrences := make([]ast.ASTHandle, 0, len(values))
-	for q := range values {
-		occurrences = append(occurrences, q)
+	// expr_set all_occurrences: a copy of f's set in that set's order, then
+	// visited in the copy's own table order.
+	allOccurrences := ast.NewObjMap(r.manager)
+	for _, q := range objSetKeys(set.values) {
+		if e := allOccurrences.Insert(q, [2]ast.ASTHandle{}); e != nil {
+			return e
+		}
 	}
-	for _, q := range occurrences {
+	for _, q := range objSetKeys(allOccurrences) {
 		kind, e := r.manager.GetKind(q)
 		if e != nil {
 			return e
