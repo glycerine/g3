@@ -207,7 +207,9 @@ func (c *Context) evaluateOptimizationModel(md *model.ModelCore, expression ast.
 	if err != nil {
 		return ast.ASTRef{}, false, err
 	}
-	if err = evaluator.SetModelCompletion(false); err != nil {
+	// model::eval(e, val, true): mk_cmp completes the model (fork backport of
+	// upstream z3 e18702330, fix #1699).
+	if err = evaluator.SetModelCompletion(true); err != nil {
 		return ast.ASTRef{}, false, err
 	}
 	ref, err = evaluator.EvaluateValue(expression)

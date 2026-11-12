@@ -114,7 +114,11 @@ func TestParetoLivePurificationPersistsAndFiltersFrontierModels(t *testing.T) {
 					state = current
 					stats, err := state.purifier.Statistics()
 					contextMust(t, err)
-					if stats.ArithmeticDefinitions != 1 || len(state.hard) != 3 {
+					// z3's normalize turns these bounded integer objectives into
+					// 0-1 sums (elim01), so purification introduces no
+					// arithmetic definition (the removed MaxSAT-avoidance
+					// fallback used to purify them instead).
+					if stats.ArithmeticDefinitions != 0 || len(state.hard) != 1 {
 						t.Fatal("definitions", stats, len(state.hard))
 					}
 					freshDecl, err = c.manager.GetDecl(state.objectives[0].expression)
@@ -177,7 +181,9 @@ func TestParetoLiveSoftPurificationAndMutationCleanup(t *testing.T) {
 			}
 			stats, err := state.purifier.Statistics()
 			contextMust(t, err)
-			if stats.SoftDefinitions != 1 || state.objectives[0].softTerms[0].expression == condition {
+			// As in z3, the bounded objective is normalized to 0-1 sums, so
+			// the soft term needs no purification definition.
+			if stats.SoftDefinitions != 0 {
 				t.Fatal(stats)
 			}
 		} else if state != c.optimizationParetoPurification {

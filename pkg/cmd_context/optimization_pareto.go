@@ -33,8 +33,11 @@ func (c *Context) evaluateParetoModel(md *model.ModelCore) (values []paretoModel
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
-	// C++ model::eval defaults model_completion to false in opt_context::mk_cmp.
-	if err = evaluator.SetModelCompletion(false); err != nil {
+	// opt_context::mk_cmp evaluates with model completion (the fork's backport
+	// of upstream z3 e18702330, fix #1699): a term the model leaves undefined
+	// would otherwise stay symbolic, the pareto bound would be trivially true,
+	// and gia_pareto would repeat the same model forever.
+	if err = evaluator.SetModelCompletion(true); err != nil {
 		return nil, err
 	}
 	values = make([]paretoModelValue, len(c.objectives))

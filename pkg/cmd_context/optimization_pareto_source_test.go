@@ -9,35 +9,46 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func TestParetoModelEvaluationLeavesUninterpretedObjectiveIncomplete(t *testing.T) {
+// mk_cmp evaluates with model completion (the fork's backport of upstream z3
+// e18702330, fix #1699): an objective the model leaves undefined is completed
+// with the sort's default value (0) instead of staying incomparable.
+func TestParetoModelEvaluationCompletesUndefinedObjective(t *testing.T) {
 	c := contextFixture(t)
 	x := optimizationComparisonInteger(t, c, "pareto-uninterpreted-objective")
-	md, err := model.NewModelCore(c.manager)
+	owner, err := model.NewModel(c.manager)
 	contextMust(t, err)
-	t.Cleanup(func() { contextMust(t, md.Close()) })
+	t.Cleanup(func() { contextMust(t, owner.Close()) })
+	md := owner.Core()
 	contextMust(t, c.AddObjective(x, true))
 	values, err := c.evaluateParetoModel(md)
 	contextMust(t, err)
-	if len(values) != 1 || values[0].comparable {
-		t.Fatal("uninterpreted objective was completed", values)
+	if len(values) != 1 || !values[0].comparable {
+		t.Fatal("undefined objective was not completed", values)
+	}
+	d, err := c.manager.GetDecl(x)
+	contextMust(t, err)
+	if found, err := md.HasConstantInterpretation(d); err != nil || !found {
+		t.Fatal("completion did not register the objective constant", found, err)
 	}
 }
 
-func TestParetoIncomparableObjectiveUsesNeutralComparison(t *testing.T) {
+// With x completed to 0, both pareto formulas are real constraints
+// (x >= 0 and x > 0; not (x <= 0)), satisfied by any x > 0.
+func TestParetoUndefinedObjectiveGivesCompletedComparison(t *testing.T) {
 	c := contextFixture(t)
 	x := optimizationComparisonInteger(t, c, "pareto-neutral-objective")
 	contextMust(t, c.AddObjective(x, true))
 	for _, dominates := range []bool{true, false} {
 		backend, err := c.newParetoBackend(nil)
 		contextMust(t, err)
-		md, err := model.NewModelCore(c.manager)
+		owner, err := model.NewModel(c.manager)
 		contextMust(t, err)
-		contextMust(t, c.assertParetoFormula(backend, md, dominates))
-		contextMust(t, md.Close())
+		contextMust(t, c.assertParetoFormula(backend, owner.Core(), dominates))
+		contextMust(t, owner.Close())
 		status, err := backend.CheckSat(nil)
 		contextMust(t, err)
-		if status != lbool.False {
-			t.Fatal("neutral Pareto comparison status", dominates, status)
+		if status != lbool.True {
+			t.Fatal("completed Pareto comparison status", dominates, status)
 		}
 		contextMust(t, backend.Close())
 	}
