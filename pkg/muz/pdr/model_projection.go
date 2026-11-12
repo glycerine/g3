@@ -6,6 +6,7 @@ package pdr
 import (
 	"errors"
 	"fmt"
+	"github.com/glycerine/g3/pkg/qe"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -179,11 +180,18 @@ func (c *Context) createChildrenProjected(node *ModelNode) (resultErr error) {
 		}
 		variableRefs = append(variableRefs, ref)
 	}
-	formulaRef, err := c.normalizeProjectedPhi(forms, &variableRefs, modelCore.DerivedModel())
+	// qe_lite qe(m, m_params.p) is declared after vars and before phi1: it
+	// dies at create_children's end, after phi1 and before vars.
+	lite, err := c.newLite()
 	if err != nil {
 		return err
 	}
-	references = append(references, formulaRef)
+	defer func() { resultErr = errors.Join(resultErr, lite.Close()) }()
+	formulaRef, err := c.normalizeProjectedPhiWith(lite, forms, &variableRefs, modelCore.DerivedModel())
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, c.owner.releaseNotAndRef(&formulaRef)) }()
 	eliminated = eliminated[:0]
 	for _, reference := range variableRefs {
 		variable, x := c.manager.RefGet(reference)
@@ -359,6 +367,10 @@ func (c *Context) addProjectedChild(node *ModelNode, predecessor *PredicateTrans
 // normalizeProjectedPhi follows create_children: Boolean conjunction, QE,
 // optional disequality reduction, then the fixedpoint theory rewriter.
 func (c *Context) normalizeProjectedPhi(forms []ast.ASTHandle, vars *[]ast.ASTRef, md *model.Model) (result ast.ASTRef, resultErr error) {
+	return c.normalizeProjectedPhiWith(c.lite, forms, vars, md)
+}
+
+func (c *Context) normalizeProjectedPhiWith(lite *qe.Lite, forms []ast.ASTHandle, vars *[]ast.ASTRef, md *model.Model) (result ast.ASTRef, resultErr error) {
 	result, resultErr = c.owner.AndRef(forms)
 	if resultErr != nil {
 		return result, resultErr
@@ -368,8 +380,8 @@ func (c *Context) normalizeProjectedPhi(forms []ast.ASTHandle, vars *[]ast.ASTRe
 			resultErr = errors.Join(resultErr, c.owner.releaseNotAndRef(&result))
 		}
 	}()
-	if c.lite != nil {
-		if resultErr = c.lite.EliminateConstants(vars, result); resultErr != nil {
+	if lite != nil {
+		if resultErr = lite.EliminateConstants(vars, result); resultErr != nil {
 			return result, fmt.Errorf("muz/pdr: QE-lite projection: %w", resultErr)
 		}
 	}

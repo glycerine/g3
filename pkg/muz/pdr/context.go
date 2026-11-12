@@ -24,15 +24,18 @@ var ErrContextOwner = errors.New("muz/pdr: invalid or closed context")
 // Context owns the PDR manager and the predicate transformers for one Horn
 // rule set. The conflict/search loop is layered on this initialized program.
 type Context struct {
-	manager                  *ast.ASTManager
-	owner                    *Manager
-	cacheMode                ReachableCacheMode
-	transformers             map[ast.ASTHandle]*PredicateTransformer
-	auxiliary                map[ast.ASTHandle]bool
-	order                    []ast.ASTHandle
-	search                   *ModelSearch
-	implicant                *model.ModelImplicant
-	lite                     *qe.Lite
+	manager      *ast.ASTManager
+	owner        *Manager
+	cacheMode    ReachableCacheMode
+	transformers map[ast.ASTHandle]*PredicateTransformer
+	auxiliary    map[ast.ASTHandle]bool
+	order        []ast.ASTHandle
+	search       *ModelSearch
+	implicant    *model.ModelImplicant
+	lite         *qe.Lite
+	// newLite builds create_children's local qe_lite with the context's
+	// parameters.
+	newLite                  func() (*qe.Lite, error)
 	projectionTheory         *rewriter.TheoryRewriter
 	projectionTheoryReady    bool
 	projectionTheoryBorrowed bool
@@ -191,7 +194,9 @@ func newContext(manager *ast.ASTManager, params *uparams.ParamsRef, maximumConte
 	if err != nil {
 		return fail(err)
 	}
-	result.lite, err = qe.NewLite(manager, params, true, qe.Config{Context: config.Params, Globals: config.Globals, Cooperation: result.cooperation, Trace: config.ModelEvaluator.Trace})
+	liteConfig := qe.Config{Context: config.Params, Globals: config.Globals, Cooperation: result.cooperation, Trace: config.ModelEvaluator.Trace}
+	result.newLite = func() (*qe.Lite, error) { return qe.NewLite(manager, params, true, liteConfig) }
+	result.lite, err = result.newLite()
 	if err != nil {
 		return fail(err)
 	}
