@@ -73,6 +73,10 @@ func (c *Context) expandNode(node *ModelNode) (resultStatus lbool.LBool, resultE
 		return lbool.True, nil
 	}
 	if check.Status == lbool.False {
+		// expr_ref_vector cube (expand_node's first local) owns the core:
+		// it dies when expand_node returns, after the block-scoped cores.
+		coreSolver := node.transformer.solver
+		defer func() { resultErr = errors.Join(resultErr, coreSolver.clearCoreReferences()) }()
 		cores, x := c.generalizeBlockingCores(node, check.Core, check.AssumesLevel)
 		if x != nil {
 			return lbool.Undef, fmt.Errorf("muz/pdr: blocking core generalization: %w", x)
