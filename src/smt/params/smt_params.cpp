@@ -25,7 +25,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     smt_params_helper p(_p);
     m_auto_config = p.auto_config() && gparams::get_value("auto_config") == "true"; // auto-config is not scoped by smt in gparams.
     m_random_seed = p.random_seed();
-    m_relevancy_lvl = p.relevancy(); // g3 note: re-read on every updt_params; see the relevancy bug note in smt_relevancy.cpp mark_as_relevant.
+    m_relevancy_lvl = p.relevancy(); // re-read on every updt_params; the context clamps it (see context::setup_context).
     m_ematching   = p.ematching();
     m_phase_selection = static_cast<phase_selection>(p.phase_selection());
     m_restart_strategy = static_cast<restart_strategy>(p.restart_strategy());

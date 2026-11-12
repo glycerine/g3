@@ -493,7 +493,12 @@ namespace opt {
         case O_MINIMIZE:
             is_ge = !is_ge;
         case O_MAXIMIZE:
-            if (mdl->eval(obj.m_term, val) && is_numeral(val, k)) {
+            // Backport of upstream z3 e18702330 (fix #1699): evaluate with model
+            // completion. Otherwise a term the model leaves undefined (e.g. a
+            // 0-1 variable introduced by preprocessing) stays symbolic, k stays
+            // 0, the pareto dominance bound is trivially true, and gia_pareto
+            // repeats the same model forever.
+            if (mdl->eval(obj.m_term, val, true) && is_numeral(val, k)) {
                 if (is_ge) {
                     result = mk_ge(obj.m_term, val);
                 }
@@ -513,7 +518,7 @@ namespace opt {
             for (unsigned i = 0; i < sz; ++i) {
                 terms.push_back(obj.m_terms[i]);
                 coeffs.push_back(obj.m_weights[i]);
-                if (mdl->eval(obj.m_terms[i], val) && m.is_true(val)) {
+                if (mdl->eval(obj.m_terms[i], val, true) && m.is_true(val)) { // completion: upstream e18702330
                     k += obj.m_weights[i];
                 }
             }

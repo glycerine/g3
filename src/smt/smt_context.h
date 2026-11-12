@@ -80,6 +80,7 @@ namespace smt {
         smt_params &                m_fparams;
         params_ref                  m_params;
         setup                       m_setup;
+        unsigned                    m_relevancy_lvl; // backport of upstream z3 5dfe4a4b4 (relevancy cannot be raised after setup)
         timer                       m_timer;
         asserted_formulas           m_asserted_formulas;
         scoped_ptr<quantifier_manager>   m_qmanager;
@@ -271,8 +272,10 @@ namespace smt {
         }
 
         bool relevancy() const {
-            return m_fparams.m_relevancy_lvl > 0;
+            return m_relevancy_lvl > 0;
         }
+
+        unsigned relevancy_lvl() const { return m_relevancy_lvl; }
 
         enode * get_enode(expr const * n) const {
             SASSERT(e_internalized(n));
