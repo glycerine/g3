@@ -80,10 +80,17 @@ type smtPendingLiteralResults struct {
 	// the eagerly built result expressions did; callers rely on it.
 	held  []ast.ASTHandle
 	built bool
+	// unheld marks a capture after an unsatisfiable or unknown check: the
+	// source keeps no reference, and a query after the variables were
+	// reused skips them.
+	unheld bool
 }
 
 func (k *SMTKernel) pendingLiteral(pending *smtPendingLiteralResults, literal SMTLiteral) (smtPendingLiteralResult, error) {
 	atom := k.internalizer.boolExpr[literal.Var()]
+	if pending.unheld {
+		return smtPendingLiteralResult{literal: literal, atom: atom}, nil
+	}
 	if err := k.manager.IncRef(atom); err != nil {
 		return smtPendingLiteralResult{}, err
 	}
@@ -109,10 +116,14 @@ func (k *SMTKernel) releasePendingResults() error {
 // get_relevant_labeled_literals report after a satisfiable check. It creates
 // no expressions; materializeLiteralResults builds them on the first query.
 func (k *SMTKernel) captureLiteralResults(baseLevel uint32) error {
+	return k.captureLiteralResultsHeld(baseLevel, true)
+}
+
+func (k *SMTKernel) captureLiteralResultsHeld(baseLevel uint32, held bool) error {
 	if err := k.clearLiteralResults(); err != nil {
 		return err
 	}
-	pending := &smtPendingLiteralResults{}
+	pending := &smtPendingLiteralResults{unheld: !held}
 	k.pendingResults = pending
 	for _, literal := range k.internalizer.assignedLiterals {
 		if literal.Var() < SMTFirstBoolVar || int(literal.Var()) >= len(k.internalizer.boolExpr) {
@@ -163,10 +174,12 @@ func (k *SMTKernel) captureLiteralResults(baseLevel uint32) error {
 			return err
 		}
 		if label {
-			if err = k.manager.IncRef(expression); err != nil {
-				return err
+			if !pending.unheld {
+				if err = k.manager.IncRef(expression); err != nil {
+					return err
+				}
+				pending.held = append(pending.held, expression)
 			}
-			pending.held = append(pending.held, expression)
 			pending.labeled = append(pending.labeled, expression)
 		}
 	}
@@ -277,4 +290,14 @@ func (k *SMTKernel) GuessedLiterals() ([]ast.ASTHandle, error) {
 		return nil, err
 	}
 	return append([]ast.ASTHandle(nil), k.guessed...), nil
+}
+
+// captureUnsatLiteralResults records get_assignments' view after a check
+// that ended unsatisfiable without reaching search's own capture: the
+// literals the context still has assigned.
+func (k *SMTKernel) captureUnsatLiteralResults() error {
+	if k.pendingResults != nil {
+		return nil
+	}
+	return k.captureLiteralResultsHeld(uint32(k.internalizer.scopeLevel), false)
 }

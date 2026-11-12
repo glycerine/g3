@@ -16,3 +16,15 @@ func (c *SolverContext) CurrentFormula() (ast.ASTHandle, bool, error) {
 	handle, err := c.manager.RefGet(c.currentFormula)
 	return handle, err == nil, err
 }
+
+// releaseCurrentFormula drops the published formula once the direct host has
+// copied it into its caller's slot: the source context only aliases m_fml.
+func (c *SolverContext) releaseCurrentFormula() error {
+	if err := c.open(); err != nil {
+		return err
+	}
+	if c.currentFormula == (ast.ASTRef{}) {
+		return nil
+	}
+	return c.manager.DelRef(&c.currentFormula)
+}

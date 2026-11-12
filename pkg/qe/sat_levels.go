@@ -18,13 +18,17 @@ type satLevel struct {
 type satLevels struct {
 	manager *ast.ASTManager
 	levels  []satLevel
+	// assignments is the tactic's m_assignments; ownAssignments marks a
+	// standalone instance that releases it.
+	assignments    *satAssignments
+	ownAssignments bool
 }
 
 func newSATLevels(m *ast.ASTManager, config Config, params *uparams.ParamsRef, blocks int, formula ast.ASTHandle, checkpoint func() error) (result *satLevels, err error) {
 	if m == nil || config.Context == nil || config.Globals == nil || blocks < 0 {
 		return nil, ast.ErrASTHandle
 	}
-	result = &satLevels{manager: m}
+	result = &satLevels{manager: m, assignments: &satAssignments{manager: m}, ownAssignments: true}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, result.Close())
@@ -67,25 +71,47 @@ func newSATLevels(m *ast.ASTManager, config Config, params *uparams.ParamsRef, b
 	return result, nil
 }
 
+// closeSolvers is the m_solvers part of sat_tactic::reset: ascending.
+func (s *satLevels) closeSolvers() error {
+	for i := range s.levels {
+		if s.levels[i].solver != nil {
+			if err := s.levels[i].solver.Close(); err != nil {
+				return err
+			}
+			s.levels[i].solver = nil
+		}
+	}
+	return nil
+}
+
+// closeFormulas is m_Ms.reset(): forward.
+func (s *satLevels) closeFormulas() error {
+	for i := range s.levels {
+		if s.levels[i].formula != (ast.ASTRef{}) {
+			if err := s.manager.DelRef(&s.levels[i].formula); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (s *satLevels) Close() error {
 	if s == nil || s.manager == nil {
 		return nil
 	}
-	for len(s.levels) > 0 {
-		i := len(s.levels) - 1
-		entry := &s.levels[i]
-		if entry.solver != nil {
-			if err := entry.solver.Close(); err != nil {
-				return err
-			}
-			entry.solver = nil
+	if err := s.closeSolvers(); err != nil {
+		return err
+	}
+	if err := s.closeFormulas(); err != nil {
+		return err
+	}
+	s.levels = nil
+	if s.ownAssignments && s.assignments != nil {
+		if err := s.assignments.reset(); err != nil {
+			return err
 		}
-		if entry.formula != (ast.ASTRef{}) {
-			if err := s.manager.DelRef(&entry.formula); err != nil {
-				return err
-			}
-		}
-		s.levels = s.levels[:i]
+		s.assignments = nil
 	}
 	s.manager = nil
 	return nil

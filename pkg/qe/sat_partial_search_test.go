@@ -28,7 +28,7 @@ func TestSATPartialSearchBooleanQuantifiers(t *testing.T) {
 				options.projection = false
 				options.strongSimplify = false
 				options.extrapolate = strategy
-				search, err := newSATPartialSearch(m, f.r.config, alt, options)
+				search, err := newSATPartialSearchForTest(t, m, f.r.config, alt, options)
 				fmMust(t, err)
 				defer func() { fmMust(t, search.Close()) }()
 				truth := f.own(m.MkTrue())
@@ -64,7 +64,7 @@ func TestSATPartialSearchAlternatingQuantifiers(t *testing.T) {
 			options := newSATTacticOptions()
 			options.projection = false
 			options.strongSimplify = false
-			search, err := newSATPartialSearch(m, f.r.config, alt, options)
+			search, err := newSATPartialSearchForTest(t, m, f.r.config, alt, options)
 			fmMust(t, err)
 			defer func() { fmMust(t, search.Close()) }()
 			truth := f.own(m.MkTrue())
@@ -88,7 +88,7 @@ func TestSATPartialSearchOptionsAndCancellation(t *testing.T) {
 	fmMust(t, err)
 	defer func() { fmMust(t, alt.Close()) }()
 	options := newSATTacticOptions()
-	search, err := newSATPartialSearch(m, f.r.config, alt, options)
+	search, err := newSATPartialSearchForTest(t, m, f.r.config, alt, options)
 	fmMust(t, err)
 	defer func() { fmMust(t, search.Close()) }()
 	m.ResourceLimit().Cancel()
@@ -128,7 +128,7 @@ func TestSATPartialSearchBitVectorAndArithmetic(t *testing.T) {
 					options.projection = full
 					options.strongSimplify = false
 					options.extrapolate = strategy
-					search, err := newSATPartialSearch(m, f.r.config, alt, options)
+					search, err := newSATPartialSearchForTest(t, m, f.r.config, alt, options)
 					fmMust(t, err)
 					defer func() { fmMust(t, search.Close()) }()
 					truth := f.own(m.MkTrue())
@@ -164,7 +164,7 @@ func TestSATPartialSearchStrongContextModes(t *testing.T) {
 					options := newSATTacticOptions()
 					options.projection = full
 					options.simplifyLocal = local
-					search, err := newSATPartialSearch(m, f.r.config, alt, options)
+					search, err := newSATPartialSearchForTest(t, m, f.r.config, alt, options)
 					fmMust(t, err)
 					defer func() { fmMust(t, search.Close()) }()
 					truth := f.own(m.MkTrue())
@@ -180,4 +180,16 @@ func TestSATPartialSearchStrongContextModes(t *testing.T) {
 			}
 		}
 	}
+}
+
+// newSATPartialSearchForTest builds the search over the members of a
+// QESATTactic that lives as long as the test.
+func newSATPartialSearchForTest(t *testing.T, m *ast.ASTManager, config Config, alt *satAlternation, options satTacticOptions) (*satPartialSearch, error) {
+	t.Helper()
+	host, err := NewQESATTactic(m, nil, config)
+	if err != nil {
+		return nil, err
+	}
+	t.Cleanup(func() { fmMust(t, host.Close()) })
+	return newSATPartialSearch(m, config, alt, options, host.rw, host.aux, host.strong, host.assignments)
 }

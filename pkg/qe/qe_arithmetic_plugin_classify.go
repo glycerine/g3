@@ -24,6 +24,14 @@ func (p *ArithmeticPlugin) MkAtom(expression ast.ASTHandle, positive bool) (ast.
 	return h, err == nil, err
 }
 
+// mkAtomRef is mk_atom returning its expr_ref result to the caller.
+func (p *ArithmeticPlugin) mkAtomRef(expression ast.ASTHandle, positive bool) (ast.ASTRef, bool, error) {
+	if err := p.open(); err != nil {
+		return ast.ASTRef{}, false, err
+	}
+	return p.util.NormalizeAtom(expression, positive)
+}
+
 // IsUninterpreted retains the source classification. A non-numeral mod and a
 // product with no numeral factor are treated as opaque.
 func (p *ArithmeticPlugin) IsUninterpreted(application ast.ASTHandle) (bool, error) {

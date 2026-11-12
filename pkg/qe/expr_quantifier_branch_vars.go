@@ -17,6 +17,10 @@ type exprQEBranchVariables struct {
 	entries []exprQEBranchVariable
 	index   map[ast.ASTHandle]int
 	pending []ast.ASTRef
+	// order is the owner's m_var2contains table, which fixes the order
+	// reset deallocates the contains_app objects in; nil keeps insertion
+	// order.
+	order *ast.ObjMap
 }
 
 func newExprQEBranchVariables(m *ast.ASTManager) (*exprQEBranchVariables, error) {
@@ -76,6 +80,72 @@ func (s *exprQEBranchVariables) add(variable ast.ASTHandle) (err error) {
 		return err
 	}
 	s.index[variable] = len(s.entries) - 1
+	if s.order != nil {
+		return s.order.Insert(variable, [2]ast.ASTHandle{})
+	}
+	return nil
+}
+
+// release is the variable half of quant_elim_plugin::reset: m_trail (the
+// fresh branch constants), then the contains_app objects of
+// m_var2contains in table order. m_new_vars (pending) is left to Close.
+func (s *exprQEBranchVariables) release() error {
+	if s == nil || s.manager == nil {
+		return nil
+	}
+	m := s.manager
+	for i := range s.entries {
+		if s.entries[i].branch != (ast.ASTRef{}) {
+			if err := m.DelRef(&s.entries[i].branch); err != nil {
+				return err
+			}
+		}
+	}
+	order := make([]int, 0, len(s.entries))
+	if s.order != nil {
+		for _, entry := range s.order.Entries() {
+			if i, ok := s.index[entry.Key]; ok {
+				order = append(order, i)
+			}
+		}
+		s.order.Reset()
+	}
+	if len(order) != len(s.entries) {
+		order = order[:0]
+		for i := range s.entries {
+			order = append(order, i)
+		}
+	}
+	for _, i := range order {
+		e := &s.entries[i]
+		if e.contains != nil {
+			if err := e.contains.Close(); err != nil {
+				return err
+			}
+			e.contains = nil
+		}
+		if e.variable != (ast.ASTRef{}) {
+			if err := m.DelRef(&e.variable); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// releasePending is m_new_vars.reset(): forward.
+func (s *exprQEBranchVariables) releasePending() error {
+	if s == nil || s.manager == nil {
+		return nil
+	}
+	for i := range s.pending {
+		if s.pending[i] != (ast.ASTRef{}) {
+			if err := s.manager.DelRef(&s.pending[i]); err != nil {
+				return err
+			}
+		}
+	}
+	s.pending = s.pending[:0]
 	return nil
 }
 func (s *exprQEBranchVariables) branch(variable ast.ASTHandle) (ast.ASTHandle, error) {

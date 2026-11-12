@@ -20,7 +20,9 @@ type BoolAtomIndex struct {
 	// references are released deterministically in this order.
 	order     []ast.ASTHandle
 	orderSets []map[ast.ASTHandle]ast.ASTRef
-	closed    bool
+	// orderPositive marks the order entries of the positive set.
+	orderPositive []bool
+	closed        bool
 }
 
 func NewBoolAtomIndex(manager *ast.ASTManager, positive, negative []ast.ASTHandle) (result *BoolAtomIndex, err error) {
@@ -38,8 +40,14 @@ func NewBoolAtomIndex(manager *ast.ASTManager, positive, negative []ast.ASTHandl
 	if err = index.insert(index.positive, positive); err != nil {
 		return nil, err
 	}
+	for len(index.orderPositive) < len(index.order) {
+		index.orderPositive = append(index.orderPositive, true)
+	}
 	if err = index.insert(index.negative, negative); err != nil {
 		return nil, err
+	}
+	for len(index.orderPositive) < len(index.order) {
+		index.orderPositive = append(index.orderPositive, false)
 	}
 	return index, nil
 }

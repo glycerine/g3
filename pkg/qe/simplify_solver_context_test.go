@@ -16,7 +16,7 @@ func TestSimplifyExistsBooleanArithmeticFixedPoint(t *testing.T) {
 	equation := f.own(m.MkEq(x, f.number("3")))
 	inequality := f.own(m.MkArithmeticLE(z, x))
 	formula := f.own(m.MkAndArgs([]ast.ASTHandle{b, equation, inequality}))
-	result, err := simplifyExists(m, f.r.config, []ast.ASTHandle{b, x, z}, formula)
+	result, err := simplifyExistsForTest(t, m, f.r.config, []ast.ASTHandle{b, x, z}, formula)
 	fmMust(t, err)
 	defer func() { fmMust(t, result.Close()) }()
 	if len(result.variables) != 1 {
@@ -49,7 +49,7 @@ func TestSimplifyExistsLeavesUnsolvedVariable(t *testing.T) {
 	m := f.r.manager
 	x := f.constant("simplify-unsolved-x", f.integer)
 	formula := f.own(m.MkArithmeticLE(x, f.number("1")))
-	result, err := simplifyExists(m, f.r.config, []ast.ASTHandle{x}, formula)
+	result, err := simplifyExistsForTest(t, m, f.r.config, []ast.ASTHandle{x}, formula)
 	fmMust(t, err)
 	defer func() { fmMust(t, result.Close()) }()
 	value, err := m.RefGet(result.formula)
@@ -69,7 +69,7 @@ func TestSimplifyExistsOwnsFreshArithmeticVariables(t *testing.T) {
 	sum := f.own(m.MkArithmeticAdd(twoX, threeY))
 	lhs := f.own(m.MkArithmeticAdd(sum, f.number("1")))
 	formula := f.own(m.MkEq(lhs, f.number("0")))
-	result, err := simplifyExists(m, f.r.config, []ast.ASTHandle{x, y}, formula)
+	result, err := simplifyExistsForTest(t, m, f.r.config, []ast.ASTHandle{x, y}, formula)
 	fmMust(t, err)
 	defer func() { fmMust(t, result.Close()) }()
 	if len(result.variables) != 1 {
@@ -111,4 +111,25 @@ func TestSimplifyExistsOwnsFreshArithmeticVariables(t *testing.T) {
 	if !m.IsTrue(h) {
 		t.Fatal("integer equation should simplify to true")
 	}
+}
+
+// simplifyExistsForTest solves with a fresh simplify_solver_context, as
+// qe.cpp simplify_exists does.
+func simplifyExistsForTest(t *testing.T, m *ast.ASTManager, config Config, variables []ast.ASTHandle, formula ast.ASTHandle) (*qeSimplifyResult, error) {
+	t.Helper()
+	ctx, err := newSimplifySolverContext(m, config)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { fmMust(t, ctx.Close()) }()
+	result := &qeSimplifyResult{manager: m}
+	if result.formula, err = m.NewRef(formula); err != nil {
+		return nil, err
+	}
+	result.variables, err = ctx.solve(variables, result.formula)
+	if err != nil {
+		fmMust(t, result.Close())
+		return nil, err
+	}
+	return result, nil
 }

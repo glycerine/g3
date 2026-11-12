@@ -47,7 +47,7 @@ func TestSATSolverQuantifiedBooleanTruthTables(t *testing.T) {
 						options := newSATTacticOptions()
 						options.projection = full
 						options.simplifyLocal = local
-						search, err := newSATPartialSearch(m, f.r.config, alt, options)
+						search, err := newSATPartialSearchForTest(t, m, f.r.config, alt, options)
 						fmMust(t, err)
 						defer func() { fmMust(t, search.Close()) }()
 						truth := f.own(m.MkTrue())

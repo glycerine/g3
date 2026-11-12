@@ -3,8 +3,6 @@ package qe
 // Source: src/qe/qe_sat_tactic.cpp, solver_context::project_var_partial.
 
 import (
-	"errors"
-
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -22,89 +20,41 @@ func (c *satSolverContext) projectPartial(index uint32, source *model.Model, rw 
 	if index >= uint32(len(c.variables)) {
 		return arena.ErrBounds
 	}
-	variables := make([]ast.ASTHandle, len(c.variables))
-	for i := range variables {
-		variables[i], err = c.manager.RefGet(c.variables[i])
-		if err != nil {
-			return err
-		}
-	}
-	context, err := NewSolverContext(c.manager, variables)
+	m := c.manager
+	variable, err := m.RefGet(c.variables[index])
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, context.Close()) }()
-	sort, err := c.manager.GetSort(variables[index])
+	sort, err := m.GetSort(variable)
 	if err != nil {
 		return err
 	}
-	family, err := c.manager.GetFamilyID(sort)
+	family, err := m.GetFamilyID(sort)
 	if err != nil {
 		return err
 	}
-	arithmetic, err := c.manager.ArithmeticFamilyID()
+	arithmetic, err := m.ArithmeticFamilyID()
 	if err != nil {
 		return err
 	}
-	bv, err := c.manager.BitVectorUtilityFamilyID()
+	bv, err := m.BitVectorUtilityFamilyID()
 	if err != nil {
 		return err
 	}
 	var projected bool
 	switch family {
-	case c.manager.BasicFamilyID():
-		plugin, e := NewBoolPlugin(context)
-		if e != nil {
-			return e
-		}
-		defer func() { err = errors.Join(err, plugin.Close()) }()
-		if e = plugin.Project(c.contains[index], source, c.formula, config); e != nil {
-			return e
+	case m.BasicFamilyID():
+		if err = c.boolean.Project(c.contains[index], source, c.formula, config); err != nil {
+			return err
 		}
 		projected = true
 	case arithmetic:
-		plugin, e := NewArithmeticPlugin(context, config)
-		if e != nil {
-			return e
-		}
-		if e = context.AddPlugin(plugin); e != nil {
-			return errors.Join(e, plugin.Close())
-		}
-		adapter, e := NewSolverNNFAdapter(context)
-		if e != nil {
-			return e
-		}
-		defer func() { err = errors.Join(err, adapter.Close()) }()
-		normalizer, e := NewQENNFNormalizer(c.manager, adapter, adapter, config)
-		if e != nil {
-			return e
-		}
-		defer func() { err = errors.Join(err, normalizer.Close()) }()
-		atoms, e := normalizer.Normalize(c.formula)
-		if e != nil {
-			return e
-		}
-		if e = atoms.Close(); e != nil {
-			return e
-		}
-		root, e := c.manager.RefGet(c.formula)
-		if e != nil {
-			return e
-		}
-		if e = rw.Rewrite(root, c.formula); e != nil {
-			return e
-		}
-		projected, err = plugin.ProjectModelFormulaNNF(c.contains[index], source, c.formula, config)
+		projected, err = c.arithmetic.ProjectModelFormulaNNF(c.contains[index], source, c.formula, config)
 		if err == nil && projected {
-			err = c.takePartialArithmeticOutputs(plugin)
+			err = c.takePartialArithmeticOutputs(c.arithmetic)
 		}
 	case bv:
-		plugin, e := NewBitVectorPlugin(context)
-		if e != nil {
-			return e
-		}
-		defer func() { err = errors.Join(err, plugin.Close()) }()
-		projected, err = plugin.ProjectModel(c.contains[index], source, c.formula, config)
+		projected, err = c.bv.ProjectModel(c.contains[index], source, c.formula, config)
 	default:
 		return tactic.NewTacticException(messages.Canceled) // check_success
 	}

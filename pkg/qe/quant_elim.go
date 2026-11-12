@@ -453,6 +453,9 @@ type quantElimPlugin struct {
 	adapter      *SolverNNFAdapter
 	nnf          *QENNFNormalizer
 	freeVars     []ast.ASTRef
+	// var2contains is m_var2contains' table; reset empties it without
+	// shrinking a small table, so its layout carries across checks.
+	var2contains *ast.ObjMap
 	literals     exprQELiterals
 	// subfml is m_subfml: get_max_relevant assigns it in check and
 	// quant_elim_plugin::reset leaves it, so it lives until the next check
@@ -608,16 +611,38 @@ func (th *quantElimPlugin) simplifiers() []exprQETreeSimplifier {
 
 // reset is quant_elim_plugin::reset.
 func (th *quantElimPlugin) reset() (err error) {
-	for i := len(th.freeVars) - 1; i >= 0; i-- {
+	return th.resetCheck(nil, nil)
+}
+
+// resetCheck is quant_elim_plugin::reset over the state check keeps: free
+// variables, m_trail and m_var2contains (in variables), m_root and
+// m_new_vars.
+func (th *quantElimPlugin) resetCheck(variables *exprQEBranchVariables, root *exprQETree) (err error) {
+	for i := range th.freeVars {
 		err = errors.Join(err, th.manager.DelRef(&th.freeVars[i]))
 	}
 	th.freeVars = th.freeVars[:0]
+	if err != nil {
+		return err
+	}
+	if err = variables.release(); err != nil {
+		return err
+	}
+	if err = root.Close(); err != nil {
+		return err
+	}
+	if err = variables.releasePending(); err != nil {
+		return err
+	}
 	if th.context != nil {
 		err = errors.Join(err, th.context.resetVariables())
 	}
 	return err
 }
 
+// Close is ~quant_elim_plugin: reset, then the members in reverse
+// declaration order (m_nnf, m_subfml, m_conjs, m_bool_rewriter, m_literals,
+// m_solver, m_rewriter), then i_solver_context's plugins.
 func (th *quantElimPlugin) Close() (err error) {
 	if th == nil {
 		return nil
@@ -631,18 +656,18 @@ func (th *quantElimPlugin) Close() (err error) {
 		err = errors.Join(err, th.adapter.Close())
 		th.adapter = nil
 	}
+	if th.subfml != (ast.ASTRef{}) {
+		err = errors.Join(err, th.manager.DelRef(&th.subfml))
+	}
 	if th.partitioner != nil {
 		err = errors.Join(err, th.partitioner.Close())
 		th.partitioner = nil
 	}
-	if th.context != nil {
-		err = errors.Join(err, th.context.Close())
-		th.context = nil
+	if th.boolRw != nil {
+		err = errors.Join(err, th.boolRw.Close())
+		th.boolRw = nil
 	}
 	err = errors.Join(err, th.literals.reset(th.manager))
-	if th.subfml != (ast.ASTRef{}) {
-		err = errors.Join(err, th.manager.DelRef(&th.subfml))
-	}
 	if th.solver != nil {
 		err = errors.Join(err, th.solver.Close())
 		th.solver = nil
@@ -651,13 +676,13 @@ func (th *quantElimPlugin) Close() (err error) {
 		err = errors.Join(err, th.config.Context.Del(&th.kernelParams))
 		th.paramsReady = false
 	}
-	if th.boolRw != nil {
-		err = errors.Join(err, th.boolRw.Close())
-		th.boolRw = nil
-	}
 	if th.rw != nil {
 		err = errors.Join(err, th.rw.Close())
 		th.rw = nil
+	}
+	if th.context != nil {
+		err = errors.Join(err, th.context.Close())
+		th.context = nil
 	}
 	return err
 }
@@ -683,6 +708,10 @@ func (th *quantElimPlugin) check(vars []ast.ASTHandle, assumption ast.ASTRef, fm
 		return err
 	}
 	defer func() { err = errors.Join(err, variables.Close()) }()
+	if th.var2contains == nil {
+		th.var2contains = ast.NewObjMap(m)
+	}
+	variables.order = th.var2contains
 	for _, v := range vars {
 		has, e := th.context.HasPlugin(v)
 		if e != nil {
@@ -774,7 +803,7 @@ func (th *quantElimPlugin) check(vars []ast.ASTHandle, assumption ast.ASTRef, fm
 	if !complete {
 		// l_undef: every block variable stays free and fml is unchanged.
 		popped = true
-		return errors.Join(appendQEFreeVars(m, free, vars), th.reset(), th.solver.PopCore(1))
+		return errors.Join(appendQEFreeVars(m, free, vars), th.resetCheck(variables, root), th.solver.PopCore(1))
 	}
 	defer func() { err = errors.Join(err, m.DelRef(&result)) }()
 	answer, err := m.RefGet(result)
@@ -801,7 +830,7 @@ func (th *quantElimPlugin) check(vars []ast.ASTHandle, assumption ast.ASTRef, fm
 		}
 	}
 	popped = true
-	return errors.Join(th.reset(), th.solver.PopCore(1))
+	return errors.Join(th.resetCheck(variables, root), th.solver.PopCore(1))
 }
 
 // blastOr is quant_elim_plugin::blast_or: the variable is eliminated from

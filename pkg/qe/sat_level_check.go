@@ -14,10 +14,32 @@ import (
 )
 
 type satLevelResult struct {
-	manager     *ast.ASTManager
-	sat         bool
-	assignments []ast.ASTRef
+	manager *ast.ASTManager
+	sat     bool
+	// assignments borrows m_assignments, valid until the next check.
+	assignments []ast.ASTHandle
 	model       *model.ModelCore
+}
+
+// satAssignments is sat_tactic::m_assignments. It is a tactic member: each
+// is_sat resets it, and only the tactic's destruction releases it.
+type satAssignments struct {
+	manager *ast.ASTManager
+	refs    []ast.ASTRef
+}
+
+// reset is expr_ref_vector::reset.
+func (a *satAssignments) reset() error {
+	for i := range a.refs {
+		if a.refs[i] != (ast.ASTRef{}) {
+			if err := a.manager.DelRef(&a.refs[i]); err != nil {
+				a.refs = a.refs[i:]
+				return err
+			}
+		}
+	}
+	a.refs = a.refs[:0]
+	return nil
 }
 
 func (s *satLevels) check(index uint32, context ast.ASTHandle) (result *satLevelResult, err error) {
@@ -46,6 +68,9 @@ func (s *satLevels) check(index uint32, context ast.ASTHandle) (result *satLevel
 	if err != nil {
 		return result, err
 	}
+	if err = s.assignments.reset(); err != nil {
+		return result, err
+	}
 	assignments, err := solver.Assignments()
 	if err != nil {
 		return result, err
@@ -55,8 +80,9 @@ func (s *satLevels) check(index uint32, context ast.ASTHandle) (result *satLevel
 		if e != nil {
 			return result, e
 		}
-		result.assignments = append(result.assignments, ref)
+		s.assignments.refs = append(s.assignments.refs, ref)
 	}
+	result.assignments = assignments
 	if status == lbool.Undef {
 		// check_success(r != l_undef) throws TACTIC_CANCELED_MSG.
 		return result, tactic.NewTacticException(messages.Canceled)
@@ -81,13 +107,7 @@ func (r *satLevelResult) Close() error {
 		}
 		r.model = nil
 	}
-	for len(r.assignments) > 0 {
-		i := len(r.assignments) - 1
-		if err := r.manager.DelRef(&r.assignments[i]); err != nil {
-			return err
-		}
-		r.assignments = r.assignments[:i]
-	}
+	r.assignments = nil
 	r.manager = nil
 	return nil
 }

@@ -64,8 +64,10 @@ func TestSATSolverContextNNFAndConstraints(t *testing.T) {
 	fmMust(t, err)
 	positive, err := context.atoms.Positive(y)
 	fmMust(t, err)
-	if !negative || !positive {
-		t.Fatal("default relevance and polarities", negative, positive)
+	// is_relevant asks the remaining variables' contains_app: y was
+	// eliminated, so its atom is irrelevant and not collected.
+	if !negative || positive {
+		t.Fatal("contains relevance and polarities", negative, positive)
 	}
 	fmMust(t, context.initializeFormula(x))
 	negative, err = context.atoms.Negative(x)

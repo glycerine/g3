@@ -14,9 +14,12 @@ func TestSATSolverNNFStrengtheningAndScope(t *testing.T) {
 	k := qsatKernelOwner(t, f)
 	solver, err := k.solver()
 	fmMust(t, err)
-	c, err := newSATSolverContext(m, solver, f.r.config)
+	// nnf_strengthening/weakening_extrapolate use the tactic's default
+	// m_is_relevant and m_mk_atom, not a solver_context's.
+	defaults := &satNNFDefault{manager: m}
+	normalizer, err := NewQENNFNormalizer(m, defaults, defaults, f.r.config)
 	fmMust(t, err)
-	defer func() { fmMust(t, c.Close()) }()
+	defer func() { fmMust(t, normalizer.Close()) }()
 	rw, err := rewriter.NewTheoryRewriter(m, f.r.config.Context, f.r.config.Globals, nil)
 	fmMust(t, err)
 	defer func() { fmMust(t, rw.Close()) }()
@@ -26,7 +29,7 @@ func TestSATSolverNNFStrengtheningAndScope(t *testing.T) {
 	truth := f.own(m.MkTrue())
 	fmMust(t, solver.AssertFormula(b))
 	checkpoints := 0
-	result, err := satStrengthen(m, c.normalizer, solver, rw, truth, b, func() error { checkpoints++; return nil })
+	result, err := satStrengthen(m, normalizer, solver, rw, truth, b, func() error { checkpoints++; return nil })
 	fmMust(t, err)
 	defer func() { fmMust(t, m.DelRef(&result)) }()
 	h, err := m.RefGet(result)
@@ -56,9 +59,12 @@ func TestSATSolverNNFStrengtheningSkipsMixedPolarityAndCleansFailure(t *testing.
 	k := qsatKernelOwner(t, f)
 	solver, err := k.solver()
 	fmMust(t, err)
-	c, err := newSATSolverContext(m, solver, f.r.config)
+	// nnf_strengthening/weakening_extrapolate use the tactic's default
+	// m_is_relevant and m_mk_atom, not a solver_context's.
+	defaults := &satNNFDefault{manager: m}
+	normalizer, err := NewQENNFNormalizer(m, defaults, defaults, f.r.config)
 	fmMust(t, err)
-	defer func() { fmMust(t, c.Close()) }()
+	defer func() { fmMust(t, normalizer.Close()) }()
 	rw, err := rewriter.NewTheoryRewriter(m, f.r.config.Context, f.r.config.Globals, nil)
 	fmMust(t, err)
 	defer func() { fmMust(t, rw.Close()) }()
@@ -71,14 +77,14 @@ func TestSATSolverNNFStrengtheningSkipsMixedPolarityAndCleansFailure(t *testing.
 	truth := f.own(m.MkTrue())
 	fmMust(t, solver.AssertFormula(b))
 	count := 0
-	result, err := satStrengthen(m, c.normalizer, solver, rw, truth, b, func() error { count++; return nil })
+	result, err := satStrengthen(m, normalizer, solver, rw, truth, b, func() error { count++; return nil })
 	fmMust(t, err)
 	fmMust(t, m.DelRef(&result))
 	if count != 1 {
 		t.Fatalf("mixed-polarity atom was considered: %d checkpoints", count)
 	}
 	stopped := errors.New("stop")
-	_, err = satStrengthen(m, c.normalizer, solver, rw, truth, b, func() error { return stopped })
+	_, err = satStrengthen(m, normalizer, solver, rw, truth, b, func() error { return stopped })
 	if !errors.Is(err, stopped) {
 		t.Fatal("checkpoint failure not propagated", err)
 	}

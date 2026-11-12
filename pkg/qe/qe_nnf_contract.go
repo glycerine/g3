@@ -12,6 +12,12 @@ type QENNFAtomNormalizer interface {
 	NormalizeAtom(ast.ASTHandle, bool) (ast.ASTHandle, error)
 }
 
+// qeNNFAtomRefNormalizer is an i_nnf_atom whose result expr_ref passes
+// straight into the normalizer's own references.
+type qeNNFAtomRefNormalizer interface {
+	NormalizeAtomRef(ast.ASTHandle, bool) (ast.ASTRef, error)
+}
+
 type qeNNFKey struct {
 	expression ast.ASTHandle
 	positive   bool

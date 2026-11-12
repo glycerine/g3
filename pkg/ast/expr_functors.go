@@ -133,13 +133,16 @@ func (c *CheckPredicate) Reset() error {
 	}
 	c.holds = make(map[ASTHandle]struct{})
 	c.visited = make(map[ASTHandle]struct{})
-	for len(c.refs) != 0 {
-		last := len(c.refs) - 1
-		if err := c.manager.DelRef(&c.refs[last]); err != nil {
-			return err
+	// m_refs.reset(): references drop in insertion order.
+	for i := range c.refs {
+		if c.refs[i] != (ASTRef{}) {
+			if err := c.manager.DelRef(&c.refs[i]); err != nil {
+				c.refs = c.refs[i:]
+				return err
+			}
 		}
-		c.refs = c.refs[:last]
 	}
+	c.refs = c.refs[:0]
 	return nil
 }
 

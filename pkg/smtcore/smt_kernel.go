@@ -1315,6 +1315,11 @@ func (k *SMTKernel) internalizeCheckAssertions() error {
 }
 
 func (k *SMTKernel) Check() (result lbool.LBool, resultErr error) {
+	defer func() {
+		if resultErr == nil && result != lbool.True {
+			resultErr = k.captureUnsatLiteralResults()
+		}
+	}()
 	ready, err := k.beginCheck()
 	if err != nil || !ready {
 		return lbool.Undef, err

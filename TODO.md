@@ -2387,10 +2387,17 @@ Leads:
 - qsat is ~6x and qe-sat ~11x slower than z3 on the BV+UF goal with the
   same search statistics (flat profile; 122 MB vs 4.7 MB reported memory -
   check retention); rlimit count differs (2705746 vs 8175552).
-- qe-sat construction order: z3's sat_tactic builds m_solver, m_qe_rw
-  (simplify_solver_context plugins) and m_ctx_rewriter once per tactic; g3
-  builds kernels per Apply and an arith plugin per quantifier, so qe-sat
-  traces diverge near line 57-62.
+- DONE (2026-11-12): qe-sat construction order and lifetimes (members built
+  in source order and kept across Apply, reset() order, simplify_rewriter_star
+  with one persistent simplify_solver_context and rewriter_core cache stack,
+  iterative qe nnf with forward trail release, solver_context plugins per
+  project call, quant_elim_plugin reset/destructor order, atom sets in
+  obj_hashtable order, check_pred m_refs forward, get_assignments after
+  unsat/unknown). Both qe_sat_* vectors trace-identical. Leads:
+  QESATTactic.ResetStatistics clears snapshots (source kernel's is empty);
+  ArithmeticPlugin.Close iterates Go maps (obj_pair_map in C++);
+  SolverContext.MkAtom non-ref path keeps normalizedAtoms;
+  BoolAtomIndex assumes a fresh table (capacity carried by atom_set::reset).
 - other qsat helpers (maximizeCore, getCore) keep temporaries in the
   round-wide call scope; exprQEBranchVariables.Close order vs obj_map.
 - tactic catch sites that only accept rewriter exceptions where C++ catches
@@ -2489,3 +2496,15 @@ SMT2 sort in 4.7.1 (datalog factory unit-tested only); complete_model
 instantiation of parametric user sorts with Bool args unprobed;
 :global-declarations toggling and failed datatype rollback in the
 dictionary; "universe for" comment is a simplified string.
+
+## Status (2026-11-12, end of day)
+
+fullcmp2 over all test vectors: 732 trace-identical; the only trace
+differences are qe_rec_free_boolean and pb_strengthening_proof (the fork
+crashes); stdout differences: bv_native_operator_models (documented z3 bug)
+and qe_rec_free_boolean; 8 timeouts are trace=true runs past 30 s (new BV
+and fp vectors, mbqi_auflia_arith_macro_lifetimes,
+qe_bv_uf_exists_expansion) whose traces matched as far as they ran.
+Largest open item: constant-factor speed (6-11x slower than z3 on identical
+searches; trace=true 4-5x slower). Pending user decision: libstdc++
+unordered_set order for util/lp lu_extend.

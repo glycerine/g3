@@ -246,6 +246,40 @@ func (c *SolverContext) MkAtom(expression ast.ASTHandle, positive bool) (ast.AST
 	return c.manager.MkNot(expression)
 }
 
+// mkAtomRef is i_solver_context::mk_atom with its expr_ref result owned by
+// the caller: plugins in ascending family order, then p ? e : mk_not(m, e).
+func (c *SolverContext) mkAtomRef(expression ast.ASTHandle, positive bool) (ast.ASTRef, error) {
+	if err := c.open(); err != nil {
+		return ast.ASTRef{}, err
+	}
+	for _, plugin := range c.plugins {
+		if plugin == nil {
+			continue
+		}
+		if arithmetic, ok := plugin.(*ArithmeticPlugin); ok {
+			ref, handled, err := arithmetic.mkAtomRef(expression, positive)
+			if err != nil || handled {
+				return ref, err
+			}
+			continue
+		}
+		result, handled, err := plugin.MkAtom(expression, positive)
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		if handled {
+			return c.manager.NewRef(result)
+		}
+	}
+	if !positive {
+		var err error
+		if expression, err = c.manager.MkNotSimplified(expression); err != nil {
+			return ast.ASTRef{}, err
+		}
+	}
+	return c.manager.NewRef(expression)
+}
+
 // Close follows the source destructor's ascending family order. A failing
 // plugin remains published so cleanup can resume without skipping it.
 func (c *SolverContext) Close() error {

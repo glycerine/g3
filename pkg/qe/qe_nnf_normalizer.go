@@ -18,8 +18,11 @@ type QENNFNormalizer struct {
 	replacer  *astrewriter.ExprSafeReplace
 	theory    *astrewriter.TheoryRewriter
 	memo      map[qeNNFKey]ast.ASTHandle
-	scratch   []ast.ASTRef
-	closed    bool
+	todo      []qeNNFFrame
+	// scratch is nnf::m_trail; literalTrail is nnf_normalize_literals'.
+	scratch      []ast.ASTRef
+	literalTrail []ast.ASTRef
+	closed       bool
 }
 
 func NewQENNFNormalizer(manager *ast.ASTManager, relevance QENNFRelevance, atoms QENNFAtomNormalizer, config Config) (result *QENNFNormalizer, resultErr error) {
@@ -55,6 +58,8 @@ func (n *QENNFNormalizer) open() error {
 	return nil
 }
 
+// Normalize is get_nnf: a fresh nnf_normalizer converts formula (updated in
+// place) and collects its atoms; the normalizer's state ends with the call.
 func (n *QENNFNormalizer) Normalize(formula ast.ASTRef) (index *BoolAtomIndex, resultErr error) {
 	if err := n.open(); err != nil {
 		return nil, err
@@ -62,32 +67,53 @@ func (n *QENNFNormalizer) Normalize(formula ast.ASTRef) (index *BoolAtomIndex, r
 	if err := n.resetCall(); err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, n.resetCall()) }()
-	root, err := n.manager.RefGet(formula)
+	m := n.manager
+	// nnf_normalizer::operator(): expr_ref orig(fml).
+	orig, err := m.CopyRef(formula)
 	if err != nil {
 		return nil, err
 	}
-	nnf, err := n.toNNF(root, true)
-	if errors.Is(err, errQENNFNotApp) {
-		// get_nnf(fml, true) returned false: fml keeps its input value.
-		nnf, err = root, nil
-	}
+	defer func() {
+		if orig != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, m.DelRef(&orig))
+		}
+		resultErr = errors.Join(resultErr, n.resetCall())
+	}()
+	root, err := m.RefGet(formula)
 	if err != nil {
 		return nil, err
+	}
+	nnf, ok, err := n.getNNF(root, true)
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		if err = m.SetRef(formula, nnf); err != nil {
+			return nil, err
+		}
+	} else {
+		// get_nnf returned false: fml keeps its input value.
+		nnf = root
 	}
 	normalized, err := n.normalizeLiterals(nnf)
 	if err != nil {
+		return nil, err
+	}
+	if err = m.SetRef(formula, normalized); err != nil {
+		return nil, err
+	}
+	if err = n.releaseForward(&n.literalTrail); err != nil {
 		return nil, err
 	}
 	positive, negative, err := n.collectAtoms(normalized)
 	if err != nil {
 		return nil, err
 	}
-	index, err = NewBoolAtomIndex(n.manager, positive, negative)
+	index, err = NewBoolAtomIndex(m, positive, negative)
 	if err != nil {
 		return nil, err
 	}
-	if err = n.manager.SetRef(formula, normalized); err != nil {
+	if err = m.DelRef(&orig); err != nil {
 		return nil, errors.Join(err, index.Close())
 	}
 	return index, nil

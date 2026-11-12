@@ -6,6 +6,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
+// hold pushes onto nnf::m_trail.
 func (n *QENNFNormalizer) hold(expression ast.ASTHandle) error {
 	ref, err := n.manager.NewRef(expression)
 	if err != nil {
@@ -15,22 +16,23 @@ func (n *QENNFNormalizer) hold(expression ast.ASTHandle) error {
 	return nil
 }
 
-func (n *QENNFNormalizer) resetCall() (result error) {
-	for len(n.scratch) > 0 {
-		last := len(n.scratch) - 1
-		if err := n.manager.DelRef(&n.scratch[last]); err != nil {
-			return errors.Join(result, err)
+// releaseForward is expr_ref_vector::reset: references drop in order.
+func (n *QENNFNormalizer) releaseForward(refs *[]ast.ASTRef) error {
+	for i := range *refs {
+		if (*refs)[i] != (ast.ASTRef{}) {
+			if err := n.manager.DelRef(&(*refs)[i]); err != nil {
+				*refs = (*refs)[i:]
+				return err
+			}
 		}
-		n.scratch = n.scratch[:last]
 	}
-	n.memo = make(map[qeNNFKey]ast.ASTHandle)
-	return result
+	*refs = nil
+	return nil
 }
 
-func (n *QENNFNormalizer) remember(key qeNNFKey, value ast.ASTHandle) (ast.ASTHandle, error) {
-	if err := n.hold(value); err != nil {
-		return ast.ASTHandle{}, err
-	}
-	n.memo[key] = value
-	return value, nil
+func (n *QENNFNormalizer) resetCall() (result error) {
+	result = errors.Join(n.releaseForward(&n.literalTrail), n.releaseForward(&n.scratch))
+	n.memo = make(map[qeNNFKey]ast.ASTHandle)
+	n.todo = n.todo[:0]
+	return result
 }

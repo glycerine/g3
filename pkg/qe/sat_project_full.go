@@ -27,46 +27,49 @@ func (c *satSolverContext) projectFull(index uint32, rw *rewriter.TheoryRewriter
 	if err != nil {
 		return err
 	}
+	// qe::mk_exists(1, &x, m_fml) rebinds m_fml in place.
 	abstractor, err := ast.NewExprAbstractor(m)
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, abstractor.Close()) }()
-	quantified, err := m.NewRef(ast.ASTHandle{})
+	err = abstractor.MkExists([]ast.ASTHandle{variable}, formula, c.formula)
+	if err = errors.Join(err, abstractor.Close()); err != nil {
+		return err
+	}
+	q, err := m.RefGet(c.formula)
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, m.DelRef(&quantified)) }()
-	if err = abstractor.MkExists([]ast.ASTHandle{variable}, formula, quantified); err != nil {
-		return err
-	}
-	q, err := m.RefGet(quantified)
-	if err != nil {
-		return err
-	}
-	// expr_quant_elim qelim(m, m_fparams); qelim(m.mk_true(), m_fml, result)
+	// expr_quant_elim qelim(m, m_fparams); qelim(m.mk_true(), m_fml, result).
+	// The local qelim (and result) end with project_var_full, after
+	// elim_var.
 	truth, err := m.MkTrue()
 	if err != nil {
 		return err
 	}
 	qelim := newExprQuantElim(m, config)
 	projected, err := qelim.run(truth, q)
-	err = errors.Join(err, qelim.Close())
-	if err != nil {
+	defer func() {
+		err = errors.Join(err, qelim.Close())
 		if projected != (ast.ASTRef{}) {
 			err = errors.Join(err, m.DelRef(&projected))
 		}
+	}()
+	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, m.DelRef(&projected)) }()
 	value, err := m.RefGet(projected)
 	if err != nil {
 		return err
 	}
-	if err = rw.Rewrite(value, projected); err != nil {
+	// m_fml = result; m_super.m_rewriter(m_fml).
+	if err = m.SetRef(c.formula, value); err != nil {
 		return err
 	}
-	value, err = m.RefGet(projected)
+	if err = rw.Rewrite(value, c.formula); err != nil {
+		return err
+	}
+	value, err = m.RefGet(c.formula)
 	if err != nil {
 		return err
 	}

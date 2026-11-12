@@ -26,26 +26,17 @@ type satPartialSearch struct {
 	strong  *smtcore.ExprStrongContextSimplifier
 }
 
-// collectStatistics separates the per-application level solvers from the
-// auxiliary solver and context simplifier, which correspond to the tactic's
-// persistent source members.
-func (s *satPartialSearch) collectStatistics(levels, persistent *statistics.Statistics) error {
-	if s == nil || s.manager == nil || s.levels == nil || s.aux == nil {
+// collectLevelStatistics collects the per-application level solvers, the
+// source m_solvers.
+func (s *satPartialSearch) collectLevelStatistics(levels *statistics.Statistics) error {
+	if s == nil || s.manager == nil || s.levels == nil {
 		return arena.ErrClosed
 	}
-	if levels == nil || persistent == nil {
+	if levels == nil {
 		return ast.ErrASTHandle
 	}
 	for _, level := range s.levels.levels {
 		if err := level.solver.CollectStatistics(levels); err != nil {
-			return err
-		}
-	}
-	if err := s.aux.CollectStatistics(persistent); err != nil {
-		return err
-	}
-	if s.strong != nil {
-		if err := s.strong.CollectStatistics(persistent); err != nil {
 			return err
 		}
 	}
@@ -58,11 +49,17 @@ type satPartialResult struct {
 	model   *model.ModelCore
 }
 
-func newSATPartialSearch(m *ast.ASTManager, config Config, alt *satAlternation, options satTacticOptions) (result *satPartialSearch, err error) {
-	if m == nil || alt == nil || alt.closed || alt.manager != m || config.Context == nil || config.Globals == nil || config.Cooperation == nil {
+// newSATPartialSearch builds the per-application state of sat_tactic: the
+// level solvers of init_Ms. The theory rewriter, auxiliary solver and strong
+// context simplifier are the tactic's lifetime members and are borrowed.
+func newSATPartialSearch(m *ast.ASTManager, config Config, alt *satAlternation, options satTacticOptions, rw *rewriter.TheoryRewriter, aux *smtcore.SMTSolver, strong *smtcore.ExprStrongContextSimplifier, assignments *satAssignments) (result *satPartialSearch, err error) {
+	if m == nil || alt == nil || alt.closed || alt.manager != m || config.Context == nil || config.Globals == nil || config.Cooperation == nil || rw == nil || aux == nil || assignments == nil {
 		return nil, ast.ErrASTHandle
 	}
-	result = &satPartialSearch{manager: m, config: config, alt: alt, options: options}
+	result = &satPartialSearch{manager: m, config: config, alt: alt, options: options, rw: rw, aux: aux}
+	if options.strongSimplify {
+		result.strong = strong
+	}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, result.Close())
@@ -77,24 +74,11 @@ func newSATPartialSearch(m *ast.ASTManager, config Config, alt *satAlternation, 
 	if err != nil {
 		return result, err
 	}
-	result.rw, err = rewriter.NewTheoryRewriter(m, config.Context, config.Globals, nil)
-	if err != nil {
-		return result, err
-	}
+	result.levels.assignments, result.levels.ownAssignments = assignments, false
 	defaults := &satNNFDefault{manager: m}
 	result.nnf, err = NewQENNFNormalizer(m, defaults, defaults, config)
 	if err != nil {
 		return result, err
-	}
-	result.aux, err = smtcore.NewSMTSolver(m, nil, "", smtcore.SMTSolverConfig{Params: config.Context, Globals: config.Globals, ModelEvaluator: model.ModelEvaluatorConfig{Context: config.Context, Globals: config.Globals, Memory: m.NumeralService().RuntimeOwner(), Cooperation: config.Cooperation, Trace: config.Trace}})
-	if err != nil {
-		return result, err
-	}
-	if options.strongSimplify {
-		result.strong, err = smtcore.NewExprStrongContextSimplifier(m, smtcore.SMTSolverConfig{Params: config.Context, Globals: config.Globals, ModelEvaluator: model.ModelEvaluatorConfig{Context: config.Context, Globals: config.Globals, Memory: m.NumeralService().RuntimeOwner(), Cooperation: config.Cooperation, Trace: config.Trace}})
-		if err != nil {
-			return result, err
-		}
 	}
 	return result, nil
 }
@@ -112,29 +96,11 @@ func (s *satPartialSearch) Close() error {
 	if s == nil || s.manager == nil {
 		return nil
 	}
-	if s.strong != nil {
-		if err := s.strong.Close(); err != nil {
-			return err
-		}
-		s.strong = nil
-	}
-	if s.aux != nil {
-		if err := s.aux.Close(); err != nil {
-			return err
-		}
-		s.aux = nil
-	}
 	if s.nnf != nil {
 		if err := s.nnf.Close(); err != nil {
 			return err
 		}
 		s.nnf = nil
-	}
-	if s.rw != nil {
-		if err := s.rw.Close(); err != nil {
-			return err
-		}
-		s.rw = nil
 	}
 	if s.levels != nil {
 		if err := s.levels.Close(); err != nil {
@@ -142,6 +108,7 @@ func (s *satPartialSearch) Close() error {
 		}
 		s.levels = nil
 	}
+	s.strong, s.aux, s.rw = nil, nil, nil
 	s.manager = nil
 	return nil
 }
@@ -174,14 +141,7 @@ func (s *satPartialSearch) extrapolate(index uint32, context ast.ASTHandle, chec
 	case 1:
 		return satStrengthen(m, s.nnf, s.levels.levels[index].solver, s.rw, context, b, s.checkpoint)
 	case 2:
-		assignments := make([]ast.ASTHandle, len(check.assignments))
-		for i, ref := range check.assignments {
-			assignments[i], err = m.RefGet(ref)
-			if err != nil {
-				return ast.ASTRef{}, err
-			}
-		}
-		return satCoreExtrapolate(m, s.aux, b, assignments, s.checkpoint)
+		return satCoreExtrapolate(m, s.aux, b, check.assignments, s.checkpoint)
 	case 3:
 		return satWeaken(m, s.nnf, s.aux, s.rw, context, b, s.checkpoint)
 	default:

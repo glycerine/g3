@@ -40,7 +40,7 @@ func TestSATLevelChecksOwnAssignmentsAndModel(t *testing.T) {
 	again, err := levels.check(0, truth)
 	fmMust(t, err)
 	fmMust(t, again.Close())
-	for _, ref := range result.assignments {
+	for _, ref := range levels.assignments.refs {
 		h, e := m.RefGet(ref)
 		fmMust(t, e)
 		if h == (ast.ASTHandle{}) {

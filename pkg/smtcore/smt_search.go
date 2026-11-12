@@ -311,7 +311,14 @@ func (k *SMTKernel) search() (result lbool.LBool, resultErr error) {
 				if err = k.buildGeneratedModel(); err != nil {
 					return lbool.Undef, fmt.Errorf("smt search build model: %w", err)
 				}
-			} else if status == lbool.Undef && k.lastFailure != SMTFailureOK && k.lastFailure != SMTFailureQuantifiers && k.lastFailure != SMTFailureCanceled {
+			} else {
+				// get_assignments after an unsatisfiable or unknown check
+				// reports the literals the context still has assigned.
+				if err = k.captureLiteralResultsHeld(session.baseLevel, false); err != nil {
+					return lbool.Undef, fmt.Errorf("smt search capture literal results: %w", err)
+				}
+			}
+			if status == lbool.Undef && k.lastFailure != SMTFailureOK && k.lastFailure != SMTFailureQuantifiers && k.lastFailure != SMTFailureCanceled {
 				// restart: with m_last_search_failure != OK and a status other
 				// than l_false, build the candidate model before returning. A
 				// QUANTIFIERS failure comes after check_model's proto model

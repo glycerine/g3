@@ -8,6 +8,9 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/tactic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
@@ -17,11 +20,25 @@ import (
 // QESATTactic supports model-based partial projection and selected scalar
 // full projections, with optional strong context simplification.
 type QESATTactic struct {
-	self                *QESATTactic
-	manager             *ast.ASTManager
-	config              Config
-	params              uparams.ParamsRef
-	options             satTacticOptions
+	self    *QESATTactic
+	manager *ast.ASTManager
+	config  Config
+	params  uparams.ParamsRef
+	options satTacticOptions
+	// Lifetime members in source declaration order: m_solver, m_rewriter,
+	// m_qe_rw and m_ctx_rewriter.
+	aux    *smtcore.SMTSolver
+	rw     *rewriter.TheoryRewriter
+	qeRW   *simplifyRewriterStar
+	strong *smtcore.ExprStrongContextSimplifier
+	// Per-application state (m_vars, m_fml, m_Ms, m_solvers), released by
+	// reset at the next application or at destruction.
+	alt    *satAlternation
+	search *satPartialSearch
+	// assignments is m_assignments, which only destruction releases.
+	assignments *satAssignments
+	// Statistics snapshots: the source kernels' reset_statistics is empty,
+	// so the port clears its own copies.
 	levelStats          statistics.Statistics
 	persistentStats     statistics.Statistics
 	refs                uint32
@@ -42,7 +59,7 @@ func NewQESATTactic(m *ast.ASTManager, params *uparams.ParamsRef, config Config)
 	if err := m.Budget().Reserve(size); err != nil {
 		return nil, err
 	}
-	t := &QESATTactic{manager: m, config: config, options: newSATTacticOptions(), bytes: size}
+	t := &QESATTactic{manager: m, config: config, options: newSATTacticOptions(), bytes: size, assignments: &satAssignments{manager: m}}
 	t.self = t
 	var err error
 	t.params, err = config.Context.NewValue()
@@ -56,7 +73,58 @@ func NewQESATTactic(m *ast.ASTManager, params *uparams.ParamsRef, config Config)
 	if err != nil {
 		return nil, errors.Join(err, t.Close())
 	}
+	if err = t.initMembers(); err != nil {
+		return nil, errors.Join(err, t.Close())
+	}
 	return t, nil
+}
+
+func (t *QESATTactic) solverConfig() smtcore.SMTSolverConfig {
+	m, config := t.manager, t.config
+	return smtcore.SMTSolverConfig{Params: config.Context, Globals: config.Globals, ModelEvaluator: model.ModelEvaluatorConfig{Context: config.Context, Globals: config.Globals, Memory: m.NumeralService().RuntimeOwner(), Cooperation: config.Cooperation, Trace: config.Trace}}
+}
+
+// initMembers constructs the sat_tactic members in source order.
+func (t *QESATTactic) initMembers() (err error) {
+	m, config := t.manager, t.config
+	if t.aux, err = smtcore.NewSMTSolver(m, nil, "", t.solverConfig()); err != nil {
+		return err
+	}
+	if t.rw, err = rewriter.NewTheoryRewriter(m, config.Context, config.Globals, nil); err != nil {
+		return err
+	}
+	if t.qeRW, err = newSimplifyRewriterStar(m, config); err != nil {
+		return err
+	}
+	t.strong, err = smtcore.NewExprStrongContextSimplifier(m, t.solverConfig())
+	return err
+}
+
+// reset is sat_tactic::reset: the level solvers, then m_fml, m_Ms and m_vars.
+func (t *QESATTactic) reset() error {
+	if t.search != nil && t.search.levels != nil {
+		if err := t.search.levels.closeSolvers(); err != nil {
+			return err
+		}
+	}
+	if t.alt != nil {
+		if err := t.alt.releaseFormula(); err != nil {
+			return err
+		}
+	}
+	if t.search != nil {
+		if err := t.search.Close(); err != nil {
+			return err
+		}
+		t.search = nil
+	}
+	if t.alt != nil {
+		if err := t.alt.Close(); err != nil {
+			return err
+		}
+		t.alt = nil
+	}
+	return nil
 }
 func (t *QESATTactic) open() error {
 	if t == nil || t.self != t {
@@ -93,6 +161,39 @@ func (t *QESATTactic) Close() error {
 	}
 	if t.closed {
 		return nil
+	}
+	// ~sat_tactic: reset, then the members in reverse declaration order.
+	if err := t.reset(); err != nil {
+		return err
+	}
+	if t.strong != nil {
+		if err := t.strong.Close(); err != nil {
+			return err
+		}
+		t.strong = nil
+	}
+	if t.qeRW != nil {
+		if err := t.qeRW.Close(); err != nil {
+			return err
+		}
+		t.qeRW = nil
+	}
+	if t.rw != nil {
+		if err := t.rw.Close(); err != nil {
+			return err
+		}
+		t.rw = nil
+	}
+	if t.assignments != nil {
+		if err := t.assignments.reset(); err != nil {
+			return err
+		}
+	}
+	if t.aux != nil {
+		if err := t.aux.Close(); err != nil {
+			return err
+		}
+		t.aux = nil
 	}
 	if t.paramsReady {
 		if err := t.config.Context.Del(&t.params); err != nil {
@@ -135,9 +236,19 @@ func (t *QESATTactic) CollectStatistics(st *statistics.Statistics) {
 	if t.open() != nil {
 		return
 	}
-	st.Copy(t.persistentStats)
 	st.Copy(t.levelStats)
+	st.Copy(t.persistentStats)
 }
+
+// collectMemberStatistics is the m_solver and m_ctx_rewriter part of
+// collect_statistics.
+func (t *QESATTactic) collectMemberStatistics(st *statistics.Statistics) error {
+	if err := t.aux.CollectStatistics(st); err != nil {
+		return err
+	}
+	return t.strong.CollectStatistics(st)
+}
+
 func (t *QESATTactic) ResetStatistics() error {
 	if err := t.open(); err != nil {
 		return err
@@ -173,9 +284,9 @@ func (t *QESATTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (err er
 	if err = t.config.Cooperation.Cooperate("qe-sat"); err != nil {
 		return err
 	}
-	// The source tactic resets its per-application level solvers before
-	// preparing the next goal. Its auxiliary solver and context rewriter live
-	// across applications, so their statistics are accumulated separately.
+	if err = t.reset(); err != nil {
+		return err
+	}
 	t.levelStats.Reset()
 	if err = out.Prepare(m); err != nil {
 		return err
@@ -200,7 +311,7 @@ func (t *QESATTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (err er
 		return err
 	}
 	defer func() { err = errors.Join(err, m.DelRef(&ref)) }()
-	preprocessed, err := simplifyQEExpression(m, t.config, conjunction)
+	preprocessed, err := t.qeRW.rewrite(conjunction)
 	if err != nil {
 		return err
 	}
@@ -209,24 +320,32 @@ func (t *QESATTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (err er
 	if err != nil {
 		return err
 	}
-	alt, err := extractSATAlternation(m, t.config, conjunction)
-	if err != nil {
+	// m_fml = tmp releases the input conjunction.
+	if err = m.SetRef(ref, conjunction); err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, alt.Close()) }()
-	search, err := newSATPartialSearch(m, t.config, alt, t.options)
-	if err != nil {
+	if t.alt, err = extractSATAlternation(m, t.config, conjunction); err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, search.Close()) }()
+	if t.search, err = newSATPartialSearch(m, t.config, t.alt, t.options, t.rw, t.aux, t.strong, t.assignments); err != nil {
+		return err
+	}
+	if err = t.alt.releaseHoisted(); err != nil {
+		return err
+	}
+	search := t.search
 	defer func() {
 		var level, persistent statistics.Statistics
-		if collectErr := search.collectStatistics(&level, &persistent); collectErr != nil {
+		if collectErr := search.collectLevelStatistics(&level); collectErr != nil {
+			err = errors.Join(err, collectErr)
+			return
+		}
+		if collectErr := t.collectMemberStatistics(&persistent); collectErr != nil {
 			err = errors.Join(err, collectErr)
 			return
 		}
 		t.levelStats = level
-		t.persistentStats.Copy(persistent)
+		t.persistentStats = persistent
 	}()
 	truth, err := m.MkTrue()
 	if err != nil {

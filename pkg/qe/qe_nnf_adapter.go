@@ -67,6 +67,14 @@ func (a *SolverNNFAdapter) NormalizeAtom(expression ast.ASTHandle, positive bool
 	return a.context.MkAtom(expression, positive)
 }
 
+// NormalizeAtomRef is mk_atom_fn: the result expr_ref passes to the caller.
+func (a *SolverNNFAdapter) NormalizeAtomRef(expression ast.ASTHandle, positive bool) (ast.ASTRef, error) {
+	if err := a.open(); err != nil {
+		return ast.ASTRef{}, err
+	}
+	return a.context.mkAtomRef(expression, positive)
+}
+
 func (a *SolverNNFAdapter) Close() error {
 	if a == nil || a.self != a {
 		return ast.ErrASTHandle

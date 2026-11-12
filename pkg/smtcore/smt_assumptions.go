@@ -49,6 +49,11 @@ func (k *SMTKernel) validAssumption(assumption ast.ASTHandle) (bool, error) {
 // assumption scope and every variable introduced in it are removed before the
 // method returns.
 func (k *SMTKernel) CheckAssumptions(assumptions []ast.ASTHandle) (result lbool.LBool, resultErr error) {
+	defer func() {
+		if resultErr == nil && result != lbool.True {
+			resultErr = k.captureUnsatLiteralResults()
+		}
+	}()
 	ready, err := k.beginCheck()
 	if err != nil || !ready {
 		return lbool.Undef, err

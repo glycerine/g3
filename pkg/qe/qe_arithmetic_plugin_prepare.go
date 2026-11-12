@@ -30,42 +30,12 @@ func (p *ArithmeticPlugin) Prepare(variable *ast.ContainsApp, formula ast.ASTHan
 		}
 	}()
 	for polarity, atoms := range [][]ast.ASTHandle{positive, negative} {
-		for _, atom := range atoms {
-			contains, cause := variable.Check(atom)
-			if cause != nil {
-				return false, cause
-			}
-			if !contains {
-				continue
-			}
-			normalized := atom
-			var owned ast.ASTRef
-			if polarity == 1 {
-				var handled bool
-				owned, handled, cause = p.util.NormalizeAtom(atom, false)
-				if cause != nil {
-					return false, cause
-				}
-				if !handled {
-					// get_bound(not e) fails for a non-arithmetic atom.
-					return false, nil
-				}
-				normalized, cause = p.manager.RefGet(owned)
-				if cause != nil {
-					_ = p.manager.DelRef(&owned)
-					return false, cause
-				}
-			}
-			matched, cause := processor.Add(variable, normalized)
-			if polarity == 1 {
-				cause = joinArithmeticErrors(cause, p.manager.DelRef(&owned))
-			}
-			if cause != nil {
-				return false, cause
-			}
-			if !matched {
-				return false, nil
-			}
+		matched, cause := p.updateBounds(processor, variable, atoms, polarity == 0)
+		if cause != nil {
+			return false, cause
+		}
+		if !matched {
+			return false, nil
 		}
 	}
 	if err = p.insertEntry(target, formula, processor); err != nil {
@@ -80,4 +50,47 @@ func joinArithmeticErrors(a, b error) error {
 		return a
 	}
 	return b
+}
+
+// updateBounds is update_bounds(bounds, contains_x, fml, tbl, is_pos): a
+// negative atom is bounded as tmp = m.mk_not(e), the app_ref local to the
+// call.
+func (p *ArithmeticPlugin) updateBounds(processor *ArithmeticBoundsProcessor, variable *ast.ContainsApp, atoms []ast.ASTHandle, positive bool) (matched bool, err error) {
+	m := p.manager
+	var tmp ast.ASTRef
+	defer func() {
+		if tmp != (ast.ASTRef{}) {
+			err = joinArithmeticErrors(err, m.DelRef(&tmp))
+		}
+	}()
+	for _, atom := range atoms {
+		contains, cause := variable.Check(atom)
+		if cause != nil {
+			return false, cause
+		}
+		if !contains {
+			continue
+		}
+		e := atom
+		if !positive {
+			negated, cause := m.MkNot(atom)
+			if cause != nil {
+				return false, cause
+			}
+			if tmp == (ast.ASTRef{}) {
+				tmp, cause = m.NewRef(negated)
+			} else {
+				cause = m.SetRef(tmp, negated)
+			}
+			if cause != nil {
+				return false, cause
+			}
+			e = negated
+		}
+		ok, cause := processor.Add(variable, e)
+		if cause != nil || !ok {
+			return false, cause
+		}
+	}
+	return true, nil
 }

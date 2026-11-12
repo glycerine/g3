@@ -6,32 +6,10 @@ import (
 	"errors"
 	"math"
 	"math/big"
-	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
-
-func exprQEAtomHandles(m *ast.ASTManager, entries map[ast.ASTHandle]ast.ASTRef) ([]ast.ASTHandle, error) {
-	type item struct {
-		h  ast.ASTHandle
-		id uint32
-	}
-	items := make([]item, 0, len(entries))
-	for h := range entries {
-		id, err := m.GetASTID(h)
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, item{h, id})
-	}
-	sort.Slice(items, func(i, j int) bool { return items[i].id < items[j].id })
-	values := make([]ast.ASTHandle, len(items))
-	for i := range items {
-		values[i] = items[i].h
-	}
-	return values, nil
-}
 
 func exprQEPluginWeight(plugin SolverPlugin, variable *ast.ContainsApp, formula ast.ASTHandle, atoms *BoolAtomIndex) (uint32, error) {
 	switch p := plugin.(type) {
@@ -97,11 +75,11 @@ func selectExprQEVariable(node *exprQETree, variables *exprQEBranchVariables, co
 	if atoms.manager != m {
 		return selected, count, false, ast.ErrASTHandle
 	}
-	positive, err := exprQEAtomHandles(m, atoms.positiveAtoms())
+	positive, err := atoms.positiveTable()
 	if err != nil {
 		return selected, count, false, err
 	}
-	negative, err := exprQEAtomHandles(m, atoms.negativeAtoms())
+	negative, err := atoms.negativeTable()
 	if err != nil {
 		return selected, count, false, err
 	}

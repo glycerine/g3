@@ -14,7 +14,10 @@ type satAlternation struct {
 	manager   *ast.ASTManager
 	formula   ast.ASTRef
 	variables [][]ast.ASTRef
-	closed    bool
+	// hoisted is extract_alt_form's local result: the last hoist output,
+	// alive until extract_alt_form returns after init_Ms.
+	hoisted ast.ASTRef
+	closed  bool
 }
 
 func extractSATAlternation(m *ast.ASTManager, config Config, formula ast.ASTHandle) (_ *satAlternation, resultErr error) {
@@ -54,6 +57,9 @@ func extractSATAlternation(m *ast.ASTManager, config Config, formula ast.ASTHand
 			return nil, e
 		}
 		if len(block.Variables) == 0 {
+			if result.hoisted, e = m.CopyRef(block.Formula); e != nil {
+				return nil, errors.Join(e, block.Close())
+			}
 			if e = block.Close(); e != nil {
 				return nil, e
 			}
@@ -96,30 +102,44 @@ func extractSATAlternation(m *ast.ASTManager, config Config, formula ast.ASTHand
 	return result, nil
 }
 
+// releaseHoisted ends extract_alt_form's scope.
+func (s *satAlternation) releaseHoisted() error {
+	if s == nil || s.hoisted == (ast.ASTRef{}) {
+		return nil
+	}
+	return s.manager.DelRef(&s.hoisted)
+}
+
+// releaseFormula is m_fml = nullptr.
+func (s *satAlternation) releaseFormula() error {
+	if s == nil || s.formula == (ast.ASTRef{}) {
+		return nil
+	}
+	return s.manager.DelRef(&s.formula)
+}
+
+// Close releases m_fml, then m_vars (vector::reset destroys each
+// app_ref_vector in order, each dropping its references forward).
 func (s *satAlternation) Close() error {
 	if s == nil || s.closed {
 		return nil
 	}
-	if s.formula != (ast.ASTRef{}) {
-		if err := s.manager.DelRef(&s.formula); err != nil {
-			return err
-		}
+	if err := s.releaseHoisted(); err != nil {
+		return err
 	}
-	for len(s.variables) > 0 {
-		i := len(s.variables) - 1
-		for len(s.variables[i]) > 0 {
-			j := len(s.variables[i]) - 1
-			ref := &s.variables[i][j]
-			err := s.manager.DelRef(ref)
-			if *ref == (ast.ASTRef{}) {
-				s.variables[i] = s.variables[i][:j]
-			}
-			if err != nil {
-				return err
+	if err := s.releaseFormula(); err != nil {
+		return err
+	}
+	for i := range s.variables {
+		for j := range s.variables[i] {
+			if s.variables[i][j] != (ast.ASTRef{}) {
+				if err := s.manager.DelRef(&s.variables[i][j]); err != nil {
+					return err
+				}
 			}
 		}
-		s.variables = s.variables[:i]
 	}
+	s.variables = nil
 	s.closed = true
 	return nil
 }
