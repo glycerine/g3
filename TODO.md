@@ -2056,7 +2056,10 @@ testing (main_test.go carries a commented-out entry pointing there):
   with model_evaluator.max_steps the fork's get-value prints a null value and
   segfaults in shared_occs::process (parse_get_value displays model::eval's
   failed result) - a second z3 4.7.1 bug, not reproduced by g3.
-- pareto with a soft and an arithmetic objective together (e.g. assert-soft a
+- RESOLVED (2026-11-12, by the pareto/box setup port): s2 is trace- and
+  stdout-identical; s4 (x unbounded below, infinite frontier) times out in
+  both and g3's 30 s trace is an exact prefix of the fork's. Original lead:
+  pareto with a soft and an arithmetic objective together (e.g. assert-soft a
   plus (minimize x)) diverges early in the trace while stdout matches: the
   fork creates a named bound atom |-3 <= (* (- 1) x)| and an attach-enode
   that g3 never makes (opt_solver / theory_arith bounds inside gia_pareto).
@@ -2081,9 +2084,10 @@ and probe matches the fork. Two deliberate differences remain:
   projectQE also adds such clauses (universal level, clause level 0), as the
   source comment "is_forall() && clevel.max() == 0" suggests. Not reachable
   from z3 4.7.1 ("unknown tactic nlqe"), so no identity vector is affected.
-Leads: tseitin's imp lives as long as nlqsat's m_nftactic (g3 releases it per
-Apply); tseitin get_lit with a sign uses g3's simplifying mkNot where C++
-mk_lit calls m.mk_not.
+DONE (2026-11-12): tseitin get_lit's sign case uses a plain MkNot
+(mk_lit's m.mk_not); inv keeps the simplifying mkNot. No vector exposed it
+(tseitin's own rewriter folds true/false first). Lead: tseitin's imp lives
+as long as nlqsat's m_nftactic (g3 releases it per Apply).
 
 ## Optimization leads after the pareto/box setup port (2026-11-12)
 

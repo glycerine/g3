@@ -272,6 +272,13 @@ func (c *tseitinInvocation) mkNot(h ast.ASTHandle) (ast.ASTHandle, error) {
 	}
 	return m.MkNot(h)
 }
+
+// mkLitNot is mk_lit's sign case: a plain m.mk_not, unlike inv (mkNot).
+func (c *tseitinInvocation) mkLitNot(h ast.ASTHandle) (ast.ASTHandle, error) {
+	return c.owner.manager.MkNot(h)
+}
+
+// lit is get_lit(n, sign, r).
 func (c *tseitinInvocation) lit(h ast.ASTHandle, sign bool) (ast.ASTHandle, error) {
 	for {
 		op, args, app, e := c.op(h)
@@ -280,7 +287,7 @@ func (c *tseitinInvocation) lit(h ast.ASTHandle, sign bool) (ast.ASTHandle, erro
 		}
 		if !app || len(args) == 0 {
 			if sign {
-				return c.mkNot(h)
+				return c.mkLitNot(h)
 			}
 			return h, nil
 		}
@@ -297,7 +304,7 @@ func (c *tseitinInvocation) lit(h ast.ASTHandle, sign bool) (ast.ASTHandle, erro
 				}
 				if !b {
 					if sign {
-						return c.mkNot(h)
+						return c.mkLitNot(h)
 					}
 					return h, nil
 				}
@@ -307,7 +314,7 @@ func (c *tseitinInvocation) lit(h ast.ASTHandle, sign bool) (ast.ASTHandle, erro
 				return ast.ASTHandle{}, ast.ErrASTDomain
 			}
 			if sign {
-				return c.mkNot(v)
+				return c.mkLitNot(v)
 			}
 			return v, nil
 		}
