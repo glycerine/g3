@@ -272,15 +272,25 @@ func TestDatatypeFactoryTraceFiniteSiblingFallback(t *testing.T) {
 	protoMust(t, err)
 	finite, err := m.MkApp(b[0], nil)
 	protoMust(t, err)
-	one, err := m.MkApp(a[1], []ast.ASTHandle{finite, zero})
-	protoMust(t, err)
 	protoMust(t, f.RegisterValue(zero))
-	protoMust(t, f.RegisterValue(one))
 	protoMust(t, f.RegisterValue(finite))
+	// Approach 1 builds (fa1 fb some) from *set->begin(), which follows the
+	// obj_hashtable order: extend the chain zero, (fa1 fb zero), ... until
+	// that rebuilt value is already registered.
+	registered := map[ast.ASTHandle]bool{zero: true}
+	for {
+		next, err := m.MkApp(a[1], []ast.ASTHandle{finite, f.sets[sorts[0]].begin()})
+		protoMust(t, err)
+		if registered[next] {
+			break
+		}
+		registered[next] = true
+		protoMust(t, f.RegisterValue(next))
+	}
 	tags.Enable("datatype")
 	value, err := f.FreshValue(sorts[0])
 	protoMust(t, err)
-	if value.IsNull() || value == zero || value == one {
+	if value.IsNull() || registered[value] {
 		t.Fatal("finite-sibling fallback prevented recursive growth")
 	}
 	if tags.ShouldTrace("datatype") && !strings.Contains(out.String(), ":215 ---------\nno argument found for FallbackB\n") {

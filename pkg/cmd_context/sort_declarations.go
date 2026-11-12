@@ -52,11 +52,13 @@ func (c *Context) DeclareSortConstructor(name string, arity uint32) (ast.ASTHand
 		}
 		c.sorts[name] = sort
 		c.sortTrail = append(c.sortTrail, declaration{name, sort, ref})
+		c.recordPSortDecl(name, true)
 		return sort, nil
 	}
 	declaration := sortConstructorDeclaration{name: name, arity: arity, symbol: symbol}
 	c.sortConstructors[name] = declaration
 	c.sortConstructorTrail = append(c.sortConstructorTrail, name)
+	c.recordPSortDecl(name, true)
 	return ast.ASTHandle{}, nil
 }
 
@@ -88,6 +90,7 @@ func (c *Context) DefineSort(name string, formals []ast.ASTHandle, body ast.ASTH
 		c.sorts[name] = body
 		c.sortTrail = append(c.sortTrail, declaration{name, body, ref})
 		c.sortDefinitionInfos[name] = pending
+		c.recordPSortDecl(name, true)
 		return nil
 	}
 	symbol, err := m.Symbols.Intern(name)
@@ -119,6 +122,7 @@ func (c *Context) DefineSort(name string, formals []ast.ASTHandle, body ast.ASTH
 	c.sortConstructors[name] = declaration
 	c.sortConstructorTrail = append(c.sortConstructorTrail, name)
 	c.sortDefinitionInfos[name] = pending
+	c.recordPSortDecl(name, true)
 	return nil
 }
 

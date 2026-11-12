@@ -61,16 +61,18 @@ func TestDatalogFactorySourceSomeValuesRegisteredBranches(t *testing.T) {
 				}
 				datalogFactoryNumber(t, m, b, want)
 			default:
-				// Source unordered iteration may choose either order; it must reuse
-				// existing registered values instead of manufacturing numeral one.
-				if a != old[0] || b != old[1] {
+				// Source obj_hashtable iteration order; it must reuse existing
+				// registered values instead of manufacturing numeral one.
+				keys := f.sets[sort].table.FirstKeys(2)
+				if a != keys[0] || b != keys[1] || (a != old[0] && a != old[1]) || (b != old[0] && b != old[1]) {
 					t.Fatal("registered pair was replaced", a, b, old)
 				}
 			}
 			before := len(f.values)
 			a2, b2, ok, err := protoTestSomeValues(t, m, f, sort)
 			protoMust(t, err)
-			if !ok || a2 != a || b2 != b || len(f.values) != before {
+			keys := f.sets[sort].table.FirstKeys(2)
+			if !ok || a2 != keys[0] || b2 != keys[1] || len(f.values) != before {
 				t.Fatal("warm pair selection changed or retained duplicates")
 			}
 		})
@@ -265,7 +267,7 @@ func TestDatalogFactorySourceAssertionOwnerAndWarmSelection(t *testing.T) {
 	// Source get_some_value's existing nonempty fast path has no assertion.
 	v, err := f.SomeValue(sort)
 	protoMust(t, err)
-	if v != f.sets[sort].values[0] {
+	if v != f.sets[sort].table.FirstKeys(1)[0] {
 		t.Fatal("warm selection changed the stored expression")
 	}
 	a, bv, ok, err := protoTestSomeValues(t, m, f, sort)

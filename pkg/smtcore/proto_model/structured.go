@@ -36,7 +36,7 @@ func (f *structuredFactory) valueSet(s ast.ASTHandle) (*factoryValueSet, error) 
 		// m_sorts.push_back acquires the sort.  Preserve that failure prefix:
 		// a refused sort reference leaves the empty set discoverable, and a
 		// later lookup does not retry the source push_back.
-		set = &factoryValueSet{seen: make(map[ast.ASTHandle]struct{})}
+		set = &factoryValueSet{seen: make(map[ast.ASTHandle]struct{}), table: ast.NewObjMap(f.manager)}
 		f.sets[s] = set
 		ref, err := f.manager.NewRef(s)
 		if err != nil {
@@ -68,10 +68,8 @@ func (f *structuredFactory) RegisterValue(v ast.ASTHandle) error {
 	if err != nil {
 		return err
 	}
-	set.seen[v] = struct{}{}
-	set.values = append(set.values, v)
 	f.values = append(f.values, ref)
-	return nil
+	return set.add(v)
 }
 func (f *structuredFactory) SomeValues(s ast.ASTHandle, factory ValueFactory, first, second ast.ASTRef) (bool, error) {
 	set, err := f.valueSet(s)
@@ -120,10 +118,10 @@ func (f *structuredFactory) SomeValues(s ast.ASTHandle, factory ValueFactory, fi
 		}
 		return !value.IsNull(), nil
 	default:
-		if err = f.manager.SetRef(first, set.values[0]); err != nil {
+		if err = f.manager.SetRef(first, set.begin()); err != nil {
 			return false, err
 		}
-		if err = f.manager.SetRef(second, set.values[1]); err != nil {
+		if err = f.manager.SetRef(second, set.beginNext()); err != nil {
 			return false, err
 		}
 		return true, nil

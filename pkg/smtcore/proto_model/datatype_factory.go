@@ -50,7 +50,7 @@ func (f *DatatypeFactory) SomeValue(s ast.ASTHandle) (value ast.ASTHandle, err e
 		return ast.ASTHandle{}, err
 	}
 	if set := f.sets[s]; set != nil && len(set.values) != 0 {
-		return set.values[0], nil
+		return set.begin(), nil
 	}
 	c, _, err := f.utility.NonRecursiveConstructor(s)
 	if err != nil {
@@ -159,7 +159,7 @@ func (f *DatatypeFactory) lastValue(s ast.ASTHandle) (ast.ASTHandle, error) {
 	if len(set.values) == 0 {
 		value, err = f.SomeValue(s)
 	} else {
-		value = set.values[0]
+		value = set.begin()
 	}
 	if err != nil {
 		return ast.ASTHandle{}, err

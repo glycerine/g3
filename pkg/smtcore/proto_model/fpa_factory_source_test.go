@@ -190,6 +190,7 @@ func TestFloatingPointFactoryArrayRangeConsumer(t *testing.T) {
 	if !ok || a == b {
 		t.Fatal("array pair was not built")
 	}
+	kinds := map[int32]bool{}
 	for i, value := range []ast.ASTHandle{a, b} {
 		decl, err := m.AsArrayFunction(value)
 		protoMust(t, err)
@@ -204,13 +205,12 @@ func TestFloatingPointFactoryArrayRangeConsumer(t *testing.T) {
 		protoMust(t, err)
 		kind, err := m.GetDeclKind(result)
 		protoMust(t, err)
-		expected := ast.FPAOpPositiveZero
-		if i == 1 {
-			expected = ast.FPAOpNumeral
-		}
-		if kind != expected {
+		// The pair follows the array value_set obj_hashtable order, so either
+		// array may come first; together they carry numeric zero and one.
+		if kind != ast.FPAOpPositiveZero && kind != ast.FPAOpNumeral || kinds[kind] {
 			t.Fatal("array range did not use numeric zero/one", i, kind)
 		}
+		kinds[kind] = true
 	}
 }
 

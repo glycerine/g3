@@ -404,18 +404,14 @@ func (md *ModelCore) WriteSMT2(out io.Writer, context *uparams.ParamsContext, gl
 			if e = p.write(";; cardinality constraint:\n"); e != nil {
 				return e
 			}
-			conds := make([]string, len(names))
-			for i, name := range names {
-				conds[i] = "(= x " + name + ")"
-			}
-			condition := conds[0]
-			if len(conds) > 1 {
-				condition = "(or " + strings.Join(conds, " ") + ")"
+			cardText, e := p.cardinalityConstraint(sort, names, indent)
+			if e != nil {
+				return e
 			}
 			if e = p.indent(indent); e != nil {
 				return e
 			}
-			if e = p.write("(forall ((x " + sortText + ")) " + condition + ")\n"); e != nil {
+			if e = p.write(cardText + "\n"); e != nil {
 				return e
 			}
 			if e = p.indent(indent); e != nil {
@@ -496,6 +492,90 @@ func (r *formatRefs) release() (err error) {
 	}
 	r.refs = nil
 	return err
+}
+
+// cardinalityConstraint is the model_smt2_pp.cpp pp_uninterp_sorts
+// cardinality format (lines 102-132). Unowned documents mirror the source
+// ptr_buffer; nested format calls follow GCC's right-to-left argument order.
+func (p *modelPrinter) cardinalityConstraint(sort ast.ASTHandle, names []string, indent uint32) (text string, result error) {
+	m := p.model.manager
+	formats, err := m.GetFormatManager()
+	if err != nil {
+		return "", err
+	}
+	// format_ref f_s, f_card: destroyed in reverse order.
+	var sortRef, cardRef ast.ASTRef
+	defer func() {
+		result = errors.Join(result, formats.DelRef(&cardRef), formats.DelRef(&sortRef))
+	}()
+	if sortRef, err = formats.NewRef(ast.ASTHandle{}); err != nil {
+		return "", err
+	}
+	if cardRef, err = formats.NewRef(ast.ASTHandle{}); err != nil {
+		return "", err
+	}
+	variable, err := m.FormatString("x")
+	if err != nil {
+		return "", err
+	}
+	conds := make([]ast.ASTHandle, len(names))
+	for i, name := range names {
+		value, err := m.FormatString(name)
+		if err != nil {
+			return "", err
+		}
+		if conds[i], err = m.FormatSeq1("=", []ast.ASTHandle{variable, value}); err != nil {
+			return "", err
+		}
+	}
+	if len(conds) == 0 {
+		return "", ast.ErrASTDomain
+	}
+	cond := conds[0]
+	if len(conds) > 1 {
+		if cond, err = m.FormatSeq1("or", conds); err != nil {
+			return "", err
+		}
+	}
+	sortFormat, err := m.SMT2PPSort(sort)
+	if err != nil {
+		return "", err
+	}
+	if err = formats.SetRef(sortRef, sortFormat); err != nil {
+		return "", err
+	}
+	closing, err := m.FormatString("))")
+	if err != nil {
+		return "", err
+	}
+	inner, err := m.FormatCompose([]ast.ASTHandle{sortFormat, closing})
+	if err != nil {
+		return "", err
+	}
+	inner, err = m.FormatIndent(4, inner)
+	if err != nil {
+		return "", err
+	}
+	opening, err := m.FormatString("((x ")
+	if err != nil {
+		return "", err
+	}
+	binder, err := m.FormatCompose([]ast.ASTHandle{opening, inner})
+	if err != nil {
+		return "", err
+	}
+	forall, err := m.FormatSeq1("forall", []ast.ASTHandle{binder, cond})
+	if err != nil {
+		return "", err
+	}
+	card, err := m.FormatIndent(indent, forall)
+	if err != nil {
+		return "", err
+	}
+	if err = formats.SetRef(cardRef, card); err != nil {
+		return "", err
+	}
+	return p.printFormat(card)
 }
 
 func (p *modelPrinter) printFormat(format ast.ASTHandle) (text string, result error) {

@@ -13,12 +13,20 @@ import (
 type userSortValueSet struct {
 	values []ast.ASTHandle
 	seen   map[ast.ASTHandle]struct{}
-	next   uint32
+	// table is obj_hashtable<expr> m_values: begin() and its successors,
+	// read by get_some_value(s) and get_known_universe, follow its table order.
+	table *ast.ObjMap
+	next  uint32
 }
 
-// userSortFactory implements the retained unsigned simple_factory. A slice plus
-// membership map replaces the source unordered set; selection among registered
-// values uses insertion order rather than exposing C++ hash-table layout.
+func (s *userSortValueSet) add(value ast.ASTHandle) error {
+	s.seen[value] = struct{}{}
+	s.values = append(s.values, value)
+	return s.table.Insert(value, [2]ast.ASTHandle{})
+}
+
+// userSortFactory implements the retained unsigned simple_factory. Selection
+// among registered values follows the source obj_hashtable order.
 type userSortFactory struct {
 	manager *ast.ASTManager
 	family  ast.FamilyID
@@ -52,7 +60,7 @@ func (f *userSortFactory) valueSet(sort ast.ASTHandle) (*userSortValueSet, error
 		// simple_factory::get_value_set publishes the allocated set/map before
 		// m_sorts.push_back acquires the sort. A failed acquisition therefore
 		// leaves a warm empty set and is not retried by a later lookup.
-		set = &userSortValueSet{seen: make(map[ast.ASTHandle]struct{})}
+		set = &userSortValueSet{seen: make(map[ast.ASTHandle]struct{}), table: ast.NewObjMap(f.manager)}
 		f.sets[sort] = set
 		ref, err := f.manager.NewRef(sort)
 		if err != nil {
@@ -91,8 +99,9 @@ func (f *userSortFactory) insert(value uint32, sort ast.ASTHandle) (ast.ASTHandl
 			return ast.ASTHandle{}, false, err
 		}
 		f.values = append(f.values, ref)
-		set.seen[numeral] = struct{}{}
-		set.values = append(set.values, numeral)
+		if err := set.add(numeral); err != nil {
+			return ast.ASTHandle{}, false, err
+		}
 		fresh = true
 	}
 	if err := simpleFactoryAssert(125, "set->m_values.contains(new_val)", func() bool { _, ok := set.seen[numeral]; return ok }); err != nil {
@@ -249,9 +258,7 @@ func (f *userSortFactory) RegisterValue(value ast.ASTHandle) error {
 		return err
 	}
 	f.values = append(f.values, ref)
-	set.seen[value] = struct{}{}
-	set.values = append(set.values, value)
-	return nil
+	return set.add(value)
 }
 
 // Member destruction releases sorts before the value vector. Values keep
@@ -358,21 +365,9 @@ func (f *userSortFactory) KnownUniverse(sort ast.ASTHandle) []ast.ASTHandle {
 	return nil
 }
 
-// tableOrder lists value_set::m_values (an obj_hashtable that only grows) in
-// iteration order: an obj_map with the same insertions has its layout.
+// tableOrder lists value_set::m_values (an obj_hashtable) in iteration order.
 func (f *userSortFactory) tableOrder(set *userSortValueSet) []ast.ASTHandle {
-	layout := ast.NewObjMap(f.manager)
-	for _, v := range set.values {
-		if _, err := layout.InsertIfNotThere(v); err != nil {
-			return append([]ast.ASTHandle(nil), set.values...)
-		}
-	}
-	entries := layout.Entries()
-	out := make([]ast.ASTHandle, 0, len(entries))
-	for _, e := range entries {
-		out = append(out, e.Key)
-	}
-	return out
+	return set.table.FirstKeys(set.table.Len())
 }
 func (f *userSortFactory) Sorts() []ast.ASTHandle {
 	var sorts []ast.ASTHandle

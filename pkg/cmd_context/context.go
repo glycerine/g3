@@ -80,7 +80,7 @@ type optimizationSoftTerm struct {
 	ref        ast.ASTRef
 	weight     big.Rat
 }
-type scope struct{ functions, sorts, assertions, objectives, softTerms, macros, sortConstructors int }
+type scope struct{ functions, sorts, assertions, objectives, softTerms, macros, sortConstructors, psorts int }
 type builtin struct {
 	family ast.FamilyID
 	kind   int32
@@ -112,13 +112,17 @@ type Context struct {
 	// insertion order for release); sortDefinitionInfos holds each
 	// define-sort body's psort applications; psortRecording is non-nil
 	// while such a body is parsed.
-	sortInfos                      map[ast.ASTHandle]*sortInfoRecord
-	sortInfoOrder                  []ast.ASTHandle
-	sortDefinitionInfos            map[string][]pendingSortInfo
-	psortRecording                 *[]pendingSortInfo
-	sortConstructorTrail           []string
-	builtins                       map[string][]builtin
-	functionTrail, sortTrail       []declaration
+	sortInfos                map[ast.ASTHandle]*sortInfoRecord
+	sortInfoOrder            []ast.ASTHandle
+	sortDefinitionInfos      map[string][]pendingSortInfo
+	psortRecording           *[]pendingSortInfo
+	sortConstructorTrail     []string
+	builtins                 map[string][]builtin
+	functionTrail, sortTrail []declaration
+	// funcDecls and psortDecls are the m_func_decls and m_psort_decls
+	// dictionary layouts; psortStack is m_psort_decls_stack.
+	funcDecls, psortDecls          *symbolDictionary
+	psortStack                     []string
 	macros                         map[string][]macroDeclaration
 	macroTrail                     []string
 	userTactics                    *insdict.Dict[string, string]
@@ -891,6 +895,9 @@ func (c *Context) Manager() (manager *ast.ASTManager, result error) {
 	if err = c.initBuiltins(); err != nil {
 		return nil, err
 	}
+	if c.mainContext && c.familyTemplate == nil {
+		c.recordBuiltinPSortDecls()
+	}
 	if err = c.mkSolver(m); err != nil {
 		return nil, err
 	}
@@ -1197,6 +1204,9 @@ func (c *Context) publishFunctionDeclaration(name string, d ast.ASTHandle) (resu
 	c.functions[name] = append(c.functions[name], d)
 	c.functionTrail = append(c.functionTrail, declaration{name, d, ref})
 	published = true
+	if err = c.recordFuncDecl(name, d); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	return d, nil
 }
 
@@ -1268,7 +1278,7 @@ func (c *Context) Push(count uint32) error {
 		if err := c.solver.Push(); err != nil {
 			return err
 		}
-		c.scopes = append(c.scopes, scope{len(c.functionTrail), len(c.sortTrail), len(c.assertions), len(c.objectives), len(c.softObjectiveTrail), len(c.macroTrail), len(c.sortConstructorTrail)})
+		c.scopes = append(c.scopes, scope{len(c.functionTrail), len(c.sortTrail), len(c.assertions), len(c.objectives), len(c.softObjectiveTrail), len(c.macroTrail), len(c.sortConstructorTrail), len(c.psortStack)})
 	}
 	c.checked = false
 	return nil
@@ -1315,6 +1325,7 @@ func (c *Context) Pop(count uint32) error {
 	level := len(c.scopes) - int(count)
 	s := c.scopes[level]
 	if !c.GlobalDeclarations {
+		c.restorePSortDecls(s.psorts)
 		if err := c.restoreMacros(s.macros); err != nil {
 			return err
 		}
@@ -1336,6 +1347,14 @@ func (c *Context) Pop(count uint32) error {
 }
 
 func (c *Context) restoreDeclarations(functions, sorts int) error {
+	// restore_func_decls erases the m_func_decls_stack suffix forward.
+	if functions < len(c.functionTrail) {
+		for _, row := range c.functionTrail[functions:] {
+			if err := c.eraseFuncDecl(row.name, row.handle); err != nil {
+				return err
+			}
+		}
+	}
 	for len(c.functionTrail) > functions {
 		i := len(c.functionTrail) - 1
 		row := &c.functionTrail[i]
@@ -1686,6 +1705,7 @@ func (c *Context) resetManagerState() error {
 		if err := c.restoreObjectives(0, 0); err != nil {
 			return err
 		}
+		c.resetDeclarationDictionaries()
 		if err := c.restoreDeclarations(0, 0); err != nil {
 			return err
 		}

@@ -2461,3 +2461,23 @@ relevancy mark_as_relevant sets every ring member relevant without the
 already-relevant check (duplicate atom-queue entries); dead generic AC case
 in operationBits; trace=true is 4-5x slower than z3 (format objects for
 model/[assign] pretty printing dominate).
+
+## proto_model factories and model completion (2026-11-12)
+
+FIXED: user_sort, datalog, struct (array/datatype) factories take values in
+obj_hashtable begin() order (ObjMap + FirstKeys); complete_model uses
+m().get_some_value without a some_value_proc (model value 0 for an
+uninterpreted sort); completion walks m_psort_decls / m_func_decls in
+dictionary<> table order (cmd_context/symbol_dictionary.go, string_hash
+layout, builtin psort decls by logic, scoped restore); the model printer
+builds the cardinality constraint as a format (model_smt2_pp.cpp:102-132).
+Ten factory_* vectors.
+Leads: parser error texts ("more than one constant with the same sort ...
+disumbiguate", query "Invalid function name. Expecting sort list startig
+with '('", unknown relation column 9 vs 7); engine trace diffs on probes
+(datalog mk-var order, bmc hyper-res arguments 1 0 vs 0 1, pdr trace line
+19934, tab/clp/bmc/duality on sort errors); (_ FiniteDomain n) is not an
+SMT2 sort in 4.7.1 (datalog factory unit-tested only); complete_model
+instantiation of parametric user sorts with Bool args unprobed;
+:global-declarations toggling and failed datatype rollback in the
+dictionary; "universe for" comment is a simplified string.

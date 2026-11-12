@@ -39,8 +39,10 @@ func (c *Context) DeclareDatatypes(definitions []ast.DatatypeDefinition) (result
 		return err
 	}
 	functionsStart, sortsStart := len(c.functionTrail), len(c.sortTrail)
+	var recorded []string
 	defer func() {
 		if result != nil {
+			c.dropPSortDecls(recorded)
 			result = errors.Join(result, c.restoreDeclarations(functionsStart, sortsStart))
 		}
 	}()
@@ -52,6 +54,8 @@ func (c *Context) DeclareDatatypes(definitions []ast.DatatypeDefinition) (result
 		c.sorts[names[i]] = s
 		c.sortArities[names[i]] = uint32(len(definitions[i].Parameters))
 		c.sortTrail = append(c.sortTrail, declaration{names[i], s, ref})
+		c.recordPSortDecl(names[i], false)
+		recorded = append(recorded, names[i])
 		if len(definitions[i].Parameters) == 0 {
 			if e = c.ensureDatatypeFunctions(s); e != nil {
 				return e
@@ -214,5 +218,5 @@ func (c *Context) insertDatatypeFunction(d ast.ASTHandle) error {
 	}
 	c.functions[name] = append(c.functions[name], d)
 	c.functionTrail = append(c.functionTrail, declaration{name, d, ref})
-	return nil
+	return c.recordFuncDecl(name, d)
 }

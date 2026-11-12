@@ -94,7 +94,7 @@ func (f *ArrayFactory) SomeValue(s ast.ASTHandle) (ast.ASTHandle, error) {
 	}
 	set := f.sets[s]
 	if set != nil && len(set.values) != 0 {
-		return set.values[0], nil
+		return set.begin(), nil
 	}
 	v, fi, err := f.makeInterpretation(s)
 	if err != nil {
@@ -206,7 +206,7 @@ func (f *ArrayFactory) SomeValues(s ast.ASTHandle, first, second ast.ASTRef) (bo
 	if set == nil || len(set.values) == 0 {
 		return false, ast.ErrASTDomain
 	}
-	if err := f.manager.SetRef(first, set.values[0]); err != nil {
+	if err := f.manager.SetRef(first, set.begin()); err != nil {
 		return false, err
 	}
 	if len(set.values) == 1 {
@@ -222,7 +222,7 @@ func (f *ArrayFactory) SomeValues(s ast.ASTHandle, first, second ast.ASTRef) (bo
 	if err := valueFactoryAssert("src/smt/proto_model/array_factory.cpp", 117, "set->size() >= 2", func() bool { return len(set.values) >= 2 }); err != nil {
 		return false, err
 	}
-	if err := f.manager.SetRef(second, set.values[1]); err != nil {
+	if err := f.manager.SetRef(second, set.beginNext()); err != nil {
 		return false, err
 	}
 	return true, nil

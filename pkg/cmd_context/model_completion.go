@@ -35,19 +35,28 @@ func (c *Context) completeModel() (resultErr error) {
 		return ast.ErrASTHandle
 	}
 
-	seenSorts := make(map[ast.ASTHandle]bool)
-	for _, declaration := range c.sortTrail {
-		sort := declaration.handle
-		if seenSorts[sort] {
+	// Source m().get_some_value(s) runs with no some_value_proc installed:
+	// it never consults the model universe, so an uninterpreted sort yields
+	// mk_model_value(0, s) even when the universe lacks that element.
+	// Both declaration loops walk their dictionaries in table order.
+	for _, entry := range c.psortDictionary().entries() {
+		if entry.psort == nil || !entry.psort.userDecl {
 			continue
 		}
-		seenSorts[sort] = true
-		uninterpreted, err := c.manager.IsUninterpretedSort(sort)
-		if err != nil || !uninterpreted {
+		var parameters []ast.ASTHandle
+		if constructor, found := c.sortConstructors[entry.name]; found {
+			boolean, err := c.manager.MkBoolSort()
 			if err != nil {
 				return err
 			}
-			continue
+			parameters = make([]ast.ASTHandle, constructor.arity)
+			for i := range parameters {
+				parameters[i] = boolean
+			}
+		}
+		sort, err := c.InstantiateSort(entry.name, parameters)
+		if err != nil {
+			return err
 		}
 		present, err := derived.HasUninterpretedSort(sort)
 		if err != nil || present {
@@ -56,7 +65,7 @@ func (c *Context) completeModel() (resultErr error) {
 			}
 			continue
 		}
-		value, err := derived.GetSomeValue(sort)
+		value, err := c.manager.GetSomeValue(sort)
 		if err != nil {
 			return err
 		}
@@ -89,7 +98,7 @@ func (c *Context) completeModel() (resultErr error) {
 		if err != nil {
 			return err
 		}
-		value, err := derived.GetSomeValue(rangeSort)
+		value, err := c.manager.GetSomeValue(rangeSort)
 		if err != nil {
 			return err
 		}
@@ -98,48 +107,49 @@ func (c *Context) completeModel() (resultErr error) {
 		}
 	}
 
-	seenFunctions := make(map[ast.ASTHandle]bool)
-	for _, declaration := range c.functionTrail {
-		function := declaration.handle
-		if seenFunctions[function] {
+	for _, entry := range c.funcDictionary().entries() {
+		if entry.funcs == nil {
 			continue
 		}
-		seenFunctions[function] = true
-		present, err := md.HasInterpretation(function)
-		if err != nil || present {
-			if err != nil {
+		for _, function := range entry.funcs.entries() {
+			if err := c.completeFunction(md, function); err != nil {
 				return err
 			}
-			continue
 		}
-		rangeSort, err := c.manager.GetRange(function)
-		if err != nil {
-			return err
-		}
-		value, err := derived.GetSomeValue(rangeSort)
-		if err != nil {
-			return err
-		}
-		arity, err := c.manager.GetArity(function)
-		if err != nil {
-			return err
-		}
-		if arity == 0 {
-			if err = md.RegisterConstant(function, value); err != nil {
-				return err
-			}
-			continue
-		}
-		interpretation, err := model.NewFunctionInterpretation(c.manager, arity)
-		if err != nil {
-			return err
-		}
-		if err = interpretation.SetElse(value); err != nil {
-			return errors.Join(err, interpretation.Close())
-		}
-		if err = md.RegisterFunction(function, interpretation); err != nil {
-			return errors.Join(err, interpretation.Close())
-		}
+	}
+	return nil
+}
+
+// completeFunction is one complete_model m_func_decls entry.
+func (c *Context) completeFunction(md *model.ModelCore, function ast.ASTHandle) error {
+	present, err := md.HasInterpretation(function)
+	if err != nil || present {
+		return err
+	}
+	rangeSort, err := c.manager.GetRange(function)
+	if err != nil {
+		return err
+	}
+	value, err := c.manager.GetSomeValue(rangeSort)
+	if err != nil {
+		return err
+	}
+	arity, err := c.manager.GetArity(function)
+	if err != nil {
+		return err
+	}
+	if arity == 0 {
+		return md.RegisterConstant(function, value)
+	}
+	interpretation, err := model.NewFunctionInterpretation(c.manager, arity)
+	if err != nil {
+		return err
+	}
+	if err = interpretation.SetElse(value); err != nil {
+		return errors.Join(err, interpretation.Close())
+	}
+	if err = md.RegisterFunction(function, interpretation); err != nil {
+		return errors.Join(err, interpretation.Close())
 	}
 	return nil
 }

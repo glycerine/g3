@@ -48,5 +48,6 @@ func (c *Context) InsertSort(name string, sort ast.ASTHandle) (err error) {
 	}
 	c.sorts[name] = sort
 	c.sortTrail = append(c.sortTrail, declaration{name: name, handle: sort, ref: ref})
+	c.recordPSortDecl(name, true)
 	return nil
 }

@@ -174,7 +174,11 @@ func TestFactoryOutputsAliasFollowsSourceAssignments(t *testing.T) {
 	}
 	value, err = m.RefGet(shared)
 	protoMust(t, err)
-	datalogFactoryNumber(t, m, value, 1)
+	// The warm pair is *begin(), *++begin() of the obj_hashtable; the alias
+	// keeps the second publication.
+	if value != f.sets[sort].table.FirstKeys(2)[1] {
+		t.Fatal("alias lost the second table value")
+	}
 }
 
 func TestFactoryOutputsStringOwnedByCallerAndSurviveFactoryClose(t *testing.T) {
@@ -297,6 +301,7 @@ func TestFactoryOutputsArrayConsumesAndReleasesRangeLocals(t *testing.T) {
 	if !ok {
 		t.Fatal("array pair refused")
 	}
+	texts := map[string]bool{}
 	for i, ref := range []ast.ASTRef{first, second} {
 		value, err := m.RefGet(ref)
 		protoMust(t, err)
@@ -313,9 +318,11 @@ func TestFactoryOutputsArrayConsumesAndReleasesRangeLocals(t *testing.T) {
 		protoMust(t, err)
 		text, found, err := m.SequenceStringValue(result)
 		protoMust(t, err)
-		if !found || text != []string{"value 1", "value 2"}[i] {
+		// The pair follows the array value_set obj_hashtable order.
+		if !found || text != "value 1" && text != "value 2" || texts[text] {
 			t.Fatal("array entry lost its range output", i, text)
 		}
+		texts[text] = true
 		count, err := m.GetRefCount(result)
 		protoMust(t, err)
 		if count != 1 {

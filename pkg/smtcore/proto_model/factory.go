@@ -65,7 +65,22 @@ func (f *basicFactory) Close() error                      { return nil }
 
 // Structured factories borrow the same concrete handle collection shape;
 // their enumeration policy is separate from numeric/unsigned simple_factory.
+// table is struct_factory::value_set, an obj_hashtable<expr>: begin() and its
+// successor, read by get_some_value(s), follow its table order.
 type factoryValueSet struct {
 	values []ast.ASTHandle
 	seen   map[ast.ASTHandle]struct{}
+	table  *ast.ObjMap
 }
+
+func (s *factoryValueSet) add(value ast.ASTHandle) error {
+	s.seen[value] = struct{}{}
+	s.values = append(s.values, value)
+	return s.table.Insert(value, [2]ast.ASTHandle{})
+}
+
+// begin is *set->begin() of a non-empty set.
+func (s *factoryValueSet) begin() ast.ASTHandle { return s.table.FirstKeys(1)[0] }
+
+// beginNext is *++set->begin() of a set with at least two values.
+func (s *factoryValueSet) beginNext() ast.ASTHandle { return s.table.FirstKeys(2)[1] }
