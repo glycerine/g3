@@ -106,6 +106,17 @@ func (t *SMTTheoryArith) MakeObjectiveLowerBound(fm *tactic.FilterModelConverter
 	if fm == nil {
 		return result, ast.ErrASTHandle
 	}
+	// opt_solver::mk_ge passes theory_inf_arith the whole inf_eps,
+	// theory_mi_arith val.get_numeral() and theory_i_arith
+	// val.get_rational().
+	if !t.infExt {
+		var numeral simplex.Infinitesimal
+		numeral.Main.Set(&value.Main)
+		if !t.integerExt {
+			numeral.Epsilon.Set(&value.Epsilon)
+		}
+		value = numeral
+	}
 	var name bytes.Buffer
 	name.WriteString(smtArithmeticBoundName(value))
 	name.WriteString(" <= ")

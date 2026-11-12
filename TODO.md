@@ -2097,14 +2097,25 @@ update_bound; box uses optsmt::geometric_opt for the default engine. Open:
   get-objectives after an undecided box/lex run prints display_assignment's
   get_lower_as_num/get_upper_as_num (optsmt m_lower/m_upper, maxsmt bounds),
   also for later l_undef box continuations.
-- Leads: lex minimize of a non-variable term ((minimize (- x)), then more
-  objectives): g3's captureArithmeticModel evaluates the term right after
-  the objective, creating its value numeral before update_bound does.
-  A Real objective that is unbounded in lex (maximize y, y Real) gets
-  (>= y c) where z3's theory_mi_arith mk_ge builds (> y c). Lex/box runs
-  after (push)(assert ...) diverge in case-split order on fresh bound atoms
-  (also with the default engine: box soft+min/max+push vectors l3g-style);
-  symba box after pop frees the run-1 purify terms in a different order.
+- DONE (2026-11-12) optimization leads: non-last lex objectives commit
+  first, then update_lower's eval supplies the value (no early
+  captureArithmeticModel eval); setup_QF_IDL switches an unused arithmetic
+  plugin to theory_i_arith (useIntegerExt), and MakeObjectiveLowerBound
+  follows opt_solver::mk_ge per theory; opt pop releases only optsmt and
+  hard constraints (purified objectives live until import_scoped_state);
+  an unknown run with display bounds clears valueReady. New vectors
+  lex_minimize_negated_then_more, lex_unbounded_real_idl_profile,
+  box_soft_push_pop_objective_lifetimes, box_symba_soft_pop_unknown_display.
+  The case-split-after-push lead no longer reproduces.
+- Lead: box with a negative-weight soft group (l2d plus
+  (set-option :opt.priority box): x<=7, a=>x<3, b=>x>1, c or x>6,
+  soft c w4 id p, maximize x, maximize y, soft a w2 id q, soft b w-3 id q,
+  soft (not c) w1.5 id s; check/get-objectives, push, (not a), check,
+  pop, check): trace identical, but get-objectives prints (q (- 3))
+  where z3 prints (q (- 1)) after the 1st and 3rd check-sat. Likely
+  maxsmt get_lower/get_upper combining m_lower/m_upper (update_bound) with
+  m_msolver bounds and m_adjust_value (offset -3) after box's scoped
+  execute. -3 is the true optimum, so this may be z3 behaviour to mimic.
 - An unbounded pareto frontier (assert-soft a plus (minimize x) with x
   unbounded) enumerates forever in both z3 and g3; g3's trace matches z3's
   prefix up to the timeout.

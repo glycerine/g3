@@ -715,6 +715,9 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 	for i := range c.objectives {
 		c.objectives[i].displayReady = false
 		if !completed && i < len(optimized.Values) && optimized.Values[i].DisplayValid {
+			// display_assignment reads this run's m_optsmt/maxsmt bounds,
+			// never an earlier run's values.
+			c.objectives[i].valueReady = false
 			c.objectives[i].displayReady = true
 			c.objectives[i].displayLower = optimized.Values[i].DisplayLower.Clone()
 			c.objectives[i].displayUpper = optimized.Values[i].DisplayUpper.Clone()

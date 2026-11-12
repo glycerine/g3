@@ -77,6 +77,16 @@ func (k *SMTKernel) setupIntegerDifferencePolicy(useStaticFeatures bool) (result
 			if err := k.installDenseSetup(arithmetic); err != nil {
 				return err
 			}
+		} else if !proofs && !k.copiedArithmeticPlugin {
+			// register_plugin(alloc(smt::theory_i_arith, ...)): setup_unknown(st)
+			// reaches this profile with the constructor's theory_mi_arith.
+			family, err := k.manager.ArithmeticFamilyID()
+			if err != nil {
+				return err
+			}
+			if port, ok := k.internalizer.theories[family].(*SMTTheoryArith); ok && port.getNumVars() == 0 && !port.integerExt && !port.infExt {
+				port.useIntegerExt()
+			}
 		}
 	}
 	return k.applyArithmeticSetup(smt, arithmetic, preprocess)

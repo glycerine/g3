@@ -1273,7 +1273,7 @@ func (c *Context) Pop(count uint32) error {
 	if c.optimizationParetoOptimizer != nil {
 		c.optimizationOptsmt = append(c.optimizationOptsmt, c.optimizationParetoOptimizer.DetachObjectiveTerms()...)
 	}
-	if err := c.releaseOptimizationTerms(); err != nil {
+	if err := c.releaseOptimizationHard(); err != nil {
 		return err
 	}
 	if err := c.invalidateOptimizationState(); err != nil {
@@ -1728,6 +1728,20 @@ func (c *Context) Close() error {
 	}
 	c.closed = true
 	return nil
+}
+
+// releaseOptimizationHard is opt::context::pop's m_optsmt.reset() and
+// m_hard_constraints.reset(); m_objectives survive until the next
+// import_scoped_state.
+func (c *Context) releaseOptimizationHard() (result error) {
+	for i := range c.optimizationOptsmt {
+		result = errors.Join(result, c.manager.DelRef(&c.optimizationOptsmt[i]))
+	}
+	c.optimizationOptsmt = nil
+	if c.optimizationPurifier != nil {
+		result = errors.Join(result, c.optimizationPurifier.ReleaseHardConstraints())
+	}
+	return result
 }
 
 // releaseOptimizationTerms frees the previous from_fmls state front to back.

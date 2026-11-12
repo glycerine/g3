@@ -112,6 +112,28 @@ func (p *ObjectivePurifier) Close() (result error) {
 	return result
 }
 
+// ReleaseHardConstraints is opt::context::pop's m_hard_constraints.reset():
+// from_fmls' hard constraints are released front to back while the
+// objectives (m_objectives) stay until import_scoped_state.
+func (p *ObjectivePurifier) ReleaseHardConstraints() (result error) {
+	if p == nil || p.manager == nil {
+		return ast.ErrASTHandle
+	}
+	if p.closed {
+		return nil
+	}
+	for i := range p.hardRefs {
+		if p.hardRefs[i] == (ast.ASTRef{}) {
+			continue
+		}
+		if result = p.manager.DelRef(&p.hardRefs[i]); result != nil {
+			return result
+		}
+	}
+	p.hardRefs = nil
+	return nil
+}
+
 // purifiedObjectiveRefs is one from_fmls objective: m_terms (soft terms)
 // and the term references (m_term).
 type purifiedObjectiveRefs struct {

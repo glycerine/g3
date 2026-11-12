@@ -893,6 +893,10 @@ func (s *ArithmeticSolver) commitArithmeticObjective(index int, value ObjectiveV
 	if !value.ArithmeticModelValid {
 		return ast.ErrASTDomain
 	}
+	return s.commitArithmeticLower(index)
+}
+
+func (s *ArithmeticSolver) commitArithmeticLower(index int) error {
 	// optsmt::commit_assignment asserts mk_ge(i, m_lower[i]) for a finite
 	// m_lower (internal maximizing orientation).
 	lower := s.optLowerOf(index)
@@ -954,13 +958,6 @@ func (s *ArithmeticSolver) commitSoftObjective(index int, value ObjectiveValue) 
 		err = s.solver().Assert(bound)
 	}
 	return errors.Join(err, s.manager.DelRef(&ref))
-}
-
-func (s *ArithmeticSolver) commitObjective(index int, value ObjectiveValue) error {
-	if s.objectives[index].soft {
-		return s.commitSoftObjective(index, value)
-	}
-	return s.commitArithmeticObjective(index, value)
 }
 
 func (s *ArithmeticSolver) retainRemainingModelValues(start int, result *ArithmeticResult) error {
@@ -1084,12 +1081,20 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 		if s.objectives[i].soft {
 			finalizeSoftBounds(result, i)
 		}
+		// The fork never evaluates the objective right after it runs: the
+		// model value is read off update_lower's m_model->eval, which
+		// follows commit_assignment. Only the last (or an unbounded)
+		// objective captures it here.
+		lexContinues := i+1 < len(s.objectives)
 		if !s.objectives[i].soft {
-			if err = s.captureArithmeticModel(i, &result.Values[i], result.Model); err != nil {
-				return nil, err
-			}
 			value := result.Values[i].Arithmetic
-			if value.Unbounded || value.Finite.Infinity.Sign() != 0 {
+			unbounded := value.Unbounded || value.Finite.Infinity.Sign() != 0
+			if unbounded || !lexContinues {
+				if err = s.captureArithmeticModel(i, &result.Values[i], result.Model); err != nil {
+					return nil, err
+				}
+			}
+			if unbounded {
 				for j := i + 1; j < len(s.objectives); j++ {
 					if !s.objectives[j].soft {
 						result.Values[j].ArithmeticOpenBounds = true
@@ -1103,15 +1108,30 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 		}
 		// optimize() runs a single objective as execute(obj, true, false);
 		// execute_lex commits every objective but the last.
-		if i+1 < len(s.objectives) || len(s.objectives) == 1 {
-			if err = s.commitObjective(i, result.Values[i]); err != nil {
+		if lexContinues || len(s.objectives) == 1 {
+			if s.objectives[i].soft {
+				err = s.commitSoftObjective(i, result.Values[i])
+			} else {
+				err = s.commitArithmeticLower(i)
+			}
+			if err != nil {
 				return nil, err
 			}
 		}
 		// execute_lex: update_lower() before the next objective.
-		if i+1 < len(s.objectives) {
-			if err = s.updateLowerFrom(result.Model); err != nil {
+		if lexContinues {
+			capture := -1
+			if !s.objectives[i].soft {
+				capture = i
+			}
+			if err = s.updateBoundCapturing(result.Model, true, capture, &result.Values[i]); err != nil {
 				return nil, err
+			}
+			if capture >= 0 && !result.Values[i].ArithmeticModelValid {
+				// m_model->eval left the term open (no model completion).
+				if err = s.captureArithmeticModel(i, &result.Values[i], result.Model); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
@@ -1224,7 +1244,13 @@ func (s *ArithmeticSolver) evalInto(md *model.ModelCore, t ast.ASTHandle, val *a
 // (evaluation without model completion): arithmetic objectives update
 // optsmt's m_lower (with m_lower_fmls[idx] = mk_ge(idx, v)) or m_upper;
 // MaxSMT objectives evaluate their soft terms.
-func (s *ArithmeticSolver) updateBoundFrom(md *model.ModelCore, isLower bool) (resultErr error) {
+func (s *ArithmeticSolver) updateBoundFrom(md *model.ModelCore, isLower bool) error {
+	return s.updateBoundCapturing(md, isLower, -1, nil)
+}
+
+// updateBoundCapturing is updateBoundFrom that also records objective
+// capture's evaluated numeral as its model value.
+func (s *ArithmeticSolver) updateBoundCapturing(md *model.ModelCore, isLower bool, capture int, captured *ObjectiveValue) (resultErr error) {
 	if md == nil {
 		return nil
 	}
@@ -1291,6 +1317,10 @@ func (s *ArithmeticSolver) updateBoundFrom(md *model.ModelCore, isLower bool) (r
 		value, ok := new(big.Rat).SetString(text)
 		if !ok {
 			return ast.ErrASTDomain
+		}
+		if i == capture && captured != nil {
+			captured.ArithmeticModel = smtcore.SMTArithmeticObjectiveValue{Finite: simplex.RationalInfinitesimal(new(big.Rat).Set(value))}
+			captured.ArithmeticModelValid = true
 		}
 		if !objective.maximize {
 			value.Neg(value)

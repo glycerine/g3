@@ -482,6 +482,13 @@ func (t *SMTTheoryArith) useMixedExt() {
 	t.initExt()
 }
 
+// useIntegerExt turns an unused theory_mi_arith into theory_i_arith, as setup
+// does when it registers theory_i_arith in place of theory_mi_arith.
+func (t *SMTTheoryArith) useIntegerExt() {
+	t.integerExt = true
+	t.initExt()
+}
+
 // NewSMTTheoryInfArith creates theory_inf_arith (inf_ext): mi_ext epsilons,
 // with values that may carry an infinity component.
 func NewSMTTheoryInfArith(family ast.FamilyID) (*SMTTheoryArith, error) {
