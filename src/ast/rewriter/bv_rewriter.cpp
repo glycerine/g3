@@ -2720,6 +2720,10 @@ br_status bv_rewriter::mk_bvsmul_no_overflow(unsigned num, expr * const * args, 
     }
 
     if (is_num1 && is_num2) {
+        // BUG (z3 4.7.1, fixed upstream; g3 does not reproduce it): the
+        // numerals are read as unsigned, so #xa * #x3 (signed -6 * 3 = -18,
+        // an underflow, no overflow) folds to false. z3 4.17.0 and g3 fold
+        // the signed product (true). Vector: bv_native_operator_models.
         rational mr = a0_val * a1_val;
         rational lim = rational::power_of_two(bv_sz-1);
         result = m().mk_bool_val(mr < lim);

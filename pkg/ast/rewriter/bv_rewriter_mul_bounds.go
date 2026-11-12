@@ -73,6 +73,10 @@ func (p *BVRewriter) RewriteMultiplyBound(args ast.AppArguments, out ast.ASTRef,
 		result = true
 	} else if num1 && num2 {
 		matched = true
+		// z3 4.7.1 bug, deliberately not reproduced: mk_bvsmul_no_overflow
+		// folds the unsigned product of the numerals (#xa * #x3 -> false).
+		// g3 folds the signed product, as z3 4.17.0 does. See TODO.md
+		// "z3 4.7.1 bugs fixed in g3" (vector bv_native_operator_models).
 		if mode != BVUnsignedNoOverflow {
 			if e = n.Power(2, width); e != nil {
 				return st, e

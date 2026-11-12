@@ -2044,6 +2044,18 @@ testing (main_test.go carries a commented-out entry pointing there):
      verifyConverted). Excluded vector: the reproduction. The trace=true
      log is identical; only get-objectives differs.
 
+- **bvsmul_noovfl numeral folding** (recorded as item 21; fixed upstream:
+  z3 4.17.0 folds (bvsmul_noovfl #xa #x3) to true).
+   - Cause in z3: bv_rewriter::mk_bvsmul_no_overflow
+     (src/ast/rewriter/bv_rewriter.cpp) multiplies the numerals as unsigned
+     values, so signed -6 * 3 = -18 (an underflow, no overflow) folds to
+     false.
+   - g3: BVRewriter.RewriteMultiplyBound
+     (pkg/ast/rewriter/bv_rewriter_mul_bounds.go) folds the signed product.
+   - Vector bv_native_operator_models stays in identity testing (its trace
+     is identical); its stdout differs at that one get-value line, and the
+     C++ comparison in main_test.go patches the fork's line.
+
 ## Open leads (2026-11-11, late)
 
 - RESOLVED (2026-11-12): recursive_mutual_boolean_model. z3 4.7.1 does not
