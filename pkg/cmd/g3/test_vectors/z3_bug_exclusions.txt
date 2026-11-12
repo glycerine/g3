@@ -20,3 +20,10 @@ z3_bug_qe_nested_store
 # EnableModelBooleanShortCircuit; z3: src/ast/rewriter/rewriter_def.h
 # constant_fold). Comparable companion: recursive_mutual_safe_get_value.
 recursive_mutual_boolean_model
+#
+# opt from_fmls keeps a stale orig_term, so an assert-soft group after a
+# maximize/minimize is verified against that objective's term and keeps
+# its initial cost (g3: pkg/cmd_context/optimization.go
+# addOptimizerObjective; z3 bug: src/opt/opt_context.cpp from_fmls; fixed
+# upstream). Reproduction: test_vectors/z3_bug_opt_stale_objective_term.smt2.
+z3_bug_opt_stale_objective_term

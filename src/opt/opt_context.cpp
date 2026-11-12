@@ -955,6 +955,14 @@ namespace opt {
     void context::from_fmls(expr_ref_vector const& fmls) {
         TRACE("opt", tout << fmls << "\n";);
         m_hard_constraints.reset();
+        // BUG (z3 4.7.1, fixed upstream; g3 does not reproduce it):
+        // orig_term lives across iterations and is_maxsat does not reset
+        // it, so a plain assert-soft group that follows a maximize/minimize
+        // gets that objective's term as obj.m_term below. verify_model then
+        // evaluates the wrong term, rejects every improving maxres model,
+        // and the stale initial cost is reported. Upstream declares
+        // orig_term inside the loop and is_maxsat sets orig_term = nullptr.
+        // Reproduction: pkg/cmd/g3/test_vectors/z3_bug_opt_stale_objective_term.smt2
         expr_ref orig_term(m);
         for (unsigned i = 0; i < fmls.size(); ++i) {
             expr* fml = fmls[i];

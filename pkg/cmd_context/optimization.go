@@ -452,6 +452,14 @@ func (c *Context) addOptimizerObjective(optimizer *opt.ArithmeticSolver, index i
 		if err := optimizer.AddSoftObjectiveWithOffset(terms, weights, &objective.softOffset); err != nil {
 			return err
 		}
+		// z3 4.7.1 bug, deliberately not reproduced: from_fmls declares
+		// orig_term outside its loop and is_maxsat never resets it, so an
+		// assert-soft group following a maximize/minimize inherits that
+		// objective's term as m_term; verify_model then rejects every
+		// improving maxres model and the stale cost is displayed. Only
+		// objectives converted from maximize/minimize carry a term here, as
+		// in upstream z3 (fixed there). See TODO.md "z3 4.7.1 bugs fixed in
+		// g3" and test_vectors/z3_bug_opt_stale_objective_term.smt2.
 		if objective.verifyConverted && !objective.expression.IsNull() {
 			return optimizer.SetObjectiveVerification(index, objective.expression, &objective.verifyOffset, objective.verifyNegate)
 		}

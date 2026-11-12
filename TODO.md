@@ -1960,7 +1960,7 @@ in identity testing:
   g3: cmd_context mk_cmp/pareto evaluation; the non-z3 MaxSAT-avoidance
   fallback was removed.
 
-One deliberate deviation remains. Its vectors are listed in
+The deliberate deviations below remain. Their vectors are listed in
 pkg/cmd/g3/test_vectors/z3_bug_exclusions.txt and left out of z3 identity
 testing (main_test.go carries a commented-out entry pointing there):
 
@@ -2022,6 +2022,27 @@ testing (main_test.go carries a commented-out entry pointing there):
      (or (= index outer-index) ...). Test: TestArrayPluginNestedStoreElimination.
    - Affected: nested-store qe outputs differ from z3 (quantifier_tactic
      array equation tests); no comparison vector besides the reproduction.
+
+- **opt from_fmls stale orig_term** (found 2026-11-12; fixed upstream, so
+  a backport candidate for the fork like the relevancy and pareto fixes).
+   - Reproduction: pkg/cmd/g3/test_vectors/z3_bug_opt_stale_objective_term.smt2
+     (box priority; x <= 7, a => x < 3, b => x > 1; maximize x, maximize y,
+     assert-soft a :weight 2 :id q, assert-soft b :weight -3 :id q):
+     z3 4.7.1 prints (q (- 1)); the optimum (a true, b false, cost 0,
+     offset -3) is (q (- 3)), printed by g3 and z3 4.17.0.
+   - Cause in z3: context::from_fmls (src/opt/opt_context.cpp) declares
+     expr_ref orig_term outside its loop and is_maxsat does not reset it,
+     so q's obj.m_term is the preceding (maximize y) term. maxres's
+     update_assignment calls verify_model(q's index, ...), which evaluates
+     y (0) against the adjusted cost and rejects every improving model
+     (-tr:opt shows "Out of bounds: y 0 != -3"); found_optimum then
+     recomputes the cost from the stale initial model (cost 2, shown -1).
+     Upstream moved orig_term into the loop and is_maxsat sets
+     orig_term = nullptr.
+   - g3: only objectives converted from maximize/minimize get a
+     verification term (cmd_context addOptimizerObjective,
+     verifyConverted). Excluded vector: the reproduction. The trace=true
+     log is identical; only get-objectives differs.
 
 ## Open leads (2026-11-11, late)
 
@@ -2107,7 +2128,9 @@ update_bound; box uses optsmt::geometric_opt for the default engine. Open:
   lex_minimize_negated_then_more, lex_unbounded_real_idl_profile,
   box_soft_push_pop_objective_lifetimes, box_symba_soft_pop_unknown_display.
   The case-split-after-push lead no longer reproduces.
-- Lead: box with a negative-weight soft group (l2d plus
+- RESOLVED (2026-11-12): a z3 4.7.1 bug (stale orig_term in from_fmls);
+  see "z3 4.7.1 bugs fixed in g3". Original report: box with a
+  negative-weight soft group (l2d plus
   (set-option :opt.priority box): x<=7, a=>x<3, b=>x>1, c or x>6,
   soft c w4 id p, maximize x, maximize y, soft a w2 id q, soft b w-3 id q,
   soft (not c) w1.5 id s; check/get-objectives, push, (not a), check,
