@@ -58,11 +58,15 @@ type InlineModelRule struct {
 }
 
 // CloseInlineModelRules releases every captured clause root.
+// ~horn_subsume_model_converter destroys m_delay_body and then
+// m_delay_head (reverse declaration order), each front to back.
 func CloseInlineModelRules(rules []InlineModelRule) (result error) {
-	for i := len(rules) - 1; i >= 0; i-- {
+	for i := range rules {
 		if rules[i].Body != (ast.ASTRef{}) {
 			result = errors.Join(result, rules[i].manager.DelRef(&rules[i].Body))
 		}
+	}
+	for i := range rules {
 		if rules[i].Head != (ast.ASTRef{}) {
 			result = errors.Join(result, rules[i].manager.DelRef(&rules[i].Head))
 		}
@@ -1011,10 +1015,19 @@ func (p *RuleInlinerPlugin) orientedEager(source *base.RuleSet) (_ *base.RuleSet
 	return result, changed, nil
 }
 
-func (p *RuleInlinerPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
+func (p *RuleInlinerPlugin) Transform(source *base.RuleSet) (transformed *base.RuleSet, resultErr error) {
 	if p == nil || p.closed || p.closing || p.manager == nil || p.rules == nil {
 		return nil, base.ErrRuleTransformerOwner
 	}
+	// operator()'s ref<horn_subsume_model_converter> hsmc reaches the
+	// context only when something was done; otherwise it dies on return.
+	start := len(p.modelRules)
+	defer func() {
+		if transformed == nil && resultErr == nil && len(p.modelRules) > start {
+			resultErr = CloseInlineModelRules(p.modelRules[start:])
+			p.modelRules = p.modelRules[:start]
+		}
+	}()
 	outputs, err := source.OutputPredicates()
 	if err != nil {
 		return nil, err

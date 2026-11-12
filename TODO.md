@@ -1882,6 +1882,16 @@ Moved: fixedpoint_pdr_recursive_trace -> 22942, fixedpoint_finite_relations
   rule_set::reset releases rules front to back (rule_ref_vector::reset);
   g3's RuleSet.resetContentsUnchecked (muz/base/rule_set.go) goes back to
   front. Touches every rule set: re-check all fixedpoint/spacer/pdr vectors.
+- fixedpoint_finite_relations 342 (after b3cd9aaee): z3's `(query R)`
+  command calls context::rel_query, which never sets m_mc, so
+  m_context.get_model_converter() is null for the whole session and no
+  datalog transform (rule inliner hsmc, coi filter, slice, scale, ...)
+  captures anything. g3's datalog path always captures inliner/cone
+  conversions (TakeModelRules) and uses them in datalogModel ->
+  expandDatalogModel, so it holds the deleted rules' heads (e.g. Small #40)
+  until the next query. ASK BEFORE CHANGING: matching z3 means not capturing
+  on the rel_query path, which drops inlined predicates from g3's datalog
+  models (horn tactic / context::query paths keep a converter).
 - qe_cooper_symbolic_blast (item 35): a work-in-progress port of
   expr_quant_elim / quant_elim_new / eliminate_block that replaces the
   quantifier_tactic cascade is saved (NOT applied, its ./qe tests fail) at
