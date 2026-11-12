@@ -476,6 +476,7 @@ var scriptResults = map[string]string{
 	"pb_native_watches_scopes.smt2":                "sat\n((b true))\nsat\n((b true) (d true) (e true))\nunsat\n(rejected_watch)\nsat\nsat\nunsat\n(rejected_complement)\nsat\n(((and a b) true) ((xor c d) true))\nunsat\n(rejected_proxy)\nsat\nsat\n((W true) (e true))\nsat\n",
 	"pb_strengthening_scopes.smt2":                 "unsat\n(cut_A cut_B)\nsat\nsat\n((x true) (u true) (A true) (B false))\nunsat\n(rejected_cut)\nsat\nsat\n((A true) (B false))\nsat\n",
 	"pb_compilation_pigeonhole_scopes.smt2":        "unsat\nsat\n",
+	"php43_max_conflicts_repeated_assuming.smt2":   "unknown\nunknown\nunknown\nunknown\nunknown\nunknown\nunknown\nunknown\nunknown\nunknown\nunknown\nunknown\n(:reason-unknown \"max-conflicts-reached\")\nunknown\nunsat\nunsat\nunsat\nunsat\nunsat\nunknown\n",
 	"pb_simplex_scopes.smt2":                       "unsat\n(pair_xy pair_yz pair_xz cap_one)\nsat\nunsat\n(below_two at_least_three)\nsat\nsat\n((x true) (y true) (z false) (Parent true) (Nested true))\nsat\n",
 	"datatype_cycle_scopes.smt2":                   "unsat\n(x_edge y_edge z_edge)\nsat\n(((= (left x) (right x)) true) ((= (left (left x)) leaf) true))\nunsat\nsat\nsat\n",
 	"datatype_constructor_conflict_cores.smt2":     "sat\n((((_ is left) x) true) ((= (lf x) u) true))\nunsat\n(left_fact not_left)\nsat\nunsat\n(left_fact right_fact)\nsat\n",

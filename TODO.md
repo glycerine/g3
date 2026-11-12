@@ -11,6 +11,11 @@ Found while matching `-st` output against `build/z3` on
    New divergence seen while testing: on pigeonhole PHP(4,3) with
    `smt.max_conflicts=0`, repeated `check-sat-assuming` calls turn unsat on
    check 9 in z3 and check 10 in Go.
+   RESOLVED by 1bbcecbac (a learned unit is kept for reassertion only
+   under delay_forced_restart, m_units_to_reassert; g3 had kept every
+   learned unit, so later limited checks settled PHP early). Regression
+   vector: cmd/g3/test_vectors/php43_max_conflicts_repeated_assuming.smt2
+   (stdout and trace=true log identical to the fork).
 
 2. **DONE (see pkg/SEQ_PORT.md): Port `theory_seq::final_check_eh` faithfully.** Logics missing from
    `setup::setup_logic` (QF_NIA, ALL, ...) use `setup_unknown`, which
