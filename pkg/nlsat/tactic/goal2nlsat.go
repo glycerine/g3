@@ -261,6 +261,13 @@ func (c *GoalCompiler) processArithmeticAtom(expression ast.ASTHandle, kind nlsa
 }
 
 func (c *GoalCompiler) processAtom(expression ast.ASTHandle) (sat.Literal, error) {
+	// goal2nlsat.cpp process_atom: a non-application atom (a quantifier)
+	// is compiled as a Boolean variable.
+	if kind, err := c.manager.GetKind(expression); err != nil {
+		return 0, err
+	} else if kind != ast.ASTApp {
+		return c.processBooleanAtom(expression)
+	}
 	family, err := c.manager.GetFamilyID(expression)
 	if err != nil {
 		return 0, err
@@ -335,7 +342,11 @@ func (c *GoalCompiler) processLiteral(expression ast.ASTHandle) (sat.Literal, er
 
 func (c *GoalCompiler) processFormula(formula ast.ASTHandle, dependency ast.ASTDependency) error {
 	literals := []ast.ASTHandle{formula}
-	if family, err := c.manager.GetFamilyID(formula); err != nil {
+	if kind, err := c.manager.GetKind(formula); err != nil {
+		return err
+	} else if kind != ast.ASTApp {
+		// m.is_or(f) is false for a quantifier.
+	} else if family, err := c.manager.GetFamilyID(formula); err != nil {
 		return err
 	} else if op, cause := c.manager.GetDeclKind(formula); cause != nil {
 		return cause

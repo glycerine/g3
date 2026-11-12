@@ -2263,3 +2263,16 @@ with the fork: all identical except runtime statistics (memory, allocs) and
 kernel's unknown starts as "unknown" (context::m_unknown) and smt_solver
 reports last_failure_as_string() for every status, not only l_undef. Vector
 reason_unknown_after_search.
+
+## Tactics on quantified goals (2026-11-12)
+
+FIXED: pb recognizers (pseudoBooleanIs) answer false for non-apps as
+pb_decl_plugin's is_app && is_xx does (pb-preprocess failed on any
+quantifier); goal2nlsat skips the or-split and treats non-app atoms as
+Boolean variables (process_bvar), so nlsat gives the purify-arith error and
+the qfnra routes return the goal unchanged. Vectors quantified_goal_*
+(pb_preprocess, qfnra_nlsat, qfnra, nlsat).
+Leads: other recognizers may return ErrASTDomain on quantifier/variable
+inputs where C++ checks is_app (GetFamilyID/GetDeclKind on a quantifier fail
+through declIdentity); pb_preprocess parse (tactic/core/pb_preprocess_terms.go)
+calls GetFamilyID after the PB check without an is_app guard.

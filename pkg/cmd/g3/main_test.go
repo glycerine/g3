@@ -990,6 +990,10 @@ var scriptResults = map[string]string{
 	"fpa_to_sbv_propagate_values_cleanup.smt2":          "sat\n((f (fp #b0 #b110 #x0))\n (((_ fp.to_sbv 4) RTZ f) #x3))\n",
 	"fpa_add_ite_argument_order.smt2":                   "sat\n(model \n  (define-fun f () (_ FloatingPoint 3 5)\n    (fp #b0 #b001 #xc))\n  (define-fun g () (_ FloatingPoint 3 5)\n    (fp #b0 #b100 #x2))\n)\n",
 	"mbqi_auflia_arith_macro_lifetimes.smt2":            "sat\n((a 3)\n (b 2)\n ((f a) 8)\n ((h a b) 10))\n",
+	"quantified_goal_pb_preprocess.smt2":                "(goals\n(goal\n  (forall ((x Int)) (! (=> (p x) (> (f x) x)) :pattern ((p x))))\n  (forall ((x Int) (y Int)) (=> (and (> x 0) (> y x)) (> (f y) (f x))))\n  (exists ((z Int)) (and (p z) (< z a)))\n  (p a)\n  (= (f b) (+ a 2))\n  (> b 0)\n  :precision precise :depth 1)\n)\nunknown\n",
+	"quantified_goal_qfnra_nlsat.smt2":                  "(goals\n(goal\n  (forall ((x Int)) (! (or (not (p x)) (not (<= (f x) x))) :pattern ((p x))))\n  (forall ((x Int) (y Int)) (or (<= x 0) (<= y x) (not (<= (f y) (f x)))))\n  (exists ((z Int)) (not (or (not (p z)) (<= (f b) (+ 2 z)))))\n  (p (+ (- 2) (f b)))\n  (not (<= b 0))\n  :precision precise :depth 22)\n)\nunknown\n",
+	"quantified_goal_qfnra.smt2":                        "(goals\n(goal\n  (forall ((x Int)) (! (or (not (p x)) (not (<= (f x) x))) :pattern ((p x))))\n  (forall ((x Int) (y Int)) (or (<= x 0) (<= y x) (not (<= (f y) (f x)))))\n  (exists ((z Int)) (not (or (not (p z)) (<= (f b) (+ 2 z)))))\n  (p (+ (- 2) (f b)))\n  (not (<= b 0))\n  :precision precise :depth 24)\n)\nunknown\n",
+	"quantified_goal_nlsat.smt2":                        "(error \"tactic failed: apply purify-arith before applying nlsat\")\nunknown\n",
 }
 
 // parseErrorScripts are scriptResults vectors whose expected output holds

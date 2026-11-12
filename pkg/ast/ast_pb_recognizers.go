@@ -31,6 +31,15 @@ func (m *ASTManager) pseudoBooleanDeclaration(h ASTHandle) (astNodeRef, int32, e
 }
 
 func (m *ASTManager) pseudoBooleanIs(h ASTHandle, expected int32) (bool, error) {
+	// pb_decl_plugin.h: is_ge(expr* a) etc. are is_app(a) && is_ge(decl);
+	// variables and quantifiers are simply not PB atoms.
+	r, e := m.internal(h)
+	if e != nil {
+		return false, e
+	}
+	if k := m.nodeAt(r.slot).kind; k != ASTApp && k != ASTFuncDecl {
+		return false, nil
+	}
 	d, kind, e := m.pseudoBooleanDeclaration(h)
 	if e != nil {
 		return false, e
