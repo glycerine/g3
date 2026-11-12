@@ -70,6 +70,22 @@ func (t *SMTBitVectorTheory) nativeVariable(node *SMTEnode) (SMTTheoryVar, error
 		}
 		t.bitLiterals[variable] = append(t.bitLiterals[variable], NewSMTLiteral(boolean, false))
 	}
+	// Source mk_bits keeps only the literals in m_bits: each bit2bool atom is
+	// owned by the context alone, so it dies in place when the context
+	// unwinds its internalization (e.g. in the final flush's descending
+	// sweep), not later when the theory is destroyed.
+	owner := t.bitOwners[node.owner]
+	delete(t.bitOwners, node.owner)
+	t.bits[node.owner] = nil
+	t.literalBits[node.owner] = true
+	for i := range owner {
+		if owner[i] == (ast.ASTRef{}) {
+			continue
+		}
+		if err = t.state.manager.DelRef(&owner[i]); err != nil {
+			return SMTNullTheoryVar, err
+		}
+	}
 	return variable, nil
 }
 
