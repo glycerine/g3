@@ -1986,6 +1986,21 @@ testing (main_test.go carries a commented-out entry pointing there):
    - Upstream: no fix to borrow; src/math/automata was deleted by
      fcd3a70c9 (2025-08-07), and z3 4.17.0 answers sat with x = "".
 
+- **Model evaluation of recursive predicates never terminates** (z3 4.7.1;
+  upstream z3 4.17.0 answers at once through its recfun theory, a redesign
+  rather than a small fix, so nothing to backport).
+   - Reproduction: pkg/cmd/g3/test_vectors/recursive_mutual_boolean_model.smt2
+     (define-funs-rec even/odd, then get-value of (even 0)): z3 4.7.1 never
+     finishes; g3 prints ((even 0) true) ...
+   - Cause in z3: rewriter_tpl::constant_fold (src/ast/rewriter/rewriter_def.h)
+     folds only ite before visiting arguments, so the model evaluator rewrites
+     both or/and arguments of (or (<= n 0) (odd (+ -1 n))) and the recursion
+     never reaches a reduced base case.
+   - g3 fix: Traversal.EnableModelBooleanShortCircuit
+     (pkg/ast/rewriter/traversal.go), enabled once a recursive function is
+     defined. Excluded vector: recursive_mutual_boolean_model; comparable
+     companion: recursive_mutual_safe_get_value.
+
 - **qe array solve_store ignores coinciding store indices** (found while
   porting item 35; STILL PRESENT in upstream z3 4.17.0 at 30c74fcce, so a
   candidate for an upstream PR).
@@ -2010,11 +2025,16 @@ testing (main_test.go carries a commented-out entry pointing there):
 
 ## Open leads (2026-11-11, late)
 
-- recursive_mutual_boolean_model: the fork z3 runs for more than 400 s on it
-  (both before and after today's backports), while g3 answers at once with the
-  expected model; the trace first differs at line 1100. g3 therefore takes a
-  different search path than z3 (recursive-function unfolding under
-  AUFLIA with :auto_config false). Find where g3 departs from z3 at line 1100.
+- RESOLVED (2026-11-12): recursive_mutual_boolean_model. z3 4.7.1 does not
+  terminate: get-value of (even 0) evaluates the preprocessed body
+  (or (<= n 0) (odd (+ -1 n))), and rewriter_tpl::constant_fold folds only
+  ite early, so every and/or argument is rewritten and the dead branch unfolds
+  forever. g3's model short-circuit is kept as a bug fix (see "z3 4.7.1 bugs
+  fixed in g3"); the vector is excluded and recursive_mutual_safe_get_value
+  (same script, get-value without even/odd) is trace-identical. Also found:
+  with model_evaluator.max_steps the fork's get-value prints a null value and
+  segfaults in shared_occs::process (parse_get_value displays model::eval's
+  failed result) - a second z3 4.7.1 bug, not reproduced by g3.
 - pareto with a soft and an arithmetic objective together (e.g. assert-soft a
   plus (minimize x)) diverges early in the trace while stdout matches: the
   fork creates a named bound atom |-3 <= (* (- 1) x)| and an attach-enode

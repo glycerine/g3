@@ -484,6 +484,7 @@ var scriptResults = map[string]string{
 	"datatype_argument_lazy_scopes.smt2":           "sat\n((((_ is z) x) true) (((_ is s) y) true))\nsat\n((((_ is z) x) false) (((_ is s) y) true))\nunsat\nsat\nsat\n",
 	"core_validation_scopes.smt2":                  "unsat\n((not p) (not q))\nsat\nunsat\n(blocked)\nsat\nsat\n",
 	"recursive_mutual_boolean_model.smt2":          "sat\n(((even 0) true) ((even 5) false) ((odd 5) true) ((choose true 7) 7) ((choose false 7) (- 7)) (zero 0))\nunsat\nsat\n",
+	"recursive_mutual_safe_get_value.smt2":         "sat\n(((choose true 7) 7) ((choose false 7) (- 7)) (zero 0) ((identity true) true) ((identity false) false))\nunsat\nsat\n",
 	"recursive_mutual_and_arguments.smt2":          "sat\n(((even 0) 1) ((even 5) 0) ((odd 5) 1) ((choose true 7) 7) ((choose false 7) (- 7)) (zero 0))\nunsat\nsat\n",
 	"recursive_sum_model_scopes.smt2":              "sat\n(((sum 0) 0) ((sum 3) 6) ((sum 5) 15))\nunsat\nsat\n(((sum 6) 21))\n",
 	"lazy_multipattern_scopes.smt2":                "unsat\nsat\n(((p c) true))\nunsat\nsat\n",

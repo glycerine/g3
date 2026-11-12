@@ -172,6 +172,14 @@ func (r *Traversal) Rewrite(t ast.ASTHandle, out ast.ASTRef) error {
 // EnableModelBooleanShortCircuit avoids evaluating dead recursive model
 // branches after AND/OR already has a determining operand. Ordinary rewriting
 // retains source traversal order; this correction is confined to model use.
+//
+// BUG FIX relative to z3 4.7.1 (TODO.md "z3 4.7.1 bugs fixed in g3"):
+// rewriter_tpl::constant_fold (src/ast/rewriter/rewriter_def.h) folds only
+// ite early, so z3 4.7.1 never finishes evaluating mutually recursive
+// define-fun-rec predicates in a model (get-value of (even 0) in
+// test_vectors/recursive_mutual_boolean_model.smt2). That vector is excluded
+// from z3 identity testing; recursive_mutual_safe_get_value.smt2 is its
+// comparable companion. Upstream z3 answers at once via its recfun theory.
 func (r *Traversal) EnableModelBooleanShortCircuit() error {
 	if err := r.engine.open(); err != nil {
 		return err

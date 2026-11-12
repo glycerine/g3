@@ -179,6 +179,15 @@ bool rewriter_tpl<Config>::visit(expr * t, unsigned max_depth) {
     }
 }
 
+// g3 note (z3 4.7.1 bug, see g3 TODO.md "z3 4.7.1 bugs fixed in g3"): only
+// ite is folded early, so model evaluation rewrites every and/or argument
+// before reducing them. For define-fun-rec bodies such as
+// (or (<= n 0) (odd (+ -1 n))), get-value of (even 0) unfolds the dead branch
+// forever (g3 test_vectors/recursive_mutual_boolean_model.smt2 never
+// finishes). g3 short-circuits and/or during model evaluation once a recursive
+// function is defined (pkg/ast/rewriter/traversal.go
+// EnableModelBooleanShortCircuit). Upstream z3 replaced this path with its
+// recfun theory and answers at once.
 template<typename Config>
 bool rewriter_tpl<Config>::constant_fold(app * t, frame & fr) {
     if (fr.m_i == 1 && m().is_ite(t)) {

@@ -14,3 +14,9 @@ z3_bug_automaton_product
 # src/qe/qe_array_plugin.cpp solve_store). Reproduction:
 # test_vectors/z3_bug_qe_nested_store.smt2.
 z3_bug_qe_nested_store
+#
+# Model evaluation of mutually recursive define-fun-rec predicates never
+# terminates in z3 4.7.1 (g3 fix: pkg/ast/rewriter/traversal.go
+# EnableModelBooleanShortCircuit; z3: src/ast/rewriter/rewriter_def.h
+# constant_fold). Comparable companion: recursive_mutual_safe_get_value.
+recursive_mutual_boolean_model
