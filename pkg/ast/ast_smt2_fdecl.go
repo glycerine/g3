@@ -114,6 +114,22 @@ func (m *ASTManager) SMT2Fdecl(decl ASTHandle) (ASTHandle, uint32, error) {
 	if err != nil {
 		return ASTHandle{}, 0, err
 	}
+	if decls, found := m.smt2FuncDecls(decl); found {
+		// cmd_context::pp_env::pp_fdecl_name.
+		if len(decls) <= 1 {
+			return fname, length, nil
+		}
+		clash, e := m.smt2FuncDeclsClash(decls, decl)
+		if e != nil || !clash {
+			return fname, length, e
+		}
+		sort, e := m.GetRange(decl)
+		if e != nil {
+			return ASTHandle{}, 0, e
+		}
+		format, e := m.SMT2PPAs(fname, sort)
+		return format, length, e
+	}
 	family, err := m.GetFamilyID(decl)
 	if err != nil {
 		return ASTHandle{}, 0, err
@@ -193,6 +209,13 @@ func (m *ASTManager) SMT2FdeclRef(decl ASTHandle) (ASTHandle, error) {
 	fname, _, err := m.SMT2FdeclNameDecl(decl)
 	if err != nil {
 		return ASTHandle{}, err
+	}
+	if decls, found := m.smt2FuncDecls(decl); found {
+		// cmd_context::pp_env::pp_fdecl_ref_core.
+		if len(decls) <= 1 {
+			return fname, nil
+		}
+		return m.SMT2PPSignature(fname, decl)
 	}
 	family, err := m.GetFamilyID(decl)
 	if err != nil {

@@ -313,11 +313,24 @@ func (md *ModelCore) sortedFunctions() ([]ast.ASTHandle, error) {
 				if err = md.manager.CollectFuncDecls(fi.fallback, deps, false); err != nil {
 					return nil, err
 				}
-				// Native map order is deliberately not observable. Visit model
-				// declarations in registration order while preserving the source
-				// dependency-before-dependent postorder.
-				for _, candidate := range md.functionDeclarations {
-					if deps.Contains(candidate) && !visited[candidate] {
+				// deps is a func_decl_set: walk it in obj_hashtable order and
+				// push d when d->get_arity() > 0 && md.has_interpretation(d).
+				for _, candidate := range deps.Keys() {
+					if visited[candidate] {
+						continue
+					}
+					arity, err := md.manager.GetArity(candidate)
+					if err != nil {
+						return nil, err
+					}
+					if arity == 0 {
+						continue
+					}
+					has, err := md.HasInterpretation(candidate)
+					if err != nil {
+						return nil, err
+					}
+					if has {
 						visited[candidate] = true
 						stack = append(stack, candidate)
 						added = true

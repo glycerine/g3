@@ -1,0 +1,7 @@
+(declare-const a Int)
+(declare-const b Int)
+(assert (exists ((x Int)) (and (< a x) (< (* 2 x) b))))
+(apply qe)
+(declare-const e Int)
+(assert (> (+ e a) (* 2 b)))
+(check-sat)

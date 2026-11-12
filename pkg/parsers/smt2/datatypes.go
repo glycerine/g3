@@ -233,6 +233,11 @@ func (p *commandParser) declareDatatypes(single bool) error {
 					field := ast.DatatypeAccessorDefinition{Name: fieldSymbol}
 					if p.token == SymbolToken {
 						sortName := p.scanner.ID()
+						// parse_ptype: parse_psort_name(true) looks the name up
+						// in m_psort_decls before the parameters and the block.
+						if arity, varParams, found := p.context.FindPSortDecl(sortName); found && !varParams && arity != 0 {
+							return fmt.Errorf("sort constructor expects parameters")
+						}
 						if formal, found := localParams[sortName]; found {
 							field.Range = formal
 							if e = p.advance(); e != nil {

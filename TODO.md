@@ -2541,3 +2541,31 @@ inliner after an earlier query (m_preds_with_facts / output predicates
 across scoped_query); karr loop-counter mk-var/app order; qlinear
 eval_q(md, sub[j], i) audit; slice proof converter positions; dead karr
 fixpoint machinery and unsliced-proof retry.
+
+## List, model order, qe cleanup (2026-11-12, late)
+
+FIXED: predeclared parametric List datatype without a logic (init_list;
+decl ids only, so expression ids do not shift); cmd_context pp_env
+pp_fdecl/pp_fdecl_ref ((as nil (List Int)), overloads with signatures);
+declare-sort/define-sort redeclaration errors and columns; get-model
+function order (sort_fun_decls walks the dependency func_decl_set in table
+order); bit-blaster cin release order in mk_neg/mk_subtracter; relevancy
+mark_as_relevant sets every ring member; QESATTactic.ResetStatistics no-op;
+qe ArithmeticPlugin m_trail and obj_pair_map bounds cache with the source
+destructor order; qe_tactic::cleanup rebuilds expr_quant_elim; MakeBound no
+longer holds the strict-Int difference term (it was cached by the rewriter);
+clearDebugExpressions releases in m_object_refs table order. Ten vectors
+(list_predeclared_*, parametric_datatype_constructor_as_print,
+overloaded_decl_as_print, model_func_decl_dependency_order,
+qe_tactic_cleanup_lifetimes, qe_int_strict_bound_rewriter_cache).
+Leads: qe Real exists elimination (trace line 303: z3 builds (* c (* -1 b))
+and (* c a) after the division and frees it; get_lt_bound/mk_div vs
+normalizeRest/addStrict); other qe/arith ref-held temporaries that make the
+rewriter cache terms z3 does not; format pretty-printer holds refs on
+intermediate formats (decl delete order, not visible in trace=true);
+pp_env m_func_decl2alias; parse_psort_name looks up global psorts before
+datatype parameters; user parametric datatype formals use the parameter
+name instead of symbol(i); (declare-sort Int 0) column 19 vs 20; theory_str
+obj_map sites unaudited (std::map<expr*> sites are pointer-ordered, not
+portable); z3 4.7.1 crashes on define-sort L () (List Real) after a pop that
+removed (List Int).

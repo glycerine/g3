@@ -122,10 +122,10 @@ func (p *SMTRelevancyPropagator) addLiteralWatch(expression ast.ASTHandle, value
 	return p.addWatch(expression, value, handler)
 }
 
+// setRelevant is set_relevant: mark_as_relevant calls it for every member
+// of n's class without checking whether the member is already relevant, so
+// a member can be recorded (and relevant_eh run) twice.
 func (p *SMTRelevancyPropagator) setRelevant(expression ast.ASTHandle) error {
-	if p.context.relevant.get(expression) {
-		return nil
-	}
 	p.context.relevant.set(expression, true)
 	// m_relevant_exprs is an expr_ref_vector: it owns a reference.
 	if err := p.context.manager.IncRef(expression); err != nil {

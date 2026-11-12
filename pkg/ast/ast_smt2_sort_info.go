@@ -106,3 +106,57 @@ func (m *ASTManager) pdeclPPSort(table SMT2SortInfoTable, sort ASTHandle) (resul
 	}
 	return m.FormatString(name)
 }
+
+// SMT2FuncDeclTable is the m_func_decls lookup of cmd_context::pp_env
+// (cmd_context.cpp:398-456). A table installed with SetSMT2SortInfoTable
+// may also implement it.
+type SMT2FuncDeclTable interface {
+	// SMT2FuncDecls is m_func_decls.find(f->get_name(), fs) && fs.contains(f):
+	// it returns fs's members.
+	SMT2FuncDecls(decl ASTHandle) ([]ASTHandle, bool)
+}
+
+func (m *ASTManager) smt2FuncDecls(decl ASTHandle) ([]ASTHandle, bool) {
+	table, ok := m.smt2SortInfoTable.(SMT2FuncDeclTable)
+	if !ok {
+		return nil, false
+	}
+	return table.SMT2FuncDecls(decl)
+}
+
+// smt2FuncDeclsClash is func_decls::clash(f): another member has f's
+// domain.
+func (m *ASTManager) smt2FuncDeclsClash(decls []ASTHandle, f ASTHandle) (bool, error) {
+	arity, err := m.GetArity(f)
+	if err != nil {
+		return false, err
+	}
+	for _, g := range decls {
+		if g == f {
+			continue
+		}
+		garity, err := m.GetArity(g)
+		if err != nil {
+			return false, err
+		}
+		if garity != arity {
+			continue
+		}
+		same := true
+		for i := uint32(0); i < arity && same; i++ {
+			a, err := m.GetDomain(g, i)
+			if err != nil {
+				return false, err
+			}
+			b, err := m.GetDomain(f, i)
+			if err != nil {
+				return false, err
+			}
+			same = a == b
+		}
+		if same {
+			return true, nil
+		}
+	}
+	return false, nil
+}

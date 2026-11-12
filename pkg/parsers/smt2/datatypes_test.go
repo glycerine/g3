@@ -72,15 +72,16 @@ func TestSMT2DatatypeRefusalsBeforeDeclarationPublication(t *testing.T) {
 }
 
 func TestSMT2ParametricDatatypeInstantiationAndRecursiveFields(t *testing.T) {
+	// Not List: with no logic set, List is predeclared (cmd_context.cpp:725).
 	for _, script := range []string{
 		"(declare-datatype Box (par (T) ((box (unbox T)))))" +
 			"(declare-const b (Box Bool))" +
 			"(assert (= (unbox (box true)) true))(check-sat)",
-		"(declare-datatypes ((List 1)) ((par (T) ((nil) (cons (head T) (tail (List T)))))))" +
-			"(declare-const xs (List Bool))" +
+		"(declare-datatypes ((Seqs 1)) ((par (T) ((nil) (cons (head T) (tail (Seqs T)))))))" +
+			"(declare-const xs (Seqs Bool))" +
 			"(assert (= (head (cons true nil)) true))(check-sat)",
-		"(declare-datatypes (T) ((List (nil) (cons (head T) (tail (List T))))))" +
-			"(declare-const xs (List Bool))" +
+		"(declare-datatypes (T) ((Seqs (nil) (cons (head T) (tail (Seqs T))))))" +
+			"(declare-const xs (Seqs Bool))" +
 			"(assert (= (head (cons true nil)) true))(check-sat)",
 	} {
 		t.Run(script[:32], func(t *testing.T) {

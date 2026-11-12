@@ -528,22 +528,41 @@ func (p *commandParser) command() (bool, error) {
 			return false, err
 		}
 	case "declare-sort":
+		if p.token == SymbolToken {
+			if _, _, found := p.context.FindPSortDecl(p.scanner.ID()); found {
+				return false, fmt.Errorf("invalid sort declaration, sort already declared/defined")
+			}
+		}
 		name, err := p.symbol()
 		if err != nil {
 			return false, err
 		}
-		var arity uint32
-		if p.token != RightParenToken {
-			arity, err = p.unsigned()
-			if err != nil {
+		if p.token == RightParenToken {
+			if err = p.requireEnd(); err != nil {
 				return false, err
 			}
+			if _, err = p.context.DeclareSortConstructor(name, 0); err != nil {
+				return false, err
+			}
+			break
 		}
-		if err = p.requireEnd(); err != nil {
+		// parse_declare_sort inserts the declaration while the arity
+		// numeral is still the current token, then checks the ')'.
+		if p.token != IntegerToken {
+			return false, fmt.Errorf("invalid sort declaration, arity (<numeral>) or ')' expected")
+		}
+		n := p.scanner.Number()
+		if !n.IsInt() || n.Sign() < 0 || !n.Num().IsUint64() || n.Num().Uint64() > uint64(^uint32(0)) {
+			return false, fmt.Errorf("unsigned numeral is out of range")
+		}
+		if _, err = p.context.DeclareSortConstructor(name, uint32(n.Num().Uint64())); err != nil {
 			return false, err
 		}
-		if _, err = p.context.DeclareSortConstructor(name, arity); err != nil {
+		if err = p.advance(); err != nil {
 			return false, err
+		}
+		if p.token != RightParenToken {
+			return false, fmt.Errorf("invalid sort declaration, ')' expected")
 		}
 	case "declare-map":
 		mapName, err := p.symbol()
@@ -575,6 +594,11 @@ func (p *commandParser) command() (bool, error) {
 			return false, err
 		}
 	case "define-sort":
+		if p.token == SymbolToken {
+			if _, _, found := p.context.FindPSortDecl(p.scanner.ID()); found {
+				return false, fmt.Errorf("invalid sort definition, sort already declared/defined")
+			}
+		}
 		name, err := p.symbol()
 		if err != nil {
 			return false, err

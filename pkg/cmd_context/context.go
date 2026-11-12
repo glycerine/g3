@@ -91,12 +91,14 @@ type builtin struct {
 // NewStandaloneContext. The AST manager and solver initialize on first use,
 // so set-logic and proof options take effect before their construction.
 type Context struct {
-	config               smtcore.SMTSolverConfig
-	parameters           *smtcore.ContextParams
-	params               uparams.ParamsRef
-	paramsReady          bool
-	manager              *ast.ASTManager
-	debugExpressions     map[string]ast.ASTRef
+	config           smtcore.SMTSolverConfig
+	parameters       *smtcore.ContextParams
+	params           uparams.ParamsRef
+	paramsReady      bool
+	manager          *ast.ASTManager
+	debugExpressions map[string]ast.ASTRef
+	// objectRefs is m_object_refs' dictionary layout over debugExpressions.
+	objectRefs           *symbolDictionary
 	borrowedManager      bool
 	fixedpoint           *muzfp.PropositionalEngine
 	// fixedpointQueryCmdParams is dl_query_cmd's parametric m_params, which
@@ -111,8 +113,12 @@ type Context struct {
 	logic                string
 	functions            map[string][]ast.ASTHandle
 	sorts                map[string]ast.ASTHandle
-	sortArities          map[string]uint32
-	sortConstructors     map[string]sortConstructorDeclaration
+	// listDecl is pdecl_manager::m_list's instantiated List datatype
+	// (init_list commits it when no logic is set); listRef holds it.
+	listDecl         ast.ASTHandle
+	listRef          ast.ASTRef
+	sortArities      map[string]uint32
+	sortConstructors map[string]sortConstructorDeclaration
 	// sortInfos is pdecl_manager::m_sort2info (sortInfoOrder keeps its
 	// insertion order for release); sortDefinitionInfos holds each
 	// define-sort body's psort applications; psortRecording is non-nil
@@ -901,6 +907,12 @@ func (c *Context) Manager() (manager *ast.ASTManager, result error) {
 		return nil, err
 	}
 	if c.mainContext && c.familyTemplate == nil {
+		if c.logic == "" {
+			// insert(pm().mk_plist_decl()) runs init_list first.
+			if err = c.initList(m); err != nil {
+				return nil, err
+			}
+		}
 		c.recordBuiltinPSortDecls()
 	}
 	if err = c.mkSolver(m); err != nil {
@@ -1723,6 +1735,9 @@ func (c *Context) resetManagerState() error {
 			return err
 		}
 		if err := c.resetSortInfo(); err != nil {
+			return err
+		}
+		if err := c.releaseList(); err != nil {
 			return err
 		}
 		if !c.borrowedManager {

@@ -16,14 +16,22 @@ type arithmeticPluginKey struct{ variable, formula ast.ASTHandle }
 // ArithmeticPlugin is the retained linear-arithmetic QE plugin.  It owns all
 // cached roots, bounds processors, branch results and emitted constraints.
 type ArithmeticPlugin struct {
-	self            *ArithmeticPlugin
-	context         *SolverContext
-	manager         *ast.ASTManager
-	util            *ArithmeticQETermUtil
-	replacer        *astrewriter.ExprSafeReplace
-	family          ast.FamilyID
-	bounds          map[arithmeticPluginKey]*arithmeticPluginBounds
-	branches        map[ArithmeticBranchKey]*ArithmeticPluginBranch
+	self     *ArithmeticPlugin
+	context  *SolverContext
+	manager  *ast.ASTManager
+	util     *ArithmeticQETermUtil
+	replacer *astrewriter.ExprSafeReplace
+	family   ast.FamilyID
+	bounds   map[arithmeticPluginKey]*arithmeticPluginBounds
+	branches map[ArithmeticBranchKey]*ArithmeticPluginBranch
+	// boundsTable is m_bounds_cache's obj_pair_map layout (x, fml):
+	// ~arith_plugin deallocates the bounds_procs in its table order.
+	boundsTable *ast.ObjMap
+	// branchOrder lists the cached branches in add_cache order.
+	branchOrder []*ArithmeticPluginBranch
+	// trail is m_trail: add_cache pushes x, fml, result and term; the
+	// bounds cache pushes x and fml.
+	trail           []ast.ASTRef
 	constraints     []ArithmeticConstraint
 	pendingFresh    []ast.ASTRef
 	normalizedAtoms []ast.ASTRef
@@ -51,7 +59,7 @@ func NewArithmeticPlugin(context *SolverContext, config Config) (*ArithmeticPlug
 	}
 	p := &ArithmeticPlugin{context: context, manager: m, util: u, replacer: r,
 		family: u.family, bounds: make(map[arithmeticPluginKey]*arithmeticPluginBounds),
-		branches: make(map[ArithmeticBranchKey]*ArithmeticPluginBranch)}
+		branches: make(map[ArithmeticBranchKey]*ArithmeticPluginBranch), boundsTable: ast.NewObjMap(m)}
 	p.self = p
 	for _, n := range []struct {
 		value   int64
@@ -97,14 +105,32 @@ func (p *ArithmeticPlugin) Close() (result error) {
 	if p.closed {
 		return nil
 	}
+	// ~arith_plugin: dealloc each bounds_proc in m_bounds_cache order.
+	for _, row := range p.boundsTable.Entries() {
+		key := arithmeticPluginKey{row.Key, row.Value[0]}
+		if entry := p.bounds[key]; entry != nil {
+			result = errors.Join(result, entry.close(p.manager))
+			delete(p.bounds, key)
+		}
+	}
 	for key, entry := range p.bounds {
+		// Unreachable: every entry is in boundsTable.
 		result = errors.Join(result, entry.close(p.manager))
 		delete(p.bounds, key)
 	}
-	for key, branch := range p.branches {
+	p.boundsTable = ast.NewObjMap(p.manager)
+	// The cached branches' fresh-variable copies (branch_formula keeps
+	// them as a ptr_vector), in add_cache order.
+	for _, branch := range p.branchOrder {
 		result = errors.Join(result, branch.close(p.manager))
-		delete(p.branches, key)
 	}
+	p.branchOrder = nil
+	clear(p.branches)
+	// m_trail is destroyed forward.
+	for i := range p.trail {
+		result = errors.Join(result, p.manager.DelRef(&p.trail[i]))
+	}
+	p.trail = nil
 	for i := len(p.normalizedAtoms) - 1; i >= 0; i-- {
 		result = errors.Join(result, p.manager.DelRef(&p.normalizedAtoms[i]))
 	}

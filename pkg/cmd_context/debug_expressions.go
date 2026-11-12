@@ -6,7 +6,6 @@ package cmd_context
 import (
 	"errors"
 	"fmt"
-	"slices"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -42,6 +41,12 @@ func (c *Context) StoreDebugExpression(name string, expression ast.ASTHandle) er
 		}
 	}
 	c.debugExpressions[name] = value
+	// m_object_refs.insert(s, r): the dictionary slot fixes the order
+	// reset_object_refs releases in.
+	if c.objectRefs == nil {
+		c.objectRefs = newSymbolDictionary()
+	}
+	c.objectRefs.insertIfNotThere(name)
 	return nil
 }
 
@@ -58,14 +63,20 @@ func (c *Context) DebugExpression(name string) (ast.ASTHandle, error) {
 	return m.RefGet(value)
 }
 
+// clearDebugExpressions is reset_object_refs: dec_ref each value in
+// m_object_refs (dictionary<object_ref*>) table order, then reset.
 func (c *Context) clearDebugExpressions() error {
-	names := make([]string, 0, len(c.debugExpressions))
-	for name := range c.debugExpressions {
-		names = append(names, name)
+	var names []string
+	if c.objectRefs != nil {
+		for _, entry := range c.objectRefs.entries() {
+			names = append(names, entry.name)
+		}
 	}
-	slices.Sort(names) // deterministic; Go map order is random
 	for _, name := range names {
-		value := c.debugExpressions[name]
+		value, found := c.debugExpressions[name]
+		if !found {
+			continue
+		}
 		if err := c.manager.DelRef(&value); err != nil {
 			if value == (ast.ASTRef{}) {
 				delete(c.debugExpressions, name)
@@ -75,6 +86,13 @@ func (c *Context) clearDebugExpressions() error {
 			return err
 		}
 		delete(c.debugExpressions, name)
+	}
+	if len(c.debugExpressions) != 0 {
+		// Unreachable: every stored name is in objectRefs.
+		return ast.ErrASTDomain
+	}
+	if c.objectRefs != nil {
+		c.objectRefs.reset()
 	}
 	return nil
 }

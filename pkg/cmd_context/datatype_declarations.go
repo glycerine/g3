@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 // DeclareDatatypes publishes a mutually recursive block in the current
@@ -219,4 +220,75 @@ func (c *Context) insertDatatypeFunction(d ast.ASTHandle) error {
 	c.functions[name] = append(c.functions[name], d)
 	c.functionTrail = append(c.functionTrail, declaration{name, d, ref})
 	return c.recordFuncDecl(name, d)
+}
+
+// initList is pdecl_manager::init_list (pdecl.cpp:830-844): the parametric
+// List datatype with constructors nil (is-nil) and insert (is-insert) with
+// accessors head (the sort parameter) and tail (List). commit instantiates
+// the parameter as mk_uninterpreted_sort(symbol(0)) and declares the block
+// through mk_datatypes; m_num_params != 0, so no functions are published
+// until (List s) is instantiated.
+func (c *Context) initList(m *ast.ASTManager) (result error) {
+	name, err := m.Symbols.Intern("List")
+	if err != nil {
+		return err
+	}
+	parameter, err := m.MkUninterpretedSort(usymbol.Numerical(0), nil)
+	if err != nil {
+		return err
+	}
+	parameterRef, err := m.NewRef(parameter)
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, m.DelRef(&parameterRef)) }()
+	intern := func(names ...string) ([]usymbol.Symbol, error) {
+		out := make([]usymbol.Symbol, len(names))
+		for i, n := range names {
+			var e error
+			if out[i], e = m.Symbols.Intern(n); e != nil {
+				return nil, e
+			}
+		}
+		return out, nil
+	}
+	s, err := intern("nil", "is-nil", "insert", "is-insert", "head", "tail")
+	if err != nil {
+		return err
+	}
+	definition := ast.DatatypeDefinition{
+		Name:       name,
+		Parameters: []ast.ASTHandle{parameter},
+		Constructors: []ast.DatatypeConstructorDefinition{
+			{Name: s[0], Recognizer: s[1]},
+			{Name: s[2], Recognizer: s[3], Accessors: []ast.DatatypeAccessorDefinition{
+				{Name: s[4], Range: parameter},
+				{Name: s[5], Recursive: true, RecursiveIndex: 0},
+			}},
+		},
+	}
+	sorts, err := m.MkDatatypes([]ast.DatatypeDefinition{definition})
+	if err != nil {
+		return err
+	}
+	if c.listRef, err = m.NewRef(sorts[0]); err != nil {
+		return err
+	}
+	c.listDecl = sorts[0]
+	c.sorts["List"] = sorts[0]
+	c.sortArities["List"] = 1
+	return nil
+}
+
+// releaseList drops the List declaration with the pdecl_manager.
+func (c *Context) releaseList() error {
+	if c.listDecl.IsNull() {
+		return nil
+	}
+	if c.sorts["List"] == c.listDecl {
+		delete(c.sorts, "List")
+		delete(c.sortArities, "List")
+	}
+	c.listDecl = ast.ASTHandle{}
+	return c.manager.DelRef(&c.listRef)
 }

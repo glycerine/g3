@@ -221,22 +221,37 @@ func (e *Engine) MkNeg(bits []ast.ASTHandle) (out []ast.ASTRef, result error) {
 				err = e.MkHalfAdder(notHandle, carryHandle, bitOut, nextCarry)
 			}
 		}
-		cleanup := m.DelRef(&notBit)
-		if err != nil || cleanup != nil {
+		if err != nil {
+			_ = m.DelRef(&notBit)
 			_ = m.DelRef(&bitOut)
-			if nextCarry != (ast.ASTRef{}) {
-				_ = m.DelRef(&nextCarry)
-			}
-			return nil, errors.Join(err, cleanup)
-		}
-		out = append(out, bitOut)
-		if err = m.DelRef(&carry); err != nil {
 			if nextCarry != (ast.ASTRef{}) {
 				_ = m.DelRef(&nextCarry)
 			}
 			return nil, err
 		}
-		carry = nextCarry
+		out = append(out, bitOut)
+		if nextCarry != (ast.ASTRef{}) {
+			// cin = cout releases the previous carry before the
+			// loop-scoped not_a dies.
+			if err = m.DelRef(&carry); err != nil {
+				_ = m.DelRef(&notBit)
+				_ = m.DelRef(&nextCarry)
+				return nil, err
+			}
+			carry = nextCarry
+			if err = m.DelRef(&notBit); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		// The last bit uses mk_xor: cout is unchanged, so not_a dies first
+		// and the carry at exit.
+		if err = m.DelRef(&notBit); err != nil {
+			return nil, err
+		}
+		if err = m.DelRef(&carry); err != nil {
+			return nil, err
+		}
 	}
 	return out, nil
 }
@@ -352,20 +367,26 @@ func (e *Engine) MkSubtracter(a, b []ast.ASTHandle) (out []ast.ASTRef, carry ast
 		if err == nil {
 			err = e.MkFullAdder(a[i], notBHandle, carryHandle, bitOut, nextCarry)
 		}
-		cleanup := m.DelRef(&notB)
-		if err != nil || cleanup != nil {
+		if err != nil {
+			_ = m.DelRef(&notB)
 			_ = m.DelRef(&bitOut)
 			if nextCarry != (ast.ASTRef{}) {
 				_ = m.DelRef(&nextCarry)
 			}
-			return nil, carry, errors.Join(err, cleanup)
+			return nil, carry, err
 		}
 		out = append(out, bitOut)
+		// cin = cout releases the previous carry before the loop-scoped
+		// not_b dies.
 		if err = m.DelRef(&carry); err != nil {
+			_ = m.DelRef(&notB)
 			_ = m.DelRef(&nextCarry)
 			return nil, carry, err
 		}
 		carry = nextCarry
+		if err = m.DelRef(&notB); err != nil {
+			return nil, carry, err
+		}
 	}
 	return out, carry, nil
 }

@@ -174,3 +174,22 @@ func (c *Context) restoreSortConstructors(size int) (result error) {
 	}
 	return result
 }
+
+// FindPSortDecl is find_psort_decl(name) for the parser: found reports a
+// declaration in m_psort_decls (empty until the manager is initialized);
+// varParams is has_var_params() (builtin sorts) and arity get_num_params().
+func (c *Context) FindPSortDecl(name string) (arity uint32, varParams bool, found bool) {
+	if c.manager == nil {
+		return 0, false, false
+	}
+	if declaration, ok := c.sortConstructors[name]; ok {
+		return declaration.arity, false, true
+	}
+	if _, ok := c.sorts[name]; ok {
+		return c.sortArities[name], false, true
+	}
+	if c.BuiltinSortAvailable(name) {
+		return 0, true, true
+	}
+	return 0, false, false
+}

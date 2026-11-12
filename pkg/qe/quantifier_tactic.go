@@ -113,8 +113,25 @@ func (t *QuantifierTactic) Close() error {
 	t.closed = true
 	return nil
 }
-func (t *QuantifierTactic) Cleanup() error { return t.open() }
-func (t *QuantifierTactic) Reset() error   { return t.open() }
+
+// Cleanup is qe_tactic::cleanup: dealloc(m_imp) destroys the
+// expr_quant_elim (its plugins, caches and solvers) and a fresh imp takes
+// its place.
+func (t *QuantifierTactic) Cleanup() error {
+	if err := t.open(); err != nil {
+		return err
+	}
+	if t.qe != nil {
+		if err := t.qe.Close(); err != nil {
+			return err
+		}
+	}
+	t.qe = newExprQuantElim(t.manager, t.config)
+	return nil
+}
+
+// Reset is tactic::reset, which calls cleanup.
+func (t *QuantifierTactic) Reset() error { return t.Cleanup() }
 func (t *QuantifierTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
 	if err := t.open(); err != nil {
 		return nil, err

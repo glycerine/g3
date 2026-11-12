@@ -182,35 +182,21 @@ func (s *exprQEBranchVariables) consume(node *exprQETree) error {
 	}
 	return nil
 }
+
+// Close is the variable half of the reset ~quant_elim_plugin runs when a
+// check exits early: m_trail and m_var2contains (release, table order),
+// then m_new_vars forward.
 func (s *exprQEBranchVariables) Close() error {
 	if s == nil || s.manager == nil {
 		return nil
 	}
-	for len(s.pending) > 0 {
-		i := len(s.pending) - 1
-		if err := s.manager.DelRef(&s.pending[i]); err != nil {
-			return err
-		}
-		s.pending = s.pending[:i]
+	if err := s.release(); err != nil {
+		return err
 	}
-	for len(s.entries) > 0 {
-		i := len(s.entries) - 1
-		e := &s.entries[i]
-		if e.contains != nil {
-			if err := e.contains.Close(); err != nil {
-				return err
-			}
-			e.contains = nil
-		}
-		for _, ref := range []*ast.ASTRef{&e.branch, &e.variable} {
-			if *ref != (ast.ASTRef{}) {
-				if err := s.manager.DelRef(ref); err != nil {
-					return err
-				}
-			}
-		}
-		s.entries = s.entries[:i]
+	if err := s.releasePending(); err != nil {
+		return err
 	}
+	s.entries = nil
 	s.index = nil
 	s.manager = nil
 	return nil

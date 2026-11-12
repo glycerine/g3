@@ -1,14 +1,10 @@
 package qe
 
-import (
-	"errors"
+import "github.com/glycerine/g3/pkg/ast"
 
-	"github.com/glycerine/g3/pkg/ast"
-)
-
+// arithmeticPluginBounds is an m_bounds_cache entry; the trail owns its
+// (x, fml) key.
 type arithmeticPluginBounds struct {
-	variable  ast.ASTRef
-	formula   ast.ASTRef
 	processor *ArithmeticBoundsProcessor
 }
 
@@ -16,7 +12,7 @@ func (e *arithmeticPluginBounds) close(m *ast.ASTManager) error {
 	if e == nil {
 		return nil
 	}
-	return errors.Join(e.processor.Close(), m.DelRef(&e.formula), m.DelRef(&e.variable))
+	return e.processor.Close()
 }
 
 func (p *ArithmeticPlugin) entry(variable *ast.ContainsApp, formula ast.ASTHandle) (*arithmeticPluginBounds, ast.ASTHandle, error) {
@@ -38,16 +34,28 @@ func (p *ArithmeticPlugin) entry(variable *ast.ContainsApp, formula ast.ASTHandl
 }
 
 func (p *ArithmeticPlugin) insertEntry(target, formula ast.ASTHandle, processor *ArithmeticBoundsProcessor) (resultErr error) {
-	e := &arithmeticPluginBounds{processor: processor}
-	var err error
-	e.variable, err = p.manager.NewRef(target)
+	// m_trail.push_back(x); m_trail.push_back(fml);
+	// m_bounds_cache.insert(x, fml, bounds).
+	if err := p.pushTrail(target, formula); err != nil {
+		return err
+	}
+	hash, err := p.boundsTable.PairHash(target, formula)
 	if err != nil {
 		return err
 	}
-	e.formula, err = p.manager.NewRef(formula)
-	if err != nil {
-		return errors.Join(err, p.manager.DelRef(&e.variable))
+	p.boundsTable.InsertPairKeys(target, formula, hash)
+	p.bounds[arithmeticPluginKey{target, formula}] = &arithmeticPluginBounds{processor: processor}
+	return nil
+}
+
+// pushTrail is m_trail.push_back for each expression.
+func (p *ArithmeticPlugin) pushTrail(expressions ...ast.ASTHandle) error {
+	for _, e := range expressions {
+		ref, err := p.manager.NewRef(e)
+		if err != nil {
+			return err
+		}
+		p.trail = append(p.trail, ref)
 	}
-	p.bounds[arithmeticPluginKey{target, formula}] = e
 	return nil
 }

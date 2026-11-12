@@ -141,7 +141,12 @@ func (u *ArithmeticQETermUtil) MakeBound(a *big.Rat, t ast.ASTHandle, b *big.Rat
 	if err != nil {
 		return result, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, u.manager.DelRef(&differenceRef)) }()
+	differenceHeld := true
+	defer func() {
+		if differenceHeld {
+			resultErr = errors.Join(resultErr, u.manager.DelRef(&differenceRef))
+		}
+	}()
 	integer, err := u.isInteger(difference)
 	if err != nil {
 		return result, err
@@ -158,6 +163,13 @@ func (u *ArithmeticQETermUtil) MakeBound(a *big.Rat, t ast.ASTHandle, b *big.Rat
 		shiftedRef, cause := u.manager.NewRef(shifted)
 		if cause != nil {
 			return result, cause
+		}
+		// e = mk_add(e, m_one_i) drops the expr_ref's hold on the
+		// difference, so simplify sees it shared only by the sum (the
+		// rewriter caches only shared subterms).
+		differenceHeld = false
+		if cause = u.manager.DelRef(&differenceRef); cause != nil {
+			return result, errors.Join(cause, u.manager.DelRef(&shiftedRef))
 		}
 		comparison, cause := u.comparisonZeroOwned(shifted, false)
 		return comparison, errors.Join(cause, u.manager.DelRef(&shiftedRef))

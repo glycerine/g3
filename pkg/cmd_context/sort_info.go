@@ -207,3 +207,23 @@ func (c *Context) withPPEnv(format func() error) error {
 	defer c.manager.SetSMT2SortInfoTable(previous)
 	return format()
 }
+
+// SMT2FuncDecls is pp_env's m_func_decls.find(f->get_name(), fs) &&
+// fs.contains(f).
+func (c *Context) SMT2FuncDecls(decl ast.ASTHandle) ([]ast.ASTHandle, bool) {
+	symbol, err := c.manager.GetASTName(decl)
+	if err != nil {
+		return nil, false
+	}
+	name, err := c.manager.Symbols.String(symbol)
+	if err != nil {
+		return nil, false
+	}
+	decls := c.functions[name]
+	for _, d := range decls {
+		if d == decl {
+			return decls, true
+		}
+	}
+	return nil, false
+}

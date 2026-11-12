@@ -215,6 +215,7 @@ func (c *Context) MakeApp(name string, args []ast.ASTHandle, indices []ast.ASTPa
 		return m.MkApp(declarations[0], args)
 	}
 	if len(args) == 0 && rangeSort.IsNull() && len(c.functions[name]) > 1 {
+		// "disumbiguate" (sic) is z3 4.7.1's spelling (cmd_context.cpp:1073).
 		return ast.ASTHandle{}, fmt.Errorf("ambiguous constant reference, more than one constant with the same sort, use a qualified expression (as <symbol> <sort>) to disumbiguate %s", name)
 	}
 	var match ast.ASTHandle

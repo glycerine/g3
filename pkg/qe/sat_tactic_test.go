@@ -115,9 +115,11 @@ func TestQESATTacticStatisticsAcrossApplyAndReset(t *testing.T) {
 	if got := statistics.Sums(port.CollectStatistics); len(got) == 0 {
 		t.Fatal("SAT tactic did not report solver statistics")
 	}
+	before := statistics.Sums(port.CollectStatistics)
 	fmMust(t, port.ResetStatistics())
-	if got := statistics.Sums(port.CollectStatistics); len(got) != 0 {
-		t.Fatalf("statistics after reset: %v", got)
+	// The source kernels' reset_statistics is empty.
+	if got := statistics.Sums(port.CollectStatistics); len(got) != len(before) {
+		t.Fatalf("statistics after reset: %v, before %v", got, before)
 	}
 	apply()
 	if got := statistics.Sums(port.CollectStatistics); len(got) == 0 {

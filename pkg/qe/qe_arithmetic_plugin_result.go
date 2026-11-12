@@ -30,6 +30,8 @@ func (b *ArithmeticPluginBranch) substitution(m *ast.ASTManager) (*arithmeticBra
 	return &arithmeticBranchSubstitution{coefficient: new(big.Rat).Set(b.Coefficient), term: term}, nil
 }
 
+// close releases the fresh-variable copies; Result and Term are owned by
+// the plugin trail (add_cache).
 func (b *ArithmeticPluginBranch) close(m *ast.ASTManager) error {
 	if b == nil {
 		return nil
@@ -39,10 +41,6 @@ func (b *ArithmeticPluginBranch) close(m *ast.ASTManager) error {
 		definitionErr = errors.Join(definitionErr, m.DelRef(&b.Fresh[i]))
 	}
 	b.Fresh = nil
-	definitionErr = errors.Join(definitionErr, m.DelRef(&b.Result))
-	if b.Term != (ast.ASTRef{}) {
-		definitionErr = errors.Join(definitionErr, m.DelRef(&b.Term))
-	}
 	return definitionErr
 }
 
@@ -77,12 +75,19 @@ func (p *ArithmeticPlugin) storeBranch(key ArithmeticBranchKey, result ast.ASTRe
 		}
 		copies = append(copies, copy)
 	}
-	if old := p.branches[key]; old != nil {
-		if err := old.close(p.manager); err != nil {
-			return err
-		}
+	// add_cache: m_trail.push_back(x), (fml), (result), (term) and
+	// m_subst.insert, which replaces an equal entry (the trail keeps the old
+	// one's expressions).
+	if err = p.pushTrail(key.Variable, key.Formula); err != nil {
+		return err
 	}
-	p.branches[key] = &ArithmeticPluginBranch{Result: result, Coefficient: coefficient, Term: term, Selection: selection, Fresh: copies}
+	p.trail = append(p.trail, result)
+	if term != (ast.ASTRef{}) {
+		p.trail = append(p.trail, term)
+	}
+	branch := &ArithmeticPluginBranch{Result: result, Coefficient: coefficient, Term: term, Selection: selection, Fresh: copies}
+	p.branches[key] = branch
+	p.branchOrder = append(p.branchOrder, branch)
 	return nil
 }
 

@@ -249,13 +249,11 @@ func (t *QESATTactic) collectMemberStatistics(st *statistics.Statistics) error {
 	return t.strong.CollectStatistics(st)
 }
 
+// ResetStatistics is reset_statistics: it forwards to m_solvers, m_solver
+// and m_ctx_rewriter, whose smt::kernel::imp::reset_statistics is empty, so
+// the collected statistics are unchanged.
 func (t *QESATTactic) ResetStatistics() error {
-	if err := t.open(); err != nil {
-		return err
-	}
-	t.levelStats.Reset()
-	t.persistentStats.Reset()
-	return nil
+	return t.open()
 }
 func (t *QESATTactic) SetLogic(usymbol.Symbol) error          { return t.open() }
 func (t *QESATTactic) SetProgressCallback(func(uint32)) error { return t.open() }

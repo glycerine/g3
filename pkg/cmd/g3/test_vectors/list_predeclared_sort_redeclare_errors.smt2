@@ -1,0 +1,6 @@
+(declare-sort List 0)
+(define-sort List () Int)
+(declare-datatypes () ((Pair (mk (fst (List Int)) (snd List)))))
+(declare-datatypes (T) ((Tree (leaf) (node (val T) (kids List)))))
+(declare-const p (List Int))
+(check-sat)
