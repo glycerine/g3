@@ -28,6 +28,9 @@ func (k *SMTKernel) setupAssertedBounds(useStaticFeatures bool) error {
 		if err := k.setupSequenceBackend(useStaticFeatures); err != nil {
 			return err
 		}
+		if err := k.setupPluginSet(useStaticFeatures); err != nil {
+			return err
+		}
 		k.setupAssertedPolicies()
 		k.preprocessingSetupDone = true
 		return nil
@@ -37,8 +40,12 @@ func (k *SMTKernel) setupAssertedBounds(useStaticFeatures bool) error {
 			return err
 		}
 	}
-	if err := k.setupBitVectorLogicPolicy(); err != nil {
-		return err
+	// setup_auto_config routes QF_FP, QF_FPBV and QF_BVFP through
+	// setup_unknown(st), which reaches their setups only for a pure profile.
+	if !useStaticFeatures || !smtAutoConfigUsesUnknownSetup(k.setupLogic) {
+		if err := k.setupBitVectorLogicPolicy(); err != nil {
+			return err
+		}
 	}
 	if err := k.setupIntegerDifferencePolicy(useStaticFeatures); err != nil {
 		return err
@@ -75,7 +82,7 @@ func (k *SMTKernel) setupAssertedBounds(useStaticFeatures bool) error {
 		// setup_auto_config routes this logic through setup_unknown(st).
 		enabled = !useStaticFeatures
 	}
-	if !enabled && useStaticFeatures && (smtLogicUsesUnknownSetup(k.setupLogic) || k.setupLogic == "UFLRA") {
+	if !enabled && useStaticFeatures && smtAutoConfigUsesUnknownSetup(k.setupLogic) {
 		for _, row := range k.assertions {
 			has, err := k.manager.HasQuantifiers(row.Formula)
 			if err != nil {
@@ -97,7 +104,7 @@ func (k *SMTKernel) setupAssertedBounds(useStaticFeatures bool) error {
 	if err := k.setupSequenceBackend(useStaticFeatures); err != nil {
 		return err
 	}
-	if err := k.setupUnknownStaticPlugins(useStaticFeatures); err != nil {
+	if err := k.setupPluginSet(useStaticFeatures); err != nil {
 		return err
 	}
 	k.setupAssertedPolicies()

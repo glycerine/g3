@@ -28,9 +28,6 @@ func (e *maxResEngine) processCorrection(correction []ast.ASTHandle) error {
 	if err = e.correctionResolve(correction, weight); err != nil {
 		return err
 	}
-	if err = e.assertCorrectionBlock(correction); err != nil {
-		return err
-	}
 	e.correction = nil
 	e.currentCorrection = nil
 	e.stats.CorrectionSets++

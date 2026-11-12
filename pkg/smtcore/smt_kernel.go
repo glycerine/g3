@@ -135,9 +135,9 @@ type SMTKernel struct {
 	copiedBitBlasterOwner    *bit_blaster.SMTBitBlasterParams
 	copiedArrayPlugin        bool
 	copiedArrayOwner         *SMTArrayParams
-	// context::copy_plugins ran from a source context that had completed its
-	// setup, so the destination's plugin set is not its own setup profile.
-	setupPluginsCopied bool
+	// presetupFamilies are the plugins context::register_plugin received
+	// before setup (copy_plugins, ensure_pb), in registration order.
+	presetupFamilies []ast.FamilyID
 }
 
 func (k *SMTKernel) readPreprocessorState(context *uparams.ParamsContext, globals *uparams.GlobalParamsService, params *uparams.ParamsRef) (state SMTPreprocessorState, result error) {

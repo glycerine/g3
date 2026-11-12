@@ -968,6 +968,11 @@ var scriptResults = map[string]string{
 	"fixedpoint_pdr_inductive_reachability.smt2":        "sat\ntrue\n",
 	"fixedpoint_pdr_bit_blast.smt2":                     "sat\n",
 	"fixedpoint_pdr_scale.smt2":                         "sat\n",
+	"sortmax_soft_hash_order.smt2":                      "sat\n(objectives\n ( 0)\n)\n",
+	"setup_unknown_qf_fp_with_int.smt2":                 "sat\n(model \n  (define-fun f () (_ FloatingPoint 3 5)\n    (fp #b0 #b010 #x0))\n  (define-fun y () Int\n    1)\n  (define-fun x () Int\n    1)\n)\n",
+	"setup_basic_qf_fp_with_int.smt2":                   "sat\n(model \n  (define-fun f () (_ FloatingPoint 3 5)\n    (fp #b0 #b010 #x0))\n  (define-fun y () Int\n    1)\n  (define-fun x () Int\n    1)\n)\n",
+	"maxres_single_correction_set.smt2":                 "sat\n(objectives\n ( 3)\n)\n(model \n  (define-fun y () Int\n    0)\n  (define-fun x () Int\n    8)\n)\n",
+	"setup_unknown_uflra_ground.smt2":                   "sat\n(model \n  (define-fun y () Real\n    (- (/ 5.0 2.0)))\n  (define-fun x () Real\n    (- 5.0))\n  (define-fun f ((x!0 Real)) Real\n    (ite (= x!0 (- 5.0)) (- (/ 1.0 2.0))\n    (ite (= x!0 (- (/ 5.0 2.0))) (- (/ 15.0 2.0))\n      (- (/ 1.0 2.0)))))\n)\n",
 }
 
 func TestSMTLibRunnerScripts(t *testing.T) {

@@ -20,7 +20,7 @@ func (k *SMTKernel) setupQuantifiedLogicPolicy(useStaticFeatures bool) (result e
 		mixed, inspect = true, useStaticFeatures
 		simpleArray = !useStaticFeatures
 	default:
-		if !useStaticFeatures || !smtLogicUsesUnknownSetup(k.setupLogic) {
+		if !useStaticFeatures || !smtAutoConfigUsesUnknownSetup(k.setupLogic) {
 			return nil
 		}
 		inspect, simpleArray = true, false

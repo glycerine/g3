@@ -1,0 +1,6 @@
+(set-option :opt.maxsat_engine sortmax)
+(declare-const x1 Bool)(declare-const x2 Bool)(declare-const x3 Bool)(declare-const x4 Bool)(declare-const x5 Bool)(declare-const x6 Bool)
+(assert (or (not x1) (not x2) (not x3) (not x4) (not x5) (not x6)))
+(assert-soft x1)(assert-soft x2)(assert-soft x3)(assert-soft x4)(assert-soft x5)(assert-soft x6)
+(check-sat)
+(get-objectives)

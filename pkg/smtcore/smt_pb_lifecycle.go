@@ -15,17 +15,24 @@ func (s *SMTSolver) EnsurePseudoBooleanTheory() error {
 	if err != nil {
 		return err
 	}
+	// opt_solver::ensure_pb registers theory_pb before setup, so it leads
+	// the plugin order and survives a profile without setup_card.
 	if current := s.kernel.internalizer.theories[family]; current != nil {
 		if _, ok := current.(*SMTPseudoBooleanTheory); !ok {
 			return ast.ErrASTDomain
 		}
+		s.kernel.recordPresetupPlugin(family)
 		return nil
 	}
 	theory, err := NewSMTPseudoBooleanTheory(family)
 	if err != nil {
 		return err
 	}
-	return s.kernel.RegisterTheory(theory)
+	if err = s.kernel.RegisterTheory(theory); err != nil {
+		return err
+	}
+	s.kernel.recordPresetupPlugin(family)
+	return nil
 }
 
 func (t *SMTPseudoBooleanTheory) Setup() error {

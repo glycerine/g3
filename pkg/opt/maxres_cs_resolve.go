@@ -15,8 +15,8 @@ import (
 //	d_i := b_{i-1} or d_{i-1}    for i = 1...sz-1
 //	soft (b_i and d_i)
 //
-// fml, asum, cls, d are the source's locals. The closing hard disjunction of
-// the set is asserted by the caller.
+// fml, asum, cls, d are the source's locals; fml ends as the set's closing
+// hard disjunction.
 func (e *maxResEngine) correctionResolve(correction []ast.ASTHandle, weight *big.Rat) (resultErr error) {
 	if len(correction) == 0 {
 		return errMaxResState
@@ -89,5 +89,11 @@ func (e *maxResEngine) correctionResolve(correction []ast.ASTHandle, weight *big
 		}
 		e.stats.CorrectionResolutions++
 	}
-	return nil
+	// fml = m.mk_or(cs.size(), cs.c_ptr()); s().assert_expr(fml): the
+	// closing hard disjunction is the local fml, released on return.
+	h, err := fml.set(m.MkOrArgs(correction))
+	if err != nil {
+		return err
+	}
+	return e.solver.solver().Assert(h)
 }

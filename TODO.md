@@ -2108,11 +2108,20 @@ update_bound; box uses optsmt::geometric_opt for the default engine. Open:
 - An unbounded pareto frontier (assert-soft a plus (minimize x) with x
   unbounded) enumerates forever in both z3 and g3; g3's trace matches z3's
   prefix up to the timeout.
-- Theory registration leads (after setupUnknownStaticPlugins, 2026-11-12):
-  kernels with copied plugins (auxiliary MBQI solvers, translate) still start
-  from the full eager set with the copies swapped in, where z3 has the
-  source's theory set in source order with the destination profile's missing
-  plugins appended; the CFG_BASIC path (auto_config=false) with an explicit
-  logic installs that logic's subset, where z3's setup_unknown() registers
-  every theory; the sortmax smt2 equivalent of the wcnf frontend test
-  (/var/tmp/g3-wt-idlseq.work/sm.smt2) differs at trace line 75 (pre-existing).
+- DONE (2026-11-12) theory registration leads: setupPluginSet follows z3's
+  rule (plugins registered before setup in registration order, then the
+  profile's missing plugins in profile order). CFG_BASIC registers every
+  theory; copied plugins keep the source's order (recordCopiedPlugins);
+  opt_solver::ensure_pb registers pb before setup. setup_auto_config's
+  QF_FP/QF_FPBV/QF_BVFP/UFLRA go through setup_unknown(st) (two stdout bugs:
+  QF_FP with Int lacked arithmetic; ground UFLRA). sortmax walks new_soft in
+  obj_map order and its clauses are unheld locals; cs_max_resolve's closing
+  disjunction is the fml local. New vectors sortmax_soft_hash_order,
+  maxres_single_correction_set, setup_unknown_qf_fp_with_int,
+  setup_unknown_uflra_ground, setup_basic_qf_fp_with_int.
+- Leads (pre-existing): pure QF_FP fp.add builds ite arguments in the
+  opposite order from trace line 505 (/var/tmp/g3-wt-setupleads.work/r/
+  fp2.smt2); SMT2 errors for unknown sorts/constants/functions under a
+  restrictive logic differ (column later than z3's, z3 quotes 'Array', z3
+  4.7.1 spells "indentifier"); MBQI scripts differ in free-list id reuse
+  (UFNIA line 71, AUFLIA line 562; r/mq*.smt2).

@@ -23,6 +23,9 @@ func (d *maxSMTMutexDecomposition) transform(mutex []ast.ASTHandle) error {
 	for i, expression := range active {
 		values[i].Set(d.weights[expression])
 		delete(d.weights, expression)
+		if err := d.soft.Erase(expression); err != nil {
+			return err
+		}
 	}
 	var previous big.Int
 	for i := len(active) - 1; i >= 0; i-- {
@@ -40,7 +43,9 @@ func (d *maxSMTMutexDecomposition) transform(mutex []ast.ASTHandle) error {
 			old.Add(old, &delta)
 		} else {
 			d.weights[prefix] = new(big.Int).Set(&delta)
-			d.order = append(d.order, prefix)
+			if err = d.soft.Insert(prefix, [2]ast.ASTHandle{}); err != nil {
+				return err
+			}
 		}
 		d.offset.Add(&d.offset, new(big.Int).Mul(&delta, big.NewInt(int64(i))))
 	}

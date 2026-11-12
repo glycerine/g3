@@ -18,8 +18,11 @@ func (e *sortMaxEngine) preprocessMutexes() (status lbool.LBool, resultErr error
 	if err != nil || status != lbool.True {
 		return status, err
 	}
-	decomposition := newMaxSMTMutexDecomposition(e.solver.manager, e.terms)
+	decomposition, err := newMaxSMTMutexDecomposition(e.solver.manager, e.terms)
 	defer func() { resultErr = errors.Join(resultErr, decomposition.close()) }()
+	if err != nil {
+		return lbool.Undef, err
+	}
 	for _, mutex := range mutexes {
 		if err = decomposition.transform(mutex); err != nil {
 			return lbool.Undef, err

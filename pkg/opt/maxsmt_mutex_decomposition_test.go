@@ -24,8 +24,11 @@ func TestMaxSMTMutexDecompositionPreservesTotalAndLowerOffset(t *testing.T) {
 		t.Fatal(err)
 	}
 	terms := []maxSMTWeightedTerm{{expression: fixture.p, weight: *big.NewInt(7)}, {expression: fixture.q, weight: *big.NewInt(4)}, {expression: r, weight: *big.NewInt(4)}}
-	d := newMaxSMTMutexDecomposition(fixture.manager, terms)
+	d, err := newMaxSMTMutexDecomposition(fixture.manager, terms)
 	defer d.close()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err = d.transform([]ast.ASTHandle{fixture.q, fixture.p, r}); err != nil {
 		t.Fatal(err)
 	}

@@ -200,7 +200,6 @@ func (s *SMTSolver) newAuxiliarySolver() (auxiliary *SMTSolver, resultErr error)
 	if err != nil {
 		return nil, err
 	}
-	auxiliary.kernel.setupPluginsCopied = s.kernel.preprocessingSetupDone
 	if err = auxiliary.kernel.copyArithmeticPlugin(s.kernel); err != nil {
 		return auxiliary, err
 	}
@@ -220,6 +219,9 @@ func (s *SMTSolver) newAuxiliarySolver() (auxiliary *SMTSolver, resultErr error)
 		return auxiliary, err
 	}
 	if err = auxiliary.kernel.copyPseudoBooleanPlugin(s.kernel); err != nil {
+		return auxiliary, err
+	}
+	if err = auxiliary.kernel.recordCopiedPlugins(s.kernel); err != nil {
 		return auxiliary, err
 	}
 	if err = auxiliary.SetProduceModels(true); err != nil {
@@ -1126,7 +1128,6 @@ func (s *SMTSolver) translateWithConfig(manager *ast.ASTManager, params *uparams
 	}
 	// context::copy_plugins preserves concrete arithmetic types, with fresh
 	// solver data and the parameter owner chosen by each mk_fresh constructor.
-	next.kernel.setupPluginsCopied = s.kernel.preprocessingSetupDone
 	if err = next.kernel.copyArithmeticPlugin(s.kernel); err != nil {
 		return nil, errors.Join(err, next.Close())
 	}
@@ -1146,6 +1147,9 @@ func (s *SMTSolver) translateWithConfig(manager *ast.ASTManager, params *uparams
 		return nil, errors.Join(err, next.Close())
 	}
 	if err = next.kernel.copyPseudoBooleanPlugin(s.kernel); err != nil {
+		return nil, errors.Join(err, next.Close())
+	}
+	if err = next.kernel.recordCopiedPlugins(s.kernel); err != nil {
 		return nil, errors.Join(err, next.Close())
 	}
 	if err = next.SetProduceModels(s.produceModels); err != nil {

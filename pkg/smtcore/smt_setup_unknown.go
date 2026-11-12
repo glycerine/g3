@@ -16,7 +16,7 @@ func (k *SMTKernel) withSetupLogic(logic string, action func() error) error {
 }
 
 func (k *SMTKernel) setupUnknownStaticPolicy(useStaticFeatures bool) (result error) {
-	if !useStaticFeatures || !smtLogicUsesUnknownSetup(k.setupLogic) {
+	if !useStaticFeatures || !smtAutoConfigUsesUnknownSetup(k.setupLogic) {
 		return nil
 	}
 	features, err := k.setupStaticFeatures(true)
@@ -217,26 +217,183 @@ func (k *SMTKernel) smtSetupPluginFamily(plugin int) (ast.FamilyID, error) {
 	return ast.NullFamilyID, ast.ErrASTDomain
 }
 
-// setupUnknownStaticPlugins makes the context's plugin set the one
-// setup_unknown(st) registers. Go eagerly installs the full setup_unknown()
-// plugin set at construction; the source registers only the selected
-// profile's plugins at the first check, so unselected placeholders are
-// dropped (they would otherwise take final_check rotation slots and run
-// their own final checks) and the rest take the profile's order.
-func (k *SMTKernel) setupUnknownStaticPlugins(useStaticFeatures bool) (result error) {
-	if !useStaticFeatures || !k.smtState.AutoConfig || k.setupPluginsCopied ||
-		!smtLogicUsesUnknownSetup(k.setupLogic) || !smtAutoConfigUsesUnknownSetup(k.setupLogic) {
+// smtSetupAllPlugins is setup_unknown()'s registration order.
+func smtSetupAllPlugins() []int {
+	return []int{smtSetupArith, smtSetupArray, smtSetupBV, smtSetupDatatype, smtSetupDatalog, smtSetupSeq, smtSetupPB, smtSetupFPA}
+}
+
+// recordPresetupPlugin notes a plugin registered with
+// context::register_plugin before setup (copy_plugins, opt_solver::ensure_pb):
+// it precedes every plugin the setup profile adds.
+func (k *SMTKernel) recordPresetupPlugin(family ast.FamilyID) {
+	if k.preprocessingSetupDone {
+		return
+	}
+	for _, f := range k.presetupFamilies {
+		if f == family {
+			return
+		}
+	}
+	k.presetupFamilies = append(k.presetupFamilies, family)
+}
+
+// recordCopiedPlugins is context::copy_plugins' registration order: the
+// source's m_theory_set, in order. Families are matched by name, since
+// translate may target another manager.
+func (k *SMTKernel) recordCopiedPlugins(source *SMTKernel) error {
+	// Before its setup, the source's m_theory_set holds only the plugins it
+	// received through register_plugin (its own copies, ensure_pb).
+	families := source.presetupFamilies
+	if source.preprocessingSetupDone {
+		families = families[:0:0]
+		for _, theory := range source.internalizer.theoryOrder {
+			families = append(families, theory.FamilyID())
+		}
+	}
+	for _, sourceFamily := range families {
+		name, err := source.manager.FamilyName(sourceFamily)
+		if err != nil {
+			return err
+		}
+		text, err := source.manager.Symbols.String(name)
+		if err != nil {
+			return err
+		}
+		local, err := k.manager.Symbols.Intern(text)
+		if err != nil {
+			return err
+		}
+		family, err := k.manager.FamilyIDForSymbol(local)
+		if err != nil || family == ast.NullFamilyID {
+			continue
+		}
+		if k.internalizer.theories[family] != nil {
+			k.recordPresetupPlugin(family)
+		}
+	}
+	return nil
+}
+
+// setupProfilePlugins is the plugin list the selected setup registers:
+// CFG_BASIC's setup_unknown(), CFG_AUTO's setup_unknown(st) profile, or
+// CFG_LOGIC's setup_default fallthrough to setup_unknown(). known is false
+// for an explicit logic's own profile, which the constructor installed:
+// only plugins registered before setup are moved ahead of it.
+func (k *SMTKernel) setupProfilePlugins(useStaticFeatures bool) (plugins []int, known bool, result error) {
+	switch {
+	case !k.smtState.AutoConfig:
+		return smtSetupAllPlugins(), true, nil
+	case useStaticFeatures && smtAutoConfigUsesUnknownSetup(k.setupLogic):
+		features, err := k.setupStaticFeatures(true)
+		if err != nil {
+			return nil, false, err
+		}
+		defer func() { result = errors.Join(result, features.Close()) }()
+		return smtUnknownStaticPlugins(features), true, nil
+	case !useStaticFeatures && smtLogicUsesUnknownSetup(k.setupLogic):
+		return smtSetupAllPlugins(), true, nil
+	}
+	return nil, false, nil
+}
+
+// installMissingSetupPlugin registers a fresh plugin for a profile family
+// the constructor did not install (setup_arrays, setup_bv, setup_datatypes,
+// setup_dl, setup_card, setup_fpa). Arithmetic and sequences are installed
+// by setupBasicArithmetic and setupSequenceBackend.
+func (k *SMTKernel) installMissingSetupPlugin(plugin int) error {
+	m := k.manager
+	family, err := k.smtSetupPluginFamily(plugin)
+	if err != nil {
+		return err
+	}
+	var theory SMTTheoryInternalizer
+	switch plugin {
+	case smtSetupArith:
+		return k.setupBasicArithmetic()
+	case smtSetupArray:
+		switch k.smtParams.array.state.Mode {
+		case 0: // AR_NO_ARRAY
+			theory, err = NewSMTDummyTheory(family, "no array")
+		case 1: // AR_SIMPLE
+			theory, err = NewSMTSimpleArrayTheory(family)
+		case 3: // AR_FULL
+			theory, err = NewSMTArrayTheory(family)
+		default:
+			return ast.ErrASTDomain
+		}
+	case smtSetupBV:
+		if k.smtParams.bv.state.Mode == 0 { // BS_NO_BV
+			theory, err = NewSMTDummyTheory(family, "no bit-vector")
+		} else {
+			theory, err = NewSMTBitVectorTheory(family)
+		}
+	case smtSetupDatatype:
+		theory, err = NewSMTDatatypeTheory(family)
+	case smtSetupDatalog:
+		theory, err = NewSMTDatalogTheory(family)
+	case smtSetupSeq:
+		return nil
+	case smtSetupPB:
+		theory, err = NewSMTPseudoBooleanTheory(family)
+	case smtSetupFPA:
+		// setup_fpa calls setup_bv first.
+		bv, err := m.RegisterBitVectorPlugin()
+		if err != nil {
+			return err
+		}
+		if k.internalizer.theories[bv] == nil {
+			if err = k.installMissingSetupPlugin(smtSetupBV); err != nil {
+				return err
+			}
+		}
+		if _, err = m.RegisterArithmeticPlugin(); err != nil {
+			return err
+		}
+		theory, err = NewSMTFloatingPointTheory(family)
+	default:
+		return ast.ErrASTDomain
+	}
+	if err != nil {
+		return err
+	}
+	return k.RegisterTheory(theory)
+}
+
+// setupPluginSet makes the context's plugin set the one the source
+// registers: plugins registered before setup (copy_plugins' source order,
+// ensure_pb) first, then the setup profile's remaining plugins in its
+// registration order (register_plugin skips families already present).
+// Go eagerly installs constructor placeholders, so placeholders outside
+// both lists are dropped (they would otherwise take final_check rotation
+// slots and run their own final checks).
+func (k *SMTKernel) setupPluginSet(useStaticFeatures bool) error {
+	if k.smtParams == nil {
+		return nil
+	}
+	plugins, known, err := k.setupProfilePlugins(useStaticFeatures)
+	if err != nil {
+		return err
+	}
+	if !known && len(k.presetupFamilies) == 0 {
 		return nil
 	}
 	s := k.internalizer
 	if len(s.scopes) != 0 || s.theoriesSetup {
 		return ast.ErrASTDomain
 	}
-	features, err := k.setupStaticFeatures(true)
-	if err != nil {
-		return err
+	profile := make([]ast.FamilyID, 0, len(plugins))
+	for _, plugin := range plugins {
+		family, err := k.smtSetupPluginFamily(plugin)
+		if err != nil {
+			return err
+		}
+		profile = append(profile, family)
+		if s.theories[family] == nil {
+			if err = k.installMissingSetupPlugin(plugin); err != nil {
+				return err
+			}
+		}
 	}
-	defer func() { result = errors.Join(result, features.Close()) }()
 	setupFamilies := make(map[ast.FamilyID]bool, smtSetupFPA+1)
 	for plugin := smtSetupArith; plugin <= smtSetupFPA; plugin++ {
 		family, err := k.smtSetupPluginFamily(plugin)
@@ -245,25 +402,31 @@ func (k *SMTKernel) setupUnknownStaticPlugins(useStaticFeatures bool) (result er
 		}
 		setupFamilies[family] = true
 	}
-	plugins := smtUnknownStaticPlugins(features)
 	order := make([]SMTTheoryInternalizer, 0, len(s.theoryOrder))
-	keep := make(map[SMTTheoryInternalizer]bool, len(plugins))
-	for _, plugin := range plugins {
-		family, err := k.smtSetupPluginFamily(plugin)
-		if err != nil {
-			return err
-		}
+	keep := make(map[SMTTheoryInternalizer]bool, len(s.theoryOrder))
+	add := func(family ast.FamilyID) {
 		if theory := s.theories[family]; theory != nil && !keep[theory] {
 			keep[theory] = true
 			order = append(order, theory)
 		}
 	}
+	for _, family := range k.presetupFamilies {
+		add(family)
+	}
+	for _, family := range profile {
+		add(family)
+	}
 	var dropped []SMTTheoryInternalizer
 	for _, theory := range s.theoryOrder {
-		if !setupFamilies[theory.FamilyID()] {
-			// Plugins registered outside setup keep their relative order.
+		if keep[theory] {
+			continue
+		}
+		if !known || !setupFamilies[theory.FamilyID()] {
+			// Plugins registered outside setup keep their relative order,
+			// as does an explicit logic's constructor profile.
+			keep[theory] = true
 			order = append(order, theory)
-		} else if !keep[theory] {
+		} else {
 			dropped = append(dropped, theory)
 		}
 	}

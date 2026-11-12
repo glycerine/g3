@@ -8,7 +8,7 @@ func (d *maxSMTMutexDecomposition) close() error {
 	}
 	err := d.owner.close()
 	if err == nil {
-		d.weights, d.order = nil, nil
+		d.weights, d.soft = nil, nil
 	}
 	return err
 }

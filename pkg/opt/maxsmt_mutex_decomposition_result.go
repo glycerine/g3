@@ -2,20 +2,13 @@ package opt
 
 // Source: src/opt/maxsmt.cpp post-mutex soft reconstruction.
 
-import (
-	"math/big"
-
-	"github.com/glycerine/g3/pkg/ast"
-)
+import "math/big"
 
 func (d *maxSMTMutexDecomposition) terms() []maxSMTWeightedTerm {
-	result := make([]maxSMTWeightedTerm, 0, len(d.order))
-	seen := make(map[ast.ASTHandle]struct{}, len(d.order))
-	for _, expression := range d.order {
-		if _, duplicate := seen[expression]; duplicate {
-			continue
-		}
-		seen[expression] = struct{}{}
+	entries := d.soft.Entries()
+	result := make([]maxSMTWeightedTerm, 0, len(entries))
+	for _, entry := range entries {
+		expression := entry.Key
 		weight := d.weights[expression]
 		if weight == nil || weight.Sign() <= 0 {
 			continue
