@@ -599,7 +599,8 @@ func (v *seqEqVector) popScope(n int) (result error) {
 		return nil
 	}
 	keep := v.popScopeIndex(n)
-	for i := len(v.elems) - 1; i >= keep; i-- {
+	// m_elems.shrink runs the element destructors front to back.
+	for i := keep; i < len(v.elems); i++ {
 		result = errors.Join(result, v.th.destroyEq(&v.elems[i]))
 	}
 	v.elems = v.elems[:keep]
@@ -673,7 +674,8 @@ func (v *seqNeVector) popScope(n int) (result error) {
 		return nil
 	}
 	keep := v.popScopeIndex(n)
-	for i := len(v.elems) - 1; i >= keep; i-- {
+	// m_elems.shrink runs the element destructors front to back.
+	for i := keep; i < len(v.elems); i++ {
 		result = errors.Join(result, v.th.destroyNe(&v.elems[i]))
 	}
 	v.elems = v.elems[:keep]
@@ -745,7 +747,8 @@ func (v *seqNcVector) popScope(n int) (result error) {
 		return nil
 	}
 	keep := v.popScopeIndex(n)
-	for i := len(v.elems) - 1; i >= keep; i-- {
+	// m_elems.shrink runs the element destructors front to back.
+	for i := keep; i < len(v.elems); i++ {
 		result = errors.Join(result, v.th.destroyNc(&v.elems[i]))
 	}
 	v.elems = v.elems[:keep]
