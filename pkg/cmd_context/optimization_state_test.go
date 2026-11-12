@@ -44,7 +44,7 @@ func TestOptimizationObjectiveMutationClosesParetoSolverImmediately(t *testing.T
 	if err = c.AddObjective(boolean, true); err == nil {
 		t.Fatal("Boolean objective was accepted")
 	}
-	if c.optimizationParetoBackend != nil || c.optimizationParetoActive {
+	if c.optimizationParetoActive {
 		t.Fatal("rejected objective mutation left the old Pareto solver active", c.optimizationParetoBackend, c.optimizationParetoActive)
 	}
 	status, err = c.CheckSat(nil)
@@ -61,11 +61,11 @@ func TestOptimizationObjectiveMutationClosesParetoSolverImmediately(t *testing.T
 	lower, err := m.MkArithmeticGE(x, zero)
 	contextMust(t, err)
 	contextMust(t, c.Assert(lower, ""))
-	if c.optimizationParetoBackend != nil || c.optimizationParetoActive {
+	if c.optimizationParetoActive {
 		t.Fatal("hard constraint mutation left the old Pareto solver active", c.optimizationParetoBackend, c.optimizationParetoActive)
 	}
 	contextMust(t, c.AddObjective(z, true))
-	if c.optimizationParetoBackend != nil || c.optimizationParetoActive {
+	if c.optimizationParetoActive {
 		t.Fatal("objective mutation left the old Pareto solver active", c.optimizationParetoBackend, c.optimizationParetoActive)
 	}
 }
@@ -102,7 +102,7 @@ func TestPopResetsActiveParetoOptimization(t *testing.T) {
 	oldBackend := c.optimizationParetoBackend
 	contextMust(t, c.Push(1))
 	contextMust(t, c.Pop(1))
-	if c.optimizationParetoActive || c.optimizationParetoBackend != nil {
+	if c.optimizationParetoActive {
 		t.Fatal("scope pop left Pareto enumeration active", c.optimizationParetoActive, c.optimizationParetoBackend)
 	}
 	status, err = c.CheckSat(nil)
@@ -111,7 +111,7 @@ func TestPopResetsActiveParetoOptimization(t *testing.T) {
 		t.Fatal("Pareto enumeration did not restart after scope pop", status, c.optimizationParetoBackend == oldBackend)
 	}
 	contextMust(t, c.Pop(0))
-	if c.optimizationParetoActive || c.optimizationParetoBackend != nil {
+	if c.optimizationParetoActive {
 		t.Fatal("zero-count pop left Pareto enumeration active", c.optimizationParetoActive, c.optimizationParetoBackend)
 	}
 }

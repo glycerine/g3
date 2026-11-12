@@ -20,6 +20,9 @@ type paretoPurification struct {
 	// converter is normalize's model converter (m_model_converter), held
 	// for every point of the frontier.
 	converter tactic.ModelConverter
+	// decomposed holds the normalization's value transforms (offset,
+	// negation) for the continued execute_pareto results.
+	decomposed []opt.DecomposedObjective
 }
 
 func (c *Context) prepareParetoPurification() (resultErr error) {

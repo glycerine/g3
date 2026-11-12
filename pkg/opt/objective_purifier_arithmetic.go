@@ -39,7 +39,7 @@ func (p *ObjectivePurifier) arithmeticTerm(term ast.ASTHandle, hard *[]ast.ASTHa
 			return ast.ASTHandle{}, err
 		}
 		p.stats.RebuiltSums++
-		return p.hold(result)
+		return p.holdTerm(result)
 	}
 	sort, err := p.manager.GetSort(term)
 	if err != nil {

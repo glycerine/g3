@@ -27,6 +27,21 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	if err != nil {
 		return nil, err
 	}
+	// optimize() with an m_pareto engine returns execute_pareto() at once:
+	// no clear_state, init_solver, normalize or objective conversion.
+	if paretoContinuation {
+		var decomposed []opt.DecomposedObjective
+		if state := c.optimizationParetoPurification; state != nil {
+			decomposed = state.decomposed
+		}
+		if optimized, err = c.checkOptimizePareto(assumptions, true); err != nil {
+			return optimized, err
+		}
+		if err = c.restoreNormalizedValues(optimized, original, decomposed, priority, false); err != nil {
+			return nil, errors.Join(err, optimized.Close())
+		}
+		return optimized, nil
+	}
 	// optimize() always runs normalize() unless it resumes Pareto or box
 	// execution.
 	_ = settings
@@ -39,12 +54,19 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	// terminate once normalize turns a 0-1 maximize/minimize objective into
 	// a MaxSAT sum, so that one case keeps the un-normalized objectives.
 	if !paretoContinuation && !boxContinuation {
+		// clear_state: m_model.reset() before init_solver.
+		if err = c.releaseParetoInitialModel(); err != nil {
+			return nil, err
+		}
 		if c.preparedOptimizer, err = c.createOptimizer(); err != nil {
 			return nil, err
 		}
 		// init_solver: m_opt_solver = alloc(...) releases the previous one
 		// after the new kernel exists.
 		if err = c.releaseRetainedOptimizer(); err != nil {
+			return nil, err
+		}
+		if err = c.closeParetoBackend(); err != nil {
 			return nil, err
 		}
 		defer func() {
@@ -70,6 +92,7 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 		if err != nil {
 			return nil, err
 		}
+		c.optimizationObjectiveRefs = append(c.optimizationObjectiveRefs, formulaSet.DetachDeclarations()...)
 		simplified, err = c.simplifyOptimizationFormulas(formulaSet)
 		if err != nil {
 			return nil, errors.Join(err, formulaSet.Close())
@@ -265,9 +288,7 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 			c.optimizationPreprocessor = c.optimizationModelConverter
 		}
 	}
-	if paretoContinuation {
-		optimized, err = c.checkOptimizePareto(assumptions, true)
-	} else if boxContinuation {
+	if boxContinuation {
 		optimized, err = c.checkOptimizeBox(assumptions, true)
 	} else if priority == "pareto" {
 		if err = c.clearOptimizationBoxModels(); err != nil {
@@ -275,6 +296,11 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 		}
 		c.optimizationBoxActive = false
 		optimized, err = c.checkOptimizePareto(assumptions, continuation)
+		if err == nil && c.optimizationParetoPurification != nil {
+			// A later execute_pareto reports values through this
+			// normalization; keep its value transforms.
+			c.optimizationParetoPurification.decomposed = paretoValueTransforms(decomposed)
+		}
 	} else if priority == "box" {
 		optimized, err = c.checkOptimizeBox(assumptions, continuation)
 	} else {
@@ -288,9 +314,31 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	if err != nil {
 		return optimized, err
 	}
+	if err = c.restoreNormalizedValues(optimized, original, decomposed, priority, boxContinuation); err != nil {
+		return optimized, err
+	}
+	return optimized, nil
+}
+
+// paretoValueTransforms keeps only the value-restoring fields of a
+// decomposition (its term handles die with the decomposer).
+func paretoValueTransforms(decomposed []opt.DecomposedObjective) []opt.DecomposedObjective {
+	out := make([]opt.DecomposedObjective, len(decomposed))
+	for i := range decomposed {
+		out[i].SourceKind = decomposed[i].SourceKind
+		out[i].Offset.Set(&decomposed[i].Offset)
+		out[i].Negate = decomposed[i].Negate
+		out[i].Converted = decomposed[i].Converted
+	}
+	return out
+}
+
+// restoreNormalizedValues maps an execution's values back through the
+// objective conversion.
+func (c *Context) restoreNormalizedValues(optimized *opt.ArithmeticResult, original []optimizationObjective, decomposed []opt.DecomposedObjective, priority string, boxContinuation bool) error {
 	if optimized.Status != lbool.True {
-		if err = restoreNormalizedObjectiveBounds(optimized, original, decomposed); err != nil {
-			return optimized, err
+		if err := restoreNormalizedObjectiveBounds(optimized, original, decomposed); err != nil {
+			return err
 		}
 	}
 	if optimized.Status == lbool.True {
@@ -300,7 +348,7 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 			}
 			value, e := d.RestoreValue(&optimized.Values[i].SoftCost)
 			if e != nil {
-				return optimized, e
+				return e
 			}
 			finite := simplex.RationalInfinitesimal(value)
 			optimized.Values[i] = opt.ObjectiveValue{
@@ -315,7 +363,7 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 			c.optimizationBoxValues = cloneOptimizationBoxValues(optimized.Values)
 		}
 	}
-	return optimized, nil
+	return nil
 }
 
 // MaxSMT penalties have the opposite order when normalization negates the

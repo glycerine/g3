@@ -168,7 +168,8 @@ func (c *Context) invalidateOptimizationState() error {
 	c.checked = false
 	c.optimizationBoxActive = false
 	c.optimizationBoxNext = 0
-	if err := c.closeParetoBackend(); err != nil {
+	c.finishParetoSearch()
+	if err := c.releaseParetoInitialModel(); err != nil {
 		return err
 	}
 	return c.clearCheckSatResult()
@@ -598,11 +599,6 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 	var optimized *opt.ArithmeticResult
 	paretoContinuation := c.optimizationParetoActive && c.optimizationParetoBackend != nil
 	boxContinuation := c.optimizationBoxActive
-	if !paretoContinuation && priority != "pareto" {
-		if err = c.closeParetoBackend(); err != nil {
-			return lbool.Undef, err
-		}
-	}
 	if !paretoContinuation && !boxContinuation {
 		if err = c.setupOptimizationArithmeticSolver(); err != nil {
 			return lbool.Undef, err

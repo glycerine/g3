@@ -147,7 +147,8 @@ func TestParetoLivePurificationPersistsAndFiltersFrontierModels(t *testing.T) {
 			}
 			status, err := c.CheckSat(nil)
 			contextMust(t, err)
-			if status != lbool.False || c.optimizationParetoPurification != nil || c.optimizationParetoBackend != nil {
+			// set_pareto(nullptr) ends the engine; its opt_solver lives until the next init_solver.
+			if status != lbool.False || c.optimizationParetoActive {
 				t.Fatal("exhausted state", status)
 			}
 		})
@@ -193,9 +194,10 @@ func TestParetoLiveSoftPurificationAndMutationCleanup(t *testing.T) {
 		}
 		contextMust(t, md.DecRef())
 	}
-	// Any mutation destroys the persistent backend and its owned definitions.
+	// Any mutation ends the engine (clear_state); the next init_solver
+	// replaces the backend and its owned definitions.
 	contextMust(t, c.Assert(condition, ""))
-	if c.optimizationParetoPurification != nil || c.optimizationParetoBackend != nil {
+	if c.optimizationParetoActive {
 		t.Fatal("mutation left purification alive")
 	}
 	status, err := c.CheckSat(nil)

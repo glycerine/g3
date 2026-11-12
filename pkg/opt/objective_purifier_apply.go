@@ -26,7 +26,7 @@ func (p *ObjectivePurifier) Begin(hard []ast.ASTHandle) error {
 	}
 	p.set = PurifiedObjectiveSet{Hard: make([]ast.ASTHandle, 0, len(hard))}
 	for _, formula := range hard {
-		if _, err := p.hold(formula); err != nil {
+		if _, err := p.holdInto(&p.hardRefs, formula); err != nil {
 			return err
 		}
 		p.set.Hard = append(p.set.Hard, formula)
@@ -40,9 +40,10 @@ func (p *ObjectivePurifier) PurifyObjective(source DecomposedObjective) (Decompo
 	if err := p.open(); err != nil {
 		return DecomposedObjective{}, err
 	}
+	p.objectiveRefs = append(p.objectiveRefs, purifiedObjectiveRefs{})
 	target := DecomposedObjective{SourceKind: source.SourceKind, Offset: *new(big.Rat).Set(&source.Offset), Negate: source.Negate, ID: source.ID, Converted: source.Converted, Weights: cloneRationals(source.Weights)}
 	if !source.OriginalTerm.IsNull() {
-		if _, err := p.hold(source.OriginalTerm); err != nil {
+		if _, err := p.holdTerm(source.OriginalTerm); err != nil {
 			return DecomposedObjective{}, err
 		}
 		target.OriginalTerm = source.OriginalTerm
@@ -52,7 +53,7 @@ func (p *ObjectivePurifier) PurifyObjective(source DecomposedObjective) (Decompo
 		if err != nil {
 			return DecomposedObjective{}, err
 		}
-		if _, err = p.hold(term); err != nil {
+		if _, err = p.holdTerm(term); err != nil {
 			return DecomposedObjective{}, err
 		}
 		target.Term = term
@@ -63,7 +64,7 @@ func (p *ObjectivePurifier) PurifyObjective(source DecomposedObjective) (Decompo
 		if err != nil {
 			return DecomposedObjective{}, err
 		}
-		if _, err = p.hold(atomic); err != nil {
+		if _, err = p.holdInto(&p.objectiveRefs[len(p.objectiveRefs)-1].terms, atomic); err != nil {
 			return DecomposedObjective{}, err
 		}
 		target.SoftTerms[j] = atomic

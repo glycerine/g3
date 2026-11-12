@@ -1605,6 +1605,23 @@ Found while matching `-st` output against `build/z3` on
     - Recorded ask-first deviation: z3 4.7.1 does not terminate on 0-1
       arithmetic pareto objectives once normalize makes them MaxSAT, so g3
       keeps the un-normalized path there.
+    - Fixed (2026-11-11): pareto_soft_optimization and
+      pareto_bit_vector_optimization logs are identical. mk_dominates and
+      mk_not_dominated_by assert while their comparison vectors are alive
+      (the asserted rewriter caches the conjuncts); set_pareto(nullptr)
+      keeps the opt_solver until the next init_solver; a fresh pareto check
+      after a finished one runs optsmt::setup's push/pop again; optimize()'s
+      initial-check model (m_model) lives until yield; a continued
+      execute_pareto skips normalize and objective conversion; the purifier
+      releases m_objectives (m_terms then m_term) before
+      m_hard_constraints, front to back; m_objective_refs keeps every
+      maximize!!N declaration for the context's lifetime (the bv1 ite decl
+      id then lands above the extract decl ids, so propagate_values orients
+      (= extract ite) as z3 does).
+    - pareto_optimization is identical once the MaxSAT-conversion fallback
+      (paretoObjectiveBecomesMaxSAT) is removed; g3 then hangs on the 0-1
+      case with (= (+ x y) 1) exactly as z3 4.7.1 does (checked with both
+      binaries). The removal is the ask-first decision above.
 
 31. **In progress (2026-11-11): PDR/spacer query pipeline lifetimes (about 40
     fixedpoint_* and fp_spacer_* vectors).** Plan: pkg/PDR_PORT_PLAN.md.

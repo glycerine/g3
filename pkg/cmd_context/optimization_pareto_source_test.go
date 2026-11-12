@@ -141,7 +141,7 @@ func TestParetoCanceledImprovementDropsBackendAndAllowsFreshSearch(t *testing.T)
 		if result.Status != lbool.Undef || result.Model == nil {
 			t.Fatal("expected cancellation after entering improvement loop", result.Status, result.Model)
 		}
-		if c.optimizationParetoBackend != nil || c.optimizationParetoActive {
+		if c.optimizationParetoActive {
 			t.Fatal("canceled Pareto solver stayed active")
 		}
 	}()

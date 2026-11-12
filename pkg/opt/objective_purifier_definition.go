@@ -26,7 +26,7 @@ func (p *ObjectivePurifier) definition(term ast.ASTHandle, hard *[]ast.ASTHandle
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if _, err = p.hold(equality); err != nil {
+	if _, err = p.holdInto(&p.hardRefs, equality); err != nil {
 		return ast.ASTHandle{}, err
 	}
 	*hard = append(*hard, equality)

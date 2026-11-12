@@ -136,19 +136,26 @@ type Context struct {
 	optimizationSimplify       tactic.Tactic
 	optimizationModelConverter tactic.ModelConverter
 	// preparedOptimizer is the backend init_solver creates before normalize.
-	preparedOptimizer                *opt.ArithmeticSolver
-	softObjectiveIndex               map[string]int
-	softObjectiveTrail               []int
-	optimizationBoxNext              int
-	optimizationBoxActive            bool
-	optimizationBoxModels            []*model.ModelCore
-	optimizationBoxValues            []opt.ObjectiveValue
-	optimizationBoxLabels            []usymbol.Symbol
-	optimizationBoxReasonUnknown     string
-	optimizationException            string
-	optimizationParetoActive         bool
-	optimizationParetoBackend        *smtcore.SMTSolver
-	optimizationParetoPurification   *paretoPurification
+	preparedOptimizer              *opt.ArithmeticSolver
+	softObjectiveIndex             map[string]int
+	softObjectiveTrail             []int
+	optimizationBoxNext            int
+	optimizationBoxActive          bool
+	optimizationBoxModels          []*model.ModelCore
+	optimizationBoxValues          []opt.ObjectiveValue
+	optimizationBoxLabels          []usymbol.Symbol
+	optimizationBoxReasonUnknown   string
+	optimizationException          string
+	optimizationParetoActive       bool
+	optimizationParetoBackend      *smtcore.SMTSolver
+	optimizationParetoPurification *paretoPurification
+	// optimizationParetoInitialModel is opt::context::m_model from
+	// optimize()'s initial check, held until execute_pareto's yield (or
+	// clear_state) replaces it.
+	optimizationParetoInitialModel *model.ModelCore
+	// optimizationObjectiveRefs is opt::context::m_objective_refs: every
+	// objective function declaration, kept until the context is reset.
+	optimizationObjectiveRefs        []ast.ASTRef
 	scopes                           []scope
 	PrintSuccess, GlobalDeclarations bool
 	InteractiveMode                  bool
@@ -1532,6 +1539,9 @@ func (c *Context) resetManagerState() error {
 	if errors.As(c.initializationError, &construction) && construction.CleanupPending() {
 		return construction
 	}
+	if err := c.releaseParetoInitialModel(); err != nil {
+		return err
+	}
 	if err := c.closeParetoBackend(); err != nil {
 		return err
 	}
@@ -1544,6 +1554,12 @@ func (c *Context) resetManagerState() error {
 	if err := c.releaseRetainedOptimizer(); err != nil {
 		return err
 	}
+	for i := range c.optimizationObjectiveRefs {
+		if err := c.manager.DelRef(&c.optimizationObjectiveRefs[i]); err != nil {
+			return err
+		}
+	}
+	c.optimizationObjectiveRefs = nil
 	if c.optimizationSAT != nil {
 		if err := c.optimizationSAT.Close(); err != nil {
 			return err

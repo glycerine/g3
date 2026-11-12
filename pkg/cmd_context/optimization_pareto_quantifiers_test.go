@@ -53,8 +53,8 @@ func TestParetoQuantifierUnknownInitialAdjustmentAndDirectContinuation(t *testin
 			t.Fatal("source initial/continuation status", i, status, want)
 		}
 		if status == lbool.False {
-			if c.optimizationParetoBackend != nil || c.optimizationParetoPurification != nil {
-				t.Fatal("terminal enumeration kept backend")
+			if c.optimizationParetoActive {
+				t.Fatal("terminal enumeration kept the engine")
 			}
 			continue
 		}

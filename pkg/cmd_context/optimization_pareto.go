@@ -102,94 +102,138 @@ func (c *Context) evaluateParetoModel(md *model.ModelCore) (values []paretoModel
 	return values, nil
 }
 
-// makeParetoFormula follows pareto_base's callback order. Dominance uses
-// each GE then GT comparison, followed by one flat conjunction; the persistent
-// blocker invokes only LE comparisons, never constructing unused improvements.
-func (c *Context) makeParetoFormula(md *model.ModelCore, dominates bool) (_ ast.ASTRef, resultErr error) {
+// makeParetoFormula returns an owned reference to the formula that
+// buildParetoFormula hands to its consumer.
+func (c *Context) makeParetoFormula(md *model.ModelCore, dominates bool) (result ast.ASTRef, resultErr error) {
+	resultErr = c.buildParetoFormula(md, dominates, func(formula ast.ASTHandle) error {
+		var err error
+		result, err = c.manager.NewRef(formula)
+		return err
+	})
+	return result, resultErr
+}
+
+// buildParetoFormula follows pareto_base::mk_dominates and
+// mk_not_dominated_by. Dominance pushes each GE then GT comparison and one
+// flat conjunction; the persistent blocker invokes only LE comparisons. The
+// consumer (m_solver->assert_expr) runs while the comparison vectors are
+// still alive; on return they die in reverse declaration order (fmls, then
+// gt, each front to back), and fml last.
+func (c *Context) buildParetoFormula(md *model.ModelCore, dominates bool, use func(ast.ASTHandle) error) (resultErr error) {
 	if md == nil {
-		return ast.ASTRef{}, ast.ErrASTHandle
+		return ast.ErrASTHandle
 	}
-	var refs []ast.ASTRef
+	// expr_ref fml(m); expr_ref_vector gt(m), fmls(m) (le(m) for the blocker).
+	var fml ast.ASTRef
+	var gt, fmls []ast.ASTRef
 	defer func() {
-		for i := len(refs) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, c.manager.DelRef(&refs[i]))
+		for i := range fmls {
+			resultErr = errors.Join(resultErr, c.manager.DelRef(&fmls[i]))
 		}
+		for i := range gt {
+			resultErr = errors.Join(resultErr, c.manager.DelRef(&gt[i]))
+		}
+		resultErr = errors.Join(resultErr, c.manager.DelRef(&fml))
 	}()
-	compare := func(index uint32, kind OptimizationModelComparison) (ast.ASTHandle, error) {
-		ref, err := c.OptimizationCompareModel(index, md, kind)
-		if err != nil {
-			return ast.ASTHandle{}, err
+	handles := func(refs []ast.ASTRef) ([]ast.ASTHandle, error) {
+		out := make([]ast.ASTHandle, len(refs))
+		for i := range refs {
+			h, err := c.manager.RefGet(refs[i])
+			if err != nil {
+				return nil, err
+			}
+			out[i] = h
 		}
-		refs = append(refs, ref)
-		return c.manager.RefGet(ref)
+		return out, nil
 	}
-	hold := func(h ast.ASTHandle, err error) (ast.ASTHandle, error) {
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		ref, err := c.manager.NewRef(h)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		refs = append(refs, ref)
-		return h, nil
-	}
-	var weak, strict []ast.ASTHandle
 	for i := range c.objectives {
 		kind := OptimizationModelLE
 		if dominates {
 			kind = OptimizationModelGE
 		}
-		h, err := compare(uint32(i), kind)
+		ref, err := c.OptimizationCompareModel(uint32(i), md, kind)
 		if err != nil {
-			return ast.ASTRef{}, err
+			return err
 		}
-		weak = append(weak, h)
+		fmls = append(fmls, ref)
 		if dominates {
-			h, err = compare(uint32(i), OptimizationModelGT)
+			ref, err = c.OptimizationCompareModel(uint32(i), md, OptimizationModelGT)
 			if err != nil {
-				return ast.ASTRef{}, err
+				return err
 			}
-			strict = append(strict, h)
+			gt = append(gt, ref)
 		}
 	}
+	var formula ast.ASTHandle
 	if dominates {
-		disjunction, err := hold(c.manager.MkOrArgs(strict))
+		args, err := handles(gt)
 		if err != nil {
-			return ast.ASTRef{}, err
+			return err
 		}
-		weak = append(weak, disjunction)
-	}
-	formula, err := hold(c.manager.MkAndArgs(weak))
-	if err != nil {
-		return ast.ASTRef{}, err
-	}
-	if !dominates {
-		formula, err = hold(c.manager.MkNot(formula))
+		h, err := c.manager.MkOrArgs(args)
 		if err != nil {
-			return ast.ASTRef{}, err
+			return err
+		}
+		ref, err := c.manager.NewRef(h)
+		if err != nil {
+			return err
+		}
+		fmls = append(fmls, ref)
+		if args, err = handles(fmls); err != nil {
+			return err
+		}
+		if formula, err = c.manager.MkAndArgs(args); err != nil {
+			return err
+		}
+	} else {
+		args, err := handles(fmls)
+		if err != nil {
+			return err
+		}
+		conj, err := c.manager.MkAndArgs(args)
+		if err != nil {
+			return err
+		}
+		if formula, err = c.manager.MkNot(conj); err != nil {
+			return err
 		}
 	}
-	return c.manager.NewRef(formula)
+	var err error
+	if fml, err = c.manager.NewRef(formula); err != nil {
+		return err
+	}
+	return use(formula)
 }
 
 func (c *Context) assertParetoFormula(backend *smtcore.SMTSolver, md *model.ModelCore, dominates bool) (resultErr error) {
 	if backend == nil {
 		return ast.ErrASTHandle
 	}
-	ref, err := c.makeParetoFormula(md, dominates)
-	if err != nil {
-		return err
+	return c.buildParetoFormula(md, dominates, func(formula ast.ASTHandle) error {
+		if err := c.paretoFormulaDiagnostics(formula, md, dominates); err != nil {
+			return err
+		}
+		return backend.Assert(formula)
+	})
+}
+
+// finishParetoSearch is set_pareto(nullptr): the gia_pareto engine ends,
+// but its opt_solver (and normalize's state) stays opt::context's
+// m_opt_solver until the next init_solver replaces it.
+func (c *Context) finishParetoSearch() {
+	c.optimizationParetoActive = false
+}
+
+// releaseParetoInitialModel drops opt::context::m_model when it still
+// holds optimize()'s initial-check model (m_model.reset() in clear_state,
+// or yield's assignment from the pareto engine).
+func (c *Context) releaseParetoInitialModel() error {
+	md := c.optimizationParetoInitialModel
+	if md == nil {
+		return nil
 	}
-	defer func() { resultErr = errors.Join(resultErr, c.manager.DelRef(&ref)) }()
-	formula, err := c.manager.RefGet(ref)
-	if err != nil {
-		return err
-	}
-	if err = c.paretoFormulaDiagnostics(formula, md, dominates); err != nil {
-		return err
-	}
-	return backend.Assert(formula)
+	c.optimizationParetoInitialModel = nil
+	return md.DecRef()
 }
 
 func (c *Context) closeParetoBackend() error {
@@ -268,7 +312,10 @@ func (c *Context) newParetoBackend(assumptions []ast.ASTHandle) (backend *smtcor
 }
 
 func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation bool) (result *opt.ArithmeticResult, resultErr error) {
-	if !continuation || !c.optimizationParetoActive {
+	// optimize() with no m_pareto engine runs init_solver and normalize;
+	// otherwise it resumes execute_pareto.
+	fresh := !continuation || !c.optimizationParetoActive
+	if fresh {
 		if err := c.closeParetoBackend(); err != nil {
 			return nil, err
 		}
@@ -297,7 +344,16 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 			return nil, err
 		}
 	}
-	if status == lbool.True && !continuation {
+	if fresh && status != lbool.False {
+		// optimize(): s.get_model(m_model) after the initial check.
+		if err = c.releaseParetoInitialModel(); err != nil {
+			return nil, err
+		}
+		if c.optimizationParetoInitialModel, err = backend.AcquireModel(); err != nil {
+			return nil, err
+		}
+	}
+	if status == lbool.True && fresh {
 		// optimize(): after a sat initial check, optsmt::setup forces the
 		// base level with an empty scoped push, and execute_pareto's
 		// gia_pareto then runs its own check_sat.
@@ -317,9 +373,7 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 		}
 	}
 	if status != lbool.True {
-		if closeErr := c.closeParetoBackend(); closeErr != nil {
-			return nil, closeErr
-		}
+		c.finishParetoSearch()
 		return &opt.ArithmeticResult{Status: status, ReasonUnknown: unknownReason, Values: make([]opt.ObjectiveValue, len(c.objectives)), Optimal: status == lbool.False}, nil
 	}
 	canceled, cancelErr := c.manager.Canceled()
@@ -327,9 +381,7 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 		return nil, cancelErr
 	}
 	if canceled {
-		if closeErr := c.closeParetoBackend(); closeErr != nil {
-			return nil, closeErr
-		}
+		c.finishParetoSearch()
 		return &opt.ArithmeticResult{Status: lbool.Undef, Values: make([]opt.ObjectiveValue, len(c.objectives))}, nil
 	}
 	var best *model.ModelCore
@@ -421,14 +473,16 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 			return nil, errors.Join(err, fixed.DecRef())
 		}
 		best = fixed
-		if closeErr := c.closeParetoBackend(); closeErr != nil {
-			return nil, closeErr
-		}
+		c.finishParetoSearch()
 		result = &opt.ArithmeticResult{Status: status, ReasonUnknown: unknownReason, Values: make([]opt.ObjectiveValue, len(c.objectives)), Model: best, Labels: labels}
 		best = nil
 		return result, nil
 	}
 	if err = c.assertParetoFormula(backend, best, false); err != nil {
+		return nil, err
+	}
+	// execute_pareto's yield: m_model takes the pareto engine's model.
+	if err = c.releaseParetoInitialModel(); err != nil {
 		return nil, err
 	}
 	values, err := c.evaluateParetoModel(best)

@@ -68,7 +68,7 @@ func TestActiveParetoEnumerationSurvivesParameterUpdate(t *testing.T) {
 		if status != want {
 			t.Fatal("continued Pareto status", i, status, "want", want)
 		}
-		if (i == 0) != (c.optimizationParetoBackend != nil) {
+		if (i == 0) != c.optimizationParetoActive {
 			t.Fatal("Pareto engine lifecycle after parameter update", i, c.optimizationParetoBackend)
 		}
 	}

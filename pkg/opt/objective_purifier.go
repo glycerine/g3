@@ -1,8 +1,6 @@
 package opt
 
 import (
-	"errors"
-
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
@@ -13,9 +11,14 @@ type ObjectivePurifier struct {
 	arith   ast.FamilyID
 	filter  *tactic.FilterModelConverter
 	refs    []ast.ASTRef
-	stats   ObjectivePurificationStats
-	set     PurifiedObjectiveSet
-	closed  bool
+	// objectiveRefs and hardRefs are from_fmls' m_objectives and
+	// m_hard_constraints; refs holds the fresh constants, which the
+	// source keeps only through those two.
+	objectiveRefs []purifiedObjectiveRefs
+	hardRefs      []ast.ASTRef
+	stats         ObjectivePurificationStats
+	set           PurifiedObjectiveSet
+	closed        bool
 	// detached: the filter (fm) was handed to m_model_converter, whose
 	// reference releases it.
 	detached bool
@@ -80,21 +83,54 @@ func (p *ObjectivePurifier) Close() (result error) {
 			p.filter = nil
 		}
 	}
-	for i := len(p.refs) - 1; i >= 0; i-- {
-		if p.refs[i] == (ast.ASTRef{}) {
-			continue
-		}
-		err := p.manager.DelRef(&p.refs[i])
-		result = errors.Join(result, err)
-		if err != nil {
-			break
+	release := func(refs []ast.ASTRef) {
+		for i := range refs {
+			if result != nil || refs[i] == (ast.ASTRef{}) {
+				continue
+			}
+			result = p.manager.DelRef(&refs[i])
 		}
 	}
+	release(p.refs)
+	// import_scoped_state: m_objectives.reset() destroys each objective
+	// front to back (m_terms, front to back, before m_term), then
+	// m_hard_constraints.reset() releases front to back.
+	for i := range p.objectiveRefs {
+		release(p.objectiveRefs[i].terms)
+		for j := len(p.objectiveRefs[i].term) - 1; j >= 0; j-- {
+			release(p.objectiveRefs[i].term[j : j+1])
+		}
+	}
+	release(p.hardRefs)
 	if result == nil {
-		p.refs = nil
+		p.refs, p.objectiveRefs, p.hardRefs = nil, nil, nil
 		p.closed = true
 	}
 	return result
+}
+
+// purifiedObjectiveRefs is one from_fmls objective: m_terms (soft terms)
+// and the term references (m_term).
+type purifiedObjectiveRefs struct {
+	terms []ast.ASTRef
+	term  []ast.ASTRef
+}
+
+func (p *ObjectivePurifier) holdInto(list *[]ast.ASTRef, h ast.ASTHandle) (ast.ASTHandle, error) {
+	ref, err := p.manager.NewRef(h)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	*list = append(*list, ref)
+	return h, nil
+}
+
+// holdTerm holds h as the current objective's term.
+func (p *ObjectivePurifier) holdTerm(h ast.ASTHandle) (ast.ASTHandle, error) {
+	if len(p.objectiveRefs) == 0 {
+		return p.hold(h)
+	}
+	return p.holdInto(&p.objectiveRefs[len(p.objectiveRefs)-1].term, h)
 }
 
 // DetachFilter hands one reference to the filter model converter (fm) to

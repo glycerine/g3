@@ -92,6 +92,18 @@ func (s *ObjectiveFormulaSet) DecodeHandles(formulas []ast.ASTHandle) (DecodedFo
 	return s.codec.Decode(formulas)
 }
 
+// DetachDeclarations hands the objective function declarations to the
+// caller: opt::context::m_objective_refs keeps every mk_objective_fn
+// declaration for the context's lifetime.
+func (s *ObjectiveFormulaSet) DetachDeclarations() []ast.ASTRef {
+	if s == nil || s.codec == nil {
+		return nil
+	}
+	refs := s.codec.declarations
+	s.codec.declarations = nil
+	return refs
+}
+
 func (s *ObjectiveFormulaSet) Close() (result error) {
 	if s == nil || s.manager == nil {
 		return ast.ErrASTHandle
