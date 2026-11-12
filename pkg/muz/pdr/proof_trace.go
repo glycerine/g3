@@ -55,7 +55,7 @@ func (c *Context) Proof(queryDeclaration ast.ASTHandle) (result ast.ASTRef, resu
 		}
 		return result, ast.ErrASTDomain
 	}
-	if err = updateTraceModels(root); err != nil {
+	if err = c.updateTraceModels(root); err != nil {
 		return result, err
 	}
 	proofsEnabled, err := c.manager.ProofsEnabled()

@@ -38,7 +38,11 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, complete, includeRoot
 			resultErr = fmt.Errorf("pdr: trace %s: %w", phase, resultErr)
 		}
 	}()
-	if err := updateTraceModels(root); err != nil {
+	// get_trace: rule = n->get_rule() on the root, then update_models().
+	if _, err := c.selectedTraceRule(root); err != nil {
+		return nil, fmt.Errorf("pdr: select root trace rule: %w", err)
+	}
+	if err := c.updateTraceModels(root); err != nil {
 		return nil, fmt.Errorf("pdr: update trace models: %w", err)
 	}
 	owned := make([]ast.ASTRef, 0)

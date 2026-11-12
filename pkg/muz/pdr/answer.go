@@ -177,10 +177,31 @@ func (c *Context) selectedTraceRule(node *ModelNode) (result *normalizedRule, re
 	if len(initial) == 0 || len(tags) != len(initial) {
 		return nil, ast.ErrASTDomain
 	}
+	// ini_tags = ::mk_or(tags); ini_state = m.mk_and(ini_tags,
+	// pt().initial_state(), state()): both expr_ref locals live to the end of
+	// get_rule.
 	selection, err := c.manager.MkOrArray(tags)
 	if err != nil {
 		return nil, err
 	}
+	selectionRef, err := c.manager.NewRef(selection)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, c.manager.DelRef(&selectionRef)) }()
+	initialState, err := node.transformer.InitialState()
+	if err != nil {
+		return nil, err
+	}
+	iniState, err := c.manager.MkAndArgs([]ast.ASTHandle{selection, initialState, node.state})
+	if err != nil {
+		return nil, err
+	}
+	iniStateRef, err := c.manager.NewRef(iniState)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, c.manager.DelRef(&iniStateRef)) }()
 	// Proof export temporarily enables proof construction, but this query
 	// must use the proof mode in which the live PDR solver was initialized.
 	restoreProofMode, err := c.enterPDRProofMode()
@@ -188,7 +209,8 @@ func (c *Context) selectedTraceRule(node *ModelNode) (result *normalizedRule, re
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, restoreProofMode()) }()
-	check, err := node.transformer.solver.CheckAtLevel(0, []ast.ASTHandle{selection, node.state}, false, true)
+	// check_conjunction_as_assumptions(ini_state), outside any level scope.
+	check, err := node.transformer.solver.CheckAssumptions([]ast.ASTHandle{iniState}, false, true)
 	if err != nil {
 		return nil, err
 	}
@@ -250,27 +272,38 @@ func traceRecursiveAnchor(root *ModelNode) (*PredicateTransformer, error) {
 	return nil, nil
 }
 
-func updateTraceModels(root *ModelNode) error {
+// updateTraceModels is model_search::update_models. Both passes walk a todo
+// stack (pop the back, push the children in order); the first records, for
+// every node with a model, that model and model_node::get_rule's rule, which
+// runs get_rule's initial-state check eagerly.
+func (c *Context) updateTraceModels(root *ModelNode) error {
 	// The historical source keys this map only by state. Distinct nullary
 	// predicates share the true cube, so copying its donor rule can attach a
 	// different predicate's derivation. Match the search cache's predicate
 	// identity as well as the projected state.
 	byState := make(map[modelStateKey]*ModelNode)
-	nodes := []*ModelNode{root}
-	for index := 0; index < len(nodes); index++ {
-		node := nodes[index]
+	var nodes []*ModelNode
+	todo := []*ModelNode{root}
+	for len(todo) != 0 {
+		node := todo[len(todo)-1]
 		_, found, err := node.Model()
 		if err != nil {
 			return err
 		}
 		if found {
 			byState[modelState(node)] = node
+			// rules.insert(n->state(), n->get_rule())
+			if _, err = c.selectedTraceRule(node); err != nil {
+				return err
+			}
 		}
+		todo = todo[:len(todo)-1]
+		nodes = append(nodes, node)
 		children, err := node.Children()
 		if err != nil {
 			return err
 		}
-		nodes = append(nodes, children...)
+		todo = append(todo, children...)
 	}
 	for _, node := range nodes {
 		_, found, err := node.Model()
