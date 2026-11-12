@@ -234,7 +234,9 @@ func main() {
 		}
 		var reportedParseError *smt2.ReportedParseError
 		if errors.As(err, &reportedParseError) {
-			os.Exit(int(z3exception.ErrorParser))
+			// read_smtlib2_commands returns result ? 0 : 1 (smtlib_frontend.cpp);
+			// the shell never uses ERR_PARSER for SMT2 input.
+			os.Exit(1)
 		}
 		var openError *z3LogOpenError
 		if errors.As(err, &openError) {

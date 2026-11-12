@@ -2242,7 +2242,7 @@ checks run right after flush_add_rules, get_formula_kind's flatten_or args
 are held (FlattenOrHeld). Vectors horn_tactic_nested_recursive_error,
 horn_tactic_uninterpreted_error, horn_tactic_datalog_uninterpreted_error.
 Leads:
-- Process exit code for a script with an error: z3 exits 1, g3 exits 103
+- DONE: process exit code for a script with an error: z3 exits 1, g3 exited 103
   (ErrorParser), e.g. (assert x).
 - checkDatalogEarlyRuleProperties skips check_infinite_sorts (kept for the
   integer-relation extension); z3's DATALOG check_rules includes it, so a
