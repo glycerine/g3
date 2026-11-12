@@ -10,7 +10,8 @@ import (
 )
 
 func closeTransformers(order []ast.ASTHandle, transformers map[ast.ASTHandle]*PredicateTransformer) (result error) {
-	for index := len(order) - 1; index >= 0; index-- {
+	// context::reset(decl2rel&) deallocates in obj_map iteration order.
+	for index := 0; index < len(order); index++ {
 		if transformer := transformers[order[index]]; transformer != nil {
 			result = errors.Join(result, transformer.Close())
 		}

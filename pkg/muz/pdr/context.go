@@ -872,6 +872,16 @@ func (c *Context) Close() (result error) {
 	if c.manager == nil {
 		return ErrContextOwner
 	}
+	// ~context -> reset(): reset(m_rels) in obj_map order, then
+	// m_search.reset(), before the remaining members.
+	for _, declaration := range c.order {
+		if transformer := c.transformers[declaration]; transformer != nil {
+			if err := transformer.Close(); err != nil {
+				return err
+			}
+			c.transformers[declaration] = nil
+		}
+	}
 	if c.search != nil {
 		if err := c.search.Close(); err != nil {
 			return err
@@ -905,16 +915,6 @@ func (c *Context) Close() (result error) {
 		c.projectionTheory = nil
 		c.projectionTheoryReady = false
 		c.projectionTheoryBorrowed = false
-	}
-	for index := len(c.order) - 1; index >= 0; index-- {
-		declaration := c.order[index]
-		if transformer := c.transformers[declaration]; transformer != nil {
-			if err := transformer.Close(); err != nil {
-				result = errors.Join(result, err)
-			} else {
-				c.transformers[declaration] = nil
-			}
-		}
 	}
 	if result == nil {
 		result = errors.Join(result, c.owner.Close())

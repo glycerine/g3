@@ -19,6 +19,7 @@ type ModelNode struct {
 	next          *ModelNode
 	previous      *ModelNode
 	transformer   *PredicateTransformer
+	manager       *ast.ASTManager // the state's manager, usable after the transformer closes
 	state         ast.ASTHandle
 	stateRef      ast.ASTRef
 	model         *model.ModelCore
@@ -51,7 +52,7 @@ func NewModelNode(parent *ModelNode, state ast.ASTHandle, transformer *Predicate
 	if err != nil {
 		return nil, err
 	}
-	node := &ModelNode{parent: parent, transformer: transformer, state: state, stateRef: reference, level: level, original: level}
+	node := &ModelNode{parent: parent, transformer: transformer, manager: transformer.manager, state: state, stateRef: reference, level: level, original: level}
 	if parent != nil {
 		node.depth = parent.depth + 1
 		parent.children = append(parent.children, node)
@@ -345,7 +346,7 @@ func (n *ModelNode) release() error {
 		n.rule = nil
 	}
 	if n.stateRef != (ast.ASTRef{}) {
-		if err := n.transformer.manager.DelRef(&n.stateRef); err != nil {
+		if err := n.manager.DelRef(&n.stateRef); err != nil {
 			return err
 		}
 	}

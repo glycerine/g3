@@ -15,10 +15,11 @@ func (c *Context) Reset() error {
 		return err
 	}
 	c.unknownResult = false
-	if err := c.search.Reset(); err != nil {
+	// reset(m_rels) precedes m_search.reset().
+	if err := closeTransformers(c.order, c.transformers); err != nil {
 		return err
 	}
-	if err := closeTransformers(c.order, c.transformers); err != nil {
+	if err := c.search.Reset(); err != nil {
 		return err
 	}
 	if err := c.owner.contexts.resetSolvers(true); err != nil {

@@ -78,15 +78,24 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, complete, includeRoot
 			return nil, err
 		}
 	}
-	theory, err := rewriter.NewTheoryRewriter(c.manager, c.owner.contexts.config.Params, c.owner.contexts.config.Globals, nil)
-	if err != nil {
+	// dctx.get_rewriter() is the datalog context's long-lived th_rewriter:
+	// its cache keeps rewritten subterms alive after get_trace returns.
+	if err = c.ensureProjectionTheory(); err != nil {
 		return nil, err
 	}
-	defer func() {
-		if x := theory.Close(); x != nil {
-			resultErr = errors.Join(resultErr, fmt.Errorf("pdr: close trace rewriter: %w", x))
+	theory := c.projectionTheory
+	if theory == nil {
+		// Nil-Globals partial configurations have no context rewriter.
+		theory, err = rewriter.NewTheoryRewriter(c.manager, c.owner.contexts.config.Params, c.owner.contexts.config.Globals, nil)
+		if err != nil {
+			return nil, err
 		}
-	}()
+		defer func() {
+			if x := theory.Close(); x != nil {
+				resultErr = errors.Join(resultErr, fmt.Errorf("pdr: close trace rewriter: %w", x))
+			}
+		}()
+	}
 	unifier, err := astsubst.NewUnifier(c.manager)
 	if err != nil {
 		return nil, err

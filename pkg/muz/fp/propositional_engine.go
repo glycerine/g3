@@ -90,6 +90,8 @@ type PropositionalEngine struct {
 	// lastAnswer is datalog::context's m_last_answer: get_answer_as_formula
 	// caches the engine's answer until the next query or the destructor.
 	lastAnswer ast.ASTRef
+	// lastAnswerDecl is the query declaration lastAnswer answers.
+	lastAnswerDecl ast.ASTHandle
 	// pdrQueryAlias maps a queried relation to its mk_query predicate.
 	// contextModelConverter is datalog::context's m_mc != null: context::query
 	// installs a skip converter, while rel_query leaves m_mc as it was (null
@@ -2867,23 +2869,32 @@ func (e *PropositionalEngine) inductiveModelAnswer(inductive *model.Model) (answ
 // Answer returns an owning formula describing the current finite relation.
 // Each free variable corresponds to the predicate column with the same index.
 func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTRef, result error) {
-	// The retained cache covers the Spacer query answer; the other backends'
-	// relation accessors keep their per-call ownership.
-	if e.backend != "spacer" {
+	// The retained cache (context::m_last_answer) covers the Spacer and PDR
+	// query answers; the other backends' relation accessors keep their
+	// per-call ownership.
+	switch e.backend {
+	case "spacer":
+		if err := e.requireResultSnapshot(EngineSpacer); err != nil {
+			return answer, err
+		}
+	case "pdr", "qpdr":
+		if err := e.requirePDRSnapshot(); err != nil {
+			return answer, err
+		}
+	default:
 		return e.computeAnswer(declaration)
 	}
-	if err := e.requireResultSnapshot(EngineSpacer); err != nil {
-		return answer, err
-	}
-	if e.lastAnswer != (ast.ASTRef{}) {
+	// The cache answers only the declaration it was computed for; any other
+	// declaration takes the validating path, which refuses it.
+	if e.lastAnswer != (ast.ASTRef{}) && e.lastAnswerDecl == declaration {
 		return e.manager.CopyRef(e.lastAnswer)
 	}
 	answer, result = e.computeAnswer(declaration)
-	if result != nil || answer == (ast.ASTRef{}) {
+	if result != nil || answer == (ast.ASTRef{}) || e.lastAnswer != (ast.ASTRef{}) {
 		return answer, result
 	}
 	// m_last_answer = m_engine->get_answer(); the caller gets a copy.
-	e.lastAnswer = answer
+	e.lastAnswer, e.lastAnswerDecl = answer, declaration
 	return e.manager.CopyRef(e.lastAnswer)
 }
 

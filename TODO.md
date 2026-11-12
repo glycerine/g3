@@ -1892,6 +1892,14 @@ Moved: fixedpoint_pdr_recursive_trace -> 22942, fixedpoint_finite_relations
   until the next query. ASK BEFORE CHANGING: matching z3 means not capturing
   on the rel_query path, which drops inlined predicates from g3's datalog
   models (horn tactic / context::query paths keep a converter).
+- fixedpoint_pdr_recursive_trace 22944 (last term): at the next query,
+  ~pred_transformer releases m_rule2inst / m_rule2transition values in its
+  body, then members in reverse declaration order (m_reachable,
+  m_initial_state, m_transition, ..., m_invariants, m_levels[0..n] each
+  front to back, m_solver, m_sig, m_head). g3's PredicateTransformer keeps
+  one flat references list released back to front, and never drops a
+  lemma's reference when propagation removes it from a level. Porting this
+  means giving levels/invariants/instances their own owned ref vectors.
 - qe_cooper_symbolic_blast (item 35): a work-in-progress port of
   expr_quant_elim / quant_elim_new / eliminate_block that replaces the
   quantifier_tactic cascade is saved (NOT applied, its ./qe tests fail) at
