@@ -113,10 +113,15 @@ func (r *seqRefs) hold(h ast.ASTHandle) (ast.ASTHandle, error) {
 }
 
 func (r *seqRefs) release() (result error) {
-	for i := len(r.hs) - 1; i >= 0; i-- {
-		if err := r.manager.DecRef(r.hs[i]); err != nil {
-			result = errors.Join(result, err)
+	// One manager call releases the holder last to first, as a loop of
+	// DecRef calls does; a failing element is skipped and its error joined.
+	for rest := r.hs; len(rest) != 0; {
+		n, err := r.manager.DecRefEachReverse(rest)
+		if err == nil {
+			break
 		}
+		result = errors.Join(result, err)
+		rest = rest[:len(rest)-n-1]
 	}
 	clear(r.hs)
 	r.hs = r.hs[:0]
@@ -186,10 +191,13 @@ func (v *seqExprVector) shrink(n int) (result error) {
 	if n >= len(v.elems) {
 		return nil
 	}
-	for i := n; i < len(v.elems); i++ {
-		if err := v.manager.DecRef(v.elems[i]); err != nil {
-			result = errors.Join(result, err)
+	for rest := v.elems[n:]; len(rest) != 0; {
+		k, err := v.manager.DecRefEach(rest)
+		if err == nil {
+			break
 		}
+		result = errors.Join(result, err)
+		rest = rest[k+1:]
 	}
 	clear(v.elems[n:])
 	v.elems = v.elems[:n]
@@ -974,8 +982,6 @@ type SMTTheorySeq struct {
 	closed  bool
 	// locPool holds dropped function-local reference owners for reuse.
 	locPool []*seqRefs
-	// concatScratch is appendConcat's flatten buffer, empty between calls.
-	concatScratch []ast.ASTHandle
 }
 
 // seqRewriterOwner is the source's m_rewrite member: a th_rewriter with

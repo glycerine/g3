@@ -3,6 +3,7 @@ package ast
 // Source AST scalar/indexed readers. All public borrows remain handle values.
 
 import (
+	"math"
 	"slices"
 
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -41,6 +42,7 @@ func (m *ASTManager) declIdentity(r astNodeRef) (FamilyID, int32, error) {
 	}
 	return info.family, info.kind, nil
 }
+
 // appIdentity is declIdentity(a.decl) for the record a of a live app. It
 // reads the copy taken at registration; debug builds keep the checked read.
 func (m *ASTManager) appIdentity(a *astAppRecord) (FamilyID, int32, error) {
@@ -320,11 +322,19 @@ func (m *ASTManager) IncRef(h ASTHandle) error {
 	if h.IsNull() {
 		return nil
 	}
-	r, e := m.internal(h)
-	if e != nil {
-		return e
+	// internal followed by incNode, validating the node once.
+	if h.origin != m.origin || h.slot == 0 || h.slot >= m.nextNode {
+		return ErrASTHandle
 	}
-	return m.incNode(r)
+	n := m.nodeAt(h.slot)
+	if !n.live || n.generation != h.generation {
+		return ErrASTHandle
+	}
+	if ASTSourceDebug && n.rc == math.MaxUint32 {
+		return ErrASTDomain
+	}
+	n.rc++
+	return nil
 }
 func (m *ASTManager) DecRef(h ASTHandle) error {
 	_, e := m.DecRefConsumed(h)

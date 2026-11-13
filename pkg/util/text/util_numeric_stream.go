@@ -6,6 +6,7 @@ package text
 // Go strconv is the explicit external runtime dependency, not a solver algorithm.
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"io"
@@ -74,6 +75,7 @@ type NumericTextStream struct {
 	File         *os.File
 	writer       io.Writer
 	fileByte     [1]byte
+	digits       [67]byte
 	FilePosition uint64
 	FileBad      bool
 	fileFail     bool // failbit is distinct from badbit (actual fstream open failure)
@@ -291,18 +293,80 @@ func (s *NumericTextStream) emitBytes(v []byte, numeric bool) error {
 			return e
 		}
 	}
-	for i, c := range v {
-		if prefix > 0 && i == prefix {
-			if e = s.padding(pad); e != nil {
+	if prefix > 0 && pad > 0 {
+		for i, c := range v {
+			if i == prefix {
+				if e = s.padding(pad); e != nil {
+					return e
+				}
+			}
+			if e = s.emitByte(c); e != nil {
 				return e
 			}
 		}
-		if e = s.emitByte(c); e != nil {
-			return e
-		}
+	} else if e = s.emitRun(v, ""); e != nil {
+		return e
 	}
 	if s.state.Alignment == NumericLeft {
 		return s.padding(pad)
+	}
+	return nil
+}
+
+// emitRun is emitByte on each byte of b, then of v, in one write where the
+// transport takes a run: the bytes reach the buffer or file in the same order,
+// a failing file write marks the stream bad and drops the rest, and
+// FilePosition counts the bytes written.
+func (s *NumericTextStream) emitRun(b []byte, v string) error {
+	if len(b) == 0 && len(v) == 0 {
+		return nil
+	}
+	if !(s.fileMode || s.File != nil || s.writer != nil) {
+		s.Buffer.Write(b)
+		s.Buffer.WriteString(v)
+		return nil
+	}
+	if s.FileBad || s.fileFail {
+		return nil
+	}
+	var w io.Writer
+	if s.writer != nil {
+		w = s.writer
+	} else if s.File != nil {
+		w = s.File
+	} else {
+		return ErrNumericStreamFile
+	}
+	if len(b) != 0 {
+		n, e := w.Write(b)
+		s.FilePosition += uint64(n)
+		if e != nil || n != len(b) {
+			s.FileBad = true
+			return nil
+		}
+	}
+	if len(v) != 0 {
+		var n int
+		var e error
+		// Only transports whose WriteString is their Write take the string
+		// directly; any other writer sees the bytes through Write.
+		switch t := w.(type) {
+		case *bufio.Writer:
+			n, e = t.WriteString(v)
+		case *os.File:
+			n, e = t.WriteString(v)
+		default:
+			for i := 0; i < len(v); i++ {
+				if e = s.emitByte(v[i]); e != nil {
+					return e
+				}
+			}
+			return nil
+		}
+		s.FilePosition += uint64(n)
+		if e != nil || n != len(v) {
+			s.FileBad = true
+		}
 	}
 	return nil
 }
@@ -357,10 +421,8 @@ func (s *NumericTextStream) appendString(v string) error {
 			return e
 		}
 	}
-	for i := 0; i < n; i++ {
-		if e = s.emitByte(v[i]); e != nil {
-			return e
-		}
+	if e = s.emitRun(nil, v); e != nil {
+		return e
 	}
 	if s.state.Alignment == NumericLeft {
 		return s.padding(pad)
@@ -376,7 +438,9 @@ func (s *NumericTextStream) AppendByte(v byte) error {
 	return s.emitBytes(one[:], false)
 }
 func (s *NumericTextStream) integer(v uint64, negative, signed bool) error {
-	var raw [67]byte
+	// The digits are formed in the stream's own scratch array (the stream
+	// lock is held), so passing them on to the transport does not allocate.
+	raw := &s.digits
 	at := len(raw)
 	base := uint64(s.state.IntegerBase)
 	original := v

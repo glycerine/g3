@@ -265,19 +265,25 @@ func (t *SMTTheorySeq) simplifyEq(ls, rs *seqExprVector, deps *seqDep) bool {
 // elements before releasing the old ones, as element-wise assignment does.
 // lendVec hands v's elements, with their references, to a raw vector for
 // seq_rewriter::reduce_eq, which edits the caller's expr_ref_vector in place.
+//
+// Referencing every element for hs and then releasing v's references never
+// takes a count to zero, so the references simply move to hs.
 func (t *SMTTheorySeq) lendVec(v *seqExprVector) []ast.ASTHandle {
 	hs := append([]ast.ASTHandle(nil), v.handles()...)
-	for _, h := range hs {
-		t.chk(t.m.IncRef(h))
-	}
-	t.chk(v.reset())
+	clear(v.elems)
+	v.elems = v.elems[:0]
 	return hs
 }
 
 // takeVec makes v hold the raw vector hs and releases hs's references.
+//
+// This is resetExprVector(v, hs) followed by releasing hs: v's old elements
+// are released front to back while hs still holds its own references, and
+// the references hs gives up are the ones v takes, so no count of an hs
+// element changes or reaches zero; hs's references move to v.
 func (t *SMTTheorySeq) takeVec(v *seqExprVector, hs []ast.ASTHandle) {
-	t.resetExprVector(v, hs)
-	t.chk(t.seqRewrite.ReleaseVec(&hs))
+	t.chk(v.reset())
+	v.elems = append(v.elems, hs...)
 }
 
 func (t *SMTTheorySeq) resetExprVector(v *seqExprVector, hs []ast.ASTHandle) {

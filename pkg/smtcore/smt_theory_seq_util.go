@@ -264,12 +264,12 @@ func (t *SMTTheorySeq) mkConcatSorted(es []ast.ASTHandle, s ast.ASTHandle) ast.A
 
 // appendConcat is es.append(getConcat(e)) without allocating the leaves.
 func (t *SMTTheorySeq) appendConcat(es *seqExprVector, e ast.ASTHandle) error {
-	buf, err := t.m.SequenceFlattenConcatAppend(e, t.concatScratch[:0])
-	t.chk(err)
-	err = es.append(buf)
-	clear(buf)
-	t.concatScratch = buf[:0]
-	return err
+	// get_concat into a temporary, then es.append (IncRefEach) of it, in
+	// one manager call that appends straight to es.
+	out, flattenErr, refErr := t.m.SequenceFlattenConcatAppendHeld(e, es.elems)
+	es.elems = out
+	t.chk(flattenErr)
+	return refErr
 }
 
 // isConcat2OrEmpty is isConcat2(e) followed, when e is not a binary concat,

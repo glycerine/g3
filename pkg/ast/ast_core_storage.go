@@ -354,8 +354,12 @@ type ASTManager struct {
 	// owning frame's invocation, so a later frame never reads stale ones.
 	formatFlatDense      []astFormatFlatDenseEntry
 	formatFlatDenseOwner *astFormatFlatFrame
-	ppFrames                                       *astFormatPPFrame
-	ppFrameSerial                                  uint64
+	// formatGroupChoice[slot] is the generation of the choice node FormatGroup
+	// built (or found) at that slot: choice(flat(x), x), whose flattening is
+	// its first argument. Zero (or another generation) means no such mark.
+	formatGroupChoice []uint32
+	ppFrames          *astFormatPPFrame
+	ppFrameSerial     uint64
 	// Actual dependency DAG owner is bound eagerly to this manager and allocator.
 	dependencies astDependencyManager
 	// smt2SortInfoTable is the command context's pp_env sort printer while

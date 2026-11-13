@@ -49,9 +49,9 @@ type SMTRelevancyPropagator struct {
 	enabled       bool
 	relevant      []ast.ASTHandle
 	qhead         int
-	handlers      map[ast.ASTHandle][]smtRelevancyHandler
-	positiveWatch map[ast.ASTHandle][]smtRelevancyHandler
-	negativeWatch map[ast.ASTHandle][]smtRelevancyHandler
+	handlers      smtRelevancyTable
+	positiveWatch smtRelevancyTable
+	negativeWatch smtRelevancyTable
 	trail         []smtRelevancyTrail
 	scopes        []smtRelevancyScope
 	newlyRelevant []ast.ASTHandle
@@ -63,8 +63,7 @@ func NewSMTRelevancyPropagator(context *SMTCheckerContext, enabled bool) (*SMTRe
 		return nil, ast.ErrASTHandle
 	}
 	return &SMTRelevancyPropagator{
-		context: context, enabled: enabled, handlers: make(map[ast.ASTHandle][]smtRelevancyHandler),
-		positiveWatch: make(map[ast.ASTHandle][]smtRelevancyHandler), negativeWatch: make(map[ast.ASTHandle][]smtRelevancyHandler),
+		context: context, enabled: enabled,
 	}, nil
 }
 
@@ -236,7 +235,7 @@ func (p *SMTRelevancyPropagator) addHandler(source ast.ASTHandle, handler smtRel
 	if p.context.relevant.get(source) {
 		return p.invoke(handler)
 	}
-	p.handlers[source] = append(p.handlers[source], handler)
+	p.handlers.push(source, handler)
 	if err := p.pushTrail(smtRelevancyTrail{kind: smtRelevancyHandlerTrail, expression: source}); err != nil {
 		return err
 	}
@@ -292,12 +291,12 @@ func (p *SMTRelevancyPropagator) addWatch(expression ast.ASTHandle, value bool, 
 		return p.invoke(handler)
 	case lbool.Undef:
 		if value {
-			p.positiveWatch[expression] = append(p.positiveWatch[expression], handler)
+			p.positiveWatch.push(expression, handler)
 			if err := p.pushTrail(smtRelevancyTrail{kind: smtRelevancyPositiveWatchTrail, expression: expression}); err != nil {
 				return err
 			}
 		} else {
-			p.negativeWatch[expression] = append(p.negativeWatch[expression], handler)
+			p.negativeWatch.push(expression, handler)
 			if err := p.pushTrail(smtRelevancyTrail{kind: smtRelevancyNegativeWatchTrail, expression: expression}); err != nil {
 				return err
 			}
@@ -613,7 +612,7 @@ func (p *SMTRelevancyPropagator) Propagate() error {
 				return err
 			}
 		}
-		handlers := p.handlers[expression]
+		handlers := p.handlers.get(expression)
 		for index := len(handlers); index > 0; index-- {
 			if err := p.invoke(handlers[index-1]); err != nil {
 				return err
@@ -856,9 +855,9 @@ func (p *SMTRelevancyPropagator) assignmentEvent(expression ast.ASTHandle, value
 	}
 	var watches []smtRelevancyHandler
 	if value {
-		watches = p.positiveWatch[expression]
+		watches = p.positiveWatch.get(expression)
 	} else {
-		watches = p.negativeWatch[expression]
+		watches = p.negativeWatch.get(expression)
 	}
 	for index := len(watches); index > 0; index-- {
 		if err := p.invoke(watches[index-1]); err != nil {
@@ -903,17 +902,13 @@ func (p *SMTRelevancyPropagator) PopScopes(count uint32) error {
 	p.newlyRelevant = kept
 	for index := len(p.trail); index > scope.trailLimit; index-- {
 		entry := p.trail[index-1]
-		var handlers []smtRelevancyHandler
 		switch entry.kind {
 		case smtRelevancyHandlerTrail:
-			handlers = p.handlers[entry.expression]
-			p.handlers[entry.expression] = handlers[:len(handlers)-1]
+			p.handlers.pop(entry.expression)
 		case smtRelevancyPositiveWatchTrail:
-			handlers = p.positiveWatch[entry.expression]
-			p.positiveWatch[entry.expression] = handlers[:len(handlers)-1]
+			p.positiveWatch.pop(entry.expression)
 		case smtRelevancyNegativeWatchTrail:
-			handlers = p.negativeWatch[entry.expression]
-			p.negativeWatch[entry.expression] = handlers[:len(handlers)-1]
+			p.negativeWatch.pop(entry.expression)
 		default:
 			return ast.ErrASTDomain
 		}
@@ -948,14 +943,11 @@ func (p *SMTRelevancyPropagator) release() error {
 		entry := p.trail[index-1]
 		switch entry.kind {
 		case smtRelevancyHandlerTrail:
-			handlers := p.handlers[entry.expression]
-			p.handlers[entry.expression] = handlers[:len(handlers)-1]
+			p.handlers.pop(entry.expression)
 		case smtRelevancyPositiveWatchTrail:
-			handlers := p.positiveWatch[entry.expression]
-			p.positiveWatch[entry.expression] = handlers[:len(handlers)-1]
+			p.positiveWatch.pop(entry.expression)
 		case smtRelevancyNegativeWatchTrail:
-			handlers := p.negativeWatch[entry.expression]
-			p.negativeWatch[entry.expression] = handlers[:len(handlers)-1]
+			p.negativeWatch.pop(entry.expression)
 		}
 		p.trail = p.trail[:index-1]
 		if err := p.context.manager.DecRef(entry.expression); err != nil {

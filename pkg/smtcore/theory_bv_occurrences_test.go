@@ -71,7 +71,7 @@ func TestSMTBVBitOccurrencesStaticDisequalitiesPerPosition(t *testing.T) {
 			astTestMust(t, err)
 			for _, owner := range []ast.ASTHandle{base, other} {
 				count := 0
-				for _, h := range s.relevancy.handlers[owner] {
+				for _, h := range s.relevancy.handlers.get(owner) {
 					if h.kind == smtRelevancyPair && h.target == eqExpr {
 						count++
 					}

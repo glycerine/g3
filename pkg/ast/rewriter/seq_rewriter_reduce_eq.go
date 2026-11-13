@@ -80,12 +80,8 @@ func (r *SequenceRewriter) vShrink(v *[]ast.ASTHandle, n int) error {
 	// read in place from the old slice.
 	dropped := (*v)[n:]
 	*v = (*v)[:n]
-	for _, h := range dropped {
-		if err := r.manager.DecRef(h); err != nil {
-			return err
-		}
-	}
-	return nil
+	_, err := r.manager.DecRefEach(dropped)
+	return err
 }
 
 // ReleaseVec releases a vector filled by ReduceEqVec or AddSeqs.

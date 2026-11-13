@@ -42,6 +42,41 @@ func (m *ASTManager) SequenceFlattenConcatAppend(h ASTHandle, dst []ASTHandle) (
 	return dst, nil
 }
 
+// SequenceFlattenConcatAppendHeld is SequenceFlattenConcatAppend(h, dst)
+// followed by IncRefEach on the appended leaves, under one manager lock.
+// A flatten failure returns dst unchanged in length (flattenErr); a
+// reference failure keeps only the leaves referenced before it (refErr).
+func (m *ASTManager) SequenceFlattenConcatAppendHeld(h ASTHandle, dst []ASTHandle) (out []ASTHandle, flattenErr, refErr error) {
+	if flattenErr = m.lock(); flattenErr != nil {
+		return dst, flattenErr, nil
+	}
+	defer m.mu.Unlock()
+	r, err := m.requireExpr(h)
+	if err != nil {
+		return dst, err, nil
+	}
+	n := len(dst)
+	if err = m.sequenceFlattenConcat(r, &dst); err != nil {
+		return dst[:n], err, nil
+	}
+	if err = m.relockBetween(); err != nil {
+		return dst[:n], nil, err
+	}
+	for i := n; i < len(dst); i++ {
+		if dst[i].IsNull() {
+			continue
+		}
+		r, e := m.internal(dst[i])
+		if e == nil {
+			e = m.incNode(r)
+		}
+		if e != nil {
+			return dst[:i], nil, e
+		}
+	}
+	return dst, nil, nil
+}
+
 // SequenceUnitOrString is SequenceUnitArgument(h) and, when h is not a
 // unit, SequenceStringValue(h). A node is at most one of the two.
 func (m *ASTManager) SequenceUnitOrString(h ASTHandle) (unit ASTHandle, isUnit bool, value string, isString bool, err error) {

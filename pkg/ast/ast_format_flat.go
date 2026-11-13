@@ -8,6 +8,7 @@ import (
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
+	udiag "github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 // Formatting recursion borrows node references. The cache is lookup-only;
@@ -184,7 +185,37 @@ func (m *ASTManager) flatVisit(f *astFormatFlatFrame, n astNodeRef) (astNodeRef,
 	if id == f.family && kind == ASTFormatChoice {
 		return m.readInternal(a.args, 0)
 	}
+	if id == f.family && m.flatUnchanged(f, a) {
+		return n, nil
+	}
 	return m.mkAppArguments(a.decl, SliceArguments(f.results))
+}
+
+// flatUnchanged reports that every flattened argument of format application
+// a (f.args, read by formatFlat) is the argument itself. Source mk_app then
+// finds the existing node through the hash-cons table: it creates no node,
+// takes no id and writes no [mk-app] trace line, so the node itself is the
+// result. The general path is kept when the app_ground debug trace, which
+// mk_app writes for found nodes too, is enabled, and for declarations whose
+// mk_app reshapes the arguments.
+func (m *ASTManager) flatUnchanged(f *astFormatFlatFrame, a *astAppRecord) bool {
+	if uint32(len(f.results)) != a.count || uint32(len(f.args)) != a.count {
+		return false
+	}
+	for i, h := range f.results {
+		if r := f.args[i]; h.origin != m.origin || h.slot != r.slot || h.generation != r.generation {
+			return false
+		}
+	}
+	flags, e := m.funcFlags(a.decl)
+	if e != nil || flags.LeftAssociative || flags.RightAssociative || flags.Chainable || m.declAt(a.decl.slot).arity != a.count {
+		return false
+	}
+	tags := m.traceTags
+	if tags == nil {
+		tags = udiag.BorrowProcessTraceTags()
+	}
+	return !tags.ShouldTrace("app_ground")
 }
 func (m *ASTManager) formatFlat(root astNodeRef, documents *astFormatDocuments) (result astNodeRef, err error) {
 	family, e := m.formatFamilyID()
@@ -231,6 +262,21 @@ func (m *ASTManager) formatFlat(root astNodeRef, documents *astFormatDocuments) 
 		}
 		if e = m.validNode(n); e != nil {
 			return astNodeRef{}, e
+		}
+		if m.isGroupChoice(n) {
+			// flat(choice(flat(x), x)) is flat(x), the first argument. Source
+			// recurses into both arguments first, but flattening the already
+			// flat first argument and x rebuilds only nodes inside flat(x),
+			// which exist: their mk_app calls create, number and trace no node.
+			f.todo = f.todo[:len(f.todo)-1]
+			result, e = documents.ownNode(m.readInternal(m.appAt(n.slot).args, 0))
+			if e != nil {
+				return astNodeRef{}, e
+			}
+			if e = f.insert(n, result); e != nil {
+				return astNodeRef{}, e
+			}
+			continue
 		}
 		visited := true
 		switch m.nodeAt(n.slot).kind {
@@ -340,5 +386,34 @@ func (m *ASTManager) FormatGroup(root ASTHandle) (document ASTHandle, resultErr 
 	}
 	args := [2]ASTHandle{f.external(flat), root}
 	r, e = f.formatApp(ASTFormatChoice, nil, args[:])
+	if e == nil && r.slot != 0 {
+		f.markGroupChoice(r)
+	}
 	return f.external(r), e
+}
+
+func (m *ASTManager) markGroupChoice(r astNodeRef) {
+	if uint64(r.slot) >= uint64(len(m.formatGroupChoice)) {
+		n := 2 * len(m.formatGroupChoice)
+		if n <= int(r.slot) {
+			n = int(r.slot) + 256
+		}
+		grown := make([]uint32, n)
+		copy(grown, m.formatGroupChoice)
+		m.formatGroupChoice = grown
+	}
+	m.formatGroupChoice[r.slot] = r.generation
+}
+
+// isGroupChoice reports a live choice node marked by FormatGroup, with the
+// app_ground debug trace (written by every mk_app) disabled.
+func (m *ASTManager) isGroupChoice(r astNodeRef) bool {
+	if uint64(r.slot) >= uint64(len(m.formatGroupChoice)) || m.formatGroupChoice[r.slot] != r.generation {
+		return false
+	}
+	tags := m.traceTags
+	if tags == nil {
+		tags = udiag.BorrowProcessTraceTags()
+	}
+	return !tags.ShouldTrace("app_ground")
 }

@@ -2707,3 +2707,24 @@ Leads: (apply qe)(check-sat) mod 2 probe diverges at line 7571425 (free-list
 order from qe tactic cleanup: quantElimPlugin.Close -> SolverContext.Close ->
 ArithmeticPlugin.Close vs C++ member destruction order); MBP
 linearize/maximize temporaries in the shared hold list.
+
+## Performance round 3 (2026-11-12, late)
+
+No behaviour change (fullcmp2 776 identical; a stricter base-vs-new
+comparison of full traces, stdout and exit codes over all vectors: 0
+mismatches). Measured: slow_3097 47.5 -> 40.0 s (z3 8.1 s); g7_qsat
+unchanged (~11.8 s, z3 2.1 s); trace=true runs 37-45% faster. Changes:
+ASTManager.DecRefEach/DecRefEachReverse (same DecRef sequence under one
+lock, pending deletions resumed between elements) for theory_seq holders;
+lendVec/takeVec move references instead of copying; appendConcat flattens
+and references in one call (SequenceFlattenConcatAppendHeld); format
+flattening returns unchanged nodes and short-cuts marked choice nodes
+(both off under the app_ground debug tag); NumericTextStream writes whole
+runs; slot-indexed relevancy handler/watch tables.
+Next: batched seq queries for ReduceEqVec (~14% of slow_3097) and
+canonizeInto/expand (~20%); nodeAt misses (14%) and manager lock per tiny
+query (~3.5%); a format-node lookup that does not allocate a temporary
+(audit format-manager generations); g7 model numerals (BitVectorNumeral
+~14%, ArithmeticNumeral ~20%) constrained by visible slot generations;
+numeric-manager checkReady/checkCleanup (~5%); defer overhead in
+mkAppCoreArguments.
