@@ -2695,14 +2695,20 @@ tids/mbo/eval. Vectors qe_int_forall_exists_atom_cache,
 qe_int_mod2_cooper_check_sat, qe_int_mod3_bit2int_check_sat,
 qe_int_mod3_bit2int_apply, qsat_exists_forall_real_pinned,
 qsat_exists_forall_int_pinned.
-OPEN (worker): asserted_formulas::assert_expr overwrites `expr_ref r(e)`
-with the rewriter result, so an unowned input dies right after rewriting.
-Porting that broke three muz/fp PDR tests (callers that assert unowned
-expressions and use them afterwards: TestPDRExpressionQueryUsesPrequeryCoverOwner,
-TestPDRCoveredArithmeticAdditionResetsRawCover,
-TestPDRTransferredContextAssertionCleanupFailureAndRetry), so it was held
-back; vector qe_rec_int_forall_implies (needs it; diverges at line 606
-without it) is held back too.
+DONE (2026-11-12): asserted_formulas::assert_expr input lifetime ported
+(the rewriter result overwrites `expr_ref r(e)`, so an unowned input dies
+right after rewriting); pdr SMTContext.Assert now holds `fml = m_pushed ? e
+: mk_implies(m_pred, e)` across the assert as C++ does (resumable owner
+release), spacer internalizeAssertions holds its implication. Vector
+qe_rec_int_forall_implies restored (trace-identical).
+Leads: audit other callers that pass fresh unowned expressions to
+SMTKernel/SMTSolver.Assert (spacer predicate_reach/rules/transformer,
+context_invariant, qe, tactics, opt) against C++ expr_ref holders; a debug
+check that the root is alive at rewriter publish would find the next one;
+spacer VirtualSolver.Assert pushed path / AssertTracked pass raw e as C++
+does (check the caller chain); PropSolver.AddLevelFormula and spacer
+internalizeAssertions drop the ref record without a resumable receipt when
+DelRef leaves pending work.
 Leads: (apply qe)(check-sat) mod 2 probe diverges at line 7571425 (free-list
 order from qe tactic cleanup: quantElimPlugin.Close -> SolverContext.Close ->
 ArithmeticPlugin.Close vs C++ member destruction order); MBP

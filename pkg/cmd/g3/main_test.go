@@ -353,6 +353,7 @@ var scriptResults = map[string]string{
 	"qe_rec_real_disjunction.smt2":                  "(goals\n(goal\n  (exists ((x!0 Real))\n    (let ((a!1 (<= (+ b (* (- 1.0) (to_real 2) x!0)) 0.0))\n          (a!2 (not (<= (+ (* (- 1.0) b) (* (- 1.0) x!0)) (- 7.0))))\n          (a!3 (not (<= (+ (* (- 1.0) a) (* (- 1.0) b)) (- 7.0)))))\n      (and (or (not a!1) a!2) a!3 false)))\n  :precision precise :depth 1)\n)\n",
 	"qe_rec_forall_exists_real.smt2":                "(goals\n(goal\n  :precision precise :depth 1)\n)\n",
 	"qe_rec_nested_alternation.smt2":                "(goals\n(goal\n  (or (> a 3.0) true)\n  :precision precise :depth 1)\n)\n",
+	"qe_rec_int_forall_implies.smt2":                "(goals\n(goal\n  false\n  :precision precise :depth 1)\n)\n",
 	"qe_int_strict_bound_rewriter_cache.smt2":       "(goals\n(goal\n  (let ((a!1 (and (<= (+ (* 2 a) (* (- 1) b)) (- 3)) (or (>= b 13) (<= b 4)))))\n    (or (and (<= (+ a b) 5) (>= b 5)) a!1))\n  :precision precise :depth 1)\n)\nsat\n(model \n  (define-fun b () Int\n    13)\n  (define-fun a () Int\n    5)\n  (define-fun e () Int\n    22)\n)\n",
 	"qe_int_forall_exists_atom_cache.smt2":          "(goals\n(goal\n  :precision precise :depth 1)\n)\n",
 	"qe_int_mod2_cooper_check_sat.smt2":             "unknown\n",

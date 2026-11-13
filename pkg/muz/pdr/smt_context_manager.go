@@ -12,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/memory"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
@@ -334,7 +335,7 @@ func (c *SMTContext) IsAuxPredicate(declaration ast.ASTHandle) (bool, error) {
 	return c.parent.IsAuxPredicate(declaration)
 }
 
-func (c *SMTContext) Assert(expression ast.ASTHandle) error {
+func (c *SMTContext) Assert(expression ast.ASTHandle) (resultErr error) {
 	if err := c.open(); err != nil {
 		return err
 	}
@@ -355,15 +356,83 @@ func (c *SMTContext) Assert(expression ast.ASTHandle) error {
 		}
 		c.pushed = true
 	}
-	if c.pushed || c.predicate == truth {
-		return c.solver.Assert(expression)
+	// expr_ref fml = m_pushed ? e : m.mk_implies(m_pred, e); the implication
+	// is built even for the true predicate of max_num_contexts=0. fml owns
+	// the asserted formula across m_context.assert_expr, whose rewrite
+	// releases its own copy of the input; fml's destructor may free e.
+	formula := expression
+	if !c.pushed {
+		if formula, err = c.parent.manager.MkImplies(c.predicate, expression); err != nil {
+			return err
+		}
 	}
-	guarded, err := c.parent.manager.MkImplies(c.predicate, expression)
-	if err != nil {
+	owner := &smtContextAssertOwner{manager: c.parent.manager}
+	if owner.fml, err = c.parent.manager.NewRef(formula); err != nil {
 		return err
 	}
-	return c.solver.Assert(guarded)
+	defer func() { resultErr = owner.finish(resultErr) }()
+	return c.solver.Assert(formula)
 }
+
+// smtContextAssertOwner is _smt_context::assert_expr's expr_ref fml. Its
+// release can run a native destructor that fails after consuming the root;
+// the returned receipt resumes that release and any nested kernel cleanup.
+type smtContextAssertOwner struct {
+	manager *ast.ASTManager
+	fml     ast.ASTRef
+	nested  memory.ConstructionFailure
+}
+
+func (o *smtContextAssertOwner) close() error {
+	if o.nested != nil {
+		if err := o.nested.Cleanup(); err != nil {
+			return err
+		}
+		o.nested = nil
+	}
+	if o.fml != (ast.ASTRef{}) {
+		return o.manager.DelRef(&o.fml)
+	}
+	return nil
+}
+
+func (o *smtContextAssertOwner) finish(cause error) error {
+	if cause != nil {
+		errors.As(cause, &o.nested)
+	}
+	cleanup := o.close()
+	if cleanup == nil {
+		return cause
+	}
+	original := cause
+	if original == nil {
+		original = cleanup
+	}
+	exposed := errors.Join(cause, cleanup)
+	return &smtContextAssertFailure{
+		owner: o, cause: original, cleanup: cleanup, exposed: exposed, message: exposed.Error(),
+	}
+}
+
+type smtContextAssertFailure struct {
+	owner                   *smtContextAssertOwner
+	cause, cleanup, exposed error
+	message                 string
+}
+
+func (f *smtContextAssertFailure) Error() string { return f.message }
+func (f *smtContextAssertFailure) Unwrap() error { return f.exposed }
+func (f *smtContextAssertFailure) Cleanup() error {
+	f.cleanup = f.owner.close()
+	return f.cleanup
+}
+func (f *smtContextAssertFailure) RuntimeOwner() *memory.Runtime {
+	return f.owner.manager.NumeralService().RuntimeOwner()
+}
+func (f *smtContextAssertFailure) OriginalCause() error { return f.cause }
+func (f *smtContextAssertFailure) CleanupCause() error  { return f.cleanup }
+
+var _ memory.ConstructionFailure = (*smtContextAssertFailure)(nil)
 
 func (c *SMTContext) Check(assumptions []ast.ASTHandle) (lbool.LBool, error) {
 	if err := c.open(); err != nil {

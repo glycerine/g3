@@ -16,8 +16,9 @@ import (
 )
 
 // A public prequery context moves into the expression-query clone. Its live
-// constraint cache simplifies an unsatisfiable temporary assertion; the input
-// owner must transport and finish a native metadata destructor failure.
+// constraint cache simplifies an unsatisfiable temporary assertion; the
+// _smt_context fml owner must transport and finish a native metadata
+// destructor failure.
 func TestPDRTransferredContextAssertionCleanupFailureAndRetry(t *testing.T) {
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }
 	budget := arena.NewBudget(1 << 29)
@@ -116,8 +117,9 @@ func TestPDRTransferredContextAssertionCleanupFailureAndRetry(t *testing.T) {
 	}
 
 	// The raw conjunction keeps the metadata-bearing child until assertion
-	// simplification. Its root is borrowed; only the live kernel input owner
-	// protects it once the cache invokes Assert.
+	// simplification. Its root is borrowed; only _smt_context::assert_expr's
+	// fml owner protects it once the cache invokes Assert (the kernel's
+	// assert_expr releases its copy when the rewriter publishes).
 	scoped, err := numeral.NewScopedInt(numbers.Manager.Z)
 	must(err)
 	integer, err := scoped.Get()

@@ -239,7 +239,14 @@ func (s *VirtualSolver) internalizeAssertions() error {
 		if err != nil {
 			return err
 		}
-		if err = s.Solver.Assert(guarded); err != nil {
+		// expr_ref f owns the implication across m_context.assert_expr,
+		// whose rewrite releases its own copy of the input.
+		f, err := s.factory.manager.NewRef(guarded)
+		if err != nil {
+			return err
+		}
+		err = s.Solver.Assert(guarded)
+		if err = errors.Join(err, s.factory.manager.DelRef(&f)); err != nil {
 			return err
 		}
 		s.head++

@@ -276,13 +276,16 @@ func TestSMTAssertedInputSurvivesPhaseCacheFlush(t *testing.T) {
 	astTestMust(t, err)
 	parentRef, err := m.NewRef(parent)
 	astTestMust(t, err)
-	value, proof, err := k.preprocessAssertion(parent, ast.ASTHandle{})
+	r, err := m.NewRef(parent)
+	astTestMust(t, err)
+	value, proof, err := k.preprocessAssertExpr(parent, ast.ASTHandle{}, r)
 	astTestMust(t, err)
 	if value != root {
 		t.Fatal("cache fixture unexpectedly rewrote the formula")
 	}
 	astTestMust(t, m.DecRef(proof))
 	astTestMust(t, m.DecRef(value))
+	astTestMust(t, m.DelRef(&r))
 	astTestMust(t, m.DelRef(&parentRef))
 	n, err := k.preprocessor.CacheSize()
 	astTestMust(t, err)

@@ -872,7 +872,9 @@ func (k *SMTKernel) assertFormulaCore(formula, proof ast.ASTHandle) (resultErr e
 	if err = k.setAssertedEliminateAnd(false); err != nil {
 		return err
 	}
-	formula, proof, err = k.preprocessAssertion(formula, proof)
+	// m_rewriter(e, r, pr) overwrites the local r(e): an input with no other
+	// owner dies when the rewriter publishes its result, before push_assertion.
+	formula, proof, err = k.preprocessAssertExpr(formula, proof, scope.inputs[0])
 	if k.preprocess && k.preprocessor != nil {
 		// The preprocessing call can return owning results together with a
 		// cleanup error. Adopt them before examining that error or tracing.

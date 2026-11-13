@@ -182,21 +182,18 @@ func (k *SMTKernel) pushAssertionInto(formula, proof ast.ASTHandle, batch *macro
 	return err
 }
 
-func (k *SMTKernel) preprocessAssertion(formula, proof ast.ASTHandle) (result, resultProof ast.ASTHandle, err error) {
+// preprocessAssertExpr is assert_expr's m_rewriter(e, r, pr): r is the
+// caller's expr_ref r(e), which the rewrite overwrites.
+func (k *SMTKernel) preprocessAssertExpr(formula, proof ast.ASTHandle, r ast.ASTRef) (result, resultProof ast.ASTHandle, err error) {
 	if !k.preprocess || k.preprocessor == nil {
 		return formula, proof, nil
 	}
-	resultRef, err := k.manager.NewRef(ast.ASTHandle{})
-	if err != nil {
-		return ast.ASTHandle{}, ast.ASTHandle{}, err
-	}
-	defer func() { err = errors.Join(err, k.manager.DelRef(&resultRef)) }()
 	proofRef, err := k.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
 	defer func() { err = errors.Join(err, k.manager.DelRef(&proofRef)) }()
-	return k.preprocessAssertionWithMode(formula, proof, resultRef, proofRef, assertedProofAssertExpr)
+	return k.preprocessAssertionWithMode(formula, proof, r, proofRef, assertedProofAssertExpr)
 }
 
 // assertedProofMode is how a pass combines the input proof with m_rewriter's.
