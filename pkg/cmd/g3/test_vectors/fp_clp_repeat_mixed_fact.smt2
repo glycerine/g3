@@ -1,0 +1,5 @@
+(set-option :fixedpoint.engine clp)
+(declare-rel w (Bool Int))
+(rule (w true 0))
+(query w)
+(query w)

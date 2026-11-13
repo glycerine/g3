@@ -23,6 +23,12 @@ func TestSpacerGroundAnswerAllocationFailurePublicationAndRetry(t *testing.T) {
 			step, err := m.MkImplies(f.fact, f.applications["u"])
 			fragmentMust(t, err)
 			fragmentMust(t, e.addRuleEager(step, "numeric-ground-goal"))
+			// The context's rule manager keeps the last Horn rule's head and
+			// body (m_head, m_body); a first query settles them on the query
+			// rule before caller ownership is sampled.
+			_, err = e.QueryExpression(f.applications["u"])
+			fragmentMust(t, err)
+			fragmentMust(t, e.clearQueryResources())
 			before, err := m.GetRefCount(f.fact)
 			fragmentMust(t, err)
 			status, err := e.QueryExpression(f.applications["u"])

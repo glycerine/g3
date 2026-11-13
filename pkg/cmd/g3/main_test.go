@@ -1055,6 +1055,14 @@ var scriptResults = map[string]string{
 	"fp_tab_relation_query.smt2":                        "sat\n",
 	"fp_bmc_int_two_queries.smt2":                       "sat\n(let ((a!1 (forall ((A Int) (B Int))\n             (=> (and (p B) (not (<= 3 B)) (= A (+ 1 B))) (p A)))))\n(let ((a!2 (hyper-res (asserted (=> (p 2) query!0))\n                      (asserted a!1)\n                      (=> (p 1) query!0))))\n  ((_ hyper-res 0 1)\n    (hyper-res a!2 (asserted a!1) (=> (p 0) query!0))\n    (asserted (p 0))\n    query!0)))\nsat\n(let ((a!1 (asserted (forall ((A Int)) (=> (p A) (query!1 A))))))\n  ((_ hyper-res 0 1)\n    (hyper-res a!1 (=> (p 0) (query!1 0)))\n    (asserted (p 0))\n    (query!1 0)))\n",
 	"fp_clp_int_engine_kernel.smt2":                     "sat\n",
+	"fp_clp_requery_after_coi.smt2":                     "sat\nunsat\nunsat\n",
+	"fp_clp_context_rules_requery.smt2":                 "sat\nunsat\nunsat\n",
+	"fp_clp_nullary_inlined_requery.smt2":               "sat\nunsat\nunsat\nunsat\n",
+	"fp_clp_repeat_nullary_fact.smt2":                   "sat\nunsat\n",
+	"fp_clp_repeat_mixed_fact.smt2":                     "sat\nsat\n",
+	"fp_clp_scale_requery.smt2":                         "sat\nsat\nsat\n",
+	"fp_clp_requery_output_hash_order.smt2":             "sat\nsat\nsat\n",
+	"fp_tab_requery_rule_manager.smt2":                  "sat\nsat\nsat\n",
 }
 
 // parseErrorScripts are scriptResults vectors whose expected output holds

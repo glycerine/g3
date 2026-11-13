@@ -113,6 +113,13 @@ type PropositionalEngine struct {
 	manager                      *ast.ASTManager
 	rules                        *base.RuleManager
 	set                          *base.RuleSet
+	// clpContext is the context whose m_rule_set a CLP query clone
+	// transforms: clp::imp::query runs mk_query and
+	// apply_default_transformation on the context's own rules.
+	clpContext     *PropositionalEngine
+	// rulesShare counts the engines (a context and its query clones) that
+	// use rules, the context's one rule manager; the last closes it.
+	rulesShare *ruleManagerShare
 	ruleProperties               *base.RuleProperties
 	binder                       *base.VariableBinder
 	relations                    *rel.RelationManager
@@ -263,7 +270,11 @@ type PropositionalEngine struct {
 // NewPropositionalEngineWithServices adds the retained AST theory rewriter
 // used to evaluate ground interpreted guards after finite variable binding.
 func NewPropositionalEngineWithServices(manager *ast.ASTManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService) (*PropositionalEngine, error) {
-	engine, err := NewPropositionalEngine(manager)
+	return newPropositionalEngineWithServices(manager, context, globals, nil)
+}
+
+func newPropositionalEngineWithServices(manager *ast.ASTManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, sharedRules *ruleManagerShare) (*PropositionalEngine, error) {
+	engine, err := newPropositionalEngine(manager, sharedRules)
 	if err != nil {
 		return nil, err
 	}
@@ -277,39 +288,55 @@ func NewPropositionalEngineWithServices(manager *ast.ASTManager, context *uparam
 }
 
 func NewPropositionalEngine(manager *ast.ASTManager) (*PropositionalEngine, error) {
+	return newPropositionalEngine(manager, nil)
+}
+
+// newPropositionalEngine with sharedRules builds a query clone that stands
+// for the same datalog::context and so uses its one rule_manager: m_head,
+// m_body, m_rwr and the registered (pinned) predicates persist across
+// queries.
+func newPropositionalEngine(manager *ast.ASTManager, sharedRules *ruleManagerShare) (*PropositionalEngine, error) {
 	if manager == nil {
 		return nil, ErrPropositionalEngine
 	}
-	rules, err := base.NewRuleManager(manager)
-	if err != nil {
-		return nil, err
+	share := sharedRules
+	if share == nil {
+		rules, err := base.NewRuleManager(manager)
+		if err != nil {
+			return nil, err
+		}
+		share = &ruleManagerShare{rules: rules}
 	}
+	share.owners++
+	rules := share.rules
+	closeRules := share.release
 	set, err := base.NewRuleSet(rules)
 	if err != nil {
-		return nil, errors.Join(err, rules.Close())
+		return nil, errors.Join(err, closeRules())
 	}
 	ruleProperties, err := base.NewRuleProperties(rules)
 	if err != nil {
-		return nil, errors.Join(err, set.Close(), rules.Close())
+		return nil, errors.Join(err, set.Close(), closeRules())
 	}
 	binder, err := base.NewVariableBinder(manager)
 	if err != nil {
-		return nil, errors.Join(err, ruleProperties.Close(), set.Close(), rules.Close())
+		return nil, errors.Join(err, ruleProperties.Close(), set.Close(), closeRules())
 	}
 	relations, err := rel.NewRelationManager(manager)
 	if err != nil {
-		return nil, errors.Join(err, binder.Close(), ruleProperties.Close(), set.Close(), rules.Close())
+		return nil, errors.Join(err, binder.Close(), ruleProperties.Close(), set.Close(), closeRules())
 	}
 	truth, err := manager.MkTrue()
 	if err != nil {
-		return nil, errors.Join(err, relations.Close(), binder.Close(), ruleProperties.Close(), set.Close(), rules.Close())
+		return nil, errors.Join(err, relations.Close(), binder.Close(), ruleProperties.Close(), set.Close(), closeRules())
 	}
 	background, err := manager.NewRef(truth)
 	if err != nil {
-		return nil, errors.Join(err, relations.Close(), binder.Close(), ruleProperties.Close(), set.Close(), rules.Close())
+		return nil, errors.Join(err, relations.Close(), binder.Close(), ruleProperties.Close(), set.Close(), closeRules())
 	}
 	return &PropositionalEngine{
 		manager: manager, rules: rules, set: set, ruleProperties: ruleProperties, binder: binder, relations: relations,
+		rulesShare: share,
 		background: background, predicates: make(map[ast.ASTHandle]*predicateState), auxiliary: make(map[ast.ASTHandle]bool), backend: "datalog", revision: 1, lastStatus: "ok",
 	}, nil
 }
@@ -3244,7 +3271,7 @@ func (e *PropositionalEngine) WriteCertificate(out io.Writer, declaration ast.AS
 		return true, err
 	}
 	if e.backend == "tab" {
-		return e.writeTabCertificate(out, declaration)
+		return e.writeTabCertificate(out, declaration, writeExpression)
 	}
 	if e.backend != "pdr" && e.backend != "qpdr" {
 		// Datalog inherits engine_base::display_certificate's unsupported
@@ -3584,7 +3611,7 @@ func (e *PropositionalEngine) Close() (result error) {
 		e.unboundCooperation = nil
 	}
 	if e.rules != nil {
-		if err := e.rules.Close(); err != nil {
+		if err := e.rulesShare.release(); err != nil {
 			return errors.Join(result, err)
 		}
 		e.rules = nil
@@ -3612,4 +3639,21 @@ func (e *PropositionalEngine) Close() (result error) {
 	e.params, e.globals = nil, nil
 	e.closed = true
 	return result
+}
+
+type ruleManagerShare struct {
+	rules  *base.RuleManager
+	owners int
+}
+
+func (s *ruleManagerShare) release() error {
+	if s.owners > 1 {
+		s.owners--
+		return nil
+	}
+	if err := s.rules.Close(); err != nil {
+		return err
+	}
+	s.owners = 0
+	return nil
 }

@@ -1,0 +1,8 @@
+(set-option :fixedpoint.engine tab)
+(declare-rel a ())
+(declare-rel b ())
+(rule a)
+(rule (=> a b))
+(query b)
+(query a)
+(query b)

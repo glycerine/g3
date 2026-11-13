@@ -1,0 +1,5 @@
+(set-option :fixedpoint.engine clp)
+(declare-rel owned-relation-wrapper ())
+(rule owned-relation-wrapper)
+(query owned-relation-wrapper)
+(query owned-relation-wrapper)

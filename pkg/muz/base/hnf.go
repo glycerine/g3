@@ -824,7 +824,6 @@ func (m *RuleManager) addFormula(set *RuleSet, formula ast.ASTHandle, name usymb
 	if set == nil || set.manager != m {
 		return ErrRuleSetOwner
 	}
-	labelRewriter := m.labels
 	formulaReference, err := m.manager.NewRef(formula)
 	if err != nil {
 		return err
@@ -835,7 +834,7 @@ func (m *RuleManager) addFormula(set *RuleSet, formula ast.ASTHandle, name usymb
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, m.manager.DelRef(&proofReference)) }()
-	if err = labelRewriter.RemoveLabels(formulaReference, proofReference); err != nil {
+	if err = m.removeLabels(formulaReference, proofReference); err != nil {
 		return err
 	}
 	formula, err = m.manager.RefGet(formulaReference)

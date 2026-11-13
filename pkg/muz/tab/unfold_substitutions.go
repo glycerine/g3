@@ -57,42 +57,61 @@ func (u *unfoldedClause) proofSubstitutions(target, source *Clause) (result *pro
 			}
 		}
 	}
+	if u.members != nil {
+		// extract_subst applies the unifier's own m_S2; its m_sub1 and
+		// m_sub2 stay with the unifier until the next reset.
+		borrowed, e := u.members.varSubstitution()
+		if e != nil {
+			return result, e
+		}
+		defer func() {
+			if err == nil {
+				u.members.sub = result
+			}
+		}()
+		return result, u.extractSubstitutions(result, target, source, names, borrowed)
+	}
 	rename, err = rewriter.NewVarSubstitution(m, false)
 	if err != nil {
 		return result, err
 	}
+	return result, u.extractSubstitutions(result, target, source, names, rename)
+}
+
+func (u *unfoldedClause) extractSubstitutions(result *proofSubstitutions, target, source *Clause, names []ast.ASTHandle, rename *rewriter.VarSubstitution) error {
+	m := u.manager
 	for bank, clause := range []*Clause{target, source} {
 		vars, e := clause.freeVariables()
 		if e != nil {
-			return result, e
+			return e
 		}
 		for i := uint32(0); i < vars.Size(); i++ {
 			sort, e := vars.Get(i)
 			if e != nil {
-				return result, e
+				return e
 			}
 			out, e := m.NewRef(ast.ASTHandle{})
 			if e != nil {
-				return result, e
+				return e
 			}
 			result.banks[bank] = append(result.banks[bank], out)
 			if sort.IsNull() {
 				truth, e := m.MkTrue()
 				if e != nil {
-					return result, e
+					return e
 				}
 				if e = m.SetRef(out, truth); e != nil {
-					return result, e
+					return e
 				}
 				continue
 			}
 			variable, e := m.MkVar(i, sort)
 			if e != nil {
-				return result, e
+				return e
 			}
 			tmp, e := m.NewRef(ast.ASTHandle{})
 			if e != nil {
-				return result, e
+				return e
 			}
 			e = u.bindings.Apply(2, []uint32{0, u.maxVars}, substitution.NewExprOffset(variable, uint32(bank)), tmp)
 			if e == nil {
@@ -104,9 +123,9 @@ func (u *unfoldedClause) proofSubstitutions(target, source *Clause) (result *pro
 			}
 			e = errors.Join(e, m.DelRef(&tmp))
 			if e != nil {
-				return result, e
+				return e
 			}
 		}
 	}
-	return result, nil
+	return nil
 }

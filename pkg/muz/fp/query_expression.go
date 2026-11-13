@@ -163,6 +163,9 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	clone, err := e.newQueryClone()
 	if clone != nil {
 		clone.expressionClone = true
+		if clone.backend == EngineCLP.String() {
+			clone.clpContext = e
+		}
 	}
 	if err != nil {
 		return lbool.Undef, err

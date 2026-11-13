@@ -121,7 +121,12 @@ func TestPDRInputTraceOriginalOwnerSurvivesDumpFailure(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "Background axioms cannot be used with SMT-LIB2 HORN format") {
 		t.Fatal("missing later dump failure", err)
 	}
-	if e.pdr == nil || m.Stats().LiveReferences != before+contextReferences {
+	// The context's rule manager keeps the query rule's m_head and m_body
+	// until its next rule, and pins the fresh query!N predicate
+	// (context::register_predicate); release the former and count the latter.
+	fragmentMust(t, e.rules.ReleaseHornTemporaries())
+	const pinnedQueryPredicate = 1
+	if e.pdr == nil || m.Stats().LiveReferences != before+contextReferences+pinnedQueryPredicate {
 		t.Fatal("failed expression trace lost temporary owners or its PDR context", before, contextReferences, m.Stats().LiveReferences)
 	}
 	prequery := e.pdr

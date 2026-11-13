@@ -122,7 +122,12 @@ func (p *PredicateTransformer) SelectRule(md *model.ModelCore) (_ RuleSelection,
 			resultErr = errors.Join(resultErr, selection.Close())
 		}
 	}()
-	for _, normalized := range p.rules {
+	// find_rule walks m_tag2rule in table order.
+	ordered, err := p.tagTableRules()
+	if err != nil {
+		return RuleSelection{}, err
+	}
+	for _, normalized := range ordered {
 		if normalized.tag.IsNull() {
 			continue
 		}

@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/clp"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
@@ -46,10 +47,22 @@ func (e *PropositionalEngine) queryCLPPredicate(declaration ast.ASTHandle) (resu
 			result = lbool.Undef
 		}
 	}()
-	queryDeclaration, err := preprocessed.rules.DerivedPredicate(declaration)
+	// rules.get_output_predicates().empty() answers l_false; otherwise
+	// get_output_predicate() is the first entry of the obj_hashtable.
+	outputs, err := preprocessed.rules.OutputPredicates()
 	if err != nil {
 		return lbool.Undef, err
 	}
+	if len(outputs) == 0 {
+		return lbool.False, nil
+	}
+	table := ast.NewObjMap(e.manager)
+	for _, output := range outputs {
+		if err = table.Insert(output, [2]ast.ASTHandle{}); err != nil {
+			return lbool.Undef, err
+		}
+	}
+	queryDeclaration := table.FirstKeys(1)[0]
 	rules, err := preprocessed.rules.PredicateRules(queryDeclaration)
 	if err != nil {
 		return lbool.Undef, err
@@ -82,4 +95,78 @@ func (e *PropositionalEngine) queryCLPPredicate(declaration ast.ASTHandle) (resu
 	}
 	attempt.engine = engine
 	return engine.Query(query)
+}
+
+// replaceCLPContextRules is the end of apply_default_transformation(m_ctx)
+// under clp::imp::query: the rule transformer's
+// m_rule_set.replace_rules(*new_rules) makes the transformed program (query
+// rule included) the context's own rules and releases the originals, so a
+// later query starts from these rules.
+func (e *PropositionalEngine) replaceCLPContextRules(transformed *base.RuleSet) error {
+	context := e.clpContext
+	if context == nil || context.set == nil {
+		return ErrPropositionalEngine
+	}
+	// The query clone shares the context's rule manager, where the
+	// transforms registered their fresh predicates (context::
+	// mk_fresh_head_predicate); the context's predicate states follow.
+	register := func(declaration ast.ASTHandle) error {
+		if context.predicates[declaration] != nil {
+			return nil
+		}
+		if err := context.RegisterPredicate(declaration); err != nil {
+			return err
+		}
+		if e.auxiliary[declaration] {
+			context.auxiliary[declaration] = true
+		}
+		return nil
+	}
+	count, err := transformed.Len()
+	if err != nil {
+		return err
+	}
+	for i := 0; i < count; i++ {
+		rule, err := transformed.Rule(i)
+		if err != nil {
+			return err
+		}
+		head, err := rule.HeadDeclaration()
+		if err == nil {
+			err = register(head)
+		}
+		uninterpreted, uErr := rule.UninterpretedTailSize()
+		err = errors.Join(err, uErr)
+		for j := 0; err == nil && j < uninterpreted; j++ {
+			var tail ast.ASTHandle
+			if tail, err = rule.TailDeclaration(j); err == nil {
+				err = register(tail)
+			}
+		}
+		if err = errors.Join(err, rule.Close()); err != nil {
+			return err
+		}
+	}
+	outputs, err := transformed.OutputPredicates()
+	if err != nil {
+		return err
+	}
+	for _, declaration := range outputs {
+		if err = register(declaration); err != nil {
+			return err
+		}
+	}
+	finalized, err := context.set.IsFinalized()
+	if err == nil && finalized {
+		err = context.set.Reopen()
+	}
+	if err == nil {
+		err = context.set.ReplaceRules(transformed)
+	}
+	if err != nil {
+		return err
+	}
+	context.advanceRuleRevision()
+	// The query clone's copy of the original program goes with it.
+	return e.set.ReplaceRules(transformed)
 }

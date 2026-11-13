@@ -77,7 +77,7 @@ func (s *tabSearch) insertResolutionProof(converter interface{ Insert(ast.ASTHan
 	m := s.manager
 	attempt := &tabResolutionProofAttempt{manager: m}
 	defer func() { err = finishTabResolutionProofAttempt(attempt, err) }()
-	unfolded, matched, err := unfoldClauseExpressionsWithBindings(parent, parent.predicateIndex, rule, true)
+	unfolded, matched, err := unfoldClauseExpressionsWith(parent, parent.predicateIndex, rule, true, s.unifierSlot())
 	if err != nil {
 		return err
 	}
@@ -97,7 +97,9 @@ func (s *tabSearch) insertResolutionProof(converter interface{ Insert(ast.ASTHan
 	if err != nil {
 		return err
 	}
-	attempt.sub = sub
+	if unfolded.members == nil {
+		attempt.sub = sub
+	}
 	substitutions := make([][]ast.ASTHandle, 2)
 	for bank := range sub.banks {
 		for _, ref := range sub.banks[bank] {

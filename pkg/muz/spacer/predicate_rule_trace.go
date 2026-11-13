@@ -19,7 +19,11 @@ func (p *PredicateTransformer) traceRuleSelectionCandidates() error {
 			if err != nil {
 				return err
 			}
-			for _, normalized := range p.rules {
+			ordered, err := p.tagTableRules()
+			if err != nil {
+				return err
+			}
+			for _, normalized := range ordered {
 				if normalized.tag.IsNull() {
 					continue
 				}

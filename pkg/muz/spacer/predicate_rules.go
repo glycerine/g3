@@ -790,19 +790,11 @@ func (p *PredicateTransformer) makeAssumptions(head, formula ast.ASTHandle) (_ [
 	if pr, err = p.manager.NewRef(asserted); err != nil {
 		return nil, err
 	}
-	tag2rule := ast.NewObjMap(p.manager)
-	byTag := make(map[ast.ASTHandle]*spacerNormalizedRule, len(p.rules))
-	for _, rule := range p.rules {
-		if rule.tag.IsNull() {
-			continue
-		}
-		if _, err = tag2rule.InsertIfNotThere(rule.tag); err != nil {
-			return nil, err
-		}
-		byTag[rule.tag] = rule
+	ordered, err := p.tagTableRules()
+	if err != nil {
+		return nil, err
 	}
-	for _, entry := range tag2rule.Entries() {
-		rule := byTag[entry.Key]
+	for _, rule := range ordered {
 		for index, predecessor := range rule.predecessors {
 			predecessorHead, err := predecessor.Head()
 			if err != nil {
@@ -972,4 +964,27 @@ func (p *PredicateTransformer) AllInitial() (bool, error) {
 		return false, err
 	}
 	return p.allInitial, nil
+}
+
+// tagTableRules lists the tagged rules in the iteration order of
+// m_tag2rule, an obj_map<expr, rule const*> filled in rule order by
+// init_rules: its table order follows the tags' hashes.
+func (p *PredicateTransformer) tagTableRules() ([]*spacerNormalizedRule, error) {
+	tag2rule := ast.NewObjMap(p.manager)
+	byTag := make(map[ast.ASTHandle]*spacerNormalizedRule, len(p.rules))
+	for _, rule := range p.rules {
+		if rule.tag.IsNull() {
+			continue
+		}
+		if _, err := tag2rule.InsertIfNotThere(rule.tag); err != nil {
+			return nil, err
+		}
+		byTag[rule.tag] = rule
+	}
+	entries := tag2rule.Entries()
+	result := make([]*spacerNormalizedRule, 0, len(entries))
+	for _, entry := range entries {
+		result = append(result, byTag[entry.Key])
+	}
+	return result, nil
 }

@@ -47,6 +47,14 @@ func TestAPIFixedpointLastDefaultModel(t *testing.T) {
 					if backend == "ddnf" {
 						want = lbool.Undef
 					}
+					if backend == "clp" && reachable {
+						// As in z3 4.7.1, clp's first query replaces the
+						// context's rules with the transformed program
+						// (mk_query + apply_default_transformation), so the
+						// second query no longer sees p's fact: the fork
+						// answers unsat to (query u) then (query p).
+						want = lbool.False
+					}
 					var status lbool.LBool
 					var err error
 					if expression {

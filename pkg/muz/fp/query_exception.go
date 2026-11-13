@@ -3,6 +3,7 @@ package fp
 import (
 	"errors"
 
+	"github.com/glycerine/g3/pkg/interp"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/util/z3exception"
 )
@@ -34,6 +35,15 @@ func SourceDefaultExceptionMessage(err error) string {
 				return false
 			}
 			message = head.SourceMessage
+			return true
+		}
+		// iz3's interpolation_error is an iz3_exception, a z3_exception
+		// that dl_query_cmd catches as "query failed".
+		if _, ok := e.(interp.InterpolationError); ok {
+			if message != "" {
+				return false
+			}
+			message = e.Error()
 			return true
 		}
 		if e == ErrUnstratifiedNegation {

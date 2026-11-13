@@ -61,7 +61,12 @@ func (p *PredicateTransformer) reachAssumptions(level uint32) (_ []ast.ASTHandle
 			resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, references))
 		}
 	}()
-	for _, rule := range p.rules {
+	// populate reach_assumps walks m_tag2rule in table order.
+	ordered, err := p.tagTableRules()
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, rule := range ordered {
 		if rule.tag.IsNull() || len(rule.predecessors) == 0 {
 			continue
 		}

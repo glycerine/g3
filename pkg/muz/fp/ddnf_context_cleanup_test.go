@@ -51,7 +51,25 @@ func TestDDNFContextDumpWriterFailurePreservesRulesAndRetry(t *testing.T) {
 				t.Fatal("source DDNF query dump", status, baseline.String())
 			}
 			fragmentMust(t, e.SelectEngine("datalog"))
+			// Each query pins its fresh query!N predicate in the context's
+			// rule manager (context::register_predicate), as in the source;
+			// a failed query must retain exactly what a completed one does.
+			pinned := contextDisplayLiveCounts(m.Stats())
+			fragmentMust(t, e.SelectEngine("ddnf"))
+			fragmentMust(t, e.SetDDNFOutput(&bytes.Buffer{}))
+			_, err = query()
+			fragmentMust(t, err)
+			fragmentMust(t, e.SelectEngine("datalog"))
 			before := contextDisplayLiveCounts(m.Stats())
+			var perQuery [4]uint64
+			for i := range perQuery {
+				perQuery[i] = before[i] - pinned[i]
+			}
+			advance := func() {
+				for i := range before {
+					before[i] += perQuery[i]
+				}
+			}
 			original := errors.New("DDNF dump writer refused output")
 			for _, limit := range []int{0, len("(declare-rel ddnf-writer-P ())\n"), baseline.Len() - 2} {
 				fragmentMust(t, e.SelectEngine("ddnf"))
@@ -64,6 +82,7 @@ func TestDDNFContextDumpWriterFailurePreservesRulesAndRetry(t *testing.T) {
 				// preprocessing pass. Replacing the backend releases that
 				// source-lifetime state before a new query attempt.
 				fragmentMust(t, e.SelectEngine("datalog"))
+				advance()
 				if after := contextDisplayLiveCounts(m.Stats()); after != before {
 					t.Fatal("failed dump leaked AST ownership", limit, before, after)
 				}
@@ -76,6 +95,7 @@ func TestDDNFContextDumpWriterFailurePreservesRulesAndRetry(t *testing.T) {
 					t.Fatal("dump retry changed source output or persistent owner", status, retry.String())
 				}
 				fragmentMust(t, e.SelectEngine("datalog"))
+				advance()
 				if after := contextDisplayLiveCounts(m.Stats()); after != before {
 					t.Fatal("dump retry leaked AST ownership", limit, before, after)
 				}

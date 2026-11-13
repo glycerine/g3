@@ -68,9 +68,11 @@ type RuleManager struct {
 	// labels is rule_manager::m_rwr: one label_rewriter for the manager's
 	// life, whose rewriter cache keeps every app it rewrote (identity
 	// results included) until destruction.
-	labels         *rewriter.LabelRewriter
-	closed         bool
-	cleanupPending bool
+	labels *rewriter.LabelRewriter
+	// labelsInterrupted: a failure interrupted labels' last rewrite.
+	labelsInterrupted bool
+	closed            bool
+	cleanupPending    bool
 }
 
 func NewRuleManager(manager *ast.ASTManager) (*RuleManager, error) {
@@ -809,4 +811,31 @@ func (m *RuleManager) Close() error {
 	m.cleanupPending = false
 	m.closed = true
 	return nil
+}
+
+// removeLabels is m_rwr.remove_labels. The context's one rule manager
+// outlives every query, so a rewrite interrupted by a failure must not leave
+// m_rwr mid-traversal (rewriter_tpl resets itself the same way when a
+// cancellation interrupts main_loop): the interrupted rewriter is replaced
+// before its next use.
+func (m *RuleManager) removeLabels(formula, proof ast.ASTRef) error {
+	if m.labelsInterrupted {
+		fresh, err := rewriter.NewLabelRewriter(m.manager)
+		if err != nil {
+			if fresh != nil {
+				err = errors.Join(err, fresh.Close())
+			}
+			return err
+		}
+		if err = m.labels.Close(); err != nil {
+			return errors.Join(err, fresh.Close())
+		}
+		m.labels = fresh
+		m.labelsInterrupted = false
+	}
+	err := m.labels.RemoveLabels(formula, proof)
+	if err != nil {
+		m.labelsInterrupted = true
+	}
+	return err
 }

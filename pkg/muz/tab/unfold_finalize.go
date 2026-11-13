@@ -124,11 +124,20 @@ func finalizeUnfoldedClause(u *unfoldedClause, rw *rewriter.TheoryRewriter, lite
 		attempt.result = result
 		return result, true, nil
 	}
-	subst, err := rewriter.NewVarSubstitution(m, false)
-	if err != nil {
-		return nil, false, err
+	var subst *rewriter.VarSubstitution
+	if u.members != nil {
+		// m_S2 is the engine unifier's member.
+		subst, err = u.members.varSubstitution()
+		if err != nil {
+			return nil, false, err
+		}
+	} else {
+		subst, err = rewriter.NewVarSubstitution(m, false)
+		if err != nil {
+			return nil, false, err
+		}
+		attempt.subst = subst
 	}
-	attempt.subst = subst
 	apply := func(h ast.ASTHandle) (ast.ASTHandle, error) {
 		ref, e := m.NewRef(ast.ASTHandle{})
 		if e != nil {

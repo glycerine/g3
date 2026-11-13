@@ -13,12 +13,20 @@ type unfoldedClause struct {
 	predicates       []ast.ASTRef
 	bindings         *substitution.Substitution
 	rename           []ast.ASTRef
+	// members is the engine's unifier: it owns bindings and receives
+	// rename when the clause closes.
+	members *unifierMembers
 	maxVars          uint32
 }
 
 func (u *unfoldedClause) Close() error {
 	if u == nil || u.manager == nil {
 		return nil
+	}
+	if u.members != nil {
+		u.bindings = nil
+		u.members.rename = append(u.members.rename, u.rename...)
+		u.rename = nil
 	}
 	if u.bindings != nil {
 		if err := u.bindings.Close(); err != nil {
@@ -60,6 +68,12 @@ func unfoldClauseExpressions(target *Clause, selected uint32, source *Clause) (r
 }
 
 func unfoldClauseExpressionsWithBindings(target *Clause, selected uint32, source *Clause, saveBindings bool) (result *unfoldedClause, matched bool, err error) {
+	return unfoldClauseExpressionsWith(target, selected, source, saveBindings, nil)
+}
+
+// unfoldClauseExpressionsWith runs on the engine's unifier members when
+// given: reset() first, then m_S1 is the substitution.
+func unfoldClauseExpressionsWith(target *Clause, selected uint32, source *Clause, saveBindings bool, members *unifierMembers) (result *unfoldedClause, matched bool, err error) {
 	if target == nil || source == nil || target.closed || source.closed || target.manager != source.manager {
 		return nil, false, ast.ErrASTHandle
 	}
@@ -77,11 +91,22 @@ func unfoldClauseExpressionsWithBindings(target *Clause, selected uint32, source
 	if err != nil {
 		return nil, false, err
 	}
-	subst, err := substitution.New(m)
-	if err != nil {
-		return nil, false, err
+	var subst *substitution.Substitution
+	if members != nil {
+		if err = members.reset(); err != nil {
+			return nil, false, err
+		}
+		subst, err = members.substitution()
+		if err != nil {
+			return nil, false, err
+		}
+	} else {
+		subst, err = substitution.New(m)
+		if err != nil {
+			return nil, false, err
+		}
+		attempt.substitution = subst
 	}
-	attempt.substitution = subst
 	count := target.numVars
 	if source.numVars > count {
 		count = source.numVars
@@ -98,7 +123,7 @@ func unfoldClauseExpressionsWithBindings(target *Clause, selected uint32, source
 	if err != nil || !matched {
 		return nil, matched, err
 	}
-	result = &unfoldedClause{manager: m}
+	result = &unfoldedClause{manager: m, members: members}
 	attempt.result = result
 	apply := func(h ast.ASTHandle, offset uint32) (ref ast.ASTRef, e error) {
 		ref, e = m.NewRef(ast.ASTHandle{})
@@ -174,7 +199,7 @@ func unfoldClauseExpressionsWithBindings(target *Clause, selected uint32, source
 	if err != nil {
 		return result, false, err
 	}
-	if saveBindings {
+	if saveBindings || members != nil {
 		result.bindings = subst
 		result.maxVars = count
 		attempt.substitution = nil

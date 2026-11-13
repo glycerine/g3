@@ -22,11 +22,12 @@ func setNonemptyFiniteRegister(context *ExecutionContext, index uint32, table Fi
 	if err != nil {
 		return err
 	}
-	// Empty sparse owners carry their concrete representation through later
-	// unions and stores. Hash empties preserve the established nil fast path.
+	// Source instructions follow every result with
+	// if (reg->fast_empty()) make_empty(reg): sparse tables report emptiness
+	// exactly, so their empty results leave the register null as well.
 	if count == 0 {
 		switch table.(type) {
-		case *SparseTable, *FiniteCheckedPair, *FormulaCheckedTable, *FormulaCheckedFinitePair:
+		case *FiniteCheckedPair, *FormulaCheckedTable, *FormulaCheckedFinitePair:
 			// Preserve concrete empty owners selected by the relation manager.
 		default:
 			if err = table.Close(); err != nil {

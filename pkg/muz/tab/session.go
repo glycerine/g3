@@ -10,6 +10,8 @@ type Session struct {
 	nextSequence uint32
 	// grounded holds the subsumption index's last setup across queries.
 	grounded *groundClause
+	// unifier is imp::m_unifier.
+	unifier *unifierMembers
 	// rules and search are imp::m_rules and imp::m_clauses of the last
 	// query: m_rules.init resets the former and init_clause the latter.
 	rules  *RuleIndex
@@ -72,6 +74,12 @@ func (s *Session) Close() error {
 	}
 	if err := s.releaseRules(); err != nil {
 		return err
+	}
+	if s.unifier != nil {
+		if err := s.unifier.Close(); err != nil {
+			return err
+		}
+		s.unifier = nil
 	}
 	if s.grounded != nil {
 		if err := s.grounded.Close(); err != nil {

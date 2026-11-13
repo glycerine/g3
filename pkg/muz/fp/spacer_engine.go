@@ -400,6 +400,9 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 		}
 	}
 	_, err = transformer.Apply(prepared)
+	if err == nil && e.clpContext != nil {
+		err = e.replaceCLPContextRules(prepared)
+	}
 	var initialConeSteps, laterConeSteps, finalConeSteps []transforms.ConeModelStep
 	var inlineModelRules [][]transforms.InlineModelRule
 	var subsumptionModelSteps [][]transforms.ConeModelStep

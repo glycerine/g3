@@ -2656,3 +2656,27 @@ addFixedBitEquality (~35% of g7); trace mode: flattened format node
 hash-consing (~40%), prepareTraceAcquisition frame init (~3%), let-binding
 pretty printer (~22%); relevancy watch maps by slot; hash-cons teardown
 dictionary as a position-indexed slice.
+
+## Fixedpoint round 3 (2026-11-12, late)
+
+FIXED: query clones share the context's rule manager (z3 has one per
+context: last head/body, label rewriter cache and pinned predicates persist
+across queries); clp writes the transformed program back into the context
+(mk_query + apply_default_transformation), so repeated clp queries now give
+z3's answers (e.g. query u then query p is unsat/unsat in both); clp query
+predicate is the first output predicate in hash-table order; tab unifier
+members live until the next unify; tab certificates use mk_pp; iz3
+InterpolationError surfaces as z3's "query failed: theory not supported by
+interpolation or bad proof"; empty sparse-table results clear the register
+(no extra project_rename/union); query command reports :time; spacer walks
+rules in tag-table hash order. Vectors fp_clp_* (7), fp_tab_requery_rule_manager.
+Leads: tab3 line 121 (smt solver pop order after the tautology check, ids
+#66/#70 swapped - smtcore); tab_proof line 75 (proof-mode rule flush frees an
+and term later); dual1 line 110 (theory rewriter proof cache keeps proof
+terms in z3 - pkg/ast/rewriter); spacer_multi line 34332 (and conjunct order
+around mbp/der); pdr_multi line 388642 (g3 frees a lemma z3 keeps, likely the
+lemma-to-level map / m_levels); rlimit-count differs (51 vs 47, 80 vs 79:
+missing rewriter or rule-transformer canceled() checks); coverage check for
+karr datalog machinery (fp/datalog_karr_*) and errRetryUnslicedProof
+before deleting; qlinear eval_q kept as g3's corrected version (the
+source path crashes z3 4.7.1: "Failed to verify: unifier.unify_rules").

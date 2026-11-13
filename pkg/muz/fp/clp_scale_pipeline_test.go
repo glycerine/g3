@@ -59,7 +59,11 @@ func TestCLPScaleQueryAnswerAndDefaultModel(t *testing.T) {
 			for _, query := range []struct {
 				decl ast.ASTHandle
 				want lbool.LBool
-			}{{p, lbool.True}, {q, lbool.False}, {p, lbool.True}} {
+			}{{p, lbool.True}, {q, lbool.True}, {p, lbool.True}} {
+				// clp::imp::query transforms the context's rules: the second
+				// query's output predicates are the first query!N (whose
+				// rule derives it) and its own, and get_output_predicate()
+				// takes the hash table's first entry, as in z3 4.7.1.
 				status, err := e.QueryPredicate(query.decl)
 				fragmentMust(t, err)
 				if status != query.want {
@@ -89,33 +93,20 @@ func TestCLPScaleQueryAnswerAndDefaultModel(t *testing.T) {
 				checkEmptyEngineDefaultModel(t, second)
 				fragmentMust(t, second.Close())
 			}
-			// CLP discards its temporary preprocessing result after each query.
-			// Inspect the same pipeline to verify that scale actually ran.
-			prepared, err := e.preprocessHornRulesWithQueryRule(p, nil, true, true, false, false)
-			fragmentMust(t, err)
-			derived := prepared.scaledPredicates[p]
-			if enabled {
-				if derived.IsNull() {
-					t.Fatal("scale did not produce a predicate")
-				}
-				arity, err := m.GetArity(derived)
-				fragmentMust(t, err)
-				if arity != 2 {
-					t.Fatalf("scaled predicate arity = %d, want 2", arity)
-				}
-			} else if !derived.IsNull() || len(prepared.scaledPredicates) != 0 {
-				t.Fatal("scale ran with default parameters")
-			}
-			fragmentMust(t, prepared.Close())
+			// clp::imp::query leaves the transformed program as the context's
+			// rules; with scale on, its predicates gained the scale column.
 			predicates, err := e.Predicates()
 			fragmentMust(t, err)
-			rules, err := e.Rules()
-			fragmentMust(t, err)
-			if len(predicates) != 2 || len(rules) != 1 {
-				t.Fatalf("query changed program: %d predicates, %d rules", len(predicates), len(rules))
+			scaled := 0
+			for _, predicate := range predicates {
+				arity, err := m.GetArity(predicate)
+				fragmentMust(t, err)
+				if arity == 2 {
+					scaled++
+				}
 			}
-			for i := range rules {
-				fragmentMust(t, m.DelRef(&rules[i]))
+			if enabled != (scaled != 0) {
+				t.Fatalf("scale enabled %v, scaled predicates %d", enabled, scaled)
 			}
 		})
 	}

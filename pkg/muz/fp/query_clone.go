@@ -23,9 +23,9 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 	var clone *PropositionalEngine
 	var err error
 	if e.params != nil && e.globals != nil {
-		clone, err = NewPropositionalEngineWithServices(e.manager, e.params, e.globals)
+		clone, err = newPropositionalEngineWithServices(e.manager, e.params, e.globals, e.rulesShare)
 	} else {
-		clone, err = NewPropositionalEngine(e.manager)
+		clone, err = newPropositionalEngine(e.manager, e.rulesShare)
 	}
 	if err != nil {
 		return nil, err

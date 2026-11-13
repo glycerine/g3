@@ -87,7 +87,7 @@ func (m *RuleManager) addFormulaWithProof(set *RuleSet, formula, proof ast.ASTHa
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, m.manager.DelRef(&proofRef)) }()
-	if err = m.labels.RemoveLabels(formulaRef, proofRef); err != nil {
+	if err = m.removeLabels(formulaRef, proofRef); err != nil {
 		return err
 	}
 	formula, err = m.manager.RefGet(formulaRef)

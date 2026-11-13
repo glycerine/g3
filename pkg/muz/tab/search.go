@@ -28,6 +28,8 @@ type tabSearch struct {
 	unfold, unfoldFail, subsumed   uint32
 	// grounded is the index's last setup when there is no session.
 	grounded *groundClause
+	// unifier is imp::m_unifier when there is no session.
+	unifier *unifierMembers
 	closed   bool
 }
 
@@ -38,6 +40,20 @@ func (s *tabSearch) groundedSlot() **groundClause {
 		return &s.session.grounded
 	}
 	return &s.grounded
+}
+
+// unifierSlot is imp::m_unifier, a member of the engine like groundedSlot.
+func (s *tabSearch) unifierSlot() *unifierMembers {
+	if s.session != nil {
+		if s.session.unifier == nil {
+			s.session.unifier = &unifierMembers{manager: s.manager}
+		}
+		return s.session.unifier
+	}
+	if s.unifier == nil {
+		s.unifier = &unifierMembers{manager: s.manager}
+	}
+	return s.unifier
 }
 
 // newTabSearch takes ownership of query and borrows the rule index and services.
@@ -123,6 +139,12 @@ func (s *tabSearch) Close() error {
 			return err
 		}
 		s.grounded = nil
+	}
+	if s.unifier != nil {
+		if err := s.unifier.Close(); err != nil {
+			return err
+		}
+		s.unifier = nil
 	}
 	s.closed = true
 	return nil
@@ -249,7 +271,7 @@ func (s *tabSearch) Run() (lbool.LBool, error) {
 		if err != nil {
 			return lbool.Undef, err
 		}
-		unfolded, matched, err := unfoldClauseExpressions(current, current.predicateIndex, rule)
+		unfolded, matched, err := unfoldClauseExpressionsWith(current, current.predicateIndex, rule, false, s.unifierSlot())
 		if err != nil {
 			return lbool.Undef, err
 		}
