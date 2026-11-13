@@ -358,7 +358,7 @@ var scriptResults = map[string]string{
 	"qe_real_strict_bound_div_simplify.smt2":        "(goals\n(goal\n  (let ((a!1 (and (not (<= 7.0 (+ a b))) (not (<= b (/ 14.0 3.0)))))\n        (a!2 (not (<= 0.0 (+ a (* (- (/ 1.0 2.0)) b))))))\n  (let ((a!3 (and a!2 (or (not (<= b 10.0)) (<= b (/ 14.0 3.0))))))\n    (or a!1 a!3)))\n  :precision precise :depth 1)\n)\n",
 	"qe_real_disequality_bounds.smt2":               "(goals\n(goal\n  (let ((a!1 (and (<= (+ a (* (- 1.0) b)) 0.0)\n                  (or (not (<= 3.0 b)) (not (<= b 3.0)))))\n        (a!2 (not (<= 0.0 (+ a (* (- 1.0) b))))))\n    (or (and (not (<= 3.0 a)) (>= b 3.0)) a!1 a!2))\n  :precision precise :depth 1)\n)\n",
 	"qe_int_nested_mod_residues.smt2":               "(goals\n(goal\n  :precision precise :depth 1)\n)\n",
-	"qe_rec_real_disjunction.smt2":                  "(goals\n(goal\n  (exists ((x!0 Real))\n    (let ((a!1 (<= (+ b (* (- 1.0) (to_real 2) x!0)) 0.0))\n          (a!2 (not (<= (+ (* (- 1.0) b) (* (- 1.0) x!0)) (- 7.0))))\n          (a!3 (not (<= (+ (* (- 1.0) a) (* (- 1.0) b)) (- 7.0)))))\n      (and (or (not a!1) a!2) a!3 false)))\n  :precision precise :depth 1)\n)\n",
+	"qe_rec_real_disjunction.smt2":                  "(goals\n(goal\n  (exists ((x Real))\n    (and (< a x) (< (* (to_real 2) x) b) (or (> x 5.0) (< (+ x b) 7.0))))\n  :precision precise :depth 1)\n)\n",
 	"qe_rec_forall_exists_real.smt2":                "(goals\n(goal\n  :precision precise :depth 1)\n)\n",
 	"qe_rec_nested_alternation.smt2":                "(goals\n(goal\n  (or (> a 3.0) true)\n  :precision precise :depth 1)\n)\n",
 	"qe_rec_int_forall_implies.smt2":                "(goals\n(goal\n  false\n  :precision precise :depth 1)\n)\n",

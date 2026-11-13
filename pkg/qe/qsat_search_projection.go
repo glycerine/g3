@@ -100,7 +100,7 @@ func (s *qsatSearch) initialize(formula ast.ASTRef) (err error) {
 		return err
 	}
 	defer s.finish(c, &err)
-	if err = s.preparation.abstraction.emit("operator()", 1247, func(w io.Writer) error {
+	if err = s.preparation.abstraction.emit("operator()", 1267, func(w io.Writer) error {
 		h, e := s.manager.RefGet(formula)
 		if e != nil {
 			return e
@@ -133,7 +133,7 @@ func (s *qsatSearch) initialize(formula ast.ASTRef) (err error) {
 	if err = s.prepareKernels(c, formula); err != nil {
 		return err
 	}
-	return s.preparation.abstraction.emit("operator()", 1258, func(w io.Writer) error {
+	return s.preparation.abstraction.emit("operator()", 1278, func(w io.Writer) error {
 		_, _ = io.WriteString(w, "ex: ")
 		h, e := s.manager.RefGet(formula)
 		if e != nil {
@@ -295,7 +295,7 @@ func (s *qsatSearch) project(_ *qsatSearchCall, core *[]ast.ASTRef) (bool, error
 }
 
 func (s *qsatSearch) projectCore(c *qsatSearchCall, core *[]ast.ASTRef) (bool, error) {
-	if err := s.preparation.abstraction.emit("project", 891, func(w io.Writer) error {
+	if err := s.preparation.abstraction.emit("project", 892, func(w io.Writer) error {
 		if e := s.display(w); e != nil {
 			return e
 		}
@@ -357,9 +357,10 @@ func (s *qsatSearch) projectCore(c *qsatSearchCall, core *[]ast.ASTRef) (bool, e
 	var scopes uint32
 	if level.Max() == NoQuantifierLevel {
 		scopes = 2 * (s.level / 2)
-	} else if s.mode == qsatRecursiveQE {
-		scopes = 2
 	} else {
+		// BACKPORT upstream z3 1ce0d7512 / 8ad939a10 (fix #2974/#2990): the
+		// qsat_qe_rec special case (num_scopes = 2) is removed; elim now
+		// hoists like qe mode, so the ordinary level computation applies.
 		if uint64(level.Max())+2 > uint64(s.level) {
 			return false, nil
 		}
@@ -371,7 +372,7 @@ func (s *qsatSearch) projectCore(c *qsatSearchCall, core *[]ast.ASTRef) (bool, e
 	if err = s.pop(scopes); err != nil {
 		return false, err
 	}
-	if err = s.preparation.abstraction.emit("project", 925, func(w io.Writer) error {
+	if err = s.preparation.abstraction.emit("project", 926, func(w io.Writer) error {
 		_, _ = fmt.Fprintf(w, "backtrack: %d new level: %d\nproject:\n", scopes, s.level)
 		if e := writeExpressionVector(s.manager, s.config, w, *core); e != nil {
 			return e

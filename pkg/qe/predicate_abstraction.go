@@ -65,8 +65,11 @@ type PredicateAbstraction struct {
 	pred2lit, lit2pred, asm2pred, pred2asm map[ast.ASTHandle]ast.ASTHandle
 	// pred2litTable reproduces the source obj_map m_pred2lit table layout so
 	// validate_defs and display iterate it in source order; the Go map
-	// pred2lit stays the lookup.
-	pred2litTable                       *ast.ObjMap
+	// pred2lit stays the lookup. lit2predTable, asm2predTable and
+	// pred2asmTable likewise reproduce m_lit2pred, m_asm2pred and m_pred2asm
+	// so reset's dec_keys releases each map's keys in source table order.
+	pred2litTable, lit2predTable        *ast.ObjMap
+	asm2predTable, pred2asmTable        *ast.ObjMap
 	predKeys, litKeys, asmKeys, defKeys []ast.ASTRef
 	exprLevels, declLevels              map[ast.ASTHandle]MaxLevel
 	filter                              *tactic.FilterModelConverter
@@ -120,7 +123,8 @@ func NewPredicateAbstraction(m *ast.ASTManager, config Config) (result *Predicat
 		pred2lit: make(map[ast.ASTHandle]ast.ASTHandle), lit2pred: make(map[ast.ASTHandle]ast.ASTHandle),
 		asm2pred: make(map[ast.ASTHandle]ast.ASTHandle), pred2asm: make(map[ast.ASTHandle]ast.ASTHandle),
 		exprLevels: make(map[ast.ASTHandle]MaxLevel), declLevels: make(map[ast.ASTHandle]MaxLevel),
-		pred2litTable: ast.NewObjMap(m)}
+		pred2litTable: ast.NewObjMap(m), lit2predTable: ast.NewObjMap(m),
+		asm2predTable: ast.NewObjMap(m), pred2asmTable: ast.NewObjMap(m)}
 	p.self = p
 	defer func() {
 		if err != nil {
@@ -168,6 +172,51 @@ func (p *PredicateAbstraction) closeRefs(refs *[]ast.ASTRef) error {
 	}
 	return nil
 }
+
+// closeRefsForward is ref_vector reset/destruction: dec_range_ref front to
+// back.
+func (p *PredicateAbstraction) closeRefsForward(refs *[]ast.ASTRef) error {
+	for i := range *refs {
+		if (*refs)[i] != (ast.ASTRef{}) {
+			if err := p.manager.DelRef(&(*refs)[i]); err != nil {
+				*refs = (*refs)[i:]
+				return err
+			}
+		}
+	}
+	*refs = nil
+	return nil
+}
+
+// closeKeysInTableOrder is dec_keys(map): one reference per key, released in
+// the obj_map table order. A key re-added to m_pred2lit holds an extra
+// reference the source never releases (a source leak); Go releases such
+// leftovers afterwards, front to back.
+func (p *PredicateAbstraction) closeKeysInTableOrder(refs *[]ast.ASTRef, table *ast.ObjMap) error {
+	index := make(map[ast.ASTHandle][]int, len(*refs))
+	for i, r := range *refs {
+		if r == (ast.ASTRef{}) {
+			continue
+		}
+		h, err := p.manager.RefGet(r)
+		if err != nil {
+			return err
+		}
+		index[h] = append(index[h], i)
+	}
+	for _, entry := range table.Entries() {
+		at := index[entry.Key]
+		if len(at) == 0 {
+			continue
+		}
+		index[entry.Key] = at[1:]
+		if err := p.manager.DelRef(&(*refs)[at[0]]); err != nil {
+			return err
+		}
+	}
+	return p.closeRefsForward(refs)
+}
+
 func (c *predicateCall) hold(h ast.ASTHandle, err error) (ast.ASTHandle, error) {
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -245,21 +294,37 @@ func (p *PredicateAbstraction) Reset() error {
 	if err := p.drain(); err != nil {
 		return err
 	}
-	for _, refs := range []*[]ast.ASTRef{&p.trail, &p.predKeys, &p.litKeys, &p.asmKeys, &p.defKeys, &p.assumptions} {
-		if err := p.closeRefs(refs); err != nil {
+	// Source reset: m_trail.reset() releases front to back; dec_keys
+	// releases m_pred2lit, m_lit2pred, m_asm2pred, then m_pred2asm keys in
+	// each obj_map's table order; m_asms.reset() and m_preds.reset() (each
+	// app_ref_vector in turn) release front to back.
+	if err := p.closeRefsForward(&p.trail); err != nil {
+		return err
+	}
+	for _, k := range []struct {
+		refs  *[]ast.ASTRef
+		table *ast.ObjMap
+	}{{&p.predKeys, p.pred2litTable}, {&p.litKeys, p.lit2predTable}, {&p.asmKeys, p.asm2predTable}, {&p.defKeys, p.pred2asmTable}} {
+		if err := p.closeKeysInTableOrder(k.refs, k.table); err != nil {
 			return err
 		}
 	}
+	if err := p.closeRefsForward(&p.assumptions); err != nil {
+		return err
+	}
 	for i := range p.predicates {
-		if err := p.closeRefs(&p.predicates[i]); err != nil {
+		if err := p.closeRefsForward(&p.predicates[i]); err != nil {
 			return err
 		}
 	}
 	clear(p.pred2lit)
 	p.pred2litTable.Reset()
 	clear(p.lit2pred)
+	p.lit2predTable.Reset()
 	clear(p.asm2pred)
+	p.asm2predTable.Reset()
 	clear(p.pred2asm)
+	p.pred2asmTable.Reset()
 	clear(p.exprLevels)
 	p.predicates = nil
 	p.limits = nil
@@ -378,6 +443,9 @@ func (p *PredicateAbstraction) addPredicate(a, lit ast.ASTHandle) error {
 			return err
 		}
 		p.lit2pred[lit] = a
+		if err := p.lit2predTable.Insert(lit, [2]ast.ASTHandle{a}); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -466,7 +534,7 @@ func (p *PredicateAbstraction) abstractAtoms(c *predicateCall, formula ast.ASTHa
 			return err
 		}
 		if pred, ok := p.lit2pred[a]; ok {
-			if err := p.emit("abstract_atoms", 239, func(out io.Writer) error {
+			if err := p.emit("abstract_atoms", 240, func(out io.Writer) error {
 				if e := writeExpression(p.manager, p.config, out, a); e != nil {
 					return e
 				}
@@ -541,7 +609,7 @@ func (p *PredicateAbstraction) abstractAtoms(c *predicateCall, formula ast.ASTHa
 			}
 		}
 		if !boolOp && isBool {
-			if err := p.emit("abstract_atoms", 268, func(out io.Writer) error {
+			if err := p.emit("abstract_atoms", 269, func(out io.Writer) error {
 				if e := writeExpression(p.manager, p.config, out, a); e != nil {
 					return e
 				}

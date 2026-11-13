@@ -1774,7 +1774,19 @@ namespace smt {
                 m_ineq_literals[i].neg();
             }
             TRACE("pb", tout << m_ineq_literals << "\n";);
-            ctx.mk_clause(m_ineq_literals.size(), m_ineq_literals.c_ptr(), justify(m_ineq_literals), CLS_AUX_LEMMA, nullptr);
+            {
+                // FORK FIX (z3 4.7.1 bug; upstream removed this code in its pb rewrite, first in 4.8.5):
+                // justify() allocates a theory_axiom_justification in the context
+                // region, but a CLS_AUX_LEMMA clause owns its justification and
+                // dealloc's it (heap) when the lemma is deleted, aborting with
+                // "free(): invalid pointer" in clause::deallocate. Heap-allocate a
+                // theory_lemma_justification like the other lemma sites in this file.
+                justification* js = nullptr;
+                if (proofs_enabled()) {
+                    js = alloc(theory_lemma_justification, get_id(), ctx, m_ineq_literals.size(), m_ineq_literals.c_ptr());
+                }
+                ctx.mk_clause(m_ineq_literals.size(), m_ineq_literals.c_ptr(), js, CLS_AUX_LEMMA, nullptr);
+            }
             break;
         default: {
             app_ref tmp = m_lemma.to_expr(false, ctx, get_manager());

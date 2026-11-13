@@ -111,8 +111,10 @@ func TestSMTPBResolutionNativeCutPreservesAssumptionGuardsAndProof(t *testing.T)
 					t.Fatal("cut dropped an assumption guard", core)
 				}
 				if proofs {
-					if _, ok := clause.Justification().(*SMTTheoryAxiomJustification); !ok {
-						t.Fatal("cut lost its source theory-axiom resolution barrier")
+					// FORK FIX (z3 4.7.1 bug; upstream removed this code in its pb
+					// rewrite, first in 4.8.5): the cut is a heap theory lemma.
+					if _, ok := clause.Justification().(*SMTTheoryLemmaJustification); !ok {
+						t.Fatal("cut lost its theory-lemma justification")
 					}
 					proof, err := resolver.conflictProof(conflict, s.ConflictLiteral(), nil)
 					astTestMust(t, err)

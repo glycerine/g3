@@ -22,6 +22,7 @@ Notes:
 
 #include "ast/expr_abstract.h"
 #include "ast/ast_util.h"
+#include "ast/occurs.h" // BACKPORT upstream z3 1ce0d7512 / 8ad939a10 (fix #2974/#2990): occurs() for elim
 #include "ast/rewriter/quant_hoist.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/th_rewriter.h"
@@ -908,9 +909,9 @@ namespace qe {
             if (level.max() == UINT_MAX) {
                 num_scopes = 2*(m_level/2);
             }
-            else if (m_mode == qsat_qe_rec) {
-                num_scopes = 2;
-            }
+            // BACKPORT upstream z3 1ce0d7512 / 8ad939a10 (fix #2974/#2990): the
+            // qsat_qe_rec special case (num_scopes = 2) is removed; elim now
+            // hoists like qe mode, so the ordinary level computation applies.
             else {
                 if (level.max() + 2 > m_level) return false;
                 SASSERT(level.max() + 2 <= m_level);
@@ -1001,11 +1002,21 @@ namespace qe {
                     if (is_fa) {
                         tmp = ::push_not(tmp);
                     }
+                    // BACKPORT upstream z3 1ce0d7512 / 8ad939a10 (fix #2974/#2990):
+                    // trace elim input; a null elim result means the quantifier
+                    // could not be eliminated, so keep e unchanged.
+                    TRACE("qe", tout << "elim-rec " << tmp << "\n";);
                     tmp = elim(vars, tmp);
+                    if (!tmp) {
+                        visited.insert(e, e);
+                        todo.pop_back();
+                        break;
+                    }
                     if (is_fa) {
                         tmp = ::push_not(tmp);
                     }
                     trail.push_back(tmp);
+                    TRACE("qe", tout << tmp << "\n";);
                     visited.insert(e, tmp);
                     todo.pop_back();
                     break;
@@ -1019,16 +1030,30 @@ namespace qe {
             return expr_ref(e, m);
         }
         
-        expr_ref elim(app_ref_vector const& vars, expr* _fml) {
+        /*
+         * Solve ex (x) phi(x)
+         *
+         * BACKPORT upstream z3 1ce0d7512 / 8ad939a10 (fix #2974/#2990): use the
+         * same code path as qe: re-wrap as exists vars. fml, negate, hoist
+         * (which gives every free constant a level, fixing the m_elevel.find
+         * crash in pred_abs::abstract_atoms), and require a ground result.
+         * Returns a null expr_ref when fml has nested quantifiers or the
+         * check is not l_false; the answer is existentially closed only over
+         * the projected free vars that still occur in it.
+         */
+        expr_ref elim(app_ref_vector& vars, expr* _fml) {
             expr_ref fml(_fml, m);
-            reset();
-            m_vars.push_back(app_ref_vector(m));
-            m_vars.push_back(vars);
-            initialize_levels();
-            fml = push_not(fml);            
-
-            TRACE("qe", tout << vars << " " << fml << "\n";);
             expr_ref_vector defs(m);
+            if (has_quantifiers(fml)) {
+                return expr_ref(m);
+            }
+            reset();
+            fml = ::mk_exists(m, vars.size(), vars.c_ptr(), fml);
+            fml = ::push_not(fml);
+            hoist(fml);
+            if (!is_ground(fml)) {
+                throw tactic_exception("formula is not hoistable");
+            }
             m_pred_abs.abstract_atoms(fml, defs);
             fml = m_pred_abs.mk_abstract(fml);
             m_ex.assert_expr(mk_and(defs));
@@ -1037,27 +1062,22 @@ namespace qe {
             m_fa.assert_expr(m.mk_not(fml));
             TRACE("qe", tout << "ex: " << fml << "\n";);
             lbool is_sat = check_sat();
-            fml = ::mk_and(m_answer);
-            TRACE("qe", tout << "ans: " << fml << "\n";
-                  tout << "Free vars: " << m_free_vars << "\n";);            
-            if (is_sat == l_false) {
-                obj_hashtable<app> vars;
+
+            unsigned j = 0;
+            switch (is_sat) {
+            case l_false:
+                fml = ::mk_and(m_answer);
                 for (unsigned i = 0; i < m_free_vars.size(); ++i) {
-                    app* v = m_free_vars[i].get();
-                    if (vars.contains(v)) {
-                        m_free_vars[i] = m_free_vars.back();
-                        m_free_vars.pop_back();
-                        --i;
-                    }
-                    else {
-                        vars.insert(v);
-                    }
+                    app* v = m_free_vars.get(i);
+                    if (occurs(v, fml)) m_free_vars[j++] = v;
                 }
-                fml = mk_exists(m, m_free_vars.size(), m_free_vars.c_ptr(), fml);
+                m_free_vars.shrink(j);
+                if (!m_free_vars.empty()) {
+                    fml = ::mk_exists(m, m_free_vars.size(), m_free_vars.c_ptr(), fml);
+                }
                 return fml;
-            }
-            else {
-                return expr_ref(_fml, m);
+            default:
+                return expr_ref(m);
             }
         }
 

@@ -70,7 +70,7 @@ func (s *qsatSearch) validateDefinitions(msg string) (bool, error) {
 	if err != nil || valid {
 		return valid, err
 	}
-	err = s.preparation.abstraction.emit("validate_defs", 776, func(w io.Writer) error {
+	err = s.preparation.abstraction.emit("validate_defs", 777, func(w io.Writer) error {
 		_, _ = io.WriteString(w, msg+"\n")
 		if e := s.display(w); e != nil {
 			return e
@@ -151,7 +151,7 @@ func (c *qsatSearchCall) validateAssumptions(md *model.ModelCore, forms []ast.AS
 			return false, err
 		}
 		if !s.manager.IsTrue(v) {
-			err = s.preparation.abstraction.emit("validate_assumptions", 1069, func(w io.Writer) error {
+			err = s.preparation.abstraction.emit("validate_assumptions", 1089, func(w io.Writer) error {
 				_, _ = io.WriteString(w, "component of core is not true: ")
 				if e := writeExpression(s.manager, s.config, w, h); e != nil {
 					return e
@@ -180,7 +180,7 @@ func (c *qsatSearchCall) validateAssumptionsDebug(md *model.ModelCore, forms []a
 			return true, nil
 		}
 		valid = false
-		return false, s.preparation.abstraction.emit("validate_assumptions", 1069, func(w io.Writer) error {
+		return false, s.preparation.abstraction.emit("validate_assumptions", 1089, func(w io.Writer) error {
 			_, _ = io.WriteString(w, "component of core is not true: ")
 			if e := writeExpression(s.manager, s.config, w, h); e != nil {
 				return e
@@ -226,7 +226,7 @@ func (s *qsatSearch) checkLoop() (status lbool.LBool, err error) {
 				return lbool.Undef, err
 			}
 		}
-		if err = s.preparation.abstraction.emit("check_sat", 619, func(w io.Writer) error {
+		if err = s.preparation.abstraction.emit("check_sat", 620, func(w io.Writer) error {
 			if e := writeExpressionVector(s.manager, s.config, w, *asms); e != nil {
 				return e
 			}
@@ -277,7 +277,7 @@ func (s *qsatSearch) checkLoop() (status lbool.LBool, err error) {
 			}
 			// Source validate_model is an unconditional true stub; its disabled
 			// solver-validation body is not activated here.
-			if err = s.preparation.abstraction.emit("check_sat", 628, func(w io.Writer) error {
+			if err = s.preparation.abstraction.emit("check_sat", 629, func(w io.Writer) error {
 				if e := solver.Display(w, nil); e != nil {
 					return e
 				}

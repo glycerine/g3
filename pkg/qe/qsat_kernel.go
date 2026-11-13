@@ -243,7 +243,7 @@ func (k *qsatKernel) getCore(out *[]ast.ASTRef) (err error) {
 	if tags == nil {
 		tags = diagnostic.BorrowProcessTraceTags()
 	}
-	err = tags.EmitConditional("qe", "get_core", "src/qe/qsat.cpp", 562, func() bool { return true }, func(w io.Writer) error {
+	err = tags.EmitConditional("qe", "get_core", "src/qe/qsat.cpp", 563, func() bool { return true }, func(w io.Writer) error {
 		w = traceBodyWriter{w}
 		_, _ = io.WriteString(w, "core: ")
 		if e := writeExpressionVector(k.manager, k.config, w, *out); e != nil {

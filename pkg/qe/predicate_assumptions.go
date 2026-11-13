@@ -28,12 +28,17 @@ func (p *PredicateAbstraction) Pop(count uint32) error {
 	}
 	i := len(p.limits) - int(count)
 	limit := p.limits[i]
-	for len(p.assumptions) > limit {
-		j := len(p.assumptions) - 1
+	// m_asms.resize(limit): dec_range_ref releases the tail front to back.
+	for j := limit; j < len(p.assumptions); j++ {
+		if p.assumptions[j] == (ast.ASTRef{}) {
+			continue
+		}
 		if err := p.manager.DelRef(&p.assumptions[j]); err != nil {
 			return err
 		}
-		p.assumptions = p.assumptions[:j]
+	}
+	if len(p.assumptions) > limit {
+		p.assumptions = p.assumptions[:limit]
 	}
 	p.limits = p.limits[:i]
 	return nil
@@ -109,7 +114,7 @@ func (p *PredicateAbstraction) GetAssumptions(md *model.ModelCore, out *[]ast.AS
 	if err = c.startEvaluator(md, true); err != nil {
 		return err
 	}
-	if err = p.emit("get_assumptions", 162, func(out io.Writer) error { return md.WriteV2(out, p.config.Context, p.config.Globals, false) }); err != nil {
+	if err = p.emit("get_assumptions", 163, func(out io.Writer) error { return md.WriteV2(out, p.config.Context, p.config.Globals, false) }); err != nil {
 		return err
 	}
 	for _, r := range p.predicates[level-1] {
@@ -117,7 +122,7 @@ func (p *PredicateAbstraction) GetAssumptions(md *model.ModelCore, out *[]ast.AS
 		if e != nil {
 			return e
 		}
-		if e = p.emit("get_assumptions", 167, func(out io.Writer) error {
+		if e = p.emit("get_assumptions", 168, func(out io.Writer) error {
 			_, _ = fmt.Fprintf(out, "process level: %d: ", level-1)
 			if e := writeExpression(p.manager, p.config, out, h); e != nil {
 				return e
@@ -160,7 +165,7 @@ func (p *PredicateAbstraction) GetAssumptions(md *model.ModelCore, out *[]ast.AS
 			}
 		}
 	}
-	return p.emit("get_assumptions", 199, func(w io.Writer) error {
+	return p.emit("get_assumptions", 200, func(w io.Writer) error {
 		_, _ = fmt.Fprintf(w, "level: %d\n", level)
 		if e := md.WriteV2(w, p.config.Context, p.config.Globals, false); e != nil {
 			return e
@@ -183,7 +188,7 @@ func (p *PredicateAbstraction) MakeAssumptionLiteral(formula ast.ASTHandle, md *
 		return err
 	}
 	a := hs[0]
-	if err = p.emit("mk_assumption_literal", 348, func(w io.Writer) error {
+	if err = p.emit("mk_assumption_literal", 349, func(w io.Writer) error {
 		if e := writeExpression(p.manager, p.config, w, a); e != nil {
 			return e
 		}
@@ -282,7 +287,13 @@ func (p *PredicateAbstraction) MakeAssumptionLiteral(formula ast.ASTHandle, md *
 	}
 	p.asm2pred[inner] = b
 	p.pred2asm[b] = inner
-	if err = p.emit("mk_assumption_literal", 380, func(w io.Writer) error {
+	if err = p.asm2predTable.Insert(inner, [2]ast.ASTHandle{b}); err != nil {
+		return err
+	}
+	if err = p.pred2asmTable.Insert(b, [2]ast.ASTHandle{inner}); err != nil {
+		return err
+	}
+	if err = p.emit("mk_assumption_literal", 381, func(w io.Writer) error {
 		if e := writeExpression(p.manager, p.config, w, inner); e != nil {
 			return e
 		}
@@ -383,7 +394,7 @@ func (p *PredicateAbstraction) ValidateDefinitions(md *model.ModelCore) (valid b
 			return false, e
 		}
 		if x != y {
-			if e = p.emit("validate_defs", 522, func(w io.Writer) error {
+			if e = p.emit("validate_defs", 523, func(w io.Writer) error {
 				for i, h := range []ast.ASTHandle{a, x, b, y} {
 					if e := writeExpression(p.manager, p.config, w, h); e != nil {
 						return e

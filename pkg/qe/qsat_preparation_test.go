@@ -197,7 +197,7 @@ func TestQSATPreparationResetTraceAndGuards(t *testing.T) {
 	c.f.r.config.Trace = tags
 	p := qsatPrepareOwner(t, c.f)
 	fmMust(t, p.hoist(qsatSAT, c.formula))
-	if tags.ShouldTrace("qe") && !strings.Contains(trace.String(), "hoist src/qe/qsat.cpp:749") {
+	if tags.ShouldTrace("qe") && !strings.Contains(trace.String(), "hoist src/qe/qsat.cpp:750") {
 		t.Fatal(trace.String())
 	}
 	fmMust(t, p.reset())

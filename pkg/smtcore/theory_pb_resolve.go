@@ -205,14 +205,16 @@ func (t *SMTPseudoBooleanTheory) resolutionClause(literals []SMTLiteral) error {
 		return err
 	}
 	if enabled {
-		axiom, err := NewSMTTheoryAxiomJustification(t.state.manager, t.FamilyID(), literals, nil)
+		// FORK FIX (z3 4.7.1 bug; upstream removed this code in its pb rewrite,
+		// first in 4.8.5): source justify() region-allocated a
+		// theory_axiom_justification that the CLS_AUX_LEMMA clause later
+		// dealloc'ed from the heap ("free(): invalid pointer" at exit). The
+		// fixed fork heap-allocates a theory_lemma_justification, like the
+		// other pb lemma sites (add_clause, the simplex conflict).
+		owner, err = NewSMTTheoryLemmaJustification(t.state.manager, t.FamilyID(), literals, t.state.boolExpr, nil)
 		if err != nil {
 			return err
 		}
-		// Auxiliary lemmas own their Go justification through clause lifetime.
-		// Keep the source theory-axiom type, including its resolution barrier.
-		axiom.heap = true
-		owner = axiom
 	}
 	return t.state.addClauseKindWithJustificationAndDeleteHandler(literals, false, SMTClauseAuxLemma, ast.ASTHandle{}, owner, nil)
 }

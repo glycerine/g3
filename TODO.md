@@ -1888,8 +1888,10 @@ Found while matching `-st` output against `build/z3` on
       #121. So some rewriter member (m_pr, or a proof result stack entry)
       still holds the last proof after main_loop. Find it with gdb and
       model it in ast/rewriter's engine (r.pr).
-    - qe_rec_free_boolean (z3 segfaults) and pb_strengthening_proof (z3
-      aborts while printing the proof) cannot be compared.
+    - DONE (2026-11-13): qe_rec_free_boolean (z3 segfaulted) and
+      pb_strengthening_proof (z3 aborted at context destruction) are now
+      comparable: the fork carries the qsat backport (upstream 1ce0d7512 /
+      8ad939a10) and a theory_pb heap-justification fix, and g3 ports both.
     - lra_propagation_mode_updates and arithmetic_eq_options: item 27.
     - nla2bv_real_models 1711: in bv2real_util::align_divisors
       (mk_le -> align_divisors -> mk_bv_mul(rational, t)), z3 frees a
@@ -2926,3 +2928,19 @@ interleaves them on one trail; undo copes via the r2 tail and
 deleteAfterEqualityUndo); -tr:delete_node_bug differs on seed 4034 (format
 nodes; not visible in trace=true); ReregisterFunction is not
 transactional if ReplaceFunction failed after f_aux was registered.
+
+## Status (2026-11-13): qsat/qe and theory_pb crash fixes backported
+
+The fork's src/qe/qsat.cpp, src/qe/qe.cpp and src/smt/theory_pb.cpp carry
+the backported fixes (see the z3 4.7.1 bug notes above), and g3 ports them.
+build/z3, build_dbg/z3 and build_trace/z3 were rebuilt with them; the
+pre-backport binaries are saved in
+/var/tmp/g3-job-487c9ee8/fork-before-qsat-pb-backport/.
+fullcmp2: 801 trace-identical, 0 differ; the only stdout difference is
+bv_native_operator_models (documented z3 bug); 11 timeouts are slow
+trace=true runs. qe_rec_real_disjunction's expected output changed: the old
+fork answer reduced the satisfiable existential to false (unsound); the fixed
+elim leaves it unchanged.
+The same fixes (plus the relevancy and pareto backports of c3c0016bd) were
+applied, uncommitted, to ivy's vendored z3 (goivy/z3vendor/z3), with
+FORK_BUGFIXES.md, fork_bugfixes/test_vectors and src/test/fork_bugfixes.cpp.

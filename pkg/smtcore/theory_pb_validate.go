@@ -91,7 +91,7 @@ func (t *SMTPseudoBooleanTheory) validateAssign(c *smtPBConstraint, premises []S
 		}
 	}
 	if sum.Cmp(&c.current().bound) >= 0 {
-		if err = t.emitPB("validate_assign", 1867, func(out io.Writer) error {
+		if err = t.emitPB("validate_assign", 1879, func(out io.Writer) error {
 			_, _ = io.WriteString(out, "invalid assign")
 			if err := t.displayInequality(out, c, true); err != nil {
 				return err
@@ -173,7 +173,7 @@ func (t *SMTPseudoBooleanTheory) validateFinalConstraint(c *smtPBConstraint) err
 		}
 	}
 	k := &c.current().bound
-	if err = t.emitPB("validate_final_check", 1906, func(out io.Writer) error {
+	if err = t.emitPB("validate_final_check", 1918, func(out io.Writer) error {
 		_, _ = io.WriteString(out, "validate: ")
 		if err := t.displayInequality(out, c, true); err != nil {
 			return err

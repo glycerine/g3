@@ -38,7 +38,7 @@ func (s *qsatSearch) maximizeCore(core *[]ast.ASTRef) error {
 	if s.value == nil || s.objective.IsNull() {
 		return ast.ErrASTHandle
 	}
-	if err := s.preparation.abstraction.emit("maximize_core", 1363, func(w io.Writer) error {
+	if err := s.preparation.abstraction.emit("maximize_core", 1383, func(w io.Writer) error {
 		_, _ = io.WriteString(w, "maximize: ")
 		if e := writeExpressionVector(s.manager, s.config, w, *core); e != nil {
 			return e

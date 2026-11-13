@@ -297,7 +297,7 @@ func TestQSATKernelAllocationFrontiers(t *testing.T) {
 						fmMust(t, k.Close())
 					}
 					if err == nil {
-						if phase == "trace" && f.r.config.Trace.ShouldTrace("qe") && !strings.Contains(trace.String(), "get_core src/qe/qsat.cpp:562") {
+						if phase == "trace" && f.r.config.Trace.ShouldTrace("qe") && !strings.Contains(trace.String(), "get_core src/qe/qsat.cpp:563") {
 							t.Fatal(trace.String())
 						}
 						success = true

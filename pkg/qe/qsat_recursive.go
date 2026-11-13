@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -84,7 +85,8 @@ func (c *qsatSearchCall) extractVariablesCore(q ast.ASTHandle, body ast.ASTRef, 
 }
 
 // eliminate is qsat::elim(vars, _fml). It returns the expr_ref result as an
-// owned reference; its locals (fml, defs) end when it returns, defs first.
+// owned reference (a null reference when elimination is not possible); its
+// locals (fml, defs) end when it returns, defs first.
 func (s *qsatSearch) eliminate(vars []ast.ASTRef, original ast.ASTHandle) (result ast.ASTRef, err error) {
 	c := s.call()
 	result, err = s.eliminateCore(c, vars, original)
@@ -99,6 +101,17 @@ func (s *qsatSearch) eliminate(vars []ast.ASTRef, original ast.ASTHandle) (resul
 	return result, s.closeRound(c)
 }
 
+// eliminateCore solves ex (x) phi(x).
+//
+// BACKPORT upstream z3 1ce0d7512 / 8ad939a10 (fix #2974/#2990): elim uses
+// the same code path as qe: re-wrap as exists vars. fml, negate, hoist
+// (which gives every free constant a level, so abstract_atoms no longer
+// dereferences a missing level for e.g. exists x. x or free), and require a
+// ground result. It returns a null expr_ref when fml has nested quantifiers
+// or the check is not l_false; the answer is existentially closed only over
+// the projected free vars that still occur in it. This replaces the old
+// [empty, vars] + initialize_levels setup, its dedupe of m_free_vars, and
+// g3's former ComputeLevel workaround for the old crash.
 func (s *qsatSearch) eliminateCore(c *qsatSearchCall, vars []ast.ASTRef, original ast.ASTHandle) (result ast.ASTRef, err error) {
 	m := s.manager
 	// expr_ref fml(_fml, m);
@@ -106,51 +119,56 @@ func (s *qsatSearch) eliminateCore(c *qsatSearchCall, vars []ast.ASTRef, origina
 	if err != nil {
 		return result, err
 	}
+	// if (has_quantifiers(fml)) return expr_ref(m);
+	quantified, err := m.HasQuantifiers(original)
+	if err != nil {
+		return result, err
+	}
+	if quantified {
+		return m.NewRef(ast.ASTHandle{})
+	}
 	if err = s.resetState(); err != nil {
 		return result, err
 	}
-	if err = s.preparation.appendBlock(nil); err != nil {
+	// fml = ::mk_exists(m, vars.size(), vars.c_ptr(), fml);
+	bound := make([]ast.ASTHandle, len(vars))
+	for i, r := range vars {
+		if bound[i], err = m.RefGet(r); err != nil {
+			return result, err
+		}
+	}
+	if err = s.mkExists(bound, original, formula); err != nil {
 		return result, err
 	}
-	if err = s.preparation.appendBlock(vars); err != nil {
-		return result, err
-	}
-	if err = s.preparation.initializeLevels(); err != nil {
-		return result, err
-	}
-	// fml = push_not(fml);
-	h, err := m.PushNot(original)
+	// fml = ::push_not(fml);
+	h, err := m.RefGet(formula)
 	if err != nil {
+		return result, err
+	}
+	if h, err = m.PushNot(h); err != nil {
 		return result, err
 	}
 	if err = m.SetRef(formula, h); err != nil {
 		return result, err
 	}
-	if err = s.preparation.abstraction.emit("elim", 1030, func(w io.Writer) error {
-		if e := writeExpressionVector(m, s.config, w, vars); e != nil {
-			return e
-		}
-		_, _ = io.WriteString(w, " ")
-		if e := writeExpression(m, s.config, w, h); e != nil {
-			return e
-		}
-		_, _ = io.WriteString(w, "\n")
-		return nil
-	}); err != nil {
+	// hoist(fml);
+	if err = s.preparation.hoist(s.mode, formula); err != nil {
 		return result, err
 	}
-	// Source elim initializes only the quantified variables, then its atom
-	// abstraction blindly finds levels for free Boolean constants. The old
-	// executable dereferences a missing entry for e.g. exists x. x or free.
-	// Compute the existing dependency levels first: explicitly bound levels
-	// stay intact and free parameters receive the ordinary empty sentinel.
-	if _, err = s.preparation.abstraction.ComputeLevel(h); err != nil {
+	if h, err = m.RefGet(formula); err != nil {
 		return result, err
+	}
+	ground, err := m.IsGround(h)
+	if err != nil {
+		return result, err
+	}
+	if !ground {
+		return result, tactic.NewTacticException("formula is not hoistable")
 	}
 	if err = s.prepareKernels(c, formula); err != nil {
 		return result, err
 	}
-	if err = s.preparation.abstraction.emit("elim", 1038, func(w io.Writer) error {
+	if err = s.preparation.abstraction.emit("elim", 1063, func(w io.Writer) error {
 		_, _ = io.WriteString(w, "ex: ")
 		h, e := m.RefGet(formula)
 		if e != nil {
@@ -168,6 +186,10 @@ func (s *qsatSearch) eliminateCore(c *qsatSearchCall, vars []ast.ASTRef, origina
 	if err != nil {
 		return result, err
 	}
+	if status != lbool.False {
+		// default: return expr_ref(m);
+		return m.NewRef(ast.ASTHandle{})
+	}
 	// fml = ::mk_and(m_answer);
 	answers := make([]ast.ASTHandle, len(s.answers))
 	for i, r := range s.answers {
@@ -182,59 +204,43 @@ func (s *qsatSearch) eliminateCore(c *qsatSearchCall, vars []ast.ASTRef, origina
 	if err = m.SetRef(formula, h); err != nil {
 		return result, err
 	}
-	if err = s.preparation.abstraction.emit("elim", 1041, func(w io.Writer) error {
-		_, _ = io.WriteString(w, "ans: ")
-		if e := writeExpression(m, s.config, w, h); e != nil {
-			return e
-		}
-		_, _ = io.WriteString(w, "\nFree vars: ")
-		if e := writeExpressionVector(m, s.config, w, s.freeVariables); e != nil {
-			return e
-		}
-		_, _ = io.WriteString(w, "\n")
-		return nil
-	}); err != nil {
-		return result, err
-	}
-	if status != lbool.False {
-		// return expr_ref(_fml, m);
-		return m.NewRef(original)
-	}
-	seen := make(map[ast.ASTHandle]bool)
-	for i := 0; i < len(s.freeVariables); i++ {
+	// for (app* v : m_free_vars) if (occurs(v, fml)) m_free_vars[j++] = v;
+	// m_free_vars.shrink(j);
+	j := 0
+	for i := range s.freeVariables {
 		v, err := m.RefGet(s.freeVariables[i])
 		if err != nil {
 			return result, err
 		}
-		if !seen[v] {
-			seen[v] = true
-			continue
-		}
-		last := len(s.freeVariables) - 1
-		back, err := m.RefGet(s.freeVariables[last])
+		occurs, err := m.OccursExpr(v, h)
 		if err != nil {
 			return result, err
 		}
-		if err = m.SetRef(s.freeVariables[i], back); err != nil {
-			return result, err
+		if occurs {
+			if err = m.SetRef(s.freeVariables[j], v); err != nil {
+				return result, err
+			}
+			j++
 		}
-		if err = m.DelRef(&s.freeVariables[last]); err != nil {
-			return result, err
-		}
-		s.freeVariables = s.freeVariables[:last]
-		i--
 	}
-	bound := make([]ast.ASTHandle, len(s.freeVariables))
-	for i, r := range s.freeVariables {
-		bound[i], err = m.RefGet(r)
-		if err != nil {
+	// shrink's dec_range_ref releases the tail front to back.
+	for k := j; k < len(s.freeVariables); k++ {
+		if err = m.DelRef(&s.freeVariables[k]); err != nil {
 			return result, err
 		}
 	}
-	// fml = mk_exists(m, n, vars, fml): mk_exists' abstraction locals end
-	// with the call.
-	if err = s.mkExists(bound, h, formula); err != nil {
-		return result, err
+	s.freeVariables = s.freeVariables[:j]
+	if len(s.freeVariables) > 0 {
+		free := make([]ast.ASTHandle, len(s.freeVariables))
+		for i, r := range s.freeVariables {
+			if free[i], err = m.RefGet(r); err != nil {
+				return result, err
+			}
+		}
+		// fml = ::mk_exists(m, m_free_vars.size(), m_free_vars.c_ptr(), fml);
+		if err = s.mkExists(free, h, formula); err != nil {
+			return result, err
+		}
 	}
 	// return fml;
 	h, err = m.RefGet(formula)
@@ -383,6 +389,13 @@ func (s *qsatSearch) eliminateRecursiveLoop(c *qsatSearchCall, root ast.ASTHandl
 			if err != nil {
 				return result, err
 			}
+			// BACKPORT upstream z3 1ce0d7512 / 8ad939a10 (fix #2974/#2990):
+			// a null elim result keeps the quantifier e itself.
+			if v.IsNull() {
+				visited[h] = h
+				todo = todo[:len(todo)-1]
+				break
+			}
 			if err = s.appendRef(trail, v); err != nil {
 				return result, err
 			}
@@ -397,7 +410,8 @@ func (s *qsatSearch) eliminateRecursiveLoop(c *qsatSearchCall, root ast.ASTHandl
 }
 
 // eliminateRecursiveQuantifier is elim_rec's AST_QUANTIFIER case; its
-// app_ref_vector vars ends with the case block.
+// app_ref_vector vars ends with the case block. A null handle result means
+// elim could not eliminate the quantifier (tmp is then null).
 func (s *qsatSearch) eliminateRecursiveQuantifier(h ast.ASTHandle, tmp ast.ASTRef) (ast.ASTHandle, error) {
 	c := s.call()
 	v, err := s.eliminateRecursiveQuantifierCore(c, h, tmp)
@@ -430,7 +444,7 @@ func (s *qsatSearch) eliminateRecursiveQuantifierCore(c *qsatSearchCall, h ast.A
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if err = s.preparation.abstraction.emit("elim_rec", 999, func(w io.Writer) error {
+	if err = s.preparation.abstraction.emit("elim_rec", 1000, func(w io.Writer) error {
 		if e := writeExpressionVector(m, s.config, w, *vars); e != nil {
 			return e
 		}
@@ -460,11 +474,23 @@ func (s *qsatSearch) eliminateRecursiveQuantifierCore(c *qsatSearchCall, h ast.A
 			return ast.ASTHandle{}, err
 		}
 	}
-	// tmp = elim(vars, tmp);
 	body, err = m.RefGet(tmp)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	// BACKPORT upstream z3 1ce0d7512 / 8ad939a10 (fix #2974/#2990): trace
+	// elim's input, and keep e when elim returns null.
+	if err = s.preparation.abstraction.emit("elim_rec", 1008, func(w io.Writer) error {
+		_, _ = io.WriteString(w, "elim-rec ")
+		if e := writeExpression(m, s.config, w, body); e != nil {
+			return e
+		}
+		_, _ = io.WriteString(w, "\n")
+		return nil
+	}); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	// tmp = elim(vars, tmp);
 	eliminated, err := s.eliminate(*vars, body)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -472,12 +498,31 @@ func (s *qsatSearch) eliminateRecursiveQuantifierCore(c *qsatSearchCall, h ast.A
 	if err = s.assignTemporary(tmp, eliminated); err != nil {
 		return ast.ASTHandle{}, err
 	}
+	body, err = m.RefGet(tmp)
+	if err != nil || body.IsNull() {
+		return ast.ASTHandle{}, err
+	}
 	if forall {
 		if err = s.pushNotInto(tmp); err != nil {
 			return ast.ASTHandle{}, err
 		}
 	}
-	return m.RefGet(tmp)
+	body, err = m.RefGet(tmp)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	// Source traces tmp after trail.push_back(tmp); the caller's push
+	// follows here instead, which the trace (no ownership effect) permits.
+	if err = s.preparation.abstraction.emit("elim_rec", 1019, func(w io.Writer) error {
+		if e := writeExpression(m, s.config, w, body); e != nil {
+			return e
+		}
+		_, _ = io.WriteString(w, "\n")
+		return nil
+	}); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return body, nil
 }
 
 // assignTemporary is `dst = f(...)` for an expr_ref temporary result:

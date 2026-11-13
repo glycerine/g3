@@ -398,7 +398,7 @@ func (p *qsatPreparation) hoist(mode qsatMode, formula ast.ASTRef) (err error) {
 	if err = p.initializeLevels(); err != nil {
 		return err
 	}
-	return p.abstraction.emit("hoist", 749, func(w io.Writer) error {
+	return p.abstraction.emit("hoist", 750, func(w io.Writer) error {
 		h, e := p.manager.RefGet(formula)
 		if e != nil {
 			return e
