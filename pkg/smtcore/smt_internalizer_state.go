@@ -1634,6 +1634,13 @@ func (s *SMTInternalizerState) Close() error {
 	if err := s.releaseJustificationsTo(0); err != nil {
 		return fmt.Errorf("close SMT root scope: %w", err)
 	}
+	// context::flush releases m_is_diseq_tmp's owner after
+	// del_justifications (smt_context.cpp:2893-2898).
+	if s.context != nil {
+		if err := s.context.releaseDiseqTmp(); err != nil {
+			return err
+		}
+	}
 	if s.relevancy != nil && len(s.relevancy.scopes) != 0 {
 		if err := s.relevancy.PopScopes(uint32(len(s.relevancy.scopes))); err != nil {
 			return err
@@ -1647,15 +1654,6 @@ func (s *SMTInternalizerState) Close() error {
 			return err
 		}
 		s.afterFlush = nil
-	}
-	for len(s.theoryOrder) != 0 {
-		i := len(s.theoryOrder) - 1
-		if closer, ok := s.theoryOrder[i].(interface{ Close() error }); ok {
-			if err := closer.Close(); err != nil {
-				return fmt.Errorf("close SMT theory %T: %w", s.theoryOrder[i], err)
-			}
-		}
-		s.theoryOrder = s.theoryOrder[:i]
 	}
 	if err := s.releaseLearnedUnits(); err != nil {
 		return err
@@ -1721,13 +1719,20 @@ func (s *SMTInternalizerState) Close() error {
 		s.quantifiers.popScheduled = false
 		s.quantifiers = nil
 	}
-	if s.context != nil {
-		if err := s.context.releaseDiseqTmp(); err != nil {
-			return err
-		}
-	}
+	// ~context destroys members in reverse declaration order: everything
+	// above (m_dyn_ack_manager and later members) goes before m_cg_table,
+	// which goes before m_theories (smt_context.h:117-121).
 	if err := s.congruence.Close(); err != nil {
 		return err
+	}
+	for len(s.theoryOrder) != 0 {
+		i := len(s.theoryOrder) - 1
+		if closer, ok := s.theoryOrder[i].(interface{ Close() error }); ok {
+			if err := closer.Close(); err != nil {
+				return fmt.Errorf("close SMT theory %T: %w", s.theoryOrder[i], err)
+			}
+		}
+		s.theoryOrder = s.theoryOrder[:i]
 	}
 	if s.relevancy != nil && s.relevancy.internalizer == s {
 		s.relevancy.internalizer = nil

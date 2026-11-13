@@ -3009,3 +3009,27 @@ quant_seq_symbolic_int_prefix (431345); stdout: bv_native_operator_models
 only. After the interleaved-trail / add_diseq / lemma GC change: 812
 identical, 1 differs: quant_seq_symbolic_int_prefix (line 431345); the
 two flush_bound_axioms_introsort divergences are gone.
+FIXED quant_seq_symbolic_int_prefix: smt::context teardown order. The atom
+held by m_is_diseq_tmp is released in flush() right after
+del_clauses/del_justifications (smt_context.cpp:2893-2898); ~context
+destroys members in reverse declaration order (dyn_ack, cg_table, then
+theories); th_rewriter::imp destroys m_cfg before the rewriter caches;
+~ast_manager prints undef with the released proof sort. With
+Z3_TRACE_NO_PP: 813 identical / 0 differ / 0 timeouts. Remaining at exit
+only: g3's cmd_context restoreDeclarations deletes 4 user func_decls that
+z3 never deletes (cmd_context::reset calls reset_func_decls first;
+cmd_context.cpp:1244-1258); no log or stdout effect. Possible follow-ups:
+~plugin_manager deletes theories front to back (g3 closes back to front);
+m_fingerprints is destroyed after the theories.
+
+## Fuzz round 16 (2026-11-13, after the interleaved-trail fix)
+
+gen.py/gen2.py 7000-7300, gen3.py 15000-15300, gen4.py 7000-7250: no
+output or model differences. Three quantifier seeds exceed the 30 s fuzz
+limit in g3 only (performance, not fidelity):
+- q_7028: z3 14.9 s, g3 > 300 s untraced; with Z3_TRACE_NO_PP the
+  trace=true logs are identical (185,246,315 lines).
+- q_7056: z3 5.4 s, g3 114 s, same output.
+- q_7248: z3 5.6 s, g3 34 s, same output.
+Inputs kept in the job fuzz dir r16; candidates for the MBQI/e-matching
+performance work (see the performance rounds above).

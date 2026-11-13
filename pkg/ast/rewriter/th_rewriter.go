@@ -1451,14 +1451,16 @@ func (r *TheoryRewriter) Close() error {
 		}
 		r.configuration.usedDependencies = ast.ASTDependency{}
 	}
+	// ~imp destroys its m_cfg member before the rewriter_tpl base and its
+	// caches (th_rewriter.cpp:712-717).
+	if err := r.closeConfiguration(); err != nil {
+		return err
+	}
 	if r.traversal != nil {
 		if err := r.traversal.Close(); err != nil {
 			return err
 		}
 		r.traversal = nil
-	}
-	if err := r.closeConfiguration(); err != nil {
-		return err
 	}
 	if r.paramsPlaced {
 		if err := r.context.Del(&r.params); err != nil {

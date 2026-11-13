@@ -74,7 +74,14 @@ func (m *ASTManager) proofIs(h ASTHandle) (bool, error) {
 	if m.nodeAt(r.slot).kind != ASTApp {
 		return false, nil
 	}
-	return m.declAt(m.appAt(r.slot).decl.slot).rangeSort == m.proofSort, nil
+	proofSort := m.proofSort
+	if proofSort.slot == 0 && m.closing {
+		// ~ast_manager dec_refs m_proof_sort before m_undef_proof but keeps
+		// the pointer, so is_proof still holds while undef is deleted
+		// (ast.cpp:1402-1405); the basic plugin still owns the sort.
+		proofSort = m.basic.proofSort
+	}
+	return m.declAt(m.appAt(r.slot).decl.slot).rangeSort == proofSort, nil
 }
 func (m *ASTManager) proofAppNode(h ASTHandle) (astNodeRef, error) {
 	r, e := m.requireKind(h, ASTApp)
