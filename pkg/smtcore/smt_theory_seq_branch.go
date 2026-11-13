@@ -68,8 +68,9 @@ func (t *SMTTheorySeq) branchBinaryVariable(e *seqEq) bool {
 		// |x| - |y| = |ys| - |xs|
 		lenY := t.mkLength(y) // arguments right to left
 		a := t.ref(x0, t.mkSub(t.mkLength(x), lenY), nil)
-		// unsigned subtraction, as the source writes ys.size()-xs.size()
-		b := t.ref(x0, t.mkInt(int64(uint32(len(ys))-uint32(len(xs)))), nil)
+		// unsigned subtraction, as the source writes ys.size()-xs.size(),
+		// converted to mk_int's int parameter
+		b := t.ref(x0, t.mkInt(int64(int32(uint32(len(ys))-uint32(len(xs))))), nil)
 		t.propagateLit(e.dep, nil, t.mkEq(a, b, false))
 		return true
 	}
@@ -367,11 +368,12 @@ func (t *SMTTheorySeq) findBranchCandidate(start *int, dep *seqDep, ls, rs []ast
 	if !t.isVar(l) {
 		return false
 	}
-	x := t.loc()
-	defer x.drop()
-	v0 := t.ref(x, t.mkEmpty(t.sortOf(l)), nil)
+	// expr_ref v0(m): each assignment releases the previous value.
+	v0R := t.exprRef(ast.ASTHandle{})
+	defer func() { t.chk(v0R.release()) }()
+	t.chk(v0R.set(t.mkEmpty(t.sortOf(l))))
 	if t.canBeEqual(ls[1:], rs) {
-		if t.assumeEquality(l, v0) != lbool.False {
+		if t.assumeEquality(l, v0R.h) != lbool.False {
 			return true
 		}
 	}
@@ -383,8 +385,8 @@ func (t *SMTTheorySeq) findBranchCandidate(start *int, dep *seqDep, ls, rs []ast
 		if !t.canBeEqual(ls[1:], rs[j+1:]) {
 			continue
 		}
-		v0 = t.ref(x, t.mkConcatN(rs[:j+1]), nil)
-		if t.assumeEquality(l, v0) != lbool.False {
+		t.chk(v0R.set(t.mkConcatN(rs[:j+1])))
+		if t.assumeEquality(l, v0R.h) != lbool.False {
 			*start++
 			return true
 		}
@@ -398,8 +400,8 @@ func (t *SMTTheorySeq) findBranchCandidate(start *int, dep *seqDep, ls, rs []ast
 		lits := []SMTLiteral{t.mkEqEmpty(l, true).Negated()}
 		for i := 0; i < len(rs); i++ {
 			if t.canBeEqual(ls[1:], rs[i+1:]) {
-				v0 = t.ref(x, t.mkConcatN(rs[:i+1]), nil)
-				lits = append(lits, t.mkEq(l, v0, false).Negated())
+				t.chk(v0R.set(t.mkConcatN(rs[:i+1])))
+				lits = append(lits, t.mkEq(l, v0R.h, false).Negated())
 			}
 		}
 		for _, lit := range lits {

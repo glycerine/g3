@@ -84,12 +84,28 @@ func (s *SMTInternalizerState) undoEquality(entry *smtEqualityUndo) error {
 	if !entry.merged {
 		return nil
 	}
-	for _, parent := range r1.parents {
-		if !parent.congruenceEnabled {
+	// undo_add_eq: try to reinsert the parents of r1 (r1->m_parents, in
+	// order) that were congruence roots before the merge: those that stayed
+	// roots (erased above, so their congruence is nil here) and those that
+	// are no longer congruent to the root they were attached to.
+	reinsert := func(parent *SMTEnode) error {
+		inserted, err := s.congruence.Insert(parent)
+		if err != nil {
+			return err
+		}
+		parent.congruence = inserted.Node
+		return nil
+	}
+	for _, parent := range r1.sourceParents {
+		// A parent deleted with its scope before this undo can still be
+		// listed here; the source has already dropped it.
+		if parent.manager == nil || !parent.congruenceEnabled {
 			continue
 		}
 		if parent.IsTrueEquality() {
-			parent.congruence = parent
+			if parent.congruence == nil {
+				parent.congruence = parent
+			}
 			continue
 		}
 		if keep := parent.congruence; keep != nil && keep != parent {
@@ -101,11 +117,22 @@ func (s *SMTInternalizerState) undoEquality(entry *smtEqualityUndo) error {
 				continue
 			}
 		}
-		inserted, err := s.congruence.Insert(parent)
-		if err != nil {
+		if err := reinsert(parent); err != nil {
 			return err
 		}
-		parent.congruence = inserted.Node
+	}
+	// Parents outside the source list that lost their table entry above.
+	for _, parent := range r1.parents {
+		if parent.manager == nil || !parent.congruenceEnabled || parent.congruence != nil {
+			continue
+		}
+		if parent.IsTrueEquality() {
+			parent.congruence = parent
+			continue
+		}
+		if err := reinsert(parent); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -314,28 +341,29 @@ func (s *SMTInternalizerState) reinsertCongruenceParents(from, to, n1, n2 *SMTEn
 			to.parents = append(to.parents, parent)
 		}
 		parent.parentOfMergeTarget = false
-		// A nonrepresentative stays attached to its representative, whose
-		// arguments have the same roots, as in the source.
-		if parent.congruence != parent {
-			continue
-		}
-		if !parent.congruenceEnabled || parent.IsTrueEquality() {
-			continue
-		}
+	}
+	insert := func(parent *SMTEnode) (bool, error) {
 		inserted, err := s.congruence.Insert(parent)
 		if err != nil {
-			return err
+			return false, err
 		}
 		parent.congruence = inserted.Node
-		if inserted.Node != parent && inserted.Node.root != parent.root {
+		if inserted.Node == parent {
+			return true, nil
+		}
+		if inserted.Node.root != parent.root {
 			s.pending = append(s.pending, smtPendingEquality{parent, inserted.Node, NewSMTEqualityCongruence(inserted.Commuted)})
 		}
+		return false, nil
 	}
-	// reinsert_parents_into_cg_table copies to r2->m_parents the marked
-	// parents that remain congruence roots (or have congruence closure
-	// disabled). A marked parent that became a true equality is assigned by
-	// eq_propagation_justification and not copied; an unmarked one (not a
-	// congruence root when removed) is left to its congruence root's merge.
+	// reinsert_parents_into_cg_table walks r1->m_parents once, in order: a
+	// marked parent that became a true equality is assigned by
+	// eq_propagation_justification and not copied; any other marked parent
+	// is reinserted into the congruence table, and copied to r2->m_parents
+	// when it remains a congruence root (or has congruence closure
+	// disabled). The insertion order decides which of two congruent parents
+	// stays the root. An unmarked one (not a congruence root when removed)
+	// is left to its congruence root's merge.
 	for _, parent := range from.sourceParents {
 		if !parent.sourceParentMark {
 			continue
@@ -356,8 +384,33 @@ func (s *SMTInternalizerState) reinsertCongruenceParents(from, to, n1, n2 *SMTEn
 			}
 			continue
 		}
-		if !parent.congruenceEnabled || parent.congruence == parent {
+		if !parent.congruenceEnabled {
 			to.sourceParents = append(to.sourceParents, parent)
+			continue
+		}
+		root, err := insert(parent)
+		if err != nil {
+			return err
+		}
+		if root {
+			to.sourceParents = append(to.sourceParents, parent)
+		}
+	}
+	// The Go parent vectors also hold parents outside the source list;
+	// detachCongruenceParents erased every congruence root among them, so
+	// any not reinserted above goes back now.
+	for _, parent := range from.parents {
+		if parent.congruence != parent || !parent.congruenceEnabled || parent.IsTrueEquality() {
+			continue
+		}
+		present, err := s.congruence.ContainsPointer(parent)
+		if err != nil {
+			return err
+		}
+		if !present {
+			if _, err = insert(parent); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

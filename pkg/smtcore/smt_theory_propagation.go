@@ -413,10 +413,6 @@ func (s *SMTInternalizerState) PropagateCore() (bool, error) {
 		if s.inconsistent {
 			return false, nil
 		}
-		dynamicAckProgress, err := s.dynamicAck.propagate()
-		if err != nil {
-			return false, fmt.Errorf("dynamic Ackermann propagation: %w", err)
-		}
 		// propagate_theories: every theory's propagate() runs each round (it
 		// returns early when it has nothing to do); can_theories_propagate()
 		// then decides whether another round is needed.
@@ -441,7 +437,9 @@ func (s *SMTInternalizerState) PropagateCore() (bool, error) {
 		// manager ran, so instances it internalized only cause another
 		// round when they left queued work (a theory with only newly
 		// created rows, for example, is not propagated again).
-		if !dynamicAckProgress && !s.canPropagate() {
+		// dynamic Ackermann propagation now runs once per resolved conflict in
+		// bounded_search (propagate_eh), not inside this loop.
+		if !s.canPropagate() {
 			return true, nil
 		}
 	}

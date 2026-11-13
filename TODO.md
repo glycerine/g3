@@ -2866,3 +2866,25 @@ uses preserveLearnedClauses / learnedUnits instead of z3's
 m_clauses_to_reinit buckets; classifyAUF reimplements the analyzer's
 m_is_auf; a permanent activity_profile trace site would help (most z3 -tr
 tags create pretty-print ASTs and change z3's own behaviour).
+
+## Seq/core search divergences, fuzz round 2 (2026-11-13)
+
+FIXED: theory_seq branch_variable v0 is reassigned like expr_ref (frees the
+old value); branch_binary_variable's ys.size()-xs.size() is an unsigned
+difference converted to int (1-2 = -1, not 4294967295); dynamic Ackermann
+propagate_eh runs once per resolved conflict in bounded_search (not inside
+the propagate loop); restart / conflict-limit checks only when
+!inconsistent() after resolve_conflict; congruence reinsertion walks
+r1->m_parents in source order interleaved with true-eq assignment (first
+inserted stays the root); undo reinserts over sourceParents; arith_eq_adapter
+uses one relevancy handler marking eq, le, ge (AddPairTargetsDependency).
+e_12200 (timed out) now trace-identical in 0.05 s; vector
+seq_binary_eq_negative_length_offset. e_12045 / e_12302 / e_12018 match z3
+for 212-293M trace lines but are 4-6x slower than z3.
+Leads: qfuzz_cached_generation_reinit diverges at line 178 in preprocessing
+(z3 builds (* -1 (f x)) with the ite outside; g3 (* -1 (if c (f x) a)));
+make sourceParents the only congruence parent list (drop the separate
+parents list and fallbacks; remove popped enodes from r1.sourceParents);
+dynAck.propagate's progress result is now unused; with trace=true,
+qfuzz_cheap_eq_after_instance writes a very large trace (z3 too) and times
+out in fullcmp2 (stdout identical, 1.8 s untraced).

@@ -423,12 +423,7 @@ func (a *smtArithmeticEqualityAdapter) AddRelevancy(first, second ast.ASTHandle,
 	if state.relevancy == nil {
 		return nil
 	}
-	for _, target := range targets {
-		if err = state.relevancy.AddPairDependency(first, second, target); err != nil {
-			return err
-		}
-	}
-	return nil
+	return state.relevancy.AddPairTargetsDependency(first, second, targets...)
 }
 
 func (a *smtArithmeticEqualityAdapter) InitializeSearch() error {

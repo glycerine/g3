@@ -523,6 +523,7 @@ var scriptResults = map[string]string{
 	"seq_extract_constant_position_bounds.smt2":    "\"\"\n\"\"\n\"\"\n(str.substr \"abc\" 1 x)\n(str.substr \"abc\" 1 5000000000)\n\"\"\n\"bc\"\n\"b\"\n(seq.unit c)\n(seq.extract (seq.++ (seq.unit c) s) 1 1)\n(error \"simplifier failed: Invalid function application. At least one argument expected\")\n(seq.extract (seq.unit c) 5 1)\n",
 	"seq_contains_extract_past_end.smt2":           "sat\nsat\n(((str.prefixof \"a\" t) true))\n",
 	"seq_negative_symbolic_mixed.smt2":             "sat\n",
+	"seq_binary_eq_negative_length_offset.smt2":    "sat\n",
 	"seq_negative_contains_canonize_scopes.smt2":   "unknown\nunsat\nsat\n(((not (str.contains x \"a\")) true))\nunsat\nsat\n(((= x \"7\") true))\nunknown\n",
 	"queue_factory_fallback_scopes.smt2":           "sat\n(((or a b) true)\n (c true))\nunsat\nsat\nsat\n((b true)\n (c true))\nunsat\nsat\n",
 	"queue_parameter_lifetime_scopes.smt2":         "sat\n(((or a b) true)\n (c true))\nunsat\nsat\nsat\n((b true)\n (c true))\nunsat\nsat\n",

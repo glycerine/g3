@@ -457,12 +457,22 @@ func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool,
 			if !resolved {
 				return lbool.False, false, nil
 			}
-			if k.internalizer.statistics.NumConflicts-conflictBase > k.smtState.MaxConflicts {
-				k.lastFailure = SMTFailureConflictLimit
-				return lbool.Undef, false, nil
-			}
-			if restarts.due(k.internalizer.scopeLevel, baseLevel) {
-				return lbool.Undef, true, nil
+			// if (!inconsistent()) { restart and conflict-limit checks;
+			// m_dyn_ack_manager.propagate_eh(); } A conflict left by the
+			// learned clause goes straight back to resolve_conflict.
+			if !k.internalizer.inconsistent {
+				if restarts.due(k.internalizer.scopeLevel, baseLevel) {
+					return lbool.Undef, true, nil
+				}
+				if k.internalizer.statistics.NumConflicts-conflictBase > k.smtState.MaxConflicts {
+					k.lastFailure = SMTFailureConflictLimit
+					return lbool.Undef, false, nil
+				}
+				// propagate_eh runs once per resolved conflict, not inside
+				// propagate().
+				if _, err = k.internalizer.dynamicAck.propagate(); err != nil {
+					return lbool.Undef, false, fmt.Errorf("dynamic Ackermann propagation: %w", err)
+				}
 			}
 			continue
 		}

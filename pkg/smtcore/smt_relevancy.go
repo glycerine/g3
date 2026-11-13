@@ -16,6 +16,7 @@ const (
 	smtRelevancyOr
 	smtRelevancyITE
 	smtRelevancyTermITE
+	smtRelevancyPairTargets
 )
 
 type smtRelevancyHandler struct {
@@ -23,6 +24,8 @@ type smtRelevancyHandler struct {
 	first, second, target ast.ASTHandle
 	thenEquality          ast.ASTHandle
 	elseEquality          ast.ASTHandle
+	// targets is the target list of one arith_eq_relevancy_eh.
+	targets []ast.ASTHandle
 }
 
 type smtRelevancyTrailKind uint8
@@ -187,6 +190,15 @@ func (p *SMTRelevancyPropagator) invoke(handler smtRelevancyHandler) error {
 			return p.MarkRelevant(handler.target)
 		}
 		return nil
+	case smtRelevancyPairTargets:
+		if p.IsRelevant(handler.first) && p.IsRelevant(handler.second) {
+			for _, target := range handler.targets {
+				if err := p.MarkRelevant(target); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
 	case smtRelevancyAnd:
 		if p.IsRelevant(handler.target) {
 			return p.propagateAnd(handler.target)
@@ -254,6 +266,20 @@ func (p *SMTRelevancyPropagator) AddPairDependency(first, second, target ast.AST
 		return ast.ErrASTHandle
 	}
 	handler := smtRelevancyHandler{kind: smtRelevancyPair, first: first, second: second, target: target}
+	if err := p.addHandler(first, handler); err != nil {
+		return err
+	}
+	return p.addHandler(second, handler)
+}
+
+// AddPairTargetsDependency installs one handler, as arith_eq_relevancy_eh
+// does, that marks every target in order once first and second are both
+// relevant. Separate per-target handlers would run newest first.
+func (p *SMTRelevancyPropagator) AddPairTargetsDependency(first, second ast.ASTHandle, targets ...ast.ASTHandle) error {
+	if p == nil || p.context == nil {
+		return ast.ErrASTHandle
+	}
+	handler := smtRelevancyHandler{kind: smtRelevancyPairTargets, first: first, second: second, targets: append([]ast.ASTHandle(nil), targets...)}
 	if err := p.addHandler(first, handler); err != nil {
 		return err
 	}

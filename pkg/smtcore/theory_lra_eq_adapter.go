@@ -447,10 +447,8 @@ func (a *smtLRAEqualityAdapter) MkAxioms(left, right SMTTheoryVar) (result error
 		return err
 	}
 	if s.relevancy != nil {
-		for _, target := range []ast.ASTHandle{equality, le, ge} {
-			if err = s.relevancy.AddPairDependency(n1.owner, n2.owner, target); err != nil {
-				return err
-			}
+		if err = s.relevancy.AddPairTargetsDependency(n1.owner, n2.owner, equality, le, ge); err != nil {
+			return err
 		}
 	}
 	// lazy_adapter stays false on retained LRA parameter paths. The sole
