@@ -3,6 +3,7 @@ package qe
 // Source: src/qe/qe_arith.cpp imp::operator() and live-row reconstruction.
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -136,19 +137,18 @@ func (c *arithmeticProjectionCall) project(vars, forms *[]ast.ASTRef) error {
 			return err
 		}
 		if _, ok := c.ids.Get2(h); arith && !ok {
-			if _, err = c.id(h); err != nil {
-				return err
-			}
-			if err = p.emit("operator()", 332, func(w io.Writer) error {
-				if e := writeExpression(m, p.config, w, h); e != nil {
-					return e
-				}
-				_, _ = io.WriteString(w, " ")
-				if e := writeExpression(m, p.config, w, c.values[h]); e != nil {
-					return e
-				}
-				_, _ = io.WriteString(w, "\n")
-				return nil
+			if _, err = c.idTrace(h, func(value ast.ASTHandle) error {
+				return p.emit("operator()", 332, func(w io.Writer) error {
+					if e := writeExpression(m, p.config, w, h); e != nil {
+						return e
+					}
+					_, _ = io.WriteString(w, " ")
+					if e := writeExpression(m, p.config, w, value); e != nil {
+						return e
+					}
+					_, _ = io.WriteString(w, "\n")
+					return nil
+				})
 			}); err != nil {
 				return err
 			}
@@ -236,50 +236,100 @@ func (c *arithmeticProjectionCall) project(vars, forms *[]ast.ASTRef) error {
 		if len(row.Terms) == 0 {
 			continue
 		}
-		h, err := c.rowExpression(&row, index)
-		if err != nil {
+		if err := c.projectRow(forms, &row, index); err != nil {
 			return err
-		}
-		if err = p.appendRef(forms, h); err != nil {
-			return err
-		}
-		value, err := c.eval(h)
-		if err != nil {
-			return err
-		}
-		if !m.IsTrue(value) {
-			line, label := 427, "Evaluated "
-			if len(row.Terms) == 1 && row.Terms[0].Coefficient.Sign() < 0 && row.Relation != simplex.Divides {
-				line, label = 394, "Evaluated unit "
-			}
-			if err = p.emit("operator()", line, func(w io.Writer) error {
-				_, _ = io.WriteString(w, label)
-				if e := writeExpression(m, p.config, w, h); e != nil {
-					return e
-				}
-				_, _ = io.WriteString(w, " to ")
-				if e := writeExpression(m, p.config, w, value); e != nil {
-					return e
-				}
-				_, _ = io.WriteString(w, "\n")
-				return nil
-			}); err != nil {
-				return err
-			}
 		}
 	}
 	return nil
 }
-func (c *arithmeticProjectionCall) rowExpression(row *simplex.OptRow, index []ast.ASTHandle) (ast.ASTHandle, error) {
+
+// projectRow is one iteration of the live-row loop: expr_ref_vector ts;
+// expr_ref t, s, val, all released at the end of the iteration (val, s, t,
+// then ts front to back).
+func (c *arithmeticProjectionCall) projectRow(forms *[]ast.ASTRef, row *simplex.OptRow, index []ast.ASTHandle) (err error) {
 	p := c.owner
 	m := p.manager
-	var terms []ast.ASTHandle
+	var ts []ast.ASTRef
+	var t, s, val ast.ASTRef
+	defer func() {
+		for _, r := range []*ast.ASTRef{&val, &s, &t} {
+			if *r != (ast.ASTRef{}) {
+				err = errors.Join(err, m.DelRef(r))
+			}
+		}
+		for i := range ts {
+			err = errors.Join(err, m.DelRef(&ts[i]))
+		}
+	}()
+	if t, err = m.NewRef(ast.ASTHandle{}); err != nil {
+		return err
+	}
+	if s, err = m.NewRef(ast.ASTHandle{}); err != nil {
+		return err
+	}
+	if val, err = m.NewRef(ast.ASTHandle{}); err != nil {
+		return err
+	}
+	h, err := c.rowExpression(row, index, &ts, t, s)
+	if err != nil {
+		return err
+	}
+	if err = p.appendRef(forms, h); err != nil {
+		return err
+	}
+	if err = c.evaluator.Evaluate(h, val); err != nil {
+		return err
+	}
+	value, err := m.RefGet(val)
+	if err != nil {
+		return err
+	}
+	if !m.IsTrue(value) {
+		line, label := 427, "Evaluated "
+		if len(row.Terms) == 1 && row.Terms[0].Coefficient.Sign() < 0 && row.Relation != simplex.Divides {
+			line, label = 394, "Evaluated unit "
+		}
+		if err = p.emit("operator()", line, func(w io.Writer) error {
+			_, _ = io.WriteString(w, label)
+			if e := writeExpression(m, p.config, w, h); e != nil {
+				return e
+			}
+			_, _ = io.WriteString(w, " to ")
+			if e := writeExpression(m, p.config, w, value); e != nil {
+				return e
+			}
+			_, _ = io.WriteString(w, "\n")
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// rowExpression builds the row's formula into t, holding the summands in
+// ts and the bound in s as the source's locals do.
+func (c *arithmeticProjectionCall) rowExpression(row *simplex.OptRow, index []ast.ASTHandle, ts *[]ast.ASTRef, t, s ast.ASTRef) (ast.ASTHandle, error) {
+	p := c.owner
+	m := p.manager
+	into := func(r ast.ASTRef) func(ast.ASTHandle, error) (ast.ASTHandle, error) {
+		return func(h ast.ASTHandle, err error) (ast.ASTHandle, error) {
+			if err != nil {
+				return ast.ASTHandle{}, err
+			}
+			return h, m.SetRef(r, h)
+		}
+	}
 	unitNegative := len(row.Terms) == 1 && row.Terms[0].Coefficient.Sign() < 0 && row.Relation != simplex.Divides
+	var last ast.ASTHandle
 	for _, v := range row.Terms {
 		if int(v.Variable) >= len(index) {
 			return ast.ASTHandle{}, ast.ErrASTDomain
 		}
-		h := index[v.Variable]
+		h, err := into(t)(index[v.Variable], nil)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
 		q := new(big.Rat).Set(&v.Coefficient)
 		if unitNegative {
 			q.Neg(q)
@@ -289,18 +339,24 @@ func (c *arithmeticProjectionCall) rowExpression(row *simplex.OptRow, index []as
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
-			coefficient, err := c.hold(m.ArithmeticNumeralRat(q, integer))
+			coefficient, err := m.ArithmeticNumeralRat(q, integer)
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
-			h, err = c.hold(m.MkArithmeticMul(coefficient, h))
-			if err != nil {
+			if h, err = into(t)(m.MkArithmeticMul(coefficient, h)); err != nil {
 				return ast.ASTHandle{}, err
 			}
 		}
-		terms = append(terms, h)
+		last = h
+		if !unitNegative {
+			r, err := m.NewRef(h)
+			if err != nil {
+				return ast.ASTHandle{}, err
+			}
+			*ts = append(*ts, r)
+		}
 	}
-	integer, _, err := p.arithmetic(terms[len(terms)-1])
+	integer, _, err := p.arithmetic(last)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -308,40 +364,52 @@ func (c *arithmeticProjectionCall) rowExpression(row *simplex.OptRow, index []as
 	if !unitNegative {
 		q.Neg(q)
 	}
-	rhs, err := c.hold(m.ArithmeticNumeralRat(q, integer))
+	rhs, err := into(s)(m.ArithmeticNumeralRat(q, integer))
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	lhs := terms[0]
-	if len(terms) > 1 {
-		lhs, err = c.hold(m.MkFamilyApp(p.family, 6, nil, terms))
+	lhs := last
+	if !unitNegative {
+		if len(*ts) == 1 {
+			lhs, err = m.RefGet((*ts)[0])
+			if err == nil {
+				err = m.SetRef(t, lhs)
+			}
+		} else {
+			terms := make([]ast.ASTHandle, len(*ts))
+			for i, r := range *ts {
+				if terms[i], err = m.RefGet(r); err != nil {
+					return ast.ASTHandle{}, err
+				}
+			}
+			lhs, err = into(t)(m.MkFamilyApp(p.family, 6, nil, terms))
+		}
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
 	}
 	if row.Relation == simplex.Equal {
-		return c.hold(m.MkEq(lhs, rhs))
+		return into(t)(m.MkEq(lhs, rhs))
 	}
 	if row.Relation == simplex.Divides {
 		if row.Constant.Sign() != 0 {
-			lhs, err = c.hold(m.MkArithmeticSub(lhs, rhs))
-			if err != nil {
+			if lhs, err = into(t)(m.MkArithmeticSub(lhs, rhs)); err != nil {
 				return ast.ASTHandle{}, err
 			}
 		}
-		modulus, err := c.hold(m.ArithmeticNumeralRat(&row.Modulus, true))
+		modulus, err := m.ArithmeticNumeralRat(&row.Modulus, true)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		lhs, err = c.hold(m.MkFamilyApp(p.family, 13, nil, []ast.ASTHandle{lhs, modulus}))
+		mod, err := m.MkFamilyApp(p.family, 13, nil, []ast.ASTHandle{lhs, modulus})
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		zero, err := c.hold(m.ArithmeticIntegerNumeralText("0"))
+		zero, err := m.ArithmeticIntegerNumeralText("0")
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		return c.hold(m.MkEq(lhs, zero))
+		return into(t)(m.MkEq(mod, zero))
 	}
 	op := int32(2)
 	if row.Relation == simplex.Less {
@@ -350,5 +418,5 @@ func (c *arithmeticProjectionCall) rowExpression(row *simplex.OptRow, index []as
 	if unitNegative {
 		op++
 	}
-	return c.hold(m.MkFamilyApp(p.family, op, nil, []ast.ASTHandle{lhs, rhs}))
+	return into(t)(m.MkFamilyApp(p.family, op, nil, []ast.ASTHandle{lhs, rhs}))
 }

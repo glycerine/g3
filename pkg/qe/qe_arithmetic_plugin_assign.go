@@ -49,7 +49,7 @@ func (p *ArithmeticPlugin) Assign(variable *ast.ContainsApp, formula ast.ASTHand
 	if selection.Kind == ArithmeticInfinityBranch {
 		err = p.rewriteInfinity(e, selection.Lower, result)
 	} else {
-		err = p.rewriteFinite(e, target, selection, result)
+		err = p.rewriteFinite(e, target, selection, substitution, result)
 	}
 	if err == nil {
 		// m_util.simplify(result) before add_cache.

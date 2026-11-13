@@ -270,49 +270,55 @@ func (u *ArithmeticQETermUtil) MakeDivides(divisor *big.Rat, expression ast.ASTH
 	if resultErr = u.open(); resultErr != nil {
 		return result, resultErr
 	}
+	if result, resultErr = u.manager.NewRef(ast.ASTHandle{}); resultErr != nil {
+		return result, resultErr
+	}
+	if resultErr = u.makeDividesInto(divisor, expression, result); resultErr != nil {
+		return result, errors.Join(resultErr, u.manager.DelRef(&result))
+	}
+	return result, nil
+}
+
+// makeDividesInto is mk_divides(n, e, result) assigning the caller's
+// expr_ref result while mk_divides' tmp1 and tmp2 are still alive.
+func (u *ArithmeticQETermUtil) makeDividesInto(divisor *big.Rat, expression ast.ASTHandle, result ast.ASTRef) (resultErr error) {
 	if divisor == nil || !divisor.IsInt() {
-		return result, ast.ErrASTDomain
+		return ast.ErrASTDomain
 	}
 	if u.theory == nil || u.arith == nil || u.boolRw == nil {
-		return result, ast.ErrASTHandle
+		return ast.ErrASTHandle
 	}
 	m := u.manager
 	tmp1, err := m.NewRef(expression)
 	if err != nil {
-		return result, err
+		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, m.DelRef(&tmp1)) }()
 	if err = u.theory.Rewrite(expression, tmp1); err != nil {
-		return result, err
+		return err
 	}
 	simplified, err := m.RefGet(tmp1)
 	if err != nil {
-		return result, err
+		return err
 	}
 	n, err := m.ArithmeticNumeralRat(divisor, true)
 	if err != nil {
-		return result, err
+		return err
 	}
 	tmp2, err := u.arith.MkMod2(simplified, n)
 	if err != nil {
-		return result, err
+		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, m.DelRef(&tmp2)) }()
 	modular, err := m.RefGet(tmp2)
 	if err != nil {
-		return result, err
+		return err
 	}
 	zero, err := m.ArithmeticNumeralRat(new(big.Rat), true)
 	if err != nil {
-		return result, err
+		return err
 	}
-	if result, err = m.NewRef(ast.ASTHandle{}); err != nil {
-		return result, err
-	}
-	if err = u.boolRw.MkEq(zero, modular, result); err != nil {
-		return result, errors.Join(err, m.DelRef(&result))
-	}
-	return result, nil
+	return u.boolRw.MkEq(zero, modular, result)
 }
 
 // MakeFlatAnd is arith_qe_util::mk_flat_and: the conjuncts of both

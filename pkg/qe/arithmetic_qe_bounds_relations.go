@@ -38,6 +38,14 @@ func (p *ArithmeticBoundsProcessor) normalizeRest(variable *ast.ContainsApp, coe
 	if err = p.manager.DelRef(&rest); err != nil {
 		return nil, normalized, err
 	}
+	// arith_qe_util::mk_div ends with simplify(result); the division is
+	// held only by result while it is rewritten.
+	if p.util.theory == nil {
+		return nil, normalized, ast.ErrASTHandle
+	}
+	if err = p.util.theory.Rewrite(divided, normalized); err != nil {
+		return nil, normalized, err
+	}
 	sign := big.NewRat(1, 1)
 	if coefficient.Sign() < 0 {
 		sign.Neg(sign)
@@ -59,7 +67,7 @@ func (p *ArithmeticBoundsProcessor) appendBound(atom ast.ASTHandle, term ast.AST
 	return nil
 }
 
-func (p *ArithmeticBoundsProcessor) addNonStrict(variable *ast.ContainsApp, atom ast.ASTHandle) (bool, error) {
+func (p *ArithmeticBoundsProcessor) addNonStrict(variable *ast.ContainsApp, atom ast.ASTHandle) (_ bool, resultErr error) {
 	polynomial, relation, err := p.util.MatchLE(atom)
 	if err != nil || !relation {
 		return false, err
@@ -68,13 +76,15 @@ func (p *ArithmeticBoundsProcessor) addNonStrict(variable *ast.ContainsApp, atom
 	if err != nil {
 		return false, errors.Join(err, p.manager.DelRef(&polynomial))
 	}
+	// expr_ref p lives to the end of get_le_bound, through mk_div's
+	// simplify of rest.
+	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&polynomial)) }()
 	coefficient, rest, matched, err := p.util.Coefficient(variable, polynomialHandle)
-	cleanup := p.manager.DelRef(&polynomial)
-	if err != nil || cleanup != nil || !matched {
+	if err != nil || !matched {
 		if rest != (ast.ASTRef{}) {
-			cleanup = errors.Join(cleanup, p.manager.DelRef(&rest))
+			err = errors.Join(err, p.manager.DelRef(&rest))
 		}
-		return false, errors.Join(err, cleanup)
+		return false, err
 	}
 	coefficient, rest, err = p.normalizeRest(variable, coefficient, rest)
 	if err != nil {
@@ -89,7 +99,7 @@ func (p *ArithmeticBoundsProcessor) addNonStrict(variable *ast.ContainsApp, atom
 	return true, nil
 }
 
-func (p *ArithmeticBoundsProcessor) addStrict(variable *ast.ContainsApp, atom ast.ASTHandle) (bool, error) {
+func (p *ArithmeticBoundsProcessor) addStrict(variable *ast.ContainsApp, atom ast.ASTHandle) (_ bool, resultErr error) {
 	polynomial, relation, err := p.util.MatchLT(atom)
 	if err != nil {
 		return false, err
@@ -116,13 +126,15 @@ func (p *ArithmeticBoundsProcessor) addStrict(variable *ast.ContainsApp, atom as
 	if err != nil {
 		return false, errors.Join(err, p.manager.DelRef(&polynomial))
 	}
+	// expr_ref p lives to the end of get_lt_bound, through mk_div's
+	// simplify of rest.
+	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&polynomial)) }()
 	coefficient, rest, matched, err := p.util.Coefficient(variable, polynomialHandle)
-	cleanup := p.manager.DelRef(&polynomial)
-	if err != nil || cleanup != nil || !matched {
+	if err != nil || !matched {
 		if rest != (ast.ASTRef{}) {
-			cleanup = errors.Join(cleanup, p.manager.DelRef(&rest))
+			err = errors.Join(err, p.manager.DelRef(&rest))
 		}
-		return false, errors.Join(err, cleanup)
+		return false, err
 	}
 	coefficient, rest, err = p.normalizeRest(variable, coefficient, rest)
 	if err != nil {

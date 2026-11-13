@@ -267,7 +267,7 @@ func (s *qsatSearch) checkLoop() (status lbool.LBool, err error) {
 				return lbool.Undef, err
 			}
 			if s.level == 1 && s.mode == qsatMaximize {
-				if err = s.maximizeModel(c); err != nil {
+				if err = s.maximizeModel(); err != nil {
 					return lbool.Undef, err
 				}
 			}

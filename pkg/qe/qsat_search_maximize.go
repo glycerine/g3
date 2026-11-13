@@ -59,7 +59,19 @@ func (s *qsatSearch) maximizeCore(core *[]ast.ASTRef) error {
 	}
 	return s.assertBoth(h)
 }
-func (s *qsatSearch) maximizeModel(c *qsatSearchCall) error {
+
+// maximizeModel is qsat::maximize_model; its locals (ge, asms, defs) end
+// when it returns, not with the check_sat round.
+func (s *qsatSearch) maximizeModel() error {
+	c := s.call()
+	if err := s.maximizeModelCore(c); err != nil {
+		// Failed-call owners stay on pending for the outer cleanup receipt.
+		return err
+	}
+	return s.closeRound(c)
+}
+
+func (s *qsatSearch) maximizeModelCore(c *qsatSearchCall) error {
 	if s.level != 1 || s.mode != qsatMaximize || s.objective.IsNull() {
 		return ast.ErrASTDomain
 	}
@@ -103,12 +115,19 @@ func (s *qsatSearch) maximizeModel(c *qsatSearchCall) error {
 	if err = s.preparation.abstraction.AbstractAtoms(h, &level, defs); err != nil {
 		return err
 	}
-	d, err := c.conjunction(*defs)
-	if err != nil {
-		return err
-	}
-	if err = s.assertBoth(d); err != nil {
-		return err
+	// m_ex/m_fa.assert_expr(mk_and(defs)): the conjunction is a temporary
+	// of each statement.
+	for _, kernel := range []*qsatKernel{s.exists, s.forall} {
+		d, e := c.conjunction(*defs)
+		if e != nil {
+			return e
+		}
+		if e = kernel.assertExpression(d); e != nil {
+			return e
+		}
+		if e = c.releaseHeld(d); e != nil {
+			return e
+		}
 	}
 	if err = s.preparation.abstraction.MakeAbstract(h, ge); err != nil {
 		return err
@@ -134,7 +153,7 @@ func (s *qsatSearch) maximizeModel(c *qsatSearchCall) error {
 		if err != nil {
 			return err
 		}
-		truth, err := c.hold(s.manager.MkTrue())
+		truth, err := s.manager.MkTrue()
 		if err != nil {
 			return err
 		}

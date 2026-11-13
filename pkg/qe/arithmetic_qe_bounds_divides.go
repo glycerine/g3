@@ -9,12 +9,16 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func (p *ArithmeticBoundsProcessor) appendDivisibility(atom ast.ASTHandle, term ast.ASTRef, coefficient, divisor *big.Rat, negated, nested bool) error {
+func (p *ArithmeticBoundsProcessor) appendDivisibility(atom ast.ASTHandle, term ast.ASTRef, coefficient, divisor *big.Rat, negated, nested bool, z ast.ASTRef) error {
 	atomRef, err := p.manager.NewRef(atom)
 	if err != nil {
-		return errors.Join(err, p.manager.DelRef(&term))
+		err = errors.Join(err, p.manager.DelRef(&term))
+		if z != (ast.ASTRef{}) {
+			err = errors.Join(err, p.manager.DelRef(&z))
+		}
+		return err
 	}
-	p.divisibilities = append(p.divisibilities, &ArithmeticDivisibility{manager: p.manager, Term: term, Atom: atomRef,
+	p.divisibilities = append(p.divisibilities, &ArithmeticDivisibility{manager: p.manager, Term: term, Atom: atomRef, Z: z,
 		Coefficient: new(big.Rat).Set(coefficient), Divisor: new(big.Rat).Set(divisor), Negated: negated, Nested: nested})
 	return nil
 }
@@ -40,7 +44,7 @@ func (p *ArithmeticBoundsProcessor) addDivides(variable *ast.ContainsApp, expres
 		}
 		return false, err
 	}
-	if err = p.appendDivisibility(atom, rest, coefficient, divisor, negated, false); err != nil {
+	if err = p.appendDivisibility(atom, rest, coefficient, divisor, negated, false, ast.ASTRef{}); err != nil {
 		return false, err
 	}
 	return true, nil

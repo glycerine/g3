@@ -37,7 +37,6 @@ type arithmeticProjectionCall struct {
 	mark      *ast.ASTExprMark
 	mbo       *simplex.ModelBasedOpt
 	ids       *insdict.Dict[ast.ASTHandle, uint32]
-	values    map[ast.ASTHandle]ast.ASTHandle
 	failures  []memory.ConstructionFailure
 }
 type ArithmeticProjectionFailure struct {
@@ -95,8 +94,49 @@ func (p *ArithmeticProjection) FamilyID() (ast.FamilyID, error) {
 func projectionHandleHash(h ast.ASTHandle) uint64 {
 	return h.Origin() ^ uint64(h.Slot())*0x9e3779b97f4a7c15 ^ uint64(h.Generation())*0xbf58476d1ce4e5b9
 }
-func projectionTerms() *insdict.Dict[ast.ASTHandle, *big.Rat] {
-	return insdict.NewDictFunc[ast.ASTHandle, *big.Rat](projectionHandleHash)
+
+// projectionTermMap is linearize's obj_map<expr, rational> ts:
+// extract_coefficients walks it in hash-table order, which fixes the order
+// in which mbo variables are created and coefficients are listed.
+type projectionTermMap struct {
+	table  *ast.ObjMap
+	values []*big.Rat
+}
+
+func projectionTerms(m *ast.ASTManager) *projectionTermMap {
+	return &projectionTermMap{table: ast.NewObjMap(m)}
+}
+
+// get is ts.find(x, w).
+func (t *projectionTermMap) get(h ast.ASTHandle) (*big.Rat, bool, error) {
+	i, ok, err := t.table.FindNum(h)
+	if err != nil || !ok {
+		return nil, false, err
+	}
+	return t.values[i], true, nil
+}
+
+// set is ts.insert(x, v): an existing key keeps its slot.
+func (t *projectionTermMap) set(h ast.ASTHandle, v *big.Rat) error {
+	if i, ok, err := t.table.FindNum(h); err != nil {
+		return err
+	} else if ok {
+		t.values[i] = v
+		return nil
+	}
+	t.values = append(t.values, v)
+	return t.table.InsertNum(h, uint64(len(t.values)-1))
+}
+
+// entries lists (key, value) in table order.
+func (t *projectionTermMap) entries() ([]ast.ASTHandle, []*big.Rat) {
+	es := t.table.Entries()
+	keys := make([]ast.ASTHandle, len(es))
+	values := make([]*big.Rat, len(es))
+	for i, e := range es {
+		keys[i], values[i] = e.Key, t.values[e.Num]
+	}
+	return keys, values
 }
 func (p *ArithmeticProjection) begin(md *model.ModelCore) (*arithmeticProjectionCall, error) {
 	if err := p.open(); err != nil {
@@ -108,7 +148,7 @@ func (p *ArithmeticProjection) begin(md *model.ModelCore) (*arithmeticProjection
 	if err := p.drain(); err != nil {
 		return nil, err
 	}
-	c := &arithmeticProjectionCall{owner: p, mbo: simplex.NewModelBasedOpt(), ids: insdict.NewDictFunc[ast.ASTHandle, uint32](projectionHandleHash), values: make(map[ast.ASTHandle]ast.ASTHandle)}
+	c := &arithmeticProjectionCall{owner: p, mbo: simplex.NewModelBasedOpt(), ids: insdict.NewDictFunc[ast.ASTHandle, uint32](projectionHandleHash)}
 	p.pending = append(p.pending, c)
 	return c, nil
 }
@@ -347,10 +387,26 @@ func (p *ArithmeticProjection) numeralExpression(h ast.ASTHandle) (*big.Rat, boo
 	return nil, false, nil
 }
 func (c *arithmeticProjectionCall) id(h ast.ASTHandle) (uint32, error) {
+	return c.idTrace(h, nil)
+}
+
+// idTrace is tids.insert(v, mbo.add_var(r, a.is_int(v))) for a term not in
+// tids yet: `expr_ref val = eval(v)` is local to the step, and trace sees
+// the value while it lives. tids holds no reference to v.
+func (c *arithmeticProjectionCall) idTrace(h ast.ASTHandle, trace func(value ast.ASTHandle) error) (id uint32, err error) {
 	if id, ok := c.ids.Get2(h); ok {
 		return id, nil
 	}
-	v, err := c.eval(h)
+	m := c.owner.manager
+	val, err := m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return 0, err
+	}
+	defer func() { err = errors.Join(err, m.DelRef(&val)) }()
+	if err = c.evaluator.Evaluate(h, val); err != nil {
+		return 0, err
+	}
+	v, err := m.RefGet(val)
 	if err != nil {
 		return 0, err
 	}
@@ -361,24 +417,27 @@ func (c *arithmeticProjectionCall) id(h ast.ASTHandle) (uint32, error) {
 	if !ok {
 		q = new(big.Rat)
 	} // source leaves the default rational at zero
+	if trace != nil {
+		if err = trace(v); err != nil {
+			return 0, err
+		}
+	}
 	integer, _, err := c.owner.arithmetic(h)
 	if err != nil {
 		return 0, err
 	}
-	if _, err = c.hold(h, nil); err != nil {
-		return 0, err
-	}
-	id := c.mbo.AddVariable(q, integer)
+	id = c.mbo.AddVariable(q, integer)
 	c.ids.Set(h, id)
-	c.values[h] = v
 	return id, nil
 }
-func (c *arithmeticProjectionCall) coefficients(terms *insdict.Dict[ast.ASTHandle, *big.Rat]) ([]simplex.LinearTerm, error) {
+func (c *arithmeticProjectionCall) coefficients(terms *projectionTermMap) ([]simplex.LinearTerm, error) {
 	if err := c.evaluator.SetModelCompletion(true); err != nil {
 		return nil, err
 	}
 	var result []simplex.LinearTerm
-	for h, q := range terms.All() {
+	keys, values := terms.entries()
+	for i, h := range keys {
+		q := values[i]
 		id, err := c.id(h)
 		if err != nil {
 			return nil, err

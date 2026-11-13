@@ -9,10 +9,9 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
-	"github.com/glycerine/insdict"
 )
 
-func (c *arithmeticProjectionCall) linearizeTerm(multiplier *big.Rat, h ast.ASTHandle, constant *big.Rat, forms *[]ast.ASTRef, terms *insdict.Dict[ast.ASTHandle, *big.Rat]) error {
+func (c *arithmeticProjectionCall) linearizeTerm(multiplier *big.Rat, h ast.ASTHandle, constant *big.Rat, forms *[]ast.ASTRef, terms *projectionTermMap) error {
 	p := c.owner
 	m := p.manager
 	args, mul, err := p.operation(h, p.family, 9)
@@ -131,7 +130,7 @@ func (c *arithmeticProjectionCall) linearizeTerm(multiplier *big.Rat, h ast.ASTH
 			}
 			constant.Add(constant, new(big.Rat).Mul(multiplier, r))
 			residue := new(big.Rat).Neg(r)
-			nested := projectionTerms()
+			nested := projectionTerms(m)
 			if err = c.linearizeTerm(big.NewRat(1, 1), args[0], residue, forms, nested); err != nil {
 				return err
 			}
@@ -152,12 +151,14 @@ func (c *arithmeticProjectionCall) linearizeTerm(multiplier *big.Rat, h ast.ASTH
 	}); err != nil {
 		return err
 	}
-	if old, ok := terms.Get2(h); ok {
-		old.Add(old, multiplier)
-	} else {
-		terms.Set(h, new(big.Rat).Set(multiplier))
+	old, ok, err := terms.get(h)
+	if err != nil {
+		return err
 	}
-	return nil
+	if ok {
+		return terms.set(h, new(big.Rat).Add(old, multiplier))
+	}
+	return terms.set(h, new(big.Rat).Set(multiplier))
 }
 
 func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]ast.ASTRef) (bool, error) {
@@ -205,7 +206,7 @@ func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]
 	if negative {
 		mul.Neg(mul)
 	}
-	terms := projectionTerms()
+	terms := projectionTerms(m)
 	constant := new(big.Rat)
 	relation := simplex.LessEqual
 	var left, right ast.ASTHandle

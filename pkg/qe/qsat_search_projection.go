@@ -77,7 +77,13 @@ func (s *qsatSearch) prepareKernels(c *qsatSearchCall, formula ast.ASTRef) error
 	if err = s.exists.assertExpression(h); err != nil {
 		return err
 	}
-	return temporary(func() (ast.ASTHandle, error) { return s.manager.MkNot(h) }, s.forall)
+	// m_fa.assert_expr(m.mk_not(fml)): the negation is a raw app*, owned
+	// only by what the solver keeps of it.
+	negated, err := s.manager.MkNot(h)
+	if err != nil {
+		return err
+	}
+	return s.forall.assertExpression(negated)
 }
 
 // initialize is the retained top-level SAT/QE setup preceding check_sat.

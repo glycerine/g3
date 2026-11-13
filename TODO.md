@@ -2591,3 +2591,25 @@ positive/negativeWatch and seqEvalCache; small-value fast path for model BV
 numerals (bitVectorNumeralDeclCore 12% of g7); fold numeric-manager
 checkReady/checkCleanup flags into one busy word; dense format flatten cache
 and SMT2PPExprTree reuse in trace mode.
+
+## qe Real/Int elimination and qsat scopes (2026-11-12, late)
+
+FIXED (correctness): Int Cooper resolution ignored the x |-> d*x + z
+substitution (x_subst in mk_resolve), so (apply qe) on e.g.
+exists x. x mod 2 = 0 & 3x <= b & 5x >= a produced mod 3 residues instead
+of z3's (correct) mod 6. Also: normalizeRest runs C++'s simplify(mk_div)
+(Real elimination trace), mk_bound final simplify and argument order,
+Cooper port follows assign_nested_divs/assign_divs/mk_div_equivs (shared
+div_z per bounds processor, shared mark), per-iteration s/t locals, MBP ts
+map in obj_map order with per-row lifetimes, qsat maximize_model scope and
+mk_not(fml) without an extra reference, qe_rec rewritten to the C++ frames.
+Vectors qe_real_strict_bound_div_simplify, qe_real_disequality_bounds,
+qe_int_nested_mod_residues, qe_rec_real_disjunction,
+qe_rec_forall_exists_real, qe_rec_nested_alternation.
+Leads: asserted_formulas::assert_expr frees an unowned input right after
+rewriting (g3's smtAssertionScope keeps it to scope end; qsat forall/exists
+line 122, qe_rec Int line 400); asserted rewriter ActivityCache release
+order at flushAssertedCache (forall/exists Int qe probe line 118); bv2int /
+mod rewrite order after begin-check (Int Cooper probe line 3020, mod 3 probe
+line 396451); MBP linearize/maximize evals held for the whole call; Real
+qe2 probe diverges at line 788.

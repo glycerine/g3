@@ -42,7 +42,7 @@ func (p *ArithmeticProjection) Maximize(md *model.ModelCore, forms []ast.ASTRef,
 		return value, err
 	}
 	constant := new(big.Rat)
-	terms := projectionTerms()
+	terms := projectionTerms(c.owner.manager)
 	if err = c.linearizeTerm(big.NewRat(1, 1), objective, constant, local, terms); err != nil {
 		return value, err
 	}

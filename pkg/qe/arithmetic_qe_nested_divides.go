@@ -2,22 +2,27 @@ package qe
 
 // Source: src/qe/qe_arith_plugin.cpp bounds_proc::get_nested_divs.
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
 
 func (p *ArithmeticBoundsProcessor) addNestedDivides(variable *ast.ContainsApp, expression ast.ASTHandle) (bool, error) {
 	target, err := variable.Target()
 	if err != nil {
 		return false, err
 	}
+	// m_mark is the bounds_proc mark get_bound also sets: a subterm seen
+	// under an earlier atom is not revisited.
 	todo := []ast.ASTHandle{expression}
-	visited := make(map[ast.ASTHandle]bool)
 	for len(todo) != 0 {
 		current := todo[len(todo)-1]
 		todo = todo[:len(todo)-1]
-		if visited[current] {
+		if p.marked[current] {
 			continue
 		}
-		visited[current] = true
+		p.marked[current] = true
 		contains, cause := variable.Check(current)
 		if cause != nil {
 			return false, cause
@@ -46,7 +51,16 @@ func (p *ArithmeticBoundsProcessor) addNestedDivides(variable *ast.ContainsApp, 
 					return false, cause
 				}
 				if found {
-					if cause = p.appendDivisibility(current, rest, coefficient, divisor, false, true); cause != nil {
+					// m_util.mk_bounded_var(k1, z_bv, z) before the pushes.
+					z, cause := p.util.mkBoundedVar(divisor)
+					var zRef ast.ASTRef
+					if cause == nil {
+						zRef, cause = p.manager.NewRef(z)
+					}
+					if cause != nil {
+						return false, errors.Join(cause, p.manager.DelRef(&rest))
+					}
+					if cause = p.appendDivisibility(current, rest, coefficient, divisor, false, true, zRef); cause != nil {
 						return false, cause
 					}
 					continue

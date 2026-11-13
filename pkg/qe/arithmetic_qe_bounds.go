@@ -4,6 +4,7 @@ package qe
 
 import (
 	"errors"
+	"math/big"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
@@ -16,7 +17,11 @@ type ArithmeticBoundsProcessor struct {
 	marked         map[ast.ASTHandle]bool
 	bounds         []*ArithmeticBound
 	divisibilities []*ArithmeticDivisibility
-	closed         bool
+	// divZ and divD are m_div_z and m_d: the common Cooper residue, made on
+	// the first div_z call and shared by every branch of this (x, fml).
+	divZ   ast.ASTRef
+	divD   *big.Rat
+	closed bool
 }
 
 func NewArithmeticBoundsProcessor(util *ArithmeticQETermUtil) (*ArithmeticBoundsProcessor, error) {
@@ -51,6 +56,10 @@ func (p *ArithmeticBoundsProcessor) Reset() (result error) {
 	for i := len(p.divisibilities) - 1; i >= 0; i-- {
 		result = errors.Join(result, p.divisibilities[i].Close())
 	}
+	if p.divZ != (ast.ASTRef{}) {
+		result = errors.Join(result, p.manager.DelRef(&p.divZ))
+	}
+	p.divD = nil
 	p.bounds = nil
 	p.divisibilities = nil
 	p.marked = make(map[ast.ASTHandle]bool)
@@ -130,4 +139,35 @@ func (p *ArithmeticBoundsProcessor) Add(variable *ast.ContainsApp, atom ast.ASTH
 		p.marked[atom] = true
 	}
 	return matched, err
+}
+
+// commonDivisor is bounds_proc::div_z: the residue z = (bv2int z_bv) with
+// 0 <= z < d for d the lcm of all divisors, made once. ok is false when
+// there are no divisibility constraints or d is one.
+func (p *ArithmeticBoundsProcessor) commonDivisor() (d *big.Rat, z ast.ASTHandle, ok bool, err error) {
+	if err = p.open(); err != nil {
+		return nil, z, false, err
+	}
+	if p.divZ != (ast.ASTRef{}) {
+		z, err = p.manager.RefGet(p.divZ)
+		return new(big.Rat).Set(p.divD), z, err == nil, err
+	}
+	if len(p.divisibilities) == 0 {
+		return nil, z, false, nil
+	}
+	common, err := cooperLCM(p.divisibilities)
+	if err != nil {
+		return nil, z, false, err
+	}
+	p.divD = new(big.Rat).SetInt(common)
+	if common.Cmp(big.NewInt(1)) == 0 {
+		return nil, z, false, nil
+	}
+	if z, err = p.util.mkBoundedVar(p.divD); err != nil {
+		return nil, z, false, err
+	}
+	if p.divZ, err = p.manager.NewRef(z); err != nil {
+		return nil, z, false, err
+	}
+	return new(big.Rat).Set(p.divD), z, true, nil
 }
