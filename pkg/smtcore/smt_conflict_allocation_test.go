@@ -172,39 +172,48 @@ func TestResolverEnodeLiteralFollowsAssignment(t *testing.T) {
 	}
 }
 
-// The level marks must not outlive one minimization, even though minimization
-// overwrites the lemma in place. A stale mark would admit literals from levels
-// outside a later lemma and remove them unsoundly.
-func TestMinimizeLemmaClearsLevelMarks(t *testing.T) {
+// minimize_lemma filters antecedents with level_approx_set, a 32-bit mask
+// indexed by level & 31. Level 2 is outside the lemma's exact level set
+// {1, 33, 34} but aliases level 34, so y is followed and x is removed as
+// implied by the marked a.
+func TestMinimizeLemmaApproxLevelSet(t *testing.T) {
 	m := astTestManager(t)
 	_, _, s := smtInternalizerFixture(t, m, nil)
-	_, literals := benchmarkSMTBooleansForTest(t, m, s, "minimize", 5)
+	_, literals := benchmarkSMTBooleansForTest(t, m, s, "minimize", 4)
+	a, y, x, d := literals[0], literals[1], literals[2], literals[3]
 	resolver, err := NewSMTConflictResolver(s)
 	astTestMust(t, err)
 	defer func() { astTestMust(t, resolver.Close()) }()
-	astTestMust(t, s.PushScope())
-	astTestMust(t, s.AssignLiteral(literals[0], NewSMTBooleanAxiom()))
-	astTestMust(t, s.PushScope())
-	astTestMust(t, s.AssignLiteral(literals[1], NewSMTBooleanBinaryClause(literals[0])))
-	astTestMust(t, s.PushScope())
-	astTestMust(t, s.AssignLiteral(literals[2], NewSMTBooleanAxiom()))
-	levels := resolver.levels()
-	marks := resolver.resetMarks()
-	for _, l := range literals[:3] {
-		marks[l.Var()] = true
-	}
-	lemma := []SMTLiteral{literals[2].Negated(), literals[1].Negated(), literals[0].Negated()}
-	kept, err := resolver.minimizeLemma(lemma, marks, levels, 0)
-	astTestMust(t, err)
-	if len(kept) == 0 || kept[0] != literals[2].Negated() {
-		t.Fatal("asserting literal changed", kept)
-	}
-	for level, seen := range resolver.levelSeen {
-		if seen {
-			t.Fatalf("level %d stayed marked", level)
+	for level := 1; level <= 34; level++ {
+		astTestMust(t, s.PushScope())
+		switch level {
+		case 1:
+			astTestMust(t, s.AssignLiteral(a, NewSMTBooleanAxiom()))
+		case 2:
+			astTestMust(t, s.AssignLiteral(y, NewSMTBooleanBinaryClause(a)))
+		case 33:
+			astTestMust(t, s.AssignLiteral(x, NewSMTBooleanBinaryClause(y)))
+		case 34:
+			astTestMust(t, s.AssignLiteral(d, NewSMTBooleanAxiom()))
 		}
 	}
-	astTestMust(t, s.PopScopes(3))
+	levels := resolver.levels()
+	marks := resolver.resetMarks()
+	for _, l := range []SMTLiteral{a, x} {
+		marks[l.Var()] = true
+	}
+	lemma := []SMTLiteral{d.Negated(), x.Negated(), a.Negated()}
+	kept, err := resolver.minimizeLemma(lemma, marks, levels, 0)
+	astTestMust(t, err)
+	if len(kept) != 2 || kept[0] != d.Negated() || kept[1] != a.Negated() {
+		t.Fatal("x must be removed through the aliased level", kept)
+	}
+	for _, l := range literals {
+		if marks[l.Var()] && l != a {
+			t.Fatal("minimization left a temporary mark", l)
+		}
+	}
+	astTestMust(t, s.PopScopes(34))
 }
 
 func benchmarkSMTBooleansForTest(t *testing.T, m *ast.ASTManager, s *SMTInternalizerState, prefix string, count int) ([]ast.ASTHandle, []SMTLiteral) {

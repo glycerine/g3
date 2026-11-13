@@ -3078,3 +3078,24 @@ counterexample check (mk_eq_core steps over large model-function ite terms),
 spread over per-AST-access overhead (ASTManager lock, validNode, nodeAt,
 GetKind/GetFamilyID); that is PERF.md P5 (batched reads), an architectural
 change, not a local fix.
+
+## Fuzz round 17 (2026-11-13) and the ASTManager lock question
+
+gen.py/gen2.py 8000-8300, gen3.py 16000-16300, gen4.py 8000-8250: one
+difference, q_8169 (MBQI, LIA+UF): z3 b = 0, g3 b = 5013. With
+Z3_TRACE_NO_PP the logs agree to the learned lemma at line 507130, where
+g3 keeps #3427 ((>= #3401 #2955), justified by a from-theory -1
+justification with antecedent (not #3121)) that z3's minimize_lemma
+removes; z3 then pops 11 scopes, g3 6. FIXED: minimize_lemma's
+m_lvl_set is a level_approx_set (approx_set_tpl<unsigned>, a 32-bit mask
+of level & 31; smt_conflict_resolution.h:34, approx_set.h), so levels
+congruent mod 32 alias; g3 used an exact level set and rejected an
+antecedent z3 followed. q_8169 trace and stdout now identical (not added
+as a vector: g3 11 s, z3 3 s; unit test TestMinimizeLemmaApproxLevelSet).
+ASTManager locking: the user chose "no mutex" (manager confined to one
+goroutine, like z3's ast_manager); that is already the case
+(astOwnerConfined no-op Lock/Unlock). The remaining per-access cost is the
+checks in lock() (Self, trace/format re-entrancy flags, Closed,
+sourceDTStarted) and validNode/nodeAt handle validation, about 10-15% of
+the q_7028 profile; reducing them means hoisting validation out of hot
+loops (P5 follow-up).

@@ -21,17 +21,15 @@ type SMTConflictResolution struct {
 }
 
 type SMTConflictResolver struct {
-	state        *SMTInternalizerState
-	expander     *SMTAntecedentExpander
-	lemmaProof   ast.ASTRef
-	marks        []bool // reused across conflicts, as the source's context-owned marks
-	levelsBuf    []uint32
-	levelSeen    []bool
-	levelTouched []uint32
-	temporary    []int32
-	stack        []int32
-	closePhase   uint8
-	closed       bool
+	state      *SMTInternalizerState
+	expander   *SMTAntecedentExpander
+	lemmaProof ast.ASTRef
+	marks      []bool // reused across conflicts, as the source's context-owned marks
+	levelsBuf  []uint32
+	temporary  []int32
+	stack      []int32
+	closePhase uint8
+	closed     bool
 }
 
 // enodeLiteral reads a Boolean enode's literal in its current polarity, which is
@@ -60,24 +58,14 @@ func (r *SMTConflictResolver) resetMarks() []bool {
 }
 
 func (r *SMTConflictResolver) minimizeLemma(lemma []SMTLiteral, marks []bool, levels []uint32, baseLevel uint32) ([]SMTLiteral, error) {
-	// Minimization overwrites lemma in place, so remember the levels it marked.
-	touched := r.levelTouched[:0]
+	// get_lemma_approx_level_set: level_approx_set is approx_set_tpl<unsigned,
+	// u2u, unsigned>, a 32-bit mask indexed by level & 31, so a level aliases
+	// every level congruent to it modulo 32 (smt_conflict_resolution.h,
+	// util/approx_set.h).
+	var levelSet uint32
 	for _, literal := range lemma {
-		level := levels[literal.Var()]
-		if int(level) >= len(r.levelSeen) {
-			r.levelSeen = append(r.levelSeen, make([]bool, int(level)+1-len(r.levelSeen))...)
-		}
-		if !r.levelSeen[level] {
-			r.levelSeen[level] = true
-			touched = append(touched, level)
-		}
+		levelSet |= 1 << (levels[literal.Var()] & 31)
 	}
-	r.levelTouched = touched
-	defer func() {
-		for _, level := range touched {
-			r.levelSeen[level] = false
-		}
-	}()
 	temporary := r.temporary[:0]
 	defer func() { r.temporary = temporary[:0] }()
 	var implied func(SMTLiteral) (bool, error)
@@ -91,7 +79,7 @@ func (r *SMTConflictResolver) minimizeLemma(lemma []SMTLiteral, marks []bool, le
 			if marks[variable] || level <= baseLevel {
 				return true
 			}
-			if int(level) >= len(r.levelSeen) || !r.levelSeen[level] {
+			if levelSet&(1<<(level&31)) == 0 {
 				return false
 			}
 			marks[variable] = true
