@@ -88,7 +88,7 @@ func (t *SMTArrayTheory) instantiateMapRead(observer, mapped *SMTEnode) (bool, e
 func (t *SMTArrayTheory) mergeFullArrayClasses(root uint32, second *smtArrayVarData) error {
 	first := t.arrayData[root]
 	for _, mapped := range second.maps {
-		if err := t.setArrayUpward(root); err != nil {
+		if err := t.setClassStoresUpward(first); err != nil {
 			return err
 		}
 		first.maps = append(first.maps, mapped)
@@ -110,7 +110,7 @@ func (t *SMTArrayTheory) mergeFullArrayClasses(root uint32, second *smtArrayVarD
 		}
 	}
 	for _, node := range second.consts {
-		if err := t.setArrayUpward(root); err != nil {
+		if err := t.setClassStoresUpward(first); err != nil {
 			return err
 		}
 		first.consts = append(first.consts, node)
@@ -127,7 +127,7 @@ func (t *SMTArrayTheory) mergeFullArrayClasses(root uint32, second *smtArrayVarD
 		}
 	}
 	for _, node := range second.asArrays {
-		if err := t.setArrayUpward(root); err != nil {
+		if err := t.setClassStoresUpward(first); err != nil {
 			return err
 		}
 		first.asArrays = append(first.asArrays, node)

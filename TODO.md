@@ -2734,3 +2734,21 @@ query (~3.5%); a format-node lookup that does not allocate a temporary
 ~14%, ArithmeticNumeral ~20%) constrained by visible slot generations;
 numeric-manager checkReady/checkCleanup (~5%); defer overhead in
 mkAppCoreArguments.
+
+## Search divergences behind array model differences (2026-11-12, late)
+
+FIXED: boundedSearch ran PropagateCore again after FinalCheckTheories
+returned Continue (C++ bounded_search just loops back, so propagate runs
+once); the extra round let arith propagate_bounds derive a unit lemma z3
+never derives. add_store/add_map/add_const/add_as_array use the two-argument
+set_prop_upward(v, d) (marks the bases of the class's existing stores, not
+v itself; partly undoes d2d54d342), removing extra axiom2b instances. Array
+trace text and order matched to the fork (-tr:array headers identical).
+Vectors final_check_propagate_model, final_check_propagate_bounds,
+array_store_class_upward. gen2 fuzz seeds 9000-11000 all match (9187 crashes
+z3 itself).
+Leads: -tr:array term printing uses mk_pp where C++ uses mk_bounded_pp /
+mk_ll_pp (trace output only); theory_array set_prop_upward's
+!m_array_delay_exp_axiom branch (instantiate_axiom2b_for /
+instantiate_axiom_map_for) unported (DelayExpAxiom defaults to true);
+pkg/smtcore/theory_bv_conversion.go is not gofmt-clean (pre-existing).

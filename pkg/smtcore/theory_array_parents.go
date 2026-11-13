@@ -94,7 +94,14 @@ func (t *SMTArrayTheory) CreateVariable(node *SMTEnode) (SMTTheoryVar, error) {
 		if err := displayArrayTraceExpression(t.state.manager, out, node.owner); err != nil {
 			return err
 		}
-		_, err := fmt.Fprintf(out, "\nis_array: %t, is_select: %t, is_store: %t\n", family == t.FamilyID(), array && op == ast.ASTArrayOpSelect, array && op == ast.ASTArrayOpStore)
+		// The source streams these bools as 1 or 0.
+		bit := func(b bool) int {
+			if b {
+				return 1
+			}
+			return 0
+		}
+		_, err := fmt.Fprintf(out, "\nis_array: %d, is_select: %d, is_store: %d\n", bit(family == t.FamilyID()), bit(array && op == ast.ASTArrayOpSelect), bit(array && op == ast.ASTArrayOpStore))
 		return err
 	}); err != nil {
 		return variable, err
@@ -127,7 +134,28 @@ func (t *SMTArrayTheory) addParentSelect(variable SMTTheoryVar, read *SMTEnode) 
 	if !array || op != ast.ASTArrayOpSelect || variable < 0 || int(variable) >= len(t.arrayData) {
 		return ast.ErrASTDomain
 	}
+	if !t.simple {
+		if err := t.emitFullArrayTrace("array", "add_parent_select", 394, nil, func(out io.Writer) error {
+			if _, err := fmt.Fprintf(out, "%d select parent: ", variable); err != nil {
+				return err
+			}
+			if err := displayArrayTraceExpression(t.state.manager, out, read.owner); err != nil {
+				return err
+			}
+			if _, err := io.WriteString(out, "\n"); err != nil {
+				return err
+			}
+			return t.DisplayVariable(out, variable)
+		}); err != nil {
+			return err
+		}
+	}
 	root := t.arrayUnion.Find(uint32(variable))
+	data := t.arrayData[root]
+	data.parentSelects = append(data.parentSelects, read)
+	if err := t.arrayTrail.PushUndo(func() { data.parentSelects = data.parentSelects[:len(data.parentSelects)-1] }); err != nil {
+		return err
+	}
 	if err := t.emitSimpleArrayTrace("array", "add_parent_select", 98, nil, func(out io.Writer) error {
 		if err := displayArrayTraceExpression(t.state.manager, out, read.owner); err != nil {
 			return err
@@ -141,27 +169,6 @@ func (t *SMTArrayTheory) addParentSelect(variable SMTTheoryVar, read *SMTEnode) 
 		_, err := io.WriteString(out, "\n")
 		return err
 	}); err != nil {
-		return err
-	}
-	if !t.simple {
-		if err := t.emitFullArrayTrace("array", "add_parent_select", 394, nil, func(out io.Writer) error {
-			if _, err := fmt.Fprintf(out, "%d select parent: ", variable); err != nil {
-				return err
-			}
-			if err := displayArrayTraceExpression(t.state.manager, out, read.owner); err != nil {
-				return err
-			}
-			if _, err := io.WriteString(out, "\n"); err != nil {
-				return err
-			}
-			return t.DisplayVariable(out, SMTTheoryVar(root))
-		}); err != nil {
-			return err
-		}
-	}
-	data := t.arrayData[root]
-	data.parentSelects = append(data.parentSelects, read)
-	if err := t.arrayTrail.PushUndo(func() { data.parentSelects = data.parentSelects[:len(data.parentSelects)-1] }); err != nil {
 		return err
 	}
 	for _, store := range data.stores {
@@ -232,13 +239,14 @@ func (t *SMTArrayTheory) setArrayUpward(variable uint32) error {
 	if err := t.arrayTrail.PushUndo(func() { data.propUpward = false }); err != nil {
 		return err
 	}
-	if err := t.emitSimpleArrayTrace("array", "set_prop_upward", 146, nil, func(out io.Writer) error {
-		_, err := fmt.Fprintf(out, "#%d\n", root)
-		return err
-	}); err != nil {
-		return err
-	}
-	if !t.simple {
+	if t.simple {
+		if err := t.emitSimpleArrayTrace("array", "set_prop_upward", 146, nil, func(out io.Writer) error {
+			_, err := fmt.Fprintf(out, "#%d\n", root)
+			return err
+		}); err != nil {
+			return err
+		}
+	} else {
 		if err := t.emitFullArrayTrace("array", "set_prop_upward", 115, nil, func(out io.Writer) error {
 			_, err := fmt.Fprintf(out, "#%d\n", root)
 			return err
@@ -256,6 +264,24 @@ func (t *SMTArrayTheory) setArrayUpward(variable uint32) error {
 			if err := t.setMapInputsUpward(mapped); err != nil {
 				return err
 			}
+		}
+		// set_prop_upward(enode) on a constant array only traces it.
+		for _, node := range data.consts {
+			if err := t.traceFullArrayExpression("set_prop_upward", 143, node.owner); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// setClassStoresUpward is set_prop_upward(v, d), which add_store, add_map,
+// add_const and add_as_array call: with the retained AlwaysPropUpward it marks
+// the base of every store already in the class, and never v itself.
+func (t *SMTArrayTheory) setClassStoresUpward(data *smtArrayVarData) error {
+	for _, store := range data.stores {
+		if err := t.setStoreBaseUpward(store); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -276,9 +302,10 @@ func (t *SMTArrayTheory) addArrayStore(variable uint32, store *SMTEnode) error {
 		return ast.ErrASTDomain
 	}
 	data := t.arrayData[t.arrayUnion.Find(variable)]
-	// Retained AlwaysPropUpward is true: add_store marks the class before
-	// inserting the new constructor, then propagates through its new input.
-	if err := t.setArrayUpward(variable); err != nil {
+	// Retained AlwaysPropUpward is true: add_store runs set_prop_upward(v, d)
+	// over the class's existing stores before inserting the new constructor,
+	// then propagates through its new input. The class itself is not marked.
+	if err := t.setClassStoresUpward(data); err != nil {
 		return err
 	}
 	data.stores = append(data.stores, store)
@@ -352,6 +379,14 @@ func (t *SMTArrayTheory) mergeArrayClasses(root, child uint32) error {
 			return err
 		}
 	}
+	if err := t.emitSimpleArrayTrace("array", "merge_eh", 62, nil, func(out io.Writer) error {
+		if _, err := io.WriteString(out, "after merge\n"); err != nil {
+			return err
+		}
+		return t.DisplayVariable(out, SMTTheoryVar(root))
+	}); err != nil {
+		return err
+	}
 	if !t.simple {
 		if err := t.mergeFullArrayClasses(root, second); err != nil {
 			return err
@@ -383,28 +418,13 @@ func (t *SMTArrayTheory) mergeArrayClasses(root, child uint32) error {
 			return err
 		}
 	}
-	return t.emitSimpleArrayTrace("array", "merge_eh", 62, nil, func(out io.Writer) error {
-		if _, err := io.WriteString(out, "after merge\n"); err != nil {
-			return err
-		}
-		return t.DisplayVariable(out, SMTTheoryVar(root))
-	})
+	return nil
 }
 
+// Relevant is theory_array_full::relevant_eh (its trace, then
+// theory_array::relevant_eh, then the full-array cases), or
+// theory_array::relevant_eh alone for the simple theory.
 func (t *SMTArrayTheory) Relevant(expression ast.ASTHandle) error {
-	state, err := t.State()
-	if err != nil {
-		return err
-	}
-	if basic, basicErr := state.manager.GetFamilyID(expression); basicErr == nil && basic == state.manager.BasicFamilyID() {
-		if op, opErr := state.manager.GetDeclKind(expression); opErr == nil && op == ast.ASTOpIte {
-			return t.traceSimpleArrayExpression("array", "relevant_eh", 318, "relevant ite ", expression)
-		}
-	}
-	op, array, err := t.arrayOperation(expression)
-	if err != nil || !array {
-		return err
-	}
 	s, err := t.State()
 	if err != nil {
 		return err
@@ -413,6 +433,19 @@ func (t *SMTArrayTheory) Relevant(expression ast.ASTHandle) error {
 		if err = t.traceFullArrayExpression("relevant_eh", 428, expression); err != nil {
 			return err
 		}
+	}
+	if t.arrayConfig.Laziness != 0 {
+		if basic, basicErr := s.manager.GetFamilyID(expression); basicErr == nil && basic == s.manager.BasicFamilyID() {
+			if op, opErr := s.manager.GetDeclKind(expression); opErr == nil && op == ast.ASTOpIte {
+				if err = t.traceSimpleArrayExpression("array", "relevant_eh", 318, "relevant ite ", expression); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	op, array, err := t.arrayOperation(expression)
+	if err != nil || !array {
+		return err
 	}
 	node := s.context.enodes.get(expression)
 	if node == nil {
@@ -439,7 +472,11 @@ func (t *SMTArrayTheory) Relevant(expression ast.ASTHandle) error {
 		}
 	}
 	if !t.simple && op == ast.ASTArrayOpSelect {
-		return t.addParentSelect(node.arguments[0].TheoryVar(t.FamilyID()), node)
+		variable := node.arguments[0].TheoryVar(t.FamilyID())
+		if variable < 0 || int(variable) >= len(t.arrayData) {
+			return ast.ErrASTDomain
+		}
+		return t.addParentSelect(SMTTheoryVar(t.arrayUnion.Find(uint32(variable))), node)
 	}
 	if !t.simple && op == ast.ASTArrayOpMap {
 		for _, input := range node.arguments {

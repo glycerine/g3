@@ -5,6 +5,7 @@ package smtcore
 import (
 	"fmt"
 	"io"
+	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -49,11 +50,11 @@ func (t *SMTArrayTheory) queueStoreReadAxiom(read, store ast.ASTHandle, upward b
 	if !readArray || readOp != ast.ASTArrayOpSelect || !storeArray || storeOp != ast.ASTArrayOpStore {
 		return false, ast.ErrASTDomain
 	}
-	line, tag, label := 207, "array", "axiom 2a"
+	line, tag, label, function := 207, "array", "axiom 2a", "instantiate_axiom2a"
 	if upward {
-		line, tag, label = 215, "array_axiom2b", "axiom 2b"
+		line, tag, label, function = 215, "array_axiom2b", "axiom 2b", "instantiate_axiom2b"
 	}
-	if err = t.emitSimpleArrayTrace(tag, "instantiate_axiom2", line, nil, func(out io.Writer) error {
+	if err = t.emitSimpleArrayTrace(tag, function, line, nil, func(out io.Writer) error {
 		readID, err := readNode.OwnerID()
 		if err != nil {
 			return err
@@ -246,10 +247,17 @@ func (t *SMTArrayTheory) assertStoreReadAxiomCore(read, store ast.ASTHandle) err
 			if _, err := io.WriteString(out, "asserting axiom2: "); err != nil {
 				return err
 			}
-			if err := antecedent.DisplayCompact(out, s.manager, s.boolExpr); err != nil {
-				return err
+			// operator<<(ostream, literal): p<var>, (not p<var>), true or false.
+			text := "p" + strconv.Itoa(int(antecedent.Var()))
+			switch {
+			case antecedent == SMTTrueLiteral:
+				text = "true"
+			case antecedent == SMTFalseLiteral:
+				text = "false"
+			case antecedent.Sign():
+				text = "(not " + text + ")"
 			}
-			_, err := io.WriteString(out, "\n")
+			_, err := io.WriteString(out, text+"\n")
 			return err
 		}); err != nil {
 			return err

@@ -7,7 +7,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func TestSMTArrayConstructorMergesMarkClassUpwardAndRollback(t *testing.T) {
+func TestSMTArrayConstructorMergesKeepClassFlagAndRollback(t *testing.T) {
 	for _, kind := range []string{"simple-store", "full-store", "map", "const", "as-array"} {
 		for _, weak := range []bool{false, true} {
 			t.Run(fmt.Sprint(kind, "/", weak), func(t *testing.T) {
@@ -72,8 +72,11 @@ func TestSMTArrayConstructorMergesMarkClassUpwardAndRollback(t *testing.T) {
 				if theory.arrayUnion.Find(uint32(aliasVariable)) != uint32(aliasVariable) {
 					t.Fatal("fixture did not retain the alias as the new private root")
 				}
-				if data.propUpward != !weak {
-					t.Fatal("constructor merge did not apply the source upward class flag", kind, weak, data.propUpward)
+				// add_store, add_map, add_const and add_as_array call
+				// set_prop_upward(v, d), which marks the bases of the class's
+				// stores but never the class itself.
+				if data.propUpward {
+					t.Fatal("constructor merge marked the class itself upward", kind, weak)
 				}
 				if kind == "simple-store" || kind == "full-store" || kind == "map" {
 					inputVariable := state.context.enodes.get(input).TheoryVar(family)
@@ -81,16 +84,12 @@ func TestSMTArrayConstructorMergesMarkClassUpwardAndRollback(t *testing.T) {
 						t.Fatal("new constructor inputs did not receive upward propagation")
 					}
 				}
-				// The class flag must enable its delayed read-over-write
-				// consequence for an existing non-overwriting parent store.
+				// Without the class flag the delayed read-over-write axiom for
+				// the existing parent store stays unexpanded.
 				before := theory.statistics.expandedAxiom2
 				added, err := theory.assertDelayedStoreAxioms()
 				astTestMust(t, err)
-				wantAxioms := uint32(1)
-				if weak {
-					wantAxioms = 0
-				}
-				if added != !weak || theory.statistics.expandedAxiom2-before != wantAxioms {
+				if added || theory.statistics.expandedAxiom2 != before {
 					t.Fatal("constructor merge did not enable its delayed parent-store read axiom", weak, added, theory.statistics.expandedAxiom2-before)
 				}
 				astTestMust(t, state.PopScopes(1))

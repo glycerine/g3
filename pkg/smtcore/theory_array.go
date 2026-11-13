@@ -705,7 +705,11 @@ func (t *SMTArrayTheory) FinalCheck() (SMTFinalCheckStatus, error) {
 		status = SMTFinalCheckGiveUp
 	}
 	if err = t.emitSimpleArrayTrace("array", "final_check_eh", 385, nil, func(out io.Writer) error {
-		_, writeErr := fmt.Fprintf(out, "m_found_unsupported_op: %t %d\n", t.unsupported, status)
+		unsupported := 0
+		if t.unsupported {
+			unsupported = 1
+		}
+		_, writeErr := fmt.Fprintf(out, "m_found_unsupported_op: %d %s\n", unsupported, status)
 		return writeErr
 	}); err != nil {
 		return SMTFinalCheckGiveUp, err

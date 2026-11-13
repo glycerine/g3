@@ -533,13 +533,10 @@ func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool,
 				}
 				continue
 			}
-			consistent, err = k.internalizer.PropagateCore()
-			if err != nil {
-				return lbool.Undef, false, fmt.Errorf("smt search final propagation: %w", err)
-			}
-			if !consistent {
-				continue
-			}
+			// bounded_search breaks out to the loop head, whose single
+			// propagate() handles the new axioms. A second propagate here
+			// would rerun theory propagation (arith propagate_bounds) on
+			// rows the source only examines after the next decision.
 		default:
 			return lbool.Undef, false, ast.ErrASTDomain
 		}

@@ -431,17 +431,21 @@ func TestSMTOrdinaryArraySourceTraces(t *testing.T) {
 		"[array] instantiate_axiom1 src/smt/theory_array.cpp:200",
 		"[array] merge_eh src/smt/theory_array.cpp:48",
 		"[array] merge_eh src/smt/theory_array.cpp:62",
-		"[array] set_prop_upward src/smt/theory_array.cpp:146",
+		"[array] set_prop_upward src/smt/theory_array_full.cpp:115",
 		"[array] add_parent_select src/smt/theory_array.cpp:98",
-		"[array] instantiate_axiom2 src/smt/theory_array.cpp:207",
-		"[array_axiom2b] instantiate_axiom2 src/smt/theory_array.cpp:215",
+		"[array] instantiate_axiom2a src/smt/theory_array.cpp:207",
+		"[array_axiom2b] instantiate_axiom2b src/smt/theory_array.cpp:215",
 		"[ext] new_diseq_eh src/smt/theory_array.cpp:308",
 		"[array] instantiate_extensionality src/smt/theory_array.cpp:226",
-		"[array] relevant_eh src/smt/theory_array.cpp:318",
+		"[array] relevant_eh src/smt/theory_array_full.cpp:428",
 		"[array] final_check_eh src/smt/theory_array.cpp:385",
 	} {
 		if !strings.Contains(trace, want) {
 			t.Fatalf("missing ordinary array source trace %q in %q", want, trace)
 		}
+	}
+	// Laziness 0 makes theory_array::relevant_eh return before its ite trace.
+	if strings.Contains(trace, "[array] relevant_eh src/smt/theory_array.cpp:318") {
+		t.Fatal("lazy-free relevant_eh traced the relevant ite")
 	}
 }
