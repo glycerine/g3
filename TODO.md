@@ -3099,3 +3099,23 @@ checks in lock() (Self, trace/format re-entrancy flags, Closed,
 sourceDTStarted) and validNode/nodeAt handle validation, about 10-15% of
 the q_7028 profile; reducing them means hoisting validation out of hot
 loops (P5 follow-up).
+
+## Fuzz round 18 (2026-11-13)
+
+gen.py/gen2.py 9000-9300, gen3.py 17000-17300, gen4.py 9000-9250:
+- gen2 9187 `(assert (distinct 0.0 s 4.0)) (assert b)`, no set-logic: the
+  fork segfaults (release and debug) in smt::enode::mk <- context::mk_enode
+  <- internalize_eq <- internalize_distinct inside smt_tactic's context;
+  g3 answers unknown (difference logic gives up). Consistent with the
+  diff-logic port's note that C++ dereferences a null enode for the real 0
+  numeral; a z3 4.7.1 crash, not a g3 divergence (z3 crash list).
+- q_9009: z3 unknown in 10 s; g3 > 600 s untraced. Not a divergence: with
+  Z3_TRACE_NO_PP g3's log is an exact prefix of z3's. 91% of g3's time was
+  model-value construction: ArithmeticNumeralRat turned large values into a
+  decimal string and SetString parsed it back with a multiply-add per digit
+  (quadratic). RationalService.SetBigRat now sets numerator/denominator from
+  big.Int limbs (same normalized value; unit test against SetString):
+  69 s, output identical. Remaining: about 30% is numeral copies digit by
+  digit through checked accessors (IntegerManager.copyFromOwner...,
+  Cell/Digit/writeDigit) where z3's mpz copy is a memcpy; a bulk-copy fast
+  path needs care with the allocation-receipt bookkeeping (follow-up).

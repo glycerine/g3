@@ -20,8 +20,12 @@ func (m *ASTManager) ArithmeticNumeralRat(value *big.Rat, integer bool) (result 
 	if done, e := m.numerals.SetSmallRat(&n, value); e != nil {
 		return ASTHandle{}, e
 	} else if !done {
-		if err = m.numerals.SetString(&n, value.RatString()); err != nil {
-			return ASTHandle{}, err
+		if done, e = m.numerals.SetBigRat(&n, value); e != nil {
+			return ASTHandle{}, e
+		} else if !done {
+			if err = m.numerals.SetString(&n, value.RatString()); err != nil {
+				return ASTHandle{}, err
+			}
 		}
 	}
 	return m.ArithmeticNumeral(&n, integer)
