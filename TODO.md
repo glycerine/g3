@@ -3071,5 +3071,10 @@ q_7028 profile (G3_CPUPROFILE, or /usr/lib/linux-tools/6.14.0-37-generic/perf):
 52% in mkBoundAxioms' threshold comparisons (big.Rat.Cmp cross-multiplies
 and allocates). smtRatCmp compares numerators when denominators are equal,
 and atoms cache a small-integer threshold for the occs scan: >300 s -> 107 s
-(z3 14.9 s), output identical. Next: about 55% is now the rewriter under
-MBQI's auxiliary counterexample check (large model-function ite terms).
+(z3 14.9 s), output identical. Integer numerals are now read with
+SetInt64 (no GCD): 104 s. q_7056 114 s -> 27 s, q_7248 34 s (z3 5-6 s).
+Remaining: about 55% of q_7028 is the rewriter under MBQI's auxiliary
+counterexample check (mk_eq_core steps over large model-function ite terms),
+spread over per-AST-access overhead (ASTManager lock, validNode, nodeAt,
+GetKind/GetFamilyID); that is PERF.md P5 (batched reads), an architectural
+change, not a local fix.

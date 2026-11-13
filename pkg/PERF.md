@@ -505,3 +505,15 @@ Fixed by the `theory_arith` port (ARITH_PORT.md): with `G3_THEORY_ARITH=port`
 the AUFLIA goal is refuted at once, as in C++, because `fixed_var_eh` runs
 from `set_bound`. The replay theory, still the default, does not terminate.
 Regression test: `cmd/g3/theory_arith_port_test.go`.
+
+## Profiling note (2026-11-13)
+
+Profile with `G3_CPUPROFILE=cpu.prof g3 file.smt2` and `go tool pprof`, or
+with Linux perf via `/usr/lib/linux-tools/6.14.0-37-generic/perf` (the
+`/usr/bin/perf` wrapper rejects the current mainline kernel; the older perf
+binary works). On fuzz seed q_7028 (MBQI, LIA) the first profile showed 52%
+in mk_bound_axioms comparing thresholds with big.Rat.Cmp; equal-denominator
+comparisons and a cached small-integer threshold took it from >300 s to
+107 s, and reading integer numerals without GCD to 104 s (z3: 15 s). The
+rest is per-AST-access overhead in the rewriter (lock, validNode, nodeAt),
+i.e. P5.

@@ -40,6 +40,10 @@ func (m *ASTManager) ArithmeticNumeralBigRat(h ASTHandle) (value *big.Rat, integ
 		return nil, integer, false, err
 	}
 	if raw := &rational.Raw; raw.Num.Cell == 0 && raw.Den.Cell == 0 && raw.Den.Val > 0 {
+		if raw.Den.Val == 1 {
+			// An integer needs no normalization; big.NewRat would run a GCD.
+			return new(big.Rat).SetInt64(int64(raw.Num.Val)), integer, true, nil
+		}
 		return big.NewRat(int64(raw.Num.Val), int64(raw.Den.Val)), integer, true, nil
 	}
 	text, err := m.numerals.String(rational)
