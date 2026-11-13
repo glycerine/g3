@@ -39,49 +39,44 @@ import (
 var goldenTraceTags = []string{"assign_core", "decide", "add_eq_detail", "mk_bool_var", "seq", "conflict"}
 
 // goldenTraceSites lists the TRACE records the Go port emits, as
-// "tag function file:line" with the source path relative to the repository.
+// "tag function file" with the source path relative to the repository. Line
+// numbers are deliberately not part of a site (see parseTraceRecords).
 // Records at other sites (z3 traces many more) are not compared. Add a site
 // here when its record is ported.
 var goldenTraceSites = map[string]bool{
-	"assign_core assign_core src/smt/smt_context.cpp:293":                          true,
-	"add_eq_detail add_eq src/smt/smt_context.cpp:497":                             true,
-	"decide decide src/smt/smt_context.cpp:1829":                                   true,
-	"decide decide src/smt/smt_context.cpp:1885":                                   true,
-	"mk_bool_var mk_bool_var src/smt/smt_internalizer.cpp:825":                     true,
-	"seq add_axiom src/smt/theory_seq.cpp:3865":                                    true,
-	"seq deque_axiom src/smt/theory_seq.cpp:3098":                                  true,
-	"mk_enode mk_enode src/smt/smt_internalizer.cpp:939":                           true,
-	"propagate_atoms propagate_atoms src/smt/smt_context.cpp:1380":                 true,
-	"propagate_relevancy propagate src/smt/smt_relevancy.cpp:463":                  true,
-	"propagate_relevancy relevant_eh src/smt/smt_context.cpp:1614":                 true,
-	"propagate_relevancy unmark_relevant_exprs src/smt/smt_relevancy.cpp:279":      true,
-	"propagate_relevancy_to_args propagate src/smt/smt_relevancy.cpp:462":          true,
-	"seq get_automaton src/smt/theory_seq.cpp:4174":                                true,
-	"diff_logic_vars mk_var src/smt/theory_diff_logic_def.h:806":                   true,
-	"non_diff_logic internalize_term src/smt/theory_diff_logic_def.h:83":           true,
-	"non_diff_logic found_non_diff_logic_expr src/smt/theory_diff_logic_def.h:160": true,
-	"non_diff_logic mk_var src/smt/theory_diff_logic_def.h:830":                    true,
+	"assign_core assign_core src/smt/smt_context.cpp":                          true,
+	"add_eq_detail add_eq src/smt/smt_context.cpp":                             true,
+	"decide decide src/smt/smt_context.cpp":                                    true,
+	"mk_bool_var mk_bool_var src/smt/smt_internalizer.cpp":                     true,
+	"seq add_axiom src/smt/theory_seq.cpp":                                     true,
+	"seq deque_axiom src/smt/theory_seq.cpp":                                   true,
+	"mk_enode mk_enode src/smt/smt_internalizer.cpp":                           true,
+	"propagate_atoms propagate_atoms src/smt/smt_context.cpp":                  true,
+	"propagate_relevancy propagate src/smt/smt_relevancy.cpp":                  true,
+	"propagate_relevancy relevant_eh src/smt/smt_context.cpp":                  true,
+	"propagate_relevancy unmark_relevant_exprs src/smt/smt_relevancy.cpp":      true,
+	"propagate_relevancy_to_args propagate src/smt/smt_relevancy.cpp":          true,
+	"seq get_automaton src/smt/theory_seq.cpp":                                 true,
+	"diff_logic_vars mk_var src/smt/theory_diff_logic_def.h":                   true,
+	"non_diff_logic internalize_term src/smt/theory_diff_logic_def.h":          true,
+	"non_diff_logic found_non_diff_logic_expr src/smt/theory_diff_logic_def.h": true,
+	"non_diff_logic mk_var src/smt/theory_diff_logic_def.h":                    true,
 }
 
 // goldenIDMaskedSites print AST ids ("#123"). Until g3 allocates the same
 // ids as z3 (TODO.md item 3) they are compared with the ids masked; every
 // other field must still agree.
 var goldenIDMaskedSites = map[string]bool{
-	"conflict initialize_resolve src/smt/smt_conflict_resolution.cpp:403": true,
-	"conflict initialize_resolve src/smt/smt_conflict_resolution.cpp:411": true,
-	"conflict process_antecedent src/smt/smt_conflict_resolution.cpp:314": true,
-	"conflict process_antecedent src/smt/smt_conflict_resolution.cpp:335": true,
-	"conflict resolve src/smt/smt_conflict_resolution.cpp:479":            true,
-	"conflict resolve src/smt/smt_conflict_resolution.cpp:487":            true,
-	"conflict resolve src/smt/smt_conflict_resolution.cpp:499":            true,
-	"conflict resolve src/smt/smt_conflict_resolution.cpp:507":            true,
-	"conflict resolve src/smt/smt_conflict_resolution.cpp:573":            true,
-	"conflict finalize_resolve src/smt/smt_conflict_resolution.cpp:432":   true,
-	"conflict finalize_resolve src/smt/smt_conflict_resolution.cpp:439":   true,
-	"conflict finalize_resolve src/smt/smt_conflict_resolution.cpp:462":   true,
+	"conflict initialize_resolve src/smt/smt_conflict_resolution.cpp": true,
+	"conflict process_antecedent src/smt/smt_conflict_resolution.cpp": true,
+	"conflict resolve src/smt/smt_conflict_resolution.cpp":            true,
+	"conflict finalize_resolve src/smt/smt_conflict_resolution.cpp":   true,
 }
 
 var goldenASTID = regexp.MustCompile(`#[0-9]+`)
+
+// goldenTraceLine is the ":line" suffix of a TRACE header's file.
+var goldenTraceLine = regexp.MustCompile(`:[0-9]+$`)
 
 // goldenRecordText is the text a record is compared by.
 func goldenRecordText(r traceRecord) string {
@@ -114,7 +109,7 @@ func goldenVectors(t *testing.T) []string {
 const goldenContext = 30
 
 type traceRecord struct {
-	site string // "tag function file:line"
+	site string // "tag function file" (the :line is dropped)
 	text string // header and body as written
 }
 
@@ -206,6 +201,12 @@ func parseTraceRecords(t *testing.T, f *os.File) []traceRecord {
 			header := strings.TrimSuffix(strings.TrimPrefix(line, "-------- ["), " ---------")
 			header = strings.Replace(header, " ../src/", " src/", 1)
 			tag, rest, _ := strings.Cut(header, "] ")
+			// Sites are identified by tag, function and file, not by line:
+			// a line number moves whenever the fork's source file is edited
+			// above the TRACE (as the relevancy backport did), and that must
+			// not break the comparison. No ported function has two sites
+			// with the same tag of which only some are ported.
+			rest = goldenTraceLine.ReplaceAllString(rest, "")
 			cur = &traceRecord{site: tag + " " + rest}
 			body.Reset()
 			body.WriteString("-------- [" + tag + "] " + rest + " ---------\n")

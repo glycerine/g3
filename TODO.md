@@ -25,7 +25,7 @@ Found while matching `-st` output against `build/z3` on
    and does not draw, so later random choices diverge
    (nonlinear_nested_integer_row_aliases, bv_integer_conversion_scopes).
 
-3. **AST lifetimes and id recycling.** z3 frees each `expr_ref`
+3. **RESOLVED for the test corpus: AST lifetimes and id recycling.** STATUS 2026-11-13 (24393536c): every test vector is trace-identical to the fork (fullcmp2 802 identical / 0 differ, 11 traced timeouts; with Z3_TRACE_NO_PP 813 identical / 0 differ / 0 timeouts), including the vectors named here, so this item is resolved for the test corpus; the notes below are history. z3 frees each `expr_ref`
    temporary on scope exit and recycles its id (LIFO), so later terms take
    different ids, and mon_lt orders sum monomials by id
    (lia2pb_model_scopes: arith-add-rows 3 vs 5, pivots 7 vs 6). Compare the
@@ -328,7 +328,18 @@ Found while matching `-st` output against `build/z3` on
       golden vector (test_vectors/seq_regex_length_disequality.smt2).
       All-stats exact: 580 of 658.
 
-12. **Golden trace coverage.** 423 of 660 test vectors now match the z3
+12. **Golden trace coverage.** STATUS 2026-11-13: TestTraceGolden had
+    silently failed since c3c0016bd shifted smt_context.cpp lines (it runs
+    only without -short, so make never ran it). It now identifies sites by
+    tag + function + file and ignores line numbers (no ported function has
+    an unported same-tag site, checked over all vectors), and g3's emitted
+    lines were corrected (assign_core 294, add_eq_detail 498, decide
+    1830/1886, propagate_atoms 1381, relevant_eh 1615, smt_relevancy
+    467/468). Golden list: 781 of 818 vectors (was 519). The 37 that still
+    differ at the golden sites (open; several are documented deviations
+    such as z3_bug_* and recursive_mutual_boolean_model):
+    array_nested_interface_scopes array_weak_live_parent_scopes bv_blast_temporaries_model_values bv_blast_temporaries_smod_order bv_conflict_restore_relevancy card2bv_weighted_models fixedpoint_pdr_arithmetic_inductive fixedpoint_pdr_arithmetic_invariant fixedpoint_pdr_background fixedpoint_pdr_general_arithmetic_fragment fixedpoint_pdr_initial_trace fixedpoint_pdr_multicore fixedpoint_pdr_recursive_trace fixedpoint_pdr_sliced_compound_head fixedpoint_pdr_sliced_compound_tail fixedpoint_pdr_sliced_trace fixedpoint_pdr_untransformed_linear_trace fixedpoint_pdr_untransformed_nonlinear_trace fixedpoint_pdr_utvpi_fragment fixedpoint_spacer_bv_state flush_bound_axioms_introsort_old_q515 flush_bound_axioms_introsort_q2119 flush_bound_axioms_introsort_q3063 flush_bound_axioms_introsort_q3110 fp_pdr_level_formula fp_to_ubv_uf_model pb_strengthening_proof qe_int_mod3_bit2int_apply qe_int_mod3_bit2int_check_sat qfuzz_cheap_eq_after_instance quant_seq_shared_boolean_scopes quant_seq_symbolic_int_prefix recursive_mutual_boolean_model seq_binary_eq_negative_length_offset sequence_helper_inventory z3_bug_automaton_product z3_bug_qe_nested_store.
+    Older notes follow. 423 of 660 test vectors now match the z3
     trace build at every golden site (assign_core, decide, add_eq_detail,
     mk_bool_var, the seq records, and the conflict records with ids
     masked); they are TestTraceGolden's default vectors
@@ -1033,7 +1044,7 @@ Found while matching `-st` output against `build/z3` on
     which violates y<=2; g3 now gives the same model
     (TestSMTLRAFinalCheckKernelModelConflictAndRecovery pins it).
 
-22. **OPEN: opt::context::optimize flow (item 12 cluster).**
+22. **RESOLVED: opt::context::optimize flow (item 12 cluster).** STATUS 2026-11-13 (24393536c): every test vector is trace-identical to the fork (fullcmp2 802 identical / 0 differ, 11 traced timeouts; with Z3_TRACE_NO_PP 813 identical / 0 differ / 0 timeouts), including the vectors named here, so this item is resolved for the test corpus; the notes below are history.
    PROGRESS (2026-11-09, cfd7faeae..3228858d1): update_solver installs
    sat/sat_solver's inc_sat_solver behind opt.maxSMTBackend, and every
    MaxSMT engine, blocker and commit goes through solver(). Fixes in this
@@ -1568,7 +1579,7 @@ Found while matching `-st` output against `build/z3` on
     the next candidates are the rel_context query path and relation
     plugins.
 
-30. **Open (2026-11-10): opt pareto pipeline order.** In
+30. **RESOLVED (opened 2026-11-10): opt pareto pipeline order.** STATUS 2026-11-13 (24393536c): every test vector is trace-identical to the fork (fullcmp2 802 identical / 0 differ, 11 traced timeouts; with Z3_TRACE_NO_PP 813 identical / 0 differ / 0 timeouts), including the vectors named here, so this item is resolved for the test corpus; the notes below are history. In
     pareto_bit_vector_optimization, z3's opt::context::optimize runs
     init_solver first: the opt_solver's smt::kernel builds the qi_queue
     cost-parser variables, then the objectives are purified into fresh
@@ -1636,7 +1647,8 @@ Found while matching `-st` output against `build/z3` on
       case with (= (+ x y) 1) exactly as z3 4.7.1 does (checked with both
       binaries). The removal is the ask-first decision above.
 
-31. **In progress (2026-11-11): PDR/spacer query pipeline lifetimes (about 40
+31. **RESOLVED (started 2026-11-11): PDR/spacer query pipeline lifetimes (about 40
+    STATUS 2026-11-13 (24393536c): every test vector is trace-identical to the fork (fullcmp2 802 identical / 0 differ, 11 traced timeouts; with Z3_TRACE_NO_PP 813 identical / 0 differ / 0 timeouts), including the vectors named here, so this item is resolved for the test corpus; the notes below are history.
     fixedpoint_* and fp_spacer_* vectors).** Plan: pkg/PDR_PORT_PLAN.md.
     Update (2026-11-11, 15a376729): every spacer vector now matches the
     source trace; the full logs are 639 identical / 21 differ, stdout
@@ -1825,7 +1837,7 @@ Found while matching `-st` output against `build/z3` on
     eval results died in a different order. g3 now follows the source
     lifecycle, and recursive_mutual_and_arguments is identical.
 
-35. **Open (2026-11-11): qe tactic top-level flow.** qe_cooper_symbolic_blast
+35. **RESOLVED (opened 2026-11-11): qe tactic top-level flow.** STATUS 2026-11-13 (24393536c): every test vector is trace-identical to the fork (fullcmp2 802 identical / 0 differ, 11 traced timeouts; with Z3_TRACE_NO_PP 813 identical / 0 differ / 0 timeouts), including the vectors named here, so this item is resolved for the test corpus; the notes below are history. qe_cooper_symbolic_blast
     (now no longer timing out) differs at line 53: z3's qe_tactic runs
     expr_quant_elim::elim -> quant_elim_new::eliminate_exists_bind ->
     eliminate_block, which builds the plugins (mk_arith_plugin's
@@ -1863,7 +1875,8 @@ Found while matching `-st` output against `build/z3` on
     existing enode without a trail (smtcore/smt_internalizer.go), which
     context::mk_enode never does.
 
-37. **In progress (2026-11-11): remaining full-log differences outside
+37. **RESOLVED (started 2026-11-11): remaining full-log differences outside
+    STATUS 2026-11-13 (24393536c): every test vector is trace-identical to the fork (fullcmp2 802 identical / 0 differ, 11 traced timeouts; with Z3_TRACE_NO_PP 813 identical / 0 differ / 0 timeouts), including the vectors named here, so this item is resolved for the test corpus; the notes below are history.
     PDR/spacer.** Full logs are 620 identical / 40 differ (stdout 651/662
     unchanged). Fixed this session, each now matching z3's whole trace:
     quant_seq_regex_backjump, quant_seq_bounded_regex_backjump

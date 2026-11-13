@@ -235,7 +235,7 @@ func (s *SMTInternalizerState) traceAssignCore(l SMTLiteral, j SMTBooleanJustifi
 	if decision {
 		kind = "decision: "
 	}
-	emitSMTTrace("assign_core", "assign_core", "src/smt/smt_context.cpp", 293,
+	emitSMTTrace("assign_core", "assign_core", "src/smt/smt_context.cpp", 294,
 		kind+traceLiteral(l)+" "+s.traceLiteralVerbose(l)+" level: "+strconv.Itoa(int(s.scopeLevel))+"\n"+s.traceJustification(j))
 }
 
@@ -243,7 +243,7 @@ func (s *SMTInternalizerState) traceAddEqDetail(n1, n2 *SMTEnode, j SMTEqualityJ
 	if !smtTraceEnabled("add_eq_detail") {
 		return
 	}
-	emitSMTTrace("add_eq_detail", "add_eq", "src/smt/smt_context.cpp", 497,
+	emitSMTTrace("add_eq_detail", "add_eq", "src/smt/smt_context.cpp", 498,
 		"assigning\n"+tracePP(s.manager, n1.owner)+"\n"+tracePP(s.manager, n2.owner)+"\nkind: "+strconv.Itoa(int(j.kind))+"\n")
 }
 
@@ -271,12 +271,12 @@ func (s *SMTInternalizerState) traceDecide(variable int32, positive bool) {
 	if !smtTraceEnabled("decide") {
 		return
 	}
-	emitSMTTrace("decide", "decide", "src/smt/smt_context.cpp", 1829, "splitting, lvl: "+strconv.Itoa(int(s.scopeLevel))+"\n")
+	emitSMTTrace("decide", "decide", "src/smt/smt_context.cpp", 1830, "splitting, lvl: "+strconv.Itoa(int(s.scopeLevel))+"\n")
 	pos := "0"
 	if positive {
 		pos = "1"
 	}
-	emitSMTTrace("decide", "decide", "src/smt/smt_context.cpp", 1885,
+	emitSMTTrace("decide", "decide", "src/smt/smt_context.cpp", 1886,
 		"case split pos: "+pos+" p"+strconv.Itoa(int(variable))+"\nactivity: "+strconv.FormatFloat(s.activity[variable], 'g', 6, 64)+"\n")
 }
 
@@ -310,15 +310,15 @@ func (s *SMTInternalizerState) traceMkEnode(node *SMTEnode, count uint32, congru
 }
 
 // tracePropagate is the TRACE pair at the head of relevancy_propagator::
-// propagate (src/smt/smt_relevancy.cpp:462-463).
+// propagate (src/smt/smt_relevancy.cpp:467-468).
 func (p *SMTRelevancyPropagator) tracePropagate(n ast.ASTHandle) {
 	if smtTraceEnabled("propagate_relevancy_to_args") {
 		id, _ := p.context.manager.GetASTID(n)
-		emitSMTTrace("propagate_relevancy_to_args", "propagate", "src/smt/smt_relevancy.cpp", 462,
+		emitSMTTrace("propagate_relevancy_to_args", "propagate", "src/smt/smt_relevancy.cpp", 467,
 			"propagating relevancy to args of #"+strconv.FormatUint(uint64(id), 10)+"\n")
 	}
 	if smtTraceEnabled("propagate_relevancy") {
-		emitSMTTrace("propagate_relevancy", "propagate", "src/smt/smt_relevancy.cpp", 463,
+		emitSMTTrace("propagate_relevancy", "propagate", "src/smt/smt_relevancy.cpp", 468,
 			"marking as relevant:\n"+traceBoundedPP(p.context.manager, n)+"\n")
 	}
 }
@@ -333,16 +333,16 @@ func (p *SMTRelevancyPropagator) traceUnmark(n ast.ASTHandle) {
 }
 
 // traceRelevantEh is the TRACE in context::relevant_eh
-// (src/smt/smt_context.cpp:1614).
+// (src/smt/smt_context.cpp:1615).
 func (s *SMTInternalizerState) traceRelevantEh(n ast.ASTHandle) {
 	if smtTraceEnabled("propagate_relevancy") {
-		emitSMTTrace("propagate_relevancy", "relevant_eh", "src/smt/smt_context.cpp", 1614,
+		emitSMTTrace("propagate_relevancy", "relevant_eh", "src/smt/smt_context.cpp", 1615,
 			"marking as relevant:\n"+traceBoundedPP(s.manager, n)+" "+strconv.FormatUint(uint64(s.scopeLevel), 10)+"\n")
 	}
 }
 
 // tracePropagateAtom is the TRACE in context::propagate_atoms
-// (src/smt/smt_context.cpp:1380).
+// (src/smt/smt_context.cpp:1381).
 func (s *SMTInternalizerState) tracePropagateAtom(l SMTLiteral, d *SMTBoolVarData) {
 	if !smtTraceEnabled("propagate_atoms") {
 		return
@@ -362,7 +362,7 @@ func (s *SMTInternalizerState) tracePropagateAtom(l SMTLiteral, d *SMTBoolVarDat
 	if d.IsENode() {
 		enode = "1"
 	}
-	emitSMTTrace("propagate_atoms", "propagate_atoms", "src/smt/smt_context.cpp", 1380,
+	emitSMTTrace("propagate_atoms", "propagate_atoms", "src/smt/smt_context.cpp", 1381,
 		"propagating atom, #"+strconv.FormatUint(uint64(id), 10)+", is_enode(): "+enode+" tag: "+tag+" "+traceLiteral(l)+"\n")
 }
 
