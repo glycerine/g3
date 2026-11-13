@@ -181,6 +181,7 @@ func (m *ASTManager) deleteNodeWorklist(stack []astNodeRef, resumed astNodeRef) 
 				m.declAt(current.slot).identityCached = false
 			case ASTSort:
 				m.sortAt(current.slot).identityCached = false
+				m.sortAt(current.slot).seqParamState = 0
 			}
 			if e := m.dropInfoStorage(slot, generation); e != nil {
 				m.suspendNodeDeletion(current, stack)

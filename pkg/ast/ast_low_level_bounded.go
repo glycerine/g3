@@ -87,7 +87,7 @@ func (p *astLowLevelPrinter) displayBounded(r astNodeRef, depth uint32) error {
 			if err := p.out.AppendCString(" "); err != nil {
 				return err
 			}
-			child, err := m.readInternal(a.args, i)
+			child, err := m.appArg(a, i)
 			if err != nil {
 				return err
 			}

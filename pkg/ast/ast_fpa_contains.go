@@ -30,7 +30,7 @@ func (m *ASTManager) containsFloatingPoint(root astNodeRef) (bool, error) {
 		case ASTApp:
 			v := m.appAt(r.slot)
 			for i := v.count; i != 0; i-- {
-				child, e := m.readInternal(v.args, i-1)
+				child, e := m.appArg(v, i-1)
 				if e != nil {
 					return false, e
 				}

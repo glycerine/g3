@@ -76,3 +76,37 @@ func (m *ASTManager) DecRefEachReverse(hs []ASTHandle) (int, error) {
 	}
 	return len(hs), nil
 }
+
+// IncRefThenDecRef is IncRef on inc[0], inc[1], ... followed by DecRef on
+// dec[0], dec[1], ..., under one manager lock. It stops at the first
+// failure and reports how many increments and releases completed before it.
+func (m *ASTManager) IncRefThenDecRef(inc, dec []ASTHandle) (incDone, decDone int, err error) {
+	if len(inc) == 0 && len(dec) == 0 {
+		return 0, 0, nil
+	}
+	if err = m.lock(); err != nil {
+		return 0, 0, err
+	}
+	defer m.mu.Unlock()
+	for i, h := range inc {
+		if h.IsNull() {
+			continue
+		}
+		r, e := m.internal(h)
+		if e == nil {
+			e = m.incNode(r)
+		}
+		if e != nil {
+			return i, 0, e
+		}
+	}
+	for i, h := range dec {
+		if e := m.relockBetween(); e != nil {
+			return len(inc), i, e
+		}
+		if e := m.decRefLocked(h); e != nil {
+			return len(inc), i, e
+		}
+	}
+	return len(inc), len(dec), nil
+}

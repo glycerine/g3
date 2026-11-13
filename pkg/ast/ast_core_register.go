@@ -37,6 +37,7 @@ func (m *ASTManager) setInfoForNode(r astNodeRef, slot, generation uint32) {
 		v := m.sortAt(r.slot)
 		v.info = ASTSortInfo{m.origin, slot, generation}
 		v.identityCached = false
+		v.seqParamState = 0
 		if info, e := m.info(slot, generation); e == nil {
 			v.identityFamily, v.identityKind, v.identityCached = info.family, info.kind, true
 		}
@@ -79,7 +80,7 @@ func (m *ASTManager) nodeChild(r astNodeRef, i uint32) (astNodeRef, error) {
 			return v.decl, nil
 		}
 		if i <= v.count {
-			return m.readInternal(v.args, i-1)
+			return m.appArg(v, i-1)
 		}
 	case ASTVar:
 		if i == 0 {

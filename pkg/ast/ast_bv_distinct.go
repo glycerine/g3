@@ -19,7 +19,7 @@ func (m *ASTManager) bitVectorOffsetTerm(fid FamilyID, a astNodeRef, f *astBVNum
 	if app.count != 2 || family != fid || kind != 4 {
 		return a, q.SetInt64WithInvocation(&f.values[side], 0, &f.children[child])
 	}
-	offset, e := m.readInternal(app.args, 0)
+	offset, e := m.appArg(app, 0)
 	if e != nil {
 		return astNodeRef{}, e
 	}
@@ -63,7 +63,7 @@ func (m *ASTManager) bitVectorOffsetTerm(fid FamilyID, a astNodeRef, f *astBVNum
 	if width.Kind != ASTParameterInt {
 		return astNodeRef{}, ErrASTDomain
 	}
-	term, e := m.readInternal(app.args, 1)
+	term, e := m.appArg(app, 1)
 	if e != nil {
 		return astNodeRef{}, e
 	}

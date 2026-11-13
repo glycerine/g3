@@ -47,7 +47,7 @@ func (m *ASTManager) astUtilIsAtom(r astNodeRef) (bool, error) {
 	if op != ASTOpEq || a.count == 0 {
 		return false, nil
 	}
-	arg, e := m.readInternal(a.args, 0)
+	arg, e := m.appArg(a, 0)
 	if e != nil {
 		return false, e
 	}
@@ -68,7 +68,7 @@ func (m *ASTManager) astUtilIsLiteral(r astNodeRef) (bool, error) {
 	if a.count != 1 {
 		return false, ErrASTDomain
 	}
-	child, e := m.readInternal(a.args, 0)
+	child, e := m.appArg(a, 0)
 	if e != nil {
 		return false, e
 	}
@@ -87,7 +87,7 @@ func (m *ASTManager) astUtilLiteralAtomSign(r astNodeRef) (astNodeRef, bool, err
 	if e != nil || atom {
 		return r, false, e
 	}
-	child, e := m.readInternal(m.appAt(r.slot).args, 0)
+	child, e := m.appArg(m.appAt(r.slot), 0)
 	return child, true, e
 }
 
@@ -102,7 +102,7 @@ func (m *ASTManager) astUtilIsClause(r astNodeRef) (bool, error) {
 	}
 	a := m.appAt(r.slot)
 	for i := uint32(0); i < a.count; i++ {
-		child, e := m.readInternal(a.args, i)
+		child, e := m.appArg(a, i)
 		if e != nil {
 			return false, e
 		}
@@ -218,6 +218,6 @@ func (m *ASTManager) ClauseLiteral(h ASTHandle, index uint32) (ASTHandle, error)
 	if index >= a.count {
 		return ASTHandle{}, ErrASTDomain
 	}
-	child, e := m.readInternal(a.args, index)
+	child, e := m.appArg(a, index)
 	return m.external(child), e
 }

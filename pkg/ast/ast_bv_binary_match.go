@@ -21,7 +21,7 @@ func (m *ASTManager) bitVectorBinaryOperands(h ASTHandle, kind int32, left, righ
 	if app.count != 2 {
 		return false, nil
 	}
-	a, e := m.readInternal(app.args, 0)
+	a, e := m.appArg(app, 0)
 	if e != nil {
 		return false, e
 	}
@@ -29,7 +29,7 @@ func (m *ASTManager) bitVectorBinaryOperands(h ASTHandle, kind int32, left, righ
 		return false, ErrASTDomain
 	}
 	*left = m.external(a)
-	b, e := m.readInternal(app.args, 1)
+	b, e := m.appArg(app, 1)
 	if e != nil {
 		return false, e
 	}

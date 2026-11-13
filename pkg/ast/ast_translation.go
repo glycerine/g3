@@ -258,7 +258,7 @@ func (t *ASTTranslation) snapshotNode(h ASTHandle) (astTranslationNode, error) {
 		appendChild(v.decl)
 		for i := uint32(0); i < v.count && err == nil; i++ {
 			var child astNodeRef
-			child, err = m.readInternal(v.args, i)
+			child, err = m.appArg(v, i)
 			if err == nil {
 				appendChild(child)
 			}

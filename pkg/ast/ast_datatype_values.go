@@ -21,7 +21,7 @@ func (m *ASTManager) datatypeValue(root astNodeRef) (bool, error) {
 				return false, nil
 			}
 			for i := uint32(0); i < app.count; i++ {
-				child, e := m.readInternal(app.args, i)
+				child, e := m.appArg(app, i)
 				if e != nil {
 					return false, e
 				}

@@ -146,7 +146,7 @@ func (s *ASTSharedOccurrences) collectLocked(m *ASTManager, r astNodeRef, v *ast
 			a := m.appAt(fr.node.slot)
 			count = a.count
 			if fr.next < count {
-				child, e = m.readInternal(a.args, fr.next)
+				child, e = m.appArg(a, fr.next)
 			}
 		case ASTQuantifier:
 			if ASTSourceDebug && !s.config.VisitQuantifiers {

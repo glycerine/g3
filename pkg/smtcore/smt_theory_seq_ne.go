@@ -66,7 +66,7 @@ func (t *SMTTheorySeq) solveNe(idx int) bool {
 
 		lsS := t.lendVec(ls)
 		rsS := t.lendVec(rs)
-		var lhsS, rhsS []ast.ASTHandle
+		lhsS, rhsS := t.getVec(), t.getVec()
 		ok, err := t.seqRewrite.ReduceEqVec(&lsS, &rsS, &lhsS, &rhsS, &change)
 		t.chk(err)
 		t.takeVec(ls, lsS)

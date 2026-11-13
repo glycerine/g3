@@ -56,7 +56,7 @@ func (m *ASTManager) bitVectorZeroBit(arg ASTHandle, idx uint32, c *ASTBitVector
 		found := false
 		for i := a.count; i != 0; {
 			i--
-			child, e := m.readInternal(a.args, i)
+			child, e := m.appArg(a, i)
 			if e != nil {
 				return false, e
 			}

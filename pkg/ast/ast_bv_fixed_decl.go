@@ -225,15 +225,29 @@ func (m *ASTManager) bitVectorDecl(k int32, ps []ASTParameter, domain []ASTHandl
 	if value.Kind != ASTParameterInt {
 		return astNodeRef{}, ErrASTDomain
 	}
+	return m.bitVectorSizedDecl(p, k, ps, domain, value.integer)
+}
+
+// bitVectorSizedDecl is the rest of bitVectorDecl once the operand width is
+// known, with formatExecuting set; a separate function keeps the defer
+// open-coded.
+func (m *ASTManager) bitVectorSizedDecl(p *astBitVectorPluginOwner, k int32, ps []ASTParameter, domain []ASTHandle, width int32) (astNodeRef, error) {
 	previous := m.formatExecuting
 	m.formatExecuting = true
 	defer func() { m.formatExecuting = previous }()
-	r, e := p.fixedDecl(k, uint32(value.integer))
+	return m.bitVectorSizedDeclScoped(p, k, ps, domain, width)
+}
+
+func (m *ASTManager) bitVectorSizedDeclScoped(p *astBitVectorPluginOwner, k int32, ps []ASTParameter, domain []ASTHandle, width int32) (astNodeRef, error) {
+	fail := func(message string) (astNodeRef, error) {
+		return astNodeRef{}, ASTException{z3exception.NewDefaultException(message)}
+	}
+	r, e := p.fixedDecl(k, uint32(width))
 	if e != nil {
 		return astNodeRef{}, e
 	}
 	if r.slot == 0 {
-		return m.bitVectorParameterizedDecl(k, ps, domain, value.integer)
+		return m.bitVectorParameterizedDecl(k, ps, domain, width)
 	}
 	arity := int(m.declAt(r.slot).arity)
 	count := len(domain)

@@ -21,7 +21,7 @@ func (m *ASTManager) floatingPointValue(fid FamilyID, r astNodeRef, unique bool)
 			return false, ErrASTDomain
 		}
 		for i := uint32(0); i < app.count; i++ {
-			arg, e := m.readInternal(app.args, i)
+			arg, e := m.appArg(app, i)
 			if e != nil {
 				return false, e
 			}

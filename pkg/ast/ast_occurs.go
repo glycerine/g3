@@ -22,7 +22,7 @@ func (m *ASTManager) occursChildren(r astNodeRef) uint32 {
 func (m *ASTManager) occursChild(r astNodeRef, i uint32) (astNodeRef, error) {
 	switch m.nodeAt(r.slot).kind {
 	case ASTApp:
-		return m.readInternal(m.appAt(r.slot).args, i)
+		return m.appArg(m.appAt(r.slot), i)
 	case ASTQuantifier:
 		q := m.quantifierAt(r.slot)
 		switch {

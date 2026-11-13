@@ -117,7 +117,7 @@ func (m *ASTManager) isWellSorted(h ASTHandle, warnings *diagnostic.WarningServi
 			var child astNodeRef
 			switch m.nodeAt(f.node.slot).kind {
 			case ASTApp:
-				child, e = m.readInternal(m.appAt(f.node.slot).args, i)
+				child, e = m.appArg(m.appAt(f.node.slot), i)
 			case ASTQuantifier:
 				q := m.quantifierAt(f.node.slot)
 				switch {
@@ -162,7 +162,7 @@ func (m *ASTManager) isWellSorted(h ASTHandle, warnings *diagnostic.WarningServi
 				continue
 			}
 			for i := uint32(0); i < a.count; i++ {
-				child, err := m.readInternal(a.args, i)
+				child, err := m.appArg(a, i)
 				if err != nil {
 					return false, err
 				}

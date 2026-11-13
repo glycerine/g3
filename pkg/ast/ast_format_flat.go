@@ -183,7 +183,7 @@ func (m *ASTManager) flatVisit(f *astFormatFlatFrame, n astNodeRef) (astNodeRef,
 		return m.formatApp(ASTFormatString, &parameter, nil)
 	}
 	if id == f.family && kind == ASTFormatChoice {
-		return m.readInternal(a.args, 0)
+		return m.appArg(a, 0)
 	}
 	if id == f.family && m.flatUnchanged(f, a) {
 		return n, nil
@@ -269,7 +269,7 @@ func (m *ASTManager) formatFlat(root astNodeRef, documents *astFormatDocuments) 
 			// flat first argument and x rebuilds only nodes inside flat(x),
 			// which exist: their mk_app calls create, number and trace no node.
 			f.todo = f.todo[:len(f.todo)-1]
-			result, e = documents.ownNode(m.readInternal(m.appAt(n.slot).args, 0))
+			result, e = documents.ownNode(m.appArg(m.appAt(n.slot), 0))
 			if e != nil {
 				return astNodeRef{}, e
 			}
@@ -282,7 +282,7 @@ func (m *ASTManager) formatFlat(root astNodeRef, documents *astFormatDocuments) 
 		switch m.nodeAt(n.slot).kind {
 		case ASTApp:
 			a := m.appAt(n.slot)
-			f.args, e = m.readInternalAll(a.args, a.count, f.args[:0])
+			f.args, e = m.appArgsAll(a, f.args[:0])
 			if e != nil {
 				return astNodeRef{}, e
 			}
@@ -316,7 +316,7 @@ func (m *ASTManager) formatFlat(root astNodeRef, documents *astFormatDocuments) 
 		}
 		f.results = f.results[:0]
 		a := m.appAt(n.slot)
-		f.args, e = m.readInternalAll(a.args, a.count, f.args[:0])
+		f.args, e = m.appArgsAll(a, f.args[:0])
 		if e != nil {
 			return astNodeRef{}, e
 		}

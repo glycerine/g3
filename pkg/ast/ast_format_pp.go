@@ -159,7 +159,7 @@ func (m *ASTManager) formatSpaceToBreak(r astNodeRef, g *uparams.GlobalParamsSer
 		n, e := view.Length()
 		return uint32(n), false, e
 	case ASTFormatChoice, ASTFormatIndent:
-		child, e := m.readInternal(a.args, 0)
+		child, e := m.appArg(a, 0)
 		if e != nil {
 			return 0, false, e
 		}
@@ -167,7 +167,7 @@ func (m *ASTManager) formatSpaceToBreak(r astNodeRef, g *uparams.GlobalParamsSer
 	case ASTFormatCompose:
 		var n uint32
 		for i := uint32(0); i < a.count; i++ {
-			child, e := m.readInternal(a.args, i)
+			child, e := m.appArg(a, i)
 			if e != nil {
 				return 0, false, e
 			}
@@ -408,7 +408,7 @@ func (m *ASTManager) PrintFormat(out *utext.NumericTextStream, h ASTHandle, c *u
 				return e
 			}
 		case ASTFormatIndent:
-			child, e := f.readInternal(a.args, 0)
+			child, e := f.appArg(a, 0)
 			if e != nil {
 				return e
 			}
@@ -430,7 +430,7 @@ func (m *ASTManager) PrintFormat(out *utext.NumericTextStream, h ASTHandle, c *u
 			i := a.count
 			for i > 0 {
 				i--
-				child, e := f.readInternal(a.args, i)
+				child, e := f.appArg(a, i)
 				if e != nil {
 					return e
 				}
@@ -446,7 +446,7 @@ func (m *ASTManager) PrintFormat(out *utext.NumericTextStream, h ASTHandle, c *u
 			spaceLeft := int32(left)
 			var child astNodeRef
 			if spaceLeft > 0 {
-				first, e := f.readInternal(a.args, 0)
+				first, e := f.appArg(a, 0)
 				if e != nil {
 					return e
 				}
@@ -457,13 +457,13 @@ func (m *ASTManager) PrintFormat(out *utext.NumericTextStream, h ASTHandle, c *u
 				if size <= uint32(spaceLeft) {
 					child = first
 				} else {
-					child, e = f.readInternal(a.args, 1)
+					child, e = f.appArg(a, 1)
 					if e != nil {
 						return e
 					}
 				}
 			} else {
-				child, e = f.readInternal(a.args, 1)
+				child, e = f.appArg(a, 1)
 				if e != nil {
 					return e
 				}

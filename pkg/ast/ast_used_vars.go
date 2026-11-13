@@ -70,7 +70,7 @@ func (u *ASTUsedVars) Process(root ASTHandle) error {
 		case ASTApp:
 			a := m.appAt(item.node.slot)
 			for j := a.count; j != 0; j-- {
-				child, err := m.readInternal(a.args, j-1)
+				child, err := m.appArg(a, j-1)
 				if err != nil {
 					return err
 				}

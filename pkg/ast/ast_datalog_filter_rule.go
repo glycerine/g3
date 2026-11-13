@@ -51,7 +51,7 @@ func (m *ASTManager) datalogFilterDecl(ps []ASTParameter, domain []ASTHandle) (a
 		case ASTApp:
 			app := m.appAt(current.slot)
 			for j := uint32(0); j < app.count; j++ {
-				child, e := m.readInternal(app.args, j)
+				child, e := m.appArg(app, j)
 				if e != nil {
 					return astNodeRef{}, e
 				}

@@ -45,7 +45,7 @@ func (m *ASTManager) readBitVectorPolynomialPowerProduct(arg ASTHandle, coeffici
 	var first astNodeRef
 	binary := mul && m.appAt(r.slot).count == 2
 	if binary {
-		first, e = m.readInternal(m.appAt(r.slot).args, 0)
+		first, e = m.appArg(m.appAt(r.slot), 0)
 		if e != nil {
 			return node, e
 		}
@@ -69,7 +69,7 @@ func (m *ASTManager) readBitVectorPolynomialPowerProduct(arg ASTHandle, coeffici
 			return node, e
 		}
 		if matched {
-			pp, e := m.readInternal(m.appAt(r.slot).args, 1)
+			pp, e := m.appArg(m.appAt(r.slot), 1)
 			return m.external(pp), e
 		}
 	}

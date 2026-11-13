@@ -203,7 +203,7 @@ func (m *ASTManager) BitVectorExtractValue(h ASTHandle, low, high *uint32, base 
 		return false, ErrASTDomain
 	}
 	*high = uint32(hi)
-	operand, e := m.readInternal(m.appAt(r.slot).args, 0)
+	operand, e := m.appArg(m.appAt(r.slot), 0)
 	if e != nil {
 		return false, e
 	}
@@ -226,7 +226,7 @@ func (m *ASTManager) BitVectorToIntValue(h ASTHandle, base *ASTHandle) (bool, er
 	if e != nil || !found {
 		return false, e
 	}
-	operand, e := m.readInternal(m.appAt(r.slot).args, 0)
+	operand, e := m.appArg(m.appAt(r.slot), 0)
 	if e != nil {
 		return false, e
 	}

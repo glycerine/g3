@@ -15,7 +15,7 @@ func (m *ASTManager) sequenceBinaryParts(r astNodeRef, kind int32) (astNodeRef, 
 	if err != nil || family != m.sequencePlugin.family || actualKind != kind || a.count != 2 {
 		return astNodeRef{}, astNodeRef{}, false, err
 	}
-	left, right, err := m.readInternalPair(a.args)
+	left, right, err := m.appArgPair(a)
 	if err != nil {
 		return astNodeRef{}, astNodeRef{}, false, err
 	}
@@ -155,7 +155,7 @@ func (m *ASTManager) RegexLoopParameters(h ASTHandle) (body ASTHandle, lower, up
 		}
 		values[i] = parameter.integer
 	}
-	child, err := m.readInternal(a.args, 0)
+	child, err := m.appArg(a, 0)
 	if err != nil {
 		return ASTHandle{}, 0, 0, false, false, err
 	}
@@ -213,7 +213,7 @@ func (m *ASTManager) SequenceIntToStringArgument(h ASTHandle) (ASTHandle, bool, 
 	if err != nil || family != m.sequencePlugin.family || kind != 27 || a.count != 1 {
 		return ASTHandle{}, false, err
 	}
-	argument, err := m.readInternal(a.args, 0)
+	argument, err := m.appArg(a, 0)
 	return m.external(argument), err == nil, err
 }
 
@@ -234,7 +234,7 @@ func (m *ASTManager) IsRegexEpsilon(h ASTHandle) (bool, error) {
 	if err != nil || family != m.sequencePlugin.family || kind != ASTSequenceOpToRegex || a.count != 1 {
 		return false, err
 	}
-	argument, err := m.readInternal(a.args, 0)
+	argument, err := m.appArg(a, 0)
 	if err != nil {
 		return false, err
 	}
@@ -258,7 +258,7 @@ func (m *ASTManager) SequenceUnaryOperationArgument(h ASTHandle, kind int32) (AS
 	if err != nil || family != m.sequencePlugin.family || actualKind != kind || a.count != 1 {
 		return ASTHandle{}, false, err
 	}
-	argument, err := m.readInternal(a.args, 0)
+	argument, err := m.appArg(a, 0)
 	return m.external(argument), err == nil, err
 }
 
@@ -298,14 +298,14 @@ func (m *ASTManager) SequenceExtractArguments(h ASTHandle) (sequence, offset, le
 	if err != nil || family != m.sequencePlugin.family || kind != 6 || a.count != 3 {
 		return ASTHandle{}, ASTHandle{}, ASTHandle{}, false, err
 	}
-	x, err := m.readInternal(a.args, 0)
+	x, err := m.appArg(a, 0)
 	if err != nil {
 		return ASTHandle{}, ASTHandle{}, ASTHandle{}, false, err
 	}
-	y, err := m.readInternal(a.args, 1)
+	y, err := m.appArg(a, 1)
 	if err != nil {
 		return ASTHandle{}, ASTHandle{}, ASTHandle{}, false, err
 	}
-	z, err := m.readInternal(a.args, 2)
+	z, err := m.appArg(a, 2)
 	return m.external(x), m.external(y), m.external(z), err == nil, err
 }

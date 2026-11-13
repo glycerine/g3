@@ -9,6 +9,54 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 )
 
+// mkArithmeticFamilyApp is mkFamilyApp's arithmetic plugin branch, with
+// formatExecuting set for the declaration and the app (the separate
+// function keeps mkFamilyApp free of defers).
+func (m *ASTManager) mkArithmeticFamilyApp(k int32, ps []ASTParameter, args []ASTHandle) (astNodeRef, error) {
+	previous := m.formatExecuting
+	m.formatExecuting = true
+	defer func() { m.formatExecuting = previous }()
+	d, e := m.arithmeticExprDecl(k, ps, args)
+	if e != nil || d.slot == 0 {
+		return astNodeRef{}, e
+	}
+	return m.mkApp(d, args)
+}
+
+// mkBitVectorFamilyApp is mkFamilyApp's bit-vector plugin branch. A kind
+// the plugin does not handle takes the generic domain path, still with
+// formatExecuting set, as in the source's single scope.
+func (m *ASTManager) mkBitVectorFamilyApp(fid FamilyID, k int32, ps []ASTParameter, args []ASTHandle) (astNodeRef, error) {
+	previous := m.formatExecuting
+	m.formatExecuting = true
+	defer func() { m.formatExecuting = previous }()
+	return m.mkBitVectorFamilyAppScoped(fid, k, ps, args)
+}
+
+func (m *ASTManager) mkBitVectorFamilyAppScoped(fid FamilyID, k int32, ps []ASTParameter, args []ASTHandle) (astNodeRef, error) {
+	d, handled, e := m.bitVectorExprDecl(k, ps, args)
+	if e != nil {
+		return astNodeRef{}, e
+	}
+	if handled {
+		if d.slot == 0 {
+			return astNodeRef{}, nil
+		}
+		return m.mkApp(d, args)
+	}
+	return m.mkFamilyAppDomainArguments(fid, k, ps, SliceArguments(args))
+}
+
+// mkAppHeldDecl holds decl (a plugin may return a fresh declaration with
+// no owner yet) while the application is built, and releases it after.
+func (m *ASTManager) mkAppHeldDecl(decl astNodeRef, args AppArguments) (result astNodeRef, cause error) {
+	if e := m.incNode(decl); e != nil {
+		return astNodeRef{}, e
+	}
+	defer func() { _, err := m.decNode(decl); cause = errors.Join(cause, err) }()
+	return m.mkAppArguments(decl, args)
+}
+
 func (m *ASTManager) mkFamilyApp(fid FamilyID, k int32, ps []ASTParameter, args []ASTHandle) (result astNodeRef, cause error) {
 	if fid < 0 || !m.pluginAt(fid).present {
 		return astNodeRef{}, nil
@@ -17,29 +65,10 @@ func (m *ASTManager) mkFamilyApp(fid FamilyID, k int32, ps []ASTParameter, args 
 		return astNodeRef{}, arena.ErrBounds
 	}
 	if m.pluginAt(fid).kind == astArithmeticPlugin {
-		previous := m.formatExecuting
-		m.formatExecuting = true
-		defer func() { m.formatExecuting = previous }()
-		d, e := m.arithmeticExprDecl(k, ps, args)
-		if e != nil || d.slot == 0 {
-			return astNodeRef{}, e
-		}
-		return m.mkApp(d, args)
+		return m.mkArithmeticFamilyApp(k, ps, args)
 	}
 	if m.pluginAt(fid).kind == astBitVectorPlugin {
-		previous := m.formatExecuting
-		m.formatExecuting = true
-		defer func() { m.formatExecuting = previous }()
-		d, handled, e := m.bitVectorExprDecl(k, ps, args)
-		if e != nil {
-			return astNodeRef{}, e
-		}
-		if handled {
-			if d.slot == 0 {
-				return astNodeRef{}, nil
-			}
-			return m.mkApp(d, args)
-		}
+		return m.mkBitVectorFamilyApp(fid, k, ps, args)
 	}
 	// The basic expr overload bypasses decl_plugin's domain buffer for these
 	// branches. This matters for overflow-reservation actions on large arities.
@@ -150,17 +179,31 @@ func (m *ASTManager) mkFamilyApp(fid FamilyID, k int32, ps []ASTParameter, args 
 			}
 			// Parameterized proof declarations are not cached. Own the declaration
 			// until the application takes its reference, or discard it on failure.
-			if e = m.incNode(d); e != nil {
-				return astNodeRef{}, e
-			}
-			defer func() { _, err := m.decNode(d); cause = errors.Join(cause, err) }()
-			return m.mkApp(d, args)
+			return m.mkAppHeldDecl(d, SliceArguments(args))
 		}
 	}
 	return m.mkFamilyAppDomainArguments(fid, k, ps, SliceArguments(args))
 }
 
 func (m *ASTManager) mkFamilyAppDomainArguments(fid FamilyID, k int32, ps []ASTParameter, args AppArguments) (result astNodeRef, cause error) {
+	if fid != 0 && m.pluginAt(fid).kind != astArrayPlugin && m.isFloatingPointExprKind(fid, k) {
+		// The floating-point declarations and the application are built
+		// with formatExecuting set (restored last).
+		previous := m.formatExecuting
+		defer func() { m.formatExecuting = previous }()
+		return m.mkFamilyAppDomainCore(fid, k, ps, args, true)
+	}
+	return m.mkFamilyAppDomainCore(fid, k, ps, args, false)
+}
+
+func (m *ASTManager) isFloatingPointExprKind(fid FamilyID, k int32) bool {
+	return m.pluginAt(fid).kind == astFloatingPointPlugin && k >= 0 && (k <= astFPAMinusZero || k >= astFPAAdd && k <= astFPARoundToIntegral || k >= astFPAEq && k <= astFPAGe || k >= astFPAIsNaN && k <= astFPAIsPositive || k == astFPAFP || k == astFPAToFP || k == astFPAToFPUnsigned || k == astFPAToUBV || k == astFPAToSBV || k == astFPAToReal || k == astFPAToIEEEBV || k == astFPABVWrap || k == astFPABV2RM)
+}
+
+// mkFamilyAppDomainCore is mkFamilyAppDomainArguments without defers;
+// floatingPoint says the kind takes the floating-point branch, whose
+// formatExecuting scope the caller restores.
+func (m *ASTManager) mkFamilyAppDomainCore(fid FamilyID, k int32, ps []ASTParameter, args AppArguments, floatingPoint bool) (astNodeRef, error) {
 	// Source decl_plugin's expr overload collects sorts in a lexical ptr_buffer;
 	// use a native typed slice for those borrowed sort handles.
 	var inline [16]ASTHandle
@@ -186,10 +229,8 @@ func (m *ASTManager) mkFamilyAppDomainArguments(fid FamilyID, k int32, ps []ASTP
 		decl, e = m.basicDecl(k, ps, domain)
 	} else if m.pluginAt(fid).kind == astArrayPlugin {
 		decl, e = m.arrayDecl(k, ps, domain, ASTHandle{})
-	} else if m.pluginAt(fid).kind == astFloatingPointPlugin && k >= 0 && (k <= astFPAMinusZero || k >= astFPAAdd && k <= astFPARoundToIntegral || k >= astFPAEq && k <= astFPAGe || k >= astFPAIsNaN && k <= astFPAIsPositive || k == astFPAFP || k == astFPAToFP || k == astFPAToFPUnsigned || k == astFPAToUBV || k == astFPAToSBV || k == astFPAToReal || k == astFPAToIEEEBV || k == astFPABVWrap || k == astFPABV2RM) {
-		previous := m.formatExecuting
+	} else if floatingPoint {
 		m.formatExecuting = true
-		defer func() { m.formatExecuting = previous }()
 		if k == astFPANeg || k == astFPAAbs {
 			decl, e = m.floatingPointUnaryDecl(k, domain)
 		} else if k == astFPAToReal {
@@ -243,11 +284,7 @@ func (m *ASTManager) mkFamilyAppDomainArguments(fid FamilyID, k int32, ps []ASTP
 	}
 	// A plugin can return a fresh declaration with no owner yet.
 	// Hold it until application construction succeeds or fails.
-	if e = m.incNode(decl); e != nil {
-		return astNodeRef{}, e
-	}
-	defer func() { _, err := m.decNode(decl); cause = errors.Join(cause, err) }()
-	return m.mkAppArguments(decl, args)
+	return m.mkAppHeldDecl(decl, args)
 }
 func (m *ASTManager) MkFamilyApp(fid FamilyID, k int32, ps []ASTParameter, args []ASTHandle) (ASTHandle, error) {
 	if e := m.lock(); e != nil {

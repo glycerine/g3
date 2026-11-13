@@ -22,7 +22,7 @@ func (m *ASTManager) sequenceValue(fid FamilyID, value astNodeRef) (bool, error)
 			if app.count != 1 {
 				return false, ErrASTDomain
 			}
-			arg, err := m.readInternal(app.args, 0)
+			arg, err := m.appArg(app, 0)
 			if err != nil {
 				return false, err
 			}
@@ -31,7 +31,7 @@ func (m *ASTManager) sequenceValue(fid FamilyID, value astNodeRef) (bool, error)
 			if app.count != 2 {
 				return false, ErrASTDomain
 			}
-			left, err := m.readInternal(app.args, 0)
+			left, err := m.appArg(app, 0)
 			if err != nil {
 				return false, err
 			}
@@ -39,7 +39,7 @@ func (m *ASTManager) sequenceValue(fid FamilyID, value astNodeRef) (bool, error)
 			if err != nil || !leftValue {
 				return leftValue, err
 			}
-			value, err = m.readInternal(app.args, 1)
+			value, err = m.appArg(app, 1)
 			if err != nil {
 				return false, err
 			}

@@ -49,6 +49,10 @@ type SMTEnode struct {
 	trans                    SMTTransJustification
 	labelHash                int8
 	labels, propagatedLabels approx.UintSet
+	// family and declKind are GetFamilyID and GetDeclKind of the owner,
+	// read at creation; the owner (held by the enode) keeps its declaration.
+	family   ast.FamilyID
+	declKind int32
 }
 
 func NewSMTEnode(m *ast.ASTManager, owner ast.ASTHandle, byApp func(ast.ASTHandle) *SMTEnode, options SMTEnodeOptions) (*SMTEnode, error) {
@@ -99,6 +103,7 @@ func NewSMTEnode(m *ast.ASTManager, owner ast.ASTHandle, byApp func(ast.ASTHandl
 		congruenceEnabled: options.CongruenceEnabled, labelHash: -1,
 		theoryVariables: *NewDefaultSMTTheoryVarList(),
 		trans:           SMTTransJustification{Justification: NullSMTEqualityJustification()},
+		family:          family, declKind: op,
 	}
 	n.root, n.next = n, n
 	if !options.SuppressArguments {

@@ -93,6 +93,33 @@ func (m *ASTManager) readInternalAll(p arena.SmallBytesRef, count uint32, dst []
 	return dst, nil
 }
 
+// appArg is readInternal(a.args, i) for the record a of a live app; the
+// first two arguments come from the copy kept in the record. Debug builds
+// keep the checked payload read.
+func (m *ASTManager) appArg(a *astAppRecord, i uint32) (astNodeRef, error) {
+	if i < 2 && i < a.count && !ASTSourceDebug {
+		return a.inlineArgs[i], nil
+	}
+	return m.readInternal(a.args, i)
+}
+
+// appArgPair is readInternalPair(a.args) for the record a of a live app.
+func (m *ASTManager) appArgPair(a *astAppRecord) (astNodeRef, astNodeRef, error) {
+	if a.count >= 2 && !ASTSourceDebug {
+		return a.inlineArgs[0], a.inlineArgs[1], nil
+	}
+	return m.readInternalPair(a.args)
+}
+
+// appArgsAll is readInternalAll(a.args, a.count, dst) for the record a of
+// a live app.
+func (m *ASTManager) appArgsAll(a *astAppRecord, dst []astNodeRef) ([]astNodeRef, error) {
+	if a.count <= 2 && !ASTSourceDebug {
+		return append(dst, a.inlineArgs[:a.count]...), nil
+	}
+	return m.readInternalAll(a.args, a.count, dst)
+}
+
 // readInternalPair is readInternal at indexes 0 and 1 with one payload
 // validation; p must hold at least two references.
 func (m *ASTManager) readInternalPair(p arena.SmallBytesRef) (astNodeRef, astNodeRef, error) {
@@ -139,9 +166,9 @@ func (m *ASTManager) newASTPayload(hs []ASTHandle) (arena.SmallBytesRef, error) 
 	if uint64(len(hs)) > math.MaxUint32 {
 		return arena.SmallBytesRef{}, arena.ErrBounds
 	}
-	return m.newASTPayloadArguments(AppArguments{slice: hs, count: uint32(len(hs))})
+	return m.newASTPayloadArguments(AppArguments{slice: hs, count: uint32(len(hs))}, nil)
 }
-func (m *ASTManager) newASTPayloadArguments(hs AppArguments) (arena.SmallBytesRef, error) {
+func (m *ASTManager) newASTPayloadArguments(hs AppArguments, inline *[2]astNodeRef) (arena.SmallBytesRef, error) {
 	if hs.count == 0 {
 		return arena.SmallBytesRef{}, nil
 	}
@@ -161,6 +188,9 @@ func (m *ASTManager) newASTPayloadArguments(hs AppArguments) (arena.SmallBytesRe
 		}
 		if e == nil {
 			e = m.writeInternal(p, uint32(i), r)
+		}
+		if e == nil && i < 2 && inline != nil {
+			inline[i] = r
 		}
 		if e != nil {
 			m.allocator.Deallocate(n, p)

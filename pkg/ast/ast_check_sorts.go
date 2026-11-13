@@ -113,7 +113,7 @@ func (m *ASTManager) checkSortsCore(r astNodeRef) (checkSortFailure, error) {
 		if e != nil {
 			return checkSortFailure{}, e
 		}
-		arg, e := m.readInternal(a.args, i)
+		arg, e := m.appArg(a, i)
 		if e != nil {
 			return checkSortFailure{}, e
 		}
@@ -143,7 +143,7 @@ func (m *ASTManager) checkSortsCore(r astNodeRef) (checkSortFailure, error) {
 			index uint32
 		}{{flags.RightAssociative, 1}, {flags.LeftAssociative, 0}} {
 			if child.on {
-				arg, e := m.readInternal(a.args, child.index)
+				arg, e := m.appArg(a, child.index)
 				if e != nil {
 					return checkSortFailure{}, e
 				}

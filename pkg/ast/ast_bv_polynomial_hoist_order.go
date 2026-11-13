@@ -29,7 +29,7 @@ func (m *ASTManager) bitVectorPolynomialCoefficientProduct(t astNodeRef, coeffic
 	if app.count != 2 {
 		return false, astNodeRef{}, nil
 	}
-	first, e := m.readInternal(app.args, 0)
+	first, e := m.appArg(app, 0)
 	if e != nil {
 		return false, astNodeRef{}, e
 	}
@@ -38,7 +38,7 @@ func (m *ASTManager) bitVectorPolynomialCoefficientProduct(t astNodeRef, coeffic
 	if e != nil || !yes {
 		return false, astNodeRef{}, e
 	}
-	pp, e := m.readInternal(app.args, 1)
+	pp, e := m.appArg(app, 1)
 	return true, pp, e
 }
 

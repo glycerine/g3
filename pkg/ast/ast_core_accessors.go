@@ -212,7 +212,7 @@ func (m *ASTManager) GetArg(h ASTHandle, index uint32) (ASTHandle, error) {
 	if index >= v.count {
 		return ASTHandle{}, ErrASTDomain
 	}
-	child, e := m.readInternal(v.args, index)
+	child, e := m.appArg(v, index)
 	return m.external(child), e
 }
 func (m *ASTManager) GetFamilyID(h ASTHandle) (FamilyID, error) {

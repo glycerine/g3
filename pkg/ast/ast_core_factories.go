@@ -184,7 +184,15 @@ func (m *ASTManager) mkAppCoreArguments(decl astNodeRef, args AppArguments) (res
 	if prepareError != nil {
 		return astNodeRef{}, prepareError
 	}
-	defer func() { m.finishTraceAcquisition(frame) }()
+	// One defer and few returns here keep the defer open-coded; the body's
+	// many returns would otherwise run the runtime defer path on each exit.
+	defer m.finishTraceAcquisition(frame)
+	return m.mkAppCoreArgumentsFramed(decl, args, frame)
+}
+
+// mkAppCoreArgumentsFramed is mkAppCoreArguments after the trace
+// acquisition frame (finished by the caller) is prepared.
+func (m *ASTManager) mkAppCoreArgumentsFramed(decl astNodeRef, args AppArguments, frame *astTraceAcquisition) (result astNodeRef, err error) {
 	// Source allocates app storage before coercion and check_args.
 	r, e := m.allocateNode(ASTApp)
 	if e != nil {
@@ -209,13 +217,28 @@ func (m *ASTManager) mkAppCoreArguments(decl astNodeRef, args AppArguments) (res
 			m.freeNodeStorage(r)
 			return astNodeRef{}, ErrASTPending
 		}
-		defer func() { err = errors.Join(err, m.cleanupAppCoercion(false)) }()
-		args, e = m.coerceAppArguments(decl, args, flags.LeftAssociative && flags.RightAssociative)
-		if e != nil {
-			m.freeNodeStorage(r)
-			return astNodeRef{}, e
-		}
+		return m.mkAppCoreCoerced(decl, args, frame, r, d, flags)
 	}
+	return m.mkAppCoreChecked(decl, args, frame, r, d, flags)
+}
+
+// mkAppCoreCoerced is the coercion branch of mkAppCoreArgumentsFramed: the
+// coerced arguments are cleaned up when the app is complete.
+func (m *ASTManager) mkAppCoreCoerced(decl astNodeRef, args AppArguments, frame *astTraceAcquisition, r astNodeRef, d *astFuncDeclRecord, flags ASTFuncFlags) (result astNodeRef, err error) {
+	defer func() { err = errors.Join(err, m.cleanupAppCoercion(false)) }()
+	args, e := m.coerceAppArguments(decl, args, flags.LeftAssociative && flags.RightAssociative)
+	if e != nil {
+		m.freeNodeStorage(r)
+		return astNodeRef{}, e
+	}
+	return m.mkAppCoreChecked(decl, args, frame, r, d, flags)
+}
+
+// mkAppCoreChecked is the rest of mkAppCoreArgumentsFramed: check_args,
+// payload and registration of the allocated app r.
+func (m *ASTManager) mkAppCoreChecked(decl astNodeRef, args AppArguments, frame *astTraceAcquisition, r astNodeRef, d *astFuncDeclRecord, flags ASTFuncFlags) (astNodeRef, error) {
+	v := m.appAt(r.slot)
+	var e error
 	for i := uint32(0); i < args.count; i++ {
 		h, e := args.at(i)
 		if e != nil {
@@ -250,7 +273,7 @@ func (m *ASTManager) mkAppCoreArguments(decl astNodeRef, args AppArguments) (res
 			return astNodeRef{}, &astArgumentSortError{decl: decl, actual: actual, index: i}
 		}
 	}
-	v.args, e = m.newASTPayloadArguments(args)
+	v.args, e = m.newASTPayloadArguments(args, &v.inlineArgs)
 	if e != nil {
 		m.freeNodeStorage(r)
 		return astNodeRef{}, e
@@ -291,11 +314,20 @@ func (m *ASTManager) mkAppArguments(decl astNodeRef, args AppArguments) (result 
 	if mismatch && (!f.LeftAssociative && !f.RightAssociative && !f.Chainable || int(args.count) < 2 && fid == 0 && !(f.LeftAssociative && f.RightAssociative)) {
 		return astNodeRef{}, &astArgumentCountError{decl: decl, count: args.count}
 	}
-	defer func() {
-		if cause == nil && result.slot != 0 {
-			cause = m.traceAppGround(result)
-		}
-	}()
+	// The ground trace follows every successful non-null result. A plain
+	// call after the shaping body replaces a defer, which the body's many
+	// returns would keep off the open-coded path.
+	result, cause = m.mkAppArgumentsShaped(decl, args, f, arity)
+	if cause == nil && result.slot != 0 {
+		cause = m.traceAppGround(result)
+	}
+	return result, cause
+}
+
+// mkAppArgumentsShaped is mkAppArguments after the argument count check:
+// associative and chainable expansion, then mk_app_core.
+func (m *ASTManager) mkAppArgumentsShaped(decl astNodeRef, args AppArguments, f ASTFuncFlags, arity uint32) (astNodeRef, error) {
+	var e error
 	if int(args.count) == 1 && f.Chainable && arity == 2 {
 		return m.trueApp, nil
 	}
@@ -446,7 +478,7 @@ func (m *ASTManager) MkQuantifier(spec ASTQuantifierSpec) (ASTHandle, error) {
 			}
 			a := m.appAt(r.slot)
 			for i := uint32(0); i < a.count; i++ {
-				child, e := m.readInternal(a.args, i)
+				child, e := m.appArg(a, i)
 				if e != nil {
 					return ASTHandle{}, e
 				}

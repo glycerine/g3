@@ -78,16 +78,9 @@ func (s *SMTInternalizerState) sharedTheoryNode(node *SMTEnode) (shared, consult
 		return false, false, ast.ErrASTDomain
 	}
 	root := node.root
-	family, err := s.manager.GetFamilyID(root.owner)
-	if err != nil {
-		return false, false, err
-	}
+	family := root.family
 	if family == s.manager.BasicFamilyID() {
-		kind, err := s.manager.GetDeclKind(root.owner)
-		if err != nil {
-			return false, false, err
-		}
-		if kind == ast.ASTOpIte {
+		if root.declKind == ast.ASTOpIte {
 			return true, false, nil
 		}
 	}
@@ -103,10 +96,7 @@ func (s *SMTInternalizerState) sharedTheoryNode(node *SMTEnode) (shared, consult
 	}
 	theory := root.theoryVariables.theory
 	for _, parent := range root.parents {
-		family, err := s.manager.GetFamilyID(parent.owner)
-		if err != nil {
-			return false, false, err
-		}
+		family := parent.family
 		if family != theory && family != s.manager.BasicFamilyID() {
 			return true, false, nil
 		}
@@ -124,16 +114,8 @@ func smtSharedArithmeticNode(owner *SMTTheoryBase, node *SMTEnode, division bool
 		return shared, err
 	}
 	for _, parent := range node.root.parents {
-		family, err := s.manager.GetFamilyID(parent.owner)
-		if err != nil {
-			return false, err
-		}
-		if family == owner.FamilyID() {
-			kind, err := s.manager.GetDeclKind(parent.owner)
-			if err != nil {
-				return false, err
-			}
-			if kind == smtArithOpDiv || kind == smtArithOpIDiv || kind == smtArithOpRem || kind == smtArithOpMod {
+		if parent.family == owner.FamilyID() {
+			if kind := parent.declKind; kind == smtArithOpDiv || kind == smtArithOpIDiv || kind == smtArithOpRem || kind == smtArithOpMod {
 				return true, nil
 			}
 		}

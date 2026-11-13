@@ -982,6 +982,9 @@ type SMTTheorySeq struct {
 	closed  bool
 	// locPool holds dropped function-local reference owners for reuse.
 	locPool []*seqRefs
+	// vecPool holds emptied raw vectors handed back by takeVec, reused by
+	// lendVec and the reduce_eq result vectors (getVec).
+	vecPool [][]ast.ASTHandle
 }
 
 // seqRewriterOwner is the source's m_rewrite member: a th_rewriter with

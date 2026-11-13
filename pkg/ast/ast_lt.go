@@ -293,11 +293,11 @@ start:
 				continue start
 			}
 			for i := uint32(0); i < x.count; i++ {
-				left, e := m.readInternal(x.args, i)
+				left, e := m.appArg(x, i)
 				if e != nil {
 					return false, e
 				}
-				right, e := m.readInternal(y.args, i)
+				right, e := m.appArg(y, i)
 				if e != nil {
 					return false, e
 				}

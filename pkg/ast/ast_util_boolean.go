@@ -34,7 +34,7 @@ func (m *ASTManager) astUtilMkNot(r astNodeRef) (astNodeRef, error) {
 		if a.count != 1 {
 			return astNodeRef{}, ErrASTDomain
 		}
-		return m.readInternal(a.args, 0)
+		return m.appArg(a, 0)
 	}
 	if r == m.trueApp {
 		return m.falseApp, nil
@@ -68,7 +68,7 @@ func (m *ASTManager) astUtilPushNot(r astNodeRef) (astNodeRef, error) {
 	}
 	children := make([]ASTHandle, 0, a.count)
 	for i := uint32(0); i < a.count; i++ {
-		child, e := m.readInternal(a.args, i)
+		child, e := m.appArg(a, i)
 		if e != nil {
 			return astNodeRef{}, e
 		}

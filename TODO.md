@@ -2775,3 +2775,26 @@ before); spacer VirtualSolver does not reproduce solver_na2as::m_assumptions
 (AssertTracked appears unreached); exemption lists name functions as
 strings; gofmt flags theory_bv_conversion.go, propositional_engine.go,
 tab/search.go, tab/unfold_clause.go.
+
+## Performance round 4 (2026-11-12, late)
+
+No behaviour change (strict base-vs-new comparison over all vectors: 0
+mismatches; fullcmp2 783 identical). slow_3097 40.5 -> 35.5 s (z3 8.1 s);
+g7_qsat unchanged (~12 s, z3 2.1 s); trace=true runs 5-9% faster.
+Changes: first two app arguments inlined in the app record (inlineArgs;
+debug builds read the checked way); SequenceEqEnds and IncRefThenDecRef
+batch ReduceEqVec's queries and ref pairs; IncRefSequenceConcatOrEmpty in
+canonizeInto; seq sort parameter cached on the sort record; enodes store
+decl family/kind (arith shared checks); pooled reduce_eq vectors; defers
+moved off hot paths; compile-time trace frame size.
+Next: node record first-touch misses (nodeAt 15%, app record 8%); seq
+hold/release pairs (~8%); MkSequenceLength rebuilds its decl per call
+(caching would change slot generations); isVar sort checks (5%); g7 is
+mostly real hash-consing (addFixedBitEquality 35%, BV model numerals 14%);
+trace-mode format lookup without a temporary node (~4-5%, generations only
+compared for equality); symbol manager sync.Mutex (~3.5% of trace time,
+needs a concurrency decision).
+OPEN: debug-tagged builds (g3checked,g3debug,g3trace) are nondeterministic
+on qe_rec_real_disjunction (about 1 run in 20-40 prints different goals;
+release builds 40/40 identical); seen as a flaky TestSMTLibRunnerScripts
+under make tags. Present before round 4.

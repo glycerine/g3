@@ -94,7 +94,7 @@ func (m *ASTManager) BitVectorConcatArguments(h ASTHandle) (arguments []ASTHandl
 	app := m.appAt(r.slot)
 	arguments = make([]ASTHandle, app.count)
 	for i := uint32(0); i < app.count; i++ {
-		child, readErr := m.readInternal(app.args, i)
+		child, readErr := m.appArg(app, i)
 		if readErr != nil {
 			err = readErr
 			arguments = nil

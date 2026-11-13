@@ -7,10 +7,46 @@ func (m *ASTManager) sequenceSortParameter(sort astNodeRef, kind int32) (astNode
 	if p == nil || m.nodeAt(sort.slot).kind != ASTSort {
 		return astNodeRef{}, false, nil
 	}
+	v := m.sortAt(sort.slot)
+	if v.seqParamState != 0 && v.identityCached && !ASTSourceDebug {
+		if v.seqParamState == 2 && v.identityKind == kind {
+			return v.seqParam, true, nil
+		}
+		return astNodeRef{}, false, nil
+	}
 	family, actualKind, err := m.declIdentity(sort)
-	if err != nil || family != p.family || actualKind != kind {
+	if err != nil {
 		return astNodeRef{}, false, err
 	}
+	if family != p.family {
+		if v.identityCached {
+			v.seqParamState = 1
+		}
+		return astNodeRef{}, false, nil
+	}
+	parameter, ok, err := m.sequenceSortSingleParameter(sort)
+	if err != nil {
+		// Uncached: the source reads the parameter only for the asked kind.
+		if actualKind != kind {
+			err = nil
+		}
+		return astNodeRef{}, false, err
+	}
+	if v.identityCached {
+		v.seqParamState, v.seqParam = 1, astNodeRef{}
+		if ok {
+			v.seqParamState, v.seqParam = 2, parameter
+		}
+	}
+	if !ok || actualKind != kind {
+		return astNodeRef{}, false, nil
+	}
+	return parameter, true, nil
+}
+
+// sequenceSortSingleParameter reads the single AST parameter of a sort of
+// the sequence family. A parameter of another kind is ErrASTDomain.
+func (m *ASTManager) sequenceSortSingleParameter(sort astNodeRef) (astNodeRef, bool, error) {
 	info, err := m.sortInfo(m.sortAt(sort.slot).info)
 	if err != nil || info.count != 1 {
 		return astNodeRef{}, false, err

@@ -91,7 +91,7 @@ func (m *ASTManager) checkUpdatePatterns(values AppArguments) error {
 			return ErrASTDomain
 		}
 		for i := uint32(0); i < a.count; i++ {
-			child, e := m.readInternal(a.args, i)
+			child, e := m.appArg(a, i)
 			if e != nil {
 				return e
 			}
@@ -211,14 +211,14 @@ func (m *ASTManager) updateQuantifierArguments(h, body ASTHandle, forall bool, w
 	}
 	if e == nil {
 		if flags&astUpdatePatterns != 0 {
-			v.patterns, e = m.newASTPayloadArguments(patterns)
+			v.patterns, e = m.newASTPayloadArguments(patterns, nil)
 		} else {
 			v.patterns, e = m.copyQuantifierPayload(old.patterns, old.patternCount, astRefBytes)
 		}
 	}
 	if e == nil {
 		if flags&astUpdateNoPatterns != 0 {
-			v.noPatterns, e = m.newASTPayloadArguments(noPatterns)
+			v.noPatterns, e = m.newASTPayloadArguments(noPatterns, nil)
 		} else {
 			v.noPatterns, e = m.copyQuantifierPayload(old.noPatterns, next.noPatternCount, astRefBytes)
 		}

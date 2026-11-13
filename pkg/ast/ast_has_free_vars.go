@@ -34,7 +34,7 @@ func (m *ASTManager) HasFreeVars(n ASTHandle) (bool, error) {
 		case ASTApp:
 			a := m.appAt(current.node.slot)
 			for j := a.count; j > 0; j-- {
-				child, err := m.readInternal(a.args, j-1)
+				child, err := m.appArg(a, j-1)
 				if err != nil {
 					return false, err
 				}

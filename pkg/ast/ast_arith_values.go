@@ -76,11 +76,11 @@ func (m *ASTManager) arithmeticOffsetCase(fid FamilyID, sum, base astNodeRef, in
 	if app.count != 2 {
 		return false, nil
 	}
-	argument, e := m.readInternal(app.args, index)
+	argument, e := m.appArg(app, index)
 	if e != nil || argument != base {
 		return false, e
 	}
-	offset, e := m.readInternal(app.args, 1-index)
+	offset, e := m.appArg(app, 1-index)
 	if e != nil {
 		return false, e
 	}

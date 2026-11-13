@@ -101,7 +101,7 @@ func (m *ASTManager) proofHasFact(h ASTHandle) (bool, error) {
 	if a.count == 0 {
 		return false, nil
 	}
-	last, e := m.readInternal(a.args, a.count-1)
+	last, e := m.appArg(a, a.count-1)
 	if e != nil {
 		return false, e
 	}
@@ -126,7 +126,7 @@ func (m *ASTManager) proofFact(h ASTHandle) (ASTHandle, error) {
 	if a.count == 0 {
 		return ASTHandle{}, arena.ErrBounds
 	}
-	last, e := m.readInternal(a.args, a.count-1)
+	last, e := m.appArg(a, a.count-1)
 	return m.external(last), e
 }
 func (m *ASTManager) proofArg(h ASTHandle, i uint32) (ASTHandle, error) {
@@ -138,7 +138,7 @@ func (m *ASTManager) proofArg(h ASTHandle, i uint32) (ASTHandle, error) {
 	if i >= a.count {
 		return ASTHandle{}, arena.ErrBounds
 	}
-	x, e := m.readInternal(a.args, i)
+	x, e := m.appArg(a, i)
 	return m.external(x), e
 }
 func (m *ASTManager) proofBool(h ASTHandle) (bool, error) {

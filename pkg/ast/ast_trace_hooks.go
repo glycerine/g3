@@ -62,7 +62,7 @@ func (m *ASTManager) traceApp(r astNodeRef) error {
 		if e := out.AppendCString(" #"); e != nil {
 			return e
 		}
-		child, e := m.readInternal(a.args, i)
+		child, e := m.appArg(a, i)
 		if e != nil {
 			return e
 		}

@@ -74,6 +74,58 @@ func (r *SequenceRewriter) vSet(v *[]ast.ASTHandle, i int, h ast.ASTHandle) erro
 	return r.manager.DecRef(old)
 }
 
+// vPop2 is vPop(v1) then vPop(v2), under one manager lock.
+func (r *SequenceRewriter) vPop2(v1, v2 *[]ast.ASTHandle) error {
+	return r.vPush2Pop2(nil, ast.ASTHandle{}, nil, ast.ASTHandle{}, v1, v2)
+}
+
+// vPush2Pop2 is vPush(p1, h1), vPush(p2, h2), vPop(v1), vPop(v2) in that
+// order under one manager lock; a nil vector skips its step.
+func (r *SequenceRewriter) vPush2Pop2(p1 *[]ast.ASTHandle, h1 ast.ASTHandle, p2 *[]ast.ASTHandle, h2 ast.ASTHandle, v1, v2 *[]ast.ASTHandle) error {
+	var incBuf, decBuf [2]ast.ASTHandle
+	inc, dec := incBuf[:0], decBuf[:0]
+	if p1 != nil {
+		inc = append(inc, h1)
+	}
+	if p2 != nil {
+		inc = append(inc, h2)
+	}
+	if v1 != nil {
+		dec = append(dec, (*v1)[len(*v1)-1])
+	}
+	if v2 != nil {
+		dec = append(dec, (*v2)[len(*v2)-1])
+	}
+	incDone, decDone, err := r.manager.IncRefThenDecRef(inc, dec)
+	// Apply the completed steps as the single calls would have: vPush
+	// appends after its IncRef succeeds; vPop shortens its vector before
+	// releasing the element.
+	if len(inc) > 0 && incDone > 0 {
+		if p1 != nil {
+			*p1 = append(*p1, h1)
+		} else {
+			*p2 = append(*p2, h2)
+		}
+	}
+	if p1 != nil && p2 != nil && incDone > 1 {
+		*p2 = append(*p2, h2)
+	}
+	if incDone < len(inc) {
+		return err
+	}
+	pops := decDone
+	if err != nil {
+		pops++ // the failing vPop had already shortened its vector
+	}
+	for _, v := range [2]*[]ast.ASTHandle{v1, v2} {
+		if v != nil && pops > 0 {
+			*v = (*v)[:len(*v)-1]
+			pops--
+		}
+	}
+	return err
+}
+
 // vShrink releases the dropped suffix front to back.
 func (r *SequenceRewriter) vShrink(v *[]ast.ASTHandle, n int) error {
 	// DecRef touches only the AST manager, never v, so the dropped tail is
@@ -92,46 +144,45 @@ func (r *SequenceRewriter) ReleaseVec(v *[]ast.ASTHandle) error { return r.vShri
 func (r *SequenceRewriter) ReduceEqVec(ls, rs, lhs, rhs *[]ast.ASTHandle, change *bool) (bool, error) {
 	m := r.manager
 	lchange := false
-	isEmpty := func(e ast.ASTHandle) (bool, error) { return m.IsSequenceEmpty(e) }
+	back := func(v []ast.ASTHandle) ast.ASTHandle {
+		if len(v) == 0 {
+			return ast.ASTHandle{}
+		}
+		return v[len(v)-1]
+	}
 	// solve from back
 	for {
-		for len(*rs) > 0 {
-			e, err := isEmpty((*rs)[len(*rs)-1])
+		// Pop trailing empties of rs, then of ls; the end queries come in
+		// one batch (SequenceEqEnds), re-asked after each pop.
+		var le, re ast.SequenceEqEnd
+		var distinct bool
+		for {
+			var err error
+			le, re, distinct, err = m.SequenceEqEnds(back(*ls), back(*rs), false)
 			if err != nil {
 				return false, err
 			}
-			if !e {
-				break
+			if re.Empty {
+				if err := r.vPop(rs); err != nil {
+					return false, err
+				}
+				continue
 			}
-			if err := r.vPop(rs); err != nil {
-				return false, err
+			if le.Empty {
+				if err := r.vPop(ls); err != nil {
+					return false, err
+				}
+				continue
 			}
-		}
-		for len(*ls) > 0 {
-			e, err := isEmpty((*ls)[len(*ls)-1])
-			if err != nil {
-				return false, err
-			}
-			if !e {
-				break
-			}
-			if err := r.vPop(ls); err != nil {
-				return false, err
-			}
+			break
 		}
 		if len(*ls) == 0 || len(*rs) == 0 {
 			break
 		}
 		l := (*ls)[len(*ls)-1]
 		rr := (*rs)[len(*rs)-1]
-		b, ru, s, rs1, err := m.SequenceUnitOrString(rr)
-		if err != nil {
-			return false, err
-		}
-		a, lu, ls1, lString, err := m.SequenceUnitOrString(l)
-		if err != nil {
-			return false, err
-		}
+		b, ru, s, rs1 := re.Unit, re.IsUnit, re.Str, re.IsString
+		a, lu, ls1, lString := le.Unit, le.IsUnit, le.Str, le.IsString
 		if ru && lString {
 			l, rr = rr, l
 			*ls, *rs = *rs, *ls
@@ -139,30 +190,14 @@ func (r *SequenceRewriter) ReduceEqVec(ls, rs, lhs, rhs *[]ast.ASTHandle, change
 			s, rs1 = ls1, lString
 		}
 		if l == rr {
-			if err := r.vPop(ls); err != nil {
-				return false, err
-			}
-			if err := r.vPop(rs); err != nil {
+			if err := r.vPop2(ls, rs); err != nil {
 				return false, err
 			}
 		} else if lu && ru {
-			d, err := m.AreDistinct(a, b)
-			if err != nil {
-				return false, err
-			}
-			if d {
+			if distinct {
 				return false, nil
 			}
-			if err := r.vPush(lhs, a); err != nil {
-				return false, err
-			}
-			if err := r.vPush(rhs, b); err != nil {
-				return false, err
-			}
-			if err := r.vPop(ls); err != nil {
-				return false, err
-			}
-			if err := r.vPop(rs); err != nil {
+			if err := r.vPush2Pop2(lhs, a, rhs, b, ls, rs); err != nil {
 				return false, err
 			}
 		} else if lu && rs1 {
@@ -201,40 +236,39 @@ func (r *SequenceRewriter) ReduceEqVec(ls, rs, lhs, rhs *[]ast.ASTHandle, change
 
 	// solve from front
 	head1, head2 := 0, 0
-	for {
-		for head1 < len(*ls) {
-			e, err := isEmpty((*ls)[head1])
-			if err != nil {
-				return false, err
-			}
-			if !e {
-				break
-			}
-			head1++
+	at := func(v []ast.ASTHandle, i int) ast.ASTHandle {
+		if i == len(v) {
+			return ast.ASTHandle{}
 		}
-		for head2 < len(*rs) {
-			e, err := isEmpty((*rs)[head2])
+		return v[i]
+	}
+	for {
+		// Skip leading empties of ls, then of rs, as above.
+		var le, re ast.SequenceEqEnd
+		var distinct bool
+		for {
+			var err error
+			le, re, distinct, err = m.SequenceEqEnds(at(*ls, head1), at(*rs, head2), true)
 			if err != nil {
 				return false, err
 			}
-			if !e {
-				break
+			if le.Empty {
+				head1++
+				continue
 			}
-			head2++
+			if re.Empty {
+				head2++
+				continue
+			}
+			break
 		}
 		if head1 == len(*ls) || head2 == len(*rs) {
 			break
 		}
 		l := (*ls)[head1]
 		rr := (*rs)[head2]
-		b, ru, s, rs1, err := m.SequenceUnitOrString(rr)
-		if err != nil {
-			return false, err
-		}
-		a, lu, ls1, lString, err := m.SequenceUnitOrString(l)
-		if err != nil {
-			return false, err
-		}
+		b, ru, s, rs1 := re.Unit, re.IsUnit, re.Str, re.IsString
+		a, lu, ls1, lString := le.Unit, le.IsUnit, le.Str, le.IsString
 		if ru && lString {
 			l, rr = rr, l
 			*ls, *rs = *rs, *ls
@@ -246,17 +280,10 @@ func (r *SequenceRewriter) ReduceEqVec(ls, rs, lhs, rhs *[]ast.ASTHandle, change
 			head1++
 			head2++
 		} else if lu && ru {
-			d, err := m.AreDistinct(a, b)
-			if err != nil {
-				return false, err
-			}
-			if d {
+			if distinct {
 				return false, nil
 			}
-			if err := r.vPush(lhs, a); err != nil {
-				return false, err
-			}
-			if err := r.vPush(rhs, b); err != nil {
+			if err := r.vPush2Pop2(lhs, a, rhs, b, nil, nil); err != nil {
 				return false, err
 			}
 			head1++

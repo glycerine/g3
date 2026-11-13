@@ -29,7 +29,7 @@ func (a AppArguments) at(i uint32) (ASTHandle, error) {
 		if i >= app.count {
 			return ASTHandle{}, ErrASTDomain
 		}
-		child, e := m.readInternal(app.args, i)
+		child, e := m.appArg(app, i)
 		return m.external(child), e
 	}
 	if a.raw {

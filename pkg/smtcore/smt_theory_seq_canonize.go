@@ -17,12 +17,14 @@ func (t *SMTTheorySeq) canonize(x *seqRefs, e ast.ASTHandle, eqs **seqDep) ast.A
 func (t *SMTTheorySeq) canonizeInto(e ast.ASTHandle, es *seqExprVector, eqs **seqDep) bool {
 	x := t.loc()
 	defer x.drop()
-	e3 := t.ref(x, e, nil)
+	// expr_ref e3(e, m) followed by is_concat(e3, e1, e2) / is_empty(e3):
+	// one manager call holds e3 and reads its shape.
+	e3 := e
 	change := false
 	for {
-		if e1, e2, ok, empty := t.isConcat2OrEmpty(e3); ok {
+		if e1, e2, ok, empty := t.refConcat2OrEmpty(x, e3); ok {
 			t.canonizeInto(e1, es, eqs)
-			e3 = t.ref(x, e2, nil)
+			e3 = e2
 			change = true
 		} else if empty {
 			return true

@@ -349,7 +349,7 @@ func (m *ASTManager) visitExprCore(root astNodeRef, skolem bool) (uint32, bool, 
 			a := m.appAt(curr.slot)
 			descended := false
 			for fr.index < a.count {
-				arg, e := m.readInternal(a.args, fr.index)
+				arg, e := m.appArg(a, fr.index)
 				if e != nil {
 					return total, false, e
 				}

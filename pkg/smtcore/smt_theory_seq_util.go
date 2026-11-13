@@ -266,6 +266,11 @@ func (t *SMTTheorySeq) mkConcatSorted(es []ast.ASTHandle, s ast.ASTHandle) ast.A
 func (t *SMTTheorySeq) appendConcat(es *seqExprVector, e ast.ASTHandle) error {
 	// get_concat into a temporary, then es.append (IncRefEach) of it, in
 	// one manager call that appends straight to es.
+	if es.elems == nil {
+		// Fresh vectors (mk_eqdep sides) usually get a few leaves; one
+		// small allocation replaces the doubling from empty.
+		es.elems = make([]ast.ASTHandle, 0, 8)
+	}
 	out, flattenErr, refErr := t.m.SequenceFlattenConcatAppendHeld(e, es.elems)
 	es.elems = out
 	t.chk(flattenErr)
@@ -276,6 +281,16 @@ func (t *SMTTheorySeq) appendConcat(es *seqExprVector, e ast.ASTHandle) error {
 // by isEmpty(e).
 func (t *SMTTheorySeq) isConcat2OrEmpty(e ast.ASTHandle) (e1, e2 ast.ASTHandle, concat, empty bool) {
 	e1, e2, concat, empty, err := t.m.SequenceConcatOrEmpty(e)
+	t.chk(err)
+	return e1, e2, concat, empty
+}
+
+// refConcat2OrEmpty is ref(x, e) followed by isConcat2OrEmpty(e).
+func (t *SMTTheorySeq) refConcat2OrEmpty(x *seqRefs, e ast.ASTHandle) (e1, e2 ast.ASTHandle, concat, empty bool) {
+	e1, e2, concat, empty, held, err := t.m.IncRefSequenceConcatOrEmpty(e)
+	if held && !e.IsNull() {
+		x.hs = append(x.hs, e)
+	}
 	t.chk(err)
 	return e1, e2, concat, empty
 }

@@ -99,11 +99,11 @@ func (m *ASTManager) IsAsArrayTree(root ASTHandle) (bool, error) {
 		if family != 0 || kind != ASTOpIte || app.count != 3 {
 			return false, nil
 		}
-		otherwise, e := m.readInternal(app.args, 2)
+		otherwise, e := m.appArg(app, 2)
 		if e != nil {
 			return false, e
 		}
-		then, e := m.readInternal(app.args, 1)
+		then, e := m.appArg(app, 1)
 		if e != nil {
 			return false, e
 		}

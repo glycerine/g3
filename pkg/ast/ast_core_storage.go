@@ -120,6 +120,11 @@ type astSortRecord struct {
 	identityFamily FamilyID
 	identityKind   int32
 	identityCached bool
+	// seqParam caches sequenceSortParameter's reading of the owned info
+	// (seqParamState 1: no single AST parameter of the sequence family; 2:
+	// seqParam is that parameter). It is reset with identityCached.
+	seqParamState uint8
+	seqParam      astNodeRef
 }
 type astFuncDeclRecord struct {
 	nextFree  uint32
@@ -150,6 +155,10 @@ type astAppRecord struct {
 	// rangeSort copies the declaration's range sort, set at registration
 	// (null before), and is likewise unchanged while the app is live.
 	rangeSort astNodeRef
+	// inlineArgs copies the first min(count, 2) arguments of the args
+	// payload, written with it; app arguments never change while the app
+	// is live. appArg/appArgPair read them without the payload lookup.
+	inlineArgs [2]astNodeRef
 }
 type astVarRecord struct {
 	nextFree, index uint32

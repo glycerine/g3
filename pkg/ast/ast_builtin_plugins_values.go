@@ -136,6 +136,11 @@ func (m *ASTManager) AreDistinct(a, b ASTHandle) (bool, error) {
 		return false, e
 	}
 	defer m.mu.Unlock()
+	return m.areDistinctLocked(a, b)
+}
+
+// areDistinctLocked is AreDistinct's body with the manager already locked.
+func (m *ASTManager) areDistinctLocked(a, b ASTHandle) (bool, error) {
 	x, e := m.internal(a)
 	if e != nil {
 		return false, e

@@ -5,7 +5,7 @@ package ast
 import (
 	"errors"
 	"math"
-	"reflect"
+	"unsafe"
 
 	"github.com/glycerine/g3/pkg/arena"
 )
@@ -43,11 +43,13 @@ func (m *ASTManager) prepareTraceAcquisition(count uint32) (*astTraceAcquisition
 		return nil, ErrASTPending
 	}
 	n := uint64(count) + 1
-	width := uint64(reflect.TypeOf(astNodeRef{}).Size())
+	// Compile-time sizes (equal to reflect.Type.Size): the bound check below
+	// then divides by a constant.
+	const width = uint64(unsafe.Sizeof(astNodeRef{}))
 	if n > uint64(^uint(0)>>1)/width {
 		return nil, arena.ErrBounds
 	}
-	bytes := uint64(reflect.TypeOf(astTraceAcquisition{}).Size()) + n*width
+	bytes := uint64(unsafe.Sizeof(astTraceAcquisition{})) + n*width
 	if e := m.BudgetField.Reserve(bytes); e != nil {
 		return nil, e
 	}

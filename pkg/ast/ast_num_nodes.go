@@ -38,7 +38,7 @@ func (m *ASTManager) GetNumNodes(root ASTHandle) (uint32, error) {
 			a := m.appAt(n.slot)
 			out = append(out, a.decl)
 			for i := uint32(0); i < a.count; i++ {
-				child, err := m.readInternal(a.args, i)
+				child, err := m.appArg(a, i)
 				if err != nil {
 					return nil, err
 				}

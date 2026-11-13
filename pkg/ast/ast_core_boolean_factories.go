@@ -67,6 +67,6 @@ func (m *ASTManager) IsNot(a ASTHandle) (bool, ASTHandle, error) {
 	if family != FamilyID(0) || kind != ASTOpNot {
 		return false, ASTHandle{}, nil
 	}
-	child, e := m.readInternal(app.args, 0)
+	child, e := m.appArg(app, 0)
 	return true, m.external(child), e
 }

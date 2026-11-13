@@ -37,7 +37,7 @@ func (t *SMTTheorySeq) checkExtensionality() bool {
 				e2 := t.canonize(x, n2.Owner(), &dep)
 				t.chk(t.lhsV.reset())
 				t.chk(t.rhsV.reset())
-				var lhs, rhs []ast.ASTHandle
+				lhs, rhs := t.getVec(), t.getVec()
 				change := false
 				ok, err := t.seqRewrite.ReduceEqExpr(e1, e2, &lhs, &rhs, &change)
 				t.chk(err)
@@ -220,7 +220,7 @@ func (t *SMTTheorySeq) simplifyEq(ls, rs *seqExprVector, deps *seqDep) bool {
 	defer x.drop()
 	lsS := t.lendVec(ls)
 	rsS := t.lendVec(rs)
-	var lhs, rhs []ast.ASTHandle
+	lhs, rhs := t.getVec(), t.getVec()
 	changed := false
 	ok, err := t.seqRewrite.ReduceEqVec(&lsS, &rsS, &lhs, &rhs, &changed)
 	t.chk(err)
@@ -269,7 +269,7 @@ func (t *SMTTheorySeq) simplifyEq(ls, rs *seqExprVector, deps *seqDep) bool {
 // Referencing every element for hs and then releasing v's references never
 // takes a count to zero, so the references simply move to hs.
 func (t *SMTTheorySeq) lendVec(v *seqExprVector) []ast.ASTHandle {
-	hs := append([]ast.ASTHandle(nil), v.handles()...)
+	hs := append(t.getVec(), v.handles()...)
 	clear(v.elems)
 	v.elems = v.elems[:0]
 	return hs
@@ -281,9 +281,25 @@ func (t *SMTTheorySeq) lendVec(v *seqExprVector) []ast.ASTHandle {
 // are released front to back while hs still holds its own references, and
 // the references hs gives up are the ones v takes, so no count of an hs
 // element changes or reaches zero; hs's references move to v.
+// hs is dead afterwards; its storage returns to the vector pool.
 func (t *SMTTheorySeq) takeVec(v *seqExprVector, hs []ast.ASTHandle) {
 	t.chk(v.reset())
 	v.elems = append(v.elems, hs...)
+	if cap(hs) != 0 && len(t.vecPool) < 32 {
+		clear(hs)
+		t.vecPool = append(t.vecPool, hs[:0])
+	}
+}
+
+// getVec returns an empty raw vector, reusing pooled storage.
+func (t *SMTTheorySeq) getVec() []ast.ASTHandle {
+	if n := len(t.vecPool); n > 0 {
+		hs := t.vecPool[n-1]
+		t.vecPool[n-1] = nil
+		t.vecPool = t.vecPool[:n-1]
+		return hs
+	}
+	return nil
 }
 
 func (t *SMTTheorySeq) resetExprVector(v *seqExprVector, hs []ast.ASTHandle) {

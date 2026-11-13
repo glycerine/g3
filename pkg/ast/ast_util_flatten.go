@@ -18,7 +18,7 @@ func (m *ASTManager) astUtilUnary(r astNodeRef, op int32) (astNodeRef, bool, err
 	if a.count != 1 {
 		return astNodeRef{}, false, ErrASTDomain
 	}
-	child, e := m.readInternal(a.args, 0)
+	child, e := m.appArg(a, 0)
 	return child, true, e
 }
 
@@ -31,11 +31,11 @@ func (m *ASTManager) astUtilBinary(r astNodeRef, op int32) (astNodeRef, astNodeR
 	if a.count != 2 {
 		return astNodeRef{}, astNodeRef{}, false, ErrASTDomain
 	}
-	left, e := m.readInternal(a.args, 0)
+	left, e := m.appArg(a, 0)
 	if e != nil {
 		return astNodeRef{}, astNodeRef{}, false, e
 	}
-	right, e := m.readInternal(a.args, 1)
+	right, e := m.appArg(a, 1)
 	return left, right, true, e
 }
 
@@ -103,7 +103,7 @@ func (m *ASTManager) astUtilFlattenAndWith(result []ASTHandle, owned *flattenOwn
 		} else if yes {
 			a := m.appAt(r.slot)
 			for j := uint32(0); j < a.count; j++ {
-				child, e := m.readInternal(a.args, j)
+				child, e := m.appArg(a, j)
 				if e != nil {
 					return result, e
 				}
@@ -137,7 +137,7 @@ func (m *ASTManager) astUtilFlattenAndWith(result []ASTHandle, owned *flattenOwn
 			} else if yes {
 				a := m.appAt(inner.slot)
 				for j := uint32(0); j < a.count; j++ {
-					child, e := m.readInternal(a.args, j)
+					child, e := m.appArg(a, j)
 					if e != nil {
 						return result, e
 					}
@@ -223,7 +223,7 @@ func (m *ASTManager) astUtilFlattenOr(result []ASTHandle) ([]ASTHandle, error) {
 		} else if yes {
 			a := m.appAt(r.slot)
 			for j := uint32(0); j < a.count; j++ {
-				child, e := m.readInternal(a.args, j)
+				child, e := m.appArg(a, j)
 				if e != nil {
 					return result, e
 				}
@@ -249,7 +249,7 @@ func (m *ASTManager) astUtilFlattenOr(result []ASTHandle) ([]ASTHandle, error) {
 			} else if yes {
 				a := m.appAt(inner.slot)
 				for j := uint32(0); j < a.count; j++ {
-					child, e := m.readInternal(a.args, j)
+					child, e := m.appArg(a, j)
 					if e != nil {
 						return result, e
 					}
@@ -431,7 +431,7 @@ func (m *ASTManager) astUtilFlattenOrWith(result []ASTHandle, owned *flattenOwne
 		} else if yes {
 			a := m.appAt(r.slot)
 			for j := uint32(0); j < a.count; j++ {
-				child, e := m.readInternal(a.args, j)
+				child, e := m.appArg(a, j)
 				if e != nil {
 					return result, e
 				}
@@ -465,7 +465,7 @@ func (m *ASTManager) astUtilFlattenOrWith(result []ASTHandle, owned *flattenOwne
 			} else if yes {
 				a := m.appAt(inner.slot)
 				for j := uint32(0); j < a.count; j++ {
-					child, e := m.readInternal(a.args, j)
+					child, e := m.appArg(a, j)
 					if e != nil {
 						return result, e
 					}
