@@ -2970,7 +2970,29 @@ under the 10 s limit (identical at 30 s). Two real differences:
   enode (C++ dereferences a null enode there). g3 uses the mixed theory
   for both idl and rdl in AS_DIFF_LOGIC mode (unchanged).
 - gen4 5077 (MBQI): different models (z3 k!2065 projection, a = 7736; g3
-  a = 23). Traces identical for the first 19M lines; locating the
-  divergence (z3 trace 47.9M lines).
+  a = 23). Untraced, g3 does far less work (11129 vs 68183 instantiations)
+  but trace=true runs agree for 95M+ lines: z3's trace stream itself
+  changes the search, because [assign]/justification display uses
+  literal::display -> mk_pp, whose format ASTs shift later AST ids. g3
+  copies that faithfully, so trace=true cannot see untraced divergences.
+  NEW DIAGNOSTIC: Z3_TRACE_NO_PP=1 (fork src/smt/smt_literal.cpp, g3
+  smtcore/smt_context_trace.go traceNoPP) prints literals as #id; then a
+  traced run follows the untraced search (z3: identical stdout and -st).
+  With it, 5077 diverges at log line 945118: in conflict 6374 the
+  conflicting mp_iff_justification has its enodes swapped (z3 node1 is
+  #8689's enode, g3 #8643's), so resolution order differs. Both creation
+  sites (propagate_bool_var_enode, propagate_bool_enode_assignment_core)
+  and set_conflict match the C++. ROOT CAUSE (via -tr:add_eq plus a
+  temporary level trace): after "pop 2 new_lvl 7" g3's re-created #8861
+  finds #8689 in the cg table at mk_enode and queues the congruence first;
+  z3 does not find it at creation (its interleaved trail undoes the
+  level-9 merge, then undo_mk_enode(#8861) erases the entry that #8861
+  held as cg root, so #8689 is not in the table), and rediscovers the
+  congruence only when the #8568/#8312 merge reinserts parents, queueing
+  it last. g3 keeps separate equality and enode trails (open lead below),
+  so the undo order and the cg table differ. Also: z3 resets
+  m_eq_propagation_queue on every pop (pop_scope_core) while g3 restores
+  pending/pendingHead to the scope's saved values. IN PROGRESS: one
+  interleaved trail for enode creation and merges.
 Fuzz round 15 (30 s limit): gen.py 6000-6300, gen2.py 6000-6300, gen3.py
 14000-14300, gen4.py 6000-6200: no differences.

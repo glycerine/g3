@@ -12,6 +12,7 @@ package smtcore
 
 import (
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"os"
 	"strconv"
 	"strings"
 
@@ -133,6 +134,18 @@ func (s *SMTInternalizerState) traceLiteralVerboseTo(l SMTLiteral, w func(string
 		w("null")
 		return
 	}
+	if traceNoPP() {
+		id := "null"
+		if n, err := s.manager.GetASTID(s.boolExpr[l.Var()]); err == nil {
+			id = "#" + strconv.FormatUint(uint64(n), 10)
+		}
+		if l.Sign() {
+			w("(not " + id + ")")
+			return
+		}
+		w(id)
+		return
+	}
 	if l.Sign() {
 		w("(not ")
 		tracePPTo(s.manager, s.boolExpr[l.Var()], w)
@@ -141,6 +154,19 @@ func (s *SMTInternalizerState) traceLiteralVerboseTo(l SMTLiteral, w func(string
 	}
 	tracePPTo(s.manager, s.boolExpr[l.Var()], w)
 }
+
+// traceNoPP mirrors the fork's FORK DIAGNOSTIC in src/smt/smt_literal.cpp
+// (not upstream z3): with Z3_TRACE_NO_PP set, literal::display prints #id
+// instead of mk_pp. mk_pp creates and frees format ASTs, which changes later
+// AST id allocation and so the search; with the variable set, a trace=true
+// run follows the untraced search on both binaries and the two logs can be
+// compared line by line. Default: off.
+var traceNoPPSet = func() bool {
+	_, set := os.LookupEnv("Z3_TRACE_NO_PP")
+	return set
+}()
+
+func traceNoPP() bool { return traceNoPPSet }
 
 // traceLiteralsVerbose is display_literals_verbose: separated by newlines.
 func (s *SMTInternalizerState) traceLiteralsVerbose(lits []SMTLiteral) string {

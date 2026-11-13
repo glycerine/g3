@@ -19,8 +19,23 @@ Revision History:
 #include "smt/smt_literal.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
+#include <cstdlib>
 
 namespace smt {
+
+    // FORK DIAGNOSTIC (not upstream): with the environment variable
+    // Z3_TRACE_NO_PP set, literals in the trace=true log are printed as #id
+    // instead of with mk_pp. mk_pp creates and frees format ASTs, which
+    // changes later AST id allocation and therefore the search, so a normal
+    // traced run can differ from an untraced one. With Z3_TRACE_NO_PP the
+    // traced run follows the untraced search and can be compared line by
+    // line with g3 (which honors the same variable). Default: off.
+    static bool trace_no_pp() {
+        static int cached = -1;
+        if (cached < 0)
+            cached = std::getenv("Z3_TRACE_NO_PP") != nullptr ? 1 : 0;
+        return cached == 1;
+    }
 
     void literal::display(std::ostream & out, ast_manager & m, expr * const * bool_var2expr_map) const {
         if (*this == true_literal)
@@ -29,6 +44,12 @@ namespace smt {
             out << "false";
         else if (*this == null_literal)
             out << "null";
+        else if (trace_no_pp()) {
+            if (sign())
+                out << "(not #" << bool_var2expr_map[var()]->get_id() << ")";
+            else
+                out << "#" << bool_var2expr_map[var()]->get_id();
+        }
         else if (sign())
             out << "(not " << mk_pp(bool_var2expr_map[var()], m) << ")";
         else
