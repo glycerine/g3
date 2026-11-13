@@ -3119,3 +3119,9 @@ gen.py/gen2.py 9000-9300, gen3.py 17000-17300, gen4.py 9000-9250:
   digit through checked accessors (IntegerManager.copyFromOwner...,
   Cell/Digit/writeDigit) where z3's mpz copy is a memcpy; a bulk-copy fast
   path needs care with the allocation-receipt bookkeeping (follow-up).
+
+## Fuzz round 19 (2026-11-13, after 907076aff)
+
+gen.py/gen2.py 10000-10300, gen3.py 18000-18300, gen4.py 10000-10250: no
+output or model differences. q_10065 exceeds the 30 s fuzz limit only
+(z3 17 s, g3 54 s, identical output).
