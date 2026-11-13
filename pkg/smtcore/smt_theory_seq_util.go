@@ -49,11 +49,22 @@ func (t *SMTTheorySeq) recoverErr(result *error) {
 
 // loc starts the expr_ref locals of one source function; drop releases them
 // in reverse order when the function returns.
-func (t *SMTTheorySeq) loc() *seqRefs { return &seqRefs{manager: t.m} }
+func (t *SMTTheorySeq) loc() *seqRefs {
+	if n := len(t.locPool); n > 0 {
+		x := t.locPool[n-1]
+		t.locPool[n-1] = nil
+		t.locPool = t.locPool[:n-1]
+		return x
+	}
+	return &seqRefs{manager: t.m, pool: &t.locPool}
+}
 
 func (x *seqRefs) drop() {
 	if err := x.release(); err != nil {
 		panic(seqPanic{err})
+	}
+	if x.pool != nil {
+		*x.pool = append(*x.pool, x)
 	}
 }
 
@@ -140,7 +151,7 @@ func (t *SMTTheorySeq) isSeqSort(s ast.ASTHandle) bool {
 }
 
 // isSeq is m_util.is_seq(e).
-func (t *SMTTheorySeq) isSeq(e ast.ASTHandle) bool { return t.isSeqSort(t.sortOf(e)) }
+func (t *SMTTheorySeq) isSeq(e ast.ASTHandle) bool { return t.mustBool(t.m.IsSequenceExpr(e)) }
 
 // seqElemSort is m_util.is_seq(sort, char_sort).
 func (t *SMTTheorySeq) seqElemSort(s ast.ASTHandle) ast.ASTHandle {
@@ -288,13 +299,15 @@ func (t *SMTTheorySeq) mkMul(a, b ast.ASTHandle) ast.ASTHandle {
 
 // isNumeral is m_autil.is_numeral(e, r).
 func (t *SMTTheorySeq) isNumeral(e ast.ASTHandle) (*big.Rat, bool) {
-	text, _, matched, err := t.m.ArithmeticNumeralText(e)
+	r, _, matched, err := t.m.ArithmeticNumeralBigRat(e)
+	if matched && err == ast.ErrASTDomain {
+		return nil, false
+	}
 	t.chk(err)
 	if !matched {
 		return nil, false
 	}
-	r, ok := new(big.Rat).SetString(text)
-	return r, ok
+	return r, true
 }
 
 // ---- context ----
@@ -337,14 +350,26 @@ func (t *SMTTheorySeq) pushTrail(undo seqTrail) { t.trailStack = append(t.trailS
 
 // ---- theory_seq::is_var ----
 
+// It reads a's shape with one manager call: a sequence application is not a
+// variable when it is a concat, an empty sequence, a string constant (which
+// includes the empty string), a unit or an itos; any application of ite is
+// not one either.
 func (t *SMTTheorySeq) isVar(a ast.ASTHandle) bool {
-	if !t.isSeq(a) || t.isConcat(a) || t.isEmpty(a) || t.isStringConst(a) || t.isUnit(a) {
+	isSeq, isApp, family, kind, sequenceFamily, err := t.m.SequenceExprShape(a)
+	t.chk(err)
+	if !isSeq {
 		return false
 	}
-	if t.isStrOp(a, strOpItos) {
-		return false
+	if !isApp {
+		return true
 	}
-	return !t.isIte(a)
+	if family == sequenceFamily && family != ast.NullFamilyID {
+		switch kind {
+		case ast.ASTSequenceOpConcat, ast.ASTSequenceOpEmpty, ast.ASTSequenceOpStringConst, ast.ASTSequenceOpUnit, strOpItos:
+			return false
+		}
+	}
+	return !(family == t.m.BasicFamilyID() && kind == ast.ASTOpIte)
 }
 
 // isIte is m.is_ite(e).
@@ -394,15 +419,24 @@ func (t *SMTTheorySeq) rewriteTh(x *seqRefs, e ast.ASTHandle) ast.ASTHandle {
 func (t *SMTTheorySeq) rewriteWith(x *seqRefs, e ast.ASTHandle, r *rewriter.TheoryRewriter) ast.ASTHandle {
 	out, err := t.m.NewRef(e)
 	t.chk(err)
-	x.refs = append(x.refs, out)
-	t.chk(r.Rewrite(e, out))
+	if err = r.Rewrite(e, out); err != nil {
+		err = errors.Join(err, t.m.DelRef(&out))
+	}
+	t.chk(err)
 	result := t.must(t.m.RefGet(out))
-	last := len(x.refs) - 1
+	// x holds the result as a plain node reference; taking it before the
+	// rewrite's reference is released keeps the result alive throughout.
+	if !result.IsNull() {
+		t.chk(t.m.IncRef(result))
+	}
+	t.chk(t.m.DelRef(&out))
+	x.hs = append(x.hs, result)
+	last := len(x.hs) - 1
 	for k := last - 1; k >= 0; k-- {
-		if t.must(t.m.RefGet(x.refs[k])) == e {
-			t.chk(t.m.DelRef(&x.refs[k]))
-			x.refs[k] = x.refs[last]
-			x.refs = x.refs[:last]
+		if x.hs[k] == e {
+			t.chk(t.m.DecRef(x.hs[k]))
+			x.hs[k] = x.hs[last]
+			x.hs = x.hs[:last]
 			break
 		}
 	}

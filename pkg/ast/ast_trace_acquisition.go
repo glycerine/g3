@@ -28,6 +28,9 @@ type astTraceAcquisition struct {
 	caught, placementConsumed, tableConsumed bool
 	bodyCause, sourceCause, ownCause         error
 	bytes                                    uint64
+	// spare keeps the references storage of a retired uncaught frame for
+	// its reuse from traceAcquisitionFree.
+	spare []astNodeRef
 }
 
 func (m *ASTManager) prepareTraceAcquisition(count uint32) (*astTraceAcquisition, error) {
@@ -49,7 +52,24 @@ func (m *ASTManager) prepareTraceAcquisition(count uint32) (*astTraceAcquisition
 		return nil, e
 	}
 	m.traceAcquisitionSerial++
-	f := &astTraceAcquisition{owner: m, invocation: m.traceAcquisitionSerial, references: make([]astNodeRef, int(n)), bytes: bytes, outer: m.traceAcquisitionExecuting}
+	var f *astTraceAcquisition
+	var references []astNodeRef
+	if k := len(m.traceAcquisitionFree); k > 0 {
+		// Reuse a frame that finished uncaught; nothing references it.
+		f = m.traceAcquisitionFree[k-1]
+		m.traceAcquisitionFree[k-1] = nil
+		m.traceAcquisitionFree = m.traceAcquisitionFree[:k-1]
+		if uint64(cap(f.spare)) >= n {
+			references = f.spare[:n]
+			clear(references)
+		}
+	} else {
+		f = new(astTraceAcquisition)
+	}
+	if references == nil {
+		references = make([]astNodeRef, int(n))
+	}
+	*f = astTraceAcquisition{owner: m, invocation: m.traceAcquisitionSerial, references: references, bytes: bytes, outer: m.traceAcquisitionExecuting}
 	m.traceAcquisitionExecuting = f
 	return f, nil
 }
@@ -67,7 +87,10 @@ func (m *ASTManager) finishTraceAcquisition(f *astTraceAcquisition) {
 	m.traceAcquisitionExecuting = f.outer
 	f.outer = nil
 	if !f.caught {
+		spare := f.references
 		m.retireTraceAcquisition(f)
+		f.spare = spare
+		m.traceAcquisitionFree = append(m.traceAcquisitionFree, f)
 		return
 	}
 	f.previous = m.traceAcquisitions

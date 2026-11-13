@@ -27,7 +27,13 @@ func (g *Generator) Reserve(needed uint32) error {
 		return arena.ErrBounds
 	}
 	if int(needed) > cap(g.free) {
-		next := make([]uint32, len(g.free), int(needed))
+		// Grow geometrically: the AST manager reserves its live-node count on
+		// every registration, so exact-size growth copied the list per node.
+		n := int(needed)
+		if c := cap(g.free) + cap(g.free)/2; c > n && uint64(c) <= uint64(^uint(0)>>1) {
+			n = c
+		}
+		next := make([]uint32, len(g.free), n)
 		copy(next, g.free)
 		g.free = next
 	}

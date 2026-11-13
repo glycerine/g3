@@ -191,13 +191,12 @@ func (t *SMTLRATheory) operation(h ast.ASTHandle) (int32, bool, error) {
 }
 
 func (t *SMTLRATheory) numeral(h ast.ASTHandle) (*big.Rat, bool, error) {
-	text, _, matched, err := t.state.manager.ArithmeticNumeralText(h)
+	value, _, matched, err := t.state.manager.ArithmeticNumeralBigRat(h)
 	if err != nil || !matched {
+		if matched {
+			return nil, false, ast.ErrASTDomain
+		}
 		return nil, false, err
-	}
-	value, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return nil, false, ast.ErrASTDomain
 	}
 	return value, true, nil
 }

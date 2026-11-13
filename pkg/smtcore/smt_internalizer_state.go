@@ -121,6 +121,9 @@ type smtPendingEquality struct {
 }
 
 type SMTInternalizerState struct {
+	// clauseSortScratch and clauseKeptScratch are reused work buffers of
+	// addClauseKindWithJustificationAndDeleteHandler.
+	clauseSortScratch, clauseKeptScratch []SMTLiteral
 	// registeredJustification is a wrapper already in ownedJustifications
 	// (mk_justification), which mk_clause must not register again.
 	registeredJustification SMTJustification

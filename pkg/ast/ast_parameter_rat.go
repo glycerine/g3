@@ -16,8 +16,12 @@ func (m *ASTManager) NewParameterRat(value *big.Rat) (result ASTParameter, err e
 		return ASTParameter{}, err
 	}
 	defer func() { err = errors.Join(err, m.numerals.CleanupValue(&n)) }()
-	if err = m.numerals.SetString(&n, value.RatString()); err != nil {
-		return ASTParameter{}, err
+	if done, e := m.numerals.SetSmallRat(&n, value); e != nil {
+		return ASTParameter{}, e
+	} else if !done {
+		if err = m.numerals.SetString(&n, value.RatString()); err != nil {
+			return ASTParameter{}, err
+		}
 	}
 	return m.NewParameterRational(&n)
 }

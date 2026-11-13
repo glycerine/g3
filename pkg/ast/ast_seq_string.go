@@ -102,19 +102,35 @@ func decodeSequenceString(value string) string {
 
 // MkString constructs the retained seq_decl_plugin string constant.
 func (m *ASTManager) prepareSequencePlugin() error {
-	if _, err := m.RegisterArithmeticPlugin(); err != nil {
+	// Once all four plugins are registered, registering them again only looks
+	// them up. Plugin bindings stay present until the manager closes, and
+	// every caller takes the manager lock next, so the lookups are skipped.
+	if p := &m.seqPrepared; p.ready && !m.Closed && m.pluginAt(p.families[0]).present && m.pluginAt(p.families[1]).present && m.pluginAt(p.families[2]).present && m.pluginAt(p.families[3]).present {
+		return nil
+	}
+	var families [4]FamilyID
+	var err error
+	if families[0], err = m.RegisterArithmeticPlugin(); err != nil {
 		return err
 	}
-	if _, err := m.RegisterBitVectorPlugin(); err != nil {
+	if families[1], err = m.RegisterBitVectorPlugin(); err != nil {
 		return err
 	}
-	if _, err := m.RegisterArrayPlugin(); err != nil {
+	if families[2], err = m.RegisterArrayPlugin(); err != nil {
 		return err
 	}
-	if _, err := m.RegisterSequencePlugin(); err != nil {
+	if families[3], err = m.RegisterSequencePlugin(); err != nil {
 		return err
 	}
+	m.seqPrepared = astSequencePrepared{ready: true, families: families}
 	return nil
+}
+
+// astSequencePrepared records the plugin families prepareSequencePlugin
+// registered.
+type astSequencePrepared struct {
+	ready    bool
+	families [4]FamilyID
 }
 
 func (m *ASTManager) MkString(value string) (ASTHandle, error) {

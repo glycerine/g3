@@ -34,9 +34,19 @@ func (m *ASTManager) infoForNode(r astNodeRef) (uint32, uint32) {
 }
 func (m *ASTManager) setInfoForNode(r astNodeRef, slot, generation uint32) {
 	if m.nodeAt(r.slot).kind == ASTSort {
-		m.sortAt(r.slot).info = ASTSortInfo{m.origin, slot, generation}
+		v := m.sortAt(r.slot)
+		v.info = ASTSortInfo{m.origin, slot, generation}
+		v.identityCached = false
+		if info, e := m.info(slot, generation); e == nil {
+			v.identityFamily, v.identityKind, v.identityCached = info.family, info.kind, true
+		}
 	} else {
-		m.declAt(r.slot).info = ASTFuncDeclInfo{m.origin, slot, generation}
+		d := m.declAt(r.slot)
+		d.info = ASTFuncDeclInfo{m.origin, slot, generation}
+		d.identityCached = false
+		if info, e := m.info(slot, generation); e == nil {
+			d.identityFamily, d.identityKind, d.identityCached = info.family, info.kind, true
+		}
 	}
 }
 func (m *ASTManager) nodeChildCount(r astNodeRef) uint32 {

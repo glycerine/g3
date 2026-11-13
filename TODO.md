@@ -2569,3 +2569,25 @@ name instead of symbol(i); (declare-sort Int 0) column 19 vs 20; theory_str
 obj_map sites unaudited (std::map<expr*> sites are pointer-ordered, not
 portable); z3 4.7.1 crashes on define-sort L () (List Real) after a pop that
 removed (List Int).
+
+## Performance round 1 (2026-11-12)
+
+No behaviour change (fullcmp2 identical, one fewer timeout). Measured:
+g7_qsat 14.4 -> 11.7 s (z3 2.1 s); slow_3097 85.7 -> 56.2 s (z3 8.1 s),
+peak memory 412 -> 216 MB; trace=true runs ~33% faster. Changes: idgen free
+list grows geometrically (it was copied on every node registration); seq
+theory reference holders use node refcounts and pooled local holders;
+batched seq shape queries (SequenceExprShape, IsSequenceExpr, IncRefEach);
+decl/sort family+kind cached on the node; trace acquisition frames reused
+and a small-slice format flatten cache; numeral conversions without string
+round trips (SetSmallRat, ArithmeticNumeralBigRat; mpq_set trace path
+kept); cached family ids; two-word arena reads/writes; fewer allocations in
+clause creation and literal capture.
+Next opportunities: astNodeRecord layout (nodeAt/validNode cache misses
+6-16%); batch query APIs for seq canonize/expand, BV addFixedBitEquality
+(37% of g7), MkBoolVar/NodeHeader callers; open-addressed AST hash-cons
+table (tableFind/Insert/Erase ~5%); dense arrays for relevancy
+positive/negativeWatch and seqEvalCache; small-value fast path for model BV
+numerals (bitVectorNumeralDeclCore 12% of g7); fold numeric-manager
+checkReady/checkCleanup flags into one busy word; dense format flatten cache
+and SMT2PPExprTree reuse in trace mode.

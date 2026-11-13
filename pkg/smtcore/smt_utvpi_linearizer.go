@@ -36,13 +36,12 @@ func newSMTUTVPILinearizer(m *ast.ASTManager) (*smtUTVPILinearizer, error) {
 }
 
 func (l *smtUTVPILinearizer) numeral(expression ast.ASTHandle) (*big.Rat, bool, error) {
-	text, _, matched, err := l.manager.ArithmeticNumeralText(expression)
+	value, _, matched, err := l.manager.ArithmeticNumeralBigRat(expression)
 	if err != nil || !matched {
+		if matched {
+			return nil, false, ast.ErrASTDomain
+		}
 		return nil, false, err
-	}
-	value, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return nil, false, ast.ErrASTDomain
 	}
 	return value, true, nil
 }

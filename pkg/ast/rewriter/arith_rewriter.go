@@ -158,13 +158,9 @@ func (r *ArithRewriter) numeral(h ast.ASTHandle) (*big.Rat, bool, bool, error) {
 	if kind != ast.ASTApp {
 		return nil, false, false, nil
 	}
-	text, integer, matched, err := r.manager.ArithmeticNumeralText(h)
+	value, integer, matched, err := r.manager.ArithmeticNumeralBigRat(h)
 	if err != nil || !matched {
 		return nil, integer, matched, err
-	}
-	value, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return nil, integer, true, ast.ErrASTDomain
 	}
 	return value, integer, true, nil
 }
@@ -179,8 +175,12 @@ func (r *ArithRewriter) makeNumeral(value *big.Rat, integer bool) (result ast.AS
 		return result, err
 	}
 	defer func() { err = errors.Join(err, service.Del(&n)) }()
-	if err = service.SetString(&n, value.RatString()); err != nil {
-		return result, err
+	if done, e := service.SetSmallRat(&n, value); e != nil {
+		return result, e
+	} else if !done {
+		if err = service.SetString(&n, value.RatString()); err != nil {
+			return result, err
+		}
 	}
 	return r.manager.ArithmeticNumeral(&n, integer)
 }

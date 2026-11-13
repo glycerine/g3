@@ -116,6 +116,10 @@ type astSortRecord struct {
 	nextFree uint32
 	name     usymbol.Symbol
 	info     ASTSortInfo
+	// identity* cache the owned info's family and kind, as for declarations.
+	identityFamily FamilyID
+	identityKind   int32
+	identityCached bool
 }
 type astFuncDeclRecord struct {
 	nextFree  uint32
@@ -124,6 +128,12 @@ type astFuncDeclRecord struct {
 	domain    arena.SmallBytesRef
 	arity     uint32
 	rangeSort astNodeRef
+	// identityFamily and identityKind copy the family and kind of the owned
+	// info registration attached (identityCached). That info lives, with
+	// both fields unchanged, until this declaration is deleted.
+	identityFamily FamilyID
+	identityKind   int32
+	identityCached bool
 }
 type astAppRecord struct {
 	nextFree                    uint32
@@ -337,6 +347,12 @@ type ASTManager struct {
 	// smt2SortInfoTable is the command context's pp_env sort printer while
 	// it formats output; nil selects the base SMT2 environment.
 	smt2SortInfoTable SMT2SortInfoTable
+	// seqPrepared caches a completed prepareSequencePlugin.
+	seqPrepared astSequencePrepared
+	// utilFamilies caches ArithmeticFamilyID and BitVectorUtilityFamilyID.
+	utilFamilies astUtilityFamilies
+	// traceAcquisitionFree holds retired uncaught trace acquisition frames.
+	traceAcquisitionFree []*astTraceAcquisition
 }
 
 func astNextOrigin() (uint64, error) {

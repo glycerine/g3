@@ -1,5 +1,11 @@
 package ast
 
+import (
+	"math/big"
+
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
+)
+
 // Source: src/ast/arith_decl_plugin.cpp:632-639.
 
 // ArithmeticNumeralText reads the exact numeral value and integer flag for
@@ -10,6 +16,44 @@ func (m *ASTManager) ArithmeticNumeralText(h ASTHandle) (value string, integer, 
 		return
 	}
 	defer m.mu.Unlock()
+	rational, integer, matched, err := m.arithmeticNumeralParameter(h)
+	if err != nil || !matched {
+		return "", integer, false, err
+	}
+	value, err = m.numerals.String(rational)
+	if err != nil {
+		return "", false, false, err
+	}
+	return value, integer, true, nil
+}
+
+// ArithmeticNumeralBigRat is ArithmeticNumeralText followed by
+// big.Rat.SetString of the text, without the text when the numeral is small.
+// A text that does not parse reports ErrASTDomain with matched set.
+func (m *ASTManager) ArithmeticNumeralBigRat(h ASTHandle) (value *big.Rat, integer, matched bool, err error) {
+	if err = m.lock(); err != nil {
+		return
+	}
+	defer m.mu.Unlock()
+	rational, integer, matched, err := m.arithmeticNumeralParameter(h)
+	if err != nil || !matched {
+		return nil, integer, false, err
+	}
+	if raw := &rational.Raw; raw.Num.Cell == 0 && raw.Den.Cell == 0 && raw.Den.Val > 0 {
+		return big.NewRat(int64(raw.Num.Val), int64(raw.Den.Val)), integer, true, nil
+	}
+	text, err := m.numerals.String(rational)
+	if err != nil {
+		return nil, false, false, err
+	}
+	value, ok := new(big.Rat).SetString(text)
+	if !ok {
+		return nil, integer, true, ErrASTDomain
+	}
+	return value, integer, true, nil
+}
+
+func (m *ASTManager) arithmeticNumeralParameter(h ASTHandle) (rational *unumeral.OwnedRational, integer, matched bool, err error) {
 	r, err := m.requireExpr(h)
 	if err != nil {
 		return
@@ -37,10 +81,6 @@ func (m *ASTManager) ArithmeticNumeralText(h ASTHandle) (value string, integer, 
 		err = ErrASTDomain
 		return
 	}
-	value, err = m.numerals.String(&first.Rational)
-	if err != nil {
-		return
-	}
 	p, err = m.infoParameter(info, 1)
 	if err != nil {
 		return
@@ -53,6 +93,5 @@ func (m *ASTManager) ArithmeticNumeralText(h ASTHandle) (value string, integer, 
 		err = ErrASTDomain
 		return
 	}
-	integer = second.integer != 0
-	return value, integer, true, nil
+	return &first.Rational, second.integer != 0, true, nil
 }

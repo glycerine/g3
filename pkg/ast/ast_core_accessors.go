@@ -16,10 +16,18 @@ func (m *ASTManager) declIdentity(r astNodeRef) (FamilyID, int32, error) {
 	var slot, generation uint32
 	switch m.nodeAt(r.slot).kind {
 	case ASTSort:
-		p := m.sortAt(r.slot).info
+		v := m.sortAt(r.slot)
+		if v.identityCached {
+			return v.identityFamily, v.identityKind, nil
+		}
+		p := v.info
 		slot, generation = p.slot, p.generation
 	case ASTFuncDecl:
-		p := m.declAt(r.slot).info
+		d := m.declAt(r.slot)
+		if d.identityCached {
+			return d.identityFamily, d.identityKind, nil
+		}
+		p := d.info
 		slot, generation = p.slot, p.generation
 	default:
 		return -1, -1, ErrASTDomain

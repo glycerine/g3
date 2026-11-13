@@ -31,12 +31,7 @@ func (m *ASTManager) writeWord(p arena.SmallBytesRef, offset, value uint32) erro
 	if uint64(offset)+4 > math.MaxUint32 {
 		return arena.ErrBounds
 	}
-	for i := uint32(0); i < 4; i++ {
-		if e := m.allocator.Write(p, offset+i, byte(value>>(8*i))); e != nil {
-			return e
-		}
-	}
-	return nil
+	return m.allocator.WriteUint32LE(p, offset, value)
 }
 func (m *ASTManager) readWord(p arena.SmallBytesRef, offset uint32) (uint32, error) {
 	if uint64(offset)+4 > math.MaxUint32 {
@@ -49,10 +44,10 @@ func (m *ASTManager) writeInternal(p arena.SmallBytesRef, index uint32, r astNod
 	if e != nil {
 		return e
 	}
-	if e = m.writeWord(p, offset, r.slot); e != nil {
-		return e
+	if uint64(offset)+8 > math.MaxUint32 {
+		return arena.ErrBounds
 	}
-	return m.writeWord(p, offset+4, r.generation)
+	return m.allocator.WriteUint32Pair(p, offset, r.slot, r.generation)
 }
 func (m *ASTManager) readInternal(p arena.SmallBytesRef, index uint32) (astNodeRef, error) {
 	offset, e := astPayloadOffset(index, astRefBytes)
@@ -62,11 +57,11 @@ func (m *ASTManager) readInternal(p arena.SmallBytesRef, index uint32) (astNodeR
 	if uint64(offset)+8 > math.MaxUint32 {
 		return astNodeRef{}, arena.ErrBounds
 	}
-	var words [2]uint32
-	if e = m.allocator.ReadUint32LEs(p, offset, words[:]); e != nil {
+	slot, generation, e := m.allocator.ReadUint32Pair(p, offset)
+	if e != nil {
 		return astNodeRef{}, e
 	}
-	return astNodeRef{words[0], words[1]}, nil
+	return astNodeRef{slot, generation}, nil
 }
 func (m *ASTManager) writeSymbol(p arena.SmallBytesRef, index uint32, s usymbol.Symbol) error {
 	// Symbol is local to package g3. Its scalar fields are encoded by name;

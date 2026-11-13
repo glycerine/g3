@@ -166,6 +166,36 @@ func (a *SmallBytes) ReadUint32LEs(r SmallBytesRef, offset uint32, dst []uint32)
 	return nil
 }
 
+// ReadUint32Pair reads two consecutive scalars with one validation.
+func (a *SmallBytes) ReadUint32Pair(r SmallBytesRef, offset uint32) (uint32, uint32, error) {
+	d, err := a.descriptor(r)
+	if err != nil {
+		return 0, 0, err
+	}
+	if offset > d.length || d.length-offset < 8 {
+		return 0, 0, ErrBounds
+	}
+	start := d.offset + offset
+	data := a.chunks[d.page].data[start : start+8]
+	return binary.LittleEndian.Uint32(data), binary.LittleEndian.Uint32(data[4:]), nil
+}
+
+// WriteUint32Pair writes two consecutive scalars with one validation.
+func (a *SmallBytes) WriteUint32Pair(r SmallBytesRef, offset uint32, v0, v1 uint32) error {
+	d, err := a.descriptor(r)
+	if err != nil {
+		return err
+	}
+	if offset > d.length || d.length-offset < 8 {
+		return ErrBounds
+	}
+	start := d.offset + offset
+	data := a.chunks[d.page].data[start : start+8]
+	binary.LittleEndian.PutUint32(data, v0)
+	binary.LittleEndian.PutUint32(data[4:], v1)
+	return nil
+}
+
 // WriteUint32LE is the single-validation counterpart of ReadUint32LE.
 func (a *SmallBytes) WriteUint32LE(r SmallBytesRef, offset uint32, v uint32) error {
 	d, err := a.descriptor(r)

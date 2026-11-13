@@ -176,6 +176,12 @@ func (m *ASTManager) deleteNodeWorklist(stack []astNodeRef, resumed astNodeRef) 
 		// destructor can refuse after earlier parameters have been consumed.
 		slot, generation := m.infoForNode(current)
 		if slot != 0 && !m.DebugRefCount {
+			switch m.nodeAt(current.slot).kind {
+			case ASTFuncDecl:
+				m.declAt(current.slot).identityCached = false
+			case ASTSort:
+				m.sortAt(current.slot).identityCached = false
+			}
 			if e := m.dropInfoStorage(slot, generation); e != nil {
 				m.suspendNodeDeletion(current, stack)
 				return e

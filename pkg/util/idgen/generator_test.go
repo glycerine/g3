@@ -86,3 +86,29 @@ func TestIDGeneratorFiniteUniqueness(t *testing.T) {
 		t.Fatal("warm ID recycle allocated", got)
 	}
 }
+
+func TestIDGeneratorReserveGrowsGeometrically(t *testing.T) {
+	g := New(0, nil)
+	for n := uint32(1); n <= 1000; n++ {
+		if e := g.Reserve(n); e != nil || g.FreeCapacity() < int(n) {
+			t.Fatal("reserve", n, e, g.FreeCapacity())
+		}
+	}
+	if c := g.FreeCapacity(); c > 2000 {
+		t.Fatal("over-reserved", c)
+	}
+	grows := 0
+	last := g.FreeCapacity()
+	for n := uint32(1001); n <= 100000; n++ {
+		if e := g.Reserve(n); e != nil {
+			t.Fatal(e)
+		}
+		if g.FreeCapacity() != last {
+			grows++
+			last = g.FreeCapacity()
+		}
+	}
+	if grows > 20 {
+		t.Fatal("reserve reallocated per call", grows)
+	}
+}

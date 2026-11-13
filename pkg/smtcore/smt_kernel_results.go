@@ -108,6 +108,13 @@ func (k *SMTKernel) releasePendingResults() error {
 	for _, atom := range pending.held {
 		err = errors.Join(err, k.manager.DecRef(atom))
 	}
+	clear(pending.held)
+	clear(pending.labeled)
+	clear(pending.assignments)
+	clear(pending.relevant)
+	clear(pending.guessed)
+	*pending = smtPendingLiteralResults{assignments: pending.assignments[:0], relevant: pending.relevant[:0], guessed: pending.guessed[:0], labeled: pending.labeled[:0], held: pending.held[:0]}
+	k.spareResults = pending
 	return err
 }
 
@@ -123,7 +130,15 @@ func (k *SMTKernel) captureLiteralResultsHeld(baseLevel uint32, held bool) error
 	if err := k.clearLiteralResults(); err != nil {
 		return err
 	}
-	pending := &smtPendingLiteralResults{unheld: !held}
+	pending := k.spareResults
+	k.spareResults = nil
+	if pending == nil {
+		pending = &smtPendingLiteralResults{}
+	}
+	pending.unheld = !held
+	if n := len(k.internalizer.assignedLiterals); cap(pending.assignments) < n {
+		pending.assignments = make([]smtPendingLiteralResult, 0, n)
+	}
 	k.pendingResults = pending
 	for _, literal := range k.internalizer.assignedLiterals {
 		if literal.Var() < SMTFirstBoolVar || int(literal.Var()) >= len(k.internalizer.boolExpr) {

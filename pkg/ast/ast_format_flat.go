@@ -13,9 +13,12 @@ import (
 // Formatting recursion borrows node references. The cache is lookup-only;
 // traversal order comes exclusively from todo and each application's arguments.
 type astFormatFlatFrame struct {
-	next               *astFormatFlatFrame
-	owner              *ASTManager
-	cache              map[astNodeRef]astNodeRef
+	next  *astFormatFlatFrame
+	owner *ASTManager
+	cache map[astNodeRef]astNodeRef
+	// small holds the cache while it has at most astFormatFlatSmall
+	// entries; cache is built from it on the next insert.
+	small              []astFormatFlatEntry
 	todo               []astNodeRef
 	results            []ASTHandle
 	family             FamilyID
@@ -30,12 +33,42 @@ func (f *astFormatFlatFrame) find(key astNodeRef) (astNodeRef, bool, error) {
 	if e := f.owner.validNode(key); e != nil {
 		return astNodeRef{}, false, e
 	}
+	if f.cache == nil {
+		for i := range f.small {
+			if f.small[i].key == key {
+				return f.small[i].value, true, nil
+			}
+		}
+		return astNodeRef{}, false, nil
+	}
 	value, found := f.cache[key]
 	return value, found, nil
 }
+
+type astFormatFlatEntry struct{ key, value astNodeRef }
+
+const astFormatFlatSmall = 32
+
 func (f *astFormatFlatFrame) insert(key, value astNodeRef) error {
 	if e := f.owner.validNode(key); e != nil {
 		return e
+	}
+	if f.cache == nil {
+		for i := range f.small {
+			if f.small[i].key == key {
+				f.small[i].value = value
+				return nil
+			}
+		}
+		if len(f.small) < astFormatFlatSmall {
+			f.small = append(f.small, astFormatFlatEntry{key, value})
+			return nil
+		}
+		f.cache = make(map[astNodeRef]astNodeRef, 2*astFormatFlatSmall)
+		for _, entry := range f.small {
+			f.cache[entry.key] = entry.value
+		}
+		f.small = nil
 	}
 	f.cache[key] = value
 	return nil
@@ -48,6 +81,7 @@ func (f *astFormatFlatFrame) sourceDestroy() {
 	f.results = nil
 	f.todo = nil
 	f.cache = nil
+	f.small = nil
 	f.sourceDone = true
 	f.active = false
 }
@@ -140,7 +174,7 @@ func (m *ASTManager) formatFlat(root astNodeRef, documents *astFormatDocuments) 
 			f.header = 0
 		}
 	}()
-	f.cache = make(map[astNodeRef]astNodeRef)
+	f.small = make([]astFormatFlatEntry, 0, 8)
 	f.todo = append(f.todo, root)
 	for len(f.todo) != 0 {
 		n := f.todo[len(f.todo)-1]

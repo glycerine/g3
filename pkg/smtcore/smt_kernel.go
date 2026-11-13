@@ -73,9 +73,12 @@ type SMTKernel struct {
 	// the result expressions are built on the first query, as the source
 	// getters build them, not when the check ends.
 	pendingResults *smtPendingLiteralResults
-	callback       solver.ProgressCallback
-	modelConfig    model.ModelEvaluatorConfig
-	generated      *model.Model
+	// spareResults is the last released capture, kept only to reuse its
+	// slice storage for the next capture.
+	spareResults *smtPendingLiteralResults
+	callback     solver.ProgressCallback
+	modelConfig  model.ModelEvaluatorConfig
+	generated    *model.Model
 	// staleModel is context::m_proto_model/m_model after a new check began:
 	// no longer the result, but held until the next mk_proto_model replaces
 	// it (or the context is destroyed).

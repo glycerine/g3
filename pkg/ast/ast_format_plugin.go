@@ -89,6 +89,11 @@ func (m *ASTManager) finalizeFormatPlugin() error {
 	return e
 }
 func (m *ASTManager) formatFamilyID() (FamilyID, error) {
+	// Once registered, the plugin binding stays present until close, so the
+	// name lookups below return the cached family.
+	if c := &m.utilFamilies; c.formatValid && m.pluginAt(c.format).present {
+		return c.format, nil
+	}
 	// Source constructs symbol before reading has_plugin. Its source lookup is
 	// non-owning; the cold wrapper is acquired only on the actual new-expression.
 	name, e := m.Symbols.Intern("format")
@@ -101,7 +106,11 @@ func (m *ASTManager) formatFamilyID() (FamilyID, error) {
 	}
 	found := id != NullFamilyID
 	if found && m.pluginAt(id).present {
-		return m.families.MkID(name)
+		id, e = m.families.MkID(name)
+		if e == nil {
+			m.utilFamilies.format, m.utilFamilies.formatValid = id, true
+		}
+		return id, e
 	}
 	bytes := uint64(reflect.TypeOf(astFormatPluginOwner{}).Size())
 	if e = m.BudgetField.Reserve(bytes); e != nil {

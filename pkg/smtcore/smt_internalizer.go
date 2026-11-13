@@ -116,15 +116,28 @@ func (s *SMTInternalizerState) addClauseKindWithDeleteHandler(literals []SMTLite
 	return s.addClauseKindWithJustificationAndDeleteHandler(literals, root, kind, proof, nil, deleteHandler)
 }
 
+// smtClauseSeenScanLimit is the clause length up to which duplicate and
+// complementary literals are found by scanning the kept literals.
+const smtClauseSeenScanLimit = 16
+
 func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(literals []SMTLiteral, root bool, kind SMTClauseKind, proof ast.ASTHandle, justification SMTJustification, deleteHandler SMTClauseDeleteHandler) error {
 	if kind == SMTClauseAux || kind == SMTClauseAuxLemma {
 		// simplify_aux_clause_literals and simplify_aux_lemma_literals both
 		// sort the literals (by index) first.
-		literals = append([]SMTLiteral(nil), literals...)
+		// The sorted copy is only read by the loop below, so it lives in a
+		// reused scratch buffer; nothing in the loop adds a clause.
+		s.clauseSortScratch = append(s.clauseSortScratch[:0], literals...)
+		literals = s.clauseSortScratch
 		slices.SortFunc(literals, func(a, b SMTLiteral) int { return cmp.Compare(a.Index(), b.Index()) })
 	}
-	seen := make(map[SMTLiteral]struct{}, len(literals))
-	kept := make([]SMTLiteral, 0, len(literals))
+	// seen holds exactly the kept literals; short clauses scan kept instead.
+	var seen map[SMTLiteral]struct{}
+	if len(literals) > smtClauseSeenScanLimit {
+		seen = make(map[SMTLiteral]struct{}, len(literals))
+	}
+	// kept is collected in a scratch buffer and copied out at its final
+	// length once the loop has not found the clause satisfied.
+	kept := s.clauseKeptScratch[:0]
 	removedFalse := make([]SMTLiteral, 0)
 	for _, literal := range literals {
 		if literal == SMTTrueLiteral {
@@ -134,10 +147,24 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 			removedFalse = append(removedFalse, SMTTrueLiteral)
 			continue
 		}
-		if _, found := seen[literal.Negated()]; found {
+		negated := literal.Negated()
+		foundNegated, foundLiteral := false, false
+		if seen != nil {
+			_, foundNegated = seen[negated]
+			_, foundLiteral = seen[literal]
+		} else {
+			for _, k := range kept {
+				if k == negated {
+					foundNegated = true
+				} else if k == literal {
+					foundLiteral = true
+				}
+			}
+		}
+		if foundNegated {
 			return nil
 		}
-		if _, found := seen[literal]; found {
+		if foundLiteral {
 			continue
 		}
 		// simplify_aux_lemma_literals: a literal true at or below the base
@@ -164,9 +191,13 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 				continue
 			}
 		}
-		seen[literal] = struct{}{}
+		if seen != nil {
+			seen[literal] = struct{}{}
+		}
 		kept = append(kept, literal)
 	}
+	s.clauseKeptScratch = kept[:0]
+	kept = append([]SMTLiteral(nil), kept...)
 	// mk_clause: j = unit_resolution_justification(j, simp_lits) whenever
 	// false literals were removed; the clause's proof is then built lazily
 	// from that justification (the proof wrapper of pr resolved with the

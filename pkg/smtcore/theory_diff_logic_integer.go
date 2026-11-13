@@ -149,13 +149,12 @@ func (t *SMTIntegerDiffTheory) numeral(expression ast.ASTHandle) (*big.Rat, bool
 	if err != nil {
 		return nil, false, err
 	}
-	text, _, matched, err := state.manager.ArithmeticNumeralText(expression)
+	value, _, matched, err := state.manager.ArithmeticNumeralBigRat(expression)
 	if err != nil || !matched {
+		if matched {
+			return nil, false, ast.ErrASTDomain
+		}
 		return nil, false, err
-	}
-	value, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return nil, false, ast.ErrASTDomain
 	}
 	return value, true, nil
 }

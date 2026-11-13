@@ -94,26 +94,32 @@ func (dm *seqDepManager) linearize(d *seqDep) []seqAssumption {
 // reverse order, as destructors of locals run.
 type seqRefs struct {
 	manager *ast.ASTManager
-	refs    []ast.ASTRef
+	// hs holds one node reference per element, released last to first.
+	hs []ast.ASTHandle
+	// pool, set for function locals from loc, takes the emptied owner back
+	// on drop so the next local reuses its storage.
+	pool *[]*seqRefs
 }
 
 func (r *seqRefs) hold(h ast.ASTHandle) (ast.ASTHandle, error) {
 	if h.IsNull() {
 		return h, nil
 	}
-	ref, err := r.manager.NewRef(h)
-	if err != nil {
+	if err := r.manager.IncRef(h); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	r.refs = append(r.refs, ref)
+	r.hs = append(r.hs, h)
 	return h, nil
 }
 
 func (r *seqRefs) release() (result error) {
-	for i := len(r.refs) - 1; i >= 0; i-- {
-		result = errors.Join(result, r.manager.DelRef(&r.refs[i]))
+	for i := len(r.hs) - 1; i >= 0; i-- {
+		if err := r.manager.DecRef(r.hs[i]); err != nil {
+			result = errors.Join(result, err)
+		}
 	}
-	r.refs = r.refs[:0]
+	clear(r.hs)
+	r.hs = r.hs[:0]
 	return result
 }
 
@@ -146,10 +152,11 @@ func (r *seqExprRef) set(h ast.ASTHandle) error {
 func (r *seqExprRef) release() error { return r.set(ast.ASTHandle{}) }
 
 // seqExprVector is an expr_ref_vector: every element holds one reference.
+// The references are plain node reference counts, as in the source; no
+// reference record is kept per element.
 type seqExprVector struct {
 	manager *ast.ASTManager
 	elems   []ast.ASTHandle
-	refs    []ast.ASTRef
 }
 
 func newSeqExprVector(m *ast.ASTManager) seqExprVector { return seqExprVector{manager: m} }
@@ -160,22 +167,17 @@ func (v *seqExprVector) handles() []ast.ASTHandle { return v.elems }
 func (v *seqExprVector) back() ast.ASTHandle      { return v.elems[len(v.elems)-1] }
 func (v *seqExprVector) empty() bool              { return len(v.elems) == 0 }
 func (v *seqExprVector) pushBack(h ast.ASTHandle) error {
-	ref, err := v.manager.NewRef(h)
-	if err != nil {
+	if err := v.manager.IncRef(h); err != nil {
 		return err
 	}
 	v.elems = append(v.elems, h)
-	v.refs = append(v.refs, ref)
 	return nil
 }
 
 func (v *seqExprVector) append(hs []ast.ASTHandle) error {
-	for _, h := range hs {
-		if err := v.pushBack(h); err != nil {
-			return err
-		}
-	}
-	return nil
+	n, err := v.manager.IncRefEach(hs)
+	v.elems = append(v.elems, hs[:n]...)
+	return err
 }
 
 // shrink is expr_ref_vector::shrink/resize to a smaller size: references
@@ -184,23 +186,24 @@ func (v *seqExprVector) shrink(n int) (result error) {
 	if n >= len(v.elems) {
 		return nil
 	}
-	for i := n; i < len(v.refs); i++ {
-		result = errors.Join(result, v.manager.DelRef(&v.refs[i]))
+	for i := n; i < len(v.elems); i++ {
+		if err := v.manager.DecRef(v.elems[i]); err != nil {
+			result = errors.Join(result, err)
+		}
 	}
+	clear(v.elems[n:])
 	v.elems = v.elems[:n]
-	v.refs = v.refs[:n]
 	return result
 }
 
 func (v *seqExprVector) reset() error { return v.shrink(0) }
 
 func (v *seqExprVector) set(i int, h ast.ASTHandle) error {
-	ref, err := v.manager.NewRef(h)
-	if err != nil {
+	if err := v.manager.IncRef(h); err != nil {
 		return err
 	}
-	err = v.manager.DelRef(&v.refs[i])
-	v.elems[i], v.refs[i] = h, ref
+	err := v.manager.DecRef(v.elems[i])
+	v.elems[i] = h
 	return err
 }
 
@@ -918,6 +921,8 @@ type SMTTheorySeq struct {
 	factory *protomodel.SequenceFactory
 	tmps    seqRefs // expr_ref temporaries released when an entry point returns
 	closed  bool
+	// locPool holds dropped function-local reference owners for reuse.
+	locPool []*seqRefs
 }
 
 // seqRewriterOwner is the source's m_rewrite member: a th_rewriter with

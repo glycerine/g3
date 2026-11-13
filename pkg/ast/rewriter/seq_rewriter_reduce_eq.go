@@ -76,7 +76,9 @@ func (r *SequenceRewriter) vSet(v *[]ast.ASTHandle, i int, h ast.ASTHandle) erro
 
 // vShrink releases the dropped suffix front to back.
 func (r *SequenceRewriter) vShrink(v *[]ast.ASTHandle, n int) error {
-	dropped := append([]ast.ASTHandle(nil), (*v)[n:]...)
+	// DecRef touches only the AST manager, never v, so the dropped tail is
+	// read in place from the old slice.
+	dropped := (*v)[n:]
 	*v = (*v)[:n]
 	for _, h := range dropped {
 		if err := r.manager.DecRef(h); err != nil {
