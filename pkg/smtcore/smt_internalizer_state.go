@@ -26,8 +26,8 @@ type smtInternalizerScope struct {
 	theoryCaseSplitLimit int
 	booleanLimit         int
 	enodeLimit           int
+	coreTrailLimit       int
 	pendingLimit         int
-	pendingHead          int
 	equalityLimit        int
 	assignmentLimit      int
 	clauseLimit          int
@@ -37,9 +37,7 @@ type smtInternalizerScope struct {
 	propagationHead      int
 	relevancyBatch       smtRelevancyAssignmentBatch
 	theoryEqLimit        int
-	theoryEqHead         int
 	theoryDiseqLimit     int
-	theoryDiseqHead      int
 	notifyLimit          int
 	enodeFlagLimit       int
 	mergeTFLimit         int
@@ -77,12 +75,28 @@ type smtDisequalityUndo struct {
 	length int
 }
 
+// smtCoreTrailKind names the m_trail_stack entry a coreTrail slot stands for.
+type smtCoreTrailKind uint8
+
+const (
+	smtCoreTrailBoolVar smtCoreTrailKind = iota // mk_bool_var_trail
+	smtCoreTrailEnode                           // mk_enode_trail
+	smtCoreTrailAddEq                           // add_eq_trail
+)
+
+// smtCoreTrailEntry records one e-graph trail entry. theoryLimit is the
+// theory trail length when it was pushed: the add_th_var_trail and
+// replace_th_var_trail entries pushed after it are undone before it.
+type smtCoreTrailEntry struct {
+	kind        smtCoreTrailKind
+	theoryLimit int
+}
+
 // smtEqualityUndo is one source add_eq_trail entry.
 type smtEqualityUndo struct {
 	r1, left, r2       *SMTEnode
 	r2NumSourceParents int
 	r2NumDisequalities int
-	theoryLimit        int
 	r2TheoryVariables  SMTTheoryVarList
 	merged             bool
 	stage              uint8
@@ -204,12 +218,11 @@ type SMTInternalizerState struct {
 	watches                    []SMTWatchList
 	booleanStack               []ast.ASTHandle
 	enodeStack                 []*SMTEnode
-	// booleanSeq and enodeSeq number each mk_bool_var and mk_enode in one
-	// sequence: the source records both on m_trail_stack, so a pop undoes
-	// them interleaved, newest first.
-	booleanSeq          []uint64
-	enodeSeq            []uint64
-	internalizeSeq      uint64
+	// coreTrail is the order of the m_trail_stack entries that build the
+	// e-graph: mk_bool_var_trail, mk_enode_trail and add_eq_trail. Their
+	// data stay on booleanStack, enodeStack and equalityTrail; a pop undoes
+	// the three interleaved, newest first, as undo_trail_stack does.
+	coreTrail           []smtCoreTrailEntry
 	scopes              []smtInternalizerScope
 	pendingPop          *smtInternalizerPendingPop
 	popActive           bool
@@ -669,8 +682,7 @@ func (s *SMTInternalizerState) MkBoolVar(expression ast.ASTHandle) (int32, error
 	s.assignment = append(s.assignment, lbool.Undef, lbool.Undef)
 	s.watches = append(s.watches, SMTWatchList{}, SMTWatchList{})
 	s.booleanStack = append(s.booleanStack, expression)
-	s.internalizeSeq++
-	s.booleanSeq = append(s.booleanSeq, s.internalizeSeq)
+	s.pushCoreTrail(smtCoreTrailBoolVar)
 	s.statistics.NumMkBoolVar++
 	if err := s.basicActivityCreated(variable); err != nil {
 		return SMTNullBoolVar, err
@@ -845,8 +857,7 @@ func (s *SMTInternalizerState) MkEnode(expression ast.ASTHandle, suppressArgumen
 		return nil, err
 	}
 	s.enodeStack = append(s.enodeStack, node)
-	s.internalizeSeq++
-	s.enodeSeq = append(s.enodeSeq, s.internalizeSeq)
+	s.pushCoreTrail(smtCoreTrailEnode)
 	s.statistics.NumMkEnode++
 	if smtTraceEnabled("mk_enode") {
 		s.traceMkEnode(node, count, congruenceEnabled)
@@ -887,15 +898,15 @@ func (s *SMTInternalizerState) PushScope() error {
 		relActLimit:    len(s.relevanceActivity.entries), relActHead: s.relevanceActivity.head,
 		trueFirstLimit:       len(s.trueFirstTrail),
 		theoryCaseSplitLimit: len(s.theoryCaseSplitSets),
-		booleanLimit:         len(s.booleanStack), enodeLimit: len(s.enodeStack), pendingLimit: len(s.pending), pendingHead: s.pendingHead,
+		booleanLimit:         len(s.booleanStack), enodeLimit: len(s.enodeStack), coreTrailLimit: len(s.coreTrail), pendingLimit: len(s.pending),
 		equalityLimit:   len(s.equalityTrail),
 		assignmentLimit: len(s.assignmentTrail), clauseLimit: len(s.clauses), justificationLimit: len(s.ownedJustifications), theoryLimit: len(s.theoryTrail), inconsistent: s.inconsistent,
 		assignedLimit: len(s.assignedLiterals), propagationHead: s.propagationHead, relevancyBatch: s.relevancyBatch, conflict: s.conflict,
 		conflictLiteral:  s.conflictLiteral,
 		disequalityLimit: len(s.context.disequalityTrail),
-		theoryEqLimit:    len(s.theoryEqualities), theoryEqHead: s.theoryEqualityHead,
-		theoryDiseqLimit: len(s.theoryDisequalities), theoryDiseqHead: s.theoryDisequalityHead,
-		notifyLimit: len(s.notifyTrail), simplifyHead: s.simplifyHead,
+		theoryEqLimit:    len(s.theoryEqualities),
+		theoryDiseqLimit: len(s.theoryDisequalities),
+		notifyLimit:      len(s.notifyTrail), simplifyHead: s.simplifyHead,
 		enodeFlagLimit:    len(s.enodeFlagTrail),
 		mergeTFLimit:      len(s.mergeTFTrail),
 		atomNotifiedLimit: len(s.atomNotifiedTrail),
@@ -972,12 +983,14 @@ func (s *SMTInternalizerState) unregisterEnode(node *SMTEnode) error {
 	if len(bucket) == 0 || bucket[len(bucket)-1] != node {
 		return fmt.Errorf("enode declaration %d is not bucket tail (size %d): %w", node.declaration.Slot(), len(bucket), ast.ErrASTDomain)
 	}
+	// undo_mk_enode: erase e if e->is_cgr() && !e->is_true_eq() &&
+	// e->is_cgc_enabled(). A leaf has no m_cg.
 	if node.IsCongruenceRoot() && node.NumArgs() != 0 && node.congruenceEnabled && !node.IsTrueEquality() {
 		erased, err := s.congruence.Erase(node)
-		if err != nil || !erased {
-			if err != nil {
-				return fmt.Errorf("erase congruence entry: %w", err)
-			}
+		if err != nil {
+			return fmt.Errorf("erase congruence entry: %w", err)
+		}
+		if !erased && smtcoreSourceDebug {
 			return fmt.Errorf("congruence entry was absent: %w", ast.ErrASTDomain)
 		}
 	}
@@ -988,7 +1001,7 @@ func (s *SMTInternalizerState) unregisterEnode(node *SMTEnode) error {
 	if s.relevancy == nil {
 		s.context.relevant.del(node.owner)
 	}
-	if err := node.deleteAfterEqualityUndo(); err != nil {
+	if err := node.Delete(true); err != nil {
 		return fmt.Errorf("delete enode: %w", err)
 	}
 	s.retiringEnode, s.retiringEnodeRoot = node, node.owner
@@ -1071,25 +1084,7 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 		s.booleanData[s.trueFirstTrail[i]].ResetTrueFirst()
 		s.trueFirstTrail = s.trueFirstTrail[:i]
 	}
-	if scope.equalityLimit < 0 || scope.equalityLimit > len(s.equalityTrail) {
-		return ast.ErrASTDomain
-	}
-	for len(s.equalityTrail) > scope.equalityLimit {
-		index := len(s.equalityTrail) - 1
-		entry := &s.equalityTrail[index]
-		if err := s.undoTheoryAttachments(entry.theoryLimit); err != nil {
-			return err
-		}
-		if err := s.undoEquality(entry); err != nil {
-			return fmt.Errorf("undo equality: %w", err)
-		}
-		*entry = smtEqualityUndo{}
-		s.equalityTrail = s.equalityTrail[:index]
-	}
 	if err := s.context.undoDisequalities(scope.disequalityLimit); err != nil {
-		return err
-	}
-	if err := s.undoTheoryAttachments(scope.theoryLimit); err != nil {
 		return err
 	}
 	if scope.assignmentLimit < 0 || scope.assignmentLimit > len(s.assignmentTrail) {
@@ -1130,16 +1125,18 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 	s.propagationHead = scope.propagationHead
 	s.relevancyBatch = scope.relevancyBatch
 	s.simplifyHead = scope.simplifyHead
-	if scope.theoryEqLimit < 0 || scope.theoryEqLimit > len(s.theoryEqualities) || scope.theoryEqHead < 0 || scope.theoryEqHead > scope.theoryEqLimit {
+	// pop_scope_core: m_th_eq_propagation_queue.reset() and
+	// m_th_diseq_propagation_queue.reset().
+	if scope.theoryEqLimit < 0 || scope.theoryEqLimit > len(s.theoryEqualities) {
 		return ast.ErrASTDomain
 	}
 	s.theoryEqualities = s.theoryEqualities[:scope.theoryEqLimit]
-	s.theoryEqualityHead = scope.theoryEqHead
-	if scope.theoryDiseqLimit < 0 || scope.theoryDiseqLimit > len(s.theoryDisequalities) || scope.theoryDiseqHead < 0 || scope.theoryDiseqHead > scope.theoryDiseqLimit {
+	s.theoryEqualityHead = len(s.theoryEqualities)
+	if scope.theoryDiseqLimit < 0 || scope.theoryDiseqLimit > len(s.theoryDisequalities) {
 		return ast.ErrASTDomain
 	}
 	s.theoryDisequalities = s.theoryDisequalities[:scope.theoryDiseqLimit]
-	s.theoryDisequalityHead = scope.theoryDiseqHead
+	s.theoryDisequalityHead = len(s.theoryDisequalities)
 	if scope.notifyLimit < 0 || scope.notifyLimit > len(s.notifyTrail) {
 		return ast.ErrASTDomain
 	}
@@ -1253,20 +1250,37 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 			s.pendingPop.relevancyPopped = true
 		}
 	}
-	// undo_trail_stack: mk_enode and mk_bool_var entries, newest first.
-	for {
-		enodeMore := len(s.enodeStack) > scope.enodeLimit
-		booleanMore := len(s.booleanStack) > scope.booleanLimit
-		if !enodeMore && !booleanMore {
-			break
+	// undo_trail_stack: the mk_bool_var, mk_enode and add_eq entries, with
+	// the theory-variable entries pushed after each, newest first.
+	if scope.coreTrailLimit < 0 || scope.coreTrailLimit > len(s.coreTrail) ||
+		scope.enodeLimit < 0 || scope.enodeLimit > len(s.enodeStack) ||
+		scope.booleanLimit < 0 || scope.booleanLimit > len(s.booleanStack) ||
+		scope.equalityLimit < 0 || scope.equalityLimit > len(s.equalityTrail) {
+		return ast.ErrASTDomain
+	}
+	for len(s.coreTrail) > scope.coreTrailLimit {
+		top := s.coreTrail[len(s.coreTrail)-1]
+		if err := s.undoTheoryAttachments(top.theoryLimit); err != nil {
+			return err
 		}
-		if enodeMore && !s.retiringBoolean && (!booleanMore || s.enodeSeq[len(s.enodeSeq)-1] > s.booleanSeq[len(s.booleanSeq)-1]) {
+		switch top.kind {
+		case smtCoreTrailAddEq:
+			index := len(s.equalityTrail) - 1
+			entry := &s.equalityTrail[index]
+			if err := s.undoEquality(entry); err != nil {
+				return fmt.Errorf("undo equality: %w", err)
+			}
+			*entry = smtEqualityUndo{}
+			s.equalityTrail = s.equalityTrail[:index]
+			s.coreTrail = s.coreTrail[:len(s.coreTrail)-1]
+			continue
+		case smtCoreTrailEnode:
 			node := s.enodeStack[len(s.enodeStack)-1]
 			if err := s.unregisterEnode(node); err != nil {
 				return fmt.Errorf("unregister enode: %w", err)
 			}
 			s.enodeStack = s.enodeStack[:len(s.enodeStack)-1]
-			s.enodeSeq = s.enodeSeq[:len(s.enodeSeq)-1]
+			s.coreTrail = s.coreTrail[:len(s.coreTrail)-1]
 			continue
 		}
 		expression := s.booleanStack[len(s.booleanStack)-1]
@@ -1329,8 +1343,14 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 		}
 		s.retiringBoolean = false
 		s.booleanStack = s.booleanStack[:len(s.booleanStack)-1]
-		s.booleanSeq = s.booleanSeq[:len(s.booleanSeq)-1]
+		s.coreTrail = s.coreTrail[:len(s.coreTrail)-1]
 		s.statistics.NumDelBoolVar++
+	}
+	if len(s.enodeStack) != scope.enodeLimit || len(s.booleanStack) != scope.booleanLimit || len(s.equalityTrail) != scope.equalityLimit {
+		return fmt.Errorf("e-graph trail out of step with its stacks: %w", ast.ErrASTDomain)
+	}
+	if err := s.undoTheoryAttachments(scope.theoryLimit); err != nil {
+		return err
 	}
 	if s.flushQuantifiersInPop {
 		if err := s.flushQuantifiers(); err != nil {
@@ -1356,12 +1376,11 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 	if scope.pendingLimit < 0 || scope.pendingLimit > len(s.pending) {
 		return ast.ErrASTDomain
 	}
+	// pop_scope_core: m_eq_propagation_queue.reset(). Entries queued before
+	// the scope and not yet merged are dropped as well.
 	clear(s.pending[scope.pendingLimit:])
 	s.pending = s.pending[:scope.pendingLimit]
-	if scope.pendingHead < 0 || scope.pendingHead > len(s.pending) {
-		return ast.ErrASTDomain
-	}
-	s.pendingHead = scope.pendingHead
+	s.pendingHead = len(s.pending)
 	s.inconsistent = scope.inconsistent
 	s.conflict = scope.conflict
 	s.conflictLiteral = scope.conflictLiteral

@@ -24,7 +24,9 @@ func TestSMTClauseMaintenanceDeletesInactiveLemmasAndRepairsScopes(t *testing.T)
 	for index := 0; index < 3; index++ {
 		astTestMust(t, state.AddLearnedClause(literals[index:index+3]))
 	}
-	smtTestUserPush(t, state)
+	// A search scope above the base level: del_inactive_lemmas1 starts at
+	// the base scope's m_lemmas_lim, so all six lemmas are candidates.
+	astTestMust(t, state.PushScope())
 	for index := 3; index < 6; index++ {
 		astTestMust(t, state.AddLearnedClause(literals[index:index+3]))
 	}
@@ -32,10 +34,13 @@ func TestSMTClauseMaintenanceDeletesInactiveLemmasAndRepairsScopes(t *testing.T)
 	if len(state.clauses) != 3 || state.statistics.NumDelClause != 3 {
 		t.Fatal("learned-clause collection", len(state.clauses), state.statistics.NumDelClause)
 	}
+	if limit := state.scopes[1].clauseLimit; limit != 2 {
+		t.Fatal("repaired inner clause limit", limit)
+	}
 	astTestMust(t, state.CheckInvariant())
 	astTestMust(t, state.PopScopes(1))
-	if len(state.clauses) != 2 {
-		t.Fatal("repaired inner clause limit", len(state.clauses))
+	if len(state.clauses) != 3 {
+		t.Fatal("lemmas kept across a search pop", len(state.clauses))
 	}
 	astTestMust(t, state.CheckInvariant())
 	astTestMust(t, state.PopScopes(1))

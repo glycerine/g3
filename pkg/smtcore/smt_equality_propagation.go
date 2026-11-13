@@ -20,36 +20,43 @@ func cloneSMTTheoryVariables(source SMTTheoryVarList) SMTTheoryVarList {
 	return result
 }
 
+// pushCoreTrail is m_trail_stack.push_back for the e-graph entries.
+func (s *SMTInternalizerState) pushCoreTrail(kind smtCoreTrailKind) {
+	s.coreTrail = append(s.coreTrail, smtCoreTrailEntry{kind: kind, theoryLimit: len(s.theoryTrail)})
+}
+
 // recordEqualityUndo follows source add_eq_trail. The class links, roots, and
 // proof tree are derived again on undo, so one merge costs one fixed trail entry.
 func (s *SMTInternalizerState) recordEqualityUndo(r1, left, r2 *SMTEnode) {
 	s.equalityTrail = append(s.equalityTrail, smtEqualityUndo{
-		r1: r1, left: left, r2: r2, r2NumSourceParents: len(r2.sourceParents), r2NumDisequalities: len(r2.disequalities), theoryLimit: len(s.theoryTrail),
+		r1: r1, left: left, r2: r2, r2NumSourceParents: len(r2.sourceParents), r2NumDisequalities: len(r2.disequalities),
 		r2TheoryVariables: cloneSMTTheoryVariables(r2.theoryVariables),
 	})
+	s.pushCoreTrail(smtCoreTrailAddEq)
 }
 
-// undoEquality follows source context::undo_add_eq. Its stage keeps a retried
-// pop from repeating the class unmerge after a later owner refuses.
+// undoEquality follows source context::undo_add_eq (smt_context.cpp). The
+// e-graph trail is undone in exact reverse order, so every enode created after
+// the merge is already gone. Its stage keeps a retried pop from repeating the
+// class unmerge after a later owner refuses.
 func (s *SMTInternalizerState) undoEquality(entry *smtEqualityUndo) error {
 	r1, r2 := entry.r1, entry.r2
 	if entry.stage == 0 && entry.merged {
 		s.traceUndoAddEq(r1, r2)
 	}
 	if entry.stage == 0 {
-		// undo_add_eq: remove the parents of r1 that remained congruence
-		// roots (r2->m_parents past r2_num_parents). Here that tail also holds
-		// enodes created after the merge, which the source trail deletes
-		// first; clearing their m_cg keeps their own deletion from erasing
-		// them again.
 		if entry.merged {
+			// remove the parents of r1 that remained as congruence roots
 			for _, parent := range r2.sourceParents[entry.r2NumSourceParents:] {
-				if err := s.eraseMergedCongruenceRoot(parent); err != nil {
-					return err
-				}
-				// Source undo_add_eq leaves m_cg alone for cgc-disabled parents.
-				if parent.congruence == parent && parent.congruenceEnabled {
-					parent.congruence = nil
+				if parent.congruenceEnabled {
+					s.traceAddEqParents("undo_add_eq", 981, "removing: #", parent)
+					erased, err := s.congruence.Erase(parent)
+					if err != nil {
+						return err
+					}
+					if smtcoreSourceDebug && (!erased || parent.congruence != parent) {
+						return fmt.Errorf("undo_add_eq: parent #%d is not a congruence root in the table: %w", parent.owner.Slot(), ast.ErrASTDomain)
+					}
 				}
 			}
 		}
@@ -68,47 +75,52 @@ func (s *SMTInternalizerState) undoEquality(entry *smtEqualityUndo) error {
 			clear(r2.sourceParents[entry.r2NumSourceParents:])
 			r2.sourceParents = r2.sourceParents[:entry.r2NumSourceParents]
 			r2.truncateDisequalities(entry.r2NumDisequalities)
-			entry.left.trans = SMTTransJustification{Justification: NullSMTEqualityJustification()}
-			smtInvertTrans(r1)
 		}
-		r2.theoryVariables = entry.r2TheoryVariables
 		entry.stage = 2
 	}
 	if !entry.merged {
+		r2.theoryVariables = entry.r2TheoryVariables
 		return nil
 	}
-	// undo_add_eq: try to reinsert the parents of r1 (r1->m_parents, in
-	// order) that were congruence roots before the merge: those that stayed
-	// roots (erased above, so their congruence is nil here) and those that
-	// are no longer congruent to the root they were attached to.
-	for _, parent := range r1.sourceParents {
-		if !parent.congruenceEnabled || parent.IsTrueEquality() {
-			continue
-		}
-		if keep := parent.congruence; keep != nil && keep != parent {
-			congruent, _, err := SMTEnodesCongruent(parent, keep)
-			if err != nil {
-				return err
-			}
-			if congruent {
+	if entry.stage == 2 {
+		// try to reinsert parents of r1 that are not cgr: those that were
+		// roots before and after the merge (parent == cg), and those that
+		// were roots before but not after it (!congruent(parent, cg)).
+		for _, parent := range r1.sourceParents {
+			s.traceAddEqParents("undo_add_eq", 1007, "visiting: #", parent)
+			if !parent.congruenceEnabled || parent.IsTrueEquality() {
 				continue
 			}
+			cg := parent.congruence
+			if cg != parent {
+				if cg == nil {
+					return fmt.Errorf("undo_add_eq: parent #%d has no congruence root: %w", parent.owner.Slot(), ast.ErrASTDomain)
+				}
+				congruent, _, err := SMTEnodesCongruent(parent, cg)
+				if err != nil {
+					return err
+				}
+				if congruent {
+					continue
+				}
+			}
+			s.traceUndoAddEqTryReinsert()
+			if _, err := s.congruence.Insert(parent); err != nil {
+				return err
+			}
+			parent.congruence = parent
 		}
-		inserted, err := s.congruence.Insert(parent)
-		if err != nil {
-			return err
-		}
-		parent.congruence = inserted.Node
+		entry.stage = 3
+	}
+	if entry.stage == 3 {
+		// restore theory vars
+		r2.theoryVariables = entry.r2TheoryVariables
+		// 'Proof' tree
+		entry.left.trans = SMTTransJustification{Justification: NullSMTEqualityJustification()}
+		smtInvertTrans(r1)
+		entry.stage = 4
 	}
 	return nil
-}
-
-func (s *SMTInternalizerState) eraseMergedCongruenceRoot(parent *SMTEnode) error {
-	if parent.congruence != parent || !parent.congruenceEnabled || parent.IsTrueEquality() {
-		return nil
-	}
-	_, err := s.congruence.Erase(parent)
-	return err
 }
 
 func smtInvertTrans(node *SMTEnode) {
@@ -138,6 +150,17 @@ func (s *SMTInternalizerState) addDisequality(left, right *SMTEnode, literal SMT
 		return ast.ErrASTDomain
 	}
 	if left.root == right.root {
+		// add_diseq returns false (and propagate_atoms sets the conflict)
+		// only when the root has no theory variable or its first theory
+		// ignores disequalities; otherwise the theory detects it.
+		if t1 := left.root.theoryVariables.theory; t1 != SMTNullTheoryID {
+			if plugin := s.theories[t1]; plugin != nil && plugin.UseDisequalities() {
+				return nil
+			}
+		}
+		if s.inconsistent {
+			return nil
+		}
 		justification, err := NewSMTEqualityPropagationJustification(left, right)
 		if err != nil {
 			return err
@@ -281,6 +304,7 @@ func (s *SMTInternalizerState) detachCongruenceParents(from *SMTEnode) error {
 	// roots and not true equalities, and erases them from the table.
 	for _, parent := range from.sourceParents {
 		if !parent.sourceParentMark && parent.congruence == parent && !parent.IsTrueEquality() {
+			s.traceAddEqParents("remove_parents_from_cg_table", 650, "add_eq removing: #", parent)
 			parent.sourceParentMark = true
 			if parent.congruenceEnabled {
 				if _, err := s.congruence.Erase(parent); err != nil {
@@ -299,9 +323,11 @@ func (s *SMTInternalizerState) reinsertCongruenceParents(from, to, n1, n2 *SMTEn
 		}
 		parent.congruence = inserted.Node
 		if inserted.Node == parent {
+			s.traceAddEqParents("reinsert_parents_into_cg_table", 704, "add_eq reinserting: #", parent)
 			return true, nil
 		}
 		if inserted.Node.root != parent.root {
+			s.traceFoundNewCongruence(parent, inserted.Node, inserted.Commuted)
 			s.pending = append(s.pending, smtPendingEquality{parent, inserted.Node, NewSMTEqualityCongruence(inserted.Commuted)})
 		}
 		return false, nil
@@ -451,10 +477,12 @@ func (s *SMTInternalizerState) addEquality(left, right *SMTEnode, justification 
 	if left == nil || right == nil || left.manager != s.manager || right.manager != s.manager {
 		return ast.ErrASTDomain
 	}
-	r1, r2 := left.root, right.root
-	s.statistics.NumAddEq++
+	s.traceAddEqAssigning(left, right, false)
 	s.traceAddEqDetail(left, right, justification)
+	s.statistics.NumAddEq++
+	r1, r2 := left.root, right.root
 	if r1 == r2 {
+		s.traceAddEqAssigning(left, right, true)
 		return nil
 	}
 	if r1.interpreted && r2.interpreted {
@@ -468,11 +496,13 @@ func (s *SMTInternalizerState) addEquality(left, right *SMTEnode, justification 
 		left, right, r1, r2 = right, left, r2, r1
 	}
 	s.traceAddEqMerging(r1, r2, left)
-	trailIndex := len(s.equalityTrail)
-	s.recordEqualityUndo(r1, left, r2)
 	if err := s.propagateEqualityClassRelevancy(r1, r2); err != nil {
 		return fmt.Errorf("propagate equality-class relevancy: %w", err)
 	}
+	// push_trail(add_eq_trail(r1, n1, r2->get_num_parents())) follows the
+	// relevancy marks and precedes the merge.
+	trailIndex := len(s.equalityTrail)
+	s.recordEqualityUndo(r1, left, r2)
 	// m_qmanager->add_eq_eh(r1, r2) runs before the classes are merged.
 	if q := s.quantifierManager; q != nil && !q.closed && q.ematching && !q.registry.Empty() {
 		q.mam.AddEqEh(r1, r2)

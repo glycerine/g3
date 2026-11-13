@@ -2982,17 +2982,30 @@ under the 10 s limit (identical at 30 s). Two real differences:
   conflicting mp_iff_justification has its enodes swapped (z3 node1 is
   #8689's enode, g3 #8643's), so resolution order differs. Both creation
   sites (propagate_bool_var_enode, propagate_bool_enode_assignment_core)
-  and set_conflict match the C++. ROOT CAUSE (via -tr:add_eq plus a
-  temporary level trace): after "pop 2 new_lvl 7" g3's re-created #8861
-  finds #8689 in the cg table at mk_enode and queues the congruence first;
-  z3 does not find it at creation (its interleaved trail undoes the
-  level-9 merge, then undo_mk_enode(#8861) erases the entry that #8861
-  held as cg root, so #8689 is not in the table), and rediscovers the
-  congruence only when the #8568/#8312 merge reinserts parents, queueing
-  it last. g3 keeps separate equality and enode trails (open lead below),
-  so the undo order and the cg table differ. Also: z3 resets
-  m_eq_propagation_queue on every pop (pop_scope_core) while g3 restores
-  pending/pendingHead to the scope's saved values. IN PROGRESS: one
-  interleaved trail for enode creation and merges.
+  and set_conflict match the C++. FIXED: my first diagnosis (z3 not
+  finding #8689 at mk_enode) was wrong; z3 does find it, and the
+  congruence only looks queued last because propagate_atoms runs before
+  propagate_eqs. Real causes: (1) add_diseq (smt_context.cpp:1117-1124)
+  sets a conflict for an already-equal pair only when the root has no
+  theory var or its theory does not use diseqs; g3 always set it and
+  stopped before the #8861=#8689 merge. (2) Lemma GC
+  (del_inactive_lemmas2 :2743, init_search :3383-3388): per-search reset
+  of the GC counter and threshold, GC from the base scope's lemma limit,
+  can_delete/is_justifying with the reinit stack, threshold always
+  old_clause_activity (unsigned (i-start)/real_sz is 0), decay only kept
+  clauses. Also ported: one interleaved trail for bool var / enode /
+  add_eq undo (undo_add_eq and undo_mk_enode exactly, workarounds
+  removed), and pop resets the eq / th_eq / th_diseq queues as
+  pop_scope_core does. 5077 is now trace-identical (43,966,487 lines with
+  Z3_TRACE_NO_PP) and stdout-identical. Not added as a vector: g3 takes
+  31 s untraced (z3 4.8 s). Remaining: lemma_gc_half variant does not
+  reorder stored lemmas after its sort; diseq undo has its own trail.
 Fuzz round 15 (30 s limit): gen.py 6000-6300, gen2.py 6000-6300, gen3.py
 14000-14300, gen4.py 6000-6200: no differences.
+fullcmp2 with Z3_TRACE_NO_PP=1 (untraced search, smaller logs, no timeouts)
+at 0580ae369: 810 identical, 3 differ: flush_bound_axioms_introsort_old_q515
+(line 204370), flush_bound_axioms_introsort_q2119 (414899),
+quant_seq_symbolic_int_prefix (431345); stdout: bv_native_operator_models
+only. After the interleaved-trail / add_diseq / lemma GC change: 812
+identical, 1 differs: quant_seq_symbolic_int_prefix (line 431345); the
+two flush_bound_axioms_introsort divergences are gone.

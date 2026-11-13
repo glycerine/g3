@@ -457,3 +457,49 @@ func (s *SMTInternalizerState) traceAssignRelevancy(l SMTLiteral) {
 	emitSMTTrace("relevancy", "assign_core", "src/smt/smt_context.cpp", 312,
 		"is_atom: "+bit(s.booleanData[l.Var()].IsAtom())+" is relevant: "+bit(relevant)+"\n")
 }
+
+// traceAddEqParents is the add_eq_parents tag of add_eq and undo_add_eq:
+// one record naming a parent visited while the congruence table is updated.
+func (s *SMTInternalizerState) traceAddEqParents(function string, line int, prefix string, parent *SMTEnode) {
+	if !smtTraceEnabled("add_eq_parents") {
+		return
+	}
+	v, _ := parent.OwnerID()
+	emitSMTTrace("add_eq_parents", function, "src/smt/smt_context.cpp", line, prefix+strconv.Itoa(int(v))+"\n")
+}
+
+// traceUndoAddEqTryReinsert is undo_add_eq's "trying to reinsert" record.
+func (s *SMTInternalizerState) traceUndoAddEqTryReinsert() {
+	if !smtTraceEnabled("add_eq_parents") {
+		return
+	}
+	emitSMTTrace("add_eq_parents", "undo_add_eq", "src/smt/smt_context.cpp", 1014, "trying to reinsert\n")
+}
+
+// traceFoundNewCongruence is reinsert_parents_into_cg_table's cg record.
+func (s *SMTInternalizerState) traceFoundNewCongruence(parent, prime *SMTEnode, commuted bool) {
+	if !smtTraceEnabled("cg") {
+		return
+	}
+	id := func(n *SMTEnode) string { v, _ := n.OwnerID(); return strconv.Itoa(int(v)) }
+	c := "0"
+	if commuted {
+		c = "1"
+	}
+	emitSMTTrace("cg", "reinsert_parents_into_cg_table", "src/smt/smt_context.cpp", 715,
+		"found new congruence: #"+id(parent)+" = #"+id(prime)+" used_commutativity: "+c+"\n")
+}
+
+// traceAddEqAssigning is add_eq's "assigning" record, and "redundant
+// constraint." when both sides already share a root.
+func (s *SMTInternalizerState) traceAddEqAssigning(n1, n2 *SMTEnode, redundant bool) {
+	if !smtTraceEnabled("add_eq") {
+		return
+	}
+	if redundant {
+		emitSMTTrace("add_eq", "add_eq", "src/smt/smt_context.cpp", 506, "redundant constraint.\n")
+		return
+	}
+	id := func(n *SMTEnode) string { v, _ := n.OwnerID(); return strconv.Itoa(int(v)) }
+	emitSMTTrace("add_eq", "add_eq", "src/smt/smt_context.cpp", 497, "assigning: #"+id(n1)+" = #"+id(n2)+"\n")
+}

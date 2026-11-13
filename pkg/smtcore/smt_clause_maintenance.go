@@ -41,14 +41,21 @@ func (s *SMTInternalizerState) ConfigureClauseMaintenance(config SMTClauseMainte
 	return nil
 }
 
+// clauseIsReason is context::is_justifying: the clause is the justification
+// of the variable of one of its two watch literals.
 func (s *SMTInternalizerState) clauseIsReason(clause *SMTClause) bool {
-	for variable := int32(SMTFirstBoolVar); int(variable) < len(s.booleanData); variable++ {
-		value, ok := s.booleanData[variable].Justification().Clause()
+	for i := 0; i < 2 && i < len(clause.literals); i++ {
+		value, ok := s.booleanData[clause.literals[i].Var()].Justification().Clause()
 		if ok && value == clause {
 			return true
 		}
 	}
 	return false
+}
+
+// clauseCanDelete is context::can_delete.
+func (s *SMTInternalizerState) clauseCanDelete(clause *SMTClause) bool {
+	return !clause.InReinitStack() && !s.clauseIsReason(clause)
 }
 
 func (s *SMTInternalizerState) clauseHasUnknowns(clause *SMTClause, threshold uint32) (bool, error) {
@@ -116,19 +123,29 @@ func (s *SMTInternalizerState) garbageCollectLearnedClauses() error {
 	if config.Strategy == 3 {
 		return nil
 	}
+	// m_lemmas past m_base_scopes[m_base_lvl - 1].m_lemmas_lim, in order,
+	// reinit-stack lemmas included: can_delete keeps those.
+	start := 0
+	if s.baseLevel != 0 {
+		if int(s.baseLevel) > len(s.scopes) {
+			return ast.ErrASTDomain
+		}
+		start = s.scopes[s.baseLevel-1].clauseLimit
+	}
 	learned := make([]int, 0)
-	for index := range s.clauses {
+	for index := start; index < len(s.clauses); index++ {
 		clause := s.clauses[index].clause
-		if clause != nil && clause.IsLemma() && !clause.InReinitStack() {
+		if clause != nil && clause.IsLemma() {
 			learned = append(learned, index)
 		}
 	}
-	if uint32(len(learned)) <= config.Recent {
-		return nil
-	}
-	oldEnd := len(learned) - int(config.Recent)
 	remove := make(map[int]struct{})
 	if config.Half {
+		// del_inactive_lemmas1
+		if uint32(len(learned)) <= config.Recent {
+			return nil
+		}
+		oldEnd := len(learned) - int(config.Recent)
 		candidates := append([]int(nil), learned[:oldEnd]...)
 		sort.SliceStable(candidates, func(i, j int) bool {
 			left, _ := s.clauses[candidates[i]].clause.Activity()
@@ -136,35 +153,50 @@ func (s *SMTInternalizerState) garbageCollectLearnedClauses() error {
 			return left > right
 		})
 		for _, index := range candidates[len(candidates)/2:] {
-			if !s.clauseIsReason(s.clauses[index].clause) {
+			if s.clauseCanDelete(s.clauses[index].clause) {
+				remove[index] = struct{}{}
+			}
+		}
+		for _, index := range learned[oldEnd:] {
+			if clause := s.clauses[index].clause; clause.Deleted() && s.clauseCanDelete(clause) {
 				remove[index] = struct{}{}
 			}
 		}
 	} else {
-		newFirst := len(learned) / int(config.NewOldRatio) * int(config.NewOldRatio-1)
+		// del_inactive_lemmas2. Its activity threshold is
+		// old - (old - new) * ((i - start_at) / real_sz) in unsigned
+		// arithmetic, and (i - start_at) / real_sz is 0 for every lemma.
+		realSize := uint32(len(learned))
+		ratio := config.NewOldRatio
+		newFirst := uint32(0)
+		if ratio != 0 {
+			newFirst = realSize / ratio * (ratio - 1)
+		}
 		for position, index := range learned {
 			clause := s.clauses[index].clause
-			if s.clauseIsReason(clause) {
-				continue
-			}
 			activity, err := clause.Activity()
 			if err != nil {
 				return err
 			}
-			activityThreshold := config.OldActivity
-			if len(learned) != 0 && config.OldActivity >= config.NewActivity {
-				activityThreshold -= (config.OldActivity - config.NewActivity) * uint32(position) / uint32(len(learned))
-			}
-			relevancy := config.OldRelevancy
-			if position >= newFirst {
-				relevancy = config.NewRelevancy
-			}
-			unknowns, err := s.clauseHasUnknowns(clause, relevancy)
-			if err != nil {
-				return err
-			}
-			if activity < activityThreshold && unknowns {
-				remove[index] = struct{}{}
+			if s.clauseCanDelete(clause) {
+				if clause.Deleted() {
+					remove[index] = struct{}{}
+					continue
+				}
+				if activity < config.OldActivity {
+					relevancy := config.OldRelevancy
+					if uint32(position) >= newFirst {
+						relevancy = config.NewRelevancy
+					}
+					unknowns, err := s.clauseHasUnknowns(clause, relevancy)
+					if err != nil {
+						return err
+					}
+					if unknowns {
+						remove[index] = struct{}{}
+						continue
+					}
+				}
 			}
 			if config.InverseDecay != 1 {
 				if err = clause.SetActivity(uint32(float64(activity) / config.InverseDecay)); err != nil {

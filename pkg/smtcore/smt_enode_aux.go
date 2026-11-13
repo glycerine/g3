@@ -11,18 +11,9 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
+// Delete is enode::del_eh. The context undoes its trail in exact reverse
+// order, so each argument root's newest parent is this node.
 func (n *SMTEnode) Delete(updateChildrenParent bool) error {
-	return n.delete(updateChildrenParent, true)
-}
-
-// deleteAfterEqualityUndo retires a node popped with its scope. Undoing a merge
-// older than the node has already cut the node from that root's parent vector;
-// the source avoids this by interleaving node creation on one undo trail.
-func (n *SMTEnode) deleteAfterEqualityUndo() error {
-	return n.delete(true, false)
-}
-
-func (n *SMTEnode) delete(updateChildrenParent, requireParentEntry bool) error {
 	if err := n.valid(); err != nil {
 		return err
 	}
@@ -44,7 +35,7 @@ func (n *SMTEnode) delete(updateChildrenParent, requireParentEntry bool) error {
 					break
 				}
 			}
-			if !found && requireParentEntry {
+			if !found {
 				operation, _ := n.manager.GetDeclKind(n.owner)
 				family, _ := n.manager.GetFamilyID(n.owner)
 				return fmt.Errorf("delete enode %d family %d operation %d argument %d missing from parents (parents %d): %w", n.owner.Slot(), family, operation, index, len(root.sourceParents), ast.ErrASTDomain)

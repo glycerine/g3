@@ -352,6 +352,10 @@ func (k *SMTKernel) beginSearch() (*smtSearchSession, error) {
 	}
 	// Source init_search resets only the default phase, not cache counters.
 	queue.phaseDefault = false
+	// init_search: m_num_conflicts_since_lemma_gc = 0 and
+	// m_lemma_gc_threshold = m_fparams.m_lemma_gc_initial.
+	k.internalizer.conflictsSinceLemmaGC = 0
+	k.internalizer.lemmaGCThreshold = k.internalizer.clauseMaintenance.Initial
 	session := &smtSearchSession{
 		queue:        queue,
 		baseLevel:    k.internalizer.scopeLevel,

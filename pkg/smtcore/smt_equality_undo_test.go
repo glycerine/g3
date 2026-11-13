@@ -244,10 +244,10 @@ func TestEqualityUndoResumesFromRecordedStage(t *testing.T) {
 	astTestMust(t, s.addEquality(s.context.enodes.get(f.base[0]), s.context.enodes.get(f.base[1]), NewSMTEqualityAxiom()))
 	entry := &s.equalityTrail[len(s.equalityTrail)-1]
 	astTestMust(t, s.undoEquality(entry))
-	if entry.stage != 2 {
+	if entry.stage != 4 {
 		t.Fatalf("stage %d after a complete undo", entry.stage)
 	}
-	// The retry re-runs only the idempotent reinsertion.
+	// The retry finds every stage done.
 	astTestMust(t, s.undoEquality(entry))
 	astTestMust(t, s.PopScopes(1))
 	requireSMTEqualityImage(t, s, saved)
