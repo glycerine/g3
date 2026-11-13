@@ -24,7 +24,7 @@ func cloneSMTTheoryVariables(source SMTTheoryVarList) SMTTheoryVarList {
 // proof tree are derived again on undo, so one merge costs one fixed trail entry.
 func (s *SMTInternalizerState) recordEqualityUndo(r1, left, r2 *SMTEnode) {
 	s.equalityTrail = append(s.equalityTrail, smtEqualityUndo{
-		r1: r1, left: left, r2: r2, r2NumParents: len(r2.parents), r2NumSourceParents: len(r2.sourceParents), r2NumDisequalities: len(r2.disequalities), theoryLimit: len(s.theoryTrail),
+		r1: r1, left: left, r2: r2, r2NumSourceParents: len(r2.sourceParents), r2NumDisequalities: len(r2.disequalities), theoryLimit: len(s.theoryTrail),
 		r2TheoryVariables: cloneSMTTheoryVariables(r2.theoryVariables),
 	})
 }
@@ -37,22 +37,17 @@ func (s *SMTInternalizerState) undoEquality(entry *smtEqualityUndo) error {
 		s.traceUndoAddEq(r1, r2)
 	}
 	if entry.stage == 0 {
-		// Parents added since this merge are retiring nodes or r1's parents;
-		// r1's are reinserted below. Retired ones just leave the table.
+		// undo_add_eq: remove the parents of r1 that remained congruence
+		// roots (r2->m_parents past r2_num_parents). Here that tail also holds
+		// enodes created after the merge, which the source trail deletes
+		// first; clearing their m_cg keeps their own deletion from erasing
+		// them again.
 		if entry.merged {
-			for _, parent := range r2.parents[entry.r2NumParents:] {
+			for _, parent := range r2.sourceParents[entry.r2NumSourceParents:] {
 				if err := s.eraseMergedCongruenceRoot(parent); err != nil {
 					return err
 				}
 				// Source undo_add_eq leaves m_cg alone for cgc-disabled parents.
-				if parent.congruence == parent && parent.congruenceEnabled {
-					parent.congruence = nil
-				}
-			}
-			for _, parent := range r1.parents {
-				if err := s.eraseMergedCongruenceRoot(parent); err != nil {
-					return err
-				}
 				if parent.congruence == parent && parent.congruenceEnabled {
 					parent.congruence = nil
 				}
@@ -70,8 +65,6 @@ func (s *SMTInternalizerState) undoEquality(entry *smtEqualityUndo) error {
 					break
 				}
 			}
-			clear(r2.parents[entry.r2NumParents:])
-			r2.parents = r2.parents[:entry.r2NumParents]
 			clear(r2.sourceParents[entry.r2NumSourceParents:])
 			r2.sourceParents = r2.sourceParents[:entry.r2NumSourceParents]
 			r2.truncateDisequalities(entry.r2NumDisequalities)
@@ -88,24 +81,8 @@ func (s *SMTInternalizerState) undoEquality(entry *smtEqualityUndo) error {
 	// order) that were congruence roots before the merge: those that stayed
 	// roots (erased above, so their congruence is nil here) and those that
 	// are no longer congruent to the root they were attached to.
-	reinsert := func(parent *SMTEnode) error {
-		inserted, err := s.congruence.Insert(parent)
-		if err != nil {
-			return err
-		}
-		parent.congruence = inserted.Node
-		return nil
-	}
 	for _, parent := range r1.sourceParents {
-		// A parent deleted with its scope before this undo can still be
-		// listed here; the source has already dropped it.
-		if parent.manager == nil || !parent.congruenceEnabled {
-			continue
-		}
-		if parent.IsTrueEquality() {
-			if parent.congruence == nil {
-				parent.congruence = parent
-			}
+		if !parent.congruenceEnabled || parent.IsTrueEquality() {
 			continue
 		}
 		if keep := parent.congruence; keep != nil && keep != parent {
@@ -117,22 +94,11 @@ func (s *SMTInternalizerState) undoEquality(entry *smtEqualityUndo) error {
 				continue
 			}
 		}
-		if err := reinsert(parent); err != nil {
+		inserted, err := s.congruence.Insert(parent)
+		if err != nil {
 			return err
 		}
-	}
-	// Parents outside the source list that lost their table entry above.
-	for _, parent := range r1.parents {
-		if parent.manager == nil || !parent.congruenceEnabled || parent.congruence != nil {
-			continue
-		}
-		if parent.IsTrueEquality() {
-			parent.congruence = parent
-			continue
-		}
-		if err := reinsert(parent); err != nil {
-			return err
-		}
+		parent.congruence = inserted.Node
 	}
 	return nil
 }
@@ -309,39 +275,23 @@ func (s *SMTInternalizerState) propagateTrueEquality(node *SMTEnode) error {
 }
 
 // Source context::remove_parents_from_cg_table / reinsert_parents_into_cg_table.
-// Only parents of the class whose roots change need a new signature. The Go
-// parent vectors also retain nonrepresentatives for concrete enode deletion.
-func (s *SMTInternalizerState) detachCongruenceParents(from, to *SMTEnode) error {
+// Only parents of the class whose roots change need a new signature.
+func (s *SMTInternalizerState) detachCongruenceParents(from *SMTEnode) error {
 	// remove_parents_from_cg_table marks r1's parents that are congruence
-	// roots and not true equalities.
+	// roots and not true equalities, and erases them from the table.
 	for _, parent := range from.sourceParents {
 		if !parent.sourceParentMark && parent.congruence == parent && !parent.IsTrueEquality() {
 			parent.sourceParentMark = true
-		}
-	}
-	for _, parent := range from.parents {
-		parent.parentOfMergeTarget = false
-		for _, arg := range parent.arguments {
-			if arg.root == to {
-				parent.parentOfMergeTarget = true
-				break
-			}
-		}
-		if parent.congruenceEnabled && parent.congruence == parent && !parent.IsTrueEquality() {
-			if _, err := s.congruence.Erase(parent); err != nil {
-				return err
+			if parent.congruenceEnabled {
+				if _, err := s.congruence.Erase(parent); err != nil {
+					return err
+				}
 			}
 		}
 	}
 	return nil
 }
 func (s *SMTInternalizerState) reinsertCongruenceParents(from, to, n1, n2 *SMTEnode, js SMTEqualityJustification) error {
-	for _, parent := range from.parents {
-		if !parent.parentOfMergeTarget {
-			to.parents = append(to.parents, parent)
-		}
-		parent.parentOfMergeTarget = false
-	}
 	insert := func(parent *SMTEnode) (bool, error) {
 		inserted, err := s.congruence.Insert(parent)
 		if err != nil {
@@ -394,23 +344,6 @@ func (s *SMTInternalizerState) reinsertCongruenceParents(from, to, n1, n2 *SMTEn
 		}
 		if root {
 			to.sourceParents = append(to.sourceParents, parent)
-		}
-	}
-	// The Go parent vectors also hold parents outside the source list;
-	// detachCongruenceParents erased every congruence root among them, so
-	// any not reinserted above goes back now.
-	for _, parent := range from.parents {
-		if parent.congruence != parent || !parent.congruenceEnabled || parent.IsTrueEquality() {
-			continue
-		}
-		present, err := s.congruence.ContainsPointer(parent)
-		if err != nil {
-			return err
-		}
-		if !present {
-			if _, err = insert(parent); err != nil {
-				return err
-			}
 		}
 	}
 	return nil
@@ -550,7 +483,7 @@ func (s *SMTInternalizerState) addEquality(left, right *SMTEnode, justification 
 	smtInvertTrans(left)
 	left.trans = SMTTransJustification{Target: right, Justification: justification}
 	s.equalityTrail[trailIndex].merged = true
-	if err := s.detachCongruenceParents(r1, r2); err != nil {
+	if err := s.detachCongruenceParents(r1); err != nil {
 		return fmt.Errorf("detach congruence parents: %w", err)
 	}
 	for current := r1; ; current = current.next {

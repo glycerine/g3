@@ -95,7 +95,7 @@ func (s *SMTInternalizerState) sharedTheoryNode(node *SMTEnode) (shared, consult
 		return true, false, nil
 	}
 	theory := root.theoryVariables.theory
-	for _, parent := range root.parents {
+	for _, parent := range root.sourceParents {
 		family := parent.family
 		if family != theory && family != s.manager.BasicFamilyID() {
 			return true, false, nil
@@ -113,7 +113,7 @@ func smtSharedArithmeticNode(owner *SMTTheoryBase, node *SMTEnode, division bool
 	if err != nil || !consult || !division {
 		return shared, err
 	}
-	for _, parent := range node.root.parents {
+	for _, parent := range node.root.sourceParents {
 		if parent.family == owner.FamilyID() {
 			if kind := parent.declKind; kind == smtArithOpDiv || kind == smtArithOpIDiv || kind == smtArithOpRem || kind == smtArithOpMod {
 				return true, nil

@@ -30,7 +30,7 @@ func (t *SMTArrayTheory) sharedArrayNode(node *SMTEnode) (bool, error) {
 	// Arrays implement multiple sort instances in the same family. A root
 	// used in two roles is shared even if every parent has the array family.
 	var arrayRole, indexRole, valueRole bool
-	for _, parent := range root.parents {
+	for _, parent := range root.sourceParents {
 		op, array, err := t.arrayOperation(parent.owner)
 		if err != nil {
 			return false, err

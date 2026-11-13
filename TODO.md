@@ -2898,3 +2898,23 @@ parents list and fallbacks; remove popped enodes from r1.sourceParents);
 dynAck.propagate's progress result is now unused; with trace=true,
 qfuzz_cheap_eq_after_instance writes a very large trace (z3 too) and times
 out in fullcmp2 (stdout identical, 1.8 s untraced).
+
+## Congruence parents and MBQI follow-ups (2026-11-13)
+
+DONE: enodes keep one parent list (sourceParents = z3 m_parents): merge uses
+remove_parents_from_cg_table / reinsert_parents_into_cg_table, undo erases
+the r2 tail and reinserts from r1; SMTEnode.delete removes one occurrence
+per argument (del_eh), which left f(x, x) stale before; true-equality
+parents are left alone on undo; dynAck.propagate returns only an error.
+proto_model reregister_decl moves the old interpretation to f_aux and
+inserts the new one without destroying the old (ModelCore.ReplaceFunction);
+simplify_clauses' "nothing to simplify" check counts only non-binary
+clauses (binary clauses live in watch lists). The (* -1 (f x)) ite lead was
+already gone. Vectors qfuzz_reregister_keeps_cached_interp,
+qfuzz_simplify_clauses_binary_only. gen4 seeds 4000-4400: all traced runs
+identical.
+Leads: equality trail and enode creation are separate trails (C++
+interleaves them on one trail; undo copes via the r2 tail and
+deleteAfterEqualityUndo); -tr:delete_node_bug differs on seed 4034 (format
+nodes; not visible in trace=true); ReregisterFunction is not
+transactional if ReplaceFunction failed after f_aux was registered.

@@ -80,7 +80,6 @@ type smtDisequalityUndo struct {
 // smtEqualityUndo is one source add_eq_trail entry.
 type smtEqualityUndo struct {
 	r1, left, r2       *SMTEnode
-	r2NumParents       int
 	r2NumSourceParents int
 	r2NumDisequalities int
 	theoryLimit        int

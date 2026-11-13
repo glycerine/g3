@@ -1487,7 +1487,7 @@ func (t *SMTTheoryArith) isShared(v SMTTheoryVar) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	for _, parent := range n.Root().parents {
+	for _, parent := range n.Root().sourceParents {
 		if op, own := t.arithOp(parent.owner); own {
 			switch op {
 			case smtArithOpDiv, smtArithOpIDiv, smtArithOpRem, smtArithOpMod:

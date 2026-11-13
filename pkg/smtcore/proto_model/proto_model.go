@@ -252,20 +252,19 @@ func (p *ProtoModel) ReregisterFunction(d ast.ASTHandle, replacement *model.Func
 	if err != nil {
 		return err
 	}
-	if old != nil && !auxiliary.IsNull() {
-		copy, err := old.Copy()
-		if err != nil {
-			return err
-		}
-		if err = p.core.Core().RegisterFunction(auxiliary, copy); err != nil {
-			_ = copy.Close()
-			return err
-		}
-		if err = p.aux.Insert(auxiliary, [2]ast.ASTHandle{}); err != nil {
-			return err
-		}
+	if old == nil || auxiliary.IsNull() {
+		return p.core.Core().RegisterFunction(d, replacement)
 	}
-	return p.core.Core().RegisterFunction(d, replacement)
+	// register_decl(f_aux, fi) moves the old graph, with its cached
+	// interpretation, to f_aux; m_finterp.insert(f, new_fi) then rebinds f
+	// without destroying it. Both insertions may grow the table.
+	if err = p.core.Core().RegisterFunction(auxiliary, old); err != nil {
+		return err
+	}
+	if err = p.aux.Insert(auxiliary, [2]ast.ASTHandle{}); err != nil {
+		return err
+	}
+	return p.core.Core().ReplaceFunction(d, replacement)
 }
 func (p *ProtoModel) Eval(term ast.ASTHandle, out ast.ASTRef, completion bool) (bool, error) {
 	if err := p.open(); err != nil {

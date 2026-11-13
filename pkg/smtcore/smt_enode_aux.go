@@ -30,46 +30,30 @@ func (n *SMTEnode) delete(updateChildrenParent, requireParentEntry bool) error {
 		return fmt.Errorf("delete non-singleton enode (class %d root-self %t next-self %t): %w", n.classSize, n.root == n, n.next == n, ast.ErrASTDomain)
 	}
 	if updateChildrenParent {
-		seenRoots := make(map[*SMTEnode]struct{}, len(n.arguments))
+		// enode::del_eh pops this node from each argument root's m_parents,
+		// once per argument: f(a, a) was pushed twice.
 		for index, argument := range n.arguments {
 			root := argument.root
-			if _, found := seenRoots[root]; found {
-				continue
-			}
-			seenRoots[root] = struct{}{}
-			parents := root.parents
-			kept := parents[:0]
-			removed := 0
-			for _, parent := range parents {
-				if parent == n {
-					removed++
-					continue
-				}
-				kept = append(kept, parent)
-			}
-			if removed == 0 && requireParentEntry {
-				operation, _ := n.manager.GetDeclKind(n.owner)
-				family, _ := n.manager.GetFamilyID(n.owner)
-				return fmt.Errorf("delete enode %d family %d operation %d argument %d missing from parents (parents %d): %w", n.owner.Slot(), family, operation, index, len(parents), ast.ErrASTDomain)
-			}
-			for i := len(kept); i < len(parents); i++ {
-				parents[i] = nil
-			}
-			root.parents = kept
-			// enode::del_eh pops this node from its argument root's m_parents.
+			found := false
 			for i := len(root.sourceParents) - 1; i >= 0; i-- {
 				if root.sourceParents[i] == n {
 					copy(root.sourceParents[i:], root.sourceParents[i+1:])
 					root.sourceParents[len(root.sourceParents)-1] = nil
 					root.sourceParents = root.sourceParents[:len(root.sourceParents)-1]
+					found = true
 					break
 				}
+			}
+			if !found && requireParentEntry {
+				operation, _ := n.manager.GetDeclKind(n.owner)
+				family, _ := n.manager.GetFamilyID(n.owner)
+				return fmt.Errorf("delete enode %d family %d operation %d argument %d missing from parents (parents %d): %w", n.owner.Slot(), family, operation, index, len(root.sourceParents), ast.ErrASTDomain)
 			}
 		}
 	}
 	n.manager = nil
 	n.root, n.next, n.congruence = nil, nil, nil
-	n.parents, n.arguments = nil, nil
+	n.sourceParents, n.arguments = nil, nil
 	return nil
 }
 
@@ -96,7 +80,7 @@ func (n *SMTEnode) ContainsParentCongruentTo(parent *SMTEnode) (bool, error) {
 	if err := n.valid(); err != nil {
 		return false, err
 	}
-	for _, candidate := range n.parents {
+	for _, candidate := range n.sourceParents {
 		yes, _, err := SMTEnodesCongruent(candidate, parent)
 		if err != nil {
 			return false, err
@@ -134,7 +118,7 @@ func (n *SMTEnode) CheckInvariant() error {
 		return ast.ErrASTDomain
 	}
 	if n == n.root {
-		for _, parent := range n.parents {
+		for _, parent := range n.sourceParents {
 			found := false
 			for _, argument := range parent.arguments {
 				if argument.root == n.root {
@@ -147,7 +131,7 @@ func (n *SMTEnode) CheckInvariant() error {
 			}
 		}
 		for member := n.root.next; member != n.root; member = member.next {
-			for _, parent := range member.parents {
+			for _, parent := range member.sourceParents {
 				if parent.IsTrueEquality() {
 					continue
 				}

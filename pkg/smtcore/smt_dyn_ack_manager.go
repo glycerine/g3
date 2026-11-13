@@ -235,14 +235,14 @@ func (m *smtDynAckManager) instantiateTriple(key dynAckTriple) error {
 	return nil
 }
 
-func (m *smtDynAckManager) propagate() (bool, error) {
+func (m *smtDynAckManager) propagate() error {
 	if m == nil || m.closed || m.state == nil {
-		return false, ast.ErrASTHandle
+		return ast.ErrASTHandle
 	}
 	conflicts := m.state.statistics.NumConflicts - m.conflictBase
 	candidates, err := m.schedule.propagate(conflicts, m.strategy)
 	if err != nil {
-		return false, err
+		return err
 	}
 	for _, candidate := range candidates {
 		if candidate.isPair {
@@ -251,10 +251,10 @@ func (m *smtDynAckManager) propagate() (bool, error) {
 			err = m.instantiateTriple(candidate.triple)
 		}
 		if err != nil {
-			return false, err
+			return err
 		}
 	}
-	return len(candidates) != 0, nil
+	return nil
 }
 
 func (m *smtDynAckManager) recordConflictUses(expander *SMTAntecedentExpander) error {

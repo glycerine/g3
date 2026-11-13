@@ -36,13 +36,12 @@ type SMTEnode struct {
 	suppressArguments, equality           bool
 	commutative, boolean, mergeTruthValue bool
 	congruenceEnabled                     bool
-	parents, arguments                    []*SMTEnode
+	arguments                             []*SMTEnode
 	// sourceParents is the source m_parents of a class root: parents added at
 	// creation, and on merge only those that stay congruence roots
-	// (reinsert_parents_into_cg_table). parents keeps every parent.
+	// (reinsert_parents_into_cg_table).
 	sourceParents            []*SMTEnode
 	sourceParentMark         bool
-	parentOfMergeTarget      bool                  // transient, one addEquality
 	transMark                bool                  // transient, one ancestor search
 	disequalities            []smtDisequalityEntry // meaningful on class roots
 	theoryVariables          SMTTheoryVarList
@@ -123,7 +122,6 @@ func NewSMTEnode(m *ast.ASTManager, owner ast.ASTHandle, byApp func(ast.ASTHandl
 			}
 			n.arguments[i] = child
 			if options.UpdateChildrenParent {
-				child.root.parents = append(child.root.parents, n)
 				child.root.sourceParents = append(child.root.sourceParents, n)
 			}
 		}
@@ -159,8 +157,8 @@ func (n *SMTEnode) CongruenceEnabled() bool           { return n.congruenceEnabl
 func (n *SMTEnode) IsCommutative() bool               { return n.commutative }
 func (n *SMTEnode) MergeTruthValue() bool             { return n.mergeTruthValue }
 func (n *SMTEnode) NumArgs() uint32                   { return uint32(len(n.arguments)) }
-func (n *SMTEnode) NumParents() uint32                { return uint32(len(n.parents)) }
-func (n *SMTEnode) Parents() []*SMTEnode              { return append([]*SMTEnode(nil), n.parents...) }
+func (n *SMTEnode) NumParents() uint32                { return uint32(len(n.sourceParents)) }
+func (n *SMTEnode) Parents() []*SMTEnode              { return append([]*SMTEnode(nil), n.sourceParents...) }
 func (n *SMTEnode) Arguments() []*SMTEnode            { return append([]*SMTEnode(nil), n.arguments...) }
 func (n *SMTEnode) Labels() *approx.UintSet           { return &n.labels }
 func (n *SMTEnode) PropagatedLabels() *approx.UintSet { return &n.propagatedLabels }

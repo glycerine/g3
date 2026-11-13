@@ -222,7 +222,7 @@ func TestSMTLRARegistrationTraceUnderspecifiedSharingBranches(t *testing.T) {
 			astTestMust(t, f.s.relevancy.Propagate())
 			astTestMust(t, f.s.PushScope())
 			root := f.s.context.enodes.get(x).Root()
-			parents := len(root.parents)
+			parents := len(root.sourceParents)
 			if many != (parents > 2*len(f.a.underspecified)) {
 				t.Fatal("sharing fixture missed branch")
 			}

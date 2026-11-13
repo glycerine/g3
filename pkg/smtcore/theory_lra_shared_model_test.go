@@ -90,9 +90,9 @@ func TestSMTLRASharedUnderspecifiedParentScan(t *testing.T) {
 		shared, err := f.a.relevantShared(f.s.context.enodes.get(x))
 		astTestMust(t, err)
 		if !shared {
-			t.Fatal("underspecified child was not shared", many, len(f.s.context.enodes.get(x).Root().parents))
+			t.Fatal("underspecified child was not shared", many, len(f.s.context.enodes.get(x).Root().sourceParents))
 		}
-		parents := len(f.s.context.enodes.get(x).Root().parents)
+		parents := len(f.s.context.enodes.get(x).Root().sourceParents)
 		if many != (parents > 2*len(f.a.underspecified)) {
 			t.Fatal("test did not reach both native sharing branches", many, parents, len(f.a.underspecified))
 		}

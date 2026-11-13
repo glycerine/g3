@@ -143,7 +143,16 @@ func (s *SMTInternalizerState) simplifyClausesAtBase(baseLevel uint32) error {
 	if s.scopeLevel != baseLevel || s.simplifyHead == len(s.assignedLiterals) || s.simplifyCounter > 0 {
 		return nil
 	}
-	if len(s.clauses) == 0 {
+	// m_aux_clauses.empty() && m_lemmas.empty(): binary clauses live only in
+	// the watch lists.
+	hasClauses := false
+	for index := range s.clauses {
+		if !s.clauses[index].Binary {
+			hasClauses = true
+			break
+		}
+	}
+	if !hasClauses {
 		return nil
 	}
 	start := 0

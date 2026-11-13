@@ -65,6 +65,42 @@ func (md *ModelCore) RegisterFunction(d ast.ASTHandle, fi *FunctionInterpretatio
 	return nil
 }
 
+// ReplaceFunction is m_finterp.insert(d, fi) for a registered d: unlike
+// RegisterFunction it does not destroy the old graph, whose ownership the
+// caller has already moved elsewhere (proto_model::reregister_decl). Its
+// checks precede any change.
+func (md *ModelCore) ReplaceFunction(d ast.ASTHandle, fi *FunctionInterpretation) error {
+	e := md.checkDeclaration(d)
+	if e != nil {
+		return e
+	}
+	if md.removedFunction != nil {
+		return arena.ErrClosed
+	}
+	if fi == nil {
+		return ast.ErrASTDomain
+	}
+	if e = fi.open(); e != nil {
+		return e
+	}
+	if fi.manager != md.manager {
+		return ast.ErrASTHandle
+	}
+	entry, found := md.Functions.Get2(d)
+	if !found || entry.function == nil {
+		return ast.ErrASTDomain
+	}
+	if fi.arity != entry.function.arity {
+		return ast.ErrASTDomain
+	}
+	// core_hashtable::insert may expand the table before finding d.
+	if _, e = md.functionLayout.InsertIfNotThere(d); e != nil {
+		return e
+	}
+	entry.function = fi
+	return nil
+}
+
 // FunctionInterpretation returns a borrowed graph owned by the model.
 func (md *ModelCore) FunctionInterpretation(d ast.ASTHandle) (*FunctionInterpretation, error) {
 	e := md.checkDeclaration(d)

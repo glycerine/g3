@@ -26,10 +26,9 @@ func TestSMTDynamicAckManagerBuildsPairAndTripleClauses(t *testing.T) {
 	astTestMust(t, state.dynamicAck.schedule.conflictCongruence(applications[0], applications[1], dynAckRoot))
 	astTestMust(t, state.dynamicAck.schedule.usedEquality(applications[0], applications[1], applications[2], true))
 	state.statistics.NumConflicts = 2
-	progress, err := state.dynamicAck.propagate()
-	astTestMust(t, err)
-	if !progress || state.statistics.NumDynAck != 2 || len(state.clauses) != 2 {
-		t.Fatal("dynamic Ackermann propagation", progress, state.statistics.NumDynAck, len(state.clauses))
+	astTestMust(t, state.dynamicAck.propagate())
+	if state.statistics.NumDynAck != 2 || len(state.clauses) != 2 {
+		t.Fatal("dynamic Ackermann propagation", state.statistics.NumDynAck, len(state.clauses))
 	}
 	if len(state.clauses[0].Literals) != 2 || len(state.clauses[1].Literals) != 3 {
 		t.Fatal("dynamic Ackermann clause shapes", state.clauses[0].Literals, state.clauses[1].Literals)
@@ -72,10 +71,9 @@ func TestSMTDynamicAckManagerBuildsClauseProof(t *testing.T) {
 	astTestMust(t, state.PushScope())
 	astTestMust(t, state.dynamicAck.schedule.conflictCongruence(first, second, dynAckRoot))
 	state.statistics.NumConflicts = 1
-	progress, err := state.dynamicAck.propagate()
-	astTestMust(t, err)
-	if !progress || len(state.clauses) != 1 || state.clauses[0].clause == nil {
-		t.Fatal("dynamic Ackermann proof clause", progress, len(state.clauses))
+	astTestMust(t, state.dynamicAck.propagate())
+	if len(state.clauses) != 1 || state.clauses[0].clause == nil {
+		t.Fatal("dynamic Ackermann proof clause", len(state.clauses))
 	}
 	clause := state.clauses[0].clause
 	if _, ok := clause.justification.(*smtDynamicAckJustification); !ok {
@@ -131,8 +129,7 @@ func TestSMTDynamicAckClauseDeletionCallbackRunsDuringLemmaGC(t *testing.T) {
 	astTestMust(t, state.dynamicAck.schedule.conflictCongruence(applications[0], applications[1], dynAckRoot))
 	astTestMust(t, state.dynamicAck.schedule.usedEquality(applications[0], applications[1], applications[2], true))
 	state.statistics.NumConflicts = 2
-	_, err = state.dynamicAck.propagate()
-	astTestMust(t, err)
+	astTestMust(t, state.dynamicAck.propagate())
 	astTestMust(t, state.garbageCollectLearnedClauses())
 	if len(state.clauses) != 1 || state.statistics.NumDelDynAck != 1 {
 		t.Fatal("dynamic Ackermann lemma collection", len(state.clauses), state.statistics.NumDelDynAck)

@@ -69,7 +69,7 @@ func (g *smtModelFinderAUFGraph) matchingArrays(array ast.ASTHandle) ([]*SMTEnod
 	}
 	var matches []*SMTEnode
 	for _, node := range arrays {
-		for _, parent := range node.parents {
+		for _, parent := range node.sourceParents {
 			if g.finder.state.isRelevant(parent.owner) && parent.declaration == declaration {
 				matches = append(matches, parent)
 			}
@@ -167,7 +167,7 @@ func (g *smtModelFinderAUFGraph) populateSelectVar(info smtModelFinderSelectVar)
 		if argument == nil {
 			return ast.ErrASTDomain
 		}
-		for _, parent := range node.parents {
+		for _, parent := range node.sourceParents {
 			if !g.finder.state.isRelevant(parent.owner) || parent.declaration != declaration {
 				continue
 			}

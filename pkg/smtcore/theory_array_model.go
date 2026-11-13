@@ -308,7 +308,7 @@ func (t *SMTArrayTheory) prepareArrayModel(generator *SMTModelGenerator) error {
 			continue
 		}
 		root := node.root
-		for _, parent := range root.parents {
+		for _, parent := range root.sourceParents {
 			op, array, err := t.arrayOperation(parent.owner)
 			if err != nil {
 				return err
@@ -381,7 +381,7 @@ func (t *SMTArrayTheory) propagateModelSelect(root, read *SMTEnode, generator *S
 	if !generator.context.isRelevant(root.owner) {
 		return nil
 	}
-	for _, parent := range root.parents {
+	for _, parent := range root.sourceParents {
 		op, array, err := t.arrayOperation(parent.owner)
 		if err != nil {
 			return err

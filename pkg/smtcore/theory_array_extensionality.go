@@ -165,7 +165,7 @@ func (t *SMTArrayTheory) alreadyDisequalReads(first, second *SMTEnode) (bool, er
 		first, second = second, first
 	}
 	var reads []*SMTEnode
-	for _, parent := range first.parents {
+	for _, parent := range first.sourceParents {
 		op, array, err := t.arrayOperation(parent.owner)
 		if err != nil {
 			return false, err
@@ -175,7 +175,7 @@ func (t *SMTArrayTheory) alreadyDisequalReads(first, second *SMTEnode) (bool, er
 		}
 		reads = append(reads, parent)
 	}
-	for _, parent := range second.parents {
+	for _, parent := range second.sourceParents {
 		op, array, err := t.arrayOperation(parent.owner)
 		if err != nil {
 			return false, err

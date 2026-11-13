@@ -470,7 +470,7 @@ func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool,
 				}
 				// propagate_eh runs once per resolved conflict, not inside
 				// propagate().
-				if _, err = k.internalizer.dynamicAck.propagate(); err != nil {
+				if err = k.internalizer.dynamicAck.propagate(); err != nil {
 					return lbool.Undef, false, fmt.Errorf("dynamic Ackermann propagation: %w", err)
 				}
 			}

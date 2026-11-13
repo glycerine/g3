@@ -29,11 +29,11 @@ func (t *SMTLRATheory) sharedNode(node *SMTEnode) (bool, error) {
 	}
 	root := node.Root()
 	if err := t.emitLRATag("shared", "is_shared", 1220, func(out io.Writer) error {
-		return smtWriteTheoryText(out, fmt.Sprintf("%d %d %d\n", t.state.scopeLevel, node.TheoryVar(t.FamilyID()), len(root.parents)))
+		return smtWriteTheoryText(out, fmt.Sprintf("%d %d %d\n", t.state.scopeLevel, node.TheoryVar(t.FamilyID()), len(root.sourceParents)))
 	}); err != nil {
 		return false, err
 	}
-	if len(root.parents) > 2*len(t.underspecified) {
+	if len(root.sourceParents) > 2*len(t.underspecified) {
 		for _, term := range t.underspecified {
 			n, err := t.state.manager.GetNumArgs(term)
 			if err != nil {
@@ -54,7 +54,7 @@ func (t *SMTLRATheory) sharedNode(node *SMTEnode) (bool, error) {
 			}
 		}
 	} else {
-		for _, parent := range root.parents {
+		for _, parent := range root.sourceParents {
 			underspecified, err := t.underspecifiedTerm(parent.owner)
 			if err != nil || underspecified {
 				return underspecified, err
