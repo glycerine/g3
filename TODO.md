@@ -2865,8 +2865,16 @@ inputs reaching the heap fallback); negative controls (stable sort, no heap
 fallback, threshold 15) fail. Vectors flush_bound_axioms_introsort_{q2119,
 q3063,q3110,old_q515} (stdout-identical; their full traces exceed the
 fullcmp2 timeout). Fuzz seeds 2000-2400 / 3000-3400: 0 differences.
-APPROVED next: the same port for theory_lra's compare_bounds std::sort
-(theory_lra.cpp:1633-1634; g3 theory_lra_bound_axioms.go still stable).
+DONE (approved extension): theory_lra's compare_bounds std::sort
+(theory_lra.cpp:1633-1634) uses the same port; libstdcxx_sort.go is now
+index-based (libstdcxxSortData Len/Less/Swap) with typed wrappers for
+atoms and LRA bounds; TestLibstdcxxSortLRABoundsMatchesControl added; on 200
+random QF_LRA probes the stable sort diverged from the fork's trace in 190
+(4 with different models) and the port matches all 200. Vectors
+lra_flush_bound_axioms_introsort_s150 / _s30. Note: 4.7.1 reaches
+theory_lra only via setup_r_arith (QF_LRA / QF_UFLRA), not
+smt.arith.solver=6. Leads: QF_UFLRA unprobed; other std::sort call sites in
+the C++ source not surveyed for tie order (each needs its own approval).
 Lead: q_2119 / old_q_515 traces diverge deep (lines ~97.5M / ~37.8M): the
 fork assigns a core equality literal (justification -1) before conflict
 resolution where g3 goes straight to resolve-lit (eq_propagation /

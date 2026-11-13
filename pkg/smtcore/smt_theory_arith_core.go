@@ -1552,7 +1552,9 @@ func smtCompareAtomsLess(a1, a2 *smtArithmeticAtom) bool {
 //
 // =========================================================================
 // !!! WARNING: the two sorts below are a DELIBERATE, USER-APPROVED (2026-11-13)
-// !!! port of libstdc++ (GCC 13) std::sort: see libstdcxx_sort.go.
+// !!! port of libstdc++ (GCC 13) std::sort: see libstdcxx_sort.go. That port
+// !!! has exactly two approved call sites: this one and theory_lra's
+// !!! flush_bound_axioms (theory_lra_bound_axioms.go, compare_bounds).
 // =========================================================================
 // The source sorts atoms and occs with std::sort and compare_atoms, which
 // compares only the bound value k, so (<= x c) and (>= x c) are ties. std::sort

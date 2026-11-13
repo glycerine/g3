@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -183,10 +182,21 @@ func (t *SMTLRATheory) flushBoundAxioms() error {
 			return err
 		}
 		occurrences := append([]*smtLRABound(nil), t.bounds[variable]...)
-		// Native compares only thresholds. Stable Go order resolves equal keys;
-		// no C++ standard-library sorting implementation is reproduced.
-		sort.SliceStable(batch, func(i, j int) bool { return batch[i].value.Cmp(&batch[j].value) < 0 })
-		sort.SliceStable(occurrences, func(i, j int) bool { return occurrences[i].value.Cmp(&occurrences[j].value) < 0 })
+		// =================================================================
+		// !!! WARNING: the two sorts below are a DELIBERATE, USER-APPROVED
+		// !!! (2026-11-13, extension) port of libstdc++ (GCC 13) std::sort:
+		// !!! see libstdcxx_sort.go.
+		// =================================================================
+		// theory_lra.cpp:1633-1634 sorts atoms and occs with std::sort and
+		// compare_bounds, which compares only the bound value, so (<= x c)
+		// and (>= x c) are ties. std::sort is not stable: with more than 16
+		// bounds introsort permutes the ties, and that order decides which
+		// mk_bound_axiom clauses are created and in what order. Do NOT
+		// replace libstdcxxSortLRABounds with sort.Slice/sort.SliceStable.
+		// Keep TestLibstdcxxSortLRABoundsMatchesControl and the cmd/g3
+		// lra_flush_bound_axioms_introsort*.smt2 vectors green.
+		libstdcxxSortLRABounds(batch)
+		libstdcxxSortLRABounds(occurrences)
 		end := len(occurrences)
 		first := func(upper bool) int {
 			for i, b := range occurrences {

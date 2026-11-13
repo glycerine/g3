@@ -1099,6 +1099,14 @@ var scriptResults = map[string]string{
 	"fp_clp_scale_requery.smt2":                         "sat\nsat\nsat\n",
 	"fp_clp_requery_output_hash_order.smt2":             "sat\nsat\nsat\n",
 	"fp_tab_requery_rule_manager.smt2":                  "sat\nsat\nsat\n",
+
+	// lra_flush_bound_axioms_introsort_*: QF_LRA scripts (theory_lra) with
+	// more than 16 bounds on one variable; theory_lra's flush_bound_axioms
+	// sorts them with std::sort(compare_bounds()), the second approved site
+	// of the libstdc++ port in smtcore/libstdcxx_sort.go. With
+	// sort.SliceStable their models differed from the fork. Keep them green.
+	"lra_flush_bound_axioms_introsort_s150.smt2": "sat\n(model \n  (define-fun x () Real\n    (- (/ 1.0 2.0)))\n)\n",
+	"lra_flush_bound_axioms_introsort_s30.smt2":  "sat\n(model \n  (define-fun y () Real\n    (- 5.0))\n  (define-fun x () Real\n    (- (/ 15.0 2.0)))\n)\n",
 }
 
 // parseErrorScripts are scriptResults vectors whose expected output holds
