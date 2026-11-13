@@ -342,3 +342,78 @@ func TestMemoryUint32CodecGuardsAndZeroAlloc(t *testing.T) {
 		t.Fatal("owners leaked")
 	}
 }
+
+// CopyUint32s copies the same words WriteUint32/ReadUint32 would, marks the
+// destination initialized, and rejects out-of-range and uninitialized source
+// bytes like the per-word accessors.
+func TestMemoryCopyUint32sMatchesWordAccess(t *testing.T) {
+	r, e := NewRuntime(RuntimeConfig{Budget: arena.NewBudget(1 << 24), SizeTBits: 64})
+	if e != nil {
+		t.Fatal(e)
+	}
+	src, e := r.Allocate(32)
+	if e != nil {
+		t.Fatal(e)
+	}
+	dst, e := r.Allocate(32)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for i := uint64(0); i < 6; i++ {
+		if e = r.WriteUint32(src, 4*i, uint32(0x01020304*(i+1))); e != nil {
+			t.Fatal(e)
+		}
+	}
+	if e = r.CopyUint32s(dst, 8, src, 4, 5); e != nil {
+		t.Fatal(e)
+	}
+	for i := uint64(0); i < 5; i++ {
+		want, _ := r.ReadUint32(src, 4+4*i)
+		got, e := r.ReadUint32(dst, 8+4*i)
+		if e != nil || got != want {
+			t.Fatalf("word %d: got %x (%v), want %x", i, got, e, want)
+		}
+	}
+	if _, e = r.ReadUint32(dst, 0); !errors.Is(e, ErrRuntimeUninitialized) {
+		t.Fatalf("untouched destination word: %v", e)
+	}
+	if e = r.CopyUint32s(dst, 20, src, 0, 4); !errors.Is(e, arena.ErrBounds) {
+		t.Fatalf("destination overrun: %v", e)
+	}
+	if e = r.CopyUint32s(dst, 0, src, 16, 5); !errors.Is(e, arena.ErrBounds) {
+		t.Fatalf("source overrun: %v", e)
+	}
+	if e = r.CopyUint32s(src, 0, dst, 0, 1); !errors.Is(e, ErrRuntimeUninitialized) {
+		t.Fatalf("uninitialized source: %v", e)
+	}
+	if e = r.CopyUint32s(dst, 0, src, 0, 0); e != nil {
+		t.Fatalf("empty copy: %v", e)
+	}
+}
+
+// initializedRangeSet and markInitializedRange agree with the per-byte bit
+// loop they replace, including ranges that cross bitmap words.
+func TestInitializedRangeHelpersMatchPerByte(t *testing.T) {
+	for from := uint64(0); from < 140; from++ {
+		for n := uint64(0); from+n <= 200; n++ {
+			bits := make([]uint64, 4)
+			markInitializedRange(bits, from, n)
+			for i := uint64(0); i < 256; i++ {
+				want := i >= from && i < from+n
+				if got := bits[i/64]&(uint64(1)<<(i%64)) != 0; got != want {
+					t.Fatalf("mark(%d,%d): bit %d = %v", from, n, i, got)
+				}
+			}
+			if !initializedRangeSet(bits, from, n) {
+				t.Fatalf("range(%d,%d) not set after marking", from, n)
+			}
+			if n > 0 {
+				hole := from + n/2
+				bits[hole/64] &^= uint64(1) << (hole % 64)
+				if initializedRangeSet(bits, from, n) {
+					t.Fatalf("range(%d,%d) missed hole at %d", from, n, hole)
+				}
+			}
+		}
+	}
+}

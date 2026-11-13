@@ -1017,13 +1017,20 @@ func (m *IntegerManager) copyFromOwnerWithPhysicalFloatCaller(dst *Int, sourceMa
 	// slabs on every iteration; neither changes inside this loop (the resize
 	// is above), so read them once. Same words, same order.
 	srcCell, dstCell := sourceManager.Cell(src.Cell), m.Cell(ref)
-	for i := uint32(0); i < source.Size; i++ {
-		v, e := srcCell.Backing.ReadWord(sourceManager.Allocator, 8+4*uint64(i))
-		if e != nil {
+	if sourceManager.Allocator.RuntimeOwner() == m.Allocator.RuntimeOwner() {
+		// One validation for the whole digit range instead of per word.
+		if e := dstCell.Backing.copyWordsFrom(m.Allocator, srcCell.Backing, sourceManager.Allocator, 8, uint64(source.Size)); e != nil {
 			panic(e)
 		}
-		if e := dstCell.Backing.writeWord(m.Allocator, 8+4*uint64(i), v); e != nil {
-			panic(e)
+	} else {
+		for i := uint32(0); i < source.Size; i++ {
+			v, e := srcCell.Backing.ReadWord(sourceManager.Allocator, 8+4*uint64(i))
+			if e != nil {
+				panic(e)
+			}
+			if e := dstCell.Backing.writeWord(m.Allocator, 8+4*uint64(i), v); e != nil {
+				panic(e)
+			}
 		}
 	}
 	dst.Cell = ref

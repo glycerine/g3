@@ -77,6 +77,34 @@ func (c SourceCellBacking) location(a *umemory.SmallAllocator, offset uint64) (u
 	}
 	return raw, start + offset, nil
 }
+
+// copyWordsFrom copies count 32-bit words at offset from src into c,
+// validating each cell's location and range once (location checks one word
+// per call). Both cells must belong to the same memory runtime; the caller
+// falls back to ReadWord/writeWord otherwise.
+func (c SourceCellBacking) copyWordsFrom(a *umemory.SmallAllocator, src SourceCellBacking, srcA *umemory.SmallAllocator, offset, count uint64) error {
+	if count == 0 {
+		return nil
+	}
+	bytes := 4 * count
+	last := offset + bytes - 4
+	srcRaw, srcAt, e := src.location(srcA, offset)
+	if e != nil {
+		return e
+	}
+	if _, _, e = src.location(srcA, last); e != nil {
+		return e
+	}
+	dstRaw, dstAt, e := c.location(a, offset)
+	if e != nil {
+		return e
+	}
+	if _, _, e = c.location(a, last); e != nil {
+		return e
+	}
+	return a.RuntimeOwner().CopyUint32s(dstRaw, dstAt, srcRaw, srcAt, count)
+}
+
 func (c SourceCellBacking) ReadWord(a *umemory.SmallAllocator, offset uint64) (uint32, error) {
 	raw, at, e := c.location(a, offset)
 	if e != nil {

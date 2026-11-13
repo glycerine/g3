@@ -521,3 +521,15 @@ comparisons and a cached small-integer threshold took it from >300 s to
 107 s, and reading integer numerals without GCD to 104 s (z3: 15 s). The
 rest is per-AST-access overhead in the rewriter (lock, validNode, nodeAt),
 i.e. P5.
+
+## Initialized-byte tracking (2026-11-13)
+
+util/memory's Runtime keeps one "initialized" bit per byte. It is not only a
+debugging aid: math/polynomial, util/hash/runtime and allocator tests rely on
+ErrRuntimeUninitialized and the bitmap, so compiling it out (tried behind
+g3checked) broke 52 tests. Instead ReadUint32/WriteUint32 test and set the
+four bits with one mask and use a single little-endian load/store, and the
+new Runtime.CopyUint32s (used by big-integer copies through
+SourceCellBacking.copyWordsFrom) validates once and checks/sets the bits a
+bitmap word at a time. Same semantics; q_9009 66 s -> 62.8 s (compiled-out
+tracking measured 61.9 s, so nearly all of that cost is gone).
