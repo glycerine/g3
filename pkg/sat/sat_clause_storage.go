@@ -107,8 +107,12 @@ func (a *ClauseAllocator) open() error {
 	}
 	return nil
 }
+// satClauseHotHeaderBytes is computed once: satClauseObjectBytes runs on
+// every clause allocation, and reflect.TypeOf there was measurable (PERF.md P11).
+var satClauseHotHeaderBytes = uint64(reflect.TypeOf(satClauseHotHeader{}).Size())
+
 func satClauseObjectBytes(n uint32) (uint64, error) {
-	return uint64(reflect.TypeOf(satClauseHotHeader{}).Size()) + 4*uint64(n), nil
+	return satClauseHotHeaderBytes + 4*uint64(n), nil
 }
 func satClauseWideExtent(bytes uint64) bool { return bytes > uint64(^uint32(0)) }
 func satClauseHostExtent(bytes, max uint64) error {

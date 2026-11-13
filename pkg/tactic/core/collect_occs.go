@@ -16,8 +16,21 @@ func collectSingleOccurrenceVariables(goal *tactic.Goal) ([]ast.ASTHandle, error
 		return nil, ast.ErrASTHandle
 	}
 	m := goal.Manager()
-	visited := make(map[ast.ASTHandle]bool)
-	repeated := make(map[ast.ASTHandle]bool)
+	// expr_fast_mark1/2 in collect_occs: per-node mark bits, kept here in a
+	// slice indexed by the node's dense slot (no node is freed during this
+	// pass). Bit 1 is visited, bit 2 repeated. Go maps keyed by handle were
+	// about 20% of lia_big_parse.
+	var marks []uint8
+	mark := func(term ast.ASTHandle) *uint8 {
+		slot := int(term.Slot())
+		if slot >= len(marks) {
+			grown := make([]uint8, slot+1+slot/2)
+			copy(grown, marks)
+			marks = grown
+		}
+		return &marks[slot]
+	}
+	const markVisited, markRepeated = 1, 2
 	var variables []ast.ASTHandle
 	type frame struct {
 		term ast.ASTHandle
@@ -31,13 +44,14 @@ func collectSingleOccurrenceVariables(goal *tactic.Goal) ([]ast.ASTHandle, error
 		}
 		kind, count := header.Kind, header.NumArgs
 		constant := kind == ast.ASTApp && count == 0 && header.Family == ast.NullFamilyID
-		if visited[term] {
+		bits := mark(term)
+		if *bits&markVisited != 0 {
 			if constant {
-				repeated[term] = true
+				*bits |= markRepeated
 			}
 			return true, nil
 		}
-		visited[term] = true
+		*bits |= markVisited
 		if constant {
 			variables = append(variables, term)
 			return true, nil
@@ -107,7 +121,7 @@ func collectSingleOccurrenceVariables(goal *tactic.Goal) ([]ast.ASTHandle, error
 	}
 	result := variables[:0]
 	for _, variable := range variables {
-		if !repeated[variable] {
+		if *mark(variable)&markRepeated == 0 {
 			result = append(result, variable)
 		}
 	}

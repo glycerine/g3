@@ -496,8 +496,12 @@ lemmas (C++ 0.48); `arr_chain` 3.3 s → 0.29 s; MBQI stress `qbi` 32.5 s → 5.
   and its derived bounds disable the incremental tableau. Fix properly by detecting newly fixed
   columns on the live solver as C++ does. Not committed.
 - The full `make` suite has not run since commit `9a52bf219`. Run it before merging.
-- Remaining P11: `reflect.TypeOf` per clause allocation, `elim_unconstrained`'s quadratic rounds
-  (`lia_big_parse` is still about 27 s against 1 s in C++).
+- Remaining P11 (updated 2026-11-13): `reflect.TypeOf` per clause allocation is done
+  (computed once). `elim_unconstrained`'s collect pass uses slot-indexed mark bits like
+  C++ expr_fast_mark1/2 instead of Go maps: `lia_big_parse` 15.4 s -> 12.4 s (C++ 1.1 s;
+  it was about 27 s at the time of this audit). The rest is per-AST-access overhead in
+  the rewriter (lock/validNode/nodeAt), the P5 follow-up. The benchmark-harness
+  `b.Helper()` item is already done (`benchmarkMust` no longer calls it).
 
 ### B5 update
 
