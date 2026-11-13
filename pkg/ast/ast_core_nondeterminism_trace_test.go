@@ -74,10 +74,19 @@ func TestASTNondeterminismTraceFollowsProcessDebugTag(t *testing.T) {
 		t.Fatal(err)
 	}
 	m.nodeAt(candidate.slot).hash = hash
-	bucket := m.table.buckets[hash]
-	delete(m.table.buckets, hash)
+	var bucket []astNodeRef
+	for _, s := range m.table.slots {
+		if s.ref.slot != 0 && s.hash == hash {
+			bucket = append(bucket, s.ref)
+		}
+	}
+	for _, r := range bucket {
+		m.table.unindex(r, hash)
+	}
 	defer func() {
-		m.table.buckets[hash] = bucket
+		for _, r := range bucket {
+			m.table.place(hash, r)
+		}
 		m.freeNodeStorage(candidate)
 		m.mu.Unlock()
 	}()

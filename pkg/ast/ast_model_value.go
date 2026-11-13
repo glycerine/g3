@@ -30,7 +30,7 @@ func (m *ASTManager) IsModelValue(h ASTHandle) (bool, error) {
 	if m.nodeAt(r.slot).kind != ASTApp {
 		return false, nil
 	}
-	family, _, e := m.declIdentity(m.appAt(r.slot).decl)
+	family, _, e := m.appIdentity(m.appAt(r.slot))
 	if e != nil || family < 0 || !m.pluginAt(family).present {
 		return false, e
 	}

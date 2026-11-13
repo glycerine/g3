@@ -184,11 +184,17 @@ func (m *ASTManager) SequenceStringValue(h ASTHandle) (value string, matched boo
 	if p == nil {
 		return "", false, nil
 	}
-	decl := m.appAt(r.slot).decl
-	family, kind, err := m.declIdentity(decl)
+	a := m.appAt(r.slot)
+	family, kind, err := m.appIdentity(a)
 	if err != nil || family != p.family || kind != ASTSequenceOpStringConst {
 		return "", false, err
 	}
+	return m.sequenceStringConstValue(a.decl)
+}
+
+// sequenceStringConstValue decodes the string parameter of a string
+// constant declaration decl.
+func (m *ASTManager) sequenceStringConstValue(decl astNodeRef) (value string, matched bool, err error) {
 	info, err := m.funcInfo(m.declAt(decl.slot).info)
 	if err != nil || info.count != 1 {
 		return "", false, err

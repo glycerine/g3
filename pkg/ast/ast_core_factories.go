@@ -437,7 +437,7 @@ func (m *ASTManager) MkQuantifier(spec ASTQuantifierSpec) (ASTHandle, error) {
 			if m.nodeAt(r.slot).kind != ASTApp {
 				return ASTHandle{}, ErrASTDomain
 			}
-			fid, k, e := m.declIdentity(m.appAt(r.slot).decl)
+			fid, k, e := m.appIdentity(m.appAt(r.slot))
 			if e != nil {
 				return ASTHandle{}, e
 			}

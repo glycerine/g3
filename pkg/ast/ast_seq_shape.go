@@ -28,7 +28,7 @@ func (m *ASTManager) SequenceExprShape(h ASTHandle) (isSeq, isApp bool, family F
 	if m.nodeAt(r.slot).kind != ASTApp {
 		return true, false, 0, 0, sequenceFamily, nil
 	}
-	family, kind, err = m.declIdentity(m.appAt(r.slot).decl)
+	family, kind, err = m.appIdentity(m.appAt(r.slot))
 	return true, true, family, kind, sequenceFamily, err
 }
 

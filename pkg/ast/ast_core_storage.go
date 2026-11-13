@@ -141,6 +141,15 @@ type astAppRecord struct {
 	args                        arena.SmallBytesRef
 	count, depth                uint32
 	ground, quantifiers, labels bool
+	// declCached says declFamily and declKind copy declIdentity(decl),
+	// taken when the app was registered. A live app holds its declaration,
+	// whose identity is unchanged until that declaration is deleted.
+	declCached bool
+	declFamily FamilyID
+	declKind   int32
+	// rangeSort copies the declaration's range sort, set at registration
+	// (null before), and is likewise unchanged while the app is live.
+	rangeSort astNodeRef
 }
 type astVarRecord struct {
 	nextFree, index uint32
@@ -340,6 +349,11 @@ type ASTManager struct {
 	appCoercion                                    astAppCoercionFrame
 	formatFrames                                   *astFormatFlatFrame
 	formatFrameSerial                              uint64
+	// formatFlatDense is a slot-indexed flatten cache lent to one active
+	// formatFlat frame at a time (formatFlatDenseOwner); entries carry the
+	// owning frame's invocation, so a later frame never reads stale ones.
+	formatFlatDense      []astFormatFlatDenseEntry
+	formatFlatDenseOwner *astFormatFlatFrame
 	ppFrames                                       *astFormatPPFrame
 	ppFrameSerial                                  uint64
 	// Actual dependency DAG owner is bound eagerly to this manager and allocator.

@@ -60,7 +60,7 @@ func (m *ASTManager) IsNot(a ASTHandle) (bool, ASTHandle, error) {
 		return false, ASTHandle{}, nil
 	}
 	app := m.appAt(r.slot)
-	family, kind, e := m.declIdentity(app.decl)
+	family, kind, e := m.appIdentity(app)
 	if e != nil {
 		return false, ASTHandle{}, e
 	}

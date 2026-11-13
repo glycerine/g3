@@ -9,7 +9,7 @@ func (m *ASTManager) astUtilOperator(r astNodeRef, kind int32) (bool, error) {
 	if m.nodeAt(r.slot).kind != ASTApp {
 		return false, nil
 	}
-	family, op, e := m.declIdentity(m.appAt(r.slot).decl)
+	family, op, e := m.appIdentity(m.appAt(r.slot))
 	return family == 0 && op == kind, e
 }
 
@@ -34,7 +34,7 @@ func (m *ASTManager) astUtilIsAtom(r astNodeRef) (bool, error) {
 		return false, ErrASTDomain
 	}
 	a := m.appAt(r.slot)
-	family, op, e := m.declIdentity(a.decl)
+	family, op, e := m.appIdentity(a)
 	if e != nil {
 		return false, e
 	}

@@ -2634,3 +2634,25 @@ th_rewriter per simplify() (dual1 ~132); datalog first query runs one extra
 project_rename/union; pdr ~171439 and spacer ~194541 id-reuse divergences;
 get-info :all-statistics lacks :time; qlinear eval_q audit; slice proof
 converter positions; dead karr fixpoint code and unsliced-proof retry.
+
+## Performance round 2 (2026-11-12, late)
+
+No behaviour change (fullcmp2 763 identical, two fewer timeouts). Measured:
+slow_3097 56.2 -> 47.4 s, g7_qsat 11.7 -> 11.5 s (z3 8.1 s / 2.1 s),
+trace=true runs 10-13% faster. Changes: app records cache decl
+family/kind/range (appIdentity) for ~30 recognizers; batched seq queries
+(SequenceConcatOrEmpty, SequenceFlattenConcatAppend, SequenceUnitOrString);
+slot-indexed seqEvalCache; trace formatting reads all arguments in one
+payload lookup with a slot-indexed flatten cache; node hashing/equality
+read payloads in one lookup; open-addressed AST hash-cons table (teardown
+order dictionary kept). Tried and dropped: 48->32-byte node record (no
+gain). Not done (would change behaviour or too risky): BV numeral fast path
+(slot generation side effects are visible), single busy word for numeric
+manager checks.
+Next: theory_seq local holders' IncRef/DecRef pairs (~18% of slow_3097;
+batched reverse release under one lock, fewer redundant holds in canonize /
+expand / simplifyEq); batched bit2bool + equality literal creation in
+addFixedBitEquality (~35% of g7); trace mode: flattened format node
+hash-consing (~40%), prepareTraceAcquisition frame init (~3%), let-binding
+pretty printer (~22%); relevancy watch maps by slot; hash-cons teardown
+dictionary as a position-indexed slice.

@@ -10,7 +10,7 @@ import "errors"
 // reach the original copy, power, mod and assignment operations.
 func (m *ASTManager) bitVectorOffsetTerm(fid FamilyID, a astNodeRef, f *astBVNumeralFrame, side int) (astNodeRef, error) {
 	app := m.appAt(a.slot)
-	family, kind, e := m.declIdentity(app.decl)
+	family, kind, e := m.appIdentity(app)
 	if e != nil {
 		return astNodeRef{}, e
 	}

@@ -20,18 +20,35 @@ type astFormatFlatFrame struct {
 	// entries; cache is built from it on the next insert.
 	small              []astFormatFlatEntry
 	todo               []astNodeRef
+	args               []astNodeRef // scratch: one application's arguments
 	results            []ASTHandle
 	family             FamilyID
 	header             uint64
 	invocation         uint64
 	bodyCause          error
 	sourceDone, active bool
+	// dense says the frame owns owner.formatFlatDense instead of small/cache.
+	dense bool
+}
+
+type astFormatFlatDenseEntry struct {
+	invocation uint64
+	generation uint32
+	value      astNodeRef
 }
 
 func (f *astFormatFlatFrame) bytes() uint64 { return f.header }
 func (f *astFormatFlatFrame) find(key astNodeRef) (astNodeRef, bool, error) {
 	if e := f.owner.validNode(key); e != nil {
 		return astNodeRef{}, false, e
+	}
+	if f.dense {
+		if d := f.owner.formatFlatDense; uint64(key.slot) < uint64(len(d)) {
+			if x := &d[key.slot]; x.invocation == f.invocation && x.generation == key.generation {
+				return x.value, true, nil
+			}
+		}
+		return astNodeRef{}, false, nil
 	}
 	if f.cache == nil {
 		for i := range f.small {
@@ -52,6 +69,20 @@ const astFormatFlatSmall = 32
 func (f *astFormatFlatFrame) insert(key, value astNodeRef) error {
 	if e := f.owner.validNode(key); e != nil {
 		return e
+	}
+	if f.dense {
+		m := f.owner
+		if uint64(key.slot) >= uint64(len(m.formatFlatDense)) {
+			n := 2 * len(m.formatFlatDense)
+			if n <= int(key.slot) {
+				n = int(key.slot) + 256
+			}
+			grown := make([]astFormatFlatDenseEntry, n)
+			copy(grown, m.formatFlatDense)
+			m.formatFlatDense = grown
+		}
+		m.formatFlatDense[key.slot] = astFormatFlatDenseEntry{invocation: f.invocation, generation: key.generation, value: value}
+		return nil
 	}
 	if f.cache == nil {
 		for i := range f.small {
@@ -80,6 +111,13 @@ func (f *astFormatFlatFrame) sourceDestroy() {
 	// Borrowed pointer elements have no AST INC/DEC ownership.
 	f.results = nil
 	f.todo = nil
+	f.args = nil
+	if f.dense {
+		f.dense = false
+		if f.owner.formatFlatDenseOwner == f {
+			f.owner.formatFlatDenseOwner = nil
+		}
+	}
 	f.cache = nil
 	f.small = nil
 	f.sourceDone = true
@@ -107,7 +145,7 @@ func (m *ASTManager) flatVisit(f *astFormatFlatFrame, n astNodeRef) (astNodeRef,
 		return astNodeRef{}, ErrASTDomain
 	} // selected source UNREACHABLE
 	a := m.appAt(n.slot)
-	id, kind, e := m.declIdentity(a.decl)
+	id, kind, e := m.appIdentity(a)
 	if e != nil {
 		return astNodeRef{}, e
 	}
@@ -174,7 +212,12 @@ func (m *ASTManager) formatFlat(root astNodeRef, documents *astFormatDocuments) 
 			f.header = 0
 		}
 	}()
-	f.small = make([]astFormatFlatEntry, 0, 8)
+	if m.formatFlatDenseOwner == nil {
+		m.formatFlatDenseOwner = f
+		f.dense = true
+	} else {
+		f.small = make([]astFormatFlatEntry, 0, 8)
+	}
 	f.todo = append(f.todo, root)
 	for len(f.todo) != 0 {
 		n := f.todo[len(f.todo)-1]
@@ -193,11 +236,11 @@ func (m *ASTManager) formatFlat(root astNodeRef, documents *astFormatDocuments) 
 		switch m.nodeAt(n.slot).kind {
 		case ASTApp:
 			a := m.appAt(n.slot)
-			for j := uint32(0); j < a.count; j++ {
-				child, e := m.readInternal(a.args, j)
-				if e != nil {
-					return astNodeRef{}, e
-				}
+			f.args, e = m.readInternalAll(a.args, a.count, f.args[:0])
+			if e != nil {
+				return astNodeRef{}, e
+			}
+			for _, child := range f.args {
 				_, found, e = f.find(child)
 				if e != nil {
 					return astNodeRef{}, e
@@ -227,11 +270,11 @@ func (m *ASTManager) formatFlat(root astNodeRef, documents *astFormatDocuments) 
 		}
 		f.results = f.results[:0]
 		a := m.appAt(n.slot)
-		for j := uint32(0); j < a.count; j++ {
-			child, e := m.readInternal(a.args, j)
-			if e != nil {
-				return astNodeRef{}, e
-			}
+		f.args, e = m.readInternalAll(a.args, a.count, f.args[:0])
+		if e != nil {
+			return astNodeRef{}, e
+		}
+		for _, child := range f.args {
 			value, found, e := f.find(child)
 			if e != nil {
 				return astNodeRef{}, e

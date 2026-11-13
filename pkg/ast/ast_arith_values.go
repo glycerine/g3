@@ -8,7 +8,7 @@ func (m *ASTManager) arithmeticValue(fid FamilyID, r astNodeRef, unique bool) (b
 	if m.nodeAt(r.slot).kind != ASTApp {
 		return false, nil
 	}
-	f, kind, e := m.declIdentity(m.appAt(r.slot).decl)
+	f, kind, e := m.appIdentity(m.appAt(r.slot))
 	if e != nil || f != fid {
 		return false, e
 	}
@@ -19,7 +19,7 @@ func (m *ASTManager) arithmeticAlgebraicValue(fid FamilyID, r astNodeRef) (*poly
 	if m.nodeAt(r.slot).kind != ASTApp {
 		return nil, false, nil
 	}
-	f, kind, e := m.declIdentity(m.appAt(r.slot).decl)
+	f, kind, e := m.appIdentity(m.appAt(r.slot))
 	if e != nil || f != fid || kind != 1 {
 		return nil, false, e
 	}
@@ -68,7 +68,7 @@ func (m *ASTManager) arithmeticSomeValue(sort astNodeRef) (ASTHandle, error) {
 }
 
 func (m *ASTManager) arithmeticOffsetCase(fid FamilyID, sum, base astNodeRef, index uint32) (bool, error) {
-	f, kind, e := m.declIdentity(m.appAt(sum.slot).decl)
+	f, kind, e := m.appIdentity(m.appAt(sum.slot))
 	if e != nil || f != fid || kind != 6 {
 		return false, e
 	}
@@ -87,7 +87,7 @@ func (m *ASTManager) arithmeticOffsetCase(fid FamilyID, sum, base astNodeRef, in
 	if m.nodeAt(offset.slot).kind != ASTApp {
 		return false, nil
 	}
-	f, kind, e = m.declIdentity(m.appAt(offset.slot).decl)
+	f, kind, e = m.appIdentity(m.appAt(offset.slot))
 	if e != nil || f != fid || kind != 0 {
 		return false, e
 	}

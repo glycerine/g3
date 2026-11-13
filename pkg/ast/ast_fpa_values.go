@@ -7,7 +7,7 @@ func (m *ASTManager) floatingPointValue(fid FamilyID, r astNodeRef, unique bool)
 		return false, nil
 	}
 	app := m.appAt(r.slot)
-	family, kind, e := m.declIdentity(app.decl)
+	family, kind, e := m.appIdentity(app)
 	if e != nil || family != fid {
 		return false, e
 	}

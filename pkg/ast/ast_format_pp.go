@@ -83,7 +83,7 @@ func (m *ASTManager) ppAssertFormat(r astNodeRef, g *uparams.GlobalParamsService
 	if m.nodeAt(r.slot).kind != ASTApp {
 		return ErrASTDomain
 	}
-	id, _, e := m.declIdentity(m.appAt(r.slot).decl)
+	id, _, e := m.appIdentity(m.appAt(r.slot))
 	if e != nil {
 		return e
 	}
@@ -110,7 +110,7 @@ func (m *ASTManager) formatKind(r astNodeRef) (int32, error) {
 	if m.nodeAt(r.slot).kind != ASTApp {
 		return 0, ErrASTDomain
 	}
-	_, kind, e := m.declIdentity(m.appAt(r.slot).decl)
+	_, kind, e := m.appIdentity(m.appAt(r.slot))
 	return kind, e
 }
 func (m *ASTManager) formatParameter(r astNodeRef) (*astParameterRecord, error) {

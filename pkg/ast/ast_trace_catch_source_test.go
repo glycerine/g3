@@ -221,7 +221,7 @@ func TestASTIncompleteBorrowedFormatConstructorRetainsCaughtHistoryUntilOwnAbort
 		t.Fatal("reached failed borrowed constructor", child, body)
 	}
 	f := child.traceAcquisitions
-	if f == nil || !f.placementConsumed || f.acquired == 0 || !f.tableSourceEnded || !f.referencesSourceEnded || f.tableConsumed || f.ownIndex != 0 || child.constructorMemberStage != 6 || child.table.buckets != nil || child.table.entries.Len() != 0 || child.allocator != nil {
+	if f == nil || !f.placementConsumed || f.acquired == 0 || !f.tableSourceEnded || !f.referencesSourceEnded || f.tableConsumed || f.ownIndex != 0 || child.constructorMemberStage != 6 || child.table.slots != nil || child.table.entries.Len() != 0 || child.allocator != nil {
 		t.Fatal("real catch and completed-member source unwind", f, child.ConstructorState())
 	}
 	capturedNode, hash, invocation, bodyHistory := f.node, f.hash, f.invocation, f.bodyCause

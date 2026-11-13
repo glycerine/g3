@@ -241,6 +241,9 @@ func (m *ASTManager) registerNode(r astNodeRef) (astNodeRef, error) {
 		a := m.appAt(r.slot)
 		a.depth = 1
 		a.ground = true
+		if m.validNode(a.decl) == nil && m.nodeAt(a.decl.slot).kind == ASTFuncDecl {
+			a.rangeSort = m.declAt(a.decl.slot).rangeSort
+		}
 		if a.count != 0 {
 			a.depth = 0
 			fid, k, x := m.declIdentity(a.decl)
@@ -248,6 +251,9 @@ func (m *ASTManager) registerNode(r astNodeRef) (astNodeRef, error) {
 				return fail(x)
 			}
 			a.labels = fid == 1 && k == 0
+			a.declFamily, a.declKind, a.declCached = fid, k, true
+		} else if fid, k, x := m.declIdentity(a.decl); x == nil {
+			a.declFamily, a.declKind, a.declCached = fid, k, true
 		}
 	}
 	count := m.nodeChildCount(r)

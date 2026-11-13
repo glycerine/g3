@@ -4,6 +4,7 @@ package ast
 // Scalar payload encoding. No unsafe or borrowed slice escapes.
 
 import (
+	"encoding/binary"
 	"math"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -62,6 +63,43 @@ func (m *ASTManager) readInternal(p arena.SmallBytesRef, index uint32) (astNodeR
 		return astNodeRef{}, e
 	}
 	return astNodeRef{slot, generation}, nil
+}
+// readInternalAll appends readInternal(p, 0..count-1) to dst with one
+// payload validation. It fails as the first failing readInternal would.
+func (m *ASTManager) readInternalAll(p arena.SmallBytesRef, count uint32, dst []astNodeRef) ([]astNodeRef, error) {
+	if count == 0 {
+		return dst, nil
+	}
+	data, e := m.allocator.View(p)
+	if e != nil {
+		return dst, e
+	}
+	if uint64(count)*uint64(astRefBytes) > uint64(len(data)) {
+		// Report the exact error of the first failing index.
+		for j := uint32(0); j < count; j++ {
+			r, e := m.readInternal(p, j)
+			if e != nil {
+				return dst, e
+			}
+			dst = append(dst, r)
+		}
+		return dst, nil
+	}
+	for j := uint32(0); j < count; j++ {
+		o := j * astRefBytes
+		dst = append(dst, astNodeRef{binary.LittleEndian.Uint32(data[o:]), binary.LittleEndian.Uint32(data[o+4:])})
+	}
+	return dst, nil
+}
+
+// readInternalPair is readInternal at indexes 0 and 1 with one payload
+// validation; p must hold at least two references.
+func (m *ASTManager) readInternalPair(p arena.SmallBytesRef) (astNodeRef, astNodeRef, error) {
+	s0, g0, s1, g1, e := m.allocator.ReadUint32Quad(p, 0)
+	if e != nil {
+		return astNodeRef{}, astNodeRef{}, e
+	}
+	return astNodeRef{s0, g0}, astNodeRef{s1, g1}, nil
 }
 func (m *ASTManager) writeSymbol(p arena.SmallBytesRef, index uint32, s usymbol.Symbol) error {
 	// Symbol is local to package g3. Its scalar fields are encoded by name;

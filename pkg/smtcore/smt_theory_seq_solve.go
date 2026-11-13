@@ -291,8 +291,8 @@ func (t *SMTTheorySeq) resetExprVector(v *seqExprVector, hs []ast.ASTHandle) {
 func (t *SMTTheorySeq) mkEqdep(l, r ast.ASTHandle, dep *seqDep) seqEq {
 	e := seqEq{id: t.eqID, ls: newSeqExprVector(t.m), rs: newSeqExprVector(t.m), dep: dep}
 	t.eqID++
-	t.chk(e.ls.append(t.getConcat(l)))
-	t.chk(e.rs.append(t.getConcat(r)))
+	t.chk(t.appendConcat(&e.ls, l))
+	t.chk(t.appendConcat(&e.rs, r))
 	return e
 }
 

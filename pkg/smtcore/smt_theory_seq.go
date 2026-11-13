@@ -214,15 +214,41 @@ type seqExprDep struct {
 	dep  *seqDep
 }
 
-// seqEvalCache is theory_seq::eval_cache.
+// seqEvalCache is theory_seq::eval_cache. Entries are indexed densely by
+// the key's slot; the trail holds every key, so a cached slot keeps one live
+// generation. Keys of another manager (or null) use the overflow map.
 type seqEvalCache struct {
-	m     map[ast.ASTHandle]seqExprDep
-	trail seqExprVector
+	entries []seqEvalEntry
+	used    []uint32 // slots with an entry, for reset
+	origin  uint64
+	other   map[ast.ASTHandle]seqExprDep
+	trail   seqExprVector
+}
+
+type seqEvalEntry struct {
+	key ast.ASTHandle
+	val seqExprDep
+}
+
+func (c *seqEvalCache) dense(v ast.ASTHandle) bool {
+	if v.IsNull() {
+		return false
+	}
+	if c.origin == 0 {
+		c.origin = v.Origin()
+	}
+	return v.Origin() == c.origin
 }
 
 func (c *seqEvalCache) find(v ast.ASTHandle) (seqExprDep, bool) {
-	r, ok := c.m[v]
-	return r, ok
+	if !c.dense(v) {
+		r, ok := c.other[v]
+		return r, ok
+	}
+	if s := v.Slot(); uint64(s) < uint64(len(c.entries)) && c.entries[s].key == v {
+		return c.entries[s].val, true
+	}
+	return seqExprDep{}, false
 }
 
 func (c *seqEvalCache) insert(v ast.ASTHandle, r seqExprDep) error {
@@ -232,12 +258,37 @@ func (c *seqEvalCache) insert(v ast.ASTHandle, r seqExprDep) error {
 	if err := c.trail.pushBack(r.expr); err != nil {
 		return err
 	}
-	c.m[v] = r
+	if !c.dense(v) {
+		if c.other == nil {
+			c.other = make(map[ast.ASTHandle]seqExprDep)
+		}
+		c.other[v] = r
+		return nil
+	}
+	s := v.Slot()
+	if uint64(s) >= uint64(len(c.entries)) {
+		n := 2 * len(c.entries)
+		if n <= int(s) {
+			n = int(s) + 64
+		}
+		grown := make([]seqEvalEntry, n)
+		copy(grown, c.entries)
+		c.entries = grown
+	}
+	e := &c.entries[s]
+	if e.key.IsNull() {
+		c.used = append(c.used, s)
+	}
+	*e = seqEvalEntry{key: v, val: r}
 	return nil
 }
 
 func (c *seqEvalCache) reset() error {
-	clear(c.m)
+	for _, s := range c.used {
+		c.entries[s] = seqEvalEntry{}
+	}
+	c.used = c.used[:0]
+	clear(c.other)
 	return c.trail.reset()
 }
 
@@ -264,7 +315,7 @@ func newSeqSolutionMap(m *ast.ASTManager, dm *seqDepManager) seqSolutionMap {
 	return seqSolutionMap{
 		dm:    dm,
 		m:     make(map[ast.ASTHandle]seqExprDep),
-		cache: seqEvalCache{m: make(map[ast.ASTHandle]seqExprDep), trail: newSeqExprVector(m)},
+		cache: seqEvalCache{trail: newSeqExprVector(m)},
 		lhs:   newSeqExprVector(m), rhs: newSeqExprVector(m),
 	}
 }
@@ -923,6 +974,8 @@ type SMTTheorySeq struct {
 	closed  bool
 	// locPool holds dropped function-local reference owners for reuse.
 	locPool []*seqRefs
+	// concatScratch is appendConcat's flatten buffer, empty between calls.
+	concatScratch []ast.ASTHandle
 }
 
 // seqRewriterOwner is the source's m_rewrite member: a th_rewriter with

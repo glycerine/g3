@@ -3,6 +3,9 @@ package ast
 // Exact source AST array hash and compare_nodes/get_node_hash branches.
 
 import (
+	"bytes"
+	"encoding/binary"
+
 	"github.com/glycerine/g3/pkg/arena"
 	uhash "github.com/glycerine/g3/pkg/util/hash"
 )
@@ -38,6 +41,21 @@ func astHashArray(n, init uint32, hash func(uint32) uint32) uint32 {
 }
 func (m *ASTManager) hashPayload(p arena.SmallBytesRef, count, init uint32) (uint32, error) {
 	var err error
+	if data, e := m.allocator.View(p); e == nil && uint64(count)*uint64(astRefBytes) <= uint64(len(data)) {
+		// One payload validation; each element is still a validated node.
+		result := astHashArray(count, init, func(i uint32) uint32 {
+			o := i * astRefBytes
+			r := astNodeRef{binary.LittleEndian.Uint32(data[o:]), binary.LittleEndian.Uint32(data[o+4:])}
+			if e := m.validNode(r); e != nil {
+				if err == nil {
+					err = e
+				}
+				return 0
+			}
+			return m.nodeAt(r.slot).hash
+		})
+		return result, err
+	}
 	result := astHashArray(count, init, func(i uint32) uint32 {
 		r, e := m.readInternal(p, i)
 		if e == nil {
@@ -113,6 +131,13 @@ func (m *ASTManager) nodeHash(r astNodeRef) (uint32, error) {
 	return 0, ErrASTDomain
 }
 func (m *ASTManager) equalPayload(a, b arena.SmallBytesRef, n uint32) (bool, error) {
+	if n != 0 {
+		x, ex := m.allocator.View(a)
+		y, ey := m.allocator.View(b)
+		if w := uint64(n) * uint64(astRefBytes); ex == nil && ey == nil && w <= uint64(len(x)) && w <= uint64(len(y)) {
+			return bytes.Equal(x[:w], y[:w]), nil
+		}
+	}
 	for i := uint32(0); i < n; i++ {
 		x, e := m.readInternal(a, i)
 		if e != nil {

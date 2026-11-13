@@ -83,7 +83,7 @@ func (m *ASTManager) checkUpdatePatterns(values AppArguments) error {
 			return ErrASTDomain
 		}
 		a := m.appAt(r.slot)
-		fid, k, e := m.declIdentity(a.decl)
+		fid, k, e := m.appIdentity(a)
 		if e != nil {
 			return e
 		}

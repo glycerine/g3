@@ -7,7 +7,7 @@ func (m *ASTManager) bitVectorAppKind(r astNodeRef, kind int32) (bool, error) {
 	if m.nodeAt(r.slot).kind != ASTApp || m.bitVectorPlugin == nil {
 		return false, nil
 	}
-	fid, k, e := m.declIdentity(m.appAt(r.slot).decl)
+	fid, k, e := m.appIdentity(m.appAt(r.slot))
 	return fid == m.bitVectorPlugin.family && k == kind, e
 }
 func (m *ASTManager) bitVectorIntegerParameter(r astNodeRef, index uint32) (int32, error) {

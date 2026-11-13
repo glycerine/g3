@@ -20,16 +20,16 @@ func (t *SMTTheorySeq) canonizeInto(e ast.ASTHandle, es *seqExprVector, eqs **se
 	e3 := t.ref(x, e, nil)
 	change := false
 	for {
-		if e1, e2, ok := t.isConcat2(e3); ok {
+		if e1, e2, ok, empty := t.isConcat2OrEmpty(e3); ok {
 			t.canonizeInto(e1, es, eqs)
 			e3 = t.ref(x, e2, nil)
 			change = true
-		} else if t.isEmpty(e3) {
+		} else if empty {
 			return true
 		} else {
 			e4 := t.expand(x, e3, eqs)
 			change = change || e4 != e3
-			t.chk(es.append(t.getConcat(e4)))
+			t.chk(t.appendConcat(es, e4))
 			break
 		}
 	}
@@ -85,13 +85,13 @@ func (t *SMTTheorySeq) expand1(x *seqRefs, e0 ast.ASTHandle, eqs **seqDep) ast.A
 		arg2 := t.tryExpand(x, e2, &deps)
 		return arg1, arg2, !arg1.IsNull() && !arg2.IsNull()
 	}
-	if e1, e2, ok := t.isConcat2(e); ok {
+	if e1, e2, ok, empty := t.isConcat2OrEmpty(e); ok {
 		arg1, arg2, ok := two(e1, e2)
 		if !ok {
 			return result
 		}
 		result = t.ref(x, t.mkConcat2(arg1, arg2), nil)
-	} else if t.isEmpty(e) || t.isStringConst(e) {
+	} else if empty || t.isStringConst(e) {
 		result = t.ref(x, e, nil)
 	} else if e1, e2, ok := t.binaryArgs(e, seqOpPrefix); ok {
 		arg1, arg2, ok := two(e1, e2)

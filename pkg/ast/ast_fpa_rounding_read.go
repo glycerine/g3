@@ -24,7 +24,7 @@ func (m *ASTManager) readFPARoundingMode(r astNodeRef) (bool, unumeral.Arbitrary
 	if m.nodeAt(r.slot).kind != ASTApp {
 		return false, 0, nil
 	}
-	family, kind, err := m.declIdentity(m.appAt(r.slot).decl)
+	family, kind, err := m.appIdentity(m.appAt(r.slot))
 	if err != nil {
 		return false, 0, err
 	}

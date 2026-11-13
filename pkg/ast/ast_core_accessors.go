@@ -41,6 +41,14 @@ func (m *ASTManager) declIdentity(r astNodeRef) (FamilyID, int32, error) {
 	}
 	return info.family, info.kind, nil
 }
+// appIdentity is declIdentity(a.decl) for the record a of a live app. It
+// reads the copy taken at registration; debug builds keep the checked read.
+func (m *ASTManager) appIdentity(a *astAppRecord) (FamilyID, int32, error) {
+	if a.declCached && !ASTSourceDebug {
+		return a.declFamily, a.declKind, nil
+	}
+	return m.declIdentity(a.decl)
+}
 func (m *ASTManager) sortOf(r astNodeRef) (astNodeRef, error) {
 	for {
 		if e := m.validNode(r); e != nil {
@@ -48,7 +56,11 @@ func (m *ASTManager) sortOf(r astNodeRef) (astNodeRef, error) {
 		}
 		switch m.nodeAt(r.slot).kind {
 		case ASTApp:
-			return m.declAt(m.appAt(r.slot).decl.slot).rangeSort, nil
+			a := m.appAt(r.slot)
+			if a.rangeSort.slot != 0 && !ASTSourceDebug {
+				return a.rangeSort, nil
+			}
+			return m.declAt(a.decl.slot).rangeSort, nil
 		case ASTVar:
 			return m.varAt(r.slot).sort, nil
 		case ASTQuantifier:
@@ -107,7 +119,7 @@ func (m *ASTManager) NodeHeader(h ASTHandle) (ASTNodeHeader, error) {
 	if n.kind == ASTApp {
 		v := m.appAt(r.slot)
 		header.NumArgs, header.Decl = v.count, m.external(v.decl)
-		header.Family, header.DeclKind, e = m.declIdentity(v.decl)
+		header.Family, header.DeclKind, e = m.appIdentity(v)
 	}
 	return header, e
 }

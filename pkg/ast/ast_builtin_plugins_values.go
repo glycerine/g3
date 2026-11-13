@@ -39,7 +39,7 @@ func (m *ASTManager) isValue(r astNodeRef) (bool, error) {
 	if m.nodeAt(r.slot).kind != ASTApp {
 		return false, nil
 	}
-	fid, _, e := m.declIdentity(m.appAt(r.slot).decl)
+	fid, _, e := m.appIdentity(m.appAt(r.slot))
 	if e != nil {
 		return false, e
 	}
@@ -77,7 +77,7 @@ func (m *ASTManager) isUniqueValue(r astNodeRef) (bool, error) {
 	if m.nodeAt(r.slot).kind != ASTApp {
 		return false, nil
 	}
-	fid, _, e := m.declIdentity(m.appAt(r.slot).decl)
+	fid, _, e := m.appIdentity(m.appAt(r.slot))
 	if e != nil || fid < 0 || !m.pluginAt(fid).present {
 		return false, e
 	}
@@ -95,7 +95,7 @@ func (m *ASTManager) IsUniqueValue(h ASTHandle) (bool, error) {
 	if m.nodeAt(r.slot).kind != ASTApp {
 		return false, nil
 	}
-	fid, _, e := m.declIdentity(m.appAt(r.slot).decl)
+	fid, _, e := m.appIdentity(m.appAt(r.slot))
 	if e != nil || fid < 0 || !m.pluginAt(fid).present {
 		return false, e
 	}
@@ -118,7 +118,7 @@ func (m *ASTManager) AreEqual(a, b ASTHandle) (bool, error) {
 		return true, nil
 	}
 	if m.nodeAt(x.slot).kind == ASTApp && m.nodeAt(y.slot).kind == ASTApp {
-		fid, _, e := m.declIdentity(m.appAt(x.slot).decl)
+		fid, _, e := m.appIdentity(m.appAt(x.slot))
 		if e != nil {
 			return false, e
 		}
@@ -147,12 +147,12 @@ func (m *ASTManager) AreDistinct(a, b ASTHandle) (bool, error) {
 	if m.nodeAt(x.slot).kind != ASTApp || m.nodeAt(y.slot).kind != ASTApp {
 		return false, nil
 	}
-	fid, _, e := m.declIdentity(m.appAt(x.slot).decl)
+	fid, _, e := m.appIdentity(m.appAt(x.slot))
 	if e != nil {
 		return false, e
 	}
 	if fid < 0 || !m.pluginAt(fid).present {
-		fid, _, e = m.declIdentity(m.appAt(y.slot).decl)
+		fid, _, e = m.appIdentity(m.appAt(y.slot))
 		if e != nil {
 			return false, e
 		}

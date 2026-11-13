@@ -128,29 +128,19 @@ func (r *SequenceRewriter) ReduceEqVec(ls, rs, lhs, rhs *[]ast.ASTHandle, change
 		}
 		l := (*ls)[len(*ls)-1]
 		rr := (*rs)[len(*rs)-1]
-		_, rUnit, err := r.isUnitArg(rr)
+		b, ru, s, rs1, err := m.SequenceUnitOrString(rr)
 		if err != nil {
 			return false, err
 		}
-		_, lString, err := m.SequenceStringValue(l)
+		a, lu, ls1, lString, err := m.SequenceUnitOrString(l)
 		if err != nil {
 			return false, err
 		}
-		if rUnit && lString {
+		if ru && lString {
 			l, rr = rr, l
 			*ls, *rs = *rs, *ls
-		}
-		a, lu, err := r.isUnitArg(l)
-		if err != nil {
-			return false, err
-		}
-		b, ru, err := r.isUnitArg(rr)
-		if err != nil {
-			return false, err
-		}
-		s, rs1, err := m.SequenceStringValue(rr)
-		if err != nil {
-			return false, err
+			a, lu, b, ru = b, ru, a, lu
+			s, rs1 = ls1, lString
 		}
 		if l == rr {
 			if err := r.vPop(ls); err != nil {
@@ -241,30 +231,20 @@ func (r *SequenceRewriter) ReduceEqVec(ls, rs, lhs, rhs *[]ast.ASTHandle, change
 		}
 		l := (*ls)[head1]
 		rr := (*rs)[head2]
-		_, rUnit, err := r.isUnitArg(rr)
+		b, ru, s, rs1, err := m.SequenceUnitOrString(rr)
 		if err != nil {
 			return false, err
 		}
-		_, lString, err := m.SequenceStringValue(l)
+		a, lu, ls1, lString, err := m.SequenceUnitOrString(l)
 		if err != nil {
 			return false, err
 		}
-		if rUnit && lString {
+		if ru && lString {
 			l, rr = rr, l
 			*ls, *rs = *rs, *ls
 			head1, head2 = head2, head1
-		}
-		a, lu, err := r.isUnitArg(l)
-		if err != nil {
-			return false, err
-		}
-		b, ru, err := r.isUnitArg(rr)
-		if err != nil {
-			return false, err
-		}
-		s, rs1, err := m.SequenceStringValue(rr)
-		if err != nil {
-			return false, err
+			a, lu, b, ru = b, ru, a, lu
+			s, rs1 = ls1, lString
 		}
 		if l == rr {
 			head1++

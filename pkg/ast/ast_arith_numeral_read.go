@@ -25,7 +25,7 @@ func (m *ASTManager) readArithmeticNumeralWithInvocation(family FamilyID, r astN
 	if m.nodeAt(r.slot).kind != ASTApp {
 		return false, nil
 	}
-	fid, kind, e := m.declIdentity(m.appAt(r.slot).decl)
+	fid, kind, e := m.appIdentity(m.appAt(r.slot))
 	if e != nil || fid != family || kind != 0 {
 		return false, e
 	}

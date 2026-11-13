@@ -357,7 +357,7 @@ func (t *SMTTheorySeq) explainEmpty(es *seqExprVector, dep **seqDep) bool {
 		var a ast.ASTHandle
 		if t.rep.find1(e, &a, dep) {
 			t.chk(es.shrink(es.size() - 1))
-			t.chk(es.append(t.getConcat(a)))
+			t.chk(t.appendConcat(es, a))
 			continue
 		}
 		return false

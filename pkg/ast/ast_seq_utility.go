@@ -11,16 +11,15 @@ func (m *ASTManager) sequenceBinaryParts(r astNodeRef, kind int32) (astNodeRef, 
 		return astNodeRef{}, astNodeRef{}, false, nil
 	}
 	a := m.appAt(r.slot)
-	family, actualKind, err := m.declIdentity(a.decl)
+	family, actualKind, err := m.appIdentity(a)
 	if err != nil || family != m.sequencePlugin.family || actualKind != kind || a.count != 2 {
 		return astNodeRef{}, astNodeRef{}, false, err
 	}
-	left, err := m.readInternal(a.args, 0)
+	left, right, err := m.readInternalPair(a.args)
 	if err != nil {
 		return astNodeRef{}, astNodeRef{}, false, err
 	}
-	right, err := m.readInternal(a.args, 1)
-	return left, right, err == nil, err
+	return left, right, true, nil
 }
 
 func (m *ASTManager) SequenceConcatParts(h ASTHandle) (left, right ASTHandle, matched bool, err error) {
@@ -133,7 +132,7 @@ func (m *ASTManager) RegexLoopParameters(h ASTHandle) (body ASTHandle, lower, up
 		return ASTHandle{}, 0, 0, false, false, nil
 	}
 	a := m.appAt(r.slot)
-	family, kind, err := m.declIdentity(a.decl)
+	family, kind, err := m.appIdentity(a)
 	if err != nil || family != m.sequencePlugin.family || kind != 20 || a.count != 1 {
 		return ASTHandle{}, 0, 0, false, false, err
 	}
@@ -210,7 +209,7 @@ func (m *ASTManager) SequenceIntToStringArgument(h ASTHandle) (ASTHandle, bool, 
 		return ASTHandle{}, false, nil
 	}
 	a := m.appAt(r.slot)
-	family, kind, err := m.declIdentity(a.decl)
+	family, kind, err := m.appIdentity(a)
 	if err != nil || family != m.sequencePlugin.family || kind != 27 || a.count != 1 {
 		return ASTHandle{}, false, err
 	}
@@ -231,7 +230,7 @@ func (m *ASTManager) IsRegexEpsilon(h ASTHandle) (bool, error) {
 		return false, nil
 	}
 	a := m.appAt(r.slot)
-	family, kind, err := m.declIdentity(a.decl)
+	family, kind, err := m.appIdentity(a)
 	if err != nil || family != m.sequencePlugin.family || kind != ASTSequenceOpToRegex || a.count != 1 {
 		return false, err
 	}
@@ -255,7 +254,7 @@ func (m *ASTManager) SequenceUnaryOperationArgument(h ASTHandle, kind int32) (AS
 		return ASTHandle{}, false, nil
 	}
 	a := m.appAt(r.slot)
-	family, actualKind, err := m.declIdentity(a.decl)
+	family, actualKind, err := m.appIdentity(a)
 	if err != nil || family != m.sequencePlugin.family || actualKind != kind || a.count != 1 {
 		return ASTHandle{}, false, err
 	}
@@ -295,7 +294,7 @@ func (m *ASTManager) SequenceExtractArguments(h ASTHandle) (sequence, offset, le
 		return ASTHandle{}, ASTHandle{}, ASTHandle{}, false, nil
 	}
 	a := m.appAt(r.slot)
-	family, kind, err := m.declIdentity(a.decl)
+	family, kind, err := m.appIdentity(a)
 	if err != nil || family != m.sequencePlugin.family || kind != 6 || a.count != 3 {
 		return ASTHandle{}, ASTHandle{}, ASTHandle{}, false, err
 	}

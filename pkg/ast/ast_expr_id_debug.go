@@ -10,14 +10,9 @@ func (m *ASTManager) SetNextExprID(id uint32) error {
 	for {
 		id = m.ExprIDs.SetNextID(id)
 		used := false
-		for _, bucket := range m.table.buckets {
-			for _, node := range bucket {
-				if m.nodeAt(node.slot).id == id {
-					used = true
-					break
-				}
-			}
-			if used {
+		for _, node := range m.table.entries.All() {
+			if m.nodeAt(node.slot).id == id {
+				used = true
 				break
 			}
 		}

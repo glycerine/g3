@@ -88,7 +88,7 @@ func (m *ASTManager) MkProofHyperResolve(premises []ASTHandle, conclusion ASTHan
 		return ASTHandle{}, e
 	}
 	if ASTSourceDebug {
-		fid, k, e := m.declIdentity(m.appAt(r.slot).decl)
+		fid, k, e := m.appIdentity(m.appAt(r.slot))
 		if e != nil {
 			return ASTHandle{}, e
 		}

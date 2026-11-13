@@ -11,7 +11,7 @@ func (m *ASTManager) sequenceValue(fid FamilyID, value astNodeRef) (bool, error)
 			return false, nil
 		}
 		app := m.appAt(value.slot)
-		family, kind, err := m.declIdentity(app.decl)
+		family, kind, err := m.appIdentity(app)
 		if err != nil || family != fid {
 			return false, err
 		}
@@ -56,11 +56,11 @@ func (m *ASTManager) sequenceDistinct(fid FamilyID, a, b astNodeRef) (bool, erro
 	if m.nodeAt(a.slot).kind != ASTApp || m.nodeAt(b.slot).kind != ASTApp {
 		return false, nil
 	}
-	af, ak, err := m.declIdentity(m.appAt(a.slot).decl)
+	af, ak, err := m.appIdentity(m.appAt(a.slot))
 	if err != nil {
 		return false, err
 	}
-	bf, bk, err := m.declIdentity(m.appAt(b.slot).decl)
+	bf, bk, err := m.appIdentity(m.appAt(b.slot))
 	if err != nil || af != fid || bf != fid {
 		return false, err
 	}

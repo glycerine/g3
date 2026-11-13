@@ -12,7 +12,7 @@ func (m *ASTManager) datatypeValue(root astNodeRef) (bool, error) {
 			return false, nil
 		}
 		app := m.appAt(current.slot)
-		family, kind, err := m.declIdentity(app.decl)
+		family, kind, err := m.appIdentity(app)
 		if err != nil {
 			return false, err
 		}

@@ -89,7 +89,7 @@ func (m *ASTManager) IsAsArrayTree(root ASTHandle) (bool, error) {
 			return false, nil
 		}
 		app := m.appAt(current.slot)
-		family, kind, e := m.declIdentity(app.decl)
+		family, kind, e := m.appIdentity(app)
 		if e != nil {
 			return false, e
 		}

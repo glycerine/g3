@@ -61,7 +61,7 @@ func (m *ASTManager) arithmeticNumeralParameter(h ASTHandle) (rational *unumeral
 	if m.nodeAt(r.slot).kind != ASTApp || m.arithmeticPlugin == nil {
 		return
 	}
-	family, kind, err := m.declIdentity(m.appAt(r.slot).decl)
+	family, kind, err := m.appIdentity(m.appAt(r.slot))
 	if err != nil || family != m.arithmeticPlugin.family || kind != 0 {
 		return
 	}

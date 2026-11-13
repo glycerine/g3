@@ -180,6 +180,34 @@ func (a *SmallBytes) ReadUint32Pair(r SmallBytesRef, offset uint32) (uint32, uin
 	return binary.LittleEndian.Uint32(data), binary.LittleEndian.Uint32(data[4:]), nil
 }
 
+// View returns the live payload bytes of r for reading. The view is valid
+// until the next allocation or release on a; callers must not write it.
+func (a *SmallBytes) View(r SmallBytesRef) ([]byte, error) {
+	d, err := a.descriptor(r)
+	if err != nil {
+		return nil, err
+	}
+	if d.length == 0 {
+		return nil, nil
+	}
+	return a.chunks[d.page].data[d.offset : d.offset+d.length : d.offset+d.length], nil
+}
+
+// ReadUint32Quad reads four consecutive little-endian scalars with one
+// validation, as ReadUint32Pair at offset and offset+8 would.
+func (a *SmallBytes) ReadUint32Quad(r SmallBytesRef, offset uint32) (uint32, uint32, uint32, uint32, error) {
+	d, err := a.descriptor(r)
+	if err != nil {
+		return 0, 0, 0, 0, err
+	}
+	if offset > d.length || d.length-offset < 16 {
+		return 0, 0, 0, 0, ErrBounds
+	}
+	start := d.offset + offset
+	data := a.chunks[d.page].data[start : start+16]
+	return binary.LittleEndian.Uint32(data), binary.LittleEndian.Uint32(data[4:]), binary.LittleEndian.Uint32(data[8:]), binary.LittleEndian.Uint32(data[12:]), nil
+}
+
 // WriteUint32Pair writes two consecutive scalars with one validation.
 func (a *SmallBytes) WriteUint32Pair(r SmallBytesRef, offset uint32, v0, v1 uint32) error {
 	d, err := a.descriptor(r)

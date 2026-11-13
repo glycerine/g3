@@ -51,7 +51,7 @@ func TestASTNativeCanonicalTableGrowthCollisionIdentityAndGeneration(t *testing.
 	}
 	found, fresh, e := m.tableInsert(keys[count])
 	astTestMust(t, e)
-	if fresh || found != keys[count-1] || m.table.size != count || index != count || len(m.table.buckets[0]) != count {
+	if fresh || found != keys[count-1] || m.table.size != count || index != count || m.tableHashCount(0) != count {
 		t.Fatal("native duplicate canonicalization", found, fresh, m.table.size, index)
 	}
 	if e := m.tableEraseIdentity(keys[count]); !errors.Is(e, ErrASTHandle) {
@@ -90,4 +90,15 @@ func TestASTNativeCanonicalTableGrowthCollisionIdentityAndGeneration(t *testing.
 	if !yes || found != replacement {
 		t.Fatal("later generation lost", found, yes)
 	}
+}
+
+// tableHashCount counts the canonical index entries carrying hash.
+func (m *ASTManager) tableHashCount(hash uint32) int {
+	n := 0
+	for _, s := range m.table.slots {
+		if s.ref.slot != 0 && s.hash == hash {
+			n++
+		}
+	}
+	return n
 }

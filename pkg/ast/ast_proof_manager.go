@@ -60,7 +60,7 @@ func (m *ASTManager) proofKind(h ASTHandle, k int32) (bool, error) {
 	if m.nodeAt(r.slot).kind != ASTApp {
 		return false, nil
 	}
-	fid, kind, e := m.declIdentity(m.appAt(r.slot).decl)
+	fid, kind, e := m.appIdentity(m.appAt(r.slot))
 	return fid == 0 && kind == k, e
 }
 func (m *ASTManager) proofIs(h ASTHandle) (bool, error) {

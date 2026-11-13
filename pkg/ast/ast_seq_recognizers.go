@@ -92,7 +92,7 @@ func (m *ASTManager) IsSequenceOperation(h ASTHandle, kind int32) (bool, error) 
 	if m.nodeAt(r.slot).kind != ASTApp || m.sequencePlugin == nil {
 		return false, nil
 	}
-	family, actualKind, err := m.declIdentity(m.appAt(r.slot).decl)
+	family, actualKind, err := m.appIdentity(m.appAt(r.slot))
 	return family == m.sequencePlugin.family && actualKind == kind, err
 }
 
@@ -112,8 +112,9 @@ func (m *ASTManager) isSequenceEmptyRef(r astNodeRef) (bool, error) {
 	if m.nodeAt(r.slot).kind != ASTApp || m.sequencePlugin == nil {
 		return false, nil
 	}
-	decl := m.appAt(r.slot).decl
-	family, kind, err := m.declIdentity(decl)
+	a := m.appAt(r.slot)
+	decl := a.decl
+	family, kind, err := m.appIdentity(a)
 	if err != nil || family != m.sequencePlugin.family {
 		return false, err
 	}
