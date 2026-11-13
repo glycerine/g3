@@ -2856,11 +2856,21 @@ is_var_and_ground / is_x_gle_t_atom temporaries released as in C++. Vectors
 qfuzz_auf_node_creation_order, qfuzz_cheap_eq_after_instance,
 qfuzz_k_diseq_restart_relevancy, qfuzz_hint_candidates_last,
 qfuzz_analyzer_ng_decls, qfuzz_cached_generation_reinit.
-APPROVED (user, 2026-11-13), in progress: port libstdc++ std::sort for
-theory_arith flush_bound_axioms (compare_atoms compares k only; ties take
-introsort order with > 16 atoms); fixes seeds 2119, 3063, 3110 (g3 never
-finishes; 0.14 s with the port), old 515/130. Experiment code and repros in
-the job tmp dir (stdsort/).
+DONE (user-approved STL exception, 2026-11-13): libstdc++ (GCC 13) std::sort
+ported for theory_arith flush_bound_axioms (pkg/smtcore/libstdcxx_sort.go;
+compare_atoms compares k only, so ties take introsort order with > 16
+atoms). Positive control src/test/stl_sort_order_control.cpp ->
+pkg/smtcore/test_vectors/libstdcxx_sort_order.txt (1206 lines incl. McIlroy
+inputs reaching the heap fallback); negative controls (stable sort, no heap
+fallback, threshold 15) fail. Vectors flush_bound_axioms_introsort_{q2119,
+q3063,q3110,old_q515} (stdout-identical; their full traces exceed the
+fullcmp2 timeout). Fuzz seeds 2000-2400 / 3000-3400: 0 differences.
+APPROVED next: the same port for theory_lra's compare_bounds std::sort
+(theory_lra.cpp:1633-1634; g3 theory_lra_bound_axioms.go still stable).
+Lead: q_2119 / old_q_515 traces diverge deep (lines ~97.5M / ~37.8M): the
+fork assigns a core equality literal (justification -1) before conflict
+resolution where g3 goes straight to resolve-lit (eq_propagation /
+eq_root_propagation order).
 Leads: q_3157 ~8x slower than z3 (same answer); cache_generation reinit set
 uses preserveLearnedClauses / learnedUnits instead of z3's
 m_clauses_to_reinit buckets; classifyAUF reimplements the analyzer's

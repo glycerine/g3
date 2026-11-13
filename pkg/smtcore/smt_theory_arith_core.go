@@ -10,7 +10,6 @@ import (
 	"errors"
 	"math"
 	"math/big"
-	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
@@ -1543,8 +1542,26 @@ func (t *SMTTheoryArith) mkBoundAxiom(a1, a2 *smtArithmeticAtom) (err error) {
 	return t.mkClause2(l1.Negated(), l2, coeffs)
 }
 
-// flushBoundAxioms. The source sorts with std::sort, which is not stable;
-// sort.SliceStable keeps atoms with equal thresholds in creation order.
+// smtCompareAtomsLess is theory_arith::compare_atoms (theory_arith.h): it
+// compares only the bound value k.
+func smtCompareAtomsLess(a1, a2 *smtArithmeticAtom) bool {
+	return a1.threshold.cmp(&a2.threshold) < 0
+}
+
+// flushBoundAxioms.
+//
+// =========================================================================
+// !!! WARNING: the two sorts below are a DELIBERATE, USER-APPROVED (2026-11-13)
+// !!! port of libstdc++ (GCC 13) std::sort: see libstdcxx_sort.go.
+// =========================================================================
+// The source sorts atoms and occs with std::sort and compare_atoms, which
+// compares only the bound value k, so (<= x c) and (>= x c) are ties. std::sort
+// is not stable: with more than 16 atoms introsort permutes the ties, and that
+// order decides bound-axiom clause creation and then the search. Do NOT
+// replace libstdcxxSortAtoms with sort.Slice/sort.SliceStable: fuzz seeds
+// q_2119, q_3063, q_3110 and old_q_515 diverge from the fork with a stable
+// sort (q_3110 never finishes). Keep TestLibstdcxxSortMatchesControl and the
+// cmd/g3 flush_bound_axioms_introsort_*.smt2 vectors green.
 func (t *SMTTheoryArith) flushBoundAxioms() error {
 	for len(t.newAtoms) > 0 {
 		last := len(t.newAtoms) - 1
@@ -1560,8 +1577,9 @@ func (t *SMTTheoryArith) flushBoundAxioms() error {
 			}
 		}
 		occs := append([]*smtArithmeticAtom(nil), t.varOccs[v]...)
-		sort.SliceStable(atoms, func(i, j int) bool { return atoms[i].threshold.cmp(&atoms[j].threshold) < 0 })
-		sort.SliceStable(occs, func(i, j int) bool { return occs[i].threshold.cmp(&occs[j].threshold) < 0 })
+		// std::sort(..., compare_atoms()): libstdc++ introsort, NOT a stable sort.
+		libstdcxxSortAtoms(atoms, smtCompareAtomsLess)
+		libstdcxxSortAtoms(occs, smtCompareAtomsLess)
 		end := len(occs)
 		begin1 := t.first(smtArithmeticLowerAtom, occs, 0)
 		begin2 := t.first(smtArithmeticUpperAtom, occs, 0)
