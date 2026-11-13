@@ -168,11 +168,9 @@ func (f *SMTModelFinder) RegisterQuantifier(quantifier ast.ASTHandle) (result er
 	if nested {
 		return ast.ErrASTPending
 	}
-	// quantifier_analyzer::operator(): the body's qinfos, m_ng_decls and
-	// m_is_auf, then collect_macro_candidates.
-	if err = f.collectNonGroundDeclarations(body, f.nonGround[quantifier]); err != nil {
-		return err
-	}
+	// quantifier_analyzer::operator(): the body's qinfos, m_ng_decls (the
+	// analyzer's process_app calls) and m_is_auf, then
+	// collect_macro_candidates.
 	f.auf[quantifier], err = f.classifyAUF(quantifier)
 	if err != nil {
 		return err
@@ -204,60 +202,6 @@ func (f *SMTModelFinder) RegisterQuantifier(quantifier ast.ASTHandle) (result er
 		})
 	}
 	f.hint.infos[quantifier] = info
-	return nil
-}
-
-// collectNonGroundDeclarations fills m_ng_decls as process_app does: each
-// non-ground application, before its arguments, left to right.
-func (f *SMTModelFinder) collectNonGroundDeclarations(root ast.ASTHandle, result *ast.ObjMap) error {
-	stack := []ast.ASTHandle{root}
-	seen := make(map[ast.ASTHandle]struct{})
-	for len(stack) != 0 {
-		if err := f.checkpoint(); err != nil {
-			return err
-		}
-		n := stack[len(stack)-1]
-		stack = stack[:len(stack)-1]
-		if _, found := seen[n]; found {
-			continue
-		}
-		seen[n] = struct{}{}
-		kind, err := f.manager.GetKind(n)
-		if err != nil {
-			return err
-		}
-		if kind != ast.ASTApp {
-			continue
-		}
-		ground, err := f.manager.IsGround(n)
-		if err != nil {
-			return err
-		}
-		declaration, err := f.manager.GetDecl(n)
-		if err != nil {
-			return err
-		}
-		family, err := f.manager.GetFamilyID(declaration)
-		if err != nil {
-			return err
-		}
-		if !ground && family != f.manager.BasicFamilyID() {
-			if err = result.Insert(declaration, [2]ast.ASTHandle{}); err != nil {
-				return err
-			}
-		}
-		count, err := f.manager.GetNumArgs(n)
-		if err != nil {
-			return err
-		}
-		for i := count; i > 0; i-- {
-			child, err := f.manager.GetArg(n, i-1)
-			if err != nil {
-				return err
-			}
-			stack = append(stack, child)
-		}
-	}
 	return nil
 }
 
@@ -447,8 +391,13 @@ func (f *SMTModelFinder) processSimpleMacros(proto *protomodel.ProtoModel, quant
 func (f *SMTModelFinder) processHintMacros(proto *protomodel.ProtoModel, quantifiers []ast.ASTHandle) ([]ast.ASTHandle, error) {
 	for {
 		plan, found, err := f.hint.planSubset(f.manager, quantifiers)
-		if err != nil || !found {
+		if err != nil {
 			return quantifiers, err
+		}
+		if !found {
+			// hint_solver::process fills new_qs with the non-candidates,
+			// then (search failed) every candidate: candidates move last.
+			return plan.remaining, nil
 		}
 		for _, pair := range plan.definitions {
 			if err = f.publishFunctionDefinition(pair.function, pair.definition, proto); err != nil {

@@ -2839,3 +2839,30 @@ restart where z3 finds it at level 1 (m_to_check / m_var_offset2row_id after
 restart and MBQI instance insertion); q_130: arith bound-axiom clause
 creation order (mk_bound_axioms / flush_bound_axioms); MBQI-heavy cases are
 5-20x slower than z3 (q_1070, q_1109 > 90 s).
+
+## Quantifier fuzzing round 2 (2026-11-13)
+
+FIXED: model_finder::process_auf order (per quantifier: its variable nodes,
+then each qinfo's process_auf; add_mono_exceptions inside mk_mono_proj;
+x_eq_y skips the second insert_avoid for one node) - fixes swapped k!N
+projection names; hint_solver returns non-candidates first; m_ng_decls only
+from the analyzer's process_app; context::propagate checks can_propagate()
+after m_qmanager->propagate (no extra loop re-running arith
+propagate_bounds); k-diseq pending constraints no longer skip the model
+check / force restarts (g3 hung where z3 takes 0.01 s) and Restart marks
+relevant with propagation; cache_generation / m_cached_generation ported
+(enodes recreated after backtracking keep their generation);
+is_var_and_ground / is_x_gle_t_atom temporaries released as in C++. Vectors
+qfuzz_auf_node_creation_order, qfuzz_cheap_eq_after_instance,
+qfuzz_k_diseq_restart_relevancy, qfuzz_hint_candidates_last,
+qfuzz_analyzer_ng_decls, qfuzz_cached_generation_reinit.
+APPROVED (user, 2026-11-13), in progress: port libstdc++ std::sort for
+theory_arith flush_bound_axioms (compare_atoms compares k only; ties take
+introsort order with > 16 atoms); fixes seeds 2119, 3063, 3110 (g3 never
+finishes; 0.14 s with the port), old 515/130. Experiment code and repros in
+the job tmp dir (stdsort/).
+Leads: q_3157 ~8x slower than z3 (same answer); cache_generation reinit set
+uses preserveLearnedClauses / learnedUnits instead of z3's
+m_clauses_to_reinit buckets; classifyAUF reimplements the analyzer's
+m_is_auf; a permanent activity_profile trace site would help (most z3 -tr
+tags create pretty-print ASTs and change z3's own behaviour).

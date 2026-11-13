@@ -428,16 +428,8 @@ func (s *SMTInternalizerState) PropagateCore() (bool, error) {
 				return false, nil
 			}
 		}
-		theoryProgress := false
-		for _, plugin := range s.theoryOrder {
-			if plugin.CanPropagate() {
-				theoryProgress = true
-				break
-			}
-		}
-		quantifierProgress := false
+		// m_qmanager->propagate(); its work is visible to can_propagate().
 		if s.quantifierManager != nil && s.quantifierManager.CanPropagate() {
-			quantifierProgress = true
 			if err = s.quantifierManager.Propagate(); err != nil {
 				return false, fmt.Errorf("quantifier propagation: %w", err)
 			}
@@ -445,8 +437,11 @@ func (s *SMTInternalizerState) PropagateCore() (bool, error) {
 		if s.inconsistent {
 			return false, nil
 		}
-		relevancyDone := s.relevancy == nil || !s.relevancy.CanPropagate()
-		if s.propagationHead == len(s.assignedLiterals) && len(s.atomQueue) == 0 && s.pendingHead == len(s.pending) && s.theoryEqualityHead == len(s.theoryEqualities) && s.theoryDisequalityHead == len(s.theoryDisequalities) && relevancyDone && !theoryProgress && !quantifierProgress && !dynamicAckProgress {
+		// if (!can_propagate()) return true: evaluated after the quantifier
+		// manager ran, so instances it internalized only cause another
+		// round when they left queued work (a theory with only newly
+		// created rows, for example, is not propagated again).
+		if !dynamicAckProgress && !s.canPropagate() {
 			return true, nil
 		}
 	}

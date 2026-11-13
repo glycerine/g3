@@ -46,6 +46,8 @@ type smtModelFinderAUFGraph struct {
 	// evalCache and evalRange are m_eval_cache[2] and m_eval_cache_range.
 	evalCache [2]map[ast.ASTHandle]ast.ASTHandle
 	evalRange []ast.ASTRef
+	// ngDecls is the analyzed quantifier_info's m_ng_decls (analyzer only).
+	ngDecls *ast.ObjMap
 }
 
 type smtModelFinderQInfoKind uint8
@@ -156,6 +158,9 @@ func (g *smtModelFinderAUFGraph) collectFVars(quantifier ast.ASTHandle) error {
 }
 
 func (g *smtModelFinderAUFGraph) build(quantifiers []ast.ASTHandle) error {
+	// model_finder::process_auf: quantifier_info::process_auf per
+	// quantifier, a node for each variable first, then every qinfo's
+	// process_auf in m_qinfo_vect order.
 	for _, quantifier := range quantifiers {
 		if err := g.finder.checkpoint(); err != nil {
 			return err
@@ -169,35 +174,25 @@ func (g *smtModelFinderAUFGraph) build(quantifiers []ast.ASTHandle) error {
 				return err
 			}
 		}
+		start := len(g.qorder)
 		if err := g.addQInfo(quantifier); err != nil {
 			return err
 		}
-	}
-	// All equalities must be processed before allocating root sets.
-	for _, info := range g.fvars {
-		if err := g.finder.checkpoint(); err != nil {
-			return err
-		}
-		argument, err := g.argument(info.function, info.position)
-		if err != nil {
-			return err
-		}
-		variable, err := g.uvar(info.quantifier, info.variable)
-		if err != nil {
-			return err
-		}
-		if info.offset.IsNull() {
-			if err = argument.merge(variable); err != nil {
+		for _, ref := range g.qorder[start:] {
+			switch ref.kind {
+			case qinfoFVar:
+				err = g.processFVar(g.fvars[ref.index])
+			case qinfoLiteral:
+				err = g.processLiteralAUF(g.literals[ref.index])
+			case qinfoSelect:
+				err = g.processSelectVar(g.selects[ref.index])
+			}
+			if err != nil {
 				return err
 			}
 		}
 	}
-	if err := g.processLiterals(); err != nil {
-		return err
-	}
-	if err := g.processSelectVars(); err != nil {
-		return err
-	}
+	// auf_solver::mk_instantiation_sets.
 	for _, node := range g.nodes {
 		if node.parent == nil {
 			if err := node.makeInstantiationSet(g.finder.manager); err != nil {
@@ -235,6 +230,23 @@ func (g *smtModelFinderAUFGraph) build(quantifiers []ast.ASTHandle) error {
 				}
 			}
 		}
+	}
+	return nil
+}
+
+// processFVar is f_var::process_auf (merge A_f_i with the variable node)
+// and f_var_plus_offset::process_auf (only create both nodes).
+func (g *smtModelFinderAUFGraph) processFVar(info smtModelFinderFVar) error {
+	argument, err := g.argument(info.function, info.position)
+	if err != nil {
+		return err
+	}
+	variable, err := g.uvar(info.quantifier, info.variable)
+	if err != nil {
+		return err
+	}
+	if info.offset.IsNull() {
+		return argument.merge(variable)
 	}
 	return nil
 }

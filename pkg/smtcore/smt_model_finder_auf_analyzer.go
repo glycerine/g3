@@ -29,6 +29,7 @@ func (q *smtModelFinderQInfo) close(m *ast.ASTManager) (result error) {
 
 func (f *SMTModelFinder) analyzeQInfos(quantifier ast.ASTHandle) error {
 	collector := newSMTModelFinderAUFGraph(f)
+	collector.ngDecls = f.nonGround[quantifier]
 	err := collector.collectFVars(quantifier)
 	info := &smtModelFinderQInfo{
 		fvars: collector.fvars, literals: collector.literals, selects: collector.selects, order: collector.qorder, refs: collector.refs,
@@ -221,6 +222,16 @@ func (g *smtModelFinderAUFGraph) processApp(quantifier, t ast.ASTHandle) error {
 	family, err := g.finder.manager.GetFamilyID(t)
 	if err != nil {
 		return err
+	}
+	// m_info->m_ng_decls.insert(t->get_decl()) for non-basic applications.
+	if g.ngDecls != nil && family != g.finder.manager.BasicFamilyID() {
+		declaration, err := g.finder.manager.GetDecl(t)
+		if err != nil {
+			return err
+		}
+		if err = g.ngDecls.Insert(declaration, [2]ast.ASTHandle{}); err != nil {
+			return err
+		}
 	}
 	if family == ast.NullFamilyID {
 		return g.processUApp(quantifier, t)

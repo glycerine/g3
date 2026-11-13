@@ -527,7 +527,10 @@ func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool,
 			k.lastFailure = SMTFailureTheory
 			return lbool.Undef, false, nil
 		case SMTFinalCheckContinue:
-			if manager := k.internalizer.quantifierManager; restartForModel || manager != nil && len(manager.modelFinder.pendingConstraints) != 0 {
+			// The model finder's k-diseq constraints wait for the next
+			// restart (model_finder::restart_eh); only check_model's
+			// RESTART restarts here.
+			if restartForModel {
 				if err = k.restartSearchAtBase(baseLevel, restarts, true); err != nil {
 					return lbool.Undef, false, err
 				}
@@ -593,11 +596,23 @@ func (k *SMTKernel) resolveSearchConflict(session *smtSearchSession) (bool, erro
 	if err != nil {
 		return false, fmt.Errorf("smt search retain lemma atoms: %w", err)
 	}
-	if err = k.internalizer.PopScopes(k.internalizer.scopeLevel - newScopeLevel); err != nil {
+	// Lemma literals recreated after backtracking keep their generation
+	// (cache_generation(num_lits, lits, new_lvl) when
+	// get_lemma_intern_lvl() > new_lvl; pop_scope_core keeps the cache).
+	if err = k.internalizer.cacheGenerationLiterals(resolution.Lemma, newScopeLevel); err != nil {
+		err = k.internalizer.disposeLemmaAtoms(retained, err)
+		return false, fmt.Errorf("smt search cache generation: %w", err)
+	}
+	k.internalizer.keepCachedGeneration = true
+	err = k.internalizer.PopScopes(k.internalizer.scopeLevel - newScopeLevel)
+	k.internalizer.keepCachedGeneration = false
+	if err != nil {
 		err = k.internalizer.disposeLemmaAtoms(retained, err)
 		return false, fmt.Errorf("smt search backjump: %w", err)
 	}
 	resolution.Lemma, err = k.internalizer.reinternalizeLemmaAtoms(retained)
+	// reset_cache_generation after the lemma's literals were rebuilt.
+	k.internalizer.resetCacheGeneration()
 	err = k.internalizer.disposeLemmaAtoms(retained, err)
 	if err != nil {
 		return false, fmt.Errorf("smt search reinternalize learned clause: %w", err)

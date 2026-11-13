@@ -183,9 +183,6 @@ func (g *smtModelFinderAUFGraph) extendModel() error {
 	if err = g.freezeUniverses(); err != nil {
 		return err
 	}
-	if err = g.addMonotoneExceptions(); err != nil {
-		return err
-	}
 	for _, node := range g.nodes {
 		if err := g.finder.checkpoint(); err != nil {
 			return err

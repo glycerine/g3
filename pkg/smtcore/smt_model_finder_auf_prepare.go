@@ -162,53 +162,59 @@ func (g *smtModelFinderAUFGraph) freezeUniverses() error {
 }
 
 func (g *smtModelFinderAUFGraph) addMonotoneExceptions() error {
-	m := g.finder.manager
 	for _, node := range g.nodes {
-		if node.parent != nil || !node.mono || len(node.exceptions) == 0 {
+		if node.parent != nil || !node.mono {
 			continue
 		}
-		bv, err := m.IsBitVectorSort(node.sort)
+		if err := g.addNodeMonotoneExceptions(node); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// addNodeMonotoneExceptions is auf_solver::add_mono_exceptions(n), run by
+// mk_mono_proj on each mono root as the projections are built.
+func (g *smtModelFinderAUFGraph) addNodeMonotoneExceptions(node *smtModelFinderAUFNode) error {
+	m := g.finder.manager
+	bv, err := m.IsBitVectorSort(node.sort)
+	if err != nil {
+		return err
+	}
+	if !bv {
+		family, err := m.GetFamilyID(node.sort)
 		if err != nil {
 			return err
 		}
-		if !bv {
-			family, err := m.GetFamilyID(node.sort)
-			if err != nil {
-				return err
-			}
-			arithmetic, err := m.ArithmeticFamilyID()
-			if err != nil {
-				return err
-			}
-			op, err := m.GetDeclKind(node.sort)
-			if err != nil {
-				return err
-			}
-			// Integer sort kind is one. Reals deliberately receive no
-			// neighboring exceptions in the source algorithm.
-			if family != arithmetic || op != 1 {
-				continue
-			}
-		}
-		one, err := m.MkDatalogNumeral(1, node.sort)
+		arithmetic, err := m.ArithmeticFamilyID()
 		if err != nil {
 			return err
 		}
-		if !bv {
-			// arith_rw.mk_sub(e, one, e_minus_1); arith_rw.mk_add(e, one,
-			// e_plus_1); insert e_plus_1, then e_minus_1.
-			if err := g.addIntegerMonotoneExceptions(node, one); err != nil {
-				return err
-			}
-			continue
+		op, err := m.GetDeclKind(node.sort)
+		if err != nil {
+			return err
 		}
-		for _, exception := range node.exceptions {
-			if err := g.insertShifted(nil, node, exception, one, 0, true); err != nil {
-				return err
-			}
-			if err := g.insertShifted(nil, node, exception, one, 0, false); err != nil {
-				return err
-			}
+		// Integer sort kind is one. Reals deliberately receive no
+		// neighboring exceptions in the source algorithm.
+		if family != arithmetic || op != 1 {
+			return nil
+		}
+	}
+	one, err := m.MkDatalogNumeral(1, node.sort)
+	if err != nil {
+		return err
+	}
+	if !bv {
+		// arith_rw.mk_sub(e, one, e_minus_1); arith_rw.mk_add(e, one,
+		// e_plus_1); insert e_plus_1, then e_minus_1.
+		return g.addIntegerMonotoneExceptions(node, one)
+	}
+	for _, exception := range node.exceptions {
+		if err := g.insertShifted(nil, node, exception, one, 0, true); err != nil {
+			return err
+		}
+		if err := g.insertShifted(nil, node, exception, one, 0, false); err != nil {
+			return err
 		}
 	}
 	return nil

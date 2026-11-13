@@ -237,7 +237,8 @@ func (f *SMTModelFinder) Restart() error {
 			return err
 		}
 		if variable := literal.Var(); variable >= 0 {
-			if err = f.state.context.SetRelevant(f.state.boolExpr[variable], true); err != nil {
+			// m_context->mark_as_relevant(l): mark, then propagate relevancy.
+			if err = f.state.markRelevant(f.state.boolExpr[variable]); err != nil {
 				return err
 			}
 		}

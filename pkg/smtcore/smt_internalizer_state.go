@@ -208,18 +208,24 @@ type SMTInternalizerState struct {
 	// booleanSeq and enodeSeq number each mk_bool_var and mk_enode in one
 	// sequence: the source records both on m_trail_stack, so a pop undoes
 	// them interleaved, newest first.
-	booleanSeq            []uint64
-	enodeSeq              []uint64
-	internalizeSeq        uint64
-	scopes                []smtInternalizerScope
-	pendingPop            *smtInternalizerPendingPop
-	popActive             bool
-	closing               bool
-	retiringEnode         *SMTEnode
-	retiringEnodeRoot     ast.ASTHandle
-	retiringBoolean       bool
-	retiringBooleanRoot   ast.ASTHandle
-	cachedGeneration      map[ast.ASTHandle]uint32
+	booleanSeq          []uint64
+	enodeSeq            []uint64
+	internalizeSeq      uint64
+	scopes              []smtInternalizerScope
+	pendingPop          *smtInternalizerPendingPop
+	popActive           bool
+	closing             bool
+	retiringEnode       *SMTEnode
+	retiringEnodeRoot   ast.ASTHandle
+	retiringBoolean     bool
+	retiringBooleanRoot ast.ASTHandle
+	cachedGeneration    map[ast.ASTHandle]uint32
+	// cacheGenerationVisited is m_cache_generation_visited.
+	cacheGenerationVisited map[ast.ASTHandle]struct{}
+	// keepCachedGeneration makes PopScopes act as pop_scope_core (no
+	// reset_cache_generation): resolve_conflict resets after rebuilding
+	// the lemma's literals.
+	keepCachedGeneration  bool
 	pending               []smtPendingEquality
 	pendingHead           int
 	equalityTrail         []smtEqualityUndo
@@ -1466,6 +1472,11 @@ func (s *SMTInternalizerState) PopScopes(count uint32) error {
 			if err != nil {
 				return err
 			}
+			// pop_scope_core: cache_generation(new_lvl) before any enode
+			// of the popped scopes is deleted.
+			if err = s.cacheGenerationForPop(pop.learned, uint32(pop.level)); err != nil {
+				return err
+			}
 		}
 		pop.stage++
 	}
@@ -1550,6 +1561,10 @@ func (s *SMTInternalizerState) PopScopes(count uint32) error {
 		return err
 	}
 	s.pendingPop = nil
+	if !s.keepCachedGeneration {
+		// pop_scope: pop_scope_core, then reset_cache_generation.
+		s.resetCacheGeneration()
+	}
 	return nil
 }
 

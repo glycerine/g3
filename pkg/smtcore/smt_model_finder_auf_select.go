@@ -107,35 +107,34 @@ func (g *smtModelFinderAUFGraph) arrayFunction(array ast.ASTHandle) (ast.ASTHand
 	return m.AsArrayFunction(value)
 }
 
-func (g *smtModelFinderAUFGraph) processSelectVars() error {
-	for _, info := range g.selects {
-		array, err := g.finder.manager.GetArg(info.selectTerm, 0)
+// processSelectVar is select_var::process_auf.
+func (g *smtModelFinderAUFGraph) processSelectVar(info smtModelFinderSelectVar) error {
+	array, err := g.finder.manager.GetArg(info.selectTerm, 0)
+	if err != nil {
+		return err
+	}
+	arrays, err := g.matchingArrays(array)
+	if err != nil {
+		return err
+	}
+	variable, err := g.uvar(info.quantifier, info.variable)
+	if err != nil {
+		return err
+	}
+	for _, node := range arrays {
+		function, err := g.arrayFunction(node.owner)
 		if err != nil {
 			return err
 		}
-		arrays, err := g.matchingArrays(array)
+		if function.IsNull() {
+			continue
+		}
+		argument, err := g.argument(function, info.position-1)
 		if err != nil {
 			return err
 		}
-		variable, err := g.uvar(info.quantifier, info.variable)
-		if err != nil {
+		if err = variable.merge(argument); err != nil {
 			return err
-		}
-		for _, node := range arrays {
-			function, err := g.arrayFunction(node.owner)
-			if err != nil {
-				return err
-			}
-			if function.IsNull() {
-				continue
-			}
-			argument, err := g.argument(function, info.position-1)
-			if err != nil {
-				return err
-			}
-			if err = variable.merge(argument); err != nil {
-				return err
-			}
 		}
 	}
 	return nil

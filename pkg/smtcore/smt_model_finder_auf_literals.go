@@ -2,7 +2,11 @@ package smtcore
 
 // Source: src/smt/smt_model_finder.cpp direct variable qinfo constraints.
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
 
 type smtModelFinderAUFLiteralKind uint8
 
@@ -65,11 +69,16 @@ func (g *smtModelFinderAUFGraph) processLiteral(quantifier, atom ast.ASTHandle, 
 		if err != nil {
 			return err
 		}
-		variable, bound, _, matched, err := g.variableAndGround(left, right)
+		variable, bound, boundRef, _, matched, err := g.variableAndGround(left, right)
 		if err != nil {
-			return err
+			return errors.Join(err, releaseOptionalRef(m, &boundRef))
 		}
 		if matched {
+			if boundRef != (ast.ASTRef{}) {
+				if bound, err = g.keep(boundRef); err != nil {
+					return err
+				}
+			}
 			row := smtModelFinderAUFLiteral{kind: aufEqualGround, quantifier: quantifier, first: variable, term: bound}
 			if negative {
 				row.kind = aufDisequalGround
@@ -101,48 +110,50 @@ func (g *smtModelFinderAUFGraph) processLiteral(quantifier, atom ast.ASTHandle, 
 	return g.processApp(quantifier, atom)
 }
 
-func (g *smtModelFinderAUFGraph) processLiterals() error {
-	for _, info := range g.literals {
-		first, err := g.uvar(info.quantifier, info.first)
+// processLiteral is one literal qinfo's process_auf (x_eq_y, x_neq_y,
+// x_leq_y, x_sleq_y, x_eq_t, x_neq_t, x_gle_t).
+func (g *smtModelFinderAUFGraph) processLiteralAUF(info smtModelFinderAUFLiteral) error {
+	first, err := g.uvar(info.quantifier, info.first)
+	if err != nil {
+		return err
+	}
+	switch info.kind {
+	case aufEqualVariables, aufDisequalVariables, aufOrderedVariables, aufSignedOrderedVariables:
+		second, err := g.uvar(info.quantifier, info.second)
 		if err != nil {
 			return err
 		}
-		switch info.kind {
-		case aufEqualVariables, aufDisequalVariables, aufOrderedVariables, aufSignedOrderedVariables:
-			second, err := g.uvar(info.quantifier, info.second)
-			if err != nil {
+		if info.kind != aufEqualVariables {
+			if err = first.merge(second); err != nil {
 				return err
 			}
-			if info.kind != aufEqualVariables {
-				if err = first.merge(second); err != nil {
+			if info.kind == aufOrderedVariables || info.kind == aufSignedOrderedVariables {
+				if err = first.setMono(); err != nil {
 					return err
 				}
-				if info.kind == aufOrderedVariables || info.kind == aufSignedOrderedVariables {
-					if err = first.setMono(); err != nil {
-						return err
-					}
-				}
-				if info.kind == aufSignedOrderedVariables {
-					if err = first.setSigned(); err != nil {
-						return err
-					}
-				}
-			} else {
-				if err = first.insertAvoid(second); err != nil {
+			}
+			if info.kind == aufSignedOrderedVariables {
+				if err = first.setSigned(); err != nil {
 					return err
 				}
+			}
+		} else {
+			if err = first.insertAvoid(second); err != nil {
+				return err
+			}
+			if first != second {
 				if err = second.insertAvoid(first); err != nil {
 					return err
 				}
 			}
-		case aufEqualGround:
-			if err = first.insertException(info.term); err != nil {
-				return err
-			}
-		case aufOrderedGround:
-			if err = first.setMono(); err != nil {
-				return err
-			}
+		}
+	case aufEqualGround:
+		if err = first.insertException(info.term); err != nil {
+			return err
+		}
+	case aufOrderedGround:
+		if err = first.setMono(); err != nil {
+			return err
 		}
 	}
 	return nil

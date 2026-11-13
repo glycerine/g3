@@ -101,6 +101,9 @@ func (g *smtModelFinderAUFGraph) makeMonotoneProjection(node *smtModelFinderAUFN
 	if node == nil || node.parent != nil || !node.mono || node.set == nil || g.model == nil {
 		return ast.ErrASTDomain
 	}
+	if err := g.addNodeMonotoneExceptions(node); err != nil {
+		return err
+	}
 	values, err := g.sortedProjectionValues(node)
 	if err != nil || len(values) == 0 {
 		return err

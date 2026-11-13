@@ -9,35 +9,40 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func (g *smtModelFinderAUFGraph) normalizeGround(term ast.ASTHandle) (ast.ASTHandle, error) {
+func (g *smtModelFinderAUFGraph) normalizeGroundRef(term ast.ASTHandle) (ast.ASTRef, error) {
 	m := g.finder.manager
 	ref, err := m.NewRef(ast.ASTHandle{})
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTRef{}, err
 	}
 	manager := g.finder.state.quantifierManager
 	if manager == nil || manager.rewriter == nil {
-		return ast.ASTHandle{}, errors.Join(ast.ErrASTHandle, m.DelRef(&ref))
+		return ast.ASTRef{}, errors.Join(ast.ErrASTHandle, m.DelRef(&ref))
 	}
 	if err = manager.rewriter.Rewrite(term, ref); err != nil {
-		return ast.ASTHandle{}, errors.Join(err, m.DelRef(&ref))
+		return ast.ASTRef{}, errors.Join(err, m.DelRef(&ref))
 	}
-	g.refs = append(g.refs, ref)
-	return m.RefGet(ref)
+	return ref, nil
 }
 
-// mutilArith is macro_util::mk_add/mk_sub(t1, t2, r): one step of the
+// keep moves an owned result into g.refs (a qinfo's term) and returns it.
+func (g *smtModelFinderAUFGraph) keep(ref ast.ASTRef) (ast.ASTHandle, error) {
+	g.refs = append(g.refs, ref)
+	return g.finder.manager.RefGet(ref)
+}
+
+// mutilArithRef is macro_util::mk_add/mk_sub(t1, t2, r): one step of the
 // arithmetic rewriter (m_arith_rw), not rewritten further. Bit-vector
-// operands keep the normalizing path. The result is held in g.refs.
-func (g *smtModelFinderAUFGraph) mutilArith(t1, t2 ast.ASTHandle, plus bool) (ast.ASTHandle, error) {
+// operands keep the normalizing path. The caller owns the result.
+func (g *smtModelFinderAUFGraph) mutilArithRef(t1, t2 ast.ASTHandle, plus bool) (ast.ASTRef, error) {
 	m := g.finder.manager
 	sort, err := m.GetSort(t1)
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTRef{}, err
 	}
 	bv, err := m.IsBitVectorSort(sort)
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTRef{}, err
 	}
 	if bv {
 		var raw ast.ASTHandle
@@ -47,13 +52,13 @@ func (g *smtModelFinderAUFGraph) mutilArith(t1, t2 ast.ASTHandle, plus bool) (as
 			raw, err = g.finder.macroUtil.MkSub(t1, t2)
 		}
 		if err != nil {
-			return ast.ASTHandle{}, err
+			return ast.ASTRef{}, err
 		}
-		return g.normalizeGround(raw)
+		return g.normalizeGroundRef(raw)
 	}
 	arith, err := g.localArithRewriter()
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTRef{}, err
 	}
 	var ref ast.ASTRef
 	if plus {
@@ -65,66 +70,73 @@ func (g *smtModelFinderAUFGraph) mutilArith(t1, t2 ast.ASTHandle, plus bool) (as
 		if ref != (ast.ASTRef{}) {
 			err = errors.Join(err, m.DelRef(&ref))
 		}
-		return ast.ASTHandle{}, err
+		return ast.ASTRef{}, err
 	}
-	g.refs = append(g.refs, ref)
-	return m.RefGet(ref)
+	return ref, nil
 }
 
 // variableAndGround mirrors is_var_and_ground, including -x+k and
-// occurrences on either side. The returned variable is a de Bruijn index.
-func (g *smtModelFinderAUFGraph) variableAndGround(left, right ast.ASTHandle) (variable uint32, bound ast.ASTHandle, inverse, matched bool, result error) {
+// occurrences on either side. The returned variable is a de Bruijn index;
+// the caller owns boundRef (t), which is unset when bound is one of the
+// atom's own arguments. The local tmp (the var-plus-ground offset) dies
+// on return, as in the source.
+func (g *smtModelFinderAUFGraph) variableAndGround(left, right ast.ASTHandle) (variable uint32, bound ast.ASTHandle, boundRef ast.ASTRef, inverse, matched bool, result error) {
 	m := g.finder.manager
 	for _, pair := range [][2]ast.ASTHandle{{left, right}, {right, left}} {
 		kind, err := m.GetKind(pair[0])
 		if err != nil {
-			return 0, bound, false, false, err
+			return 0, bound, boundRef, false, false, err
 		}
 		ground, err := m.IsGround(pair[1])
 		if err != nil {
-			return 0, bound, false, false, err
+			return 0, bound, boundRef, false, false, err
 		}
 		if kind == ast.ASTVar && ground {
 			index, err := m.GetVarIndex(pair[0])
-			return index, pair[1], false, true, err
+			return index, pair[1], boundRef, false, true, err
 		}
 	}
+	// expr_ref tmp: is_var_plus_ground(lhs, inv, v, tmp) && is_ground(rhs),
+	// then the same with the sides swapped.
+	tmp, err := m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return 0, bound, boundRef, false, false, err
+	}
+	defer func() { result = errors.Join(result, m.DelRef(&tmp)) }()
 	for _, pair := range [][2]ast.ASTHandle{{left, right}, {right, left}} {
+		inv, v, found, err := g.finder.macroUtil.IsVarPlusGround(pair[0], tmp)
+		if err != nil {
+			return 0, bound, boundRef, false, false, err
+		}
+		if !found {
+			continue
+		}
 		ground, err := m.IsGround(pair[1])
 		if err != nil {
-			return 0, bound, false, false, err
+			return 0, bound, boundRef, false, false, err
 		}
 		if !ground {
 			continue
 		}
-		offsetRef, err := m.NewRef(ast.ASTHandle{})
+		offset, err := m.RefGet(tmp)
 		if err != nil {
-			return 0, bound, false, false, err
-		}
-		inv, v, found, err := g.finder.macroUtil.IsVarPlusGround(pair[0], offsetRef)
-		if err != nil || !found {
-			if err = errors.Join(err, m.DelRef(&offsetRef)); err != nil {
-				return 0, bound, false, false, err
-			}
-			continue
-		}
-		g.refs = append(g.refs, offsetRef)
-		offset, err := m.RefGet(offsetRef)
-		if err != nil {
-			return 0, bound, false, false, err
+			return 0, bound, boundRef, false, false, err
 		}
 		if inv {
-			bound, err = g.mutilArith(offset, pair[1], false)
+			boundRef, err = g.mutilArithRef(offset, pair[1], false)
 		} else {
-			bound, err = g.mutilArith(pair[1], offset, false)
+			boundRef, err = g.mutilArithRef(pair[1], offset, false)
 		}
 		if err != nil {
-			return 0, bound, false, false, err
+			return 0, bound, ast.ASTRef{}, false, false, err
+		}
+		if bound, err = m.RefGet(boundRef); err != nil {
+			return 0, bound, boundRef, false, false, err
 		}
 		index, err := m.GetVarIndex(v)
-		return index, bound, inv, true, err
+		return index, bound, boundRef, inv, true, err
 	}
-	return 0, bound, false, false, nil
+	return 0, bound, boundRef, false, false, nil
 }
 
 func (g *smtModelFinderAUFGraph) variableDifference(term ast.ASTHandle) (first, second uint32, matched bool, result error) {
@@ -240,31 +252,46 @@ func (g *smtModelFinderAUFGraph) collectComparison(quantifier, atom ast.ASTHandl
 			return nil
 		}
 	}
-	variable, bound, inverse, matched, err := g.variableAndGround(left, right)
+	variable, bound, boundRef, inverse, matched, err := g.variableAndGround(left, right)
 	if err != nil || !matched {
-		return err
+		return errors.Join(err, releaseOptionalRef(m, &boundRef))
 	}
 	if !negative {
+		// is_x_gle_t_atom: t = tmp +/- 1; tmp dies on return.
 		le, err := g.finder.macroUtil.IsLE(atom)
 		if err != nil {
-			return err
+			return errors.Join(err, releaseOptionalRef(m, &boundRef))
 		}
 		if inverse {
 			le = !le
 		}
 		sort, err := m.GetSort(bound)
 		if err != nil {
-			return err
+			return errors.Join(err, releaseOptionalRef(m, &boundRef))
 		}
 		one, err := m.MkDatalogNumeral(1, sort)
 		if err != nil {
+			return errors.Join(err, releaseOptionalRef(m, &boundRef))
+		}
+		ref, err := g.mutilArithRef(bound, one, le)
+		if err = errors.Join(err, releaseOptionalRef(m, &boundRef)); err != nil {
+			return errors.Join(err, releaseOptionalRef(m, &ref))
+		}
+		if bound, err = g.keep(ref); err != nil {
 			return err
 		}
-		bound, err = g.mutilArith(bound, one, le)
-		if err != nil {
+	} else if boundRef != (ast.ASTRef{}) {
+		if bound, err = g.keep(boundRef); err != nil {
 			return err
 		}
 	}
 	g.appendLiteral(smtModelFinderAUFLiteral{kind: aufOrderedGround, quantifier: quantifier, first: variable, term: bound})
 	return nil
+}
+
+func releaseOptionalRef(m *ast.ASTManager, ref *ast.ASTRef) error {
+	if *ref == (ast.ASTRef{}) {
+		return nil
+	}
+	return m.DelRef(ref)
 }

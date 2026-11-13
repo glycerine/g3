@@ -580,9 +580,6 @@ func (q *SMTQuantifierManager) CheckModel() (SMTQuantifierModelCheckResult, erro
 		if err != nil {
 			return SMTQuantifierModelUnknown, err
 		}
-		if len(q.modelFinder.pendingConstraints) != 0 {
-			return SMTQuantifierModelRestart, q.retireCandidate(generator)
-		}
 		if err = q.modelChecker.SetCandidateTerms(generator.rootValues, generator.rootValuesInTableOrder()); err != nil {
 			return SMTQuantifierModelUnknown, errors.Join(err, generator.Close())
 		}
