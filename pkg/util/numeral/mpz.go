@@ -1013,8 +1013,18 @@ func (m *IntegerManager) copyFromOwnerWithPhysicalFloatCaller(dst *Int, sourceMa
 	}
 	m.PublishCell(ref)
 	m.ResizeCell(ref, source.Size)
+	// Digit/writeDigit per limb re-read both cell descriptors from their
+	// slabs on every iteration; neither changes inside this loop (the resize
+	// is above), so read them once. Same words, same order.
+	srcCell, dstCell := sourceManager.Cell(src.Cell), m.Cell(ref)
 	for i := uint32(0); i < source.Size; i++ {
-		m.writeDigit(ref, i, sourceManager.Digit(src.Cell, i))
+		v, e := srcCell.Backing.ReadWord(sourceManager.Allocator, 8+4*uint64(i))
+		if e != nil {
+			panic(e)
+		}
+		if e := dstCell.Backing.writeWord(m.Allocator, 8+4*uint64(i), v); e != nil {
+			panic(e)
+		}
 	}
 	dst.Cell = ref
 	if e := receiver.publishCell(dst); e != nil {
