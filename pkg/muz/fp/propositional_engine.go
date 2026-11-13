@@ -116,34 +116,34 @@ type PropositionalEngine struct {
 	// clpContext is the context whose m_rule_set a CLP query clone
 	// transforms: clp::imp::query runs mk_query and
 	// apply_default_transformation on the context's own rules.
-	clpContext     *PropositionalEngine
+	clpContext *PropositionalEngine
 	// rulesShare counts the engines (a context and its query clones) that
 	// use rules, the context's one rule manager; the last closes it.
-	rulesShare *ruleManagerShare
-	ruleProperties               *base.RuleProperties
-	binder                       *base.VariableBinder
-	relations                    *rel.RelationManager
-	external                     *rel.ExternalRelationPlugin
-	externalSimilarity           *externalSimilarityQueryScope
-	guard                        *astrewriter.TheoryRewriter
-	pdrTheory                    *astrewriter.TheoryRewriter // borrowed original fixedpoint rewriter in query clones
-	unboundCooperation           *cooperate.Cooperation
-	unboundLite                  *qe.Lite
-	unboundLiteDirty             bool
-	background                   ast.ASTRef
-	pendingBackground            ast.ASTRef
-	params                       *uparams.ParamsContext
-	globals                      *uparams.GlobalParamsService
-	backend                      string
-	engineSelectionSet           bool
-	datalogDefaultTable          string
-	datalogConversions           []hornModelConversion
-	engineInstantiated           bool
-	duality                      *muzduality.Backend
-	dualityCooperation           *cooperate.Cooperation
-	dualityMBQI                  bool
-	pdr                          *muzpdr.Context
-	pdrRules                     *base.RuleSet
+	rulesShare          *ruleManagerShare
+	ruleProperties      *base.RuleProperties
+	binder              *base.VariableBinder
+	relations           *rel.RelationManager
+	external            *rel.ExternalRelationPlugin
+	externalSimilarity  *externalSimilarityQueryScope
+	guard               *astrewriter.TheoryRewriter
+	pdrTheory           *astrewriter.TheoryRewriter // borrowed original fixedpoint rewriter in query clones
+	unboundCooperation  *cooperate.Cooperation
+	unboundLite         *qe.Lite
+	unboundLiteDirty    bool
+	background          ast.ASTRef
+	pendingBackground   ast.ASTRef
+	params              *uparams.ParamsContext
+	globals             *uparams.GlobalParamsService
+	backend             string
+	engineSelectionSet  bool
+	datalogDefaultTable string
+	datalogConversions  []hornModelConversion
+	engineInstantiated  bool
+	duality             *muzduality.Backend
+	dualityCooperation  *cooperate.Cooperation
+	dualityMBQI         bool
+	pdr                 *muzpdr.Context
+	pdrRules            *base.RuleSet
 	// pdrRetiredRules is m_pdr_rules after a parameter update rebuilt the
 	// context: it is released when the next query replaces it.
 	pdrRetiredRules *base.RuleSet

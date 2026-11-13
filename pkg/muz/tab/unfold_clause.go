@@ -16,7 +16,7 @@ type unfoldedClause struct {
 	// members is the engine's unifier: it owns bindings and receives
 	// rename when the clause closes.
 	members *unifierMembers
-	maxVars          uint32
+	maxVars uint32
 }
 
 func (u *unfoldedClause) Close() error {

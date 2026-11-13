@@ -30,7 +30,7 @@ type tabSearch struct {
 	grounded *groundClause
 	// unifier is imp::m_unifier when there is no session.
 	unifier *unifierMembers
-	closed   bool
+	closed  bool
 }
 
 // groundedSlot is the source index's m_head/m_preds/m_precond: a member of

@@ -58,6 +58,7 @@ func (c *smtBVExpressionCall) hold(h ast.ASTHandle, err error) (ast.ASTHandle, e
 	}
 	return h, err
 }
+
 // releaseArguments runs the destructors of the get_arg_bits locals
 // (arg1_bits, arg2_bits, ...): reverse declaration order, each vector
 // front to back. Refs held before the first get_arg_bits stay for close.
