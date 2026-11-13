@@ -2680,3 +2680,30 @@ missing rewriter or rule-transformer canceled() checks); coverage check for
 karr datalog machinery (fp/datalog_karr_*) and errRetryUnslicedProof
 before deleting; qlinear eval_q kept as g3's corrected version (the
 source path crashes z3 4.7.1: "Failed to verify: unifier.unify_rules").
+
+## smtcore/qe ordering leads (2026-11-12, late)
+
+FIXED: qe BoolAtomIndex borrowed atoms instead of taking references (C++
+atom_set is obj_hashtable<app> of raw pointers); the extra refs made
+must_cache true and changed the asserted rewriter cache contents/release
+order. Bit2Int.rewrite is a faithful for_each_ast traversal (last argument
+reduced first; patterns, no-patterns, body; separate visited mark).
+arith_plugin::subst's get_cache re-adds the branch's variables (duplicate
+add_var, confirmed with gdb), so z3 eliminates them twice (replayBranch).
+arith_project_plugin's pinned literals released front to back before
+tids/mbo/eval. Vectors qe_int_forall_exists_atom_cache,
+qe_int_mod2_cooper_check_sat, qe_int_mod3_bit2int_check_sat,
+qe_int_mod3_bit2int_apply, qsat_exists_forall_real_pinned,
+qsat_exists_forall_int_pinned.
+OPEN (worker): asserted_formulas::assert_expr overwrites `expr_ref r(e)`
+with the rewriter result, so an unowned input dies right after rewriting.
+Porting that broke three muz/fp PDR tests (callers that assert unowned
+expressions and use them afterwards: TestPDRExpressionQueryUsesPrequeryCoverOwner,
+TestPDRCoveredArithmeticAdditionResetsRawCover,
+TestPDRTransferredContextAssertionCleanupFailureAndRetry), so it was held
+back; vector qe_rec_int_forall_implies (needs it; diverges at line 606
+without it) is held back too.
+Leads: (apply qe)(check-sat) mod 2 probe diverges at line 7571425 (free-list
+order from qe tactic cleanup: quantElimPlugin.Close -> SolverContext.Close ->
+ArithmeticPlugin.Close vs C++ member destruction order); MBP
+linearize/maximize temporaries in the shared hold list.

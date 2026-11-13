@@ -61,7 +61,12 @@ func (p *ArithmeticPlugin) Substitute(variable *ast.ContainsApp, value *numeral.
 	if err != nil {
 		return err
 	}
-	return p.manager.SetRef(formula, result)
+	if err = p.manager.SetRef(formula, result); err != nil {
+		return err
+	}
+	// get_cache: after result = bf.m_result, add_var(v, false) republishes
+	// each variable the branch introduced, so subst adds them again.
+	return p.replayBranch(b)
 }
 
 func (p *ArithmeticPlugin) Project(variable *ast.ContainsApp, value *numeral.OwnedRational, formula ast.ASTRef) (bool, error) {

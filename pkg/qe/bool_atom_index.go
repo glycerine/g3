@@ -9,15 +9,16 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-// BoolAtomIndex owns the positive and negative atom roots supplied by the
-// enclosing NNF context. Duplicate atoms retain only one source-set entry.
+// BoolAtomIndex is the source atom_set pair (obj_hashtable<app>): it
+// borrows the positive and negative atoms of the enclosing NNF formula and
+// takes no references, so an atom's reference count (and the rewriter's
+// must_cache decisions that read it) matches the source. The map values are
+// always the zero ASTRef. Duplicate atoms retain only one source-set entry.
 type BoolAtomIndex struct {
 	self               *BoolAtomIndex
 	manager            *ast.ASTManager
 	positive, negative map[ast.ASTHandle]ast.ASTRef
-	// order lists the held atoms in insertion order (positive, then
-	// negative); the source atom_set holds raw pointers, so the Go-only
-	// references are released deterministically in this order.
+	// order lists the atoms in insertion order (positive, then negative).
 	order     []ast.ASTHandle
 	orderSets []map[ast.ASTHandle]ast.ASTRef
 	// orderPositive marks the order entries of the positive set.
@@ -70,18 +71,14 @@ func (i *BoolAtomIndex) insert(target map[ast.ASTHandle]ast.ASTRef, atoms []ast.
 		if kind, err := i.manager.GetKind(atom); err != nil || kind != ast.ASTApp {
 			return errors.Join(ast.ErrASTDomain, err)
 		}
-		ref, err := i.manager.NewRef(atom)
-		if err != nil {
-			return err
-		}
-		target[atom] = ref
+		target[atom] = ast.ASTRef{}
 		i.order = append(i.order, atom)
 		i.orderSets = append(i.orderSets, target)
 	}
 	return nil
 }
 
-func (i *BoolAtomIndex) Close() (result error) {
+func (i *BoolAtomIndex) Close() error {
 	if i == nil || i.self != i {
 		return ast.ErrASTHandle
 	}
@@ -89,18 +86,8 @@ func (i *BoolAtomIndex) Close() (result error) {
 		return nil
 	}
 	for k, atom := range i.order {
-		set := i.orderSets[k]
-		ref, held := set[atom]
-		if !held {
-			continue
-		}
-		result = errors.Join(result, i.manager.DelRef(&ref))
-		if result == nil {
-			delete(set, atom)
-		}
+		delete(i.orderSets[k], atom)
 	}
-	if result == nil {
-		i.closed = true
-	}
-	return result
+	i.closed = true
+	return nil
 }

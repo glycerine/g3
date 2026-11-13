@@ -71,12 +71,13 @@ func TestArithmeticCooperDirectAndNegatedDivisibility(t *testing.T) {
 			if found, cause := f.contains.Check(h); cause != nil || found {
 				t.Fatal("Cooper result retained eliminated variable", found, cause)
 			}
+			// assign publishes z_bv; subst's get_cache publishes it again.
 			fresh, constraints := releaseArithmeticCooperOutputs(t, f)
-			if len(fresh) != 1 || constraints != 4 {
+			if len(fresh) != 2 || constraints != 4 {
 				t.Fatal("Cooper outputs", len(fresh), constraints)
 			}
-			if fresh[0] != 3 {
-				t.Fatal("residue bit-vector width", fresh[0])
+			if fresh[0] != 3 || fresh[1] != 3 {
+				t.Fatal("residue bit-vector widths", fresh)
 			}
 			again, err := f.plugin.TakeFreshVariables()
 			pluginMust(t, err)
@@ -108,12 +109,15 @@ func TestArithmeticCooperNestedModuloRoutesResidues(t *testing.T) {
 	if found, cause := f.contains.Check(h); cause != nil || found {
 		t.Fatal("nested Cooper result retained eliminated variable", found, cause)
 	}
+	// assign publishes z1_bv and z_bv; subst's get_cache publishes both again.
 	fresh, constraints := releaseArithmeticCooperOutputs(t, f)
-	if len(fresh) != 2 || constraints != 4 {
+	if len(fresh) != 4 || constraints != 4 {
 		t.Fatal("nested Cooper outputs", len(fresh), constraints)
 	}
-	if fresh[0] != 3 || fresh[1] != 3 {
-		t.Fatal("nested residue bit-vector widths", fresh)
+	for _, width := range fresh {
+		if width != 3 {
+			t.Fatal("nested residue bit-vector widths", fresh)
+		}
 	}
 }
 

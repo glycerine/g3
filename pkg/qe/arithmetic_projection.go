@@ -30,8 +30,11 @@ type ArithmeticProjection struct {
 	closed  bool
 }
 type arithmeticProjectionCall struct {
-	owner     *ArithmeticProjection
-	refs      []ast.ASTRef
+	owner *ArithmeticProjection
+	refs  []ast.ASTRef
+	// pinned is operator()'s expr_ref_vector of linearized literals; its
+	// destructor releases them front to back, before tids, mbo and eval.
+	pinned    []ast.ASTRef
 	vectors   []*[]ast.ASTRef
 	evaluator *model.ModelEvaluator
 	mark      *ast.ASTExprMark
@@ -181,6 +184,15 @@ func (c *arithmeticProjectionCall) close() error {
 			return err
 		}
 		c.failures = c.failures[:i]
+	}
+	for len(c.pinned) != 0 {
+		if c.pinned[0] != (ast.ASTRef{}) {
+			if err := c.owner.manager.DelRef(&c.pinned[0]); err != nil {
+				c.retain(err)
+				return err
+			}
+		}
+		c.pinned = c.pinned[1:]
 	}
 	if c.evaluator != nil {
 		if err := c.evaluator.Close(); err != nil {

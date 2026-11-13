@@ -103,9 +103,11 @@ func (c *arithmeticProjectionCall) project(vars, forms *[]ast.ASTRef) error {
 			}
 			j++
 		} else {
-			if _, err = c.hold(h, nil); err != nil {
+			pin, err := m.NewRef(h)
+			if err != nil {
 				return err
 			}
+			c.pinned = append(c.pinned, pin)
 			if err = p.emit("operator()", 311, func(w io.Writer) error {
 				if e := writeExpression(m, p.config, w, h); e != nil {
 					return e

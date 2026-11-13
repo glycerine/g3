@@ -283,11 +283,23 @@ func (b *Bit2Int) rewriteMod(c *bit2IntCall, dividend, divisor ast.ASTHandle) (a
 	return value, err == nil, err
 }
 
-type bit2IntFrame struct {
-	term     ast.ASTHandle
-	expanded bool
+// pushBit2IntUnvisited is for_each_ast_args: it pushes, in argument order,
+// every term not yet visited and reports whether all were visited.
+func pushBit2IntUnvisited(stack *[]ast.ASTHandle, visited map[ast.ASTHandle]struct{}, terms []ast.ASTHandle) bool {
+	all := true
+	for _, t := range terms {
+		if _, seen := visited[t]; !seen {
+			*stack = append(*stack, t)
+			all = false
+		}
+	}
+	return all
 }
 
+// rewrite is bit2int::operator(): for_each_ast(expr_reduce, m) over a fresh
+// ast_mark. Unvisited arguments are pushed in order, so the last argument
+// is reduced first; a quantifier visits its patterns, then its no-patterns,
+// then its body. Sorts and declarations have no expr_reduce action.
 func (b *Bit2Int) rewrite(root ast.ASTHandle, out ast.ASTRef) (result error) {
 	if err := b.open(); err != nil {
 		return err
@@ -295,62 +307,86 @@ func (b *Bit2Int) rewrite(root ast.ASTHandle, out ast.ASTRef) (result error) {
 	if err := b.flushCache(); err != nil {
 		return err
 	}
-	stack := []bit2IntFrame{{term: root}}
+	m := b.manager
+	visited := make(map[ast.ASTHandle]struct{})
+	stack := []ast.ASTHandle{root}
+	var terms []ast.ASTHandle
+	collect := func(count uint32, get func(uint32) (ast.ASTHandle, error)) error {
+		terms = terms[:0]
+		for i := uint32(0); i < count; i++ {
+			t, err := get(i)
+			if err != nil {
+				return err
+			}
+			terms = append(terms, t)
+		}
+		return nil
+	}
 	for len(stack) != 0 {
-		last := len(stack) - 1
-		frame := stack[last]
-		stack = stack[:last]
-		if _, found, err := b.cached(frame.term); err != nil {
-			return err
-		} else if found {
+		curr := stack[len(stack)-1]
+		if _, seen := visited[curr]; seen {
+			stack = stack[:len(stack)-1]
 			continue
 		}
-		kind, err := b.manager.GetKind(frame.term)
+		kind, err := m.GetKind(curr)
 		if err != nil {
 			return err
 		}
-		if !frame.expanded {
-			switch kind {
-			case ast.ASTVar:
-				if err = b.cacheResult(frame.term, frame.term); err != nil {
-					return err
-				}
-				continue
-			case ast.ASTApp:
-				stack = append(stack, bit2IntFrame{term: frame.term, expanded: true})
-				count, err := b.manager.GetNumArgs(frame.term)
-				if err != nil {
-					return err
-				}
-				for i := count; i > 0; {
-					i--
-					arg, err := b.manager.GetArg(frame.term, i)
-					if err != nil {
-						return err
-					}
-					stack = append(stack, bit2IntFrame{term: arg})
-				}
-				continue
-			case ast.ASTQuantifier:
-				stack = append(stack, bit2IntFrame{term: frame.term, expanded: true})
-				body, err := b.manager.GetQuantifierBody(frame.term)
-				if err != nil {
-					return err
-				}
-				stack = append(stack, bit2IntFrame{term: body})
-				continue
-			default:
-				return ast.ErrASTDomain
+		switch kind {
+		case ast.ASTVar:
+			if err = b.cacheResult(curr, curr); err != nil {
+				return err
 			}
+		case ast.ASTApp:
+			count, err := m.GetNumArgs(curr)
+			if err != nil {
+				return err
+			}
+			if err = collect(count, func(i uint32) (ast.ASTHandle, error) { return m.GetArg(curr, i) }); err != nil {
+				return err
+			}
+			if !pushBit2IntUnvisited(&stack, visited, terms) {
+				continue
+			}
+			if err = b.visitApplication(curr); err != nil {
+				return err
+			}
+		case ast.ASTQuantifier:
+			count, err := m.GetNumPatterns(curr)
+			if err != nil {
+				return err
+			}
+			if err = collect(count, func(i uint32) (ast.ASTHandle, error) { return m.GetPattern(curr, i) }); err != nil {
+				return err
+			}
+			if !pushBit2IntUnvisited(&stack, visited, terms) {
+				continue
+			}
+			if count, err = m.GetNumNoPatterns(curr); err != nil {
+				return err
+			}
+			if err = collect(count, func(i uint32) (ast.ASTHandle, error) { return m.GetNoPattern(curr, i) }); err != nil {
+				return err
+			}
+			if !pushBit2IntUnvisited(&stack, visited, terms) {
+				continue
+			}
+			body, err := m.GetQuantifierBody(curr)
+			if err != nil {
+				return err
+			}
+			if _, seen := visited[body]; !seen {
+				stack = append(stack, body)
+				continue
+			}
+			if err = b.visitQuantifier(curr); err != nil {
+				return err
+			}
+		default:
+			return ast.ErrASTDomain
 		}
-		if kind == ast.ASTApp {
-			err = b.visitApplication(frame.term)
-		} else {
-			err = b.visitQuantifier(frame.term)
-		}
-		if err != nil {
-			return err
-		}
+		visited[curr] = struct{}{}
+		stack = stack[:len(stack)-1]
 	}
 	value, found, err := b.cached(root)
 	if err != nil {
