@@ -1441,27 +1441,28 @@ func (t *SMTTheoryArith) mkBoundAxioms(a1 *smtArithmeticAtom) error {
 		t.newAtoms = append(t.newAtoms, a1)
 		return nil
 	}
-	k1, kind1 := &a1.threshold, a1.atomKind
+	kind1 := a1.atomKind
 	end := len(occs)
 	loInf, loSup, hiInf, hiSup := end, end, end, end
 	for i, a2 := range occs {
-		k2, kind2 := &a2.threshold, a2.atomKind
-		if k1.cmp(k2) == 0 && kind1 == kind2 {
+		kind2 := a2.atomKind
+		c21 := a2.thresholdCmp(a1)
+		if c21 == 0 && kind1 == kind2 {
 			continue
 		}
 		if kind2 == smtArithmeticLowerAtom {
-			if k2.cmp(k1) < 0 {
-				if loInf == end || k2.cmp(&occs[loInf].threshold) > 0 {
+			if c21 < 0 {
+				if loInf == end || a2.thresholdCmp(occs[loInf]) > 0 {
 					loInf = i
 				}
-			} else if loSup == end || k2.cmp(&occs[loSup].threshold) < 0 {
+			} else if loSup == end || a2.thresholdCmp(occs[loSup]) < 0 {
 				loSup = i
 			}
-		} else if k2.cmp(k1) < 0 {
-			if hiInf == end || k2.cmp(&occs[hiInf].threshold) > 0 {
+		} else if c21 < 0 {
+			if hiInf == end || a2.thresholdCmp(occs[hiInf]) > 0 {
 				hiInf = i
 			}
-		} else if hiSup == end || k2.cmp(&occs[hiSup].threshold) < 0 {
+		} else if hiSup == end || a2.thresholdCmp(occs[hiSup]) < 0 {
 			hiSup = i
 		}
 	}

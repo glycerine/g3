@@ -41,13 +41,28 @@ func (v *smtArithmeticValue) sub(other *smtArithmeticValue) {
 	v.infinitesimal.Sub(&v.infinitesimal, &other.infinitesimal)
 }
 func (v *smtArithmeticValue) cmp(other *smtArithmeticValue) int {
-	if c := v.infinity.Cmp(&other.infinity); c != 0 {
+	if c := smtRatCmp(&v.infinity, &other.infinity); c != 0 {
 		return c
 	}
-	if c := v.rational.Cmp(&other.rational); c != 0 {
+	if c := smtRatCmp(&v.rational, &other.rational); c != 0 {
 		return c
 	}
-	return v.infinitesimal.Cmp(&other.infinitesimal)
+	return smtRatCmp(&v.infinitesimal, &other.infinitesimal)
+}
+
+// smtRatCmp is a.Cmp(b) without big.Rat.Cmp's cross multiplication when
+// the denominators are equal (in particular both 1), the common case for
+// bound values; mpq's comparison likewise avoids allocating for small
+// values. mk_bound_axioms compares every new atom with all atoms of its
+// variable, so this comparison dominated q_7028's profile.
+func smtRatCmp(a, b *big.Rat) int {
+	if a.IsInt() && b.IsInt() {
+		return a.Num().Cmp(b.Num())
+	}
+	if a.Denom().Cmp(b.Denom()) == 0 {
+		return a.Num().Cmp(b.Num())
+	}
+	return a.Cmp(b)
 }
 
 type smtArithmeticBoundKind uint8
@@ -134,6 +149,43 @@ type smtArithmeticAtom struct {
 	threshold smtArithmeticValue
 	atomKind  smtArithmeticAtomKind
 	truth     bool
+	// smallK caches threshold (which never changes after construction) as
+	// machine words when its infinite part is 0 and its rational and
+	// infinitesimal parts are integers that fit in int64. mk_bound_axioms
+	// compares a new atom with every atom of its variable; C++ mpq compares
+	// such values inline, big.Rat does not.
+	smallK         bool
+	kRational, kEp int64
+}
+
+// thresholdCmp is a.threshold.cmp(&b.threshold).
+func (a *smtArithmeticAtom) thresholdCmp(b *smtArithmeticAtom) int {
+	if a.smallK && b.smallK {
+		switch {
+		case a.kRational < b.kRational:
+			return -1
+		case a.kRational > b.kRational:
+			return 1
+		case a.kEp < b.kEp:
+			return -1
+		case a.kEp > b.kEp:
+			return 1
+		}
+		return 0
+	}
+	return a.threshold.cmp(&b.threshold)
+}
+
+func (a *smtArithmeticAtom) cacheSmallThreshold() {
+	k := &a.threshold
+	if k.infinity.Sign() != 0 || !k.rational.IsInt() || !k.infinitesimal.IsInt() {
+		return
+	}
+	r, e := k.rational.Num(), k.infinitesimal.Num()
+	if !r.IsInt64() || !e.IsInt64() {
+		return
+	}
+	a.smallK, a.kRational, a.kEp = true, r.Int64(), e.Int64()
 }
 
 func newSMTArithmeticAtom(boolean SMTBoolVar, variable SMTTheoryVar, threshold *smtArithmeticValue, kind smtArithmeticAtomKind) (*smtArithmeticAtom, error) {
@@ -143,6 +195,7 @@ func newSMTArithmeticAtom(boolean SMTBoolVar, variable SMTTheoryVar, threshold *
 	result := &smtArithmeticAtom{boolean: boolean, atomKind: kind}
 	result.variable, result.atom = variable, true
 	result.threshold.set(threshold)
+	result.cacheSmallThreshold()
 	return result, nil
 }
 func (a *smtArithmeticAtom) assign(truth bool, epsilon *smtArithmeticValue) error {

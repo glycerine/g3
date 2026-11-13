@@ -3067,3 +3067,9 @@ limit in g3 only (performance, not fidelity):
 - q_7248: z3 5.6 s, g3 34 s, same output.
 Inputs kept in the job fuzz dir r16; candidates for the MBQI/e-matching
 performance work (see the performance rounds above).
+q_7028 profile (G3_CPUPROFILE, or /usr/lib/linux-tools/6.14.0-37-generic/perf):
+52% in mkBoundAxioms' threshold comparisons (big.Rat.Cmp cross-multiplies
+and allocates). smtRatCmp compares numerators when denominators are equal,
+and atoms cache a small-integer threshold for the occs scan: >300 s -> 107 s
+(z3 14.9 s), output identical. Next: about 55% is now the rewriter under
+MBQI's auxiliary counterexample check (large model-function ite terms).

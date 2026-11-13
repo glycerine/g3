@@ -226,7 +226,10 @@ func configureGC(lookup func(string) (string, bool), set func(int) int) bool {
 
 func main() {
 	configureGC(os.LookupEnv, debug.SetGCPercent)
-	if err := runArgumentsWithDiagnostics(os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
+	stopProfile := startCPUProfile()
+	err := runArgumentsWithDiagnostics(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)
+	stopProfile()
+	if err != nil {
 		var commandError *shell.CommandLineError
 		if errors.As(err, &commandError) {
 			_ = shell.WriteCommandError(os.Stderr, commandError.Message)
