@@ -7,7 +7,6 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/clp"
-	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/memory"
 	"github.com/glycerine/g3/pkg/util/numeral"
@@ -100,16 +99,10 @@ func TestCLPBackendAttemptPreservesRefusedCleanup(t *testing.T) {
 	}
 	query, err := rules[0].Head()
 	must(err)
-	attempt.local, err = params.NewValue()
+	// The kernel belongs to the engine (clp::imp::m_solver), not the attempt.
+	backend, err := root.bmcQuerySolver()
 	must(err)
-	attempt.params, attempt.localReady = params, true
-	mbqi := "mbqi"
-	must(params.SetBoolName(&attempt.local, &mbqi, false))
-	timeout := "timeout"
-	must(params.SetUIntName(&attempt.local, &timeout, 1000))
-	attempt.backend, err = smtcore.NewSMTSolver(manager, &attempt.local, "", smtcore.SMTSolverConfig{Params: params, Globals: globals})
-	must(err)
-	attempt.engine, err = clp.NewEngine(manager, prepared.rules, attempt.backend, 20)
+	attempt.engine, err = clp.NewEngine(manager, prepared.rules, backend, 20)
 	must(err)
 	status, err := attempt.engine.Query(query)
 	must(err)
@@ -134,7 +127,8 @@ func TestCLPBackendAttemptPreservesRefusedCleanup(t *testing.T) {
 	if body == nil || !callback || !errors.Is(failure, ast.ErrASTPending) {
 		t.Fatal("expected actual backend cleanup refusal", body, callback, failure)
 	}
-	if attempt.engine != nil || attempt.backend == nil || !attempt.localReady || attempt.preprocessed != prepared {
+	// Without an attempt-owned kernel, the preprocessing owners refuse.
+	if attempt.engine != nil || attempt.preprocessed != prepared {
 		t.Fatal("refused cleanup lost or advanced owners")
 	}
 	var cleanup memory.ConstructionFailure
@@ -142,7 +136,7 @@ func TestCLPBackendAttemptPreservesRefusedCleanup(t *testing.T) {
 		t.Fatal("backend cleanup refusal is not retryable", failure)
 	}
 	must(cleanup.Cleanup())
-	if attempt.engine != nil || attempt.backend != nil || attempt.localReady || attempt.preprocessed != nil || cleanup.CleanupCause() != nil {
+	if attempt.engine != nil || attempt.preprocessed != nil || cleanup.CleanupCause() != nil {
 		t.Fatal("backend cleanup retry did not retire all owners")
 	}
 }

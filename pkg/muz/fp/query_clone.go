@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/muz/rel"
 )
 
 func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
@@ -42,6 +43,16 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 	if e.backend == EngineTab.String() && e.tabSession != nil {
 		clone.tabSession = e.tabSession
 		clone.tabSessionBorrowed = true
+	}
+	if e.backend == "datalog" {
+		if e.datalogExecTotals == nil {
+			e.datalogExecTotals = &rel.ExecutionStats{}
+		}
+		clone.datalogExecTotals = e.datalogExecTotals
+	}
+	if e.bmcSlot != nil {
+		clone.bmcSlot = e.bmcSlot
+		clone.bmcSlotBorrowed = true
 	}
 	clone.datalogRelationFavourite = e.datalogRelationFavourite
 	clone.datalogDefaultTable = e.datalogDefaultTable

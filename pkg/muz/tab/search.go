@@ -26,7 +26,18 @@ type tabSearch struct {
 	stack, index, owned            []*Clause
 	nextSequence                   uint32
 	unfold, unfoldFail, subsumed   uint32
-	closed                         bool
+	// grounded is the index's last setup when there is no session.
+	grounded *groundClause
+	closed   bool
+}
+
+// groundedSlot is the source index's m_head/m_preds/m_precond: a member of
+// the engine, so it survives the query when a session stands for the engine.
+func (s *tabSearch) groundedSlot() **groundClause {
+	if s.session != nil {
+		return &s.session.grounded
+	}
+	return &s.grounded
 }
 
 // newTabSearch takes ownership of query and borrows the rule index and services.
@@ -106,6 +117,12 @@ func (s *tabSearch) Close() error {
 	}
 	if err := s.cleanupClauses(); err != nil {
 		return err
+	}
+	if s.grounded != nil {
+		if err := s.grounded.Close(); err != nil {
+			return err
+		}
+		s.grounded = nil
 	}
 	s.closed = true
 	return nil
@@ -263,7 +280,7 @@ func (s *tabSearch) Run() (lbool.LBool, error) {
 		child.index = uint32(len(s.stack))
 		child.sequence = s.nextSequence
 		s.nextSequence++
-		found, _, e := isClauseSubsumed(child, s.index, s.lite, s.subsumptionSolver, s.modelEvaluator)
+		found, _, e := isClauseSubsumedRetaining(child, s.index, s.lite, s.subsumptionSolver, s.groundedSlot(), s.modelEvaluator)
 		if e != nil {
 			return lbool.Undef, errors.Join(e, child.Close())
 		}

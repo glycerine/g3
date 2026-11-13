@@ -36,21 +36,7 @@ func (c *Compiler) SearchLinear(rules *base.RuleSet, query ast.ASTHandle, solver
 		if canceled {
 			return lbool.Undef, level, fmt.Errorf("bmc: %s", m.ResourceLimit().CancelMessage())
 		}
-		formulas, err := c.CompileLinear(rules, level)
-		if err != nil {
-			return lbool.Undef, level, err
-		}
-		for i := range formulas {
-			value, e := m.RefGet(formulas[i])
-			if e == nil {
-				e = solver.AssertFormula(value)
-			}
-			if e != nil {
-				err = e
-				break
-			}
-		}
-		err = disposeASTRefs(m, formulas, err)
+		err = c.compileLinearEach(rules, level, solver.AssertFormula)
 		if err != nil {
 			return lbool.Undef, level, err
 		}

@@ -5,18 +5,12 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/clp"
-	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/memory"
-	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
 type clpBackendAttempt struct {
 	manager      *ast.ASTManager
 	preprocessed *hornPreprocessResult
-	params       *uparams.ParamsContext
-	local        uparams.ParamsRef
-	localReady   bool
-	backend      *smtcore.SMTSolver
 	engine       *clp.Engine
 	nested       memory.ConstructionFailure
 }
@@ -51,24 +45,6 @@ func (a *clpBackendAttempt) close() error {
 			return err
 		}
 		a.engine = nil
-	}
-	if a.backend != nil {
-		// Refuse before SMTSolver.Close can partially dismantle theories while
-		// native AST execution is already pending. The whole backend then remains
-		// available to this attempt's retry root.
-		if _, err := a.manager.ProofMode(); err != nil {
-			return err
-		}
-		if err := a.backend.Close(); err != nil {
-			return err
-		}
-		a.backend = nil
-	}
-	if a.localReady {
-		if err := a.params.Del(&a.local); err != nil {
-			return err
-		}
-		a.localReady = false
 	}
 	if a.preprocessed != nil {
 		if err := a.preprocessed.Close(); err != nil {

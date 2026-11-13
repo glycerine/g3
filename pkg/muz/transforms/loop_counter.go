@@ -161,6 +161,11 @@ func (p *LoopCounterPlugin) transform(source *base.RuleSet, revert bool) (_ *bas
 		counter := uint32(0)
 		if getErr == nil && !revert {
 			counter, getErr = ruleVariableCount(p.manager, rule)
+			// vc.get_max_rule_var(r)+1: get_max_var answers 0 when the rule
+			// has no variables, so the first counter is then var(1).
+			if counter == 0 {
+				counter = 1
+			}
 		}
 		tails := make([]ast.ASTHandle, 0, total+1)
 		negated := make([]bool, 0, total+1)
@@ -196,8 +201,10 @@ func (p *LoopCounterPlugin) transform(source *base.RuleSet, revert bool) (_ *bas
 				head, getErr = p.addArgument(source, result, head, counter, integerSort)
 			}
 		}
+		headPin := -1
 		if getErr == nil {
 			head, getErr = pin(head)
+			headPin = len(pins) - 1
 		}
 		if getErr == nil && !revert {
 			headDeclaration, declarationErr := p.manager.GetDecl(head)
@@ -252,6 +259,11 @@ func (p *LoopCounterPlugin) transform(source *base.RuleSet, revert bool) (_ *bas
 				}
 				if argumentErr == nil {
 					head, argumentErr = pin(head)
+				}
+				// head = m.mk_app(...) releases the counter-argument head.
+				if argumentErr == nil && headPin >= 0 {
+					argumentErr = p.manager.DelRef(&pins[headPin])
+					pins = append(pins[:headPin], pins[headPin+1:]...)
 				}
 				getErr = argumentErr
 			}

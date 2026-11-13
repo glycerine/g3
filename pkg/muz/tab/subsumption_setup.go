@@ -38,10 +38,34 @@ func (g *groundClause) Close() error {
 }
 
 func setupGroundClause(c *Clause) (result *groundClause, err error) {
+	return setupGroundClauseReplacing(c, nil)
+}
+
+// releaseRef drops one member of the previous setup, as the source member
+// assignment does.
+func (g *groundClause) releaseRef(ref *ast.ASTRef) error {
+	if g == nil || g.manager == nil || *ref == (ast.ASTRef{}) {
+		return nil
+	}
+	return g.manager.DelRef(ref)
+}
+
+// setupGroundClauseReplacing is index::setup over the index members of the
+// previous call: m_preds.reset() first, then m_head and m_precond are
+// overwritten as the new values are built.
+func setupGroundClauseReplacing(c *Clause, previous *groundClause) (result *groundClause, err error) {
 	if c == nil || c.closed {
 		return nil, ast.ErrASTHandle
 	}
 	m := c.manager
+	if previous != nil && previous.manager != nil {
+		for i := range previous.predicates {
+			if err = previous.releaseRef(&previous.predicates[i]); err != nil {
+				return nil, err
+			}
+		}
+		previous.predicates = nil
+	}
 	fv, err := c.freeVariables()
 	if err != nil {
 		return nil, err
@@ -95,6 +119,11 @@ func setupGroundClause(c *Clause) (result *groundClause, err error) {
 	if err != nil {
 		return result, err
 	}
+	if previous != nil {
+		if err = previous.releaseRef(&previous.head); err != nil {
+			return result, err
+		}
+	}
 	predicates, err := c.Predicates()
 	if err != nil {
 		return result, err
@@ -124,5 +153,14 @@ func setupGroundClause(c *Clause) (result *groundClause, err error) {
 		return result, err
 	}
 	result.precondition, err = m.NewRef(precondition)
-	return result, err
+	if err != nil {
+		return result, err
+	}
+	if previous != nil {
+		if err = previous.releaseRef(&previous.precondition); err != nil {
+			return result, err
+		}
+		previous.manager = nil
+	}
+	return result, nil
 }

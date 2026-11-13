@@ -46,6 +46,9 @@ func (o *ruleAttemptOwner) close() error {
 		}
 	}
 	o.refs = nil
+	if o.environment == nil {
+		return nil
+	}
 	return o.environment.close()
 }
 

@@ -32,7 +32,13 @@ type Engine struct {
 	solver  Solver
 	depth   uint32
 	stats   Statistics
-	closed  bool
+	state   *State
+	// ownsState: the engine was created without the context's imp state.
+	// Such a standalone engine also closes the scopes of a successful
+	// search; the context's engine leaves them to the next kernel reset,
+	// as clp::imp::search returns l_true without m_solver.pop.
+	ownsState bool
+	closed    bool
 }
 
 func NewEngine(m *ast.ASTManager, rules *base.RuleSet, solver Solver, depth uint32) (*Engine, error) {
@@ -42,7 +48,20 @@ func NewEngine(m *ast.ASTManager, rules *base.RuleSet, solver Solver, depth uint
 	if depth == 0 {
 		depth = 20
 	}
-	return &Engine{manager: m, rules: rules, solver: solver, depth: depth}, nil
+	return &Engine{manager: m, rules: rules, solver: solver, depth: depth, state: NewState(m), ownsState: true}, nil
+}
+
+// NewEngineWithState borrows the context's persistent imp state.
+func NewEngineWithState(m *ast.ASTManager, rules *base.RuleSet, solver Solver, depth uint32, state *State) (*Engine, error) {
+	if state == nil || state.closed || state.manager != m {
+		return nil, ErrCLP
+	}
+	e, err := NewEngine(m, rules, solver, depth)
+	if err != nil {
+		return nil, err
+	}
+	e.state, e.ownsState = state, false
+	return e, nil
 }
 func (e *Engine) open() error {
 	if e == nil || e.closed || e.manager == nil || e.rules == nil || e.solver == nil {

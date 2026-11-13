@@ -45,11 +45,13 @@ func TestCLPBackendAttemptDrainsSearchReceiptBeforeBackend(t *testing.T) {
 	must(err)
 	engine, err := clp.NewEngine(m, e.set, backend, 20)
 	must(err)
-	attempt := &clpBackendAttempt{
-		manager: m, params: e.params, local: local, localReady: true,
-		backend: backend, engine: engine,
-	}
-	defer func() { must(attempt.close()) }()
+	// The kernel is the engine's (clp::imp::m_solver); the attempt borrows it.
+	attempt := &clpBackendAttempt{manager: m, engine: engine}
+	defer func() {
+		must(attempt.close())
+		must(backend.Close())
+		must(e.params.Del(&local))
+	}()
 	cause := errors.New("CLP search cleanup pending")
 	refusal := errors.New("CLP search cleanup retry refused")
 	nested := &stagedCLPNestedFailure{
@@ -60,7 +62,7 @@ func TestCLPBackendAttemptDrainsSearchReceiptBeforeBackend(t *testing.T) {
 	if !errors.Is(failure, cause) || !errors.Is(failure, refusal) || nested.calls != 1 {
 		t.Fatal("backend did not expose nested cleanup refusal", failure, nested.calls)
 	}
-	if attempt.nested != nested || attempt.engine != engine || attempt.backend != backend || !attempt.localReady {
+	if attempt.nested != nested || attempt.engine != engine {
 		t.Fatal("backend owners advanced before nested search cleanup")
 	}
 	if _, err = engine.Statistics(); err != nil {
@@ -73,8 +75,8 @@ func TestCLPBackendAttemptDrainsSearchReceiptBeforeBackend(t *testing.T) {
 	original, exposed, message := cleanup.OriginalCause(), errors.Unwrap(cleanup), cleanup.Error()
 	must(cleanup.Cleanup())
 	must(cleanup.Cleanup())
-	if nested.calls != 2 || attempt.nested != nil || attempt.engine != nil || attempt.backend != nil || attempt.localReady || cleanup.CleanupCause() != nil {
-		t.Fatal("backend retry did not drain nested search first", nested.calls, attempt.nested, attempt.engine, attempt.backend, attempt.localReady, cleanup.CleanupCause())
+	if nested.calls != 2 || attempt.nested != nil || attempt.engine != nil || cleanup.CleanupCause() != nil {
+		t.Fatal("backend retry did not drain nested search first", nested.calls, attempt.nested, attempt.engine, cleanup.CleanupCause())
 	}
 	if cleanup.OriginalCause() != original || errors.Unwrap(cleanup) != exposed || cleanup.Error() != message {
 		t.Fatal("backend cleanup changed failure evidence")

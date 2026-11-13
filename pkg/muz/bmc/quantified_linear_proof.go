@@ -48,6 +48,9 @@ func (c *Compiler) QuantifiedLinearTraceAndProof(rules *base.RuleSet, query ast.
 	owner.normalizer = normalizer
 	if len(normalization) != 0 {
 		normalizer.SetNormalizationParams(normalization[0])
+		if normalization[0].ContextRewriter != nil {
+			normalizer.SetContextRewriter(normalization[0].ContextRewriter)
+		}
 	}
 	steps, err := c.quantifiedLinearStepsVisit(rules, query, width, md, services, func(step quantifiedLinearStep) (visitErr error) {
 		bindings, cause := c.QuantifiedLinearModelBindings(step.rule, step.index, step.level, width, md, services)
@@ -95,6 +98,9 @@ func (c *Compiler) quantifiedLinearProofSteps(rules *base.RuleSet, width uint32,
 	owner.normalizer = normalizer
 	if len(normalization) != 0 {
 		normalizer.SetNormalizationParams(normalization[0])
+		if normalization[0].ContextRewriter != nil {
+			normalizer.SetContextRewriter(normalization[0].ContextRewriter)
+		}
 	}
 	for _, step := range steps {
 		bindings, cause := c.QuantifiedLinearModelBindings(step.rule, step.index, step.level, width, md, services)

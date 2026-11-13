@@ -172,11 +172,3 @@ func (g *groundEnvironment) ground(h ast.ASTHandle) (out ast.ASTRef, resultErr e
 	}
 	return out, nil
 }
-
-func (e *Engine) ground(h ast.ASTHandle) (out ast.ASTRef, resultErr error) {
-	environment := &groundEnvironment{manager: e.manager}
-	defer func() {
-		resultErr = errors.Join(resultErr, environment.disposeResult(&out, resultErr != nil))
-	}()
-	return environment.ground(h)
-}

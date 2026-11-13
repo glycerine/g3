@@ -84,6 +84,13 @@ func (s *subsumptionSearch) matchPredicates(candidate *Clause, index int) (match
 }
 
 func isClauseSubsumed(query *Clause, candidates []*Clause, lite *qe.Lite, smt solver.Solver, evaluator ...*model.ModelEvaluatorConfig) (found bool, sequence uint32, err error) {
+	return isClauseSubsumedRetaining(query, candidates, lite, smt, nil, evaluator...)
+}
+
+// isClauseSubsumedRetaining keeps the grounded head, predicates and
+// precondition in *retain, the index members m_head, m_preds and m_precond
+// that live until the next setup.
+func isClauseSubsumedRetaining(query *Clause, candidates []*Clause, lite *qe.Lite, smt solver.Solver, retain **groundClause, evaluator ...*model.ModelEvaluatorConfig) (found bool, sequence uint32, err error) {
 	if query == nil || query.closed || lite == nil || smt == nil {
 		return false, 0, ast.ErrASTHandle
 	}
@@ -102,11 +109,26 @@ func isClauseSubsumed(query *Clause, candidates []*Clause, lite *qe.Lite, smt so
 			found, sequence = false, 0
 		}
 	}()
-	grounded, err := setupGroundClause(query)
+	var previous *groundClause
+	if retain != nil {
+		previous, *retain = *retain, nil
+	}
+	grounded, err := setupGroundClauseReplacing(query, previous)
+	if previous != nil && previous.manager != nil {
+		err = errors.Join(err, previous.Close())
+	}
 	if err != nil {
 		return false, 0, err
 	}
 	attempt.grounded = grounded
+	if retain != nil {
+		defer func() {
+			if err == nil {
+				*retain = grounded
+				attempt.grounded = nil
+			}
+		}()
+	}
 	matcher, err := NewSemanticMatcher(m)
 	if err != nil {
 		return false, 0, err

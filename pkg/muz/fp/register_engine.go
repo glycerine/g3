@@ -36,6 +36,9 @@ func (e *PropositionalEngine) selectBackend(kind EngineKind) error {
 				return err
 			}
 			e.bmcStatistics.Reset()
+			if err := e.closeBMCSolver(); err != nil {
+				return err
+			}
 		}
 		if e.backend == EngineTab.String() {
 			if err := e.clearTabAnswer(); err != nil {

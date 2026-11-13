@@ -20,6 +20,9 @@ type datalogRestartRound struct {
 	restarting  bool
 	interrupted bool
 	statistics  statistics.Statistics
+	// totals is the engine's m_ectx counter set, which also persists
+	// across queries.
+	totals *rel.ExecutionStats
 }
 
 // Compilation is outside the restart timer. Termination must run with that
@@ -43,7 +46,15 @@ func performDatalogRestartRound(execution, termination *rel.InstructionBlock, co
 	if err = execution.ProcessAllCosts(); err != nil {
 		return complete, terminated, err
 	}
-	if round != nil {
+	if round != nil && round.totals != nil {
+		executed, statsErr := context.Statistics()
+		if statsErr != nil {
+			return complete, terminated, statsErr
+		}
+		round.totals.Add(executed)
+		round.statistics.Reset()
+		round.totals.Collect(&round.statistics)
+	} else if round != nil {
 		err = context.CollectStatistics(&round.statistics)
 	}
 	return complete, terminated, err
@@ -74,7 +85,10 @@ func (e *PropositionalEngine) queryFiniteDatalogWithRestarts(declarations []ast.
 	if err != nil {
 		return lbool.Undef, err
 	}
-	round := datalogRestartRound{timeout: initial}
+	if e.datalogExecTotals == nil {
+		e.datalogExecTotals = &rel.ExecutionStats{}
+	}
+	round := datalogRestartRound{timeout: initial, totals: e.datalogExecTotals}
 	conversionBase := len(e.datalogConversions)
 	for {
 		status, err := e.queryFiniteDatalogRound(declarations, &round)

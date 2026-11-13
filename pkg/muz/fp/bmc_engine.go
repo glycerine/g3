@@ -11,7 +11,6 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/bmc"
 	"github.com/glycerine/g3/pkg/muz/transforms"
-	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
@@ -77,6 +76,9 @@ func (e *PropositionalEngine) queryRelationExpression(declaration ast.ASTHandle)
 		return lbool.Undef, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, closeASTRefs(e.manager, []ast.ASTRef{ref})) }()
+	if err = e.existentialRelationQuery(declaration, ref); err != nil {
+		return lbool.Undef, err
+	}
 	query, err := e.manager.RefGet(ref)
 	if err != nil {
 		return lbool.Undef, err
@@ -137,6 +139,33 @@ func (e *PropositionalEngine) makeRelationQueryExpression(declaration ast.ASTHan
 		err = errors.Join(err, e.manager.SetRef(root, query))
 	}
 	return result, err
+}
+
+// existentialRelationQuery is engine_base::query's q = m.mk_exists(sorts,
+// names, q) over the reversed sorts and numeric names; the result replaces
+// the application in ref.
+func (e *PropositionalEngine) existentialRelationQuery(declaration ast.ASTHandle, ref ast.ASTRef) error {
+	arity, err := e.manager.GetArity(declaration)
+	if err != nil || arity == 0 {
+		return err
+	}
+	query, err := e.manager.RefGet(ref)
+	if err != nil {
+		return err
+	}
+	sorts := make([]ast.ASTHandle, arity)
+	names := make([]symbol.Symbol, arity)
+	for i := uint32(0); i < arity; i++ {
+		if sorts[arity-1-i], err = e.manager.GetDomain(declaration, i); err != nil {
+			return err
+		}
+		names[arity-1-i] = symbol.Numerical(i)
+	}
+	exists, err := e.manager.MkQuantifier(ast.ASTQuantifierSpec{Sorts: sorts, Names: names, Body: query})
+	if err != nil {
+		return err
+	}
+	return e.manager.SetRef(ref, exists)
 }
 
 func (e *PropositionalEngine) clearBMCTrace() (result error) {
@@ -263,12 +292,20 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 	if err = e.configureBMCSolverParams(&local, linear, quantified); err != nil {
 		return lbool.Undef, err
 	}
-	solver, err := smtcore.NewSMTSolver(e.manager, &local, "", smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals})
+	// The engine's kernel (m_solver) was reset by bmc::query; the compile
+	// step then sets m_fparams for the selected encoding.
+	solver, err := e.bmcQuerySolver()
 	if err != nil {
 		return lbool.Undef, err
 	}
+	if err = solver.UpdateParams(&local); err != nil {
+		return lbool.Undef, err
+	}
+	if err = e.resetBMCRuleTrace(); err != nil {
+		return lbool.Undef, err
+	}
 	defer func() {
-		resultErr = errors.Join(resultErr, solver.CollectStatistics(&e.bmcStatistics), solver.Close())
+		resultErr = errors.Join(resultErr, solver.CollectStatistics(&e.bmcStatistics))
 	}()
 	compiler, err := bmc.NewCompiler(e.manager)
 	if err != nil {
@@ -283,6 +320,7 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 		if err != nil {
 			return lbool.Undef, err
 		}
+		normalization.ContextRewriter = e.contextRewriter()
 	}
 	if quantified {
 		cooperation, e2 := cooperate.NewCooperation(e.manager.Budget())

@@ -123,14 +123,11 @@ func finishCLPScopedRule(attempt *clpScopedRuleAttempt, cause error) error {
 	}
 }
 
-func (e *Engine) tryScopedRule(rule *base.Rule, goals []ast.ASTHandle, depth uint32, index int) (candidate lbool.LBool, resultErr error) {
+func (e *Engine) tryScopedRule(rule *base.Rule, depth uint32, index, numGoals int) (candidate lbool.LBool, resultErr error) {
 	attempt := &clpScopedRuleAttempt{
 		manager: e.manager,
 		scope:   clpSolverScope{solver: e.solver},
-		rule: &ruleAttemptOwner{
-			manager:     e.manager,
-			environment: &groundEnvironment{manager: e.manager},
-		},
+		rule:    &ruleAttemptOwner{manager: e.manager},
 	}
 	defer func() {
 		resultErr = finishCLPScopedRule(attempt, resultErr)
@@ -141,7 +138,19 @@ func (e *Engine) tryScopedRule(rule *base.Rule, goals []ast.ASTHandle, depth uin
 	if err := attempt.scope.begin(); err != nil {
 		return lbool.Undef, err
 	}
-	return e.tryRule(rule, goals, depth, index, attempt.rule)
+	candidate, err := e.tryRule(rule, depth, index, attempt.rule)
+	if err != nil {
+		return candidate, err
+	}
+	if candidate == lbool.True {
+		if !e.ownsState {
+			// return l_true leaves the scope pushed.
+			attempt.scope.pushed = false
+		}
+		return candidate, nil
+	}
+	// m_goals.resize(num_goals) precedes m_solver.pop(1).
+	return candidate, e.state.resizeGoals(numGoals)
 }
 
 var _ memory.ConstructionFailure = (*clpScopeCleanupFailure)(nil)

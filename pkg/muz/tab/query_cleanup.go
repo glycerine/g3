@@ -112,6 +112,7 @@ type tabExpressionAttempt struct {
 	scoped     *base.RuleSet
 	compacted  ast.ASTRef
 	answer     ast.ASTRef
+	index      *RuleIndex
 }
 
 func (a *tabExpressionAttempt) closeResources() error {
@@ -120,6 +121,12 @@ func (a *tabExpressionAttempt) closeResources() error {
 			return err
 		}
 		a.nested = nil
+	}
+	if a.index != nil {
+		if err := a.index.Close(); err != nil {
+			return err
+		}
+		a.index = nil
 	}
 	if a.properties != nil {
 		if err := a.properties.Close(); err != nil {

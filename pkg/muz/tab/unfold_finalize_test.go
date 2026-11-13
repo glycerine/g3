@@ -80,7 +80,9 @@ func TestFinalizeUnfoldedClauseEliminatesAndCompactsVariables(t *testing.T) {
 	}
 	falsehood, err := m.MkFalse()
 	must(err)
-	must(m.SetRef(u.constraint, falsehood))
+	// The first finalize consumed unify's conjunction (qe overwrote it).
+	u.constraint, err = m.NewRef(falsehood)
+	must(err)
 	rejected, matched, err := finalizeUnfoldedClause(u, rw, lite)
 	must(err)
 	if matched || rejected != nil {

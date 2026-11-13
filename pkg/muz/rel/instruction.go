@@ -317,10 +317,35 @@ func (c *ExecutionContext) Statistics() (ExecutionStats, error) {
 	return c.stats, nil
 }
 
+// Add accumulates another context's counters, as the source rel_context's
+// single m_ectx keeps counting across queries.
+func (s *ExecutionStats) Add(o ExecutionStats) {
+	s.Join += o.Join
+	s.Project += o.Project
+	s.Filter += o.Filter
+	s.Total += o.Total
+	s.UnarySingleton += o.UnarySingleton
+	s.FilterByNegation += o.FilterByNegation
+	s.SelectEqualProject += o.SelectEqualProject
+	s.JoinProject += o.JoinProject
+	s.ProjectRename += o.ProjectRename
+	s.Union += o.Union
+	s.FilterInterpretedProject += o.FilterInterpretedProject
+	s.FilterIdentical += o.FilterIdentical
+	s.FilterEqual += o.FilterEqual
+}
+
 func (c *ExecutionContext) CollectStatistics(out *statistics.Statistics) error {
 	if err := c.open(); err != nil || out == nil {
 		return errors.Join(ErrInstruction, err)
 	}
+	c.stats.Collect(out)
+	return nil
+}
+
+// Collect is execution_context::collect_statistics over these counters.
+func (s ExecutionStats) Collect(out *statistics.Statistics) {
+	c := struct{ stats ExecutionStats }{s}
 	out.UpdateUint("dl.joins", c.stats.Join)
 	out.UpdateUint("dl.project", c.stats.Project)
 	out.UpdateUint("dl.filter", c.stats.Filter)
@@ -334,7 +359,6 @@ func (c *ExecutionContext) CollectStatistics(out *statistics.Statistics) error {
 	out.UpdateUint("dl.filter_interpreted_project", c.stats.FilterInterpretedProject)
 	out.UpdateUint("dl.filter_id", c.stats.FilterIdentical)
 	out.UpdateUint("dl.filter_eq", c.stats.FilterEqual)
-	return nil
 }
 
 func (c *ExecutionContext) Reset() error {

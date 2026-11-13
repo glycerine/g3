@@ -14,6 +14,9 @@ type preparedHornClause struct {
 	Parent       *Node
 	Body, Head   *Expr
 	Replacements map[uint32]*Expr
+	// Clause is the rewritten element of FromClauses' clauses vector,
+	// alive until FromClauses returns.
+	Clause *Expr
 }
 
 func (p *preparedHornClause) close() error {
@@ -46,6 +49,13 @@ func (p *preparedHornClause) close() error {
 			result = errors.Join(result, err)
 		} else {
 			delete(p.Replacements, i)
+		}
+	}
+	if p.Clause != nil {
+		if err := p.Clause.Close(); err != nil {
+			result = errors.Join(result, err)
+		} else {
+			p.Clause = nil
 		}
 	}
 	return result
@@ -216,6 +226,10 @@ func prepareHornClause(input *Expr, simplifier *interp.Manager) (out *preparedHo
 		if err != nil {
 			return out, err
 		}
+	}
+	out.Clause, err = NewExpr(c, h)
+	if err != nil {
+		return out, err
 	}
 	body, err := m.GetArg(h, 0)
 	if err != nil {

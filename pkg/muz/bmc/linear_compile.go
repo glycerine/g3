@@ -4,6 +4,7 @@ package bmc
 // substitution and compile.
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -79,53 +80,125 @@ func (c *Compiler) linearRule(predicate ast.ASTHandle, index, level uint32) (ast
 // CompileLinear returns owning references to the source linear encoding at a
 // single level. It rejects rules that require a different BMC compiler.
 func (c *Compiler) CompileLinear(rules *base.RuleSet, level uint32) (result []ast.ASTRef, resultErr error) {
-	if c == nil || c.manager == nil || rules == nil {
+	if c == nil || c.manager == nil {
 		return nil, ast.ErrASTHandle
 	}
-	linear, err := IsLinear(rules)
-	if err != nil {
-		return nil, err
-	}
-	if !linear {
-		return nil, ast.ErrASTDomain
-	}
-	m := c.manager
 	defer func() {
 		if resultErr != nil {
-			resultErr = disposeASTRefs(m, result, resultErr)
+			resultErr = disposeASTRefs(c.manager, result, resultErr)
 			result = nil
 		}
 	}()
-	count, err := rules.Len()
-	if err != nil {
-		return result, err
-	}
-	seen := make(map[ast.ASTHandle]struct{})
-	var predicates []ast.ASTHandle
-	for i := 0; i < count; i++ {
-		rule, err := rules.Rule(i)
-		if err != nil {
-			return result, err
+	resultErr = c.compileLinearEach(rules, level, func(value ast.ASTHandle) error {
+		ref, err := c.manager.NewRef(value)
+		if err == nil {
+			result = append(result, ref)
 		}
-		decl, e := rule.HeadDeclaration()
-		e = disposeRuleOwners(m, []*base.Rule{rule}, e)
-		if e != nil {
-			return result, e
-		}
-		if _, found := seen[decl]; !found {
-			seen[decl] = struct{}{}
-			predicates = append(predicates, decl)
-		}
-	}
-	for _, predicate := range predicates {
-		if err := c.compileLinearGroup(rules, predicate, level, &result); err != nil {
-			return result, err
-		}
-	}
-	return result, nil
+		return err
+	})
+	return result, resultErr
 }
 
-func (c *Compiler) compileLinearGroup(rules *base.RuleSet, predicate ast.ASTHandle, level uint32, result *[]ast.ASTRef) (resultErr error) {
+// compileLinearEach is linear::compile: it walks the grouped rules in the
+// rule set's predicate-table order and hands each formula to emit (the
+// source b.assert_expr) as soon as it is built. emit borrows the formula.
+func (c *Compiler) compileLinearEach(rules *base.RuleSet, level uint32, emit func(ast.ASTHandle) error) (resultErr error) {
+	if c == nil || c.manager == nil || rules == nil {
+		return ast.ErrASTHandle
+	}
+	linear, err := IsLinear(rules)
+	if err != nil {
+		return err
+	}
+	if !linear {
+		return ast.ErrASTDomain
+	}
+	predicates, err := rules.GroupedPredicates()
+	if err != nil {
+		return err
+	}
+	for _, predicate := range predicates {
+		if err := c.compileLinearGroup(rules, predicate, level, emit); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// linearGroupLocals are linear::compile's per-group locals, released in
+// reverse declaration order: tmp, rule_body, conjs, sub, rules, level_pred.
+type linearGroupLocals struct {
+	manager           *ast.ASTManager
+	levelPred         ast.ASTRef
+	rules, sub, conjs []ast.ASTRef
+	ruleBody, tmp     ast.ASTRef
+}
+
+// assign is expr_ref assignment: the new value is retained before the old
+// one is released.
+func (l *linearGroupLocals) assign(ref *ast.ASTRef, value ast.ASTHandle, err error) (ast.ASTHandle, error) {
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if *ref == (ast.ASTRef{}) {
+		*ref, err = l.manager.NewRef(value)
+		return value, err
+	}
+	return value, l.manager.SetRef(*ref, value)
+}
+
+// push is expr_ref_vector::push_back.
+func (l *linearGroupLocals) push(vector *[]ast.ASTRef, value ast.ASTHandle, err error) (ast.ASTHandle, error) {
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	ref, err := l.manager.NewRef(value)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	*vector = append(*vector, ref)
+	return value, nil
+}
+
+// reset is expr_ref_vector::reset, releasing front to back.
+func (l *linearGroupLocals) reset(vector *[]ast.ASTRef) error {
+	for len(*vector) != 0 {
+		if (*vector)[0] != (ast.ASTRef{}) {
+			if err := l.manager.DelRef(&(*vector)[0]); err != nil {
+				return err
+			}
+		}
+		*vector = (*vector)[1:]
+	}
+	*vector = nil
+	return nil
+}
+
+func (l *linearGroupLocals) release(ref *ast.ASTRef) error {
+	if *ref == (ast.ASTRef{}) {
+		return nil
+	}
+	return l.manager.DelRef(ref)
+}
+
+func (l *linearGroupLocals) close() error {
+	if err := l.release(&l.tmp); err != nil {
+		return err
+	}
+	if err := l.release(&l.ruleBody); err != nil {
+		return err
+	}
+	for _, vector := range []*[]ast.ASTRef{&l.conjs, &l.sub, &l.rules} {
+		if err := l.reset(vector); err != nil {
+			return err
+		}
+	}
+	return l.release(&l.levelPred)
+}
+
+// compileLinearGroup is one iteration of linear::compile over a predicate
+// and its rules. emit is b.assert_expr and borrows its argument.
+func (c *Compiler) compileLinearGroup(rules *base.RuleSet, predicate ast.ASTHandle, level uint32, emit func(ast.ASTHandle) error) (resultErr error) {
 	m := c.manager
 	group, err := rules.PredicateRules(predicate)
 	if err != nil {
@@ -134,159 +207,143 @@ func (c *Compiler) compileLinearGroup(rules *base.RuleSet, predicate ast.ASTHand
 	defer func() {
 		resultErr = disposeRuleOwners(m, group, resultErr)
 	}()
-	var refs []ast.ASTRef
+	l := &linearGroupLocals{manager: m}
 	defer func() {
-		resultErr = disposeASTRefs(m, refs, resultErr)
+		if cause := l.close(); cause != nil {
+			resultErr = errors.Join(resultErr, cause)
+		}
 	}()
-	holdRef := func(ref ast.ASTRef, err error) (ast.ASTHandle, error) {
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		refs = append(refs, ref)
-		return m.RefGet(ref)
-	}
-	hold := func(value ast.ASTHandle, err error) (ast.ASTHandle, error) {
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		ref, err := m.NewRef(value)
-		return holdRef(ref, err)
-	}
-	levelPred, err := holdRef(c.LinearQuery(predicate, level))
+	l.levelPred, err = c.LinearQuery(predicate, level)
 	if err != nil {
 		return err
 	}
-	var alternatives []ast.ASTHandle
+	levelPred, err := m.RefGet(l.levelPred)
+	if err != nil {
+		return err
+	}
 	for i, rule := range group {
-		ruleAtom, err := holdRef(c.linearRule(predicate, uint32(i), level))
+		if err = l.reset(&l.sub); err != nil {
+			return err
+		}
+		if err = l.reset(&l.conjs); err != nil {
+			return err
+		}
+		ruleRef, err := c.linearRule(predicate, uint32(i), level)
 		if err != nil {
 			return err
 		}
-		alternatives = append(alternatives, ruleAtom)
+		l.rules = append(l.rules, ruleRef)
+		ruleAtom, err := m.RefGet(ruleRef)
+		if err != nil {
+			return err
+		}
 		tailCount, err := rule.UninterpretedTailSize()
 		if err != nil {
 			return err
 		}
 		if level == 0 && tailCount > 0 {
-			not, err := hold(m.MkNot(ruleAtom))
+			not, err := m.MkNot(ruleAtom)
+			value, err := l.assign(&l.tmp, not, err)
+			if err == nil {
+				err = emit(value)
+			}
 			if err != nil {
 				return err
 			}
-			ref, err := m.NewRef(not)
-			if err != nil {
-				return err
-			}
-			*result = append(*result, ref)
 			continue
 		}
-		body, err := c.compileLinearRule(rule, predicate, uint32(i), level)
+		if err = c.compileLinearRuleBody(l, rule, predicate, uint32(i), level); err != nil {
+			return err
+		}
+		body, err := m.RefGet(l.ruleBody)
 		if err != nil {
 			return err
 		}
-		refs = append(refs, body)
-		bodyValue, err := m.RefGet(body)
+		implication, err := m.MkImplies(ruleAtom, body)
+		value, err := l.assign(&l.ruleBody, implication, err)
+		if err == nil {
+			err = emit(value)
+		}
 		if err != nil {
 			return err
 		}
-		implication, err := m.MkImplies(ruleAtom, bodyValue)
-		if err != nil {
+	}
+	alternatives := make([]ast.ASTHandle, len(l.rules))
+	for i := range l.rules {
+		if alternatives[i], err = m.RefGet(l.rules[i]); err != nil {
 			return err
 		}
-		ref, err := m.NewRef(implication)
-		if err != nil {
-			return err
-		}
-		*result = append(*result, ref)
 	}
 	orRef, err := c.simplifyBoolean(false, alternatives)
 	if err != nil {
 		return err
 	}
-	refs = append(refs, orRef)
 	or, err := m.RefGet(orRef)
+	if err == nil {
+		_, err = l.assign(&l.tmp, or, nil)
+	}
+	if err = errors.Join(err, m.DelRef(&orRef)); err != nil {
+		return err
+	}
+	or, err = m.RefGet(l.tmp)
 	if err != nil {
 		return err
 	}
 	implication, err := m.MkImplies(levelPred, or)
+	value, err := l.assign(&l.tmp, implication, err)
 	if err != nil {
 		return err
 	}
-	ref, err := m.NewRef(implication)
-	if err != nil {
-		return err
-	}
-	*result = append(*result, ref)
-	return nil
+	return emit(value)
 }
 
-func (c *Compiler) compileLinearRule(rule *base.Rule, predicate ast.ASTHandle, ruleIndex, level uint32) (result ast.ASTRef, resultErr error) {
+// compileLinearRuleBody fills sub and conjs for one rule and leaves the
+// bool_rewriter conjunction in rule_body; tmp holds the last var_subst result.
+func (c *Compiler) compileLinearRuleBody(l *linearGroupLocals, rule *base.Rule, predicate ast.ASTHandle, ruleIndex, level uint32) (resultErr error) {
 	m := c.manager
 	owner := &linearCompileRuleOwner{manager: m}
-	defer func() {
-		owner.result = result
-		resultErr = finishLinearCompileRule(owner, resultErr)
-		if resultErr != nil {
-			result = ast.ASTRef{}
-		} else {
-			owner.result = ast.ASTRef{}
-		}
-	}()
-	holdRef := func(ref ast.ASTRef, err error) (ast.ASTHandle, error) {
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		owner.refs = append(owner.refs, ref)
-		return m.RefGet(ref)
-	}
-	hold := func(value ast.ASTHandle, err error) (ast.ASTHandle, error) {
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		ref, err := m.NewRef(value)
-		return holdRef(ref, err)
-	}
+	defer func() { resultErr = finishLinearCompileRule(owner, resultErr) }()
 	bindingRefs, err := c.linearRuleBindings(rule, predicate, ruleIndex, level)
 	if err != nil {
-		return result, err
+		return err
 	}
+	l.sub = bindingRefs
 	bindings := make([]ast.ASTHandle, len(bindingRefs))
-	for _, ref := range bindingRefs {
-		if ref != (ast.ASTRef{}) {
-			owner.refs = append(owner.refs, ref)
-		}
-	}
 	for i, ref := range bindingRefs {
 		if ref == (ast.ASTRef{}) {
 			continue
 		}
-		bindings[i], err = m.RefGet(ref)
-		if err != nil {
-			return result, err
+		if bindings[i], err = m.RefGet(ref); err != nil {
+			return err
 		}
 	}
 	head, err := rule.Head()
 	if err != nil {
-		return result, err
+		return err
 	}
 	uninterpreted, err := rule.UninterpretedTailSize()
 	if err != nil {
-		return result, err
+		return err
 	}
+	// var_subst vs(m, false) lives for this rule.
 	if err = owner.newSubstitution(false); err != nil {
-		return result, err
+		return err
 	}
 	substitute := func(expression ast.ASTHandle) (ast.ASTHandle, error) {
 		ref, err := m.NewRef(ast.ASTHandle{})
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		owner.refs = append(owner.refs, ref)
-		if err = owner.sub.Substitute(expression, bindings, ref); err != nil {
-			return ast.ASTHandle{}, err
+		err = owner.sub.Substitute(expression, bindings, ref)
+		var value ast.ASTHandle
+		if err == nil {
+			value, err = m.RefGet(ref)
 		}
-		return m.RefGet(ref)
+		if err == nil {
+			_, err = l.assign(&l.tmp, value, nil)
+		}
+		return value, errors.Join(err, m.DelRef(&ref))
 	}
-	var conditions []ast.ASTHandle
 	addEqualities := func(application, declaration ast.ASTHandle, atLevel uint32) error {
 		arity, err := m.GetArity(declaration)
 		if err != nil {
@@ -301,53 +358,79 @@ func (c *Compiler) compileLinearRule(rule *base.Rule, predicate ast.ASTHandle, r
 			if err != nil {
 				return err
 			}
-			levelArg, err := holdRef(c.linearArgument(declaration, i, atLevel))
+			levelArg, err := c.linearArgument(declaration, i, atLevel)
 			if err != nil {
 				return err
 			}
-			eq, err := hold(m.MkEq(value, levelArg))
-			if err != nil {
+			levelValue, err := m.RefGet(levelArg)
+			if err == nil {
+				var eq ast.ASTHandle
+				eq, err = m.MkEq(value, levelValue)
+				_, err = l.push(&l.conjs, eq, err)
+			}
+			if err = errors.Join(err, m.DelRef(&levelArg)); err != nil {
 				return err
 			}
-			conditions = append(conditions, eq)
 		}
 		return nil
 	}
 	if err = addEqualities(head, predicate, level); err != nil {
-		return result, err
+		return err
 	}
 	for i := 0; i < uninterpreted; i++ {
 		tail, _, err := rule.Tail(i)
 		if err != nil {
-			return result, err
+			return err
 		}
 		decl, err := rule.TailDeclaration(i)
 		if err != nil {
-			return result, err
+			return err
 		}
 		if err = addEqualities(tail, decl, level-1); err != nil {
-			return result, err
+			return err
 		}
-		value, err := holdRef(c.LinearQuery(decl, level-1))
+		levelRef, err := c.LinearQuery(decl, level-1)
 		if err != nil {
-			return result, err
+			return err
 		}
-		conditions = append(conditions, value)
+		levelValue, err := m.RefGet(levelRef)
+		if err == nil {
+			_, err = l.push(&l.conjs, levelValue, nil)
+		}
+		if err = errors.Join(err, m.DelRef(&levelRef)); err != nil {
+			return err
+		}
 	}
 	total, err := rule.TailSize()
 	if err != nil {
-		return result, err
+		return err
 	}
 	for i := uninterpreted; i < total; i++ {
 		tail, _, err := rule.Tail(i)
 		if err != nil {
-			return result, err
+			return err
 		}
 		value, err := substitute(tail)
 		if err != nil {
-			return result, err
+			return err
 		}
-		conditions = append(conditions, value)
+		if _, err = l.push(&l.conjs, value, nil); err != nil {
+			return err
+		}
 	}
-	return c.simplifyBoolean(true, conditions)
+	conditions := make([]ast.ASTHandle, len(l.conjs))
+	for i := range l.conjs {
+		if conditions[i], err = m.RefGet(l.conjs[i]); err != nil {
+			return err
+		}
+	}
+	bodyRef, err := c.simplifyBoolean(true, conditions)
+	if err != nil {
+		return err
+	}
+	body, err := m.RefGet(bodyRef)
+	if err == nil {
+		_, err = l.assign(&l.ruleBody, body, nil)
+	}
+	return errors.Join(err, m.DelRef(&bodyRef))
 }

@@ -1,0 +1,8 @@
+(set-option :fixedpoint.engine clp)
+(declare-rel p (Int))
+(declare-rel q ())
+(declare-var x Int)
+(rule (p 0))
+(rule (=> (and (p x) (< x 3)) (p (+ x 1))))
+(rule (=> (p 2) q))
+(query q)

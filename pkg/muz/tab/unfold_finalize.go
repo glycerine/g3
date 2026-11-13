@@ -3,6 +3,8 @@ package tab
 // Source: src/muz/tab/tab_context.cpp, unifier::unify QE and variable compaction.
 
 import (
+	"errors"
+
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/qe"
@@ -49,7 +51,19 @@ func finalizeUnfoldedClause(u *unfoldedClause, rw *rewriter.TheoryRewriter, lite
 		return nil, false, err
 	}
 	attempt.temps = append(attempt.temps, constraint)
-	if err = lite.EliminateIndices(keep, false, constraint); err != nil {
+	// unifier::unify constructs qe_lite qe(m, params_ref()) per call, so its
+	// rewriters take the proof mode current here (get_proof's scoped_proof).
+	local, err := qe.NewLite(m, nil, true, lite.Config())
+	if err != nil {
+		return nil, false, err
+	}
+	defer func() { err = errors.Join(err, local.Close()) }()
+	if err = local.EliminateIndices(keep, false, constraint); err != nil {
+		return nil, false, err
+	}
+	// qe(index_set, false, constraint) overwrote unify's constraint
+	// = m.mk_and(tmp, tmp2); the conjunction dies here.
+	if err = m.DelRef(&u.constraint); err != nil {
 		return nil, false, err
 	}
 	condition, err := m.RefGet(constraint)

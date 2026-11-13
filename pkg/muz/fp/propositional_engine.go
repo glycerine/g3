@@ -139,29 +139,35 @@ type PropositionalEngine struct {
 	pdrRules                     *base.RuleSet
 	// pdrRetiredRules is m_pdr_rules after a parameter update rebuilt the
 	// context: it is released when the next query replaces it.
-	pdrRetiredRules     *base.RuleSet
-	pdrSourceRules      *base.RuleSet
-	pdrRuleRevision     uint64
-	pdrQuery            ast.ASTHandle
-	pdrTraceQuery       ast.ASTHandle // borrowed only during the enclosing expression-query call
-	pdrDerived          map[ast.ASTHandle]ast.ASTHandle
-	pdrPredicates       map[ast.ASTHandle]ast.ASTHandle
-	pdrSlices           map[ast.ASTHandle][]bool
-	pdrQuantified       map[ast.ASTHandle]ast.ASTHandle
-	pdrInstantiated     map[ast.ASTHandle]ast.ASTHandle
-	pdrBitBlasted       map[ast.ASTHandle]ast.ASTHandle
-	pdrScaled           map[ast.ASTHandle]ast.ASTHandle
-	pdrMagic            map[ast.ASTHandle]ast.ASTHandle
-	pdrKarr             map[ast.ASTHandle]rel.KarrMatrix
-	pdrConversions      []hornModelConversion
-	pdrProof            ast.ASTRef
-	pdrSliceProof       bool
-	pdrStatistics       muzpdr.StatisticsSnapshot
-	pdrDisposal         *pdrContextDisposal
-	bmcStatistics       statistics.Statistics
-	bmcTrace            []*base.Rule
-	bmcProof            ast.ASTRef
+	pdrRetiredRules *base.RuleSet
+	pdrSourceRules  *base.RuleSet
+	pdrRuleRevision uint64
+	pdrQuery        ast.ASTHandle
+	pdrTraceQuery   ast.ASTHandle // borrowed only during the enclosing expression-query call
+	pdrDerived      map[ast.ASTHandle]ast.ASTHandle
+	pdrPredicates   map[ast.ASTHandle]ast.ASTHandle
+	pdrSlices       map[ast.ASTHandle][]bool
+	pdrQuantified   map[ast.ASTHandle]ast.ASTHandle
+	pdrInstantiated map[ast.ASTHandle]ast.ASTHandle
+	pdrBitBlasted   map[ast.ASTHandle]ast.ASTHandle
+	pdrScaled       map[ast.ASTHandle]ast.ASTHandle
+	pdrMagic        map[ast.ASTHandle]ast.ASTHandle
+	pdrKarr         map[ast.ASTHandle]rel.KarrMatrix
+	pdrConversions  []hornModelConversion
+	pdrProof        ast.ASTRef
+	pdrSliceProof   bool
+	pdrStatistics   muzpdr.StatisticsSnapshot
+	pdrDisposal     *pdrContextDisposal
+	bmcStatistics   statistics.Statistics
+	bmcTrace        []*base.Rule
+	bmcProof        ast.ASTRef
+	bmcSlot         *bmcSolverSlot
+	bmcSlotBorrowed bool
+	// relationQuery marks a rel_query in progress: the engine was ensured
+	// before the query expression and bmc::query resets before flushing.
+	relationQuery       bool
 	tabAnswer           ast.ASTRef
+	tabPending          *tabPendingState
 	tabSession          *tab.Session
 	tabSessionBorrowed  bool
 	tabUnfold           uint32
@@ -229,10 +235,12 @@ type PropositionalEngine struct {
 	queryParamsReady        bool
 	queryParamsReceipt      uparams.ParamsDecrementReceipt
 	datalogStats            statistics.Statistics
-	datalogElapsed          float64
-	closed                  bool
-	closing                 bool
-	ddnf                    ddnfEngineState
+	// datalogExecTotals is m_ectx's m_stats, shared with the query clones.
+	datalogExecTotals *rel.ExecutionStats
+	datalogElapsed    float64
+	closed            bool
+	closing           bool
+	ddnf              ddnfEngineState
 
 	datalogTransformCleanup *datalogTransformOwners
 
@@ -2192,9 +2200,17 @@ func (e *PropositionalEngine) tryCompiledSaturation(round *datalogRestartRound) 
 	if round != nil {
 		e.datalogStats.Copy(round.statistics)
 	} else {
-		if err = context.CollectStatistics(&e.datalogStats); err != nil {
+		// rel_context's m_ectx persists across queries; its counters are
+		// never reset.
+		executed, err := context.Statistics()
+		if err != nil {
 			return true, err
 		}
+		if e.datalogExecTotals == nil {
+			e.datalogExecTotals = &rel.ExecutionStats{}
+		}
+		e.datalogExecTotals.Add(executed)
+		e.datalogExecTotals.Collect(&e.datalogStats)
 	}
 	for declaration, state := range e.predicates {
 		table, found, x := e.relations.TryGetFiniteRelation(declaration)
@@ -2386,7 +2402,17 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 	// PDR relation queries flush inside dl_interface::query, after
 	// engine_base builds the query expression (queryPDRRelation).
 	pdrRelation := (e.backend == "pdr" || e.backend == "qpdr" || e.backend == "spacer") && !e.auxiliary[declaration]
-	if e.backend != "duality" && !pdrRelation {
+	// bmc, clp and tab flush through get_rules after engine_base builds the
+	// query expression (and after bmc/clp reset their kernel).
+	bmcRelation := (e.usesEngineKernel() || e.backend == EngineTab.String()) && !e.auxiliary[declaration]
+	if bmcRelation {
+		if err := e.ensureBMCSolver(); err != nil {
+			return lbool.Undef, err
+		}
+		e.relationQuery = true
+		defer func() { e.relationQuery = false }()
+	}
+	if e.backend != "duality" && !pdrRelation && !bmcRelation {
 		if err := e.flushPendingRules(); err != nil {
 			return lbool.Undef, err
 		}
@@ -2999,10 +3025,14 @@ func (e *PropositionalEngine) computeAnswer(declaration ast.ASTHandle) (answer a
 		return e.manager.NewRef(proof)
 	}
 	if kind == EngineTab {
-		if e.tabAnswer == (ast.ASTRef{}) {
+		ref, err := e.tabAnswerRef()
+		if err != nil {
+			return answer, err
+		}
+		if ref == (ast.ASTRef{}) {
 			return answer, ErrPropositionalEngine
 		}
-		return e.manager.CopyRef(e.tabAnswer)
+		return e.manager.CopyRef(ref)
 	}
 	if e.backend == "pdr" || e.backend == "qpdr" {
 		status, err := e.pdr.LastResult()
@@ -3448,6 +3478,7 @@ func (e *PropositionalEngine) Close() (result error) {
 	result = errors.Join(result, e.clearBMCTrace())
 	result = errors.Join(result, e.clearTabAnswer())
 	result = errors.Join(result, e.closeTabSession())
+	result = errors.Join(result, e.closeBMCSolver())
 	if e.pdr != nil {
 		if err := e.pdr.Close(); err != nil {
 			return errors.Join(result, err)

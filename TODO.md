@@ -2613,3 +2613,24 @@ order at flushAssertedCache (forall/exists Int qe probe line 118); bv2int /
 mod rewrite order after begin-check (Int Cooper probe line 3020, mod 3 probe
 line 396451); MBP linearize/maximize evals held for the whole call; Real
 qe2 probe diverges at line 788.
+
+## Fixedpoint engine traces (2026-11-12, late)
+
+FIXED: fp_bmc_linear_hyper_res_positions, fp_pdr_karr_bv_loop_counter,
+fp_pdr_karr_infinite_sorts and fp_tab_relation_query are trace-identical.
+Non-datalog query clones copy rule objects (no re-normalization), mk_query
+builds the query rule in place, bmc/clp/tab engines own a kernel created at
+ensure_engine before rules flush, linear bmc compile follows group order,
+loop counter starts at get_max_rule_var+1, tab subsumption index lives until
+the next setup and the answer proof is built lazily, duality @Fail!0 order
+and clause lifetimes, datalog execution statistics accumulate across
+queries and :max-memory/:memory/:num-allocs/:rlimit-count are printed.
+Vectors fp_clp_int_engine_kernel, fp_bmc_int_two_queries.
+Leads: clp rewrites the context's own rules (mk_query into m_rule_set,
+apply_default_transformation replaces it) - g3 keeps the originals (probes
+clp1, clp_unsat ~105); tab free order with multiple queries (tab4 #42 vs
+#37) and in get_proof (tab2 ~126); duality persistent simplifier cache vs a
+th_rewriter per simplify() (dual1 ~132); datalog first query runs one extra
+project_rename/union; pdr ~171439 and spacer ~194541 id-reuse divergences;
+get-info :all-statistics lacks :time; qlinear eval_q audit; slice proof
+converter positions; dead karr fixpoint code and unsliced-proof retry.

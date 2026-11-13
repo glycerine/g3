@@ -29,6 +29,12 @@ func (e *Engine) Close() error {
 	if e.closed {
 		return nil
 	}
+	if e.ownsState {
+		if err := e.state.Close(); err != nil {
+			return err
+		}
+	}
+	e.state = nil
 	e.closed = true
 	e.manager = nil
 	e.rules = nil

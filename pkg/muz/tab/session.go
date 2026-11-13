@@ -8,7 +8,44 @@ type Session struct {
 	manager      *ast.ASTManager
 	selection    *predicateSelection
 	nextSequence uint32
-	closed       bool
+	// grounded holds the subsumption index's last setup across queries.
+	grounded *groundClause
+	// rules and search are imp::m_rules and imp::m_clauses of the last
+	// query: m_rules.init resets the former and init_clause the latter.
+	rules  *RuleIndex
+	search *tabSearch
+	closed bool
+}
+
+// releaseRules is tb::rules::init's reset of the previous query's rules.
+func (s *Session) releaseRules() error {
+	if s == nil || s.rules == nil {
+		return nil
+	}
+	if err := s.rules.Close(); err != nil {
+		return err
+	}
+	s.rules = nil
+	return nil
+}
+
+// releaseSearch is init_clause's m_clauses.reset().
+func (s *Session) releaseSearch() error {
+	if s == nil || s.search == nil {
+		return nil
+	}
+	if err := s.search.Close(); err != nil {
+		return err
+	}
+	s.search = nil
+	return nil
+}
+
+// retain keeps a finished query's rules and clauses with the engine.
+func (s *Session) retain(index *RuleIndex, search *tabSearch) {
+	s.nextSequence = search.nextSequence
+	search.session = nil
+	s.rules, s.search = index, search
 }
 
 func NewSession(manager *ast.ASTManager, strategy string) (*Session, error) {
@@ -29,6 +66,18 @@ func (s *Session) open(manager *ast.ASTManager) error {
 func (s *Session) Close() error {
 	if s == nil || s.closed {
 		return nil
+	}
+	if err := s.releaseSearch(); err != nil {
+		return err
+	}
+	if err := s.releaseRules(); err != nil {
+		return err
+	}
+	if s.grounded != nil {
+		if err := s.grounded.Close(); err != nil {
+			return err
+		}
+		s.grounded = nil
 	}
 	if err := s.selection.Close(); err != nil {
 		return err

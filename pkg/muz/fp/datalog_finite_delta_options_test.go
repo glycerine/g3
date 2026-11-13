@@ -98,9 +98,11 @@ func TestDatalogFiniteAllOrNothingDeltaOption(t *testing.T) {
 						ordinaryJoins = e.datalogStats.UintValue(index)
 					}
 				}
+				// rel_context's m_ectx counters accumulate across queries:
+				// the second query adds its 2 join_projects to the first's 4.
 				want := uint32(4)
 				if query != 0 {
-					want = 2
+					want = 6
 				}
 				if tc.all {
 					want /= 2

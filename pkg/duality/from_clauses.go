@@ -7,6 +7,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/interp"
 	"github.com/glycerine/g3/pkg/qe"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 // FromClauses constructs the source RPFP from Horn formulas using the active
@@ -53,34 +54,25 @@ func (g *RPFP) FromClauses(clauses []*Expr, bounds []uint32, simplifier *interp.
 	if g.clauseIndices == nil {
 		g.clauseIndices = make(map[*Edge]int)
 	}
-	var expressions []*Expr
-	hold := func(e *Expr, err error) (*Expr, error) {
-		if e != nil {
-			expressions = append(expressions, e)
-		}
-		return e, err
-	}
-	defer func() {
-		for _, e := range expressions {
-			result = errors.Join(result, e.Close())
-		}
-	}()
 	boolean, err := m.MkBoolSort()
 	if err != nil {
 		return err
 	}
-	fail, err := m.MkFreshConst("@Fail", boolean)
+	// fail_pred = ctx.fresh_func_decl("@Fail", ctx.bool_sort()): only the
+	// declaration; the query node later applies it.
+	failName, err := m.Symbols.Intern("@Fail")
 	if err != nil {
 		return err
 	}
-	_, err = hold(NewExpr(g.context, fail))
+	failDecl, err := m.MkFreshFuncDecl(failName, usymbol.Symbol{}, nil, boolean)
 	if err != nil {
 		return err
 	}
-	failDecl, err := m.GetDecl(fail)
+	failRef, err := m.NewRef(failDecl)
 	if err != nil {
 		return err
 	}
+	defer func() { result = errors.Join(result, m.DelRef(&failRef)) }()
 	predicate := func(head *Expr) (ast.ASTHandle, bool, error) {
 		h, err := head.Raw()
 		if err != nil {
@@ -125,29 +117,41 @@ func (g *RPFP) FromClauses(clauses []*Expr, bounds []uint32, simplifier *interp.
 		if err != nil {
 			return err
 		}
-		// Keep this result alive through its argument substitution and node copy.
+		// Indparams lives to the end of this block; the R(Indparams) argument
+		// of CreateNode is a temporary of that statement.
+		var indparams []*Expr
+		closeIndparams := func() (cause error) {
+			for _, e := range indparams {
+				cause = errors.Join(cause, e.Close())
+			}
+			indparams = nil
+			return cause
+		}
 		args := make([]ast.ASTHandle, len(normalized.Parameters))
 		for i, param := range normalized.Parameters {
-			value, err := hold(g.SubstBound(p.Replacements, param))
-			if err != nil {
-				return errors.Join(err, normalized.close())
+			value, err := g.SubstBound(p.Replacements, param)
+			if value != nil {
+				indparams = append(indparams, value)
 			}
-			args[i], err = value.Raw()
+			if err == nil {
+				args[i], err = value.Raw()
+			}
 			if err != nil {
-				return errors.Join(err, normalized.close())
+				return errors.Join(err, normalized.close(), closeIndparams())
 			}
 		}
 		app, err := m.MkApp(decl, args)
 		if err != nil {
-			return errors.Join(err, normalized.close())
+			return errors.Join(err, normalized.close(), closeIndparams())
 		}
-		term, err := hold(NewExpr(g.context, app))
+		term, err := NewExpr(g.context, app)
 		if err != nil {
-			return errors.Join(err, normalized.close())
+			return errors.Join(err, normalized.close(), closeIndparams())
 		}
 		node, createErr := g.CreateNode(term)
+		createErr = errors.Join(createErr, term.Close())
 		if err := errors.Join(createErr, normalized.close()); err != nil {
-			return err
+			return errors.Join(err, closeIndparams())
 		}
 		predicates[decl] = node
 		p.Parent = node
@@ -158,6 +162,9 @@ func (g *RPFP) FromClauses(clauses []*Expr, bounds []uint32, simplifier *interp.
 		}
 		if bounds != nil {
 			node.RecursionBound = 0
+		}
+		if err := closeIndparams(); err != nil {
+			return err
 		}
 	}
 	someLabels := false
@@ -246,7 +253,14 @@ func (g *RPFP) clauseEdge(p *preparedHornClause, predicates map[ast.ASTHandle]*N
 			}
 		}
 		sort.Slice(indices, func(i, j int) bool { return indices[i] < indices[j] })
-		if err := quantifiers.EliminateIndices(indices, false, ref); err != nil {
+		// expr::qe_lite constructs ::qe_lite qe(m(), params_ref()) per call,
+		// so its rewriters take the proof mode current at this point.
+		local, err := qe.NewLite(m, nil, true, quantifiers.Config())
+		if err != nil {
+			return err
+		}
+		err = local.EliminateIndices(indices, false, ref)
+		if err = errors.Join(err, local.Close()); err != nil {
 			return err
 		}
 	}

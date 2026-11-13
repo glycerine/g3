@@ -8,19 +8,50 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
-	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/tab"
 	"github.com/glycerine/g3/pkg/qe"
-	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 func (e *PropositionalEngine) clearTabAnswer() error {
+	if e.tabPending != nil {
+		if err := e.tabPending.close(); err != nil {
+			return err
+		}
+		e.tabPending = nil
+	}
 	if e.tabAnswer == (ast.ASTRef{}) {
 		return nil
 	}
 	return e.manager.DelRef(&e.tabAnswer)
+}
+
+// tabPendingState keeps a reachable query's clauses and the services its
+// proof replay uses until the answer is requested (imp::get_answer).
+type tabPendingState struct {
+	pending *tab.PendingAnswer
+	backend *tabBackendAttempt
+}
+
+func (s *tabPendingState) close() error {
+	if err := s.pending.Close(); err != nil {
+		return err
+	}
+	return s.backend.close()
+}
+
+// tabAnswerRef materializes the lazy TAB answer once per query, as
+// context::get_answer_as_formula caches m_last_answer.
+func (e *PropositionalEngine) tabAnswerRef() (ast.ASTRef, error) {
+	if e.tabAnswer == (ast.ASTRef{}) && e.tabPending != nil {
+		answer, err := e.tabPending.pending.Proof()
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		e.tabAnswer = answer
+	}
+	return e.tabAnswer, nil
 }
 func (e *PropositionalEngine) closeTabSession() error {
 	if e.tabSession == nil {
@@ -73,7 +104,25 @@ func (e *PropositionalEngine) queryTab(target ast.ASTHandle, expression bool) (s
 		return lbool.Undef, err
 	}
 	attempt := &tabBackendAttempt{manager: e.manager, params: e.params}
-	defer func() { err = errors.Join(err, attempt.dispose()) }()
+	var pending *tab.PendingAnswer
+	defer func() {
+		if pending != nil && err == nil {
+			// engine_base::query's q dies with rel_query; the search state and
+			// its services stay with the engine for the answer replay.
+			if attempt.queryRef != (ast.ASTRef{}) {
+				if err = e.manager.DelRef(&attempt.queryRef); err != nil {
+					err = errors.Join(err, pending.Close(), attempt.dispose())
+					return
+				}
+			}
+			e.tabPending = &tabPendingState{pending: pending, backend: attempt}
+			return
+		}
+		if pending != nil {
+			err = errors.Join(err, pending.Close())
+		}
+		err = errors.Join(err, attempt.dispose())
+	}()
 	attempt.view, err = e.fixedpointParamView()
 	if err != nil {
 		return lbool.Undef, err
@@ -108,31 +157,15 @@ func (e *PropositionalEngine) queryTab(target ast.ASTHandle, expression bool) (s
 	if err != nil {
 		return lbool.Undef, err
 	}
-	attempt.local, err = e.params.NewValue()
-	if err != nil {
+	// The kernels belong to the engine (tab::imp and its tb::index).
+	if err = e.ensureBMCSolver(); err != nil {
 		return lbool.Undef, err
 	}
-	attempt.localOK = true
-	mbqi, timeout := "mbqi", "timeout"
-	if err = e.params.SetBoolName(&attempt.local, &mbqi, false); err != nil {
-		return lbool.Undef, err
+	if e.bmcSlot == nil || e.bmcSlot.tabQuery == nil || e.bmcSlot.tabSub == nil {
+		return lbool.Undef, ErrPropositionalEngine
 	}
-	if err = e.params.SetUIntName(&attempt.local, &timeout, 1000); err != nil {
-		return lbool.Undef, err
-	}
-	modelEvaluator := model.ModelEvaluatorConfig{Context: e.params, Globals: e.globals, Memory: e.manager.NumeralService().RuntimeOwner(), Cooperation: attempt.coop}
-	config := smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals, ModelEvaluator: modelEvaluator}
-	attempt.query, err = smtcore.NewSMTSolver(e.manager, &attempt.local, "", config)
-	if err != nil {
-		return lbool.Undef, err
-	}
-	attempt.sub, err = smtcore.NewSMTSolver(e.manager, nil, "", config)
-	if err != nil {
-		return lbool.Undef, err
-	}
-	if err = attempt.sub.SetProduceModels(true); err != nil {
-		return lbool.Undef, err
-	}
+	modelEvaluator := e.tabModelEvaluator(e.bmcSlot.tabCoop)
+	querySolver, subSolver := e.bmcSlot.tabQuery, e.bmcSlot.tabSub
 	query := target
 	if !expression {
 		arity, e2 := e.manager.GetArity(target)
@@ -161,9 +194,9 @@ func (e *PropositionalEngine) queryTab(target ast.ASTHandle, expression bool) (s
 	}
 	var stats tab.Statistics
 	if expression {
-		status, e.tabAnswer, err = tab.QueryExpressionWithSessionStatistics(e.set, query, attempt.rw, attempt.lite, attempt.query, attempt.sub, e.tabSession, &stats, modelEvaluator)
+		status, e.tabAnswer, err = tab.QueryExpressionWithSessionStatisticsPending(e.set, query, attempt.rw, attempt.lite, querySolver, subSolver, e.tabSession, &stats, &pending, modelEvaluator)
 	} else {
-		status, e.tabAnswer, err = tab.QueryPredicateWithSession(e.set, query, attempt.rw, attempt.lite, attempt.query, attempt.sub, e.tabSession, &stats, modelEvaluator)
+		status, e.tabAnswer, err = tab.QueryPredicateWithSessionPending(e.set, query, attempt.rw, attempt.lite, querySolver, subSolver, e.tabSession, &stats, &pending, modelEvaluator)
 	}
 	e.tabUnfold += stats.Unfold
 	e.tabUnfoldFail += stats.UnfoldFail

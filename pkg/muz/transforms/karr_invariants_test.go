@@ -5,6 +5,7 @@ package transforms_test
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -114,12 +115,16 @@ func TestKarrInvariantsStopsAfterCanceledForwardAnalysis(t *testing.T) {
 	plugin := transforms.NewKarrInvariantsPlugin(manager, rules, 36010)
 	t.Cleanup(func() { coneMust(t, plugin.Close()) })
 	manager.Limit.Cancel()
-	// The inner context's check_rules runs before any cancellation check.
+	// mk_loop_counter starts the counter at get_max_rule_var(r)+1 = var(1)
+	// for these variable-free rules, so rm.mk's norm_vars rewrite observes
+	// the cancellation before the inner context's check_rules.
 	result, err := plugin.Transform(set)
 	if result != nil {
 		coneMust(t, result.Close())
 	}
-	requireKarrInfiniteSort(t, err, "")
+	if err == nil || !strings.Contains(err.Error(), "canceled") {
+		t.Fatal("Karr did not stop on cancellation", err)
+	}
 }
 
 func TestKarrInvariantsSkipsNegatedPrograms(t *testing.T) {

@@ -4,11 +4,18 @@ package transforms
 // dl_mk_rule_inliner.cpp:129-131. Query owners resolve these two values while
 // their local parameter snapshot is live; nested normalizers copy only scalars.
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/ast/rewriter"
+)
 
 type RuleNormalizationParams struct {
 	PropagateVariableEquivalences bool
 	FixUnboundVariables           bool
+	// ContextRewriter is ctx.get_rewriter(), shared by the rule_unifier's
+	// interpreted-tail simplifier (nil: the normalizer owns one).
+	ContextRewriter *rewriter.TheoryRewriter
 }
 
 func DefaultRuleNormalizationParams() RuleNormalizationParams {

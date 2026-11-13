@@ -36,6 +36,10 @@ func QueryExpressionWithSessionStatistics(rules *base.RuleSet, query ast.ASTHand
 }
 
 func queryExpression(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string, session *Session, stats *Statistics, evaluator ...model.ModelEvaluatorConfig) (status lbool.LBool, answer ast.ASTRef, resultErr error) {
+	return queryExpressionPending(rules, query, rw, lite, querySolver, subsumptionSolver, strategy, session, stats, nil, evaluator...)
+}
+
+func queryExpressionPending(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string, session *Session, stats *Statistics, pending **PendingAnswer, evaluator ...model.ModelEvaluatorConfig) (status lbool.LBool, answer ast.ASTRef, resultErr error) {
 	if rules == nil || rw == nil || rw.Manager() == nil {
 		return lbool.Undef, answer, ast.ErrASTHandle
 	}
@@ -54,6 +58,14 @@ func queryExpression(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.Theo
 		return lbool.Undef, answer, fmt.Errorf("muz/tab: query expression is not Boolean")
 	}
 	ruleManager, err := rules.RuleManager()
+	if err != nil {
+		return lbool.Undef, answer, err
+	}
+	// imp::query: m_rules.init(m_ctx.get_rules()) precedes mk_query.
+	if err = session.releaseRules(); err != nil {
+		return lbool.Undef, answer, err
+	}
+	attempt.index, err = NewRuleIndex(rules, rw)
 	if err != nil {
 		return lbool.Undef, answer, err
 	}
@@ -113,6 +125,17 @@ func queryExpression(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.Theo
 	if err != nil {
 		return lbool.Undef, answer, err
 	}
+	if count != 0 {
+		// rule_expr = m.mk_forall(vars, names, impl), outermost first.
+		names := make([]symbol.Symbol, count)
+		for index := uint32(0); index < count; index++ {
+			names[count-index-1] = symbol.Numerical(index)
+		}
+		implication, err = m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: domain, Names: names, Body: implication})
+		if err != nil {
+			return lbool.Undef, answer, err
+		}
+	}
 	scoped, err := base.NewRuleSet(ruleManager)
 	if err != nil {
 		return lbool.Undef, answer, err
@@ -144,7 +167,9 @@ func queryExpression(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.Theo
 	if err != nil {
 		return lbool.Undef, answer, err
 	}
-	return queryPredicate(rules, ast.ASTHandle{}, attempt.queryRule, rw, lite, querySolver, subsumptionSolver, strategy, session, stats, evaluator...)
+	index := attempt.index
+	attempt.index = nil
+	return queryPredicatePending(rules, ast.ASTHandle{}, attempt.queryRule, index, rw, lite, querySolver, subsumptionSolver, strategy, session, stats, pending, evaluator...)
 }
 
 func compactExpressionVariables(m *ast.ASTManager, ruleManager *base.RuleManager, expression ast.ASTHandle) (result ast.ASTRef, resultErr error) {

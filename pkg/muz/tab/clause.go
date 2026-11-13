@@ -181,8 +181,15 @@ func clauseSubstitutable(m *ast.ASTManager, root ast.ASTHandle) (bool, error) {
 	return true, nil
 }
 
-func (c *Clause) reduceEqualities(rw *rewriter.TheoryRewriter) (result error) {
+func (c *Clause) reduceEqualities(shared *rewriter.TheoryRewriter) (result error) {
 	m := c.manager
+	// th_rewriter rw(m) is local to reduce_equalities: it takes the proof
+	// mode current at this call and its cache dies on return.
+	rw, err := shared.FreshDefault()
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, rw.Close()) }()
 	s, err := substitution.New(m)
 	if err != nil {
 		return err

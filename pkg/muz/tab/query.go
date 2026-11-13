@@ -3,6 +3,8 @@ package tab
 // Source: src/muz/tab/tab_context.cpp, tab::query and imp::get_answer.
 
 import (
+	"errors"
+
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
@@ -36,12 +38,29 @@ func QueryPredicateWithSession(rules *base.RuleSet, query ast.ASTHandle, rw *rew
 }
 
 func queryPredicate(rules *base.RuleSet, query ast.ASTHandle, queryRule *base.Rule, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string, session *Session, stats *Statistics, evaluator ...model.ModelEvaluatorConfig) (status lbool.LBool, answer ast.ASTRef, err error) {
-	if rules == nil || rw == nil || rw.Manager() == nil || lite == nil || querySolver == nil || subsumptionSolver == nil {
-		return lbool.Undef, answer, ast.ErrASTHandle
+	return queryPredicatePending(rules, query, queryRule, nil, rw, lite, querySolver, subsumptionSolver, strategy, session, stats, nil, evaluator...)
+}
+
+// queryPredicatePending takes ownership of prebuilt, the rule index that
+// imp::query initialized (m_rules.init) before mk_query.
+func queryPredicatePending(rules *base.RuleSet, query ast.ASTHandle, queryRule *base.Rule, prebuilt *RuleIndex, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string, session *Session, stats *Statistics, pending **PendingAnswer, evaluator ...model.ModelEvaluatorConfig) (status lbool.LBool, answer ast.ASTRef, err error) {
+	if rw == nil || rw.Manager() == nil {
+		return lbool.Undef, answer, errors.Join(ast.ErrASTHandle, prebuilt.Close())
 	}
 	m := rw.Manager()
-	attempt := &tabQueryAttempt{manager: m}
+	attempt := &tabQueryAttempt{manager: m, index: prebuilt}
+	if rules == nil || lite == nil || querySolver == nil || subsumptionSolver == nil {
+		return lbool.Undef, answer, errors.Join(ast.ErrASTHandle, attempt.closeResources())
+	}
 	defer func() { answer, err = attempt.finish(answer, err) }()
+	defer func() {
+		// The engine keeps this query's rules and clauses until the next
+		// query resets them.
+		if err == nil && session != nil && attempt.search != nil {
+			session.retain(attempt.index, attempt.search)
+			attempt.index, attempt.search = nil, nil
+		}
+	}()
 	ruleManager, err := rules.RuleManager()
 	if err != nil {
 		return lbool.Undef, answer, err
@@ -60,11 +79,17 @@ func queryPredicate(rules *base.RuleSet, query ast.ASTHandle, queryRule *base.Ru
 	if err = properties.CheckNegativePredicates(); err != nil {
 		return lbool.Undef, answer, err
 	}
-	index, err := NewRuleIndex(rules, rw)
-	if err != nil {
-		return lbool.Undef, answer, err
+	index := prebuilt
+	if index == nil {
+		if err = session.releaseRules(); err != nil {
+			return lbool.Undef, answer, err
+		}
+		index, err = NewRuleIndex(rules, rw)
+		if err != nil {
+			return lbool.Undef, answer, err
+		}
+		attempt.index = index
 	}
-	attempt.index = index
 	falsehood, err := m.MkFalse()
 	if err != nil {
 		return lbool.Undef, answer, err
@@ -89,6 +114,10 @@ func queryPredicate(rules *base.RuleSet, query ast.ASTHandle, queryRule *base.Ru
 		if err = m.SetRef(goal.head, falsehood); err != nil {
 			return lbool.Undef, answer, err
 		}
+	}
+	// init_clause(g): m_clauses.reset().
+	if err = session.releaseSearch(); err != nil {
+		return lbool.Undef, answer, err
 	}
 	var modelConfig *model.ModelEvaluatorConfig
 	if len(evaluator) > 1 {
@@ -138,6 +167,17 @@ func queryPredicate(rules *base.RuleSet, query ast.ASTHandle, queryRule *base.Ru
 	}
 	switch status {
 	case lbool.True:
+		if pending != nil && session != nil {
+			// imp::query returns l_true; get_answer replays the proof later
+			// from the clauses the session retains.
+			*pending = &PendingAnswer{session: session}
+			return status, answer, nil
+		}
+		if pending != nil {
+			*pending = &PendingAnswer{attempt: &tabQueryAttempt{manager: m, index: attempt.index, search: attempt.search}}
+			attempt.index, attempt.search = nil, nil
+			return status, answer, nil
+		}
 		answer, err = search.Proof()
 	case lbool.False:
 		answer, err = m.NewRef(truth)

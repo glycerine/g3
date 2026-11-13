@@ -1,13 +1,15 @@
 package clp
 
+// Source: src/muz/clp/clp_context.cpp clp::imp::search.
+
 import (
 	"errors"
-	"github.com/glycerine/g3/pkg/ast"
+
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func (e *Engine) search(goals []ast.ASTHandle, depth uint32, index int) (status lbool.LBool, resultErr error) {
-	if index == len(goals) {
+func (e *Engine) search(depth uint32, index int) (status lbool.LBool, resultErr error) {
+	if index == len(e.state.goals) {
 		return lbool.True, nil
 	}
 	if depth == 0 {
@@ -16,7 +18,12 @@ func (e *Engine) search(goals []ast.ASTHandle, depth uint32, index int) (status 
 	if err := e.verboseSearch(depth, index); err != nil {
 		return lbool.Undef, err
 	}
-	decl, err := e.manager.GetDecl(goals[index])
+	numGoals := len(e.state.goals)
+	head, err := e.state.goal(index)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	decl, err := e.manager.GetDecl(head)
 	if err != nil {
 		return lbool.Undef, err
 	}
@@ -27,7 +34,7 @@ func (e *Engine) search(goals []ast.ASTHandle, depth uint32, index int) (status 
 	defer func() { resultErr = errors.Join(resultErr, closeRules(rules)) }()
 	status = lbool.False
 	for _, rule := range rules {
-		candidate, x := e.tryScopedRule(rule, goals, depth, index)
+		candidate, x := e.tryScopedRule(rule, depth, index, numGoals)
 		if x != nil {
 			return lbool.Undef, x
 		}

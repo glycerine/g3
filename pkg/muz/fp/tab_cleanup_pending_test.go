@@ -7,9 +7,7 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
-	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/qe"
-	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/memory"
 	"github.com/glycerine/g3/pkg/util/numeral"
@@ -80,15 +78,6 @@ func TestTABBackendAttemptPreservesRefusedCleanup(t *testing.T) {
 	must(err)
 	attempt.lite, err = qe.NewLite(manager, nil, false, qe.Config{Context: params, Globals: globals, Cooperation: attempt.coop})
 	must(err)
-	attempt.local, err = params.NewValue()
-	must(err)
-	attempt.localOK = true
-	modelEvaluator := model.ModelEvaluatorConfig{Context: params, Globals: globals, Memory: runtime, Cooperation: attempt.coop}
-	config := smtcore.SMTSolverConfig{Params: params, Globals: globals, ModelEvaluator: modelEvaluator}
-	attempt.query, err = smtcore.NewSMTSolver(manager, &attempt.local, "", config)
-	must(err)
-	attempt.sub, err = smtcore.NewSMTSolver(manager, nil, "", config)
-	must(err)
 	truth, err := manager.MkTrue()
 	must(err)
 	attempt.queryRef, err = manager.NewRef(truth)
@@ -109,7 +98,7 @@ func TestTABBackendAttemptPreservesRefusedCleanup(t *testing.T) {
 	if body == nil || !callback || !errors.Is(failure, ast.ErrASTPending) {
 		t.Fatal("expected actual TAB backend cleanup refusal", body, callback, failure)
 	}
-	if attempt.view == nil || attempt.rw == nil || attempt.coop == nil || attempt.lite == nil || !attempt.localOK || attempt.query == nil || attempt.sub == nil || attempt.queryRef != originalRef {
+	if attempt.view == nil || attempt.rw == nil || attempt.coop == nil || attempt.lite == nil || attempt.queryRef != originalRef {
 		t.Fatal("refused TAB cleanup lost or advanced an owner")
 	}
 	var cleanup memory.ConstructionFailure
@@ -117,7 +106,7 @@ func TestTABBackendAttemptPreservesRefusedCleanup(t *testing.T) {
 		t.Fatal("TAB backend cleanup refusal is not retryable", failure)
 	}
 	must(cleanup.Cleanup())
-	if attempt.view != nil || attempt.rw != nil || attempt.coop != nil || attempt.lite != nil || attempt.localOK || attempt.query != nil || attempt.sub != nil || attempt.queryRef != (ast.ASTRef{}) || cleanup.CleanupCause() != nil {
+	if attempt.view != nil || attempt.rw != nil || attempt.coop != nil || attempt.lite != nil || attempt.queryRef != (ast.ASTRef{}) || cleanup.CleanupCause() != nil {
 		t.Fatal("TAB backend cleanup retry did not retire all owners")
 	}
 }

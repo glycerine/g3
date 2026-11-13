@@ -598,6 +598,10 @@ func (c *Context) FixedpointStatistics() (statistics.Statistics, error) {
 	if err = engine.CollectStatistics(&result); err != nil {
 		return statistics.Statistics{}, err
 	}
+	// context::collect_statistics: get_memory_statistics and
+	// get_rlimit_statistics follow the engine's counters.
+	statistics.AddProcessMemory(&result)
+	statistics.AddResourceLimit(&result, c.manager.ResourceLimit().Count())
 	return result, nil
 }
 

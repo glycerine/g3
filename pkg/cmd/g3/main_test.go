@@ -1053,6 +1053,8 @@ var scriptResults = map[string]string{
 	"fp_pdr_karr_bv_loop_counter.smt2":                  "(error \"query failed: Rule contains infinite sorts in rule <null>:\np(#b00,0).\n\")\nunknown\n",
 	"fp_query_params_persist.smt2":                      "sat\n(= (:var 0) #b1)\nq2\nsat\nq3\nsat\nq4\nsat\nq5\nsat\n(= (:var 0) #b1)\nq6\nsat\n(= (:var 0) #b1)\nq7\nsat\n(= (:var 0) #b1)\nq8\nsat\nq9\nsat\n",
 	"fp_tab_relation_query.smt2":                        "sat\n",
+	"fp_bmc_int_two_queries.smt2":                       "sat\n(let ((a!1 (forall ((A Int) (B Int))\n             (=> (and (p B) (not (<= 3 B)) (= A (+ 1 B))) (p A)))))\n(let ((a!2 (hyper-res (asserted (=> (p 2) query!0))\n                      (asserted a!1)\n                      (=> (p 1) query!0))))\n  ((_ hyper-res 0 1)\n    (hyper-res a!2 (asserted a!1) (=> (p 0) query!0))\n    (asserted (p 0))\n    query!0)))\nsat\n(let ((a!1 (asserted (forall ((A Int)) (=> (p A) (query!1 A))))))\n  ((_ hyper-res 0 1)\n    (hyper-res a!1 (=> (p 0) (query!1 0)))\n    (asserted (p 0))\n    (query!1 0)))\n",
+	"fp_clp_int_engine_kernel.smt2":                     "sat\n",
 }
 
 // parseErrorScripts are scriptResults vectors whose expected output holds

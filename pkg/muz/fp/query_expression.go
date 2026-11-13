@@ -65,6 +65,13 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		// failure before clone construction must not expose the prior solve.
 		e.bmcStatistics.Reset()
 	}
+	if e.usesEngineKernel() {
+		if e.relationQuery {
+			if err := e.resetBMCSolver(); err != nil {
+				return lbool.Undef, err
+			}
+		}
+	}
 	if e.backend == "datalog" {
 		if err := e.cacheDatalogRelationFavourite(); err != nil {
 			return lbool.Undef, err
@@ -87,6 +94,16 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	}
 	if err := e.flushPendingRules(); err != nil {
 		return lbool.Undef, err
+	}
+	if e.usesEngineKernel() && !e.relationQuery {
+		// context::query: flush_add_rules, ensure_engine, then bmc::query
+		// resets the kernel.
+		if err := e.ensureBMCSolver(); err != nil {
+			return lbool.Undef, err
+		}
+		if err := e.resetBMCSolver(); err != nil {
+			return lbool.Undef, err
+		}
 	}
 	if e.backend == "datalog" {
 		// flush_add_rules ends with check_rules before rel_context::query
@@ -120,7 +137,11 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if err != nil {
 		return lbool.Undef, fmt.Errorf("muz/fp: hoist query existentials: %w", err)
 	}
-	defer func() { resultErr = errors.Join(resultErr, e.manager.DelRef(&hoisted)) }()
+	defer func() {
+		if hoisted != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, e.manager.DelRef(&hoisted))
+		}
+	}()
 	query, err = e.manager.RefGet(hoisted)
 	if err != nil {
 		return lbool.Undef, err
@@ -129,7 +150,11 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if err != nil {
 		return lbool.Undef, fmt.Errorf("muz/fp: compact query variables: %w", err)
 	}
-	defer func() { resultErr = errors.Join(resultErr, e.manager.DelRef(&compacted)) }()
+	defer func() {
+		if compacted != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, e.manager.DelRef(&compacted))
+		}
+	}()
 	query, err = e.manager.RefGet(compacted)
 	if err != nil {
 		return lbool.Undef, err
@@ -165,6 +190,8 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 			} else {
 				e.tabAnswer = clone.tabAnswer
 				clone.tabAnswer = ast.ASTRef{}
+				e.tabPending = clone.tabPending
+				clone.tabPending = nil
 			}
 		}
 		if e.backend == "bmc" || e.backend == "qbmc" {
@@ -297,8 +324,29 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 			return lbool.Undef, err
 		}
 	}
-	if err = clone.addRuleNow(rule, ""); err != nil {
-		return lbool.Undef, err
+	if clone.backend == "datalog" {
+		if err = clone.addRuleNow(rule, ""); err != nil {
+			return lbool.Undef, err
+		}
+	} else {
+		if err = clone.mkQueryRule(rule); err != nil {
+			return lbool.Undef, err
+		}
+		// mk_query's rule_expr, impl, qhead and q die on return.
+		for i := len(queryRoots) - 1; i >= 0; i-- {
+			if err = e.manager.DelRef(&queryRoots[i]); err != nil {
+				return lbool.Undef, err
+			}
+		}
+		queryRoots = nil
+		if err = e.manager.DelRef(&compacted); err != nil {
+			return lbool.Undef, err
+		}
+		compacted = ast.ASTRef{}
+		if err = e.manager.DelRef(&hoisted); err != nil {
+			return lbool.Undef, err
+		}
+		hoisted = ast.ASTRef{}
 	}
 	karrSelected := false
 	relationExplanationSelected := false

@@ -7,7 +7,6 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/clp"
-	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -67,26 +66,17 @@ func (e *PropositionalEngine) queryCLPPredicate(declaration ast.ASTHandle) (resu
 	if err != nil {
 		return lbool.Undef, err
 	}
-	attempt.local, err = e.params.NewValue()
+	// clp::query's m_solver.reset() already ran; use the engine kernel.
+	backend, err := e.bmcQuerySolver()
 	if err != nil {
 		return lbool.Undef, err
 	}
-	attempt.params = e.params
-	attempt.localReady = true
-	mbqi := "mbqi"
-	if err = e.params.SetBoolName(&attempt.local, &mbqi, false); err != nil {
-		return lbool.Undef, err
+	var engine *clp.Engine
+	if e.bmcSlot != nil && e.bmcSlot.clp != nil {
+		engine, err = clp.NewEngineWithState(e.manager, preprocessed.rules, backend, 20, e.bmcSlot.clp)
+	} else {
+		engine, err = clp.NewEngine(e.manager, preprocessed.rules, backend, 20)
 	}
-	timeout := "timeout"
-	if err = e.params.SetUIntName(&attempt.local, &timeout, 1000); err != nil {
-		return lbool.Undef, err
-	}
-	backend, err := smtcore.NewSMTSolver(e.manager, &attempt.local, "", smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals})
-	if err != nil {
-		return lbool.Undef, err
-	}
-	attempt.backend = backend
-	engine, err := clp.NewEngine(e.manager, preprocessed.rules, backend, 20)
 	if err != nil {
 		return lbool.Undef, err
 	}

@@ -4,7 +4,6 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/qe"
-	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/memory"
 	uparams "github.com/glycerine/g3/pkg/util/params"
@@ -20,10 +19,6 @@ type tabBackendAttempt struct {
 	coop     *cooperate.Cooperation
 	lite     *qe.Lite
 	params   *uparams.ParamsContext
-	local    uparams.ParamsRef
-	localOK  bool
-	query    *smtcore.SMTSolver
-	sub      *smtcore.SMTSolver
 	queryRef ast.ASTRef
 }
 
@@ -54,24 +49,6 @@ func (a *tabBackendAttempt) close() error {
 		if err := a.manager.DelRef(&a.queryRef); err != nil {
 			return err
 		}
-	}
-	if a.sub != nil {
-		if err := a.sub.Close(); err != nil {
-			return err
-		}
-		a.sub = nil
-	}
-	if a.query != nil {
-		if err := a.query.Close(); err != nil {
-			return err
-		}
-		a.query = nil
-	}
-	if a.localOK {
-		if err := a.params.Del(&a.local); err != nil {
-			return err
-		}
-		a.localOK = false
 	}
 	if a.lite != nil {
 		if err := a.lite.Close(); err != nil {
