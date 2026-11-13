@@ -109,7 +109,14 @@ func (s *qsatSearch) requireDefinitions(msg string) error {
 	if !ast.ASTSourceDebug {
 		return nil
 	}
-	valid, err := s.validateDefinitions(msg)
+	// SASSERT(validate_defs(msg)) is absent from release builds; evaluating
+	// the definitions must not shift the IDs (and so the term orders) that
+	// the rest of the search sees.
+	var valid bool
+	_, err := s.manager.IsolatedCheck(func() (e error) {
+		valid, e = s.validateDefinitions(msg)
+		return e
+	})
 	if err != nil {
 		return err
 	}
@@ -156,6 +163,33 @@ func (c *qsatSearchCall) validateAssumptions(md *model.ModelCore, forms []ast.AS
 		}
 	}
 	return true, nil
+}
+
+// validateAssumptionsDebug is SASSERT(validate_assumptions(mdl, core)): the
+// same check as validateAssumptions, run isolated because release builds
+// skip it.
+func (c *qsatSearchCall) validateAssumptionsDebug(md *model.ModelCore, forms []ast.ASTRef) (bool, error) {
+	s := c.owner
+	hs, err := debugRefHandles(s.manager, forms)
+	if err != nil {
+		return false, err
+	}
+	valid := true
+	err = debugModelEval(s.manager, s.config, md, false, hs, func(h, v ast.ASTHandle) (bool, error) {
+		if s.manager.IsTrue(v) {
+			return true, nil
+		}
+		valid = false
+		return false, s.preparation.abstraction.emit("validate_assumptions", 1069, func(w io.Writer) error {
+			_, _ = io.WriteString(w, "component of core is not true: ")
+			if e := writeExpression(s.manager, s.config, w, h); e != nil {
+				return e
+			}
+			_, _ = io.WriteString(w, "\n")
+			return nil
+		})
+	})
+	return valid, err
 }
 func (s *qsatSearch) check() (status lbool.LBool, err error) {
 	outer, err := s.begin()
@@ -233,7 +267,7 @@ func (s *qsatSearch) checkLoop() (status lbool.LBool, err error) {
 				return lbool.Undef, err
 			}
 			if ast.ASTSourceDebug {
-				valid, e := c.validateAssumptions(md, *asms)
+				valid, e := c.validateAssumptionsDebug(md, *asms)
 				if e != nil {
 					return lbool.Undef, e
 				}
@@ -294,7 +328,7 @@ func (s *qsatSearch) checkLoop() (status lbool.LBool, err error) {
 				}
 			} else if s.level == 1 {
 				if ast.ASTSourceDebug {
-					valid, e := c.validateAssumptions(md, *asms)
+					valid, e := c.validateAssumptionsDebug(md, *asms)
 					if e != nil {
 						return lbool.Undef, e
 					}

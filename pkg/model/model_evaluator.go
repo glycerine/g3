@@ -303,6 +303,22 @@ func (ev *ModelEvaluator) Reset(p *uparams.ParamsRef) error {
 	}
 	return ev.cfg.updateParams(p)
 }
+
+// Model returns the borrowed model the evaluator reads.
+func (ev *ModelEvaluator) Model() (*ModelCore, error) {
+	if e := ev.open(); e != nil {
+		return nil, e
+	}
+	return ev.model, nil
+}
+
+// ModelCompletion reports the current set_model_completion setting.
+func (ev *ModelEvaluator) ModelCompletion() (bool, error) {
+	if e := ev.open(); e != nil {
+		return false, e
+	}
+	return ev.cfg.completion, nil
+}
 func (ev *ModelEvaluator) SetModelCompletion(enabled bool) error {
 	if e := ev.open(); e != nil {
 		return e

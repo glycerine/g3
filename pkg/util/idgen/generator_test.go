@@ -112,3 +112,25 @@ func TestIDGeneratorReserveGrowsGeometrically(t *testing.T) {
 		t.Fatal("reserve reallocated per call", grows)
 	}
 }
+
+func TestIDGeneratorRestoreTransient(t *testing.T) {
+	g := New(0, nil)
+	for i := 0; i < 5; i++ {
+		g.Mk()
+	}
+	_ = g.Recycle(3)
+	_ = g.Recycle(1)
+	s := g.Snapshot()
+	a, b, c := g.Mk(), g.Mk(), g.Mk() // 1, 3, then fresh 5
+	_ = g.Recycle(a)
+	_ = g.Recycle(c)
+	_ = g.Recycle(b)
+	if !g.RestoreTransient(s) || g.Range() != 5 || len(g.FreeIDs()) != 2 || g.FreeIDs()[0] != 3 || g.FreeIDs()[1] != 1 {
+		t.Fatal("transient IDs not restored", g.Range(), g.FreeIDs())
+	}
+	s = g.Snapshot()
+	g.Mk()
+	if g.RestoreTransient(s) || g.Range() != 5 || len(g.FreeIDs()) != 1 {
+		t.Fatal("live ID restored", g.Range(), g.FreeIDs())
+	}
+}

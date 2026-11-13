@@ -17,22 +17,24 @@ func (c *modelProjectionCall) evaluate(md *model.ModelCore, h ast.ASTHandle) (as
 	}
 	return c.scratch.eval(h)
 }
+
+// validate is SASSERT(validate_model(model, fmls)), a debug-only check;
+// each model.eval builds its own model_evaluator without model completion.
 func (c *modelProjectionCall) validate(md *model.ModelCore, forms []ast.ASTRef) error {
-	m := c.scratch.owner.manager
-	for _, r := range forms {
-		h, err := m.RefGet(r)
-		if err != nil {
-			return err
-		}
-		val, err := c.evaluate(md, h)
-		if err != nil {
-			return err
-		}
-		if !m.IsTrue(val) {
-			return ast.ErrASTDomain
-		}
+	pre := c.scratch.owner
+	hs, err := debugRefHandles(pre.manager, forms)
+	if err != nil {
+		return err
 	}
-	return nil
+	valid := true
+	err = debugModelEval(pre.manager, pre.config, md, false, hs, func(_, v ast.ASTHandle) (bool, error) {
+		valid = pre.manager.IsTrue(v)
+		return valid, nil
+	})
+	if err == nil && !valid {
+		err = ast.ErrASTDomain
+	}
+	return err
 }
 func (p *ModelBasedProjection) projectVariable(md *model.ModelCore, v ast.ASTHandle, vars, forms *[]ast.ASTRef) (bool, error) {
 	s, err := p.manager.GetSort(v)

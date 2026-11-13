@@ -157,21 +157,19 @@ func (p *ArithmeticProjection) Maximize(md *model.ModelCore, forms []ast.ASTRef,
 	}
 	return value, nil
 }
+
+// validateModel is SASSERT(validate_model(eval, fmls0)); see debugEval.
 func (c *arithmeticProjectionCall) validateModel(forms []ast.ASTRef) (bool, error) {
 	p := c.owner
+	hs, err := debugRefHandles(p.manager, forms)
+	if err != nil {
+		return false, err
+	}
 	valid := true
-	for _, r := range forms {
-		h, err := p.manager.RefGet(r)
-		if err != nil {
-			return false, err
-		}
-		v, err := c.eval(h)
-		if err != nil {
-			return false, err
-		}
+	err = c.debugEval(hs, func(h, v ast.ASTHandle) (bool, error) {
 		if !p.manager.IsTrue(v) {
 			valid = false
-			if err = p.emit("validate_model", 501, func(w io.Writer) error {
+			if err := p.emit("validate_model", 501, func(w io.Writer) error {
 				if e := writeExpression(p.manager, p.config, w, h); e != nil {
 					return e
 				}
@@ -185,6 +183,23 @@ func (c *arithmeticProjectionCall) validateModel(forms []ast.ASTRef) (bool, erro
 				return false, err
 			}
 		}
+		return true, nil
+	})
+	return valid, err
+}
+
+// debugEval evaluates forms for a debug-only source check that uses the
+// projection's shared model_evaluator: a fresh evaluator with the same model
+// and model-completion setting gives the same values without touching the
+// shared evaluator's cache (see debugModelEval).
+func (c *arithmeticProjectionCall) debugEval(forms []ast.ASTHandle, visit func(h, v ast.ASTHandle) (bool, error)) error {
+	md, err := c.evaluator.Model()
+	if err != nil {
+		return err
 	}
-	return valid, nil
+	completion, err := c.evaluator.ModelCompletion()
+	if err != nil {
+		return err
+	}
+	return debugModelEval(c.owner.manager, c.owner.config, md, completion, forms, visit)
 }

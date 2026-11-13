@@ -31,47 +31,52 @@ type modelConversion struct {
 func (s *Solver) drainModelWork() error {
 	for len(s.modelWork) > 0 {
 		i := len(s.modelWork) - 1
-		w := s.modelWork[i]
-		if w.valueReady {
-			if err := s.manager.DelRef(&w.value); err != nil {
-				return err
-			}
-			w.valueReady = false
-		}
-		if w.evaluator != nil {
-			if err := w.evaluator.Close(); err != nil {
-				return err
-			}
-			w.evaluator = nil
-		}
-		if w.md != nil {
-			if w.mdCleanup {
-				if err := w.md.Close(); err != nil {
-					return err
-				}
-			} else {
-				consumed, err := w.md.DecRefConsumed()
-				if consumed && err != nil {
-					w.mdCleanup = true
-				}
-				if err != nil {
-					return err
-				}
-			}
-			w.md = nil
-		}
-		if w.stream != nil {
-			if err := w.stream.Close(); err != nil {
-				return err
-			}
-			w.stream = nil
-		}
-		if w.formatManager != nil {
-			if err := releaseRoots(w.formatManager, &w.formats, 0); err != nil {
-				return err
-			}
+		if err := s.releaseConversion(s.modelWork[i]); err != nil {
+			return err
 		}
 		s.modelWork = s.modelWork[:i]
+	}
+	return nil
+}
+func (s *Solver) releaseConversion(w *modelConversion) error {
+	if w.valueReady {
+		if err := s.manager.DelRef(&w.value); err != nil {
+			return err
+		}
+		w.valueReady = false
+	}
+	if w.evaluator != nil {
+		if err := w.evaluator.Close(); err != nil {
+			return err
+		}
+		w.evaluator = nil
+	}
+	if w.md != nil {
+		if w.mdCleanup {
+			if err := w.md.Close(); err != nil {
+				return err
+			}
+		} else {
+			consumed, err := w.md.DecRefConsumed()
+			if consumed && err != nil {
+				w.mdCleanup = true
+			}
+			if err != nil {
+				return err
+			}
+		}
+		w.md = nil
+	}
+	if w.stream != nil {
+		if err := w.stream.Close(); err != nil {
+			return err
+		}
+		w.stream = nil
+	}
+	if w.formatManager != nil {
+		if err := releaseRoots(w.formatManager, &w.formats, 0); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -227,53 +232,8 @@ func (s *Solver) extractModel() (err error) {
 		}
 	}
 	if ast.ASTSourceDebug {
-		current, e := s.model.Get()
-		if e != nil {
-			return e
-		}
-		w.evaluator, e = model.NewModelEvaluator(current, s.services)
-		if e != nil {
-			return e
-		}
-		if e = w.evaluator.SetModelCompletion(true); e != nil {
-			return e
-		}
-		w.value, e = s.manager.NewRef(ast.ASTHandle{})
-		if e != nil {
-			return e
-		}
-		w.valueReady = true
-		for _, f := range s.formulas {
-			if e = w.evaluator.Evaluate(f, w.value); e != nil {
-				return e
-			}
-			v, e := s.manager.RefGet(w.value)
-			if e != nil {
-				return e
-			}
-			if !s.manager.IsTrue(v) {
-				if e = s.emit("extract_model", 682, func(out io.Writer) error {
-					if _, e := io.WriteString(out, "Evaluation failed: "); e != nil {
-						return e
-					}
-					if e := s.writeExpression(out, f); e != nil {
-						return e
-					}
-					if _, e := io.WriteString(out, " to "); e != nil {
-						return e
-					}
-					if e := s.writeExpression(out, v); e != nil {
-						return e
-					}
-					if _, e := io.WriteString(out, "\n"); e != nil {
-						return e
-					}
-					return current.WriteSMT2(out, s.services.Context, s.services.Globals, 0)
-				}); e != nil {
-					return e
-				}
-				return ast.ErrASTDomain
-			}
+		if err = s.debugCheckModel(); err != nil {
+			return err
 		}
 	}
 	s.modelPending = false
@@ -327,4 +287,84 @@ func (s *Solver) formatExpressions(expressions []ast.ASTHandle) (result string, 
 		return "", err
 	}
 	return w.stream.String()
+}
+
+// debugCheckModel is the DEBUG_CODE block of inc_sat_solver::extract_model:
+// every formula must be true under m_model->eval(f, tmp, true). Release
+// builds skip it, so it runs isolated (ASTManager.IsolatedCheck) on a scratch
+// copy of the model: completion must not add interpretations to the model
+// the caller receives, and the evaluation must not shift AST IDs.
+func (s *Solver) debugCheckModel() error {
+	current, err := s.model.Get()
+	if err != nil {
+		return err
+	}
+	// The scratch model, evaluator and value stay reachable from modelWork
+	// when a release stops, as the other model-conversion owners do.
+	w := &modelConversion{}
+	s.modelWork = append(s.modelWork, w)
+	_, err = s.manager.IsolatedCheck(func() error {
+		err := s.debugCheckModelWith(w, current)
+		if e := s.releaseConversion(w); e != nil {
+			return errors.Join(err, e)
+		}
+		if n := len(s.modelWork); n != 0 && s.modelWork[n-1] == w {
+			s.modelWork = s.modelWork[:n-1]
+		}
+		return err
+	})
+	return err
+}
+func (s *Solver) debugCheckModelWith(w *modelConversion, current *model.ModelCore) (err error) {
+	w.md, err = current.ScratchCopy()
+	w.mdCleanup = true
+	if err != nil {
+		return err
+	}
+	w.evaluator, err = model.NewModelEvaluator(w.md, s.services)
+	if err != nil {
+		return err
+	}
+	if err = w.evaluator.SetModelCompletion(true); err != nil {
+		return err
+	}
+	w.value, err = s.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return err
+	}
+	w.valueReady = true
+	for _, f := range s.formulas {
+		if err = w.evaluator.Evaluate(f, w.value); err != nil {
+			return err
+		}
+		v, err := s.manager.RefGet(w.value)
+		if err != nil {
+			return err
+		}
+		if !s.manager.IsTrue(v) {
+			scratch := w.md
+			if err = s.emit("extract_model", 682, func(out io.Writer) error {
+				if _, e := io.WriteString(out, "Evaluation failed: "); e != nil {
+					return e
+				}
+				if e := s.writeExpression(out, f); e != nil {
+					return e
+				}
+				if _, e := io.WriteString(out, " to "); e != nil {
+					return e
+				}
+				if e := s.writeExpression(out, v); e != nil {
+					return e
+				}
+				if _, e := io.WriteString(out, "\n"); e != nil {
+					return e
+				}
+				return scratch.WriteSMT2(out, s.services.Context, s.services.Globals, 0)
+			}); err != nil {
+				return err
+			}
+			return ast.ErrASTDomain
+		}
+	}
+	return nil
 }

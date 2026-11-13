@@ -2794,10 +2794,25 @@ mostly real hash-consing (addFixedBitEquality 35%, BV model numerals 14%);
 trace-mode format lookup without a temporary node (~4-5%, generations only
 compared for equality); symbol manager sync.Mutex (~3.5% of trace time,
 needs a concurrency decision).
-OPEN: debug-tagged builds (g3checked,g3debug,g3trace) are nondeterministic
-on qe_rec_real_disjunction (about 1 run in 20-40 prints different goals;
-release builds 40/40 identical); seen as a flaky TestSMTLibRunnerScripts
-under make tags. Present before round 4.
+FIXED (2026-11-13): debug-tagged builds were nondeterministic on
+qe_rec_real_disjunction (qsat PredicateAbstraction.ValidateDefinitions
+iterated pred2lit, a Go map; now obj_map order) and generally differed from
+release because debug-only checks built/freed terms, cached numerals and
+wrote trace records. New ASTManager.IsolatedCheck runs such checks with the
+trace muted and restores the id generators, free-list order and fresh-name
+counter (and drops newly cached numerals) afterwards; used by qe validation
+checks, theory_lra validate_*, the inc_sat extract_model DEBUG_CODE (on a
+ScratchCopy of the model). Sweep over all vectors (debug x5 vs release):
+773 identical, 12 fpa vectors differ only in trace because C++ Z3DEBUG
+fpa2bv mk_const uses the fpa2bv_sgn_/exp_/sig_ three-constant encoding
+(ported faithfully; kept), 2 fail C++ SASSERTs in debug as z3 does
+(definition_coercions, solve_eqs_proof).
+Leads: re-sweep the 10 vectors skipped for time; other debug-only checks
+not reached by vectors should go through IsolatedCheck; release-path
+fidelity: PredicateAbstraction.Reset releases keys in insertion order (C++
+dec_keys walks obj_map order), MBP force-elimination shares one scratch
+evaluator (C++ builds one per model::eval), release validateAssumptions
+keeps values to call end; ScratchCopy on a bare ModelCore.
 
 ## Quantifier fuzzing (2026-11-12/13)
 

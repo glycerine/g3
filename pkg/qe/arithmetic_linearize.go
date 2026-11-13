@@ -165,13 +165,16 @@ func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]
 	p := c.owner
 	m := p.manager
 	if ast.ASTSourceDebug {
-		value, err := c.eval(lit)
-		if err != nil {
-			return false, err
-		}
-		if !m.IsTrue(value) {
-			if err = p.emit("linearize", 65, func(w io.Writer) error {
-				if e := writeExpression(m, p.config, w, lit); e != nil {
+		// DEBUG_CODE(eval(lit, val); SASSERT(m.is_true(val))), isolated from
+		// the shared evaluator so release builds see the same cache and IDs.
+		valid := true
+		if err := c.debugEval([]ast.ASTHandle{lit}, func(h, value ast.ASTHandle) (bool, error) {
+			if m.IsTrue(value) {
+				return true, nil
+			}
+			valid = false
+			return false, p.emit("linearize", 65, func(w io.Writer) error {
+				if e := writeExpression(m, p.config, w, h); e != nil {
 					return e
 				}
 				_, _ = io.WriteString(w, " := ")
@@ -180,9 +183,11 @@ func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]
 				}
 				_, _ = io.WriteString(w, "\n")
 				return nil
-			}); err != nil {
-				return false, err
-			}
+			})
+		}); err != nil {
+			return false, err
+		}
+		if !valid {
 			return false, ast.ErrASTDomain
 		}
 	}

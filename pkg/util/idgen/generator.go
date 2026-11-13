@@ -102,3 +102,50 @@ func (g *Generator) SetNextID(id uint32) uint32 {
 		g.next++
 	}
 }
+
+// Snapshot copies the generator state, including the free-list order, so a
+// later RestoreTransient can undo IDs that were only borrowed meanwhile.
+func (g *Generator) Snapshot() Generator {
+	return Generator{next: g.next, free: append([]uint32(nil), g.free...), outOfMemory: g.outOfMemory}
+}
+
+// RestoreTransient returns g to s when every ID handed out since the snapshot
+// has been recycled again: the free list then holds exactly s's free IDs plus
+// the fresh IDs in [s.next, g.next). It reports whether g was restored; when
+// some ID is still in use g is left unchanged.
+func (g *Generator) RestoreTransient(s Generator) bool {
+	if g.next < s.next || len(g.free) != len(s.free)+int(g.next-s.next) {
+		return false
+	}
+	want := make(map[uint32]bool, len(s.free))
+	for _, id := range s.free {
+		want[id] = true
+	}
+	for _, id := range g.free {
+		if id >= s.next && id < g.next {
+			continue
+		}
+		if !want[id] {
+			return false
+		}
+		delete(want, id)
+	}
+	if len(want) != 0 {
+		return false
+	}
+	seen := make(map[uint32]bool, int(g.next-s.next))
+	for _, id := range g.free {
+		if id >= s.next && id < g.next {
+			if seen[id] {
+				return false
+			}
+			seen[id] = true
+		}
+	}
+	if len(seen) != int(g.next-s.next) {
+		return false
+	}
+	g.next = s.next
+	g.free = append(g.free[:0], s.free...)
+	return true
+}

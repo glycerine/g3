@@ -275,6 +275,22 @@ func (t *SMTLRATheory) checkValidation(kind smtLRAValidationKind, core []SMTLite
 	var valid bool
 	var line int
 	var condition string
+	// The nested context of validate_conflict/assign/eq exists only in debug
+	// builds; run it isolated so its terms, IDs and trace records do not
+	// change what release builds compute and log.
+	_, err = t.state.manager.IsolatedCheck(func() (e error) {
+		valid, line, condition, e = t.runValidation(kind, core, literal, left, right)
+		return e
+	})
+	if err != nil {
+		return err
+	}
+	if !valid {
+		return diagnostic.DebugAssertionFailure(d, "src/smt/theory_lra.cpp", int32(line), condition)
+	}
+	return nil
+}
+func (t *SMTLRATheory) runValidation(kind smtLRAValidationKind, core []SMTLiteral, literal SMTLiteral, left, right *SMTEnode) (valid bool, line int, condition string, err error) {
 	switch kind {
 	case smtLRAValidateConflict:
 		valid, err = t.validateConflict(core)
@@ -289,13 +305,7 @@ func (t *SMTLRATheory) checkValidation(kind smtLRAValidationKind, core []SMTLite
 		line = 2129
 		condition = "validate_eq(x, y)"
 	default:
-		return ast.ErrASTDomain
+		err = ast.ErrASTDomain
 	}
-	if err != nil {
-		return err
-	}
-	if !valid {
-		return diagnostic.DebugAssertionFailure(d, "src/smt/theory_lra.cpp", int32(line), condition)
-	}
-	return nil
+	return valid, line, condition, err
 }

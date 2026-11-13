@@ -63,13 +63,17 @@ type PredicateAbstraction struct {
 	assumptions, trail                     []ast.ASTRef
 	limits                                 []int
 	pred2lit, lit2pred, asm2pred, pred2asm map[ast.ASTHandle]ast.ASTHandle
-	predKeys, litKeys, asmKeys, defKeys    []ast.ASTRef
-	exprLevels, declLevels                 map[ast.ASTHandle]MaxLevel
-	filter                                 *tactic.FilterModelConverter
-	filterPending                          bool
-	pending                                []*predicateCall
-	bytes                                  uint64
-	closed                                 bool
+	// pred2litTable reproduces the source obj_map m_pred2lit table layout so
+	// validate_defs and display iterate it in source order; the Go map
+	// pred2lit stays the lookup.
+	pred2litTable                       *ast.ObjMap
+	predKeys, litKeys, asmKeys, defKeys []ast.ASTRef
+	exprLevels, declLevels              map[ast.ASTHandle]MaxLevel
+	filter                              *tactic.FilterModelConverter
+	filterPending                       bool
+	pending                             []*predicateCall
+	bytes                               uint64
+	closed                              bool
 }
 
 type predicateCall struct {
@@ -115,7 +119,8 @@ func NewPredicateAbstraction(m *ast.ASTManager, config Config) (result *Predicat
 	p := &PredicateAbstraction{manager: m, config: config, bytes: bytes,
 		pred2lit: make(map[ast.ASTHandle]ast.ASTHandle), lit2pred: make(map[ast.ASTHandle]ast.ASTHandle),
 		asm2pred: make(map[ast.ASTHandle]ast.ASTHandle), pred2asm: make(map[ast.ASTHandle]ast.ASTHandle),
-		exprLevels: make(map[ast.ASTHandle]MaxLevel), declLevels: make(map[ast.ASTHandle]MaxLevel)}
+		exprLevels: make(map[ast.ASTHandle]MaxLevel), declLevels: make(map[ast.ASTHandle]MaxLevel),
+		pred2litTable: ast.NewObjMap(m)}
 	p.self = p
 	defer func() {
 		if err != nil {
@@ -251,6 +256,7 @@ func (p *PredicateAbstraction) Reset() error {
 		}
 	}
 	clear(p.pred2lit)
+	p.pred2litTable.Reset()
 	clear(p.lit2pred)
 	clear(p.asm2pred)
 	clear(p.pred2asm)
@@ -364,6 +370,9 @@ func (p *PredicateAbstraction) addPredicate(a, lit ast.ASTHandle) error {
 		return err
 	}
 	p.pred2lit[a] = lit
+	if err := p.pred2litTable.Insert(a, [2]ast.ASTHandle{lit}); err != nil {
+		return err
+	}
 	if _, ok := p.lit2pred[lit]; !ok {
 		if err := p.appendRef(&p.litKeys, lit); err != nil {
 			return err

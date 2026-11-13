@@ -244,7 +244,7 @@ func (s *qsatSearch) projectQECore(c *qsatSearchCall, core *[]ast.ASTRef) error 
 		return err
 	}
 	if ast.ASTSourceDebug {
-		valid, e := c.validateAssumptions(md, *core)
+		valid, e := c.validateAssumptionsDebug(md, *core)
 		if e != nil {
 			return e
 		}

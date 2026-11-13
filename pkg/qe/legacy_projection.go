@@ -503,7 +503,12 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 		if err != nil {
 			return nil, err
 		}
-		holds, err := p.projectionModelHolds(md, handle)
+		// The model sanity check exists only in debug builds; isolate it.
+		var holds bool
+		_, err = p.manager.IsolatedCheck(func() (e error) {
+			holds, e = p.projectionModelHolds(md, handle)
+			return e
+		})
 		if err != nil {
 			return nil, err
 		}

@@ -372,7 +372,8 @@ func (p *PredicateAbstraction) ValidateDefinitions(md *model.ModelCore) (valid b
 		return false, err
 	}
 	valid = true
-	for a, b := range p.pred2lit {
+	for _, entry := range p.pred2litTable.Entries() {
+		a, b := entry.Key, entry.Value[0]
 		x, e := c.eval(a)
 		if e != nil {
 			return false, e
@@ -421,7 +422,8 @@ func (p *PredicateAbstraction) Display(out io.Writer) error {
 	if _, err := io.WriteString(out, "pred2lit:\n"); err != nil {
 		return err
 	}
-	for a, b := range p.pred2lit {
+	for _, entry := range p.pred2litTable.Entries() {
+		a, b := entry.Key, entry.Value[0]
 		if err := writeExpression(p.manager, p.config, out, a); err != nil {
 			return err
 		}
