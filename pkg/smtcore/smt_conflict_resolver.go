@@ -458,6 +458,11 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 	numMarks := 0
 	processAntecedent := func(literal SMTLiteral) error {
 		if literal == SMTTrueLiteral {
+			// true_bool_var is assigned at level 0, never above the base
+			// level: process_antecedent only traces it.
+			st.traceConflict("process_antecedent", 314, func() string {
+				return "processing antecedent (level 0):true true\n"
+			})
 			return nil
 		}
 		if literal == SMTFalseLiteral {

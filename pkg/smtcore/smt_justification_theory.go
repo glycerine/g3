@@ -276,8 +276,12 @@ func NewSMTTheoryLemmaJustification(manager *ast.ASTManager, theory SMTTheoryID,
 	}
 	return j, nil
 }
-func (*SMTTheoryLemmaJustification) Name() string                              { return "theory-lemma" }
-func (j *SMTTheoryLemmaJustification) FromTheory() SMTTheoryID                 { return j.theory }
+func (*SMTTheoryLemmaJustification) Name() string { return "theory-lemma" }
+
+// FromTheory is the base justification::get_from_theory (null_theory_id):
+// theory_lemma_justification (smt_justification.h) keeps its m_th_id for
+// mk_proof only and does not override get_from_theory.
+func (*SMTTheoryLemmaJustification) FromTheory() SMTTheoryID                   { return SMTNullTheoryID }
 func (*SMTTheoryLemmaJustification) MarkAntecedents(SMTAntecedentMarker) error { return nil }
 func (j *SMTTheoryLemmaJustification) Release(manager *ast.ASTManager) error {
 	if manager != j.parameters.manager {

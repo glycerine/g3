@@ -503,3 +503,17 @@ func (s *SMTInternalizerState) traceAddEqAssigning(n1, n2 *SMTEnode, redundant b
 	id := func(n *SMTEnode) string { v, _ := n.OwnerID(); return strconv.Itoa(int(v)) }
 	emitSMTTrace("add_eq", "add_eq", "src/smt/smt_context.cpp", 497, "assigning: #"+id(n1)+" = #"+id(n2)+"\n")
 }
+
+// TraceDetachedContextSetup writes the mk_bool_var record of a fresh
+// smt::context's constructor, which internalizes true as boolean variable 0
+// (smt_context.cpp context::context, smt_internalizer.cpp mk_bool_var:825).
+// It stands for a context the source builds in its own ast_manager and never
+// uses on the ported paths, such as the smt::kernel member of
+// pdr::farkas_learner (pdr_farkas_learner.cpp:382, used only by the
+// unreachable get_lemma_guesses); it has no other effect.
+func TraceDetachedContextSetup() {
+	if !smtTraceEnabled("mk_bool_var") {
+		return
+	}
+	emitSMTTrace("mk_bool_var", "mk_bool_var", "src/smt/smt_internalizer.cpp", 825, "creating boolean variable: 0 for:\ntrue\n")
+}

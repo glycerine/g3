@@ -335,10 +335,31 @@ Found while matching `-st` output against `build/z3` on
     an unported same-tag site, checked over all vectors), and g3's emitted
     lines were corrected (assign_core 294, add_eq_detail 498, decide
     1830/1886, propagate_atoms 1381, relevant_eh 1615, smt_relevancy
-    467/468). Golden list: 781 of 818 vectors (was 519). The 37 that still
-    differ at the golden sites (open; several are documented deviations
-    such as z3_bug_* and recursive_mutual_boolean_model):
-    array_nested_interface_scopes array_weak_live_parent_scopes bv_blast_temporaries_model_values bv_blast_temporaries_smod_order bv_conflict_restore_relevancy card2bv_weighted_models fixedpoint_pdr_arithmetic_inductive fixedpoint_pdr_arithmetic_invariant fixedpoint_pdr_background fixedpoint_pdr_general_arithmetic_fragment fixedpoint_pdr_initial_trace fixedpoint_pdr_multicore fixedpoint_pdr_recursive_trace fixedpoint_pdr_sliced_compound_head fixedpoint_pdr_sliced_compound_tail fixedpoint_pdr_sliced_trace fixedpoint_pdr_untransformed_linear_trace fixedpoint_pdr_untransformed_nonlinear_trace fixedpoint_pdr_utvpi_fragment fixedpoint_spacer_bv_state flush_bound_axioms_introsort_old_q515 flush_bound_axioms_introsort_q2119 flush_bound_axioms_introsort_q3063 flush_bound_axioms_introsort_q3110 fp_pdr_level_formula fp_to_ubv_uf_model pb_strengthening_proof qe_int_mod3_bit2int_apply qe_int_mod3_bit2int_check_sat qfuzz_cheap_eq_after_instance quant_seq_shared_boolean_scopes quant_seq_symbolic_int_prefix recursive_mutual_boolean_model seq_binary_eq_negative_length_offset sequence_helper_inventory z3_bug_automaton_product z3_bug_qe_nested_store.
+    467/468). Golden list: 781 of 818 vectors (was 519).
+    STATUS 2026-11-13 (later): 812 of 818. Fixed: process_antecedent
+    traces the true literal that a unit_resolution_justification lists
+    for a removed false disjunct (smt_conflict_resolution.cpp
+    process_antecedent; g3 returned before the TRACE); pdr's
+    extract_theory_core constructs farkas_learner, whose constructor
+    builds an unused smt::kernel over its own proof manager
+    (pdr_farkas_learner.cpp:382), so g3 writes that context's
+    mk_bool_var record (smtcore.TraceDetachedContextSetup);
+    theory_lemma_justification does not override get_from_theory, so its
+    FromTheory is null_theory_id (pb_strengthening_proof). bv_blast_*,
+    bv_conflict_restore_relevancy, flush_bound_axioms_introsort_* and
+    fp_to_ubv_uf_model only took longer than the old 2m limit (q3063: z3
+    ~25 min, g3 ~50 min traced; g3's traced runs are about twice as slow
+    as z3's). These 8 are in test_vectors/golden_trace_slow_vectors.txt,
+    compared only with G3_GOLDEN_SLOW=1 (limit 90m); the default list has
+    804 vectors and runs in about 9 minutes with a 10m per-run limit.
+    Still not golden: sequence_helper_inventory, z3_bug_automaton_product,
+    z3_bug_qe_nested_store, recursive_mutual_boolean_model (documented
+    z3 4.7.1 bug fixes); quant_seq_shared_boolean_scopes (the z3 TRACE build
+    reaches UNREACHABLE in theory_seq::assign_eh for the Boolean atom
+    (seq.nth y 0), which is __builtin_unreachable without Z3DEBUG, and
+    loops forever there; its 139 golden records equal g3's first 139);
+    qfuzz_cheap_eq_after_instance (traced runs of both do not finish in 30
+    minutes; the first 554727 golden records agree).
     Older notes follow. 423 of 660 test vectors now match the z3
     trace build at every golden site (assign_core, decide, add_eq_detail,
     mk_bool_var, the seq records, and the conflict records with ids

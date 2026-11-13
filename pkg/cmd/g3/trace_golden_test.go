@@ -17,6 +17,12 @@ package main
 //	G3_Z3_TRACE        z3 TRACE binary (default ../../../build_trace/z3 from this directory)
 //	G3_GOLDEN_VECTORS  comma-separated vector names in test_vectors, or paths to .smt2 files
 //	G3_GOLDEN_TAGS     comma-separated trace tags (default goldenTraceTags)
+//	G3_GOLDEN_SLOW     also compare test_vectors/golden_trace_slow_vectors.txt
+//	                   (traced runs of tens of minutes)
+//	G3_GOLDEN_TIMEOUT  per-run time limit as a Go duration (default 10m, or
+//	                   90m with G3_GOLDEN_SLOW; the traced g3 run of
+//	                   flush_bound_axioms_introsort_q3063 takes about 50
+//	                   minutes, z3's about 25)
 //
 // The test is skipped under -short and when the z3 TRACE binary is missing.
 
@@ -92,8 +98,22 @@ func goldenRecordText(r traceRecord) string {
 // is block 12 of sequence_helper_inventory (see TODO.md item 11).
 const goldenVectorList = "test_vectors/golden_trace_vectors.txt"
 
+// goldenSlowVectorList holds golden vectors whose traced runs take tens of
+// minutes (flush_bound_axioms_introsort_q3063: z3 about 25, g3 about 50).
+// They are compared only when G3_GOLDEN_SLOW is set, so the default run
+// stays short.
+const goldenSlowVectorList = "test_vectors/golden_trace_slow_vectors.txt"
+
 func goldenVectors(t *testing.T) []string {
-	data, err := os.ReadFile(goldenVectorList)
+	out := readGoldenVectorList(t, goldenVectorList)
+	if os.Getenv("G3_GOLDEN_SLOW") != "" {
+		out = append(out, readGoldenVectorList(t, goldenSlowVectorList)...)
+	}
+	return out
+}
+
+func readGoldenVectorList(t *testing.T, list string) []string {
+	data, err := os.ReadFile(list)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,7 +184,7 @@ func runTraced(t *testing.T, bin, input string, tags []string) []traceRecord {
 		args = append(args, "-tr:"+tag)
 	}
 	args = append(args, input)
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), goldenTimeout(t))
 	defer cancel()
 	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Dir = dir
@@ -183,6 +203,21 @@ func runTraced(t *testing.T, bin, input string, tags []string) []traceRecord {
 	}
 	defer f.Close()
 	return parseTraceRecords(t, f)
+}
+
+func goldenTimeout(t *testing.T) time.Duration {
+	s := os.Getenv("G3_GOLDEN_TIMEOUT")
+	if s == "" {
+		if os.Getenv("G3_GOLDEN_SLOW") != "" {
+			return 90 * time.Minute
+		}
+		return 10 * time.Minute
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		t.Fatalf("G3_GOLDEN_TIMEOUT: %v", err)
+	}
+	return d
 }
 
 // parseTraceRecords splits a .z3-trace stream into records. The z3 build
