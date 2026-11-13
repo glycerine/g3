@@ -9,10 +9,13 @@ import (
 
 func TestSMTArithmeticEqualityAdapterEventsAndScopes(t *testing.T) {
 	f := newSMTIntegerDiffFixture(t)
-	astTestMust(t, f.state.Internalize(f.x, false))
-	astTestMust(t, f.state.Internalize(f.y, false))
-	left := f.state.context.enodes.get(f.x).TheoryVar(f.family)
-	right := f.state.context.enodes.get(f.y).TheoryVar(f.family)
+	// theory_diff_logic does not override apply_sort_cnstr; mk_var(app*)
+	// creates the variables of uninterpreted constants
+	// (theory_diff_logic_def.h:814-836).
+	left, err := f.theory.mkVarApp(f.x)
+	astTestMust(t, err)
+	right, err := f.theory.mkVarApp(f.y)
+	astTestMust(t, err)
 	astTestMust(t, f.state.PushScope())
 	astTestMust(t, f.state.enqueueTheoryEquality(f.family, left, right))
 	astTestMust(t, f.state.PropagateTheoryEvents())
@@ -36,10 +39,13 @@ func TestSMTArithmeticEqualityAdapterEventsAndScopes(t *testing.T) {
 
 func TestSMTRealDifferenceEqualityEventAdapter(t *testing.T) {
 	f := newSMTRealDiffFixture(t)
-	astTestMust(t, f.state.Internalize(f.x, false))
-	astTestMust(t, f.state.Internalize(f.y, false))
-	left := f.state.context.enodes.get(f.x).TheoryVar(f.family)
-	right := f.state.context.enodes.get(f.y).TheoryVar(f.family)
+	// theory_diff_logic does not override apply_sort_cnstr; mk_var(app*)
+	// creates the variables of uninterpreted constants
+	// (theory_diff_logic_def.h:814-836).
+	left, err := f.theory.mkVarApp(f.x)
+	astTestMust(t, err)
+	right, err := f.theory.mkVarApp(f.y)
+	astTestMust(t, err)
 	astTestMust(t, f.state.enqueueTheoryDisequality(f.family, left, right))
 	astTestMust(t, f.state.PropagateTheoryEvents())
 	// The adapter's three clauses; without m_arith_add_binary_bounds the
@@ -51,10 +57,13 @@ func TestSMTRealDifferenceEqualityEventAdapter(t *testing.T) {
 
 func TestSMTArithmeticEqualityAdapterRecreatesSearchAxiomsAtRestart(t *testing.T) {
 	f := newSMTIntegerDiffFixture(t)
-	astTestMust(t, f.state.Internalize(f.x, false))
-	astTestMust(t, f.state.Internalize(f.y, false))
-	left := f.state.context.enodes.get(f.x).TheoryVar(f.family)
-	right := f.state.context.enodes.get(f.y).TheoryVar(f.family)
+	// theory_diff_logic does not override apply_sort_cnstr; mk_var(app*)
+	// creates the variables of uninterpreted constants
+	// (theory_diff_logic_def.h:814-836).
+	left, err := f.theory.mkVarApp(f.x)
+	astTestMust(t, err)
+	right, err := f.theory.mkVarApp(f.y)
+	astTestMust(t, err)
 	params := SMTParamsState{AgilityFactor: 0.9999, RestartAdaptive: true}
 	astTestMust(t, f.state.InitializeTheorySearch())
 	astTestMust(t, f.state.beginSearchPersistence(0, params))
@@ -78,10 +87,13 @@ func TestSMTArithmeticEqualityAdapterRecreatesSearchAxiomsAtRestart(t *testing.T
 func TestSMTArithmeticEqualityAdapterBinaryBoundsAndLazyRestart(t *testing.T) {
 	f := newSMTIntegerDiffFixture(t)
 	astTestMust(t, f.theory.ConfigureArithmetic(SMTArithState{AddBinaryBounds: true, LazyAdapter: true}))
-	astTestMust(t, f.state.Internalize(f.x, false))
-	astTestMust(t, f.state.Internalize(f.y, false))
-	left := f.state.context.enodes.get(f.x).TheoryVar(f.family)
-	right := f.state.context.enodes.get(f.y).TheoryVar(f.family)
+	// theory_diff_logic does not override apply_sort_cnstr; mk_var(app*)
+	// creates the variables of uninterpreted constants
+	// (theory_diff_logic_def.h:814-836).
+	left, err := f.theory.mkVarApp(f.x)
+	astTestMust(t, err)
+	right, err := f.theory.mkVarApp(f.y)
+	astTestMust(t, err)
 	params := SMTParamsState{AgilityFactor: 0.9999, RestartAdaptive: true}
 	astTestMust(t, f.state.beginSearchPersistence(0, params))
 	t.Cleanup(func() { astTestMust(t, f.state.endSearchPersistence()) })
@@ -103,10 +115,13 @@ func TestSMTArithmeticEqualityAdapterDefersGeneratedRelevancy(t *testing.T) {
 	f := newSMTIntegerDiffFixture(t)
 	// mk_axioms registers arith_eq_relevancy_eh only under ctx.relevancy().
 	f.state.relevancyLevel = 2
-	astTestMust(t, f.state.Internalize(f.x, false))
-	astTestMust(t, f.state.Internalize(f.y, false))
-	left := f.state.context.enodes.get(f.x).TheoryVar(f.family)
-	right := f.state.context.enodes.get(f.y).TheoryVar(f.family)
+	// theory_diff_logic does not override apply_sort_cnstr; mk_var(app*)
+	// creates the variables of uninterpreted constants
+	// (theory_diff_logic_def.h:814-836).
+	left, err := f.theory.mkVarApp(f.x)
+	astTestMust(t, err)
+	right, err := f.theory.mkVarApp(f.y)
+	astTestMust(t, err)
 	astTestMust(t, f.theory.NewEquality(left, right))
 	targets := append([]ast.ASTHandle(nil), f.state.boolExpr[SMTFirstBoolVar:]...)
 	if len(targets) != 3 {

@@ -2944,3 +2944,33 @@ elim leaves it unchanged.
 The same fixes (plus the relevancy and pareto backports of c3c0016bd) were
 applied, uncommitted, to ivy's vendored z3 (goivy/z3vendor/z3), with
 FORK_BUGFIXES.md, fork_bugfixes/test_vectors and src/test/fork_bugfixes.cpp.
+
+## Fuzz round 14 (2026-11-13)
+
+gen.py 5000-5300, gen2.py 5000-5300, gen3.py 13000-13300, gen4.py
+5000-5250 against the rebuilt fork. Four quantifier seeds differed only
+under the 10 s limit (identical at 30 s). Two real differences:
+- gen2 5298 (no set-logic -> real difference logic): z3 prints
+  `(smt.diff_logic: non-diff logic expression (+ (- (/ 1.0 4.0)) r))` and
+  answers unknown; g3 answered sat. theory_diff_logic's mk_var(app*) flags
+  any arith-family app (is_interpreted) even when it already has a theory
+  var; g3's ensureVariable only flagged unattached nodes, never printed the
+  verbose message (its mk_pp format terms are in the trace), and
+  ApplySortConstraint created variables although C++ apply_sort_cnstr is
+  empty for diff logic. DONE: faithful port of the theory_diff_logic
+  internalization (smtcore/theory_diff_logic_internalize.go: init, mk_term,
+  mk_num, both mk_var, is_offset, internalize_atom/term,
+  found_non_diff_logic_expr with its IF_VERBOSE(0) mk_pp; mk_value is Int
+  for Int terms; get_name "difference-logic"). Vector
+  diff_logic_non_diff_offset_term. fullcmp2: 802 identical / 0 differ.
+  Remaining notes: C++ mk_term -> mk_var(n) -> internalize(n) recurses
+  forever on an undecomposable arith term that is not yet internalized
+  (e.g. (f (to_real x)) with smt.arith.solver 1); g3 detects the re-entry
+  and returns an error. The mixed variant keeps g3's separate Real 0.0
+  enode (C++ dereferences a null enode there). g3 uses the mixed theory
+  for both idl and rdl in AS_DIFF_LOGIC mode (unchanged).
+- gen4 5077 (MBQI): different models (z3 k!2065 projection, a = 7736; g3
+  a = 23). Traces identical for the first 19M lines; locating the
+  divergence (z3 trace 47.9M lines).
+Fuzz round 15 (30 s limit): gen.py 6000-6300, gen2.py 6000-6300, gen3.py
+14000-14300, gen4.py 6000-6200: no differences.

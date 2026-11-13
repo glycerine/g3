@@ -17,13 +17,11 @@ type SMTRealDiffTheory struct {
 	*SMTIntegerDiffTheory
 	mixed             bool
 	realGraph         *SMTInfRationalDiffGraph
-	realZero          SMTTheoryVar
 	realAtoms         []smtIntegerDiffAtom
 	realAtomByBool    map[int32]int
 	realAssertions    []smtIntegerDiffAssertion
 	realAssertionHead int
 	realScopes        []smtIntegerDiffScope
-	realNonDifference bool
 	delta             big.Rat
 	realStatistics    smtDiffStatistics
 }
@@ -33,12 +31,13 @@ func NewSMTRealDiffTheory(family ast.FamilyID) (*SMTRealDiffTheory, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &SMTRealDiffTheory{
+	theory := &SMTRealDiffTheory{
 		SMTIntegerDiffTheory: syntax,
 		realGraph:            NewSMTInfRationalDiffGraph(),
-		realZero:             SMTNullTheoryVar,
 		realAtomByBool:       make(map[int32]int),
-	}, nil
+	}
+	syntax.graphExt = theory
+	return theory, nil
 }
 
 // The concrete mi_ext graph uses the same infinitesimal rational values, but
@@ -47,136 +46,47 @@ func NewSMTMixedDiffTheory(family ast.FamilyID) (*SMTRealDiffTheory, error) {
 	t, err := NewSMTRealDiffTheory(family)
 	if err == nil {
 		t.mixed = true
+		t.mkNumZeroEnode = true
 	}
 	return t, err
 }
 
+// Initialize is theory_diff_logic<rdl_ext>::init. It uses
+// m_util.mk_numeral(rational(0), true), an Int zero, for the real extension
+// too.
 func (t *SMTRealDiffTheory) Initialize(state *SMTInternalizerState) error {
 	if t == nil || t.SMTTheoryBase == nil || t.realGraph == nil {
 		return ast.ErrASTHandle
 	}
-	if err := t.SMTTheoryBase.Initialize(state); err != nil {
-		return err
-	}
-	// theory_diff_logic<Ext>::init uses m_util.mk_numeral(rational(0), true),
-	// an Int zero, for the real extension too.
-	zero, err := state.manager.ArithmeticNumeralRat(new(big.Rat), true)
-	if err != nil {
-		return err
-	}
-	node := state.context.enodes.get(zero)
-	if node == nil {
-		node, err = state.MkEnode(zero, false, false, true)
-		if err != nil {
-			return err
-		}
-	}
-	t.realZero, err = t.createRealVariable(node)
-	return err
+	return t.initDiffLogic(state)
 }
 
-func (t *SMTRealDiffTheory) createRealVariable(node *SMTEnode) (SMTTheoryVar, error) {
-	if t.IsAttachedToVariable(node) {
-		return node.TheoryVar(t.FamilyID()), nil
-	}
-	variable, err := t.SMTTheoryBase.CreateVariable(node)
-	if err != nil {
-		return SMTNullTheoryVar, err
-	}
-	if err = t.realGraph.InitVariable(int32(variable)); err != nil {
-		return SMTNullTheoryVar, err
-	}
-	return variable, nil
+func (t *SMTRealDiffTheory) diffGraphInitVar(v SMTTheoryVar) error {
+	return t.realGraph.InitVariable(int32(v))
 }
 
-func (t *SMTRealDiffTheory) realSort(sort ast.ASTHandle) (bool, error) {
-	state, err := t.State()
-	if err != nil {
-		return false, err
-	}
-	family, err := state.manager.GetFamilyID(sort)
-	if err != nil || family != t.FamilyID() {
-		return false, err
-	}
-	kind, err := state.manager.GetDeclKind(sort)
-	return kind == 0, err
-}
-
-func (t *SMTRealDiffTheory) ApplySortConstraint(node *SMTEnode, sort ast.ASTHandle) error {
-	real, err := t.realSort(sort)
+// diffGraphEnableFixedEdges is the inf_int_rational form of the integer
+// graph's pair of enabled edges; enable_edge's result is ignored.
+func (t *SMTRealDiffTheory) diffGraphEnableFixedEdges(source, target SMTTheoryVar, k *big.Rat) error {
+	forwardWeight := finiteSMTInfRational(k)
+	forward, err := t.realGraph.AddEdge(int32(source), int32(target), &forwardWeight, SMTNullLiteral)
 	if err != nil {
 		return err
 	}
-	if !real {
-		integer, err := t.integerSort(sort)
-		if err != nil {
-			return err
-		}
-		if !t.mixed || !integer {
-			t.realNonDifference = true
-			return nil
-		}
+	if _, err = t.realGraph.EnableEdge(forward); err != nil {
+		return err
 	}
-	_, err = t.createRealVariable(node)
+	backwardWeight := finiteSMTInfRational(new(big.Rat).Neg(k))
+	backward, err := t.realGraph.AddEdge(int32(target), int32(source), &backwardWeight, SMTNullLiteral)
+	if err != nil {
+		return err
+	}
+	_, err = t.realGraph.EnableEdge(backward)
 	return err
 }
 
 func finiteSMTInfRational(value *big.Rat) smtInfRational {
 	return newSMTInfRational(value, nil)
-}
-
-func (t *SMTRealDiffTheory) addRealFixedValue(variable SMTTheoryVar, value *big.Rat) error {
-	forwardWeight := finiteSMTInfRational(value)
-	forward, err := t.realGraph.AddEdge(int32(t.realZero), int32(variable), &forwardWeight, SMTNullLiteral)
-	if err != nil {
-		return err
-	}
-	if feasible, enableErr := t.realGraph.EnableEdge(forward); enableErr != nil || !feasible {
-		if enableErr != nil {
-			return enableErr
-		}
-		return ast.ErrASTDomain
-	}
-	negative := new(big.Rat).Neg(value)
-	backwardWeight := finiteSMTInfRational(negative)
-	backward, err := t.realGraph.AddEdge(int32(variable), int32(t.realZero), &backwardWeight, SMTNullLiteral)
-	if err != nil {
-		return err
-	}
-	if feasible, enableErr := t.realGraph.EnableEdge(backward); enableErr != nil || !feasible {
-		if enableErr != nil {
-			return enableErr
-		}
-		return ast.ErrASTDomain
-	}
-	return nil
-}
-
-func (t *SMTRealDiffTheory) addRealOffset(source, target SMTTheoryVar, value *big.Rat) error {
-	forwardWeight := finiteSMTInfRational(value)
-	forward, err := t.realGraph.AddEdge(int32(source), int32(target), &forwardWeight, SMTNullLiteral)
-	if err != nil {
-		return err
-	}
-	if feasible, enableErr := t.realGraph.EnableEdge(forward); enableErr != nil || !feasible {
-		if enableErr != nil {
-			return enableErr
-		}
-		return ast.ErrASTDomain
-	}
-	negative := new(big.Rat).Neg(value)
-	backwardWeight := finiteSMTInfRational(negative)
-	backward, err := t.realGraph.AddEdge(int32(target), int32(source), &backwardWeight, SMTNullLiteral)
-	if err != nil {
-		return err
-	}
-	if feasible, enableErr := t.realGraph.EnableEdge(backward); enableErr != nil || !feasible {
-		if enableErr != nil {
-			return enableErr
-		}
-		return ast.ErrASTDomain
-	}
-	return nil
 }
 
 func (t *SMTRealDiffTheory) addRealBoundAxioms(source, target SMTTheoryVar, weight *smtInfRational, literal SMTLiteral) error {
@@ -222,176 +132,17 @@ func (t *SMTRealDiffTheory) addRealBoundAxioms(source, target SMTTheoryVar, weig
 }
 
 func (t *SMTRealDiffTheory) InternalizeTerm(expression ast.ASTHandle) (bool, error) {
-	state, err := t.State()
-	if err != nil {
-		return false, err
-	}
-	if node := state.context.enodes.get(expression); node != nil {
-		if !t.IsAttachedToVariable(node) {
-			_, err = t.createRealVariable(node)
-		}
-		return err == nil, err
-	}
-	value, numeral, err := t.numeral(expression)
-	if err != nil {
-		return false, err
-	}
-	if numeral {
-		if value.Sign() == 0 && !t.mixed {
-			return true, nil
-		}
-		node, mkErr := state.MkEnode(expression, false, false, true)
-		if mkErr != nil {
-			return false, mkErr
-		}
-		variable, mkErr := t.createRealVariable(node)
-		if mkErr != nil {
-			return false, mkErr
-		}
-		return true, t.addRealFixedValue(variable, value)
-	}
-	base, value, offset, err := t.offset(expression)
-	if err != nil {
-		return false, err
-	}
-	if offset {
-		source, sourceErr := t.ensureRealVariable(base)
-		if sourceErr != nil {
-			return false, sourceErr
-		}
-		count, countErr := state.manager.GetNumArgs(expression)
-		if countErr != nil {
-			return false, countErr
-		}
-		for index := uint32(0); index < count; index++ {
-			argument, argumentErr := state.manager.GetArg(expression, index)
-			if argumentErr != nil {
-				return false, argumentErr
-			}
-			if internalizeErr := state.Internalize(argument, false); internalizeErr != nil {
-				return false, internalizeErr
-			}
-		}
-		node, mkErr := state.MkEnode(expression, false, false, true)
-		if mkErr != nil {
-			return false, mkErr
-		}
-		target, mkErr := t.createRealVariable(node)
-		if mkErr != nil {
-			return false, mkErr
-		}
-		return true, t.addRealOffset(source, target, value)
-	}
-	_, arithmetic, err := t.operation(expression)
-	if err != nil {
-		return false, err
-	}
-	if arithmetic {
-		t.realNonDifference = true
-		return false, nil
-	}
-	return false, nil
+	return t.internalizeDiffTerm(expression)
 }
 
-func (t *SMTRealDiffTheory) ensureRealVariable(expression ast.ASTHandle) (SMTTheoryVar, error) {
-	state, err := t.State()
-	if err != nil {
-		return SMTNullTheoryVar, err
-	}
-	if node := state.context.enodes.get(expression); node != nil && t.IsAttachedToVariable(node) {
-		return node.TheoryVar(t.FamilyID()), nil
-	}
-	if err = state.Internalize(expression, false); err != nil {
-		return SMTNullTheoryVar, err
-	}
-	node := state.context.enodes.get(expression)
-	if node == nil {
-		if value, numeral, numeralErr := t.numeral(expression); numeralErr == nil && numeral && value.Sign() == 0 {
-			return t.realZero, nil
-		}
-		return SMTNullTheoryVar, ast.ErrASTDomain
-	}
-	if t.IsAttachedToVariable(node) {
-		return node.TheoryVar(t.FamilyID()), nil
-	}
-	t.realNonDifference = true
-	return t.createRealVariable(node)
-}
-
+// InternalizeAtom is theory_diff_logic<rdl_ext>::internalize_atom.
 func (t *SMTRealDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (bool, error) {
-	state, err := t.State()
-	if err != nil {
+	atom, ok, err := t.internalizeDiffAtom(expression)
+	if err != nil || !ok {
 		return false, err
 	}
-	op, arithmetic, err := t.operation(expression)
-	if err != nil {
-		return false, err
-	}
-	if !arithmetic || op != smtArithOpLE && op != smtArithOpGE {
-		t.realNonDifference = true
-		return false, nil
-	}
-	lhs, err := state.manager.GetArg(expression, 0)
-	if err != nil {
-		return false, err
-	}
-	rhs, err := state.manager.GetArg(expression, 1)
-	if err != nil {
-		return false, err
-	}
-	isGE := op == smtArithOpGE
-	bound, numeral, err := t.numeral(rhs)
-	if err != nil {
-		return false, err
-	}
-	if !numeral {
-		lhs, rhs = rhs, lhs
-		isGE = !isGE
-		bound, numeral, err = t.numeral(rhs)
-		if err != nil {
-			return false, err
-		}
-	}
-	if !numeral {
-		t.realNonDifference = true
-		return false, nil
-	}
-	terms, signs, err := t.decompose(lhs)
-	if err != nil {
-		return false, err
-	}
-	var source, target SMTTheoryVar
-	if len(terms) == 2 && signs[0] != signs[1] {
-		target, err = t.ensureRealVariable(terms[0])
-		if err == nil {
-			source, err = t.ensureRealVariable(terms[1])
-		}
-		if err != nil {
-			return false, err
-		}
-		if !signs[0] {
-			target, source = source, target
-		}
-	} else {
-		target, err = t.ensureRealVariable(lhs)
-		if err != nil {
-			return false, err
-		}
-		source = t.realZero
-	}
-	weight := finiteSMTInfRational(bound)
-	if isGE {
-		target, source = source, target
-		weight.Neg(&weight)
-	}
-	variable, err := state.MkBoolVar(expression)
-	if err != nil {
-		return false, err
-	}
-	if err = state.SetVariableTheory(variable, t.FamilyID()); err != nil {
-		return false, err
-	}
-	literal := NewSMTLiteral(variable, false)
+	source, target, literal := atom.source, atom.target, atom.literal
+	weight := finiteSMTInfRational(&atom.k)
 	// internalize_atom: "x - y <= 5 => x - y <= 7" axioms only under
 	// m_arith_add_binary_bounds.
 	if t.addBinaryBounds {
@@ -403,20 +154,11 @@ func (t *SMTRealDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (b
 	if err != nil {
 		return false, err
 	}
+	// k.neg(); then k -= 1 for an Int lhs, else k -= m_epsilon, the
+	// infinitesimal (0, 1) of rdl_ext.
 	var negativeWeight smtInfRational
 	negativeWeight.Neg(&weight)
-	integer := false
-	if t.mixed {
-		sort, err := state.manager.GetSort(lhs)
-		if err != nil {
-			return false, err
-		}
-		integer, err = t.integerSort(sort)
-		if err != nil {
-			return false, err
-		}
-	}
-	if integer {
+	if atom.integer {
 		negativeWeight.rational.Sub(&negativeWeight.rational, big.NewRat(1, 1))
 	} else {
 		negativeWeight.infinitesimal.Sub(&negativeWeight.infinitesimal, big.NewRat(1, 1))
@@ -426,8 +168,8 @@ func (t *SMTRealDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (b
 		return false, err
 	}
 	index := len(t.realAtoms)
-	t.realAtoms = append(t.realAtoms, smtIntegerDiffAtom{variable: variable, positive: positive, negative: negative})
-	t.realAtomByBool[variable] = index
+	t.realAtoms = append(t.realAtoms, smtIntegerDiffAtom{variable: atom.variable, positive: positive, negative: negative})
+	t.realAtomByBool[atom.variable] = index
 	return true, nil
 }
 
@@ -496,7 +238,7 @@ func (t *SMTRealDiffTheory) PushScope() error {
 		_ = t.SMTTheoryBase.PopScopes(1)
 		return err
 	}
-	t.realScopes = append(t.realScopes, smtIntegerDiffScope{len(t.realAtoms), len(t.realAssertions), t.realAssertionHead, t.realNonDifference})
+	t.realScopes = append(t.realScopes, smtIntegerDiffScope{len(t.realAtoms), len(t.realAssertions), t.realAssertionHead, t.nonDifference})
 	return nil
 }
 
@@ -512,7 +254,7 @@ func (t *SMTRealDiffTheory) PopScopes(count uint32) error {
 	t.realAtoms = t.realAtoms[:scope.atoms]
 	t.realAssertions = t.realAssertions[:scope.assertions]
 	t.realAssertionHead = scope.head
-	t.realNonDifference = scope.nonDifference
+	t.nonDifference = scope.nonDifference
 	t.realScopes = t.realScopes[:level]
 	if err := t.equalityAdapter.PopScopes(count); err != nil {
 		return err
@@ -534,10 +276,10 @@ func (t *SMTRealDiffTheory) FinalCheck() (SMTFinalCheckStatus, error) {
 		}
 		return SMTFinalCheckContinue, nil
 	}
-	if err := t.realGraph.SetToZero(int32(t.realZero)); err != nil {
+	if err := t.realGraph.SetToZero(int32(t.zero)); err != nil {
 		return SMTFinalCheckGiveUp, err
 	}
-	if t.realNonDifference {
+	if t.nonDifference {
 		return SMTFinalCheckGiveUp, nil
 	}
 	if t.mixed {
@@ -594,12 +336,8 @@ func (t *SMTRealDiffTheory) Graph() *SMTInfRationalDiffGraph {
 	return t.realGraph
 }
 
-func (t *SMTRealDiffTheory) Name() string {
-	if t.mixed {
-		return "mixed-difference-logic"
-	}
-	return "real-difference-logic"
-}
+// Name is theory_diff_logic<Ext>::get_name, the same for every Ext.
+func (t *SMTRealDiffTheory) Name() string { return "difference-logic" }
 
 func (t *SMTRealDiffTheory) InitializeModel(generator *SMTModelGenerator) error {
 	if t == nil || generator == nil {
@@ -639,16 +377,14 @@ func (t *SMTRealDiffTheory) ModelValue(node *SMTEnode, generator *SMTModelGenera
 	var scaled, value big.Rat
 	scaled.Mul(&t.delta, &assignment.infinitesimal)
 	value.Add(&assignment.rational, &scaled)
-	integer := false
-	if t.mixed {
-		sort, err := state.manager.GetSort(node.owner)
-		if err != nil {
-			return nil, err
-		}
-		integer, err = t.integerSort(sort)
-		if err != nil {
-			return nil, err
-		}
+	// mk_num_value(num, m_util.is_int(n->get_owner())), for every Ext.
+	sort, err := state.manager.GetSort(node.owner)
+	if err != nil {
+		return nil, err
+	}
+	integer, err := t.integerSort(sort)
+	if err != nil {
+		return nil, err
 	}
 	numeral, err := state.manager.ArithmeticNumeralRat(&value, integer)
 	if err != nil {

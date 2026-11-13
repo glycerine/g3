@@ -145,6 +145,15 @@ func (t *SMTIntegerDiffTheory) addDiffObjective(term ast.ASTHandle, dense *SMTDe
 		if own {
 			return false, nil
 		}
+		if dense == nil {
+			// theory_diff_logic::internalize_objective: mk_var(to_app(n)).
+			v, err := t.mkVarApp(h)
+			if err != nil {
+				return false, err
+			}
+			objective.terms = append(objective.terms, smtDiffObjectiveTerm{variable: v, coefficient: *new(big.Rat).Set(multiplier)})
+			return true, nil
+		}
 		if err := s.Internalize(h, false); err != nil {
 			return false, err
 		}
@@ -209,10 +218,10 @@ func (t *SMTRealDiffTheory) updateObjectiveSimplex() error {
 		o.solver.SetValue(o.node(int32(i)), simplex.NewInfinitesimal(&a.rational, &a.infinitesimal))
 	}
 	zero := simplex.Infinitesimal{}
-	if err := o.solver.SetLower(o.node(int32(t.realZero)), zero); err != nil {
+	if err := o.solver.SetLower(o.node(int32(t.zero)), zero); err != nil {
 		return err
 	}
-	if err := o.solver.SetUpper(o.node(int32(t.realZero)), zero); err != nil {
+	if err := o.solver.SetUpper(o.node(int32(t.zero)), zero); err != nil {
 		return err
 	}
 	for i := o.edges; i < len(t.realGraph.edges); i++ {

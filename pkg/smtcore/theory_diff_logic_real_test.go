@@ -121,7 +121,7 @@ func TestSMTRealDiffTheoryBuildsFiniteModelValues(t *testing.T) {
 	astTestMust(t, state.AssignLiteral(NewSMTLiteral(variable, true), NewSMTBooleanAxiom()))
 	astTestMust(t, state.PropagateTheoryAssignments())
 	astTestMust(t, theory.Propagate())
-	astTestMust(t, theory.realGraph.SetToZero(int32(theory.realZero)))
+	astTestMust(t, theory.realGraph.SetToZero(int32(theory.zero)))
 	astTestMust(t, context.SetRelevant(x, true))
 	astTestMust(t, context.SetRelevant(y, true))
 	generator, err := NewSMTModelGenerator(m)

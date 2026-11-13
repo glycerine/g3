@@ -762,6 +762,7 @@ var scriptResults = map[string]string{
 	"lia2pb_budget_recovery.smt2":                  "unknown\n(:reason-unknown \"lia2pb failed, number of necessary bits exceeds specified threshold (use option :lia2pb-total-bits to increase threshold)\")\nsat\n(((and (>= x 6) (<= x 7)) true))\n",
 	"lia2pb_proof_fallback.smt2":                   "unsat\n",
 	"lia2pb_shifted_pipeline.smt2":                 "sat\n((x 2) (y 7))\n",
+	"diff_logic_non_diff_offset_term.smt2":         "unknown\n(:reason-unknown \"smt tactic failed to show goal to be sat/unsat (incomplete (theory difference-logic))\")\nsat\nsat\n",
 	"diff_neq_backtrack_model.smt2":                "sat\n((x 1) (y 0))\nsat\n((x 1) (y 0))\n",
 	"diff_neq_core_fallback.smt2":                  "unsat\n(lower upper)\n",
 	"diff_neq_dl_pipeline_scopes.smt2":             "sat\n((x 0) (y 0) (z 1))\nunsat\nsat\n((x 0) (y 0) (z 1))\n",

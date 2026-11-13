@@ -49,6 +49,13 @@ type SMTIntegerDiffTheory struct {
 	equalityAdapter *smtArithmeticEqualityAdapter
 	optimization    smtDiffOptimization
 	statistics      smtDiffStatistics
+	// graphExt is the concrete Ext graph of the shared internalization;
+	// nil selects this theory's rational graph.
+	graphExt smtDiffLogicGraph
+	// mkNumZeroEnode keeps a zero numeral other than the init zero as its
+	// own enode (mixed extension only).
+	mkNumZeroEnode bool
+	mkVarPending   map[ast.ASTHandle]bool
 }
 
 func (t *SMTIntegerDiffTheory) ConfigureArithmetic(config SMTArithState) error {
@@ -82,40 +89,12 @@ func NewSMTIntegerDiffTheory(family ast.FamilyID) (*SMTIntegerDiffTheory, error)
 	return theory, nil
 }
 
+// Initialize is theory_diff_logic<Ext>::init.
 func (t *SMTIntegerDiffTheory) Initialize(state *SMTInternalizerState) error {
 	if t == nil || t.SMTTheoryBase == nil || t.graph == nil {
 		return ast.ErrASTHandle
 	}
-	if err := t.SMTTheoryBase.Initialize(state); err != nil {
-		return err
-	}
-	zero, err := state.manager.ArithmeticNumeralRat(new(big.Rat), true)
-	if err != nil {
-		return err
-	}
-	node := state.context.enodes.get(zero)
-	if node == nil {
-		node, err = state.MkEnode(zero, false, false, true)
-		if err != nil {
-			return err
-		}
-	}
-	t.zero, err = t.createVariable(node)
-	return err
-}
-
-func (t *SMTIntegerDiffTheory) createVariable(node *SMTEnode) (SMTTheoryVar, error) {
-	if t.IsAttachedToVariable(node) {
-		return node.TheoryVar(t.FamilyID()), nil
-	}
-	variable, err := t.SMTTheoryBase.CreateVariable(node)
-	if err != nil {
-		return SMTNullTheoryVar, err
-	}
-	if err = t.graph.InitVariable(int32(variable)); err != nil {
-		return SMTNullTheoryVar, err
-	}
-	return variable, nil
+	return t.initDiffLogic(state)
 }
 
 func (t *SMTIntegerDiffTheory) integerSort(sort ast.ASTHandle) (bool, error) {
@@ -131,17 +110,11 @@ func (t *SMTIntegerDiffTheory) integerSort(sort ast.ASTHandle) (bool, error) {
 	return kind == 1, err
 }
 
-func (t *SMTIntegerDiffTheory) ApplySortConstraint(node *SMTEnode, sort ast.ASTHandle) error {
-	integer, err := t.integerSort(sort)
-	if err != nil {
-		return err
-	}
-	if !integer {
-		t.nonDifference = true
-		return nil
-	}
-	_, err = t.createVariable(node)
-	return err
+// ApplySortConstraint is theory::apply_sort_cnstr, which
+// theory_diff_logic does not override: variables are created only by
+// mk_var.
+func (t *SMTIntegerDiffTheory) ApplySortConstraint(*SMTEnode, ast.ASTHandle) error {
+	return nil
 }
 
 func (t *SMTIntegerDiffTheory) numeral(expression ast.ASTHandle) (*big.Rat, bool, error) {
@@ -176,31 +149,6 @@ func (t *SMTIntegerDiffTheory) operation(expression ast.ASTHandle) (int32, bool,
 	return op, err == nil, err
 }
 
-func (t *SMTIntegerDiffTheory) addFixedValue(variable SMTTheoryVar, value *big.Rat) error {
-	forward, err := t.graph.AddEdge(int32(t.zero), int32(variable), value, SMTNullLiteral)
-	if err != nil {
-		return err
-	}
-	if feasible, enableErr := t.graph.EnableEdge(forward); enableErr != nil || !feasible {
-		if enableErr != nil {
-			return enableErr
-		}
-		return ast.ErrASTDomain
-	}
-	negative := new(big.Rat).Neg(value)
-	backward, err := t.graph.AddEdge(int32(variable), int32(t.zero), negative, SMTNullLiteral)
-	if err != nil {
-		return err
-	}
-	if feasible, enableErr := t.graph.EnableEdge(backward); enableErr != nil || !feasible {
-		if enableErr != nil {
-			return enableErr
-		}
-		return ast.ErrASTDomain
-	}
-	return nil
-}
-
 func (t *SMTIntegerDiffTheory) offset(expression ast.ASTHandle) (ast.ASTHandle, *big.Rat, bool, error) {
 	state, err := t.State()
 	if err != nil {
@@ -233,31 +181,6 @@ func (t *SMTIntegerDiffTheory) offset(expression ast.ASTHandle) (ast.ASTHandle, 
 		return left, value, true, nil
 	}
 	return ast.ASTHandle{}, nil, false, nil
-}
-
-func (t *SMTIntegerDiffTheory) addOffset(source, target SMTTheoryVar, value *big.Rat) error {
-	forward, err := t.graph.AddEdge(int32(source), int32(target), value, SMTNullLiteral)
-	if err != nil {
-		return err
-	}
-	if feasible, enableErr := t.graph.EnableEdge(forward); enableErr != nil || !feasible {
-		if enableErr != nil {
-			return enableErr
-		}
-		return ast.ErrASTDomain
-	}
-	negative := new(big.Rat).Neg(value)
-	backward, err := t.graph.AddEdge(int32(target), int32(source), negative, SMTNullLiteral)
-	if err != nil {
-		return err
-	}
-	if feasible, enableErr := t.graph.EnableEdge(backward); enableErr != nil || !feasible {
-		if enableErr != nil {
-			return enableErr
-		}
-		return ast.ErrASTDomain
-	}
-	return nil
 }
 
 func (t *SMTIntegerDiffTheory) addBoundAxioms(source, target SMTTheoryVar, weight *big.Rat, literal SMTLiteral) error {
@@ -303,101 +226,7 @@ func (t *SMTIntegerDiffTheory) addBoundAxioms(source, target SMTTheoryVar, weigh
 }
 
 func (t *SMTIntegerDiffTheory) InternalizeTerm(expression ast.ASTHandle) (bool, error) {
-	state, err := t.State()
-	if err != nil {
-		return false, err
-	}
-	if node := state.context.enodes.get(expression); node != nil {
-		if !t.IsAttachedToVariable(node) {
-			_, err = t.createVariable(node)
-		}
-		return err == nil, err
-	}
-	value, numeral, err := t.numeral(expression)
-	if err != nil {
-		return false, err
-	}
-	if numeral {
-		if value.Sign() == 0 {
-			return true, nil
-		}
-		node, mkErr := state.MkEnode(expression, false, false, true)
-		if mkErr != nil {
-			return false, mkErr
-		}
-		variable, mkErr := t.createVariable(node)
-		if mkErr != nil {
-			return false, mkErr
-		}
-		return true, t.addFixedValue(variable, value)
-	}
-	base, value, offset, err := t.offset(expression)
-	if err != nil {
-		return false, err
-	}
-	if offset {
-		source, sourceErr := t.ensureVariable(base)
-		if sourceErr != nil {
-			return false, sourceErr
-		}
-		count, countErr := state.manager.GetNumArgs(expression)
-		if countErr != nil {
-			return false, countErr
-		}
-		for index := uint32(0); index < count; index++ {
-			argument, argumentErr := state.manager.GetArg(expression, index)
-			if argumentErr != nil {
-				return false, argumentErr
-			}
-			if internalizeErr := state.Internalize(argument, false); internalizeErr != nil {
-				return false, internalizeErr
-			}
-		}
-		node, mkErr := state.MkEnode(expression, false, false, true)
-		if mkErr != nil {
-			return false, mkErr
-		}
-		target, mkErr := t.createVariable(node)
-		if mkErr != nil {
-			return false, mkErr
-		}
-		return true, t.addOffset(source, target, value)
-	}
-	_, arithmetic, err := t.operation(expression)
-	if err != nil {
-		return false, err
-	}
-	if arithmetic {
-		t.nonDifference = true
-		return false, nil
-	}
-	return false, nil
-}
-
-func (t *SMTIntegerDiffTheory) ensureVariable(expression ast.ASTHandle) (SMTTheoryVar, error) {
-	state, err := t.State()
-	if err != nil {
-		return SMTNullTheoryVar, err
-	}
-	if node := state.context.enodes.get(expression); node != nil && t.IsAttachedToVariable(node) {
-		return node.TheoryVar(t.FamilyID()), nil
-	}
-	if err = state.Internalize(expression, false); err != nil {
-		return SMTNullTheoryVar, err
-	}
-	node := state.context.enodes.get(expression)
-	if node == nil {
-		// Arithmetic zero is represented by the theory's canonical zero node.
-		if value, numeral, numeralErr := t.numeral(expression); numeralErr == nil && numeral && value.Sign() == 0 {
-			return t.zero, nil
-		}
-		return SMTNullTheoryVar, ast.ErrASTDomain
-	}
-	if t.IsAttachedToVariable(node) {
-		return node.TheoryVar(t.FamilyID()), nil
-	}
-	t.nonDifference = true
-	return t.createVariable(node)
+	return t.internalizeDiffTerm(expression)
 }
 
 func (t *SMTIntegerDiffTheory) sign(expression ast.ASTHandle) (bool, bool, error) {
@@ -506,100 +335,35 @@ func (t *SMTIntegerDiffTheory) decompose(expression ast.ASTHandle) ([]ast.ASTHan
 	return terms, signs, nil
 }
 
+// InternalizeAtom is theory_diff_logic<idl_ext>::internalize_atom.
 func (t *SMTIntegerDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (bool, error) {
-	state, err := t.State()
-	if err != nil {
+	atom, ok, err := t.internalizeDiffAtom(expression)
+	if err != nil || !ok {
 		return false, err
 	}
-	op, arithmetic, err := t.operation(expression)
-	if err != nil {
-		return false, err
-	}
-	if !arithmetic || op != smtArithOpLE && op != smtArithOpGE {
-		t.nonDifference = true
-		return false, nil
-	}
-	lhs, err := state.manager.GetArg(expression, 0)
-	if err != nil {
-		return false, err
-	}
-	rhs, err := state.manager.GetArg(expression, 1)
-	if err != nil {
-		return false, err
-	}
-	isGE := op == smtArithOpGE
-	bound, numeral, err := t.numeral(rhs)
-	if err != nil {
-		return false, err
-	}
-	if !numeral {
-		lhs, rhs = rhs, lhs
-		isGE = !isGE
-		bound, numeral, err = t.numeral(rhs)
-		if err != nil {
-			return false, err
-		}
-	}
-	if !numeral || !bound.IsInt() {
-		t.nonDifference = true
-		return false, nil
-	}
-	terms, signs, err := t.decompose(lhs)
-	if err != nil {
-		return false, err
-	}
-	var source, target SMTTheoryVar
-	if len(terms) == 2 && signs[0] != signs[1] {
-		target, err = t.ensureVariable(terms[0])
-		if err == nil {
-			source, err = t.ensureVariable(terms[1])
-		}
-		if err != nil {
-			return false, err
-		}
-		if !signs[0] {
-			target, source = source, target
-		}
-	} else {
-		target, err = t.ensureVariable(lhs)
-		if err != nil {
-			return false, err
-		}
-		source = t.zero
-	}
-	weight := new(big.Rat).Set(bound)
-	if isGE {
-		target, source = source, target
-		weight.Neg(weight)
-	}
-	variable, err := state.MkBoolVar(expression)
-	if err != nil {
-		return false, err
-	}
-	if err = state.SetVariableTheory(variable, t.FamilyID()); err != nil {
-		return false, err
-	}
-	literal := NewSMTLiteral(variable, false)
+	source, target, literal := atom.source, atom.target, atom.literal
 	// internalize_atom: "x - y <= 5 => x - y <= 7" axioms only under
 	// m_arith_add_binary_bounds.
 	if t.addBinaryBounds {
-		if err = t.addBoundAxioms(source, target, weight, literal); err != nil {
+		if err = t.addBoundAxioms(source, target, &atom.k, literal); err != nil {
 			return false, err
 		}
 	}
-	positive, err := t.graph.AddEdge(int32(source), int32(target), weight, literal)
+	positive, err := t.graph.AddEdge(int32(source), int32(target), &atom.k, literal)
 	if err != nil {
 		return false, err
 	}
-	negativeWeight := new(big.Rat).Neg(weight)
+	// k.neg(); k -= 1 for an Int lhs, else k -= m_epsilon, which is 1 for
+	// idl_ext.
+	negativeWeight := new(big.Rat).Neg(&atom.k)
 	negativeWeight.Sub(negativeWeight, big.NewRat(1, 1))
 	negative, err := t.graph.AddEdge(int32(target), int32(source), negativeWeight, literal.Negated())
 	if err != nil {
 		return false, err
 	}
 	index := len(t.atoms)
-	t.atoms = append(t.atoms, smtIntegerDiffAtom{variable: variable, positive: positive, negative: negative})
-	t.atomByBool[variable] = index
+	t.atoms = append(t.atoms, smtIntegerDiffAtom{variable: atom.variable, positive: positive, negative: negative})
+	t.atomByBool[atom.variable] = index
 	return true, nil
 }
 
@@ -886,7 +650,16 @@ func (t *SMTIntegerDiffTheory) ModelValue(node *SMTEnode, generator *SMTModelGen
 	if err != nil {
 		return nil, err
 	}
-	numeral, err := state.manager.ArithmeticNumeralRat(value, true)
+	// mk_num_value(num, m_util.is_int(n->get_owner())).
+	sort, err := state.manager.GetSort(node.owner)
+	if err != nil {
+		return nil, err
+	}
+	integer, err := t.integerSort(sort)
+	if err != nil {
+		return nil, err
+	}
+	numeral, err := state.manager.ArithmeticNumeralRat(value, integer)
 	if err != nil {
 		return nil, err
 	}
