@@ -92,6 +92,9 @@ type SMTKernel struct {
 	// generation pinned stay alive until the next mk_proto_model resets the
 	// generator (or the context is destroyed), and are released forward.
 	generatorPins []ast.ASTRef
+	// rootValueOrder is the m_root2value table of the context's one
+	// model_generator, kept across models so its capacity carries over.
+	rootValueOrder *ast.ObjMap
 	// protoTrail is the value-factory trail of m_proto_model; it dies when
 	// scoped_mk_model drops the proto model, or at the context's teardown.
 	protoTrail       []ast.ASTRef
@@ -542,6 +545,10 @@ func (k *SMTKernel) buildCandidateModelGenerator() (*SMTModelGenerator, error) {
 		return nil, errors.Join(err, releasePrevious())
 	}
 	generator.pinSink = &k.generatorPins
+	if k.rootValueOrder == nil {
+		k.rootValueOrder = ast.NewObjMap(k.manager)
+	}
+	generator.rootOrder = k.rootValueOrder
 	generator.trailSink = &k.protoTrail
 	fail := func(cause error) (*SMTModelGenerator, error) {
 		return nil, errors.Join(cause, generator.Close(), releasePrevious())

@@ -45,7 +45,7 @@ func TestSMTModelCheckerContextRecoveryUsesOldestEqualityMember(t *testing.T) {
 	checker, err := NewSMTModelChecker(state, 1)
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, checker.Close()) })
-	astTestMust(t, checker.SetCandidateTerms(map[*SMTEnode]ast.ASTHandle{root: value}))
+	astTestMust(t, checker.SetCandidateTerms(map[*SMTEnode]ast.ASTHandle{root: value}, nil))
 	inserted, err := checker.addCounterexample(q, []ast.ASTHandle{value})
 	astTestMust(t, err)
 	if !checker.HasNewInstances() || checker.newInstances[0].bindings[0] != nodes[0].owner || registry.schedule.HasWork() {

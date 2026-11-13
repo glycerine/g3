@@ -135,7 +135,7 @@ func (it *smtMAMInterpreter) mkDepth1Vector(n *SMTEnode, f ast.ASTHandle, i uint
 // mkDepth2Vector: the relevant f-parents of each p in joint2.
 func (it *smtMAMInterpreter) mkDepth2Vector(j2 *smtMAMJoint2, f ast.ASTHandle, i uint32) ([]*SMTEnode, bool) {
 	n := it.registers[j2.reg].root
-	if len(n.parents) == 0 {
+	if len(n.sourceParents) == 0 {
 		return nil, false
 	}
 	numArgs := len(n.arguments)
@@ -184,7 +184,7 @@ func (it *smtMAMInterpreter) initContinue(c *smtMAMInstr, expectedNumArgs uint32
 		if it.useFilters && r.propagatedLabels.EmptyIntersection(c.lblSet) {
 			return nil
 		}
-		if len(r.parents) == 0 {
+		if len(r.sourceParents) == 0 {
 			return nil
 		}
 	}

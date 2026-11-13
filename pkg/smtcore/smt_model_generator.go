@@ -16,14 +16,20 @@ import (
 )
 
 type SMTModelGenerator struct {
-	manager       *ast.ASTManager
-	context       *SMTCheckerContext
-	model         *protomodel.ProtoModel
-	extraFresh    []*SMTExtraFreshValue
-	rootValues    map[*SMTEnode]ast.ASTHandle
-	searchFailure SMTFailure // Active kernel's failure when building this candidate.
-	trace         *diagnostic.TraceTags
-	refs          []ast.ASTRef
+	manager    *ast.ASTManager
+	context    *SMTCheckerContext
+	model      *protomodel.ProtoModel
+	extraFresh []*SMTExtraFreshValue
+	rootValues map[*SMTEnode]ast.ASTHandle
+	// rootOrder is the table layout of model_generator::m_root2value, an
+	// obj_map<enode, app*> hashed by the owner's hash; its Num indexes
+	// rootOrderNodes. The kernel keeps the table across models, as the
+	// source context keeps its model_generator (reset keeps the capacity).
+	rootOrder      *ast.ObjMap
+	rootOrderNodes []*SMTEnode
+	searchFailure  SMTFailure // Active kernel's failure when building this candidate.
+	trace          *diagnostic.TraceTags
+	refs           []ast.ASTRef
 	// pinSink, when set, receives refs at Close: the kernel keeps them as
 	// model_generator::m_asts until the next reset.
 	pinSink *[]ast.ASTRef
@@ -147,6 +153,11 @@ func (g *SMTModelGenerator) BuildValues(roots []*SMTEnode, procedures map[*SMTEn
 	if g.model == nil || len(g.rootValues) != 0 {
 		return ast.ErrASTDomain
 	}
+	if g.rootOrder == nil {
+		g.rootOrder = ast.NewObjMap(g.manager)
+	}
+	g.rootOrder.Reset()
+	g.rootOrderNodes = g.rootOrderNodes[:0]
 	ordered, err := g.topSortSources(roots, procedures)
 	if err != nil {
 		return err
@@ -291,9 +302,29 @@ func (g *SMTModelGenerator) BuildValues(roots []*SMTEnode, procedures map[*SMTEn
 		if e = g.pin(value); e != nil {
 			return e
 		}
+		if _, seen := g.rootValues[node]; !seen {
+			if e = g.rootOrder.InsertNum(node.owner, uint64(len(g.rootOrderNodes))); e != nil {
+				return e
+			}
+			g.rootOrderNodes = append(g.rootOrderNodes, node)
+		}
 		g.rootValues[node] = value
 	}
 	return nil
+}
+
+// rootValuesInTableOrder lists the m_root2value keys in obj_map iteration
+// order.
+func (g *SMTModelGenerator) rootValuesInTableOrder() []*SMTEnode {
+	if g.rootOrder == nil {
+		return nil
+	}
+	entries := g.rootOrder.Entries()
+	out := make([]*SMTEnode, 0, len(entries))
+	for _, entry := range entries {
+		out = append(out, g.rootOrderNodes[entry.Num])
+	}
+	return out
 }
 
 func (g *SMTModelGenerator) discoverValueProcedures(state *SMTInternalizerState) ([]*SMTEnode, map[*SMTEnode]SMTModelValueProcedure, error) {

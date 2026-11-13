@@ -138,7 +138,7 @@ func TestSMTModelFinderAUFWitnessConstraintsWaitForRestart(t *testing.T) {
 	}
 }
 
-func TestSMTModelFinderAUFArithmeticWitnessUsesStableNumeral(t *testing.T) {
+func TestSMTModelFinderAUFArithmeticWitnessIsFreshConstant(t *testing.T) {
 	for _, integer := range []bool{true, false} {
 		m, config := smtModelGeneratorFixture(t)
 		solver, err := NewSMTSolver(m, nil, "AUFLIRA", SMTSolverConfig{Params: config.Context, ModelEvaluator: config})
@@ -172,13 +172,20 @@ func TestSMTModelFinderAUFArithmeticWitnessUsesStableNumeral(t *testing.T) {
 		astTestMust(t, err)
 		astTestMust(t, node.insertException(zero))
 		astTestMust(t, graph.makeSimpleProjection(node))
-		text, isInt, matched, err := m.ArithmeticNumeralText(node.elseValue)
+		// Source set_projection_else: n->insert(k, 0); n->set_else(k), with
+		// k's interpretation a fresh value distinct from the exception.
+		if _, _, numeral, err := m.ArithmeticNumeralText(node.elseValue); err != nil || numeral {
+			t.Fatal("witness else is not the fresh constant k", numeral, err)
+		}
+		value, err := graph.eval(node.elseValue)
+		astTestMust(t, err)
+		text, isInt, matched, err := m.ArithmeticNumeralText(value)
 		astTestMust(t, err)
 		if !matched || isInt != integer || text != "1" || len(finder.pendingConstraints) != 0 {
-			t.Fatal("safe arithmetic witness did not preserve its public numeral", text, isInt, matched, len(finder.pendingConstraints))
+			t.Fatal("witness interpretation", text, isInt, matched, len(finder.pendingConstraints))
 		}
 		if _, found := node.set.testElements()[node.elseValue]; !found {
-			t.Fatal("stable numeral was not available for inverse recovery")
+			t.Fatal("witness constant was not added to the instantiation set")
 		}
 	}
 }

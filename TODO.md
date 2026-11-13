@@ -2798,3 +2798,29 @@ OPEN: debug-tagged builds (g3checked,g3debug,g3trace) are nondeterministic
 on qe_rec_real_disjunction (about 1 run in 20-40 prints different goals;
 release builds 40/40 identical); seen as a flaky TestSMTLibRunnerScripts
 under make tags. Present before round 4.
+
+## Quantifier fuzzing (2026-11-12/13)
+
+New fuzzer gen4.py (random forall axioms over f/g/p with and without
+patterns plus ground facts, full stdout with get-model).
+FIXED: crash (nil deref in MAM isEq/collectParents): undo_add_eq cleared
+the congruence pointer of parents with congruence closure disabled (arith +
+and *), which are never re-added; z3 never touches m_cg for them.
+push_app_ite builds the original f(args) only for proofs; MBQI candidate
+terms (get_term_from_ctx) follow m_root2value obj_map order kept across
+models; MBQI simple projection uses the fresh witness constant k itself
+(insert(k, 0), set_else(k)) instead of k's numeral - a deliberate g3
+deviation removed, so e.g. forall x y. y = x is unknown as in z3 4.7.1 (g3
+said unsat, which is mathematically right and what upstream z3 says);
+reweighted patterned quantifiers replace the original by ref; the instance
+checker finds congruent terms through the congruence table (FindApp);
+rejected parser patterns are released in z3's stack compaction order;
+complete_cex dies after the aux pop. Vectors qfuzz_* (6).
+Leads: k!N projection names swapped on several seeds (389, 416, 515, 1065,
+1161, 1202, 1245): auf node creation / union order (get_uvar, get_A_f_i;
+g3 runs addMonotoneExceptions up front, z3 inside mk_mono_proj); q_80:
+theory_arith propagate_cheap_eq finds an equality at level 0 after a
+restart where z3 finds it at level 1 (m_to_check / m_var_offset2row_id after
+restart and MBQI instance insertion); q_130: arith bound-axiom clause
+creation order (mk_bound_axioms / flush_bound_axioms); MBQI-heavy cases are
+5-20x slower than z3 (q_1070, q_1109 > 90 s).

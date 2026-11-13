@@ -74,12 +74,18 @@ func (c *SMTModelChecker) initAuxiliaryContext() error {
 	return nil
 }
 
-func (c *SMTModelChecker) SetCandidateTerms(rootValues map[*SMTEnode]ast.ASTHandle) error {
+// SetCandidateTerms is the m_value2expr population of get_term_from_ctx:
+// roots are visited in m_root2value table order (order, when given), and a
+// later root with the same value replaces an earlier one.
+func (c *SMTModelChecker) SetCandidateTerms(rootValues map[*SMTEnode]ast.ASTHandle, order []*SMTEnode) error {
 	if err := c.open(); err != nil {
 		return err
 	}
 	c.valueTerms = make(map[ast.ASTHandle]ast.ASTHandle, len(rootValues))
-	for _, root := range smtSortedEnodeKeys(rootValues) {
+	if order == nil {
+		order = smtSortedEnodeKeys(rootValues)
+	}
+	for _, root := range order {
 		if value := rootValues[root]; !value.IsNull() {
 			c.valueTerms[value] = root.EqualityClassMinGeneration().owner
 		}
@@ -405,6 +411,14 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 	if err = auxiliary.PushCore(); err != nil {
 		return false, err
 	}
+	// model_ref complete_cex dies when check(q) returns, after
+	// m_aux_context->pop(1) and before sks.
+	var complete *coremodel.ModelCore
+	defer func() {
+		if complete != nil {
+			result = errors.Join(result, complete.DecRef())
+		}
+	}()
 	defer func() { result = errors.Join(result, auxiliary.PopCore(1)) }()
 	// assert_neg_q_m's locals tmp, sk_body, s (var_subst) and r die when it
 	// returns, in reverse declaration order (r, s, sk_body, tmp).
@@ -514,14 +528,13 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 		c.exhausted = true
 		return false, nil
 	}
-	complete, err := auxiliary.AcquireModel()
+	complete, err = auxiliary.AcquireModel()
 	if err != nil {
 		return false, err
 	}
 	if complete == nil {
 		return false, ast.ErrASTPending
 	}
-	defer func() { result = errors.Join(result, complete.DecRef()) }()
 	restricted, err := c.addInstantiationSetRestrictions(auxiliary, quantifier, skolems)
 	if err != nil {
 		return false, err

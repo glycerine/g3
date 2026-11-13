@@ -108,9 +108,14 @@ func TestSMTSolverMBQIFindsInfiniteIntegerCounterexample(t *testing.T) {
 	astTestMust(t, s.Assert(quantifier))
 	status, err := s.CheckSat(nil)
 	astTestMust(t, err)
-	if status != lbool.False {
+	// z3 4.7.1 answers unknown: the instantiation-set witness is the fresh
+	// constant k (set_projection_else), which each new model can move.
+	if status != lbool.Undef {
 		reason, _ := s.ReasonUnknown()
-		t.Fatal("infinite integer counterexample was not instantiated", status, reason)
+		t.Fatal("fork answers unknown for forall x. x = 0", status, reason)
+	}
+	if len(s.kernel.internalizer.quantifiers.fingerprints.fingerprints) == 0 {
+		t.Fatal("infinite integer counterexample was not instantiated")
 	}
 }
 
@@ -252,12 +257,14 @@ func TestSMTSolverMBQIFallsBackWhenInstantiationSetHasNoCounterexample(t *testin
 	astTestMust(t, s.Assert(quantifier))
 	status, err := s.CheckSat(nil)
 	astTestMust(t, err)
-	if status != lbool.False {
-		t.Fatal("complete auxiliary counterexample was not used", status)
+	// z3 4.7.1 answers unknown (the witness k of set_projection_else is a
+	// fresh constant, not a numeral).
+	if status != lbool.Undef {
+		t.Fatal("fork answers unknown", status)
 	}
 	fingerprints := s.kernel.internalizer.quantifiers.fingerprints.fingerprints
-	if len(fingerprints) != 1 || len(fingerprints[0].args) != 1 || fingerprints[0].args[0].owner == zero {
-		t.Fatal("MBQI did not fall back from the exhausted instantiation set", len(fingerprints))
+	if len(fingerprints) == 0 || len(fingerprints[0].args) != 1 || fingerprints[0].args[0].owner == zero {
+		t.Fatal("MBQI did not instantiate away from the exception", len(fingerprints))
 	}
 }
 

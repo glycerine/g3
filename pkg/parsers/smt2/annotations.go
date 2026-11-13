@@ -216,7 +216,7 @@ func (p *commandParser) pattern() (result ast.ASTHandle, resultErr error) {
 	return p.pin(p.manager.MkPattern(terms))
 }
 
-func (p *commandParser) validateQuantifierPatterns(spec *ast.ASTQuantifierSpec) error {
+func (p *commandParser) validateQuantifierPatterns(spec *ast.ASTQuantifierSpec) (result error) {
 	boolean, err := p.manager.MkBoolSort()
 	if err != nil {
 		return err
@@ -233,6 +233,38 @@ func (p *commandParser) validateQuantifierPatterns(spec *ast.ASTQuantifierSpec) 
 	if err != nil {
 		return err
 	}
+	// pop_quant_frame compacts pattern_stack() in place: set(j, pat) and
+	// the final shrink drop stack references, and a rejected pattern dies
+	// when its last one goes, before mk_quantifier. The parser holds one pin
+	// per parsed pattern; held tracks the stack references of each handle.
+	slots := append([]ast.ASTHandle(nil), spec.Patterns...)
+	held := make(map[ast.ASTHandle]int, len(slots))
+	pins := make(map[ast.ASTHandle]int, len(slots))
+	for _, pattern := range slots {
+		held[pattern]++
+		pins[pattern]++
+	}
+	drop := func(pattern ast.ASTHandle) error {
+		held[pattern]--
+		for pins[pattern] > held[pattern] {
+			pins[pattern]--
+			if err := p.unpinPattern(pattern); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	j := 0
+	defer func() {
+		if result != nil {
+			return
+		}
+		for k := j; k < len(slots); k++ {
+			if result = drop(slots[k]); result != nil {
+				return
+			}
+		}
+	}()
 	accepted := spec.Patterns[:0]
 	for _, pattern := range spec.Patterns {
 		valid, err := validator.ValidateNew(uint32(len(spec.Sorts)), pattern, uint32(p.scanner.Line()), uint32(p.scanner.Position()))
@@ -253,8 +285,33 @@ func (p *commandParser) validateQuantifierPatterns(spec *ast.ASTQuantifierSpec) 
 			}
 			continue
 		}
+		if old := slots[j]; old != pattern {
+			slots[j] = pattern
+			held[pattern]++
+			if err = drop(old); err != nil {
+				return err
+			}
+		}
+		j++
 		accepted = append(accepted, pattern)
 	}
 	spec.Patterns = accepted
+	return nil
+}
+
+// unpinPattern drops the parser's pin of a pattern removed from the stack.
+func (p *commandParser) unpinPattern(pattern ast.ASTHandle) error {
+	for i := len(p.refs) - 1; i >= 0; i-- {
+		held, err := p.manager.RefGet(p.refs[i])
+		if err != nil {
+			return err
+		}
+		if held != pattern {
+			continue
+		}
+		ref := p.refs[i]
+		p.refs = append(p.refs[:i], p.refs[i+1:]...)
+		return p.manager.DelRef(&ref)
+	}
 	return nil
 }

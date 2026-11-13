@@ -231,6 +231,16 @@ func (s *SMTInternalizerState) traceAddEqMerging(r1, r2, n1 *SMTEnode) {
 		"merging: #"+id(r1)+" #"+id(r2)+" n1: #"+id(n1)+"\n")
 }
 
+// traceUndoAddEq is undo_add_eq's first record.
+func (s *SMTInternalizerState) traceUndoAddEq(r1, r2 *SMTEnode) {
+	if !smtTraceEnabled("add_eq") {
+		return
+	}
+	id := func(n *SMTEnode) string { v, _ := n.OwnerID(); return strconv.Itoa(int(v)) }
+	emitSMTTrace("add_eq", "undo_add_eq", "src/smt/smt_context.cpp", 966,
+		"undo_add_eq #"+id(r1)+" #"+id(r2)+"\n")
+}
+
 func (s *SMTInternalizerState) traceDecide(variable int32, positive bool) {
 	if !smtTraceEnabled("decide") {
 		return

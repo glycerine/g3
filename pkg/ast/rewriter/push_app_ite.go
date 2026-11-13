@@ -163,10 +163,7 @@ func (c *PushAppITEConfiguration) ReduceApp(decl ast.ASTHandle, arguments ast.Ap
 	if e != nil {
 		return RewriteFailed, e
 	}
-	original, e := c.manager.MkApp(decl, args)
-	if e != nil {
-		return RewriteFailed, e
-	}
+	original := args[iteIndex]
 	args[iteIndex] = thenValue
 	thenApp, e := c.manager.MkApp(decl, args)
 	if e != nil {
@@ -192,7 +189,13 @@ func (c *PushAppITEConfiguration) ReduceApp(decl ast.ASTHandle, arguments ast.Ap
 		return RewriteFailed, e
 	}
 	if proofs {
-		p, x := c.manager.MkProofRewrite(original, result)
+		// Source builds f(args) only for the proof, after the result.
+		args[iteIndex] = original
+		originalApp, x := c.manager.MkApp(decl, args)
+		if x != nil {
+			return RewriteFailed, x
+		}
+		p, x := c.manager.MkProofRewrite(originalApp, result)
 		if x != nil {
 			return RewriteFailed, x
 		}

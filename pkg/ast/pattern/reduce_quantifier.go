@@ -432,17 +432,22 @@ func (c *patternCandidates) reduceQuantifierNoDatabaseCore(q, newBody ast.ASTHan
 	if err != nil {
 		return out, false, err
 	}
-	if originalWeight, e := c.manager.GetQuantifierWeight(baseQ); e != nil {
-		return out, false, e
-	} else if weight != originalWeight {
-		updated, err = c.manager.UpdateQuantifierWeight(updated, weight)
-		if err != nil {
-			return out, false, err
-		}
-	}
+	// quantifier_ref new_q holds the patterned quantifier; assigning the
+	// reweighted one releases it at once, so its id is reused next.
 	out, err = c.manager.NewRef(updated)
 	if err != nil {
 		return out, false, err
+	}
+	if originalWeight, e := c.manager.GetQuantifierWeight(baseQ); e != nil {
+		return ast.ASTRef{}, false, errors.Join(e, c.manager.DelRef(&out))
+	} else if weight != originalWeight {
+		updated, err = c.manager.UpdateQuantifierWeight(updated, weight)
+		if err == nil {
+			err = c.manager.SetRef(out, updated)
+		}
+		if err != nil {
+			return ast.ASTRef{}, false, errors.Join(err, c.manager.DelRef(&out))
+		}
 	}
 	if pulledWithPatterns {
 		if err = c.tracePulledQuantifier(updated); err != nil {

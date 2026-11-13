@@ -162,30 +162,7 @@ func (g *smtModelFinderAUFGraph) setSimpleProjectionElse(node *smtModelFinderAUF
 				return err
 			}
 			if !term.IsNull() {
-				value, err := g.eval(term)
-				if err != nil {
-					return err
-				}
-				_, _, numeral, err := g.finder.manager.ArithmeticNumeralText(value)
-				if err != nil {
-					return err
-				}
-				if numeral {
-					safe := true
-					for _, exception := range values {
-						distinct, err := g.finder.manager.AreDistinct(value, exception)
-						if err != nil {
-							return err
-						}
-						safe = safe && distinct
-					}
-					if safe {
-						// A public numeral preserves this witness value when an
-						// instance enters the context. A fresh constant could be
-						// reassigned to an exception in the next candidate model.
-						term = value
-					}
-				}
+				// Source: n->insert(k, 0); n->set_else(k).
 				if _, err = node.insert(term, 0); err != nil {
 					return err
 				}

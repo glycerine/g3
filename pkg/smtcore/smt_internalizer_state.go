@@ -300,6 +300,7 @@ func newSMTInternalizerState(manager *ast.ASTManager, context *SMTCheckerContext
 	if err != nil {
 		return nil, err
 	}
+	context.congruence = table
 	state := &SMTInternalizerState{
 		manager: manager, context: context, congruence: table, quantifiers: quantifiers,
 		boolVar: smtBoolVarTable{context.exprs}, boolExpr: make([]ast.ASTHandle, 1), booleanData: make([]SMTBoolVarData, 1), booleanCreation: make([]uint64, 1),

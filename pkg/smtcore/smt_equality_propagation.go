@@ -33,6 +33,9 @@ func (s *SMTInternalizerState) recordEqualityUndo(r1, left, r2 *SMTEnode) {
 // pop from repeating the class unmerge after a later owner refuses.
 func (s *SMTInternalizerState) undoEquality(entry *smtEqualityUndo) error {
 	r1, r2 := entry.r1, entry.r2
+	if entry.stage == 0 && entry.merged {
+		s.traceUndoAddEq(r1, r2)
+	}
 	if entry.stage == 0 {
 		// Parents added since this merge are retiring nodes or r1's parents;
 		// r1's are reinserted below. Retired ones just leave the table.
@@ -41,7 +44,8 @@ func (s *SMTInternalizerState) undoEquality(entry *smtEqualityUndo) error {
 				if err := s.eraseMergedCongruenceRoot(parent); err != nil {
 					return err
 				}
-				if parent.congruence == parent {
+				// Source undo_add_eq leaves m_cg alone for cgc-disabled parents.
+				if parent.congruence == parent && parent.congruenceEnabled {
 					parent.congruence = nil
 				}
 			}
@@ -49,7 +53,7 @@ func (s *SMTInternalizerState) undoEquality(entry *smtEqualityUndo) error {
 				if err := s.eraseMergedCongruenceRoot(parent); err != nil {
 					return err
 				}
-				if parent.congruence == parent {
+				if parent.congruence == parent && parent.congruenceEnabled {
 					parent.congruence = nil
 				}
 			}

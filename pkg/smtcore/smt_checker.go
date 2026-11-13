@@ -24,6 +24,9 @@ type SMTCheckerContext struct {
 	// or the context is flushed.
 	diseqTmp     ast.ASTRef
 	diseqTmpHeld bool
+	// congruence is the owning context's m_cg_table, which
+	// get_enode_eq_to(f, args) searches; nil for a standalone view.
+	congruence *SMTCongruenceTable
 }
 
 // Source context::is_relevant includes all expressions when filtering is
@@ -258,6 +261,19 @@ func (c *SMTChecker) congruentEnode(expression ast.ASTHandle, arguments []*SMTEn
 	declaration, err := c.context.manager.GetDecl(expression)
 	if err != nil {
 		return nil, err
+	}
+	if table := c.context.congruence; table != nil {
+		// context::get_enode_eq_to: the m_cg_table entry, which holds only
+		// congruence roots with congruence closure enabled.
+		flags, err := c.context.manager.GetFuncDeclFlags(declaration)
+		if err != nil {
+			return nil, err
+		}
+		found, err := table.FindApp(declaration, arguments, flags.Commutative)
+		if err != nil || found == nil || !c.context.isRelevant(found.owner) {
+			return nil, err
+		}
+		return found, nil
 	}
 	for _, candidate := range c.context.byDeclaration[declaration] {
 		if len(candidate.arguments) != len(arguments) {
