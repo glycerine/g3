@@ -64,6 +64,7 @@ func (m *ASTManager) readInternal(p arena.SmallBytesRef, index uint32) (astNodeR
 	}
 	return astNodeRef{slot, generation}, nil
 }
+
 // readInternalAll appends readInternal(p, 0..count-1) to dst with one
 // payload validation. It fails as the first failing readInternal would.
 func (m *ASTManager) readInternalAll(p arena.SmallBytesRef, count uint32, dst []astNodeRef) ([]astNodeRef, error) {

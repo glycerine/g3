@@ -98,21 +98,21 @@ type Context struct {
 	manager          *ast.ASTManager
 	debugExpressions map[string]ast.ASTRef
 	// objectRefs is m_object_refs' dictionary layout over debugExpressions.
-	objectRefs           *symbolDictionary
-	borrowedManager      bool
-	fixedpoint           *muzfp.PropositionalEngine
+	objectRefs      *symbolDictionary
+	borrowedManager bool
+	fixedpoint      *muzfp.PropositionalEngine
 	// fixedpointQueryCmdParams is dl_query_cmd's parametric m_params, which
 	// lives as long as the command table; fixedpointContextParams is the
 	// datalog::context's m_params_ref, recreated with the context.
 	fixedpointQueryCmdParams uparams.ParamsRef
 	fixedpointContextParams  uparams.ParamsRef
-	datalogDisplay       *base.DatalogContext
-	solver               solver.Solver
-	tacticResult         *solver.SimpleCheckSatResult
-	retainedSolverResult solver.Solver
-	logic                string
-	functions            map[string][]ast.ASTHandle
-	sorts                map[string]ast.ASTHandle
+	datalogDisplay           *base.DatalogContext
+	solver                   solver.Solver
+	tacticResult             *solver.SimpleCheckSatResult
+	retainedSolverResult     solver.Solver
+	logic                    string
+	functions                map[string][]ast.ASTHandle
+	sorts                    map[string]ast.ASTHandle
 	// listDecl is pdecl_manager::m_list's instantiated List datatype
 	// (init_list commits it when no logic is set); listRef holds it.
 	listDecl         ast.ASTHandle
