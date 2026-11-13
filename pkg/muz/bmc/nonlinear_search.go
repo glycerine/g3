@@ -88,6 +88,13 @@ func (c *Compiler) checkNonlinearLevel(solver *smtcore.SMTSolver, query ast.ASTH
 	if err != nil {
 		return lbool.Undef, err
 	}
+	// expr_ref q_at_level owns the implication across b.assert_expr; it
+	// dies first, before q and p, when check returns.
+	implicationRef, err := m.NewRef(implication)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	refs = append(refs, implicationRef)
 	if err = solver.AssertFormula(implication); err != nil {
 		return lbool.Undef, err
 	}

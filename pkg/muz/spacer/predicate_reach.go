@@ -189,6 +189,14 @@ func (p *PredicateTransformer) AddReachFact(fact *ReachFact) (_ bool, resultErr 
 	if err != nil {
 		return false, err
 	}
+	// expr_ref fml owns the reach-case formula across m_reach_ctx's
+	// assert_expr (whose rewrite releases its own copy) and the lemma built
+	// from it; it dies after lem at the end of add_reach_fact.
+	fml, err := p.manager.NewRef(formula)
+	if err != nil {
+		return false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&fml)) }()
 	if err = p.reachSolver.Assert(formula); err != nil {
 		return false, err
 	}

@@ -210,7 +210,14 @@ func (p *PropSolver) AssertAtLevel(expression ast.ASTHandle, level uint32) error
 	if err != nil {
 		return err
 	}
-	return p.Assert(guarded)
+	// app_ref lform owns the guarded formula across both contexts'
+	// assert_expr: the first context's rewrite may release its own copy
+	// before the second context receives it.
+	lform, err := newSpacerAssertOwner(p.manager, guarded)
+	if err != nil {
+		return err
+	}
+	return lform.finish(p.Assert(guarded))
 }
 
 func (p *PropSolver) levelAssumptions(level uint32, delta bool) []ast.ASTHandle {

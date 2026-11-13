@@ -2752,3 +2752,26 @@ mk_ll_pp (trace output only); theory_array set_prop_upward's
 !m_array_delay_exp_axiom branch (instantiate_axiom2b_for /
 instantiate_axiom_map_for) unported (DelayExpAxiom defaults to true);
 pkg/smtcore/theory_bv_conversion.go is not gofmt-clean (pre-existing).
+
+## Assert caller ownership audit (2026-11-12, late)
+
+DONE: debug-build check in assertFormulaCore (g3debug) that assert_expr's
+input is still alive after rewriting, naming the caller (forwarders, the
+C++ raw-temporary sites - unit_subsumption, implied_equalities, qsat
+prepareKernels, qe satWeaken/satCoreExtrapolate - and fixtures exempt).
+Fixed callers that needed the C++ expr_ref: spacer AddReachFact (formula
+reused after the assert), PropSolver.AssertAtLevel (two contexts),
+derivation CreateNextChild (mk_and summaries), bmc nonlinear
+checkNonlinearLevel (q_at_level), VirtualSolver.AssertTracked (new_t),
+duality validateBackgroundProof. Resumable releases for pdr
+AddLevelFormula and spacer (spacerAssertOwner). Vectors
+fp_spacer_level_guard_rewrite, fp_pdr_level_formula,
+fp_bmc_nonlinear_two_preds.
+Leads: bmc nonlinear probe (p(x) & r(y) & x+y=3 -> q) id reuse differs at
+trace line 186 (#83/#87/#99) and a spacer reach-fact probe at 85488;
+asserted_formulas.cpp:163 reads has_quantifiers(e) after the rewrite frees
+a raw-temporary input (C++ use-after-free at those sites; g3 computes it
+before); spacer VirtualSolver does not reproduce solver_na2as::m_assumptions
+(AssertTracked appears unreached); exemption lists name functions as
+strings; gofmt flags theory_bv_conversion.go, propositional_engine.go,
+tab/search.go, tab/unfold_clause.go.

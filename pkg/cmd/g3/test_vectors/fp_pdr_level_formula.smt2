@@ -1,0 +1,8 @@
+(set-option :fixedpoint.engine pdr)
+(declare-rel c (Int))
+(declare-rel err ())
+(declare-var x Int)
+(rule (c 0))
+(rule (=> (and (c x) (< x 5)) (c (+ x 1))))
+(rule (=> (and (c x) (> x 7)) err))
+(query err)

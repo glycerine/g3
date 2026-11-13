@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"runtime"
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -874,6 +875,7 @@ func (k *SMTKernel) assertFormulaCore(formula, proof ast.ASTHandle) (resultErr e
 	}
 	// m_rewriter(e, r, pr) overwrites the local r(e): an input with no other
 	// owner dies when the rewriter publishes its result, before push_assertion.
+	input := formula
 	formula, proof, err = k.preprocessAssertExpr(formula, proof, scope.inputs[0])
 	if k.preprocess && k.preprocessor != nil {
 		// The preprocessing call can return owning results together with a
@@ -882,6 +884,11 @@ func (k *SMTKernel) assertFormulaCore(formula, proof ast.ASTHandle) (resultErr e
 	}
 	if err != nil {
 		return err
+	}
+	if smtcoreSourceDebug {
+		if err = k.debugAssertExprInputOwned(input); err != nil {
+			return err
+		}
 	}
 	if k.preprocess {
 		if err = k.traceAssertedExpression("assert_expr_bug", "assert_expr", 160, "after...\n", formula); err != nil {
@@ -912,6 +919,103 @@ func (k *SMTKernel) assertFormulaCore(formula, proof ast.ASTHandle) (resultErr e
 	k.assertions = k.assertions[:limit]
 	k.assertedInconsistent = wasInconsistent
 	return err
+}
+
+// ErrAssertExprInputUnowned reports, in g3debug builds, an assert_expr input
+// that died when the rewriter published its result over expr_ref r(e) while
+// the asserting caller holds no owner for it.
+var ErrAssertExprInputUnowned = errors.New("g3: assert_expr input died at rewrite; caller holds no owner")
+
+// debugAssertExprInputOwned checks the source's later read of e
+// (m_has_quantifiers |= has_quantifiers(e) after m_rewriter(e, r, pr)): the
+// input must outlive the rewrite, so the asserting caller must own it.
+// Callers whose source passes a raw temporary, and test fixtures, are exempt.
+// Release builds compile this away.
+func (k *SMTKernel) debugAssertExprInputOwned(input ast.ASTHandle) error {
+	_, err := k.manager.GetRefCount(input)
+	if err == nil || !errors.Is(err, ast.ErrASTHandle) {
+		return err
+	}
+	caller, exempt := debugAssertExprCaller()
+	if exempt {
+		return nil
+	}
+	return fmt.Errorf("%w (%s): %w", ErrAssertExprInputUnowned, caller, err)
+}
+
+// assertExprForwarders hand their caller's expression straight to
+// assert_expr, as their sources do (smt_solver::assert_expr,
+// Z3_solver_assert, spacer's pushed virtual_solver::assert_expr, ...): the
+// owner obligation belongs to their caller.
+var assertExprForwarders = []string{
+	"/pkg/smtcore.(*SMTKernel).Assert",
+	"/pkg/smtcore.(*SMTKernel).assertFormulaCore",
+	"/pkg/smtcore.(*SMTSolver).Assert",
+	"/pkg/smtcore.(*SMTSolver).AssertFormula",
+	"/pkg/smtcore.(*SMTSolver).AssertTracked",
+	"/pkg/muz/spacer.(*VirtualSolver).Assert",
+	"/pkg/muz/spacer.(*PropSolver).Assert",
+	"/pkg/muz/spacer.(*ItpSolver).Assert",
+	"/pkg/muz/pdr.(*SMTContext).Assert",
+	"/pkg/muz/pdr.(*PropSolver).AddFormula",
+	"/pkg/api.(*APISimpleSolver).Assert",
+	"/pkg/api.(*APISimpleSolver).AssertTracked",
+	"/pkg/qe.(*qsatKernel).assertExpression",
+}
+
+// assertExprRawTemporaries pass a fresh temporary to assert_expr in their
+// source too (for example unit_subsumption_tactic's
+// m_context.assert_expr(m.mk_iff(new_clause(), g->form(i)))).
+var assertExprRawTemporaries = []string{
+	"/pkg/smtcore.(*UnitSubsumptionTactic).",
+	// get_implied_equalities: m_solver.assert_expr(m.mk_not(m.mk_eq(s, t))).
+	"/pkg/smtcore.(*smtImpliedEqualityEngine).",
+	// qsat's m_fa.assert_expr(m.mk_not(fml)).
+	"/pkg/qe.(*qsatSearch).prepareKernels",
+	// qe_sat_tactic weaken/extrapolate: m_solver.assert_expr(m.mk_not(B))
+	// and assert_expr(m.mk_iff(proxies.back(), m_assignments[i])).
+	"/pkg/qe.satWeaken",
+	"/pkg/qe.satCoreExtrapolate",
+}
+
+// debugAssertExprExemptFixtures exempts test fixtures that assert fresh
+// terms directly; the owner check's own test clears it.
+var debugAssertExprExemptFixtures = true
+
+// debugAssertExprCaller names the asserting caller (the first frame above
+// the forwarders and the solver adapters) and reports whether it is exempt.
+func debugAssertExprCaller() (string, bool) {
+	pcs := make([]uintptr, 48)
+	frames := runtime.CallersFrames(pcs[:runtime.Callers(3, pcs)])
+	var names []string
+	exempt := false
+	for {
+		frame, more := frames.Next()
+		forwarder := strings.Contains(frame.File, "/pkg/solver/") && !strings.HasSuffix(frame.File, "_test.go")
+		for _, name := range assertExprForwarders {
+			if strings.HasSuffix(frame.Function, name) {
+				forwarder = true
+			}
+		}
+		if !forwarder || len(names) != 0 {
+			if len(names) == 0 {
+				exempt = debugAssertExprExemptFixtures && strings.HasSuffix(frame.File, "_test.go")
+				for _, name := range assertExprRawTemporaries {
+					if strings.Contains(frame.Function, name) {
+						exempt = true
+					}
+				}
+			}
+			names = append(names, fmt.Sprintf("%s:%d", frame.Function, frame.Line))
+			if len(names) == 4 {
+				break
+			}
+		}
+		if !more {
+			break
+		}
+	}
+	return strings.Join(names, " <- "), exempt
 }
 
 func (k *SMTKernel) Assertions() []SMTKernelAssertion {

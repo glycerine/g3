@@ -555,8 +555,18 @@ func (d *Derivation) CreateNextChild() (_ *ProofObligation, resultErr error) {
 	if err != nil {
 		return nil, err
 	}
+	// pm.mk_and(summaries) is an expr_ref temporary owning the state across
+	// is_must_reachable, whose assert_expr rewrite releases its own copy.
+	stateRef, err := manager.NewRef(state)
+	if err != nil {
+		return nil, err
+	}
 	reachable, md, err := active.transformer.IsMustReachable(state, true)
+	err = errors.Join(err, manager.DelRef(&stateRef))
 	if err != nil || !reachable || md == nil {
+		if err != nil && md != nil {
+			err = errors.Join(err, md.DecRef())
+		}
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, md.DecRef()) }()

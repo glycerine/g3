@@ -241,15 +241,19 @@ func (s *VirtualSolver) internalizeAssertions() error {
 		}
 		// expr_ref f owns the implication across m_context.assert_expr,
 		// whose rewrite releases its own copy of the input.
-		f, err := s.factory.manager.NewRef(guarded)
+		f, err := newSpacerAssertOwner(s.factory.manager, guarded)
 		if err != nil {
 			return err
 		}
 		err = s.Solver.Assert(guarded)
-		if err = errors.Join(err, s.factory.manager.DelRef(&f)); err != nil {
+		if err == nil {
+			// The assertion is internalized even when f's release leaves
+			// pending work; the receipt resumes that release.
+			s.head++
+		}
+		if err = f.finish(err); err != nil {
 			return err
 		}
-		s.head++
 	}
 	return nil
 }
@@ -296,7 +300,13 @@ func (s *VirtualSolver) AssertTracked(expression, tracking ast.ASTHandle) error 
 	if err != nil {
 		return err
 	}
-	return s.Assert(implication)
+	// solver_na2as::assert_expr(t, a): expr_ref new_t owns the implication
+	// across assert_expr(new_t).
+	newT, err := newSpacerAssertOwner(s.factory.manager, implication)
+	if err != nil {
+		return err
+	}
+	return newT.finish(s.Assert(implication))
 }
 
 // PrepareCandidateModel forwards the optional incomplete-check model protocol

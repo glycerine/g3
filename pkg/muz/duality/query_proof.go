@@ -88,7 +88,14 @@ func (e *QueryEngine) validateBackgroundProof(proof ast.ASTRef) (result error) {
 		if err != nil {
 			return err
 		}
-		if err := native.Assert(negated); err != nil {
+		// Own the obligation across the assertion, whose rewrite releases
+		// the solver's copy of its input.
+		held, err := m.NewRef(negated)
+		if err != nil {
+			return err
+		}
+		err = native.Assert(negated)
+		if err = errors.Join(err, m.DelRef(&held)); err != nil {
 			return err
 		}
 		status, err := native.CheckSat(nil)

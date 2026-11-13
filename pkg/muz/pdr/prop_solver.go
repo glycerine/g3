@@ -234,7 +234,7 @@ func (p *PropSolver) AddFormula(formula ast.ASTHandle) error {
 	return p.context.Assert(formula)
 }
 
-func (p *PropSolver) AddLevelFormula(formula ast.ASTHandle, level uint32) error {
+func (p *PropSolver) AddLevelFormula(formula ast.ASTHandle, level uint32) (resultErr error) {
 	if err := p.open(); err != nil {
 		return err
 	}
@@ -245,13 +245,14 @@ func (p *PropSolver) AddLevelFormula(formula ast.ASTHandle, level uint32) error 
 	if err != nil {
 		return err
 	}
-	// app_ref lform holds the guarded formula while it is asserted.
-	lform, err := p.manager.NewRef(guarded)
-	if err != nil {
+	// app_ref lform holds the guarded formula while it is asserted. A
+	// release that leaves pending work returns a resumable receipt.
+	lform := &smtContextAssertOwner{manager: p.manager}
+	if lform.fml, err = p.manager.NewRef(guarded); err != nil {
 		return err
 	}
-	err = p.context.Assert(guarded)
-	return errors.Join(err, p.manager.DelRef(&lform))
+	defer func() { resultErr = lform.finish(resultErr) }()
+	return p.context.Assert(guarded)
 }
 
 func (p *PropSolver) isDirectAssumption(expression ast.ASTHandle) (bool, error) {
