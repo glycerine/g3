@@ -9,9 +9,12 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
+// equalityAtomTerms accepts only OP_EQ: a Boolean equality is an iff gate,
+// internalized with suppressed arguments, so it never enters the congruence
+// table that context::is_diseq probes.
 func (s *SMTInternalizerState) equalityAtomTerms(expression ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, bool, error) {
 	op, basic, err := s.basicOperation(expression)
-	if err != nil || !basic || op != ast.ASTOpEq && op != ast.ASTOpIff {
+	if err != nil || !basic || op != ast.ASTOpEq {
 		return ast.ASTHandle{}, ast.ASTHandle{}, false, err
 	}
 	left, err := s.manager.GetArg(expression, 0)
@@ -78,6 +81,11 @@ func (s *SMTInternalizerState) unindexEqualityAtom(variable int32, expression as
 func (s *SMTInternalizerState) hasRelevantFalseEquality(first, second *SMTEnode) (bool, error) {
 	if err := s.indexEqualityAtoms(); err != nil {
 		return false, err
+	}
+	// For Boolean terms mk_eq builds an iff, which is never in the
+	// congruence table, so is_diseq is false.
+	if first.boolean {
+		return false, nil
 	}
 	near, far := first.root, second.root
 	if near == far {

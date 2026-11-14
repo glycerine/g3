@@ -216,8 +216,8 @@ func (t *SMTArrayTheory) alreadyDisequalReads(first, second *SMTEnode) (bool, er
 }
 
 // Source context::is_diseq: find a relevant equality assigned false modulo
-// egraph roots. Boolean equality uses iff and need not create a disequality
-// in the egraph's non-Boolean disequality table.
+// egraph roots. For Boolean operands the probe is an iff, which is never in
+// the congruence table, so Boolean terms are never disequal here.
 func (t *SMTArrayTheory) hasRelevantDisequality(first, second *SMTEnode) (bool, error) {
 	s, err := t.State()
 	if err != nil {

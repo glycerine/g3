@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_03-F3: context::is_diseq is never true for Boolean
+	// terms (the iff probe is not in the congruence table), so array
+	// extensionality over a Boolean range is instantiated.
+	"array_bool_range_extensionality.smt2": "sat\n(model \n  (define-fun i () Int\n    2)\n  (define-fun b () (Array Int Bool)\n    (_ as-array k!1))\n  (define-fun a () (Array Int Bool)\n    (_ as-array k!0))\n  (define-fun q2 () Bool\n    true)\n  (define-fun k!0 ((x!0 Int)) Bool\n    (ite (= x!0 2) false\n    (ite (= x!0 3) false\n      false)))\n  (define-fun k!1 ((x!0 Int)) Bool\n    (ite (= x!0 2) true\n    (ite (= x!0 3) true\n      true)))\n  (define-fun g ((x!0 Bool)) Int\n    (ite (= x!0 false) 0\n    (ite (= x!0 true) 1\n      0)))\n)\n",
 	// AUDIT.md smtcore_03-F2: three-argument bvadd at depth > 1024 (old g3:
 	// "pre-internalize deep expression" error).
 	"deep_bvadd3_topsort.smt2": "sat\n",

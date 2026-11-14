@@ -74,7 +74,10 @@ func TestSMTArrayExtensionalityDisequalityQueueAndRollback(t *testing.T) {
 	}
 }
 
-func TestSMTArrayExtensionalitySkipsKnownDisequalReads(t *testing.T) {
+// smtcore_03-F3: context::is_diseq probes the congruence table with
+// mk_eq(n1, n2); for Boolean reads that is an iff, which is never there, so
+// a false Boolean read equality does not suppress extensionality.
+func smtArrayKnownDisequalReadsFixture(t *testing.T, booleanRange bool) *SMTArrayTheory {
 	m := astTestManager(t)
 	family, err := m.RegisterArrayPlugin()
 	astTestMust(t, err)
@@ -84,7 +87,12 @@ func TestSMTArrayExtensionalitySkipsKnownDisequalReads(t *testing.T) {
 	astTestMust(t, state.RegisterTheory(theory))
 	boolean, err := m.MkBoolSort()
 	astTestMust(t, err)
-	sort, err := m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{boolean}), boolean)
+	rangeSort := boolean
+	if !booleanRange {
+		rangeSort, err = m.MkUninterpretedSort(astTestSymbol(t, m, "different-read-range"), nil)
+		astTestMust(t, err)
+	}
+	sort, err := m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{boolean}), rangeSort)
 	astTestMust(t, err)
 	a, err := m.MkConst(astTestSymbol(t, m, "different-read-array-a"), sort)
 	astTestMust(t, err)
@@ -109,7 +117,19 @@ func TestSMTArrayExtensionalitySkipsKnownDisequalReads(t *testing.T) {
 	astTestMust(t, state.AssignLiteral(arrayEquality.Negated(), NewSMTBooleanAxiom()))
 	_, err = state.PropagateCore()
 	astTestMust(t, err)
+	return theory
+}
+
+func TestSMTArrayExtensionalitySkipsKnownDisequalReads(t *testing.T) {
+	theory := smtArrayKnownDisequalReadsFixture(t, false)
 	if theory.statistics.extensionality != 0 || theory.CanPropagate() || len(theory.selectTrail) != 2 || len(theory.extensionalityTrail) != 1 {
 		t.Fatal("known read disequality did not suppress redundant extensionality")
+	}
+}
+
+func TestSMTArrayExtensionalityBooleanReadsAreNotKnownDisequal(t *testing.T) {
+	theory := smtArrayKnownDisequalReadsFixture(t, true)
+	if theory.statistics.extensionality != 1 {
+		t.Fatal("a false Boolean read equality suppressed extensionality", theory.statistics.extensionality)
 	}
 }
