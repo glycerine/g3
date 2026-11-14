@@ -178,7 +178,9 @@ public:
         }
         
         for (unsigned i = 0; i < m_ge.size(); ++i) {
-            classify_vars(i, to_app(g->form(m_ge[i])));
+            // record the goal index: replace, resolve and subsumption read
+            // the positions in m_vars as goal indices.
+            classify_vars(m_ge[i], to_app(g->form(m_ge[i])));
         }
         
         declassifier dcl(m_vars);
@@ -247,6 +249,9 @@ public:
             for (unsigned j = 0; j < pos.size(); ++j) {
                 unsigned k = pos[j];
                 if (k == m_ge[i]) continue;
+                // to_ge appends: start each candidate from empty vectors.
+                args2.reset();
+                coeffs2.reset();
                 if (!to_ge(g->form(k), args2, coeffs2, k2)) continue;
                 if (subsumes(args1, coeffs1, k1, args2, coeffs2, k2)) {
                     IF_VERBOSE(3, verbose_stream() << "replace " << mk_pp(g->form(k), m) << "\n";);
@@ -534,18 +539,20 @@ private:
             rec const& r = m_vars.find(to_app(x));
             if (r.pos.size() != 1 || r.neg.size() != 1) return;
             if (r.pos[0] != idx2 && r.neg[0] != idx2) return;
+            // positions can be stale after replace() rewrote or split goal
+            // formulas: give up unless idx2 really holds the complement.
+            bool found = false;
             for (unsigned j = 0; j < args2.size(); ++j) {
                 if (is_complement(args1[i].get(), args2[j].get())) {
-                    if (i == 0) {
-                        min_coeff = coeffs2[j];
-                    }
-                    else if (min_coeff > coeffs2[j]) {
+                    if (i == 0 || min_coeff > coeffs2[j]) {
                         min_coeff = coeffs2[j];
                         min_index = j;
                     }
                     indices.push_back(j);
+                    found = true;
                 }                
             }
+            if (!found) return;
         }
         for (unsigned i = 0; i < indices.size(); ++i) {
             unsigned j = indices[i];
@@ -632,7 +639,8 @@ private:
         sub.insert(e, v);
         expr_ref tmp(m);
         m_r.set_substitution(&sub);        
-        for (unsigned i = 0; i < positions.size(); ++i) {
+        // once an update makes g inconsistent, g holds only `false`.
+        for (unsigned i = 0; !g->inconsistent() && i < positions.size(); ++i) {
             unsigned idx = positions[i];
             expr_ref f(m);
             proof_ref new_pr(m);
