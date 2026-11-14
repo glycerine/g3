@@ -542,8 +542,12 @@ func (c *bv2IntCall) mulBV(s, t ast.ASTHandle, signed bool) ast.ASTHandle {
 	if q, ok := c.bvNumber(t); ok && q.Cmp(big.NewRat(1, 1)) == 0 {
 		return s
 	}
-	s, t = c.align(s, t, signed)
-	n := c.width(t)
+	// expr_ref s1(s), t1(t): each assignment releases the replaced value and
+	// t1 dies first.
+	s1, t1 := c.newLocal(s), c.newLocal(t)
+	defer c.releaseLocals(&t1, &s1)
+	c.alignLocals(&s1, &t1, signed)
+	n := c.width(c.localValue(t1))
 	max := c.r.context.maxSize
 	overflow := 2*n > max
 	if n < max {
@@ -551,8 +555,10 @@ func (c *bv2IntCall) mulBV(s, t ast.ASTHandle, signed bool) ast.ASTHandle {
 		if 2*n > max {
 			extra = max - n
 		}
-		s, t = c.extend(extra, s, signed), c.extend(extra, t, signed)
+		c.assignLocal(&s1, c.extend(extra, c.localValue(s1), signed))
+		c.assignLocal(&t1, c.extend(extra, c.localValue(t1), signed))
 	}
+	s, t = c.localValue(s1), c.localValue(t1)
 	if overflow && c.err == nil {
 		var cond ast.ASTHandle
 		if signed {

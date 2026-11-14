@@ -672,3 +672,43 @@ func TestBV2IntSourceAssertionGateAndClosedDiagnostic(t *testing.T) {
 		}
 	}
 }
+
+// mk_bv_mul keeps s1/t1 in expr_refs: align_sizes and mk_extend replace
+// them, so the call frame holds none of the intermediate extensions once
+// the product is built; only the bvmul itself stays held. AUDIT.md
+// FUZZ_D-F5.
+func TestBV2IntMulBVReleasesIntermediateExtensions(t *testing.T) {
+	f := bv2IntRewriteFixture(t, ^uint32(0))
+	bv3, err := f.m.BitVectorSort(3)
+	equationMust(t, err)
+	bv2, err := f.m.BitVectorSort(2)
+	equationMust(t, err)
+	mk := func(name string, sort ast.ASTHandle) ast.ASTHandle {
+		s, e := f.m.Symbols.Intern(name)
+		equationMust(t, e)
+		h, e := f.m.MkConst(s, sort)
+		equationMust(t, e)
+		fixDLPin(t, f.m, h)
+		return h
+	}
+	s, tv := mk("mul-s", bv3), mk("mul-t", bv2)
+	call := &bv2IntCall{r: f.r}
+	product := call.mulBV(s, tv, false)
+	equationMust(t, call.err)
+	held := 0
+	for _, r := range call.refs {
+		if r == (ast.ASTRef{}) {
+			continue
+		}
+		held++
+		h, e := f.m.RefGet(r)
+		equationMust(t, e)
+		if h != product {
+			t.Fatal("call frame still holds an intermediate", h)
+		}
+	}
+	if held != 1 {
+		t.Fatal("held references", held)
+	}
+	equationMust(t, call.close())
+}
