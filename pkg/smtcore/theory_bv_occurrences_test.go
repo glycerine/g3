@@ -348,3 +348,44 @@ func TestSMTBVBitProjectionAllocationRefusalScopeRetirement(t *testing.T) {
 		t.Fatal("retry after scope retirement lost alias owner")
 	}
 }
+
+// AUDIT.md smtcore_10-F1: internalize_concat adds each argument's bits
+// (add_bit, which may emit a static disequality) before get_arg_var of the
+// next argument creates its variable and bit2bool atoms.
+func TestSMTBVConcatInterleavesArgumentVariablesAndBits(t *testing.T) {
+	m, s, bv := bvOccurrenceFixture(t)
+	wide, err := m.BitVectorSort(4)
+	astTestMust(t, err)
+	narrow, err := m.BitVectorSort(2)
+	astTestMust(t, err)
+	v1, err := m.MkConst(astTestSymbol(t, m, "concat-order-v1"), wide)
+	astTestMust(t, err)
+	x, err := m.MkConst(astTestSymbol(t, m, "concat-order-x"), narrow)
+	astTestMust(t, err)
+	y, err := m.MkConst(astTestSymbol(t, m, "concat-order-y"), narrow)
+	astTestMust(t, err)
+	p := smtRelevancyBool(t, m, "concat-order-p")
+	notV1, err := m.MkBitVectorNot(v1)
+	astTestMust(t, err)
+	astTestMust(t, s.Internalize(notV1, false))
+	ite, err := m.MkIte(p, x, y)
+	astTestMust(t, err)
+	low, err := m.MkBitVectorExtract(1, 0, v1)
+	astTestMust(t, err)
+	concat, err := m.MkBitVectorConcat([]ast.ASTHandle{ite, low})
+	astTestMust(t, err)
+	astTestMust(t, s.Internalize(concat, false))
+	if bv.statistics.diseqStatic == 0 {
+		t.Fatal("expected a static disequality between the concat and (bvnot v1)")
+	}
+	eq, err := bv.MkEqualityLiteral(concat, notV1, true)
+	astTestMust(t, err)
+	iteVar := s.context.enodes.get(ite).TheoryVar(bv.FamilyID())
+	if iteVar == SMTNullTheoryVar || int(iteVar) >= len(bv.bitLiterals) || len(bv.bitLiterals[iteVar]) != 2 {
+		t.Fatal("the ite argument did not get a variable and bits")
+	}
+	bit0 := bv.bitLiterals[iteVar][0]
+	if eq.Var() >= bit0.Var() {
+		t.Fatal("static disequality atom must precede the ite's bit2bool atom", eq, bit0)
+	}
+}

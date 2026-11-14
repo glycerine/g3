@@ -540,9 +540,15 @@ func (t *SMTBitVectorTheory) internalizeSplice(expression ast.ASTHandle, node *S
 		}
 	}
 	variable := node.TheoryVar(t.FamilyID())
-	var literals []SMTLiteral
+	// m_bits[v].reset()
+	t.bits[expression] = nil
+	t.literalBits[expression] = true
+	t.bitTrail = append(t.bitTrail, expression)
 	// internalize_concat visits the arguments from last to first;
-	// get_arg_var creates a missing variable and its bits on the way.
+	// get_arg_var creates a missing variable and its bits on the way,
+	// and each argument's bits are added (add_bit) before the next
+	// argument's get_arg_var.
+	index := uint32(0)
 	for k := len(arguments) - 1; k >= 0; k-- {
 		v, err := t.nativeVariable(nodes[k])
 		if err != nil {
@@ -551,6 +557,7 @@ func (t *SMTBitVectorTheory) internalizeSplice(expression ast.ASTHandle, node *S
 		if int(v) >= len(t.bitLiterals) {
 			return false, ast.ErrASTDomain
 		}
+		// A slice header copy, as the source iterates m_bits[arg].
 		bits := t.bitLiterals[v]
 		if operation == 40 {
 			if uint64(high) >= uint64(len(bits)) {
@@ -558,14 +565,11 @@ func (t *SMTBitVectorTheory) internalizeSplice(expression ast.ASTHandle, node *S
 			}
 			bits = bits[low : high+1]
 		}
-		literals = append(literals, bits...)
-	}
-	t.bits[expression] = nil
-	t.literalBits[expression] = true
-	t.bitTrail = append(t.bitTrail, expression)
-	for index, literal := range literals {
-		if err := t.registerBitLiteral(expression, uint32(index), literal); err != nil {
-			return false, err
+		for _, literal := range bits {
+			if err := t.registerBitLiteral(expression, index, literal); err != nil {
+				return false, err
+			}
+			index++
 		}
 	}
 	return true, t.findWatchedPosition(variable)
