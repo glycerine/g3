@@ -74,3 +74,44 @@ func TestSMTUnknownStaticSetupClassifiesLinearArithmetic(t *testing.T) {
 		})
 	}
 }
+
+// smtcore_06-F2: setup::setup_unknown(static_features&) calls the
+// featureless setup_QF_AX() for a pure array problem, which leaves the
+// relevancy level and phase selection alone even when all assertions are
+// units.
+func TestSMTUnknownStaticSetupPureArrayKeepsRelevancy(t *testing.T) {
+	m, cfg := smtModelGeneratorFixture(t)
+	index, err := m.MkUninterpretedSort(astTestSymbol(t, m, "unknown-array-U"), nil)
+	astTestMust(t, err)
+	value, err := m.MkUninterpretedSort(astTestSymbol(t, m, "unknown-array-V"), nil)
+	astTestMust(t, err)
+	arraySort, err := m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{index}), value)
+	astTestMust(t, err)
+	var arrays []ast.ASTHandle
+	for _, name := range []string{"unknown-array-a", "unknown-array-b", "unknown-array-c"} {
+		x, err := m.MkConst(astTestSymbol(t, m, name), arraySort)
+		astTestMust(t, err)
+		arrays = append(arrays, x)
+	}
+	solver, err := NewSMTSolver(m, nil, "ALL", SMTSolverConfig{Params: cfg.Context, ModelEvaluator: cfg})
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, solver.Close()) })
+	for i := 0; i+1 < len(arrays); i++ {
+		equal, err := m.MkEq(arrays[i], arrays[i+1])
+		astTestMust(t, err)
+		astTestMust(t, solver.Assert(equal))
+	}
+	phase := solver.kernel.smtParams.state.PhaseSelection
+	status, err := smtSetupProfileCheck(solver)
+	astTestMust(t, err)
+	if status != lbool.True {
+		t.Fatal("pure array result", status)
+	}
+	params := solver.kernel.smtParams
+	if params.state.RelevancyLvl != 2 || params.state.PhaseSelection != phase {
+		t.Fatal("setup_QF_AX() changed relevancy or phase", params.state.RelevancyLvl, params.state.PhaseSelection, phase)
+	}
+	if params.array.state.Mode != 1 || params.preprocess.state.NNFCNF {
+		t.Fatal("setup_QF_AX() array mode or nnf_cnf", params.array.state.Mode, params.preprocess.state.NNFCNF)
+	}
+}

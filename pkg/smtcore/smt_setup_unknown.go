@@ -89,7 +89,7 @@ func (k *SMTKernel) setupUnknownStaticPolicy(useStaticFeatures bool) (result err
 		return k.withSetupLogic("QF_FPBV", k.setupBitVectorLogicPolicy)
 	}
 	if theories == 1 && features.HasArrays {
-		return k.withSetupLogic("QF_AX", func() error { return k.setupArrayLogicPolicy(true) })
+		return k.withSetupLogic("QF_AX", func() error { return k.setupArrayLogicPolicy(false) })
 	}
 	if theories == 2 && features.HasUF() && features.HasArrays && features.HasBitVector {
 		return k.withSetupLogic("QF_AUFBV", k.setupBitVectorLogicPolicy)
