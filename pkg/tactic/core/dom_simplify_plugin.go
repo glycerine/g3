@@ -89,8 +89,13 @@ func (t *DomSimplifyTactic) applyDomSimplifier(g *tactic.Goal, out *tactic.Tacti
 	}
 	m := t.manager
 	change := true
-	for change {
+	// z3 4.7.1 loops while change; upstream 0ef8ebe89f ("fix #4895") caps
+	// simplify_goal at 10 rounds, because the forward and backward passes
+	// can oscillate (z3_bug_dom_simplify_oscillation.smt2).
+	n := 0
+	for change && n < 10 {
 		change = false
+		n++
 		for _, forward := range [2]bool{true, false} {
 			t.forward = forward
 			compiled, err := t.domInit(g)

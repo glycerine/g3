@@ -18,6 +18,7 @@ var z3BugResults = map[string]string{
 	"z3_bug_qe_nested_store.smt2":                     "sat\n",
 	"z3_bug_opt_stale_objective_term.smt2":            "sat\n(objectives\n (x 7)\n (y oo)\n (q (- 3))\n)\n",
 	"z3_bug_dom_simplify_root_resimplify.smt2":        "sat\nsat\n(goals\n(goal\n  (= true (ite p1 p0 false))\n  :precision precise :depth 1)\n)\n",
+	"z3_bug_dom_simplify_oscillation.smt2":            "unsat\nunsat\n(goals\n(goal\n  (not p3)\n  (not (and p1 true false))\n  (not true)\n  :precision precise :depth 1)\n)\n",
 	"z3_bug_elim_term_ite_stale_cache.smt2":           "sat\nunsat\n",
 	"z3_bug_macro_finder_disabled_stale_macro.smt2":   "sat\nunsat\n",
 	"z3_bug_pb_preprocess_ge_index.smt2":              "unsat\nunsat\n(goals\n(goal\n  false\n  :precision precise :depth 1)\n)\n",

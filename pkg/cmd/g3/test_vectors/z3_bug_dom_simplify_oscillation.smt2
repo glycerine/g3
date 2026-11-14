@@ -1,0 +1,8 @@
+(declare-const p1 Bool)
+(declare-const p3 Bool)
+(assert (not p3))
+(assert (not (and p1 p1 p3)))
+(assert (not true))
+(check-sat)
+(check-sat-using (then dom-simplify smt))
+(apply dom-simplify)

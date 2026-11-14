@@ -84,3 +84,12 @@ z3_bug_pb_preprocess_resolve_no_complement
 # propagateRecognizer; AUDIT.md smtcore_10-F3). Reproduction:
 # test_vectors/z3_bug_dt_recognizer_relevancy1.smt2.
 z3_bug_dt_recognizer_relevancy1
+#
+# dom-simplify never terminates when its forward and backward passes keep
+# changing the goal: simplify_goal loops `while (change)` with no bound
+# (z3 bug: src/tactic/core/dom_simplify_tactic.cpp simplify_goal; fixed
+# upstream in 0ef8ebe89f, "fix #4895", which stops after 10 rounds). g3
+# caps the rounds the same way (pkg/tactic/core/dom_simplify_plugin.go
+# applyDomSimplifier). Reproduction:
+# test_vectors/z3_bug_dom_simplify_oscillation.smt2.
+z3_bug_dom_simplify_oscillation
