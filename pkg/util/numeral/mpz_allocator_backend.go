@@ -105,6 +105,22 @@ func (c SourceCellBacking) copyWordsFrom(a *umemory.SmallAllocator, src SourceCe
 	return a.RuntimeOwner().CopyUint32s(dstRaw, dstAt, srcRaw, srcAt, count)
 }
 
+// readWordUnchecked/writeWordUnchecked use the cached raw location without
+// re-validating the pooled object (normal builds; numeric_validate_off.go).
+// The runtime still bounds-checks the raw block and initialized bytes.
+func (c *SourceCellBacking) readWordUnchecked(a *umemory.SmallAllocator, offset uint64) (uint32, error) {
+	if offset > c.extent || c.extent-offset < 4 {
+		return 0, arena.ErrBounds
+	}
+	return a.RuntimeOwner().ReadUint32(c.Raw, c.Offset+offset)
+}
+func (c *SourceCellBacking) writeWordUnchecked(a *umemory.SmallAllocator, offset uint64, word uint32) error {
+	if offset > c.extent || c.extent-offset < 4 {
+		return arena.ErrBounds
+	}
+	return a.RuntimeOwner().WriteUint32(c.Raw, c.Offset+offset, word)
+}
+
 func (c SourceCellBacking) ReadWord(a *umemory.SmallAllocator, offset uint64) (uint32, error) {
 	raw, at, e := c.location(a, offset)
 	if e != nil {

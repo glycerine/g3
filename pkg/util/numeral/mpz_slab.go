@@ -148,6 +148,19 @@ func (s *numericCellSlab) IsLive(slot arena.Slot, generation arena.Generation) b
 	m := s.State(slot)
 	return m != nil && m.live && m.Generation == generation
 }
+
+// recordPtr returns the live record of slot, or nil; normal builds use it
+// for digit access instead of copying the record out (numeric_validate_*).
+func (s *numericCellSlab) recordPtr(slot arena.Slot) *NumericCell {
+	if s.closed || slot == 0 || uint32(slot) > s.slots {
+		return nil
+	}
+	p, i := s.location(slot)
+	if !s.pages[p].meta[i].live {
+		return nil
+	}
+	return &s.pages[p].records[i]
+}
 func (s *numericCellSlab) Read(slot arena.Slot) (NumericCell, error) {
 	var zero NumericCell
 	if s.closed {

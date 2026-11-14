@@ -599,3 +599,13 @@ with RationalService.BigRat (limbs straight into big.Int; SetInt for
 integers, SetFrac otherwise) instead of String + SetString, which divided by
 ten repeatedly (16% of q_9009). It declines when the mpn_to_string trace is
 on, so that trace is unchanged. q_9009 62.5 s -> 52.8 s (z3 10 s).
+
+Numeral digit access (2026-11-13): numericValidateCells
+(util/numeral/numeric_validate_{on,off}.go; on under g3checked or g3debug)
+mirrors astValidateHandles. In normal builds IntegerManager.Digit/writeDigit
+read the cell descriptor through a pointer (numericCellSlab.recordPtr) and
+use the cell's cached raw location and extent, skipping the per-word copy of
+the descriptor and SourceCellBacking.location's RawLocation/ObjectExtent
+revalidation; the memory runtime still bounds-checks and enforces the
+initialized-byte rules. Multiply, add/sub, compare, hash and SetLimbs all go
+through these. q_9009 52.8 s -> 45.0 s (z3 10 s).

@@ -319,6 +319,18 @@ func (m *IntegerManager) Store(ref NumericCellRef, c NumericCell) {
 	}
 }
 func (m *IntegerManager) Digit(ref NumericCellRef, i uint32) uint32 {
+	if !numericValidateCells {
+		if c := m.Cells.recordPtr(NumericSlot(ref)); c != nil {
+			if i >= max(c.Size, c.span) {
+				return 0
+			}
+			v, e := c.Backing.readWordUnchecked(m.Allocator, 8+4*uint64(i))
+			if e != nil {
+				panic(e)
+			}
+			return v
+		}
+	}
 	c := m.Cell(ref)
 	if i >= max(c.Size, c.span) {
 		return 0
@@ -330,6 +342,14 @@ func (m *IntegerManager) Digit(ref NumericCellRef, i uint32) uint32 {
 	return v
 }
 func (m *IntegerManager) writeDigit(ref NumericCellRef, i, v uint32) {
+	if !numericValidateCells {
+		if c := m.Cells.recordPtr(NumericSlot(ref)); c != nil {
+			if e := c.Backing.writeWordUnchecked(m.Allocator, 8+4*uint64(i), v); e != nil {
+				panic(e)
+			}
+			return
+		}
+	}
 	c := m.Cell(ref)
 	if e := c.Backing.writeWord(m.Allocator, 8+4*uint64(i), v); e != nil {
 		panic(e)
