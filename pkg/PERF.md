@@ -620,3 +620,13 @@ through these. q_9009 52.8 s -> 45.0 s (z3 10 s).
 | fuzz q_7248 | 5.6 | 34 | 32.3 | 5.8x |
 | fuzz q_9009 | 10.0 | >600 | 44.6 | 4.5x |
 | fuzz q_10065 | 17.5 | 54 | 51.5 | 2.9x |
+
+Profile state at 7f93d8360: q_9009's CPU profile is flat; the largest flat
+entry is the memory runtime's headerRead at 3.8%, followed by numeral slab
+lookups, math/big, Go allocation (mallocgc 8% cumulative) and AST node
+lookups, each a few percent. No contained local change remains; further
+gains need structural work, for example co-locating app fields with node
+records (an app read touches two pages), storing numeral limbs in Go slices
+instead of the emulated byte runtime, or fewer intermediate big.Int/big.Rat
+allocations in model construction. Each changes data layout across packages
+and should be planned before starting.
