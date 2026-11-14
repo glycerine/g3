@@ -29,9 +29,9 @@ bench:
 	-benchtime=10000x
 
 cppbench:
-	cd ../build && make -j 48 && \
-	make test -j 48 && \
-	./test-z3 smt_scope_restoration
+	#cd ../build && make -j 48 && \
+	#make test -j 48
+	cd ../build && ./test-z3 smt_scope_restoration
 
 #BenchmarkSMTScopeRestoration/SurvivingAtoms	10000	458.37 ns/op	128 atoms/op	64 clauses/op
 #BenchmarkSMTScopeRestoration/ScopedAtoms	10000	12295.14 ns/op	128 atoms/op	64 clauses/op

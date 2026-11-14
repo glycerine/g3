@@ -14,7 +14,8 @@ CXXFLAGS="-Wno-deprecated-declarations" CFLAGS="-Wno-deprecated-declarations" py
 cd build
 
 # 4. Compile using standard Make (not CMake)
-make -j8
+make -j40
+make test -j40
 
 # 5. Copy the artifact out so wasm can build too.
 #cp -p libz3.a ../../native_lib/
