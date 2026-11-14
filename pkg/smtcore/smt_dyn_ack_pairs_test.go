@@ -112,3 +112,34 @@ func TestDynAckPairOccurrencesLiveGCAndOwnedApps(t *testing.T) {
 		}
 	}
 }
+
+// AUDIT.md smtcore_03-F7: dyn_ack_params copies smt.dack.gc_inv_decay
+// unchecked, and gc's static_cast<unsigned>(num_occs * decay) is defined
+// for a decay above 1.
+func TestDynAckPairStateAcceptsDecayAboveOne(t *testing.T) {
+	m := astTestManager(t)
+	sort, e := m.MkSort(symbol.Numerical(901), ast.ASTSortInfo{})
+	astTestMust(t, e)
+	decl, e := m.MkFuncDecl(symbol.Numerical(902), []ast.ASTHandle{sort}, sort, ast.ASTFuncDeclInfo{})
+	astTestMust(t, e)
+	apps := make([]ast.ASTHandle, 2)
+	for i := range apps {
+		arg, e := m.MkConst(symbol.Numerical(uint32(903+i)), sort)
+		astTestMust(t, e)
+		apps[i], e = m.MkApp(decl, []ast.ASTHandle{arg})
+		astTestMust(t, e)
+		astTestMust(t, m.IncRef(apps[i]))
+		h := apps[i]
+		t.Cleanup(func() { astTestMust(t, m.DecRef(h)) })
+	}
+	state, e := newDynAckPairState(m, 10, 1.5)
+	astTestMust(t, e)
+	t.Cleanup(func() { astTestMust(t, state.close()) })
+	for i := 0; i < 3; i++ {
+		astTestMust(t, state.congruenceEvent(apps[0], apps[1]))
+	}
+	astTestMust(t, state.gc())
+	if count := state.counts[dynAckPair{apps[0], apps[1]}]; count != 4 { // static_cast<unsigned>(3 * 1.5)
+		t.Fatal("gc did not scale the occurrence count by the decay", count)
+	}
+}

@@ -32,7 +32,9 @@ type dynAckPairState struct {
 }
 
 func newDynAckPairState(m *ast.ASTManager, threshold uint32, decay float64) (*dynAckPairState, error) {
-	if m == nil || math.IsNaN(decay) || decay < 0 || decay > 1 {
+	// dyn_ack_params copies m_dack_gc_inv_decay unchecked; gc scales the
+	// counts by it, which is defined for any finite decay >= 0.
+	if m == nil || math.IsNaN(decay) || math.IsInf(decay, 0) || decay < 0 {
 		return nil, ast.ErrASTDomain
 	}
 	return &dynAckPairState{

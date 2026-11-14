@@ -97,7 +97,7 @@ func (m *smtDynAckManager) updateConfig(config SMTDynAckState) error {
 		!validDynAckStrategy(dynAckStrategy(config.Strategy)) ||
 		math.IsNaN(config.Factor) || math.IsInf(config.Factor, 0) || config.Factor < 0 ||
 		math.IsNaN(config.GCInverseDecay) || math.IsInf(config.GCInverseDecay, 0) ||
-		config.GCInverseDecay < 0 || config.GCInverseDecay > 1 {
+		config.GCInverseDecay < 0 {
 		return ast.ErrASTDomain
 	}
 	m.strategy = dynAckStrategy(config.Strategy)
