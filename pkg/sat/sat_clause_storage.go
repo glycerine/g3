@@ -107,6 +107,7 @@ func (a *ClauseAllocator) open() error {
 	}
 	return nil
 }
+
 // satClauseHotHeaderBytes is computed once: satClauseObjectBytes runs on
 // every clause allocation, and reflect.TypeOf there was measurable (PERF.md P11).
 var satClauseHotHeaderBytes = uint64(reflect.TypeOf(satClauseHotHeader{}).Size())

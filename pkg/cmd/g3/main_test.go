@@ -351,6 +351,9 @@ var scriptResults = map[string]string{
 	// AUDIT.md FUZZ-F6: the "; key line: L position: P" note goes to the
 	// diagnostic stream, after unsupported.
 	"unsupported_info_option_keys.smt2": "unsupported\nunsupported\n",
+	// AUDIT.md sat_01-F1: no scc.tr transitive reduction in this C++ version.
+	"sat_scc_no_transitive_reduction.smt2": "sat\n(model \n  (define-fun x3 () Bool\n    false)\n  (define-fun x1 () Bool\n    false)\n  (define-fun x5 () Bool\n    false)\n  (define-fun x4 () Bool\n    true)\n  (define-fun x7 () Bool\n    false)\n)\n",
+	"sat_scc_tr_unknown_param.smt2":        "(error \"line 3 column 43: invalid using-params combinator, unknown parameter scc.tr\")\n",
 	// AUDIT.md FUZZ_K-F1: iz3interp.cpp defines BINARY_INTERPOLATION, one
 	// two-frame translation per interpolant.
 	"interp_binary_three_frames.smt2": "unsat\n(interpolants\n p\n p\n q\n (= p q))\n",
@@ -1132,6 +1135,7 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	"sat_scc_tr_unknown_param.smt2":                    true,
 	"parser_error_unknown_names_qf_lia.smt2":           true,
 	"parser_error_unknown_sorts_functions_qf_lia.smt2": true,
 	"parser_error_sort_mismatch_qf_lia.smt2":           true,

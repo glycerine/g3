@@ -17,23 +17,22 @@ import (
 // Traversal arrays are native Go storage. Frames borrow the actual watch iterator;
 // no encoded frame or container backing is allocated through Runtime.
 type satSCC struct {
-	self                                         *satSCC
-	solver                                       *Solver // borrowed source owner for mk_stat in report
-	lifecycle                                    *satSolverClauseLifecycle
-	index, lowlink, stack                        []uint32
-	inStack                                      []bool
-	roots                                        []Literal
-	frames                                       []satSCCFrame
-	toElim                                       []BoolVar
-	eliminator                                   satElimEqs
-	big                                          *satBIG
-	numElim, numElimBinary, nextIndex            uint32
-	reportNumElim, reportNumElimBinary           uint32
-	header                                       uint64
-	bodyCause, cleanupCause                      error
-	report                                       stopwatch.Stopwatch
-	reportActive                                 bool
-	enabled, transitive, active, closing, closed bool
+	self                             *satSCC
+	solver                           *Solver // borrowed source owner for mk_stat in report
+	lifecycle                        *satSolverClauseLifecycle
+	index, lowlink, stack            []uint32
+	inStack                          []bool
+	roots                            []Literal
+	frames                           []satSCCFrame
+	toElim                           []BoolVar
+	eliminator                       satElimEqs
+	numElim, nextIndex               uint32
+	reportNumElim                    uint32
+	header                           uint64
+	bodyCause, cleanupCause          error
+	report                           stopwatch.Stopwatch
+	reportActive                     bool
+	enabled, active, closing, closed bool
 }
 
 func newSATSCC(l *satSolverClauseLifecycle, p *uparams.ParamsRef) (*satSCC, error) {
@@ -91,21 +90,18 @@ func (c *satSCC) Update(local *uparams.ParamsRef) (err error) {
 	if e != nil {
 		return e
 	}
+	// sat_scc_params.pyg has only scc.
 	c.enabled = enabled
-	key = "scc.tr"
-	transitive, e := cfg.context.GetBoolFallbackName(local, &key, &g, true)
-	if e == nil {
-		c.transitive = transitive
-	}
-	return e
+	return nil
 }
-func (c *satSCC) resetStatistics() { c.numElim, c.numElimBinary = 0, 0 }
-func (c *satSCC) collectStatistics(s *statistics.Statistics, keys [2]statistics.Key) error {
+func (c *satSCC) resetStatistics() { c.numElim = 0 }
+
+// scc::collect_statistics: st.update("elim bool vars", m_num_elim).
+func (c *satSCC) collectStatistics(s *statistics.Statistics, key statistics.Key) error {
 	if e := c.open(); e != nil {
 		return e
 	}
-	s.UpdateUint(keys[0], c.numElim)
-	s.UpdateUint(keys[1], c.numElimBinary)
+	s.UpdateUint(key, c.numElim)
 	return nil
 }
 func (c *satSCC) closeVectors() error {
@@ -207,7 +203,6 @@ func (c *satSCC) run() (count uint32, err error) {
 	}
 	c.report = stopwatch.Stopwatch{}
 	c.reportNumElim = c.numElim
-	c.reportNumElimBinary = c.numElimBinary
 	if e := c.report.Start(); e != nil {
 		return 0, e
 	}
@@ -353,11 +348,6 @@ func (c *satSCC) run() (count uint32, err error) {
 	if e := c.assertConditionalInvariant(); e != nil {
 		return 0, e
 	}
-	if c.transitive {
-		if e = c.reduceTransitive(); e != nil {
-			return 0, e
-		}
-	}
 	return n, nil
 }
 func (c *satSCC) component(li uint32) error {
@@ -443,8 +433,5 @@ func (c *satSCC) component(li uint32) error {
 }
 
 func collectSCCParamDescrs(d *uparams.ParamDescrs) error {
-	if err := satConfigInsertDescriptor(d, "scc", uparams.ParamBool, "eliminate Boolean variables by computing strongly connected components", "true"); err != nil {
-		return err
-	}
-	return satConfigInsertDescriptor(d, "scc.tr", uparams.ParamBool, "apply transitive reduction, eliminate redundant binary clauses", "true")
+	return satConfigInsertDescriptor(d, "scc", uparams.ParamBool, "eliminate Boolean variables by computing strongly connected components", "true")
 }

@@ -114,7 +114,7 @@ func TestSATSolverReportEveryDescriptorOwnerReservationPrefix(t *testing.T) {
 				}
 				failed++
 			} else {
-				if n != 46 {
+				if n != 45 {
 					t.Fatal(n)
 				}
 				success++

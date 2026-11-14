@@ -12,7 +12,7 @@ type satSolverStatisticsKeys struct {
 	main           [15]statistics.Key
 	cleaner        [2]statistics.Key
 	simplifier     [5]statistics.Key
-	scc            [2]statistics.Key
+	scc            statistics.Key
 	asymm, probing statistics.Key
 }
 
