@@ -3138,3 +3138,27 @@ q_7028, q_7056, q_7248, q_9009, q_10065):
    worktree g3-wt-colo);
 3. fewer intermediate big.Int/big.Rat allocations in model construction and
    the arithmetic theory (after 1 and 2 are integrated).
+
+## Native-limbs regression (2026-11-13, found by the user with make slow)
+
+b0e068a7d (digits in native payloads keyed by the allocator object's
+location slot) passed make, make tags and both fullcmp2 runs, but turned
+math/polynomial red under `make slow` (tagged qe/polynomial/lp, which the
+other targets skip): TestUPolynomialConvertBoundsActualReadStops hit the
+upolynomial.cpp:2833 `bqm.eq(c, a)` assertion. The test redirects a cell's
+backing to a header-only allocator object so a digit read stops with
+ErrRuntimeUninitialized (the "actual read stop"); the native payload lookup
+was keyed only by slot, so location() validated the live object and
+WordsUnchecked returned the slot's previous occupant's words (or zeros), the
+conversion ran on wrong digits, and the assertion failed. The same hole
+applied to any payload-less object: SmallAllocator.Words never checked that
+the payload was attached for this object. FIX: payloads carry the attaching
+generation (wordsGeneration); Words returns ErrRuntimeUninitialized for a
+slot whose payload belongs to another generation, and the validated digit
+path (ReadWord, writeWord, copyWordsFrom) goes through Words. Red tests:
+util/memory TestSmallAllocatorWordsRequireAttachedGeneration (slot reuse by
+a plain object) and util/numeral TestIntegerDigitReadOnObjectWithoutPayloadStops
+(the polynomial redirect at backing level, plus the checked limb-view stop).
+Normal-build digitsUnchecked stays unchecked (z3 reads digits directly).
+Lesson recorded as a memory: run make slow before committing
+numeral/memory/polynomial/arith changes.

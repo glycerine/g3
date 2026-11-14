@@ -79,6 +79,7 @@ type SmallAllocator struct {
 	nextReleaseSerial                   uint64
 	rawRelease                          rawAllocatorReleaseState
 	words                               [][]uint32 // native payloads by location slot (small_allocator_words.go)
+	wordsGeneration                     []uint32   // object generation each payload was attached for; 0 = none
 }
 type AllocatorStats struct {
 	OwnerBytes, LocationBytes, TotalBytes uint64

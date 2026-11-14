@@ -133,7 +133,20 @@ func (c SourceCellBacking) copyWordsFrom(a *umemory.SmallAllocator, src SourceCe
 	if e != nil {
 		return e
 	}
-	sw, dw := srcA.WordsUnchecked(src.Object), a.WordsUnchecked(c.Object)
+	// Validated lookups: an object without a payload for its generation
+	// (ErrRuntimeUninitialized) must stop the copy, never read or write the
+	// slot's previous payload.
+	sw, e := srcA.Words(src.Object)
+	if e != nil {
+		return e
+	}
+	dw, e := a.Words(c.Object)
+	if e != nil {
+		return e
+	}
+	if at+count > uint64(len(sw)) || at+count > uint64(len(dw)) {
+		return arena.ErrBounds
+	}
 	copy(dw[at:at+count], sw[at:at+count])
 	return nil
 }
@@ -157,7 +170,14 @@ func (c SourceCellBacking) ReadWord(a *umemory.SmallAllocator, offset uint64) (u
 		if e != nil {
 			return 0, e
 		}
-		return a.WordsUnchecked(c.Object)[i], nil
+		w, e := a.Words(c.Object)
+		if e != nil {
+			return 0, e
+		}
+		if i >= uint64(len(w)) {
+			return 0, arena.ErrBounds
+		}
+		return w[i], nil
 	}
 	return a.RuntimeOwner().ReadUint32(raw, at)
 }
@@ -171,7 +191,14 @@ func (c SourceCellBacking) writeWord(a *umemory.SmallAllocator, offset uint64, w
 		if e != nil {
 			return e
 		}
-		a.WordsUnchecked(c.Object)[i] = word
+		w, e := a.Words(c.Object)
+		if e != nil {
+			return e
+		}
+		if i >= uint64(len(w)) {
+			return arena.ErrBounds
+		}
+		w[i] = word
 		return nil
 	}
 	return a.RuntimeOwner().WriteUint32(raw, at, word)
