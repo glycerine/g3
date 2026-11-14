@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_I-F1: the proof-mode smt_solver keeps model generation.
+	"proof_mode_get_model.smt2": "sat\n(model \n  (define-fun x () Int\n    2)\n)\n(((+ x 1) 3))\n",
 	// AUDIT.md smtcore_08-F2: theory_seq get_th_arith rejects theory_inf_arith.
 	"seq_inf_arith_no_length_values.smt2": "sat\n(model \n  (define-fun s () String\n    \"\\x10\\x00\")\n  (define-fun t () String\n    \"\\x00\")\n)\n",
 	// AUDIT.md smtcore_11-F3: mark_as_relevant(true_literal) marks true

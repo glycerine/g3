@@ -989,7 +989,9 @@ func (c *Context) mkSolver(m *ast.ASTManager) error {
 				return e
 			}
 			c.solver = direct
-			return nil
+			// m_interpolating_solver_factory is mk_smt_solver_factory();
+			// its smt_solver keeps the kernel's model generation.
+			return c.solver.SetProduceModels(models)
 		}
 	}
 	switch c.logic {

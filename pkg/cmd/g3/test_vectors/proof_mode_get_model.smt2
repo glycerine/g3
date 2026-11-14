@@ -1,0 +1,6 @@
+(set-option :produce-proofs true)
+(declare-const x Int)
+(assert (> x 1))
+(check-sat)
+(get-model)
+(get-value ((+ x 1)))
