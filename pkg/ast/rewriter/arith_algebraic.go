@@ -121,79 +121,198 @@ func (r *ArithRewriter) rewriteAlgebraicComparison(left, right ast.ASTHandle, re
 	return true, r.setBool(out, truth)
 }
 
-func (r *ArithRewriter) rewriteAlgebraicFold(kind int32, args ast.AppArguments, out ast.ASTRef) (RewriteStatus, error) {
-	if !r.algebraicSimplify || args.Count() < 2 {
-		return RewriteFailed, nil
+// isAnumSimpTarget is arith_rewriter::is_anum_simp_target. A nil manager
+// is borrowed at the first irrational argument.
+func (r *ArithRewriter) isAnumSimpTarget(manager *polynomial.AlgebraicManager, args ast.AppArguments) (bool, error) {
+	if !r.algebraicSimplify {
+		return false, nil
 	}
-	hasAlgebraic := false
+	numIrrat, numRat := 0, 0
 	for i := uint32(0); i < args.Count(); i++ {
 		h, err := args.At(i)
 		if err != nil {
-			return RewriteFailed, err
+			return false, err
 		}
-		yes, err := r.algebraicNumeralSyntax(h)
+		_, _, numeral, err := r.numeral(h)
 		if err != nil {
-			return RewriteFailed, err
+			return false, err
 		}
-		hasAlgebraic = hasAlgebraic || yes
+		if numeral {
+			numRat++
+			if numIrrat > 0 {
+				return true, nil
+			}
+		}
+		low, err := r.lowDegreeIrrational(manager, h)
+		if err != nil {
+			return false, err
+		}
+		if low {
+			numIrrat++
+			if numIrrat > 1 || numRat > 0 {
+				return true, nil
+			}
+		}
 	}
-	if !hasAlgebraic {
+	return false, nil
+}
+
+// lowDegreeIrrational is is_irrational_algebraic_numeral(e) &&
+// am.degree(to_irrational_algebraic_numeral(e)) <= m_max_degree.
+func (r *ArithRewriter) lowDegreeIrrational(manager *polynomial.AlgebraicManager, h ast.ASTHandle) (low bool, err error) {
+	if syntax, e := r.algebraicNumeralSyntax(h); e != nil || !syntax {
+		return false, e
+	}
+	if manager == nil {
+		if manager, err = r.manager.ArithmeticAlgebraicManager(); err != nil {
+			return false, err
+		}
+	}
+	var value polynomial.Algebraic
+	matched, err := r.manager.ArithmeticAlgebraicNumeralValue(h, &value)
+	if err != nil || !matched {
+		return false, err
+	}
+	defer func() { err = errors.Join(err, manager.Del(&value)) }()
+	degree, err := manager.Degree(&value)
+	return err == nil && degree <= r.maxDegree, err
+}
+
+// rewriteAlgebraicFold is the is_anum_simp_target branch of
+// arith_rewriter::mk_add_core and mk_mul_core.
+func (r *ArithRewriter) rewriteAlgebraicFold(kind int32, args ast.AppArguments, out ast.ASTRef) (status RewriteStatus, result error) {
+	if !r.algebraicSimplify {
 		return RewriteFailed, nil
+	}
+	target, err := r.isAnumSimpTarget(nil, args)
+	if err != nil || !target {
+		return RewriteFailed, err
 	}
 	manager, err := r.manager.ArithmeticAlgebraicManager()
 	if err != nil {
 		return RewriteFailed, err
 	}
-	values := make([]polynomial.Algebraic, args.Count())
-	constructed := 0
-	irrationals, rationals := 0, 0
+	// expr_ref_buffer new_args holds the numerals made for the accumulator.
+	var newArgs []ast.ASTHandle
+	var held []ast.ASTRef
 	defer func() {
-		for i := 0; i < constructed; i++ {
-			_ = manager.Del(&values[i])
+		for i := range held {
+			result = errors.Join(result, r.manager.DelRef(&held[i]))
 		}
 	}()
+	unit := big.NewRat(0, 1)
+	if kind == arithOpMul {
+		unit = big.NewRat(1, 1)
+	}
+	var acc polynomial.Algebraic
+	if err = r.algebraicFromRational(manager, unit, &acc); err != nil {
+		return RewriteFailed, err
+	}
+	defer func() { result = errors.Join(result, manager.Del(&acc)) }()
+	pushNumeral := func() error {
+		h, e := r.makeAlgebraicNumeral(manager, &acc)
+		if e != nil {
+			return e
+		}
+		ref, e := r.manager.NewRef(h)
+		if e != nil {
+			return e
+		}
+		held = append(held, ref)
+		newArgs = append(newArgs, h)
+		return nil
+	}
+	combine := func(arg *polynomial.Algebraic) error {
+		var next polynomial.Algebraic
+		var e error
+		if kind == arithOpAdd {
+			e = manager.Add(&acc, arg, &next)
+		} else {
+			e = manager.Mul(&acc, arg, &next)
+		}
+		if e != nil {
+			return e
+		}
+		if e = manager.Del(&acc); e != nil {
+			return errors.Join(e, manager.Del(&next))
+		}
+		acc = next
+		return nil
+	}
 	for i := uint32(0); i < args.Count(); i++ {
+		d, e := manager.Degree(&acc)
+		if e != nil {
+			return RewriteFailed, e
+		}
+		if d > 1 && d > r.maxDegree {
+			if e = pushNumeral(); e != nil {
+				return RewriteFailed, e
+			}
+			if e = manager.Del(&acc); e != nil {
+				return RewriteFailed, e
+			}
+			if e = r.algebraicFromRational(manager, unit, &acc); e != nil {
+				return RewriteFailed, e
+			}
+		}
 		h, e := args.At(i)
 		if e != nil {
 			return RewriteFailed, e
 		}
-		value, irrational, matched, e := r.algebraicOperand(h, manager)
-		if e != nil || !matched {
+		rational, _, numeral, e := r.numeral(h)
+		if e != nil {
 			return RewriteFailed, e
 		}
-		values[i] = value
-		constructed++
-		if irrational {
-			irrationals++
-		} else {
-			rationals++
+		if numeral {
+			var arg polynomial.Algebraic
+			if e = r.algebraicFromRational(manager, rational, &arg); e != nil {
+				return RewriteFailed, e
+			}
+			e = combine(&arg)
+			if e = errors.Join(e, manager.Del(&arg)); e != nil {
+				return RewriteFailed, e
+			}
+			continue
 		}
+		var irarg polynomial.Algebraic
+		irrational, e := r.manager.ArithmeticAlgebraicNumeralValue(h, &irarg)
+		if e != nil {
+			return RewriteFailed, e
+		}
+		if irrational {
+			degree, e := manager.Degree(&irarg)
+			if e == nil && degree <= r.maxDegree {
+				e = combine(&irarg)
+				if e = errors.Join(e, manager.Del(&irarg)); e != nil {
+					return RewriteFailed, e
+				}
+				continue
+			}
+			if e = errors.Join(e, manager.Del(&irarg)); e != nil {
+				return RewriteFailed, e
+			}
+		}
+		newArgs = append(newArgs, h)
 	}
-	if irrationals == 0 || irrationals == 1 && rationals == 0 {
-		return RewriteFailed, nil
+	if len(newArgs) == 0 {
+		h, e := r.makeAlgebraicNumeral(manager, &acc)
+		if e != nil {
+			return RewriteFailed, e
+		}
+		return RewriteDone, r.manager.SetRef(out, h)
 	}
-	var accumulator polynomial.Algebraic
-	if err = manager.Copy(&accumulator, &values[0]); err != nil {
+	if err = pushNumeral(); err != nil {
 		return RewriteFailed, err
 	}
-	defer func() { _ = manager.Del(&accumulator) }()
-	for i := 1; i < len(values); i++ {
-		var next polynomial.Algebraic
-		if kind == arithOpAdd {
-			err = manager.Add(&accumulator, &values[i], &next)
-		} else {
-			err = manager.Mul(&accumulator, &values[i], &next)
-		}
-		if err != nil {
-			return RewriteFailed, err
-		}
-		if err = manager.Del(&accumulator); err != nil {
-			_ = manager.Del(&next)
-			return RewriteFailed, err
-		}
-		accumulator = next
+	if kind == arithOpAdd {
+		status, err = r.rewriteAdd(ast.SliceArguments(newArgs), out)
+	} else {
+		status, err = r.rewriteMul(ast.SliceArguments(newArgs), out)
 	}
-	h, err := r.makeAlgebraicNumeral(manager, &accumulator)
+	if err != nil || status != RewriteFailed {
+		return status, err
+	}
+	h, err := r.app(kind, newArgs...)
 	if err != nil {
 		return RewriteFailed, err
 	}

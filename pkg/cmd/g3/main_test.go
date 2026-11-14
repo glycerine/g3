@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_rewriter_01-F2: algebraic +/* folding keeps non-numeral
+	// arguments (is_anum_simp_target).
+	"arith_anum_fold_mixed.smt2": "(+ x (root-obj (+ (^ x 2) (* (- 2) x) (- 1)) 2))\n(* (root-obj (+ (^ x 2) (- 18)) 2) x)\n(* 2.0 x)\n(+ x y (root-obj (+ (^ x 2) (- 8)) 2))\n(root-obj (+ (^ x 2) (* (- 2) x) (- 1)) 2)\n2.0\n(+ (root-obj (+ (^ x 4) (* (- 10) (^ x 2)) 1) 4)\n   x\n   (root-obj (+ (^ x 2) (- 5)) 2))\n(+ (root-obj (+ (^ x 2) (- 2)) 2) x)\n(* (root-obj (+ (^ x 2) (- 2)) 1) x y)\n(+ 1.0 (root-obj (+ (^ x 3) (- 2)) 1) x)\n(+ x (root-obj (+ (^ x 2) (* (- 2) x) (- 1)) 2))\n0.0\n",
 	// AUDIT.md ast_rewriter_01-F1: mk_power_core rule order (unit base, zero
 	// base and zero exponent for any numeral exponent).
 	"arith_power_unit_zero.smt2": "1.0\n1\n0.0\n0\n0.0\n1.0\nx\n(/ 1.0 8.0)\n(^ 2 (- 3))\n2.0\n2.0\n(root-obj (+ (^ x 3) (- 2)) 1)\n(root-obj (+ (^ x 2) (- 2)) 2)\n(- 2.0)\n(^ (- 4.0) (/ 1.0 2.0))\n(root-obj (+ (^ x 2) (- 8)) 2)\n(root-obj (+ (* 2 (^ x 2)) (- 1)) 2)\n(root-obj (+ (^ x 2) (- 8)) 2)\n(root-obj (+ (^ x 6) (- 2)) 2)\n(/ 1.0 2.0)\n(^ x 6.0)\n(+ 1.0 (* 3.0 x) (* 3.0 x x) (* x x x))\n(* x x x)\n(^ 3.0 100.0)\n(^ 3.0 100.0)\n(^ 0 0)\n(^ 0.0 x)\n(^ 2 i)\n(^ 5 (- 2))\n",

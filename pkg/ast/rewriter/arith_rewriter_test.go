@@ -642,6 +642,46 @@ func TestArithRewriterPowerUnitAndZeroBase(t *testing.T) {
 	arithRewriterWantNumeral(t, m, result, "0", true)
 }
 
+// AUDIT.md ast_rewriter_01-F2: is_anum_simp_target folds only the numeral
+// and low-degree irrational arguments; the others stay, and the folded
+// value is appended last.
+func TestArithRewriterAlgebraicFoldMixedArguments(t *testing.T) {
+	m, c, g, local := boolRewriterConfigFixture(t)
+	previous, err := uparams.BindProcessGlobalParamsService(g)
+	astTestMust(t, err)
+	t.Cleanup(func() {
+		_, e := uparams.BindProcessGlobalParamsService(previous)
+		astTestMust(t, e)
+	})
+	r, err := NewArithRewriter(m, c, g, local)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, r.Close()) })
+	realSort, err := m.MkFamilySort(r.family, 0, nil)
+	astTestMust(t, err)
+	x, err := m.MkConst(astTestSymbol(t, m, "arith-anum-fold-x"), realSort)
+	astTestMust(t, err)
+	astTestPin(t, m, x)
+	status, sqrt2 := arithRewriterCore(t, r, arithOpPower, arithRewriterNumeral(t, m, "2", false), arithRewriterNumeral(t, m, "1/2", false))
+	if status != RewriteDone {
+		t.Fatal("sqrt(2) status", status)
+	}
+	astTestPin(t, m, sqrt2)
+	status, result := arithRewriterCore(t, r, arithOpAdd, x, sqrt2, arithRewriterNumeral(t, m, "1", false))
+	if status == RewriteFailed {
+		t.Fatal("mixed algebraic fold failed")
+	}
+	_, args, matched, err := r.operation(result, arithOpAdd)
+	astTestMust(t, err)
+	if !matched || len(args) != 2 || args[0] != x {
+		t.Fatal("mixed algebraic fold shape", matched, len(args))
+	}
+	irrational, err := r.algebraicNumeralSyntax(args[1])
+	astTestMust(t, err)
+	if !irrational || args[1] == sqrt2 {
+		t.Fatal("1+sqrt(2) was not folded into one irrational numeral")
+	}
+}
+
 func TestArithRewriterComparisonPowerReductionAndToRealElimination(t *testing.T) {
 	m, c, g, local := boolRewriterConfigFixture(t)
 	r, err := NewArithRewriter(m, c, g, local)
