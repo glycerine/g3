@@ -135,7 +135,12 @@ func TestSMTArrayExtensionalityAndSharedSourceTraces(t *testing.T) {
 	astTestMust(t, state.RegisterTheory(theory))
 	boolean, err := manager.MkBoolSort()
 	astTestMust(t, err)
-	arraySort, err := manager.MkArraySort(ast.SliceArguments([]ast.ASTHandle{boolean}), boolean)
+	// A non-Boolean range: for Boolean reads context::is_diseq probes an
+	// iff, which is never in the congruence table, so already_diseq would
+	// not fire (smtcore_03-F3).
+	readRange, err := manager.MkUninterpretedSort(astTestSymbol(t, manager, "array-ext-trace-range"), nil)
+	astTestMust(t, err)
+	arraySort, err := manager.MkArraySort(ast.SliceArguments([]ast.ASTHandle{boolean}), readRange)
 	astTestMust(t, err)
 
 	a, err := manager.MkConst(astTestSymbol(t, manager, "array-ext-trace-a"), arraySort)

@@ -1,6 +1,7 @@
 package smtcore
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -173,6 +174,16 @@ func TestSMTDynamicAckTripleWithProofs(t *testing.T) {
 		objects: make(map[SMTJustification]ast.ASTHandle), equality: make(map[smtEnodePairKey]ast.ASTHandle),
 	}
 	proof, err := builder.clauseProof(clause)
+	if ast.ASTSourceDebug {
+		// Debug builds check mk_monotonicity's SASSERT(f1->get_decl() ==
+		// f2->get_decl()), which two distinct constants violate; the C++
+		// debug build stops there too.
+		if !errors.Is(err, ast.ErrASTDomain) {
+			t.Fatal("debug build accepted a triple congruence over distinct decls", err)
+		}
+		astTestMust(t, state.PopScopes(1))
+		return
+	}
 	astTestMust(t, err)
 	fact, err := manager.GetProofFact(proof)
 	astTestMust(t, err)
