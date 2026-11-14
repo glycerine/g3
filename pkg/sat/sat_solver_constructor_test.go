@@ -31,7 +31,7 @@ func satSolverCheckFixture(t *testing.T) (*Solver, *uparams.ParamsContext, upara
 }
 func TestSATSolverCompleteMemberConstructorHasRealDefaultChildren(t *testing.T) {
 	s, ctx, params := satSolverCheckFixture(t)
-	if s.Variables.queue == nil || s.Variables.watches == nil || s.Variables.activity == nil || s.Variables.trail == nil || s.simplifier == nil || s.scc == nil || s.asymm == nil || s.probing == nil || !s.probing.constructed || !s.converter.constructed || s.antecedents == nil || s.antecedents.entries == nil {
+	if s.Variables.queue == nil || s.Variables.watches == nil || s.Variables.activity == nil || s.Variables.trail == nil || s.simplifier == nil || s.scc == nil || s.asymm == nil || s.probing == nil || !s.probing.constructed || !s.converter.constructed || s.antecedents == nil || s.antecedents.table == nil {
 		t.Fatal("full constructor lacks actual source members")
 	}
 	if s.runtime.liveSolvers != 1 || s.nextSimplify != 0 || s.conflict.conflicts != 0 || s.conflict.conflictsSinceGC != 0 || s.propagation.numCheckpoints != 0 {

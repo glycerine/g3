@@ -66,7 +66,7 @@ func (s *Solver) traceConsequenceAntecedents(l Literal, row *satSolverIndexSet) 
 		var b strings.Builder
 		b.WriteString(l.String())
 		b.WriteString(": ")
-		for key := range row.keys.All() {
+		for _, key := range row.slotKeys() {
 			b.WriteString(Literal(key).String())
 			b.WriteByte(' ')
 		}
@@ -129,7 +129,7 @@ func (s *Solver) traceConsequenceReasonResult(l Literal, row *satSolverIndexSet)
 		var b strings.Builder
 		b.WriteString(l.String())
 		b.WriteString(": ")
-		for key := range row.keys.All() {
+		for _, key := range row.slotKeys() {
 			b.WriteString(Literal(key).String())
 			b.WriteByte(' ')
 		}

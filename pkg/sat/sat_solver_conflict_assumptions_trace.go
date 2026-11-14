@@ -59,15 +59,20 @@ func (s *satSolverConflictResolution) traceReinitAntecedents() {
 				return err
 			}
 			lit := Literal(raw)
-			row := s.solver.antecedents.entries[uint32(lit.variable())]
+			row := s.solver.antecedents.lookup(uint32(lit.variable()))
 			if row == nil {
 				continue
 			}
-			if err = row.open(); err != nil {
+			// m_antecedents.find(v, s) copy-assigns into a fresh index_set s.
+			var copied satSolverIndexSet
+			err = copied.assign(row)
+			keys := copied.slotKeys()
+			copied.close()
+			if err != nil {
 				return err
 			}
 			_, _ = io.WriteString(w, lit.String()+": ")
-			for key := range row.keys.All() {
+			for _, key := range keys {
 				_, _ = io.WriteString(w, Literal(key).String()+" ")
 			}
 			_, _ = io.WriteString(w, "\n")

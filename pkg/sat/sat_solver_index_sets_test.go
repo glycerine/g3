@@ -11,7 +11,7 @@ func TestSATSolverAntecedentMapNativeColdConstruction(t *testing.T) {
 	b := arena.NewBudget(1 << 20)
 	m, e := newSATSolverIndexMap(b)
 	satOK(t, e)
-	if len(m.entries) != 0 || b.Used() != m.ownerBytes {
+	if m.size != 0 || len(m.table) != satIndexTableInitialCapacity || b.Used() != m.ownerBytes {
 		t.Fatal("native cold owner", b.Used(), m.ownerBytes)
 	}
 	copied := *m
@@ -61,20 +61,24 @@ func TestSATSolverAntecedentMapNativeResetAndCloseInvalidateRows(t *testing.T) {
 	before := b.Used()
 	b.FailAfter(0)
 	satOK(t, m.reset())
-	if len(m.entries) != 0 || b.Used() != before {
+	if m.size != 0 || b.Used() != before {
 		t.Fatal("native reset changed cold charge")
 	}
-	if _, e = row.contains(17); !errors.Is(e, arena.ErrClosed) {
-		t.Fatal("reset retained borrowed row", e)
+	if yes, e := m.contains(7); e != nil || yes {
+		t.Fatal("reset kept the key", yes, e)
 	}
-	if _, e = it.next(); !errors.Is(e, ErrSATOwner) {
-		t.Fatal("reset retained borrowed iterator", e)
+	// core_hashtable::reset marks entries free and keeps their values.
+	if yes, e := row.contains(17); e != nil || !yes {
+		t.Fatal("reset destroyed the free entry's value", yes, e)
 	}
 	satOK(t, m.insert(7, &source))
 	replacement, e := m.find(7)
 	satOK(t, e)
-	if replacement == row {
-		t.Fatal("reset revived stale row identity")
+	if replacement != row {
+		t.Fatal("reinsertion did not reuse the free entry")
+	}
+	if _, e = it.next(); !errors.Is(e, ErrSATOwner) {
+		t.Fatal("assignment retained borrowed iterator", e)
 	}
 	satOK(t, m.Close())
 	if _, e = replacement.contains(17); !errors.Is(e, arena.ErrClosed) {
