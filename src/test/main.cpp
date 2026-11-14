@@ -210,6 +210,11 @@ int main(int argc, char ** argv) {
     TST(nlsat);
     if (test_all) return 0;
     TST_ARGV(smt_scope_restoration);
+    TST(z3_4_7_1_dom_simplify_root);
+    TST(z3_4_7_1_elim_term_ite_pop);
+    TST(z3_4_7_1_macro_finder_off);
+    TST(z3_4_7_1_pb_preprocess_index);
+    TST(z3_4_7_1_pb_preprocess_resolve);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);

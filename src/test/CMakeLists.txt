@@ -116,6 +116,7 @@ add_executable(test-z3
   uint_set.cpp
   upolynomial.cpp
   var_subst.cpp
+  z3_4_7_1_bugs.cpp
   vector.cpp
   lp.cpp
   ${z3_test_extra_object_files}
