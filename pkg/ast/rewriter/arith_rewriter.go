@@ -568,8 +568,8 @@ func (r *ArithRewriter) rewriteUnaryMinus(arg ast.ASTHandle, out ast.ASTRef) (Re
 
 func (r *ArithRewriter) rewriteDivision(kind int32, left, right ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
 	if kind == arithOpDiv {
-		status, err := r.rewriteAlgebraicDivision(left, right, out)
-		if err != nil || status != RewriteFailed {
+		status, dispatched, err := r.rewriteAlgebraicDivision(left, right, out)
+		if err != nil || dispatched {
 			return status, err
 		}
 	}

@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_rewriter_01-F3: max_degree applies only to irrat/irrat
+	// division, power and is_anum_simp_target.
+	"arith_anum_max_degree.smt2": "true\n(root-obj (+ (* 4 (^ x 3)) (- 1)) 1)\n(root-obj (+ (^ x 3) (- 4)) 1)\n(/ (root-obj (+ (^ x 3) (- 2)) 1) (root-obj (+ (^ x 2) (- 2)) 2))\n(root-obj (+ (* 2 (^ x 6)) (- 1)) 2)\nfalse\n(/ (root-obj (+ (^ x 3) (- 2)) 1) 0.0)\nfalse\n",
 	// AUDIT.md ast_rewriter_01-F2: algebraic +/* folding keeps non-numeral
 	// arguments (is_anum_simp_target).
 	"arith_anum_fold_mixed.smt2": "(+ x (root-obj (+ (^ x 2) (* (- 2) x) (- 1)) 2))\n(* (root-obj (+ (^ x 2) (- 18)) 2) x)\n(* 2.0 x)\n(+ x y (root-obj (+ (^ x 2) (- 8)) 2))\n(root-obj (+ (^ x 2) (* (- 2) x) (- 1)) 2)\n2.0\n(+ (root-obj (+ (^ x 4) (* (- 10) (^ x 2)) 1) 4)\n   x\n   (root-obj (+ (^ x 2) (- 5)) 2))\n(+ (root-obj (+ (^ x 2) (- 2)) 2) x)\n(* (root-obj (+ (^ x 2) (- 2)) 1) x y)\n(+ 1.0 (root-obj (+ (^ x 3) (- 2)) 1) x)\n(+ x (root-obj (+ (^ x 2) (* (- 2) x) (- 1)) 2))\n0.0\n",

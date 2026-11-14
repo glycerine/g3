@@ -23,20 +23,12 @@ func (r *ArithRewriter) algebraicNumeralSyntax(h ast.ASTHandle) (bool, error) {
 	return err == nil && declKind == 1, err
 }
 
+// algebraicOperand is to_irrational_algebraic_numeral(h), or am.set(v,
+// q.to_mpq()) for a rational numeral h. It applies no max_degree test:
+// only mk_div_irrat_irrat, mk_power_core and is_anum_simp_target do.
 func (r *ArithRewriter) algebraicOperand(h ast.ASTHandle, manager *polynomial.AlgebraicManager) (value polynomial.Algebraic, irrational, matched bool, err error) {
 	matched, err = r.manager.ArithmeticAlgebraicNumeralValue(h, &value)
 	if err != nil || matched {
-		if err == nil {
-			degree, e := manager.Degree(&value)
-			if e != nil {
-				err = e
-			} else if degree > r.maxDegree {
-				_ = manager.Del(&value)
-				value = polynomial.Algebraic{}
-				matched = false
-				return
-			}
-		}
 		irrational = matched
 		return
 	}
@@ -319,49 +311,72 @@ func (r *ArithRewriter) rewriteAlgebraicFold(kind int32, args ast.AppArguments, 
 	return RewriteDone, r.manager.SetRef(out, h)
 }
 
-func (r *ArithRewriter) rewriteAlgebraicDivision(left, right ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
+// rewriteAlgebraicDivision is the m_anum_simp dispatch of
+// arith_rewriter::mk_div_core: mk_div_irrat_rat, mk_div_irrat_irrat or
+// mk_div_rat_irrat. dispatched reports that mk_div_core returns the
+// returned status.
+func (r *ArithRewriter) rewriteAlgebraicDivision(left, right ast.ASTHandle, out ast.ASTRef) (status RewriteStatus, dispatched bool, err error) {
 	if !r.algebraicSimplify {
-		return RewriteFailed, nil
+		return RewriteFailed, false, nil
 	}
-	leftSyntax, err := r.algebraicNumeralSyntax(left)
+	leftIrrational, err := r.algebraicNumeralSyntax(left)
 	if err != nil {
-		return RewriteFailed, err
+		return RewriteFailed, false, err
 	}
-	rightSyntax, err := r.algebraicNumeralSyntax(right)
-	if err != nil || !leftSyntax && !rightSyntax {
-		return RewriteFailed, err
+	rightIrrational, err := r.algebraicNumeralSyntax(right)
+	if err != nil || !leftIrrational && !rightIrrational {
+		return RewriteFailed, false, err
+	}
+	_, _, leftRational, err := r.numeral(left)
+	if err != nil {
+		return RewriteFailed, false, err
+	}
+	_, _, rightRational, err := r.numeral(right)
+	if err != nil {
+		return RewriteFailed, false, err
+	}
+	if !(leftIrrational && (rightRational || rightIrrational) || rightIrrational && leftRational) {
+		return RewriteFailed, false, nil
 	}
 	manager, err := r.manager.ArithmeticAlgebraicManager()
 	if err != nil {
-		return RewriteFailed, err
+		return RewriteFailed, true, err
 	}
-	a, ai, am, err := r.algebraicOperand(left, manager)
+	a, _, am, err := r.algebraicOperand(left, manager)
 	if err != nil || !am {
-		return RewriteFailed, err
+		return RewriteFailed, true, err
 	}
 	defer func() { _ = manager.Del(&a) }()
-	b, bi, bm, err := r.algebraicOperand(right, manager)
+	b, _, bm, err := r.algebraicOperand(right, manager)
 	if err != nil || !bm {
-		return RewriteFailed, err
+		return RewriteFailed, true, err
 	}
 	defer func() { _ = manager.Del(&b) }()
-	if !ai && !bi {
-		return RewriteFailed, nil
-	}
-	zero, err := manager.IsZero(&b)
-	if err != nil || zero {
-		return RewriteFailed, err
+	if leftIrrational && rightRational {
+		// mk_div_irrat_rat
+		zero, e := manager.IsZero(&b)
+		if e != nil || zero {
+			return RewriteFailed, true, e
+		}
+	} else if leftIrrational && rightIrrational {
+		// mk_div_irrat_irrat
+		for _, v := range []*polynomial.Algebraic{&a, &b} {
+			degree, e := manager.Degree(v)
+			if e != nil || degree > r.maxDegree {
+				return RewriteFailed, true, e
+			}
+		}
 	}
 	var quotient polynomial.Algebraic
 	if err = manager.Div(&a, &b, &quotient); err != nil {
-		return RewriteFailed, err
+		return RewriteFailed, true, err
 	}
 	defer func() { _ = manager.Del(&quotient) }()
 	h, err := r.makeAlgebraicNumeral(manager, &quotient)
 	if err != nil {
-		return RewriteFailed, err
+		return RewriteFailed, true, err
 	}
-	return RewriteDone, r.manager.SetRef(out, h)
+	return RewriteDone, true, r.manager.SetRef(out, h)
 }
 
 // algebraicFromRational is am.set(r, q.to_mpq()).
