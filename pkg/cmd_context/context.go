@@ -159,6 +159,12 @@ type Context struct {
 	// optimizationRunUsedSAT records that update_solver made
 	// optimizationSAT the last run's m_solver.
 	optimizationRunUsedSAT bool
+	// optimizedObjectives is opt::context::m_objectives.size(): the
+	// objectives import_scoped_state copied for the last optimize (0 once
+	// m_opt is dropped). optsmtReset records that pop ran m_optsmt.reset()
+	// since then.
+	optimizedObjectives int
+	optsmtReset         bool
 	// optimizationModelsRaw is set when runOptimize kept m_model and
 	// m_box_models unfixed; optimizationRawResult is the check-sat result
 	// published from them. Retrieval applies fix_model (get_model,
@@ -1338,6 +1344,7 @@ func (c *Context) Pop(count uint32) error {
 	}
 	// m_opt->pop(n): clear_state (set_pareto(nullptr), m_model.reset()),
 	// reset_maxsmts, m_optsmt.reset() and m_hard_constraints.reset().
+	c.optsmtReset = true
 	c.finishParetoSearch()
 	if err := c.releaseParetoInitialModel(); err != nil {
 		return err
@@ -1672,6 +1679,8 @@ func (c *Context) ResetAssertions() error {
 	if err := c.restoreObjectives(0, 0); err != nil {
 		return err
 	}
+	// m_opt = nullptr (AUDIT.md FUZZ_A-F13).
+	c.optimizedObjectives, c.optsmtReset = 0, false
 	for i := range c.scopes {
 		c.scopes[i].assertions = 0
 		c.scopes[i].objectives = 0
@@ -1793,6 +1802,8 @@ func (c *Context) resetManagerState() error {
 		if err := c.restoreObjectives(0, 0); err != nil {
 			return err
 		}
+		// m_opt = nullptr (AUDIT.md FUZZ_A-F13).
+		c.optimizedObjectives, c.optsmtReset = 0, false
 		c.resetDeclarationDictionaries()
 		if err := c.restoreDeclarations(0, 0); err != nil {
 			return err

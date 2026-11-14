@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_A-F13: get-objectives compares objective counts; pop resets optsmt.
+	"opt_get_objectives_stale_state.smt2": "(objectives\n)\nsat\n(objectives\n (x 2)\n)\n(objectives\n (x 2)\n)\nsat\n(objectives\n (x (- 1))\n)\n(objectives\n (x 0)\n)\nsat\n(objectives\n (x 0)\n)\n(objectives\n)\n",
 	// AUDIT.md FUZZ_A-F12: reason-unknown after a decided optimize is m_solver->reason_unknown().
 	"opt_reason_unknown_after_decided.smt2": "sat\n(:reason-unknown \"unknown\")\nsat\n(:reason-unknown \"no reason given\")\nunsat\n(:reason-unknown \"unknown\")\n",
 	// AUDIT.md FUZZ_A-F10: an exception inside the MaxSMT engine makes the answer unknown.

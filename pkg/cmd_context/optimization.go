@@ -695,6 +695,9 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 	paretoContinuation := c.optimizationParetoActive && c.optimizationParetoBackend != nil
 	boxContinuation := c.optimizationBoxActive
 	if !paretoContinuation && !boxContinuation {
+		// import_scoped_state copies the objectives and resets m_optsmt
+		// (AUDIT.md FUZZ_A-F13).
+		c.optimizedObjectives, c.optsmtReset = len(c.objectives), false
 		if err = c.setupOptimizationArithmeticSolver(); err != nil {
 			return lbool.Undef, err
 		}
@@ -869,13 +872,21 @@ func (c *Context) optimizationResultUnknownReason(result *opt.ArithmeticResult) 
 }
 
 func (c *Context) WriteObjectives(out io.Writer) error {
-	if !c.checked {
+	// display_assignment: m_scoped_state.m_objectives.size() !=
+	// m_objectives.size() (AUDIT.md FUZZ_A-F13).
+	if len(c.objectives) != c.optimizedObjectives {
 		return fmt.Errorf("check-sat has not been called with latest objectives")
 	}
 	if _, err := io.WriteString(out, "(objectives\n"); err != nil {
 		return err
 	}
 	for _, objective := range c.objectives {
+		if c.optsmtReset {
+			// pop ran m_optsmt.reset(): get_lower/get_upper return
+			// inf_eps() for an index past m_lower.size().
+			objective.valueReady, objective.displayReady = false, true
+			objective.displayLower, objective.displayUpper = simplex.Infinitesimal{}, simplex.Infinitesimal{}
+		}
 		if !objective.valueReady && !objective.displayReady {
 			return fmt.Errorf("objective value is not available")
 		}
