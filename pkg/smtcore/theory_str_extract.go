@@ -5,7 +5,6 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -45,13 +44,28 @@ func (t *SMTStringTheory) instantiateCharAt(node *SMTEnode) (result error) {
 		}
 		return err
 	}
-	locals := smtStringLengthPremises{theory: t}
-	defer func() { result = errors.Join(result, locals.close()) }()
-	pin := func(value ast.ASTHandle, err error) (ast.ASTHandle, error) {
+	// Source owners, in declaration order: cond, and_item (a vector),
+	// thenBranch, elseBranch, axiom, reductionVar, finalAxiom. Scope exit
+	// releases them in reverse; the vector releases its items forward.
+	// Argument temporaries (mk_ge, mk_lt, mk_strlen, mk_int) are unowned.
+	var owned [][]ast.ASTRef
+	defer func() {
+		for i := len(owned) - 1; i >= 0; i-- {
+			for j := range owned[i] {
+				result = errors.Join(result, m.DelRef(&owned[i][j]))
+			}
+		}
+	}()
+	own := func(value ast.ASTHandle, err error) (ast.ASTHandle, error) {
 		if err != nil {
 			return value, err
 		}
-		return value, locals.add(value)
+		ref, err := m.NewRef(value)
+		if err != nil {
+			return value, err
+		}
+		owned = append(owned, []ast.ASTRef{ref})
+		return value, nil
 	}
 	variables := [3]ast.ASTHandle{}
 	for i, name := range []string{"ts0", "ts1", "ts2"} {
@@ -60,15 +74,9 @@ func (t *SMTStringTheory) instantiateCharAt(node *SMTEnode) (result error) {
 			return err
 		}
 	}
-	zero, err := pin(m.ArithmeticIntegerNumeralText("0"))
-	if err != nil {
-		return err
-	}
-	nonnegative, err := pin(m.MkArithmeticGE(index, zero))
-	if err != nil {
-		return err
-	}
-	length, err := pin(m.MkSequenceLength(word))
+	// GCC evaluates mk_and's arguments right to left: mk_lt (with
+	// mk_strlen(arg0)) before mk_ge (with mk_int(0)).
+	length, err := m.MkSequenceLength(word)
 	if err != nil {
 		return err
 	}
@@ -76,58 +84,90 @@ func (t *SMTStringTheory) instantiateCharAt(node *SMTEnode) (result error) {
 	if err != nil {
 		return err
 	}
-	belowLength, err := pin(m.MkFamilyApp(family, 4, nil, []ast.ASTHandle{index, length}))
+	belowLength, err := m.MkFamilyApp(family, 4, nil, []ast.ASTHandle{index, length})
 	if err != nil {
 		return err
 	}
-	condition, err := pin(m.MkAnd(nonnegative, belowLength))
+	zero, err := m.ArithmeticIntegerNumeralText("0")
 	if err != nil {
 		return err
 	}
-	tail, err := pin(t.concatTerm(variables[1], variables[2]))
+	nonnegative, err := m.MkArithmeticGE(index, zero)
 	if err != nil {
 		return err
 	}
-	whole, err := pin(t.concatTerm(variables[0], tail))
+	condition, err := own(m.MkAnd(nonnegative, belowLength))
 	if err != nil {
 		return err
 	}
-	items := smtStringLengthPremises{theory: t}
-	defer func() { result = errors.Join(result, items.close()) }()
-	if err := items.equate(word, whole); err != nil {
-		return err
+	itemsAt := len(owned)
+	owned = append(owned, nil)
+	item := func(value ast.ASTHandle, err error) (ast.ASTHandle, error) {
+		if err != nil {
+			return value, err
+		}
+		ref, err := m.NewRef(value)
+		if err != nil {
+			return value, err
+		}
+		owned[itemsAt] = append(owned[itemsAt], ref)
+		return value, nil
 	}
-	prefixLength, err := pin(m.MkSequenceLength(variables[0]))
+	tail, err := t.concatTerm(variables[1], variables[2])
 	if err != nil {
 		return err
 	}
-	if err := items.equate(index, prefixLength); err != nil {
-		return err
-	}
-	if err := items.length(variables[1], big.NewInt(1)); err != nil {
-		return err
-	}
-	thenBranch, err := pin(m.MkAndArray(items.values))
+	whole, err := t.concatTerm(variables[0], tail)
 	if err != nil {
 		return err
 	}
-	empty, err := pin(t.stringLiteral(""))
+	wordEquality, err := item(t.state.MkEqAtom(word, whole))
 	if err != nil {
 		return err
 	}
-	elseBranch, err := pin(t.state.MkEqAtom(variables[1], empty))
+	prefixLength, err := m.MkSequenceLength(variables[0])
 	if err != nil {
 		return err
 	}
-	choice, err := pin(m.MkIte(condition, thenBranch, elseBranch))
+	indexEquality, err := item(t.state.MkEqAtom(index, prefixLength))
 	if err != nil {
 		return err
 	}
-	reduction, err := pin(t.state.MkEqAtom(expression, variables[1]))
+	// ctx.mk_eq_atom(mk_strlen(ts1), mk_int(1)): mk_int(1) first.
+	one, err := m.ArithmeticIntegerNumeralText("1")
 	if err != nil {
 		return err
 	}
-	final, err := pin(m.MkAnd(choice, reduction))
+	charLength, err := m.MkSequenceLength(variables[1])
+	if err != nil {
+		return err
+	}
+	charEquality, err := item(t.state.MkEqAtom(charLength, one))
+	if err != nil {
+		return err
+	}
+	thenBranch, err := own(m.MkAndArray([]ast.ASTHandle{wordEquality, indexEquality, charEquality}))
+	if err != nil {
+		return err
+	}
+	empty, err := t.stringLiteral("")
+	if err != nil {
+		return err
+	}
+	elseBranch, err := own(t.state.MkEqAtom(variables[1], empty))
+	if err != nil {
+		return err
+	}
+	choice, err := own(m.MkIte(condition, thenBranch, elseBranch))
+	if err != nil {
+		return err
+	}
+	reduction, err := own(t.state.MkEqAtom(expression, variables[1]))
+	if err != nil {
+		return err
+	}
+	// finalAxiom is owned only by the reference the rewriter overwrites.
+	final, err := m.MkAnd(choice, reduction)
 	if err != nil {
 		return err
 	}
