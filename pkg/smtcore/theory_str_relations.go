@@ -61,11 +61,12 @@ func (t *SMTStringTheory) instantiateBoundaryRelation(node *SMTEnode, suffix boo
 	if suffix {
 		segment = second
 	}
-	segmentLength, err := pin(m.MkSequenceLength(segment))
+	// GCC evaluates call arguments right to left.
+	boundaryLength, err := pin(m.MkSequenceLength(boundary))
 	if err != nil {
 		return err
 	}
-	boundaryLength, err := pin(m.MkSequenceLength(boundary))
+	segmentLength, err := pin(m.MkSequenceLength(segment))
 	if err != nil {
 		return err
 	}
@@ -73,11 +74,11 @@ func (t *SMTStringTheory) instantiateBoundaryRelation(node *SMTEnode, suffix boo
 	if err != nil {
 		return err
 	}
-	segmentEquality, err := pin(t.state.MkEqAtom(segment, boundary))
+	negative, err := pin(m.MkNot(expression))
 	if err != nil {
 		return err
 	}
-	negative, err := pin(m.MkNot(expression))
+	segmentEquality, err := pin(t.state.MkEqAtom(segment, boundary))
 	if err != nil {
 		return err
 	}
@@ -89,7 +90,7 @@ func (t *SMTStringTheory) instantiateBoundaryRelation(node *SMTEnode, suffix boo
 	if err != nil {
 		return err
 	}
-	containerLength, err := pin(m.MkSequenceLength(container))
+	zero, err := pin(m.ArithmeticIntegerNumeralText("0"))
 	if err != nil {
 		return err
 	}
@@ -101,11 +102,11 @@ func (t *SMTStringTheory) instantiateBoundaryRelation(node *SMTEnode, suffix boo
 	if err != nil {
 		return err
 	}
-	difference, err := pin(m.MkArithmeticAdd(containerLength, negatedLength))
+	containerLength, err := pin(m.MkSequenceLength(container))
 	if err != nil {
 		return err
 	}
-	zero, err := pin(m.ArithmeticIntegerNumeralText("0"))
+	difference, err := pin(m.MkArithmeticAdd(containerLength, negatedLength))
 	if err != nil {
 		return err
 	}
