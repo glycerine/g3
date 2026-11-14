@@ -205,7 +205,14 @@ func (p *PredicateTransformer) ExpandObligation(obligation *ProofObligation) (_ 
 		if p.contextStats != nil {
 			p.contextStats.expandUndef++
 		}
-		if check.Rule != nil && check.Model != nil {
+		// if (r && r->get_uninterpreted_tail_size() > 0)
+		uninterpretedTail := 0
+		if check.Rule != nil {
+			if uninterpretedTail, err = check.Rule.UninterpretedTailSize(); err != nil {
+				return ExpansionResult{}, err
+			}
+		}
+		if check.Rule != nil && uninterpretedTail > 0 && check.Model != nil {
 			reachPredUsed := make([]bool, len(check.ReachPredUsed))
 			child, childErr := p.CreateDerivationChild(obligation, check.Rule, check.Model, reachPredUsed, p.reverseChildren)
 			if childErr != nil {

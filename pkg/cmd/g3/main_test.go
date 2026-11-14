@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_F-F1: the spacer l_undef branch creates children only for a
+	// rule with an uninterpreted tail.
+	"spacer_undef_fact_rule.smt2": "sat\n\n",
 	// AUDIT.md sat_03-F1: index_set iterates in hashtable slot order.
 	"get_consequences_fd_premise_order.smt2": "sat\n\n(=> (and b c d a e) x)\n(=> (and c a) y)\n(=> (and b c d a e) z)\n",
 	// AUDIT.md FUZZ_D-F4: hoist_multiplication / merge_muls as in poly_rewriter
