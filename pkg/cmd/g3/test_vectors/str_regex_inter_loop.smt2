@@ -1,0 +1,6 @@
+(set-option :smt.string_solver z3str3)
+(declare-const x String)
+(assert (str.in.re x (re.inter (re.* (str.to.re "ab")) (re.* (str.to.re "abab")))))
+(assert (= (str.len x) 4))
+(check-sat)
+(get-value (x))

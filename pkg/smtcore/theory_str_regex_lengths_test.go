@@ -53,7 +53,9 @@ func TestSMTStringRegexLengthLinearityAndFiniteSets(t *testing.T) {
 		{"reversed-range-still-length-one", rangeRE, true, false, []int32{1}},
 		{"complement", complement, false, false, nil},
 		{"linearity-short-circuit", pin(m.MkRegexConcat(complement, option)), false, false, nil},
-		{"option-unknown-to-linearity", option, false, true, nil},
+		// smtcore_13-F3: UNREACHABLE(); return false; in the release build.
+		{"option-unknown-to-linearity", option, false, false, nil},
+		{"inter-unknown-to-linearity", pin(m.MkRegexIntersect(a, bb)), false, false, nil},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			linear, err := theory.checkRegexLengthLinearity(test.regex, false)

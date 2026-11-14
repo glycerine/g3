@@ -338,6 +338,12 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_13-F3: re.inter under z3str3 (was unknown).
+	"str_regex_inter_loop.smt2": "sat\n((x \"abab\"))\n",
+	// AUDIT.md smtcore_13-F3: re.complement under z3str3 (was unknown).
+	"str_regex_complement.smt2": "sat\n((x \"pA\"))\n",
+	// AUDIT.md smtcore_13-F3: re.loop under z3str3 (was unknown).
+	"str_regex_loop.smt2": "sat\n((x \"abab\"))\n",
 	// AUDIT.md FUZZ_G-F8: simplify_concat implication (Boolean model value).
 	"str_concat_simplify_bool.smt2": "sat\n(model \n  (define-fun x0 () Int\n    (- 149))\n  (define-fun p1 () Bool\n    true)\n  (define-fun s1 () String\n    \"\")\n  (define-fun p2 () Bool\n    false)\n  (define-fun x2 () Int\n    149)\n  (define-fun x1 () Int\n    (- 15))\n  (define-fun p0 () Bool\n    false)\n  (define-fun s0 () String\n    \"\")\n)\n",
 	// AUDIT.md FUZZ_G-F8: simplify_concat asserts premise -> mk_eq_atom(node, result).

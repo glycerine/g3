@@ -77,8 +77,14 @@ func TestSMTStringRegexTextKeysAndAutomataRegistries(t *testing.T) {
 	}
 	option, err := m.MkRegexOption(a)
 	astTestMust(t, err)
-	if _, err := theory.regexTextKey(option); err == nil {
-		t.Fatal("unsupported native registry operation was silently accepted")
+	// smtcore_13-F3: get_std_regex_str's UNREACHABLE arm falls through to
+	// "str.allchar" in the release build for every other operator.
+	inter, err := m.MkRegexIntersect(a, b)
+	astTestMust(t, err)
+	for _, other := range []ast.ASTHandle{option, inter} {
+		if key, err := theory.regexTextKey(other); err != nil || key != "str.allchar" {
+			t.Fatal("unknown regex operator key is not the release-build str.allchar", key, err)
+		}
 	}
 	astTestMust(t, state.PushScope())
 	first := stringRegexRegister(t, theory, x, stringRegexLiteral(t, m, "\x00"))

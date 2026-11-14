@@ -97,7 +97,11 @@ func (t *SMTStringTheory) regexTextKey(regex ast.ASTHandle) (string, error) {
 	case 24:
 		return "str.allchar", nil
 	default:
-		return "", fmt.Errorf("string theory regex operation %d is not supported", op)
+		// get_std_regex_str ends in UNREACHABLE(); return zstring(""). The
+		// release build's __builtin_unreachable lets GCC drop the is_full_char
+		// test, so every other operator (re.complement, re.inter, re.loop,
+		// ...) returns "str.allchar" (checked in the build/z3 disassembly).
+		return "str.allchar", nil
 	}
 }
 

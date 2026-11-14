@@ -50,7 +50,8 @@ func (t *SMTStringTheory) checkRegexLengthLinearity(regex ast.ASTHandle, insideS
 	case 21:
 		return false, nil
 	default:
-		return false, ast.ErrASTDomain // Native UNREACHABLE for unknown operations.
+		// UNREACHABLE(); return false; the release build continues.
+		return false, nil
 	}
 }
 
