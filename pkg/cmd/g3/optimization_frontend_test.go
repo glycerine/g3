@@ -16,6 +16,8 @@ func TestOptimizationFrontendArguments(t *testing.T) {
 		{"opb-constraints-without-semicolons", "-bpo", "1 x1 >= 1\n1 ~x1 >= 1", "unsat\n"},
 		// AUDIT.md FUZZ_A-F1: unsat initial check prints the maxsmt bounds.
 		{"opb-unsat-initial-bounds", "-bpo", "min: +1 x1 +2 x2 +4 x3 ;\n+1 x1 +1 x2 +1 x3 >= 2 ;\n-1 x1 -1 x2 -1 x3 >= -1 ;\n", "unsat\n  [0:7]\n"},
+		// AUDIT.md FUZZ_J-F1: lia2card turns the impossible constraint to false.
+		{"opb-lia2card-false", "-bpo", "min: +1 x1 ;\n+1 x1 +1 x2 >= 3 ;\n", "unsat\n  [(* (- 1) oo):oo]\n"},
 		{"wcnf", "-wcnf", "p wcnf 1 3 10\n10 1 0\n2 -1 0\n3 1 0\n", "sat\n   2\n"},
 		{"wcnf-unsat-zero-weight", "-wcnf", "p wcnf 1 3 10\n10 1 0\n10 -1 0\n0 1 0\n", "unsat\n   0\n"},
 	} {

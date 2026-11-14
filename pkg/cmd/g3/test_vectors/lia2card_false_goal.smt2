@@ -1,0 +1,6 @@
+(declare-const a Bool)
+(declare-const b Bool)
+(declare-const c Bool)
+(assert (>= (+ (ite a 1 0) (ite b 1 0)) 3))
+(assert (or a c))
+(apply lia2card)

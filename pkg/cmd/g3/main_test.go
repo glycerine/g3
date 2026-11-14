@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_J-F1: lia2card re-reads the goal size after an update to false.
+	"lia2card_false_goal.smt2": "(goals\n(goal\n  false\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md FUZZ_A-F13: get-objectives compares objective counts; pop resets optsmt.
 	"opt_get_objectives_stale_state.smt2": "(objectives\n)\nsat\n(objectives\n (x 2)\n)\n(objectives\n (x 2)\n)\nsat\n(objectives\n (x (- 1))\n)\n(objectives\n (x 0)\n)\nsat\n(objectives\n (x 0)\n)\n(objectives\n)\n",
 	// AUDIT.md FUZZ_A-F12: reason-unknown after a decided optimize is m_solver->reason_unknown().

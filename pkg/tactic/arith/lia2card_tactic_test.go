@@ -116,6 +116,41 @@ func TestLIA2CardGoalPreservesBoundedArithmeticSemantics(t *testing.T) {
 	}
 }
 
+// AUDIT.md FUZZ_J-F1: lia2card_tactic re-reads g->size() on every
+// iteration; an update to false collapses the goal to that one formula.
+func TestLIA2CardStopsAfterInconsistentUpdate(t *testing.T) {
+	base, m := fixDLFixture(t, false)
+	equationMust(t, m.RegisterDeclarationPlugins())
+	port, err := NewLIA2CardTactic(m, base.context, base.globals, nil)
+	equationMust(t, err)
+	defer func() { equationMust(t, port.Close()) }()
+	x := fixDLConst(t, m, true, "lia2card-false-x")
+	y := fixDLConst(t, m, true, "lia2card-false-y")
+	zero := fixDLNumber(t, m, true, "0")
+	one := fixDLNumber(t, m, true, "1")
+	three := fixDLNumber(t, m, true, "3")
+	lowerX := fixDLApp(t, m, 3, x, zero)
+	upperX := fixDLApp(t, m, 2, x, one)
+	lowerY := fixDLApp(t, m, 3, y, zero)
+	upperY := fixDLApp(t, m, 2, y, one)
+	impossible := fixDLApp(t, m, 3, fixDLApp(t, m, 6, x, y), three)
+	after := fixDLApp(t, m, 2, fixDLApp(t, m, 6, x, y), one)
+	goal := fixDLGoal(t, m, false, false, false, lowerX, upperX, lowerY, upperY, impossible, after)
+	var result tactic.TacticResult
+	defer func() { equationMust(t, result.Close()) }()
+	equationMust(t, port.Apply(goal, &result))
+	count, err := goal.Size()
+	equationMust(t, err)
+	if count != 1 {
+		t.Fatal("inconsistent goal size", count)
+	}
+	form, err := goal.Form(0)
+	equationMust(t, err)
+	if !m.IsFalse(form) {
+		t.Fatal("goal is not false")
+	}
+}
+
 func TestLIA2CardContextTranslationCopiesParameterSnapshot(t *testing.T) {
 	source, m := fixDLFixture(t, false)
 	params, err := source.context.NewValue()

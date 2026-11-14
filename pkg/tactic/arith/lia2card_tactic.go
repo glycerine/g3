@@ -311,7 +311,16 @@ func (t *LIA2CardTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (
 		}()
 	}
 	used := make(map[ast.ASTHandle]bool)
-	for index := uint32(0); index < size; index++ {
+	for index := uint32(0); ; index++ {
+		// for (unsigned i = 0; i < g->size(); i++): the bound is read again
+		// because g->update collapses an inconsistent goal to the single
+		// formula false (AUDIT.md FUZZ_J-F1).
+		if size, err = goal.Size(); err != nil {
+			return err
+		}
+		if index >= size {
+			break
+		}
 		original, e := goal.Form(index)
 		if e != nil {
 			return e
