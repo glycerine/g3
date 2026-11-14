@@ -1,6 +1,8 @@
 package rewriter
 
-// Source: src/ast/rewriter/bv_rewriter.cpp:2706-2800.
+// Source: src/ast/rewriter/bv_rewriter.cpp mk_bvsmul_no_overflow (upstream
+// z3 4.17.0 algorithm, backported to the fork; covers bvsmul_noudfl too)
+// and mk_bvumul_no_overflow.
 
 import "github.com/glycerine/g3/pkg/ast"
 
@@ -73,10 +75,9 @@ func (p *BVRewriter) RewriteMultiplyBound(args ast.AppArguments, out ast.ASTRef,
 		result = true
 	} else if num1 && num2 {
 		matched = true
-		// z3 4.7.1 bug, deliberately not reproduced: mk_bvsmul_no_overflow
-		// folds the unsigned product of the numerals (#xa * #x3 -> false).
-		// g3 folds the signed product, as z3 4.17.0 does. See TODO.md
-		// "z3 4.7.1 bugs fixed in g3" (vector bv_native_operator_models).
+		// Upstream z3 (4.17.0) mk_bvsmul_no_overflow, backported to the
+		// fork (src/ast/rewriter/bv_rewriter.cpp): magnitudes with sign
+		// flags. z3 4.7.1 folded the unsigned product (#xa * #x3 -> false).
 		if mode != BVUnsignedNoOverflow {
 			if e = n.Power(2, width); e != nil {
 				return st, e
@@ -84,25 +85,31 @@ func (p *BVRewriter) RewriteMultiplyBound(args ast.AppArguments, out ast.ASTRef,
 			if e = n.Power(3, width-1); e != nil {
 				return st, e
 			}
-			if e = n.AdjustSigned(0); e != nil {
+			sign0, e := n.Magnitude(0)
+			if e != nil {
 				return st, e
 			}
-			if e = n.AdjustSigned(1); e != nil {
+			sign1, e := n.Magnitude(1)
+			if e != nil {
 				return st, e
 			}
 			if e = n.Product(4); e != nil {
 				return st, e
 			}
-			if mode == BVSignedNoUnderflow {
-				if e = n.NegativeLimit(); e != nil {
+			if mode == BVSignedNoOverflow {
+				// sign0 != sign1 || r < lim
+				below, e := n.Compare(4, 3, false)
+				if e != nil {
 					return st, e
 				}
-				if e = p.traceSignedMultiplyUnderflow(n); e != nil {
-					return st, e
-				}
-				result, e = n.Compare(4, 5, true)
+				result = sign0 != sign1 || below
 			} else {
-				result, e = n.Compare(4, 3, false)
+				// sign0 == sign1 || r <= lim, i.e. !(lim < r)
+				limBelow, e := n.Compare(3, 4, false)
+				if e != nil {
+					return st, e
+				}
+				result = sign0 == sign1 || !limBelow
 			}
 		} else {
 			if e = n.Product(2); e != nil {

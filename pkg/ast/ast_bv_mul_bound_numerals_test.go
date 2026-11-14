@@ -43,55 +43,60 @@ func TestASTBitVectorMultiplyBoundEveryActualReservation(t *testing.T) {
 				if body == nil && mode == "fast" {
 					answer, body = n.ZeroOrOne(0)
 				}
-				if mode != "fast" {
-					if mode == "underflow" {
-						if body == nil {
-							body = n.Power(2, width)
-						}
-						if body == nil {
-							body = n.Power(3, width-1)
-						}
-						if body == nil {
-							body = n.AdjustSigned(0)
-						}
-						if body == nil {
-							body = n.AdjustSigned(1)
-						}
-						if body == nil {
-							body = n.Product(4)
-						}
-						if body == nil {
-							body = n.NegativeLimit()
-						}
-						if body == nil {
-							answer, body = n.Compare(4, 5, true)
-						}
-					} else {
-						if body == nil {
-							body = n.Product(2)
-						}
+				if mode == "signed" || mode == "underflow" {
+					// Upstream mk_bvsmul_no_overflow: 2^sz, 2^(sz-1),
+					// magnitudes with signs, product, one comparison.
+					var sign0, sign1 bool
+					if body == nil {
+						body = n.Power(2, width)
+					}
+					if body == nil {
+						body = n.Power(3, width-1)
+					}
+					if body == nil {
+						sign0, body = n.Magnitude(0)
+					}
+					if body == nil {
+						sign1, body = n.Magnitude(1)
+					}
+					if body == nil {
+						body = n.Product(4)
+					}
+					if body == nil {
+						var below bool
 						if mode == "signed" {
-							width--
+							below, body = n.Compare(4, 3, false)
+							answer = sign0 != sign1 || below
+						} else {
+							below, body = n.Compare(3, 4, false)
+							answer = sign0 == sign1 || !below
 						}
-						if body == nil {
-							body = n.Power(3, width)
-						}
-						if body == nil {
-							answer, body = n.Compare(2, 3, false)
-						}
+					}
+				}
+				if mode == "unsigned" {
+					if body == nil {
+						body = n.Product(2)
+					}
+					if body == nil {
+						body = n.Power(3, width)
+					}
+					if body == nil {
+						answer, body = n.Compare(2, 3, false)
 					}
 				}
 				m.Budget().FailAfter(-1)
 				if body == nil {
 					complete = true
-					if answer != (mode == "fast" || mode == "underflow") {
+					// high is 2^65-1, i.e. -1 at width 65: (-1)*(-1) = 1
+					// neither overflows nor underflows; unsigned it does.
+					if answer != (mode != "unsigned") {
 						t.Fatal("original bound", mode, answer)
 					}
-					if mode == "underflow" {
+					if mode == "signed" || mode == "underflow" {
 						for _, entry := range []struct {
 							i    int
 							text string
-						}{{0, "-1"}, {1, "-1"}, {3, "18446744073709551616"}, {4, "1"}, {5, "-18446744073709551616"}} {
+						}{{0, "1"}, {1, "1"}, {3, "18446744073709551616"}, {4, "1"}} {
 							text, e := m.numerals.String(&n.values[entry.i])
 							astTestMust(t, e)
 							if text != entry.text {

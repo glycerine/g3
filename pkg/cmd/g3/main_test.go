@@ -501,6 +501,7 @@ var scriptResults = map[string]string{
 	"quant_lra_lia_solver.smt2":                    "sat\nunsat\nsat\nunsat\nsat\nunsat\n",
 	"qfnra_boolean.smt2":                           "sat\n",
 	"user_universe_factory_scopes.smt2":            "sat\n(((distinct a b c) true)\n ((= (f a) b) true)\n ((= (f b) c) true)\n ((= (f c) a) true))\nunsat\nsat\n(((distinct a b c) true)\n ((= (f a) b) true))\n",
+	"bv_smul_noovfl_fold.smt2":                     "false\ntrue\ntrue\nfalse\nfalse\nfalse\nfalse\nfalse\ntrue\ntrue\ntrue\nfalse\n",
 	"bv_native_operator_models.smt2":               "sat\n((a #xa)\n ((bvadd a b c) #xe)\n ((bvsub a b) #x7)\n ((bvmul a b c) #xe)\n ((bvudiv a b) #x3)\n ((bvurem a b) #x1)\n ((bvsdiv a b) #xe)\n ((bvsrem a b) #x0)\n ((bvsmod a b) #x0)\n ((bvshl a b) #x0)\n ((bvlshr a b) #x1)\n ((bvashr a b) #xf)\n ((ext_rotate_left a b) #x5)\n ((ext_rotate_right a b) #x5)\n ((bvumul_noovfl a b) false)\n ((bvsmul_noovfl a b) true)\n ((bvsmul_noudfl a b) false)\n ((bvredor a) #b1)\n ((bvredand a) #b0))\nunsat\nsat\nunsat\nsat\n",
 	"bv_blast_temporaries_model_values.smt2":       "sat\n(model \n  (define-fun v () (_ BitVec 4)\n    #xd)\n  (define-fun c () Bool\n    true)\n  (define-fun a () Bool\n    true)\n  (define-fun u () (_ BitVec 4)\n    #xc)\n  (define-fun x () Int\n    1)\n  (define-fun z () Int\n    0)\n  (define-fun y () Int\n    4)\n)\nsat\n",
 	"bv_blast_temporaries_smod_order.smt2":         "sat\n(model \n  (define-fun z () Int\n    4)\n  (define-fun v () (_ BitVec 4)\n    #x0)\n  (define-fun y () Int\n    0)\n  (define-fun u () (_ BitVec 4)\n    #xf)\n  (define-fun x () Int\n    0)\n  (define-fun f ((x!0 Int)) Int\n    (ite (= x!0 0) 0\n      0))\n  (define-fun h ((x!0 (_ BitVec 4))) (_ BitVec 4)\n    (ite (= x!0 #x3) #x0\n      #x0))\n)\nsat\nsat\n",
@@ -1249,12 +1250,6 @@ func TestSMTLibRunnerCPPReference(t *testing.T) {
 					t.Fatal("native macro coercion result", string(cppOutput))
 				}
 				return
-			}
-			if name == "bv_native_operator_models.smt2" {
-				// The source constant folder treats signed #xa as +10. Go
-				// corrects the overflow predicate for -6 * 3, which has no
-				// positive overflow (but does have signed underflow).
-				cppOutput = bytes.Replace(cppOutput, []byte("((bvsmul_noovfl a b) false)"), []byte("((bvsmul_noovfl a b) true)"), 1)
 			}
 			if canonicalReferenceOutput(name, goOutput.String()) != canonicalReferenceOutput(name, string(cppOutput)) {
 				t.Fatalf("Go/C++ mismatch\nGo:\n%s\nC++:\n%s\nC++ diagnostics:\n%s", goOutput.String(), cppOutput, cppDiagnostics.String())

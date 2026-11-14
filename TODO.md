@@ -2088,9 +2088,13 @@ testing (main_test.go carries a commented-out entry pointing there):
      false.
    - g3: BVRewriter.RewriteMultiplyBound
      (pkg/ast/rewriter/bv_rewriter_mul_bounds.go) folds the signed product.
-   - Vector bv_native_operator_models stays in identity testing (its trace
-     is identical); its stdout differs at that one get-value line, and the
-     C++ comparison in main_test.go patches the fork's line.
+   - FIXED IN THE FORK (2026-11-14): upstream's mk_bvsmul_no_overflow
+     (is_overflow flag; magnitudes with sign flags; no "1" shortcut at
+     width 1, where (-1)*(-1) overflows) is backported to src and replaces
+     mk_bvsmul_no_underflow; g3 follows the same algorithm
+     (BitVectorMultiplyBoundNumerals.Magnitude). The main_test.go patch is
+     gone; new vector bv_smul_noovfl_fold. fullcmp2: 803 identical, 0
+     stdout differences.
 
 ## Open leads (2026-11-11, late)
 

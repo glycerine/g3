@@ -1,6 +1,7 @@
 package ast
 
-// Source: src/ast/rewriter/bv_rewriter.cpp:2706-2800.
+// Source: src/ast/rewriter/bv_rewriter.cpp mk_bvsmul_no_overflow (upstream
+// z3 4.17.0 algorithm, backported to the fork) and mk_bvumul_no_overflow.
 
 import (
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
@@ -151,53 +152,36 @@ func (n *BitVectorMultiplyBoundNumerals) Product(i int) error {
 	}
 	return n.fail(e)
 }
-func (n *BitVectorMultiplyBoundNumerals) AdjustSigned(i int) error {
+
+// Magnitude is the sign step of upstream mk_bvsmul_no_overflow:
+// sign = has_sign_bit(v, sz) (v >= 2^(sz-1), held in slot 3); when set, v
+// becomes its magnitude 2^sz - v (slot 2). It reports the sign.
+func (n *BitVectorMultiplyBoundNumerals) Magnitude(i int) (bool, error) {
 	if e := n.slot(i); e != nil {
-		return e
+		return false, e
 	}
-	yes, e := n.manager.numerals.GreaterEqual(&n.values[i], &n.values[3])
-	if e != nil {
-		return n.fail(e)
+	if e := n.slot(2); e != nil {
+		return false, e
 	}
-	if !yes {
-		return nil
+	if e := n.slot(3); e != nil {
+		return false, e
 	}
+	sign, e := n.manager.numerals.GreaterEqual(&n.values[i], &n.values[3])
+	if e != nil || !sign {
+		return sign, n.fail(e)
+	}
+	// v - 2^sz, then negate: 2^sz - v.
 	e = n.manager.numerals.SubAssignWithInvocation(&n.values[i], &n.values[2], &n.scalar)
 	if e == nil {
 		e = n.retire()
 	}
-	return n.fail(e)
-}
-func (n *BitVectorMultiplyBoundNumerals) NegativeLimit() error {
-	if e := n.slot(3); e != nil {
-		return e
+	if e == nil {
+		e = n.manager.numerals.NegAssignWithInvocation(&n.values[i], &n.scalar)
 	}
-	if n.placed[5] {
-		return ErrASTPending
-	}
-	v, e := n.manager.numerals.NegWithInvocation(&n.values[3], &n.scalar)
-	n.values[5] = v
-	n.placed[5] = v != (unumeral.OwnedRational{})
 	if e == nil {
 		e = n.retire()
 	}
-	return n.fail(e)
-}
-
-// SignedUnderflowTraceValues reads the four live locals at the source TRACE site.
-func (n *BitVectorMultiplyBoundNumerals) SignedUnderflowTraceValues() ([4]string, error) {
-	var text [4]string
-	for i, slot := range [...]int{0, 1, 4, 5} {
-		if e := n.slot(slot); e != nil {
-			return text, e
-		}
-		value, e := n.manager.numerals.String(&n.values[slot])
-		if e != nil {
-			return text, n.fail(e)
-		}
-		text[i] = value
-	}
-	return text, nil
+	return sign, n.fail(e)
 }
 func (n *BitVectorMultiplyBoundNumerals) Compare(a, b int, greaterEqual bool) (bool, error) {
 	if e := n.slot(a); e != nil {

@@ -197,11 +197,11 @@ br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
     case OP_MKBV:
         return mk_mkbv(num_args, args, result);
     case OP_BSMUL_NO_OVFL:
-        return mk_bvsmul_no_overflow(num_args, args, result);
+        return mk_bvsmul_no_overflow(num_args, args, true, result);
     case OP_BUMUL_NO_OVFL:
         return mk_bvumul_no_overflow(num_args, args, result);
     case OP_BSMUL_NO_UDFL:
-        return mk_bvsmul_no_underflow(num_args, args, result);
+        return mk_bvsmul_no_overflow(num_args, args, false, result);
     default:
         return BR_FAILED;
     }
@@ -2703,34 +2703,46 @@ br_status bv_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & resu
     return BR_FAILED;
 }
 
-br_status bv_rewriter::mk_bvsmul_no_overflow(unsigned num, expr * const * args, expr_ref & result) {
+br_status bv_rewriter::mk_bvsmul_no_overflow(unsigned num, expr * const * args, bool is_overflow, expr_ref & result) {
+    // FORK FIX: backport of upstream z3 (4.17.0) mk_bvsmul_no_overflow, which
+    // also replaces mk_bvsmul_no_underflow (is_overflow == false). z3 4.7.1
+    // folded bvsmul_noovfl over the unsigned values of the numerals, so #xa *
+    // #x3 (signed -6 * 3 = -18, an underflow, no overflow) became false, and
+    // both predicates folded "argument is 1" to true even at width 1, where
+    // bit pattern 1 is -1 and (-1)*(-1) overflows. Upstream compares
+    // magnitudes with sign flags and skips the 1 shortcut at width 1.
+    // Vectors: bv_native_operator_models, bv_smul_noovfl_fold.
+    // g3: pkg/ast/rewriter/bv_rewriter_mul_bounds.go.
     SASSERT(num == 2);
     unsigned bv_sz;
     rational a0_val, a1_val;
 
     bool is_num1 = is_numeral(args[0], a0_val, bv_sz);
     bool is_num2 = is_numeral(args[1], a1_val, bv_sz);
-    if (is_num1 && (a0_val.is_zero() || a0_val.is_one())) {
+
+    if (is_num1 && (a0_val.is_zero() || (bv_sz != 1 && a0_val.is_one()))) {
         result = m().mk_true();
         return BR_DONE;
     }
-    if (is_num2 && (a1_val.is_zero() || a1_val.is_one())) {
+    if (is_num2 && (a1_val.is_zero() || (bv_sz != 1 && a1_val.is_one()))) {
         result = m().mk_true();
         return BR_DONE;
     }
 
-    if (is_num1 && is_num2) {
-        // BUG (z3 4.7.1, fixed upstream; g3 does not reproduce it): the
-        // numerals are read as unsigned, so #xa * #x3 (signed -6 * 3 = -18,
-        // an underflow, no overflow) folds to false. z3 4.17.0 and g3 fold
-        // the signed product (true). Vector: bv_native_operator_models.
-        rational mr = a0_val * a1_val;
-        rational lim = rational::power_of_two(bv_sz-1);
-        result = m().mk_bool_val(mr < lim);
-        return BR_DONE;
-    }
+    if (!is_num1 || !is_num2)
+        return BR_FAILED;
 
-    return BR_FAILED;
+    bool sign0 = m_util.has_sign_bit(a0_val, bv_sz);
+    bool sign1 = m_util.has_sign_bit(a1_val, bv_sz);
+    if (sign0) a0_val = rational::power_of_two(bv_sz) - a0_val;
+    if (sign1) a1_val = rational::power_of_two(bv_sz) - a1_val;
+    rational lim = rational::power_of_two(bv_sz-1);
+    rational r = a0_val * a1_val;
+    if (is_overflow)
+        result = m().mk_bool_val(sign0 != sign1 || r < lim);
+    else
+        result = m().mk_bool_val(sign0 == sign1 || r <= lim);
+    return BR_DONE;
 }
 
 br_status bv_rewriter::mk_bvumul_no_overflow(unsigned num, expr * const * args, expr_ref & result) {
@@ -2759,36 +2771,6 @@ br_status bv_rewriter::mk_bvumul_no_overflow(unsigned num, expr * const * args, 
     return BR_FAILED;
 }
 
-br_status bv_rewriter::mk_bvsmul_no_underflow(unsigned num, expr * const * args, expr_ref & result) {
-    SASSERT(num == 2);
-    unsigned bv_sz;
-    rational a0_val, a1_val;
-
-    bool is_num1 = is_numeral(args[0], a0_val, bv_sz);
-    bool is_num2 = is_numeral(args[1], a1_val, bv_sz);
-    if (is_num1 && (a0_val.is_zero() || a0_val.is_one())) {
-        result = m().mk_true();
-        return BR_DONE;
-    }
-    if (is_num2 && (a1_val.is_zero() || a1_val.is_one())) {
-        result = m().mk_true();
-        return BR_DONE;
-    }
-
-    if (is_num1 && is_num2) {
-        rational ul = rational::power_of_two(bv_sz);
-        rational lim = rational::power_of_two(bv_sz-1);
-        if (a0_val >= lim) a0_val -= ul;
-        if (a1_val >= lim) a1_val -= ul;        
-        rational mr = a0_val * a1_val;
-        rational neg_lim = -lim;
-        TRACE("bv_rewriter_bvsmul_no_underflow", tout << "a0:" << a0_val << " a1:" << a1_val << " mr:" << mr << " neg_lim:" << neg_lim << std::endl;);
-        result = m().mk_bool_val(mr >= neg_lim);
-        return BR_DONE;
-    }
-
-    return BR_FAILED;
-}
 
 
 template class poly_rewriter<bv_rewriter_core>;
