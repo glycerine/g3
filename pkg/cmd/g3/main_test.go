@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_11-F3: mark_as_relevant(true_literal) marks true
+	// (BV numeral bits, FPA and datalog assert_cnstr).
+	"fpa_relevancy_true_literal.smt2": "sat\n(model \n  (define-fun x2 () (_ FloatingPoint 2 2)\n    (_ -oo 2 2))\n  (define-fun x1 () (_ FloatingPoint 2 2)\n    (fp #b1 #b00 #b1))\n  (define-fun x0 () (_ FloatingPoint 2 2)\n    (fp #b0 #b00 #b1))\n)\n",
 	// AUDIT.md smtcore_11-F2: theory_fpa::mk_value returns the owner only for
 	// is_rm_numeral/is_numeral, so an (fp ...) root is canonicalized.
 	"fpa_fp_triple_model_value.smt2": "sat\n((z (fp #b0 #x7e #b00000000000000000000000)))\nfalse\n(fp #b0 #x7f #b00000000000000000000000)\nsat\n((z (_ +zero 8 24)))\ntrue\n",

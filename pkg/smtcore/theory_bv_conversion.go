@@ -330,14 +330,7 @@ func (t *SMTBitVectorTheory) assertIntToBVAxiom(expression ast.ASTHandle) (resul
 }
 
 // Source context::mark_as_relevant(literal) marks the underlying Boolean atom,
-// independently of the literal sign. Reserved true has no Go bool expression.
+// independently of the literal sign; the true and false literals mark true.
 func (t *SMTBitVectorTheory) markLiteralRelevant(literal SMTLiteral) error {
-	if literal.Var() == SMTTrueBoolVar {
-		return nil
-	}
-	expression, err := t.state.BoolExpression(literal.Var())
-	if err != nil {
-		return err
-	}
-	return t.state.markRelevant(expression)
+	return t.state.markLiteralRelevant(literal)
 }

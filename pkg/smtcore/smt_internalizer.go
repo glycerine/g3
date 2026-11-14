@@ -525,6 +525,24 @@ func (s *SMTInternalizerState) markRelevant(expression ast.ASTHandle) error {
 	return s.relevancy.Propagate()
 }
 
+// markLiteralRelevant is context::mark_as_relevant(literal):
+// mark_as_relevant(bool_var2expr(l.var())). bool_var2expr(true_bool_var)
+// is the true expression, so the true literal marks true.
+func (s *SMTInternalizerState) markLiteralRelevant(literal SMTLiteral) error {
+	if literal.Var() == SMTTrueBoolVar {
+		truth, err := s.manager.MkTrue()
+		if err != nil {
+			return err
+		}
+		return s.markRelevant(truth)
+	}
+	atom, err := s.BoolExpression(literal.Var())
+	if err != nil {
+		return err
+	}
+	return s.markRelevant(atom)
+}
+
 func (s *SMTInternalizerState) ensureBooleanEnode(expression ast.ASTHandle, variable int32, suppressArguments, mergeTruthValue, congruenceEnabled bool) error {
 	node, err := s.attachBooleanEnode(expression, variable, suppressArguments, mergeTruthValue, congruenceEnabled)
 	if err != nil {

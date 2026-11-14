@@ -238,14 +238,8 @@ func (t *SMTDatalogTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (bo
 	if err = state.markRelevant(expression); err != nil {
 		return false, err
 	}
-	if leLiteral.Var() != SMTTrueBoolVar {
-		atom, e := state.BoolExpression(leLiteral.Var())
-		if e != nil {
-			return false, e
-		}
-		if e = state.markRelevant(atom); e != nil {
-			return false, e
-		}
+	if err = state.markLiteralRelevant(leLiteral); err != nil {
+		return false, err
 	}
 	if err = state.addTheoryAxiom(t.FamilyID(), []SMTLiteral{lessLiteral, leLiteral}); err != nil {
 		return false, err
@@ -360,14 +354,8 @@ func (t *SMTDatalogTheory) assertConstraint(expression ast.ASTHandle) error {
 	if err != nil {
 		return err
 	}
-	if literal.Var() != SMTTrueBoolVar {
-		atom, e := state.BoolExpression(literal.Var())
-		if e != nil {
-			return e
-		}
-		if e = state.markRelevant(atom); e != nil {
-			return e
-		}
+	if err = state.markLiteralRelevant(literal); err != nil {
+		return err
 	}
 	return state.addTheoryAxiom(t.FamilyID(), []SMTLiteral{literal})
 }
