@@ -1,0 +1,6 @@
+(set-logic QF_S)
+(declare-const s0 String)
+(declare-const s1 String)
+(assert (str.prefixof s0 (str.++ "ab" s1)))
+(check-sat)
+(get-model)

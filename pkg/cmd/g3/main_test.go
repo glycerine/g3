@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_G-F4: mk_nonempty_str_var asserts only the length axiom.
+	"str_nonempty_var.smt2": "sat\n(model \n  (define-fun p1 () Bool\n    true)\n  (define-fun s1 () String\n    \"e\")\n  (define-fun s0 () String\n    \"ab\")\n)\n",
+	// AUDIT.md FUZZ_G-F3/F4: prefixof axiom order; no extra (= $$_str "") axiom.
+	"str_prefixof_order.smt2": "sat\n(model \n  (define-fun s1 () String\n    \"e\")\n  (define-fun s0 () String\n    \"ab\")\n)\n",
 	// AUDIT.md FUZZ_G-F2: free-variable testers in obj_hashtable order.
 	"str_contains_free_order.smt2": "sat\n(model \n  (define-fun s0 () String\n    \"ahabcaaaq\")\n)\n",
 	// AUDIT.md FUZZ_J-F3: farkas lex without optsmt::m_model (see also

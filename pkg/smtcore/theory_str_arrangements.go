@@ -45,6 +45,15 @@ func (t *SMTStringTheory) addNonemptyStringConstraint(variable ast.ASTHandle) (r
 	if err := t.assertAxiom(negative); err != nil {
 		return err
 	}
+	return t.addPositiveStringLengthConstraint(variable)
+}
+
+// mk_nonempty_str_var asserts only !(len(a) <= 0); add_nonempty_constraint
+// asserts !(s = "") first and then the same length axiom.
+func (t *SMTStringTheory) addPositiveStringLengthConstraint(variable ast.ASTHandle) (result error) {
+	m := t.state.manager
+	locals := smtStringLengthPremises{theory: t}
+	defer func() { result = errors.Join(result, locals.close()) }()
 	length, err := m.MkSequenceLength(variable)
 	if err != nil {
 		return err
@@ -77,7 +86,7 @@ func (t *SMTStringTheory) freshNonemptyString() (ast.ASTHandle, error) {
 	if err != nil {
 		return variable, err
 	}
-	return variable, t.addNonemptyStringConstraint(variable)
+	return variable, t.addPositiveStringLengthConstraint(variable)
 }
 
 func (t *SMTStringTheory) refreshStringVariable(variable ast.ASTHandle) error {

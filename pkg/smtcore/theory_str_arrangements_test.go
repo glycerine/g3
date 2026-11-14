@@ -438,3 +438,30 @@ func TestSMTStringConcatResimplificationBridgeGuards(t *testing.T) {
 	stringConcatPairHasAxiom(t, theory, 0, want)
 	astTestMust(t, guards.close())
 }
+
+// FUZZ_G-F4: mk_nonempty_str_var asserts only !(len(a) <= 0); the
+// !(a = "") axiom belongs to add_nonempty_constraint alone.
+func TestSMTStringFreshNonemptyStringAssertsLengthOnly(t *testing.T) {
+	m := astTestManager(t)
+	theory, state := stringTheoryFixture(t, m)
+	variable, err := theory.freshNonemptyString()
+	astTestMust(t, err)
+	empty, err := theory.stringLiteral("")
+	astTestMust(t, err)
+	equality, err := state.MkEqAtom(variable, empty)
+	astTestMust(t, err)
+	astTestPin(t, m, equality)
+	if _, found := state.BoolVar(equality); found {
+		t.Fatal("fresh nonempty string asserted the add_nonempty_constraint (= a \"\") axiom")
+	}
+	length, err := m.MkSequenceLength(variable)
+	astTestMust(t, err)
+	zero, err := m.ArithmeticIntegerNumeralText("0")
+	astTestMust(t, err)
+	bound, err := m.MkArithmeticLE(length, zero)
+	astTestMust(t, err)
+	astTestPin(t, m, bound)
+	if _, found := state.BoolVar(bound); !found {
+		t.Fatal("fresh nonempty string omitted its length axiom")
+	}
+}
