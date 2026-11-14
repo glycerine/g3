@@ -15,31 +15,48 @@ import (
 // elim_to_real_mon/pol release their partially converted factors. The
 // lifetime decides which AST ids later terms get.
 func TestElimToRealFailureTraceIdentity(t *testing.T) {
-	dir := t.TempDir()
-	traceScript := func(log string) string {
-		return fmt.Sprintf(`(set-option :trace true)
-(set-option :trace_file_name %q)
-(declare-const y1 Real)
+	// z3 4.7.1: the converted Int numeral of the failed elim_to_real is
+	// gone before (<= y2 y1) is built, so that application reuses #28.
+	checkTraceIdentity(t, `(declare-const y1 Real)
 (declare-const y2 Real)
 (simplify (<= (- 1.0) y1) :elim_to_real true)
 (simplify (<= y2 y1))
-`, log)
+`, "(<= (- 1.0) y1)\n(<= y2 y1)\n", "\n[mk-app] #28 <= #27 #25\n")
+}
+
+// AUDIT.md FUZZ_A-F9: display_assignment builds both to_expr temporaries
+// of an arithmetic interval and keeps them to the end of the statement.
+func TestObjectiveIntervalDisplayTraceIdentity(t *testing.T) {
+	script, err := os.ReadFile(filepath.Join("test_vectors", "opt_objectives_interval_before_unbounded.smt2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkTraceIdentity(t, string(script), scriptResults["opt_objectives_interval_before_unbounded.smt2"],
+		"\n[mk-app] #50 epsilon\n[mk-app] #53 * #34 #50\n[mk-app] #55 + #34 #53\n")
+}
+
+// checkTraceIdentity runs script with trace=true, checks its output and
+// that the trace log contains want, and with G3_CPP_REFERENCE compares the
+// whole log with the C++ one.
+func checkTraceIdentity(t *testing.T, script, output, want string) {
+	t.Helper()
+	dir := t.TempDir()
+	traceScript := func(log string) string {
+		return fmt.Sprintf("(set-option :trace true)\n(set-option :trace_file_name %q)\n", log) + script
 	}
 	goLog := filepath.Join(dir, "go.log")
-	var output bytes.Buffer
-	if err := run(strings.NewReader(traceScript(goLog)), &output); err != nil {
-		t.Fatal(err, output.String())
+	var actual bytes.Buffer
+	if err := run(strings.NewReader(traceScript(goLog)), &actual); err != nil {
+		t.Fatal(err, actual.String())
 	}
-	if output.String() != "(<= (- 1.0) y1)\n(<= y2 y1)\n" {
-		t.Fatal(output.String())
+	if actual.String() != output {
+		t.Fatal(actual.String())
 	}
 	goTrace, err := os.ReadFile(goLog)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// z3 4.7.1: the converted Int numeral of the failed elim_to_real is
-	// gone before (<= y2 y1) is built, so that application reuses #28.
-	if !bytes.Contains(goTrace, []byte("\n[mk-app] #28 <= #27 #25\n")) {
+	if !bytes.Contains(goTrace, []byte(want)) {
 		t.Fatalf("unexpected AST ids:\n%s", goTrace)
 	}
 	if reference := os.Getenv("G3_CPP_REFERENCE"); reference != "" {

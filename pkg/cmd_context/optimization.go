@@ -973,26 +973,33 @@ func (c *Context) writeObjectiveValue(out io.Writer, objective *optimizationObje
 		return errors.Join(err, c.manager.DelRef(&upperRef), c.manager.DelRef(&lowerRef))
 	}
 	if objective.interval {
-		if _, err := io.WriteString(out, " (interval "); err != nil {
-			return err
-		}
 		lower, upper := objective.modelValue, objective.value
 		if !objective.maximize {
 			lower, upper = upper, lower
 		}
-		if err := c.writeArithmeticObjectiveValue(out, objective.expression, lower, objective.maximize); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(out, " "); err != nil {
-			return err
-		}
-		if err := c.writeArithmeticObjectiveValue(out, objective.expression, upper, objective.maximize); err != nil {
-			return err
-		}
-		_, err := io.WriteString(out, ")")
-		return err
+		// out << "  (interval " << get_lower(i) << " " << get_upper(i):
+		// both to_expr temporaries live to the end of the statement, as in
+		// writeInterval (AUDIT.md FUZZ_A-F9).
+		lowerValue := arithmeticObjectiveDisplayValue(lower, objective.maximize)
+		upperValue := arithmeticObjectiveDisplayValue(upper, objective.maximize)
+		return c.writeInterval(out, &lowerValue, &upperValue)
 	}
 	return c.writeArithmeticObjectiveValue(out, objective.expression, objective.value, objective.maximize)
+}
+
+// arithmeticObjectiveDisplayValue is the inf_eps get_lower_as_num or
+// get_upper_as_num hands to to_expr: +oo or -oo for an unbounded side.
+func arithmeticObjectiveDisplayValue(objective smtcore.SMTArithmeticObjectiveValue, maximize bool) simplex.Infinitesimal {
+	if objective.Unbounded {
+		var infinite simplex.Infinitesimal
+		if maximize {
+			infinite.Infinity.SetInt64(1)
+		} else {
+			infinite.Infinity.SetInt64(-1)
+		}
+		return infinite
+	}
+	return objective.Finite.Clone()
 }
 
 func sameArithmeticObjectiveValue(a, b smtcore.SMTArithmeticObjectiveValue) bool {
