@@ -338,6 +338,12 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_03-F2: three-argument bvadd at depth > 1024 (old g3:
+	// "pre-internalize deep expression" error).
+	"deep_bvadd3_topsort.smt2": "sat\n",
+	// AUDIT.md smtcore_03-F2: deep-expression top-sort must not treat bvadd
+	// (kind 4 of the bv family) as a term ite.
+	"deep_bvadd_topsort.smt2": "sat\n",
 	// AUDIT.md smtcore_06-F2: setup_unknown calls the featureless setup_QF_AX()
 	// for a pure array problem (relevancy and phase left alone).
 	"unknown_setup_pure_array_units.smt2": "sat\n(model \n  ;; universe for V:\n  ;;   V!val!1 V!val!0 V!val!2 \n  ;; -----------\n  ;; definitions for universe elements:\n  (declare-fun V!val!1 () V)\n  (declare-fun V!val!0 () V)\n  (declare-fun V!val!2 () V)\n  ;; cardinality constraint:\n  (forall ((x V)) (or (= x V!val!1) (= x V!val!0) (= x V!val!2)))\n  ;; -----------\n  ;; universe for U:\n  ;;   U!val!0 \n  ;; -----------\n  ;; definitions for universe elements:\n  (declare-fun U!val!0 () U)\n  ;; cardinality constraint:\n  (forall ((x U)) (= x U!val!0))\n  ;; -----------\n  (define-fun i () U\n    U!val!0)\n  (define-fun p () Bool\n    false)\n  (define-fun b () (Array U V)\n    (_ as-array k!1))\n  (define-fun a () (Array U V)\n    (_ as-array k!0))\n  (define-fun v () V\n    V!val!0)\n  (define-fun k () U\n    U!val!0)\n  (define-fun k!0 ((x!0 U)) V\n    (ite (= x!0 U!val!0) V!val!1\n      V!val!2))\n  (define-fun k!1 ((x!0 U)) V\n    (ite (= x!0 U!val!0) V!val!0\n      V!val!2))\n)\n",

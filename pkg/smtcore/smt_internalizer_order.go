@@ -101,7 +101,8 @@ func (o *SMTInternalizationOrder) visitChildren(item SMTInternalizationItem, col
 	if err != nil {
 		return false, err
 	}
-	termITE := operation == ast.ASTOpIte && !boolean
+	// m_manager.is_term_ite(n): a basic-family ite of non-Boolean sort.
+	termITE := family == o.manager.BasicFamilyID() && operation == ast.ASTOpIte && !boolean
 	visited := true
 	push := func(expression ast.ASTHandle, gate bool) {
 		child := SMTInternalizationItem{Expression: expression, GateContext: gate}
@@ -163,8 +164,11 @@ func (o *SMTInternalizationOrder) Sort(root ast.ASTHandle) ([]SMTInternalization
 				continue
 			}
 			colors[item] = 2
+			// m_manager.is_not(curr) tests the basic family and OP_NOT.
 			op, opErr := o.manager.GetDeclKind(item.Expression)
-			if item.Expression != root && (opErr != nil || op != ast.ASTOpNot) {
+			fid, fidErr := o.manager.GetFamilyID(item.Expression)
+			isNot := opErr == nil && fidErr == nil && fid == o.manager.BasicFamilyID() && op == ast.ASTOpNot
+			if item.Expression != root && !isNot {
 				sorted = append(sorted, item)
 			}
 		case 2:

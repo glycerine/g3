@@ -54,3 +54,45 @@ func TestSMTInternalizationOrderTermITEContextsAndInternalizedCutoff(t *testing.
 		t.Fatal("term ITE source order and contexts", got)
 	}
 }
+
+// smtcore_03-F2: m_manager.is_term_ite(n) requires the basic family, so a
+// theory operator whose kind equals OP_ITE (bvadd is kind 4) is visited as
+// an ordinary application.
+func TestSMTInternalizationOrderTheoryOperatorIsNotTermITE(t *testing.T) {
+	m := astTestManager(t)
+	_, err := m.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	family, err := m.RegisterBitVectorPlugin()
+	astTestMust(t, err)
+	sort, err := m.BitVectorSort(8)
+	astTestMust(t, err)
+	var consts []ast.ASTHandle
+	for _, name := range []string{"order-bv-x", "order-bv-y", "order-bv-z"} {
+		c, err := m.MkConst(astTestSymbol(t, m, name), sort)
+		astTestMust(t, err)
+		consts = append(consts, c)
+	}
+	x, y, z := consts[0], consts[1], consts[2]
+	add, err := m.MkFamilyApp(family, 4, nil, []ast.ASTHandle{x, y})
+	astTestMust(t, err)
+	if kind, err := m.GetDeclKind(add); err != nil || kind != ast.ASTOpIte {
+		t.Fatal("bvadd kind no longer collides with OP_ITE", kind, err)
+	}
+	root, err := m.MkEq(add, z)
+	astTestMust(t, err)
+	context, err := NewSMTCheckerContext(m)
+	astTestMust(t, err)
+	order, err := NewSMTInternalizationOrder(m, context)
+	astTestMust(t, err)
+	got, err := order.Sort(root)
+	astTestMust(t, err)
+	want := []ast.ASTHandle{x, y, add, z}
+	if len(got) != len(want) {
+		t.Fatal("bvadd top-sort order", got)
+	}
+	for i := range want {
+		if got[i].Expression != want[i] || got[i].GateContext {
+			t.Fatal("bvadd top-sort order and contexts", got)
+		}
+	}
+}
