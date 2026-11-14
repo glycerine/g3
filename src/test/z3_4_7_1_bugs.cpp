@@ -22,6 +22,11 @@ Abstract:
     z3_4_7_1_pb_preprocess_resolve pb-preprocess resolve: min_index is not set
                                   for the first complement, and a unit clause
                                   is deleted when no complement is found.
+    z3_4_7_1_dt_recognizer        with smt.relevancy=1 a recognizer assigned
+                                  false before it is relevant finds an empty
+                                  recognizer table and is turned into a
+                                  conflict (pkg/AUDIT.md smtcore_10-F3,
+                                  upstream issue #4623).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -30,6 +35,7 @@ Abstract:
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/pb_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
 #include "smt/smt_kernel.h"
 #include "smt/params/smt_params.h"
 #include "tactic/tactic.h"
@@ -226,5 +232,44 @@ void tst_z3_4_7_1_pb_preprocess_resolve() {
         expect("pb_preprocess_resolve", "no-complement plain check", l_false, check_plain(m, fmls));
         expect("pb_preprocess_resolve", "no-complement after pb-preprocess", l_false,
                check_after_tactic(m, mk_pb_preprocess_tactic(m), fmls));
+    }
+}
+
+// (declare-datatypes () ((L nil (cons (hd Int) (tl L)))))
+// (assert (or (not b) (is-cons l))) with smt.relevancy=1: b = false is a
+// model, but assign_eh reaches propagate_recognizer for (is-cons l) = false
+// before relevant_eh has registered the recognizer, the loop sees no
+// recognizers, and the empty conflict makes z3 report unsat.
+void tst_z3_4_7_1_dt_recognizer() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    datatype_util dtutil(m);
+    datatype_decl_plugin & dt = *(static_cast<datatype_decl_plugin*>(m.get_plugin(m.get_family_id("datatype"))));
+    accessor_decl* hd_tl[2] = {
+        mk_accessor_decl(m, symbol("hd"), type_ref(a.mk_int())),
+        mk_accessor_decl(m, symbol("tl"), type_ref(0))
+    };
+    constructor_decl* constrs[2] = {
+        mk_constructor_decl(symbol("nil"), symbol("is-nil"), 0, nullptr),
+        mk_constructor_decl(symbol("cons"), symbol("is-cons"), 2, hd_tl)
+    };
+    datatype_decl * decl = mk_datatype_decl(dtutil, symbol("L"), 0, nullptr, 2, constrs);
+    sort_ref_vector new_sorts(m);
+    VERIFY(dt.mk_datatypes(1, &decl, 0, nullptr, new_sorts));
+    sort* list = new_sorts.get(0);
+    func_decl* cons = (*dtutil.get_datatype_constructors(list))[1];
+    expr_ref l(m.mk_const(symbol("l"), list), m);
+    expr_ref b(bool_const(m, "b"), m);
+    expr_ref is_cons(m.mk_app(dtutil.get_constructor_recognizer(cons), l.get()), m);
+    expr_ref fml(m.mk_or(m.mk_not(b), is_cons), m);
+
+    for (unsigned relevancy = 0; relevancy <= 2; ++relevancy) {
+        smt_params fp;
+        fp.m_relevancy_lvl = relevancy;
+        smt::kernel k(m, fp);
+        k.assert_expr(fml);
+        std::string what = "check with relevancy " + std::to_string(relevancy);
+        expect("dt_recognizer", what.c_str(), l_true, k.check());
     }
 }
