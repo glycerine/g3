@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_H-F6: cofactor-term-ite m_has_term_ite gate and lifetimes (trace).
+	"cofactor_term_ite_trace_ids.smt2": "(goals\n(goal\n  (let ((a!1 (ite (>= x0 0)\n                  (<= x1 (+ 10 (rem 2 x1)))\n                  (<= (+ (* (- 2) x0) x1) (+ 10 (rem 2 x1))))))\n    (not a!1))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md FUZZ_H-F8: apply prints goals through the cmd_context pp_env.
 	"apply_simplify_recognizer_name.smt2": "(goals\n(goal\n  ((_ is cons) l0)\n  :precision precise :depth 1)\n)\n(goals\n(goal\n  |-\n  ((_ is cons) l0)\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md FUZZ_H-F11: fix-dl-var breaks ties in obj_map table order.
@@ -1506,6 +1508,7 @@ func TestTraceLogCPPReference(t *testing.T) {
 		"purify_arith_div_constraint_order.smt2", // FUZZ_C-F7
 		"purify_arith_zero_power_order.smt2",     // FUZZ_C-F7
 		"qe2_apply_div_by_zero.smt2",             // FUZZ_C-F4
+		"cofactor_term_ite_trace_ids.smt2",       // FUZZ_H-F6
 	} {
 		t.Run(name, func(t *testing.T) {
 			input, err := filepath.Abs(filepath.Join("test_vectors", name))

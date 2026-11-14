@@ -16,6 +16,7 @@ type cofactorTermITERewriter struct {
 	owner    *CofactorTermITETactic
 	refs     contextSimplifyRefs
 	memo     map[ast.ASTHandle]ast.ASTHandle
+	hasITE   map[ast.ASTHandle]bool // bottom_up_elim::m_has_term_ite
 	cfg      cofactorRWConfig
 	cofactor *rewriter.Traversal
 }
@@ -107,7 +108,7 @@ func (c *cofactorRWConfig) setCofactorAtom(t ast.ASTHandle) error {
 }
 
 func newCofactorTermITERewriter(owner *CofactorTermITETactic) (*cofactorTermITERewriter, error) {
-	r := &cofactorTermITERewriter{owner: owner, refs: contextSimplifyRefs{m: owner.manager}, memo: make(map[ast.ASTHandle]ast.ASTHandle)}
+	r := &cofactorTermITERewriter{owner: owner, refs: contextSimplifyRefs{m: owner.manager}, memo: make(map[ast.ASTHandle]ast.ASTHandle), hasITE: make(map[ast.ASTHandle]bool)}
 	r.cfg.owner = r
 	var err error
 	r.cfg.mkApp, err = rewriter.NewSimplifiedApp(owner.manager, owner.context, owner.globals, &owner.params)
@@ -124,7 +125,13 @@ func newCofactorTermITERewriter(owner *CofactorTermITETactic) (*cofactorTermITER
 }
 
 func (r *cofactorTermITERewriter) Close() error {
-	return errors.Join(r.cofactor.Close(), r.cfg.mkApp.Close(), r.refs.Close())
+	err := errors.Join(r.cofactor.Close(), r.cfg.mkApp.Close())
+	// m_cache_domain is an expr_ref_vector: released front to back.
+	for i := range r.refs.refs {
+		err = errors.Join(err, r.owner.manager.DelRef(&r.refs.refs[i]))
+	}
+	r.refs.refs = nil
+	return err
 }
 
 func (r *cofactorTermITERewriter) checkpoint() error {
@@ -342,27 +349,27 @@ func (r *cofactorTermITERewriter) applyCofactor(curr, atom ast.ASTHandle, out as
 }
 
 // eliminateAtom is bottom_up_elim::cofactor(t, r).
-func (r *cofactorTermITERewriter) eliminateAtom(atom ast.ASTHandle) (result ast.ASTHandle, resultErr error) {
+func (r *cofactorTermITERewriter) eliminateAtom(atom ast.ASTHandle, out ast.ASTRef) (resultErr error) {
 	m := r.owner.manager
 	curr, err := m.NewRef(atom)
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, m.DelRef(&curr)) }()
 	for {
 		current, err := m.RefGet(curr)
 		if err != nil {
-			return ast.ASTHandle{}, err
+			return err
 		}
 		condition, found, err := r.bestCondition(current)
 		if err != nil {
-			return ast.ASTHandle{}, err
+			return err
 		}
 		if !found {
-			return r.pin(current)
+			return m.SetRef(out, current)
 		}
 		if err = r.cofactorStep(curr, current, condition); err != nil {
-			return ast.ASTHandle{}, err
+			return err
 		}
 	}
 }
@@ -427,7 +434,7 @@ func (r *cofactorTermITERewriter) cofactorStep(curr ast.ASTRef, current, c ast.A
 	return m.SetRef(curr, next)
 }
 
-func (r *cofactorTermITERewriter) rewrite(root ast.ASTHandle) (ast.ASTHandle, error) {
+func (r *cofactorTermITERewriter) rewrite(root ast.ASTHandle) (_ ast.ASTHandle, resultErr error) {
 	if value, ok := r.memo[root]; ok {
 		return value, nil
 	}
@@ -436,8 +443,13 @@ func (r *cofactorTermITERewriter) rewrite(root ast.ASTHandle) (ast.ASTHandle, er
 	}
 	m := r.owner.manager
 	kind, err := m.GetKind(root)
-	if err != nil || kind != ast.ASTApp {
-		return root, err
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if kind != ast.ASTApp {
+		// m_cache.insert(t, t) without a m_cache_domain entry.
+		r.memo[root] = root
+		return root, nil
 	}
 	n, err := m.GetNumArgs(root)
 	if err != nil {
@@ -456,6 +468,17 @@ func (r *cofactorTermITERewriter) rewrite(root ast.ASTHandle) (ast.ASTHandle, er
 		}
 		changed = changed || args[i] != child
 	}
+	hasTermITE := false
+	for _, arg := range args {
+		if r.hasITE[arg] {
+			hasTermITE = true
+		}
+	}
+	if ite, e := r.isTermITE(root); e != nil {
+		return ast.ASTHandle{}, e
+	} else if ite {
+		hasTermITE = true
+	}
 	current := root
 	if changed {
 		decl, e := m.GetDecl(root)
@@ -466,21 +489,45 @@ func (r *cofactorTermITERewriter) rewrite(root ast.ASTHandle) (ast.ASTHandle, er
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		current, e = r.pin(current)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
 	}
-	atom, err := r.isAtom(current)
+	// expr_ref new_t(m)
+	newT, err := m.NewRef(current)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if atom {
-		current, err = r.eliminateAtom(current)
-		if err != nil {
-			return ast.ASTHandle{}, err
+	defer func() { resultErr = errors.Join(resultErr, m.DelRef(&newT)) }()
+	if hasTermITE {
+		atom, e := r.isAtom(current)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		if atom {
+			// expr_ref new_new_t(m); cofactor(new_t, new_new_t); new_t = new_new_t
+			newNewT, e := m.NewRef(ast.ASTHandle{})
+			if e != nil {
+				return ast.ASTHandle{}, e
+			}
+			r.hasITE[current] = true
+			e = r.eliminateAtom(current, newNewT)
+			delete(r.hasITE, current)
+			if e == nil {
+				if current, e = m.RefGet(newNewT); e == nil {
+					e = m.SetRef(newT, current)
+				}
+			}
+			if e = errors.Join(e, m.DelRef(&newNewT)); e != nil {
+				return ast.ASTHandle{}, e
+			}
+			hasTermITE = false
 		}
 	}
+	if hasTermITE {
+		r.hasITE[current] = true
+	}
+	// m_cache.insert(t, new_t); m_cache_domain.push_back(new_t)
 	r.memo[root] = current
+	if _, err = r.pin(current); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	return current, nil
 }

@@ -208,18 +208,25 @@ func (t *CofactorTermITETactic) Apply(goal *tactic.Goal, out *tactic.TacticResul
 		if e != nil {
 			return e
 		}
+		// expr_ref new_f(m); m_elim_ite(f, new_f) destroys its bottom_up_elim
+		// before g.update(i, new_f, ...).
+		newF, e := t.manager.NewRef(ast.ASTHandle{})
+		if e != nil {
+			return errors.Join(e, r.Close())
+		}
 		formula, e = r.rewrite(formula)
 		if e == nil {
-			// The goal holds the result before the rewriter's refs go.
+			e = t.manager.SetRef(newF, formula)
+		}
+		e = errors.Join(e, r.Close())
+		if e == nil {
 			dependency, de := goal.Dependency(i)
 			if de == nil {
 				de = goal.Update(i, formula, ast.ASTHandle{}, dependency)
 			}
-			e = errors.Join(de, r.Close())
-		} else {
-			e = errors.Join(e, r.Close())
+			e = de
 		}
-		if e != nil {
+		if e = errors.Join(e, t.manager.DelRef(&newF)); e != nil {
 			return e
 		}
 	}
