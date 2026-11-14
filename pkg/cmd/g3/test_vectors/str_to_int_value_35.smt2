@@ -1,0 +1,5 @@
+(set-option :smt.string_solver z3str3)
+(declare-const x String)(declare-const i Int)
+(assert (= i (str.to.int x)))
+(assert (= i 35))
+(check-sat)
