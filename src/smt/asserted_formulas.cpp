@@ -230,10 +230,17 @@ void asserted_formulas::reduce() {
         return;
     if (m_qhead == m_formulas.size())
         return;
+    if (m_macro_manager.has_macros()) {
+        // The quantifiers that became macros were removed from m_formulas, so
+        // stored macros must be applied to new formulas even when
+        // macro_finder (or preprocessing) has since been turned off.
+        if (m_smt_params.m_preprocess && m_find_macros.should_apply())
+            invoke(m_find_macros);
+        else
+            expand_macros();
+    }
     if (!m_smt_params.m_preprocess)
         return;
-    if (m_macro_manager.has_macros())
-        invoke(m_find_macros);
 
     TRACE("before_reduce", display(tout););
     CASSERT("well_sorted", check_well_sorted());
@@ -330,6 +337,23 @@ void asserted_formulas::find_macros_core() {
     vector<justified_expr> new_fmls;
     unsigned sz = m_formulas.size();
     (*m_macro_finder)(sz - m_qhead, m_formulas.c_ptr() + m_qhead, new_fmls);
+    swap_asserted_formulas(new_fmls);
+    reduce_and_solve();
+}
+
+void asserted_formulas::expand_macros() {
+    IF_VERBOSE(10, verbose_stream() << "(smt.expand-macros)\n";);
+    vector<justified_expr> new_fmls;
+    unsigned sz = m_formulas.size();
+    for (unsigned i = m_qhead; i < sz; i++) {
+        justified_expr const& j = m_formulas[i];
+        proof * pr = m.proofs_enabled() ? j.get_proof() : nullptr;
+        expr_ref new_n(m);
+        proof_ref new_pr(m);
+        expr_dependency_ref new_dep(m);
+        m_macro_manager.expand_macros(j.get_fml(), pr, nullptr, new_n, new_pr, new_dep);
+        new_fmls.push_back(justified_expr(m, new_n, new_pr));
+    }
     swap_asserted_formulas(new_fmls);
     reduce_and_solve();
 }
