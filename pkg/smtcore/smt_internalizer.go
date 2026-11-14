@@ -1435,7 +1435,18 @@ func (s *SMTInternalizerState) Assert(expression, proof ast.ASTHandle, generatio
 		}
 		return s.markRelevant(expression)
 	}
-	if err = s.Internalize(expression, true); err != nil {
+	if basic && op == ast.ASTOpDistinct {
+		if err = s.assertDistinct(expression, proof); err != nil {
+			return err
+		}
+		return s.markRelevant(expression)
+	}
+	return s.assertDefault(expression, proof)
+}
+
+// assertDefault is context::assert_default.
+func (s *SMTInternalizerState) assertDefault(expression, proof ast.ASTHandle) error {
+	if err := s.Internalize(expression, true); err != nil {
 		return err
 	}
 	literal, err := s.Literal(expression)
@@ -1449,6 +1460,103 @@ func (s *SMTInternalizerState) Assert(expression, proof ast.ASTHandle, generatio
 		return nil
 	}
 	return s.markRelevant(s.boolExpr[literal.Var()])
+}
+
+// smtDistinctSizeThreshold is DISTINCT_SZ_THRESHOLD.
+const smtDistinctSizeThreshold = 32
+
+// assertDistinct is context::assert_distinct: a large distinct (without
+// proofs) maps its arguments injectively, through a fresh function, onto
+// fresh interpreted values of a fresh sort.
+func (s *SMTInternalizerState) assertDistinct(expression, proof ast.ASTHandle) (resultErr error) {
+	arguments, err := s.argumentHandles(expression)
+	if err != nil {
+		return err
+	}
+	proofs, err := s.manager.ProofsEnabled()
+	if err != nil {
+		return err
+	}
+	if len(arguments) == 0 || len(arguments) <= smtDistinctSizeThreshold || proofs {
+		return s.assertDefault(expression, proof)
+	}
+	m := s.manager
+	sort, err := m.GetSort(arguments[0])
+	if err != nil {
+		return err
+	}
+	// sort_ref u and func_decl_ref f, released after the loop (f first).
+	u, err := m.MkFreshSort("distinct-elems")
+	if err != nil {
+		return err
+	}
+	if err = m.IncRef(u); err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, m.DecRef(u)) }()
+	prefix, err := m.Symbols.Intern("distinct-aux-f")
+	if err != nil {
+		return err
+	}
+	suffix, err := m.Symbols.Intern("")
+	if err != nil {
+		return err
+	}
+	f, err := m.MkFreshFuncDecl(prefix, suffix, []ast.ASTHandle{sort}, u)
+	if err != nil {
+		return err
+	}
+	if err = m.IncRef(f); err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, m.DecRef(f)) }()
+	for _, argument := range arguments {
+		if err = s.assertDistinctArgument(f, u, argument); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// assertDistinctArgument is one assert_distinct iteration; its app_refs
+// fapp, val and eq are released in reverse order.
+func (s *SMTInternalizerState) assertDistinctArgument(f, u, argument ast.ASTHandle) (resultErr error) {
+	m := s.manager
+	fapp, err := m.MkApp(f, []ast.ASTHandle{argument})
+	if err != nil {
+		return err
+	}
+	if err = m.IncRef(fapp); err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, m.DecRef(fapp)) }()
+	val, err := m.MkFreshConst("unique-value", u)
+	if err != nil {
+		return err
+	}
+	if err = m.IncRef(val); err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, m.DecRef(val)) }()
+	node, err := s.MkEnode(val, false, false, true)
+	if err != nil {
+		return err
+	}
+	if err = node.MarkAsInterpreted(); err != nil {
+		return err
+	}
+	eq, err := m.MkEq(fapp, val)
+	if err != nil {
+		return err
+	}
+	if err = m.IncRef(eq); err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, m.DecRef(eq)) }()
+	if err = s.assertDefault(eq, ast.ASTHandle{}); err != nil {
+		return err
+	}
+	return s.markRelevant(eq)
 }
 
 func (s *SMTInternalizerState) argumentHandles(expression ast.ASTHandle) ([]ast.ASTHandle, error) {

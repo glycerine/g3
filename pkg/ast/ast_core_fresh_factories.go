@@ -1,6 +1,6 @@
 package ast
 
-// Source: src/ast/ast.cpp:1354,2213-2238; src/ast/ast.h:1811-1825.
+// Source: src/ast/ast.cpp:1354,2213-2244; src/ast/ast.h:1811-1825.
 
 import (
 	"bytes"
@@ -87,6 +87,27 @@ func (m *ASTManager) MkFreshConstNullable(prefix *string, sort ASTHandle) (resul
 	}
 	defer func() { _, err := m.decNode(d); cause = errors.Join(cause, err) }()
 	r, e := m.mkApp(d, nil)
+	return m.external(r), e
+}
+
+// MkFreshSort is ast_manager::mk_fresh_sort: the uninterpreted sort
+// prefix!<fresh_id>, consuming one fresh_id.
+func (m *ASTManager) MkFreshSort(prefix string) (ASTHandle, error) {
+	if e := m.lock(); e != nil {
+		return ASTHandle{}, e
+	}
+	defer m.mu.Unlock()
+	text := prefix + "!" + strconv.FormatUint(uint64(m.freshID), 10)
+	m.freshID++
+	name, e := m.Symbols.Intern(text)
+	if e != nil {
+		return ASTHandle{}, e
+	}
+	k, e := m.registerUserName(name)
+	if e != nil {
+		return ASTHandle{}, e
+	}
+	r, e := m.userSort(k, nil)
 	return m.external(r), e
 }
 

@@ -1,6 +1,7 @@
 package smtcore
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -575,4 +576,59 @@ func smtSameDisjunction(t *testing.T, m *ast.ASTManager, a, b ast.ASTHandle) boo
 		}
 	}
 	return true
+}
+
+// AUDIT.md smtcore_03-F1: context::assert_distinct encodes a distinct with
+// more than DISTINCT_SZ_THRESHOLD arguments as f(arg_i) = unique-value!k.
+func TestSMTInternalizerAssertLargeDistinctUsesAuxFunction(t *testing.T) {
+	for _, count := range []int{32, 33} {
+		m := astTestManager(t)
+		_, values := smtUFConstants(t, m, "big-distinct-", count)
+		distinct, err := m.MkDistinct(values)
+		astTestMust(t, err)
+		astTestPin(t, m, distinct)
+		_, _, state := smtInternalizerFixture(t, m, nil)
+		astTestMust(t, state.Assert(distinct, ast.ASTHandle{}, 0))
+		variable, found := state.BoolVar(distinct)
+		if count == 32 {
+			if !found {
+				t.Fatal("small distinct was not asserted directly")
+			}
+			value, err := state.Assignment(NewSMTLiteral(variable, false))
+			astTestMust(t, err)
+			if value != lbool.True {
+				t.Fatal("small distinct not assigned true", value)
+			}
+			continue
+		}
+		if found {
+			t.Fatal("large distinct got a Boolean variable")
+		}
+		if n := state.boolVar.count(); n != count {
+			t.Fatal("large distinct Boolean variables", n)
+		}
+		for v := SMTFirstBoolVar; v < SMTFirstBoolVar+int32(count); v++ {
+			value, err := state.Assignment(NewSMTLiteral(v, false))
+			astTestMust(t, err)
+			if value != lbool.True {
+				t.Fatal("auxiliary equality not assigned true", v, value)
+			}
+			eq := state.boolExpr[v]
+			val, err := m.GetArg(eq, 1)
+			astTestMust(t, err)
+			node := state.context.enodes.get(val)
+			if node == nil || !node.IsInterpreted() {
+				t.Fatal("unique value is not an interpreted enode", v)
+			}
+			declaration, err := m.GetDecl(val)
+			astTestMust(t, err)
+			name, err := m.GetASTName(declaration)
+			astTestMust(t, err)
+			text, err := m.Symbols.Display(name)
+			astTestMust(t, err)
+			if !strings.HasPrefix(text, "unique-value!") {
+				t.Fatal("unique value name", text)
+			}
+		}
+	}
 }
