@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_13-F5: UTVPI mk_term internalizes the arguments
+	// before mk_enode (was unknown).
+	"utvpi_term_under_uf.smt2": "sat\n((x 0))\n",
 	// AUDIT.md smtcore_09-F2: UTVPI parity checks on fractional Int
 	// vertices are debug-only in C++ (was unknown).
 	"utvpi_fractional_int_bounds.smt2": "unsat\n",

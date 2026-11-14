@@ -250,6 +250,20 @@ func (t *SMTUTVPITheory) InternalizeTerm(expression ast.ASTHandle) (bool, error)
 	}
 	node := t.state.context.enodes.get(expression)
 	if node == nil {
+		// mk_term: for (i < n->get_num_args()) mk_term(to_app(n->get_arg(i)));
+		count, err := t.state.manager.GetNumArgs(expression)
+		if err != nil {
+			return false, err
+		}
+		for i := uint32(0); i < count; i++ {
+			argument, err := t.state.manager.GetArg(expression, i)
+			if err != nil {
+				return false, err
+			}
+			if err := t.state.Internalize(argument, false); err != nil {
+				return false, err
+			}
+		}
 		node, err = t.state.MkEnode(expression, false, false, true)
 		if err != nil {
 			return false, err

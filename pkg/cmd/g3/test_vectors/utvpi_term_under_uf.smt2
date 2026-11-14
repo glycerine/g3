@@ -1,0 +1,8 @@
+(set-option :auto_config false)
+(set-option :smt.arith.solver 4)
+(declare-const x Int)
+(declare-fun g (Int) Bool)
+(assert (g (- x)))
+(assert (<= x 2))
+(check-sat)
+(get-value (x))
