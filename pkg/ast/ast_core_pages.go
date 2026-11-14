@@ -81,31 +81,6 @@ func (m *ASTManager) ensureFuncDeclPage(slot uint32) error {
 	return nil
 }
 
-func (m *ASTManager) ensureAppPage(slot uint32) error {
-	index := int((slot - 1) / astPageSize)
-	if index >= len(m.apps) {
-		if index >= cap(m.apps) {
-			old := cap(m.apps)
-			n, e := m.prepareDirectory(old, index+1)
-			if e != nil {
-				return e
-			}
-			next := make([]*astAppPage, len(m.apps), n)
-			copy(next, m.apps)
-			m.apps = next
-			m.publishDirectory(old, n)
-		}
-		m.apps = m.apps[:index+1]
-	}
-	if m.apps[index] == nil {
-		if e := m.reservePage(uint64(reflect.TypeOf(astAppPage{}).Size())); e != nil {
-			return e
-		}
-		m.apps[index] = new(astAppPage)
-	}
-	return nil
-}
-
 func (m *ASTManager) ensureVarPage(slot uint32) error {
 	index := int((slot - 1) / astPageSize)
 	if index >= len(m.vars) {

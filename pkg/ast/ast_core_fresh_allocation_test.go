@@ -17,11 +17,7 @@ func TestASTFreshConstApplicationFailureReleasesTemporaryDeclaration(t *testing.
 					m := astTestManager(t)
 					sort, err := m.MkBoolSort()
 					astTestMust(t, err)
-					for (m.nextKind[ASTApp]-1)%astPageSize != 0 {
-						warm, err := m.MkFreshConst("fresh-allocation-warm", sort)
-						astTestMust(t, err)
-						astTestPin(t, m, warm)
-					}
+					astTestAlignFreshAppToNodePage(t, m, sort, true)
 					prefix := "fresh-allocation"
 					pointer := &prefix
 					if nullPrefix {
@@ -78,5 +74,26 @@ func TestASTFreshConstApplicationFailureReleasesTemporaryDeclaration(t *testing.
 				t.Fatal("campaign missed declaration publication before app failure or completion", publishedFailure, completed)
 			}
 		})
+	}
+}
+
+// astTestAlignFreshAppToNodePage warms m until the next MkFreshConst puts
+// its declaration in the last slot of a node page, so its application needs
+// a fresh node page (application records live in node slots). Fresh
+// constants take two slots; a variable takes one, to fix the parity.
+func astTestAlignFreshAppToNodePage(t *testing.T, m *ASTManager, sort ASTHandle, pin bool) {
+	t.Helper()
+	for index := uint32(0); m.freeNode != 0 || m.nextNode%astPageSize != 0; index++ {
+		var warm ASTHandle
+		var err error
+		if (astPageSize-m.nextNode%astPageSize)%2 == 1 && m.freeNode == 0 {
+			warm, err = m.MkVar(index, sort)
+		} else {
+			warm, err = m.MkFreshConst("fresh-allocation-warm", sort)
+		}
+		astTestMust(t, err)
+		if pin {
+			astTestPin(t, m, warm)
+		}
 	}
 }

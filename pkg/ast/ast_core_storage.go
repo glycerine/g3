@@ -141,7 +141,6 @@ type astFuncDeclRecord struct {
 	identityCached bool
 }
 type astAppRecord struct {
-	nextFree                    uint32
 	decl                        astNodeRef
 	args                        arena.SmallBytesRef
 	count, depth                uint32
@@ -209,10 +208,16 @@ type astRefRecord struct {
 
 const astPageSize = 64
 
-type astNodePage [astPageSize]astNodeRecord
+// astNodePage holds each node slot's application record in the same page as
+// its node record, indexed by slot, so app reads need neither kindIndex nor a
+// second page. app[i] is meaningful only while slot i holds a live
+// application; allocateNode clears it when an application takes the slot.
+type astNodePage struct {
+	node [astPageSize]astNodeRecord
+	app  [astPageSize]astAppRecord
+}
 type astSortPage [astPageSize]astSortRecord
 type astFuncDeclPage [astPageSize]astFuncDeclRecord
-type astAppPage [astPageSize]astAppRecord
 type astVarPage [astPageSize]astVarRecord
 type astQuantifierPage [astPageSize]astQuantifierRecord
 type astParameterPage [astPageSize]astParameterRecord
@@ -269,7 +274,6 @@ type ASTManager struct {
 	Self                                         *ASTManager
 	origin                                       uint64
 	nodes                                        []*astNodePage
-	apps                                         []*astAppPage
 	pendingDeletions                             []astDeletionContinuation
 	nextNode                                     uint32
 	traceExecuting, formatExecuting              bool
@@ -410,7 +414,7 @@ func astDirectoryGrowth(old, needed uint32, width uint64) (uint32, error) {
 	return uint32(n), nil
 }
 func (m *ASTManager) nodeAt(slot uint32) *astNodeRecord {
-	return &m.nodes[(slot-1)/astPageSize][(slot-1)%astPageSize]
+	return &m.nodes[(slot-1)/astPageSize].node[(slot-1)%astPageSize]
 }
 func (m *ASTManager) sortAt(slot uint32) *astSortRecord {
 	index := m.nodeAt(slot).kindIndex
@@ -421,8 +425,7 @@ func (m *ASTManager) declAt(slot uint32) *astFuncDeclRecord {
 	return &m.decls[(index-1)/astPageSize][(index-1)%astPageSize]
 }
 func (m *ASTManager) appAt(slot uint32) *astAppRecord {
-	index := m.nodeAt(slot).kindIndex
-	return &m.apps[(index-1)/astPageSize][(index-1)%astPageSize]
+	return &m.nodes[(slot-1)/astPageSize].app[(slot-1)%astPageSize]
 }
 func (m *ASTManager) varAt(slot uint32) *astVarRecord {
 	index := m.nodeAt(slot).kindIndex

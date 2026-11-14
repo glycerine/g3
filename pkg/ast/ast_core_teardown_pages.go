@@ -7,7 +7,6 @@ func (m *ASTManager) releasePages() {
 	m.nodes = nil
 	m.sorts = nil
 	m.decls = nil
-	m.apps = nil
 	m.vars = nil
 	m.quantifiers = nil
 	m.Parameters = nil

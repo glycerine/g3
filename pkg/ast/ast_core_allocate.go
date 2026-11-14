@@ -6,8 +6,10 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 )
 
+// allocateKind allocates the kind record of a non-application node;
+// application records live in the node page, by slot (astNodePage).
 func (m *ASTManager) allocateKind(kind ASTKind) (uint32, error) {
-	if kind > ASTFuncDecl {
+	if kind > ASTFuncDecl || kind == ASTApp {
 		return 0, ErrASTDomain
 	}
 	i := m.freeKind[kind]
@@ -21,10 +23,6 @@ func (m *ASTManager) allocateKind(kind ASTKind) (uint32, error) {
 			r := &m.decls[(i-1)/astPageSize][(i-1)%astPageSize]
 			m.freeKind[kind] = r.nextFree
 			*r = astFuncDeclRecord{}
-		case ASTApp:
-			r := &m.apps[(i-1)/astPageSize][(i-1)%astPageSize]
-			m.freeKind[kind] = r.nextFree
-			*r = astAppRecord{}
 		case ASTVar:
 			r := &m.vars[(i-1)/astPageSize][(i-1)%astPageSize]
 			m.freeKind[kind] = r.nextFree
@@ -46,8 +44,6 @@ func (m *ASTManager) allocateKind(kind ASTKind) (uint32, error) {
 		e = m.ensureSortPage(i)
 	case ASTFuncDecl:
 		e = m.ensureFuncDeclPage(i)
-	case ASTApp:
-		e = m.ensureAppPage(i)
 	case ASTVar:
 		e = m.ensureVarPage(i)
 	case ASTQuantifier:
@@ -61,14 +57,15 @@ func (m *ASTManager) allocateKind(kind ASTKind) (uint32, error) {
 }
 func (m *ASTManager) freeKindRecord(slot uint32) {
 	n := m.nodeAt(slot)
+	if n.kind == ASTApp {
+		return // the app record lives in the node slot
+	}
 	next := m.freeKind[n.kind]
 	switch n.kind {
 	case ASTSort:
 		m.sortAt(slot).nextFree = next
 	case ASTFuncDecl:
 		m.declAt(slot).nextFree = next
-	case ASTApp:
-		m.appAt(slot).nextFree = next
 	case ASTVar:
 		m.varAt(slot).nextFree = next
 	case ASTQuantifier:
@@ -103,6 +100,13 @@ func (m *ASTManager) allocateNode(kind ASTKind) (astNodeRef, error) {
 	}
 	n := m.nodeAt(slot)
 	*n = astNodeRecord{generation: generation, kind: kind, id: math.MaxUint32}
+	if kind == ASTApp {
+		*m.appAt(slot) = astAppRecord{}
+		n.kindIndex = slot
+		n.live = true
+		m.liveNodes++
+		return astNodeRef{slot, generation}, nil
+	}
 	index, e := m.allocateKind(kind)
 	if e != nil {
 		n.nextFree = m.freeNode

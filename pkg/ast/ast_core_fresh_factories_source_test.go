@@ -193,10 +193,7 @@ func TestASTFreshConstApplicationFailureRetainsDeclarationCounter(t *testing.T) 
 		astTestMust(t, e)
 		sort, e := m.MkBoolSort()
 		astTestMust(t, e)
-		for (m.nextKind[ASTApp]-1)%astPageSize != 0 {
-			_, e = m.MkFreshConst("warm", sort)
-			astTestMust(t, e)
-		}
+		astTestAlignFreshAppToNodePage(t, m, sort, false)
 		initialID := m.freshID
 		other := budget.Used() - astTestSymbolGraph(s) - m.Stats().AllocatedBytes
 		budget.FailAfter(after)
