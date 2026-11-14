@@ -217,6 +217,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_pb_preprocess_resolve);
     TST(z3_4_7_1_dt_recognizer);
     TST(z3_4_7_1_dom_simplify_oscillation);
+    TST(z3_4_7_1_update_field_constructor);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);

@@ -30,6 +30,10 @@ Abstract:
     z3_4_7_1_dom_simplify_oscillation dom-simplify's simplify_goal loops
                                   forever when its forward and backward
                                   passes keep changing the goal.
+    z3_4_7_1_update_field_constructor ((_ update-field fst) (mkp i red) j)
+                                  is rewritten to (mkp i red): the rewriter
+                                  looks up the update-field declaration as
+                                  if it were the accessor.
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -45,6 +49,7 @@ Abstract:
 #include "tactic/goal.h"
 #include "tactic/core/dom_simplify_tactic.h"
 #include "tactic/core/pb_preprocess_tactic.h"
+#include "api/z3.h"
 #include <iostream>
 #ifndef _WINDOWS
 #include <csignal>
@@ -317,4 +322,30 @@ void tst_z3_4_7_1_dom_simplify_oscillation() {
 #ifndef _WINDOWS
     alarm(0);
 #endif
+}
+
+// ((_ update-field fst) (mkp i red) j) must rewrite to (mkp j red).
+// datatype_rewriter::mk_app_core passes the update-field declaration to
+// get_accessor_constructor, gets no matching constructor and returns
+// (mkp i red) unchanged, so the script below is answered sat (fixed
+// upstream in f989e4eb38, "fix #2276").
+void tst_z3_4_7_1_update_field_constructor() {
+    char const* script =
+        "(declare-datatypes () ((C red green blue)))\n"
+        "(declare-datatypes () ((P (mkp (fst Int) (snd C)))))\n"
+        "(declare-const p0 P)\n"
+        "(declare-const i Int)\n"
+        "(declare-const j Int)\n"
+        "(assert (= ((_ update-field fst) (mkp i red) j) p0))\n"
+        "(assert (not (= (fst p0) j)))\n"
+        "(check-sat)\n"
+        "(simplify ((_ update-field fst) (mkp i red) j))\n";
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    std::string out = Z3_eval_smtlib2_string(ctx, script);
+    Z3_del_context(ctx);
+    std::string expected = "unsat\n(mkp j red)\n";
+    std::cout << "update_field_constructor: expected\n" << expected << "got\n" << out;
+    ENSURE(out == expected);
 }
