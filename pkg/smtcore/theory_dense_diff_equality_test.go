@@ -188,3 +188,36 @@ func TestSMTDenseDifferenceEqualityRestartRecreatesEagerDisabledAxioms(t *testin
 		t.Fatal("dense restart did not recreate equality axioms", len(f.theory.adapter.restart), f.theory.adapter.NumAxioms(), len(f.state.clauses), len(f.theory.atoms))
 	}
 }
+
+// AUDIT.md smtcore_10-F2: internalize_atom matches (+ t (* -1 s)) and
+// internalizes s and t as whole terms, so an attached offset term is a
+// valid operand.
+func TestSMTDenseDifferenceAtomAcceptsAttachedOffsetTerm(t *testing.T) {
+	f := newSMTDenseEqualityFixture(t, true, SMTArithState{})
+	m := f.manager
+	one, err := m.ArithmeticNumeralRat(big.NewRat(1, 1), true)
+	astTestMust(t, err)
+	minusOne, err := m.ArithmeticNumeralRat(big.NewRat(-1, 1), true)
+	astTestMust(t, err)
+	zero, err := m.ArithmeticNumeralRat(new(big.Rat), true)
+	astTestMust(t, err)
+	offset, err := m.MkFamilyApp(f.family, smtArithOpAdd, nil, []ast.ASTHandle{one, f.x})
+	astTestMust(t, err)
+	astTestMust(t, f.state.Internalize(offset, false))
+	astTestMust(t, f.state.Internalize(f.y, false))
+	negY, err := m.MkFamilyApp(f.family, smtArithOpMul, nil, []ast.ASTHandle{minusOne, f.y})
+	astTestMust(t, err)
+	difference, err := m.MkFamilyApp(f.family, smtArithOpAdd, nil, []ast.ASTHandle{offset, negY})
+	astTestMust(t, err)
+	atom, err := m.MkFamilyApp(f.family, smtArithOpLE, nil, []ast.ASTHandle{difference, zero})
+	astTestMust(t, err)
+	astTestMust(t, f.state.Internalize(atom, true))
+	if f.theory.unsupported || len(f.theory.atoms) != 1 {
+		t.Fatal("dense atom over an offset term was rejected", f.theory.unsupported, len(f.theory.atoms))
+	}
+	target := f.state.context.enodes.get(offset).TheoryVar(f.family)
+	source := f.state.context.enodes.get(f.y).TheoryVar(f.family)
+	if a := f.theory.atoms[0]; a.target != int(target) || a.source != int(source) {
+		t.Fatal("atom operands", a.source, a.target, source, target)
+	}
+}

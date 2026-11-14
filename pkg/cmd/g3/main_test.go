@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_10-F2: dense internalize_atom matches the four C++
+	// shapes, so offset terms from arith_eq_adapter are accepted.
+	"dense_offset_equality_adapter.smt2": "unsat\n",
+	"dense_offset_difference_sat.smt2":   "sat\n",
 	// AUDIT.md smtcore_10-F1: internalize_concat adds each argument's bits
 	// before the next argument's variable is created.
 	"bv_concat_ite_static_diseq_order.smt2": "sat\n(model \n  (define-fun v3 () (_ BitVec 4)\n    #xc)\n  (define-fun v2 () (_ BitVec 4)\n    #xf)\n  (define-fun v0 () (_ BitVec 4)\n    #xf)\n  (define-fun p2 () Bool\n    true)\n  (define-fun p0 () Bool\n    false)\n  (define-fun v1 () (_ BitVec 4)\n    #x3)\n  (define-fun f ((x!0 (_ BitVec 4))) (_ BitVec 4)\n    (ite (= x!0 #xf) #x0\n      #x0))\n)\n",

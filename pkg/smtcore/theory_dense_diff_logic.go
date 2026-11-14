@@ -205,36 +205,57 @@ func (t *SMTDenseDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (
 		t.unsupported = true
 		return false, nil
 	}
-	terms, signs, err := t.syntax.decompose(lhs)
-	if err != nil {
-		return false, err
-	}
+	// theory_dense_diff_logic::internalize_atom matches four fixed shapes.
 	var source, target ast.ASTHandle
-	if len(terms) == 2 && signs[0] != signs[1] {
-		target, source = terms[0], terms[1]
-		if !signs[0] {
-			source, target = target, source
+	matched := false
+	if arg1, arg2, ok, err := t.denseBinaryApp(lhs, smtArithOpAdd); err != nil {
+		return false, err
+	} else if ok {
+		// (+ t (* -1 s)) then (+ (* -1 s) t)
+		if r, ok, err := t.denseTimesMinusOne(arg2); err != nil {
+			return false, err
+		} else if ok {
+			source, target, matched = r, arg1, true
+		} else if r, ok, err := t.denseTimesMinusOne(arg1); err != nil {
+			return false, err
+		} else if ok {
+			source, target, matched = r, arg2, true
 		}
-	} else if len(terms) == 1 {
-		sort, err := m.GetSort(terms[0])
+	}
+	if !matched {
+		if arg1, arg2, ok, err := t.denseBinaryApp(lhs, smtArithOpMul); err != nil {
+			return false, err
+		} else if ok {
+			// (* -1 s): t = mk_zero_for(s)
+			value, numeral, err := t.syntax.numeral(arg1)
+			if err != nil {
+				return false, err
+			}
+			if numeral && value.Cmp(big.NewRat(-1, 1)) == 0 {
+				zero, err := t.denseZeroFor(arg2)
+				if err != nil {
+					return false, err
+				}
+				source, target, matched = arg2, zero, true
+			}
+		}
+	}
+	if !matched {
+		_, arithmetic, err := t.syntax.operation(lhs)
 		if err != nil {
 			return false, err
 		}
-		integer, err := t.syntax.integerSort(sort)
+		if arithmetic {
+			// found_non_diff_logic_expr(n)
+			t.unsupported = true
+			return false, nil
+		}
+		// !is_arith_expr(lhs): s = mk_zero_for(t)
+		zero, err := t.denseZeroFor(lhs)
 		if err != nil {
 			return false, err
 		}
-		zero, err := m.ArithmeticNumeralRat(new(big.Rat), integer)
-		if err != nil {
-			return false, err
-		}
-		source, target = zero, terms[0]
-		if !signs[0] {
-			source, target = target, source
-		}
-	} else {
-		t.unsupported = true
-		return false, nil
+		source, target = zero, lhs
 	}
 	s, err := t.term(source)
 	if err != nil {
@@ -516,4 +537,54 @@ func (t *SMTDenseDiffTheory) ModelValue(node *SMTEnode, generator *SMTModelGener
 		return nil, err
 	}
 	return NewSMTExpressionValueProcedure(expression)
+}
+
+// denseBinaryApp is arith_util::is_add(n, a1, a2) / is_mul(n, a1, a2): an
+// application of op with exactly two arguments.
+func (t *SMTDenseDiffTheory) denseBinaryApp(expression ast.ASTHandle, op int32) (ast.ASTHandle, ast.ASTHandle, bool, error) {
+	kind, arithmetic, err := t.syntax.operation(expression)
+	if err != nil || !arithmetic || kind != op {
+		return ast.ASTHandle{}, ast.ASTHandle{}, false, err
+	}
+	m := t.state.manager
+	count, err := m.GetNumArgs(expression)
+	if err != nil || count != 2 {
+		return ast.ASTHandle{}, ast.ASTHandle{}, false, err
+	}
+	first, err := m.GetArg(expression, 0)
+	if err != nil {
+		return ast.ASTHandle{}, ast.ASTHandle{}, false, err
+	}
+	second, err := m.GetArg(expression, 1)
+	if err != nil {
+		return ast.ASTHandle{}, ast.ASTHandle{}, false, err
+	}
+	return first, second, true, nil
+}
+
+// denseTimesMinusOne is arith_util::is_times_minus_one: (* -1 r).
+func (t *SMTDenseDiffTheory) denseTimesMinusOne(expression ast.ASTHandle) (ast.ASTHandle, bool, error) {
+	coefficient, r, ok, err := t.denseBinaryApp(expression, smtArithOpMul)
+	if err != nil || !ok {
+		return ast.ASTHandle{}, false, err
+	}
+	value, numeral, err := t.syntax.numeral(coefficient)
+	if err != nil || !numeral || value.Cmp(big.NewRat(-1, 1)) != 0 {
+		return ast.ASTHandle{}, false, err
+	}
+	return r, true, nil
+}
+
+// denseZeroFor is mk_zero_for: the numeral 0 of n's sort.
+func (t *SMTDenseDiffTheory) denseZeroFor(expression ast.ASTHandle) (ast.ASTHandle, error) {
+	m := t.state.manager
+	sort, err := m.GetSort(expression)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	integer, err := t.syntax.integerSort(sort)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return m.ArithmeticNumeralRat(new(big.Rat), integer)
 }
