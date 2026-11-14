@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_rewriter_01-F7: an even root of a negative irrational throws
+	// the algebraic exception, which simplify reports as "simplifier failed".
+	"arith_anum_even_root_negative.smt2": "(error \"simplifier failed: even root of negative number is not real\")\n(^ (- (^ 2.0 (/ 1.0 2.0))) (/ 1.0 2.0))\n(error \"simplifier failed: even root of negative number is not real\")\n(^ (- (^ 2.0 (/ 1.0 2.0))) (/ 3.0 2.0))\n(error \"simplifier failed: even root of negative number is not real\")\n(+ 1.0 (^ (- (^ 2.0 (/ 1.0 2.0))) (/ 1.0 2.0)))\n(root-obj (+ (^ x 6) (- 2)) 1)\nunknown\n(:reason-unknown \"even root of negative number is not real\")\n",
 	// AUDIT.md ast_rewriter_01-F6: an unmatched pi offset falls through to
 	// is_2_pi_integer_offset in mk_sin_core/mk_cos_core.
 	"arith_trig_pi_offset_fallthrough.smt2": "(sin (+ x (* (/ 1.0 3.0) pi)))\n(cos (+ x (* (/ 1.0 3.0) pi)))\n(cos x)\n(* (- 1.0) (cos x))\n(sin (+ x (* (/ 1.0 3.0) pi)))\n(tan (+ x (* (/ 1.0 3.0) pi)))\n",

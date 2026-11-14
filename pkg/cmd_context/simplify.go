@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/math/polynomial"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/tactic/portfolio"
 	"github.com/glycerine/g3/pkg/util/control"
@@ -194,8 +195,11 @@ func (c *Context) simplifyWithDetails(expression ast.ASTHandle, params *uparams.
 		return result, proof, details, errors.Join(rewriteErr, err)
 	}
 	if rewriteErr != nil {
+		// simplify_cmd catches z3_exception: rewriter, AST and algebraic
+		// (am.root's "even root of negative number is not real") exceptions.
 		var astException ast.ASTException
-		if !catchFailure || !rewriter.IsRewriterException(rewriteErr) && !errors.As(rewriteErr, &astException) {
+		var algebraicException polynomial.AlgebraicException
+		if !catchFailure || !rewriter.IsRewriterException(rewriteErr) && !errors.As(rewriteErr, &astException) && !errors.As(rewriteErr, &algebraicException) {
 			return result, proof, details, rewriteErr
 		}
 		details.Failed = true

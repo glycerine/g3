@@ -427,15 +427,8 @@ func (r *ArithRewriter) rewriteAlgebraicPower(base ast.ASTHandle, num, den uint3
 	if err != nil || degree > r.maxDegree {
 		return RewriteFailed, err
 	}
-	if den%2 == 0 {
-		isNegative, e := manager.IsNeg(&value)
-		if e != nil {
-			return RewriteFailed, e
-		}
-		if isNegative && num%2 == 1 {
-			return RewriteFailed, nil
-		}
-	}
+	// No sign test: am.root throws algebraic_exception "even root of
+	// negative number is not real" (the sign guard is for rational x only).
 	var powered polynomial.Algebraic
 	if err = manager.Power(&value, num, &powered); err != nil {
 		return RewriteFailed, err

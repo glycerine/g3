@@ -1,0 +1,8 @@
+(simplify (^ (- (^ 2.0 0.5)) 0.5))
+(simplify (^ (- (^ 2.0 0.5)) (/ 3.0 2.0)))
+(simplify (+ 1.0 (^ (- (^ 2.0 0.5)) 0.5)))
+(simplify (^ (- (^ 2.0 0.5)) (/ 1.0 3.0)))
+(declare-const y Real)
+(assert (= y (^ (- (^ 2.0 0.5)) 0.5)))
+(check-sat)
+(get-info :reason-unknown)
