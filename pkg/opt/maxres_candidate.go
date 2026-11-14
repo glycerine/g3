@@ -6,6 +6,7 @@ import "errors"
 import "fmt"
 import "math/big"
 
+import "github.com/glycerine/g3/pkg/ast"
 import "github.com/glycerine/g3/pkg/model"
 
 func (e *maxResEngine) updateMUSModel(result *ArithmeticResult) error {
@@ -57,9 +58,16 @@ func (e *maxResEngine) updateCandidateModel(result *ArithmeticResult, md *model.
 		return errors.Join(fmt.Errorf("maxres candidate objective: %w", err), md.DecRef())
 	}
 	e.stats.Candidates++
-	correction, err := e.correctionSet(md)
-	if err != nil {
-		return errors.Join(fmt.Errorf("maxres candidate correction: %w", err), md.DecRef())
+	// Only update_assignment counts the correction set (is_false, with
+	// model completion); maxsmt_solver_base::init never evaluates m_asms
+	// in the base model, which opt::context shares as m_model
+	// (AUDIT.md FUZZ_A-F11).
+	var correction []ast.ASTHandle
+	if !e.initialCandidate {
+		correction, err = e.correctionSet(md)
+		if err != nil {
+			return errors.Join(fmt.Errorf("maxres candidate correction: %w", err), md.DecRef())
+		}
 	}
 	e.currentCorrection = append(e.currentCorrection[:0], correction...)
 	correctionSize := len(correction)
