@@ -1435,6 +1435,9 @@ func TestSMTLibRunnerScripts(t *testing.T) {
 			if sourceDebugModusPonensRefusal(t, name, err, &out) {
 				return
 			}
+			if sourceDebugQSATDefinitionRefusal(t, name, err, &out) {
+				return
+			}
 			if parseErrorScripts[name] && !expectedParseError(name, err) {
 				t.Fatal("expected the first parser error", err, out.String())
 			}
@@ -1460,6 +1463,27 @@ func sourceDebugModusPonensRefusal(t *testing.T, name string, err error, out *by
 	want := "line 8 column 26: " + ast.ErrASTDomain.Error()
 	if err == nil || err.Error() != want || out.String() != "(error \""+want+"\")\n" {
 		t.Fatalf("source debug modus ponens assertion err=%q output=%q", err, out.String())
+	}
+	return true
+}
+
+// The native executable is a release build. qsat.cpp:626 asserts
+// validate_defs("check_sat") in source debug builds: every predicate must
+// evaluate (without model completion) to its literal's value. With (div x0 0)
+// the literal evaluates to (<= (div 4 0) 2), not false, so the assertion
+// fails; the release build never checks it.
+func sourceDebugQSATDefinitionRefusal(t *testing.T, name string, err error, out *bytes.Buffer) bool {
+	t.Helper()
+	column, ok := map[string]string{
+		"qe2_div_by_zero_atom.smt2":  "31",
+		"qe2_apply_div_by_zero.smt2": "10",
+	}[name]
+	if !ast.ASTSourceDebug || !ok {
+		return false
+	}
+	want := "line 4 column " + column + ": " + ast.ErrASTDomain.Error()
+	if err == nil || err.Error() != want || out.String() != "(error \""+want+"\")\n" {
+		t.Fatalf("source debug qsat validate_defs assertion err=%q output=%q", err, out.String())
 	}
 	return true
 }
