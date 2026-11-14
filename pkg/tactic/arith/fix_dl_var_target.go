@@ -15,8 +15,7 @@ type fixDLTarget struct {
 	owner              *FixDLVarTactic
 	visited            map[ast.ASTHandle]bool
 	todo               []ast.ASTHandle
-	occurrences, units map[ast.ASTHandle]uint32
-	order              []ast.ASTHandle
+	occurrences, units *ast.ObjMap // m_occs, m_non_nested_occs
 }
 
 func (t *FixDLVarTactic) dlApp(term ast.ASTHandle) (family ast.FamilyID, op int32, args []ast.ASTHandle, app bool, err error) {
@@ -73,12 +72,16 @@ func (s *fixDLTarget) visit(term ast.ASTHandle, nested bool) error {
 			return err
 		}
 		if arithmetic {
-			if _, found := s.occurrences[term]; !found {
-				s.order = append(s.order, term)
+			entry, err := s.occurrences.InsertIfNotThere(term)
+			if err != nil {
+				return err
 			}
-			s.occurrences[term]++
+			entry.Num++
 			if !nested {
-				s.units[term]++
+				if entry, err = s.units.InsertIfNotThere(term); err != nil {
+					return err
+				}
+				entry.Num++
 			}
 		}
 	}
@@ -267,7 +270,7 @@ func (s *fixDLTarget) process(root ast.ASTHandle) error {
 	return nil
 }
 func (t *FixDLVarTactic) selectDLVariable(goal *tactic.Goal) (ast.ASTHandle, error) {
-	s := fixDLTarget{owner: t, visited: make(map[ast.ASTHandle]bool), occurrences: make(map[ast.ASTHandle]uint32), units: make(map[ast.ASTHandle]uint32)}
+	s := fixDLTarget{owner: t, visited: make(map[ast.ASTHandle]bool), occurrences: ast.NewObjMap(t.manager), units: ast.NewObjMap(t.manager)}
 	count, err := goal.Size()
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -286,12 +289,15 @@ func (t *FixDLVarTactic) selectDLVariable(goal *tactic.Goal) (ast.ASTHandle, err
 	}
 	var unit, total ast.ASTHandle
 	var bestUnit, bestTotal uint32
-	for _, term := range s.order {
-		if n := s.units[term]; n > bestUnit {
-			unit, bestUnit = term, n
+	// most_occs walks each obj_map in its own table order.
+	for _, e := range s.units.Entries() {
+		if n := uint32(e.Num); n > bestUnit {
+			unit, bestUnit = e.Key, n
 		}
-		if n := s.occurrences[term]; n > bestTotal {
-			total, bestTotal = term, n
+	}
+	for _, e := range s.occurrences.Entries() {
+		if n := uint32(e.Num); n > bestTotal {
+			total, bestTotal = e.Key, n
 		}
 	}
 	if err = t.traceDLChoice(unit, total, bestUnit, bestTotal); err != nil {

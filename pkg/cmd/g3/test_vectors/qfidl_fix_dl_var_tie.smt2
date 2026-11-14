@@ -1,0 +1,5 @@
+(declare-const x1 Int)
+(declare-const x2 Int)
+(assert (> x1 x2))
+(check-sat-using qfidl)
+(get-model)
