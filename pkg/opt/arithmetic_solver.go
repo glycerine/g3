@@ -1102,6 +1102,10 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 						s.unexecutedSoftBounds(j, &result.Values[j])
 					}
 				}
+				// execute_lex returns here, but display_assignment still
+				// compares m_lower/m_upper of the objectives already run
+				// (AUDIT.md FUZZ_A-F2).
+				s.markArithmeticIntervals(result, i+1)
 				result.Status, result.Optimal = lbool.True, true
 				return result, nil
 			}
@@ -1135,17 +1139,22 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 			}
 		}
 	}
-	// display_assignment: an interval when get_lower_as_num(i) !=
-	// get_upper_as_num(i), i.e. when m_lower[i] != m_upper[i].
-	for i := range s.objectives {
+	s.markArithmeticIntervals(result, len(s.objectives))
+	result.Status, result.Optimal = lbool.True, true
+	return result, nil
+}
+
+// markArithmeticIntervals is display_assignment's test for the first n
+// objectives: an interval when get_lower_as_num(i) != get_upper_as_num(i),
+// i.e. when m_lower[i] != m_upper[i].
+func (s *ArithmeticSolver) markArithmeticIntervals(result *ArithmeticResult, n int) {
+	for i := 0; i < n; i++ {
 		if s.objectives[i].soft {
 			continue
 		}
 		lower, upper := s.optLowerOf(i), s.optUpperOf(i)
 		result.Values[i].ArithmeticInterval = lower.Cmp(&upper) != 0
 	}
-	result.Status, result.Optimal = lbool.True, true
-	return result, nil
 }
 
 // DetachObjectiveTerms hands over the rewritten arithmetic objective terms
