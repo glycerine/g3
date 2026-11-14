@@ -39,7 +39,7 @@ func (t *SMTDatatypeTheory) split(value, sort ast.ASTHandle) error {
 	if !found {
 		return ast.ErrASTDomain
 	}
-	if err = t.emitDatatype("datatype_bug", "mk_split", 829, func(out io.Writer) error {
+	if err = t.emitDatatype("datatype_bug", "mk_split", 834, func(out io.Writer) error {
 		_, _ = io.WriteString(out, "non_rec_c: ")
 		name, err := s.manager.GetASTName(preferred)
 		if err != nil {
@@ -102,7 +102,7 @@ func (t *SMTDatatypeTheory) split(value, sort ast.ASTHandle) error {
 	if err != nil {
 		return err
 	}
-	if err = t.traceDatatypeExpression("mk_split", 879, "creating split: ", expression); err != nil {
+	if err = t.traceDatatypeExpression("mk_split", 884, "creating split: ", expression); err != nil {
 		return err
 	}
 	if err = s.Internalize(expression, false); err != nil {

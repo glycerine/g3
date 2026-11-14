@@ -23,6 +23,7 @@ var z3BugResults = map[string]string{
 	"z3_bug_pb_preprocess_ge_index.smt2":              "unsat\nunsat\n(goals\n(goal\n  false\n  :precision precise :depth 1)\n)\n",
 	"z3_bug_pb_preprocess_resolve_min_index.smt2":     "unsat\nunsat\n",
 	"z3_bug_pb_preprocess_resolve_no_complement.smt2": "unsat\nunsat\n",
+	"z3_bug_dt_recognizer_relevancy1.smt2":            "sat\n((b false))\n", // smtcore_10-F3
 }
 
 func TestZ3BugVectorsKeepCorrectAnswers(t *testing.T) {

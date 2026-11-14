@@ -73,3 +73,14 @@ z3_bug_macro_finder_disabled_stale_macro
 z3_bug_pb_preprocess_ge_index
 z3_bug_pb_preprocess_resolve_min_index
 z3_bug_pb_preprocess_resolve_no_complement
+#
+# With smt.relevancy 1, assign_eh reaches propagate_recognizer for a false
+# recognizer that relevant_eh never registered; the loop over the empty
+# recognizer table finds no unassigned recognizer and sets an empty
+# conflict, so a satisfiable problem is reported unsat (z3 bug:
+# src/smt/theory_datatype.cpp:750-751 propagate_recognizer; fixed upstream
+# in 7fc4653e47, issue #4623). g3 registers the recognizer first, as
+# upstream does (pkg/smtcore/theory_datatype_recognizers.go
+# propagateRecognizer; AUDIT.md smtcore_10-F3). Reproduction:
+# test_vectors/z3_bug_dt_recognizer_relevancy1.smt2.
+z3_bug_dt_recognizer_relevancy1

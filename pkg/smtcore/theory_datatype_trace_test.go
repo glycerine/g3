@@ -2,7 +2,6 @@ package smtcore
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -15,34 +14,49 @@ func smtDatatypeTraceRecord(tag, function string, line int, body string) string 
 	return fmt.Sprintf("-------- [%s] %s src/smt/theory_datatype.cpp:%d ---------\n%s------------------------------------------------\n", tag, function, line, body)
 }
 
-func TestSMTDatatypeEmptyRecognizerTracePrecedesDomainGuard(t *testing.T) {
-	_, dt, x, _, _ := smtDatatypeSplitFixture(t)
+// smtcore_10-F3: with relevancy on, assign_eh reaches propagate_recognizer
+// for a false recognizer that relevant_eh never registered. Upstream Z3
+// 7fc4653e47 (fix #4623) registers it there; 4.7.1 found an empty table and
+// raised an empty conflict (unsound unsat).
+func TestSMTDatatypeFalseRecognizerWithoutRegisteredSlots(t *testing.T) {
+	_, dt, x, _, constructors := smtDatatypeSplitFixture(t)
 	s, err := dt.State()
 	astTestMust(t, err)
-	variable := s.context.enodes.get(x).TheoryVar(dt.FamilyID())
-
+	_, data, err := dt.rootData(s.context.enodes.get(x).TheoryVar(dt.FamilyID()))
+	astTestMust(t, err)
+	literal, expression, err := dt.recognizerLiteral(constructors[1], x)
+	astTestMust(t, err)
+	if len(data.recognizers) != 0 || s.isRelevant(expression) {
+		t.Fatal("fixture recognizer was already registered or relevant")
+	}
 	var output bytes.Buffer
 	tags := diagnostic.NewTraceTagsWithWriter(&output)
 	tags.Enable("datatype")
 	dt.trace = tags
-	err = dt.propagateRecognizer(variable, nil)
-	if !errors.Is(err, ast.ErrASTDomain) {
-		t.Fatal("empty recognizer guard", err)
+	astTestMust(t, s.PushScope())
+	astTestMust(t, s.AssignLiteral(literal.Negated(), NewSMTBooleanAxiom()))
+	astTestMust(t, dt.Assign(literal.Var(), false))
+	if s.Inconsistent() {
+		t.Fatal("unregistered false recognizer produced a conflict")
+	}
+	if len(data.recognizers) != 3 || data.recognizers[1] != s.context.enodes.get(expression) {
+		t.Fatal("propagate_recognizer did not register the assigned recognizer")
 	}
 	if tags.ShouldTrace("datatype") {
-		want := "-------- [datatype] propagate_recognizer src/smt/theory_datatype.cpp:750 ---------\nLogical context:\n"
-		if !strings.HasPrefix(output.String(), want) {
-			t.Fatal("empty recognizer context trace", output.String(), want)
+		if !strings.Contains(output.String(), "[datatype] add_recognizer src/smt/theory_datatype.cpp:712") {
+			t.Fatal("registration trace missing", output.String())
+		}
+		if strings.Contains(output.String(), "propagate_recognizer src/smt/theory_datatype.cpp:755") {
+			t.Fatal("empty recognizer trace after registration", output.String())
 		}
 	} else if output.Len() != 0 {
-		t.Fatal("native empty-recognizer trace was not erased")
+		t.Fatal("native datatype trace was not erased")
 	}
-
-	dt.trace = diagnostic.NewTraceTagsWithWriter(smtPBDisplayFailure{})
-	dt.trace.Enable("datatype")
-	err = dt.propagateRecognizer(variable, nil)
-	if !errors.Is(err, ast.ErrASTDomain) {
-		t.Fatal("sticky trace stream masked empty recognizer guard", err)
+	astTestMust(t, s.PopScopes(1))
+	for _, node := range data.recognizers {
+		if node != nil {
+			t.Fatal("registered recognizer survived pop")
+		}
 	}
 }
 
@@ -123,7 +137,7 @@ func TestSMTDatatypeExhaustionTraceUsesTriggerAndOrderedEvidence(t *testing.T) {
 						astTestMust(t, dt.displayDatatypeExpression(&body, pair.Second.owner))
 						body.WriteByte('\n')
 					}
-					want = smtDatatypeTraceRecord("datatype_conflict", "propagate_recognizer", 780, body.String())
+					want = smtDatatypeTraceRecord("datatype_conflict", "propagate_recognizer", 785, body.String())
 				}
 				if trace.String() != want {
 					t.Fatal("exhaustion trigger/evidence trace", trace.String(), want)
@@ -323,7 +337,7 @@ func TestSMTDatatypeSplitTracePrecedesRecognizerInternalization(t *testing.T) {
 	}
 	if tags.ShouldTrace("datatype") {
 		last := -1
-		for _, site := range []string{"[datatype_bug] mk_split src/smt/theory_datatype.cpp:829", "[datatype] mk_split src/smt/theory_datatype.cpp:879", "[datatype] internalize_atom src/smt/theory_datatype.cpp:258", "[datatype] internalize_term src/smt/theory_datatype.cpp:263", "[datatype] add_recognizer src/smt/theory_datatype.cpp:712"} {
+		for _, site := range []string{"[datatype_bug] mk_split src/smt/theory_datatype.cpp:834", "[datatype] mk_split src/smt/theory_datatype.cpp:884", "[datatype] internalize_atom src/smt/theory_datatype.cpp:258", "[datatype] internalize_term src/smt/theory_datatype.cpp:263", "[datatype] add_recognizer src/smt/theory_datatype.cpp:712"} {
 			i := strings.Index(output.String(), site)
 			if i <= last {
 				t.Fatal("source split/registration trace order", site, output.String())
@@ -336,7 +350,7 @@ func TestSMTDatatypeSplitTracePrecedesRecognizerInternalization(t *testing.T) {
 	output.Reset()
 	astTestMust(t, dt.split(x, sort))
 	if tags.ShouldTrace("datatype_bug") {
-		want := smtDatatypeTraceRecord("datatype_bug", "mk_split", 829, "non_rec_c: incremental-b\n")
+		want := smtDatatypeTraceRecord("datatype_bug", "mk_split", 834, "non_rec_c: incremental-b\n")
 		if output.String() != want {
 			t.Fatal("waiting on existing recognizer emitted a creation record", output.String(), want)
 		}

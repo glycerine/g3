@@ -97,7 +97,7 @@ func (t *SMTDatatypeTheory) emitDatatype(tag, function string, line int, body fu
 }
 
 func (t *SMTDatatypeTheory) traceDatatypeRecognizerExhaustion(trigger *SMTEnode, literals []SMTLiteral, equalities []SMTEnodePair) error {
-	return t.emitDatatype("datatype_conflict", "propagate_recognizer", 780, func(out io.Writer) error {
+	return t.emitDatatype("datatype_conflict", "propagate_recognizer", 785, func(out io.Writer) error {
 		s, err := t.State()
 		if err != nil {
 			return err
@@ -130,7 +130,7 @@ func (t *SMTDatatypeTheory) traceDatatypeRecognizerExhaustion(trigger *SMTEnode,
 }
 
 func (t *SMTDatatypeTheory) traceDatatypeEmptyRecognizers() error {
-	return t.emitDatatype("datatype", "propagate_recognizer", 750, func(out io.Writer) error {
+	return t.emitDatatype("datatype", "propagate_recognizer", 755, func(out io.Writer) error {
 		s, err := t.State()
 		if err != nil {
 			return err

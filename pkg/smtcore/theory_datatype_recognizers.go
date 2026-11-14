@@ -1,6 +1,7 @@
 package smtcore
 
-// Source: theory_datatype::propagate_recognizer.
+// Source: theory_datatype::propagate_recognizer, with the recognizer
+// registration of upstream Z3 7fc4653e47 (fix #4623).
 
 import (
 	"errors"
@@ -18,11 +19,22 @@ func (t *SMTDatatypeTheory) propagateRecognizer(variable SMTTheoryVar, trigger *
 	if err != nil {
 		return err
 	}
+	// Upstream Z3 7fc4653e47 (fix #4623): with relevancy 1, assign_eh can
+	// reach a recognizer that relevant_eh never registered, so register it
+	// here instead of concluding a conflict from an empty table.
+	if len(data.recognizers) == 0 {
+		if trigger == nil || len(trigger.arguments) != 1 {
+			return ast.ErrASTDomain
+		}
+		w := trigger.arguments[0].TheoryVar(t.FamilyID())
+		if err = t.addRecognizer(w, trigger); err != nil {
+			return err
+		}
+	}
 	if len(data.recognizers) == 0 {
 		if err = t.traceDatatypeEmptyRecognizers(); err != nil {
 			return err
 		}
-		return ast.ErrASTDomain
 	}
 	node := t.variables[root]
 	literals := make([]SMTLiteral, 0)
