@@ -277,12 +277,10 @@ func (t *EliminateTermITETactic) CollectParamDescrs(out *uparams.ParamDescrs) er
 	return out.InsertName("max_args", uparams.ParamUInt, &description, nil, nil)
 }
 
-func (t *EliminateTermITETactic) CollectStatistics(st *statistics.Statistics) {
-	if t == nil || t.self != t || t.closed || t.numFresh == 0 {
-		return
-	}
-	st.UpdateUint64("elim-term-ite-consts", uint64(t.numFresh))
-}
+// CollectStatistics is the base tactic::collect_statistics: the source
+// elim_term_ite_tactic has no override; m_num_fresh is only reported
+// through report_tactic_progress.
+func (t *EliminateTermITETactic) CollectStatistics(*statistics.Statistics) {}
 
 func (t *EliminateTermITETactic) ResetStatistics() error {
 	if err := t.open(); err != nil {

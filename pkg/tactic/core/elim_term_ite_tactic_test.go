@@ -6,6 +6,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
 func TestEliminateTermITEProofCoreAndModelFilter(t *testing.T) {
@@ -43,6 +44,10 @@ func TestEliminateTermITEProofCoreAndModelFilter(t *testing.T) {
 
 	if runner.numFresh != 1 || result.ModelConverter == nil {
 		t.Fatal("missing term-ITE abstraction", runner.numFresh, result.ModelConverter)
+	}
+	// AUDIT.md FUZZ_I-F5: the source tactic has no collect_statistics.
+	if sums := statistics.Sums(runner.CollectStatistics); len(sums) != 0 {
+		t.Fatal("elim_term_ite_tactic has no collect_statistics", sums)
 	}
 	size, err := goal.Size()
 	simplifyMust(t, err)
