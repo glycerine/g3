@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_I-F6: random_initial_value is inf_numeral(int) except for
+	// i_ext, where it is rational(unsigned).
+	"arith_random_initial_value_mi.smt2":  "sat\n(model \n  (define-fun x2 () Int\n    (- 63))\n  (define-fun a0 () (Array Int Int)\n    (_ as-array k!0))\n  (define-fun x1 () Int\n    (- 7))\n  (define-fun p0 () Bool\n    false)\n  (define-fun x0 () Int\n    (- 4630))\n  (define-fun k!0 ((x!0 Int)) Int\n    (ite (= x!0 (- 63)) (- 4630)\n      1))\n  (define-fun k!1 ((x!0 Int)) Int\n    (ite (= x!0 (- 63)) (- 4630)\n      1))\n  (define-fun k!2 ((x!0 Int)) Int\n    (ite (= x!0 (- 63)) (- 4630)\n    (ite (= x!0 0) (- 70)\n      1)))\n)\n",
+	"arith_random_initial_value_lia.smt2": "sat\n(model \n  (define-fun z () Int\n    4294966331)\n  (define-fun y () Int\n    (- 4294966324))\n  (define-fun x () Int\n    4294966334)\n)\n",
 	// AUDIT.md FUZZ_I-F3/F4: dump_models after check-sat; model.v1/model.v2
 	// display_model.
 	"dump_models_option.smt2":   "sat\n(model \n  (define-fun x () Int\n    2)\n)\n",

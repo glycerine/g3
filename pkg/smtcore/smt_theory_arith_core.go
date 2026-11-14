@@ -238,7 +238,16 @@ func (t *SMTTheoryArith) mkVar(n *SMTEnode) (SMTTheoryVar, error) {
 	if t.randomInitialValue() {
 		// unsigned arithmetic, as in the source
 		val := t.random.Next()%uint32(t.randomUpper()-t.randomLower()) + uint32(t.randomLower())
-		value.rational.SetInt64(int64(val))
+		if t.integerExt {
+			// i_ext: inf_numeral is rational; explicit rational(unsigned)
+			// keeps the wrapped unsigned value.
+			value.rational.SetInt64(int64(val))
+		} else {
+			// inf_rational, inf_eps_rational, s_integer, inf_s_integer:
+			// inf_numeral(val) selects the explicit (int) constructor,
+			// so val converts back to a signed int.
+			value.rational.SetInt64(int64(int32(val)))
+		}
 	}
 	t.value = append(t.value, value)
 	t.oldValue = append(t.oldValue, smtArithmeticValue{})
