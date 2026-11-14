@@ -100,12 +100,11 @@ func (g *smtModelFinderAUFGraph) processLiteral(quantifier, atom ast.ASTHandle, 
 		}
 		return g.processApp(quantifier, atom)
 	}
-	before := len(g.literals)
-	if err := g.collectComparison(quantifier, atom, negative); err != nil {
+	// is_x_gle_y_atom / is_x_gle_t_atom: a match ends the literal even
+	// when insert_qinfo drops a duplicate qinfo.
+	matched, err := g.collectComparison(quantifier, atom, negative)
+	if err != nil || matched {
 		return err
-	}
-	if len(g.literals) > before {
-		return nil
 	}
 	return g.processApp(quantifier, atom)
 }

@@ -48,6 +48,8 @@ type smtModelFinderAUFGraph struct {
 	evalRange []ast.ASTRef
 	// ngDecls is the analyzed quantifier_info's m_ng_decls (analyzer only).
 	ngDecls *ast.ObjMap
+	// isAUF is the analyzed quantifier_info's m_is_auf (analyzer only).
+	isAUF bool
 }
 
 type smtModelFinderQInfoKind uint8

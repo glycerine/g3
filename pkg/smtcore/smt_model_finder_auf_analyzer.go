@@ -27,18 +27,22 @@ func (q *smtModelFinderQInfo) close(m *ast.ASTManager) (result error) {
 	return result
 }
 
-func (f *SMTModelFinder) analyzeQInfos(quantifier ast.ASTHandle) error {
+// analyzeQInfos is quantifier_analyzer::operator() up to
+// collect_macro_candidates; it returns the quantifier_info's m_is_auf.
+func (f *SMTModelFinder) analyzeQInfos(quantifier ast.ASTHandle) (bool, error) {
 	collector := newSMTModelFinderAUFGraph(f)
 	collector.ngDecls = f.nonGround[quantifier]
+	// quantifier_info::m_is_auf starts true.
+	collector.isAUF = true
 	err := collector.collectFVars(quantifier)
 	info := &smtModelFinderQInfo{
 		fvars: collector.fvars, literals: collector.literals, selects: collector.selects, order: collector.qorder, refs: collector.refs,
 	}
 	if err != nil {
-		return errors.Join(err, info.close(f.manager))
+		return false, errors.Join(err, info.close(f.manager))
 	}
 	f.qinfos[quantifier] = info
-	return nil
+	return collector.isAUF, nil
 }
 
 // addQInfo feeds one quantifier's stored qinfos to the auf_solver graph.
@@ -64,14 +68,17 @@ type smtModelFinderAnalysisKey struct {
 	quantifier, expression ast.ASTHandle
 }
 
-func (g *smtModelFinderAUFGraph) appendFVar(info smtModelFinderFVar) {
+// appendFVar is insert_qinfo for f_var and f_var_plus_offset; it reports
+// whether the qinfo was new.
+func (g *smtModelFinderAUFGraph) appendFVar(info smtModelFinderFVar) bool {
 	for _, prior := range g.fvars {
 		if prior == info {
-			return
+			return false
 		}
 	}
 	g.qorder = append(g.qorder, smtModelFinderQInfoRef{qinfoFVar, len(g.fvars)})
 	g.fvars = append(g.fvars, info)
+	return true
 }
 
 func (g *smtModelFinderAUFGraph) appendLiteral(info smtModelFinderAUFLiteral) {
@@ -169,11 +176,13 @@ func (g *smtModelFinderAUFGraph) processUApp(quantifier, t ast.ASTHandle) error 
 			g.appendFVar(smtModelFinderFVar{quantifier: quantifier, function: function, position: position, variable: variable})
 			continue
 		}
-		before := len(g.fvars)
-		if err := g.collectOffset(quantifier, function, position, argument); err != nil {
+		// is_var_plus_ground: the f_var_plus_offset qinfo, new or not,
+		// ends this argument.
+		matched, err := g.collectOffset(quantifier, function, position, argument)
+		if err != nil {
 			return err
 		}
-		if len(g.fvars) > before {
+		if matched {
 			continue
 		}
 		if err := g.visitTerm(quantifier, argument); err != nil {
@@ -186,8 +195,7 @@ func (g *smtModelFinderAUFGraph) processUApp(quantifier, t ast.ASTHandle) error 
 // processIApp is quantifier_analyzer::process_i_app.
 func (g *smtModelFinderAUFGraph) processIApp(quantifier, t ast.ASTHandle) error {
 	m := g.finder.manager
-	classifier := smtModelFinderAUFClassifier{finder: g.finder}
-	selected, err := classifier.isAUFSelect(t)
+	selected, err := g.isAUFSelect(t)
 	if err != nil {
 		return err
 	}
@@ -396,7 +404,8 @@ func (g *smtModelFinderAUFGraph) processTermsOnStack(quantifier ast.ASTHandle) e
 				return err
 			}
 		case ast.ASTVar:
-			// An unexpected variable occurrence (m_is_auf = false).
+			// An unexpected variable occurrence.
+			g.isAUF = false
 		default:
 			return ast.ErrASTDomain
 		}

@@ -220,73 +220,75 @@ func (g *smtModelFinderAUFGraph) variableAndVariable(left, right ast.ASTHandle) 
 	return 0, 0, false, nil
 }
 
-func (g *smtModelFinderAUFGraph) collectComparison(quantifier, atom ast.ASTHandle, negative bool) error {
+// collectComparison reports whether the atom matched is_x_gle_y_atom (under
+// sign) or is_x_gle_t_atom.
+func (g *smtModelFinderAUFGraph) collectComparison(quantifier, atom ast.ASTHandle, negative bool) (bool, error) {
 	comparison, err := g.finder.macroUtil.IsLEGE(atom)
 	if err != nil || !comparison {
-		return err
+		return false, err
 	}
 	m := g.finder.manager
 	left, err := m.GetArg(atom, 0)
 	if err != nil {
-		return err
+		return false, err
 	}
 	right, err := m.GetArg(atom, 1)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if negative {
 		first, second, matched, err := g.variableAndVariable(left, right)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if matched {
 			kind := aufOrderedVariables
 			signed, err := m.IsBitVectorOperation(atom, 23)
 			if err != nil {
-				return err
+				return false, err
 			}
 			if signed {
 				kind = aufSignedOrderedVariables
 			}
 			g.appendLiteral(smtModelFinderAUFLiteral{kind: kind, quantifier: quantifier, first: first, second: second})
-			return nil
+			return true, nil
 		}
 	}
 	variable, bound, boundRef, inverse, matched, err := g.variableAndGround(left, right)
 	if err != nil || !matched {
-		return errors.Join(err, releaseOptionalRef(m, &boundRef))
+		return false, errors.Join(err, releaseOptionalRef(m, &boundRef))
 	}
 	if !negative {
 		// is_x_gle_t_atom: t = tmp +/- 1; tmp dies on return.
 		le, err := g.finder.macroUtil.IsLE(atom)
 		if err != nil {
-			return errors.Join(err, releaseOptionalRef(m, &boundRef))
+			return false, errors.Join(err, releaseOptionalRef(m, &boundRef))
 		}
 		if inverse {
 			le = !le
 		}
 		sort, err := m.GetSort(bound)
 		if err != nil {
-			return errors.Join(err, releaseOptionalRef(m, &boundRef))
+			return false, errors.Join(err, releaseOptionalRef(m, &boundRef))
 		}
 		one, err := m.MkDatalogNumeral(1, sort)
 		if err != nil {
-			return errors.Join(err, releaseOptionalRef(m, &boundRef))
+			return false, errors.Join(err, releaseOptionalRef(m, &boundRef))
 		}
 		ref, err := g.mutilArithRef(bound, one, le)
 		if err = errors.Join(err, releaseOptionalRef(m, &boundRef)); err != nil {
-			return errors.Join(err, releaseOptionalRef(m, &ref))
+			return false, errors.Join(err, releaseOptionalRef(m, &ref))
 		}
 		if bound, err = g.keep(ref); err != nil {
-			return err
+			return false, err
 		}
 	} else if boundRef != (ast.ASTRef{}) {
 		if bound, err = g.keep(boundRef); err != nil {
-			return err
+			return false, err
 		}
 	}
 	g.appendLiteral(smtModelFinderAUFLiteral{kind: aufOrderedGround, quantifier: quantifier, first: variable, term: bound})
-	return nil
+	return true, nil
 }
 
 func releaseOptionalRef(m *ast.ASTManager, ref *ast.ASTRef) error {

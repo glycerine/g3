@@ -98,3 +98,48 @@ func aufTestBuild(t *testing.T, graph *smtModelFinderAUFGraph, quantifiers []ast
 	}
 	return graph.build(quantifiers)
 }
+
+// AUDIT.md smtcore_05-F10: process_u_app continues after
+// is_var_plus_ground whether or not insert_qinfo kept the qinfo, so the
+// second x + 1 is not visited as a term (no + in m_ng_decls, no stray x
+// clearing m_is_auf).
+func TestSMTModelFinderAnalyzerDuplicateOffsetIsNotVisited(t *testing.T) {
+	m, _, _, manager := smtQuantifierManagerFixture(t, 10, 20, SMTQuantifierManagerConfig{})
+	zero, err := m.ArithmeticIntegerNumeralText("0")
+	astTestMust(t, err)
+	one, err := m.ArithmeticIntegerNumeralText("1")
+	astTestMust(t, err)
+	integer, err := m.GetSort(zero)
+	astTestMust(t, err)
+	boolean, err := m.MkBoolSort()
+	astTestMust(t, err)
+	x, err := m.MkVar(0, integer)
+	astTestMust(t, err)
+	a, err := m.MkConst(astTestSymbol(t, m, "analyzer-offset-a"), integer)
+	astTestMust(t, err)
+	b, err := m.MkConst(astTestSymbol(t, m, "analyzer-offset-b"), integer)
+	astTestMust(t, err)
+	p, err := m.MkFuncDecl(astTestSymbol(t, m, "analyzer-offset-p"), []ast.ASTHandle{integer, integer}, boolean, ast.ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	offset, err := m.MkArithmeticAdd(x, one)
+	astTestMust(t, err)
+	first, err := m.MkApp(p, []ast.ASTHandle{offset, a})
+	astTestMust(t, err)
+	second, err := m.MkApp(p, []ast.ASTHandle{offset, b})
+	astTestMust(t, err)
+	body, err := m.MkOr(first, second)
+	astTestMust(t, err)
+	q, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{integer}, Names: []symbol.Symbol{astTestSymbol(t, m, "analyzer-offset-x")}, Body: body})
+	astTestMust(t, err)
+	finder := manager.modelFinder
+	astTestMust(t, finder.RegisterQuantifier(q))
+	if decls := finder.nonGround[q]; decls.Len() != 1 {
+		t.Fatal("duplicate offset argument was visited as a term", decls.Entries())
+	}
+	if info := finder.qinfos[q]; info == nil || len(info.fvars) != 1 {
+		t.Fatal("duplicate f_var_plus_offset qinfo", finder.qinfos[q])
+	}
+	if !finder.auf[q] {
+		t.Fatal("duplicate offset argument cleared m_is_auf")
+	}
+}

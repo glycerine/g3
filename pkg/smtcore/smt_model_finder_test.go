@@ -335,11 +335,39 @@ func TestSMTModelFinderAUFClassification(t *testing.T) {
 		want bool
 	}{{"uninterpreted-variable-argument", predicateApp, true}, {"variable-ground-bound", bound, true}, {"interpreted-nonlinear-term", nonlinear, false}} {
 		quantifier := makeQuantifier("model-finder-auf-"+test.name, test.body)
-		got, err := manager.modelFinder.classifyAUF(quantifier)
-		astTestMust(t, err)
-		if got != test.want {
+		astTestMust(t, manager.modelFinder.RegisterQuantifier(quantifier))
+		if got := manager.modelFinder.auf[quantifier]; got != test.want {
 			t.Fatalf("%s classification %v want %v", test.name, got, test.want)
 		}
+	}
+	// AUDIT.md smtcore_05-F2: g(x, y) = f(x <= y). visit_term marks the
+	// Boolean argument in m_pos_cache, so x <= y is processed only with
+	// negative polarity, where it is the x_leq_y qinfo: the quantifier
+	// stays AUF.
+	x, err := m.MkVar(1, integer)
+	astTestMust(t, err)
+	y, err := m.MkVar(0, integer)
+	astTestMust(t, err)
+	f, err := m.MkFuncDecl(astTestSymbol(t, m, "model-finder-auf-bool-f"), []ast.ASTHandle{boolean}, integer, ast.ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	g, err := m.MkFuncDecl(astTestSymbol(t, m, "model-finder-auf-bool-g"), []ast.ASTHandle{integer, integer}, integer, ast.ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	order, err := m.MkArithmeticLE(x, y)
+	astTestMust(t, err)
+	fApp, err := m.MkApp(f, []ast.ASTHandle{order})
+	astTestMust(t, err)
+	gApp, err := m.MkApp(g, []ast.ASTHandle{x, y})
+	astTestMust(t, err)
+	body, err := m.MkEq(gApp, fApp)
+	astTestMust(t, err)
+	quantifier, err := m.MkQuantifier(ast.ASTQuantifierSpec{
+		Forall: true, Sorts: []ast.ASTHandle{integer, integer},
+		Names: []symbol.Symbol{astTestSymbol(t, m, "model-finder-auf-bool-x"), astTestSymbol(t, m, "model-finder-auf-bool-y")}, Body: body,
+	})
+	astTestMust(t, err)
+	astTestMust(t, manager.modelFinder.RegisterQuantifier(quantifier))
+	if !manager.modelFinder.auf[quantifier] {
+		t.Fatal("Boolean term argument x <= y was not analyzed with negative polarity only")
 	}
 }
 

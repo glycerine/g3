@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_05-F2/F10: m_is_auf comes from the analyzer; x <= y as a term argument is analyzed with negative polarity only.
+	"mbqi_auf_bool_term_polarity.smt2": "sat\n(model \n  (define-fun g ((x!0 Int) (x!1 Int)) Int\n    0)\n  (define-fun f ((x!0 Bool)) Int\n    0)\n  (define-fun h ((x!0 Int)) Int\n    0)\n)\n",
 	// AUDIT.md smtcore_05-F1: full macros follow obj_map table order.
 	"mbqi_nonauf_full_macro_table_order.smt2": "sat\n(model \n  (define-fun h ((x!0 Int) (x!1 Int)) Int\n    0)\n  (define-fun g ((x!0 Int)) Int\n    0)\n  (define-fun f ((x!0 Int)) Int\n    (+ (* (- 1) x!0) (g x!0)))\n)\n",
 	// AUDIT.md smtcore_02-F5: PS_OCCURRENCE counts m_lit_occs, which holds

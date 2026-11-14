@@ -141,14 +141,12 @@ func TestSMTModelFinderAUFVariableComparisonPolarityAndSignedProjection(t *testi
 				Names: []symbol.Symbol{astTestSymbol(t, m, "auf-pair-y"), astTestSymbol(t, m, "auf-pair-x")}, Body: body,
 			})
 			astTestMust(t, err)
-			isAUF, err := manager.modelFinder.classifyAUF(q)
-			astTestMust(t, err)
-			if isAUF != (test.negative || test.equality) {
-				t.Fatal("AUF classifier ignored comparison polarity", isAUF)
-			}
 			graph := newSMTModelFinderAUFGraph(manager.modelFinder)
 			t.Cleanup(func() { astTestMust(t, graph.close()) })
 			astTestMust(t, aufTestBuild(t, graph, []ast.ASTHandle{q}))
+			if isAUF := manager.modelFinder.auf[q]; isAUF != (test.negative || test.equality) {
+				t.Fatal("AUF analysis ignored comparison polarity", isAUF)
+			}
 			first := graph.uvars[smtModelFinderAUFKey{q, 0}].root()
 			second := graph.uvars[smtModelFinderAUFKey{q, 1}].root()
 			if (first == second) != test.negative || first.mono != (test.negative && !test.equality) || first.signed != test.signed {

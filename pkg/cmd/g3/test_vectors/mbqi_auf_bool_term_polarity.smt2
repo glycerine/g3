@@ -1,0 +1,7 @@
+(declare-fun f (Bool) Int)
+(declare-fun g (Int Int) Int)
+(declare-fun h (Int) Int)
+(assert (forall ((x Int) (y Int)) (= (g x y) (f (<= x y)))))
+(assert (forall ((x Int)) (= (h (g x x)) 0)))
+(check-sat)
+(get-model)

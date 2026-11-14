@@ -12,8 +12,7 @@ type smtModelFinderSelectVar struct {
 }
 
 func (g *smtModelFinderAUFGraph) collectSelectVars(quantifier, term ast.ASTHandle) error {
-	classifier := smtModelFinderAUFClassifier{finder: g.finder}
-	selected, err := classifier.isAUFSelect(term)
+	selected, err := g.isAUFSelect(term)
 	if err != nil || !selected {
 		return err
 	}
@@ -181,4 +180,60 @@ func (g *smtModelFinderAUFGraph) populateSelectVar(info smtModelFinderSelectVar)
 		}
 	}
 	return nil
+}
+
+// isAUFSelect is quantifier_analyzer::is_auf_select: (select a i ...) where
+// a is ground or itself an auf select and the indices are ground or
+// variables.
+func (g *smtModelFinderAUFGraph) isAUFSelect(term ast.ASTHandle) (bool, error) {
+	m := g.finder.manager
+	kind, err := m.GetKind(term)
+	if err != nil || kind != ast.ASTApp {
+		return false, err
+	}
+	family, err := m.GetFamilyID(term)
+	if err != nil {
+		return false, err
+	}
+	arrayFamily, err := m.ArrayFamilyID()
+	if err != nil || family != arrayFamily {
+		return false, err
+	}
+	op, err := m.GetDeclKind(term)
+	if err != nil || op != ast.ASTArrayOpSelect {
+		return false, err
+	}
+	n, err := m.GetNumArgs(term)
+	if err != nil || n == 0 {
+		return false, err
+	}
+	array, err := m.GetArg(term, 0)
+	if err != nil {
+		return false, err
+	}
+	ground, err := m.IsGround(array)
+	if err != nil {
+		return false, err
+	}
+	if !ground {
+		selectArray, err := g.isAUFSelect(array)
+		if err != nil || !selectArray {
+			return false, err
+		}
+	}
+	for i := uint32(1); i < n; i++ {
+		index, err := m.GetArg(term, i)
+		if err != nil {
+			return false, err
+		}
+		ground, err := m.IsGround(index)
+		if err != nil {
+			return false, err
+		}
+		kind, err := m.GetKind(index)
+		if err != nil || !ground && kind != ast.ASTVar {
+			return false, err
+		}
+	}
+	return true, nil
 }

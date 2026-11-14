@@ -9,29 +9,35 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 )
 
-func (g *smtModelFinderAUFGraph) collectOffset(quantifier, function ast.ASTHandle, position uint32, argument ast.ASTHandle) error {
+// collectOffset is process_u_app's is_var_plus_ground branch: it reports
+// whether the argument matched (x + k, not inverted), whether or not
+// insert_qinfo kept the f_var_plus_offset qinfo.
+func (g *smtModelFinderAUFGraph) collectOffset(quantifier, function ast.ASTHandle, position uint32, argument ast.ASTHandle) (bool, error) {
 	m := g.finder.manager
 	ref, err := m.NewRef(ast.ASTHandle{})
 	if err != nil {
-		return err
+		return false, err
 	}
 	inverse, variable, matched, err := g.finder.macroUtil.IsVarPlusGround(argument, ref)
 	if err != nil || !matched || inverse {
-		return errors.Join(err, m.DelRef(&ref))
+		return false, errors.Join(err, m.DelRef(&ref))
 	}
 	offset, err := m.RefGet(ref)
 	if err != nil {
-		return errors.Join(err, m.DelRef(&ref))
+		return false, errors.Join(err, m.DelRef(&ref))
 	}
 	index, err := m.GetVarIndex(variable)
 	if err != nil {
-		return errors.Join(err, m.DelRef(&ref))
+		return false, errors.Join(err, m.DelRef(&ref))
+	}
+	if !g.appendFVar(smtModelFinderFVar{
+		quantifier: quantifier, function: function, position: position, variable: index, offset: offset,
+	}) {
+		// insert_qinfo deleted the duplicate qinfo and its offset.
+		return true, m.DelRef(&ref)
 	}
 	g.refs = append(g.refs, ref)
-	g.appendFVar(smtModelFinderFVar{
-		quantifier: quantifier, function: function, position: position, variable: index, offset: offset,
-	})
-	return nil
+	return true, nil
 }
 
 // insertShifted is one copy_instances step: n_k is arith_rw.mk_add/mk_sub(n,

@@ -171,11 +171,7 @@ func (f *SMTModelFinder) RegisterQuantifier(quantifier ast.ASTHandle) (result er
 	// quantifier_analyzer::operator(): the body's qinfos, m_ng_decls (the
 	// analyzer's process_app calls) and m_is_auf, then
 	// collect_macro_candidates.
-	f.auf[quantifier], err = f.classifyAUF(quantifier)
-	if err != nil {
-		return err
-	}
-	if err = f.analyzeQInfos(quantifier); err != nil {
+	if f.auf[quantifier], err = f.analyzeQInfos(quantifier); err != nil {
 		return err
 	}
 	bodyKind, err := f.manager.GetKind(body)
