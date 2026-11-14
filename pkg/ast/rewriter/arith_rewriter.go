@@ -443,6 +443,12 @@ func (r *ArithRewriter) rewriteComparison(kind int32, left, right ast.ASTHandle,
 				return RewriteFailed, e
 			}
 			left, right, changed = newLeft, newRight, true
+		} else if newLeft != left {
+			// expr_ref new_new_arg1 after a failed elim_to_real
+			// (AUDIT.md FUZZ_A-F8).
+			if e = hold(2, newLeft); e != nil {
+				return RewriteFailed, e
+			}
 		}
 	}
 	lv, _, ln, err := r.numeral(left)
@@ -1265,6 +1271,12 @@ func (r *ArithRewriter) MkEqCore(left, right ast.ASTHandle, out ast.ASTRef) (sta
 				return RewriteFailed, e
 			}
 			left, right, changed = newLeft, newRight, true
+		} else if newLeft != left {
+			// expr_ref new_new_arg1 after a failed elim_to_real
+			// (AUDIT.md FUZZ_A-F8).
+			if e = locals.set(2, newLeft); e != nil {
+				return RewriteFailed, e
+			}
 		}
 	}
 	lv, _, ln, err := r.numeral(left)

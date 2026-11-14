@@ -1094,7 +1094,9 @@ func (r *ArithRewriter) eliminateToRealMonomial(h ast.ASTHandle) (ast.ASTHandle,
 		var ok bool
 		converted[i], ok, err = r.eliminateToRealVariable(factor)
 		if err != nil || !ok {
-			return ast.ASTHandle{}, false, err
+			// expr_ref_buffer new_vars releases the factors converted so
+			// far (AUDIT.md FUZZ_A-F8).
+			return ast.ASTHandle{}, false, errors.Join(err, r.discardConverted(converted[:i]))
 		}
 	}
 	result, err := r.makeMul(converted, converted[0])
@@ -1114,11 +1116,31 @@ func (r *ArithRewriter) eliminateToRealPolynomial(h ast.ASTHandle) (ast.ASTHandl
 		var ok bool
 		converted[i], ok, err = r.eliminateToRealMonomial(monomial)
 		if err != nil || !ok {
-			return ast.ASTHandle{}, false, err
+			// expr_ref_buffer new_monomials releases the monomials
+			// converted so far (AUDIT.md FUZZ_A-F8).
+			return ast.ASTHandle{}, false, errors.Join(err, r.discardConverted(converted[:i]))
 		}
 	}
 	result, err := r.makeAdd(converted, converted[0])
 	return result, err == nil, err
+}
+
+// discardConverted is the destructor of an expr_ref_buffer holding hs:
+// each entry loses the buffer's reference, front to back.
+func (r *ArithRewriter) discardConverted(hs []ast.ASTHandle) (err error) {
+	refs := make([]ast.ASTRef, 0, len(hs))
+	for _, h := range hs {
+		ref, e := r.manager.NewRef(h)
+		if e != nil {
+			err = errors.Join(err, e)
+			continue
+		}
+		refs = append(refs, ref)
+	}
+	for i := range refs {
+		err = errors.Join(err, r.manager.DelRef(&refs[i]))
+	}
+	return err
 }
 
 func (r *ArithRewriter) eliminateToRealComparison(left, right ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, bool, error) {
@@ -1132,7 +1154,9 @@ func (r *ArithRewriter) eliminateToRealComparison(left, right ast.ASTHandle) (as
 	}
 	newRight, rightOK, err := r.eliminateToRealPolynomial(right)
 	if err != nil || !rightOK {
-		return left, right, false, err
+		// new_new_arg1 keeps the converted left side until
+		// mk_le_ge_eq_core returns; the caller holds it (AUDIT.md FUZZ_A-F8).
+		return newLeft, right, false, err
 	}
 	return newLeft, newRight, true, nil
 }
