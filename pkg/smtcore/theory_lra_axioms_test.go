@@ -401,3 +401,42 @@ func TestSMTLRABoundAxiomAllocationRefusalAndRetry(t *testing.T) {
 		t.Fatal("allocation samples did not cover both refusal and success", refused, succeeded)
 	}
 }
+
+// AUDIT.md smtcore_11-F1: internalize_eq_eh tests get_th_var, which also
+// returns a variable inherited as a class root, and passes the equality's
+// own enodes to arith_eq_adapter::mk_axioms.
+func TestSMTLRAInternalizeEqualityInheritedRootVariable(t *testing.T) {
+	f := newLRAFrontendFixture(t, true)
+	family := f.a.FamilyID()
+	y, x, c := f.variable("lra-inherit-y"), f.variable("lra-inherit-x"), f.variable("lra-inherit-c")
+	decl := f.pin(f.m.MkFuncDecl(astTestSymbol(t, f.m, "lra-inherit-g"), []ast.ASTHandle{f.sort}, f.sort, ast.ASTFuncDeclInfo{}))
+	gy := f.pin(f.m.MkApp(decl, []ast.ASTHandle{y}))
+	f.assert(f.app(smtArithOpLE, gy, f.number(3)), true)
+	f.assert(f.app(smtArithOpGE, c, f.number(1)), true)
+	astTestMust(t, f.s.Internalize(x, false))
+	if f.s.context.enodes.get(x).TheoryVar(family) != SMTNullTheoryVar {
+		t.Fatal("x must not own an LRA variable")
+	}
+	f.assert(f.pin(f.m.MkEq(gy, x)), true)
+	f.propagate(true)
+	xNode := f.s.context.enodes.get(x)
+	if xNode.TheoryVar(family) == SMTNullTheoryVar || f.a.IsAttachedToVariable(xNode) {
+		t.Fatal("x did not inherit the root variable of (g y)")
+	}
+	before := f.a.equalityAdapter.NumAxioms()
+	astTestMust(t, f.s.Internalize(f.pin(f.m.MkEq(x, c)), false))
+	if f.a.equalityAdapter.NumAxioms() != before+1 {
+		t.Fatal("inherited variable skipped the equality adapter", before, f.a.equalityAdapter.NumAxioms())
+	}
+	first, second := x, c
+	xid, err := f.m.GetASTID(x)
+	astTestMust(t, err)
+	cid, err := f.m.GetASTID(c)
+	astTestMust(t, err)
+	if xid > cid {
+		first, second = c, x
+	}
+	if _, found := f.a.equalityAdapter.processed[smtArithmeticEqualityPair{first, second}]; !found {
+		t.Fatal("mk_axioms did not receive the equality's own enodes", f.a.equalityAdapter.processed)
+	}
+}

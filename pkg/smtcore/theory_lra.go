@@ -642,11 +642,12 @@ func (t *SMTLRATheory) InternalizeEquality(h ast.ASTHandle, _ int32) error {
 		return err
 	}
 	n1, n2 := t.state.context.enodes.get(left), t.state.context.enodes.get(right)
-	if n1 != nil && n2 != nil && n1 != n2 && t.IsAttachedToVariable(n1) && t.IsAttachedToVariable(n2) {
+	// get_th_var also returns a variable inherited as a class root.
+	if n1 != nil && n2 != nil && n1.TheoryVar(t.FamilyID()) != SMTNullTheoryVar && n2.TheoryVar(t.FamilyID()) != SMTNullTheoryVar && n1 != n2 {
 		if err = t.traceLRAExpression("internalize_eq_eh", 781, "", h, "\n"); err != nil {
 			return err
 		}
-		return t.equalityAdapter.MkAxioms(n1.TheoryVar(t.FamilyID()), n2.TheoryVar(t.FamilyID()))
+		return t.equalityAdapter.MkAxiomsNodes(n1, n2)
 	}
 	return nil
 }

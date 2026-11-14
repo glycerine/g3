@@ -57,7 +57,7 @@ func (a *smtLRAEqualityAdapter) NewEquality(left, right SMTTheoryVar) error {
 	}); err != nil {
 		return err
 	}
-	return a.MkAxioms(left, right)
+	return a.MkAxiomsNodes(n1, n2)
 }
 
 func (a *smtLRAEqualityAdapter) NewDisequality(left, right SMTTheoryVar) error {
@@ -75,11 +75,12 @@ func (a *smtLRAEqualityAdapter) NewDisequality(left, right SMTTheoryVar) error {
 	if err = smtArithEqTracePair(a.owner.lraTraceTags(), a.owner.state.manager, "new_diseq_eh", 236, "arith_eq_adapter", left, right, n1, n2, true); err != nil {
 		return err
 	}
-	return a.MkAxioms(left, right)
+	return a.MkAxiomsNodes(n1, n2)
 }
 
-func (a *smtLRAEqualityAdapter) MkAxioms(left, right SMTTheoryVar) (result error) {
-	if a == nil || a.owner == nil || len(a.pendingRoots) != 0 {
+// MkAxiomsNodes is arith_eq_adapter::mk_axioms(enode * n1, enode * n2).
+func (a *smtLRAEqualityAdapter) MkAxiomsNodes(n1, n2 *SMTEnode) (result error) {
+	if a == nil || a.owner == nil || len(a.pendingRoots) != 0 || n1 == nil || n2 == nil {
 		return ast.ErrASTHandle
 	}
 	t := a.owner
@@ -89,14 +90,6 @@ func (a *smtLRAEqualityAdapter) MkAxioms(left, right SMTTheoryVar) (result error
 	}
 	m := s.manager
 	a.manager = m
-	n1, err := t.Enode(left)
-	if err != nil {
-		return err
-	}
-	n2, err := t.Enode(right)
-	if err != nil {
-		return err
-	}
 	if err = smtArithEqAssertion(84, "n1 != n2", n1 != n2); err != nil {
 		return err
 	}
@@ -475,7 +468,7 @@ func (a *smtLRAEqualityAdapter) Restart() error {
 		if left == nil || right == nil {
 			return ast.ErrASTDomain
 		}
-		if err = a.MkAxioms(left.TheoryVar(a.owner.FamilyID()), right.TheoryVar(a.owner.FamilyID())); err != nil {
+		if err = a.MkAxiomsNodes(left, right); err != nil {
 			return err
 		}
 	}

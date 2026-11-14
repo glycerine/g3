@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_11-F1: LRA internalize_eq_eh accepts inherited root
+	// variables and passes the equality's own enodes to mk_axioms.
+	"lra_inherited_eq_adapter.smt2": "sat\nsat\nsat\n(model \n  (define-fun c () Real\n    (/ 25019.0 25000.0))\n  (define-fun y () Real\n    1.0)\n  (define-fun x () Real\n    (/ 25019.0 25000.0))\n  (define-fun h ((x!0 Real)) Bool\n    (ite (= x!0 (/ 25019.0 25000.0)) true\n      true))\n  (define-fun g ((x!0 Real)) Real\n    (ite (= x!0 1.0) (/ 25019.0 25000.0)\n      (/ 25019.0 25000.0)))\n)\n",
 	// AUDIT.md smtcore_10-F2: dense internalize_atom matches the four C++
 	// shapes, so offset terms from arith_eq_adapter are accepted.
 	"dense_offset_equality_adapter.smt2": "unsat\n",
