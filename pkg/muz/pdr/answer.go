@@ -554,18 +554,10 @@ func (c *Context) Answer(queryDeclaration ast.ASTHandle) (result ast.ASTRef, res
 		}
 	}
 	constraints, err := c.unifiedTraceConstraints(root, c.fullTraceAnswer, false, func(handles []ast.ASTHandle) error {
-		var formula ast.ASTHandle
 		var x error
-		if len(handles) == 0 {
-			formula, x = c.manager.MkTrue()
-		} else {
-			formula, x = c.manager.MkAndArgs(handles)
-		}
-		if x != nil {
+		// return pm.mk_and(result): bool_rewriter::mk_and.
+		if result, x = c.owner.AndRef(handles); x != nil {
 			return fmt.Errorf("pdr: combine answer constraints: %w", x)
-		}
-		if result, x = c.manager.NewRef(formula); x != nil {
-			return fmt.Errorf("pdr: retain answer formula: %w", x)
 		}
 		return nil
 	})
