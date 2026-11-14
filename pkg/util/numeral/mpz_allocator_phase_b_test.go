@@ -87,11 +87,12 @@ func TestIntegerDefaultActualAllocatorConstructorTopology(t *testing.T) {
 		t.Fatalf("untouched tmp1 size synthesized: %v", e)
 	}
 	rawArg0, offArg0, _ := m.Allocator.RawLocation(objects[1])
+	// Digits live in the native payload; the runtime digit bytes stay untouched.
 	if _, e = rt.ReadUint32(rawArg0, offArg0+8); !errors.Is(e, umemory.ErrRuntimeUninitialized) {
-		t.Fatalf("unused arg0 digit synthesized: %v", e)
+		t.Fatalf("digit written through the byte runtime: %v", e)
 	}
 	rawArg1, offArg1, _ := m.Allocator.RawLocation(objects[3])
-	if v, e := rt.ReadUint32(rawArg1, offArg1+8); e != nil || v != 1 {
+	if v, e := sourceCellWord(rt, m.Allocator, objects[3], rawArg1, offArg1, 8); e != nil || v != 1 {
 		t.Fatalf("source get_sign_cell<1> one digit %d %v", v, e)
 	}
 	for _, tc := range []struct {
@@ -104,7 +105,7 @@ func TestIntegerDefaultActualAllocatorConstructorTopology(t *testing.T) {
 			t.Fatalf("source size%d=%d %v", tc.index, n, e)
 		}
 		for i, w := range tc.digits {
-			v, e := rt.ReadUint32(raw, off+8+4*uint64(i))
+			v, e := sourceCellWord(rt, m.Allocator, objects[tc.index], raw, off, 8+4*uint64(i))
 			if e != nil || v != w {
 				t.Fatalf("source object%d digit%d=%x want%x %v", tc.index, i, v, w, e)
 			}
@@ -113,7 +114,7 @@ func TestIntegerDefaultActualAllocatorConstructorTopology(t *testing.T) {
 	// The 32-bit-digit signed64 setter initializes its high digit even
 	// when logical size is one (mpz.cpp:184-189). This spare word is real.
 	rawMin, offMin, _ := m.Allocator.RawLocation(objects[4])
-	if v, e := rt.ReadUint32(rawMin, offMin+12); e != nil || v != 0 {
+	if v, e := sourceCellWord(rt, m.Allocator, objects[4], rawMin, offMin, 12); e != nil || v != 0 {
 		t.Fatalf("source intMin initialized high word %x %v", v, e)
 	}
 	if e = m.SourceFinalize(); e != nil {
@@ -339,7 +340,7 @@ func TestIntegerScratchSpanDoesNotPublishPhysicalSize(t *testing.T) {
 		offset uint64
 		value  uint32
 	}{{0, 1}, {8, 0x80000000}, {12, 0}} {
-		if v, e := rt.ReadUint32(raw, off+tc.offset); e != nil || v != tc.value {
+		if v, e := sourceCellWord(rt, m.Allocator, object, raw, off, tc.offset); e != nil || v != tc.value {
 			t.Fatalf("setter offset%d got%x %v", tc.offset, v, e)
 		}
 	}

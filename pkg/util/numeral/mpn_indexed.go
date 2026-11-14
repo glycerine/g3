@@ -24,6 +24,13 @@ func (v limbView) read(i uint32) uint32 {
 		panic(arena.ErrBounds)
 	}
 	if v.allocator != nil {
+		if !numericValidateCells {
+			d := v.backing.digitsUnchecked(v.allocator)
+			if uint64(i) >= uint64(len(d)) {
+				panic(arena.ErrBounds)
+			}
+			return d[i]
+		}
 		n, e := v.backing.ReadWord(v.allocator, 8+4*uint64(i))
 		if e != nil {
 			panic(e)
@@ -37,6 +44,14 @@ func (v limbView) write(i, n uint32) {
 		panic(arena.ErrBounds)
 	}
 	if v.allocator != nil {
+		if !numericValidateCells {
+			d := v.backing.digitsUnchecked(v.allocator)
+			if uint64(i) >= uint64(len(d)) {
+				panic(arena.ErrBounds)
+			}
+			d[i] = n
+			return
+		}
 		if e := v.backing.writeWord(v.allocator, 8+4*uint64(i), n); e != nil {
 			panic(e)
 		}

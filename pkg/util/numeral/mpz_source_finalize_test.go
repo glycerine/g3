@@ -36,6 +36,7 @@ func TestIntegerSourceFinalizeCallerPhysicalLifetimes(t *testing.T) {
 		if e != nil {
 			t.Fatal(e)
 		}
+		allocator := m.Allocator
 		raw, offset, e := m.Allocator.RawLocation(object)
 		if e != nil {
 			t.Fatal(e)
@@ -56,7 +57,7 @@ func TestIntegerSourceFinalizeCallerPhysicalLifetimes(t *testing.T) {
 			if capacity, e := rt.ReadUint32(raw, 4); e != nil || capacity != 60 {
 				t.Fatal("surviving direct capacity", capacity, e)
 			}
-			if digit, e := rt.ReadUint32(raw, 8); e != nil || digit != 7 {
+			if digit, e := sourceCellWord(rt, allocator, object, raw, 0, 8); e != nil || digit != 7 {
 				t.Fatal("surviving direct digits", digit, e)
 			}
 		} else {
@@ -165,7 +166,7 @@ func TestIntegerSourceFinalizeDiagnosticFailureRetainsCaller(t *testing.T) {
 		if e = m.SetLimbs(&caller, digits); e != nil {
 			t.Fatal(e)
 		}
-		raw := m.Cell(caller.Cell).Backing.Raw
+		raw, object, allocator := m.Cell(caller.Cell).Backing.Raw, m.Cell(caller.Cell).Backing.Object, m.Allocator
 		if e = m.SourceFinalize(); !errors.Is(e, umemory.ErrAllocatorIO) {
 			t.Fatal("actual source diagnostic refusal", e)
 		}
@@ -175,7 +176,7 @@ func TestIntegerSourceFinalizeDiagnosticFailureRetainsCaller(t *testing.T) {
 		if rt.Stats().LiveBlocks != 1 {
 			t.Fatal("source diagnostic failure freed caller", rt.Stats())
 		}
-		if v, e := rt.ReadUint32(raw, 8); e != nil || v != 7 {
+		if v, e := sourceCellWord(rt, allocator, object, raw, 0, 8); e != nil || v != 7 {
 			t.Fatal("surviving caller prefix", v, e)
 		}
 		if retryFinalize {

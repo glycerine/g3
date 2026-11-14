@@ -76,6 +76,7 @@ func TestTransitiveSourceFinalizeCallerPhysicalLifetimes(t *testing.T) {
 				t.Fatal(e)
 			}
 			raw, offset := m.Z.Cell(caller.Num.Cell).Backing.Raw, m.Z.Cell(caller.Num.Cell).Backing.Offset
+			object, allocator := m.Z.Cell(caller.Num.Cell).Backing.Object, m.Z.Allocator
 			if e := transitiveSourceRun(m, s); e != nil {
 				t.Fatal(e)
 			}
@@ -94,7 +95,7 @@ func TestTransitiveSourceFinalizeCallerPhysicalLifetimes(t *testing.T) {
 				if rt.Stats().LiveBlocks != 1 || rt.Stats().PhysicalBytes != 256 {
 					t.Fatal("caller direct source lifetime", rt.Stats())
 				}
-				if v, e := rt.ReadUint32(raw, offset+8); e != nil || v != 7 {
+				if v, e := sourceCellWord(rt, allocator, object, raw, offset, 8); e != nil || v != 7 {
 					t.Fatal(v, e)
 				}
 			} else {
@@ -174,7 +175,7 @@ func TestRationalSourceFinalizeActualPrivateGuardOrder(t *testing.T) {
 			t.Fatal("undefined leaf silently completed", stop)
 		}
 		for i := range raws {
-			_, e = rt.ReadUint32(raws[i], 8)
+			_, e = rt.ReadUint32(raws[i], 4) // m_capacity: digits are a native payload
 			if i <= stop {
 				if !errors.Is(e, umemory.ErrRuntimeOwner) {
 					t.Fatal("prior source release missing", stop, i, e)
@@ -494,7 +495,7 @@ func TestServiceSourceFinalizeActualHookAndConstantOrder(t *testing.T) {
 			t.Fatal("hook/constant source boundary", stop, s.cleanupStage)
 		}
 		for i, raw := range raws {
-			_, e = rt.ReadUint32(raw, 8)
+			_, e = rt.ReadUint32(raw, 4) // m_capacity: digits are a native payload
 			if i <= stop {
 				if !errors.Is(e, umemory.ErrRuntimeOwner) {
 					t.Fatal("prior hook/member release missing", stop, i, e)

@@ -324,11 +324,11 @@ func (m *IntegerManager) Digit(ref NumericCellRef, i uint32) uint32 {
 			if i >= max(c.Size, c.span) {
 				return 0
 			}
-			v, e := c.Backing.readWordUnchecked(m.Allocator, 8+4*uint64(i))
-			if e != nil {
-				panic(e)
+			d := c.Backing.digitsUnchecked(m.Allocator)
+			if uint64(i) >= uint64(len(d)) {
+				panic(arena.ErrBounds)
 			}
-			return v
+			return d[i]
 		}
 	}
 	c := m.Cell(ref)
@@ -344,9 +344,11 @@ func (m *IntegerManager) Digit(ref NumericCellRef, i uint32) uint32 {
 func (m *IntegerManager) writeDigit(ref NumericCellRef, i, v uint32) {
 	if !numericValidateCells {
 		if c := m.Cells.recordPtr(NumericSlot(ref)); c != nil {
-			if e := c.Backing.writeWordUnchecked(m.Allocator, 8+4*uint64(i), v); e != nil {
-				panic(e)
+			d := c.Backing.digitsUnchecked(m.Allocator)
+			if uint64(i) >= uint64(len(d)) {
+				panic(arena.ErrBounds)
 			}
+			d[i] = v
 			return
 		}
 	}
@@ -374,7 +376,11 @@ func (m *IntegerManager) ResizeCell(ref NumericCellRef, size uint32) {
 	if size > c.Capacity {
 		panic(arena.ErrBounds)
 	}
-	if e := c.Backing.writeWord(m.Allocator, 0, size); e != nil {
+	if !numericValidateCells {
+		if e := c.Backing.writeHeaderUnchecked(m.Allocator, 0, size); e != nil {
+			panic(e)
+		}
+	} else if e := c.Backing.writeWord(m.Allocator, 0, size); e != nil {
 		panic(e)
 	}
 	c.Size = size
@@ -1037,21 +1043,10 @@ func (m *IntegerManager) copyFromOwnerWithPhysicalFloatCaller(dst *Int, sourceMa
 	// slabs on every iteration; neither changes inside this loop (the resize
 	// is above), so read them once. Same words, same order.
 	srcCell, dstCell := sourceManager.Cell(src.Cell), m.Cell(ref)
-	if sourceManager.Allocator.RuntimeOwner() == m.Allocator.RuntimeOwner() {
-		// One validation for the whole digit range instead of per word.
-		if e := dstCell.Backing.copyWordsFrom(m.Allocator, srcCell.Backing, sourceManager.Allocator, 8, uint64(source.Size)); e != nil {
-			panic(e)
-		}
-	} else {
-		for i := uint32(0); i < source.Size; i++ {
-			v, e := srcCell.Backing.ReadWord(sourceManager.Allocator, 8+4*uint64(i))
-			if e != nil {
-				panic(e)
-			}
-			if e := dstCell.Backing.writeWord(m.Allocator, 8+4*uint64(i), v); e != nil {
-				panic(e)
-			}
-		}
+	// One validation for the whole digit range instead of per word; both
+	// payloads are native, so the runtimes need not match.
+	if e := dstCell.Backing.copyWordsFrom(m.Allocator, srcCell.Backing, sourceManager.Allocator, 8, uint64(source.Size)); e != nil {
+		panic(e)
 	}
 	dst.Cell = ref
 	if e := receiver.publishCell(dst); e != nil {
