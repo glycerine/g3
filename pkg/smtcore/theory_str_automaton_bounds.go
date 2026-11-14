@@ -125,9 +125,9 @@ func (t *SMTStringTheory) findStringAutomatonInitialBounds(membership ast.ASTHan
 	if zeroAccepted {
 		t.regexLastLower[word] = new(big.Int)
 	}
-	if nonzero == -1 {
-		return ast.ErrASTDomain // Native UNREACHABLE: no nonzero solution.
-	}
+	// Both nonzero_lower_bound == -1 arms are UNREACHABLE(); in the release
+	// build (__builtin_unreachable) they take the ordinary arm, so the
+	// sentinel -1 becomes the bound: (>= (str.len x) (- 1)).
 	if !zeroAccepted {
 		t.regexLastLower[word] = big.NewInt(nonzero)
 	}

@@ -361,17 +361,19 @@ func TestSMTStringRegexStageDisabledAndInitialBoundFailureOwnership(t *testing.T
 	astTestMust(t, context.SetBoolName(&params, &key, true))
 	astTestMust(t, theory.parameterOwner.Update(&params))
 	astTestMust(t, context.Del(&params))
+	// smtcore_12-F1: the epsilon-only language reaches the UNREACHABLE arm
+	// of find_automaton_initial_bounds, which the release build continues.
 	added, err = theory.runStringRegexAutomataStage()
-	if err == nil || !added || len(theory.regexStage.owned) != 1 || theory.regexStage.automata[regex] == nil {
-		t.Fatal("native no-nonzero-solution guard lost its prior owned cache publication", added, err)
+	if err != nil || !added || len(theory.regexStage.owned) != 1 || theory.regexStage.automata[regex] == nil {
+		t.Fatal("epsilon-only initial bound lost its owned cache publication", added, err)
 	}
 	if theory.regexLastLower[word] == nil || theory.regexLastLower[word].Sign() != 0 {
-		t.Fatal("epsilon-only guard lost native prior zero-cache write")
+		t.Fatal("epsilon-only bound lost the native zero-cache write")
 	}
 	owner := theory.regexStage.automata[regex]
 	astTestMust(t, theory.Close())
 	if _, err := owner.Graph(); err == nil {
-		t.Fatal("String close leaked a cached automaton after failed initial bounds")
+		t.Fatal("String close leaked a cached automaton after epsilon-only initial bounds")
 	}
 }
 

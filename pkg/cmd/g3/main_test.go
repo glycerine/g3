@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_12-F1: empty/epsilon regex languages (was unknown). build/z3 answers unsat for the middle block after the pop.
+	"str_regex_inter_empty.smt2": "unsat\nunsat\nunsat\n",
+	// AUDIT.md smtcore_12-F1: language {""} takes the release UNREACHABLE arm (was unknown).
+	"str_regex_inter_epsilon.smt2": "sat\n",
 	// AUDIT.md smtcore_13-F3: re.inter under z3str3 (was unknown).
 	"str_regex_inter_loop.smt2": "sat\n((x \"abab\"))\n",
 	// AUDIT.md smtcore_13-F3: re.complement under z3str3 (was unknown).

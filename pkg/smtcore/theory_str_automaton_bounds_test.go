@@ -164,7 +164,10 @@ func TestSMTStringAutomatonInitialBoundsGuardsAndPersistentCache(t *testing.T) {
 	}
 }
 
-func TestSMTStringAutomatonInitialBoundsNoNonzeroSolutionGuard(t *testing.T) {
+// smtcore_12-F1: both nonzero_lower_bound == -1 arms of
+// find_automaton_initial_bounds are UNREACHABLE(); the release build takes
+// the ordinary arm with the sentinel -1 as the bound and keeps solving.
+func TestSMTStringAutomatonInitialBoundsNoNonzeroSolutionReleaseArm(t *testing.T) {
 	m, theory, state, _ := stringLibraryFixture(t)
 	word := stringGroundingWord(t, theory, "aut-bound-empty-word")
 	regex := stringRegexLiteral(t, m, "")
@@ -172,14 +175,18 @@ func TestSMTStringAutomatonInitialBoundsNoNonzeroSolutionGuard(t *testing.T) {
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(membership, false))
 	before := len(theory.refs)
-	if err := theory.findStringAutomatonInitialBounds(membership, automata.Epsilon()); err == nil || len(theory.refs) != before {
-		t.Fatal("epsilon-only initial bound bypassed native no-nonzero-solution guard")
+	if err := theory.findStringAutomatonInitialBounds(membership, automata.Epsilon()); err != nil || len(theory.refs) == before {
+		t.Fatal("epsilon-only initial bound did not assert the release-build lemma", err)
 	}
 	if value := theory.regexLastLower[word]; value == nil || value.Sign() != 0 {
-		t.Fatal("native zero-bound publication before its no-nonzero guard was lost")
+		t.Fatal("zero-bound publication was lost", value)
 	}
 	delete(theory.regexLastLower, word)
-	if err := theory.findStringAutomatonInitialBounds(membership, automata.Empty()); err == nil || len(theory.regexLastLower) != 0 {
-		t.Fatal("empty language invented a lower bound")
+	before = len(theory.refs)
+	if err := theory.findStringAutomatonInitialBounds(membership, automata.Empty()); err != nil || len(theory.refs) == before {
+		t.Fatal("empty language did not assert the release-build lemma", err)
+	}
+	if value := theory.regexLastLower[word]; value == nil || value.Int64() != -1 {
+		t.Fatal("empty language did not record the -1 sentinel bound", value)
 	}
 }
