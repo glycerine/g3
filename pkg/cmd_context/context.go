@@ -156,6 +156,9 @@ type Context struct {
 	optimizationSAT *satsolver.Solver
 	// retainedOptimizer is the last lex optimize()'s m_opt_solver.
 	retainedOptimizer *opt.ArithmeticSolver
+	// optimizationRunUsedSAT records that update_solver made
+	// optimizationSAT the last run's m_solver.
+	optimizationRunUsedSAT bool
 	// optimizationModelsRaw is set when runOptimize kept m_model and
 	// m_box_models unfixed; optimizationRawResult is the check-sat result
 	// published from them. Retrieval applies fix_model (get_model,

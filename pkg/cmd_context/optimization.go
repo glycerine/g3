@@ -487,6 +487,8 @@ func (c *Context) runOptimize(assumptions []ast.ASTHandle, execute func(*opt.Ari
 	c.optimizationModelsRaw = true
 	defer func() {
 		c.optimizationOptsmt = append(c.optimizationOptsmt, optimizer.DetachObjectiveTerms()...)
+		// m_solver is the inc_sat_solver for this run (AUDIT.md FUZZ_A-F12).
+		c.optimizationRunUsedSAT = optimizer.HasSAT()
 		if optimizer.HasSAT() {
 			c.optimizationSAT = optimizer.DetachSAT()
 		}
@@ -749,6 +751,16 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 		if err = result.SetReasonUnknown(reason); err != nil {
 			return lbool.Undef, err
 		}
+	} else {
+		// opt::context::reason_unknown() is m_solver->reason_unknown()
+		// whatever the status (AUDIT.md FUZZ_A-F12).
+		reason, reasonErr := c.optimizationSolverReasonUnknown(paretoContinuation)
+		if reasonErr != nil {
+			return lbool.Undef, reasonErr
+		}
+		if err = result.SetReasonUnknown(reason); err != nil {
+			return lbool.Undef, err
+		}
 	}
 	if err = result.SetModel(optimized.Model); err != nil {
 		return lbool.Undef, err
@@ -816,6 +828,30 @@ func (c *Context) optimizationUnknownReason() (string, error) {
 		return c.manager.ResourceLimit().CancelMessage(), nil
 	}
 	return "unknown", nil
+}
+
+// optimizationSolverReasonUnknown is opt::context::reason_unknown() after a
+// decided optimize: Z3_CANCELED_MSG when canceled, else
+// m_solver->reason_unknown() (the Pareto engine's solver, the run's
+// inc_sat_solver or its opt_solver).
+func (c *Context) optimizationSolverReasonUnknown(paretoContinuation bool) (string, error) {
+	canceled, err := c.manager.Canceled()
+	if err != nil {
+		return "", err
+	}
+	if canceled {
+		return c.manager.ResourceLimit().CancelMessage(), nil
+	}
+	if c.optimizationParetoBackend != nil {
+		return c.optimizationParetoBackend.ReasonUnknown()
+	}
+	if paretoContinuation || c.retainedOptimizer == nil {
+		return "", nil
+	}
+	if c.optimizationRunUsedSAT && c.optimizationSAT != nil {
+		return c.optimizationSAT.ReasonUnknown()
+	}
+	return c.retainedOptimizer.SolverReasonUnknown()
 }
 
 func (c *Context) optimizationResultUnknownReason(result *opt.ArithmeticResult) (string, error) {

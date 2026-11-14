@@ -41,6 +41,15 @@ func (s *ArithmeticSolver) solver() maxSMTBackend {
 	return s.backend
 }
 
+// SolverReasonUnknown is m_solver->reason_unknown() on get_solver(): the
+// inc_sat_solver while it is installed, else the opt_solver.
+func (s *ArithmeticSolver) SolverReasonUnknown() (string, error) {
+	if s == nil || s.backend == nil {
+		return "", ast.ErrASTHandle
+	}
+	return s.solver().ReasonUnknown()
+}
+
 // UpdateSolver is context::update_solver: when the problem is SAT-eligible
 // it creates mk_inc_sat_solver(m, m_params) with minimize_core and
 // minimize_core_partial set, and asserts the opt_solver's assertions.

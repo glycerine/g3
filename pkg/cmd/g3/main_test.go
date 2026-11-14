@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_A-F12: reason-unknown after a decided optimize is m_solver->reason_unknown().
+	"opt_reason_unknown_after_decided.smt2": "sat\n(:reason-unknown \"unknown\")\nsat\n(:reason-unknown \"no reason given\")\nunsat\n(:reason-unknown \"unknown\")\n",
 	// AUDIT.md FUZZ_A-F10: an exception inside the MaxSMT engine makes the answer unknown.
 	"opt_maxsmt_exception_is_unknown.smt2": "unknown\n(:reason-unknown \"(incomplete (theory lra))\")\n(objectives\n (  (interval 0 5))\n)\n(model \n  (define-fun y0 () Real\n    (/ 39.0 50.0))\n  (define-fun y1 () Real\n    (/ 78.0 983.0))\n)\n",
 	// AUDIT.md FUZZ_A-F11: maxres init does not complete the shared base model.
