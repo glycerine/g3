@@ -1,0 +1,8 @@
+(set-option :auto_config false)
+(set-option :smt.phase_selection 6)
+(declare-fun P (Int) Bool)
+(assert (or (P 1) (P 3) (P 4)))
+(assert (or (not (P 1)) (P 5)))
+(assert (or (not (P 1)) (P 6)))
+(check-sat)
+(get-value ((P 1) (P 3) (P 4) (P 5) (P 6)))

@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_02-F5: PS_OCCURRENCE counts m_lit_occs, which holds
+	// clause objects only (watch-only binary clauses are not counted).
+	"phase_selection_occurrence_binary.smt2": "sat\n(((P 1) false)\n ((P 3) false)\n ((P 4) true)\n ((P 5) false)\n ((P 6) false))\n",
 	// AUDIT.md smtcore_02-F2: cg_table gives flat-associative binary
 	// declarations (+) the positional n-ary table, not comm_table (old g3: unsat).
 	"cg_table_flat_assoc_commutative.smt2": "unknown\n",

@@ -112,11 +112,12 @@ func (q *SMTActivityCaseSplitQueue) occurrencePhase(variable int32) bool {
 	positive, negative := 0, 0
 	for i := range q.state.clauses {
 		record := &q.state.clauses[i]
-		literals := record.Literals
-		if record.clause != nil {
-			literals = record.clause.literals
+		// m_lit_occs holds clause objects only: mk_clause returns before
+		// add_lit_occs for a watch-only binary clause.
+		if record.Binary || record.clause == nil {
+			continue
 		}
-		for _, literal := range literals {
+		for _, literal := range record.clause.literals {
 			if literal.Var() != variable {
 				continue
 			}

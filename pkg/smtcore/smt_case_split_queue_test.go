@@ -105,17 +105,37 @@ func TestSMTActivityCaseSplitQueueHonorsConfiguredAndCachedPhases(t *testing.T) 
 	if !found {
 		t.Fatal("missing occurrence-phase peer")
 	}
+	c := smtRelevancyBool(t, m, "case-split-configured-c")
+	astTestMust(t, state.Internalize(c, true))
+	cVariable, found := state.BoolVar(c)
+	if !found {
+		t.Fatal("missing occurrence-phase third peer")
+	}
 	state.activity[variable] = 2
 	positive := NewSMTLiteral(variable, false)
 	peer := NewSMTLiteral(bVariable, false)
+	third := NewSMTLiteral(cVariable, false)
+	// smtcore_02-F5: m_lit_occs holds clause objects only, so the two
+	// watch-only binary clauses are not counted and the one ternary clause
+	// with the negative literal decides the phase.
 	astTestMust(t, state.addClause([]SMTLiteral{positive, peer}, false, ast.ASTHandle{}))
 	astTestMust(t, state.addClause([]SMTLiteral{positive, peer.Negated()}, false, ast.ASTHandle{}))
+	astTestMust(t, state.addClause([]SMTLiteral{positive.Negated(), peer, third}, false, ast.ASTHandle{}))
 	// A native activity selection consumes the entry; real unassignment
 	// makes this variable available for the next independent phase check.
 	astTestMust(t, state.SetAssignment(variable, lbool.True))
 	astTestMust(t, state.SetAssignment(variable, lbool.Undef))
 	config.PhaseSelection = 6
 	astTestMust(t, queue.ConfigurePhases(config))
+	selected, phase, err = queue.NextCaseSplit()
+	astTestMust(t, err)
+	if selected != variable || phase != lbool.False {
+		t.Fatal("occurrence phase counted binary clauses", selected, phase)
+	}
+	astTestMust(t, state.addClause([]SMTLiteral{positive, peer, third}, false, ast.ASTHandle{}))
+	astTestMust(t, state.addClause([]SMTLiteral{positive, peer.Negated(), third}, false, ast.ASTHandle{}))
+	astTestMust(t, state.SetAssignment(variable, lbool.True))
+	astTestMust(t, state.SetAssignment(variable, lbool.Undef))
 	selected, phase, err = queue.NextCaseSplit()
 	astTestMust(t, err)
 	if selected != variable || phase != lbool.True {
