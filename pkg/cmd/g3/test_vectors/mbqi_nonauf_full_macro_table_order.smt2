@@ -1,0 +1,7 @@
+(declare-fun g (Int) Int)
+(declare-fun f (Int) Int)
+(declare-fun h (Int Int) Int)
+(assert (forall ((x Int)) (= (g x) (+ (f x) x))))
+(assert (forall ((x Int)) (= (h (g x) (f x)) 0)))
+(check-sat)
+(get-model)

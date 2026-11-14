@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_05-F1: full macros follow obj_map table order.
+	"mbqi_nonauf_full_macro_table_order.smt2": "sat\n(model \n  (define-fun h ((x!0 Int) (x!1 Int)) Int\n    0)\n  (define-fun g ((x!0 Int)) Int\n    0)\n  (define-fun f ((x!0 Int)) Int\n    (+ (* (- 1) x!0) (g x!0)))\n)\n",
 	// AUDIT.md smtcore_02-F5: PS_OCCURRENCE counts m_lit_occs, which holds
 	// clause objects only (watch-only binary clauses are not counted).
 	"phase_selection_occurrence_binary.smt2": "sat\n(((P 1) false)\n ((P 3) false)\n ((P 4) true)\n ((P 5) false)\n ((P 6) false))\n",

@@ -418,3 +418,76 @@ func TestSMTModelFinderCombinesConditionalNonAUFMacros(t *testing.T) {
 		t.Fatal("conditional non-AUF definition", definition, want)
 	}
 }
+
+// smtcore_05-F1: non_auf_macro_solver walks full_macros (an obj_map) in
+// hash-table order; the first accepted macro closes the dependency cycle.
+func TestSMTModelFinderFullMacrosFollowTableOrder(t *testing.T) {
+	m, modelConfig := smtModelGeneratorFixture(t)
+	solver, err := NewSMTSolver(m, nil, "AUFLIA", SMTSolverConfig{Params: modelConfig.Context, ModelEvaluator: modelConfig})
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, solver.Close()) })
+	state := solver.kernel.internalizer
+	finder := state.quantifierManager.modelFinder
+	zero, err := m.ArithmeticIntegerNumeralText("0")
+	astTestMust(t, err)
+	integer, err := m.GetSort(zero)
+	astTestMust(t, err)
+	variable, err := m.MkVar(0, integer)
+	astTestMust(t, err)
+	makeFunction := func(name string) ast.ASTHandle {
+		declaration, e := m.MkFuncDecl(astTestSymbol(t, m, name), []ast.ASTHandle{integer}, integer, ast.ASTFuncDeclInfo{})
+		astTestMust(t, e)
+		ref, e := m.NewRef(declaration)
+		astTestMust(t, e)
+		t.Cleanup(func() { astTestMust(t, m.DelRef(&ref)) })
+		return declaration
+	}
+	f, g := makeFunction("table-order-f"), makeFunction("table-order-g")
+	fApp, err := m.MkApp(f, []ast.ASTHandle{variable})
+	astTestMust(t, err)
+	gApp, err := m.MkApp(g, []ast.ASTHandle{variable})
+	astTestMust(t, err)
+	body, err := m.MkEq(gApp, fApp)
+	astTestMust(t, err)
+	q, err := m.MkQuantifier(ast.ASTQuantifierSpec{
+		Forall: true, Sorts: []ast.ASTHandle{integer}, Names: []symbol.Symbol{astTestSymbol(t, m, "table-order-x")},
+		Body: body, Weight: 10, QID: astTestSymbol(t, m, "table-order-q"),
+	})
+	astTestMust(t, err)
+	astTestMust(t, state.Internalize(q, true))
+	if len(finder.quantifiers) != 1 {
+		t.Fatal("quantifier was not registered", finder.quantifiers)
+	}
+	q = finder.quantifiers[0]
+	table := ast.NewObjMap(m)
+	astTestMust(t, table.Insert(f, [2]ast.ASTHandle{}))
+	astTestMust(t, table.Insert(g, [2]ast.ASTHandle{}))
+	head := table.Entries()[0].Key
+	definitions := map[ast.ASTHandle]ast.ASTHandle{f: gApp, g: fApp}
+	// Insert the candidates against table order, so insertion order would
+	// pick the other function.
+	order := []ast.ASTHandle{f, g}
+	if head == f {
+		order = []ast.ASTHandle{g, f}
+	}
+	truth, err := m.MkTrue()
+	astTestMust(t, err)
+	astTestMust(t, finder.candidates[q].Reset())
+	for _, declaration := range order {
+		astTestMust(t, finder.candidates[q].Insert(macros.Candidate{Declaration: declaration, Definition: definitions[declaration], Condition: truth, SatisfyAtom: true}))
+	}
+	first, err := finder.candidates[q].At(0)
+	astTestMust(t, err)
+	if first.Declaration == head {
+		t.Fatal("fixture did not separate insertion order from table order")
+	}
+	finder.auf[q] = false
+	proto, err := protomodel.NewProtoModel(m, modelConfig)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, proto.Close()) })
+	_, err = finder.processNonAUFMacros(proto, []ast.ASTHandle{q})
+	astTestMust(t, err)
+	if finder.chosen[q] != head {
+		t.Fatal("full macro was not taken in obj_map table order", finder.chosen[q], head)
+	}
+}

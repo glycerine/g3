@@ -445,10 +445,11 @@ func (f *SMTModelFinder) processNonAUFMacros(proto *protomodel.ProtoModel, quant
 	current := append([]ast.ASTHandle(nil), quantifiers...)
 	var residue []ast.ASTHandle
 	for {
-		byDeclaration := make(map[ast.ASTHandle]smtModelFinderFullMacro)
-		fullOrder := make([]ast.ASTHandle, 0)
-		conditional := make(map[ast.ASTHandle]struct{})
-		conditionalOrder := make([]ast.ASTHandle, 0)
+		// obj_map<func_decl, mq_pair> full_macros and func_decl_set
+		// cond_macros: both are walked in hash-table order.
+		full := ast.NewObjMap(f.manager)
+		fullMacros := make([]smtModelFinderFullMacro, 0)
+		cond := ast.NewObjMap(f.manager)
 		for _, quantifier := range current {
 			weight, err := f.manager.GetQuantifierWeight(f.flatQuantifier(quantifier))
 			if err != nil {
@@ -465,24 +466,30 @@ func (f *SMTModelFinder) processNonAUFMacros(proto *protomodel.ProtoModel, quant
 					continue
 				}
 				if f.manager.IsTrue(candidate.Condition) && (!f.auf[quantifier] || forced) {
-					if _, found := byDeclaration[candidate.Declaration]; !found {
-						fullOrder = append(fullOrder, candidate.Declaration)
+					fullMacros = append(fullMacros, smtModelFinderFullMacro{quantifier: quantifier, candidate: candidate})
+					if err = full.InsertNum(candidate.Declaration, uint64(len(fullMacros)-1)); err != nil {
+						return nil, err
 					}
-					byDeclaration[candidate.Declaration] = smtModelFinderFullMacro{quantifier: quantifier, candidate: candidate}
-					delete(conditional, candidate.Declaration)
+					if err = cond.Erase(candidate.Declaration); err != nil {
+						return nil, err
+					}
 					continue
 				}
-				if _, full := byDeclaration[candidate.Declaration]; !full && !f.auf[quantifier] {
-					if _, found := conditional[candidate.Declaration]; !found {
-						conditionalOrder = append(conditionalOrder, candidate.Declaration)
+				isFull, err := full.Contains(candidate.Declaration)
+				if err != nil {
+					return nil, err
+				}
+				if !isFull && !f.auf[quantifier] {
+					if err = cond.Insert(candidate.Declaration, [2]ast.ASTHandle{}); err != nil {
+						return nil, err
 					}
-					conditional[candidate.Declaration] = struct{}{}
 				}
 			}
 		}
 		removed := make(map[ast.ASTHandle]struct{})
-		for _, declaration := range fullOrder {
-			macro := byDeclaration[declaration]
+		for _, entry := range full.Entries() {
+			declaration := entry.Key
+			macro := fullMacros[entry.Num]
 			added, err := f.addNonAUFMacro(proto, macro.candidate)
 			if err != nil {
 				return nil, err
@@ -492,10 +499,8 @@ func (f *SMTModelFinder) processNonAUFMacros(proto *protomodel.ProtoModel, quant
 				removed[macro.quantifier] = struct{}{}
 			}
 		}
-		for _, declaration := range conditionalOrder {
-			if _, stillConditional := conditional[declaration]; !stillConditional {
-				continue
-			}
+		for _, entry := range cond.Entries() {
+			declaration := entry.Key
 			var definition ast.ASTHandle
 			selected := make([]ast.ASTHandle, 0)
 			ignore := false
