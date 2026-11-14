@@ -23,6 +23,7 @@ import (
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/tactic/portfolio"
+	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
@@ -1297,7 +1298,15 @@ func (c *Context) Push(count uint32) error {
 	if _, err := c.Manager(); err != nil {
 		return err
 	}
+	state, err := c.parameters.State()
+	if err != nil {
+		return err
+	}
 	for ; count > 0; count-- {
+		// m().limit().push(m_params.rlimit()) precedes m_solver->push().
+		if err := c.manager.ResourceLimit().Push(state.RLimit); err != nil {
+			return err
+		}
 		if err := c.solver.Push(); err != nil {
 			return err
 		}
@@ -1366,6 +1375,9 @@ func (c *Context) Pop(count uint32) error {
 		return err
 	}
 	c.scopes = c.scopes[:level]
+	for ; count > 0; count-- {
+		c.manager.ResourceLimit().Pop()
+	}
 	return nil
 }
 
@@ -1459,7 +1471,14 @@ func (c *Context) CheckSat(assumptions []ast.ASTHandle) (status lbool.LBool, err
 		if err = c.solver.SetProgressCallback(c); err != nil {
 			return lbool.Undef, err
 		}
+		execution, scopeErr := c.beginCheckExecution()
+		if scopeErr != nil {
+			return lbool.Undef, scopeErr
+		}
 		status, err = c.solver.CheckSat(assumptions)
+		if closeErr := execution.Close(); closeErr != nil {
+			return lbool.Undef, errors.Join(err, closeErr)
+		}
 		if err != nil {
 			var fatal z3exception.Z3Error
 			var source z3exception.Z3Exception
@@ -1493,6 +1512,44 @@ func (c *Context) CheckSat(assumptions []ast.ASTHandle) (status lbool.LBool, err
 		}
 	}
 	return status, err
+}
+
+// checkExecutionScope is the cancel_eh<reslimit>, scoped_timer and
+// scoped_rlimit that cmd_context::check_sat and get_consequences put around
+// the solver call, built from m_params.m_timeout and m_params.rlimit().
+type checkExecutionScope struct {
+	handler    *contextTimeoutHandler
+	timer      *control.ScopedTimer
+	limitScope control.LimitScope
+}
+
+func (c *Context) beginCheckExecution() (*checkExecutionScope, error) {
+	state, err := c.parameters.State()
+	if err != nil {
+		return nil, err
+	}
+	limit := c.manager.ResourceLimit()
+	handler := &contextTimeoutHandler{limit: limit, active: true}
+	timer, err := control.NewScopedTimer(state.Timeout, handler)
+	if err != nil {
+		handler.close()
+		return nil, err
+	}
+	limitScope, err := control.NewLimitScope(limit, state.RLimit)
+	if err != nil {
+		err = errors.Join(err, timer.Close())
+		handler.close()
+		return nil, err
+	}
+	return &checkExecutionScope{handler: handler, timer: timer, limitScope: limitScope}, nil
+}
+
+// Close runs the destructors in reverse construction order.
+func (s *checkExecutionScope) Close() error {
+	s.limitScope.Close()
+	err := s.timer.Close()
+	s.handler.close()
+	return err
 }
 
 func (c *Context) Model() (*model.ModelCore, error) {

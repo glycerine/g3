@@ -1,0 +1,8 @@
+(set-option :rlimit 1)
+(declare-const x Int)
+(push)
+(pop)
+(set-option :rlimit 0)
+(assert (> x 0))
+(check-sat)
+(get-info :reason-unknown)

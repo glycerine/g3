@@ -286,3 +286,52 @@ func TestCommandContextNamedCoreAndProof(t *testing.T) {
 		t.Fatal("missing proof")
 	}
 }
+
+// AUDIT.md smtcore_14-F1: cmd_context::check_sat runs the solver under
+// scoped_rlimit(m_params.rlimit()); push/pop push and pop the limit.
+func TestCommandContextCheckSatHonorsResourceLimit(t *testing.T) {
+	c := contextFixture(t)
+	contextMust(t, c.SetUIntOption("rlimit", 1))
+	integer, err := c.LookupSort("Int")
+	contextMust(t, err)
+	_, err = c.DeclareFunction("x", nil, integer)
+	contextMust(t, err)
+	_, err = c.DeclareFunction("y", nil, integer)
+	contextMust(t, err)
+	x, err := c.MakeApp("x", nil, nil, ast.ASTHandle{})
+	contextMust(t, err)
+	y, err := c.MakeApp("y", nil, nil, ast.ASTHandle{})
+	contextMust(t, err)
+	zero, err := c.manager.ArithmeticIntegerNumeralText("0")
+	contextMust(t, err)
+	positive, err := c.MakeApp(">", []ast.ASTHandle{x, zero}, nil, ast.ASTHandle{})
+	contextMust(t, err)
+	below, err := c.MakeApp("<", []ast.ASTHandle{y, x}, nil, ast.ASTHandle{})
+	contextMust(t, err)
+	contextMust(t, c.Assert(positive, ""))
+	contextMust(t, c.Assert(below, ""))
+	limit := c.manager.ResourceLimit()
+	depth := len(limit.Limits)
+	status, err := c.CheckSat(nil)
+	contextMust(t, err)
+	if status != lbool.Undef {
+		t.Fatal("rlimit 1 check-sat", status)
+	}
+	if len(limit.Limits) != depth {
+		t.Fatal("check-sat left a pushed resource limit", len(limit.Limits), depth)
+	}
+	contextMust(t, c.SetUIntOption("rlimit", 0))
+	contextMust(t, c.Push(2))
+	if len(limit.Limits) != depth+2 {
+		t.Fatal("push did not push the resource limit", len(limit.Limits), depth)
+	}
+	contextMust(t, c.Pop(2))
+	if len(limit.Limits) != depth {
+		t.Fatal("pop did not pop the resource limit", len(limit.Limits), depth)
+	}
+	status, err = c.CheckSat(nil)
+	contextMust(t, err)
+	if status != lbool.True {
+		t.Fatal("unlimited check-sat", status)
+	}
+}

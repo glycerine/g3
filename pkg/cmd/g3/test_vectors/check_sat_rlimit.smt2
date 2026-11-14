@@ -1,0 +1,7 @@
+(set-option :rlimit 1)
+(declare-const x Int)
+(declare-const y Int)
+(assert (> x 0))
+(assert (< y x))
+(check-sat)
+(get-info :reason-unknown)

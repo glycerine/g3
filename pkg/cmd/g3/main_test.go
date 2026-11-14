@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_14-F1: check-sat runs under scoped_rlimit; pop pops
+	// the limit that push pushed.
+	"check_sat_rlimit.smt2":          "unknown\n(:reason-unknown \"max. resource limit exceeded\")\n",
+	"check_sat_rlimit_push_pop.smt2": "sat\n(:reason-unknown \"unknown\")\n",
 	// AUDIT.md smtcore_07-F1: no candidate model (converter) after a
 	// conflict-limit stop.
 	"smt_tactic_candidate_models_conflict_limit.smt2": "(goals\n(goal\n  (or a b)\n  (or a (not b))\n  (or c (not a))\n  :precision precise :depth 0)\n)\n",

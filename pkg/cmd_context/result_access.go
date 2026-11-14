@@ -4,6 +4,7 @@ package cmd_context
 // src/cmd_context/basic_cmds.cpp get-proof/get-unsat-core availability.
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -69,7 +70,14 @@ func (c *Context) Consequences(assumptions, variables []ast.ASTHandle) (status l
 	if err := c.clearCheckSatResult(); err != nil {
 		return lbool.Undef, nil, err
 	}
+	execution, err := c.beginCheckExecution()
+	if err != nil {
+		return lbool.Undef, nil, err
+	}
 	status, consequences, resultErr = c.solver.GetConsequences(assumptions, variables)
+	if err = execution.Close(); err != nil {
+		return lbool.Undef, nil, errors.Join(resultErr, err)
+	}
 	if resultErr != nil {
 		return status, consequences, resultErr
 	}
