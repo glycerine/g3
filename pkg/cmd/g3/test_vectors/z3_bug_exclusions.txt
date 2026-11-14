@@ -93,3 +93,15 @@ z3_bug_dt_recognizer_relevancy1
 # applyDomSimplifier). Reproduction:
 # test_vectors/z3_bug_dom_simplify_oscillation.smt2.
 z3_bug_dom_simplify_oscillation
+#
+# update-field over a constructor application is rewritten to the
+# unchanged constructor: datatype_rewriter::mk_app_core passes the
+# update-field declaration to get_accessor_constructor instead of its
+# accessor, so ((_ update-field fst) (mkp i red) j) becomes (mkp i red)
+# and an unsat problem is reported sat (z3 bug:
+# src/ast/rewriter/datatype_rewriter.cpp mk_app_core OP_DT_UPDATE_FIELD;
+# fixed upstream in f989e4eb38, "fix #2276", via get_update_accessor). g3
+# resolves the accessor (pkg/ast/rewriter/datatype_rewriter.go
+# rewriteUpdate; AUDIT.md smtcore_10-F15). Reproduction:
+# test_vectors/z3_bug_update_field_constructor.smt2.
+z3_bug_update_field_constructor
