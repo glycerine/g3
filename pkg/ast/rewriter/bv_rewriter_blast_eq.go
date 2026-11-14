@@ -126,11 +126,13 @@ func (p *BVPolynomialRewriter) RewriteBlastEqualityValue(lhs, rhs ast.ASTHandle,
 		if em != m {
 			return st, ast.ErrASTHandle
 		}
-		bit, e := extract.Apply(i, i, lhs)
+		// GCC evaluates mk_eq's arguments right to left: the bit numeral
+		// is made before the extract.
+		value, e := n.Bit(zero)
 		if e != nil {
 			return st, e
 		}
-		value, e := n.Bit(zero)
+		bit, e := extract.Apply(i, i, lhs)
 		if e != nil {
 			return st, e
 		}

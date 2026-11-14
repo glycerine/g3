@@ -202,3 +202,45 @@ func TestBVRewriterBlastEqualityEveryColdReservation(t *testing.T) {
 		t.Fatal(complete, sawLongArguments, sawAssignment)
 	}
 }
+
+// AUDIT.md ast_rewriter_02-F3: GCC evaluates mk_eq(m_mk_extract(i, i, lhs),
+// mk_numeral(bit, 1)) right to left, so the bit numeral is created before
+// the extract.
+func TestBVRewriterBlastEqualityNumeralBeforeExtract(t *testing.T) {
+	c, g, _ := bvPolynomialParamsFixture(t)
+	m, _ := bvAddFixture(t)
+	p, e := NewBVPolynomialRewriter(m, c, g, nil)
+	astTestMust(t, e)
+	defer func() { astTestMust(t, p.Close()) }()
+	ex, e := NewMkExtractProc(m)
+	astTestMust(t, e)
+	defer func() { astTestMust(t, ex.Close()) }()
+	xs := bvMergeVars(t, m, 2)
+	lhs, e := m.MkBitVectorOr(xs)
+	astTestMust(t, e)
+	astTestPin(t, m, lhs)
+	rhs := bvAddNum(t, m, 1, 8)
+	out, e := m.NewRef(ast.ASTHandle{})
+	astTestMust(t, e)
+	defer func() { astTestMust(t, m.DelRef(&out)) }()
+	st, e := p.RewriteBlastEqualityValue(lhs, rhs, out, ex)
+	astTestMust(t, e)
+	got, e := m.RefGet(out)
+	astTestMust(t, e)
+	if st != Rewrite3 {
+		t.Fatal("blast status", st)
+	}
+	first, e := m.GetArg(got, 0)
+	astTestMust(t, e)
+	bit, e := m.GetArg(first, 0)
+	astTestMust(t, e)
+	value, e := m.GetArg(first, 1)
+	astTestMust(t, e)
+	bitID, e := m.GetASTID(bit)
+	astTestMust(t, e)
+	valueID, e := m.GetASTID(value)
+	astTestMust(t, e)
+	if valueID > bitID {
+		t.Fatal("bit numeral created after the extract", valueID, bitID)
+	}
+}
