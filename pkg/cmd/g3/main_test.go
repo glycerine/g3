@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_A-F10: an exception inside the MaxSMT engine makes the answer unknown.
+	"opt_maxsmt_exception_is_unknown.smt2": "unknown\n(:reason-unknown \"(incomplete (theory lra))\")\n(objectives\n (  (interval 0 5))\n)\n(model \n  (define-fun y0 () Real\n    (/ 39.0 50.0))\n  (define-fun y1 () Real\n    (/ 78.0 983.0))\n)\n",
 	// AUDIT.md FUZZ_A-F11: maxres init does not complete the shared base model.
 	"opt_maxsmt_unknown_keeps_base_model.smt2": "unknown\n(:reason-unknown \"(incomplete (theory lra))\")\n(objectives\n (  (interval 0 5))\n)\n(model \n  (define-fun y0 () Real\n    0.0)\n  (define-fun y1 () Real\n    0.0)\n)\n",
 	// AUDIT.md FUZZ_A-F5: an undecided search shows converted objectives through m_adjust_value, unswapped.

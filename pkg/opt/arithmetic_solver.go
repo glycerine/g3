@@ -735,6 +735,14 @@ func (s *ArithmeticSolver) optimizeSoft(index int, result *ArithmeticResult) (st
 					return lbool.Undef, false, nil
 				}
 			}
+			// maxsmt::operator(): try { is_sat = (*m_msolver)(); }
+			// catch (z3_exception&) { is_sat = l_undef; } -- z3_error
+			// included. The engine bounds are already published
+			// (AUDIT.md FUZZ_A-F10).
+			var exception z3exception.Z3Exception
+			if errors.As(err, &exception) {
+				return lbool.Undef, false, nil
+			}
 		}
 		if optimal {
 			finalizeSoftBounds(result, index)
