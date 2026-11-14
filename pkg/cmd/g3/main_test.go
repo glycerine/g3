@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_02-F2: cg_table gives flat-associative binary
+	// declarations (+) the positional n-ary table, not comm_table (old g3: unsat).
+	"cg_table_flat_assoc_commutative.smt2": "unknown\n",
 	// AUDIT.md smtcore_02-F1: context::decide assigns a quantifier false even
 	// when the relevancy case-split queue prefers true (old g3 instantiated forever).
 	"case_split_relevancy_quantifier_phase.smt2": "sat\n((p true))\n",

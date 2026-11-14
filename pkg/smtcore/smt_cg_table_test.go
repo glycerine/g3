@@ -70,6 +70,40 @@ func TestSMTCongruenceTableExactCommutativeInsertFindEraseReset(t *testing.T) {
 	astTestMust(t, table.Close())
 }
 
+// smtcore_02-F2: cg_table::mk_table_for gives a flat-associative binary
+// declaration (e.g. +) the positional n-ary table, not comm_table, even
+// when it is commutative.
+func TestSMTCongruenceTableFlatAssociativeBinaryIsPositional(t *testing.T) {
+	manager := astTestManager(t)
+	sort, err := manager.MkSort(symbol.Numerical(2650), ast.ASTSortInfo{})
+	astTestMust(t, err)
+	a, an := smtEnodeConstant(t, manager, 2651, sort, 0)
+	b, bn := smtEnodeConstant(t, manager, 2652, sort, 0)
+	declaration := smtCGTestDeclaration(t, manager, 2653, sort, ast.ASTFuncFlags{Commutative: true, FlatAssociative: true})
+	ab := smtCGTestApplication(t, manager, declaration, []ast.ASTHandle{a, b}, []*SMTEnode{an, bn})
+	ba := smtCGTestApplication(t, manager, declaration, []ast.ASTHandle{b, a}, []*SMTEnode{bn, an})
+	table, err := NewSMTCongruenceTable(manager)
+	astTestMust(t, err)
+	inserted, err := table.Insert(ab)
+	astTestMust(t, err)
+	if inserted.Node != ab || inserted.Commuted {
+		t.Fatal("first insertion", inserted)
+	}
+	if found, commuted, err := table.Find(ba); err != nil || found != nil || commuted {
+		t.Fatal("flat-associative find matched modulo commutativity", found, commuted, err)
+	}
+	inserted, err = table.Insert(ba)
+	astTestMust(t, err)
+	if inserted.Node != ba || inserted.Commuted {
+		t.Fatal("flat-associative insertion matched modulo commutativity", inserted)
+	}
+	if err := table.CheckInvariant(); err != nil {
+		t.Fatal(err)
+	}
+	astTestMust(t, table.Reset())
+	astTestMust(t, table.Close())
+}
+
 func TestSMTCongruenceTableNativeSignaturesAndNaryCollisions(t *testing.T) {
 	m := astTestManager(t)
 	sort, err := m.MkSort(symbol.Numerical(2700), ast.ASTSortInfo{})

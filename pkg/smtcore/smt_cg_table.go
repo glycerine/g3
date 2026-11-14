@@ -22,6 +22,9 @@ type smtCongruenceBucket struct {
 	declaration ast.ASTHandle
 	small       map[[2]*SMTEnode]*SMTEnode // arity one and two, without a string key
 	wide        map[smtCongruenceKey][]*SMTEnode
+	// flatAssociative is mk_table_for's choice of the positional n-ary
+	// table, not comm_table, for a flat-associative binary declaration.
+	flatAssociative bool
 }
 
 func smtCongruenceSmallKey(node *SMTEnode) [2]*SMTEnode {
@@ -71,7 +74,7 @@ func (b *smtCongruenceBucket) find(node *SMTEnode) (*SMTEnode, bool, error) {
 			return candidate, commuted, err
 		}
 	}
-	if node.commutative && len(node.arguments) == 2 && key[0] != key[1] {
+	if node.commutative && !b.flatAssociative && len(node.arguments) == 2 && key[0] != key[1] {
 		if candidate := b.small[[2]*SMTEnode{key[1], key[0]}]; candidate != nil {
 			congruent, commuted, err := SMTEnodesCongruent(candidate, node)
 			if err != nil || congruent {
@@ -172,6 +175,10 @@ func (t *SMTCongruenceTable) ensureTable(node *SMTEnode) (*smtCongruenceBucket, 
 	if bucket := t.bucketFor(node); bucket != nil {
 		return bucket, nil
 	}
+	flags, err := t.manager.GetFuncDeclFlags(node.declaration)
+	if err != nil {
+		return nil, err
+	}
 	if err := t.manager.IncRef(node.declaration); err != nil {
 		return nil, err
 	}
@@ -180,6 +187,7 @@ func (t *SMTCongruenceTable) ensureTable(node *SMTEnode) (*smtCongruenceBucket, 
 	bucket := &smtCongruenceBucket{
 		id: node.functionDeclID, declaration: node.declaration,
 		small: make(map[[2]*SMTEnode]*SMTEnode), wide: make(map[smtCongruenceKey][]*SMTEnode),
+		flatAssociative: flags.FlatAssociative,
 	}
 	t.buckets = append(t.buckets, bucket)
 	t.tables[node.declaration] = bucket
