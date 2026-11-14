@@ -587,3 +587,9 @@ and app records (`NodeHeader`, `appAt`, `nodeAt`): two pages per app read.
 Next steps: skip validation in IncRef/DecRef/RefGet/SetRef the same way
 (~0.5 s of the remaining lia profile), and store app fields beside the node
 record so one read touches one cache line.
+
+Follow-up (2026-11-13): ASTManager.Canceled also skips lock() in normal
+builds (it still refuses a closed manager). IncRef/incNode deliberately keep
+validating: api's public AST maps/vectors reject foreign handles through it,
+and model/muz/rel error-path tests inject a failing IncRef to exercise
+cleanup; unchecking them gained only about 2-3% on lia_big_parse.
