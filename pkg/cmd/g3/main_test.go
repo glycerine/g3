@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_rewriter_02-F2: mon_lt ties above 16 arguments follow
+	// libstdc++ std::sort (approved port in pkg/util/sorting).
+	"bvmul_mon_lt_ties.smt2": "(bvmul a5\n       #x03\n       a5\n       #x03\n       a2\n       a2\n       #x03\n       a8\n       a8\n       #x03\n       a4\n       a4\n       a0\n       #x03\n       a0\n       #x03\n       a7\n       a7\n       #x03\n       a1\n       a1\n       a3\n       #x03\n       a3\n       #x03\n       a6\n       a6)\n",
 	// AUDIT.md smtcore_09-F1: the array argument of select/store/default
 	// over an ite must get a theory variable (was sat / unknown).
 	"array_ite_select_axiom2.smt2": "unsat\n",

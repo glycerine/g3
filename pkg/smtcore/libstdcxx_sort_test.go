@@ -3,6 +3,7 @@ package smtcore
 import (
 	"bufio"
 	"fmt"
+	"github.com/glycerine/g3/pkg/util/sorting"
 	"math/big"
 	"os"
 	"strconv"
@@ -159,7 +160,7 @@ func runLibstdcxxSortControl(t *testing.T, sortTags func(keys []uint32) []int) {
 		}
 		check(fmt.Sprintf("pairs_n%d", n), keys)
 	}
-	heapBefore := libstdcxxSortHeapFallbacks
+	heapBefore := sorting.LibstdcxxSortHeapFallbacks
 	for _, n := range []int{40, 64, 100, 200, 257, 300} {
 		tag := fmt.Sprintf("killer_n%d", n)
 		keys, ok := inputs[tag]
@@ -168,7 +169,7 @@ func runLibstdcxxSortControl(t *testing.T, sortTags func(keys []uint32) []int) {
 		}
 		check(tag, keys)
 	}
-	if libstdcxxSortHeapFallbacks == heapBefore {
+	if sorting.LibstdcxxSortHeapFallbacks == heapBefore {
 		t.Fatalf("killer inputs never reached the heap-sort fallback")
 	}
 	if checked != len(want) {
