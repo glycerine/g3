@@ -37,6 +37,7 @@ type SMTUTVPITheory struct {
 	scopes      []smtUTVPIScope
 	unsupported bool
 	values      []big.Rat
+	factory     *protomodel.ArithmeticFactory
 	statistics  smtUTVPIStatistics
 }
 
@@ -122,18 +123,9 @@ func (t *SMTUTVPITheory) variable(expression ast.ASTHandle) (SMTTheoryVar, error
 	return t.createVariable(node)
 }
 
-func (t *SMTUTVPITheory) ApplySortConstraint(node *SMTEnode, _ ast.ASTHandle) error {
-	family, err := t.state.manager.GetFamilyID(node.owner)
-	if err != nil {
-		return err
-	}
-	if family == t.FamilyID() && !t.IsAttachedToVariable(node) {
-		// Unsupported arithmetic terms can still have enodes for congruence
-		// closure, but cannot silently become unconstrained graph variables.
-		t.unsupported = true
-	}
-	_, err = t.createVariable(node)
-	return err
+// ApplySortConstraint: theory_utvpi does not override theory::apply_sort_cnstr.
+func (t *SMTUTVPITheory) ApplySortConstraint(*SMTEnode, ast.ASTHandle) error {
+	return nil
 }
 
 func (t *SMTUTVPITheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (bool, error) {
@@ -233,10 +225,6 @@ func (t *SMTUTVPITheory) InternalizeTerm(expression ast.ASTHandle) (bool, error)
 		t.unsupported = true
 		return false, err
 	}
-	if len(t.linearizer.terms) == 2 {
-		// As in mk_term, a two-variable sum is an atom operand, not an alias.
-		return false, nil
-	}
 	var weight big.Rat
 	weight.Set(&t.linearizer.weight)
 	terms := append([]smtUTVPITerm(nil), t.linearizer.terms...)
@@ -247,6 +235,10 @@ func (t *SMTUTVPITheory) InternalizeTerm(expression ast.ASTHandle) (bool, error)
 			return false, err
 		}
 		graphTerms = append(graphTerms, smtUTVPIGraphTerm{int32(v), term.coefficient.Sign() < 0})
+	}
+	if len(terms) == 2 {
+		// mk_term: mk_coeffs has created both variables; do not create an alias.
+		return false, nil
 	}
 	node := t.state.context.enodes.get(expression)
 	if node == nil {
@@ -470,6 +462,7 @@ func (t *SMTUTVPITheory) InitializeModel(generator *SMTModelGenerator) error {
 	if err != nil {
 		return err
 	}
+	t.factory = factory
 	return generator.RegisterFactory(factory)
 }
 
@@ -481,7 +474,8 @@ func (t *SMTUTVPITheory) ModelValue(node *SMTEnode, generator *SMTModelGenerator
 	if !t.HasVariable(v) || int(v) >= len(t.values) {
 		return nil, ast.ErrASTDomain
 	}
-	expression, err := t.state.manager.ArithmeticNumeralRat(&t.values[v], t.graph.integer[v])
+	// mk_value: m_factory->mk_num_value(num, is_int).
+	expression, err := t.factory.MkNumValue(&t.values[v], t.graph.integer[v])
 	if err != nil {
 		return nil, err
 	}

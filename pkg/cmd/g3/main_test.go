@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_13-F6/F7: UTVPI has no apply_sort_cnstr, mk_value
+	// uses the arith factory, and a two-term sum still gets its variables.
+	"utvpi_uf_fresh_values.smt2":   "sat\n((k 1)\n (x 0))\n",
+	"utvpi_two_term_sum_vars.smt2": "sat\n((p 0.0)\n (q 0.0))\n",
 	// AUDIT.md smtcore_13-F5: UTVPI mk_term internalizes the arguments
 	// before mk_enode (was unknown).
 	"utvpi_term_under_uf.smt2": "sat\n((x 0))\n",

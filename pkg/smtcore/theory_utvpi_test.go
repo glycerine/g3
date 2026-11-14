@@ -341,7 +341,10 @@ func TestSMTUTVPIEqualityEventsAndScopedFragmentRefusal(t *testing.T) {
 			for _, name := range []string{"utvpi-event-x", "utvpi-event-y", "utvpi-event-z"} {
 				v, err := m.MkConst(astTestSymbol(t, m, name), sort)
 				astTestMust(t, err)
-				astTestMust(t, state.Internalize(v, false))
+				// theory_utvpi has no apply_sort_cnstr: constants get
+				// variables through mk_var(expr*), as from mk_coeffs.
+				_, err = theory.variable(v)
+				astTestMust(t, err)
 				variables = append(variables, v)
 			}
 			left := state.context.enodes.get(variables[0]).TheoryVar(family)
