@@ -428,7 +428,17 @@ func (p *commandParser) command() (bool, error) {
 			return false, err
 		}
 		if err = p.context.SetLogic(logic); err != nil {
-			return false, positionedError(err, logicLine, logicPos)
+			if !errors.Is(err, cmd_context.ErrUnsupportedLogic) {
+				return false, positionedError(err, logicLine, logicPos)
+			}
+			// ctx.print_unsupported(symbol("ignoring unsupported logic "+arg), m_line, m_pos)
+			if _, err = fmt.Fprintln(p.out, "unsupported"); err != nil {
+				return false, err
+			}
+			if _, err = fmt.Fprintf(p.context.DiagnosticOutput(), "; ignoring unsupported logic %s line: %d position: %d\n", logic, commandLine, commandPosition); err != nil {
+				return false, err
+			}
+			success = false
 		}
 		if err = p.requireEnd(); err != nil {
 			return false, err
@@ -1082,7 +1092,9 @@ func (p *commandParser) command() (bool, error) {
 				if supported {
 					_, err = fmt.Fprintln(p.out, value)
 				} else {
-					_, err = fmt.Fprintf(p.out, "; %s line: %d position: %d\nunsupported\n", key, commandLine, commandPosition)
+					if _, err = fmt.Fprintln(p.out, "unsupported"); err == nil {
+						_, err = fmt.Fprintf(p.context.DiagnosticOutput(), "; %s line: %d position: %d\n", key, commandLine, commandPosition)
+					}
 				}
 			}
 		}
@@ -1134,7 +1146,9 @@ func (p *commandParser) command() (bool, error) {
 		if supported {
 			_, err = fmt.Fprintln(p.out, value)
 		} else {
-			_, err = fmt.Fprintf(p.out, "; %s line: %d position: %d\nunsupported\n", keyword, commandLine, commandPosition)
+			if _, err = fmt.Fprintln(p.out, "unsupported"); err == nil {
+				_, err = fmt.Fprintf(p.context.DiagnosticOutput(), "; %s line: %d position: %d\n", keyword, commandLine, commandPosition)
+			}
 		}
 		if err != nil {
 			return false, err

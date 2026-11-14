@@ -74,11 +74,15 @@ func TestSMT2InfoStatusValidationAndUnsupportedLocation(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	var output bytes.Buffer
+	var output, diagnostic bytes.Buffer
+	if err = context.SetDiagnosticOutput(&diagnostic); err != nil {
+		t.Fatal(err)
+	}
 	if err = ParseCommands(context, strings.NewReader(`(get-info :not-there)`), &output); err != nil {
 		t.Fatal(err)
 	}
-	if output.String() != "; :not-there line: 1 position: 1\nunsupported\n" {
-		t.Fatal("unsupported get-info", output.String())
+	// print_unsupported (AUDIT.md FUZZ-F6).
+	if output.String() != "unsupported\n" || diagnostic.String() != "; :not-there line: 1 position: 1\n" {
+		t.Fatal("unsupported get-info", output.String(), diagnostic.String())
 	}
 }

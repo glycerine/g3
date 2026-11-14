@@ -57,12 +57,17 @@ func TestSMT2GetOptionUnsupportedAndSyntaxGuards(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	var output bytes.Buffer
+	var output, diagnostic bytes.Buffer
+	if err = context.SetDiagnosticOutput(&diagnostic); err != nil {
+		t.Fatal(err)
+	}
 	if err = ParseCommands(context, strings.NewReader("(get-option :produce-unsat-assumptions)"), &output); err != nil {
 		t.Fatal(err)
 	}
-	if output.String() != "; :produce-unsat-assumptions line: 1 position: 1\nunsupported\n" {
-		t.Fatal("get-option unsupported output", output.String())
+	// print_unsupported: "unsupported" on the regular stream, then the note
+	// on the diagnostic stream (AUDIT.md FUZZ-F6).
+	if output.String() != "unsupported\n" || diagnostic.String() != "; :produce-unsat-assumptions line: 1 position: 1\n" {
+		t.Fatal("get-option unsupported output", output.String(), diagnostic.String())
 	}
 	for _, script := range []string{`(get-option)`, `(get-option :produce-models extra)`} {
 		output.Reset()

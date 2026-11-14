@@ -344,6 +344,13 @@ var scriptResults = map[string]string{
 	"array_default_over_ite.smt2":  "sat\n",
 	// AUDIT.md FUZZ-F1/F2: rem axioms with a true antecedent and C++ ownership.
 	"arith_rem_numeral_divisor_axioms.smt2": "sat\n(model \n  (define-fun x () Int\n    1)\n)\nsat\n(model \n  (define-fun x () Int\n    0)\n)\nsat\n(model \n  (define-fun y () Int\n    0)\n  (define-fun x () Int\n    0)\n)\nsat\n(model \n  (define-fun y () Int\n    0)\n  (define-fun x () Int\n    0)\n)\n",
+	// AUDIT.md FUZZ-F3: the PDR answer is pm.mk_and (bool_rewriter).
+	"pdr_certificate_single_constraint.smt2": "sat\n(q0 2)\n",
+	// AUDIT.md FUZZ-F4: an unsupported logic prints unsupported and continues.
+	"set_logic_unsupported_continues.smt2": "unsupported\nsat\nsuccess\nsuccess\nunsupported\nsuccess\n",
+	// AUDIT.md FUZZ-F6: the "; key line: L position: P" note goes to the
+	// diagnostic stream, after unsupported.
+	"unsupported_info_option_keys.smt2": "unsupported\nunsupported\n",
 	// AUDIT.md FUZZ_K-F1: iz3interp.cpp defines BINARY_INTERPOLATION, one
 	// two-frame translation per interpolant.
 	"interp_binary_three_frames.smt2": "unsat\n(interpolants\n p\n p\n q\n (= p q))\n",

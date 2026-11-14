@@ -579,6 +579,9 @@ func (c *Context) RefreshGlobalParameters() error {
 	return err
 }
 
+// ErrUnsupportedLogic marks the cmd_context::set_logic false return.
+var ErrUnsupportedLogic = errors.New("unsupported logic")
+
 func (c *Context) SetLogic(logic string) error {
 	if err := c.valid(); err != nil {
 		return err
@@ -590,7 +593,8 @@ func (c *Context) SetLogic(logic string) error {
 		return fmt.Errorf("logic must be set before initialization")
 	}
 	if !solver.SupportedLogic(logic) {
-		return fmt.Errorf("unsupported logic %s", logic)
+		// cmd_context::set_logic returns false: the command prints unsupported.
+		return fmt.Errorf("%w %s", ErrUnsupportedLogic, logic)
 	}
 	c.logic = logic
 	if c.manager != nil {

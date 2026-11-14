@@ -1,0 +1,8 @@
+(set-logic FOO)
+(declare-const x Int)
+(assert (> x 1))
+(check-sat)
+(set-option :print-success true)
+(reset)
+(set-logic QF_SLIA)
+(set-logic QF_LIA)
