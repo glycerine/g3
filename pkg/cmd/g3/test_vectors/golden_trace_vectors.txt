@@ -763,6 +763,10 @@ solve_eqs_proof
 solve_eqs_real_definitions
 sort_info_model_printing
 sortmax_soft_hash_order
+str_arrangement_order_2
+str_arrangement_order_3
+str_arrangement_order_6
+str_concat_eq_cancel_order
 str_substr_order
 strict_lexicographic_interval
 string_literal_proof

@@ -87,7 +87,9 @@ func TestSMTStringConcatEqualityClassCancellationGuards(t *testing.T) {
 		astTestPin(t, m, l)
 		r, err := m.MkSequenceLength(other)
 		astTestMust(t, err)
-		lengthEq, err := m.MkEq(l, r)
+		// ctx.mk_eq_atom orders its arguments; the C++ builds len(other)
+		// before len(remaining) (smtcore_13-F4).
+		lengthEq, err := stringEqAtom(m, l, r)
 		astTestMust(t, err)
 		astTestPin(t, m, lengthEq)
 		conclusion, err := m.MkAnd(resultEq, lengthEq)

@@ -125,44 +125,46 @@ func (t *SMTStringTheory) simplifyStringConcatEquality(left, right ast.ASTHandle
 	if err := t.inferStringConcatEquality(left, right); err != nil {
 		return err
 	}
-	premises := smtStringLengthPremises{theory: t}
-	defer func() { result = errors.Join(result, premises.close()) }()
-	if err := premises.equate(left, right); err != nil {
-		return err
-	}
-	conclusions := smtStringLengthPremises{theory: t}
-	defer func() { result = errors.Join(result, conclusions.close()) }()
+	// The C++ creates ctx.mk_eq_atom(nn1, nn2) only inside the branch that
+	// uses it, and GCC evaluates call arguments right to left. Branch-local
+	// expr_refs are released in reverse declaration order.
+	scope := smtStringScope{theory: t}
+	defer func() { result = errors.Join(result, scope.close()) }()
 	temporaries := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, temporaries.close()) }()
-	lengthEquality := func(first, second ast.ASTHandle, target *smtStringLengthPremises) error {
-		l, err := m.MkSequenceLength(first)
-		if err != nil {
-			return err
-		}
-		if err := temporaries.add(l); err != nil {
-			return err
-		}
+	// ctx.mk_eq_atom(mk_strlen(first), mk_strlen(second)).
+	lengthEquality := func(first, second ast.ASTHandle) (ast.ASTHandle, error) {
 		r, err := m.MkSequenceLength(second)
 		if err != nil {
-			return err
+			return ast.ASTHandle{}, err
 		}
-		if err := temporaries.add(r); err != nil {
-			return err
+		l, err := m.MkSequenceLength(first)
+		if err != nil {
+			return ast.ASTHandle{}, err
 		}
-		return target.equate(l, r)
+		return t.state.MkEqAtom(l, r)
 	}
+	// a1_arg0 == a2_arg0 (or a1_arg1 == a2_arg1): premise(eq(nn1, nn2)),
+	// eq1(eq(first, second)), eq2(eq(len first, len second)),
+	// conclusion(m.mk_and(eq1, eq2)).
 	cancel := func(first, second ast.ASTHandle) error {
-		if err := conclusions.equate(first, second); err != nil {
-			return err
-		}
-		if err := lengthEquality(first, second, &conclusions); err != nil {
-			return err
-		}
-		conclusion, err := m.MkAndArray(conclusions.values)
+		premise, err := scope.own(t.state.MkEqAtom(left, right))
 		if err != nil {
 			return err
 		}
-		return premises.imply(conclusion)
+		eq1, err := scope.own(t.state.MkEqAtom(first, second))
+		if err != nil {
+			return err
+		}
+		eq2, err := scope.own(lengthEquality(first, second))
+		if err != nil {
+			return err
+		}
+		conclusion, err := scope.own(m.MkAnd(eq1, eq2))
+		if err != nil {
+			return err
+		}
+		return t.assertImplication(premise, conclusion)
 	}
 	if x == a {
 		same, err := t.sameStringClass(y, b)
@@ -178,42 +180,90 @@ func (t *SMTStringTheory) simplifyStringConcatEquality(left, right ast.ASTHandle
 		}
 		return cancel(x, a)
 	}
-	for i, pair := range [][4]ast.ASTHandle{{x, a, y, b}, {y, b, x, a}} {
+	// Quick path: premise(m.mk_and(eq(nn1, nn2), eq(s0, s1))) and
+	// conclusion(m.mk_and(eq(o0, o1), eq(len o0, len o1))), each built
+	// right to left.
+	quick := func(s0, s1, o0, o1 ast.ASTHandle) error {
+		sameEquality, err := t.state.MkEqAtom(s0, s1)
+		if err != nil {
+			return err
+		}
+		parent, err := t.state.MkEqAtom(left, right)
+		if err != nil {
+			return err
+		}
+		premise, err := scope.own(m.MkAnd(parent, sameEquality))
+		if err != nil {
+			return err
+		}
+		otherLength, err := lengthEquality(o0, o1)
+		if err != nil {
+			return err
+		}
+		otherEquality, err := t.state.MkEqAtom(o0, o1)
+		if err != nil {
+			return err
+		}
+		conclusion, err := scope.own(m.MkAnd(otherEquality, otherLength))
+		if err != nil {
+			return err
+		}
+		return t.assertImplication(premise, conclusion)
+	}
+	sameFirst, err := t.sameStringClass(x, a)
+	if err != nil {
+		return err
+	}
+	sameSecond, err := t.sameStringClass(y, b)
+	if err != nil {
+		return err
+	}
+	if sameFirst {
+		if sameSecond {
+			return nil
+		}
+		return quick(x, a, y, b)
+	}
+	if sameSecond {
+		return quick(y, b, x, a)
+	}
+	// Quick paths 2-1 and 2-2 (opt_NoQuickReturn_IntegerTheory is false).
+	for i, pair := range [][2]ast.ASTHandle{{x, a}, {y, b}} {
+		if !known[i] || !known[i+2] || lengths[i].Cmp(lengths[i+2]) != 0 {
+			continue
+		}
 		same, err := t.sameStringClass(pair[0], pair[1])
 		if err != nil {
 			return err
 		}
 		if same {
-			if i == 0 {
-				otherSame, err := t.sameStringClass(pair[2], pair[3])
-				if err != nil || otherSame {
-					return err
-				}
-			}
-			if err := premises.equate(pair[0], pair[1]); err != nil {
-				return err
-			}
-			return cancel(pair[2], pair[3])
-		}
-	}
-	for i, pair := range [][2]ast.ASTHandle{{x, a}, {y, b}} {
-		if !known[i] || !known[i+2] || lengths[i].Cmp(lengths[i+2]) != 0 {
 			continue
 		}
-		if err := lengthEquality(pair[0], pair[1], &premises); err != nil {
-			return err
-		}
-		if err := conclusions.equate(x, a); err != nil {
-			return err
-		}
-		if err := conclusions.equate(y, b); err != nil {
-			return err
-		}
-		conclusion, err := m.MkAndArray(conclusions.values)
+		left1, err := scope.own(t.state.MkEqAtom(left, right))
 		if err != nil {
 			return err
 		}
-		return premises.imply(conclusion)
+		left2, err := scope.own(lengthEquality(pair[0], pair[1]))
+		if err != nil {
+			return err
+		}
+		right1, err := scope.own(t.state.MkEqAtom(x, a))
+		if err != nil {
+			return err
+		}
+		right2, err := scope.own(t.state.MkEqAtom(y, b))
+		if err != nil {
+			return err
+		}
+		premise, err := scope.own(m.MkAnd(left1, left2))
+		if err != nil {
+			return err
+		}
+		conclusion, err := scope.own(m.MkAnd(right1, right2))
+		if err != nil {
+			return err
+		}
+		return t.assertImplication(premise, conclusion)
 	}
 	newLeft, err := t.simplifyStringConcat(left)
 	if err != nil {

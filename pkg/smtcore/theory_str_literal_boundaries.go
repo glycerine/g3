@@ -290,11 +290,11 @@ func (t *SMTStringTheory) arrangeOpposingLiteralBoundaries(left, right ast.ASTHa
 			return err
 		}
 	}
-	premise, err := pin(t.state.MkEqAtom(left, right))
+	conclusion, err := pin(m.MkOrArray(options))
 	if err != nil {
 		return err
 	}
-	conclusion, err := pin(m.MkOrArray(options))
+	premise, err := pin(t.state.MkEqAtom(left, right))
 	if err != nil {
 		return err
 	}

@@ -338,6 +338,14 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_13-F4: concat-equality atoms created lazily in C++ order (also a golden trace vector).
+	"str_arrangement_order_2.smt2": "sat\n(model \n  (define-fun z () String\n    \"cBcab\")\n  (define-fun y () String\n    \"Bcab\")\n  (define-fun x () String\n    \"c\")\n  (define-fun m () String\n    \"cB\")\n)\n",
+	// AUDIT.md smtcore_13-F4: concat-equality atoms created lazily in C++ order (also a golden trace vector).
+	"str_arrangement_order_3.smt2": "sat\n(model \n  (define-fun y () String\n    \"bcaM\")\n  (define-fun x () String\n    \"a\")\n  (define-fun n () String\n    \"aM\")\n)\n",
+	// AUDIT.md smtcore_13-F4: concat-equality atoms created lazily in C++ order (also a golden trace vector).
+	"str_arrangement_order_6.smt2": "sat\n(model \n  (define-fun z () String\n    \"abcab\")\n  (define-fun y () String\n    \"ab\")\n  (define-fun m () String\n    \"ab\")\n)\n",
+	// AUDIT.md smtcore_13-F4: concat-equality atoms created lazily in C++ order (also a golden trace vector).
+	"str_concat_eq_cancel_order.smt2": "sat\n(model \n  (define-fun z () String\n    \"abcap\")\n  (define-fun y () String\n    \"ap\")\n  (define-fun x () String\n    \"abc\")\n)\n",
 	// AUDIT.md smtcore_12-F1: empty/epsilon regex languages (was unknown). build/z3 answers unsat for the middle block after the pop.
 	"str_regex_inter_empty.smt2": "unsat\nunsat\nunsat\n",
 	// AUDIT.md smtcore_12-F1: language {""} takes the release UNREACHABLE arm (was unknown).

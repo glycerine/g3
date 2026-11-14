@@ -67,13 +67,21 @@ func (t *SMTStringTheory) arrangeLiteralPrefixConcats(left, right ast.ASTHandle)
 		}
 		return value, locals.add(value)
 	}
-	parentEq, err := pin(t.state.MkEqAtom(left, right))
-	if err != nil {
+	var parentEq ast.ASTHandle
+	parent := func() error {
+		if !parentEq.IsNull() {
+			return nil
+		}
+		var err error
+		parentEq, err = pin(t.state.MkEqAtom(left, right))
 		return err
 	}
 	if split == 0 {
 		guards := smtStringLengthPremises{theory: t}
 		defer func() { result = errors.Join(result, guards.close()) }()
+		if err := parent(); err != nil {
+			return err
+		}
 		if err := guards.add(parentEq); err != nil {
 			return err
 		}
@@ -144,6 +152,9 @@ func (t *SMTStringTheory) arrangeLiteralPrefixConcats(left, right ast.ASTHandle)
 		return t.publishStringArrangement(premise, conclusion, parameters.StrongArrangements)
 	}
 	if split == 1 {
+		if err := parent(); err != nil {
+			return err
+		}
 		var lengths []ast.ASTHandle
 		for _, pair := range [][2]ast.ASTHandle{{x, textTerm}, {y, n}} {
 			l, err := pin(m.MkSequenceLength(pair[0]))
@@ -187,6 +198,9 @@ func (t *SMTStringTheory) arrangeLiteralPrefixConcats(left, right ast.ASTHandle)
 	if split == 2 {
 		guards := smtStringLengthPremises{theory: t}
 		defer func() { result = errors.Join(result, guards.close()) }()
+		if err := parent(); err != nil {
+			return err
+		}
 		if err := guards.add(parentEq); err != nil {
 			return err
 		}
@@ -291,11 +305,11 @@ func (t *SMTStringTheory) arrangeLiteralPrefixConcats(left, right ast.ASTHandle)
 		if err := items.equate(y, tail); err != nil {
 			return errors.Join(err, items.close())
 		}
-		length, err := pin(m.MkSequenceLength(x))
+		cropLength, err := pin(m.MkSequenceLength(prefix))
 		if err != nil {
 			return errors.Join(err, items.close())
 		}
-		cropLength, err := pin(m.MkSequenceLength(prefix))
+		length, err := pin(m.MkSequenceLength(x))
 		if err != nil {
 			return errors.Join(err, items.close())
 		}
@@ -387,6 +401,9 @@ func (t *SMTStringTheory) arrangeLiteralPrefixConcats(left, right ast.ASTHandle)
 	}
 	conclusion, err := pin(m.MkOrArray(options))
 	if err != nil {
+		return err
+	}
+	if err := parent(); err != nil {
 		return err
 	}
 	if err := t.publishStringArrangement(parentEq, conclusion, parameters.StrongArrangements); err != nil {
