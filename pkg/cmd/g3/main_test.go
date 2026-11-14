@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_09-F1: the array argument of select/store/default
+	// over an ite must get a theory variable (was sat / unknown).
+	"array_ite_select_axiom2.smt2": "unsat\n",
+	"array_default_over_ite.smt2":  "sat\n",
 	// flush_bound_axioms_introsort_*: quantifier fuzz seeds whose bound-axiom
 	// order depends on libstdc++ std::sort tie order (> 16 atoms); see the
 	// user-approved STL port in smtcore/libstdcxx_sort.go. They diverged (and

@@ -222,9 +222,36 @@ func (t *SMTArrayTheory) InternalizeTerm(expression ast.ASTHandle) (bool, error)
 				return false, err
 			}
 		}
+		// theory_array_full::internalize_term attaches the arguments of
+		// map (all) and default (arg0) before mk_var(node);
+		// theory_array::internalize_term attaches arg0 of store/select
+		// after it.
+		var before, after []*SMTEnode
+		switch op {
+		case ast.ASTArrayOpMap:
+			before = node.arguments
+		case ast.ASTArrayOpDefault:
+			before = node.arguments[:1]
+		case ast.ASTArrayOpStore, ast.ASTArrayOpSelect:
+			after = node.arguments[:1]
+		}
+		for _, arg := range before {
+			if !t.IsAttachedToVariable(arg) {
+				if _, err = t.CreateVariable(arg); err != nil {
+					return false, err
+				}
+			}
+		}
 		if !t.IsAttachedToVariable(node) {
 			if _, err = t.CreateVariable(node); err != nil {
 				return false, err
+			}
+		}
+		for _, arg := range after {
+			if !t.IsAttachedToVariable(arg) {
+				if _, err = t.CreateVariable(arg); err != nil {
+					return false, err
+				}
 			}
 		}
 	}

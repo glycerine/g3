@@ -1,0 +1,5 @@
+(declare-const a (Array Int Int))
+(declare-const b (Array Int Int))
+(declare-const c Bool)
+(assert (= (default (ite c a b)) 3))
+(check-sat)
