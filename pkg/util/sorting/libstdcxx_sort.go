@@ -85,7 +85,7 @@ package sorting
 // WHICH TESTS DEPEND ON IT (keep them green):
 //   * TestLibstdcxxSortMatchesControl (pkg/smtcore/libstdcxx_sort_test.go) compares this
 //     port, through both typed wrappers, against the real libstdc++ output
-//     recorded from src/test/stl_sort_order_control.cpp
+//     recorded from src/test/stl_controls/stl_sort_order_control.cpp
 //     (pkg/smtcore/test_vectors/libstdcxx_sort_order.txt), including tie-heavy inputs
 //     of more than 16 elements and adversarial inputs that reach the
 //     heap-sort fallback. If it goes red, the port no longer matches z3's

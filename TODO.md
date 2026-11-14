@@ -1049,7 +1049,7 @@ Found while matching `-st` output against `build/z3` on
     libstdc++ std::unordered_map<unsigned, V> (identity hash, mod bucket,
     _Prime_rehash_policy, insert at bucket head, rehash, erase, clear) as
     StdUnorderedRationalMap, and LARTerm uses it. Positive control:
-    src/test/stl_unordered_map_order_control.cpp, whose output is
+    src/test/stl_controls/stl_unordered_map_order_control.cpp, whose output is
     pkg/util/lp/test_vectors/libstdcxx_unordered_map_order.txt (prime table,
     3000 random toggles, 5000 sparse keys); TestStdUnorderedMapMatchesLibstdcxx
     replays it line for line. lra_backend_models_scopes is now identical.
@@ -2454,7 +2454,7 @@ deterministic in the closest order (no ported C++ order), 1 lead.
 DONE (2026-11-12, user-approved STL exception 3): lu_extend add_last_rows_to_B
 iterates std::unordered_set<unsigned> in libstdc++ order
 (util/lp/std_unordered_set.go, positive control
-src/test/stl_unordered_set_order_control.cpp, vector
+src/test/stl_controls/stl_unordered_set_order_control.cpp, vector
 lra_lu_extend_add_last_rows with smt.arith.solver 6 + lp.simplex_strategy 2).
 Leads: lar_conflict_certificate debug
 "left side =" in unordered_map order; mk_slice converter order;
@@ -2899,7 +2899,7 @@ qfuzz_analyzer_ng_decls, qfuzz_cached_generation_reinit.
 DONE (user-approved STL exception, 2026-11-13): libstdc++ (GCC 13) std::sort
 ported for theory_arith flush_bound_axioms (pkg/smtcore/libstdcxx_sort.go;
 compare_atoms compares k only, so ties take introsort order with > 16
-atoms). Positive control src/test/stl_sort_order_control.cpp ->
+atoms). Positive control src/test/stl_controls/stl_sort_order_control.cpp ->
 pkg/smtcore/test_vectors/libstdcxx_sort_order.txt (1206 lines incl. McIlroy
 inputs reaching the heap fallback); negative controls (stable sort, no heap
 fallback, threshold 15) fail. Vectors flush_bound_axioms_introsort_{q2119,

@@ -10,7 +10,7 @@ package lp
 // pivot choices depend on its iteration order, so LARTerm reproduces that
 // order exactly. Kept in its own file so it can be generalized to other
 // unordered_map/unordered_set uses. Positive control:
-// src/test/stl_unordered_map_order_control.cpp, whose output is
+// src/test/stl_controls/stl_unordered_map_order_control.cpp, whose output is
 // test_vectors/libstdcxx_unordered_map_order.txt.
 
 import (

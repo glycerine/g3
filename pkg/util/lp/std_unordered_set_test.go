@@ -13,7 +13,7 @@ import (
 // =========================================================================
 //
 // TestStdUnorderedUintSetMatchesLibstdcxx replays the scenarios of
-// src/test/stl_unordered_set_order_control.cpp and compares each iteration
+// src/test/stl_controls/stl_unordered_set_order_control.cpp and compares each iteration
 // order and bucket count with the libstdc++ output recorded in
 // test_vectors/libstdcxx_unordered_set_order.txt.
 //

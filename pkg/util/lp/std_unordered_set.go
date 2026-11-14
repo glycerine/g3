@@ -37,7 +37,7 @@ package lp
 // WHICH TESTS DEPEND ON IT (keep them green):
 //   * TestStdUnorderedUintSetMatchesLibstdcxx (std_unordered_set_test.go)
 //     compares this type against the real libstdc++ output recorded from
-//     src/test/stl_unordered_set_order_control.cpp
+//     src/test/stl_controls/stl_unordered_set_order_control.cpp
 //     (test_vectors/libstdcxx_unordered_set_order.txt). If it goes red, this
 //     emulation no longer matches z3's container and lu_extend diverges from
 //     z3. Do not "fix" the test by editing the recorded output; regenerate it

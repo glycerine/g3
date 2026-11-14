@@ -16,7 +16,7 @@ import (
 // =========================================================================
 //
 // TestLibstdcxxSortMatchesControl replays the scenarios of
-// src/test/stl_sort_order_control.cpp through libstdcxxSortAtoms and
+// src/test/stl_controls/stl_sort_order_control.cpp through libstdcxxSortAtoms and
 // compares each resulting tie order with the real libstdc++ (GCC 13)
 // std::sort output recorded in test_vectors/libstdcxx_sort_order.txt.
 // TestLibstdcxxSortLRABoundsMatchesControl replays the same scenarios

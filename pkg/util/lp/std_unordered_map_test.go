@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-// The scenarios mirror src/test/stl_unordered_map_order_control.cpp; its
+// The scenarios mirror src/test/stl_controls/stl_unordered_map_order_control.cpp; its
 // output (libstdc++ ground truth) is the test vector.
 
 type stdOrderLCG struct{ state uint64 }
