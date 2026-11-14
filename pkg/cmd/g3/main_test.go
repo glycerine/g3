@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_A-F5: an undecided search shows converted objectives through m_adjust_value, unswapped.
+	"opt_objectives_unknown_converted.smt2": "unknown\n(objectives\n ((ite p 3 1)  (interval 4 0))\n ((* y0 y1 y1)  (interval 0 oo))\n ((- y0 (+ y0 (/ 5.0 3.0))) (- (/ 5.0 3.0)))\n (v  (interval 15 8))\n (7 7)\n)\n",
 	// AUDIT.md FUZZ_A-F3: converted objectives after an unbounded lex objective show their maxsmt interval.
 	"opt_objectives_unexecuted_converted.smt2": "sat\n(objectives\n (v 6)\n (x1 oo)\n ((ite (= x0 726) 119 6)  (interval 125 119))\n ((ite p 3 0)  (interval 0 3))\n (v  (interval 0 6))\n ((+ (ite p 2 0) (ite q 5 1))  (interval 8 3))\n (  (interval 0 3))\n)\n",
 	// AUDIT.md FUZZ_A-F4: an unknown initial check may leave no model.

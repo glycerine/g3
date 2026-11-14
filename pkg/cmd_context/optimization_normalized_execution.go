@@ -412,6 +412,21 @@ func restoreNormalizedObjectiveBounds(result *opt.ArithmeticResult, original []o
 		if !value.SoftBoundsValid {
 			continue
 		}
+		if value.DisplayValid {
+			// get_lower_as_num/get_upper_as_num of a converted objective
+			// are m_adjust_value of the maxsmt bounds, unswapped
+			// (AUDIT.md FUZZ_A-F5).
+			displayLower, err := decomposed[i].RestoreValue(&value.SoftLower)
+			if err != nil {
+				return err
+			}
+			displayUpper, err := decomposed[i].RestoreValue(&value.SoftUpper)
+			if err != nil {
+				return err
+			}
+			value.DisplayLower = simplex.RationalInfinitesimal(displayLower)
+			value.DisplayUpper = simplex.RationalInfinitesimal(displayUpper)
+		}
 		lowerPenalty, upperPenalty := &value.SoftLower, &value.SoftUpper
 		if decomposed[i].Negate {
 			lowerPenalty, upperPenalty = upperPenalty, lowerPenalty
