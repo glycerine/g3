@@ -2,7 +2,6 @@ package bv
 
 import (
 	"github.com/glycerine/g3/pkg/ast"
-	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func (r *bvArrayRewriter) isBVSort(s ast.ASTHandle) bool {
@@ -62,67 +61,97 @@ func (r *bvArrayRewriter) indexSort(s ast.ASTHandle) (ast.ASTHandle, error) {
 	}
 	return m.BitVectorSort(width)
 }
-func (r *bvArrayRewriter) packedIndex(args []ast.ASTHandle) (ast.ASTHandle, error) {
-	if len(args) == 1 {
-		return args[0], nil
+
+// freshFunction is mk_fresh_func_decl("f_t", "", 1, &domain, range) for the
+// index and value sorts of e. The empty suffix is a non-null symbol, so the
+// name is f_t!!<id>.
+func (r *bvArrayRewriter) freshFunction(e ast.ASTHandle) (ast.ASTHandle, error) {
+	m := r.owner.manager
+	s, err := m.GetSort(e)
+	if err != nil {
+		return ast.ASTHandle{}, err
 	}
-	return r.owner.manager.MkBitVectorConcat(args)
+	domain, err := r.indexSort(s)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	value, err := m.ArrayRange(s)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	prefix, err := m.Symbols.Intern("f_t")
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	suffix, err := m.Symbols.Intern("")
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return m.MkFreshFuncDecl(prefix, suffix, []ast.ASTHandle{domain}, value)
 }
 
-func (r *bvArrayRewriter) functionFor(h ast.ASTHandle) (ast.ASTHandle, error) {
+// register is the model-converter bookkeeping and m_arrays_fs.insert(e, bv_f)
+// with its two inc_refs.
+func (r *bvArrayRewriter) register(e, f ast.ASTHandle) error {
 	m := r.owner.manager
-	if f, e := m.AsArrayFunction(h); e == nil {
-		return f, nil
+	if e2 := m.IncRef(f); e2 != nil {
+		return e2
 	}
-	if f, ok := r.arrays[h]; ok {
-		return f, nil
+	constant, yes, x := bvArrayConstant(m, e)
+	if x != nil {
+		_ = m.DecRef(f)
+		return x
 	}
-	s, e := m.GetSort(h)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	domain, e := r.indexSort(s)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	value, e := m.ArrayRange(s)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	prefix, e := m.Symbols.Intern("f_t")
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	f, e := m.MkFreshFuncDecl(prefix, usymbol.Symbol{}, []ast.ASTHandle{domain}, value)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	if e = m.IncRef(h); e != nil {
-		return ast.ASTHandle{}, e
-	}
-	if e = m.IncRef(f); e != nil {
-		_ = m.DecRef(h)
-		return ast.ASTHandle{}, e
-	}
-	r.arrays[h] = f
-	r.keys = append(r.keys, h)
-	r.declarations = append(r.declarations, f)
-	if constant, yes, x := bvArrayConstant(m, h); x != nil {
-		return ast.ASTHandle{}, x
-	} else if yes && r.extension != nil {
-		array, x := m.MkAsArray(f)
-		if x != nil {
-			return ast.ASTHandle{}, x
+	if yes {
+		if r.extension != nil {
+			array, x := m.MkAsArray(f)
+			if x != nil {
+				_ = m.DecRef(f)
+				return x
+			}
+			if x = r.extension.Insert(constant, array); x != nil {
+				_ = m.DecRef(f)
+				return x
+			}
 		}
-		if x = r.extension.Insert(constant, array); x != nil {
-			return ast.ASTHandle{}, x
-		}
-	} else if !yes && r.filter != nil {
+	} else if r.filter != nil {
 		if x = r.filter.Insert(f); x != nil {
-			return ast.ASTHandle{}, x
+			_ = m.DecRef(f)
+			return x
 		}
 	}
-	r.owner.tracePair("for ", h, " new func_decl is ", f, 116)
+	if x = r.arrays.Insert(e, [2]ast.ASTHandle{f}); x != nil {
+		_ = m.DecRef(f)
+		return x
+	}
+	if x = m.IncRef(e); x != nil {
+		return x
+	}
+	return nil
+}
+
+// mkUFForArray is bvarray2uf_rewriter_cfg::mk_uf_for_array.
+func (r *bvArrayRewriter) mkUFForArray(e ast.ASTHandle) (ast.ASTHandle, error) {
+	m := r.owner.manager
+	if f, err := m.AsArrayFunction(e); err == nil {
+		return f, nil
+	}
+	value, found, err := r.arrays.Find(e)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if found {
+		r.owner.tracePair("for ", e, " found ", value[0], 129)
+		return value[0], nil
+	}
+	f, err := r.freshFunction(e)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	r.owner.tracePair("for ", e, " new func_decl is ", f, 116)
+	if err = r.register(e, f); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	return f, nil
 }
 

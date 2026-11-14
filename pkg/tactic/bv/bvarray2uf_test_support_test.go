@@ -78,3 +78,14 @@ func (f arrayFixture) goal(t *testing.T, proofs, models, cores bool, forms ...as
 	}
 	return g
 }
+
+// arrayDecl is m_arrays_fs.find(e).
+func arrayDecl(t *testing.T, r *bvArrayRewriter, e ast.ASTHandle) ast.ASTHandle {
+	t.Helper()
+	v, ok, err := r.arrays.Find(e)
+	arrayMust(t, err)
+	if !ok {
+		return ast.ASTHandle{}
+	}
+	return v[0]
+}

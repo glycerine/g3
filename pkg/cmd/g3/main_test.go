@@ -338,6 +338,12 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_C-F1: bvarray2uf is a rewriter_tpl and folds a constant ite.
+	"bvarray2uf_ite_fold.smt2": "(goals\n(goal\n  (not false)\n  :precision precise :depth 1)\n)\n",
+	// AUDIT.md FUZZ_C-F1: one rewriter cache for the goal; fresh names f_t!!N.
+	"bvarray2uf_shared_store.smt2": "(goals\n(goal\n  (forall ((x (_ BitVec 3))) (= (f_t!!1 x) (f_t!!2 x)))\n  (forall ((x (_ BitVec 3))) (= (f_t!!1 x) (f_t!!0 x)))\n  (forall ((x (_ BitVec 3))) (or (= x v) (= (f_t!!1 x) (f_t!!0 x))))\n  (= (f_t!!1 v) v)\n  :precision precise :depth 1)\n)\n",
+	// AUDIT.md FUZZ_C-F1: distinct over arrays is BR_REWRITE1 (not (= as-array as-array)).
+	"bvarray2uf_distinct.smt2": "(goals\n(goal\n  (not (= (_ as-array f_t!!0) (_ as-array f_t!!1)))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md FUZZ_B-F1: dom-simplify uses expr_substitution_simplifier (no folding).
 	"dom_simplify_no_not_folding.smt2": "(goals\n(goal\n  (not (not true))\n  (not false)\n  p\n  :precision precise :depth 1)\n)\n(goals\n(goal\n  (not true)\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md FUZZ_B-F2: the scoped substitution keeps the first binding.
@@ -1477,6 +1483,7 @@ func TestTraceLogCPPReference(t *testing.T) {
 	}
 	for _, name := range []string{
 		"dom_simplify_trace_lifetimes.smt2",
+		"bvarray2uf_shared_store.smt2", // FUZZ_C-F1
 	} {
 		t.Run(name, func(t *testing.T) {
 			input, err := filepath.Abs(filepath.Join("test_vectors", name))

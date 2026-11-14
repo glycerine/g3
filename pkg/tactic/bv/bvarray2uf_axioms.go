@@ -15,78 +15,38 @@ func (r *bvArrayRewriter) forall(sort, body ast.ASTHandle) (ast.ASTHandle, error
 func (r *bvArrayRewriter) apply(f, index ast.ASTHandle) (ast.ASTHandle, error) {
 	return r.owner.manager.MkApp(f, []ast.ASTHandle{index})
 }
-func (r *bvArrayRewriter) extensionalEquality(a, b ast.ASTHandle) (ast.ASTHandle, error) {
-	m := r.owner.manager
-	fa, e := r.functionFor(a)
-	if e != nil {
-		return ast.ASTHandle{}, e
+
+// hold keeps a local expr_ref/app_ref alive until release.
+func (r *bvArrayRewriter) hold(h ast.ASTHandle) error {
+	if e := r.owner.manager.IncRef(h); e != nil {
+		return e
 	}
-	fb, e := r.functionFor(b)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	s, e := m.GetSort(a)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	index, e := r.indexSort(s)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	x, e := m.MkVar(0, index)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	av, e := r.apply(fa, x)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	bv, e := r.apply(fb, x)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	eq, e := m.MkEq(av, bv)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	return r.forall(index, eq)
+	r.scratch = append(r.scratch, h)
+	return nil
 }
-func (r *bvArrayRewriter) addDefinition(array ast.ASTHandle, value func(ast.ASTHandle) (ast.ASTHandle, error)) (ast.ASTHandle, error) {
-	m := r.owner.manager
-	f, e := r.functionFor(array)
-	if e != nil {
-		return ast.ASTHandle{}, e
+func (r *bvArrayRewriter) release(limit int) (err error) {
+	for len(r.scratch) > limit {
+		i := len(r.scratch) - 1
+		if e := r.owner.manager.DecRef(r.scratch[i]); e != nil && err == nil {
+			err = e
+		}
+		r.scratch = r.scratch[:i]
 	}
-	s, e := m.GetSort(array)
-	if e != nil {
-		return ast.ASTHandle{}, e
+	return err
+}
+
+// indexVar is sorts[0] = get_index_sort(get_sort(e)) and x = mk_var(0, sorts[0]).
+func (r *bvArrayRewriter) indexVar(e ast.ASTHandle) (sort, x ast.ASTHandle, err error) {
+	s, err := r.owner.manager.GetSort(e)
+	if err != nil {
+		return sort, x, err
 	}
-	index, e := r.indexSort(s)
-	if e != nil {
-		return ast.ASTHandle{}, e
+	return r.indexVarOfSort(s)
+}
+func (r *bvArrayRewriter) indexVarOfSort(s ast.ASTHandle) (sort, x ast.ASTHandle, err error) {
+	if sort, err = r.indexSort(s); err != nil {
+		return sort, x, err
 	}
-	x, e := m.MkVar(0, index)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	left, e := r.apply(f, x)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	right, e := value(x)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	eq, e := m.MkEq(left, right)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	q, e := r.forall(index, eq)
-	if e != nil {
-		return ast.ASTHandle{}, e
-	}
-	if e = r.addExtra(q); e != nil {
-		return ast.ASTHandle{}, e
-	}
-	return m.MkAsArray(f)
+	x, err = r.owner.manager.MkVar(0, sort)
+	return sort, x, err
 }

@@ -16,7 +16,7 @@ func TestBVArray2UFSourceCreationTrace(t *testing.T) {
 	tags := diagnostic.NewTraceTagsWithWriter(&output)
 	tags.Enable("bvarray2uf_rw")
 	arrayMust(t, f.tactic.BindTrace(tags))
-	_, e := f.tactic.rewriter.rewrite(f.app(t, ast.ASTArrayOpSelect, f.a, f.i))
+	_, _, e := f.tactic.rewriter.rewrite(f.app(t, ast.ASTArrayOpSelect, f.a, f.i))
 	arrayMust(t, e)
 	text := output.String()
 	for _, want := range []string{"for array-a", "new func_decl is", "f_t"} {

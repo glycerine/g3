@@ -20,7 +20,7 @@ func TestBVArray2UFArrayITEAddsPointwiseDefinition(t *testing.T) {
 	value, err := f.m.MkIte(condition, f.a, f.b)
 	arrayMust(t, err)
 
-	rewritten, err := f.tactic.rewriter.rewrite(value)
+	rewritten, _, err := f.tactic.rewriter.rewrite(value)
 	arrayMust(t, err)
 	if _, err = f.m.AsArrayFunction(rewritten); err != nil {
 		t.Fatalf("array ITE result is not an as-array term: %v", err)
@@ -37,7 +37,7 @@ func TestBVArray2UFDistinctExpandsBeforeArrayElimination(t *testing.T) {
 	f := newArrayFixture(t)
 	distinct, err := f.m.MkDistinct([]ast.ASTHandle{f.a, f.b})
 	arrayMust(t, err)
-	rewritten, err := f.tactic.rewriter.rewrite(distinct)
+	rewritten, _, err := f.tactic.rewriter.rewrite(distinct)
 	arrayMust(t, err)
 	decl, err := f.m.GetDecl(rewritten)
 	arrayMust(t, err)
@@ -57,14 +57,14 @@ func TestBVArray2UFSelectFromAsArrayReusesFunction(t *testing.T) {
 	array, err := f.m.MkAsArray(function)
 	arrayMust(t, err)
 	selected := f.app(t, ast.ASTArrayOpSelect, array, f.i)
-	rewritten, err := f.tactic.rewriter.rewrite(selected)
+	rewritten, _, err := f.tactic.rewriter.rewrite(selected)
 	arrayMust(t, err)
 	decl, err := f.m.GetDecl(rewritten)
 	arrayMust(t, err)
 	if decl != function {
 		t.Fatalf("select declaration = %v, want original %v", decl, function)
 	}
-	if len(f.tactic.rewriter.declarations) != 0 {
+	if f.tactic.rewriter.arrays.Len() != 0 {
 		t.Fatal("as-array selection allocated a replacement function")
 	}
 }

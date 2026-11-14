@@ -117,9 +117,9 @@ func TestElimSmallBVContextTranslationCopiesPolicy(t *testing.T) {
 func TestBVArray2UFContextTranslationCreatesIndependentRewriter(t *testing.T) {
 	source := newArrayFixture(t)
 	selected := source.app(t, ast.ASTArrayOpSelect, source.a, source.i)
-	_, err := source.tactic.rewriter.rewrite(selected)
+	_, _, err := source.tactic.rewriter.rewrite(selected)
 	arrayMust(t, err)
-	if len(source.tactic.rewriter.declarations) == 0 {
+	if source.tactic.rewriter.arrays.Len() == 0 {
 		t.Fatal("source did not build array declarations")
 	}
 	tags := diagnostic.NewTraceTags()
@@ -132,7 +132,7 @@ func TestBVArray2UFContextTranslationCreatesIndependentRewriter(t *testing.T) {
 	arrayMust(t, err)
 	copy := translated.(*BVArray2UFTactic)
 	t.Cleanup(func() { arrayMust(t, copy.Close()) })
-	if copy.manager != target.m || copy.services.Context != target.tactic.services.Context || copy.services.Cooperation != target.tactic.services.Cooperation || copy.trace != tags || copy.rewriter == source.tactic.rewriter || len(copy.rewriter.declarations) != 0 {
+	if copy.manager != target.m || copy.services.Context != target.tactic.services.Context || copy.services.Cooperation != target.tactic.services.Cooperation || copy.trace != tags || copy.rewriter == source.tactic.rewriter || copy.rewriter.arrays.Len() != 0 {
 		t.Fatal("translation did not create an independent target rewriter")
 	}
 	arrayMust(t, source.tactic.Close())

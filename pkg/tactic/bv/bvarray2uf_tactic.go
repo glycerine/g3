@@ -48,7 +48,13 @@ func NewBVArray2UFTactic(m *ast.ASTManager, _ *uparams.ParamsRef, services model
 		m.Budget().Release(n)
 		return nil, e
 	}
-	t.rewriter = newBVArrayRewriter(t)
+	if t.rewriter, e = newBVArrayRewriter(t); e != nil {
+		if t.rewriter != nil {
+			e = errors.Join(e, t.rewriter.close())
+		}
+		m.Budget().Release(n)
+		return nil, e
+	}
 	return t, nil
 }
 func (t *BVArray2UFTactic) open() error {
@@ -112,14 +118,15 @@ func (t *BVArray2UFTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (err 
 	if err = out.Prepare(t.manager); err != nil {
 		return err
 	}
-	if err = tactic.FailIfUnsatCoreGeneration("bvarray2uf", g); err != nil {
-		return err
-	}
+	// tactic_report precedes fail_if_unsat_core_generation in the source.
 	report, err := tactic.NewTacticReport("bvarray2uf", g)
 	if err != nil {
 		return err
 	}
 	defer func() { err = errors.Join(err, report.Close()) }()
+	if err = tactic.FailIfUnsatCoreGeneration("bvarray2uf", g); err != nil {
+		return err
+	}
 	models, err := g.ModelsEnabled()
 	if err != nil {
 		return err
@@ -133,6 +140,10 @@ func (t *BVArray2UFTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (err 
 			err = errors.Join(err, t.discardPreparedModels())
 		}
 	}()
+	// m_rw.reset()
+	if err = t.rewriter.traversal.Reset(); err != nil {
+		return err
+	}
 	n, err := g.Size()
 	if err != nil {
 		return err
@@ -149,23 +160,11 @@ func (t *BVArray2UFTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (err 
 		if e != nil {
 			return e
 		}
-		next, e := t.rewriter.rewrite(h)
+		// m_produce_proofs is never set in the source, so the rewriter's
+		// own proof goes to goal::update without a modus ponens step.
+		next, pr, e := t.rewriter.rewrite(h)
 		if e != nil {
 			return e
-		}
-		pr, e := g.Proof(i)
-		if e != nil {
-			return e
-		}
-		if !pr.IsNull() && next != h {
-			rw, e := t.manager.MkProofRewrite(h, next)
-			if e != nil {
-				return e
-			}
-			pr, e = t.manager.MkProofModusPonens(pr, rw)
-			if e != nil {
-				return e
-			}
 		}
 		dep, e := g.Dependency(i)
 		if e != nil {
@@ -202,11 +201,17 @@ func (t *BVArray2UFTactic) Cleanup() error {
 	if e := t.discardPreparedModels(); e != nil {
 		return e
 	}
-	if e := t.rewriter.close(); e != nil {
+	// imp * d = alloc(imp, m, m_params); std::swap(d, m_imp); dealloc(d);
+	fresh, e := newBVArrayRewriter(t)
+	if e != nil {
+		if fresh != nil {
+			e = errors.Join(e, fresh.close())
+		}
 		return e
 	}
-	t.rewriter = newBVArrayRewriter(t)
-	return nil
+	old := t.rewriter
+	t.rewriter = fresh
+	return old.close()
 }
 func (t *BVArray2UFTactic) Reset() error { return t.Cleanup() }
 func (t *BVArray2UFTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {

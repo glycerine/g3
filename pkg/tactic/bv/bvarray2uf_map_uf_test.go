@@ -13,7 +13,7 @@ func TestBVArray2UFMapAddsPointwiseDefinition(t *testing.T) {
 	arrayMust(t, e)
 	mapped, e := f.m.MkArrayMap(fn, ast.SliceArguments([]ast.ASTHandle{f.a, f.b}))
 	arrayMust(t, e)
-	got, e := f.tactic.rewriter.rewrite(mapped)
+	got, _, e := f.tactic.rewriter.rewrite(mapped)
 	arrayMust(t, e)
 	if _, e = f.m.AsArrayFunction(got); e != nil {
 		t.Fatal(e)
@@ -30,7 +30,7 @@ func TestBVArray2UFUninterpretedArrayResultBecomesAsArray(t *testing.T) {
 	arrayMust(t, e)
 	term, e := f.m.MkApp(fn, []ast.ASTHandle{f.i})
 	arrayMust(t, e)
-	got, e := f.tactic.rewriter.rewrite(term)
+	got, _, e := f.tactic.rewriter.rewrite(term)
 	arrayMust(t, e)
 	if _, e = f.m.AsArrayFunction(got); e != nil {
 		t.Fatal(e)

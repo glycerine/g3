@@ -1,230 +1,436 @@
 package bv
 
+// Source: src/tactic/bv/bvarray2uf_rewriter.cpp reduce_app. GCC evaluates
+// call arguments right to left, so nested constructor calls build their
+// last argument first.
+
 import (
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/tactic"
 )
 
-func (r *bvArrayRewriter) reduce(h ast.ASTHandle, args []ast.ASTHandle) (ast.ASTHandle, bool, error) {
+// ReduceApp is bvarray2uf_rewriter_cfg::reduce_app.
+func (r *bvArrayRewriter) ReduceApp(f ast.ASTHandle, arguments ast.AppArguments, out, _ ast.ASTRef) (status rewriter.RewriteStatus, err error) {
 	m := r.owner.manager
-	d, e := m.GetDecl(h)
-	if e != nil {
-		return h, false, e
+	// The source's local expr_refs die when reduce_app returns.
+	start := len(r.scratch)
+	defer func() {
+		if e := r.release(start); e != nil && err == nil {
+			err = e
+		}
+	}()
+	num := arguments.Count()
+	args := make([]ast.ASTHandle, num)
+	for i := range args {
+		a, e := arguments.At(uint32(i))
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		args[i] = a
 	}
-	family, e := m.GetFamilyID(d)
+	family, e := m.GetFamilyID(f)
 	if e != nil {
-		return h, false, e
+		return rewriter.RewriteFailed, e
 	}
-	op, e := m.GetDeclKind(d)
+	op, e := m.GetDeclKind(f)
 	if e != nil {
-		return h, false, e
+		return rewriter.RewriteFailed, e
 	}
-	rangeSort, e := m.GetRange(d)
+	rangeSort, e := m.GetRange(f)
 	if e != nil {
-		return h, false, e
+		return rewriter.RewriteFailed, e
+	}
+	basic := family == m.BasicFamilyID()
+	domainArray := false
+	if basic && (op == ast.ASTOpEq || op == ast.ASTOpDistinct) {
+		arity, e := m.GetArity(f)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		if arity == 0 {
+			return rewriter.RewriteFailed, ast.ErrASTDomain
+		}
+		d0, e := m.GetDomain(f, 0)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		if domainArray, e = r.isBVArraySort(d0); e != nil {
+			return rewriter.RewriteFailed, e
+		}
+	}
+	done := func(h ast.ASTHandle, e error) (rewriter.RewriteStatus, error) {
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		if e = m.SetRef(out, h); e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		return rewriter.RewriteDone, nil
+	}
+	if basic && op == ast.ASTOpEq && domainArray {
+		// From [1]: replace t = s, where t and s are arrays, with
+		// \forall x . f_t(x) = f_s(x).
+		same, e := m.AreEqual(args[0], args[1])
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		if same {
+			return done(m.MkTrue())
+		}
+		ft, e := r.mkUFForArray(args[0])
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		fs, e := r.mkUFForArray(args[1])
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		sort, x, e := r.indexVar(args[0])
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		// mk_eq(mk_app(f_t, x), mk_app(f_s, x))
+		right, e := r.apply(fs, x)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		left, e := r.apply(ft, x)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		body, e := m.MkEq(left, right)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		return done(r.forall(sort, body))
+	}
+	if basic && op == ast.ASTOpDistinct && domainArray {
+		expanded, e := m.MkDistinctExpanded(args)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		if e = m.SetRef(out, expanded); e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		return rewriter.Rewrite1, nil
 	}
 	rangeArray, e := r.isBVArraySort(rangeSort)
 	if e != nil {
-		return h, false, e
+		return rewriter.RewriteFailed, e
 	}
-	if family == m.BasicFamilyID() && op == ast.ASTOpEq && len(args) == 2 {
-		array, e := r.isBVArray(args[0])
-		if e != nil || !array {
-			return h, false, e
-		}
-		if args[0] == args[1] {
-			truth, e := m.MkTrue()
-			return truth, true, e
-		}
-		q, e := r.extensionalEquality(args[0], args[1])
-		return q, true, e
-	}
-	if family == m.BasicFamilyID() && op == ast.ASTOpDistinct && len(args) > 0 {
-		array, e := r.isBVArray(args[0])
-		if e != nil || !array {
-			return h, false, e
-		}
-		expanded, e := m.MkDistinctExpanded(args)
+	// is_term_ite(f): an ite whose range is not Bool.
+	if basic && op == ast.ASTOpIte && rangeArray {
+		c := args[0]
+		ft, e := r.mkUFForArray(args[1])
 		if e != nil {
-			return h, false, e
+			return rewriter.RewriteFailed, e
 		}
-		expanded, e = r.rewrite(expanded)
-		return expanded, true, e
+		ff, e := r.mkUFForArray(args[2])
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		sort, x, e := r.indexVar(args[1])
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		pin := func(h ast.ASTHandle, e error) (ast.ASTHandle, error) {
+			if e != nil {
+				return h, e
+			}
+			return h, r.hold(h)
+		}
+		fa, e := pin(m.MkApp(f, args))
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		fta, e := pin(r.apply(ft, x))
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		ffa, e := pin(r.apply(ff, x))
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		ite, e := pin(m.MkIte(c, fta, ffa))
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		var bvf ast.ASTHandle
+		value, found, e := r.arrays.Find(fa)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		if found {
+			bvf = value[0]
+		} else {
+			// The source looks f_a up but inserts under e.
+			if bvf, e = r.freshFunction(args[1]); e != nil {
+				return rewriter.RewriteFailed, e
+			}
+			if e = r.register(ite, bvf); e != nil {
+				return rewriter.RewriteFailed, e
+			}
+		}
+		// body = mk_eq(mk_app(bv_f, x), e)
+		at, e := r.apply(bvf, x)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		body, e := m.MkEq(at, ite)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		q, e := r.forall(sort, body)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		if e = r.addExtra(q); e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		return done(m.MkAsArray(bvf))
 	}
-	if family == m.BasicFamilyID() && op == ast.ASTOpIte && rangeArray && len(args) == 3 {
-		result, e := r.addDefinition(h, func(x ast.ASTHandle) (ast.ASTHandle, error) {
-			ft, e := r.functionFor(args[1])
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			ff, e := r.functionFor(args[2])
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			tv, e := r.apply(ft, x)
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			fv, e := r.apply(ff, x)
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			return m.MkIte(args[0], tv, fv)
-		})
-		return result, true, e
-	}
-	if family == m.BasicFamilyID() && rangeArray {
-		return h, false, tactic.NewTacticException("bvarray2uf: basic array-valued application is not implemented")
+	if basic && rangeArray {
+		// NOT_IMPLEMENTED_YET() in the source.
+		return rewriter.RewriteFailed, tactic.NewTacticException("bvarray2uf: basic array-valued application is not implemented")
 	}
 	if family == ast.NullFamilyID {
-		hasArray := false
+		hasArrays := false
 		for _, a := range args {
-			yes, x := r.isBVArray(a)
-			if x != nil {
-				return h, false, x
+			yes, e := r.isBVArray(a)
+			if e != nil {
+				return rewriter.RewriteFailed, e
 			}
-			hasArray = hasArray || yes
+			hasArrays = hasArrays || yes
+		}
+		t, e := m.MkApp(f, args)
+		if e != nil {
+			return rewriter.RewriteFailed, e
 		}
 		if rangeArray {
-			f, x := r.functionFor(h)
-			if x != nil {
-				return h, false, x
+			// From [1]: every array term t gets a fresh uninterpreted f_t.
+			ft, e := r.mkUFForArray(t)
+			if e != nil {
+				return rewriter.RewriteFailed, e
 			}
-			v, x := m.MkAsArray(f)
-			return v, true, x
+			return done(m.MkAsArray(ft))
 		}
-		if hasArray {
-			return h, true, nil
+		if hasArrays {
+			return done(t, nil)
 		}
-		return h, false, nil
+		return rewriter.RewriteFailed, nil
 	}
 	if family != r.owner.arrayFamily {
-		return h, false, nil
+		return rewriter.RewriteFailed, nil
+	}
+	if op == ast.ASTArrayOpSelect {
+		if num < 2 {
+			return rewriter.RewriteFailed, ast.ErrASTDomain
+		}
+		t, i := args[0], args[1]
+		yes, e := r.isBVArray(t)
+		if e != nil || !yes {
+			return rewriter.RewriteFailed, e
+		}
+		// From [1]: replace select(t, i) with f_t(i).
+		ft, e := r.mkUFForArray(t)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		return done(r.apply(ft, i))
+	}
+	if !rangeArray {
+		return rewriter.RewriteFailed, nil
 	}
 	switch op {
-	case ast.ASTArrayOpSelect:
-		if len(args) < 2 {
-			return h, false, ast.ErrASTDomain
-		}
-		yes, x := r.isBVArray(args[0])
-		if x != nil || !yes {
-			return h, false, x
-		}
-		f, x := r.functionFor(args[0])
-		if x != nil {
-			return h, false, x
-		}
-		index, x := r.packedIndex(args[1:])
-		if x != nil {
-			return h, false, x
-		}
-		v, x := r.apply(f, index)
-		return v, true, x
 	case ast.ASTArrayOpConst:
-		if len(args) != 1 || !rangeArray {
-			return h, false, nil
+		if num != 1 {
+			return rewriter.RewriteFailed, ast.ErrASTDomain
 		}
-		v, x := r.addDefinition(h, func(ast.ASTHandle) (ast.ASTHandle, error) { return args[0], nil })
-		return v, true, x
-	case ast.ASTArrayOpStore:
-		if len(args) < 3 {
-			return h, false, ast.ErrASTDomain
+		t, e := m.MkApp(f, args)
+		if e != nil {
+			return rewriter.RewriteFailed, e
 		}
-		yes, x := r.isBVArray(args[0])
-		if x != nil || !yes {
-			return h, false, x
+		if e = r.hold(t); e != nil {
+			return rewriter.RewriteFailed, e
 		}
-		stored := args[0]
-		index, x := r.packedIndex(args[1 : len(args)-1])
-		if x != nil {
-			return h, false, x
+		v := args[0]
+		ft, e := r.mkUFForArray(t)
+		if e != nil {
+			return rewriter.RewriteFailed, e
 		}
-		value := args[len(args)-1]
-		fs, x := r.functionFor(stored)
-		if x != nil {
-			return h, false, x
+		result, e := m.MkAsArray(ft)
+		if e != nil {
+			return rewriter.RewriteFailed, e
 		}
-		ft, x := r.functionFor(h)
-		if x != nil {
-			return h, false, x
+		if e = m.SetRef(out, result); e != nil {
+			return rewriter.RewriteFailed, e
 		}
-		sort, x := m.GetSort(h)
-		if x != nil {
-			return h, false, x
+		// Add \forall x . f_t(x) = v
+		sort, x, e := r.indexVarOfSort(rangeSort)
+		if e != nil {
+			return rewriter.RewriteFailed, e
 		}
-		indexSort, x := r.indexSort(sort)
-		if x != nil {
-			return h, false, x
+		at, e := r.apply(ft, x)
+		if e != nil {
+			return rewriter.RewriteFailed, e
 		}
-		variable, x := m.MkVar(0, indexSort)
-		if x != nil {
-			return h, false, x
+		body, e := m.MkEq(at, v)
+		if e != nil {
+			return rewriter.RewriteFailed, e
 		}
-		same, x := m.MkEq(variable, index)
-		if x != nil {
-			return h, false, x
+		q, e := r.forall(sort, body)
+		if e != nil {
+			return rewriter.RewriteFailed, e
 		}
-		newAt, x := r.apply(ft, variable)
-		if x != nil {
-			return h, false, x
+		if e = r.addExtra(q); e != nil {
+			return rewriter.RewriteFailed, e
 		}
-		oldAt, x := r.apply(fs, variable)
-		if x != nil {
-			return h, false, x
-		}
-		unchanged, x := m.MkEq(newAt, oldAt)
-		if x != nil {
-			return h, false, x
-		}
-		body, x := m.MkOr(same, unchanged)
-		if x != nil {
-			return h, false, x
-		}
-		quantified, x := r.forall(indexSort, body)
-		if x != nil {
-			return h, false, x
-		}
-		if x = r.addExtra(quantified); x != nil {
-			return h, false, x
-		}
-		result, x := m.MkAsArray(ft)
-		if x != nil {
-			return h, false, x
-		}
-		at, x := r.apply(ft, index)
-		if x != nil {
-			return h, false, x
-		}
-		ground, x := m.MkEq(at, value)
-		if x == nil {
-			x = r.addExtra(ground)
-		}
-		return result, true, x
-	case ast.ASTArrayOpMap:
-		mapf, x := m.ArrayMapFunction(d)
-		if x != nil {
-			return h, false, x
-		}
-		funcs := make([]ast.ASTHandle, len(args))
-		for i, a := range args {
-			funcs[i], x = r.functionFor(a)
-			if x != nil {
-				return h, false, x
-			}
-		}
-		v, x := r.addDefinition(h, func(index ast.ASTHandle) (ast.ASTHandle, error) {
-			values := make([]ast.ASTHandle, len(funcs))
-			for i, f := range funcs {
-				values[i], x = r.apply(f, index)
-				if x != nil {
-					return ast.ASTHandle{}, x
-				}
-			}
-			return m.MkApp(mapf, values)
-		})
-		return v, true, x
+		return rewriter.RewriteDone, nil
 	case ast.ASTArrayOpAsArray:
-		return h, false, nil
+		return rewriter.RewriteFailed, nil
+	case ast.ASTArrayOpMap:
+		t, e := m.MkApp(f, args)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		if e = r.hold(t); e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		ft, e := r.mkUFForArray(t)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		mapf, e := m.ArrayMapFunction(f)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		ss := make([]ast.ASTHandle, num)
+		for i, a := range args {
+			if ss[i], e = r.mkUFForArray(a); e != nil {
+				return rewriter.RewriteFailed, e
+			}
+		}
+		// Add \forall x . f_t(x) = map_f(a[x], b[x], ...)
+		sort, x, e := r.indexVarOfSort(rangeSort)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		newArgs := make([]ast.ASTHandle, num)
+		for i := range ss {
+			if newArgs[i], e = r.apply(ss[i], x); e != nil {
+				return rewriter.RewriteFailed, e
+			}
+			if e = r.hold(newArgs[i]); e != nil {
+				return rewriter.RewriteFailed, e
+			}
+		}
+		// mk_eq(mk_app(f_t, x), mk_app(map_f, num, new_args))
+		mapped, e := m.MkApp(mapf, newArgs)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		if e = r.hold(mapped); e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		at, e := r.apply(ft, x)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		body, e := m.MkEq(at, mapped)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		q, e := r.forall(sort, body)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		if e = r.addExtra(q); e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		return done(m.MkAsArray(ft))
+	case ast.ASTArrayOpStore:
+		if num < 3 {
+			return rewriter.RewriteFailed, ast.ErrASTDomain
+		}
+		s, i, v := args[0], args[1], args[2]
+		yes, e := r.isBVArray(s)
+		if e != nil || !yes {
+			return rewriter.RewriteFailed, e
+		}
+		t, e := m.MkApp(f, args)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		if e = r.hold(t); e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		// From [1]: for every term t of the form store(s, i, v), add
+		// \forall x . x = i \vee f_t(x) = f_s(x), and the atom f_t(i) = v.
+		fs, e := r.mkUFForArray(s)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		ft, e := r.mkUFForArray(t)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		result, e := m.MkAsArray(ft)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		if e = m.SetRef(out, result); e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		sort, x, e := r.indexVarOfSort(rangeSort)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		// mk_or(mk_eq(x, i), mk_eq(mk_app(f_t, x), mk_app(f_s, x)))
+		oldAt, e := r.apply(fs, x)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		newAt, e := r.apply(ft, x)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		unchanged, e := m.MkEq(newAt, oldAt)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		if e = r.hold(unchanged); e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		same, e := m.MkEq(x, i)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		body, e := m.MkOr(same, unchanged)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		q, e := r.forall(sort, body)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		if e = r.addExtra(q); e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		// ground_atom = mk_eq(mk_app(f_t, i), v)
+		at, e := r.apply(ft, i)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		ground, e := m.MkEq(at, v)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		if e = r.addExtra(ground); e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		return rewriter.RewriteDone, nil
 	}
-	return h, false, tactic.NewTacticException("bvarray2uf: array operation is not implemented")
+	// NOT_IMPLEMENTED_YET() in the source.
+	return rewriter.RewriteFailed, tactic.NewTacticException("bvarray2uf: array operation is not implemented")
 }

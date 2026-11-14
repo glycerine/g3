@@ -1,0 +1,6 @@
+(declare-const a (Array (_ BitVec 3) (_ BitVec 3)))
+(declare-const b (Array (_ BitVec 3) (_ BitVec 3)))
+(declare-const v (_ BitVec 3))
+(assert (= (store a v v) b))
+(assert (= (store a v v) a))
+(apply bvarray2uf)
