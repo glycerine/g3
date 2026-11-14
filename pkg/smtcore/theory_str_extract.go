@@ -200,79 +200,86 @@ func (t *SMTStringTheory) instantiateSubstring(node *SMTEnode) (result error) {
 	if err != nil {
 		return err
 	}
-	locals := smtStringLengthPremises{theory: t}
-	defer func() { result = errors.Join(result, locals.close()) }()
-	pin := func(value ast.ASTHandle, err error) (ast.ASTHandle, error) {
-		if err != nil {
-			return value, err
-		}
-		return value, locals.add(value)
-	}
-	zero, err := pin(m.ArithmeticIntegerNumeralText("0"))
+	// Source owners in declaration order: zero, minusOne,
+	// argumentsValid_terms, lenOutOfBounds, argumentsValid, case1_premise,
+	// case1_conclusion, case1, case2_conclusion, case2,
+	// case3_conclusion_terms, case3_conclusion, case3, and the inner block
+	// rw, case1_rw, case2_rw, case3_rw. Argument temporaries are unowned and
+	// call arguments are evaluated right to left (GCC). The expr_refs t0..t4
+	// are not modeled: mk_str_var keeps them on the theory trail.
+	scope := smtStringScope{theory: t}
+	defer func() { result = errors.Join(result, scope.close()) }()
+	zero, err := scope.own(m.ArithmeticIntegerNumeralText("0"))
 	if err != nil {
 		return err
 	}
-	minusOne, err := pin(m.ArithmeticIntegerNumeralText("-1"))
+	minusOne, err := scope.own(m.ArithmeticIntegerNumeralText("-1"))
 	if err != nil {
 		return err
 	}
-	length, err := pin(m.MkSequenceLength(word))
+	validTerms := scope.vector()
+	if _, err := validTerms.push(m.MkArithmeticGE(position, zero)); err != nil {
+		return err
+	}
+	length, err := m.MkSequenceLength(word)
 	if err != nil {
 		return err
 	}
-	negativeLength, err := pin(m.MkArithmeticMul(minusOne, length))
+	negativeLength, err := m.MkArithmeticMul(minusOne, length)
 	if err != nil {
 		return err
 	}
-	difference, err := pin(m.MkArithmeticAdd(position, negativeLength))
+	difference, err := m.MkArithmeticAdd(position, negativeLength)
 	if err != nil {
 		return err
 	}
-	outside, err := pin(m.MkArithmeticGE(difference, zero))
+	outside, err := m.MkArithmeticGE(difference, zero)
 	if err != nil {
 		return err
 	}
-	inside, err := pin(m.MkNot(outside))
-	if err != nil {
+	if _, err := validTerms.push(m.MkNot(outside)); err != nil {
 		return err
 	}
-	positionValid, err := pin(m.MkArithmeticGE(position, zero))
-	if err != nil {
-		return err
-	}
-	countValid, err := pin(m.MkArithmeticGE(count, zero))
-	if err != nil {
-		return err
-	}
-	valid, err := pin(m.MkAndArray([]ast.ASTHandle{positionValid, inside, countValid}))
-	if err != nil {
+	if _, err := validTerms.push(m.MkArithmeticGE(count, zero)); err != nil {
 		return err
 	}
 	family, err := m.ArithmeticFamilyID()
 	if err != nil {
 		return err
 	}
-	endDifference, err := pin(m.MkFamilyApp(family, 6, nil, []ast.ASTHandle{position, count, negativeLength}))
+	length, err = m.MkSequenceLength(word)
 	if err != nil {
 		return err
 	}
-	endOutside, err := pin(m.MkArithmeticGE(endDifference, zero))
+	negativeLength, err = m.MkArithmeticMul(minusOne, length)
 	if err != nil {
 		return err
 	}
-	invalid, err := pin(m.MkNot(valid))
+	endDifference, err := m.MkFamilyApp(family, 6, nil, []ast.ASTHandle{position, count, negativeLength})
 	if err != nil {
 		return err
 	}
-	empty, err := pin(t.stringLiteral(""))
+	endOutside, err := scope.own(m.MkArithmeticGE(endDifference, zero))
 	if err != nil {
 		return err
 	}
-	emptyResult, err := pin(t.state.MkEqAtom(expression, empty))
+	valid, err := scope.own(m.MkAndArray(validTerms.values))
 	if err != nil {
 		return err
 	}
-	case1, err := pin(m.MkImplies(invalid, emptyResult))
+	invalid, err := scope.own(m.MkNot(valid))
+	if err != nil {
+		return err
+	}
+	empty, err := t.stringLiteral("")
+	if err != nil {
+		return err
+	}
+	emptyResult, err := scope.own(t.state.MkEqAtom(expression, empty))
+	if err != nil {
+		return err
+	}
+	case1, err := scope.own(m.MkImplies(invalid, emptyResult))
 	if err != nil {
 		return err
 	}
@@ -283,34 +290,37 @@ func (t *SMTStringTheory) instantiateSubstring(node *SMTEnode) (result error) {
 			return err
 		}
 	}
-	wide := smtStringLengthPremises{theory: t}
-	defer func() { result = errors.Join(result, wide.close()) }()
-	whole, err := pin(t.concatTerm(variables[0], variables[1]))
+	// m.mk_and(eq(base, concat(t0,t1)), eq(strlen(t0), pos), eq(expr, t1)):
+	// GCC evaluates the three arguments right to left.
+	wideResult, err := t.state.MkEqAtom(expression, variables[1])
 	if err != nil {
 		return err
 	}
-	if err := wide.equate(word, whole); err != nil {
-		return err
-	}
-	prefixLength, err := pin(m.MkSequenceLength(variables[0]))
+	prefixLength, err := m.MkSequenceLength(variables[0])
 	if err != nil {
 		return err
 	}
-	if err := wide.equate(prefixLength, position); err != nil {
-		return err
-	}
-	if err := wide.equate(expression, variables[1]); err != nil {
-		return err
-	}
-	wideConclusion, err := pin(m.MkAndArray(wide.values))
+	widePrefix, err := t.state.MkEqAtom(prefixLength, position)
 	if err != nil {
 		return err
 	}
-	wideGuard, err := pin(m.MkAnd(valid, endOutside))
+	whole, err := t.concatTerm(variables[0], variables[1])
 	if err != nil {
 		return err
 	}
-	case2, err := pin(m.MkImplies(wideGuard, wideConclusion))
+	wideWord, err := t.state.MkEqAtom(word, whole)
+	if err != nil {
+		return err
+	}
+	wideConclusion, err := scope.own(m.MkAndArray([]ast.ASTHandle{wideWord, widePrefix, wideResult}))
+	if err != nil {
+		return err
+	}
+	wideGuard, err := m.MkAnd(valid, endOutside)
+	if err != nil {
+		return err
+	}
+	case2, err := scope.own(m.MkImplies(wideGuard, wideConclusion))
 	if err != nil {
 		return err
 	}
@@ -320,49 +330,48 @@ func (t *SMTStringTheory) instantiateSubstring(node *SMTEnode) (result error) {
 			return err
 		}
 	}
-	narrow := smtStringLengthPremises{theory: t}
-	defer func() { result = errors.Join(result, narrow.close()) }()
-	tail, err := pin(t.concatTerm(variables[3], variables[4]))
+	narrow := scope.vector()
+	tail, err := t.concatTerm(variables[3], variables[4])
 	if err != nil {
 		return err
 	}
-	whole, err = pin(t.concatTerm(variables[2], tail))
+	whole, err = t.concatTerm(variables[2], tail)
 	if err != nil {
 		return err
 	}
-	if err := narrow.equate(word, whole); err != nil {
+	if _, err := narrow.push(t.state.MkEqAtom(word, whole)); err != nil {
 		return err
 	}
-	prefixLength, err = pin(m.MkSequenceLength(variables[2]))
+	prefixLength, err = m.MkSequenceLength(variables[2])
 	if err != nil {
 		return err
 	}
-	if err := narrow.equate(prefixLength, position); err != nil {
+	if _, err := narrow.push(t.state.MkEqAtom(prefixLength, position)); err != nil {
 		return err
 	}
-	resultLength, err := pin(m.MkSequenceLength(variables[3]))
+	resultLength, err := m.MkSequenceLength(variables[3])
 	if err != nil {
 		return err
 	}
-	if err := narrow.equate(resultLength, count); err != nil {
+	if _, err := narrow.push(t.state.MkEqAtom(resultLength, count)); err != nil {
 		return err
 	}
-	if err := narrow.equate(expression, variables[3]); err != nil {
+	if _, err := narrow.push(t.state.MkEqAtom(expression, variables[3])); err != nil {
 		return err
 	}
-	narrowConclusion, err := pin(m.MkAndArray(narrow.values))
+	narrowConclusion, err := scope.own(m.MkAndArray(narrow.values))
 	if err != nil {
 		return err
 	}
-	endInside, err := pin(m.MkNot(endOutside))
+	endInside, err := m.MkNot(endOutside)
 	if err != nil {
 		return err
 	}
-	narrowGuard, err := pin(m.MkAnd(valid, endInside))
+	narrowGuard, err := m.MkAnd(valid, endInside)
 	if err != nil {
 		return err
 	}
-	case3, err := pin(m.MkImplies(narrowGuard, narrowConclusion))
+	case3, err := scope.own(m.MkImplies(narrowGuard, narrowConclusion))
 	if err != nil {
 		return err
 	}
@@ -371,13 +380,13 @@ func (t *SMTStringTheory) instantiateSubstring(node *SMTEnode) (result error) {
 	}
 	rw, err := t.state.theoryRewriter.FreshDefault()
 	if rw != nil {
-		defer func() { result = errors.Join(result, rw.Close()) }()
+		scope.hook(rw.Close)
 	}
 	if err != nil {
 		return err
 	}
 	for _, axiom := range []ast.ASTHandle{case1, case2, case3} {
-		if err := t.rewriteStringAxiom(axiom, rw); err != nil {
+		if err := scope.rewriteOwned(axiom, rw); err != nil {
 			return err
 		}
 	}

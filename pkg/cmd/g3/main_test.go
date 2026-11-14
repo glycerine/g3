@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_13-F2 / FUZZ_G-F6: substr axiom atoms in C++ order (also a golden trace vector).
+	"str_substr_order.smt2": "sat\n(model \n  (define-fun x () String\n    \"uab\")\n)\n",
 	// AUDIT.md FUZZ_G-F5: str.at axiom terms in GCC order with the C++ owners.
 	"str_at_axiom.smt2": "sat\n(model \n  (define-fun s0 () String\n    \"abc\")\n  (define-fun x1 () Int\n    0)\n  (define-fun p1 () Bool\n    true)\n  (define-fun p0 () Bool\n    true)\n  (define-fun x0 () Int\n    1)\n)\n",
 	// AUDIT.md FUZZ_G-F4: mk_nonempty_str_var asserts only the length axiom.

@@ -1,0 +1,5 @@
+(set-option :smt.string_solver z3str3)
+(declare-const x String)
+(assert (= (str.substr x 1 2) "ab"))
+(check-sat)
+(get-model)
