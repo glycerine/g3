@@ -575,9 +575,15 @@ func (c *smtMAMCompiler) isSemiCompatibleCheck(instr *smtMAMInstr) bool {
 	if r.IsNull() || c.getCheckMark(instr.reg) != mamNotChecked || !c.isGround(r) {
 		return false
 	}
+	patHash := c.getPatLblHash(instr.reg) // may set_lbl_hash, as in C++
+	if !instr.enode.HasLabelHash() {
+		// Release get_lbl_hash() of an unhashed enode is 255, which never
+		// equals a pattern label hash (0..63).
+		return false
+	}
 	h, err := instr.enode.LabelHash()
 	c.fail(err)
-	return c.getPatLblHash(instr.reg) == uint32(h)
+	return patHash == uint32(h)
 }
 
 func (c *smtMAMCompiler) isCompatibleFilter(instr *smtMAMInstr) bool {

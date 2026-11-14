@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_04-F1: is_semi_compatible(check*) is false for an
+	// unhashed CHECK enode (release get_lbl_hash() == 255), not an error.
+	"mam_multipattern_unhashed_check.smt2": "unsat\n(:reason-unknown \"\")\n",
 	// AUDIT.md smtcore_03-F3: context::is_diseq is never true for Boolean
 	// terms (the iff probe is not in the congruence table), so array
 	// extensionality over a Boolean range is instantiated.

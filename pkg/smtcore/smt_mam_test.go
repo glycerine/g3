@@ -284,3 +284,48 @@ func TestSMTMAMTracksNestedGroundPatternTermsAsShared(t *testing.T) {
 		t.Fatal("shared pattern term survived pattern rollback")
 	}
 }
+
+// smtcore_04-F1: compiler::is_semi_compatible(check*) compares against
+// enode::get_lbl_hash(), which in a release build is 255 for an unhashed
+// enode, so the CHECK is simply incompatible. The multi-pattern
+// (g x y a d0) (g y x a d1) inserts the first pattern into a tree compiled
+// from the second one before d1 has a label hash.
+func TestSMTMAMSemiCompatibleCheckWithoutLabelHash(t *testing.T) {
+	m, _, registry, mam := smtMAMFixture(t)
+	sort, err := m.MkSort(astTestSymbol(t, m, "mam-unhashed-sort"), ast.ASTSortInfo{})
+	astTestMust(t, err)
+	info, err := m.NewFuncDeclInfo(ast.NullFamilyID, -1, nil, ast.ASTFuncFlags{}, false)
+	astTestMust(t, err)
+	g, err := m.MkFuncDeclWithInfo(astTestSymbol(t, m, "mam-unhashed-g"), []ast.ASTHandle{sort, sort, sort, sort}, sort, info)
+	astTestMust(t, err)
+	astTestMust(t, m.DelFuncDeclInfo(&info))
+	var constants []ast.ASTHandle
+	for _, name := range []string{"mam-unhashed-a", "mam-unhashed-d0", "mam-unhashed-d1"} {
+		c, err := m.MkConst(astTestSymbol(t, m, name), sort)
+		astTestMust(t, err)
+		constants = append(constants, c)
+	}
+	a, d0, d1 := constants[0], constants[1], constants[2]
+	x, err := m.MkVar(1, sort)
+	astTestMust(t, err)
+	y, err := m.MkVar(0, sort)
+	astTestMust(t, err)
+	first, err := m.MkApp(g, []ast.ASTHandle{x, y, a, d0})
+	astTestMust(t, err)
+	second, err := m.MkApp(g, []ast.ASTHandle{y, x, a, d1})
+	astTestMust(t, err)
+	pattern, err := m.MkPattern([]ast.ASTHandle{first, second})
+	astTestMust(t, err)
+	truth, err := m.MkTrue()
+	astTestMust(t, err)
+	quantifier, err := m.MkQuantifier(ast.ASTQuantifierSpec{
+		Forall: true, Sorts: []ast.ASTHandle{sort, sort},
+		Names:    []symbol.Symbol{astTestSymbol(t, m, "mam-unhashed-x"), astTestSymbol(t, m, "mam-unhashed-y")},
+		Body:     truth,
+		Patterns: []ast.ASTHandle{pattern},
+	})
+	astTestMust(t, err)
+	astTestMust(t, registry.Add(quantifier, 0))
+	mam.PushScope()
+	astTestMust(t, mam.AddPattern(quantifier, pattern))
+}
