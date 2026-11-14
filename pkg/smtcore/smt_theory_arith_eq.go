@@ -23,7 +23,10 @@ func (t *SMTTheoryArith) fixedVarEh(v SMTTheoryVar) error {
 	if !t.propagateEqs() {
 		return nil
 	}
-	if !t.isFixed(v) || !t.lower(v).base().value.isRational() {
+	// SASSERT(lower_bound(v).is_rational()) is debug only: the release
+	// build keys the table on lower_bound(v).get_rational(), dropping an
+	// epsilon part (AUDIT.md FUZZ_A-F7).
+	if !t.isFixed(v) {
 		return ast.ErrASTDomain
 	}
 	val := t.lowerRational(v)
