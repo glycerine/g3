@@ -835,10 +835,26 @@ func (s *ArithmeticSolver) optimizeBoxEngineObjective(index int, result *Arithme
 		result.ReasonUnknown = combined.ReasonUnknown
 		return combined.Status, false, nil
 	}
-	if boxIndex >= len(combined.Values) || boxIndex >= len(combined.ObjectiveModels) || combined.ObjectiveModels[boxIndex] == nil {
+	if boxIndex >= len(combined.Values) || boxIndex >= len(combined.ObjectiveModels) {
 		return lbool.Undef, false, ast.ErrASTDomain
 	}
 	modelSnapshot := combined.ObjectiveModels[boxIndex]
+	if modelSnapshot == nil {
+		// optsmt::lex returns farkas_opt's l_true and execute_min_max takes
+		// m_optsmt.get_model(m_model): optsmt::m_model is the model of the
+		// last update_lower, which a farkas run without a satisfiable
+		// midpoint never sets, so it is still the null optsmt::reset left
+		// and m_model becomes null (AUDIT.md FUZZ_J-F3).
+		if result.Model != nil {
+			if err = result.Model.DecRef(); err != nil {
+				return lbool.Undef, false, err
+			}
+			result.Model = nil
+		}
+		result.Labels = append(result.Labels[:0], combined.Labels...)
+		result.Values[index] = cloneObjectiveValue(combined.Values[boxIndex])
+		return lbool.True, true, nil
+	}
 	if err = modelSnapshot.IncRef(); err != nil {
 		return lbool.Undef, false, err
 	}
@@ -1107,7 +1123,7 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 		if !s.objectives[i].soft {
 			value := result.Values[i].Arithmetic
 			unbounded := value.Unbounded || value.Finite.Infinity.Sign() != 0
-			if unbounded || !lexContinues {
+			if (unbounded || !lexContinues) && result.Model != nil {
 				if err = s.captureArithmeticModel(i, &result.Values[i], result.Model); err != nil {
 					return nil, err
 				}
@@ -1140,8 +1156,9 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 				return nil, err
 			}
 		}
-		// execute_lex: update_lower() before the next objective.
-		if lexContinues {
+		// execute_lex: update_lower() before the next objective;
+		// update_bound: if (!m_model.get()) return; (AUDIT.md FUZZ_J-F3).
+		if lexContinues && result.Model != nil {
 			capture := -1
 			if !s.objectives[i].soft {
 				capture = i

@@ -1,0 +1,7 @@
+(set-option :auto_config false)
+(set-option :opt.optsmt_engine farkas)
+(declare-const x Real)
+(assert (<= x 10))
+(maximize x)
+(check-sat)
+(get-objectives)

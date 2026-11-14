@@ -338,6 +338,11 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_J-F3: farkas lex without optsmt::m_model (see also
+	// TestOptimizationFarkasLexLeavesNoModel).
+	"opt_farkas_no_midpoint.smt2": "sat\n(objectives\n (x 3)\n (y 0)\n)\n",
+	// AUDIT.md FUZZ_J-F3: farkas without a satisfiable midpoint leaves m_model null.
+	"opt_farkas_unbounded_mid.smt2": "sat\n(objectives\n (x 0)\n)\n",
 	// AUDIT.md FUZZ_J-F1: lia2card re-reads the goal size after an update to false.
 	"lia2card_false_goal.smt2": "(goals\n(goal\n  false\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md FUZZ_A-F13: get-objectives compares objective counts; pop resets optsmt.
