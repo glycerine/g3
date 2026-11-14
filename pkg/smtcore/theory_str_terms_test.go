@@ -145,3 +145,29 @@ func TestSMTStringSearchSetupBorrowsKernelAssertions(t *testing.T) {
 		t.Fatal("unassigned relation variables did not continue into tester assignment", status, err)
 	}
 }
+
+// FUZZ_G-F1: C++ mk_concat creates mk_strlen(concatAst) before the lengths
+// of the flattened leaves.
+func TestSMTStringConcatLengthCreatedBeforeLeafLengths(t *testing.T) {
+	m := astTestManager(t)
+	theory, _ := stringTheoryFixture(t, m)
+	sort, err := m.MkFamilySort(theory.FamilyID(), 2, nil)
+	astTestMust(t, err)
+	x, err := m.MkConst(astTestSymbol(t, m, "str-concat-order-x"), sort)
+	astTestMust(t, err)
+	y, err := m.MkConst(astTestSymbol(t, m, "str-concat-order-y"), sort)
+	astTestMust(t, err)
+	concat, err := theory.concatTerm(x, y)
+	astTestMust(t, err)
+	id := func(h ast.ASTHandle) uint32 {
+		length, err := m.MkSequenceLength(h)
+		astTestMust(t, err)
+		value, err := m.GetASTID(length)
+		astTestMust(t, err)
+		return value
+	}
+	whole := id(concat)
+	if left, right := id(x), id(y); whole >= left || whole >= right {
+		t.Fatal("str.len(concat) was not created before the leaf lengths", whole, left, right)
+	}
+}

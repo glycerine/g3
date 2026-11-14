@@ -198,6 +198,16 @@ func (t *SMTStringTheory) assertFlattenedConcatLength(expression ast.ASTHandle) 
 			result = errors.Join(result, m.DelRef(&refs[i]))
 		}
 	}()
+	// C++ mk_concat: mk_strlen(concatAst) is created before the leaves' lengths.
+	length, err := m.MkSequenceLength(expression)
+	if err != nil {
+		return err
+	}
+	ref, err := m.NewRef(length)
+	if err != nil {
+		return err
+	}
+	refs = append(refs, ref)
 	work := []ast.ASTHandle{expression}
 	for len(work) != 0 {
 		last := len(work) - 1
@@ -222,15 +232,6 @@ func (t *SMTStringTheory) assertFlattenedConcatLength(expression ast.ASTHandle) 
 		refs = append(refs, ref)
 		lengths = append(lengths, length)
 	}
-	length, err := m.MkSequenceLength(expression)
-	if err != nil {
-		return err
-	}
-	ref, err := m.NewRef(length)
-	if err != nil {
-		return err
-	}
-	refs = append(refs, ref)
 	family, err := m.ArithmeticFamilyID()
 	if err != nil {
 		return err
