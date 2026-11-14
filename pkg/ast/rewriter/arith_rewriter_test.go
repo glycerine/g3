@@ -1245,6 +1245,42 @@ func TestArithRewriterAdvancedPolynomialModes(t *testing.T) {
 		}
 	})
 
+	// AUDIT.md FUZZ_D-F4: hoist_multiplication flattens the products
+	// (TO_BUFFER) and merge_muls swaps the common factors to the front:
+	// (+ (* 3 x x) (* 2 x)) becomes (+ (* x (+ (* 3 x) 2)) 0).
+	t.Run("hoist-multiplication-matches-source", func(t *testing.T) {
+		r, x, _, _ := newFixture(t, map[string]bool{"hoist_mul": true}, nil)
+		three := arithRewriterNumeral(t, r.manager, "3", true)
+		two := arithRewriterNumeral(t, r.manager, "2", true)
+		left, err := r.app(arithOpMul, three, x, x)
+		astTestMust(t, err)
+		astTestPin(t, r.manager, left)
+		right, err := r.app(arithOpMul, two, x)
+		astTestMust(t, err)
+		astTestPin(t, r.manager, right)
+		status, result := arithRewriterCore(t, r, arithOpAdd, left, right)
+		if status != RewriteFull {
+			t.Fatal("hoist_multiplication status", status)
+		}
+		_, terms, matched, err := r.operation(result, arithOpAdd)
+		astTestMust(t, err)
+		if !matched || len(terms) != 2 {
+			t.Fatal("hoisted sum shape", matched, len(terms))
+		}
+		arithRewriterWantNumeral(t, r.manager, terms[1], "0", true)
+		_, factors, matched, err := r.operation(terms[0], arithOpMul)
+		astTestMust(t, err)
+		if !matched || len(factors) != 2 || factors[0] != x {
+			t.Fatal("common factor", matched, len(factors))
+		}
+		_, rest, matched, err := r.operation(factors[1], arithOpAdd)
+		astTestMust(t, err)
+		if !matched || len(rest) != 2 || rest[1] != two {
+			t.Fatal("merged remainder", matched, len(rest))
+		}
+		arithRewriterWantOperation(t, r, rest[0], arithOpMul, three, x)
+	})
+
 	t.Run("mode-normalization", func(t *testing.T) {
 		r, _, _, _ := newFixture(t, map[string]bool{"som": true, "hoist_mul": true}, nil)
 		if !r.sumOfMonomials || r.hoistMul {

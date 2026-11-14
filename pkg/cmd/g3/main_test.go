@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_D-F4: hoist_multiplication / merge_muls as in poly_rewriter
+	// (diff_check_in_1158 reaches it through qfnia nla2bv).
+	"hoist_mul.smt2":              "(* x (+ 2 (* 3 x)))\n(* x (+ 2 (* 3 y)))\n(+ (* y (+ x z)) (* x z))\n(+ 4 (* y z (+ 1 x)) (* x x))\n(let ((a!1 (* x (+ 2 (* y (+ 1 z))))))\n  (+ 1 a!1))\n(+ (* x y) (* x z))\n",
+	"hoist_mul_nla2bv_model.smt2": "sat\n(model \n  (define-fun x0 () Int\n    (- 18))\n  (define-fun p0 () Bool\n    false)\n)\n",
 	// AUDIT.md ast_rewriter_02-F1: sum of monomials blowup is a rewriter_exception.
 	"som_blowup_simplify.smt2": "(error \"simplifier failed: sum of monomials blowup\")\n(bvmul (bvadd x y) (bvadd z #x01) (bvadd x #x02))\n(error \"simplifier failed: sum of monomials blowup\")\n(* (+ a b) (+ c 1) (+ a 2))\n(+ a b (* a c) (* b c))\n",
 	// AUDIT.md ast_rewriter_01-F7: an even root of a negative irrational throws

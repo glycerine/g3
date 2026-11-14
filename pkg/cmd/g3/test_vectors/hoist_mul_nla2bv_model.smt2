@@ -1,0 +1,7 @@
+(declare-const p0 Bool)
+(declare-const x0 Int)
+(assert (and (> 1 x0) (= x0 x0)))
+(assert (distinct (+ (* x0 x0) (+ (- 1 x0 x0) 10 (- x0 x0 x0))) (+ (+ (* x0 3) x0 (- x0 x0 1)) (- (- 5 5 x0) (- x0) (* x0 x0)))))
+(assert (not p0))
+(check-sat)
+(get-model)

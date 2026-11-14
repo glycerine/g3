@@ -278,102 +278,119 @@ func (r *ArithRewriter) hoistEqualCoefficients(terms []ast.ASTHandle, term ast.A
 	return result, changed, nil
 }
 
-func (r *ArithRewriter) hoistCommonMultiplication(terms []ast.ASTHandle, term ast.ASTHandle) (ast.ASTHandle, bool, error) {
-	if !r.hoistMul || len(terms) < 2 {
-		return ast.ASTHandle{}, false, nil
-	}
-	factors := func(item ast.ASTHandle) ([]ast.ASTHandle, error) {
-		_, values, product, err := r.operation(item, arithOpMul)
+// toBuffer is the TO_BUFFER macro of poly_rewriter_def.h: slot i is replaced
+// by the first argument of a nested application of kind and the remaining
+// arguments are appended, until no slot holds such an application.
+func (r *ArithRewriter) toBuffer(kind int32, e ast.ASTHandle) ([]ast.ASTHandle, error) {
+	buffer := []ast.ASTHandle{e}
+	for i := 0; i < len(buffer); {
+		_, children, matched, err := r.operation(buffer[i], kind)
 		if err != nil {
 			return nil, err
 		}
-		if !product {
-			values = []ast.ASTHandle{item}
+		if !matched || len(children) == 0 {
+			i++
+			continue
 		}
-		return append([]ast.ASTHandle(nil), values...), nil
+		buffer[i] = children[0]
+		buffer = append(buffer, children[1:]...)
 	}
-	merge := func(left, right ast.ASTHandle) (ast.ASTHandle, error) {
-		leftFactors, err := factors(left)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		rightFactors, err := factors(right)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		common := make([]ast.ASTHandle, 0)
-		leftRest := make([]ast.ASTHandle, 0, len(leftFactors))
-		for _, candidate := range leftFactors {
-			found := -1
-			for i, other := range rightFactors {
-				if candidate == other {
-					found = i
-					break
-				}
-			}
-			if found < 0 {
-				leftRest = append(leftRest, candidate)
-				continue
-			}
-			common = append(common, candidate)
-			rightFactors = append(rightFactors[:found], rightFactors[found+1:]...)
-		}
-		leftRemainder, err := r.makeMul(leftRest, term)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		rightRemainder, err := r.makeMul(rightFactors, term)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		sum, err := r.makeAdd([]ast.ASTHandle{leftRemainder, rightRemainder}, term)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		common = append(common, sum)
-		return r.makeMul(common, term)
-	}
+	return buffer, nil
+}
 
-	resultTerms := append([]ast.ASTHandle(nil), terms...)
-	valid := make([]bool, len(terms))
+// mergeMuls is poly_rewriter::merge_muls.
+func (r *ArithRewriter) mergeMuls(x, y ast.ASTHandle) (ast.ASTHandle, error) {
+	m1, err := r.toBuffer(arithOpMul, x)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	m2, err := r.toBuffer(arithOpMul, y)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	k := 0
+	for i := 0; i < len(m1); i++ {
+		x = m1[i]
+		found := false
+		j := k
+		for ; j < len(m2); j++ {
+			if m2[j] == x {
+				found = true
+				break
+			}
+		}
+		if found {
+			m1[i], m1[k] = m1[k], m1[i]
+			m2[j], m2[k] = m2[k], m2[j]
+			k++
+		}
+	}
+	left, err := r.makeMul(append([]ast.ASTHandle(nil), m1[k:]...), x)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	right, err := r.makeMul(append([]ast.ASTHandle(nil), m2[k:]...), x)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if k == len(m1) {
+		m1 = append(m1, ast.ASTHandle{})
+	}
+	m1[k], err = r.makeAdd([]ast.ASTHandle{left, right}, x)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return r.makeMul(append([]ast.ASTHandle(nil), m1[:k+1]...), x)
+}
+
+// hoistCommonMultiplication is poly_rewriter::hoist_multiplication(som).
+func (r *ArithRewriter) hoistCommonMultiplication(som ast.ASTHandle) (ast.ASTHandle, bool, error) {
+	if !r.hoistMul {
+		return ast.ASTHandle{}, false, nil
+	}
+	adds, err := r.toBuffer(arithOpAdd, som)
+	if err != nil {
+		return ast.ASTHandle{}, false, err
+	}
+	valid := make([]bool, len(adds))
 	for i := range valid {
 		valid[i] = true
 	}
-	seen := make(map[ast.ASTHandle]int)
+	mulMap := make(map[ast.ASTHandle]int)
 	changed := false
-	for i, item := range terms {
-		values, err := factors(item)
+	for k := 0; k < len(adds); k++ {
+		muls, err := r.toBuffer(arithOpMul, adds[k])
 		if err != nil {
 			return ast.ASTHandle{}, false, err
 		}
-		for _, factor := range values {
-			if _, _, numeral, err := r.numeral(factor); err != nil {
+		for _, e := range muls {
+			if _, _, numeral, err := r.numeral(e); err != nil {
 				return ast.ASTHandle{}, false, err
 			} else if numeral {
 				continue
 			}
-			previous, found := seen[factor]
-			if found && valid[previous] && previous != i {
-				resultTerms[previous], err = merge(resultTerms[previous], resultTerms[i])
+			if j, found := mulMap[e]; found && valid[j] && j != k {
+				term := adds[k]
+				adds[j], err = r.mergeMuls(adds[j], adds[k])
 				if err != nil {
 					return ast.ASTHandle{}, false, err
 				}
-				resultTerms[i], err = r.numeralForTerm(big.NewRat(0, 1), term)
+				adds[k], err = r.numeralForTerm(new(big.Rat), term)
 				if err != nil {
 					return ast.ASTHandle{}, false, err
 				}
-				valid[previous] = false
-				valid[i] = false
+				valid[j] = false
+				valid[k] = false
 				changed = true
 				break
 			}
-			seen[factor] = i
+			mulMap[e] = k
 		}
 	}
 	if !changed {
 		return ast.ASTHandle{}, false, nil
 	}
-	result, err := r.makeAdd(resultTerms, term)
+	result, err := r.makeAdd(adds, som)
 	return result, err == nil, err
 }
 
@@ -617,14 +634,14 @@ func (r *ArithRewriter) rewriteAdd(args ast.AppArguments, out ast.ASTRef) (Rewri
 	if err != nil {
 		return RewriteFailed, err
 	}
-	if result, hoisted, e := r.hoistCommonMultiplication(resultArgs, first); e != nil {
-		return RewriteFailed, e
-	} else if hoisted {
-		return RewriteFull, r.manager.SetRef(out, result)
-	}
 	result, err := r.makeAdd(resultArgs, first)
 	if err != nil {
 		return RewriteFailed, err
+	}
+	if hoistedSum, hoisted, e := r.hoistCommonMultiplication(result); e != nil {
+		return RewriteFailed, e
+	} else if hoisted {
+		return RewriteFull, r.manager.SetRef(out, hoistedSum)
 	}
 	same, err := r.sameArguments(args, resultArgs)
 	if err != nil {
