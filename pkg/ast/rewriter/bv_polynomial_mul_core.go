@@ -4,14 +4,15 @@ package rewriter
 // src/ast/rewriter/bv_rewriter.h:35-43.
 
 import (
-	"errors"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/productiter"
 )
 
-var ErrBVPolynomialMonomialBlowup = errors.New("sum of monomials blowup")
+// ErrBVPolynomialMonomialBlowup is mk_nflat_mul_core's
+// throw rewriter_exception("sum of monomials blowup").
+var ErrBVPolynomialMonomialBlowup error = newRewriterException("sum of monomials blowup")
 
 type BVPolynomialMultiplicationOptions struct {
 	ASTOrder, HoistCoefficients, SumOfMonomials bool

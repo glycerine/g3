@@ -13,7 +13,9 @@ import (
 
 const arithRelationEq int32 = -1
 
-var ErrArithPolynomialMonomialBlowup = errors.New("sum of monomials blowup")
+// ErrArithPolynomialMonomialBlowup is mk_nflat_mul_core's
+// throw rewriter_exception("sum of monomials blowup").
+var ErrArithPolynomialMonomialBlowup error = newRewriterException("sum of monomials blowup")
 
 const (
 	arithDivideExact = iota

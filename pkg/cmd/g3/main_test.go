@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_rewriter_02-F1: sum of monomials blowup is a rewriter_exception.
+	"som_blowup_simplify.smt2": "(error \"simplifier failed: sum of monomials blowup\")\n(bvmul (bvadd x y) (bvadd z #x01) (bvadd x #x02))\n(error \"simplifier failed: sum of monomials blowup\")\n(* (+ a b) (+ c 1) (+ a 2))\n(+ a b (* a c) (* b c))\n",
 	// AUDIT.md ast_rewriter_01-F7: an even root of a negative irrational throws
 	// the algebraic exception, which simplify reports as "simplifier failed".
 	"arith_anum_even_root_negative.smt2": "(error \"simplifier failed: even root of negative number is not real\")\n(^ (- (^ 2.0 (/ 1.0 2.0))) (/ 1.0 2.0))\n(error \"simplifier failed: even root of negative number is not real\")\n(^ (- (^ 2.0 (/ 1.0 2.0))) (/ 3.0 2.0))\n(error \"simplifier failed: even root of negative number is not real\")\n(+ 1.0 (^ (- (^ 2.0 (/ 1.0 2.0))) (/ 1.0 2.0)))\n(root-obj (+ (^ x 6) (- 2)) 1)\nunknown\n(:reason-unknown \"even root of negative number is not real\")\n",

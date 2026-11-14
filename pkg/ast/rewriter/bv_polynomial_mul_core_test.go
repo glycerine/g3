@@ -99,6 +99,29 @@ func TestBVPolynomialNonflatMultiplicationDistributionAndOrdering(t *testing.T) 
 	}
 }
 
+// AUDIT.md ast_rewriter_02-F1: mk_nflat_mul_core throws
+// rewriter_exception("sum of monomials blowup").
+func TestBVPolynomialMonomialBlowupIsRewriterException(t *testing.T) {
+	m, _ := bvAddFixture(t)
+	xs := bvMergeVars(t, m, 5)
+	s, e := m.GetSort(xs[0])
+	astTestMust(t, e)
+	left := bvMulHoistSum(t, m, xs[0], xs[1])
+	right := bvMulHoistSum(t, m, xs[2], xs[3])
+	astTestPin(t, m, left)
+	astTestPin(t, m, right)
+	out, e := m.NewRef(xs[4])
+	astTestMust(t, e)
+	p, e := NewBVPolynomialMultiplicationCore(m)
+	astTestMust(t, e)
+	_, err := p.Rewrite(s, ast.SliceArguments([]ast.ASTHandle{left, right}), out, BVPolynomialMultiplicationOptions{SumOfMonomials: true, MonomialLimit: 2})
+	if !IsRewriterException(err) || err.Error() != "sum of monomials blowup" {
+		t.Fatal("sum of monomials blowup is not a rewriter exception", err)
+	}
+	astTestMust(t, p.Close())
+	astTestMust(t, m.DelRef(&out))
+}
+
 func TestBVPolynomialNonflatMultiplicationCartesianOrderAndLimit(t *testing.T) {
 	for _, limit := range []uint32{0, 2, 3, 4} {
 		m, _ := bvAddFixture(t)

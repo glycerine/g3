@@ -1148,6 +1148,10 @@ func TestArithRewriterAdvancedPolynomialModes(t *testing.T) {
 		if status != RewriteFailed || !errors.Is(err, ErrArithPolynomialMonomialBlowup) {
 			t.Fatal("sum-of-monomials blowup", status, err)
 		}
+		// AUDIT.md ast_rewriter_02-F1: throw rewriter_exception.
+		if !IsRewriterException(err) {
+			t.Fatal("sum-of-monomials blowup is not a rewriter exception", err)
+		}
 	})
 
 	for _, flat := range []bool{false, true} {
