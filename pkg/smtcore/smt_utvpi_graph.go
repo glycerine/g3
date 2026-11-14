@@ -129,9 +129,8 @@ func (g *smtUTVPIGraph) parityConflict() ([]int32, error) {
 		if !integer {
 			continue
 		}
-		if !g.graph.assignment[2*variable].rational.IsInt() || !g.graph.assignment[2*variable+1].rational.IsInt() {
-			return nil, errSMTDiffGraphDomain
-		}
+		// C++ only SASSERTs r1.is_int()/r2.is_int(); release builds
+		// compare is_even, which parityOK reproduces for fractions.
 		ok, err := g.parityOK(int32(variable))
 		if err != nil {
 			return nil, err
@@ -209,9 +208,7 @@ func (g *smtUTVPIGraph) enforceParity() error {
 			}
 		}
 	}
-	if !g.graph.IsFeasible() {
-		return errSMTDiffGraphDomain
-	}
+	// C++ ends with SASSERT(m_graph.is_feasible()), debug-only.
 	return nil
 }
 

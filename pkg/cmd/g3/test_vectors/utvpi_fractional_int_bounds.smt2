@@ -1,0 +1,7 @@
+(set-logic ALL)
+(set-option :auto_config false)
+(set-option :smt.arith.solver 4)
+(declare-const x0 Int)
+(assert (<= (to_real x0) (/ 2.0 3.0)))
+(assert (>= (to_real x0) (/ 2.0 3.0)))
+(check-sat)

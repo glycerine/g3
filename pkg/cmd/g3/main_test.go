@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_09-F2: UTVPI parity checks on fractional Int
+	// vertices are debug-only in C++ (was unknown).
+	"utvpi_fractional_int_bounds.smt2": "unsat\n",
+	"utvpi_mixed_parity_sat.smt2":      "sat\n(model \n  (define-fun x2 () Real\n    2.0)\n  (define-fun x1 () Real\n    (/ 1.0 2.0))\n  (define-fun x4 () Int\n    1)\n  (define-fun x3 () Real\n    4.0)\n  (define-fun x0 () Real\n    (- 2.0))\n)\n",
 	// AUDIT.md smtcore_03-F7: smt.dack.gc_inv_decay above 1 is accepted (was an error on every later command).
 	"dack_gc_inv_decay_above_one.smt2": "sat\n",
 	// AUDIT.md smtcore_03-F5: dyn-ack equality atoms come from mk_eq_atom (descending argument ids).
