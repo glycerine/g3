@@ -57,36 +57,32 @@ func (t *SMTStringTheory) instantiateReplace(node *SMTEnode) (result error) {
 	if err != nil {
 		return err
 	}
-	locals := smtStringLengthPremises{theory: t}
-	defer func() { result = errors.Join(result, locals.close()) }()
-	pin := func(value ast.ASTHandle, err error) (ast.ASTHandle, error) {
-		if err != nil {
-			return value, err
-		}
-		return value, locals.add(value)
-	}
-	condition, err := pin(t.stringContainsTerm(word, needle))
+	// Source owners in declaration order: condAst, thenItems, tmpLen,
+	// elseBranch, rw, breakdownAssert, breakdownAssert_rw, reduceToResult,
+	// reduceToResult_rw. Call arguments are evaluated right to left (GCC).
+	scope := smtStringScope{theory: t}
+	defer func() { result = errors.Join(result, scope.close()) }()
+	condition, err := scope.own(t.stringContainsTerm(word, needle))
 	if err != nil {
 		return err
 	}
-	items := smtStringLengthPremises{theory: t}
-	defer func() { result = errors.Join(result, items.close()) }()
-	rest, err := pin(t.concatTerm(needle, tail))
+	items := scope.vector()
+	rest, err := t.concatTerm(needle, tail)
 	if err != nil {
 		return err
 	}
-	whole, err := pin(t.concatTerm(prefix, rest))
+	whole, err := t.concatTerm(prefix, rest)
 	if err != nil {
 		return err
 	}
-	if err := items.equate(word, whole); err != nil {
+	if _, err := items.push(t.state.MkEqAtom(word, whole)); err != nil {
 		return err
 	}
-	prefixLength, err := pin(m.MkSequenceLength(prefix))
+	prefixLength, err := m.MkSequenceLength(prefix)
 	if err != nil {
 		return err
 	}
-	if err := items.equate(index, prefixLength); err != nil {
+	if _, err := items.push(t.state.MkEqAtom(index, prefixLength)); err != nil {
 		return err
 	}
 	beforeMatch, err := t.freshStringVariable("x3")
@@ -97,11 +93,12 @@ func (t *SMTStringTheory) instantiateReplace(node *SMTEnode) (result error) {
 	if err != nil {
 		return err
 	}
-	needleLength, err := pin(m.MkSequenceLength(needle))
+	// m_autil.mk_add(i1, mk_strlen(arg1), mk_int(-1)): mk_int(-1) first.
+	minusOne, err := m.ArithmeticIntegerNumeralText("-1")
 	if err != nil {
 		return err
 	}
-	minusOne, err := pin(m.ArithmeticIntegerNumeralText("-1"))
+	needleLength, err := m.MkSequenceLength(needle)
 	if err != nil {
 		return err
 	}
@@ -109,55 +106,43 @@ func (t *SMTStringTheory) instantiateReplace(node *SMTEnode) (result error) {
 	if err != nil {
 		return err
 	}
-	beforeLength, err := pin(m.MkFamilyApp(family, 6, nil, []ast.ASTHandle{index, needleLength, minusOne}))
+	beforeLength, err := scope.own(m.MkFamilyApp(family, 6, nil, []ast.ASTHandle{index, needleLength, minusOne}))
 	if err != nil {
 		return err
 	}
-	whole, err = pin(t.concatTerm(beforeMatch, fromMatch))
+	whole, err = t.concatTerm(beforeMatch, fromMatch)
 	if err != nil {
 		return err
 	}
-	if err := items.equate(word, whole); err != nil {
+	if _, err := items.push(t.state.MkEqAtom(word, whole)); err != nil {
 		return err
 	}
-	length, err := pin(m.MkSequenceLength(beforeMatch))
+	length, err := m.MkSequenceLength(beforeMatch)
 	if err != nil {
 		return err
 	}
-	if err := items.equate(length, beforeLength); err != nil {
+	if _, err := items.push(t.state.MkEqAtom(length, beforeLength)); err != nil {
 		return err
 	}
-	earlierMatch, err := pin(t.stringContainsTerm(beforeMatch, needle))
+	earlierMatch, err := t.stringContainsTerm(beforeMatch, needle)
 	if err != nil {
 		return err
 	}
-	noEarlierMatch, err := pin(m.MkNot(earlierMatch))
+	if _, err := items.push(m.MkNot(earlierMatch)); err != nil {
+		return err
+	}
+	rest, err = t.concatTerm(replacement, tail)
 	if err != nil {
 		return err
 	}
-	if err := items.add(noEarlierMatch); err != nil {
-		return err
-	}
-	rest, err = pin(t.concatTerm(replacement, tail))
+	newWord, err := t.concatTerm(prefix, rest)
 	if err != nil {
 		return err
 	}
-	newWord, err := pin(t.concatTerm(prefix, rest))
-	if err != nil {
+	if _, err := items.push(t.state.MkEqAtom(value, newWord)); err != nil {
 		return err
 	}
-	if err := items.equate(value, newWord); err != nil {
-		return err
-	}
-	thenBranch, err := pin(m.MkAndArray(items.values))
-	if err != nil {
-		return err
-	}
-	elseBranch, err := pin(t.state.MkEqAtom(value, word))
-	if err != nil {
-		return err
-	}
-	breakdown, err := pin(m.MkIte(condition, thenBranch, elseBranch))
+	elseBranch, err := scope.own(t.state.MkEqAtom(value, word))
 	if err != nil {
 		return err
 	}
@@ -166,17 +151,25 @@ func (t *SMTStringTheory) instantiateReplace(node *SMTEnode) (result error) {
 	}
 	rw, err := t.state.theoryRewriter.FreshDefault()
 	if rw != nil {
-		defer func() { result = errors.Join(result, rw.Close()) }()
+		scope.hook(rw.Close)
 	}
 	if err != nil {
 		return err
 	}
-	if err := t.rewriteStringAxiom(breakdown, rw); err != nil {
-		return err
-	}
-	reduction, err := pin(t.state.MkEqAtom(expression, value))
+	thenBranch, err := m.MkAndArray(items.values)
 	if err != nil {
 		return err
 	}
-	return t.rewriteStringAxiom(reduction, rw)
+	breakdown, err := scope.own(m.MkIte(condition, thenBranch, elseBranch))
+	if err != nil {
+		return err
+	}
+	if err := scope.rewriteOwned(breakdown, rw); err != nil {
+		return err
+	}
+	reduction, err := scope.own(t.state.MkEqAtom(expression, value))
+	if err != nil {
+		return err
+	}
+	return scope.rewriteOwned(reduction, rw)
 }
