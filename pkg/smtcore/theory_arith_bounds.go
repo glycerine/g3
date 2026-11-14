@@ -31,14 +31,14 @@ func (v *smtArithmeticValue) set(other *smtArithmeticValue) {
 	v.infinitesimal.Set(&other.infinitesimal)
 }
 func (v *smtArithmeticValue) add(other *smtArithmeticValue) {
-	v.infinity.Add(&v.infinity, &other.infinity)
-	v.rational.Add(&v.rational, &other.rational)
-	v.infinitesimal.Add(&v.infinitesimal, &other.infinitesimal)
+	smtRatAdd(&v.infinity, &v.infinity, &other.infinity)
+	smtRatAdd(&v.rational, &v.rational, &other.rational)
+	smtRatAdd(&v.infinitesimal, &v.infinitesimal, &other.infinitesimal)
 }
 func (v *smtArithmeticValue) sub(other *smtArithmeticValue) {
-	v.infinity.Sub(&v.infinity, &other.infinity)
-	v.rational.Sub(&v.rational, &other.rational)
-	v.infinitesimal.Sub(&v.infinitesimal, &other.infinitesimal)
+	smtRatSub(&v.infinity, &v.infinity, &other.infinity)
+	smtRatSub(&v.rational, &v.rational, &other.rational)
+	smtRatSub(&v.infinitesimal, &v.infinitesimal, &other.infinitesimal)
 }
 func (v *smtArithmeticValue) cmp(other *smtArithmeticValue) int {
 	if c := smtRatCmp(&v.infinity, &other.infinity); c != 0 {

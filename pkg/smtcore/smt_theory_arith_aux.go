@@ -1173,7 +1173,11 @@ func (t *SMTTheoryArith) getFreedomInterval(xj SMTTheoryVar, infL *bool, l *smtA
 	if t.isBase(xj) {
 		return false
 	}
-	var xjVal smtArithmeticValue
+	// get_value(xj) of a quasi-base xj lives in the shared t.tmp, so it is
+	// copied into scratch. The row bases x_i below are skipped when
+	// quasi-base, so get_value(x_i) is m_value[x_i], read in place: nothing
+	// here changes m_value.
+	xjVal := &t.scratchXjVal
 	xjVal.set(t.getValue(xj))
 	*infL, *infU = true, true
 	l.reset()
@@ -1212,19 +1216,20 @@ func (t *SMTTheoryArith) getFreedomInterval(xj SMTTheoryVar, infL *bool, l *smtA
 			continue
 		}
 		aij := &r.entries[it.rowIndex].coefficient
-		var xiVal smtArithmeticValue
-		xiVal.set(t.getValue(xi))
+		xiVal := &t.value[xi]
 		if t.isInt(xi) && t.isInt(xj) && !aij.IsInt() {
-			m.SetInt(smtRatLCM(m.Num(), aij.Denom()))
+			// m stays an integer: lcm in place on its numerator.
+			smtIntLCM(m.Num(), m.Num(), aij.Denom(), &t.scratchInt)
 		}
 		xiLower, xiUpper := t.lower(xi), t.upper(xi)
+		// bound is a scratch value; setLower/setUpper copy it into l/u.
 		bound := func(b smtArithBound) *smtArithmeticValue {
-			var v smtArithmeticValue
-			v.set(&xiVal)
+			v := &t.scratchBound
+			v.set(xiVal)
 			v.sub(&b.base().value)
 			v.quoRat(aij)
-			v.add(&xjVal)
-			return &v
+			v.add(xjVal)
+			return v
 		}
 		if aij.Sign() < 0 {
 			if xiLower != nil && setLower(bound(xiLower)) {

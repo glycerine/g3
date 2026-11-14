@@ -182,6 +182,17 @@ type SMTTheoryArith struct {
 	assumeEqHead       uint32
 	upperBoundRecorded smtArithmeticValue // m_upper_bound
 
+	// Scratch numerals of hot loops (Go temporaries, no C++ counterpart).
+	// They are never stored: a value that is kept is copied into an owned
+	// value with set/Set.
+	scratchInt             big.Int
+	scratchRat             big.Rat
+	scratchXjVal           smtArithmeticValue
+	scratchBound           smtArithmeticValue
+	gcdLcmDen, gcdConsts   big.Rat // gcd_test numerals
+	gcdGcds, gcdLeastCoeff big.Rat
+	gcdAux                 big.Rat
+
 	// model generation
 	factory                       *protomodel.ArithmeticFactory
 	epsilon                       big.Rat

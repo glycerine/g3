@@ -285,8 +285,7 @@ func smtRatLCM(left, right *big.Int) *big.Int {
 	if left.Sign() == 0 || right.Sign() == 0 {
 		return new(big.Int)
 	}
-	gcd := new(big.Int).GCD(nil, nil, left, right)
-	return new(big.Int).Abs(new(big.Int).Mul(new(big.Int).Quo(new(big.Int).Set(left), gcd), right))
+	return smtIntLCM(new(big.Int), left, right, nil)
 }
 
 func (f *SMTFarkasUtil) normalizeCoefficients() {

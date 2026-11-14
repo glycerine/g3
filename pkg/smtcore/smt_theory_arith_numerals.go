@@ -30,30 +30,30 @@ func (v *smtArithmeticValue) neg() {
 }
 
 func (v *smtArithmeticValue) mulRat(q *big.Rat) {
-	v.infinity.Mul(&v.infinity, q)
-	v.rational.Mul(&v.rational, q)
-	v.infinitesimal.Mul(&v.infinitesimal, q)
+	smtRatMul(&v.infinity, &v.infinity, q)
+	smtRatMul(&v.rational, &v.rational, q)
+	smtRatMul(&v.infinitesimal, &v.infinitesimal, q)
 }
 
 func (v *smtArithmeticValue) quoRat(q *big.Rat) {
-	v.infinity.Quo(&v.infinity, q)
-	v.rational.Quo(&v.rational, q)
-	v.infinitesimal.Quo(&v.infinitesimal, q)
+	smtRatQuo(&v.infinity, &v.infinity, q)
+	smtRatQuo(&v.rational, &v.rational, q)
+	smtRatQuo(&v.infinitesimal, &v.infinitesimal, q)
 }
 
 // addMul sets v += q*x; subMul sets v -= q*x.
 func (v *smtArithmeticValue) addMul(q *big.Rat, x *smtArithmeticValue) {
 	var t big.Rat
-	v.infinity.Add(&v.infinity, t.Mul(q, &x.infinity))
-	v.rational.Add(&v.rational, t.Mul(q, &x.rational))
-	v.infinitesimal.Add(&v.infinitesimal, t.Mul(q, &x.infinitesimal))
+	smtRatAdd(&v.infinity, &v.infinity, smtRatMul(&t, q, &x.infinity))
+	smtRatAdd(&v.rational, &v.rational, smtRatMul(&t, q, &x.rational))
+	smtRatAdd(&v.infinitesimal, &v.infinitesimal, smtRatMul(&t, q, &x.infinitesimal))
 }
 
 func (v *smtArithmeticValue) subMul(q *big.Rat, x *smtArithmeticValue) {
 	var t big.Rat
-	v.infinity.Sub(&v.infinity, t.Mul(q, &x.infinity))
-	v.rational.Sub(&v.rational, t.Mul(q, &x.rational))
-	v.infinitesimal.Sub(&v.infinitesimal, t.Mul(q, &x.infinitesimal))
+	smtRatSub(&v.infinity, &v.infinity, smtRatMul(&t, q, &x.infinity))
+	smtRatSub(&v.rational, &v.rational, smtRatMul(&t, q, &x.rational))
+	smtRatSub(&v.infinitesimal, &v.infinitesimal, smtRatMul(&t, q, &x.infinitesimal))
 }
 
 func (v *smtArithmeticValue) isZero() bool {

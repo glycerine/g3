@@ -2187,7 +2187,7 @@ func (t *SMTTheoryArith) addRow(rid1 int, coeff *big.Rat, rid2 int, applyGCDTest
 			case isMinusOne:
 				rEntry.coefficient.Neg(&it.coefficient)
 			default:
-				rEntry.coefficient.Mul(&it.coefficient, coeff)
+				smtRatMul(&rEntry.coefficient, &it.coefficient, coeff)
 			}
 			colIdx, cEntry := t.columns[v].addEntry()
 			rEntry.columnIndex = colIdx
@@ -2198,11 +2198,11 @@ func (t *SMTTheoryArith) addRow(rid1 int, coeff *big.Rat, rid2 int, applyGCDTest
 			rEntry := &r1.entries[pos]
 			switch {
 			case isOne:
-				rEntry.coefficient.Add(&rEntry.coefficient, &it.coefficient)
+				smtRatAdd(&rEntry.coefficient, &rEntry.coefficient, &it.coefficient)
 			case isMinusOne:
-				rEntry.coefficient.Sub(&rEntry.coefficient, &it.coefficient)
+				smtRatSub(&rEntry.coefficient, &rEntry.coefficient, &it.coefficient)
 			default:
-				rEntry.coefficient.Add(&rEntry.coefficient, scaled.Mul(&it.coefficient, coeff))
+				smtRatAdd(&rEntry.coefficient, &rEntry.coefficient, smtRatMul(&scaled, &it.coefficient, coeff))
 			}
 			if rEntry.coefficient.Sign() == 0 {
 				colIdx := rEntry.columnIndex
@@ -2325,7 +2325,7 @@ func (t *SMTTheoryArith) pivot(lazy bool, xi, xj SMTTheoryVar, aij *big.Rat, app
 		divisor := new(big.Rat).Set(aij) // aij may alias an entry of this row
 		for i := range row.entries {
 			if !row.entries[i].dead() {
-				row.entries[i].coefficient.Quo(&row.entries[i].coefficient, divisor)
+				smtRatQuo(&row.entries[i].coefficient, &row.entries[i].coefficient, divisor)
 			}
 		}
 	}
@@ -3360,8 +3360,8 @@ func (t *SMTTheoryArith) ModelValue(n *SMTEnode, mg *SMTModelGenerator) (SMTMode
 	}
 	val := t.getValue(v)
 	var num big.Rat
-	num.Mul(&t.epsilon, &val.infinitesimal)
-	num.Add(&num, &val.rational)
+	smtRatMul(&num, &t.epsilon, &val.infinitesimal)
+	smtRatAdd(&num, &num, &val.rational)
 	if t.isInt(v) && !num.IsInt() {
 		// Truncating non-integer value; possible for non-linear constraints.
 		num.SetInt(smtRatFloor(&num))

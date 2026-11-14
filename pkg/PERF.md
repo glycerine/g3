@@ -630,3 +630,23 @@ records (an app read touches two pages), storing numeral limbs in Go slices
 instead of the emulated byte runtime, or fewer intermediate big.Int/big.Rat
 allocations in model construction. Each changes data layout across packages
 and should be planned before starting.
+
+### Fewer big.Int/big.Rat temporaries in theory_arith (2026-11-13)
+
+smtcore/smt_theory_arith_ratops.go: smtRatAdd/Sub/Mul/Quo compute exactly
+what math/big computes, in big.Rat normal form, with int64 fast paths for
+operands below 2^31 and in-place integer paths (no norm/lehmerGCD); smtIntLCM
+is an in-place lcm with one scratch big.Int (was five allocations). Callers:
+smtArithmeticValue add/sub, mulRat/quoRat/addMul/subMul, getFreedomInterval
+(theory scratch values, in-place lcm), gcdTest (theory-owned scratch Rats,
+in-place GCD), patchIntInfeasibleVars, denominatorLCMInto, addRow/pivot,
+ModelValue, smtRatLCM. Scratch fields on SMTTheoryArith are Go temporaries
+with no C++ counterpart; nothing retains a pointer to them. Equivalence test
+smt_theory_arith_ratops_test.go (20k random pairs incl. aliasing).
+
+bench.sh medians (s), outputs identical: lia_big_parse 9.47 -> 9.24,
+q_7028 90.66 -> 89.95, q_7056 25.25 -> 23.32, q_7248 32.32 -> 28.81,
+q_9009 40.54 -> 36.80, q_10065 51.39 -> 47.44. Alternating A/B: about 11%
+on q_9009 and q_7248, 8% on q_7056 and q_10065. mallocgc 8.8% -> 7.1%;
+checkIntFeasibility 8.09 s -> 5.38 s. A Henrici-style multi-word path was
+dropped (about 1%).

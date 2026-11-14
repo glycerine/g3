@@ -661,10 +661,15 @@ func (t *SMTTheoryArith) gcdTest(rID int) (bool, error) {
 		return true, nil
 	}
 	t.stats.gcdTests++
-	lcmDen := new(big.Rat).SetInt(r.denominatorLCM())
-	consts := new(big.Rat)
-	gcds := new(big.Rat)
-	leastCoeff := new(big.Rat)
+	// The numerals are theory scratch: extGcdTest reads them but nothing
+	// keeps them.
+	lcmDen := &t.gcdLcmDen
+	lcmDen.SetInt64(1)
+	r.denominatorLCMInto(lcmDen.Num(), &t.scratchInt)
+	consts := t.gcdConsts.SetInt64(0)
+	gcds := t.gcdGcds.SetInt64(0)
+	leastCoeff := t.gcdLeastCoeff.SetInt64(0)
+	aux := &t.gcdAux
 	leastCoeffIsBounded := false
 	for i := range r.entries {
 		it := &r.entries[i]
@@ -674,17 +679,18 @@ func (t *SMTTheoryArith) gcdTest(rID int) (bool, error) {
 		v := it.variable
 		if t.isFixed(v) {
 			// get_value(v) may not satisfy v's bounds here; use the bound.
-			aux := new(big.Rat).Mul(lcmDen, &it.coefficient)
-			consts.Add(consts, aux.Mul(aux, &t.lowerBound(v).rational))
+			smtRatMul(aux, lcmDen, &it.coefficient)
+			smtRatAdd(consts, consts, smtRatMul(aux, aux, &t.lowerBound(v).rational))
 		} else if t.isReal(v) {
 			return true, nil
 		} else if gcds.Sign() == 0 {
-			gcds.Abs(new(big.Rat).Mul(lcmDen, &it.coefficient))
+			gcds.Abs(smtRatMul(aux, lcmDen, &it.coefficient))
 			leastCoeff.Set(gcds)
 			leastCoeffIsBounded = t.isBounded(v)
 		} else {
-			aux := new(big.Rat).Abs(new(big.Rat).Mul(lcmDen, &it.coefficient))
-			gcds.SetInt(new(big.Int).GCD(nil, nil, gcds.Num(), aux.Num()))
+			aux.Abs(smtRatMul(aux, lcmDen, &it.coefficient))
+			// gcds and aux are integers: gcd in place on gcds' numerator.
+			gcds.Num().GCD(nil, nil, gcds.Num(), aux.Num())
 			if aux.Cmp(leastCoeff) < 0 {
 				leastCoeff.Set(aux)
 				leastCoeffIsBounded = t.isBounded(v)
@@ -698,7 +704,7 @@ func (t *SMTTheoryArith) gcdTest(rID int) (bool, error) {
 		// values, so the row is satisfied.
 		return true, nil
 	}
-	if !new(big.Rat).Quo(consts, gcds).IsInt() {
+	if !smtRatQuo(aux, consts, gcds).IsInt() {
 		ante := t.acquireAntecedents()
 		defer t.releaseAntecedentsScope()
 		if err := t.collectFixedVarJustifications(r, ante); err != nil {
@@ -866,7 +872,7 @@ func (t *SMTTheoryArith) patchIntInfeasibleVars() error {
 			continue
 		}
 		// check whether the value of v is already a multiple of m.
-		if new(big.Rat).Quo(&t.getValue(v).rational, &m).IsInt() {
+		if smtRatQuo(&t.scratchRat, &t.getValue(v).rational, &m).IsInt() {
 			continue
 		}
 		if !infL {

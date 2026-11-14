@@ -135,11 +135,19 @@ func (r *smtArithmeticRow) resetVariablePositions(positions []int) error {
 }
 
 func (r *smtArithmeticRow) denominatorLCM() *big.Int {
-	result := big.NewInt(1)
+	var scratch big.Int
+	return r.denominatorLCMInto(big.NewInt(1), &scratch)
+}
+
+// denominatorLCMInto sets result to the lcm of the denominators of the
+// live coefficients. Integer coefficients have denominator 1, which
+// leaves the positive lcm unchanged. scratch must not alias result.
+func (r *smtArithmeticRow) denominatorLCMInto(result, scratch *big.Int) *big.Int {
+	result.SetInt64(1)
 	for index := range r.entries {
 		entry := &r.entries[index]
-		if !entry.dead() {
-			result = smtRatLCM(result, entry.coefficient.Denom())
+		if !entry.dead() && !entry.coefficient.IsInt() {
+			smtIntLCM(result, result, entry.coefficient.Denom(), scratch)
 		}
 	}
 	return result
