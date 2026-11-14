@@ -14,7 +14,9 @@ type ObjectiveDecomposer struct {
 	derived   []ast.ASTRef
 	generated int
 	each      func(int, DecomposedObjective) error
-	closed    bool
+	// unconverted keeps maximize/minimize objectives as they are.
+	unconverted bool
+	closed      bool
 }
 
 func NewObjectiveDecomposer(manager *ast.ASTManager, zeroOne []ast.ASTHandle) (*ObjectiveDecomposer, error) {

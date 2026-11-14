@@ -379,6 +379,8 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 			return nil, err
 		}
 	}
+	// optimize() returns right after a failed initial check (FUZZ_A-F1).
+	initialFailed := fresh && status != lbool.True
 	if fresh && status != lbool.False {
 		// optimize(): s.get_model(m_model) after the initial check.
 		if err = c.releaseParetoInitialModel(); err != nil {
@@ -408,7 +410,13 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 	}
 	if status != lbool.True {
 		c.finishParetoSearch()
-		return &opt.ArithmeticResult{Status: status, ReasonUnknown: unknownReason, Values: make([]opt.ObjectiveValue, len(c.objectives)), Optimal: status == lbool.False}, nil
+		values := make([]opt.ObjectiveValue, len(c.objectives))
+		if initialFailed {
+			// display_assignment reads the bounds internalize() left
+			// (AUDIT.md FUZZ_A-F1).
+			c.initialDisplayBounds(values)
+		}
+		return &opt.ArithmeticResult{Status: status, ReasonUnknown: unknownReason, Values: values, Optimal: status == lbool.False}, nil
 	}
 	canceled, cancelErr := c.manager.Canceled()
 	if cancelErr != nil {

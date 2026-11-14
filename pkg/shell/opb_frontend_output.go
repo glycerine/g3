@@ -25,7 +25,8 @@ func (f *OPBFrontend) WriteResult() error {
 		}
 	}
 	valuesAvailable := f.status == lbool.True
-	if f.status == lbool.Undef && f.summary.Objectives != 0 {
+	// display_results runs whatever the status (AUDIT.md FUZZ_A-F1).
+	if f.status != lbool.True && f.summary.Objectives != 0 {
 		valuesAvailable = true
 		for i := 0; i < f.summary.Objectives; i++ {
 			if _, err := f.context.ObjectiveBound(uint32(i), true); err != nil {

@@ -527,7 +527,11 @@ func (c *Context) runOptimize(assumptions []ast.ASTHandle, execute func(*opt.Ari
 		return nil, err
 	}
 	if initial != lbool.True {
-		return &opt.ArithmeticResult{Status: initial, ReasonUnknown: reason, Values: make([]opt.ObjectiveValue, len(c.objectives))}, nil
+		// internalize() ran before the check, so display_assignment reads
+		// the bounds optsmt::add / maxsmt::add left (AUDIT.md FUZZ_A-F1).
+		values := make([]opt.ObjectiveValue, len(c.objectives))
+		c.initialDisplayBounds(values)
+		return &opt.ArithmeticResult{Status: initial, ReasonUnknown: reason, Values: values}, nil
 	}
 	// optimize(): m_optsmt.setup(*m_opt_solver) after the sat initial check.
 	if err = optimizer.SetupOptsmt(); err != nil {
@@ -543,6 +547,39 @@ func (c *Context) runOptimize(assumptions []ast.ASTHandle, execute func(*opt.Ari
 		return nil, err
 	}
 	return execute(optimizer)
+}
+
+// initialDisplayBounds is get_lower_as_num/get_upper_as_num right after
+// internalize(): optsmt::add leaves m_lower = -oo and m_upper = +oo (both
+// orientations display as -oo..oo); a maxsmt has m_lower = 0 and m_upper =
+// the sum of the weights maxsmt::add received, both through m_adjust_value.
+func (c *Context) initialDisplayBounds(values []opt.ObjectiveValue) {
+	for i := range c.objectives {
+		objective := &c.objectives[i]
+		value := &values[i]
+		value.DisplayValid = true
+		if !objective.soft {
+			value.DisplayLower.Infinity.SetInt64(-1)
+			value.DisplayUpper.Infinity.SetInt64(1)
+			continue
+		}
+		var sum big.Rat
+		for j := range objective.softTerms {
+			sum.Add(&sum, &objective.softTerms[j].weight)
+		}
+		offset, negate := &objective.softOffset, false
+		if objective.verifyConverted {
+			offset, negate = &objective.verifyOffset, objective.verifyNegate
+		}
+		upper := new(big.Rat)
+		if negate {
+			upper.Sub(offset, &sum)
+		} else {
+			upper.Add(offset, &sum)
+		}
+		value.DisplayLower = simplex.RationalInfinitesimal(offset)
+		value.DisplayUpper = simplex.RationalInfinitesimal(upper)
+	}
 }
 
 func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation bool) (optimized *opt.ArithmeticResult, resultErr error) {

@@ -76,6 +76,22 @@ func TestOPBFrontendUnsatObjectiveBounds(t *testing.T) {
 	}
 }
 
+// AUDIT.md FUZZ_A-F1: display_results prints get_lower/get_upper after an
+// unsat initial check: the maxsmt bounds 0..sum of the weights.
+func TestOPBFrontendUnsatInitialMaxSMTBounds(t *testing.T) {
+	var output bytes.Buffer
+	f, err := NewOPBFrontend(opbFrontendContext(t), &output, OPBFrontendOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = f.Run(strings.NewReader("min: +1 x1 +2 x2 +4 x3 ;\n+1 x1 +1 x2 +1 x3 >= 2 ;\n-1 x1 -1 x2 -1 x3 >= -1 ;\n")); err != nil {
+		t.Fatal(err)
+	}
+	if output.String() != "unsat\n  [0:7]\n" {
+		t.Fatalf("unsat bounds: %q", output.String())
+	}
+}
+
 func TestOPBFrontendUnknownObjectiveBounds(t *testing.T) {
 	var output bytes.Buffer
 	c := opbFrontendContext(t)

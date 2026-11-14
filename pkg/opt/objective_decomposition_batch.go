@@ -10,6 +10,11 @@ func (d *ObjectiveDecomposer) SetEach(each func(index int, objective DecomposedO
 	d.each = each
 }
 
+// SetUnconverted keeps maximize/minimize objectives as they are: when
+// simplify_fmls ends in an inconsistent goal, from_fmls receives the single
+// formula false and never reaches is_maxsat for any objective.
+func (d *ObjectiveDecomposer) SetUnconverted(v bool) { d.unconverted = v }
+
 // Decompose applies opt_context::is_maxsat conversion in source objective
 // order. Non-convertible arithmetic objectives remain explicit.
 func (d *ObjectiveDecomposer) Decompose(source DecodedFormulaSet) ([]DecomposedObjective, ObjectiveDecompositionStats, error) {
@@ -35,6 +40,11 @@ func (d *ObjectiveDecomposer) Decompose(source DecodedFormulaSet) ([]DecomposedO
 		}
 		if objective.Kind != FormulaMaximize && objective.Kind != FormulaMinimize {
 			return nil, ObjectiveDecompositionStats{}, ast.ErrASTDomain
+		}
+		if d.unconverted {
+			result = append(result, DecomposedObjective{SourceKind: objective.Kind, Term: objective.Term, OriginalTerm: objective.OriginalTerm, ID: objective.ID})
+			stats.Unconverted++
+			continue
 		}
 		sum, yes, err := d.pseudoBooleanSum(objective.Term)
 		if err != nil {

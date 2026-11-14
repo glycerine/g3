@@ -87,6 +87,7 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	var formulaSet *opt.ObjectiveFormulaSet
 	var simplified *optimizationSimplifiedFormulas
 	var source opt.DecodedFormulaSet
+	inconsistent := false
 	if useSimplifier {
 		formulaSet, err = c.EncodeOptimizationFormulas()
 		if err != nil {
@@ -111,6 +112,7 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 			}
 			simplified = nil
 			useSimplifier = false
+			inconsistent = true
 		} else {
 			// from_fmls installs the new objectives and hard constraints;
 			// the context keeps them until the next import_scoped_state.
@@ -190,6 +192,9 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 			return e
 		})
 	}
+	// An inconsistent goal reaches from_fmls as the single formula false,
+	// so no objective is converted to maxsat (AUDIT.md FUZZ_A-F1).
+	decomposer.SetUnconverted(inconsistent)
 	decomposed, _, err := decomposer.Decompose(source)
 	if err != nil {
 		return nil, err

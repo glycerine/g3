@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_A-F1: an inconsistent goal leaves every maximize/minimize unconverted.
+	"opt_objectives_after_inconsistent.smt2": "unsat\n(objectives\n (x  (interval (* (- 1) oo) oo))\n (v  (interval (* (- 1) oo) oo))\n ((ite q 1 0)  (interval (* (- 1) oo) oo))\n (  (interval 0 5))\n (g  (interval 0 (- 1)))\n (1  (interval (* (- 1) oo) oo))\n)\n",
+	// AUDIT.md FUZZ_A-F1: get-objectives after an unsat initial check prints the internalize() bounds.
+	"opt_objectives_after_unsat.smt2": "unsat\n(objectives\n (x  (interval (* (- 1) oo) oo))\n ((+ y (/ 3.0 2.0))  (interval (* (- 1) oo) oo))\n (a  (interval 0 (/ 7.0 2.0)))\n (b  (interval 0 3))\n (c 2)\n (d  (interval (- 2) 0))\n (v  (interval 15 0))\n (v  (interval 0 15))\n ((ite p 1 0)  (interval 1 0))\n ((+ (ite q 2 0) 7)  (interval 7 9))\n)\n",
 	// AUDIT.md FUZZ_A-F2: lex objectives before an unbounded one keep their interval.
 	"opt_objectives_interval_before_unbounded.smt2": "sat\n(objectives\n (y1  (interval (- 2) (+ (- 1.0) (* (- 1.0) epsilon))))\n (y2  (interval (+ 3.0 epsilon) 4))\n (y0 oo)\n)\n",
 	// AUDIT.md FUZZ_A-F6: purify tests the head symbol (is_arith_expr), not the sort.

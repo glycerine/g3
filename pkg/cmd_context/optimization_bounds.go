@@ -22,6 +22,16 @@ func (c *Context) ObjectiveBound(index uint32, lower bool) (OptimizationBound, e
 		return OptimizationBound{}, ast.ErrASTDomain
 	}
 	source := &c.objectives[index]
+	if !source.valueReady && source.displayReady {
+		// get_lower/get_upper are to_expr(get_lower_as_num(idx)) and
+		// to_expr(get_upper_as_num(idx)), the bounds display_assignment
+		// prints (AUDIT.md FUZZ_A-F1).
+		value := source.displayUpper.Clone()
+		if lower {
+			value = source.displayLower.Clone()
+		}
+		return OptimizationBound{Value: value, Integer: toExprInteger(&value)}, nil
+	}
 	if !source.valueReady && !source.boundsReady {
 		return OptimizationBound{}, fmt.Errorf("objective value is not available")
 	}
