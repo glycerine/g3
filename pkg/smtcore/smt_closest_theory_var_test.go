@@ -185,3 +185,27 @@ func TestSMTTheoryMergeExposesExistingDisequalities(t *testing.T) {
 		})
 	}
 }
+
+// smtcore_08-F1: context::propagate_atoms tests is_eq, is_theory_atom and
+// is_quantifier as one if/else-if chain, so an equality atom that also has
+// a theory (theory_bv::add_bit) is merged but never reaches assign_eh.
+func TestSMTPropagateAtomsEqualityAtomSkipsTheoryAssign(t *testing.T) {
+	m, s, theory, nodes := smtClosestVariableFixture(t)
+	eq, err := m.MkEq(nodes[0].owner, nodes[1].owner)
+	astTestMust(t, err)
+	astTestMust(t, s.Internalize(eq, true))
+	bv, ok := s.BoolVar(eq)
+	if !ok {
+		t.Fatal("equality has no Boolean variable")
+	}
+	astTestMust(t, s.SetVariableTheory(bv, SMTTheoryID(theory.FamilyID())))
+	astTestMust(t, s.markRelevant(eq))
+	astTestMust(t, s.AssignLiteral(NewSMTLiteral(bv, false), NewSMTBooleanAxiom()))
+	astTestMust(t, s.PropagateTheoryAssignments())
+	if len(theory.assignments) != 0 {
+		t.Fatal("equality atom reached the theory's assign_eh", theory.assignments)
+	}
+	if nodes[0].root != nodes[1].root {
+		t.Fatal("true equality atom did not merge its arguments")
+	}
+}

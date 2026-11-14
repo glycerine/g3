@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_08-F1: an equality atom that is a bv bit must not
+	// reach theory_bv::assign_eh (propagate_atoms if/else-if chain).
+	"eq_atom_as_bv_bit_model.smt2": "sat\n(model \n  (define-fun p () Bool\n    true)\n  (define-fun q () Bool\n    false)\n  (define-fun a () (_ BitVec 4)\n    #x2)\n  (define-fun y () Int\n    0)\n  (define-fun b () (_ BitVec 4)\n    #xa)\n  (define-fun z () Int\n    (- 1))\n  (define-fun c () (_ BitVec 4)\n    #x4)\n  (define-fun x () Int\n    (- 1))\n  (define-fun f ((x!0 (_ BitVec 4))) Int\n    (ite (= x!0 #x2) (- 1)\n    (ite (= x!0 #xa) 2\n    (ite (= x!0 #x4) (- 2)\n      (- 1)))))\n)\n",
 	// AUDIT.md ast_rewriter_02-F2: mon_lt ties above 16 arguments follow
 	// libstdc++ std::sort (approved port in pkg/util/sorting).
 	"bvmul_mon_lt_ties.smt2": "(bvmul a5\n       #x03\n       a5\n       #x03\n       a2\n       a2\n       #x03\n       a8\n       a8\n       #x03\n       a4\n       a4\n       a0\n       #x03\n       a0\n       #x03\n       a7\n       a7\n       #x03\n       a1\n       a1\n       a3\n       #x03\n       a3\n       #x03\n       a6\n       a6)\n",

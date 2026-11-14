@@ -181,8 +181,7 @@ func (s *SMTInternalizerState) propagateAssignedAtom(literal SMTLiteral) error {
 		if s.inconsistent {
 			return nil
 		}
-	}
-	if data.IsTheoryAtom() {
+	} else if data.IsTheoryAtom() {
 		if s.relevancyLevel >= 2 && s.relevancy != nil && !s.relevancy.IsRelevant(s.boolExpr[variable]) {
 			return nil
 		}
