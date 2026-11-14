@@ -12,11 +12,8 @@ func (e *maxResEngine) addAssumption(expression ast.ASTHandle, weight *big.Rat) 
 	if weight == nil || weight.Sign() <= 0 {
 		return errMaxResState
 	}
-	if old := e.weights[expression]; old != nil {
-		old.Add(old, weight)
-		return nil
-	}
-	// new_assumption: m_asms.push_back(e); m_trail.push_back(e)
+	// new_assumption: m_asm2weight.insert(e, w) replaces a retained weight
+	// (AUDIT.md FUZZ_J-F2); m_asms.push_back(e); m_trail.push_back(e)
 	if _, err := e.trail.hold(expression, nil); err != nil {
 		return err
 	}

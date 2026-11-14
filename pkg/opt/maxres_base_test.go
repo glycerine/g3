@@ -15,13 +15,12 @@ func TestMaxResBaseAggregatesSortsAndRemovesAssumptions(t *testing.T) {
 	b := maxResTestBool(t, manager, "maxres-base-b")
 	engine := &maxResEngine{solver: &ArithmeticSolver{manager: manager}, trail: maxSMTASTOwner{manager: manager}, weights: make(map[ast.ASTHandle]*big.Rat)}
 	defer engine.close()
-	if err := engine.addAssumption(a, big.NewRat(2, 3)); err != nil {
+	// new_assumption never aggregates: m_asm2weight.insert replaces
+	// (AUDIT.md FUZZ_J-F2); add_soft is the aggregating entry point.
+	if err := engine.addAssumption(a, big.NewRat(1, 1)); err != nil {
 		t.Fatal(err)
 	}
 	if err := engine.addAssumption(b, big.NewRat(5, 7)); err != nil {
-		t.Fatal(err)
-	}
-	if err := engine.addAssumption(a, big.NewRat(1, 3)); err != nil {
 		t.Fatal(err)
 	}
 	if engine.sortedAssumptions(engine.active)[0] != a || engine.weights[a].Cmp(big.NewRat(1, 1)) != 0 || engine.stats.Assumptions != 2 {

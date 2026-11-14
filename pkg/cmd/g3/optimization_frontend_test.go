@@ -19,6 +19,8 @@ func TestOptimizationFrontendArguments(t *testing.T) {
 		// AUDIT.md FUZZ_J-F1: lia2card turns the impossible constraint to false.
 		{"opb-lia2card-false", "-bpo", "min: +1 x1 ;\n+1 x1 +1 x2 >= 3 ;\n", "unsat\n  [(* (- 1) oo):oo]\n"},
 		{"wcnf", "-wcnf", "p wcnf 1 3 10\n10 1 0\n2 -1 0\n3 1 0\n", "sat\n   2\n"},
+		// AUDIT.md FUZZ_J-F2: a pivot inside a core batch keeps the weights.
+		{"wcnf-maxres-batch-pivot", "-wcnf", "p wcnf 4 6 50\n6 2 0\n5 -1 0\n50 3 0\n50 -4 0\n5 4 1 -3 0\n4 -2 -3 0\n", "sat\n   9\n"},
 		{"wcnf-unsat-zero-weight", "-wcnf", "p wcnf 1 3 10\n10 1 0\n10 -1 0\n0 1 0\n", "unsat\n   0\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
