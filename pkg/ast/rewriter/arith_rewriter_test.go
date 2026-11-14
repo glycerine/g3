@@ -613,6 +613,35 @@ func TestArithRewriterStructuralPowerRules(t *testing.T) {
 	arithRewriterWantOperation(t, expanding, result, arithOpMul, x, x, x)
 }
 
+// AUDIT.md ast_rewriter_01-F1: mk_power_core's base-1 rule takes any
+// exponent, and the zero-base rule any numeral exponent.
+func TestArithRewriterPowerUnitAndZeroBase(t *testing.T) {
+	m, c, g, local := boolRewriterConfigFixture(t)
+	r, err := NewArithRewriter(m, c, g, local)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, r.Close()) })
+	realSort, err := m.MkFamilySort(r.family, 0, nil)
+	astTestMust(t, err)
+	x, err := m.MkConst(astTestSymbol(t, m, "arith-power-unit-x"), realSort)
+	astTestMust(t, err)
+	astTestPin(t, m, x)
+	status, result := arithRewriterCore(t, r, arithOpPower, arithRewriterNumeral(t, m, "1", false), x)
+	if status != RewriteDone {
+		t.Fatal("unit base status", status)
+	}
+	arithRewriterWantNumeral(t, m, result, "1", false)
+	status, result = arithRewriterCore(t, r, arithOpPower, arithRewriterNumeral(t, m, "0", false), arithRewriterNumeral(t, m, "-1/2", false))
+	if status != RewriteDone {
+		t.Fatal("zero base, fractional exponent status", status)
+	}
+	arithRewriterWantNumeral(t, m, result, "0", false)
+	status, result = arithRewriterCore(t, r, arithOpPower, arithRewriterNumeral(t, m, "0", true), arithRewriterNumeral(t, m, "100000000000000000000", true))
+	if status != RewriteDone {
+		t.Fatal("zero base, huge exponent status", status)
+	}
+	arithRewriterWantNumeral(t, m, result, "0", true)
+}
+
 func TestArithRewriterComparisonPowerReductionAndToRealElimination(t *testing.T) {
 	m, c, g, local := boolRewriterConfigFixture(t)
 	r, err := NewArithRewriter(m, c, g, local)

@@ -245,65 +245,79 @@ func (r *ArithRewriter) rewriteAlgebraicDivision(left, right ast.ASTHandle, out 
 	return RewriteDone, r.manager.SetRef(out, h)
 }
 
-func (r *ArithRewriter) rewriteAlgebraicPower(base ast.ASTHandle, exponent *big.Rat, out ast.ASTRef) (RewriteStatus, error) {
-	if !r.algebraicSimplify || exponent == nil {
-		return RewriteFailed, nil
-	}
-	syntax, err := r.algebraicNumeralSyntax(base)
+// algebraicFromRational is am.set(r, q.to_mpq()).
+func (r *ArithRewriter) algebraicFromRational(manager *polynomial.AlgebraicManager, rational *big.Rat, value *polynomial.Algebraic) (err error) {
+	service := r.manager.NumeralService()
+	owned, err := service.NewValue()
 	if err != nil {
-		return RewriteFailed, err
+		return err
 	}
-	_, _, rational, err := r.numeral(base)
-	if err != nil || !syntax && !rational {
-		return RewriteFailed, err
+	defer func() { err = errors.Join(err, service.Del(&owned)) }()
+	if err = service.SetString(&owned, rational.RatString()); err != nil {
+		return err
 	}
-	numerator := new(big.Int).Set(exponent.Num())
-	negative := numerator.Sign() < 0
-	if negative {
-		numerator.Neg(numerator)
-	}
-	denominator := exponent.Denom()
-	if numerator.Sign() == 0 || !numerator.IsUint64() || !denominator.IsUint64() {
-		return RewriteFailed, nil
-	}
-	n, d := numerator.Uint64(), denominator.Uint64()
-	if n > uint64(r.maxDegree) || d > uint64(r.maxDegree) || n > uint64(^uint32(0)) || d > uint64(^uint32(0)) {
-		return RewriteFailed, nil
-	}
-	integer, err := r.integerTerm(base)
-	if err != nil || negative && integer {
-		return RewriteFailed, err
-	}
+	return manager.SetRational(value, &owned.Raw)
+}
+
+// rewriteAlgebraicRationalRoot is mk_power_core's m_anum_simp branch for a
+// rational base: am.set(r, xk); am.root(r, u_den_y, r); if (is_neg_y)
+// am.inv(r); result = mk_numeral(r, false).
+func (r *ArithRewriter) rewriteAlgebraicRationalRoot(xk *big.Rat, den uint32, negative bool, out ast.ASTRef) (RewriteStatus, error) {
 	manager, err := r.manager.ArithmeticAlgebraicManager()
 	if err != nil {
 		return RewriteFailed, err
 	}
-	value, _, matched, err := r.algebraicOperand(base, manager)
+	var value polynomial.Algebraic
+	if err = r.algebraicFromRational(manager, xk, &value); err != nil {
+		return RewriteFailed, err
+	}
+	defer func() { _ = manager.Del(&value) }()
+	return r.algebraicRootResult(manager, &value, den, negative, out)
+}
+
+// rewriteAlgebraicPower is mk_power_core's irrational branch: the degree
+// test, am.power(val, u_num_y, r), am.root(r, u_den_y, r), am.inv(r) for a
+// negative exponent and mk_numeral(r, false).
+func (r *ArithRewriter) rewriteAlgebraicPower(base ast.ASTHandle, num, den uint32, negative bool, out ast.ASTRef) (RewriteStatus, error) {
+	manager, err := r.manager.ArithmeticAlgebraicManager()
+	if err != nil {
+		return RewriteFailed, err
+	}
+	var value polynomial.Algebraic
+	matched, err := r.manager.ArithmeticAlgebraicNumeralValue(base, &value)
 	if err != nil || !matched {
 		return RewriteFailed, err
 	}
 	defer func() { _ = manager.Del(&value) }()
-	if d%2 == 0 {
+	degree, err := manager.Degree(&value)
+	if err != nil || degree > r.maxDegree {
+		return RewriteFailed, err
+	}
+	if den%2 == 0 {
 		isNegative, e := manager.IsNeg(&value)
 		if e != nil {
 			return RewriteFailed, e
 		}
-		if isNegative && n%2 == 1 {
+		if isNegative && num%2 == 1 {
 			return RewriteFailed, nil
 		}
 	}
 	var powered polynomial.Algebraic
-	if err = manager.Power(&value, uint32(n), &powered); err != nil {
+	if err = manager.Power(&value, num, &powered); err != nil {
 		return RewriteFailed, err
 	}
 	defer func() { _ = manager.Del(&powered) }()
+	return r.algebraicRootResult(manager, &powered, den, negative, out)
+}
+
+func (r *ArithRewriter) algebraicRootResult(manager *polynomial.AlgebraicManager, value *polynomial.Algebraic, den uint32, negative bool, out ast.ASTRef) (RewriteStatus, error) {
 	var rooted polynomial.Algebraic
-	if err = manager.Root(&powered, uint32(d), &rooted); err != nil {
+	if err := manager.Root(value, den, &rooted); err != nil {
 		return RewriteFailed, err
 	}
 	defer func() { _ = manager.Del(&rooted) }()
 	if negative {
-		if err = manager.Inv(&rooted); err != nil {
+		if err := manager.Inv(&rooted); err != nil {
 			return RewriteFailed, err
 		}
 	}
