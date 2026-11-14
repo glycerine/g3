@@ -1,0 +1,8 @@
+(declare-const y0 Real)
+(declare-const y1 Real)
+(declare-const y2 Real)
+(assert (distinct y2 y1))
+(assert-soft (= (+ y1 y2) (+ y1 y0)) :weight 4)
+(check-sat)
+(get-info :reason-unknown)
+(get-objectives)

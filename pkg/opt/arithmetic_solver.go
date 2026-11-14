@@ -995,7 +995,17 @@ func (s *ArithmeticSolver) CheckHard() (lbool.LBool, string, error) {
 	// s.get_labels(m_labels); model_updated(m_model.get()); }
 	if status != lbool.False {
 		initial := &ArithmeticResult{}
-		if err = s.replaceModel(initial); err != nil {
+		// s.get_model(m_model) after an undecided check may leave m_model
+		// null; that is not an error (AUDIT.md FUZZ_A-F4).
+		md, err := s.solver().AcquireModel()
+		if err != nil {
+			return status, "", err
+		}
+		if md == nil && status == lbool.True {
+			return status, "", ast.ErrASTHandle
+		}
+		initial.Model = md
+		if err = s.captureResultLabels(initial); err != nil {
 			return status, "", errors.Join(err, initial.Close())
 		}
 		if s.initial != nil {

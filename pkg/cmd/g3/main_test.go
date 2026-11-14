@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_A-F4: an unknown initial check may leave no model.
+	"opt_objectives_after_unknown_initial.smt2": "unknown\n(:reason-unknown \"interpreted atoms sent to SAT solver \n(= y2 y1)\")\n(objectives\n (  (interval 0 4))\n)\n",
 	// AUDIT.md FUZZ_A-F1: an inconsistent goal leaves every maximize/minimize unconverted.
 	"opt_objectives_after_inconsistent.smt2": "unsat\n(objectives\n (x  (interval (* (- 1) oo) oo))\n (v  (interval (* (- 1) oo) oo))\n ((ite q 1 0)  (interval (* (- 1) oo) oo))\n (  (interval 0 5))\n (g  (interval 0 (- 1)))\n (1  (interval (* (- 1) oo) oo))\n)\n",
 	// AUDIT.md FUZZ_A-F1: get-objectives after an unsat initial check prints the internalize() bounds.
