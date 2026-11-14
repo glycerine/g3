@@ -46,6 +46,11 @@ func (m *ASTManager) ArithmeticNumeralBigRat(h ASTHandle) (value *big.Rat, integ
 		}
 		return big.NewRat(int64(raw.Num.Val), int64(raw.Den.Val)), integer, true, nil
 	}
+	if direct, done, e := m.numerals.BigRat(rational); e != nil {
+		return nil, false, false, e
+	} else if done {
+		return direct, integer, true, nil
+	}
 	text, err := m.numerals.String(rational)
 	if err != nil {
 		return nil, false, false, err

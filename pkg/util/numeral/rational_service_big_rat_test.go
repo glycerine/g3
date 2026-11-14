@@ -46,6 +46,16 @@ func TestRationalServiceSetBigRatMatchesSetString(t *testing.T) {
 			t.Fatalf("%s: representation differs (small num %v/%v, small den %v/%v)", text,
 				got.Raw.Num.IsSmall(), viaString.Raw.Num.IsSmall(), got.Raw.Den.IsSmall(), viaString.Raw.Den.IsSmall())
 		}
+		back, done, e := s.BigRat(&got)
+		serviceMust(t, e)
+		if !done || back.Cmp(r) != 0 {
+			t.Fatalf("%s: BigRat round trip gave %v (done %v)", text, back, done)
+		}
+		backText, done, e := s.BigRat(&viaString)
+		serviceMust(t, e)
+		if !done || backText.Cmp(r) != 0 {
+			t.Fatalf("%s: BigRat of SetString value gave %v", text, backText)
+		}
 		serviceMust(t, s.CleanupValue(&got))
 		serviceMust(t, s.CleanupValue(&viaString))
 	}

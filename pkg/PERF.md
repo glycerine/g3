@@ -593,3 +593,9 @@ builds (it still refuses a closed manager). IncRef/incNode deliberately keep
 validating: api's public AST maps/vectors reject foreign handles through it,
 and model/muz/rel error-path tests inject a failing IncRef to exercise
 cleanup; unchecking them gained only about 2-3% on lia_big_parse.
+
+Numeral reads (2026-11-13): ArithmeticNumeralBigRat now reads large numerals
+with RationalService.BigRat (limbs straight into big.Int; SetInt for
+integers, SetFrac otherwise) instead of String + SetString, which divided by
+ten repeatedly (16% of q_9009). It declines when the mpn_to_string trace is
+on, so that trace is unchanged. q_9009 62.5 s -> 52.8 s (z3 10 s).

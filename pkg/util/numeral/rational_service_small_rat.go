@@ -77,3 +77,66 @@ func bigIntLimbs32(x *big.Int) []uint32 {
 	}
 	return out
 }
+
+// BigRat returns v as a Go rational read from its limbs, without the
+// decimal String/SetString round trip (which divided by ten repeatedly and
+// was a sixth of fuzz seed q_9009). It reports false when the mpn_to_string
+// trace that String emits is enabled; the caller then uses String.
+func (s *RationalService) BigRat(v *OwnedRational) (*big.Rat, bool, error) {
+	if v == nil || s == nil || s.Manager == nil || s.Manager.parseTraceTags().ShouldTrace("mpn_to_string") {
+		return nil, false, nil
+	}
+	if e := s.lock(); e != nil {
+		return nil, false, e
+	}
+	defer s.mu.Unlock()
+	if e := s.check(v); e != nil {
+		return nil, false, e
+	}
+	z := s.Manager.Z
+	num, e := integerBigInt(z, &v.Raw.Num)
+	if e != nil {
+		return nil, false, e
+	}
+	if v.Raw.Den.Cell == 0 && v.Raw.Den.Val == 1 {
+		return new(big.Rat).SetInt(num), true, nil
+	}
+	den, e := integerBigInt(z, &v.Raw.Den)
+	if e != nil {
+		return nil, false, e
+	}
+	return new(big.Rat).SetFrac(num, den), true, nil
+}
+
+// integerBigInt reads a (small or cell) integer into a big.Int.
+func integerBigInt(z *IntegerManager, a *Int) (*big.Int, error) {
+	if a.Cell == 0 {
+		return big.NewInt(int64(a.Val)), nil
+	}
+	c := z.Cell(a.Cell)
+	limbs := make([]uint32, c.Size)
+	for i := uint32(0); i < c.Size; i++ {
+		d, e := c.Backing.ReadWord(z.Allocator, 8+4*uint64(i))
+		if e != nil {
+			return nil, e
+		}
+		limbs[i] = d
+	}
+	var words []big.Word
+	if bits.UintSize == 64 {
+		words = make([]big.Word, (len(limbs)+1)/2)
+		for i, d := range limbs {
+			words[i/2] |= big.Word(d) << (32 * uint(i%2))
+		}
+	} else {
+		words = make([]big.Word, len(limbs))
+		for i, d := range limbs {
+			words[i] = big.Word(d)
+		}
+	}
+	r := new(big.Int).SetBits(words)
+	if a.Val < 0 {
+		r.Neg(r)
+	}
+	return r, nil
+}
