@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_11-F2: theory_fpa::mk_value returns the owner only for
+	// is_rm_numeral/is_numeral, so an (fp ...) root is canonicalized.
+	"fpa_fp_triple_model_value.smt2": "sat\n((z (fp #b0 #x7e #b00000000000000000000000)))\nfalse\n(fp #b0 #x7f #b00000000000000000000000)\nsat\n((z (_ +zero 8 24)))\ntrue\n",
 	// AUDIT.md smtcore_11-F1: LRA internalize_eq_eh accepts inherited root
 	// variables and passes the equality's own enodes to mk_axioms.
 	"lra_inherited_eq_adapter.smt2": "sat\nsat\nsat\n(model \n  (define-fun c () Real\n    (/ 25019.0 25000.0))\n  (define-fun y () Real\n    1.0)\n  (define-fun x () Real\n    (/ 25019.0 25000.0))\n  (define-fun h ((x!0 Real)) Bool\n    (ite (= x!0 (/ 25019.0 25000.0)) true\n      true))\n  (define-fun g ((x!0 Real)) Real\n    (ite (= x!0 1.0) (/ 25019.0 25000.0)\n      (/ 25019.0 25000.0)))\n)\n",

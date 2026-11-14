@@ -670,9 +670,12 @@ func (t *SMTFloatingPointTheory) ModelValue(node *SMTEnode, generator *SMTModelG
 	if err = t.traceFPAModelValue(generator, owner, sort); err != nil {
 		return nil, err
 	}
-	if value, valueErr := state.manager.IsValue(owner); valueErr != nil {
-		return nil, valueErr
-	} else if value {
+	// m_fpa_util.is_rm_numeral(owner) || m_fpa_util.is_numeral(owner)
+	op, own, err := t.operation(owner)
+	if err != nil {
+		return nil, err
+	}
+	if _, rm := smtFPARoundingNumeral(own, op); rm || smtFPAIsSourceNumeral(own, op) {
 		return NewSMTExpressionValueProcedure(owner)
 	}
 	ebits, sbits, floating, err := state.manager.FloatingPointSortShape(sort)
@@ -685,10 +688,6 @@ func (t *SMTFloatingPointTheory) ModelValue(node *SMTEnode, generator *SMTModelG
 			return nil, err
 		}
 		return nil, ast.ErrASTDomain
-	}
-	op, own, err := t.operation(owner)
-	if err != nil {
-		return nil, err
 	}
 	procedure := &smtFPAValueProcedure{manager: state.manager, ebits: ebits, sbits: sbits, rounding: rounding}
 	if own && op == ast.FPAOpFP {

@@ -1,6 +1,7 @@
 package smtcore
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -255,5 +256,71 @@ func TestSMTFloatingPointModelFinalizesConvertedFunction(t *testing.T) {
 	}
 	if interpretation.NumEntries() == 0 {
 		t.Fatal("floating-point UF interpretation omitted reached application")
+	}
+}
+
+// AUDIT.md smtcore_11-F2: theory_fpa::mk_value returns the owner only for
+// is_rm_numeral/is_numeral; an (fp b e s) class root goes through the
+// fpa_value_proc and is canonicalized (here to +zero).
+func TestSMTFloatingPointModelCanonicalizesFPTripleRoot(t *testing.T) {
+	m, modelConfig := smtModelGeneratorFixture(t)
+	_, err := m.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	_, err = m.RegisterBitVectorPlugin()
+	astTestMust(t, err)
+	family, err := m.RegisterFloatingPointPlugin()
+	astTestMust(t, err)
+	sort, err := m.FloatingPointSort(2, 2)
+	astTestMust(t, err)
+	// Relevancy 0 keeps the converted (fp ...) term as the class root.
+	p, err := modelConfig.Context.NewValue()
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, modelConfig.Context.Del(&p)) })
+	key := "relevancy"
+	astTestMust(t, modelConfig.Context.SetUIntName(&p, &key, 0))
+	solver, err := NewSMTSolver(m, &p, "QF_FPBV", SMTSolverConfig{Params: modelConfig.Context, ModelEvaluator: modelConfig})
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, solver.Close()) })
+	astTestMust(t, solver.SetProduceModels(true))
+	x, err := m.MkConst(astTestSymbol(t, m, "smt-fpa-triple-x"), sort)
+	astTestMust(t, err)
+	// (= x ((_ to_fp 2 2) rm 0.0)): the converter leaves an (fp ...) triple
+	// of numerals as the class root, as for the QF_FP script.
+	roundingSort, err := m.RoundingModeSort()
+	astTestMust(t, err)
+	rounding, err := m.MkConst(astTestSymbol(t, m, "smt-fpa-triple-rm"), roundingSort)
+	astTestMust(t, err)
+	zero, err := m.ArithmeticNumeralRat(new(big.Rat), false)
+	astTestMust(t, err)
+	eParam, err := m.NewParameterInt(2)
+	astTestMust(t, err)
+	sParam, err := m.NewParameterInt(2)
+	astTestMust(t, err)
+	t.Cleanup(func() {
+		astTestMust(t, m.DelParameter(&sParam))
+		astTestMust(t, m.DelParameter(&eParam))
+	})
+	triple, err := m.MkFamilyApp(family, ast.FPAOpToFP, []ast.ASTParameter{eParam, sParam}, []ast.ASTHandle{rounding, zero})
+	astTestMust(t, err)
+	equality, err := m.MkEq(x, triple)
+	astTestMust(t, err)
+	astTestMust(t, solver.Assert(equality))
+	status, err := solver.CheckSat(nil)
+	astTestMust(t, err)
+	if status != lbool.True {
+		t.Fatal("fp triple constraint", status)
+	}
+	generated, err := solver.AcquireModel()
+	astTestMust(t, err)
+	if generated == nil {
+		t.Fatal("floating-point solver omitted model")
+	}
+	t.Cleanup(func() { astTestMust(t, generated.DecRef()) })
+	declaration, err := m.GetDecl(x)
+	astTestMust(t, err)
+	value, err := generated.ConstantInterpretation(declaration)
+	astTestMust(t, err)
+	if op, e := m.GetDeclKind(value); e != nil || op != ast.FPAOpPositiveZero {
+		t.Fatal("fp triple model value was not canonicalized", value, op, e)
 	}
 }

@@ -877,9 +877,7 @@ func (t *SMTFloatingPointTheory) Relevant(expression ast.ASTHandle) (result erro
 		}
 		return t.assertConstraint(c)
 	}
-	if numeral, valueErr := m.IsValue(expression); valueErr != nil {
-		return valueErr
-	} else if numeral {
+	if smtFPAIsSourceNumeral(own, op) {
 		bvValE, conversionErr := t.convert(expression)
 		if conversionErr != nil {
 			return conversionErr
@@ -956,4 +954,17 @@ func smtFPARoundingNumeral(own bool, op int32) (uint64, bool) {
 		return bvRMToZero, true
 	}
 	return 0, false
+}
+
+// smtFPAIsSourceNumeral is fpa_util::is_numeral(n): OP_FPA_NUM, the
+// infinities, NaN and the signed zeros, but not an (fp b e s) triple.
+func smtFPAIsSourceNumeral(own bool, op int32) bool {
+	if !own {
+		return false
+	}
+	switch op {
+	case ast.FPAOpNumeral, ast.FPAOpPositiveInf, ast.FPAOpNegativeInf, ast.FPAOpNaN, ast.FPAOpPositiveZero, ast.FPAOpNegativeZero:
+		return true
+	}
+	return false
 }
