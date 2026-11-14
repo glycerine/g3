@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_C-F4: qe2 MBP on an atom with division by zero.
+	"qe2_div_by_zero_atom.smt2": "sat\n",
+	// AUDIT.md FUZZ_C-F4: extract_bools negates a non-literal value (SASSERT compiled out).
+	"qe2_apply_div_by_zero.smt2": "(goals\n(goal\n  (or (<= (div x0 0) (ite true 2 x0)) (not p0))\n  (or (<= (div x0 0) (ite false 2 x0)) p0)\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md FUZZ_C-F7: division constraints build their last argument first (trace order).
 	"purify_arith_div_constraint_order.smt2": "(goals\n(goal\n  (not (<= (sin y) (/ 1.0 2.0)))\n  (not (<= k!0 (/ 1.0 2.0)))\n  (or (= y 0.0) (= (* k!0 y) z))\n  (or (not (= y 0.0)) (= k!0 (/ z 0.0)))\n  :precision precise :depth 4)\n)\n(filter-model-converter k!0)\n",
 	// AUDIT.md FUZZ_C-F7: zero-power constraints build EQ(k, one) first (trace order).
@@ -1497,6 +1501,7 @@ func TestTraceLogCPPReference(t *testing.T) {
 		"purify_arith_mod_div_shared.smt2",       // FUZZ_C-F3
 		"purify_arith_div_constraint_order.smt2", // FUZZ_C-F7
 		"purify_arith_zero_power_order.smt2",     // FUZZ_C-F7
+		"qe2_apply_div_by_zero.smt2",             // FUZZ_C-F4
 	} {
 		t.Run(name, func(t *testing.T) {
 			input, err := filepath.Abs(filepath.Join("test_vectors", name))

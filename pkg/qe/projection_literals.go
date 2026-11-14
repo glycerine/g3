@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 )
 
@@ -65,9 +66,36 @@ func (p *projectionPreprocessor) extractNestedBooleans(c *projectionPreprocessCa
 	}); err != nil {
 		return false, err
 	}
-	sub, err := c.replacement()
+	// expr_safe_replace sub(m) is a local of extract_bools: it dies when
+	// the function returns, not when extract_literals does.
+	sub, err := rewriter.NewExprSafeReplace(m)
+	if sub != nil {
+		defer func() {
+			if e := sub.Close(); e != nil && err == nil {
+				err = e
+			}
+		}()
+	}
 	if err != nil {
 		return false, err
+	}
+	// scoped is a block-local expr_ref val = eval(e).
+	scoped := func(h ast.ASTHandle) (ast.ASTHandle, func() error, error) {
+		r, e := m.NewRef(ast.ASTHandle{})
+		if e != nil {
+			return ast.ASTHandle{}, nil, e
+		}
+		release := func() error { return m.DelRef(&r) }
+		if e = c.evaluator.Evaluate(h, r); e != nil {
+			_ = release()
+			return ast.ASTHandle{}, nil, e
+		}
+		v, e := m.RefGet(r)
+		if e != nil {
+			_ = release()
+			return ast.ASTHandle{}, nil, e
+		}
+		return v, release, nil
 	}
 	visited := make(map[ast.ASTHandle]bool)
 	a, err := p.application(formula)
@@ -87,7 +115,7 @@ func (p *projectionPreprocessor) extractNestedBooleans(c *projectionPreprocessCa
 			return found, e
 		}
 		if boolean && !m.IsTrue(h) && !m.IsFalse(h) {
-			v, e := c.eval(h)
+			v, release, e := scoped(h)
 			if e != nil {
 				return found, e
 			}
@@ -101,12 +129,11 @@ func (p *projectionPreprocessor) extractNestedBooleans(c *projectionPreprocessCa
 			}); e != nil {
 				return found, e
 			}
-			if !m.IsTrue(v) && !m.IsFalse(v) {
-				return found, ast.ErrASTDomain
-			}
+			// SASSERT(m.is_true(val) || m.is_false(val)) is compiled out of
+			// the release build: any value other than true takes mk_not.
 			if !p.boolVisited[h] {
 				lit := h
-				if m.IsFalse(v) {
+				if !m.IsTrue(v) {
 					lit, e = c.negate(h)
 					if e != nil {
 						return found, e
@@ -121,6 +148,9 @@ func (p *projectionPreprocessor) extractNestedBooleans(c *projectionPreprocessCa
 			}
 			p.boolVisited[h] = true
 			found = true
+			if e = release(); e != nil {
+				return found, e
+			}
 		} else {
 			kind, e := m.GetKind(h)
 			if e != nil {
@@ -147,10 +177,15 @@ func (p *projectionPreprocessor) extractNestedBooleans(c *projectionPreprocessCa
 		}
 	}
 	if found {
-		out, e := c.ref(ast.ASTHandle{})
+		out, e := m.NewRef(ast.ASTHandle{})
 		if e != nil {
 			return found, e
 		}
+		defer func() {
+			if e := m.DelRef(&out); e != nil && err == nil {
+				err = e
+			}
+		}()
 		if e = sub.Apply(formula, out); e != nil {
 			return found, e
 		}
@@ -158,20 +193,23 @@ func (p *projectionPreprocessor) extractNestedBooleans(c *projectionPreprocessCa
 		if e != nil {
 			return found, e
 		}
-		v, e := c.eval(h)
+		v, release, e := scoped(h)
 		if e != nil {
 			return found, e
 		}
-		if !m.IsTrue(v) && !m.IsFalse(v) {
-			return found, ast.ErrASTDomain
-		}
-		if m.IsFalse(v) {
+		if !m.IsTrue(v) {
 			h, e = c.negate(h)
 			if e != nil {
+				_ = release()
 				return found, e
 			}
 		}
 		if e = p.appendRef(forms, h); e != nil {
+			_ = release()
+			return found, e
+		}
+		// expr_ref val dies before expr_ref tmp.
+		if e = release(); e != nil {
 			return found, e
 		}
 	}

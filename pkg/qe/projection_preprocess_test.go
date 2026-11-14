@@ -398,3 +398,25 @@ func TestProjectionPreprocessTraceVectorsAndOwnerGuards(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// extract_bools tests SASSERT(m.is_true(val) || m.is_false(val)), which the
+// release build compiles out: a Boolean atom whose value is not a literal
+// (division by zero under a partial model) takes mk_not instead of failing.
+// AUDIT.md FUZZ_C-F4.
+func TestProjectionPreprocessNonLiteralBooleanValueIsNegated(t *testing.T) {
+	f := newFMFixture(t)
+	m := f.r.manager
+	md := predicateModel(t, f)
+	a := f.constant("a", f.boolean)
+	rx := f.constant("rx", f.real)
+	real := func(text string) ast.ASTHandle { return f.own(m.ArithmeticRealNumeralText(text)) }
+	predicateRegister(t, f, md, a, f.own(m.MkTrue()))
+	predicateRegister(t, f, md, rx, real("3"))
+	atom := func(c ast.ASTHandle) ast.ASTHandle {
+		return f.own(m.MkArithmeticLE(f.own(m.MkArithmeticDiv(rx, real("0"))), f.own(m.MkIte(c, real("2"), real("3")))))
+	}
+	forms := predicateRefs(t, f, atom(a))
+	p := projectionPreprocessOwner(t, f)
+	fmMust(t, p.extractLiterals(md.Core(), forms))
+	projectionExpect(t, f, *forms, []ast.ASTHandle{f.own(m.MkNot(atom(f.own(m.MkTrue())))), a})
+}

@@ -314,6 +314,11 @@ func (t *QSATTactic) Apply(g *tactic.Goal, result *tactic.TacticResult) (err err
 				}
 			}
 			h, err = t.manager.MkAndArray(hs)
+			// fml = ::mk_and(m_answer): the abstracted formula dies here,
+			// before the conjunction does at operator()'s return.
+			if err == nil {
+				err = t.manager.SetRef(fml, h)
+			}
 		} else {
 			h, err = t.manager.MkFalse()
 		}
