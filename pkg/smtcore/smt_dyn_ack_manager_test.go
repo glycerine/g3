@@ -185,3 +185,40 @@ func TestSMTDynamicAckTripleWithProofs(t *testing.T) {
 	}
 	astTestMust(t, state.PopScopes(1))
 }
+
+// AUDIT.md smtcore_03-F5: dyn_ack_manager::mk_eq builds its atoms with
+// context::mk_eq_atom, so argument pairs whose ids descend still give
+// the id-ordered equality.
+func TestSMTDynamicAckUsesCanonicalEqualityAtoms(t *testing.T) {
+	manager := astTestManager(t)
+	sort, values := smtUFConstants(t, manager, "dack-atom-", 2)
+	function, err := manager.MkFuncDecl(astTestSymbol(t, manager, "dack-atom-f"), []ast.ASTHandle{sort}, sort, ast.ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	app0, err := manager.MkApp(function, []ast.ASTHandle{values[1]})
+	astTestMust(t, err)
+	app1, err := manager.MkApp(function, []ast.ASTHandle{values[0]})
+	astTestMust(t, err)
+	_, _, state := smtInternalizerFixture(t, manager, nil)
+	config := defaultSMTDynAckState()
+	config.Threshold = 1
+	config.Factor = 1
+	astTestMust(t, state.ConfigureDynamicAck(config))
+	astTestMust(t, state.PushScope())
+	astTestMust(t, state.dynamicAck.schedule.conflictCongruence(app0, app1, dynAckRoot))
+	state.statistics.NumConflicts = 1
+	astTestMust(t, state.dynamicAck.propagate())
+	if state.statistics.NumDynAck != 1 {
+		t.Fatal("dynamic Ackermann pair was not instantiated", state.statistics.NumDynAck)
+	}
+	ordered, err := manager.MkEq(values[0], values[1])
+	astTestMust(t, err)
+	reversed, err := manager.MkEq(values[1], values[0])
+	astTestMust(t, err)
+	if _, found := state.BoolVar(ordered); !found {
+		t.Fatal("argument equality was not built by mk_eq_atom")
+	}
+	if _, found := state.BoolVar(reversed); found {
+		t.Fatal("argument equality kept the descending operand order")
+	}
+	astTestMust(t, state.PopScopes(1))
+}

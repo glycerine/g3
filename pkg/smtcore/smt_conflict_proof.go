@@ -872,7 +872,7 @@ func (b *smtConflictProofBuilder) dynamicAckProof(justification *smtDynamicAckJu
 		if first == second {
 			continue
 		}
-		equality, e := b.state.manager.MkEq(first, second)
+		equality, e := b.state.MkEqAtom(first, second)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
@@ -885,7 +885,7 @@ func (b *smtConflictProofBuilder) dynamicAckProof(justification *smtDynamicAckJu
 		}
 		seen[negated] = struct{}{}
 		literals = append(literals, negated)
-		hypothesis, e := b.state.manager.MkProofHypothesis(equality)
+		hypothesis, e := b.dynamicAckHypothesis(equality, false, first, second)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
@@ -895,15 +895,11 @@ func (b *smtConflictProofBuilder) dynamicAckProof(justification *smtDynamicAckJu
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	conclusion, err := b.state.manager.MkEq(justification.first, justification.second)
+	conclusion, err := b.state.MkEqAtom(justification.first, justification.second)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	negatedConclusion, err := b.state.manager.MkNot(conclusion)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	negatedHypothesis, err := b.state.manager.MkProofHypothesis(negatedConclusion)
+	negatedHypothesis, err := b.dynamicAckHypothesis(conclusion, true, justification.first, justification.second)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -917,6 +913,43 @@ func (b *smtConflictProofBuilder) dynamicAckProof(justification *smtDynamicAckJu
 		return ast.ASTHandle{}, err
 	}
 	return b.state.manager.MkProofLemma(contradiction, lemma)
+}
+
+// dynamicAckHypothesis is dyn_ack_justification::mk_hypothesis: the
+// hypothesis of eq (or of its negation), with a symmetry step when
+// mk_eq_atom swapped lhs and rhs.
+func (b *smtConflictProofBuilder) dynamicAckHypothesis(equality ast.ASTHandle, negate bool, lhs, rhs ast.ASTHandle) (ast.ASTHandle, error) {
+	m := b.state.manager
+	count, err := m.GetNumArgs(equality)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if count != 2 {
+		// The source SASSERTs is_eq(eq) and then reads both arguments.
+		return ast.ASTHandle{}, ast.ErrASTDomain
+	}
+	left, err := m.GetArg(equality, 0)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	right, err := m.GetArg(equality, 1)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	fact := equality
+	if negate {
+		if fact, err = m.MkNot(equality); err != nil {
+			return ast.ASTHandle{}, err
+		}
+	}
+	hypothesis, err := m.MkProofHypothesis(fact)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if left == lhs && right == rhs {
+		return hypothesis, nil
+	}
+	return m.MkProofSymmetry(hypothesis)
 }
 
 func (r *SMTConflictResolver) conflictProof(conflict SMTBooleanJustification, notLiteral SMTLiteral, lemma []SMTLiteral) (result ast.ASTHandle, resultErr error) {

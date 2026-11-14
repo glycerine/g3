@@ -118,8 +118,10 @@ func (m *smtDynAckManager) initSearch() error {
 	return m.schedule.initSearch()
 }
 
+// equalityLiteral is dyn_ack_manager::mk_eq: context::mk_eq_atom orders
+// the operands (by id, or by the theory's convention).
 func (m *smtDynAckManager) equalityLiteral(first, second ast.ASTHandle) (SMTLiteral, error) {
-	equality, err := m.state.manager.MkEq(first, second)
+	equality, err := m.state.MkEqAtom(first, second)
 	if err != nil {
 		return SMTNullLiteral, err
 	}
