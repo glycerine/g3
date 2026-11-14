@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/glycerine/g3/pkg/util/statistics"
 	"io"
+	"strings"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
@@ -447,6 +448,25 @@ func Exec(t Tactic, in *Goal, result *TacticResult) (err error) {
 	// as tactic2solver clean up themselves).
 	err = t.Apply(in, result)
 	var tacticErr TacticException
+	if err != nil && errors.As(err, &tacticErr) {
+		// IF_VERBOSE(TACTIC_VERBOSITY_LVL, "(tactic-exception \"" << escaped(ex.msg()) << "\")")
+		if enabled, e := diagnostic.ProcessVerboseEnabled(tacticVerbosityLevel); e != nil {
+			return errors.Join(err, e)
+		} else if enabled {
+			stream, e := diagnostic.BorrowProcessVerboseStream()
+			if e != nil {
+				return errors.Join(err, e)
+			}
+			// escaped(msg): a backslash before each double quote.
+			msg := strings.ReplaceAll(tacticErr.Message(), "\"", "\\\"")
+			if e = stream.AppendCString("(tactic-exception \"" + msg + "\")\n"); e != nil {
+				return errors.Join(err, e)
+			}
+			if e = stream.Flush(); e != nil {
+				return errors.Join(err, e)
+			}
+		}
+	}
 	if err == nil || errors.As(err, &tacticErr) {
 		return errors.Join(err, t.Cleanup())
 	}

@@ -6,8 +6,10 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
+	utext "github.com/glycerine/g3/pkg/util/text"
 )
 
 type recordingBaseTactic struct {
@@ -188,5 +190,46 @@ func TestTacticExceptionPreservesCauseAndMessage(t *testing.T) {
 	var typed TacticException
 	if !errors.As(wrapped, &typed) || typed.HasErrorCode() {
 		t.Fatal("tactic exception type changed", wrapped)
+	}
+}
+
+// exec prints IF_VERBOSE(TACTIC_VERBOSITY_LVL, "(tactic-exception \"" <<
+// escaped(ex.msg()) << "\")") before it cleans up and rethrows.
+// AUDIT.md FUZZ_C-F5.
+func TestExecVerboseTacticException(t *testing.T) {
+	b := arena.NewBudget(4096)
+	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: b})
+	astTestMust(t, err)
+	oldLevel, err := diagnostic.ProcessVerbosityLevel()
+	astTestMust(t, err)
+	oldStream, err := diagnostic.BorrowProcessVerboseStream()
+	astTestMust(t, err)
+	astTestMust(t, diagnostic.SetProcessVerboseStream(stream))
+	t.Cleanup(func() {
+		astTestMust(t, diagnostic.SetProcessVerboseStream(oldStream))
+		astTestMust(t, diagnostic.SetProcessVerbosityLevel(oldLevel))
+		astTestMust(t, stream.Close())
+	})
+	m := astTestManager(t)
+	g := goalTestNew(t, m, false, false)
+	astTestMust(t, diagnostic.SetProcessVerbosityLevel(tacticVerbosityLevel-1))
+	if err = Exec(NewFailTactic(), g, &TacticResult{}); err == nil || err.Error() != "fail tactic" {
+		t.Fatal("fail tactic", err)
+	}
+	if got, e := stream.String(); e != nil || got != "" {
+		t.Fatal("verbose line below TACTIC_VERBOSITY_LVL", got, e)
+	}
+	astTestMust(t, diagnostic.SetProcessVerbosityLevel(tacticVerbosityLevel))
+	if err = Exec(NewFailTactic(), g, &TacticResult{}); err == nil || err.Error() != "fail tactic" {
+		t.Fatal("fail tactic", err)
+	}
+	quoted := newPrimitiveTactic(primitiveFail, `say "no"`, 0)
+	if err = Exec(quoted, g, &TacticResult{}); err == nil {
+		t.Fatal("quoted failure succeeded")
+	}
+	got, err := stream.String()
+	astTestMust(t, err)
+	if want := "(tactic-exception \"fail tactic\")\n(tactic-exception \"say \\\"no\\\"\")\n"; got != want {
+		t.Fatalf("verbose output %q, want %q", got, want)
 	}
 }
