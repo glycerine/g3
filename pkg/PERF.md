@@ -609,3 +609,14 @@ the descriptor and SourceCellBacking.location's RawLocation/ObjectExtent
 revalidation; the memory runtime still bounds-checks and enforces the
 initialized-byte rules. Multiply, add/sub, compare, hash and SetLimbs all go
 through these. q_9009 52.8 s -> 45.0 s (z3 10 s).
+
+### Slow-case benchmark at 0b25af171 (2026-11-13, wall seconds, identical output)
+
+| Input | z3 | g3 at start of day | g3 now | ratio now |
+|---|---:|---:|---:|---:|
+| lia_big_parse | 1.08 | 15.4 | 9.48 | 8.8x |
+| fuzz q_7028 | 13.9 | >300 | 93.5 | 6.7x |
+| fuzz q_7056 | 5.3 | 114 | 25.8 | 4.9x |
+| fuzz q_7248 | 5.6 | 34 | 32.3 | 5.8x |
+| fuzz q_9009 | 10.0 | >600 | 44.6 | 4.5x |
+| fuzz q_10065 | 17.5 | 54 | 51.5 | 2.9x |
