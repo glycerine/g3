@@ -27,7 +27,9 @@ func TestSMTStringFreeVariableOrderPrivateRepresentativesAndRoles(t *testing.T) 
 	astTestMust(t, err)
 	// process_free_var excludes regex variables, but does not exclude an
 	// internal candidate supplied by its input map. Counts do not prioritize.
-	if len(ordered) != 3 || ordered[0] != first || ordered[1] != other || ordered[2] != internal {
+	// eqcRepSet and leafVarSet are obj_hashtables: only membership is fixed
+	// here; the iteration order is core_hashtable table order (FUZZ_G-F2).
+	if len(ordered) != 3 || !stringSameHandleSet(ordered, first, other, internal) {
 		t.Fatal("native representative/role selection changed", ordered)
 	}
 }
@@ -46,7 +48,7 @@ func TestSMTStringFreeVariableOrderLeafBeforeUnknownStandalone(t *testing.T) {
 	stringSetLength(t, m, state, known, "3")
 	ordered, err := theory.stringFreeVariableOrder(map[ast.ASTHandle]int{alone: 1, lengthOnly: 1, known: 1, leaf: 1})
 	astTestMust(t, err)
-	if len(ordered) != 4 || ordered[0] != known || ordered[1] != leaf || ordered[2] != alone || ordered[3] != lengthOnly {
+	if len(ordered) != 4 || !stringSameHandleSet(ordered[:2], known, leaf) || !stringSameHandleSet(ordered[2:], alone, lengthOnly) {
 		t.Fatal("leaf/known-length ordering or unreachable input-length cache behavior changed", ordered)
 	}
 }
@@ -85,4 +87,23 @@ func TestSMTStringFreeVariableOrderInternalizesMissingCandidate(t *testing.T) {
 	if _, registered := theory.variableSet[word]; registered {
 		t.Fatal("selection invented a set_up_axioms registration")
 	}
+}
+
+// stringSameHandleSet reports whether got holds exactly the handles in want,
+// in any order.
+func stringSameHandleSet(got []ast.ASTHandle, want ...ast.ASTHandle) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	seen := make(map[ast.ASTHandle]int)
+	for _, h := range got {
+		seen[h]++
+	}
+	for _, h := range want {
+		if seen[h] == 0 {
+			return false
+		}
+		seen[h]--
+	}
+	return true
 }

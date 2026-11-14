@@ -1,0 +1,5 @@
+(set-logic QF_S)
+(declare-const s0 String)
+(assert (str.contains s0 "abc"))
+(check-sat)
+(get-model)

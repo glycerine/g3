@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_G-F2: free-variable testers in obj_hashtable order.
+	"str_contains_free_order.smt2": "sat\n(model \n  (define-fun s0 () String\n    \"ahabcaaaq\")\n)\n",
 	// AUDIT.md FUZZ_J-F3: farkas lex without optsmt::m_model (see also
 	// TestOptimizationFarkasLexLeavesNoModel).
 	"opt_farkas_no_midpoint.smt2": "sat\n(objectives\n (x 3)\n (y 0)\n)\n",
