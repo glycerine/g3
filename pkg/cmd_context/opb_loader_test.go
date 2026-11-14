@@ -1,6 +1,7 @@
 package cmd_context
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
@@ -86,5 +87,26 @@ func TestLoadOPBSingleTermConstraintTruthTable(t *testing.T) {
 				t.Fatalf("status %v, error %v, want %v", status, err, tc.want)
 			}
 		})
+	}
+}
+
+// AUDIT.md FUZZ_J-F4: opt_parse builds (op (ite c k 0) b) for every
+// constraint, a one-term one included; there is no Boolean shortcut.
+func TestLoadOPBSingleTermConstraintKeepsArithmeticShape(t *testing.T) {
+	document, err := opt.ParseOPB(strings.NewReader("5 x1 >= 1;"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := opbTestContext(t)
+	c.InteractiveMode = true
+	if _, err = c.LoadOPB(document); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if err = c.WriteAssertions(&out); err != nil {
+		t.Fatal(err)
+	}
+	if text := out.String(); !strings.HasPrefix(text, "((>= (ite ") || !strings.HasSuffix(text, " 5 0) 1))\n") {
+		t.Fatalf("assertions %q", out.String())
 	}
 }
