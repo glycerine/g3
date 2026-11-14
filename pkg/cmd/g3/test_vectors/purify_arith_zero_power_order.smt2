@@ -1,0 +1,8 @@
+(declare-const x Int)
+(declare-const y Int)
+(declare-const z Real)
+(declare-const w Real)
+(assert (> (to_int z) (mod x y)))
+(assert (> (/ z w) (^ w 0.0)))
+(assert (> (div y x) (mod y x)))
+(apply purify-arith :print-model-converter true)

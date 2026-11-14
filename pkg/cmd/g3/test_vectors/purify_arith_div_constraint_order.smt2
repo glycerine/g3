@@ -1,0 +1,5 @@
+(declare-const y Real)
+(declare-const z Real)
+(assert (> (sin y) 0.5))
+(assert (> (/ z y) 0.5))
+(apply purify-arith :print-model-converter true)

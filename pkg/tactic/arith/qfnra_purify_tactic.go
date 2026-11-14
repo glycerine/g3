@@ -359,36 +359,20 @@ func (i *qfnraPurifyInvocation) addConstraint(constraint ast.ASTHandle, entries 
 
 func (i *qfnraPurifyInvocation) processDivision(x, y, fresh ast.ASTHandle, entry *qfnraPurifyEntry) (err error) {
 	m := i.owner.manager
-	temps := qfnraPurifyTemps{manager: m}
-	defer func() { err = errors.Join(err, temps.close()) }()
-	zero, err := m.ArithmeticRealNumeralText("0")
-	if err != nil {
-		return err
+	b := qfnraPurifyBuilder{temps: qfnraPurifyTemps{manager: m}}
+	defer func() { err = errors.Join(err, b.temps.close()) }()
+	realZero := func() ast.ASTHandle {
+		return b.hold(func() (ast.ASTHandle, error) { return m.ArithmeticRealNumeralText("0") })
 	}
-	yZero, err := m.MkEq(y, zero)
-	if err != nil {
-		return err
-	}
-	if _, err = temps.hold(yZero); err != nil {
-		return err
-	}
-	product, err := m.MkArithmeticMul(y, fresh)
-	if err != nil {
-		return err
-	}
-	if _, err = temps.hold(product); err != nil {
-		return err
-	}
-	equality, err := m.MkEq(product, x)
-	if err != nil {
-		return err
-	}
-	if _, err = temps.hold(equality); err != nil {
-		return err
-	}
-	constraint, err := m.MkOr(yZero, equality)
-	if err != nil {
-		return err
+	// GCC evaluates call arguments right to left.
+	// OR(EQ(y, mk_real_zero()), EQ(u().mk_mul(y, k), x))
+	product := b.hold(func() (ast.ASTHandle, error) { return m.MkArithmeticMul(y, fresh) })
+	equality := b.hold(func() (ast.ASTHandle, error) { return m.MkEq(product, x) })
+	zero := realZero()
+	yZero := b.hold(func() (ast.ASTHandle, error) { return m.MkEq(y, zero) })
+	constraint := b.hold(func() (ast.ASTHandle, error) { return m.MkOr(yZero, equality) })
+	if b.err != nil {
+		return b.err
 	}
 	if err = i.addConstraint(constraint, entry); err != nil {
 		return err
@@ -409,30 +393,16 @@ func (i *qfnraPurifyInvocation) processDivision(x, y, fresh ast.ASTHandle, entry
 			return nil
 		}
 	}
-	notZero, err := m.MkNot(yZero)
-	if err != nil {
-		return err
-	}
-	if _, err = temps.hold(notZero); err != nil {
-		return err
-	}
-	divZero, err := m.MkArithmeticDiv(x, zero)
-	if err != nil {
-		return err
-	}
-	if _, err = temps.hold(divZero); err != nil {
-		return err
-	}
-	undefined, err := m.MkEq(fresh, divZero)
-	if err != nil {
-		return err
-	}
-	if _, err = temps.hold(undefined); err != nil {
-		return err
-	}
-	functional, err := m.MkOr(notZero, undefined)
-	if err != nil {
-		return err
+	// OR(NOT(EQ(y, mk_real_zero())), EQ(k, u().mk_div(x, mk_real_zero())))
+	zero = realZero()
+	divZero := b.hold(func() (ast.ASTHandle, error) { return m.MkArithmeticDiv(x, zero) })
+	undefined := b.hold(func() (ast.ASTHandle, error) { return m.MkEq(fresh, divZero) })
+	zero = realZero()
+	yZero = b.hold(func() (ast.ASTHandle, error) { return m.MkEq(y, zero) })
+	notZero := b.hold(func() (ast.ASTHandle, error) { return m.MkNot(yZero) })
+	functional := b.hold(func() (ast.ASTHandle, error) { return m.MkOr(notZero, undefined) })
+	if b.err != nil {
+		return b.err
 	}
 	return i.addConstraint(functional, entry)
 }
@@ -479,18 +449,19 @@ func (i *qfnraPurifyInvocation) processPower(x, exponent, fresh ast.ASTHandle, e
 	}
 	if zeroValue {
 		stage = "zero exponent first constraint"
-		xZero, e := m.MkEq(x, zero)
-		if e != nil {
-			return e
-		}
-		if _, e = temps.hold(xZero); e != nil {
-			return e
-		}
+		// OR(EQ(x, zero), EQ(k, one)): GCC builds the last argument first.
 		freshOne, e := m.MkEq(fresh, one)
 		if e != nil {
 			return e
 		}
 		if _, e = temps.hold(freshOne); e != nil {
+			return e
+		}
+		xZero, e := m.MkEq(x, zero)
+		if e != nil {
+			return e
+		}
+		if _, e = temps.hold(xZero); e != nil {
 			return e
 		}
 		first, e := m.MkOr(xZero, freshOne)
