@@ -5,6 +5,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func TestSMTActivityCaseSplitQueueUsesActivityAssignmentAndPhase(t *testing.T) {
@@ -492,5 +493,42 @@ func TestSMTTheoryAwareCaseSplitWithoutHintProducerUsesActivity(t *testing.T) {
 	astTestMust(t, err)
 	if selected != secondVar || phase != lbool.True {
 		t.Fatal("theory-aware queue without retained hints diverged from activity", selected, phase, secondVar)
+	}
+}
+
+// smtcore_02-F1: context::decide overrides the queue phase of a quantifier
+// with l_false, even when the relevancy queue prefers a true OR child.
+func TestSMTRelevantCaseSplitQueueQuantifierChildDecidedFalse(t *testing.T) {
+	for _, strategy := range []uint32{3} {
+		t.Run(string(rune('0'+strategy)), func(t *testing.T) {
+			m := astTestManager(t)
+			registry, _ := smtQuickRegistry(t, m)
+			_, relevance, state := smtInternalizerFixture(t, m, registry)
+			boolean, err := m.MkBoolSort()
+			astTestMust(t, err)
+			variable, err := m.MkVar(0, boolean)
+			astTestMust(t, err)
+			quantifier, err := m.MkQuantifier(ast.ASTQuantifierSpec{
+				Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []symbol.Symbol{astTestSymbol(t, m, "relevant-child-q-x")}, Body: variable,
+			})
+			astTestMust(t, err)
+			other := smtRelevancyBool(t, m, "relevant-child-q-other")
+			parent, err := m.MkOr(quantifier, other)
+			astTestMust(t, err)
+			astTestMust(t, state.Internalize(parent, true))
+			parentVar, _ := state.BoolVar(parent)
+			quantifierVar, _ := state.BoolVar(quantifier)
+			astTestMust(t, state.SetAssignment(parentVar, lbool.True))
+			astTestMust(t, relevance.MarkRelevant(parent))
+			queue, err := NewSMTActivityCaseSplitQueue(state)
+			astTestMust(t, err)
+			params := SMTParamsState{CaseSplitStrategy: strategy, RelevancyLvl: 2, AutoConfig: false}
+			astTestMust(t, queue.ConfigurePhases(params))
+			selected, phase, err := queue.NextCaseSplit()
+			astTestMust(t, err)
+			if selected != quantifierVar || phase != lbool.False {
+				t.Fatal("quantifier child phase", selected, phase, quantifierVar)
+			}
+		})
 	}
 }

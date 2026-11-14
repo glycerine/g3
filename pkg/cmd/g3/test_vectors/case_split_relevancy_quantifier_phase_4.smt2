@@ -1,0 +1,7 @@
+(set-option :auto_config false)
+(set-option :smt.case_split 4)
+(declare-fun f (Int) Int)
+(declare-const p Bool)
+(assert (or (forall ((x Int)) (> (f x) x)) p))
+(check-sat)
+(get-value (p))

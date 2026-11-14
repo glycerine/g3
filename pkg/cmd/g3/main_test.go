@@ -338,6 +338,13 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_02-F1: context::decide assigns a quantifier false even
+	// when the relevancy case-split queue prefers true (old g3 instantiated forever).
+	"case_split_relevancy_quantifier_phase.smt2": "sat\n((p true))\n",
+	// AUDIT.md smtcore_02-F1: case_split 4.
+	"case_split_relevancy_quantifier_phase_4.smt2": "sat\n((p true))\n",
+	// AUDIT.md smtcore_02-F1: case_split 5.
+	"case_split_relevancy_quantifier_phase_5.smt2": "sat\n((p true))\n",
 	// AUDIT.md smtcore_04-F1: is_semi_compatible(check*) is false for an
 	// unhashed CHECK enode (release get_lbl_hash() == 255), not an error.
 	"mam_multipattern_unhashed_check.smt2": "unsat\n(:reason-unknown \"\")\n",

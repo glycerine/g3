@@ -149,12 +149,14 @@ func (q *SMTActivityCaseSplitQueue) NextCaseSplit() (int32, lbool.LBool, error) 
 	if next == SMTNullBoolVar {
 		return next, lbool.Undef, nil
 	}
-	if preferred != lbool.Undef {
-		return next, preferred, nil
-	}
 	data := &q.state.booleanData[next]
 	if data.IsQuantifier() {
+		// context::decide overrides any queue phase for a quantifier:
+		// assigning it false makes it irrelevant.
 		return next, lbool.False, nil
+	}
+	if preferred != lbool.Undef {
+		return next, preferred, nil
 	}
 	if data.TryTrueFirst() {
 		return next, lbool.True, nil
