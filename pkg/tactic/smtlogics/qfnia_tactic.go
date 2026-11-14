@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/glycerine/g3/pkg/ast"
-	nlsattactic "github.com/glycerine/g3/pkg/nlsat/tactic"
 	sattactic "github.com/glycerine/g3/pkg/sat/tactic"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/tactic"
@@ -112,7 +111,7 @@ func NewQFNIATacticWithOutput(m *ast.ASTManager, p *uparams.ParamsRef, config sm
 		return b.then(simplify(smtParams), b.keep(smtcore.NewSMTTactic(m, nil, config)))
 	}
 	intermediate := b.timed(smtSolver(), 2000)
-	nlsatSolver := b.using(b.keep(nlsattactic.NewNLSATTactic(m, c, g, nlsatParams, config.ModelEvaluator)), nlsatParams)
+	nlsatSolver := b.keep(NewQFNRANLSATTactic(m, nlsatParams, config))
 	nlsatAttempt := b.then(
 		simplify(nlsatParams),
 		b.timed(nlsatSolver, 3000),

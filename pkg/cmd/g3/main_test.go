@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_D-F1: the QF_NIA nlsat route runs mk_qfnra_nlsat_tactic.
+	"qfnia_nlsat_div_self.smt2": "sat\n(model \n  (define-fun x0 () Int\n    0)\n)\n",
 	// AUDIT.md smtcore_12-F2: wrong unsat for (= i (str.to.int x)) (= i 12).
 	"str_to_int_value.smt2": "sat\n",
 	// AUDIT.md smtcore_12-F2: str.to.int target 35 (g3 timed out).
