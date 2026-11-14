@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_H-F8: apply prints goals through the cmd_context pp_env.
+	"apply_simplify_recognizer_name.smt2": "(goals\n(goal\n  ((_ is cons) l0)\n  :precision precise :depth 1)\n)\n(goals\n(goal\n  |-\n  ((_ is cons) l0)\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md FUZZ_H-F11: fix-dl-var breaks ties in obj_map table order.
 	"qfidl_fix_dl_var_tie.smt2": "sat\n(model \n  (define-fun x1 () Int\n    1)\n  (define-fun x2 () Int\n    0)\n)\n",
 	// AUDIT.md FUZZ_C-F4: qe2 MBP on an atom with division by zero.

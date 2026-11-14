@@ -14,13 +14,14 @@ func (c *Context) writeAppliedTacticResult(out io.Writer, applied *tactic.Tactic
 			return err
 		}
 		for _, goal := range applied.Goals {
-			var err error
-			if settings.printDependencies {
-				err = goal.DisplayWithDependencies(out)
-			} else {
-				// goal::display(ast_printer_context&) prints the attributes.
-				err = goal.DisplayWithAttributes(out)
-			}
+			// goal::display(ast_printer_context& ctx): ctx is the
+			// cmd_context, whose pp_env prints declarations.
+			err := c.withPPEnv(func() error {
+				if settings.printDependencies {
+					return goal.DisplayWithDependencies(out)
+				}
+				return goal.DisplayWithAttributes(out)
+			})
 			if err != nil {
 				return err
 			}

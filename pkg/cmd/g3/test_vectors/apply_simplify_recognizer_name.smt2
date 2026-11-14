@@ -1,0 +1,5 @@
+(declare-datatypes () ((Lst nil (cons (hd Int) (tl Lst)))))
+(declare-const l0 Lst)
+(assert (is-cons l0))
+(apply simplify)
+(apply simplify :print_dependencies true)
