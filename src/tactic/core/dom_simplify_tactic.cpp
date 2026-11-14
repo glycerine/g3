@@ -284,7 +284,11 @@ expr_ref dom_simplify_tactic::simplify_rec(expr * e0) {
     }
     else {
         for (expr * child : tree(e)) {
-            simplify_rec(child);
+            // The root is its own immediate dominator (m_doms.insert(root, root)),
+            // so tree(root) contains root. Recursing into it re-simplifies the
+            // root using facts derived from the root itself.
+            if (child != e)
+                simplify_rec(child);
         }
         if (is_app(e)) {
             m_args.reset();
