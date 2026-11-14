@@ -61,6 +61,51 @@ func TestObjectivePurifierDefinitionsAndLinearPassThrough(t *testing.T) {
 	}
 }
 
+// AUDIT.md FUZZ_A-F6: is_arith_expr tests the head symbol's family, so an
+// Int-sorted uninterpreted application is not purified.
+func TestObjectivePurifierKeepsNonArithmeticHead(t *testing.T) {
+	f := newObjectiveFormulaFixture(t)
+	x := decompositionIntegerVariable(t, f, "purifier-uf-x")
+	sort, err := f.manager.GetSort(x)
+	if err != nil {
+		t.Fatal(err)
+	}
+	name, err := f.symbols.Intern("purifier-uf-f")
+	if err != nil {
+		t.Fatal(err)
+	}
+	decl, err := f.manager.MkFuncDecl(name, []ast.ASTHandle{sort}, sort, ast.ASTFuncDeclInfo{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	application, err := f.manager.MkApp(decl, []ast.ASTHandle{x})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref, err := f.manager.NewRef(application)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.refs = append(f.refs, ref)
+	purifier, err := NewObjectivePurifier(f.manager)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := purifier.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	var hard []ast.ASTHandle
+	term, err := purifier.arithmeticTerm(application, &hard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if term != application || len(hard) != 0 {
+		t.Fatal("uninterpreted objective was purified", len(hard))
+	}
+}
+
 func TestObjectivePurifierSoftDefinition(t *testing.T) {
 	f := newObjectiveFormulaFixture(t)
 	x := decompositionIntegerVariable(t, f, "purifier-soft-x")

@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_A-F6: purify tests the head symbol (is_arith_expr), not the sort.
+	"opt_purify_non_arith_objective.smt2": "sat\n(objectives\n ((bv2int v) oo)\n)\n(model \n  ;; universe for (_ BitVec 4):\n  ;;   bv!val!0 \n  ;; -----------\n  ;; definitions for universe elements:\n  (declare-fun bv!val!0 () (_ BitVec 4))\n  ;; cardinality constraint:\n  (forall ((x (_ BitVec 4))) (= x bv!val!0))\n  ;; -----------\n  (define-fun v () (_ BitVec 4)\n    bv!val!0)\n  (define-fun bv2int ((x!0 (_ BitVec 4))) Int\n    (ite (= x!0 bv!val!0) 0\n      0))\n)\nsat\n(objectives\n ((f x) (* (- 1) oo))\n)\n(model \n  (define-fun x () Int\n    1)\n  (define-fun f ((x!0 Int)) Int\n    (ite (= x!0 1) 0\n      0))\n)\n",
 	// AUDIT.md FUZZ_A-F7: fixed_var_eh keys an epsilon bound on its rational part.
 	"opt_fixed_var_epsilon_bound.smt2": "sat\n(objectives\n (y  (interval (- 2) (+ (- 1.0) (* (- 1.0) epsilon))))\n (x 6)\n)\n",
 	// AUDIT.md smtcore_03-F1: context::assert_distinct for more than 32
