@@ -779,6 +779,15 @@ func (t *SMTTheoryArith) markLiteralAsRelevant(l SMTLiteral) error {
 
 // add_rel_watch(l, n): mark n relevant when l becomes true.
 func (t *SMTTheoryArith) addRelWatch(l SMTLiteral, n ast.ASTHandle) error {
+	if l.Var() == SMTTrueBoolVar {
+		if l.Sign() {
+			return nil
+		}
+		if err := t.state.relevancy.MarkRelevant(n); err != nil {
+			return err
+		}
+		return t.state.relevancy.Propagate()
+	}
 	e, err := t.state.BoolExpression(l.Var())
 	if err != nil {
 		return err
@@ -982,20 +991,22 @@ func (t *SMTTheoryArith) mkIdivModAxioms(dividend, divisor ast.ASTHandle) (err e
 func (t *SMTTheoryArith) mkRemAxiom(dividend, divisor ast.ASTHandle) (err error) {
 	// if divisor is zero, then rem is an uninterpreted function.
 	m := t.state.manager
+	// zero, rem, mod and (zero - mod) are raw expr* in the source: unowned.
+	zero, err := m.ArithmeticIntegerNumeralText("0")
+	if err != nil {
+		return err
+	}
+	rem, err := m.MkFamilyApp(t.FamilyID(), smtArithOpRem, nil, []ast.ASTHandle{dividend, divisor})
+	if err != nil {
+		return err
+	}
+	mod, err := m.MkFamilyApp(t.FamilyID(), smtArithOpMod, nil, []ast.ASTHandle{dividend, divisor})
+	if err != nil {
+		return err
+	}
+	// expr_ref dltz(m), eq1(m), eq2(m): destroyed eq2, eq1, dltz.
 	x := smtArithExprs{m: m}
 	defer func() { err = errors.Join(err, x.release()) }()
-	zero, err := t.mkNumeral(&x, new(big.Rat), true)
-	if err != nil {
-		return err
-	}
-	rem, err := t.mkApp(&x, smtArithOpRem, dividend, divisor)
-	if err != nil {
-		return err
-	}
-	mod, err := t.mkApp(&x, smtArithOpMod, dividend, divisor)
-	if err != nil {
-		return err
-	}
 	dltz, err := t.mkApp(&x, smtArithOpLT, divisor, zero)
 	if err != nil {
 		return err
@@ -1004,7 +1015,7 @@ func (t *SMTTheoryArith) mkRemAxiom(dividend, divisor ast.ASTHandle) (err error)
 	if err != nil {
 		return err
 	}
-	negMod, err := t.mkApp(&x, smtArithOpSub, zero, mod)
+	negMod, err := m.MkFamilyApp(t.FamilyID(), smtArithOpSub, nil, []ast.ASTHandle{zero, mod})
 	if err != nil {
 		return err
 	}
@@ -1016,8 +1027,18 @@ func (t *SMTTheoryArith) mkRemAxiom(dividend, divisor ast.ASTHandle) (err error)
 	if err = t.mkAxiom(dltz, eq1, true); err != nil {
 		return err
 	}
-	notDltz, err := x.hold(m.MkNot(dltz))
+	// dltz = m.mk_not(dltz): the new node is referenced, then the old released.
+	notDltz, err := m.MkNot(dltz)
 	if err != nil {
+		return err
+	}
+	ref, err := m.NewRef(notDltz)
+	if err != nil {
+		return err
+	}
+	old := x.refs[0]
+	x.refs[0] = ref
+	if err = m.DelRef(&old); err != nil {
 		return err
 	}
 	// !n < 0 || rem(a,n) = -mod(a, n)

@@ -342,6 +342,8 @@ var scriptResults = map[string]string{
 	// over an ite must get a theory variable (was sat / unknown).
 	"array_ite_select_axiom2.smt2": "unsat\n",
 	"array_default_over_ite.smt2":  "sat\n",
+	// AUDIT.md FUZZ-F1/F2: rem axioms with a true antecedent and C++ ownership.
+	"arith_rem_numeral_divisor_axioms.smt2": "sat\n(model \n  (define-fun x () Int\n    1)\n)\nsat\n(model \n  (define-fun x () Int\n    0)\n)\nsat\n(model \n  (define-fun y () Int\n    0)\n  (define-fun x () Int\n    0)\n)\nsat\n(model \n  (define-fun y () Int\n    0)\n  (define-fun x () Int\n    0)\n)\n",
 	// AUDIT.md FUZZ_K-F1: iz3interp.cpp defines BINARY_INTERPOLATION, one
 	// two-frame translation per interpolant.
 	"interp_binary_three_frames.smt2": "unsat\n(interpolants\n p\n p\n q\n (= p q))\n",
