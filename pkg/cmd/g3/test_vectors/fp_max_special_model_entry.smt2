@@ -1,0 +1,5 @@
+(declare-const p0 Bool)
+(declare-const w0 (_ FloatingPoint 8 24))
+(assert (fp.leq (ite (not p0) (fp.mul RNE ((_ to_fp 8 24) RNE 3.0) w0) (fp.max (_ +zero 8 24) (_ -zero 8 24))) (fp.fma RNE w0 w0 (fp.div RNE ((_ to_fp 8 24) RNE 0.5) ((_ to_fp 8 24) RNE 0.5)))))
+(check-sat)
+(get-model)

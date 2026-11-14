@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_H-F10: convert_min_max_specials tests pn != np by AST identity.
+	"fp_max_special_model_entry.smt2": "sat\n(model \n  (define-fun w0 () (_ FloatingPoint 8 24)\n    (fp #b1 #x00 #b00000010110111000000000))\n  (define-fun p0 () Bool\n    false)\n  (define-fun fp.max ((x!0 (_ FloatingPoint 8 24)) (x!1 (_ FloatingPoint 8 24))) (_ FloatingPoint\n     8\n     24)\n    (ite (and (= x!0 (_ +zero 8 24)) (= x!1 (_ -zero 8 24))) (_ +zero 8 24)\n      (_ +zero 8 24)))\n)\n",
 	// AUDIT.md FUZZ_H-F6: cofactor-term-ite m_has_term_ite gate and lifetimes (trace).
 	"cofactor_term_ite_trace_ids.smt2": "(goals\n(goal\n  (let ((a!1 (ite (>= x0 0)\n                  (<= x1 (+ 10 (rem 2 x1)))\n                  (<= (+ (* (- 2) x0) x1) (+ 10 (rem 2 x1))))))\n    (not a!1))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md FUZZ_H-F8: apply prints goals through the cmd_context pp_env.

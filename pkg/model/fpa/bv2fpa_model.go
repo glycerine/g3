@@ -157,6 +157,8 @@ func (c *Converter) convertMinMaxSpecials(source, target *model.ModelCore, seen 
 			return err
 		}
 		codes := [2]uint64{}
+		// pn/np: the evaluated BV numeral, or pzero when not in the model.
+		values := [2]ast.ASTHandle{positiveZero, positiveZero}
 		for i, sign := range signs {
 			value, signDecl, e := c.evaluatedConstant(source, sign)
 			if e != nil {
@@ -164,6 +166,7 @@ func (c *Converter) convertMinMaxSpecials(source, target *model.ModelCore, seen 
 			}
 			seen[signDecl] = struct{}{}
 			if !value.IsNull() {
+				values[i] = value
 				codes[i], _, e = c.bvUint64(value)
 				if e != nil {
 					return e
@@ -184,7 +187,9 @@ func (c *Converter) convertMinMaxSpecials(source, target *model.ModelCore, seen 
 				_ = interpretation.Close()
 			}
 		}()
-		if codes[0] != codes[1] {
+		// if (pn != np): an AST identity test, so a missing sign constant
+		// (pzero) differs from a present #b0.
+		if values[0] != values[1] {
 			result := positiveZero
 			if codes[0] == 1 {
 				result = negativeZero
