@@ -3125,3 +3125,16 @@ gen.py/gen2.py 9000-9300, gen3.py 17000-17300, gen4.py 9000-9250:
 gen.py/gen2.py 10000-10300, gen3.py 18000-18300, gen4.py 10000-10250: no
 output or model differences. q_10065 exceeds the 30 s fuzz limit only
 (z3 17 s, g3 54 s, identical output).
+
+## Structural performance work (user-approved 2026-11-13)
+
+After the profile went flat (628f01846), the user asked for all three
+data-layout changes, each measured on its own with
+/var/tmp/g3-job-487c9ee8/benchset/bench.sh (median of 3; lia_big_parse,
+q_7028, q_7056, q_7248, q_9009, q_10065):
+1. native Go numeral limb storage instead of the emulated byte runtime
+   (in progress, worktree g3-wt-limbs);
+2. co-located AST application fields (one page per app read; in progress,
+   worktree g3-wt-colo);
+3. fewer intermediate big.Int/big.Rat allocations in model construction and
+   the arithmetic theory (after 1 and 2 are integrated).
