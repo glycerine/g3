@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_A-F3: converted objectives after an unbounded lex objective show their maxsmt interval.
+	"opt_objectives_unexecuted_converted.smt2": "sat\n(objectives\n (v 6)\n (x1 oo)\n ((ite (= x0 726) 119 6)  (interval 125 119))\n ((ite p 3 0)  (interval 0 3))\n (v  (interval 0 6))\n ((+ (ite p 2 0) (ite q 5 1))  (interval 8 3))\n (  (interval 0 3))\n)\n",
 	// AUDIT.md FUZZ_A-F4: an unknown initial check may leave no model.
 	"opt_objectives_after_unknown_initial.smt2": "unknown\n(:reason-unknown \"interpreted atoms sent to SAT solver \n(= y2 y1)\")\n(objectives\n (  (interval 0 4))\n)\n",
 	// AUDIT.md FUZZ_A-F1: an inconsistent goal leaves every maximize/minimize unconverted.

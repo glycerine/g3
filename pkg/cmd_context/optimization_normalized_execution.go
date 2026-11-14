@@ -354,6 +354,33 @@ func (c *Context) restoreNormalizedValues(optimized *opt.ArithmeticResult, origi
 			if original[i].soft || original[i].bitVector || !d.Converted {
 				continue
 			}
+			if optimized.Values[i].SoftInterval {
+				// This maxsmt never ran (execute_lex returned on an
+				// unbounded objective), so display_assignment shows
+				// m_adjust_value of its m_lower and m_upper as an interval
+				// (AUDIT.md FUZZ_A-F3).
+				lower, e := d.RestoreValue(&optimized.Values[i].SoftLower)
+				if e != nil {
+					return e
+				}
+				upper, e := d.RestoreValue(&optimized.Values[i].SoftUpper)
+				if e != nil {
+					return e
+				}
+				// writeObjectiveValue prints (interval modelValue value) for
+				// maximize and (interval value modelValue) for minimize.
+				shown, model := upper, lower
+				if !original[i].maximize {
+					shown, model = lower, upper
+				}
+				optimized.Values[i] = opt.ObjectiveValue{
+					Arithmetic:           smtcore.SMTArithmeticObjectiveValue{Finite: simplex.RationalInfinitesimal(shown)},
+					ArithmeticModel:      smtcore.SMTArithmeticObjectiveValue{Finite: simplex.RationalInfinitesimal(model)},
+					ArithmeticModelValid: true,
+					ArithmeticInterval:   true,
+				}
+				continue
+			}
 			value, e := d.RestoreValue(&optimized.Values[i].SoftCost)
 			if e != nil {
 				return e

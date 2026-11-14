@@ -779,9 +779,17 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 				}
 			} else if c.objectives[i].bitVector {
 				c.objectives[i].softValue.Set(&optimized.Values[i].SoftCost)
+				if optimized.Values[i].SoftInterval {
+					// An unexecuted maxsmt's m_upper (AUDIT.md FUZZ_A-F3).
+					c.objectives[i].softInterval = true
+					c.objectives[i].softUpper.Set(&optimized.Values[i].SoftUpper)
+				}
 				if c.objectives[i].maximize {
 					maximum := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(c.objectives[i].bitWidth)), big.NewInt(1))
 					c.objectives[i].softValue.Sub(new(big.Rat).SetInt(maximum), &c.objectives[i].softValue)
+					if c.objectives[i].softInterval {
+						c.objectives[i].softUpper.Sub(new(big.Rat).SetInt(maximum), &c.objectives[i].softUpper)
+					}
 				}
 			} else {
 				c.objectives[i].value = optimized.Values[i].Arithmetic
@@ -854,7 +862,7 @@ func (c *Context) WriteObjectives(out io.Writer) error {
 			if err := c.writeDisplayBounds(out, &objective.displayLower, &objective.displayUpper); err != nil {
 				return err
 			}
-		} else if objective.soft && objective.softInterval {
+		} else if (objective.soft || objective.bitVector) && objective.softInterval {
 			if err := c.writeSoftObjectiveInterval(out, &objective.softValue, &objective.softUpper); err != nil {
 				return err
 			}
