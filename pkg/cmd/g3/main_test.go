@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_D-F6: (mod t t) builds abs, then (mod 0 0), then (= t 0) (trace).
+	"arith_mod_self_build_order.smt2": "(goals\n(goal\n  (let ((a!1 (ite (= (+ x y) 0)\n                  (mod 0 0)\n                  (ite (>= (+ x y) 0) (+ x y) (- (+ x y))))))\n    (not (<= a!1 2)))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md FUZZ_H-F10: convert_min_max_specials tests pn != np by AST identity.
 	"fp_max_special_model_entry.smt2": "sat\n(model \n  (define-fun w0 () (_ FloatingPoint 8 24)\n    (fp #b1 #x00 #b00000010110111000000000))\n  (define-fun p0 () Bool\n    false)\n  (define-fun fp.max ((x!0 (_ FloatingPoint 8 24)) (x!1 (_ FloatingPoint 8 24))) (_ FloatingPoint\n     8\n     24)\n    (ite (and (= x!0 (_ +zero 8 24)) (= x!1 (_ -zero 8 24))) (_ +zero 8 24)\n      (_ +zero 8 24)))\n)\n",
 	// AUDIT.md FUZZ_H-F6: cofactor-term-ite m_has_term_ite gate and lifetimes (trace).
@@ -1511,6 +1513,7 @@ func TestTraceLogCPPReference(t *testing.T) {
 		"purify_arith_zero_power_order.smt2",     // FUZZ_C-F7
 		"qe2_apply_div_by_zero.smt2",             // FUZZ_C-F4
 		"cofactor_term_ite_trace_ids.smt2",       // FUZZ_H-F6
+		"arith_mod_self_build_order.smt2",        // FUZZ_D-F6
 	} {
 		t.Run(name, func(t *testing.T) {
 			input, err := filepath.Abs(filepath.Join("test_vectors", name))

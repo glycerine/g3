@@ -699,10 +699,6 @@ func (r *ArithRewriter) rewriteMod(left, right ast.ASTHandle, out ast.ASTRef) (R
 		if e != nil {
 			return RewriteFailed, e
 		}
-		undefined, e := r.app(arithOpMod, zero, zero)
-		if e != nil {
-			return RewriteFailed, e
-		}
 		absRef, e := r.manager.NewRef(ast.ASTHandle{})
 		if e != nil {
 			return RewriteFailed, e
@@ -712,6 +708,10 @@ func (r *ArithRewriter) rewriteMod(left, right ast.ASTHandle, out ast.ASTRef) (R
 			return RewriteFailed, e
 		}
 		absolute, e := r.manager.RefGet(absRef)
+		if e != nil {
+			return RewriteFailed, e
+		}
+		undefined, e := r.app(arithOpMod, zero, zero)
 		if e != nil {
 			return RewriteFailed, e
 		}
