@@ -528,6 +528,7 @@ func (t *PBPreprocessTactic) resolve(g *tactic.Goal, mc *tactic.PBPreprocModelCo
 		if rec.pos[0] != idx2 && rec.neg[0] != idx2 {
 			return false, nil
 		}
+		hasComplement := false
 		for j, other := range second.terms {
 			complement, e := t.isComplement(term.expression, other.expression)
 			if e != nil {
@@ -536,13 +537,15 @@ func (t *PBPreprocessTactic) resolve(g *tactic.Goal, mc *tactic.PBPreprocModelCo
 			if !complement {
 				continue
 			}
-			if i == 0 {
-				minCoeff = other.coefficient
-			} else if minCoeff != nil && minCoeff.Cmp(other.coefficient) > 0 {
+			if i == 0 || minCoeff.Cmp(other.coefficient) > 0 {
 				minCoeff = other.coefficient
 				minIndex = j
 			}
 			indices = append(indices, j)
+			hasComplement = true
+		}
+		if !hasComplement {
+			return false, nil
 		}
 	}
 	truth, err := m.MkTrue()

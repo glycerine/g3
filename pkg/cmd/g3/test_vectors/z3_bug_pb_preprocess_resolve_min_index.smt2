@@ -1,0 +1,7 @@
+(declare-const p0 Bool)
+(declare-const p1 Bool)
+(assert (or (not p0) (not p1)))
+(assert p1)
+(assert p0)
+(check-sat)
+(check-sat-using (then pb-preprocess smt))

@@ -40,6 +40,11 @@ func (t *PBPreprocessTactic) replace(g *tactic.Goal, r *rewriter.TheoryRewriter,
 	defer func() { result = errors.Join(result, m.DelRef(&out)) }()
 	progress := false
 	for _, index := range positions {
+		if bad, x := g.Inconsistent(); x != nil {
+			return false, x
+		} else if bad {
+			break
+		}
 		h, x := g.Form(index)
 		if x != nil {
 			return false, x

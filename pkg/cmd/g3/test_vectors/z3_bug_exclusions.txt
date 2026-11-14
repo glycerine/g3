@@ -58,3 +58,18 @@ z3_bug_elim_term_ite_stale_cache
 # AUDIT.md smtcore_01-F2). Reproduction:
 # test_vectors/z3_bug_macro_finder_disabled_stale_macro.smt2.
 z3_bug_macro_finder_disabled_stale_macro
+#
+# pb-preprocess records positions in m_ge where goal indices are expected
+# (classify_vars(i, ...)), and its resolve step never sets min_index for
+# the first complement, does not check that a complement was found, and
+# keeps replacing after the goal became inconsistent (z3 bug:
+# src/tactic/core/pb_preprocess_tactic.cpp:180-182 classify_vars,
+# :233-257 subsumption, resolve, replace; fixed upstream in 2021-2022).
+# 4.7.1 answers sat on unsat goals (and segfaults on some). g3 records goal
+# indices and guards resolve/replace as upstream does
+# (pkg/tactic/core/pb_preprocess_simplify.go, pb_preprocess_replace.go;
+# AUDIT.md FUZZ_C-F2). Reproductions:
+# test_vectors/z3_bug_pb_preprocess_*.smt2.
+z3_bug_pb_preprocess_ge_index
+z3_bug_pb_preprocess_resolve_min_index
+z3_bug_pb_preprocess_resolve_no_complement
