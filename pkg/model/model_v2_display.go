@@ -13,7 +13,7 @@ import (
 )
 
 func (md *ModelCore) writeV2Expr(out io.Writer, h ast.ASTHandle, context *uparams.ParamsContext, globals *uparams.GlobalParamsService) (result error) {
-	format, err := md.manager.SMT2PPExprTree(h, nil)
+	format, err := md.manager.SMT2PPExprTreeWithParams(h, nil, context, globals, nil)
 	if err != nil {
 		return err
 	}

@@ -32,7 +32,7 @@ func (p *modelPrinter) indent(n uint32) error {
 }
 
 func (p *modelPrinter) render(h ast.ASTHandle, names []usymbol.Symbol) (text string, result error) {
-	format, err := p.model.manager.SMT2PPExprTree(h, names)
+	format, err := p.model.manager.SMT2PPExprTreeWithParams(h, names, p.context, p.globals, nil)
 	if err != nil {
 		return "", err
 	}
@@ -647,7 +647,7 @@ func (p *modelPrinter) writeFunctionSMT2(decl ast.ASTHandle, indent uint32) (res
 	if partial {
 		bodyFormat, err = m.FormatString("#unspecified")
 	} else {
-		bodyFormat, err = m.SMT2PPExprTree(fi.fallback, exprNames)
+		bodyFormat, err = m.SMT2PPExprTreeWithParams(fi.fallback, exprNames, p.context, p.globals, nil)
 	}
 	if err != nil {
 		return err
@@ -701,7 +701,7 @@ func (p *modelPrinter) writeFunctionSMT2(decl ast.ASTHandle, indent uint32) (res
 					return err
 				}
 				local := formatRefs{formats: formats}
-				argFormat, err := local.hold(m.SMT2PPExprTree(arg, nil))
+				argFormat, err := local.hold(m.SMT2PPExprTreeWithParams(arg, nil, p.context, p.globals, nil))
 				if err == nil {
 					conds[j], err = m.FormatSeq1("=", []ast.ASTHandle{varNames[j], argFormat})
 				}
@@ -720,7 +720,7 @@ func (p *modelPrinter) writeFunctionSMT2(decl ast.ASTHandle, indent uint32) (res
 				return err
 			}
 			local := formatRefs{formats: formats}
-			resultFormat, err := local.hold(m.SMT2PPExprTree(value, nil))
+			resultFormat, err := local.hold(m.SMT2PPExprTreeWithParams(value, nil, p.context, p.globals, nil))
 			if err == nil && i > 0 {
 				var lb ast.ASTHandle
 				if lb, err = m.FormatLineBreak(); err == nil {

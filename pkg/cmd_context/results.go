@@ -64,7 +64,7 @@ func (c *Context) WriteExpression(out io.Writer, expression ast.ASTHandle) (resu
 func (c *Context) WriteExpressionIndented(out io.Writer, expression ast.ASTHandle, indent uint32) error {
 	var format ast.ASTHandle
 	err := c.withPPEnv(func() (e error) {
-		format, e = c.manager.SMT2PPExprTree(expression, nil)
+		format, e = c.manager.SMT2PPExprTreeWithParams(expression, nil, c.config.Params, c.config.Globals, nil)
 		return e
 	})
 	if err != nil {
@@ -400,7 +400,7 @@ func (c *Context) writeExpressionSeq(out io.Writer, es []ast.ASTHandle) (result 
 	}()
 	children := make([]ast.ASTHandle, 0, 2*len(es))
 	for _, e := range es {
-		f, err := c.manager.SMT2PPExprTree(e, nil)
+		f, err := c.manager.SMT2PPExprTreeWithParams(e, nil, c.config.Params, c.config.Globals, nil)
 		if err != nil {
 			return err
 		}

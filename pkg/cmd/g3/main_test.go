@@ -338,6 +338,11 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_I-F2: printers read the pp.* parameters.
+	"pp_bv_literals_off.smt2":  "sat\n(model \n  (define-fun v () (_ BitVec 2)\n    (_ bv2 2))\n  (define-fun x () Int\n    2)\n)\n",
+	"pp_bv_neg_on.smt2":        "sat\n(model \n  (define-fun v () (_ BitVec 2)\n    (bvneg #b10))\n  (define-fun x () Int\n    2)\n)\n",
+	"pp_decimal_on.smt2":       "sat\n(model \n  (define-fun r () Real\n    0.3333333333?)\n)\n(((+ r 1.0) 1.3333333333?))\n0.6666666666?\n",
+	"pp_flat_alias_depth.smt2": "(let ((a!1 (and b c)))\n  (and a a!1))\n(let ((a!1 (f i)))\n(let ((a!2 (f a!1)))\n(let ((a!3 (f a!2)))\n(let ((a!4 (f a!3)))\n  (f a!4)))))\n(let ((a!1 (f i)) (a!2 (+ i 1)) (a!4 (+ i 2)))\n(let ((a!3 (f a!2)) (a!5 (f a!4)))\n(let ((a!6 (+ a!1 a!3 a!5)))\n(let ((a!7 (> a!6 0)) (a!8 (< a!6 100)) (a!9 (f a!6)))\n(let ((a!10 (= a!9 a!6)))\n  (and a!7 a!8 a!10))))))\n",
 	// AUDIT.md FUZZ_D-F6: (mod t t) builds abs, then (mod 0 0), then (= t 0) (trace).
 	"arith_mod_self_build_order.smt2": "(goals\n(goal\n  (let ((a!1 (ite (= (+ x y) 0)\n                  (mod 0 0)\n                  (ite (>= (+ x y) 0) (+ x y) (- (+ x y))))))\n    (not (<= a!1 2)))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md FUZZ_H-F10: convert_min_max_specials tests pn != np by AST identity.
