@@ -4,14 +4,10 @@ package opt
 
 import "github.com/glycerine/g3/pkg/ast"
 
+// process_unsat(cores): each core in turn; the only pivot is the one
+// process_unsat(core) makes after the core (pivotAfterCore).
 func (e *maxResEngine) processCoreBatch(cores [][]ast.ASTHandle) error {
 	for _, core := range cores {
-		if correction, pivot := e.pivotCorrection(core); pivot {
-			if err := e.processCorrection(correction); err != nil {
-				return err
-			}
-			continue
-		}
 		if err := e.processCore(core); err != nil {
 			return err
 		}

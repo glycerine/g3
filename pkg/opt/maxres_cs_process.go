@@ -7,7 +7,6 @@ import "github.com/glycerine/g3/pkg/ast"
 func (e *maxResEngine) processCorrection(correction []ast.ASTHandle) error {
 	if len(correction) == 0 {
 		e.stats.CorrectionSets++
-		e.correction = nil
 		e.currentCorrection = nil
 		return e.clearCorrectionModel()
 	}
@@ -28,7 +27,6 @@ func (e *maxResEngine) processCorrection(correction []ast.ASTHandle) error {
 	if err = e.correctionResolve(correction, weight); err != nil {
 		return err
 	}
-	e.correction = nil
 	e.currentCorrection = nil
 	e.stats.CorrectionSets++
 	return e.clearCorrectionModel()

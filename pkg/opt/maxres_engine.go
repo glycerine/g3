@@ -33,7 +33,6 @@ type maxResEngine struct {
 	lower             big.Rat
 	upper             big.Rat
 	bestSet           bool
-	correction        []ast.ASTHandle
 	correctionModel   *model.ModelCore
 	correctionSize    int
 	currentCorrection []ast.ASTHandle
@@ -104,7 +103,7 @@ func (e *maxResEngine) close() error {
 	}
 	asms := pin(e.active)
 	core := pin(e.lastCore)
-	e.active, e.lastCore, e.correction, e.currentCorrection, e.weights, e.proxies = nil, nil, nil, nil, nil, nil
+	e.active, e.lastCore, e.currentCorrection, e.weights, e.proxies = nil, nil, nil, nil, nil
 	if e.correctionModel != nil {
 		result = errors.Join(result, e.correctionModel.DecRef())
 		e.correctionModel = nil
