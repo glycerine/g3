@@ -236,7 +236,10 @@ func TestPropSolverScopesWeakAbstractionParameters(t *testing.T) {
 	fixture.close(t)
 }
 
-func TestPropSolverPublishesIncompleteCandidateModel(t *testing.T) {
+// prop_solver::internal_check_assumptions reads m_ctx->get_model after
+// l_undef; after NUM_CONFLICTS mk_proto_model built nothing, so there is no
+// candidate model (AUDIT.md smtcore_07-F1).
+func TestPropSolverConflictLimitHasNoCandidateModel(t *testing.T) {
 	fixture := newSpacerPropFixture(t, true)
 	globals, err := fixture.command.GlobalParameters()
 	spacerMust(t, err)
@@ -262,8 +265,8 @@ func TestPropSolverPublishesIncompleteCandidateModel(t *testing.T) {
 	spacerMust(t, err)
 	result, err := fixture.solver.CheckAssumptions([]ast.ASTHandle{formula}, nil, spacer.PropCheckOptions{NeedModel: true})
 	spacerMust(t, err)
-	if result.Status != lbool.Undef || result.Model == nil {
-		t.Fatal("incomplete PropSolver candidate", result.Status, result.Model)
+	if result.Status != lbool.Undef || result.Model != nil {
+		t.Fatal("conflict-limit PropSolver candidate", result.Status, result.Model)
 	}
 	spacerMust(t, result.Close(fixture.manager))
 	fixture.close(t)

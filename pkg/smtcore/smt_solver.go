@@ -803,7 +803,11 @@ func (s *SMTSolver) checkSatCore(assumptions []ast.ASTHandle, setup bool) (lbool
 }
 
 // PrepareCandidateModel mirrors smt_tactic's candidate-model allowance for
-// conflict-limit, incomplete-theory, and incomplete-quantifier results.
+// conflict-limit, incomplete-theory, and incomplete-quantifier results. The
+// tactic reads m_ctx->get_model(md): whatever m_model the search left (none
+// after NUM_CONFLICTS unless an MBQI round left a proto model, as
+// mk_proto_model refuses that failure). The check already published it in
+// the result; nothing is built here.
 func (s *SMTSolver) PrepareCandidateModel() (bool, error) {
 	if err := s.open(); err != nil {
 		return false, err
@@ -817,19 +821,8 @@ func (s *SMTSolver) PrepareCandidateModel() (bool, error) {
 	default:
 		return false, nil
 	}
-	if !s.produceModels {
-		return true, nil
-	}
-	if s.kernel.GeneratedModel() == nil {
-		if err = s.kernel.buildGeneratedModel(); err != nil {
-			return false, err
-		}
-	}
 	if s.result == nil {
 		return false, ast.ErrASTHandle
-	}
-	if err = s.result.SetModel(s.kernel.GeneratedModel()); err != nil {
-		return false, err
 	}
 	return true, nil
 }

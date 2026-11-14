@@ -66,7 +66,13 @@ func TestSMTTacticCPPApplyReference(t *testing.T) {
 			var result tactic.TacticResult
 			t.Cleanup(func() { astTestMust(t, result.Close()) })
 			err = created.Apply(goal, &result)
-			if err == nil && (name == "sat" || name == "candidate") {
+			// mk_proto_model builds no model after NUM_CONFLICTS, so the
+			// candidate_models application has no model converter
+			// (AUDIT.md smtcore_07-F1).
+			if err == nil && name == "candidate" && result.ModelConverter != nil {
+				t.Fatal("conflict-limit candidate application published a model")
+			}
+			if err == nil && name == "sat" {
 				if result.ModelConverter == nil {
 					t.Fatal("successful SMT application lost its model")
 				}
@@ -82,7 +88,7 @@ func TestSMTTacticCPPApplyReference(t *testing.T) {
 				astTestMust(t, e)
 				value, e := model.ConstantInterpretation(declaration)
 				astTestMust(t, e)
-				if name == "sat" && !m.IsTrue(value) || name == "candidate" && !m.IsTrue(value) && !m.IsFalse(value) {
+				if !m.IsTrue(value) {
 					t.Fatal("wrong Boolean interpretation in SMT model", name, value)
 				}
 			}

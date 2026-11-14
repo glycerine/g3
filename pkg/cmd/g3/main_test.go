@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_07-F1: no candidate model (converter) after a
+	// conflict-limit stop.
+	"smt_tactic_candidate_models_conflict_limit.smt2": "(goals\n(goal\n  (or a b)\n  (or a (not b))\n  (or c (not a))\n  :precision precise :depth 0)\n)\n",
 	// AUDIT.md smtcore_04-F2: a model after an unknown check (theory,
 	// quantifiers without MBQI, MBQI-rejected candidate).
 	"unknown_model_theory.smt2":              "unknown\n(:reason-unknown \"(incomplete (theory arithmetic))\")\n(model \n  (define-fun a () Bool\n    true)\n  (define-fun y () Real\n    (/ 1.0 2.0))\n  (define-fun x () Real\n    (/ 3.0 2.0))\n)\n",

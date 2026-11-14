@@ -378,6 +378,50 @@ func TestSMTTacticKeepsStatisticsOnUnknownAndApproximationFailure(t *testing.T) 
 	}
 }
 
+// AUDIT.md smtcore_07-F1: with candidate_models, smt_tactic reads
+// m_ctx->get_model after NUM_CONFLICTS, which is null because mk_proto_model
+// refuses that failure; the goal is returned without a model converter.
+func TestSMTTacticCandidateModelsConflictLimitHasNoModel(t *testing.T) {
+	m, evaluator := smtModelGeneratorFixture(t)
+	settings, err := evaluator.Context.NewValue()
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, evaluator.Context.Del(&settings)) })
+	key := "max_conflicts"
+	astTestMust(t, evaluator.Context.SetUIntName(&settings, &key, 0))
+	key = "candidate_models"
+	astTestMust(t, evaluator.Context.SetBoolName(&settings, &key, true))
+	created, err := NewSMTTactic(m, &settings, SMTSolverConfig{Params: evaluator.Context, Globals: evaluator.Globals, ModelEvaluator: evaluator})
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, created.Close()) })
+	astTestMust(t, created.UpdateParams(&settings))
+	goal, err := tactic.NewGoal(m, false, true, false)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, goal.Close()) })
+	a := smtRelevancyBool(t, m, "smt-tactic-cand-a")
+	b := smtRelevancyBool(t, m, "smt-tactic-cand-b")
+	c := smtRelevancyBool(t, m, "smt-tactic-cand-c")
+	notA, err := m.MkNot(a)
+	astTestMust(t, err)
+	notB, err := m.MkNot(b)
+	astTestMust(t, err)
+	for _, pair := range [][2]ast.ASTHandle{{a, b}, {a, notB}, {c, notA}} {
+		clause, err := m.MkOr(pair[0], pair[1])
+		astTestMust(t, err)
+		astTestMust(t, goal.Assert(clause))
+	}
+	var result tactic.TacticResult
+	t.Cleanup(func() { astTestMust(t, result.Close()) })
+	if err = created.Apply(goal, &result); err != nil {
+		t.Fatal("candidate_models application failed", err)
+	}
+	if len(result.Goals) != 1 {
+		t.Fatal("expected the undecided goal", len(result.Goals))
+	}
+	if result.ModelConverter != nil {
+		t.Fatal("conflict-limit candidate published a model")
+	}
+}
+
 func TestSMTTacticPublishesIndependentModelsAcrossApplications(t *testing.T) {
 	m, evaluator := smtModelGeneratorFixture(t)
 	created, err := NewSMTTacticUsing(m, nil, "QF_UF", false, SMTSolverConfig{Params: evaluator.Context, Globals: evaluator.Globals, ModelEvaluator: evaluator})

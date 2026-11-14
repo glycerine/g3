@@ -1,0 +1,7 @@
+(declare-const a Bool)
+(declare-const b Bool)
+(declare-const c Bool)
+(assert (or a b))
+(assert (or a (not b)))
+(assert (or c (not a)))
+(apply (using-params smt :candidate_models true :max_conflicts 0) :print_model_converter true)
