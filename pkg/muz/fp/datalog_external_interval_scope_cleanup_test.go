@@ -148,8 +148,8 @@ func TestExternalIntervalScopeNativeCleanupPreservesOriginalOwners(t *testing.T)
 					t.Fatal("scope cleanup left a displaced/helper product live", cause)
 				}
 			}
-			if _, cause := manager.GetKind(filter); !errors.Is(cause, ast.ErrASTHandle) {
-				t.Fatal("scope cleanup left the helper declaration live", cause)
+			if manager.IsLiveHandle(filter) {
+				t.Fatal("scope cleanup left the helper declaration live")
 			}
 			status, err := source.query([]ast.ASTHandle{h})
 			must(err)

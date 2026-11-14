@@ -186,8 +186,8 @@ func TestEngineClosePreservesRuleManagerAfterConsumedNativeRelease(t *testing.T)
 	if !engine.closed || engine.rules != nil || engine.binder != nil || engine.relations != nil || engine.background != (ast.ASTRef{}) || manager.Stats().LiveReferences != baseline {
 		t.Fatal("engine retry did not finish predicate and later owners", engine.closed, engine.rules, engine.binder, engine.relations, engine.background, baseline, manager.Stats().LiveReferences)
 	}
-	if _, err = manager.GetRefCount(survivor); !errors.Is(err, ast.ErrASTHandle) {
-		t.Fatal("engine retry left the unvisited predicate live", err)
+	if manager.IsLiveHandle(survivor) {
+		t.Fatal("engine retry left the unvisited predicate live")
 	}
 	if runtime.Stats().LiveBlocks+1 != blocks {
 		t.Fatal("engine retry did not release exactly the remaining native allocation", blocks, runtime.Stats().LiveBlocks)

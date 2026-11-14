@@ -49,7 +49,7 @@ func TestEq2BVPrepareUsesBoundsAndOwnsFreshVariables(t *testing.T) {
 	}
 	equationMust(t, plan.Close())
 	for _, h := range fresh {
-		if _, e := m.GetKind(h); e == nil {
+		if m.IsLiveHandle(h) {
 			t.Fatal("fresh variable outlived its owner")
 		}
 	}

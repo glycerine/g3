@@ -124,8 +124,8 @@ func TestPB2BVFreshDeclarationRetirementFollowsSourceRange(t *testing.T) {
 	trace.Reset()
 	astTestMust(t, r.Close())
 	for _, d := range fresh {
-		if _, e := m.GetKind(d); !errors.Is(e, ast.ErrASTHandle) {
-			t.Fatal("fresh declaration remained owned", e)
+		if m.IsLiveHandle(d) {
+			t.Fatal("fresh declaration remained owned")
 		}
 	}
 	if tags.ShouldTrace("ast") {

@@ -134,6 +134,9 @@ func TestSMTRelevancyBatchScopesRestorePendingAndDeliveredAssignments(t *testing
 }
 
 func TestSMTRelevancyBatchRetryAfterBooleanQueueAdvanced(t *testing.T) {
+	if !ast.ASTValidateHandles {
+		t.Skip("read accessors do not refuse re-entrant calls in normal builds (ast_validate_handles_off.go)")
+	}
 	f := newSMTNativeCleanupFixture(t)
 	s, m := f.state, f.manager
 	p, err := NewSMTRelevancyPropagator(s.context, true)
@@ -167,6 +170,9 @@ func TestSMTRelevancyBatchRetryAfterBooleanQueueAdvanced(t *testing.T) {
 }
 
 func TestSMTRelevancyRestoredLearnedAssignmentIsDeferred(t *testing.T) {
+	if !ast.ASTValidateHandles {
+		t.Skip("read accessors do not refuse re-entrant calls in normal builds (ast_validate_handles_off.go)")
+	}
 	f := newSMTNativeCleanupFixture(t)
 	s, m := f.state, f.manager
 	p, err := NewSMTRelevancyPropagator(s.context, true)
@@ -265,6 +271,9 @@ func TestSMTRelevancyCallbackAssignmentsWaitForNextBooleanBatch(t *testing.T) {
 }
 
 func TestSMTRelevancyPendingBatchDiscardedByPop(t *testing.T) {
+	if !ast.ASTValidateHandles {
+		t.Skip("read accessors do not refuse re-entrant calls in normal builds (ast_validate_handles_off.go)")
+	}
 	f := newSMTNativeCleanupFixture(t)
 	s, m := f.state, f.manager
 	p, err := NewSMTRelevancyPropagator(s.context, true)

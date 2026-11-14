@@ -111,7 +111,7 @@ func TestHornNormalizerResetNameAndOwningSnapshots(t *testing.T) {
 		t.Fatal("reset invalidated an owning fresh-predicate snapshot", err)
 	}
 	ruleMust(t, m.DelRef(&snapshots[0]))
-	if _, err := m.GetArity(old); err == nil {
+	if m.IsLiveHandle(old) {
 		t.Fatal("reset kept an unowned old fresh declaration alive")
 	}
 	prefix, err := m.Symbols.Intern("second")
@@ -320,7 +320,7 @@ func TestHornNormalizerOwnsCanceledWorkUntilReset(t *testing.T) {
 				ruleMust(t, fast.Close())
 				ruleMust(t, n.Reset())
 				for _, h := range pending {
-					if _, err := m.GetKind(h); err == nil {
+					if m.IsLiveHandle(h) {
 						t.Fatal("reset left queued expression/proof alive")
 					}
 				}

@@ -143,8 +143,8 @@ func TestEngineClosePreservesBinderAfterConsumedNativeRelease(t *testing.T) {
 	if manager.Stats().LiveReferences+1 != before || runtime.Stats().LiveBlocks >= blocks {
 		t.Fatal("binder failure did not consume exactly one AST reference and a native allocation", before, manager.Stats().LiveReferences, blocks, runtime.Stats().LiveBlocks)
 	}
-	if _, err = manager.GetRefCount(last); !errors.Is(err, ast.ErrASTHandle) {
-		t.Fatal("last variable survived its consumed release", err)
+	if manager.IsLiveHandle(last) {
+		t.Fatal("last variable survived its consumed release")
 	}
 	if count, err := manager.GetRefCount(first); err != nil || count != 1 {
 		t.Fatal("binder lost the remaining variable owner", count, err)
@@ -169,8 +169,8 @@ func TestEngineClosePreservesBinderAfterConsumedNativeRelease(t *testing.T) {
 	if !engine.closed || engine.binder != nil || engine.relations != nil || engine.background != (ast.ASTRef{}) || manager.Stats().LiveReferences != baseline {
 		t.Fatal("engine retry did not finish the binder and later owners", engine.closed, engine.binder, engine.relations, engine.background, baseline, manager.Stats().LiveReferences)
 	}
-	if _, err = manager.GetRefCount(first); !errors.Is(err, ast.ErrASTHandle) {
-		t.Fatal("engine retry left the remaining binder variable live", err)
+	if manager.IsLiveHandle(first) {
+		t.Fatal("engine retry left the remaining binder variable live")
 	}
 	must(engine.Close())
 	must(binder.Close())

@@ -55,7 +55,7 @@ func TestExternalPredicateRelationDispatchAndOwnership(t *testing.T) {
 	if _, err = first.Relation(); err == nil {
 		t.Fatal("dropped manager relation remained open")
 	}
-	if _, err = f.ast.GetKind(predicate); err == nil {
+	if f.ast.IsLiveHandle(predicate) {
 		t.Fatal("dropping manager relation did not release predicate declaration")
 	}
 	astTestMust(t, plugin.Close())

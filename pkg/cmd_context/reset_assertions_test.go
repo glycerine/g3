@@ -170,7 +170,7 @@ func TestCommandContextResetAssertionsDefaultDropsSession(t *testing.T) {
 	contextMust(t, err)
 	contextMust(t, c.Push(2))
 	contextMust(t, c.ResetAssertions())
-	if _, err := m.GetKind(decl); err == nil {
+	if m.IsLiveHandle(decl) {
 		t.Fatal("default reset kept old manager")
 	}
 	contextMust(t, c.SetLogic("QF_LIA"))

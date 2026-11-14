@@ -13,6 +13,9 @@ import (
 )
 
 func TestSpacerContextExportPreservesCertificateAndResultOnNativeRefusal(t *testing.T) {
+	if !ast.ASTValidateHandles {
+		t.Skip("read accessors do not refuse re-entrant calls in normal builds (ast_validate_handles_off.go)")
+	}
 	for _, asModel := range []bool{false, true} {
 		for _, cause := range []error{nil, errors.New("export conversion failed")} {
 			name := "answer"

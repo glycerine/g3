@@ -359,7 +359,7 @@ func TestSMTDiffObjectiveCoreOwnsScopedExpressions(t *testing.T) {
 				t.Fatal("saved core should own exactly one remaining bound reference", refs)
 			}
 			astTestMust(t, f.r.Close())
-			if _, err := f.m.GetKind(bound); err == nil {
+			if f.m.IsLiveHandle(bound) {
 				t.Fatal("saved core declaration survived its last owner")
 			}
 			astTestMust(t, f.r.Close())

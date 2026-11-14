@@ -78,8 +78,8 @@ func TestDatalogPluginPrepareCacheAndContextOwnership(t *testing.T) {
 			fmMust(t, ctx.Close())
 			for i, root := range roots {
 				if i == 2 { // The plugin was the equality's last owner after eqRef was released.
-					if _, kindErr := m.GetKind(root); !errors.Is(kindErr, ast.ErrASTHandle) {
-						t.Fatalf("plugin close kept equality alive: %v", kindErr)
+					if m.IsLiveHandle(root) {
+						t.Fatal("plugin close kept equality alive")
 					}
 					continue
 				}

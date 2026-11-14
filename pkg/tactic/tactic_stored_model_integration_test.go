@@ -45,7 +45,7 @@ func TestTacticStoredModelRealSATBindingOwnershipAndReplacement(t *testing.T) {
 	}
 	satOK(t, tr.Close())
 	satOK(t, s.Close())
-	if _, e = m.GetKind(p); e == nil {
+	if m.IsLiveHandle(p) {
 		t.Fatal("test unexpectedly retained the atom")
 	}
 	old, e := model.NewModelCore(m)
@@ -80,7 +80,7 @@ func TestTacticStoredModelRealSATBindingOwnershipAndReplacement(t *testing.T) {
 	if !md.Closed {
 		t.Fatal("wrapper final DEC did not retire stored model")
 	}
-	if _, e = m.GetKind(d); e == nil {
+	if m.IsLiveHandle(d) {
 		t.Fatal("stored declaration leaked")
 	}
 }

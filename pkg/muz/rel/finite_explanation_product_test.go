@@ -42,7 +42,7 @@ func TestFiniteExplanationProductFactsAndOwnership(t *testing.T) {
 		t.Fatal("product row count", count)
 	}
 	astTestMust(t, product.Close())
-	if _, err = f.ast.GetKind(explanation); err == nil {
+	if f.ast.IsLiveHandle(explanation) {
 		t.Fatal("closed product kept explanation alive")
 	}
 }

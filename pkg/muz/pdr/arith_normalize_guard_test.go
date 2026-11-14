@@ -1,10 +1,7 @@
 package pdr
 
 import (
-	"errors"
 	"testing"
-
-	"github.com/glycerine/g3/pkg/ast"
 )
 
 func TestArithmeticNormalizationCleanupUnderNumericalGuard(t *testing.T) {
@@ -27,8 +24,8 @@ func TestArithmeticNormalizationCleanupUnderNumericalGuard(t *testing.T) {
 	err = n.close()
 	active = false
 	closureMust(t, err)
-	if _, e := m.GetKind(value); !errors.Is(e, ast.ErrASTHandle) {
-		t.Fatal("cleanup did not consume its numeral root", e)
+	if m.IsLiveHandle(value) {
+		t.Fatal("cleanup did not consume its numeral root")
 	}
 	closureMust(t, n.close())
 	if len(n.refs) != 0 {

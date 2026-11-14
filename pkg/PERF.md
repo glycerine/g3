@@ -533,3 +533,57 @@ new Runtime.CopyUint32s (used by big-integer copies through
 SourceCellBacking.copyWordsFrom) validates once and checks/sets the bits a
 bitmap word at a time. Same semantics; q_9009 66 s -> 62.8 s (compiled-out
 tracking measured 61.9 s, so nearly all of that cost is gone).
+
+## Unchecked AST reads in normal builds (2026-11-13)
+
+z3 reads `t->get_num_args()`, `t->get_decl()` and the rest through a pointer and
+never validates. g3's read accessors validated every call: `lock()` (Self,
+trace/format re-entry, Closed, constructor state), then `internal()`/`validNode`
+(origin, slot range, liveness, generation). The switch is now a build-time
+constant, `astValidateHandles`, in `ast/ast_validate_handles_on.go`
+(`//go:build g3checked || g3debug`) and `ast/ast_validate_handles_off.go`:
+
+- **Normal builds** (`astValidateHandles = false`): the read accessors in
+  `ast_core_accessors.go`, `ast_core_query.go` and `ast_rewriter_access.go`
+  (GetKind, GetNumArgs, GetArg, GetDecl, GetRefCount, GetFamilyID,
+  GetDeclKind, NodeHeader, GetSort, IsGround, HasQuantifiers, the quantifier,
+  sort and declaration readers, RewriterAssociative/Commutative,
+  AppArgumentView, ...) go through `readNode`/`readKind`/`readExpr`
+  (`ast/ast_read_access.go`), which read the records directly. Kind and index
+  checks stay (GetNumArgs of a non-app is still ErrASTDomain), a null handle is
+  still ErrASTHandle, and pending node deletions still run first.
+  `declIdentity`, `sortOf` and `funcFlags` skip `validNode` on references read
+  from live records (`checkNode`). Factories, reference counting, `ASTRef`
+  operations and all mutators are unchanged and still validate.
+- **g3checked or g3debug builds** (`astValidateHandles = true`): every read
+  validates exactly as before. g3debug is included because its source debug
+  checks (e.g. smtcore's `debugAssertExprInputOwned`) detect dead handles
+  through `GetRefCount`.
+
+Safety rule: in normal builds a stale handle, a handle of another manager, a
+nil or closed manager is a caller bug that reads another node's fields or
+panics (index out of range); only g3checked/g3debug builds report it. Read
+accessors also no longer refuse re-entrant calls with ErrASTPending while a
+trace or numeral format callback runs.
+
+Tests: lifetime assertions that probed deletion through an accessor error now
+use `ASTManager.IsLiveHandle(h)`, which always validates. Tests that need
+foreign/stale-handle rejection or re-entrancy refusal from read accessors are
+gated on the exported `ast.ASTValidateHandles` and run under `make tags`.
+
+Measured (median of 3, same machine, outputs identical):
+
+| Workload | HEAD | unchecked reads | z3 |
+|---|---:|---:|---:|
+| `lia_big_parse` | 12.32 s | 9.62 s (-22%) | ~1.1 s |
+| `q_9009` | 63.07 s | 62.51 s (-1%) | ~10 s |
+
+On `lia_big_parse` the flat time of `lock` fell 0.71 s -> 0.28 s, `validNode`
+0.54 s -> 0.07 s, `nodeAt` 2.10 s -> 1.10 s, and GetKind/GetNumArgs/GetArg
+flat time almost vanished (the new `readNode`/`readKind` cost 0.36 s). `q_9009`
+spends under 2% in AST access at this HEAD (numeral formatting dominates), so
+it barely moves. What remains is mostly first-touch cache misses on the node
+and app records (`NodeHeader`, `appAt`, `nodeAt`): two pages per app read.
+Next steps: skip validation in IncRef/DecRef/RefGet/SetRef the same way
+(~0.5 s of the remaining lia profile), and store app fields beside the node
+record so one read touches one cache line.

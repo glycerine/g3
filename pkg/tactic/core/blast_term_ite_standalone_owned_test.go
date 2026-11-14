@@ -147,7 +147,7 @@ func TestBlastTermITEIntoKeepsHoistedResultOwned(t *testing.T) {
 			if f.m.Stats().LiveReferences != before {
 				t.Fatal("caller output reference was not released")
 			}
-			if _, err = f.m.GetKind(got); err == nil {
+			if f.m.IsLiveHandle(got) {
 				t.Fatal("unowned hoisted result survived caller output release")
 			}
 		})

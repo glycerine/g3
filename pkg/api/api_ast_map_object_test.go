@@ -99,15 +99,15 @@ func TestAPIASTMapKeysOwnIndependentVectorRootsAndDisplay(t *testing.T) {
 		t.Fatal("key vector changed handle", ownedKey, key)
 	}
 	astTestMust(t, a.reset())
-	if _, e := m.GetKind(value); !errors.Is(e, ast.ErrASTHandle) {
-		t.Fatal("map value survived reset", e)
+	if m.IsLiveHandle(value) {
+		t.Fatal("map value survived reset")
 	}
 	if _, e := m.GetKind(ownedKey); e != nil {
 		t.Fatal("key vector borrowed map ownership", e)
 	}
 	astTestMust(t, c.Close())
-	if _, e := m.GetKind(ownedKey); !errors.Is(e, ast.ErrASTHandle) {
-		t.Fatal("key vector failed to release key", e)
+	if m.IsLiveHandle(ownedKey) {
+		t.Fatal("key vector failed to release key")
 	}
 }
 
@@ -133,11 +133,11 @@ func TestAPIASTMapResetNativeIDRecycleWithoutBackingReservation(t *testing.T) {
 	if len(a.entries) != 0 || len(a.pending) != 0 {
 		t.Fatal("native ID recycle left map owners", a.entries, a.pending)
 	}
-	if _, err := m.GetKind(key); !errors.Is(err, ast.ErrASTHandle) {
-		t.Fatal("released key should be invalid", err)
+	if m.IsLiveHandle(key) {
+		t.Fatal("released key should be invalid")
 	}
-	if _, err := m.GetKind(value); !errors.Is(err, ast.ErrASTHandle) {
-		t.Fatal("released value should be invalid", err)
+	if m.IsLiveHandle(value) {
+		t.Fatal("released value should be invalid")
 	}
 	astTestMust(t, c.Close())
 }

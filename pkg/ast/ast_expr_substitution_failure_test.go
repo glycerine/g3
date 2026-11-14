@@ -60,8 +60,8 @@ func TestASTExprSubstitutionNativeValueReplacement(t *testing.T) {
 	if !found || entry.value != incomingRef || len(m.exprSubstitutions[subst.record].pending) != 0 {
 		t.Fatal("native value replacement", entry, found)
 	}
-	if _, e := m.GetRefCount(old); !errors.Is(e, ErrASTHandle) {
-		t.Fatal("old value survived", e)
+	if m.IsLiveHandle(old) {
+		t.Fatal("old value survived")
 	}
 	astTestMust(t, m.DelExprSubstitution(&subst))
 	if rc, e := m.GetRefCount(incoming); e != nil || rc != 1 {
@@ -103,8 +103,8 @@ func TestASTExprSubstitutionNativeProofReplacement(t *testing.T) {
 	if !found || entry.value != incomingRef || len(m.exprSubstitutions[subst.record].pending) != 0 {
 		t.Fatal("native proof replacement", entry, found)
 	}
-	if _, e := m.GetRefCount(old); !errors.Is(e, ErrASTHandle) {
-		t.Fatal("old proof survived", e)
+	if m.IsLiveHandle(old) {
+		t.Fatal("old proof survived")
 	}
 	astTestMust(t, m.DelExprSubstitution(&subst))
 	if rc, e := m.GetRefCount(incoming); e != nil || rc != 1 {
@@ -152,8 +152,8 @@ func TestASTExprSubstitutionResetRefusalKeepsConsumedKeyProgress(t *testing.T) {
 	if !errors.Is(e, ErrASTDomain) {
 		t.Fatal(e)
 	}
-	if _, e = m.GetRefCount(key); !errors.Is(e, ErrASTHandle) {
-		t.Fatal("consumed key must be dead", e)
+	if m.IsLiveHandle(key) {
+		t.Fatal("consumed key must be dead")
 	}
 	table, e := m.substTable(s, 0)
 	astTestMust(t, e)
@@ -369,8 +369,8 @@ func TestASTExprSubstitutionNativeEraseAfterLastKeyReference(t *testing.T) {
 	m.BudgetField.FailAfter(0)
 	astTestMust(t, m.ExprSubstitutionErase(s, key))
 	m.BudgetField.FailAfter(-1)
-	if _, e := m.GetRefCount(key); !errors.Is(e, ErrASTHandle) {
-		t.Fatal("sole-owned key was not destroyed", e)
+	if m.IsLiveHandle(key) {
+		t.Fatal("sole-owned key was not destroyed")
 	}
 	empty, e := m.ExprSubstitutionEmpty(s)
 	astTestMust(t, e)

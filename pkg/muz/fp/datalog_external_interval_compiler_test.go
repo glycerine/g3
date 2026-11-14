@@ -165,8 +165,8 @@ func TestExternalIntervalCompilerUsesIsolatedFilterMetadata(t *testing.T) {
 			fragmentMust(t, plugin.Close())
 			fragmentMust(t, localSet.Close())
 			fragmentMust(t, localRules.Close())
-			if _, err = manager.GetKind(filter); !errors.Is(err, ast.ErrASTHandle) {
-				t.Fatal("isolated compiler scope left a generated predicate owner", err)
+			if manager.IsLiveHandle(filter) {
+				t.Fatal("isolated compiler scope left a generated predicate owner")
 			}
 		})
 	}

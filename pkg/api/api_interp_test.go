@@ -431,8 +431,10 @@ func TestInterpolationContextErrorsAndIsolation(t *testing.T) {
 	}
 	boolean := f.pin(f.w.BoolType())
 	p := f.variable("p", boolean)
-	if _, err := g.c.MkInterpolant(p); err == nil {
-		t.Fatal("accepted foreign AST")
+	if ast.ASTValidateHandles { // foreign, stale or closed-owner handles are rejected only in validating builds
+		if _, err := g.c.MkInterpolant(p); err == nil {
+			t.Fatal("accepted foreign AST")
+		}
 	}
 	pattern := f.pin(f.c.MkInterpolant(p))
 	if _, err := f.c.ComputeInterpolant(pattern); !errors.Is(err, ErrInterpolationSAT) {

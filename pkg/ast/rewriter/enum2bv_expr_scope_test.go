@@ -170,7 +170,7 @@ func TestEnum2BVDefinitionOwnerAndPublishedReferencePrefix(t *testing.T) {
 				t.Fatal("source fresh counter advanced before definition/owner completion")
 			}
 			if !value.IsNull() && len(r.bounds) == 1 {
-				if _, err := m.GetKind(tail); errors.Is(err, ast.ErrASTHandle) {
+				if !m.IsLiveHandle(tail) {
 					ownedTailFailures++
 				}
 			}

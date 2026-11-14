@@ -95,7 +95,7 @@ func TestBoolRewriterACSourceStatusesOrderAndOutputOwnership(t *testing.T) {
 		t.Fatal("output did not own singleton", n)
 	}
 	satOK(t, m.ResetRef(out))
-	if _, e = m.GetKind(h); e == nil {
+	if m.IsLiveHandle(h) {
 		t.Fatal("singleton output leaked")
 	}
 }

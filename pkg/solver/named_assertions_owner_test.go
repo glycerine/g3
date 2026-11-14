@@ -68,8 +68,8 @@ func TestNamedAssertionImplicationOwnedAcrossCoreAndErrors(t *testing.T) {
 			if rootRefs != 1 || formulaRefs != 2 || tagRefs != 3 {
 				t.Fatal("source new_t ownership missing at core call", rootRefs, formulaRefs, tagRefs)
 			}
-			if _, err = m.GetKind(implication); !errors.Is(err, ast.ErrASTHandle) {
-				t.Fatal("implication local survived core call", err)
+			if m.IsLiveHandle(implication) {
+				t.Fatal("implication local survived core call")
 			}
 			refs, e := m.GetRefCount(formula)
 			solverMust(t, e)

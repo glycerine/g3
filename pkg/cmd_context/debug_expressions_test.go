@@ -50,7 +50,7 @@ func TestDebugExpressionOwnershipReplacementAndReset(t *testing.T) {
 	if err = c.StoreDebugExpression("saved", truth); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = m.GetKind(expression); err == nil {
+	if m.IsLiveHandle(expression) {
 		t.Fatal("replaced expression was not released")
 	}
 	if err = c.StoreDebugExpression("invalid", sort); err == nil {

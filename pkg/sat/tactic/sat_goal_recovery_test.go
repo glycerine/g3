@@ -48,7 +48,7 @@ func TestSATGoalInverseLiteralOwnership(t *testing.T) {
 	// INC incoming before DEC old preserves assignment to the same expression.
 	satOK(t, lits.set(m, 2*uint32(v), p))
 	satOK(t, lits.close(m))
-	if _, e = m.GetKind(p); e == nil {
+	if m.IsLiveHandle(p) {
 		t.Fatal("inverse vector leaked its AST roots")
 	}
 }

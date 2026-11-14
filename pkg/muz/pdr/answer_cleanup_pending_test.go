@@ -90,7 +90,7 @@ func TestPDRAnswerExportPreservesResultWhenConstraintCleanupRefuses(t *testing.T
 	if failure.CleanupCause() != nil || owner.result != (ast.ASTRef{}) || len(owner.temporaries) != 0 {
 		t.Fatal("answer export cleanup retry did not finish")
 	}
-	if _, err := manager.GetKind(application); !errors.Is(err, ast.ErrASTHandle) {
-		t.Fatal("answer export roots remained live", err)
+	if manager.IsLiveHandle(application) {
+		t.Fatal("answer export roots remained live")
 	}
 }

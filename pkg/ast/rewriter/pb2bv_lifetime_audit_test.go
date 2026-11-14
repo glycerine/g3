@@ -58,8 +58,8 @@ func TestPB2BVCleanupFailureRetiresFreshAndPreservesProofAndParams(t *testing.T)
 		t.Fatal("cleanup did not stop after source member destruction", err, r.header)
 	}
 	for _, declaration := range fresh {
-		if _, e := m.GetKind(declaration); !errors.Is(e, ast.ErrASTHandle) {
-			t.Fatal("consumed fresh declaration remained in failed reconstruction", e)
+		if m.IsLiveHandle(declaration) {
+			t.Fatal("consumed fresh declaration remained in failed reconstruction")
 		}
 	}
 	actualProof, err = m.RefGet(proof)

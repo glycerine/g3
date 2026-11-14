@@ -30,8 +30,8 @@ func TestAPIGoalTranslationOwnsTargetFormulas(t *testing.T) {
 	defer func() { astTestMust(t, targetManager.DelRef(&ref)) }()
 	handle, err := targetManager.RefGet(ref)
 	astTestMust(t, err)
-	if _, err = source.m.GetKind(handle); !errors.Is(err, ast.ErrASTHandle) {
-		t.Fatal("translated formula provenance", err)
+	if source.m.IsLiveHandle(handle) {
+		t.Fatal("translated formula provenance")
 	}
 	if _, err = goal.Translate(source.c); !errors.Is(err, ast.ErrASTDomain) {
 		t.Fatal("same-context translation", err)

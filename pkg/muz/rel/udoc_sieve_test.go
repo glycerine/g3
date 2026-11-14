@@ -342,7 +342,7 @@ func TestUDocSieveOwnsIgnoredSortsThroughCloneAndProjection(t *testing.T) {
 		t.Fatal("projected sieve did not own its ignored original sort", err)
 	}
 	astTestMust(t, projected.Close())
-	if _, err := f.ast.GetKind(fresh); err == nil {
+	if f.ast.IsLiveHandle(fresh) {
 		t.Fatal("closing the final sieve left its ignored sort alive")
 	}
 }

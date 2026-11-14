@@ -3,7 +3,6 @@ package ast
 // Source: src/util/obj_ref.h:56-60,100-110; src/ast/ast.h:2258-2264.
 
 import (
-	"errors"
 	"testing"
 )
 
@@ -58,10 +57,10 @@ func TestASTRefMoveSwapStealSourceOwnership(t *testing.T) {
 	m.BudgetField.FailAfter(-1)
 	astTestMust(t, m.DelRef(&rb))
 	astTestMust(t, m.DecRef(stolen))
-	if got, e := m.GetRefCount(a); !errors.Is(e, ErrASTHandle) {
-		t.Fatalf("owned first node survived reference destruction: count=%d, error=%v", got, e)
+	if m.IsLiveHandle(a) {
+		t.Fatal("owned first node survived reference destruction")
 	}
-	if got, e := m.GetRefCount(b); !errors.Is(e, ErrASTHandle) {
-		t.Fatalf("stolen node survived explicit release: count=%d, error=%v", got, e)
+	if m.IsLiveHandle(b) {
+		t.Fatal("stolen node survived explicit release")
 	}
 }

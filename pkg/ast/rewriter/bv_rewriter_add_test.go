@@ -324,7 +324,7 @@ func TestBVRewriterAdditionAfterCoreNativeWideAssignment(t *testing.T) {
 				if st != Rewrite1 || got == old {
 					t.Fatal("completed assignment", st)
 				}
-				if _, e := m.GetRefCount(old); e == nil {
+				if m.IsLiveHandle(old) {
 					t.Fatal("completed assignment retained old root")
 				}
 				n, e := m.GetNumArgs(got)

@@ -87,7 +87,7 @@ func TestModelDerivedUniverseUpdatePreservesLiteralAppendAndCounts(t *testing.T)
 		t.Fatal("source update duplicated sort", n)
 	}
 	satOK(t, md.Close())
-	if _, e = m.GetKind(v); e == nil {
+	if m.IsLiveHandle(v) {
 		t.Fatal("literal source destructor did not consume both physical entries")
 	}
 }
@@ -138,10 +138,10 @@ func TestModelDerivedUniverseOwnershipCopyAndInsertionOrder(t *testing.T) {
 	satOK(t, out.Set(&copy.CoreField))
 	satOK(t, out.Close())
 	for i, v := range values {
-		if _, e = m.GetKind(v); e == nil {
+		if m.IsLiveHandle(v) {
 			t.Fatal("universe value leaked", i)
 		}
-		if _, e = m.GetKind(sorts[i]); e == nil {
+		if m.IsLiveHandle(sorts[i]) {
 			t.Fatal("universe sort leaked", i)
 		}
 	}

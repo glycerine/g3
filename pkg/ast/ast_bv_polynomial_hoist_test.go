@@ -139,7 +139,7 @@ func TestASTBitVectorCoefficientHoistSoleSliceOwnershipAndGrowth(t *testing.T) {
 		}
 	}
 	for _, mon := range old {
-		if _, e = m.GetHash(mon); e == nil {
+		if m.IsLiveHandle(mon) {
 			t.Fatal("original products stayed alive after compaction")
 		}
 	}

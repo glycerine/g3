@@ -238,7 +238,7 @@ func TestBVRewriterMultiplicationCallerNativeWideFinalAssignment(t *testing.T) {
 				if !yes {
 					t.Fatal("native replacement shape", nativeResult)
 				}
-				if _, e := m.GetRefCount(old); e == nil {
+				if m.IsLiveHandle(old) {
 					t.Fatal("native assignment retained the old root")
 				}
 				if st != Rewrite2 {

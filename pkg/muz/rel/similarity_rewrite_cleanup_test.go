@@ -69,7 +69,7 @@ func TestSimilarityRewriteConstructionCleanupKeepsNestedOwnersForRetry(t *testin
 	if receipt.CleanupCause() != nil || outer.rule != nil || outer.nested != nil || len(inner.refs) != 0 {
 		t.Fatal("successful rewrite cleanup left an owner frontier")
 	}
-	if _, err = f.ast.GetKind(kept); err == nil {
+	if f.ast.IsLiveHandle(kept) {
 		t.Fatal("successful rewrite cleanup did not release the final temporary")
 	}
 	// Retry the live transformation with unchanged source owners and check the

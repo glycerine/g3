@@ -320,7 +320,7 @@ func TestBoundManagerKeepsExactlyOneVariableReferenceUntilReset(t *testing.T) {
 		t.Fatal("bound manager did not retain its variable", err)
 	}
 	equationMust(t, b.Reset())
-	if _, err = m.GetKind(x); err == nil {
+	if m.IsLiveHandle(x) {
 		t.Fatal("reset retained an extra variable reference")
 	}
 	variables, err := b.Variables()

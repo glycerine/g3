@@ -386,7 +386,7 @@ func TestBVTrailingNativeWideDeletionReset(t *testing.T) {
 			t.Fatal("native reset retained a cache table")
 		}
 	}
-	if _, e := m.GetRefCount(root); e == nil {
+	if m.IsLiveHandle(root) {
 		t.Fatal("native reset retained the sole-owned root")
 	}
 	satOK(t, p.Close())

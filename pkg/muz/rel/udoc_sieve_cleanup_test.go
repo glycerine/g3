@@ -108,7 +108,7 @@ func TestUDocSieveCloseNativeRefusalSkipsConsumedSortPins(t *testing.T) {
 	if len(sieve.sortRefs) != 0 || sieve.manager != nil || sieve.inner != nil || manager.Stats().LiveReferences != baseline {
 		t.Fatal("sieve cleanup retry left sort owners", baseline, manager.Stats())
 	}
-	if _, err = manager.GetKind(fresh); err == nil {
+	if manager.IsLiveHandle(fresh) {
 		t.Fatal("completed sieve cleanup left its ignored sort alive")
 	}
 	for _, ref := range remaining {

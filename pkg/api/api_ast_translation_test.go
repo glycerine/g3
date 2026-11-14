@@ -32,8 +32,8 @@ func TestSMTContextASTTranslationReturnsTargetOwnedReference(t *testing.T) {
 	if name, e := target.DeclarationName(fMustDecl(t, targetManager, argument)); e != nil || name != "translated-constant" {
 		t.Fatal("translated constant", name, e)
 	}
-	if _, err = source.m.GetKind(translated); !errors.Is(err, ast.ErrASTHandle) {
-		t.Fatal("target provenance", err)
+	if source.m.IsLiveHandle(translated) {
+		t.Fatal("target provenance")
 	}
 	// TranslateAST has closed its temporary translator; the target ASTRef is
 	// therefore the sole explicit ownership bridge tested here.

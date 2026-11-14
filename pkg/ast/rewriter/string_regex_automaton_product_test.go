@@ -194,7 +194,7 @@ func TestStringRegexAutomatonProductOwnsRootsAndUsesCurrentGraph(t *testing.T) {
 		t.Fatal("product ignored changes to the current borrowed graph")
 	}
 	astTestMust(t, last.Close())
-	if _, err := m.GetKind(regex); err == nil {
+	if m.IsLiveHandle(regex) {
 		t.Fatal("product chain leaked its independently acquired input roots")
 	}
 }
@@ -268,7 +268,7 @@ func TestStringRegexAutomatonProductUnknownCleanupAndGuards(t *testing.T) {
 	if _, err := NewStringRegexAutomatonProduct(left, left, nil); err == nil {
 		t.Fatal("closed left input accepted")
 	}
-	if _, err := m.GetKind(regex); err == nil {
+	if m.IsLiveHandle(regex) {
 		t.Fatal("failed product retained roots after parents closed")
 	}
 }

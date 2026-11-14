@@ -145,14 +145,14 @@ func TestSMTQIQueueOwnsRecordedLemmasThroughScopeAndReset(t *testing.T) {
 		t.Fatal("scoped lemma did not outlive its producer", err)
 	}
 	astTestMust(t, queue.PopScopes(1))
-	if _, err = m.GetKind(scoped); err == nil {
+	if m.IsLiveHandle(scoped) {
 		t.Fatal("popped lemma retained its AST ownership")
 	}
 	if _, err = m.GetKind(base); err != nil {
 		t.Fatal("scope rollback released the base lemma", err)
 	}
 	astTestMust(t, queue.Reset())
-	if _, err = m.GetKind(base); err == nil {
+	if m.IsLiveHandle(base) {
 		t.Fatal("reset retained the base lemma")
 	}
 }

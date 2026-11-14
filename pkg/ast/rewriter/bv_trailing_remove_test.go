@@ -193,11 +193,11 @@ func TestBVTrailingRemovalNativeWideRefAndOlderSliceDestruction(t *testing.T) {
 		t.Fatal("native frame destruction did not finish children and parent")
 	}
 	satOK(t, p.Close())
-	if _, e := m.GetRefCount(held); !errors.Is(e, ast.ErrASTHandle) {
-		t.Fatal("older vector ref retained", e)
+	if m.IsLiveHandle(held) {
+		t.Fatal("older vector ref retained")
 	}
-	if _, e := m.GetRefCount(older); !errors.Is(e, ast.ErrASTHandle) {
-		t.Fatal("parent vector ref retained", e)
+	if m.IsLiveHandle(older) {
+		t.Fatal("parent vector ref retained")
 	}
 	if e := call.sourceReady(m); e != nil {
 		t.Fatal("completed native source DT not ready", e)

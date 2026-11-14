@@ -2,7 +2,6 @@ package solver
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -172,8 +171,8 @@ func TestNamedAssertionsTemporaryRetirementFollowsSourceForwardRange(t *testing.
 				t.Fatal("retired assumptions retained")
 			}
 			for _, h := range values {
-				if _, e := m.GetKind(h); !errors.Is(e, ast.ErrASTHandle) {
-					t.Fatal("temporary assumption survived", e)
+				if m.IsLiveHandle(h) {
+					t.Fatal("temporary assumption survived")
 				}
 			}
 			if tags.ShouldTrace("ast") {

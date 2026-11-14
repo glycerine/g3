@@ -53,15 +53,15 @@ func TestAPIContextResultsExplicitReferencesAndAlias(t *testing.T) {
 	}
 	astTestMust(t, m.IncRef(p)) // user's explicit retain survives next API call.
 	astTestMust(t, c.resetLastResult())
-	if _, e := m.GetKind(q); !errors.Is(e, ast.ErrASTHandle) {
-		t.Fatal("unpinned old result survived reset", e)
+	if m.IsLiveHandle(q) {
+		t.Fatal("unpinned old result survived reset")
 	}
 	if rc, e := m.GetRefCount(p); e != nil || rc != 1 {
 		t.Fatal("user reference was lost", rc, e)
 	}
 	astTestMust(t, m.DecRef(p))
-	if _, e := m.GetKind(p); !errors.Is(e, ast.ErrASTHandle) {
-		t.Fatal("last external release did not retire AST", e)
+	if m.IsLiveHandle(p) {
+		t.Fatal("last external release did not retire AST")
 	}
 }
 
@@ -85,8 +85,8 @@ func TestAPIContextResultsAutomaticReferencesAllASTKinds(t *testing.T) {
 	}
 	astTestMust(t, c.Close())
 	for _, h := range []ast.ASTHandle{s, d, p} {
-		if _, e := m.GetKind(h); !errors.Is(e, ast.ErrASTHandle) {
-			t.Fatal("context result member destruction retained a root", h, e)
+		if m.IsLiveHandle(h) {
+			t.Fatal("context result member destruction retained a root", h)
 		}
 	}
 }
@@ -173,8 +173,8 @@ func TestAPIContextGoalRootSurvivesExplicitResultResetAndDrains(t *testing.T) {
 	if !o.object.closed || !g.Closed {
 		t.Fatal("context teardown ignored an outstanding API object")
 	}
-	if _, e := m.GetKind(p); !errors.Is(e, ast.ErrASTHandle) {
-		t.Fatal("goal/translator teardown retained the application", e)
+	if m.IsLiveHandle(p) {
+		t.Fatal("goal/translator teardown retained the application")
 	}
 	v, e = md.ConstantInterpretation(d)
 	astTestMust(t, e)
@@ -297,8 +297,8 @@ func TestAPIContextNativeResultGrowthAndReferenceRelease(t *testing.T) {
 			if len(c.lastResult) != 0 {
 				t.Fatal("explicit results not reset")
 			}
-			if _, e := m.GetKind(p); !errors.Is(e, ast.ErrASTHandle) {
-				t.Fatal("reset retained explicit results", e)
+			if m.IsLiveHandle(p) {
+				t.Fatal("reset retained explicit results")
 			}
 		} else if got, e := m.GetRefCount(p); e != nil || got != 4097 {
 			t.Fatal("automatic trail must survive result reset", got, e)
@@ -308,8 +308,8 @@ func TestAPIContextNativeResultGrowthAndReferenceRelease(t *testing.T) {
 		if c.astTrail != nil || c.lastResult != nil {
 			t.Fatal("close retained native backing")
 		}
-		if _, e := m.GetKind(p); !errors.Is(e, ast.ErrASTHandle) {
-			t.Fatal("close retained root", e)
+		if m.IsLiveHandle(p) {
+			t.Fatal("close retained root")
 		}
 	}
 }

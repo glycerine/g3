@@ -450,8 +450,8 @@ func TestASTProofHyperNativeWideReaderExactOwnershipAndIndependentOutputs(t *tes
 	}
 	m.BudgetField.FailAfter(-1)
 	astTestMust(t, m.DecRef(p))
-	if _, e = m.GetKind(p); !errors.Is(e, ErrASTHandle) {
-		t.Fatal("proof owner did not end", e)
+	if m.IsLiveHandle(p) {
+		t.Fatal("proof owner did not end")
 	}
 	for _, h := range premises {
 		_, e = m.GetKind(h)

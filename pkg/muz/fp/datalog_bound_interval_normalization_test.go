@@ -260,8 +260,8 @@ func TestDatalogBoundIntervalNormalizesHelpersWithOriginKinds(t *testing.T) {
 	}
 	fragmentMust(t, scope.Close())
 	for _, declaration := range helpers {
-		if _, cause := f.m.GetKind(declaration); !errors.Is(cause, ast.ErrASTHandle) {
-			t.Fatal("closed normalization still owns a helper declaration", cause)
+		if f.m.IsLiveHandle(declaration) {
+			t.Fatal("closed normalization still owns a helper declaration")
 		}
 	}
 	if len(source.entries) != 4 || source.closed {

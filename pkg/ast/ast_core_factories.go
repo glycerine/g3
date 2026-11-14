@@ -157,7 +157,7 @@ func (m *ASTManager) MkVar(index uint32, sort ASTHandle) (ASTHandle, error) {
 	return m.external(r), e
 }
 func (m *ASTManager) funcFlags(decl astNodeRef) (ASTFuncFlags, error) {
-	if e := m.validNode(decl); e != nil {
+	if e := m.checkNode(decl); e != nil {
 		return ASTFuncFlags{}, e
 	}
 	if m.nodeAt(decl.slot).kind != ASTFuncDecl {

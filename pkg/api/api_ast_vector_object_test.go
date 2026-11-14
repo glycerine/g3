@@ -91,7 +91,7 @@ func TestAPIASTVectorTranslateOwnsIndependentTargetRoots(t *testing.T) {
 		t.Fatal("target vector depended on source context", e)
 	}
 	astTestMust(t, target.Close())
-	if _, e := targetManager.GetKind(copy); !errors.Is(e, ast.ErrASTHandle) {
-		t.Fatal("target vector failed to release translated root", e)
+	if targetManager.IsLiveHandle(copy) {
+		t.Fatal("target vector failed to release translated root")
 	}
 }

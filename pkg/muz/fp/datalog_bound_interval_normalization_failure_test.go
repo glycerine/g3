@@ -154,7 +154,7 @@ func TestDatalogBoundIntervalNormalizationCompletionRetriesNativeCleanup(t *test
 		t.Fatal("cleanup retry changed diagnostics, leaked owners, or published a result")
 	}
 	for _, declaration := range fresh {
-		if _, cause := m.GetKind(declaration); cause == nil {
+		if m.IsLiveHandle(declaration) {
 			t.Fatal("local generated declaration outlived its scope")
 		}
 	}

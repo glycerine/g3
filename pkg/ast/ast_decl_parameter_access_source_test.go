@@ -47,7 +47,7 @@ func TestASTDeclParameterAccessMetadataAndBorrowedASTPayload(t *testing.T) {
 		t.Fatal("parameter copy must borrow its AST payload", before, after, err)
 	}
 	astTestMust(t, m.DecRef(decl))
-	if _, err := m.GetKind(leaf); err == nil {
+	if m.IsLiveHandle(leaf) {
 		t.Fatal("parameter copy incorrectly owns its AST payload")
 	}
 	astTestMust(t, m.DelParameter(&copy))

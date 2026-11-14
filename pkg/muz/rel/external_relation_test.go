@@ -327,7 +327,7 @@ func TestExternalRelationCallbackTrailLifetime(t *testing.T) {
 		t.Fatal("trail was released before plugin", err)
 	}
 	astTestMust(t, plugin.Close())
-	if _, err = f.ast.GetKind(value); err == nil {
+	if f.ast.IsLiveHandle(value) {
 		t.Fatal("plugin close did not release callback argument")
 	}
 }
@@ -361,7 +361,7 @@ func TestExternalRelationReduceCallbackRetainsReturnedAST(t *testing.T) {
 		t.Fatal("callback result released before plugin cleanup", err)
 	}
 	astTestMust(t, plugin.Close())
-	if _, err := f.ast.GetKind(result); err == nil {
+	if f.ast.IsLiveHandle(result) {
 		t.Fatal("plugin cleanup did not release callback result")
 	}
 }

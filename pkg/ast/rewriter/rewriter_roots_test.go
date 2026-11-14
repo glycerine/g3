@@ -90,8 +90,8 @@ func TestRewriterNativeRootOnlyReferenceAliasReplacement(t *testing.T) {
 		t.Fatal("alias replacement owns one reference", count)
 	}
 	satOK(t, shrinkRewriterRoots(m, &roots, 0))
-	if _, e = m.GetKind(h); e != ast.ErrASTHandle {
-		t.Fatal("last root did not delete AST", e)
+	if m.IsLiveHandle(h) {
+		t.Fatal("last root did not delete AST")
 	}
 	// A repeated reset must not decrement the already-consumed reference.
 	satOK(t, shrinkRewriterRoots(m, &roots, 0))

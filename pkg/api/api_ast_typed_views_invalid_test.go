@@ -25,8 +25,10 @@ func TestAPITypedASTViewsRejectWrongKinds(t *testing.T) {
 func TestAPITypedASTViewsRejectForeignAndNullHandles(t *testing.T) {
 	f := newAPITypedASTFixture(t)
 	other := newAPITypedASTFixture(t)
-	if _, err := f.context.ToSort(other.sort); err == nil {
-		t.Fatal("foreign sort accepted")
+	if ast.ASTValidateHandles { // foreign, stale or closed-owner handles are rejected only in validating builds
+		if _, err := f.context.ToSort(other.sort); err == nil {
+			t.Fatal("foreign sort accepted")
+		}
 	}
 	if _, err := f.context.ToSort(ast.ASTHandle{}); err == nil {
 		t.Fatal("null sort accepted")

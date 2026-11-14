@@ -93,13 +93,13 @@ func TestTacticFilterModelRealSATBindingsUniverseAndReplacement(t *testing.T) {
 		t.Fatal("source universe copy", u)
 	}
 	satOK(t, c.Close())
-	if _, e = m.GetKind(decls[2]); e == nil {
+	if m.IsLiveHandle(decls[2]) {
 		t.Fatal("filtered auxiliary declaration leaked")
 	}
 	_, e = m.GetKind(v)
 	satOK(t, e)
 	satOK(t, out.Close())
-	if _, e = m.GetKind(v); e == nil {
+	if m.IsLiveHandle(v) {
 		t.Fatal("copied universe value leaked")
 	}
 }

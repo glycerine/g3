@@ -79,6 +79,9 @@ func TestNodeHeaderForNonApplications(t *testing.T) {
 }
 
 func TestNodeHeaderRefusesBadHandlesAndClosedManagers(t *testing.T) {
+	if !ASTValidateHandles {
+		t.Skip("handle validation is compiled out of normal builds (ast_validate_handles_off.go)")
+	}
 	first, second := astTestManager(t), astTestManager(t)
 	boolean, err := first.MkBoolSort()
 	if err != nil {

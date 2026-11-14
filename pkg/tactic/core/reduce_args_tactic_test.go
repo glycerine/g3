@@ -139,7 +139,7 @@ func TestReduceArgsModelLifetimeFilteringAndVariables(t *testing.T) {
 	}
 	simplifyMust(t, f.goal.Close())
 	for _, d := range helpers {
-		if _, err := f.m.GetKind(d); err == nil {
+		if f.m.IsLiveHandle(d) {
 			t.Fatal("helper declaration survived its last owner")
 		}
 	}

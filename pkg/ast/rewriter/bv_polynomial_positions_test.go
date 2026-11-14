@@ -104,11 +104,13 @@ func TestBVPolynomialPositionsNativeBorrowedKeyLifetimeAndReset(t *testing.T) {
 	for i := range pins {
 		astTestMust(t, m.DelRef(&pins[i]))
 	}
-	if _, e := m.GetHash(keys[0]); e == nil {
+	if m.IsLiveHandle(keys[0]) {
 		t.Fatal("map retained an expression reference")
 	}
-	if _, _, e := p.find(keys[0]); !errors.Is(e, ast.ErrASTHandle) {
-		t.Fatal("stale queried handle was not validated", e)
+	if ast.ASTValidateHandles { // foreign, stale or closed-owner handles are rejected only in validating builds
+		if _, _, e := p.find(keys[0]); !errors.Is(e, ast.ErrASTHandle) {
+			t.Fatal("stale queried handle was not validated", e)
+		}
 	}
 	// Native clear and destruction never dereference borrowed stored keys.
 	astTestMust(t, p.reset())

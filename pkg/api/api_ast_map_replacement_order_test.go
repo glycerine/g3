@@ -34,8 +34,8 @@ func TestAPIASTMapReplacementNativeIDRecycleBeforePublishingNew(t *testing.T) {
 	if err != nil || got != incoming || !a.entries[key].valueOwned {
 		t.Fatalf("replacement publication after native recycle: got=%v, err=%v, entry=%+v", got, err, a.entries[key])
 	}
-	if _, err := m.GetKind(old); err == nil || len(a.pending) != 0 {
-		t.Fatalf("old value survived or pending owner remained: old error=%v, pending=%d", err, len(a.pending))
+	if live := m.IsLiveHandle(old); live || len(a.pending) != 0 {
+		t.Fatalf("old value survived or pending owner remained: old live=%v, pending=%d", live, len(a.pending))
 	}
 	astTestMust(t, a.reset())
 	if rc, err := m.GetRefCount(incoming); err != nil || rc != 1 {

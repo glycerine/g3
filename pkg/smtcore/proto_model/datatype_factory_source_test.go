@@ -211,7 +211,7 @@ func TestDatatypeFactoryFreshCandidateOwnedAcrossRegistrationFailure(t *testing.
 			}
 			reached = true
 			t.Logf("registration refusal after %d actual application reservations", ordinal)
-			if _, err := m.GetKind(candidate); err == nil {
+			if m.IsLiveHandle(candidate) {
 				t.Fatal("expr_ref candidate survived failed registration")
 			}
 			if len(f.sets[sort].values) != 1 || f.sets[sort].values[0] != old || len(f.pending) != 0 {

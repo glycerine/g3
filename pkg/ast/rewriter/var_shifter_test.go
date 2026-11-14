@@ -300,7 +300,7 @@ func TestVariableShifterSharedTermDifferentBinderDepthAndOutputLifetime(t *testi
 	if after != counts[1] {
 		t.Fatal("shifted free variable retained original", after, counts[1])
 	}
-	if _, e = m.GetKind(shifted); e == nil {
+	if m.IsLiveHandle(shifted) {
 		t.Fatal("unretained rebuilt output survived final release")
 	}
 }

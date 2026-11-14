@@ -20,8 +20,10 @@ func TestAPIPublicDeclarationKindRejectsNonDeclarationASTs(t *testing.T) {
 func TestAPIPublicDeclarationKindRejectsForeignAndClosedOwners(t *testing.T) {
 	f := newAPITypedASTFixture(t)
 	other := newAPITypedASTFixture(t)
-	if _, err := f.context.CoreDeclarationKind(other.declaration); err == nil {
-		t.Fatal("foreign declaration accepted")
+	if ast.ASTValidateHandles { // foreign, stale or closed-owner handles are rejected only in validating builds
+		if _, err := f.context.CoreDeclarationKind(other.declaration); err == nil {
+			t.Fatal("foreign declaration accepted")
+		}
 	}
 	context, err := NewSMTContext()
 	if err != nil {

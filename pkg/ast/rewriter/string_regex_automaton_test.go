@@ -62,7 +62,7 @@ func TestStringRegexAutomatonOwnedGraphLabelsAndClose(t *testing.T) {
 	if _, err := owner.Condition(0); err == nil {
 		t.Fatal("closed owner exposed a borrowed AST label")
 	}
-	if _, err := m.GetKind(regex); err == nil {
+	if m.IsLiveHandle(regex) {
 		t.Fatal("automaton close leaked its independently owned regex root")
 	}
 }
@@ -225,7 +225,7 @@ func TestStringRegexAutomatonRejectsNonStringRegex(t *testing.T) {
 		t.Fatal("unsupported symbolic construction returned an owning automaton")
 	}
 	astTestMust(t, m.DelRef(&input))
-	if _, err := m.GetKind(symbolicRegex); err == nil {
+	if m.IsLiveHandle(symbolicRegex) {
 		t.Fatal("constructor failure leaked its acquired input root")
 	}
 }

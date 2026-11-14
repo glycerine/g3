@@ -105,7 +105,9 @@ func TestGeneratedASTReplayExpiresUnreferencedLastResult(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = r.astObject(owner, 1); err == nil {
-		t.Fatal("unreferenced prior result remained valid")
+	if ast.ASTValidateHandles { // foreign, stale or closed-owner handles are rejected only in validating builds
+		if _, err = r.astObject(owner, 1); err == nil {
+			t.Fatal("unreferenced prior result remained valid")
+		}
 	}
 }

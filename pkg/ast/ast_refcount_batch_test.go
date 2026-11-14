@@ -41,8 +41,8 @@ func TestASTDecRefEachOrderAndFailure(t *testing.T) {
 	if rc(c) != base {
 		t.Fatal("reverse batch refcount", rc(c), base)
 	}
-	if _, e = m.GetRefCount(fc); !errors.Is(e, ErrASTHandle) {
-		t.Fatal("released app still live", e)
+	if m.IsLiveHandle(fc) {
+		t.Fatal("released app still live")
 	}
 
 	// Forward batch stops at the stale handle and reports the elements

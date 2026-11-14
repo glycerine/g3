@@ -131,8 +131,8 @@ func TestSMTLRAOperatorNegatedWatchTargetOwnership(t *testing.T) {
 	if len(f.a.axiomRefs) != 0 {
 		t.Fatal("watch ref was not retired")
 	}
-	if _, err = f.m.GetKind(target); !errors.Is(err, ast.ErrASTHandle) {
-		t.Fatal("temporary NOT target remained pinned after pop", err)
+	if f.m.IsLiveHandle(target) {
+		t.Fatal("temporary NOT target remained pinned after pop")
 	}
 }
 

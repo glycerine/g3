@@ -41,7 +41,7 @@ func TestCommandContextResetRebuildsSessionAndPreservesOptions(t *testing.T) {
 				t.Fatal("old session not satisfiable", status)
 			}
 			contextMust(t, c.Reset())
-			if _, err := old.GetKind(x); err == nil {
+			if old.IsLiveHandle(x) {
 				t.Fatal("old manager still accepts handles")
 			}
 			if c.owned != services || c.parameters != parameters || !c.PrintSuccess || c.GlobalDeclarations != global {

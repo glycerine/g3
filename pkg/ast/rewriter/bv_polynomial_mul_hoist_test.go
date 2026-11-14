@@ -109,7 +109,7 @@ func TestBVPolynomialMultiplicationHoistSoleInputOwnershipAndGrowth(t *testing.T
 	if !changed {
 		t.Fatal("long sum not hoisted")
 	}
-	if _, e = m.GetHash(sum); e == nil {
+	if m.IsLiveHandle(sum) {
 		t.Fatal("original sum retained after owning replacement")
 	}
 	got, e := m.RefGet(out)

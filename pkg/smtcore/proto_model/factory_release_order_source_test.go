@@ -154,7 +154,7 @@ func TestFactorySourceForwardReferenceDestruction(t *testing.T) {
 			protoMust(t, factory.Close())
 			after := output.String()
 			for _, node := range expected {
-				if _, err := m.GetKind(node); err == nil {
+				if m.IsLiveHandle(node) {
 					t.Fatal("factory left its sole-owned node alive", node)
 				}
 			}

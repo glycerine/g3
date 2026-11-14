@@ -82,8 +82,10 @@ func TestAPIIsApplicationNullAndInvalidOwners(t *testing.T) {
 	}
 	other := newSMTAPIFixture(t, "ALL", nil)
 	foreign := other.pin(other.c.Bool(true))
-	if _, err := f.c.IsApplication(foreign); err == nil {
-		t.Fatal("foreign handle accepted")
+	if ast.ASTValidateHandles { // foreign, stale or closed-owner handles are rejected only in validating builds
+		if _, err := f.c.IsApplication(foreign); err == nil {
+			t.Fatal("foreign handle accepted")
+		}
 	}
 	closed, err := NewSMTContext()
 	astTestMust(t, err)

@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
-	"github.com/glycerine/g3/pkg/ast"
 )
 
 func TestPublicASTMapKeysOwnIndependentRoots(t *testing.T) {
@@ -27,15 +26,15 @@ func TestPublicASTMapKeysOwnIndependentRoots(t *testing.T) {
 		t.Fatal("key changed", got, key)
 	}
 	astTestMust(t, mapping.Reset())
-	if _, err := manager.GetKind(value); !errors.Is(err, ast.ErrASTHandle) {
-		t.Fatal("map value survived reset", err)
+	if manager.IsLiveHandle(value) {
+		t.Fatal("map value survived reset")
 	}
 	if _, err := manager.GetKind(got); err != nil {
 		t.Fatal("key snapshot borrowed map root", err)
 	}
 	astTestMust(t, keys.Close())
-	if _, err := manager.GetKind(got); !errors.Is(err, ast.ErrASTHandle) {
-		t.Fatal("key snapshot failed to release root", err)
+	if manager.IsLiveHandle(got) {
+		t.Fatal("key snapshot failed to release root")
 	}
 }
 

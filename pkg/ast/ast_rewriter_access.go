@@ -16,11 +16,7 @@ func (m *ASTManager) RewriterMakeApp(d ASTHandle, args AppArguments) (ASTHandle,
 }
 
 func (m *ASTManager) RewriterAssociative(d ASTHandle) (bool, error) {
-	if e := m.lock(); e != nil {
-		return false, e
-	}
-	defer m.mu.Unlock()
-	decl, e := m.requireKind(d, ASTFuncDecl)
+	decl, e := m.readKind(d, ASTFuncDecl)
 	if e != nil {
 		return false, e
 	}
@@ -29,11 +25,7 @@ func (m *ASTManager) RewriterAssociative(d ASTHandle) (bool, error) {
 }
 
 func (m *ASTManager) RewriterCommutative(d ASTHandle) (bool, error) {
-	if e := m.lock(); e != nil {
-		return false, e
-	}
-	defer m.mu.Unlock()
-	decl, e := m.requireKind(d, ASTFuncDecl)
+	decl, e := m.readKind(d, ASTFuncDecl)
 	if e != nil {
 		return false, e
 	}
@@ -57,11 +49,7 @@ func (m *ASTManager) RewriterPattern(t ASTHandle) (bool, error) {
 // AppArgumentView borrows an application's checked handle array for a source
 // callback. The application must remain alive until the view is discarded.
 func (m *ASTManager) AppArgumentView(app ASTHandle) (AppArguments, error) {
-	if e := m.lock(); e != nil {
-		return AppArguments{}, e
-	}
-	defer m.mu.Unlock()
-	r, e := m.requireKind(app, ASTApp)
+	r, e := m.readKind(app, ASTApp)
 	if e != nil {
 		return AppArguments{}, e
 	}

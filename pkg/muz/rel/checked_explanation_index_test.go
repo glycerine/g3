@@ -195,7 +195,7 @@ func TestCheckedExplanationProductProjectUnionAndNullaryOwnership(t *testing.T) 
 					t.Fatalf("nullary explanation (%v, %v, %v), want owned proof", got, found, e)
 				}
 				astTestMust(t, nullary.Close())
-				if _, err = f.ast.GetKind(nullaryProof); err == nil {
+				if f.ast.IsLiveHandle(nullaryProof) {
 					t.Fatal("closed nullary product kept proof alive")
 				}
 				astTestMust(t, f.relations.SetCheckedFiniteFactory(nil))

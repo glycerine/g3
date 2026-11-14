@@ -101,10 +101,10 @@ func TestBV2IntContextConsecutivePowersAndWidths(t *testing.T) {
 			if _, found, err = r.IsPower2(x); err != nil || found {
 				t.Fatal("reset left mapping", found, err)
 			}
-			if _, err = m.GetKind(logx); err == nil {
+			if m.IsLiveHandle(logx) {
 				t.Fatal("reset retained old trail entry")
 			}
-			if _, err = m.GetKind(newer); err == nil {
+			if m.IsLiveHandle(newer) {
 				t.Fatal("reset retained current trail entry")
 			}
 			equationMust(t, r.CollectPower2(goal))
@@ -188,7 +188,7 @@ func TestBV2IntContextParametersSideOwnershipAndReset(t *testing.T) {
 		t.Fatal("caller mutated owner slice")
 	}
 	equationMust(t, r.Reset())
-	if _, err = m.GetKind(h); err == nil {
+	if m.IsLiveHandle(h) {
 		t.Fatal("side references survived reset")
 	}
 	n, err = r.MaxNumBits()

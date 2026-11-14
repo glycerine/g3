@@ -152,7 +152,7 @@ func TestTacticFilterModelDeclarationTrailGrowthDuplicatesAndOwnership(t *testin
 	satOK(t, c.IncRef())
 	satOK(t, c.DecRef())
 	for _, d := range decls {
-		if _, e = m.GetKind(d); e == nil {
+		if m.IsLiveHandle(d) {
 			t.Fatal("declaration trail leaked")
 		}
 	}

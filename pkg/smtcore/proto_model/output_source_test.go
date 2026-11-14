@@ -219,11 +219,11 @@ func TestFactoryOutputsStringOwnedByCallerAndSurviveFactoryClose(t *testing.T) {
 	}
 	protoMust(t, m.ResetRef(first))
 	protoMust(t, m.ResetRef(second))
-	if _, err := m.GetRefCount(a); !errors.Is(err, ast.ErrASTHandle) {
-		t.Fatal("factory kept first output after caller released it", err)
+	if m.IsLiveHandle(a) {
+		t.Fatal("factory kept first output after caller released it")
 	}
-	if _, err := m.GetRefCount(b); !errors.Is(err, ast.ErrASTHandle) {
-		t.Fatal("factory kept second output after caller released it", err)
+	if m.IsLiveHandle(b) {
+		t.Fatal("factory kept second output after caller released it")
 	}
 }
 

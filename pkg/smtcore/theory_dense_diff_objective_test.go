@@ -226,7 +226,7 @@ func TestSMTDenseObjectiveCoreOwnsScopedExpressions(t *testing.T) {
 		t.Fatal("saved core should be its scoped bound's only owner", refs)
 	}
 	astTestMust(t, f.d.Close())
-	if _, err := f.m.GetKind(bound); err == nil {
+	if f.m.IsLiveHandle(bound) {
 		t.Fatal("last dense core owner did not release its bound")
 	}
 	astTestMust(t, f.d.Close())

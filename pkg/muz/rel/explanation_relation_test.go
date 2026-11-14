@@ -53,7 +53,7 @@ func TestExplanationRelationOwnsRowsAcrossResetAndClone(t *testing.T) {
 		t.Fatal("empty clone lost its source-owned row", err)
 	}
 	must(staleClone.Close())
-	if _, err = m.GetKind(value); err == nil {
+	if m.IsLiveHandle(value) {
 		t.Fatal("closed relations kept the old row alive")
 	}
 }

@@ -156,7 +156,7 @@ func TestSMTArithmeticAdapterTraceBadbitContinuesOperandsAndNativeErases(t *test
 	ref, err := f.m.NewRef(dead)
 	astTestMust(t, err)
 	astTestMust(t, f.m.DelRef(&ref))
-	if _, err = f.m.GetASTID(dead); err == nil {
+	if f.m.IsLiveHandle(dead) {
 		t.Fatal("stale test operand is live")
 	}
 	invalid := smtArithmeticEqualityPair{first: dead, second: y}

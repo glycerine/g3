@@ -210,7 +210,7 @@ func TestSMTStringLengthOptionsScopedGuardAndRetainedReturnOwnership(t *testing.
 		}
 	}
 	astTestMust(t, m.DelRef(&root))
-	if _, err := m.GetKind(formula); err == nil {
+	if m.IsLiveHandle(formula) {
 		t.Fatal("guarded later-window result was retained beyond its caller-owned root")
 	}
 	if root, err := theory.generateStringLengthOptions(word, current, 0); err == nil || root != (ast.ASTRef{}) {

@@ -17,11 +17,11 @@ func TestPublicASTMapLifecycleAndOwnership(t *testing.T) {
 	if _, err := mapping.Size(); !errors.Is(err, ast.ErrASTHandle) {
 		t.Fatal("closed map operation", err)
 	}
-	if _, err := manager.GetKind(key); !errors.Is(err, ast.ErrASTHandle) {
-		t.Fatal("close retained key", err)
+	if manager.IsLiveHandle(key) {
+		t.Fatal("close retained key")
 	}
-	if _, err := manager.GetKind(value); !errors.Is(err, ast.ErrASTHandle) {
-		t.Fatal("close retained value", err)
+	if manager.IsLiveHandle(value) {
+		t.Fatal("close retained value")
 	}
 	again, err := c.NewASTMap()
 	if err != nil {

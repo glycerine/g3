@@ -151,6 +151,9 @@ func TestSMTLearnedClauseRestoreFailureResumesWithoutDuplicates(t *testing.T) {
 }
 
 func TestSMTLearnedAssignmentResumesPublishedScalarBeforeContext(t *testing.T) {
+	if !ast.ASTValidateHandles {
+		t.Skip("read accessors do not refuse re-entrant calls in normal builds (ast_validate_handles_off.go)")
+	}
 	f := newSMTNativeCleanupFixture(t)
 	state, m := f.state, f.manager
 	expression := smtRelevancyBool(t, m, "learned-assignment-continuation")

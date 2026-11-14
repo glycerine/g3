@@ -1,7 +1,6 @@
 package ast
 
 import (
-	"errors"
 	"testing"
 )
 
@@ -41,8 +40,8 @@ func TestASTRefNativeAssignmentUnderRefusedArena(t *testing.T) {
 			if got != incoming {
 				t.Fatal("native assignment did not publish incoming", got)
 			}
-			if _, e := m.GetRefCount(old); !errors.Is(e, ErrASTHandle) {
-				t.Fatal("old reference survived", e)
+			if m.IsLiveHandle(old) {
+				t.Fatal("old reference survived")
 			}
 			record, e := m.reference(dst)
 			astTestMust(t, e)
@@ -78,8 +77,8 @@ func TestASTRefNativeResetUnderRefusedArena(t *testing.T) {
 	if !got.IsNull() {
 		t.Fatal("native reset retained pointer", got)
 	}
-	if _, e := m.GetRefCount(old); !errors.Is(e, ErrASTHandle) {
-		t.Fatal("old reference survived reset", e)
+	if m.IsLiveHandle(old) {
+		t.Fatal("old reference survived reset")
 	}
 	astTestMust(t, m.DelRef(&ref))
 }

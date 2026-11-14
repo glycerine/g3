@@ -280,7 +280,7 @@ func TestCheckedLazyExplanationHashPairsUseOrdinarySparseFallback(t *testing.T) 
 			if err = projected.Close(); err != nil {
 				t.Fatal(err)
 			}
-			if _, err = f.ast.GetKind(proof); err == nil {
+			if f.ast.IsLiveHandle(proof) {
 				t.Fatal("closed derived fallback kept proof alive")
 			}
 			if err = f.relations.SetLazySparseFiniteFactory(nil); err != nil {

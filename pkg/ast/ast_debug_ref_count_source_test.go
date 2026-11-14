@@ -22,7 +22,7 @@ func TestASTDebugRefCountActualDeletedIDMapAndSkippedRecycle(t *testing.T) {
 	if _, found := m.DebugFreeIndices[id]; !found || len(m.DebugFreeIndices) != 1 {
 		t.Fatal("deleted ID was not inserted before node free")
 	}
-	if _, e = m.GetASTID(v); e == nil {
+	if m.IsLiveHandle(v) {
 		t.Fatal("deleted node remained callable")
 	}
 	next, e := m.MkVar(18, bs)

@@ -36,7 +36,7 @@ func TestPsortASTContextActualFactoriesClausesAndTrail(t *testing.T) {
 	}
 	astTestMust(t, c.SourceFinalize())
 	astTestMust(t, c.Close())
-	if _, e = m.GetRefCount(x); e == nil {
+	if m.IsLiveHandle(x) {
 		t.Fatal("source owned trail reference remained")
 	}
 }

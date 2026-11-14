@@ -321,7 +321,7 @@ func TestBV2IntNativeRootReplacementConsumedOldReference(t *testing.T) {
 	if len(roots) != 1 || roots[0] != replacement {
 		t.Fatal("native replacement did not publish acquired reference")
 	}
-	if _, e := m.GetRefCount(old); e == nil {
+	if m.IsLiveHandle(old) {
 		t.Fatal("native replacement retained old root")
 	}
 	astTestMust(t, shrinkRewriterRoots(m, &roots, 0))

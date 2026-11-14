@@ -79,7 +79,7 @@ func TestRelationManagerRestrictPredicatesPreservesOnlyScopedOwners(t *testing.T
 	if _, err = dropProduct.Len(); err == nil {
 		t.Fatal("removed explanation remained live")
 	}
-	if _, err = f.ast.GetKind(droppedTerm); err == nil {
+	if f.ast.IsLiveHandle(droppedTerm) {
 		t.Fatal("removed explanation term remained owned")
 	}
 	for _, predicate := range []ast.ASTHandle{keepTable, dropTable, keepExplanation, dropExplanation} {
@@ -99,7 +99,7 @@ func TestRelationManagerRestrictPredicatesPreservesOnlyScopedOwners(t *testing.T
 	if _, err = preserved.Len(); err == nil {
 		t.Fatal("empty keep set left finite owner live")
 	}
-	if _, err = f.ast.GetKind(keptTerm); err == nil {
+	if f.ast.IsLiveHandle(keptTerm) {
 		t.Fatal("empty keep set left explanation owner live")
 	}
 }

@@ -72,8 +72,10 @@ func TestAPIPublicDeclarationKindRejectsInvalidInputs(t *testing.T) {
 		}
 	}
 	other := newAPITypedASTFixture(t)
-	if _, err := f.context.PublicDeclarationKind(other.declaration); err == nil {
-		t.Fatal("foreign declaration accepted")
+	if ast.ASTValidateHandles { // foreign, stale or closed-owner handles are rejected only in validating builds
+		if _, err := f.context.PublicDeclarationKind(other.declaration); err == nil {
+			t.Fatal("foreign declaration accepted")
+		}
 	}
 	context, err := NewSMTContext()
 	astTestMust(t, err)

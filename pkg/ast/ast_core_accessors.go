@@ -11,7 +11,7 @@ import (
 )
 
 func (m *ASTManager) declIdentity(r astNodeRef) (FamilyID, int32, error) {
-	if e := m.validNode(r); e != nil {
+	if e := m.checkNode(r); e != nil {
 		return -1, -1, e
 	}
 	var slot, generation uint32
@@ -53,7 +53,7 @@ func (m *ASTManager) appIdentity(a *astAppRecord) (FamilyID, int32, error) {
 }
 func (m *ASTManager) sortOf(r astNodeRef) (astNodeRef, error) {
 	for {
-		if e := m.validNode(r); e != nil {
+		if e := m.checkNode(r); e != nil {
 			return astNodeRef{}, e
 		}
 		switch m.nodeAt(r.slot).kind {
@@ -108,11 +108,7 @@ type ASTNodeHeader struct {
 
 func (m *ASTManager) NodeHeader(h ASTHandle) (ASTNodeHeader, error) {
 	header := ASTNodeHeader{Family: -1, DeclKind: -1}
-	if e := m.lock(); e != nil {
-		return header, e
-	}
-	defer m.mu.Unlock()
-	r, e := m.internal(h)
+	r, e := m.readNode(h)
 	if e != nil {
 		return header, e
 	}
@@ -127,55 +123,35 @@ func (m *ASTManager) NodeHeader(h ASTHandle) (ASTNodeHeader, error) {
 }
 
 func (m *ASTManager) GetKind(h ASTHandle) (ASTKind, error) {
-	if e := m.lock(); e != nil {
-		return 0, e
-	}
-	defer m.mu.Unlock()
-	r, e := m.internal(h)
+	r, e := m.readNode(h)
 	if e != nil {
 		return 0, e
 	}
 	return m.nodeAt(r.slot).kind, nil
 }
 func (m *ASTManager) GetASTID(h ASTHandle) (uint32, error) {
-	if e := m.lock(); e != nil {
-		return 0, e
-	}
-	defer m.mu.Unlock()
-	r, e := m.internal(h)
+	r, e := m.readNode(h)
 	if e != nil {
 		return 0, e
 	}
 	return m.nodeAt(r.slot).id, nil
 }
 func (m *ASTManager) GetHash(h ASTHandle) (uint32, error) {
-	if e := m.lock(); e != nil {
-		return 0, e
-	}
-	defer m.mu.Unlock()
-	r, e := m.internal(h)
+	r, e := m.readNode(h)
 	if e != nil {
 		return 0, e
 	}
 	return m.nodeAt(r.slot).hash, nil
 }
 func (m *ASTManager) GetRefCount(h ASTHandle) (uint32, error) {
-	if e := m.lock(); e != nil {
-		return 0, e
-	}
-	defer m.mu.Unlock()
-	r, e := m.internal(h)
+	r, e := m.readNode(h)
 	if e != nil {
 		return 0, e
 	}
 	return m.nodeAt(r.slot).rc, nil
 }
 func (m *ASTManager) GetSort(h ASTHandle) (ASTHandle, error) {
-	if e := m.lock(); e != nil {
-		return ASTHandle{}, e
-	}
-	defer m.mu.Unlock()
-	r, e := m.internal(h)
+	r, e := m.readNode(h)
 	if e != nil {
 		return ASTHandle{}, e
 	}
@@ -183,11 +159,7 @@ func (m *ASTManager) GetSort(h ASTHandle) (ASTHandle, error) {
 	return m.external(r), e
 }
 func (m *ASTManager) GetVarIndex(h ASTHandle) (uint32, error) {
-	if e := m.lock(); e != nil {
-		return 0, e
-	}
-	defer m.mu.Unlock()
-	r, e := m.internal(h)
+	r, e := m.readNode(h)
 	if e != nil {
 		return 0, e
 	}
@@ -197,11 +169,7 @@ func (m *ASTManager) GetVarIndex(h ASTHandle) (uint32, error) {
 	return m.varAt(r.slot).index, nil
 }
 func (m *ASTManager) GetArg(h ASTHandle, index uint32) (ASTHandle, error) {
-	if e := m.lock(); e != nil {
-		return ASTHandle{}, e
-	}
-	defer m.mu.Unlock()
-	r, e := m.internal(h)
+	r, e := m.readNode(h)
 	if e != nil {
 		return ASTHandle{}, e
 	}
@@ -216,11 +184,7 @@ func (m *ASTManager) GetArg(h ASTHandle, index uint32) (ASTHandle, error) {
 	return m.external(child), e
 }
 func (m *ASTManager) GetFamilyID(h ASTHandle) (FamilyID, error) {
-	if e := m.lock(); e != nil {
-		return -1, e
-	}
-	defer m.mu.Unlock()
-	r, e := m.internal(h)
+	r, e := m.readNode(h)
 	if e != nil {
 		return -1, e
 	}
@@ -231,11 +195,7 @@ func (m *ASTManager) GetFamilyID(h ASTHandle) (FamilyID, error) {
 	return fid, e
 }
 func (m *ASTManager) GetDeclKind(h ASTHandle) (int32, error) {
-	if e := m.lock(); e != nil {
-		return -1, e
-	}
-	defer m.mu.Unlock()
-	r, e := m.internal(h)
+	r, e := m.readNode(h)
 	if e != nil {
 		return -1, e
 	}
@@ -246,11 +206,7 @@ func (m *ASTManager) GetDeclKind(h ASTHandle) (int32, error) {
 	return kind, e
 }
 func (m *ASTManager) IsSkolemDecl(h ASTHandle) (bool, error) {
-	if e := m.lock(); e != nil {
-		return false, e
-	}
-	defer m.mu.Unlock()
-	r, e := m.requireKind(h, ASTFuncDecl)
+	r, e := m.readKind(h, ASTFuncDecl)
 	if e != nil {
 		return false, e
 	}
@@ -260,22 +216,14 @@ func (m *ASTManager) IsSkolemDecl(h ASTHandle) (bool, error) {
 
 // GetFuncDeclFlags returns the source func_decl_info flags as a plain value.
 func (m *ASTManager) GetFuncDeclFlags(h ASTHandle) (ASTFuncFlags, error) {
-	if e := m.lock(); e != nil {
-		return ASTFuncFlags{}, e
-	}
-	defer m.mu.Unlock()
-	r, e := m.requireKind(h, ASTFuncDecl)
+	r, e := m.readKind(h, ASTFuncDecl)
 	if e != nil {
 		return ASTFuncFlags{}, e
 	}
 	return m.funcFlags(r)
 }
 func (m *ASTManager) GetSortSize(h ASTHandle) (SortSize, error) {
-	if e := m.lock(); e != nil {
-		return SortSize{}, e
-	}
-	defer m.mu.Unlock()
-	r, e := m.internal(h)
+	r, e := m.readNode(h)
 	if e != nil {
 		return SortSize{}, e
 	}
@@ -293,22 +241,14 @@ func (m *ASTManager) GetSortSize(h ASTHandle) (SortSize, error) {
 	return info.size, nil
 }
 func (m *ASTManager) GetDepth(h ASTHandle) (uint32, error) {
-	if e := m.lock(); e != nil {
-		return 0, e
-	}
-	defer m.mu.Unlock()
-	r, e := m.internal(h)
+	r, e := m.readNode(h)
 	if e != nil {
 		return 0, e
 	}
 	return m.depth(r), nil
 }
 func (m *ASTManager) HasLabels(h ASTHandle) (bool, error) {
-	if e := m.lock(); e != nil {
-		return false, e
-	}
-	defer m.mu.Unlock()
-	r, e := m.internal(h)
+	r, e := m.readNode(h)
 	if e != nil {
 		return false, e
 	}

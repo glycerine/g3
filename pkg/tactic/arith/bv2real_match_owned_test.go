@@ -91,8 +91,8 @@ func TestBV2RealMatchedProjectOwnersOutliveInputAndUtility(t *testing.T) {
 	}
 	equationMust(t, c.close())
 	for _, h := range []ast.ASTHandle{a, b} {
-		if _, err = m.GetKind(h); !errors.Is(err, ast.ErrASTHandle) {
-			t.Fatal("caller expression owner was not released", err)
+		if m.IsLiveHandle(h) {
+			t.Fatal("caller expression owner was not released")
 		}
 	}
 }
