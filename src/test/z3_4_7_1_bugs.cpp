@@ -27,6 +27,9 @@ Abstract:
                                   recognizer table and is turned into a
                                   conflict (pkg/AUDIT.md smtcore_10-F3,
                                   upstream issue #4623).
+    z3_4_7_1_dom_simplify_oscillation dom-simplify's simplify_goal loops
+                                  forever when its forward and backward
+                                  passes keep changing the goal.
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -43,6 +46,10 @@ Abstract:
 #include "tactic/core/dom_simplify_tactic.h"
 #include "tactic/core/pb_preprocess_tactic.h"
 #include <iostream>
+#ifndef _WINDOWS
+#include <csignal>
+#include <unistd.h>
+#endif
 
 namespace {
 
@@ -272,4 +279,42 @@ void tst_z3_4_7_1_dt_recognizer() {
         std::string what = "check with relevancy " + std::to_string(relevancy);
         expect("dt_recognizer", what.c_str(), l_true, k.check());
     }
+}
+
+#ifndef _WINDOWS
+namespace {
+    void dom_simplify_oscillation_timeout(int) {
+        static char const msg[] =
+            "dom_simplify_oscillation: dom-simplify did not terminate within 20 seconds\n";
+        ssize_t n = write(2, msg, sizeof(msg) - 1);
+        (void)n;
+        _exit(1);
+    }
+}
+#endif
+
+// (not p3), (not (and p1 p1 p3)), (not true): simplify_goal's forward and
+// backward passes keep rewriting the goal, and 4.7.1 loops while anything
+// changed. Upstream 0ef8ebe89f caps the loop at 10 rounds. A watchdog turns
+// the hang into a failure.
+void tst_z3_4_7_1_dom_simplify_oscillation() {
+#ifndef _WINDOWS
+    signal(SIGALRM, dom_simplify_oscillation_timeout);
+    alarm(20);
+#endif
+    ast_manager m;
+    reg_decl_plugins(m);
+    expr_ref p1(bool_const(m, "p1"), m), p3(bool_const(m, "p3"), m);
+    expr_ref_vector fmls(m);
+    fmls.push_back(m.mk_not(p3));
+    expr* and_args[3] = { p1, p1, p3 };
+    fmls.push_back(m.mk_not(m.mk_and(3, and_args)));
+    fmls.push_back(m.mk_not(m.mk_true()));
+    expect("dom_simplify_oscillation", "plain check", l_false, check_plain(m, fmls));
+    std::cout.flush(); // the watchdog leaves with _exit
+    expect("dom_simplify_oscillation", "after dom-simplify", l_false,
+           check_after_tactic(m, mk_dom_simplify_tactic(m), fmls));
+#ifndef _WINDOWS
+    alarm(0);
+#endif
 }
