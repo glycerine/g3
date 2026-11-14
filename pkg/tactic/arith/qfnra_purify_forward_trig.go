@@ -140,9 +140,20 @@ func (i *qfnraPurifyInvocation) publishModel(out *tactic.TacticResult) (err erro
 		return errors.Join(err, filter.Close())
 	}
 	defer func() { err = errors.Join(err, filter.DecRef()) }()
-	for _, decl := range i.freshDecls {
-		if err = filter.Insert(decl); err != nil {
-			return err
+	// The source filters the values of m_app2fresh in table order.
+	if i.app2fresh != nil {
+		for _, kv := range i.app2fresh.Entries() {
+			fresh, e := m.RefGet(i.entries[kv.Num].fresh)
+			if e != nil {
+				return e
+			}
+			decl, e := m.GetDecl(fresh)
+			if e != nil {
+				return e
+			}
+			if err = filter.Insert(decl); err != nil {
+				return err
+			}
 		}
 	}
 	if len(pairs) == 0 {

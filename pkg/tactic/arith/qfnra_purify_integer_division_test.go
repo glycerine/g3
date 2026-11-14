@@ -149,7 +149,10 @@ func TestPurifyIntegerDivisionZeroGuardsAndModFirst(t *testing.T) {
 			equationMust(t, runner.Apply(goal, &result))
 			size, err := goal.Size()
 			equationMust(t, err)
-			if size != 3+row.constraints {
+			// process_mod runs process_idiv with the modulus declaration, so
+			// (div x y) is not cached and gets its own k3/k4 pair and
+			// constraints (AUDIT.md FUZZ_C-F3).
+			if size != 3+2*row.constraints {
 				t.Fatalf("got %d formulas", size)
 			}
 			first, err := goal.Form(0)
@@ -159,23 +162,34 @@ func TestPurifyIntegerDivisionZeroGuardsAndModFirst(t *testing.T) {
 			if first != second || first == formula {
 				t.Fatal("modulus cache was not reused")
 			}
-			// Both auxiliary declarations must be filtered from the model.
-			constraint, err := goal.Form(3)
+			euclid := func(j uint32) (quotient, remainder ast.ASTHandle) {
+				constraint, err := goal.Form(j)
+				equationMust(t, err)
+				equality, err := m.GetArg(constraint, 1)
+				equationMust(t, err)
+				sum, err := m.GetArg(equality, 1)
+				equationMust(t, err)
+				product, err := m.GetArg(sum, 0)
+				equationMust(t, err)
+				quotient, err = m.GetArg(product, 0)
+				equationMust(t, err)
+				remainder, err = m.GetArg(sum, 1)
+				equationMust(t, err)
+				return quotient, remainder
+			}
+			quotient, remainder := euclid(3)
+			cachedRemainder, err := m.GetArg(first, 0)
 			equationMust(t, err)
-			equality, err := m.GetArg(constraint, 1)
-			equationMust(t, err)
-			sum, err := m.GetArg(equality, 1)
-			equationMust(t, err)
-			product, err := m.GetArg(sum, 0)
-			equationMust(t, err)
-			quotient, err := m.GetArg(product, 0)
-			equationMust(t, err)
+			if remainder != cachedRemainder {
+				t.Fatal("modulus does not rewrite to its remainder k2")
+			}
 			divisionResult, err := goal.Form(2)
 			equationMust(t, err)
-			cachedQuotient, err := m.GetArg(divisionResult, 0)
+			divisionQuotient, err := m.GetArg(divisionResult, 0)
 			equationMust(t, err)
-			if quotient != cachedQuotient {
-				t.Fatal("division did not reuse modulus-first quotient")
+			k3, k4 := euclid(3 + row.constraints)
+			if divisionQuotient != k3 || k3 == quotient || k4 == remainder {
+				t.Fatal("division after modulus did not get a fresh quotient/remainder pair")
 			}
 			constraintProof, err := goal.Proof(3)
 			equationMust(t, err)
@@ -192,15 +206,14 @@ func TestPurifyIntegerDivisionZeroGuardsAndModFirst(t *testing.T) {
 			equationMust(t, err)
 			definedValue, err := m.GetArg(quotientFact, 1)
 			equationMust(t, err)
-			if definedTerm != division || definedValue != quotient {
-				t.Fatal("quotient proof does not define integer division")
+			// mk_apply_def(k, def, pr): (~ k1 (mod x y)).
+			if definedTerm != quotient || definedValue != term {
+				t.Fatal("quotient proof does not define k1 as the modulus term")
 			}
-			remainder, err := m.GetArg(first, 0)
-			equationMust(t, err)
 			md, err := model.NewModel(m)
 			equationMust(t, err)
 			var decls []ast.ASTHandle
-			for _, fresh := range []ast.ASTHandle{quotient, remainder} {
+			for _, fresh := range []ast.ASTHandle{quotient, remainder, k3, k4} {
 				decl, e := m.GetDecl(fresh)
 				equationMust(t, e)
 				decls = append(decls, decl)
@@ -212,11 +225,13 @@ func TestPurifyIntegerDivisionZeroGuardsAndModFirst(t *testing.T) {
 			equationMust(t, result.ModelConverter.ApplyModel(&output, 0))
 			filtered, err := output.Get()
 			equationMust(t, err)
-			for _, decl := range decls {
+			// The filter holds the values of m_app2fresh: (div x y) -> k3 and
+			// (mod x y) -> k4. k1 and k2 were overwritten and stay in the model.
+			for j, decl := range decls {
 				present, e := filtered.HasInterpretation(decl)
 				equationMust(t, e)
-				if present {
-					t.Fatal("integer division auxiliary escaped model filtering")
+				if present != (j < 2) {
+					t.Fatal("model filter does not follow m_app2fresh", j, present)
 				}
 			}
 			for j := uint32(0); j < size; j++ {
@@ -231,5 +246,70 @@ func TestPurifyIntegerDivisionZeroGuardsAndModFirst(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// process_mod calls process_idiv with the modulus declaration: k1 is cached
+// under (mod x y) and then overwritten by k2, which is created before
+// mk_mod; the quotient (div x y) is never cached, and mk_def_proof builds
+// (~ k def). AUDIT.md FUZZ_C-F3.
+func TestPurifyModCachesRemainderOverQuotientDefinition(t *testing.T) {
+	runner, m := qfnraPurifier(t, true, false)
+	x := fixDLConst(t, m, true, "purify-mod-x")
+	y := fixDLConst(t, m, true, "purify-mod-y")
+	div := fixDLApp(t, m, qfnraPurifyIDiv, x, y)
+	mod := fixDLApp(t, m, qfnraPurifyMod, x, y)
+	goal := fixDLGoal(t, m, true, true, false)
+	invocation, err := newQFNRAPurifyInvocation(runner, goal)
+	equationMust(t, err)
+	t.Cleanup(func() { equationMust(t, invocation.close()) })
+	out, err := m.NewRef(ast.ASTHandle{})
+	equationMust(t, err)
+	t.Cleanup(func() { equationMust(t, m.DelRef(&out)) })
+	pr, err := m.NewRef(ast.ASTHandle{})
+	equationMust(t, err)
+	t.Cleanup(func() { equationMust(t, m.DelRef(&pr)) })
+	decl, err := m.GetDecl(mod)
+	equationMust(t, err)
+	config := &qfnraPurifyConfig{invocation: invocation}
+	_, err = config.ReduceApp(decl, ast.SliceArguments([]ast.ASTHandle{x, y}), out, pr)
+	equationMust(t, err)
+	if len(invocation.entries) < 2 {
+		t.Fatal("entries", len(invocation.entries))
+	}
+	first, second := invocation.entries[0], invocation.entries[1]
+	for _, e := range []*qfnraPurifyEntry{first, second} {
+		term, err := m.RefGet(e.term)
+		equationMust(t, err)
+		if term != mod {
+			t.Fatal("definition is not the modulus term", term, mod)
+		}
+	}
+	if invocation.cache[mod] != second {
+		t.Fatal("(mod x y) is not cached to the second fresh constant")
+	}
+	if invocation.cache[div] != nil {
+		t.Fatal("(div x y) was cached")
+	}
+	if invocation.app2fresh.Len() != 1 {
+		t.Fatal("m_app2fresh size", invocation.app2fresh.Len())
+	}
+	got, err := m.RefGet(out)
+	equationMust(t, err)
+	k2, err := m.RefGet(second.fresh)
+	equationMust(t, err)
+	if got != k2 {
+		t.Fatal("(mod x y) does not rewrite to k2")
+	}
+	k1, err := m.RefGet(first.fresh)
+	equationMust(t, err)
+	proof, err := m.RefGet(first.proof)
+	equationMust(t, err)
+	fact, err := m.GetProofFact(proof)
+	equationMust(t, err)
+	lhs, err := m.GetArg(fact, 0)
+	equationMust(t, err)
+	if lhs != k1 {
+		t.Fatal("apply-def fact is not (~ k def)")
 	}
 }

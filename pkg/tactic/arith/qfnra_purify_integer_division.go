@@ -31,13 +31,19 @@ func (i *qfnraPurifyInvocation) processIntegerDivision(x, y ast.ASTHandle, quoti
 	m := i.owner.manager
 	b := qfnraPurifyBuilder{temps: qfnraPurifyTemps{manager: m}}
 	defer func() { err = errors.Join(err, b.temps.close()) }()
+	// expr * k2 = mk_fresh_int_var() precedes mod_app = u().mk_mod(x, y).
+	xSort, err := m.GetSort(x)
+	if err != nil {
+		return err
+	}
+	k2 := b.hold(func() (ast.ASTHandle, error) { return m.MkFreshConstNullable(nil, xSort) })
 	mod := b.hold(func() (ast.ASTHandle, error) {
 		return m.MkFamilyApp(i.owner.arithmetic, qfnraPurifyMod, nil, []ast.ASTHandle{x, y})
 	})
 	if b.err != nil {
 		return b.err
 	}
-	remainder, err := i.newEntry(mod)
+	remainder, err := i.newEntryWithFresh(mod, k2, true)
 	if err != nil {
 		return err
 	}

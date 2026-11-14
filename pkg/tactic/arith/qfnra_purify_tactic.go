@@ -43,6 +43,7 @@ type qfnraPurifyInvocation struct {
 	proofs      bool
 	models      bool
 	cache       map[ast.ASTHandle]*qfnraPurifyEntry
+	app2fresh   *ast.ObjMap // m_app2fresh in table order; Num indexes entries
 	entries     []*qfnraPurifyEntry
 	constraints []ast.ASTRef
 	proofRefs   []ast.ASTRef
@@ -91,6 +92,7 @@ func (i *qfnraPurifyInvocation) close() (err error) {
 	i.constraints = nil
 	i.proofRefs = nil
 	i.freshDecls = nil
+	i.app2fresh = nil
 	i.quantRefs = nil
 	if i.ownsTrig && i.trig != nil {
 		err = errors.Join(err, i.trig.close())
@@ -164,17 +166,10 @@ func (c *qfnraPurifyConfig) ReduceApp(decl ast.ASTHandle, arguments ast.AppArgum
 			return rewriter.RewriteFailed, e
 		}
 	}
-	definition := term
-	if op == qfnraPurifyMod {
-		// A modulus encountered first still needs a quotient definition.
-		// The source passes the modulus declaration as that definition,
-		// producing an invalid premise for its Euclidean constraint.
-		definition, err = m.MkFamilyApp(i.owner.arithmetic, qfnraPurifyIDiv, nil, args)
-		if err != nil {
-			return rewriter.RewriteFailed, err
-		}
-	}
-	entry, err := i.newEntry(definition)
+	// process_mod calls process_idiv(f, ...) with the modulus declaration,
+	// so div_app is the modulus term itself: k1 is cached under (mod x y)
+	// and then overwritten by k2. The quotient term is not cached.
+	entry, err := i.newEntry(term)
 	if err != nil {
 		return rewriter.RewriteFailed, err
 	}
@@ -289,7 +284,7 @@ func (i *qfnraPurifyInvocation) newEntryWithFresh(term, fresh ast.ASTHandle, bin
 		if e != nil {
 			return nil, errors.Join(e, m.DelRef(&entry.fresh), m.DelRef(&entry.term))
 		}
-		apply, e := m.MkProofApplyDef(term, fresh, definition)
+		apply, e := m.MkProofApplyDef(fresh, term, definition)
 		if e != nil {
 			return nil, errors.Join(e, m.DelRef(&entry.fresh), m.DelRef(&entry.term))
 		}
@@ -298,6 +293,12 @@ func (i *qfnraPurifyInvocation) newEntryWithFresh(term, fresh ast.ASTHandle, bin
 		}
 	}
 	i.cache[term] = entry
+	if i.app2fresh == nil {
+		i.app2fresh = ast.NewObjMap(m)
+	}
+	if err = i.app2fresh.InsertNum(term, uint64(len(i.entries))); err != nil {
+		return nil, err
+	}
 	i.entries = append(i.entries, entry)
 	decl, err := m.GetDecl(fresh)
 	if err != nil {

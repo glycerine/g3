@@ -338,6 +338,12 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_C-F3: process_mod overwrites k1 with k2; filter in m_app2fresh order.
+	"purify_arith_mod_div_shared.smt2": "(goals\n(goal\n  (= k!1 k!2)\n  (or (= y 0) (= x (+ (* k!0 y) k!1)))\n  (or (= y 0) (<= 0 k!1))\n  (or (<= y 0) (not (<= y k!1)))\n  (or (>= y 0) (not (<= (* (- 1) y) k!1)))\n  (or (not (= y 0)) (= k!0 (div x 0)))\n  (or (not (= y 0)) (= k!1 (mod x 0)))\n  (or (= y 0) (= x (+ (* k!2 y) k!3)))\n  (or (= y 0) (<= 0 k!3))\n  (or (<= y 0) (not (<= y k!3)))\n  (or (>= y 0) (not (<= (* (- 1) y) k!3)))\n  (or (not (= y 0)) (= k!2 (div x 0)))\n  (or (not (= y 0)) (= k!3 (mod x 0)))\n  :precision precise :depth 4)\n)\n(filter-model-converter k!2 k!3)\n",
+	// AUDIT.md FUZZ_C-F3: (div x y) first caches the quotient and the remainder.
+	"purify_arith_div_mod_shared.smt2": "(goals\n(goal\n  (= k!0 k!1)\n  (or (= y 0) (= x (+ (* k!0 y) k!1)))\n  (or (= y 0) (<= 0 k!1))\n  (or (<= y 0) (not (<= y k!1)))\n  (or (>= y 0) (not (<= (* (- 1) y) k!1)))\n  (or (not (= y 0)) (= k!0 (div x 0)))\n  (or (not (= y 0)) (= k!1 (mod x 0)))\n  :precision precise :depth 4)\n)\n(filter-model-converter k!0 k!1)\n",
+	// AUDIT.md FUZZ_C-F3: the overwritten fresh constant of rem/mod is not filtered.
+	"purify_arith_rem_model.smt2": "(goals\n(goal\n  (not (<= x0 (+ (- 107) k!1)))\n  (= k!0 (div x0 0))\n  (= k!1 (mod x0 0))\n  :precision precise :depth 4)\n)\nsat\n(model \n  (define-fun k!2 () Int\n    0)\n  (define-fun x0 () Int\n    (- 68))\n)\n",
 	// AUDIT.md FUZZ_C-F1: bvarray2uf is a rewriter_tpl and folds a constant ite.
 	"bvarray2uf_ite_fold.smt2": "(goals\n(goal\n  (not false)\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md FUZZ_C-F1: one rewriter cache for the goal; fresh names f_t!!N.
@@ -1483,7 +1489,8 @@ func TestTraceLogCPPReference(t *testing.T) {
 	}
 	for _, name := range []string{
 		"dom_simplify_trace_lifetimes.smt2",
-		"bvarray2uf_shared_store.smt2", // FUZZ_C-F1
+		"bvarray2uf_shared_store.smt2",     // FUZZ_C-F1
+		"purify_arith_mod_div_shared.smt2", // FUZZ_C-F3
 	} {
 		t.Run(name, func(t *testing.T) {
 			input, err := filepath.Abs(filepath.Join("test_vectors", name))

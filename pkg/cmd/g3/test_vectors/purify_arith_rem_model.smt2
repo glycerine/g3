@@ -1,0 +1,5 @@
+(declare-const x0 Int)
+(assert (< (rem x0 0) (+ 7 100 x0)))
+(apply purify-arith)
+(check-sat-using (then purify-arith smt))
+(get-model)
