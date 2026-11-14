@@ -987,8 +987,11 @@ type SMTTheorySeq struct {
 	vecPool [][]ast.ASTHandle
 }
 
-// seqRewriterOwner is the source's m_rewrite member: a th_rewriter with
-// default parameters, owned by the theory.
+// seqRewriterOwner is the source's m_rewrite member: th_rewriter(m) with
+// an empty params_ref, so th_rewriter_cfg::updt_params reads the global
+// rewriter modules. The kernel's parameter services are borrowed when
+// the theory is attached to a kernel; otherwise a private default service
+// is owned.
 type seqRewriterOwner struct {
 	context  *uparams.ParamsContext
 	catalog  *uparams.GlobalParamsCatalog
@@ -996,7 +999,7 @@ type seqRewriterOwner struct {
 	rewriter *rewriter.TheoryRewriter
 }
 
-func newSeqRewriterOwner(m *ast.ASTManager) (r *seqRewriterOwner, result error) {
+func newSeqRewriterOwner(m *ast.ASTManager, c *uparams.ParamsContext, g *uparams.GlobalParamsService) (r *seqRewriterOwner, result error) {
 	r = &seqRewriterOwner{}
 	defer func() {
 		if result != nil {
@@ -1005,6 +1008,10 @@ func newSeqRewriterOwner(m *ast.ASTManager) (r *seqRewriterOwner, result error) 
 		}
 	}()
 	var err error
+	if c != nil && g != nil {
+		r.rewriter, err = rewriter.NewTheoryRewriter(m, c, g, nil)
+		return r, err
+	}
 	if r.context, err = uparams.NewParamsContext(m.Symbols, m.NumeralService(), uparams.ParamsConfig{Budget: m.Budget()}); err != nil {
 		return r, err
 	}

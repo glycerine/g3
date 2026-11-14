@@ -60,7 +60,7 @@ func (t *SMTTheorySeq) Initialize(state *SMTInternalizerState) (result error) {
 	t.branchStart = make(map[uint32]int)
 	t.tmps = seqRefs{manager: m}
 	var err error
-	if t.rewrite, err = newSeqRewriterOwner(m); err != nil {
+	if t.rewrite, err = newSeqRewriterOwner(m, state.paramsContext, state.globals); err != nil {
 		return err
 	}
 	if t.seqRewrite, err = rewriter.NewSequenceRewriter(m); err != nil {

@@ -2836,3 +2836,54 @@ func TestSMTSequenceTheoryGroundOperationsAreComplete(t *testing.T) {
 		})
 	}
 }
+
+// AUDIT.md FUZZ_I-F7: theory_seq's m_rewrite is th_rewriter(m) with an
+// empty params_ref, so it reads the global rewriter module: with
+// rewriter.flat=false, mk_sub(mk_sub(len, 10), 1) stays nested
+// (+ -1 (+ -10 len)) instead of (+ -11 len).
+func TestSMTTheorySeqRewriterReadsGlobalRewriterParams(t *testing.T) {
+	m, solver := smtAssertedNNFFixture(t, false)
+	k := solver.kernel
+	nestedArgs := func(owner *seqRewriterOwner) int {
+		t.Helper()
+		ten, one := astTestInteger(t, m, 10), astTestInteger(t, m, 1)
+		sort, err := m.GetSort(ten)
+		astTestMust(t, err)
+		n, err := m.MkConst(astTestSymbol(t, m, "seq-rewriter-len"), sort)
+		astTestMust(t, err)
+		inner, err := m.MkArithmeticSub(n, ten)
+		astTestMust(t, err)
+		e, err := m.MkArithmeticSub(inner, one)
+		astTestMust(t, err)
+		ref, err := m.NewRef(e)
+		astTestMust(t, err)
+		defer func() { astTestMust(t, m.DelRef(&ref)) }()
+		astTestMust(t, owner.rewriter.Rewrite(e, ref))
+		got, err := m.RefGet(ref)
+		astTestMust(t, err)
+		count, err := m.GetNumArgs(got)
+		astTestMust(t, err)
+		nested := 0
+		for i := uint32(0); i < count; i++ {
+			arg, err := m.GetArg(got, i)
+			astTestMust(t, err)
+			if c, err := m.GetNumArgs(arg); err == nil && c > 0 {
+				nested++
+			}
+		}
+		return nested
+	}
+	defaults, err := newSeqRewriterOwner(m, nil, nil)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, defaults.close()) }()
+	if got := nestedArgs(defaults); got != 0 {
+		t.Fatal("default flat rewriter left a nested sum", got)
+	}
+	astTestMust(t, k.paramGlobals.SourceSetName("rewriter.flat", "false"))
+	owner, err := newSeqRewriterOwner(m, k.paramContext, k.paramGlobals)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, owner.close()) }()
+	if got := nestedArgs(owner); got != 1 {
+		t.Fatal("global rewriter.flat=false did not reach theory_seq's m_rewrite", got)
+	}
+}
