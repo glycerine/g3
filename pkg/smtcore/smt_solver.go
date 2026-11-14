@@ -752,9 +752,14 @@ func (s *SMTSolver) checkSatCore(assumptions []ast.ASTHandle, setup bool) (lbool
 	if err = result.SetStatus(status); err != nil {
 		return lbool.Undef, err
 	}
-	if status == lbool.True && s.produceModels {
-		if err = result.SetModel(s.kernel.GeneratedModel()); err != nil {
-			return lbool.Undef, err
+	// smt_solver::get_model is context::get_model for every status: m_model
+	// unless the context is inconsistent. It exists after l_undef when the
+	// search left a proto model (context::restart, ~scoped_mk_model).
+	if s.produceModels && !s.kernel.Inconsistent() {
+		if md := s.kernel.GeneratedModel(); md != nil {
+			if err = result.SetModel(md); err != nil {
+				return lbool.Undef, err
+			}
 		}
 	}
 	// smt_solver::reason_unknown is m_context.last_failure_as_string() for

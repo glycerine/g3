@@ -576,7 +576,9 @@ func (k *SMTKernel) buildCandidateModelGenerator() (*SMTModelGenerator, error) {
 	if err = errors.Join(k.releaseUpdateProto(), retired, releasePrevious()); err != nil {
 		return fail(err)
 	}
-	if manager := k.internalizer.quantifierManager; manager != nil && manager.modelFinder != nil {
+	// m_qmanager->adjust_model: default_qm_plugin fixes the model only
+	// with MBQI.
+	if manager := k.internalizer.quantifierManager; manager != nil && manager.mbqi && manager.modelFinder != nil {
 		if err = manager.modelFinder.FixModel(generator.model); err != nil {
 			return fail(err)
 		}
@@ -1522,6 +1524,46 @@ func (k *SMTKernel) buildGeneratedModel() error {
 		return manager.releaseRetiredProto()
 	}
 	return nil
+}
+
+// publishQuantifierCandidate is the end of a search that check_model gave
+// up on: the candidate MBQI rejected is m_proto_model; without MBQI the
+// proto model mk_proto_model(l_true) built before check_model is made now.
+func (k *SMTKernel) publishQuantifierCandidate() error {
+	if manager := k.internalizer.quantifierManager; manager != nil && manager.retiredProto != nil {
+		return k.publishRetiredCandidate()
+	}
+	return k.buildGeneratedModel()
+}
+
+// publishRetiredCandidate is ~scoped_mk_model on an m_proto_model that MBQI
+// rejected: m_model = m_proto_model->mk_model(), add_rec_funs_to_model().
+func (k *SMTKernel) publishRetiredCandidate() error {
+	manager := k.internalizer.quantifierManager
+	if manager == nil || manager.retiredProto == nil {
+		return nil
+	}
+	if !k.produceModel && !k.smtState.Model && !k.smtState.ModelOnFinalCheck {
+		return manager.releaseRetiredProto()
+	}
+	proto := manager.retiredProto
+	manager.retiredProto = nil
+	generated, err := proto.FinalModel()
+	if err != nil {
+		return errors.Join(err, proto.Close())
+	}
+	if err = k.addRecursiveFunctionsToModel(generated.Core()); err != nil {
+		return errors.Join(err, generated.Close())
+	}
+	if err = generated.Core().IncRef(); err != nil {
+		return errors.Join(err, generated.Close())
+	}
+	if err = k.releaseStaleModel(); err != nil {
+		return errors.Join(err, generated.Core().DecRef())
+	}
+	k.generated = generated
+	// ~proto_model deletes its value factories (their m_trail).
+	return k.releaseProtoTrail()
 }
 
 // retireGeneratedModel starts a check: the previous model stops being the

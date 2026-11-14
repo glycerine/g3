@@ -338,6 +338,14 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_04-F2: a model after an unknown check (theory,
+	// quantifiers without MBQI, MBQI-rejected candidate).
+	"unknown_model_theory.smt2":              "unknown\n(:reason-unknown \"(incomplete (theory arithmetic))\")\n(model \n  (define-fun a () Bool\n    true)\n  (define-fun y () Real\n    (/ 1.0 2.0))\n  (define-fun x () Real\n    (/ 3.0 2.0))\n)\n",
+	"unknown_model_quantifiers_no_mbqi.smt2": "unknown\n(model \n  ;; universe for S:\n  ;;   S!val!0 S!val!2 S!val!1 \n  ;; -----------\n  ;; definitions for universe elements:\n  (declare-fun S!val!0 () S)\n  (declare-fun S!val!2 () S)\n  (declare-fun S!val!1 () S)\n  ;; cardinality constraint:\n  (forall ((x S)) (or (= x S!val!0) (= x S!val!2) (= x S!val!1)))\n  ;; -----------\n  (define-fun c () S\n    S!val!0)\n  (define-fun f ((x!0 S)) S\n    (ite (= x!0 S!val!0) S!val!1\n    (ite (= x!0 S!val!1) S!val!2\n      S!val!1)))\n  (define-fun g ((x!0 S)) S\n    (ite (= x!0 S!val!0) S!val!1\n    (ite (= x!0 S!val!1) S!val!2\n      S!val!1)))\n)\n",
+	"unknown_model_mbqi_rejected.smt2":       "unknown\n(model \n  (define-fun k!3 ((x!0 Int)) Int\n    (ite (= x!0 (- 1)) (- 1)\n    (ite (= x!0 0) 0\n      (- 1))))\n  (define-fun f!4 ((x!0 Int)) Int\n    (ite (= x!0 0) 6\n    (ite (= x!0 (- 1)) 0\n      6)))\n  (define-fun f ((x!0 Int)) Int\n    (f!4 (k!3 x!0)))\n)\n",
+	// smtcore_04-F2: an m_proto_model an MBQI RESTART round left is published
+	// after a later NUM_CONFLICTS stop (~scoped_mk_model).
+	"unknown_model_stale_mbqi_conflict_limit.smt2": "unknown\n(:reason-unknown \"max-conflicts-reached\")\n(model \n  (define-fun g () Bool\n    false)\n  (define-fun a () Int\n    0)\n  (define-fun x1_0 () Bool\n    false)\n  (define-fun x3_2 () Bool\n    false)\n  (define-fun x3_1 () Bool\n    false)\n  (define-fun p ((x!0 Int)) Bool\n    true)\n)\n",
 	// AUDIT.md FUZZ_I-F1: the proof-mode smt_solver keeps model generation.
 	"proof_mode_get_model.smt2": "sat\n(model \n  (define-fun x () Int\n    2)\n)\n(((+ x 1) 3))\n",
 	// AUDIT.md smtcore_08-F2: theory_seq get_th_arith rejects theory_inf_arith.

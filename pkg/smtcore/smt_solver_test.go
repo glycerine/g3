@@ -66,6 +66,60 @@ func TestSMTSolverInstallsQuantifierManagerAndEMatches(t *testing.T) {
 	}
 }
 
+// AUDIT.md smtcore_04-F2: context::restart keeps the mk_proto_model(l_true)
+// candidate when check_model gives up, and smt_solver::get_model returns
+// m_model for an l_undef answer too.
+func TestSMTSolverPublishesModelAfterUnknown(t *testing.T) {
+	m := astTestManager(t)
+	context, err := uparams.NewParamsContext(m.Symbols, m.NumeralService(), uparams.ParamsConfig{Budget: m.Budget()})
+	astTestMust(t, err)
+	local, err := context.NewValue()
+	astTestMust(t, err)
+	t.Cleanup(func() {
+		astTestMust(t, context.Del(&local))
+		astTestMust(t, context.Close())
+	})
+	name := "mbqi"
+	astTestMust(t, context.SetBoolName(&local, &name, false))
+	s, err := NewSMTSolver(m, &local, "QF_UF", SMTSolverConfig{Params: context})
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, s.Close()) })
+	astTestMust(t, s.SetProduceModels(true))
+	sort, err := m.MkUninterpretedSort(astTestSymbol(t, m, "unknown-model-sort"), nil)
+	astTestMust(t, err)
+	boolean, err := m.MkBoolSort()
+	astTestMust(t, err)
+	predicate, err := m.MkFuncDecl(astTestSymbol(t, m, "unknown-model-p"), []ast.ASTHandle{sort}, boolean, ast.ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	variable, err := m.MkVar(0, sort)
+	astTestMust(t, err)
+	body, err := m.MkApp(predicate, []ast.ASTHandle{variable})
+	astTestMust(t, err)
+	pattern, err := m.MkPattern([]ast.ASTHandle{body})
+	astTestMust(t, err)
+	quantifier, err := m.MkQuantifier(ast.ASTQuantifierSpec{
+		Forall: true, Sorts: []ast.ASTHandle{sort}, Names: []usymbol.Symbol{astTestSymbol(t, m, "unknown-model-x")}, Body: body, Patterns: []ast.ASTHandle{pattern},
+	})
+	astTestMust(t, err)
+	constant, err := m.MkConst(astTestSymbol(t, m, "unknown-model-a"), sort)
+	astTestMust(t, err)
+	application, err := m.MkApp(predicate, []ast.ASTHandle{constant})
+	astTestMust(t, err)
+	astTestMust(t, s.Assert(quantifier))
+	astTestMust(t, s.Assert(application))
+	status, err := s.CheckSat(nil)
+	astTestMust(t, err)
+	if status != lbool.Undef || s.kernel.lastFailure != SMTFailureQuantifiers {
+		t.Fatal("expected incomplete quantifiers", status, s.kernel.lastFailure)
+	}
+	md, err := s.AcquireModel()
+	astTestMust(t, err)
+	if md == nil {
+		t.Fatal("no model after an incomplete-quantifiers unknown")
+	}
+	astTestMust(t, md.DecRef())
+}
+
 func TestSMTSolverMBQIFindsPatternlessBooleanCounterexample(t *testing.T) {
 	m, s := smtSolverFixture(t)
 	boolean, err := m.MkBoolSort()

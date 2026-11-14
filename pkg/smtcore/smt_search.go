@@ -318,12 +318,26 @@ func (k *SMTKernel) search() (result lbool.LBool, resultErr error) {
 					return lbool.Undef, fmt.Errorf("smt search capture literal results: %w", err)
 				}
 			}
-			if status == lbool.Undef && k.lastFailure != SMTFailureOK && k.lastFailure != SMTFailureQuantifiers && k.lastFailure != SMTFailureCanceled {
-				// restart: with m_last_search_failure != OK and a status other
-				// than l_false, build the candidate model before returning. A
-				// QUANTIFIERS failure comes after check_model's proto model
-				// was already built; a canceled build is refused in Go.
-				if err = k.buildGeneratedModel(); err != nil {
+			if status == lbool.Undef {
+				switch k.lastFailure {
+				case SMTFailureOK:
+				case SMTFailureQuantifiers:
+					// restart: check_model rejected (or, without MBQI, could
+					// not check) the mk_proto_model(l_true) candidate; it stays
+					// m_proto_model and ~scoped_mk_model publishes it.
+					err = k.publishQuantifierCandidate()
+				case SMTFailureMemory, SMTFailureCanceled, SMTFailureTimeout, SMTFailureConflictLimit, SMTFailureResourceLimit:
+					// mk_proto_model builds nothing for these failures; a
+					// proto model an MBQI RESTART round left is still
+					// m_proto_model and ~scoped_mk_model publishes it.
+					err = k.publishRetiredCandidate()
+				default:
+					// restart: with m_last_search_failure != OK and a status
+					// other than l_false, build the candidate model before
+					// returning.
+					err = k.buildGeneratedModel()
+				}
+				if err != nil {
 					return lbool.Undef, fmt.Errorf("smt search build candidate model: %w", err)
 				}
 			}

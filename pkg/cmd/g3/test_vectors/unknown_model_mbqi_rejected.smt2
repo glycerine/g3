@@ -1,0 +1,8 @@
+(set-option :auto_config false)
+(set-option :smt.mbqi.max_iterations 1)
+(declare-fun f (Int) Int)
+(push)
+(assert (forall ((x Int) (y Int)) (=> (< x y) (< (f x) (f y)))))
+(assert (> (f 0) 5))
+(check-sat)
+(get-model)
