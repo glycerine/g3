@@ -342,6 +342,10 @@ var scriptResults = map[string]string{
 	// over an ite must get a theory variable (was sat / unknown).
 	"array_ite_select_axiom2.smt2": "unsat\n",
 	"array_default_over_ite.smt2":  "sat\n",
+	// AUDIT.md FUZZ_K-F1: iz3interp.cpp defines BINARY_INTERPOLATION, one
+	// two-frame translation per interpolant.
+	"interp_binary_three_frames.smt2": "unsat\n(interpolants\n p\n p\n q\n (= p q))\n",
+	"interp_binary_tree_uf.smt2":      "unsat\n(interpolants\n (= (f a) 1)\n (= (f a) 1)\n (= a b)\n (= 1 (f b)))\n",
 	// flush_bound_axioms_introsort_*: quantifier fuzz seeds whose bound-axiom
 	// order depends on libstdc++ std::sort tie order (> 16 atoms); see the
 	// user-approved STL port in smtcore/libstdcxx_sort.go. They diverged (and

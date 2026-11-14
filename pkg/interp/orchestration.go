@@ -84,37 +84,6 @@ func ProofInterpolants(manager *Manager, proof ast.ASTHandle, parts [][]ast.ASTH
 	if err = prepProfile.Stop(); err != nil {
 		return nil, err
 	}
-	translationProfile, err := startProfile(config, "Proof translation")
-	if err != nil {
-		return nil, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, translationProfile.Close()) }()
-	translation, err := NewFullTranslation(base)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, translation.Close()) }()
-	destination, err := NewInterpolationProof(base)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, destination.Close()) }()
-	node, err := translation.Translate(proof, destination)
-	if err != nil {
-		return nil, interpolationTranslationError(err)
-	}
-	if err = translationProfile.Stop(); err != nil {
-		return nil, err
-	}
-	weak, err := base.WeakMode()
-	if err != nil {
-		return nil, err
-	}
-	interpolationProfile, err := startProfile(config, "Proof interpolation")
-	if err != nil {
-		return nil, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, interpolationProfile.Close()) }()
 	reducedRefs := make([]ast.ASTRef, 0, len(reduced)-1)
 	defer func() {
 		for i := len(reducedRefs) - 1; i >= 0; i-- {
@@ -122,27 +91,17 @@ func ProofInterpolants(manager *Manager, proof ast.ASTHandle, parts [][]ast.ASTH
 		}
 	}()
 	reducedHandles := make([]ast.ASTHandle, 0, len(reduced)-1)
+	// BINARY_INTERPOLATION (iz3interp.cpp:234,276-324): one two-frame
+	// translation per interpolant.
 	for frame := 0; frame < len(reduced)-1; frame++ {
-		ref, e := destination.Interpolate(node, DownwardScopeRange(frame), weak)
+		ref, e := binaryFrameInterpolant(manager, base, proof, reduced, frame, theory, config)
 		if e != nil {
-			return nil, interpolationTranslationError(e)
+			return nil, e
 		}
 		handle, e := manager.ast.RefGet(ref)
 		if e != nil {
 			_ = manager.ast.DelRef(&ref)
 			return nil, e
-		}
-		quantified, e := translation.Quantify(handle, DownwardScopeRange(frame))
-		if e != nil {
-			_ = manager.ast.DelRef(&ref)
-			return nil, e
-		}
-		if quantified != handle {
-			if e = manager.ast.SetRef(ref, quantified); e != nil {
-				_ = manager.ast.DelRef(&ref)
-				return nil, e
-			}
-			handle = quantified
 		}
 		reducedRefs = append(reducedRefs, ref)
 		reducedHandles = append(reducedHandles, handle)
@@ -151,10 +110,89 @@ func ProofInterpolants(manager *Manager, proof ast.ASTHandle, parts [][]ast.ASTH
 	if err != nil {
 		return nil, err
 	}
-	if err = interpolationProfile.Stop(); err != nil {
-		return nil, err
-	}
 	return result, nil
+}
+
+// binaryFrameInterpolant is one iteration of the BINARY_INTERPOLATION loop of
+// iz3interp::proof_to_interpolant.
+func binaryFrameInterpolant(manager *Manager, theBase *Base, proof ast.ASTHandle, reduced [][]ast.ASTHandle, frame int, theory []ast.ASTHandle, config *RunConfig) (result ast.ASTRef, resultErr error) {
+	rng := DownwardScopeRange(frame)
+	split := make([][]ast.ASTHandle, 2)
+	for j := range reduced {
+		isA, err := theBase.scopes.InRange(j, rng)
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		side := 1
+		if isA {
+			side = 0
+		}
+		split[side] = append(split[side], reduced[j]...)
+	}
+	base, err := NewBaseFromParts(manager, split, nil, theory)
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, base.Close()) }()
+	if err = configureInterpolationBase(base, config); err != nil {
+		return ast.ASTRef{}, err
+	}
+	translation, err := NewFullTranslation(base)
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, translation.Close()) }()
+	destination, err := NewInterpolationProof(base)
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, destination.Close()) }()
+	translationProfile, err := startProfile(config, "Proof translation")
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, translationProfile.Close()) }()
+	node, err := translation.Translate(proof, destination)
+	if err != nil {
+		return ast.ASTRef{}, interpolationTranslationError(err)
+	}
+	if err = translationProfile.Stop(); err != nil {
+		return ast.ASTRef{}, err
+	}
+	weak, err := base.WeakMode()
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	interpolationProfile, err := startProfile(config, "Proof interpolation")
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, interpolationProfile.Close()) }()
+	ref, err := destination.Interpolate(node, DownwardScopeRange(0), weak)
+	if err != nil {
+		return ast.ASTRef{}, interpolationTranslationError(err)
+	}
+	handle, err := manager.ast.RefGet(ref)
+	if err != nil {
+		_ = manager.ast.DelRef(&ref)
+		return ast.ASTRef{}, err
+	}
+	quantified, err := translation.Quantify(handle, DownwardScopeRange(0))
+	if err != nil {
+		_ = manager.ast.DelRef(&ref)
+		return ast.ASTRef{}, err
+	}
+	if quantified != handle {
+		if err = manager.ast.SetRef(ref, quantified); err != nil {
+			_ = manager.ast.DelRef(&ref)
+			return ast.ASTRef{}, err
+		}
+	}
+	if err = interpolationProfile.Stop(); err != nil {
+		_ = manager.ast.DelRef(&ref)
+		return ast.ASTRef{}, err
+	}
+	return ref, nil
 }
 
 // ProofInterpolantsFlat is the one-formula-per-frame source overload.
