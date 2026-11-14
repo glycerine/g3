@@ -1,0 +1,8 @@
+(set-option :smt.macro_finder true)
+(declare-fun f (Int) Int)
+(push)
+(assert (forall ((x Int)) (= (f x) (+ x 1))))
+(check-sat)
+(set-option :smt.macro_finder false)
+(assert (= (f 1) 5))
+(check-sat)

@@ -27,3 +27,34 @@ recursive_mutual_boolean_model
 # addOptimizerObjective; z3 bug: src/opt/opt_context.cpp from_fmls; fixed
 # upstream). Reproduction: test_vectors/z3_bug_opt_stale_objective_term.smt2.
 z3_bug_opt_stale_objective_term
+#
+# dom-simplify re-simplifies the dominator-tree root under its own
+# assumption: simplify_rec recurses into the root's self-edge
+# (z3 bug: src/tactic/core/dom_simplify_tactic.cpp:286-288
+# `for (expr * child : tree(e)) simplify_rec(child);`). z3 turns
+# (= true (ite p1 p0 p1)), which p0=p1=true satisfies, into
+# (= true false) and answers unsat. g3 skips the self-edge
+# (pkg/tactic/core/dom_simplify_plugin.go; AUDIT.md FUZZ_B-F6).
+# Reproduction: test_vectors/z3_bug_dom_simplify_root_resimplify.smt2.
+z3_bug_dom_simplify_root_resimplify
+#
+# elim_term_ite's cache survives pop: asserted_formulas keeps one
+# elim_term_ite rewriter for its whole life and elim_term_ite_rw::reset()
+# does not clear the cache, so after (pop) a term-ite is replaced by a
+# name whose definition was popped, and an unsat problem is reported sat
+# (z3 bug: src/smt/asserted_formulas.h:152 elim_term_ite_fn,
+# src/smt/elim_term_ite.h:48). g3 builds a fresh rewriter per pass
+# (pkg/smtcore/smt_asserted_ite.go eliminatePendingTermITEs; AUDIT.md
+# smtcore_01-F1). Reproduction:
+# test_vectors/z3_bug_elim_term_ite_stale_cache.smt2.
+z3_bug_elim_term_ite_stale_cache
+#
+# A macro found while smt.macro_finder was on is not expanded after the
+# option is switched off: asserted_formulas::reduce only expands macros
+# when the finder is enabled, so the quantifier the macro replaced is lost
+# and an unsat problem is reported sat (z3 bug:
+# src/smt/asserted_formulas.cpp:226 reduce). g3 always expands stored
+# macros (pkg/smtcore/smt_asserted_driver.go reduceAssertedPending;
+# AUDIT.md smtcore_01-F2). Reproduction:
+# test_vectors/z3_bug_macro_finder_disabled_stale_macro.smt2.
+z3_bug_macro_finder_disabled_stale_macro

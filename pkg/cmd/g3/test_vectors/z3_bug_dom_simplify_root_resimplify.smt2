@@ -1,0 +1,6 @@
+(declare-const p0 Bool)
+(declare-const p1 Bool)
+(assert (= true (ite p1 p0 p1)))
+(check-sat)
+(check-sat-using (then dom-simplify smt))
+(apply dom-simplify)
