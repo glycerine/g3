@@ -290,36 +290,38 @@ func (r *ArithRewriter) rewriteSin(arg ast.ASTHandle, out ast.ASTRef) (RewriteSt
 		return RewriteFailed, err
 	} else if yes {
 		period := arithPiPeriod(coefficient)
-		base, e := r.subtractOffset(arg, offset)
-		if e != nil {
-			return RewriteFailed, e
-		}
-		var result ast.ASTHandle
-		status := Rewrite2
-		switch {
-		case period.Sign() == 0:
-			result, e = r.app(arithOpSin, base)
-		case period.Cmp(big.NewRat(1, 2)) == 0:
-			result, e = r.app(arithOpCos, base)
-		case period.Cmp(big.NewRat(1, 1)) == 0:
-			result, e = r.app(arithOpSin, base)
-			if e == nil {
-				result, e = r.app(arithOpUMinus, result)
+		// k_prime outside {0, 1/2, 1, 3/2} falls through to
+		// is_2_pi_integer_offset.
+		if period.Sign() == 0 || period.Cmp(big.NewRat(1, 2)) == 0 || period.Cmp(big.NewRat(1, 1)) == 0 || period.Cmp(big.NewRat(3, 2)) == 0 {
+			base, e := r.subtractOffset(arg, offset)
+			if e != nil {
+				return RewriteFailed, e
 			}
-			status = Rewrite3
-		case period.Cmp(big.NewRat(3, 2)) == 0:
-			result, e = r.app(arithOpCos, base)
-			if e == nil {
-				result, e = r.app(arithOpUMinus, result)
+			var result ast.ASTHandle
+			status := Rewrite2
+			switch {
+			case period.Sign() == 0:
+				result, e = r.app(arithOpSin, base)
+			case period.Cmp(big.NewRat(1, 2)) == 0:
+				result, e = r.app(arithOpCos, base)
+			case period.Cmp(big.NewRat(1, 1)) == 0:
+				result, e = r.app(arithOpSin, base)
+				if e == nil {
+					result, e = r.app(arithOpUMinus, result)
+				}
+				status = Rewrite3
+			case period.Cmp(big.NewRat(3, 2)) == 0:
+				result, e = r.app(arithOpCos, base)
+				if e == nil {
+					result, e = r.app(arithOpUMinus, result)
+				}
+				status = Rewrite3
 			}
-			status = Rewrite3
-		default:
-			return RewriteFailed, nil
+			if e != nil {
+				return RewriteFailed, e
+			}
+			return status, r.manager.SetRef(out, result)
 		}
-		if e != nil {
-			return RewriteFailed, e
-		}
-		return status, r.manager.SetRef(out, result)
 	}
 	if offset, yes, err := r.integerPiOffset(arg, true); err != nil {
 		return RewriteFailed, err
@@ -368,36 +370,38 @@ func (r *ArithRewriter) rewriteCos(arg ast.ASTHandle, out ast.ASTRef) (RewriteSt
 		return RewriteFailed, err
 	} else if yes {
 		period := arithPiPeriod(coefficient)
-		base, e := r.subtractOffset(arg, offset)
-		if e != nil {
-			return RewriteFailed, e
-		}
-		var result ast.ASTHandle
-		status := Rewrite2
-		switch {
-		case period.Sign() == 0:
-			result, e = r.app(arithOpCos, base)
-		case period.Cmp(big.NewRat(1, 2)) == 0:
-			result, e = r.app(arithOpSin, base)
-			if e == nil {
-				result, e = r.app(arithOpUMinus, result)
+		// k_prime outside {0, 1/2, 1, 3/2} falls through to
+		// is_2_pi_integer_offset.
+		if period.Sign() == 0 || period.Cmp(big.NewRat(1, 2)) == 0 || period.Cmp(big.NewRat(1, 1)) == 0 || period.Cmp(big.NewRat(3, 2)) == 0 {
+			base, e := r.subtractOffset(arg, offset)
+			if e != nil {
+				return RewriteFailed, e
 			}
-			status = Rewrite3
-		case period.Cmp(big.NewRat(1, 1)) == 0:
-			result, e = r.app(arithOpCos, base)
-			if e == nil {
-				result, e = r.app(arithOpUMinus, result)
+			var result ast.ASTHandle
+			status := Rewrite2
+			switch {
+			case period.Sign() == 0:
+				result, e = r.app(arithOpCos, base)
+			case period.Cmp(big.NewRat(1, 2)) == 0:
+				result, e = r.app(arithOpSin, base)
+				if e == nil {
+					result, e = r.app(arithOpUMinus, result)
+				}
+				status = Rewrite3
+			case period.Cmp(big.NewRat(1, 1)) == 0:
+				result, e = r.app(arithOpCos, base)
+				if e == nil {
+					result, e = r.app(arithOpUMinus, result)
+				}
+				status = Rewrite3
+			case period.Cmp(big.NewRat(3, 2)) == 0:
+				result, e = r.app(arithOpSin, base)
 			}
-			status = Rewrite3
-		case period.Cmp(big.NewRat(3, 2)) == 0:
-			result, e = r.app(arithOpSin, base)
-		default:
-			return RewriteFailed, nil
+			if e != nil {
+				return RewriteFailed, e
+			}
+			return status, r.manager.SetRef(out, result)
 		}
-		if e != nil {
-			return RewriteFailed, e
-		}
-		return status, r.manager.SetRef(out, result)
 	}
 	if offset, yes, err := r.integerPiOffset(arg, true); err != nil {
 		return RewriteFailed, err

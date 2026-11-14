@@ -1,0 +1,8 @@
+(declare-const x Real)
+(declare-const n Int)
+(simplify (sin (+ x (* (/ 1.0 3.0) pi) (* 2.0 pi (to_real n)))))
+(simplify (cos (+ x (* (/ 1.0 3.0) pi) (* 2.0 pi (to_real n)))))
+(simplify (sin (+ x (* (/ 1.0 2.0) pi) (* 2.0 pi (to_real n)))))
+(simplify (cos (+ x pi)))
+(simplify (sin (+ x (* (/ 1.0 3.0) pi))))
+(simplify (tan (+ x (* (/ 1.0 3.0) pi) (* 2.0 pi (to_real n)))))

@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_rewriter_01-F6: an unmatched pi offset falls through to
+	// is_2_pi_integer_offset in mk_sin_core/mk_cos_core.
+	"arith_trig_pi_offset_fallthrough.smt2": "(sin (+ x (* (/ 1.0 3.0) pi)))\n(cos (+ x (* (/ 1.0 3.0) pi)))\n(cos x)\n(* (- 1.0) (cos x))\n(sin (+ x (* (/ 1.0 3.0) pi)))\n(tan (+ x (* (/ 1.0 3.0) pi)))\n",
 	// AUDIT.md ast_rewriter_01-F3: max_degree applies only to irrat/irrat
 	// division, power and is_anum_simp_target.
 	"arith_anum_max_degree.smt2": "true\n(root-obj (+ (* 4 (^ x 3)) (- 1)) 1)\n(root-obj (+ (^ x 3) (- 4)) 1)\n(/ (root-obj (+ (^ x 3) (- 2)) 1) (root-obj (+ (^ x 2) (- 2)) 2))\n(root-obj (+ (* 2 (^ x 6)) (- 1)) 2)\nfalse\n(/ (root-obj (+ (^ x 3) (- 2)) 1) 0.0)\nfalse\n",
