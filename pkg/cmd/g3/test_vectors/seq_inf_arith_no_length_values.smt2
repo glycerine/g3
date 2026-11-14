@@ -1,0 +1,8 @@
+(set-option :smt.arith.solver 5)
+(declare-const s String)
+(declare-const t String)
+(assert (= (str.len s) 2))
+(assert (= (str.len t) 1))
+(assert (not (= (str.at s 0) t)))
+(check-sat)
+(get-model)

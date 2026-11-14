@@ -229,12 +229,13 @@ func (t *SMTTheorySeq) ensureEnode(e ast.ASTHandle) *SMTEnode {
 }
 
 // arith is get_th_arith: the theory_mi_arith or theory_i_arith serving
-// arithmetic, if any, when e is internalized.
+// arithmetic, if any, when e is internalized. The dynamic_casts reject
+// theory_inf_arith (theory_arith<inf_ext>).
 func (t *SMTTheorySeq) arith(e ast.ASTHandle) *SMTTheoryArith {
 	fid, err := t.m.ArithmeticFamilyID()
 	t.chk(err)
 	a, ok := t.state.Theory(fid).(*SMTTheoryArith)
-	if !ok || !t.eInternalized(e) {
+	if !ok || a.infExt || !t.eInternalized(e) {
 		return nil
 	}
 	return a

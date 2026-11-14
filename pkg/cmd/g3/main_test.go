@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_08-F2: theory_seq get_th_arith rejects theory_inf_arith.
+	"seq_inf_arith_no_length_values.smt2": "sat\n(model \n  (define-fun s () String\n    \"\\x10\\x00\")\n  (define-fun t () String\n    \"\\x00\")\n)\n",
 	// AUDIT.md smtcore_11-F3: mark_as_relevant(true_literal) marks true
 	// (BV numeral bits, FPA and datalog assert_cnstr).
 	"fpa_relevancy_true_literal.smt2": "sat\n(model \n  (define-fun x2 () (_ FloatingPoint 2 2)\n    (_ -oo 2 2))\n  (define-fun x1 () (_ FloatingPoint 2 2)\n    (fp #b1 #b00 #b1))\n  (define-fun x0 () (_ FloatingPoint 2 2)\n    (fp #b0 #b00 #b1))\n)\n",
