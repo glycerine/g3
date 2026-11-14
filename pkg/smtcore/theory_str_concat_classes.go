@@ -81,23 +81,32 @@ func (t *SMTStringTheory) simplifyStringConcat(expression ast.ASTHandle) (out as
 	if err != nil || same {
 		return out, err
 	}
-	guards := smtStringLengthPremises{theory: t}
-	defer func() { result = errors.Join(result, guards.close()) }()
+	// expr_ref_vector items(m); expr_ref premise(mk_and(items), m);
+	// expr_ref conclusion(ctx.mk_eq_atom(node, resultAst), m);
+	// assert_implication(premise, conclusion);
+	m := t.state.manager
+	scope := smtStringScope{theory: t}
+	defer func() { result = errors.Join(result, scope.close()) }()
+	items := scope.vector()
 	var keys []ast.ASTHandle
 	for key := range resolved {
 		keys = append(keys, key)
 	}
 	stringSortHandles(keys)
 	for _, key := range keys {
-		if err := guards.equate(key, resolved[key]); err != nil {
+		if _, err := items.push(t.state.MkEqAtom(key, resolved[key])); err != nil {
 			return out, err
 		}
 	}
-	equality, err := t.state.manager.MkEq(expression, out)
+	premise, err := scope.own(m.MkAndArray(items.values))
 	if err != nil {
 		return out, err
 	}
-	return out, guards.imply(equality)
+	conclusion, err := scope.own(t.state.MkEqAtom(expression, out))
+	if err != nil {
+		return out, err
+	}
+	return out, t.assertImplication(premise, conclusion)
 }
 
 type smtStringClassGroups struct {

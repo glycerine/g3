@@ -12,25 +12,61 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func (t *SMTStringTheory) assertAxiom(expression ast.ASTHandle) error {
+func (t *SMTStringTheory) assertAxiom(expression ast.ASTHandle) (result error) {
 	state, err := t.State()
 	if err != nil || expression.IsNull() || state.manager.IsTrue(expression) {
 		return err
 	}
-	if err = state.Internalize(expression, false); err != nil {
+	// expr_ref e(_e, m);
+	ref, err := state.manager.NewRef(expression)
+	if err != nil {
 		return err
+	}
+	defer func() { result = errors.Join(result, state.manager.DelRef(&ref)) }()
+	// if (!ctx.b_internalized(e)) ctx.internalize(e, false);
+	if _, found := state.BoolVar(expression); !found {
+		if err = state.Internalize(expression, false); err != nil {
+			return err
+		}
 	}
 	literal, err := state.Literal(expression)
 	if err != nil {
 		return err
 	}
-	if err = state.markRelevant(expression); err != nil {
-		return err
+	// ctx.mark_as_relevant(lit) marks bool_var2expr(lit.var()).
+	if literal.Var() != SMTTrueBoolVar {
+		atom, err := state.BoolExpression(literal.Var())
+		if err != nil {
+			return err
+		}
+		if err = state.markRelevant(atom); err != nil {
+			return err
+		}
 	}
 	if err = state.addTheoryAxiom(t.FamilyID(), []SMTLiteral{literal}); err != nil {
 		return err
 	}
 	return t.retain(expression)
+}
+
+// assertImplication is theory_str::assert_implication:
+// expr_ref axiom(m.mk_or(mk_not(m, premise), conclusion), m); assert_axiom(axiom).
+func (t *SMTStringTheory) assertImplication(premise, conclusion ast.ASTHandle) (result error) {
+	m := t.state.manager
+	negative, err := m.MkNotSimplified(premise)
+	if err != nil {
+		return err
+	}
+	axiom, err := m.MkOr(negative, conclusion)
+	if err != nil {
+		return err
+	}
+	ref, err := m.NewRef(axiom)
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, m.DelRef(&ref)) }()
+	return t.assertAxiom(axiom)
 }
 
 func (t *SMTStringTheory) instantiateBasicStringAxioms(node *SMTEnode) (result error) {

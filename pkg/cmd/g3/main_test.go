@@ -338,6 +338,12 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_G-F8: simplify_concat implication (Boolean model value).
+	"str_concat_simplify_bool.smt2": "sat\n(model \n  (define-fun x0 () Int\n    (- 149))\n  (define-fun p1 () Bool\n    true)\n  (define-fun s1 () String\n    \"\")\n  (define-fun p2 () Bool\n    false)\n  (define-fun x2 () Int\n    149)\n  (define-fun x1 () Int\n    (- 15))\n  (define-fun p0 () Bool\n    false)\n  (define-fun s0 () String\n    \"\")\n)\n",
+	// AUDIT.md FUZZ_G-F8: simplify_concat asserts premise -> mk_eq_atom(node, result).
+	"str_concat_simplify_implication.smt2": "sat\n(model \n  (define-fun s0 () String\n    \"aaaaaaaam\")\n  (define-fun s2 () String\n    \"aaa\")\n  (define-fun p1 () Bool\n    false)\n  (define-fun p0 () Bool\n    false)\n  (define-fun s1 () String\n    \"aaagE\")\n)\n",
+	// AUDIT.md FUZZ_G-F6/F8: substr axiom order and simplify_concat implication.
+	"str_substr_axiom.smt2": "sat\n(model \n  (define-fun s1 () String\n    \"aw\")\n  (define-fun x0 () Int\n    (- 100))\n  (define-fun p1 () Bool\n    true)\n  (define-fun p0 () Bool\n    true)\n  (define-fun s0 () String\n    \"f\")\n)\n",
 	// AUDIT.md FUZZ_G-F7: str.replace axiom terms in GCC order with the C++ owners.
 	"str_replace_axiom.smt2": "sat\n(model \n  (define-fun s0 () String\n    \"aaaaE\")\n  (define-fun s2 () String\n    \"aan\")\n  (define-fun p1 () Bool\n    true)\n  (define-fun p0 () Bool\n    true)\n  (define-fun s1 () String\n    \"aaaaa1\")\n)\n",
 	// AUDIT.md smtcore_13-F2 / FUZZ_G-F6: substr axiom atoms in C++ order (also a golden trace vector).
