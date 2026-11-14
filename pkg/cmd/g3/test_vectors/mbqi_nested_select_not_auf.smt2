@@ -1,0 +1,8 @@
+(declare-const A (Array Int (Array Int Int)))
+(declare-fun g (Int Int) Int)
+(declare-fun h (Int) Int)
+(assert (forall ((x Int) (y Int)) (= (g x y) (select (select A x) y))))
+(assert (forall ((x Int)) (= (h (g x x)) 0)))
+(assert (= (select (select A 1) 5) 3))
+(check-sat)
+(get-model)

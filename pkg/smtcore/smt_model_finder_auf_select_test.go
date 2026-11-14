@@ -214,15 +214,31 @@ func TestSMTModelFinderAUFSelectNestedArrayParents(t *testing.T) {
 	graph.model = proto
 	t.Cleanup(func() { astTestMust(t, graph.close()) })
 	astTestMust(t, aufTestBuild(t, graph, []ast.ASTHandle{q}))
-	for _, test := range []struct {
-		variable   uint32
-		term       ast.ASTHandle
-		generation uint32
-	}{{1, falsehood, 4}, {0, truth, 5}} {
-		node := graph.uvars[smtModelFinderAUFKey{q, test.variable}].root()
-		if len(node.set.testElements()) != 1 || node.set.testElements()[test.term] != test.generation {
-			t.Fatal("nested select did not follow relevant array parents", test.variable, node.set.testElements())
-		}
+	// AUDIT.md smtcore_05-F3: is_auf_select checks every argument, the
+	// array included, so (select (select A x) y) is not an auf select. Only
+	// the inner (select A x) gives a select_var; y is visited as a term and,
+	// being Boolean, then as a negative formula only (visit_term marked it
+	// in m_pos_cache): the qinfo (x_neq_t y true). y gets no array-parent
+	// indexes.
+	finder := state.quantifierManager.modelFinder
+	info := finder.qinfos[q]
+	if info == nil || len(info.selects) != 1 || info.selects[0].selectTerm != nestedPattern ||
+		info.selects[0].position != 1 || info.selects[0].variable != 1 {
+		t.Fatal("nested select qinfos differ from is_auf_select", info)
+	}
+	if len(info.literals) != 1 || info.literals[0].kind != aufDisequalGround || info.literals[0].first != 0 || info.literals[0].term != truth {
+		t.Fatal("Boolean outer index qinfo", info.literals)
+	}
+	if !finder.auf[q] {
+		t.Fatal("Boolean outer index cleared m_is_auf")
+	}
+	xNode := graph.uvars[smtModelFinderAUFKey{q, 1}].root()
+	if len(xNode.set.testElements()) != 1 || xNode.set.testElements()[falsehood] != 4 {
+		t.Fatal("inner select did not follow the ground array's parents", xNode.set.testElements())
+	}
+	yNode := graph.uvars[smtModelFinderAUFKey{q, 0}].root()
+	if len(yNode.set.testElements()) != 1 || yNode.set.testElements()[truth] != 0 {
+		t.Fatal("outer select index followed nested array parents", yNode.set.testElements())
 	}
 	astTestMust(t, state.context.SetRelevant(array, false))
 	astTestMust(t, state.context.SetRelevant(groundInner, false))

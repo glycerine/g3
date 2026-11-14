@@ -221,7 +221,9 @@ func (g *smtModelFinderAUFGraph) isAUFSelect(term ast.ASTHandle) (bool, error) {
 			return false, err
 		}
 	}
-	for i := uint32(1); i < n; i++ {
+	// The source loop covers every argument, the array included: a
+	// non-ground (nested select) array fails here.
+	for i := uint32(0); i < n; i++ {
 		index, err := m.GetArg(term, i)
 		if err != nil {
 			return false, err

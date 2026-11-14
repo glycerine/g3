@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_05-F3: is_auf_select checks the array argument; a nested select with two bound variables is not AUF.
+	"mbqi_nested_select_not_auf.smt2": "sat\n(model \n  (define-fun A () (Array Int (Array Int Int))\n    (_ as-array k!7))\n  (define-fun k!7 ((x!0 Int)) (Array Int Int)\n    (_ as-array k!6))\n  (define-fun g ((x!0 Int) (x!1 Int)) Int\n    (ite (and (= x!0 1) (= x!1 5)) 3\n    (ite (and (= x!0 1) (= x!1 1)) 2\n      (select (k!7 x!0) x!1))))\n  (define-fun h ((x!0 Int)) Int\n    0)\n  (define-fun k!6 ((x!0 Int)) Int\n    (ite (= x!0 1) 2\n      3))\n)\n",
 	// AUDIT.md smtcore_05-F2/F10: m_is_auf comes from the analyzer; x <= y as a term argument is analyzed with negative polarity only.
 	"mbqi_auf_bool_term_polarity.smt2": "sat\n(model \n  (define-fun g ((x!0 Int) (x!1 Int)) Int\n    0)\n  (define-fun f ((x!0 Bool)) Int\n    0)\n  (define-fun h ((x!0 Int)) Int\n    0)\n)\n",
 	// AUDIT.md smtcore_05-F1: full macros follow obj_map table order.
