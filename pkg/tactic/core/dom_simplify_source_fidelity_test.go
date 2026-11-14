@@ -11,16 +11,24 @@ func TestDomSimplifyDefaultCallbackSubstitutesBooleanIff(t *testing.T) {
 	f := newDomFixture(t)
 	iff, err := f.m.MkIff(f.a, f.b)
 	domMust(t, err)
-	ctx := &domContext{}
-	runner, err := NewDomSimplifyTactic(f.m, nil)
+	s, err := newExprSubstitutionSimplifier(f.m)
 	domMust(t, err)
-	t.Cleanup(func() { domMust(t, runner.Close()) })
-	if err = runner.assertContext(ctx, iff, false); err != nil {
-		t.Fatal(err)
+	t.Cleanup(func() { domMust(t, s.Close()) })
+	ok, err := s.AssertExpression(iff, false)
+	domMust(t, err)
+	if !ok || s.ScopeLevel() != 1 {
+		t.Fatal("assert_expr pushes one scope and succeeds", ok, s.ScopeLevel())
 	}
-	if got := ctx.find(f.b); got != f.a {
+	ref, err := f.m.NewRef(f.b)
+	domMust(t, err)
+	t.Cleanup(func() { domMust(t, f.m.DelRef(&ref)) })
+	domMust(t, s.Rewrite(ref))
+	got, err := f.m.RefGet(ref)
+	domMust(t, err)
+	if got != f.a {
 		t.Fatalf("Boolean iff substitution = %v, want %v", got, f.a)
 	}
+	domMust(t, s.Pop(1))
 }
 
 func TestDomSimplifyDoesNotPropagateGoalEqualitiesWithProofs(t *testing.T) {

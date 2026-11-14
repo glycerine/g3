@@ -1,0 +1,5 @@
+(declare-const p0 Bool)
+(declare-const p1 Bool)
+(assert (=> (and p1 (not p0)) (not p0)))
+(assert p0)
+(apply dom-simplify)

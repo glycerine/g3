@@ -1,0 +1,7 @@
+(declare-const p Bool)
+(declare-const q Bool)
+(declare-fun h (Bool) Bool)
+(assert p)
+(assert (h p))
+(assert q)
+(apply dom-simplify)

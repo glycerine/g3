@@ -1,0 +1,6 @@
+(declare-const p2 Bool)
+(declare-const p3 Bool)
+(assert p3)
+(assert (= (and (not true) p2) (not p3)))
+(assert (= true false))
+(apply dom-simplify)

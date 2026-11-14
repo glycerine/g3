@@ -338,6 +338,22 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_B-F1: dom-simplify uses expr_substitution_simplifier (no folding).
+	"dom_simplify_no_not_folding.smt2": "(goals\n(goal\n  (not (not true))\n  (not false)\n  p\n  :precision precise :depth 1)\n)\n(goals\n(goal\n  (not true)\n  :precision precise :depth 1)\n)\n",
+	// AUDIT.md FUZZ_B-F2: the scoped substitution keeps the first binding.
+	"dom_simplify_first_binding_wins.smt2": "(goals\n(goal\n  (= x a)\n  (= y (ite (= x b) (f a) z))\n  :precision precise :depth 1)\n)\n",
+	// AUDIT.md FUZZ_B-F3: an unorientable equality is recorded as eq -> true.
+	"dom_simplify_reflexive_equality_key.smt2": "(goals\n(goal\n  (= x x)\n  (h true)\n  :precision precise :depth 1)\n)\n",
+	// AUDIT.md FUZZ_B-F4: simplify_ite result order and the rewritten condition.
+	"dom_simplify_ite_result.smt2": "(goals\n(goal\n  (=> p (h (ite p x x)))\n  :precision precise :depth 1)\n)\n(goals\n(goal\n  (=> p (h (ite p x x)))\n  :precision precise :depth 1)\n)\n(goals\n(goal\n  (ite p q q)\n  :precision precise :depth 1)\n)\n(goals\n(goal\n  (= q p)\n  (h (ite p x y))\n  :precision precise :depth 1)\n)\n",
+	// AUDIT.md FUZZ_B-F5: simplify_and_or rebuilds with mk_and/mk_or.
+	"dom_simplify_unary_and.smt2": "(goals\n(goal\n  (not p)\n  :precision precise :depth 1)\n)\n",
+	// AUDIT.md FUZZ_B-F7: the dominator tree follows m_doms obj_map order.
+	"dom_simplify_tree_hash_order.smt2": "(goals\n(goal\n  p3\n  (= (and (not true) p2) (not false))\n  (= true false)\n  :precision precise :depth 1)\n)\n",
+	// AUDIT.md FUZZ_B-F8: compute_post_order numbers the last argument first.
+	"dom_simplify_post_order.smt2": "(goals\n(goal\n  (=> (and p1 (not p0)) (not true))\n  p0\n  :precision precise :depth 1)\n)\n",
+	// AUDIT.md FUZZ_B-F9: dom-simplify expr_ref lifetimes (see TestTraceLogCPPReference).
+	"dom_simplify_trace_lifetimes.smt2": "(goals\n(goal\n  p\n  (h true)\n  q\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md FUZZ_D-F1: the QF_NIA nlsat route runs mk_qfnra_nlsat_tactic.
 	"qfnia_nlsat_div_self.smt2": "sat\n(model \n  (define-fun x0 () Int\n    0)\n)\n",
 	// AUDIT.md smtcore_12-F2: wrong unsat for (= i (str.to.int x)) (= i 12).
@@ -1445,6 +1461,51 @@ func TestSMTLibRunnerCPPReference(t *testing.T) {
 			}
 			if canonicalReferenceOutput(name, goOutput.String()) != canonicalReferenceOutput(name, string(cppOutput)) {
 				t.Fatalf("Go/C++ mismatch\nGo:\n%s\nC++:\n%s\nC++ diagnostics:\n%s", goOutput.String(), cppOutput, cppDiagnostics.String())
+			}
+		})
+	}
+}
+
+// TestTraceLogCPPReference compares the trace=true AST log of g3 and the C++
+// reference byte for byte. The log records every [mk-app] with its AST id, so
+// it checks that expr_ref lifetimes (and so id recycling) follow the source.
+// AUDIT.md FUZZ_B-F9: dom-simplify released nothing until the end of the pass.
+func TestTraceLogCPPReference(t *testing.T) {
+	reference := os.Getenv("G3_CPP_REFERENCE")
+	if reference == "" {
+		t.Skip("set G3_CPP_REFERENCE to the C++ z3 executable")
+	}
+	for _, name := range []string{
+		"dom_simplify_trace_lifetimes.smt2",
+	} {
+		t.Run(name, func(t *testing.T) {
+			input, err := filepath.Abs(filepath.Join("test_vectors", name))
+			if err != nil {
+				t.Fatal(err)
+			}
+			dir := t.TempDir()
+			goLog, cppLog := filepath.Join(dir, "g3.log"), filepath.Join(dir, "z3.log")
+			var goOutput bytes.Buffer
+			if err = runArguments([]string{"trace=true", "trace_file_name=" + goLog, input}, strings.NewReader(""), &goOutput); err != nil {
+				t.Fatal(err, goOutput.String())
+			}
+			cppOutput, err := exec.Command(reference, "trace=true", "trace_file_name="+cppLog, input).CombinedOutput()
+			if err != nil {
+				t.Fatal("C++ reference", err, string(cppOutput))
+			}
+			if goOutput.String() != string(cppOutput) {
+				t.Fatalf("Go/C++ output mismatch\nGo:\n%s\nC++:\n%s", goOutput.String(), cppOutput)
+			}
+			got, err := os.ReadFile(goLog)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want, err := os.ReadFile(cppLog)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(got, want) {
+				t.Fatalf("Go/C++ trace log mismatch\nGo:\n%s\nC++:\n%s", got, want)
 			}
 		})
 	}

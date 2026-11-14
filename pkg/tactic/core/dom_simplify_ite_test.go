@@ -34,7 +34,9 @@ func TestDomSimplifyITEEqualBranches(t *testing.T) {
 	f.run(t, g)
 	got, e := g.Form(0)
 	domMust(t, e)
-	if got != f.b {
-		t.Fatal(got, f.b)
+	// simplify_ite tests c == new_c && t == new_t && e == new_e before
+	// new_t == new_e, so an unchanged (ite a b b) is kept (z3 prints it).
+	if got != ite {
+		t.Fatal(got, ite)
 	}
 }

@@ -8,175 +8,200 @@ import "github.com/glycerine/g3/pkg/ast"
 type expressionDominators struct {
 	manager   *ast.ASTManager
 	root      ast.ASTHandle
+	rootRef   ast.ASTRef // m_root (expr_ref)
 	post      []ast.ASTHandle
 	postIndex map[ast.ASTHandle]uint32
 	parents   map[ast.ASTHandle][]ast.ASTHandle
-	idom      map[ast.ASTHandle]ast.ASTHandle
-	tree      map[ast.ASTHandle][]ast.ASTHandle
+	// doms is m_doms. extract_tree iterates it, so it keeps the source
+	// obj_map layout (and its capacity across reset()).
+	doms *ast.ObjMap
+	tree map[ast.ASTHandle][]ast.ASTHandle
 }
 
 func newExpressionDominators(m *ast.ASTManager) *expressionDominators {
-	return &expressionDominators{manager: m}
+	return &expressionDominators{manager: m, doms: ast.NewObjMap(m)}
 }
-func (d *expressionDominators) reset() {
-	d.root = ast.ASTHandle{}
+func (d *expressionDominators) reset() error {
 	d.post = nil
 	d.postIndex = make(map[ast.ASTHandle]uint32)
 	d.parents = make(map[ast.ASTHandle][]ast.ASTHandle)
-	d.idom = make(map[ast.ASTHandle]ast.ASTHandle)
+	d.doms.Reset()
 	d.tree = make(map[ast.ASTHandle][]ast.ASTHandle)
+	d.root = ast.ASTHandle{}
+	if d.rootRef == (ast.ASTRef{}) {
+		return nil
+	}
+	return d.manager.DelRef(&d.rootRef) // m_root.reset()
+}
+
+// idom is expr_dominators::idom (m_doms[e]).
+func (d *expressionDominators) idom(h ast.ASTHandle) (ast.ASTHandle, bool, error) {
+	v, ok, err := d.doms.Find(h)
+	return v[0], ok, err
 }
 
 func (d *expressionDominators) compile(root ast.ASTHandle) (bool, error) {
-	d.reset()
-	d.root = root
-	if err := d.computePostOrder(root); err != nil {
+	if err := d.reset(); err != nil {
+		return false, err
+	}
+	ref, err := d.manager.NewRef(root) // m_root = e
+	if err != nil {
+		return false, err
+	}
+	d.root, d.rootRef = root, ref
+	if err := d.computePostOrder(); err != nil {
 		return false, err
 	}
 	ok, err := d.computeDominators()
 	if err != nil || !ok {
 		return ok, err
 	}
-	// C++ inserts the root into m_doms first and then inserts other nodes in
-	// post-order. Preserve that order when extracting the immediate-dominator
-	// tree; ranging over a Go map makes traversal order unstable.
-	if parent, ok := d.idom[d.root]; ok {
-		d.tree[parent] = append(d.tree[parent], d.root)
-	}
-	for _, child := range d.post {
-		if child == d.root {
-			continue
-		}
-		if parent, ok := d.idom[child]; ok {
-			d.tree[parent] = append(d.tree[parent], child)
-		}
+	// extract_tree: for (auto const& kv : m_doms) add_edge(m_tree, value, key).
+	for _, entry := range d.doms.Entries() {
+		parent := entry.Value[0]
+		d.tree[parent] = append(d.tree[parent], entry.Key)
 	}
 	return true, nil
 }
 
-func (d *expressionDominators) computePostOrder(root ast.ASTHandle) error {
-	type frame struct {
-		h    ast.ASTHandle
-		next uint32
-		args uint32
-	}
+// computePostOrder is expr_dominators::compute_post_order: every unmarked
+// argument is pushed, so the last argument is numbered first.
+func (d *expressionDominators) computePostOrder() error {
 	marked := make(map[ast.ASTHandle]bool)
-	stack := []frame{{h: root}}
-	for len(stack) > 0 {
-		i := len(stack) - 1
-		f := &stack[i]
-		if marked[f.h] {
-			stack = stack[:i]
+	todo := []ast.ASTHandle{d.root}
+	for len(todo) > 0 {
+		e := todo[len(todo)-1]
+		if marked[e] {
+			todo = todo[:len(todo)-1]
 			continue
 		}
-		kind, err := d.manager.GetKind(f.h)
+		kind, err := d.manager.GetKind(e)
 		if err != nil {
 			return err
 		}
 		if kind != ast.ASTApp {
-			marked[f.h] = true
-			stack = stack[:i]
+			marked[e] = true
+			todo = todo[:len(todo)-1]
 			continue
 		}
-		if f.args == 0 {
-			f.args, err = d.manager.GetNumArgs(f.h)
+		n, err := d.manager.GetNumArgs(e)
+		if err != nil {
+			return err
+		}
+		args := make([]ast.ASTHandle, n)
+		done := true
+		for i := uint32(0); i < n; i++ {
+			args[i], err = d.manager.GetArg(e, i)
 			if err != nil {
 				return err
 			}
-		}
-		pushed := false
-		for f.next < f.args {
-			arg, e := d.manager.GetArg(f.h, f.next)
-			if e != nil {
-				return e
-			}
-			f.next++
-			if !marked[arg] {
-				stack = append(stack, frame{h: arg})
-				pushed = true
-				break
+			if !marked[args[i]] {
+				todo = append(todo, args[i])
+				done = false
 			}
 		}
-		if pushed {
-			continue
-		}
-		marked[f.h] = true
-		d.postIndex[f.h] = uint32(len(d.post))
-		d.post = append(d.post, f.h)
-		stack = stack[:i]
-		for j := uint32(0); j < f.args; j++ {
-			arg, e := d.manager.GetArg(f.h, j)
-			if e != nil {
-				return e
+		if done {
+			marked[e] = true
+			d.postIndex[e] = uint32(len(d.post))
+			d.post = append(d.post, e)
+			todo = todo[:len(todo)-1]
+			for _, arg := range args {
+				d.parents[arg] = append(d.parents[arg], e)
 			}
-			d.parents[arg] = append(d.parents[arg], f.h)
 		}
 	}
 	return nil
 }
 
 func (d *expressionDominators) intersect(x, y ast.ASTHandle) (ast.ASTHandle, error) {
-	for x != y {
-		nx, xok := d.postIndex[x]
-		ny, yok := d.postIndex[y]
-		if !xok || !yok {
-			return ast.ASTHandle{}, ast.ErrASTDomain
-		}
-		if nx < ny {
-			x = d.idom[x]
+	n1, xok := d.postIndex[x]
+	n2, yok := d.postIndex[y]
+	if !xok || !yok {
+		return ast.ASTHandle{}, ast.ErrASTDomain
+	}
+	for n1 != n2 {
+		var ok bool
+		var err error
+		if n1 < n2 {
+			if x, ok, err = d.idom(x); err != nil || !ok {
+				return ast.ASTHandle{}, firstDomError(err)
+			}
+			if n1, ok = d.postIndex[x]; !ok {
+				return ast.ASTHandle{}, ast.ErrASTDomain
+			}
 		} else {
-			y = d.idom[y]
+			if y, ok, err = d.idom(y); err != nil || !ok {
+				return ast.ASTHandle{}, firstDomError(err)
+			}
+			if n2, ok = d.postIndex[y]; !ok {
+				return ast.ASTHandle{}, ast.ErrASTDomain
+			}
 		}
 	}
 	return x, nil
+}
+
+func firstDomError(err error) error {
+	if err != nil {
+		return err
+	}
+	return ast.ErrASTDomain
 }
 
 func (d *expressionDominators) computeDominators() (bool, error) {
 	if d.root.IsNull() {
 		return false, ast.ErrASTHandle
 	}
-	d.idom[d.root] = d.root
+	if err := d.doms.Insert(d.root, [2]ast.ASTHandle{d.root}); err != nil {
+		return false, err
+	}
+	change := true
 	iterations := uint32(1)
-	for {
-		changed := false
-		if len(d.post) > 0 && d.post[len(d.post)-1] != d.root {
-			return false, ast.ErrASTDomain
-		}
+	for change {
+		change = false
 		for i := 0; i+1 < len(d.post); i++ {
 			child := d.post[i]
-			parents := d.parents[child]
-			var next ast.ASTHandle
-			for _, p := range parents {
-				if _, known := d.idom[p]; !known {
+			p := d.parents[child]
+			var newIdom ast.ASTHandle
+			for _, pred := range p {
+				known, err := d.doms.Contains(pred)
+				if err != nil {
+					return false, err
+				}
+				if !known {
 					continue
 				}
-				if next.IsNull() {
-					next = p
-				} else {
-					var err error
-					next, err = d.intersect(next, p)
-					if err != nil {
-						return false, err
-					}
+				if newIdom.IsNull() {
+					newIdom = pred
+				} else if newIdom, err = d.intersect(newIdom, pred); err != nil {
+					return false, err
 				}
 			}
-			if next.IsNull() {
-				if len(parents) == 0 {
-					continue
+			if newIdom.IsNull() {
+				if len(p) == 0 {
+					return false, ast.ErrASTDomain
 				}
-				next = parents[0]
+				if err := d.doms.Insert(child, [2]ast.ASTHandle{p[0]}); err != nil {
+					return false, err
+				}
+				change = true
+				continue
 			}
-			if old, ok := d.idom[child]; !ok || old != next {
-				d.idom[child] = next
-				changed = true
+			old, ok, err := d.idom(child)
+			if err != nil {
+				return false, err
+			}
+			if !ok || old != newIdom {
+				if err = d.doms.Insert(child, [2]ast.ASTHandle{newIdom}); err != nil {
+					return false, err
+				}
+				change = true
 			}
 		}
 		iterations *= 2
-		if !changed {
-			return true, nil
-		}
-		if iterations > uint32(len(d.post)) {
+		if change && iterations > uint32(len(d.post)) {
 			return false, nil
 		}
 	}
+	return true, nil
 }

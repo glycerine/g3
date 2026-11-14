@@ -1,0 +1,5 @@
+(declare-const x Int)
+(declare-fun h (Bool) Bool)
+(assert (= x x))
+(assert (h (= x x)))
+(apply dom-simplify)

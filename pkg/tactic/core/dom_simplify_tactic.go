@@ -25,8 +25,9 @@ type DomSimplifyTactic struct {
 	ownerBytes uint64
 	closed     bool
 	domSimp    DomSimplifier
-	domCache   map[ast.ASTHandle]ast.ASTHandle
-	domPins    []ast.ASTRef
+	domCache   map[ast.ASTHandle]ast.ASTHandle // m_result
+	domTrail   []ast.ASTRef                    // m_trail
+	domArgs    []ast.ASTRef                    // m_args
 }
 
 // DomSimplifier is the callback contract used by the source's dominator
@@ -51,7 +52,7 @@ func (t *DomSimplifyTactic) BindTrace(tags *diagnostic.TraceTags) error {
 
 var _ tactic.Tactic = (*DomSimplifyTactic)(nil)
 
-func NewDomSimplifyTactic(m *ast.ASTManager, _ *uparams.ParamsRef) (*DomSimplifyTactic, error) {
+func newDomSimplifyTactic(m *ast.ASTManager, _ *uparams.ParamsRef) (*DomSimplifyTactic, error) {
 	if m == nil {
 		return nil, ast.ErrASTHandle
 	}
@@ -65,8 +66,23 @@ func NewDomSimplifyTactic(m *ast.ASTManager, _ *uparams.ParamsRef) (*DomSimplify
 	return t, nil
 }
 
+// NewDomSimplifyTactic is mk_dom_simplify_tactic without the clean wrapper:
+// dom_simplify_tactic over an expr_substitution_simplifier.
+func NewDomSimplifyTactic(m *ast.ASTManager, p *uparams.ParamsRef) (*DomSimplifyTactic, error) {
+	t, err := newDomSimplifyTactic(m, p)
+	if err != nil {
+		return nil, err
+	}
+	s, err := newExprSubstitutionSimplifier(m)
+	if err != nil {
+		return nil, errors.Join(err, t.Close())
+	}
+	t.domSimp = s
+	return t, nil
+}
+
 func NewDomSimplifyTacticWithSimplifier(m *ast.ASTManager, s DomSimplifier, p *uparams.ParamsRef) (*DomSimplifyTactic, error) {
-	t, err := NewDomSimplifyTactic(m, p)
+	t, err := newDomSimplifyTactic(m, p)
 	if err != nil {
 		if s != nil {
 			err = errors.Join(err, s.Close())
@@ -122,7 +138,7 @@ func (t *DomSimplifyTactic) Close() error {
 	if t.closed {
 		return nil
 	}
-	if err := t.clearDomPins(); err != nil {
+	if err := t.domCleanup(); err != nil {
 		return err
 	}
 	if t.domSimp != nil {
@@ -151,130 +167,10 @@ func (t *DomSimplifyTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (err
 		return err
 	}
 	defer func() { err = errors.Join(err, report.Close()) }()
-	defer func() { err = errors.Join(err, t.clearDomPins()); t.domCache = nil }()
-	if t.domSimp != nil {
-		return t.applyDomSimplifier(g, out)
-	}
-	changed := true
-	for changed {
-		inconsistent, checkErr := g.Inconsistent()
-		if checkErr != nil {
-			return checkErr
-		}
-		if inconsistent {
-			break
-		}
-		changed = false
-		for _, forward := range []bool{true, false} {
-			if e := t.clearDomPins(); e != nil {
-				return e
-			}
-			t.domCache = nil
-			t.forward = forward
-			n, e := g.Size()
-			if e != nil {
-				return e
-			}
-			forms := make([]ast.ASTHandle, n)
-			for i := uint32(0); i < n; i++ {
-				forms[i], e = g.Form(i)
-				if e != nil {
-					return e
-				}
-			}
-			root, e := domMkAndArgs(t.manager, forms)
-			if e != nil {
-				return e
-			}
-			if e = t.pinDom(root); e != nil {
-				return e
-			}
-			compiled, e := t.dominators.compile(root)
-			if e != nil {
-				return e
-			}
-			if !compiled {
-				if e = t.clearDomPins(); e != nil {
-					return e
-				}
-				t.domCache = nil
-				if e = g.IncDepth(); e != nil {
-					return e
-				}
-				return out.AddGoal(g)
-			}
-			t.domCache = make(map[ast.ASTHandle]ast.ASTHandle)
-			t.traceDominatorTree()
-			ctx := &domContext{}
-			order := make([]uint32, n)
-			for i := range order {
-				if forward {
-					order[i] = uint32(i)
-				} else {
-					order[i] = n - 1 - uint32(i)
-				}
-			}
-			for _, i := range order {
-				inconsistent, e := g.Inconsistent()
-				if e != nil {
-					return e
-				}
-				if inconsistent {
-					break
-				}
-				old, e := g.Form(i)
-				if e != nil {
-					return e
-				}
-				next, e := t.simplify(old, ctx, 0)
-				if e != nil {
-					return e
-				}
-				changed = changed || next != old
-				if next != old {
-					t.traceRewrite(old, next)
-				}
-				dep, e := g.Dependency(i)
-				if e != nil {
-					return e
-				}
-				proofs, e := g.ProofsEnabled()
-				if e != nil {
-					return e
-				}
-				if (forward && i+1 < n || !forward && i > 0) && !t.manager.IsTrue(next) && !t.manager.IsFalse(next) && dep.IsNull() && !proofs {
-					if e = t.assertContext(ctx, next, false); e != nil {
-						return e
-					}
-				}
-				pr, e := g.Proof(i)
-				if e != nil {
-					return e
-				}
-				if proofs {
-					rw, e := t.manager.MkProofRewrite(old, next)
-					if e != nil {
-						return e
-					}
-					pr, e = t.manager.MkProofModusPonens(pr, rw)
-					if e != nil {
-						return e
-					}
-				}
-				if e = g.Update(i, next, pr, dep); e != nil {
-					return e
-				}
-			}
-			if e = t.clearDomPins(); e != nil {
-				return e
-			}
-			t.domCache = nil
-		}
-	}
-	if err = g.IncDepth(); err != nil {
-		return err
-	}
-	return out.AddGoal(g)
+	// mk_dom_simplify_tactic wraps the tactic in clean(): cleanup() follows
+	// operator().
+	defer func() { err = errors.Join(err, t.domCleanup()) }()
+	return t.applyDomSimplifier(g, out)
 }
 func (t *DomSimplifyTactic) UpdateParams(*uparams.ParamsRef) error         { return t.open() }
 func (t *DomSimplifyTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
@@ -286,21 +182,16 @@ func (t *DomSimplifyTactic) Cleanup() error {
 	if e := t.open(); e != nil {
 		return e
 	}
-	t.dominators.reset()
-	t.domCache = nil
-	return t.clearDomPins()
+	return t.domCleanup()
 }
 func (t *DomSimplifyTactic) Reset() error { return t.Cleanup() }
 func (t *DomSimplifyTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
 	if e := t.open(); e != nil {
 		return nil, e
 	}
-	if t.domSimp != nil {
-		s, err := t.domSimp.TranslateDom(m)
-		if err != nil {
-			return nil, err
-		}
-		return NewDomSimplifyTacticWithSimplifier(m, s, nil)
+	s, err := t.domSimp.TranslateDom(m)
+	if err != nil {
+		return nil, err
 	}
-	return NewDomSimplifyTactic(m, nil)
+	return NewDomSimplifyTacticWithSimplifier(m, s, nil)
 }
