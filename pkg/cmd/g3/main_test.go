@@ -338,6 +338,12 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_I-F3/F4: dump_models after check-sat; model.v1/model.v2
+	// display_model.
+	"dump_models_option.smt2":   "sat\n(model \n  (define-fun x () Int\n    2)\n)\n",
+	"dump_models_opt.smt2":      "sat\n(model \n  (define-fun y () Int\n    19)\n  (define-fun x () Int\n    9)\n)\nsat\n(model \n  (define-fun y () Int\n    19)\n  (define-fun x () Int\n    9)\n  (define-fun f ((x!0 Int)) Int\n    (ite (= x!0 19) 5\n    (ite (= x!0 3) 10\n      5)))\n)\n(model \n  (define-fun y () Int\n    19)\n  (define-fun x () Int\n    9)\n  (define-fun f ((x!0 Int)) Int\n    (ite (= x!0 19) 5\n    (ite (= x!0 3) 10\n      5)))\n)\nunsat\n",
+	"model_v2_get_model.smt2":   "sat\n\"v -> #b10\nx -> 2\"\n",
+	"model_v1_dump_models.smt2": "sat\n\"x -> 1\nf -> {\n  1 -> 2\n  2 -> 0\n  else -> 2\n}\"\n",
 	// AUDIT.md FUZZ_I-F2: printers read the pp.* parameters.
 	"pp_bv_literals_off.smt2":  "sat\n(model \n  (define-fun v () (_ BitVec 2)\n    (_ bv2 2))\n  (define-fun x () Int\n    2)\n)\n",
 	"pp_bv_neg_on.smt2":        "sat\n(model \n  (define-fun v () (_ BitVec 2)\n    (bvneg #b10))\n  (define-fun x () Int\n    2)\n)\n",

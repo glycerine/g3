@@ -1,0 +1,7 @@
+(set-option :model.v1 true)
+(set-option :dump-models true)
+(declare-fun f (Int) Int)
+(declare-const x Int)
+(assert (> (f x) 1))
+(assert (= (f 2) 0))
+(check-sat)

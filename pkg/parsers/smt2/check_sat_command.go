@@ -33,5 +33,8 @@ func (p *commandParser) checkSatCommand(assuming, execute bool) error {
 	if _, err = fmt.Fprintln(p.out, text); err != nil {
 		return err
 	}
-	return p.context.ValidateInfoStatus(status)
+	if err = p.context.ValidateInfoStatus(status); err != nil {
+		return err
+	}
+	return p.context.DumpModels(p.out, status)
 }

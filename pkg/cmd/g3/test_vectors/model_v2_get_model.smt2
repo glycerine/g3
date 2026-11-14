@@ -1,0 +1,7 @@
+(set-option :model.v2 true)
+(declare-const x Int)
+(declare-const v (_ BitVec 2))
+(assert (> x 1))
+(assert (= v #b10))
+(check-sat)
+(get-model)

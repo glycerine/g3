@@ -25,6 +25,7 @@ import (
 	"github.com/glycerine/g3/pkg/tactic/portfolio"
 	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/escaped"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/stopwatch"
@@ -1608,6 +1609,46 @@ func (c *Context) WriteModelAtModelIndex(out io.Writer, modelIndex uint32) (resu
 		return err
 	}
 	defer func() { result = errors.Join(result, m.DecRef()) }()
+	return c.displayModel(out, m)
+}
+
+// displayModel is cmd_context::display_model.
+func (c *Context) displayModel(out io.Writer, m *model.ModelCore) (result error) {
+	if m == nil {
+		return nil
+	}
+	mp, err := model.NewModelParams(c.config.Params, c.config.Globals, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, mp.Close()) }()
+	v1, err := mp.V1()
+	if err != nil {
+		return err
+	}
+	v2, err := mp.V2()
+	if err != nil {
+		return err
+	}
+	if v1 || v2 {
+		partial, err := mp.Partial()
+		if err != nil {
+			return err
+		}
+		var buffer strings.Builder
+		if err = m.WriteV2(&buffer, c.config.Params, c.config.Globals, partial); err != nil {
+			return err
+		}
+		text := buffer.String()
+		if _, err = io.WriteString(out, "\""); err != nil {
+			return err
+		}
+		if err = escaped.Write(out, &text, true, 0); err != nil {
+			return err
+		}
+		_, err = io.WriteString(out, "\"\n")
+		return err
+	}
 	if _, err = io.WriteString(out, "(model \n"); err != nil {
 		return err
 	}
@@ -1617,6 +1658,26 @@ func (c *Context) WriteModelAtModelIndex(out io.Writer, modelIndex uint32) (resu
 	}
 	_, err = io.WriteString(out, ")\n")
 	return err
+}
+
+// DumpModels is the tail of cmd_context::check_sat:
+// if (r == l_true && m_params.m_dump_models) { get_check_sat_result()->
+// get_model(md); display_model(md); }. For opt::context, get_model is
+// mdl = m_model; fix_model(mdl).
+func (c *Context) DumpModels(out io.Writer, status lbool.LBool) (result error) {
+	state, err := c.parameters.State()
+	if err != nil || status != lbool.True || !state.DumpModels {
+		return err
+	}
+	md, err := c.checkSatResult().AcquireModel()
+	if err != nil || md == nil {
+		return err
+	}
+	if md, err = c.fixRetrievedModel(md); err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, md.DecRef()) }()
+	return c.displayModel(out, md)
 }
 
 func (c *Context) modelAtIndex(modelIndex uint32, fallbackWithoutOptimizer bool) (*model.ModelCore, error) {
