@@ -843,18 +843,18 @@ func (b *smtConflictProofBuilder) dynamicAckProof(justification *smtDynamicAckJu
 	if justification == nil || justification.first.IsNull() || justification.second.IsNull() {
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
+	// dyn_ack_justification::mk_proof loops over m_app1's arguments; a
+	// triple's applications may be constants (no premises).
 	count, err := b.state.manager.GetNumArgs(justification.first)
-	if err != nil || count == 0 {
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		return ast.ASTHandle{}, ast.ErrASTDomain
+	if err != nil {
+		return ast.ASTHandle{}, err
 	}
 	otherCount, err := b.state.manager.GetNumArgs(justification.second)
-	if err != nil || otherCount != count {
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if otherCount < count {
+		// The source would read past m_app2's arguments.
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
 	parents := make([]ast.ASTHandle, 0, count)
@@ -890,9 +890,6 @@ func (b *smtConflictProofBuilder) dynamicAckProof(justification *smtDynamicAckJu
 			return ast.ASTHandle{}, e
 		}
 		parents = append(parents, hypothesis)
-	}
-	if len(parents) == 0 {
-		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
 	congruence, err := b.state.manager.MkProofCongruence(justification.first, justification.second, parents)
 	if err != nil {

@@ -29,24 +29,11 @@ type smtDynamicAckJustification struct {
 	first, second ast.ASTHandle
 }
 
+// newSMTDynamicAckJustification is the dyn_ack_justification constructor.
+// Its same-declaration and arity preconditions are SASSERTs only: the
+// triple instantiation passes two arbitrary equal terms.
 func newSMTDynamicAckJustification(manager *ast.ASTManager, first, second ast.ASTHandle) (*smtDynamicAckJustification, error) {
-	if manager == nil || first.IsNull() || second.IsNull() || first == second {
-		return nil, ast.ErrASTDomain
-	}
-	firstDecl, err := manager.GetDecl(first)
-	if err != nil {
-		return nil, err
-	}
-	secondDecl, err := manager.GetDecl(second)
-	if err != nil {
-		return nil, err
-	}
-	firstCount, err := manager.GetNumArgs(first)
-	if err != nil {
-		return nil, err
-	}
-	secondCount, err := manager.GetNumArgs(second)
-	if err != nil || firstDecl != secondDecl || firstCount == 0 || firstCount != secondCount {
+	if manager == nil || first.IsNull() || second.IsNull() {
 		return nil, ast.ErrASTDomain
 	}
 	return &smtDynamicAckJustification{SMTJustificationBase: NewSMTJustificationBase(false), first: first, second: second}, nil

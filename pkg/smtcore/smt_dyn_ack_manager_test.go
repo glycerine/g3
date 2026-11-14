@@ -139,3 +139,49 @@ func TestSMTDynamicAckClauseDeletionCallbackRunsDuringLemmaGC(t *testing.T) {
 		t.Fatal("remaining dynamic Ackermann deletion", state.statistics.NumDelDynAck)
 	}
 }
+
+// AUDIT.md smtcore_03-F4: with proofs enabled the triple instantiation
+// reuses dyn_ack_justification for two arbitrary equal terms (here
+// constants); its preconditions are SASSERTs only, and mk_proof builds a
+// congruence with no premises.
+func TestSMTDynamicAckTripleWithProofs(t *testing.T) {
+	manager := astTestManager(t)
+	astTestMust(t, manager.ToggleProofMode(ast.ASTProofEnabled))
+	_, values := smtUFConstants(t, manager, "dynamic-ack-triple-proof-", 3)
+	_, _, state := smtInternalizerFixture(t, manager, nil)
+	config := defaultSMTDynAckState()
+	config.Threshold = 1
+	config.Factor = 1
+	config.Equalities = true
+	astTestMust(t, state.ConfigureDynamicAck(config))
+	astTestMust(t, state.PushScope())
+	astTestMust(t, state.dynamicAck.schedule.usedEquality(values[0], values[1], values[2], true))
+	state.statistics.NumConflicts = 1
+	astTestMust(t, state.dynamicAck.propagate())
+	if state.statistics.NumDynAck != 1 || len(state.clauses) != 1 || len(state.clauses[0].Literals) != 3 {
+		t.Fatal("dynamic Ackermann triple with proofs", state.statistics.NumDynAck, len(state.clauses))
+	}
+	clause := state.clauses[0].clause
+	if clause == nil {
+		t.Fatal("dynamic Ackermann triple clause was not installed")
+	}
+	if _, ok := clause.justification.(*smtDynamicAckJustification); !ok {
+		t.Fatalf("dynamic Ackermann triple justification %T", clause.justification)
+	}
+	builder := &smtConflictProofBuilder{
+		state: state, marked: make(map[int32]struct{}), literal: make(map[SMTLiteral]ast.ASTHandle),
+		objects: make(map[SMTJustification]ast.ASTHandle), equality: make(map[smtEnodePairKey]ast.ASTHandle),
+	}
+	proof, err := builder.clauseProof(clause)
+	astTestMust(t, err)
+	fact, err := manager.GetProofFact(proof)
+	astTestMust(t, err)
+	conclusion, err := state.MkEqAtom(values[0], values[1])
+	astTestMust(t, err)
+	want, err := manager.MkOrArgs([]ast.ASTHandle{conclusion})
+	astTestMust(t, err)
+	if fact != want {
+		t.Fatal("dynamic Ackermann triple proof fact", fact, want)
+	}
+	astTestMust(t, state.PopScopes(1))
+}
