@@ -369,9 +369,13 @@ void dom_simplify_tactic::simplify_goal(goal& g) {
 
     SASSERT(scope_level() == 0);
     bool change = true;
+    unsigned n  = 0;
     m_depth = 0;
-    while (change) {
+    // The forward and backward passes can keep changing the goal forever
+    // (fixed upstream in 0ef8ebe89f, "fix #4895"): stop after 10 rounds.
+    while (change && n < 10) {
         change = false;
+        ++n;
 
         // go forwards
         m_forward = true;
