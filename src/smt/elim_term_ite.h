@@ -45,7 +45,9 @@ public:
         m_cfg(m, dn) 
     {}
     vector<justified_expr> const& new_defs() const { return m_cfg.new_defs(); }
-    void reset() { m_cfg.reset(); }
+    // reset() is rewriter_tpl::reset(): it clears m_new_defs (via m_cfg.reset())
+    // and the rewriter cache. Keeping the cache across reduce() rounds maps a
+    // term-ite to a name whose definition may since have been popped.
 };
 
 
