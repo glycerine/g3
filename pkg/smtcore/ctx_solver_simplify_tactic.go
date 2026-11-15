@@ -374,6 +374,10 @@ func (t *ContextSolverSimplifyTactic) reduce(result ast.ASTRef) (resultErr error
 			return err
 		}
 	}
+	// if (!m.canceled()) after the loop: a resource step of its own.
+	if canceled, err = m.Canceled(); err != nil {
+		return err
+	}
 	if !canceled {
 		path, ok := cache[root]
 		if !ok {
