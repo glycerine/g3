@@ -34,10 +34,6 @@ func degreeShiftPublishModel(plan *degreeShiftPlan, services model.ModelEvaluato
 		return errors.Join(err, extension.Close())
 	}
 	defer func() { err = errors.Join(err, extension.DecRef()) }()
-	family, err := m.ArithmeticFamilyID()
-	if err != nil {
-		return err
-	}
 	for _, entry := range plan.entries {
 		fresh, e := m.RefGet(entry.fresh)
 		if e != nil {
@@ -58,20 +54,19 @@ func degreeShiftPublishModel(plan *degreeShiftPlan, services model.ModelEvaluato
 		if e != nil {
 			return e
 		}
-		exponent, e := m.ArithmeticRealNumeralText("1/" + entry.degree.String())
+		definition := entry.definition
+		if definition == (ast.ASTRef{}) {
+			definition, e = degreeShiftModelDefinition(m, fresh, entry.degree)
+			if e != nil {
+				return e
+			}
+			defer func(r ast.ASTRef) { err = errors.Join(err, m.DelRef(&r)) }(definition)
+		}
+		value, e := m.RefGet(definition)
 		if e != nil {
 			return e
 		}
-		exponentRef, e := m.NewRef(exponent)
-		if e != nil {
-			return e
-		}
-		definition, e := m.MkFamilyApp(family, 18, nil, []ast.ASTHandle{fresh, exponent})
-		if e == nil {
-			e = extension.Insert(originalDecl, definition)
-		}
-		e = errors.Join(e, m.DelRef(&exponentRef))
-		if e != nil {
+		if e = extension.Insert(originalDecl, value); e != nil {
 			return e
 		}
 	}

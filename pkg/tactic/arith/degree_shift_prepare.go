@@ -12,7 +12,10 @@ import (
 
 type degreeShiftEntry struct {
 	original, fresh, proof ast.ASTRef
-	degree                 *big.Int
+	// definition is (^ fresh 1/k), built by prepare_substitution for the
+	// extension model converter when models are enabled.
+	definition ast.ASTRef
+	degree     *big.Int
 }
 type degreeShiftPlan struct {
 	manager *ast.ASTManager
@@ -24,7 +27,7 @@ func (p *degreeShiftPlan) Close() error {
 		return nil
 	}
 	for i := range p.entries {
-		for _, ref := range []*ast.ASTRef{&p.entries[i].proof, &p.entries[i].fresh, &p.entries[i].original} {
+		for _, ref := range []*ast.ASTRef{&p.entries[i].proof, &p.entries[i].definition, &p.entries[i].fresh, &p.entries[i].original} {
 			if *ref != (ast.ASTRef{}) {
 				if err := p.manager.DelRef(ref); err != nil {
 					return err
@@ -97,6 +100,35 @@ func degreeShiftPrepare(m *ast.ASTManager, roots []ast.ASTHandle, proofs bool) (
 }
 
 func degreeShiftPrepareWithCheckpoint(m *ast.ASTManager, roots []ast.ASTHandle, proofs bool, checkpoint func() error) (plan *degreeShiftPlan, err error) {
+	return degreeShiftPrepareSubstitution(m, roots, proofs, false, checkpoint)
+}
+
+// degreeShiftModelDefinition is mk_power(fresh, rational(1)/k).
+func degreeShiftModelDefinition(m *ast.ASTManager, fresh ast.ASTHandle, degree *big.Int) (ast.ASTRef, error) {
+	family, err := m.ArithmeticFamilyID()
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	exponent, err := m.ArithmeticRealNumeralText("1/" + degree.String())
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	exponentRef, err := m.NewRef(exponent)
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	definition, err := m.MkFamilyApp(family, 18, nil, []ast.ASTHandle{fresh, exponent})
+	var result ast.ASTRef
+	if err == nil {
+		result, err = m.NewRef(definition)
+	}
+	return result, errors.Join(err, m.DelRef(&exponentRef))
+}
+
+// degreeShiftPrepareSubstitution is prepare_substitution: per table entry it
+// creates the fresh constant, then (models) the 1/k power for the extension
+// model converter, then (proofs) the definition proof, all before rewriting.
+func degreeShiftPrepareSubstitution(m *ast.ASTManager, roots []ast.ASTHandle, proofs, models bool, checkpoint func() error) (plan *degreeShiftPlan, err error) {
 	if m == nil {
 		return nil, ast.ErrASTHandle
 	}
@@ -135,6 +167,12 @@ func degreeShiftPrepareWithCheckpoint(m *ast.ASTManager, roots []ast.ASTHandle, 
 		current.fresh, e = m.NewRef(fresh)
 		if e != nil {
 			return plan, e
+		}
+		if models {
+			current.definition, e = degreeShiftModelDefinition(m, fresh, current.degree)
+			if e != nil {
+				return plan, e
+			}
 		}
 		if proofs {
 			current.proof, e = degreeShiftDefinitionProof(m, entry.h, fresh, current.degree)

@@ -152,7 +152,7 @@ func (t *DegreeShiftTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult
 		return err
 	}
 	defer func() { err = errors.Join(err, report.Close()) }()
-	plan, err := degreeShiftPrepareWithCheckpoint(m, roots, proofs, t.checkpoint)
+	plan, err := degreeShiftPrepareSubstitution(m, roots, proofs, models, t.checkpoint)
 	if err != nil {
 		return err
 	}

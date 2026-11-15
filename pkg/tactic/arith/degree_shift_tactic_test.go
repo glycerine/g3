@@ -124,3 +124,33 @@ func TestDegreeShiftContextTranslationUsesTargetServices(t *testing.T) {
 		t.Fatal("translated degree shift did not create model converter")
 	}
 }
+
+// AUDIT.md tactic_arith_01-F6: prepare_substitution builds the extension
+// model converter's mk_power(fresh, 1/k) before the goal is rewritten.
+func TestDegreeShiftModelTermsPrecedeRewrite(t *testing.T) {
+	base, m := fixDLFixture(t, false)
+	x := fixDLConst(t, m, false, "model-order-x")
+	first := fixDLApp(t, m, 4, fixDLApp(t, m, 18, x, fixDLNumber(t, m, false, "4")), fixDLNumber(t, m, false, "5"))
+	second := fixDLApp(t, m, 5, fixDLApp(t, m, 18, x, fixDLNumber(t, m, false, "2")), fixDLNumber(t, m, false, "1"))
+	goal := fixDLGoal(t, m, false, true, false, first, second)
+	shift, err := NewDegreeShiftTactic(m, base.services)
+	equationMust(t, err)
+	defer func() { equationMust(t, shift.Close()) }()
+	var out tactic.TacticResult
+	defer func() { equationMust(t, out.Close()) }()
+	equationMust(t, shift.Apply(goal, &out))
+	if out.ModelConverter == nil {
+		t.Fatal("no model converter")
+	}
+	half, err := m.ArithmeticRealNumeralText("1/2")
+	equationMust(t, err)
+	halfID, err := m.GetASTID(half)
+	equationMust(t, err)
+	rewritten, err := goal.Form(0)
+	equationMust(t, err)
+	rewrittenID, err := m.GetASTID(rewritten)
+	equationMust(t, err)
+	if halfID > rewrittenID {
+		t.Fatalf("1/2 (id %d) built after the rewritten goal (id %d)", halfID, rewrittenID)
+	}
+}
