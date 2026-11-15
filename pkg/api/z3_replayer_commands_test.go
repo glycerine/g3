@@ -37,15 +37,28 @@ func TestZ3ReplayerCommandCanMutateOutArguments(t *testing.T) {
 	}
 }
 
+// AUDIT.md api_03-F2: a check_arg failure inside a command is a
+// z3_replayer_exception, printed as [z3 exception] while replay continues
+// (this test used to expect a fatal positioned error); at '*' it is fatal
+// and positioned.
 func TestZ3ReplayerCommandAndTypeErrorsArePositioned(t *testing.T) {
-	r, _ := NewZ3Replayer(strings.NewReader("R\nU 1\nC 2\n"), new(bytes.Buffer))
+	var output bytes.Buffer
+	r, _ := NewZ3Replayer(strings.NewReader("R\nU 1\nC 2\nM \"after\"\n"), &output)
 	defer r.Close()
 	if err := r.RegisterCommand(2, "bad", func(r *Z3Replayer) error { _, err := r.String(0); return err }); err != nil {
 		t.Fatal(err)
 	}
-	err := r.Parse()
+	if err := r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if output.String() != "[z3 exception]: expecting string at position 0 but got uint64\nafter\n" {
+		t.Fatalf("%q", output.String())
+	}
+	saved, _ := NewZ3Replayer(strings.NewReader("R\nU 1\n* 21 0\n"), new(bytes.Buffer))
+	defer saved.Close()
+	err := saved.Parse()
 	var positioned *Z3ReplayError
-	if !errors.As(err, &positioned) || positioned.Line != 3 || !strings.Contains(err.Error(), "expecting string") {
+	if !errors.As(err, &positioned) || positioned.Line != 3 || positioned.Message != "expecting object at position 0 but got uint64" {
 		t.Fatal(err)
 	}
 }

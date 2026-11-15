@@ -30,13 +30,19 @@ type z3ReplayValue struct {
 	numericSymbol bool
 }
 
+// value is z3_replayer::imp::check_arg: its failures are
+// z3_replayer_exception (a default_exception), which the 'C' command loop
+// prints as "[z3 exception]: ..." before it continues.
 func (r *Z3Replayer) value(position uint32, kind z3ReplayKind) (z3ReplayValue, error) {
-	if r == nil || r.closed || int(position) >= len(r.args) {
+	if r == nil || r.closed {
 		return z3ReplayValue{}, ErrZ3ReplayReference
+	}
+	if int(position) >= len(r.args) {
+		return z3ReplayValue{}, &Z3ReplayCommandError{Message: "invalid argument reference"}
 	}
 	value := r.args[position]
 	if value.kind != kind {
-		return z3ReplayValue{}, fmt.Errorf("%w: expecting %s at position %d but got %s", ErrZ3ReplayReference, kind, position, value.kind)
+		return z3ReplayValue{}, &Z3ReplayCommandError{Message: fmt.Sprintf("expecting %s at position %d but got %s", kind, position, value.kind)}
 	}
 	return value, nil
 }
@@ -55,9 +61,16 @@ func (r *Z3Replayer) Uint64(p uint32) (uint64, error) {
 	v, e := r.value(p, replayUint64)
 	return v.u, e
 }
-func (r *Z3Replayer) Uint(p uint32) (uint32, error)   { v, e := r.Uint64(p); return uint32(v), e }
-func (r *Z3Replayer) Bool(p uint32) (bool, error)     { v, e := r.Int64(p); return v != 0, e }
-func (r *Z3Replayer) Float(p uint32) (float32, error) { v, e := r.value(p, replayFloat); return v.f, e }
+func (r *Z3Replayer) Uint(p uint32) (uint32, error) { v, e := r.Uint64(p); return uint32(v), e }
+func (r *Z3Replayer) Bool(p uint32) (bool, error)   { v, e := r.Int64(p); return v != 0, e }
+func (r *Z3Replayer) Float(p uint32) (float32, error) {
+	// get_float calls throw_invalid_reference for both failures.
+	if r != nil && !r.closed && (int(p) >= len(r.args) || r.args[p].kind != replayFloat) {
+		return 0, &Z3ReplayCommandError{Message: "invalid argument reference"}
+	}
+	v, e := r.value(p, replayFloat)
+	return v.f, e
+}
 func (r *Z3Replayer) Double(p uint32) (float64, error) {
 	v, e := r.value(p, replayDouble)
 	return v.d, e

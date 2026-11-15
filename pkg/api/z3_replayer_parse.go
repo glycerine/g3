@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -100,7 +101,8 @@ func (r *Z3Replayer) Parse() error {
 					err = r.failure("invalid command")
 				} else {
 					err = entry.call(r)
-					if commandErr, ok := err.(*Z3ReplayCommandError); ok {
+					var commandErr *Z3ReplayCommandError
+					if errors.As(err, &commandErr) {
 						_, writeErr := fmt.Fprintln(r.output, "[z3 exception]: "+commandErr.Message)
 						err = writeErr
 					} else if err != nil && !isZ3ReplayStructuralError(err) {
