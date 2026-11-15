@@ -174,3 +174,18 @@ z3_bug_ddnf_extract_width
 # test_vectors/z3_bug_spacer_min_cut_shared_node*.smt2.
 z3_bug_spacer_min_cut_shared_node
 z3_bug_spacer_min_cut_shared_node_unsat
+#
+# With fixedpoint.generate_proof_trace and xform.instantiate_quantifiers,
+# mk_quantifier_instantiation::instantiate_rule builds the weakening proof
+# of an instantiated rule without enabling proof mode, so the rule gets no
+# proof and the rule inliner later dereferences the missing proof (z3
+# segfaults); with produce-proofs on it passes the modus-ponens premises in
+# the wrong order, and mk_modus_ponens takes its conclusion from the source
+# fact (a forall) through to_app (undefined behavior, also a segfault) (z3
+# bug: src/muz/transforms/dl_mk_quantifier_instantiation.cpp
+# instantiate_rule; still present upstream). g3 builds the proof under a
+# proof scope with the premises in order (pkg/muz/transforms/
+# quantifier_instantiation.go weakeningProof; AUDIT.md
+# muz_transforms_01-F6). Reproduction:
+# test_vectors/z3_bug_qi_weakening_proof.smt2.
+z3_bug_qi_weakening_proof

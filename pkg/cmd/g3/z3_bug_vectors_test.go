@@ -48,6 +48,9 @@ var z3BugResults = map[string]string{
 	// util_misc_01-F1
 	"z3_bug_spacer_min_cut_shared_node.smt2":       "sat\n\n",
 	"z3_bug_spacer_min_cut_shared_node_unsat.smt2": "unsat\n\n",
+
+	// muz_transforms_01-F6
+	"z3_bug_qi_weakening_proof.smt2": "sat\ntrue\n",
 }
 
 func TestZ3BugVectorsKeepCorrectAnswers(t *testing.T) {

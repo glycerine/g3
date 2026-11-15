@@ -617,7 +617,19 @@ func (p *QuantifierInstantiationPlugin) transformRule(rule *base.Rule, destinati
 	return nil, true, nil
 }
 
-func (p *QuantifierInstantiationPlugin) weakeningProof(sourceProof ast.ASTHandle, derived *base.Rule) error {
+// weakeningProof proves the instantiated rule from the source rule's proof:
+// modus ponens of the source proof and def-axiom(old fact => new rule).
+// z3 4.7.1 instantiate_rule swaps these premises (mk_modus_ponens then takes
+// its conclusion from the source fact, usually a forall: undefined behavior)
+// and builds the proof without enabling proof mode, so the rule gets no
+// proof unless proofs are on globally. Both are fixed in the fork (AUDIT.md
+// muz_transforms_01-F6, test_vectors/z3_bug_qi_weakening_proof*.smt2).
+func (p *QuantifierInstantiationPlugin) weakeningProof(sourceProof ast.ASTHandle, derived *base.Rule) (resultErr error) {
+	scope, err := ast.NewScopedProof(p.manager)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, scope.Close()) }()
 	oldFact, err := p.manager.GetProofFact(sourceProof)
 	if err != nil {
 		return err
