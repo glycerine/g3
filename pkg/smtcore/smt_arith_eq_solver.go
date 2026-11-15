@@ -202,6 +202,10 @@ func (*smtArithmeticEquationSolver) SolveEquations(rows [][]*big.Int) (bool, []*
 			return false, smtIntegerRowCopy(row), nil
 		}
 	}
+	// unsigned_vector useful is declared once per call and never reset:
+	// from the second pivot on r0 is the first pivot row ever chosen,
+	// recombined with every earlier useful row.
+	var useful []int
 	for changed := true; changed && len(live) != 0; {
 		changed = false
 		for column := 1; column < columns; column++ {
@@ -229,7 +233,7 @@ func (*smtArithmeticEquationSolver) SolveEquations(rows [][]*big.Int) (bool, []*
 				continue
 			}
 			changed = true
-			useful := []int{live[position]}
+			useful = append(useful, live[position])
 			gcd.Abs(rows[live[position]][column])
 			for cursor := len(prefixGCD); gcd.Cmp(big.NewInt(1)) != 0 && cursor > 0; {
 				cursor--
@@ -242,8 +246,7 @@ func (*smtArithmeticEquationSolver) SolveEquations(rows [][]*big.Int) (bool, []*
 			pivot := rows[useful[0]]
 			for _, rowIndex := range useful[1:] {
 				other := rows[rowIndex]
-				u, v, result := new(big.Int), new(big.Int), new(big.Int)
-				result.GCD(u, v, pivot[column], other[column])
+				u, v := smtMpzGCDCoefficients(pivot[column], other[column])
 				for index := 0; index < columns; index++ {
 					pivot[index].Set(new(big.Int).Add(new(big.Int).Mul(u, pivot[index]), new(big.Int).Mul(v, other[index])))
 				}
@@ -283,4 +286,31 @@ func smtIntegerRowCopy(row []*big.Int) []*big.Int {
 		copyRow[index] = new(big.Int).Set(value)
 	}
 	return copyRow
+}
+
+// smtMpzGCDCoefficients is mpz_manager::gcd(r1, r2, a, b, r): the extended
+// Euclid loop on absolute values with truncating quotients, the coefficient
+// signs fixed afterwards. gcd(0, 0) gives a = 1, b = 0.
+func smtMpzGCDCoefficients(r1, r2 *big.Int) (*big.Int, *big.Int) {
+	tmp1, tmp2 := new(big.Int).Abs(r1), new(big.Int).Abs(r2)
+	a, b := big.NewInt(1), big.NewInt(0)
+	nexta, nextb := big.NewInt(0), big.NewInt(1)
+	if tmp1.Cmp(tmp2) < 0 {
+		tmp1, tmp2 = tmp2, tmp1
+		nexta, nextb = nextb, nexta
+		a, b = b, a
+	}
+	for tmp2.Sign() > 0 {
+		quot, rem := new(big.Int).QuoRem(tmp1, tmp2, new(big.Int))
+		tmp1, tmp2 = tmp2, rem
+		a, nexta = nexta, new(big.Int).Sub(a, new(big.Int).Mul(quot, nexta))
+		b, nextb = nextb, new(big.Int).Sub(b, new(big.Int).Mul(nextb, quot))
+	}
+	if r1.Sign() < 0 {
+		a.Neg(a)
+	}
+	if r2.Sign() < 0 {
+		b.Neg(b)
+	}
+	return a, b
 }

@@ -118,3 +118,34 @@ func TestSMTArithmeticEquationSolverMatrixGCDElimination(t *testing.T) {
 		t.Fatal("empty matrix", satisfiable, witness)
 	}
 }
+
+// smtcore_01-F4: solve_integer_equations_gcd never resets `useful`, and
+// rational gcd(r1, r2, u, v) follows mpz_manager::gcd (gcd(0,0) gives u=1,
+// v=0). Expected rows are those of the C++ arith_eq_solver.
+func TestSMTArithmeticEquationSolverMatchesSourceUsefulAccumulation(t *testing.T) {
+	solver := &smtArithmeticEquationSolver{}
+	rows := [][]*big.Int{smtEquationRow(1, 4, 1, 3), smtEquationRow(0, 3, 0, 4), smtEquationRow(-2, 2, 0, -1)}
+	satisfiable, witness, err := solver.SolveEquations(rows)
+	astTestMust(t, err)
+	if !satisfiable || witness != nil {
+		t.Fatal("source verdict is satisfiable", satisfiable, witness)
+	}
+	want := [][]int64{{0, 3, 0, 4}, {1, 1, 1, -1}, {-4, 0, -2, 1}}
+	for i := range want {
+		if !smtEquationRowEqual(rows[i], want[i]...) {
+			t.Fatal("row", i, rows[i], want[i])
+		}
+	}
+	rows = [][]*big.Int{smtEquationRow(0, 1, 1), smtEquationRow(2, 1, -1)}
+	satisfiable, witness, err = solver.SolveEquations(rows)
+	astTestMust(t, err)
+	if !satisfiable || witness != nil {
+		t.Fatal("source verdict is satisfiable", satisfiable, witness)
+	}
+	want = [][]int64{{-1, 0, 1}, {1, 0, -1}}
+	for i := range want {
+		if !smtEquationRowEqual(rows[i], want[i]...) {
+			t.Fatal("row", i, rows[i], want[i])
+		}
+	}
+}
