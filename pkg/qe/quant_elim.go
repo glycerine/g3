@@ -833,19 +833,29 @@ func (th *quantElimPlugin) check(vars []ast.ASTHandle, assumption ast.ASTRef, fm
 	return errors.Join(th.resetCheck(variables, root), th.solver.PopCore(1))
 }
 
-// blastOr is quant_elim_plugin::blast_or: the variable is eliminated from
-// fml by quant_elim_new::eliminate_exists, sharing this plugin's free
-// variables.
+// blastOr is i_solver_context::blast_or. For a quant_elim_plugin
+// (quant_elim_plugin::blast_or) the variable is eliminated from fml by
+// quant_elim_new::eliminate_exists, sharing this plugin's free variables;
+// other contexts supply their own override in blastOrHost
+// (simplify_solver_context::blast_or is UNREACHABLE).
 func (c *SolverContext) blastOr(variable ast.ASTHandle, fml ast.ASTRef) error {
 	if err := c.open(); err != nil {
 		return err
 	}
 	th := c.owner
 	if th == nil {
+		if c.blastOrHost != nil {
+			return c.blastOrHost(variable, fml)
+		}
 		return ast.ErrASTHandle
 	}
 	_, err := th.qe.eliminateExists([]ast.ASTHandle{variable}, fml, &th.freeVars)
 	return err
+}
+
+// canBlastOr reports whether this context implements blast_or.
+func (c *SolverContext) canBlastOr() bool {
+	return c != nil && (c.owner != nil || c.blastOrHost != nil)
 }
 
 // qeReplaceSubformula is mk_default_expr_replacer's

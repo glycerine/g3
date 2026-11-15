@@ -38,6 +38,9 @@ type SolverContext struct {
 	// owner is the quant_elim_plugin this context belongs to; blast_or
 	// reaches quant_elim_new through it.
 	owner *quantElimPlugin
+	// blastOrHost is the blast_or override of an i_solver_context that is
+	// not a quant_elim_plugin (qe_sat_tactic's solver_context).
+	blastOrHost func(variable ast.ASTHandle, fml ast.ASTRef) error
 	// tree is set while quant_elim_plugin::solve_vars runs: the variables,
 	// contains, elim_var and add_var callbacks are then those of the search
 	// tree's current node.

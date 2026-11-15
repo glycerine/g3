@@ -43,7 +43,7 @@ func (u *ArithmeticQETermUtil) ResolveUnitOrReal(variable ast.ASTHandle, strict 
 			minimum = absB
 		}
 		// mk_big_or(|b|-2) with |b|-2 > 1 blasts through the context.
-		if minimum.Cmp(big.NewRat(3, 1)) > 0 && (u.context == nil || u.context.owner == nil) {
+		if minimum.Cmp(big.NewRat(3, 1)) > 0 && !u.context.canBlastOr() {
 			return result, false, nil
 		}
 	}
@@ -342,7 +342,7 @@ func (u *ArithmeticQETermUtil) mkBigOr(up *big.Rat, x, body ast.ASTHandle, resul
 		return u.boolRw.MkOr(alternatives, result)
 	}
 	// mk_big_or_symbolic_blast
-	if u.context == nil || u.context.owner == nil {
+	if !u.context.canBlastOr() {
 		return ast.ErrASTHandle
 	}
 	zbv, err := m.NewRef(ast.ASTHandle{})

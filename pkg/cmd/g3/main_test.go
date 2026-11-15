@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md qe_05-F2: qe-sat solver_context::blast_or runs expr_quant_elim.
+	"qe_sat_partial_blast_or_mod.smt2": "unsat\n",
+	// AUDIT.md qe_05-F2: qe-sat solver_context::blast_or runs expr_quant_elim.
+	"qe_sat_partial_blast_or.smt2": "unsat\n",
 	// AUDIT.md qe_01-F1: constrain_assignment keeps the b <= k-1 literal alive across add_constraint.
 	"qe_branch_limit_literal_lifetime.smt2": "(goals\n(goal\n  (or (not (<= 7.0 b)) (not (= a b)))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md nlsat_03-F1: nlqsat's nlsat params fall back to the global nlsat module.

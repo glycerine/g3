@@ -52,6 +52,8 @@ func NewArithmeticPlugin(context *SolverContext, config Config) (*ArithmeticPlug
 	if err != nil {
 		return nil, err
 	}
+	// arith_qe_util m_util(m, p, ctx): mk_big_or reaches m_ctx.blast_or.
+	u.context = context
 	r, err := astrewriter.NewExprSafeReplace(m)
 	if err != nil {
 		_ = u.Close()

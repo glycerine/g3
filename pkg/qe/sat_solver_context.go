@@ -99,6 +99,9 @@ func newSATSolverContext(manager *ast.ASTManager, solver *smtcore.SMTSolver, con
 	if c.plugins, err = NewSolverContext(manager, nil); err != nil {
 		return nil, err
 	}
+	c.plugins.blastOrHost = func(variable ast.ASTHandle, fml ast.ASTRef) error {
+		return satBlastOr(manager, config, variable, fml)
+	}
 	arithmetic, err := NewArithmeticPlugin(c.plugins, config)
 	if err != nil {
 		return nil, err
@@ -301,4 +304,48 @@ func (c *satSolverContext) Close() (result error) {
 	}
 	c.closed = true
 	return nil
+}
+
+// satBlastOr is sat_tactic::solver_context::blast_or: fml becomes the
+// result of expr_quant_elim(m_fparams) on (exists var fml).
+func satBlastOr(m *ast.ASTManager, config Config, variable ast.ASTHandle, fml ast.ASTRef) (err error) {
+	formula, err := m.RefGet(fml)
+	if err != nil {
+		return err
+	}
+	// qe::mk_exists(1, &var, fml) rebinds fml in place.
+	abstractor, err := ast.NewExprAbstractor(m)
+	if err != nil {
+		return err
+	}
+	err = abstractor.MkExists([]ast.ASTHandle{variable}, formula, fml)
+	if err = errors.Join(err, abstractor.Close()); err != nil {
+		return err
+	}
+	q, err := m.RefGet(fml)
+	if err != nil {
+		return err
+	}
+	// expr_quant_elim qelim(m, m_super.m_fparams); qelim(m.mk_true(), fml, result).
+	truth, err := m.MkTrue()
+	if err != nil {
+		return err
+	}
+	qelim := newExprQuantElim(m, config)
+	projected, err := qelim.run(truth, q)
+	defer func() {
+		err = errors.Join(err, qelim.Close())
+		if projected != (ast.ASTRef{}) {
+			err = errors.Join(err, m.DelRef(&projected))
+		}
+	}()
+	if err != nil {
+		return err
+	}
+	value, err := m.RefGet(projected)
+	if err != nil {
+		return err
+	}
+	// fml = result.
+	return m.SetRef(fml, value)
 }
