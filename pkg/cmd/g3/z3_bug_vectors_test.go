@@ -14,6 +14,9 @@ import (
 // scriptResults so the C++ reference comparison does not run them; this
 // test locks in g3's correct answers instead.
 var z3BugResults = map[string]string{
+	// model evaluation of mutually recursive define-fun-rec predicates
+	"z3_bug_rec_fun_model_eval.smt2": "sat\n(((even 0) true)\n ((even 5) false)\n ((odd 5) true))\n",
+
 	// datatype get_sort_size keys sparam::subst by the actual sort
 	"z3_bug_datatype_param_size_subst.smt2": "unsat\n",
 

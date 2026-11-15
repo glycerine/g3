@@ -140,3 +140,15 @@ z3_bug_goal_update_flattened_false
 # (pkg/ast/ast_datatype_cardinality.go datatypeGetSortSize). Reproduction:
 # test_vectors/z3_bug_datatype_param_size_subst.smt2.
 z3_bug_datatype_param_size_subst
+#
+# Model evaluation of mutually recursive define-fun-rec predicates never
+# terminates: the model interprets even as (or (<= x 0) (odd (+ -1 x))),
+# and rewriter_tpl folds only ite early, so get-value of (even 0) rewrites
+# the dead recursive disjunct forever (z3 bug:
+# src/ast/rewriter/rewriter_def.h constant_fold; upstream replaced
+# define-fun-rec with its recfun theory). g3 and the fork short-circuit
+# and/or in the model evaluator once define-fun-rec is used
+# (pkg/ast/rewriter/traversal.go EnableModelBooleanShortCircuit). See also
+# recursive_mutual_boolean_model above. Reproduction:
+# test_vectors/z3_bug_rec_fun_model_eval.smt2.
+z3_bug_rec_fun_model_eval
