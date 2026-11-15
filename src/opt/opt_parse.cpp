@@ -289,11 +289,19 @@ public:
             else if (*in == '*') {
                 in.skip_line();
             }
-            else if (in.parse_token("min:")) {
-                parse_objective(true);
-            }
-            else if (in.parse_token("max:")) {
-                parse_objective(false);
+            else if (*in == 'm') {
+                // parse_token consumes a matching prefix, so read the
+                // common "m" once before telling "min:" from "max:".
+                ++in;
+                if (in.parse_token("in:")) {
+                    parse_objective(true);
+                }
+                else if (in.parse_token("ax:")) {
+                    parse_objective(false);
+                }
+                else {
+                    parse_constraint();
+                }
             }
             else {
                 parse_constraint();
