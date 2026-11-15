@@ -1,6 +1,7 @@
 package opt
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -23,13 +24,63 @@ func TestParseWCNFPreservesHeaderWeightsAndLiteralOrder(t *testing.T) {
 	}
 }
 
-func TestParseWCNFRejectsMalformedAndOutOfRangeInput(t *testing.T) {
-	for _, input := range []string{
-		"1 1 0\n", "p cnf 1 1 2\n2 1 0\n", "p wcnf 1 1 2\n2 2 0\n",
-		"p wcnf 1 1 2\n2 1\n", "p wcnf 1 2 2\n2 1 0\n",
-	} {
-		if _, err := ParseWCNF(strings.NewReader(input)); err == nil {
-			t.Fatalf("accepted %q", input)
+// AUDIT.md opt_02-F5: wcnf::parse accepts what the old line-based parser
+// rejected; only parse_int's unexpected character is an error.
+func TestParseWCNFRejectsOnlyMalformedLiterals(t *testing.T) {
+	for _, input := range []string{"p wcnf 1 1 2\n2 1\n", "p wcnf 1 1 2\n2 a 0\n", "1 1 - 0\n"} {
+		_, err := ParseWCNF(strings.NewReader(input))
+		var exit *InputParseExit
+		if !errors.As(err, &exit) || exit.Status != 3 {
+			t.Fatalf("accepted %q: %v", input, err)
 		}
+	}
+	for _, input := range []string{"1 1 0\n", "p cnf 1 1 2\n2 1 0\n", "p wcnf 1 1 2\n2 2 0\n", "p wcnf 1 2 2\n2 1 0\n"} {
+		if _, err := ParseWCNF(strings.NewReader(input)); err != nil {
+			t.Fatalf("rejected %q: %v", input, err)
+		}
+	}
+}
+
+func TestParseWCNFMultiLineClause(t *testing.T) {
+	d, err := ParseWCNF(strings.NewReader("p wcnf 2 3 10\n1 1\n 0\n1 2 0\n10 -1 -2 0\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []WCNFClause{
+		{1, []WCNFLiteral{{1, false}}},
+		{1, []WCNFLiteral{{2, false}}},
+		{10, []WCNFLiteral{{1, true}, {2, true}}},
+	}
+	if len(d.Clauses) != len(want) {
+		t.Fatal(d.Clauses)
+	}
+	for i := range want {
+		got := d.Clauses[i]
+		if got.Weight != want[i].Weight || len(got.Literals) != len(want[i].Literals) {
+			t.Fatal(i, got)
+		}
+		for j := range got.Literals {
+			if got.Literals[j] != want[i].Literals[j] {
+				t.Fatal(i, got)
+			}
+		}
+	}
+}
+
+func TestParseWCNFMissingTop(t *testing.T) {
+	d, err := ParseWCNF(strings.NewReader("p wcnf 2 3\n1 1 0\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.TopWeight != uint64(^uint32(0)) || d.NumVariables != 2 || d.NumClauses != 3 {
+		t.Fatal(d.TopWeight, d.NumVariables, d.NumClauses)
+	}
+	// parse_unsigned wraps at 32 bits.
+	d, err = ParseWCNF(strings.NewReader("p wcnf 1 1 4294967297\n4294967298 1 0\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.TopWeight != 1 || d.Clauses[0].Weight != 2 {
+		t.Fatal(d.TopWeight, d.Clauses[0].Weight)
 	}
 }

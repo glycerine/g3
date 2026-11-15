@@ -12,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/api"
 	"github.com/glycerine/g3/pkg/cmd_context"
 	"github.com/glycerine/g3/pkg/engine"
+	"github.com/glycerine/g3/pkg/opt"
 	"github.com/glycerine/g3/pkg/parsers/smt2"
 	"github.com/glycerine/g3/pkg/shell"
 	uparams "github.com/glycerine/g3/pkg/util/params"
@@ -245,6 +246,12 @@ func main() {
 		if errors.As(err, &replayExit) {
 			// default_error_handler already printed "Error: ..." and exited.
 			os.Exit(replayExit.Status)
+		}
+		var inputParseExit *opt.InputParseExit
+		if errors.As(err, &inputParseExit) {
+			// opt_stream_buffer: std::cerr << "(error line ..." ; exit(3).
+			fmt.Fprintln(os.Stderr, inputParseExit.Message)
+			os.Exit(inputParseExit.Status)
 		}
 		var openError *z3LogOpenError
 		if errors.As(err, &openError) {
