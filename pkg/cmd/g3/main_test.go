@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_J-F5: execute_min_max takes optsmt::m_model (the model update_lower
+	// read before maximizing), not the per-objective box model.
+	"opt_symba_lex_model.smt2": "sat\n(objectives\n (x 10)\n)\n(model \n  (define-fun x () Real\n    0.0)\n)\n",
 	// AUDIT.md FUZZ_F-F3, FUZZ_F-F5: pdr walks m_tag2rule in obj_map order and
 	// get_lemmas finishes the last proof parent first.
 	"pdr_tag_order_certificate.smt2": "sat\n(and (q0 (:var 5) 9)\n     (= (:var 5) (+ (- 3) (:var 8)))\n     (q0 10 (:var 8))\n     (= (:var 8) (* 2 (:var 13)))\n     (q0 (:var 13) 5)\n     (= (:var 13) (+ (- 3) (:var 16)))\n     (q0 6 (:var 16))\n     (= (:var 16) (* 2 (:var 21)))\n     (q0 (:var 21) 3)\n     (= (:var 21) (+ (- 3) (:var 24)))\n     (q0 4 (:var 24))\n     (= (:var 24) (- 4))\n     (q0 (- 2) 2)\n     (q0 3 1))\n",

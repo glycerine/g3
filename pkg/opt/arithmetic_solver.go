@@ -839,8 +839,14 @@ func (s *ArithmeticSolver) optimizeOne(index int, result *ArithmeticResult) (lbo
 // symba_opt when selected. Those engines optimize the arithmetic objective
 // vector together, then lex commits the current objective before continuing.
 func (s *ArithmeticSolver) optimizeBoxEngineObjective(index int, result *ArithmeticResult) (status lbool.LBool, optimal bool, resultErr error) {
+	// The engines run on optsmt's own m_lower, m_upper and m_lower_fmls,
+	// indexed by the parent's objectives, as execute_box's copy does: the
+	// "set the solution tight" m_upper = m_lower must reach the parent
+	// (AUDIT.md FUZZ_J-F5).
+	s.sizeOptsmtBounds()
 	box := *s
 	box.objectives = make([]arithmeticObjective, 0, len(s.objectives))
+	box.boxIndices = nil
 	boxIndex := -1
 	for i, objective := range s.objectives {
 		if objective.soft {
@@ -850,6 +856,7 @@ func (s *ArithmeticSolver) optimizeBoxEngineObjective(index int, result *Arithme
 			boxIndex = len(box.objectives)
 		}
 		box.objectives = append(box.objectives, objective)
+		box.boxIndices = append(box.boxIndices, i)
 	}
 	if boxIndex < 0 {
 		return lbool.Undef, false, ast.ErrASTDomain
@@ -863,10 +870,14 @@ func (s *ArithmeticSolver) optimizeBoxEngineObjective(index int, result *Arithme
 		result.ReasonUnknown = combined.ReasonUnknown
 		return combined.Status, false, nil
 	}
-	if boxIndex >= len(combined.Values) || boxIndex >= len(combined.ObjectiveModels) {
+	if boxIndex >= len(combined.Values) {
 		return lbool.Undef, false, ast.ErrASTDomain
 	}
-	modelSnapshot := combined.ObjectiveModels[boxIndex]
+	// execute_min_max takes m_optsmt.get_model(m_model): optsmt::m_model,
+	// the check-sat model the engine took last (update_lower reads it
+	// before maximize_objectives), not the per-objective set_max model
+	// m_models[i] that only execute_box uses (AUDIT.md FUZZ_J-F5).
+	modelSnapshot := combined.Model
 	if modelSnapshot == nil {
 		// optsmt::lex returns farkas_opt's l_true and execute_min_max takes
 		// m_optsmt.get_model(m_model): optsmt::m_model is the model of the
