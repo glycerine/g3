@@ -758,3 +758,61 @@ func TestUDocGuardSourceExpressionMatrix(t *testing.T) {
 		}
 	}
 }
+
+// muz_rel_06-F1: udoc_relation::apply_bv_eq merges through
+// union_bvec::merge(m, lo1, lo2, length, discard_cols), whose subset_ints is
+// fresh per equality, so a var/var equality under a negation must not leak
+// into a later sibling equality.
+func TestUDocGuardEqualitiesDoNotLeakAcrossConjuncts(t *testing.T) {
+	m := docASTManager(t)
+	if _, err := m.RegisterArithmeticPlugin(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.RegisterBitVectorPlugin(); err != nil {
+		t.Fatal(err)
+	}
+	bv, err := m.BitVectorSort(2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vars := make([]ast.ASTHandle, 3)
+	for i := range vars {
+		if vars[i], err = m.MkVar(uint32(i), bv); err != nil {
+			t.Fatal(err)
+		}
+	}
+	xy, err := m.MkEq(vars[0], vars[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	notXY, err := m.MkNot(xy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	yz, err := m.MkEq(vars[1], vars[2])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, order := range [][]ast.ASTHandle{{notXY, yz}, {yz, notXY}} {
+		guard, err := m.MkAndArgs(order)
+		if err != nil {
+			t.Fatal(err)
+		}
+		docManager, _ := newTestDocManager(t, 6)
+		relation, err := NewUDocRelation(docManager, []uint32{2, 2, 2})
+		if err != nil {
+			t.Fatal(err)
+		}
+		closeUDoc(t, relation)
+		for _, fact := range [][]uint64{{0, 1, 1}, {1, 1, 1}} {
+			if _, err = relation.AddFact(fact); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err = relation.FilterGuard(m, guard); err != nil {
+			t.Fatal(err)
+		}
+		requireFact(t, relation, []uint64{0, 1, 1}, true)
+		requireFact(t, relation, []uint64{1, 1, 1}, false)
+	}
+}

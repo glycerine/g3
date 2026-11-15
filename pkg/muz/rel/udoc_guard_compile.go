@@ -648,11 +648,18 @@ func (r *UDocRelation) applyBitVectorEquality(m *ast.ASTManager, left, right ast
 		if leftIndex+length > r.NumBits() || rightIndex+length > r.NumBits() {
 			return ErrDOC
 		}
+		// union_bvec::merge(m, lo1, lo2, length, discard_cols) builds a
+		// fresh subset_ints holding only this equality's bit pairs; the
+		// caller's equalities (classes) are passed along but never read.
+		equalities := backtrack.NewDefaultUnionFind()
+		for i := 0; i < len(discarded); i++ {
+			equalities.MkVar()
+		}
 		for i := uint32(0); i < length; i++ {
-			classes.Merge(leftIndex+i, rightIndex+i)
+			equalities.Merge(leftIndex+i, rightIndex+i)
 		}
 		for i := 0; i < len(r.elems.values); {
-			valid, e := r.manager.MergeRange(r.elems.values[i], leftIndex, length, classes, discarded)
+			valid, e := r.manager.MergeRange(r.elems.values[i], leftIndex, length, equalities, discarded)
 			if e != nil {
 				return e
 			}

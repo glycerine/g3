@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_rel_06-F1: a var/var bit-vector equality in a doc guard
+	// merges through a fresh union-find, so it cannot leak across conjuncts.
+	"datalog_doc_guard_equality_scope.smt2": "sat\n(and (= (:var 0) #b00) (= (:var 1) #b01) (= (:var 2) #b01))\n",
 	// AUDIT.md FUZZ_F-F1: the spacer l_undef branch creates children only for a
 	// rule with an uninterpreted tail.
 	"spacer_undef_fact_rule.smt2": "sat\n\n",
