@@ -148,7 +148,7 @@ func TestASTFPADeclarationErrorMessages(t *testing.T) {
 	astTestMust(t, err)
 	s3, err := m.NewParameterInt(3)
 	astTestMust(t, err)
-	unexpected := "Unexpected argument combination for (_ to_fp eb sb). Supported argument combinations are: ((_ BitVec 1) (_ BitVec eb) (_ BitVec sb-1)), (_ BitVec (eb+sb)), (Real), (RoundingMode (_ BitVec (eb+sb))), (RoundingMode (_ FloatingPoint eb' sb')), (RoundingMode Int Real), (RoundingMode Real Int), (RoundingMode Int), and (RoundingMode Real)."
+	unexpected := "Unexpected argument combination for (_ to_fp eb sb). Supported argument combinations are: ((_ BitVec 1) (_ BitVec eb) (_ BitVec sb-1)), (_ BitVec (eb+sb)), (RoundingMode (_ BitVec (eb+sb))), (RoundingMode (_ FloatingPoint eb' sb')), (RoundingMode Int Real), (RoundingMode Real Int), (RoundingMode Int), and (RoundingMode Real)."
 	for _, tc := range []struct {
 		kind   int32
 		ps     []ASTParameter
@@ -158,8 +158,9 @@ func TestASTFPADeclarationErrorMessages(t *testing.T) {
 		{FPAOpFP, nil, []ASTHandle{bv1, bv3}, "invalid number of arguments to fp"},
 		{FPAOpFP, nil, []ASTHandle{bv2, bv3, bv3}, "sort mismatch, expected three bit-vectors, the first one of size 1."},
 		{FPAOpToFP, []ASTParameter{e3, s3}, []ASTHandle{floatSort}, unexpected},
-		{FPAOpToFP, []ASTParameter{e3, s3}, []ASTHandle{realSort}, "sort mismatch, expected one argument of Real sort"},
-		{FPAOpToFP, nil, []ASTHandle{realSort}, "expecting two integer parameters to to_fp"},
+		// AUDIT.md ast_05-F2: no one-Real to_fp (upstream z3 and the fork).
+		{FPAOpToFP, []ASTParameter{e3, s3}, []ASTHandle{realSort}, unexpected},
+		{FPAOpToFP, nil, []ASTHandle{realSort}, unexpected},
 		{FPAOpNumeral, nil, nil, "unsupported floating point operator"},
 	} {
 		_, e := m.MkFamilyFuncDecl(family, tc.kind, tc.ps, tc.domain, ASTHandle{})

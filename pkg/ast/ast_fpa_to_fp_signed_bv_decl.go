@@ -1,6 +1,6 @@
 package ast
 
-// Source: src/ast/fpa_decl_plugin.cpp:423-517,531-564.
+// Source: src/ast/fpa_decl_plugin.cpp:423-552.
 
 import (
 	"errors"
@@ -48,21 +48,12 @@ func (m *ASTManager) floatingPointToFPDecl(ps []ASTParameter, domain []ASTHandle
 			return astNodeRef{}, ASTException{z3exception.NewDefaultException(message)}
 		}
 		if !isBV {
-			// Source "1 Real -> 1 FP": after the parameter check it
-			// compares domain[1] (out of bounds for arity 1) with
-			// m_real_sort, which the reference build always rejects.
-			if ref != m.floatingPointPlugin.real {
-				return fail(floatingPointToFPUnexpected)
-			}
-			if len(ps) != 2 {
-				return fail("expecting two integer parameters to to_fp")
-			}
-			_, eErr := m.parameterOfKind(ps[0], ASTParameterInt)
-			_, sErr := m.parameterOfKind(ps[1], ASTParameterInt)
-			if eErr != nil || sErr != nil {
-				return fail("expecting two integer parameters to to_fp")
-			}
-			return fail("sort mismatch, expected one argument of Real sort")
+			// z3 4.7.1 had a "1 Real -> 1 FP" branch that compared
+			// domain[1], past the end of the arity-1 domain, with
+			// m_real_sort (undefined behavior; fpa2bv has no such to_fp).
+			// Upstream z3 and the fork removed it, so a Real argument
+			// reaches the final else (AUDIT.md ast_05-F2).
+			return fail(floatingPointToFPUnexpected)
 		}
 		if len(ps) != 2 {
 			return fail("invalid number of parameters to to_fp")
