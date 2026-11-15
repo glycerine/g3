@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_02-F2: (_ BitVec 0) reports bv_decl_plugin::mk_sort's message
+	// at the ')' token.
+	"bv_zero_width_sort.smt2": "(error \"line 1 column 29: bit-vector size must be greater than zero\")\n(error \"line 2 column 37: minimum number of exponent bits is 2\")\nsat\n",
 	// AUDIT.md ast_02-F1: bv_decl_plugin prints the mismatching argument and the
 	// declaration.
 	"bv_argument_sort_mismatch_message.smt2": "(error \"line 3 column 21: Argument y at position 1 does not match declaration (declare-fun bvadd ((_ BitVec 8) (_ BitVec 8)) (_ BitVec 8))\")\n(error \"line 4 column 21: declared arity mismatches supplied arity\")\n(error \"line 5 column 18: Argument y at position 1 does not match declaration (declare-fun bvule ((_ BitVec 8) (_ BitVec 8)) Bool)\")\n(error \"line 6 column 23: declared sorts do not match supplied sorts\")\n(error \"line 7 column 26: Argument x at position 1 does not match declaration (declare-fun bvult ((_ BitVec 4) (_ BitVec 4)) Bool)\")\nsat\n",
@@ -1876,6 +1879,9 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	// AUDIT.md ast_02-F2
+	"bv_zero_width_sort.smt2": true,
+
 	// AUDIT.md ast_02-F1
 	"bv_argument_sort_mismatch_message.smt2": true,
 

@@ -337,8 +337,12 @@ func (m *ASTManager) BitVectorSort(bits uint32) (ASTHandle, error) {
 	defer m.mu.Unlock()
 	m.formatExecuting = true
 	defer func() { m.formatExecuting = false }()
-	if bits == 0 || m.bitVectorPlugin == nil {
+	if m.bitVectorPlugin == nil {
 		return ASTHandle{}, ErrASTDomain
+	}
+	// Source bv_decl_plugin::mk_sort.
+	if bits == 0 {
+		return ASTHandle{}, bvDeclarationError("bit-vector size must be greater than zero")
 	}
 	r, e := m.bitVectorPlugin.mkSort(bits)
 	return m.external(r), e

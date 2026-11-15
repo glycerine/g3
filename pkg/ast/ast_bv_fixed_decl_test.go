@@ -304,3 +304,16 @@ func TestASTBitVectorExprDeclArgumentMismatchMessage(t *testing.T) {
 		t.Fatalf("borrowed bvadd: %v", e)
 	}
 }
+
+// AUDIT.md ast_02-F2: bv_decl_plugin::mk_sort rejects width 0 with its own
+// message.
+func TestASTBitVectorSortZeroWidthMessage(t *testing.T) {
+	m := astTestManager(t)
+	_, e := m.RegisterArithmeticPlugin()
+	astTestMust(t, e)
+	_, e = m.RegisterBitVectorPlugin()
+	astTestMust(t, e)
+	if _, e = m.BitVectorSort(0); e == nil || e.Error() != "bit-vector size must be greater than zero" {
+		t.Fatalf("zero width: %v", e)
+	}
+}

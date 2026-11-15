@@ -1946,9 +1946,8 @@ func (p *commandParser) sort() (ast.ASTHandle, error) {
 			}
 			indices = append(indices, value)
 		}
-		if err = p.advance(); err != nil {
-			return ast.ASTHandle{}, err
-		}
+		// parse_indexed_sort instantiates the sort while ')' is still the
+		// current token, then calls next().
 		var indexed ast.ASTHandle
 		if name == "FloatingPoint" && len(indices) == 2 {
 			indexed, err = p.pin(m.FloatingPointSort(indices[0], indices[1]))
@@ -1958,6 +1957,9 @@ func (p *commandParser) sort() (ast.ASTHandle, error) {
 			indexed, err = p.pin(m.BitVectorSort(indices[0]))
 		}
 		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if err = p.advance(); err != nil {
 			return ast.ASTHandle{}, err
 		}
 		// psort_builtin_decl::instantiate saves the indexed sort info.
