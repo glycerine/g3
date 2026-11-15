@@ -2932,3 +2932,45 @@ void tst_z3_4_7_1_get_value_max_steps() {
                         "((x 1))\n"
                         "(((+ x y 1 (* 2 x) (* 3 y)) 0))\n");
 }
+
+// Instantiating (List Int) inside a scope pushes the List declaration on
+// cmd_context::m_psort_inst_stack, and pop calls its reset_cache, which
+// drops every cached instance of List, also (List Real) created at the
+// outer level. Its constructors are still declared, so the next
+// (List Real) re-runs dt_eh, which declares nil again: "invalid
+// declaration, constant 'nil' (with the given signature) already
+// declared", and the declaration that used the sort is lost. With
+// :global-declarations the scoped constructors also survive the pop.
+// Upstream tracks notified datatype sorts in pdecl_manager (19f655c69,
+// "fix #3930"; 120467159, "fix #4534"; 2d358a9a5, "fix #4565") and
+// skips the instance stack under global declarations (984767509, "fix
+// #2647").
+void tst_z3_4_7_1_datatype_inst_after_pop() {
+    expect_shell_script("datatype_inst_after_pop",
+                        "(declare-const r (List Real))\n"
+                        "(push 1)\n"
+                        "(declare-const l (List Int))\n"
+                        "(pop 1)\n"
+                        "(define-sort L () (List Real))\n"
+                        "(declare-const k L)\n"
+                        "(declare-const k2 (List Real))\n"
+                        "(push 1)\n"
+                        "(declare-const l (List Int))\n"
+                        "(pop 1)\n"
+                        "(declare-const l (List Int))\n"
+                        "(assert (= k (insert 1.0 r)))\n"
+                        "(assert (= k2 k))\n"
+                        "(assert (is-insert l))\n"
+                        "(check-sat)\n",
+                        "sat\n");
+    expect_shell_script("datatype_inst_after_pop",
+                        "(set-option :global-declarations true)\n"
+                        "(push 1)\n"
+                        "(declare-const l (List Int))\n"
+                        "(pop 1)\n"
+                        "(declare-const k (List Int))\n"
+                        "(assert (is-insert k))\n"
+                        "(assert (= k l))\n"
+                        "(check-sat)\n",
+                        "sat\n");
+}

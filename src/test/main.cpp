@@ -288,6 +288,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_symmetry_reduce_quantified);
     TST(z3_4_7_1_bvarray2uf_quantifier);
     TST(z3_4_7_1_get_value_max_steps);
+    TST(z3_4_7_1_datatype_inst_after_pop);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);
