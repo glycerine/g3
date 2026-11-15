@@ -169,7 +169,23 @@ func (t *SMTIntegerDiffTheory) mkVarApp(n ast.ASTHandle) (SMTTheoryVar, error) {
 			return SMTNullTheoryVar, err
 		}
 	}
+	t.traceDL("arith", "mk_var", 833, func() string { return t.dlPP(n) + " |-> " + strconv.Itoa(int(v)) + "\n" })
 	return v, nil
+}
+
+// traceDL emits a TRACE record of src/smt/theory_diff_logic_def.h; body
+// runs only when the tag is enabled.
+func (t *SMTIntegerDiffTheory) traceDL(tag, function string, line int, body func() string) {
+	if smtTraceEnabled(tag) {
+		emitSMTTrace(tag, function, "src/smt/theory_diff_logic_def.h", line, body())
+	}
+}
+
+// dlPP is mk_pp(n, get_manager()) for a trace operand.
+func (t *SMTIntegerDiffTheory) dlPP(n ast.ASTHandle) string {
+	var text string
+	tracePPTo(t.state.manager, n, func(s string) { text = s })
+	return text
 }
 
 // foundNonDiffLogicExpr is theory_diff_logic<Ext>::found_non_diff_logic_expr.
@@ -232,6 +248,9 @@ func (t *SMTIntegerDiffTheory) internalizeDiffTerm(term ast.ASTHandle) (bool, er
 	}
 	result := v != SMTNullTheoryVar
 	if !result {
+		t.traceDL("arith", "internalize_term", 81, func() string { return "Did not internalize " + t.dlPP(term) + "\n" })
+	}
+	if !result {
 		if smtTraceEnabled("non_diff_logic") {
 			emitSMTTrace("non_diff_logic", "internalize_term", "src/smt/theory_diff_logic_def.h", 83, "Terms may not be internalized\n")
 		}
@@ -248,6 +267,7 @@ func (t *SMTIntegerDiffTheory) mkTerm(n ast.ASTHandle) (SMTTheoryVar, error) {
 	if err != nil {
 		return SMTNullTheoryVar, err
 	}
+	t.traceDL("arith", "mk_term", 727, func() string { return t.dlPP(n) + "\n" })
 	r, numeral, err := t.numeral(n)
 	if err != nil {
 		return SMTNullTheoryVar, err

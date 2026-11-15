@@ -32,6 +32,12 @@ func (g *SMTRationalDiffGraph) display(out io.Writer) error {
 	return nil
 }
 
+// displayEdgeText is dl_graph::display_edge.
+func (g *SMTInfRationalDiffGraph) displayEdgeText(id int32) string {
+	edge := &g.edges[id]
+	return fmt.Sprintf("%s (<= (- $%d $%d) %s) %d\n", smtUTVPILiteralText(edge.explanation), edge.target, edge.source, smtDenseInfText(&edge.weight), edge.timestamp)
+}
+
 func (g *SMTInfRationalDiffGraph) display(out io.Writer) error {
 	if g == nil || out == nil {
 		return ast.ErrASTHandle

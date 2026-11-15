@@ -67,6 +67,38 @@ var goldenTraceSites = map[string]bool{
 	"non_diff_logic internalize_term src/smt/theory_diff_logic_def.h":          true,
 	"non_diff_logic found_non_diff_logic_expr src/smt/theory_diff_logic_def.h": true,
 	"non_diff_logic mk_var src/smt/theory_diff_logic_def.h":                    true,
+	// AUDIT.md smtcore_10-F12, dense difference logic (not in
+	// goldenTraceTags; compare with
+	// G3_GOLDEN_TAGS=ddl,assign_profile,arith,del_atoms,ddl_model,epsilon,ddl_detail,non_diff_logic
+	// G3_GOLDEN_VECTORS=dense_equality_axiom_order,dense_assume_eqs_all,dense_real_trace_records).
+	"ddl internalize_atom src/smt/theory_dense_diff_logic_def.h":                     true,
+	"arith internalize_atom src/smt/theory_dense_diff_logic_def.h":                   true,
+	"ddl internalize_term src/smt/theory_dense_diff_logic_def.h":                     true,
+	"ddl assign_eh src/smt/theory_dense_diff_logic_def.h":                            true,
+	"assign_profile assign_eh src/smt/theory_dense_diff_logic_def.h":                 true,
+	"ddl_detail assign_eh src/smt/theory_dense_diff_logic_def.h":                     true,
+	"del_atoms del_atoms src/smt/theory_dense_diff_logic_def.h":                      true,
+	"ddl get_antecedents src/smt/theory_dense_diff_logic_def.h":                      true,
+	"ddl update_cells src/smt/theory_dense_diff_logic_def.h":                         true,
+	"ddl propagate_using_cell src/smt/theory_dense_diff_logic_def.h":                 true,
+	"ddl add_edge src/smt/theory_dense_diff_logic_def.h":                             true,
+	"ddl_model init_model src/smt/theory_dense_diff_logic_def.h":                     true,
+	"ddl_model fix_zero src/smt/theory_dense_diff_logic_def.h":                       true,
+	"epsilon compute_epsilon src/smt/theory_dense_diff_logic_def.h":                  true,
+	"non_diff_logic found_non_diff_logic_expr src/smt/theory_dense_diff_logic_def.h": true,
+	// AUDIT.md smtcore_10-F12, sparse difference logic (compare with
+	// G3_GOLDEN_TAGS=arith,epsilon,arith_final,diff_logic_vars
+	// G3_GOLDEN_VECTORS=diff_logic_trace_records).
+	"arith internalize_term src/smt/theory_diff_logic_def.h":     true,
+	"arith internalize_atom src/smt/theory_diff_logic_def.h":     true,
+	"arith internalize_eq_eh src/smt/theory_diff_logic_def.h":    true,
+	"arith_final final_check_eh src/smt/theory_diff_logic_def.h": true,
+	"arith propagate_atom src/smt/theory_diff_logic_def.h":       true,
+	"arith mk_term src/smt/theory_diff_logic_def.h":              true,
+	"arith mk_var src/smt/theory_diff_logic_def.h":               true,
+	"epsilon compute_delta src/smt/theory_diff_logic_def.h":      true,
+	"arith mk_value src/smt/theory_diff_logic_def.h":             true,
+	"arith make_feasible src/smt/diff_logic.h":                   true,
 	// AUDIT.md math_polynomial_01-F1 (not in goldenTraceTags; compare with
 	// G3_GOLDEN_TAGS=algebraic G3_GOLDEN_VECTORS=nra_root_sort_order).
 	"algebraic compare src/math/polynomial/algebraic_numbers.cpp": true,

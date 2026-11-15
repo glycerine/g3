@@ -21,6 +21,13 @@ func (t *SMTDenseDiffTheory) Close() error {
 	if t == nil {
 		return nil
 	}
+	// ~theory_dense_diff_logic calls reset_eh, whose del_atoms(0) traces the
+	// remaining (base-level) atoms.
+	if t.state != nil {
+		for i := len(t.atoms) - 1; i >= 0; i-- {
+			t.traceDeleteAtom(&t.atoms[i], func() {})
+		}
+	}
 	return t.syntax.closeDiffOptimization()
 }
 func (t *SMTDenseDiffTheory) ObjectiveValue(v SMTTheoryVar) (SMTArithmeticObjectiveValue, error) {

@@ -4,7 +4,9 @@ package smtcore
 // src/smt/theory_diff_logic_def.h.
 
 import (
+	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
@@ -173,6 +175,9 @@ func (t *SMTRealDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (b
 	index := len(t.realAtoms)
 	t.realAtoms = append(t.realAtoms, smtIntegerDiffAtom{variable: atom.variable, positive: positive, negative: negative})
 	t.realAtomByBool[atom.variable] = index
+	t.traceDL("arith", "internalize_atom", 264, func() string {
+		return t.dlPP(expression) + "\n" + "pos: " + t.realGraph.displayEdgeText(positive) + "neg: " + t.realGraph.displayEdgeText(negative)
+	})
 	return true, nil
 }
 
@@ -196,10 +201,22 @@ func (t *SMTRealDiffTheory) Propagate() error {
 	if err != nil {
 		return err
 	}
-	for !state.inconsistent && t.CanPropagate() {
+	// propagate_core: while (consistent && can_propagate()) consistent =
+	// propagate_atom(m_asserted_atoms[m_asserted_qhead++]);
+	for t.CanPropagate() {
 		assertion := t.realAssertions[t.realAssertionHead]
 		t.realAssertionHead++
 		atom := &t.realAtoms[assertion.atom]
+		t.traceDL("arith", "propagate_atom", 548, func() string {
+			var out strings.Builder
+			if printer, err := ast.NewSimpleASTPrinterContext(state.manager, &out, &out); err == nil {
+				_ = displaySMTDiffAtom(&out, state, printer, atom)
+			}
+			return out.String() + "\n"
+		})
+		if state.inconsistent {
+			return nil
+		}
 		edge := atom.negative
 		if assertion.truth {
 			edge = atom.positive
@@ -279,6 +296,11 @@ func (t *SMTRealDiffTheory) FinalCheck() (SMTFinalCheckStatus, error) {
 		}
 		return SMTFinalCheckContinue, nil
 	}
+	t.traceDL("arith_final", "final_check_eh", 361, func() string {
+		var out strings.Builder
+		_ = t.Display(&out)
+		return out.String()
+	})
 	if err := t.realGraph.SetToZero(int32(t.zero)); err != nil {
 		return SMTFinalCheckGiveUp, err
 	}
@@ -286,7 +308,7 @@ func (t *SMTRealDiffTheory) FinalCheck() (SMTFinalCheckStatus, error) {
 		return SMTFinalCheckGiveUp, nil
 	}
 	if t.mixed {
-		t.computeModelDelta()
+		t.computeModelDelta(false)
 		for v, node := range t.variables {
 			sort, err := t.state.manager.GetSort(node.owner)
 			if err != nil {
@@ -353,7 +375,7 @@ func (t *SMTRealDiffTheory) InitializeModel(generator *SMTModelGenerator) error 
 	if generator.manager != state.manager {
 		return ast.ErrASTDomain
 	}
-	t.computeModelDelta()
+	t.computeModelDelta(true)
 	factory, err := protomodel.NewArithmeticFactory(state.manager)
 	if err != nil {
 		return err
@@ -389,6 +411,7 @@ func (t *SMTRealDiffTheory) ModelValue(node *SMTEnode, generator *SMTModelGenera
 	if err != nil {
 		return nil, err
 	}
+	t.traceDL("arith", "mk_value", 908, func() string { return t.dlPP(node.owner) + " |-> " + value.RatString() + "\n" })
 	numeral, err := state.manager.ArithmeticNumeralRat(&value, integer)
 	if err != nil {
 		return nil, err
@@ -396,7 +419,9 @@ func (t *SMTRealDiffTheory) ModelValue(node *SMTEnode, generator *SMTModelGenera
 	return NewSMTExpressionValueProcedure(numeral)
 }
 
-func (t *SMTRealDiffTheory) computeModelDelta() {
+// computeModelDelta is compute_delta. The fractional-Int guard of FinalCheck
+// is not a source call, so it passes trace false.
+func (t *SMTRealDiffTheory) computeModelDelta(trace bool) {
 	t.delta.SetInt64(1)
 	for index := range t.realGraph.edges {
 		edge := &t.realGraph.edges[index]
@@ -405,6 +430,13 @@ func (t *SMTRealDiffTheory) computeModelDelta() {
 		}
 		target := &t.realGraph.assignment[edge.target]
 		source := &t.realGraph.assignment[edge.source]
+		if trace {
+			t.traceDL("epsilon", "compute_delta", 881, func() string {
+				return fmt.Sprintf("(n_x,k_x): %s, %s, (n_y,k_y): %s, %s, (n_c,k_c): %s, %s\n",
+					target.rational.RatString(), target.infinitesimal.RatString(), source.rational.RatString(), source.infinitesimal.RatString(),
+					edge.weight.rational.RatString(), edge.weight.infinitesimal.RatString())
+			})
+		}
 		var rationalLimit, infinitesimalLimit big.Rat
 		rationalLimit.Add(&source.rational, &edge.weight.rational)
 		infinitesimalLimit.Add(&source.infinitesimal, &edge.weight.infinitesimal)
@@ -416,6 +448,9 @@ func (t *SMTRealDiffTheory) computeModelDelta() {
 		denominator.Sub(&target.infinitesimal, &infinitesimalLimit)
 		candidate.Quo(&numerator, &denominator)
 		if candidate.Cmp(&t.delta) < 0 {
+			if trace {
+				t.traceDL("epsilon", "compute_delta", 886, func() string { return "new delta: " + candidate.RatString() + "\n" })
+			}
 			t.delta.Set(&candidate)
 		}
 	}

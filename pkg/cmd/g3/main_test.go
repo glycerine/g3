@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_10-F12: difference-logic TRACE records (golden trace vector).
+	"diff_logic_trace_records.smt2": "unsat\n",
+	// AUDIT.md smtcore_10-F12: difference-logic TRACE records (golden trace vector).
+	"dense_real_trace_records.smt2": "sat\n(model \n  (define-fun z () Real\n    0.0)\n  (define-fun y () Real\n    5.0)\n  (define-fun x () Real\n    6.0)\n)\n",
 	// AUDIT.md smtcore_10-F6: dense final_check_eh runs theory::assume_eqs over all shared variables.
 	"dense_assume_eqs_all.smt2": "sat\n(model \n  (define-fun b () Int\n    0)\n  (define-fun a () Int\n    0)\n  (define-fun d () Int\n    0)\n  (define-fun c () Int\n    0)\n  (define-fun f ((x!0 Int)) Int\n    (ite (= x!0 0) 0\n      0))\n)\n",
 	// AUDIT.md smtcore_10-F7: dense found_non_diff_logic_expr (stderr line checked by hand).

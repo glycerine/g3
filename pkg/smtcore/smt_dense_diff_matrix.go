@@ -3,6 +3,8 @@ package smtcore
 // Source: src/smt/theory_dense_diff_logic_def.h mk_var, add_edge,
 // update_cells, get_antecedents, restore_cells and init_model.
 
+import "fmt"
+
 // Dense closure stores a source edge explaining each improved distance.
 // Zero is the self-edge sentinel; negative one means disconnected.
 type smtDenseDiffCell struct {
@@ -62,7 +64,23 @@ func (g *smtDenseDiffMatrix) distance(source, target int) (smtInfRational, bool)
 	return value, true
 }
 
+// traceOwner emits a ddl TRACE record of the owning dense theory.
+func (g *smtDenseDiffMatrix) traceOwner(function string, line int, body func(id func(int) uint32) string) {
+	if g.owner == nil {
+		return
+	}
+	g.owner.traceDDL("ddl", function, line, func() string {
+		return body(func(v int) uint32 {
+			id, _ := g.owner.variables[v].OwnerID()
+			return id
+		})
+	})
+}
+
 func (g *smtDenseDiffMatrix) antecedents(source, target int) ([]SMTLiteral, error) {
+	g.traceOwner("get_antecedents", 442, func(id func(int) uint32) string {
+		return fmt.Sprintf("get_antecedents, source: #%d, target: #%d\n", id(source), id(target))
+	})
 	if !g.valid(source) || !g.valid(target) || g.rows[source][target].edge < 0 {
 		return nil, errSMTDiffGraphDomain
 	}
@@ -100,10 +118,17 @@ func (g *smtDenseDiffMatrix) addEdge(source, target int, offset *smtInfRational,
 	if !g.valid(source) || !g.valid(target) || offset == nil {
 		return false, nil, errSMTDiffGraphDomain
 	}
+	g.traceOwner("add_edge", 589, func(id func(int) uint32) string {
+		return fmt.Sprintf("trying adding edge: #%d -- %s --> #%d\n", id(source), smtDenseInfText(offset), id(target))
+	})
 	inverse := &g.rows[target][source]
 	var negative smtInfRational
 	negative.Neg(&inverse.distance)
 	if inverse.edge >= 0 && negative.Cmp(offset) > 0 {
+		g.traceOwner("add_edge", 593, func(id func(int) uint32) string {
+			return fmt.Sprintf("conflict detected: #%d #%d offset: %s, c_inv.m_edge_id: %d, c_inv.m_distance: %s\n",
+				id(source), id(target), smtDenseInfText(offset), inverse.edge, smtDenseInfText(&inverse.distance))
+		})
 		antecedents, err := g.antecedents(target, source)
 		if err != nil {
 			return false, nil, err
@@ -115,6 +140,9 @@ func (g *smtDenseDiffMatrix) addEdge(source, target int, offset *smtInfRational,
 	}
 	cell := &g.rows[source][target]
 	if cell.edge < 0 || offset.Cmp(&cell.distance) < 0 {
+		g.traceOwner("add_edge", 613, func(id func(int) uint32) string {
+			return fmt.Sprintf("adding edge: #%d -- %s --> #%d\n", id(source), smtDenseInfText(offset), id(target))
+		})
 		e := smtDenseDiffEdge{source: source, target: target, literal: literal}
 		e.offset.Set(offset)
 		g.edges = append(g.edges, e)
@@ -140,6 +168,10 @@ func (g *smtDenseDiffMatrix) updateCells() error {
 			var value smtInfRational
 			value.Add(&e.offset, &c.distance)
 			old := &g.rows[s][x]
+			g.traceOwner("update_cells", 495, func(id func(int) uint32) string {
+				return fmt.Sprintf("s: #%d x: #%d new_dist: %s\nalready has edge: %d  old dist: %s\n",
+					id(s), id(x), smtDenseInfText(&value), old.edge, smtDenseInfText(&old.distance))
+			})
 			if old.edge < 0 || value.Cmp(&old.distance) < 0 {
 				targets = append(targets, forward{x, value})
 			}

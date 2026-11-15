@@ -3,7 +3,10 @@ package smtcore
 // Source: src/smt/diff_logic.h concrete inf_int_rational graph fragment used
 // by real difference logic.
 
-import "math/big"
+import (
+	"math/big"
+	"strconv"
+)
 
 // smtInfRational represents a + b*epsilon, ordered lexicographically with a
 // positive infinitesimal epsilon. Values own their big.Rat components.
@@ -196,6 +199,9 @@ func (g *SMTInfRationalDiffGraph) makeFeasible(id int32) bool {
 	g.parent[target] = id
 	g.visited = append(g.visited, target)
 	g.accumulateAssignment(target, &g.gamma[target])
+	if smtTraceEnabled("arith") {
+		emitSMTTrace("arith", "make_feasible", "src/smt/diff_logic.h", 378, strconv.Itoa(int(id))+"\n")
+	}
 
 	source := target
 	for {

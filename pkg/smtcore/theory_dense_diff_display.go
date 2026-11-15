@@ -60,22 +60,36 @@ func (t *SMTDenseDiffTheory) Display(out io.Writer) error {
 		return err
 	}
 	for index := range t.atoms {
-		atom := &t.atoms[index]
-		targetID, err := t.variables[atom.target].OwnerID()
+		text, err := t.displayAtom(&t.atoms[index])
 		if err != nil {
 			return err
 		}
-		sourceID, err := t.variables[atom.source].OwnerID()
-		if err != nil {
-			return err
-		}
-		assignment, err := t.state.Assignment(NewSMTLiteral(atom.variable, false))
-		if err != nil {
-			return err
-		}
-		if err = smtWriteTheoryText(out, fmt.Sprintf("#%-5d - #%-5d <= %-10s        assignment: %s\n", targetID, sourceID, smtDenseInfText(&atom.offset), assignment)); err != nil {
+		if err = smtWriteTheoryText(out, text); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// displayAtom is theory_dense_diff_logic::display_atom.
+func (t *SMTDenseDiffTheory) displayAtom(atom *smtDenseAtom) (string, error) {
+	targetID, err := t.variables[atom.target].OwnerID()
+	if err != nil {
+		return "", err
+	}
+	sourceID, err := t.variables[atom.source].OwnerID()
+	if err != nil {
+		return "", err
+	}
+	assignment, err := t.state.Assignment(NewSMTLiteral(atom.variable, false))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("#%-5d - #%-5d <= %-10s        assignment: %s\n", targetID, sourceID, smtDenseInfText(&atom.offset), assignment), nil
+}
+
+// displayAtomText is display_atom for a trace operand.
+func (t *SMTDenseDiffTheory) displayAtomText(atom *smtDenseAtom) string {
+	text, _ := t.displayAtom(atom)
+	return text
 }

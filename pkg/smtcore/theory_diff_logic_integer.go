@@ -497,6 +497,7 @@ func (t *SMTIntegerDiffTheory) InternalizeEquality(expression ast.ASTHandle, var
 	if err != nil {
 		return err
 	}
+	t.traceDL("arith", "internalize_eq_eh", 276, func() string { return t.dlPP(expression) + "\n" })
 	lhs, err := state.manager.GetArg(expression, 0)
 	if err != nil {
 		return err

@@ -338,7 +338,7 @@ func (t *SMTRealDiffTheory) MaximizeObjective(v SMTTheoryVar) (SMTArithmeticObje
 	if err = t.saveObjectiveCore(v, literals); err != nil {
 		return result, blocker, false, err
 	}
-	t.computeModelDelta()
+	t.computeModelDelta(true)
 	for i := range t.realGraph.assignment {
 		value := t.optimization.solver.Value(t.optimization.node(int32(i)))
 		t.realGraph.assignment[i].rational.Add(&value.Main, new(big.Rat).Mul(&t.delta, &value.Epsilon))

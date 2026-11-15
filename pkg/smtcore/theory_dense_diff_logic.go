@@ -4,7 +4,9 @@ package smtcore
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
@@ -222,10 +224,18 @@ func (t *SMTDenseDiffTheory) foundNonDiffLogicExpr(n ast.ASTHandle) error {
 }
 
 func (t *SMTDenseDiffTheory) InternalizeTerm(expression ast.ASTHandle) (bool, error) {
+	t.traceDDL("ddl", "internalize_term", 214, func() string { return "internalizing term: " + t.ddlPP(expression) + "\n" })
 	v, err := t.term(expression)
 	if err != nil {
 		return false, err
 	}
+	t.traceDDL("ddl", "internalize_term", 216, func() string {
+		result := "0"
+		if v != SMTNullTheoryVar {
+			result = "1"
+		}
+		return t.ddlPP(expression) + "\ninternalization result: " + result + "\n"
+	})
 	if v == SMTNullTheoryVar {
 		if err = t.foundNonDiffLogicExpr(expression); err != nil {
 			return false, err
@@ -236,7 +246,43 @@ func (t *SMTDenseDiffTheory) InternalizeTerm(expression ast.ASTHandle) (bool, er
 
 func (*SMTDenseDiffTheory) ApplySortConstraint(*SMTEnode, ast.ASTHandle) error { return nil }
 
+// traceDDL emits a TRACE record of src/smt/theory_dense_diff_logic_def.h;
+// body runs only when the tag is enabled.
+func (t *SMTDenseDiffTheory) traceDDL(tag, function string, line int, body func() string) {
+	if smtTraceEnabled(tag) {
+		emitSMTTrace(tag, function, "src/smt/theory_dense_diff_logic_def.h", line, body())
+	}
+}
+
+// traceDeleteAtom emits the two del_atoms records of one atom around
+// m_bv2atoms[a->get_bool_var()] = 0 (clear).
+func (t *SMTDenseDiffTheory) traceDeleteAtom(a *smtDenseAtom, clear func()) {
+	t.traceDDL("del_atoms", "del_atoms", 345, func() string { return fmt.Sprintf("deleting: p%d\n", a.variable) })
+	clear()
+	t.traceDDL("del_atoms", "del_atoms", 349, func() string {
+		return fmt.Sprintf("m_matrix.size() %d, m_matrix[s].size() %d, m_matrix[t].size(): %d, t: %d, s: %d\n",
+			len(t.matrix.rows), len(t.matrix.rows[a.source]), len(t.matrix.rows[a.target]), a.target, a.source)
+	})
+}
+
+// ddlModelText is the "ddl model" body of the ddl_model records.
+func (t *SMTDenseDiffTheory) ddlModelText() string {
+	text := "ddl model\n"
+	for v, node := range t.variables {
+		text += "#" + t.ddlPP(node.owner) + " = " + smtDenseInfText(&t.values[v]) + "\n"
+	}
+	return text
+}
+
+// ddlPP is mk_pp(n, get_manager()) for a trace operand.
+func (t *SMTDenseDiffTheory) ddlPP(n ast.ASTHandle) string {
+	var text string
+	tracePPTo(t.state.manager, n, func(s string) { text = s })
+	return text
+}
+
 func (t *SMTDenseDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (bool, error) {
+	t.traceDDL("ddl", "internalize_atom", 141, func() string { return "internalizing atom:\n" + t.ddlPP(expression) + "\n" })
 	op, own, err := t.syntax.operation(expression)
 	if err != nil {
 		return false, err
@@ -303,6 +349,7 @@ func (t *SMTDenseDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (
 			return false, err
 		}
 		if arithmetic {
+			t.traceDDL("ddl", "internalize_atom", 170, func() string { return "failed to internalize:\n" + t.ddlPP(expression) + "\n" })
 			return false, t.foundNonDiffLogicExpr(expression)
 		}
 		// !is_arith_expr(lhs): s = mk_zero_for(t)
@@ -312,6 +359,9 @@ func (t *SMTDenseDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (
 		}
 		source, target = zero, lhs
 	}
+	t.traceDDL("arith", "internalize_atom", 174, func() string {
+		return t.ddlPP(lhs) + " " + t.ddlPP(source) + " " + t.ddlPP(target) + "\n"
+	})
 	s, err := t.term(source)
 	if err != nil {
 		return false, err
@@ -321,6 +371,7 @@ func (t *SMTDenseDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (
 		return false, err
 	}
 	if s == SMTNullTheoryVar || u == SMTNullTheoryVar {
+		t.traceDDL("ddl", "internalize_atom", 178, func() string { return "failed to internalize:\n" + t.ddlPP(expression) + "\n" })
 		return false, t.foundNonDiffLogicExpr(expression)
 	}
 	weight := newSMTInfRational(bound, nil)
@@ -341,6 +392,7 @@ func (t *SMTDenseDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (
 	t.atoms = append(t.atoms, a)
 	t.occurrences[[2]int{int(s), int(u)}] = append(t.occurrences[[2]int{int(s), int(u)}], index)
 	t.occurrences[[2]int{int(u), int(s)}] = append(t.occurrences[[2]int{int(u), int(s)}], index)
+	t.traceDDL("ddl", "internalize_atom", 194, func() string { return "succeeded internalizing:\n" + t.ddlPP(expression) + "\n" })
 	return true, nil
 }
 
@@ -350,6 +402,7 @@ func (t *SMTDenseDiffTheory) Assign(variable int32, truth bool) error {
 		return err
 	}
 	if justification, ok := data.Justification().Justification(); ok && justification != nil && justification.FromTheory() == t.FamilyID() {
+		t.traceDDL("ddl", "assign_eh", 255, func() string { return "ignoring atom propagated by the theory.\n" })
 		return nil
 	}
 	i, found := t.byBool[variable]
@@ -358,6 +411,11 @@ func (t *SMTDenseDiffTheory) Assign(variable int32, truth bool) error {
 	}
 	a := &t.atoms[i]
 	t.statistics.assertions++
+	t.traceDDL("assign_profile", "assign_eh", 268, func() string {
+		sourceID, _ := t.variables[a.source].OwnerID()
+		targetID, _ := t.variables[a.target].OwnerID()
+		return fmt.Sprintf("#%d #%d %s\n", sourceID, targetID, smtDenseInfText(&a.offset))
+	})
 	source, target := a.source, a.target
 	var offset smtInfRational
 	offset.Set(&a.offset)
@@ -370,7 +428,15 @@ func (t *SMTDenseDiffTheory) Assign(variable int32, truth bool) error {
 			offset.infinitesimal.Sub(&offset.infinitesimal, big.NewRat(1, 1))
 		}
 	}
-	return t.addEdge(source, target, &offset, NewSMTLiteral(variable, !truth))
+	if err = t.addEdge(source, target, &offset, NewSMTLiteral(variable, !truth)); err != nil {
+		return err
+	}
+	t.traceDDL("ddl_detail", "assign_eh", 277, func() string {
+		var out strings.Builder
+		_ = t.Display(&out)
+		return out.String()
+	})
+	return nil
 }
 
 func (t *SMTDenseDiffTheory) addEdge(source, target int, offset *smtInfRational, literal SMTLiteral) error {
@@ -421,6 +487,16 @@ func (t *SMTDenseDiffTheory) propagateCell(source, target int) error {
 			continue
 		}
 		t.statistics.propagations++
+		line := 566
+		if a.source != source {
+			line = 577
+		}
+		t.traceDDL("ddl", "propagate_using_cell", line, func() string {
+			sourceID, _ := t.variables[source].OwnerID()
+			targetID, _ := t.variables[target].OwnerID()
+			return "asserting atom to true: " + t.displayAtomText(a) +
+				fmt.Sprintf("distance(#%d, #%d): %s\n", sourceID, targetID, smtDenseInfText(&distance))
+		})
 		reason, err := t.matrix.antecedents(source, target)
 		if err != nil {
 			return err
@@ -460,9 +536,10 @@ func (t *SMTDenseDiffTheory) PopScopes(count uint32) error {
 	}
 	level := len(t.scopes) - int(count)
 	s := t.scopes[level]
+	// del_atoms(s.m_atoms_lim), before del_vars shrinks the matrix.
 	for i := len(t.atoms) - 1; i >= s.atoms; i-- {
 		a := &t.atoms[i]
-		delete(t.byBool, a.variable)
+		t.traceDeleteAtom(a, func() { delete(t.byBool, a.variable) })
 		for _, key := range [][2]int{{a.source, a.target}, {a.target, a.source}} {
 			list := t.occurrences[key]
 			list = list[:len(list)-1]
@@ -495,6 +572,7 @@ type smtDenseVarValueKey struct {
 // FinalCheck is theory_dense_diff_logic<Ext>::final_check_eh.
 func (t *SMTDenseDiffTheory) FinalCheck() (SMTFinalCheckStatus, error) {
 	t.values = t.matrix.assignment() // init_model()
+	t.traceDDL("ddl_model", "init_model", 733, t.ddlModelText)
 	assumed, err := t.assumeEqs()
 	if err != nil {
 		return SMTFinalCheckGiveUp, err
@@ -580,9 +658,16 @@ func (t *SMTDenseDiffTheory) InitializeModel(generator *SMTModelGenerator) error
 			}
 		}
 	}
+	t.traceDDL("ddl_model", "fix_zero", 815, t.ddlModelText)
+	// compute_epsilon
 	t.delta.SetInt64(1)
 	for _, e := range t.matrix.edges[1:] {
 		x, y := &t.values[e.target], &t.values[e.source]
+		t.traceDDL("epsilon", "compute_epsilon", 786, func() string {
+			return fmt.Sprintf("(n_x,k_x): %s, %s, (n_y,k_y): %s, %s, (n_c,k_c): %s, %s\n",
+				x.rational.RatString(), x.infinitesimal.RatString(), y.rational.RatString(), y.infinitesimal.RatString(),
+				e.offset.rational.RatString(), e.offset.infinitesimal.RatString())
+		})
 		var limit, infinitesimal big.Rat
 		limit.Add(&y.rational, &e.offset.rational)
 		infinitesimal.Add(&y.infinitesimal, &e.offset.infinitesimal)
@@ -592,6 +677,7 @@ func (t *SMTDenseDiffTheory) InitializeModel(generator *SMTModelGenerator) error
 			denominator.Sub(&x.infinitesimal, &infinitesimal)
 			candidate.Quo(&numerator, &denominator)
 			if candidate.Cmp(&t.delta) < 0 {
+				t.traceDDL("epsilon", "compute_epsilon", 790, func() string { return "new epsilon: " + candidate.RatString() + "\n" })
 				t.delta.Set(&candidate)
 			}
 		}
