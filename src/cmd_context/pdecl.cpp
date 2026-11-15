@@ -214,13 +214,19 @@ class psort_app : public psort {
 
     sort * instantiate(pdecl_manager & m, sort * const * s) override {
         sort * r = find(s);
-        if (r)
+        // FORK FIX #85 (g3 audit, see FORK_BUGFIXES.md): on a cache hit, declare the
+        // datatype's functions again when a pop removed them.
+        if (r && !m.needs_renotify(r))
             return r;
         sort_ref_buffer args_i(m.m());
         unsigned sz = m_args.size();
         for (unsigned i = 0; i < sz; i++) {
             sort * a = m_args[i]->instantiate(m, s);
             args_i.push_back(a);
+        }
+        if (r) {
+            m_decl->instantiate(m, args_i.size(), args_i.c_ptr());
+            return r;
         }
         r = m_decl->instantiate(m, args_i.size(), args_i.c_ptr());
         cache(m, s, r);
@@ -310,8 +316,13 @@ void psort_user_decl::finalize(pdecl_manager & m) {
 sort * psort_user_decl::instantiate(pdecl_manager & m, unsigned n, sort * const * s) {
     SASSERT(n == m_num_params);
     sort * r = find(s);
-    if (r)
+    if (r) {
+        // FORK FIX #85 (g3 audit, see FORK_BUGFIXES.md): on a cache hit, declare the
+        // datatype's functions again when a pop removed them.
+        if (m_def != nullptr && m.needs_renotify(r))
+            m_def->instantiate(m, s);
         return r;
+    }
     if (m_def == nullptr) {
         buffer<parameter> ps;
         for (unsigned i = 0; i < n; i++)
@@ -718,6 +729,15 @@ void pdecl_manager::notify_datatype(sort *r, psort_decl* p, unsigned n, sort* co
         m_notified.insert(r);
         m_notified_trail.push_back(r);
     }
+}
+
+// FORK FIX #85 (g3 audit, see FORK_BUGFIXES.md): true for an instance of a declared
+// parametric datatype that is not notified in the current scopes (a pop
+// removed its constructors, accessors and recognizers).
+bool pdecl_manager::needs_renotify(sort * r) const {
+    datatype_util util(m());
+    return util.is_datatype(r) && util.get_datatype_num_parameter_sorts(r) > 0 &&
+        util.is_declared(r) && !m_notified.contains(r);
 }
 
 void pdecl_manager::push() {

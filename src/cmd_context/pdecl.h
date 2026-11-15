@@ -323,6 +323,9 @@ public:
     sort * instantiate(psort * s, unsigned num, sort * const * args);
     // FORK FIX #84 (g3 audit, see FORK_BUGFIXES.md)
     void notify_datatype(sort *r, psort_decl* p, unsigned n, sort* const* s);
+    // FORK FIX #85 (g3 audit, see FORK_BUGFIXES.md): a cached alias of a parametric datatype
+    // instance whose constructors a pop removed must be instantiated again
+    bool needs_renotify(sort * r) const;
     void push();
     void pop(unsigned n);
 
