@@ -723,8 +723,8 @@ func TestLARCatchUpFloatingSearchExactIntegration(t *testing.T) {
 		lower := 1 + world%17
 		strict := world%2 == 0
 		c := lpLARFloatingSignatureFixture(t, h, lower, lower+4, strict)
-		signature := LARSolutionSignature{}
-		trace, err := c.FindSolutionSignatureWithDoubles(&signature)
+		signature := NewLARSolutionSignature()
+		trace, err := c.FindSolutionSignatureWithDoubles(signature)
 		h.must(err)
 		if !reflect.DeepEqual(trace, []uint32{1, 0}) {
 			t.Fatal("actual presolve trace", world, trace)

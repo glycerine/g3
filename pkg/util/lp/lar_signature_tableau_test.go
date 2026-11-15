@@ -145,7 +145,7 @@ func TestLARTableauSignaturePreparationIndependentSystems(t *testing.T) {
 		for j := uint32(0); j < 3; j++ {
 			h.must(c.RPrimal.UpdateColumnInInfSet(j))
 		}
-		signature := LARSolutionSignature{0: NonBasicColumnValuePosition(99), 1: PositionAtLowBound, 2: PositionAtUpperBound}
+		signature := lpSignature(map[uint32]NonBasicColumnValuePosition{0: NonBasicColumnValuePosition(99), 1: PositionAtLowBound, 2: PositionAtUpperBound})
 		h.must(c.PrepareSolverXWithSignatureTableau(signature))
 		wantX := new(big.Rat).Neg(new(big.Rat).Add(new(big.Rat).Mul(big.NewRat(2, 1), lo), new(big.Rat).Mul(big.NewRat(3, 1), up)))
 		wantY := new(big.Rat).Neg(new(big.Rat).Add(new(big.Rat).Mul(big.NewRat(2, 1), ly), new(big.Rat).Mul(big.NewRat(3, 1), uy)))
@@ -159,7 +159,7 @@ func TestLARTableauSignaturePreparationIndependentSystems(t *testing.T) {
 		if c.signatureDelta != nil || c.signatureExpression != nil || c.signatureScalars != nil {
 			t.Fatal("source lexical lifetime")
 		}
-		if len(signature) != 3 || signature[0] != 99 {
+		if p0, _ := signature.Get2(0); signature.Len() != 3 || p0 != 99 {
 			t.Fatal("signature mutated")
 		}
 		h.must(c.Close())
@@ -176,7 +176,7 @@ func TestLARTableauSignatureBoxedAdditiveSourcePrefix(t *testing.T) {
 	h.must(c.RX.Data[0].Copy(h.m, h.pair("-10", "0")))
 	h.must(c.RX.Data[1].Copy(h.m, h.pair("5", "0")))
 	h.must(c.RPrimal.InfSet.Insert(1))
-	err := c.PrepareSolverXWithSignatureTableau(LARSolutionSignature{1: PositionNotAtBound})
+	err := c.PrepareSolverXWithSignatureTableau(lpSignature(map[uint32]NonBasicColumnValuePosition{1: PositionNotAtBound}))
 	wantBasic := int64(-6)
 	if sourceDebugEnabled {
 		if err != ErrAssertion {
@@ -213,7 +213,7 @@ func TestLARTableauSignaturePhysicalOwnership(t *testing.T) {
 					}
 					c := lpLARSignatureTableauFixture(t, h)
 					huge := strings.Repeat("1234567890", 20) + "7/13"
-					signature := LARSolutionSignature{1: PositionAtLowBound}
+					signature := lpSignature(map[uint32]NonBasicColumnValuePosition{1: PositionAtLowBound})
 					c.Bounds.Types.values[1] = ColumnLowBound
 					h.must(c.Bounds.Low.Set(1, h.pair(huge, "1/17")))
 					if path == "boxed-add" {
@@ -224,7 +224,7 @@ func TestLARTableauSignaturePhysicalOwnership(t *testing.T) {
 						// Use a lower below upper so real debug feasibility can finish.
 						h.must(c.Bounds.Low.Set(1, h.pair(new(big.Rat).Sub(mustLPRat(t, "-"+huge), big.NewRat(2, 1)).RatString(), "0")))
 						h.must(c.RX.Data[1].Copy(h.m, h.pair("0", "0")))
-						signature[1] = PositionNotAtBound
+						signature.Set(1, PositionNotAtBound)
 					}
 					if path == "basic-product" {
 						lpSetLARCatchUpExactCell(t, h, c, 0, 1, huge)
@@ -338,7 +338,7 @@ func TestLARTableauSignaturePreparationReachedPrefixes(t *testing.T) {
 			primal, heading, basis, columns := c.RPrimal, c.RHeading, c.RBasis, c.RA.Columns
 			link := c.RA.Columns[1][0]
 			h.must(c.Bounds.Low.Set(1, h.pair("2", "0")))
-			signature := LARSolutionSignature{1: PositionAtLowBound}
+			signature := lpSignature(map[uint32]NonBasicColumnValuePosition{1: PositionAtLowBound})
 			want := error(ErrBounds)
 			published := false
 			switch phase {
@@ -353,8 +353,13 @@ func TestLARTableauSignaturePreparationReachedPrefixes(t *testing.T) {
 			case "short-heading":
 				c.RHeading = c.RHeading[:1]
 			case "late-heading":
-				signature[99] = PositionAtLowBound
-				published = true
+				// libstdc++ order visits 99 before 1 (AUDIT.md
+				// util_lp_03-F1), so the bad heading index stops the walk
+				// before column 1 is published.
+				signature.Set(99, PositionAtLowBound)
+				if got := fmt.Sprint(signature.Keys()); got != "[99 1]" {
+					t.Fatal("signature order", got)
+				}
 			case "short-columns":
 				c.RA.Columns = c.RA.Columns[:1]
 				published = true
@@ -453,7 +458,7 @@ func TestLARTableauSignaturePreservesOlderComparison(t *testing.T) {
 				if !lpExactPriorityPhysicalRefusal(err) {
 					t.Fatal(err)
 				}
-				err = c.PrepareSolverXWithSignatureTableau(LARSolutionSignature{1: PositionNotAtBound})
+				err = c.PrepareSolverXWithSignatureTableau(lpSignature(map[uint32]NonBasicColumnValuePosition{1: PositionNotAtBound}))
 				if err == nil || c.calls.comparison != 0 {
 					t.Fatal("adopted older comparison", err)
 				}
@@ -485,7 +490,7 @@ func TestLARTableauSignaturePreparationMultipleRows(t *testing.T) {
 		// The input is an actual canonical tableau. Independently evaluate each
 		// row for the complete old and target nonbasic vectors in both coordinates.
 		oldX, oldY, wantX, wantY := make([]*big.Rat, cols), make([]*big.Rat, cols), make([]*big.Rat, cols), make([]*big.Rat, cols)
-		signature := LARSolutionSignature{0: NonBasicColumnValuePosition(99)}
+		signature := lpSignature(map[uint32]NonBasicColumnValuePosition{0: NonBasicColumnValuePosition(99)})
 		for j := 0; j < cols; j++ {
 			oldX[j] = new(big.Rat)
 			oldY[j] = new(big.Rat)
@@ -505,14 +510,14 @@ func TestLARTableauSignaturePreparationMultipleRows(t *testing.T) {
 			if side%2 == 0 {
 				c.Bounds.Types.values[j] = ColumnLowBound
 				h.must(c.Bounds.Low.Set(uint32(j), h.pair(wantX[j].RatString(), wantY[j].RatString())))
-				signature[uint32(j)] = PositionAtLowBound
+				signature.Set(uint32(j), PositionAtLowBound)
 			} else {
 				c.Bounds.Types.values[j] = ColumnUpperBound
 				h.must(c.Bounds.Upper.Set(uint32(j), h.pair(wantX[j].RatString(), wantY[j].RatString())))
-				signature[uint32(j)] = PositionAtUpperBound
+				signature.Set(uint32(j), PositionAtUpperBound)
 			}
 			if side%4 < 2 {
-				signature[uint32(j)] = PositionNotAtBound
+				signature.Set(uint32(j), PositionNotAtBound)
 			}
 		}
 		for row := 0; row < rows; row++ {

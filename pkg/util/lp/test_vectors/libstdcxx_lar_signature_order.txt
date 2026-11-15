@@ -1,0 +1,6 @@
+order first 13 30 23 22 12 11 21 8 20 7 5 3 2 0
+order cleared-second 13 31 16 13 9 6 30 4 15 2 14 1
+order cleared-third 29 57 54 51 48 45 42 39 0 3 6 9 12 15 18 21 24 27 30 33 36
+order cleared-small 29 9 4
+order fresh-small 13 9 4
+order fresh-boxed 13 5 4 3 2 1

@@ -25,11 +25,11 @@ func TestLARSolveOnSignatureIndependentModels(t *testing.T) {
 			strict := world%2 == 0
 			c := lpLARFloatingSignatureFixture(t, h, lower, extent, strict)
 			h.must(c.RPrimal.InfSet.Resize(3))
-			signature := LARSolutionSignature{1: PositionAtUpperBound, 2: PositionAtFixed}
+			signature := lpSignature(map[uint32]NonBasicColumnValuePosition{1: PositionAtUpperBound, 2: PositionAtFixed})
 			var changes []uint32
 			if profile == "presolved" || profile == "missing-r-lu" {
 				var err error
-				changes, err = c.FindSolutionSignatureWithDoubles(&signature)
+				changes, err = c.FindSolutionSignatureWithDoubles(signature)
 				h.must(err)
 			}
 			if profile == "missing-r-lu" {
@@ -120,7 +120,7 @@ func TestLARSolveOnSignatureDegenerateRollback(t *testing.T) {
 			limit := &lpTestResourceLimit{cancel: true, err: lpErrExactSolveCancel}
 			c.settings.SetResourceLimit(limit)
 			// The source fallback never prepares from this deliberately invalid key.
-			signature := LARSolutionSignature{99: PositionAtUpperBound}
+			signature := lpSignature(map[uint32]NonBasicColumnValuePosition{99: PositionAtUpperBound})
 			h.must(c.SolveOnSignature(signature, []uint32{1, 0}))
 			if limit.calls != 0 || c.RPrimal.Tracing != tracing || !reflect.DeepEqual(c.RPrimal.Trace, []uint32{77, 66}) {
 				t.Fatal("fallback cancellation/tracing prefix", missing, tracing, limit.calls, c.RPrimal.Trace)
@@ -131,7 +131,7 @@ func TestLARSolveOnSignatureDegenerateRollback(t *testing.T) {
 			if c.DPrimal.Factorization != nil || !old.closed || c.NoRLU() || c.RPrimal.Status != StatusFeasible {
 				t.Fatal("rollback LU lifecycle")
 			}
-			if !reflect.DeepEqual(c.DX, []float64{17, 18, 19}) || !reflect.DeepEqual(signature, LARSolutionSignature{99: PositionAtUpperBound}) {
+			if !reflect.DeepEqual(c.DX, []float64{17, 18, 19}) || !lpSignatureEqual(signature, map[uint32]NonBasicColumnValuePosition{99: PositionAtUpperBound}) {
 				t.Fatal("fallback value/signature publication")
 			}
 			c.DBasis[0] = 2
@@ -152,7 +152,7 @@ func TestLARSolveOnSignatureFallbackErrorBeforeSynchronization(t *testing.T) {
 	old := c.DPrimal.Factorization
 	limit := &lpTestResourceLimit{err: lpErrExactSolveCancel}
 	c.settings.SetResourceLimit(limit)
-	err := c.SolveOnSignature(LARSolutionSignature{99: PositionAtUpperBound}, []uint32{1, 0})
+	err := c.SolveOnSignature(lpSignature(map[uint32]NonBasicColumnValuePosition{99: PositionAtUpperBound}), []uint32{1, 0})
 	if err != lpErrExactSolveCancel || limit.calls != 1 || c.RBasis[0] != 0 || c.DBasis[0] != 1 || c.DPrimal.Factorization != old || old.closed || !c.RPrimal.LookForFeasibleSolutionOnly {
 		t.Fatal("fallback failure prefix", err, limit.calls, c.RBasis, c.DBasis)
 	}
@@ -200,7 +200,7 @@ func TestLARSolveOnSignatureRoundedSingularBasisRollback(t *testing.T) {
 	c := lpLARRoundedSignatureFixture(t, h)
 	old := c.DPrimal.Factorization
 	// Exact col3=5*col2 independently proves the suggested determinant zero.
-	h.must(c.SolveOnSignature(LARSolutionSignature{99: PositionAtLowBound}, []uint32{2, 0, 3, 1}))
+	h.must(c.SolveOnSignature(lpSignature(map[uint32]NonBasicColumnValuePosition{99: PositionAtLowBound}), []uint32{2, 0, 3, 1}))
 	if c.NoRLU() || c.RPrimal.Status != StatusFeasible || !reflect.DeepEqual(c.RBasis, []uint32{0, 1}) || !reflect.DeepEqual(c.DBasis, c.RBasis) || c.DPrimal.Factorization != nil || !old.closed {
 		t.Fatal("rounded singular rollback", c.RBasis, c.DBasis, c.RPrimal.Status)
 	}
@@ -241,7 +241,7 @@ func TestLARSolveOnSignatureCancellationPrefixes(t *testing.T) {
 				wantCalls = 1
 			}
 			c.settings.SetResourceLimit(limit)
-			signature := LARSolutionSignature{1: PositionAtUpperBound, 2: PositionAtFixed}
+			signature := lpSignature(map[uint32]NonBasicColumnValuePosition{1: PositionAtUpperBound, 2: PositionAtFixed})
 			err := c.SolveOnSignature(signature, nil)
 			failed := phase == "head-error" || phase == "post-error"
 			if failed && err != lpErrExactSolveCancel || !failed && err != nil {
@@ -261,7 +261,7 @@ func TestLARSolveOnSignatureCancellationPrefixes(t *testing.T) {
 			if c.stopped != failed {
 				t.Fatal("source cancel is not a Go error", c.stopped, failed)
 			}
-			if !reflect.DeepEqual(signature, LARSolutionSignature{1: PositionAtUpperBound, 2: PositionAtFixed}) {
+			if !lpSignatureEqual(signature, map[uint32]NonBasicColumnValuePosition{1: PositionAtUpperBound, 2: PositionAtFixed}) {
 				t.Fatal("input signature changed")
 			}
 			h.must(c.Close())
@@ -296,7 +296,7 @@ func TestLARSolveOnSignaturePostSolvePublication(t *testing.T) {
 		h.must(c.RPrimal.InfSet.Resize(3))
 		limit := &lpLARSignaturePostSolveLimit{c: c, mode: mode}
 		c.settings.SetResourceLimit(limit)
-		err := c.SolveOnSignature(LARSolutionSignature{1: PositionAtUpperBound, 2: PositionAtFixed}, nil)
+		err := c.SolveOnSignature(lpSignature(map[uint32]NonBasicColumnValuePosition{1: PositionAtUpperBound, 2: PositionAtFixed}), nil)
 		want := ErrBounds
 		if mode == "counter" {
 			want = nil
@@ -330,7 +330,7 @@ func TestLARSolveOnSignatureReachedPrefixes(t *testing.T) {
 			h := newLPPairHarness(t)
 			c := lpLARFloatingSignatureFixture(t, h, 3, 7, false)
 			h.must(c.RPrimal.InfSet.Resize(3))
-			signature := LARSolutionSignature{1: PositionAtUpperBound, 2: PositionAtFixed}
+			signature := lpSignature(map[uint32]NonBasicColumnValuePosition{1: PositionAtUpperBound, 2: PositionAtFixed})
 			var changes []uint32
 			oldR, oldD, oldLow, oldHeading := c.RPrimal, c.DPrimal, c.Bounds.Low.values, c.DHeading
 			c.RPrimal.Trace = []uint32{77, 66}
@@ -369,7 +369,7 @@ func TestLARSolveOnSignatureReachedPrefixes(t *testing.T) {
 				c.DHeading = nil
 				changes = []uint32{1, 0}
 			case "prepare-low-short":
-				signature[1] = PositionAtLowBound
+				signature.Set(1, PositionAtLowBound)
 				c.Bounds.Low.values = c.Bounds.Low.values[:1]
 			case "solve-domain":
 				h.must(c.RPrimal.InfSet.Resize(0))
@@ -380,7 +380,7 @@ func TestLARSolveOnSignatureReachedPrefixes(t *testing.T) {
 				oldLow, oldHeading = c.Bounds.Low.values, c.DHeading
 				c.DPrimal = nil
 				changes = []uint32{1, 0}
-				signature = LARSolutionSignature{99: PositionAtLowBound}
+				signature = lpSignature(map[uint32]NonBasicColumnValuePosition{99: PositionAtLowBound})
 			}
 			err := c.SolveOnSignature(signature, changes)
 			if err != want {
@@ -430,7 +430,7 @@ func TestLARSolveOnSignaturePhysicalOwnership(t *testing.T) {
 					c := lpLARFloatingSignatureFixture(t, h, 3, 7, false)
 					h.must(c.RPrimal.InfSet.Resize(3))
 					huge := strings.Repeat("1234567890", 20) + "7/13"
-					signature := LARSolutionSignature{1: PositionAtUpperBound, 2: PositionAtFixed}
+					signature := lpSignature(map[uint32]NonBasicColumnValuePosition{1: PositionAtUpperBound, 2: PositionAtFixed})
 					var changes []uint32
 					switch path {
 					case "init-r":
@@ -445,10 +445,10 @@ func TestLARSolveOnSignaturePhysicalOwnership(t *testing.T) {
 						h.must(InitFloatFactorization(&c.DPrimal.Factorization, c.DA, c.DBasis, c.settings))
 						h.must(c.Bounds.Low.Set(1, h.pair("-"+huge, "0")))
 						changes = []uint32{1, 0}
-						signature = LARSolutionSignature{0: PositionAtLowBound, 2: PositionAtFixed}
+						signature = lpSignature(map[uint32]NonBasicColumnValuePosition{0: PositionAtLowBound, 2: PositionAtFixed})
 					case "prepare-r":
 						h.must(c.Bounds.Low.Set(1, h.pair("-"+huge, "0")))
-						signature[1] = PositionAtLowBound
+						signature.Set(1, PositionAtLowBound)
 					case "solve-r":
 						h.must(c.Bounds.Low.Set(0, h.pair(huge, "0")))
 						h.must(c.Bounds.Low.Set(1, h.pair("-"+huge, "0")))
@@ -458,7 +458,7 @@ func TestLARSolveOnSignaturePhysicalOwnership(t *testing.T) {
 						lpSetLARSignatureBothMatrices(t, h, c, 0, 0, huge)
 						h.must(InitPairFactorization(&c.RPrimal.Factorization, c.RA, c.RBasis, c.settings))
 						changes = []uint32{2, 0, 3, 1}
-						signature = LARSolutionSignature{99: PositionAtUpperBound}
+						signature = lpSignature(map[uint32]NonBasicColumnValuePosition{99: PositionAtUpperBound})
 					}
 					h.budget.FailAfter(ordinal)
 					err := c.SolveOnSignature(signature, changes)
@@ -539,7 +539,7 @@ func TestLARSolveOnSignaturePreservesOlderComparison(t *testing.T) {
 				if !lpExactPriorityPhysicalRefusal(err) {
 					t.Fatal(err)
 				}
-				err = c.SolveOnSignature(LARSolutionSignature{1: PositionAtLowBound, 2: PositionAtFixed}, nil)
+				err = c.SolveOnSignature(lpSignature(map[uint32]NonBasicColumnValuePosition{1: PositionAtLowBound, 2: PositionAtFixed}), nil)
 				if err == nil || c.calls.comparison != 0 {
 					t.Fatal("adopted caller comparison", err)
 				}

@@ -48,8 +48,9 @@ func (c *LARCoreSolver) Solve() (err error) {
 		if err = c.PrefixD(); err != nil {
 			return err
 		}
-		signature := LARSolutionSignature{}
-		changes, e := c.FindSolutionSignatureWithDoubles(&signature)
+		// lar_solution_signature solution_signature: a fresh local map.
+		signature := NewLARSolutionSignature()
+		changes, e := c.FindSolutionSignatureWithDoubles(signature)
 		if e != nil {
 			return e
 		}

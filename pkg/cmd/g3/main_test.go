@@ -338,6 +338,14 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md util_lp_03-F1: prepare_solver_x_with_signature walks the
+	// signature in libstdc++ unordered_map order (LU mode, boxed columns).
+	"lra_lu_signature_order.smt2":    "sat\n((x0 (- 1.0))\n (x1 (- (/ 7.0 2.0)))\n (x2 (- (/ 7.0 10.0))))\n",
+	"lra_lu_signature_order_1.smt2":  "sat\n((x0 (- (/ 25.0 12.0)))\n (x1 (- 9.0))\n (x2 7.0)\n (x3 (/ 5.0 12.0))\n (x4 (/ 17.0 4.0))\n (x5 (- (/ 53.0 12.0)))\n (x6 (- (/ 59.0 24.0)))\n (x7 (- 4.0))\n (x8 (- 1.0))\n (x9 (- 3.0))\n (x10 (- (/ 24.0 5.0)))\n (x11 2.0))\n",
+	"lra_lu_signature_order_5.smt2":  "sat\n((x0 (- 1.0))\n (x1 (- (/ 387.0 100.0)))\n (x2 (- (/ 69.0 50.0)))\n (x3 (- 7.0))\n (x4 (- (/ 49.0 10.0)))\n (x5 (/ 93.0 50.0))\n (x6 (- 7.0))\n (x7 2.0)\n (x8 (- 1.0))\n (x9 (- 10.0))\n (x10 (- 4.0))\n (x11 5.0))\n",
+	"lra_lu_signature_order_12.smt2": "sat\n((x0 (/ 773.0 200.0))\n (x1 0.0)\n (x2 (/ 337.0 125.0))\n (x3 (/ 38.0 25.0))\n (x4 (- (/ 13.0 2.0)))\n (x5 6.0)\n (x6 0.0)\n (x7 (/ 25.0 6.0))\n (x8 (- 2.0))\n (x9 20.0)\n (x10 (- (/ 49.0 10.0)))\n (x11 1.0))\n",
+	"lra_lu_signature_order_19.smt2": "sat\n((x0 2.0)\n (x1 (- (/ 4.0 119.0)))\n (x2 5.0)\n (x3 (/ 139.0 119.0))\n (x4 (- 2.0))\n (x5 4.0)\n (x6 (- (/ 1219.0 7616.0)))\n (x7 (- (/ 925.0 476.0)))\n (x8 (- (/ 741.0 476.0)))\n (x9 (- 2.0))\n (x10 (- (/ 3541.0 5712.0)))\n (x11 (/ 6929.0 1428.0)))\n",
+	"lra_lu_signature_order_20.smt2": "sat\n((x0 0.0)\n (x1 (- (/ 10.0 3.0)))\n (x2 (/ 16.0 3.0))\n (x3 (- 7.0))\n (x4 10.0)\n (x5 (- 9.0))\n (x6 3.0)\n (x7 1.0)\n (x8 (- 3.0))\n (x9 0.0)\n (x10 (- (/ 16.0 5.0)))\n (x11 (- 5.0)))\n",
 	// AUDIT.md sat_03-F2: check_par reports the owner lane's model (compare
 	// with OMP_NUM_THREADS=1 so the C++ reference is deterministic).
 	"sat_parallel_owner_model.smt2": "sat\n((p0 false)\n (p1 false)\n (p2 true)\n (p3 true)\n (p4 false)\n (p5 false))\n",

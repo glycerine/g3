@@ -53,11 +53,11 @@ func TestLARSolveOnSignatureTableauIndependentModels(t *testing.T) {
 					}
 					strict := world%2 == 0
 					c := lpLARFloatingSignatureFixture(t, h, lower, extent, strict)
-					signature := LARSolutionSignature{1: PositionAtUpperBound, 2: PositionAtFixed}
+					signature := lpSignature(map[uint32]NonBasicColumnValuePosition{1: PositionAtUpperBound, 2: PositionAtFixed})
 					var changes []uint32
 					if profile == "presolved" {
 						var err error
-						changes, err = c.FindSolutionSignatureWithDoubles(&signature)
+						changes, err = c.FindSolutionSignatureWithDoubles(signature)
 						h.must(err)
 					}
 					lpPrepareLARSignatureTableau(t, h, c, strategy)
@@ -66,12 +66,9 @@ func TestLARSolveOnSignatureTableauIndependentModels(t *testing.T) {
 						c.DPrimal.Factorization = nil
 					}
 					if profile == "signature-change" {
-						signature[1] = PositionAtLowBound
+						signature.Set(1, PositionAtLowBound)
 					}
-					original := make(LARSolutionSignature)
-					for j, p := range signature {
-						original[j] = p
-					}
+					original := signature.Positions()
 					h.must(c.SolveOnSignatureTableau(signature, changes))
 					if c.RPrimal.Tracing || !c.RPrimal.LookForFeasibleSolutionOnly || c.RPrimal.Factorization != nil {
 						t.Fatal("tableau lifecycle")
@@ -97,7 +94,7 @@ func TestLARSolveOnSignatureTableauIndependentModels(t *testing.T) {
 						t.Fatal("independent feasible interval", c.RPrimal.Status)
 					}
 					lpCheckLARCatchUpBasis(t, c.DBasis, c.DNBasis, c.DHeading, c.RBasis)
-					if !reflect.DeepEqual(signature, original) {
+					if !lpSignatureEqual(signature, original) {
 						t.Fatal("signature mutated")
 					}
 					if profile == "missing-d-lu" && c.DPrimal.Factorization != nil {
@@ -131,7 +128,7 @@ func TestLARSolveOnSignatureTableauSingularFallback(t *testing.T) {
 			h.must(c.Bounds.Low.Set(1, h.pair("-3", "1/7")))
 			limit := &lpTestResourceLimit{cancel: true, err: lpErrExactSolveCancel}
 			c.settings.SetResourceLimit(limit)
-			signature := LARSolutionSignature{1: PositionAtLowBound, 2: PositionAtFixed}
+			signature := lpSignature(map[uint32]NonBasicColumnValuePosition{1: PositionAtLowBound, 2: PositionAtFixed})
 			h.must(c.SolveOnSignatureTableau(signature, []uint32{1, 0}))
 			h.check(&c.RX.Data[1], big.NewRat(-3, 1), big.NewRat(1, 7))
 			if limit.calls != 0 || c.RPrimal.Tracing != tracing || !reflect.DeepEqual(c.RPrimal.Trace, []uint32{77, 66}) {
@@ -166,7 +163,7 @@ func TestLARSolveOnSignatureTableauRoundedSingularFallback(t *testing.T) {
 			c.RPrimal.Trace = []uint32{77, 66}
 			limit := &lpTestResourceLimit{cancel: true, err: lpErrExactSolveCancel}
 			c.settings.SetResourceLimit(limit)
-			h.must(c.SolveOnSignatureTableau(LARSolutionSignature{0: PositionFreeOfBounds, 1: NonBasicColumnValuePosition(99), 3: PositionFreeOfBounds}, []uint32{2, 0, 3, 1}))
+			h.must(c.SolveOnSignatureTableau(lpSignature(map[uint32]NonBasicColumnValuePosition{0: PositionFreeOfBounds, 1: NonBasicColumnValuePosition(99), 3: PositionFreeOfBounds}), []uint32{2, 0, 3, 1}))
 			if !reflect.DeepEqual(c.RBasis, []uint32{2, 1}) || !reflect.DeepEqual(c.DBasis, c.RBasis) || !reflect.DeepEqual(c.DHeading, c.RHeading) || !reflect.DeepEqual(c.DNBasis, c.RNBasis) {
 				t.Fatal("keep earlier successful exchange", c.RBasis, c.DBasis)
 			}
@@ -227,7 +224,7 @@ func TestLARSolveOnSignatureTableauCancellationPrefixes(t *testing.T) {
 					pivot = false
 				}
 				c.settings.SetResourceLimit(limit)
-				err := c.SolveOnSignatureTableau(LARSolutionSignature{1: PositionAtUpperBound, 2: PositionAtFixed}, nil)
+				err := c.SolveOnSignatureTableau(lpSignature(map[uint32]NonBasicColumnValuePosition{1: PositionAtUpperBound, 2: PositionAtFixed}), nil)
 				if err != wantErr || limit.calls != calls || c.RPrimal.Tracing == stoppedTrace || c.stopped != (wantErr != nil) {
 					t.Fatal("source cancellation prefix", err, wantErr, limit.calls, c.RPrimal.Tracing, c.stopped)
 				}
@@ -265,7 +262,7 @@ func TestLARSolveOnSignatureTableauFallbackCancellation(t *testing.T) {
 				limit.errorAt = 1
 			}
 			c.settings.SetResourceLimit(limit)
-			err := c.SolveOnSignatureTableau(LARSolutionSignature{1: PositionAtUpperBound, 2: PositionAtFixed}, []uint32{1, 0})
+			err := c.SolveOnSignatureTableau(lpSignature(map[uint32]NonBasicColumnValuePosition{1: PositionAtUpperBound, 2: PositionAtFixed}), []uint32{1, 0})
 			if failed {
 				if err != lpErrExactSolveCancel || limit.calls != 1 || c.DBasis[0] != 1 || old.closed || c.DPrimal.Factorization != old {
 					t.Fatal("fallback failure before copy", err, limit.calls, c.DBasis)
@@ -293,7 +290,7 @@ func TestLARSolveOnSignatureTableauReachedPrefixes(t *testing.T) {
 			}
 			lpPrepareLARSignatureTableau(t, h, c, StrategyTableauRows)
 			oldR, oldD, oldLow, oldHeading := c.RPrimal, c.DPrimal, c.Bounds.Low.values, c.DHeading
-			signature := LARSolutionSignature{1: PositionAtUpperBound, 2: PositionAtFixed}
+			signature := lpSignature(map[uint32]NonBasicColumnValuePosition{1: PositionAtUpperBound, 2: PositionAtFixed})
 			var changes []uint32
 			c.RPrimal.Trace = []uint32{77, 66}
 			want := error(ErrBounds)
@@ -326,15 +323,15 @@ func TestLARSolveOnSignatureTableauReachedPrefixes(t *testing.T) {
 				c.DHeading = nil
 				changes = []uint32{1, 0}
 			case "prepare-low-short":
-				signature[1] = PositionAtLowBound
+				signature.Set(1, PositionAtLowBound)
 				c.Bounds.Low.values = c.Bounds.Low.values[:1]
 			case "prepare-key":
-				signature[99] = PositionAtLowBound
+				signature.Set(99, PositionAtLowBound)
 			case "nil-d":
 				c.DPrimal = nil
 			case "fallback-prepare":
 				changes = []uint32{1, 0}
-				signature[99] = PositionAtLowBound
+				signature.Set(99, PositionAtLowBound)
 			case "fallback-nil-d":
 				changes = []uint32{1, 0}
 				c.DPrimal = nil
@@ -387,7 +384,7 @@ func TestLARSolveOnSignatureTableauPostSolvePublication(t *testing.T) {
 		lpPrepareLARSignatureTableau(t, h, c, StrategyTableauRows)
 		limit := &lpLARTableauPostSolveLimit{c: c, mode: mode}
 		c.settings.SetResourceLimit(limit)
-		err := c.SolveOnSignatureTableau(LARSolutionSignature{1: PositionAtUpperBound, 2: PositionAtFixed}, nil)
+		err := c.SolveOnSignatureTableau(lpSignature(map[uint32]NonBasicColumnValuePosition{1: PositionAtUpperBound, 2: PositionAtFixed}), nil)
 		want := error(ErrBounds)
 		if mode == "counter" {
 			want = nil
@@ -446,7 +443,7 @@ func TestLARSolveOnSignatureTableauPhysicalOwnership(t *testing.T) {
 						}
 						lpPrepareLARSignatureTableau(t, h, c, strategy)
 						huge := strings.Repeat("1234567890", 20) + "7/13"
-						signature := LARSolutionSignature{1: PositionAtUpperBound, 2: PositionAtFixed}
+						signature := lpSignature(map[uint32]NonBasicColumnValuePosition{1: PositionAtUpperBound, 2: PositionAtFixed})
 						var changes []uint32
 						switch path {
 						case "catch":
@@ -457,15 +454,15 @@ func TestLARSolveOnSignatureTableauPhysicalOwnership(t *testing.T) {
 							signature = nil
 						case "prepare":
 							h.must(c.Bounds.Low.Set(1, h.pair("-"+huge, "1/17")))
-							signature[1] = PositionAtLowBound
+							signature.Set(1, PositionAtLowBound)
 						case "solve":
 							h.must(c.Bounds.Low.Set(0, h.pair(huge, "1/17")))
 						case "fallback":
 							h.must(c.Bounds.Low.Set(1, h.pair("-"+huge, "1/17")))
-							signature[1] = PositionAtLowBound
+							signature.Set(1, PositionAtLowBound)
 							changes = []uint32{1, 0}
 						case "rounded":
-							signature = LARSolutionSignature{0: PositionFreeOfBounds, 3: PositionFreeOfBounds}
+							signature = lpSignature(map[uint32]NonBasicColumnValuePosition{0: PositionFreeOfBounds, 3: PositionFreeOfBounds})
 							changes = []uint32{2, 0, 3, 1}
 						}
 						oldD := c.DPrimal.Factorization
@@ -539,7 +536,7 @@ func TestLARSolveOnSignatureTableauPreservesOlderComparison(t *testing.T) {
 				if !lpExactPriorityPhysicalRefusal(err) {
 					t.Fatal(err)
 				}
-				err = c.SolveOnSignatureTableau(LARSolutionSignature{1: PositionNotAtBound}, nil)
+				err = c.SolveOnSignatureTableau(lpSignature(map[uint32]NonBasicColumnValuePosition{1: PositionNotAtBound}), nil)
 				if err == nil || c.calls.comparison != 0 {
 					t.Fatal("adopted older comparison", err)
 				}

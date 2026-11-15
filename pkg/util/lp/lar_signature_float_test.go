@@ -40,13 +40,13 @@ func TestLARFloatingSignatureReachedPrefixes(t *testing.T) {
 		t.Run(phase, func(t *testing.T) {
 			h := newLPPairHarness(t)
 			c := lpLARFloatingSignatureFixture(t, h, 3, 7, false)
-			signature := LARSolutionSignature{99: PositionFreeOfBounds}
-			old := LARSolutionSignature{99: PositionFreeOfBounds}
-			initial := LARSolutionSignature{1: PositionAtUpperBound, 2: PositionAtFixed}
+			signature := lpSignature(map[uint32]NonBasicColumnValuePosition{99: PositionFreeOfBounds})
+			old := map[uint32]NonBasicColumnValuePosition{99: PositionFreeOfBounds}
+			initial := map[uint32]NonBasicColumnValuePosition{1: PositionAtUpperBound, 2: PositionAtFixed}
 			savedD, savedLU := c.DPrimal, c.DPrimal.Factorization
 			savedTypes, savedX := c.Bounds.Types.values, c.DX
 			c.DLow[0] = 91
-			argument := &signature
+			argument := signature
 			early := false
 			want := ErrBounds
 			switch phase {
@@ -85,7 +85,7 @@ func TestLARFloatingSignatureReachedPrefixes(t *testing.T) {
 				t.Fatal("failure returned trace", trace)
 			}
 			extracted := phase == "prepare" || phase == "solve"
-			if extracted && !reflect.DeepEqual(signature, initial) || !extracted && !reflect.DeepEqual(signature, old) {
+			if extracted && !lpSignatureEqual(signature, initial) || !extracted && !lpSignatureEqual(signature, old) {
 				t.Fatal("signature publication", signature)
 			}
 			if phase == "solve" {
@@ -99,7 +99,7 @@ func TestLARFloatingSignatureReachedPrefixes(t *testing.T) {
 				t.Fatal("early factorization guard touched bounds")
 			}
 			if !early && phase != "stopped" {
-				if _, e := c.FindSolutionSignatureWithDoubles(&signature); e != ErrExactVectorPending {
+				if _, e := c.FindSolutionSignatureWithDoubles(signature); e != ErrExactVectorPending {
 					t.Fatal("stopped retry", e)
 				}
 			}
@@ -130,9 +130,9 @@ func TestLARFloatingSignatureFinalExtractionPrefix(t *testing.T) {
 	c := lpLARFloatingSignatureFixture(t, h, -1, 7, false)
 	limit := &lpLARSignatureExtractionLimit{c: c}
 	c.settings.SetResourceLimit(limit)
-	signature := LARSolutionSignature{99: PositionFreeOfBounds}
-	trace, err := c.FindSolutionSignatureWithDoubles(&signature)
-	if err != ErrBounds || len(trace) != 0 || c.DPrimal.Tracing || limit.calls != 1 || !reflect.DeepEqual(signature, LARSolutionSignature{1: PositionAtUpperBound, 2: PositionAtFixed}) {
+	signature := lpSignature(map[uint32]NonBasicColumnValuePosition{99: PositionFreeOfBounds})
+	trace, err := c.FindSolutionSignatureWithDoubles(signature)
+	if err != ErrBounds || len(trace) != 0 || c.DPrimal.Tracing || limit.calls != 1 || !lpSignatureEqual(signature, map[uint32]NonBasicColumnValuePosition{1: PositionAtUpperBound, 2: PositionAtFixed}) {
 		t.Fatal("final extraction prefix", trace, err, signature, limit.calls)
 	}
 	h.must(c.Close())
@@ -161,9 +161,9 @@ func TestLARFloatingSignaturePhysicalOwnership(t *testing.T) {
 				h.must(c.Bounds.Low.Set(1, h.pair("-"+huge, "0")))
 				h.must(c.Bounds.Upper.Set(1, h.pair(huge, "0")))
 				h.must(c.RX.Data[1].Copy(h.m, h.pair(huge, "0")))
-				signature := LARSolutionSignature{99: PositionFreeOfBounds}
+				signature := lpSignature(map[uint32]NonBasicColumnValuePosition{99: PositionFreeOfBounds})
 				h.budget.FailAfter(ordinal)
-				_, err := c.FindSolutionSignatureWithDoubles(&signature)
+				_, err := c.FindSolutionSignatureWithDoubles(signature)
 				h.budget.FailAfter(-1)
 				if err == nil {
 					success, done = true, true
@@ -172,7 +172,7 @@ func TestLARFloatingSignaturePhysicalOwnership(t *testing.T) {
 					if !lpExactPriorityPhysicalRefusal(err) {
 						t.Fatal(err)
 					}
-					if _, e := c.FindSolutionSignatureWithDoubles(&signature); e != ErrExactVectorPending {
+					if _, e := c.FindSolutionSignatureWithDoubles(signature); e != ErrExactVectorPending {
 						t.Fatal("stopped retry", e)
 					}
 				}
@@ -206,8 +206,8 @@ func TestLARFloatingSignatureIndependentFeasibilityModels(t *testing.T) {
 		}
 		strict := world%2 == 0
 		c := lpLARFloatingSignatureFixture(t, h, lower, extent, strict)
-		signature := LARSolutionSignature{99: PositionFreeOfBounds}
-		trace, err := c.FindSolutionSignatureWithDoubles(&signature)
+		signature := lpSignature(map[uint32]NonBasicColumnValuePosition{99: PositionFreeOfBounds})
+		trace, err := c.FindSolutionSignatureWithDoubles(signature)
 		h.must(err)
 		target := float64(lower)
 		if strict {
@@ -225,17 +225,17 @@ func TestLARFloatingSignatureIndependentFeasibilityModels(t *testing.T) {
 				if !reflect.DeepEqual(trace, []uint32{1, 0}) || !reflect.DeepEqual(c.DBasis, []uint32{1}) || math.Abs(c.DX[0]-target) > 1e-9 || math.Abs(c.DX[1]+target/2) > 1e-9 {
 					t.Fatal("independent exchanged solution", world, trace, c.DX, c.DBasis)
 				}
-				if !reflect.DeepEqual(signature, LARSolutionSignature{0: PositionAtLowBound, 2: PositionAtFixed}) {
+				if !lpSignatureEqual(signature, map[uint32]NonBasicColumnValuePosition{0: PositionAtLowBound, 2: PositionAtFixed}) {
 					t.Fatal("exchanged signature", signature)
 				}
-			} else if len(trace) != 0 || !reflect.DeepEqual(signature, LARSolutionSignature{1: PositionAtUpperBound, 2: PositionAtFixed}) {
+			} else if len(trace) != 0 || !lpSignatureEqual(signature, map[uint32]NonBasicColumnValuePosition{1: PositionAtUpperBound, 2: PositionAtFixed}) {
 				t.Fatal("initial feasible signature", trace, signature)
 			}
 		} else {
 			if c.DPrimal.Status != StatusInfeasible || c.DX[0] != float64(2*extent) || c.DX[1] != float64(-extent) || len(trace) != 0 {
 				t.Fatal("independent impossible interval", world, c.DPrimal.Status, c.DX, trace)
 			}
-			if !reflect.DeepEqual(signature, LARSolutionSignature{1: PositionAtLowBound, 2: PositionAtFixed}) {
+			if !lpSignatureEqual(signature, map[uint32]NonBasicColumnValuePosition{1: PositionAtLowBound, 2: PositionAtFixed}) {
 				t.Fatal("infeasible bound signature", signature)
 			}
 		}
@@ -270,19 +270,19 @@ func TestLARFloatingSignatureCancellationPrefixes(t *testing.T) {
 			// Already-feasible Solve performs no cancellation reads. A pivoting
 			// search reads at its loop head, so cancellation leaves the initial X.
 			c.settings.SetResourceLimit(limit)
-			signature := LARSolutionSignature{99: PositionFreeOfBounds}
-			trace, err := c.FindSolutionSignatureWithDoubles(&signature)
+			signature := lpSignature(map[uint32]NonBasicColumnValuePosition{99: PositionFreeOfBounds})
+			trace, err := c.FindSolutionSignatureWithDoubles(signature)
 			if failed && !errors.Is(err, sentinel) || !failed && err != nil {
 				t.Fatal("cancel error", pivot, failed, err)
 			}
-			if len(trace) != 0 || !c.DPrimal.Tracing || !reflect.DeepEqual(signature, LARSolutionSignature{1: PositionAtUpperBound, 2: PositionAtFixed}) {
+			if len(trace) != 0 || !c.DPrimal.Tracing || !lpSignatureEqual(signature, map[uint32]NonBasicColumnValuePosition{1: PositionAtUpperBound, 2: PositionAtFixed}) {
 				t.Fatal("source cancellation prefix", pivot, failed, trace, signature, c.DPrimal.Tracing)
 			}
 			if limit.calls != 1 && (!pivot || failed) || limit.calls != 2 && pivot && !failed {
 				t.Fatal("source cancellation reads", pivot, failed, limit.calls)
 			}
 			if failed {
-				if _, e := c.FindSolutionSignatureWithDoubles(&signature); e != ErrExactVectorPending {
+				if _, e := c.FindSolutionSignatureWithDoubles(signature); e != ErrExactVectorPending {
 					t.Fatal("failed parent reuse", e)
 				}
 			}
@@ -301,12 +301,12 @@ func TestLARFloatingSignatureCancellationAfterPivot(t *testing.T) {
 			limit.errorAt = 2
 		}
 		c.settings.SetResourceLimit(limit)
-		signature := LARSolutionSignature{99: PositionFreeOfBounds}
-		trace, err := c.FindSolutionSignatureWithDoubles(&signature)
+		signature := lpSignature(map[uint32]NonBasicColumnValuePosition{99: PositionFreeOfBounds})
+		trace, err := c.FindSolutionSignatureWithDoubles(signature)
 		if failed && err != lpErrExactSolveCancel || !failed && err != nil {
 			t.Fatal(err)
 		}
-		if limit.calls != 2 || len(trace) != 0 || !c.DPrimal.Tracing || !reflect.DeepEqual(c.DPrimal.Trace, []uint32{1, 0}) || !reflect.DeepEqual(signature, LARSolutionSignature{1: PositionAtUpperBound, 2: PositionAtFixed}) {
+		if limit.calls != 2 || len(trace) != 0 || !c.DPrimal.Tracing || !reflect.DeepEqual(c.DPrimal.Trace, []uint32{1, 0}) || !lpSignatureEqual(signature, map[uint32]NonBasicColumnValuePosition{1: PositionAtUpperBound, 2: PositionAtFixed}) {
 			t.Fatal("post-pivot cancellation", limit.calls, trace, c.DPrimal.Trace, signature)
 		}
 		if c.DX[0] != 3 || c.DX[1] != -1.5 || c.DBasis[0] != 1 {

@@ -5,7 +5,7 @@ package lp
 // SolveOnSignatureTableau applies the floating basis/signature to the exact
 // tableau. A singular suggestion reverses its last exchange, uses the remaining
 // signature, and replaces floating basis metadata before discarding its LU.
-func (c *LARCoreSolver) SolveOnSignatureTableau(signature LARSolutionSignature, changes []uint32) (err error) {
+func (c *LARCoreSolver) SolveOnSignatureTableau(signature *LARSolutionSignature, changes []uint32) (err error) {
 	if c.stopped || c.calls.pending() || c.signatureDelta != nil || c.signatureExpression != nil || c.signatureScalars != nil || c.catchUpWork != nil {
 		return ErrExactVectorPending
 	}

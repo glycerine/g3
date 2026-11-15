@@ -9,7 +9,7 @@ func (c *LARCoreSolver) NoRLU() bool {
 // SolveOnSignature applies the floating basis/signature to the exact LU solver.
 // A degenerate suggested basis is rolled back before exact feasibility search;
 // that fallback deliberately uses the existing exact values, not the signature.
-func (c *LARCoreSolver) SolveOnSignature(signature LARSolutionSignature, changes []uint32) (err error) {
+func (c *LARCoreSolver) SolveOnSignature(signature *LARSolutionSignature, changes []uint32) (err error) {
 	if c.stopped || c.catchUpWork != nil || c.calls.pending() {
 		return ErrExactVectorPending
 	}

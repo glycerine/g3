@@ -22,7 +22,7 @@ func (c *LARCoreSolver) FindSolutionSignatureWithDoubles(signature *LARSolutionS
 	if err = c.ExtractSignatureFromPairSolver(signature, c.RPrimal); err != nil {
 		return nil, err
 	}
-	if err = c.PrepareFloatSolverXWithSignature(*signature, d); err != nil {
+	if err = c.PrepareFloatSolverXWithSignature(signature, d); err != nil {
 		return nil, err
 	}
 	d.StartTracingBasisChanges()

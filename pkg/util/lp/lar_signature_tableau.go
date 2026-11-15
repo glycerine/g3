@@ -210,7 +210,7 @@ func (c *LARCoreSolver) updateSignatureBasic(link ColumnCell) (err error) {
 	return c.RPrimal.UpdateColumnInInfSet(basic)
 }
 
-func (c *LARCoreSolver) PrepareSolverXWithSignatureTableau(signature LARSolutionSignature) (err error) {
+func (c *LARCoreSolver) PrepareSolverXWithSignatureTableau(signature *LARSolutionSignature) (err error) {
 	if c.stopped || c.calls.pending() || c.signatureDelta != nil || c.signatureExpression != nil || c.signatureScalars != nil {
 		return ErrExactVectorPending
 	}
@@ -231,7 +231,9 @@ func (c *LARCoreSolver) PrepareSolverXWithSignatureTableau(signature LARSolution
 			return ErrAssertion
 		}
 	}
-	for _, j := range signatureKeys(signature) {
+	// ORDER MATTERS: for (auto &t : signature) walks libstdc++ node order
+	// (AUDIT.md util_lp_03-F1).
+	for _, j := range signature.Keys() {
 		if uint64(j) >= uint64(len(c.RHeading)) {
 			return ErrBounds
 		}
@@ -239,7 +241,8 @@ func (c *LARCoreSolver) PrepareSolverXWithSignatureTableau(signature LARSolution
 			continue
 		}
 		c.signatureDelta = NewIndexedPairVector(c.manager, 1)
-		changed, e := c.UpdateXJAndGetDelta(j, signature[j], &c.signatureDelta.Data[0])
+		position, _ := signature.Get2(j)
+		changed, e := c.UpdateXJAndGetDelta(j, position, &c.signatureDelta.Data[0])
 		if e != nil {
 			return e
 		}

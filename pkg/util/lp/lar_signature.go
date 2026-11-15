@@ -3,12 +3,81 @@ package lp
 // Source: src/util/lp/lar_solution_signature.h;
 // lar_core_solver.h:356-405,653-662. Actual pair and double consumers.
 
-import "sort"
+// LARSolutionSignature is lar_solution_signature,
+// std::unordered_map<unsigned, non_basic_column_value_position>.
+//
+// ORDER MATTERS: prepare_solver_x_with_signature walks the map in libstdc++
+// node order and draws a random bit for every boxed not_at_bound column, so
+// the keys keep the libstdc++ unordered_map order (the user-approved
+// StdUnorderedRationalMap emulation, AUDIT.md util_lp_03-F1). Clear keeps
+// the bucket array, as std::unordered_map::clear does. Do not iterate the
+// positions map directly and do not sort the keys.
+type LARSolutionSignature struct {
+	order     *StdUnorderedRationalMap // node order only; values unused (nil)
+	positions map[uint32]NonBasicColumnValuePosition
+}
 
-// LARSolutionSignature records nonbasic bound positions. C++ uses an unordered
-// map. Preparation uses ascending Go keys for reproducible RNG/error prefixes;
-// no insertion-order contract is imposed on this native map.
-type LARSolutionSignature map[uint32]NonBasicColumnValuePosition
+// NewLARSolutionSignature is a default-constructed signature (one bucket).
+func NewLARSolutionSignature() *LARSolutionSignature {
+	return &LARSolutionSignature{order: NewStdUnorderedRationalMap(), positions: map[uint32]NonBasicColumnValuePosition{}}
+}
+
+// Clear is clear(): the bucket array and rehash state stay.
+func (s *LARSolutionSignature) Clear() {
+	if s.order == nil {
+		s.order, s.positions = NewStdUnorderedRationalMap(), map[uint32]NonBasicColumnValuePosition{}
+		return
+	}
+	s.order.Clear()
+	clear(s.positions)
+}
+
+// Set is signature[j] = position.
+func (s *LARSolutionSignature) Set(j uint32, position NonBasicColumnValuePosition) {
+	if s.order == nil {
+		s.order, s.positions = NewStdUnorderedRationalMap(), map[uint32]NonBasicColumnValuePosition{}
+	}
+	if _, ok := s.order.Get2(j); !ok {
+		s.order.Put(j, nil)
+	}
+	s.positions[j] = position
+}
+
+// Get2 is find(j).
+func (s *LARSolutionSignature) Get2(j uint32) (NonBasicColumnValuePosition, bool) {
+	if s == nil {
+		return 0, false
+	}
+	position, ok := s.positions[j]
+	return position, ok
+}
+
+// Len is size().
+func (s *LARSolutionSignature) Len() int {
+	if s == nil {
+		return 0
+	}
+	return len(s.positions)
+}
+
+// Keys lists the keys in libstdc++ iteration order (begin() to end()).
+func (s *LARSolutionSignature) Keys() []uint32 {
+	if s == nil || s.order == nil {
+		return nil
+	}
+	return s.order.Keys()
+}
+
+// Positions returns a copy of the key/position pairs, for comparisons.
+func (s *LARSolutionSignature) Positions() map[uint32]NonBasicColumnValuePosition {
+	out := make(map[uint32]NonBasicColumnValuePosition, s.Len())
+	if s != nil {
+		for j, p := range s.positions {
+			out[j] = p
+		}
+	}
+	return out
+}
 
 func (c *LARCoreSolver) ExtractSignatureFromPairSolver(signature *LARSolutionSignature, s *PairPrimalCoreSolver) (err error) {
 	if c.stopped {
@@ -21,17 +90,14 @@ func (c *LARCoreSolver) ExtractSignatureFromPairSolver(signature *LARSolutionSig
 	if err = s.ready(); err != nil {
 		return err
 	}
-	if *signature == nil {
-		*signature = make(LARSolutionSignature)
-	}
-	clear(*signature)
+	signature.Clear()
 	for j, h := range *s.Heading {
 		if h < 0 {
 			position, e := s.GetNonBasicColumnValuePosition(uint32(j))
 			if e != nil {
 				return e
 			}
-			(*signature)[uint32(j)] = position
+			signature.Set(uint32(j), position)
 		}
 	}
 	return nil
@@ -45,17 +111,14 @@ func (c *LARCoreSolver) ExtractSignatureFromFloatSolver(signature *LARSolutionSi
 	if signature == nil || s == nil {
 		return ErrBounds
 	}
-	if *signature == nil {
-		*signature = make(LARSolutionSignature)
-	}
-	clear(*signature)
+	signature.Clear()
 	for j, h := range *s.Heading {
 		if h < 0 {
 			position, e := s.GetNonBasicColumnValuePosition(uint32(j))
 			if e != nil {
 				return e
 			}
-			(*signature)[uint32(j)] = position
+			signature.Set(uint32(j), position)
 		}
 	}
 	return nil
@@ -107,16 +170,7 @@ func (c *LARCoreSolver) signatureBoundSide(j uint32, position NonBasicColumnValu
 	}
 }
 
-func signatureKeys(signature LARSolutionSignature) []uint32 {
-	keys := make([]uint32, 0, len(signature))
-	for j := range signature {
-		keys = append(keys, j)
-	}
-	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
-	return keys
-}
-
-func (c *LARCoreSolver) PreparePairSolverXWithSignature(signature LARSolutionSignature, s *PairPrimalCoreSolver) (err error) {
+func (c *LARCoreSolver) PreparePairSolverXWithSignature(signature *LARSolutionSignature, s *PairPrimalCoreSolver) (err error) {
 	if c.stopped {
 		return ErrExactVectorPending
 	}
@@ -127,8 +181,10 @@ func (c *LARCoreSolver) PreparePairSolverXWithSignature(signature LARSolutionSig
 	if err = s.ready(); err != nil {
 		return err
 	}
-	for _, j := range signatureKeys(signature) {
-		side, e := c.signatureBoundSide(j, signature[j])
+	// ORDER MATTERS: for (auto &t : signature) walks libstdc++ node order.
+	for _, j := range signature.Keys() {
+		position, _ := signature.Get2(j)
+		side, e := c.signatureBoundSide(j, position)
 		if e != nil {
 			return e
 		}
@@ -173,7 +229,7 @@ func (c *LARCoreSolver) PreparePairSolverXWithSignature(signature LARSolutionSig
 	return s.SolveAxEqualsB()
 }
 
-func (c *LARCoreSolver) PrepareFloatSolverXWithSignature(signature LARSolutionSignature, s *FloatPrimalCoreSolver) (err error) {
+func (c *LARCoreSolver) PrepareFloatSolverXWithSignature(signature *LARSolutionSignature, s *FloatPrimalCoreSolver) (err error) {
 	if c.stopped {
 		return ErrExactVectorPending
 	}
@@ -181,8 +237,10 @@ func (c *LARCoreSolver) PrepareFloatSolverXWithSignature(signature LARSolutionSi
 	if s == nil {
 		return ErrBounds
 	}
-	for _, j := range signatureKeys(signature) {
-		side, e := c.signatureBoundSide(j, signature[j])
+	// ORDER MATTERS: for (auto &t : signature) walks libstdc++ node order.
+	for _, j := range signature.Keys() {
+		position, _ := signature.Get2(j)
+		side, e := c.signatureBoundSide(j, position)
 		if e != nil {
 			return e
 		}
