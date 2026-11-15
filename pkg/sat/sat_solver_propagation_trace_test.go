@@ -123,3 +123,33 @@ func TestSATWatchedClauseSourceTraceBranches(t *testing.T) {
 		})
 	}
 }
+
+// Source: src/sat/sat_solver.h:259 (AUDIT.md sat_02-F3). solver::assign
+// prints the literal and its previous value before the switch, for every
+// outcome: undef assigns, true returns, false sets the conflict.
+func TestSATAssignSourceTraceRecord(t *testing.T) {
+	p, _, _ := satPropagationFixture(t, 2)
+	var w bytes.Buffer
+	tags := diagnostic.NewTraceTagsWithWriter(&w)
+	tags.Enable("sat_assign")
+	p.traceTags = tags
+	satOK(t, p.assign(0, satJustification{}))
+	satOK(t, p.assign(0, satJustification{}))
+	satOK(t, p.assign(1, satJustification{}))
+	if !p.inconsistent {
+		t.Fatal("assigning the negation of a true literal must set the conflict")
+	}
+	if !tags.ShouldTrace("sat_assign") {
+		if w.Len() != 0 {
+			t.Fatal("erased sat_assign TRACE emitted")
+		}
+		return
+	}
+	record := func(body string) string {
+		return "-------- [sat_assign] assign src/sat/sat_solver.h:259 ---------\n" + body + "------------------------------------------------\n"
+	}
+	want := record("0 previous value: l_undef\n") + record("0 previous value: l_true\n") + record("-0 previous value: l_false\n")
+	if got := w.String(); got != want {
+		t.Fatalf("sat_assign trace got %q, want %q", got, want)
+	}
+}

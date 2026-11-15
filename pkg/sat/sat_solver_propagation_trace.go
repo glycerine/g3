@@ -1,12 +1,14 @@
 package sat
 
-// Source: src/sat/sat_solver.cpp:506,564,622,632,635; retained util/trace sites.
+// Source: src/sat/sat_solver.cpp:506,564,622,632,635, src/sat/sat_solver.h:259;
+// retained util/trace sites.
 
 import (
 	"io"
 	"strconv"
 
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 // Source: src/sat/sat_justification.h:56-77.
@@ -33,6 +35,22 @@ func (s *satSolverPropagationState) traceRecord(tag, function string, line int, 
 	}
 	_ = tags.EmitConditional(tag, function, "src/sat/sat_solver.cpp", line,
 		func() bool { return true }, body)
+}
+
+// Source: src/sat/sat_solver.h:259 (solver::assign).
+func (s *satSolverPropagationState) traceAssign(l Literal, value lbool.LBool) {
+	if !diagnostic.TraceCompiled() {
+		return
+	}
+	tags := s.traceTags
+	if tags == nil {
+		tags = diagnostic.BorrowProcessTraceTags()
+	}
+	_ = tags.EmitConditional("sat_assign", "assign", "src/sat/sat_solver.h", 259,
+		func() bool { return true }, func(w io.Writer) error {
+			_, _ = io.WriteString(w, l.String()+" previous value: "+value.String()+"\n")
+			return nil
+		})
 }
 
 func (s *satSolverPropagationState) traceAssignCore(l Literal, j satJustification) {

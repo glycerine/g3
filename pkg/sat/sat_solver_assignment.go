@@ -20,6 +20,7 @@ func (s *satSolverPropagationState) assign(l Literal, j satJustification) error 
 	if e != nil {
 		return e
 	}
+	s.traceAssign(l, v)
 	switch v {
 	case lbool.False:
 		s.setConflict(j, l.Negated())
