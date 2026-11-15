@@ -123,6 +123,10 @@ Abstract:
 #include "muz/transforms/dl_mk_quantifier_instantiation.h"
 #include "ast/scoped_proof.h"
 #include <sstream>
+#include "nlsat/nlsat_assignment.h"
+#include "nlsat/nlsat_solver.h"
+#include "nlsat/nlsat_explain.h"
+#include "util/rlimit.h"
 #include <iostream>
 #ifndef _WINDOWS
 #include <csignal>
@@ -923,4 +927,92 @@ void tst_z3_4_7_1_lia2card_empty_eq() {
 #ifndef _WINDOWS
     alarm(0);
 #endif
+}
+
+namespace {
+    void nlsat_set_value(nlsat::solver& s, nlsat::assignment& as, nlsat::var x, int num, int den = 1) {
+        anum_manager& am = s.am();
+        unsynch_mpq_manager& qm = s.qm();
+        scoped_mpq q(qm);
+        qm.set(q, num, den);
+        scoped_anum v(am);
+        am.set(v, q);
+        as.set(x, v);
+    }
+
+    nlsat::literal nlsat_lit(nlsat::solver& s, nlsat::atom::kind k, polynomial_ref const& p) {
+        nlsat::poly* ps[1] = { p.get() };
+        bool is_even[1] = { false };
+        return s.mk_ineq_literal(k, 1, ps, is_even);
+    }
+
+    // Number of literals in ls that are not true in the solver's current
+    // assignment.
+    unsigned nlsat_num_not_true(nlsat::solver& s, unsigned n, nlsat::literal const* ls) {
+        unsigned r = 0;
+        for (unsigned i = 0; i < n; ++i)
+            if (s.value(ls[i]) != l_true)
+                ++r;
+        return r;
+    }
+
+    // Signed projection of lits onto x. Every literal of the projection must
+    // hold in the current model, which lits satisfy.
+    void nlsat_signed_project_check(char const* test, nlsat::solver& s, nlsat::var x,
+                                    nlsat::scoped_literal_vector const& lits,
+                                    nlsat::scoped_literal_vector& result) {
+        ENSURE(nlsat_num_not_true(s, lits.size(), lits.c_ptr()) == 0);
+        nlsat::explain& ex = s.get_explain();
+        ex.set_signed_project(true);
+        ex.project(x, lits.size(), lits.c_ptr(), result);
+        s.display(std::cout << test << ": ", lits.size(), lits.c_ptr());
+        s.display(std::cout << "\n  ==> ", result.size(), result.c_ptr());
+        unsigned bad = nlsat_num_not_true(s, result.size(), result.c_ptr());
+        std::cout << "\n  projection literals false in the model: " << bad << "\n";
+        ENSURE(bad == 0);
+    }
+}
+
+// x0 = 2 and x1 above (plus infinity) or below (minus infinity) every root
+// of p = (x0 - 5)*x1 + 1 and q = (x0 - 5)*x1 + 3 (resp. x0*x1 - 9 and
+// x0*x1 - 10), all of them negative in the model.
+// explain::project_plus_infinity and project_minus_infinity store sign(p)
+// in an unsigned, so s > 0 always holds and they add x0 - 5 > 0 for the
+// plus case and x0 < 0 for the minus case, both false at x0 = 2 (fixed upstream in 363d7aad2, "fix bug reported in
+// #1637"). In nlqsat this makes
+// (forall a. exists x. a*x < -1 and (a - 2)*x > 3) loop forever.
+void tst_z3_4_7_1_nlsat_signed_infinity() {
+    params_ref ps;
+    reslimit rlim;
+    nlsat::solver s(rlim, ps, false);
+    nlsat::pmanager& pm = s.pm();
+    nlsat::var x0 = s.mk_var(false);
+    nlsat::var x1 = s.mk_var(false);
+    polynomial_ref _x0(pm), _x1(pm), p(pm), q(pm);
+    _x0 = pm.mk_polynomial(x0);
+    _x1 = pm.mk_polynomial(x1);
+    {
+        nlsat::assignment as(s.am());
+        nlsat_set_value(s, as, x0, 2);
+        nlsat_set_value(s, as, x1, 6);
+        s.set_rvalues(as);
+        p = ((_x0 + (-5)) * _x1) + 1;
+        q = ((_x0 + (-5)) * _x1) + 3;
+        nlsat::scoped_literal_vector lits(s), result(s);
+        lits.push_back(nlsat_lit(s, nlsat::atom::LT, p));
+        lits.push_back(nlsat_lit(s, nlsat::atom::LT, q));
+        nlsat_signed_project_check("nlsat_signed_infinity plus", s, x1, lits, result);
+    }
+    {
+        nlsat::assignment as(s.am());
+        nlsat_set_value(s, as, x0, 2);
+        nlsat_set_value(s, as, x1, 4);
+        s.set_rvalues(as);
+        p = (_x0 * _x1) + (-9);
+        q = (_x0 * _x1) + (-10);
+        nlsat::scoped_literal_vector lits(s), result(s);
+        lits.push_back(nlsat_lit(s, nlsat::atom::LT, p));
+        lits.push_back(nlsat_lit(s, nlsat::atom::LT, q));
+        nlsat_signed_project_check("nlsat_signed_infinity minus", s, x1, lits, result);
+    }
 }
