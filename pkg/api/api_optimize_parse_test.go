@@ -98,3 +98,29 @@ func TestAPIOptimizeParseFileDispatchesOPBAndWCNF(t *testing.T) {
 		t.Fatal("wcnf check", status, err)
 	}
 }
+
+// AUDIT.md api_02-F3: Z3_optimize_from_stream parses each text in a fresh
+// cmd_context over the shared manager and adds only the remaining
+// assertions as hard constraints; push in the text does not touch the
+// optimizer's scopes.
+func TestAPIOptimizeParseUsesFreshCommandContext(t *testing.T) {
+	f := newAPIOptimizeFixture(t)
+	astTestMust(t, f.opt.ParseString("(declare-const x Int)(assert (> x 0))"))
+	astTestMust(t, f.opt.ParseString("(declare-const x Int)(assert (< x 5))"))
+	assertions, err := f.opt.Assertions()
+	astTestMust(t, err)
+	if len(assertions) != 2 {
+		t.Fatal("assertions after two parses", len(assertions))
+	}
+	before, err := f.opt.command.ScopeLevel()
+	astTestMust(t, err)
+	astTestMust(t, f.opt.ParseString("(declare-const y Int)(push)(assert (> y 3))"))
+	after, err := f.opt.command.ScopeLevel()
+	astTestMust(t, err)
+	if after != before {
+		t.Fatal("parsed push changed the optimizer scope", before, after)
+	}
+	if assertions, err = f.opt.Assertions(); err != nil || len(assertions) != 3 {
+		t.Fatal("assertions after push text", len(assertions), err)
+	}
+}

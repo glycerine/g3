@@ -155,6 +155,9 @@ type Context struct {
 	// optimizationSAT is opt::context::m_sat_solver; update_solver replaces
 	// it, so it survives until the next SAT-eligible optimize.
 	optimizationSAT *satsolver.Solver
+	// optimizationTarget is the opt::context install_opt_cmds wired into
+	// a temporary parser context; nil for an ordinary context.
+	optimizationTarget *Context
 	// retainedOptimizer is the last lex optimize()'s m_opt_solver.
 	retainedOptimizer *opt.ArithmeticSolver
 	// optimizationRunOptimizer is the optimizer runOptimize used during the

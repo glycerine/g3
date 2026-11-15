@@ -43,3 +43,19 @@ func (c *Context) NewParserContext() (result *Context, resultErr error) {
 	}
 	return result, nil
 }
+
+// SetOptimizationTarget is install_opt_cmds(ctx, opt) on a temporary parser
+// context: its assert-soft, minimize and maximize commands add to target's
+// optimization state (Z3_optimize_from_stream).
+func (c *Context) SetOptimizationTarget(target *Context) error {
+	if err := c.valid(); err != nil {
+		return err
+	}
+	if target != nil {
+		if err := target.valid(); err != nil {
+			return err
+		}
+	}
+	c.optimizationTarget = target
+	return nil
+}

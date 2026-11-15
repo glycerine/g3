@@ -12,14 +12,38 @@ import (
 	"github.com/glycerine/g3/pkg/parsers/smt2"
 )
 
-func (o *APIOptimize) Parse(input io.Reader) error {
+func (o *APIOptimize) Parse(input io.Reader) (resultErr error) {
 	if err := o.open(); err != nil {
 		return err
 	}
 	if input == nil {
 		return ErrSMTContextOwner
 	}
-	return smt2.ParseAssertions(o.command, input)
+	// Z3_optimize_from_stream: a fresh cmd_context over the shared manager,
+	// install_opt_cmds wiring the objectives and soft constraints to opt,
+	// set_ignore_check(true); the assertions left at the end become hard
+	// constraints.
+	parser, err := o.command.NewParserContext()
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, parser.Close()) }()
+	if err = parser.SetOptimizationTarget(o.command); err != nil {
+		return err
+	}
+	if err = smt2.ParseAssertions(parser, input); err != nil {
+		return err
+	}
+	assertions, err := parser.Assertions()
+	if err != nil {
+		return err
+	}
+	for _, assertion := range assertions {
+		if err = o.command.Assert(assertion, ""); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (o *APIOptimize) ParseString(input string) error {

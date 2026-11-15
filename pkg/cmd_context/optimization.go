@@ -93,6 +93,9 @@ func cloneOptimizationBoxValues(source []opt.ObjectiveValue) []opt.ObjectiveValu
 }
 
 func (c *Context) AddObjective(expression ast.ASTHandle, maximize bool) error {
+	if c.optimizationTarget != nil {
+		return c.optimizationTarget.AddObjective(expression, maximize)
+	}
 	m, err := c.Manager()
 	if err != nil {
 		return err
@@ -148,6 +151,9 @@ func (c *Context) AddObjective(expression ast.ASTHandle, maximize bool) error {
 // group's first occurrence. Terms appended inside a scope are trailed
 // separately because the group itself may predate that scope.
 func (c *Context) AddSoftConstraint(expression ast.ASTHandle, weight *big.Rat, id string) error {
+	if c.optimizationTarget != nil {
+		return c.optimizationTarget.AddSoftConstraint(expression, weight, id)
+	}
 	if weight == nil {
 		return ast.ErrASTHandle
 	}
