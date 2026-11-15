@@ -29,6 +29,14 @@ func TestNLSATTacticAdvertisesSourceParameterCatalog(t *testing.T) {
 		{"max_search_size", "(default: infty) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. This parameter can be used to limit the search space.", uparams.ParamUInt},
 		{"max_prime", "(default: infty) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. This parameter limits the maximum prime number p to be used in the first step.", uparams.ParamUInt},
 		{"num_primes", "(default: 1) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. The search space may be reduced by factoring the polynomial in different GF(p)'s. This parameter specify the maximum number of finite factorizations to be considered, before lifiting and searching.", uparams.ParamUInt},
+		// AUDIT.md nlsat_03-F5: algebraic_params, from
+		// nlsat::solver::collect_param_descrs; an empty description is
+		// checked against the algebraic catalog below.
+		{"zero_accuracy", "", uparams.ParamUInt},
+		{"min_mag", "", uparams.ParamUInt},
+		{"factor_max_prime", "", uparams.ParamUInt},
+		{"factor_num_primes", "", uparams.ParamUInt},
+		{"factor_search_size", "", uparams.ParamUInt},
 		{"lazy", "how lazy the solver is.", uparams.ParamUInt},
 		{"reorder", "reorder variables.", uparams.ParamBool},
 		{"simplify_conflicts", "simplify conflicts using equalities before resolving them.", uparams.ParamBool},
@@ -39,6 +47,10 @@ func TestNLSATTacticAdvertisesSourceParameterCatalog(t *testing.T) {
 		{"inline_vars", "inline variables that can be isolated from equations", uparams.ParamBool},
 		{"seed", "random seed.", uparams.ParamUInt},
 	}
+	algebraic, err := uparams.NewParamDescrs(fixture.manager.Symbols, uparams.ParamDescrsConfig{Budget: fixture.manager.Budget()})
+	compilerMust(t, err)
+	t.Cleanup(func() { compilerMust(t, algebraic.Close()) })
+	compilerMust(t, polynomial.CollectAlgebraicParamDescriptions(algebraic))
 	size, err := descriptions.Size()
 	compilerMust(t, err)
 	if size != uint32(len(want)) {
@@ -59,6 +71,10 @@ func TestNLSATTacticAdvertisesSourceParameterCatalog(t *testing.T) {
 		}
 		description, present, cause := descriptions.Description(name)
 		compilerMust(t, cause)
+		if entry.description == "" {
+			entry.description, _, cause = algebraic.Description(name)
+			compilerMust(t, cause)
+		}
 		if !present || description != entry.description {
 			t.Fatalf("%s description = %q, present %v, want %q", got, description, present, entry.description)
 		}

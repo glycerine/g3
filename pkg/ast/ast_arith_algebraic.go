@@ -225,6 +225,14 @@ func (m *ASTManager) ArithmeticAlgebraicNumeralValue(h ASTHandle, out *polynomia
 // ArithmeticAlgebraicNumeral implements the irrational branch of
 // arith_decl_plugin::mk_numeral(anum,false).
 func (m *ASTManager) ArithmeticAlgebraicNumeral(value *polynomial.Algebraic) (ASTHandle, error) {
+	return m.ArithmeticAlgebraicNumeralFrom(nil, value)
+}
+
+// ArithmeticAlgebraicNumeralFrom is ArithmeticAlgebraicNumeral for a value
+// owned by another algebraic manager, such as an nlsat solver's own m_am:
+// the plugin's m_amanager.set copies it. A nil source selects the plugin's
+// manager.
+func (m *ASTManager) ArithmeticAlgebraicNumeralFrom(source *polynomial.AlgebraicRootCore, value *polynomial.Algebraic) (ASTHandle, error) {
 	if e := m.lock(); e != nil {
 		return ASTHandle{}, e
 	}
@@ -237,14 +245,17 @@ func (m *ASTManager) ArithmeticAlgebraicNumeral(value *polynomial.Algebraic) (AS
 	if e != nil {
 		return ASTHandle{}, e
 	}
-	rational, e := w.manager.IsRational(value)
+	if source == nil {
+		source = w.manager.AlgebraicRootCore
+	}
+	rational, e := source.IsRational(value)
 	if e != nil {
 		return ASTHandle{}, e
 	}
 	if rational {
 		return ASTHandle{}, ErrASTDomain
 	}
-	id, e := w.mkID(w.manager.AlgebraicRootCore, value)
+	id, e := w.mkID(source, value)
 	if e != nil {
 		return ASTHandle{}, e
 	}

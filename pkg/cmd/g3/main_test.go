@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md nlsat_03-F5: nlsat accepts the algebraic params.
+	"nlsat_algebraic_params.smt2": "unsat\n",
+	// AUDIT.md nlsat_03-F5: the solver's own algebraic manager, irrational model value.
+	"nlsat_algebraic_params_model.smt2": "sat\n(model \n  (define-fun x () Real\n    (root-obj (+ (^ x 3) (- 2)) 1))\n  (define-fun y () Real\n    1.0)\n)\n",
 	// AUDIT.md nlsat_03-F4: shuffle_vars reorders by the shuffled vector itself.
 	"nlsat_shuffle_perm.smt2": "sat\n(model \n  (define-fun a () Real\n    9.0)\n  (define-fun b () Real\n    (/ 1.0 8.0))\n  (define-fun c () Real\n    (- 21.0))\n  (define-fun d () Real\n    (/ 1.0 2.0))\n)\n",
 	// AUDIT.md nlsat_03-F3: the nlsat seed reaches the interval-set manager.

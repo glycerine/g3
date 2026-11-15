@@ -495,14 +495,14 @@ func (c *GoalCompiler) algebraicNumeral(value *polynomial.Algebraic, integer boo
 	}
 	if !rational {
 		if integer {
-			real, cause := c.manager.ArithmeticAlgebraicNumeral(value)
+			real, cause := c.manager.ArithmeticAlgebraicNumeralFrom(algebraic.AlgebraicRootCore, value)
 			if cause != nil {
 				return ast.ASTHandle{}, false, cause
 			}
 			result, err = c.manager.MkFamilyApp(c.arithmetic, 15, nil, []ast.ASTHandle{real})
 			return result, false, err
 		}
-		result, err = c.manager.ArithmeticAlgebraicNumeral(value)
+		result, err = c.manager.ArithmeticAlgebraicNumeralFrom(algebraic.AlgebraicRootCore, value)
 		return result, true, err
 	}
 	rationals, err := algebraic.RationalManager()

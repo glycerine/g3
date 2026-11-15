@@ -1,0 +1,5 @@
+(declare-const x Real)
+(declare-const y Real)
+(assert (> (* x y) 1.0))
+(assert (< (+ (* x x) (* y y)) 1.0))
+(check-sat-using (using-params qfnra-nlsat :min_mag 32 :factor_search_size 100))

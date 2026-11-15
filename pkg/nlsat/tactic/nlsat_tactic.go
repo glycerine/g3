@@ -163,13 +163,32 @@ func (t *NLSATTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	if err := out.InsertName("factor", uparams.ParamBool, &factorDescription, nil, nil); err != nil {
 		return err
 	}
-	entries := []struct {
+	type entry struct {
 		name, description string
 		kind              uparams.ParamKind
-	}{
+	}
+	insert := func(entries []entry) error {
+		for _, entry := range entries {
+			if err := out.InsertName(entry.name, entry.kind, &entry.description, nil, nil); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if err := insert([]entry{
 		{"max_search_size", "(default: infty) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. This parameter can be used to limit the search space.", uparams.ParamUInt},
 		{"max_prime", "(default: infty) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. This parameter limits the maximum prime number p to be used in the first step.", uparams.ParamUInt},
 		{"num_primes", "(default: 1) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. The search space may be reduced by factoring the polynomial in different GF(p)'s. This parameter specify the maximum number of finite factorizations to be considered, before lifiting and searching.", uparams.ParamUInt},
+	}); err != nil {
+		return err
+	}
+	// nlsat::solver::collect_param_descrs starts with
+	// algebraic_numbers::manager::collect_param_descrs (AUDIT.md
+	// nlsat_03-F5); the tactic's own trailing call adds nothing new.
+	if err := polynomial.CollectAlgebraicParamDescriptions(out); err != nil {
+		return err
+	}
+	return insert([]entry{
 		{"lazy", "how lazy the solver is.", uparams.ParamUInt},
 		{"reorder", "reorder variables.", uparams.ParamBool},
 		{"simplify_conflicts", "simplify conflicts using equalities before resolving them.", uparams.ParamBool},
@@ -179,13 +198,7 @@ func (t *NLSATTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 		{"shuffle_vars", "use a random variable order.", uparams.ParamBool},
 		{"inline_vars", "inline variables that can be isolated from equations", uparams.ParamBool},
 		{"seed", "random seed.", uparams.ParamUInt},
-	}
-	for _, entry := range entries {
-		if err := out.InsertName(entry.name, entry.kind, &entry.description, nil, nil); err != nil {
-			return err
-		}
-	}
-	return nil
+	})
 }
 
 func (t *NLSATTactic) CollectStatistics(st *statistics.Statistics) {
@@ -321,17 +334,31 @@ func (t *NLSATTactic) Apply(goal *basetactic.Goal, result *basetactic.TacticResu
 	if err = basetactic.FailIfProofGeneration("nlsat", goal); err != nil {
 		return err
 	}
-	algebraic, err := t.manager.ArithmeticAlgebraicManager()
+	shared, err := t.manager.ArithmeticAlgebraicManager()
 	if err != nil {
 		return err
 	}
-	rationals, err := algebraic.RationalManager()
+	rationals, err := shared.RationalManager()
 	if err != nil {
 		return err
 	}
 	primes, err := primegen.NewGenerator(t.manager.Budget())
 	if err != nil {
 		return err
+	}
+	// The source solver owns m_am(rlim, m_qm, p, &m_allocator), built from
+	// the tactic params with fallback to the algebraic module, and
+	// updt_params reaches m_am.updt_params (AUDIT.md nlsat_03-F5).
+	algebraic, err := polynomial.NewAlgebraicManager(polynomial.AlgebraicManagerConfig{
+		Rationals: t.manager.NumeralService(), Numerals: rationals, Limit: &t.manager.Limit,
+		Cooperation: t.services.Cooperation, Params: &t.params, Globals: t.globals,
+		Factorization: polynomial.UPolynomialFactorizationConfig{Primes: primes},
+	})
+	if err != nil {
+		if algebraic != nil {
+			err = errors.Join(err, algebraic.Close())
+		}
+		return errors.Join(err, primes.Close())
 	}
 	polynomials, err := polynomial.NewMultivariatePolynomialManager(polynomial.MultivariatePolynomialManagerConfig{
 		Core: polynomial.MultivariatePolynomialConfig{
@@ -346,7 +373,7 @@ func (t *NLSATTactic) Apply(goal *basetactic.Goal, result *basetactic.TacticResu
 		if polynomials != nil {
 			err = errors.Join(err, polynomials.CloseChecked())
 		}
-		return errors.Join(err, primes.Close())
+		return errors.Join(err, algebraic.Close(), primes.Close())
 	}
 	var solver *nlsat.Solver
 	var compiler *GoalCompiler
@@ -360,6 +387,7 @@ func (t *NLSATTactic) Apply(goal *basetactic.Goal, result *basetactic.TacticResu
 			err = errors.Join(err, solver.Close())
 		}
 		err = errors.Join(err, polynomials.CloseChecked())
+		err = errors.Join(err, algebraic.Close())
 		err = errors.Join(err, primes.Close())
 	}()
 	config, err := t.solverConfig(polynomials, algebraic)
