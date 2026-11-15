@@ -115,11 +115,8 @@ func (c *nlCooperation) iterate(out *tactic.TacticResult) (_ bool, resultErr err
 		if len(nlResult.Goals) != 1 || nlResult.Goals[0] != temporary {
 			return false, ast.ErrASTDomain
 		}
-		if nlResult.ModelConverter != nil {
-			if err = out.SetModelConverter(nlResult.ModelConverter); err != nil {
-				return false, err
-			}
-		}
+		// The source breaks here with mc (the tactic's out-parameter) still
+		// null; nl_mc is local to the iteration and is dropped with nlResult.
 		if err = out.TakeGoal(temporary); err != nil {
 			return false, err
 		}
