@@ -297,12 +297,10 @@ func (p *commandParser) helpCommands() error {
 			fmt.Fprintf(&body, "    %s\n", quoted)
 		}
 	}
-	text := body.String()
-	quoted, err := escaped.String(&text, true, 0)
-	if err != nil {
-		return err
-	}
-	_, err = fmt.Fprintf(p.out, "\"%s\"\n", quoted)
+	// help_cmd::execute writes '"', then each display_cmd (whose usage and
+	// description are already escaped), then "\"\n"; the body itself is not
+	// escaped or trimmed again.
+	_, err := fmt.Fprintf(p.out, "\"%s\"\n", body.String())
 	return err
 }
 

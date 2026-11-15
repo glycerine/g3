@@ -36,3 +36,17 @@ func TestSMT2ReleaseProfileExtraCommandsUnsupported(t *testing.T) {
 		t.Fatalf("%q", output)
 	}
 }
+
+// help_cmd::execute closes the listing with "\"\n" after display_cmd's own
+// trailing newline; the body is not escaped or trimmed a second time.
+func TestSMT2HelpKeepsFinalDescriptionNewline(t *testing.T) {
+	for _, script := range []string{"(help)", "(help apply)", "(help exit)"} {
+		output, err := runApplyTacticScript(t, script)
+		if err != nil {
+			t.Fatal(script, err)
+		}
+		if !strings.HasPrefix(output, "\" (") || !strings.HasSuffix(output, "\n\"\n") {
+			t.Fatalf("%s: %q", script, output)
+		}
+	}
+}

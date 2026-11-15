@@ -1,0 +1,5 @@
+(help)
+(help simplify)
+(help eval)
+(help apply)
+(help declare-map get-model check-sat-using)
