@@ -31,13 +31,20 @@ func (e *PropositionalEngine) applyDatalogDefaultFiniteTable() (resultErr error)
 				return err
 			}
 		}
+		// relation_manager::register_plugin makes the favourite the table
+		// plugin whose name equals default_table exactly (sparse, hashtable,
+		// bitvector, lazy_sparse). Any other name, including the tr_ relation
+		// spellings, sets no favourite, so try_get_appropriate_plugin takes the
+		// first registered plugin that handles the signature: sparse
+		// (registration order sparse, hashtable, bitvector, lazy_sparse).
 		switch name {
-		case "sparse", "tr_sparse":
-			name = "sparse"
-		case "lazy_sparse", "tr_lazy_sparse":
-			name = "lazy_sparse"
+		case "sparse", "hashtable", "lazy_sparse":
+		case "bitvector":
+			// bitvector_table is not ported (AUDIT.md muz_fp_03-F5); keep
+			// the established hashtable stand-in.
+			name = "hashtable"
 		default:
-			name = "hashtable" // No preferred supported plugin: source registration-order fallback.
+			name = "sparse"
 		}
 		e.datalogDefaultTable = name
 	}

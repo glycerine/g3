@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_fp_03-F5: tr_lazy_sparse is not a table plugin name (sparse fallback).
+	"datalog_default_table_tr_lazy_sparse.smt2": "sat\n(or (and (= (:var 0) #x9) (= (:var 1) #x3))\n    (and (= (:var 0) #x3) (= (:var 1) #x7))\n    (and (= (:var 0) #x7) (= (:var 1) #x1))\n    (and (= (:var 0) #x1) (= (:var 1) #xc))\n    (and (= (:var 0) #xc) (= (:var 1) #x5))\n    (and (= (:var 0) #x9) (= (:var 1) #x7))\n    (and (= (:var 0) #x3) (= (:var 1) #x1))\n    (and (= (:var 0) #x7) (= (:var 1) #xc))\n    (and (= (:var 0) #x1) (= (:var 1) #x5))\n    (and (= (:var 0) #x9) (= (:var 1) #x1))\n    (and (= (:var 0) #x3) (= (:var 1) #xc))\n    (and (= (:var 0) #x7) (= (:var 1) #x5))\n    (and (= (:var 0) #x9) (= (:var 1) #xc))\n    (and (= (:var 0) #x3) (= (:var 1) #x5))\n    (and (= (:var 0) #x9) (= (:var 1) #x5)))\n",
+	// AUDIT.md muz_fp_03-F5: an unknown default_table name falls back to sparse.
+	"datalog_default_table_unknown.smt2": "sat\n(or (and (= (:var 0) #x9) (= (:var 1) #x3))\n    (and (= (:var 0) #x3) (= (:var 1) #x7))\n    (and (= (:var 0) #x7) (= (:var 1) #x1))\n    (and (= (:var 0) #x1) (= (:var 1) #xc))\n    (and (= (:var 0) #xc) (= (:var 1) #x5))\n    (and (= (:var 0) #x9) (= (:var 1) #x7))\n    (and (= (:var 0) #x3) (= (:var 1) #x1))\n    (and (= (:var 0) #x7) (= (:var 1) #xc))\n    (and (= (:var 0) #x1) (= (:var 1) #x5))\n    (and (= (:var 0) #x9) (= (:var 1) #x1))\n    (and (= (:var 0) #x3) (= (:var 1) #xc))\n    (and (= (:var 0) #x7) (= (:var 1) #x5))\n    (and (= (:var 0) #x9) (= (:var 1) #xc))\n    (and (= (:var 0) #x3) (= (:var 1) #x5))\n    (and (= (:var 0) #x9) (= (:var 1) #x5)))\n",
 	// AUDIT.md muz_fp_02-F7: threshold 1 merges a two-rule class.
 	"datalog_similarity_threshold_one_merge.smt2": "sat\n(or (= (:var 0) #b10) (= (:var 0) #b01))\n",
 	// AUDIT.md muz_fp_02-F7: similarity threshold 0 runs the compressor.

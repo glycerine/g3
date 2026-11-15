@@ -19,7 +19,12 @@ func TestDatalogDefaultFiniteTableSelectionAndLifetime(t *testing.T) {
 		{name: "explicit-hash", explicit: "tr_hashtable"},
 		{name: "explicit-sparse", module: "hashtable", explicit: "tr_sparse", sparse: true},
 		{name: "module-lazy", module: "lazy_sparse", lazy: true},
-		{name: "local-lazy-alias", module: "hashtable", local: "tr_lazy_sparse", lazy: true},
+		// AUDIT.md muz_fp_03-F5: tr_ spellings and unknown names are not
+		// table plugin names, so source selection falls back to sparse.
+		{name: "local-tr-lazy-is-unknown", module: "hashtable", local: "tr_lazy_sparse", sparse: true},
+		{name: "module-tr-hash-is-unknown", module: "tr_hashtable", sparse: true},
+		{name: "module-unknown", module: "foo", sparse: true},
+		{name: "module-lazy-local-unknown", module: "lazy_sparse", local: "foo", sparse: true},
 		{name: "explicit-hash-over-lazy", module: "lazy_sparse", explicit: "tr_hashtable"},
 		{name: "explicit-sparse-over-lazy", module: "lazy_sparse", explicit: "tr_sparse", sparse: true},
 	} {
