@@ -5,13 +5,20 @@ package opt
 import "github.com/glycerine/g3/pkg/ast"
 
 func (e *sortMaxEncoder) comparator(left, right ast.ASTHandle) (high, low ast.ASTHandle, err error) {
-	high, err = e.engine.owner.hold(e.engine.solver.manager.MkOr(left, right))
-	if err != nil {
-		return high, low, err
-	}
-	low, err = e.engine.owner.hold(e.engine.solver.manager.MkAnd(left, right))
-	if err != nil {
-		return high, low, err
+	if left == right {
+		// psort_nw::mk_max/mk_min return a when a == b; cmp() still emits
+		// its clauses over y1 = y2 = a.
+		high, low = left, left
+	} else {
+		high, err = e.engine.owner.hold(e.engine.solver.manager.MkOr(left, right))
+		if err != nil {
+			return high, low, err
+		}
+		low, err = e.engine.owner.hold(e.engine.solver.manager.MkAnd(left, right))
+		if err != nil {
+			return high, low, err
+		}
+		e.engine.stats.Comparators++
 	}
 	notLeft, err := e.negate(left)
 	if err != nil {
@@ -32,6 +39,5 @@ func (e *sortMaxEncoder) comparator(left, right ast.ASTHandle) (high, low ast.AS
 	if err = e.clause(notLeft, notRight, low); err != nil {
 		return high, low, err
 	}
-	e.engine.stats.Comparators++
 	return high, low, nil
 }
