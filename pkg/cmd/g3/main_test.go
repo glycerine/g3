@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_10-F4: datatype final check visits all roots after a split conflict.
+	"datatype_final_check_split_conflict.smt2": "sat\n",
 	// AUDIT.md cmd_context_01-F2
 	"decl_error_texts_missing_arguments.smt2": "(error \"line 1 column 37: invalid function application, missing arguments f\")\nsat\n",
 	// AUDIT.md cmd_context_01-F2

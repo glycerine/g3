@@ -255,3 +255,53 @@ func TestSMTDatatypeAccessorResultSortConstraints(t *testing.T) {
 		})
 	}
 }
+
+// AUDIT.md smtcore_10-F4: theory_datatype::final_check_eh keeps visiting
+// every root after a conflict; occurs_check_enter never tests
+// ctx.inconsistent(), so the remaining roots still get their occurs check
+// and their lazy split.
+func TestSMTDatatypeFinalCheckVisitsAllRootsAfterSplitConflict(t *testing.T) {
+	m, cfg := smtModelGeneratorFixture(t)
+	solver, err := NewSMTSolver(m, nil, "QF_DT", SMTSolverConfig{Params: cfg.Context, ModelEvaluator: cfg})
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, solver.Close()) })
+	k := solver.kernel
+	k.preprocess = false
+	k.smtParams.datatype.LazySplits = 2
+	state := k.internalizer
+	family, err := m.DatatypeFamilyID()
+	astTestMust(t, err)
+	dt := state.theories[family].(*SMTDatatypeTheory)
+	sort := smtDatatypePolicySort(t, m, true)
+	for _, name := range []string{"root-x", "root-y", "root-z"} {
+		value, err := m.MkConst(astTestSymbol(t, m, name), sort)
+		astTestMust(t, err)
+		astTestPin(t, m, value)
+		astTestMust(t, state.Internalize(value, false))
+		astTestMust(t, dt.ensureVariable(state.context.enodes.get(value)))
+	}
+	boolSort, err := m.MkBoolSort()
+	astTestMust(t, err)
+	p, err := m.MkConst(astTestSymbol(t, m, "root-p"), boolSort)
+	astTestMust(t, err)
+	astTestPin(t, m, p)
+	notP, err := m.MkNot(p)
+	astTestMust(t, err)
+	astTestPin(t, m, notP)
+	astTestMust(t, state.PushScope())
+	f := smtDatatypeConflictFixture{m: m, k: k}
+	f.assert(t, p)
+	f.assert(t, notP)
+	if !state.Inconsistent() {
+		t.Fatal("fixture did not produce a conflict")
+	}
+	occurs, splits := dt.statistics.occursChecks, dt.statistics.splits
+	status, err := dt.FinalCheck()
+	astTestMust(t, err)
+	if status != SMTFinalCheckContinue || !state.Inconsistent() {
+		t.Fatal("final check status", status)
+	}
+	if dt.statistics.occursChecks-occurs != 3 || dt.statistics.splits-splits != 3 {
+		t.Fatal("final check stopped at the conflict", dt.statistics.occursChecks-occurs, dt.statistics.splits-splits)
+	}
+}

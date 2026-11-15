@@ -119,9 +119,6 @@ func (c *smtDatatypeOccursCheck) run(node *SMTEnode) (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		if state.Inconsistent() {
-			return true, nil
-		}
 		if constructor == nil {
 			continue
 		}
