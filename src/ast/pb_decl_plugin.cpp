@@ -174,7 +174,10 @@ app * pb_util::mk_lt(unsigned num_args, rational const * _coeffs, expr * const *
     for (unsigned i = 0; i < num_args; ++i) {
         m_k += m_coeffs[i];
     }
-    return mk_ge(num_args, m_coeffs.c_ptr(), args.c_ptr(), m_k);
+    // mk_ge normalizes into m_coeffs and m_k, so pass copies.
+    vector<rational> coeffs(m_coeffs);
+    rational k(m_k);
+    return mk_ge(num_args, coeffs.c_ptr(), args.c_ptr(), k);
 }
 
 
