@@ -436,6 +436,16 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 		}
 	}
 	defer func() { t.recordEngineStatistics(engine) }()
+	// tactic_report report("horn", *g) (AUDIT.md FUZZ-F5): declared before
+	// q, f and queries, so its "(horn :num-exprs ...)" line follows their
+	// release; m_ctx (the engine) outlives operator().
+	if diagnostic.VerboseProgress {
+		report, reportErr := tactic.NewTacticReport("horn", goal)
+		if reportErr != nil {
+			return reportErr
+		}
+		defer func() { resultErr = errors.Join(resultErr, report.Close()) }()
+	}
 	engine.forceProofTrace = proofsEnabled
 	var temporaries []ast.ASTRef
 	defer func() {

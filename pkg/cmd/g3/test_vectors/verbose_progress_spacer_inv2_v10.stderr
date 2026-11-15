@@ -1,0 +1,105 @@
+(transform N7datalog13mk_coi_filterE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...3 rules Ts)
+(transform N7datalog27mk_quantifier_instantiationE...no-op Ts)
+(transform N7datalog8mk_scaleE...no-op Ts)
+(transform N7datalog18mk_karr_invariantsE...no-op Ts)
+(transform N7datalog14mk_array_blastE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog12mk_bit_blastE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog13mk_coi_filterE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...3 rules Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog13mk_coi_filterE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...3 rules Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog8mk_sliceE...no-op Ts)
+; rule count: 3
+; predicate count: 2
+; output: query!0
+<null>:
+inv(0,0).
+<null>:
+inv(#2,#3) :- 
+ inv(#1,#0),
+ (= (:var 2) (+ 1 (:var 1))),
+ (not (<= 10 (:var 1))),
+ (= (:var 3) (+ 2 (:var 0))).
+<null>:
+query!0(#1,#0) :- 
+ inv(#1,#0),
+ (not (<= (:var 0) (* 2 (:var 1)))).
+expand: query!0 (0, 0) FAR  w(0) 1(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(propagate-values :num-exprs 0 :num-asts 409)
+Itp Core:
+true
+. F t
+(spacer::context::check_reachability)
+Entering level 1
+expand: query!0 (1, 0) FAR  w(0) 1(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.searching)
+.
+	create_child: inv (0, 1) FAR 256 U t
+expand: inv (0, 0) FAR  w(0) 256(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(propagate-values :num-exprs 8 :num-asts 671)
+(propagate-ineqs :num-exprs 8 :num-asts 671)
+Itp Core:
+(<= (+ (* (- 1) inv_1_n) (* 2 inv_0_n)) (- 1))
+. F t
+expand: query!0 (1, 0) FAR  w(0) 1(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.searching)
+(propagate-values :num-exprs 0 :num-asts 774)
+Itp Core:
+true
+. F t
+(spacer::context::check_reachability)
+Propagating: 0 (smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+
+(spacer::context::propagate)
+(define-fun inv ((x!0 Int) (x!1 Int)) Bool
+  (<= (+ x!1 (* (- 2) x!0)) 0))
+(horn :num-exprs 0 :num-asts 846)
+BRUNCH_STAT max_query_lvl 1
+BRUNCH_STAT num_queries 1
+BRUNCH_STAT num_reach_queries 0
+BRUNCH_STAT num_reach_reuse 0
+BRUNCH_STAT inductive_lvl 0
+BRUNCH_STAT max_depth 1
+BRUNCH_STAT cex_depth 0

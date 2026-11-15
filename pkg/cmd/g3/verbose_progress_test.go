@@ -113,6 +113,8 @@ var verboseProgressCases = []verboseProgressCase{
 	{"ddnf_v20", "ddnf", []string{"-v:20", "fixedpoint.engine=ddnf"}},
 	// mk_bit_blast keeps only the bit-blasted query as output.
 	{"spacer_bit_blast_v2", "bit_blast", []string{"-v:2"}},
+	// horn_tactic's tactic_report("horn") line at level 10.
+	{"spacer_inv2_v10", "horn_inv2", []string{"-v:10", "fixedpoint.engine=spacer"}},
 }
 
 // verboseProgressFiltered keeps, for each case, only the lines starting
