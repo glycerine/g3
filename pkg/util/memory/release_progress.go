@@ -70,6 +70,7 @@ func (m *Runtime) deallocateTracked(h *Block) (runtimeReleaseState, error) {
 	b.initialized = nil
 	b.live = false
 	m.live--
+	m.noteFreed(h.slot)
 	if b.generation != math.MaxUint32 {
 		b.generation++
 	}

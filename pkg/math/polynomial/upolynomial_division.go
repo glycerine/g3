@@ -293,13 +293,29 @@ func (m *UPolynomialManager) divRemCoreSpanWithSourceContext(a UPolynomialView, 
 				return e
 			}
 		}
+		// The row loop resolves the numeric utility context and the addmul
+		// child once (first column) and only rebinds the utility roots before
+		// later columns; no frame or receipt they validate changes inside it.
+		var ops unumeral.NumericModularOperations
+		var opsRoots *polynomialNumericRoots
+		var child *unumeral.IntegerAddMulInvocationReceipt
 		for i := uint32(0); i < b.count()-1; i++ {
 			x, e := m.readDivisor(b, i)
 			if e != nil {
 				return e
 			}
 			dst := &m.values(r)[i+delta]
-			if e = m.modular.WithAllocationContext((context).utility(m.modular.Integers())).SubMul(dst, am, x, dst, removeOrHenselAddMulChild(context, receipt, caller)); e != nil {
+			if i == 0 {
+				u, ur := context.utilityWithRoots(m.modular.Integers())
+				ops, opsRoots = m.modular.WithAllocationContext(u), ur
+				child = removeOrHenselAddMulChild(context, receipt, caller)
+				if e = ops.SubMul(dst, am, x, dst, child); e != nil {
+					return e
+				}
+				continue
+			}
+			context.rebindUtilityRoots(opsRoots, m.modular.Integers())
+			if e = ops.SubMulValidated(dst, am, x, dst, child); e != nil {
 				return e
 			}
 		}

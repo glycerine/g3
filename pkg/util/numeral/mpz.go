@@ -1330,11 +1330,15 @@ func (m *IntegerManager) addSubWithAllocationContext(a, b, c *Int, subtract bool
 		op = "-"
 	}
 	m.traceMPZBinary(a, b, c, op, true)
-	defer func() {
-		if err == nil {
-			m.traceMPZBinary(a, b, c, op, false)
-		}
-	}()
+	// The after-record is only emitted by trace builds; others skip the
+	// deferred closure (traceMPZ* is a no-op there).
+	if diagnostic.TraceCompiled() {
+		defer func() {
+			if err == nil {
+				m.traceMPZBinary(a, b, c, op, false)
+			}
+		}()
+	}
 	if a.IsSmall() && b.IsSmall() {
 		v := int64(b.Val)
 		if subtract {

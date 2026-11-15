@@ -335,13 +335,19 @@ func (m *IntegerModularManager) PNormalizeWithFactorHistory(a *Int, receipt *int
 		}
 		*scope = integerPNormalizeScope{factorHistoryContext: history, owner: m, invocation: scope.invocation + 1, active: true, executing: true, Stage: 1}
 		*receipt = integerPNormalizeInvocationReceipt{m, scope, scope.invocation}
-		defer func() {
-			scope.executing = false
-			if !scope.pending() {
-				scope.active = false
-			}
-		}()
 	}
+	// Explicit epilogue (formerly a deferred closure; nothing recovers a
+	// panic on this path, so the order of effects is unchanged).
+	err := m.pNormalizeBody(a, scope)
+	if scope != nil {
+		scope.executing = false
+		if !scope.pending() {
+			scope.active = false
+		}
+	}
+	return err
+}
+func (m *IntegerModularManager) pNormalizeBody(a *Int, scope *integerPNormalizeScope) error {
 	if !m.z {
 		if e := m.sourceAssertFinite(59); e != nil {
 			return e
@@ -350,37 +356,42 @@ func (m *IntegerModularManager) PNormalizeWithFactorHistory(a *Int, receipt *int
 		// returning-transport destruction. Allocation authority stays explicit.
 		previousExecuting := m.manager.NormalizationExecuting
 		m.manager.NormalizationExecuting = true
-		defer func() { m.manager.NormalizationExecuting = previousExecuting }()
-		if e := m.manager.remWithPNReceipt(a, &m.P, a, scope); e != nil {
+		e := m.pNormalizeReduce(a, scope)
+		if e == nil {
+			e = m.sourceAssertNormalizedNamed(a, 114, "is_p_normalized(x)")
+		}
+		m.manager.NormalizationExecuting = previousExecuting
+		return e
+	}
+	return m.sourceAssertNormalizedNamed(a, 114, "is_p_normalized(x)")
+}
+func (m *IntegerModularManager) pNormalizeReduce(a *Int, scope *integerPNormalizeScope) error {
+	if e := m.manager.remWithPNReceipt(a, &m.P, a, scope); e != nil {
+		return e
+	}
+	if scope != nil {
+		scope.Stage = 2
+	}
+	gt, e := m.manager.Greater(a, &m.Upper)
+	if e != nil {
+		return e
+	}
+	if gt {
+		if e = m.manager.addSubWithPNReceipt(a, &m.P, a, true, scope); e != nil {
 			return e
 		}
-		if scope != nil {
-			scope.Stage = 2
-		}
-		gt, e := m.manager.Greater(a, &m.Upper)
+	} else {
+		lt, e := m.manager.Less(a, &m.Lower)
 		if e != nil {
 			return e
 		}
-		if gt {
-			if e = m.manager.addSubWithPNReceipt(a, &m.P, a, true, scope); e != nil {
+		if lt {
+			if e = m.manager.addSubWithPNReceipt(a, &m.P, a, false, scope); e != nil {
 				return e
-			}
-		} else {
-			lt, e := m.manager.Less(a, &m.Lower)
-			if e != nil {
-				return e
-			}
-			if lt {
-				if e = m.manager.addSubWithPNReceipt(a, &m.P, a, false, scope); e != nil {
-					return e
-				}
 			}
 		}
-		if e := m.sourceAssertNormalizedNamed(a, 68, "is_p_normalized(x)"); e != nil {
-			return e
-		} // core diagnostic
 	}
-	return m.sourceAssertNormalizedNamed(a, 114, "is_p_normalized(x)")
+	return m.sourceAssertNormalizedNamed(a, 68, "is_p_normalized(x)") // core diagnostic
 }
 func (m *IntegerModularManager) Inv(a *Int) error {
 	return m.invWithAllocationContext(a, integerAllocationInvocationContext{})

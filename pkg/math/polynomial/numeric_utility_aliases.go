@@ -49,66 +49,85 @@ func (r *polynomialNumericRoots) NumericRoots(z *unumeral.IntegerManager, local 
 	return &current.NumericAllocationRoots
 }
 func (c *integerAllocationInvocationContext) utility(z *unumeral.IntegerManager) unumeral.NumericAllocationContext {
+	u, _ := c.utilityWithRoots(z)
+	return u
+}
+
+// utilityWithRoots is utility that also returns the roots record it bound
+// (nil when a frame's own hooks or an invalid/empty context was chosen), so
+// a caller looping over coefficients can resolve the context once and only
+// rebind the roots before each later operation (rebindUtilityRoots).
+func (c *integerAllocationInvocationContext) utilityWithRoots(z *unumeral.IntegerManager) (unumeral.NumericAllocationContext, *polynomialNumericRoots) {
 	if c.squareFreeCall != nil {
 		q := c.squareFreeCallFrame(z)
 		if q == nil {
-			return unumeral.NumericAllocationContext{}.WithCaller(&invalidPolynomialNumericHooks)
+			return unumeral.NumericAllocationContext{}.WithCaller(&invalidPolynomialNumericHooks), nil
 		}
-		return unumeral.NumericAllocationContext{}.WithCaller(&q.hooks)
+		return unumeral.NumericAllocationContext{}.WithCaller(&q.hooks), nil
 	}
 	if c.defaultNormalization != nil {
 		q := c.defaultNormalizationFrame(z)
 		if q == nil {
-			return unumeral.NumericAllocationContext{}.WithCaller(&invalidPolynomialNumericHooks)
+			return unumeral.NumericAllocationContext{}.WithCaller(&invalidPolynomialNumericHooks), nil
 		}
-		return unumeral.NumericAllocationContext{}.WithCaller(&q.hooks)
+		return unumeral.NumericAllocationContext{}.WithCaller(&q.hooks), nil
 	}
 	if n := c.berlekamp; n != nil {
 		if !n.NumericBound(true) || n.owner.m.config.Integer != z || c.berlekampGeneration == 0 || c.berlekampGeneration != n.generation {
-			return unumeral.NumericAllocationContext{}.WithCaller(&invalidPolynomialNumericHooks)
+			return unumeral.NumericAllocationContext{}.WithCaller(&invalidPolynomialNumericHooks), nil
 		}
-		return unumeral.NumericAllocationContext{}.WithCaller(&n.hooks)
+		return unumeral.NumericAllocationContext{}.WithCaller(&n.hooks), nil
 	}
 	if c.sexprArithmetic != nil {
 		q := c.sexprArithmeticFrame(z)
 		if q == nil {
-			return unumeral.NumericAllocationContext{}.WithCaller(&invalidPolynomialNumericHooks)
+			return unumeral.NumericAllocationContext{}.WithCaller(&invalidPolynomialNumericHooks), nil
 		}
-		return unumeral.NumericAllocationContext{}.WithCaller(&q.hooks)
+		return unumeral.NumericAllocationContext{}.WithCaller(&q.hooks), nil
 	}
 	if c.sturmIsolation != nil {
 		q := c.sturmIsolationFrame(z)
 		if q == nil {
-			return unumeral.NumericAllocationContext{}.WithCaller(&invalidPolynomialNumericHooks)
+			return unumeral.NumericAllocationContext{}.WithCaller(&invalidPolynomialNumericHooks), nil
 		}
-		return unumeral.NumericAllocationContext{}.WithCaller(&q.hooks)
+		return unumeral.NumericAllocationContext{}.WithCaller(&q.hooks), nil
 	}
 
 	if c.sequenceSturm != nil {
 		q := c.sequenceSturmFrame(z)
 		if q == nil {
-			return unumeral.NumericAllocationContext{}.WithCaller(&invalidPolynomialNumericHooks)
+			return unumeral.NumericAllocationContext{}.WithCaller(&invalidPolynomialNumericHooks), nil
 		}
-		return unumeral.NumericAllocationContext{}.WithCaller(&q.hooks)
+		return unumeral.NumericAllocationContext{}.WithCaller(&q.hooks), nil
 	}
 	if c.rootID != nil {
 		q := c.rootIDFrame(z)
 		if q == nil {
-			return unumeral.NumericAllocationContext{}.WithCaller(&invalidPolynomialNumericHooks)
+			return unumeral.NumericAllocationContext{}.WithCaller(&invalidPolynomialNumericHooks), nil
 		}
-		return unumeral.NumericAllocationContext{}.WithCaller(&q.hooks)
+		return unumeral.NumericAllocationContext{}.WithCaller(&q.hooks), nil
 	}
 	if *c == (integerAllocationInvocationContext{}) {
-		return unumeral.NumericAllocationContext{}
+		return unumeral.NumericAllocationContext{}, nil
 	}
 	r := c.roots(z)
 	if r == nil {
-		return unumeral.NumericAllocationContext{}.WithCaller(&invalidPolynomialNumericHooks)
+		return unumeral.NumericAllocationContext{}.WithCaller(&invalidPolynomialNumericHooks), nil
 	}
 	r.caller = *c
 	r.integer = z
 	r.hooks.Policy = r
-	return unumeral.NumericAllocationContext{}.WithCaller(&r.hooks)
+	return unumeral.NumericAllocationContext{}.WithCaller(&r.hooks), r
+}
+
+// rebindUtilityRoots repeats the bindings utility writes into r, for a
+// context whose utility value was already resolved in the same operation.
+func (c *integerAllocationInvocationContext) rebindUtilityRoots(r *polynomialNumericRoots, z *unumeral.IntegerManager) {
+	if r != nil {
+		r.caller = *c
+		r.integer = z
+		r.hooks.Policy = r
+	}
 }
 
 var invalidPolynomialNumericHooks unumeral.NumericInvocationHooks

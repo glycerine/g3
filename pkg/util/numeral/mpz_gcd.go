@@ -116,15 +116,19 @@ func (m *IntegerManager) addSubMulWithAllocationContext(a, b, c, d *Int, subtrac
 	*receipt = frame.Receipt
 	tmp := &frame.Tmp
 	context = (integerAllocationInvocationContext{}).withAddMulInvocation(receipt)
-	defer func() {
-		frame.executing = false
-		if frame.Stage < 3 {
-			frame.BodyCause = err
-		}
-		if tmp.IsSmall() && !NumericAllocationPending(&frame.Numeric) && frame.SourceCause == nil {
-			frame.Active = false
-		}
-	}()
+	// Explicit epilogue (formerly a deferred closure; nothing recovers a
+	// panic on this path, so the order of effects is unchanged).
+	err = m.addSubMulBody(a, b, c, d, subtract, frame, tmp, context, callerContext)
+	frame.executing = false
+	if frame.Stage < 3 {
+		frame.BodyCause = err
+	}
+	if tmp.IsSmall() && !NumericAllocationPending(&frame.Numeric) && frame.SourceCause == nil {
+		frame.Active = false
+	}
+	return err
+}
+func (m *IntegerManager) addSubMulBody(a, b, c, d *Int, subtract bool, frame *integerAddMulScope, tmp *Int, context, callerContext integerAllocationInvocationContext) error {
 	if e := m.mulWithAllocationContext(b, c, tmp, context); e != nil {
 		return e
 	}

@@ -394,6 +394,18 @@ func (o NumericModularOperations) SubMul(a, b, c, d *Int, child *integerAddMulIn
 	}
 	return o.manager.subMulWithSourceContext(a, b, c, d, child, o.context)
 }
+
+// SubMulValidated is SubMul without repeating valid(), under the same
+// contract as AddMulTrackedValidated.
+func (o NumericModularOperations) SubMulValidated(a, b, c, d *Int, child *integerAddMulInvocationReceipt) error {
+	if o.manager == nil {
+		return ErrModularOwner
+	}
+	if e := o.manager.check(); e != nil {
+		return e
+	}
+	return o.manager.subMulWithSourceContext(a, b, c, d, child, o.context)
+}
 func (o NumericModularOperations) SetInt32(a *Int, v int32) error {
 	if e := o.valid(); e != nil {
 		return e
@@ -421,6 +433,20 @@ func (o NumericModularOperations) Mul2k(a *Int, k uint32, out *Int) error {
 
 func (o NumericModularOperations) AddMulTracked(a, b, c, d *Int, child *IntegerAddMulInvocationReceipt) error {
 	if e := o.valid(); e != nil {
+		return e
+	}
+	return o.manager.addMulWithSourceContext(a, b, c, d, child, o.context)
+}
+
+// AddMulTrackedValidated is AddMulTracked without repeating valid(): for a
+// coefficient loop that already ran AddMulTracked with the same o, when no
+// owner, frame or receipt that valid() examines changes between the calls.
+// The modular owner check stays.
+func (o NumericModularOperations) AddMulTrackedValidated(a, b, c, d *Int, child *IntegerAddMulInvocationReceipt) error {
+	if o.manager == nil {
+		return ErrModularOwner
+	}
+	if e := o.manager.check(); e != nil {
 		return e
 	}
 	return o.manager.addMulWithSourceContext(a, b, c, d, child, o.context)

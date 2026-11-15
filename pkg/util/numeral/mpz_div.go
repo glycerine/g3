@@ -32,11 +32,15 @@ func (m *IntegerManager) machineDivRemWithAllocationContext(a, b, q, r *Int, con
 		}
 	}
 	m.traceMPZDivision(a, b, q, r, "divrem", true)
-	defer func() {
-		if err == nil {
-			m.traceMPZDivision(a, b, q, r, "divrem", false)
-		}
-	}()
+	// The after-record is only emitted by trace builds; others skip the
+	// deferred closure (traceMPZ* is a no-op there).
+	if diagnostic.TraceCompiled() {
+		defer func() {
+			if err == nil {
+				m.traceMPZDivision(a, b, q, r, "divrem", false)
+			}
+		}()
+	}
 	if b.Val == 0 {
 		return ErrDivideByZero
 	}
@@ -73,11 +77,15 @@ func (m *IntegerManager) machineDivWithAllocationContext(a, b, c *Int, context i
 		}
 	}
 	m.traceMPZDivision(a, b, c, nil, "machine-div", true)
-	defer func() {
-		if err == nil {
-			m.traceMPZDivision(a, b, c, nil, "machine-div", false)
-		}
-	}()
+	// The after-record is only emitted by trace builds; others skip the
+	// deferred closure (traceMPZ* is a no-op there).
+	if diagnostic.TraceCompiled() {
+		defer func() {
+			if err == nil {
+				m.traceMPZDivision(a, b, c, nil, "machine-div", false)
+			}
+		}()
+	}
 	if b.Val == 0 {
 		return ErrDivideByZero
 	}
@@ -101,11 +109,15 @@ func (m *IntegerManager) remWithAllocationContext(a, b, c *Int, context integerA
 		}
 	}
 	m.traceMPZDivision(a, b, c, nil, "rem", true)
-	defer func() {
-		if err == nil {
-			m.traceMPZDivision(a, b, c, nil, "rem", false)
-		}
-	}()
+	// The after-record is only emitted by trace builds; others skip the
+	// deferred closure (traceMPZ* is a no-op there).
+	if diagnostic.TraceCompiled() {
+		defer func() {
+			if err == nil {
+				m.traceMPZDivision(a, b, c, nil, "rem", false)
+			}
+		}()
+	}
 	if b.Val == 0 {
 		return ErrDivideByZero
 	}
@@ -147,11 +159,15 @@ func (m *IntegerManager) divWithAllocationContext(a, b, c *Int, context integerA
 		}
 	}
 	m.traceMPZDivision(a, b, c, nil, "div", true)
-	defer func() {
-		if err == nil {
-			m.traceMPZDivision(a, b, c, nil, "div", false)
-		}
-	}()
+	// The after-record is only emitted by trace builds; others skip the
+	// deferred closure (traceMPZ* is a no-op there).
+	if diagnostic.TraceCompiled() {
+		defer func() {
+			if err == nil {
+				m.traceMPZDivision(a, b, c, nil, "div", false)
+			}
+		}()
+	}
 	if a.Val < 0 {
 		var tmp *Int
 		var raw *integerScalarRawScope
@@ -221,11 +237,15 @@ func (m *IntegerManager) modWithAllocationContext(a, b, c *Int, context integerA
 		}
 	}
 	m.traceMPZDivision(a, b, c, nil, "mod", true)
-	defer func() {
-		if err == nil {
-			m.traceMPZDivision(a, b, c, nil, "mod", false)
-		}
-	}()
+	// The after-record is only emitted by trace builds; others skip the
+	// deferred closure (traceMPZ* is a no-op there).
+	if diagnostic.TraceCompiled() {
+		defer func() {
+			if err == nil {
+				m.traceMPZDivision(a, b, c, nil, "mod", false)
+			}
+		}()
+	}
 	if e := m.remWithAllocationContext(a, b, c, context); e != nil {
 		return e
 	}

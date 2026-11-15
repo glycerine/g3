@@ -7,6 +7,7 @@ import (
 	"math"
 
 	"github.com/glycerine/g3/pkg/arena"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 // Mul translates the source small-int path and big multiplication. Exact
@@ -30,11 +31,15 @@ func (m *IntegerManager) mulWithAllocationContext(a, b, c *Int, context integerA
 		}
 	}
 	m.traceMPZBinary(a, b, c, "*", true)
-	defer func() {
-		if err == nil {
-			m.traceMPZBinary(a, b, c, "*", false)
-		}
-	}()
+	// The after-record is only emitted by trace builds; others skip the
+	// deferred closure (traceMPZ* is a no-op there).
+	if diagnostic.TraceCompiled() {
+		defer func() {
+			if err == nil {
+				m.traceMPZBinary(a, b, c, "*", false)
+			}
+		}()
+	}
 	if a.IsSmall() && b.IsSmall() {
 		return m.setInt64WithAllocationContext(c, int64(a.Val)*int64(b.Val), context)
 	}

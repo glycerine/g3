@@ -314,6 +314,13 @@ func (m *UPolynomialManager) mulWithSourceContext(a, b UPolynomialView, out *upo
 		if a.count < b.count {
 			a, b = b, a
 		}
+		// The coefficient loop resolves the numeric utility context once (on
+		// its first product) and only rebinds its roots before later ones;
+		// no frame or receipt it validates changes inside this loop.
+		z := m.modular.Integers()
+		var ops unumeral.NumericModularOperations
+		var opsRoots *polynomialNumericRoots
+		resolved := false
 		for i := uint32(0); i < a.count; i++ {
 			if e := m.checkpoint(); e != nil {
 				return e
@@ -342,7 +349,17 @@ func (m *UPolynomialManager) mulWithSourceContext(a, b UPolynomialView, out *upo
 					continue
 				}
 				dst := &m.values(s)[i+j]
-				if e = m.modular.WithAllocationContext((context).utility(m.modular.Integers())).AddMulTracked(dst, x, y, dst, child); e != nil {
+				if !resolved {
+					u, r := context.utilityWithRoots(z)
+					ops, opsRoots = m.modular.WithAllocationContext(u), r
+					if e = ops.AddMulTracked(dst, x, y, dst, child); e != nil {
+						return e
+					}
+					resolved = true
+					continue
+				}
+				context.rebindUtilityRoots(opsRoots, z)
+				if e = ops.AddMulTrackedValidated(dst, x, y, dst, child); e != nil {
 					return e
 				}
 			}

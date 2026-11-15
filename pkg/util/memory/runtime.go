@@ -3,6 +3,7 @@ package memory
 // Source: src/util/memory_manager.cpp:33-72,124-149,274-305,326-377; src/util/memory_manager.h:49-71.
 
 import (
+	"encoding/binary"
 	"errors"
 	"math"
 	"reflect"
@@ -49,6 +50,11 @@ type Runtime struct {
 	closed                bool
 	nextReleaseSerial     uint64
 	failureTransportDepth uint32
+	// freeHint: every block below this index is live or retired, so slot
+	// starts its lowest-free-slot scan there (the same slot as a scan from
+	// zero). It occupies the struct's tail padding, so the charged header
+	// size is unchanged.
+	freeHint uint32
 }
 type RuntimeState struct {
 	GlobalSize, LocalSize, GlobalCount, LocalCount, Peak int64
@@ -178,7 +184,7 @@ func (m *Runtime) physicalFailure() error {
 	return m.emitFailure(FailureMemout)
 }
 func (m *Runtime) slot() (uint32, error) {
-	for i := range m.blocks {
+	for i := int(m.freeHint); i < len(m.blocks); i++ {
 		b := &m.blocks[i]
 		if !b.live && b.generation != math.MaxUint32 {
 			return uint32(i + 1), nil
@@ -236,6 +242,13 @@ func (m *Runtime) headerRead(b *memoryRuntimeBlock) (uint64, error) {
 	if len(b.data) < int(m.config.SizeTBits/8) {
 		return 0, arena.ErrBounds
 	}
+	// Little-endian SIZE_T header (SizeTBits is 32 or 64).
+	if m.config.SizeTBits == 64 {
+		return binary.LittleEndian.Uint64(b.data), nil
+	}
+	if m.config.SizeTBits == 32 {
+		return uint64(binary.LittleEndian.Uint32(b.data)), nil
+	}
 	var n uint64
 	for i := uint8(0); i < m.config.SizeTBits/8; i++ {
 		n |= uint64(b.data[i]) << (8 * i)
@@ -267,6 +280,7 @@ func (m *Runtime) Allocate(n uint64) (Block, error) {
 	b.data = data
 	b.initialized = init
 	b.live = true
+	m.freeHint = slot // slot was the lowest free index
 	b.release = runtimeReleaseState{}
 	m.live++
 	h := Block{m.origin, slot, b.generation}
@@ -476,6 +490,7 @@ func (m *Runtime) Close() error {
 	}
 	m.config.Budget.Release(m.header + uint64(cap(m.blocks))*uint64(reflect.TypeOf(memoryRuntimeBlock{}).Size()))
 	m.blocks = nil
+	m.freeHint = 0
 	m.header = 0
 	m.closed = true
 	return nil
@@ -518,6 +533,7 @@ func (m *Runtime) CleanupPartial(h *Block) error {
 	b.initialized = nil
 	b.live = false
 	m.live--
+	m.noteFreed(h.slot)
 	if b.generation != math.MaxUint32 {
 		b.generation++
 	}
@@ -531,4 +547,12 @@ func (m *Runtime) ConfiguredMaxAllocationCount() (int64, error) {
 		return 0, e
 	}
 	return m.accountingOwner().maxCount, nil
+}
+
+// noteFreed keeps freeHint at or below the lowest free block after the
+// block in slot (1-based) stopped being live.
+func (m *Runtime) noteFreed(slot uint32) {
+	if slot != 0 && slot-1 < m.freeHint {
+		m.freeHint = slot - 1
+	}
 }
