@@ -410,6 +410,11 @@ func (s *SMTInternalizerState) restoreLearnedUnits(level uint32) error {
 		}
 		unit.installedLevel = level
 	}
+	// reassert_units: if (at_base_level()) m_units_to_reassert.reset();
+	// PopScopes has already lowered baseLevel when this runs.
+	if level == s.baseLevel {
+		return s.releaseLearnedUnits()
+	}
 	return nil
 }
 

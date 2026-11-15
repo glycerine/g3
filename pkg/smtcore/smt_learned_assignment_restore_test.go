@@ -90,8 +90,10 @@ func TestSMTLearnedUnitRestorePublishesProofAssignmentOnce(t *testing.T) {
 	astTestMust(t, state.PopScopes(1))
 	astTestMust(t, state.restoreLearnedUnits(0))
 	astTestMust(t, state.restoreLearnedUnits(0))
-	if len(state.assignedLiterals) != assigned+1 || len(state.ownedJustifications) != owners+1 || state.learnedUnits[0].installedLevel != 0 || state.learnedUnits[0].pending.stage != smtLearnedAssignmentDone {
-		t.Fatal("unit retry duplicated publication or left its continuation", len(state.assignedLiterals), len(state.ownedJustifications), state.learnedUnits[0])
+	// reassert_units resets m_units_to_reassert at the base level
+	// (smtcore_04-F5), so the restored unit leaves the persistent list.
+	if len(state.assignedLiterals) != assigned+1 || len(state.ownedJustifications) != owners+1 || len(state.learnedUnits) != 0 {
+		t.Fatal("unit retry duplicated publication or kept its persistence", len(state.assignedLiterals), len(state.ownedJustifications), state.learnedUnits)
 	}
 	owner, ok := state.ownedJustifications[owners].(*SMTJustificationProofWrapper)
 	if !ok {
@@ -106,8 +108,8 @@ func TestSMTLearnedUnitRestorePublishesProofAssignmentOnce(t *testing.T) {
 	}
 	afterProof, err := m.GetRefCount(proof)
 	astTestMust(t, err)
-	// The persistent unit and the restored assignment's owner each hold one.
-	if afterProof != beforeProof+2 {
+	// Only the restored assignment's owner holds one.
+	if afterProof != beforeProof+1 {
 		t.Fatal("unit restoration acquired the wrong proof ownership", beforeProof, afterProof)
 	}
 	astTestMust(t, state.endSearchPersistence())

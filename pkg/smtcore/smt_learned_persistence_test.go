@@ -78,8 +78,10 @@ func TestSMTLearnedUnitSurvivesSearchBacktrackAndExpiresWithBase(t *testing.T) {
 	if value != lbool.True {
 		t.Fatal("learned unit was not reasserted", value)
 	}
-	if state.learnedUnits[0].installedLevel != 1 {
-		t.Fatal("learned unit installation level", state.learnedUnits[0].installedLevel)
+	// reassert_units: back at the base level, m_units_to_reassert is reset
+	// (smtcore_04-F5).
+	if len(state.learnedUnits) != 0 {
+		t.Fatal("learned unit stayed listed at the base level", state.learnedUnits)
 	}
 
 	astTestMust(t, state.endSearchPersistence())
@@ -93,4 +95,30 @@ func TestSMTLearnedUnitSurvivesSearchBacktrackAndExpiresWithBase(t *testing.T) {
 	if _, found = state.BoolVar(expression); found {
 		t.Fatal("learned unit atom outlived its user base scope")
 	}
+}
+
+// smtcore_04-F5: above the base level the reasserted unit stays listed.
+func TestSMTLearnedUnitStaysListedAboveBase(t *testing.T) {
+	m := astTestManager(t)
+	_, _, state := smtInternalizerFixture(t, m, nil)
+	expression := smtRelevancyBool(t, m, "persistent-unit-above-base")
+	smtTestUserPush(t, state)
+	astTestMust(t, state.beginSearchPersistence(1, SMTParamsState{}))
+	astTestMust(t, state.PushScope())
+	astTestMust(t, state.PushScope())
+	astTestMust(t, state.Internalize(expression, true))
+	variable, found := state.BoolVar(expression)
+	if !found {
+		t.Fatal("missing scoped unit atom")
+	}
+	astTestMust(t, state.AddLearnedClauseWithProof([]SMTLiteral{NewSMTLiteral(variable, false)}, ast.ASTHandle{}))
+	astTestMust(t, state.PopScopes(1))
+	if len(state.learnedUnits) != 1 || state.learnedUnits[0].installedLevel != 2 {
+		t.Fatal("unit reasserted above the base level must stay listed", state.learnedUnits)
+	}
+	astTestMust(t, state.PopScopes(1))
+	if len(state.learnedUnits) != 0 {
+		t.Fatal("unit stayed listed at the base level", state.learnedUnits)
+	}
+	astTestMust(t, state.endSearchPersistence())
 }
