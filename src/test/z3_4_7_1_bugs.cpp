@@ -106,6 +106,9 @@ Abstract:
                                   DerivationTree::Build interpolates the proof
                                   of the leaf-assumption check
                                   (pkg/AUDIT.md duality_01-F6).
+    z3_4_7_1_duality_certificate_eliminated_var a certificate prints the
+                                  model default for a rule variable qe-lite
+                                  eliminated (pkg/AUDIT.md duality_01-F4).
     z3_4_7_1_implicant_nested_array_eq once a nested array index makes
                                   model_implicant::eval_array_eq mark the
                                   equality true, a later differing index
@@ -1646,6 +1649,62 @@ void tst_z3_4_7_1_duality_underapprox_stale_proof() {
         "(rule (=> (and (Reach x) (= x 2)) Goal))\n"
         "(query Goal)\n";
     expect_script_output("duality_underapprox_stale_proof", script, "sat\n");
+}
+
+// print_proof prints each rule variable as tree->Eval(&edge, skolem). qe-lite
+// eliminated x from the edge of rule!2 (x1 = x + 3), so x is unconstrained
+// in the counterexample model and z3 prints its default, certifying q0(5)
+// with (= x 0). The step needs x = 2. pkg/AUDIT.md duality_01-F4.
+void tst_z3_4_7_1_duality_certificate_eliminated_var() {
+    char const* script =
+        "(set-option :fixedpoint.engine duality)\n"
+        "(declare-rel q0 (Int))\n"
+        "(declare-rel err ())\n"
+        "(declare-var x Int)\n"
+        "(declare-var x1 Int)\n"
+        "(rule (=> (= x 2) (q0 x)))\n"
+        "(rule (=> (and (q0 x) (= x1 (+ x 3))) (q0 x1)))\n"
+        "(rule (=> (and (q0 x) (> x 4)) err))\n"
+        "(query err :print-certificate true)\n";
+    char const* expected =
+        "sat\n"
+        "(derivation\n"
+        "(step s!4 (q0 2)\n"
+        " rule!1  (subst\n"
+        "    (= x 2)\n"
+        "  )\n"
+        "  (labels  )\n"
+        "  (ref   ))\n"
+        "(step s!3 (q0 5)\n"
+        " rule!2  (subst\n"
+        "    (= x 2)\n"
+        "    (= x1 5)\n"
+        "  )\n"
+        "  (labels  )\n"
+        "  (ref  s!4  ))\n"
+        "(step s!2 (err)\n"
+        " rule!3  (subst\n"
+        "    (= x 5)\n"
+        "  )\n"
+        "  (labels  )\n"
+        "  (ref  s!3  ))\n"
+        "(step s!1 (@Fail!0)\n"
+        " rule!4  (subst\n"
+        "  )\n"
+        "  (labels  )\n"
+        "  (ref  s!2  ))\n"
+        ")\n"
+        "(model \n"
+        "\"@under2 -> false\n"
+        "@under4 -> false\n"
+        "@b_2 -> true\n"
+        "@b_3 -> true\n"
+        "@b_1 -> true\n"
+        "@under3 -> false\n"
+        "@b_4 -> true\n"
+        "\")\n"
+        "\n";
+    expect_script_output("duality_certificate_eliminated_var", script, expected);
 }
 
 // PDR proof trace for Goal :- P(x), with P(x) a fact. The query!0 root and
