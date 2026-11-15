@@ -254,6 +254,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_duality_underapprox_flag_literals);
     TST(z3_4_7_1_duality_underapprox_stale_proof);
     TST(z3_4_7_1_pdr_proof_nullary_root);
+    TST(z3_4_7_1_pdr_proof_duplicate_leaf);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);

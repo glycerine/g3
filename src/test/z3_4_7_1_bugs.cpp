@@ -115,6 +115,10 @@ Abstract:
                                   state only, so the query!0 root takes the
                                   proof of another node with state `true`
                                   (pkg/AUDIT.md muz_pdr_02-F2).
+    z3_4_7_1_pdr_proof_duplicate_leaf the PDR proof trace caches a repeated,
+                                  childless obligation with its unresolved
+                                  rule, so the proof no longer concludes the
+                                  query (pkg/AUDIT.md muz_pdr_02-F2).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -1604,4 +1608,56 @@ void tst_z3_4_7_1_pdr_proof_nullary_root() {
         "    (asserted (=> Goal query!0))\n"
         "    (hyper-res a!3 a!6 Goal)\n"
         "    query!0)))\n");
+}
+
+// PDR proof trace where p(true) is needed by both q(true) and r(true). The
+// search expands one p obligation and closes the repeated one without
+// children. get_proof_trace reached the childless twin first and cached it
+// with its unresolved rule, so the proof of goal kept the premise (a true)
+// and concluded (=> (a true) goal), not the query. pkg/AUDIT.md
+// muz_pdr_02-F2.
+void tst_z3_4_7_1_pdr_proof_duplicate_leaf() {
+    char const* script =
+        "(set-option :fixedpoint.engine pdr)\n"
+        "(set-option :fixedpoint.generate_proof_trace true)\n"
+        "(set-option :fixedpoint.xform.slice false)\n"
+        "(set-option :fixedpoint.xform.inline_linear false)\n"
+        "(set-option :fixedpoint.xform.inline_eager false)\n"
+        "(declare-rel a (Bool))\n"
+        "(declare-rel p (Bool))\n"
+        "(declare-rel q (Bool))\n"
+        "(declare-rel r (Bool))\n"
+        "(declare-rel goal ())\n"
+        "(declare-var v Bool)\n"
+        "(rule (=> (= v true) (a v)))\n"
+        "(rule (=> (a v) (p v)))\n"
+        "(rule (=> (p v) (q v)))\n"
+        "(rule (=> (p v) (r v)))\n"
+        "(rule (=> (and (q true) (r true)) goal))\n"
+        "(query goal :print-certificate true)\n";
+    expect_script_output("pdr_proof_duplicate_leaf", script,
+        "sat\n"
+        "(let ((a!1 (asserted (=> (and (q true) (r true)) goal)))\n"
+        "      (a!2 (= (=> (and (q true) (r true)) goal)\n"
+        "              (=> (and (r true) (q true)) goal)))\n"
+        "      (a!4 (forall ((v Bool)) (=> (p v) (r v))))\n"
+        "      (a!5 (forall ((A Bool)) (=> (p A) (r A))))\n"
+        "      (a!7 (forall ((v Bool)) (=> (a v) (p v))))\n"
+        "      (a!8 (forall ((A Bool)) (=> (a A) (p A))))\n"
+        "      (a!10 (forall ((v Bool)) (=> (= v true) (a v))))\n"
+        "      (a!11 (forall ((A Bool)) (=> (= A true) (a A))))\n"
+        "      (a!14 (forall ((v Bool)) (=> (p v) (q v))))\n"
+        "      (a!15 (forall ((A Bool)) (=> (p A) (q A)))))\n"
+        "(let ((a!3 (mp a!1 (rewrite a!2) (=> (and (r true) (q true)) goal)))\n"
+        "      (a!6 (mp (asserted a!4) (symm (der (= a!5 a!4)) (= a!4 a!5)) a!5))\n"
+        "      (a!9 (mp (asserted a!7) (symm (der (= a!8 a!7)) (= a!7 a!8)) a!8))\n"
+        "      (a!12 (mp (asserted a!10) (symm (der (= a!11 a!10)) (= a!10 a!11)) a!11))\n"
+        "      (a!16 (mp (asserted a!14) (symm (der (= a!15 a!14)) (= a!14 a!15)) a!15)))\n"
+        "(let ((a!13 (mp a!12 (rewrite (= a!11 (a true))) (a true))))\n"
+        "(let ((a!17 ((_ hyper-res 1 0 2 0)\n"
+        "              a!3\n"
+        "              (hyper-res a!6 (hyper-res a!9 a!13 (p true)) (r true))\n"
+        "              (hyper-res a!16 (hyper-res a!9 a!13 (p true)) (q true))\n"
+        "              goal)))\n"
+        "  ((_ hyper-res 1 0) (asserted (=> goal query!0)) a!17 query!0)))))\n");
 }
