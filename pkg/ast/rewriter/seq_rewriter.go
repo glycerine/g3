@@ -576,32 +576,13 @@ func (r *SequenceRewriter) RewriteAt(a, index ast.ASTHandle, out ast.ASTRef) (Re
 	if position.Sign() < 0 {
 		return r.assignEmptyLike(a, out)
 	}
-	leaves, err := r.manager.SequenceFlattenConcat(a)
+	// min_length(1, &a, len) bounds a itself only: a concatenation is
+	// unbounded here, whatever its leaves are.
+	knownLength, bounded, err := r.minLength([]ast.ASTHandle{a})
 	if err != nil {
 		return RewriteFailed, err
 	}
-	knownLength := uint64(0)
-	bounded := true
-	for _, leaf := range leaves {
-		text, stringValue, e := r.manager.SequenceStringValue(leaf)
-		if e != nil {
-			return RewriteFailed, e
-		}
-		if stringValue {
-			knownLength += uint64(len(text))
-			continue
-		}
-		unit, e := r.manager.IsSequenceUnit(leaf)
-		if e != nil {
-			return RewriteFailed, e
-		}
-		if unit {
-			knownLength++
-		} else {
-			bounded = false
-		}
-	}
-	if bounded && (!position.IsUint64() || position.Uint64() >= knownLength) {
+	if bounded && (!position.IsUint64() || position.Uint64() >= uint64(knownLength)) {
 		return r.assignEmptyLike(a, out)
 	}
 	text, constant, err := r.manager.SequenceStringValue(a)
@@ -617,6 +598,13 @@ func (r *SequenceRewriter) RewriteAt(a, index ast.ASTHandle, out ast.ASTRef) (Re
 			return RewriteFailed, err
 		}
 		return RewriteDone, r.manager.SetRef(out, result)
+	}
+	if !position.IsUint64() || position.Uint64() > math.MaxUint32 {
+		return RewriteFailed, nil
+	}
+	leaves, err := r.manager.SequenceFlattenConcat(a)
+	if err != nil {
+		return RewriteFailed, err
 	}
 	indexValue := position.Uint64()
 	for _, leaf := range leaves {

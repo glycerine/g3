@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_rewriter_05-F2: mk_seq_at bounds only a single atom
+	// (min_length(1, &a, len)); a concat of units is left alone.
+	"seq_at_concat_out_of_range.smt2": "(seq.at (seq.++ (seq.unit x) (seq.unit y)) 5)\n",
 	// AUDIT.md ast_rewriter_05-F1: mk_app_core returns the sole argument of a
 	// unary re.++ / re.union.
 	"regex_single_arg_concat_union.smt2": "(str.to.re \"a\")\n(str.to.re \"a\")\n(= x \"a\")\n(= x \"a\")\n",

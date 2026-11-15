@@ -595,6 +595,21 @@ func TestSequenceRewriterConstantLengthExtractAtAndIndex(t *testing.T) {
 	if status != RewriteDone || result != units[1] {
 		t.Fatalf("unit at: status=%d result=%v", status, result)
 	}
+	// AUDIT.md ast_rewriter_05-F2: mk_seq_at bounds a only through
+	// min_length(1, &a, len), so a concatenation of units is unbounded and
+	// an index past its end is left alone.
+	status, err = rw.RewriteAt(tail, num("5"), out)
+	astTestMust(t, err)
+	if status != RewriteFailed {
+		t.Fatalf("out-of-range at over a unit concat: status=%d", status)
+	}
+	status, err = rw.RewriteAt(units[0], num("1"), out)
+	astTestMust(t, err)
+	result, err = m.RefGet(out)
+	astTestMust(t, err)
+	if empty, e := m.IsSequenceEmpty(result); e != nil || status != RewriteDone || !empty {
+		t.Fatalf("out-of-range at over a single unit: status=%d empty=%v error=%v", status, empty, e)
+	}
 }
 
 func TestSequenceRewriterIntegerStringConversions(t *testing.T) {
