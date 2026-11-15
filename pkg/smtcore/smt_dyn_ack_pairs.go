@@ -134,9 +134,10 @@ func (s *dynAckPairState) markInstantiated(key dynAckPair) error {
 	if e := s.check(); e != nil {
 		return e
 	}
-	if _, found := s.counts[key]; !found {
-		return ast.ErrASTDomain
-	}
+	// dyn_ack_manager::instantiate: SASSERT(contains) is debug only and
+	// erase of a missing entry is a no-op. A pair can be queued twice
+	// (see the gc comment "this invariant is not true"), and the release
+	// build then instantiates it again.
 	delete(s.counts, key)
 	s.instantiated[key] = struct{}{}
 	return nil

@@ -143,3 +143,36 @@ func TestDynAckPairStateAcceptsDecayAboveOne(t *testing.T) {
 		t.Fatal("gc did not scale the occurrence count by the decay", count)
 	}
 }
+
+// smtcore_03-F11: dyn_ack_manager::instantiate erases the pair count without
+// a release-build check, so instantiating a pair queued twice is not an error.
+func TestDynAckPairMarkInstantiatedTwice(t *testing.T) {
+	m := astTestManager(t)
+	sort, e := m.MkSort(symbol.Numerical(901), ast.ASTSortInfo{})
+	astTestMust(t, e)
+	decl, e := m.MkFuncDecl(symbol.Numerical(902), []ast.ASTHandle{sort}, sort, ast.ASTFuncDeclInfo{})
+	astTestMust(t, e)
+	apps := make([]ast.ASTHandle, 2)
+	for i := range apps {
+		arg, e := m.MkConst(symbol.Numerical(uint32(903+i)), sort)
+		astTestMust(t, e)
+		apps[i], e = m.MkApp(decl, []ast.ASTHandle{arg})
+		astTestMust(t, e)
+		astTestMust(t, m.IncRef(apps[i]))
+		h := apps[i]
+		t.Cleanup(func() { astTestMust(t, m.DecRef(h)) })
+	}
+	state, e := newDynAckPairState(m, 3, .5)
+	astTestMust(t, e)
+	t.Cleanup(func() { astTestMust(t, state.close()) })
+	astTestMust(t, state.congruenceEvent(apps[0], apps[1]))
+	key := dynAckPair{apps[0], apps[1]}
+	astTestMust(t, state.markInstantiated(key))
+	astTestMust(t, state.markInstantiated(key))
+	if _, found := state.counts[key]; found {
+		t.Fatal("instantiated pair still counted")
+	}
+	if _, found := state.instantiated[key]; !found {
+		t.Fatal("pair missing from instantiated set")
+	}
+}
