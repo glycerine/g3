@@ -104,6 +104,21 @@ func (c *arrayEqClasses) isRoot(v uint32) bool {
 	return int(v) >= len(c.find) || c.find[v] == v
 }
 
+// cycle is obj_equiv_class::begin(o)..end(o): o (added if new), then the
+// union-find next pointers until they return to o.
+func (c *arrayEqClasses) cycle(o ast.ASTHandle) []ast.ASTHandle {
+	start := c.addIfNotThere(o)
+	var members []ast.ASTHandle
+	for current := start; ; {
+		members = append(members, c.toObj[current])
+		current = c.nextOf(current)
+		if current == start {
+			break
+		}
+	}
+	return members
+}
+
 // classes lists each class's members in source iteration order.
 func (c *arrayEqClasses) classes() [][]ast.ASTHandle {
 	var out [][]ast.ASTHandle

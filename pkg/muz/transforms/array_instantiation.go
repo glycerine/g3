@@ -19,16 +19,16 @@ import (
 type ArrayInstantiationRuleMaker func(destination *base.RuleSet, formula ast.ASTHandle, name usymbol.Symbol) error
 
 type ArrayInstantiationPlugin struct {
-	manager          *ast.ASTManager
-	rules            *base.RuleManager
-	priority         uint32
-	quantifiers      uint32
-	enforce          bool
-	oldToNew         map[ast.ASTHandle]ast.ASTHandle
-	selects          map[ast.ASTHandle][]ast.ASTHandle
-	equivalence      map[ast.ASTHandle]ast.ASTHandle
-	equivalenceOrder []ast.ASTHandle
-	selectVariables  map[ast.ASTHandle]ast.ASTHandle
+	manager     *ast.ASTManager
+	rules       *base.RuleManager
+	priority    uint32
+	quantifiers uint32
+	enforce     bool
+	oldToNew    map[ast.ASTHandle]ast.ASTHandle
+	selects     map[ast.ASTHandle][]ast.ASTHandle
+	// eqClasses is the source expr_equiv_class eq_classes.
+	eqClasses       *arrayEqClasses
+	selectVariables map[ast.ASTHandle]ast.ASTHandle
 	// doneSelects is done_selects, an obj_map iterated in hash-table order.
 	doneSelects    *ast.ObjMap
 	nextVariable   uint32
@@ -123,26 +123,6 @@ func (p *ArrayInstantiationPlugin) maximumVariable(rule *base.Rule) (uint32, err
 	return used.MaxFoundVarIndexPlusOne(), err
 }
 
-func (p *ArrayInstantiationPlugin) representative(value ast.ASTHandle) ast.ASTHandle {
-	parent, found := p.equivalence[value]
-	if !found {
-		p.equivalence[value] = value
-		p.equivalenceOrder = append(p.equivalenceOrder, value)
-		return value
-	}
-	for parent != p.equivalence[parent] {
-		parent = p.equivalence[parent]
-	}
-	return parent
-}
-
-func (p *ArrayInstantiationPlugin) merge(left, right ast.ASTHandle) {
-	l, r := p.representative(left), p.representative(right)
-	if l != r {
-		p.equivalence[l] = r
-	}
-}
-
 func (p *ArrayInstantiationPlugin) retrieveSelects(expression ast.ASTHandle) error {
 	kind, err := p.manager.GetKind(expression)
 	if err != nil || kind != ast.ASTApp {
@@ -170,7 +150,6 @@ func (p *ArrayInstantiationPlugin) retrieveSelects(expression ast.ASTHandle) err
 		if x != nil {
 			return x
 		}
-		p.representative(array)
 		p.selects[array] = append(p.selects[array], expression)
 	}
 	store, err := p.arrayApplication(expression, ast.ASTArrayOpStore)
@@ -182,7 +161,7 @@ func (p *ArrayInstantiationPlugin) retrieveSelects(expression ast.ASTHandle) err
 		if x != nil {
 			return x
 		}
-		p.merge(expression, baseArray)
+		p.eqClasses.merge(expression, baseArray)
 		return nil
 	}
 	family, err := p.manager.GetFamilyID(expression)
@@ -212,7 +191,7 @@ func (p *ArrayInstantiationPlugin) retrieveSelects(expression ast.ASTHandle) err
 				return x
 			}
 			if array {
-				p.merge(left, right)
+				p.eqClasses.merge(left, right)
 			}
 		}
 	}
@@ -220,12 +199,10 @@ func (p *ArrayInstantiationPlugin) retrieveSelects(expression ast.ASTHandle) err
 }
 
 func (p *ArrayInstantiationPlugin) linkedSelects(array ast.ASTHandle) ([]ast.ASTHandle, error) {
-	root := p.representative(array)
+	// retrieve_all_selects walks eq_classes from array's own id along the
+	// union-find next cycle (begin(o) adds o first).
 	var result []ast.ASTHandle
-	for _, member := range p.equivalenceOrder {
-		if p.representative(member) != root {
-			continue
-		}
+	for _, member := range p.eqClasses.cycle(array) {
 		for _, source := range p.selects[member] {
 			count, err := p.manager.GetNumArgs(source)
 			if err != nil {
@@ -419,7 +396,6 @@ func (p *ArrayInstantiationPlugin) createHead(source, destination *base.RuleSet,
 				return ast.ASTHandle{}, y
 			}
 			arguments = append(arguments, selected)
-			p.representative(argument)
 			p.selects[argument] = append(p.selects[argument], selected)
 		}
 		if !p.enforce {
@@ -487,8 +463,7 @@ func (p *ArrayInstantiationPlugin) instantiatePredicate(source, destination *bas
 
 func (p *ArrayInstantiationPlugin) transformRule(source, destination *base.RuleSet, rule *base.Rule) (_ *base.Rule, resultErr error) {
 	p.selects = make(map[ast.ASTHandle][]ast.ASTHandle)
-	p.equivalence = make(map[ast.ASTHandle]ast.ASTHandle)
-	p.equivalenceOrder = nil
+	p.eqClasses = newArrayEqClasses()
 	p.selectVariables = make(map[ast.ASTHandle]ast.ASTHandle)
 	p.doneSelects = ast.NewObjMap(p.manager)
 	var err error
@@ -640,7 +615,7 @@ func (p *ArrayInstantiationPlugin) Close() error {
 	p.closed = true
 	p.oldToNew = nil
 	p.selects = nil
-	p.equivalence = nil
+	p.eqClasses = nil
 	p.selectVariables = nil
 	return nil
 }
