@@ -137,7 +137,7 @@ func TestSATSolverCheckSourceRestartLimitAbort(t *testing.T) {
 	}
 }
 
-func TestSATSolverCheckSourceModelNotice(t *testing.T) {
+func TestSATSolverCheckReleaseOmitsModelNotice(t *testing.T) {
 	for _, level := range []uint32{0, 10} {
 		t.Run(strconv.FormatUint(uint64(level), 10), func(t *testing.T) {
 			s, _, _ := satSolverCheckFixture(t)
@@ -162,11 +162,11 @@ func TestSATSolverCheckSourceModelNotice(t *testing.T) {
 			if level == 0 && got != "" {
 				t.Fatal("disabled verbosity emitted model notice", got)
 			}
+			// AUDIT.md FUZZ-F7: the "checking model" line is #ifndef
+			// _EXTERNAL_RELEASE; g3 follows the release build.
 			if level == 10 {
-				entry := strings.Index(got, "(sat.sat-solver)\n")
-				model := strings.Index(got, "\"checking model\"\n")
-				if entry != 0 || model <= entry || strings.Count(got, "\"checking model\"\n") != 1 {
-					t.Fatal("source check/model notice order", got)
+				if strings.Index(got, "(sat.sat-solver)\n") != 0 || strings.Contains(got, "checking model") {
+					t.Fatal("release-profile check notice", got)
 				}
 			}
 		})

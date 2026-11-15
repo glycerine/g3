@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ-F7: the SAT model check is internal-profile only
+	// (release_profile_verbose_test.go checks the -v:10 log).
+	"release_profile_sat_model.smt2": "sat\n",
 	// AUDIT.md FUZZ-F7: the _EXTERNAL_RELEASE profile installs no polynomial or
 	// subpaving extra commands and no apply :print_proof parameter.
 	"release_profile_extra_commands.smt2": "unsupported\nunsupported\nunsupported\nunsupported\ndone\n",

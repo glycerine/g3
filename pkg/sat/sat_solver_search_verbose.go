@@ -39,18 +39,6 @@ func (s *Solver) emitSearchAbort(reason string, conflicts bool) error {
 	return out.AppendCString("\")\n")
 }
 
-func (s *Solver) emitModelCheckNotice() error {
-	enabled, err := diagnostic.ProcessVerboseEnabled(10)
-	if err != nil || !enabled {
-		return err
-	}
-	out, err := diagnostic.BorrowProcessVerboseStream()
-	if err != nil {
-		return err
-	}
-	return out.AppendCString("\"checking model\"\n")
-}
-
 func (s *Solver) emitSimplifyNotice() error {
 	enabled, err := diagnostic.ProcessVerboseEnabled(2)
 	if err != nil || !enabled {

@@ -4,7 +4,6 @@ package sat
 
 import (
 	"github.com/glycerine/g3/pkg/util/lbool"
-	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 func (s *Solver) mkModel() error {
@@ -44,17 +43,9 @@ func (s *Solver) mkModel() error {
 		return e
 	}
 	s.traceCompletedModel(n, model)
-	// Selected ordinary source profile does not define _EXTERNAL_RELEASE.
-	if e := s.emitModelCheckNotice(); e != nil {
-		return e
-	}
-	good, e := s.checkModel()
-	if e != nil {
-		return e
-	}
-	if !good {
-		return &SATSolverException{DefaultException: z3exception.NewDefaultException("check model failed")}
-	}
+	// The "checking model" verbose lines and the check_model calls are
+	// #ifndef _EXTERNAL_RELEASE (sat_solver.cpp:1276-1286); g3 follows the
+	// release build, which skips them.
 	return nil
 }
 func (s *Solver) checkModel() (bool, error) {
