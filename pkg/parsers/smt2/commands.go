@@ -485,8 +485,16 @@ func (p *commandParser) fixedpointQuery(declaration ast.ASTHandle) (status lbool
 
 func (p *commandParser) command() (bool, error) {
 	commandLine, commandPosition := p.scanner.Line(), p.scanner.Position()
-	if err := p.expect(LeftParenToken); err != nil {
+	// parse(): "invalid command, '(' expected"; parse_cmd:
+	// check_identifier("invalid command, symbol expected").
+	if p.token != LeftParenToken {
+		return false, fmt.Errorf("invalid command, '(' expected")
+	}
+	if err := p.advance(); err != nil {
 		return false, err
+	}
+	if p.token != SymbolToken {
+		return false, fmt.Errorf("invalid command, symbol expected")
 	}
 	name, err := p.symbol()
 	if err != nil {
@@ -984,10 +992,21 @@ func (p *commandParser) command() (bool, error) {
 			return false, err
 		}
 	case "push", "pop":
+		// parse_opt_unsigned (its texts name push for pop as well).
 		n := uint32(1)
 		if p.token != RightParenToken {
-			n, err = p.unsigned()
-			if err != nil {
+			if p.token != IntegerToken {
+				return false, fmt.Errorf("invalid push command, integer expected")
+			}
+			value := p.scanner.Number()
+			if value.Sign() < 0 {
+				return false, fmt.Errorf("invalid push command, value is negative.")
+			}
+			if !value.IsInt() || !value.Num().IsUint64() || value.Num().Uint64() > uint64(^uint32(0)) {
+				return false, fmt.Errorf("invalid push command, value is too big to fit in an unsigned machine integer")
+			}
+			n = uint32(value.Num().Uint64())
+			if err = p.advance(); err != nil {
 				return false, err
 			}
 		}
@@ -1001,8 +1020,8 @@ func (p *commandParser) command() (bool, error) {
 		}
 		// Source parse_push/parse_pop mutates the context before checking
 		// the closing parenthesis; a trailing syntax error keeps that prefix.
-		if err = p.requireEnd(); err != nil {
-			return false, err
+		if p.token != RightParenToken {
+			return false, fmt.Errorf("invalid %s command, ')' expected", name)
 		}
 	case "check-sat-using":
 		if err := p.checkSatUsing(!p.ignoreChecks); err != nil {
@@ -1153,8 +1172,11 @@ func (p *commandParser) command() (bool, error) {
 		}
 		success = false
 	case "get-info":
+		if p.token == RightParenToken {
+			return false, fmt.Errorf("invalid command, argument(s) missing")
+		}
 		if p.token != KeywordToken {
-			return false, fmt.Errorf("information keyword expected")
+			return false, fmt.Errorf("invalid command argument, keyword expected")
 		}
 		key := p.scanner.ID()
 		// Source get_info_cmd::set_next_arg prints the information as the
@@ -1217,8 +1239,11 @@ func (p *commandParser) command() (bool, error) {
 		}
 		success = false
 	case "get-option":
+		if p.token == RightParenToken {
+			return false, fmt.Errorf("invalid command, argument(s) missing")
+		}
 		if p.token != KeywordToken {
-			return false, fmt.Errorf("option keyword expected")
+			return false, fmt.Errorf("invalid command argument, keyword expected")
 		}
 		keyword := p.scanner.ID()
 		if err = p.advance(); err != nil {
@@ -1258,7 +1283,8 @@ func (p *commandParser) command() (bool, error) {
 		}
 		success = false
 	case "get-assignment":
-		if err = p.requireEnd(); err != nil {
+		// parse_ext_cmd: a zero-arity command with an argument.
+		if err = p.optionValueEnd(); err != nil {
 			return false, err
 		}
 		if err = p.context.WriteAssignment(p.out); err != nil {
@@ -1420,7 +1446,8 @@ func (p *commandParser) command() (bool, error) {
 		}
 		success = false
 	case "get-proof":
-		if err = p.requireEnd(); err != nil {
+		// parse_ext_cmd: a zero-arity command with an argument.
+		if err = p.optionValueEnd(); err != nil {
 			return false, err
 		}
 		if err = p.context.WriteProof(p.out); err != nil {
@@ -1428,7 +1455,8 @@ func (p *commandParser) command() (bool, error) {
 		}
 		success = false
 	case "get-proof-graph":
-		if err = p.requireEnd(); err != nil {
+		// parse_ext_cmd: a zero-arity command with an argument.
+		if err = p.optionValueEnd(); err != nil {
 			return false, err
 		}
 		if err = p.context.WriteProofGraph(); err != nil {
@@ -1436,7 +1464,8 @@ func (p *commandParser) command() (bool, error) {
 		}
 		success = false
 	case "get-unsat-core":
-		if err = p.requireEnd(); err != nil {
+		// parse_ext_cmd: a zero-arity command with an argument.
+		if err = p.optionValueEnd(); err != nil {
 			return false, err
 		}
 		if err = p.context.WriteUnsatCore(p.out); err != nil {
@@ -1444,7 +1473,8 @@ func (p *commandParser) command() (bool, error) {
 		}
 		success = false
 	case "get-unsat-assumptions":
-		if err = p.requireEnd(); err != nil {
+		// parse_ext_cmd: a zero-arity command with an argument.
+		if err = p.optionValueEnd(); err != nil {
 			return false, err
 		}
 		if err = p.context.WriteUnsatAssumptions(p.out); err != nil {
@@ -1452,7 +1482,8 @@ func (p *commandParser) command() (bool, error) {
 		}
 		success = false
 	case "labels":
-		if err = p.requireEnd(); err != nil {
+		// parse_ext_cmd: a zero-arity command with an argument.
+		if err = p.optionValueEnd(); err != nil {
 			return false, err
 		}
 		if err = p.context.WriteLabels(p.out); err != nil {
@@ -1460,7 +1491,8 @@ func (p *commandParser) command() (bool, error) {
 		}
 		success = false
 	case "get-assertions":
-		if err = p.requireEnd(); err != nil {
+		// parse_ext_cmd: a zero-arity command with an argument.
+		if err = p.optionValueEnd(); err != nil {
 			return false, err
 		}
 		if err = p.context.WriteAssertions(p.out); err != nil {
@@ -1624,7 +1656,8 @@ func (p *commandParser) command() (bool, error) {
 		}
 		return false, p.advance()
 	case "exit":
-		if err = p.requireEnd(); err != nil {
+		// parse_ext_cmd: a zero-arity command with an argument.
+		if err = p.optionValueEnd(); err != nil {
 			return false, err
 		}
 		if p.context.PrintSuccess {
@@ -1642,10 +1675,11 @@ func (p *commandParser) command() (bool, error) {
 				return false, err
 			}
 		}
-		if _, err = fmt.Fprintf(p.context.DiagnosticOutput(), "; %s line: %d position: %d\n", name, p.scanner.Line(), p.scanner.Position()); err != nil {
+		// print_unsupported: the regular stream first, then the diagnostic.
+		if _, err = fmt.Fprintln(p.out, "unsupported"); err != nil {
 			return false, err
 		}
-		if _, err = fmt.Fprintln(p.out, "unsupported"); err != nil {
+		if _, err = fmt.Fprintf(p.context.DiagnosticOutput(), "; %s line: %d position: %d\n", name, p.scanner.Line(), p.scanner.Position()); err != nil {
 			return false, err
 		}
 		return false, p.advance()

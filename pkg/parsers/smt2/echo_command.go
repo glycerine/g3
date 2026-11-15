@@ -5,15 +5,21 @@ package smt2
 import "fmt"
 
 func (p *commandParser) echoCommand() error {
+	// parse_ext_cmd / parse_next_cmd_arg's CPK_STRING check.
+	if p.token == RightParenToken {
+		return fmt.Errorf("invalid command, argument(s) missing")
+	}
 	if p.token != StringToken {
-		return fmt.Errorf("string expected")
+		return fmt.Errorf("invalid command argument, string expected")
 	}
 	value := p.scanner.String()
 	if err := p.advance(); err != nil {
 		return err
 	}
-	if err := p.requireEnd(); err != nil {
+	// UNARY_CMD runs its action in set_next_arg, before parse_ext_cmd
+	// looks for ')'.
+	if err := p.context.WriteEcho(p.out, value); err != nil {
 		return err
 	}
-	return p.context.WriteEcho(p.out, value)
+	return p.optionValueEnd()
 }
