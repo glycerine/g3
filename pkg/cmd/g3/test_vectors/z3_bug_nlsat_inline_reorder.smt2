@@ -1,0 +1,8 @@
+(declare-const x Real)
+(declare-const y Real)
+(declare-const z Real)
+(assert (> y 0.0))
+(assert (= (+ (* x y) (* z z z)) 1.0))
+(assert (> (* x z) 2.0))
+(check-sat-using (using-params qfnra-nlsat :inline_vars true))
+(get-model)

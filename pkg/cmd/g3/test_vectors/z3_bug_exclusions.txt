@@ -334,3 +334,13 @@ z3_bug_nlsat_inline_zero_factor
 # Solver.MkInequality; AUDIT.md nlsat_02-F2). Reproduction:
 # test_vectors/z3_bug_nlsat_inline_constant_atom.smt2.
 z3_bug_nlsat_inline_constant_atom
+#
+# nlsat.inline_vars with reordering: check() still reorders the variables
+# after inlining, and fix_patch writes the patched values through
+# pre-reorder variable indices into the reordered assignment, so z3 4.7.1
+# returns an invalid model (z3 bug: src/nlsat/nlsat_solver.cpp check,
+# can_reorder, fix_patch; fixed upstream in 983a55232, "fix #3167", which
+# makes can_reorder() false while patches exist). g3 does not reorder while
+# patches exist (pkg/nlsat/solver.go Check, variable_order.go; AUDIT.md
+# nlsat_03-F8). Reproduction: test_vectors/z3_bug_nlsat_inline_reorder.smt2.
+z3_bug_nlsat_inline_reorder

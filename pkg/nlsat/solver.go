@@ -262,6 +262,12 @@ func (s *Solver) Check() (result lbool.LBool, resultErr error) {
 		s.inlined = true
 	}
 	reordered := false
+	// z3 4.7.1 bug kept out of g3: check() reorders after inline_vars, and
+	// fix_patch then writes the patched values through pre-reorder variable
+	// indices into the reordered assignment, which gives an invalid model.
+	// Upstream 983a55232 ("fix #3167") makes can_reorder() false while
+	// patches exist, as g3 does (AUDIT.md nlsat_03-F8;
+	// test_vectors/z3_bug_nlsat_inline_reorder.smt2).
 	if len(s.patches) == 0 && (s.config.ShuffleVars || s.config.Reorder) {
 		var permutation []uint32
 		var supported bool
