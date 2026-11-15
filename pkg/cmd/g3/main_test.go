@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md parsers_shell_01-F4: an empty quantifier binder list is a
+	// parser error and the assertion is dropped.
+	"quantifier_empty_binders.smt2": "(error \"line 1 column 20: invalid quantifier, list of sorted variables is empty\")\nsat\n",
 	// AUDIT.md tactic_arith_03-F2: purify-arith filters only m_app2fresh values;
 	// the cosine constant of a sine-only angle stays in the model.
 	"purify_arith_sin_model.smt2": "sat\n(model \n  (define-fun k!1 () Real\n    (root-obj (+ (* 16 (^ x 2)) (- 7)) 1))\n  (define-fun t () Real\n    (acos (root-obj (+ (* 16 (^ x 2)) (- 7)) 1)))\n)\n",
@@ -1456,6 +1459,8 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	"quantifier_empty_binders.smt2": true,
+
 	"sat_scc_tr_unknown_param.smt2":                    true,
 	"parser_error_unknown_names_qf_lia.smt2":           true,
 	"parser_error_unknown_sorts_functions_qf_lia.smt2": true,

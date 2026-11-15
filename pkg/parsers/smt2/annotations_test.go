@@ -196,3 +196,26 @@ func TestSMT2QuantifierAttributesRejectWrongScopesAndBadPatterns(t *testing.T) {
 		})
 	}
 }
+
+// AUDIT.md parsers_shell_01-F4: push_quant_frame rejects an empty
+// sorted-variable list, so the assertion is dropped.
+func TestSMT2EmptyQuantifierBinderRejected(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := context.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	var out bytes.Buffer
+	err = ParseShellCommands(context, strings.NewReader("(assert (exists () false))\n(check-sat)\n"), &out)
+	const message = "line 1 column 20: invalid quantifier, list of sorted variables is empty"
+	if err == nil || err.Error() != message {
+		t.Fatal("first parse error", err)
+	}
+	if want := "(error \"" + message + "\")\nsat\n"; out.String() != want {
+		t.Fatal("empty quantifier binder", out.String(), want)
+	}
+}

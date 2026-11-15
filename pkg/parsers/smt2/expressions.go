@@ -509,6 +509,10 @@ func (p *commandParser) quantifier(forall bool) (value ast.ASTHandle, named stri
 	if err != nil {
 		return ast.ASTHandle{}, "", err
 	}
+	// Source push_quant_frame: an empty sorted-variable list is rejected.
+	if len(names) == 0 {
+		return ast.ASTHandle{}, "", errors.New("invalid quantifier, list of sorted variables is empty")
+	}
 	oldBindings, oldExprs := p.bindings, len(p.locals.refs)
 	p.bindings, err = p.env.bindSortedVariables(p.manager, names, sorts, p.bindings, &p.locals)
 	if err != nil {
