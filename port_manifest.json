@@ -84226,7 +84226,7 @@
       ],
       "deviations": [
         "EqBounds now reaches the native equality-event consumer. Focused checks cover numeral/difference pairs, Int/Real, proofs, nonlinear intervals, weighted explanations and pop cleanup. The congruence conflict/model/pop script brings exact C++ runner comparisons to 106. Other arithmetic/setup work remains partial.",
-        "The source default pivot strategy is the smallest-variable strategy, implemented deterministically with a Go map plus sorted selection. The dormant greatest/least-error strategies and random tie choice are not reached by retained consumers.",
+        "The source default pivot strategy is the smallest-variable strategy. select_pivot_core breaks (dependencies, column size) ties with m_random()%n using a per-Solver z3rand.Generator seeded 0, as the source random_gen member (AUDIT.md smtcore_12-F4). The dormant greatest/least-error strategies are not reached by retained consumers.",
         "Source unsigned pivot, infeasible and check counters use uint32 and wrap during actual feasibility/pivot operations. The arithmetic consumer widens only after source-width wrapping; PB collection retains source width.",
         "The difference-logic cached simplex bridge exposed a skipped self-row in the earlier Go updateValue. That skip reported the correct new objective3 but produced graph assignment-1 after tightening x<=7 to x<=3. Removing the skip follows the native update_value loop and restores the canonical row and graph witness3. An old-simplex overlay reproduces both the direct basic-seed failure and the incremental-model failure. No source-unit status change or wholesale re-audit is claimed.",
         "This completes the necessary three-component value/tableau foundation, not AS_OPTINF backend integration. Mode5 remains disabled in setup until internalization, equalities, nonlinear rational shortcuts, model reconstruction, copy/reset and full objective-bound transport are ported and verified. Finite SMT objective bound APIs reject nonzero infinity instead of silently projecting it onto their old main/epsilon fields. Mathematical oracle and five semantic fault overlays check comparison, copied coefficients, addition, -1-sentinel classification and the finite-bound boundary. Existing whole-unit status flags and unrelated numeral-manager ownership audits are unchanged."
@@ -84274,7 +84274,7 @@
       ],
       "ownership": [],
       "deviations": [
-        "Matrix uses exact math/big.Rat coefficients, slices, and explicit column row identifiers. Returned entries are copied because Go has no safe analogue of the source mutable intrusive iterators.",
+        "Matrix uses exact math/big.Rat coefficients and slices with the source entry layout: dead row and column entries stay in place on LIFO free lists, compression follows compress_if_needed (columns blocked while a traversal holds m_refs), and recycled rows keep their slots (AUDIT.md math_misc_02-F3). Returned entries are copied because Go has no safe analogue of the source mutable intrusive iterators.",
         "Source unsigned row-addition counter uses uint32; an actual row merge across wrap preserves coefficient arithmetic and well-formedness."
       ]
     },
