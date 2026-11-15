@@ -20,14 +20,9 @@ func TestAPIOptimizeObjectiveExpressionsBuildSoftPenaltySum(t *testing.T) {
 	if err != nil || len(refs) != 1 {
 		t.Fatal(len(refs), err)
 	}
-	sum, err := f.m.RefGet(refs[0])
-	if err != nil {
-		t.Fatal(err)
-	}
-	if kind, e := f.m.GetDeclKind(sum); e != nil || kind != 6 {
-		t.Fatal(kind, e)
-	}
-	term, err := f.m.GetArg(sum, 0)
+	// AUDIT.md cmd_context_02-F10: arith_util::mk_add of one argument is
+	// that argument, so a one-term group is the ite penalty itself.
+	term, err := f.m.RefGet(refs[0])
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -3,6 +3,8 @@ package api
 import (
 	"math/big"
 	"testing"
+
+	"github.com/glycerine/g3/pkg/ast"
 )
 
 func TestAPIOptimizationObjectivesPreserveMixedInsertionOrder(t *testing.T) {
@@ -29,7 +31,8 @@ func TestAPIOptimizationObjectivesPreserveMixedInsertionOrder(t *testing.T) {
 	}
 	middle, err := f.m.RefGet(objectives[1])
 	astTestMust(t, err)
-	if kind, kindErr := f.m.GetDeclKind(middle); kindErr != nil || kind != 6 {
+	// AUDIT.md cmd_context_02-F10: a one-term MaxSMT group is the ite itself.
+	if kind, kindErr := f.m.GetDeclKind(middle); kindErr != nil || kind != ast.ASTOpIte {
 		t.Fatal("middle objective", kind, kindErr)
 	}
 	last, err := f.m.RefGet(objectives[2])
@@ -40,4 +43,29 @@ func TestAPIOptimizationObjectivesPreserveMixedInsertionOrder(t *testing.T) {
 	for i := range objectives {
 		astTestMust(t, f.m.DelRef(&objectives[i]))
 	}
+}
+
+// AUDIT.md cmd_context_02-F10: two soft terms under one id sum with OP_ADD.
+func TestAPIOptimizationObjectivesSoftGroupSum(t *testing.T) {
+	f := newSMTAPIFixture(t, "ALL", nil)
+	boolean := f.pin(f.m.MkBoolSort())
+	var terms []ast.ASTHandle
+	for _, text := range []string{"soft-sum-p", "soft-sum-q"} {
+		name, err := f.m.Symbols.Intern(text)
+		astTestMust(t, err)
+		terms = append(terms, f.pin(f.m.MkConst(name, boolean)))
+	}
+	astTestMust(t, f.c.AssertSoft(terms[0], big.NewRat(2, 1), "soft-sum"))
+	astTestMust(t, f.c.AssertSoft(terms[1], big.NewRat(3, 1), "soft-sum"))
+	objectives, err := f.c.OptimizationObjectives()
+	astTestMust(t, err)
+	if len(objectives) != 1 {
+		t.Fatal("soft group objectives", len(objectives))
+	}
+	sum, err := f.m.RefGet(objectives[0])
+	astTestMust(t, err)
+	if kind, kindErr := f.m.GetDeclKind(sum); kindErr != nil || kind != 6 {
+		t.Fatal("soft group sum", kind, kindErr)
+	}
+	astTestMust(t, f.m.DelRef(&objectives[0]))
 }

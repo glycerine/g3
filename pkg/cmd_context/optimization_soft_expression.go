@@ -52,6 +52,10 @@ func (c *Context) optimizationSoftExpression(objective *optimizationObjective) (
 	if len(penalties) == 0 {
 		return c.manager.NewRef(zero)
 	}
+	// arith_util::mk_add returns a lone application argument itself.
+	if len(penalties) == 1 {
+		return c.manager.NewRef(penalties[0])
+	}
 	family, err := c.manager.ArithmeticFamilyID()
 	if err != nil {
 		return ast.ASTRef{}, err
