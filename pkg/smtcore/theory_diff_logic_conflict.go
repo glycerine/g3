@@ -14,6 +14,25 @@ func (t *SMTRealDiffTheory) setNegativeCycleConflict(literals []SMTLiteral) (res
 	if err != nil {
 		return err
 	}
+	t.realStatistics.conflicts++ // inc_conflicts()
+	if t.dumpLemmas {
+		logicName := "QF_LRA"
+		if t.isLIA {
+			logicName = "QF_LIA"
+		}
+		logic, err := state.manager.Symbols.Intern(logicName)
+		if err != nil {
+			return err
+		}
+		_, err = state.DumpLemmaAsSMTProblem(literals, nil, SMTFalseLiteral, logic)
+		var dump *SMTLemmaDumpError
+		if errors.As(err, &dump) {
+			err = dump.OperandError
+		}
+		if err != nil {
+			return err
+		}
+	}
 	var parameters []ast.ASTParameter
 	proofs, err := state.manager.ProofsEnabled()
 	if err != nil {
@@ -49,6 +68,5 @@ func (t *SMTRealDiffTheory) setNegativeCycleConflict(literals []SMTLiteral) (res
 	state.inconsistent = true
 	state.conflict = wrapped
 	state.conflictLiteral = SMTNullLiteral
-	t.realStatistics.conflicts++
 	return nil
 }

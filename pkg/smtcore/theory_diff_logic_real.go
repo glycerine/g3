@@ -24,6 +24,7 @@ type SMTRealDiffTheory struct {
 	realScopes        []smtIntegerDiffScope
 	delta             big.Rat
 	realStatistics    smtDiffStatistics
+	isLIA             bool // m_is_lia
 }
 
 func NewSMTRealDiffTheory(family ast.FamilyID) (*SMTRealDiffTheory, error) {
@@ -35,6 +36,7 @@ func NewSMTRealDiffTheory(family ast.FamilyID) (*SMTRealDiffTheory, error) {
 		SMTIntegerDiffTheory: syntax,
 		realGraph:            NewSMTInfRationalDiffGraph(),
 		realAtomByBool:       make(map[int32]int),
+		isLIA:                true,
 	}
 	syntax.graphExt = theory
 	return theory, nil
@@ -161,6 +163,7 @@ func (t *SMTRealDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (b
 	if atom.integer {
 		negativeWeight.rational.Sub(&negativeWeight.rational, big.NewRat(1, 1))
 	} else {
+		t.isLIA = false
 		negativeWeight.infinitesimal.Sub(&negativeWeight.infinitesimal, big.NewRat(1, 1))
 	}
 	negative, err := t.realGraph.AddEdge(int32(target), int32(source), &negativeWeight, literal.Negated())

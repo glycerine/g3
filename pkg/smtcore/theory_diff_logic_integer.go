@@ -46,6 +46,7 @@ type SMTIntegerDiffTheory struct {
 	nonDifference   bool
 	addBinaryBounds bool
 	eagerEqAxioms   bool
+	dumpLemmas      bool // m_params.m_arith_dump_lemmas
 	equalityAdapter *smtArithmeticEqualityAdapter
 	optimization    smtDiffOptimization
 	statistics      smtDiffStatistics
@@ -64,6 +65,7 @@ func (t *SMTIntegerDiffTheory) ConfigureArithmetic(config SMTArithState) error {
 	}
 	t.addBinaryBounds = config.AddBinaryBounds
 	t.eagerEqAxioms = config.EagerEqAxioms
+	t.dumpLemmas = config.DumpLemmas
 	t.equalityAdapter.binary = config.AddBinaryBounds
 	t.equalityAdapter.lazy = config.LazyAdapter
 	return nil

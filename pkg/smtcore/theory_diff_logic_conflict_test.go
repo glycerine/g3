@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -199,5 +201,72 @@ func TestSMTUTVPIConflictParametersFollowScopeLifetime(t *testing.T) {
 	astTestMust(t, state.PopScopes(1))
 	if m.Stats().LiveParameters != before.LiveParameters || len(extended.Parameters()) != 0 {
 		t.Fatal("UTVPI conflict parameters survived backtracking")
+	}
+}
+
+// AUDIT.md smtcore_10-F8: set_neg_cycle_conflict dumps the conflict with
+// display_lemma_as_smt_problem under smt.arith.dump_lemmas, with logic
+// QF_LIA while every atom is over Int (m_is_lia) and QF_LRA otherwise.
+func TestSMTDifferenceConflictDumpsLemma(t *testing.T) {
+	for _, integer := range []bool{true, false} {
+		t.Run(fmt.Sprint(integer), func(t *testing.T) {
+			t.Chdir(t.TempDir())
+			oldID := smtLemmaID
+			t.Cleanup(func() { smtLemmaID = oldID })
+			smtLemmaID = 0
+			m := astTestManager(t)
+			family, err := m.RegisterArithmeticPlugin()
+			astTestMust(t, err)
+			_, _, state := smtInternalizerFixture(t, m, nil)
+			theory, err := NewSMTMixedDiffTheory(family)
+			astTestMust(t, err)
+			astTestMust(t, theory.ConfigureArithmetic(SMTArithState{DumpLemmas: true}))
+			astTestMust(t, state.RegisterTheory(theory))
+			sortKind := int32(0)
+			if integer {
+				sortKind = 1
+			}
+			sort, err := m.MkFamilySort(family, sortKind, nil)
+			astTestMust(t, err)
+			var variables []ast.ASTHandle
+			for i := 0; i < 2; i++ {
+				x, err := m.MkConst(astTestSymbol(t, m, fmt.Sprint("diff-dump-", i)), sort)
+				astTestMust(t, err)
+				astTestMust(t, state.Internalize(x, false))
+				variables = append(variables, x)
+			}
+			assert := func(source, target int, weight int64) {
+				minusOne, err := m.ArithmeticNumeralRat(big.NewRat(-1, 1), integer)
+				astTestMust(t, err)
+				negative, err := m.MkFamilyApp(family, smtArithOpMul, nil, []ast.ASTHandle{minusOne, variables[source]})
+				astTestMust(t, err)
+				difference, err := m.MkFamilyApp(family, smtArithOpAdd, nil, []ast.ASTHandle{variables[target], negative})
+				astTestMust(t, err)
+				n, err := m.ArithmeticNumeralRat(big.NewRat(weight, 1), integer)
+				astTestMust(t, err)
+				formula, err := m.MkFamilyApp(family, smtArithOpLE, nil, []ast.ASTHandle{difference, n})
+				astTestMust(t, err)
+				astTestMust(t, state.Internalize(formula, true))
+				literal, err := state.Literal(formula)
+				astTestMust(t, err)
+				astTestMust(t, state.AssignLiteral(literal, NewSMTBooleanAxiom()))
+				astTestMust(t, state.PropagateTheoryAssignments())
+				astTestMust(t, theory.Propagate())
+			}
+			assert(0, 1, 0)
+			assert(1, 0, -1)
+			if !state.Inconsistent() || smtLemmaID != 1 {
+				t.Fatal("negative cycle did not publish and dump", state.Inconsistent(), smtLemmaID)
+			}
+			text, err := os.ReadFile("lemma_0.smt2")
+			astTestMust(t, err)
+			want := "(set-logic QF_LRA)"
+			if integer {
+				want = "(set-logic QF_LIA)"
+			}
+			if !strings.Contains(string(text), want) {
+				t.Fatal("dumped lemma logic", string(text))
+			}
+		})
 	}
 }
