@@ -185,6 +185,9 @@ Abstract:
                                   so Z3_get_implied_equalities' produce_models
                                   turns a solver-level smt.mbqi=false back on
                                   (pkg/AUDIT.md smtcore_03-F10 follow-up).
+    z3_4_7_1_goal_update_false    goal::update flattens a formula to false
+                                  but pushes the unflattened formula, so
+                                  the goal does not become inconsistent.
     z3_4_7_1_get_file_names_posix datalog::get_file_names is
                                   NOT_IMPLEMENTED_YET outside _WINDOWS, so
                                   z3 -dl DIRECTORY (the WPA benchmark
@@ -2544,4 +2547,29 @@ void tst_z3_4_7_1_wpa_empty_map_name() {
     }
     std::cout << "wpa_empty_map_name: PASS\n";
 #endif
+}
+
+// goal::update (proofs off) flattens its formula with quick_process. When
+// the first flattened conjunct is false it pushes the unflattened f instead
+// of false, so (and false p) is appended as a formula, the stale formula at
+// i is kept and the goal never becomes inconsistent. nnf reaches this:
+// (not (=> false a)) becomes (and false (not a)). Still present upstream.
+void tst_z3_4_7_1_goal_update_false() {
+    {
+        ast_manager m;
+        reg_decl_plugins(m);
+        goal g(m, false, false);
+        expr_ref p(m.mk_const(symbol("p"), m.mk_bool_sort()), m);
+        expr_ref q(m.mk_const(symbol("q"), m.mk_bool_sort()), m);
+        g.assert_expr(q);
+        expr_ref f(m.mk_and(m.mk_false(), p), m);
+        g.update(0, f);
+        std::cout << "goal_update_false: update(0, " << f << ")\n";
+        g.display(std::cout);
+        ENSURE(g.inconsistent());
+        ENSURE(g.size() == 1 && m.is_false(g.form(0)));
+    }
+    expect_script("goal_update_false",
+                  "(declare-const a Bool)\n(assert (not (=> false a)))\n(apply nnf)\n",
+                  "(goals\n(goal\n  false\n  :precision precise :depth 1)\n)\n");
 }
