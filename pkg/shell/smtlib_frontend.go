@@ -12,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/cmd_context"
 	"github.com/glycerine/g3/pkg/parsers/smt2"
 	"github.com/glycerine/g3/pkg/util/stopwatch"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 // SMTLIBFrontendConfig describes one SMT-LIB command stream. Context is
@@ -141,7 +142,10 @@ func (f *SMTLIBFrontend) Run() (result error) {
 	}
 
 	var statisticsErr error
-	if f.stats && stopErr == nil && secondsErr == nil {
+	// A source exit(status) inside a command skips the final statistics.
+	var processExit *z3exception.ProcessExit
+	exited := errors.As(parseErr, &processExit)
+	if f.stats && stopErr == nil && secondsErr == nil && !exited {
 		statisticsErr = f.writeFinalStatistics(seconds)
 	}
 	f.result.StatisticsError = statisticsErr

@@ -157,3 +157,10 @@ func cStringLength(value string) int {
 	}
 	return len(value)
 }
+
+// ProcessExit is a source exit(status) reached below the command loop (for
+// example rel_context::saturate's fixedpoint.print_aig branch). The command
+// loop stops without reporting it, and the program exits with Status.
+type ProcessExit struct{ Status int }
+
+func (e *ProcessExit) Error() string { return fmt.Sprintf("exit(%d)", e.Status) }

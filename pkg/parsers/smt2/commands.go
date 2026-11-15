@@ -20,6 +20,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/symbol"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 type commandParser struct {
@@ -170,6 +171,12 @@ func parseCommandsWithStop(context *cmd_context.Context, input io.Reader, out io
 			return nil
 		}
 		exit, err := p.command()
+		var processExit *z3exception.ProcessExit
+		if errors.As(err, &processExit) {
+			// A source exit(status) below the command: no report, no
+			// further commands.
+			return processExit
+		}
 		if err != nil {
 			parseErr := parserScannerError(err, scanner)
 			if firstParseError == nil {

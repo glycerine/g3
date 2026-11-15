@@ -87,6 +87,8 @@ func (e *PropositionalEngine) predicateState(declaration ast.ASTHandle) (*predic
 // PropositionalEngine owns the retained rule, finite-relation, and optional
 // ground-guard rewriting services.
 type PropositionalEngine struct {
+	// datalogFrontend: driven by read_datalog (no print_aig export).
+	datalogFrontend bool
 	// datalogCode is rel_context::m_code: the compiled rule code outlives
 	// its saturation until the next saturation round resets it (or the
 	// engine is destroyed), keeping its conditions alive meanwhile.
@@ -2653,6 +2655,10 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 		return lbool.Undef, err
 	}
 	if err := e.checkDatalogEarlyRuleProperties(); err != nil {
+		return lbool.Undef, err
+	}
+	// rel_context::saturate: fixedpoint.print_aig exports and exits.
+	if err := e.datalogPrintAIG(); err != nil {
 		return lbool.Undef, err
 	}
 	if err := e.applyDatalogDefaultFiniteTable(); err != nil {

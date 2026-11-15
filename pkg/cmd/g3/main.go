@@ -30,7 +30,13 @@ func run(input io.Reader, output io.Writer) (result error) {
 		return err
 	}
 	defer func() { result = errors.Join(result, frontend.Close()) }()
-	return frontend.Run()
+	err = frontend.Run()
+	var processExit *z3exception.ProcessExit
+	if errors.As(err, &processExit) && processExit.Status == 0 {
+		// exit(0): the output so far is the whole result.
+		return nil
+	}
+	return err
 }
 
 func runArguments(args []string, input io.Reader, output io.Writer) error {
@@ -240,6 +246,11 @@ func main() {
 	err := runArgumentsWithDiagnostics(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)
 	stopProfile()
 	if err != nil {
+		var processExit *z3exception.ProcessExit
+		if errors.As(err, &processExit) {
+			// A source exit(status) below the command loop.
+			os.Exit(processExit.Status)
+		}
 		var commandError *shell.CommandLineError
 		if errors.As(err, &commandError) {
 			_ = shell.WriteCommandError(os.Stderr, commandError.Message)

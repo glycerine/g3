@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_rel_01-F1: rel_context::saturate exits after fixedpoint.print_aig
+	// (no answer, no later commands).
+	"datalog_print_aig_exit.smt2": "before\n",
 	// AUDIT.md muz_rel_03-F1: dl.* statistics are checked by a Go test.
 	"rel_load_empty_stats.smt2": "sat\n(or (= (:var 0) #b000) (= (:var 0) #b001) (= (:var 0) #b010))\n",
 	// AUDIT.md muz_rel_03-F2: dl.* statistics are checked by a Go test.

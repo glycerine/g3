@@ -7,5 +7,11 @@ func (c *Context) SelectDatalogFrontendEngine() error {
 	if err != nil {
 		return err
 	}
-	return engine.SelectEngine("datalog")
+	if err = engine.SelectEngine("datalog"); err != nil {
+		return err
+	}
+	// read_datalog compiles and runs the rules itself rather than through
+	// rel_context::saturate, so fixedpoint.print_aig does not apply.
+	engine.SetDatalogFrontend(true)
+	return nil
 }
