@@ -262,6 +262,13 @@ Abstract:
                                   lines ("set proof", "proof set",
                                   "get_subst" and each proof) to std::cout
                                   (upstream 73a24ca0a).
+    z3_4_7_1_dl_string_to_uint64_blank
+                                  datalog::string_to_uint64 accepts an
+                                  empty or blank string (sscanf returns
+                                  EOF) and leaves the result unset, so the
+                                  Datalog front end reads `X = ""` on an
+                                  int domain as an uninitialized number
+                                  (pkg/AUDIT.md cmd_context_01-F9 follow-up).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -3154,4 +3161,28 @@ void tst_z3_4_7_1_sorting_uninit_cmp() {
     lbool r = solver.check();
     std::cout << "sorting_uninit_cmp: " << r << " (expected l_false)\n";
     ENSURE(r == l_false);
+}
+
+// datalog::string_to_uint64 tests sscanf's result against 0 only. For an
+// empty or all-blank string sscanf returns EOF, so the function reports
+// success without storing res, and dparser::mk_const builds the integer
+// constant of `X = ""` (or of P("") on an `int` domain) from an
+// uninitialized variable: the front end prints a different garbage number
+// on each run. The string is not an integer, as for "abc".
+void tst_z3_4_7_1_dl_string_to_uint64_blank() {
+    uint64_t val = 0;
+    ENSURE(!datalog::string_to_uint64("", val));
+    ENSURE(!datalog::string_to_uint64(" ", val));
+    ENSURE(!datalog::string_to_uint64("abc", val));
+    ENSURE(datalog::string_to_uint64("12", val) && val == 12);
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params fparams;
+    datalog::register_engine re;
+    datalog::context ctx(m, re, fparams);
+    datalog::parser* p = datalog::parser::create(ctx, m);
+    bool ok = p->parse_string("I int\n\nP(x:I) printtuples\nP(\"\").\n");
+    dealloc(p);
+    ENSURE(!ok);
+    std::cout << "dl_string_to_uint64_blank: PASS\n";
 }
