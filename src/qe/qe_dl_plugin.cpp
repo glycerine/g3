@@ -162,7 +162,7 @@ namespace qe {
                 }
 
                 for (unsigned i = 0; i < eqs.num_neqs(); ++i) {
-                    m_replace.apply_substitution(eqs.neq_atom(i), m.mk_true(), fml);
+                    m_replace.apply_substitution(eqs.neq_atom(i), m.mk_false(), fml);
                 }
             }
         }
