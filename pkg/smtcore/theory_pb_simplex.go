@@ -28,12 +28,12 @@ type smtPBSimplex struct {
 	lower, upper    map[uint32]SMTLiteral
 }
 
-// Source uses a predicate's Boolean ID as its numeric row slack and notes
-// that this breaks nesting. Distinct even Boolean / odd slack columns keep
-// their order while preventing a parent Boolean's [0,1] bounds from bounding
-// its weighted sum. SMT literal IDs and conflict explanations stay unchanged.
-func smtPBBooleanColumn(v int32) uint32 { return 2 * uint32(v) }
-func smtPBSlackColumn(v int32) uint32   { return 2*uint32(v) + 1 }
+// Simplex columns are Boolean IDs, as in the source: a variable's 0-1
+// column and a predicate's row slack column share the predicate's ID
+// (theory_pb.cpp:569,592). Columns of IDs freed by pop keep their values,
+// which steers later pivots. Two fork fixes keep the sharing sound:
+// constraints over PB predicates get no row (simplexInternalize), and only
+// 0-1 columns receive literal bounds (assignNative).
 
 func smtPBExplain(explains map[uint32]SMTLiteral, v uint32) SMTLiteral {
 	if l, found := explains[v]; found {
@@ -143,9 +143,9 @@ func (t *SMTPseudoBooleanTheory) simplexInternalize(c *smtPBConstraint) error {
 	}); err != nil {
 		return err
 	}
-	slack := smtPBSlackColumn(c.literal.Var())
+	slack := uint32(c.literal.Var())
 	if owner, found := s.representatives[representative]; found {
-		slack = smtPBSlackColumn(owner)
+		slack = uint32(owner)
 		if err := t.emitPB("internalize_atom", 558, func(out io.Writer) error {
 			info := s.rows[owner]
 			_, _ = fmt.Fprintf(out, "Old row: %d |-> %d %s vs. %s\n", c.literal.Var(), owner, info.bound.RatString(), rep.bound.RatString())
@@ -158,7 +158,7 @@ func (t *SMTPseudoBooleanTheory) simplexInternalize(c *smtPBConstraint) error {
 		var variables []uint32
 		var coefficients []big.Int
 		for _, term := range rep.terms {
-			v := smtPBBooleanColumn(term.literal.Var())
+			v := uint32(term.literal.Var())
 			s.solver.EnsureVariable(v)
 			variables = append(variables, v)
 			if !s.variables[v] {
@@ -293,7 +293,7 @@ func (t *SMTPseudoBooleanTheory) simplexAssignArgument(v int32, isTrue bool) (bo
 	if isTrue {
 		value = 1
 	}
-	ok, err := t.simplexUpdateBound(smtPBBooleanColumn(v), NewSMTLiteral(v, !isTrue), isTrue, simplex.RationalInfinitesimal(big.NewRat(value, 1)))
+	ok, err := t.simplexUpdateBound(uint32(v), NewSMTLiteral(v, !isTrue), isTrue, simplex.RationalInfinitesimal(big.NewRat(value, 1)))
 	if err != nil || !ok {
 		return ok, err
 	}
@@ -357,4 +357,9 @@ func (t *SMTPseudoBooleanTheory) simplexHasRow(v int32) bool {
 	}
 	_, found := t.simplex.rows[v]
 	return found
+}
+
+// simplexIsVariable is m_vars.contains(v): v has a 0-1 column.
+func (t *SMTPseudoBooleanTheory) simplexIsVariable(v int32) bool {
+	return t.simplex != nil && t.simplex.variables[uint32(v)]
 }

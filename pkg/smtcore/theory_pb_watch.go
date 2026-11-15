@@ -614,7 +614,12 @@ func (t *SMTPseudoBooleanTheory) assignNative(v int32, isTrue bool) error {
 	if isTrue {
 		sign = 1
 	}
-	if t.controls.EnableSimplex && i.literals[sign] != nil {
+	// z3 4.7.1 bug: pop empties a freed Boolean's watch list but keeps it,
+	// and the source bounds the Boolean's column whenever the list exists.
+	// Reused as a PB predicate, that column is the predicate's slack, and
+	// the 0-1 bound makes z3 answer unsat on satisfiable problems. The
+	// fork fix bounds only 0-1 columns (m_vars.contains(v)).
+	if t.controls.EnableSimplex && i.literals[sign] != nil && t.simplexIsVariable(v) {
 		ok, err := t.simplexAssignArgument(v, isTrue)
 		if err != nil || !ok {
 			return err

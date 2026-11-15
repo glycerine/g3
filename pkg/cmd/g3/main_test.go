@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// smtcore_12-F4 follow-up: pb simplex columns are bool vars, reused after pop.
+	"pb_simplex_pop_reuse_stats.smt2": "unsat\nsat\nsat\n",
 	// AUDIT.md smtcore_13-F8, smtcore_13-F10: theory_wmaxsat blocks the heaviest costs first
 	// and keeps its cost on the trail.
 	"wmax_block_heaviest_first.smt2": "sat\n(objectives\n ( 7)\n)\n(model \n  (define-fun b6 () Bool\n    true)\n  (define-fun x () Int\n    (- 1))\n  (define-fun b5 () Bool\n    true)\n  (define-fun y () Int\n    7)\n  (define-fun b2 () Bool\n    true)\n  (define-fun b1 () Bool\n    false)\n  (define-fun b3 () Bool\n    true)\n  (define-fun b0 () Bool\n    true)\n  (define-fun b7 () Bool\n    false)\n  (define-fun b8 () Bool\n    true)\n  (define-fun b4 () Bool\n    false)\n)\n",

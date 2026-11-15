@@ -328,8 +328,8 @@ func TestSMTPBSimplexPivotedScopedRowRemovalPreservesOuterRows(t *testing.T) {
 		astTestMust(t, err)
 		y, err := s.Literal(xs[1])
 		astTestMust(t, err)
-		sum := pb.simplex.solver.Value(smtPBBooleanColumn(x.Var()))
-		other := pb.simplex.solver.Value(smtPBBooleanColumn(y.Var()))
+		sum := pb.simplex.solver.Value(uint32(x.Var()))
+		other := pb.simplex.solver.Value(uint32(y.Var()))
 		sum.Add(&other)
 		if sum.Cmp(&slack) != 0 || slack.Main.Cmp(big.NewRat(1, 1)) < 0 {
 			t.Fatal("outer numeric row no longer represents x+y>=1", sum, slack)

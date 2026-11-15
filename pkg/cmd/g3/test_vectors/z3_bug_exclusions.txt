@@ -651,3 +651,15 @@ z3_bug_case_split6_phase
 # test_vectors/z3_bug_pb_simplex_nested_crash.smt2.
 z3_bug_pb_simplex_nested
 z3_bug_pb_simplex_nested_crash
+#
+# With smt.pb.enable_simplex, theory_pb::pop_scope_eh empties the watch
+# lists of popped constraints but keeps the lists, and assign_eh bounds a
+# bool var's 0-1 column whenever its literal watch list exists. A var freed
+# by pop and reused as a pb atom has such a list, and its column is the
+# atom's slack, so the 0-1 bound lands on the weighted sum and z3 answers
+# unsat on satisfiable problems (z3 bug: src/smt/theory_pb.cpp assign_eh;
+# upstream removed pb.enable_simplex). g3 and the fork bound only 0-1
+# columns (m_vars) (pkg/smtcore/theory_pb_watch.go assignNative; follow-up
+# to AUDIT.md smtcore_12-F4). Reproduction:
+# test_vectors/z3_bug_pb_simplex_pop.smt2.
+z3_bug_pb_simplex_pop
