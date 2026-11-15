@@ -1,6 +1,7 @@
 package fpa
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -96,4 +97,59 @@ func TestFPA2BVTacticRewritesGoalAndPublishesSingleResult(t *testing.T) {
 	if budget.Used() != 0 {
 		t.Fatalf("retained %d bytes", budget.Used())
 	}
+}
+
+// AUDIT.md tactic_small_01-F3: fpa2bv_rewriter_cfg::updt_params reads
+// max_steps, and fpa2bv_tactic turns the rewriter_exception into a
+// tactic_exception.
+func TestFPA2BVTacticHonorsMaxSteps(t *testing.T) {
+	budget := arena.NewBudget(1 << 30)
+	symbols, err := usymbol.NewManager(usymbol.Config{Budget: budget})
+	fpaTacticMust(t, err)
+	numerals, err := unumeral.NewRationalService(unumeral.RationalServiceConfig{Integers: unumeral.IntegerConfig{Cells: arena.Config{Budget: budget}, Words: arena.VectorConfig{Descriptors: arena.Config{Budget: budget}}}})
+	fpaTacticMust(t, err)
+	manager, err := ast.NewASTManager(ast.ASTManagerConfig{Symbols: symbols, Numerals: numerals, Budget: budget})
+	fpaTacticMust(t, err)
+	context, err := uparams.NewParamsContext(symbols, numerals, uparams.ParamsConfig{Budget: budget})
+	fpaTacticMust(t, err)
+	catalog, err := uparams.NewGlobalParamsCatalog(symbols, uparams.GlobalParamsCatalogConfig{Budget: budget})
+	fpaTacticMust(t, err)
+	globals, err := uparams.NewGlobalParamsService(symbols, context, uparams.GlobalParamsConfig{Budget: budget, Catalog: catalog})
+	fpaTacticMust(t, err)
+	fpaTacticMust(t, globals.InitializeSource())
+	params, err := context.NewValue()
+	fpaTacticMust(t, err)
+	key := "max_steps"
+	fpaTacticMust(t, context.SetUIntName(&params, &key, 1))
+	adapter, err := NewFPA2BVTactic(manager, context, globals, &params)
+	fpaTacticMust(t, err)
+	fpaTacticMust(t, context.Del(&params))
+	fpaTacticMust(t, adapter.IncRef())
+	goal, err := tactic.NewGoal(manager, false, true, false)
+	fpaTacticMust(t, err)
+	floatSort, err := manager.FloatingPointSort(3, 3)
+	fpaTacticMust(t, err)
+	name, err := symbols.Intern("max-steps-float")
+	fpaTacticMust(t, err)
+	value, err := manager.MkConst(name, floatSort)
+	fpaTacticMust(t, err)
+	family, err := manager.RegisterFloatingPointPlugin()
+	fpaTacticMust(t, err)
+	isNaN, err := manager.MkFamilyApp(family, int32(ast.FPAIsNaN), nil, []ast.ASTHandle{value})
+	fpaTacticMust(t, err)
+	isInf, err := manager.MkFamilyApp(family, int32(ast.FPAIsInfinite), nil, []ast.ASTHandle{value})
+	fpaTacticMust(t, err)
+	formula, err := manager.MkOr(isNaN, isInf)
+	fpaTacticMust(t, err)
+	fpaTacticMust(t, goal.Assert(formula))
+	var result tactic.TacticResult
+	err = adapter.Apply(goal, &result)
+	var failure tactic.TacticException
+	if err == nil || err.Error() != "max. steps exceeded" || !errors.As(err, &failure) {
+		t.Fatalf("max_steps not honoured: %v", err)
+	}
+	fpaTacticMust(t, result.Close())
+	fpaTacticMust(t, goal.Close())
+	fpaTacticMust(t, adapter.DecRef())
+	fpaTacticMust(t, globals.Close())
 }

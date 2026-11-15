@@ -129,8 +129,10 @@ func (r *FPA2BVRewriter) Close() (result error) {
 	return result
 }
 
+// MaxStepsExceeded is fpa2bv_rewriter_cfg::max_steps_exceeded: it compares
+// only the step count; m_max_memory is stored but never checked here.
 func (c *fpa2BVConfiguration) MaxStepsExceeded(steps uint32) (bool, error) {
-	return steps > c.maxSteps || c.owner.manager.Budget().Used() > c.maxMemory, nil
+	return steps > c.maxSteps, nil
 }
 
 func fpa2BVSlice(args ast.AppArguments) ([]ast.ASTHandle, error) {

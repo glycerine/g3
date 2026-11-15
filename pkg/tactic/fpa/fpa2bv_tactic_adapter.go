@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/tactic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -83,6 +84,12 @@ func (t *FPA2BVTactic) DecRef() error {
 }
 
 func (t *FPA2BVTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (err error) {
+	// catch (rewriter_exception & ex) { throw tactic_exception(ex.msg()); }
+	defer func() {
+		if rewriter.IsRewriterException(err) {
+			err = tactic.NewTacticException(err.Error())
+		}
+	}()
 	if err = t.open(); err != nil {
 		return err
 	}

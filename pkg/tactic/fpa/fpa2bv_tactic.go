@@ -9,6 +9,7 @@ import (
 	astfpa "github.com/glycerine/g3/pkg/ast/fpa"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/tactic"
+	umemory "github.com/glycerine/g3/pkg/util/memory"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
@@ -80,7 +81,26 @@ func (p *Pass) build() error {
 	if err != nil {
 		return err
 	}
+	if err = p.updateLimits(); err != nil {
+		return err
+	}
 	return rewrite.SetHighUnspecified(high)
+}
+
+// updateLimits is the max_memory/max_steps half of
+// fpa2bv_rewriter_cfg::updt_params, run before updt_local_params.
+func (p *Pass) updateLimits() error {
+	key := "max_memory"
+	megabytes, err := p.context.GetUIntName(&p.params, &key, ^uint32(0))
+	if err != nil {
+		return err
+	}
+	key = "max_steps"
+	steps, err := p.context.GetUIntName(&p.params, &key, ^uint32(0))
+	if err != nil {
+		return err
+	}
+	return p.rewriter.SetLimits(steps, umemory.MegabytesToBytes(megabytes))
 }
 
 func (p *Pass) UpdateParams(value *uparams.ParamsRef) error {
@@ -100,6 +120,9 @@ func (p *Pass) UpdateParams(value *uparams.ParamsRef) error {
 	high, err := settings.HighFPUnspecified()
 	err = errors.Join(err, settings.Close())
 	if err != nil {
+		return err
+	}
+	if err = p.updateLimits(); err != nil {
 		return err
 	}
 	return p.rewriter.SetHighUnspecified(high)
