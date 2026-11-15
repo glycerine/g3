@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md nlsat_03-F3: the nlsat seed reaches the interval-set manager.
+	"nlsat_seed_witness.smt2": "sat\n(model \n  (define-fun a () Real\n    (- (/ 1.0 8.0)))\n  (define-fun b () Real\n    (- 9.0))\n  (define-fun c () Real\n    2.0)\n  (define-fun d () Real\n    3.0)\n)\n",
 	// AUDIT.md muz_fp_01-F5: the bit-blast answer is the Boolean relation's formula.
 	"fp_datalog_bit_blast_answer.smt2": "sat\n(or (and (= (:var 0) false) (= (:var 1) true))\n    (and (= (:var 0) true) (= (:var 1) false)))\n",
 	// AUDIT.md muz_fp_02-F4: Karr favourite with similarity threshold 1.

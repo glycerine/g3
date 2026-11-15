@@ -105,6 +105,10 @@ func NewSolver(config SolverConfig) (s *Solver, err error) {
 	if err != nil {
 		return s, err
 	}
+	// Source updt_params: m_ism.set_seed(m_random_seed) (AUDIT.md nlsat_03-F3).
+	if err = s.evaluator.ism.SetSeed(config.Seed); err != nil {
+		return s, err
+	}
 	s.search, err = newSearchState(s.clauses, s.evaluator, searchConfig{Limit: config.Limit, MaxMemory: s.config.MaxMemory, Lazy: config.Lazy, SimplifyCores: config.SimplifyCore, Randomize: config.Randomize, MaxConflicts: config.MaxConflicts})
 	if err != nil {
 		return s, err

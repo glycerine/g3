@@ -511,6 +511,15 @@ func TestSolverReorderPreservesBooleanModel(t *testing.T) {
 	}
 }
 
+// AUDIT.md nlsat_03-F3: source updt_params seeds the interval-set manager.
+func TestSolverSeedReachesIntervalSetManager(t *testing.T) {
+	s := solverFixtureConfig(t, SolverConfig{MaxConflicts: ^uint32(0), Seed: 1})
+	want := z3rand.New(1)
+	if s.evaluator.ism.rand != *want {
+		t.Fatal("interval-set generator state", s.evaluator.ism.rand, *want)
+	}
+}
+
 func TestSolverShuffledVariablePermutation(t *testing.T) {
 	s := solverFixtureConfig(t, SolverConfig{MaxConflicts: ^uint32(0), Seed: 7})
 	for i := 0; i < 4; i++ {
