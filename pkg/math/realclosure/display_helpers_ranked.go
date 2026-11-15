@@ -32,6 +32,12 @@ func nonzeroRankedCoefficients(value *realValue) int {
 	return count
 }
 
-func rankedCoefficientNeedsParentheses(value *realValue) bool {
-	return value != nil && !value.isRational && nonzeroRankedCoefficients(value) > 1
+// rankedCoefficientNeedsParentheses is use_parenthesis: a non-rational
+// coefficient with more than one nonzero numerator coefficient, or whose
+// denominator is not one.
+func (s *realValueStore) rankedCoefficientNeedsParentheses(value *realValue) bool {
+	if value == nil || value.isRational {
+		return false
+	}
+	return nonzeroRankedCoefficients(value) > 1 || value.root.kind != realExtensionAlgebraic && !s.rankedDenominatorIsOne(value.functionDenominator.coefficients)
 }

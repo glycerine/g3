@@ -24,8 +24,10 @@ func (s *realValueStore) collectRankedAlgebraicRoots(value *realValue) ([]*algeb
 		if _, err := s.retainedValueRank(current); err != nil {
 			return err
 		}
+		// collect_algebraic_refs::mark(ext) records only algebraic
+		// extensions.
 		root := current.root
-		if !seen[root] {
+		if root.kind == realExtensionAlgebraic && !seen[root] {
 			seen[root] = true
 			roots = append(roots, root)
 			if err := markPolynomial(root.polynomial.coefficients); err != nil {

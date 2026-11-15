@@ -386,9 +386,6 @@ func (v *APIValues) Display(w io.Writer, a *APIValue, compact, pretty bool) (err
 		return arena.ErrInvalidSlot
 	}
 	defer v.store.intervalRestoreDefer(&err)()
-	if !a.value.isRational && a.value.root.kind != realExtensionAlgebraic {
-		return v.store.displayRankedExpression(w, a.value, compact, pretty)
-	}
 	return v.store.displayValue(w, a.value, compact, pretty)
 }
 

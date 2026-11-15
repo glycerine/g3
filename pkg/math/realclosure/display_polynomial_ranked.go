@@ -10,7 +10,13 @@ import (
 )
 
 func (s *realValueStore) displayRankedPolynomial(w io.Writer, coefficients []*realValue, variable func() error, compact, pretty bool) error {
-	if s == nil || w == nil || variable == nil || len(coefficients) == 0 || coefficients[len(coefficients)-1] == nil {
+	if s == nil || w == nil || variable == nil {
+		return arena.ErrInvalidSlot
+	}
+	if len(coefficients) == 0 {
+		return writeRealClosureString(w, "0")
+	}
+	if coefficients[len(coefficients)-1] == nil {
 		return arena.ErrInvalidSlot
 	}
 	first := true
@@ -34,7 +40,7 @@ func (s *realValueStore) displayRankedPolynomial(w io.Writer, coefficients []*re
 			}
 		}
 		if i == 0 || !one {
-			parenthesize := i > 0 && rankedCoefficientNeedsParentheses(coefficient)
+			parenthesize := i > 0 && s.rankedCoefficientNeedsParentheses(coefficient)
 			if parenthesize {
 				if err := writeRealClosureString(w, "("); err != nil {
 					return err
