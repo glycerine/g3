@@ -330,8 +330,10 @@ func (a *smtArithmeticEqualityAdapter) mkAxiomsSource(n1, n2 *SMTEnode) (result 
 			return err
 		}
 	}
-	if !a.lazy && state.searching && state.scopeLevel > state.searchBaseLevel &&
-		n1.InternalScopeLevel() <= state.searchBaseLevel && n2.InternalScopeLevel() <= state.searchBaseLevel {
+	// !ctx.at_base_level() && iscope <= ctx.get_base_level() (m_base_lvl,
+	// the user scopes; the assumption scope is above it).
+	if !a.lazy && state.scopeLevel != state.baseLevel &&
+		n1.InternalScopeLevel() <= state.baseLevel && n2.InternalScopeLevel() <= state.baseLevel {
 		a.restart = append(a.restart, pair)
 	}
 	return smtArithEqTraceContext(tags, "arith_eq_adapter_detail", "mk_axioms", 226, state)

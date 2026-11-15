@@ -446,7 +446,9 @@ func (a *smtLRAEqualityAdapter) MkAxiomsNodes(n1, n2 *SMTEnode) (result error) {
 	}
 	// lazy_adapter stays false on retained LRA parameter paths. The sole
 	// add_binary_bounds writer selects RDL, so that branch is not instantiated.
-	if s.scopeLevel > s.searchBaseLevel && n1.InternalScopeLevel() <= s.searchBaseLevel && n2.InternalScopeLevel() <= s.searchBaseLevel {
+	// !ctx.at_base_level() && iscope <= ctx.get_base_level() (m_base_lvl,
+	// the user scopes; the assumption scope is above it).
+	if s.scopeLevel != s.baseLevel && n1.InternalScopeLevel() <= s.baseLevel && n2.InternalScopeLevel() <= s.baseLevel {
 		a.restart = append(a.restart, pair)
 	}
 	return smtArithEqTraceContext(t.lraTraceTags(), "arith_eq_adapter_detail", "mk_axioms", 226, s)

@@ -171,3 +171,47 @@ func TestSMTKernelAppliesArithmeticConfigurationOnTheoryRegistration(t *testing.
 		t.Fatal("kernel did not apply arithmetic parameter snapshot")
 	}
 }
+
+// smtcore_01-F3: arith_eq_adapter::mk_axioms queues restart pairs only for
+// enodes internalized at or below m_base_lvl (the user scopes), not at the
+// assumption (search) level above it.
+func TestSMTArithmeticEqualityAdapterRestartPairsUseBaseLevel(t *testing.T) {
+	for _, inAssumptionScope := range []bool{true, false} {
+		f := newSMTIntegerDiffFixture(t)
+		params := SMTParamsState{AgilityFactor: 0.9999, RestartAdaptive: true}
+		astTestMust(t, f.state.InitializeTheorySearch())
+		x, y := f.x, f.y
+		var left, right int32
+		var err error
+		if !inAssumptionScope {
+			left, err = f.theory.mkVarApp(x)
+			astTestMust(t, err)
+			right, err = f.theory.mkVarApp(y)
+			astTestMust(t, err)
+		}
+		astTestMust(t, f.state.PushScope()) // the assumption scope, level 1
+		if inAssumptionScope {
+			x, err = f.manager.MkConst(astTestSymbol(t, f.manager, "restart-base-x"), f.sort)
+			astTestMust(t, err)
+			y, err = f.manager.MkConst(astTestSymbol(t, f.manager, "restart-base-y"), f.sort)
+			astTestMust(t, err)
+			left, err = f.theory.mkVarApp(x)
+			astTestMust(t, err)
+			right, err = f.theory.mkVarApp(y)
+			astTestMust(t, err)
+		}
+		astTestMust(t, f.state.beginSearchPersistence(1, params))
+		astTestMust(t, f.state.PushScope())
+		astTestMust(t, f.state.enqueueTheoryEquality(f.family, left, right))
+		astTestMust(t, f.state.PropagateTheoryEvents())
+		want := 1
+		if inAssumptionScope {
+			want = 0
+		}
+		if got := len(f.theory.equalityAdapter.restart); got != want {
+			t.Fatal("restart pairs", inAssumptionScope, got, want)
+		}
+		astTestMust(t, f.state.endSearchPersistence())
+		astTestMust(t, f.state.PopScopes(2))
+	}
+}
