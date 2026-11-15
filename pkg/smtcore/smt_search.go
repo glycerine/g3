@@ -331,6 +331,14 @@ func (k *SMTKernel) search() (result lbool.LBool, resultErr error) {
 					return lbool.Undef, fmt.Errorf("smt search capture literal results: %w", err)
 				}
 			}
+			if status == lbool.False {
+				// ~scoped_mk_model: a proto model an MBQI RESTART round left
+				// is still m_proto_model after an unsatisfiable search, so
+				// it becomes m_model and add_rec_funs_to_model runs.
+				if err = k.publishRetiredCandidate(); err != nil {
+					return lbool.Undef, fmt.Errorf("smt search build candidate model: %w", err)
+				}
+			}
 			if status == lbool.Undef {
 				switch k.lastFailure {
 				case SMTFailureOK:
