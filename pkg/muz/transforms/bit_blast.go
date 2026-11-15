@@ -267,12 +267,14 @@ func (p *BitBlastPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resul
 			resultErr = errors.Join(resultErr, p.manager.DelRef(&fml))
 		}
 	}()
-	for i := 0; i < count; i++ {
+	// mk_bit_blast::impl::operator(): for (i = 0; !m_context.canceled() && i < sz; ++i)
+	// evaluates canceled() before the bound, so once more after the last rule.
+	for i := 0; ; i++ {
 		canceled, cancelErr := p.manager.Canceled()
 		if cancelErr != nil {
 			return nil, cancelErr
 		}
-		if canceled {
+		if canceled || i >= count {
 			break
 		}
 		rule, getErr := source.Rule(i)

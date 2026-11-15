@@ -244,12 +244,14 @@ func (p *ArrayBlastPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, res
 		return nil, err
 	}
 	modified := false
-	for i := 0; i < count; i++ {
+	// mk_array_blast::operator(): for (; !m_ctx.canceled() && it != end; ++it)
+	// evaluates canceled() before the bound, so once more after the last rule.
+	for i := 0; ; i++ {
 		canceled, cancelErr := p.manager.Canceled()
 		if cancelErr != nil {
 			return nil, cancelErr
 		}
-		if canceled {
+		if canceled || i >= count {
 			break
 		}
 		rule, getErr := source.Rule(i)
