@@ -225,10 +225,10 @@ func TestSubpavingFixedMonomialSourceThreeFactorDownwardScratch(t *testing.T) {
 	must(err)
 	hi, err := m.Rational(root.upper[2].value)
 	must(err)
-	// The retained source leaves d at the first other factor (2), rather
-	// than the computed product (6), when it divides the output interval.
-	if lo.Cmp(big.NewRat(15, 1)) != 0 || hi.Cmp(big.NewRat(15, 1)) != 0 {
-		t.Fatalf("source downward scratch bounds [%s,%s], want [15,15]", lo, hi)
+	// math_subpaving_02-F1: the source never clears first, so d ends at the
+	// last other factor (3), rather than the first (2) or the product (6).
+	if lo.Cmp(big.NewRat(10, 1)) != 0 || hi.Cmp(big.NewRat(10, 1)) != 0 {
+		t.Fatalf("source downward scratch bounds [%s,%s], want [10,10]", lo, hi)
 	}
 	must(ctx.Close())
 	must(v.Close())

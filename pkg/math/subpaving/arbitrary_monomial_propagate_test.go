@@ -113,8 +113,10 @@ func TestArbitraryMonomialForwardInverseAndArithmetic(t *testing.T) {
 		if err := c.PropagateMonomial(out, n); err != nil {
 			t.Fatal(err)
 		}
-		if value(t, f, n.lower[z]).Cmp(big.NewRat(15, 1)) != 0 || value(t, f, n.upper[z]).Cmp(big.NewRat(15, 1)) != 0 {
-			t.Fatal("source denominator retains first factor rather than full product")
+		// math_subpaving_01-F4: the source never clears first, so d is the
+		// LAST other factor's power (y = 3), not x = 2 or the product 6.
+		if value(t, f, n.lower[z]).Cmp(big.NewRat(10, 1)) != 0 || value(t, f, n.upper[z]).Cmp(big.NewRat(10, 1)) != 0 {
+			t.Fatal("source denominator is the last other factor rather than the full product")
 		}
 	})
 	t.Run("nonregular watched arithmetic is recorded", func(t *testing.T) {

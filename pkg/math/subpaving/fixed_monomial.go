@@ -228,7 +228,7 @@ func (c *FixedContext) propagateMonomialDownward(m *FixedMonomial, variable uint
 			return e
 		}
 		defer func() { err = errors.Join(err, d.Close()) }()
-		first := true
+		first := true // The C++ source does not clear this flag in the loop.
 		for i, power := range m.powers {
 			if i == j {
 				continue
@@ -241,9 +241,7 @@ func (c *FixedContext) propagateMonomialDownward(m *FixedMonomial, variable uint
 			}
 			if first {
 				err = d.SetFrom(r)
-				first = false
 			} else {
-				// Source writes the product to r but leaves d unchanged.
 				err = r.Mul(d, r)
 			}
 			if err != nil {

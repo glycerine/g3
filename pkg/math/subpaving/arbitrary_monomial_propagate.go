@@ -166,7 +166,7 @@ func (c *ArbitraryContext) propagateMonomialDownward(m *ArbitraryMonomial, varia
 			return e
 		}
 		defer func() { err = errors.Join(err, d.Close()) }()
-		first := true
+		first := true // The C++ source does not clear this flag in the loop.
 		for i, power := range m.powers {
 			if i == j {
 				continue
@@ -179,7 +179,6 @@ func (c *ArbitraryContext) propagateMonomialDownward(m *ArbitraryMonomial, varia
 			}
 			if first {
 				err = d.SetFrom(r)
-				first = false
 			} else {
 				err = r.Mul(d, r)
 			}

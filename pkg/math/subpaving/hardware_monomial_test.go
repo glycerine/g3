@@ -177,9 +177,10 @@ func TestHardwareMonomialReverseCubicAndSourceProduct(t *testing.T) {
 			t.Fatal(err)
 		}
 		if n.lower[xs[2]] == nil || n.upper[xs[2]] == nil ||
-			m.ToFloat64(&n.lower[xs[2]].value) != 15 ||
-			m.ToFloat64(&n.upper[xs[2]].value) != 15 {
-			t.Fatal("source denominator stays at first factor")
+			m.ToFloat64(&n.lower[xs[2]].value) != 10 ||
+			m.ToFloat64(&n.upper[xs[2]].value) != 10 {
+			// math_subpaving_02-F1: the source never clears first.
+			t.Fatal("source denominator stays at last other factor")
 		}
 	})
 }
