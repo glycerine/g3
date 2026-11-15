@@ -227,10 +227,15 @@ func composeMultipleTacticResults(g *Goal, out, first *TacticResult, applySecond
 		}
 		first.transferBorrowedGoalOwnershipTo(branch)
 		if branch.DecidedSat() {
-			// C++ and_then_tactical / repeat_tactical: result already holds
-			// the undecided subgoals of earlier iterations; the sat goal is
-			// appended (result.push_back(r2[0])), never reset. core keeps the
-			// value joined so far (SASSERT(!core) is debug only).
+			// and_then_tactical / repeat_tactical with the fork fix (upstream
+			// and_then: result.reset() before result.push_back(r2[0])): the
+			// subgoals form an OR-decomposition of g, so a sat branch decides
+			// g and the undecided subgoals collected so far are dropped.
+			// z3 4.7.1 kept them and answered unknown. core keeps the value
+			// joined so far (SASSERT(!core) is debug only).
+			if err = out.Reset(); err != nil {
+				return err
+			}
 			if err = out.appendMovedGoalsFrom(branch); err != nil {
 				return err
 			}

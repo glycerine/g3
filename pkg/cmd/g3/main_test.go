@@ -338,6 +338,11 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_top_01-F1: the subgoals of split-clause are an OR-decomposition;
+	// a decided-sat branch decides the goal (fork fix of and_then_tactical and
+	// repeat_tactical: result.reset() before pushing the sat goal).
+	"and_then_sat_branch_decides_goal.smt2": "(goals\n(goal\n  :precision precise :depth 2)\n)\nsat\n(model \n  (define-fun y () Int\n    3)\n)\ntrue\nsat\n(model \n  (define-fun y () Int\n    3)\n)\ntrue\n",
+	"repeat_sat_branch_decides_goal.smt2":   "(goals\n(goal\n  :precision precise :depth 2)\n)\nsat\n(model \n  (define-fun y () Int\n    3)\n)\ntrue\n",
 	// AUDIT.md ast_05-F2: no one-Real to_fp (upstream z3; fork fixed).
 	"fpa_to_fp_one_real.smt2": "(error \"line 5 column 31: Unexpected argument combination for (_ to_fp eb sb). Supported argument combinations are: ((_ BitVec 1) (_ BitVec eb) (_ BitVec sb-1)), (_ BitVec (eb+sb)), (RoundingMode (_ BitVec (eb+sb))), (RoundingMode (_ FloatingPoint eb' sb')), (RoundingMode Int Real), (RoundingMode Real Int), (RoundingMode Int), and (RoundingMode Real).\")\n(error \"line 6 column 29: Unexpected argument combination for (_ to_fp eb sb). Supported argument combinations are: ((_ BitVec 1) (_ BitVec eb) (_ BitVec sb-1)), (_ BitVec (eb+sb)), (RoundingMode (_ BitVec (eb+sb))), (RoundingMode (_ FloatingPoint eb' sb')), (RoundingMode Int Real), (RoundingMode Real Int), (RoundingMode Int), and (RoundingMode Real).\")\nunknown\n(error \"line 9 column 28: Unexpected argument combination for (_ to_fp eb sb). Supported argument combinations are: ((_ BitVec 1) (_ BitVec eb) (_ BitVec sb-1)), (_ BitVec (eb+sb)), (RoundingMode (_ BitVec (eb+sb))), (RoundingMode (_ FloatingPoint eb' sb')), (RoundingMode Int Real), (RoundingMode Real Int), (RoundingMode Int), and (RoundingMode Real).\")\n(fp #b0 #b011 #b10)\n",
 	// find_mutexes reads binary watch literals only (statistics in
@@ -993,9 +998,9 @@ var scriptResults = map[string]string{
 	// AUDIT.md tactic_bv_01-F1: elim-small-bv num_steps is local to each
 	// reduce_quantifier call; a later quantifier must not become true.
 	"elim_small_bv_step_limit_per_quantifier.smt2": "unsat\n",
-	// AUDIT.md tactic_top_01-F1: and_then/repeat append a decided-sat subgoal to the
-	// earlier undecided ones (C++ never resets result).
-	"and_then_sat_branch_keeps_goals.smt2": "(goals\n(goal\n  (not (<= x 0))\n  :precision precise :depth 2)\n(goal\n  :precision precise :depth 2)\n)\nunknown\n",
+	// AUDIT.md tactic_top_01-F1: a decided-sat subgoal decides the goal; the
+	// undecided subgoals before it are dropped (fork fix, upstream result.reset()).
+	"and_then_sat_branch_keeps_goals.smt2": "(goals\n(goal\n  :precision precise :depth 2)\n)\nsat\n",
 	// AUDIT.md tactic_core_02-F1: pb-preprocess normalize reads a negated pbge
 	// directly, for any arguments.
 	"pb_preprocess_negated_compound.smt2": "(goals\n(goal\n  ((_ pbge 1 1 1) (not (and a b)) (not c))\n  :precision precise :depth 1)\n)\n",

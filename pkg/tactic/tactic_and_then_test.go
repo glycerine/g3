@@ -412,9 +412,10 @@ func (t *scriptedSplitSatTactic) Apply(g *Goal, out *TacticResult) error {
 	return (&decideTactic{primitiveTactic: t.primitiveTactic, sat: true}).Apply(g, out)
 }
 
-// AUDIT.md tactic_top_01-F1: C++ and_then_tactical appends the decided-sat
-// goal to the undecided subgoals already in result.
-func TestAndThenSatSubgoalKeepsEarlierUndecidedGoals(t *testing.T) {
+// AUDIT.md tactic_top_01-F1: and_then_tactical with the fork fix (upstream
+// result.reset()) returns only the decided-sat goal, dropping the undecided
+// subgoals already in result; z3 4.7.1 kept them and answered unknown.
+func TestAndThenSatSubgoalDropsEarlierUndecidedGoals(t *testing.T) {
 	m := astTestManager(t)
 	g := goalTestNew(t, m, false, false)
 	astTestMust(t, g.Assert(goalTestAtom(t, m, "and-then-sat-keeps")))
@@ -426,17 +427,15 @@ func TestAndThenSatSubgoalKeepsEarlierUndecidedGoals(t *testing.T) {
 	tacticOwnForTest(t, sequence)
 	out := &TacticResult{}
 	astTestMust(t, sequence.Apply(g, out))
-	if len(out.Goals) != 2 || out.DecidedSat() || out.ModelConverter == nil {
-		t.Fatal("sat branch dropped earlier goals", len(out.Goals), out.DecidedSat(), out.ModelConverter)
-	}
-	if out.Goals[0].IsDecided() || !out.Goals[1].IsDecidedSat() {
-		t.Fatal("goal order", out.Goals[0].IsDecided(), out.Goals[1].IsDecidedSat())
+	if len(out.Goals) != 1 || !out.DecidedSat() || out.ModelConverter == nil {
+		t.Fatal("sat branch kept earlier goals", len(out.Goals), out.DecidedSat(), out.ModelConverter)
 	}
 	astTestMust(t, out.Close())
 }
 
-// AUDIT.md tactic_top_01-F1: repeat_tactical shares the multi-subgoal path.
-func TestRepeatSatSubgoalKeepsEarlierUndecidedGoals(t *testing.T) {
+// AUDIT.md tactic_top_01-F1: repeat_tactical shares the multi-subgoal path
+// and gets the same fork fix (still missing upstream).
+func TestRepeatSatSubgoalDropsEarlierUndecidedGoals(t *testing.T) {
 	m := astTestManager(t)
 	g := goalTestNew(t, m, false, false)
 	astTestMust(t, g.Assert(goalTestAtom(t, m, "repeat-sat-keeps")))
@@ -446,8 +445,8 @@ func TestRepeatSatSubgoalKeepsEarlierUndecidedGoals(t *testing.T) {
 	tacticOwnForTest(t, repeat)
 	out := &TacticResult{}
 	astTestMust(t, repeat.Apply(g, out))
-	if len(out.Goals) != 2 || out.DecidedSat() || out.ModelConverter == nil {
-		t.Fatal("repeat sat branch dropped earlier goals", len(out.Goals), out.DecidedSat(), out.ModelConverter)
+	if len(out.Goals) != 1 || !out.DecidedSat() || out.ModelConverter == nil {
+		t.Fatal("repeat sat branch kept earlier goals", len(out.Goals), out.DecidedSat(), out.ModelConverter)
 	}
 	astTestMust(t, out.Close())
 }
