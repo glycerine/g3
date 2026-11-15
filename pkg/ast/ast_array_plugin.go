@@ -170,7 +170,7 @@ func (m *ASTManager) arraySortCore(k int32, ps astArrayParameters) (_result astN
 		return astNodeRef{}, ErrASTDomain
 	}
 	if ps.count() < 2 {
-		return astNodeRef{}, ErrASTDomain
+		return astNodeRef{}, arrayDeclarationError("invalid array sort definition, invalid number of parameters")
 	}
 	for i := 0; i < ps.count(); i++ {
 		r, e := ps.at(m, i)
@@ -178,10 +178,14 @@ func (m *ASTManager) arraySortCore(k int32, ps astArrayParameters) (_result astN
 			return astNodeRef{}, e
 		}
 		if r.Kind != ASTParameterAST {
-			return astNodeRef{}, ErrASTDomain
+			return astNodeRef{}, arrayDeclarationError("invalid array sort definition, parameter is not a sort")
 		}
-		if _, e = m.requireKind(m.external(r.ast), ASTSort); e != nil {
+		x, e := m.internal(m.external(r.ast))
+		if e != nil {
 			return astNodeRef{}, e
+		}
+		if m.nodeAt(x.slot).kind != ASTSort {
+			return astNodeRef{}, arrayDeclarationError("invalid array sort definition, parameter is not a sort")
 		}
 	}
 	last, e := ps.at(m, ps.count()-1)

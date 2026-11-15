@@ -3,7 +3,10 @@ package ast
 // Source: src/ast/array_decl_plugin.cpp:329-431;
 // src/ast/array_decl_plugin.h:176-185.
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestASTArraySetOriginalDeclarationsParametersFlagsAndAssociativeApps(t *testing.T) {
 	m := astTestManager(t)
@@ -131,7 +134,7 @@ func TestASTArraySetOriginalValidation(t *testing.T) {
 	astTestMust(t, m.DelParameter(&op))
 	for _, kind := range []int32{ASTArrayOpSetUnion, ASTArrayOpSetIntersect, ASTArrayOpSetDifference, ASTArrayOpSetComplement, ASTArrayOpSetSubset} {
 		for _, domain := range [][]ASTHandle{nil, {sorts[0]}, {badRange}, {s, multi}, {s, badRange}} {
-			if _, e = m.MkFamilyFuncDecl(fid, kind, nil, domain, ASTHandle{}); e != ErrASTDomain {
+			if _, e = m.MkFamilyFuncDecl(fid, kind, nil, domain, ASTHandle{}); !errors.Is(e, ErrASTDomain) {
 				t.Fatal("bad set domain", kind, domain, e)
 			}
 		}
@@ -142,12 +145,63 @@ func TestASTArraySetOriginalValidation(t *testing.T) {
 			for i := range domain {
 				domain[i] = s
 			}
-			if _, e = m.MkFamilyFuncDecl(fid, kind, nil, domain, ASTHandle{}); e != ErrASTDomain {
+			if _, e = m.MkFamilyFuncDecl(fid, kind, nil, domain, ASTHandle{}); !errors.Is(e, ErrASTDomain) {
 				t.Fatal("binary set arity")
 			}
 		}
 	}
-	if _, e = m.MkFamilyFuncDecl(fid, ASTArrayOpSetComplement, nil, []ASTHandle{s, s}, ASTHandle{}); e != ErrASTDomain {
+	if _, e = m.MkFamilyFuncDecl(fid, ASTArrayOpSetComplement, nil, []ASTHandle{s, s}, ASTHandle{}); !errors.Is(e, ErrASTDomain) {
 		t.Fatal("complement arity")
 	}
+}
+
+// AUDIT.md ast_01-F1: array declaration rejections carry the
+// array_decl_plugin raise_exception text and still match ErrASTDomain.
+func TestArrayDeclErrorMessages(t *testing.T) {
+	m := astTestManager(t)
+	fid, s, sorts := arrayDeclFixture(t, m, 1)
+	x, err := m.MkConst(astTestSymbol(t, m, "s"), s)
+	astTestMust(t, err)
+	astTestPin(t, m, x)
+	_, err = m.MkArrayAppArguments(fid, ASTArrayOpSetComplement, SliceArguments([]ASTHandle{x, x}))
+	if err == nil || err.Error() != "set complement takes one argument" || !errors.Is(err, ErrASTDomain) {
+		t.Fatalf("complement arity error: %v", err)
+	}
+	for _, tc := range []struct {
+		op     int32
+		domain []ASTHandle
+		want   string
+	}{
+		{ASTArrayOpSetUnion, nil, "union takes at least one argument"},
+		{ASTArrayOpSetIntersect, nil, "intersection takes at least one argument"},
+		{ASTArrayOpSetSubset, []ASTHandle{s}, "subset takes two arguments"},
+		{ASTArrayOpSetDifference, []ASTHandle{s}, "set difference takes precisely two arguments"},
+		{ASTArrayOpSetUnion, []ASTHandle{s, sorts[0]}, "arguments 1 and 2 have different sorts"},
+		{ASTArrayOpSetUnion, []ASTHandle{sorts[0]}, "argument 1 is not of array sort"},
+		{ASTArrayOpDefault, []ASTHandle{s, s}, "invalid default array definition, invalid domain size"},
+		{ASTArrayOpDefault, []ASTHandle{sorts[0]}, "parameter mismatch. There should be more than one parameter to defaults"},
+		{ASTArrayOpAsArray, nil, "as-array takes one parameter, a function declaration with arity greater than zero"},
+		{ASTArrayOpConst, []ASTHandle{sorts[0]}, "array operation requires one sort parameter (the array sort)"},
+		{ASTArrayOpMap, []ASTHandle{s}, "array operation requires one function declaration parameter (the function to be mapped)"},
+	} {
+		_, e := m.MkFamilyFuncDecl(fid, tc.op, nil, tc.domain, ASTHandle{})
+		if e == nil || e.Error() != tc.want || !errors.Is(e, ErrASTDomain) {
+			t.Fatalf("op %d: %v, want %q", tc.op, e, tc.want)
+		}
+	}
+	_, e := m.MkFamilyFuncDecl(fid, ASTArrayOpConst, nil, []ASTHandle{sorts[0]}, sorts[0])
+	if e == nil || e.Error() != "invalid const array definition, parameter is not an array sort" {
+		t.Fatalf("const with non-array range: %v", e)
+	}
+	_, e = m.MkFamilyFuncDecl(fid, ASTArrayOpConst, nil, nil, s)
+	if e == nil || e.Error() != "invalid const array definition, invalid domain size" {
+		t.Fatalf("const without argument: %v", e)
+	}
+	p, e := m.NewParameterAST(sorts[0])
+	astTestMust(t, e)
+	_, e = m.MkFamilySort(fid, 0, []ASTParameter{p})
+	if e == nil || e.Error() != "invalid array sort definition, invalid number of parameters" {
+		t.Fatalf("array sort with one parameter: %v", e)
+	}
+	astTestMust(t, m.DelParameter(&p))
 }

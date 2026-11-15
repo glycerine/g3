@@ -93,12 +93,12 @@ func TestASTArrayDefaultExtensionalityOriginalValidationAndStructuralSorts(t *te
 	fid, s, sorts := arrayDeclFixture(t, m, 1)
 	_, different, _ := arrayDeclFixture(t, m, 2)
 	for _, domain := range [][]ASTHandle{nil, {s, s}, {sorts[0]}} {
-		if _, e := m.MkFamilyFuncDecl(fid, ASTArrayOpDefault, nil, domain, ASTHandle{}); e != ErrASTDomain {
+		if _, e := m.MkFamilyFuncDecl(fid, ASTArrayOpDefault, nil, domain, ASTHandle{}); !errors.Is(e, ErrASTDomain) {
 			t.Fatal("default domain", domain, e)
 		}
 	}
 	for _, domain := range [][]ASTHandle{nil, {s}, {s, different}, {sorts[0], sorts[0]}} {
-		if _, e := m.MkFamilyFuncDecl(fid, ASTArrayOpExt, nil, domain, ASTHandle{}); e != ErrASTDomain {
+		if _, e := m.MkFamilyFuncDecl(fid, ASTArrayOpExt, nil, domain, ASTHandle{}); !errors.Is(e, ErrASTDomain) {
 			t.Fatal("ext domain", domain, e)
 		}
 	}
@@ -109,7 +109,7 @@ func TestASTArrayDefaultExtensionalityOriginalValidationAndStructuralSorts(t *te
 	astTestMust(t, e)
 	defer func() { astTestMust(t, m.DelParameter(&ip)) }()
 	for _, ps := range [][]ASTParameter{{sp}, {ip}, {ip, ip}} {
-		if _, e = m.MkFamilyFuncDecl(fid, ASTArrayOpExt, ps, []ASTHandle{s, s}, ASTHandle{}); e != ErrASTDomain {
+		if _, e = m.MkFamilyFuncDecl(fid, ASTArrayOpExt, ps, []ASTHandle{s, s}, ASTHandle{}); !errors.Is(e, ErrASTDomain) {
 			t.Fatal("ext parameter", ps, e)
 		}
 	}

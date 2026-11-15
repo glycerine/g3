@@ -3,26 +3,38 @@ package ast
 // Source: src/ast/array_decl_plugin.cpp:329-431;
 // src/ast/array_decl_plugin.h:176-185.
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 func (m *ASTManager) arraySetDecl(kind int32, domain []ASTHandle) (result astNodeRef, err error) {
 	n := len(domain)
 	switch kind {
-	case ASTArrayOpSetUnion, ASTArrayOpSetIntersect:
+	case ASTArrayOpSetUnion:
 		if n == 0 {
-			return result, ErrASTDomain
+			return result, arrayDeclarationError("union takes at least one argument")
 		}
-	case ASTArrayOpSetDifference, ASTArrayOpSetSubset:
+	case ASTArrayOpSetIntersect:
+		if n == 0 {
+			return result, arrayDeclarationError("intersection takes at least one argument")
+		}
+	case ASTArrayOpSetDifference:
 		if n != 2 {
-			return result, ErrASTDomain
+			return result, arrayDeclarationError("set difference takes precisely two arguments")
+		}
+	case ASTArrayOpSetSubset:
+		if n != 2 {
+			return result, arrayDeclarationError("subset takes two arguments")
 		}
 	case ASTArrayOpSetComplement:
 		if n != 1 {
-			return result, ErrASTDomain
+			return result, arrayDeclarationError("set complement takes one argument")
 		}
 	default:
 		return result, ErrASTDomain
 	}
+	// Source array_decl_plugin::check_set_arguments.
 	var first astNodeRef
 	for i, h := range domain {
 		s, e := m.requireKind(h, ASTSort)
@@ -32,14 +44,14 @@ func (m *ASTManager) arraySetDecl(kind int32, domain []ASTHandle) (result astNod
 		if i == 0 {
 			first = s
 		} else if s != first {
-			return result, ErrASTDomain
+			return result, arrayDeclarationError(fmt.Sprintf("arguments 1 and %d have different sorts", i+1))
 		}
 		fid, _, e := m.declIdentity(s)
 		if e != nil {
 			return result, e
 		}
 		if fid != m.arrayPlugin.family {
-			return result, ErrASTDomain
+			return result, arrayDeclarationError(fmt.Sprintf("argument %d is not of array sort", i+1))
 		}
 	}
 	info, e := m.sortInfo(m.sortAt(first.slot).info)
@@ -47,14 +59,21 @@ func (m *ASTManager) arraySetDecl(kind int32, domain []ASTHandle) (result astNod
 		return result, e
 	}
 	if info.count <= 1 {
-		return result, ErrASTDomain
+		return result, arrayDeclarationError("expecting 2 or more parameters")
 	}
-	last, e := m.arraySortParameter(info, info.count-1)
+	lastParameter, e := m.infoParameter(info, info.count-1)
 	if e != nil {
 		return result, e
 	}
-	if last != m.boolSort {
-		return result, ErrASTDomain
+	lastRecord, e := m.parameter(lastParameter)
+	if e != nil {
+		return result, e
+	}
+	if lastRecord.Kind != ASTParameterAST {
+		return result, arrayDeclarationError("expecting term parameters")
+	}
+	if m.nodeAt(lastRecord.ast.slot).kind != ASTSort || lastRecord.ast != m.boolSort {
+		return result, arrayDeclarationError("expecting boolean range")
 	}
 	nameIndex := kind - ASTArrayOpSetUnion + 5
 	resultSort := first

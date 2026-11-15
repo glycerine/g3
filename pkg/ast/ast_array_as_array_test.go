@@ -65,7 +65,7 @@ func TestASTArrayAsArrayRejectsOriginalInvalidParameters(t *testing.T) {
 	astTestMust(t, e)
 	defer func() { astTestMust(t, m.DelParameter(&ip)) }()
 	for _, ps := range [][]ASTParameter{nil, {cp}, {sp}, {ip}, {cp, cp}} {
-		if _, e = m.MkFamilyFuncDecl(fid, ASTArrayOpAsArray, ps, nil, ASTHandle{}); e != ErrASTDomain {
+		if _, e = m.MkFamilyFuncDecl(fid, ASTArrayOpAsArray, ps, nil, ASTHandle{}); !errors.Is(e, ErrASTDomain) {
 			t.Fatal("bad as-array parameter", ps, e)
 		}
 	}

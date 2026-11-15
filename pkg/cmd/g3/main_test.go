@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_01-F1: array decl plugin rejections print the
+	// array_decl_plugin raise_exception text.
+	"array_decl_error_messages.smt2": "(error \"line 2 column 45: invalid const array definition, sort mismatch between array range and argument\")\n(error \"line 4 column 23: parameter mismatch. There should be more than one parameter to defaults\")\n(error \"line 5 column 25: invalid default array definition, invalid domain size\")\n(error \"line 6 column 27: map expects the argument at position 0 to have the array range the same as the function\")\n(error \"line 7 column 21: expecting boolean range\")\n(error \"line 8 column 21: argument 1 is not of array sort\")\n(error \"line 11 column 28: set complement takes one argument\")\n(error \"line 12 column 22: subset takes two arguments\")\n(error \"line 13 column 26: set difference takes precisely two arguments\")\n(error \"line 14 column 23: invalid function application, arguments missing\")\n(error \"line 17 column 27: as-array takes one parameter, a function declaration with arity greater than zero\")\n(error \"line 18 column 27: map expects to take as many arguments as the function being mapped, it was given 2 but expects 1\")\n(error \"line 19 column 27: invalid array sort definition, invalid number of parameters\")\nsat\n",
 	// AUDIT.md ast_07-F6: a clashing quoted binder is renamed to |x y|!1 and
 	// printed quoted again, instead of failing.
 	"smt2_pp_quoted_binder_rename.smt2": "(forall ((|x y| Int)) (forall ((|\\|x y\\|!1| Int)) (Q |\\|x y\\|!1| 1)))\n(forall ((|x y| Int))\n  (forall ((|\\|x y\\|!1| Int)) (forall ((|\\|x y\\|!2| Int)) (R |\\|x y\\|!2| 1 2))))\n(forall ((|x y| Int) (|\\|x y\\|!1| Int)) (Q |\\|x y\\|!1| 1))\n",
@@ -1870,6 +1873,9 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	// AUDIT.md ast_01-F1
+	"array_decl_error_messages.smt2": true,
+
 	"decl_error_texts_missing_arguments.smt2": true, // AUDIT.md cmd_context_01-F2
 
 	"decl_error_texts_duplicate.smt2": true, // AUDIT.md cmd_context_01-F2

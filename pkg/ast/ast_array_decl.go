@@ -22,6 +22,12 @@ const (
 	ASTArrayLastOp
 )
 
+// arrayDeclarationError is an array_decl_plugin raise_exception: the
+// source message, still matching ErrASTDomain.
+func arrayDeclarationError(message string) error {
+	return &ASTSortError{Message: message}
+}
+
 func (m *ASTManager) arraySortParameter(info *astInfoRecord, i uint32) (astNodeRef, error) {
 	p, e := m.infoParameter(info, i)
 	if e != nil {
@@ -97,15 +103,19 @@ func (m *ASTManager) arrayDecl(k int32, ps []ASTParameter, domain []ASTHandle, r
 				return astNodeRef{}, e
 			}
 		}
-		if len(domain) != 1 || sort.slot == 0 {
-			return astNodeRef{}, ErrASTDomain
+		if sort.slot == 0 {
+			return astNodeRef{}, arrayDeclarationError("array operation requires one sort parameter (the array sort)")
+		}
+		// Source array_decl_plugin::mk_const.
+		if len(domain) != 1 {
+			return astNodeRef{}, arrayDeclarationError("invalid const array definition, invalid domain size")
 		}
 		fid, kind, e := m.declIdentity(sort)
 		if e != nil {
 			return astNodeRef{}, e
 		}
 		if fid != p.family || kind != 0 {
-			return astNodeRef{}, ErrASTDomain
+			return astNodeRef{}, arrayDeclarationError("invalid const array definition, parameter is not an array sort")
 		}
 		info, e := m.sortInfo(m.sortAt(sort.slot).info)
 		if e != nil {
@@ -124,7 +134,7 @@ func (m *ASTManager) arrayDecl(k int32, ps []ASTParameter, domain []ASTHandle, r
 			return astNodeRef{}, e
 		}
 		if !compatible {
-			return astNodeRef{}, ErrASTDomain
+			return astNodeRef{}, arrayDeclarationError("invalid const array definition, sort mismatch between array range and argument")
 		}
 		parameter, e := m.allocParameter()
 		if e != nil {

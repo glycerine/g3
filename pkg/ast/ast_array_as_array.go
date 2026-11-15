@@ -16,23 +16,27 @@ func (m *ASTManager) dropArrayParameters(values []ASTParameter) error {
 	return err
 }
 func (m *ASTManager) arrayAsArrayDecl(ps []ASTParameter) (result astNodeRef, err error) {
+	const message = "as-array takes one parameter, a function declaration with arity greater than zero"
 	if len(ps) != 1 {
-		return result, ErrASTDomain
+		return result, arrayDeclarationError(message)
 	}
 	param, e := m.parameter(ps[0])
 	if e != nil {
 		return result, e
 	}
 	if param.Kind != ASTParameterAST {
-		return result, ErrASTDomain
+		return result, arrayDeclarationError(message)
 	}
-	f, e := m.requireKind(m.external(param.ast), ASTFuncDecl)
+	f, e := m.internal(m.external(param.ast))
 	if e != nil {
 		return result, e
 	}
+	if m.nodeAt(f.slot).kind != ASTFuncDecl {
+		return result, arrayDeclarationError(message)
+	}
 	decl := m.declAt(f.slot)
 	if decl.arity == 0 {
-		return result, ErrASTDomain
+		return result, arrayDeclarationError(message)
 	}
 	var parameters []ASTParameter
 	defer func() { err = errors.Join(err, m.dropArrayParameters(parameters)) }()

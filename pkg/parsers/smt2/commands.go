@@ -1975,11 +1975,13 @@ func (p *commandParser) sort() (ast.ASTHandle, error) {
 			}
 			sorts = append(sorts, value)
 		}
+		// pop_sort_app_frame instantiates the sort (array_decl_plugin::
+		// mk_sort) while ')' is still the current token.
+		if len(sorts) < 2 {
+			return ast.ASTHandle{}, fmt.Errorf("invalid array sort definition, invalid number of parameters")
+		}
 		if err = p.expect(RightParenToken); err != nil {
 			return ast.ASTHandle{}, err
-		}
-		if len(sorts) < 2 {
-			return ast.ASTHandle{}, fmt.Errorf("array sort expects at least one index sort and a range sort")
 		}
 		array, err := p.pin(m.MkArraySort(ast.SliceArguments(sorts[:len(sorts)-1]), sorts[len(sorts)-1]))
 		if err != nil {

@@ -125,13 +125,13 @@ func TestASTArrayMapOriginalValidation(t *testing.T) {
 	astTestMust(t, e)
 	defer func() { astTestMust(t, m.DelParameter(&ip)) }()
 	for _, ps := range [][]ASTParameter{nil, {fp, fp}, {sp}, {ip}} {
-		if _, e = m.MkFamilyFuncDecl(fid, ASTArrayOpMap, ps, []ASTHandle{input, input}, ASTHandle{}); e != ErrASTDomain {
+		if _, e = m.MkFamilyFuncDecl(fid, ASTArrayOpMap, ps, []ASTHandle{input, input}, ASTHandle{}); !errors.Is(e, ErrASTDomain) {
 			t.Fatal("invalid map parameter", e)
 		}
 	}
 	_, multi, _ := arrayDeclFixture(t, m, 2)
 	for _, domain := range [][]ASTHandle{nil, {input}, {input, input, input}, {sorts[0], input}, {input, multi}, {input, differentIndex}, {input, differentRange}} {
-		if _, e = m.MkFamilyFuncDecl(fid, ASTArrayOpMap, []ASTParameter{fp}, domain, ASTHandle{}); e != ErrASTDomain {
+		if _, e = m.MkFamilyFuncDecl(fid, ASTArrayOpMap, []ASTParameter{fp}, domain, ASTHandle{}); !errors.Is(e, ErrASTDomain) {
 			t.Fatal("invalid mapped domain", domain, e)
 		}
 	}
@@ -141,7 +141,7 @@ func TestASTArrayMapOriginalValidation(t *testing.T) {
 	zp, e := m.NewParameterAST(zero)
 	astTestMust(t, e)
 	defer func() { astTestMust(t, m.DelParameter(&zp)) }()
-	if _, e = m.MkFamilyFuncDecl(fid, ASTArrayOpMap, []ASTParameter{zp}, nil, ASTHandle{}); e != ErrASTDomain {
+	if _, e = m.MkFamilyFuncDecl(fid, ASTArrayOpMap, []ASTParameter{zp}, nil, ASTHandle{}); !errors.Is(e, ErrASTDomain) {
 		t.Fatal("zero arity map", e)
 	}
 	if _, e = m.ArrayMapFunction(f); e != ErrASTDomain {

@@ -6,7 +6,7 @@ import "errors"
 
 func (m *ASTManager) arrayDefaultDecl(domain []ASTHandle) (result astNodeRef, err error) {
 	if len(domain) != 1 {
-		return result, ErrASTDomain
+		return result, arrayDeclarationError("invalid default array definition, invalid domain size")
 	}
 	sort, e := m.requireKind(domain[0], ASTSort)
 	if e != nil {
@@ -17,7 +17,7 @@ func (m *ASTManager) arrayDefaultDecl(domain []ASTHandle) (result astNodeRef, er
 		return result, e
 	}
 	if info.count <= 1 {
-		return result, ErrASTDomain
+		return result, arrayDeclarationError("parameter mismatch. There should be more than one parameter to defaults")
 	}
 	last, e := m.infoParameter(info, info.count-1)
 	if e != nil {
@@ -33,8 +33,8 @@ func (m *ASTManager) arrayDefaultDecl(domain []ASTHandle) (result astNodeRef, er
 	if e != nil {
 		return result, e
 	}
-	if record.Kind != ASTParameterAST {
-		return result, ErrASTDomain
+	if record.Kind != ASTParameterAST || m.nodeAt(record.ast.slot).kind != ASTSort {
+		return result, arrayDeclarationError("last parameter should be a sort")
 	}
 	rangeSort, e := m.requireKind(m.external(record.ast), ASTSort)
 	if e != nil {

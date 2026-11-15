@@ -3,20 +3,48 @@ package ast
 // Source: src/ast/array_decl_plugin.cpp:139-211,468-476;
 // src/ast/array_decl_plugin.h:172-175.
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 func (m *ASTManager) arrayMapParameter(ps []ASTParameter) (astNodeRef, error) {
+	const message = "array operation requires one function declaration parameter (the function to be mapped)"
 	if len(ps) != 1 {
-		return astNodeRef{}, ErrASTDomain
+		return astNodeRef{}, arrayDeclarationError(message)
 	}
 	p, e := m.parameter(ps[0])
 	if e != nil {
 		return astNodeRef{}, e
 	}
 	if p.Kind != ASTParameterAST {
-		return astNodeRef{}, ErrASTDomain
+		return astNodeRef{}, arrayDeclarationError(message)
 	}
-	return m.requireKind(m.external(p.ast), ASTFuncDecl)
+	r, e := m.internal(m.external(p.ast))
+	if e != nil {
+		return astNodeRef{}, e
+	}
+	if m.nodeAt(r.slot).kind != ASTFuncDecl {
+		return astNodeRef{}, arrayDeclarationError(message)
+	}
+	return r, nil
+}
+
+// arrayMapArraySort is is_array_sort(s) for array_decl_plugin::mk_map: the
+// sort's info when s is an ARRAY_SORT of this plugin, else nil.
+func (m *ASTManager) arrayMapArraySort(h ASTHandle) (*astInfoRecord, error) {
+	s, e := m.requireKind(h, ASTSort)
+	if e != nil {
+		return nil, e
+	}
+	fid, kind, e := m.declIdentity(s)
+	if e != nil {
+		return nil, e
+	}
+	if fid != m.arrayPlugin.family || kind != 0 {
+		return nil, nil
+	}
+	return m.sortInfo(m.sortAt(s.slot).info)
 }
 func (m *ASTManager) arrayMapSort(h ASTHandle) (*astInfoRecord, error) {
 	s, e := m.requireKind(h, ASTSort)
@@ -38,20 +66,27 @@ func (m *ASTManager) arrayMapDecl(ps []ASTParameter, domain []ASTHandle) (result
 		return result, e
 	}
 	decl := m.declAt(f.slot)
-	if len(domain) == 0 || uint64(len(domain)) != uint64(decl.arity) {
-		return result, ErrASTDomain
+	if uint64(len(domain)) != uint64(decl.arity) {
+		return result, arrayDeclarationError(fmt.Sprintf("map expects to take as many arguments as the function being mapped, it was given %d but expects %d", len(domain), decl.arity))
 	}
-	first, e := m.arrayMapSort(domain[0])
-	if e != nil {
-		return result, e
+	if len(domain) == 0 {
+		return result, arrayDeclarationError("don't use map on constants")
 	}
+	var first *astInfoRecord
 	for i, h := range domain {
-		current, e := m.arrayMapSort(h)
+		current, e := m.arrayMapArraySort(h)
 		if e != nil {
 			return result, e
 		}
+		if current == nil {
+			return result, arrayDeclarationError(fmt.Sprintf("map expects an array sort as argument at position %d", i))
+		}
+		if i == 0 {
+			first = current
+		}
+		// The source's double space after "domain," is kept.
 		if current.count != first.count {
-			return result, ErrASTDomain
+			return result, arrayDeclarationError(fmt.Sprintf("map expects all arguments to have the same array domain,  this is not the case for argument %d", i))
 		}
 		for j := uint32(0); j+1 < first.count; j++ {
 			a, e := m.arraySortParameter(first, j)
@@ -63,7 +98,7 @@ func (m *ASTManager) arrayMapDecl(ps []ASTParameter, domain []ASTHandle) (result
 				return result, e
 			}
 			if a != b {
-				return result, ErrASTDomain
+				return result, arrayDeclarationError(fmt.Sprintf("map expects all arguments to have the same array domain, this is not the case for argument %d", i))
 			}
 		}
 		actual, e := m.arraySortParameter(current, current.count-1)
@@ -76,7 +111,7 @@ func (m *ASTManager) arrayMapDecl(ps []ASTParameter, domain []ASTHandle) (result
 		}
 		// Source requires identity; map does not use array coercion compatibility.
 		if actual != expected {
-			return result, ErrASTDomain
+			return result, arrayDeclarationError(fmt.Sprintf("map expects the argument at position %d to have the array range the same as the function", i))
 		}
 	}
 	var parameters []ASTParameter
