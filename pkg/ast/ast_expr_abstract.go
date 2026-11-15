@@ -267,11 +267,17 @@ func (a *ExprAbstractor) abstract(base uint32, bound []ASTHandle, root ASTHandle
 				if e != nil {
 					return ASTHandle{}, e
 				}
+				original := p
 				p, e = a.abstract(base+count, bound, p)
 				if e != nil {
 					return ASTHandle{}, e
 				}
 				if e = a.pin(p); e != nil {
+					return ASTHandle{}, e
+				}
+				// Source calls the free expr_abstract for each pattern,
+				// which traces its input and result.
+				if e = a.traceExprAbstract(original, nil, p, false); e != nil {
 					return ASTHandle{}, e
 				}
 				patterns = append(patterns, p)
@@ -280,11 +286,15 @@ func (a *ExprAbstractor) abstract(base uint32, bound []ASTHandle, root ASTHandle
 			if e != nil {
 				return ASTHandle{}, e
 			}
+			originalBody := body
 			body, e = a.abstract(base+count, bound, body)
 			if e != nil {
 				return ASTHandle{}, e
 			}
 			if e = a.pin(body); e != nil {
+				return ASTHandle{}, e
+			}
+			if e = a.traceExprAbstract(originalBody, nil, body, false); e != nil {
 				return ASTHandle{}, e
 			}
 			pin, e := a.reservePin()
