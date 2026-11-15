@@ -54,6 +54,9 @@ Abstract:
     z3_4_7_1_distribute_forall_proof distribute-forall gives no proof for
                                   its rewrite when proofs are on
                                   (pkg/AUDIT.md tactic_core_01-F5).
+    z3_4_7_1_pb2bv_fractional     the pb2bv rewriter accepts fractional
+                                  coefficients and bounds and builds a wrong
+                                  circuit (pkg/AUDIT.md ast_rewriter_04-F3).
     z3_4_7_1_pdr_nullary_cache    PDR's model_search cache keys nodes by
                                   state only, so two nullary predicates
                                   (state `true`) share an entry and an
@@ -869,4 +872,20 @@ void tst_z3_4_7_1_distribute_forall_proof() {
     expect_shell_script("distribute_forall_proof", script,
                   "(goals\n(goal\n  (forall ((x Int)) (p x))\n  (forall ((y Int)) (q y))\n"
                   "  :precision precise :depth 1)\n)\n");
+}
+
+// 0.5a + 0.5b <= 0.7 forbids a = b = true. pb2bv_rewriter::imp's is_pb
+// accepts the fractional coefficients and bound, and mk_le_ge builds a
+// bit-vector circuit from them that is always true, so card2bv turns the
+// unsat problem into a sat one (fixed upstream in 10768bd00, "fix #3727",
+// and f7a7b9e1f, "fix #4108").
+void tst_z3_4_7_1_pb2bv_fractional() {
+    char const* script =
+        "(declare-const a Bool)\n"
+        "(declare-const b Bool)\n"
+        "(assert (<= (+ (ite a 0.5 0.0) (ite b 0.5 0.0)) 0.7))\n"
+        "(assert a)\n"
+        "(assert b)\n"
+        "(check-sat-using (then card2bv smt))\n";
+    expect_script("pb2bv_fractional", script, "unsat\n");
 }
