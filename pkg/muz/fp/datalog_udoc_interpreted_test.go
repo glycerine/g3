@@ -147,11 +147,13 @@ func TestDatalogUDocInterpretedJoinColumnsAndContradiction(t *testing.T) {
 	rule, err = m.MkImplies(badBody, app(bad, x))
 	must(err)
 	must(e.addRuleEager(rule, "doc-guard-unbound"))
-	_, err = e.QueryPredicate(q)
+	// mk_coi_filter removes the rule from a query of q (muz_fp_03-F2), so
+	// query its own head.
+	_, err = e.QueryPredicate(bad)
 	if !errors.Is(err, ErrUDocDatalogFragment) {
 		t.Fatal("unbound interpreted guard not rejected", err)
 	}
-	if _, err = e.Answer(q); err == nil {
+	if _, err = e.Answer(bad); err == nil {
 		t.Fatal("failed interpreted query exposed stale result")
 	}
 	if len(e.udocDatalog.guardCleanup) != 0 {

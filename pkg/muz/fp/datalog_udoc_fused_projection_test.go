@@ -1,7 +1,6 @@
 package fp
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -127,18 +126,17 @@ func TestDatalogUDocFusesFiniteEqualityWithDeadColumns(t *testing.T) {
 			must(m.DelRef(&roots[index]))
 		}
 	}
-	// Every body variable appears in this head, so source compile_rule must
-	// use ordinary filtering even though final assembly appends a constant and
-	// duplicates y. Ordinary finite equality remains an unsupported guard.
+	// Every body variable appears in this head. rel_context::transform_rules
+	// (mk_interp_tail_simplifier, then mk_filter_rules) removes the explicit
+	// finite equality before compilation, so the query is answered
+	// (muz_fp_03-F2): rows (0,1,0,0) and (3,4,3,3) pass.
 	addCompiledRule(app(bad, x, b, y, y, four), "doc-fused-boundary")
-	_, err = e.QueryPredicate(bad)
-	if !errors.Is(err, ErrUDocDatalogFragment) {
-		t.Fatal("finite equality without a dead variable used fused filtering", err)
-	}
-	if _, err = e.Answer(bad); err == nil {
-		t.Fatal("unsupported ordinary finite guard exposed a result")
+	status, err = e.QueryPredicate(bad)
+	must(err)
+	if status != lbool.True {
+		t.Fatal("finite equality without a dead variable", status)
 	}
 	if _, err = m.RefGet(answer); err != nil {
-		t.Fatal("owning fused answer did not survive a later failed query", err)
+		t.Fatal("owning fused answer did not survive a later query", err)
 	}
 }

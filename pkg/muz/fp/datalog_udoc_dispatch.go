@@ -189,6 +189,42 @@ func (e *PropositionalEngine) queryUDocDatalog(declarations []ast.ASTHandle) (st
 	if err := e.relations.ResetSaturatedMarks(); err != nil {
 		return lbool.Undef, err
 	}
+	// rel_context::query: scoped_query protects the source rules and
+	// predicates, and rel_context::saturate runs transform_rules before
+	// compiling, whichever relation plugin is the favourite.
+	queryScope, err := e.beginDatalogQueryScope(declarations)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	originalRules := e.set
+	e.set = queryScope.set
+	var fresh []ast.ASTHandle
+	var sourceProducts *udocProductProgram
+	if owner.products != nil {
+		sourceProducts = owner.products.program
+	}
+	defer func() {
+		e.set = originalRules
+		if sourceProducts != nil && owner.products != nil {
+			// The product plans of the transformed rules end with the query.
+			owner.products.program = sourceProducts
+		}
+		resultErr = errors.Join(resultErr, queryScope.dispose(), owner.restrictUDocSeeds(fresh))
+	}()
+	if finalized, x := e.set.IsFinalized(); x != nil {
+		return lbool.Undef, x
+	} else if !finalized {
+		valid, x := e.set.Finalize()
+		if x != nil {
+			return lbool.Undef, x
+		}
+		if !valid {
+			return lbool.Undef, ErrUnstratifiedNegation
+		}
+	}
+	if fresh, err = e.transformUDocRules(owner); err != nil {
+		return lbool.Undef, err
+	}
 	set := e.set
 	var similarityScope *udocSimilarityQueryScope
 	if enabled, threshold, err := e.udocSimilaritySettings(); err != nil {

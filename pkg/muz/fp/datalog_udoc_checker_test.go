@@ -69,7 +69,7 @@ func TestDatalogDocFormulaCheckerExecutesActualJoinsAndProjection(t *testing.T) 
 		if status != lbool.True {
 			t.Fatal("checked UDoc result", run, status)
 		}
-		for _, d := range []ast.ASTHandle{p, q, r, goal} {
+		for _, d := range []ast.ASTHandle{p, q, r} {
 			if result := e.udocDatalog.result[d]; result == nil || !result.FormulaChecked() {
 				t.Fatal("derived relation lost doc formula checking", d)
 			}
@@ -83,6 +83,16 @@ func TestDatalogDocFormulaCheckerExecutesActualJoinsAndProjection(t *testing.T) 
 		must(err)
 		if found, err := e.udocDatalog.result[r].ContainsFact([]ast.ASTHandle{eight}); err != nil || found {
 			t.Fatal("join admitted unmatched tuple", found, err)
+		}
+		// mk_coi_filter drops the goal rule from a query of r
+		// (muz_fp_03-F2); query the nullary head itself.
+		status, err = e.QueryPredicate(goal)
+		must(err)
+		if status != lbool.True {
+			t.Fatal("checked UDoc nullary result", run, status)
+		}
+		if result := e.udocDatalog.result[goal]; result == nil || !result.FormulaChecked() {
+			t.Fatal("derived nullary relation lost doc formula checking")
 		}
 		if found, err := e.udocDatalog.result[goal].ContainsFact(nil); err != nil || !found {
 			t.Fatal("nullary checked result", found, err)

@@ -52,6 +52,15 @@ func newPublicUDocProductFailureFixtureMode(t *testing.T, groundRules bool) *pub
 	return f
 }
 
+func publicUDocProductCountsWithin(actual, low, high [4]uint64) bool {
+	for i := range actual {
+		if actual[i] < low[i] || actual[i] > high[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func publicUDocProductLiveCounts(stats ast.ASTManagerStats) [4]uint64 {
 	return [4]uint64{uint64(stats.LiveNodes), uint64(stats.LiveInfos), uint64(stats.LiveParameters), uint64(stats.LiveReferences)}
 }
@@ -62,13 +71,22 @@ func TestDatalogUDocProductsPublicAllocationFailureRetryAndClose(t *testing.T) {
 
 func checkPublicUDocProductAllocationFailureRetryAndClose(t *testing.T, fixture func(*testing.T) *publicUDocProductFixture) {
 	t.Helper()
-	var expected [4]uint64
+	// rel_context::transform_rules registers (and the rule manager pins, as
+	// context::register_predicate does) the fresh predicates of every query.
+	// A failed query that reached the transformation therefore leaves at
+	// most the counts of one more completed query: a failure inside the
+	// transformation keeps only the fresh predicates already registered
+	// (muz_fp_03-F2).
+	var expected, transformed [4]uint64
 	t.Run("uninterrupted-baseline", func(t *testing.T) {
 		f := fixture(t)
 		f.checkRows(lbool.True, [2]uint32{1, 1})
 		f.checkRows(lbool.True, [2]uint32{1, 1})
 		fragmentMust(t, f.e.udocDatalog.discardResult())
 		expected = publicUDocProductLiveCounts(f.m.Stats())
+		f.checkRows(lbool.True, [2]uint32{1, 1})
+		fragmentMust(t, f.e.udocDatalog.discardResult())
+		transformed = publicUDocProductLiveCounts(f.m.Stats())
 		fragmentMust(t, f.e.Close())
 	})
 	if t.Failed() {
@@ -106,7 +124,7 @@ func checkPublicUDocProductAllocationFailureRetryAndClose(t *testing.T, fixture 
 				t.Fatal("retried query lost actual product or pending cleanup frontier")
 			}
 			fragmentMust(t, f.e.udocDatalog.discardResult())
-			if actual := publicUDocProductLiveCounts(f.m.Stats()); actual != expected {
+			if actual := publicUDocProductLiveCounts(f.m.Stats()); !publicUDocProductCountsWithin(actual, expected, transformed) {
 				t.Fatal("failed public product query leaked AST ownership", allowance, expected, actual, cause)
 			}
 			fragmentMust(t, f.e.Close())

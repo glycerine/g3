@@ -338,6 +338,12 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_fp_03-F2: the doc backend runs rel_context::transform_rules
+	// (coi filter, inliner, interp tail simplifier, filter/simple joins).
+	"datalog_doc_coi_filter.smt2":           "sat\n(or (and (= (:var 0) #b000) (= (:var 1) #b001))\n    (and (= (:var 0) #b001) (= (:var 1) #b010)))\n",
+	"datalog_doc_inline_order.smt2":         "sat\n(or (and (= (:var 0) #b011) (= (:var 1) #b011))\n    (and (= (:var 0) #b001) (= (:var 1) #b010))\n    (and (= (:var 0) #b000) (= (:var 1) #b001)))\n",
+	"datalog_doc_inlined_guard.smt2":        "sat\n(or (and (= (:var 0) #b011) (= (:var 1) #b011))\n    (and (= (:var 0) #b001) (= (:var 1) #b010))\n    (and (= (:var 0) #b000) (= (:var 1) #b001)))\n",
+	"datalog_doc_checked_inline_order.smt2": "sat\n(or (and (= (:var 0) #b011) (= (:var 1) #b011))\n    (and (= (:var 0) #b001) (= (:var 1) #b010))\n    (and (= (:var 0) #b000) (= (:var 1) #b001)))\n",
 	// AUDIT.md muz_pdr_02-F2: model_search::get_proof_trace instantiates each
 	// node's rule, hyper-resolves all children at once, and keeps the rules'
 	// transformation proofs (mp/der/rewrite, the inliner's query!0 hyper-res).

@@ -327,6 +327,14 @@ func (p *FilterRulesPlugin) rewrite(rule *base.Rule, result *base.RuleSet) (chan
 	}
 	tails := make([]ast.ASTHandle, 0, total)
 	negated := make([]bool, 0, total)
+	// Pin the replacement tails until the rewritten rule owns them, so a
+	// failure on a later tail does not orphan an earlier one.
+	var pins []ast.ASTRef
+	defer func() {
+		for i := len(pins) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, p.manager.DelRef(&pins[i]))
+		}
+	}()
 	for index := 0; index < total; index++ {
 		tail, isNegated, getErr := rule.Tail(index)
 		if getErr != nil {
@@ -376,6 +384,11 @@ func (p *FilterRulesPlugin) rewrite(rule *base.Rule, result *base.RuleSet) (chan
 			if getErr != nil {
 				return false, getErr
 			}
+			pin, pinErr := p.manager.NewRef(tail)
+			if pinErr != nil {
+				return false, pinErr
+			}
+			pins = append(pins, pin)
 			isNegated = false
 			changed = true
 		}

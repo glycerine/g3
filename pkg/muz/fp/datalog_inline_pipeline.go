@@ -13,6 +13,13 @@ import (
 // Source mk_rule_inliner::count_pred_occurrences protects every nonempty
 // extensional relation in addition to the rule set's output predicates.
 func (e *PropositionalEngine) datalogInliner(context *uparams.ParamsContext, globals *uparams.GlobalParamsService) (*transforms.RuleInlinerPlugin, error) {
+	return e.datalogInlinerWithFacts(context, globals, nil)
+}
+
+// datalogInlinerWithFacts also consults factProbe, for nonempty relations
+// that a relation owner outside the relation manager stores
+// (rel_context::collect_non_empty_predicates over the doc relations).
+func (e *PropositionalEngine) datalogInlinerWithFacts(context *uparams.ParamsContext, globals *uparams.GlobalParamsService, factProbe transforms.ConeFactProbe) (*transforms.RuleInlinerPlugin, error) {
 	normalization, err := e.ruleNormalizationParams()
 	if err != nil {
 		return nil, err
@@ -37,9 +44,18 @@ func (e *PropositionalEngine) datalogInliner(context *uparams.ParamsContext, glo
 	}
 	var protected []ast.ASTHandle
 	for _, declaration := range e.predicateOrder {
-		hasFacts, err := e.relations.HasFacts(declaration)
-		if err != nil {
-			return nil, err
+		hasFacts := false
+		if factProbe != nil {
+			hasFacts, err = factProbe(declaration)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if !hasFacts {
+			hasFacts, err = e.relations.HasFacts(declaration)
+			if err != nil {
+				return nil, err
+			}
 		}
 		if hasFacts {
 			protected = append(protected, declaration)
