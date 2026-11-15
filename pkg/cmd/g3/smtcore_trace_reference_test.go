@@ -17,6 +17,7 @@ var smtcoreTraceVectors = []string{
 	"array_interface_eq_var_owner.smt2",      // AUDIT.md smtcore_09-F4
 	"array_skolem_release_order.smt2",        // AUDIT.md smtcore_09-F5
 	"array_map_delayed_order.smt2",           // AUDIT.md smtcore_09-F6
+	"array_bool_term_bool_var_order.smt2",    // AUDIT.md smtcore_09-F7
 }
 
 var smtcoreTracePointer = regexp.MustCompile(`0x[0-9a-f]+`)

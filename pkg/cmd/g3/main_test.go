@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_09-F7
+	"array_bool_term_bool_var_order.smt2": "sat\n",
 	// AUDIT.md smtcore_09-F6
 	"array_map_delayed_order.smt2": "sat\n",
 	// AUDIT.md smtcore_09-F5

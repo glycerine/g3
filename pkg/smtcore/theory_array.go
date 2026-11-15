@@ -247,6 +247,23 @@ func (t *SMTArrayTheory) InternalizeTerm(expression ast.ASTHandle) (bool, error)
 				return false, err
 			}
 		}
+		// internalize_term_core: if (m.is_bool(n)) { mk_bool_var(n);
+		// set_var_theory(bv, get_id()); set_enode_flag(bv, true); } right
+		// after mk_var, before any axiom.
+		boolean, err := state.isBoolean(expression)
+		if err != nil {
+			return false, err
+		}
+		if _, found := state.boolVar.lookup(expression); boolean && !found {
+			variable, err := state.MkBoolVar(expression)
+			if err != nil {
+				return false, fmt.Errorf("array Boolean term variable: %w", err)
+			}
+			if err = state.SetVariableTheory(variable, t.FamilyID()); err != nil {
+				return false, fmt.Errorf("array Boolean term theory: %w", err)
+			}
+			state.setEnodeFlag(variable, true)
+		}
 		for _, arg := range after {
 			if !t.IsAttachedToVariable(arg) {
 				if _, err = t.CreateVariable(arg); err != nil {
