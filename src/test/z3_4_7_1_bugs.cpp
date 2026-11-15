@@ -240,6 +240,10 @@ Abstract:
                                   not observable in a release build, so
                                   this test is not red) (pkg/AUDIT.md
                                   cmd_context_02-F11).
+    z3_4_7_1_wpa_unreadable_file  a WPA map or relation file that cannot be
+                                  opened is read through a null FILE and
+                                  z3 crashes (pkg/AUDIT.md
+                                  cmd_context_02-F11).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -3000,4 +3004,34 @@ void tst_z3_4_7_1_define_sort_alias_after_pop() {
                         "(assert (is-insert b))\n"
                         "(check-sat)\n",
                         "sat\n");
+}
+
+// parse_map_file and parse_rel_file build a line_reader and never test that
+// its fopen succeeded, so an unreadable map or relation file is read with
+// fread on a null FILE and z3 crashes. The fork reports the open failure as
+// parse_file does: parse_directory prints the message and fails. Upstream
+// (v5.4.2) is unchanged.
+void tst_z3_4_7_1_wpa_unreadable_file() {
+#ifndef _WINDOWS
+    if (geteuid() == 0) {
+        std::cout << "wpa_unreadable_file: skipped as root\n";
+        return;
+    }
+    char const* map_files[] = { "V.map", "1 a\n", "r.rules", "e(x:V) printtuples\n" };
+    char const* rel_files[] = { "V.map", "1 a\n", "r.rules", "e(x:V) printtuples\n", "e.rel", "1\n" };
+    char const* unreadable[] = { "/V.map", "/e.rel" };
+    for (unsigned i = 0; i < 2; ++i) {
+        std::string root = i == 0 ? wpa_test_directory(map_files, 4) : wpa_test_directory(rel_files, 6);
+        ENSURE(chmod((root + unreadable[i]).c_str(), 0) == 0);
+        std::stringstream warnings;
+        bool ok = wpa_parse_directory(root, warnings);
+        std::string cleanup = "rm -rf '" + root + "'";
+        ENSURE(system(cleanup.c_str()) == 0);
+        if (ok) {
+            std::cerr << "wpa_unreadable_file: accepted unreadable " << unreadable[i] << "\n";
+            ENSURE(false);
+        }
+    }
+    std::cout << "wpa_unreadable_file: PASS\n";
+#endif
 }
