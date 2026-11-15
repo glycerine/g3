@@ -114,6 +114,11 @@ Abstract:
                                   answer of dl_interface::get_answer crashes
                                   the query command (pkg/AUDIT.md duality zbug
                                   round 2).
+    z3_4_7_1_duality_proof_hyper_resolve extract_proof's hyper-resolve steps
+                                  have the substitution reversed, child
+                                  indexes as positions and @Fail!0 as the
+                                  query conclusion (pkg/AUDIT.md duality zbug
+                                  round 2).
     z3_4_7_1_implicant_nested_array_eq once a nested array index makes
                                   model_implicant::eval_array_eq mark the
                                   equality true, a later differing index
@@ -1821,6 +1826,37 @@ void tst_z3_4_7_1_duality_print_answer() {
         "sat\n"
         "(error \"line 8 column 8: duality does not support get_answer\")\n";
     expect_script_output("duality_print_answer", script, expected);
+}
+
+// extract_proof builds each hyper-resolve step with the substitution in
+// declaration order (var_subst reads it in variable-index order), with the
+// child's index as the resolved position instead of the body literal's, and
+// with @Fail!0 instead of the query clause's head false, so the proof does
+// not check. pkg/AUDIT.md duality zbug round 2.
+void tst_z3_4_7_1_duality_proof_hyper_resolve() {
+    char const* script =
+        "(set-option :produce-proofs true)\n"
+        "(set-option :fixedpoint.engine duality)\n"
+        "(declare-fun q0 (Int Int) Bool)\n"
+        "(assert (forall ((x Int) (y Int)) (=> (and (= x 2) (= y 7)) (q0 x y))))\n"
+        "(assert (forall ((x Int) (y Int)) (=> (and (q0 x y) (> x 1)) false)))\n"
+        "(check-sat-using horn)\n"
+        "(get-proof)\n";
+    // The let names carry AST ids, so check the two hyper-resolve steps.
+    std::ostringstream out;
+    {
+        cmd_context ctx;
+        ctx.set_solver_factory(mk_smt_strategic_solver_factory());
+        install_dl_cmds(ctx);
+        ctx.set_regular_stream(out);
+        ctx.set_diagnostic_stream(out);
+        std::istringstream in(script);
+        parse_smt2_commands(ctx, in);
+    }
+    std::cout << "duality_proof_hyper_resolve: got\n" << out.str();
+    ENSURE(out.str().find("((_ hyper-res 7 2) (asserted ") != std::string::npos);
+    ENSURE(out.str().find("((_ hyper-res 7 2 2 0) (asserted ") != std::string::npos);
+    ENSURE(out.str().find("(q0 2 7)) false)") != std::string::npos);
 }
 
 // PDR proof trace for Goal :- P(x), with P(x) a fact. The query!0 root and
