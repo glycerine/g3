@@ -1293,3 +1293,25 @@ void tst_z3_4_7_1_qe_lite_fm_bvar() {
     std::cout << "qe_lite_fm_bvar: " << out;
     ENSURE(out == "sat\n");
 }
+
+// pb_util::mk_lt normalizes into m_coeffs and calls mk_ge(n, m_coeffs, ...),
+// whose normalize resets m_coeffs before it reads the coefficients. So
+// 2*p0 + 3*p1 < 3, satisfied by p0 = true, p1 = false, becomes a pbge with
+// zero coefficients and a positive bound, which is false. maxres with
+// opt.maxres.add_upper_bound_block uses mk_lt to block the upper bound and
+// stops at a non-optimal cost (19 instead of 3 on the AUDIT.md input).
+void tst_z3_4_7_1_pb_mk_lt_coeffs() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    pb_util pb(m);
+    expr_ref p0(bool_const(m, "p0"), m), p1(bool_const(m, "p1"), m);
+    rational cs[2] = { rational(2), rational(3) };
+    expr* args[2] = { p0, p1 };
+    expr_ref lt(pb.mk_lt(2, cs, args, rational(3)), m);
+    std::cout << "pb_mk_lt_coeffs: " << mk_pp(lt, m) << "\n";
+    expr_ref_vector fmls(m);
+    fmls.push_back(lt);
+    fmls.push_back(p0);
+    fmls.push_back(m.mk_not(p1));
+    expect("pb_mk_lt_coeffs", "2*p0 + 3*p1 < 3 with p0, not p1", l_true, check_plain(m, fmls));
+}
