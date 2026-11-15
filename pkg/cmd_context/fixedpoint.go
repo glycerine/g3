@@ -36,6 +36,11 @@ func (c *Context) fixedpointContext() (*muzfp.PropositionalEngine, error) {
 	if c.fixedpointSoftTimeoutCaptured {
 		engine.SetSoftTimeout(c.fixedpointSoftTimeout)
 	}
+	// ddnf::imp::dump_rules writes to std::cout, the shell's stdout, not to
+	// the regular stream.
+	if err = engine.SetDDNFOutput(contextShellOutput{c}); err != nil {
+		return nil, errors.Join(err, engine.Close())
+	}
 	c.fixedpoint = engine
 	return engine, nil
 }

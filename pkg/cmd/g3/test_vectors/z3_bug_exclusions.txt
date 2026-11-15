@@ -10,15 +10,6 @@
 # Reproduction: test_vectors/z3_bug_pdr_boogie_without_proof_trace.smt2.
 z3_bug_pdr_boogie_without_proof_trace
 #
-# DDNF compile_eq looks the tbv of an extract equality up in the DDNF of
-# the constant's width, but process_eq stored it under the variable's
-# width; for (= ((_ extract 0 0) x) #b1) no 1-bit DDNF exists and z3
-# segfaults (z3 bug: src/muz/ddnf/ddnf.cpp compile_eq; still present
-# upstream). g3 uses the variable's width (pkg/muz/ddnf/compiler.go
-# compileEquality; AUDIT.md muz_small_01-F9). Reproduction:
-# test_vectors/z3_bug_ddnf_extract_width.smt2.
-z3_bug_ddnf_extract_width
-#
 # OPB max: objectives: opb::parse tries parse_token("min:") before
 # parse_token("max:"), and parse_token consumes the matching prefix "m", so
 # z3 4.7.1 reads "max:" as "ax:" and exits with (error line 1 "unexpected

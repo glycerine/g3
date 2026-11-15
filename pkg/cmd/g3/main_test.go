@@ -336,6 +336,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// muz_small_01-F9 (fork fix 17): the DDNF rule dump goes to the shell's
+	// stdout, as dump_rules writes to std::cout.
+	"z3_bug_ddnf_extract_width.smt2": "(declare-rel q ())\n(declare-rel p ((_ BitVec 2)))\n(declare-var A (_ BitVec 2))\n(rule (=> (= A #b01) (p A)))\n(rule (=> (and (p A) (or (= A #b01) (= A #b10))) q))\n(query q)\nunknown\ndone\n",
 	// muz_small_01-F5 reproduction, muz_fp_01 notes: nonlinear BMC binds head
 	// variables and asserts unproved rules (fork fix #B; z3 4.7.1 segfaults).
 	"z3_bug_bmc_nonlinear_head_vars.smt2":       "sat\n(let ((a!1 (forall ((A Int) (B Int))\n             (=> (and (p A) (p B) (= A (+ 1 B))) (query!0 B))))\n      (a!2 (forall ((A Int) (B Int))\n             (=> (and (p B) (not (<= 3 B)) (= A (+ 1 B))) (p A)))))\n  (hyper-res (asserted a!1)\n             (hyper-res (asserted a!2) (asserted (p 0)) (p 1))\n             (asserted (p 0))\n             (query!0 0)))\n",

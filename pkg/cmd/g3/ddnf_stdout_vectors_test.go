@@ -8,10 +8,11 @@ import (
 	"testing"
 )
 
-// ddnfStdoutVectors holds ddnf vectors whose engine output goes straight to
-// os.Stdout, as the C++ writes the rejected rule (pre_process_rule) and the
-// compiled rules (dump_rules) to std::cout. dump is what the engine writes
-// to os.Stdout, out what the runner writes; z3 prints dump followed by out.
+// ddnfStdoutVectors holds ddnf vectors whose engine output goes to the
+// shell's stdout, as the C++ writes the rejected rule (pre_process_rule) and
+// the compiled rules (dump_rules) to std::cout. The runner's output stands
+// for the shell's stdout, so it holds dump followed by out, as z3 prints
+// them, and nothing reaches os.Stdout.
 var ddnfStdoutVectors = map[string]struct{ dump, out string }{
 	// AUDIT.md muz_small_01-F1: process_todo pops the last connective
 	// argument first, which fixes the DDNF node numbering.
@@ -57,8 +58,8 @@ func TestDDNFStdoutVectors(t *testing.T) {
 	for name, want := range ddnfStdoutVectors {
 		t.Run(name, func(t *testing.T) {
 			dump, out := runDDNFStdoutVector(t, name)
-			if dump != want.dump || out != want.out {
-				t.Fatalf("ddnf stdout\n%s\nwant\n%s\nrunner output\n%s\nwant\n%s", dump, want.dump, out, want.out)
+			if dump != "" || out != want.dump+want.out {
+				t.Fatalf("os.Stdout\n%s\nwant nothing\nrunner output\n%s\nwant\n%s", dump, out, want.dump+want.out)
 			}
 		})
 	}
