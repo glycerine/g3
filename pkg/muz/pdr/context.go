@@ -620,10 +620,14 @@ func (c *Context) Initialize(set *base.RuleSet) (resultErr error) {
 			return err
 		}
 	}
+	// init_rules initializes every transformer (and with it every use list)
+	// before update_rules lets any of them inherit properties.
 	for _, declaration := range order {
 		if err = transformers[declaration].InitializeRules(transformers, buckets[declaration]); err != nil {
 			return fmt.Errorf("muz/pdr: initialize predicate rules: %w", err)
 		}
+	}
+	for _, declaration := range order {
 		if prior := c.transformers[declaration]; prior != nil {
 			if err = transformers[declaration].InheritProperties(prior); err != nil {
 				return fmt.Errorf("muz/pdr: inherit pre-query properties: %w", err)

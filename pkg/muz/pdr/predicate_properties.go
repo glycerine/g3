@@ -11,26 +11,17 @@ type FrameProperty struct {
 	Level   uint32
 }
 
-// Properties snapshots the effective property-to-level map. Stale entries in
-// weaker frame vectors are deliberately omitted.
+// Properties snapshots the property-to-level map m_prop2level in its
+// obj_map iteration order, each lemma at its strongest frame. Stale entries
+// in weaker frame vectors are omitted.
 func (p *PredicateTransformer) Properties() ([]FrameProperty, error) {
 	if err := p.open(); err != nil {
 		return nil, err
 	}
-	result := make([]FrameProperty, 0, len(p.propertyLevel))
-	seen := make(map[ast.ASTHandle]bool, len(p.propertyLevel))
-	appendAt := func(formulas []ast.ASTHandle, level uint32) {
-		for _, formula := range formulas {
-			if seen[formula] || p.propertyLevel[formula] != level {
-				continue
-			}
-			seen[formula] = true
-			result = append(result, FrameProperty{Formula: formula, Level: level})
-		}
-	}
-	appendAt(p.invariants, InfinityLevel)
-	for level, formulas := range p.levels {
-		appendAt(formulas, uint32(level))
+	entries := p.propertyOrder.Entries()
+	result := make([]FrameProperty, 0, len(entries))
+	for _, entry := range entries {
+		result = append(result, FrameProperty{Formula: entry.Key, Level: p.propertyLevel[entry.Key]})
 	}
 	return result, nil
 }

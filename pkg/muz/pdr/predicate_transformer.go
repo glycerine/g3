@@ -40,6 +40,9 @@ type PredicateTransformer struct {
 	levels        [][]ast.ASTHandle
 	invariants    []ast.ASTHandle
 	propertyLevel map[ast.ASTHandle]uint32
+	// propertyOrder is m_prop2level's obj_map table: every lemma ever
+	// inserted, in hash-table iteration order (inherit_properties).
+	propertyOrder *ast.ObjMap
 	rules         []*normalizedRule
 	uses          []*PredicateTransformer
 	references    []ast.ASTRef
@@ -79,6 +82,7 @@ func NewPredicateTransformer(owner *Manager, head ast.ASTHandle, cacheMode Reach
 	transformer := &PredicateTransformer{
 		owner: owner, manager: manager, head: head,
 		propertyLevel: make(map[ast.ASTHandle]uint32),
+		propertyOrder: ast.NewObjMap(manager),
 	}
 	committed := false
 	defer func() {
@@ -271,6 +275,9 @@ func (p *PredicateTransformer) addPropertyOne(lemma ast.ASTHandle, level uint32)
 		p.references = append(p.references, reference)
 		p.invariants = append(p.invariants, lemma)
 		p.propertyLevel[lemma] = level
+		if _, err = p.propertyOrder.InsertIfNotThere(lemma); err != nil {
+			return false, err
+		}
 		return true, nil
 	}
 	if err := p.EnsureLevel(level); err != nil {
@@ -289,6 +296,9 @@ func (p *PredicateTransformer) addPropertyOne(lemma ast.ASTHandle, level uint32)
 	p.references = append(p.references, reference)
 	p.levels[level] = append(p.levels[level], lemma)
 	p.propertyLevel[lemma] = level
+	if _, err = p.propertyOrder.InsertIfNotThere(lemma); err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
@@ -768,6 +778,7 @@ func (p *PredicateTransformer) Close() (result error) {
 		p.levels = nil
 		p.invariants = nil
 		p.propertyLevel = nil
+		p.propertyOrder = nil
 		p.rules = nil
 		p.uses = nil
 		p.references = nil
