@@ -768,14 +768,7 @@ func (u *Util) collectArithmeticCandidate(lhs, rhs, atom, argument, head ast.AST
 				return nil
 			}
 		}
-		condition := ast.ASTHandle{}
-		if !hint {
-			condition, e = u.restCondition(atom)
-			if e != nil {
-				return e
-			}
-		}
-		if e = u.insertCandidate(head, declarations, definition, condition, inequality, true, hint, candidates); e != nil {
+		if e = u.insertRestCondition(head, declarations, definition, atom, inequality, hint, candidates); e != nil {
 			return e
 		}
 	}

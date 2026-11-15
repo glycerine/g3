@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
 type Candidate struct {
@@ -165,6 +166,29 @@ type Util struct {
 	manager   *ast.ASTManager
 	forbidden map[ast.ASTHandle]struct{}
 	clause    ast.ASTHandle
+	// paramsContext and globals feed bool_rewriter(m_manager), which reads
+	// the global rewriter module; nil means the bool_rewriter defaults.
+	paramsContext *uparams.ParamsContext
+	globals       *uparams.GlobalParamsService
+}
+
+// SetRewriterParams binds the process parameter services read by the
+// bool_rewriter(m_manager) temporaries.
+func (u *Util) SetRewriterParams(context *uparams.ParamsContext, globals *uparams.GlobalParamsService) {
+	u.paramsContext, u.globals = context, globals
+}
+
+// boolRewrite is bool_rewriter(m_manager).mk_<operation>(args, out): a
+// fresh bool_rewriter configured from the global rewriter module.
+func (u *Util) boolRewrite(operation int32, args []ast.ASTHandle, out ast.ASTRef) error {
+	rw, err := rewriter.NewBoolGateRewriter(u.manager)
+	if err != nil {
+		return err
+	}
+	if err = rw.LoadGlobalParams(u.paramsContext, u.globals); err != nil {
+		return err
+	}
+	return rw.Simplify(operation, args, out)
 }
 
 func NewUtil(m *ast.ASTManager) (*Util, error) {

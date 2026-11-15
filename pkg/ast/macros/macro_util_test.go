@@ -230,6 +230,82 @@ func TestMacroUtilQuasiConversionClauseConditionsAndHints(t *testing.T) {
 		t.Fatal("conditional clause candidate", row)
 	}
 
+	// AUDIT.md ast_sub_01-F3: get_rest_clause_as_cond conjoins the negated
+	// other literals with bool_rewriter::mk_and, which turns complementary
+	// conjuncts into false.
+	fb := declaration(t, m, "candidate-fb", []ast.ASTHandle{b}, valueSort)
+	fx, err := m.MkApp(fb, []ast.ASTHandle{v0})
+	must(t, err)
+	fdef, err := m.MkEq(fx, ground)
+	must(t, err)
+	s1, err := m.MkConst(mustSymbol(t, m, "candidate-s1"), b)
+	must(t, err)
+	notS1, err := m.MkNot(s1)
+	must(t, err)
+	complementClause, err := m.MkFamilyApp(m.BasicFamilyID(), ast.ASTOpOr, nil, []ast.ASTHandle{s1, notS1, fdef})
+	must(t, err)
+	complementQ, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{b}, Names: []usymbol.Symbol{mustSymbol(t, m, "candidate-bx")}, Body: complementClause})
+	must(t, err)
+	complementCandidates, err := macros.NewCandidates(m)
+	must(t, err)
+	t.Cleanup(func() { must(t, complementCandidates.Close()) })
+	must(t, u.CollectQuantifierCandidates(complementQ, complementCandidates))
+	falseValue, err := m.MkFalse()
+	must(t, err)
+	foundF := false
+	for i := 0; i < complementCandidates.Len(); i++ {
+		row, err := complementCandidates.At(i)
+		must(t, err)
+		if row.Declaration != fb {
+			continue
+		}
+		foundF = true
+		if row.Condition != falseValue {
+			t.Fatal("complementary rest literals did not give a false condition", row.Condition)
+		}
+	}
+	if !foundF {
+		t.Fatal("no candidate for the complementary clause")
+	}
+
+	// Two other literals plus a quasi head f(x, x): one flat and of the two
+	// negated literals and the head equality.
+	g2 := declaration(t, m, "candidate-g2", []ast.ASTHandle{b, b}, valueSort)
+	gxx, err := m.MkApp(g2, []ast.ASTHandle{v0, v0})
+	must(t, err)
+	gdef, err := m.MkEq(gxx, ground)
+	must(t, err)
+	r1, err := m.MkConst(mustSymbol(t, m, "candidate-r1"), b)
+	must(t, err)
+	r2, err := m.MkConst(mustSymbol(t, m, "candidate-r2"), b)
+	must(t, err)
+	flatClause, err := m.MkFamilyApp(m.BasicFamilyID(), ast.ASTOpOr, nil, []ast.ASTHandle{r1, r2, gdef})
+	must(t, err)
+	flatQ, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{b}, Names: []usymbol.Symbol{mustSymbol(t, m, "candidate-fx")}, Body: flatClause})
+	must(t, err)
+	flatCandidates, err := macros.NewCandidates(m)
+	must(t, err)
+	t.Cleanup(func() { must(t, flatCandidates.Close()) })
+	must(t, u.CollectQuantifierCandidates(flatQ, flatCandidates))
+	foundG := false
+	for i := 0; i < flatCandidates.Len(); i++ {
+		row, err := flatCandidates.At(i)
+		must(t, err)
+		if row.Declaration != g2 {
+			continue
+		}
+		foundG = true
+		if n, e := m.GetNumArgs(row.Condition); e != nil || n != 3 {
+			t.Fatal("quasi head condition is not one flat and of three", n, e)
+		}
+		if op, e := m.GetDeclKind(row.Condition); e != nil || op != ast.ASTOpAnd {
+			t.Fatal("quasi head condition is not an and", op, e)
+		}
+	}
+	if !foundG {
+		t.Fatal("no candidate for the quasi head clause")
+	}
+
 	hintDecl := declaration(t, m, "candidate-hint", []ast.ASTHandle{b}, b)
 	hintHead, err := m.MkApp(hintDecl, []ast.ASTHandle{v0})
 	must(t, err)

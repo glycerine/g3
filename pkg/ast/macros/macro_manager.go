@@ -52,6 +52,7 @@ func (m *Manager) SetRewriterParams(context *uparams.ParamsContext, globals *upa
 		return ast.ErrASTHandle
 	}
 	m.paramsContext, m.globals = context, globals
+	m.util.SetRewriterParams(context, globals)
 	return nil
 }
 

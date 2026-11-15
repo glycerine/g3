@@ -60,14 +60,14 @@ func (u *Util) QuasiMacroHeadToMacroHead(qhead ast.ASTHandle, declarations uint3
 	if err != nil {
 		return declarations, err
 	}
-	cond, err := u.manager.MkAndArray(conditions)
-	if err != nil {
+	// bool_rewriter(m_manager).mk_and(new_conds.size(), new_conds.c_ptr(), cond)
+	if err = u.boolRewrite(ast.ASTOpAnd, conditions, condition); err != nil {
 		return declarations, err
 	}
 	if err = u.manager.SetRef(head, converted); err != nil {
 		return declarations, err
 	}
-	return next, u.manager.SetRef(condition, cond)
+	return next, nil
 }
 
 func (u *Util) hintHead(term ast.ASTHandle) ([]ast.ASTHandle, bool, error) {
@@ -245,32 +245,49 @@ func (u *Util) restContains(declaration, except ast.ASTHandle) (bool, error) {
 	return false, nil
 }
 
-func (u *Util) restCondition(except ast.ASTHandle) (ast.ASTHandle, error) {
+// restCondition is get_rest_clause_as_cond: the negated other literals of
+// the current clause, built with bool_rewriter mk_not and mk_and into out.
+// out stays null when there is no clause or no other literal.
+func (u *Util) restCondition(except ast.ASTHandle, out ast.ASTRef) (result error) {
 	if u.clause.IsNull() {
-		return ast.ASTHandle{}, nil
+		return nil
 	}
 	n, err := u.manager.ClauseNumLiterals(u.clause)
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return err
 	}
-	negated := make([]ast.ASTHandle, 0, n-1)
+	negated := make([]ast.ASTRef, 0, n)
+	defer func() {
+		for i := range negated {
+			result = errors.Join(result, u.manager.DelRef(&negated[i]))
+		}
+	}()
 	for i := uint32(0); i < n; i++ {
 		literal, e := u.manager.ClauseLiteral(u.clause, i)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return e
 		}
 		if literal != except {
-			literal, e = u.manager.MkNotSimplified(literal)
+			neg, e := u.manager.NewRef(ast.ASTHandle{})
 			if e != nil {
-				return ast.ASTHandle{}, e
+				return e
 			}
-			negated = append(negated, literal)
+			negated = append(negated, neg)
+			if e = u.boolRewrite(ast.ASTOpNot, []ast.ASTHandle{literal}, neg); e != nil {
+				return e
+			}
 		}
 	}
 	if len(negated) == 0 {
-		return ast.ASTHandle{}, nil
+		return nil
 	}
-	return u.manager.MkAndArray(negated)
+	args := make([]ast.ASTHandle, len(negated))
+	for i := range negated {
+		if args[i], err = u.manager.RefGet(negated[i]); err != nil {
+			return err
+		}
+	}
+	return u.boolRewrite(ast.ASTOpAnd, args, out)
 }
 
 func (u *Util) insertCandidate(head ast.ASTHandle, declarations uint32, definition, condition ast.ASTHandle, inequality, satisfy, hint bool, candidates *Candidates) (result error) {
@@ -301,8 +318,16 @@ func (u *Util) insertCandidate(head ast.ASTHandle, declarations uint32, definiti
 			if condition.IsNull() {
 				condition = extraCondition
 			} else {
-				condition, e = u.manager.MkAnd(condition, extraCondition)
+				// bool_rewriter(m_manager).mk_and(cond, extra_cond, new_cond)
+				newCondition, e := u.manager.NewRef(ast.ASTHandle{})
 				if e != nil {
+					return e
+				}
+				defer func() { result = errors.Join(result, u.manager.DelRef(&newCondition)) }()
+				if e = u.boolRewrite(ast.ASTOpAnd, []ast.ASTHandle{condition, extraCondition}, newCondition); e != nil {
+					return e
+				}
+				if condition, e = u.manager.RefGet(newCondition); e != nil {
 					return e
 				}
 			}
@@ -401,11 +426,7 @@ func (u *Util) collectCandidateCore(atom ast.ASTHandle, declarations uint32, can
 				return e
 			}
 			if !u.forbiddenDecl(declaration) && !occurs && !rest {
-				condition, e := u.restCondition(atom)
-				if e != nil {
-					return e
-				}
-				if e = u.insertCandidate(head, declarations, definition, condition, false, true, false, candidates); e != nil {
+				if e = u.insertRestCondition(head, declarations, definition, atom, false, false, candidates); e != nil {
 					return e
 				}
 				continue
@@ -478,4 +499,24 @@ func (u *Util) CollectQuantifierCandidates(q ast.ASTHandle, candidates *Candidat
 		}
 	}
 	return nil
+}
+
+// insertRestCondition is get_rest_clause_as_cond(atom, cond) (unless hint)
+// followed by insert_quasi_macro(head, num_decls, def, cond, ...).
+func (u *Util) insertRestCondition(head ast.ASTHandle, declarations uint32, definition, atom ast.ASTHandle, inequality, hint bool, candidates *Candidates) (result error) {
+	conditionRef, err := u.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, u.manager.DelRef(&conditionRef)) }()
+	if !hint {
+		if err = u.restCondition(atom, conditionRef); err != nil {
+			return err
+		}
+	}
+	condition, err := u.manager.RefGet(conditionRef)
+	if err != nil {
+		return err
+	}
+	return u.insertCandidate(head, declarations, definition, condition, inequality, true, hint, candidates)
 }
