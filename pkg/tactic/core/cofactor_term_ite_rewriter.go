@@ -145,6 +145,14 @@ func (r *cofactorTermITERewriter) checkpoint() error {
 	if n > r.owner.maxMemory {
 		return tactic.NewTacticException(tactic.TacticMaxMemoryMessage)
 	}
+	m := r.owner.manager
+	canceled, err := m.Canceled()
+	if err != nil {
+		return err
+	}
+	if canceled {
+		return tactic.NewTacticException(m.ResourceLimit().CancelMessage())
+	}
 	return nil
 }
 
@@ -434,43 +442,82 @@ func (r *cofactorTermITERewriter) cofactorStep(curr ast.ASTRef, current, c ast.A
 	return m.SetRef(curr, next)
 }
 
-func (r *cofactorTermITERewriter) rewrite(root ast.ASTHandle) (_ ast.ASTHandle, resultErr error) {
-	if value, ok := r.memo[root]; ok {
-		return value, nil
-	}
-	if err := r.checkpoint(); err != nil {
-		return ast.ASTHandle{}, err
+// rewrite is bottom_up_elim::operator(): a frame loop with one checkpoint
+// per iteration; a frame is (t, first).
+func (r *cofactorTermITERewriter) rewrite(root ast.ASTHandle) (ast.ASTHandle, error) {
+	type frame struct {
+		t     ast.ASTHandle
+		first bool
 	}
 	m := r.owner.manager
-	kind, err := m.GetKind(root)
-	if err != nil {
-		return ast.ASTHandle{}, err
+	frames := []frame{{t: root, first: true}}
+	for len(frames) != 0 {
+		if err := r.checkpoint(); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		fr := &frames[len(frames)-1]
+		t := fr.t
+		kind, err := m.GetKind(t)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if kind != ast.ASTApp {
+			// m_cache.insert(t, t) without a m_cache_domain entry.
+			r.memo[t] = t
+			frames = frames[:len(frames)-1]
+			continue
+		}
+		if _, ok := r.memo[t]; ok {
+			frames = frames[:len(frames)-1]
+			continue
+		}
+		n, err := m.GetNumArgs(t)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if fr.first {
+			fr.first = false
+			visited := true
+			for i := n; i > 0; i-- {
+				arg, e := m.GetArg(t, i-1)
+				if e != nil {
+					return ast.ASTHandle{}, e
+				}
+				if _, ok := r.memo[arg]; !ok {
+					frames = append(frames, frame{t: arg, first: true})
+					visited = false
+				}
+			}
+			if !visited {
+				continue
+			}
+		}
+		current, err := r.reduceFrame(t, n)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		r.memo[t] = current
+		frames = frames[:len(frames)-1]
 	}
-	if kind != ast.ASTApp {
-		// m_cache.insert(t, t) without a m_cache_domain entry.
-		r.memo[root] = root
-		return root, nil
-	}
-	n, err := m.GetNumArgs(root)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
+	return r.memo[root], nil
+}
+
+// reduceFrame is the body of bottom_up_elim::operator() after every argument
+// of t is cached: it rebuilds t, cofactors a term-ite atom, and pins new_t
+// (m_cache_domain.push_back).
+func (r *cofactorTermITERewriter) reduceFrame(root ast.ASTHandle, n uint32) (_ ast.ASTHandle, resultErr error) {
+	m := r.owner.manager
 	args := make([]ast.ASTHandle, n)
 	changed := false
+	hasTermITE := false
 	for i := range args {
 		child, e := m.GetArg(root, uint32(i))
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		args[i], e = r.rewrite(child)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
+		args[i] = r.memo[child]
 		changed = changed || args[i] != child
-	}
-	hasTermITE := false
-	for _, arg := range args {
-		if r.hasITE[arg] {
+		if r.hasITE[args[i]] {
 			hasTermITE = true
 		}
 	}
@@ -524,8 +571,7 @@ func (r *cofactorTermITERewriter) rewrite(root ast.ASTHandle) (_ ast.ASTHandle, 
 	if hasTermITE {
 		r.hasITE[current] = true
 	}
-	// m_cache.insert(t, new_t); m_cache_domain.push_back(new_t)
-	r.memo[root] = current
+	// m_cache_domain.push_back(new_t)
 	if _, err = r.pin(current); err != nil {
 		return ast.ASTHandle{}, err
 	}
