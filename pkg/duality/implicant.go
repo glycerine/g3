@@ -317,6 +317,10 @@ func (g *RPFP) FixCurrentState(edge *Edge) (result error) {
 	defer func() { result = errors.Join(result, formula.Close()) }()
 	// Underapproximation flags are temporary query controls. Fixing their
 	// model polarity can contradict the next expansion-selection assumptions.
+	// RPFP::FixCurrentState passes an empty dont_cares set; that is a z3
+	// 4.7.1 bug (the next ExpansionChoices check is unsat and z3 aborts with
+	// "error in ExpansionChoices"), see z3_bug_exclusions.txt and AUDIT.md
+	// duality_02-F2.
 	var controls []*Expr
 	defer func() {
 		for _, control := range controls {

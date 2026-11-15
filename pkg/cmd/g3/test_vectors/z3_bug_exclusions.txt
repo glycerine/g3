@@ -525,3 +525,14 @@ z3_bug_duality_failed_query_requery
 # pkg/model/model_implicant_array.go evalArrayEq; AUDIT.md model_01-F5).
 # Reachable only through model_implicant (PDR, Z3_model_extrapolate), so it
 # has no SMT-LIB vector; see TestModelImplicantNestedArrayTrueIsNotSticky.
+#
+# With fixedpoint.duality.use_underapprox, RPFP::FixCurrentState fixes the
+# model polarity of the @under flags of the edge dual (an empty dont_cares
+# set). The next ExpansionChoices check assumes the opposite polarity, is
+# unsat, and z3 throws an uncaught "error in ExpansionChoices" and aborts
+# (z3 bug: src/duality/duality_rpfp.cpp RPFP::FixCurrentState; Duality was
+# removed upstream without a fix). g3 treats the flags as don't-cares
+# (pkg/duality/implicant.go FixCurrentState; AUDIT.md duality_02-F2) and
+# answers sat: Reach(2) is derivable. Reproduction:
+# test_vectors/z3_bug_duality_underapprox_flag_literals.smt2.
+z3_bug_duality_underapprox_flag_literals

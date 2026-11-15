@@ -1,0 +1,8 @@
+(set-option :fixedpoint.engine duality)
+(set-option :fixedpoint.duality.use_underapprox true)
+(declare-rel Reach (Int))
+(declare-rel Goal ())
+(declare-var x Int)
+(rule (=> (or (= x 0) (and (> x 0) (Reach (- x 1)))) (Reach x)))
+(rule (=> (and (Reach x) (= x 2)) Goal))
+(query Goal)
