@@ -1305,6 +1305,7 @@ namespace pdr {
         datalog::rule_unifier unif(dctx);
         datalog::dl_decl_util util(m);
         datalog::rule_ref r0(rm), r1(rm);
+        // FORK FIX #48 (g3 audit, see FORK_BUGFIXES.md): PDR proof trace caches keyed by predicate and state (g3 z3_bug_pdr_proof_nullary_root)
         // key by predicate and state: distinct nullary predicates share
         // the state true (as in update_models).
         obj_pair_map<func_decl, expr, proof*> cache;
@@ -1316,6 +1317,7 @@ namespace pdr {
         unif.set_normalize(true);
         todo.push_back(m_root);
         update_models();
+        // FORK FIX #49 (g3 audit, see FORK_BUGFIXES.md): PDR proof trace resolves the expanded twin of a duplicate leaf (g3 z3_bug_pdr_proof_duplicate_leaf)
         // A repeated obligation is closed without children. Such a
         // duplicate must not be cached with its unresolved rule: resolve the
         // expanded node of the same predicate and state first.
@@ -1332,6 +1334,7 @@ namespace pdr {
         while (!todo.empty()) {
             model_node* n = todo.back();
             TRACE("pdr", n->display(tout, 0););
+            // FORK FIX #48 (g3 audit, see FORK_BUGFIXES.md): PDR proof trace caches keyed by predicate and state (g3 z3_bug_pdr_proof_nullary_root)
             if (cache.find(n->pt().head(), n->state(), pr)) {
                 todo.pop_back();
                 continue;
@@ -1339,6 +1342,7 @@ namespace pdr {
             ptr_vector<proof> pfs;
             ptr_vector<datalog::rule> rls;
             ptr_vector<model_node> const& chs = n->children();
+            // FORK FIX #49 (g3 audit, see FORK_BUGFIXES.md): PDR proof trace resolves the expanded twin of a duplicate leaf (g3 z3_bug_pdr_proof_duplicate_leaf)
             model_node* rep = nullptr;
             if (chs.empty() && expanded.find(n->pt().head(), n->state(), rep) && rep != n) {
                 todo.push_back(rep);
@@ -1347,6 +1351,7 @@ namespace pdr {
             pfs.push_back(0);
             rls.push_back(0);
             for (unsigned i = 0; i < chs.size(); ++i) {
+                // FORK FIX #48 (g3 audit, see FORK_BUGFIXES.md): PDR proof trace caches keyed by predicate and state (g3 z3_bug_pdr_proof_nullary_root)
                 if (cache.find(chs[i]->pt().head(), chs[i]->state(), pr)) {
                     pfs.push_back(pr);
                     datalog::rule* r = nullptr;
@@ -1366,6 +1371,7 @@ namespace pdr {
             proof_ref p1(m), p2(m);
             p1 = r0->get_proof();
             IF_VERBOSE(0, if (!p1) r0->display(dctx, verbose_stream()););
+            // FORK FIX #50 (g3 audit, see FORK_BUGFIXES.md): PDR proof trace asserts a rule without proof (g3 z3_bug_pdr_boogie_without_proof_trace)
             if (!p1) {
                 // print_boogie_certificate turns the trace on without
                 // generate_proof_trace, so the rule has no proof: assert it.
@@ -1397,6 +1403,7 @@ namespace pdr {
                 vector<expr_ref_vector> substs;
                 svector<std::pair<unsigned,unsigned> > positions;
                 substs.push_back(binding); // TODO base substitution.
+                // FORK FIX #51 (g3 audit, see FORK_BUGFIXES.md): PDR proof trace skips merged tails (g3 z3_bug_pdr_proof_merged_tails)
                 ptr_vector<proof> premises;
                 premises.push_back(pfs[0]);
                 for (unsigned i = 1; i < rls.size(); ++i) {
@@ -1431,6 +1438,7 @@ namespace pdr {
                         }
                     }
 
+                    // FORK FIX #51 (g3 audit, see FORK_BUGFIXES.md): PDR proof trace skips merged tails (g3 z3_bug_pdr_proof_merged_tails)
                     premises.push_back(pfs[i]);
                     positions.push_back(std::make_pair(premises.size() - 1, 0));
                     substs.push_back(unif.get_rule_subst(src, false));
@@ -1440,9 +1448,11 @@ namespace pdr {
 
                 expr_ref fml_concl(m);
                 rm.to_formula(*reduced_rule.get(), fml_concl);
+                // FORK FIX #51 (g3 audit, see FORK_BUGFIXES.md): PDR proof trace skips merged tails (g3 z3_bug_pdr_proof_merged_tails)
                 p1 = m.mk_hyper_resolve(premises.size(), premises.c_ptr(), fml_concl, positions, substs);
 
             }
+            // FORK FIX #48 (g3 audit, see FORK_BUGFIXES.md): PDR proof trace caches keyed by predicate and state (g3 z3_bug_pdr_proof_nullary_root)
             cache.insert(n->pt().head(), n->state(), p1);
             rules.insert(n->pt().head(), n->state(), reduced_rule);
             trail.push_back(p1);
