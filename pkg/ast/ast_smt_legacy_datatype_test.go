@@ -100,3 +100,38 @@ func TestLegacySMTParametricDatatypeBenchmarkDeclaresGenericBlockOnce(t *testing
 		t.Fatal("parametric declaration was instantiated or repeated", text)
 	}
 }
+
+// AUDIT.md ast_07-F4: pp_dt and pp_sort_decl end with newline(), which
+// emits m_indent spaces; display_smt2 passes m_simplify_implies as indent.
+func TestLegacySMTBenchmarkDatatypeDeclarationIndent(t *testing.T) {
+	m := astTestManager(t)
+	_, err := m.RegisterDatatypePlugin()
+	astTestMust(t, err)
+	sorts, err := m.MkDatatypes([]DatatypeDefinition{
+		{Name: astTestSymbol(t, m, "IndentD"), Constructors: []DatatypeConstructorDefinition{
+			{Name: astTestSymbol(t, m, "indent-c"), Recognizer: astTestSymbol(t, m, "indent-is-c")},
+		}},
+	})
+	astTestMust(t, err)
+	astTestPin(t, m, sorts[0])
+	x, err := m.MkConst(astTestSymbol(t, m, "indent-x"), sorts[0])
+	astTestMust(t, err)
+	astTestPin(t, m, x)
+	root, err := m.MkEq(x, x)
+	astTestMust(t, err)
+	astTestPin(t, m, root)
+	for _, simplify := range []bool{true, false} {
+		p, err := NewLegacySMTPrinter(m)
+		astTestMust(t, err)
+		astTestMust(t, p.SetSimplifyImplies(simplify))
+		var out strings.Builder
+		astTestMust(t, p.DisplayBenchmark(&out, root, LegacySMTBenchmarkConfig{}))
+		want := "))\n(declare-fun indent-x"
+		if simplify {
+			want = "))\n (declare-fun indent-x"
+		}
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("simplify_implies=%v: %q", simplify, out.String())
+		}
+	}
+}

@@ -101,6 +101,13 @@ func (p *LegacySMTPrinter) writeBenchmark(stream io.Writer, root ASTHandle, conf
 	if err := collector.orderDeps(); err != nil {
 		return err
 	}
+	// Source quirk: display_smt2 constructs smt_printer(..., m_logic, no_lets,
+	// true, m_simplify_implies, k), so the bool m_simplify_implies lands in
+	// the indent parameter (newline() then emits one space when it is set).
+	indent := uint32(0)
+	if p.simplifyImplies {
+		indent = 1
+	}
 	declaredDatatypes := make(map[ASTHandle]bool)
 	for _, sort := range collector.sorts {
 		if config.IsDeclaredSort != nil {
@@ -118,9 +125,9 @@ func (p *LegacySMTPrinter) writeBenchmark(stream io.Writer, root ASTHandle, conf
 		}
 		var text string
 		if view.datatypeSort {
-			text, e = p.datatypeDeclarationText(sort, declaredDatatypes)
+			text, e = p.datatypeDeclarationText(sort, declaredDatatypes, indent)
 		} else {
-			text, e = p.sortDeclarationText(sort)
+			text, e = p.sortDeclarationText(sort, indent)
 		}
 		if e != nil {
 			return e
@@ -146,14 +153,7 @@ func (p *LegacySMTPrinter) writeBenchmark(stream io.Writer, root ASTHandle, conf
 			out.WriteByte('\n')
 		}
 	}
-	// Source quirk: display_smt2 constructs smt_printer(..., m_logic, no_lets,
-	// true, m_simplify_implies, k), so the bool m_simplify_implies lands in
-	// the indent parameter (newline() then emits one space when it is set).
 	// Its simplify_implies argument is the literal true.
-	indent := uint32(0)
-	if p.simplifyImplies {
-		indent = 1
-	}
 	savedSimplify := p.simplifyImplies
 	p.simplifyImplies = true
 	defer func() { p.simplifyImplies = savedSimplify }()

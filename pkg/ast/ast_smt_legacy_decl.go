@@ -7,19 +7,21 @@ import (
 	"strings"
 )
 
-func (p *LegacySMTPrinter) sortDeclarationText(sort ASTHandle) (string, error) {
+// sortDeclarationText is smt_printer::pp_sort_decl; indent is the
+// printer's m_indent, which newline() emits after the declaration.
+func (p *LegacySMTPrinter) sortDeclarationText(sort ASTHandle, indent uint32) (string, error) {
 	view, err := p.manager.smt2SortView(sort)
 	if err != nil {
 		return "", err
 	}
 	if view.datatypeSort {
-		return p.datatypeDeclarationText(sort, make(map[ASTHandle]bool))
+		return p.datatypeDeclarationText(sort, make(map[ASTHandle]bool), indent)
 	}
 	text, err := p.sortText(sort)
 	if err != nil {
 		return "", err
 	}
-	return "(declare-sort " + text + ")\n", nil
+	return "(declare-sort " + text + ")\n" + strings.Repeat(" ", int(indent)), nil
 }
 
 func (p *LegacySMTPrinter) funcDeclarationText(decl ASTHandle) (string, error) {
@@ -79,7 +81,7 @@ func (p *LegacySMTPrinter) DisplaySortDeclaration(out io.Writer, sort ASTHandle)
 	if p == nil || p.manager == nil || p.renaming == nil {
 		return ErrASTHandle
 	}
-	body, err := p.sortDeclarationText(sort)
+	body, err := p.sortDeclarationText(sort, 0)
 	if err != nil {
 		return err
 	}
@@ -112,7 +114,7 @@ func (p *LegacySMTPrinter) DisplayAST(out io.Writer, node ASTHandle, indent uint
 	case ASTFuncDecl:
 		body, err = p.funcDeclarationText(node)
 	case ASTSort:
-		body, err = p.sortDeclarationText(node)
+		body, err = p.sortDeclarationText(node, indent)
 	default:
 		err = ErrASTDomain
 	}

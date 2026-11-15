@@ -27,7 +27,9 @@ func (m *ASTManager) legacyDatatypeDefinitions(sort ASTHandle) ([]DatatypeDefini
 	return m.DatatypeDefinitions(generic)
 }
 
-func (p *LegacySMTPrinter) datatypeDeclarationText(sort ASTHandle, marked map[ASTHandle]bool) (string, error) {
+// datatypeDeclarationText is smt_printer::pp_dt; indent is the printer's
+// m_indent, which newline() emits after the closing "))".
+func (p *LegacySMTPrinter) datatypeDeclarationText(sort ASTHandle, marked map[ASTHandle]bool, indent uint32) (string, error) {
 	definitions, err := p.manager.legacyDatatypeDefinitions(sort)
 	if err != nil {
 		return "", err
@@ -102,5 +104,6 @@ func (p *LegacySMTPrinter) datatypeDeclarationText(sort ASTHandle, marked map[AS
 		out.WriteByte(')')
 	}
 	out.WriteString("))\n")
+	out.WriteString(strings.Repeat(" ", int(indent)))
 	return out.String(), nil
 }

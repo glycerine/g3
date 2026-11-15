@@ -41,7 +41,7 @@ func TestLegacySMTPrinterBenchmarkMetadataDeclarationsAndAssertion(t *testing.T)
 	astTestMust(t, printer.DisplayBenchmark(&out, root, config))
 	want := "; bench\n; :source { source }\n(set-info :status sat)\n; :category { crafted }\n(set-logic QF_UF)\n; :notes exact\n" +
 		"(declare-sort legacy-A)\n" +
-		"(declare-fun legacy-f (legacy-A) legacy-A)\n" +
+		" (declare-fun legacy-f (legacy-A) legacy-A)\n" +
 		"(declare-fun legacy-a () legacy-A)\n" +
 		"(declare-fun legacy-p (legacy-A) Bool)\n" +
 		"(assert\n (legacy-p (legacy-f legacy-a)))\n(check-sat)\n"
