@@ -14,6 +14,8 @@ import (
 // scriptResults so the C++ reference comparison does not run them; this
 // test locks in g3's correct answers instead.
 var z3BugResults = map[string]string{
+	// symmetry-reduce rejects a quantified goal (upstream 330b3cc8d).
+	"z3_bug_symmetry_reduce_quantified.smt2": "(error \"tactic failed: symmetry_reduce does not apply to quantified goals\")\nsat\nunknown\n",
 	// sine-filter on an empty goal and on a last formula without symbols.
 	"z3_bug_sine_filter_component.smt2": "(goals\n(goal\n  :precision over :depth 1)\n)\n(goals\n(goal\n  (> x 0)\n  :precision over :depth 1)\n)\n",
 	// elim-small-bv enumerates every value of a small bit-vector variable

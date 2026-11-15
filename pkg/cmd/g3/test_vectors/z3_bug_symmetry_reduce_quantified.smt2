@@ -1,0 +1,8 @@
+(declare-fun f (Int) Int)
+(declare-const a Int)
+(declare-const b Int)
+(assert (forall ((x Int)) (! (> (f x) 0) :pattern ((f x)))))
+(assert (or (= a 1) (= b 1)))
+(apply symmetry-reduce)
+(check-sat-using (or-else symmetry-reduce smt))
+(check-sat-using (then symmetry-reduce smt))

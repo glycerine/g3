@@ -141,6 +141,11 @@ func (t *SymmetryReduceTactic) Apply(goal *tactic.Goal, result *tactic.TacticRes
 	if err := tactic.FailIfUnsatCoreGeneration("symmetry_reduce", goal); err != nil {
 		return err
 	}
+	// z3 4.7.1 colors only ground terms and fails merge_colors's VERIFY on
+	// a quantified goal; the fork and upstream (330b3cc8d) reject it.
+	if err := tactic.FailIfHasQuantifiers("symmetry_reduce", goal); err != nil {
+		return err
+	}
 	if err := result.Prepare(t.manager); err != nil {
 		return err
 	}

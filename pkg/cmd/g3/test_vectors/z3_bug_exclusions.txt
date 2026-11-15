@@ -104,3 +104,12 @@ elim_small_bv_max_steps_simplifier
 # (pkg/tactic/tactic_sine.go filterExpressions). Reproduction:
 # test_vectors/z3_bug_sine_filter_component.smt2.
 z3_bug_sine_filter_component
+#
+# symmetry_reduce_tactic colors only ground terms, so on a goal with a
+# quantified pattern merge_colors's VERIFY(colors1.find(a, v2)) fails and
+# z3 4.7.1 aborts (z3 bug: src/tactic/core/symmetry_reduce_tactic.cpp;
+# upstream 330b3cc8d rejects quantified goals with
+# fail_if_has_quantifiers). g3 and the fork fail with "symmetry_reduce does
+# not apply to quantified goals" (pkg/tactic/core/symmetry_reduce_tactic.go
+# Apply). Reproduction: test_vectors/z3_bug_symmetry_reduce_quantified.smt2.
+z3_bug_symmetry_reduce_quantified

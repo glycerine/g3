@@ -616,6 +616,29 @@ func FailIfUnsatCoreGeneration(name string, g *Goal) error {
 	}
 	return nil
 }
+
+// FailIfHasQuantifiers is upstream's fail_if_has_quantifiers (330b3cc8d,
+// "fix #3584"), which the fork backports for symmetry-reduce.
+func FailIfHasQuantifiers(name string, g *Goal) error {
+	n, err := g.Size()
+	if err != nil {
+		return err
+	}
+	for i := uint32(0); i < n; i++ {
+		f, e := g.Form(i)
+		if e != nil {
+			return e
+		}
+		has, e := g.manager.HasQuantifiers(f)
+		if e != nil {
+			return e
+		}
+		if has {
+			return NewTacticException(fmt.Sprintf("%s does not apply to quantified goals", name))
+		}
+	}
+	return nil
+}
 func FailIfModelGeneration(name string, g *Goal) error {
 	if enabled, err := g.ModelsEnabled(); err != nil {
 		return err
