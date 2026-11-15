@@ -195,6 +195,10 @@ Abstract:
                                   %I64u, which glibc prints as a 64-wide %u
                                   of a 32-bit argument (pkg/AUDIT.md
                                   cmd_context_02-F11).
+    z3_4_7_1_read_uint64_max      datalog::read_uint64 rejects every value
+                                  whose first 19 digits exceed
+                                  (ULLONG_MAX-9)/10, ULLONG_MAX included
+                                  (pkg/AUDIT.md cmd_context_02-F11).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -2487,4 +2491,28 @@ void tst_z3_4_7_1_wpa_warning_number() {
     }
     std::cout << "wpa_warning_number: PASS\n";
 #endif
+}
+
+// read_uint64 (the WPA map and relation number reader) guards the last digit
+// in a branch that never advances s, so it multiplies by ten again on the
+// same digit and reports overflow: 18446744073709551615 and every number from
+// 18446744073709551610 up are rejected. Upstream (v5.4.2) is unchanged.
+void tst_z3_4_7_1_read_uint64_max() {
+    struct { char const* text; bool ok; uint64_t value; } cases[] = {
+        { "18446744073709551615 x", true, 18446744073709551615ull },
+        { "18446744073709551610", true, 18446744073709551610ull },
+        { "18446744073709551609", true, 18446744073709551609ull },
+        { "18446744073709551616", false, 0 },
+        { "184467440737095516150", false, 0 },
+    };
+    for (auto const& c : cases) {
+        char const* s = c.text;
+        uint64_t value = 0;
+        bool ok = datalog::read_uint64(s, value);
+        if (ok != c.ok || (ok && (value != c.value || (*s != 0 && *s != ' ')))) {
+            std::cerr << "read_uint64_max: " << c.text << " gave ok=" << ok << " value=" << value << "\n";
+            ENSURE(false);
+        }
+    }
+    std::cout << "read_uint64_max: PASS\n";
 }

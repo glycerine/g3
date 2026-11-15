@@ -273,6 +273,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_to_fp_one_real);
     TST(z3_4_7_1_get_file_names_posix);
     TST(z3_4_7_1_wpa_warning_number);
+    TST(z3_4_7_1_read_uint64_max);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);
