@@ -260,7 +260,7 @@ func (t *FastCoreTactic) ApplyWithOutput(g *goaltactic.Goal, out io.Writer) (res
 		if errors.Is(err, subpaving.ErrSubpavingFailure) {
 			return nil, goaltactic.NewTacticException("failed to internalize goal into subpaving module")
 		}
-		return nil, err
+		return nil, goaltactic.WrapTacticException(err)
 	}
 	shell, err := t.engine.Shell()
 	if err != nil {
@@ -277,7 +277,7 @@ func (t *FastCoreTactic) ApplyWithOutput(g *goaltactic.Goal, out io.Writer) (res
 		if errors.Is(err, subpaving.ErrSubpavingFailure) {
 			return nil, goaltactic.NewTacticException("failed building subpaving tree...")
 		}
-		return nil, err
+		return nil, goaltactic.WrapTacticException(err)
 	}
 	if options.PrintNodes {
 		stream := &fastTacticOutput{out: out}

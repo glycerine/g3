@@ -338,6 +338,11 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md math_subpaving_04-F3 (mpfx twin).
+	"subpaving_unsupported_atom_mpfx.smt2": "(error \"tactic failed: unsupported atom\")\n",
+	// AUDIT.md math_subpaving_04-F3: non-MPQ engines raise unsupported atom
+	// as a tactic exception.
+	"subpaving_unsupported_atom_hwf.smt2": "(error \"tactic failed: unsupported atom\")\n",
 	// AUDIT.md math_subpaving_01-F3: relevant_new_bound catches the mpf
 	// non-regular exception on a fixed variable.
 	"subpaving_mpf_fixed_var.smt2": "(goals\n(goal\n  (>= a 2.0)\n  (<= a 2.0)\n  (>= b 1.0)\n  (<= b 3.0)\n  (<= (* a b) 100.0)\n  (>= (* a b) 1.0)\n  :precision precise :depth 2)\n)\n",
