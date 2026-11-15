@@ -241,7 +241,9 @@ func TestArrayGeneralizerCollectsPostorderAndQuantifierChildren(t *testing.T) {
 	must(err)
 	secondDecl, err := m.GetDecl(second)
 	must(err)
-	if len(declarations) != 2 || declarations[0] != childDecl || declarations[1] != secondDecl {
+	// AUDIT.md muz_spacer_01-F2: the post-order visit fills a func_decl_set,
+	// which is then read in hash-table order.
+	if want := funcDeclSetOrder(t, m, childDecl, secondDecl); len(declarations) != 2 || declarations[0] != want[0] || declarations[1] != want[1] {
 		t.Fatal("quantifier annotation traversal", declarations)
 	}
 	quantified, err = m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []symbol.Symbol{name}, Body: body})
@@ -250,5 +252,65 @@ func TestArrayGeneralizerCollectsPostorderAndQuantifierChildren(t *testing.T) {
 	must(err)
 	if len(declarations) != 2 {
 		t.Fatal("quantifier body traversal", declarations)
+	}
+}
+
+func funcDeclSetOrder(t *testing.T, m *ast.ASTManager, decls ...ast.ASTHandle) []ast.ASTHandle {
+	t.Helper()
+	set := ast.NewFuncDeclSet(m)
+	for _, decl := range decls {
+		if err := set.Insert(decl); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return set.Keys()
+}
+
+// AUDIT.md muz_spacer_01-F2: lemma_array_eq_generalizer copies its
+// func_decl_set of array constants in hash-table order, which orients the
+// candidate equalities.
+func TestArrayGeneralizerUsesFuncDeclSetOrder(t *testing.T) {
+	m, _ := newSpacerTestServices(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	integer, err := m.GetSort(normalizeNumeral(t, m, "0"))
+	must(err)
+	arraySort, err := m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{integer}), integer)
+	must(err)
+	var constants, decls []ast.ASTHandle
+	for _, text := range []string{"array-order-a", "array-order-b", "array-order-c", "array-order-d", "array-order-e"} {
+		name, err := m.Symbols.Intern(text)
+		must(err)
+		constant, err := m.MkConst(name, arraySort)
+		must(err)
+		decl, err := m.GetDecl(constant)
+		must(err)
+		constants = append(constants, constant)
+		decls = append(decls, decl)
+	}
+	// The equalities are visited in creation order.
+	var equalities []ast.ASTHandle
+	for i := 0; i+1 < len(constants); i++ {
+		eq, err := m.MkEq(constants[i], constants[i+1])
+		must(err)
+		equalities = append(equalities, eq)
+	}
+	root, err := m.MkAndArray(equalities)
+	must(err)
+	pt := &PredicateTransformer{manager: m}
+	declarations, err := pt.collectArrayConstants(root)
+	must(err)
+	want := funcDeclSetOrder(t, m, decls...)
+	if len(declarations) != len(want) {
+		t.Fatal("collected arrays", declarations, want)
+	}
+	for i := range want {
+		if declarations[i] != want[i] {
+			t.Fatal("array constants not in func_decl_set order", declarations, want)
+		}
 	}
 }

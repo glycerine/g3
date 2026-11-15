@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_spacer_01-F2: the array-equality generalizer orders the
+	// array constants by func_decl_set order (the order itself is checked by
+	// TestArrayGeneralizerUsesFuncDeclSetOrder).
+	"fp_spacer_array_eq_order.smt2": "unsat\n",
 	// AUDIT.md muz_spacer_01-F1: derivations build m_trans with the spacer
 	// manager's bool_rewriter mk_and (the search order is checked by
 	// TestSpacerDerivationPreImageUsesBoolRewriterAnd).

@@ -118,7 +118,15 @@ func (p *PredicateTransformer) collectArrayConstants(root ast.ASTHandle) ([]ast.
 		}
 
 	}
-	return result, nil
+	// The source collects into func_decl_set symb (an obj_hashtable) and
+	// copies it to vsymbs in hash-table order, not insertion order.
+	set := ast.NewFuncDeclSet(p.manager)
+	for _, decl := range result {
+		if err := set.Insert(decl); err != nil {
+			return nil, err
+		}
+	}
+	return set.Keys(), nil
 }
 
 // strengthenArrayEqualities returns the strengthened literals and the
