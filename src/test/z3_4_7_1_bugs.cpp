@@ -248,6 +248,12 @@ Abstract:
                                   two-premise hyper-resolution the positions
                                   (0,1) instead of (1,0) (upstream
                                   784b613b5).
+    z3_4_7_1_bmc_nonlinear_head_vars nonlinear BMC proof reconstruction
+                                  Skolemizes the rule's head variables, which
+                                  the model never interprets, so no rule of
+                                  the tail predicate is selected and z3
+                                  segfaults (pkg/AUDIT.md muz_small_01-F5
+                                  reproduction, muz_fp_01 notes).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -3062,4 +3068,38 @@ void tst_z3_4_7_1_qbmc_hyper_res_positions() {
         "    (asserted (p 0))\n"
         "    (query!0 0)))\n"
         "\n");
+}
+
+// nonlinear::compile binds a rule's head variables to the head arguments and
+// Skolemizes only the other variables (skolemize_vars over rule_vars with the
+// head variables cleared). nonlinear::get_proof Skolemized all of them, so
+// the binding of a head variable is a Skolem term the model does not
+// interpret, the tail atom never evaluates, no rule of the tail predicate is
+// selected and the null rule is dereferenced. Without a proof trace the rules
+// carry no proof, and the null proof reached mk_hyper_resolve; the root was
+// concluded with the level predicate applied to the query constants. The
+// fork binds head variables to the head arguments, asserts a rule without a
+// proof as linear::get_model does and concludes the query at the model
+// values. z3 4.7.1 segfaults; upstream 5.4.2 throws "no proof associated
+// with rule".
+void tst_z3_4_7_1_bmc_nonlinear_head_vars() {
+    char const* script =
+        "(set-option :fixedpoint.engine bmc)\n"
+        "(declare-rel p (Int))\n"
+        "(declare-rel r (Int))\n"
+        "(declare-var x Int)\n"
+        "(rule (p 0))\n"
+        "(rule (=> (and (p x) (< x 3)) (p (+ x 1))))\n"
+        "(rule (=> (and (p x) (p (+ x 1))) (r x)))\n"
+        "(query r :print-answer true)\n";
+    expect_script_output("bmc_nonlinear_head_vars", script,
+        "sat\n"
+        "(let ((a!1 (forall ((A Int) (B Int))\n"
+        "             (=> (and (p A) (p B) (= A (+ 1 B))) (query!0 B))))\n"
+        "      (a!2 (forall ((A Int) (B Int))\n"
+        "             (=> (and (p B) (not (<= 3 B)) (= A (+ 1 B))) (p A)))))\n"
+        "  (hyper-res (asserted a!1)\n"
+        "             (hyper-res (asserted a!2) (asserted (p 0)) (p 1))\n"
+        "             (asserted (p 0))\n"
+        "             (query!0 0)))\n");
 }
