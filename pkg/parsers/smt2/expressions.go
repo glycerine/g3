@@ -498,10 +498,18 @@ func (p *commandParser) defineFunction(withArguments bool) (result error) {
 	if actual != rangeSort {
 		return fmt.Errorf("invalid function/constant definition, sort mismatch")
 	}
-	if err = p.requireEnd(); err != nil {
+	// Source parse_define_fun / parse_define_const: m_ctx.insert runs
+	// before check_rparen.
+	if err = p.context.DefineFunction(name, sorts, body); err != nil {
 		return err
 	}
-	return p.context.DefineFunction(name, sorts, body)
+	if p.token != RightParenToken {
+		if !withArguments {
+			return errors.New("invalid constant definition, ')' expected")
+		}
+		return errors.New("invalid function/constant definition, ')' expected")
+	}
+	return nil
 }
 
 func (p *commandParser) quantifier(forall bool) (value ast.ASTHandle, named string, result error) {

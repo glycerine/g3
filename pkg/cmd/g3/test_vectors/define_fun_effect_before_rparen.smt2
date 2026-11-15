@@ -1,0 +1,1 @@
+(define-fun f () Int 3 4)(simplify f)

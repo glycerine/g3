@@ -158,8 +158,12 @@ func testArithmeticStrategicDIMACS(t *testing.T, logic string) {
 	}
 }
 
+// A malformed argument is rejected before the command's effect. A surplus
+// argument is not: the C++ applies the effect before check_rparen or
+// "too many arguments" (AUDIT.md parsers_shell_01-F2), see
+// TestSMT2CommandEffectPrecedesRParen.
 func TestSMT2CommandsRejectMalformedInputBeforeEffects(t *testing.T) {
-	for _, command := range []string{"(assert false extra)", "(declare-fun p () Bool extra)", "(declare-const p (Array))", "(declare-const p (Array Bool))", "(assert (forall ((x Bool))", "(get-info)", "(get-info reason-unknown)", "(get-info :reason-unknown extra)", "(get-info :reason-unknown"} {
+	for _, command := range []string{"(declare-const p (Array))", "(declare-const p (Array Bool))", "(assert (forall ((x Bool))", "(get-info)", "(get-info reason-unknown)"} {
 		t.Run(command, func(t *testing.T) {
 			context, err := cmd_context.NewStandaloneContext()
 			if err != nil {
@@ -372,5 +376,47 @@ func TestSMT2FunctionDefinitionFailuresAndRecovery(t *testing.T) {
 				t.Fatal(out.String())
 			}
 		})
+	}
+}
+
+// AUDIT.md parsers_shell_01-F2: the built-in parse_* commands apply their
+// effect before check_rparen, and parse_ext_cmd arguments take effect as
+// they are read, before "too many arguments" is reported.
+func TestSMT2CommandEffectPrecedesRParen(t *testing.T) {
+	for _, tc := range []struct{ script, want string }{
+		{"(assert false 3)\n(check-sat)\n", "(error \"line 1 column 15: invalid assert command, ')' expected\")\nunsat\n"},
+		{"(declare-const x Int 3)(assert (= x 1))(check-sat)", "(error \"line 1 column 22: invalid constant declaration, ')' expected\")\nsat\n"},
+		{"(define-fun f () Int 3 4)(simplify f)", "(error \"line 1 column 24: invalid function/constant definition, ')' expected\")\n3\n"},
+		{"(define-const c Int 3 4)(simplify c)", "(error \"line 1 column 23: invalid constant definition, ')' expected\")\n3\n"},
+		{"(declare-fun g (Int) Int 3)(assert (= (g 1) 2))(check-sat)", "(error \"line 1 column 26: invalid function declaration, ')' expected\")\nsat\n"},
+		{"(define-sort S () Int 3)(declare-const y S)(check-sat)", "(error \"line 1 column 23: invalid sort definition, ')' expected\")\nsat\n"},
+		{"(set-option :timeout 5 6)(get-option :timeout)", "(error \"line 1 column 24: invalid command, too many arguments\")\n5\n"},
+		{"(get-info :name 3)", "(:name \"Z3\")\n(error \"line 1 column 17: invalid command, too many arguments\")\n"},
+		{"(get-info :reason-unknown extra)", "(:reason-unknown \"state of the most recent check-sat command is not known\")\n(error \"line 1 column 27: invalid command, too many arguments\")\n"},
+		{"(declare-fun p () Bool extra)(assert p)(check-sat)", "(error \"line 1 column 24: invalid function declaration, ')' expected\")\nsat\n"},
+	} {
+		c, err := cmd_context.NewStandaloneContext()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var output bytes.Buffer
+		err = ParseShellCommands(c, strings.NewReader(tc.script), &output)
+		if err == nil {
+			t.Fatal("expected a parse error", tc.script)
+		}
+		if closeErr := c.Close(); closeErr != nil {
+			t.Fatal(closeErr)
+		}
+		if output.String() != tc.want {
+			t.Fatalf("%s: got %q want %q", tc.script, output.String(), tc.want)
+		}
+		if reference := os.Getenv("G3_CPP_REFERENCE"); reference != "" {
+			command := exec.Command(reference, "-in")
+			command.Stdin = strings.NewReader(tc.script)
+			cpp, _ := command.Output()
+			if output.String() != string(cpp) {
+				t.Fatalf("C++ differential %s: %q %q", tc.script, output.String(), cpp)
+			}
+		}
 	}
 }

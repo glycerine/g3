@@ -14,8 +14,14 @@ func (p *commandParser) checkSatCommand(assuming, execute bool) error {
 	if err != nil {
 		return err
 	}
-	if err = p.requireEnd(); err != nil {
-		return err
+	// Source parse_check_sat reads assumptions up to the ')'.
+	// parse_check_sat_assuming runs check_sat right after the literal
+	// list's ')' and does not check the command's ')': its next() skips
+	// whatever token follows.
+	if !assuming {
+		if err = p.requireEnd(); err != nil {
+			return err
+		}
 	}
 	if !execute {
 		return nil

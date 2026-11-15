@@ -1,0 +1,1 @@
+(set-option :timeout 5 6)(get-option :timeout)

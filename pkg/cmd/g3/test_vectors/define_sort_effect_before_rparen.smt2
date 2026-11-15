@@ -1,0 +1,1 @@
+(define-sort S () Int 3)(declare-const y S)(check-sat)

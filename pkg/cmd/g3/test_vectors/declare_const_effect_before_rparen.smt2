@@ -1,0 +1,1 @@
+(declare-const x Int 3)(assert (= x 1))(check-sat)

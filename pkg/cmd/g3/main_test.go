@@ -338,6 +338,13 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md parsers_shell_01-F2: the built-in parse_* commands and
+	// parse_ext_cmd arguments take effect before the closing ')' is checked.
+	"assert_effect_before_rparen.smt2":        "(error \"line 1 column 15: invalid assert command, ')' expected\")\nunsat\n",
+	"declare_const_effect_before_rparen.smt2": "(error \"line 1 column 22: invalid constant declaration, ')' expected\")\nsat\n",
+	"define_fun_effect_before_rparen.smt2":    "(error \"line 1 column 24: invalid function/constant definition, ')' expected\")\n3\n",
+	"define_sort_effect_before_rparen.smt2":   "(error \"line 1 column 23: invalid sort definition, ')' expected\")\nsat\n",
+	"set_option_effect_before_rparen.smt2":    "(error \"line 1 column 24: invalid command, too many arguments\")\n5\n",
 	// AUDIT.md parsers_shell_01-F1: parse_assert rejects a non-Boolean term.
 	"assert_non_boolean.smt2": "(error \"line 1 column 10: invalid assert command, term is not Boolean\")\nsat\n",
 	// AUDIT.md parsers_shell_01-F4: an empty quantifier binder list is a
@@ -1461,6 +1468,12 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	"assert_effect_before_rparen.smt2":        true,
+	"declare_const_effect_before_rparen.smt2": true,
+	"define_fun_effect_before_rparen.smt2":    true,
+	"define_sort_effect_before_rparen.smt2":   true,
+	"set_option_effect_before_rparen.smt2":    true,
+
 	"assert_non_boolean.smt2":       true,
 	"quantifier_empty_binders.smt2": true,
 

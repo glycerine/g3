@@ -265,6 +265,16 @@ func (p *commandParser) requireEnd() error {
 	}
 	return nil
 }
+
+// optionValueEnd is parse_ext_cmd's check after a command's last argument:
+// any further token is "too many arguments".
+func (p *commandParser) optionValueEnd() error {
+	if p.token != RightParenToken {
+		return fmt.Errorf("invalid command, too many arguments")
+	}
+	return nil
+}
+
 func (p *commandParser) symbol() (string, error) {
 	if p.token != SymbolToken {
 		return "", fmt.Errorf("symbol expected")
@@ -451,58 +461,65 @@ func (p *commandParser) command() (bool, error) {
 		if err := p.advance(); err != nil {
 			return false, err
 		}
+		// Source parse_ext_cmd: set_option_cmd::set_next_arg applies the
+		// value as it is read; a further argument is then rejected before
+		// execute.
 		if p.token == StringToken {
-			value := p.scanner.String()
+			if err = p.context.SetStringOption(key, p.scanner.String()); err != nil {
+				return false, err
+			}
 			if err = p.advance(); err != nil {
 				return false, err
 			}
-			if err = p.requireEnd(); err != nil {
-				return false, err
-			}
-			if err = p.context.SetStringOption(key, value); err != nil {
+			if err = p.optionValueEnd(); err != nil {
 				return false, err
 			}
 			break
 		}
 		if p.token == IntegerToken {
-			value, err := p.unsigned()
-			if err != nil {
+			n := p.scanner.Number()
+			if !n.IsInt() || n.Sign() < 0 || !n.Num().IsUint64() || n.Num().Uint64() > uint64(^uint32(0)) {
+				return false, fmt.Errorf("unsigned numeral is out of range")
+			}
+			if err = p.context.SetUIntOption(key, uint32(n.Num().Uint64())); err != nil {
 				return false, err
 			}
-			if err = p.requireEnd(); err != nil {
+			if err = p.advance(); err != nil {
 				return false, err
 			}
-			if err = p.context.SetUIntOption(key, value); err != nil {
+			if err = p.optionValueEnd(); err != nil {
 				return false, err
 			}
 			break
 		}
 		if p.token == DecimalToken || p.token == BitVectorToken {
-			value := p.scanner.Number()
+			if err = p.context.SetNumeralOption(key, p.scanner.Number()); err != nil {
+				return false, err
+			}
 			if err = p.advance(); err != nil {
 				return false, err
 			}
-			if err = p.requireEnd(); err != nil {
-				return false, err
-			}
-			if err = p.context.SetNumeralOption(key, value); err != nil {
+			if err = p.optionValueEnd(); err != nil {
 				return false, err
 			}
 			break
 		}
-		value, err := p.symbol()
-		if err != nil {
-			return false, err
+		if p.token != SymbolToken {
+			return false, fmt.Errorf("symbol expected")
 		}
-		if err = p.requireEnd(); err != nil {
-			return false, err
-		}
+		value := p.scanner.ID()
 		if value == "true" || value == "false" {
 			err = p.context.SetBoolOption(key, value == "true")
 		} else {
 			err = p.context.SetSymbolOption(key, value)
 		}
 		if err != nil {
+			return false, err
+		}
+		if err = p.advance(); err != nil {
+			return false, err
+		}
+		if err = p.optionValueEnd(); err != nil {
 			return false, err
 		}
 		if err = p.configurePatternOptions(); err != nil {
@@ -641,11 +658,12 @@ func (p *commandParser) command() (bool, error) {
 		if bodyErr != nil {
 			return false, errors.Join(bodyErr, p.context.AbortPSort())
 		}
-		if err = p.requireEnd(); err != nil {
-			return false, errors.Join(err, p.context.AbortPSort())
-		}
+		// Source parse_define_sort: m_ctx.insert runs before check_rparen.
 		if err = p.context.DefineSort(name, formals, body); err != nil {
 			return false, err
+		}
+		if p.token != RightParenToken {
+			return false, errors.New("invalid sort definition, ')' expected")
 		}
 	case "declare-fun", "declare-const":
 		function, err := p.symbol()
@@ -676,11 +694,16 @@ func (p *commandParser) command() (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		if err = p.requireEnd(); err != nil {
-			return false, err
-		}
+		// Source parse_declare_fun / parse_declare_const: m_ctx.insert
+		// runs before check_rparen.
 		if _, err = p.context.DeclareFunction(function, domain, rangeSort); err != nil {
 			return false, err
+		}
+		if p.token != RightParenToken {
+			if name == "declare-const" {
+				return false, errors.New("invalid constant declaration, ')' expected")
+			}
+			return false, errors.New("invalid function declaration, ')' expected")
 		}
 	case "declare-rel":
 		relation, err := p.symbol()
@@ -760,11 +783,12 @@ func (p *commandParser) command() (bool, error) {
 		if !isBool {
 			return false, errors.New("invalid assert command, term is not Boolean")
 		}
-		if err = p.requireEnd(); err != nil {
-			return false, err
-		}
+		// Source parse_assert: assert_expr runs before check_rparen.
 		if err = p.context.AssertWithText(expression, named, displayText); err != nil {
 			return false, err
+		}
+		if p.token != RightParenToken {
+			return false, errors.New("invalid assert command, ')' expected")
 		}
 	case "rule":
 		expression, _, err := p.expression()
@@ -970,6 +994,10 @@ func (p *commandParser) command() (bool, error) {
 		if !p.ignoreChecks {
 			p.freshResetSortGap = false
 		}
+		if name == "check-sat-assuming" {
+			// Source parse_check_sat_assuming ends with an unchecked next().
+			return false, p.advance()
+		}
 		success = false
 	case "query":
 		declaration, err := p.functionDeclarationReference()
@@ -1081,12 +1109,8 @@ func (p *commandParser) command() (bool, error) {
 			return false, fmt.Errorf("information keyword expected")
 		}
 		key := p.scanner.ID()
-		if err = p.advance(); err != nil {
-			return false, err
-		}
-		if err = p.requireEnd(); err != nil {
-			return false, err
-		}
+		// Source get_info_cmd::set_next_arg prints the information as the
+		// keyword is read, before parse_ext_cmd sees the closing ')'.
 		switch key {
 		case ":all-statistics":
 			err = p.context.WriteStatistics(p.out)
@@ -1107,6 +1131,12 @@ func (p *commandParser) command() (bool, error) {
 			}
 		}
 		if err != nil {
+			return false, err
+		}
+		if err = p.advance(); err != nil {
+			return false, err
+		}
+		if err = p.optionValueEnd(); err != nil {
 			return false, err
 		}
 		success = false
