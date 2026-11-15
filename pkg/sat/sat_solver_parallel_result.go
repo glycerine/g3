@@ -1,15 +1,13 @@
 package sat
 
-// Source: src/sat/sat_solver.cpp:844-856,882-884.
+// Source: src/sat/sat_solver.cpp:844-856,876-880.
 
 import "github.com/glycerine/g3/pkg/util/lbool"
 
-func (p *satParallelPortfolio) adopt() error {
-	if p.finished < 0 || p.finished >= len(p.workers) {
-		return nil
-	}
-	winner := p.workers[p.finished]
-	switch p.result {
+// transfer is the first-finisher branch of check_par: a winning worker's
+// model or core is copied into the owner immediately.
+func (p *satParallelPortfolio) transfer(winner *Solver, r lbool.LBool) error {
+	switch r {
 	case lbool.True:
 		if err := p.owner.setModel(&winner.model); err != nil {
 			return err
@@ -22,7 +20,16 @@ func (p *satParallelPortfolio) adopt() error {
 			return err
 		}
 	}
-	p.owner.copyParallelMainStatistics(winner)
+	return nil
+}
+
+// adopt copies the winning worker's statistics after all lanes ran
+// (sat_solver.cpp:878-880).
+func (p *satParallelPortfolio) adopt() error {
+	if p.finished < 0 || p.finished >= len(p.workers) {
+		return nil
+	}
+	p.owner.copyParallelMainStatistics(p.workers[p.finished])
 	return nil
 }
 

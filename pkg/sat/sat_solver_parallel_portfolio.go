@@ -59,6 +59,13 @@ func (p *satParallelPortfolio) run(count uint32, span satSolverLiteralSpan) erro
 			continue
 		}
 		p.finished, p.result = i, r
+		// Source transfers a worker's model or core as soon as it finishes
+		// first; the owner lane still runs and rewrites its own model/core.
+		if i < len(p.workers) {
+			if err = p.transfer(p.workers[i], r); err != nil {
+				return err
+			}
+		}
 		for j, limit := range p.limits {
 			if j != i {
 				limit.Cancel()
