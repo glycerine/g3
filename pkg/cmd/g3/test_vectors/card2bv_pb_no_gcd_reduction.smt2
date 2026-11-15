@@ -1,0 +1,6 @@
+(declare-const a Bool)
+(declare-const b Bool)
+(declare-const c Bool)
+(assert (<= (+ (ite a 2 0) (ite b 2 0)) 3))
+(assert ((_ pble 3 2 2 2) a b c))
+(apply card2bv)

@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_rewriter_04-F2: 4.7.1 pb2bv mk_le_ge has no gcd reduction.
+	"card2bv_pb_no_gcd_reduction.smt2": "(goals\n(goal\n  (let ((a!1 ((_ extract 2 2)\n               (bvadd ((_ zero_extend 1) (ite a #b10 #b00))\n                      ((_ zero_extend 1) (ite b #b10 #b00))))))\n    (= a!1 #b0))\n  sn!0\n  true\n  (or (not sn!0) (not a) (not b))\n  (or (not sn!0) (not a) (not c))\n  (or (not sn!0) (not b) (not c))\n  (or sn!1 b c)\n  (or sn!1 a c)\n  (or sn!1 a b)\n  (or sn!0 (not sn!1))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md ast_rewriter_04-F1: factor_rewriter m_powers walks obj_map order.
 	"qe_nonlinear_factor_power_order.smt2": "(goals\n(goal\n  (let ((a!1 (or (and (not (<= a 0.0)) (not (<= b 0.0)))\n                 (and (not (<= 0.0 a)) (not (<= 0.0 b)))))\n        (a!2 (or (and (not (<= 0.0 a)) (not (<= b 0.0)))\n                 (and (not (<= a 0.0)) (not (<= 0.0 b))))))\n  (let ((a!3 (or (and (not (<= c 0.0)) a!1) (and (not (<= 0.0 c)) a!2)))\n        (a!4 (or (and (not (<= 0.0 c)) a!1) (and (not (<= c 0.0)) a!2))))\n    (or (= 0.0 b)\n        (= 0.0 a)\n        (= 0.0 c)\n        (= 0.0 d)\n        (and (not (<= 0.0 d)) a!3)\n        (and (not (<= d 0.0)) a!4))))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md ast_rewriter_03-F2: dt2bv model converters walk obj_map order.

@@ -274,7 +274,6 @@ func (r *PB2BVRewriter) weightedPair(mode pb2BVComparison, formulas *[]ast.ASTHa
 }
 
 func (r *PB2BVRewriter) weighted(mode pb2BVComparison, args []ast.ASTHandle, coefficients []*big.Rat, boundValue *big.Rat) (ast.ASTHandle, error) {
-	coefficients, boundValue = pb2BVNormalizeGCD(mode, coefficients, boundValue)
 	if boundValue.Sign() == 0 {
 		if mode == pb2BVGE {
 			return r.manager.MkTrue()
