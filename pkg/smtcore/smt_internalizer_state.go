@@ -151,6 +151,8 @@ type SMTInternalizerState struct {
 	// resourceLimitsExceeded is context::resource_limits_exceeded (it
 	// records the search failure).
 	resourceLimitsExceeded func() (bool, error)
+	// setReasonUnknown is context::set_reason_unknown (m_unknown = msg).
+	setReasonUnknown func(string) error
 	// onScopePush and onScopePop are the asserted_formulas scope work that
 	// context::push_scope and pop_scope_core do for every scope.
 	onScopePush func() error

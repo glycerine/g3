@@ -224,6 +224,7 @@ func NewSMTKernel(manager *ast.ASTManager, quantifiers *SMTQuantifierRegistry) (
 	internalizer.afterFlush = kernel.releaseContextModels
 	internalizer.onQuantifierFlush = kernel.closeQuantifierCosts
 	internalizer.resourceLimitsExceeded = kernel.resourceLimitsExceeded
+	internalizer.setReasonUnknown = kernel.SetReasonUnknown
 	// asserted_formulas::push_scope/pop_scope reach m_bv_sharing on every
 	// context scope.
 	internalizer.onScopePush = func() error {

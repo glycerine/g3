@@ -115,6 +115,12 @@ func TestSMTModelCheckerDiagnosticOutcomesAndGuards(t *testing.T) {
 			if got != expected {
 				t.Fatalf("diagnostic mismatch\ngot %q\nwant %q", got, expected)
 			}
+			// smtcore_05-F5: model_checker::check calls
+			// set_reason_unknown("max mbqi instantiations reached").
+			reason := solver.kernel.unknown
+			if limited := scenario == "iteration-limit" || scenario == "quiet-limit"; limited != (reason == "max mbqi instantiations reached") {
+				t.Fatalf("reason unknown %q after %s", reason, scenario)
+			}
 		})
 	}
 }

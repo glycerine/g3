@@ -765,7 +765,16 @@ func (c *SMTModelChecker) Check(model *protomodel.ProtoModel, quantifiers []ast.
 	}
 	if c.iteration >= c.maxIterations {
 		c.exhausted = true
-		return false, c.reportIterationLimit()
+		if err := c.reportIterationLimit(); err != nil {
+			return false, err
+		}
+		// m_context->set_reason_unknown("max mbqi instantiations reached").
+		if c.state.setReasonUnknown != nil {
+			if err := c.state.setReasonUnknown("max mbqi instantiations reached"); err != nil {
+				return false, err
+			}
+		}
+		return false, nil
 	}
 	if err := model.Compress(); err != nil {
 		return false, err
