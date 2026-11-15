@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/tactic"
 )
 
@@ -13,14 +14,15 @@ import (
 // rewritten terms until Close. Definitions are separated by the solver that
 // receives them in the source tactic.
 type nlInterfaceRewriter struct {
-	manager              *ast.ASTManager
-	arithmetic           ast.FamilyID
-	real                 ast.ASTHandle
-	cache                map[ast.ASTHandle]ast.ASTHandle
-	cacheOrder           *ast.ObjMap // obj_map m_interface_cache table order
-	memo                 map[ast.ASTHandle]ast.ASTHandle
-	memoRefs             []ast.ASTRef // the rewriter cache's references
-	root                 ast.ASTHandle
+	manager    *ast.ASTManager
+	arithmetic ast.FamilyID
+	real       ast.ASTHandle
+	cache      map[ast.ASTHandle]ast.ASTHandle
+	cacheOrder *ast.ObjMap // obj_map m_interface_cache table order
+	// rw: the rewriter_tpl<rw_cfg> in interface-var mode.
+	config               nlInterfaceConfig
+	traversal            *rewriter.Traversal
+	out                  ast.ASTRef
 	refs                 []ast.ASTRef
 	newReals             []ast.ASTHandle
 	interfaceValues      []ast.ASTHandle
@@ -40,7 +42,85 @@ func newNLInterfaceRewriter(m *ast.ASTManager) (*nlInterfaceRewriter, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &nlInterfaceRewriter{manager: m, arithmetic: family, real: real, cache: make(map[ast.ASTHandle]ast.ASTHandle), cacheOrder: ast.NewObjMap(m), memo: make(map[ast.ASTHandle]ast.ASTHandle)}, nil
+	r := &nlInterfaceRewriter{manager: m, arithmetic: family, real: real, cache: make(map[ast.ASTHandle]ast.ASTHandle), cacheOrder: ast.NewObjMap(m)}
+	r.config.owner = r
+	if r.out, err = m.NewRef(ast.ASTHandle{}); err != nil {
+		return nil, err
+	}
+	if r.traversal, err = rewriter.NewTraversal(m, &r.config); err != nil {
+		return nil, errors.Join(err, r.Close())
+	}
+	return r, nil
+}
+
+// nlInterfaceConfig is rw_cfg in mode_interface_var.
+type nlInterfaceConfig struct {
+	rewriter.DefaultConfiguration
+	owner *nlInterfaceRewriter
+}
+
+func (c *nlInterfaceConfig) ReduceQuantifier(ast.ASTHandle, ast.ASTHandle, ast.AppArguments, ast.AppArguments, ast.ASTRef, ast.ASTRef) (bool, error) {
+	return false, tactic.NewTacticException("quantifiers are not supported in mixed-mode nlsat engine")
+}
+
+// ReduceApp is reduce_app_real.
+func (c *nlInterfaceConfig) ReduceApp(d ast.ASTHandle, args ast.AppArguments, out, proof ast.ASTRef) (rewriter.RewriteStatus, error) {
+	r := c.owner
+	m := r.manager
+	family, err := m.GetFamilyID(d)
+	if err != nil {
+		return rewriter.RewriteFailed, err
+	}
+	count := args.Count()
+	if count == 0 {
+		// OP_NUM and OP_IRRATIONAL_ALGEBRAIC_NUM; constants have no arguments.
+		return rewriter.RewriteFailed, nil
+	}
+	isArith := family == r.arithmetic
+	values := make([]ast.ASTHandle, count)
+	hasInterface := false
+	for i := uint32(0); i < count; i++ {
+		arg, e := args.At(i)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		values[i] = arg
+		var needs bool
+		if isArith {
+			kind, e := m.GetKind(arg)
+			if e != nil {
+				return rewriter.RewriteFailed, e
+			}
+			needs = kind != ast.ASTApp
+			if !needs {
+				argFamily, e := m.GetFamilyID(arg)
+				if e != nil {
+					return rewriter.RewriteFailed, e
+				}
+				needs = argFamily != r.arithmetic
+			}
+		} else {
+			sort, e := m.GetSort(arg)
+			if e != nil {
+				return rewriter.RewriteFailed, e
+			}
+			needs = sort == r.real
+		}
+		if needs {
+			hasInterface = true
+			if values[i], e = r.interfaceVar(arg); e != nil {
+				return rewriter.RewriteFailed, e
+			}
+		}
+	}
+	if !hasInterface {
+		return rewriter.RewriteFailed, nil
+	}
+	value, err := m.MkApp(d, values)
+	if err != nil {
+		return rewriter.RewriteFailed, err
+	}
+	return rewriter.RewriteDone, m.SetRef(out, value)
 }
 
 func (r *nlInterfaceRewriter) hold(h ast.ASTHandle) error {
@@ -118,90 +198,20 @@ func (r *nlInterfaceRewriter) interfaceValuesInCacheOrder() []ast.ASTHandle {
 }
 
 func (r *nlInterfaceRewriter) rewrite(term ast.ASTHandle) (ast.ASTHandle, error) {
-	if r == nil || r.manager == nil {
+	if r == nil || r.manager == nil || r.traversal == nil {
 		return ast.ASTHandle{}, ast.ErrASTHandle
 	}
-	kind, err := r.manager.GetKind(term)
-	if err != nil {
+	if err := r.traversal.Rewrite(term, r.out); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if kind != ast.ASTApp {
-		return ast.ASTHandle{}, tactic.NewTacticException("quantifiers are not supported in mixed-mode nlsat engine")
-	}
-	family, err := r.manager.GetFamilyID(term)
+	value, err := r.manager.RefGet(r.out)
 	if err != nil {
 		return ast.ASTHandle{}, err
-	}
-	count, err := r.manager.GetNumArgs(term)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	cache, err := mustCache(r.manager, term, r.root, count)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	if cache {
-		if value, ok := r.memo[term]; ok {
-			return value, nil
-		}
-	}
-	args := make([]ast.ASTHandle, count)
-	changed := false
-	for i := range args {
-		original, e := r.manager.GetArg(term, uint32(i))
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		args[i], e = r.rewrite(original)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		changed = changed || args[i] != original
-	}
-	// Numerals have no arguments, so the source's numeral guard needs no
-	// additional handling in this bottom-up traversal.
-	for i, arg := range args {
-		argFamily, e := r.manager.GetFamilyID(arg)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		needs := family == r.arithmetic && argFamily != r.arithmetic
-		if family != r.arithmetic {
-			sort, e := r.manager.GetSort(arg)
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			needs = sort == r.real
-		}
-		if needs {
-			args[i], e = r.interfaceVar(arg)
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			changed = changed || args[i] != arg
-		}
-	}
-	value := term
-	if changed {
-		decl, e := r.manager.GetDecl(term)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		value, e = r.manager.MkApp(decl, args)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
 	}
 	if value != term {
 		if err = r.hold(value); err != nil {
 			return ast.ASTHandle{}, err
 		}
-	}
-	if cache {
-		if err = holdCacheEntry(r.manager, &r.memoRefs, term, value); err != nil {
-			return ast.ASTHandle{}, err
-		}
-		r.memo[term] = value
 	}
 	return value, nil
 }
@@ -227,7 +237,7 @@ func (r *nlInterfaceRewriter) rewriteGoal(g, nonlinear *tactic.Goal) error {
 		return tactic.NewTacticException("qfufnra-purify does not support proof generation")
 	}
 	// rewrite_goal starts with r.reset(): the cache is cleared.
-	if err = releaseCache(r.manager, &r.memoRefs, r.memo); err != nil {
+	if err = r.traversal.Reset(); err != nil {
 		return err
 	}
 	count, err := g.Size()
@@ -239,8 +249,6 @@ func (r *nlInterfaceRewriter) rewriteGoal(g, nonlinear *tactic.Goal) error {
 		if err != nil {
 			return err
 		}
-		// rewriter_tpl's m_root: the root is never cached.
-		r.root = original
 		start := len(r.nonlinearDefinitions)
 		value, err := r.rewrite(original)
 		if err != nil {
@@ -266,13 +274,18 @@ func (r *nlInterfaceRewriter) Close() (result error) {
 	if r == nil || r.manager == nil {
 		return nil
 	}
-	result = releaseCache(r.manager, &r.memoRefs, r.memo)
+	if r.traversal != nil {
+		result = r.traversal.Close()
+		r.traversal = nil
+	}
+	if r.out != (ast.ASTRef{}) {
+		result = errors.Join(result, r.manager.DelRef(&r.out))
+	}
 	for i := len(r.refs) - 1; i >= 0; i-- {
 		result = errors.Join(result, r.manager.DelRef(&r.refs[i]))
 	}
 	r.manager = nil
 	r.refs = nil
 	r.cache = nil
-	r.memo = nil
 	return result
 }

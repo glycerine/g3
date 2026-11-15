@@ -33,12 +33,17 @@ func TestNLPurifyPredicateRewriteRespectsPolarity(t *testing.T) {
 			r, err := newNLPredicateRewriter(m, goal, polarities)
 			astTestMust(t, err)
 			defer func() { astTestMust(t, r.Close()) }()
-			// A second reference makes the atom shared, so must_cache lets
-			// the second rewrite reuse the cached predicate.
+			// A second reference makes the atom shared, and under a root
+			// (not atom) must_cache lets the second rewrite reuse the cached
+			// predicate (rewriter_tpl never caches m_root itself).
 			shared, err := m.NewRef(atom)
 			astTestMust(t, err)
 			defer func() { astTestMust(t, m.DelRef(&shared)) }()
-			pred, err := r.rewrite(atom)
+			h, err = m.MkNot(atom)
+			root := analysisKeep(t, m, h, err)
+			rewritten, err := r.rewrite(root)
+			astTestMust(t, err)
+			_, pred, err := m.IsNot(rewritten)
 			astTestMust(t, err)
 			if len(r.newPredicates) != 1 || r.newPredicates[0] != pred || polarities[pred] != tc.pol {
 				t.Fatal("interface predicate", r.newPredicates, polarities[pred])
@@ -70,9 +75,9 @@ func TestNLPurifyPredicateRewriteRespectsPolarity(t *testing.T) {
 					t.Fatal("negative implication", got, want)
 				}
 			}
-			again, err := r.rewrite(atom)
+			again, err := r.rewrite(root)
 			astTestMust(t, err)
-			if again != pred || len(r.newPredicates) != 1 {
+			if again != rewritten || len(r.newPredicates) != 1 {
 				t.Fatal("shared predicate", again, pred)
 			}
 		})

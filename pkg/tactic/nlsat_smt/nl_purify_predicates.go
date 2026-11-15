@@ -6,20 +6,22 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/tactic"
 )
 
 // nlPredicateRewriter abstracts arithmetic atoms into Boolean interface
 // predicates, adding the polarity-directed clauses to the nonlinear goal.
 type nlPredicateRewriter struct {
-	manager       *ast.ASTManager
-	arithmetic    ast.FamilyID
-	real          ast.ASTHandle
-	nonlinear     *tactic.Goal
-	polarities    map[ast.ASTHandle]polarity
-	memo          map[ast.ASTHandle]ast.ASTHandle
-	memoRefs      []ast.ASTRef // the rewriter cache's references
-	root          ast.ASTHandle
+	manager    *ast.ASTManager
+	arithmetic ast.FamilyID
+	real       ast.ASTHandle
+	nonlinear  *tactic.Goal
+	polarities map[ast.ASTHandle]polarity
+	// rw: the rewriter_tpl<rw_cfg> in Boolean-predicate mode.
+	config        nlPredicateConfig
+	traversal     *rewriter.Traversal
+	out           ast.ASTRef
 	refs          []ast.ASTRef
 	newPredicates []ast.ASTHandle
 }
@@ -39,7 +41,77 @@ func newNLPredicateRewriter(m *ast.ASTManager, nonlinear *tactic.Goal, polaritie
 	if err != nil {
 		return nil, err
 	}
-	return &nlPredicateRewriter{manager: m, arithmetic: family, real: real, nonlinear: nonlinear, polarities: polarities, memo: make(map[ast.ASTHandle]ast.ASTHandle)}, nil
+	r := &nlPredicateRewriter{manager: m, arithmetic: family, real: real, nonlinear: nonlinear, polarities: polarities}
+	r.config.owner = r
+	if r.out, err = m.NewRef(ast.ASTHandle{}); err != nil {
+		return nil, err
+	}
+	if r.traversal, err = rewriter.NewTraversal(m, &r.config); err != nil {
+		return nil, errors.Join(err, r.Close())
+	}
+	return r, nil
+}
+
+// nlPredicateConfig is rw_cfg in mode_bool_preds.
+type nlPredicateConfig struct {
+	rewriter.DefaultConfiguration
+	owner *nlPredicateRewriter
+}
+
+func (c *nlPredicateConfig) ReduceQuantifier(ast.ASTHandle, ast.ASTHandle, ast.AppArguments, ast.AppArguments, ast.ASTRef, ast.ASTRef) (bool, error) {
+	return false, tactic.NewTacticException("quantifiers are not supported in mixed-mode nlsat engine")
+}
+
+// ReduceApp is reduce_app_bool.
+func (c *nlPredicateConfig) ReduceApp(d ast.ASTHandle, args ast.AppArguments, out, proof ast.ASTRef) (rewriter.RewriteStatus, error) {
+	r := c.owner
+	m := r.manager
+	family, err := m.GetFamilyID(d)
+	if err != nil {
+		return rewriter.RewriteFailed, err
+	}
+	op, err := m.GetDeclKind(d)
+	if err != nil {
+		return rewriter.RewriteFailed, err
+	}
+	match := family == r.arithmetic && op >= 2 && op <= 5
+	if family == m.BasicFamilyID() {
+		match = false
+		if op == ast.ASTOpEq && args.Count() > 0 {
+			first, e := args.At(0)
+			if e != nil {
+				return rewriter.RewriteFailed, e
+			}
+			sort, e := m.GetSort(first)
+			if e != nil {
+				return rewriter.RewriteFailed, e
+			}
+			match = sort == r.real
+		}
+	}
+	if !match {
+		return rewriter.RewriteFailed, nil
+	}
+	values := make([]ast.ASTHandle, args.Count())
+	for i := range values {
+		if values[i], err = args.At(uint32(i)); err != nil {
+			return rewriter.RewriteFailed, err
+		}
+	}
+	// expr_ref old_pred(m.mk_app(f, num, args)): polarity is looked up on
+	// the rebuilt application.
+	atom, err := m.MkApp(d, values)
+	if err != nil {
+		return rewriter.RewriteFailed, err
+	}
+	if err = r.hold(atom); err != nil {
+		return rewriter.RewriteFailed, err
+	}
+	value, err := r.abstract(atom)
+	if err != nil {
+		return rewriter.RewriteFailed, err
+	}
+	return rewriter.RewriteDone, m.SetRef(out, value)
 }
 
 func (r *nlPredicateRewriter) hold(h ast.ASTHandle) error {
@@ -104,85 +176,20 @@ func (r *nlPredicateRewriter) abstract(atom ast.ASTHandle) (ast.ASTHandle, error
 }
 
 func (r *nlPredicateRewriter) rewrite(term ast.ASTHandle) (ast.ASTHandle, error) {
-	if r == nil || r.manager == nil {
+	if r == nil || r.manager == nil || r.traversal == nil {
 		return ast.ASTHandle{}, ast.ErrASTHandle
 	}
-	kind, err := r.manager.GetKind(term)
+	if err := r.traversal.Rewrite(term, r.out); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	value, err := r.manager.RefGet(r.out)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if kind != ast.ASTApp {
-		return ast.ASTHandle{}, tactic.NewTacticException("quantifiers are not supported in mixed-mode nlsat engine")
-	}
-	count, err := r.manager.GetNumArgs(term)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	cache, err := mustCache(r.manager, term, r.root, count)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	if cache {
-		if value, ok := r.memo[term]; ok {
-			return value, nil
-		}
-	}
-	args := make([]ast.ASTHandle, count)
-	changed := false
-	for i := range args {
-		old, e := r.manager.GetArg(term, uint32(i))
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		args[i], e = r.rewrite(old)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		changed = changed || args[i] != old
-	}
-	atom := term
-	if changed {
-		decl, e := r.manager.GetDecl(term)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		atom, e = r.manager.MkApp(decl, args)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		if e = r.hold(atom); e != nil {
-			return ast.ASTHandle{}, e
-		}
-	}
-	family, err := r.manager.GetFamilyID(atom)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	op, err := r.manager.GetDeclKind(atom)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	match := family == r.arithmetic && op >= 2 && op <= 5
-	if family == r.manager.BasicFamilyID() && op == ast.ASTOpEq && len(args) > 0 {
-		sort, e := r.manager.GetSort(args[0])
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		match = sort == r.real
-	}
-	value := atom
-	if match {
-		// The source looks up polarity on the rebuilt application.
-		value, err = r.abstract(atom)
-		if err != nil {
+	if value != term {
+		if err = r.hold(value); err != nil {
 			return ast.ASTHandle{}, err
 		}
-	}
-	if cache {
-		if err = holdCacheEntry(r.manager, &r.memoRefs, term, value); err != nil {
-			return ast.ASTHandle{}, err
-		}
-		r.memo[term] = value
 	}
 	return value, nil
 }
@@ -202,7 +209,7 @@ func (r *nlPredicateRewriter) rewriteGoal(g *tactic.Goal) error {
 		return tactic.NewTacticException("qfufnra-purify does not support proof generation")
 	}
 	// rewrite_goal starts with r.reset(): the cache is cleared.
-	if err = releaseCache(r.manager, &r.memoRefs, r.memo); err != nil {
+	if err = r.traversal.Reset(); err != nil {
 		return err
 	}
 	count, err := g.Size()
@@ -214,8 +221,6 @@ func (r *nlPredicateRewriter) rewriteGoal(g *tactic.Goal) error {
 		if e != nil {
 			return e
 		}
-		// rewriter_tpl's m_root: the root is never cached.
-		r.root = old
 		value, e := r.rewrite(old)
 		if e != nil {
 			return e
@@ -235,12 +240,17 @@ func (r *nlPredicateRewriter) Close() (result error) {
 	if r == nil || r.manager == nil {
 		return nil
 	}
-	result = releaseCache(r.manager, &r.memoRefs, r.memo)
+	if r.traversal != nil {
+		result = r.traversal.Close()
+		r.traversal = nil
+	}
+	if r.out != (ast.ASTRef{}) {
+		result = errors.Join(result, r.manager.DelRef(&r.out))
+	}
 	for i := len(r.refs) - 1; i >= 0; i-- {
 		result = errors.Join(result, r.manager.DelRef(&r.refs[i]))
 	}
 	r.manager = nil
 	r.refs = nil
-	r.memo = nil
 	return result
 }
