@@ -9,22 +9,13 @@ import (
 )
 
 func TestInterpolationAxiomLargeDistinctLegacySolverWorkaround(t *testing.T) {
-	ctx, _, native := dualityContextFixture(t)
+	ctx, native, _ := dualityNativeSolverFixture(t)
 	manager, err := interp.NewManager(native)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() {
 		if err := manager.Close(); err != nil {
-			t.Error(err)
-		}
-	}()
-	graph, err := NewRPFP(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := graph.Close(); err != nil {
 			t.Error(err)
 		}
 	}()
@@ -38,9 +29,17 @@ func TestInterpolationAxiomLargeDistinctLegacySolverWorkaround(t *testing.T) {
 					}
 				}
 			}()
+			intSort, err := native.MkFamilySort(ctx.families.Arithmetic, 1, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
 			args := make([]ast.ASTHandle, count)
 			for i := range args {
-				args[i], err = native.ArithmeticIntegerNumeralText(strconv.Itoa(i))
+				name, e := native.Symbols.Intern("distinct-arg-" + strconv.Itoa(count) + "-" + strconv.Itoa(i))
+				if e != nil {
+					t.Fatal(e)
+				}
+				args[i], err = native.MkConst(name, intSort)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -63,7 +62,7 @@ func TestInterpolationAxiomLargeDistinctLegacySolverWorkaround(t *testing.T) {
 					t.Error(e)
 				}
 			}()
-			out, changed, e := graph.interpolationAxiom(manager, input)
+			out, changed, e := InterpolationAxiom(ctx, input)
 			if e != nil {
 				t.Fatal(e)
 			}
@@ -110,6 +109,18 @@ func TestInterpolationAxiomLargeDistinctLegacySolverWorkaround(t *testing.T) {
 					declaration = decl
 				} else if declaration != decl {
 					t.Fatal("fresh function differs between arguments")
+				}
+				// AUDIT.md duality_02-F5: GCC builds int_val(i) before f(a_i).
+				imageID, e := native.GetASTID(pair[0])
+				if e != nil {
+					t.Fatal(e)
+				}
+				indexID, e := native.GetASTID(pair[1])
+				if e != nil {
+					t.Fatal(e)
+				}
+				if indexID >= imageID {
+					t.Fatal("construction order", i, indexID, imageID)
 				}
 			}
 		})

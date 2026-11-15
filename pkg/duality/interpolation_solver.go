@@ -45,25 +45,10 @@ func (g *RPFP) InterpolateTree(manager *interp.Manager, tree *TermTree, theory [
 			parts[n] = append(parts[n], h)
 		}
 	}
-	backgroundTerms := make([]*Expr, 0, len(theory))
-	var generated []*Expr
-	defer func() {
-		for i := len(generated) - 1; i >= 0; i-- {
-			result = errors.Join(result, generated[i].Close())
-		}
-	}()
-	for _, term := range theory {
-		normalized, changed, e := g.interpolationAxiom(manager, term)
-		if e != nil {
-			return lbool.Undef, nil, e
-		}
-		backgroundTerms = append(backgroundTerms, normalized)
-		if changed {
-			generated = append(generated, normalized)
-		}
-	}
-	background := make([]ast.ASTHandle, len(backgroundTerms))
-	for n, term := range backgroundTerms {
+	// Theory terms are already the converted interpolation axioms
+	// (InterpolationAxiom at assertion time, as the source assert_axiom).
+	background := make([]ast.ASTHandle, len(theory))
+	for n, term := range theory {
 		if err := term.open(); err != nil {
 			return lbool.Undef, nil, err
 		}

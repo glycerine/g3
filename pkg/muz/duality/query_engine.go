@@ -32,7 +32,9 @@ type queryRun struct {
 	graph      *graph.RPFP
 	engine     *graph.Engine
 	background []*graph.Expr
-	scopes     []querySolverScope
+	// converted holds the assert_axiom conversions this run created.
+	converted []*graph.Expr
+	scopes    []querySolverScope
 }
 
 func (r *queryRun) close() error {
@@ -50,6 +52,17 @@ func (r *queryRun) close() error {
 			return err
 		}
 		r.graph = nil
+	}
+	for len(r.converted) > 0 {
+		i := len(r.converted) - 1
+		err := r.converted[i].Close()
+		if r.converted[i].Closed() {
+			r.converted[i] = nil
+			r.converted = r.converted[:i]
+		}
+		if err != nil {
+			return err
+		}
 	}
 	for len(r.background) > 0 {
 		i := len(r.background) - 1
@@ -192,6 +205,19 @@ func (e *QueryEngine) Query(prepared *PreparedQuery) (status lbool.LBool, result
 		}
 		next.background = append(next.background, axiom)
 		config.Theory = append(config.Theory, axiom)
+	}
+	// RPFP::AssertAxiom -> iZ3LogicSolver::assert_axiom converts each axiom
+	// once; the converted term is asserted and kept as the theory
+	// (get_axioms), while the raw axiom stays for printing.
+	for i, axiom := range config.Theory {
+		converted, changed, err := graph.InterpolationAxiom(e.context, axiom)
+		if err != nil {
+			return lbool.Undef, err
+		}
+		if changed {
+			next.converted = append(next.converted, converted)
+			config.Theory[i] = converted
+		}
 	}
 	if len(config.Theory) > 0 {
 		for _, native := range []solver.Solver{config.Native, config.Auxiliary} {

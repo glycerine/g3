@@ -7,36 +7,52 @@ import (
 	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
-	"github.com/glycerine/g3/pkg/interp"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
-// interpolationAxiom applies the source legacy-solver workaround to a
-// top-level distinct with more than ten arguments. The generated constraints
-// are equivalent: each argument receives a distinct integer image.
-func (g *RPFP) interpolationAxiom(manager *interp.Manager, axiom *Expr) (result *Expr, changed bool, resultErr error) {
+// InterpolationAxiom is the assert_axiom legacy-solver workaround: a
+// top-level distinct with more than ten arguments becomes the conjunction
+// f(a_i) = i over one fresh @distinct function. The source converts once,
+// when the axiom is asserted, and that converted term is both asserted in
+// the interpolating solver and kept as its theory. Other axioms are
+// returned unchanged; changed reports a new Expr the caller owns.
+func InterpolationAxiom(context *Context, axiom *Expr) (result *Expr, changed bool, resultErr error) {
 	if err := axiom.open(); err != nil {
 		return nil, false, err
 	}
+	if axiom.value.object.context != context {
+		return nil, false, ErrContextMismatch
+	}
+	m := context.manager
 	h, err := axiom.Raw()
 	if err != nil {
 		return nil, false, err
 	}
-	op, err := manager.Operator(h)
+	kind, err := m.GetKind(h)
 	if err != nil {
 		return nil, false, err
 	}
-	if op != interp.OperatorDistinct {
+	if kind != ast.ASTApp {
 		return axiom, false, nil
 	}
-	args, err := manager.Args(h)
+	family, err := m.GetFamilyID(h)
 	if err != nil {
 		return nil, false, err
 	}
-	if len(args) <= 10 {
+	op, err := m.GetDeclKind(h)
+	if err != nil {
+		return nil, false, err
+	}
+	if family != m.BasicFamilyID() || op != ast.ASTOpDistinct {
 		return axiom, false, nil
 	}
-	m := g.context.manager
+	count, err := m.GetNumArgs(h)
+	if err != nil {
+		return nil, false, err
+	}
+	if count <= 10 {
+		return axiom, false, nil
+	}
 	var refs []ast.ASTRef
 	defer func() {
 		for i := len(refs) - 1; i >= 0; i-- {
@@ -50,18 +66,16 @@ func (g *RPFP) interpolationAxiom(manager *interp.Manager, axiom *Expr) (result 
 		}
 		return e
 	}
-	zero, err := manager.MakeIntText("0")
+	first, err := m.GetArg(h, 0)
 	if err != nil {
 		return nil, false, err
 	}
-	if err = pin(zero); err != nil {
-		return nil, false, err
-	}
-	integerSort, err := m.GetSort(zero)
+	argumentSort, err := m.GetSort(first)
 	if err != nil {
 		return nil, false, err
 	}
-	argumentSort, err := m.GetSort(args[0])
+	// ctx->int_sort(): no numeral is built before the fresh declaration.
+	integerSort, err := m.MkFamilySort(context.families.Arithmetic, 1, nil)
 	if err != nil {
 		return nil, false, err
 	}
@@ -76,20 +90,25 @@ func (g *RPFP) interpolationAxiom(manager *interp.Manager, axiom *Expr) (result 
 	if err = pin(declaration); err != nil {
 		return nil, false, err
 	}
-	constraints := make([]ast.ASTHandle, len(args))
-	for i, arg := range args {
+	constraints := make([]ast.ASTHandle, count)
+	for i := uint32(0); i < count; i++ {
+		arg, e := m.GetArg(h, i)
+		if e != nil {
+			return nil, false, e
+		}
+		// f(a) == ctx->int_val(i): GCC builds int_val(i) before f(a).
+		index, e := m.ArithmeticIntegerNumeralText(strconv.Itoa(int(i)))
+		if e != nil {
+			return nil, false, e
+		}
+		if e = pin(index); e != nil {
+			return nil, false, e
+		}
 		image, e := m.MkApp(declaration, []ast.ASTHandle{arg})
 		if e != nil {
 			return nil, false, e
 		}
 		if e = pin(image); e != nil {
-			return nil, false, e
-		}
-		index, e := manager.MakeIntText(strconv.Itoa(i))
-		if e != nil {
-			return nil, false, e
-		}
-		if e = pin(index); e != nil {
 			return nil, false, e
 		}
 		constraints[i], e = m.MkEq(image, index)
@@ -104,7 +123,7 @@ func (g *RPFP) interpolationAxiom(manager *interp.Manager, axiom *Expr) (result 
 	if err != nil {
 		return nil, false, err
 	}
-	result, err = NewExpr(g.context, conjunction)
+	result, err = NewExpr(context, conjunction)
 	if err != nil {
 		return nil, false, err
 	}
