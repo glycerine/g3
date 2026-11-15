@@ -491,11 +491,14 @@ func (n *NNF) convertITE(t ast.ASTHandle, polarity, inQ, proofs bool) (nnfResult
 	if e != nil {
 		return nnfResult{}, e
 	}
-	x, e := n.manager.MkOr(na.value, b.value)
+	// m().mk_and(m().mk_or(_not_cond, _then), m().mk_or(_cond, _else)):
+	// GCC evaluates the arguments right to left, so the else disjunction
+	// is built first.
+	y, e := n.manager.MkOr(a.value, c.value)
 	if e != nil {
 		return nnfResult{}, e
 	}
-	y, e := n.manager.MkOr(a.value, c.value)
+	x, e := n.manager.MkOr(na.value, b.value)
 	if e != nil {
 		return nnfResult{}, e
 	}
@@ -527,16 +530,18 @@ func (n *NNF) convertIffXor(t ast.ASTHandle, polarity, inQ, proofs, equality boo
 	if e != nil {
 		return nnfResult{}, e
 	}
+	// m().mk_and(m().mk_or(..), m().mk_or(..)): GCC evaluates the
+	// arguments right to left, so the second disjunction is built first.
 	var a, b ast.ASTHandle
 	if equality == polarity {
-		a, e = n.manager.MkOr(nl.value, r.value)
+		b, e = n.manager.MkOr(l.value, nr.value)
 		if e == nil {
-			b, e = n.manager.MkOr(l.value, nr.value)
+			a, e = n.manager.MkOr(nl.value, r.value)
 		}
 	} else {
-		a, e = n.manager.MkOr(l.value, r.value)
+		b, e = n.manager.MkOr(nl.value, nr.value)
 		if e == nil {
-			b, e = n.manager.MkOr(nl.value, nr.value)
+			a, e = n.manager.MkOr(l.value, r.value)
 		}
 	}
 	if e != nil {

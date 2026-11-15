@@ -342,3 +342,44 @@ func TestNNFUnaryAndOrKeepsConnective(t *testing.T) {
 		t.Fatal("negated unary and proof missing")
 	}
 }
+
+// AUDIT.md ast_sub_02-F5: process_ite / process_iff_xor build
+// mk_and(mk_or(..), mk_or(..)); GCC evaluates the arguments right to left,
+// so the second disjunction is created first and gets the smaller AST id.
+func TestNNFIteBuildsElseDisjunctFirst(t *testing.T) {
+	options := DefaultNNFOptions()
+	options.Mode = NNFFull
+	m, _, n := nnfOwner(t, false, options)
+	b, e := m.MkBoolSort()
+	definedNamesMust(t, e)
+	atom := func(name string) ast.ASTHandle { return nameExprBoolConst(t, m, name, b) }
+	ite, e := m.MkIte(atom("nnf-order-c"), atom("nnf-order-x"), atom("nnf-order-y"))
+	definedNamesMust(t, e)
+	definedNamesPin(t, m, ite)
+	iff, e := m.MkIff(atom("nnf-order-l"), atom("nnf-order-r"))
+	definedNamesMust(t, e)
+	definedNamesPin(t, m, iff)
+	xor, e := m.MkFamilyApp(m.BasicFamilyID(), ast.ASTOpXor, nil, []ast.ASTHandle{atom("nnf-order-u"), atom("nnf-order-v")})
+	definedNamesMust(t, e)
+	definedNamesPin(t, m, xor)
+	for _, tc := range []struct {
+		name string
+		root ast.ASTHandle
+	}{{"ite", ite}, {"iff", iff}, {"xor", xor}} {
+		result, _, _, _ := nnfTransform(t, m, n, tc.root)
+		if op, x := m.GetDeclKind(result); x != nil || op != ast.ASTOpAnd {
+			t.Fatal(tc.name, "result is not an and", op, x)
+		}
+		first, e := m.GetArg(result, 0)
+		definedNamesMust(t, e)
+		second, e := m.GetArg(result, 1)
+		definedNamesMust(t, e)
+		firstID, e := m.GetASTID(first)
+		definedNamesMust(t, e)
+		secondID, e := m.GetASTID(second)
+		definedNamesMust(t, e)
+		if secondID >= firstID {
+			t.Fatal(tc.name, "second disjunction was not built first", firstID, secondID)
+		}
+	}
+}
