@@ -32,15 +32,34 @@ func (v *smtInfRational) Set(other *smtInfRational) *smtInfRational {
 }
 
 func (v *smtInfRational) Add(left, right *smtInfRational) *smtInfRational {
-	v.rational.Add(&left.rational, &right.rational)
-	v.infinitesimal.Add(&left.infinitesimal, &right.infinitesimal)
+	smtRatAddSub(&v.rational, &left.rational, &right.rational, false)
+	smtRatAddSub(&v.infinitesimal, &left.infinitesimal, &right.infinitesimal, false)
 	return v
 }
 
 func (v *smtInfRational) Sub(left, right *smtInfRational) *smtInfRational {
-	v.rational.Sub(&left.rational, &right.rational)
-	v.infinitesimal.Sub(&left.infinitesimal, &right.infinitesimal)
+	smtRatAddSub(&v.rational, &left.rational, &right.rational, true)
+	smtRatAddSub(&v.infinitesimal, &left.infinitesimal, &right.infinitesimal, true)
 	return v
+}
+
+// smtRatAddSub is big.Rat.Add (or Sub). When the destination and both
+// operands are integral, it adds the numerators in place: the denominator
+// stays 1, and Rat's scaling, normalization and temporaries are skipped.
+func smtRatAddSub(z, x, y *big.Rat, subtract bool) {
+	if z.IsInt() && x.IsInt() && y.IsInt() {
+		if subtract {
+			z.Num().Sub(x.Num(), y.Num())
+		} else {
+			z.Num().Add(x.Num(), y.Num())
+		}
+		return
+	}
+	if subtract {
+		z.Sub(x, y)
+	} else {
+		z.Add(x, y)
+	}
 }
 
 func (v *smtInfRational) Neg(other *smtInfRational) *smtInfRational {
@@ -50,10 +69,10 @@ func (v *smtInfRational) Neg(other *smtInfRational) *smtInfRational {
 }
 
 func (v *smtInfRational) Cmp(other *smtInfRational) int {
-	if result := v.rational.Cmp(&other.rational); result != 0 {
+	if result := smtRatCmp(&v.rational, &other.rational); result != 0 {
 		return result
 	}
-	return v.infinitesimal.Cmp(&other.infinitesimal)
+	return smtRatCmp(&v.infinitesimal, &other.infinitesimal)
 }
 
 func (v *smtInfRational) Sign() int {
