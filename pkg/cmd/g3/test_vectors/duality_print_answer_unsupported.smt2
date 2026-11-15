@@ -1,0 +1,8 @@
+(set-option :fixedpoint.engine duality)
+(set-option :fixedpoint.print_answer true)
+(declare-rel r (Int))
+(declare-rel q ())
+(declare-var x Int)
+(rule (r 1))
+(rule (=> (r x) q))
+(query q)

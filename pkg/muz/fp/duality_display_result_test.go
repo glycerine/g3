@@ -131,7 +131,7 @@ func TestDualityDisplayAndEnumerationPreserveCompletedResults(t *testing.T) {
 						if last != want || f.e.duality != backend || f.e.set != persistent {
 							t.Fatal("display changed completed result or persistent owners", last)
 						}
-						if _, err := f.e.Answer(declaration); !errors.Is(err, ErrPropositionalEngine) {
+						if _, err := f.e.Answer(declaration); !errors.Is(err, ErrDualityAnswer) {
 							t.Fatal("display enabled unsupported source Answer", err)
 						}
 						if reachable {

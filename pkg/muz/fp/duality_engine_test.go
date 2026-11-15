@@ -33,7 +33,7 @@ func TestDualityFixedpointDispatchProofModelScopesAndSwitching(t *testing.T) {
 	if !m.IsFalse(conclusion) {
 		t.Fatal("query proof must conclude false")
 	}
-	if _, err := e.Answer(pd); !errors.Is(err, fp.ErrPropositionalEngine) {
+	if _, err := e.Answer(pd); !errors.Is(err, fp.ErrDualityAnswer) {
 		t.Fatal("unsupported source get_answer", err)
 	}
 	status, err = e.QueryExpression(q)

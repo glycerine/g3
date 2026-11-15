@@ -39,6 +39,9 @@ var (
 	ErrPropositionalHorn   = errors.New("muz/fp: positive finite-domain Horn fragment required")
 )
 
+// ErrDualityAnswer is the forked dl_interface::get_answer exception.
+var ErrDualityAnswer = errors.New("duality does not support get_answer")
+
 type predicateState struct {
 	requestedRepresentations     []string
 	argumentNames                []symbol.Symbol
@@ -3060,8 +3063,10 @@ func (e *PropositionalEngine) releaseLastAnswer() error {
 func (e *PropositionalEngine) computeAnswer(declaration ast.ASTHandle) (answer ast.ASTRef, result error) {
 	declaration = e.pdrQueryTarget(declaration)
 	// dl_interface::get_answer is an explicit unsupported source operation.
+	// z3 4.7.1 returned a null answer there and crashed printing it; the
+	// fork throws this message (fork fix, AUDIT duality zbug round 2).
 	if e.backend == "duality" {
-		return answer, ErrPropositionalEngine
+		return answer, ErrDualityAnswer
 	}
 	if err := e.open(); err != nil {
 		return answer, err
