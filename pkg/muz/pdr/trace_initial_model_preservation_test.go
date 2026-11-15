@@ -17,7 +17,6 @@ import (
 func initialTraceModelFixture(t *testing.T, proof bool) (*ast.ASTManager, *Context, ast.ASTHandle, *ModelNode, *normalizedRule) {
 	t.Helper()
 	m, context, rules := classifierContextFixture(t)
-	closureMust(t, context.SetFullTraceAnswer(true))
 	closureMust(t, context.SetResultValidation(false))
 	closureMust(t, context.SetGenerateProofTrace(proof))
 	boolean, err := m.MkBoolSort()

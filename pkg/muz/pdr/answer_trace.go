@@ -34,7 +34,7 @@ func (c *Context) traceMaximumVariable(expressions ...[]ast.ASTHandle) (uint32, 
 
 // finish receives the final constraints while get_trace's locals are still
 // alive: pm.mk_and(result) runs before they are destroyed.
-func (c *Context) unifiedTraceConstraints(root *ModelNode, complete, includeRoot bool, finish func([]ast.ASTHandle) error) (result []ast.ASTRef, resultErr error) {
+func (c *Context) unifiedTraceConstraints(root *ModelNode, includeRoot bool, finish func([]ast.ASTHandle) error) (result []ast.ASTRef, resultErr error) {
 	phase := "update models"
 	defer func() {
 		if resultErr != nil {
@@ -71,13 +71,6 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, complete, includeRoot
 		return nil, err
 	}
 	work := []traceObligation{{node: root, predicate: head, ref: headRef}}
-	var anchor *PredicateTransformer
-	if !complete {
-		anchor, err = traceRecursiveAnchor(root)
-		if err != nil {
-			return nil, err
-		}
-	}
 	// dctx.get_rewriter() is the datalog context's long-lived th_rewriter:
 	// its cache keeps rewritten subterms alive after get_trace returns.
 	if err = c.ensureProjectionTheory(); err != nil {
@@ -274,7 +267,7 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, complete, includeRoot
 		}
 		predicate := work[len(work)-1].predicate
 		// get_trace's first flag: the root head (query!N) is never a constraint.
-		if complete && (iteration != 0 || includeRoot) || iteration != 0 && (anchor == nil || current.node.transformer == anchor) {
+		if iteration != 0 || includeRoot {
 			reference, y := c.manager.NewRef(predicate)
 			if y != nil {
 				return nil, y

@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_pdr_01-F1: get_trace keeps every popped predicate, with
+	// no Go-only nonlinear/recursive-anchor abbreviation.
+	"fixedpoint_pdr_two_recursive_trace.smt2":      "sat\n(and (Q 12) (Q 11) (Q 10) (P 3) (P 2) (P 1) (P 0))\n",
+	"fixedpoint_pdr_two_recursive_join_trace.smt2": "sat\n(and (P 3) (P 2) (P 1) (P 0) (Q 12) (Q 11) (Q 10))\n",
 	// AUDIT.md muz_spacer_02-F2: the unoptimized Farkas plugin combines with
 	// a fresh farkas_util, which does not split without split literals.
 	"fixedpoint_spacer_farkas_unoptimized.smt2": "unsat\n",

@@ -12,7 +12,7 @@ import (
 )
 
 func (c *Context) completeTraceAnswer(root *ModelNode) (result ast.ASTRef, resultErr error) {
-	constraints, err := c.unifiedTraceConstraints(root, true, true, func(handles []ast.ASTHandle) error {
+	constraints, err := c.unifiedTraceConstraints(root, true, func(handles []ast.ASTHandle) error {
 		formula, x := c.manager.MkAndArray(handles)
 		if x == nil {
 			result, x = c.manager.NewRef(formula)

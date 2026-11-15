@@ -915,17 +915,6 @@ func (e *PropositionalEngine) newConfiguredPDRContext(parameters *fixedpointPara
 	if err = context.SetFlexibleTrace(flexible); err != nil {
 		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
-	inlineEager, err := parameters.Bool("xform.inline_eager", true)
-	if err != nil {
-		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
-	}
-	inlineLinear, err := parameters.Bool("xform.inline_linear", true)
-	if err != nil {
-		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
-	}
-	if err = context.SetFullTraceAnswer(!inlineEager && !inlineLinear); err != nil {
-		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
-	}
 	generateProofTrace, err := parameters.Bool("generate_proof_trace", false)
 	if err != nil {
 		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)

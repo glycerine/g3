@@ -247,39 +247,6 @@ func (c *Context) selectedTraceRule(node *ModelNode) (result *normalizedRule, re
 	return rule, nil
 }
 
-func traceTransformerReaches(current, target *PredicateTransformer, seen map[*PredicateTransformer]bool) bool {
-	if seen[current] {
-		return false
-	}
-	seen[current] = true
-	for _, rule := range current.rules {
-		for _, predecessor := range rule.predecessors {
-			if predecessor == target || traceTransformerReaches(predecessor, target, seen) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func traceRecursiveAnchor(root *ModelNode) (*PredicateTransformer, error) {
-	stack := []*ModelNode{root}
-	for len(stack) != 0 {
-		last := len(stack) - 1
-		node := stack[last]
-		stack = stack[:last]
-		if traceTransformerReaches(node.transformer, node.transformer, make(map[*PredicateTransformer]bool)) {
-			return node.transformer, nil
-		}
-		children, err := node.Children()
-		if err != nil {
-			return nil, err
-		}
-		stack = append(stack, children...)
-	}
-	return nil, nil
-}
-
 // updateTraceModels is model_search::update_models. Both passes walk a todo
 // stack (pop the back, push the children in order); the first records, for
 // every node with a model, that model and model_node::get_rule's rule, which
@@ -338,34 +305,6 @@ func (c *Context) updateTraceModels(root *ModelNode) error {
 		node.selected = donor.selected
 	}
 	return nil
-}
-
-// traceHasNonlinearRule identifies witnesses for which the retained native
-// fixedpoint frontend reduces the printed trace to true. The linear recursive
-// trace below must not try to recover models or select initial rules for every
-// branch of such a witness.
-func traceHasNonlinearRule(root *ModelNode) (bool, error) {
-	stack := []*ModelNode{root}
-	for len(stack) != 0 {
-		last := len(stack) - 1
-		node := stack[last]
-		stack = stack[:last]
-		if node.selected != nil {
-			uninterpreted, err := node.selected.rule.UninterpretedTailSize()
-			if err != nil {
-				return false, err
-			}
-			if uninterpreted > 1 {
-				return true, nil
-			}
-		}
-		children, err := node.Children()
-		if err != nil {
-			return false, err
-		}
-		stack = append(stack, children...)
-	}
-	return false, nil
 }
 
 func (c *Context) unsatAnswer(queryDeclaration ast.ASTHandle) (result ast.ASTRef, resultErr error) {
@@ -529,31 +468,8 @@ func (c *Context) Answer(queryDeclaration ast.ASTHandle) (result ast.ASTRef, res
 		}
 		return result, ast.ErrASTDomain
 	}
-	if !c.fullTraceAnswer {
-		nonlinear, x := traceHasNonlinearRule(root)
-		if x != nil {
-			return result, fmt.Errorf("pdr: inspect trace shape: %w", x)
-		}
-		if nonlinear {
-			truth, y := c.manager.MkTrue()
-			if y != nil {
-				return result, y
-			}
-			return c.manager.NewRef(truth)
-		}
-		anchor, x := traceRecursiveAnchor(root)
-		if x != nil {
-			return result, fmt.Errorf("pdr: inspect recursive trace: %w", x)
-		}
-		if anchor == nil {
-			truth, y := c.manager.MkTrue()
-			if y != nil {
-				return result, y
-			}
-			return c.manager.NewRef(truth)
-		}
-	}
-	constraints, err := c.unifiedTraceConstraints(root, c.fullTraceAnswer, false, func(handles []ast.ASTHandle) error {
+	// context::mk_sat_answer: return m_search.get_trace(*this).
+	constraints, err := c.unifiedTraceConstraints(root, false, func(handles []ast.ASTHandle) error {
 		var x error
 		// return pm.mk_and(result): bool_rewriter::mk_and.
 		if result, x = c.owner.AndRef(handles); x != nil {
