@@ -2307,3 +2307,34 @@ void tst_z3_4_7_1_pb_assert_ge_uninit() {
     }
     std::cout << "pb_assert_ge_uninit: PASS\n";
 }
+
+// mk_to_fp's "1 Real -> 1 FP" branch compares domain[1], one past the end
+// of the arity-1 domain, with m_real_sort (undefined behavior; the release
+// build rejects (_ to_fp eb sb) of a Real with "sort mismatch, expected one
+// argument of Real sort"). Accepting the input is no fix: fpa2bv_converter
+// has no one-Real to_fp and crashes on it. Upstream removed the branch and
+// "(Real)" from the supported-combinations message, so the declaration
+// falls through to that message. pkg/AUDIT.md ast_05-F2.
+void tst_z3_4_7_1_to_fp_one_real() {
+    char const* script =
+        "(declare-const f (_ FloatingPoint 3 3))\n"
+        "(declare-const r Real)\n"
+        "(assert (= f ((_ to_fp 3 3) r)))\n";
+    std::ostringstream out;
+    {
+        cmd_context ctx;
+        ctx.set_solver_factory(mk_smt_strategic_solver_factory());
+        ctx.set_regular_stream(out);
+        ctx.set_diagnostic_stream(out);
+        std::istringstream in(script);
+        parse_smt2_commands(ctx, in);
+    }
+    std::string expected =
+        "(error \"line 3 column 29: Unexpected argument combination for (_ to_fp eb sb). "
+        "Supported argument combinations are: ((_ BitVec 1) (_ BitVec eb) (_ BitVec sb-1)), "
+        "(_ BitVec (eb+sb)), (RoundingMode (_ BitVec (eb+sb))), "
+        "(RoundingMode (_ FloatingPoint eb' sb')), (RoundingMode Int Real), "
+        "(RoundingMode Real Int), (RoundingMode Int), and (RoundingMode Real).\")\n";
+    std::cout << "to_fp_one_real: got\n" << out.str();
+    ENSURE(out.str() == expected);
+}

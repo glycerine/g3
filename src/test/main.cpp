@@ -270,6 +270,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_solver_updt_params);
     TST(z3_4_7_1_pb_eq_no_args);
     TST(z3_4_7_1_pb_assert_ge_uninit);
+    TST(z3_4_7_1_to_fp_one_real);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);
