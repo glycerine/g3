@@ -166,6 +166,12 @@ Abstract:
                                   a 0-1 literal and z3 answers unsat on a
                                   sat problem (follow-up to pkg/AUDIT.md
                                   smtcore_12-F4).
+    z3_4_7_1_pb_eq_no_args        a pb equality whose arguments are all
+                                  fixed at internalization keeps no
+                                  arguments and a negative bound;
+                                  normalize leaves it undecided, nothing
+                                  ever propagates it, and z3 answers sat
+                                  on an unsat problem.
     z3_4_7_1_solver_updt_params   smt_solver::updt_params re-reads
                                   smt_params from the new parameters alone,
                                   so Z3_get_implied_equalities' produce_models
@@ -2114,4 +2120,27 @@ void tst_z3_4_7_1_solver_updt_params() {
     Z3_del_context(ctx);
     ENSURE(ie == Z3_L_TRUE);
     ENSURE(r == Z3_L_UNDEF);
+}
+
+// theory_pb::internalize_atom drops the arguments that are already assigned
+// and subtracts the coefficients of the true ones from the bound. Below,
+// a and c are true at base level when (pbeq 1: a + c) is internalized, so
+// the equality keeps no arguments and bound -1. pb_rewriter_util::normalize
+// only rejects an equality whose bound exceeds the sum of its coefficients,
+// so it returns l_undef; a constraint with no arguments is never watched
+// and never propagated, and z3 answers sat (model_validate reports the
+// model invalid). The problem is unsat: a + c = 2. pb_rewriter::mk_app_core
+// folds such an equality to false; upstream axiomatized pb equalities as
+// two inequalities in bd96eaff47 ("axiomatize pb-eq").
+void tst_z3_4_7_1_pb_eq_no_args() {
+    char const* script =
+        "(declare-const a Bool)\n"
+        "(declare-const b Bool)\n"
+        "(declare-const c Bool)\n"
+        "(assert (or a b))\n"
+        "(assert (not b))\n"
+        "(assert ((_ pbeq 1 1 1) a c))\n"
+        "(assert (or c b))\n"
+        "(check-sat)\n";
+    expect_script_output("pb_eq_no_args", script, "unsat\n");
 }
