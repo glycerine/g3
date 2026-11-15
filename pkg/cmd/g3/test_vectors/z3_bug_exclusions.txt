@@ -431,3 +431,11 @@ z3_bug_maxres_upper_bound_block
 # (pkg/opt/opb_parse.go ParseOPB; AUDIT.md opt_02-F4). Not an SMT-LIB
 # vector: the case opb-max-objective in
 # pkg/cmd/g3/optimization_frontend_test.go locks g3's answer.
+#
+# Probe n-ary + and *: MK_NARY_PROBE starts with r = child(1) and folds
+# from child 1 again, so (+ 1 2) is 4 and (* 2 3) is 12 and strategies take
+# the other branch (z3 bug: src/cmd_context/tactic_cmds.cpp:746-764; still
+# present upstream). g3 folds each argument once
+# (pkg/parsers/smt2/tactics.go parseProbe; AUDIT.md parsers_shell_01-F10).
+# Reproduction: test_vectors/z3_bug_probe_nary_fold.smt2.
+z3_bug_probe_nary_fold

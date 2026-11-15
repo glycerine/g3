@@ -87,3 +87,22 @@ func TestSMT2TacticCombinatorsAndTypedParameters(t *testing.T) {
 		})
 	}
 }
+
+// MK_BIN_PROBE: =>, - and / take exactly two arguments, as the relational
+// probes do (AUDIT.md parsers_shell_01-F10).
+func TestSMT2BinaryProbeArity(t *testing.T) {
+	for _, probe := range []string{"(- 5 1 1)", "(/ 4 2 1)", "(=> 1 1 1)", "(implies 1)", "(=)"} {
+		output, err := runApplyTacticScript(t, "(check-sat-using (if (> "+probe+" 0) smt smt))\n")
+		text := output
+		if err != nil {
+			text += err.Error()
+		}
+		if !strings.Contains(text, "invalid probe expression, two arguments expected") {
+			t.Fatal(probe, text)
+		}
+	}
+	output, err := runApplyTacticScript(t, "(check-sat-using (if (> (- 5 1) 2) (fail-if 1) smt))\n")
+	if err != nil || output != "unknown\n" {
+		t.Fatal(output, err)
+	}
+}

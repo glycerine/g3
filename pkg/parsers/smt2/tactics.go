@@ -366,17 +366,25 @@ func (p *commandParser) parseProbe() (result tactic.ProbeEvaluator, err error) {
 			if !found {
 				return nil, fmt.Errorf("invalid probe, unknown probe expression %s", name)
 			}
-			if len(arguments) == 0 {
-				return nil, fmt.Errorf("invalid probe, at least one argument expected")
-			}
-			if kind >= tactic.ProbeEqual && kind <= tactic.ProbeGreater {
+			// MK_BIN_PROBE: =, <=, <, >=, >, =>, / and - take exactly two
+			// arguments.
+			binary := kind >= tactic.ProbeEqual && kind <= tactic.ProbeGreater ||
+				kind == tactic.ProbeImplies || kind == tactic.ProbeDivide || kind == tactic.ProbeSubtract
+			if binary {
 				if len(arguments) != 2 {
 					return nil, fmt.Errorf("invalid probe expression, two arguments expected")
 				}
 				result, err = tactic.NewBinaryProbe(manager.Budget(), kind, arguments[0], arguments[1])
+			} else if len(arguments) == 0 {
+				return nil, fmt.Errorf("invalid probe, at least one argument expected")
 			} else if len(arguments) == 1 {
 				result = arguments[0]
 			} else {
+				// MK_NARY_PROBE. z3 4.7.1 bug kept out of g3: the source loop
+				// starts at child 1 again, so (+ a b) is (a + a) + b and
+				// (* a b) is (a * a) * b (tactic_cmds.cpp:746-764; still
+				// present upstream; AUDIT.md parsers_shell_01-F10;
+				// test_vectors/z3_bug_probe_nary_fold.smt2).
 				result = arguments[0]
 				for _, argument := range arguments[1:] {
 					next, e := tactic.NewBinaryProbe(manager.Budget(), kind, result, argument)
