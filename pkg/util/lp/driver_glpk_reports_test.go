@@ -2,13 +2,11 @@ package lp
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"math"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 )
@@ -201,14 +199,15 @@ func TestLPGLPKReportDiagnosticsAndNativeReadErrors(t *testing.T) {
 		}
 		name := lpMPSDriverFile(t, text)
 		var err error
+		var cost float64
 		if field == "cost" {
-			_, err = ReadLPReportCost(name, io.Discard)
+			cost, err = ReadLPReportCost(name, io.Discard)
 		} else {
-			_, err = ReadGLPKReportCost(name, io.Discard)
+			cost, err = ReadGLPKReportCost(name, io.Discard)
 		}
-		var number *strconv.NumError
-		if !errors.As(err, &number) {
-			t.Fatal(err)
+		// The source reads the cost with atof (AUDIT.md util_lp_04-F1).
+		if err != nil || cost != 0 {
+			t.Fatal(cost, err)
 		}
 	}
 }

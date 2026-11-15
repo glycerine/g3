@@ -46,8 +46,9 @@ type floatMPSRow struct {
 // FloatMPSReader uses native Go text and insertion-ordered dictionaries. Input
 // order chooses a deterministic iteration order where C++ used unordered maps,
 // except m_columns, whose libstdc++ order decides the model report order
-// (floatMPSColumnMap, AUDIT.md util_lp_06-F1). Numeric tokens use
-// strconv.ParseFloat, not an emulation of libc atof.
+// (floatMPSColumnMap, AUDIT.md util_lp_06-F1). Numeric tokens follow
+// numeric_traits<double>::from_string, libc atof (mpsNumber, AUDIT.md
+// util_lp_04-F1).
 type FloatMPSReader struct {
 	input                 *bufio.Reader
 	file                  *os.File
@@ -121,17 +122,126 @@ func (m *FloatMPSReader) fail() error {
 func mpsWords(s string) []string {
 	return strings.FieldsFunc(s, func(c rune) bool { return c == ' ' || c == '\t' })
 }
+
+// mpsNumber is numeric_traits<double>::from_string, libc atof: leading C
+// isspace bytes are skipped, the longest strtod prefix is converted, and the
+// rest is ignored. It never fails; text without a number gives 0.
 func mpsNumber(s string) (float64, error) {
-	v := strings.Fields(s)
-	if len(v) == 0 {
-		return 0, ErrBounds
+	i := 0
+	for i < len(s) && mpsIsCSpace(s[i]) {
+		i++
 	}
-	n, err := strconv.ParseFloat(v[0], 64)
-	if errors.Is(err, strconv.ErrRange) {
-		return n, nil
+	text := mpsStrtodPrefix(s[i:])
+	if text == "" {
+		return 0, nil
 	}
-	return n, err
+	n, err := strconv.ParseFloat(text, 64)
+	if err != nil && !errors.Is(err, strconv.ErrRange) {
+		// The prefix follows the strtod grammar, which ParseFloat accepts.
+		return 0, nil
+	}
+	return n, nil
 }
+
+// mpsIsCSpace is C isspace in the "C" locale.
+func mpsIsCSpace(c byte) bool {
+	return c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '\f' || c == '\r'
+}
+
+func mpsIsDigit(c byte) bool { return '0' <= c && c <= '9' }
+
+func mpsIsHexDigit(c byte) bool {
+	return mpsIsDigit(c) || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')
+}
+
+func mpsHasFoldPrefix(s, prefix string) bool {
+	return len(s) >= len(prefix) && strings.EqualFold(s[:len(prefix)], prefix)
+}
+
+// mpsStrtodPrefix returns the longest prefix of s that strtod converts, in
+// the spelling strconv.ParseFloat reads ("" when strtod converts nothing):
+// a NaN payload is dropped and a hex mantissa without exponent gets "p0".
+func mpsStrtodPrefix(s string) string {
+	i := 0
+	if i < len(s) && (s[i] == '+' || s[i] == '-') {
+		i++
+	}
+	rest := s[i:]
+	switch {
+	case mpsHasFoldPrefix(rest, "infinity"):
+		return s[:i+len("infinity")]
+	case mpsHasFoldPrefix(rest, "inf"):
+		return s[:i+len("inf")]
+	case mpsHasFoldPrefix(rest, "nan"):
+		j := i + len("nan")
+		if j < len(s) && s[j] == '(' {
+			k := j + 1
+			for k < len(s) && (mpsIsDigit(s[k]) || ('a' <= s[k] && s[k] <= 'z') || ('A' <= s[k] && s[k] <= 'Z') || s[k] == '_') {
+				k++
+			}
+			if k < len(s) && s[k] == ')' {
+				return s[:j]
+			}
+		}
+		return s[:j]
+	}
+	if len(rest) >= 2 && rest[0] == '0' && (rest[1] == 'x' || rest[1] == 'X') {
+		j, digits := i+2, 0
+		for j < len(s) && mpsIsHexDigit(s[j]) {
+			j, digits = j+1, digits+1
+		}
+		if j < len(s) && s[j] == '.' {
+			j++
+			for j < len(s) && mpsIsHexDigit(s[j]) {
+				j, digits = j+1, digits+1
+			}
+		}
+		if digits == 0 {
+			// Only the "0" converts.
+			return s[:i+1]
+		}
+		if j < len(s) && (s[j] == 'p' || s[j] == 'P') {
+			k := j + 1
+			if k < len(s) && (s[k] == '+' || s[k] == '-') {
+				k++
+			}
+			if k < len(s) && mpsIsDigit(s[k]) {
+				for k < len(s) && mpsIsDigit(s[k]) {
+					k++
+				}
+				return s[:k]
+			}
+		}
+		return s[:j] + "p0"
+	}
+	j, digits := i, 0
+	for j < len(s) && mpsIsDigit(s[j]) {
+		j, digits = j+1, digits+1
+	}
+	if j < len(s) && s[j] == '.' {
+		j++
+		for j < len(s) && mpsIsDigit(s[j]) {
+			j, digits = j+1, digits+1
+		}
+	}
+	if digits == 0 {
+		return ""
+	}
+	if j < len(s) && (s[j] == 'e' || s[j] == 'E') {
+		k := j + 1
+		if k < len(s) && (s[k] == '+' || s[k] == '-') {
+			k++
+		}
+		if k < len(s) && mpsIsDigit(s[k]) {
+			for k < len(s) && mpsIsDigit(s[k]) {
+				k++
+			}
+			return s[:k]
+		}
+	}
+	return s[:j]
+}
+
 func (m *FloatMPSReader) readLine() error {
 	for m.ok {
 		if m.input == nil {

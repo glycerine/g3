@@ -134,7 +134,6 @@ func TestLPLUCheckFileMalformedAndTruncatedPrefixes(t *testing.T) {
 		strings.Replace(base, "columns 27", "columns wrong", 1),
 		strings.Replace(base, "row 0", "row bad", 1),
 		strings.Replace(base, "column 0 value 2", "column bad value 2", 1),
-		strings.Replace(base, "column 26 value 6", "column 26 value bad", 1),
 		strings.Replace(base, "column 26 value 6", "column 27 value 6", 1),
 		strings.Replace(base, "column 26 value 6", "bad", 1),
 		strings.Replace(base, "\n0\nbasis_end", "\nbad\nbasis_end", 1),
@@ -147,6 +146,15 @@ func TestLPLUCheckFileMalformedAndTruncatedPrefixes(t *testing.T) {
 		if err := d.Close(); err != nil {
 			t.Fatal(err)
 		}
+	}
+	// The source reads values with atof, so a non-numeric value is 0
+	// (AUDIT.md util_lp_04-F1).
+	d := NewLUCheckFileDriver(lpMPSDriverFile(t, strings.Replace(base, "column 26 value 6", "column 26 value bad", 1)), io.Discard)
+	if err := d.Run(); err != nil {
+		t.Fatal("atof value", err)
+	}
+	if err := d.Close(); err != nil {
+		t.Fatal(err)
 	}
 	// Every complete-line prefix lacks an eventual required terminator and must
 	// stop rather than reproduce source EOF loops or invalid token access.

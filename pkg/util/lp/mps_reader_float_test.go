@@ -366,19 +366,20 @@ func TestLPFloatMPSMalformedAndStreamPrefixes(t *testing.T) {
 	if err := m.expandRange(newFloatMPSRow("C", 0, mpsCost)); err != ErrMPSUnhandled || m.IsOK() {
 		t.Fatal(err)
 	}
-	// Numeric conversion is the native Go boundary; flags publish before refusal.
+	// Numeric conversion is libc atof (AUDIT.md util_lp_04-F1): text with
+	// no number converts to 0 and never stops the reader.
 	m = NewFloatMPSReader(nil)
 	m.Messages = &bytes.Buffer{}
 	m.line = lpMPSBoundLine("UP", "x broken")
 	b := &floatMPSBound{}
-	if err := m.updateBound(b, []string{"x", "broken"}); err == nil || !b.upperSet || b.upper != 0 {
+	if err := m.updateBound(b, []string{"x", "broken"}); err != nil || !b.upperSet || b.upper != 0 {
 		t.Fatal(err, b)
 	}
 	if v, err := mpsNumber("1e999 trailing"); err != nil || !math.IsInf(v, 1) {
 		t.Fatal(v, err)
 	}
-	if _, err := mpsNumber(""); err != ErrBounds {
-		t.Fatal(err)
+	if v, err := mpsNumber(""); err != nil || v != 0 {
+		t.Fatal(v, err)
 	}
 	wantErr := errors.New("MPS writer refused")
 	for n := 0; n < 3; n++ {
@@ -480,9 +481,11 @@ func TestLPFloatMPSSourceDomainPrefixes(t *testing.T) {
 		t.Fatal(err)
 	}
 	row := newFloatMPSRow("R", 0, mpsLess)
-	if err := m.assignRow(row, "x", "not-a-number", mpsCoefficient); err == nil || row.coefficients.Len() != 0 {
+	// atof("not-a-number") is 0 (AUDIT.md util_lp_04-F1).
+	if err := m.assignRow(row, "x", "not-a-number", mpsCoefficient); err != nil || row.coefficients.Len() != 1 || row.coefficients.Get("x") != 0 {
 		t.Fatal(err)
 	}
+	row = newFloatMPSRow("R", 0, mpsLess)
 	// Range clone publication precedes the source missing-column assertion.
 	row.coefficients.Set("missing", 2)
 	row.span = 1
@@ -571,16 +574,17 @@ func TestLPFloatMPSUnrangedRelationsAndNumericPrefixes(t *testing.T) {
 	if solver.Status != StatusOptimal || math.Abs(cost-16) > 1e-8 {
 		t.Fatal(solver.Status, cost)
 	}
-	// Malformed native numeric input publishes earlier source coefficients only.
+	// Non-numeric text converts to 0 as atof does (AUDIT.md util_lp_04-F1).
 	reader = NewFloatMPSReader(nil)
 	reader.Messages = io.Discard
 	r := newFloatMPSRow("R", 0, mpsLess)
 	reader.rows.Set("R", r)
-	if err := reader.rowPairs("R 2 R invalid", "x", 0, mpsCoefficient); err == nil || r.coefficients.Get("x") != 2 {
+	if err := reader.rowPairs("R 2 R invalid", "x", 0, mpsCoefficient); err != nil || r.coefficients.Get("x") != 0 {
 		t.Fatal(err)
 	}
+	r.coefficients.Set("x", 2)
 	reader.line = fmt.Sprintf("%-8s%14s", "R", "invalid")
-	if err := reader.fixedRowPairs(reader.line, "x", mpsCoefficient); err == nil || r.coefficients.Get("x") != 2 {
+	if err := reader.fixedRowPairs(reader.line, "x", mpsCoefficient); err != nil || r.coefficients.Get("x") != 0 {
 		t.Fatal(err)
 	}
 	for _, span := range []float64{math.NaN(), math.Inf(1), math.Inf(-1)} {
@@ -597,5 +601,48 @@ func TestLPFloatMPSUnrangedRelationsAndNumericPrefixes(t *testing.T) {
 		} else if other.rhs != span {
 			t.Fatal(span, other.rhs)
 		}
+	}
+}
+
+// AUDIT.md util_lp_04-F1: numeric_traits<double>::from_string is atof, which
+// converts the longest strtod prefix and ignores the rest.
+func TestLPFloatMPSAtofNumericPrefix(t *testing.T) {
+	for _, tc := range []struct {
+		in   string
+		want float64
+	}{
+		{"  4.0x", 4}, {"1.5D+02", 1.5}, {"1e", 1}, {"  ", 0}, {"-.5e-1abc", -0.05},
+		{"0x1p3", 8}, {"0x1.8", 1.5}, {"0x", 0}, {"+7.", 7}, {".", 0}, {"-", 0},
+		{"\t\v12", 12}, {"5.0E+00x", 5}, {"1.5,", 1.5}, {"abc", 0}, {"1e+", 1},
+	} {
+		if v, err := mpsNumber(tc.in); err != nil || v != tc.want {
+			t.Fatalf("mpsNumber(%q) = %v, %v; want %v", tc.in, v, err, tc.want)
+		}
+	}
+	for _, in := range []string{"inf", "-Infinity", "INFx"} {
+		if v, err := mpsNumber(in); err != nil || !math.IsInf(v, 0) {
+			t.Fatal(in, v, err)
+		}
+	}
+	for _, in := range []string{"nan", "nan(1)", "NaN(abc_9)x"} {
+		if v, err := mpsNumber(in); err != nil || !math.IsNaN(v) {
+			t.Fatal(in, v, err)
+		}
+	}
+	text := "NAME          TESTLP\nROWS\n N  COST\n L  LIM1\n G  LIM2\nCOLUMNS\n" +
+		"    X1        COST         1.0   LIM1         1.0\n" +
+		"    X1        LIM2         1.0\n" +
+		"    X2        COST         2.0   LIM1         1.0\n" +
+		"RHS\n" +
+		"    RHS       LIM1         4.0x  LIM2         1.0\n" +
+		"BOUNDS\n" + lpMPSBoundLine("UP", "X1           4.0D0") + "ENDATA\n"
+	m := lpMPSRead(t, text)
+	row, ok := m.rows.Get2("LIM1")
+	if !ok || row.rhs != 4 {
+		t.Fatal("LIM1 rhs", row)
+	}
+	col, ok := m.columns.Get2("X1")
+	if !ok || col.bound == nil || !col.bound.upperSet || col.bound.upper != 4 {
+		t.Fatal("X1 bound", col)
 	}
 }
