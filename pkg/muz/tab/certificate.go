@@ -22,7 +22,7 @@ func DisplayCertificate(manager *ast.ASTManager, out io.Writer, answer ast.ASTRe
 	if err != nil {
 		return err
 	}
-	if err = ast.DisplayLegacySMT(out, manager, handle, 0, nil); err != nil {
+	if err = writeMkPP(out, manager, handle); err != nil {
 		return err
 	}
 	_, err = fmt.Fprintln(out)

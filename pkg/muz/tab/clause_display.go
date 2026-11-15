@@ -66,7 +66,7 @@ func (c *Clause) Display(out io.Writer) (err error) {
 			return err
 		}
 	}
-	if err = ast.DisplayLegacySMT(out, m, formula, 0, nil); err != nil {
+	if err = writeMkPP(out, m, formula); err != nil {
 		return err
 	}
 	_, err = fmt.Fprintln(out)

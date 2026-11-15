@@ -5,7 +5,6 @@ package tab
 import (
 	"fmt"
 
-	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	utext "github.com/glycerine/g3/pkg/util/text"
 )
@@ -47,7 +46,7 @@ func (s *tabSearch) verboseSelectedPredicate(clause *Clause) error {
 	if err != nil {
 		return err
 	}
-	if err = ast.DisplayLegacySMT(out, s.manager, predicate, 0, nil); err != nil {
+	if err = writeMkPP(out, s.manager, predicate); err != nil {
 		return err
 	}
 	_, _ = fmt.Fprintln(out)

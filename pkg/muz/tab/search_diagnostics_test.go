@@ -214,7 +214,8 @@ func TestTabClauseDisplaySourceShapeAndOwnership(t *testing.T) {
 		{"goal", falsehood, []ast.ASTHandle{head, body}, "(and display-head display-body)\n"},
 		{"fact", head, nil, "display-head\n"},
 		{"rule", head, []ast.ASTHandle{body}, "(=> display-body display-head)\n"},
-		{"unquantified-goal", falsehood, []ast.ASTHandle{variablePredicate}, "(diagnostic-p ?0)\n"},
+		// AUDIT.md muz_small_02-F2: mk_pp prints a free variable as (:var 0).
+		{"unquantified-goal", falsehood, []ast.ASTHandle{variablePredicate}, "(diagnostic-p (:var 0))\n"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			clause, err := NewClause(m, f.rw, test.head, test.body, truth)
