@@ -96,3 +96,56 @@ func TestSATPartialProjectionArithmetic(t *testing.T) {
 		t.Fatal("arithmetic variable survived projection")
 	}
 }
+
+// AUDIT.md qe_01-F6: arith_plugin::project collects bounds from the
+// solver context's pos_atoms()/neg_atoms() in obj_hashtable order, not in
+// a DFS walk of the formula.
+func TestSATPartialProjectionBoundsFollowAtomTableOrder(t *testing.T) {
+	f := newArithmeticModelFixture(t, false, "5")
+	m := f.r.manager
+	k := qsatKernelOwner(t, f.fmFixture)
+	solver, err := k.solver()
+	fmMust(t, err)
+	c, err := newSATSolverContext(m, solver, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, c.Close()) }()
+	rw, err := rewriter.NewTheoryRewriter(m, f.r.config.Context, f.r.config.Globals, nil)
+	fmMust(t, err)
+	defer func() { fmMust(t, rw.Close()) }()
+	zero := f.number("0")
+	var conjuncts []ast.ASTHandle
+	for _, bound := range []string{"-6", "-7", "-8", "-9", "-10", "-11"} {
+		conjuncts = append(conjuncts, f.own(m.MkArithmeticLE(f.own(m.MkArithmeticAdd(f.x, f.number(bound))), zero)))
+	}
+	formula := f.own(m.MkAndArray(conjuncts))
+	fmMust(t, c.addVariable(f.x))
+	fmMust(t, c.initializeFormula(formula))
+	root, err := m.RefGet(c.formula)
+	fmMust(t, err)
+	pin, err := m.NewRef(root)
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&pin)) }()
+	table, err := c.atoms.positiveTable()
+	fmMust(t, err)
+	fmMust(t, c.projectPartial(0, f.model, rw, f.r.config))
+	entry := c.arithmetic.bounds[arithmeticPluginKey{f.x, root}]
+	if entry == nil {
+		t.Fatal("projection did not cache the bounds")
+	}
+	bounds := entry.processor.Bounds(false, ArithmeticUpperBound)
+	if len(bounds) != len(table) {
+		t.Fatal("bound count", len(bounds), len(table))
+	}
+	dfs := true
+	for i, bound := range bounds {
+		atom, err := m.RefGet(bound.Atom)
+		fmMust(t, err)
+		if atom != table[i] {
+			t.Fatal("bound order differs from the atom table at", i)
+		}
+		dfs = dfs && atom == conjuncts[i]
+	}
+	if dfs {
+		t.Log("fixture atom table order coincides with DFS order")
+	}
+}

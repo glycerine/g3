@@ -49,7 +49,17 @@ func (c *satSolverContext) projectPartial(index uint32, source *model.Model, rw 
 		}
 		projected = true
 	case arithmetic:
-		projected, err = c.arithmetic.ProjectModelFormulaNNF(c.contains[index], source, c.formula, config)
+		// arith_plugin::project's update_bounds walks the context's
+		// pos_atoms()/neg_atoms() in obj_hashtable order (AUDIT.md
+		// qe_01-F6).
+		var positive, negative []ast.ASTHandle
+		if positive, err = c.atoms.positiveTable(); err != nil {
+			return err
+		}
+		if negative, err = c.atoms.negativeTable(); err != nil {
+			return err
+		}
+		projected, err = c.arithmetic.ProjectModelFormulaTables(c.contains[index], source, c.formula, positive, negative, config)
 		if err == nil && projected {
 			err = c.takePartialArithmeticOutputs(c.arithmetic)
 		}
