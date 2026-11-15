@@ -699,8 +699,10 @@ namespace Duality {
     }
 
     expr_ref dl_interface::get_answer() {
-        SASSERT(false);
-        return expr_ref(m_ctx.get_manager());
+        // FORK FIX #92 (g3 audit, see FORK_BUGFIXES.md): report the unsupported answer instead of returning null (AUDIT duality zbug round 2)
+        // The null answer made fixedpoint.print_answer dereference a null
+        // expression and crash.
+        throw default_exception("duality does not support get_answer");
     }
 
     void dl_interface::cancel() {
