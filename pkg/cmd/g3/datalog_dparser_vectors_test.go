@@ -66,3 +66,26 @@ func TestDatalogFrontEndVectorsMatchCPP(t *testing.T) {
 		})
 	}
 }
+
+// z3BugDatalogResults holds g3's correct -dl output (stdout without the
+// timing lines, stderr) for Datalog vectors that expose a z3 4.7.1 bug
+// (see test_vectors/z3_bug_exclusions.txt).
+var z3BugDatalogResults = map[string]struct{ stdout, stderr string }{
+	// datalog::string_to_uint64 accepts a blank string and leaves its
+	// result unset (cmd_context_01-F9 follow-up).
+	"z3_bug_datalog_int_empty_string.datalog": {"", "Invalid integer: \"\"\nERROR: failed to parse file\n"},
+}
+
+func TestZ3BugDatalogVectorsKeepCorrectAnswers(t *testing.T) {
+	for name, want := range z3BugDatalogResults {
+		t.Run(name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			if err := runArgumentsWithDiagnostics([]string{filepath.Join("test_vectors", name)}, strings.NewReader(""), &stdout, &stderr); err != nil {
+				t.Fatal(err, stdout.String(), stderr.String())
+			}
+			if got := withoutDatalogTimes(stdout.String()); got != want.stdout || stderr.String() != want.stderr {
+				t.Fatalf("g3 stdout %q stderr %q\nwant stdout %q stderr %q", got, stderr.String(), want.stdout, want.stderr)
+			}
+		})
+	}
+}

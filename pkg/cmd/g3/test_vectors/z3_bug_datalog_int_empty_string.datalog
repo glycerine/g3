@@ -1,0 +1,4 @@
+I int
+
+P(x:I) printtuples
+P("").

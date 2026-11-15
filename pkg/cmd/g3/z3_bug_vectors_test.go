@@ -43,7 +43,11 @@ func TestZ3BugExclusionsHaveResults(t *testing.T) {
 	for _, line := range strings.Split(string(text), "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "z3_bug_") {
-			if _, ok := z3BugResults[line+".smt2"]; !ok {
+			_, ok := z3BugResults[line+".smt2"]
+			if _, datalog := z3BugDatalogResults[line+".datalog"]; datalog {
+				ok = true
+			}
+			if !ok {
 				t.Error("no z3BugResults entry for", line)
 			}
 		}

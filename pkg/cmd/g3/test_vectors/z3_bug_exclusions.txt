@@ -63,3 +63,12 @@
 # TestUDocSieveNegationColumnClassification and
 # TestSieveNegationFullNegativeColumnSubtractsAll in
 # pkg/muz/rel/udoc_sieve_negation_test.go.
+#
+# datalog::string_to_uint64 accepts sscanf's EOF result for an empty or
+# blank string and leaves its result unset, so z3 4.7.1 reads P("") on an
+# `int` Datalog domain as an uninitialized number (g3:
+# pkg/cmd_context/datalog_parser_terms.go stringToUint64; z3 bug:
+# src/muz/base/dl_util.cpp string_to_uint64; still present upstream).
+# Reproduction: test_vectors/z3_bug_datalog_int_empty_string.datalog (a -dl
+# input, locked in z3BugDatalogResults).
+z3_bug_datalog_int_empty_string
