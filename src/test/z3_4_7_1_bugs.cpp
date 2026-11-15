@@ -44,6 +44,10 @@ Abstract:
                                   the unhoisted predicate and fails with a
                                   wrong number of arguments
                                   (pkg/AUDIT.md duality_03-F2).
+    z3_4_7_1_lazy_sparse_nullary_union a union into an empty nullary
+                                  register creates a 0-column sparse table
+                                  through the lazy_sparse plugin and crashes
+                                  (pkg/AUDIT.md muz_rel_04-F2).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -435,4 +439,32 @@ void tst_z3_4_7_1_duality_unhoist_repeated_child() {
         "(rule (=> (and (inv x n) (inv y m) (> x (+ n 1))) err))\n"
         "(query err)\n";
     expect_script_output("duality_unhoist_repeated_child", script, "sat\n");
+}
+
+// With the lazy_sparse table, s(x) and p(x, y) are joined into the nullary
+// z. The union into z's still-empty register creates the target with the
+// source's plugin: lazy_table_plugin::mk_empty passes the 0-column
+// signature to sparse_table_plugin::mk_empty, which cannot handle it and
+// crashes in column_layout::make_byte_aligned_end. p(3, 5) and s(3) hold, so
+// z is derivable. pkg/AUDIT.md muz_rel_04-F2.
+void tst_z3_4_7_1_lazy_sparse_nullary_union() {
+    char const* script =
+        "(set-option :fixedpoint.engine datalog)\n"
+        "(set-option :fixedpoint.datalog.default_table lazy_sparse)\n"
+        "(define-sort D () (_ BitVec 3))\n"
+        "(declare-rel q (D D D))\n"
+        "(declare-rel p (D D))\n"
+        "(declare-rel s (D))\n"
+        "(declare-rel z ())\n"
+        "(declare-var x D)\n"
+        "(declare-var y D)\n"
+        "(declare-var w D)\n"
+        "(rule (q #b010 #b001 #b100))\n"
+        "(rule (q #b011 #b001 #b101))\n"
+        "(rule (q #b011 #b011 #b101))\n"
+        "(rule (=> (and (q x #b001 y) (bvult x y)) (p x y)))\n"
+        "(rule (=> (and (q x w y) (q w x y)) (s x)))\n"
+        "(rule (=> (and (p x y) (s x)) z))\n"
+        "(query z :print-answer true)\n";
+    expect_script_output("lazy_sparse_nullary_union", script, "sat\ntrue\n");
 }
