@@ -347,31 +347,25 @@ func (p *RuleCoalescePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, r
 	if p == nil || p.closed || p.manager == nil || p.rules == nil {
 		return nil, base.ErrRuleTransformerOwner
 	}
-	count, err := source.Len()
+	// Source walks begin_grouped_rules(): the m_head2rules obj_map table
+	// order, with each head's rules in insertion order.
+	order, err := source.GroupedHeads()
 	if err != nil {
 		return nil, err
 	}
 	buckets := make(map[ast.ASTHandle][]*base.Rule)
-	var order []ast.ASTHandle
-	// The bucket rules release in first-head order, not Go map order.
+	// The bucket rules release in grouped-head order, not Go map order.
 	defer func() {
 		for _, head := range order {
 			resultErr = errors.Join(resultErr, closeRules(buckets[head]))
 		}
 	}()
-	for index := 0; index < count; index++ {
-		rule, getErr := source.Rule(index)
+	for _, head := range order {
+		rules, getErr := source.PredicateRules(head)
 		if getErr != nil {
 			return nil, getErr
 		}
-		head, getErr := rule.HeadDeclaration()
-		if getErr != nil {
-			return nil, errors.Join(getErr, rule.Close())
-		}
-		if len(buckets[head]) == 0 {
-			order = append(order, head)
-		}
-		buckets[head] = append(buckets[head], rule)
+		buckets[head] = rules
 	}
 	result, err := base.NewRuleSet(p.rules)
 	if err != nil {

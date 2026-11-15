@@ -3,6 +3,7 @@ package transforms_test
 // Source: src/muz/transforms/dl_mk_coalesce.cpp shared-body disjunction.
 
 import (
+	"errors"
 	"math/big"
 	"testing"
 
@@ -191,4 +192,74 @@ func TestRuleCoalesceDerivesMergedProofFromBothClauses(t *testing.T) {
 		t.Fatal("coalesced proof proves the wrong rule formula")
 	}
 	coneMust(t, f.manager.DelRef(&formula))
+}
+
+// AUDIT.md muz_transforms_01-F4: mk_coalesce walks begin_grouped_rules(),
+// the m_head2rules obj_map table order, not first-appearance order.
+func TestRuleCoalesceEmitsHeadsInGroupedOrder(t *testing.T) {
+	f := newConeFixture(t)
+	boolean, err := f.manager.MkBoolSort()
+	coneMust(t, err)
+	zero, err := f.manager.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	coneMust(t, err)
+	integer, err := f.manager.GetSort(zero)
+	coneMust(t, err)
+	declare := func(name string) ast.ASTHandle {
+		symbol, makeErr := f.manager.Symbols.Intern("coalesce-order-" + name)
+		coneMust(t, makeErr)
+		declaration, makeErr := f.manager.MkFuncDecl(symbol, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+		coneMust(t, makeErr)
+		coneMust(t, f.rules.RegisterPredicate(declaration))
+		return declaration
+	}
+	q := declare("Q")
+	variable, err := f.manager.MkVar(0, integer)
+	coneMust(t, err)
+	qVariable, err := f.manager.MkApp(q, []ast.ASTHandle{variable})
+	coneMust(t, err)
+	var inserted []ast.ASTHandle
+	for _, name := range []string{"A", "B", "C", "D", "E", "F", "G", "H"} {
+		head := declare(name)
+		inserted = append(inserted, head)
+		application, makeErr := f.manager.MkApp(head, []ast.ASTHandle{variable})
+		coneMust(t, makeErr)
+		rule, makeErr := f.rules.NewRule(application, []ast.ASTHandle{qVariable}, nil, "r")
+		coneMust(t, makeErr)
+		coneMust(t, f.set.Add(rule))
+		coneMust(t, rule.Close())
+		coneMust(t, f.set.SetOutputPredicate(head))
+	}
+	valid, err := f.set.Finalize()
+	coneMust(t, err)
+	if !valid {
+		t.Fatal("coalesce fixture rejected")
+	}
+	grouped, err := f.set.GroupedHeads()
+	coneMust(t, err)
+	same := len(grouped) == len(inserted)
+	for i := 0; same && i < len(grouped); i++ {
+		same = grouped[i] == inserted[i]
+	}
+	if same {
+		t.Fatal("fixture grouped order equals insertion order; it cannot detect the divergence")
+	}
+	plugin := transforms.NewRuleCoalescePlugin(f.manager, f.rules, 0)
+	defer func() { coneMust(t, plugin.Close()) }()
+	result, err := plugin.Transform(f.set)
+	coneMust(t, err)
+	defer func() { coneMust(t, result.Close()) }()
+	count, err := result.Len()
+	coneMust(t, err)
+	if count != len(grouped) {
+		t.Fatal("coalesced rule count", count, len(grouped))
+	}
+	for i := 0; i < count; i++ {
+		rule, err := result.Rule(i)
+		coneMust(t, err)
+		head, err := rule.HeadDeclaration()
+		coneMust(t, errors.Join(err, rule.Close()))
+		if head != grouped[i] {
+			t.Fatal("rule", i, "head is not in begin_grouped_rules order")
+		}
+	}
 }
