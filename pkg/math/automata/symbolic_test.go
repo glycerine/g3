@@ -94,3 +94,23 @@ func TestSymbolicMinimizeEquivalentFinalStates(t *testing.T) {
 		t.Fatal("minimized automaton", minimized.NumStates(), minimized.FinalStates(), minimized.Moves())
 	}
 }
+
+// symbolic_automata::mk_product in z3 4.7.1 tests only the initial states
+// themselves for finality. Each operand of ("" | a) & ("" | b) reaches its
+// final initial state through an epsilon move, so the product came out
+// empty; upstream z3 606754c09 uses the epsilon closures.
+func TestSymbolicProductEpsilonClosedInitial(t *testing.T) {
+	symbolic, _ := NewSymbolic(BitsetAlgebra{Universe: 3})
+	left := Union(Epsilon(), Singleton(1))
+	right := Union(Epsilon(), Singleton(2))
+	if left.IsFinal(left.Initial()) || right.IsFinal(right.Initial()) {
+		t.Fatal("operands should reach a final state only through epsilon moves")
+	}
+	product, err := symbolic.Product(left, right)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !acceptsBits(product, nil) || acceptsBits(product, []uint32{0}) || acceptsBits(product, []uint32{1}) {
+		t.Fatal("product language", product.FinalStates(), product.Moves())
+	}
+}

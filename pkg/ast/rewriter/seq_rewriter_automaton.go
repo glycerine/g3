@@ -423,14 +423,15 @@ func (a *sequenceAutomaton) epsilonClosure(state int) []int {
 }
 
 // closureIsFinal is a BUG FIX relative to z3 4.7.1 (TODO.md "z3 4.7.1 bugs
-// fixed in g3"). symbolic_automata::mk_product
-// (src/math/automata/symbolic_automata_def.h) tests is_final_state, which
-// ignores epsilon moves, so ("" | a) & ("" | b) has an empty product and z3
-// answers unsat for x in that intersection although x = "" is a solution.
-// g3 treats a state as final when its epsilon closure contains a final
-// state. sequence_helper_inventory's trace differs from z3's because of
-// this, so it is excluded from trace-identity testing
-// (test_vectors/z3_bug_exclusions.txt).
+// fixed in g3"), adopted from upstream z3 606754c09 and a921b4ff4.
+// symbolic_automata::mk_product (src/math/automata/symbolic_automata_def.h)
+// tests is_final_state(init()), which ignores epsilon moves, so
+// ("" | a) & ("" | b) has an empty product and z3 4.7.1 answers unsat for x
+// in that intersection although x = "" is a solution. Upstream, and g3,
+// treat the initial pair as final when the epsilon closures of both
+// initial states contain a final state. sequence_helper_inventory's trace
+// differs from z3 4.7.1's because of this, so it is excluded from
+// trace-identity testing (test_vectors/z3_bug_exclusions.txt).
 func (a *sequenceAutomaton) closureIsFinal(state int) bool {
 	for _, candidate := range a.epsilonClosure(state) {
 		if a.finals[candidate] {
@@ -856,9 +857,12 @@ func (b *sequenceAutomatonBuilder) product(left, right *sequenceAutomaton) (resu
 	var mvs []sequenceAutomatonMove
 	defer func() { resultErr = errors.Join(resultErr, releaseSequenceMoves(mvs)) }()
 	var final []int
-	// Deliberate deviation: the source tests is_final_state, which misses a
-	// final state reached by epsilon moves (("" | a) & ("" | b) would be
-	// empty); finality here includes the epsilon closure.
+	// Deliberate deviation from z3 4.7.1, as upstream fixed it (606754c09):
+	// the source tests is_final_state(init()), which misses a final state
+	// reached by epsilon moves (("" | a) & ("" | b) would be empty), so the
+	// initial pair's finality uses the epsilon closures. Target pairs keep
+	// is_final_state: movesFrom(..., true) already yields every state of a
+	// destination's epsilon closure.
 	if left.closureIsFinal(left.initial) && right.closureIsFinal(right.initial) {
 		final = append(final, 0)
 	}
@@ -893,7 +897,7 @@ func (b *sequenceAutomatonBuilder) product(left, right *sequenceAutomaton) (resu
 					n++
 					ids[targetPair] = target
 					todo = append(todo, targetPair)
-					if left.closureIsFinal(targetPair.left) && right.closureIsFinal(targetPair.right) {
+					if left.finals[targetPair.left] && right.finals[targetPair.right] {
 						final = append(final, target)
 					}
 				}
@@ -934,6 +938,7 @@ func (b *sequenceAutomatonBuilder) product(left, right *sequenceAutomaton) (resu
 		}
 	}
 	if len(kept) == 0 {
+		// a921b4ff4: a_init_is_final && b_init_is_final.
 		if left.closureIsFinal(left.initial) && right.closureIsFinal(right.initial) {
 			return sequenceAutomatonOf(0, []int{0}, nil), nil
 		}

@@ -215,7 +215,10 @@ func (s *Symbolic) Product(left, right *Automaton) (*Automaton, error) {
 	ids := map[statePair]uint32{initial: 0}
 	todo := []statePair{initial}
 	var final []uint32
-	if left.IsFinal(initial.left) && right.IsFinal(initial.right) {
+	// z3 4.7.1 tests is_final_state(init()); upstream z3 (606754c09) and g3
+	// use the epsilon closures of the initial states, so ("" | a) & ("" | b)
+	// accepts "".
+	if closureIsFinal(left, initial.left) && closureIsFinal(right, initial.right) {
 		final = append(final, 0)
 	}
 	var moves []Move
@@ -274,6 +277,15 @@ func (s *Symbolic) Product(left, right *Automaton) (*Automaton, error) {
 		}
 	}
 	return New(0, final, filtered), nil
+}
+
+func closureIsFinal(a *Automaton, state uint32) bool {
+	for _, member := range a.EpsilonClosure(state) {
+		if a.IsFinal(member) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Symbolic) Difference(left, right *Automaton) (*Automaton, error) {
