@@ -100,3 +100,51 @@ func TestLegacyArithmeticProjectionClassifiesEqualities(t *testing.T) {
 	fmMust(t, classified.Close())
 	fmMust(t, p.Close())
 }
+
+// AUDIT.md qe_02-F7: arith_project_util::is_linear visits only t of a
+// divisibility literal (= (mod t k) 0), builds one n-ary mk_add over ts, and
+// mk_mul always builds (* r t), even for r = 1.
+func TestLegacyArithmeticLinearTermShapes(t *testing.T) {
+	f := newFMFixture(t)
+	m := f.r.manager
+	p, err := newLegacyArithmeticProjection(m, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, p.Close()) }()
+	x := f.constant("legacy-shape-x", f.integer)
+	y := f.constant("legacy-shape-y", f.integer)
+	a := f.constant("legacy-shape-a", f.integer)
+	b := f.constant("legacy-shape-b", f.integer)
+	c := f.constant("legacy-shape-c", f.integer)
+	zero := f.own(m.ArithmeticIntegerNumeralText("0"))
+	three := f.own(m.ArithmeticIntegerNumeralText("3"))
+	mod := f.own(m.MkFamilyApp(p.syntax.family, 13, nil, []ast.ASTHandle{f.own(m.MkArithmeticAdd(x, y)), three}))
+	divisible, err := p.linearLiteral(x, f.own(m.MkEq(mod, zero)))
+	fmMust(t, err)
+	if divisible == nil || divisible.divisor.Cmp(big.NewRat(3, 1)) != 0 {
+		t.Fatal("divisibility literal", divisible)
+	}
+	term, err := m.RefGet(divisible.term)
+	fmMust(t, err)
+	if term != y {
+		t.Fatal("divisibility term is not y")
+	}
+	fmMust(t, divisible.Close())
+
+	sum := f.own(m.MkFamilyApp(p.syntax.family, 6, nil, []ast.ASTHandle{x, a, b, c}))
+	bound, err := p.linearLiteral(x, f.own(m.MkArithmeticLE(sum, zero)))
+	fmMust(t, err)
+	term, err = m.RefGet(bound.term)
+	fmMust(t, err)
+	// is_linear(-mul, 0) also pushes the numeral 0 of the right side.
+	if term != f.own(m.MkFamilyApp(p.syntax.family, 6, nil, []ast.ASTHandle{a, b, c, zero})) {
+		t.Fatal("bound term is not the n-ary (+ a b c 0)")
+	}
+	fmMust(t, bound.Close())
+
+	unit, err := p.multiplyLegacy(big.NewRat(1, 1), y)
+	fmMust(t, err)
+	one := f.own(m.ArithmeticIntegerNumeralText("1"))
+	if unit != f.own(m.MkArithmeticMul(one, y)) {
+		t.Fatal("mk_mul(1, y) is not (* 1 y)")
+	}
+}

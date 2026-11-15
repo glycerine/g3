@@ -60,12 +60,20 @@ func (p *legacyArithmeticProjection) normalizeIntegers(literals []*legacyLinearL
 			if err != nil {
 				return nil, nil, err
 			}
-			scaled, err := p.multiplyLegacy(factor, term)
+			// if (!factor.is_one () && !a.is_zero (m_terms.get (i)))
+			// (AUDIT.md qe_02-F7).
+			value, numeral, err := p.syntax.numeral(term)
 			if err != nil {
 				return nil, nil, err
 			}
-			if err = p.replaceLegacyTerm(literal, scaled); err != nil {
-				return nil, nil, err
+			if !numeral || value.Sign() != 0 {
+				scaled, err := p.multiplyLegacy(factor, term)
+				if err != nil {
+					return nil, nil, err
+				}
+				if err = p.replaceLegacyTerm(literal, scaled); err != nil {
+					return nil, nil, err
+				}
 			}
 		}
 		if literal.coefficient.Sign() > 0 {

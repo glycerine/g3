@@ -253,6 +253,9 @@ func (p *legacyArithmeticProjection) linearLiteral(variable, literal ast.ASTHand
 	result := &legacyLinearLiteral{manager: p.syntax.manager, coefficient: new(big.Rat), divisor: new(big.Rat)}
 	var left, right ast.ASTHandle
 	matched := false
+	// A divisibility literal (= (mod t k) 0) runs is_linear on t only
+	// (AUDIT.md qe_02-F7).
+	divisibility := false
 	for _, operation := range []int32{2, 3, 4, 5} {
 		args, yes, err := p.syntax.operation(literal, p.syntax.family, operation)
 		if err != nil {
@@ -297,6 +300,7 @@ func (p *legacyArithmeticProjection) linearLiteral(variable, literal ast.ASTHand
 				left, right = mod[0], args[1-index]
 				result.divisor.Set(divisor)
 				matched = true
+				divisibility = true
 			}
 		}
 		if equality && len(args) == 2 && !matched {
@@ -317,7 +321,7 @@ func (p *legacyArithmeticProjection) linearLiteral(variable, literal ast.ASTHand
 	}
 	terms := make([]ast.ASTHandle, 0, 4)
 	ok, err := p.linearTerm(multiplier, left, variable, result.coefficient, &terms, integer)
-	if err == nil && ok {
+	if err == nil && ok && !divisibility {
 		ok, err = p.linearTerm(new(big.Rat).Neg(multiplier), right, variable, result.coefficient, &terms, integer)
 	}
 	if err != nil || !ok {
@@ -330,13 +334,8 @@ func (p *legacyArithmeticProjection) linearLiteral(variable, literal ast.ASTHand
 	case 1:
 		term = terms[0]
 	default:
-		term = terms[0]
-		for _, next := range terms[1:] {
-			term, err = p.syntax.manager.MkArithmeticAdd(term, next)
-			if err != nil {
-				break
-			}
-		}
+		// t = a.mk_add(ts.size(), ts.c_ptr()) (AUDIT.md qe_02-F7).
+		term, err = p.syntax.manager.MkFamilyApp(p.syntax.family, 6, nil, terms)
 	}
 	if err != nil {
 		return nil, err

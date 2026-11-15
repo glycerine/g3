@@ -32,7 +32,13 @@ func (p *legacyArithmeticProjection) multiplyLegacy(coefficient *big.Rat, term a
 	if !arithmetic {
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
-	return p.scaledTerm(coefficient, term, integer)
+	// arith_project_util::mk_mul always builds (* r t), even for r = 1
+	// (AUDIT.md qe_02-F7).
+	numeral, err := p.syntax.manager.ArithmeticNumeralRat(coefficient, integer)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return p.syntax.manager.MkArithmeticMul(numeral, term)
 }
 
 // oppositeBound eliminates x from bounds whose coefficients have opposite
