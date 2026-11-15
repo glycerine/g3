@@ -12,11 +12,6 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
-type astDatatypeAccessorKey struct {
-	sort        astNodeRef
-	constructor usymbol.Symbol
-}
-
 type astDatatypeDefinition struct {
 	name         usymbol.Symbol
 	classID      uint32
@@ -38,7 +33,6 @@ type astDatatypePluginOwner struct {
 	family                                FamilyID
 	header                                uint64
 	bodyCause                             error
-	accessors                             map[astDatatypeAccessorKey][]usymbol.Symbol
 	definitions                           map[astNodeRef]*astDatatypeDefinition
 	definitionNames                       map[usymbol.Symbol]*astDatatypeDefinition
 	definitionRefs                        []astNodeRef
@@ -65,7 +59,6 @@ func (m *ASTManager) registerDatatypePlugin() (FamilyID, error) {
 		return NullFamilyID, e
 	}
 	p := &astDatatypePluginOwner{owner: m, header: bytes, next: m.datatypePluginFailed}
-	p.accessors = make(map[astDatatypeAccessorKey][]usymbol.Symbol)
 	p.definitions = make(map[astNodeRef]*astDatatypeDefinition)
 	p.definitionNames = make(map[usymbol.Symbol]*astDatatypeDefinition)
 	p.self = p
@@ -144,8 +137,6 @@ func (m *ASTManager) finalizeDatatypePlugin() error {
 		}
 	}
 	// Source resets m_defs after deleting definitions and before m_util.
-	clear(p.accessors)
-	p.accessors = nil
 	clear(p.definitions)
 	p.definitions = nil
 	clear(p.definitionNames)

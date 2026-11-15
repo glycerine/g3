@@ -197,27 +197,7 @@ func (m *ASTManager) datatypeDecl(kind int32, parameters []ASTParameter, domain 
 		if err != nil {
 			return astNodeRef{}, err
 		}
-		decl, err := m.pluginDecl(name.symbol, p.family, kind, parameters, domain, rangeSort, ASTFuncFlags{}, true)
-		if err != nil {
-			return astNodeRef{}, err
-		}
-		domainSort, err := m.requireKind(domain[0], ASTSort)
-		if err != nil {
-			return astNodeRef{}, err
-		}
-		constructor, err := parameter(1, ASTParameterSymbol)
-		if err != nil {
-			return astNodeRef{}, err
-		}
-		key := astDatatypeAccessorKey{sort: domainSort, constructor: constructor.symbol}
-		names := p.accessors[key]
-		for _, existing := range names {
-			if existing == name.symbol {
-				return decl, nil
-			}
-		}
-		p.accessors[key] = append(names, name.symbol)
-		return decl, nil
+		return m.pluginDecl(name.symbol, p.family, kind, parameters, domain, rangeSort, ASTFuncFlags{}, true)
 
 	case ASTDatatypeUpdateField:
 		if len(parameters) != 1 || len(domain) != 2 {

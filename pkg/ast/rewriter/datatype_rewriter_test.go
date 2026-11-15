@@ -28,6 +28,20 @@ func newDatatypeRewriteFixture(t *testing.T) datatypeRewriteFixture {
 		astTestMust(t, e)
 		return p
 	}
+	// The accessor index follows the datatype's definition
+	// (util::get_constructor_accessors), so Pair is defined first; the
+	// declarations below hash-cons to the definition's own.
+	_, err = m.MkDatatypes([]ast.DatatypeDefinition{{
+		Name: astTestSymbol(t, m, "Pair"),
+		Constructors: []ast.DatatypeConstructorDefinition{
+			{Name: astTestSymbol(t, m, "pair"), Recognizer: astTestSymbol(t, m, "is-pair"), Accessors: []ast.DatatypeAccessorDefinition{
+				{Name: astTestSymbol(t, m, "first"), Range: boolSort},
+				{Name: astTestSymbol(t, m, "second"), Range: boolSort},
+			}},
+			{Name: astTestSymbol(t, m, "empty"), Recognizer: astTestSymbol(t, m, "is-empty")},
+		},
+	}})
+	astTestMust(t, err)
 	name := parameterSymbol("Pair")
 	dt, err := m.MkFamilySort(family, ast.ASTDatatypeSort, []ast.ASTParameter{name})
 	astTestMust(t, err)

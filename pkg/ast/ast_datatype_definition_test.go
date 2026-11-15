@@ -258,3 +258,81 @@ func TestASTDatatypeValueAndSomeValueCallbacks(t *testing.T) {
 		t.Fatal("datatype some value sort", sort, e)
 	}
 }
+
+// AUDIT.md ast_03-F1: the accessor index is the field position in the
+// constructor's current definition (datatype_rewriter::mk_app_core walks
+// util::get_constructor_accessors), not the order in which accessor
+// declarations were first created.
+func TestASTDatatypeRedefinitionAccessorIndex(t *testing.T) {
+	define := func(m *ASTManager, field ASTHandle, first, second string) []ASTHandle {
+		t.Helper()
+		sorts, err := m.MkDatatypes([]DatatypeDefinition{{
+			Name: astTestSymbol(t, m, "P"),
+			Constructors: []DatatypeConstructorDefinition{{
+				Name: astTestSymbol(t, m, "mk"), Recognizer: astTestSymbol(t, m, "is-mk"),
+				Accessors: []DatatypeAccessorDefinition{
+					{Name: astTestSymbol(t, m, first), Range: field},
+					{Name: astTestSymbol(t, m, second), Range: field},
+				},
+			}},
+		}})
+		astTestMust(t, err)
+		return sorts
+	}
+	constructorAndAccessors := func(m *ASTManager, sort ASTHandle) (ASTHandle, []ASTHandle) {
+		t.Helper()
+		constructors, err := m.DatatypeConstructors(sort)
+		astTestMust(t, err)
+		accessors, err := m.DatatypeConstructorAccessors(constructors[0])
+		astTestMust(t, err)
+		return constructors[0], accessors
+	}
+
+	m := astTestManager(t)
+	_, err := m.RegisterDatatypePlugin()
+	astTestMust(t, err)
+	boolean, err := m.MkBoolSort()
+	astTestMust(t, err)
+	sorts := define(m, boolean, "a", "b")
+	mk, accessors := constructorAndAccessors(m, sorts[0])
+	if index, matched, e := m.DatatypeAccessorIndex(accessors[0], mk); e != nil || !matched || index != 0 {
+		t.Fatal("first definition accessor index", index, matched, e)
+	}
+	sorts = define(m, boolean, "b", "a")
+	mk, accessors = constructorAndAccessors(m, sorts[0])
+	// accessors[1] is a in the new definition.
+	if index, matched, e := m.DatatypeAccessorIndex(accessors[1], mk); e != nil || !matched || index != 1 {
+		t.Fatal("redefined accessor index", index, matched, e)
+	}
+	if index, matched, e := m.DatatypeAccessorIndex(accessors[0], mk); e != nil || !matched || index != 0 {
+		t.Fatal("redefined accessor index of b", index, matched, e)
+	}
+
+	// An accessor declaration created on its own before the constructor's
+	// accessors does not take position 0.
+	m = astTestManager(t)
+	family, err := m.RegisterDatatypePlugin()
+	astTestMust(t, err)
+	boolean, err = m.MkBoolSort()
+	astTestMust(t, err)
+	sorts = define(m, boolean, "a", "b")
+	bParameter, err := m.NewParameterSymbol(astTestSymbol(t, m, "b"))
+	astTestMust(t, err)
+	mkParameter, err := m.NewParameterSymbol(astTestSymbol(t, m, "mk"))
+	astTestMust(t, err)
+	early, err := m.MkFamilyFuncDecl(family, ASTDatatypeAccessor, []ASTParameter{bParameter, mkParameter}, []ASTHandle{sorts[0]}, boolean)
+	astTestMust(t, err)
+	astTestPin(t, m, early)
+	astTestMust(t, m.DelParameter(&mkParameter))
+	astTestMust(t, m.DelParameter(&bParameter))
+	mk, accessors = constructorAndAccessors(m, sorts[0])
+	if accessors[1] != early {
+		t.Fatal("accessor declaration is not hash-consed", accessors[1], early)
+	}
+	if index, matched, e := m.DatatypeAccessorIndex(accessors[0], mk); e != nil || !matched || index != 0 {
+		t.Fatal("accessor a index", index, matched, e)
+	}
+	if index, matched, e := m.DatatypeAccessorIndex(early, mk); e != nil || !matched || index != 1 {
+		t.Fatal("accessor b index", index, matched, e)
+	}
+}

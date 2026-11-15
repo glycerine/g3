@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_03-F1: the accessor index follows the current datatype definition.
+	"datatype_redeclare_accessor_order.smt2": "1\n2\nunsat\n",
 	// AUDIT.md parsers_shell_01-F3: SMT-LIB 2.6 match expressions
 	// (push_match_frame, compile_patterns, check_patterns).
 	"match_list_head.smt2":      "sat\n(((hd l) 3))\n",

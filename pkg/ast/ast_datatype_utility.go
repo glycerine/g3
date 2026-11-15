@@ -3,7 +3,11 @@ package ast
 // Source: src/ast/datatype_decl_plugin.cpp:753-872;
 // src/ast/datatype_decl_plugin.h:290-391.
 
-import usymbol "github.com/glycerine/g3/pkg/util/symbol"
+import (
+	"errors"
+
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
+)
 
 func (m *ASTManager) DatatypeFamilyID() (FamilyID, error) {
 	if err := m.lock(); err != nil {
@@ -187,11 +191,26 @@ func (m *ASTManager) DatatypeAccessorIndex(accessor, constructor ASTHandle) (ind
 	if sort != domain {
 		return 0, false, nil
 	}
-	key := astDatatypeAccessorKey{sort: sort, constructor: constructorName}
-	for i, name := range m.datatypePlugin.accessors[key] {
-		if name == accessorName {
-			return uint32(i), true, nil
+	// Source: datatype_rewriter::mk_app_core walks
+	// util::get_constructor_accessors(c_decl), which instantiates the
+	// accessors of the constructor in the datatype's current definition.
+	definition, err := m.datatypeDefinitionForSort(sort)
+	if err != nil {
+		if errors.Is(err, ErrASTDomain) {
+			return 0, false, nil
 		}
+		return 0, false, err
+	}
+	for _, candidate := range definition.constructors {
+		if candidate.name != constructorName {
+			continue
+		}
+		for i, name := range candidate.accessors {
+			if name == accessorName {
+				return uint32(i), true, nil
+			}
+		}
+		return 0, false, nil
 	}
 	return 0, false, nil
 }
