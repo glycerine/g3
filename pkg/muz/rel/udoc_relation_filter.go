@@ -124,19 +124,19 @@ func (r *UDocRelation) FilterByNegation(negative *UDocRelation, targetColumns, n
 	if productManager == nil || productManager.closed || productManager.NumTBits() != r.NumBits()+negative.NumBits() {
 		return ErrDOC
 	}
-	joined, err := r.Join(negative, targetColumns, negativeColumns, productManager)
-	if err != nil {
-		return err
-	}
-	defer func() { resultErr = errors.Join(resultErr, joined.Close()) }()
+	// negation_filter_fn::slow_pass: jp = m_join_project(t, n), which inserts
+	// each projected doc (udoc::insert); subtract it when not fast_empty.
 	removed := make([]uint32, len(negative.widths))
 	for i := range removed {
 		removed[i] = uint32(len(r.widths) + i)
 	}
-	projected, err := joined.Project(removed, r.manager)
+	projected, err := r.joinProject(negative, targetColumns, negativeColumns, removed, productManager, r.manager, false)
 	if err != nil {
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, projected.Close()) }()
+	if len(projected.elems.values) == 0 {
+		return nil
+	}
 	return r.elems.Subtract(projected.elems)
 }

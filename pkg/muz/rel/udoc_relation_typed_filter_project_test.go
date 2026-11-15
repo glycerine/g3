@@ -120,3 +120,30 @@ func TestTypedUDocFiniteEqualityKeepsOrdinaryGuardBoundary(t *testing.T) {
 		t.Fatal("same-width foreign sort accepted", got, e)
 	}
 }
+
+// muz_rel_06-F4: negation_filter_fn::slow_pass subtracts m_join_project(t, n)
+// (join_project_fn, which inserts each projected doc), not a join followed by
+// a plain projection; the surviving set is the same.
+func TestUDocFilterByNegationPartialColumns(t *testing.T) {
+	docManager, _ := newTestDocManager(t, 4)
+	target, err := NewUDocRelation(docManager, []uint32{2, 2})
+	astTestMust(t, err)
+	closeUDoc(t, target)
+	for _, fact := range [][]uint64{{0, 1}, {1, 1}, {2, 3}} {
+		_, err = target.AddFact(fact)
+		astTestMust(t, err)
+	}
+	negativeManager, _ := newTestDocManager(t, 4)
+	negative, err := NewUDocRelation(negativeManager, []uint32{2, 2})
+	astTestMust(t, err)
+	closeUDoc(t, negative)
+	for _, fact := range [][]uint64{{1, 0}, {1, 2}} {
+		_, err = negative.AddFact(fact)
+		astTestMust(t, err)
+	}
+	product, _ := newTestDocManager(t, 8)
+	astTestMust(t, target.FilterByNegation(negative, []uint32{0}, []uint32{0}, product))
+	requireFact(t, target, []uint64{0, 1}, true)
+	requireFact(t, target, []uint64{1, 1}, false)
+	requireFact(t, target, []uint64{2, 3}, true)
+}

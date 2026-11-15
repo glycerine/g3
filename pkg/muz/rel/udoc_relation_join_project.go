@@ -11,6 +11,13 @@ import (
 // JoinProject joins documents and projects each successful pair directly into
 // the result. productManager owns the temporary concatenated bit space.
 func (r *UDocRelation) JoinProject(other *UDocRelation, leftColumns, rightColumns, removedColumns []uint32, productManager, resultManager *DocManager) (result *UDocRelation, resultErr error) {
+	return r.joinProject(other, leftColumns, rightColumns, removedColumns, productManager, resultManager, true)
+}
+
+// joinProject is mk_join_project_fn when allowIntersection is set (which may
+// select join_project_and_fn), and join_project_fn itself otherwise, as
+// negation_filter_fn constructs it directly.
+func (r *UDocRelation) joinProject(other *UDocRelation, leftColumns, rightColumns, removedColumns []uint32, productManager, resultManager *DocManager, allowIntersection bool) (result *UDocRelation, resultErr error) {
 	if err := r.check(); err != nil {
 		return nil, err
 	}
@@ -72,7 +79,7 @@ func (r *UDocRelation) JoinProject(other *UDocRelation, leftColumns, rightColumn
 			covered[leftColumns[i]] = true
 		}
 	}
-	if intersection && r.manager == other.manager && r.manager == resultManager && r.ValidateSameShape(other) == nil {
+	if allowIntersection && intersection && r.manager == other.manager && r.manager == resultManager && r.ValidateSameShape(other) == nil {
 		result, err = r.Clone()
 		if err != nil {
 			return nil, err
