@@ -96,9 +96,9 @@ this repository that prints the value, and quote its output in the Go test.
 Test inputs live in directories named `test_vectors`, never `testdata` (the
 Go fuzzer wipes `testdata`).
 
-## Decisions for the owner
+## Owner decisions (approved 2026-11-14)
 
-These findings cannot be fixed faithfully without an owner decision.
+The owner approved everything in this section on 2026-11-14: use the libstdc++ sort port at each listed site, emulate libstdc++ `unordered_map<string,unsigned>` order for util_lp_06-F1, and keep g3's correct behavior for every z3-is-wrong case, recording each through the fork-fix workflow (exclusion and vector, red C++ test, fork fix, `FORK_BUGFIXES.md` entry). Trace findings stay in this file. Low-level bignum traces (math/big against mpn) may be dropped only case by case with owner approval.
 
 **New libstdc++ `std::sort` call sites.** Each of these sorts with ties where the C++ uses `std::sort`, so tied elements come out in a different order from z3. That changes search order, models or traces. The fix for each is to call the approved port in `pkg/util/sorting/libstdcxx_sort.go`, which needs approval per call site:
 
@@ -111,7 +111,7 @@ These findings cannot be fixed faithfully without an owner decision.
 
 util_lp_06-F1 would also need a libstdc++ `unordered_map<string,unsigned>` order emulation for the MPS model printout.
 
-**Copy z3 4.7.1 or keep the correct g3 behavior.** In these findings g3 is mathematically correct and z3 4.7.1 is not, but g3 is not currently documented as deviating. Under the project's fork-fix policy, each would be kept, added to `z3_bug_exclusions.txt` with a vector, and fixed in the C++ fork:
+**Keep the correct g3 behavior (approved).** In these findings g3 is mathematically correct and z3 4.7.1 is not. Each is kept, added to `z3_bug_exclusions.txt` with a vector, and fixed in the C++ fork:
 
 - nlsat_01-F1 to F4 (unsigned sign, 32-bit overflow, stale power table, `s == -1`)
 - qe_01-F2 (copying z3 makes `qe-sat` not terminate)
