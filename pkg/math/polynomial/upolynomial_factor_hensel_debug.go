@@ -46,7 +46,7 @@ func (s *UPolynomialFactorizationService) checkHenselPair(C UPolynomialView, a, 
 	c.brCore = brCore
 	c.constructed = 2
 	h.attachCheckManager(brCore, true)
-	if e = brCore.modular.WithAllocationContext((numericIntegerModularManager_henselPairAllocationContext(brCore.modular, receipt)).utility(brCore.modular.Integers())).SetZP(br); e != nil {
+	if e = brCore.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_henselPairAllocationContext(brCore.modular, receipt))).utility(brCore.modular.Integers())).SetZP(br); e != nil {
 		return false, e
 	}
 	if Al.count != A.count {
@@ -91,7 +91,7 @@ func (s *UPolynomialFactorizationService) checkHenselPair(C UPolynomialView, a, 
 	c.bCore = bCore
 	c.constructed = 4
 	h.attachCheckManager(bCore, false)
-	if e = bCore.modular.WithAllocationContext((numericIntegerModularManager_henselPairAllocationContext(bCore.modular, receipt)).utility(bCore.modular.Integers())).SetZP(b); e != nil {
+	if e = bCore.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_henselPairAllocationContext(bCore.modular, receipt))).utility(bCore.modular.Integers())).SetZP(b); e != nil {
 		return false, e
 	}
 	test2a, test2b := &c.test2a, &c.test2b

@@ -265,7 +265,7 @@ func (m *MultivariatePolynomialCore) integerContentWithReceipts(p Polynomial, i 
 		if e != nil {
 			return e
 		}
-		e = m.modular.WithAllocationContext((numericIntegerModularManager_contentAllocationContext(m.modular, &s.receipt)).utility(m.modular.Integers())).Div(&a, i, &s.ai)
+		e = m.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_contentAllocationContext(m.modular, &s.receipt))).utility(m.modular.Integers())).Div(&a, i, &s.ai)
 		if e != nil {
 			return e
 		}

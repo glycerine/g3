@@ -33,7 +33,7 @@ func (r *upolyDisplayInvocationReceipt) cleanupOwned() error {
 	}
 	return nil
 }
-func (c integerAllocationInvocationContext) exactDivTraceSlot(m *UPolynomialManager) *upolyDisplayInvocationReceipt {
+func (c *integerAllocationInvocationContext) exactDivTraceSlot(m *UPolynomialManager) *upolyDisplayInvocationReceipt {
 	if q := c.squareFreeCallFrame(m.config.Integer); q != nil {
 		return &q.exactTrace
 	}

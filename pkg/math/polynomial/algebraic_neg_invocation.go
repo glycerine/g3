@@ -54,7 +54,7 @@ func (m *AlgebraicRootCore) negationExecuting() bool {
 func (m *AlgebraicRootCore) matchesNegation(r *algebraicNegInvocationReceipt) bool {
 	return m != nil && m.self == m && r != nil && r.owner == m && r.frame == &m.negation && r.invocation != 0 && r.frame.owner == m && r.invocation == r.frame.invocation && r.frame.active
 }
-func (c integerAllocationInvocationContext) algebraicNegFrame(z *unumeral.IntegerManager) *algebraicNegScope {
+func (c *integerAllocationInvocationContext) algebraicNegFrame(z *unumeral.IntegerManager) *algebraicNegScope {
 	q := c.algebraicNeg
 	if z == nil || !z.ValidOwner() || q == nil || q.owner == nil || q.owner.self != q.owner || q != &q.owner.negation || q.owner.config.Rationals == nil || q.owner.config.Rationals.Integers() != z || algebraicNegCaller(z) != q.owner || !q.active || !q.executing || c.algebraicNegInvocation == 0 || c.algebraicNegInvocation != q.invocation || q.owner.config.Polynomials == nil || q.owner.config.Polynomials.self != q.owner.config.Polynomials || q.owner.config.Polynomials.callbackDepth != 0 || q.owner.config.Polynomials.algebraicNegCaller != q.owner {
 		return nil

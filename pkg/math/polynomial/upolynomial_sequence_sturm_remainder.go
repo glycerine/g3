@@ -10,7 +10,7 @@ import (
 func (q *upolySequenceSturmScope) context() integerAllocationInvocationContext {
 	return integerAllocationInvocationContext{sequenceSturm: q, sequenceSturmInvocation: q.invocation}
 }
-func (c integerAllocationInvocationContext) sequenceSturmFrame(z *unumeral.IntegerManager) *upolySequenceSturmScope {
+func (c *integerAllocationInvocationContext) sequenceSturmFrame(z *unumeral.IntegerManager) *upolySequenceSturmScope {
 	q := c.sequenceSturm
 	if q == nil || !q.NumericBound(true) || q.owner.manager.config.Integer != z || c.sequenceSturmInvocation == 0 || c.sequenceSturmInvocation != q.invocation {
 		return nil
@@ -207,7 +207,7 @@ func (q *upolySequenceSturmScope) traceRemainder(phase uint8, b UPolynomialView,
 	if !m.config.Integer.BorrowTraceTags().ShouldTrace("rem_bug") {
 		return nil
 	}
-	if q.context().sequenceSturmFrame(m.config.Integer) != q || !q.scalar.constructed {
+	if integerAllocationContextRef(q.context()).sequenceSturmFrame(m.config.Integer) != q || !q.scalar.constructed {
 		return ErrUPolynomialOwner
 	}
 	if q.remainderTracePending() {

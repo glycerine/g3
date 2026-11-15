@@ -93,7 +93,7 @@ func (s *sexprPolynomialArithmeticScope) unbind() {
 	m.sexprArithmetic = s.previous
 	s.previous = nil
 }
-func (c integerAllocationInvocationContext) sexprArithmeticFrame(z *unumeral.IntegerManager) *sexprPolynomialArithmeticScope {
+func (c *integerAllocationInvocationContext) sexprArithmeticFrame(z *unumeral.IntegerManager) *sexprPolynomialArithmeticScope {
 	s := c.sexprArithmetic
 	if s == nil || !s.NumericBound(true) || s.owner.polynomial.config.Integer != z || c.sexprArithmeticInvocation == 0 || c.sexprArithmeticInvocation != s.invocation {
 		return nil

@@ -7,7 +7,7 @@ import unumeral "github.com/glycerine/g3/pkg/util/numeral"
 func (q *upolySturmIsolationScope) context() integerAllocationInvocationContext {
 	return integerAllocationInvocationContext{sturmIsolation: q, sturmIsolationInvocation: q.invocation}
 }
-func (c integerAllocationInvocationContext) sturmIsolationFrame(z *unumeral.IntegerManager) *upolySturmIsolationScope {
+func (c *integerAllocationInvocationContext) sturmIsolationFrame(z *unumeral.IntegerManager) *upolySturmIsolationScope {
 	q := c.sturmIsolation
 	if q == nil || !q.entryValid() || q.owner.config.Integer != z || c.sturmIsolationInvocation == 0 || c.sturmIsolationInvocation != q.invocation {
 		return nil

@@ -8,7 +8,7 @@ import (
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (c integerAllocationInvocationContext) recombinationFrame(z *unumeral.IntegerManager) *upolyRecombinationStepScope {
+func (c *integerAllocationInvocationContext) recombinationFrame(z *unumeral.IntegerManager) *upolyRecombinationStepScope {
 	q := c.recombination
 	if z == nil || !z.ValidOwner() || q == nil || !q.matches() || !q.active || !q.executing || c.recombinationInvocation == 0 || c.recombinationInvocation != q.invocation || q.owner.service.scope != q.owner || q.owner.manager.config.Integer != z {
 		return nil
@@ -47,7 +47,7 @@ func (q *upolyRecombinationStepScope) normalizeReceipt(m *unumeral.IntegerModula
 	return nil
 }
 
-func (c integerAllocationInvocationContext) recordRecombinationRaw(z *unumeral.IntegerManager, r *unumeral.IntegerRawInvocationReceipt) {
+func (c *integerAllocationInvocationContext) recordRecombinationRaw(z *unumeral.IntegerManager, r *unumeral.IntegerRawInvocationReceipt) {
 	q := c.recombinationFrame(z)
 	if q == nil || !z.MatchesRawInvocation(r) {
 		return

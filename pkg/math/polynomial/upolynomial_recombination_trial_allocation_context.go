@@ -8,7 +8,7 @@ import (
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (c integerAllocationInvocationContext) trialFrame(z *unumeral.IntegerManager) *upolyRecombinationTrialScope {
+func (c *integerAllocationInvocationContext) trialFrame(z *unumeral.IntegerManager) *upolyRecombinationTrialScope {
 	q := c.trial
 	if z == nil || !z.ValidOwner() || q == nil || !q.matches() || !q.active || !q.executing || !q.constructed || c.trialInvocation == 0 || c.trialInvocation != q.invocation || q.owner.service.scope != q.owner || q.owner.manager.config.Integer != z {
 		return nil

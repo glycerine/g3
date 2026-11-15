@@ -16,7 +16,7 @@ func numericIntegerManager_normalizationAllocationRoots(m *unumeral.IntegerManag
 	}
 	return &r.frame.numeric
 }
-func (c integerAllocationInvocationContext) normalizationReceipt(m *unumeral.IntegerManager) *polynomialNormalizeInvocationReceipt {
+func (c *integerAllocationInvocationContext) normalizationReceipt(m *unumeral.IntegerManager) *polynomialNormalizeInvocationReceipt {
 	if c.normalization == nil || c.normalizationInvocation == 0 || c.normalizationInvocation != c.normalization.invocation || numericIntegerManager_normalizationAllocationRoots(m, c.normalization) == nil {
 		return nil
 	}
@@ -42,15 +42,15 @@ func numericIntegerModularManager_gcdManyIndexedWithNormalizeReceipt(m *unumeral
 	if e := m.Check(); e != nil {
 		return e
 	}
-	if e := m.Integers().WithAllocationContext((numericIntegerModularManager_normalizationAllocationContext(m, r)).utility(m.Integers())).GcdManyIndexed(as, out); e != nil {
+	if e := m.Integers().WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_normalizationAllocationContext(m, r))).utility(m.Integers())).GcdManyIndexed(as, out); e != nil {
 		return e
 	}
 	return m.AssertNormalized(out)
 }
 func numericIntegerModularManager_divWithNormalizeReceipt(m *unumeral.IntegerModularManager, a, b, out *unumeral.Int, r *polynomialNormalizeInvocationReceipt) error {
-	return m.WithAllocationContext((numericIntegerModularManager_normalizationAllocationContext(m, r)).utility(m.Integers())).Div(a, b, out)
+	return m.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_normalizationAllocationContext(m, r))).utility(m.Integers())).Div(a, b, out)
 }
-func (c integerAllocationInvocationContext) recordNormalizationRaw(m *unumeral.IntegerManager, r *unumeral.IntegerRawInvocationReceipt) {
+func (c *integerAllocationInvocationContext) recordNormalizationRaw(m *unumeral.IntegerManager, r *unumeral.IntegerRawInvocationReceipt) {
 	p := c.normalizationReceipt(m)
 	if p == nil || !m.MatchesRawInvocation(r) {
 		return

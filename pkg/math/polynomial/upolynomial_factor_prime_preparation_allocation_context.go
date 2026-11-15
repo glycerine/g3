@@ -8,7 +8,7 @@ import (
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (c integerAllocationInvocationContext) primePreparationFrame(z *unumeral.IntegerManager) *upolyFactorPrimePreparationScope {
+func (c *integerAllocationInvocationContext) primePreparationFrame(z *unumeral.IntegerManager) *upolyFactorPrimePreparationScope {
 	q := c.primePreparation
 	if z == nil || !z.ValidOwner() || q == nil || !q.matches() || !q.active || (!q.executing && !q.sourceExecuting) || q.owner.constructed < 2 || c.primePreparationInvocation == 0 || c.primePreparationInvocation != q.invocation || q.owner.service.scope != q.owner || q.owner.manager.config.Integer != z {
 		return nil
@@ -50,7 +50,7 @@ func (q *upolyFactorPrimePreparationScope) normalizeReceipt(m *unumeral.IntegerM
 	return nil
 }
 
-func (c integerAllocationInvocationContext) recordPrimePreparationRaw(z *unumeral.IntegerManager, r *unumeral.IntegerRawInvocationReceipt) {
+func (c *integerAllocationInvocationContext) recordPrimePreparationRaw(z *unumeral.IntegerManager, r *unumeral.IntegerRawInvocationReceipt) {
 	q := c.primePreparationFrame(z)
 	if q == nil || !z.MatchesRawInvocation(r) {
 		return

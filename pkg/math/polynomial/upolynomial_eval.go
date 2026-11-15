@@ -217,7 +217,7 @@ func (m *UPolynomialManager) evalSignBinaryWithNegScopeAndReceipt(v UPolynomialV
 		setBinaryEvaluationCaller(z, m)
 		defer func() { q.executing = false; cause = q.finish(cause); setBinaryEvaluationCaller(z, old) }()
 	} else {
-		if parent.context(false).algebraicNegFrame(m.config.Integer) == nil || parent.owner.config.Polynomials != m {
+		if integerAllocationContextRef(parent.context(false)).algebraicNegFrame(m.config.Integer) == nil || parent.owner.config.Polynomials != m {
 			return 0, ErrAlgebraicOwner
 		}
 		if parent.eval.active {

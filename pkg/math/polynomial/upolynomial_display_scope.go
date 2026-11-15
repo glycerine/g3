@@ -111,7 +111,7 @@ func (q *upolyDisplayScope) endCall() {
 func (q *upolyDisplayScope) context() integerAllocationInvocationContext {
 	return integerAllocationInvocationContext{upolyDisplay: q, upolyDisplayInvocation: q.invocation}
 }
-func (c integerAllocationInvocationContext) upolyDisplayFrame(z *unumeral.IntegerManager) *upolyDisplayScope {
+func (c *integerAllocationInvocationContext) upolyDisplayFrame(z *unumeral.IntegerManager) *upolyDisplayScope {
 	q := c.upolyDisplay
 	if !q.actual() || q.owner.config.Integer != z || z == nil || !z.ValidOwner() || z.RuntimeOwner().FailureTransportActive() || !q.active || !q.executing || !q.constructed || q.owner.callbackDepth != 0 || q.owner.currentDisplay != q || c.upolyDisplayInvocation != q.invocation {
 		return nil

@@ -65,7 +65,7 @@ func TestPolynomialNegDirectContextRejectsCopiedForeignAndReusedFrame(t *testing
 	if (context.roots(c.integer)) != nil {
 		t.Fatal("old embedded receipt pointer retargeted next invocation")
 	}
-	if (numericIntegerModularManager_negAllocationContext(c.modular, next).roots(c.integer)) != (&c.numeric) {
+	if (integerAllocationContextRef(numericIntegerModularManager_negAllocationContext(c.modular, next)).roots(c.integer)) != (&c.numeric) {
 		t.Fatal("new actual invocation lost authority")
 	}
 	c.negativeExecuting = false

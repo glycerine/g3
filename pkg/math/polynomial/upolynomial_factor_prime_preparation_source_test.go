@@ -293,7 +293,7 @@ func TestUPolynomialFactorPrimePreparationExactContextHistoryGuards(t *testing.T
 	h, e := s.beginPrimePreparation(fs)
 	serviceMust(t, e)
 	r := h.receipt
-	if (numericIntegerModularManager_primePreparationAllocationContext(m.modular, h).roots(q.Integers())) != nil {
+	if (integerAllocationContextRef(numericIntegerModularManager_primePreparationAllocationContext(m.modular, h)).roots(q.Integers())) != nil {
 		t.Fatal("adapter metadata before p constructor owns no NUM")
 	}
 	c.constructed = 2

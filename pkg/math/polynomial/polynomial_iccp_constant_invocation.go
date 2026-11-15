@@ -31,7 +31,7 @@ type polynomialICCPConstantInvocationReceipt struct {
 func (m *MultivariatePolynomialManager) hasICCPConstantHistory(r *polynomialICCPConstantInvocationReceipt) bool {
 	return m != nil && m.self == m && r != nil && r.manager == m && r.frame == &m.iccpConstant && r.invocation != 0 && r.frame.invocation == r.invocation
 }
-func numericIntegerManager_iccpConstantContextRoots(m *unumeral.IntegerManager, context integerAllocationInvocationContext) *polynomialNumericRoots {
+func numericIntegerManager_iccpConstantContextRoots(m *unumeral.IntegerManager, context *integerAllocationInvocationContext) *polynomialNumericRoots {
 	r := context.iccpConstant
 	if m == nil || !m.ValidOwner() || r == nil || r.manager == nil || r.manager.core == nil || r.manager.core.self != r.manager.core || r.manager.core.integer != m || !r.manager.hasICCPConstantHistory(r) || context.iccpConstantInvocation == 0 || context.iccpConstantInvocation != r.invocation || !r.frame.active || !r.frame.executing || r.manager.core.callbackDepth != 0 {
 		return nil
@@ -105,11 +105,11 @@ func numericIntegerModularManager_iccpConstantAllocationContext(m *unumeral.Inte
 		return context
 	}
 	context = integerAllocationInvocationContext{iccpConstant: r, iccpConstantInvocation: r.invocation}
-	if numericIntegerManager_iccpConstantContextRoots(m.Integers(), context) == nil {
+	if numericIntegerManager_iccpConstantContextRoots(m.Integers(), &context) == nil {
 		return integerAllocationInvocationContext{}
 	}
 	return context
 }
 func numericIntegerModularManager_copyWithICCPConstantReceipt(m *unumeral.IntegerModularManager, out, a *unumeral.Int, r *polynomialICCPConstantInvocationReceipt) error {
-	return m.WithAllocationContext((numericIntegerModularManager_iccpConstantAllocationContext(m, r)).utility(m.Integers())).Copy(out, a)
+	return m.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_iccpConstantAllocationContext(m, r))).utility(m.Integers())).Copy(out, a)
 }

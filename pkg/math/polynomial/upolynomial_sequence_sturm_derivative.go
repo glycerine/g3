@@ -8,7 +8,7 @@ import (
 )
 
 func (q *upolySequenceSturmScope) retireDerivativeMultiplier() error {
-	if q.context().sequenceSturmFrame(q.owner.manager.config.Integer) != q {
+	if integerAllocationContextRef(q.context()).sequenceSturmFrame(q.owner.manager.config.Integer) != q {
 		return ErrUPolynomialOwner
 	}
 	if q.derivative.NativeCellToken() == 0 {

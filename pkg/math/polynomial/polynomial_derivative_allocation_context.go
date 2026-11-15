@@ -21,10 +21,10 @@ func numericIntegerManager_derivativeAllocationRoots(m *unumeral.IntegerManager,
 }
 
 func numericIntegerModularManager_setUint32WithDerivativeReceipt(m *unumeral.IntegerModularManager, out *unumeral.Int, v uint32, r *polynomialDerivativeInvocationReceipt) error {
-	return m.WithAllocationContext((numericIntegerModularManager_derivativeAllocationContext(m, r)).utility(m.Integers())).SetUint32(out, v)
+	return m.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_derivativeAllocationContext(m, r))).utility(m.Integers())).SetUint32(out, v)
 }
 func numericIntegerModularManager_mulWithDerivativeReceipt(m *unumeral.IntegerModularManager, a, b, out *unumeral.Int, r *polynomialDerivativeInvocationReceipt) error {
-	return m.WithAllocationContext((numericIntegerModularManager_derivativeAllocationContext(m, r)).utility(m.Integers())).Mul(a, b, out)
+	return m.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_derivativeAllocationContext(m, r))).utility(m.Integers())).Mul(a, b, out)
 }
 func numericIntegerModularManager_derivativeAllocationContext(m *unumeral.IntegerModularManager, r *polynomialDerivativeInvocationReceipt) integerAllocationInvocationContext {
 	if m == nil || m.Integers() == nil || numericIntegerManager_derivativeAllocationRoots(m.Integers(), r) == nil || r.manager.core.modular != m {
@@ -103,28 +103,28 @@ func numericIntegerModularManager_normalizeWithSourceContext(m *unumeral.Integer
 		}
 	}
 
-	if r := context.factorNumeralVector; r != nil && numericIntegerManager_factorNumeralVectorRoots(m.Integers(), context) != nil && r.frame.outputManager != nil && r.frame.outputManager.modular == m {
+	if r := context.factorNumeralVector; r != nil && numericIntegerManager_factorNumeralVectorRoots(m.Integers(), &context) != nil && r.frame.outputManager != nil && r.frame.outputManager.modular == m {
 		e := m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, &r.frame.normalize)
 		if r.frame.sourceCause == nil {
 			r.frame.sourceCause = nil
 		}
 		return e
 	}
-	if r := context.toPolynomial; r != nil && numericIntegerManager_toPolynomialAllocationRoots(m.Integers(), context) != nil && r.manager.core.modular == m {
+	if r := context.toPolynomial; r != nil && numericIntegerManager_toPolynomialAllocationRoots(m.Integers(), &context) != nil && r.manager.core.modular == m {
 		e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
 		if r.frame.sourceCause == nil {
 			r.frame.sourceCause = nil
 		}
 		return e
 	}
-	if r := context.factorMemberSet; r != nil && numericIntegerManager_factorMemberSetRoots(m.Integers(), context) != nil && r.owner.manager.core.modular == m {
+	if r := context.factorMemberSet; r != nil && numericIntegerManager_factorMemberSetRoots(m.Integers(), &context) != nil && r.owner.manager.core.modular == m {
 		e := m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, &r.frame.normalize)
 		if r.frame.sourceCause == nil {
 			r.frame.sourceCause = nil
 		}
 		return e
 	}
-	if r := context.factorConstant; r != nil && numericIntegerManager_factorConstantContextRoots(m.Integers(), context) != nil && r.manager.manager.core.modular == m {
+	if r := context.factorConstant; r != nil && numericIntegerManager_factorConstantContextRoots(m.Integers(), &context) != nil && r.manager.manager.core.modular == m {
 		child := &r.frame.normalize[r.frame.phase]
 		e := m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, child)
 		if r.frame.sourceCause == nil {
@@ -189,7 +189,7 @@ func numericIntegerModularManager_normalizeWithSourceContext(m *unumeral.Integer
 		}
 	}
 
-	if r := context.iccpConstant; r != nil && numericIntegerManager_iccpConstantContextRoots(m.Integers(), context) != nil && r.manager.core.modular == m {
+	if r := context.iccpConstant; r != nil && numericIntegerManager_iccpConstantContextRoots(m.Integers(), &context) != nil && r.manager.core.modular == m {
 		e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
 		if r.frame.sourceCause == nil {
 			r.frame.sourceCause = nil
@@ -205,7 +205,7 @@ func numericIntegerModularManager_normalizeWithSourceContext(m *unumeral.Integer
 			return e
 		}
 	}
-	if r := context.pseudo; r != nil && numericIntegerManager_pseudoContextRoots(m.Integers(), context) != nil && r.manager.modular == m {
+	if r := context.pseudo; r != nil && numericIntegerManager_pseudoContextRoots(m.Integers(), &context) != nil && r.manager.modular == m {
 		e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
 		if r.frame.sourceCause == nil {
 			r.frame.sourceCause = nil
@@ -221,7 +221,7 @@ func numericIntegerModularManager_normalizeWithSourceContext(m *unumeral.Integer
 			return e
 		}
 	}
-	if r := context.divides; r != nil && numericIntegerManager_dividesContextRoots(m.Integers(), context) != nil && r.core.modular == m {
+	if r := context.divides; r != nil && numericIntegerManager_dividesContextRoots(m.Integers(), &context) != nil && r.core.modular == m {
 		e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
 		if r.frame.sourceCause == nil {
 			r.frame.sourceCause = nil
@@ -235,14 +235,14 @@ func numericIntegerModularManager_normalizeWithSourceContext(m *unumeral.Integer
 		}
 		return e
 	}
-	if r := context.scalarExact; r != nil && numericIntegerManager_scalarExactContextRoots(m.Integers(), context) != nil && r.core.modular == m {
+	if r := context.scalarExact; r != nil && numericIntegerManager_scalarExactContextRoots(m.Integers(), &context) != nil && r.core.modular == m {
 		e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
 		if r.frame.sourceCause == nil {
 			r.frame.sourceCause = nil
 		}
 		return e
 	}
-	if r := context.exactDiv; r != nil && numericIntegerManager_exactDivContextRoots(m.Integers(), context) != nil && r.core.modular == m {
+	if r := context.exactDiv; r != nil && numericIntegerManager_exactDivContextRoots(m.Integers(), &context) != nil && r.core.modular == m {
 		e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
 		if r.frame.sourceCause == nil {
 			r.frame.sourceCause = nil

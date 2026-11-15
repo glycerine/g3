@@ -62,7 +62,7 @@ func (q *upolyRootIDScope) finishNormalization(until uint8, cause error) error {
 
 func (q *upolyRootIDScope) normalizeView(v UPolynomialView) (cause error) {
 	m := q.owner
-	if q.context().rootIDFrame(m.config.Integer) != q {
+	if integerAllocationContextRef(q.context()).rootIDFrame(m.config.Integer) != q {
 		return ErrUPolynomialOwner
 	}
 	// These early returns precede the source g declaration.
@@ -91,7 +91,7 @@ func (q *upolyRootIDScope) normalizeView(v UPolynomialView) (cause error) {
 }
 
 func (q *upolyRootIDScope) beginNormalization() error {
-	if q.context().rootIDFrame(q.owner.config.Integer) != q {
+	if integerAllocationContextRef(q.context()).rootIDFrame(q.owner.config.Integer) != q {
 		return ErrUPolynomialOwner
 	}
 	s := &q.normalization
@@ -127,13 +127,13 @@ func (q *upolyRootIDScope) normalizeCoefficient(v UPolynomialView, i uint32) (ca
 	if e != nil {
 		return e
 	}
-	if e = m.modular.WithAllocationContext(q.context().utility(m.config.Integer)).Div(x, g, x); e != nil {
+	if e = m.modular.WithAllocationContext(integerAllocationContextRef(q.context()).utility(m.config.Integer)).Div(x, g, x); e != nil {
 		return e
 	}
 	if polynomialSourceDebug {
 		s.values[2] = unumeral.Int{}
 		s.constructed = 3
-		if e = m.modular.WithAllocationContext(q.context().utility(m.config.Integer)).Mul(g, x, tmp); e != nil {
+		if e = m.modular.WithAllocationContext(integerAllocationContextRef(q.context()).utility(m.config.Integer)).Mul(g, x, tmp); e != nil {
 			return e
 		}
 		if e = q.traceNormalization(x); e != nil {

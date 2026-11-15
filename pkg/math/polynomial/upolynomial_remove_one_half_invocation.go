@@ -61,7 +61,7 @@ func (m *UPolynomialManager) removeOneHalfRootExecuting() bool {
 func numericIntegerManager_removeOneHalfRootCallerExecuting(z *unumeral.IntegerManager) bool {
 	return z != nil && z.ValidOwner() && removeOneHalfRootCaller(z) != nil && removeOneHalfRootCaller(z).config.Integer == z && removeOneHalfRootCaller(z).removeOneHalfRootExecuting()
 }
-func (c integerAllocationInvocationContext) removeOneHalfRootFrame(z *unumeral.IntegerManager) *upolyRemoveOneHalfRootScope {
+func (c *integerAllocationInvocationContext) removeOneHalfRootFrame(z *unumeral.IntegerManager) *upolyRemoveOneHalfRootScope {
 	q := c.removeOneHalfRoot
 	if z == nil || !z.ValidOwner() || q == nil || q.owner == nil || q.owner.self != q.owner || q != &q.owner.removeOneHalfRoot || q.owner.config.Integer != z || removeOneHalfRootCaller(z) != q.owner || q.owner.callbackDepth != 0 || !q.active || !q.executing || c.removeOneHalfRootInvocation == 0 || c.removeOneHalfRootInvocation != q.invocation {
 		return nil
@@ -302,7 +302,7 @@ func (q *upolyRemoveOneHalfRootScope) cleanupNumericChildren(abort bool) error {
 
 	return nil
 }
-func (c integerAllocationInvocationContext) recordRemoveOneHalfRaw(z *unumeral.IntegerManager, r *unumeral.IntegerRawInvocationReceipt) {
+func (c *integerAllocationInvocationContext) recordRemoveOneHalfRaw(z *unumeral.IntegerManager, r *unumeral.IntegerRawInvocationReceipt) {
 	q := c.removeOneHalfRootFrame(z)
 	if q == nil || !z.MatchesRawInvocation(r) {
 		return

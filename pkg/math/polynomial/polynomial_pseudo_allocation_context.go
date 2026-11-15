@@ -13,7 +13,7 @@ func numericIntegerManager_pseudoAllocationRoots(m *unumeral.IntegerManager, r *
 	}
 	return &r.frame.numeric
 }
-func numericIntegerManager_pseudoContextRoots(m *unumeral.IntegerManager, c integerAllocationInvocationContext) *polynomialNumericRoots {
+func numericIntegerManager_pseudoContextRoots(m *unumeral.IntegerManager, c *integerAllocationInvocationContext) *polynomialNumericRoots {
 	if c.pseudo == nil || c.pseudoInvocation == 0 || c.pseudoInvocation != c.pseudo.invocation {
 		return nil
 	}

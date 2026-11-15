@@ -18,7 +18,7 @@ func (s *UPolynomialFactorizationService) restoreSavedPrime(fs *UPolynomialFacto
 	defer q.leaveCall()
 	defer func() { q.executing = false; failure = q.finish(&r, failure) }()
 	c := q.owner
-	return c.zp.modular.WithAllocationContext((numericIntegerModularManager_primePreparationAllocationContext(c.zp.modular, q)).utility(c.zp.modular.Integers())).SetZP(&c.bestP)
+	return c.zp.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_primePreparationAllocationContext(c.zp.modular, q))).utility(c.zp.modular.Integers())).SetZP(&c.bestP)
 }
 
 // Reached post-loop source preparation, including actual constructor frontiers.
@@ -35,7 +35,7 @@ func (s *UPolynomialFactorizationService) prepareFactorLift(fs *UPolynomialFacto
 	defer q.leaveCall()
 	defer func() { q.executing = false; failure = q.finish(&r, failure) }()
 	c, m := q.owner, q.owner.manager
-	if e = c.zp.modular.WithAllocationContext((numericIntegerModularManager_primePreparationAllocationContext(c.zp.modular, q)).utility(c.zp.modular.Integers())).SetZP(&c.bestP); e != nil {
+	if e = c.zp.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_primePreparationAllocationContext(c.zp.modular, q))).utility(c.zp.modular.Integers())).SetZP(&c.bestP); e != nil {
 		return e
 	}
 	if e = s.traceFactorDegreeSet(c.best, 1155, false); e != nil {
@@ -57,7 +57,7 @@ func (s *UPolynomialFactorizationService) prepareFactorLift(fs *UPolynomialFacto
 	if e = q.bindLift(zpe); e != nil {
 		return e
 	}
-	if e = zpe.modular.WithAllocationContext((numericIntegerModularManager_primePreparationAllocationContext(zpe.modular, q)).utility(zpe.modular.Integers())).SetZP(&c.bestP); e != nil {
+	if e = zpe.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_primePreparationAllocationContext(zpe.modular, q))).utility(zpe.modular.Integers())).SetZP(&c.bestP); e != nil {
 		return e
 	}
 	lifted, e := zpe.NewFactors()

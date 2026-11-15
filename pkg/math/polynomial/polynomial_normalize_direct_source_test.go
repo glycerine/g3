@@ -149,7 +149,7 @@ func TestPolynomialNormalizeDirectCapturedInvocationGuards(t *testing.T) {
 	}
 	c.callbackDepth--
 	foreign := *c.modular
-	if (numericIntegerModularManager_normalizationAllocationContext(&foreign, &r).roots(z)) != nil {
+	if (integerAllocationContextRef(numericIntegerModularManager_normalizationAllocationContext(&foreign, &r)).roots(z)) != nil {
 		t.Error("foreign modular receiver accepted")
 	}
 	s.executing = false

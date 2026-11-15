@@ -143,7 +143,7 @@ func (h *upolyHenselPairScope) cleanupHenselCheck(abort bool) error {
 	return nil
 }
 func (m *UPolynomialManager) toZPCopyWithHensel(p UPolynomialView, out *upolyVectorState, r *upolyHenselPairInvocationReceipt) error {
-	if numericIntegerModularManager_henselPairAllocationContext(m.modular, r).henselPairReceipt(m.config.Integer) == nil {
+	if integerAllocationContextRef(numericIntegerModularManager_henselPairAllocationContext(m.modular, r)).henselPairReceipt(m.config.Integer) == nil {
 		return ErrUPolynomialOwner
 	}
 	return m.toZPCopyEngine(p, out, nil, r)

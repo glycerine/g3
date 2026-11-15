@@ -36,7 +36,7 @@ func TestUPolynomialRecombinationTrialExactOldLeafPreservesForeignReplacement(t 
 			serviceMust(t, e)
 			r := h.receipt
 			q.Budget().FailAfter(ordinal / 16)
-			body := m.modular.WithAllocationContext((numericIntegerModularManager_trialAllocationContext(m.modular, h)).utility(m.modular.Integers())).Copy(&h.tmp, &prime)
+			body := m.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_trialAllocationContext(m.modular, h))).utility(m.modular.Integers())).Copy(&h.tmp, &prime)
 			h.executing = false
 			primeTrialPhysicalAuditOwners(t, q, s, []*UPolynomialFactors{fs}, &prime, &foreign, &large)
 			old := h.numeric.Cell

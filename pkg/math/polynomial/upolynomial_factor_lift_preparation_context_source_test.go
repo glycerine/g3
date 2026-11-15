@@ -100,7 +100,7 @@ func TestUPolynomialFactorLiftPreparationCopiedStaleFactorContexts(t *testing.T)
 	}
 	foreign, e := NewRelatedUPolynomialManager(m)
 	serviceMust(t, e)
-	if numericIntegerModularManager_primePreparationAllocationContext(foreign.modular, q).primePreparationFrame(z.Integers()) != nil {
+	if integerAllocationContextRef(numericIntegerModularManager_primePreparationAllocationContext(foreign.modular, q)).primePreparationFrame(z.Integers()) != nil {
 		t.Fatal("foreign receiver acquired lift authority")
 	}
 	serviceMust(t, foreign.Close())

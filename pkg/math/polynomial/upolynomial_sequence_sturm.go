@@ -340,7 +340,7 @@ func (q *upolySequenceSturmScope) currentNumericOwner() bool {
 }
 
 func (q *upolySequenceSturmScope) constructPrime() error {
-	if q.context().sequenceSturmFrame(q.owner.manager.config.Integer) != q {
+	if integerAllocationContextRef(q.context()).sequenceSturmFrame(q.owner.manager.config.Integer) != q {
 		return ErrUPolynomialOwner
 	}
 	if q.live[1] {

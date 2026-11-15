@@ -13,7 +13,7 @@ func numericIntegerManager_scalarExactAllocationRoots(m *unumeral.IntegerManager
 	}
 	return &r.frame.numeric
 }
-func numericIntegerManager_scalarExactContextRoots(m *unumeral.IntegerManager, c integerAllocationInvocationContext) *polynomialNumericRoots {
+func numericIntegerManager_scalarExactContextRoots(m *unumeral.IntegerManager, c *integerAllocationInvocationContext) *polynomialNumericRoots {
 	if c.scalarExact == nil || c.scalarExactInvocation == 0 || c.scalarExactInvocation != c.scalarExact.invocation {
 		return nil
 	}
@@ -28,7 +28,7 @@ func numericIntegerModularManager_scalarExactAllocationContext(m *unumeral.Integ
 func numericIntegerModularManager_divWithScalarExactDivReceipt(m *unumeral.IntegerModularManager, a, b, out *unumeral.Int, r *polynomialScalarExactDivInvocationReceipt) error {
 	context := numericIntegerModularManager_scalarExactAllocationContext(m, r)
 	e := m.WithAllocationContext((context).utility(m.Integers())).Div(a, b, out)
-	if m != nil && m.Integers() != nil && numericIntegerManager_scalarExactContextRoots(m.Integers(), context) != nil && r.frame.sourceCause == nil {
+	if m != nil && m.Integers() != nil && numericIntegerManager_scalarExactContextRoots(m.Integers(), &context) != nil && r.frame.sourceCause == nil {
 		r.frame.sourceCause = numericIntegerManager_scalarExactNumericSourceCause(m.Integers(), r)
 	}
 	return e
@@ -36,7 +36,7 @@ func numericIntegerModularManager_divWithScalarExactDivReceipt(m *unumeral.Integ
 
 // Bind only the child returned by the actual guarded RAW declaration action.
 func numericIntegerManager_bindScalarExactDivRaw(m *unumeral.IntegerManager, c integerAllocationInvocationContext, child *unumeral.IntegerRawInvocationReceipt, division bool) {
-	if numericIntegerManager_scalarExactContextRoots(m, c) == nil || !m.MatchesRawInvocation(child) {
+	if numericIntegerManager_scalarExactContextRoots(m, &c) == nil || !m.MatchesRawInvocation(child) {
 		return
 	}
 
@@ -99,7 +99,7 @@ func numericIntegerManager_cleanupScalarExactDivNumeric(m *unumeral.IntegerManag
 // The modular engine erases the integer scoped NUM in the actual nonzero-field
 // branch; otherwise the same scoped bool method receives this exact caller.
 func numericIntegerModularManager_dividesWithScalarExactDivReceipt(m *unumeral.IntegerModularManager, a, b *unumeral.Int, r *polynomialScalarExactDivInvocationReceipt) (bool, error) {
-	result, e := m.WithAllocationContext((numericIntegerModularManager_scalarExactAllocationContext(m, r)).utility(m.Integers())).Divides(a, b)
+	result, e := m.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_scalarExactAllocationContext(m, r))).utility(m.Integers())).Divides(a, b)
 	if m != nil && m.Integers() != nil && numericIntegerManager_scalarExactAllocationRoots(m.Integers(), r) != nil && r.frame.sourceCause == nil {
 		r.frame.sourceCause = m.Integers().DividesNumeralInvocationSourceCause(&r.frame.boolNumeral)
 	}

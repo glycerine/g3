@@ -45,7 +45,7 @@ func TestExactDivNumericActualFrameAndImmutableContext(t *testing.T) {
 
 	foreignModular, e := unumeral.NewIntegerModularManager(c.integer)
 	serviceMust(t, e)
-	if (numericIntegerModularManager_exactDivAllocationContext(foreignModular, &r).roots(c.integer)) != nil {
+	if (integerAllocationContextRef(numericIntegerModularManager_exactDivAllocationContext(foreignModular, &r)).roots(c.integer)) != nil {
 		t.Fatal("foreign modular receiver acquired")
 	}
 	serviceMust(t, foreignModular.Close())

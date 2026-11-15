@@ -21,7 +21,7 @@ func (q *upolyHenselCallerScope) ownsNumericManager(m *UPolynomialManager) bool 
 	}
 	return false
 }
-func (c integerAllocationInvocationContext) henselCallerFrame(z *unumeral.IntegerManager) *upolyHenselCallerScope {
+func (c *integerAllocationInvocationContext) henselCallerFrame(z *unumeral.IntegerManager) *upolyHenselCallerScope {
 	q := c.henselCaller
 	if z == nil || !z.ValidOwner() || q == nil || !q.matches() || q.invocation == 0 || c.henselCallerInvocation != q.invocation || !q.executing || q.owner.manager.config.Integer != z {
 		return nil

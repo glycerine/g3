@@ -28,13 +28,13 @@ func numericIntegerModularManager_contentAllocationContext(m *unumeral.IntegerMo
 	return integerAllocationInvocationContext{content: r, contentInvocation: r.invocation}
 }
 
-func (c integerAllocationInvocationContext) contentReceipt(m *unumeral.IntegerManager) *polynomialContentInvocationReceipt {
+func (c *integerAllocationInvocationContext) contentReceipt(m *unumeral.IntegerManager) *polynomialContentInvocationReceipt {
 	if c.content != nil && c.contentInvocation != 0 && c.contentInvocation == c.content.invocation && numericIntegerManager_contentAllocationRoots(m, c.content) != nil {
 		return c.content
 	}
 	return nil
 }
-func (c integerAllocationInvocationContext) recordContentRaw(m *unumeral.IntegerManager, r *unumeral.IntegerRawInvocationReceipt) {
+func (c *integerAllocationInvocationContext) recordContentRaw(m *unumeral.IntegerManager, r *unumeral.IntegerRawInvocationReceipt) {
 	p := c.contentReceipt(m)
 	if p == nil || r == nil || !m.MatchesRawInvocation(r) {
 		return
@@ -61,7 +61,7 @@ func numericIntegerModularManager_gcdManyIndexedWithContentReceipt(m *unumeral.I
 	if e := m.Check(); e != nil {
 		return e
 	}
-	if e := m.Integers().WithAllocationContext((numericIntegerModularManager_contentAllocationContext(m, r)).utility(m.Integers())).GcdManyIndexed(as, g); e != nil {
+	if e := m.Integers().WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_contentAllocationContext(m, r))).utility(m.Integers())).GcdManyIndexed(as, g); e != nil {
 		return e
 	}
 	return m.AssertNormalized(g)

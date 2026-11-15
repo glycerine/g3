@@ -432,7 +432,7 @@ func TestUPolynomialFactorPreparationExactContextHistoryGuards(t *testing.T) {
 	s.manager.callbackDepth--
 	other, e := NewRelatedUPolynomialManager(s.manager)
 	serviceMust(t, e)
-	if (numericIntegerModularManager_preparationAllocationContext(other.modular, h).roots(q.Integers())) != nil {
+	if (integerAllocationContextRef(numericIntegerModularManager_preparationAllocationContext(other.modular, h)).roots(q.Integers())) != nil {
 		t.Fatal("foreign modular receiver acquired leaf")
 	}
 	serviceMust(t, other.Close())

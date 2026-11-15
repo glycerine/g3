@@ -98,7 +98,7 @@ func TestUPolynomialHenselQuadraticTransportCannotRetireRelatedCaller(t *testing
 			defer func() { serviceMust(t, rt.Deallocate(&held)) }()
 			serviceMust(t, rt.SetMaxSize(1))
 			armed = true
-			body := target.modular.WithAllocationContext((numericIntegerModularManager_henselCallerAllocationContext(target.modular, caller)).utility(target.modular.Integers())).SetZP(&big)
+			body := target.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_henselCallerAllocationContext(target.modular, caller))).utility(target.modular.Integers())).SetZP(&big)
 			armed = false
 			caller.executing = false
 			caller.leaveCall()

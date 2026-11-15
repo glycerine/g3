@@ -91,11 +91,11 @@ func TestPolynomialFactorToPolynomialActualFailureHistoryAndStaleContext(t *test
 	serviceMust(t, full.beginToPolynomial())
 	current := full.toPolynomial.direct
 	stale := integerAllocationInvocationContext{toPolynomial: &full.toPolynomial.direct, toPolynomialInvocation: old.invocation}
-	if (numericIntegerManager_toPolynomialAllocationRoots(full.core.integer, stale)) != nil {
+	if (numericIntegerManager_toPolynomialAllocationRoots(full.core.integer, &stale)) != nil {
 		t.Fatal("saved context retargeted through reused embedded receipt")
 	}
 	now := integerAllocationInvocationContext{toPolynomial: &full.toPolynomial.direct, toPolynomialInvocation: current.invocation}
-	if (numericIntegerManager_toPolynomialAllocationRoots(full.core.integer, now)) == nil {
+	if (numericIntegerManager_toPolynomialAllocationRoots(full.core.integer, &now)) == nil {
 		t.Fatal("actual reached current context absent")
 	}
 	if len(full.toPolynomialHistory) != 1 || full.toPolynomialHistory[0].bodyCause != body {

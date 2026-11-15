@@ -34,7 +34,7 @@ func TestUPolynomialHenselExactOldLeafPreservesForeignReplacement(t *testing.T) 
 			serviceMust(t, e)
 			h.constructed = 1
 			q.Budget().FailAfter(ordinal / 16)
-			body := h.rm.modular.WithAllocationContext((numericIntegerModularManager_henselPairAllocationContext(h.rm.modular, &r)).utility(h.rm.modular.Integers())).SetZP(&prime)
+			body := h.rm.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_henselPairAllocationContext(h.rm.modular, &r))).utility(h.rm.modular.Integers())).SetZP(&prime)
 			h.executing = false
 			primeTrialPhysicalAuditExtra(t, q, s, &prime, &foreign, &large)
 			old := h.numeric.Cell

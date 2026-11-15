@@ -7,7 +7,7 @@ import (
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (c integerAllocationInvocationContext) primeTrialReceipt(m *unumeral.IntegerManager) *upolyPrimeTrialInvocationReceipt {
+func (c *integerAllocationInvocationContext) primeTrialReceipt(m *unumeral.IntegerManager) *upolyPrimeTrialInvocationReceipt {
 	r := c.primeTrial
 	if m == nil || !m.ValidOwner() || r == nil || r.service == nil || !r.service.matchesPrimeTrialInvocation(r) || r.frame.zp.config.Integer != m || (!r.frame.executing && !r.frame.sourceExecuting) || r.frame.constructed == 0 || (r.frame.zp.callbackDepth != 0 || r.service.manager.callbackDepth != 0) || c.primeTrialInvocation == 0 || c.primeTrialInvocation != r.invocation {
 		return nil

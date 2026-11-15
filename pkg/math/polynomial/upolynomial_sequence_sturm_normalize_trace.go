@@ -16,7 +16,7 @@ func (q *upolySequenceSturmScope) traceNormalization(x *unumeral.Int) error {
 	if !tags.ShouldTrace("div_bug") {
 		return nil
 	}
-	if q.context().sequenceSturmFrame(m.config.Integer) != q || !s.executing || s.constructed != 3 {
+	if integerAllocationContextRef(q.context()).sequenceSturmFrame(m.config.Integer) != q || !s.executing || s.constructed != 3 {
 		return ErrUPolynomialOwner
 	}
 	var computation error

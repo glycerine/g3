@@ -33,7 +33,7 @@ type upolyFactorConstantCall struct {
 	ownExecuting, retired            bool
 }
 
-func (c integerAllocationInvocationContext) factorFrontendConstantFrame(z *unumeral.IntegerManager) *upolyFactorConstantBinding {
+func (c *integerAllocationInvocationContext) factorFrontendConstantFrame(z *unumeral.IntegerManager) *upolyFactorConstantBinding {
 	b := c.factorFrontendConstant
 	if z == nil || !z.ValidOwner() || b == nil || b.service == nil {
 		return nil
@@ -55,7 +55,7 @@ func (s *UPolynomialFactorizationService) ownsFrontendConstantCall(q *upolyFacto
 	}
 	return false
 }
-func (c integerAllocationInvocationContext) prepareFactorFrontendConstantHistory(z *unumeral.IntegerManager) error {
+func (c *integerAllocationInvocationContext) prepareFactorFrontendConstantHistory(z *unumeral.IntegerManager) error {
 	b := c.factorFrontendConstantFrame(z)
 	if b == nil || b.record != nil {
 		return nil

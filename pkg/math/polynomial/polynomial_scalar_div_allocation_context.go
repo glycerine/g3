@@ -31,5 +31,5 @@ func numericIntegerModularManager_copyWithScalarDivReceipt(m *unumeral.IntegerMo
 }
 
 func numericIntegerModularManager_divWithScalarDivReceipt(m *unumeral.IntegerModularManager, a, b, out *unumeral.Int, r *polynomialScalarDivInvocationReceipt) error {
-	return m.WithAllocationContext((numericIntegerModularManager_scalarDivAllocationContext(m, r)).utility(m.Integers())).Div(a, b, out)
+	return m.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_scalarDivAllocationContext(m, r))).utility(m.Integers())).Div(a, b, out)
 }

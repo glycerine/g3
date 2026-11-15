@@ -55,7 +55,7 @@ func TestUPolynomialEvalSignIntActualCallbackOwnerAndTupleRefusal(t *testing.T) 
 		owner := *p
 		owner.self = &owner
 		owner.integerEvaluation.owner = &owner
-		if (owner.integerEvaluation.context().roots(z)) != nil {
+		if (integerAllocationContextRef(owner.integerEvaluation.context()).roots(z)) != nil {
 			t.Error("copied owner acquired numeric leaf")
 		}
 		foreign := r

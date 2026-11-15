@@ -85,7 +85,7 @@ func (q *upolyRootIDScope) traceRemainder(phase uint8, b UPolynomialView, r *upo
 	if !m.config.Integer.BorrowTraceTags().ShouldTrace("rem_bug") {
 		return nil
 	}
-	if q.context().rootIDFrame(m.config.Integer) != q || !q.scalar.constructed {
+	if integerAllocationContextRef(q.context()).rootIDFrame(m.config.Integer) != q || !q.scalar.constructed {
 		return ErrUPolynomialOwner
 	}
 	if q.remainderTracePending() {

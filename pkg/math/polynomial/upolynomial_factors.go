@@ -431,7 +431,7 @@ func (fs *UPolynomialFactors) multiplyWithCaller(out *upolyVectorState, caller *
 	if e != nil {
 		return e
 	}
-	if e = m.modular.WithAllocationContext((numericIntegerModularManager_henselCallerAllocationContext(m.modular, caller)).utility(m.modular.Integers())).Copy(value, &fs.constant); e != nil {
+	if e = m.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_henselCallerAllocationContext(m.modular, caller))).utility(m.modular.Integers())).Copy(value, &fs.constant); e != nil {
 		return e
 	}
 	for i := uint32(0); i < fs.count; i++ {

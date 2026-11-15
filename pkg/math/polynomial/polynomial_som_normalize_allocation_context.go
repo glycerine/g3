@@ -53,7 +53,7 @@ func numericIntegerManager_somNormalizeAllocationRoots(m *unumeral.IntegerManage
 	}
 	return &r.buffer.gcdNumeric
 }
-func (c integerAllocationInvocationContext) somNormalizeReceipt(m *unumeral.IntegerManager) *polynomialSOMNormalizeInvocationReceipt {
+func (c *integerAllocationInvocationContext) somNormalizeReceipt(m *unumeral.IntegerManager) *polynomialSOMNormalizeInvocationReceipt {
 	if c.somNormalize == nil || c.somNormalizeInvocation == 0 || c.somNormalizeInvocation != c.somNormalize.invocation || numericIntegerManager_somNormalizeAllocationRoots(m, c.somNormalize) == nil {
 		return nil
 	}
@@ -69,15 +69,15 @@ func numericIntegerModularManager_gcdManyIndexedWithSOMNormalizeReceipt(m *unume
 	if e := m.Check(); e != nil {
 		return e
 	}
-	if e := m.Integers().WithAllocationContext((numericIntegerModularManager_somNormalizeAllocationContext(m, r)).utility(m.Integers())).GcdManyIndexed(as, out); e != nil {
+	if e := m.Integers().WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_somNormalizeAllocationContext(m, r))).utility(m.Integers())).GcdManyIndexed(as, out); e != nil {
 		return e
 	}
 	return m.AssertNormalized(out)
 }
 func numericIntegerModularManager_divWithSOMNormalizeReceipt(m *unumeral.IntegerModularManager, a, b, out *unumeral.Int, r *polynomialSOMNormalizeInvocationReceipt) error {
-	return m.WithAllocationContext((numericIntegerModularManager_somNormalizeAllocationContext(m, r)).utility(m.Integers())).Div(a, b, out)
+	return m.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_somNormalizeAllocationContext(m, r))).utility(m.Integers())).Div(a, b, out)
 }
-func (c integerAllocationInvocationContext) recordSOMNormalizationRaw(m *unumeral.IntegerManager, r *unumeral.IntegerRawInvocationReceipt) {
+func (c *integerAllocationInvocationContext) recordSOMNormalizationRaw(m *unumeral.IntegerManager, r *unumeral.IntegerRawInvocationReceipt) {
 	p := c.somNormalizeReceipt(m)
 	if p == nil || !m.MatchesRawInvocation(r) {
 		return

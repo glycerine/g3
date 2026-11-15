@@ -76,7 +76,7 @@ func (f *PolynomialFactors) beginFactorConstant(kind uint8, r *polynomialFactorC
 	}
 	return s, nil
 }
-func numericIntegerManager_factorConstantContextRoots(m *unumeral.IntegerManager, c integerAllocationInvocationContext) *polynomialNumericRoots {
+func numericIntegerManager_factorConstantContextRoots(m *unumeral.IntegerManager, c *integerAllocationInvocationContext) *polynomialNumericRoots {
 	r := c.factorConstant
 	if m == nil || !m.ValidOwner() || r == nil || r.manager == nil || !r.manager.matchesFactorConstantInvocation(r) || c.factorConstantInvocation == 0 || c.factorConstantInvocation != r.invocation || r.manager.manager.core.integer != m || !r.frame.active || !r.frame.executing || r.manager.manager.core.callbackDepth != 0 {
 		return nil

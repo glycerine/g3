@@ -48,7 +48,7 @@ func (r *polynomialNumericRoots) NumericRoots(z *unumeral.IntegerManager, local 
 	}
 	return &current.NumericAllocationRoots
 }
-func (c integerAllocationInvocationContext) utility(z *unumeral.IntegerManager) unumeral.NumericAllocationContext {
+func (c *integerAllocationInvocationContext) utility(z *unumeral.IntegerManager) unumeral.NumericAllocationContext {
 	if c.squareFreeCall != nil {
 		q := c.squareFreeCallFrame(z)
 		if q == nil {
@@ -98,14 +98,14 @@ func (c integerAllocationInvocationContext) utility(z *unumeral.IntegerManager) 
 		}
 		return unumeral.NumericAllocationContext{}.WithCaller(&q.hooks)
 	}
-	if c == (integerAllocationInvocationContext{}) {
+	if *c == (integerAllocationInvocationContext{}) {
 		return unumeral.NumericAllocationContext{}
 	}
 	r := c.roots(z)
 	if r == nil {
 		return unumeral.NumericAllocationContext{}.WithCaller(&invalidPolynomialNumericHooks)
 	}
-	r.caller = c
+	r.caller = *c
 	r.integer = z
 	r.hooks.Policy = r
 	return unumeral.NumericAllocationContext{}.WithCaller(&r.hooks)

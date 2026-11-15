@@ -99,7 +99,7 @@ func TestUPolynomialHenselTransportCannotRetireActualCallerOwner(t *testing.T) {
 			defer func() { serviceMust(t, rt.Deallocate(&held)) }()
 			serviceMust(t, rt.SetMaxSize(1))
 			armed = true
-			body := h.rm.modular.WithAllocationContext((numericIntegerModularManager_henselPairAllocationContext(h.rm.modular, &r)).utility(h.rm.modular.Integers())).SetZP(&big)
+			body := h.rm.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_henselPairAllocationContext(h.rm.modular, &r))).utility(h.rm.modular.Integers())).SetZP(&big)
 			armed = false
 			r.frame.executing = false
 			h.leaveCall()

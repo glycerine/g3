@@ -18,7 +18,7 @@ type upolySturmRemainderScalar struct {
 	bodyCause, sourceStop, childStop error
 }
 
-func (c integerAllocationInvocationContext) rootIDFrame(z *unumeral.IntegerManager) *upolyRootIDScope {
+func (c *integerAllocationInvocationContext) rootIDFrame(z *unumeral.IntegerManager) *upolyRootIDScope {
 	q := c.rootID
 	if q == nil || q.owner == nil || q.owner.self != q.owner || q != &q.owner.rootID || q.owner.config.Integer != z || !q.active || !q.executing || q.finishing || q.owner.callbackDepth != 0 || q.owner.config.Integer.RuntimeOwner().FailureTransportActive() || c.rootIDInvocation == 0 || c.rootIDInvocation != q.invocation {
 		return nil

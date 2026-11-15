@@ -65,7 +65,7 @@ func polynomialToNumeralVectorTransportCannotRetireExecutingOwner(t *testing.T, 
 					case "rationalClose":
 						err = q.CloseChecked()
 					case "typedCopy":
-						err = full.upm.modular.WithAllocationContext((integerAllocationInvocationContext{factorNumeralVector: &full.factorNumeralVector.direct, factorNumeralVectorInvocation: full.factorNumeralVector.invocation}).utility(full.upm.modular.Integers())).Copy(&callbackOut, &callbackInput)
+						err = full.upm.modular.WithAllocationContext(integerAllocationContextRef((integerAllocationInvocationContext{factorNumeralVector: &full.factorNumeralVector.direct, factorNumeralVectorInvocation: full.factorNumeralVector.invocation})).utility(full.upm.modular.Integers())).Copy(&callbackOut, &callbackInput)
 					case "typedSource":
 						err = full.finishFactorNumeralVectorSource()
 					case "typedOwn":

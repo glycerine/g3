@@ -13,7 +13,7 @@ func numericIntegerManager_dividesAllocationRoots(m *unumeral.IntegerManager, r 
 	}
 	return &r.frame.numeric
 }
-func numericIntegerManager_dividesContextRoots(m *unumeral.IntegerManager, c integerAllocationInvocationContext) *polynomialNumericRoots {
+func numericIntegerManager_dividesContextRoots(m *unumeral.IntegerManager, c *integerAllocationInvocationContext) *polynomialNumericRoots {
 	if c.divides == nil || c.dividesInvocation == 0 || c.dividesInvocation != c.divides.invocation {
 		return nil
 	}
@@ -28,7 +28,7 @@ func numericIntegerModularManager_dividesAllocationContext(m *unumeral.IntegerMo
 func numericIntegerModularManager_divWithDividesReceipt(m *unumeral.IntegerModularManager, a, b, out *unumeral.Int, r *polynomialDividesInvocationReceipt) error {
 	context := numericIntegerModularManager_dividesAllocationContext(m, r)
 	e := m.WithAllocationContext((context).utility(m.Integers())).Div(a, b, out)
-	if m != nil && m.Integers() != nil && numericIntegerManager_dividesContextRoots(m.Integers(), context) != nil && r.frame.sourceCause == nil {
+	if m != nil && m.Integers() != nil && numericIntegerManager_dividesContextRoots(m.Integers(), &context) != nil && r.frame.sourceCause == nil {
 		r.frame.sourceCause = numericIntegerManager_dividesNumericSourceCause(m.Integers(), r)
 	}
 	return e
@@ -46,7 +46,7 @@ func numericIntegerModularManager_negWithDividesReceipt(m *unumeral.IntegerModul
 
 // Bind only the child returned by the actual guarded RAW declaration action.
 func numericIntegerManager_bindDividesRaw(m *unumeral.IntegerManager, c integerAllocationInvocationContext, child *unumeral.IntegerRawInvocationReceipt, division bool) {
-	if numericIntegerManager_dividesContextRoots(m, c) == nil || !m.MatchesRawInvocation(child) {
+	if numericIntegerManager_dividesContextRoots(m, &c) == nil || !m.MatchesRawInvocation(child) {
 		return
 	}
 
@@ -109,7 +109,7 @@ func numericIntegerManager_cleanupDividesNumeric(m *unumeral.IntegerManager, r *
 func numericIntegerModularManager_dividesWithDividesReceipt(m *unumeral.IntegerModularManager, a, b *unumeral.Int, r *polynomialDividesInvocationReceipt) (bool, error) {
 	context := numericIntegerModularManager_dividesAllocationContext(m, r)
 	result, e := m.WithAllocationContext((context).utility(m.Integers())).Divides(a, b)
-	if m != nil && m.Integers() != nil && numericIntegerManager_dividesContextRoots(m.Integers(), context) != nil && r.frame.sourceCause == nil {
+	if m != nil && m.Integers() != nil && numericIntegerManager_dividesContextRoots(m.Integers(), &context) != nil && r.frame.sourceCause == nil {
 		r.frame.sourceCause = numericIntegerManager_dividesNumericSourceCause(m.Integers(), r)
 	}
 	return result, e

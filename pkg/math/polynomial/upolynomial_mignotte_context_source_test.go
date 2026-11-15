@@ -16,7 +16,7 @@ func TestUPolynomialMignotteExactContextAndReusedReceipt(t *testing.T) {
 	r, e := s.beginMignotteInvocation()
 	serviceMust(t, e)
 	f := r.frame
-	if (numericIntegerModularManager_mignotteAllocationContext(s.manager.modular, &f.receipt).roots(q.Integers())) != nil {
+	if (integerAllocationContextRef(numericIntegerModularManager_mignotteAllocationContext(s.manager.modular, &f.receipt)).roots(q.Integers())) != nil {
 		t.Fatal("pre-NUM metadata acquired numeric authority")
 	}
 	f.constructed = 1
@@ -27,13 +27,13 @@ func TestUPolynomialMignotteExactContextAndReusedReceipt(t *testing.T) {
 	copyFrame := *f
 	bad := r
 	bad.frame = &copyFrame
-	if ((integerAllocationInvocationContext{mignotte: &bad, mignotteInvocation: bad.invocation}).roots(q.Integers())) != nil {
+	if (integerAllocationContextRef((integerAllocationInvocationContext{mignotte: &bad, mignotteInvocation: bad.invocation})).roots(q.Integers())) != nil {
 		t.Fatal("copied frame acquired authority")
 	}
 	copyService := *s
 	bad = r
 	bad.service = &copyService
-	if ((integerAllocationInvocationContext{mignotte: &bad, mignotteInvocation: bad.invocation}).roots(q.Integers())) != nil {
+	if (integerAllocationContextRef((integerAllocationInvocationContext{mignotte: &bad, mignotteInvocation: bad.invocation})).roots(q.Integers())) != nil {
 		t.Fatal("copied owner acquired authority")
 	}
 	s.manager.callbackDepth++

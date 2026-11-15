@@ -24,19 +24,19 @@ func TestUPolynomialHenselPairNumericContextActualFrameAndCapturedNonce(t *testi
 	ownerCopy := *s
 	badOwner := r
 	badOwner.service = &ownerCopy
-	if numericIntegerModularManager_henselPairAllocationContext(s.manager.modular, &badOwner).henselPairReceipt(q.Integers()) != nil {
+	if integerAllocationContextRef(numericIntegerModularManager_henselPairAllocationContext(s.manager.modular, &badOwner)).henselPairReceipt(q.Integers()) != nil {
 		t.Fatal("copied actual service acquired authority")
 	}
 	foreign, e := unumeral.NewIntegerModularManager(q.Integers())
 	serviceMust(t, e)
-	if numericIntegerModularManager_henselPairAllocationContext(foreign, &r).henselPairReceipt(q.Integers()) != nil {
+	if integerAllocationContextRef(numericIntegerModularManager_henselPairAllocationContext(foreign, &r)).henselPairReceipt(q.Integers()) != nil {
 		t.Fatal("foreign modular receiver acquired pair roots")
 	}
 	serviceMust(t, foreign.Close())
 	copied := *h
 	bad := r
 	bad.frame = &copied
-	if numericIntegerModularManager_henselPairAllocationContext(s.manager.modular, &bad).henselPairReceipt(q.Integers()) != nil {
+	if integerAllocationContextRef(numericIntegerModularManager_henselPairAllocationContext(s.manager.modular, &bad)).henselPairReceipt(q.Integers()) != nil {
 		t.Fatal("copied cold frame acquired authority")
 	}
 	s.manager.callbackDepth++

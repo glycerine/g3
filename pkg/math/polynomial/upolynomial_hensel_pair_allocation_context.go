@@ -7,7 +7,7 @@ import (
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (c integerAllocationInvocationContext) henselPairReceipt(z *unumeral.IntegerManager) *upolyHenselPairInvocationReceipt {
+func (c *integerAllocationInvocationContext) henselPairReceipt(z *unumeral.IntegerManager) *upolyHenselPairInvocationReceipt {
 	r := c.henselPair
 	if z == nil || !z.ValidOwner() || r == nil || r.service == nil || !r.service.matchesHenselPairInvocation(r) || r.service.manager.config.Integer != z || c.henselPairInvocation == 0 || c.henselPairInvocation != r.invocation || !r.frame.executing || r.frame.constructed == 0 || r.service.manager.callbackDepth != 0 {
 		return nil

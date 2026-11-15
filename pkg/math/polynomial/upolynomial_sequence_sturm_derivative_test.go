@@ -227,7 +227,7 @@ func TestUPolynomialSequenceSturmDerivativeNativeMultiplierLifetime(t *testing.T
 			serviceMust(t, e)
 			q, e := s.beginSturm()
 			serviceMust(t, e)
-			serviceMust(t, m.modular.WithAllocationContext(q.context().utility(z)).SetUint32(&q.derivative, uint32(1)<<31))
+			serviceMust(t, m.modular.WithAllocationContext(integerAllocationContextRef(q.context()).utility(z)).SetUint32(&q.derivative, uint32(1)<<31))
 			first := q.derivative.Cell
 			if !unumeral.ValidNumericRef(z.Cells, first) || z.Cell(first).Released {
 				t.Fatal("RAW UINT producer did not allocate actual BIG numeral")
@@ -246,7 +246,7 @@ func TestUPolynomialSequenceSturmDerivativeNativeMultiplierLifetime(t *testing.T
 				if q.derivative.Cell != 0 || q.derivativeRetired == nil || q.derivativeRetired.value.Cell != first || z.Cell(first).Released || stats != z.RuntimeOwner().Stats() {
 					t.Fatal("retirement performed an invented source DEL")
 				}
-				serviceMust(t, m.modular.WithAllocationContext(q.context().utility(z)).SetUint32(&q.derivative, (uint32(1)<<31)+1))
+				serviceMust(t, m.modular.WithAllocationContext(integerAllocationContextRef(q.context()).utility(z)).SetUint32(&q.derivative, (uint32(1)<<31)+1))
 				if q.derivative.Cell == first || !unumeral.ValidNumericRef(z.Cells, q.derivative.Cell) {
 					t.Fatal("next source declaration reused owning numeral")
 				}

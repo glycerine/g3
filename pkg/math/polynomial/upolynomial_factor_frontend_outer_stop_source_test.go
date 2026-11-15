@@ -109,7 +109,7 @@ func TestUPolynomialFactorFrontendActualOuterVectorSourceStop(t *testing.T) {
 		t.Fatal("actual physically consumed descriptor frontier", oldTmp)
 	}
 	beforeGuard := rt.State()
-	if e = z.Integers().WithAllocationContext((integerAllocationInvocationContext{}).utility(z.Integers())).EnsureTmp(0, z.Integers().Cell(oldTmp).Capacity); !errors.Is(e, arena.ErrInvalidSlot) || z.Integers().Tmp[0] != oldTmp || rt.State() != beforeGuard {
+	if e = z.Integers().WithAllocationContext(integerAllocationContextRef((integerAllocationInvocationContext{})).utility(z.Integers())).EnsureTmp(0, z.Integers().Cell(oldTmp).Capacity); !errors.Is(e, arena.ErrInvalidSlot) || z.Integers().Tmp[0] != oldTmp || rt.State() != beforeGuard {
 		t.Fatal("released scratch capacity reuse changed retained disposal token", e)
 	}
 	for i, ref := range z.Integers().Tmp {

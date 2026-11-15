@@ -159,7 +159,7 @@ func (s *UPolynomialFactorizationService) henselPairWithCaller(a, b, r *unumeral
 	h.rm = rm
 	h.attachRelated()
 	h.constructed = 1
-	if e = rm.modular.WithAllocationContext((numericIntegerModularManager_henselPairAllocationContext(rm.modular, &receipt)).utility(rm.modular.Integers())).SetZP(r); e != nil {
+	if e = rm.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_henselPairAllocationContext(rm.modular, &receipt))).utility(rm.modular.Integers())).SetZP(r); e != nil {
 		return e
 	}
 	enabled, e := factorHeaderAssertionsEnabled()
@@ -296,7 +296,7 @@ func (s *UPolynomialFactorizationService) henselQuadraticWithCaller(C UPolynomia
 	if err != nil {
 		return err
 	}
-	if err = zp.modular.WithAllocationContext((numericIntegerModularManager_henselCallerAllocationContext(zp.modular, caller)).utility(zp.modular.Integers())).SetZP(p); err != nil {
+	if err = zp.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_henselCallerAllocationContext(zp.modular, caller))).utility(zp.modular.Integers())).SetZP(p); err != nil {
 		return err
 	}
 	var locals [5]upolyVectorState
@@ -451,7 +451,7 @@ func (s *UPolynomialFactorizationService) henselQuadraticIterationWithCaller(zpe
 	if e := m.addSubWithCaller(m.stateView(V), m.stateView(T), V, false, caller); e != nil {
 		return e
 	}
-	if e := zpe.modular.WithAllocationContext((numericIntegerModularManager_henselCallerAllocationContext(zpe.modular, caller)).utility(zpe.modular.Integers())).SetPSquare(); e != nil {
+	if e := zpe.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_henselCallerAllocationContext(zpe.modular, caller))).utility(zpe.modular.Integers())).SetPSquare(); e != nil {
 		return e
 	}
 	for _, vec := range [4]*upolyVectorState{U, V, Al, Bl} {
@@ -586,7 +586,7 @@ func (s *UPolynomialFactorizationService) henselFactorsWithCaller(f UPolynomialV
 	if err != nil {
 		return err
 	}
-	if err = zpe.modular.WithAllocationContext((numericIntegerModularManager_henselCallerAllocationContext(zpe.modular, caller)).utility(zpe.modular.Integers())).SetZP(p); err != nil {
+	if err = zpe.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_henselCallerAllocationContext(zpe.modular, caller))).utility(zpe.modular.Integers())).SetZP(p); err != nil {
 		return err
 	}
 	if err = s.traceHenselFactors(caller, f, pf, lf, false); err != nil {
@@ -670,7 +670,7 @@ func (s *UPolynomialFactorizationService) henselFactorsWithCaller(f UPolynomialV
 		if err != nil {
 			return err
 		}
-		if err = zpe.modular.WithAllocationContext((numericIntegerModularManager_henselCallerAllocationContext(zpe.modular, caller)).utility(zpe.modular.Integers())).SetZP(p); err != nil {
+		if err = zpe.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_henselCallerAllocationContext(zpe.modular, caller))).utility(zpe.modular.Integers())).SetZP(p); err != nil {
 			return err
 		}
 		if err = s.henselQuadraticWithCaller(m.stateView(parts), zpe, A, B, e, caller); err != nil {
@@ -719,10 +719,10 @@ func (s *UPolynomialFactorizationService) henselFactorsWithCaller(f UPolynomialV
 	if err != nil {
 		return err
 	}
-	if err = zpe.modular.WithAllocationContext((numericIntegerModularManager_henselCallerAllocationContext(zpe.modular, caller)).utility(zpe.modular.Integers())).Copy(lcInv, top); err != nil {
+	if err = zpe.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_henselCallerAllocationContext(zpe.modular, caller))).utility(zpe.modular.Integers())).Copy(lcInv, top); err != nil {
 		return err
 	}
-	if err = zpe.modular.WithAllocationContext((numericIntegerModularManager_henselCallerAllocationContext(zpe.modular, caller)).utility(zpe.modular.Integers())).Inv(lcInv); err != nil {
+	if err = zpe.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_henselCallerAllocationContext(zpe.modular, caller))).utility(zpe.modular.Integers())).Inv(lcInv); err != nil {
 		return err
 	}
 	if err = zpe.scalarWithCaller(B, lcInv, caller); err != nil {
@@ -773,7 +773,7 @@ func (s *UPolynomialFactorizationService) henselInitialCWithCaller(f UPolynomial
 	if e != nil {
 		return e
 	}
-	if e = zp.modular.WithAllocationContext((numericIntegerModularManager_henselCallerAllocationContext(zp.modular, caller)).utility(zp.modular.Integers())).Copy(lc, top); e != nil {
+	if e = zp.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_henselCallerAllocationContext(zp.modular, caller))).utility(zp.modular.Integers())).Copy(lc, top); e != nil {
 		return e
 	}
 	return zp.scalarWithCaller(C, lc, caller)

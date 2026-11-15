@@ -7,7 +7,7 @@ import (
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (c integerAllocationInvocationContext) mignotteReceipt(m *unumeral.IntegerManager) *upolyMignotteInvocationReceipt {
+func (c *integerAllocationInvocationContext) mignotteReceipt(m *unumeral.IntegerManager) *upolyMignotteInvocationReceipt {
 	r := c.mignotte
 	if m == nil || !m.ValidOwner() || r == nil || r.service == nil || !r.service.matchesMignotteInvocation(r) || r.service.manager.config.Integer != m || !r.frame.executing || r.frame.constructed == 0 || r.service.manager.callbackDepth != 0 || c.mignotteInvocation == 0 || c.mignotteInvocation != r.invocation {
 		return nil

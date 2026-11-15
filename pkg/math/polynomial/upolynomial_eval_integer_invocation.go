@@ -46,7 +46,7 @@ func (m *UPolynomialManager) integerEvaluationExecuting() bool {
 func numericIntegerManager_integerEvaluationCallerExecuting(z *unumeral.IntegerManager) bool {
 	return z != nil && z.ValidOwner() && integerEvaluationCaller(z) != nil && integerEvaluationCaller(z).config.Integer == z && integerEvaluationCaller(z).integerEvaluationExecuting()
 }
-func (c integerAllocationInvocationContext) integerEvaluationFrame(z *unumeral.IntegerManager) *upolyIntegerEvaluationScope {
+func (c *integerAllocationInvocationContext) integerEvaluationFrame(z *unumeral.IntegerManager) *upolyIntegerEvaluationScope {
 	q := c.integerEvaluation
 	if z == nil || !z.ValidOwner() || z.RuntimeOwner().FailureTransportActive() || q == nil || q.owner == nil || q.owner.self != q.owner || q != &q.owner.integerEvaluation || q.owner.config.Integer != z || integerEvaluationCaller(z) != q.owner || q.owner.callbackDepth != 0 || !q.active || !q.executing || c.integerEvaluationInvocation == 0 || c.integerEvaluationInvocation != q.invocation {
 		return nil

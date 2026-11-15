@@ -52,7 +52,7 @@ func numericIntegerManager_knuthCallerExecuting(z *unumeral.IntegerManager) bool
 func numericNaturalManager_knuthCallerExecuting(n *unumeral.NaturalManager) bool {
 	return n != nil && n.ValidOwner() && knuthCaller(n) != nil && knuthCaller(n).config.Integer != nil && knuthCaller(n).config.Integer.Naturals() == n && knuthCaller(n).knuthExecuting()
 }
-func (c integerAllocationInvocationContext) knuthFrame(z *unumeral.IntegerManager) *upolyKnuthScope {
+func (c *integerAllocationInvocationContext) knuthFrame(z *unumeral.IntegerManager) *upolyKnuthScope {
 	q := c.knuth
 	if z == nil || !z.ValidOwner() || q == nil || q.owner == nil || q.owner.self != q.owner || q != &q.owner.knuth || q.owner.config.Integer != z || knuthCaller(z) != q.owner || q.owner.callbackDepth != 0 || !q.active || !q.executing || c.knuthInvocation == 0 || c.knuthInvocation != q.invocation {
 		return nil

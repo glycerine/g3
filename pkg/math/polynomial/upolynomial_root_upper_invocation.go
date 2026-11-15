@@ -48,7 +48,7 @@ func (m *UPolynomialManager) rootUpperBoundExecuting() bool {
 func numericIntegerManager_rootUpperBoundCallerExecuting(z *unumeral.IntegerManager) bool {
 	return z != nil && z.ValidOwner() && rootUpperBoundCaller(z) != nil && rootUpperBoundCaller(z).config.Integer == z && rootUpperBoundCaller(z).rootUpperBoundExecuting()
 }
-func (c integerAllocationInvocationContext) rootUpperBoundFrame(z *unumeral.IntegerManager) *upolyRootUpperBoundScope {
+func (c *integerAllocationInvocationContext) rootUpperBoundFrame(z *unumeral.IntegerManager) *upolyRootUpperBoundScope {
 	q := c.rootUpperBound
 	if z == nil || !z.ValidOwner() || q == nil || q.owner == nil || q.owner.self != q.owner || q != &q.owner.rootUpperBound || q.owner.config.Integer != z || rootUpperBoundCaller(z) != q.owner || q.owner.callbackDepth != 0 || !q.active || !q.executing || q.constructed < 4 || c.rootUpperBoundInvocation == 0 || c.rootUpperBoundInvocation != q.invocation {
 		return nil
@@ -250,7 +250,7 @@ func (q *upolyRootUpperBoundScope) cleanupNumericChildren(abort bool) error {
 
 	return nil
 }
-func (c integerAllocationInvocationContext) recordRootUpperRaw(z *unumeral.IntegerManager, r *unumeral.IntegerRawInvocationReceipt) {
+func (c *integerAllocationInvocationContext) recordRootUpperRaw(z *unumeral.IntegerManager, r *unumeral.IntegerRawInvocationReceipt) {
 	q := c.rootUpperBoundFrame(z)
 	if q == nil || !z.MatchesRawInvocation(r) {
 		return

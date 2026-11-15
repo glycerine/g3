@@ -16,7 +16,7 @@ func TestUPolynomialSturmIsolationBinaryReachedReservations(t *testing.T) {
 			q, e := m.beginSturmIsolation(UPolynomialView{}, b)
 			serviceMust(t, e)
 			q.constructCore()
-			ops := b.WithAllocationContext(q.context().utility(z))
+			ops := b.WithAllocationContext(integerAllocationContextRef(q.context()).utility(z))
 			z.Budget().FailAfter(after)
 			body := ops.PowerOfTwo(128, &q.lower, &q.copy)
 			if body == nil {

@@ -50,7 +50,7 @@ func numericIntegerManager_oneHalfRootCallerExecuting(z *unumeral.IntegerManager
 func numericNaturalManager_oneHalfRootCallerExecuting(n *unumeral.NaturalManager) bool {
 	return n != nil && n.ValidOwner() && oneHalfRootCaller(n) != nil && oneHalfRootCaller(n).config.Integer != nil && oneHalfRootCaller(n).config.Integer.Naturals() == n && oneHalfRootCaller(n).oneHalfRootExecuting()
 }
-func (c integerAllocationInvocationContext) oneHalfRootFrame(z *unumeral.IntegerManager) *upolyOneHalfRootScope {
+func (c *integerAllocationInvocationContext) oneHalfRootFrame(z *unumeral.IntegerManager) *upolyOneHalfRootScope {
 	q := c.oneHalfRoot
 	if z == nil || !z.ValidOwner() || q == nil || q.owner == nil || q.owner.self != q.owner || q != &q.owner.oneHalfRoot || q.owner.config.Integer != z || oneHalfRootCaller(z) != q.owner || q.owner.callbackDepth != 0 || !q.active || !q.executing || q.constructed != 2 || c.oneHalfRootInvocation == 0 || c.oneHalfRootInvocation != q.invocation {
 		return nil

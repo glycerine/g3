@@ -11,7 +11,7 @@ import (
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (c integerAllocationInvocationContext) prepareFactorHistory(z *unumeral.IntegerManager) error {
+func (c *integerAllocationInvocationContext) prepareFactorHistory(z *unumeral.IntegerManager) error {
 	if q := c.oneHalfRootFrame(z); q != nil {
 		return q.prepareHistory()
 	}
@@ -76,7 +76,7 @@ func prepareConverterParentHistory(z *unumeral.IntegerManager, r *polynomialFact
 		return nil
 	}
 	c := integerAllocationInvocationContext{factorNumeralVector: r, factorNumeralVectorInvocation: r.invocation}
-	if numericIntegerManager_factorNumeralVectorRoots(z, c) == nil {
+	if numericIntegerManager_factorNumeralVectorRoots(z, &c) == nil {
 		return ErrPolynomialPending
 	}
 	return r.manager.archiveFactorNumeralVector()

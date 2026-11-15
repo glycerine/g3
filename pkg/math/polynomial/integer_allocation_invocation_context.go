@@ -117,7 +117,7 @@ type integerAllocationInvocationContext struct {
 // roots skips absent owners before invoking their validators. The context is
 // large and the validators take it by value, so calling every validator for
 // every numeric operation needlessly copies it many times.
-func (c integerAllocationInvocationContext) roots(m *unumeral.IntegerManager) *polynomialNumericRoots {
+func (c *integerAllocationInvocationContext) roots(m *unumeral.IntegerManager) *polynomialNumericRoots {
 	if c.squareRoot != nil {
 		r := c.squareRoot
 		if c.squareRootInvocation == 0 || c.squareRootInvocation != r.invocation || r.manager == nil || !r.manager.matchesSqrtInvocation(r) || r.manager.core.integer != m || !r.frame.executing || r.manager.core.callbackDepth != 0 {
@@ -380,7 +380,7 @@ func (c integerAllocationInvocationContext) roots(m *unumeral.IntegerManager) *p
 }
 
 func numericIntegerManager_copyFromOwnerWithArithmeticReceipt(m *unumeral.IntegerManager, out *unumeral.Int, owner *unumeral.IntegerManager, value *unumeral.Int, receipt *polynomialArithmeticInvocationReceipt) error {
-	return m.WithAllocationContext(((integerAllocationInvocationContext{}).withArithmeticInvocation(receipt)).utility(m)).CopyFromOwnerTracked(out, owner, value, nil)
+	return m.WithAllocationContext(integerAllocationContextRef(((integerAllocationInvocationContext{}).withArithmeticInvocation(receipt))).utility(m)).CopyFromOwnerTracked(out, owner, value, nil)
 }
 func numericIntegerModularManager_arithmeticReceiptForReceiver(m *unumeral.IntegerModularManager, r *polynomialArithmeticInvocationReceipt) *polynomialArithmeticInvocationReceipt {
 	if m == nil || m.Integers() == nil || r == nil || r.manager == nil || r.manager.modular != m || numericIntegerManager_arithmeticAllocationRoots(m.Integers(), r) == nil {
@@ -416,9 +416,15 @@ func (c integerAllocationInvocationContext) withArithmeticInvocation(r *polynomi
 	}
 	return c
 }
-func (c integerAllocationInvocationContext) arithmeticReceipt(m *unumeral.IntegerManager) *polynomialArithmeticInvocationReceipt {
+func (c *integerAllocationInvocationContext) arithmeticReceipt(m *unumeral.IntegerManager) *polynomialArithmeticInvocationReceipt {
 	if c.arithmetic != nil && c.arithmeticInvocation != 0 && c.arithmeticInvocation == c.arithmetic.invocation && numericIntegerManager_arithmeticAllocationRoots(m, c.arithmetic) != nil {
 		return c.arithmetic
 	}
 	return nil
+}
+
+// integerAllocationContextRef lets a pointer-receiver validator run on a
+// context returned by value.
+func integerAllocationContextRef(c integerAllocationInvocationContext) *integerAllocationInvocationContext {
+	return &c
 }

@@ -175,7 +175,7 @@ func (s *UPolynomialFactorizationService) factorPrimeTrial(zp *UPolynomialManage
 		if e = best.Swap(current); e != nil {
 			return 0, e
 		}
-		if e = m.modular.WithAllocationContext((numericIntegerModularManager_primeTrialAllocationContext(m.modular, &r)).utility(m.modular.Integers())).Copy(bestP, p); e != nil {
+		if e = m.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_primeTrialAllocationContext(m.modular, &r))).utility(m.modular.Integers())).Copy(bestP, p); e != nil {
 			return 0, e
 		}
 		if e = s.traceFactorDegreeSet(best, 1141, false); e != nil {
@@ -360,7 +360,7 @@ func (s *UPolynomialFactorizationService) selectFactorTrial(it *upolyFactorCombi
 	if e != nil {
 		return false, e
 	}
-	divides, e := s.manager.modular.WithAllocationContext((numericIntegerModularManager_trialAllocationContext(s.manager.modular, q)).utility(s.manager.modular.Integers())).Divides(&q.tmp, first)
+	divides, e := s.manager.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_trialAllocationContext(s.manager.modular, q))).utility(s.manager.modular.Integers())).Divides(&q.tmp, first)
 	if e != nil || !divides {
 		return false, e
 	}

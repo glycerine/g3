@@ -377,7 +377,7 @@ func TestUPolynomialRecombinationPublicationExactCapturedContext(t *testing.T) {
 	}
 	other, e := NewRelatedUPolynomialManager(m)
 	serviceMust(t, e)
-	if (numericIntegerModularManager_recombinationAllocationContext(other.modular, frame).roots(q.Integers())) != nil {
+	if (integerAllocationContextRef(numericIntegerModularManager_recombinationAllocationContext(other.modular, frame)).roots(q.Integers())) != nil {
 		t.Fatal("foreign modular receiver acquired direct leaf")
 	}
 	serviceMust(t, other.Close())
@@ -531,7 +531,7 @@ func TestUPolynomialRecombinationPublicationExactOldLeafPreservesForeignReplacem
 			serviceMust(t, e)
 			r := h.receipt
 			q.Budget().FailAfter(ordinal / 16)
-			body := m.modular.WithAllocationContext((numericIntegerModularManager_recombinationAllocationContext(m.modular, h)).utility(m.modular.Integers())).Copy(&value, &prime)
+			body := m.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_recombinationAllocationContext(m.modular, h))).utility(m.modular.Integers())).Copy(&value, &prime)
 			h.executing = false
 			primeTrialPhysicalAuditOwners(t, q, s, []*UPolynomialFactors{fs}, &prime, &foreign, &large, &value)
 			old := h.numeric.Cell
@@ -624,7 +624,7 @@ func TestUPolynomialRecombinationPublicationNumericAbortBeforeFaultLift(t *testi
 		serviceMust(t, e)
 		r := h.receipt
 		q.Budget().FailAfter(ordinal)
-		body := m.modular.WithAllocationContext((numericIntegerModularManager_recombinationAllocationContext(m.modular, h)).utility(m.modular.Integers())).Copy(&value, &input)
+		body := m.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_recombinationAllocationContext(m.modular, h))).utility(m.modular.Integers())).Copy(&value, &input)
 		h.executing = false
 		_ = h.finish(&r, body)
 		primeTrialPhysicalAuditOwners(t, q, s, []*UPolynomialFactors{fs}, &value, &input)

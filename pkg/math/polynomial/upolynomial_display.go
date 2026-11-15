@@ -47,7 +47,7 @@ func (m *UPolynomialManager) displayIntoWithReceipt(p UPolynomialView, out unume
 			return e
 		}
 		if displayed {
-			if e = m.config.Integer.WithAllocationContext((q.context()).utility(m.config.Integer)).Abs(&q.numeral); e != nil {
+			if e = m.config.Integer.WithAllocationContext(integerAllocationContextRef((q.context())).utility(m.config.Integer)).Abs(&q.numeral); e != nil {
 				return e
 			}
 			// The sign is read at its actual later source site, not from the Copy.

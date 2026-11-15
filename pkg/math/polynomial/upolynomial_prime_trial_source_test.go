@@ -455,7 +455,7 @@ func TestUPolynomialPrimeTrialCapturedContextRejectsReuseCopiesAndForeign(t *tes
 	copied := *r.frame
 	bad := r
 	bad.frame = &copied
-	if ((integerAllocationInvocationContext{primeTrial: &bad, primeTrialInvocation: bad.invocation}).roots(q.Integers())) != nil {
+	if (integerAllocationContextRef((integerAllocationInvocationContext{primeTrial: &bad, primeTrialInvocation: bad.invocation})).roots(q.Integers())) != nil {
 		t.Fatal("copied frame acquired")
 	}
 	c.zp.callbackDepth++
@@ -465,7 +465,7 @@ func TestUPolynomialPrimeTrialCapturedContextRejectsReuseCopiesAndForeign(t *tes
 	c.zp.callbackDepth--
 	foreign, e := NewRelatedUPolynomialManager(m)
 	serviceMust(t, e)
-	if (numericIntegerModularManager_primeTrialAllocationContext(foreign.modular, &r).roots(q.Integers())) != nil {
+	if (integerAllocationContextRef(numericIntegerModularManager_primeTrialAllocationContext(foreign.modular, &r)).roots(q.Integers())) != nil {
 		t.Fatal("foreign receiver acquired")
 	}
 	serviceMust(t, foreign.Close())

@@ -33,7 +33,7 @@ func (s *UPolynomialFactorizationService) preparePrimeSearch(fs *UPolynomialFact
 	if e = q.bindRelated(zp); e != nil {
 		return e
 	}
-	if e = zp.modular.WithAllocationContext((numericIntegerModularManager_primePreparationAllocationContext(zp.modular, q)).utility(zp.modular.Integers())).SetZP(&c.p); e != nil {
+	if e = zp.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_primePreparationAllocationContext(zp.modular, q))).utility(zp.modular.Integers())).SetZP(&c.p); e != nil {
 		return e
 	}
 	best, e := zp.NewFactors()
@@ -89,7 +89,7 @@ func (s *UPolynomialFactorizationService) nextPreparedPrime(fs *UPolynomialFacto
 		if e = nm.WithAllocationContext((context).utility(nm.Integers())).SetUint64(&c.p, next); e != nil {
 			return false, e
 		}
-		if e = c.zp.modular.WithAllocationContext((numericIntegerModularManager_primePreparationAllocationContext(c.zp.modular, q)).utility(c.zp.modular.Integers())).SetZP(&c.p); e != nil {
+		if e = c.zp.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_primePreparationAllocationContext(c.zp.modular, q))).utility(c.zp.modular.Integers())).SetZP(&c.p); e != nil {
 			return false, e
 		}
 		top, e := m.read(m.stateView(&c.fpp), c.fpp.size-1)

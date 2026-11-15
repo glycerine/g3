@@ -194,7 +194,7 @@ func (q *upolySturmIsolationScope) isolate(v UPolynomialView, neg, pos uint32, b
 	if plus >= minus {
 		return nil
 	}
-	ops := b.WithAllocationContext(q.context().utility(m.config.Integer))
+	ops := b.WithAllocationContext(integerAllocationContextRef(q.context()).utility(m.config.Integer))
 	if e = ops.PowerOfTwo(neg, lower, &q.copy); e != nil {
 		return e
 	}

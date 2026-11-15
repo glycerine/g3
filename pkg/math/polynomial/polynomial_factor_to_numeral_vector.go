@@ -35,7 +35,7 @@ type polynomialFactorNumeralVectorScope struct {
 func (m *MultivariatePolynomialManager) matchesFactorNumeralVector(r *polynomialFactorNumeralVectorReceipt) bool {
 	return m != nil && m.self == m && m.core != nil && m.core.self == m.core && r != nil && r.manager == m && r.frame == &m.factorNumeralVector && r.invocation != 0 && r.invocation == r.frame.invocation
 }
-func numericIntegerManager_factorNumeralVectorRoots(m *unumeral.IntegerManager, context integerAllocationInvocationContext) *polynomialNumericRoots {
+func numericIntegerManager_factorNumeralVectorRoots(m *unumeral.IntegerManager, context *integerAllocationInvocationContext) *polynomialNumericRoots {
 	r := context.factorNumeralVector
 	if m == nil || !m.ValidOwner() || r == nil || !r.manager.matchesFactorNumeralVector(r) || context.factorNumeralVectorInvocation != r.invocation || r.manager.core.integer != m || !r.frame.active || !r.frame.executing || r.manager.core.callbackDepth != 0 {
 		return nil

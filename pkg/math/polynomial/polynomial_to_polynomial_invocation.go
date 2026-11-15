@@ -50,7 +50,7 @@ type polynomialToPolynomialInvocationReceipt struct {
 func (m *MultivariatePolynomialManager) matchesToPolynomialInvocation(r *polynomialToPolynomialInvocationReceipt) bool {
 	return m != nil && m.self == m && m.core != nil && m.core.self == m.core && r != nil && r.manager == m && r.frame == &m.toPolynomial && r.invocation != 0 && r.invocation == r.frame.invocation
 }
-func numericIntegerManager_toPolynomialAllocationRoots(m *unumeral.IntegerManager, c integerAllocationInvocationContext) *polynomialNumericRoots {
+func numericIntegerManager_toPolynomialAllocationRoots(m *unumeral.IntegerManager, c *integerAllocationInvocationContext) *polynomialNumericRoots {
 	r := c.toPolynomial
 	if m == nil || !m.ValidOwner() || r == nil || !r.manager.matchesToPolynomialInvocation(r) || c.toPolynomialInvocation != r.invocation || r.manager.core.integer != m || !r.frame.active || !r.frame.executing || r.manager.core.callbackDepth != 0 {
 		return nil
@@ -66,7 +66,7 @@ func numericScopedIntegerModularBuffer128_setToPolynomial(b *unumeral.ScopedInte
 	}
 	s := r.frame
 	context := integerAllocationInvocationContext{toPolynomial: r, toPolynomialInvocation: r.invocation}
-	if numericIntegerManager_toPolynomialAllocationRoots(b.Manager().Integers(), context) == nil || b.Manager() != r.manager.core.modular {
+	if numericIntegerManager_toPolynomialAllocationRoots(b.Manager().Integers(), &context) == nil || b.Manager() != r.manager.core.modular {
 		return ErrPolynomialOwner
 	}
 	if b.SourceCause() != nil {
@@ -185,7 +185,7 @@ func numericIntegerModularManager_copyWithToPolynomialReceipt(m *unumeral.Intege
 	if r != nil {
 		context.toPolynomialInvocation = r.invocation
 	}
-	if r == nil || numericIntegerManager_toPolynomialAllocationRoots(m.Integers(), context) == nil || r.manager.core.modular != m {
+	if r == nil || numericIntegerManager_toPolynomialAllocationRoots(m.Integers(), &context) == nil || r.manager.core.modular != m {
 		return ErrPolynomialOwner
 	}
 	if factorNumeralCallExecuting(m.Integers()) {

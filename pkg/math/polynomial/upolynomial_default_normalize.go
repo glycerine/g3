@@ -181,7 +181,7 @@ func (q *upolyDefaultNormalizeScope) finish(body error) error {
 func (q *upolyDefaultNormalizeScope) context() integerAllocationInvocationContext {
 	return integerAllocationInvocationContext{defaultNormalization: q, defaultNormalizationInvocation: q.invocation}
 }
-func (c integerAllocationInvocationContext) defaultNormalizationFrame(z *unumeral.IntegerManager) *upolyDefaultNormalizeScope {
+func (c *integerAllocationInvocationContext) defaultNormalizationFrame(z *unumeral.IntegerManager) *upolyDefaultNormalizeScope {
 	q := c.defaultNormalization
 	if q == nil || !q.NumericBound(true) || q.owner.config.Integer != z || c.defaultNormalizationInvocation == 0 || c.defaultNormalizationInvocation != q.invocation {
 		return nil
@@ -242,13 +242,13 @@ func (q *upolyDefaultNormalizeScope) coefficient(v UPolynomialView, i uint32, g 
 	if e != nil {
 		return e
 	}
-	if e = m.modular.WithAllocationContext(q.context().utility(m.config.Integer)).Div(x, g, x); e != nil {
+	if e = m.modular.WithAllocationContext(integerAllocationContextRef(q.context()).utility(m.config.Integer)).Div(x, g, x); e != nil {
 		return e
 	}
 	if polynomialSourceDebug {
 		*tmp = unumeral.Int{}
 		q.coefficientConstructed = 2
-		if e = m.modular.WithAllocationContext(q.context().utility(m.config.Integer)).Mul(g, x, tmp); e != nil {
+		if e = m.modular.WithAllocationContext(integerAllocationContextRef(q.context()).utility(m.config.Integer)).Mul(g, x, tmp); e != nil {
 			return e
 		}
 		if e = q.trace(g, x); e != nil {

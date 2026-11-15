@@ -7,7 +7,7 @@ import (
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (c integerAllocationInvocationContext) preparationFrame(z *unumeral.IntegerManager) *upolyFactorPreparationScope {
+func (c *integerAllocationInvocationContext) preparationFrame(z *unumeral.IntegerManager) *upolyFactorPreparationScope {
 	q := c.preparation
 	if z == nil || !z.ValidOwner() || q == nil || !q.matches(&q.receipt) || !q.active || !q.executing || c.preparationInvocation == 0 || c.preparationInvocation != q.invocation {
 		return nil
@@ -31,7 +31,7 @@ func numericIntegerModularManager_preparationAllocationContext(m *unumeral.Integ
 	}
 	return c
 }
-func (c integerAllocationInvocationContext) recordPreparationRaw(z *unumeral.IntegerManager, r *unumeral.IntegerRawInvocationReceipt) {
+func (c *integerAllocationInvocationContext) recordPreparationRaw(z *unumeral.IntegerManager, r *unumeral.IntegerRawInvocationReceipt) {
 	q := c.preparationFrame(z)
 	if q != nil && z.MatchesRawInvocation(r) && r.Kind() == unumeral.IntegerRawGCD {
 		q.gcdRaw = *r

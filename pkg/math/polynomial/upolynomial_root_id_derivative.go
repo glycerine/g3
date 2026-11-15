@@ -16,7 +16,7 @@ type upolySturmDerivativeRaw struct {
 }
 
 func (q *upolyRootIDScope) retireDerivativeMultiplier() error {
-	if q.context().rootIDFrame(q.owner.config.Integer) != q {
+	if integerAllocationContextRef(q.context()).rootIDFrame(q.owner.config.Integer) != q {
 		return ErrUPolynomialOwner
 	}
 	if q.derivative.NativeCellToken() == 0 {

@@ -870,7 +870,7 @@ func (q *upolyFactorImageScope) finish(body error) error {
 	if q.classConstructed {
 		var e error
 		if q.oldMode {
-			e = m.modular.WithAllocationContext((numericIntegerModularManager_factorFrontendAllocationContext(m.modular, q.owner)).utility(m.modular.Integers())).SetZP(&q.old)
+			e = m.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_factorFrontendAllocationContext(m.modular, q.owner))).utility(m.modular.Integers())).SetZP(&q.old)
 		} else {
 			e = m.modular.SetZ()
 		}
@@ -914,7 +914,7 @@ func (q *upolyFactorImageScope) own() (cause error) {
 	if q.classConstructed {
 		var e error
 		if q.oldMode {
-			e = m.modular.WithAllocationContext((numericIntegerModularManager_factorFrontendAllocationContext(m.modular, q.owner)).utility(m.modular.Integers())).SetZP(&q.old)
+			e = m.modular.WithAllocationContext(integerAllocationContextRef((numericIntegerModularManager_factorFrontendAllocationContext(m.modular, q.owner))).utility(m.modular.Integers())).SetZP(&q.old)
 		} else {
 			e = m.modular.SetZ()
 		}

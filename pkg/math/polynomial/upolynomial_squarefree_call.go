@@ -71,7 +71,7 @@ func (q *upolySquareFreeCallScope) NumericRecord(z *unumeral.IntegerManager, _ s
 		q.divides = append(q.divides, *r.Divides)
 	}
 }
-func (c integerAllocationInvocationContext) squareFreeCallFrame(z *unumeral.IntegerManager) *upolySquareFreeCallScope {
+func (c *integerAllocationInvocationContext) squareFreeCallFrame(z *unumeral.IntegerManager) *upolySquareFreeCallScope {
 	q := c.squareFreeCall
 	if q == nil || !q.NumericBound(true) || q.owner.config.Integer != z || c.squareFreeCallInvocation == 0 || c.squareFreeCallInvocation != q.invocation {
 		return nil

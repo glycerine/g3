@@ -13,7 +13,7 @@ func numericIntegerManager_exactDivAllocationRoots(m *unumeral.IntegerManager, r
 	}
 	return &r.frame.numeric
 }
-func numericIntegerManager_exactDivContextRoots(m *unumeral.IntegerManager, c integerAllocationInvocationContext) *polynomialNumericRoots {
+func numericIntegerManager_exactDivContextRoots(m *unumeral.IntegerManager, c *integerAllocationInvocationContext) *polynomialNumericRoots {
 	if c.exactDiv == nil || c.exactDivInvocation == 0 || c.exactDivInvocation != c.exactDiv.invocation {
 		return nil
 	}
@@ -28,7 +28,7 @@ func numericIntegerModularManager_exactDivAllocationContext(m *unumeral.IntegerM
 func numericIntegerModularManager_divWithExactDivReceipt(m *unumeral.IntegerModularManager, a, b, out *unumeral.Int, r *polynomialExactDivInvocationReceipt) error {
 	context := numericIntegerModularManager_exactDivAllocationContext(m, r)
 	e := m.WithAllocationContext((context).utility(m.Integers())).Div(a, b, out)
-	if m != nil && m.Integers() != nil && numericIntegerManager_exactDivContextRoots(m.Integers(), context) != nil && r.frame.sourceCause == nil {
+	if m != nil && m.Integers() != nil && numericIntegerManager_exactDivContextRoots(m.Integers(), &context) != nil && r.frame.sourceCause == nil {
 		r.frame.sourceCause = numericIntegerManager_exactDivNumericSourceCause(m.Integers(), r)
 	}
 	return e
@@ -46,7 +46,7 @@ func numericIntegerModularManager_negWithExactDivReceipt(m *unumeral.IntegerModu
 
 // Bind only the child returned by the actual guarded RAW declaration action.
 func numericIntegerManager_bindExactDivRaw(m *unumeral.IntegerManager, c integerAllocationInvocationContext, child *unumeral.IntegerRawInvocationReceipt, division bool) {
-	if numericIntegerManager_exactDivContextRoots(m, c) == nil || !m.MatchesRawInvocation(child) {
+	if numericIntegerManager_exactDivContextRoots(m, &c) == nil || !m.MatchesRawInvocation(child) {
 		return
 	}
 

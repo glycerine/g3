@@ -28,7 +28,7 @@ func TestDividesNumericActualFrameAndImmutableContext(t *testing.T) {
 	s.invocation = 1
 	r := polynomialDividesInvocationReceipt{core: c, frame: s, invocation: 1}
 	s.constructed = 1
-	if (numericIntegerModularManager_dividesAllocationContext(c.modular, &r).roots(c.integer)) != nil {
+	if (integerAllocationContextRef(numericIntegerModularManager_dividesAllocationContext(c.modular, &r)).roots(c.integer)) != nil {
 		t.Fatal("monomial ref alone has no NUM authority")
 	}
 	s.constructed = 2
@@ -50,7 +50,7 @@ func TestDividesNumericActualFrameAndImmutableContext(t *testing.T) {
 
 	foreignModular, e := unumeral.NewIntegerModularManager(c.integer)
 	serviceMust(t, e)
-	if (numericIntegerModularManager_dividesAllocationContext(foreignModular, &r).roots(c.integer)) != nil {
+	if (integerAllocationContextRef(numericIntegerModularManager_dividesAllocationContext(foreignModular, &r)).roots(c.integer)) != nil {
 		t.Fatal("foreign modular receiver acquired")
 	}
 	serviceMust(t, foreignModular.Close())
