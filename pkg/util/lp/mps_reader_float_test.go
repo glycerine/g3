@@ -54,7 +54,7 @@ func TestLPFloatMPSIndependentOptima(t *testing.T) {
 		}
 		input.WriteString("ENDATA\n")
 		reader := lpMPSRead(t, input.String())
-		if reader.Name != "MODEL" || !reflect.DeepEqual(reader.ColumnNames(), []string{"x", "y"}) {
+		if reader.Name != "MODEL" || !reflect.DeepEqual(reader.ColumnNames(), []string{"y", "x"}) { // libstdc++ m_columns order (util_lp_06-F1)
 			t.Fatal(reader.Name, reader.ColumnNames())
 		}
 		solver, err := reader.CreatePrimalSolver()
@@ -72,7 +72,7 @@ func TestLPFloatMPSIndependentOptima(t *testing.T) {
 		}
 		solution := map[string]float64{}
 		for _, name := range reader.ColumnNames() {
-			v, err := solver.GetColumnValue(lpTestNamedColumn(t, solver.NamesToColumns, name))
+			v, err := solver.GetColumnValue(lpTestFloatNamedColumn(t, solver.NamesToColumns, name))
 			lpStaticMust(t, err)
 			solution[name] = v
 			if v < -1e-8 {
@@ -110,7 +110,7 @@ func TestLPFloatMPSFileBoundsRangesIntegration(t *testing.T) {
 	}
 	solution := map[string]float64{}
 	for _, name := range reader.ColumnNames() {
-		v, err := solver.GetColumnValue(lpTestNamedColumn(t, solver.NamesToColumns, name))
+		v, err := solver.GetColumnValue(lpTestFloatNamedColumn(t, solver.NamesToColumns, name))
 		lpStaticMust(t, err)
 		solution[name] = v
 	}
@@ -256,7 +256,7 @@ func TestLPFloatMPSFixedFieldsAndPublication(t *testing.T) {
 	text := "NAME D\nROWS\n N COST\n L R\nCOLUMNS\n" + lpMPSPair("x", "COST", 1) + lpMPSPair("", "COST", 3) + lpMPSPair("", "R", 2) + "    MARK      'MARKER' 'INTORG'\nRHS\n" + lpMPSPair("RHS1", "R", 7) + "ENDATA\n"
 	parsed := lpMPSRead(t, text)
 	cost, _ := parsed.rows.Get2("COST")
-	if cost.coefficients.Get("x") != 3 || !reflect.DeepEqual(parsed.ColumnNames(), []string{"x", "MARK"}) {
+	if cost.coefficients.Get("x") != 3 || !reflect.DeepEqual(parsed.ColumnNames(), []string{"MARK", "x"}) { // libstdc++ m_columns order (util_lp_06-F1)
 		t.Fatal(parsed.ColumnNames())
 	}
 	// Repeated range expansion replaces the same name with the current source index.

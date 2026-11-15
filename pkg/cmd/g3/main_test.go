@@ -2211,3 +2211,29 @@ func TestSMTLibRunnerRelevancyUpdatesKeepModelsValid(t *testing.T) {
 		t.Log("C++ reference returned models violating asserted formulas after the relevancy update; Go models remain valid")
 	}
 }
+
+// TestMPSPrintModelOrder: AUDIT.md util_lp_06-F1. lp_solver::print_model
+// walks std::unordered_map<std::string, unsigned> m_names_to_columns, which
+// fill_solver_on_columns filled while walking mps_reader's m_columns; the
+// "column values" lines follow libstdc++'s node order, not sorted names.
+// The expected text is build/z3's output for the vector.
+func TestMPSPrintModelOrder(t *testing.T) {
+	input := filepath.Join("test_vectors", "lp_mps_print_model_order.mps")
+	want := "extended A[3,9]\nstatus is OPTIMAL\nobjective = 0\ncolumn values\nXONE = 2\nBETA = 3\nYTWO = -1\nGAMMA = 0\nZTHREE = 6\nALPHA = 3\n"
+	var out bytes.Buffer
+	if err := runArguments([]string{input}, strings.NewReader(""), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if out.String() != want {
+		t.Fatalf("g3 output\n%s\nwant\n%s", out.String(), want)
+	}
+	if reference := os.Getenv("G3_CPP_REFERENCE"); reference != "" {
+		cpp, err := exec.Command(reference, input).CombinedOutput()
+		if err != nil {
+			t.Fatal(err, string(cpp))
+		}
+		if !bytes.Equal(out.Bytes(), cpp) {
+			t.Fatalf("Go/C++ mismatch\nGo:\n%s\nC++:\n%s", out.String(), cpp)
+		}
+	}
+}

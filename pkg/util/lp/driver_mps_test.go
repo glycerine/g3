@@ -107,8 +107,10 @@ func TestLPMPSDriverIndependentFileMinMax(t *testing.T) {
 					var gotX, gotY float64
 					found := false
 					for _, line := range strings.Split(out.String(), "\n") {
-						if strings.HasPrefix(line, "x=") {
-							if _, err := fmt.Sscanf(line, "x=%f y=%f", &gotX, &gotY); err != nil {
+						// print_x walks m_columns: libstdc++ order is y, x
+						// (AUDIT.md util_lp_06-F1).
+						if strings.HasPrefix(line, "y=") {
+							if _, err := fmt.Sscanf(line, "y=%f x=%f", &gotY, &gotX); err != nil {
 								t.Fatal(err, line)
 							}
 							found = true
@@ -419,7 +421,7 @@ func TestLPMPSDriverPreparedComparisonDiagnostics(t *testing.T) {
 				t.Fatal(profile, out.String())
 			}
 		case "cost":
-			if !strings.HasSuffix(out.String(), "primal cost = 9\ndifferent values for x:3 and 0\ndifferent values for y:0 and 3\nx=3 y=0 \ndual cost is 6, but primal cost is 9\n") {
+			if !strings.HasSuffix(out.String(), "primal cost = 9\ndifferent values for y:0 and 3\ndifferent values for x:3 and 0\ny=0 x=3 \ndual cost is 6, but primal cost is 9\n") {
 				t.Fatal(profile, out.String())
 			}
 		case "both-infeasible":
@@ -471,16 +473,16 @@ func TestLPMPSDriverNamedAndComparisonGuards(t *testing.T) {
 		d := lpMPSDriverComparisonFixture(t, "cost", &out)
 		switch profile {
 		case "missing-primary":
-			delete(d.floatPrimal.NamesToColumns, "x")
-			if err := d.printFloatX(false); err == nil || err.Error() != "get_column_value_by_name x" || out.String() != "x=" {
+			d.floatPrimal.NamesToColumns.Del("x")
+			if err := d.printFloatX(false); err == nil || err.Error() != "get_column_value_by_name x" || out.String() != "y=3 x=" { // m_columns order y, x (util_lp_06-F1)
 				t.Fatal(profile, err, out.String())
 			}
 		case "missing-comparison":
 			var err error
 			d.floatComparison, err = d.floatReader.CreatePrimalSolver()
 			lpStaticMust(t, err)
-			delete(d.floatComparison.NamesToColumns, "x")
-			if err := d.compareFloatValues(); err == nil || err.Error() != "get_column_value_by_name x" || out.Len() != 0 {
+			d.floatComparison.NamesToColumns.Del("x")
+			if err := d.compareFloatValues(); err == nil || err.Error() != "get_column_value_by_name x" || out.String() != "different values for y:0 and 3\n" { // y first (util_lp_06-F1)
 				t.Fatal(profile, err, out.String())
 			}
 		case "bad-row":

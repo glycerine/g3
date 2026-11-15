@@ -28,7 +28,7 @@ func (d *MPSFileDriver) floatValue(name string, comparison bool) (float64, error
 	if comparison {
 		base = d.floatComparison.FloatLPSolver
 	}
-	j, ok := base.NamesToColumns[name]
+	j, ok := base.NamesToColumns.Get2(name)
 	if !ok {
 		return 0, z3exception.NewDefaultException(fmt.Sprintf("get_column_value_by_name %s", name))
 	}

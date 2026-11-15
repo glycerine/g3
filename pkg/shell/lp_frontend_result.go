@@ -22,8 +22,8 @@ func (f *LPFrontend) Result() (result LPFrontendResult, err error) {
 	if err != nil {
 		return result, err
 	}
-	result.Columns = make(map[string]float64, len(f.solver.NamesToColumns))
-	for name, column := range f.solver.NamesToColumns {
+	result.Columns = make(map[string]float64, f.solver.NamesToColumns.Len())
+	for name, column := range f.solver.NamesToColumns.All() {
 		value, x := f.solver.GetColumnValue(column)
 		if x != nil {
 			return LPFrontendResult{}, x

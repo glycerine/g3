@@ -44,13 +44,15 @@ type floatMPSRow struct {
 }
 
 // FloatMPSReader uses native Go text and insertion-ordered dictionaries. Input
-// order chooses a deterministic iteration order where C++ used unordered maps.
-// Numeric tokens use strconv.ParseFloat, not an emulation of libc atof.
+// order chooses a deterministic iteration order where C++ used unordered maps,
+// except m_columns, whose libstdc++ order decides the model report order
+// (floatMPSColumnMap, AUDIT.md util_lp_06-F1). Numeric tokens use
+// strconv.ParseFloat, not an emulation of libc atof.
 type FloatMPSReader struct {
 	input                 *bufio.Reader
 	file                  *os.File
 	rows                  *insdict.Dict[string, *floatMPSRow]
-	columns               *insdict.Dict[string, *floatMPSColumn]
+	columns               *floatMPSColumnMap
 	line, Name, costName  string
 	LineNumber, costLines uint32
 	ok                    bool
@@ -58,7 +60,7 @@ type FloatMPSReader struct {
 }
 
 func NewFloatMPSReader(in io.Reader) *FloatMPSReader {
-	m := &FloatMPSReader{ok: true, Messages: os.Stdout, rows: insdict.NewDict[string, *floatMPSRow](), columns: insdict.NewDict[string, *floatMPSColumn]()}
+	m := &FloatMPSReader{ok: true, Messages: os.Stdout, rows: insdict.NewDict[string, *floatMPSRow](), columns: newFloatMPSColumnMap()}
 	if in != nil {
 		m.input = bufio.NewReader(in)
 	}

@@ -3,7 +3,9 @@ package lp
 // Source: libstdc++ (GCC 13) bits/hashtable.h and
 // src/c++11/hashtable_c++0x.cc, std::unordered_map<unsigned, V> with
 // std::hash<unsigned> (identity), _Mod_range_hashing and
-// _Prime_rehash_policy, unique keys, hash codes not cached.
+// _Prime_rehash_policy, unique keys, hash codes not cached. The node list
+// and bucket machinery (stdHashtable) is shared with
+// std_unordered_string_map.go.
 //
 // User-approved exception to the no-STL-port rule (2026-11-10): lp's
 // lar_term::m_coeffs is a std::unordered_map<unsigned, mpq>, and z3's
@@ -107,30 +109,177 @@ func (p *stdPrimeRehashPolicy) needRehash(buckets, elements, inserts uint64) (bo
 	return false, 0
 }
 
-// StdUnorderedRationalMap is std::unordered_map<unsigned, mpq> as
-// lar_term::m_coeffs uses it: iteration follows the singly linked node list
-// that libstdc++ maintains, so insertion, erase and rehash place nodes as
-// the C++ container does. The Go map only speeds up key lookup.
-type StdUnorderedRationalMap struct {
-	keys        []uint32
-	values      []*numeral.Rational
+// stdHashtable is the node list and bucket array of libstdc++'s
+// _Hashtable for unique keys. Node n's hash code is codes[n]: the key
+// itself for std::hash<unsigned> (not cached; recomputing it gives the same
+// value), the cached _Hash_bytes code for std::string. The wrapping
+// container keeps keys and values at the same node index.
+type stdHashtable struct {
+	codes       []uint64
 	next        []int32
 	free        []int32
-	lookup      map[uint32]int32
 	buckets     []int32 // node before the bucket's first node, or stdNil
 	beforeBegin int32   // _M_before_begin._M_nxt
 	count       uint64
 	policy      stdPrimeRehashPolicy
 }
 
-func NewStdUnorderedRationalMap() *StdUnorderedRationalMap {
-	return &StdUnorderedRationalMap{lookup: map[uint32]int32{}, buckets: []int32{stdNil}, beforeBegin: stdNil}
+func newStdHashtable() stdHashtable {
+	return stdHashtable{buckets: []int32{stdNil}, beforeBegin: stdNil}
 }
 
-func (m *StdUnorderedRationalMap) Len() int { return int(m.count) }
+func (h *stdHashtable) nxt(p int32) int32 {
+	if p == stdBeforeBegin {
+		return h.beforeBegin
+	}
+	return h.next[p]
+}
+
+func (h *stdHashtable) setNxt(p, v int32) {
+	if p == stdBeforeBegin {
+		h.beforeBegin = v
+		return
+	}
+	h.next[p] = v
+}
+
+func (h *stdHashtable) bucketOf(n int32, count uint64) uint64 {
+	return h.codes[n] % count
+}
+
+// allocNode takes a node for a new element with the given hash code,
+// reusing an erased node first. appended reports a fresh index equal to
+// the old node count, which the caller must append its key and value at.
+func (h *stdHashtable) allocNode(code uint64) (n int32, appended bool) {
+	if k := len(h.free); k > 0 {
+		n = h.free[k-1]
+		h.free = h.free[:k-1]
+		h.codes[n], h.next[n] = code, stdNil
+		return n, false
+	}
+	n = int32(len(h.codes))
+	h.codes = append(h.codes, code)
+	h.next = append(h.next, stdNil)
+	return n, true
+}
+
+// linkNode is _M_insert_unique_node: rehash when the policy asks for it,
+// then insert at the beginning of the node's bucket.
+func (h *stdHashtable) linkNode(n int32) {
+	if do, count := h.policy.needRehash(uint64(len(h.buckets)), h.count, 1); do {
+		h.rehash(count)
+	}
+	h.insertBucketBegin(h.bucketOf(n, uint64(len(h.buckets))), n)
+	h.count++
+}
+
+// insertBucketBegin is _M_insert_bucket_begin.
+func (h *stdHashtable) insertBucketBegin(bkt uint64, n int32) {
+	if b := h.buckets[bkt]; b != stdNil {
+		h.next[n] = h.nxt(b)
+		h.setNxt(b, n)
+		return
+	}
+	h.next[n] = h.beforeBegin
+	h.beforeBegin = n
+	if h.next[n] != stdNil {
+		h.buckets[h.bucketOf(h.next[n], uint64(len(h.buckets)))] = n
+	}
+	h.buckets[bkt] = stdBeforeBegin
+}
+
+// rehash is _M_rehash_aux for unique keys.
+func (h *stdHashtable) rehash(count uint64) {
+	buckets := make([]int32, count)
+	for i := range buckets {
+		buckets[i] = stdNil
+	}
+	p := h.beforeBegin
+	h.beforeBegin = stdNil
+	beginBucket := uint64(0)
+	for p != stdNil {
+		next := h.next[p]
+		bkt := h.bucketOf(p, count)
+		if buckets[bkt] == stdNil {
+			h.next[p] = h.beforeBegin
+			h.beforeBegin = p
+			buckets[bkt] = stdBeforeBegin
+			if h.next[p] != stdNil {
+				buckets[beginBucket] = p
+			}
+			beginBucket = bkt
+		} else {
+			h.next[p] = h.nxt(buckets[bkt])
+			h.setNxt(buckets[bkt], p)
+		}
+		p = next
+	}
+	h.buckets = buckets
+}
+
+// unlinkNode is _M_erase(bkt, prev, n) for a linked node n; the node goes
+// on the free list.
+func (h *stdHashtable) unlinkNode(n int32) {
+	count := uint64(len(h.buckets))
+	bkt := h.bucketOf(n, count)
+	prev := h.buckets[bkt]
+	for h.nxt(prev) != n {
+		prev = h.nxt(prev)
+	}
+	next := h.next[n]
+	if prev == h.buckets[bkt] {
+		nextBkt := uint64(0)
+		if next != stdNil {
+			nextBkt = h.bucketOf(next, count)
+		}
+		if next == stdNil || nextBkt != bkt {
+			if next != stdNil {
+				h.buckets[nextBkt] = h.buckets[bkt]
+			}
+			if h.buckets[bkt] == stdBeforeBegin {
+				h.beforeBegin = next
+			}
+			h.buckets[bkt] = stdNil
+		}
+	} else if next != stdNil {
+		if nextBkt := h.bucketOf(next, count); nextBkt != bkt {
+			h.buckets[nextBkt] = prev
+		}
+	}
+	h.setNxt(prev, next)
+	h.free = append(h.free, n)
+	h.count--
+}
+
+// clear is clear(): the bucket array and rehash state stay.
+func (h *stdHashtable) clear() {
+	for i := range h.buckets {
+		h.buckets[i] = stdNil
+	}
+	h.codes, h.next, h.free = h.codes[:0], h.next[:0], h.free[:0]
+	h.beforeBegin = stdNil
+	h.count = 0
+}
+
+// StdUnorderedRationalMap is std::unordered_map<unsigned, mpq> as
+// lar_term::m_coeffs uses it: iteration follows the singly linked node list
+// that libstdc++ maintains, so insertion, erase and rehash place nodes as
+// the C++ container does. The Go map only speeds up key lookup.
+type StdUnorderedRationalMap struct {
+	table  stdHashtable
+	keys   []uint32
+	values []*numeral.Rational
+	lookup map[uint32]int32
+}
+
+func NewStdUnorderedRationalMap() *StdUnorderedRationalMap {
+	return &StdUnorderedRationalMap{table: newStdHashtable(), lookup: map[uint32]int32{}}
+}
+
+func (m *StdUnorderedRationalMap) Len() int { return int(m.table.count) }
 
 // BucketCount is bucket_count().
-func (m *StdUnorderedRationalMap) BucketCount() uint64 { return uint64(len(m.buckets)) }
+func (m *StdUnorderedRationalMap) BucketCount() uint64 { return uint64(len(m.table.buckets)) }
 
 func (m *StdUnorderedRationalMap) Get2(key uint32) (*numeral.Rational, bool) {
 	n, ok := m.lookup[key]
@@ -146,25 +295,6 @@ func (m *StdUnorderedRationalMap) Get(key uint32) *numeral.Rational {
 	return v
 }
 
-func (m *StdUnorderedRationalMap) nxt(p int32) int32 {
-	if p == stdBeforeBegin {
-		return m.beforeBegin
-	}
-	return m.next[p]
-}
-
-func (m *StdUnorderedRationalMap) setNxt(p, v int32) {
-	if p == stdBeforeBegin {
-		m.beforeBegin = v
-		return
-	}
-	m.next[p] = v
-}
-
-func (m *StdUnorderedRationalMap) bucketOf(n int32, count uint64) uint64 {
-	return uint64(m.keys[n]) % count
-}
-
 // Put stores value for key; a new key is inserted as _M_insert_unique_node
 // does, and an existing key keeps its node.
 func (m *StdUnorderedRationalMap) Put(key uint32, value *numeral.Rational) {
@@ -172,67 +302,16 @@ func (m *StdUnorderedRationalMap) Put(key uint32, value *numeral.Rational) {
 		m.values[n] = value
 		return
 	}
-	var n int32
-	if k := len(m.free); k > 0 {
-		n = m.free[k-1]
-		m.free = m.free[:k-1]
-		m.keys[n], m.values[n], m.next[n] = key, value, stdNil
-	} else {
-		n = int32(len(m.keys))
+	// std::hash<unsigned> is the identity.
+	n, appended := m.table.allocNode(uint64(key))
+	if appended {
 		m.keys = append(m.keys, key)
 		m.values = append(m.values, value)
-		m.next = append(m.next, stdNil)
+	} else {
+		m.keys[n], m.values[n] = key, value
 	}
 	m.lookup[key] = n
-	if do, count := m.policy.needRehash(uint64(len(m.buckets)), m.count, 1); do {
-		m.rehash(count)
-	}
-	m.insertBucketBegin(m.bucketOf(n, uint64(len(m.buckets))), n)
-	m.count++
-}
-
-// insertBucketBegin is _M_insert_bucket_begin.
-func (m *StdUnorderedRationalMap) insertBucketBegin(bkt uint64, n int32) {
-	if b := m.buckets[bkt]; b != stdNil {
-		m.next[n] = m.nxt(b)
-		m.setNxt(b, n)
-		return
-	}
-	m.next[n] = m.beforeBegin
-	m.beforeBegin = n
-	if m.next[n] != stdNil {
-		m.buckets[m.bucketOf(m.next[n], uint64(len(m.buckets)))] = n
-	}
-	m.buckets[bkt] = stdBeforeBegin
-}
-
-// rehash is _M_rehash_aux for unique keys.
-func (m *StdUnorderedRationalMap) rehash(count uint64) {
-	buckets := make([]int32, count)
-	for i := range buckets {
-		buckets[i] = stdNil
-	}
-	p := m.beforeBegin
-	m.beforeBegin = stdNil
-	beginBucket := uint64(0)
-	for p != stdNil {
-		next := m.next[p]
-		bkt := m.bucketOf(p, count)
-		if buckets[bkt] == stdNil {
-			m.next[p] = m.beforeBegin
-			m.beforeBegin = p
-			buckets[bkt] = stdBeforeBegin
-			if m.next[p] != stdNil {
-				buckets[beginBucket] = p
-			}
-			beginBucket = bkt
-		} else {
-			m.next[p] = m.nxt(buckets[bkt])
-			m.setNxt(buckets[bkt], p)
-		}
-		p = next
-	}
-	m.buckets = buckets
+	m.table.linkNode(n)
 }
 
 // Del is erase(const key_type&).
@@ -241,56 +320,24 @@ func (m *StdUnorderedRationalMap) Del(key uint32) {
 	if !ok {
 		return
 	}
-	count := uint64(len(m.buckets))
-	bkt := m.bucketOf(n, count)
-	prev := m.buckets[bkt]
-	for m.nxt(prev) != n {
-		prev = m.nxt(prev)
-	}
-	next := m.next[n]
-	if prev == m.buckets[bkt] {
-		nextBkt := uint64(0)
-		if next != stdNil {
-			nextBkt = m.bucketOf(next, count)
-		}
-		if next == stdNil || nextBkt != bkt {
-			if next != stdNil {
-				m.buckets[nextBkt] = m.buckets[bkt]
-			}
-			if m.buckets[bkt] == stdBeforeBegin {
-				m.beforeBegin = next
-			}
-			m.buckets[bkt] = stdNil
-		}
-	} else if next != stdNil {
-		if nextBkt := m.bucketOf(next, count); nextBkt != bkt {
-			m.buckets[nextBkt] = prev
-		}
-	}
-	m.setNxt(prev, next)
+	m.table.unlinkNode(n)
 	delete(m.lookup, key)
 	m.values[n] = nil
-	m.free = append(m.free, n)
-	m.count--
 }
 
 // Clear is clear(): the bucket array and rehash state stay.
 func (m *StdUnorderedRationalMap) Clear() {
-	for i := range m.buckets {
-		m.buckets[i] = stdNil
-	}
-	m.keys, m.values, m.next, m.free = m.keys[:0], m.values[:0], m.next[:0], m.free[:0]
+	m.table.clear()
+	m.keys, m.values = m.keys[:0], m.values[:0]
 	clear(m.lookup)
-	m.beforeBegin = stdNil
-	m.count = 0
 }
 
 // All iterates in begin()..end() order. The yielded entry may be deleted
 // during iteration; other mutations invalidate the walk.
 func (m *StdUnorderedRationalMap) All() func(yield func(uint32, *numeral.Rational) bool) {
 	return func(yield func(uint32, *numeral.Rational) bool) {
-		for p := m.beforeBegin; p != stdNil; {
-			next := m.next[p]
+		for p := m.table.beforeBegin; p != stdNil; {
+			next := m.table.next[p]
 			if !yield(m.keys[p], m.values[p]) {
 				return
 			}
@@ -301,8 +348,8 @@ func (m *StdUnorderedRationalMap) All() func(yield func(uint32, *numeral.Rationa
 
 // Keys returns the keys in iteration order.
 func (m *StdUnorderedRationalMap) Keys() []uint32 {
-	out := make([]uint32, 0, m.count)
-	for p := m.beforeBegin; p != stdNil; p = m.next[p] {
+	out := make([]uint32, 0, m.table.count)
+	for p := m.table.beforeBegin; p != stdNil; p = m.table.next[p] {
 		out = append(out, m.keys[p])
 	}
 	return out

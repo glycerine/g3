@@ -38,7 +38,7 @@ type FloatLPSolver struct {
 	AValues                                                       *insdict.Dict[uint32, *insdict.Dict[uint32, float64]]
 	Constraints                                                   map[uint32]FloatConstraint
 	Columns                                                       map[uint32]*FloatColumnInfo
-	NamesToColumns                                                map[string]uint32
+	NamesToColumns                                                *StdUnorderedStringMap // std::unordered_map<std::string, unsigned>
 	ExternalRowsToCore, CoreRowsToExternal, CoreColumnsToExternal map[uint32]uint32
 	Artificials, Slacks                                           uint32
 	Status                                                        Status
@@ -51,7 +51,7 @@ func NewFloatLPSolver() (*FloatLPSolver, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &FloatLPSolver{Settings: s, AValues: insdict.NewDict[uint32, *insdict.Dict[uint32, float64]](), Constraints: make(map[uint32]FloatConstraint), Columns: make(map[uint32]*FloatColumnInfo), NamesToColumns: make(map[string]uint32), ExternalRowsToCore: make(map[uint32]uint32), CoreRowsToExternal: make(map[uint32]uint32), CoreColumnsToExternal: make(map[uint32]uint32)}, nil
+	return &FloatLPSolver{Settings: s, AValues: insdict.NewDict[uint32, *insdict.Dict[uint32, float64]](), Constraints: make(map[uint32]FloatConstraint), Columns: make(map[uint32]*FloatColumnInfo), NamesToColumns: NewStdUnorderedStringMap(), ExternalRowsToCore: make(map[uint32]uint32), CoreRowsToExternal: make(map[uint32]uint32), CoreColumnsToExternal: make(map[uint32]uint32)}, nil
 }
 func (m *FloatLPSolver) GetOrCreateColumnInfo(column uint32) *FloatColumnInfo {
 	if c, ok := m.Columns[column]; ok {
@@ -80,7 +80,7 @@ func (m *FloatLPSolver) AddConstraint(relation LPRelation, rightSide float64, ro
 }
 func (m *FloatLPSolver) GiveSymbolicNameToColumn(name string, column uint32) {
 	m.GetOrCreateColumnInfo(column).Name = name
-	m.NamesToColumns[name] = column
+	m.NamesToColumns.Put(name, column)
 }
 func (m *FloatLPSolver) ColumnName(core uint32) string {
 	ext, ok := m.CoreColumnsToExternal[core]

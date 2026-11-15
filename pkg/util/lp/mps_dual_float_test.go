@@ -83,9 +83,9 @@ func TestLPFloatMPSDualIndependentMinMax(t *testing.T) {
 			if dual.Status != StatusOptimal || primal.Status != StatusOptimal || math.Abs(dc-want) > 1e-7 || math.Abs(pc-want) > 1e-7 {
 				t.Fatal(world, minimum, dual.Status, primal.Status, dc, pc, want)
 			}
-			x, err := dual.GetColumnValue(lpTestNamedColumn(t, dual.NamesToColumns, "x"))
+			x, err := dual.GetColumnValue(lpTestFloatNamedColumn(t, dual.NamesToColumns, "x"))
 			lpStaticMust(t, err)
-			y, err := dual.GetColumnValue(lpTestNamedColumn(t, dual.NamesToColumns, "y"))
+			y, err := dual.GetColumnValue(lpTestFloatNamedColumn(t, dual.NamesToColumns, "y"))
 			lpStaticMust(t, err)
 			if x < -2-1e-7 || x > 4+1e-7 || y < 1-1e-7 {
 				t.Fatal(world, minimum, x, y)
@@ -126,7 +126,7 @@ func TestLPFloatMPSDualStoredAndPopulationIsolation(t *testing.T) {
 		t.Fatal(dual.Status, cost)
 	}
 	for name, want := range map[string]float64{"x": 2, "y": 4, "f": 2} {
-		value, err := dual.GetColumnValue(lpTestNamedColumn(t, dual.NamesToColumns, name))
+		value, err := dual.GetColumnValue(lpTestFloatNamedColumn(t, dual.NamesToColumns, name))
 		lpStaticMust(t, err)
 		if math.Abs(value-want) > 1e-8 {
 			t.Fatal(name, value, want)

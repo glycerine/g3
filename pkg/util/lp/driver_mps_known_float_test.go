@@ -252,7 +252,7 @@ func TestLPMPSKnownFloatLiveReadsAndCleanup(t *testing.T) {
 					d.floatBase().GetOrCreateColumnInfo(0).SetFixedValue(1)
 				}
 				if profile == "missing-getter" {
-					delete(d.floatBase().NamesToColumns, "x")
+					d.floatBase().NamesToColumns.Del("x")
 				}
 			}
 			if text == "cost = " && profile == "cost" {
@@ -397,10 +397,10 @@ func TestLPMPSKnownFloatPreparedReportThresholdAndGuards(t *testing.T) {
 				d.floatBase().Columns[0] = nil
 			}
 			if profile == "printed-getter" && text == "x=" {
-				delete(d.floatBase().NamesToColumns, "x")
+				d.floatBase().NamesToColumns.Del("x")
 			}
 			if profile == "assert-reread" && diagnosticStarted && text == "0\n" {
-				delete(d.floatBase().NamesToColumns, "x")
+				d.floatBase().NamesToColumns.Del("x")
 			}
 			return nil
 		}

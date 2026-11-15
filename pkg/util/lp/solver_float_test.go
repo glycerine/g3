@@ -15,6 +15,15 @@ func lpTestNamedColumn(t *testing.T, names map[string]uint32, name string) uint3
 	return column
 }
 
+func lpTestFloatNamedColumn(t *testing.T, names *StdUnorderedStringMap, name string) uint32 {
+	t.Helper()
+	column, ok := names.Get2(name)
+	if !ok {
+		t.Fatalf("missing column name %q", name)
+	}
+	return column
+}
+
 func lpFloatSolver(t *testing.T) *FloatLPSolver {
 	t.Helper()
 	m, err := NewFloatLPSolver()
@@ -236,7 +245,7 @@ func TestLPFloatSolverSlackCountsNamesAndBypass(t *testing.T) {
 	}
 	m.GiveSymbolicNameToColumn("a", 17)
 	m.GiveSymbolicNameToColumn("b", 17)
-	if m.ColumnName(0) != "b" || lpTestNamedColumn(t, m.NamesToColumns, "a") != 17 || lpTestNamedColumn(t, m.NamesToColumns, "b") != 17 {
+	if m.ColumnName(0) != "b" || lpTestFloatNamedColumn(t, m.NamesToColumns, "a") != 17 || lpTestFloatNamedColumn(t, m.NamesToColumns, "b") != 17 {
 		t.Fatal("source stale name alias")
 	}
 	m = lpFloatSolver(t)
