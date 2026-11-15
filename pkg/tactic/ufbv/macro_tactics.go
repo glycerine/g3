@@ -192,7 +192,7 @@ func macroBatchRows(batch *macros.FormulaBatch) ([]macros.Formula, error) {
 	return rows, nil
 }
 
-func (t *MacroTactic) run(manager *macros.Manager, inputs []macros.Formula) (*macros.FormulaBatch, error) {
+func (t *MacroTactic) run(manager *macros.Manager, inputs []macros.Formula) (_ *macros.FormulaBatch, resultErr error) {
 	if t.kind == macroFinderKind {
 		finder, err := macros.NewFinder(t.manager, manager)
 		if err != nil {
@@ -204,6 +204,7 @@ func (t *MacroTactic) run(manager *macros.Manager, inputs []macros.Formula) (*ma
 	if err != nil {
 		return nil, err
 	}
+	defer func() { resultErr = errors.Join(resultErr, quasi.Close()) }()
 	current, more, err := quasi.Apply(inputs)
 	if err != nil {
 		return nil, err

@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_sub_01-F1: quasi_macros::apply_macros th-rewrites every
+	// expanded formula with its member m_rewriter.
+	"quasi_macros_rewrites_unchanged.smt2": "(goals\n(goal\n  (not (<= a 1))\n  (not (<= (g 2) (+ 1 a)))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md ast_sub_01-F2: expand_macros' th_rewriter(m) reads the global
 	// rewriter module (rewriter.som).
 	"macro_finder_rewriter_som.smt2": "(goals\n(goal\n  (not (<= (+ a (* a a)) 3))\n  :precision precise :depth 1)\n)\n",

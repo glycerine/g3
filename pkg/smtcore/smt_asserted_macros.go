@@ -130,6 +130,7 @@ func (k *SMTKernel) applyPendingQuasiMacros() (result error) {
 	if err != nil {
 		return err
 	}
+	defer func() { result = errors.Join(result, proc.Close()) }()
 	var batch *macros.FormulaBatch
 	defer func() {
 		if batch != nil {

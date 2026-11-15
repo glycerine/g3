@@ -14,8 +14,12 @@ type QuasiMacros struct {
 	manager     *ast.ASTManager
 	macros      *Manager
 	occurrences map[ast.ASTHandle]uint32
+	// rewrite is the member th_rewriter m_rewriter(m), applied to every
+	// formula apply_macros produces.
+	rewrite *macroTheoryNormalizer
 }
 
+// NewQuasiMacros is quasi_macros(m, mm). The returned owner must be closed.
 func NewQuasiMacros(m *ast.ASTManager, macros *Manager) (*QuasiMacros, error) {
 	if m == nil || macros == nil || macros.manager != m {
 		return nil, ast.ErrASTHandle
@@ -23,7 +27,21 @@ func NewQuasiMacros(m *ast.ASTManager, macros *Manager) (*QuasiMacros, error) {
 	if err := macros.open(); err != nil {
 		return nil, err
 	}
-	return &QuasiMacros{manager: m, macros: macros}, nil
+	rewrite, err := newMacroTheoryNormalizer(m, macros.paramsContext, macros.globals)
+	if err != nil {
+		return nil, err
+	}
+	return &QuasiMacros{manager: m, macros: macros, rewrite: rewrite}, nil
+}
+
+// Close releases m_rewriter.
+func (q *QuasiMacros) Close() error {
+	if q == nil {
+		return nil
+	}
+	err := q.rewrite.close()
+	q.rewrite = nil
+	return err
 }
 
 func (q *QuasiMacros) nonGroundUninterpreted(term ast.ASTHandle) (bool, error) {
@@ -439,7 +457,7 @@ func (q *QuasiMacros) find(inputs []Formula) (bool, error) {
 // Apply finds unique quasi macros, installs them, and expands every input.
 // The returned batch is owned by the caller.
 func (q *QuasiMacros) Apply(inputs []Formula) (result *FormulaBatch, changed bool, body error) {
-	if q == nil || q.manager == nil || q.macros == nil {
+	if q == nil || q.manager == nil || q.macros == nil || q.rewrite == nil {
 		return nil, false, ast.ErrASTHandle
 	}
 	found, err := q.find(inputs)
@@ -477,7 +495,14 @@ func (q *QuasiMacros) Apply(inputs []Formula) (result *FormulaBatch, changed boo
 		}
 		dependency, e := q.macros.ExpandMacros(row.Expression, proof, row.Dependency, out, outProof)
 		if e == nil {
+			// m_rewriter(r): the rewrite proof is dropped, as in the source.
 			expression, x := q.manager.RefGet(out)
+			if x == nil {
+				x = q.rewrite.rewrite.Rewrite(expression, out)
+			}
+			if x == nil {
+				expression, x = q.manager.RefGet(out)
+			}
 			e = x
 			newProof := ast.ASTHandle{}
 			if e == nil {

@@ -745,6 +745,7 @@ func TestQuasiMacrosUniqueConversionAndRepeatedRejection(t *testing.T) {
 			t.Cleanup(func() { must(t, manager.Close()) })
 			quasi, err := macros.NewQuasiMacros(m, manager)
 			must(t, err)
+			t.Cleanup(func() { must(t, quasi.Close()) })
 			b, err := m.MkBoolSort()
 			must(t, err)
 			v, err := m.MkVar(0, b)
@@ -787,6 +788,48 @@ func TestQuasiMacrosUniqueConversionAndRepeatedRejection(t *testing.T) {
 				t.Fatal("converted macro head", valid, e)
 			}
 		})
+	}
+}
+
+// AUDIT.md ast_sub_01-F1: quasi_macros::apply_macros runs m_rewriter on
+// every expanded formula, including those expansion left unchanged.
+func TestQuasiMacrosApplyRewritesUntouchedFormulas(t *testing.T) {
+	m := fixture(t)
+	manager, err := macros.NewManager(m)
+	must(t, err)
+	t.Cleanup(func() { must(t, manager.Close()) })
+	quasi, err := macros.NewQuasiMacros(m, manager)
+	must(t, err)
+	t.Cleanup(func() { must(t, quasi.Close()) })
+	b, err := m.MkBoolSort()
+	must(t, err)
+	v, err := m.MkVar(0, b)
+	must(t, err)
+	ground, err := m.MkConst(mustSymbol(t, m, "quasi-rw-ground"), b)
+	must(t, err)
+	f := declaration(t, m, "quasi-rw-f", []ast.ASTHandle{b, b}, b)
+	head, err := m.MkApp(f, []ast.ASTHandle{v, ground})
+	must(t, err)
+	body, err := m.MkEq(head, v)
+	must(t, err)
+	q, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{b}, Names: []usymbol.Symbol{mustSymbol(t, m, "quasi-rw-x")}, Body: body})
+	must(t, err)
+	p, err := m.MkConst(mustSymbol(t, m, "quasi-rw-p"), b)
+	must(t, err)
+	notP, err := m.MkNot(p)
+	must(t, err)
+	notNotP, err := m.MkNot(notP)
+	must(t, err)
+	result, changed, err := quasi.Apply([]macros.Formula{{Expression: q}, {Expression: notNotP}})
+	must(t, err)
+	t.Cleanup(func() { must(t, result.Close()) })
+	if !changed || result.Len() != 2 {
+		t.Fatal("quasi macro not found", changed, result.Len())
+	}
+	row, err := result.At(1)
+	must(t, err)
+	if row.Expression != p {
+		t.Fatal("untouched formula was not th-rewritten", row.Expression, p)
 	}
 }
 

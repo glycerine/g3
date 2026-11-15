@@ -1,0 +1,7 @@
+(declare-fun f (Int) Int)
+(declare-fun g (Int) Int)
+(declare-fun a () Int)
+(assert (forall ((x Int)) (= (f x) (+ x 1))))
+(assert (> (+ a 0 1 1) 3))
+(assert (> (g (+ 1 1)) (f a)))
+(apply quasi-macros)
