@@ -306,7 +306,8 @@ func (i *factorInvocation) factor(op int32, equality bool, left, right ast.ASTHa
 	}
 	defer func() { err = errors.Join(err, factors.CloseChecked()) }()
 	if err = i.polynomials.Factor(p, factors, i.owner.factorParams); err != nil {
-		return false, ast.ASTRef{}, err
+		// C++ unwinds factor's scoped locals as the exception leaves m_pm.factor.
+		return false, ast.ASTRef{}, errors.Join(err, i.polynomials.CleanupFactor())
 	}
 	count, err := factors.Distinct()
 	if err != nil || count == 0 {

@@ -1,9 +1,11 @@
 package arith
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/math/polynomial"
 	"github.com/glycerine/g3/pkg/tactic"
 )
 
@@ -135,5 +137,45 @@ func TestFactorTacticSkipsNonArithEqualityVariableOrder(t *testing.T) {
 	equationMust(t, err)
 	if head != c {
 		t.Fatal("first factor is not (+ c (- 3)): expr2polynomial saw (= c b)")
+	}
+}
+
+// A resource-limit cancellation inside m_pm.factor unwinds factor's scoped
+// locals in C++, so the per-call polynomial manager closes cleanly. Before
+// the fix the factor frame stayed active, polynomial_manager close refused
+// with ErrNumericPending and its raw memory blocks were reported live.
+func TestFactorTacticCancelInsideFactorReleasesFrame(t *testing.T) {
+	base, m := fixDLFixture(t, false)
+	runner, err := NewFactorTactic(m, base.context, base.globals, nil, base.services)
+	equationMust(t, err)
+	t.Cleanup(func() { equationMust(t, runner.Close()) })
+	x := fixDLConst(t, m, false, "factor-cancel-x")
+	zero := fixDLNumber(t, m, false, "0")
+	one := fixDLNumber(t, m, false, "1")
+	ten := fixDLNumber(t, m, false, "10")
+	// x^4 - 10 x^2 + 1 > 0: irreducible over Q, so factorization does real work.
+	quartic := fixDLApp(t, m, 6, fixDLApp(t, m, 7, fixDLApp(t, m, 9, x, x, x, x), fixDLApp(t, m, 9, ten, x, x)), one)
+	positive := fixDLApp(t, m, factorGT, quartic, zero)
+	canceled := 0
+	for delta := uint32(1); delta <= 2000; delta++ {
+		goal, err := tactic.NewGoal(m, false, false, false)
+		equationMust(t, err)
+		equationMust(t, goal.Assert(positive))
+		var result tactic.TacticResult
+		equationMust(t, m.Limit.Push(delta))
+		err = runner.Apply(goal, &result)
+		m.Limit.Pop()
+		equationMust(t, result.Close())
+		equationMust(t, goal.Close())
+		if err == nil {
+			break
+		}
+		if errors.Is(err, polynomial.ErrPolynomialPending) {
+			t.Fatal("factor cancellation left the polynomial manager pending at limit", delta, err)
+		}
+		canceled++
+	}
+	if canceled == 0 {
+		t.Fatal("no resource limit canceled the factor tactic")
 	}
 }
