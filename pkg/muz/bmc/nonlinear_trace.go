@@ -41,6 +41,10 @@ func (c *Compiler) NonlinearTrace(rules *base.RuleSet, query ast.ASTHandle, leve
 	if err != nil {
 		return nil, err
 	}
+	// nonlinear::get_model prints the model before get_proof.
+	if err = verboseModel(2, md, services); err != nil {
+		return nil, err
+	}
 	if err = c.traceNonlinearRule(rules, evaluator, query, application, level, &result, nil); err != nil {
 		return result, err
 	}
@@ -149,6 +153,13 @@ func (c *Compiler) traceNonlinearRule(rules *base.RuleSet, evaluator *model.Mode
 		return err
 	}
 	*trace = append(*trace, owned)
+	if proofResult == nil {
+		// nonlinear::get_proof: IF_VERBOSE(1, mk_pp(rm.to_formula(r))). The
+		// source walks the rules once; the Go trace walk prints them.
+		if err = c.verboseRuleFormula(selected); err != nil {
+			return err
+		}
+	}
 	tails, err := selected.UninterpretedTailSize()
 	if err != nil {
 		return err

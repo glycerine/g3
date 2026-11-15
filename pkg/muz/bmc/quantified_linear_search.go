@@ -66,6 +66,9 @@ func (c *Compiler) checkQuantifiedLinearWidth(rules *base.RuleSet, query ast.AST
 	if err := attempt.begin(); err != nil {
 		return lbool.Undef, nil, err
 	}
+	if err := verboseLine(1, "bit_width: %d\n", width); err != nil {
+		return lbool.Undef, nil, err
+	}
 	formulas, err := c.CompileQuantifiedLinear(rules, width)
 	if err != nil {
 		return lbool.Undef, nil, err

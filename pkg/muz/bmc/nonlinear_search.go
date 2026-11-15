@@ -22,6 +22,9 @@ func (c *Compiler) SearchNonlinear(rules *base.RuleSet, query ast.ASTHandle, sol
 		return lbool.Undef, 0, err
 	}
 	for level = 0; ; level++ {
+		if err := verboseLine(1, "level: %d\n", level); err != nil {
+			return lbool.Undef, level, err
+		}
 		canceled, err := m.Canceled()
 		if err != nil {
 			return lbool.Undef, level, err

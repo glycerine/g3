@@ -4,6 +4,7 @@ package fp
 
 import (
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -66,7 +67,9 @@ func TestNonlinearBMCWarningMatchesSourceDispatch(t *testing.T) {
 				}
 				got, err := stream.String()
 				fragmentMust(t, err)
-				if got != nonlinearBMCWarning {
+				// At verbosity 2 the search's own IF_VERBOSE lines follow
+				// the warning (AUDIT.md muz_small_01-F6).
+				if level == 0 && got != nonlinearBMCWarning || !strings.HasPrefix(got, nonlinearBMCWarning) {
 					t.Fatalf("verbosity %d warning: got %q, want %q", level, got, nonlinearBMCWarning)
 				}
 			}
@@ -88,8 +91,31 @@ func TestLinearBMCDoesNotEmitNonlinearWarning(t *testing.T) {
 			}
 			got, err := stream.String()
 			fragmentMust(t, err)
-			if got != "" {
+			if strings.Contains(got, nonlinearBMCWarning) {
 				t.Fatal("linear query emitted nonlinear warning", got)
+			}
+		})
+	}
+}
+
+// AUDIT.md muz_small_01-F6: linear::check prints "level: i" and
+// qlinear::check "bit_width: w" at verbosity 1.
+func TestLinearBMCVerboseLevelLines(t *testing.T) {
+	for backend, want := range map[string]string{"bmc": "level: 0\n", "qbmc": "bit_width: 4\n"} {
+		t.Run(backend, func(t *testing.T) {
+			f := newPDRLifecycleFixture(t)
+			fragmentMust(t, f.engine.SelectEngine(backend))
+			stream := installBMCVerboseStream(t, f)
+			fragmentMust(t, diagnostic.SetProcessVerbosityLevel(1))
+			status, err := f.engine.QueryPredicate(f.declarations["q"])
+			fragmentMust(t, err)
+			if status != lbool.True {
+				t.Fatal("linear query", status)
+			}
+			got, err := stream.String()
+			fragmentMust(t, err)
+			if got != want {
+				t.Fatalf("verbose output %q, want %q", got, want)
 			}
 		})
 	}

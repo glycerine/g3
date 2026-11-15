@@ -28,6 +28,9 @@ func (c *Compiler) SearchLinear(rules *base.RuleSet, query ast.ASTHandle, solver
 	}
 	m := c.manager
 	for level = 0; level < maxDepth; level++ {
+		if err = verboseLine(1, "level: %d\n", level); err != nil {
+			return lbool.Undef, level, err
+		}
 		canceled, err := m.Canceled()
 		if err != nil {
 			return lbool.Undef, level, err
