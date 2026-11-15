@@ -50,6 +50,11 @@ var z3BugResults = map[string]string{
 	"z3_bug_duality_quantify_arrays_requery.smt2":       "sat\nunsat\nsat\n",
 	"z3_bug_duality_quantify_arrays_requery_scale.smt2": "sat\n(error \"query failed: theory not supported by interpolation or bad proof\")\nunknown\nsat\n",
 
+	// duality_01-F4 (certificate substitutions of qe-lite-eliminated
+	// variables). The nullary steps print as `err`, not `(err)`: that part
+	// is FUZZ_F-F6, still open.
+	"z3_bug_duality_certificate_eliminated_var.smt2": "sat\n(derivation\n(step s!4 (q0 2)\n rule!1  (subst\n    (= x 2)\n  )\n  (labels  )\n  (ref   ))\n(step s!3 (q0 5)\n rule!2  (subst\n    (= x 2)\n    (= x1 5)\n  )\n  (labels  )\n  (ref  s!4  ))\n(step s!2 err\n rule!3  (subst\n    (= x 5)\n  )\n  (labels  )\n  (ref  s!3  ))\n(step s!1 @Fail!0\n rule!4  (subst\n  )\n  (labels  )\n  (ref  s!2  ))\n)\n(model \n\"@under2 -> false\n@under4 -> false\n@b_2 -> true\n@b_3 -> true\n@b_1 -> true\n@under3 -> false\n@b_4 -> true\n\")\n\n",
+
 	// duality_01-F6 (Build interpolates the leaf-assumption proof)
 	"z3_bug_duality_underapprox_stale_proof.smt2": "sat\n",
 

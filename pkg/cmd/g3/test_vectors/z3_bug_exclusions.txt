@@ -548,3 +548,15 @@ z3_bug_duality_underapprox_flag_literals
 # answers sat. Reproduction:
 # test_vectors/z3_bug_duality_underapprox_stale_proof.smt2.
 z3_bug_duality_underapprox_stale_proof
+#
+# Duality's certificate prints each rule variable as
+# tree->Eval(&edge, skolem). A variable qe-lite eliminated from the edge
+# formula is unconstrained in the counterexample model and prints the model
+# default, so z3 certifies q0(5) by rule!2 with (= x 0) although the rule
+# needs x1 = x + 3 (z3 bug: src/muz/duality/duality_dl_interface.cpp
+# print_proof and extract_proof; Duality was removed upstream without a
+# fix). g3 reconstructs the original-rule witness and prints (= x 2)
+# (pkg/duality/counterexample_display.go, counterexample_proof.go; AUDIT.md
+# duality_01-F4). Reproduction:
+# test_vectors/z3_bug_duality_certificate_eliminated_var.smt2.
+z3_bug_duality_certificate_eliminated_var
