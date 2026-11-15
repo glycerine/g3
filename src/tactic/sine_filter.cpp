@@ -221,6 +221,12 @@ private:
         }
 
         // ok, now we just need to find the connected component of the last term
+        // FORK FIX #80 (g3 audit, see FORK_BUGFIXES.md): an empty goal has no last
+        // term, and a term without uninterpreted symbols has no exp2const entry
+        // (obj_map::operator[] dereferences a missing entry); the second check is
+        // the backport of upstream fcd1f2b3c.
+        if (g->size() == 0)
+            return;
         obj_hashtable<expr> visited;
         ptr_vector<expr> to_visit;
         to_visit.push_back(g->form(g->size() - 1));
@@ -230,6 +236,8 @@ private:
             visiting = to_visit.back();
             to_visit.pop_back();
             visited.insert(visiting);
+            if (!exp2const.contains(visiting))
+                continue;
             obj_hashtable<func_decl>::iterator it = exp2const[visiting].begin();
             obj_hashtable<func_decl>::iterator end = exp2const[visiting].end();
             for (; it != end; it++) {
