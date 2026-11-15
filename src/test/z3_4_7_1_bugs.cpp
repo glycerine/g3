@@ -172,6 +172,11 @@ Abstract:
                                   normalize leaves it undecided, nothing
                                   ever propagates it, and z3 answers sat
                                   on an unsat problem.
+    z3_4_7_1_pb_assert_ge_uninit  theory_pb::assert_ge (the sorting-network
+                                  entry point of tst_theory_pb) builds a
+                                  theory_pb that is never attached to the
+                                  context; its first clause reads the null
+                                  manager and z3 segfaults.
     z3_4_7_1_solver_updt_params   smt_solver::updt_params re-reads
                                   smt_params from the new parameters alone,
                                   so Z3_get_implied_equalities' produce_models
@@ -187,6 +192,8 @@ Abstract:
 #include "ast/pb_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
 #include "smt/smt_kernel.h"
+#include "smt/smt_context.h"
+#include "smt/theory_pb.h"
 #include "smt/params/smt_params.h"
 #include "tactic/tactic.h"
 #include "tactic/goal.h"
@@ -2143,4 +2150,50 @@ void tst_z3_4_7_1_pb_eq_no_args() {
         "(assert (or c b))\n"
         "(check-sat)\n";
     expect_script_output("pb_eq_no_args", script, "unsat\n");
+}
+
+// theory_pb::assert_ge, the test entry point to the pb sorting network,
+// builds a local theory_pb and never calls init on it, so its manager is
+// null. The first clause the network adds calls th.justify, whose
+// proofs_enabled() dereferences that manager, and z3 segfaults: on all
+// four literals false and k = 1, tst_theory_pb crashes right after its
+// fuzz phase. Upstream constructs the theory from the context since
+// becf423c77 ("remove level of indirection for context and ast_manager
+// in smt_theory"). Mirrors the N = 4 rounds of tst_theory_pb.
+void tst_z3_4_7_1_pb_assert_ge_uninit() {
+    ast_manager m;
+    smt_params params;
+    params.m_model = true;
+    reg_decl_plugins(m);
+    unsigned const N = 4;
+    for (unsigned i = 0; i < (1u << N); ++i) {
+        smt::literal_vector lits(N, smt::false_literal);
+        unsigned k = 0;
+        for (unsigned j = 0; j < N; ++j) {
+            if (i & (1u << j)) {
+                lits[j] = smt::true_literal;
+                ++k;
+            }
+        }
+        {
+            smt::context ctx(m, params);
+            ctx.push();
+            smt::literal l = smt::theory_pb::assert_ge(ctx, k + 1, lits.size(), lits.c_ptr());
+            if (l != smt::false_literal) {
+                ctx.assign(l, nullptr, false);
+                ENSURE(l_false == ctx.check());
+            }
+            ctx.pop(1);
+        }
+        {
+            smt::context ctx(m, params);
+            ctx.push();
+            smt::literal l = smt::theory_pb::assert_ge(ctx, k, lits.size(), lits.c_ptr());
+            ENSURE(l != smt::false_literal);
+            ctx.assign(l, nullptr, false);
+            ENSURE(l_true == ctx.check());
+            ctx.pop(1);
+        }
+    }
+    std::cout << "pb_assert_ge_uninit: PASS\n";
 }

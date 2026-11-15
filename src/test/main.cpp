@@ -267,6 +267,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_pb_simplex_pop);
     TST(z3_4_7_1_solver_updt_params);
     TST(z3_4_7_1_pb_eq_no_args);
+    TST(z3_4_7_1_pb_assert_ge_uninit);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);
