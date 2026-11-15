@@ -22,11 +22,13 @@ type Statistics struct {
 }
 
 type Node struct {
-	manager     *Core
-	vector      *rel.TBV
-	children    []*Node
-	id          uint32
-	descendants map[uint32]struct{}
+	manager  *Core
+	vector   *rel.TBV
+	children []*Node
+	id       uint32
+	// descendants is ddnf_node::m_descendants, a ptr_hashtable keyed by
+	// the tbv hash; its slot order is the order lookup's callers see.
+	descendants *nodeHashtable
 }
 
 func (n *Node) ID() uint32 { return n.id }
@@ -418,11 +420,17 @@ func (c *Core) internalize() error {
 		if !allDone {
 			continue
 		}
-		node.descendants = make(map[uint32]struct{})
-		node.descendants[node.id] = struct{}{}
+		// n.descendants().insert(&n); add_table(n.descendants(),
+		// child->descendants()) for each child, in slot order.
+		node.descendants = newNodeHashtable()
+		if err := node.descendants.insert(c, node); err != nil {
+			return err
+		}
 		for _, child := range node.children {
-			for id := range child.descendants {
-				node.descendants[id] = struct{}{}
+			for _, member := range child.descendants.members() {
+				if err := node.descendants.insert(c, member); err != nil {
+					return err
+				}
 			}
 		}
 		done[node.id] = true
@@ -432,8 +440,8 @@ func (c *Core) internalize() error {
 	return nil
 }
 
-// descendants retains ddnf_mgr::lookup for the later AST engine slice. The
-// source lookup freezes insertion; results are returned in stable node-ID order.
+// descendants is ddnf_mgr::lookup: the node's m_descendants in the
+// ptr_hashtable's slot order (compile_eq's disjunct order).
 func (c *Core) descendants(vector *rel.TBV) ([]*Node, error) {
 	if err := c.internalize(); err != nil {
 		return nil, err
@@ -442,13 +450,7 @@ func (c *Core) descendants(vector *rel.TBV) ([]*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	result := make([]*Node, 0, len(node.descendants))
-	for _, candidate := range c.nodes {
-		if _, found := node.descendants[candidate.id]; found {
-			result = append(result, candidate)
-		}
-	}
-	return result, nil
+	return node.descendants.members(), nil
 }
 
 func (c *Core) Display() (string, error) {

@@ -108,6 +108,9 @@ var verboseProgressCases = []verboseProgressCase{
 	// (ddnf.compile) and the level-15 node display.
 	{"ddnf_v10", "ddnf", []string{"-v:10", "fixedpoint.engine=ddnf"}},
 	{"ddnf_v15", "ddnf", []string{"-v:15", "fixedpoint.engine=ddnf"}},
+	// compile_eq's (or (= w id) ...) follows the ptr_hashtable of the
+	// node's descendants (level-20 rule display).
+	{"ddnf_v20", "ddnf", []string{"-v:20", "fixedpoint.engine=ddnf"}},
 }
 
 // verboseProgressFiltered keeps, for each case, only the lines starting
