@@ -1,0 +1,6 @@
+(declare-fun f (Int) Int)
+(declare-const x Int)
+(assert (> x 1))
+(assert (forall ((y Int)) (> (* y y y (f y)) 123456789)))
+(apply (fail-if (> arith-max-bw 5)))
+(apply (fail-if (> arith-max-deg 1)))

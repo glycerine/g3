@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_arith_03-F6: arith-max-bw/arith-max-deg walk quantifier
+	// bodies (for_each_expr_at).
+	"probe_arith_quantified_stats.smt2": "(error \"tactic failed: fail-if tactic\")\n(error \"tactic failed: fail-if tactic\")\n",
 	// AUDIT.md tactic_bv_01-F3: bv1-blast's model converter walks
 	// m_const2bits in obj_map order.
 	"bv1_blast_model_order.smt2": "sat\n(model \n  (define-fun e () (_ BitVec 4)\n    #x2)\n  (define-fun c () (_ BitVec 4)\n    #xc)\n  (define-fun d () (_ BitVec 4)\n    #x1)\n  (define-fun b () (_ BitVec 4)\n    #x4)\n  (define-fun a () (_ BitVec 4)\n    #x4)\n)\n",
