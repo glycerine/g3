@@ -167,9 +167,7 @@ func TestDualityImplicantSolverReassertsStoreNamesAfterPop(t *testing.T) {
 	cube, err := aux.GetImplicant()
 	must(err)
 	defer cube.Close()
-	if raw(cube) != raw(formula) {
-		t.Fatal("full cube did not undo store name")
-	}
+	requireConjoin(t, m, raw(cube), raw(formula))
 	must(aux.Pop())
 	assertions, err := native.NumAssertions()
 	must(err)

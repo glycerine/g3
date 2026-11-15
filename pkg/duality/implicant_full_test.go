@@ -75,9 +75,7 @@ func TestDualityFullImplicantAllBranchesAndSourceAtomOrder(t *testing.T) {
 		t.Fatal("direct implicant incorrectly recorded outer timer")
 	}
 	defer branch.Close()
-	if raw(branch) != ph {
-		t.Fatal("satisfying-branch reference changed")
-	}
+	requireConjoin(t, m, raw(branch), ph)
 	must(s.Push())
 	must(s.Assert(raw(out)))
 	must(s.Assert(qh))
@@ -91,9 +89,7 @@ func TestDualityFullImplicantAllBranchesAndSourceAtomOrder(t *testing.T) {
 	unknown, err := g.UnderapproxFullFormula(numeral, true)
 	must(err)
 	defer unknown.Close()
-	if !m.IsTrue(raw(unknown)) {
-		t.Fatal("unresolved non-Boolean value was included")
-	}
+	requireConjoin(t, m, raw(unknown))
 }
 
 func TestDualityFullImplicantArrayEqualityFiltering(t *testing.T) {
@@ -139,22 +135,16 @@ func TestDualityFullImplicantArrayEqualityFiltering(t *testing.T) {
 	for _, extensional := range []bool{false, true} {
 		accepted, err := g.UnderapproxFullFormula(equal, extensional)
 		must(err)
-		if raw(accepted) != raw(equal) {
-			t.Fatal("identical model arrays omitted")
-		}
+		requireConjoin(t, m, raw(accepted), raw(equal))
 		must(accepted.Close())
 		omitted, err := g.UnderapproxFullFormula(different, extensional)
 		must(err)
-		if !m.IsTrue(raw(omitted)) {
-			t.Fatal("false array equality included in full cube")
-		}
+		requireConjoin(t, m, raw(omitted))
 		must(omitted.Close())
 		negative := wrap(m.MkNot(raw(different)))
 		omitted, err = g.UnderapproxFullFormula(negative, extensional)
 		must(err)
-		if !m.IsTrue(raw(omitted)) {
-			t.Fatal("negation traversal bypassed array filtering")
-		}
+		requireConjoin(t, m, raw(omitted))
 		must(omitted.Close())
 	}
 }

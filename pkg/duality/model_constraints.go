@@ -138,14 +138,8 @@ func (g *RPFP) EvalNodeAsConstraint(node *Node) (out *Transformer, result error)
 		memo[indexed] = original
 	}
 	var combined ast.ASTHandle
-	switch len(constraints) {
-	case 0:
-		combined, err = m.MkTrue()
-	case 1:
-		combined = constraints[0]
-	default:
-		combined, err = m.MkAndArgs(constraints)
-	}
+	// Z3User::conjoin is ctx.make(And,args): (and) and (and x) included.
+	combined, err = m.MkAndArgs(constraints)
 	if err != nil {
 		return nil, err
 	}
@@ -226,14 +220,8 @@ func (g *RPFP) modelArrayEntriesAsConstraint(h ast.ASTHandle, finite arrayModelV
 		constraints = append(constraints, eh)
 	}
 	var combined ast.ASTHandle
-	switch len(constraints) {
-	case 0:
-		combined, err = m.MkTrue()
-	case 1:
-		combined = constraints[0]
-	default:
-		combined, err = m.MkAndArgs(constraints)
-	}
+	// Z3User::conjoin is ctx.make(And,args): (and) and (and x) included.
+	combined, err = m.MkAndArgs(constraints)
 	if err != nil {
 		return nil, err
 	}

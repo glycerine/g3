@@ -84,14 +84,8 @@ func (g *RPFP) UnderapproxFormula(formula *Expr, dontCares []*Expr) (out *Expr, 
 	}
 	m := g.context.manager
 	var combined ast.ASTHandle
-	switch len(state.literals) {
-	case 0:
-		combined, err = m.MkTrue()
-	case 1:
-		combined = state.literals[0]
-	default:
-		combined, err = m.MkAndArgs(state.literals)
-	}
+	// Z3User::conjoin is ctx.make(And,args): (and) and (and x) included.
+	combined, err = m.MkAndArgs(state.literals)
 	if err != nil {
 		return nil, err
 	}

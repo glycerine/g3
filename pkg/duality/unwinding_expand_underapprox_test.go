@@ -149,9 +149,10 @@ func TestDualityExpandUnderapproxNodesNativeRecursiveAndFailurePaths(t *testing.
 			defer bound.Close()
 			raw, err := bound.Raw()
 			must(err)
-			yes, err := m.MkTrue()
+			// EvalNodeAsConstraint conjoins no constraints: (not (and)).
+			empty, err := m.MkAndArgs(nil)
 			must(err)
-			want, err := m.MkNot(yes)
+			want, err := m.MkNot(empty)
 			must(err)
 			if raw != want {
 				t.Fatal("source model-state bound not left installed")

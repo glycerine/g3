@@ -79,9 +79,7 @@ func TestRPFPModelConstraintsRenameWithoutScalarCompletion(t *testing.T) {
 	must(err)
 	expected, err := m.MkEq(xh, truth)
 	must(err)
-	if raw != expected {
-		t.Fatal("model constraint failed to rename indexed parameter", raw, expected)
-	}
+	requireConjoin(t, m, raw, expected)
 	after, err := g.dualModel.ConstantInterpretation(missingDecl)
 	must(err)
 	if !after.IsNull() {
@@ -124,9 +122,7 @@ func TestRPFPModelConstraintsZeroArityWithoutModel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !m.IsTrue(raw) {
-		t.Fatal("zero-arity state should have no constraints")
-	}
+	requireConjoin(t, m, raw)
 }
 
 func TestRPFPModelConstraintsArrayEntriesOmitDefault(t *testing.T) {
@@ -200,9 +196,7 @@ func TestRPFPModelConstraintsArrayEntriesOmitDefault(t *testing.T) {
 	expected := pin(m.MkEq(selected, two))
 	raw, err := constraint.Raw()
 	must(err)
-	if raw != expected {
-		t.Fatal("array constraint must contain only explicit table entry", raw, expected)
-	}
+	requireConjoin(t, m, raw, expected)
 
 	// Keep explicit rows even when a row equals the default; only the default
 	// itself is omitted. Exercise conjunction and empty-table construction too.
@@ -224,9 +218,7 @@ func TestRPFPModelConstraintsArrayEntriesOmitDefault(t *testing.T) {
 	defer empty.Close()
 	raw, err = empty.Raw()
 	must(err)
-	if !m.IsTrue(raw) {
-		t.Fatal("empty table should add no constraint")
-	}
+	requireConjoin(t, m, raw)
 	// Constant arrays are not a representation recognized by source EvalArrayTerm.
 	constant := pin(m.MkConstArray(arraySort, zero))
 	must(g.dualModel.RegisterConstant(declaration, constant))

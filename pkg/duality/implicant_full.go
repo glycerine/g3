@@ -180,14 +180,8 @@ func (g *RPFP) UnderapproxFullFormula(formula *Expr, extensional bool) (out *Exp
 		return nil, err
 	}
 	var combined ast.ASTHandle
-	switch len(literals) {
-	case 0:
-		combined, err = m.MkTrue()
-	case 1:
-		combined = literals[0]
-	default:
-		combined, err = m.MkAndArgs(literals)
-	}
+	// Z3User::conjoin is ctx.make(And,args): (and) and (and x) included.
+	combined, err = m.MkAndArgs(literals)
 	if err != nil {
 		return nil, err
 	}

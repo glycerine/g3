@@ -56,13 +56,17 @@ func TestRPFPImplicantSourceOrderPolarityAndITE(t *testing.T) {
 		closeExpr(t, out)
 		return out
 	}
+	// same checks a single selected literal, or none for true:
+	// conjoin builds (and lit) and (and).
 	same := func(out *Expr, want ast.ASTHandle) {
 		t.Helper()
 		got, err := out.Raw()
 		must(err)
-		if got != want {
-			t.Fatal("unexpected source literal selection", got, want)
+		if m.IsTrue(want) {
+			requireConjoin(t, m, got)
+			return
 		}
+		requireConjoin(t, m, got, want)
 	}
 	profile := NewProfiler(nil)
 	var tick int64
@@ -278,9 +282,7 @@ func TestRPFPFixCurrentStateScopes(t *testing.T) {
 	must(err)
 	ph, err := p.Raw()
 	must(err)
-	if selected != ph {
-		t.Fatal("consequent-first decision not selected")
-	}
+	requireConjoin(t, m, selected, ph)
 	np, err := p.Not()
 	must(err)
 	closeExpr(t, np)
@@ -310,8 +312,43 @@ func TestRPFPFixCurrentStateScopes(t *testing.T) {
 	}
 	openDecision, err := m.RefGet(edge.constraints[0])
 	must(err)
-	if !m.IsTrue(openDecision) {
-		t.Fatal("null edge formula did not select true")
-	}
+	// The null edge's dual is true; ImplicantRed records the literal true,
+	// so conjoin gives (and true).
+	yes, err := m.MkTrue()
+	must(err)
+	requireConjoin(t, m, openDecision, yes)
 	must(g.Pop(1))
+}
+
+// requireConjoin checks that h is Z3User::conjoin(want): an `and` application
+// with exactly the given arguments, including (and) and (and x).
+func requireConjoin(t *testing.T, m *ast.ASTManager, h ast.ASTHandle, want ...ast.ASTHandle) {
+	t.Helper()
+	family, err := m.GetFamilyID(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	op, err := m.GetDeclKind(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if family != m.BasicFamilyID() || op != ast.ASTOpAnd {
+		t.Fatal("not a conjoin result", h)
+	}
+	n, err := m.GetNumArgs(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if int(n) != len(want) {
+		t.Fatal("conjoin argument count", n, len(want))
+	}
+	for i, w := range want {
+		arg, err := m.GetArg(h, uint32(i))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if arg != w {
+			t.Fatal("conjoin argument", i, arg, w)
+		}
+	}
 }

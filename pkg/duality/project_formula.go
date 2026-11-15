@@ -64,14 +64,8 @@ func (g *RPFP) ProjectFormula(keep []*Expr, formula *Expr, simplifier *interp.Ma
 		}
 	}
 	var h ast.ASTHandle
-	switch len(args) {
-	case 0:
-		h, err = m.MkTrue()
-	case 1:
-		h = args[0]
-	default:
-		h, err = m.MkAndArgs(args)
-	}
+	// Z3User::conjoin is ctx.make(And,args): (and) and (and x) included.
+	h, err = m.MkAndArgs(args)
 	if err != nil {
 		return nil, err
 	}
