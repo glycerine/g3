@@ -70,12 +70,16 @@ func TestEdgeSolverPoolFirstCreationFlagsAxiomsAndCacheIsolation(t *testing.T) {
 	if status != lbool.True {
 		t.Fatal("first solver axioms", status)
 	}
+	// Duality::solver leaves the "model" parameter at its default (true)
+	// when models is false, and smt_solver_factory ignores models_enabled,
+	// so the C++ smt solver still builds a model (duality_wrapper.cpp:40-55;
+	// AUDIT.md smtcore_03-F10 follow-up, 550f5ecbf).
 	md, err := firstScope.Solver.AcquireModel()
 	must(err)
-	if md != nil {
-		must(md.DecRef())
-		t.Fatal("model flag changed on cached lookup")
+	if md == nil {
+		t.Fatal("smt edge solver produced no model")
 	}
+	must(md.DecRef())
 	one, err := firstScope.Assumptions.GetAssumptionLits(p, nil)
 	must(err)
 	must(firstScope.Close())
