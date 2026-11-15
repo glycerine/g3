@@ -148,13 +148,16 @@ func (s *nlqSearch) projectCube(core []sat.Literal, projectionLevel uint32) (lev
 		if err = current.Literals(&values); err != nil {
 			return level, nil, err
 		}
-		for _, literal := range values {
-			value, cause := s.solver.LiteralValue(literal)
+		// explain::project's DEBUG_CODE SASSERT(m_solver.value(ls[i]) ==
+		// l_true): debug builds only, since value() evaluates the atom and
+		// charges resource steps.
+		for i := 0; ast.ASTSourceDebug && i < len(values); i++ {
+			value, cause := s.solver.LiteralValue(values[i])
 			if cause != nil {
-				return level, nil, fmt.Errorf("read projection literal %v: %w", literal, cause)
+				return level, nil, fmt.Errorf("read projection literal %v: %w", values[i], cause)
 			}
 			if value != lbool.True {
-				return level, nil, fmt.Errorf("projection literal %v has model value %v: %w", literal, value, arena.ErrConfig)
+				return level, nil, fmt.Errorf("projection literal %v has model value %v: %w", values[i], value, arena.ErrConfig)
 			}
 		}
 		if err = s.solver.Project(variables[i-1], values, next); err != nil {

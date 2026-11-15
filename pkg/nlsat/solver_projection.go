@@ -56,14 +56,19 @@ func (s *Solver) Project(variable uint32, literals []sat.Literal, result *Litera
 	independent := make([]sat.Literal, 0, len(literals))
 	variables := make([]uint32, 0, 4)
 	for _, literal := range literals {
-		value, cause := s.LiteralValue(literal)
-		if cause != nil {
-			return cause
+		// DEBUG_CODE(SASSERT(m_solver.value(ls[i]) == l_true)): value()
+		// evaluates the atom and charges resource steps, so release builds
+		// skip it as the source does.
+		if nlsatSourceDebug {
+			value, cause := s.LiteralValue(literal)
+			if cause != nil {
+				return cause
+			}
+			if value != lbool.True {
+				return arena.ErrConfig
+			}
 		}
-		if value != lbool.True {
-			return arena.ErrConfig
-		}
-		if cause = s.LiteralVariables(literal, &variables); cause != nil {
+		if cause := s.LiteralVariables(literal, &variables); cause != nil {
 			return cause
 		}
 		if literalContainsVariable(variables, variable) {

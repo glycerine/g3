@@ -354,12 +354,16 @@ func (q *searchResolution) processAntecedent(antecedent sat.Literal) error {
 		return err
 	}
 	if assigned == lbool.Undef {
-		value, err := r.valueCore(antecedent)
-		if err != nil {
-			return err
-		}
-		if err = atomAssert("nlsat_solver.cpp", 1458, "value(antecedent) == l_false", value == lbool.False); err != nil {
-			return err
+		// SASSERT(value(antecedent) == l_false): value() evaluates the atom
+		// and charges resource steps, so only debug builds run it.
+		if nlsatSourceDebug {
+			value, err := r.valueCore(antecedent)
+			if err != nil {
+				return err
+			}
+			if err = atomAssert("nlsat_solver.cpp", 1458, "value(antecedent) == l_false", value == lbool.False); err != nil {
+				return err
+			}
 		}
 		if q.marked(b) {
 			return nil
@@ -423,12 +427,16 @@ func (q *searchResolution) onlyPreviousStages(literals []sat.Literal) (bool, err
 func (q *searchResolution) maxScopeLevel(literals []sat.Literal) (uint32, error) {
 	var max uint32
 	for _, literal := range literals {
-		value, err := q.search.valueCore(literal)
-		if err != nil {
-			return 0, err
-		}
-		if err = atomAssert("nlsat_solver.cpp", 1565, "value(ls[i]) == l_false", value == lbool.False); err != nil {
-			return 0, err
+		// SASSERT(value(ls[i]) == l_false): debug builds only (see
+		// processAntecedent).
+		if nlsatSourceDebug {
+			value, err := q.search.valueCore(literal)
+			if err != nil {
+				return 0, err
+			}
+			if err = atomAssert("nlsat_solver.cpp", 1565, "value(ls[i]) == l_false", value == lbool.False); err != nil {
+				return 0, err
+			}
 		}
 		assigned, err := q.search.assignedValue(literal)
 		if err != nil {
@@ -472,15 +480,19 @@ func (q *searchResolution) removeLiteralsFromLevel(lemma *scopedLiteralVector, l
 		if !marked {
 			return arena.ErrConfig
 		}
-		value, err := q.search.valueCore(literal)
-		if err != nil {
-			return err
-		}
-		if err = atomAssert("nlsat_solver.cpp", 1595, "value(lemma[i]) == l_false", value == lbool.False); err != nil {
-			return err
-		}
-		if value != lbool.False {
-			return arena.ErrConfig
+		// SASSERT(value(lemma[i]) == l_false): debug builds only (see
+		// processAntecedent).
+		if nlsatSourceDebug {
+			value, err := q.search.valueCore(literal)
+			if err != nil {
+				return err
+			}
+			if err = atomAssert("nlsat_solver.cpp", 1595, "value(lemma[i]) == l_false", value == lbool.False); err != nil {
+				return err
+			}
+			if value != lbool.False {
+				return arena.ErrConfig
+			}
 		}
 		assigned, err := q.search.assignedValue(literal)
 		if err != nil {
