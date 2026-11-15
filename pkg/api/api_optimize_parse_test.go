@@ -55,3 +55,46 @@ func TestAPIOptimizeParsedCommandsUseSuppliedOptimizer(t *testing.T) {
 		t.Fatal("parsed maximize objective", objective, err)
 	}
 }
+
+// AUDIT api_02-F2: Z3_optimize_from_file dispatches on get_extension and
+// loads .opb and .wcnf files with parse_opb / parse_wcnf. The counts are
+// what build/libz3.so reports for the same files.
+func TestAPIOptimizeParseFileDispatchesOPBAndWCNF(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, text string) string {
+		path := filepath.Join(dir, name)
+		astTestMust(t, os.WriteFile(path, []byte(text), 0o600))
+		return path
+	}
+	counts := func(o *APIOptimize, label string, assertions int, objectives uint32) {
+		t.Helper()
+		a, err := o.Assertions()
+		astTestMust(t, err)
+		n, err := o.NumObjectives()
+		astTestMust(t, err)
+		if len(a) != assertions || n != objectives {
+			t.Fatalf("%s: assertions=%d objectives=%d, want %d and %d", label, len(a), n, assertions, objectives)
+		}
+	}
+	opb := write("p.opb", "min: 1 x1 +2 x2;\n1 x1 +1 x2 >= 1;\n")
+	f := newAPIOptimizeFixture(t)
+	astTestMust(t, f.opt.ParseFile(opb))
+	counts(f.opt, "opb", 1, 1)
+	if status, err := f.opt.Check(); err != nil || status != lbool.True {
+		t.Fatal("opb check", status, err)
+	}
+
+	hard := newAPIOptimizeFixture(t)
+	astTestMust(t, hard.opt.ParseFile(write("w.wcnf", "p wcnf 1 1 5\n5 1 0\n")))
+	counts(hard.opt, "wcnf top-weight clause", 1, 0)
+
+	soft := newAPIOptimizeFixture(t)
+	astTestMust(t, soft.opt.ParseFile(write("w2.wcnf", "p wcnf 2 3 10\n10 1 2 0\n3 -1 0\n4 -2 0\n")))
+	counts(soft.opt, "wcnf", 1, 1)
+	if objective, err := soft.opt.Objective(0); err != nil || !objective.Soft {
+		t.Fatal("wcnf soft objective", objective, err)
+	}
+	if status, err := soft.opt.Check(); err != nil || status != lbool.True {
+		t.Fatal("wcnf check", status, err)
+	}
+}
