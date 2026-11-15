@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -171,12 +172,66 @@ func (t *SMTDenseDiffTheory) term(expression ast.ASTHandle) (SMTTheoryVar, error
 	return v, nil
 }
 
+// foundNonDiffLogicExpr is theory_dense_diff_logic<Ext>::found_non_diff_logic_expr.
+func (t *SMTDenseDiffTheory) foundNonDiffLogicExpr(n ast.ASTHandle) error {
+	if t.unsupported {
+		return nil
+	}
+	state, err := t.State()
+	if err != nil {
+		return err
+	}
+	if smtTraceEnabled("non_diff_logic") {
+		var body string
+		tracePPTo(state.manager, n, func(text string) { body = text })
+		emitSMTTrace("non_diff_logic", "found_non_diff_logic_expr", "src/smt/theory_dense_diff_logic_def.h", 128,
+			"found non diff logic expression:\n"+body+"\n")
+	}
+	// IF_VERBOSE(0, verbose_stream() << "(smt.diff_logic: non-diff logic
+	// expression " << mk_pp(n, get_manager()) << ")\n";)
+	enabled, err := diagnostic.ProcessVerboseEnabled(0)
+	if err != nil {
+		return err
+	}
+	if enabled {
+		stream, err := diagnostic.BorrowProcessVerboseStream()
+		if err != nil {
+			return err
+		}
+		if err = stream.AppendCString("(smt.diff_logic: non-diff logic expression "); err != nil {
+			return err
+		}
+		var writeErr error
+		tracePPTo(state.manager, n, func(text string) {
+			if writeErr == nil {
+				writeErr = stream.AppendCString(text)
+			}
+		})
+		if writeErr != nil {
+			return writeErr
+		}
+		if err = stream.AppendCString(")\n"); err != nil {
+			return err
+		}
+		if err = stream.Flush(); err != nil {
+			return err
+		}
+	}
+	t.unsupported = true
+	return nil
+}
+
 func (t *SMTDenseDiffTheory) InternalizeTerm(expression ast.ASTHandle) (bool, error) {
 	v, err := t.term(expression)
-	if v == SMTNullTheoryVar {
-		t.unsupported = true
+	if err != nil {
+		return false, err
 	}
-	return v != SMTNullTheoryVar, err
+	if v == SMTNullTheoryVar {
+		if err = t.foundNonDiffLogicExpr(expression); err != nil {
+			return false, err
+		}
+	}
+	return v != SMTNullTheoryVar, nil
 }
 
 func (*SMTDenseDiffTheory) ApplySortConstraint(*SMTEnode, ast.ASTHandle) error { return nil }
@@ -248,9 +303,7 @@ func (t *SMTDenseDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (
 			return false, err
 		}
 		if arithmetic {
-			// found_non_diff_logic_expr(n)
-			t.unsupported = true
-			return false, nil
+			return false, t.foundNonDiffLogicExpr(expression)
 		}
 		// !is_arith_expr(lhs): s = mk_zero_for(t)
 		zero, err := t.denseZeroFor(lhs)
@@ -268,8 +321,7 @@ func (t *SMTDenseDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (
 		return false, err
 	}
 	if s == SMTNullTheoryVar || u == SMTNullTheoryVar {
-		t.unsupported = true
-		return false, nil
+		return false, t.foundNonDiffLogicExpr(expression)
 	}
 	weight := newSMTInfRational(bound, nil)
 	if op == smtArithOpGE {

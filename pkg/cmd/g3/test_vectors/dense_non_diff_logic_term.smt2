@@ -1,0 +1,7 @@
+(set-option :smt.auto_config false)
+(set-option :smt.arith.solver 3)
+(declare-const x Int)
+(declare-const y Int)
+(declare-fun f (Int) Int)
+(assert (<= (- (f (* 2 x)) y) 3))
+(check-sat)

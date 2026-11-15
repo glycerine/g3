@@ -125,3 +125,27 @@ func TestSMTDenseTheoryPropagationConflictAndScope(t *testing.T) {
 		})
 	}
 }
+
+// AUDIT.md smtcore_10-F7: found_non_diff_logic_expr prints the verbosity-0
+// "(smt.diff_logic: non-diff logic expression ...)" line once.
+func TestSMTDenseDifferenceNonDiffLogicVerboseLine(t *testing.T) {
+	f := newSMTDenseEqualityFixture(t, true, SMTArithState{})
+	out := smtAssertedVerboseFixture(t, 0)
+	two, err := f.manager.ArithmeticNumeralRat(big.NewRat(2, 1), true)
+	astTestMust(t, err)
+	product, err := f.manager.MkFamilyApp(f.family, smtArithOpMul, nil, []ast.ASTHandle{two, f.x})
+	astTestMust(t, err)
+	astTestPin(t, f.manager, product)
+	for i := 0; i < 2; i++ {
+		ok, err := f.theory.InternalizeTerm(product)
+		astTestMust(t, err)
+		if ok || !f.theory.unsupported {
+			t.Fatal("(* 2 x) is not a difference-logic term")
+		}
+	}
+	got, err := out.String()
+	astTestMust(t, err)
+	if want := "(smt.diff_logic: non-diff logic expression (* 2 dense-equality-x))\n"; got != want {
+		t.Fatalf("verbose output %q, want %q", got, want)
+	}
+}
