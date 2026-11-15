@@ -1016,3 +1016,37 @@ void tst_z3_4_7_1_nlsat_signed_infinity() {
         nlsat_signed_project_check("nlsat_signed_infinity minus", s, x1, lits, result);
     }
 }
+
+// (x0)(x1) > 0 at x0 = x1 = 50000. evaluator::eval_ineq multiplies the
+// values eval_sign returns, which are the raw numerators of the factor
+// values, in a 32-bit int: 50000 * 50000 wraps to a negative number and the
+// atom evaluates to false (fixed upstream in f79dccccf and 6071797ba, "fix
+// #2238", which normalize eval_sign to -1, 0, 1).
+void tst_z3_4_7_1_nlsat_eval_sign_overflow() {
+    params_ref ps;
+    reslimit rlim;
+    nlsat::solver s(rlim, ps, false);
+    nlsat::pmanager& pm = s.pm();
+    nlsat::var x0 = s.mk_var(false);
+    nlsat::var x1 = s.mk_var(false);
+    polynomial_ref _x0(pm), _x1(pm);
+    _x0 = pm.mk_polynomial(x0);
+    _x1 = pm.mk_polynomial(x1);
+    nlsat::poly* factors[2] = { _x0.get(), _x1.get() };
+    bool is_even[2] = { false, false };
+    nlsat::scoped_literal_vector lits(s);
+    lits.push_back(s.mk_ineq_literal(nlsat::atom::GT, 2, factors, is_even));
+    lits.push_back(s.mk_ineq_literal(nlsat::atom::LT, 2, factors, is_even));
+    nlsat::assignment as(s.am());
+    nlsat_set_value(s, as, x0, 50000);
+    nlsat_set_value(s, as, x1, 50000);
+    s.set_rvalues(as);
+    lbool gt = s.value(lits[0]);
+    lbool lt = s.value(lits[1]);
+    s.display(std::cout << "nlsat_eval_sign_overflow: ", lits[0]);
+    std::cout << " := " << gt << ", ";
+    s.display(std::cout, lits[1]);
+    std::cout << " := " << lt << " at x0 = x1 = 50000\n";
+    ENSURE(gt == l_true);
+    ENSURE(lt == l_false);
+}

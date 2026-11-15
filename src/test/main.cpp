@@ -234,6 +234,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_min_cut_shared_node);
     TST(z3_4_7_1_qi_weakening_proof);
     TST(z3_4_7_1_nlsat_signed_infinity);
+    TST(z3_4_7_1_nlsat_eval_sign_overflow);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);
