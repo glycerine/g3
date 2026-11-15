@@ -556,7 +556,10 @@ func (p *PredicateTransformer) PropagateToNextLevel(level uint32) (bool, error) 
 	if err := p.open(); err != nil {
 		return false, err
 	}
-	p.propagations++
+	// pred_transformer::propagate_to_next_level delegates to
+	// frames::propagate_to_next_level, which never increments
+	// m_stats.m_num_propagations (only the unused legacy frames do), so
+	// "SPACER num propagations" stays 0.
 	return p.frames.PropagateToNextLevel(level)
 }
 

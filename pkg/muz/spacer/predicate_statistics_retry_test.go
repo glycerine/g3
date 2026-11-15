@@ -55,3 +55,22 @@ func TestSpacerPredicateStatisticsRetryDoesNotDuplicatePartialCounters(t *testin
 	}
 	depthMust(t, p.mustReachableWatch.Stop())
 }
+
+// AUDIT.md muz_spacer_01-F4: the live C++ frames never increment
+// m_num_propagations, so the counter stays 0 (and is not printed).
+func TestSpacerPropagationCounterStaysZero(t *testing.T) {
+	f := newContextAnswerFixture(t, false)
+	p := f.context.transformers[f.query]
+	for level := uint32(0); level < 3; level++ {
+		if _, err := p.PropagateToNextLevel(level); err != nil {
+			t.Fatal(err)
+		}
+	}
+	destination := statistics.New()
+	depthMust(t, p.CollectStatistics(destination))
+	for i := 0; i < destination.Size(); i++ {
+		if destination.Key(i) == "SPACER num propagations" && destination.IsUint(i) && destination.UintValue(i) != 0 {
+			t.Fatal("SPACER num propagations counted calls", destination.UintValue(i))
+		}
+	}
+}
