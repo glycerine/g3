@@ -123,6 +123,10 @@ Abstract:
                                   generate_proof_trace: the rules carry no
                                   proofs and the PDR proof trace segfaults
                                   (pkg/AUDIT.md muz_pdr_02-F2).
+    z3_4_7_1_pdr_proof_merged_tails the PDR proof trace resolves a child whose
+                                  tail remove_duplicate_tails merged away
+                                  against a stale unifier (pkg/AUDIT.md
+                                  muz_pdr_02-F2).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -1690,4 +1694,43 @@ void tst_z3_4_7_1_pdr_boogie_without_proof_trace() {
         "(step\n s!2 (inv 2)\n null\n (subst\n  (= B 0)\n  (= A 1))\n (labels)\n (ref s!1)\n)\n"
         "(step\n s!3 query!0\n null\n (subst\n  (= B 0)\n  (= A 1))\n (labels)\n (ref s!2)\n)\n"
         ")\n\n");
+}
+
+// PDR proof trace for G :- P(x), Q(x), Q(0), R(y). Once P(0) is resolved,
+// Q(x) becomes Q(0) and remove_duplicate_tails merges it with the other
+// Q(0) tail, so the rule has one tail fewer than the node has children.
+// get_proof_trace always unifies tail 0 with the next child; for the merged
+// child that fails and z3 went on with the stale unifier, building a
+// hyper-resolution over a garbled rule. The merged child's premise must be
+// left out. pkg/AUDIT.md muz_pdr_02-F2.
+void tst_z3_4_7_1_pdr_proof_merged_tails() {
+    char const* script =
+        "(set-option :fixedpoint.engine pdr)\n"
+        "(set-option :fixedpoint.generate_proof_trace true)\n"
+        "(set-option :fixedpoint.xform.inline_eager false)\n"
+        "(set-option :fixedpoint.xform.inline_linear false)\n"
+        "(set-option :fixedpoint.xform.subsumption_checker false)\n"
+        "(declare-rel P (Int))\n"
+        "(declare-rel Q (Int))\n"
+        "(declare-rel R (Int))\n"
+        "(declare-rel G ())\n"
+        "(declare-var x Int)\n"
+        "(declare-var y Int)\n"
+        "(rule (P 0))\n"
+        "(rule (Q 0))\n"
+        "(rule (R y))\n"
+        "(rule (=> (and (P x) (Q x) (Q 0) (R y)) G))\n"
+        "(query G :print-certificate true)\n";
+    expect_script_output("pdr_proof_merged_tails", script,
+        "sat\n"
+        "(let ((a!1 (forall ((x Int) (y Int)) (=> (and (P x) (Q x) (Q 0) (R y)) G)))\n"
+        "      (a!2 (forall ((A Int) (B Int)) (=> (and (R B) (P A) (Q A) (Q 0)) G)))\n"
+        "      (a!4 (forall ((y Int)) (R y)))\n"
+        "      (a!5 (forall ((A Int)) (R A))))\n"
+        "(let ((a!3 (mp (asserted a!1) (symm (der (= a!2 a!1)) (= a!1 a!2)) a!2))\n"
+        "      (a!6 (mp (asserted a!4) (symm (der (= a!5 a!4)) (= a!4 a!5)) a!5)))\n"
+        "  ((_ hyper-res 1 0)\n"
+        "    (asserted (=> G query!0))\n"
+        "    (hyper-res a!3 a!6 (asserted (P 0)) (asserted (Q 0)) G)\n"
+        "    query!0)))\n");
 }
