@@ -234,3 +234,77 @@ func TestDualityPullCommonFactorsIgnoresArithmeticOp(t *testing.T) {
 		}
 	}
 }
+
+// duality_01-F5: PullCommonFactors sorts with std::less<Duality::ast>, which
+// compares AST ids, so the pulled-out factors keep id order even when the
+// arena reuses a lower slot for the later (higher-id) term.
+func TestDualityCommonFactorsIDOrder(t *testing.T) {
+	ctx, m, _ := dualityNativeSolverFixture(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	raw := func(e *Expr) ast.ASTHandle { t.Helper(); h, err := e.Raw(); must(err); return h }
+	// Node slots share one free list, but application ids and declaration
+	// ids come from separate generators. Free two declarations created
+	// before f1: f2's declaration and application reuse their lower slots,
+	// while f2's application still gets a fresh, higher id.
+	boolean, err := m.MkBoolSort()
+	must(err)
+	var junk []ast.ASTRef
+	for _, name := range []string{"factor-id-d1", "factor-id-d2"} {
+		symbol, err := m.Symbols.Intern(name)
+		must(err)
+		decl, err := m.MkFuncDecl(symbol, []ast.ASTHandle{boolean}, boolean, ast.ASTFuncDeclInfo{})
+		must(err)
+		ref, err := m.NewRef(decl)
+		must(err)
+		junk = append(junk, ref)
+	}
+	f1, err := ctx.BoolConst("factor-id-f1")
+	must(err)
+	closeExpr(t, f1)
+	for i := range junk {
+		must(m.DelRef(&junk[i]))
+	}
+	f2, err := ctx.BoolConst("factor-id-f2")
+	must(err)
+	closeExpr(t, f2)
+	h1, h2 := raw(f1), raw(f2)
+	id1, err := m.GetASTID(h1)
+	must(err)
+	id2, err := m.GetASTID(h2)
+	must(err)
+	if !(id1 < id2 && h2.Slot() < h1.Slot()) {
+		t.Fatalf("fixture did not reuse a lower slot: ids %d %d slots %d %d", id1, id2, h1.Slot(), h2.Slot())
+	}
+	r1, err := ctx.BoolConst("factor-id-r1")
+	must(err)
+	closeExpr(t, r1)
+	r2, err := ctx.BoolConst("factor-id-r2")
+	must(err)
+	closeExpr(t, r2)
+	wrap := func(h ast.ASTHandle, err error) *Expr {
+		t.Helper()
+		must(err)
+		term, e := NewExpr(ctx, h)
+		must(e)
+		closeExpr(t, term)
+		return term
+	}
+	left := wrap(m.MkAndArgs([]ast.ASTHandle{h2, h1, raw(r1)}))
+	right := wrap(m.MkAndArgs([]ast.ASTHandle{h1, h2, raw(r2)}))
+	out, err := ctx.ReallySimplifyAndOr([]*Expr{left, right}, false)
+	must(err)
+	defer out.Close()
+	result := raw(out)
+	first, err := m.GetArg(result, 0)
+	must(err)
+	second, err := m.GetArg(result, 1)
+	must(err)
+	if first != h1 || second != h2 {
+		t.Fatal("common factors are not in AST id order")
+	}
+}

@@ -101,14 +101,9 @@ func (c *Context) ReallySimplifyAndOr(args []*Expr, isAnd bool) (out *Expr, resu
 	}
 	var common []ast.ASTHandle
 	rows := make([][]ast.ASTHandle, len(reduced))
-	// The C++ set comparator orders opaque AST pointers. Arena slot identity
-	// provides the corresponding stable order within this manager in Go.
-	less := func(a, b ast.ASTHandle) bool {
-		if a.Slot() != b.Slot() {
-			return a.Slot() < b.Slot()
-		}
-		return a.Generation() < b.Generation()
-	}
+	// std::less<Duality::ast> (duality_wrapper.h) compares AST ids.
+	ids := make(map[ast.ASTHandle]uint32)
+	less := func(a, b ast.ASTHandle) bool { return ids[a] < ids[b] }
 	for i, h := range reduced {
 		kind, err := m.GetKind(h)
 		if err != nil {
@@ -140,6 +135,11 @@ func (c *Context) ReallySimplifyAndOr(args []*Expr, isAnd bool) (out *Expr, resu
 			}
 		}
 		rows[i] = row
+		for _, h := range row {
+			if ids[h], err = m.GetASTID(h); err != nil {
+				return nil, err
+			}
+		}
 		ordered := append([]ast.ASTHandle(nil), row...)
 		sort.Slice(ordered, func(a, b int) bool { return less(ordered[a], ordered[b]) })
 		if i == 0 {

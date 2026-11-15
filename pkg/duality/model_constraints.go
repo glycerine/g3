@@ -192,13 +192,15 @@ func (g *RPFP) modelArrayEntriesAsConstraint(h ast.ASTHandle, finite arrayModelV
 	for key := range finite.entries {
 		keys = append(keys, key)
 	}
-	// Source std::map orders opaque AST pointers; use stable arena identity.
-	sort.Slice(keys, func(i, j int) bool {
-		if keys[i].Slot() != keys[j].Slot() {
-			return keys[i].Slot() < keys[j].Slot()
+	// ArrayValue::entries is a std::map<ast,ast>, ordered by
+	// std::less<Duality::ast>: the AST id.
+	ids := make(map[ast.ASTHandle]uint32, len(keys))
+	for _, key := range keys {
+		if ids[key], err = m.GetASTID(key); err != nil {
+			return nil, err
 		}
-		return keys[i].Generation() < keys[j].Generation()
-	})
+	}
+	sort.Slice(keys, func(i, j int) bool { return ids[keys[i]] < ids[keys[j]] })
 	var constraints []ast.ASTHandle
 	for _, key := range keys {
 		selected, err := wrap(m.MkFamilyApp(array, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{h, key}))

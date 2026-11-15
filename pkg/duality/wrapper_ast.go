@@ -104,8 +104,7 @@ func (a *AST) Equal(other *AST) (bool, error) {
 	return left == right, err
 }
 
-// Less replaces source pointer ordering with stable owner/slot/generation
-// ordering. Pointer order is representational and cannot be preserved in Go.
+// Less is std::less<Duality::ast>: s.raw()->get_id() < t.raw()->get_id().
 func (a *AST) Less(other *AST) (bool, error) {
 	left, err := a.Raw()
 	if err != nil {
@@ -115,13 +114,15 @@ func (a *AST) Less(other *AST) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if left.Origin() != right.Origin() {
-		return left.Origin() < right.Origin(), nil
+	leftID, err := a.object.context.manager.GetASTID(left)
+	if err != nil {
+		return false, err
 	}
-	if left.Slot() != right.Slot() {
-		return left.Slot() < right.Slot(), nil
+	rightID, err := other.object.context.manager.GetASTID(right)
+	if err != nil {
+		return false, err
 	}
-	return left.Generation() < right.Generation(), nil
+	return leftID < rightID, nil
 }
 
 func (a *AST) Close() error {
