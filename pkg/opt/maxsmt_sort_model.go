@@ -3,15 +3,16 @@ package opt
 // Source: src/opt/sortmax.cpp update_assignment/is_true.
 
 import (
-	"errors"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 )
 
+// updateResult is maxsmt_solver_base::init / sortmax::update_assignment:
+// both evaluate with m_model->eval, which does not complete the model.
 func (e *sortMaxEngine) updateResult(result *ArithmeticResult) error {
-	cost, satisfied, assignment, err := e.solver.evaluateSoftDetailed(e.objective, result.Model)
+	cost, satisfied, assignment, err := e.solver.evaluateSoftAssignment(e.objective, result.Model, false)
 	if err != nil {
 		return err
 	}
@@ -19,55 +20,26 @@ func (e *sortMaxEngine) updateResult(result *ArithmeticResult) error {
 	return nil
 }
 
-func (e *sortMaxEngine) countSatisfiedInputs(md *model.ModelCore) (count int, resultErr error) {
-	evaluator, err := model.NewModelEvaluator(md, e.solver.config.ModelEvaluator)
-	if err != nil {
-		if evaluator != nil {
-			err = errors.Join(err, evaluator.Close())
-		}
-		return 0, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
-	if err = evaluator.SetModelCompletion(true); err != nil {
-		return 0, err
-	}
-	for _, input := range e.inputs {
-		value, evalErr := evaluator.EvaluateValue(input)
-		if evalErr != nil {
-			return 0, evalErr
-		}
-		h, evalErr := e.solver.manager.RefGet(value)
-		isTrue := evalErr == nil && e.solver.manager.IsTrue(h)
-		evalErr = errors.Join(evalErr, e.solver.manager.DelRef(&value))
-		if evalErr != nil {
-			return 0, evalErr
+// countSatisfiedInputs is the seeding loop of sortmax::operator(): each
+// soft key that m_model->eval (no model completion) makes true asserts one
+// network output per unit of its weight.
+func (e *sortMaxEngine) countSatisfiedInputs(md *model.ModelCore) (int, error) {
+	count := 0
+	for i := range e.terms {
+		isTrue, err := wmaxModelIsTrue(e.solver, md, e.terms[i].expression)
+		if err != nil {
+			return 0, err
 		}
 		if isTrue {
-			count++
+			count += int(e.terms[i].weight.Int64())
 		}
 	}
 	return count, nil
 }
 
-func (e *sortMaxEngine) outputIsTrue(md *model.ModelCore, output ast.ASTHandle) (isTrue bool, resultErr error) {
-	evaluator, err := model.NewModelEvaluator(md, e.solver.config.ModelEvaluator)
-	if err != nil {
-		if evaluator != nil {
-			err = errors.Join(err, evaluator.Close())
-		}
-		return false, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
-	if err = evaluator.SetModelCompletion(true); err != nil {
-		return false, err
-	}
-	value, err := evaluator.EvaluateValue(output)
-	if err != nil {
-		return false, err
-	}
-	h, err := e.solver.manager.RefGet(value)
-	isTrue = err == nil && e.solver.manager.IsTrue(h)
-	return isTrue, errors.Join(err, e.solver.manager.DelRef(&value))
+// outputIsTrue is sortmax::is_true: model::eval without completion.
+func (e *sortMaxEngine) outputIsTrue(md *model.ModelCore, output ast.ASTHandle) (bool, error) {
+	return wmaxModelIsTrue(e.solver, md, output)
 }
 
 func (e *sortMaxEngine) setBounds(result *ArithmeticResult, lower, upper *big.Rat) {

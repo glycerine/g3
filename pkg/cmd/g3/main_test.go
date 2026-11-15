@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md opt_02-F2: sortmax evaluates soft terms without model completion.
+	"opt_sortmax_negated_soft.smt2": "sat\n(model \n  (define-fun x3 () Bool\n    false)\n  (define-fun x2 () Bool\n    false)\n)\n",
 	// AUDIT.md model_01-F3: mk_array_eq_core iterates table1 in core_hashtable order.
 	"eval_array_eq_table_order.smt2": "sat\n(and (= w 0) (= s 0) (= u 0) (= t 0) (= v 0))\n",
 	// AUDIT.md model_01-F1: model_evaluator forces flat arith/bv rewriters.
