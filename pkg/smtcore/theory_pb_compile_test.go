@@ -383,3 +383,51 @@ func TestSMTPBPropagationCounterWrapPrecedesCompilationThreshold(t *testing.T) {
 		t.Fatal("post-wrap threshold state")
 	}
 }
+
+// z3 4.7.1 bug (fork fix in theory_pb::assert_ge): tst_theory_pb builds
+// the sorting network ge over constant true/false literals through
+// assert_ge, whose theory_pb is never attached to the context, so the
+// first network clause dereferences a null manager and z3 segfaults.
+// g3 has no assert_ge; its network always runs on a registered theory.
+// This mirrors the N = 4 rounds of tst_theory_pb at the network level:
+// with k of the N inputs true, ge(k+1) forced true is unsat and ge(k)
+// forced true is sat.
+func TestSMTPBCompilationNetworkConstantInputs(t *testing.T) {
+	const n = 4
+	for mask := 0; mask < 1<<n; mask++ {
+		inputs := make([]SMTLiteral, n)
+		count := 0
+		for i := range inputs {
+			inputs[i] = SMTFalseLiteral
+			if mask&(1<<i) != 0 {
+				inputs[i] = SMTTrueLiteral
+				count++
+			}
+		}
+		for _, bound := range []int{count + 1, count} {
+			m := astTestManager(t)
+			family, err := m.RegisterPseudoBooleanPlugin()
+			astTestMust(t, err)
+			_, _, s := smtInternalizerFixture(t, m, nil)
+			pb, err := NewSMTPseudoBooleanTheory(family)
+			astTestMust(t, err)
+			astTestMust(t, s.RegisterTheory(pb))
+			network := smtPBSort{theory: pb}
+			out := network.ge(false, uint32(bound), inputs)
+			astTestMust(t, network.err)
+			want := bound <= count
+			if out == SMTFalseLiteral {
+				if want {
+					t.Fatalf("mask=%b k=%d: network folded to false", mask, bound)
+				}
+				continue
+			}
+			values := make([]int8, len(s.boolExpr))
+			values[0] = 1
+			cs := append(smtPBNetworkClauses(s), []SMTLiteral{out})
+			if got := smtPBNetworkSAT(cs, values); got != want {
+				t.Fatalf("mask=%b k=%d: SAT=%v want=%v", mask, bound, got, want)
+			}
+		}
+	}
+}
