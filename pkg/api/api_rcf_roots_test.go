@@ -47,3 +47,17 @@ func TestAPIRCFRootsAllPositive(t *testing.T) {
 	_, got = f.rootDecimals(f.rational("1/3"), zero, zero, f.rational("1"))
 	f.expectDecimals("x^3+1/3", got, "-0.6933612743?")
 }
+
+// AUDIT math_realclosure_01-F5: determine_infinitesimal_sign sets open
+// intervals, so a value infinitely close to 0 has an interval excluding 0
+// and can be inverted.
+func TestAPIRCFInverseOfInfinitesimalDifference(t *testing.T) {
+	f := newRCFFixture(t)
+	defer f.close()
+	e := f.keep(f.context.RCFInfinitesimal())
+	d := f.keep(f.context.RCFSub(e, f.keep(f.context.RCFMul(e, e))))
+	inverse := f.keep(f.context.RCFInv(d))
+	if got, want := f.text(inverse), "(-1)/(eps!1^2 + -1*eps!1)"; got != want {
+		t.Fatalf("1/(eps-eps^2) = %q, want %q", got, want)
+	}
+}

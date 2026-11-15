@@ -55,7 +55,8 @@ func (s *realValueStore) determineInfinitesimalValueSign(value *realValue, usePr
 			if err = value.functionInterval.numbers.Copy(&value.functionInterval.lower, &power); err != nil {
 				return 0, err
 			}
-			value.functionInterval.lowerInf, value.functionInterval.lowerOpen = false, false
+			// set_lower defaults to an open endpoint: (2^inf_precision, +oo).
+			value.functionInterval.lowerInf, value.functionInterval.lowerOpen = false, true
 			if err = value.functionInterval.ResetUpper(); err != nil {
 				return 0, err
 			}
@@ -74,7 +75,8 @@ func (s *realValueStore) determineInfinitesimalValueSign(value *realValue, usePr
 			if err != nil {
 				return 0, err
 			}
-			value.functionInterval.upperInf, value.functionInterval.upperOpen = false, false
+			// set_upper defaults to an open endpoint: (-oo, -2^inf_precision).
+			value.functionInterval.upperInf, value.functionInterval.upperOpen = false, true
 		}
 		return sign, nil
 	}
@@ -92,15 +94,17 @@ func (s *realValueStore) determineInfinitesimalValueSign(value *realValue, usePr
 	if err = value.functionInterval.numbers.SetInt32Power(&upper, 1, s.rationalInitialPrecision()); err != nil {
 		return 0, err
 	}
+	// set_lower and set_upper default to open endpoints, so the interval
+	// (0, 1/2^k) or (-1/2^k, 0) excludes zero.
 	if sign > 0 {
-		err = value.functionInterval.SetFinite(&zero, &upper, false, false)
+		err = value.functionInterval.SetFinite(&zero, &upper, true, true)
 	} else {
 		lower := numeral.NewBinaryRational()
 		if err = value.functionInterval.numbers.Copy(&lower, &upper); err == nil {
 			err = value.functionInterval.numbers.Neg(&lower)
 		}
 		if err == nil {
-			err = value.functionInterval.SetFinite(&lower, &zero, false, false)
+			err = value.functionInterval.SetFinite(&lower, &zero, true, true)
 		}
 		cleanup := s.releaseSturmBinary(value.functionInterval.numbers, &lower)
 		err = errors.Join(err, cleanup)
