@@ -141,6 +141,9 @@ type ArithmeticSolver struct {
 	// optsmtModels is optsmt::m_models, owned by opt::context: optsmt::reset
 	// never clears it, so its entries outlive the run that set them.
 	optsmtModels *OptsmtModels
+	// containsQuantifiers is opt::context::contains_quantifiers() over
+	// m_hard_constraints, which execute_min_max consults.
+	containsQuantifiers bool
 }
 
 // OptsmtModels is optsmt::m_models (sref_vector<model>). optsmt::reset
@@ -213,6 +216,14 @@ func (o *OptsmtModels) Close() (result error) {
 	}
 	o.models = nil
 	return result
+}
+
+// SetContainsQuantifiers records opt::context::contains_quantifiers() for
+// execute_min_max's unbounded-objective check.
+func (s *ArithmeticSolver) SetContainsQuantifiers(contains bool) {
+	if s != nil {
+		s.containsQuantifiers = contains
+	}
 }
 
 // SetRawModels makes results keep raw models (see FixModel).
@@ -1123,6 +1134,11 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 		if !s.objectives[i].soft {
 			value := result.Values[i].Arithmetic
 			unbounded := value.Unbounded || value.Finite.Infinity.Sign() != 0
+			// execute_min_max: an unbounded l_true objective over
+			// quantified hard constraints throws.
+			if unbounded && s.containsQuantifiers {
+				return nil, z3exception.NewDefaultException("unbounded objectives on quantified constraints is not supported")
+			}
 			if (unbounded || !lexContinues) && result.Model != nil {
 				if err = s.captureArithmeticModel(i, &result.Values[i], result.Model); err != nil {
 					return nil, err

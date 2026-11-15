@@ -15,6 +15,7 @@ import (
 	"github.com/glycerine/g3/pkg/opt"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/solver"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -437,6 +438,24 @@ func (c *Context) assertOptimizerHard(optimizer *opt.ArithmeticSolver, assumptio
 	return nil
 }
 
+// warnQuantifiedOptimization is optimize()'s
+//
+//	if (contains_quantifiers()) warning_msg(...);
+//
+// over m_hard_constraints, the formulas the run asserts as hard.
+func (c *Context) warnQuantifiedOptimization(hard []ast.ASTHandle) (bool, error) {
+	for _, formula := range hard {
+		quantified, err := c.manager.HasQuantifiers(formula)
+		if err != nil {
+			return false, err
+		}
+		if quantified {
+			return true, diagnostic.BorrowProcessWarningService().Warning("optimization with quantified constraints is not supported")
+		}
+	}
+	return false, nil
+}
+
 func (c *Context) addOptimizerObjective(optimizer *opt.ArithmeticSolver, index int) error {
 	if optimizer == nil || index < 0 || index >= len(c.objectives) {
 		return ast.ErrASTHandle
@@ -521,6 +540,20 @@ func (c *Context) runOptimize(assumptions []ast.ASTHandle, execute func(*opt.Ari
 			return nil, err
 		}
 	}
+	// optimize(): contains_quantifiers() after update_solver().
+	var hard []ast.ASTHandle
+	if c.optimizationHardOverrideActive {
+		hard = append(hard, c.optimizationHardOverride...)
+	} else {
+		for _, assertion := range c.assertions {
+			hard = append(hard, assertion.expression)
+		}
+	}
+	quantified, err := c.warnQuantifiedOptimization(append(hard, assumptions...))
+	if err != nil {
+		return nil, err
+	}
+	optimizer.SetContainsQuantifiers(quantified)
 	if err = c.assertOptimizerHard(optimizer, assumptions); err != nil {
 		return nil, err
 	}

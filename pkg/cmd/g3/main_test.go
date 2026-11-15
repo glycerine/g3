@@ -338,6 +338,12 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md cmd_context_01-F4: optimize() warns about quantified hard
+	// constraints (stderr) and solves a bounded objective as usual. The
+	// unbounded case raises "unbounded objectives on quantified constraints
+	// is not supported", which reaches the output only once
+	// cmd_context_01-F5 turns optimize exceptions into command errors.
+	"opt_quantified_bounded.smt2": "sat\n(objectives\n (x 4)\n)\n",
 	// AUDIT.md cmd_context_01-F1: func_decls::find returns the first
 	// func_decl_set entry that matches; overloads differing only in range
 	// are not ambiguous.

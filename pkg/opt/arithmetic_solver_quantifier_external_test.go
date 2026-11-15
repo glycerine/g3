@@ -1,6 +1,7 @@
 package opt_test
 
 import (
+	"errors"
 	"math/big"
 	"testing"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/symbol"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 func TestArithmeticSolverQuantifierCandidateRemainsUnknown(t *testing.T) {
@@ -91,5 +93,84 @@ func TestArithmeticSolverQuantifierCandidateRemainsUnknown(t *testing.T) {
 	}
 	if result.Values[0].SoftCost.Sign() != 0 {
 		t.Fatal("candidate did not satisfy forced soft term", &result.Values[0].SoftCost)
+	}
+}
+
+// AUDIT.md cmd_context_01-F4: execute_min_max throws when an l_true
+// objective is unbounded and the hard constraints contain quantifiers.
+func TestArithmeticSolverUnboundedQuantifiedObjectiveThrows(t *testing.T) {
+	for _, quantified := range []bool{false, true} {
+		m, config := sortMaxFixture(t)
+		solver, err := opt.NewArithmeticSolver(m, config.Params, "", smtcore.SMTSolverConfig{Params: config.Context, Globals: config.Globals, ModelEvaluator: config})
+		if err != nil {
+			t.Fatal(err)
+		}
+		family, err := m.RegisterArithmeticPlugin()
+		if err != nil {
+			t.Fatal(err)
+		}
+		integer, err := m.MkFamilySort(family, 1, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		name, err := m.Symbols.Intern("unbounded-quantified-x")
+		if err != nil {
+			t.Fatal(err)
+		}
+		x, err := m.MkConst(name, integer)
+		if err != nil {
+			t.Fatal(err)
+		}
+		zero, err := m.ArithmeticIntegerNumeralText("0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		lower, err := m.MkArithmeticLE(zero, x)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// The caller owns the asserted formula and the objective term.
+		lowerRef, err := m.NewRef(lower)
+		if err != nil {
+			t.Fatal(err)
+		}
+		xRef, err := m.NewRef(x)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = solver.Assert(lower); err != nil {
+			t.Fatal(err)
+		}
+		if err = solver.AddObjective(x, true); err != nil {
+			t.Fatal(err)
+		}
+		solver.SetContainsQuantifiers(quantified)
+		result, err := solver.Check()
+		if quantified {
+			var exception z3exception.Z3Exception
+			if !errors.As(err, &exception) || exception.Message() != "unbounded objectives on quantified constraints is not supported" {
+				t.Fatal("quantified unbounded objective", err)
+			}
+			if result != nil {
+				t.Fatal("result with an exception")
+			}
+		} else {
+			if err != nil {
+				t.Fatal(err)
+			}
+			value := result.Values[0].Arithmetic
+			if result.Status != lbool.True || !(value.Unbounded || value.Finite.Infinity.Sign() > 0) {
+				t.Fatal("unquantified unbounded objective", result.Status, value)
+			}
+			if err = result.Close(); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err = solver.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if err = errors.Join(m.DelRef(&xRef), m.DelRef(&lowerRef)); err != nil {
+			t.Fatal(err)
+		}
 	}
 }

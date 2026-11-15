@@ -332,6 +332,11 @@ func (c *Context) newParetoBackend(assumptions []ast.ASTHandle) (backend *smtcor
 	if state := c.optimizationParetoPurification; state != nil {
 		hard = state.hard
 	}
+	// optimize(): the contains_quantifiers() warning precedes
+	// execute_pareto on a fresh run.
+	if _, err = c.warnQuantifiedOptimization(append(append([]ast.ASTHandle(nil), hard...), assumptions...)); err != nil {
+		return nil, err
+	}
 	for _, assertion := range hard {
 		if err = backend.Assert(assertion); err != nil {
 			return nil, err
