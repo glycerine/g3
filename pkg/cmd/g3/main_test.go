@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_06-F1: re.all/re.allchar/re.empty accept any range; the
+	// `as` sort reaches the builtin's mk_func_decl as range.
+	"seq_regex_const_foreign_range.smt2": "sat\n",
 	// AUDIT.md muz_spacer_01-F5: spacer.eq_prop=false configures only the
 	// first context family (checked by TestSpacerEqPropOnlyConfiguresFirstFamily).
 	"fp_spacer_eq_prop_off.smt2": "sat\n(and bad (P 6 12) (P 5 10) (P 4 8) (P 3 6) (P 2 4) (P 1 2) (P 0 0))\n",

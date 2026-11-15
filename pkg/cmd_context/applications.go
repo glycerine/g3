@@ -199,7 +199,8 @@ func (c *Context) MakeApp(name string, args []ast.ASTHandle, indices []ast.ASTPa
 		if name == "distinct" {
 			return m.MkDistinct(args)
 		}
-		return m.MkFamilyApp(op.family, op.kind, indices, args)
+		// cmd_context::mk_app passes the qualifier sort as range.
+		return m.MkFamilyAppRange(op.family, op.kind, indices, args, rangeSort)
 	}
 	if len(indices) != 0 {
 		// "indentifier" (sic) is z3 4.7.1's spelling (cmd_context.cpp:1048).

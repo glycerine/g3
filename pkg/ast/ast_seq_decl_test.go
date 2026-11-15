@@ -129,3 +129,43 @@ func TestASTSequenceGenericFamilyDispatch(t *testing.T) {
 		t.Fatalf("generic sequence skolem: %v %v", yes, e)
 	}
 }
+
+// AUDIT.md ast_06-F1: seq_decl_plugin::mk_func_decl builds re.all always,
+// and re.allchar / re.empty whenever the range is not m_re, without matching
+// the signature.
+func TestASTSequenceRegexConstantsUncheckedRange(t *testing.T) {
+	m := astTestManager(t)
+	astTestMust(t, m.prepareSequencePlugin())
+	family := m.sequencePlugin.family
+	intSort := m.external(m.arithmeticPlugin.fields[1])
+	element, err := m.NewParameterAST(intSort)
+	astTestMust(t, err)
+	reInt, err := m.MkFamilySort(family, 1, []ASTParameter{element})
+	astTestMust(t, err)
+	for _, tc := range []struct {
+		kind int32
+		name string
+	}{{23, "re.all"}, {24, "re.allchar"}, {22, "re.empty"}} {
+		decl, e := m.MkFamilyFuncDecl(family, tc.kind, nil, nil, reInt)
+		if e != nil {
+			t.Fatalf("kind %d with range (RegEx Int): %v", tc.kind, e)
+		}
+		r, e := m.GetRange(decl)
+		astTestMust(t, e)
+		if r != reInt {
+			t.Fatalf("kind %d range: %v want %v", tc.kind, r, reInt)
+		}
+		ref, e := m.internal(decl)
+		astTestMust(t, e)
+		name, e := m.Symbols.String(m.declAt(ref.slot).name)
+		astTestMust(t, e)
+		if name != tc.name {
+			t.Fatalf("kind %d name: %q want %q", tc.kind, name, tc.name)
+		}
+		app, e := m.MkFamilyAppRange(family, tc.kind, nil, nil, reInt)
+		astTestMust(t, e)
+		if s, e := m.GetSort(app); e != nil || s != reInt {
+			t.Fatalf("kind %d app sort: %v %v", tc.kind, s, e)
+		}
+	}
+}

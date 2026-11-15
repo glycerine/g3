@@ -92,6 +92,20 @@ func (m *ASTManager) sequenceDecl(kind int32, parameters []ASTParameter, domain 
 	if rangeSort.slot == 0 && (canonicalKind == 22 || canonicalKind == 23 || canonicalKind == 24) {
 		rangeSort = p.regex
 	}
+	// Source: seq_decl_plugin.cpp:678-698. OP_RE_FULL_SEQ_SET never
+	// matches its signature; OP_RE_FULL_CHAR_SET and OP_RE_EMPTY_SET match
+	// only when the range is m_re. Otherwise the decl is built as given,
+	// with a parameterless func_decl_info.
+	if kind == canonicalKind {
+		switch kind {
+		case 23:
+			return m.pluginDecl(signature.name, p.family, kind, nil, domain, rangeSort, ASTFuncFlags{}, false)
+		case 22, 24:
+			if rangeSort != p.regex {
+				return m.pluginDecl(signature.name, p.family, kind, nil, domain, rangeSort, ASTFuncFlags{}, false)
+			}
+		}
+	}
 	rightAssociative := canonicalKind == ASTSequenceOpConcat || canonicalKind == 17 || canonicalKind == 18 || canonicalKind == 19
 	var result astNodeRef
 	if canonicalKind == 20 && (len(domainRefs) == 2 || len(domainRefs) == 3) {

@@ -25,7 +25,7 @@ func (m *ASTManager) MkBitVectorConcatArguments(args AppArguments) (ASTHandle, e
 	if m.bitVectorPlugin == nil {
 		return ASTHandle{}, ErrASTDomain
 	}
-	r, e := m.mkFamilyAppDomainArguments(m.bitVectorPlugin.family, 37, nil, args)
+	r, e := m.mkFamilyAppDomainArguments(m.bitVectorPlugin.family, 37, nil, args, ASTHandle{})
 	return m.external(r), e
 }
 

@@ -44,7 +44,7 @@ func (m *ASTManager) mkBitVectorFamilyAppScoped(fid FamilyID, k int32, ps []ASTP
 		}
 		return m.mkApp(d, args)
 	}
-	return m.mkFamilyAppDomainArguments(fid, k, ps, SliceArguments(args))
+	return m.mkFamilyAppDomainArguments(fid, k, ps, SliceArguments(args), ASTHandle{})
 }
 
 // mkAppHeldDecl holds decl (a plugin may return a fresh declaration with
@@ -182,18 +182,18 @@ func (m *ASTManager) mkFamilyApp(fid FamilyID, k int32, ps []ASTParameter, args 
 			return m.mkAppHeldDecl(d, SliceArguments(args))
 		}
 	}
-	return m.mkFamilyAppDomainArguments(fid, k, ps, SliceArguments(args))
+	return m.mkFamilyAppDomainArguments(fid, k, ps, SliceArguments(args), ASTHandle{})
 }
 
-func (m *ASTManager) mkFamilyAppDomainArguments(fid FamilyID, k int32, ps []ASTParameter, args AppArguments) (result astNodeRef, cause error) {
+func (m *ASTManager) mkFamilyAppDomainArguments(fid FamilyID, k int32, ps []ASTParameter, args AppArguments, rangeSort ASTHandle) (result astNodeRef, cause error) {
 	if fid != 0 && m.pluginAt(fid).kind != astArrayPlugin && m.isFloatingPointExprKind(fid, k) {
 		// The floating-point declarations and the application are built
 		// with formatExecuting set (restored last).
 		previous := m.formatExecuting
 		defer func() { m.formatExecuting = previous }()
-		return m.mkFamilyAppDomainCore(fid, k, ps, args, true)
+		return m.mkFamilyAppDomainCore(fid, k, ps, args, rangeSort, true)
 	}
-	return m.mkFamilyAppDomainCore(fid, k, ps, args, false)
+	return m.mkFamilyAppDomainCore(fid, k, ps, args, rangeSort, false)
 }
 
 func (m *ASTManager) isFloatingPointExprKind(fid FamilyID, k int32) bool {
@@ -203,7 +203,7 @@ func (m *ASTManager) isFloatingPointExprKind(fid FamilyID, k int32) bool {
 // mkFamilyAppDomainCore is mkFamilyAppDomainArguments without defers;
 // floatingPoint says the kind takes the floating-point branch, whose
 // formatExecuting scope the caller restores.
-func (m *ASTManager) mkFamilyAppDomainCore(fid FamilyID, k int32, ps []ASTParameter, args AppArguments, floatingPoint bool) (astNodeRef, error) {
+func (m *ASTManager) mkFamilyAppDomainCore(fid FamilyID, k int32, ps []ASTParameter, args AppArguments, rangeSort ASTHandle, floatingPoint bool) (astNodeRef, error) {
 	// Source decl_plugin's expr overload collects sorts in a lexical ptr_buffer;
 	// use a native typed slice for those borrowed sort handles.
 	var inline [16]ASTHandle
@@ -228,7 +228,7 @@ func (m *ASTManager) mkFamilyAppDomainCore(fid FamilyID, k int32, ps []ASTParame
 	if fid == 0 {
 		decl, e = m.basicDecl(k, ps, domain)
 	} else if m.pluginAt(fid).kind == astArrayPlugin {
-		decl, e = m.arrayDecl(k, ps, domain, ASTHandle{})
+		decl, e = m.arrayDecl(k, ps, domain, rangeSort)
 	} else if floatingPoint {
 		m.formatExecuting = true
 		if k == astFPANeg || k == astFPAAbs {
@@ -248,7 +248,7 @@ func (m *ASTManager) mkFamilyAppDomainCore(fid FamilyID, k int32, ps []ASTParame
 		} else if k == astFPABVWrap {
 			decl, e = m.floatingPointBVWrapDecl(ps, domain)
 		} else if k == astFPABV2RM {
-			decl, e = m.floatingPointBV2RMDecl(ps, domain, ASTHandle{})
+			decl, e = m.floatingPointBV2RMDecl(ps, domain, rangeSort)
 		} else if k == astFPASub && len(domain) == 1 {
 			// Source fpa_decl_plugin::mk_func_decl: unary OP_FPA_SUB is
 			// mk_unary_decl(OP_FPA_NEG, ...).
@@ -268,18 +268,18 @@ func (m *ASTManager) mkFamilyAppDomainCore(fid FamilyID, k int32, ps []ASTParame
 		} else if k <= astFPARMTowardZero {
 			decl, e = m.floatingPointRoundingDecl(k, ps, domain)
 		} else {
-			decl, e = m.floatingPointSpecialDecl(k, ps, ASTHandle{})
+			decl, e = m.floatingPointSpecialDecl(k, ps, rangeSort)
 		}
 	} else if m.pluginAt(fid).kind == astFormatPlugin {
 		decl, e = m.formatDecl(k, ps, domain)
 	} else if m.pluginAt(fid).kind == astDatalogPlugin {
-		decl, e = m.datalogDecl(k, ps, domain, ASTHandle{})
+		decl, e = m.datalogDecl(k, ps, domain, rangeSort)
 	} else if m.pluginAt(fid).kind == astPseudoBooleanPlugin {
 		decl, e = m.pseudoBooleanDecl(k, ps, domain)
 	} else if m.pluginAt(fid).kind == astSequencePlugin {
-		decl, e = m.sequenceDecl(k, ps, domain, ASTHandle{})
+		decl, e = m.sequenceDecl(k, ps, domain, rangeSort)
 	} else if m.pluginAt(fid).kind == astDatatypePlugin {
-		decl, e = m.datatypeDecl(k, ps, domain, ASTHandle{})
+		decl, e = m.datatypeDecl(k, ps, domain, rangeSort)
 	} else {
 		decl, e = m.builtinDecl(fid, k, ps, domain)
 	}
@@ -295,6 +295,35 @@ func (m *ASTManager) MkFamilyApp(fid FamilyID, k int32, ps []ASTParameter, args 
 		return ASTHandle{}, e
 	}
 	r, e := m.mkFamilyApp(fid, k, ps, args)
+	m.mu.Unlock()
+	if e != nil {
+		return m.external(r), m.formatSortErrors(e)
+	}
+	return m.external(r), e
+}
+
+// MkFamilyAppRange is ast_manager::mk_app(fid, k, num_parameters,
+// parameters, num_args, args, range) with a non-null range: the plugin's
+// mk_func_decl receives the qualifier sort (cmd_context::mk_app passes the
+// `as` sort). The arithmetic, bit-vector and basic plugins ignore range, so
+// those families take the MkFamilyApp path.
+func (m *ASTManager) MkFamilyAppRange(fid FamilyID, k int32, ps []ASTParameter, args []ASTHandle, rangeSort ASTHandle) (ASTHandle, error) {
+	if rangeSort.IsNull() {
+		return m.MkFamilyApp(fid, k, ps, args)
+	}
+	if e := m.lock(); e != nil {
+		return ASTHandle{}, e
+	}
+	var r astNodeRef
+	var e error
+	if fid < 0 || !m.pluginAt(fid).present {
+	} else if uint64(len(args)) > math.MaxUint32 {
+		e = arena.ErrBounds
+	} else if fid == 0 || m.pluginAt(fid).kind == astArithmeticPlugin || m.pluginAt(fid).kind == astBitVectorPlugin {
+		r, e = m.mkFamilyApp(fid, k, ps, args)
+	} else if _, e = m.requireKind(rangeSort, ASTSort); e == nil {
+		r, e = m.mkFamilyAppDomainArguments(fid, k, ps, SliceArguments(args), rangeSort)
+	}
 	m.mu.Unlock()
 	if e != nil {
 		return m.external(r), m.formatSortErrors(e)
