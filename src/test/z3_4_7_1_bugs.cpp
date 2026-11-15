@@ -144,6 +144,9 @@ Abstract:
     z3_4_7_1_check_table_nullary_empty with default_table_checked, an empty
                                   check_table with no columns is built by
                                   the sparse plugin and z3 segfaults.
+    z3_4_7_1_bitvector_table_nullary with default_table=bitvector, a
+                                  bitvector_table with no columns reserves
+                                  no bits and add_fact segfaults.
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -1932,4 +1935,36 @@ void tst_z3_4_7_1_check_table_nullary_empty() {
                   << ", checker " << tables[i][1] << "\n";
         expect_script_output("check_table_nullary_empty", script.c_str(), "sat\n");
     }
+}
+
+// With datalog.default_table=bitvector, the bitvector_table constructor
+// reserved its bit vector inside the column loop, so the table of the
+// nullary g reserved no bits and add_fact (fact2offset = 0) wrote past the
+// empty bit vector and crashed. q(#b100) holds (n(#b100) and no path from
+// #b100 back to itself), so g is derivable. Fixed upstream in 8dac9b7b94,
+// which reserves 1 << shift bits after the loop. No pkg/AUDIT.md finding.
+void tst_z3_4_7_1_bitvector_table_nullary() {
+    char const* script =
+        "(set-option :fixedpoint.engine datalog)\n"
+        "(set-option :fixedpoint.datalog.default_table bitvector)\n"
+        "(define-sort s () (_ BitVec 3))\n"
+        "(declare-rel e (s s))\n"
+        "(declare-rel path (s s))\n"
+        "(declare-rel n (s))\n"
+        "(declare-rel q (s))\n"
+        "(declare-rel g ())\n"
+        "(declare-var x s)\n"
+        "(declare-var y s)\n"
+        "(declare-var z s)\n"
+        "(rule (e #b001 #b010))\n"
+        "(rule (e #b010 #b011))\n"
+        "(rule (e #b011 #b001))\n"
+        "(rule (e #b100 #b101))\n"
+        "(rule (=> (e x y) (n x)))\n"
+        "(rule (=> (e x y) (path x y)))\n"
+        "(rule (=> (and (path x y) (e y z)) (path x z)))\n"
+        "(rule (=> (and (n x) (not (path x x))) (q x)))\n"
+        "(rule (=> (q #b100) g))\n"
+        "(query g)\n";
+    expect_script_output("bitvector_table_nullary", script, "sat\n");
 }

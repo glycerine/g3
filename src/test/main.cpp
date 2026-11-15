@@ -261,6 +261,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_qe_dl_other_value_neq);
     TST(z3_4_7_1_sieve_negation_inner_cols);
     TST(z3_4_7_1_check_table_nullary_empty);
+    TST(z3_4_7_1_bitvector_table_nullary);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);
