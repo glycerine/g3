@@ -35,6 +35,23 @@ func (o *algebraicRootOwner) bisectAnyRoots(p []*realValue, interval, isolating 
 		value, err := o.publishSingleIsolatedRoot(p, interval, isolating)
 		return []*realValue{value}, err
 	}
+	// IF the polynomial depends on infinitesimals, the interval contains
+	// more than one root and it is narrower than 1/2^max_precision, THEN
+	// switch to sign determination, since the roots may be infinitely close
+	// to each other.
+	dinf, err := o.values.dependsOnInfinitesimalsPolynomial(p)
+	if err != nil {
+		return nil, err
+	}
+	if dinf {
+		precise, err := binaryIntervalPrecise(interval, o.values.intervalMaxPrecision())
+		if err != nil {
+			return nil, err
+		}
+		if precise {
+			return o.isolateAnyRootsBySigns(p, count, interval, isolating, usePrem)
+		}
+	}
 	midpoint := numeral.NewBinaryRational()
 	defer func() { err = errors.Join(err, o.intervals.Del(&midpoint)) }()
 	if err = o.intervals.Add(&interval.lower, &interval.upper, &midpoint); err != nil {

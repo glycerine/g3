@@ -60,3 +60,14 @@ func (s *realValueStore) dependsOnInfinitesimalsValue(value *realValue) (bool, e
 	}
 	return false, nil
 }
+
+// dependsOnInfinitesimalsPolynomial is depends_on_infinitesimals(sz, p).
+func (s *realValueStore) dependsOnInfinitesimalsPolynomial(p []*realValue) (bool, error) {
+	for _, coefficient := range p {
+		depends, err := s.dependsOnInfinitesimalsValue(coefficient)
+		if err != nil || depends {
+			return depends, err
+		}
+	}
+	return false, nil
+}

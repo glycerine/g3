@@ -103,3 +103,21 @@ func TestAPIRCFRootsRationalFunctionCoefficient(t *testing.T) {
 		}
 	}
 }
+
+// AUDIT math_realclosure_01-F3 and 01-F4: roots infinitely close to each
+// other are separated by sign determination.
+func TestAPIRCFRootsInfinitesimalClose(t *testing.T) {
+	f := newRCFFixture(t)
+	defer f.close()
+	e := f.keep(f.context.RCFInfinitesimal())
+	e2 := f.keep(f.context.RCFMul(e, e))
+	roots, _ := f.rootDecimals(f.keep(f.context.RCFMul(f.rational("2"), e2)), f.keep(f.context.RCFMul(f.rational("-3"), e)), f.rational("1"))
+	if len(roots) != 2 {
+		t.Fatalf("got %d roots, want 2", len(roots))
+	}
+	for i, want := range []string{"{2*x + -3*eps!1 > 0}", "{2*x + -3*eps!1 < 0}"} {
+		if text := f.text(roots[i]); !strings.Contains(text, want) {
+			t.Fatalf("root %d = %q, want it to contain %q", i, text, want)
+		}
+	}
+}
