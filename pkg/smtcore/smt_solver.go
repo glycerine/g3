@@ -33,6 +33,7 @@ type SMTSolverConfig struct {
 type smtTrackedAssertion struct {
 	tag     ast.ASTHandle
 	formula ast.ASTRef
+	tagHash uint32
 }
 
 type smtSolverObjective struct {
@@ -69,6 +70,14 @@ type SMTSolver struct {
 	paramsClose   uparams.ParamsDecrementReceipt
 	closed        bool
 	optimization  *smtOptimizationSolverState
+
+	// name2assertionMap is m_name2assertion (tag -> formula), kept for its
+	// obj_map iteration order; s.tracked owns the references.
+	name2assertionMap *ast.ObjMap
+	// smt_params_helper core.* values cached by updt_params.
+	coreExtendPatterns            bool
+	coreExtendPatternsMaxDistance uint32
+	coreExtendNonlocalPatterns    bool
 }
 
 var _ solver.Solver = (*SMTSolver)(nil)
@@ -161,6 +170,10 @@ func newSMTSolver(m *ast.ASTManager, p *uparams.ParamsRef, logic string, config 
 	}
 	s := &SMTSolver{manager: m, config: config, kernel: kernel, params: value, logic: logicSymbol, ownedCatalog: ownedCatalog, ownedGlobals: ownedGlobals}
 	s.self = s
+	// The constructor's updt_params(p).
+	if err = s.updateCoreExtendParams(); err != nil {
+		return nil, cleanupServices(errors.Join(err, kernel.Close(), config.Params.Del(&value)))
+	}
 	s.named, err = solver.NewNamedAssertions(m, s)
 	if err != nil {
 		return nil, cleanupServices(errors.Join(err, kernel.Close(), config.Params.Del(&value)))
@@ -513,7 +526,10 @@ func (s *SMTSolver) UpdateParams(p *uparams.ParamsRef) error {
 	if err := s.config.Params.Copy(&s.params, p); err != nil {
 		return err
 	}
-	return s.kernel.UpdateParams(&s.params)
+	if err := s.kernel.UpdateParams(&s.params); err != nil {
+		return err
+	}
+	return s.updateCoreExtendParams()
 }
 
 func (s *SMTSolver) Params() (*uparams.ParamsRef, error) {
@@ -588,8 +604,16 @@ func (s *SMTSolver) AssertTracked(formula, tag ast.ASTHandle) error {
 	if err = s.named.AssertTracked(formula, tag); err != nil {
 		return errors.Join(err, s.manager.DelRef(&ref))
 	}
-	s.tracked = append(s.tracked, smtTrackedAssertion{tag: tag, formula: ref})
-	return nil
+	hash, err := s.manager.GetHash(tag)
+	if err != nil {
+		return errors.Join(err, s.manager.DelRef(&ref))
+	}
+	s.tracked = append(s.tracked, smtTrackedAssertion{tag: tag, formula: ref, tagHash: hash})
+	if s.name2assertionMap == nil {
+		s.name2assertionMap = ast.NewObjMap(s.manager)
+	}
+	// m_name2assertion.insert(a, t)
+	return s.name2assertionMap.Insert(tag, [2]ast.ASTHandle{formula})
 }
 
 func (s *SMTSolver) PushCore() error {
@@ -622,6 +646,12 @@ func (s *SMTSolver) Push() error {
 func (s *SMTSolver) restoreTracked(size uint32) error {
 	for uint32(len(s.tracked)) > size {
 		index := len(s.tracked) - 1
+		// pop_core: m_name2assertion.erase(key), newest assumption first.
+		if s.name2assertionMap != nil && !s.tracked[index].tag.IsNull() {
+			if err := s.name2assertionMap.EraseHash(s.tracked[index].tag, s.tracked[index].tagHash); err != nil {
+				return err
+			}
+		}
 		if s.tracked[index].formula != (ast.ASTRef{}) {
 			if err := s.manager.DelRef(&s.tracked[index].formula); err != nil {
 				if s.tracked[index].formula == (ast.ASTRef{}) {

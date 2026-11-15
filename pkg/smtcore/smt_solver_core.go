@@ -2,7 +2,11 @@ package smtcore
 
 // Source: src/smt/smt_solver.cpp unsat-core pattern extension.
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
 
 type smtDeclSet map[ast.ASTHandle]struct{}
 
@@ -55,11 +59,35 @@ func (s *SMTSolver) collectUninterpretedDecls(root ast.ASTHandle, declarations s
 				stack = append(stack, argument)
 			}
 		case ast.ASTQuantifier:
+			// quick_for_each_expr visits a quantifier's body, patterns and
+			// no-patterns (IgnorePatterns == false).
 			body, err := s.manager.GetQuantifierBody(expression)
 			if err != nil {
 				return err
 			}
 			stack = append(stack, body)
+			patterns, err := s.manager.GetNumPatterns(expression)
+			if err != nil {
+				return err
+			}
+			for i := uint32(0); i < patterns; i++ {
+				pattern, err := s.manager.GetPattern(expression, i)
+				if err != nil {
+					return err
+				}
+				stack = append(stack, pattern)
+			}
+			noPatterns, err := s.manager.GetNumNoPatterns(expression)
+			if err != nil {
+				return err
+			}
+			for i := uint32(0); i < noPatterns; i++ {
+				pattern, err := s.manager.GetNoPattern(expression, i)
+				if err != nil {
+					return err
+				}
+				stack = append(stack, pattern)
+			}
 		case ast.ASTVar:
 		default:
 			return ast.ErrASTDomain
@@ -181,6 +209,14 @@ func (s *SMTSolver) collectQuantifierBodyDecls(root ast.ASTHandle, declarations 
 	return nil
 }
 
+// name2assertion lists m_name2assertion in obj_map (table) order.
+func (s *SMTSolver) name2assertion() []ast.ObjMapEntry {
+	if s.name2assertionMap == nil {
+		return nil
+	}
+	return s.name2assertionMap.Entries()
+}
+
 func (s *SMTSolver) trackedFormula(tag ast.ASTHandle) (ast.ASTHandle, bool, error) {
 	for _, assertion := range s.tracked {
 		if assertion.tag != tag {
@@ -212,21 +248,18 @@ func (s *SMTSolver) addPatternLiteralsToCore(core []ast.ASTHandle, maxDistance u
 			}
 		}
 		added := false
-		for _, assertion := range s.tracked {
-			if _, found := inCore[assertion.tag]; found {
+		for _, entry := range s.name2assertion() {
+			tag, formula := entry.Key, entry.Value[0]
+			if _, found := inCore[tag]; found {
 				continue
 			}
-			formula, err := s.manager.RefGet(assertion.formula)
-			if err != nil {
-				return nil, err
-			}
 			assertionDecls := make(smtDeclSet)
-			if err = s.collectUninterpretedDecls(formula, assertionDecls); err != nil {
+			if err := s.collectUninterpretedDecls(formula, assertionDecls); err != nil {
 				return nil, err
 			}
 			if smtDeclSetsIntersect(patternDecls, assertionDecls) {
-				result = append(result, assertion.tag)
-				inCore[assertion.tag] = struct{}{}
+				result = append(result, tag)
+				inCore[tag] = struct{}{}
 				added = true
 			}
 		}
@@ -243,26 +276,23 @@ func (s *SMTSolver) addNonlocalPatternLiteralsToCore(core []ast.ASTHandle) ([]as
 	for _, tag := range result {
 		inCore[tag] = struct{}{}
 	}
-	for _, assertion := range s.tracked {
-		if _, found := inCore[assertion.tag]; found {
+	for _, entry := range s.name2assertion() {
+		tag, formula := entry.Key, entry.Value[0]
+		if _, found := inCore[tag]; found {
 			continue
 		}
-		formula, err := s.manager.RefGet(assertion.formula)
-		if err != nil {
-			return nil, err
-		}
 		patternDecls := make(smtDeclSet)
-		if err = s.collectPatternDecls(formula, patternDecls); err != nil {
+		if err := s.collectPatternDecls(formula, patternDecls); err != nil {
 			return nil, err
 		}
 		bodyDecls := make(smtDeclSet)
-		if err = s.collectQuantifierBodyDecls(formula, bodyDecls); err != nil {
+		if err := s.collectQuantifierBodyDecls(formula, bodyDecls); err != nil {
 			return nil, err
 		}
 		for declaration := range patternDecls {
 			if _, local := bodyDecls[declaration]; !local {
-				result = append(result, assertion.tag)
-				inCore[assertion.tag] = struct{}{}
+				result = append(result, tag)
+				inCore[tag] = struct{}{}
 				break
 			}
 		}
@@ -270,29 +300,45 @@ func (s *SMTSolver) addNonlocalPatternLiteralsToCore(core []ast.ASTHandle) ([]as
 	return result, nil
 }
 
-func (s *SMTSolver) extendUnsatCore(core []ast.ASTHandle) ([]ast.ASTHandle, error) {
-	name := "core.extend_patterns"
-	extend, err := s.config.Params.GetBoolName(&s.params, &name, false)
+// updateCoreExtendParams is the smt_params_helper part of
+// smt_solver::updt_params: each getter falls back to the global smt module.
+func (s *SMTSolver) updateCoreExtendParams() (resultErr error) {
+	global, err := s.kernel.paramGlobals.SourceGetModuleName("smt")
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if extend {
-		name = "core.extend_patterns.max_distance"
-		maxDistance, err := s.config.Params.GetUIntName(&s.params, &name, ^uint32(0))
-		if err != nil {
-			return nil, err
-		}
-		core, err = s.addPatternLiteralsToCore(core, maxDistance)
-		if err != nil {
-			return nil, err
-		}
+	defer func() { resultErr = errors.Join(resultErr, s.config.Params.Del(&global)) }()
+	name := "core.extend_patterns"
+	extend, err := s.config.Params.GetBoolFallbackName(&s.params, &name, &global, false)
+	if err != nil {
+		return err
+	}
+	name = "core.extend_patterns.max_distance"
+	maxDistance, err := s.config.Params.GetUIntFallbackName(&s.params, &name, &global, ^uint32(0))
+	if err != nil {
+		return err
 	}
 	name = "core.extend_nonlocal_patterns"
-	extend, err = s.config.Params.GetBoolName(&s.params, &name, false)
+	nonlocal, err := s.config.Params.GetBoolFallbackName(&s.params, &name, &global, false)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if extend {
+	s.coreExtendPatterns = extend
+	s.coreExtendPatternsMaxDistance = maxDistance
+	s.coreExtendNonlocalPatterns = nonlocal
+	return nil
+}
+
+// extendUnsatCore is the tail of smt_solver::get_unsat_core.
+func (s *SMTSolver) extendUnsatCore(core []ast.ASTHandle) ([]ast.ASTHandle, error) {
+	var err error
+	if s.coreExtendPatterns {
+		core, err = s.addPatternLiteralsToCore(core, s.coreExtendPatternsMaxDistance)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if s.coreExtendNonlocalPatterns {
 		return s.addNonlocalPatternLiteralsToCore(core)
 	}
 	return core, nil

@@ -1053,6 +1053,72 @@ func TestSMTSolverExtendsUnsatCoreThroughQuantifierPatterns(t *testing.T) {
 	}
 }
 
+// AUDIT.md smtcore_06-F8: smt_params_helper reads core.extend_patterns with
+// a fallback to the global smt module, and collect_fds_proc runs under
+// quick_for_each_expr, which also visits quantifier patterns.
+func TestSMTSolverExtendsUnsatCoreFromGlobalModuleAndPatternOnlyDecls(t *testing.T) {
+	m, s := smtSolverFixture(t)
+	sort, err := m.MkUninterpretedSort(astTestSymbol(t, m, "core-global-sort"), nil)
+	astTestMust(t, err)
+	boolean, err := m.MkBoolSort()
+	astTestMust(t, err)
+	function, err := m.MkFuncDecl(astTestSymbol(t, m, "core-global-f"), []ast.ASTHandle{sort}, sort, ast.ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	predicate, err := m.MkFuncDecl(astTestSymbol(t, m, "core-global-p"), []ast.ASTHandle{sort}, boolean, ast.ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	other, err := m.MkFuncDecl(astTestSymbol(t, m, "core-global-q"), []ast.ASTHandle{sort}, boolean, ast.ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	variable, err := m.MkVar(0, sort)
+	astTestMust(t, err)
+	functionVar, err := m.MkApp(function, []ast.ASTHandle{variable})
+	astTestMust(t, err)
+	pattern, err := m.MkPattern([]ast.ASTHandle{functionVar})
+	astTestMust(t, err)
+	quantified := func(name string, body ast.ASTHandle) ast.ASTHandle {
+		quantifier, err := m.MkQuantifier(ast.ASTQuantifierSpec{
+			Forall: true, Sorts: []ast.ASTHandle{sort}, Names: []usymbol.Symbol{astTestSymbol(t, m, name)},
+			Body: body, Patterns: []ast.ASTHandle{pattern},
+		})
+		astTestMust(t, err)
+		return quantifier
+	}
+	body, err := m.MkApp(predicate, []ast.ASTHandle{functionVar})
+	astTestMust(t, err)
+	conflict := smtRelevancyBool(t, m, "core-global-conflict")
+	combined, err := m.MkAnd(conflict, quantified("core-global-x", body))
+	astTestMust(t, err)
+	notConflict, err := m.MkNot(conflict)
+	astTestMust(t, err)
+	// core-global-f occurs only in the pattern of this non-core assertion.
+	otherBody, err := m.MkApp(other, []ast.ASTHandle{variable})
+	astTestMust(t, err)
+	patternOnly := quantified("core-global-y", otherBody)
+	quantifierTag := smtRelevancyBool(t, m, "core-global-quantifier-tag")
+	negativeTag := smtRelevancyBool(t, m, "core-global-negative-tag")
+	patternOnlyTag := smtRelevancyBool(t, m, "core-global-pattern-only-tag")
+	astTestMust(t, s.AssertTracked(combined, quantifierTag))
+	astTestMust(t, s.AssertTracked(notConflict, negativeTag))
+	astTestMust(t, s.AssertTracked(patternOnly, patternOnlyTag))
+
+	astTestMust(t, s.kernel.paramGlobals.SourceSetName("smt.core.extend_patterns", "true"))
+	t.Cleanup(func() { astTestMust(t, s.kernel.paramGlobals.SourceSetName("smt.core.extend_patterns", "false")) })
+	astTestMust(t, s.UpdateParams(nil))
+	status, err := s.CheckSat(nil)
+	astTestMust(t, err)
+	if status != lbool.False {
+		t.Fatal("global pattern core status", status)
+	}
+	core, err := s.UnsatCore()
+	astTestMust(t, err)
+	seen := make(map[ast.ASTHandle]bool, len(core))
+	for _, member := range core {
+		seen[member] = true
+	}
+	if len(core) != 3 || !seen[quantifierTag] || !seen[negativeTag] || !seen[patternOnlyTag] {
+		t.Fatal("global-module pattern-extended core", core)
+	}
+}
+
 func TestSMTSolverExtendsUnsatCoreWithNonlocalPatterns(t *testing.T) {
 	m, s := smtSolverFixture(t)
 	conflict := smtRelevancyBool(t, m, "nonlocal-core-conflict")

@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_06-F8
+	"unsat_core_extend_patterns_module_param.smt2": "unsat\n(q1 n1 n5 n6 n2 n4 n3)\n",
+	"unsat_core_extend_patterns_scoped_order.smt2": "unsat\n(q1 n1 m1 m2)\nunsat\n(q1 n1 m1 m2)\n",
 	// AUDIT.md smtcore_06-F7
 	"relevancy0_new_enode_scan_order.smt2": "unknown\n",
 	// AUDIT.md smtcore_06-F4
