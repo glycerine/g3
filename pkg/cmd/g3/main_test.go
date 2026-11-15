@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md math_polynomial_08-F1: core_manager::rem traces rem_bug on every
+	// call (compare with G3_GOLDEN_TAGS=rem_bug G3_GOLDEN_VECTORS=nra_rem_bug_trace).
+	"nra_rem_bug_trace.smt2": "sat\n(model \n  (define-fun y () Real\n    (root-obj (+ (^ x 6) (* (- 3) (^ x 4)) (* 3 (^ x 2)) (- 3)) 2))\n  (define-fun x () Real\n    (root-obj (+ (^ x 3) (- 2)) 1))\n)\n",
 	// AUDIT.md math_subpaving_04-F3 (mpfx twin).
 	"subpaving_unsupported_atom_mpfx.smt2": "(error \"tactic failed: unsupported atom\")\n",
 	// AUDIT.md math_subpaving_04-F3: non-MPQ engines raise unsupported atom

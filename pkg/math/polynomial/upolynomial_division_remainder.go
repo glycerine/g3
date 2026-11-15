@@ -69,27 +69,28 @@ func (m *UPolynomialManager) remStateWithSourceContext(a, b UPolynomialView, d *
 	} else {
 		defer m.modular.Del(am)
 	}
+	// Source TRACE("rem_bug") at 532, 535 and 551 runs on every call; the
+	// root-ID and Sturm frames own their receipts, other callers use a
+	// call-local trace.
+	var localTrace upolySturmRemainderTrace
+	traceRemainder := func(phase uint8) error {
+		if q := context.rootIDFrame(m.config.Integer); q != nil {
+			return q.traceRemainder(phase, b, r, bn)
+		} else if q := context.sequenceSturmFrame(m.config.Integer); q != nil {
+			return q.traceRemainder(phase, b, r, bn)
+		}
+		return m.traceRemainderLocal(&localTrace, phase, b, r, bn, am)
+	}
 	for {
 		if e = m.checkpoint(); e != nil {
 			return e
 		}
-		if q := context.rootIDFrame(m.config.Integer); q != nil {
-			if e = q.traceRemainder(0, b, r, bn); e != nil {
-				return e
-			}
-		} else if q := context.sequenceSturmFrame(m.config.Integer); q != nil {
-			if e = q.traceRemainder(0, b, r, bn); e != nil {
-				return e
-			}
+		if e = traceRemainder(0); e != nil {
+			return e
 		}
 		n := r.size
 		if n < b.count {
-			if q := context.rootIDFrame(m.config.Integer); q != nil {
-				return q.traceRemainder(1, b, r, bn)
-			} else if q := context.sequenceSturmFrame(m.config.Integer); q != nil {
-				return q.traceRemainder(1, b, r, bn)
-			}
-			return nil
+			return traceRemainder(1)
 		}
 		delta := n - b.count
 		field, e := m.modular.Field()
@@ -116,14 +117,8 @@ func (m *UPolynomialManager) remStateWithSourceContext(a, b UPolynomialView, d *
 			if e != nil {
 				return e
 			}
-			if q := context.rootIDFrame(m.config.Integer); q != nil {
-				if e = q.traceRemainder(2, b, r, bn); e != nil {
-					return e
-				}
-			} else if q := context.sequenceSturmFrame(m.config.Integer); q != nil {
-				if e = q.traceRemainder(2, b, r, bn); e != nil {
-					return e
-				}
+			if e = traceRemainder(2); e != nil {
+				return e
 			}
 			for i := uint32(0); i < n-1; i++ {
 				bn, e = m.read(b, b.count-1)

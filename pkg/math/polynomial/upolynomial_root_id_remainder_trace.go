@@ -144,3 +144,19 @@ func (trace *upolySturmRemainderTrace) emit(m *UPolynomialManager, phase uint8, 
 	})
 	return computation
 }
+
+// traceRemainderLocal emits a rem_bug record for a rem call outside the
+// root-ID and Sturm frames, then completes its receipts at once.
+func (m *UPolynomialManager) traceRemainderLocal(trace *upolySturmRemainderTrace, phase uint8, b UPolynomialView, r *upolyVectorState, bn, scalar *unumeral.Int) error {
+	if !m.config.Integer.BorrowTraceTags().ShouldTrace("rem_bug") {
+		return nil
+	}
+	if trace.pending(m) {
+		return ErrUPolynomialCleanupPending
+	}
+	if e := trace.emit(m, phase, b, r, bn, scalar); e != nil {
+		_ = trace.cleanup(m, true)
+		return e
+	}
+	return trace.cleanup(m, false)
+}
