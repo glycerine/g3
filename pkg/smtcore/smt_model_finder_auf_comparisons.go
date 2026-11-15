@@ -9,31 +9,15 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func (g *smtModelFinderAUFGraph) normalizeGroundRef(term ast.ASTHandle) (ast.ASTRef, error) {
-	m := g.finder.manager
-	ref, err := m.NewRef(ast.ASTHandle{})
-	if err != nil {
-		return ast.ASTRef{}, err
-	}
-	manager := g.finder.state.quantifierManager
-	if manager == nil || manager.rewriter == nil {
-		return ast.ASTRef{}, errors.Join(ast.ErrASTHandle, m.DelRef(&ref))
-	}
-	if err = manager.rewriter.Rewrite(term, ref); err != nil {
-		return ast.ASTRef{}, errors.Join(err, m.DelRef(&ref))
-	}
-	return ref, nil
-}
-
 // keep moves an owned result into g.refs (a qinfo's term) and returns it.
 func (g *smtModelFinderAUFGraph) keep(ref ast.ASTRef) (ast.ASTHandle, error) {
 	g.refs = append(g.refs, ref)
 	return g.finder.manager.RefGet(ref)
 }
 
-// mutilArithRef is macro_util::mk_add/mk_sub(t1, t2, r): one step of the
-// arithmetic rewriter (m_arith_rw), not rewritten further. Bit-vector
-// operands keep the normalizing path. The caller owns the result.
+// mutilArithRef is macro_util::mk_add/mk_sub(t1, t2, r): one step of
+// m_bv_rw or m_arith_rw (poly_rewriter mk_add/mk_sub), not rewritten
+// further. The caller owns the result.
 func (g *smtModelFinderAUFGraph) mutilArithRef(t1, t2 ast.ASTHandle, plus bool) (ast.ASTRef, error) {
 	m := g.finder.manager
 	sort, err := m.GetSort(t1)
@@ -45,16 +29,18 @@ func (g *smtModelFinderAUFGraph) mutilArithRef(t1, t2 ast.ASTHandle, plus bool) 
 		return ast.ASTRef{}, err
 	}
 	if bv {
-		var raw ast.ASTHandle
-		if plus {
-			raw, err = g.finder.macroUtil.MkAdd(t1, t2)
-		} else {
-			raw, err = g.finder.macroUtil.MkSub(t1, t2)
-		}
+		bvRW, err := g.localBVRewriter()
 		if err != nil {
 			return ast.ASTRef{}, err
 		}
-		return g.normalizeGroundRef(raw)
+		ref, err := g.shiftedRef(nil, bvRW, t1, t2, plus)
+		if err = errors.Join(err, bvRW.Close()); err != nil {
+			if ref != (ast.ASTRef{}) {
+				err = errors.Join(err, m.DelRef(&ref))
+			}
+			return ast.ASTRef{}, err
+		}
+		return ref, nil
 	}
 	arith, err := g.localArithRewriter()
 	if err != nil {

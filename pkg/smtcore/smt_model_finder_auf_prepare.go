@@ -182,7 +182,7 @@ func (g *smtModelFinderAUFGraph) addMonotoneExceptions() error {
 
 // addNodeMonotoneExceptions is auf_solver::add_mono_exceptions(n), run by
 // mk_mono_proj on each mono root as the projections are built.
-func (g *smtModelFinderAUFGraph) addNodeMonotoneExceptions(node *smtModelFinderAUFNode) error {
+func (g *smtModelFinderAUFGraph) addNodeMonotoneExceptions(node *smtModelFinderAUFNode) (result error) {
 	m := g.finder.manager
 	bv, err := m.IsBitVectorSort(node.sort)
 	if err != nil {
@@ -216,11 +216,24 @@ func (g *smtModelFinderAUFGraph) addNodeMonotoneExceptions(node *smtModelFinderA
 		// e_plus_1); insert e_plus_1, then e_minus_1.
 		return g.addIntegerMonotoneExceptions(node, one)
 	}
+	// bv_rewriter bv_rw(m); per exception: mk_add (e_plus_1), mk_sub
+	// (e_minus_1), then insert both in that order.
+	bvRW, err := g.localBVRewriter()
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, bvRW.Close()) }()
 	for _, exception := range node.exceptions {
-		if err := g.insertShifted(nil, node, exception, one, 0, true); err != nil {
+		plusRef, err := g.shiftedRef(nil, bvRW, exception, one, true)
+		if err != nil {
 			return err
 		}
-		if err := g.insertShifted(nil, node, exception, one, 0, false); err != nil {
+		minusRef, err := g.shiftedRef(nil, bvRW, exception, one, false)
+		if err != nil {
+			return errors.Join(err, m.DelRef(&plusRef))
+		}
+		err = g.insertRefs(node, plusRef, minusRef)
+		if err = errors.Join(err, m.DelRef(&minusRef), m.DelRef(&plusRef)); err != nil {
 			return err
 		}
 	}
@@ -280,6 +293,19 @@ func (g *smtModelFinderAUFGraph) addIntegerMonotoneExceptions(node *smtModelFind
 			if _, err = node.insert(h, 0); err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+func (g *smtModelFinderAUFGraph) insertRefs(node *smtModelFinderAUFNode, refs ...ast.ASTRef) error {
+	for _, ref := range refs {
+		term, err := g.finder.manager.RefGet(ref)
+		if err != nil {
+			return err
+		}
+		if _, err = node.insert(term, 0); err != nil {
+			return err
 		}
 	}
 	return nil

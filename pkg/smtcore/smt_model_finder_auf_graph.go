@@ -292,13 +292,14 @@ func (g *smtModelFinderAUFGraph) populateFunctionArgument(info smtModelFinderFVa
 		// Its class representative can hide necessary MBQI instances.
 		argument := application.arguments[info.position]
 		if !info.offset.IsNull() && node.root() == g.uvars[smtModelFinderAUFKey{info.quantifier, info.variable}].root() {
-			// A fresh arith_rewriter per relevant enode, as in the source.
-			arith, err := g.localArithRewriter()
+			// A fresh arith_rewriter and bv_rewriter per relevant enode,
+			// as in the source.
+			arith, bv, release, err := g.localRewriters()
 			if err != nil {
 				return err
 			}
-			err = g.insertShifted(arith, node, argument.owner, info.offset, argument.Generation(), false)
-			if err = errors.Join(err, arith.Close()); err != nil {
+			err = g.insertShifted(arith, bv, node, argument.owner, info.offset, argument.Generation(), false)
+			if err = errors.Join(err, release()); err != nil {
 				return err
 			}
 			continue

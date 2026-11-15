@@ -104,8 +104,22 @@ func TestSMTModelFinderAUFBitVectorOffsetWraps(t *testing.T) {
 	astTestMust(t, aufTestBuild(t, graph, []ast.ASTHandle{q}))
 	variable := graph.uvars[smtModelFinderAUFKey{q, 0}].root()
 	argument := graph.arguments[smtModelFinderAUFKey{p, 0}].root()
-	if len(variable.set.testElements()) != 1 || variable.set.testElements()[fifteen] != 9 || len(argument.set.testElements()) != 1 || argument.set.testElements()[one] != 9 {
-		t.Fatal("4-bit offset did not wrap 1-2 to 15 and 15+2 to 1", variable.set.testElements(), argument.set.testElements())
+	// smtcore_05-F4: bv_rw.mk_sub/mk_add are one poly_rewriter step, so the
+	// sets hold the raw terms z3 builds: S_x = {(bvadd #x1 (bvmul #xf #x2))}
+	// and A_p = {#x1, (bvadd #x3 (bvmul #xf #x2))}.
+	family, err := m.RegisterBitVectorPlugin()
+	astTestMust(t, err)
+	three, err := m.BitVectorNumeralUnsigned(3, 4)
+	astTestMust(t, err)
+	minusTwo, err := m.MkFamilyApp(family, 6 /* OP_BMUL */, nil, []ast.ASTHandle{fifteen, two})
+	astTestMust(t, err)
+	oneMinusTwo, err := m.MkFamilyApp(family, 4 /* OP_BADD */, nil, []ast.ASTHandle{one, minusTwo})
+	astTestMust(t, err)
+	threeMinusTwo, err := m.MkFamilyApp(family, 4 /* OP_BADD */, nil, []ast.ASTHandle{three, minusTwo})
+	astTestMust(t, err)
+	variables, arguments := variable.set.testElements(), argument.set.testElements()
+	if len(variables) != 1 || variables[oneMinusTwo] != 9 || len(arguments) != 2 || arguments[one] != 9 || arguments[threeMinusTwo] != 9 {
+		t.Fatal("4-bit offset sets are not the one-step poly_rewriter terms", variables, arguments)
 	}
 }
 
