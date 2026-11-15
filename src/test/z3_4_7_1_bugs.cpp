@@ -147,6 +147,10 @@ Abstract:
     z3_4_7_1_bitvector_table_nullary with default_table=bitvector, a
                                   bitvector_table with no columns reserves
                                   no bits and add_fact segfaults.
+    z3_4_7_1_case_split6_phase    with smt.case_split=6, context::decide
+                                  reads an uninitialized phase and ignores
+                                  smt.phase_selection (pkg/AUDIT.md
+                                  smtcore_02-F9).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -1967,4 +1971,36 @@ void tst_z3_4_7_1_bitvector_table_nullary() {
         "(rule (=> (q #b100) g))\n"
         "(query g)\n";
     expect_script_output("bitvector_table_nullary", script, "sat\n");
+}
+
+// With smt.case_split=6, context::decide declared `lbool phase;` without a
+// value and theory_aware_branching_queue::next_case_split returns without
+// writing it, so the phase was indeterminate; the release build decided
+// negative every time, whatever smt.phase_selection said. With the phase
+// initialized to l_undef (as upstream does), phase_selection=1 (always
+// true) makes every decision positive: the first decision sets c to true,
+// which satisfies (or a b c), so a and b stay irrelevant and are false in
+// the model; with relevancy off, all three are decided and true.
+// pkg/AUDIT.md smtcore_02-F9.
+void tst_z3_4_7_1_case_split6_phase() {
+    char const* relevancy[2] = { "2", "0" };
+    char const* expected[2] = {
+        "sat\n((a false)\n (b false)\n (c true))\n",
+        "sat\n((a true)\n (b true)\n (c true))\n" };
+    for (unsigned i = 0; i < 2; ++i) {
+        std::string script =
+            std::string("(set-option :auto_config false)\n"
+                        "(set-option :smt.case_split 6)\n"
+                        "(set-option :smt.phase_selection 1)\n"
+                        "(set-option :smt.relevancy ") + relevancy[i] + ")\n"
+            "(set-option :produce-models true)\n"
+            "(declare-const a Bool)\n"
+            "(declare-const b Bool)\n"
+            "(declare-const c Bool)\n"
+            "(assert (or a b c))\n"
+            "(check-sat-using smt)\n"
+            "(get-value (a b c))\n";
+        std::cout << "case_split6_phase: relevancy " << relevancy[i] << "\n";
+        expect_script_output("case_split6_phase", script.c_str(), expected[i]);
+    }
 }
