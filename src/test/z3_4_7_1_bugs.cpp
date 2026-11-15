@@ -44,6 +44,10 @@ Abstract:
                                   arguments are safe to replace after the
                                   formulas that mention them were already
                                   purified (pkg/AUDIT.md tactic_arith_02-F2).
+    z3_4_7_1_ufbv_demod_unbound_var the UFBV demodulator leaves a variable
+                                  of an identical non-ground subterm unbound
+                                  and later binds it to a ground term
+                                  (pkg/AUDIT.md tactic_sls_ufbv_01-F1).
     z3_4_7_1_pdr_nullary_cache    PDR's model_search cache keys nodes by
                                   state only, so two nullary predicates
                                   (state `true`) share an entry and an
@@ -90,6 +94,11 @@ Abstract:
 #include "tactic/core/dom_simplify_tactic.h"
 #include "tactic/core/pb_preprocess_tactic.h"
 #include "api/z3.h"
+#include "cmd_context/cmd_context.h"
+#include "parsers/smt2/smt2parser.h"
+#include "tactic/portfolio/smt_strategic_solver.h"
+#include "smt/smt_solver.h"
+#include <sstream>
 #include "cmd_context/cmd_context.h"
 #include "muz/fp/dl_cmds.h"
 #include "parsers/smt2/smt2parser.h"
@@ -762,4 +771,39 @@ void tst_z3_4_7_1_purify_trig_unsafe() {
     Z3_del_context(ctx);
     std::cout << "purify_trig_unsafe: purify-arith:\n" << goal;
     ENSURE(goal.find("(sin x)") != std::string::npos);
+}
+
+// The demodulator f(x, g(x)) = x + 1 must not rewrite f(c, g(y)) under
+// forall y: g(x) and g(y) are the same AST, match_args_aux_proc leaves x
+// unbound, and the pair (x, c) then binds x := c, which drops the
+// quantifier. With y := d the second assertion contradicts the third, so
+// the problem is unsat; z3 4.7.1 answers sat (fixed upstream in b76ed6a47,
+// "proper fix to #6476").
+void tst_z3_4_7_1_ufbv_demod_unbound_var() {
+    char const* script =
+        "(set-logic UFBV)\n"
+        "(declare-fun f ((_ BitVec 8) (_ BitVec 8)) (_ BitVec 8))\n"
+        "(declare-fun g ((_ BitVec 8)) (_ BitVec 8))\n"
+        "(declare-const c (_ BitVec 8))\n"
+        "(declare-const d (_ BitVec 8))\n"
+        "(assert (forall ((x (_ BitVec 8))) (= (f x (g x)) (bvadd x #x01))))\n"
+        "(assert (forall ((y (_ BitVec 8))) (bvule (f c (g y)) #x05)))\n"
+        "(assert (= (f c (g d)) #x07))\n"
+        "(assert (= (f d (g c)) #x09))\n"
+        "(check-sat)\n";
+    // Run it as the z3 shell does (its own cmd_context and ast_manager): the
+    // demodulator's choices depend on AST ids, and the API context's
+    // manager does not reproduce the bad match.
+    std::stringstream out;
+    {
+        cmd_context ctx;
+        ctx.set_solver_factory(mk_smt_strategic_solver_factory());
+        ctx.set_interpolating_solver_factory(mk_smt_solver_factory());
+        ctx.set_regular_stream(out);
+        ctx.set_diagnostic_stream(out);
+        std::istringstream in(script);
+        VERIFY(parse_smt2_commands(ctx, in));
+    }
+    std::cout << "ufbv_demod_unbound_var: expected\nunsat\ngot\n" << out.str();
+    ENSURE(out.str() == "unsat\n");
 }
