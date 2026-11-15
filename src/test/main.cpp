@@ -239,6 +239,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_nlsat_simplify_core_sign);
     TST(z3_4_7_1_nlsat_inline_vars);
     TST(z3_4_7_1_nlsat_inline_reorder);
+    TST(z3_4_7_1_qe_project_real_direction);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);

@@ -1196,3 +1196,40 @@ void tst_z3_4_7_1_nlsat_inline_reorder() {
         "(get-value ((> y 0.0) (= (+ (* x y) (* z z z)) 1.0) (> (* x z) 2.0)))\n"),
         "sat\n");
 }
+
+#ifndef _WINDOWS
+namespace {
+    void qe_project_real_timeout(int) {
+        static char const msg[] =
+            "qe_project_real_direction: qe-sat did not terminate within 20 seconds\n";
+        ssize_t n = write(2, msg, sizeof(msg) - 1);
+        (void)n;
+        _exit(1);
+    }
+}
+#endif
+
+// x >= a + y, x < b + y, x < c + y: one non-strict lower bound and two
+// strict upper bounds. arith_plugin::project_real chooses the lower family
+// (1 + 0 < 0 + 2) from raw counts and encodes the branch for it, but
+// assign and subst choose the family with get_bound_sizes, which doubles
+// the non-strict counts of a real (2 + 0 < 0 + 2 is false), and read the
+// branch as an upper bound. qe-sat with projection_mode false then never
+// terminates. A watchdog turns the hang into a failure.
+void tst_z3_4_7_1_qe_project_real_direction() {
+#ifndef _WINDOWS
+    signal(SIGALRM, qe_project_real_timeout);
+    alarm(20);
+#endif
+    std::string out = eval_smtlib2(
+        "(declare-const a Real)\n"
+        "(declare-const b Real)\n"
+        "(declare-const c Real)\n"
+        "(assert (forall ((y Real)) (exists ((x Real)) (and (>= x (+ a y)) (< x (+ b y)) (< x (+ c y))))))\n"
+        "(check-sat-using (using-params qe-sat :projection_mode false))\n");
+#ifndef _WINDOWS
+    alarm(0);
+#endif
+    std::cout << "qe_project_real_direction: " << out;
+    ENSURE(out == "sat\n");
+}
