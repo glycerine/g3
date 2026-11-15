@@ -129,9 +129,7 @@ func (e *exprQuantElim) elim(result ast.ASTRef) error {
 			todo = todo[:len(todo)-1]
 			continue
 		}
-		if err = e.checkpoint(); err != nil {
-			return err
-		}
+		// expr_quant_elim::elim has no checkpoint.
 		kind, err := m.GetKind(cur)
 		if err != nil {
 			return err

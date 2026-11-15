@@ -9,7 +9,6 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/smtcore"
-	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -63,14 +62,9 @@ func searchExprQEScalarTreeSat(root *exprQETree, variables *exprQEBranchVariable
 	isSat := false
 search:
 	for {
-		canceled, e := m.Canceled()
-		if e != nil {
-			return result, false, e
-		}
-		if canceled {
-			return result, false, tactic.NewTacticException(m.ResourceLimit().CancelMessage())
-		}
-		if e = config.Cooperation.Cooperate("qe"); e != nil {
+		// while (res == l_true) { res = m_solver.check(); ... }: no
+		// cancellation test precedes the check.
+		if e := config.Cooperation.Cooperate("qe"); e != nil {
 			return result, false, e
 		}
 		status, e := solver.CheckSat(nil)
