@@ -472,6 +472,14 @@ namespace smt {
         //fml1 = c->to_expr(ctx, m);
         c->unique();
         lbool is_true = c->normalize();
+        // FORK FIX #61 (g3 audit, see FORK_BUGFIXES.md): an equality whose
+        // arguments were all assigned keeps none and a negative bound;
+        // normalize leaves it l_undef, but a constraint with no arguments
+        // is never watched, so nothing would falsify it. Like
+        // pb_rewriter::mk_app_core, fold it to false.
+        if (is_true == l_undef && c->is_eq() && c->size() == 0) {
+            is_true = l_false;
+        }
         c->prune();
         c->post_prune();
         //fml2 = c->to_expr(ctx, m);
