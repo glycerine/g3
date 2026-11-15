@@ -6,6 +6,7 @@ package cmd_context
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -16,10 +17,17 @@ func joinClose(err error, closeErr error) error { return errors.Join(err, closeE
 
 // readWPALines is line_reader: the file split at every '\n', including the
 // (possibly empty) piece after the last one. Each line is a C string, so it
-// ends at its first NUL byte.
+// ends at its first NUL byte. A read error after the open ends the input,
+// as fread's short count does. z3 4.7.1 never checks that fopen succeeded
+// and freads from a null FILE; the fork reports the open failure (FORK FIX
+// #A of AUDIT.md cmd_context_02-F11 round 2) with parse_file's text.
 func readWPALines(path string) ([]string, error) {
-	contents, err := os.ReadFile(path)
+	file, err := os.Open(path)
 	if err != nil {
+		return nil, fmt.Errorf("ERROR: could not open file '%s'.", path)
+	}
+	contents, _ := io.ReadAll(file)
+	if err = file.Close(); err != nil {
 		return nil, err
 	}
 	lines := strings.Split(string(contents), "\n")

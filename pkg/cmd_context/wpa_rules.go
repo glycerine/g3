@@ -8,10 +8,9 @@ import (
 
 func (p *wpaParser) readRules() error {
 	for _, path := range p.files("rules") {
-		contents, readErr := os.ReadFile(path)
-		if readErr != nil {
-			return readErr
-		}
+		// parse_rules_file reads through std::ifstream and never tests it: an
+		// unreadable rules file lexes as empty.
+		contents, _ := os.ReadFile(path)
 		// WPA registers domains once, then parses each rules file into the
 		// same source constant tables that its relation tuples will use.
 		p.rules.lexer = newDatalogLexer(contents)

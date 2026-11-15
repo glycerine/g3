@@ -103,3 +103,54 @@ func TestWPADirectoryVectorsCPPReference(t *testing.T) {
 		})
 	}
 }
+
+// Round 2: an unreadable map or relation file. z3 4.7.1 freads a null FILE
+// and crashes; the fork reports it as parse_file does (FORK FIX #86 of round
+// 2). An unreadable rules file lexes as empty (std::ifstream is never
+// tested). Permissions are not kept in git, so the files are made here.
+func TestWPADirectoryUnreadableFiles(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads unreadable files")
+	}
+	for _, tc := range []struct{ name, unreadable, stderr string }{
+		{"map", "V.map", "ERROR: could not open file '%s/V.map'.\nERROR: failed to parse file\n"},
+		{"rel", "e.rel", "ERROR: could not open file '%s/e.rel'.\nERROR: failed to parse file\n"},
+		{"rules", "r.rules", "tuple file %s/e.rel for undeclared predicate e\nERROR: failed to parse file\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			directory := t.TempDir()
+			for name, contents := range map[string]string{"V.map": "1 a\n", "r.rules": "e(x:V) printtuples\n", "e.rel": "1\n"} {
+				if err := os.WriteFile(filepath.Join(directory, name), []byte(contents), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := os.Chmod(filepath.Join(directory, tc.unreadable), 0); err != nil {
+				t.Fatal(err)
+			}
+			want := strings.ReplaceAll(tc.stderr, "%s", directory)
+			var output, diagnostics bytes.Buffer
+			if err := runArgumentsWithDiagnostics([]string{"-dl", directory}, strings.NewReader(""), &output, &diagnostics); err != nil {
+				t.Fatal(err)
+			}
+			if output.String() != "" || diagnostics.String() != want {
+				t.Fatalf("stdout %q stderr %q, want stderr %q", output.String(), diagnostics.String(), want)
+			}
+			reference := os.Getenv("G3_CPP_REFERENCE")
+			if reference == "" {
+				return
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			cmd := exec.CommandContext(ctx, reference, "-dl", directory)
+			var stdout, stderr bytes.Buffer
+			cmd.Stdout, cmd.Stderr = &stdout, &stderr
+			runErr := cmd.Run()
+			if strings.HasPrefix(stderr.String(), "NOT IMPLEMENTED YET!") {
+				t.Skip("the C++ reference lacks the POSIX get_file_names")
+			}
+			if runErr != nil || stdout.String() != "" || stderr.String() != want {
+				t.Fatalf("C++ %v stdout %q stderr %q, want stderr %q", runErr, stdout.String(), stderr.String(), want)
+			}
+		})
+	}
+}
