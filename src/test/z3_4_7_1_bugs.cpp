@@ -275,6 +275,11 @@ Abstract:
                                   lines ("set proof", "proof set",
                                   "get_subst" and each proof) to std::cout
                                   (upstream 73a24ca0a).
+    z3_4_7_1_bmc_linear_hyper_res_positions linear BMC proof reconstruction
+                                  gives its two-premise hyper-resolution the
+                                  positions (0,1) instead of (1,0), so the
+                                  proof checker cannot match the resolved
+                                  literals (still present upstream).
     z3_4_7_1_dl_string_to_uint64_blank
                                   datalog::string_to_uint64 accepts an
                                   empty or blank string (sscanf returns
@@ -3298,4 +3303,33 @@ void tst_z3_4_7_1_dl_string_to_uint64_blank() {
     dealloc(p);
     ENSURE(!ok);
     std::cout << "dl_string_to_uint64_blank: PASS\n";
+}
+
+// linear::get_model resolves tail 0 of the derivation built so far (the first
+// premise) against the head of the selected rule (the second premise), as
+// qlinear::get_model does, so the hyper-resolution positions are (1,0).
+// 4.7.1 records (0,1): the proof checker's set_false then picks the
+// derivation's head and the rule's first body literal (or nothing, for a
+// fact), which are not complementary. Still present in z3 5.4.2.
+void tst_z3_4_7_1_bmc_linear_hyper_res_positions() {
+    char const* script =
+        "(set-option :fixedpoint.engine bmc)\n"
+        "(declare-rel p (Int))\n"
+        "(declare-rel q ())\n"
+        "(declare-var x Int)\n"
+        "(rule (p 0))\n"
+        "(rule (=> (and (p x) (< x 3)) (p (+ x 1))))\n"
+        "(rule (=> (p 2) q))\n"
+        "(query q :print-answer true)\n";
+    expect_script_output("bmc_linear_hyper_res_positions", script,
+        "sat\n"
+        "(let ((a!1 (forall ((A Int) (B Int))\n"
+        "             (=> (and (p B) (not (<= 3 B)) (= A (+ 1 B))) (p A)))))\n"
+        "(let ((a!2 (hyper-res (asserted (=> (p 2) query!0))\n"
+        "                      (asserted a!1)\n"
+        "                      (=> (p 1) query!0))))\n"
+        "  ((_ hyper-res 1 0)\n"
+        "    (hyper-res a!2 (asserted a!1) (=> (p 0) query!0))\n"
+        "    (asserted (p 0))\n"
+        "    query!0)))\n");
 }
