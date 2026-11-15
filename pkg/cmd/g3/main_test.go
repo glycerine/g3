@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md qe_03-F3: nlqsat in proof mode fails inside tseitin-cnf.
+	"nlqsat_proof_mode.smt2": "unknown\n(:reason-unknown \"tseitin-cnf does not support proof production\")\n",
 	// AUDIT.md qe_05-F3: the QE simplify rewriter negates forall bodies with ast_util mk_not.
 	"qe_sat_forall_mk_not.smt2": "sat\n",
 	// AUDIT.md qe_02-F3: process_partition blocks the assignment from m_current.

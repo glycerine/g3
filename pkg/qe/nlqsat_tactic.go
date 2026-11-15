@@ -229,13 +229,8 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	if goal == nil || result == nil || goal.Manager() != t.manager {
 		return ast.ErrASTHandle
 	}
-	name := "nlqsat"
-	if t.mode == qsatQE {
-		name = "nlqe"
-	}
-	if err = tactic.FailIfProofGeneration(name, goal); err != nil {
-		return err
-	}
+	// nlqsat::operator() has no proof check: in proof mode tseitin-cnf
+	// raises its own exception from hoist (AUDIT.md qe_03-F3).
 	if err = result.Prepare(t.manager); err != nil {
 		return err
 	}
@@ -292,7 +287,13 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	if err = t.manager.SetRef(formulaRef, definition); err != nil {
 		return err
 	}
-	cnfGoal, err := tactic.NewGoal(t.manager, false, false, false)
+	// goal_ref g = alloc(goal, m): proofs as the manager's, models on,
+	// cores off.
+	proofs, err := t.manager.ProofsEnabled()
+	if err != nil {
+		return err
+	}
+	cnfGoal, err := tactic.NewGoal(t.manager, proofs, true, false)
 	if err != nil {
 		return err
 	}
