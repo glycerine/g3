@@ -78,3 +78,17 @@ func (c *Context) WriteFixedpointDatalogTuples(out io.Writer) error {
 	}
 	return engine.WriteDatalogOutputTables(c.datalogDisplay, out)
 }
+
+// WriteFixedpointDatalogStatisticsDump writes read_datalog's IF_VERBOSE(2)
+// display_statistics sections (rules, instructions, big relations,
+// relation sizes) for the last saturation.
+func (c *Context) WriteFixedpointDatalogStatisticsDump(out io.Writer) error {
+	if err := c.valid(); err != nil {
+		return err
+	}
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return err
+	}
+	return engine.WriteDatalogStatisticsDump(nil, out)
+}

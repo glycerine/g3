@@ -1,0 +1,26 @@
+Tuples in f: 
+	(x=a(0),y=b(1))
+Tuples in e: 
+	(x=a(0),y=b(1))
+--------------
+original rules
+; rule count: 0
+; predicate count: 0
+; output: f
+; output: e
+---------------
+generated rules
+; rule count: 0
+; predicate count: 0
+; output: f
+; output: e
+--------------
+instructions  
+--------------
+big relations 
+bytes 0
+bytes	rows	annotation
+--------------
+relation sizes
+Relation f has size 1
+Relation e has size 1

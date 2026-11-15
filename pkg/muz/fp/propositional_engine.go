@@ -99,6 +99,10 @@ type PropositionalEngine struct {
 	// its saturation until the next saturation round resets it (or the
 	// engine is destroyed), keeping its conditions alive meanwhile.
 	datalogCode *rel.InstructionBlock
+	// datalogExecution is rel_context::m_ectx (read_datalog's ex_ctx): the
+	// last round's execution context, kept until the next round resets it
+	// or the engine closes.
+	datalogExecution *rel.ExecutionContext
 	// lastAnswer is datalog::context's m_last_answer: get_answer_as_formula
 	// caches the engine's answer until the next query or the destructor.
 	lastAnswer ast.ASTRef
@@ -2243,6 +2247,16 @@ func (e *PropositionalEngine) saturate() error {
 	return nil
 }
 
+// releaseDatalogExecution is rel_context's m_ectx.reset().
+func (e *PropositionalEngine) releaseDatalogExecution() error {
+	if e.datalogExecution == nil {
+		return nil
+	}
+	err := e.datalogExecution.Close()
+	e.datalogExecution = nil
+	return err
+}
+
 // releaseDatalogCode is rel_context's m_code.reset().
 func (e *PropositionalEngine) releaseDatalogCode() error {
 	if e.datalogCode == nil {
@@ -2285,12 +2299,12 @@ func (e *PropositionalEngine) tryCompiledSaturation(round *datalogRestartRound) 
 		return true, errors.Join(err, execution.Close(), termination.Close())
 	}
 	context.SetConstantNames(e.constantNames)
-	if err = e.releaseDatalogCode(); err != nil {
+	if err = errors.Join(e.releaseDatalogExecution(), e.releaseDatalogCode()); err != nil {
 		return true, errors.Join(err, execution.Close(), termination.Close(), context.Close())
 	}
-	e.datalogCode = execution
+	e.datalogCode, e.datalogExecution = execution, context
 	defer func() {
-		resultErr = errors.Join(resultErr, termination.Close(), context.Close())
+		resultErr = errors.Join(resultErr, termination.Close())
 	}()
 	complete, terminated, err := performDatalogRestartRound(execution, termination, context, round)
 	if err != nil {
@@ -2885,8 +2899,8 @@ func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHand
 			return lbool.Undef, err
 		}
 	}
-	// rel_context::saturate resets m_code before transform_rules.
-	if err = e.releaseDatalogCode(); err != nil {
+	// rel_context::saturate resets m_ectx and m_code before transform_rules.
+	if err = errors.Join(e.releaseDatalogExecution(), e.releaseDatalogCode()); err != nil {
 		return lbool.Undef, err
 	}
 	bitBlast := &datalogBitBlastQuery{engine: e}
@@ -3540,7 +3554,7 @@ func (e *PropositionalEngine) Close() (result error) {
 	e.closing = true
 	e.queryReady = false
 	e.lastResult = lbool.Undef
-	if err := e.releaseDatalogCode(); err != nil {
+	if err := errors.Join(e.releaseDatalogExecution(), e.releaseDatalogCode()); err != nil {
 		return err
 	}
 	if err := e.closeExternalIntervalDatalog(); err != nil {

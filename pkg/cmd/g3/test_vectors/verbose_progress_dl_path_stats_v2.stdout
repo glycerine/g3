@@ -1,0 +1,50 @@
+Tuples in path: 
+	(x=1(0),y=2(1))
+	(x=2(1),y=3(2))
+	(x=3(2),y=4(3))
+	(x=1(0),y=3(2))
+	(x=2(1),y=4(3))
+	(x=1(0),y=4(3))
+--------------
+original rules
+; rule count: 2
+; predicate count: 1
+<null>:
+path(#0,#1) :- 
+ edge(#0,#1).
+<null>:
+path(#0,#1) :- 
+ path(#0,#2),
+ edge(#2,#1).
+---------------
+generated rules
+; rule count: 2
+; predicate count: 1
+<null>:
+path(#0,#1) :- 
+ edge(#0,#1).
+<null>:
+path(#0,#1) :- 
+ path(#0,#2),
+ edge(#2,#1).
+--------------
+instructions  
+load path into 0
+load edge into 1
+mark_saturated edge
+union 1 into 0
+clone 0 into 2
+while(2)
+    join_project 2(1) and 1(0) into 4 removing columns (1,2)
+    union 4 into 0 with delta 3
+    dealloc 4
+    move 3 into 2
+mark_saturated path
+--------------
+big relations 
+bytes 0
+bytes	rows	annotation
+--------------
+relation sizes
+Relation edge has size 3
+Relation path has size 6

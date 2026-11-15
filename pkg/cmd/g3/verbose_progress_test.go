@@ -281,3 +281,76 @@ func TestVerboseProgressMessages(t *testing.T) {
 		})
 	}
 }
+
+// verboseStatisticsCases check read_datalog's display_statistics sections,
+// which IF_VERBOSE(2) writes to std::cout. The Time/Parsing lines are
+// dropped. The Go front end saturates every predicate, so its generated
+// rules also list the non-output predicates as outputs; the path case drops
+// the "; output:" lines.
+var verboseStatisticsCases = []struct {
+	name, vector string
+	dropOutputs  bool
+}{
+	{"dl_family_stats_v2", "family", false},
+	{"dl_path_stats_v2", "path", true},
+}
+
+func filterVerboseStatistics(text string, dropOutputs bool) string {
+	var out strings.Builder
+	for _, line := range strings.SplitAfter(text, "\n") {
+		if strings.HasPrefix(line, "Time: ") || strings.HasPrefix(line, "Parsing: ") {
+			continue
+		}
+		if dropOutputs && strings.HasPrefix(line, "; output: ") {
+			continue
+		}
+		out.WriteString(line)
+	}
+	return out.String()
+}
+
+func TestVerboseProgressDatalogStatistics(t *testing.T) {
+	if os.Getenv(verboseProgressChildEnv) != "" {
+		return
+	}
+	reference := os.Getenv("G3_CPP_REFERENCE")
+	for _, tc := range verboseStatisticsCases {
+		t.Run(tc.name, func(t *testing.T) {
+			path, err := filepath.Abs(filepath.Join("test_vectors", "verbose_progress_"+tc.vector+".datalog"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			expected, err := os.ReadFile(filepath.Join("test_vectors", "verbose_progress_"+tc.name+".stdout"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			args := []string{"-v:2", "-dl", path}
+			cmd := exec.Command(os.Args[0], "-test.run=^TestVerboseProgressMessages$")
+			cmd.Dir = t.TempDir()
+			cmd.Env = append(os.Environ(), verboseProgressChildEnv+"="+strings.Join(args, "\x1f"))
+			var stdout, stderr bytes.Buffer
+			cmd.Stdout, cmd.Stderr = &stdout, &stderr
+			if err = cmd.Run(); err != nil {
+				t.Fatal(err, stdout.String(), stderr.String())
+			}
+			got := filterVerboseStatistics(stdout.String(), tc.dropOutputs)
+			// The child test binary reports PASS on its own stdout.
+			got = strings.TrimSuffix(got, "PASS\n")
+			if got != string(expected) {
+				t.Fatalf("g3 standard output\n%s\nwant (build/z3)\n%s", got, expected)
+			}
+			if reference == "" {
+				return
+			}
+			var native bytes.Buffer
+			z3 := exec.Command(reference, args...)
+			z3.Stdout = &native
+			if err = z3.Run(); err != nil {
+				t.Fatal(err, native.String())
+			}
+			if cpp := filterVerboseStatistics(native.String(), tc.dropOutputs); got != cpp {
+				t.Fatalf("Go/C++ standard output differ\nGo:\n%s\nC++:\n%s", got, cpp)
+			}
+		})
+	}
+}
