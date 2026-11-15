@@ -4,7 +4,6 @@ package qe
 
 import (
 	"bytes"
-	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -61,13 +60,11 @@ func TestLegacyModelTermCandidateCatchesTypedEvaluatorException(t *testing.T) {
 			fmMust(t, evaluator.SetModelCompletion(false))
 			eliminated, cause := p.projectModelTerm(evaluator, current, x)
 			fmMust(t, evaluator.Close())
-			if multiple {
-				if !errors.Is(cause, ast.ErrASTDomain) {
-					t.Fatal("interrupted traversal precondition lost", cause)
-				}
-			} else {
-				fmMust(t, cause)
-			}
+			// With several candidates the second probe reuses the rewriter
+			// after the first max_steps exception. Its stale stacks are
+			// cleared as later z3 does (AUDIT.md smtcore_14-F3, fork fix 52),
+			// so that probe fails with the same caught exception.
+			fmMust(t, cause)
 			if eliminated {
 				t.Fatal("failed candidate eliminated variable")
 			}
