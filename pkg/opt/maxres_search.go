@@ -42,6 +42,11 @@ func (e *maxResEngine) optimize(result *ArithmeticResult) (status lbool.LBool, o
 	if err != nil {
 		return lbool.Undef, false, fmt.Errorf("maxres initial candidate: %w", err)
 	}
+	// init_local: is_sat = find_mutexes(new_soft); if (is_sat != l_true)
+	// return is_sat;
+	if e.mutexStopped {
+		return e.mutexStatus, false, nil
+	}
 	for {
 		if e.optimalByBounds() {
 			if err = e.publishOptimum(result); err != nil {

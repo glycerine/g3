@@ -11,38 +11,41 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func (e *maxResEngine) preprocessMutexes(objective *arithmeticObjective) ([]maxResWeightedTerm, error) {
+// preprocessMutexes is maxsmt_solver_base::find_mutexes. A status other than
+// l_true from s().find_mutexes is returned as is (init_local / wmax return
+// it from operator()).
+func (e *maxResEngine) preprocessMutexes(objective *arithmeticObjective) ([]maxResWeightedTerm, lbool.LBool, error) {
 	expressions := make([]ast.ASTHandle, len(objective.softTerms))
 	newSoft := newSoftWeightMap(e.solver.manager)
 	for i := range objective.softTerms {
 		expression, err := e.solver.manager.RefGet(objective.softTerms[i])
 		if err != nil {
-			return nil, err
+			return nil, lbool.Undef, err
 		}
 		expressions[i] = expression
 		// maxsmt::add already merged duplicate soft constraints.
 		weight := new(big.Rat).Set(objective.softWeights[i])
 		old, err := newSoft.find(expression)
 		if err != nil {
-			return nil, err
+			return nil, lbool.Undef, err
 		}
 		if old != nil {
 			weight.Add(weight, old)
 		}
 		if err = newSoft.insert(expression, weight); err != nil {
-			return nil, err
+			return nil, lbool.Undef, err
 		}
 	}
 	status, mutexes, err := e.solver.solver().FindMutexes(expressions)
 	if err != nil {
-		return nil, fmt.Errorf("maxres mutex discovery: %w", err)
+		return nil, lbool.Undef, fmt.Errorf("maxres mutex discovery: %w", err)
 	}
 	if status != lbool.True {
-		return nil, errMaxResState
+		return nil, status, nil
 	}
 	for _, mutex := range mutexes {
 		if err = e.transformMutex(mutex, newSoft); err != nil {
-			return nil, fmt.Errorf("maxres mutex transform: %w", err)
+			return nil, lbool.Undef, fmt.Errorf("maxres mutex transform: %w", err)
 		}
 	}
 	var terms []maxResWeightedTerm
@@ -51,5 +54,5 @@ func (e *maxResEngine) preprocessMutexes(objective *arithmeticObjective) ([]maxR
 			terms = append(terms, term)
 		}
 	}
-	return terms, nil
+	return terms, lbool.True, nil
 }

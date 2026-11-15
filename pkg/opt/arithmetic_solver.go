@@ -729,6 +729,23 @@ func (s *ArithmeticSolver) optimizeSoft(index int, result *ArithmeticResult) (st
 	objective := &s.objectives[index]
 	engine, err := newMaxSMTEngine(s, objective, index)
 	if err != nil {
+		// Mutex discovery runs inside maxsmt::operator()'s try block in the
+		// source (init_local), so its cancellation and z3_exception map to
+		// l_undef like the engine run below.
+		var fatal z3exception.Z3Error
+		if !errors.As(err, &fatal) {
+			canceled, cancelErr := s.manager.Canceled()
+			if cancelErr != nil {
+				return lbool.Undef, false, errors.Join(err, cancelErr)
+			}
+			if canceled {
+				return lbool.Undef, false, nil
+			}
+		}
+		var exception z3exception.Z3Exception
+		if errors.As(err, &exception) {
+			return lbool.Undef, false, nil
+		}
 		return lbool.Undef, false, fmt.Errorf("construct MaxSMT engine: %w", err)
 	}
 	if engine != nil {

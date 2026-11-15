@@ -24,6 +24,8 @@ type wmaxEngine struct {
 	mutexes      uint32
 	mutexTerms   uint32
 	closed       bool
+	mutexStatus  lbool.LBool
+	mutexStopped bool
 }
 
 func newWMaxEngine(s *ArithmeticSolver, objective *arithmeticObjective, index int) (result *wmaxEngine, resultErr error) {
@@ -36,11 +38,19 @@ func newWMaxEngine(s *ArithmeticSolver, objective *arithmeticObjective, index in
 	}
 	prepared.baseTrail.manager = s.manager
 	prepared.lower.Set(&objective.softOffset)
-	terms, err := prepared.preprocessMutexes(objective)
+	terms, status, err := prepared.preprocessMutexes(objective)
 	if err != nil {
 		return nil, errors.Join(err, prepared.baseTrail.close())
 	}
 	e := &wmaxEngine{solver: s, objective: objective, index: index, owner: prepared.baseTrail}
+	if status != lbool.True {
+		e.mutexStatus, e.mutexStopped = status, true
+		// wmax::operator() returns find_mutexes' status before it builds
+		// the wmaxsmt theory.
+		prepared.baseTrail = maxSMTASTOwner{}
+		e.owner.manager = s.manager
+		return e, nil
+	}
 	prepared.baseTrail = maxSMTASTOwner{}
 	e.lower.Set(&prepared.lower)
 	e.mutexes, e.mutexTerms = prepared.stats.Mutexes, prepared.stats.MutexTerms
@@ -151,6 +161,9 @@ func (e *wmaxEngine) publishAssignment(result *ArithmeticResult) error {
 }
 
 func (e *wmaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, optimal bool, resultErr error) {
+	if e != nil && e.mutexStopped {
+		return e.mutexStatus, false, nil
+	}
 	if e == nil || e.solver == nil || e.theory == nil || result == nil || result.Model == nil {
 		return lbool.Undef, false, errMaxResState
 	}

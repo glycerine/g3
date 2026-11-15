@@ -5,6 +5,7 @@ package opt
 import (
 	"errors"
 	"fmt"
+	"github.com/glycerine/g3/pkg/util/lbool"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -42,6 +43,10 @@ type maxResEngine struct {
 	defs                 []ast.ASTHandle
 	foundFeasibleOptimum bool
 	initialCandidate     bool
+	// mutexStopped records that find_mutexes returned mutexStatus, not
+	// l_true; init_local returns it from operator().
+	mutexStatus  lbool.LBool
+	mutexStopped bool
 }
 
 func newMaxResEngine(s *ArithmeticSolver, objective *arithmeticObjective, index int, config maxSMTConfig) (result *maxResEngine, resultErr error) {
@@ -59,9 +64,13 @@ func newMaxResEngine(s *ArithmeticSolver, objective *arithmeticObjective, index 
 			result = nil
 		}
 	}()
-	terms, err := e.preprocessMutexes(objective)
+	terms, status, err := e.preprocessMutexes(objective)
 	if err != nil {
 		return nil, err
+	}
+	if status != lbool.True {
+		e.mutexStatus, e.mutexStopped = status, true
+		return e, nil
 	}
 	for i := range terms {
 		if err = e.addSoft(terms[i].expression, &terms[i].weight); err != nil {
