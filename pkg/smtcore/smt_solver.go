@@ -564,6 +564,27 @@ func (s *SMTSolver) SetProduceModels(value bool) error {
 	return s.kernel.ConfigureModelGeneration(value, config)
 }
 
+// ModelGeneration reports smt_params::m_model of the kernel together with
+// the solver's produce-models flag.
+func (s *SMTSolver) ModelGeneration() (model, produce bool, err error) {
+	if err = s.open(); err != nil {
+		return false, false, err
+	}
+	return s.kernel.smtState.Model, s.produceModels, nil
+}
+
+// SetModelGeneration sets smt_params::m_model of the kernel and the solver's
+// produce-models flag. A raw smt::kernel built from a shared smt_params (as
+// pdr's prop_solver flets m_fparams.m_model) builds a model only while both
+// are set.
+func (s *SMTSolver) SetModelGeneration(model, produce bool) error {
+	if err := s.SetProduceModels(produce); err != nil {
+		return err
+	}
+	s.kernel.smtState.Model = model
+	return nil
+}
+
 func (s *SMTSolver) AssertFormula(formula ast.ASTHandle) error {
 	if err := s.open(); err != nil {
 		return err

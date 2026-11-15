@@ -1024,6 +1024,13 @@ func (p *PropSolver) check(atoms []ast.ASTHandle, formula ast.ASTHandle, level *
 	if level != nil {
 		assumptions = append(assumptions, p.levelAssumptions(*level)...)
 	}
+	// check_safe_assumptions: flet<bool> _model(m_fparams.m_model,
+	// m_model != nullptr), so checks that do not want a model build none.
+	restoreModel, err := p.context.scopedModelGeneration(wantModel)
+	if err != nil {
+		return result, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, restoreModel()) }()
 	result.Status, err = p.context.Check(assumptions)
 	if err != nil {
 		return result, err

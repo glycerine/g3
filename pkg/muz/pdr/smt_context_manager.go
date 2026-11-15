@@ -449,6 +449,23 @@ func (c *SMTContext) Check(assumptions []ast.ASTHandle) (lbool.LBool, error) {
 	return c.solver.CheckSat(values)
 }
 
+// scopedModelGeneration is check_safe_assumptions'
+// flet<bool> _model(m_fparams.m_model, m_model != nullptr): the returned
+// function restores the previous setting.
+func (c *SMTContext) scopedModelGeneration(enabled bool) (func() error, error) {
+	if err := c.open(); err != nil {
+		return nil, err
+	}
+	model, produce, err := c.solver.ModelGeneration()
+	if err != nil {
+		return nil, err
+	}
+	if err = c.solver.SetModelGeneration(enabled, enabled); err != nil {
+		return nil, err
+	}
+	return func() error { return c.solver.SetModelGeneration(model, produce) }, nil
+}
+
 func (c *SMTContext) Model() (*model.ModelCore, error) {
 	if err := c.open(); err != nil {
 		return nil, err
