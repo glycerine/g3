@@ -1,0 +1,6 @@
+(declare-const a (Array (_ BitVec 2) Int))
+(declare-const i (_ BitVec 2))
+(declare-const v Int)
+(push)
+(assert (= (default (store a i v)) 7))
+(check-sat)

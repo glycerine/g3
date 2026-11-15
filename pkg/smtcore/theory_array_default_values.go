@@ -62,12 +62,9 @@ func (t *SMTArrayTheory) defaultConstructorValue(array ast.ASTHandle, op int32) 
 		if argErr != nil {
 			return ast.ASTHandle{}, argErr
 		}
-		baseDefault, defaultErr := state.manager.MkFamilyApp(t.FamilyID(), ast.ASTArrayOpDefault, nil, []ast.ASTHandle{base})
-		if defaultErr != nil {
-			return ast.ASTHandle{}, defaultErr
-		}
 		if large {
-			value = baseDefault
+			// def2 = mk_default(store_app->get_arg(0))
+			value, err = state.manager.MkFamilyApp(t.FamilyID(), ast.ASTArrayOpDefault, nil, []ast.ASTHandle{base})
 			break
 		}
 		conditions := make([]ast.ASTHandle, 0, count-2)
@@ -97,6 +94,12 @@ func (t *SMTArrayTheory) defaultConstructorValue(array ast.ASTHandle, op int32) 
 		storedValue, valueErr := state.manager.GetArg(array, count-1)
 		if valueErr != nil {
 			return ast.ASTHandle{}, valueErr
+		}
+		// defA = mk_default(store_app->get_arg(0)) after the epsilon
+		// equalities and their conjunction.
+		baseDefault, defaultErr := state.manager.MkFamilyApp(t.FamilyID(), ast.ASTArrayOpDefault, nil, []ast.ASTHandle{base})
+		if defaultErr != nil {
+			return ast.ASTHandle{}, defaultErr
 		}
 		value, err = state.manager.MkIte(condition, storedValue, baseDefault)
 	case ast.ASTArrayOpAsArray:
