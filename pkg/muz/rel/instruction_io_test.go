@@ -137,3 +137,82 @@ func TestRelationInstructionsLoadCloneAndStoreOwnership(t *testing.T) {
 		t.Fatal("failed store retired its input", count, err)
 	}
 }
+
+// muz_rel_03-F1: instr_io::perform loads with
+// if (!rel.fast_empty()) set_reg(clone) else make_empty(reg), so a later
+// filter_by_negation sees a null negated register and does not count.
+func TestLoadOfEmptyRelationLeavesRegisterNull(t *testing.T) {
+	command, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = command.Close() })
+	manager, err := command.Manager()
+	if err != nil {
+		t.Fatal(err)
+	}
+	relations, err := rel.NewRelationManager(manager)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = relations.Close() })
+	boolean, err := manager.MkBoolSort()
+	if err != nil {
+		t.Fatal(err)
+	}
+	name, err := manager.Symbols.Intern("empty-load-relation")
+	if err != nil {
+		t.Fatal(err)
+	}
+	predicate, err := manager.MkFuncDecl(name, []ast.ASTHandle{boolean}, boolean, ast.ASTFuncDeclInfo{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := relations.GetRelation(predicate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	context, err := rel.NewExecutionContextWithRelations(relations, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = context.Close() })
+	load, err := rel.NewLoadInstruction(relations, predicate, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signature, err := stored.Signature()
+	if err != nil {
+		t.Fatal(err)
+	}
+	target, err := rel.NewSparseTable(signature, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = target.Add(rel.Fact{1}); err != nil {
+		t.Fatal(err)
+	}
+	if err = context.SetFiniteRegister(1, target); err != nil {
+		t.Fatal(err)
+	}
+	block := rel.NewInstructionBlock()
+	t.Cleanup(func() { _ = block.Close() })
+	if err = block.Append(load); err != nil {
+		t.Fatal(err)
+	}
+	if err = block.Append(rel.NewFilterByNegationInstruction(1, 0, []int{0}, []int{0})); err != nil {
+		t.Fatal(err)
+	}
+	complete, err := block.Perform(context)
+	if err != nil || !complete {
+		t.Fatal("load and negation", complete, err)
+	}
+	loaded, err := context.FiniteRegister(0)
+	if err != nil || loaded != nil {
+		t.Fatal("load of an empty relation installed a register", loaded, err)
+	}
+	stats, err := context.Statistics()
+	if err != nil || stats.FilterByNegation != 0 {
+		t.Fatal("filter_by_negation counted against a null register", stats, err)
+	}
+}

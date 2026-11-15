@@ -150,7 +150,11 @@ func TestMixedJoinOrdersSparseFunctionalSuffixAfterHashKeys(t *testing.T) {
 	}
 }
 
-func TestMixedUnionPreservesLoadedEmptyHashRepresentation(t *testing.T) {
+// Source instr_io::perform makes the register empty when the loaded relation
+// is fast_empty, so instr_union creates its target with
+// r_src.get_plugin().mk_empty(r_src): a Sparse target for a Sparse source
+// (muz_rel_03-F1; this test used to assert the loaded empty Hash owner).
+func TestMixedUnionAfterEmptyLoadUsesSourcePlugin(t *testing.T) {
 	f := newTableRelationFixture(t)
 	name, err := f.ast.Symbols.Intern("empty-hash-mixed-union")
 	if err != nil {
@@ -199,9 +203,12 @@ func TestMixedUnionPreservesLoadedEmptyHashRepresentation(t *testing.T) {
 	if err != nil || !complete {
 		t.Fatal("load and mixed union", complete, err)
 	}
-	target, err := context.Register(0)
+	target, err := context.FiniteRegister(0)
 	if err != nil || target == nil {
-		t.Fatal("mixed union replaced selected Hash owner", target, err)
+		t.Fatal("union did not create a target", target, err)
+	}
+	if _, ok := target.(*SparseTable); !ok {
+		t.Fatalf("union target is not the source plugin's kind: %T", target)
 	}
 	found, err := target.Contains(Fact{1})
 	if err != nil || !found {

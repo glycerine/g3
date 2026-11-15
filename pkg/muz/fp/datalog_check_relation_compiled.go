@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/rel"
 )
 
@@ -93,6 +94,11 @@ func (s *datalogCompiledCheckScope) Close() (result error) {
 			s.factory = false
 		}
 	}
+	if !s.factory {
+		if err := s.unwrapEscapedPairs(); err != nil {
+			result = errors.Join(result, err)
+		}
+	}
 	retired := s.retired[:0]
 	for _, table := range s.retired {
 		if err := table.Close(); err != nil {
@@ -134,4 +140,52 @@ func (s *datalogCompiledCheckScope) Close() (result error) {
 		s.check = nil
 	}
 	return result
+}
+
+// unwrapEscapedPairs publishes plain tables for predicates outside the
+// checked entries whose stored relation became a checked pair during compiled
+// execution: an empty predicate loads as a null register (instr_io), so
+// instr_union creates its target with the checked source's plugin and
+// instr_io store keeps that relation. The checked factory is already
+// cleared, so the replacement uses the ordinary default table plugin.
+func (s *datalogCompiledCheckScope) unwrapEscapedPairs() error {
+	e := s.check.engine
+	entries := make(map[ast.ASTHandle]bool, len(s.check.entries))
+	for i := range s.check.entries {
+		entries[s.check.entries[i].declaration] = true
+	}
+	for _, declaration := range e.predicateOrder {
+		if entries[declaration] {
+			continue
+		}
+		current, found, err := e.relations.TryGetFiniteRelation(declaration)
+		if err != nil {
+			return err
+		}
+		pair, ok := current.(*rel.FiniteCheckedPair)
+		if !found || !ok {
+			continue
+		}
+		signature, err := pair.Signature()
+		if err != nil {
+			return err
+		}
+		facts, err := pair.Facts()
+		if err != nil {
+			return err
+		}
+		plain, err := e.relations.NewDefaultFiniteTable(signature)
+		if err != nil {
+			return err
+		}
+		for _, fact := range facts {
+			if _, err = plain.Add(fact); err != nil {
+				return errors.Join(err, plain.Close())
+			}
+		}
+		if err = e.installDatalogTable(declaration, plain); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -133,6 +133,13 @@ func TestFiniteCompilerFusesJoinProjection(t *testing.T) {
 					must(err)
 					matches := false
 					switch {
+					case signature.Len() == 0 && want.predicate == head && backing == "lazy-sparse":
+						// The empty head loads as a null register (instr_io),
+						// so instr_union creates the target with the source's
+						// plugin: a lazy table over the nullary hash fallback.
+						_, matches = table.(*LazySparseTable)
+					case signature.Len() == 0 && want.predicate == head && backing == "checked":
+						_, matches = table.(*FiniteCheckedPair)
 					case signature.Len() == 0, backing == "hash":
 						_, matches = table.(*HashTable)
 					case backing == "sparse":

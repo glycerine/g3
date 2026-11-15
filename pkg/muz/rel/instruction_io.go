@@ -99,6 +99,15 @@ func (i *relationIOInstruction) Perform(context *ExecutionContext) (bool, error)
 		if x != nil {
 			return false, x
 		}
+		// Source instr_io::perform: if (!rel.fast_empty()) set_reg(clone)
+		// else make_empty(m_reg).
+		count, x := table.Len()
+		if x != nil {
+			return false, x
+		}
+		if count == 0 {
+			return true, context.MakeEmpty(i.register)
+		}
 		clone, x := table.CloneFinite()
 		if x != nil {
 			return false, x

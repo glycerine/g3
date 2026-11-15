@@ -76,16 +76,26 @@ func testDatalogCompiledMixedFiniteAndNullary(t *testing.T, representation strin
 		if status != tc.want || !e.compiled {
 			t.Fatal("mixed sparse query did not execute compiled semantics", status, tc.want, e.compiled)
 		}
+		// q starts empty, so instr_io loads it as a null register and
+		// instr_union creates the target with the rule result's plugin
+		// (r_src.get_plugin().mk_empty(r_src)); store_relation then keeps
+		// that relation, not one of q's requested kind (muz_rel_03-F1).
 		selected := e.predicates[q].table
-		if !matchesCompiledRepresentation(selected, representation) {
-			t.Fatal("compiled store replaced sparse representation")
-		}
 		rows, err := selected.Facts()
 		must(err)
 		if len(rows) != 1 || len(rows[0]) != 1 || rows[0][0] != 1 {
 			t.Fatal("mixed sparse/hash join tuples", rows)
 		}
-		if _, ok := e.predicates[f.declarations["u"]].table.(*rel.HashTable); !ok {
+		// Under the lazy_sparse default the nullary union target comes from
+		// the lazy source plugin: a lazy table over the Hash fallback (the
+		// fork's lazy_table_plugin::mk_empty nullary fix).
+		switch e.predicates[f.declarations["u"]].table.(type) {
+		case *rel.HashTable:
+		case *rel.LazySparseTable:
+			if representation != "default_lazy_sparse" {
+				t.Fatal("nullary output lost Hash fallback")
+			}
+		default:
 			t.Fatal("nullary output lost Hash fallback")
 		}
 	}
