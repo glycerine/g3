@@ -1156,10 +1156,8 @@ func (e *PropositionalEngine) UpdateRuleWithSymbol(formula ast.ASTHandle, name s
 // Predicate registrations are intentionally not scoped, matching
 // dl_context::push.
 func (e *PropositionalEngine) Push() error {
-	// Readers outside the query flush see the eager copies of queued rules.
-	if err := e.materializePendingRules(); err != nil {
-		return err
-	}
+	// context::push only records the sizes of m_rule_fmls and m_background:
+	// queued rules stay unflushed (the raw archive snapshot keeps them).
 	if err := e.open(); err != nil {
 		return err
 	}
@@ -1183,10 +1181,7 @@ func (e *PropositionalEngine) Push() error {
 // Pop restores the most recent rule snapshot. Duality also supports popping
 // after queries; PDR/Spacer reject pops once their context has been created.
 func (e *PropositionalEngine) Pop() error {
-	// Readers outside the query flush see the eager copies of queued rules.
-	if err := e.materializePendingRules(); err != nil {
-		return err
-	}
+	// context::pop restores m_rule_fmls without flushing queued rules.
 	if err := e.openState(); err != nil {
 		return err
 	}
