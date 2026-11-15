@@ -117,11 +117,15 @@ func (c *Context) ReallySimplifyAndOr(args []*Expr, isAnd bool) (out *Expr, resu
 		if kind != ast.ASTApp {
 			return finish()
 		}
+		family, err := m.GetFamilyID(h)
+		if err != nil {
+			return nil, err
+		}
 		op, err := m.GetDeclKind(h)
 		if err != nil {
 			return nil, err
 		}
-		if op != opposite {
+		if family != m.BasicFamilyID() || op != opposite {
 			return finish()
 		}
 		count, err := m.GetNumArgs(h)

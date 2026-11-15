@@ -51,11 +51,17 @@ func GetGroundLitsUnderQuants(formula *Expr) (out []*Expr, result error) {
 					return nil
 				}
 			}
+			// The wrapper's get_decl_kind maps family and op together: only
+			// basic connectives recurse.
+			family, err := m.GetFamilyID(h)
+			if err != nil {
+				return err
+			}
 			op, err := m.GetDeclKind(h)
 			if err != nil {
 				return err
 			}
-			if op == ast.ASTOpAnd || op == ast.ASTOpOr || op == ast.ASTOpImplies || op == ast.ASTOpIff {
+			if family == m.BasicFamilyID() && (op == ast.ASTOpAnd || op == ast.ASTOpOr || op == ast.ASTOpImplies || op == ast.ASTOpIff) {
 				count, err := m.GetNumArgs(h)
 				if err != nil {
 					return err

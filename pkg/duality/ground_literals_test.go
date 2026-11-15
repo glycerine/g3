@@ -92,3 +92,47 @@ func TestDualityGroundLiteralsQuantifierContextsAndOpaqueNegation(t *testing.T) 
 		must(candidate.Close())
 	}
 }
+
+// AUDIT.md duality_01-F2: arithmetic (> a 1) shares op number 5 with basic
+// and; get_decl_kind tells them apart, so it is one literal.
+func TestDualityGroundLiteralsArithmeticOpIsLiteral(t *testing.T) {
+	ctx, m, _ := dualityNativeSolverFixture(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	one, err := m.ArithmeticIntegerNumeralText("1")
+	must(err)
+	intSort, err := m.GetSort(one)
+	must(err)
+	name, err := m.Symbols.Intern("ground-arith-a")
+	must(err)
+	a, err := m.MkConst(name, intSort)
+	must(err)
+	gt, err := m.MkArithmeticGT(a, one)
+	must(err)
+	boolSort, err := m.MkBoolSort()
+	must(err)
+	v, err := m.MkVar(0, boolSort)
+	must(err)
+	body, err := m.MkOr(gt, v)
+	must(err)
+	q, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{boolSort}, Names: []usymbol.Symbol{usymbol.Numerical(0)}, Body: body})
+	must(err)
+	e, err := NewExpr(ctx, q)
+	must(err)
+	closeExpr(t, e)
+	lits, err := GetGroundLitsUnderQuants(e)
+	must(err)
+	for _, l := range lits {
+		closeExpr(t, l)
+	}
+	if len(lits) != 1 {
+		t.Fatalf("got %d literals, want [(> a 1)]", len(lits))
+	}
+	if h, e := lits[0].Raw(); e != nil || h != gt {
+		t.Fatal("literal is not (> a 1)", h, gt, e)
+	}
+}

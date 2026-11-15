@@ -182,3 +182,55 @@ func TestDualityBooleanCommonFactorsAndSourceMultiplicity(t *testing.T) {
 		}
 	}
 }
+
+// AUDIT.md duality_01-F2: PullCommonFactors only splits basic and/or;
+// arithmetic > (op 5, like basic and) is left alone.
+func TestDualityPullCommonFactorsIgnoresArithmeticOp(t *testing.T) {
+	ctx, m, _ := dualityNativeSolverFixture(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	one, err := m.ArithmeticIntegerNumeralText("1")
+	must(err)
+	two, err := m.ArithmeticIntegerNumeralText("2")
+	must(err)
+	intSort, err := m.GetSort(one)
+	must(err)
+	name, err := m.Symbols.Intern("factor-arith-a")
+	must(err)
+	a, err := m.MkConst(name, intSort)
+	must(err)
+	g1, err := m.MkArithmeticGT(a, one)
+	must(err)
+	g2, err := m.MkArithmeticGT(a, two)
+	must(err)
+	e1, err := NewExpr(ctx, g1)
+	must(err)
+	closeExpr(t, e1)
+	e2, err := NewExpr(ctx, g2)
+	must(err)
+	closeExpr(t, e2)
+	out, err := ctx.ReallySimplifyAndOr([]*Expr{e1, e2}, false)
+	must(err)
+	closeExpr(t, out)
+	h, err := out.Raw()
+	must(err)
+	family, err := m.GetFamilyID(h)
+	must(err)
+	op, err := m.GetDeclKind(h)
+	must(err)
+	if family != m.BasicFamilyID() || op != ast.ASTOpOr {
+		t.Fatal("want basic or", family, op)
+	}
+	if n, e := m.GetNumArgs(h); e != nil || n != 2 {
+		t.Fatal("or arity", n, e)
+	}
+	for i, want := range []ast.ASTHandle{g1, g2} {
+		if got, e := m.GetArg(h, uint32(i)); e != nil || got != want {
+			t.Fatal("or argument", i, got, want, e)
+		}
+	}
+}
