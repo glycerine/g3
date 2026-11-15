@@ -104,3 +104,56 @@ func TestPDRDisequalityReductionUsesSourceSwapRemovalOrder(t *testing.T) {
 		})
 	}
 }
+
+// AUDIT.md muz_pdr_02-F5: reduce_disequalities uses model.eval without model
+// completion, so a term the model does not define keeps itself as its value
+// and the model is not extended.
+func TestReduceDisequalitiesNoModelCompletion(t *testing.T) {
+	m, oldOwner, transformer, _, closeBase := closureFixture(t)
+	config := oldOwner.contexts.config
+	closureMust(t, transformer.Close())
+	closureMust(t, oldOwner.Close())
+	c, err := NewContext(m, nil, 2, ReachableNoCache, config)
+	closureMust(t, err)
+	defer func() { closureMust(t, c.Close()); closeBase() }()
+	var refs []ast.ASTRef
+	defer func() { closureMust(t, closeASTRefs(m, refs)) }()
+	own := func(h ast.ASTHandle, err error) ast.ASTHandle {
+		t.Helper()
+		closureMust(t, err)
+		ref, err := m.NewRef(h)
+		closureMust(t, err)
+		refs = append(refs, ref)
+		return h
+	}
+	one := own(m.ArithmeticIntegerNumeralText("1"))
+	sort, err := m.GetSort(one)
+	closureMust(t, err)
+	y := own(m.MkFreshConst("disequality-completion-y", sort))
+	diseqs := make([]ast.ASTHandle, 3)
+	for i := range diseqs {
+		value := own(m.ArithmeticIntegerNumeralText(strconv.Itoa(i + 1)))
+		diseqs[i] = own(m.MkNot(own(m.MkEq(y, value))))
+	}
+	input := own(m.MkAndArray(diseqs))
+	md, err := model.NewModel(m)
+	closureMust(t, err)
+	defer func() { closureMust(t, md.Close()) }()
+	result, err := c.reduceDisequalities(md, 3, input)
+	closureMust(t, err)
+	defer func() { closureMust(t, m.DelRef(&result)) }()
+	decl, err := m.GetDecl(y)
+	closureMust(t, err)
+	completed, err := md.Core().HasInterpretation(decl)
+	closureMust(t, err)
+	if completed {
+		t.Fatal("reduce_disequalities completed the model")
+	}
+	root, err := m.RefGet(result)
+	closureMust(t, err)
+	occurs, err := m.OccursExpr(y, root)
+	closureMust(t, err)
+	if !occurs {
+		t.Fatal("y was replaced by a completed value")
+	}
+}

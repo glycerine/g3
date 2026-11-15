@@ -107,19 +107,27 @@ func (c *Context) reduceDisequalities(md *model.Model, threshold uint32, formula
 	defer func() { resultErr = errors.Join(resultErr, c.manager.DelRef(&assertedRef)) }()
 	definitions := make([]ast.ASTHandle, 0)
 	var deleted uint32
+	// expr_ref val outlives the loop: a failed model.eval leaves the
+	// previous value in place.
+	var valueHandle ast.ASTHandle
 	for _, entry := range diseqs.Entries() {
 		term, count := entry.Key, uint32(entry.Num)
 		if count < threshold {
 			continue
 		}
-		value, x := c.implicant.EvalExpr(md, term)
+		value, evaluated, x := c.plainModelEval(md, term)
 		if x != nil {
 			return result, x
 		}
-		references = append(references, value)
-		valueHandle, x := c.manager.RefGet(value)
-		if x != nil {
-			return result, x
+		if evaluated {
+			references = append(references, value)
+			valueHandle, x = c.manager.RefGet(value)
+			if x != nil {
+				return result, x
+			}
+		} else if valueHandle.IsNull() {
+			// The source would insert a null value here.
+			return result, ast.ErrASTDomain
 		}
 		if x = c.manager.ExprSubstitutionInsert(substitution, term, valueHandle, ast.ASTHandle{}, ast.ASTDependency{}); x != nil {
 			return result, x
@@ -203,4 +211,33 @@ func (c *Context) reduceDisequalities(md *model.Model, threshold uint32, formula
 		return result, err
 	}
 	return c.manager.NewRef(formula)
+}
+
+// plainModelEval is model::eval(e, val): a fresh model_evaluator without
+// model completion and without array normalization. It reports false when
+// the evaluator throws model_evaluator_exception (a rewriter exception).
+func (c *Context) plainModelEval(md *model.Model, term ast.ASTHandle) (ref ast.ASTRef, evaluated bool, resultErr error) {
+	evaluator, err := model.NewModelEvaluator(md.Core(), c.owner.contexts.config.ModelEvaluator)
+	if evaluator != nil {
+		defer func() {
+			if e := evaluator.Close(); e != nil {
+				resultErr = errors.Join(resultErr, e)
+				if ref != (ast.ASTRef{}) {
+					resultErr = errors.Join(resultErr, c.manager.DelRef(&ref))
+					ref, evaluated = ast.ASTRef{}, false
+				}
+			}
+		}()
+	}
+	if err != nil {
+		return ast.ASTRef{}, false, err
+	}
+	if err = evaluator.SetModelCompletion(false); err != nil {
+		return ast.ASTRef{}, false, err
+	}
+	ref, err = evaluator.EvaluateValue(term)
+	if rewriter.IsRewriterException(err) {
+		return ast.ASTRef{}, false, nil
+	}
+	return ref, err == nil, err
 }
