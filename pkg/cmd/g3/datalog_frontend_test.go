@@ -121,3 +121,41 @@ func TestDatalogCommandHelpAdvertisesFormat(t *testing.T) {
 		t.Fatalf("help omits the Datalog frontend: %q", output.String())
 	}
 }
+
+// AUDIT.md muz_rel_04-F1: relation_manager::display_output_tables walks the
+// output decl_set (obj_hashtable) in hash-table order, not declaration
+// order. Expected prefixes are build/z3's output.
+func TestDatalogOutputTuplesFollowDeclSetOrder(t *testing.T) {
+	directory := t.TempDir()
+	rows := "\t(x=a(0))\n\t(x=b(1))\n"
+	for _, tc := range []struct {
+		name  string
+		preds []string
+		want  []string
+	}{
+		{name: "zed.datalog", preds: []string{"Zed", "Alpha", "Mid"}, want: []string{"Alpha", "Mid", "Zed"}},
+		{name: "pabc.datalog", preds: []string{"Pa", "Pb", "Pc"}, want: []string{"Pb", "Pc", "Pa"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var program strings.Builder
+			program.WriteString("D 4\n\nSeed(x:D)\n")
+			for _, pred := range tc.preds {
+				program.WriteString(pred + "(x:D) printtuples\n")
+			}
+			program.WriteString("Seed(\"a\").\nSeed(\"b\").\n")
+			for _, pred := range tc.preds {
+				program.WriteString(pred + "(X) :- Seed(X).\n")
+			}
+			path := writeDatalogCommandFile(t, directory, tc.name, program.String())
+			var output bytes.Buffer
+			if err := runArguments([]string{path}, strings.NewReader(""), &output); err != nil {
+				t.Fatal(err, output.String())
+			}
+			var want strings.Builder
+			for _, pred := range tc.want {
+				want.WriteString("Tuples in " + pred + ": \n" + rows)
+			}
+			assertDatalogCommandOutput(t, output.String(), want.String())
+		})
+	}
+}

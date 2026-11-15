@@ -37,7 +37,9 @@ func TestDatalogFrontendTuplesOrdinaryNamesAndPragmas(t *testing.T) {
 	if err = frontend.Run(path); err != nil {
 		t.Fatal(err)
 	}
-	want := "Tuples in P: \n\t(x=alpha(0))\nTuples in Empty: \nTuples in Truth: \n\t()\n"
+	// display_output_tables walks the output decl_set in hash-table order
+	// (build/z3 prints Truth, Empty, P; AUDIT.md muz_rel_04-F1).
+	want := "Tuples in Truth: \n\t()\nTuples in Empty: \nTuples in P: \n\t(x=alpha(0))\n"
 	datalogTupleOutputBeforeStatistics(t, output.String(), want)
 	results, err := frontend.Results()
 	if err != nil {

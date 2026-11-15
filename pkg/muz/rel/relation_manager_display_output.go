@@ -90,7 +90,7 @@ func (m *RelationManager) displayFiniteTableTuples(context *base.DatalogContext,
 	return nil
 }
 
-// DisplayOutputTables writes each requested output relation in rule-set order.
+// DisplayOutputTables writes each requested output relation in decl_set order.
 // Missing relations still receive the source tuple heading.
 func (m *RelationManager) DisplayOutputTables(context *base.DatalogContext, rules *base.RuleSet, out io.Writer) error {
 	if err := m.open(); err != nil {
@@ -110,7 +110,16 @@ func (m *RelationManager) DisplayOutputTables(context *base.DatalogContext, rule
 	if err != nil {
 		return err
 	}
+	// Source get_output_predicates() is a decl_set (obj_hashtable), iterated
+	// in hash-table order; rebuild that layout from the insertion order.
+	outputSet := ast.NewObjMap(manager)
 	for _, predicate := range outputs {
+		if _, err = outputSet.InsertIfNotThere(predicate); err != nil {
+			return err
+		}
+	}
+	for _, entry := range outputSet.Entries() {
+		predicate := entry.Key
 		if product := m.explanations[predicate]; product != nil {
 			if err = product.DisplayTuples(context, predicate, out); err != nil {
 				return err
