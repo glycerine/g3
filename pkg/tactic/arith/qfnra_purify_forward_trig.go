@@ -181,15 +181,8 @@ func (i *qfnraPurifyInvocation) publishModel(out *tactic.TacticResult) (err erro
 		if e != nil {
 			return e
 		}
-		for _, fresh := range []ast.ASTHandle{x, y} {
-			decl, e := m.GetDecl(fresh)
-			if e != nil {
-				return e
-			}
-			if e = filter.Insert(decl); e != nil {
-				return e
-			}
-		}
+		// The m_sin_cos loop only extends emc; the filter holds just the
+		// m_app2fresh values inserted above.
 		definition, e := i.trig.inv.thetaDefinition(x, y)
 		if e != nil {
 			return e

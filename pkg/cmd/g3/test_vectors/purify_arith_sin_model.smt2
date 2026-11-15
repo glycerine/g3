@@ -1,0 +1,5 @@
+(set-option :produce-models true)
+(declare-const t Real)
+(assert (> (sin t) 0.5))
+(check-sat-using (then purify-arith qfnra-nlsat))
+(get-model)

@@ -1,6 +1,7 @@
 package arith
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -303,5 +304,35 @@ func TestGeneralPurifierQuantifiedTrigAndDivisionScopes(t *testing.T) {
 	equationMust(t, err)
 	if fact != outer {
 		t.Fatal("mixed quantified proof conclusion")
+	}
+}
+
+// AUDIT.md tactic_arith_03-F2: purify_arith_proc filters only the values of
+// m_app2fresh; the m_sin_cos loop extends emc and leaves the cosine basis
+// constant of a sine-only angle visible.
+func TestGeneralPurifierForwardTrigFilterHoldsOnlyFreshValues(t *testing.T) {
+	runner, m := qfnraPurifier(t, false, false)
+	theta := fixDLConst(t, m, false, "sine-only-theta")
+	sin := fixDLApp(t, m, forwardTrigSin, theta)
+	zero := fixDLNumber(t, m, false, "0")
+	formula, err := m.MkEq(sin, zero)
+	equationMust(t, err)
+	fixDLPin(t, m, formula)
+	goal, err := tactic.NewGoal(m, false, true, false)
+	equationMust(t, err)
+	t.Cleanup(func() { equationMust(t, goal.Close()) })
+	equationMust(t, goal.Assert(formula))
+	var result tactic.TacticResult
+	t.Cleanup(func() { equationMust(t, result.Close()) })
+	equationMust(t, runner.Apply(goal, &result))
+	if result.ModelConverter == nil {
+		t.Fatal("no model converter")
+	}
+	var text strings.Builder
+	equationMust(t, result.ModelConverter.Display(&text))
+	// build/z3 keeps k!1 (the cosine constant) in the model; the filter
+	// holds the sine constant k!0 once.
+	if !strings.Contains(text.String(), "(filter-model-converter k!0)\n") {
+		t.Fatal("filter is not exactly the m_app2fresh values", text.String())
 	}
 }

@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_arith_03-F2: purify-arith filters only m_app2fresh values;
+	// the cosine constant of a sine-only angle stays in the model.
+	"purify_arith_sin_model.smt2": "sat\n(model \n  (define-fun k!1 () Real\n    (root-obj (+ (* 16 (^ x 2)) (- 7)) 1))\n  (define-fun t () Real\n    (acos (root-obj (+ (* 16 (^ x 2)) (- 7)) 1)))\n)\n",
 	// AUDIT.md tactic_arith_02-F4: lia2card re-asserts 0/1 bounds in m_01s
 	// (obj_hashtable) table order.
 	"lia2card_bound_order.smt2": "(goals\n(goal\n  true\n  true\n  true\n  true\n  true\n  true\n  true\n  true\n  true\n  true\n  true\n  true\n  true\n  true\n  true\n  true\n  true\n  true\n  true\n  true\n  ((_ pble 9 1 1 2 1 1 1 3 1 1 1)\n    (not (= j 1))\n    (not (= i 1))\n    (not (= h 1))\n    (not (= g 1))\n    (not (= f 1))\n    (not (= e 1))\n    (not (= d 1))\n    (not (= c 1))\n    (not (= b 1))\n    (not (= a 1)))\n  ((_ pble 6 1 2 1 3 1 1 1 1 1 1)\n    (= a 1)\n    (= b 1)\n    (= c 1)\n    (= d 1)\n    (= e 1)\n    (= f 1)\n    (= g 1)\n    (= h 1)\n    (= i 1)\n    (= j 1))\n  (<= i 1)\n  (<= 0 i)\n  (<= f 1)\n  (<= 0 f)\n  (<= b 1)\n  (<= 0 b)\n  (<= a 1)\n  (<= 0 a)\n  (<= d 1)\n  (<= 0 d)\n  (<= g 1)\n  (<= 0 g)\n  (<= h 1)\n  (<= 0 h)\n  (<= c 1)\n  (<= 0 c)\n  (<= e 1)\n  (<= 0 e)\n  (<= j 1)\n  (<= 0 j)\n  :precision precise :depth 1)\n)\n",
