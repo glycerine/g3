@@ -453,3 +453,51 @@ func TestSymbolNativeInternGrowthAndStringLifetime(t *testing.T) {
 	}
 
 }
+
+// TestFirstEqualStringMatchesEqualStringLoop checks the batched name scan
+// against a loop of EqualString calls, and CheckOpen against Hash(null).
+func TestFirstEqualStringMatchesEqualStringLoop(t *testing.T) {
+	m, e := NewManager(Config{})
+	if e != nil {
+		t.Fatal(e)
+	}
+	var keys []Symbol
+	for _, s := range []string{"a", "bb", "a", "k!3", "c"} {
+		k, e := m.Intern(s)
+		if e != nil {
+			t.Fatal(e)
+		}
+		keys = append(keys, k)
+	}
+	keys = append(keys, Numerical(3), Symbol{})
+	for _, name := range []string{"a", "bb", "k!3", "zz", "c\x00tail"} {
+		for skip := uint32(0); skip < uint32(len(keys)); skip++ {
+			accept := func(i uint32) bool { return i != skip }
+			want := int64(-1)
+			for i := range keys {
+				ok, e := m.EqualString(keys[i], &name)
+				if e != nil {
+					t.Fatal(e)
+				}
+				if ok && accept(uint32(i)) {
+					want = int64(i)
+					break
+				}
+			}
+			got, e := m.FirstEqualString(&name, uint32(len(keys)), func(i uint32) Symbol { return keys[i] }, accept)
+			if e != nil || got != want {
+				t.Fatal(name, skip, got, want, e)
+			}
+		}
+	}
+	if _, e := m.Hash(Symbol{}); e != nil || m.CheckOpen() != nil {
+		t.Fatal("open manager", e)
+	}
+	if e := m.Close(); e != nil {
+		t.Fatal(e)
+	}
+	_, want := m.Hash(Symbol{})
+	if got := m.CheckOpen(); got != want || got == nil {
+		t.Fatal("closed manager", got, want)
+	}
+}

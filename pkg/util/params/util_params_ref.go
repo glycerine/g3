@@ -183,10 +183,7 @@ func (c *ParamsContext) open() error {
 	if c == nil || c.Self != c || c.Closed {
 		return ErrParamsOwner
 	}
-	if _, e := c.SymbolsField.Hash(usymbol.Symbol{}); e != nil {
-		return e
-	}
-	return nil
+	return c.SymbolsField.CheckOpen()
 }
 func (c *ParamsContext) check(v *ParamsRef) error {
 	if e := c.open(); e != nil {
@@ -624,18 +621,22 @@ func (c *ParamsContext) find(v *ParamsRef, k usymbol.Symbol, name *string, byNam
 			return nil, e
 		}
 	}
-	for i := uint32(0); i < b.Size; i++ {
+	accept := func(i uint32) bool {
 		x := c.Entry(b, i)
-		match := x.key == k
-		if byName {
-			var e error
-			match, e = c.SymbolsField.EqualString(x.key, name)
-			if e != nil {
-				return nil, e
-			}
+		return matchAnyKind || x.Kind == kind || (kind == ParamNumeral && x.Kind == ParamUInt)
+	}
+	if byName {
+		// One symbol-manager lock for the whole scan; the comparisons and
+		// their order are those of the loop below.
+		i, e := c.SymbolsField.FirstEqualString(name, b.Size, func(i uint32) usymbol.Symbol { return c.Entry(b, i).key }, accept)
+		if e != nil || i < 0 {
+			return nil, e
 		}
-		if match && (matchAnyKind || x.Kind == kind || (kind == ParamNumeral && x.Kind == ParamUInt)) {
-			return x, nil
+		return c.Entry(b, uint32(i)), nil
+	}
+	for i := uint32(0); i < b.Size; i++ {
+		if c.Entry(b, i).key == k && accept(i) {
+			return c.Entry(b, i), nil
 		}
 	}
 	return nil, nil

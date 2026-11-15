@@ -420,6 +420,37 @@ func (m *Manager) Size(s Symbol) (uint32, error) {
 func (m *Manager) EqualString(s Symbol, text *string) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	return m.equalString(s, text)
+}
+
+// FirstEqualString runs EqualString(key(i), text) for i = 0, 1, ... n-1
+// under one lock, and returns the first i whose key equals text and that
+// accept(i) takes, or -1. It stops at the first error, as a loop of
+// EqualString calls would.
+func (m *Manager) FirstEqualString(text *string, n uint32, key func(uint32) Symbol, accept func(uint32) bool) (int64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for i := uint32(0); i < n; i++ {
+		match, e := m.equalString(key(i), text)
+		if e != nil {
+			return -1, e
+		}
+		if match && accept(i) {
+			return int64(i), nil
+		}
+	}
+	return -1, nil
+}
+
+// CheckOpen returns the error any query on the null symbol returns: only
+// a closed manager refuses it.
+func (m *Manager) CheckOpen() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.checkPlain(Symbol{})
+}
+
+func (m *Manager) equalString(s Symbol, text *string) (bool, error) {
 	if e := m.checkPlain(s); e != nil {
 		return false, e
 	}
