@@ -148,3 +148,87 @@ func TestQuantifierTacticEliminatesDatalogDisequalities(t *testing.T) {
 		t.Fatal("finite-domain disequality projection is not equivalent to y = z", status)
 	}
 }
+
+// AUDIT.md qe_01-F4: z3 4.7.1's is_small_domain (src/qe/qe_dl_plugin.cpp)
+// uses domain_size < #atoms, so when the atoms can cover the whole domain
+// the large-domain mode's "other value" branch is empty and z3 eliminates
+// exists x:S(2). x != y and x != z to true. g3 enumerates the domain
+// (z3 bug, see z3_bug_exclusions.txt). The results are checked by brute
+// force over every assignment of the free constants.
+func TestDatalogQEDomainBoundaryBruteForce(t *testing.T) {
+	for _, size := range []uint64{2, 3} {
+		f := newFMFixture(t)
+		m := f.r.manager
+		name, err := m.Symbols.Intern("qe-boundary-domain")
+		fmMust(t, err)
+		sort := f.own(m.MkDatalogFiniteSort(name, size))
+		x, y, z := f.constant("qe-boundary-x", sort), f.constant("qe-boundary-y", sort), f.constant("qe-boundary-z", sort)
+		body := f.own(m.MkAnd(f.own(m.MkNot(f.own(m.MkEq(x, y)))), f.own(m.MkNot(f.own(m.MkEq(x, z))))))
+		quantifierRef, err := bindExprQuantifierVariables(m, []ast.ASTHandle{x}, body)
+		fmMust(t, err)
+		quantifier, err := m.RefGet(quantifierRef)
+		fmMust(t, err)
+		result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
+		fmMust(t, err)
+		fmMust(t, m.DelRef(&quantifierRef))
+		if !complete {
+			t.Fatalf("domain %d: quantifier was not eliminated", size)
+		}
+		h, err := m.RefGet(result)
+		fmMust(t, err)
+		kernel := qsatKernelOwner(t, f)
+		solver, err := kernel.solver()
+		fmMust(t, err)
+		fmMust(t, solver.AssertFormula(h))
+		for yv := uint64(0); yv < size; yv++ {
+			for zv := uint64(0); zv < size; zv++ {
+				yn, zn := f.own(m.MkDatalogNumeral(yv, sort)), f.own(m.MkDatalogNumeral(zv, sort))
+				fmMust(t, solver.Push())
+				fmMust(t, solver.AssertFormula(f.own(m.MkEq(y, yn))))
+				fmMust(t, solver.AssertFormula(f.own(m.MkEq(z, zn))))
+				status, err := solver.CheckSat(nil)
+				fmMust(t, err)
+				fmMust(t, solver.Pop(1))
+				// Some x in 0..size-1 differs from both yv and zv.
+				want := lbool.False
+				if size > 2 || yv == zv {
+					want = lbool.True
+				}
+				if status != want {
+					t.Fatalf("domain %d, y=%d, z=%d: projection gives %v, want %v", size, yv, zv, status, want)
+				}
+			}
+		}
+		fmMust(t, m.DelRef(&result))
+	}
+}
+
+// AUDIT.md qe_01-F4: exists x:S(2). x != 0 and x != 1 is false; z3 4.7.1
+// (with the fork's other-value fix) eliminates it to true because
+// is_small_domain uses < and the empty "other value" branch survives.
+func TestDatalogQEDomainBoundaryNumerals(t *testing.T) {
+	f := newFMFixture(t)
+	m := f.r.manager
+	name, err := m.Symbols.Intern("qe-boundary-numeral-domain")
+	fmMust(t, err)
+	sort := f.own(m.MkDatalogFiniteSort(name, 2))
+	x := f.constant("qe-boundary-numeral-x", sort)
+	zero, one := f.own(m.MkDatalogNumeral(0, sort)), f.own(m.MkDatalogNumeral(1, sort))
+	body := f.own(m.MkAnd(f.own(m.MkNot(f.own(m.MkEq(x, zero)))), f.own(m.MkNot(f.own(m.MkEq(x, one))))))
+	quantifierRef, err := bindExprQuantifierVariables(m, []ast.ASTHandle{x}, body)
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&quantifierRef)) }()
+	quantifier, err := m.RefGet(quantifierRef)
+	fmMust(t, err)
+	result, complete, err := qeTestEliminate(m, quantifier, f.r.config)
+	fmMust(t, err)
+	if !complete {
+		t.Fatal("quantifier was not eliminated")
+	}
+	defer func() { fmMust(t, m.DelRef(&result)) }()
+	h, err := m.RefGet(result)
+	fmMust(t, err)
+	if !m.IsFalse(h) {
+		t.Fatal("exists x:S(2). x != 0 and x != 1 must eliminate to false")
+	}
+}

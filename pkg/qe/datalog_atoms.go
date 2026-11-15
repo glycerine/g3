@@ -128,6 +128,10 @@ func collectDatalogQEAtoms(m *ast.ASTManager, variable ast.ASTHandle, positive, 
 // datalogQEBranchCount enumerates the domain when the exclusions can cover
 // every value. The equality boundary matters: with n distinct exclusions in
 // an n-element domain, the synthetic "other" branch may be empty.
+// z3 4.7.1 is_small_domain (src/qe/qe_dl_plugin.cpp) tests
+// domain_size < #atoms, so at domain_size == #atoms it keeps the empty
+// "other" branch and eliminates exists x:S(2). x != 0 and x != 1 to true.
+// g3 uses <= (z3 bug, see z3_bug_exclusions.txt; AUDIT.md qe_01-F4).
 func datalogQEBranchCount(domain uint64, atoms datalogQEAtoms) (count uint64, small bool) {
 	total := uint64(len(atoms.positive)) + uint64(len(atoms.negative))
 	if domain <= total {

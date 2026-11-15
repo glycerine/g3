@@ -88,6 +88,19 @@ z3_bug_duality_certificate_eliminated_var
 # TestDatalogPluginOtherBranchPreservesNegativeEqualitySemantics in
 # pkg/qe/datalog_branch_test.go.
 #
+# qe's datalog (finite-domain) plugin picks the large-domain mode when the
+# domain size equals the number of equality atoms (is_small_domain tests
+# domain_size < #atoms). Its "other value" branch then assumes a value that
+# differs from every atom, which need not exist, so exists x:S(2).
+# x != y and x != z becomes true instead of (= y z) (z3 bug:
+# src/qe/qe_dl_plugin.cpp is_small_domain; still present upstream). g3
+# enumerates the domain when domain_size <= #atoms
+# (pkg/qe/datalog_atoms.go datalogQEBranchCount; AUDIT.md qe_01-F4). No
+# vector (SMT-LIB 2 has no finite-domain sorts); see
+# TestDatalogQEDomainBoundaryBruteForce and
+# TestDatalogQEDomainBoundaryNumerals in
+# pkg/qe/quantifier_tactic_datalog_search_test.go.
+#
 # sieve_relation_plugin::mk_filter_by_negation_fn computes its "column is
 # inner" flags as !is_inner_col, so an equality between two inner columns
 # is dropped (the inner relations are subtracted on zero columns, emptying
