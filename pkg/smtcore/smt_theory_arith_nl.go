@@ -271,8 +271,20 @@ func (t *SMTTheoryArith) mkIntervalForExpr(n ast.ASTHandle) (*smtOldInterval, er
 	return t.mkIntervalForVar(t.expr2var(n))
 }
 
+// smtArithRatBitsize is mpq_manager::bitsize: bitsize(num) for an integer,
+// else bitsize(num) + bitsize(den), where mpz bitsize is log2|z| + 1 (1 for 0).
 func smtArithRatBitsize(q *big.Rat) uint {
-	return uint(q.Num().BitLen() + q.Denom().BitLen())
+	if q.IsInt() {
+		return smtArithIntBitsize(q.Num())
+	}
+	return smtArithIntBitsize(q.Num()) + smtArithIntBitsize(q.Denom())
+}
+
+func smtArithIntBitsize(z *big.Int) uint {
+	if z.Sign() == 0 {
+		return 1
+	}
+	return uint(z.BitLen())
 }
 
 // mulBoundOf sets target *= [lower(var), upper(var)]^power.
