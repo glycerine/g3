@@ -1405,17 +1405,18 @@ func (p *DirectProofInterpolator) simplifySymmetry(args []ast.ASTHandle) (ast.AS
 	}
 	if equivalence {
 		chain, err = p.reverseChain(chain)
-	} else {
-		negation, e := p.isNegationChain(chain)
-		if e != nil || !negation {
-			return ast.ASTHandle{}, ProofError{}
+		if err != nil {
+			return ast.ASTHandle{}, err
 		}
-		chain, err = p.commuteNegationChain(chain)
+		return p.base.manager.MkImplies(condition, chain)
 	}
-	if err != nil {
-		return ast.ASTHandle{}, err
+	negation, err := p.isNegationChain(chain)
+	if err != nil || !negation {
+		return ast.ASTHandle{}, ProofError{}
 	}
-	return p.base.manager.MkImplies(condition, chain)
+	// simplify_symm returns the commuted negation chain without the
+	// separated condition.
+	return p.commuteNegationChain(chain)
 }
 
 func (p *DirectProofInterpolator) makeLocalRewrite(side TermSide, formula ast.ASTHandle) (ast.ASTHandle, error) {

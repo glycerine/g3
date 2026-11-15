@@ -1875,3 +1875,32 @@ func TestDirectProofMixedCongruenceLastPosition(t *testing.T) {
 		t.Fatal("@cong position is not the last match", value, numeral, err)
 	}
 }
+
+// interp_01-F7: simplify_symm drops the separated condition of a negation
+// chain: `return commute_negation_chain(equa)`.
+func TestDirectProofConditionalNegationChainSymmetryDropsCondition(t *testing.T) {
+	_, manager, base, p, q := directProofFixture(t)
+	direct, err := NewDirectProofInterpolator(base, DownwardScopeRange(0), false)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, direct.Close()) })
+	negativeP, err := manager.MkNot(p)
+	interpMust(t, err)
+	equality, err := manager.Make(OperatorIff, p, negativeP)
+	interpMust(t, err)
+	negativeEquality, err := manager.MkNot(equality)
+	interpMust(t, err)
+	chain, err := direct.makeLocalRewrite(TermA, negativeEquality)
+	interpMust(t, err)
+	conditional, err := manager.Make(OperatorImplies, q, chain)
+	interpMust(t, err)
+	proof, err := direct.makeSymbol(direct.symmetry, conditional)
+	interpMust(t, err)
+	result, err := direct.SimplifyProofTerm(proof)
+	interpMust(t, err)
+	if op, e := manager.Operator(result); e != nil || op == OperatorImplies {
+		t.Fatal("negation chain kept its condition", op, e)
+	}
+	if _, _, e := direct.chainParts(result); e != nil {
+		t.Fatal("result is not a chain", e)
+	}
+}
