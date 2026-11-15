@@ -456,6 +456,44 @@ namespace Duality {
         return true;
     }
 
+    // Body positions (1-based) of each distinct predicate atom of a clause
+    // (the quantifier body), one group per edge child, as g3's
+    // proofClauseShape computes them. Returns false on a malformed program.
+    static bool witness_positions(dl_interface *d, ::expr *clause, vector<unsigned_vector> &positions) {
+        ast_manager &m = d->dd()->ctx.m();
+        // the predicate symbols are the uninterpreted clause heads
+        obj_hashtable< ::func_decl> preds;
+        for (unsigned i = 0; i < d->dd()->clauses.size(); i++) {
+            ::expr *c = to_expr(d->dd()->clauses[i].raw());
+            if (is_quantifier(c))
+                c = to_quantifier(c)->get_expr();
+            if (m.is_implies(c))
+                c = to_app(c)->get_arg(1);
+            if (!is_app(c))
+                return false;
+            if (to_app(c)->get_family_id() == null_family_id)
+                preds.insert(to_app(c)->get_decl());
+        }
+        ::expr *body;
+        ptr_vector< ::expr> atoms;
+        witness_clause_shape(m, clause, body, atoms);
+        positions.reset();
+        obj_map< ::expr, unsigned> seen;
+        for (unsigned i = 0; i < atoms.size(); i++) {
+            ::expr *a = atoms[i];
+            if (!is_app(a) || !preds.contains(to_app(a)->get_decl()))
+                continue;
+            unsigned idx;
+            if (!seen.find(a, idx)) {
+                idx = positions.size();
+                seen.insert(a, idx);
+                positions.push_back(unsigned_vector());
+            }
+            positions[idx].push_back(i + 1);
+        }
+        return true;
+    }
+
     // Values of the original rule's bound variables for this step, indexed
     // by declaration. Returns false if none are found; the caller then keeps
     // the counterexample model's values.
@@ -469,37 +507,10 @@ namespace Duality {
         ::quantifier *q = to_quantifier(t);
         ::expr *clause = q->get_expr();
         try {
-            // the predicate symbols are the uninterpreted clause heads
-            obj_hashtable< ::func_decl> preds;
-            for (unsigned i = 0; i < d->dd()->clauses.size(); i++) {
-                ::expr *c = to_expr(d->dd()->clauses[i].raw());
-                if (is_quantifier(c))
-                    c = to_quantifier(c)->get_expr();
-                if (m.is_implies(c))
-                    c = to_app(c)->get_arg(1);
-                if (!is_app(c))
-                    return false;
-                if (to_app(c)->get_family_id() == null_family_id)
-                    preds.insert(to_app(c)->get_decl());
-            }
             // body positions of each distinct predicate atom, one group per edge child
-            ::expr *body;
-            ptr_vector< ::expr> atoms;
-            witness_clause_shape(m, clause, body, atoms);
             vector<unsigned_vector> positions;
-            obj_map< ::expr, unsigned> seen;
-            for (unsigned i = 0; i < atoms.size(); i++) {
-                ::expr *a = atoms[i];
-                if (!is_app(a) || !preds.contains(to_app(a)->get_decl()))
-                    continue;
-                unsigned idx;
-                if (!seen.find(a, idx)) {
-                    idx = positions.size();
-                    seen.insert(a, idx);
-                    positions.push_back(unsigned_vector());
-                }
-                positions[idx].push_back(i + 1);
-            }
+            if (!witness_positions(d, clause, positions))
+                return false;
             if (positions.size() != edge.Children.size())
                 return false;
             // instantiate the rule with fresh constants
@@ -750,6 +761,18 @@ namespace Duality {
         return md;
     }
 
+    // FORK FIX #93: record the proof of a background axiom and, by
+    // and-elimination, of each of its conjuncts (depth first, in order).
+    static void background_literal_proofs(ast_manager &m, ::expr *f, ::proof *p, obj_map< ::expr, ::proof*> &proofs, proof_ref_vector &pins) {
+        proofs.insert(f, p);
+        if (!m.is_and(f))
+            return;
+        for (unsigned k = 0; k < to_app(f)->get_num_args(); k++) {
+            pins.push_back(m.mk_and_elim(p, k));
+            background_literal_proofs(m, to_app(f)->get_arg(k), pins.back(), proofs, pins);
+        }
+    }
+
     static proof_ref extract_proof(dl_interface *d, RPFP *tree, RPFP::Node *root) {
         context &ctx = d->dd()->ctx;
         ast_manager &mgr = ctx.m();
@@ -766,6 +789,36 @@ namespace Duality {
         prems.push_back(mgr.mk_asserted(ctx.uncook(t)));
 
         substs.push_back(expr_ref_vector(mgr));
+
+        // FORK FIX #93 (g3 audit, see FORK_BUGFIXES.md): a checkable hyper-resolve step (AUDIT duality zbug round 2)
+        // The positions name the body literal each child proof resolves (a
+        // child used twice resolves each of its literals), not the child's
+        // index; the substitution is in variable-index order, as var_subst
+        // in the proof checker reads it; and the conclusion is the original
+        // clause head (false for the query, not @Fail).
+        ::expr *raw_t = to_expr(t.raw());
+        bool is_forall = is_quantifier(raw_t) && to_quantifier(raw_t)->is_forall();
+        ::expr *raw_clause = is_forall ? to_quantifier(raw_t)->get_expr() : raw_t;
+        vector<unsigned_vector> positions;
+        bool shaped = witness_positions(d, raw_clause, positions) && positions.size() == edge.Children.size();
+
+        svector<std::pair<unsigned, unsigned> > pos;
+        for(unsigned i = 0; i < edge.Children.size(); i++){
+            if(!tree->Empty(edge.Children[i])){
+                proof_ref prem = extract_proof(d,tree,edge.Children[i]);
+                unsigned_vector child_pos;
+                if (shaped)
+                    child_pos = positions[i];
+                else
+                    child_pos.push_back(i+1);
+                for (unsigned k = 0; k < child_pos.size(); k++) {
+                    pos.push_back(std::pair<unsigned,unsigned>(child_pos[k],0));
+                    prems.push_back(prem);
+                    substs.push_back(expr_ref_vector(mgr));
+                }
+            }
+        }
+
         if (t.is_quantifier() && t.is_quantifier_forall()) {
             int bound = t.get_quantifier_num_bound();
             std::vector<sort> sorts;
@@ -774,25 +827,56 @@ namespace Duality {
             // FORK FIX #63 (g3 audit, see FORK_BUGFIXES.md): substitute the original rule's witness (AUDIT duality_01-F4)
             expr_ref_vector witness(mgr);
             bool has_witness = find_step_witness(d,tree,root,witness);
+            expr_ref_vector by_decl(mgr);
             for(int j = 0; j < bound; j++){
                 sort the_sort = t.get_quantifier_bound_sort(j);
                 symbol name = t.get_quantifier_bound_name(j);
                 expr skolem = ctx.constant(symbol(ctx,name),sort(ctx,the_sort));
                 expr val = has_witness ? ctx.cook(witness.get(j)) : tree->Eval(&edge,skolem);
-                expr_ref thing(ctx.uncook(val),mgr);
-                substs[0].push_back(thing);
+                by_decl.push_back(to_expr(val.raw()));
                 expr local_skolem = tree->Localize(&edge,skolem);
                 (*local_func_decls).insert(local_skolem.decl());
             }
+            // FORK FIX #93: variable k is declaration bound-1-k
+            for(int k = 0; k < bound; k++)
+                substs[0].push_back(by_decl.get(bound-1-k));
         }
 
-        svector<std::pair<unsigned, unsigned> > pos;
-        for(unsigned i = 0; i < edge.Children.size(); i++){
-            if(!tree->Empty(edge.Children[i])){
-                pos.push_back(std::pair<unsigned,unsigned>(i+1,0));
-                proof_ref prem = extract_proof(d,tree,edge.Children[i]);
-                prems.push_back(prem);
-                substs.push_back(expr_ref_vector(mgr));
+        // FORK FIX #93: a body literal that is a background axiom (or a
+        // conjunct of one) is resolved with that axiom's proof, as g3's
+        // backgroundLiteralProofs does, so the step has no open side condition.
+        if (shaped) {
+            expr_ref instance(raw_clause, mgr);
+            if (!substs[0].empty()) {
+                var_subst vs(mgr, false);
+                vs(raw_clause, substs[0].size(), substs[0].c_ptr(), instance);
+            }
+            obj_map< ::expr, ::proof*> background;
+            proof_ref_vector background_pins(mgr);
+            for (unsigned i = 0; i < d->dd()->axioms.size(); i++) {
+                ::expr *ax = to_expr(d->dd()->axioms[i].raw());
+                background_pins.push_back(mgr.mk_asserted(ax));
+                background_literal_proofs(mgr, ax, background_pins.back(), background, background_pins);
+            }
+            if (mgr.is_implies(instance)) {
+                ::expr *ibody = to_app(instance)->get_arg(0);
+                ptr_vector< ::expr> iatoms;
+                if (mgr.is_and(ibody))
+                    iatoms.append(to_app(ibody)->get_num_args(), to_app(ibody)->get_args());
+                else
+                    iatoms.push_back(ibody);
+                uint_set predicate_positions;
+                for (unsigned i = 0; i < positions.size(); i++)
+                    for (unsigned k = 0; k < positions[i].size(); k++)
+                        predicate_positions.insert(positions[i][k]);
+                for (unsigned i = 0; i < iatoms.size(); i++) {
+                    ::proof *bp;
+                    if (!predicate_positions.contains(i + 1) && background.find(iatoms[i], bp)) {
+                        pos.push_back(std::pair<unsigned,unsigned>(i + 1, 0));
+                        prems.push_back(bp);
+                        substs.push_back(expr_ref_vector(mgr));
+                    }
+                }
             }
         }
 
@@ -801,6 +885,18 @@ namespace Duality {
         for(unsigned i = 0; i < edge.F.IndParams.size(); i++)
             args.push_back(tree->Eval(&edge,edge.F.IndParams[i]));
         expr conc = f(args);
+        {
+            // FORK FIX #93: conclude the original head
+            ::expr *body;
+            ptr_vector< ::expr> atoms;
+            ::expr *head = witness_clause_shape(mgr, raw_clause, body, atoms);
+            if (shaped && is_app(head) && to_app(head)->get_decl()->get_arity() <= args.size()) {
+                ptr_vector< ::expr> hargs;
+                for (unsigned i = 0; i < to_app(head)->get_decl()->get_arity(); i++)
+                    hargs.push_back(to_expr(args[i].raw()));
+                conc = ctx.cook(mgr.mk_app(to_app(head)->get_decl(), hargs.size(), hargs.c_ptr()));
+            }
+        }
 
 
         ::vector< ::proof *> pprems;
