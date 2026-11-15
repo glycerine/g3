@@ -600,3 +600,17 @@ z3_bug_duality_certificate_eliminated_var
 # TestUDocSieveNegationColumnClassification and
 # TestSieveNegationFullNegativeColumnSubtractsAll in
 # pkg/muz/rel/udoc_sieve_negation_test.go.
+#
+# With fixedpoint.datalog.default_table_checked, a union into an empty
+# nullary register creates the target with the source's plugin;
+# check_table_plugin::mk_empty hands the 0-column signature to the sparse
+# plugin (the checked default table or the checker), which cannot handle
+# it, and z3 segfaults in column_layout::make_byte_aligned_end (z3 bug:
+# src/muz/rel/dl_instruction.cpp instr_union::perform,
+# src/muz/rel/dl_check_table.cpp mk_empty; still present upstream). g3
+# builds each member of the empty checked pair like the source member,
+# with a hash table for a nullary sparse one
+# (pkg/muz/rel/finite_checked_pair.go EmptyLike,
+# instruction_finite_table.go emptyFiniteLike). No AUDIT.md finding.
+# Reproduction: test_vectors/z3_bug_check_table_nullary_empty.smt2.
+z3_bug_check_table_nullary_empty

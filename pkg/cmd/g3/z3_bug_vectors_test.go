@@ -68,6 +68,9 @@ var z3BugResults = map[string]string{
 	// muz_rel_04-F2
 	"z3_bug_lazy_sparse_nullary_union.smt2": "sat\ntrue\n",
 
+	// default_table_checked nullary check_table (no AUDIT.md finding)
+	"z3_bug_check_table_nullary_empty.smt2": "sat\n",
+
 	// muz_small_01-F8
 	// qlinear::compile asserts per formula (muz_small_01-F7), which steers
 	// the search to a shorter trace.
