@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md qe_01 Needs verification: constrain_free_vars must stop when internalizing a bound compresses the row (was index out of range).
+	"qe2_constrain_free_vars_compress.smt2": "(error \"tactic failed: (resource limits reached)\")\n",
 	// AUDIT.md qe_05-F1: qe-sat has no proof/unsat-core fail_if checks.
 	"qe_sat_unsat_cores.smt2": "sat\n(:reason-unknown \"\")\n",
 	// AUDIT.md qe_05-F1: qe-sat has no proof/unsat-core fail_if checks.

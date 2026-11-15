@@ -345,7 +345,12 @@ func (t *SMTTheoryArith) constrainFreeVars(r *smtArithmeticRow) (result bool, er
 	m := t.state.manager
 	x := smtArithExprs{m: m}
 	defer func() { err = errors.Join(err, x.release()) }()
-	for i := range r.entries {
+	// The C++ walks [begin_entries(), end_entries()) with both iterators
+	// fixed before the loop, but ctx.internalize(bound) can reach add_row,
+	// whose compress_if_needed shrinks r's entries in place; the C++ then
+	// reads destroyed slots past the new end (undefined behavior). Re-read
+	// the current length on every step so a compressed row ends the walk.
+	for i := 0; i < len(r.entries); i++ {
 		it := &r.entries[i]
 		if it.dead() || it.variable == b || !t.isFree(it.variable) {
 			continue
