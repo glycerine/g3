@@ -1,0 +1,7 @@
+(set-option :produce-proofs true)
+(set-option :fixedpoint.engine duality)
+(declare-fun q0 (Int Int) Bool)
+(assert (forall ((x Int) (y Int)) (=> (and (= x 2) (= y 7)) (q0 x y))))
+(assert (forall ((x Int) (y Int)) (=> (and (q0 x y) (> x 1)) false)))
+(check-sat-using horn)
+(get-proof)

@@ -336,6 +336,12 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// Duality zbug round 2 (fork fix): get_proof hyper-resolve steps carry the
+	// substitution in variable order, literal positions and the false head.
+	"duality_get_proof_hyper_resolve.smt2": "unsat\n((proof\n(let (($x32 (forall ((x Int) (y Int) )(! (let (($x30 (q0 x y)))\n (=> (and (= x 2) (= y 7)) $x30)) :qid k!4))\n ))\n (let (($x69 (forall ((k!10 Int) (k!00 Int) )(=> (and (> k!10 1) (q0 k!10 k!00)) false))\n ))\n ((_ hyper-res 7 2 2 0) (asserted $x69) ((_ hyper-res 7 2) (asserted $x32) (q0 2 7)) false)))))\n\n",
+	// Duality zbug round 2 (fork fix): after RemoveDeadNodes each edge prints
+	// its own clause's variables.
+	"duality_certificate_dead_edge.smt2": "sat\n(derivation\n(step s!3 (q0 1)\n rule!1  (subst\n    (= x 1)\n  )\n  (labels  )\n  (ref   ))\n(step s!2 (err)\n rule!4  (subst\n    (= x 1)\n  )\n  (labels  )\n  (ref  s!3  ))\n(step s!1 (@Fail!0)\n rule!5  (subst\n  )\n  (labels  )\n  (ref  s!2  ))\n)\n(model \n\"@b_2 -> true\n@b_3 -> true\n@under2 -> false\n@b_1 -> true\n@under3 -> false\n\")\n\n",
 	// Duality zbug round 2: background axioms reach only the interpolating
 	// solver, not aux_solver, so covering checks ignore them as in z3.
 	"duality_background_axiom_cover.smt2": "unsat\n(fixedpoint \n(define-fun err () Bool\n  (= c0 c1))\n(define-fun @Fail!0 () Bool\n  (= c0 c1))\n(define-fun q ((x!0 Int)) Bool\n  (= x!0 c0))\n)\n\n",
