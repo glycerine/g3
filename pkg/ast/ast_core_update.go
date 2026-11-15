@@ -167,7 +167,10 @@ func (m *ASTManager) updateQuantifierArguments(h, body ASTHandle, forall bool, w
 		}
 		next.noPatternCount = uint32(noPatterns.size())
 	}
-	if next.patternCount != 0 && next.noPatternCount != 0 || ASTSourceDebug && next.count == 0 {
+	if next.patternCount != 0 && next.noPatternCount != 0 {
+		return ASTHandle{}, errSimultaneousPatterns()
+	}
+	if ASTSourceDebug && next.count == 0 {
 		return ASTHandle{}, ErrASTDomain
 	}
 	next.body, e = m.requireExpr(body)

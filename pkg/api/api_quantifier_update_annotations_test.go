@@ -20,7 +20,9 @@ func TestSMTContextUpdateQuantifierAnnotationsAndGuards(t *testing.T) {
 	if value, err := f.manager.GetNoPattern(updated, 0); err != nil || value != f.truth {
 		t.Fatal(value, err)
 	}
-	if _, err := f.context.UpdateQuantifierAnnotations(f.value, []ast.ASTHandle{f.pattern}, []ast.ASTHandle{f.truth}, f.false); !errors.Is(err, ast.ErrASTDomain) {
+	// AUDIT.md ast_03-F5: ast_manager::mk_quantifier throws
+	// ast_exception("simultaneous patterns and no-patterns not supported").
+	if _, err := f.context.UpdateQuantifierAnnotations(f.value, []ast.ASTHandle{f.pattern}, []ast.ASTHandle{f.truth}, f.false); err == nil || err.Error() != "simultaneous patterns and no-patterns not supported" {
 		t.Fatal("mixed annotations accepted", err)
 	}
 	if _, err := f.context.UpdateQuantifierWeight(f.truth, 1); !errors.Is(err, ast.ErrASTDomain) {

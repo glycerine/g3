@@ -9,6 +9,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 func (m *ASTManager) requireKind(h ASTHandle, kind ASTKind) (astNodeRef, error) {
@@ -433,7 +434,11 @@ func (m *ASTManager) MkQuantifier(spec ASTQuantifierSpec) (ASTHandle, error) {
 		return ASTHandle{}, e
 	}
 	defer m.mu.Unlock()
-	if len(spec.Sorts) != len(spec.Names) || (len(spec.Patterns) != 0 && len(spec.NoPatterns) != 0) || ASTSourceDebug && len(spec.Sorts) == 0 {
+	// Source ast_manager::mk_quantifier throws this ast_exception first.
+	if len(spec.Patterns) != 0 && len(spec.NoPatterns) != 0 {
+		return ASTHandle{}, errSimultaneousPatterns()
+	}
+	if len(spec.Sorts) != len(spec.Names) || ASTSourceDebug && len(spec.Sorts) == 0 {
 		return ASTHandle{}, ErrASTDomain
 	}
 	for _, s := range spec.Sorts {
@@ -534,4 +539,10 @@ func (m *ASTManager) MkQuantifier(spec ASTQuantifierSpec) (ASTHandle, error) {
 		e = m.traceQuantifier(r)
 	}
 	return m.external(r), e
+}
+
+// errSimultaneousPatterns is ast_manager::mk_quantifier's
+// ast_exception("simultaneous patterns and no-patterns not supported").
+func errSimultaneousPatterns() error {
+	return ASTException{z3exception.NewDefaultException("simultaneous patterns and no-patterns not supported")}
 }

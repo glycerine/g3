@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_03-F5: mk_quantifier's ast_exception for patterns with
+	// no-patterns, reported at the quantifier's ')'.
+	"quantifier_pattern_nopattern_error.smt2": "(error \"line 3 column 70: simultaneous patterns and no-patterns not supported\")\nsat\n",
 	// AUDIT.md ast_03-F4: datatype decl errors carry the VALIDATE_PARAM predicate
 	// text and the mk_update_field messages.
 	"datatype_decl_errors.smt2": "(error \"line 5 column 22: invalid parameter to datatype function u().is_datatype(domain[0])\")\n(error \"line 6 column 37: second argument to field update should be Int instead of Bool\")\n(error \"line 7 column 39: invalid number of arguments for datatype field update\")\n(error \"line 8 column 37: first argument to field update should be a data-type\")\n(error \"line 9 column 37: second argument to field update should be L instead of Int\")\n(error \"line 10 column 28: invalid parameter to datatype function arity == 1 && num_parameters == 1 && parameters[0].is_ast() && is_func_decl(parameters[0].get_ast())\")\n(error \"line 12 column 38: Sorts Int and L are incompatible\")\nsat\n",
@@ -1882,6 +1885,9 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	// AUDIT.md ast_03-F5
+	"quantifier_pattern_nopattern_error.smt2": true,
+
 	// AUDIT.md ast_03-F4
 	"datatype_decl_errors.smt2": true,
 

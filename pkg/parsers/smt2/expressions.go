@@ -552,11 +552,18 @@ func (p *commandParser) quantifier(forall bool) (value ast.ASTHandle, named stri
 	if spec.QID.IsNull() {
 		spec.QID = usymbol.Numerical(uint32(p.scanner.Line()))
 	}
-	if err = p.expect(RightParenToken); err != nil {
-		return ast.ASTHandle{}, "", err
+	if p.token != RightParenToken {
+		if err = p.expect(RightParenToken); err != nil {
+			return ast.ASTHandle{}, "", err
+		}
 	}
+	// Source pop_quant_frame calls mk_quantifier while ')' is still the
+	// current token; next() follows.
 	value, err = p.pinExpression(p.manager.MkQuantifier(spec))
-	return value, "", err
+	if err != nil {
+		return value, "", err
+	}
+	return value, "", p.advance()
 }
 
 func (p *commandParser) letExpression() (value ast.ASTHandle, named string, result error) {
