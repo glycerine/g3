@@ -397,8 +397,11 @@ func (i *ModelImplicant) evalArrayEq(h, left, right ast.ASTHandle) (err error) {
 				return err
 			}
 			if i.isTrue(h) {
-				// The source recursively reuses e and then continues. Clear its
-				// provisional true mark until every selected index is checked.
+				// z3 4.7.1 bug (AUDIT.md model_01-F5): model_implicant keeps
+				// the nested true mark, because set_false/set_x only add mark
+				// bits, so a later differing index cannot make e false. g3
+				// clears it so the remaining indices decide (C++ red test
+				// tst_z3_4_7_1_implicant_nested_array_eq).
 				delete(i.states, h)
 				continue
 			}

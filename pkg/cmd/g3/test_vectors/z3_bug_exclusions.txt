@@ -516,3 +516,12 @@ z3_bug_duality_quantify_arrays_requery_scale
 # (pkg/muz/duality/query_engine.go forgetActive). Reproduction:
 # test_vectors/z3_bug_duality_failed_query_requery.smt2.
 z3_bug_duality_failed_query_requery
+#
+# model_implicant::eval_array_eq keeps a nested array index's "true" mark
+# (mark bits: set_false/set_x cannot clear it), so arrays of arrays that
+# agree at one index and differ at a later one compare equal and PDR's
+# implicant sees a satisfied disequality as false (z3 bug:
+# src/model/model_implicant.cpp eval_array_eq; g3 fix:
+# pkg/model/model_implicant_array.go evalArrayEq; AUDIT.md model_01-F5).
+# Reachable only through model_implicant (PDR, Z3_model_extrapolate), so it
+# has no SMT-LIB vector; see TestModelImplicantNestedArrayTrueIsNotSticky.

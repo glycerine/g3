@@ -3,6 +3,7 @@ package model_test
 // Source: src/model/model_implicant.cpp:46-466,617-917.
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -192,5 +193,76 @@ func TestModelImplicantExtensionalArrayEquality(t *testing.T) {
 	astTestMust(t, err)
 	if len(literals) != 1 {
 		t.Fatal("store-row disequality", len(literals))
+	}
+}
+
+// AUDIT.md model_01-F5 (z3 4.7.1 bug kept fixed in g3): at index 1 the
+// nested values (store K0 0 1) and (store (store K0 0 1) 3 0) are different
+// terms for equal arrays, so the nested comparison marks the equality true;
+// at index 2 the values (store K0 0 5) and (store K0 0 6) differ. z3 4.7.1
+// keeps the true mark (set_false cannot clear it) and finds the satisfied
+// disequality false; g3 re-checks every index, so (not (= a b)) is the
+// implicant literal (C++ red test tst_z3_4_7_1_implicant_nested_array_eq).
+func TestModelImplicantNestedArrayTrueIsNotSticky(t *testing.T) {
+	m, md, implicant := modelImplicantFixture(t)
+	arrayFamily, err := m.RegisterArrayPlugin()
+	astTestMust(t, err)
+	num := func(k int64) ast.ASTHandle {
+		h, err := m.ArithmeticNumeralRat(big.NewRat(k, 1), true)
+		astTestMust(t, err)
+		astTestPin(t, m, h)
+		return h
+	}
+	n0, n1, n2, n3, n5, n6 := num(0), num(1), num(2), num(3), num(5), num(6)
+	intSort, err := m.GetSort(n0)
+	astTestMust(t, err)
+	inner, err := m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{intSort}), intSort)
+	astTestMust(t, err)
+	outer, err := m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{intSort}), inner)
+	astTestMust(t, err)
+	k0, err := m.MkConstArray(inner, n0)
+	astTestMust(t, err)
+	astTestPin(t, m, k0)
+	kk, err := m.MkConstArray(outer, k0)
+	astTestMust(t, err)
+	astTestPin(t, m, kk)
+	store := func(base, index, value ast.ASTHandle) ast.ASTHandle {
+		h, err := m.MkFamilyApp(arrayFamily, ast.ASTArrayOpStore, nil, []ast.ASTHandle{base, index, value})
+		astTestMust(t, err)
+		astTestPin(t, m, h)
+		return h
+	}
+	x1 := store(k0, n0, n1)
+	x2 := store(x1, n3, n0)
+	aValue := store(store(kk, n2, store(k0, n0, n5)), n1, x1)
+	bValue := store(store(kk, n2, store(k0, n0, n6)), n1, x2)
+	a, err := m.MkConst(astTestSymbol(t, m, "implicant-nested-a"), outer)
+	astTestMust(t, err)
+	astTestPin(t, m, a)
+	b, err := m.MkConst(astTestSymbol(t, m, "implicant-nested-b"), outer)
+	astTestMust(t, err)
+	astTestPin(t, m, b)
+	aDecl, err := m.GetDecl(a)
+	astTestMust(t, err)
+	bDecl, err := m.GetDecl(b)
+	astTestMust(t, err)
+	astTestMust(t, md.Core().RegisterConstant(aDecl, aValue))
+	astTestMust(t, md.Core().RegisterConstant(bDecl, bValue))
+	eq, err := m.MkEq(a, b)
+	astTestMust(t, err)
+	astTestPin(t, m, eq)
+	formula, err := m.MkNot(eq)
+	astTestMust(t, err)
+	astTestPin(t, m, formula)
+	literals, err := implicant.MinimizeLiterals([]ast.ASTHandle{formula}, md)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, model.CloseImplicantResults(m, &literals)) }()
+	if len(literals) != 1 {
+		t.Fatal("nested array implicant literals", len(literals))
+	}
+	literal, err := m.RefGet(literals[0])
+	astTestMust(t, err)
+	if literal != formula {
+		t.Fatal("nested array disequality was not kept")
 	}
 }
