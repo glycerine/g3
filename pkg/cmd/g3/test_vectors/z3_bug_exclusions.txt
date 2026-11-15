@@ -122,3 +122,12 @@ z3_bug_symmetry_reduce_quantified
 # that exception (pkg/tactic/bv/bvarray2uf_rewriter.go). Reproduction:
 # test_vectors/z3_bug_bvarray2uf_quantifier.smt2.
 z3_bug_bvarray2uf_quantifier
+#
+# smt2::parser::parse_get_value evaluates with model::eval, which catches
+# the evaluator's "max. steps exceeded" (model_evaluator.max_steps) and
+# leaves the value null; display dereferences it and z3 4.7.1 crashes
+# (z3 bug: src/parsers/smt2/smt2parser.cpp parse_get_value; fork fix 52
+# does not cover it; upstream evaluates with model::operator() since
+# 335d672bf). g3 and the fork report the exception as a command error.
+# Reproduction: test_vectors/z3_bug_get_value_max_steps.smt2.
+z3_bug_get_value_max_steps

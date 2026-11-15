@@ -14,6 +14,8 @@ import (
 // scriptResults so the C++ reference comparison does not run them; this
 // test locks in g3's correct answers instead.
 var z3BugResults = map[string]string{
+	// get-value reports the evaluator's max-steps exception (upstream 335d672bf).
+	"z3_bug_get_value_max_steps.smt2": "sat\n((error \"line 7 column 38: max. steps exceeded\")\n((x 1))\n(((+ x y 1 (* 2 x) (* 3 y)) 0))\n",
 	// bvarray2uf reports quantified goals as "not handled" (upstream 4bad2dd92).
 	"z3_bug_bvarray2uf_quantifier.smt2": "(error \"line 5 column 17: not handled by bvarray2uf\")\n(error \"tactic failed: not handled by bvarray2uf\")\n(error \"line 9 column 17: not handled by bvarray2uf\")\n",
 	// symmetry-reduce rejects a quantified goal (upstream 330b3cc8d).
