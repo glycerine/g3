@@ -1,0 +1,27 @@
+(query)
+(transform N7datalog13mk_coi_filterE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...1 rules Ts)
+(transform N7datalog25mk_separate_negated_tailsE...no-op Ts)
+(transform N7datalog24mk_similarity_compressorE...no-op Ts)
+(transform N7datalog15mk_filter_rulesE...no-op Ts)
+(transform N7datalog15mk_simple_joinsE...no-op Ts)
+(transform N7datalog21mk_unbound_compressorE...no-op Ts)
+load B into 0
+mk_total into 1 sort:[] B
+union 1 into 0
+mark_saturated B
+store 0 into B
+bytes 0
+bytes	rows	annotation
+(query)
+(transform N7datalog13mk_coi_filterE...0 rules Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog25mk_separate_negated_tailsE...no-op Ts)
+(transform N7datalog24mk_similarity_compressorE...no-op Ts)
+(transform N7datalog15mk_filter_rulesE...no-op Ts)
+(transform N7datalog15mk_simple_joinsE...no-op Ts)
+(transform N7datalog21mk_unbound_compressorE...no-op Ts)
+bytes 0
+bytes	rows	annotation

@@ -2296,6 +2296,12 @@ func (e *PropositionalEngine) tryCompiledSaturation(round *datalogRestartRound) 
 	if err != nil {
 		return true, err
 	}
+	// rel_context::saturate: IF_VERBOSE(10, m_ectx.report_big_relations(1000,
+	// verbose_stream())) after every round; read_datalog prints it only on
+	// early termination.
+	if err = e.reportBigRelationsVerbose(context, !e.datalogFrontend || !complete); err != nil {
+		return true, err
+	}
 	e.datalogStats.Reset()
 	if err = execution.CollectStatistics(&e.datalogStats); err != nil {
 		return true, err

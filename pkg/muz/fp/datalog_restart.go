@@ -6,7 +6,9 @@ package fp
 // saturation; explanation and other relational backends have separate drivers.
 
 import (
+	"bytes"
 	"errors"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"math"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -144,7 +146,32 @@ func (e *PropositionalEngine) queryFiniteDatalogWithRestarts(declarations []ast.
 			remaining -= restart
 		}
 		restart = nextDatalogRestartTimeout(restart, initial)
+		// read_datalog: IF_VERBOSE(1, "restarting saturation") before it
+		// reruns the rules (AUDIT.md FUZZ-F5; g3trace only).
+		if diagnostic.VerboseProgress && e.datalogFrontend {
+			if err = diagnostic.ProgressVerbose(1, "restarting saturation\n"); err != nil {
+				return lbool.Undef, err
+			}
+		}
 		round.restarting = true
 		round.interrupted = false
 	}
+}
+
+// reportBigRelationsVerbose is IF_VERBOSE(10,
+// m_ectx.report_big_relations(1000, verbose_stream())) (AUDIT.md FUZZ-F5;
+// g3trace only).
+func (e *PropositionalEngine) reportBigRelationsVerbose(context *rel.ExecutionContext, wanted bool) error {
+	if !diagnostic.VerboseProgress || !wanted {
+		return nil
+	}
+	enabled, err := diagnostic.ProcessVerboseEnabled(10)
+	if err != nil || !enabled {
+		return err
+	}
+	var report bytes.Buffer
+	if err = context.ReportBigRelations(1000, &report); err != nil {
+		return err
+	}
+	return diagnostic.ProgressVerbose(10, report.String())
 }
