@@ -602,6 +602,10 @@ void model_implicant::eval_array_eq(app* e, expr* arg1, expr* arg2) {
         else if (m_array.is_array(w1)) {
             eval_array_eq(e, w1, w2);
             if (is_true(e)) {
+                // The nested arrays agree at this index only; the marks are
+                // bits that set_false/set_x cannot clear, so drop the true
+                // mark and let the remaining indices decide e.
+                set_unknown(e);
                 continue;
             }
         }
