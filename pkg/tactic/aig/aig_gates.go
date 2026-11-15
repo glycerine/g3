@@ -159,43 +159,56 @@ func (m *Manager) Implies(left, right *Ref) (*Ref, error) {
 	})
 }
 
-func (m *Manager) sortedArgs(args []*Ref) ([]*Ref, error) {
+// sortArgs is std::sort(args, args+num, aig_lit_lt()) on the caller's
+// slice: aig_lit_lt is a total order, so equal elements are identical
+// literals and the unstable sort is indistinguishable from std::sort.
+func (m *Manager) sortArgs(args []*Ref) error {
 	if err := m.open(); err != nil {
-		return nil, err
+		return err
 	}
-	ordered := append([]*Ref(nil), args...)
-	for _, arg := range ordered {
+	for _, arg := range args {
 		if _, err := arg.literal(m); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	sort.Slice(ordered, func(i, j int) bool {
-		a, b := ordered[i].lit, ordered[j].lit
+	sort.Slice(args, func(i, j int) bool {
+		a, b := args[i].lit, args[j].lit
 		if a.node.id != b.node.id {
 			return a.node.id < b.node.id
 		}
 		return a.inverted && !b.inverted
 	})
-	return ordered, nil
+	return nil
 }
 
-// AndArgs follows the source's sorted left fold for three or more operands.
+// AndArgs is mk_and(unsigned, aig_lit*) on a copy of args.
 func (m *Manager) AndArgs(args []*Ref) (*Ref, error) {
-	ordered, err := m.sortedArgs(args)
-	if err != nil {
+	return m.andArgsInPlace(append([]*Ref(nil), args...))
+}
+
+// andArgsInPlace is mk_and(unsigned, aig_lit*): two operands are not sorted;
+// three or more are sorted in place, as the source sorts m_result_stack, so
+// restore_result_stack later releases them in sorted order.
+func (m *Manager) andArgsInPlace(args []*Ref) (*Ref, error) {
+	if err := m.open(); err != nil {
 		return nil, err
 	}
-	switch len(ordered) {
+	switch len(args) {
 	case 0:
 		return m.True()
 	case 1:
-		return ordered[0].Clone()
+		return args[0].Clone()
+	case 2:
+		return m.And(args[0], args[1])
 	}
-	acc, err := m.And(ordered[0], ordered[1])
+	if err := m.sortArgs(args); err != nil {
+		return nil, err
+	}
+	acc, err := m.And(args[0], args[1])
 	if err != nil {
 		return nil, err
 	}
-	for _, next := range ordered[2:] {
+	for _, next := range args[2:] {
 		replacement, e := m.And(acc, next)
 		closeErr := acc.Close()
 		if e != nil || closeErr != nil {
@@ -209,23 +222,32 @@ func (m *Manager) AndArgs(args []*Ref) (*Ref, error) {
 	return acc, nil
 }
 
-// OrArgs follows the source's sorted left fold for three or more operands.
+// OrArgs is mk_or(unsigned, aig_lit*) on a copy of args.
 func (m *Manager) OrArgs(args []*Ref) (*Ref, error) {
-	ordered, err := m.sortedArgs(args)
-	if err != nil {
+	return m.orArgsInPlace(append([]*Ref(nil), args...))
+}
+
+// orArgsInPlace is mk_or(unsigned, aig_lit*), sorting like andArgsInPlace.
+func (m *Manager) orArgsInPlace(args []*Ref) (*Ref, error) {
+	if err := m.open(); err != nil {
 		return nil, err
 	}
-	switch len(ordered) {
+	switch len(args) {
 	case 0:
 		return m.False()
 	case 1:
-		return ordered[0].Clone()
+		return args[0].Clone()
+	case 2:
+		return m.Or(args[0], args[1])
 	}
-	acc, err := m.Or(ordered[0], ordered[1])
+	if err := m.sortArgs(args); err != nil {
+		return nil, err
+	}
+	acc, err := m.Or(args[0], args[1])
 	if err != nil {
 		return nil, err
 	}
-	for _, next := range ordered[2:] {
+	for _, next := range args[2:] {
 		replacement, e := m.Or(acc, next)
 		closeErr := acc.Close()
 		if e != nil || closeErr != nil {

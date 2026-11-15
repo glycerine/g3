@@ -182,3 +182,39 @@ func TestAIGIteReleasesTemporariesInSourceOrder(t *testing.T) {
 		aigMust(t, v.Close())
 	}
 }
+
+// AUDIT.md tactic_small_01-F2: mk_and(unsigned, aig_lit*) does not sort two
+// operands, and mk_node is not symmetric.
+func TestAIGBinaryAndKeepsOperandOrder(t *testing.T) {
+	m, _ := aigFixture(t)
+	h, err := m.MkTrue()
+	aigMust(t, err)
+	g, err := NewManager(m)
+	aigMust(t, err)
+	t.Cleanup(func() { aigMust(t, g.Close()) })
+	x, err := g.MakeVariable(h)
+	aigMust(t, err)
+	y, err := g.MakeVariable(h)
+	aigMust(t, err)
+	z, err := g.MakeVariable(h)
+	aigMust(t, err)
+	n1, err := g.And(x, y)
+	aigMust(t, err)
+	n2, err := g.And(x, z)
+	aigMust(t, err)
+	given, err := g.And(n2, n1)
+	aigMust(t, err)
+	swapped, err := g.And(n1, n2)
+	aigMust(t, err)
+	if given.Same(swapped) {
+		t.Fatal("mk_node was symmetric for this input; the test needs asymmetric operands")
+	}
+	got, err := g.AndArgs([]*Ref{n2, n1})
+	aigMust(t, err)
+	if !got.Same(given) {
+		t.Fatal("binary AndArgs reordered its operands")
+	}
+	for _, r := range []*Ref{got, swapped, given, n2, n1, z, y, x} {
+		aigMust(t, r.Close())
+	}
+}

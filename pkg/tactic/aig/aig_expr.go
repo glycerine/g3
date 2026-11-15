@@ -159,9 +159,9 @@ func (c *exprConverter) build(fr exprFrame) (*Ref, error) {
 		}
 		return args[0].Not()
 	case ast.ASTOpAnd:
-		return m.AndArgs(args)
+		return m.andArgsInPlace(args)
 	case ast.ASTOpOr:
-		return m.OrArgs(args)
+		return m.orArgsInPlace(args)
 	case ast.ASTOpEq, ast.ASTOpIff:
 		if len(args) != 2 {
 			return nil, ast.ErrASTDomain
