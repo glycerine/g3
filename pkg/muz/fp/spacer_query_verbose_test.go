@@ -74,6 +74,14 @@ func TestSpacerQueryDisplaysEmptyProgramModelAtSourceVerbosity(t *testing.T) {
 				if level >= test.threshold {
 					fragmentMust(t, md.Core().WriteSMT2(&expected, f.engine.params, f.engine.globals, 0))
 				}
+				modelText := expected.String()
+				if level >= 2 {
+					// IF_VERBOSE(2, m_ctx.display_rules(...)) runs before the
+					// empty-program check in both dl_interface::query and
+					// query_from_lvl (AUDIT.md muz_fp_04-F2).
+					expected.Reset()
+					expected.WriteString("; rule count: 0\n; predicate count: 0\n; output: query!0\n" + modelText)
+				}
 				fragmentMust(t, md.Close())
 				if got := f.manager.Stats().LiveReferences; got != before {
 					t.Fatal("caller model leaked references", got, before)
@@ -92,8 +100,8 @@ func TestSpacerQueryDisplaysEmptyProgramModelAtSourceVerbosity(t *testing.T) {
 					fragmentMust(t, f.engine.writeSpacerEmptyProgramModel(test.threshold))
 					got, err = stream.String()
 					fragmentMust(t, err)
-					if got != expected.String() {
-						t.Fatalf("repeat %d: got %q; want %q", repeat, got, expected.String())
+					if got != modelText {
+						t.Fatalf("repeat %d: got %q; want %q", repeat, got, modelText)
 					}
 					md, err = f.engine.Model(f.declarations["u"])
 					fragmentMust(t, err)

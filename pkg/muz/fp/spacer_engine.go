@@ -757,6 +757,11 @@ func (e *PropositionalEngine) querySpacerAtLevel(declaration ast.ASTHandle, from
 	if deriveErr != nil {
 		return lbool.Undef, fmt.Errorf("muz/fp: resolve preprocessed Spacer query: %w", deriveErr)
 	}
+	// Source spacer dl_interface::query / query_from_lvl:
+	// IF_VERBOSE(2, m_ctx.display_rules(verbose_stream()););
+	if err = e.writePDRQueryRules(prepared); err != nil {
+		return lbool.Undef, err
+	}
 	maximumLevels, err := parameters.UInt("spacer.max_level", ^uint32(0))
 	if err != nil {
 		return lbool.Undef, err
