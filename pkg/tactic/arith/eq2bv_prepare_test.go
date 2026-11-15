@@ -176,3 +176,47 @@ func TestEq2BVSentinelReservesDistinctLargeValue(t *testing.T) {
 		})
 	}
 }
+
+// AUDIT.md tactic_arith_01-F2: add_fd re-inserts a known variable with a
+// larger value into m_max, and core_hashtable::insert expands before the
+// lookup, so the table order can change.
+func TestEq2BVCollectReinsertExpandsTable(t *testing.T) {
+	_, m := fixDLFixture(t, false)
+	names := []string{"a", "b", "c", "d", "e", "f", "g"}
+	vars := make([]ast.ASTHandle, len(names))
+	eqs := make([]ast.ASTHandle, len(names))
+	for i, name := range names {
+		vars[i] = fixDLConst(t, m, true, name)
+		eqs[i] = collectorEq(t, m, vars[i], fixDLNumber(t, m, true, "1"))
+	}
+	first, e := m.MkOrArray(eqs)
+	equationMust(t, e)
+	fixDLPin(t, m, first)
+	second, e := m.MkOr(collectorEq(t, m, vars[0], fixDLNumber(t, m, true, "2")), collectorEq(t, m, vars[1], fixDLNumber(t, m, true, "0")))
+	equationMust(t, e)
+	fixDLPin(t, m, second)
+	_, order, e := eq2bvCollectOrdered(m, []ast.ASTHandle{first, second}, make(map[ast.ASTHandle]bool))
+	equationMust(t, e)
+	// The disjuncts are popped last-first, so the keys enter g..a; the
+	// second root re-inserts a (2 > 1) but not b (0 < 1).
+	expanded, plain := ast.NewObjMap(m), ast.NewObjMap(m)
+	for i := len(vars) - 1; i >= 0; i-- {
+		equationMust(t, expanded.Insert(vars[i], [2]ast.ASTHandle{}))
+		equationMust(t, plain.Insert(vars[i], [2]ast.ASTHandle{}))
+	}
+	equationMust(t, expanded.Insert(vars[0], [2]ast.ASTHandle{}))
+	want, without := expanded.Entries(), plain.Entries()
+	if len(order) != len(want) {
+		t.Fatal(len(order), len(want))
+	}
+	same := true
+	for i := range want {
+		if order[i] != want[i].Key {
+			t.Fatalf("key %d differs from the expanded obj_map order", i)
+		}
+		same = same && want[i].Key == without[i].Key
+	}
+	if same {
+		t.Fatal("fixture does not distinguish the expanded table")
+	}
+}

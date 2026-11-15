@@ -130,13 +130,14 @@ func eq2bvCollectOrdered(m *ast.ASTManager, roots []ast.ASTHandle, nonfd map[ast
 						}
 					}
 					if found {
+						// add_fd: m_max.insert(c, val) also re-inserts a
+						// known key with a larger value, and
+						// core_hashtable::insert may expand the table first.
 						old, exists := maxima[left]
-						if !exists {
+						if !exists || old < value {
 							if e = table.Insert(left, [2]ast.ASTHandle{}); e != nil {
 								return nil, nil, e
 							}
-						}
-						if !exists || old < value {
 							maxima[left] = value
 						}
 						continue

@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_arith_01-F2: eq2bv add_fd re-inserts a known variable
+	// with a larger value, which can expand m_max and reorder z!N.
+	"eq2bv_reinsert_expand.smt2": "(goals\n(goal\n  (or (= z!4 #b01)\n      (= z!2 #b01)\n      (= z!6 #b01)\n      (= z!3 #b01)\n      (= z!5 #b01)\n      (= z!0 #b01)\n      (= z!1 #b01))\n  (or (= z!4 #b10) (= z!2 #b00))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md tactic_arith_01-F1: degree-shift save_degree re-inserts a known
 	// constant, which can expand m_var2degree and reorder k!N.
 	"degree_shift_reinsert_expand.smt2": "(goals\n(goal\n  (not (<= (+ k!4 k!2 k!6 k!3 k!5 k!0 k!1) 1.0))\n  (not (<= 5.0 (^ k!4 2.0)))\n  (>= k!0 0.0)\n  (>= k!1 0.0)\n  (>= k!2 0.0)\n  (>= k!3 0.0)\n  (>= k!4 0.0)\n  (>= k!5 0.0)\n  (>= k!6 0.0)\n  :precision precise :depth 2)\n)\n",
