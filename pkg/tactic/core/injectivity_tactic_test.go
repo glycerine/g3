@@ -105,3 +105,55 @@ func TestInjectivityDiscoversInverseAndRewritesEquality(t *testing.T) {
 		t.Fatal("injective equality rewrite", got, want)
 	}
 }
+
+// AUDIT.md tactic_core_01-F2: injectivity_tactic::operator() never resets
+// m_eq, so a shared equality cached by an earlier application (when the
+// inverse was unknown) stays unrewritten in a later goal.
+func TestInjectivityCacheSurvivesApplications(t *testing.T) {
+	f := newInjectivityFixture(t)
+	a, b := f.constant(t, "inj-cache-a"), f.constant(t, "inj-cache-b")
+	fa, err := f.m.MkApp(f.f, []ast.ASTHandle{a})
+	simplifyMust(t, err)
+	fb, err := f.m.MkApp(f.f, []ast.ASTHandle{b})
+	simplifyMust(t, err)
+	equality, err := f.m.MkEq(fa, fb)
+	simplifyMust(t, err)
+	simplifyPin(t, f.m, equality)
+	boolSort, err := f.m.MkBoolSort()
+	simplifyMust(t, err)
+	clauses := make([]ast.ASTHandle, 2)
+	for i, name := range []string{"inj-cache-q", "inj-cache-r"} {
+		s, err := f.m.Symbols.Intern(name)
+		simplifyMust(t, err)
+		atom, err := f.m.MkConst(s, boolSort)
+		simplifyMust(t, err)
+		clauses[i], err = f.m.MkOr(equality, atom)
+		simplifyMust(t, err)
+		simplifyPin(t, f.m, clauses[i])
+	}
+	first := f.goal(t, false, false, clauses...)
+	var firstResult tactic.TacticResult
+	t.Cleanup(func() { simplifyMust(t, firstResult.Close()) })
+	simplifyMust(t, f.runner.Apply(first, &firstResult))
+	second := f.goal(t, false, false, f.axiom, clauses[0], clauses[1])
+	var secondResult tactic.TacticResult
+	t.Cleanup(func() { simplifyMust(t, secondResult.Close()) })
+	simplifyMust(t, f.runner.Apply(second, &secondResult))
+	for i := uint32(1); i < 3; i++ {
+		got, err := second.Form(i)
+		simplifyMust(t, err)
+		if got != clauses[i-1] {
+			t.Fatal("cached equality was rewritten in a later goal", i, got, clauses[i-1])
+		}
+	}
+	simplifyMust(t, f.runner.Cleanup())
+	third := f.goal(t, false, false, f.axiom, clauses[0], clauses[1])
+	var thirdResult tactic.TacticResult
+	t.Cleanup(func() { simplifyMust(t, thirdResult.Close()) })
+	simplifyMust(t, f.runner.Apply(third, &thirdResult))
+	got, err := third.Form(1)
+	simplifyMust(t, err)
+	if got == clauses[0] {
+		t.Fatal("cleanup did not drop the rewriter cache")
+	}
+}

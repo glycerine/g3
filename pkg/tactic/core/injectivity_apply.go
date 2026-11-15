@@ -36,9 +36,8 @@ func (t *InjectivityTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult
 	if err = t.discover(goal); err != nil {
 		return err
 	}
-	if err = t.traversal.Reset(); err != nil {
-		return err
-	}
+	// m_eq is a long-lived rewriter_tpl that operator() never resets: its
+	// cache survives across applications until cleanup() rebuilds it.
 	out, err := t.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return err

@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_core_01-F2: injectivity keeps m_eq's rewriter cache across applications.
+	"injectivity_cache_across_goals.smt2": "(goals\n(goal\n  p\n  (or (= (f a) (f b)) q)\n  (or (= (f a) (f b)) r)\n  :precision precise :depth 1)\n(goal\n  (forall ((x Int)) (= (g (f x)) x))\n  (or (= (f a) (f b)) q)\n  (or (= (f a) (f b)) r)\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md tactic_core_01-F1: cofactor_elim_term_ite::cleanup restores the constructor params.
 	"cofactor_params_after_cleanup.smt2": "(goals\n(goal\n  a\n  (ite (= x 1) (not (<= (+ x y) 0)) (not (<= y 0)))\n  :precision precise :depth 2)\n(goal\n  b\n  (ite (= x 1) (not (<= y (- 1))) (not (<= y 0)))\n  :precision precise :depth 2)\n)\n",
 	// AUDIT.md tactic_top_01-F6: and_then keeps t2's model converter when models are off.
