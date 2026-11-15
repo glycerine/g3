@@ -104,6 +104,12 @@ func (n *explanationAssumptions) signedProjectInfinity(x uint32, ps *polynomial.
 		if err = atomAssert("nlsat_explain.cpp", 1669, "s != 0", sign != 0); err != nil {
 			return err
 		}
+		// z3 4.7.1 bug kept out of g3: project_plus_infinity and
+		// project_minus_infinity hold sign(p) in an unsigned
+		// (nlsat_explain.cpp:1671, 1686), so s > 0 always holds and a
+		// negative p gets the wrong leading-coefficient sign; nlqsat then
+		// loops forever (AUDIT.md nlsat_01-F1, fixed upstream in 363d7aad2;
+		// test_vectors/z3_bug_nlsat_signed_infinity_sign.smt2).
 		kind := AtomLT
 		positiveAtInfinity := sign > 0
 		if !positive && degree&1 != 0 {

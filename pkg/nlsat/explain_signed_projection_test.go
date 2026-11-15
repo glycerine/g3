@@ -57,6 +57,52 @@ func TestSignedProjectionInfinityUsesLeadingCoefficientSigns(t *testing.T) {
 	}
 }
 
+// z3 4.7.1 stores sign(p) in an unsigned in project_plus_infinity and
+// project_minus_infinity (nlsat_explain.cpp:1671, 1686), so it always takes
+// the positive branch; g3 uses the real sign, as upstream 363d7aad2 does
+// (AUDIT.md nlsat_01-F1, test_vectors/z3_bug_exclusions.txt). Both
+// polynomials are negative in the model here.
+func TestSignedProjectionInfinityNegativeSign(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		x    int64
+		p, q []evaluatorTerm
+		kind AtomKind
+	}{
+		// x1 = 6 above the roots of (x0 - 5)*x1 + 1 and (x0 - 5)*x1 + 3:
+		// the leading coefficient x0 - 5 must be negative.
+		{name: "plus", x: 6,
+			p:    []evaluatorTerm{{1, 1, 1}, {-5, 0, 1}, {1, 0, 0}},
+			q:    []evaluatorTerm{{1, 1, 1}, {-5, 0, 1}, {3, 0, 0}},
+			kind: AtomLT},
+		// x1 = 4 below the roots of x0*x1 - 9 and x0*x1 - 10: degree 1, so
+		// the leading coefficient x0 must be positive.
+		{name: "minus", x: 4,
+			p:    []evaluatorTerm{{1, 1, 1}, {-9, 0, 0}},
+			q:    []evaluatorTerm{{1, 1, 1}, {-10, 0, 0}},
+			kind: AtomGT},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e, r, n, _ := projectionCoefficientFixture(t, true)
+			evaluatorSetFraction(t, e, 0, 2, 1)
+			evaluatorSetFraction(t, e, 1, tc.x, 1)
+			p := evaluatorPolynomial(t, e, tc.p...)
+			q := evaluatorPolynomial(t, e, tc.q...)
+			ps := projectionOutput(t, e)
+			assignmentMust(t, ps.Push(p))
+			assignmentMust(t, ps.Push(q))
+			assignmentMust(t, n.collectSignedProjection(ps, 1))
+			if len(n.output.result) != 1 {
+				t.Fatal("leading coefficient assumptions should canonicalize", n.output.result)
+			}
+			atom, ok := r.store.atoms.bools.atoms[n.output.result[0].Variable()].(*InequalityAtom)
+			if !ok || atom.kind != tc.kind || atom.maxVar != 0 {
+				t.Fatal("wrong infinity leading-coefficient assumption", atom)
+			}
+		})
+	}
+}
+
 func TestSignedProjectionEqualityUsesGeneralPairProjection(t *testing.T) {
 	e, _, n, _ := projectionCoefficientFixture(t, true)
 	evaluatorSetFraction(t, e, 0, 1, 1)

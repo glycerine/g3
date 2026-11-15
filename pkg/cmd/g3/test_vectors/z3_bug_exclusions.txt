@@ -279,3 +279,13 @@ z3_bug_pb2bv_fractional_coefficients
 # Needs verification). Reproduction:
 # test_vectors/z3_bug_lia2card_empty_equation.smt2.
 z3_bug_lia2card_empty_equation
+#
+# nlqsat signed projection to +/- infinity: project_plus_infinity and
+# project_minus_infinity keep sign(p) in an unsigned, so s > 0 always holds
+# and a negative p gets the wrong leading-coefficient sign; z3 4.7.1 loops
+# forever on this input (z3 bug: src/nlsat/nlsat_explain.cpp:1671, 1686;
+# fixed upstream in 363d7aad2, "fix bug reported in #1637"). g3 uses the
+# real sign (pkg/nlsat/explain_signed_projection.go signedProjectInfinity;
+# AUDIT.md nlsat_01-F1). Reproduction:
+# test_vectors/z3_bug_nlsat_signed_infinity_sign.smt2.
+z3_bug_nlsat_signed_infinity_sign
