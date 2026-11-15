@@ -105,6 +105,9 @@ func TestDatalogPluginAssignAndSubstituteBranches(t *testing.T) {
 	}
 }
 
+// AUDIT.md qe_01-F4: in the other-value branch the negative equality atom is
+// false, as assign_large_domain asserts; z3 4.7.1 subst_large_domain
+// substitutes true (a z3 bug, see z3_bug_exclusions.txt).
 func TestDatalogPluginOtherBranchPreservesNegativeEqualitySemantics(t *testing.T) {
 	f := newFMFixture(t)
 	m := f.r.manager

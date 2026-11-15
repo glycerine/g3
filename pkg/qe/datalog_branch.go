@@ -155,8 +155,12 @@ func (p *DatalogPlugin) Substitute(variable *ast.ContainsApp, value *numeral.Own
 			return e
 		}
 	} else {
-		// Source substitutes false for positive equality atoms and true for
-		// negative equality atoms in the other-value branch.
+		// subst_large_domain: in the other-value branch x differs from every
+		// equality value, so every equality atom, positive or negative, is
+		// false. z3 4.7.1 substitutes true for the negative atoms, against
+		// its own assign_large_domain, which asserts not(neq_atom); that
+		// turns exists x. x != c into false. g3 substitutes false (z3 bug,
+		// see z3_bug_exclusions.txt; AUDIT.md qe_01-F4).
 		for _, a := range entry.atoms.positive {
 			replacement, e := p.manager.MkBoolVal(false)
 			if e != nil {

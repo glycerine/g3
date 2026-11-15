@@ -571,3 +571,14 @@ z3_bug_duality_underapprox_stale_proof
 # duality_01-F4). Reproduction:
 # test_vectors/z3_bug_duality_certificate_eliminated_var.smt2.
 z3_bug_duality_certificate_eliminated_var
+#
+# qe's datalog (finite-domain) plugin, in the "other value" branch of a
+# large domain, substitutes true for the equality atoms that occur
+# negatively, against its own assign_large_domain, which asserts their
+# negation; exists x. x != c (domain size 4) becomes false (z3 bug:
+# src/qe/qe_dl_plugin.cpp subst_large_domain; still present upstream; the
+# datatype plugin substitutes false). g3 substitutes false
+# (pkg/qe/datalog_branch.go Substitute; AUDIT.md qe_01-F4). SMT-LIB 2 has no
+# finite-domain sorts, so there is no vector; see
+# TestDatalogPluginOtherBranchPreservesNegativeEqualitySemantics in
+# pkg/qe/datalog_branch_test.go.
