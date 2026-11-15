@@ -185,3 +185,48 @@ func TestLIA2CardContextTranslationCopiesParameterSnapshot(t *testing.T) {
 	equationMust(t, result.Close())
 	equationMust(t, copy.Close())
 }
+
+// AUDIT.md tactic_arith_02-F4: lia2card re-asserts the 0/1 bounds by
+// iterating m_01s, an obj_hashtable<expr>, so they follow table (hash) order;
+// build/z3 prints (<= i 1) (<= f 1) (<= b 1) (<= a 1) (<= d 1) (<= g 1)
+// (<= h 1) (<= c 1) (<= e 1) (<= j 1) for this goal.
+func TestLIA2CardBoundsReassertedInTableOrder(t *testing.T) {
+	base, m := fixDLFixture(t, false)
+	equationMust(t, m.RegisterDeclarationPlugins())
+	port, err := NewLIA2CardTactic(m, base.context, base.globals, nil)
+	equationMust(t, err)
+	defer func() { equationMust(t, port.Close()) }()
+	names := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"}
+	zero := fixDLNumber(t, m, true, "0")
+	one := fixDLNumber(t, m, true, "1")
+	four := fixDLNumber(t, m, true, "4")
+	vars := map[string]ast.ASTHandle{}
+	forms := []ast.ASTHandle{}
+	args := []ast.ASTHandle{}
+	for _, name := range names {
+		v := fixDLConst(t, m, true, name)
+		vars[name] = v
+		args = append(args, v)
+		forms = append(forms, fixDLApp(t, m, 3, v, zero), fixDLApp(t, m, 2, v, one))
+	}
+	forms = append(forms, fixDLApp(t, m, 3, fixDLApp(t, m, 6, args...), four))
+	goal := fixDLGoal(t, m, false, false, false, forms...)
+	var result tactic.TacticResult
+	defer func() { equationMust(t, result.Close()) }()
+	equationMust(t, port.Apply(goal, &result))
+	count, err := goal.Size()
+	equationMust(t, err)
+	want := []string{"i", "f", "b", "a", "d", "g", "h", "c", "e", "j"}
+	if count < uint32(2*len(want)) {
+		t.Fatal("missing 0/1 bounds", count)
+	}
+	start := count - uint32(2*len(want))
+	for k, name := range want {
+		form, e := goal.Form(start + uint32(2*k))
+		equationMust(t, e)
+		upper := fixDLApp(t, m, 2, vars[name], one)
+		if form != upper {
+			t.Fatalf("bound %d is not (<= %s 1)", k, name)
+		}
+	}
+}

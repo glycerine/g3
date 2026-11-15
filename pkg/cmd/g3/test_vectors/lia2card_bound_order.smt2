@@ -1,0 +1,18 @@
+(set-option :produce-models true)
+(declare-const a Int)
+(declare-const b Int)
+(declare-const c Int)
+(declare-const d Int)
+(declare-const e Int)
+(declare-const f Int)
+(declare-const g Int)
+(declare-const h Int)
+(declare-const i Int)
+(declare-const j Int)
+(assert (and (<= 0 a) (<= a 1) (<= 0 b) (<= b 1) (<= 0 c) (<= c 1) (<= 0 d) (<= d 1) (<= 0 e) (<= e 1)))
+(assert (and (<= 0 f) (<= f 1) (<= 0 g) (<= g 1) (<= 0 h) (<= h 1) (<= 0 i) (<= i 1) (<= 0 j) (<= j 1)))
+(assert (>= (+ j i (* 2 h) g f e (* 3 d) c b a) 4))
+(assert (<= (+ a (* 2 b) c (* 3 d) e f g h i j) 6))
+
+
+(apply lia2card)

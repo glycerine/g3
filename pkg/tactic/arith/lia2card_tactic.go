@@ -25,6 +25,9 @@ type LIA2CardTactic struct {
 	params  uparams.ParamsRef
 	bounds  *BoundManager
 	trace   *diagnostic.TraceTags
+	// zeroOneTable is m_01s, an obj_hashtable<expr> (expr_set): the final
+	// bound assertions iterate it in table order.
+	zeroOneTable *ast.ObjMap
 	// pbArgs is m_rw's lia_rewriter_cfg::args, alive until the next is_pb
 	// or the tactic's destruction.
 	pbArgs                               *PBSum
@@ -48,7 +51,7 @@ func NewLIA2CardTactic(m *ast.ASTManager, c *uparams.ParamsContext, g *uparams.G
 	if err := m.Budget().Reserve(bytes); err != nil {
 		return nil, err
 	}
-	t := &LIA2CardTactic{manager: m, context: c, globals: g, ownerBytes: bytes}
+	t := &LIA2CardTactic{manager: m, context: c, globals: g, ownerBytes: bytes, zeroOneTable: ast.NewObjMap(m)}
 	t.self = t
 	var err error
 	t.params, err = c.NewValue()
@@ -151,6 +154,8 @@ func (t *LIA2CardTactic) Cleanup() error {
 	if err := t.open(); err != nil {
 		return err
 	}
+	// cleanup(): m_01s is swapped for a fresh expr_set.
+	t.zeroOneTable = ast.NewObjMap(t.manager)
 	return t.bounds.Reset()
 }
 func (t *LIA2CardTactic) Reset() error { return t.Cleanup() }
@@ -206,6 +211,7 @@ func (t *LIA2CardTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (
 		return err
 	}
 	defer func() { err = errors.Join(err, report.Close()) }()
+	t.zeroOneTable.Reset() // m_01s->reset()
 	if err = t.bounds.Reset(); err != nil {
 		return err
 	}
@@ -247,6 +253,9 @@ func (t *LIA2CardTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (
 		}
 		if hasLower && hasUpper && !strictLower && !strictUpper && lower.Sign() == 0 && upper.Cmp(big.NewRat(1, 1)) == 0 {
 			zeroOne[variable] = true
+			if _, e = t.zeroOneTable.InsertIfNotThere(variable); e != nil { // m_01s->insert(x)
+				return e
+			}
 			if e = t.traceBound(variable); e != nil {
 				return e
 			}
@@ -369,8 +378,9 @@ func (t *LIA2CardTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (
 		}
 	}
 	// a.mk_le(v, a.mk_numeral(1)), a.mk_le(a.mk_numeral(0), v): the
-	// numerals are made per used variable.
-	for _, variable := range variables {
+	// numerals are made per used variable, in m_01s table order.
+	for _, entry := range t.zeroOneTable.Entries() {
+		variable := entry.Key
 		if !used[variable] {
 			continue
 		}
