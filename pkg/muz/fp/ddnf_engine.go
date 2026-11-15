@@ -80,7 +80,7 @@ func (e *PropositionalEngine) queryDDNF() (result lbool.LBool, resultErr error) 
 	}()
 	compiled, err := compiler.CompileRuleSet(e.set)
 	if err != nil {
-		return lbool.Undef, fmt.Errorf("ddnf compile: %w", err)
+		return lbool.Undef, err
 	}
 	// The formatter may return a native cleanup owner. Drain it before the
 	// compiled rule set, preserving both scopes if cleanup has to retry.

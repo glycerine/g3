@@ -5,7 +5,6 @@ package ddnf
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
@@ -89,7 +88,7 @@ func (c *Compiler) CompileRuleSet(source *base.RuleSet) (_ *base.RuleSet, result
 			return nil, getErr
 		}
 		if getErr = c.compileRule(rule, source, destination); getErr != nil {
-			return nil, errors.Join(fmt.Errorf("muz/ddnf: compile rule %d: %w", index, getErr), rule.Close())
+			return nil, errors.Join(getErr, rule.Close())
 		}
 		if getErr = rule.Close(); getErr != nil {
 			return nil, getErr

@@ -3,6 +3,7 @@ package fp
 import (
 	"errors"
 
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/interp"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/util/z3exception"
@@ -54,6 +55,14 @@ func SourceDefaultExceptionMessage(err error) string {
 				return false
 			}
 			message = d.Message()
+			return true
+		}
+		// mk_app's sort checks throw ast_exception, a z3_exception.
+		if sortErr, ok := e.(*ast.ASTSortError); ok {
+			if message != "" {
+				return false
+			}
+			message = sortErr.Message
 			return true
 		}
 		if e == ErrUnstratifiedNegation {
