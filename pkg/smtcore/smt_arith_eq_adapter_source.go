@@ -260,10 +260,10 @@ func (a *smtArithmeticEqualityAdapter) mkAxiomsSource(n1, n2 *SMTEnode) (result 
 	if data.TryTrueFirst() {
 		// Propagate the try_true_first flag to le and ge, otherwise model
 		// based theory combination is ineffective.
-		if _, err = state.setScopedTrueFirst(leLit.Var()); err != nil {
+		if err = state.setScopedTrueFirst(leLit.Var()); err != nil {
 			return err
 		}
-		if _, err = state.setScopedTrueFirst(geLit.Var()); err != nil {
+		if err = state.setScopedTrueFirst(geLit.Var()); err != nil {
 			return err
 		}
 	}

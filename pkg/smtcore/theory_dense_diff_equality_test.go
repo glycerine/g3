@@ -136,7 +136,7 @@ func TestSMTDenseDifferenceEqualityPhaseAndProofHint(t *testing.T) {
 	astTestMust(t, err)
 	variable, err := f.state.MkBoolVar(equality)
 	astTestMust(t, err)
-	if _, err = f.state.setScopedTrueFirst(variable); err != nil {
+	if err = f.state.setScopedTrueFirst(variable); err != nil {
 		t.Fatal(err)
 	}
 	astTestMust(t, f.theory.InternalizeEquality(equality, variable))

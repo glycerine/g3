@@ -122,3 +122,28 @@ func TestSMTAssumeEqualityScopedPhaseAndRelevancy(t *testing.T) {
 		}
 	}
 }
+
+// smtcore_01-F7: context::set_true_first_flag pushes its undo entry even when
+// the flag is already set, so popping the later scope clears the flag.
+func TestSMTSetTrueFirstFlagTrailIsUnconditional(t *testing.T) {
+	m := astTestManager(t)
+	_, _, state := smtInternalizerFixture(t, m, nil)
+	p := smtRelevancyBool(t, m, "true-first-trail-p")
+	astTestMust(t, state.Internalize(p, true))
+	literal, err := state.Literal(p)
+	astTestMust(t, err)
+	data, err := state.BooleanData(literal.Var())
+	astTestMust(t, err)
+	astTestMust(t, state.PushScope())
+	astTestMust(t, state.setScopedTrueFirst(literal.Var()))
+	astTestMust(t, state.PushScope())
+	astTestMust(t, state.setScopedTrueFirst(literal.Var()))
+	astTestMust(t, state.PopScopes(1))
+	if data.TryTrueFirst() {
+		t.Fatal("undo of the second set_true_first_flag must clear the flag")
+	}
+	astTestMust(t, state.PopScopes(1))
+	if data.TryTrueFirst() {
+		t.Fatal("flag set after the outer pop")
+	}
+}

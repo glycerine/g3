@@ -370,10 +370,10 @@ func (a *smtLRAEqualityAdapter) MkAxiomsNodes(n1, n2 *SMTEnode) (result error) {
 		return err
 	}
 	if data.TryTrueFirst() {
-		if _, err = s.setScopedTrueFirst(leLit.Var()); err != nil {
+		if err = s.setScopedTrueFirst(leLit.Var()); err != nil {
 			return err
 		}
-		if _, err = s.setScopedTrueFirst(geLit.Var()); err != nil {
+		if err = s.setScopedTrueFirst(geLit.Var()); err != nil {
 			return err
 		}
 	}

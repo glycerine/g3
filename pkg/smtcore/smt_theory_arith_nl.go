@@ -746,7 +746,7 @@ func (t *SMTTheoryArith) branchNlIntVar(v SMTTheoryVar) (result bool, err error)
 	}
 	// force the context to case split to true first, independently of the
 	// phase selection strategy.
-	if _, err = t.state.setScopedTrueFirst(l.Var()); err != nil {
+	if err = t.state.setScopedTrueFirst(l.Var()); err != nil {
 		return false, err
 	}
 	return true, nil

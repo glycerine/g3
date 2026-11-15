@@ -250,7 +250,7 @@ func TestSMTLRAAxiomProofOwnershipAndPhase(t *testing.T) {
 	delete(f.a.equalityAdapter.processed, smtArithmeticEqualityPair{x, y})
 	eqLit, err := f.s.Literal(eq)
 	astTestMust(t, err)
-	_, err = f.s.setScopedTrueFirst(eqLit.Var())
+	err = f.s.setScopedTrueFirst(eqLit.Var())
 	astTestMust(t, err)
 	// Warm the plugin-owned small-numeral cache before measuring proof owners.
 	f.number(0)

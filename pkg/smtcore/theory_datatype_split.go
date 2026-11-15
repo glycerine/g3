@@ -112,7 +112,7 @@ func (t *SMTDatatypeTheory) split(value, sort ast.ASTHandle) error {
 	if err != nil {
 		return err
 	}
-	if _, err = s.setScopedTrueFirst(literal.Var()); err != nil {
+	if err = s.setScopedTrueFirst(literal.Var()); err != nil {
 		return err
 	}
 	return s.markRelevant(expression)

@@ -9,14 +9,16 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func (s *SMTInternalizerState) setScopedTrueFirst(variable int32) (bool, error) {
+// setScopedTrueFirst is context::set_true_first_flag: it pushes the undo
+// entry unconditionally, also when the flag is already set.
+func (s *SMTInternalizerState) setScopedTrueFirst(variable int32) error {
 	data, err := s.BooleanData(variable)
-	if err != nil || data.TryTrueFirst() {
-		return false, err
+	if err != nil {
+		return err
 	}
 	s.trueFirstTrail = append(s.trueFirstTrail, variable)
 	data.SetTrueFirst()
-	return true, nil
+	return nil
 }
 
 // An interface equality is a relevant case split with a preferred phase,
@@ -49,7 +51,7 @@ func (s *SMTInternalizerState) assumeEquality(left, right *SMTEnode) (progress b
 			return false, err
 		}
 		data.SetEquality()
-		if _, err = s.setScopedTrueFirst(variable); err != nil {
+		if err = s.setScopedTrueFirst(variable); err != nil {
 			return false, err
 		}
 		sort, err := s.manager.GetSort(left.owner)
@@ -68,11 +70,16 @@ func (s *SMTInternalizerState) assumeEquality(left, right *SMTEnode) (progress b
 		s.statistics.NumInterfaceEqs++
 		progress = true
 	}
-	changed, err := s.setScopedTrueFirst(variable)
+	data, err := s.BooleanData(variable)
 	if err != nil {
 		return false, err
 	}
-	progress = progress || changed
+	if !data.TryTrueFirst() {
+		if err = s.setScopedTrueFirst(variable); err != nil {
+			return false, err
+		}
+		progress = true
+	}
 	assignment, err := s.Assignment(NewSMTLiteral(variable, false))
 	if err != nil {
 		return false, err
