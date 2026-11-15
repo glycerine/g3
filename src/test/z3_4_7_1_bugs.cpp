@@ -119,6 +119,10 @@ Abstract:
                                   childless obligation with its unresolved
                                   rule, so the proof no longer concludes the
                                   query (pkg/AUDIT.md muz_pdr_02-F2).
+    z3_4_7_1_pdr_boogie_without_proof_trace print_boogie_certificate without
+                                  generate_proof_trace: the rules carry no
+                                  proofs and the PDR proof trace segfaults
+                                  (pkg/AUDIT.md muz_pdr_02-F2).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -1660,4 +1664,30 @@ void tst_z3_4_7_1_pdr_proof_duplicate_leaf() {
         "              (hyper-res a!16 (hyper-res a!9 a!13 (p true)) (q true))\n"
         "              goal)))\n"
         "  ((_ hyper-res 1 0) (asserted (=> goal query!0)) a!17 query!0)))))\n");
+}
+
+// fixedpoint.print_boogie_certificate turns the PDR proof trace on without
+// fixedpoint.generate_proof_trace, so the rules carry no proofs.
+// get_proof_trace only has SASSERT(p1), and in a release build the null
+// premise reaches the Boogie printer, which segfaults. The rule's formula is
+// a sound premise (it was asserted). pkg/AUDIT.md muz_pdr_02-F2.
+void tst_z3_4_7_1_pdr_boogie_without_proof_trace() {
+    char const* script =
+        "(set-option :fixedpoint.engine pdr)\n"
+        "(set-option :fixedpoint.print_boogie_certificate true)\n"
+        "(declare-rel inv (Int))\n"
+        "(declare-rel err ())\n"
+        "(declare-var x Int)\n"
+        "(rule (=> (= x 0) (inv x)))\n"
+        "(rule (=> (and (inv x) (< x 3)) (inv (+ x 1))))\n"
+        "(rule (=> (and (inv x) (= x 2)) err))\n"
+        "(query err :print-certificate true)\n";
+    expect_script_output("pdr_boogie_without_proof_trace", script,
+        "sat\n"
+        "(derivation\n"
+        "(step\n s!0 (inv 0)\n null\n (subst)\n (labels)\n (ref)\n)\n"
+        "(step\n s!1 (inv 1)\n null\n (subst\n  (= B 0)\n  (= A 1))\n (labels)\n (ref s!0)\n)\n"
+        "(step\n s!2 (inv 2)\n null\n (subst\n  (= B 0)\n  (= A 1))\n (labels)\n (ref s!1)\n)\n"
+        "(step\n s!3 query!0\n null\n (subst\n  (= B 0)\n  (= A 1))\n (labels)\n (ref s!2)\n)\n"
+        ")\n\n");
 }
