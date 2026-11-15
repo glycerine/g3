@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md parsers_shell_01-F5
+	"set_option_expand_definitions.smt2": "unsupported\n",
+	// AUDIT.md parsers_shell_01-F5
+	"set_option_print_warning.smt2": "ok\n",
 	// AUDIT.md parsers_shell_01-F6
 	"error_behavior_immediate_exit.smt2": "(error \"line 1 column 54: invalid assert command, term is not Boolean\")\n",
 	// AUDIT.md cmd_context_01-F7

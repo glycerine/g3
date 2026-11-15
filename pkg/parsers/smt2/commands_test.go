@@ -294,7 +294,9 @@ func TestSMT2UnsignedOptionsAndLiveRelevancyUpdates(t *testing.T) {
 }
 
 func TestSMT2UnsignedOptionsRejectRangeAndTrailingArguments(t *testing.T) {
-	for _, value := range []string{"4294967296", "0 extra", "0.5", "-1"} {
+	// AUDIT.md parsers_shell_01-F5: the parser has no 32-bit range check;
+	// gparams takes 4294967296 (as z3 does), so it is not rejected here.
+	for _, value := range []string{"0 extra", "0.5", "-1"} {
 		t.Run(value, func(t *testing.T) {
 			context, err := cmd_context.NewStandaloneContext()
 			if err != nil {

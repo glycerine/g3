@@ -524,64 +524,30 @@ func (p *commandParser) command() (bool, error) {
 			return false, err
 		}
 	case "set-option":
-		if p.token != KeywordToken {
-			return false, fmt.Errorf("option keyword expected")
+		// parse_ext_cmd over set_option_cmd: CPK_KEYWORD, then
+		// CPK_OPTION_VALUE applied by set_next_arg as it is read.
+		if p.token == RightParenToken {
+			return false, fmt.Errorf("invalid command, argument(s) missing")
 		}
-		key := strings.TrimPrefix(p.scanner.ID(), ":")
+		if p.token != KeywordToken {
+			return false, fmt.Errorf("invalid command argument, keyword expected")
+		}
+		keyword := p.scanner.ID()
 		if err := p.advance(); err != nil {
 			return false, err
 		}
-		// Source parse_ext_cmd: set_option_cmd::set_next_arg applies the
-		// value as it is read; a further argument is then rejected before
-		// execute.
-		if p.token == StringToken {
-			if err = p.context.SetStringOption(key, p.scanner.String()); err != nil {
-				return false, err
-			}
-			if err = p.advance(); err != nil {
-				return false, err
-			}
-			if err = p.optionValueEnd(); err != nil {
-				return false, err
-			}
-			break
-		}
-		if p.token == IntegerToken {
-			n := p.scanner.Number()
-			if !n.IsInt() || n.Sign() < 0 || !n.Num().IsUint64() || n.Num().Uint64() > uint64(^uint32(0)) {
-				return false, fmt.Errorf("unsigned numeral is out of range")
-			}
-			if err = p.context.SetUIntOption(key, uint32(n.Num().Uint64())); err != nil {
-				return false, err
-			}
-			if err = p.advance(); err != nil {
-				return false, err
-			}
-			if err = p.optionValueEnd(); err != nil {
-				return false, err
-			}
-			break
-		}
-		if p.token == DecimalToken || p.token == BitVectorToken {
-			if err = p.context.SetNumeralOption(key, p.scanner.Number()); err != nil {
-				return false, err
-			}
-			if err = p.advance(); err != nil {
-				return false, err
-			}
-			if err = p.optionValueEnd(); err != nil {
-				return false, err
-			}
-			break
-		}
-		if p.token != SymbolToken {
-			return false, fmt.Errorf("symbol expected")
-		}
-		value := p.scanner.ID()
-		if value == "true" || value == "false" {
-			err = p.context.SetBoolOption(key, value == "true")
-		} else {
-			err = p.context.SetSymbolOption(key, value)
+		unsupported := false
+		switch p.token {
+		case RightParenToken:
+			return false, fmt.Errorf("invalid command, argument(s) missing")
+		case IntegerToken, DecimalToken, BitVectorToken:
+			err = p.context.SetOptionNumeral(keyword, p.scanner.Number())
+		case SymbolToken:
+			unsupported, err = p.context.SetOptionSymbol(keyword, p.scanner.ID())
+		case StringToken:
+			err = p.context.SetOptionString(keyword, p.scanner.String())
+		default:
+			err = fmt.Errorf("invalid option value")
 		}
 		if err != nil {
 			return false, err
@@ -592,6 +558,17 @@ func (p *commandParser) command() (bool, error) {
 		if err = p.optionValueEnd(); err != nil {
 			return false, err
 		}
+		// execute: print_unsupported or print_success.
+		if unsupported {
+			if _, err = fmt.Fprintln(p.out, "unsupported"); err != nil {
+				return false, err
+			}
+			if _, err = fmt.Fprintf(p.context.DiagnosticOutput(), "; %s line: %d position: %d\n", keyword, commandLine, commandPosition); err != nil {
+				return false, err
+			}
+			success = false
+		}
+		// parse_ext_cmd's updt_params hack after every set-option.
 		if err = p.configurePatternOptions(); err != nil {
 			return false, err
 		}
