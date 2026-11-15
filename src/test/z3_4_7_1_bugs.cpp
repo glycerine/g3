@@ -192,6 +192,10 @@ Abstract:
                                   define-fun-rec predicate never terminates:
                                   the model evaluator rewrites the dead
                                   recursive or/and branch forever.
+    z3_4_7_1_datatype_param_size  a parametric datatype field that
+                                  instantiates another parametric datatype
+                                  at a different sort makes get_sort_size
+                                  miss in sparam::subst and z3 segfaults.
     z3_4_7_1_get_file_names_posix datalog::get_file_names is
                                   NOT_IMPLEMENTED_YET outside _WINDOWS, so
                                   z3 -dl DIRECTORY (the WPA benchmark
@@ -2616,4 +2620,24 @@ void tst_z3_4_7_1_rec_fun_model_eval() {
 #ifndef _WINDOWS
     alarm(0);
 #endif
+}
+
+// Wrap's size function instantiates Box at Wrap's parameter U.
+// util::get_sort_size keys the substitution for Box's size function by the
+// actual parameter sort U, but that function names Box's formal parameter
+// T, so sparam::subst reads a missing key and z3 segfaults while declaring
+// Wrap. (Wrap Bool) has two values, so three distinct ones are unsat.
+// Fixed upstream in f1c3e1aa7 ("fix #2077").
+void tst_z3_4_7_1_datatype_param_size() {
+    char const* script =
+        "(declare-datatypes ((Box 1)) ((par (T) ((box (unbox T))))))\n"
+        "(declare-datatypes ((Wrap 1)) ((par (U) ((wrap (unwrap (Box U)))))))\n"
+        "(declare-const w (Wrap Bool))\n"
+        "(declare-const x (Wrap Bool))\n"
+        "(declare-const y (Wrap Bool))\n"
+        "(assert (distinct w x y))\n"
+        "(check-sat)\n";
+    std::cout << "datatype_param_size: running\n";
+    std::cout.flush(); // a segfault loses buffered output
+    expect_script("datatype_param_size", script, "unsat\n");
 }
