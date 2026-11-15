@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_bv_01-F2: elim-small-bv's th_rewriter ignores the tactic's
+	// max_steps; the outer rewriter stops expanding instead.
+	"elim_small_bv_max_steps_simplifier.smt2": "(goals\n(goal\n  (forall ((x (_ BitVec 2)))\n    (and (p x #b00 #b00) (p x #b00 #b01) (p x #b01 #b00) (p x #b01 #b01)))\n  (q #b00)\n  (q #b01)\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md tactic_bv_01-F4: bv-bounds is_bound rejects (= numeral numeral).
 	"bv_bounds_numeral_equality.smt2": "(goals\n(goal\n  (or p (ite (= #x01 #x02) (= #x03 #x02) q))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md tactic_bv_01-F5: bvarray2uf declares produce_models, so

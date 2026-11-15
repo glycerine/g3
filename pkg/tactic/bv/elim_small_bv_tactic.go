@@ -200,10 +200,21 @@ func (c *elimSmallBVConfig) checkpoint(numSteps uint64) (bool, error) {
 	if numSteps > uint64(c.maxSteps) {
 		return true, nil
 	}
-	if c.owner.manager.Budget().Used() > c.maxMemory {
+	allocated, e := c.owner.manager.NumeralService().RuntimeOwner().AllocationSize()
+	if e != nil {
+		return false, e
+	}
+	if allocated > c.maxMemory {
 		return false, tactic.NewTacticException(tactic.TacticMaxMemoryMessage)
 	}
 	return false, nil
+}
+
+// MaxStepsExceeded is the rewriter_tpl hook: rw_cfg::max_steps_exceeded
+// hides default_rewriter_cfg's, so check_max_steps reaches it with the
+// outer rewriter's step count.
+func (c *elimSmallBVConfig) MaxStepsExceeded(n uint32) (bool, error) {
+	return c.checkpoint(uint64(n))
 }
 func (c *elimSmallBVConfig) ReduceQuantifier(q, body ast.ASTHandle, _, _ ast.AppArguments, out, _ ast.ASTRef) (changed bool, err error) {
 	m := c.owner.manager
@@ -395,7 +406,9 @@ func (t *ElimSmallBVTactic) Apply(g *tactic.Goal, r *tactic.TacticResult) (err e
 		return e
 	}
 	defer func() { err = errors.Join(err, cfg.substitute.Close()) }()
-	cfg.simplify, e = rewriter.NewTheoryRewriter(t.manager, t.context, t.globals, &t.params)
+	// C++ rw_cfg builds th_rewriter m_simp(_m) with the default (empty)
+	// params; the tactic params reach only unused_vars_eliminator.
+	cfg.simplify, e = rewriter.NewTheoryRewriter(t.manager, t.context, t.globals, nil)
 	if e != nil {
 		return e
 	}

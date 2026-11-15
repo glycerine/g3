@@ -1,0 +1,5 @@
+(declare-fun p ((_ BitVec 2) (_ BitVec 2) (_ BitVec 2)) Bool)
+(declare-fun q ((_ BitVec 2)) Bool)
+(assert (forall ((x (_ BitVec 2)) (y (_ BitVec 2)) (z (_ BitVec 2))) (p x y z)))
+(assert (forall ((x (_ BitVec 2))) (q x)))
+(apply (using-params elim-small-bv :max_steps 3))

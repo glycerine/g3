@@ -106,3 +106,60 @@ func TestElimSmallBVStepLimitIsPerQuantifier(t *testing.T) {
 		}
 	}
 }
+
+// AUDIT.md tactic_bv_01-F2: rw_cfg builds th_rewriter m_simp(_m) with empty
+// params, so the tactic's max_steps never reaches the simplifier; the outer
+// rewriter reaches rw_cfg::max_steps_exceeded instead and stops expanding.
+func TestElimSmallBVSimplifierIgnoresTacticParams(t *testing.T) {
+	base := sharingTacticFixture(t, false)
+	m := base.manager
+	globals := uparams.BorrowProcessGlobalParamsService()
+	x, err := NewElimSmallBVTactic(m, base.context, globals, nil, nil)
+	sharingMust(t, err)
+	t.Cleanup(func() { sharingMust(t, x.Close()) })
+	p, err := base.context.NewValue()
+	sharingMust(t, err)
+	key := "max_steps"
+	sharingMust(t, base.context.SetUIntName(&p, &key, 3))
+	sharingMust(t, x.UpdateParams(&p))
+	sharingMust(t, base.context.Del(&p))
+	s, err := m.BitVectorSort(2)
+	sharingMust(t, err)
+	b, err := m.MkBoolSort()
+	sharingMust(t, err)
+	pDecl, err := m.MkFreshFuncDecl(usymbol.Numerical(0), usymbol.Symbol{}, []ast.ASTHandle{s, s, s}, b)
+	sharingMust(t, err)
+	qDecl, err := m.MkFreshFuncDecl(usymbol.Numerical(1), usymbol.Symbol{}, []ast.ASTHandle{s}, b)
+	sharingMust(t, err)
+	v0, err := m.MkVar(0, s)
+	sharingMust(t, err)
+	v1, err := m.MkVar(1, s)
+	sharingMust(t, err)
+	v2, err := m.MkVar(2, s)
+	sharingMust(t, err)
+	pBody, err := m.MkApp(pDecl, []ast.ASTHandle{v2, v1, v0})
+	sharingMust(t, err)
+	q1, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{s, s, s},
+		Names: []usymbol.Symbol{usymbol.Numerical(0), usymbol.Numerical(1), usymbol.Numerical(2)}, Body: pBody})
+	sharingMust(t, err)
+	qBody, err := m.MkApp(qDecl, []ast.ASTHandle{v0})
+	sharingMust(t, err)
+	q2, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{s}, Names: []usymbol.Symbol{usymbol.Numerical(0)}, Body: qBody})
+	sharingMust(t, err)
+	g, err := tactic.NewGoal(m, false, false, false)
+	sharingMust(t, err)
+	t.Cleanup(func() { sharingMust(t, g.Close()) })
+	sharingMust(t, g.Assert(q1))
+	sharingMust(t, g.Assert(q2))
+	var out tactic.TacticResult
+	t.Cleanup(func() { sharingMust(t, out.Close()) })
+	sharingMust(t, x.Apply(g, &out))
+	if len(out.Goals) != 1 {
+		t.Fatal("result goals", len(out.Goals))
+	}
+	f, err := out.Goals[0].Form(0)
+	sharingMust(t, err)
+	if k, err := m.GetKind(f); err != nil || k != ast.ASTQuantifier {
+		t.Fatal("first formula should stay a partly expanded quantifier", k, err)
+	}
+}
