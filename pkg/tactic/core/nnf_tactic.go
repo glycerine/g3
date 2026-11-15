@@ -192,6 +192,10 @@ func (t *NNFTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (err e
 	defer func() { err = errors.Join(err, names.Close()) }()
 	nnf, err := normalforms.NewNNFFromParams(t.manager, names, t.context, t.globals, &t.params)
 	if err != nil {
+		// NewNNF returns its partial owner with the error.
+		if nnf != nil {
+			err = errors.Join(err, nnf.Close())
+		}
 		return err
 	}
 	defer func() { err = errors.Join(err, nnf.Close()) }()
