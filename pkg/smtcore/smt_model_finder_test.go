@@ -11,7 +11,9 @@ import (
 )
 
 func TestSMTModelFinderRegistrationRelevanceAndScopeLifecycle(t *testing.T) {
-	m, state, _, manager := smtQuantifierManagerFixture(t, 10, 20, SMTQuantifierManagerConfig{})
+	// default_qm_plugin::add registers quantifiers with the model finder
+	// only under MBQI.
+	m, state, _, manager := smtQuantifierManagerFixture(t, 10, 20, SMTQuantifierManagerConfig{MBQI: true})
 	finder := manager.modelFinder
 	if finder == nil {
 		t.Fatal("quantifier manager omitted model finder")

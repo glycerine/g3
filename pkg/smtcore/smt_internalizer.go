@@ -799,12 +799,20 @@ func (s *SMTInternalizerState) internalizeQuantifier(expression ast.ASTHandle, g
 	if err = s.quantifiers.Add(expression, generation); err != nil {
 		return err
 	}
-	if s.quantifierManager != nil && s.quantifierManager.mbqi {
-		s.quantifierManager.pluginActive = true // default_qm_plugin::add
-	}
-	if s.quantifierManager != nil && s.quantifierManager.modelFinder != nil {
-		if err = s.quantifierManager.modelFinder.RegisterQuantifier(expression); err != nil {
+	// default_qm_plugin::add: if (m_fparams->m_mbqi && mbqi_enabled(q)) {
+	// m_active = true; m_model_finder->register_quantifier(q); }
+	if qm := s.quantifierManager; qm != nil && qm.mbqi {
+		enabled, err := qm.mbqiEnabled(expression)
+		if err != nil {
 			return errors.Join(err, s.quantifiers.Delete(expression))
+		}
+		if enabled {
+			qm.pluginActive = true
+			if qm.modelFinder != nil {
+				if err = qm.modelFinder.RegisterQuantifier(expression); err != nil {
+					return errors.Join(err, s.quantifiers.Delete(expression))
+				}
+			}
 		}
 	}
 	return nil
