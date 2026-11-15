@@ -584,18 +584,17 @@ namespace datatype {
             param_size::size* sz;
             obj_map<sort, param_size::size*> S;
             unsigned n = get_datatype_num_parameter_sorts(s);
+            // FORK FIX #72 (g3 audit, see FORK_BUGFIXES.md): backport of upstream f1c3e1aa7 and e08abb321:
+            // key S by the formal parameters, and keep the sizes alive in m_refs because subst can return one of them
+            def & d = get_def(s->get_name());
+            SASSERT(n == d.params().size());
             for (unsigned i = 0; i < n; ++i) {
                 sort* ps = get_datatype_parameter_sort(s, i);
                 sz = get_sort_size(params, ps);
-                sz->inc_ref();
-                S.insert(ps, sz); 
+                m_refs.push_back(sz);
+                S.insert(d.params().get(i), sz); 
             }
-            def & d = get_def(s->get_name());
-            sz = d.sort_size()->subst(S);
-            for (auto & kv : S) {
-                kv.m_value->dec_ref();
-            }
-            return sz;
+            return d.sort_size()->subst(S);
         }
         array_util autil(m);
         if (autil.is_array(s)) {
@@ -676,6 +675,8 @@ namespace datatype {
                 s_add.push_back(param_size::size::mk_times(s_mul));
             }
             d.set_sort_size(param_size::size::mk_plus(s_add));
+            // FORK FIX #72 (g3 audit, see FORK_BUGFIXES.md): release the sizes get_sort_size kept alive
+            m_refs.reset();
         }
     }
     

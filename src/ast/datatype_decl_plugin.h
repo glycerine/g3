@@ -330,6 +330,8 @@ namespace datatype {
         ptr_vector<ptr_vector<func_decl> >          m_vectors;
         unsigned                                    m_start;
         mutable ptr_vector<sort>                    m_fully_interp_trail;
+        // FORK FIX #72 (g3 audit, see FORK_BUGFIXES.md): sizes get_sort_size substituted (upstream e08abb321)
+        sref_vector<param_size::size>               m_refs;
         
         func_decl * get_non_rec_constructor_core(sort * ty, ptr_vector<sort> & forbidden_set);
 
