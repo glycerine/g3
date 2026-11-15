@@ -108,9 +108,8 @@ func (f *SMTModelFinder) RegisterQuantifier(quantifier ast.ASTHandle) (result er
 	if err := f.open(); err != nil {
 		return err
 	}
-	if err := f.checkpoint(); err != nil {
-		return err
-	}
+	// register_quantifier has no checkpoint; the analyzer's
+	// process_formulas_on_stack and insert_qinfo do.
 	kind, err := f.manager.GetKind(quantifier)
 	if err != nil {
 		return err

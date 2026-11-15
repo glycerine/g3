@@ -37,7 +37,9 @@ func (g *smtModelFinderAUFGraph) collectSelectVars(quantifier, term ast.ASTHandl
 		if err != nil {
 			return err
 		}
-		g.appendSelect(smtModelFinderSelectVar{quantifier: quantifier, selectTerm: term, position: position, variable: variable})
+		if err = g.insertSelect(smtModelFinderSelectVar{quantifier: quantifier, selectTerm: term, position: position, variable: variable}); err != nil {
+			return err
+		}
 	}
 	return nil
 }

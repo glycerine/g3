@@ -30,9 +30,13 @@ func (g *smtModelFinderAUFGraph) collectOffset(quantifier, function ast.ASTHandl
 	if err != nil {
 		return false, errors.Join(err, m.DelRef(&ref))
 	}
-	if !g.appendFVar(smtModelFinderFVar{
+	inserted, err := g.insertFVar(smtModelFinderFVar{
 		quantifier: quantifier, function: function, position: position, variable: index, offset: offset,
-	}) {
+	})
+	if err != nil {
+		return false, errors.Join(err, m.DelRef(&ref))
+	}
+	if !inserted {
 		// insert_qinfo deleted the duplicate qinfo and its offset.
 		return true, m.DelRef(&ref)
 	}

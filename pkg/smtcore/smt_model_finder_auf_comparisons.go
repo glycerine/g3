@@ -250,7 +250,9 @@ func (g *smtModelFinderAUFGraph) collectComparison(quantifier, atom ast.ASTHandl
 			if signed {
 				kind = aufSignedOrderedVariables
 			}
-			g.appendLiteral(smtModelFinderAUFLiteral{kind: kind, quantifier: quantifier, first: first, second: second})
+			if err := g.insertLiteral(smtModelFinderAUFLiteral{kind: kind, quantifier: quantifier, first: first, second: second}); err != nil {
+				return false, err
+			}
 			return true, nil
 		}
 	}
@@ -287,7 +289,9 @@ func (g *smtModelFinderAUFGraph) collectComparison(quantifier, atom ast.ASTHandl
 			return false, err
 		}
 	}
-	g.appendLiteral(smtModelFinderAUFLiteral{kind: aufOrderedGround, quantifier: quantifier, first: variable, term: bound})
+	if err := g.insertLiteral(smtModelFinderAUFLiteral{kind: aufOrderedGround, quantifier: quantifier, first: variable, term: bound}); err != nil {
+		return false, err
+	}
 	return true, nil
 }
 

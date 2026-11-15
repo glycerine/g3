@@ -50,8 +50,7 @@ func (g *smtModelFinderAUFGraph) processLiteral(quantifier, atom ast.ASTHandle, 
 		if err != nil {
 			return err
 		}
-		g.appendLiteral(smtModelFinderAUFLiteral{kind: aufDisequalGround, quantifier: quantifier, first: variable, term: term})
-		return nil
+		return g.insertLiteral(smtModelFinderAUFLiteral{kind: aufDisequalGround, quantifier: quantifier, first: variable, term: term})
 	}
 	if kind != ast.ASTApp {
 		return ast.ErrASTDomain
@@ -83,8 +82,7 @@ func (g *smtModelFinderAUFGraph) processLiteral(quantifier, atom ast.ASTHandle, 
 			if negative {
 				row.kind = aufDisequalGround
 			}
-			g.appendLiteral(row)
-			return nil
+			return g.insertLiteral(row)
 		}
 		first, second, matched, err := g.variableAndVariable(left, right)
 		if err != nil {
@@ -95,8 +93,7 @@ func (g *smtModelFinderAUFGraph) processLiteral(quantifier, atom ast.ASTHandle, 
 			if negative {
 				row.kind = aufDisequalVariables
 			}
-			g.appendLiteral(row)
-			return nil
+			return g.insertLiteral(row)
 		}
 		return g.processApp(quantifier, atom)
 	}

@@ -164,9 +164,6 @@ func (g *smtModelFinderAUFGraph) build(quantifiers []ast.ASTHandle) error {
 	// quantifier, a node for each variable first, then every qinfo's
 	// process_auf in m_qinfo_vect order.
 	for _, quantifier := range quantifiers {
-		if err := g.finder.checkpoint(); err != nil {
-			return err
-		}
 		count, err := g.finder.manager.GetNumDeclarations(g.finder.flatQuantifier(quantifier))
 		if err != nil {
 			return err
@@ -225,8 +222,16 @@ func (g *smtModelFinderAUFGraph) build(quantifiers []ast.ASTHandle) error {
 				return err
 			}
 		}
+		// Second pass: checkpoint() before every qinfo's
+		// populate_inst_sets2 (only f_var_plus_offset's does work).
 		for _, ref := range g.qorder {
-			if ref.kind == qinfoFVar && g.fvars[ref.index].quantifier == quantifier {
+			if g.qinfoQuantifier(ref) != quantifier {
+				continue
+			}
+			if err := g.finder.checkpoint(); err != nil {
+				return err
+			}
+			if ref.kind == qinfoFVar {
 				if err := g.populateOffset(g.fvars[ref.index]); err != nil {
 					return err
 				}
@@ -234,6 +239,17 @@ func (g *smtModelFinderAUFGraph) build(quantifiers []ast.ASTHandle) error {
 		}
 	}
 	return nil
+}
+
+func (g *smtModelFinderAUFGraph) qinfoQuantifier(ref smtModelFinderQInfoRef) ast.ASTHandle {
+	switch ref.kind {
+	case qinfoFVar:
+		return g.fvars[ref.index].quantifier
+	case qinfoLiteral:
+		return g.literals[ref.index].quantifier
+	default:
+		return g.selects[ref.index].quantifier
+	}
 }
 
 // processFVar is f_var::process_auf (merge A_f_i with the variable node)

@@ -81,12 +81,62 @@ func (g *smtModelFinderAUFGraph) appendFVar(info smtModelFinderFVar) bool {
 	return true
 }
 
-func (g *smtModelFinderAUFGraph) appendLiteral(info smtModelFinderAUFLiteral) {
+func smtModelFinderNormalizeLiteral(info smtModelFinderAUFLiteral) smtModelFinderAUFLiteral {
 	if info.kind == aufEqualVariables || info.kind == aufDisequalVariables || info.kind == aufOrderedVariables || info.kind == aufSignedOrderedVariables {
 		if info.first > info.second {
 			info.first, info.second = info.second, info.first
 		}
 	}
+	return info
+}
+
+// insertQInfo is the analyzer's quantifier_info::insert_qinfo scan: one
+// checkpoint before each is_equal against the m_qinfo_vect entries (all
+// kinds, in order) until the first equal one. It reports a duplicate.
+func (g *smtModelFinderAUFGraph) insertQInfo(kind smtModelFinderQInfoKind, equal func(index int) bool) (bool, error) {
+	for _, ref := range g.qorder {
+		if err := g.finder.checkpoint(); err != nil {
+			return false, err
+		}
+		if ref.kind == kind && equal(ref.index) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// insertFVar, insertLiteral and insertSelect are insert_qinfo on the
+// analyzer path; the append* replay in addQInfo has no checkpoints.
+func (g *smtModelFinderAUFGraph) insertFVar(info smtModelFinderFVar) (bool, error) {
+	duplicate, err := g.insertQInfo(qinfoFVar, func(i int) bool { return g.fvars[i] == info })
+	if err != nil || duplicate {
+		return false, err
+	}
+	return g.appendFVar(info), nil
+}
+
+func (g *smtModelFinderAUFGraph) insertLiteral(info smtModelFinderAUFLiteral) error {
+	info = smtModelFinderNormalizeLiteral(info)
+	duplicate, err := g.insertQInfo(qinfoLiteral, func(i int) bool { return g.literals[i] == info })
+	if err != nil || duplicate {
+		return err
+	}
+	g.appendLiteral(info)
+	return nil
+}
+
+func (g *smtModelFinderAUFGraph) insertSelect(info smtModelFinderSelectVar) error {
+	// select_var::is_equal: same select term, argument and variable.
+	duplicate, err := g.insertQInfo(qinfoSelect, func(i int) bool { return g.selects[i] == info })
+	if err != nil || duplicate {
+		return err
+	}
+	g.appendSelect(info)
+	return nil
+}
+
+func (g *smtModelFinderAUFGraph) appendLiteral(info smtModelFinderAUFLiteral) {
+	info = smtModelFinderNormalizeLiteral(info)
 	for _, prior := range g.literals {
 		if prior == info {
 			return
@@ -173,7 +223,9 @@ func (g *smtModelFinderAUFGraph) processUApp(quantifier, t ast.ASTHandle) error 
 			if err != nil {
 				return err
 			}
-			g.appendFVar(smtModelFinderFVar{quantifier: quantifier, function: function, position: position, variable: variable})
+			if _, err = g.insertFVar(smtModelFinderFVar{quantifier: quantifier, function: function, position: position, variable: variable}); err != nil {
+				return err
+			}
 			continue
 		}
 		// is_var_plus_ground: the f_var_plus_offset qinfo, new or not,
