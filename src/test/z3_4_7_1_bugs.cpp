@@ -1337,3 +1337,15 @@ void tst_z3_4_7_1_opb_max_objective() {
     ENSURE(r == l_true);
     ENSURE(lo == hi);
 }
+
+// MK_NARY_PROBE starts with r = child(1) and then folds from child 1 again,
+// so (+ 1 2) is 4 and (* 2 3) is 12.
+void tst_z3_4_7_1_probe_nary_fold() {
+    std::string out = eval_smtlib2(
+        "(check-sat-using (if (= (+ 1 2) 4) (fail-if 1) smt))\n"
+        "(check-sat-using (if (= (* 2 3) 12) (fail-if 1) smt))\n"
+        "(check-sat-using (if (= (+ 1 2) 3) (fail-if 1) smt))\n"
+        "(check-sat-using (if (= (+ 1 2 4) 7) (fail-if 1) smt))\n");
+    std::cout << "probe_nary_fold:\n" << out;
+    ENSURE(out == "sat\nsat\nunknown\nunknown\n");
+}
