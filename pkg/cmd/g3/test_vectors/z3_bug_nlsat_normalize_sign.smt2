@@ -1,0 +1,6 @@
+(declare-const x Real)
+(declare-const y Real)
+(assert (< y (- 1.5)))
+(assert (> (* y x) 0.0))
+(assert (> x 1.0))
+(check-sat-using qfnra-nlsat)

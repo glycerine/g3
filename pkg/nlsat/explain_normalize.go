@@ -260,6 +260,8 @@ func (n *explanationAssumptions) normalizeLiteral(l sat.Literal, max uint32) (re
 			}
 			// Source cpp432 tests -1, but rational signs can be -2, -3, etc.
 			// Compare by sign to preserve odd-factor polarity (C++ oracle regression).
+			// z3 4.7.1 bug kept out of g3, fixed upstream in 0f20175bd ("fix
+			// #2556"); AUDIT.md nlsat_01-F4.
 			if sign < 0 && !inequality.factors[i].Even {
 				atomSign = -atomSign
 			}

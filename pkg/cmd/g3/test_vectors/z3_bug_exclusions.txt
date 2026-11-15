@@ -300,3 +300,16 @@ z3_bug_nlsat_signed_infinity_sign
 # test_vectors/z3_bug_nlsat_eval_sign_overflow.smt2 (same model, compare
 # -st).
 z3_bug_nlsat_eval_sign_overflow
+#
+# nlsat explain normalize/simplify flip the sign of an odd lower-stage or
+# constant factor only when its value is exactly -1, but sign() returns the
+# raw numerator (-2, -3, ...): the normalized core literal gets the wrong
+# polarity (here x > 0 instead of x < 0 with y = -3), and a constant
+# pseudo-remainder such as -2 < 0 becomes false, resets the core and yields
+# an invalid lemma (z3 bug: src/nlsat/nlsat_explain.cpp:432 normalize, :1137
+# simplify; fixed upstream in 0f20175bd, "fix #2556"). g3 tests sign < 0
+# (pkg/nlsat/explain_normalize.go normalizeLiteral,
+# pkg/nlsat/explain_simplify.go rewriteEqualityLiteralCore; AUDIT.md
+# nlsat_01-F4). The answer is the same here; the atoms and the trace differ.
+# Reproduction: test_vectors/z3_bug_nlsat_normalize_sign.smt2.
+z3_bug_nlsat_normalize_sign

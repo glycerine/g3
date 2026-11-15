@@ -61,6 +61,7 @@ var z3BugResults = map[string]string{
 	"z3_bug_qi_weakening_proof.smt2":         "sat\ntrue\n",
 	"z3_bug_nlsat_signed_infinity_sign.smt2": "unsat\n",                                                                                                                                // nlsat_01-F1
 	"z3_bug_nlsat_eval_sign_overflow.smt2":   "sat\n(model \n  (define-fun x () Real\n    50000.0)\n  (define-fun y () Real\n    50000.0)\n  (define-fun z () Real\n    (- 2.0))\n)\n", // nlsat_01-F2
+	"z3_bug_nlsat_normalize_sign.smt2":       "unsat\n",                                                                                                                                // nlsat_01-F4
 }
 
 func TestZ3BugVectorsKeepCorrectAnswers(t *testing.T) {

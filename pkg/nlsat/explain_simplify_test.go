@@ -78,3 +78,30 @@ func TestExplanationSimplifiesWithCachedLowerStageEquality(t *testing.T) {
 		t.Fatal("lower-stage variable was not eliminated", yDegree, xDegree)
 	}
 }
+
+// Core {x1 < 0, 3*x1 + 2 = 0, x1 - x0 > 0} at x0 = 0. The equation rewrites
+// x1 < 0 to the constant -2 < 0, which is true. z3 4.7.1 flips the sign of
+// an odd factor only when its value is exactly -1
+// (nlsat_explain.cpp:1137, also :432 in normalize), so it builds the false
+// -2 > 0 and resets the core, which drops x1 - x0 > 0 and its lower-stage
+// consequence and learns an invalid lemma (fixed upstream in 0f20175bd;
+// AUDIT.md nlsat_01-F4). g3 tests sign < 0.
+func TestExplanationSimplifyRawNegativeConstantRemainder(t *testing.T) {
+	e, r, n := explanationAssumptionFixture(t)
+	evaluatorSetFraction(t, e, 0, 0, 1)
+	x1 := evaluatorPolynomial(t, e, evaluatorTerm{1, 0, 1})
+	equality := evaluatorPolynomial(t, e, evaluatorTerm{3, 0, 1}, evaluatorTerm{2, 0, 0})
+	difference := evaluatorPolynomial(t, e, evaluatorTerm{1, 0, 1}, evaluatorTerm{-1, 1, 0})
+	core := scopedLiteralVector{factory: r.store.atoms}
+	assignmentMust(t, core.push(normalizationLiteral(t, r, AtomLT, []polynomial.Polynomial{x1}, []bool{false})))
+	assignmentMust(t, core.push(normalizationLiteral(t, r, AtomEQ, []polynomial.Polynomial{equality}, []bool{false})))
+	assignmentMust(t, core.push(normalizationLiteral(t, r, AtomGT, []polynomial.Polynomial{difference}, []bool{false})))
+	t.Cleanup(func() { assignmentMust(t, core.close()) })
+	assignmentMust(t, n.start())
+	modified, err := n.simplifyCoreWithEquality(&core, equality, 1)
+	assignmentMust(t, err)
+	assignmentMust(t, n.finish(nil))
+	if !modified || len(core.result) != 1 || len(n.output.result) != 1 {
+		t.Fatal("raw negative constant remainder reset the core", modified, core.result, n.output.result)
+	}
+}

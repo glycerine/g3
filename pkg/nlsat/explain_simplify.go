@@ -150,6 +150,11 @@ func (n *explanationAssumptions) rewriteEqualityLiteralCore(literal sat.Literal,
 					info.addInequality = true
 				}
 			}
+			// z3 4.7.1 bug kept out of g3: cpp1137 tests s == -1, but sign
+			// returns the raw numerator (-2, -3, ...), so the literal keeps the
+			// wrong polarity; a false constant then resets the core and the
+			// learned lemma is invalid (fixed upstream in 0f20175bd, "fix
+			// #2556"; AUDIT.md nlsat_01-F4).
 			if sign < 0 && !factor.Even {
 				atomSign = -atomSign
 			}
