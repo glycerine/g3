@@ -740,6 +740,7 @@ void rewriter_tpl<Config>::resume_core(expr_ref & result, proof_ref & result_pr)
 
 template<typename Config>
 void rewriter_tpl<Config>::operator()(expr * t, expr_ref & result, proof_ref & result_pr) {
+    // FORK FIX #52 (g3 audit, see FORK_BUGFIXES.md): backport of upstream 18bb90f93/b013df9a9: reset stale rewriter stacks (AUDIT smtcore_14-F3)
     if (!frame_stack().empty() || m_cache != m_cache_stack[0]) {
         frame_stack().reset();
         result_stack().reset();

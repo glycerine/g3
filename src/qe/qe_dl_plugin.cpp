@@ -162,6 +162,7 @@ namespace qe {
                 }
 
                 for (unsigned i = 0; i < eqs.num_neqs(); ++i) {
+                    // FORK FIX #53 (g3 audit, see FORK_BUGFIXES.md): other-value branch substitutes false for negative atoms (AUDIT qe_01-F4)
                     m_replace.apply_substitution(eqs.neq_atom(i), m.mk_false(), fml);
                 }
             }
