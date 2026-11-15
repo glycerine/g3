@@ -374,15 +374,23 @@ func (m *ModelBasedOpt) resolveInteger(source uint32, sourceCoeff *big.Rat, dest
 	if !sourceCoeff.IsInt() || !destinationCoeff.IsInt() {
 		return fmt.Errorf("simplex: integer resolution requires integral coefficients")
 	}
-	if sourceCoeff.Sign() == destinationCoeff.Sign() {
+	if sourceCoeff.Sign() != destinationCoeff.Sign() {
+		if err := m.mulAddInteger(x, sourceCoeff, source, destinationCoeff, destination); err != nil {
+			return err
+		}
+	} else {
 		m.scale(destination, absRat(sourceCoeff))
 		if err := m.combine(destination, new(big.Rat).Neg(absRat(destinationCoeff)), source, false); err != nil {
 			return err
 		}
-		m.normalize(destination)
-		return nil
 	}
+	m.normalize(destination)
+	return nil
+}
 
+// mulAddInteger is model_based_opt::mul_add, the resolution for integer rows
+// (src/math/simplex/model_based_opt.cpp:383-454). The caller normalizes.
+func (m *ModelBasedOpt) mulAddInteger(x uint32, sourceCoeff *big.Rat, source uint32, destinationCoeff *big.Rat, destination uint32) error {
 	absSource := absRat(sourceCoeff)
 	absDestination := absRat(destinationCoeff)
 	slack := new(big.Rat).Mul(new(big.Rat).Sub(absSource, big.NewRat(1, 1)), new(big.Rat).Sub(absDestination, big.NewRat(1, 1)))

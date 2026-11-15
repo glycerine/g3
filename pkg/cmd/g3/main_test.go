@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md math_misc_02-F1: resolve normalizes row_dst after the
+	// opposite-sign integer mul_add.
+	"qe2_int_resolve_normalize.smt2": "(goals\n(goal\n  (<= (+ z (* (- 1) y)) 0)\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md muz_rel_05-F1: 5-cycle closure; a union that adds nothing must
 	// not grow the table.
 	"datalog_hashtable_cycle_order.smt2": "sat\n(or (and (= (:var 0) #x2) (= (:var 1) #x2))\n    (and (= (:var 0) #x4) (= (:var 1) #x2))\n    (and (= (:var 0) #x5) (= (:var 1) #x4))\n    (and (= (:var 0) #x2) (= (:var 1) #x1))\n    (and (= (:var 0) #x1) (= (:var 1) #x3))\n    (and (= (:var 0) #x2) (= (:var 1) #x4))\n    (and (= (:var 0) #x3) (= (:var 1) #x3))\n    (and (= (:var 0) #x5) (= (:var 1) #x5))\n    (and (= (:var 0) #x1) (= (:var 1) #x4))\n    (and (= (:var 0) #x5) (= (:var 1) #x1))\n    (and (= (:var 0) #x2) (= (:var 1) #x3))\n    (and (= (:var 0) #x3) (= (:var 1) #x5))\n    (and (= (:var 0) #x2) (= (:var 1) #x5))\n    (and (= (:var 0) #x1) (= (:var 1) #x5))\n    (and (= (:var 0) #x3) (= (:var 1) #x1))\n    (and (= (:var 0) #x1) (= (:var 1) #x2))\n    (and (= (:var 0) #x3) (= (:var 1) #x2))\n    (and (= (:var 0) #x4) (= (:var 1) #x4))\n    (and (= (:var 0) #x5) (= (:var 1) #x3))\n    (and (= (:var 0) #x4) (= (:var 1) #x1))\n    (and (= (:var 0) #x4) (= (:var 1) #x3))\n    (and (= (:var 0) #x5) (= (:var 1) #x2))\n    (and (= (:var 0) #x1) (= (:var 1) #x1))\n    (and (= (:var 0) #x3) (= (:var 1) #x4))\n    (and (= (:var 0) #x4) (= (:var 1) #x5)))\n",

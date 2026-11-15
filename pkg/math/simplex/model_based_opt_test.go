@@ -217,3 +217,32 @@ func TestModelBasedOptProjectIntegerNonUnitBounds(t *testing.T) {
 		}
 	}
 }
+
+// AUDIT.md math_misc_02-F1: model_based_opt::resolve normalizes row_dst after
+// the opposite-sign integer mul_add as well as after the same-sign path.
+func TestModelBasedOptIntegerOppositeSignResolveNormalizes(t *testing.T) {
+	opt := NewModelBasedOpt()
+	x := opt.AddVariable(big.NewRat(0, 1), true)
+	y := opt.AddVariable(big.NewRat(0, 1), true)
+	z := opt.AddVariable(big.NewRat(0, 1), true)
+	addOptConstraint(t, opt, []LinearTerm{optTerm(x, 1), optTerm(y, -2)}, 0, LessEqual)
+	addOptConstraint(t, opt, []LinearTerm{optTerm(x, -1), optTerm(z, 2)}, 0, LessEqual)
+	if err := opt.Project(x); err != nil {
+		t.Fatal(err)
+	}
+	found := opt.LiveRows()
+	if len(found) != 1 {
+		t.Fatalf("live rows = %+v", found)
+	}
+	row := found[0]
+	coeffs := map[uint32]int64{}
+	for _, term := range row.Terms {
+		if !term.Coefficient.IsInt() {
+			t.Fatalf("non-integral coefficient in %+v", row)
+		}
+		coeffs[term.Variable] = term.Coefficient.Num().Int64()
+	}
+	if len(coeffs) != 2 || coeffs[y] != -1 || coeffs[z] != 1 || row.Constant.Sign() != 0 || row.Relation != LessEqual {
+		t.Fatalf("resolvent = %+v, want z - y <= 0", row)
+	}
+}
