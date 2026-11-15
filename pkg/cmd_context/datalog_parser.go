@@ -54,6 +54,7 @@ func newDatalogParser(context *Context, errOut io.Writer) (*datalogParser, error
 	if err != nil {
 		return nil, err
 	}
+	engine.SetDatalogConstantNames(context.datalogDisplay)
 	declarations, err := engine.Predicates()
 	if err != nil {
 		return nil, err

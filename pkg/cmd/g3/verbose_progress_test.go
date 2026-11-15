@@ -144,6 +144,12 @@ var verboseProgressFiltered = map[string][]string{
 	"dl_path_v1":    {"Z3 Datalog Engine", "parsing finished", "running saturation", "path -> ", "edge -> "},
 	"dl_path_v10":   {"Z3 Datalog Engine", "parsing finished", "running saturation", "path -> ", "edge -> "},
 	"dl_include_v2": {"Z3 Datalog Engine", "include: ", "parsing finished", "running saturation"},
+	// instruction::log_verbose's displays (level 2) and the while loop's
+	// "looping ... " (level 10); the stores, verbose_action timings and
+	// recycling are not in these filters.
+	"dl_path_v2_instructions":       {"load ", "union ", "clone ", "move ", "while", "    ", "join ", "join_project ", "mk_unary_singleton", "mark_saturated"},
+	"dl_path_v10_instructions":      {"load ", "union ", "clone ", "move ", "while", "    ", "join ", "join_project ", "mk_unary_singleton", "mark_saturated", "looping ... "},
+	"rel_bit_blast_v2_instructions": {"load ", "union ", "clone ", "move ", "while", "    ", "join ", "join_project ", "mk_unary_singleton", "mark_saturated"},
 }
 
 var verboseProgressFilteredCases = []verboseProgressCase{
@@ -155,6 +161,9 @@ var verboseProgressFilteredCases = []verboseProgressCase{
 	{"dl_path_v1", "path", []string{"-v:1", "-dl"}},
 	{"dl_path_v10", "path", []string{"-v:10", "-dl"}},
 	{"dl_include_v2", "include", []string{"-v:2", "-dl"}},
+	{"dl_path_v2_instructions", "path", []string{"-v:2", "-dl"}},
+	{"dl_path_v10_instructions", "path", []string{"-v:10", "-dl"}},
+	{"rel_bit_blast_v2_instructions", "rel_bit_blast", []string{"-v:2"}},
 }
 
 func filterVerboseProgress(name, log string) string {

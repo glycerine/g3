@@ -138,6 +138,9 @@ func (i *interpretedFilterProjectInstruction) Perform(context *ExecutionContext)
 	if err := context.open(); err != nil {
 		return false, err
 	}
+	if err := logVerbose(context, i); err != nil {
+		return false, err
+	}
 	source, err := context.FiniteRegister(i.register)
 	if err != nil {
 		return false, err
@@ -170,10 +173,14 @@ func (i *interpretedFilterProjectInstruction) MakeAnnotations(context *Execution
 	return context.SetRegisterAnnotation(i.result, "filter_interpreted_and_project")
 }
 
-func (i *interpretedFilterProjectInstruction) DisplayHead(out io.Writer) error {
+func (i *interpretedFilterProjectInstruction) DisplayHead(_ *ExecutionContext, out io.Writer) error {
 	if err := i.open(); err != nil || out == nil {
 		return errors.Join(ErrInstruction, err)
 	}
-	_, err := fmt.Fprintf(out, "filter_interpreted_and_project %d into %d deleting columns %s", i.register, i.result, columnsText(i.removed))
+	condition, err := i.conditionText()
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(out, "filter_interpreted_and_project %d into %d using %s deleting columns %s", i.register, i.result, condition, printColumns(i.removed))
 	return err
 }

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
@@ -33,6 +34,10 @@ type constructInstruction struct {
 	// mk_full_relation; hasPredicate is false for a null p.
 	predicateName string
 	hasPredicate  bool
+	// displaySorts is m_sig's relation sorts for display_head_impl
+	// (to_nice_string); borrowed from the compiled predicate signature.
+	displaySorts   []ast.ASTHandle
+	displayManager *ast.ASTManager
 	// predicate is the instruction's func_decl* pred, whose requested kind
 	// selects the plugin of mk_empty_relation / mk_full_relation.
 	predicate ast.ASTHandle
@@ -260,6 +265,9 @@ func (i *constructInstruction) Perform(context *ExecutionContext) (bool, error) 
 	if err := i.open(); err != nil {
 		return false, err
 	}
+	if err := logVerbose(context, i); err != nil {
+		return false, err
+	}
 	if err := i.clearPendingFinite(); err != nil {
 		return false, err
 	}
@@ -412,7 +420,21 @@ func (i *constructInstruction) MakeAnnotations(context *ExecutionContext) error 
 	return context.SetRegisterAnnotation(i.target, i.kind)
 }
 
-func (i *constructInstruction) DisplayHead(out io.Writer) error {
+// SetDisplaySorts records the relation sorts that display_head_impl prints
+// for mk_unary_singleton and mk_total.
+func (i *constructInstruction) SetDisplaySorts(manager *ast.ASTManager, sorts []ast.ASTHandle) {
+	i.displayManager, i.displaySorts = manager, append([]ast.ASTHandle(nil), sorts...)
+}
+
+// sortText is relation_manager::to_nice_string(sort): mk_pp(s).
+func (i *constructInstruction) sortText(index int) (string, error) {
+	if i.displayManager == nil || index >= len(i.displaySorts) {
+		return fmt.Sprint(i.signature.domains[index]), nil
+	}
+	return i.displayManager.SMT2PPSortString(i.displaySorts[index])
+}
+
+func (i *constructInstruction) DisplayHead(context *ExecutionContext, out io.Writer) error {
 	if err := i.open(); err != nil {
 		return err
 	}
@@ -421,10 +443,31 @@ func (i *constructInstruction) DisplayHead(out io.Writer) error {
 	}
 	switch i.kind {
 	case "mk_unary_singleton":
-		_, err := fmt.Fprintf(out, "mk_unary_singleton into %d domain:%d val:%d", i.target, i.signature.domains[0], i.value)
+		sort, err := i.sortText(0)
+		if err != nil {
+			return err
+		}
+		var element ast.ASTHandle
+		if len(i.displaySorts) != 0 {
+			element = i.displaySorts[0]
+		}
+		value, err := niceElementText(context, element, i.value)
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(out, "mk_unary_singleton into %d sort:%s val:%s", i.target, sort, value)
 		return err
 	case "mk_total":
-		_, err := fmt.Fprintf(out, "mk_total into %d signature:%v", i.target, i.signature.domains)
+		// to_nice_string(m_sig) << " " << m_pred->get_name().
+		parts := make([]string, len(i.signature.domains))
+		for index := range parts {
+			text, err := i.sortText(index)
+			if err != nil {
+				return err
+			}
+			parts[index] = text
+		}
+		_, err := fmt.Fprintf(out, "mk_total into %d sort:[%s] %s", i.target, strings.Join(parts, ","), i.predicateName)
 		return err
 	case "mk_explanation_finite_total":
 		_, err := fmt.Fprintf(out, "mk_total into %d finite-signature:%v", i.target, i.signature.domains)

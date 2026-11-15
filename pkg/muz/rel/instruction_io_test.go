@@ -111,7 +111,7 @@ func TestRelationInstructionsLoadCloneAndStoreOwnership(t *testing.T) {
 		t.Fatal("relation annotation", annotation, found, err)
 	}
 	var display bytes.Buffer
-	if err = load.DisplayHead(&display); err != nil || display.String() != "load instruction-relation into 0" {
+	if err = load.DisplayHead(nil, &display); err != nil || display.String() != "load instruction-relation into 0" {
 		t.Fatal("load display", display.String(), err)
 	}
 

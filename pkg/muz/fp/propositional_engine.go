@@ -90,6 +90,9 @@ func (e *PropositionalEngine) predicateState(declaration ast.ASTHandle) (*predic
 // PropositionalEngine owns the retained rule, finite-relation, and optional
 // ground-guard rewriting services.
 type PropositionalEngine struct {
+	// constantNames is the datalog front end's context, whose sort
+	// domains name constants in instruction displays (borrowed).
+	constantNames *base.DatalogContext
 	// datalogFrontend: driven by read_datalog (no print_aig export).
 	datalogFrontend bool
 	// datalogCode is rel_context::m_code: the compiled rule code outlives
@@ -2281,6 +2284,7 @@ func (e *PropositionalEngine) tryCompiledSaturation(round *datalogRestartRound) 
 	if err != nil {
 		return true, errors.Join(err, execution.Close(), termination.Close())
 	}
+	context.SetConstantNames(e.constantNames)
 	if err = e.releaseDatalogCode(); err != nil {
 		return true, errors.Join(err, execution.Close(), termination.Close(), context.Close())
 	}

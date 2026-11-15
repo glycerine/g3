@@ -439,6 +439,7 @@ func (c *finiteCompiler) constantRegister(rule *base.Rule, predicate, sort ast.A
 	if err != nil {
 		return 0, err
 	}
+	instruction.(*constructInstruction).SetDisplaySorts(c.manager, []ast.ASTHandle{sort})
 	// m_top_level_code.push_back(...): outside any loop body being built.
 	if err = c.append(c.execution, instruction, rule); err != nil {
 		return 0, err
@@ -459,7 +460,9 @@ func (c *finiteCompiler) totalRegister(rule *base.Rule, predicate, sort ast.ASTH
 		return 0, err
 	}
 	// m_top_level_code.push_back(instruction::mk_total(...)).
-	if err := c.append(c.execution, NewTotalInstructionForPredicateKind(signature, register, predicate, name), rule); err != nil {
+	total := NewTotalInstructionForPredicateKind(signature, register, predicate, name)
+	total.(*constructInstruction).SetDisplaySorts(c.manager, []ast.ASTHandle{sort})
+	if err := c.append(c.execution, total, rule); err != nil {
 		return 0, err
 	}
 	c.totals[key] = register
@@ -758,6 +761,9 @@ func (c *finiteCompiler) assembleHead(rule finiteCompiledRule, predicate ast.AST
 			}
 			domain, y := target.Domain(index)
 			if y != nil {
+				return 0, false, y
+			}
+			if y = unsafeRuleColumnVerbose(c.manager, rule.rule, index); y != nil {
 				return 0, false, y
 			}
 			total, y := c.totalRegister(rule.rule, predicate, sorts[index], domain)
@@ -1060,6 +1066,9 @@ func (c *finiteCompiler) filterNegatives(rule finiteCompiledRule, predicate ast.
 			if x != nil {
 				return 0, Signature{}, false, false, nil, x
 			}
+			if x = unsafeRuleColumnVerbose(c.manager, rule.rule, int(variable)); x != nil {
+				return 0, Signature{}, false, false, nil, x
+			}
 			total, x := c.totalRegister(rule.rule, predicate, sorts[index], domain)
 			if x != nil {
 				return 0, Signature{}, false, false, nil, x
@@ -1292,6 +1301,9 @@ func (c *finiteCompiler) prepareInterpreted(rule finiteCompiledRule, predicate a
 			}
 			domain, err := sortSize.Size()
 			if err != nil {
+				return 0, Signature{}, false, false, err
+			}
+			if err = unsafeRuleColumnVerbose(c.manager, rule.rule, 0); err != nil {
 				return 0, Signature{}, false, false, err
 			}
 			total, err := c.totalRegister(rule.rule, predicate, variableSort, domain)

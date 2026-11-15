@@ -324,6 +324,7 @@ func (e *PropositionalEngine) queryDatalogExplanation(declarations []ast.ASTHand
 	if err != nil {
 		return lbool.Undef, err
 	}
+	context.SetConstantNames(e.constantNames)
 	owners.context = context
 	e.compiled = true
 	complete, err := execution.Perform(context)

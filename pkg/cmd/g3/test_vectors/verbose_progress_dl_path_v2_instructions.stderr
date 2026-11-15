@@ -1,0 +1,18 @@
+load path into 0
+load edge into 1
+mark_saturated edge
+union 1 into 0
+clone 0 into 2
+while(2)
+    join_project 2:2-3(1) and 1:2-3(0) into 4 removing columns (1,2)
+    union 4 into 0 with delta 3
+    dealloc 4
+    move 3 into 2
+join_project 2:2-3(1) and 1:2-3(0) into 4 removing columns (1,2)
+union 4 into 0 with delta 3
+move 3 into 2
+join_project 2:2-2(1) and 1:2-3(0) into 4 removing columns (1,2)
+union 4 into 0 with delta 3
+move 3 into 2
+join_project 2:2-1(1) and 1:2-3(0) into 4 removing columns (1,2)
+mark_saturated path

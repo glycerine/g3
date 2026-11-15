@@ -24,3 +24,11 @@ func (e *PropositionalEngine) WriteDatalogOutputTables(names *base.DatalogContex
 	// particular, QueryPredicates(all) must not print every requested result.
 	return e.relations.DisplayOutputTables(names, e.set, out)
 }
+
+// SetDatalogConstantNames borrows the front end's datalog context for
+// context::print_constant_name in instruction displays.
+func (e *PropositionalEngine) SetDatalogConstantNames(names *base.DatalogContext) {
+	if e != nil {
+		e.constantNames = names
+	}
+}

@@ -91,6 +91,9 @@ func (i *relationIOInstruction) Perform(context *ExecutionContext) (bool, error)
 	if err != nil {
 		return false, err
 	}
+	if err = logVerbose(context, i); err != nil {
+		return false, err
+	}
 	if i.explanation {
 		return i.performExplanation(context, relations)
 	}
@@ -165,7 +168,7 @@ func (i *relationIOInstruction) MakeAnnotations(context *ExecutionContext) error
 	return context.SetRegisterAnnotation(i.register, name)
 }
 
-func (i *relationIOInstruction) DisplayHead(out io.Writer) error {
+func (i *relationIOInstruction) DisplayHead(_ *ExecutionContext, out io.Writer) error {
 	if err := i.open(); err != nil {
 		return err
 	}

@@ -56,12 +56,15 @@ func (i *saturationInstruction) Perform(context *ExecutionContext) (bool, error)
 	if context == nil || context.relations != i.relations {
 		return false, ErrInstruction
 	}
+	if err := logVerbose(context, i); err != nil {
+		return false, err
+	}
 	return true, i.relations.MarkSaturated(i.predicate)
 }
 
 func (i *saturationInstruction) MakeAnnotations(*ExecutionContext) error { return i.open() }
 
-func (i *saturationInstruction) DisplayHead(out io.Writer) error {
+func (i *saturationInstruction) DisplayHead(_ *ExecutionContext, out io.Writer) error {
 	if err := i.open(); err != nil || out == nil {
 		return errors.Join(ErrInstruction, err)
 	}

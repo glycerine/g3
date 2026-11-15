@@ -1,0 +1,8 @@
+load r!bv!0 into 0
+mk_unary_singleton into 1 sort:Bool val:0
+mk_unary_singleton into 2 sort:Bool val:1
+join 1() and 2() into 3
+union 3 into 0
+join 2() and 1() into 4
+union 4 into 0
+mark_saturated r!bv!0

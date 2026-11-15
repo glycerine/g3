@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
@@ -146,6 +145,20 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 	}
 	if err := context.open(); err != nil {
 		return false, err
+	}
+	// log_verbose: union, project/rename and select_equal_and_project log
+	// only with a live source register (they return early first).
+	switch i.kind {
+	case "union", "widen", "project", "rename", "select_equal_and_project":
+		if registerPresent(context, i.first) {
+			if err := logVerbose(context, i); err != nil {
+				return false, err
+			}
+		}
+	default:
+		if err := logVerbose(context, i); err != nil {
+			return false, err
+		}
 	}
 	if (i.kind == "project" || i.kind == "union" || i.kind == "widen" || i.kind == "join" || i.kind == "rename" || i.kind == "filter_equal" || i.kind == "filter_identical") &&
 		(hasExplanationInstructionRegister(context, i.first) || hasExplanationInstructionRegister(context, i.second) || hasExplanationInstructionRegister(context, i.result)) {
@@ -380,15 +393,7 @@ func (i *tableInstruction) MakeAnnotations(context *ExecutionContext) error {
 	}
 }
 
-func columnsText(columns []int) string {
-	parts := make([]string, len(columns))
-	for index, column := range columns {
-		parts[index] = fmt.Sprint(column)
-	}
-	return "[" + strings.Join(parts, ",") + "]"
-}
-
-func (i *tableInstruction) DisplayHead(out io.Writer) error {
+func (i *tableInstruction) DisplayHead(context *ExecutionContext, out io.Writer) error {
 	if err := i.open(); err != nil {
 		return err
 	}
@@ -398,31 +403,54 @@ func (i *tableInstruction) DisplayHead(out io.Writer) error {
 	var text string
 	switch i.kind {
 	case "join":
-		text = fmt.Sprintf("join %d%s and %d%s into %d", i.first, columnsText(i.left), i.second, columnsText(i.right), i.result)
-	case "filter_equal":
-		text = fmt.Sprintf("filter_equal %d col: %d val: %d", i.first, i.column, i.value)
+		text = fmt.Sprintf("join %d%s and %d%s into %d", i.first, printColumns(i.left), i.second, printColumns(i.right), i.result)
+	case "filter_equal", "select_equal_and_project":
+		value, err := i.valueText(context)
+		if err != nil {
+			return err
+		}
+		if i.kind == "filter_equal" {
+			text = fmt.Sprintf("filter_equal %d col: %d val: %s", i.first, i.column, value)
+		} else {
+			text = fmt.Sprintf("select_equal_and_project %d into %d col: %d val: %s", i.first, i.result, i.column, value)
+		}
 	case "filter_identical":
-		text = fmt.Sprintf("filter_identical %d %s", i.first, columnsText(i.left))
+		text = fmt.Sprintf("filter_identical %d %s", i.first, printColumns(i.left))
 	case "union", "widen":
 		text = fmt.Sprintf("%s %d into %d", i.kind, i.first, i.second)
 		if i.result != VoidRegister {
 			text += fmt.Sprintf(" with delta %d", i.result)
 		}
 	case "project":
-		text = fmt.Sprintf("project %d into %d deleting columns %s", i.first, i.result, columnsText(i.removed))
+		text = fmt.Sprintf("project %d into %d deleting columns %s", i.first, i.result, printColumns(i.removed))
 	case "rename":
-		text = fmt.Sprintf("rename %d into %d with cycle %s", i.first, i.result, columnsText(i.left))
+		text = fmt.Sprintf("rename %d into %d with cycle %s", i.first, i.result, printColumns(i.left))
 	case "join_project":
-		text = fmt.Sprintf("join_project %d%s and %d%s into %d removing columns %s", i.first, columnsText(i.left), i.second, columnsText(i.right), i.result, columnsText(i.removed))
-	case "select_equal_and_project":
-		text = fmt.Sprintf("select_equal_and_project %d into %d col: %d val: %d", i.first, i.result, i.column, i.value)
+		first, err := joinedRegisterText(context, i.first)
+		if err != nil {
+			return err
+		}
+		second, err := joinedRegisterText(context, i.second)
+		if err != nil {
+			return err
+		}
+		text = fmt.Sprintf("join_project %s%s and %s%s into %d removing columns %s", first, printColumns(i.left), second, printColumns(i.right), i.result, printColumns(i.removed))
 	case "filter_by_negation":
-		text = fmt.Sprintf("filter_by_negation on %d%s with %d%s as the negated table", i.first, columnsText(i.left), i.second, columnsText(i.right))
+		text = fmt.Sprintf("filter_by_negation on %d%s with %d%s as the negated table", i.first, printColumns(i.left), i.second, printColumns(i.right))
 	default:
 		return ErrInstruction
 	}
 	_, err := io.WriteString(out, text)
 	return err
+}
+
+// valueText is relation_manager::to_nice_string(m_value): a numeral prints
+// as its number, other values through mk_pp.
+func (i *tableInstruction) valueText(context *ExecutionContext) (string, error) {
+	if !i.astValue.IsNull() && context != nil && context.relations != nil {
+		return relMkPP(context.relations.manager, i.astValue)
+	}
+	return fmt.Sprint(uint64(i.value)), nil
 }
 
 func (i *tableInstruction) Accounting() *base.AccountedObject { return i.accounting }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
@@ -181,6 +182,12 @@ func (i *interpretedFilterInstruction) Perform(context *ExecutionContext) (bool,
 	if err := context.open(); err != nil {
 		return false, err
 	}
+	// if (!ctx.reg(m_reg)) return true; log_verbose(ctx);
+	if registerPresent(context, i.register) {
+		if err := logVerbose(context, i); err != nil {
+			return false, err
+		}
+	}
 	if hasExplanationInstructionRegister(context, i.register) {
 		return i.performExplanationFilter(context)
 	}
@@ -258,12 +265,34 @@ func (i *interpretedFilterInstruction) MakeAnnotations(context *ExecutionContext
 	return context.SetRegisterAnnotation(i.register, "filter_interpreted")
 }
 
-func (i *interpretedFilterInstruction) DisplayHead(out io.Writer) error {
+func (i *interpretedFilterInstruction) DisplayHead(_ *ExecutionContext, out io.Writer) error {
 	if err := i.open(); err != nil || out == nil {
 		return errors.Join(ErrInstruction, err)
 	}
-	_, err := fmt.Fprintf(out, "filter_interpreted %d", i.register)
+	condition, err := i.conditionText()
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(out, "filter_interpreted %d using %s", i.register, condition)
 	return err
+}
+
+// conditionText is mk_pp(m_cond): the finite compiler passes one condition;
+// the explanation compiler's several are shown one after another.
+func (i *interpretedFilterInstruction) conditionText() (string, error) {
+	parts := make([]string, 0, len(i.conditions))
+	for _, reference := range i.conditions {
+		condition, err := i.manager.RefGet(reference)
+		if err != nil {
+			return "", err
+		}
+		text, err := relMkPP(i.manager, condition)
+		if err != nil {
+			return "", err
+		}
+		parts = append(parts, text)
+	}
+	return strings.Join(parts, " "), nil
 }
 
 func (i *interpretedFilterInstruction) Accounting() *base.AccountedObject { return i.accounting }

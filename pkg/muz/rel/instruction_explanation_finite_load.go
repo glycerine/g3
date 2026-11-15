@@ -38,6 +38,9 @@ func (i *explanationFiniteLoadInstruction) Perform(context *ExecutionContext) (b
 	if err != nil {
 		return false, err
 	}
+	if err = logVerbose(context, i); err != nil {
+		return false, err
+	}
 	sorts, _, err := relations.PredicateSignature(i.predicate)
 	if err != nil {
 		return false, err
@@ -71,7 +74,7 @@ func (i *explanationFiniteLoadInstruction) Perform(context *ExecutionContext) (b
 	return true, nil
 }
 
-func (i *explanationFiniteLoadInstruction) DisplayHead(out io.Writer) error {
+func (i *explanationFiniteLoadInstruction) DisplayHead(_ *ExecutionContext, out io.Writer) error {
 	if err := i.open(); err != nil || out == nil {
 		return errors.Join(ErrInstruction, err)
 	}

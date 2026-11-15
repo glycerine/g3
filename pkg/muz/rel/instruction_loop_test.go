@@ -39,7 +39,7 @@ func TestWhileInstructionExecutesUntilControlsEmpty(t *testing.T) {
 		t.Fatal("nested annotation", annotation, found, err)
 	}
 	var display bytes.Buffer
-	if err = loop.DisplayHead(&display); err != nil || display.String() != "while[0]" {
+	if err = loop.DisplayHead(nil, &display); err != nil || display.String() != "while(0)" {
 		t.Fatal("while display", display.String(), err)
 	}
 }

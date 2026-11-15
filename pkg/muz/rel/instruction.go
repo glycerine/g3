@@ -46,7 +46,10 @@ type ExecutionContext struct {
 	timeLimit                    time.Duration
 	started                      time.Time
 	stats                        ExecutionStats
-	closed                       bool
+	// constantNames is the datalog context print_constant_name uses in
+	// instruction displays (borrowed; may be nil).
+	constantNames *base.DatalogContext
+	closed        bool
 }
 
 func NewExecutionContext(terminate func() bool) *ExecutionContext {
@@ -473,7 +476,9 @@ func finiteTableSizeEstimates(table FiniteTable) (uint32, uint32, error) {
 type Instruction interface {
 	Perform(*ExecutionContext) (bool, error)
 	MakeAnnotations(*ExecutionContext) error
-	DisplayHead(io.Writer) error
+	// DisplayHead is display_head_impl(ctx, out); context may be nil
+	// when no execution context is at hand.
+	DisplayHead(*ExecutionContext, io.Writer) error
 	Accounting() *base.AccountedObject
 	ProcessAllCosts() error
 	CollectStatistics(*statistics.Statistics) error
@@ -513,6 +518,13 @@ func (i *registerInstruction) Perform(context *ExecutionContext) (bool, error) {
 	}
 	if err := context.open(); err != nil {
 		return false, err
+	}
+	// instr_clone_move: if (ctx.reg(m_src)) log_verbose(ctx); dealloc
+	// does not log.
+	if i.kind != "dealloc" && registerPresent(context, i.source) {
+		if err := logVerbose(context, i); err != nil {
+			return false, err
+		}
 	}
 	if hasExplanationInstructionRegister(context, i.source) {
 		return i.performExplanationRegister(context)
@@ -568,7 +580,7 @@ func (i *registerInstruction) MakeAnnotations(context *ExecutionContext) error {
 	return context.SetRegisterAnnotation(i.source, value)
 }
 
-func (i *registerInstruction) DisplayHead(out io.Writer) error {
+func (i *registerInstruction) DisplayHead(_ *ExecutionContext, out io.Writer) error {
 	if err := i.open(); err != nil {
 		return err
 	}
@@ -707,6 +719,13 @@ func (b *InstructionBlock) CollectStatistics(out *statistics.Statistics) error {
 }
 
 func (b *InstructionBlock) Display(out io.Writer) error {
+	return b.DisplayIndented(nil, out, "")
+}
+
+// DisplayIndented is instruction_block::display_indented. Every
+// instruction passes passes_output_thresholds at the default
+// datalog.profile_timeout_milliseconds of 0.
+func (b *InstructionBlock) DisplayIndented(context *ExecutionContext, out io.Writer, indentation string) error {
 	if err := b.open(); err != nil {
 		return err
 	}
@@ -714,10 +733,7 @@ func (b *InstructionBlock) Display(out io.Writer) error {
 		return io.ErrClosedPipe
 	}
 	for _, instruction := range b.instructions {
-		if err := instruction.DisplayHead(out); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(out, "\n"); err != nil {
+		if err := DisplayInstructionIndented(context, instruction, out, indentation); err != nil {
 			return err
 		}
 	}

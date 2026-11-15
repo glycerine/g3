@@ -5,8 +5,8 @@ package rel
 import (
 	"errors"
 	"fmt"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"io"
-	"strings"
 
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/util/statistics"
@@ -89,10 +89,21 @@ func (i *whileInstruction) Perform(context *ExecutionContext) (bool, error) {
 	if err := i.open(); err != nil {
 		return false, err
 	}
+	if err := logVerbose(context, i); err != nil {
+		return false, err
+	}
+	count := 0
 	for {
 		empty, err := i.controlIsEmpty(context)
 		if err != nil || empty {
 			return empty, err
+		}
+		if diagnostic.VerboseProgress {
+			// IF_VERBOSE(10, "looping ... " << count++).
+			if err = diagnostic.ProgressVerbose(10, fmt.Sprintf("looping ... %d\n", count)); err != nil {
+				return false, err
+			}
+			count++
 		}
 		complete, err := i.body.Perform(context)
 		if err != nil || !complete {
@@ -108,19 +119,24 @@ func (i *whileInstruction) MakeAnnotations(context *ExecutionContext) error {
 	return i.body.MakeAnnotations(context)
 }
 
-func (i *whileInstruction) DisplayHead(out io.Writer) error {
+func (i *whileInstruction) DisplayHead(_ *ExecutionContext, out io.Writer) error {
 	if err := i.open(); err != nil {
 		return err
 	}
 	if out == nil {
 		return io.ErrClosedPipe
 	}
-	parts := make([]string, len(i.controls))
-	for index, register := range i.controls {
-		parts[index] = fmt.Sprint(register)
-	}
-	_, err := fmt.Fprintf(out, "while[%s]", strings.Join(parts, ","))
+	_, err := io.WriteString(out, "while"+printRegisters(i.controls))
 	return err
+}
+
+// DisplayBody is display_body_impl: m_body->display_indented(ctx, out,
+// indentation+"    ").
+func (i *whileInstruction) DisplayBody(context *ExecutionContext, out io.Writer, indentation string) error {
+	if err := i.open(); err != nil {
+		return err
+	}
+	return i.body.DisplayIndented(context, out, indentation+"    ")
 }
 
 func (i *whileInstruction) Accounting() *base.AccountedObject { return i.accounting }
