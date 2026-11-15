@@ -536,7 +536,10 @@ func (r *PB2BVRewriter) collectArithmeticPB(form *pb2BVArithmeticForm, expressio
 				return matched, e
 			}
 			form.bound.Sub(&form.bound, new(big.Rat).Mul(multiplier, value))
-			return true, nil
+			// return m_k.is_int(): z3 4.7.1 returned true and built a wrong
+			// circuit from a fractional bound (fork fix, upstream 10768bd00;
+			// AUDIT.md ast_rewriter_04-F3).
+			return form.bound.IsInt(), nil
 		case arithOpMul:
 			if count != 2 {
 				return false, nil
@@ -602,7 +605,9 @@ func (r *PB2BVRewriter) collectArithmeticPB(form *pb2BVArithmeticForm, expressio
 		form.coefficients = append(form.coefficients, new(big.Rat).Sub(highValue, lowValue))
 		form.bound.Sub(&form.bound, lowValue)
 	}
-	return true, nil
+	// return m_k.is_int() && (r1-r2).is_int() (fork fix, upstream
+	// f7a7b9e1f; AUDIT.md ast_rewriter_04-F3).
+	return form.bound.IsInt() && new(big.Rat).Sub(highValue, lowValue).IsInt(), nil
 }
 
 func (r *PB2BVRewriter) arithmeticPB(left, right ast.ASTHandle) (*pb2BVArithmeticForm, bool, error) {

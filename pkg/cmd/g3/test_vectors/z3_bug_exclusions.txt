@@ -255,3 +255,15 @@ z3_bug_recover01_inconsistent_update
 # tactic_core_01-F5). Reproduction:
 # test_vectors/z3_bug_distribute_forall_proof.smt2.
 z3_bug_distribute_forall_proof
+#
+# pb2bv accepts fractional 0-1 sums: pb2bv_rewriter::imp::is_pb takes any
+# numeral and ite(c, r1, r2) with fractional values, and mk_le_ge builds
+# a bit-vector circuit from non-integer coefficients and bound that is
+# always true, so card2bv turns an unsat problem into a sat one (z3 bug:
+# src/ast/rewriter/pb2bv_rewriter.cpp is_pb, mk_le_ge; fixed upstream in
+# 10768bd00, "fix #3727", and f7a7b9e1f, "fix #4108"). g3 fails the match
+# as upstream does and leaves the constraint unchanged
+# (pkg/ast/rewriter/pb2bv_rewriter.go collectArithmeticPB; AUDIT.md
+# ast_rewriter_04-F3). Reproduction:
+# test_vectors/z3_bug_pb2bv_fractional_coefficients.smt2.
+z3_bug_pb2bv_fractional_coefficients

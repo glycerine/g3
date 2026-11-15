@@ -127,6 +127,39 @@ func TestPB2BVArithmeticBooleanITERecognition(t *testing.T) {
 	}
 }
 
+// A Real 0-1 sum with fractional coefficients or bound is left unchanged
+// (no error, nothing translated): z3 4.7.1 built an always-true circuit for
+// (<= (+ (ite a 0.5 0.0) (ite b 0.5 0.0)) 0.7) (AUDIT.md ast_rewriter_04-F3).
+func TestPB2BVRealCoefficientsAreRefusedNotErrors(t *testing.T) {
+	m, r := pb2BVFixture(t)
+	a := goalTestAtom(t, m, "pb2bv-real-a")
+	b := goalTestAtom(t, m, "pb2bv-real-b")
+	zero := arithRewriterNumeral(t, m, "0", false)
+	half := arithRewriterNumeral(t, m, "1/2", false)
+	bound := arithRewriterNumeral(t, m, "7/10", false)
+	one := arithRewriterNumeral(t, m, "1", false)
+	ia, err := m.MkIte(a, half, zero)
+	astTestMust(t, err)
+	ib, err := m.MkIte(b, half, zero)
+	astTestMust(t, err)
+	sum, err := m.MkFamilyApp(r.arithFamily, arithOpAdd, nil, []ast.ASTHandle{ia, ib})
+	astTestMust(t, err)
+	for _, k := range []ast.ASTHandle{bound, one} {
+		comparison, err := m.MkFamilyApp(r.arithFamily, arithOpLE, nil, []ast.ASTHandle{sum, k})
+		astTestMust(t, err)
+		out := astTestPin(t, m, comparison)
+		astTestMust(t, r.Rewrite(comparison, out, ast.ASTRef{}))
+		got, err := m.RefGet(out)
+		astTestMust(t, err)
+		if got != comparison {
+			t.Fatal("fractional pb sum must be left unchanged", got, comparison)
+		}
+	}
+	if translated, e := r.NumTranslated(); e != nil || translated != 0 {
+		t.Fatal("fractional pb sums must not be translated", translated, e)
+	}
+}
+
 func TestPB2BVCloseGuards(t *testing.T) {
 	m, r := pb2BVFixture(t)
 	a := goalTestAtom(t, m, "pb2bv-close")
