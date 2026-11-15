@@ -32,7 +32,7 @@ func TestPolynomialTraceDirectDisplayOmitsPublicCheck(t *testing.T) {
 			return m.traceUniModGCDPolynomials(3770, "univ_modular_gcd\nu: ", m.core.zero, m.core.zero)
 		}},
 		{"modular", "mgcd", func(m *MultivariatePolynomialManager) error {
-			return m.traceModGCDPolynomials("mgcd", 4239, "mod_gcd\nu: ", m.core.zero, m.core.zero)
+			return m.traceModGCDPolynomials("mgcd", 4239, "mod_gcd\nu: ", "\nv: ", true, m.core.zero, m.core.zero)
 		}},
 		{"recursive", "mgcd", func(m *MultivariatePolynomialManager) error {
 			return m.traceModGCDRecPolynomials(4078, "mod_gcd_rec\nu: ", true, m.core.zero, m.core.zero)
@@ -151,5 +151,36 @@ func TestPolynomialTraceObjectDirectDisplayOmitsPublicCheck(t *testing.T) {
 	serviceMust(t, e)
 	if out.Len() == 0 || len(m.core.display.frames) != 0 {
 		t.Fatal("direct object trace entered public polynomial display")
+	}
+}
+
+// AUDIT.md math_polynomial_04-F2: only the mod_gcd entry records pass
+// use_star = true; the polynomial_ref records use the default false, and
+// the second u_Zp/v_Zp operand is labelled "v_Zp".
+func TestModGCDTraceRefRecordsUseNoStar(t *testing.T) {
+	m := polynomialPSCFullFixture(t)
+	var out bytes.Buffer
+	tags := diagnostic.NewTraceTagsWithWriter(&out)
+	tags.Enable("mgcd")
+	if !tags.ShouldTrace("mgcd") {
+		t.Skip("TRACE compiled out")
+	}
+	m.core.monomials.config.Trace = tags
+	u := polynomialQueryTerms(t, m.core, []int32{2, 1}, [][]MonomialPower{{{0, 1}, {1, 1}}, nil})
+	v := polynomialQueryTerms(t, m.core, []int32{1, 1}, [][]MonomialPower{{{0, 1}}, {{1, 1}}})
+	q := polynomialQueryTerms(t, m.core, []int32{2}, [][]MonomialPower{{{0, 1}, {1, 1}}})
+	for _, tc := range []struct {
+		run  func() error
+		want string
+	}{
+		{func() error { return m.traceModGCDPolynomials("mgcd", 4301, "u_Zp: ", "\nv_Zp: ", false, u, v) }, "u_Zp: 2 x0 x1 + 1\nv_Zp: x1 + x0\n"},
+		{func() error { return m.traceModGCDPolynomials("mgcd", 4308, "new q:\n", "", false, q) }, "new q:\n2 x0 x1\n"},
+		{func() error { return m.traceModGCDPolynomials("mgcd", 4239, "mod_gcd\nu: ", "\nv: ", true, u, v) }, "mod_gcd\nu: 2*x0*x1 + 1\nv: x1 + x0\n"},
+	} {
+		out.Reset()
+		serviceMust(t, tc.run())
+		if !bytes.Contains(out.Bytes(), []byte(tc.want)) {
+			t.Fatalf("trace %q does not contain %q", out.String(), tc.want)
+		}
 	}
 }

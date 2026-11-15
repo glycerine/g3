@@ -8,7 +8,11 @@ import (
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (m *MultivariatePolynomialManager) traceModGCDPolynomials(tag string, line int, prefix string, polys ...Polynomial) error {
+// traceModGCDPolynomials writes one mod_gcd record. The entry records
+// display u and v with use_star = true; the later records stream a
+// polynomial_ref, whose operator<< uses the default use_star = false.
+// second separates the second operand ("\nv: " or "\nv_Zp: ").
+func (m *MultivariatePolynomialManager) traceModGCDPolynomials(tag string, line int, prefix, second string, star bool, polys ...Polynomial) error {
 	c := m.core
 	tags := c.monomials.monomialTraceTags()
 	if !tags.ShouldTrace(tag) {
@@ -21,9 +25,9 @@ func (m *MultivariatePolynomialManager) traceModGCDPolynomials(tag string, line 
 			_ = sink.WriteLiteral(prefix)
 			for i, p := range polys {
 				if i != 0 {
-					_ = sink.WriteLiteral("\nv: ")
+					_ = sink.WriteLiteral(second)
 				}
-				formatErr = c.displayPolynomialDirect(p, sink, true)
+				formatErr = c.displayPolynomialDirect(p, sink, star)
 				if formatErr != nil {
 					return formatErr
 				}
