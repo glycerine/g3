@@ -104,11 +104,6 @@ func (a *smtPBArgs) normalize(eq bool) lbool.LBool {
 	if eq && a.bound.Sign() == 0 && len(a.terms) == 0 {
 		return lbool.True
 	}
-	// With no literals there will be no assignment callback. Fold the
-	// impossible equality now instead of leaving an inert constraint.
-	if eq && len(a.terms) == 0 && a.bound.Sign() != 0 {
-		return lbool.False
-	}
 	if sum.Cmp(&a.bound) < 0 {
 		a.terms = nil
 		a.bound.SetInt64(1)

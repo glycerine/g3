@@ -1,0 +1,8 @@
+(declare-const a Bool)
+(declare-const b Bool)
+(declare-const c Bool)
+(assert (or a b))
+(assert (not b))
+(assert ((_ pbeq 1 1 1) a c))
+(assert (or c b))
+(check-sat)

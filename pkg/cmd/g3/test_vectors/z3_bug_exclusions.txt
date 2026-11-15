@@ -663,3 +663,15 @@ z3_bug_pb_simplex_nested_crash
 # to AUDIT.md smtcore_12-F4). Reproduction:
 # test_vectors/z3_bug_pb_simplex_pop.smt2.
 z3_bug_pb_simplex_pop
+#
+# theory_pb::internalize_atom drops the arguments of a pb equality that
+# are already assigned. When all are, the equality keeps no arguments and
+# a negative bound; pb_rewriter_util::normalize leaves it l_undef, and a
+# constraint with no arguments is never watched, so nothing falsifies it
+# and z3 answers sat on unsat problems, with default options (z3 bug:
+# src/smt/theory_pb.cpp internalize_atom; upstream axiomatized pb
+# equalities as two inequalities in bd96eaff47). g3 and the fork fold
+# such an equality to false, as pb_rewriter::mk_app_core does
+# (pkg/smtcore/theory_pb.go internalizeAtom). Reproduction:
+# test_vectors/z3_bug_pb_eq_no_args.smt2.
+z3_bug_pb_eq_no_args

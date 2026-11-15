@@ -164,6 +164,14 @@ func (t *SMTPseudoBooleanTheory) internalizeAtom(expression ast.ASTHandle, retai
 	}
 	a.unique()
 	truth := a.normalize(c.equality)
+	// z3 4.7.1 bug (fork fix in theory_pb::internalize_atom): an equality
+	// whose arguments were all assigned keeps none and a negative bound;
+	// normalize leaves it undecided, but a constraint with no arguments is
+	// never watched, so z3 never falsifies it and answers sat on unsat
+	// problems. Fold it to false, as pb_rewriter::mk_app_core does.
+	if truth == lbool.Undef && c.equality && len(a.terms) == 0 {
+		truth = lbool.False
+	}
 	a.prune(c.equality)
 	if truth == lbool.Undef && !c.equality {
 		if err = a.negate(); err != nil {
