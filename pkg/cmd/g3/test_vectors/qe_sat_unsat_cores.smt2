@@ -1,0 +1,5 @@
+(set-option :produce-unsat-cores true)
+(declare-const y Int)
+(assert (forall ((x Int)) (exists ((z Int)) (and (> z x) (> z y)))))
+(check-sat-using qe-sat)
+(get-info :reason-unknown)

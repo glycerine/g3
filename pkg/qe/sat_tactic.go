@@ -265,12 +265,6 @@ func (t *QESATTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (err er
 	if goal == nil || goal.Manager() != t.manager || out == nil {
 		return ast.ErrASTHandle
 	}
-	if err = tactic.FailIfProofGeneration("qe-sat", goal); err != nil {
-		return err
-	}
-	if err = tactic.FailIfUnsatCoreGeneration("qe-sat", goal); err != nil {
-		return err
-	}
 	m := t.manager
 	canceled, err := m.Canceled()
 	if err != nil {
