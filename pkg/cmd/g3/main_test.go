@@ -338,6 +338,11 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md cmd_context_01-F1: func_decls::find returns the first
+	// func_decl_set entry that matches; overloads differing only in range
+	// are not ambiguous.
+	"overload_same_domain_range.smt2":       "sat\n(model \n  (define-fun g ((x!0 Int)) Int\n    (ite (= x!0 1) 2\n      2))\n)\n2\n",
+	"overload_same_domain_range_order.smt2": "sat\n(model \n  (define-fun h ((x!0 Int)) Int\n    (ite (= x!0 1) 2\n      2))\n  (define-fun g ((x!0 Int)) Real\n    (ite (= x!0 1) 2.0\n      2.0))\n)\n2.0\n2\n((as h Real) 1)\n",
 	// AUDIT.md parsers_shell_01-F2: the built-in parse_* commands and
 	// parse_ext_cmd arguments take effect before the closing ')' is checked.
 	"assert_effect_before_rparen.smt2":        "(error \"line 1 column 15: invalid assert command, ')' expected\")\nunsat\n",

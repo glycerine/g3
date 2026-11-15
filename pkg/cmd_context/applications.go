@@ -218,15 +218,15 @@ func (c *Context) MakeApp(name string, args []ast.ASTHandle, indices []ast.ASTPa
 		// "disumbiguate" (sic) is z3 4.7.1's spelling (cmd_context.cpp:1073).
 		return ast.ASTHandle{}, fmt.Errorf("ambiguous constant reference, more than one constant with the same sort, use a qualified expression (as <symbol> <sort>) to disumbiguate %s", name)
 	}
+	// Source func_decls::find walks the func_decl_set in table order and
+	// returns the first declaration whose range (when given), arity and
+	// domain match; it never reports an ambiguity.
+	var candidates []ast.ASTHandle
+	if entry := c.funcDictionary().find(name); entry != nil && entry.funcs != nil {
+		candidates = entry.funcs.entries()
+	}
 	var match ast.ASTHandle
-	for _, decl := range c.functions[name] {
-		arity, err := m.GetArity(decl)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		if int(arity) != len(args) {
-			continue
-		}
+	for _, decl := range candidates {
 		if !rangeSort.IsNull() {
 			r, err := m.GetRange(decl)
 			if err != nil {
@@ -235,6 +235,13 @@ func (c *Context) MakeApp(name string, args []ast.ASTHandle, indices []ast.ASTPa
 			if r != rangeSort {
 				continue
 			}
+		}
+		arity, err := m.GetArity(decl)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if int(arity) != len(args) {
+			continue
 		}
 		matches := true
 		for i, arg := range args {
@@ -252,10 +259,8 @@ func (c *Context) MakeApp(name string, args []ast.ASTHandle, indices []ast.ASTPa
 			}
 		}
 		if matches {
-			if !match.IsNull() {
-				return ast.ASTHandle{}, fmt.Errorf("ambiguous function reference %s", name)
-			}
 			match = decl
+			break
 		}
 	}
 	if match.IsNull() {

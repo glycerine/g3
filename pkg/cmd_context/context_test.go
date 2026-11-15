@@ -335,3 +335,42 @@ func TestCommandContextCheckSatHonorsResourceLimit(t *testing.T) {
 		t.Fatal("unlimited check-sat", status)
 	}
 }
+
+// AUDIT.md cmd_context_01-F1: func_decls::find returns the first set entry
+// whose arity and domain match; overloads that differ only in range are
+// not ambiguous.
+func TestMakeAppOverloadPicksFirstSetEntry(t *testing.T) {
+	c := contextFixture(t)
+	integer, err := c.LookupSort("Int")
+	contextMust(t, err)
+	realSort, err := c.LookupSort("Real")
+	contextMust(t, err)
+	_, err = c.DeclareFunction("g", []ast.ASTHandle{integer}, integer)
+	contextMust(t, err)
+	_, err = c.DeclareFunction("g", []ast.ASTHandle{integer}, realSort)
+	contextMust(t, err)
+	one, err := c.manager.ArithmeticIntegerNumeralText("1")
+	contextMust(t, err)
+	app, err := c.MakeApp("g", []ast.ASTHandle{one}, nil, ast.ASTHandle{})
+	contextMust(t, err)
+	decl, err := c.manager.GetDecl(app)
+	contextMust(t, err)
+	entries := c.funcDictionary().find("g").funcs.entries()
+	if len(entries) != 2 || decl != entries[0] {
+		t.Fatal("g resolved to", decl, "set order", entries)
+	}
+	// build/z3 picks g : Int -> Int for this script.
+	sort, err := c.manager.GetSort(app)
+	contextMust(t, err)
+	if sort != integer {
+		t.Fatal("g resolved to the Real overload")
+	}
+	// A qualified range still selects the other overload.
+	app, err = c.MakeApp("g", []ast.ASTHandle{one}, nil, realSort)
+	contextMust(t, err)
+	sort, err = c.manager.GetSort(app)
+	contextMust(t, err)
+	if sort != realSort {
+		t.Fatal("(as g Real) did not select the Real overload")
+	}
+}

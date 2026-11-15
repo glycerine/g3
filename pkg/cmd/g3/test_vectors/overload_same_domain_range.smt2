@@ -1,0 +1,6 @@
+(declare-fun g (Int) Int)
+(declare-fun g (Int) Real)
+(assert (= (g 1) 2))
+(check-sat)
+(get-model)
+(eval (g 1))
