@@ -45,7 +45,7 @@ func TestPDRProofValidationOwnsNegatedConditionBeforeSolverConstruction(t *testi
 	if err = context.validateProofHandle(proof); err != nil {
 		t.Fatal("valid double-negation proof rejected before failure campaign", err)
 	}
-	if err = context.validateProofHandle(invalid); !errors.Is(err, errPDRResultValidation) {
+	if err = context.validateProofHandle(invalid); !isPDRValidationException(err) {
 		t.Fatal("invalid rewrite passed initial semantic validation", err)
 	}
 
@@ -73,7 +73,7 @@ func TestPDRProofValidationOwnsNegatedConditionBeforeSolverConstruction(t *testi
 		}
 		checkOwnership("successful validation retry")
 	}
-	if err = context.validateProofHandle(invalid); !errors.Is(err, errPDRResultValidation) {
+	if err = context.validateProofHandle(invalid); !isPDRValidationException(err) {
 		t.Fatal("invalid rewrite passed semantic side-condition validation", err)
 	}
 	checkOwnership("rejected invalid rewrite")

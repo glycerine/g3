@@ -57,7 +57,8 @@ func (p *PredicateTransformer) selectRule(modelCore *model.ModelCore) (*normaliz
 			return rule, nil
 		}
 	}
-	return nil, fmt.Errorf("muz/pdr: model did not select a transition rule")
+	// pred_transformer::find_rule.
+	return nil, pdrDefaultException("could not find rule", false)
 }
 
 func (p *PredicateTransformer) selectInitialRule(modelCore *model.ModelCore) (*normalizedRule, error) {
@@ -101,7 +102,8 @@ func (p *PredicateTransformer) selectInitialRule(modelCore *model.ModelCore) (*n
 			return rule, nil
 		}
 	}
-	return nil, fmt.Errorf("muz/pdr: model did not select an initial rule")
+	// model_node::get_rule's pt().find_rule(*mdl).
+	return nil, pdrDefaultException("could not find rule", false)
 }
 
 func (p *PredicateTransformer) modelConstant(modelCore *model.ModelCore, application ast.ASTHandle, out ast.ASTRef) (bool, error) {
@@ -489,7 +491,7 @@ func (b *predicateRuleBuilder) normalizeRule(source *base.Rule) (result *normali
 			return nil, x
 		}
 		if negated {
-			return nil, fmt.Errorf("muz/pdr: negated predicate tails are unsupported")
+			return nil, pdrDefaultException("PDR does not supported negated predicates in rule tails", true)
 		}
 		old := uint32(index)
 		predecessor, x := b.initializeAtom(tail, &variables, &conjunction, &old)

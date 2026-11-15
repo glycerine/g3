@@ -5,8 +5,6 @@ package pdr
 // no completion, and no independent query-falsity assertion.
 
 import (
-	"fmt"
-
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
@@ -256,10 +254,19 @@ func (c *Context) validateModelRule(evaluator *model.ModelEvaluator, rule *base.
 	return nil
 }
 
-func (c *Context) modelValidationError(formula ast.ASTHandle) (resultErr error) {
-	out, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: c.manager.Budget()})
+func (c *Context) modelValidationError(formula ast.ASTHandle) error {
+	text, err := c.mkPPText(formula)
 	if err != nil {
 		return err
+	}
+	return pdrDefaultException("rule validation failed when checking: "+text, true)
+}
+
+// mkPPText renders mk_pp(formula, m) for a default_exception message.
+func (c *Context) mkPPText(formula ast.ASTHandle) (_ string, resultErr error) {
+	out, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: c.manager.Budget()})
+	if err != nil {
+		return "", err
 	}
 	attempt := newPDRValidationAttempt(c.manager)
 	attempt.streams = append(attempt.streams, out)
@@ -267,25 +274,25 @@ func (c *Context) modelValidationError(formula ast.ASTHandle) (resultErr error) 
 	config := c.owner.contexts.config
 	tree, err := c.manager.SMT2PPExprTreeWithParams(formula, nil, config.Params, config.Globals, c.owner.contexts.params)
 	if err != nil {
-		return err
+		return "", err
 	}
 	formats, err := c.manager.GetFormatManager()
 	if err != nil {
-		return err
+		return "", err
 	}
 	attempt.manager = formats
 	ref, err := formats.NewRef(tree)
 	if err != nil {
-		return err
+		return "", err
 	}
 	attempt.references = append(attempt.references, ref)
 	local := config.Params.EmptyValue()
 	if err = c.manager.PrintFormat(out, tree, config.Params, &local, config.Globals); err != nil {
-		return err
+		return "", err
 	}
 	text, err := out.String()
 	if err != nil {
-		return err
+		return "", err
 	}
-	return fmt.Errorf("rule validation failed when checking: %s", text)
+	return text, nil
 }

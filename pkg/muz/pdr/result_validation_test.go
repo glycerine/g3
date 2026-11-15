@@ -2,11 +2,24 @@ package pdr
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
+
+// isPDRValidationException recognizes the default_exception thrown by
+// context::validate_search, validate_proof and validate_model.
+func isPDRValidationException(err error) bool {
+	var exception z3exception.DefaultException
+	if !errors.As(err, &exception) {
+		return false
+	}
+	message := exception.Message()
+	return message == "proof validation failed" || strings.HasPrefix(message, "rule validation failed when checking: ")
+}
 
 func TestValidateSATFormulaAcceptsWitnessAndRejectsCorruption(t *testing.T) {
 	manager, owner, transformer, _, closeBase := closureFixture(t)
@@ -29,7 +42,7 @@ func TestValidateSATFormulaAcceptsWitnessAndRejectsCorruption(t *testing.T) {
 	if err = context.validateSATFormula(witness); err != nil {
 		t.Fatal("satisfiable reconstructed trace rejected", err)
 	}
-	if err = context.validateSATFormula(corrupted); !errors.Is(err, errPDRResultValidation) {
+	if err = context.validateSATFormula(corrupted); !isPDRValidationException(err) {
 		t.Fatal("corrupted reconstructed trace accepted", err)
 	}
 
@@ -86,7 +99,7 @@ func TestValidateProofHandleChecksSemanticSideConditions(t *testing.T) {
 	closureMust(t, err)
 	unsupportedRewrite, err := manager.MkProofRewrite(atom, negated)
 	closureMust(t, err)
-	if err = context.validateProofHandle(unsupportedRewrite); !errors.Is(err, errPDRResultValidation) {
+	if err = context.validateProofHandle(unsupportedRewrite); !isPDRValidationException(err) {
 		t.Fatal("unsupported proof side condition accepted", err)
 	}
 

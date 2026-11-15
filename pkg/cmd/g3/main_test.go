@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_pdr_02-F1: PDR default_exceptions become "query failed"
+	// and the script continues.
+	"pdr_nonground_tail.smt2": "(error \"query failed: PDR cannot solve non-ground tails: (let ((a!1 (forall ((y Int)) (or (> (* y y) p_0_0) (< y 0)))))\n  (= a!1 true))\")\nunknown\n(error \"query failed: PDR cannot solve non-ground tails: (let ((a!1 (forall ((y Int)) (or (> (* y y) p_0_0) (< y 0)))))\n  (= a!1 true))\")\nunknown\n",
 	// AUDIT.md muz_spacer_02-F1: spacer.blast_term_ite runs the standalone
 	// blast_term_ite rewriter, not elim_term_ite.
 	"fixedpoint_spacer_blast_term_ite.smt2": "unsat\n",

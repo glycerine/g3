@@ -4,6 +4,7 @@ package pdr
 // src/muz/pdr/pdr_context.cpp.
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 
@@ -46,7 +47,16 @@ func (c *Context) validateSATFormula(formula ast.ASTHandle) (result error) {
 		return err
 	}
 	if status != lbool.True {
-		return fmt.Errorf("%w: trace check returned %s", errPDRResultValidation, status)
+		// context::validate_search: msg << "rule validation failed when checking: " << tr.
+		printer, err := ast.NewSimpleASTPrinterContext(c.manager, nil, nil)
+		if err != nil {
+			return err
+		}
+		var text bytes.Buffer
+		if err = printer.DisplayExpr(&text, formula, 0); err != nil {
+			return err
+		}
+		return pdrDefaultException("rule validation failed when checking: "+text.String(), true)
 	}
 	return nil
 }
@@ -79,9 +89,9 @@ func (c *Context) validateProofHandle(proofHandle ast.ASTHandle) (result error) 
 		return err
 	}
 	if !valid {
-		return fmt.Errorf("%w: proof checker rejected reachable trace", errPDRResultValidation)
+		return pdrDefaultException("proof validation failed", true)
 	}
-	for index, condition := range sideConditions {
+	for _, condition := range sideConditions {
 		// Source expr_ref tmp owns the negation before kernel construction.
 		// Reserve its owner first so either allocation failure leaves the
 		// temporary attached to the existing validation cleanup attempt.
@@ -107,7 +117,11 @@ func (c *Context) validateProofHandle(proofHandle ast.ASTHandle) (result error) 
 			var status lbool.LBool
 			status, x = solver.CheckSat(nil)
 			if x == nil && status != lbool.False {
-				x = fmt.Errorf("%w: proof side condition %d check returned %s", errPDRResultValidation, index, status)
+				text, y := c.mkPPText(condition)
+				if y != nil {
+					return y
+				}
+				x = pdrDefaultException("rule validation failed when checking: "+text, true)
 			}
 		}
 		if x != nil {

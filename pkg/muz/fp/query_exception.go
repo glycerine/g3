@@ -12,7 +12,8 @@ import (
 var ErrUnstratifiedNegation = errors.New("muz/fp: negation is not stratified")
 
 // SourceDefaultExceptionMessage returns the source default_exception text
-// carried by err: a rule_properties check, an illegal rule head, or the
+// carried by err: a rule_properties check, an illegal rule head, a
+// z3exception.DefaultException thrown by an engine, or the
 // unstratified-negation failure, possibly wrapped by the Go fragment
 // marker. Joined errors holding anything else (such as cleanup failures)
 // are not classified, and the result is "".
@@ -44,6 +45,15 @@ func SourceDefaultExceptionMessage(err error) string {
 				return false
 			}
 			message = e.Error()
+			return true
+		}
+		// Engines throw default_exception (and other z3_exceptions) out of
+		// rel_query; dl_query_cmd catches them as "query failed".
+		if d, ok := e.(z3exception.DefaultException); ok {
+			if message != "" {
+				return false
+			}
+			message = d.Message()
 			return true
 		}
 		if e == ErrUnstratifiedNegation {
