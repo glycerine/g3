@@ -411,3 +411,14 @@ z3_bug_qe_dt_recursive_eq_recognizer_cons
 # fresh store (pkg/qe/fourier_motzkin.go Apply; AUDIT.md qe_02-F5).
 # Reproduction: test_vectors/z3_bug_qe_lite_fm_stale_bvar.smt2.
 z3_bug_qe_lite_fm_stale_bvar
+#
+# maxres add_upper_bound_block: pb_util::mk_lt normalizes into m_coeffs
+# and then calls mk_ge(n, m_coeffs, ...), whose normalize resets m_coeffs
+# before reading them, so the upper-bound blocker is a pbge with zero
+# coefficients (false); the next check is unsat and z3 4.7.1 stops at cost
+# 19 where the optimum is 3 (z3 bug: src/ast/pb_decl_plugin.cpp:165-178
+# mk_lt, src/opt/maxres.cpp:742-753; fixed upstream, which builds
+# (not (pbge ...))). g3 asserts a correct blocker
+# (pkg/opt/maxres_upper_block.go assertUpperBound; AUDIT.md opt_01-F4).
+# Reproduction: test_vectors/z3_bug_maxres_upper_bound_block.smt2.
+z3_bug_maxres_upper_bound_block
