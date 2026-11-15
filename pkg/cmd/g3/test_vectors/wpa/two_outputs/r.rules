@@ -1,0 +1,2 @@
+e(x:V, y:V) printtuples
+f(x:BOOL, y:SHORT) printtuples

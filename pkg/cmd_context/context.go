@@ -260,6 +260,8 @@ type Context struct {
 	diagnosticFile                   *os.File
 	mainContext                      bool
 	familyTemplate                   *ast.ASTManager // see NewAuxiliaryContextFor
+	// datalogFrontendManager: see UseDatalogFrontendManager.
+	datalogFrontendManager bool
 	// interpolatingSMTSolver is set_interpolating_solver_factory(
 	// mk_smt_solver_factory()), installed by the SMT-LIB front end.
 	interpolatingSMTSolver bool
@@ -892,7 +894,7 @@ func (c *Context) Manager() (manager *ast.ASTManager, result error) {
 	if err = c.initBuiltins(); err != nil {
 		return nil, err
 	}
-	if c.mainContext && c.familyTemplate == nil {
+	if c.mainContext && c.familyTemplate == nil && !c.datalogFrontendManager {
 		if c.logic == "" {
 			// insert(pm().mk_plist_decl()) runs init_list first.
 			if err = c.initList(m); err != nil {
@@ -923,7 +925,7 @@ func (c *Context) registerManagerPlugins(m *ast.ASTManager) error {
 		}
 		return m.RegisterDeclarationPlugins()
 	}
-	if !c.mainContext {
+	if !c.mainContext || c.datalogFrontendManager {
 		return m.RegisterDeclarationPlugins()
 	}
 	if _, err := m.EnsureFamilyID("datatype"); err != nil {
@@ -944,6 +946,20 @@ func (c *Context) registerManagerPlugins(m *ast.ASTManager) error {
 		}
 	}
 	return nil
+}
+
+// UseDatalogFrontendManager makes the manager read_datalog's own: a bare
+// ast_manager whose datalog::context constructor runs reg_decl_plugins, so
+// datalog_relation gets family id 9 (before seq, fpa and pb) instead of the
+// cmd_context order. The family id enters every finite sort's hash, and so
+// the decl_set order of the output relations (AUDIT.md muz_rel_04-F1). It
+// must run before the manager exists; afterwards it reports false.
+func (c *Context) UseDatalogFrontendManager() bool {
+	if c.manager != nil {
+		return false
+	}
+	c.datalogFrontendManager = true
+	return true
 }
 
 // mkSolver mirrors the shell factory step independently of manager creation.

@@ -1,0 +1,8 @@
+BOOL 2
+SHORT 65536
+V 3
+
+e(x:V, y:V) printtuples
+f(x:BOOL, y:SHORT) printtuples
+e("a","b").
+f("x","y").

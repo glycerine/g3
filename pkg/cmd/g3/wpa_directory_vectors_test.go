@@ -34,6 +34,9 @@ var wpaDirectoryVectors = map[string]struct{ stdout, stderr string }{
 	"bad_separator": {stderr: "' ' expected to separate numbers on line 2 in file test_vectors/wpa/bad_separator/P.rel, got 'x 1 '\nERROR: failed to parse file\n"},
 	"undeclared":    {stderr: "tuple file test_vectors/wpa/undeclared/sub/Q.rel for undeclared predicate Q\nERROR: failed to parse file\n"},
 	"short_numbers": {stdout: "Tuples in P: \n\t(b=1(0),s=700(0))\n\t(b=0(1),s=3(1))\n\t(b=1(0),s=3(1))\n"},
+	// Round 2: two output relations print in decl_set order (datalog_relation
+	// is family 9, as reg_decl_plugins makes it).
+	"two_outputs": {stdout: "Tuples in f: \n\t(x=1(0),y=700(0))\n\t(x=0(1),y=3(1))\nTuples in e: \n\t(x=<zero element>(0),y=b(1))\n\t(x=b(1),y=a(2))\n"},
 }
 
 var wpaTimingLines = regexp.MustCompile(`(?m)^Time: \d+ms\nParsing: \d+ms, other: \d+ms\n`)

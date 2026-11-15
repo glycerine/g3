@@ -1,0 +1,6 @@
+V 3
+
+e(x:V, y:V) printtuples
+f(x:V, y:V) printtuples
+e("a","b").
+f("a","b").

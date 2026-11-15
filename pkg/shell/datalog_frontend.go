@@ -51,6 +51,9 @@ func NewDatalogFrontend(context *cmd_context.Context, output io.Writer) (*Datalo
 	if context == nil || output == nil {
 		return nil, ErrDatalogFrontend
 	}
+	// read_datalog builds its own ast_manager and datalog::context, which
+	// registers the plugins in reg_decl_plugins order.
+	context.UseDatalogFrontendManager()
 	if _, err := context.Manager(); err != nil {
 		return nil, err
 	}
