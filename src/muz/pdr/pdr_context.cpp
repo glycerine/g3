@@ -1305,8 +1305,10 @@ namespace pdr {
         datalog::rule_unifier unif(dctx);
         datalog::dl_decl_util util(m);
         datalog::rule_ref r0(rm), r1(rm);
-        obj_map<expr, proof*> cache;
-        obj_map<expr, datalog::rule*>  rules;
+        // key by predicate and state: distinct nullary predicates share
+        // the state true (as in update_models).
+        obj_pair_map<func_decl, expr, proof*> cache;
+        obj_pair_map<func_decl, expr, datalog::rule*> rules;
         ptr_vector<model_node> todo;
         proof_ref_vector trail(m);
         datalog::rule_ref_vector rules_trail(rm);
@@ -1317,7 +1319,7 @@ namespace pdr {
         while (!todo.empty()) {
             model_node* n = todo.back();
             TRACE("pdr", n->display(tout, 0););
-            if (cache.find(n->state(), pr)) {
+            if (cache.find(n->pt().head(), n->state(), pr)) {
                 todo.pop_back();
                 continue;
             }
@@ -1327,9 +1329,11 @@ namespace pdr {
             pfs.push_back(0);
             rls.push_back(0);
             for (unsigned i = 0; i < chs.size(); ++i) {
-                if (cache.find(chs[i]->state(), pr)) {
+                if (cache.find(chs[i]->pt().head(), chs[i]->state(), pr)) {
                     pfs.push_back(pr);
-                    rls.push_back(rules.find(chs[i]->state()));
+                    datalog::rule* r = nullptr;
+                    rules.find(chs[i]->pt().head(), chs[i]->state(), r);
+                    rls.push_back(r);
                 }
                 else {
                     todo.push_back(chs[i]);
@@ -1407,13 +1411,14 @@ namespace pdr {
                 p1 = m.mk_hyper_resolve(pfs.size(), pfs.c_ptr(), fml_concl, positions, substs);
 
             }
-            cache.insert(n->state(), p1);
-            rules.insert(n->state(), reduced_rule);
+            cache.insert(n->pt().head(), n->state(), p1);
+            rules.insert(n->pt().head(), n->state(), reduced_rule);
             trail.push_back(p1);
             rules_trail.push_back(reduced_rule);
             todo.pop_back();
         }
-        return proof_ref(cache.find(m_root->state()), m);
+        VERIFY(cache.find(m_root->pt().head(), m_root->state(), pr));
+        return proof_ref(pr, m);
     }
 
     model_search::~model_search() {
