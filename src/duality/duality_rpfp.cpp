@@ -3943,6 +3943,14 @@ namespace Duality {
         std::vector<Edge *> &incoming = parent->Incoming;
         for(unsigned i = 0; i < incoming.size(); i++){
             Edge *in_edge = incoming[i];
+            // Incoming has one entry per child position. Rewrite each edge
+            // once: the loop below handles all of its positions.
+            bool seen = false;
+            for(unsigned i2 = 0; i2 < i; i2++)
+                if(incoming[i2] == in_edge)
+                    seen = true;
+            if(seen)
+                continue;
             std::vector<Node *> &chs = in_edge->Children;
             for(unsigned j = 0; j < chs.size(); j++)
                 if(chs[j] == parent){
