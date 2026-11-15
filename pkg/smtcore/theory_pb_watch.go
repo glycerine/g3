@@ -321,7 +321,6 @@ func (t *SMTPseudoBooleanTheory) addAssign(c *smtPBConstraint, premises []SMTLit
 func (t *SMTPseudoBooleanTheory) addConflict(c *smtPBConstraint, clause []SMTLiteral) error {
 	t.incPropagations(c)
 	t.statistics.conflicts++
-	t.statistics.clauses++
 	if err := t.traceReason("add_clause", 1454, c, clause, SMTNullLiteral); err != nil {
 		return err
 	}

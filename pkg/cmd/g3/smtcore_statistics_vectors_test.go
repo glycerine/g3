@@ -20,6 +20,11 @@ type smtcoreStatisticsVector struct {
 }
 
 var smtcoreStatisticsVectors = map[string]smtcoreStatisticsVector{
+	// AUDIT.md smtcore_12-F5: theory_pb::collect_statistics has no
+	// "pb clauses" key.
+	"pb_statistics_no_clause_key.smt2": {
+		want: map[string]string{"pb-clauses": "", "pb-conflicts": "1", "pb-predicates": "3"},
+	},
 	// AUDIT.md smtcore_10-F4: final_check_eh keeps splitting the remaining
 	// roots after a split conflict.
 	"datatype_final_check_split_conflict.smt2": {

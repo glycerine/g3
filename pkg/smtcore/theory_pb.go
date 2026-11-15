@@ -19,7 +19,6 @@ import (
 
 type smtPseudoBooleanStatistics struct {
 	predicates                         uint32
-	clauses                            uint64
 	compiled                           uint32
 	compiledVariables, compiledClauses uint32
 	propagations, conflicts            uint32
@@ -220,9 +219,7 @@ func (t *SMTPseudoBooleanTheory) internalizeAtom(expression ast.ASTHandle, retai
 				if err = state.addTheoryAxiom(t.FamilyID(), []SMTLiteral{c.literal, term.literal.Negated()}); err != nil {
 					return false, err
 				}
-				t.statistics.clauses++
 			}
-			t.statistics.clauses++
 			return true, state.addTheoryAxiom(t.FamilyID(), literals)
 		}
 	}
@@ -352,8 +349,6 @@ func (t *SMTPseudoBooleanTheory) CollectStatistics(target *statistics.Statistics
 		target.UpdateUint("simplex num infeasible", s.Stats.NumInfeasible)
 		target.UpdateUint("simplex num checks", s.Stats.NumChecks)
 	}
-	// This additional Go metric is outside the six source PB counters.
-	target.UpdateUint64("pb clauses", t.statistics.clauses)
 	return nil
 }
 

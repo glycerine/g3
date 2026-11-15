@@ -453,7 +453,6 @@ func (t *SMTPseudoBooleanTheory) resolveConflict(c *smtPBConstraint) (bool, erro
 	case lbool.False:
 		t.incPropagations(c)
 		t.statistics.conflicts++
-		t.statistics.clauses++
 		for i := range r.guards {
 			r.guards[i] = r.guards[i].Negated()
 		}
