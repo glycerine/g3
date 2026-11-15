@@ -12,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/opt"
 	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -373,6 +374,13 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 	defer func() { c.objectives = original }()
 	c.optimizationParetoActive = true
 	backend := c.optimizationParetoBackend
+	// optimize()'s IF_VERBOSE(1, "(optimize:check-sat)"); a continuation
+	// returns execute_pareto() before it (AUDIT.md FUZZ-F5; g3trace only).
+	if diagnostic.VerboseProgress && fresh {
+		if err := diagnostic.ProgressVerbose(1, "(optimize:check-sat)\n"); err != nil {
+			return nil, err
+		}
+	}
 	status, err := backend.CheckSat(nil)
 	if err != nil {
 		return nil, err
@@ -396,6 +404,11 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 		}
 	}
 	if status == lbool.True && fresh {
+		if diagnostic.VerboseProgress {
+			if err = diagnostic.ProgressVerbose(1, "(optimize:sat)\n"); err != nil {
+				return nil, err
+			}
+		}
 		// optimize(): after a sat initial check, optsmt::setup forces the
 		// base level with an empty scoped push and adds the objectives to
 		// the arithmetic theory; update_lower() then makes each arithmetic

@@ -1,0 +1,5 @@
+(declare-const x Int)
+(assert (< x 10))
+(assert (> x 20))
+(maximize x)
+(check-sat)

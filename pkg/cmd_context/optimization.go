@@ -495,7 +495,17 @@ func (c *Context) addOptimizerObjective(optimizer *opt.ArithmeticSolver, index i
 }
 
 func (c *Context) checkOptimizeLex(assumptions []ast.ASTHandle) (*opt.ArithmeticResult, error) {
-	return c.runOptimize(assumptions, (*opt.ArithmeticSolver).Check)
+	return c.runOptimize(assumptions, func(optimizer *opt.ArithmeticSolver) (*opt.ArithmeticResult, error) {
+		// Several objectives run execute_lex, which starts with
+		// IF_VERBOSE(1, "(opt :lex)"); a single one runs execute()
+		// (AUDIT.md FUZZ-F5; g3trace builds only).
+		if diagnostic.VerboseProgress && len(c.objectives) > 1 {
+			if err := diagnostic.ProgressVerbose(1, "(opt :lex)\n"); err != nil {
+				return nil, err
+			}
+		}
+		return optimizer.Check()
+	})
 }
 
 // runOptimize is opt::context::optimize up to the priority dispatch, which
@@ -562,9 +572,21 @@ func (c *Context) runOptimize(assumptions []ast.ASTHandle, execute func(*opt.Ari
 	if err = c.assertOptimizerHard(optimizer, assumptions); err != nil {
 		return nil, err
 	}
+	// IF_VERBOSE(1, "(optimize:check-sat)") before the initial check_sat,
+	// "(optimize:sat)" after a sat one (AUDIT.md FUZZ-F5; g3trace only).
+	if diagnostic.VerboseProgress {
+		if err = diagnostic.ProgressVerbose(1, "(optimize:check-sat)\n"); err != nil {
+			return nil, err
+		}
+	}
 	initial, reason, err := optimizer.CheckHard()
 	if err != nil {
 		return nil, err
+	}
+	if diagnostic.VerboseProgress && initial == lbool.True {
+		if err = diagnostic.ProgressVerbose(1, "(optimize:sat)\n"); err != nil {
+			return nil, err
+		}
 	}
 	if initial != lbool.True {
 		// internalize() ran before the check, so display_assignment reads

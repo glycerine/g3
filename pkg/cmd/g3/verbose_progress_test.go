@@ -70,24 +70,37 @@ var verboseProgressCases = []verboseProgressCase{
 // verboseProgressFiltered keeps, for each case, only the lines starting
 // with the given prefix: the rest of those runs' output (opt) is not
 // ported yet.
-var verboseProgressFiltered = map[string]string{
+var verboseProgressFiltered = map[string][]string{
 	// mus::get_mus1's (mus reducing core: ...) from maxres's minimize_core.
-	"mus": "(mus ",
+	"mus": {"(mus "},
+	// opt::context::optimize's (optimize:check-sat), (optimize:sat) and
+	// execute_lex's (opt :lex).
+	"opt_lex":    {"(optimize:", "(opt :lex)"},
+	"opt_pareto": {"(optimize:", "(opt :lex)"},
+	"opt_box":    {"(optimize:", "(opt :lex)"},
+	"opt_unsat":  {"(optimize:", "(opt :lex)"},
 }
 
 var verboseProgressFilteredCases = []verboseProgressCase{
 	{"mus", "mus", []string{"-v:12"}},
+	{"opt_lex", "opt_lex", []string{"-v:1"}},
+	{"opt_pareto", "opt_pareto", []string{"-v:1"}},
+	{"opt_box", "opt_box", []string{"-v:1"}},
+	{"opt_unsat", "opt_unsat", []string{"-v:1"}},
 }
 
 func filterVerboseProgress(name, log string) string {
-	prefix, found := verboseProgressFiltered[name]
+	prefixes, found := verboseProgressFiltered[name]
 	if !found {
 		return log
 	}
 	var out strings.Builder
 	for _, line := range strings.SplitAfter(log, "\n") {
-		if strings.HasPrefix(line, prefix) {
-			out.WriteString(line)
+		for _, prefix := range prefixes {
+			if strings.HasPrefix(line, prefix) {
+				out.WriteString(line)
+				break
+			}
 		}
 	}
 	return out.String()

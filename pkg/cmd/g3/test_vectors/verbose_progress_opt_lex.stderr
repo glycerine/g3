@@ -1,0 +1,3 @@
+(optimize:check-sat)
+(optimize:sat)
+(opt :lex)
