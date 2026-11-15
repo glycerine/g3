@@ -44,11 +44,25 @@ func (m *ASTManager) floatingPointToFPDecl(ps []ASTParameter, domain []ASTHandle
 		if err != nil {
 			return astNodeRef{}, err
 		}
-		if !isBV {
-			return astNodeRef{}, ErrASTDomain
-		}
 		fail := func(message string) (astNodeRef, error) {
 			return astNodeRef{}, ASTException{z3exception.NewDefaultException(message)}
+		}
+		if !isBV {
+			// Source "1 Real -> 1 FP": after the parameter check it
+			// compares domain[1] (out of bounds for arity 1) with
+			// m_real_sort, which the reference build always rejects.
+			if ref != m.floatingPointPlugin.real {
+				return fail(floatingPointToFPUnexpected)
+			}
+			if len(ps) != 2 {
+				return fail("expecting two integer parameters to to_fp")
+			}
+			_, eErr := m.parameterOfKind(ps[0], ASTParameterInt)
+			_, sErr := m.parameterOfKind(ps[1], ASTParameterInt)
+			if eErr != nil || sErr != nil {
+				return fail("expecting two integer parameters to to_fp")
+			}
+			return fail("sort mismatch, expected one argument of Real sort")
 		}
 		if len(ps) != 2 {
 			return fail("invalid number of parameters to to_fp")
@@ -76,7 +90,7 @@ func (m *ASTManager) floatingPointToFPDecl(ps []ASTParameter, domain []ASTHandle
 		return m.pluginDecl(name, m.floatingPointPlugin.family, astFPAToFP, ps, domain, fpSort, ASTFuncFlags{}, false)
 	}
 	if len(domain) != 2 {
-		return astNodeRef{}, ErrASTDomain
+		return astNodeRef{}, floatingPointDeclarationError(floatingPointToFPUnexpected)
 	}
 	arithmetic := false
 	for i := range domain {
@@ -96,7 +110,7 @@ func (m *ASTManager) floatingPointToFPDecl(ps []ASTParameter, domain []ASTHandle
 		}
 		if i == 0 && (info.family != m.floatingPointPlugin.family || info.kind != 1) ||
 			i == 1 && !arithmetic && !((info.family == m.bitVectorPlugin.family || info.family == m.floatingPointPlugin.family) && info.kind == 0) {
-			return astNodeRef{}, ErrASTDomain
+			return astNodeRef{}, floatingPointDeclarationError(floatingPointToFPUnexpected)
 		}
 	}
 	fail := func(message string) (astNodeRef, error) {
@@ -151,7 +165,7 @@ func (m *ASTManager) floatingPointToFPThreeArithmeticDecl(ps []ASTParameter, dom
 	}
 	if firstInfo.family != p.family || firstInfo.kind != 1 || !((second == p.real && third == p.integer) ||
 		(second == p.integer && third == p.real)) {
-		return astNodeRef{}, ErrASTDomain
+		return astNodeRef{}, floatingPointDeclarationError(floatingPointToFPUnexpected)
 	}
 	fail := func() (astNodeRef, error) {
 		return astNodeRef{}, ASTException{z3exception.NewDefaultException("expecting two integer parameters to to_fp")}

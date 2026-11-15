@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_05-F2: fpa_decl_plugin rejections print the C++ exception
+	// text.
+	"fpa_decl_error_messages.smt2": "(error \"line 5 column 31: sort mismatch, expected one argument of Real sort\")\n(error \"line 6 column 29: Unexpected argument combination for (_ to_fp eb sb). Supported argument combinations are: ((_ BitVec 1) (_ BitVec eb) (_ BitVec sb-1)), (_ BitVec (eb+sb)), (Real), (RoundingMode (_ BitVec (eb+sb))), (RoundingMode (_ FloatingPoint eb' sb')), (RoundingMode Int Real), (RoundingMode Real Int), (RoundingMode Int), and (RoundingMode Real).\")\n(error \"line 7 column 35: Unexpected argument combination for (_ to_fp eb sb). Supported argument combinations are: ((_ BitVec 1) (_ BitVec eb) (_ BitVec sb-1)), (_ BitVec (eb+sb)), (Real), (RoundingMode (_ BitVec (eb+sb))), (RoundingMode (_ FloatingPoint eb' sb')), (RoundingMode Int Real), (RoundingMode Real Int), (RoundingMode Int), and (RoundingMode Real).\")\n(error \"line 8 column 20: sort mismatch, expected three bit-vectors, the first one of size 1.\")\n(error \"line 9 column 20: invalid number of arguments to fp\")\n(error \"line 10 column 29: Unexpected argument combination for (_ to_fp eb sb). Supported argument combinations are: ((_ BitVec 1) (_ BitVec eb) (_ BitVec sb-1)), (_ BitVec (eb+sb)), (Real), (RoundingMode (_ BitVec (eb+sb))), (RoundingMode (_ FloatingPoint eb' sb')), (RoundingMode Int Real), (RoundingMode Real Int), (RoundingMode Int), and (RoundingMode Real).\")\n(error \"line 11 column 34: Unexpected argument combination for (_ to_fp eb sb). Supported argument combinations are: ((_ BitVec 1) (_ BitVec eb) (_ BitVec sb-1)), (_ BitVec (eb+sb)), (Real), (RoundingMode (_ BitVec (eb+sb))), (RoundingMode (_ FloatingPoint eb' sb')), (RoundingMode Int Real), (RoundingMode Real Int), (RoundingMode Int), and (RoundingMode Real).\")\n(error \"line 12 column 33: Unexpected argument combination for (_ to_fp eb sb). Supported argument combinations are: ((_ BitVec 1) (_ BitVec eb) (_ BitVec sb-1)), (_ BitVec (eb+sb)), (Real), (RoundingMode (_ BitVec (eb+sb))), (RoundingMode (_ FloatingPoint eb' sb')), (RoundingMode Int Real), (RoundingMode Real Int), (RoundingMode Int), and (RoundingMode Real).\")\n(error \"line 15 column 35: expecting two integer parameters to floating point sort (ebits, sbits)\")\nsat\n",
 	// AUDIT.md ast_03-F5: mk_quantifier's ast_exception for patterns with
 	// no-patterns, reported at the quantifier's ')'.
 	"quantifier_pattern_nopattern_error.smt2": "(error \"line 3 column 70: simultaneous patterns and no-patterns not supported\")\nsat\n",
@@ -1885,6 +1888,9 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	// AUDIT.md ast_05-F2
+	"fpa_decl_error_messages.smt2": true,
+
 	// AUDIT.md ast_03-F5
 	"quantifier_pattern_nopattern_error.smt2": true,
 

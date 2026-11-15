@@ -1951,6 +1951,9 @@ func (p *commandParser) sort() (ast.ASTHandle, error) {
 		var indexed ast.ASTHandle
 		if name == "FloatingPoint" && len(indices) == 2 {
 			indexed, err = p.pin(m.FloatingPointSort(indices[0], indices[1]))
+		} else if name == "FloatingPoint" {
+			// fpa_decl_plugin::mk_sort, FLOATING_POINT_SORT case.
+			return ast.ASTHandle{}, fmt.Errorf("expecting two integer parameters to floating point sort (ebits, sbits)")
 		} else if name != "BitVec" || len(indices) != 1 {
 			return ast.ASTHandle{}, fmt.Errorf("unsupported indexed sort %s", name)
 		} else {

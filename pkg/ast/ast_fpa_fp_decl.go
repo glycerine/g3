@@ -2,13 +2,32 @@ package ast
 
 // Source: src/ast/fpa_decl_plugin.cpp:591-606.
 
+import "github.com/glycerine/g3/pkg/util/z3exception"
+
 // FPAOpFP constructs a floating-point value from separate sign, exponent,
 // and significand bit-vectors. Its format follows the latter two widths.
 const FPAOpFP int32 = astFPAFP
 
+// floatingPointDeclarationError is an fpa_decl_plugin raise_exception.
+func floatingPointDeclarationError(message string) error {
+	return ASTException{z3exception.NewDefaultException(message)}
+}
+
+// floatingPointToFPUnexpected is mk_to_fp's final else message.
+const floatingPointToFPUnexpected = "Unexpected argument combination for (_ to_fp eb sb). Supported argument combinations are: " +
+	"((_ BitVec 1) (_ BitVec eb) (_ BitVec sb-1)), " +
+	"(_ BitVec (eb+sb)), " +
+	"(Real), " +
+	"(RoundingMode (_ BitVec (eb+sb))), " +
+	"(RoundingMode (_ FloatingPoint eb' sb')), " +
+	"(RoundingMode Int Real), " +
+	"(RoundingMode Real Int), " +
+	"(RoundingMode Int), and " +
+	"(RoundingMode Real)."
+
 func (m *ASTManager) floatingPointFPDecl(domain []ASTHandle) (astNodeRef, error) {
 	if len(domain) != 3 {
-		return astNodeRef{}, ErrASTDomain
+		return astNodeRef{}, floatingPointDeclarationError("invalid number of arguments to fp")
 	}
 	var widths [3]uint32
 	for i, sort := range domain {
@@ -24,7 +43,7 @@ func (m *ASTManager) floatingPointFPDecl(domain []ASTHandle) (astNodeRef, error)
 			return astNodeRef{}, err
 		}
 		if !isBV {
-			return astNodeRef{}, ErrASTDomain
+			return astNodeRef{}, floatingPointDeclarationError("sort mismatch, expected three bit-vectors, the first one of size 1.")
 		}
 		widths[i], err = m.bitVectorSortSize(ref, nil)
 		if err != nil {
@@ -32,7 +51,7 @@ func (m *ASTManager) floatingPointFPDecl(domain []ASTHandle) (astNodeRef, error)
 		}
 	}
 	if widths[0] != 1 {
-		return astNodeRef{}, ErrASTDomain
+		return astNodeRef{}, floatingPointDeclarationError("sort mismatch, expected three bit-vectors, the first one of size 1.")
 	}
 	fpSort, err := m.mkFloatSort(widths[1], widths[2]+1)
 	if err != nil {

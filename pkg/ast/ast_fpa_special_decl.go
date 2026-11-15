@@ -11,6 +11,11 @@ func (m *ASTManager) floatingPointSpecialDecl(k int32, ps []ASTParameter, rangeS
 	if p == nil || !p.published || p.sourceEnded {
 		return out, ErrASTHandle
 	}
+	// Source fpa_decl_plugin::mk_func_decl has no OP_FPA_NUM case: its
+	// default raises before any parameter is read.
+	if k == astFPANum {
+		return out, floatingPointDeclarationError("unsupported floating point operator")
+	}
 	floatSort := func(r astNodeRef) bool {
 		if r.slot == 0 || m.validNode(r) != nil || m.nodeAt(r.slot).kind != ASTSort {
 			return false

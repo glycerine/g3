@@ -124,3 +124,55 @@ func TestASTFPAUnarySubIsNegation(t *testing.T) {
 	astTestMust(t, err)
 	checkNeg(head)
 }
+
+// AUDIT.md ast_05-F2: fpa_decl_plugin rejections carry the C++ exception
+// text.
+func TestASTFPADeclarationErrorMessages(t *testing.T) {
+	m := astTestManager(t)
+	_, err := m.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	_, err = m.RegisterBitVectorPlugin()
+	astTestMust(t, err)
+	family, err := m.RegisterFloatingPointPlugin()
+	astTestMust(t, err)
+	floatSort, err := m.MkFamilySort(family, 3, nil)
+	astTestMust(t, err)
+	bv1, err := m.BitVectorSort(1)
+	astTestMust(t, err)
+	bv2, err := m.BitVectorSort(2)
+	astTestMust(t, err)
+	bv3, err := m.BitVectorSort(3)
+	astTestMust(t, err)
+	realSort := m.external(m.floatingPointPlugin.real)
+	e3, err := m.NewParameterInt(3)
+	astTestMust(t, err)
+	s3, err := m.NewParameterInt(3)
+	astTestMust(t, err)
+	unexpected := "Unexpected argument combination for (_ to_fp eb sb). Supported argument combinations are: ((_ BitVec 1) (_ BitVec eb) (_ BitVec sb-1)), (_ BitVec (eb+sb)), (Real), (RoundingMode (_ BitVec (eb+sb))), (RoundingMode (_ FloatingPoint eb' sb')), (RoundingMode Int Real), (RoundingMode Real Int), (RoundingMode Int), and (RoundingMode Real)."
+	for _, tc := range []struct {
+		kind   int32
+		ps     []ASTParameter
+		domain []ASTHandle
+		want   string
+	}{
+		{FPAOpFP, nil, []ASTHandle{bv1, bv3}, "invalid number of arguments to fp"},
+		{FPAOpFP, nil, []ASTHandle{bv2, bv3, bv3}, "sort mismatch, expected three bit-vectors, the first one of size 1."},
+		{FPAOpToFP, []ASTParameter{e3, s3}, []ASTHandle{floatSort}, unexpected},
+		{FPAOpToFP, []ASTParameter{e3, s3}, []ASTHandle{realSort}, "sort mismatch, expected one argument of Real sort"},
+		{FPAOpToFP, nil, []ASTHandle{realSort}, "expecting two integer parameters to to_fp"},
+		{FPAOpNumeral, nil, nil, "unsupported floating point operator"},
+	} {
+		_, e := m.MkFamilyFuncDecl(family, tc.kind, tc.ps, tc.domain, ASTHandle{})
+		if e == nil || e.Error() != tc.want {
+			t.Fatalf("kind %d: %v, want %q", tc.kind, e, tc.want)
+		}
+	}
+	if _, e := m.MkFamilySort(family, 0, []ASTParameter{e3}); e == nil || e.Error() != "expecting two integer parameters to floating point sort (ebits, sbits)" {
+		t.Fatalf("one-parameter float sort: %v", e)
+	}
+	if _, e := m.MkFamilySort(family, 9, nil); e == nil || e.Error() != "unknown floating point theory sort" {
+		t.Fatalf("unknown float sort: %v", e)
+	}
+	astTestMust(t, m.DelParameter(&e3))
+	astTestMust(t, m.DelParameter(&s3))
+}

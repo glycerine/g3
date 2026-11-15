@@ -200,22 +200,23 @@ func (m *ASTManager) floatingPointSort(k int32, ps []ASTParameter) (astNodeRef, 
 	var ebits, sbits uint32
 	switch k {
 	case 0:
+		const message = "expecting two integer parameters to floating point sort (ebits, sbits)"
 		if len(ps) != 2 {
-			return astNodeRef{}, ErrASTDomain
+			return astNodeRef{}, floatingPointDeclarationError(message)
 		}
 		a, e := m.parameter(ps[0])
 		if e != nil {
 			return astNodeRef{}, e
 		}
 		if a.Kind != ASTParameterInt {
-			return astNodeRef{}, ErrASTDomain
+			return astNodeRef{}, floatingPointDeclarationError(message)
 		}
 		b, e := m.parameter(ps[1])
 		if e != nil {
 			return astNodeRef{}, e
 		}
 		if b.Kind != ASTParameterInt {
-			return astNodeRef{}, ErrASTDomain
+			return astNodeRef{}, floatingPointDeclarationError(message)
 		}
 		ebits, sbits = uint32(a.integer), uint32(b.integer)
 	case 1:
@@ -237,7 +238,7 @@ func (m *ASTManager) floatingPointSort(k int32, ps []ASTParameter) (astNodeRef, 
 	case 5:
 		ebits, sbits = 15, 113
 	default:
-		return astNodeRef{}, ErrASTDomain
+		return astNodeRef{}, floatingPointDeclarationError("unknown floating point theory sort")
 	}
 	return m.mkFloatSort(ebits, sbits)
 }

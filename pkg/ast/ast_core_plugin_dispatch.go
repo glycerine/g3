@@ -270,6 +270,9 @@ func (m *ASTManager) mkFamilyAppDomainCore(fid FamilyID, k int32, ps []ASTParame
 		} else {
 			decl, e = m.floatingPointSpecialDecl(k, ps, rangeSort)
 		}
+	} else if m.pluginAt(fid).kind == astFloatingPointPlugin {
+		// Source fpa_decl_plugin::mk_func_decl default.
+		e = floatingPointDeclarationError("unsupported floating point operator")
 	} else if m.pluginAt(fid).kind == astFormatPlugin {
 		decl, e = m.formatDecl(k, ps, domain)
 	} else if m.pluginAt(fid).kind == astDatalogPlugin {
@@ -401,6 +404,9 @@ func (m *ASTManager) mkFamilyFuncDecl(fid FamilyID, k int32, ps []ASTParameter, 
 		} else {
 			r, e = m.floatingPointSpecialDecl(k, ps, rangeSort)
 		}
+	} else if m.pluginAt(fid).kind == astFloatingPointPlugin {
+		// Source fpa_decl_plugin::mk_func_decl default.
+		e = floatingPointDeclarationError("unsupported floating point operator")
 	} else if m.pluginAt(fid).kind == astFormatPlugin {
 		r, e = m.formatDecl(k, ps, domain)
 	} else if m.pluginAt(fid).kind == astDatalogPlugin {
