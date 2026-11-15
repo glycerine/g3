@@ -794,7 +794,11 @@ namespace smt {
         TRACE("pb", tout << "assign: " << ~nlit << "\n";);
         ineqs = m_var_infos[v].m_lit_watch[nlit.sign()];
         if (ineqs != nullptr) {
-            if (m_enable_simplex) {
+            // FORK FIX #59 (g3 audit, see FORK_BUGFIXES.md): pop leaves a
+            // freed var's emptied watch list behind; when the var is reused
+            // as a pb atom, its column is the atom's slack, so bound only
+            // 0-1 columns (m_vars).
+            if (m_enable_simplex && m_vars.contains(v)) {
                 mpq_inf num(mpq(is_true?1:0),mpq(0));
                 if (!update_bound(v, ~nlit, is_true, num)) {
                     return;
