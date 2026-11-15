@@ -74,7 +74,7 @@ func (g *RPFP) FourierMotzkinCheap(keep, literals []*Expr, simplifier *interp.Ma
 		}
 	}
 	canon := func(h ast.ASTHandle) (ast.ASTHandle, error) {
-		h, err := p.normalized(h, false)
+		h, err := p.normalized(h)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
@@ -132,7 +132,7 @@ func (g *RPFP) FourierMotzkinCheap(keep, literals []*Expr, simplifier *interp.Ma
 		if err != nil {
 			return nil, err
 		}
-		ineq, err = p.normalized(ineq, false)
+		ineq, err = p.normalized(ineq)
 		if err != nil {
 			return nil, err
 		}

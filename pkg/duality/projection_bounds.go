@@ -40,14 +40,12 @@ func (p *projectionArithmetic) app(op int32, args ...ast.ASTHandle) (ast.ASTHand
 func (p *projectionArithmetic) numeral(value string) (ast.ASTHandle, error) {
 	return p.pin(p.graph.context.manager.ArithmeticIntegerNumeralText(value))
 }
-func (p *projectionArithmetic) normalized(h ast.ASTHandle, strong bool) (ast.ASTHandle, error) {
-	var ref ast.ASTRef
-	var err error
-	if strong {
-		ref, err = p.simplify.ReallySimplify(h)
-	} else {
-		ref, err = p.simplify.Simplify(h)
-	}
+
+// normalized is expr::simplify(). The variable projector's
+// simplify(simp_params) is the same: FourierMotzkinCheap sets only ":som"
+// and ":sort-sums", keys th_rewriter never reads.
+func (p *projectionArithmetic) normalized(h ast.ASTHandle) (ast.ASTHandle, error) {
+	ref, err := p.simplify.Simplify(h)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -115,7 +113,7 @@ func (p *projectionArithmetic) canonical(literal ast.ASTHandle) (term, bound ast
 		if err != nil {
 			return term, bound, false, err
 		}
-		bound, err = p.normalized(bound, false)
+		bound, err = p.normalized(bound)
 		if err != nil {
 			return term, bound, false, err
 		}
@@ -133,7 +131,7 @@ func (p *projectionArithmetic) canonical(literal ast.ASTHandle) (term, bound ast
 		if err != nil {
 			return term, bound, false, err
 		}
-		bound, err = p.normalized(bound, false)
+		bound, err = p.normalized(bound)
 		if err != nil {
 			return term, bound, false, err
 		}
@@ -142,7 +140,7 @@ func (p *projectionArithmetic) canonical(literal ast.ASTHandle) (term, bound ast
 			return term, bound, false, err
 		}
 	}
-	term, err = p.normalized(term, true)
+	term, err = p.normalized(term)
 	if err != nil {
 		return term, bound, false, err
 	}
@@ -157,7 +155,7 @@ func (p *projectionArithmetic) redundantBounds(input []ast.ASTHandle) ([]ast.AST
 		return nil, err
 	}
 	for i, literal := range input {
-		output[i], err = p.normalized(literal, true)
+		output[i], err = p.normalized(literal)
 		if err != nil {
 			return nil, err
 		}
@@ -181,7 +179,7 @@ func (p *projectionArithmetic) redundantBounds(input []ast.ASTHandle) ([]ast.AST
 		if err != nil {
 			return nil, err
 		}
-		greater, err = p.normalized(greater, false)
+		greater, err = p.normalized(greater)
 		if err != nil {
 			return nil, err
 		}

@@ -7,36 +7,18 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
-	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
-// rewrite is z3_simplify / z3_really_simplify: a local th_rewriter (with
-// :som and :sort-sums for the strong form) rewrites term and dies, with its
-// cache, once the result is held.
-func (m *Manager) rewrite(term ast.ASTHandle, strong bool) (result ast.ASTRef, resultErr error) {
+// rewrite is z3_simplify: a local th_rewriter rewrites term and dies, with
+// its cache, once the result is held.
+func (m *Manager) rewrite(term ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	if err := m.open(); err != nil {
 		return ast.ASTRef{}, err
 	}
 	if !m.rewriting {
 		return ast.ASTRef{}, NewError("interpolation manager has no theory rewriter")
 	}
-	var parameters *uparams.ParamsRef
-	if strong {
-		value, err := m.context.NewValue()
-		if err != nil {
-			return ast.ASTRef{}, err
-		}
-		defer func() { resultErr = errors.Join(resultErr, m.context.Del(&value)) }()
-		som, sortSums := "som", "sort_sums"
-		if err = m.context.SetBoolName(&value, &som, true); err != nil {
-			return ast.ASTRef{}, err
-		}
-		if err = m.context.SetBoolName(&value, &sortSums, true); err != nil {
-			return ast.ASTRef{}, err
-		}
-		parameters = &value
-	}
-	rewriter, err := astrewriter.NewTheoryRewriter(m.ast, m.context, m.globals, parameters)
+	rewriter, err := astrewriter.NewTheoryRewriter(m.ast, m.context, m.globals, nil)
 	if err != nil {
 		// A refused constructor still returns its partial owner.
 		if rewriter != nil {
@@ -57,13 +39,10 @@ func (m *Manager) rewrite(term ast.ASTHandle, strong bool) (result ast.ASTRef, r
 	return out, nil
 }
 
+// Simplify is z3_simplify. No retained site calls z3_really_simplify: iZ3
+// calls z3_simplify (AUDIT.md interp_02-F2), and the Duality variable
+// projector's simp_params sets only ":som"/":sort-sums", which th_rewriter
+// never reads.
 func (m *Manager) Simplify(term ast.ASTHandle) (ast.ASTRef, error) {
-	return m.rewrite(term, false)
-}
-
-// ReallySimplify keeps som/sort_sums for the duality variable projector.
-// No iZ3 site calls the C++ z3_really_simplify (they all call z3_simplify,
-// i.e. Simplify; AUDIT.md interp_02-F2).
-func (m *Manager) ReallySimplify(term ast.ASTHandle) (ast.ASTRef, error) {
-	return m.rewrite(term, true)
+	return m.rewrite(term)
 }

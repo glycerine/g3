@@ -446,3 +446,64 @@ func wrapDeclForProjectionTest(t *testing.T, m *ast.ASTManager, name usymbol.Sym
 	})
 	return decl
 }
+
+// FourierMotzkinCheap sets ":som" and ":sort-sums" in simp_params, keys
+// th_rewriter never reads, so ElimRedundantBounds' simplify(simp_params) is
+// the plain simplify(): a product over a sum is not distributed.
+func TestProjectionRedundantBoundsUsePlainSimplify(t *testing.T) {
+	ctx, m, _, globals := dualityNativeSolverServicesFixture(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	simplifier, err := interp.NewManagerWithParams(m, ctx.config.params, globals)
+	must(err)
+	defer simplifier.Close()
+	graph, err := NewRPFP(ctx)
+	must(err)
+	defer graph.Close()
+	wrap := func(h ast.ASTHandle, err error) *Expr {
+		t.Helper()
+		must(err)
+		term, err := NewExpr(ctx, h)
+		must(err)
+		closeExpr(t, term)
+		return term
+	}
+	raw := func(term *Expr) ast.ASTHandle { t.Helper(); h, err := term.Raw(); must(err); return h }
+	family, err := m.ArithmeticFamilyID()
+	must(err)
+	zero := wrap(m.ArithmeticIntegerNumeralText("0"))
+	one := wrap(m.ArithmeticIntegerNumeralText("1"))
+	sort, err := m.GetSort(raw(zero))
+	must(err)
+	constant := func(text string) *Expr {
+		name, err := m.Symbols.Intern(text)
+		must(err)
+		return wrap(m.MkConst(name, sort))
+	}
+	x, y := constant("plain-bound-x"), constant("plain-bound-y")
+	app := func(op int32, args ...ast.ASTHandle) *Expr {
+		return wrap(m.MkFamilyApp(family, op, nil, args))
+	}
+	sum := app(6, raw(y), raw(one))
+	product := app(9, raw(x), raw(sum))
+	literal := app(2, raw(zero), raw(product))
+	output, err := graph.ElimRedundantBounds([]*Expr{literal}, simplifier)
+	must(err)
+	defer func() {
+		for _, term := range output {
+			must(term.Close())
+		}
+	}()
+	ref, err := simplifier.Simplify(raw(literal))
+	must(err)
+	defer func() { must(m.DelRef(&ref)) }()
+	want, err := m.RefGet(ref)
+	must(err)
+	if len(output) != 1 || raw(output[0]) != want {
+		t.Fatal("bound literal was not simplified with the plain th_rewriter")
+	}
+}

@@ -120,7 +120,7 @@ func (x *projectionIndex) linear(positive bool, coefficient, h ast.ASTHandle, id
 		if err != nil {
 			return err
 		}
-		product, err = p.normalized(product, false)
+		product, err = p.normalized(product)
 		if err != nil {
 			return err
 		}
@@ -132,7 +132,7 @@ func (x *projectionIndex) linear(positive bool, coefficient, h ast.ASTHandle, id
 		if err != nil {
 			return err
 		}
-		sign, err = p.normalized(sign, false)
+		sign, err = p.normalized(sign)
 		if err != nil {
 			return err
 		}
