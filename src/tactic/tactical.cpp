@@ -158,6 +158,8 @@ public:
                     SASSERT(r2.size() == 1);
                     if (is_decided_sat(r2)) {                                                          
                         // found solution...                                                                
+                        // FORK FIX #73 (g3 audit, see FORK_BUGFIXES.md): backport of upstream result.reset(): a sat subgoal decides the goal (AUDIT tactic_top_01-F1)
+                        result.reset();
                         result.push_back(r2[0]);
                         if (models_enabled) {
                             // mc2 contains the actual model                                                    
