@@ -8,7 +8,8 @@ import (
 )
 
 // Simplify follows nlarith_plugin::simplify: factor the formula, then apply
-// the theory rewriter, reporting whether the plugin changed the expression.
+// the plugin's th_rewriter m_rewriter, reporting whether the plugin changed
+// the expression. rw is the caller's rewriter, which the C++ does not use.
 func (p *NonlinearArithmeticPlugin) Simplify(formula ast.ASTRef, rw *astrewriter.TheoryRewriter) (changed bool, err error) {
 	if err := p.open(); err != nil {
 		return false, err
@@ -32,7 +33,8 @@ func (p *NonlinearArithmeticPlugin) Simplify(formula ast.ASTRef, rw *astrewriter
 	if err != nil {
 		return false, err
 	}
-	if err = rw.Rewrite(factoredFormula, formula); err != nil {
+	// m_rewriter(tmp, tmp2): the plugin's own th_rewriter, not the caller's.
+	if err = p.rewriter.Rewrite(factoredFormula, formula); err != nil {
 		return false, err
 	}
 	after, err := p.manager.RefGet(formula)

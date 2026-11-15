@@ -1,11 +1,15 @@
 package qe
 
 import (
+	"errors"
+
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (p *NonlinearArithmeticPlugin) Assign(variable *ast.ContainsApp, formula ast.ASTHandle, value *numeral.OwnedRational) error {
+// Assign is nlarith_plugin::assign: the branch formula is factored
+// (m_factor_rw) and simplified (m_rewriter) before add_constraint(true, ...).
+func (p *NonlinearArithmeticPlugin) Assign(variable *ast.ContainsApp, formula ast.ASTHandle, value *numeral.OwnedRational) (err error) {
 	if value == nil {
 		return ast.ErrASTHandle
 	}
@@ -20,18 +24,46 @@ func (p *NonlinearArithmeticPlugin) Assign(variable *ast.ContainsApp, formula as
 		}
 		return err
 	}
-	h, err := p.manager.RefGet(e.branches.Branches[branch].Branch)
+	branchFormula, err := p.manager.RefGet(e.branches.Branches[branch].Branch)
+	if err != nil {
+		return err
+	}
+	// expr_ref result(m), tmp(m);
+	tmp, err := p.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, p.manager.DelRef(&tmp)) }()
+	result, err := p.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return err
+	}
+	keep := false
+	defer func() {
+		if !keep {
+			err = errors.Join(err, p.manager.DelRef(&result))
+		}
+	}()
+	// m_factor_rw(branch_fml, tmp); m_rewriter(tmp, result);
+	if err = p.factor.Rewrite(branchFormula, tmp); err != nil {
+		return err
+	}
+	factored, err := p.manager.RefGet(tmp)
+	if err != nil {
+		return err
+	}
+	if err = p.rewriter.Rewrite(factored, result); err != nil {
+		return err
+	}
+	h, err := p.manager.RefGet(result)
 	if err != nil {
 		return err
 	}
 	if done, err := p.context.addConstraint(true, h); done || err != nil {
 		return err
 	}
-	r, err := p.manager.NewRef(h)
-	if err != nil {
-		return err
-	}
-	p.constraints = append(p.constraints, ArithmeticConstraint{UseVariable: true, Formula: r})
+	keep = true
+	p.constraints = append(p.constraints, ArithmeticConstraint{UseVariable: true, Formula: result})
 	return nil
 }
 func (p *NonlinearArithmeticPlugin) TakeConstraints() ([]ArithmeticConstraint, error) {

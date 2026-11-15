@@ -24,6 +24,7 @@ type NonlinearArithmeticPlugin struct {
 	util          *NonlinearArithmeticUtil
 	replacer      *astrewriter.ExprSafeReplace
 	factor        *astrewriter.FactorRewriter
+	rewriter      *astrewriter.TheoryRewriter // th_rewriter m_rewriter
 	weights       *NLWeightCache
 	family        ast.FamilyID
 	produceModels bool
@@ -32,7 +33,9 @@ type NonlinearArithmeticPlugin struct {
 	closed        bool
 }
 
-func NewNonlinearArithmeticPlugin(context *SolverContext, produceModels bool) (*NonlinearArithmeticPlugin, error) {
+// NewNonlinearArithmeticPlugin is nlarith_plugin(ctx, m, produce_models);
+// config supplies the parameter services of its th_rewriter m_rewriter(m).
+func NewNonlinearArithmeticPlugin(context *SolverContext, config Config, produceModels bool) (*NonlinearArithmeticPlugin, error) {
 	if context == nil {
 		return nil, ast.ErrASTHandle
 	}
@@ -40,7 +43,7 @@ func NewNonlinearArithmeticPlugin(context *SolverContext, produceModels bool) (*
 	if err != nil {
 		return nil, err
 	}
-	u, err := NewNonlinearArithmeticUtil(m)
+	u, err := NewNonlinearArithmeticUtilConfig(m, config)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +69,15 @@ func NewNonlinearArithmeticPlugin(context *SolverContext, produceModels bool) (*
 		_ = u.Close()
 		return nil, err
 	}
-	p := &NonlinearArithmeticPlugin{context: context, manager: m, util: u, replacer: r, factor: f, weights: w, family: u.family, produceModels: produceModels, cache: make(map[nlPluginKey]*nlPluginEntry)}
+	rw, err := astrewriter.NewTheoryRewriter(m, config.Context, config.Globals, nil)
+	if err != nil {
+		_ = w.Close()
+		_ = f.Close()
+		_ = r.Close()
+		_ = u.Close()
+		return nil, err
+	}
+	p := &NonlinearArithmeticPlugin{context: context, manager: m, util: u, replacer: r, factor: f, rewriter: rw, weights: w, family: u.family, produceModels: produceModels, cache: make(map[nlPluginKey]*nlPluginEntry)}
 	p.self = p
 	return p, nil
 }
@@ -124,7 +135,7 @@ func (p *NonlinearArithmeticPlugin) Close() (result error) {
 	for i := len(p.constraints) - 1; i >= 0; i-- {
 		result = errors.Join(result, p.manager.DelRef(&p.constraints[i].Formula))
 	}
-	result = errors.Join(result, p.weights.Close(), p.factor.Close(), p.replacer.Close(), p.util.Close())
+	result = errors.Join(result, p.weights.Close(), p.factor.Close(), p.rewriter.Close(), p.replacer.Close(), p.util.Close())
 	if result == nil {
 		p.closed = true
 	}

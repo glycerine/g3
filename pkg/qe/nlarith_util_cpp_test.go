@@ -17,7 +17,7 @@ func TestNLArithmeticUtilSourceTwoQuadratics(t *testing.T) {
 	product := f.pin(m.MkFamilyApp(family, 9, nil, []ast.ASTHandle{f.rx, f.rx, f.ry}))
 	p1 := f.pin(m.MkArithmeticLE(f.pin(m.MkArithmeticAdd(product, f.ry)), one))
 	p2 := f.pin(m.MkArithmeticLE(f.pin(m.MkArithmeticAdd(product, z)), one))
-	u, err := qe.NewNonlinearArithmeticUtil(m)
+	u, err := qe.NewNonlinearArithmeticUtilConfig(m, f.config)
 	pluginMust(t, err)
 	defer func() { pluginMust(t, u.Close()) }()
 	contains, err := ast.NewContainsApp(m, f.rx)

@@ -1,0 +1,6 @@
+(declare-const a Real)
+(declare-const b Real)
+(declare-const c Real)
+(declare-const y Real)
+(assert (forall ((x Real)) (or (> (* x x) a) (< x b) (> x c))))
+(apply (using-params qe :qe_nonlinear true))

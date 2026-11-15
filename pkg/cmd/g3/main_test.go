@@ -338,6 +338,18 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md qe_04-F1: nlarith_plugin assign/subst apply factor_rewriter and th_rewriter.
+	"qe_nlarith_exists_square.smt2": "(goals\n(goal\n  (exists ((x!0 Real)) (= (* x!0 x!0) y))\n  :precision precise :depth 1)\n)\n",
+	// AUDIT.md qe_04-F1: nlarith_plugin assign/subst apply factor_rewriter and th_rewriter.
+	"qe_nlarith_factor.smt2": "(goals\n(goal\n  (let ((a!1 (not (or (= (- 2.0) z) (not (<= (- 2.0) z)))))\n        (a!2 (+ (* (+ (- 2.0) (* (- 1.0) z)) (+ (- 2.0) (* (- 1.0) z)))\n                (* (- 1.0) (* z z))\n                (* (- 4.0) y))))\n  (let ((a!3 (not (or (= 0.0 a!2) (not (<= 0.0 a!2))))))\n  (let ((a!4 (and (>= (+ (* z z) (* 4.0 y)) 0.0) a!1 a!3))\n        (a!5 (and (>= (+ (* z z) (* 4.0 y)) 0.0)\n                  (or (and a!1 a!3) a!1 (not (<= 0.0 a!2))))))\n    (or a!4 a!5))))\n  :precision precise :depth 1)\n)\n",
+	// AUDIT.md qe_03-F1: nlarith branches are built through arith_rewriter/bool_rewriter as in nlarith_util.cpp.
+	"nlarith_qe_exists_bounds.smt2": "(goals\n(goal\n  (let ((a!1 (not (or (= 0.0 a) (not (<= 0.0 a)))))\n        (a!2 (not (or (= 0.0 b) (not (<= b 0.0)))))\n        (a!3 (not (<= 0.0 (+ (* (- 1.0) a) (* b b))))))\n  (let ((a!4 (and (= (+ (* (- 1.0) a) (* b b)) 0.0) a!2)))\n    (or (and a!1 a!2) a!3 a!4)))\n  :precision precise :depth 1)\n)\n",
+	// AUDIT.md qe_03-F1: nlarith branches are built through arith_rewriter/bool_rewriter as in nlarith_util.cpp.
+	"nlarith_qe_three_literals.smt2": "(goals\n(goal\n  (let ((a!1 (exists ((x!0 Real))\n               (not (or (> (* x!0 x!0) a) (< x!0 b) (> x!0 c))))))\n    (not a!1))\n  :precision precise :depth 1)\n)\n",
+	// AUDIT.md qe_03-F1: nlarith branches are built through arith_rewriter/bool_rewriter as in nlarith_util.cpp.
+	"nlarith_qe_branch_shape_eq.smt2": "(goals\n(goal\n  (<= 0.0 (+ (* (- 1.0) a) (* b b)))\n  (let ((a!1 (not (or (= 0.0 b) (not (<= b 0.0))))))\n  (let ((a!2 (and (= (+ (* (- 1.0) a) (* b b)) 0.0) a!1)))\n    (not a!2)))\n  (let ((a!1 (not (or (= 0.0 a) (not (<= 0.0 a))))))\n    (not (and a!1 (not (= b 0.0)))))\n  :precision precise :depth 1)\n)\n",
+	// AUDIT.md qe_03-F1: nlarith branches are built through arith_rewriter/bool_rewriter as in nlarith_util.cpp.
+	"nlarith_qe_branch_shape.smt2": "(goals\n(goal\n  (let ((a!1 (and (or (= (- 1.0) a) (not (<= a (- 1.0)))) (<= b 0.0))))\n    (not a!1))\n  (not (<= (+ (* (- 1.0) a) (* b b)) 1.0))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md qe_05-F2: qe-sat solver_context::blast_or runs expr_quant_elim.
 	"qe_sat_partial_blast_or_mod.smt2": "unsat\n",
 	// AUDIT.md qe_05-F2: qe-sat solver_context::blast_or runs expr_quant_elim.

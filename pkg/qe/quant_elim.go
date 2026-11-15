@@ -550,7 +550,7 @@ func newQuantElimPlugin(q *quantElimNew) (th *quantElimPlugin, err error) {
 	// mk_arith_plugin
 	var arith SolverPlugin
 	if config.nonlinearQuantifierElimination {
-		nonlinear, e := NewNonlinearArithmeticPlugin(th.context, config.produceModels)
+		nonlinear, e := NewNonlinearArithmeticPlugin(th.context, config, config.produceModels)
 		if e != nil {
 			return th, e
 		}
