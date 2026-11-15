@@ -71,6 +71,15 @@ func udocProjectEqualityRange(m *ast.ASTManager, expression ast.ASTHandle) (vari
 	if err != nil {
 		return 0, 0, 0, false, err
 	}
+	// is_var_range accepts any variable; num_sort_bits(Bool) is 1.
+	boolean, err := m.MkBoolSort()
+	if err != nil {
+		return 0, 0, 0, false, err
+	}
+	if sort == boolean {
+		variable, err = m.GetVarIndex(expression)
+		return variable, 0, 0, err == nil, err
+	}
 	size, finite, err := m.DatalogFiniteSortSize(sort)
 	if err != nil || !finite {
 		return 0, 0, 0, false, err

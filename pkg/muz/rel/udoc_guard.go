@@ -24,8 +24,10 @@ func (r *UDocRelation) ExtractGuard(manager *ast.ASTManager, condition ast.ASTHa
 		err = ErrDOC
 		return
 	}
-	var terms []ast.ASTHandle
-	if err = udocFlattenAnd(manager, condition, &terms); err != nil {
+	// extract_guard: conds = flatten_and([cond]) (ast_util's worklist, with
+	// its swap-with-back order and negation pushing).
+	terms, err := manager.FlattenAnd([]ast.ASTHandle{condition})
+	if err != nil {
 		return
 	}
 	guards := make([]ast.ASTHandle, 0, len(terms))
@@ -59,43 +61,6 @@ func udocMakeAnd(manager *ast.ASTManager, terms []ast.ASTHandle) (ast.ASTHandle,
 	default:
 		return manager.MkAndArgs(terms)
 	}
-}
-
-func udocFlattenAnd(m *ast.ASTManager, expression ast.ASTHandle, output *[]ast.ASTHandle) error {
-	kind, err := m.GetKind(expression)
-	if err != nil {
-		return err
-	}
-	if kind != ast.ASTApp {
-		*output = append(*output, expression)
-		return nil
-	}
-	family, err := m.GetFamilyID(expression)
-	if err != nil {
-		return err
-	}
-	declKind, err := m.GetDeclKind(expression)
-	if err != nil {
-		return err
-	}
-	if family != m.BasicFamilyID() || declKind != ast.ASTOpAnd {
-		*output = append(*output, expression)
-		return nil
-	}
-	n, err := m.GetNumArgs(expression)
-	if err != nil {
-		return err
-	}
-	for i := uint32(0); i < n; i++ {
-		arg, e := m.GetArg(expression, i)
-		if e != nil {
-			return e
-		}
-		if e = udocFlattenAnd(m, arg, output); e != nil {
-			return e
-		}
-	}
-	return nil
 }
 
 func udocIsGuard(m *ast.ASTManager, h ast.ASTHandle) (bool, error) {

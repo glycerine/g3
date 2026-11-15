@@ -223,18 +223,21 @@ func (r *UDocRelation) extractRangeEqualities(m *ast.ASTManager, condition ast.A
 		classes.MkVar()
 	}
 	equalities := udocRangeEqualities{classes: classes}
-	var terms []ast.ASTHandle
-	if err := udocFlattenAnd(m, condition, &terms); err != nil {
+	// Source extract_equalities(g, rest, equalities, roots): flatten_and,
+	// then each equality is extracted and replaced by the last conjunct
+	// (conds[i] = conds.back(); pop_back()) before i advances, so the moved
+	// conjunct is not examined; residual equalities are pushed at the back.
+	conds, err := m.FlattenAnd([]ast.ASTHandle{condition})
+	if err != nil {
 		return ast.ASTHandle{}, equalities, err
 	}
-	remaining := make([]ast.ASTHandle, 0, len(terms))
-	for _, term := range terms {
+	for i := 0; i < len(conds); i++ {
+		term := conds[i]
 		kind, err := m.GetKind(term)
 		if err != nil {
 			return ast.ASTHandle{}, equalities, err
 		}
 		if kind != ast.ASTApp {
-			remaining = append(remaining, term)
 			continue
 		}
 		family, err := m.GetFamilyID(term)
@@ -246,7 +249,6 @@ func (r *UDocRelation) extractRangeEqualities(m *ast.ASTManager, condition ast.A
 			return ast.ASTHandle{}, equalities, err
 		}
 		if family != m.BasicFamilyID() || declKind != ast.ASTOpEq {
-			remaining = append(remaining, term)
 			continue
 		}
 		left, err := m.GetArg(term, 0)
@@ -257,41 +259,56 @@ func (r *UDocRelation) extractRangeEqualities(m *ast.ASTManager, condition ast.A
 		if err != nil {
 			return ast.ASTHandle{}, equalities, err
 		}
-		leftVar, leftLow, leftHigh, leftOK, err := udocProjectEqualityRange(m, left)
-		if err != nil {
+		if conds, err = r.extractEquality(m, left, right, conds, &equalities); err != nil {
 			return ast.ASTHandle{}, equalities, err
 		}
-		rightVar, rightLow, rightHigh, rightOK, err := udocProjectEqualityRange(m, right)
-		if err != nil {
-			return ast.ASTHandle{}, equalities, err
-		}
-		if !leftOK || !rightOK {
-			handled, pieces, e := r.extractConcatEquality(m, left, right, &equalities)
-			if e != nil {
-				return ast.ASTHandle{}, equalities, e
-			}
-			if handled {
-				remaining = append(remaining, pieces...)
-				continue
-			}
-			remaining = append(remaining, term)
-			continue
-		}
-		if leftHigh < leftLow || rightHigh < rightLow || leftHigh-leftLow != rightHigh-rightLow || leftVar >= uint32(len(r.widths)) || rightVar >= uint32(len(r.widths)) {
-			return ast.ASTHandle{}, equalities, ErrDOC
-		}
-		leftIndex, rightIndex := r.offsets[leftVar]+leftLow, r.offsets[rightVar]+rightLow
-		length := leftHigh - leftLow + 1
-		if leftIndex+length > r.NumBits() || rightIndex+length > r.NumBits() {
-			return ast.ASTHandle{}, equalities, ErrDOC
-		}
-		for bit := uint32(0); bit < length; bit++ {
-			classes.Merge(leftIndex+bit, rightIndex+bit)
-			equalities.roots = append(equalities.roots, leftIndex+bit)
-		}
+		last := len(conds) - 1
+		conds[i] = conds[last]
+		conds = conds[:last]
 	}
-	rest, err := udocMakeAnd(m, remaining)
+	rest, err := udocMakeAnd(m, conds)
 	return rest, equalities, err
+}
+
+// extractEquality is udoc_relation::extract_equalities(e1, e2, conds, ...):
+// a var-range pair merges column bits, a concatenation is split, and any
+// other equality is pushed back onto conds.
+func (r *UDocRelation) extractEquality(m *ast.ASTManager, left, right ast.ASTHandle, conds []ast.ASTHandle, equalities *udocRangeEqualities) ([]ast.ASTHandle, error) {
+	leftVar, leftLow, leftHigh, leftOK, err := udocProjectEqualityRange(m, left)
+	if err != nil {
+		return conds, err
+	}
+	rightVar, rightLow, rightHigh, rightOK, err := udocProjectEqualityRange(m, right)
+	if err != nil {
+		return conds, err
+	}
+	if !leftOK || !rightOK {
+		handled, pieces, e := r.extractConcatEquality(m, left, right, equalities)
+		if e != nil {
+			return conds, e
+		}
+		if handled {
+			return append(conds, pieces...), nil
+		}
+		equality, e := m.MkEq(left, right)
+		if e != nil {
+			return conds, e
+		}
+		return append(conds, equality), nil
+	}
+	if leftHigh < leftLow || rightHigh < rightLow || leftHigh-leftLow != rightHigh-rightLow || leftVar >= uint32(len(r.widths)) || rightVar >= uint32(len(r.widths)) {
+		return conds, ErrDOC
+	}
+	leftIndex, rightIndex := r.offsets[leftVar]+leftLow, r.offsets[rightVar]+rightLow
+	length := leftHigh - leftLow + 1
+	if leftIndex+length > r.NumBits() || rightIndex+length > r.NumBits() {
+		return conds, ErrDOC
+	}
+	for bit := uint32(0); bit < length; bit++ {
+		equalities.classes.Merge(leftIndex+bit, rightIndex+bit)
+		equalities.roots = append(equalities.roots, leftIndex+bit)
+	}
+	return conds, nil
 }
 
 func (r *UDocRelation) extractConcatEquality(m *ast.ASTManager, left, right ast.ASTHandle, equalities *udocRangeEqualities) (handled bool, residual []ast.ASTHandle, err error) {

@@ -816,3 +816,62 @@ func TestUDocGuardEqualitiesDoNotLeakAcrossConjuncts(t *testing.T) {
 		requireFact(t, relation, []uint64{1, 1, 1}, false)
 	}
 }
+
+// AUDIT.md muz_rel_06-F2: extract_guard splits the conjuncts produced by
+// ast_util flatten_and, whose swap-with-back worklist turns (and A (and B C))
+// into [C, A, B] and pushes (not (or g r)) inward to [(not r), (not g)].
+func TestUDocExtractGuardFollowsFlattenAnd(t *testing.T) {
+	docManager, _ := newTestDocManager(t, 9)
+	source, err := NewUDocRelation(docManager, []uint32{3, 3, 3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, source)
+	m := docASTManager(t)
+	if _, err = m.RegisterArithmeticPlugin(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = m.RegisterBitVectorPlugin(); err != nil {
+		t.Fatal(err)
+	}
+	sort, err := m.BitVectorSort(3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	must := func(h ast.ASTHandle, e error) ast.ASTHandle {
+		t.Helper()
+		if e != nil {
+			t.Fatal(e)
+		}
+		return h
+	}
+	a := must(m.MkVar(0, sort))
+	b := must(m.MkVar(1, sort))
+	c := must(m.MkVar(2, sort))
+	one := must(m.BitVectorNumeralUint64(1, 3))
+	two := must(m.BitVectorNumeralUint64(2, 3))
+	guardA := must(m.MkEq(a, one))
+	guardC := must(m.MkEq(c, two))
+	other := must(m.MkEq(must(m.MkBitVectorAdd(a, b)), c))
+	for _, h := range []ast.ASTHandle{guardA, guardC, other} {
+		if ok, e := udocIsGuard(m, h); e != nil || ok != (h != other) {
+			t.Fatal("guard classification fixture", ok, e)
+		}
+	}
+	condition := must(m.MkAndArgs([]ast.ASTHandle{guardA, must(m.MkAndArgs([]ast.ASTHandle{other, guardC}))}))
+	guard, rest, err := source.ExtractGuard(m, condition)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := must(m.MkAndArgs([]ast.ASTHandle{guardC, guardA})); guard != want || rest != other {
+		t.Fatal("flatten_and guard order", guard, rest)
+	}
+	negated := must(m.MkNot(must(m.MkOr(guardA, other))))
+	guard, rest, err = source.ExtractGuard(m, negated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if guard != must(m.MkNot(guardA)) || rest != must(m.MkNot(other)) {
+		t.Fatal("flatten_and did not push the negation into the disjunction", guard, rest)
+	}
+}
