@@ -1,7 +1,9 @@
 package arith
 
 import (
+	"bytes"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -127,5 +129,47 @@ func TestRecover01ModelReconstructsRealDefinitionFromNegatedBoolean(t *testing.T
 	}
 	if has, err := converted.HasInterpretation(freshDecl); err != nil || has {
 		t.Fatalf("recovered integer helper should be filtered, has=%v err=%v", has, err)
+	}
+}
+
+// AUDIT.md tactic_arith_03-F7: mc1 receives each atom's definition when
+// mk_ivar creates it and each x at the end of process(x), so the extension
+// order interleaves them.
+func TestRecover01ExtensionOrderInterleaved(t *testing.T) {
+	base, m := fixDLFixture(t, false)
+	sort, err := m.MkBoolSort()
+	equationMust(t, err)
+	boolean := func(name string) ast.ASTHandle {
+		symbol, err := m.Symbols.Intern(name)
+		equationMust(t, err)
+		h, err := m.MkConst(symbol, sort)
+		equationMust(t, err)
+		fixDLPin(t, m, h)
+		return h
+	}
+	p, r := boolean("order-p"), boolean("order-r")
+	x, y := fixDLConst(t, m, true, "order-x"), fixDLConst(t, m, true, "order-y")
+	goal := fixDLGoal(t, m, false, true, false)
+	sub, err := m.NewExprSubstitution()
+	equationMust(t, err)
+	defer func() { equationMust(t, m.DelExprSubstitution(&sub)) }()
+	d := &recover01Definitions{manager: m, goal: goal, sub: sub}
+	defer func() { equationMust(t, d.Close()) }()
+	equationMust(t, d.build(x, []ast.ASTHandle{p}, []big.Rat{*big.NewRat(3, 1)}))
+	equationMust(t, d.build(y, []ast.ASTHandle{r}, []big.Rat{*big.NewRat(7, 1)}))
+	var out tactic.TacticResult
+	equationMust(t, out.Prepare(m))
+	defer func() { equationMust(t, out.Close()) }()
+	equationMust(t, d.publishModel(base.services, &out))
+	var display bytes.Buffer
+	equationMust(t, out.ModelConverter.Display(&display))
+	text := display.String()
+	last := -1
+	for _, name := range []string{"order-p", "order-x", "order-r", "order-y"} {
+		at := strings.Index(text, "("+name+" ")
+		if at < 0 || at < last {
+			t.Fatalf("%s out of order:\n%s", name, text)
+		}
+		last = at
 	}
 }

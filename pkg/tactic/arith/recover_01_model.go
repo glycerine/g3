@@ -58,12 +58,11 @@ func (d *recover01Definitions) publishModel(services model.ModelEvaluatorConfig,
 		if e = filter.Insert(decl); e != nil {
 			return e
 		}
-		if e = insert(entry.atom); e != nil {
-			return e
-		}
 	}
-	for _, variable := range d.variables {
-		if e := insert(variable); e != nil {
+	// mc1 interleaves each new atom's definition with the recovered
+	// variable whose process() created it.
+	for _, h := range d.extensionOrder {
+		if e := insert(h); e != nil {
 			return e
 		}
 	}

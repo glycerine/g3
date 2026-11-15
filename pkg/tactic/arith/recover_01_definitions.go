@@ -22,7 +22,10 @@ type recover01Definitions struct {
 	sub       ast.ASTExprSubstitution
 	booleans  []recover01Boolean
 	variables []ast.ASTHandle
-	lookup    map[ast.ASTHandle]int
+	// extensionOrder is the mc1->insert order: each atom when mk_ivar
+	// first creates its 0-1 variable, each x at the end of process(x).
+	extensionOrder []ast.ASTHandle
+	lookup         map[ast.ASTHandle]int
 }
 
 func (d *recover01Definitions) Close() (err error) {
@@ -31,6 +34,7 @@ func (d *recover01Definitions) Close() (err error) {
 		err = errors.Join(err, d.manager.DelRef(&d.booleans[i].fresh))
 	}
 	d.booleans = nil
+	d.extensionOrder = nil
 	d.lookup = nil
 	return err
 }
@@ -65,6 +69,7 @@ func (d *recover01Definitions) booleanVariable(atom ast.ASTHandle) (ast.ASTHandl
 		d.lookup = make(map[ast.ASTHandle]int)
 	}
 	d.lookup[atom] = len(d.booleans) - 1
+	d.extensionOrder = append(d.extensionOrder, atom)
 	zero, err := m.ArithmeticIntegerNumeralText("0")
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -194,5 +199,6 @@ func (d *recover01Definitions) build(variable ast.ASTHandle, literals []ast.ASTH
 		}
 	}
 	d.variables = append(d.variables, variable)
+	d.extensionOrder = append(d.extensionOrder, variable)
 	return nil
 }
