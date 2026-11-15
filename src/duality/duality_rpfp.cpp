@@ -2518,6 +2518,7 @@ namespace Duality {
 
     void RPFP::FixCurrentState(Edge *edge){
         hash_set<ast> dont_cares;
+        // FORK FIX #46 (g3 audit, see FORK_BUGFIXES.md): Duality @under flags are dont-cares in FixCurrentState (AUDIT duality_02-F2)
         // The @under flags are query controls, not part of the state: fixing
         // their polarity contradicts the assumptions of the next
         // ExpansionChoices check.

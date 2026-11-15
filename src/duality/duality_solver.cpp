@@ -1955,6 +1955,7 @@ namespace Duality {
                             if(constrained) goto expand_some_nodes;   // in constrained mode, keep expanding
                             goto we_are_sat;                          // else if underapprox is sat, we stop
                         }
+                        // FORK FIX #47 (g3 audit, see FORK_BUGFIXES.md): re-check before interpolating in Build (AUDIT duality_01-F6)
                         // Discard the proof of CheckWithUnderapprox, which was
                         // derived under the leaf assumptions, before interpolating.
                         tree->Check(top);
