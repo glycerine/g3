@@ -235,6 +235,8 @@ Abstract:
 #include "ast/dl_decl_plugin.h"
 #include "muz/rel/dl_sieve_relation.h"
 #include "muz/rel/rel_context.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/rewriter/th_rewriter.h"
 void register_z3_replayer_cmds(z3_replayer & in);
 #include <iostream>
 #ifndef _WINDOWS
@@ -1921,6 +1923,55 @@ void tst_z3_4_7_1_qe_dl_other_value_neq() {
     qe(m.mk_true(), fml, result);
     std::cout << "qe_dl_other_value_neq: " << mk_pp(fml, m) << " -> " << mk_pp(result, m) << "\n";
     ENSURE(m.is_true(result));
+}
+
+// exists x:S. x != y and x != z over a finite-domain sort of size 2 is
+// (= y z), and exists x:S. x != 0 and x != 1 is false. is_small_domain
+// tests domain_size < #atoms, so with 2 atoms in a 2-element domain the dl
+// plugin uses the large-domain mode, whose "other value" branch assumes a
+// value that differs from every atom; none exists, and z3 eliminates both
+// to true. pkg/AUDIT.md qe_01-F4.
+void tst_z3_4_7_1_qe_dl_domain_boundary() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    datalog::dl_decl_util dl(m);
+    sort_ref s(dl.mk_sort(symbol("S"), 2), m);
+    app_ref y(m.mk_const(symbol("y"), s), m);
+    app_ref z(m.mk_const(symbol("z"), s), m);
+    expr_ref x(m.mk_var(0, s), m);
+    sort* ss[1] = { s };
+    symbol names[1] = { symbol("x") };
+    smt_params fp;
+    expr_ref body(m.mk_and(m.mk_not(m.mk_eq(x, y)), m.mk_not(m.mk_eq(x, z))), m);
+    expr_ref fml(m.mk_exists(1, ss, names, body), m);
+    expr_ref result(m);
+    {
+        qe::expr_quant_elim qe(m, fp);
+        qe(m.mk_true(), fml, result);
+    }
+    std::cout << "qe_dl_domain_boundary: " << mk_pp(fml, m) << " -> " << mk_pp(result, m) << "\n";
+    // Brute force over the domain: result must hold exactly when y = z.
+    for (unsigned yv = 0; yv < 2; ++yv) {
+        for (unsigned zv = 0; zv < 2; ++zv) {
+            expr_safe_replace rep(m);
+            rep.insert(y, dl.mk_numeral(yv, s));
+            rep.insert(z, dl.mk_numeral(zv, s));
+            expr_ref inst(m);
+            rep(result, inst);
+            th_rewriter rw(m);
+            rw(inst);
+            ENSURE(yv == zv ? m.is_true(inst) : m.is_false(inst));
+        }
+    }
+    expr_ref zero(dl.mk_numeral(0, s), m), one(dl.mk_numeral(1, s), m);
+    expr_ref body2(m.mk_and(m.mk_not(m.mk_eq(x, zero)), m.mk_not(m.mk_eq(x, one))), m);
+    expr_ref fml2(m.mk_exists(1, ss, names, body2), m);
+    {
+        qe::expr_quant_elim qe(m, fp);
+        qe(m.mk_true(), fml2, result);
+    }
+    std::cout << "qe_dl_domain_boundary: " << mk_pp(fml2, m) << " -> " << mk_pp(result, m) << "\n";
+    ENSURE(m.is_false(result));
 }
 
 // sieve_relation_plugin::mk_filter_by_negation_fn computes its
