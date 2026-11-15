@@ -13,6 +13,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/util/control"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/messages"
 	uparams "github.com/glycerine/g3/pkg/util/params"
@@ -377,6 +378,9 @@ func (c *CombinedSolver) CheckSat(a []ast.ASTHandle) (lbool.LBool, error) {
 	}
 	if c.incMode {
 		if c.timeout == ^uint32(0) {
+			if e := combinedSolverVerbose("(combined-solver \"using solver 2 (without a timeout)\")\n"); e != nil {
+				return lbool.Undef, e
+			}
 			r, e := c.second.CheckSat(a)
 			if e != nil {
 				return lbool.Undef, e
@@ -399,6 +403,9 @@ func (c *CombinedSolver) CheckSat(a []ast.ASTHandle) (lbool.LBool, error) {
 				return r, nil
 			}
 		} else {
+			if e := combinedSolverVerbose("(combined-solver \"using solver 2 (with timeout)\")\n"); e != nil {
+				return lbool.Undef, e
+			}
 			runner := c.config.RunTimed
 			if runner == nil {
 				runner = runCombinedTimed
@@ -420,9 +427,32 @@ func (c *CombinedSolver) CheckSat(a []ast.ASTHandle) (lbool.LBool, error) {
 				}
 			}
 		}
+		if e := combinedSolverVerbose("(combined-solver \"solver 2 failed, trying solver1\")\n"); e != nil {
+			return lbool.Undef, e
+		}
+	}
+	if e := combinedSolverVerbose("(combined-solver \"using solver 1\")\n"); e != nil {
+		return lbool.Undef, e
 	}
 	c.useFirst = true
 	return c.first.CheckSat(a)
+}
+
+// combinedSolverVerbose is IF_VERBOSE(PS_VB_LVL, verbose_stream() << text)
+// with PS_VB_LVL 15 (combined_solver.cpp). AUDIT.md FUZZ-F5.
+func combinedSolverVerbose(text string) error {
+	enabled, err := diagnostic.ProcessVerboseEnabled(15)
+	if err != nil || !enabled {
+		return err
+	}
+	out, err := diagnostic.BorrowProcessVerboseStream()
+	if err != nil {
+		return err
+	}
+	if err = out.AppendCString(text); err != nil {
+		return err
+	}
+	return out.Flush()
 }
 
 func (c *CombinedSolver) GetConsequences(a, v []ast.ASTHandle) (status lbool.LBool, out []ast.ASTHandle, err error) {

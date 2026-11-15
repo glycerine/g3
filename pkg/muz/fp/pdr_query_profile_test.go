@@ -78,6 +78,8 @@ func TestPDRQueryRuleProfileParameters(t *testing.T) {
 				fragmentMust(t, e.pdrRules.WriteDisplayWithProfile(&expected, tc.profile, tc.threshold))
 				got, err := transformFilteredString(stream)
 				fragmentMust(t, err)
+				// Each SMT check prints (smt.searching) at level 2 (AUDIT.md FUZZ-F5).
+				got = strings.ReplaceAll(got, "(smt.searching)\n", "")
 				if !strings.HasPrefix(got, expected.String()) {
 					t.Fatalf("diagnostic did not honor parameter precedence: got %q; want prefix %q", got, expected.String())
 				}

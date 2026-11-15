@@ -1423,6 +1423,22 @@ func (c *Context) restoreAssertions(size int) error {
 }
 
 func (c *Context) CheckSat(assumptions []ast.ASTHandle) (status lbool.LBool, err error) {
+	// IF_VERBOSE(100, verbose_stream() << "(started \"check-sat\")" << std::endl;)
+	// before init_manager (AUDIT.md FUZZ-F5).
+	if enabled, verr := diagnostic.ProcessVerboseEnabled(100); verr != nil {
+		return lbool.Undef, verr
+	} else if enabled {
+		out, verr := diagnostic.BorrowProcessVerboseStream()
+		if verr == nil {
+			verr = out.AppendCString("(started \"check-sat\")\n")
+		}
+		if verr == nil {
+			verr = out.Flush()
+		}
+		if verr != nil {
+			return lbool.Undef, verr
+		}
+	}
 	if _, err := c.Manager(); err != nil {
 		return lbool.Undef, err
 	}

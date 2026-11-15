@@ -68,7 +68,8 @@ func (t *SMTDenseDiffTheory) ConfigureArithmetic(config SMTArithState) error {
 	return nil
 }
 
-func (*SMTDenseDiffTheory) Name() string { return "dense-difference-logic" }
+// Name is theory_dense_diff_logic::get_name (AUDIT.md FUZZ-F5).
+func (*SMTDenseDiffTheory) Name() string { return "difference-logic" }
 
 func (t *SMTDenseDiffTheory) createVariable(node *SMTEnode) (SMTTheoryVar, error) {
 	if t.IsAttachedToVariable(node) {

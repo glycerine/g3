@@ -92,6 +92,15 @@ func (s *SMTInternalizerState) FinalCheckTheories() (SMTFinalCheckStatus, error)
 		status := SMTFinalCheckDone
 		var err error
 		if index < count {
+			// IF_VERBOSE(100, "(smt.final-check \"" << th->get_name() << "\")")
+			// (AUDIT.md FUZZ-F5).
+			name := "unknown"
+			if named, ok := s.theoryOrder[index].(interface{ Name() string }); ok {
+				name = named.Name()
+			}
+			if err = assertedVerbose(100, "(smt.final-check \""+name+"\")\n"); err != nil {
+				return SMTFinalCheckGiveUp, err
+			}
 			status, err = s.theoryOrder[index].FinalCheck()
 		} else if s.quantifierManager != nil {
 			status, err = s.quantifierManager.FinalCheck(true)

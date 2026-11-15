@@ -852,3 +852,6 @@ func (t *SMTFloatingPointTheory) FinalizeModel(generator *SMTModelGenerator) (re
 var _ SMTTheoryInternalizer = (*SMTFloatingPointTheory)(nil)
 var _ SMTModelValueTheory = (*SMTFloatingPointTheory)(nil)
 var _ SMTModelFinalizer = (*SMTFloatingPointTheory)(nil)
+
+// Name is theory_fpa::get_name (AUDIT.md FUZZ-F5).
+func (*SMTFloatingPointTheory) Name() string { return "fpa" }

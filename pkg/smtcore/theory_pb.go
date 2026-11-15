@@ -279,7 +279,9 @@ func (t *SMTPseudoBooleanTheory) FinalCheck() (SMTFinalCheckStatus, error) {
 	}
 	return SMTFinalCheckDone, nil
 }
-func (*SMTPseudoBooleanTheory) Name() string { return "pb" }
+
+// Name is theory::get_name; theory_pb does not override it (AUDIT.md FUZZ-F5).
+func (*SMTPseudoBooleanTheory) Name() string { return "unknown" }
 
 func (t *SMTPseudoBooleanTheory) PushScope() error {
 	if err := t.SMTTheoryBase.PushScope(); err != nil {

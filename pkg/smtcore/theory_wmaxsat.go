@@ -311,3 +311,7 @@ func (t *SMTWeightedMaxTheory) FinalCheck() (SMTFinalCheckStatus, error) {
 	}
 	return SMTFinalCheckDone, nil
 }
+
+// Name is theory::get_name; theory_wmaxsat does not override it
+// (AUDIT.md FUZZ-F5).
+func (*SMTWeightedMaxTheory) Name() string { return "unknown" }

@@ -157,7 +157,9 @@ func TestTabQuerySelectionVerboseTranscriptAndState(t *testing.T) {
 					case 1:
 						want = "g0 (diagnostic-p 0)\ng3 (diagnostic-p 1)\n"
 					case 2:
-						want = "g0 (diagnostic-p 0)\n(diagnostic-p 0)\n(diagnostic-q 0)\ntrue\ng3 (diagnostic-p 1)\n(diagnostic-p 1)\n(diagnostic-q 1)\n"
+						// Each SMT check prints (smt.searching) at level 2
+						// (context::search; AUDIT.md FUZZ-F5).
+						want = "g0 (diagnostic-p 0)\n(diagnostic-p 0)\n(smt.searching)\n(diagnostic-q 0)\n(smt.searching)\ntrue\ng3 (diagnostic-p 1)\n(diagnostic-p 1)\n(smt.searching)\n(diagnostic-q 1)\n"
 					}
 				}
 				if output.String() != want {

@@ -288,6 +288,11 @@ func (k *SMTKernel) search() (result lbool.LBool, resultErr error) {
 	if err != nil {
 		return lbool.Undef, err
 	}
+	// IF_VERBOSE(2, verbose_stream() << "(smt.searching)\n";) after
+	// init_search (AUDIT.md FUZZ-F5).
+	if err = assertedVerbose(2, "(smt.searching)\n"); err != nil {
+		return lbool.Undef, errors.Join(err, k.endSearch(session))
+	}
 	defer func() {
 		resultErr = errors.Join(resultErr, k.endSearch(session))
 		k.lastSearch = session
@@ -544,6 +549,10 @@ func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool,
 			switch modelStatus {
 			case SMTQuantifierModelSAT:
 			case SMTQuantifierModelUnknown:
+				// restart: IF_VERBOSE(2, "(smt.giveup quantifiers)") (AUDIT.md FUZZ-F5).
+				if err = assertedVerbose(2, "(smt.giveup quantifiers)\n"); err != nil {
+					return lbool.Undef, false, err
+				}
 				k.lastFailure = SMTFailureQuantifiers
 				return lbool.Undef, false, nil
 			case SMTQuantifierModelRestart:
