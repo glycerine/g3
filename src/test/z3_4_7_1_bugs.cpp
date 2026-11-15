@@ -53,6 +53,9 @@ Abstract:
                                   facts only at level 0; it aborts in
                                   VERIFY(unify_rules) (pkg/AUDIT.md
                                   muz_small_01-F8, upstream 784b613b5).
+    z3_4_7_1_ddnf_extract_width   DDNF compile_eq looks an extract equality
+                                  up by the constant's width and segfaults
+                                  (pkg/AUDIT.md muz_small_01-F9).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -511,4 +514,42 @@ void tst_z3_4_7_1_qbmc_eval_level() {
     std::cout << "qbmc_eval_level: got\n" << out.str();
     ENSURE(out.str().compare(0, 4, "sat\n") == 0);
     ENSURE(out.str().find("(asserted (p 0))") != std::string::npos);
+}
+
+// DDNF compile_eq looked the tbv of (= ((_ extract 0 0) x) #b1) up in the
+// DDNF of the constant's width (1). process_eq stored it in the DDNF of x's
+// width (4); no 1-bit DDNF exists and z3 segfaulted. pkg/AUDIT.md
+// muz_small_01-F9. Still present upstream.
+void tst_z3_4_7_1_ddnf_extract_width() {
+    char const* script =
+        "(set-option :fixedpoint.engine ddnf)\n"
+        "(declare-rel p ((_ BitVec 4)))\n"
+        "(declare-rel q ())\n"
+        "(declare-var x (_ BitVec 4))\n"
+        "(rule (=> (= x #x5) (p x)))\n"
+        "(rule (=> (and (p x) (= ((_ extract 0 0) x) #b1)) q))\n"
+        "(query q)\n";
+    // The ddnf engine dumps the compiled rules to std::cout.
+    std::ostringstream out;
+    std::streambuf* saved = std::cout.rdbuf(out.rdbuf());
+    {
+        cmd_context ctx;
+        ctx.set_solver_factory(mk_smt_strategic_solver_factory());
+        install_dl_cmds(ctx);
+        ctx.set_regular_stream(out);
+        ctx.set_diagnostic_stream(out);
+        std::istringstream in(script);
+        parse_smt2_commands(ctx, in);
+    }
+    std::cout.rdbuf(saved);
+    std::string expected =
+        "(declare-rel q ())\n"
+        "(declare-rel p ((_ BitVec 2)))\n"
+        "(declare-var A (_ BitVec 2))\n"
+        "(rule (=> (= A #b01) (p A)))\n"
+        "(rule (=> (and (p A) (or (= A #b01) (= A #b10))) q))\n"
+        "(query q)\n"
+        "unknown\n";
+    std::cout << "ddnf_extract_width: expected\n" << expected << "got\n" << out.str();
+    ENSURE(out.str() == expected);
 }
