@@ -185,7 +185,11 @@ Notes:
             }
         };
 
-        psort_nw(psort_expr& c): ctx(c) {}
+        // FORK FIX #90: m_t was left uninitialized, and sortmax calls
+        // sorting() without ge/le/eq, so its network clauses followed
+        // whatever m_t held (as LE they let outputs hold without their
+        // inputs). Upstream initializes it to GE.
+        psort_nw(psort_expr& c): ctx(c), m_t(GE) {}
 
         literal ge(bool full, unsigned k, unsigned n, literal const* xs) {
             if (k > n) {
