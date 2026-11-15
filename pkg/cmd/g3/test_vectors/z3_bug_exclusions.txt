@@ -386,3 +386,18 @@ z3_bug_qe_mod_negative_divisor
 # AUDIT.md qe_01-F3). Reproduction:
 # test_vectors/z3_bug_qe_mod_negative_nested.smt2.
 z3_bug_qe_mod_negative_nested
+#
+# qe datatype equality branch drops the recognizer: for an equality branch
+# x = t, datatype_plugin::subst_rec replaces the recognizers of x by
+# true/false and x by t, but adds no r(t), so
+# exists x. is-nil(x) and (x = y or x = z) becomes true (z3 bug:
+# src/qe/qe_datatype_plugin.cpp:715-723 subst_rec; still present
+# upstream). g3 conjoins r(t) (pkg/qe/expr_quantifier_scalar_branch.go
+# stepExprQEScalarBranch; AUDIT.md qe_02-F4). Reproductions:
+# test_vectors/z3_bug_qe_dt_recursive_eq_recognizer.smt2,
+# z3_bug_qe_dt_recursive_eq_recognizer_cons.smt2.
+z3_bug_qe_dt_recursive_eq_recognizer
+#
+# qe datatype equality branch, cons variant: z3 4.7.1 omits
+# ((_ is cons) (tl y)); see z3_bug_qe_dt_recursive_eq_recognizer above.
+z3_bug_qe_dt_recursive_eq_recognizer_cons

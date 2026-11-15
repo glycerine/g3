@@ -1,0 +1,5 @@
+(declare-datatypes ((Lst 0)) (((cons (hd Int) (tl Lst)) (nil))))
+(declare-const y Lst)
+(declare-const z Lst)
+(assert (exists ((x Lst)) (and ((_ is nil) x) (or (= x y) (= x z)))))
+(apply qe)

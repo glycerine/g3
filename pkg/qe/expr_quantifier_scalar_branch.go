@@ -190,6 +190,10 @@ func stepExprQEScalarBranch(parent *exprQETree, variables *exprQEBranchVariables
 	}
 	// A recursive equality branch assumes the selected constructor. Preserve
 	// that assumption on the replacement term in the projected formula.
+	// z3 4.7.1 bug kept out of g3: datatype_plugin::subst_rec
+	// (qe_datatype_plugin.cpp:715-723) substitutes x := t and drops r(t), so
+	// (apply qe) is unsound (AUDIT.md qe_02-F4;
+	// test_vectors/z3_bug_qe_dt_recursive_eq_recognizer.smt2).
 	if datatype != nil {
 		cached := datatype.equalities[arithmeticPluginKey{variable: variable, formula: formula}]
 		index, e := m.NumeralService().Unsigned(&n)
