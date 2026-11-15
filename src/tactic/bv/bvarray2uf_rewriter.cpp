@@ -214,7 +214,8 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
         
     }
     else if (f->get_family_id() == m_manager.get_basic_family_id() && is_bv_array(f->get_range())) {
-        NOT_IMPLEMENTED_YET();
+        // FORK FIX #82 (g3 audit, see FORK_BUGFIXES.md): backport of upstream 4bad2dd92: report instead of exiting
+        throw default_exception("not handled by bvarray2uf");
     }
     else if (f->get_family_id() == null_family_id) {
         TRACE("bvarray2uf_rw", tout << "UF APP: " << f->get_name() << std::endl; );
@@ -364,8 +365,8 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
                     }
                 }
                 else {
-                    NOT_IMPLEMENTED_YET();
-                    res = BR_FAILED;
+                    // FORK FIX #82 (g3 audit, see FORK_BUGFIXES.md): backport of upstream 4bad2dd92: report instead of exiting
+                    throw default_exception("not handled by bvarray2uf");
                 }
             }
         }
@@ -397,15 +398,15 @@ bool bvarray2uf_rewriter_cfg::reduce_quantifier(quantifier * old_q,
     expr * const * new_no_patterns,
     expr_ref & result,
     proof_ref & result_pr) {
-    NOT_IMPLEMENTED_YET();
-    return true;
+    // FORK FIX #82 (g3 audit, see FORK_BUGFIXES.md): backport of upstream 4bad2dd92: report instead of exiting
+    throw default_exception("not handled by bvarray2uf");
 }
 
 bool bvarray2uf_rewriter_cfg::reduce_var(var * t, expr_ref & result, proof_ref & result_pr) {
     if (t->get_idx() >= m_bindings.size())
         return false;
-    NOT_IMPLEMENTED_YET();
-    return true;
+    // FORK FIX #82 (g3 audit, see FORK_BUGFIXES.md): backport of upstream 4bad2dd92: report instead of exiting
+    throw default_exception("not handled by bvarray2uf");
 }
 
 template class rewriter_tpl<bvarray2uf_rewriter_cfg>;
