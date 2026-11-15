@@ -36,20 +36,54 @@ type factorInvocation struct {
 	rationals   *unumeral.RationalManager
 }
 
-func (i *factorInvocation) close() (err error) {
+// close is ~imp: the C++ members' destructors cannot fail. A Go owner that
+// refuses to close stays referenced here, so the tactic retries it (see
+// drainPending) instead of dropping it with live memory.
+func (i *factorInvocation) close() error {
 	if i.expressions != nil {
-		err = errors.Join(err, i.expressions.Close())
+		if err := i.expressions.Close(); err != nil {
+			return err
+		}
 		i.expressions = nil
 	}
 	if i.polynomials != nil {
-		err = errors.Join(err, i.polynomials.CloseChecked())
+		// A factor call stopped by an exception still owns its scoped frames.
+		if err := i.polynomials.CleanupFactor(); err != nil {
+			return err
+		}
+		if err := i.polynomials.CloseChecked(); err != nil {
+			return err
+		}
 		i.polynomials = nil
 	}
 	if i.primes != nil {
-		err = errors.Join(err, i.primes.Close())
+		if err := i.primes.Close(); err != nil {
+			return err
+		}
 		i.primes = nil
 	}
+	return nil
+}
+
+// abandon closes a partly constructed invocation, retaining it on refusal.
+func (i *factorInvocation) abandon() error {
+	err := i.close()
+	if err != nil {
+		i.owner.pending = append(i.owner.pending, i)
+	}
 	return err
+}
+
+// drainPending retries invocations whose owners refused to close.
+func (t *FactorTactic) drainPending() error {
+	for len(t.pending) > 0 {
+		if err := t.pending[0].close(); err != nil {
+			return err
+		}
+		t.pending = t.pending[1:]
+	}
+	t.pending = nil
+	return nil
 }
 
 type factorRewriteConfig struct {
@@ -546,6 +580,7 @@ type FactorTactic struct {
 	refs         uint32
 	ownerBytes   uint64
 	closed       bool
+	pending      []*factorInvocation
 }
 
 var _ tactic.Tactic = (*FactorTactic)(nil)
@@ -686,6 +721,9 @@ func (t *FactorTactic) Close() error {
 	if t.closed {
 		return nil
 	}
+	if err := t.drainPending(); err != nil {
+		return err
+	}
 	err := t.context.Del(&t.params)
 	t.manager.Budget().Release(t.ownerBytes)
 	t.ownerBytes = 0
@@ -713,14 +751,14 @@ func (t *FactorTactic) newInvocation() (*factorInvocation, error) {
 		Factorization: polynomial.UPolynomialFactorizationConfig{Primes: i.primes}, Trace: t.services.Trace,
 	})
 	if err != nil {
-		return nil, errors.Join(err, i.close())
+		return nil, errors.Join(err, i.abandon())
 	}
 	i.core, err = i.polynomials.ArithmeticCore()
 	if err == nil {
 		i.expressions, err = ast.NewExpr2Polynomial(ast.Expr2PolynomialConfig{AST: t.manager, Polynomial: i.polynomials})
 	}
 	if err != nil {
-		return nil, errors.Join(err, i.close())
+		return nil, errors.Join(err, i.abandon())
 	}
 	return i, nil
 }
@@ -751,11 +789,14 @@ func (t *FactorTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	if report != nil {
 		defer func() { err = errors.Join(err, report.Close()) }()
 	}
+	if err = t.drainPending(); err != nil {
+		return err
+	}
 	invocation, err := t.newInvocation()
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, invocation.close()) }()
+	defer func() { err = errors.Join(err, invocation.abandon()) }()
 	config := &factorRewriteConfig{invocation: invocation}
 	proofs, err := goal.ProofsEnabled()
 	if err != nil {

@@ -179,3 +179,35 @@ func TestFactorTacticCancelInsideFactorReleasesFrame(t *testing.T) {
 		t.Fatal("no resource limit canceled the factor tactic")
 	}
 }
+
+// ~imp cannot fail in C++. An invocation whose Go owner refuses to close is
+// retained and closed later by the tactic instead of being dropped live.
+func TestFactorTacticRetainsRefusedInvocation(t *testing.T) {
+	base, m := fixDLFixture(t, false)
+	runner, err := NewFactorTactic(m, base.context, base.globals, nil, base.services)
+	equationMust(t, err)
+	invocation, err := runner.newInvocation()
+	equationMust(t, err)
+	// A live polynomial reference keeps the polynomial manager from closing.
+	live, err := polynomial.NewPolynomialRef(invocation.core)
+	equationMust(t, err)
+	x, err := invocation.core.MkVar()
+	equationMust(t, err)
+	p, err := invocation.core.MkVariable(x, 2)
+	equationMust(t, err)
+	equationMust(t, live.Assign(p))
+	if err := invocation.abandon(); err == nil {
+		t.Fatal("polynomial manager closed with a live polynomial reference")
+	}
+	if len(runner.pending) != 1 || invocation.polynomials == nil {
+		t.Fatal("refused invocation was not retained", len(runner.pending))
+	}
+	if err := runner.Close(); err == nil {
+		t.Fatal("tactic closed with a retained live invocation")
+	}
+	equationMust(t, live.Close())
+	equationMust(t, runner.Close())
+	if len(runner.pending) != 0 || invocation.polynomials != nil || invocation.primes != nil {
+		t.Fatal("retained invocation was not closed")
+	}
+}
