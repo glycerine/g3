@@ -719,15 +719,16 @@ func (t *FullTranslation) gcdToDivisionRule(proof ast.ASTHandle, positive bool, 
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
+	// t = z3_simplify(mk_idiv(t,d)); c = z3_simplify(mk_idiv(c,d));
 	left, err = t.ownedIntegerDivision(left, divisor)
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
-	right, err = t.ownedIntegerDivision(right, divisor)
+	left, err = t.ownedSimplify(left)
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
-	left, err = t.ownedSimplify(left)
+	right, err = t.ownedIntegerDivision(right, divisor)
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
@@ -803,11 +804,6 @@ func (t *FullTranslation) translateAssignBounds(proof, conclusion ast.ASTHandle,
 				return ast.ASTHandle{}, e
 			}
 			inputs = append(inputs, input)
-			hypothesis, e := direct.MakeHypothesis(input)
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			inputProofs = append(inputProofs, hypothesis)
 		}
 	} else if len(coefficients) != len(premises)+1 {
 		return ast.ASTHandle{}, NewError("bad assign-bounds theory lemma")
@@ -839,9 +835,26 @@ func (t *FullTranslation) translateAssignBounds(proof, conclusion ast.ASTHandle,
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	// my_cons.push_back(mk_not(farkas_con)); my_coeffs.push_back(make_int("1"));
+	// then the hypotheses: AssignBounds2Farkas makes one for every my_cons
+	// entry (the negated literals, then mk_not(farkas_con)) only now, and
+	// AssignBoundsRule2Farkas only for mk_not(farkas_con).
 	negative, err := t.base.manager.MkNot(farkasConclusion)
 	if err != nil {
 		return ast.ASTHandle{}, err
+	}
+	one, err := t.base.manager.MakeIntText("1")
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if len(premises) == 0 {
+		for _, input := range inputs {
+			hypothesis, e := direct.MakeHypothesis(input)
+			if e != nil {
+				return ast.ASTHandle{}, e
+			}
+			inputProofs = append(inputProofs, hypothesis)
+		}
 	}
 	hypothesis, err := direct.MakeHypothesis(negative)
 	if err != nil {
@@ -849,10 +862,6 @@ func (t *FullTranslation) translateAssignBounds(proof, conclusion ast.ASTHandle,
 	}
 	inputs = append(inputs, negative)
 	inputProofs = append(inputProofs, hypothesis)
-	one, err := t.base.manager.MakeIntText("1")
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
 	farkasCoefficients := append([]ast.ASTHandle(nil), coefficients[1:]...)
 	farkasCoefficients = append(farkasCoefficients, one)
 	falsehood, err := t.base.manager.Make(OperatorFalse)

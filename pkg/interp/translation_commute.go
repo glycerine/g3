@@ -65,11 +65,13 @@ func (t *FullTranslation) commuteEqualityIff(conclusion ast.ASTHandle) (ast.ASTH
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	left, err = t.commuteEquality(left)
+	// make(Iff,commute_equality(arg(con,0)),commute_equality(arg(con,1))):
+	// GCC evaluates the right argument first.
+	right, err = t.commuteEquality(right)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	right, err = t.commuteEquality(right)
+	left, err = t.commuteEquality(left)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -171,11 +173,13 @@ func (t *FullTranslation) makeCommutedMonotonicity(premise ast.ASTHandle, direct
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	left, err = t.base.manager.MkNot(left)
+	// make(Iff,make(Not,arg(comm_equiv,0)),make(Not,arg(comm_equiv,1))):
+	// raw Not applications, the right one built first.
+	right, err = t.base.manager.Make(OperatorNot, right)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	right, err = t.base.manager.MkNot(right)
+	left, err = t.base.manager.Make(OperatorNot, left)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}

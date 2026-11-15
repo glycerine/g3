@@ -633,11 +633,11 @@ func (t *FullTranslation) translateEqualityPropagation(conclusion ast.ASTHandle,
 	}
 	inequalities := make([]ast.ASTHandle, 2)
 	proofs := make([]ast.ASTHandle, 2)
-	inequalities[0], err = t.base.manager.Make(OperatorLE, left, right)
-	if err == nil {
-		inequalities[1], err = t.base.manager.Make(OperatorGE, left, right)
-	}
-	for i := range inequalities {
+	// EqPropagate makes each inequality and reconstructs it before the next.
+	for i, op := range []Operator{OperatorLE, OperatorGE} {
+		if err == nil {
+			inequalities[i], err = t.base.manager.Make(op, left, right)
+		}
 		if err == nil {
 			proofs[i], err = t.reconstructFarkas(sourcePremises, translatedPremises, inequalities[i], direct)
 		}

@@ -348,11 +348,13 @@ func (t *FullTranslation) translateProofIdiom(proof, conclusion ast.ASTHandle, r
 						if e != nil {
 							return ast.ASTHandle{}, false, e
 						}
-						notEq1, e := t.base.manager.MkNot(eq1)
+						// make(Iff,make(Not,eq1),make(Not,eq0)): raw Not,
+						// right argument first.
+						notEq0, e := t.base.manager.Make(OperatorNot, eq0)
 						if e != nil {
 							return ast.ASTHandle{}, false, e
 						}
-						notEq0, e := t.base.manager.MkNot(eq0)
+						notEq1, e := t.base.manager.Make(OperatorNot, eq1)
 						if e != nil {
 							return ast.ASTHandle{}, false, e
 						}

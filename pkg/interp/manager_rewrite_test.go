@@ -572,3 +572,48 @@ func TestFullTranslationArrayLemmaHonorsExpectClause(t *testing.T) {
 		}
 	}
 }
+
+// AUDIT.md interp_02-F9: commute_equality_iff is
+// make(Iff,commute_equality(arg(con,0)),commute_equality(arg(con,1))); GCC
+// commutes the right equality first, so it gets the lower AST id.
+func TestFullTranslationCommuteEqualityIffBuildOrder(t *testing.T) {
+	m, manager := interpRewritingManagerFixture(t)
+	integer, err := manager.IntType()
+	interpMust(t, err)
+	variable := func(name string) ast.ASTHandle {
+		h, e := manager.MakeVariable(name, integer)
+		interpMust(t, e)
+		return interpPin(t, m, h)
+	}
+	a, b, c, d := variable("commute-order-a"), variable("commute-order-b"), variable("commute-order-c"), variable("commute-order-d")
+	zero, err := manager.MakeIntText("0")
+	interpMust(t, err)
+	frame, err := manager.Make(OperatorLE, a, zero)
+	interpMust(t, err)
+	base, err := NewBase(manager, []ast.ASTHandle{frame}, nil, nil)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, base.Close()) })
+	translation, err := NewFullTranslation(base)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, translation.Close()) })
+	ab, err := manager.Make(OperatorEqual, a, b)
+	interpMust(t, err)
+	cd, err := manager.Make(OperatorEqual, c, d)
+	interpMust(t, err)
+	conclusion, err := manager.Make(OperatorIff, ab, cd)
+	interpMust(t, err)
+	conclusion = interpPin(t, m, conclusion)
+	commuted, err := translation.commuteEqualityIff(conclusion)
+	interpMust(t, err)
+	left, err := manager.Arg(commuted, 0)
+	interpMust(t, err)
+	right, err := manager.Arg(commuted, 1)
+	interpMust(t, err)
+	leftID, err := manager.ASTID(left)
+	interpMust(t, err)
+	rightID, err := manager.ASTID(right)
+	interpMust(t, err)
+	if rightID > leftID {
+		t.Fatal("left equality commuted before the right one", leftID, rightID)
+	}
+}

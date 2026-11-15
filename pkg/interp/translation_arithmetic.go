@@ -230,11 +230,11 @@ func (t *FullTranslation) RHSNormalizeInequality(inequality ast.ASTHandle) (ast.
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	one, err := t.base.manager.MakeIntText("1")
+	result, err := t.base.manager.Make(OperatorLE, zero, zero)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	result, err := t.base.manager.Make(OperatorLE, zero, zero)
+	one, err := t.base.manager.MakeIntText("1")
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
