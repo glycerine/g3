@@ -112,7 +112,7 @@ func TestLinearBMCVerboseLevelLines(t *testing.T) {
 			if status != lbool.True {
 				t.Fatal("linear query", status)
 			}
-			got, err := stream.String()
+			got, err := transformFilteredString(stream)
 			fragmentMust(t, err)
 			if got != want {
 				t.Fatalf("verbose output %q, want %q", got, want)
