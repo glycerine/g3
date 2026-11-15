@@ -63,13 +63,15 @@ type SMTKernel struct {
 	lastFailure      SMTFailure
 	// lastSearch is the session of the latest search (its search level,
 	// conflict base and restart state), which get_consequences resumes.
-	lastSearch       *smtSearchSession
-	unknown          string
-	labels           []usymbol.Symbol
-	assignments      []ast.ASTHandle
-	relevantLiterals []ast.ASTHandle
-	relevantLabeled  []ast.ASTHandle
-	guessed          []ast.ASTHandle
+	lastSearch *smtSearchSession
+	// consequenceVar2Val is context::m_var2val (get_consequences).
+	consequenceVar2Val *seqObjHashtable
+	unknown            string
+	labels             []usymbol.Symbol
+	assignments        []ast.ASTHandle
+	relevantLiterals   []ast.ASTHandle
+	relevantLabeled    []ast.ASTHandle
+	guessed            []ast.ASTHandle
 	// pendingResults records the literals of the latest satisfiable check;
 	// the result expressions are built on the first query, as the source
 	// getters build them, not when the check ends.

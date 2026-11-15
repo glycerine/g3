@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_02-F7: get-consequences reuses m_var2val and its capacity
+	"get_consequences_table_reuse.smt2": "sat\n\nsat\n\n(=> true v0)\n(=> true v2)\n(=> true v3)\n(=> true v4)\n(=> true v1)\n(=> true v5)\n(=> true v6)\n(=> true v7)\n",
 	// AUDIT.md smtcore_05-F5: model_checker::check sets the mbqi iteration-limit reason
 	"mbqi_max_iterations_reason_unknown.smt2": "unknown\n(:reason-unknown \"(incomplete quantifiers)\")\nsat\n(:reason-unknown \"max mbqi instantiations reached\")\n",
 	// AUDIT.md smtcore_02-F8: eq-propagate proof fact uses mk_eq_atom order

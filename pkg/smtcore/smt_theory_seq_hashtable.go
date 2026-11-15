@@ -175,6 +175,27 @@ func (h *seqObjHashtable) remove(e ast.ASTHandle) error {
 	return nil
 }
 
+// reset is core_hashtable::reset: free every slot and keep the capacity,
+// halving it when more than three quarters of a table above 16 were free.
+func (h *seqObjHashtable) reset() {
+	if h.size == 0 && h.numDeleted == 0 {
+		return
+	}
+	overhead := 0
+	for i := range h.table {
+		if h.table[i].state != seqObjFree {
+			h.table[i] = seqObjEntry{}
+		} else {
+			overhead++
+		}
+	}
+	if len(h.table) > 16 && overhead<<2 > len(h.table)*3 {
+		h.table = make([]seqObjEntry, len(h.table)>>1)
+	}
+	h.size = 0
+	h.numDeleted = 0
+}
+
 // elems returns the elements in the source's iteration order.
 func (h *seqObjHashtable) elems() []ast.ASTHandle {
 	result := make([]ast.ASTHandle, 0, h.size)

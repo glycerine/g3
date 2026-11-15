@@ -46,7 +46,7 @@ type smtConsequences struct {
 	k               *SMTKernel
 	m               *ast.ASTManager
 	antecedents     map[int32]smtIndexSet
-	var2val         seqObjHashtable
+	var2val         *seqObjHashtable // the kernel's m_var2val
 	var2orig        map[ast.ASTHandle]ast.ASTHandle
 	assumption2orig map[ast.ASTHandle]ast.ASTHandle
 	refs            []ast.ASTRef // expr_ref locals and the trail
@@ -476,7 +476,11 @@ func (k *SMTKernel) resumeSearch(searchLevel uint32, assumptions bool) (*smtSear
 // from the returned refs, which the caller releases.
 func (k *SMTKernel) GetConsequences(assumptions0, vars0 []ast.ASTHandle, evaluate func(ast.ASTHandle) (ast.ASTRef, error)) (status lbool.LBool, conseq []ast.ASTRef, resultErr error) {
 	m := k.manager
-	c := &smtConsequences{k: k, m: m, antecedents: map[int32]smtIndexSet{0: nil}, var2val: newSeqObjHashtable(m),
+	if k.consequenceVar2Val == nil {
+		table := newSeqObjHashtable(m)
+		k.consequenceVar2Val = &table
+	}
+	c := &smtConsequences{k: k, m: m, antecedents: map[int32]smtIndexSet{0: nil}, var2val: k.consequenceVar2Val,
 		var2orig: map[ast.ASTHandle]ast.ASTHandle{}, assumption2orig: map[ast.ASTHandle]ast.ASTHandle{}}
 	defer func() {
 		if resultErr == nil {
@@ -494,6 +498,9 @@ func (k *SMTKernel) GetConsequences(assumptions0, vars0 []ast.ASTHandle, evaluat
 	if err := k.popToBaseLevel(); err != nil {
 		return lbool.Undef, nil, err
 	}
+	// m_var2val is a context member: reset keeps the capacity an earlier
+	// call left, which fixes the iteration order of this call.
+	c.var2val.reset()
 	pushed := false
 	pop := func() error {
 		if pushed {
