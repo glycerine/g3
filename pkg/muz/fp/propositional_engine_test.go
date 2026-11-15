@@ -94,14 +94,14 @@ func TestPropositionalEngineMatchesCPPFixedpointQueries(t *testing.T) {
 		add(formula, edge.from+"-"+edge.to)
 	}
 	got := make([]lbool.LBool, 2)
-	got[0], err = engine.Query(applications["R"])
+	got[0], err = queryRelation(t, engine, applications["R"])
 	fpMust(t, err)
 	compiled, err := engine.LastQueryUsedCompiledCode()
 	fpMust(t, err)
 	if !compiled {
 		t.Fatal("supported finite Horn program bypassed relational bytecode")
 	}
-	got[1], err = engine.Query(applications["U"])
+	got[1], err = queryRelation(t, engine, applications["U"])
 	fpMust(t, err)
 	combined, err := engine.QueryPredicates([]ast.ASTHandle{declarations["U"], declarations["R"]})
 	fpMust(t, err)
@@ -908,7 +908,7 @@ func TestPropositionalEngineCompilesSimpleJoinNormalization(t *testing.T) {
 	rule, err := manager.MkImplies(body, applications[3])
 	fpMust(t, err)
 	fpMust(t, engine.AddRule(rule, "simple-join-goal"))
-	status, err := engine.Query(applications[3])
+	status, err := queryRelation(t, engine, applications[3])
 	fpMust(t, err)
 	if status != lbool.True {
 		t.Fatal("three-tail rule was not derived", status)
@@ -1007,18 +1007,18 @@ func TestPropositionalEngineExecutesStratifiedNegation(t *testing.T) {
 	fpMust(t, err)
 	defer func() { fpMust(t, manager.DelRef(&formulaRef)) }()
 	fpMust(t, engine.AddRule(formula, "negative"))
-	status, err := engine.Query(applications["Q"])
+	status, err := queryRelation(t, engine, applications["Q"])
 	fpMust(t, err)
 	if status != lbool.True {
 		t.Fatal("stratified negative Horn rule was not derived", status)
 	}
-	status, err = engine.Query(applications["Q"])
+	status, err = queryRelation(t, engine, applications["Q"])
 	fpMust(t, err)
 	if status != lbool.True {
 		t.Fatal("repeated stratified negative query lost its result", status)
 	}
 	fpMust(t, engine.AddFact(declarations["P"], nil))
-	status, err = engine.Query(applications["Q"])
+	status, err = queryRelation(t, engine, applications["Q"])
 	fpMust(t, err)
 	if status != lbool.False {
 		t.Fatal("negation-dependent result survived a new positive fact", status)

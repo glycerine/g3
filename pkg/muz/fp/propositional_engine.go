@@ -3391,28 +3391,11 @@ func (e *PropositionalEngine) Query(query ast.ASTHandle) (lbool.LBool, error) {
 	if err := e.open(); err != nil {
 		return lbool.Undef, err
 	}
-	kind, err := e.manager.GetKind(query)
-	if err != nil {
-		return lbool.Undef, err
-	}
-	if kind != ast.ASTApp {
-		return e.QueryExpression(query)
-	}
-	arguments, err := e.manager.GetNumArgs(query)
-	if err != nil {
-		return lbool.Undef, err
-	}
-	if arguments != 0 {
-		return e.QueryExpression(query)
-	}
-	declaration, err := e.manager.GetDecl(query)
-	if err != nil {
-		return lbool.Undef, err
-	}
-	if e.predicates[declaration] == nil {
-		return e.QueryExpression(query)
-	}
-	return e.QueryPredicate(declaration)
+	// context::query(expr*) always takes the expression path (m_mc, the
+	// last-answer reset, mk_query's query!N, magic sets and explanations),
+	// even for a nullary registered predicate; only rel_query uses the
+	// relation path.
+	return e.QueryExpression(query)
 }
 
 func (e *PropositionalEngine) Close() (result error) {

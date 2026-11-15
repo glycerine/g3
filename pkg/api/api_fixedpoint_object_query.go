@@ -38,48 +38,11 @@ func (f *APIFixedpoint) QueryExpression(query ast.ASTHandle) (lbool.LBool, error
 	if err != nil {
 		return status, err
 	}
-	decl, found, err := f.nullaryRelation(query)
-	if err != nil {
-		return status, err
-	}
-	if found {
-		f.lastQuery, f.hasLastQuery = decl, true
-	} else {
-		f.hasLastExpression = true
-	}
+	// Z3_fixedpoint_query is context::query(expr*) for every expression,
+	// nullary relations included; its answer and model are the expression
+	// query's.
+	f.hasLastExpression = true
 	return status, nil
-}
-
-func (f *APIFixedpoint) nullaryRelation(query ast.ASTHandle) (ast.ASTHandle, bool, error) {
-	manager, err := f.command.Manager()
-	if err != nil {
-		return ast.ASTHandle{}, false, err
-	}
-	kind, err := manager.GetKind(query)
-	if err != nil {
-		return ast.ASTHandle{}, false, err
-	}
-	if kind != ast.ASTApp {
-		return ast.ASTHandle{}, false, nil
-	}
-	arity, err := manager.GetNumArgs(query)
-	if err != nil || arity != 0 {
-		return ast.ASTHandle{}, false, err
-	}
-	decl, err := manager.GetDecl(query)
-	if err != nil {
-		return ast.ASTHandle{}, false, err
-	}
-	predicates, err := f.command.FixedpointPredicates()
-	if err != nil {
-		return ast.ASTHandle{}, false, err
-	}
-	for _, predicate := range predicates {
-		if predicate == decl {
-			return decl, true, nil
-		}
-	}
-	return ast.ASTHandle{}, false, nil
 }
 
 // QueryExpressionFromLevel runs a Boolean query at a Spacer proof level.
@@ -90,24 +53,11 @@ func (f *APIFixedpoint) QueryExpressionFromLevel(query ast.ASTHandle, level uint
 	f.hasLastQuery = false
 	f.hasLastExpression = false
 	f.hasLastRelations = false
-	declaration, found, err := f.nullaryRelation(query)
-	if err != nil {
-		return lbool.Undef, err
-	}
-	if !found {
-		status, err := f.executeQuery(true, func(p *uparams.ParamsRef) (lbool.LBool, error) {
-			return f.command.QueryFixedpointExpressionFromLevelWithParams(query, level, p)
-		})
-		if err == nil {
-			f.hasLastExpression = true
-		}
-		return status, err
-	}
 	status, err := f.executeQuery(true, func(p *uparams.ParamsRef) (lbool.LBool, error) {
-		return f.command.QueryFixedpointFromLevelWithParams(declaration, level, p)
+		return f.command.QueryFixedpointExpressionFromLevelWithParams(query, level, p)
 	})
 	if err == nil {
-		f.lastQuery, f.hasLastQuery = declaration, true
+		f.hasLastExpression = true
 	}
 	return status, err
 }
