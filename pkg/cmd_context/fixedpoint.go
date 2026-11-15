@@ -673,3 +673,13 @@ func (c *Context) WriteFixedpointRuleDependencies(out io.Writer) error {
 	}
 	return engine.WriteRuleDependencies(out)
 }
+
+// AddFixedpointRuleObject is context::add_rule(rule_ref&) for a rule made by
+// rule_manager::mk(head, n, body, is_neg), as the datalog parser adds rules.
+func (c *Context) AddFixedpointRuleObject(head ast.ASTHandle, body []ast.ASTHandle, isNeg []bool) error {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return err
+	}
+	return engine.AddRuleObject(head, body, isNeg)
+}
