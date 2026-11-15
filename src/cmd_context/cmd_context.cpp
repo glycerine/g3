@@ -871,6 +871,8 @@ void cmd_context::insert(symbol const & s, object_ref * r) {
 }
 
 void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* e) {
+    // FORK FIX #71 (g3 audit, see FORK_BUGFIXES.md): let model evaluation short-circuit and/or
+    m().note_rec_fun_defs();
     expr_ref eq(m());
     app_ref lhs(m());
     lhs = m().mk_app(f, binding.size(), binding.c_ptr());

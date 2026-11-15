@@ -221,6 +221,8 @@ protected:
     proof_ref                  m_pr;
     proof_ref                  m_pr2;
     unsigned_vector            m_shifts;
+    // FORK FIX #71 (g3 audit, see FORK_BUGFIXES.md): stop at a decisive and/or argument
+    bool                       m_bool_short_circuit;
 
     svector<frame> & frame_stack() { return this->m_frame_stack; }
     svector<frame> const & frame_stack() const { return this->m_frame_stack; }

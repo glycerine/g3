@@ -512,6 +512,8 @@ struct model_evaluator::imp : public rewriter_tpl<evaluator_cfg> {
                                     m_cfg),
         m_cfg(md.get_manager(), md, p) {
         set_cancel_check(false);
+        // FORK FIX #71 (g3 audit, see FORK_BUGFIXES.md): short-circuit and/or once define-fun-rec is used
+        m_bool_short_circuit = md.get_manager().has_rec_fun_defs();
     }
 
     void expand_value (expr_ref &val) {

@@ -1485,6 +1485,8 @@ protected:
 #endif
     ast_manager *             m_format_manager; // hack for isolating format objects in a different manager.
     symbol                    m_rec_fun;
+    // FORK FIX #71 (g3 audit, see FORK_BUGFIXES.md): set once define-fun-rec is used
+    bool                      m_has_rec_fun_defs = false;
 
     void init();
 
@@ -1594,6 +1596,10 @@ public:
     bool is_rec_fun_def(quantifier* q) const { return q->get_qid() == m_rec_fun; }
     
     symbol const& rec_fun_qid() const { return m_rec_fun; }
+
+    // FORK FIX #71 (g3 audit, see FORK_BUGFIXES.md): the model evaluator short-circuits and/or
+    void note_rec_fun_defs() { m_has_rec_fun_defs = true; }
+    bool has_rec_fun_defs() const { return m_has_rec_fun_defs; }
 
     unsigned get_num_asts() const { return m_ast_table.size(); }
 
