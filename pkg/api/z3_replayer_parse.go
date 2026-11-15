@@ -73,7 +73,7 @@ func (r *Z3Replayer) Parse() error {
 			if err == nil {
 				r.args = append(r.args, z3ReplayValue{kind: replayDouble, d: v})
 			}
-		case 'p', 's', 'u':
+		case 'p', 's', 'u', 'i':
 			var n uint64
 			n, err = s.uint64()
 			if err == nil {
@@ -83,6 +83,11 @@ func (r *Z3Replayer) Parse() error {
 				}
 				if command == 'u' {
 					kind = replayUint64
+				}
+				// 'i' int arrays, as upstream fed977b49 ("fix #1782") logs
+				// int array arguments (AUDIT.md api_03-F3).
+				if command == 'i' {
+					kind = replayInt64
 				}
 				err = r.pushArray(n, kind)
 			}

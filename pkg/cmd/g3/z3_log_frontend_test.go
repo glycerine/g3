@@ -286,3 +286,21 @@ func TestZ3LogFrontendReplayerErrorHandler(t *testing.T) {
 		t.Fatalf("default error handler: stdout %q diagnostics %q", out.String(), diagnostics.String())
 	}
 }
+
+// z3 4.7.1 logs the int coefficients of Z3_mk_pble/pbge/pbeq as a uint array
+// (U ... u n) and cannot replay them; upstream fed977b49 logs I ... i n.
+// g3 replays both (AUDIT.md api_03-F3).
+func TestZ3LogFrontendReplaysPseudoBooleanCoefficients(t *testing.T) {
+	prefix := "R\nP 0\nC 6\n= 10\nR\nP 10\nC 32\n= 11\nR\nP 10\n$ |a|\nP 11\nC 51\n= 12\n" +
+		"R\nP 10\n$ |b|\nP 11\nC 51\n= 13\nR\nP 10\nU 2\nP 12\nP 13\np 2\n"
+	for _, coefficients := range []string{"U 1\nU 4294967294\nu 2\n", "I 1\nI -2\ni 2\n"} {
+		log := prefix + coefficients + "I 1\nC 224\n= 14\nM \"after-pble\"\n"
+		var out, diagnostics bytes.Buffer
+		if err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader(log), &out, &diagnostics); err != nil {
+			t.Fatal(err)
+		}
+		if diagnostics.Len() != 0 || strings.Contains(out.String(), "exception") || !strings.HasPrefix(out.String(), "after-pble\n") {
+			t.Fatal("pble replay", coefficients, out.String(), diagnostics.String())
+		}
+	}
+}

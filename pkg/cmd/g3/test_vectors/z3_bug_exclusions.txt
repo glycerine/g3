@@ -439,3 +439,14 @@ z3_bug_maxres_upper_bound_block
 # (pkg/parsers/smt2/tactics.go parseProbe; AUDIT.md parsers_shell_01-F10).
 # Reproduction: test_vectors/z3_bug_probe_nary_fold.smt2.
 z3_bug_probe_nary_fold
+#
+# Interaction-log replay of Z3_mk_pble/pbge/pbeq: the generated
+# log_Z3_mk_pble writes the int coefficients with U and Au, while
+# exec_Z3_mk_pble reads them with get_int_array, so z3 4.7.1 replays no log
+# of these calls ("[z3 exception]: expecting int_array at position 3 but got
+# uint_array") (z3 bug: scripts/update_api.py INT in-array logging; fixed
+# upstream in fed977b49, "fix #1782", which logs I/Ai and replays 'i'
+# arrays). g3 replays both formats (pkg/api/z3_replayer_parse.go,
+# z3_generated_pseudo_boolean_commands.go; AUDIT.md api_03-F3). Not an
+# SMT-LIB vector: TestZ3LogFrontendReplaysPseudoBooleanCoefficients in
+# pkg/cmd/g3/z3_log_frontend_test.go locks both.

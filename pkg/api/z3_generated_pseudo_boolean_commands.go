@@ -38,16 +38,29 @@ func replayPseudoBoolean(r *Z3Replayer, id uint32) error {
 			result, err = owner.context.PseudoBooleanAtLeast(args, bound)
 		}
 	} else {
-		raw, e := r.UintArray(3)
+		// get_int_array(3). z3 4.7.1 bug kept out of g3: log_Z3_mk_pble,
+		// _pbge and _pbeq write the int coefficients with U and Au, so 4.7.1
+		// never replays its own logs ("expecting int_array at position 3
+		// but got uint_array"). Upstream fed977b49 ("fix #1782") logs I and
+		// Ai; g3 reads that int array and still accepts the 4.7.1 uint
+		// array, reading its words as ints (AUDIT.md api_03-F3).
+		raw, e := r.IntArray(3)
 		if e != nil {
-			return e
+			words, uintErr := r.UintArray(3)
+			if uintErr != nil {
+				return e
+			}
+			raw = make([]int32, len(words))
+			for i, word := range words {
+				raw[i] = int32(word)
+			}
 		}
 		if len(raw) < len(args) {
 			return ErrZ3ReplayReference
 		}
 		coefficients := make([]int64, len(args))
 		for i := range coefficients {
-			coefficients[i] = int64(int32(raw[i]))
+			coefficients[i] = int64(raw[i])
 		}
 		bound, e := r.Int(4)
 		if e != nil {
