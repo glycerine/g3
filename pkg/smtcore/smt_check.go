@@ -75,7 +75,11 @@ func (k *SMTKernel) SetupAndCheck() (result lbool.LBool, resultErr error) {
 	if err != nil || !ready {
 		return lbool.Undef, err
 	}
-	if k.ScopeLevel() != 0 || k.preprocessingSetupDone || k.internalizer.theoriesSetup || k.assertedHead != 0 {
+	// SASSERT(m_scope_lvl == 0); SASSERT(!m_setup.already_configured()).
+	// A release build goes on when a check that threw left the context
+	// configured (opt_solver keeps m_first until a check returns):
+	// setup_context returns at once and the assertions are checked again.
+	if smtcoreSourceDebug && (k.ScopeLevel() != 0 || k.preprocessingSetupDone || k.internalizer.theoriesSetup || k.assertedHead != 0) {
 		return lbool.Undef, ast.ErrASTDomain
 	}
 	if err := k.configureCheck(true); err != nil {

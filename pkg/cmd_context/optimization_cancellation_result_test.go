@@ -15,7 +15,7 @@ func TestOptimizationCancellationBecomesUnknown(t *testing.T) {
 	c.manager.ResourceLimit().Cancel()
 	defer c.manager.ResourceLimit().ResetCancel()
 	status, err := c.handleOptimizationFailure(errors.New("backend detail"))
-	contextMust(t, err)
+	wantOptimizationCommandException(t, err, "canceled")
 	if status != lbool.Undef {
 		t.Fatal(status)
 	}

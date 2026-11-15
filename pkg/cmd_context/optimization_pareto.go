@@ -383,6 +383,11 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 	}
 	status, err := backend.CheckSat(nil)
 	if err != nil {
+		if fresh {
+			// optimize()'s initial check threw before execute_pareto
+			// installed m_pareto: the next optimize() starts afresh.
+			c.finishParetoSearch()
+		}
 		return nil, err
 	}
 	unknownReason := ""
@@ -417,6 +422,14 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 		if err = c.setupParetoOptsmt(backend); err != nil {
 			return nil, err
 		}
+		// update_lower() runs before execute_pareto: an exception from the
+		// pareto engine leaves the bounds it set and m_model.
+		values := make([]opt.ObjectiveValue, len(c.objectives))
+		if err = c.paretoUpdatedDisplayBounds(values); err != nil {
+			return nil, err
+		}
+		c.optimizationFailureDisplay = values
+		c.optimizationFailureModel = true
 		if status, err = backend.CheckSat(nil); err != nil {
 			return nil, err
 		}
@@ -433,6 +446,24 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 			// display_assignment reads the bounds internalize() left
 			// (AUDIT.md FUZZ_A-F1).
 			c.initialDisplayBounds(values)
+			if status == lbool.Undef {
+				// s.get_model(m_model) after the undecided initial check.
+				md, e := c.paretoInitialResultModel()
+				if e != nil {
+					return nil, e
+				}
+				return &opt.ArithmeticResult{Status: status, ReasonUnknown: unknownReason, Values: values, Model: md}, nil
+			}
+		} else if fresh && status == lbool.Undef {
+			if err = c.paretoUpdatedDisplayBounds(values); err != nil {
+				return nil, err
+			}
+			// No yield ran: m_model is still optimize()'s initial model.
+			md, e := c.paretoInitialResultModel()
+			if e != nil {
+				return nil, e
+			}
+			return &opt.ArithmeticResult{Status: status, ReasonUnknown: unknownReason, Values: values, Model: md}, nil
 		}
 		return &opt.ArithmeticResult{Status: status, ReasonUnknown: unknownReason, Values: values, Optimal: status == lbool.False}, nil
 	}
@@ -442,7 +473,18 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 	}
 	if canceled {
 		c.finishParetoSearch()
-		return &opt.ArithmeticResult{Status: lbool.Undef, Values: make([]opt.ObjectiveValue, len(c.objectives))}, nil
+		values := make([]opt.ObjectiveValue, len(c.objectives))
+		var md *model.ModelCore
+		if fresh {
+			if err = c.paretoUpdatedDisplayBounds(values); err != nil {
+				return nil, err
+			}
+			// No yield ran: m_model is still optimize()'s initial model.
+			if md, err = c.paretoInitialResultModel(); err != nil {
+				return nil, err
+			}
+		}
+		return &opt.ArithmeticResult{Status: lbool.Undef, Values: values, Model: md}, nil
 	}
 	var best *model.ModelCore
 	defer func() {
@@ -534,7 +576,13 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 		}
 		best = fixed
 		c.finishParetoSearch()
-		result = &opt.ArithmeticResult{Status: status, ReasonUnknown: unknownReason, Values: make([]opt.ObjectiveValue, len(c.objectives)), Model: best, Labels: labels}
+		values := make([]opt.ObjectiveValue, len(c.objectives))
+		if fresh && status == lbool.Undef {
+			if err = c.paretoUpdatedDisplayBounds(values); err != nil {
+				return nil, err
+			}
+		}
+		result = &opt.ArithmeticResult{Status: status, ReasonUnknown: unknownReason, Values: values, Model: best, Labels: labels}
 		best = nil
 		return result, nil
 	}
@@ -619,4 +667,64 @@ func (c *Context) setupParetoOptsmt(backend *smtcore.SMTSolver) error {
 		}
 	}
 	return optimizer.UpdateLowerFrom(c.optimizationParetoInitialModel)
+}
+
+// paretoUpdatedDisplayBounds is display_assignment after a fresh optimize()
+// whose initial check was sat and whose gia_pareto run stopped undecided:
+// update_lower() evaluated optimize()'s m_model, so each maxsmt keeps
+// m_lower = 0 and update_upper(cost of the model), seen through
+// m_adjust_value. No yield ran. Arithmetic objectives keep no display
+// bounds here.
+func (c *Context) paretoUpdatedDisplayBounds(values []opt.ObjectiveValue) error {
+	md := c.optimizationParetoInitialModel
+	if md == nil {
+		return nil
+	}
+	costs, err := c.evaluateParetoModel(md)
+	if err != nil {
+		return err
+	}
+	c.initialDisplayBounds(values)
+	arithmetic := 0
+	for i := range c.objectives {
+		objective := &c.objectives[i]
+		if !objective.soft {
+			values[i].DisplayValid = false
+			if objective.bitVector {
+				continue
+			}
+			// optsmt objectives: update_lower() moved m_lower to the
+			// model's value.
+			lower, upper, ok := c.optimizationParetoOptimizer.ArithmeticDisplayBounds(arithmetic)
+			arithmetic++
+			if ok {
+				values[i].DisplayLower, values[i].DisplayUpper, values[i].DisplayValid = lower, upper, true
+			}
+			continue
+		}
+		// evaluateParetoModel's softCost starts at the from_fmls offset.
+		var cost big.Rat
+		cost.Sub(&costs[i].softCost, &objective.softOffset)
+		offset, negate := &objective.softOffset, false
+		if objective.verifyConverted {
+			offset, negate = &objective.verifyOffset, objective.verifyNegate
+		}
+		upper := new(big.Rat)
+		if negate {
+			upper.Sub(offset, &cost)
+		} else {
+			upper.Add(offset, &cost)
+		}
+		values[i].DisplayUpper = simplex.RationalInfinitesimal(upper)
+	}
+	return nil
+}
+
+// paretoInitialResultModel is the get_model view (fix_model) of optimize()'s
+// initial-check m_model, or nil when there is none.
+func (c *Context) paretoInitialResultModel() (*model.ModelCore, error) {
+	if c.optimizationParetoInitialModel == nil {
+		return nil, nil
+	}
+	return c.filterParetoModel(c.optimizationParetoInitialModel)
 }

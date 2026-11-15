@@ -179,6 +179,18 @@ type Context struct {
 	// optimizationRunUsedSAT records that update_solver made
 	// optimizationSAT the last run's m_solver.
 	optimizationRunUsedSAT bool
+	// optimizationFailureDisplay holds display_assignment's bounds for an
+	// optimize() that threw: what import_scoped_state, or internalize()
+	// after normalize(), left in m_maxsmts and m_optsmt.
+	optimizationFailureDisplay []opt.ObjectiveValue
+	// optimizationFailureModel records that such an optimize() had set
+	// m_model from a sat initial check of the pareto engine.
+	optimizationFailureModel bool
+	// optimizationFailureRawModel is the raw initial-check m_model of a
+	// lex or box optimize() that threw later; optimizationFailureNormalized
+	// says optimizationFailureDisplay is still in normalized terms.
+	optimizationFailureRawModel   *model.ModelCore
+	optimizationFailureNormalized bool
 	// optimizationFrontend marks the context of the OPB/WCNF front ends,
 	// which call opt::context::optimize() directly, objectives or not.
 	optimizationFrontend bool

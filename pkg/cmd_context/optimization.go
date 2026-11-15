@@ -593,7 +593,17 @@ func (c *Context) runOptimize(assumptions []ast.ASTHandle, execute func(*opt.Ari
 		// the bounds optsmt::add / maxsmt::add left (AUDIT.md FUZZ_A-F1).
 		values := make([]opt.ObjectiveValue, len(c.objectives))
 		c.initialDisplayBounds(values)
-		return &opt.ArithmeticResult{Status: initial, ReasonUnknown: reason, Values: values}, nil
+		// is_sat != l_false: s.get_model(m_model) kept the undecided
+		// check's model.
+		var md *model.ModelCore
+		if initial == lbool.Undef {
+			if md = optimizer.InitialModel(); md != nil {
+				if err = md.IncRef(); err != nil {
+					return nil, err
+				}
+			}
+		}
+		return &opt.ArithmeticResult{Status: initial, ReasonUnknown: reason, Values: values, Model: md}, nil
 	}
 	// optimize(): m_optsmt.setup(*m_opt_solver) after the sat initial check.
 	if err = optimizer.SetupOptsmt(); err != nil {
@@ -608,7 +618,18 @@ func (c *Context) runOptimize(assumptions []ast.ASTHandle, execute func(*opt.Ari
 	if err = optimizer.UpdateLower(); err != nil {
 		return nil, err
 	}
-	return execute(optimizer)
+	// An exception from execute leaves m_model and the bounds it reached
+	// for get_model and display_assignment.
+	if err = c.setOptimizationFailureRawModel(optimizer.InitialModel()); err != nil {
+		return nil, err
+	}
+	optimized, err = execute(optimizer)
+	if err != nil {
+		values := make([]opt.ObjectiveValue, len(c.objectives))
+		optimizer.DisplayBounds(values)
+		c.optimizationFailureDisplay, c.optimizationFailureNormalized = values, true
+	}
+	return optimized, err
 }
 
 // initialDisplayBounds is get_lower_as_num/get_upper_as_num right after
@@ -692,8 +713,10 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 	c.optimizationBoxNext++
 	// The first call runs optimize(); execute_box computes every
 	// objective's model, and later calls hand them out in turn.
+	entered := false
 	combined, err := c.runOptimize(assumptions, func(optimizer *opt.ArithmeticSolver) (*opt.ArithmeticResult, error) {
 		// execute_box: m_box_index = 1; m_box_models.reset().
+		entered = true
 		if err := c.releaseRetiredOptimizationBoxModels(); err != nil {
 			return nil, err
 		}
@@ -702,6 +725,16 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 	if err != nil {
 		if combined != nil {
 			err = errors.Join(err, combined.Close())
+		}
+		if !entered {
+			// optimize() threw before execute_box set m_box_index.
+			c.optimizationBoxActive = false
+		} else {
+			// execute_box threw with m_box_index = 1 and no box models:
+			// the next optimize() calls return l_undef, displaying the
+			// bounds reached.
+			c.optimizationBoxReasonUnknown = ""
+			c.optimizationBoxDisplay = cloneOptimizationBoxValues(c.optimizationFailureDisplay)
 		}
 		return nil, err
 	}
@@ -759,6 +792,13 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 		// import_scoped_state copies the objectives and resets m_optsmt
 		// (AUDIT.md FUZZ_A-F13).
 		c.optimizedObjectives, c.optsmtReset = len(c.objectives), false
+		// import_scoped_state leaves fresh maxsmts (m_lower = m_upper = 0)
+		// and an empty m_optsmt (inf_eps()): an exception before
+		// internalize() displays every objective as 0.
+		c.optimizationFailureDisplay = make([]opt.ObjectiveValue, len(c.objectives))
+		for i := range c.optimizationFailureDisplay {
+			c.optimizationFailureDisplay[i].DisplayValid = true
+		}
 		if err = c.setupOptimizationArithmeticSolver(); err != nil {
 			return lbool.Undef, err
 		}
@@ -768,8 +808,45 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 		c.optimizationModelsRaw = false
 	}
 	optimized, err = c.runNormalizedOptimization(assumptions, continuation, priority, paretoContinuation, boxContinuation)
+	failureDisplay, failureModel := c.optimizationFailureDisplay, c.optimizationFailureModel
+	c.optimizationFailureDisplay, c.optimizationFailureModel, c.optimizationFailureNormalized = nil, false, false
+	failureRawModel := c.optimizationFailureRawModel
+	c.optimizationFailureRawModel = nil
+	defer func() {
+		if failureRawModel != nil {
+			resultErr = errors.Join(resultErr, failureRawModel.DecRef())
+		}
+	}()
 	if err != nil {
-		return c.handleOptimizationFailure(err)
+		// cmd_context::check_sat turns the exception into a cmd_exception;
+		// display_assignment still reads the bounds optimize() left.
+		if len(failureDisplay) == len(c.objectives) {
+			for i := range c.objectives {
+				c.objectives[i].valueReady = false
+				c.objectives[i].displayReady = failureDisplay[i].DisplayValid
+				c.objectives[i].displayLower = failureDisplay[i].DisplayLower.Clone()
+				c.objectives[i].displayUpper = failureDisplay[i].DisplayUpper.Clone()
+			}
+		}
+		status, failure := c.handleOptimizationFailure(err)
+		if failureRawModel != nil && c.tacticResult != nil {
+			// get_model: fix_model(m_model) of the initial check's model.
+			if e := c.tacticResult.SetModel(failureRawModel); e != nil {
+				return lbool.Undef, errors.Join(failure, e)
+			}
+			c.optimizationRawResult = c.tacticResult
+		}
+		if failureModel && c.tacticResult != nil && c.optimizationParetoPurification != nil {
+			// get_model still returns m_model, the initial check's model.
+			md, e := c.paretoInitialResultModel()
+			if e == nil && md != nil {
+				e = errors.Join(c.tacticResult.SetModel(md), md.DecRef())
+			}
+			if e != nil {
+				return lbool.Undef, errors.Join(failure, e)
+			}
+		}
+		return status, failure
 	}
 	defer func() { resultErr = errors.Join(resultErr, optimized.Close()) }()
 	completed := optimized.Status == lbool.True
@@ -1214,4 +1291,20 @@ func (c *Context) releaseRetainedOptimizer() error {
 	previous := c.retainedOptimizer
 	c.retainedOptimizer = nil
 	return previous.Close()
+}
+
+// setOptimizationFailureRawModel keeps a reference to md (or none) as the
+// model a throwing optimize() leaves in m_model.
+func (c *Context) setOptimizationFailureRawModel(md *model.ModelCore) error {
+	if md != nil {
+		if err := md.IncRef(); err != nil {
+			return err
+		}
+	}
+	previous := c.optimizationFailureRawModel
+	c.optimizationFailureRawModel = md
+	if previous != nil {
+		return previous.DecRef()
+	}
+	return nil
 }

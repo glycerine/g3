@@ -1511,6 +1511,38 @@ func (s *ArithmeticSolver) fillDisplayBounds(result *ArithmeticResult) {
 	}
 }
 
+// DisplayBounds fills values with get_lower_as_num/get_upper_as_num of
+// every objective as the optsmt and maxsmt bounds stand now.
+func (s *ArithmeticSolver) DisplayBounds(values []ObjectiveValue) {
+	if s == nil {
+		return
+	}
+	s.fillDisplayBounds(&ArithmeticResult{Values: values})
+}
+
+// InitialModel borrows optimize()'s m_model from the initial check, raw
+// (before fix_model), or nil.
+func (s *ArithmeticSolver) InitialModel() *model.ModelCore {
+	if s == nil || s.initial == nil {
+		return nil
+	}
+	return s.initial.Model
+}
+
+// ArithmeticDisplayBounds is get_lower_as_num/get_upper_as_num of the i-th
+// objective when it is an optsmt (O_MAXIMIZE/O_MINIMIZE) objective, as
+// fillDisplayBounds reports it.
+func (s *ArithmeticSolver) ArithmeticDisplayBounds(i int) (lower, upper simplex.Infinitesimal, ok bool) {
+	if s == nil || i < 0 || i >= len(s.objectives) || s.objectives[i].soft || s.objectives[i].term == (ast.ASTRef{}) {
+		return lower, upper, false
+	}
+	var value ObjectiveValue
+	values := make([]ObjectiveValue, i+1)
+	s.fillDisplayBounds(&ArithmeticResult{Values: values})
+	value = values[i]
+	return value.DisplayLower, value.DisplayUpper, value.DisplayValid
+}
+
 // unexecutedSoftBounds is get_lower_as_num/get_upper_as_num of a maxsmt
 // that never ran (m_msolver is null): m_adjust_value(m_lower) and
 // m_adjust_value(m_upper), the offset being the objective's soft offset.

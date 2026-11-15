@@ -307,6 +307,14 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	// false) whatever the priority; only several objectives reach
 	// execute_pareto or execute_box. (The m_pareto1 toggle set there is
 	// cleared by the next optimize()'s clear_state before it is read.)
+	if !paretoContinuation && !boxContinuation {
+		// An exception from here on comes after normalize() and
+		// internalize(): display_assignment reads the bounds optsmt::add
+		// and maxsmt::add left, through the normalized m_adjust_value.
+		values := make([]opt.ObjectiveValue, len(c.objectives))
+		c.initialDisplayBounds(values)
+		c.optimizationFailureDisplay = values
+	}
 	if boxContinuation {
 		optimized, err = c.checkOptimizeBox(assumptions, true)
 	} else if priority == "pareto" && len(c.objectives) > 1 {
@@ -315,9 +323,10 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 		}
 		c.optimizationBoxActive = false
 		optimized, err = c.checkOptimizePareto(assumptions, continuation)
-		if err == nil && c.optimizationParetoPurification != nil {
+		if c.optimizationParetoPurification != nil {
 			// A later execute_pareto reports values through this
-			// normalization; keep its value transforms.
+			// normalization; keep its value transforms (also when the
+			// engine threw: m_pareto and m_objectives survive it).
 			c.optimizationParetoPurification.decomposed = paretoValueTransforms(decomposed)
 		}
 	} else if priority == "box" && len(c.objectives) > 1 {
@@ -331,6 +340,14 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	}
 
 	if err != nil {
+		if c.optimizationFailureNormalized && c.optimizationFailureDisplay != nil && len(c.optimizationFailureDisplay) == len(original) {
+			// Converted objectives display m_adjust_value of their maxsmt
+			// bounds.
+			if e := restoreNormalizedObjectiveBounds(&opt.ArithmeticResult{Values: c.optimizationFailureDisplay}, original, decomposed); e != nil {
+				err = errors.Join(err, e)
+			}
+			c.optimizationFailureNormalized = false
+		}
 		return optimized, err
 	}
 	if err = c.restoreNormalizedValues(optimized, original, decomposed, priority, boxContinuation); err != nil {

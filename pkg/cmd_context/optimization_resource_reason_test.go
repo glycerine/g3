@@ -16,7 +16,7 @@ func TestOptimizationResourceLimitUsesSourceCancellationReason(t *testing.T) {
 		t.Fatal("failed to reach scoped resource limit")
 	}
 	_, err = c.handleOptimizationFailure(errors.New("backend detail"))
-	contextMust(t, err)
+	wantOptimizationCommandException(t, err, "max. resource limit exceeded")
 	reason, err := c.ReasonUnknown()
 	contextMust(t, err)
 	if reason != "max. resource limit exceeded" {

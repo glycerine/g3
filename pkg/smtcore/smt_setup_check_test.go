@@ -75,8 +75,10 @@ func TestSMTSetupAndCheckSeparatesStaticAndIncrementalModes(t *testing.T) {
 			if k.smtState.RelevancyLvl != wantRelevancy || k.arithState.GCDTest != (mode != "static") {
 				t.Fatal("wrong source setup overload", mode, k.smtState.RelevancyLvl, k.arithState.GCDTest)
 			}
-			if _, err := k.SetupAndCheck(); err != ast.ErrASTDomain {
-				t.Fatal("setup_and_check accepted an already configured context", err)
+			// SASSERT(!m_setup.already_configured()) in a debug build; a
+			// release setup_and_check skips the configured setup_context.
+			if status, err := k.SetupAndCheck(); smtcoreSourceDebug && err != ast.ErrASTDomain || !smtcoreSourceDebug && (err != nil || status != lbool.True) {
+				t.Fatal("setup_and_check on an already configured context", status, err)
 			}
 		})
 	}
@@ -126,7 +128,7 @@ func TestSMTTacticSelectsSetupOnlyWithoutExtractedAssumptions(t *testing.T) {
 	}
 }
 
-func TestSMTSetupAndCheckRejectsRepeatedEmptyStandaloneContext(t *testing.T) {
+func TestSMTSetupAndCheckRepeatedEmptyStandaloneContext(t *testing.T) {
 	m := astTestManager(t)
 	k := smtTestKernel(t, m)
 	status, err := k.SetupAndCheck()
@@ -134,8 +136,8 @@ func TestSMTSetupAndCheckRejectsRepeatedEmptyStandaloneContext(t *testing.T) {
 	if status != lbool.True || k.Statistics().NumChecks != 0 {
 		t.Fatal("empty static setup", status, k.Statistics())
 	}
-	if _, err := k.SetupAndCheck(); err != ast.ErrASTDomain {
-		t.Fatal("repeated setup without params was accepted", err)
+	if status, err := k.SetupAndCheck(); smtcoreSourceDebug && err != ast.ErrASTDomain || !smtcoreSourceDebug && (err != nil || status != lbool.True) {
+		t.Fatal("repeated setup without params", status, err)
 	}
 }
 

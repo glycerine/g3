@@ -13,7 +13,7 @@ func TestOptimizationWrappedNonfatalExceptionBecomesUnknown(t *testing.T) {
 	contextMust(t, err)
 	cause := fmt.Errorf("optimizer stage: %w", z3exception.NewDefaultException("inner failure"))
 	_, err = c.handleOptimizationFailure(cause)
-	contextMust(t, err)
+	wantOptimizationCommandException(t, err, "inner failure")
 	reason, err := c.ReasonUnknown()
 	contextMust(t, err)
 	if reason != "inner failure" {

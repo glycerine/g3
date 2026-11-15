@@ -336,6 +336,13 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// gaps_misc2: opt::context display_assignment and get_model after an optimize()
+	// that threw or stopped undecided; cmd_context::check_sat rethrows the
+	// exception as a cmd_exception.
+	"opt_lex_exception_objectives_display.smt2":       "(error \"line 11 column 10: max. resource limit exceeded\")\n(objectives\n (p  (interval 0 1))\n (x  (interval 7 0))\n (y  (interval 7 0))\n)\n(error \"line 13 column 10: model is not available\")\n(error \"line 14 column 10: max. resource limit exceeded\")\n(objectives\n (p  (interval 0 1))\n (x  (interval 7 0))\n (y  (interval 7 0))\n)\n(error \"line 16 column 10: max. resource limit exceeded\")\n(objectives\n (p  (interval 0 1))\n (x  (interval 7 0))\n (y  (interval 7 0))\n)\n(error \"line 18 column 10: max. resource limit exceeded\")\n",
+	"opt_pareto_undecided_initial_model_display.smt2": "unknown\n(objectives\n (p  (interval 0 1))\n (x  (interval 7 4))\n (y  (interval 7 0))\n)\n(model \n  (define-fun x () Int\n    4)\n  (define-fun y () Int\n    0)\n  (define-fun a () Bool\n    false)\n)\nunknown\n(objectives\n (p  (interval 0 1))\n (x  (interval 7 4))\n (y  (interval 7 0))\n)\nunknown\n(objectives\n (p  (interval 0 1))\n (x  (interval 7 3))\n (y  (interval 7 0))\n)\nunknown\n",
+	"opt_box_exception_bounds_display.smt2":           "(error \"line 12 column 10: max. resource limit exceeded\")\n(objectives\n (x  (interval (* (- 1) oo) 0))\n (y  (interval 0 oo))\n (z  (interval (+ (/ 15.0 2.0) (* (- 1.0) epsilon)) oo))\n ((+ x y)  (interval (* (- 1) oo) 0))\n)\n(model \n  (define-fun z () Real\n    0.0)\n  (define-fun y () Int\n    0)\n  (define-fun x () Int\n    0)\n)\nunknown\n(objectives\n (x  (interval (* (- 1) oo) 0))\n (y  (interval 0 oo))\n (z  (interval (+ (/ 15.0 2.0) (* (- 1.0) epsilon)) oo))\n ((+ x y)  (interval (* (- 1) oo) 0))\n)\nunknown\n(objectives\n (x  (interval (* (- 1) oo) 0))\n (y  (interval 0 oo))\n (z  (interval (+ (/ 15.0 2.0) (* (- 1.0) epsilon)) oo))\n ((+ x y)  (interval (* (- 1) oo) 0))\n)\n",
+
 	// Duality zbug round 2 (fork fix): get_proof hyper-resolve steps carry the
 	// substitution in variable order, literal positions and the false head.
 	"duality_get_proof_hyper_resolve.smt2": "unsat\n((proof\n(let (($x32 (forall ((x Int) (y Int) )(! (let (($x30 (q0 x y)))\n (=> (and (= x 2) (= y 7)) $x30)) :qid k!4))\n ))\n (let (($x69 (forall ((k!10 Int) (k!00 Int) )(=> (and (> k!10 1) (q0 k!10 k!00)) false))\n ))\n ((_ hyper-res 7 2 2 0) (asserted $x69) ((_ hyper-res 7 2) (asserted $x32) (q0 2 7)) false)))))\n\n",
@@ -2170,6 +2177,9 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	"opt_lex_exception_objectives_display.smt2": true, // gaps_misc2
+	"opt_box_exception_bounds_display.smt2":     true, // gaps_misc2
+
 	// z3 4.7.1 bugs fixed in the fork whose correct output reports a command error.
 	"z3_bug_bvarray2uf_quantifier.smt2": true, // apply: not handled by bvarray2uf
 	"z3_bug_get_value_max_steps.smt2":   true, // get-value: max. steps exceeded
