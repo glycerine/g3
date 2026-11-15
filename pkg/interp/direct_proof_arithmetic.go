@@ -84,6 +84,24 @@ func (p *DirectProofInterpolator) MakeLeqToEq(x, y, xLeqY, yLeqX ast.ASTHandle) 
 	if side == TermB {
 		return p.keep(p.base.manager.Make(OperatorTrue))
 	}
+	// make_leq2eq, mixed equality: a mixed endpoint makes the lemma an
+	// axiom, except for the (= (+ a b) 0) form (y compared by node with the
+	// Int make_int(0)).
+	mixed, err := p.leqToEqMixedEndpoint(x, y)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if mixed {
+		notXLeqY, e := p.base.manager.Make(OperatorNot, xLeqY)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		notYLeqX, e := p.base.manager.Make(OperatorNot, yLeqX)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		return p.keep(p.MakeAxiom([]ast.ASTHandle{conclusion, notXLeqY, notYLeqX}))
+	}
 	negatedConclusion, err := p.base.manager.MkNot(conclusion)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -102,6 +120,43 @@ func (p *DirectProofInterpolator) MakeLeqToEq(x, y, xLeqY, yLeqX ast.ASTHandle) 
 	}
 	result, err := p.makeContraNode(proof, literals, 1)
 	return p.keep(result, err)
+}
+
+// leqToEqMixedEndpoint reports whether make_leq2eq takes its make_axiom
+// branch: x or y is LitMixed and the equality is not (= (+ a b) 0).
+func (p *DirectProofInterpolator) leqToEqMixedEndpoint(x, y ast.ASTHandle) (bool, error) {
+	xSide, err := p.TermSide(x)
+	if err != nil {
+		return false, err
+	}
+	if xSide != TermMixed {
+		ySide, e := p.TermSide(y)
+		if e != nil {
+			return false, e
+		}
+		if ySide != TermMixed {
+			return false, nil
+		}
+	}
+	zero, err := p.base.manager.MakeIntText("0")
+	if err != nil {
+		return false, err
+	}
+	if y != zero {
+		return true, nil
+	}
+	xOp, err := p.base.manager.Operator(x)
+	if err != nil {
+		return false, err
+	}
+	if xOp != OperatorPlus {
+		return true, nil
+	}
+	count, err := p.base.manager.NumArgs(x)
+	if err != nil {
+		return false, err
+	}
+	return count != 2, nil
 }
 
 func (p *DirectProofInterpolator) MakeEqToLeq(x, y, xLeqY ast.ASTHandle) (ast.ASTHandle, error) {

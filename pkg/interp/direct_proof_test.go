@@ -1726,3 +1726,71 @@ func TestDirectProofRotatedLeqToEqFromChain(t *testing.T) {
 		t.Fatal("rotated leq2eq from chain", declaration, e)
 	}
 }
+
+// AUDIT.md interp_01-F6: make_leq2eq turns a lemma with a mixed endpoint
+// into make_axiom, except for the (= (+ a b) 0) form.
+func TestDirectProofLeqToEqMixedEndpointUsesAxiom(t *testing.T) {
+	_, manager, direct, x, y := directProofIntegerFixture(t, "leq2eq-mixed")
+	zero, err := manager.MakeIntText("0")
+	interpMust(t, err)
+	containsLeqToEq := func(root ast.ASTHandle) bool {
+		seen := make(map[ast.ASTHandle]bool)
+		var visit func(ast.ASTHandle) bool
+		visit = func(h ast.ASTHandle) bool {
+			if seen[h] {
+				return false
+			}
+			seen[h] = true
+			if op, e := manager.Operator(h); e == nil && op == OperatorUninterpreted {
+				if declaration, e := manager.Symbol(h); e == nil && declaration == direct.leqToEq {
+					return true
+				}
+			}
+			args, e := manager.Args(h)
+			if e != nil {
+				return false
+			}
+			for _, arg := range args {
+				if visit(arg) {
+					return true
+				}
+			}
+			return false
+		}
+		return visit(root)
+	}
+	for _, tc := range []struct {
+		name  string
+		terms []ast.ASTHandle
+		axiom bool
+	}{
+		{"three summands", []ast.ASTHandle{x, y, x}, true},
+		{"binary sum equal to Int 0", []ast.ASTHandle{x, y}, false},
+	} {
+		sum, err := manager.Make(OperatorPlus, tc.terms...)
+		interpMust(t, err)
+		leq, err := manager.Make(OperatorLE, sum, zero)
+		interpMust(t, err)
+		geq, err := manager.Make(OperatorGE, sum, zero)
+		interpMust(t, err)
+		result, err := direct.MakeLeqToEq(sum, zero, leq, geq)
+		interpMust(t, err)
+		if got := containsLeqToEq(result); got == tc.axiom {
+			t.Fatal(tc.name, "contains @leq2eq:", got)
+		}
+		if !tc.axiom {
+			continue
+		}
+		equality, err := manager.Make(OperatorEqual, sum, zero)
+		interpMust(t, err)
+		notLeq, err := manager.Make(OperatorNot, leq)
+		interpMust(t, err)
+		notGeq, err := manager.Make(OperatorNot, geq)
+		interpMust(t, err)
+		axiom, err := direct.MakeAxiom([]ast.ASTHandle{equality, notLeq, notGeq})
+		interpMust(t, err)
+		if axiom != result {
+			t.Fatal(tc.name, "result is not make_axiom of the lemma")
+		}
+	}
+}
