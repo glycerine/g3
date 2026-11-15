@@ -440,7 +440,8 @@ func (c *finiteCompiler) constantRegister(rule *base.Rule, predicate, sort ast.A
 	if err != nil {
 		return 0, err
 	}
-	if err = c.emit(instruction, rule); err != nil {
+	// m_top_level_code.push_back(...): outside any loop body being built.
+	if err = c.append(c.execution, instruction, rule); err != nil {
 		return 0, err
 	}
 	c.constants[key] = register
@@ -458,7 +459,8 @@ func (c *finiteCompiler) totalRegister(rule *base.Rule, predicate, sort ast.ASTH
 	if err != nil {
 		return 0, err
 	}
-	if err := c.emit(NewTotalInstructionForPredicateKind(signature, register, predicate, name), rule); err != nil {
+	// m_top_level_code.push_back(instruction::mk_total(...)).
+	if err := c.append(c.execution, NewTotalInstructionForPredicateKind(signature, register, predicate, name), rule); err != nil {
 		return 0, err
 	}
 	c.totals[key] = register
@@ -485,7 +487,8 @@ func (c *finiteCompiler) emptyTotalRegister(rule *base.Rule, predicate ast.ASTHa
 	if err != nil {
 		return 0, err
 	}
-	if err := c.emit(NewTotalInstructionForPredicateKind(signature, register, predicate, name), rule); err != nil {
+	// m_top_level_code.push_back(instruction::mk_total(...)).
+	if err := c.append(c.execution, NewTotalInstructionForPredicateKind(signature, register, predicate, name), rule); err != nil {
 		return 0, err
 	}
 	c.emptyTotals[predicate] = register
