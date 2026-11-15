@@ -51,7 +51,11 @@ func (d *PairBenchmarkDriver) runIterations(random *z3rand.Generator, iterations
 	d.pairs = NewIndexedPairVector(d.manager, 13)
 	s, p := d.scalars.Data, d.pairs.Data
 	for i := 0; i < 20; i++ {
-		n, denominator := random.Next()%100, 1+random.Next()%100
+		// mpq(my_random()%100, 1 + my_random()%100): GCC evaluates the
+		// constructor arguments right to left, so the denominator is drawn
+		// first.
+		denominator := 1 + random.Next()%100
+		n := random.Next() % 100
 		before, err := d.calls.begin(d.manager)
 		if err != nil {
 			return err

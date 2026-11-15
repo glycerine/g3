@@ -19,7 +19,8 @@ func lpScalarBenchmarkOracle(seed, iterations uint32) ([]*big.Rat, *big.Rat, uin
 	next := func() uint32 { state = state*214013 + 2531011; return (state >> 16) & 32767 }
 	inputs := make([]*big.Rat, 20)
 	for i := range inputs {
-		n, den := next()%100, 1+next()%100
+		den := 1 + next()%100 // GCC draws mpq(n, d)'s denominator first
+		n := next() % 100
 		inputs[i] = big.NewRat(int64(n), int64(den))
 	}
 	result := new(big.Rat)
@@ -324,11 +325,12 @@ func BenchmarkLPRationalSource500000(b *testing.B) {
 }
 
 func TestLPNumericBenchmarkLiteralApproximateReports(t *testing.T) {
-	// Literals independently calculated from the source LCG and exact fractions.
+	// Literals independently calculated from the source LCG and exact fractions,
+	// drawing each mpq denominator first as GCC does (AUDIT.md util_lp_02-F1).
 	for _, tc := range []struct {
 		seed, iterations uint32
 		want             string
-	}{{0, 0, "0"}, {1, 1, "27.828"}, {19, 3, "69.4297"}} {
+	}{{0, 0, "0"}, {1, 1, "14.467"}, {19, 3, "157.242"}} {
 		for _, plus := range []bool{false, true} {
 			h := newLPPairHarness(t)
 			out := &lpDriverFlushWriter{}
@@ -348,4 +350,49 @@ func TestLPNumericBenchmarkLiteralApproximateReports(t *testing.T) {
 		}
 		lpExactVectorNamedCensus(t, h, nil)
 	}
+}
+
+// AUDIT.md util_lp_02-F1: GCC evaluates mpq(my_random()%100,
+// 1 + my_random()%100)'s arguments right to left, so each pair draws its
+// denominator first. The literals come from build/test-z3 lp --test_mpq,
+// --test_mpq_np and --test_mpq_np_plus (seed 0), not from an oracle.
+func TestLPBenchmarkInputsMatchGCCArgumentOrder(t *testing.T) {
+	h := newLPPairHarness(t)
+	var d *RationalBenchmarkDriver
+	inspected := false
+	w := &lpMPSDriverActionWriter{action: func(s string) error {
+		if s == "operation with rationals no pairs " {
+			lpSparseRationalCheck(t, h, &d.work.Data[0], big.NewRat(19, 39))
+			lpSparseRationalCheck(t, h, &d.work.Data[5], new(big.Rat))
+			lpSparseRationalCheck(t, h, &d.work.Data[10], big.NewRat(13, 11))
+			lpSparseRationalCheck(t, h, &d.work.Data[19], big.NewRat(67, 57))
+			inspected = true
+		}
+		return nil
+	}}
+	d = NewRationalBenchmarkDriver(h.m, false, MPSDriverConfig{Output: w, Clock: lpBenchmarkClock()})
+	h.must(d.runIterations(z3rand.New(0), 1))
+	if !inspected {
+		t.Fatal("inputs not inspected")
+	}
+	h.must(d.Close())
+
+	pw := &lpMPSDriverActionWriter{action: func(string) error { return nil }}
+	p := NewPairBenchmarkDriver(h.m, MPSDriverConfig{Output: pw, Clock: lpBenchmarkClock()})
+	h.must(p.runIterations(z3rand.New(0), 1))
+	if prefix := "x = (13/11, 0) (3/28, 0) (23/58, 0) (20/41, 0) (3, 0) (90/47, 0) (87/41, 0) (37/8, 0) (17/12, 0) (67/57, 0) \n"; !strings.HasPrefix(pw.buffer.String(), prefix) {
+		t.Fatalf("pair report %q", pw.buffer.String())
+	}
+	h.must(p.Close())
+
+	// The registered counts' result lines, from the native driver.
+	_, np, _ := lpScalarBenchmarkOracle(0, 500000)
+	_, pairs, _ := lpScalarBenchmarkOracle(0, 1000000)
+	if got := lpBenchmarkNumberOracle(np); got != "6.41439e+06" {
+		t.Fatal("--test_mpq_np", got)
+	}
+	if got := lpBenchmarkNumberOracle(pairs); got != "1.28288e+07" {
+		t.Fatal("--test_mpq", got)
+	}
+	lpExactVectorNamedCensus(t, h, nil)
 }
