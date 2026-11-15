@@ -37,19 +37,21 @@ type Enum2BVRewriter struct {
 	utility             *ast.DatatypeUtil
 	config              enum2BVConfiguration
 	traversal           *Traversal
-	enum2BV             map[ast.ASTHandle]ast.ASTHandle
-	bv2Enum             map[ast.ASTHandle]ast.ASTHandle
-	enum2Def            map[ast.ASTHandle]ast.ASTHandle
-	entries             []enum2BVEntry
-	scopeLimits         []int
-	bounds              []ast.ASTHandle
-	boundRefs           []ast.ASTRef
-	predicate           EnumSortPredicate
-	translated          uint32
-	header              uint64
-	closed              bool
-	closing             bool
-	pending             []enum2BVPending
+	// enum2BV, bv2Enum and enum2Def are the source obj_maps; callers walk
+	// them in obj_map table order.
+	enum2BV     *ast.ObjMap
+	bv2Enum     *ast.ObjMap
+	enum2Def    *ast.ObjMap
+	entries     []enum2BVEntry
+	scopeLimits []int
+	bounds      []ast.ASTHandle
+	boundRefs   []ast.ASTRef
+	predicate   EnumSortPredicate
+	translated  uint32
+	header      uint64
+	closed      bool
+	closing     bool
+	pending     []enum2BVPending
 }
 
 func NewEnum2BVRewriter(m *ast.ASTManager, c *uparams.ParamsContext, p *uparams.ParamsRef) (*Enum2BVRewriter, error) {
@@ -83,9 +85,9 @@ func (r *Enum2BVRewriter) initMembers(p *uparams.ParamsRef) (err error) {
 	if err = r.paramsContext.Assign(&r.parameters, p); err != nil {
 		return err
 	}
-	r.enum2BV = make(map[ast.ASTHandle]ast.ASTHandle)
-	r.bv2Enum = make(map[ast.ASTHandle]ast.ASTHandle)
-	r.enum2Def = make(map[ast.ASTHandle]ast.ASTHandle)
+	r.enum2BV = ast.NewObjMap(r.manager)
+	r.bv2Enum = ast.NewObjMap(r.manager)
+	r.enum2Def = ast.NewObjMap(r.manager)
 	r.config = enum2BVConfiguration{owner: r}
 	r.config.defaults.manager = r.manager
 	r.utility, err = ast.NewDatatypeUtil(r.manager)
@@ -208,7 +210,11 @@ func (r *Enum2BVRewriter) reduceArgument(argument ast.ASTHandle, result *ast.AST
 	if family != ast.NullFamilyID || arity != 0 {
 		return false, r.throwNonFD(argument)
 	}
-	if fresh, found := r.enum2BV[decl]; found {
+	freshEntry, found, err := r.enum2BV.Find(decl)
+	if err != nil {
+		return false, err
+	}
+	if fresh := freshEntry[0]; found {
 		value, err := m.MkApp(fresh, nil)
 		if err != nil {
 			return false, err
@@ -311,9 +317,15 @@ func (r *Enum2BVRewriter) reduceFreshConstant(decl, sort ast.ASTHandle, result *
 	}
 	// The source publishes all borrowed maps before pinning consts, BVs,
 	// then definitions. A later refusal retains its actual owning prefix.
-	r.enum2Def[decl] = value
-	r.enum2BV[decl] = freshDecl
-	r.bv2Enum[freshDecl] = decl
+	if err = r.enum2Def.Insert(decl, [2]ast.ASTHandle{value}); err != nil {
+		return err
+	}
+	if err = r.enum2BV.Insert(decl, [2]ast.ASTHandle{freshDecl}); err != nil {
+		return err
+	}
+	if err = r.bv2Enum.Insert(freshDecl, [2]ast.ASTHandle{decl}); err != nil {
+		return err
+	}
 	r.entries = append(r.entries, enum2BVEntry{original: decl, bitVector: freshDecl, definition: value})
 	entry := &r.entries[len(r.entries)-1]
 	for i, h := range []ast.ASTHandle{decl, freshDecl, value} {
@@ -644,9 +656,15 @@ func (r *Enum2BVRewriter) Pop(scopes uint32) error {
 		limit := r.scopeLimits[level]
 		for i := len(r.entries) - 1; i >= limit; i-- {
 			entry := &r.entries[i]
-			delete(r.enum2BV, entry.original)
-			delete(r.bv2Enum, entry.bitVector)
-			delete(r.enum2Def, entry.original)
+			if err := r.bv2Enum.Erase(entry.bitVector); err != nil {
+				return err
+			}
+			if err := r.enum2BV.Erase(entry.original); err != nil {
+				return err
+			}
+			if err := r.enum2Def.Erase(entry.original); err != nil {
+				return err
+			}
 		}
 		for _, column := range []int{0, 2, 1} {
 			for i := limit; i < len(r.entries); i++ {
@@ -819,35 +837,61 @@ func (r *Enum2BVRewriter) NumSteps() (uint32, error) {
 	}
 	return r.traversal.NumSteps()
 }
-func (r *Enum2BVRewriter) EnumToBitVector() map[ast.ASTHandle]ast.ASTHandle {
-	if r == nil || r.closed || r.closing {
-		return nil
-	}
-	out := make(map[ast.ASTHandle]ast.ASTHandle, len(r.enum2BV))
-	for k, v := range r.enum2BV {
-		out[k] = v
+
+// Enum2BVMapEntry is one obj_map entry (m_key, m_value).
+type Enum2BVMapEntry struct {
+	Key, Value ast.ASTHandle
+}
+
+func enum2BVMapEntries(o *ast.ObjMap) []Enum2BVMapEntry {
+	entries := o.Entries()
+	out := make([]Enum2BVMapEntry, len(entries))
+	for i, e := range entries {
+		out[i] = Enum2BVMapEntry{Key: e.Key, Value: e.Value[0]}
 	}
 	return out
 }
-func (r *Enum2BVRewriter) BitVectorToEnum() map[ast.ASTHandle]ast.ASTHandle {
+
+// EnumToBitVector is enum2bv(): the entries in obj_map iteration order.
+func (r *Enum2BVRewriter) EnumToBitVector() []Enum2BVMapEntry {
 	if r == nil || r.closed || r.closing {
 		return nil
 	}
-	out := make(map[ast.ASTHandle]ast.ASTHandle, len(r.bv2Enum))
-	for k, v := range r.bv2Enum {
-		out[k] = v
-	}
-	return out
+	return enum2BVMapEntries(r.enum2BV)
 }
-func (r *Enum2BVRewriter) EnumDefinitions() map[ast.ASTHandle]ast.ASTHandle {
+
+// BitVectorToEnum is bv2enum(): the entries in obj_map iteration order.
+func (r *Enum2BVRewriter) BitVectorToEnum() []Enum2BVMapEntry {
 	if r == nil || r.closed || r.closing {
 		return nil
 	}
-	out := make(map[ast.ASTHandle]ast.ASTHandle, len(r.enum2Def))
-	for k, v := range r.enum2Def {
-		out[k] = v
+	return enum2BVMapEntries(r.bv2Enum)
+}
+
+// EnumDefinitions is enum2def(): the entries in obj_map iteration order.
+func (r *Enum2BVRewriter) EnumDefinitions() []Enum2BVMapEntry {
+	if r == nil || r.closed || r.closing {
+		return nil
 	}
-	return out
+	return enum2BVMapEntries(r.enum2Def)
+}
+
+// FindEnumToBitVector is enum2bv().find(f, f_fresh).
+func (r *Enum2BVRewriter) FindEnumToBitVector(decl ast.ASTHandle) (ast.ASTHandle, bool, error) {
+	if r == nil || r.closed || r.closing {
+		return ast.ASTHandle{}, false, ast.ErrASTHandle
+	}
+	v, found, err := r.enum2BV.Find(decl)
+	return v[0], found, err
+}
+
+// FindBitVectorToEnum is bv2enum().find(f_fresh, f).
+func (r *Enum2BVRewriter) FindBitVectorToEnum(decl ast.ASTHandle) (ast.ASTHandle, bool, error) {
+	if r == nil || r.closed || r.closing {
+		return ast.ASTHandle{}, false, ast.ErrASTHandle
+	}
+	v, found, err := r.bv2Enum.Find(decl)
+	return v[0], found, err
 }
 
 func (r *Enum2BVRewriter) Close() error {

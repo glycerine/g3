@@ -1,0 +1,7 @@
+(declare-datatypes () ((Color red green blue)))
+(declare-const a Color)(declare-const b Color)(declare-const c Color)
+(declare-const d Color)(declare-const e Color)(declare-const f Color)
+(assert (distinct a b c))(assert (distinct d e f))
+(assert (not (= a red)))(assert (not (= d green)))
+(check-sat-using (then dt2bv smt))
+(get-model)

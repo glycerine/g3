@@ -478,8 +478,8 @@ func (s *Enum2BVSolver) AcquireModel() (_ *model.ModelCore, err error) {
 	if err != nil {
 		return fail(err)
 	}
-	for decl, def := range s.rw.EnumDefinitions() {
-		if err = c.extension.Insert(decl, def); err != nil {
+	for _, entry := range s.rw.EnumDefinitions() {
+		if err = c.extension.Insert(entry.Key, entry.Value); err != nil {
 			return fail(err)
 		}
 	}
@@ -494,8 +494,8 @@ func (s *Enum2BVSolver) AcquireModel() (_ *model.ModelCore, err error) {
 	if err != nil {
 		return fail(err)
 	}
-	for _, bv := range s.rw.EnumToBitVector() {
-		if err = c.filter.Insert(bv); err != nil {
+	for _, entry := range s.rw.EnumToBitVector() {
+		if err = c.filter.Insert(entry.Value); err != nil {
 			return fail(err)
 		}
 	}
@@ -728,13 +728,19 @@ func (s *Enum2BVSolver) consequencesCore(a, v []ast.ASTHandle) (status lbool.LBo
 		}
 	}
 	vars := make([]ast.ASTHandle, 0, len(v))
-	mapping := s.rw.EnumToBitVector()
 	for _, h := range v {
 		d, yes, e := enum2BVConstant(m, h)
 		if e != nil {
 			return lbool.Undef, nil, e
 		}
-		if bv, found := mapping[d]; yes && found {
+		var bv ast.ASTHandle
+		found := false
+		if yes {
+			if bv, found, e = s.rw.FindEnumToBitVector(d); e != nil {
+				return lbool.Undef, nil, e
+			}
+		}
+		if found {
 			h, e = m.MkApp(bv, nil)
 			if e != nil {
 				return lbool.Undef, nil, e
@@ -804,7 +810,10 @@ func (s *Enum2BVSolver) translateConsequence(c *enum2BVCall, h ast.ASTHandle, sl
 	if err != nil || !yes {
 		return h, err
 	}
-	original, found := s.rw.BitVectorToEnum()[d]
+	original, found, err := s.rw.FindBitVectorToEnum(d)
+	if err != nil {
+		return h, err
+	}
 	if !found {
 		return h, nil
 	}

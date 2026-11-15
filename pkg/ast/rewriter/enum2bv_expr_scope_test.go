@@ -178,7 +178,10 @@ func TestEnum2BVDefinitionOwnerAndPublishedReferencePrefix(t *testing.T) {
 				entry := r.entries[0]
 				if entry.owned[0] != (ast.ASTRef{}) && entry.owned[1] == (ast.ASTRef{}) {
 					publishedFailures++
-					if r.enum2BV[decl] != entry.bitVector || r.enum2Def[decl] != entry.definition || r.bv2Enum[entry.bitVector] != decl || !r.closing {
+					bv, _, e1 := r.enum2BV.Find(decl)
+					def, _, e2 := r.enum2Def.Find(decl)
+					original, _, e3 := r.bv2Enum.Find(entry.bitVector)
+					if e1 != nil || e2 != nil || e3 != nil || bv[0] != entry.bitVector || def[0] != entry.definition || original[0] != decl || !r.closing {
 						t.Fatal("failed second vector pin lost source map/owner prefix")
 					}
 					count, err := m.GetRefCount(decl)

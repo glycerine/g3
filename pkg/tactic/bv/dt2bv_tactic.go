@@ -428,13 +428,13 @@ func (t *DT2BVTactic) convert(g *tactic.Goal, result *tactic.TacticResult, s *dt
 			return e
 		}
 	}
-	for _, bv := range s.rw.EnumToBitVector() {
-		if err = s.filter.Insert(bv); err != nil {
+	for _, entry := range s.rw.EnumToBitVector() {
+		if err = s.filter.Insert(entry.Value); err != nil {
 			return err
 		}
 	}
-	for decl, def := range s.rw.EnumDefinitions() {
-		if err = s.extension.Insert(decl, def); err != nil {
+	for _, entry := range s.rw.EnumDefinitions() {
+		if err = s.extension.Insert(entry.Key, entry.Value); err != nil {
 			return err
 		}
 	}

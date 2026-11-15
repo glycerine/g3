@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_rewriter_03-F2: dt2bv model converters walk obj_map order.
+	"dt2bv_model_order.smt2": "sat\n(model \n  (define-fun e () Color\n    green)\n  (define-fun d () Color\n    red)\n  (define-fun c () Color\n    red)\n  (define-fun a () Color\n    blue)\n  (define-fun b () Color\n    green)\n  (define-fun f () Color\n    blue)\n)\n",
+	// AUDIT.md ast_rewriter_03-F2: enum2bv model extension walks obj_map order.
+	"enum2bv_model_order.smt2": "sat\n(model \n  (define-fun e () Color\n    green)\n  (define-fun d () Color\n    red)\n  (define-fun c () Color\n    green)\n  (define-fun a () Color\n    blue)\n  (define-fun b () Color\n    red)\n  (define-fun f () Color\n    blue)\n)\n",
 	// AUDIT.md ast_rewriter_03-F1: der follows 4.7.1 der::reduce1.
 	"der_all_literals_eliminated.smt2": "(goals\n(goal\n  or\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md ast_rewriter_03-F1: der follows 4.7.1 der::reduce1.

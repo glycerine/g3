@@ -51,8 +51,8 @@ func TestEnum2BVSingletonFreshAndCachedArgumentSourceBehavior(t *testing.T) {
 	if width, e := m.BitVectorSize(convertedSort); e != nil || width != 1 {
 		t.Fatal("singleton source bit width", width, e)
 	}
-	if len(r.bounds) != 1 || len(r.entries) != 1 || len(r.enum2BV) != 1 || len(r.bv2Enum) != 1 || len(r.enum2Def) != 1 || r.translated != 1 {
-		t.Fatal("singleton publication prefix", len(r.bounds), len(r.entries), len(r.enum2BV), len(r.bv2Enum), len(r.enum2Def), r.translated)
+	if len(r.bounds) != 1 || len(r.entries) != 1 || r.enum2BV.Len() != 1 || r.bv2Enum.Len() != 1 || r.enum2Def.Len() != 1 || r.translated != 1 {
+		t.Fatal("singleton publication prefix", len(r.bounds), len(r.entries), r.enum2BV.Len(), r.bv2Enum.Len(), r.enum2Def.Len(), r.translated)
 	}
 	zero, err := m.BitVectorNumeralUnsigned(0, 1)
 	astTestMust(t, err)
@@ -63,7 +63,9 @@ func TestEnum2BVSingletonFreshAndCachedArgumentSourceBehavior(t *testing.T) {
 	}
 	originalDecl, err := m.GetDecl(constant)
 	astTestMust(t, err)
-	definition := r.enum2Def[originalDecl]
+	definitionEntry, _, err := r.enum2Def.Find(originalDecl)
+	astTestMust(t, err)
+	definition := definitionEntry[0]
 	definitionDecl, err := m.GetDecl(definition)
 	astTestMust(t, err)
 	if definitionDecl != only {
@@ -77,7 +79,7 @@ func TestEnum2BVSingletonFreshAndCachedArgumentSourceBehavior(t *testing.T) {
 	astTestMust(t, err)
 	second, err := m.RefGet(out)
 	astTestMust(t, err)
-	if !converted || second != first || len(r.bounds) != 1 || len(r.entries) != 1 || len(r.enum2BV) != 1 || len(r.bv2Enum) != 1 || len(r.enum2Def) != 1 || r.translated != 1 {
+	if !converted || second != first || len(r.bounds) != 1 || len(r.entries) != 1 || r.enum2BV.Len() != 1 || r.bv2Enum.Len() != 1 || r.enum2Def.Len() != 1 || r.translated != 1 {
 		t.Fatal("cached source conversion changed owning state", converted, first, second, len(r.bounds), len(r.entries), r.translated)
 	}
 	_ = proof

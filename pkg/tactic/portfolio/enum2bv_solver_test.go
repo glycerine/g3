@@ -273,3 +273,40 @@ func TestEnum2BVSolverConsequencesTranslateAndInternalize(t *testing.T) {
 }
 
 var _ solver.Solver = (*portfolio.Enum2BVSolver)(nil)
+
+// AUDIT.md ast_rewriter_03-F2: enum2bv keeps m_enum2def / m_enum2bv as
+// obj_maps, and the solver's model extension walks them in table order, so
+// the model's constant order is deterministic and matches z3 (e, d, c, a,
+// b, f).
+func TestEnum2BVSolverModelOrderDeterministic(t *testing.T) {
+	const script = `(set-logic QF_FD)
+(declare-datatypes () ((Color (red) (green) (blue))))
+(declare-const a Color)(declare-const b Color)(declare-const c Color)
+(declare-const d Color)(declare-const e Color)(declare-const f Color)
+(assert (distinct a b c))(assert (distinct d e f))
+(assert (not (= a red)))(assert (not (= d green)))
+(check-sat)(get-model)`
+	var first string
+	for i := 0; i < 20; i++ {
+		c, err := cmd_context.NewStandaloneContext()
+		enumMust(t, err)
+		var out strings.Builder
+		enumMust(t, smt2.ParseCommands(c, strings.NewReader(script), &out))
+		enumMust(t, c.Close())
+		got := out.String()
+		if i == 0 {
+			first = got
+			var order []string
+			for _, line := range strings.Split(got, "\n") {
+				if fields := strings.Fields(line); len(fields) >= 2 && fields[0] == "(define-fun" {
+					order = append(order, fields[1])
+				}
+			}
+			if strings.Join(order, " ") != "e d c a b f" {
+				t.Fatal("model constant order", order, got)
+			}
+		} else if got != first {
+			t.Fatal("nondeterministic model", i, got, first)
+		}
+	}
+}
