@@ -30,3 +30,12 @@ func TestZ3LogFrontendCommandArgumentException(t *testing.T) {
 		t.Fatalf("save-out argument error: %q %q", out, diagnostics)
 	}
 }
+
+// AUDIT.md api_03-F4: Z3_inc_ref(c, NULL) is a no-op (ast_manager::inc_ref
+// ignores null), so replay continues.
+func TestZ3LogFrontendIncRefNull(t *testing.T) {
+	out, diagnostics := replayLog(t, `R/P 0/C 7/= 10/R/P 10/P 0/C 9/M "after"/R/P 10/C 8`)
+	if !strings.HasPrefix(out, "after\nmax. heap size:") || diagnostics != "" {
+		t.Fatalf("inc_ref null: %q %q", out, diagnostics)
+	}
+}

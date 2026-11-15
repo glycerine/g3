@@ -118,6 +118,10 @@ func replayIncAST(r *Z3Replayer) error {
 	if err != nil {
 		return err
 	}
+	// Z3_inc_ref: ast_manager::inc_ref ignores a null AST.
+	if object, e := r.Object(1); e != nil || object == 0 {
+		return e
+	}
 	entry, err := r.astObject(owner, 1)
 	if err != nil {
 		return err
@@ -141,6 +145,17 @@ func replayDecAST(r *Z3Replayer) error {
 		return err
 	}
 	if entry.references == 0 {
+		// Z3_dec_ref: get_ref_count() == 0 sets Z3_DEC_REF_ERROR. A positive
+		// count the log never added (trail, last result, parents) is owned
+		// by other Go roots, so it stays a replay error here.
+		count, e := owner.results.manager.GetRefCount(entry.handle)
+		if e != nil {
+			return e
+		}
+		if count == 0 {
+			owner.results.setErrorCode(11) // Z3_DEC_REF_ERROR
+			return nil
+		}
 		return ErrZ3ReplayReference
 	}
 	consumed, err := owner.results.manager.DecRefConsumed(entry.handle)
