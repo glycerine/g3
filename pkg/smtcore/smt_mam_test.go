@@ -329,3 +329,54 @@ func TestSMTMAMSemiCompatibleCheckWithoutLabelHash(t *testing.T) {
 	mam.PushScope()
 	astTestMust(t, mam.AddPattern(quantifier, pattern))
 }
+
+// smtcore_04-F3: match_new_patterns calls get_cancel_flag() once per new
+// pattern and ON_MATCH once per YIELD; a canceled context matches nothing.
+func TestSMTMAMCountsResourceStepsAndHonorsCancel(t *testing.T) {
+	for _, cancel := range []bool{false, true} {
+		m, state, registry, mam := smtMAMFixture(t)
+		sort, err := m.MkSort(astTestSymbol(t, m, "mam-rlimit-sort"), ast.ASTSortInfo{})
+		astTestMust(t, err)
+		boolean, err := m.MkBoolSort()
+		astTestMust(t, err)
+		predicateInfo, err := m.NewFuncDeclInfo(ast.NullFamilyID, -1, nil, ast.ASTFuncFlags{}, false)
+		astTestMust(t, err)
+		predicate, err := m.MkFuncDeclWithInfo(astTestSymbol(t, m, "mam-rlimit-p"), []ast.ASTHandle{sort}, boolean, predicateInfo)
+		astTestMust(t, err)
+		astTestMust(t, m.DelFuncDeclInfo(&predicateInfo))
+		variable, err := m.MkVar(0, sort)
+		astTestMust(t, err)
+		trigger, err := m.MkApp(predicate, []ast.ASTHandle{variable})
+		astTestMust(t, err)
+		quantifier, pattern := smtMAMQuantifier(t, m, "mam-rlimit", sort, []ast.ASTHandle{trigger})
+		astTestMust(t, registry.Add(quantifier, 0))
+		for i := 0; i < 3; i++ {
+			_, c := smtEnodeConstant(t, m, uint32(2700+i), sort, 0)
+			astTestMust(t, state.context.RegisterEnode(c, true))
+			application, err := m.MkApp(predicate, []ast.ASTHandle{c.owner})
+			astTestMust(t, err)
+			node, err := NewSMTEnode(m, application, state.context.enodes.get, SMTEnodeOptions{CongruenceEnabled: true})
+			astTestMust(t, err)
+			node.congruence = node
+			astTestMust(t, state.context.RegisterEnode(node, true))
+		}
+		astTestMust(t, mam.AddPattern(quantifier, pattern))
+		if cancel {
+			m.Limit.Cancel()
+		}
+		before := m.Limit.Count()
+		err = mam.Match()
+		m.Limit.ResetCancel()
+		astTestMust(t, err)
+		delta := m.Limit.Count() - before
+		if cancel {
+			if len(registry.schedule.newEntries) != 0 {
+				t.Fatal("canceled matcher produced instances", len(registry.schedule.newEntries))
+			}
+			continue
+		}
+		if len(registry.schedule.newEntries) != 3 || delta != 4 {
+			t.Fatal("one step per new pattern and per YIELD", len(registry.schedule.newEntries), delta)
+		}
+	}
+}

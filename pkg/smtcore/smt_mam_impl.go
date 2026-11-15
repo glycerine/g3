@@ -93,7 +93,33 @@ func newSMTMAMImpl(state *SMTInternalizerState, registry *SMTQuantifierRegistry,
 	r.ct = smtMAMCodeTreeManager{hasher: &r.hasher, trail: &r.trail, m: state.manager}
 	r.compiler = newSMTMAMCompiler(state, registry, &r.ct, &r.hasher, useFilters)
 	r.interp = newSMTMAMInterpreter(state, r.onMatch, useFilters)
+	// m_context.get_cancel_flag() (ON_MATCH) and
+	// m_context.resource_limits_exceeded() (every 102nd backtrack).
+	r.interp.cancelled = r.cancelFlag
+	r.interp.resourcesExceeded = func() bool {
+		if state.resourceLimitsExceeded == nil { // read lazily: the kernel installs it later
+			return r.cancelFlag()
+		}
+		exceeded, err := state.resourceLimitsExceeded()
+		if err != nil {
+			r.interp.err = err
+			return true
+		}
+		return exceeded
+	}
 	return r
+}
+
+// cancelFlag is context::get_cancel_flag(): one counted resource step.
+func (r *smtMAMImpl) cancelFlag() bool {
+	canceled, err := r.m.Canceled()
+	if err != nil {
+		if r.interp.err == nil {
+			r.interp.err = err
+		}
+		return true
+	}
+	return canceled
 }
 
 func (r *smtMAMImpl) fail(err error) {
@@ -601,6 +627,10 @@ func (r *smtMAMImpl) processPP(r1, r2 *SMTEnode) {
 		return
 	}
 	plbls1.ForEach(func(plbl1 uint32) bool {
+		if r.cancelFlag() { // if (m_context.get_cancel_flag()) break;
+			r.fail(r.interp.takeErr())
+			return false
+		}
 		plbls2.ForEach(func(plbl2 uint32) bool {
 			nPlbl1, nPlbl2 := plbl1, plbl2
 			nR1, nR2 := r1, r2
@@ -635,6 +665,10 @@ func (r *smtMAMImpl) processPC(r1, r2 *SMTEnode) {
 		return
 	}
 	plbls.ForEach(func(plbl1 uint32) bool {
+		if r.cancelFlag() { // if (m_context.get_cancel_flag()) break;
+			r.fail(r.interp.takeErr())
+			return false
+		}
 		clbls.ForEach(func(lbl2 uint32) bool {
 			r.collectParents(r1, r.pc[plbl1][lbl2])
 			return true
@@ -646,6 +680,10 @@ func (r *smtMAMImpl) processPC(r1, r2 *SMTEnode) {
 func (r *smtMAMImpl) matchNewPatterns() {
 	r.tmpTreesToDelete = r.tmpTreesToDelete[:0]
 	for _, qp := range r.newPatterns {
+		if r.cancelFlag() { // if (m_context.get_cancel_flag()) break;
+			r.fail(r.interp.takeErr())
+			break
+		}
 		p := r.arg(qp.mp, 0)
 		lbl := r.decl(p)
 		if r.err != nil {
