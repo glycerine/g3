@@ -246,35 +246,31 @@ func (s *Solver) AddRationalRow(base uint32, variables []uint32, coefficients []
 		return Row{}, fmt.Errorf("simplex: base variable %d is already basic", base)
 	}
 	r := s.matrix.NewRow()
+	// Source add_row records the input positions of basic variables
+	// (m_base_vars) while adding the entries, then eliminates them in that
+	// order, one row addition each.
+	var baseVars []uint32
 	for i, v := range variables {
 		s.EnsureVariable(v)
 		if coefficients[i].Sign() != 0 {
+			if s.isBase(v) {
+				baseVars = append(baseVars, v)
+			}
 			if err := s.matrix.AddRational(r, &coefficients[i], v); err != nil {
 				_ = s.matrix.Delete(r)
 				return Row{}, err
 			}
 		}
 	}
-	// Eliminate existing base variables. A rational multiple is algebraically
-	// equivalent to the source LCM scaling and avoids a template-specific path.
-	for {
-		entries, _ := s.matrix.Entries(r)
-		changed := false
-		for _, e := range entries {
-			if !s.isBase(e.Variable) {
-				continue
-			}
-			b := &s.vars[e.Variable]
-			factor := new(big.Rat).Neg(new(big.Rat).Quo(e.Coefficient, &b.baseCoeff))
-			if err := s.matrix.Add(r, factor, Row{b.row}); err != nil {
-				_ = s.matrix.Delete(r)
-				return Row{}, err
-			}
-			changed = true
-			break
-		}
-		if !changed {
-			break
+	// A rational multiple is algebraically equivalent to the source LCM
+	// scaling; scaling a row never changes its entry layout.
+	for _, v := range baseVars {
+		b := &s.vars[v]
+		a, _ := s.matrix.coefficient(r, v)
+		factor := new(big.Rat).Neg(new(big.Rat).Quo(a, &b.baseCoeff))
+		if err := s.matrix.Add(r, factor, Row{b.row}); err != nil {
+			_ = s.matrix.Delete(r)
+			return Row{}, err
 		}
 	}
 	baseCoeff, ok := s.matrix.coefficient(r, base)
@@ -516,6 +512,10 @@ func (s *Solver) pivot(oldBase, newBase uint32, pivotCoeff *big.Rat) error {
 	n.base = true
 	n.baseCoeff.Set(pivotCoeff)
 	s.vars[oldBase].base = false
+	// The source walks newBase's column with a live col_iterator, whose
+	// m_refs keeps the column from compressing while M.add frees its entries.
+	s.matrix.retainColumn(newBase)
+	defer s.matrix.releaseColumn(newBase)
 	for _, other := range rows {
 		if other == r {
 			continue
