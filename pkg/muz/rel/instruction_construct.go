@@ -10,6 +10,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
@@ -28,6 +29,10 @@ type constructInstruction struct {
 	finiteManager *ast.ASTManager
 	pendingFinite FiniteTable
 	closing       bool
+	// predicateName is the func_decl* p that instr_mk_total passes to
+	// mk_full_relation; hasPredicate is false for a null p.
+	predicateName string
+	hasPredicate  bool
 }
 
 func NewUnarySingletonInstruction(domain uint64, value Element, target uint32) (Instruction, error) {
@@ -46,6 +51,34 @@ func NewTotalInstruction(signature Signature, target uint32) Instruction {
 		accounting: base.NewAccountedObject(), kind: "mk_total",
 		signature: Signature{domains: signature.Domains()}, target: target,
 	}
+}
+
+// NewTotalInstructionForPredicate is instruction::mk_total(sig, pred, reg):
+// the predicate name is reported by table_base::complement's large-table
+// warning.
+func NewTotalInstructionForPredicate(signature Signature, target uint32, predicateName string) Instruction {
+	return &constructInstruction{
+		accounting: base.NewAccountedObject(), kind: "mk_total",
+		signature: Signature{domains: signature.Domains()}, target: target,
+		predicateName: predicateName, hasPredicate: true,
+	}
+}
+
+// warnLargeTotalTable is the warning of table_base::complement (dl_base.cpp),
+// reached from table_plugin::mk_full for a one-column signature whose
+// domain exceeds 1<<18, before the rows are enumerated.
+func warnLargeTotalTable(signature Signature, predicateName string, hasPredicate bool) error {
+	if signature.Len() != 1 {
+		return nil
+	}
+	upperBound := signature.domains[0]
+	if upperBound <= 1<<18 {
+		return nil
+	}
+	if hasPredicate {
+		return diagnostic.BorrowProcessWarningService().Warningf("%s", fmt.Sprintf("creating large table of size %d for relation %s", upperBound, predicateName))
+	}
+	return diagnostic.BorrowProcessWarningService().Warningf("%s", fmt.Sprintf("creating large table of size %d", upperBound))
 }
 
 // NewExplanationTotalInstruction is mk_total for a rule-sort-only signature:
@@ -221,6 +254,9 @@ func (i *constructInstruction) Perform(context *ExecutionContext) (bool, error) 
 		table, err := constructFiniteTable(context, i.signature)
 		if err != nil {
 			return false, err
+		}
+		if err := warnLargeTotalTable(i.signature, i.predicateName, i.hasPredicate); err != nil {
+			return false, errors.Join(err, table.Close())
 		}
 		if err := fillTotalTable(table, i.signature); err != nil {
 			return false, errors.Join(err, table.Close())

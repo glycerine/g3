@@ -3,7 +3,13 @@ package rel
 // Source: src/muz/rel/dl_instruction.cpp unary-singleton, total-relation,
 // and signature-assertion instructions.
 
-import "testing"
+import (
+	"bytes"
+	"errors"
+	"testing"
+
+	"github.com/glycerine/g3/pkg/util/diagnostic"
+)
 
 func TestFiniteRelationConstructionInstructions(t *testing.T) {
 	context := NewExecutionContext(nil)
@@ -58,5 +64,48 @@ func TestFiniteRelationConstructionInstructions(t *testing.T) {
 func TestUnarySingletonInstructionRejectsOutOfDomainValue(t *testing.T) {
 	if instruction, err := NewUnarySingletonInstruction(2, 2, 0); err == nil || instruction != nil {
 		t.Fatal("out-of-domain singleton accepted", instruction, err)
+	}
+}
+
+// muz_rel_05-F3: table_base::complement (reached from mk_full for the
+// compiler's mk_total) warns before enumerating a one-column domain larger
+// than 1<<18, naming the predicate when the compiler passes one.
+func TestTotalInstructionWarnsOnLargeDomain(t *testing.T) {
+	var buf bytes.Buffer
+	warnings := diagnostic.BorrowProcessWarningService()
+	previous := warnings.WarningStream()
+	if err := warnings.SetWarningStream(&buf); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = warnings.SetWarningStream(previous) })
+	for _, tc := range []struct {
+		domain uint64
+		named  bool
+		want   string
+	}{
+		{domain: 1<<18 + 1, named: true, want: "WARNING: creating large table of size 262145 for relation z2\n"},
+		{domain: 1<<18 + 1, want: "WARNING: creating large table of size 262145\n"},
+		{domain: 1 << 18, named: true},
+	} {
+		buf.Reset()
+		signature, err := NewSignature([]uint64{tc.domain})
+		if err != nil {
+			t.Fatal(err)
+		}
+		instruction := NewTotalInstruction(signature, 0)
+		if tc.named {
+			instruction = NewTotalInstructionForPredicate(signature, 0, "z2")
+		}
+		context := NewExecutionContext(nil)
+		complete, err := instruction.Perform(context)
+		if err != nil || !complete {
+			t.Fatal("mk_total", complete, err)
+		}
+		if got := buf.String(); got != tc.want {
+			t.Fatalf("domain %d: warning %q, want %q", tc.domain, got, tc.want)
+		}
+		if err = errors.Join(instruction.Close(), context.Close()); err != nil {
+			t.Fatal(err)
+		}
 	}
 }

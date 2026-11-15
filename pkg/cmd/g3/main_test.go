@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_rel_05-F3: mk_total over a 2^19 domain (stderr also gets
+	// "WARNING: creating large table of size 524288 for relation z2").
+	"datalog_large_table_warning.smt2": "sat\n(or (= (:var 0) #b0000000000000000000)\n    (= (:var 0) #b0000000000000000001)\n    (= (:var 0) #b0000000000000000010))\n",
 	// AUDIT.md muz_rel_05-F2: same, kinds in the reverse order.
 	"datalog_sparse_interval_finite_only_rev.smt2": "sat\n(or (and (= (:var 0) #b001) (= (:var 1) #b010))\n    (and (= (:var 0) #b010) (= (:var 1) #b011))\n    (and (= (:var 0) #b011) (= (:var 1) #b001))\n    (and (= (:var 0) #b011) (= (:var 1) #b010))\n    (and (= (:var 0) #b001) (= (:var 1) #b011))\n    (and (= (:var 0) #b010) (= (:var 1) #b001))\n    (and (= (:var 0) #b010) (= (:var 1) #b010))\n    (and (= (:var 0) #b011) (= (:var 1) #b011))\n    (and (= (:var 0) #b001) (= (:var 1) #b001)))\n",
 	// AUDIT.md muz_rel_05-F2: tr_sparse interval_relation on a purely finite

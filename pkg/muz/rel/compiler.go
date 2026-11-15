@@ -518,11 +518,25 @@ func (c *finiteCompiler) totalRegister(rule *base.Rule, predicate, sort ast.ASTH
 	}
 	signature := Signature{domains: []uint64{domain}}
 	register := c.fresh(signature)
-	if err := c.emit(NewTotalInstruction(signature, register), rule); err != nil {
+	name, err := c.predicateNameText(predicate)
+	if err != nil {
+		return 0, err
+	}
+	if err := c.emit(NewTotalInstructionForPredicate(signature, register, name), rule); err != nil {
 		return 0, err
 	}
 	c.totals[key] = register
 	return register, nil
+}
+
+// predicateNameText is the text of func_decl::get_name() as a symbol is
+// streamed (operator<<(ostream, symbol)).
+func (c *finiteCompiler) predicateNameText(predicate ast.ASTHandle) (string, error) {
+	name, err := c.manager.GetASTName(predicate)
+	if err != nil {
+		return "", err
+	}
+	return c.manager.Symbols.Display(name)
 }
 
 func (c *finiteCompiler) emptyTotalRegister(rule *base.Rule, predicate ast.ASTHandle) (uint32, error) {
@@ -531,7 +545,11 @@ func (c *finiteCompiler) emptyTotalRegister(rule *base.Rule, predicate ast.ASTHa
 	}
 	signature := Signature{}
 	register := c.fresh(signature)
-	if err := c.emit(NewTotalInstruction(signature, register), rule); err != nil {
+	name, err := c.predicateNameText(predicate)
+	if err != nil {
+		return 0, err
+	}
+	if err := c.emit(NewTotalInstructionForPredicate(signature, register, name), rule); err != nil {
 		return 0, err
 	}
 	c.emptyTotals[predicate] = register
