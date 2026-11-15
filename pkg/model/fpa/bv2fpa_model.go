@@ -69,12 +69,27 @@ func (c *Converter) convertConstants(source, target *model.ModelCore, seen map[a
 				if e != nil {
 					return e
 				}
-				packedValue, e = c.manager.BitVectorNumeralUnsigned(0, ebits+sbits)
-				if e != nil {
-					return e
+				// v0, v1, v2 = 0 numerals of widths 1, ebits, sbits-1,
+				// each rewritten by m_th_rw.
+				var zeros [3]ast.ASTHandle
+				for i, width := range []uint32{1, ebits, sbits - 1} {
+					if zeros[i], e = c.manager.BitVectorNumeralUnsigned(0, width); e != nil {
+						return e
+					}
 				}
+				var ok bool
+				if converted, ok, err = c.thRewriteFields(sort, zeros); err != nil {
+					return err
+				}
+				if !ok {
+					if packedValue, e = c.manager.BitVectorNumeralUnsigned(0, ebits+sbits); e != nil {
+						return e
+					}
+					converted, err = c.ConvertPackedBV(nil, sort, packedValue)
+				}
+			} else {
+				converted, err = c.ConvertPackedBV(nil, sort, packedValue)
 			}
-			converted, err = c.ConvertPackedBV(nil, sort, packedValue)
 		} else {
 			fields := make([]ast.ASTHandle, 3)
 			for i := range fields {

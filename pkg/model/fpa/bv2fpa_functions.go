@@ -119,7 +119,26 @@ func (c *Converter) RebuildFloats(mc *model.ModelCore, expectedSort, value ast.A
 	return c.manager.MkApp(declaration, arguments)
 }
 
-func (c *Converter) convertFunctionInterpretation(source *model.ModelCore, declaration, convertedDeclaration ast.ASTHandle) (*model.FunctionInterpretation, error) {
+func (c *Converter) convertFunctionInterpretation(source *model.ModelCore, declaration, convertedDeclaration ast.ASTHandle) (_ *model.FunctionInterpretation, resultErr error) {
+	// m_th_rw(ai), m_th_rw(ft_fres), m_th_rw(ft_els): the rewritten terms
+	// are held until the interpretation owns them.
+	var held []ast.ASTRef
+	defer func() {
+		for i := len(held) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, c.manager.DelRef(&held[i]))
+		}
+	}()
+	rewrite := func(h ast.ASTHandle, e error) (ast.ASTHandle, error) {
+		if e != nil {
+			return h, e
+		}
+		ref, value, ok, e := c.thRewrite(h)
+		if e != nil || !ok {
+			return h, e
+		}
+		held = append(held, ref)
+		return value, nil
+	}
 	arity, err := c.manager.GetArity(convertedDeclaration)
 	if err != nil {
 		return nil, err
@@ -161,7 +180,7 @@ func (c *Converter) convertFunctionInterpretation(source *model.ModelCore, decla
 			if e != nil {
 				return fail(e)
 			}
-			arguments[j], e = c.RebuildFloats(source, domain, argument)
+			arguments[j], e = rewrite(c.RebuildFloats(source, domain, argument))
 			if e != nil {
 				return fail(e)
 			}
@@ -170,7 +189,7 @@ func (c *Converter) convertFunctionInterpretation(source *model.ModelCore, decla
 		if e != nil {
 			return fail(e)
 		}
-		convertedResult, e := c.RebuildFloats(source, rangeSort, entryResult)
+		convertedResult, e := rewrite(c.RebuildFloats(source, rangeSort, entryResult))
 		if e != nil {
 			return fail(e)
 		}
@@ -201,7 +220,7 @@ func (c *Converter) convertFunctionInterpretation(source *model.ModelCore, decla
 		return fail(err)
 	}
 	if !fallback.IsNull() {
-		fallback, err = c.RebuildFloats(source, rangeSort, fallback)
+		fallback, err = rewrite(c.RebuildFloats(source, rangeSort, fallback))
 		if err != nil {
 			return fail(err)
 		}

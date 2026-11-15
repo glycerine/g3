@@ -234,7 +234,7 @@ func (p *Pass) Apply(goal *tactic.Goal) (_ Result, result error) {
 	}
 	var modelConverter tactic.ModelConverter
 	if models {
-		modelConverter, err = tactic.NewFPA2BVModelConverter(p.manager, p.converter)
+		modelConverter, err = tactic.NewFPA2BVModelConverterWithParams(p.manager, p.converter, p.context, p.globals)
 		if err != nil {
 			return Result{}, err
 		}

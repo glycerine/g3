@@ -8,7 +8,9 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	astfpa "github.com/glycerine/g3/pkg/ast/fpa"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
 // Converter rebuilds floating-point interpretations from the bit-vector model
@@ -21,8 +23,69 @@ type Converter struct {
 	roundingConstants *ast.ObjMap
 	convertedUFs      *ast.ObjMap
 	minMaxSigns       *ast.ObjMap
-	header            uint64
-	closed            bool
+	// m_th_rw: built on first use once SetRewriterParams supplies the
+	// parameter services; without them the fields are folded directly.
+	rwContext *uparams.ParamsContext
+	rwGlobals *uparams.GlobalParamsService
+	thRW      *rewriter.TheoryRewriter
+	header    uint64
+	closed    bool
+}
+
+// SetRewriterParams lets the converter build its th_rewriter m_th_rw, whose
+// rewrites of the IEEE fields are charged like the source's.
+func (c *Converter) SetRewriterParams(context *uparams.ParamsContext, globals *uparams.GlobalParamsService) {
+	if c != nil {
+		c.rwContext, c.rwGlobals = context, globals
+	}
+}
+
+// thRewrite is m_th_rw(t, result); ok is false when no m_th_rw is
+// available. The caller releases the returned reference.
+func (c *Converter) thRewrite(t ast.ASTHandle) (ref ast.ASTRef, value ast.ASTHandle, ok bool, err error) {
+	if c.thRW == nil {
+		if c.rwContext == nil || c.rwGlobals == nil {
+			return ast.ASTRef{}, ast.ASTHandle{}, false, nil
+		}
+		if c.thRW, err = rewriter.NewTheoryRewriter(c.manager, c.rwContext, c.rwGlobals, nil); err != nil {
+			if c.thRW != nil {
+				err = errors.Join(err, c.thRW.Close())
+				c.thRW = nil
+			}
+			return ast.ASTRef{}, ast.ASTHandle{}, false, err
+		}
+	}
+	if ref, err = c.manager.NewRef(ast.ASTHandle{}); err != nil {
+		return ast.ASTRef{}, ast.ASTHandle{}, false, err
+	}
+	if err = c.thRW.Rewrite(t, ref); err == nil {
+		value, err = c.manager.RefGet(ref)
+	}
+	if err != nil {
+		return ast.ASTRef{}, ast.ASTHandle{}, false, errors.Join(err, c.manager.DelRef(&ref))
+	}
+	return ref, value, true, nil
+}
+
+// thRewriteFields rewrites sgn, exp and sig in order with m_th_rw and
+// converts the results; ok is false when no m_th_rw is available.
+func (c *Converter) thRewriteFields(sort ast.ASTHandle, fields [3]ast.ASTHandle) (result ast.ASTHandle, ok bool, err error) {
+	var refs [3]ast.ASTRef
+	var values [3]ast.ASTHandle
+	defer func() {
+		for i := len(refs) - 1; i >= 0; i-- {
+			if refs[i] != (ast.ASTRef{}) {
+				err = errors.Join(err, c.manager.DelRef(&refs[i]))
+			}
+		}
+	}()
+	for i := range fields {
+		if refs[i], values[i], ok, err = c.thRewrite(fields[i]); err != nil || !ok {
+			return ast.ASTHandle{}, false, err
+		}
+	}
+	result, err = c.ConvertBV2FP(sort, values[0], values[1], values[2])
+	return result, err == nil, err
 }
 
 func NewConverter(m *ast.ASTManager, source *astfpa.FPA2BVConverter) (owner *Converter, result error) {
@@ -129,6 +192,10 @@ func (c *Converter) Close() (result error) {
 	for _, entry := range c.minMaxSigns.Entries() {
 		key, values := entry.Key, entry.Value
 		result = errors.Join(result, c.manager.DecRef(key), c.manager.DecRef(values[0]), c.manager.DecRef(values[1]))
+	}
+	if c.thRW != nil {
+		result = errors.Join(result, c.thRW.Close())
+		c.thRW = nil
 	}
 	c.constants.Reset()
 	c.roundingConstants.Reset()
@@ -294,7 +361,8 @@ func (c *Converter) ConvertPackedBV(mc *model.ModelCore, sort, value ast.ASTHand
 	}
 	// sgn, exp and sig are expr_ref extract applications that m_th_rw then
 	// folds to v_sgn, v_exp and v_sig; all are released on return.
-	for _, bounds := range [][2]uint32{{width - 1, width - 1}, {width - 2, sbits - 1}, {sbits - 2, 0}} {
+	var apps [3]ast.ASTHandle
+	for i, bounds := range [][2]uint32{{width - 1, width - 1}, {width - 2, sbits - 1}, {sbits - 2, 0}} {
 		app, e := c.manager.MkBitVectorExtract(bounds[0], bounds[1], value)
 		if e != nil {
 			return ast.ASTHandle{}, e
@@ -303,6 +371,10 @@ func (c *Converter) ConvertPackedBV(mc *model.ModelCore, sort, value ast.ASTHand
 			return ast.ASTHandle{}, e
 		}
 		defer c.manager.DecRef(app)
+		apps[i] = app
+	}
+	if result, ok, e := c.thRewriteFields(sort, apps); e != nil || ok {
+		return result, e
 	}
 	sign, err := extract(width-1, width-1)
 	if err != nil {

@@ -11,6 +11,7 @@ import (
 	astfpa "github.com/glycerine/g3/pkg/ast/fpa"
 	"github.com/glycerine/g3/pkg/model"
 	modelfpa "github.com/glycerine/g3/pkg/model/fpa"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
 type tacticFPA2BVModelConverter struct {
@@ -34,6 +35,16 @@ func NewFPA2BVModelConverter(m *ast.ASTManager, source *astfpa.FPA2BVConverter) 
 		return nil, errors.Join(err, converter.Close())
 	}
 	return result, nil
+}
+
+// NewFPA2BVModelConverterWithParams also gives the bv2fpa converter the
+// parameter services for its th_rewriter m_th_rw.
+func NewFPA2BVModelConverterWithParams(m *ast.ASTManager, source *astfpa.FPA2BVConverter, context *uparams.ParamsContext, globals *uparams.GlobalParamsService) (*tacticFPA2BVModelConverter, error) {
+	result, err := NewFPA2BVModelConverter(m, source)
+	if err == nil {
+		result.converter.SetRewriterParams(context, globals)
+	}
+	return result, err
 }
 
 func newTranslatedFPA2BVModelConverter(m *ast.ASTManager, converter *modelfpa.Converter) (*tacticFPA2BVModelConverter, error) {
