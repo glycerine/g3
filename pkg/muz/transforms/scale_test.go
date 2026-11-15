@@ -169,7 +169,11 @@ func TestScaleReusedDeclarationInheritsCurrentOutputs(t *testing.T) {
 	}
 }
 
-func TestScaleFailureDoesNotPublishPartialPredicateMap(t *testing.T) {
+// Release rule_manager::mk performs no head check (check_valid_rule is
+// DEBUG_CODE), so mk_scale accepts the compound head argument it builds for an
+// integer fact and publishes its predicate mapping (AUDIT.md muz_fp_04
+// xform.scale). This test formerly asserted a head-check failure.
+func TestScaleAcceptsCompoundIntegerHeadArgument(t *testing.T) {
 	context, err := cmd_context.NewStandaloneContext()
 	coneMust(t, err)
 	defer func() { coneMust(t, context.Close()) }()
@@ -201,13 +205,12 @@ func TestScaleFailureDoesNotPublishPartialPredicateMap(t *testing.T) {
 	plugin := transforms.NewScalePlugin(manager, rules, 0)
 	defer func() { coneMust(t, plugin.Close()) }()
 	result, err := plugin.Transform(set)
-	if result != nil {
-		coneMust(t, result.Close())
+	coneMust(t, err)
+	defer func() { coneMust(t, result.Close()) }()
+	if n, e := result.Len(); e != nil || n != 1 {
+		t.Fatal("scaled rule count", n, e)
 	}
-	if err == nil {
-		t.Fatal("expected mixed integer and real scaling failure")
-	}
-	if len(plugin.FreshPredicates()) != 0 {
-		t.Fatal("failed transform published a predicate mapping")
+	if len(plugin.FreshPredicates()) != 1 {
+		t.Fatal("scale did not publish its predicate mapping")
 	}
 }

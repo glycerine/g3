@@ -336,7 +336,9 @@ func (p *ScalePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultEr
 			name, nameErr := rule.NameSymbol()
 			getErr = errors.Join(getErr, nameErr)
 			if getErr == nil {
-				replacement, getErr = p.rules.NewRuleWithSymbol(head, tails, make([]bool, len(tails)), name)
+				// rm.mk(new_pred, ..., r.name(), true) performs no head check in
+				// release builds.
+				replacement, getErr = p.rules.NewRuleWithSymbolUnchecked(head, tails, make([]bool, len(tails)), name)
 			}
 			if replacement != nil {
 				p.pendingRules = append(p.pendingRules, replacement)

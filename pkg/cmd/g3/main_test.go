@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_fp_04 (needs verification): xform.scale builds compound head arguments; release rule_manager::mk does not check them.
+	"fp_clp_scale_head_args.smt2": "sat\n",
+	"fp_bmc_scale_head_args.smt2": "sat\n",
 	// AUDIT.md muz_fp_03-F3: horn classifies a Boolean variable disjunct with m.is_not / is_predicate.
 	"horn_bool_var_disjunct.smt2": "sat\n",
 	// AUDIT.md muz_fp_01-F1: nonlinear BMC inherits the m_mbqi a linear query left.

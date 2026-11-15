@@ -114,10 +114,8 @@ func (p *RuleSlicePlugin) initializeApplication(application ast.ASTHandle, isOut
 			}
 			(*variableSlice)[variable] = (*variableSlice)[variable] && slice[index]
 		} else {
-			value, valueErr := p.manager.IsValue(argument)
-			if valueErr != nil || !value {
-				return errors.Join(valueErr, ast.ErrASTDomain)
-			}
+			// SASSERT(m.is_value(arg)) only: release builds also reach here
+			// with the compound head arguments that mk_scale builds.
 			if !isOutput {
 				slice[index] = false
 			}

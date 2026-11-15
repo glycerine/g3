@@ -196,6 +196,14 @@ func (m *RuleManager) NewRuleWithSymbol(head ast.ASTHandle, tail []ast.ASTHandle
 	return m.newRule(head, tail, negated, name, true)
 }
 
+// NewRuleWithSymbolUnchecked is release-build rule_manager::mk(head, n,
+// tail, is_negated, name, true): check_valid_rule is DEBUG_CODE there, so the
+// head arguments are not required to be variables or values. The head must
+// still be a registered predicate.
+func (m *RuleManager) NewRuleWithSymbolUnchecked(head ast.ASTHandle, tail []ast.ASTHandle, negated []bool, name usymbol.Symbol) (*Rule, error) {
+	return m.newRuleWithHeadPolicy(head, tail, negated, name, true, false)
+}
+
 func (m *RuleManager) newRule(head ast.ASTHandle, tail []ast.ASTHandle, negated []bool, name usymbol.Symbol, normalize bool) (_ *Rule, resultErr error) {
 	return m.newRuleWithHeadPolicy(head, tail, negated, name, normalize, true)
 }
