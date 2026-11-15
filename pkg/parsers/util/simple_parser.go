@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 var errParserSyntax = errors.New("parser error")
@@ -24,21 +25,33 @@ type SimpleParser struct {
 	vars     map[string]ast.ASTHandle
 	integer  func(*big.Rat) (ast.ASTHandle, error)
 	floating func(*big.Rat) (ast.ASTHandle, error)
-	warnings io.Writer
+	// warnings is the warning_msg route; it defaults to the process
+	// warning service so -nw/warning=false applies.
+	warnings *diagnostic.WarningService
 }
 
 func NewSimpleParser(manager *ast.ASTManager) (*SimpleParser, error) {
 	if manager == nil {
 		return nil, fmt.Errorf("parser: nil AST manager")
 	}
-	return &SimpleParser{manager: manager, builtins: make(map[string]builtinOp), vars: make(map[string]ast.ASTHandle), warnings: os.Stderr}, nil
+	return &SimpleParser{manager: manager, builtins: make(map[string]builtinOp), vars: make(map[string]ast.ASTHandle), warnings: diagnostic.BorrowProcessWarningService()}, nil
 }
 
+// SetWarnings routes warning_msg output to w; nil silences it.
 func (p *SimpleParser) SetWarnings(w io.Writer) {
 	if w == nil {
 		w = io.Discard
 	}
-	p.warnings = w
+	p.warnings = diagnostic.NewWarningService(w)
+}
+
+// SetWarningService routes warning_msg output through warnings; nil selects
+// the process warning service.
+func (p *SimpleParser) SetWarningService(warnings *diagnostic.WarningService) {
+	if warnings == nil {
+		warnings = diagnostic.BorrowProcessWarningService()
+	}
+	p.warnings = warnings
 }
 
 func (p *SimpleParser) SetNumberParsers(integer, floating func(*big.Rat) (ast.ASTHandle, error)) {
@@ -166,11 +179,15 @@ func (p *SimpleParser) Parse(reader io.Reader) (result ast.ASTRef, ok bool, err 
 		ok = ok && err == nil
 	}()
 	handle, present, err := p.parseExpression(scanner, &trail)
-	if errors.Is(err, errParserSyntax) {
-		_, _ = io.WriteString(p.warnings, "parser error\n")
+	// simple_parser::parse: a null result throws parser_error too, and the
+	// catch reports it with warning_msg("parser error").
+	if errors.Is(err, errParserSyntax) || (err == nil && !present) {
+		if err = p.warnings.Warning("parser error"); err != nil {
+			return ast.ASTRef{}, false, err
+		}
 		return ast.ASTRef{}, false, nil
 	}
-	if err != nil || !present {
+	if err != nil {
 		return ast.ASTRef{}, false, err
 	}
 	result, err = p.manager.NewRef(handle)

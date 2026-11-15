@@ -1,10 +1,12 @@
 package util
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -110,5 +112,38 @@ func TestCostParserSourceExpressionAndVariableReset(t *testing.T) {
 	}
 	if _, ok, err = parser.ParseString("x"); err != nil || ok {
 		t.Fatal("reset variable accepted")
+	}
+}
+
+// parsers_shell_01-F17: simple_parser::parse reports a parse failure with
+// warning_msg("parser error"), including a null top-level result, and the
+// warning service's enable switch applies.
+func TestSimpleParserErrorUsesWarningService(t *testing.T) {
+	manager := parserTestManager(t)
+	parser, err := NewSimpleParser(manager)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	warnings := diagnostic.NewWarningService(&buf)
+	parser.SetWarningService(warnings)
+	for _, text := range []string{"(foo)", ")", ""} {
+		buf.Reset()
+		if _, ok, err := parser.ParseString(text); ok || err != nil {
+			t.Fatalf("%q: ok=%v err=%v", text, ok, err)
+		}
+		if got := buf.String(); got != "WARNING: parser error\n" {
+			t.Fatalf("%q: warning %q", text, got)
+		}
+	}
+	buf.Reset()
+	if err = warnings.Enable(false); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, err := parser.ParseString("(foo)"); ok || err != nil {
+		t.Fatalf("disabled: ok=%v err=%v", ok, err)
+	}
+	if buf.Len() != 0 {
+		t.Fatalf("disabled warning service wrote %q", buf.String())
 	}
 }

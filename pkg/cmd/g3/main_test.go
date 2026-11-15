@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md parsers_shell_01-F17: stderr checked by TestSimpleParserWarningPrefixMatchesReference.
+	"qi_cost_parser_error_warning.smt2": "unsat\n",
 	// smtcore_12-F4 follow-up: pb simplex columns are bool vars, reused after pop.
 	"pb_simplex_pop_reuse_stats.smt2": "unsat\nsat\nsat\n",
 	// AUDIT.md smtcore_13-F8, smtcore_13-F10: theory_wmaxsat blocks the heaviest costs first

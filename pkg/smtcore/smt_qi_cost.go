@@ -57,6 +57,7 @@ func NewSMTQICostModel(manager *ast.ASTManager, costText, newGenerationText stri
 	if warnings == nil {
 		warnings = diagnostic.BorrowProcessWarningService()
 	}
+	parser.SetWarningService(warnings)
 	model := &SMTQICostModel{manager: manager, parser: parser, warnings: warnings}
 	for _, name := range smtQICostVariableNames {
 		if _, err = parser.AddCostVariable(name); err != nil {
