@@ -75,3 +75,18 @@ func TestInterpolationWriteProblemRejectsInvalidParentsAndSorts(t *testing.T) {
 		t.Fatalf("accepted non-Boolean constraint: %v", err)
 	}
 }
+
+// AUDIT.md api_02-F6: parents_vector_to_tree wraps the first sequence
+// constraint in an interpolant even when it is the only one.
+func TestInterpolationWriteProblemSingleSequenceConstraint(t *testing.T) {
+	f := newInterpolationFixture(t)
+	boolean := f.pin(f.w.BoolType())
+	a := f.variable("w-a", boolean)
+	var encoded bytes.Buffer
+	if err := f.c.WriteInterpolationProblem(&encoded, []ast.ASTHandle{a}, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if text := encoded.String(); !strings.HasSuffix(text, "(get-interpolant (interp f!1))\n") {
+		t.Fatalf("single sequence constraint:\n%s", text)
+	}
+}

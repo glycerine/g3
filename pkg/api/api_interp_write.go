@@ -99,6 +99,16 @@ func (c *InterpolationContext) WriteInterpolationProblem(out io.Writer, constrai
 	if err != nil {
 		return err
 	}
+	if parents == nil && len(constraints) == 1 {
+		// parents_vector_to_tree's sequence branch always starts with
+		// res = Z3_mk_interpolant(ctx, cnsts[0]), even when num == 1.
+		if pattern, err = c.manager.MkInterp(pattern); err != nil {
+			return err
+		}
+		if err = hold(pattern); err != nil {
+			return err
+		}
+	}
 	allAssertions := make([]ast.ASTHandle, 0, len(theory)+len(constraints))
 	allAssertions = append(allAssertions, constraints...)
 	allAssertions = append(allAssertions, theory...)
