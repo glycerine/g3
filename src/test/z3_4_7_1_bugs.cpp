@@ -1396,3 +1396,15 @@ void tst_z3_4_7_1_pb_log_replay() {
     std::cout << "pb_log_replay: replay output:\n" << out.str();
     ENSURE(out.str().empty());
 }
+
+// sexpr::display prints an atom with display_atom and then, missing a
+// return, walks the atom as a composite. (get-user-tactics) displays each
+// declared tactic's sexpr, so it segfaults whenever a tactic is a plain
+// symbol (fixed upstream in 202ed79a2, "#5445").
+void tst_z3_4_7_1_sexpr_display_atom() {
+    std::string out = eval_smtlib2(
+        "(declare-tactic t1 simplify)\n"
+        "(get-user-tactics)\n");
+    std::cout << "sexpr_display_atom: " << out;
+    ENSURE(out == "((declare-tactic t1 simplify))\n");
+}
