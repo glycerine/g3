@@ -8,7 +8,9 @@ import (
 )
 
 // Diagnostic records own no numeral payload. They are materialized only at a
-// reached allocation leaf, and remain charged until actual MPF context end.
+// reached allocation leaf. A record whose invocation finished cleanly is
+// retired at once (mpf_manager::to_rational keeps only scoped locals); one
+// with a cause stays charged until actual MPF context end.
 type arbitraryFloatRationalConversionHistory struct {
 	self                             *arbitraryFloatRationalConversionHistory
 	manager                          *ArbitraryFloatManager
@@ -92,6 +94,27 @@ func (m *ArbitraryFloatManager) RationalConversionCauses(invocation uint64) (bod
 		return s.bodyCause, s.sourceCause, s.ownCause, true
 	}
 	return
+}
+
+// retireRationalConversionHistory drops the current invocation's record when
+// the conversion finished cleanly; it carries only causes, all nil.
+func (m *ArbitraryFloatManager) retireRationalConversionHistory(s *arbitraryFloatRationalConversionScope) {
+	h := s.history
+	if h == nil || h.header == 0 || s.active || s.executing || s.finishing ||
+		h.bodyCause != nil || h.sourceCause != nil || h.ownCause != nil {
+		return
+	}
+	for p := &m.conversionHistory; *p != nil; p = &(*p).next {
+		if *p == h {
+			*p = h.next
+			h.next = nil
+			m.budget.Release(h.header)
+			m.conversionHistoryBytes -= h.header
+			h.header = 0
+			s.history = nil
+			return
+		}
+	}
 }
 func (m *ArbitraryFloatManager) RationalConversionHistoryBytes() uint64 {
 	if m == nil || m.self != m {

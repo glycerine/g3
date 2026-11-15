@@ -30,6 +30,7 @@ type arbitraryFloatRationalSetHistory struct {
 	Numeric                          NumericAllocationRoots
 	Transferred                      umemory.SmallAllocatorPendingAllocation
 	cellRetired, owned               bool
+	unlinked                         bool // retired clean; off RationalSetHistories
 	originalCell                     SourceCellBacking
 	originalPending                  umemory.Block
 	prevSourceCause                  error
@@ -200,15 +201,40 @@ func (m *ArbitraryFloatManager) rationalSetHistory(r *ArbitraryFloatRationalSetR
 	if m == nil || m.self != m || r == nil || r.manager != m || r.frame == nil || r.invocation == 0 {
 		return nil, umemory.ErrRuntimeOwner
 	}
-	for h := m.RationalSetHistories; h != nil; h = h.Next {
-		if h == r.frame {
-			if h.Self != h || h.Manager != m || h.Invocation != r.invocation || h.issued != *r {
-				return nil, umemory.ErrRuntimeOwner
-			}
-			return h, nil
+	// A nonzero header means h is linked on RationalSetHistories (Close and
+	// retireRationalSetHistory clear it), so no scan of the list is needed.
+	// A retired history stays readable and reports a completed invocation.
+	h := r.frame
+	if h.Self != h || h.Manager != m || h.Invocation != r.invocation || h.issued != *r || h.header == 0 && !h.unlinked {
+		return nil, umemory.ErrRuntimeOwner
+	}
+	return h, nil
+}
+
+// retireRationalSetHistory drops the current invocation's history once it
+// finished cleanly with nothing left to clean: mpf_manager::set keeps only
+// scoped locals, so no per-call state should outlive the call. A history with
+// a cause, a pending allocation root or an unfinished plain parent is kept.
+func (m *ArbitraryFloatManager) retireRationalSetHistory(s *arbitraryFloatRationalSetScope) {
+	h := s.history
+	if h == nil || h.header == 0 || s.active || s.executing || s.finishing ||
+		h.plainParent != nil && (h.plainParent.active || h.plainParent.executing || h.plainParent.finishing || !h.plainExpFinished ||
+			h.plainBodyCause != nil || h.plainSourceCause != nil || h.plainOwnCause != nil) ||
+		h.bodyCause != nil || h.sourceCause != nil || h.ownCause != nil || h.prevSourceCause != nil ||
+		NumericAllocationPending(&h.Numeric) || h.Transferred.Block() != (umemory.Block{}) {
+		return
+	}
+	for p := &m.RationalSetHistories; *p != nil; p = &(*p).Next {
+		if *p == h {
+			*p = h.Next
+			h.Next = nil
+			m.budget.Release(h.header)
+			m.rationalSetHistoryBytes -= h.header
+			h.header = 0
+			h.owned, h.unlinked = true, true
+			return
 		}
 	}
-	return nil, umemory.ErrRuntimeOwner
 }
 func (m *ArbitraryFloatManager) ExponentRationalSetInvocationCauses(r *ArbitraryFloatRationalSetReceipt) (body, source, own error) {
 	h, e := m.rationalSetHistory(r)

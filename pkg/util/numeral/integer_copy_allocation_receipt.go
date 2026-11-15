@@ -37,12 +37,8 @@ func (m *IntegerManager) validCopyAllocationScope(s *integerCopyAllocationScope)
 	if owner == nil || owner.self != owner || owner.closed || owner.integer != m || q.Issued.manager != owner || q.Issued.frame != q || q.Issued.invocation == 0 || q.Issued.Child.manager != m || q.Issued.Child.Frame != s || q.Issued.Child.invocation != s.invocation {
 		return false
 	}
-	for old := owner.ValueCalls; old != nil; old = old.Next {
-		if old == q {
-			return true
-		}
-	}
-	return false
+	// q.header != 0 (checked above) means q is linked on owner.ValueCalls.
+	return true
 }
 
 func (m *IntegerManager) executingCopyAllocationScope(s *integerCopyAllocationScope) bool {

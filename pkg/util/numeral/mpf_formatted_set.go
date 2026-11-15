@@ -28,6 +28,9 @@ func (m *ArbitraryFloatManager) SetFormatWithReceipt(out *ArbitraryFloat, ebits,
 		s.bodyCause = cause
 		cause = errors.Join(cause, m.finishFormattedSetSource())
 		s.recordHistory()
+		if cause == nil {
+			m.retireFormattedSetHistory(s)
+		}
 	}()
 	nan, e := m.IsNaN(x)
 	if e != nil {

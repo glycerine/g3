@@ -29,7 +29,10 @@ type arbitraryFloatValueCopyCall struct {
 	header                        uint64
 	ChildFrame                    integerCopyAllocationScope
 	executing, Retired            bool
-	bodyCause, ownCause           error
+	// unlinked marks a retired call removed from ValueCalls before Close.
+	// Its receipt stays valid and reports the completed (Retired) call.
+	unlinked            bool
+	bodyCause, ownCause error
 }
 
 // Embedded caller binding adds no acquisition to inline or reused-cell SET.
@@ -130,6 +133,12 @@ func (m *ArbitraryFloatManager) finishValueCopyBinding(cause error) {
 		if c.receipt != nil {
 			*c.receipt = q.Issued
 		}
+		// The source SET keeps no per-call state once it returns. A clean,
+		// retired call that no value-copy chain links is dropped now, so the
+		// history does not grow with every FP operation.
+		if q.Retired && cause == nil && q.caller == nil {
+			m.unlinkValueCopyCall(q)
+		}
 	}
 	if c.sourceInteger != nil && c.sourceInteger.mpfValueRead == c {
 		c.sourceInteger.mpfValueRead = nil
@@ -147,15 +156,33 @@ func (m *ArbitraryFloatManager) valueCopyCall(r *ArbitraryFloatValueCopyReceipt)
 		return nil, arena.ErrClosed
 	}
 	q := r.frame
-	if q.self != q || q.manager != m || q.header == 0 || r.invocation == 0 || *r != q.Issued {
+	if q.self != q || q.manager != m || q.header == 0 && !q.unlinked || r.invocation == 0 || *r != q.Issued {
 		return nil, umemory.ErrRuntimeOwner
 	}
-	for old := m.ValueCalls; old != nil; old = old.Next {
-		if old == q {
-			return q, nil
+	// A nonzero header means q is still linked on ValueCalls: Close and
+	// unlinkValueCopyCall are the only paths that remove a call, and both
+	// clear its header. This replaces a linear scan of the history.
+	return q, nil
+}
+
+// unlinkValueCopyCall removes a retired call from ValueCalls and releases its
+// charged header. Calls are pushed at the head, so a call retired at its own
+// finish is normally found at once.
+func (m *ArbitraryFloatManager) unlinkValueCopyCall(q *arbitraryFloatValueCopyCall) {
+	if q.header == 0 || !q.Retired {
+		return
+	}
+	for p := &m.ValueCalls; *p != nil; p = &(*p).Next {
+		if *p == q {
+			*p = q.Next
+			q.Next = nil
+			m.budget.Release(q.header)
+			m.valueHistoryBytes -= q.header
+			q.header = 0
+			q.unlinked = true
+			return
 		}
 	}
-	return nil, umemory.ErrRuntimeOwner
 }
 
 // false acknowledges only completed children. true disposes the exact unjoined

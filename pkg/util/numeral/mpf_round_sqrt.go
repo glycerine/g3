@@ -59,6 +59,9 @@ func (m *ArbitraryFloatManager) RoundSqrtWithReceipt(mode ArbitraryFloatRounding
 		s.bodyCause = err
 		err = errors.Join(err, m.finishRoundSqrtSource())
 		s.recordRoundHistory()
+		if err == nil {
+			m.retireRoundHistory(s)
+		}
 	}()
 	z := m.integer
 	c := integerAllocationInvocationContext{mpfRoundSqrt: s, mpfRoundSqrtInvocation: invocation}

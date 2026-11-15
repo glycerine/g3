@@ -62,6 +62,9 @@ func (m *ArbitraryFloatManager) setExponentRationalWithPlainCaller(out *Arbitrar
 		s.bodyCause = cause
 		s.recordHistory()
 		cause = errors.Join(cause, m.finishRationalSetSource())
+		if cause == nil {
+			m.retireRationalSetHistory(s)
+		}
 	}()
 	s.sig = NewRational()
 	s.sigLive = true

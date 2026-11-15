@@ -18,6 +18,7 @@ type ArbitraryFloatRoundReceipt struct {
 type arbitraryFloatRoundHistory struct {
 	issued                           ArbitraryFloatRoundReceipt
 	owned                            bool
+	unlinked                         bool // retired clean; off roundHistories
 	self                             *arbitraryFloatRoundHistory
 	manager                          *ArbitraryFloatManager
 	next                             *arbitraryFloatRoundHistory
@@ -130,15 +131,36 @@ func (m *ArbitraryFloatManager) roundHistory(r *ArbitraryFloatRoundReceipt) (*ar
 	if m == nil || m.self != m || r == nil || r.manager != m || r.frame == nil || r.invocation == 0 {
 		return nil, umemory.ErrRuntimeOwner
 	}
-	for h := m.roundHistories; h != nil; h = h.next {
-		if h == r.frame {
-			if h.self != h || h.manager != m || h.issued != *r {
-				return nil, umemory.ErrRuntimeOwner
-			}
-			return h, nil
+	// A nonzero header means h is linked on roundHistories (Close and
+	// retireRoundHistory clear it), so no scan of the list is needed.
+	h := r.frame
+	if h.self != h || h.manager != m || h.issued != *r || h.header == 0 && !h.unlinked {
+		return nil, umemory.ErrRuntimeOwner
+	}
+	return h, nil
+}
+
+// retireRoundHistory drops a round invocation's history once it finished
+// cleanly and owns nothing: mpf_manager::round keeps only scoped locals. The
+// retired history stays readable through its receipt as an owned invocation.
+func (m *ArbitraryFloatManager) retireRoundHistory(s *ArbitraryFloatRoundScope) {
+	h := s.history
+	if h == nil || h.header == 0 || !h.owned || s.active || s.executing || s.finishing ||
+		h.bodyCause != nil || h.sourceCause != nil || h.ownCause != nil ||
+		NumericAllocationPending(&s.Numeric) || s.Transferred.Block() != (umemory.Block{}) {
+		return
+	}
+	for p := &m.roundHistories; *p != nil; p = &(*p).next {
+		if *p == h {
+			*p = h.next
+			h.next = nil
+			m.budget.Release(h.header)
+			m.roundHistoryBytes -= h.header
+			h.header = 0
+			h.unlinked = true
+			return
 		}
 	}
-	return nil, umemory.ErrRuntimeOwner
 }
 func (m *ArbitraryFloatManager) RoundInvocationCauses(r *ArbitraryFloatRoundReceipt) (body, source, own error) {
 	h, e := m.roundHistory(r)

@@ -51,6 +51,9 @@ func (m *ArbitraryFloatManager) setRationalWithBeginReceipt(out *ArbitraryFloat,
 		s.bodyCause = cause
 		cause = errors.Join(cause, m.finishPlainRationalSetSource())
 		s.recordPlainHistory()
+		if cause == nil && s.child.frame != nil && s.child.frame == m.rationalSet.history {
+			m.retireRationalSetHistory(&m.rationalSet)
+		}
 	}()
 	if e := m.traceSetPlainRationalEntry(value, ebits, sbits); e != nil {
 		return e

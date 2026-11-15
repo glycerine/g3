@@ -134,6 +134,9 @@ func (m *ArbitraryFloatManager) roundWithParentContext(mode ArbitraryFloatRoundi
 		s.bodyCause = err
 		err = errors.Join(err, m.finishRoundSource())
 		s.recordRoundHistory()
+		if err == nil {
+			m.retireRoundHistory(s)
+		}
 	}()
 	z := m.integer
 	context := integerAllocationInvocationContext{mpfRound: s, mpfRoundInvocation: s.Invocation}

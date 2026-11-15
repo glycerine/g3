@@ -90,7 +90,9 @@ func TestArbitraryFloatForeignSourceLifecycleDuringDestinationTransport(t *testi
 				refused[6] = provider.integer.Del(&raw)
 				refused[7] = provider.Del(&input)
 				refused[8] = provider.CleanupValue(&input)
-				refused[9] = provider.CleanupValueCopy(&provider.ValueCalls.Issued, true)
+				// The provider's clean SET call is retired at its return
+				// (util_numeral_03-F1); the pending refusal precedes lookup.
+				refused[9] = provider.CleanupValueCopy(&ArbitraryFloatValueCopyReceipt{manager: provider}, true)
 			}
 			return f
 		}})

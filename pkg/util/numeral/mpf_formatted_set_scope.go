@@ -31,6 +31,7 @@ type arbitraryFloatFormattedSetHistory struct {
 	Issued                           ArbitraryFloatFormattedSetReceipt
 	Invocation, header               uint64
 	owned                            bool
+	unlinked                         bool // retired clean; off FormattedSetHistories
 	Numeric                          NumericAllocationRoots
 	Transferred                      umemory.SmallAllocatorPendingAllocation
 	cellRetired                      bool
@@ -119,15 +120,37 @@ func (m *ArbitraryFloatManager) formattedSetHistory(r *ArbitraryFloatFormattedSe
 	if m == nil || m.self != m || r == nil || r.Manager != m || r.Frame == nil || r.Invocation == 0 {
 		return nil, umemory.ErrRuntimeOwner
 	}
-	for h := m.FormattedSetHistories; h != nil; h = h.Next {
-		if h == r.Frame {
-			if h.Self != h || h.Manager != m || h.Invocation != r.Invocation || h.Issued != *r {
-				return nil, umemory.ErrRuntimeOwner
-			}
-			return h, nil
+	// A nonzero header means h is linked on FormattedSetHistories (Close and
+	// retireFormattedSetHistory clear it), so no scan of the list is needed.
+	h := r.Frame
+	if h.Self != h || h.Manager != m || h.Invocation != r.Invocation || h.Issued != *r || h.header == 0 && !h.unlinked {
+		return nil, umemory.ErrRuntimeOwner
+	}
+	return h, nil
+}
+
+// retireFormattedSetHistory drops the current invocation's history once it
+// finished cleanly and its value-copy and round children are complete:
+// mpf_manager::set(o, ebits, sbits, rm, x) keeps only scoped locals.
+func (m *ArbitraryFloatManager) retireFormattedSetHistory(s *arbitraryFloatFormattedSetScope) {
+	h := s.history
+	if h == nil || h.header == 0 || s.active || s.executing || s.finishing ||
+		h.bodyCause != nil || h.sourceCause != nil || h.ownCause != nil ||
+		NumericAllocationPending(&h.Numeric) || h.Transferred.Block() != (umemory.Block{}) ||
+		h.copy.frame != nil && !h.copy.frame.Retired || h.roundChild.frame != nil && !h.roundChild.frame.owned {
+		return
+	}
+	for p := &m.FormattedSetHistories; *p != nil; p = &(*p).Next {
+		if *p == h {
+			*p = h.Next
+			h.Next = nil
+			m.budget.Release(h.header)
+			m.formattedSetHistoryBytes -= h.header
+			h.header = 0
+			h.owned, h.unlinked = true, true
+			return
 		}
 	}
-	return nil, umemory.ErrRuntimeOwner
 }
 func (m *ArbitraryFloatManager) FormattedSetInvocationCauses(r *ArbitraryFloatFormattedSetReceipt) (body, source, own error) {
 	h, e := m.formattedSetHistory(r)

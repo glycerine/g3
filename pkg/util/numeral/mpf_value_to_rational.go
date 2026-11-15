@@ -40,6 +40,9 @@ func (m *ArbitraryFloatManager) ToRational(x *ArbitraryFloat, qm *RationalManage
 		source := m.finishRationalConversionSource()
 		cause = JoinNumericErrors(cause, source)
 		s.recordHistory()
+		if cause == nil {
+			m.retireRationalConversionHistory(s)
+		}
 	}()
 	s.numericPhase = 1
 	if e := m.copyWithValueReceiptAndContext(a, x, &s.copy, s.allocationContext()); e != nil {
