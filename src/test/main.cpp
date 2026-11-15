@@ -299,6 +299,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_define_sort_alias_after_pop);
     TST(z3_4_7_1_dl_string_to_uint64_blank);
     TST(z3_4_7_1_bmc_linear_hyper_res_positions);
+    TST(z3_4_7_1_qe_sat_projection_canceled);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);

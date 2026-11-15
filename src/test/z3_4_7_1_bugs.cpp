@@ -275,6 +275,10 @@ Abstract:
                                   lines ("set proof", "proof set",
                                   "get_subst" and each proof) to std::cout
                                   (upstream 73a24ca0a).
+    z3_4_7_1_qe_sat_projection_canceled qe-sat's projection VERIFYs that
+                                  the next level's check is l_true; under
+                                  a resource limit it is l_undef and z3
+                                  projects without a model and segfaults.
     z3_4_7_1_bmc_linear_hyper_res_positions linear BMC proof reconstruction
                                   gives its two-premise hyper-resolution the
                                   positions (0,1) instead of (1,0), so the
@@ -3332,4 +3336,19 @@ void tst_z3_4_7_1_bmc_linear_hyper_res_positions() {
         "    (hyper-res a!2 (asserted a!1) (=> (p 0) query!0))\n"
         "    (asserted (p 0))\n"
         "    query!0)))\n");
+}
+
+// qe-sat projection under a resource limit: the next level's check returns
+// l_undef, VERIFY(l_true == m_solvers[idx+1]->check()) fails, and
+// project_var then reads a null model. The run must end as an ordinary
+// resource-limit unknown.
+void tst_z3_4_7_1_qe_sat_projection_canceled() {
+    std::string out = eval_smtlib2(
+        "(set-option :rlimit 2000)\n"
+        "(declare-const a Int)\n"
+        "(assert (forall ((y Int)) (or (< y 0) (exists ((x Int)) (and (>= (* 4 x) y) (<= (* 6 x) (+ y a)) (= (mod x 3) 1))))))\n"
+        "(check-sat-using (using-params qe-sat :projection_mode false))\n"
+        "(get-info :reason-unknown)\n");
+    std::cout << "qe_sat_projection_canceled:\n" << out;
+    ENSURE(out == "unknown\n(:reason-unknown \"max. resource limit exceeded\")\n");
 }
