@@ -1521,3 +1521,52 @@ func TestDirectProofRewriteChainArithmeticReduction(t *testing.T) {
 		t.Fatal("structural normal chain", converted, err)
 	}
 }
+
+// AUDIT.md interp_01-F2: eq_from_ineq compares arg(ineq,1) with the Int
+// make_int(0) node, so a Real 0.0 keeps the sum.
+func TestDirectProofEqFromIneqRealZeroKeepsSum(t *testing.T) {
+	m, manager := interpRewritingManagerFixture(t)
+	for _, real := range []bool{true, false} {
+		sort, err := manager.IntType()
+		interpMust(t, err)
+		zeroText, minusOneText := manager.MakeIntText, manager.MakeIntText
+		suffix := "int"
+		if real {
+			sort, err = manager.RealType()
+			interpMust(t, err)
+			zeroText, minusOneText = manager.MakeRealText, manager.MakeRealText
+			suffix = "real"
+		}
+		x, err := manager.MakeVariable("eq-from-ineq-x-"+suffix, sort)
+		interpMust(t, err)
+		x = interpPin(t, m, x)
+		y, err := manager.MakeVariable("eq-from-ineq-y-"+suffix, sort)
+		interpMust(t, err)
+		y = interpPin(t, m, y)
+		base, err := NewBase(manager, []ast.ASTHandle{x, y}, nil, nil)
+		interpMust(t, err)
+		t.Cleanup(func() { interpMust(t, base.Close()) })
+		direct, err := NewDirectProofInterpolator(base, DownwardScopeRange(0), false)
+		interpMust(t, err)
+		t.Cleanup(func() { interpMust(t, direct.Close()) })
+		minusOne, err := minusOneText("-1")
+		interpMust(t, err)
+		product, err := manager.Make(OperatorTimes, minusOne, y)
+		interpMust(t, err)
+		sum, err := manager.Make(OperatorPlus, x, product)
+		interpMust(t, err)
+		zero, err := zeroText("0")
+		interpMust(t, err)
+		inequality, err := manager.Make(OperatorLE, sum, zero)
+		interpMust(t, err)
+		inequality = interpPin(t, m, inequality)
+		left, right, err := direct.equalityEndpointsFromInequality(inequality)
+		interpMust(t, err)
+		if real && (left != sum || right != zero) {
+			t.Fatal("Real 0.0 split the sum", left, right)
+		}
+		if !real && (left != x || right != y) {
+			t.Fatal("Int 0 did not split the sum", left, right)
+		}
+	}
+}

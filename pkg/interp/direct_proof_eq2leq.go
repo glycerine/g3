@@ -226,16 +226,21 @@ func (p *DirectProofInterpolator) equalityEndpointsFromInequality(inequality ast
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
-	rightValue, rightNumeral, err := p.base.manager.Numeral(right)
-	if err != nil {
-		return ast.ASTHandle{}, ast.ASTHandle{}, err
-	}
-	if leftOp == OperatorPlus && rightNumeral && rightValue.Sign() == 0 {
+	if leftOp == OperatorPlus {
 		args, e := p.base.manager.Args(left)
 		if e != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, e
 		}
+		// eq_from_ineq: arg(ineq,1) == make_int(rational(0)) is a node
+		// compare against the Int 0, built only after the arity test.
+		intZero := ast.ASTHandle{}
 		if len(args) == 2 {
+			intZero, e = p.base.manager.MakeIntText("0")
+			if e != nil {
+				return ast.ASTHandle{}, ast.ASTHandle{}, e
+			}
+		}
+		if len(args) == 2 && right == intZero {
 			candidateOp, e := p.base.manager.Operator(args[1])
 			if e != nil {
 				return ast.ASTHandle{}, ast.ASTHandle{}, e
