@@ -5,10 +5,10 @@ package cmd_context
 import uparams "github.com/glycerine/g3/pkg/util/params"
 
 type applyTacticSettings struct {
-	print, printProof, printModelConverter bool
-	printBenchmark, printDependencies      bool
-	printStatistics                        bool
-	timeout, rlimit                        uint32
+	print, printModelConverter        bool
+	printBenchmark, printDependencies bool
+	printStatistics                   bool
+	timeout, rlimit                   uint32
 }
 
 func (c *Context) applyTacticSettings(p *uparams.ParamsRef, defaultTimeout, defaultRLimit uint32) (s applyTacticSettings, err error) {
@@ -18,9 +18,8 @@ func (c *Context) applyTacticSettings(p *uparams.ParamsRef, defaultTimeout, defa
 	if s.print, err = readBool("print", true); err != nil {
 		return s, err
 	}
-	if s.printProof, err = readBool("print_proof", false); err != nil {
-		return s, err
-	}
+	// print_proof is registered only when _EXTERNAL_RELEASE is undefined
+	// (tactic_cmds.cpp:302,361); g3 follows the release build.
 	if s.printModelConverter, err = readBool("print_model_converter", false); err != nil {
 		return s, err
 	}

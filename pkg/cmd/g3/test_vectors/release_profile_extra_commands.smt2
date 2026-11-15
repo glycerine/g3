@@ -1,0 +1,7 @@
+(declare-const x Real)
+(to-poly (* (+ x 1) (+ x 1)))
+(poly/factor (- (* x x) 1))
+(poly/isolate-roots (- (* x x) 2))
+(to-subpaving (+ (* x x) 1))
+(apply skip :print false :print_benchmark false)
+(echo "done")

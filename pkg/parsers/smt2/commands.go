@@ -15,7 +15,6 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/cmd_context"
-	"github.com/glycerine/g3/pkg/math/polynomial"
 	"github.com/glycerine/g3/pkg/util/escaped"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
@@ -1526,97 +1525,10 @@ func (p *commandParser) command() (bool, error) {
 			return false, err
 		}
 		success = false
-	case "to-subpaving":
-		expression, _, err := p.expression()
-		if err != nil {
-			return false, err
-		}
-		if err = p.requireEnd(); err != nil {
-			return false, err
-		}
-		if err = p.context.WriteSubpaving(p.out, expression); err != nil {
-			return false, err
-		}
-		success = false
-	case "to-poly":
-		expression, _, err := p.expression()
-		if err != nil {
-			return false, err
-		}
-		if err = p.requireEnd(); err != nil {
-			return false, err
-		}
-		if err = p.context.WritePolynomial(p.out, expression); err != nil {
-			return false, err
-		}
-		success = false
-	case "poly/isolate-roots":
-		if p.token == RightParenToken {
-			return false, fmt.Errorf("polynomial expected")
-		}
-		expression, _, err := p.expression()
-		if err != nil {
-			return false, err
-		}
-		var assignments []ast.ASTHandle
-		for p.token != RightParenToken {
-			argument, _, err := p.expression()
-			if err != nil {
-				return false, err
-			}
-			assignments = append(assignments, argument)
-		}
-		if err = p.requireEnd(); err != nil {
-			return false, err
-		}
-		if err = p.context.WritePolynomialRoots(p.out, expression, assignments); err != nil {
-			return false, err
-		}
-		success = false
-	case "poly/factor":
-		expression, _, err := p.expression()
-		if err != nil {
-			return false, err
-		}
-		params := polynomial.DefaultUPolynomialFactorParams()
-		for p.token == KeywordToken {
-			key, e := p.parametricKeyword()
-			if e != nil {
-				return false, e
-			}
-			if key != "max_prime" && key != "num_primes" && key != "max_search_size" {
-				return false, fmt.Errorf("invalid keyword argument")
-			}
-			if err = p.advance(); err != nil {
-				return false, err
-			}
-			if p.token != IntegerToken && p.token != DecimalToken {
-				return false, fmt.Errorf("invalid parameter value, unsigned integer expected")
-			}
-			number := p.scanner.Number()
-			if !number.IsInt() || number.Sign() < 0 || !number.Num().IsUint64() || number.Num().Uint64() > uint64(^uint32(0)) {
-				return false, fmt.Errorf("invalid parameter value, unsigned integer expected")
-			}
-			value := uint32(number.Num().Uint64())
-			switch key {
-			case "max_prime":
-				params.MaxPrime = value
-			case "num_primes":
-				params.PrimeTrials = value
-			case "max_search_size":
-				params.MaxSearchSize = value
-			}
-			if err = p.advance(); err != nil {
-				return false, err
-			}
-		}
-		if err = p.requireEnd(); err != nil {
-			return false, err
-		}
-		if err = p.context.WritePolynomialFactors(p.out, expression, params); err != nil {
-			return false, err
-		}
-		success = false
+	// to-subpaving, to-poly, poly/isolate-roots and poly/factor are
+	// installed only when _EXTERNAL_RELEASE is undefined
+	// (subpaving_cmds.cpp:53, polynomial_cmds.cpp:239); g3 follows the
+	// release build, so they reach the unknown-command path.
 	case "simplify", "dbg-th-rewriter":
 		if err = p.simplifyCommand(); err != nil {
 			return false, err

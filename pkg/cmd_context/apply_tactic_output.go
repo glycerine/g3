@@ -30,8 +30,6 @@ func (c *Context) writeAppliedTacticResult(out io.Writer, applied *tactic.Tactic
 			return err
 		}
 	}
-	// Source accepts print_proof but leaves its implementation as TODO.
-	_ = settings.printProof
 	if settings.printBenchmark {
 		if err := c.writeAppliedTacticBenchmark(out, applied.Goals); err != nil {
 			return err

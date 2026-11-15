@@ -8,7 +8,6 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/cmd_context"
-	mathpoly "github.com/glycerine/g3/pkg/math/polynomial"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/escaped"
@@ -87,9 +86,7 @@ func helpParametricDescriptors(context *cmd_context.Context, name string, out *u
 		if err := insert("print", uparams.ParamBool, "(default: true) print resultant goals.", nil); err != nil {
 			return err
 		}
-		if err := insert("print_proof", uparams.ParamBool, "(default: false) print proof associated with each assertion.", nil); err != nil {
-			return err
-		}
+		// print_proof: #ifndef _EXTERNAL_RELEASE; g3 follows the release build.
 		for _, item := range []struct{ name, description string }{
 			{"print_model_converter", "(default: false) print model converter."},
 			{"print_benchmark", "(default: false) display resultant goals as a SMT2 benchmark."},
@@ -133,8 +130,6 @@ func helpParametricDescriptors(context *cmd_context.Context, name string, out *u
 			return err
 		}
 		return insert("print_statistics", uparams.ParamBool, "(default: false) print statistics.", nil)
-	case "poly/factor":
-		return mathpoly.CollectPolynomialFactorParamDescriptions(out)
 	case "query":
 		globals, err := context.GlobalParameters()
 		if err != nil {
@@ -221,12 +216,9 @@ func commandHelpCatalog() []commandHelpDescriptor {
 		helpCommand("fixedpoint-push", "", "push the fixedpoint context"),
 		helpCommand("fixedpoint-pop", "", "pop the fixedpoint context"),
 		helpCommand("include", "<string>", "include a file"),
-		helpCommand("to-poly", "<term>", "convert expression into sum-of-monomials form"),
-		helpCommand("poly/isolate-roots", "<term> (<term> <value>)*", "isolate the roots a multivariate polynomial modulo an assignment"),
-		helpParametric("poly/factor", "<term> (<keyword> <value>)*", "factor a polynomial", func(c *cmd_context.Context, d *uparams.ParamDescrs) error {
-			return helpParametricDescriptors(c, "poly/factor", d)
-		}),
-		helpCommand("to-subpaving", "<expr>", "internalize expression into subpaving module"),
+		// install_polynomial_cmds (to-poly, poly/factor, poly/isolate-roots)
+		// and install_subpaving_cmds (to-subpaving) register nothing when
+		// _EXTERNAL_RELEASE is defined; g3 follows the release build.
 		helpCommand("dbg-get-qbody", "<symbol> <quantifier>", "store the body of the quantifier in the global variable <symbol>"),
 		helpCommand("dbg-set", "<symbol> <term>", "store <term> in the global variable <symbol>"),
 		helpCommand("dbg-pp-var", "<symbol>", "pretty print a global variable that references an AST"),

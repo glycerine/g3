@@ -12,10 +12,10 @@ import (
 
 // applyTacticParameterKinds is apply_tactic_cmd::init_pdescrs plus
 // exec_given_tactic_cmd::init_pdescrs: timeout, max_memory and
-// print_statistics, but no rlimit.
+// print_statistics, but no rlimit. print_proof is registered only when
+// _EXTERNAL_RELEASE is undefined; g3 follows the release build.
 var applyTacticParameterKinds = map[string]uparams.ParamKind{
 	"print":                 uparams.ParamBool,
-	"print_proof":           uparams.ParamBool,
 	"print_model_converter": uparams.ParamBool,
 	"print_benchmark":       uparams.ParamBool,
 	"print_dependencies":    uparams.ParamBool,
