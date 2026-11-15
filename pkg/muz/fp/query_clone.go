@@ -68,6 +68,7 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 		}
 	}
 	clone.ddnf.output = e.ddnf.output
+	clone.dualityReport = e.dualityReport
 	if e.ddnf.registry != nil {
 		clone.ddnf.registry = e.ddnf.registry
 		clone.ddnf.registryBorrowed = true

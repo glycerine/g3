@@ -249,6 +249,9 @@ type PropositionalEngine struct {
 	closed            bool
 	closing           bool
 	ddnf              ddnfEngineState
+	// dualityReport is the borrowed writer standing for std::cout, where
+	// Duality's StreamReporter writes; nil is os.Stdout.
+	dualityReport io.Writer
 
 	datalogTransformCleanup *datalogTransformOwners
 

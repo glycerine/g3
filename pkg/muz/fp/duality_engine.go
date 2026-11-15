@@ -4,6 +4,8 @@ package fp
 
 import (
 	"errors"
+	"io"
+	"os"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
@@ -12,18 +14,33 @@ import (
 	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
-	utext "github.com/glycerine/g3/pkg/util/text"
 )
 
-type dualityVerboseWriter struct{ stream *utext.NumericTextStream }
+// dualityReportWriter is std::cout for the Duality StreamReporter: an
+// insertion failure sets the stream's badbit and later events are no-ops,
+// but the search goes on.
+type dualityReportWriter struct {
+	out io.Writer
+	bad *bool
+}
 
-func (w dualityVerboseWriter) Write(body []byte) (int, error) {
-	// std::ostream reporter failures set sticky stream state but do not abort
-	// the source search. NumericTextStream has the same transport contract.
-	if err := w.stream.AppendCString(string(body)); err != nil {
-		return 0, err
+func (w dualityReportWriter) Write(body []byte) (int, error) {
+	if !*w.bad {
+		if _, err := w.out.Write(body); err != nil {
+			*w.bad = true
+		}
 	}
 	return len(body), nil
+}
+
+// SetDualityReportOutput selects the borrowed writer that stands for
+// std::cout in Duality's report; nil restores os.Stdout.
+func (e *PropositionalEngine) SetDualityReportOutput(out io.Writer) error {
+	if err := e.open(); err != nil {
+		return err
+	}
+	e.dualityReport = out
+	return nil
 }
 
 func (e *PropositionalEngine) closeDuality() error {
@@ -101,11 +118,14 @@ func (e *PropositionalEngine) queryDuality(query ast.ASTHandle) (status lbool.LB
 		return lbool.Undef, err
 	}
 	if options.Report {
-		stream, cause := diagnostic.BorrowProcessVerboseStream()
-		if cause != nil {
-			return lbool.Undef, cause
+		// IF_VERBOSE(1, rs->SetOption("report","1")) selects
+		// CreateStdoutReporter: the events go to std::cout, not to
+		// verbose_stream() (AUDIT.md FUZZ-F5).
+		out := e.dualityReport
+		if out == nil {
+			out = os.Stdout
 		}
-		if err = e.duality.SetReportOutput(dualityVerboseWriter{stream: stream}); err != nil {
+		if err = e.duality.SetReportOutput(dualityReportWriter{out: out, bad: new(bool)}); err != nil {
 			return lbool.Undef, err
 		}
 	} else if err = e.duality.SetReportOutput(nil); err != nil {

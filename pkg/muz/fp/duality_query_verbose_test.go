@@ -11,7 +11,6 @@ import (
 
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
-	utext "github.com/glycerine/g3/pkg/util/text"
 )
 
 type dualityVerboseRefusingWriter struct{}
@@ -20,35 +19,25 @@ func (dualityVerboseRefusingWriter) Write([]byte) (int, error) { return 0, io.Er
 
 func TestDualityQueryReportFollowsSourceVerbosityAndStreamState(t *testing.T) {
 	f := newDirectFactFixture(t)
-	e, m := f.engine, f.manager
+	e := f.engine
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }
 	must(e.SelectEngine("duality"))
 	must(e.addRuleEager(f.applications["p"], "fact"))
 	oldLevel, err := diagnostic.ProcessVerbosityLevel()
 	must(err)
-	oldStream, err := diagnostic.BorrowProcessVerboseStream()
-	must(err)
-	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: m.Budget()})
-	must(err)
-	refusing, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: m.Budget(), BorrowedWriter: dualityVerboseRefusingWriter{}})
-	must(err)
-	defer func() {
-		must(diagnostic.SetProcessVerbosityLevel(oldLevel))
-		must(diagnostic.SetProcessVerboseStream(oldStream))
-		must(refusing.Close())
-		must(stream.Close())
-	}()
-	must(diagnostic.SetProcessVerboseStream(stream))
+	defer func() { must(diagnostic.SetProcessVerbosityLevel(oldLevel)) }()
+	// The report is std::cout's (CreateStdoutReporter), not verbose_stream's.
+	var report bytes.Buffer
+	must(e.SetDualityReportOutput(&report))
 	for _, level := range []uint32{0, 1, 2, 0, 1} {
 		must(diagnostic.SetProcessVerbosityLevel(level))
-		must(stream.ResetText())
+		report.Reset()
 		status, err := e.QueryPredicate(f.declarations["p"])
 		must(err)
 		if status != lbool.True {
 			t.Fatal("reachable report fixture", level, status)
 		}
-		text, err := transformFilteredString(stream)
-		must(err)
+		text := report.String()
 		if level == 0 && text != "" {
 			t.Fatal("verbosity-zero Duality report", text)
 		}
@@ -58,25 +47,22 @@ func TestDualityQueryReportFollowsSourceVerbosityAndStreamState(t *testing.T) {
 	}
 
 	// C++ ostream insertion does not turn a sticky output failure into solver
-	// failure. NumericTextStream marks the transport bad and subsequent events
-	// become no-ops, so the fixedpoint result must still publish.
-	must(diagnostic.SetProcessVerboseStream(refusing))
+	// failure: later events are no-ops and the fixedpoint result publishes.
+	must(e.SetDualityReportOutput(dualityVerboseRefusingWriter{}))
 	must(diagnostic.SetProcessVerbosityLevel(1))
 	status, err := e.QueryPredicate(f.declarations["p"])
 	must(err)
-	if status != lbool.True || !refusing.FileBad {
-		t.Fatal("refused verbose stream changed query result or stayed good", status, refusing.FileBad)
+	if status != lbool.True {
+		t.Fatal("refused report stream changed query result", status)
 	}
-	must(diagnostic.SetProcessVerboseStream(stream))
-	must(stream.ResetText())
+	report.Reset()
+	must(e.SetDualityReportOutput(&report))
 	status, err = e.QueryPredicate(f.declarations["p"])
 	must(err)
 	if status != lbool.True {
 		t.Fatal("query after refused report", status)
 	}
-	text, err := transformFilteredString(stream)
-	must(err)
-	if text == "" || bytes.Contains([]byte(text), []byte("error")) {
+	if text := report.String(); text == "" || bytes.Contains([]byte(text), []byte("error")) {
 		t.Fatal("report stream replacement", text)
 	}
 }
