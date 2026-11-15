@@ -1,0 +1,65 @@
+(transform N7datalog13mk_coi_filterE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...3 rules Ts)
+(transform N7datalog27mk_quantifier_instantiationE...no-op Ts)
+(transform N7datalog8mk_scaleE...no-op Ts)
+(transform N7datalog18mk_karr_invariantsE...no-op Ts)
+(transform N7datalog14mk_array_blastE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog12mk_bit_blastE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog13mk_coi_filterE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog13mk_coi_filterE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog8mk_sliceE...no-op Ts)
+expand: query!0 (0, 0) FAR  w(0) 1. F t
+(spacer::context::check_reachability)
+Entering level 1
+expand: query!0 (1, 0) FAR  w(0) 1.
+	create_child: p (0, 1) FAR 162 U t
+expand: p (0, 0) FAR  w(0) 162. F t
+expand: query!0 (1, 0) FAR  w(0) 1. F t
+(spacer::context::check_reachability)
+Propagating: 0 1  ! 2 
+(spacer::context::propagate)
+Entering level 2
+expand: query!0 (2, 0) FAR  w(0) 1.
+	create_child: p (1, 2) FAR 162 U t
+expand: p (1, 0) FAR  w(0) 162.
+	create_child: p (0, 2) FAR 698 U t
+expand: p (0, 0) FAR  w(0) 698. F t
+expand: p (1, 0) FAR  w(0) 162.
+	create_child: p (0, 2) FAR 895 U t
+expand: p (0, 0) FAR  w(0) 895. F t
+expand: p (1, 0) FAR  w(0) 162. F t
+expand: query!0 (2, 0) FAR  w(0) 1. F t
+(spacer::context::check_reachability)
+Propagating: 0 1 2  ! 3 
+(spacer::context::propagate)
+Entering level 3
+expand: query!0 (3, 0) FAR  w(0) 1.
+	create_child: p (2, 3) FAR 162 U t
+expand: p (2, 0) FAR  w(0) 162.
+	create_child: p (1, 3) FAR 895 U t
+expand: p (1, 0) FAR  w(0) 895.
+	create_child: p (1, 3) FAR 1554 X t
+expand: p (1, 0) FAR  w(0) 1554. T t
+is-reachable: p (2, 0) FAR 162 T t
+is-reachable: query!0 (3, 0) FAR 1 T t
+(spacer::context::check_reachability)
+BRUNCH_STAT max_query_lvl 3
+BRUNCH_STAT num_queries 6
+BRUNCH_STAT num_reach_queries 4
+BRUNCH_STAT num_reach_reuse 5
+BRUNCH_STAT inductive_lvl 0
+BRUNCH_STAT max_depth 3
+BRUNCH_STAT cex_depth 3

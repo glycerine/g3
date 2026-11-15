@@ -1,0 +1,167 @@
+(transform N7datalog13mk_coi_filterE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...4 rules Ts)
+(transform N7datalog27mk_quantifier_instantiationE...no-op Ts)
+(transform N7datalog8mk_scaleE...no-op Ts)
+(transform N7datalog18mk_karr_invariantsE...no-op Ts)
+(transform N7datalog14mk_array_blastE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog12mk_bit_blastE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog13mk_coi_filterE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...4 rules Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog13mk_coi_filterE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...4 rules Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+expand: query!0 (0, 0) FAR  w(0) 1. F t
+(spacer::context::check_reachability)
+Entering level 1
+expand: query!0 (1, 0) FAR  w(0) 1.
+	create_child: bad (0, 1) FAR 1 U t
+expand: bad (0, 0) FAR  w(0) 1. F t
+expand: query!0 (1, 0) FAR  w(0) 1. F t
+(spacer::context::check_reachability)
+Propagating: 0 1  ! 2 
+(spacer::context::propagate)
+Entering level 2
+expand: query!0 (2, 0) FAR  w(0) 1.
+	create_child: bad (1, 2) FAR 1 U t
+expand: bad (1, 0) FAR  w(0) 1.
+	create_child: P (0, 2) FAR 348 U t
+expand: P (0, 0) FAR  w(0) 348. F t
+expand: bad (1, 0) FAR  w(0) 1. F t
+expand: query!0 (2, 0) FAR  w(0) 1. F t
+(spacer::context::check_reachability)
+Propagating: 0 1 2  ! 3 
+(spacer::context::propagate)
+Entering level 3
+expand: query!0 (3, 0) FAR  w(0) 1.
+	create_child: bad (2, 3) FAR 1 U t
+expand: bad (2, 0) FAR  w(0) 1.
+	create_child: P (1, 3) FAR 348 U t
+expand: P (1, 0) FAR  w(0) 348.
+	create_child: P (0, 3) FAR 845 U t
+expand: P (0, 0) FAR  w(0) 845. F t
+expand: P (1, 0) FAR  w(0) 348. F t
+expand: bad (2, 0) FAR  w(0) 1. F t
+expand: query!0 (3, 0) FAR  w(0) 1. F t
+(spacer::context::check_reachability)
+Propagating: 0 1 2 3  ! 4 
+(spacer::context::propagate)
+Entering level 4
+expand: query!0 (4, 0) FAR  w(0) 1.
+	create_child: bad (3, 4) FAR 1 U t
+expand: bad (3, 0) FAR  w(0) 1.
+	create_child: P (2, 4) FAR 348 U t
+expand: P (2, 0) FAR  w(0) 348.
+	create_child: P (1, 4) FAR 845 U t
+expand: P (1, 0) FAR  w(0) 845.
+	create_child: P (0, 4) FAR 1304 U t
+expand: P (0, 0) FAR  w(0) 1304. F t
+expand: P (1, 0) FAR  w(0) 845. F t
+expand: P (2, 0) FAR  w(0) 348. F t
+expand: bad (3, 0) FAR  w(0) 1. F t
+expand: query!0 (4, 0) FAR  w(0) 1. F t
+(spacer::context::check_reachability)
+Propagating: 0 1 2 3 4  ! 5 
+(spacer::context::propagate)
+Entering level 5
+expand: query!0 (5, 0) FAR  w(0) 1.
+	create_child: bad (4, 5) FAR 1 U t
+expand: bad (4, 0) FAR  w(0) 1.
+	create_child: P (3, 5) FAR 348 U t
+expand: P (3, 0) FAR  w(0) 348.
+	create_child: P (2, 5) FAR 845 U t
+expand: P (2, 0) FAR  w(0) 845.
+	create_child: P (1, 5) FAR 1304 U t
+expand: P (1, 0) FAR  w(0) 1304.
+	create_child: P (0, 5) FAR 1855 U t
+expand: P (0, 0) FAR  w(0) 1855. F t
+expand: P (1, 0) FAR  w(0) 1304. F t
+expand: P (2, 0) FAR  w(0) 845. F t
+expand: P (3, 0) FAR  w(0) 348. F t
+expand: bad (4, 0) FAR  w(0) 1. F t
+expand: query!0 (5, 0) FAR  w(0) 1. F t
+(spacer::context::check_reachability)
+Propagating: 0 1 2 3 4 5  ! 6 
+(spacer::context::propagate)
+Entering level 6
+expand: query!0 (6, 0) FAR  w(0) 1.
+	create_child: bad (5, 6) FAR 1 U t
+expand: bad (5, 0) FAR  w(0) 1.
+	create_child: P (4, 6) FAR 348 U t
+expand: P (4, 0) FAR  w(0) 348.
+	create_child: P (3, 6) FAR 845 U t
+expand: P (3, 0) FAR  w(0) 845.
+	create_child: P (2, 6) FAR 1304 U t
+expand: P (2, 0) FAR  w(0) 1304.
+	create_child: P (1, 6) FAR 1855 U t
+expand: P (1, 0) FAR  w(0) 1855.
+	create_child: P (0, 6) FAR 2500 U t
+expand: P (0, 0) FAR  w(0) 2500. F t
+expand: P (1, 0) FAR  w(0) 1855. F t
+expand: P (2, 0) FAR  w(0) 1304. F t
+expand: P (3, 0) FAR  w(0) 845. F t
+expand: P (4, 0) FAR  w(0) 348. F t
+expand: bad (5, 0) FAR  w(0) 1. F t
+expand: query!0 (6, 0) FAR  w(0) 1. F t
+(spacer::context::check_reachability)
+Propagating: 0 1 2 3 4 5 6  ! 7 
+(spacer::context::propagate)
+Entering level 7
+expand: query!0 (7, 0) FAR  w(0) 1.
+	create_child: bad (6, 7) FAR 1 U t
+expand: bad (6, 0) FAR  w(0) 1.
+	create_child: P (5, 7) FAR 348 U t
+expand: P (5, 0) FAR  w(0) 348.
+	create_child: P (4, 7) FAR 845 U t
+expand: P (4, 0) FAR  w(0) 845.
+	create_child: P (3, 7) FAR 1304 U t
+expand: P (3, 0) FAR  w(0) 1304.
+	create_child: P (2, 7) FAR 1855 U t
+expand: P (2, 0) FAR  w(0) 1855.
+	create_child: P (1, 7) FAR 2500 U t
+expand: P (1, 0) FAR  w(0) 2500.
+	create_child: P (0, 7) FAR 3241 U t
+expand: P (0, 0) FAR  w(0) 3241. F t
+expand: P (1, 0) FAR  w(0) 2500. F t
+expand: P (2, 0) FAR  w(0) 1855. F t
+expand: P (3, 0) FAR  w(0) 1304. F t
+expand: P (4, 0) FAR  w(0) 845. F t
+expand: P (5, 0) FAR  w(0) 348. F t
+expand: bad (6, 0) FAR  w(0) 1. F t
+expand: query!0 (7, 0) FAR  w(0) 1. F t
+(spacer::context::check_reachability)
+Propagating: 0 1 2 3 4 5 6 7  ! 8 
+(spacer::context::propagate)
+Entering level 8
+expand: query!0 (8, 0) FAR  w(0) 1.
+	create_child: bad (7, 8) FAR 1 U t
+expand: bad (7, 0) FAR  w(0) 1.
+	create_child: P (6, 8) FAR 348 U t
+expand: P (6, 0) FAR  w(0) 348.
+	create_child: P (5, 8) FAR 845 U t
+expand: P (5, 0) FAR  w(0) 845.
+	create_child: P (4, 8) FAR 1304 U t
+expand: P (4, 0) FAR  w(0) 1304.
+	create_child: P (3, 8) FAR 1855 U t
+expand: P (3, 0) FAR  w(0) 1855.
+	create_child: P (2, 8) FAR 2500 U t
+expand: P (2, 0) FAR  w(0) 2500.
+	create_child: P (1, 8) FAR 3241 U t
+expand: P (1, 0) FAR  w(0) 3241. T t
+is-reachable: P (2, 0) FAR 2500 T t
+is-reachable: P (3, 0) FAR 1855 T t
+is-reachable: P (4, 0) FAR 1304 T t
+is-reachable: P (5, 0) FAR 845 T t
+is-reachable: P (6, 0) FAR 348 T t
+is-reachable: bad (7, 0) FAR 1 T t
+is-reachable: query!0 (8, 0) FAR 1 T t
+(spacer::context::check_reachability)

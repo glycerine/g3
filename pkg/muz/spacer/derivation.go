@@ -440,11 +440,17 @@ func (d *Derivation) createProjectedChild(md *model.ModelCore) (_ *ProofObligati
 	if err != nil {
 		return nil, err
 	}
+	// formula_o2n(post.get(), post, ...) writes the renamed formula back
+	// into post, so the pre-image dies inside conv_formula.
 	currentRef, err := d.parent.transformer.owner.FormulaOldToNew(post, active.oldIndex, len(d.existentials) == 0)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, manager.DelRef(&currentRef)) }()
+	if err = manager.DelRef(&postRef); err != nil {
+		return nil, err
+	}
+	postRef = ast.ASTRef{}
 	current, err := manager.RefGet(currentRef)
 	if err != nil {
 		return nil, err
@@ -648,12 +654,14 @@ func (d *Derivation) Close() (result error) {
 		return nil
 	}
 	manager := d.parent.transformer.manager
-	for i := len(d.premises) - 1; i >= 0; i-- {
-		result = errors.Join(result, d.premises[i].close(manager))
-	}
+	// ~derivation destroys its members in reverse declaration order:
+	// m_evars, m_trans, then m_premises (a z3 vector, front to back).
 	result = errors.Join(result, releaseNormalizeRefs(manager, d.existentials))
 	if d.transition != (ast.ASTRef{}) {
 		result = errors.Join(result, manager.DelRef(&d.transition))
+	}
+	for _, premise := range d.premises {
+		result = errors.Join(result, premise.close(manager))
 	}
 	result = errors.Join(result, d.rule.Close())
 	if result == nil {

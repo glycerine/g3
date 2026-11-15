@@ -150,8 +150,10 @@ func TestNormalizeAdhocRewritesChildrenBeforeParentThreshold(t *testing.T) {
 	quantifiedRef, err := m.NewRef(quantified)
 	normalizeMust(t, err)
 	defer func() { normalizeMust(t, m.DelRef(&quantifiedRef)) }()
+	// rewriter_tpl::process_quantifier keeps a rewritten no-pattern only
+	// when it is still a pattern (m.is_pattern); this bare formula is not,
+	// so only the body changes.
 	spec.Body = expected
-	spec.NoPatterns = []ast.ASTHandle{expected}
 	expectedQuantified, err := m.MkQuantifier(spec)
 	normalizeMust(t, err)
 	expectedQuantifiedRef, err := m.NewRef(expectedQuantified)

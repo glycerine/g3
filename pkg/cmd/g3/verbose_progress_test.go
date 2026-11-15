@@ -118,6 +118,10 @@ var verboseProgressCases = []verboseProgressCase{
 	// with smt.mbqi on, mk_proto_model runs for checks that want no model:
 	// its values shift the pdr lemma ids.
 	{"pdr_count_v1", "horn_count", []string{"-v:1", "fixedpoint.engine=pdr"}},
+	// spacer pob ids: create_next_child's post, ~derivation and normalize's
+	// adhoc rewriter release their terms where the source does.
+	{"spacer_projection_v1", "horn_projection", []string{"-v:1", "fixedpoint.engine=spacer"}},
+	{"spacer_eq_prop_off_v1", "spacer_eq_prop_off", []string{"-v:1"}},
 }
 
 // verboseProgressFiltered keeps, for each case, only the lines starting

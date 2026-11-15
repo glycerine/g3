@@ -18,6 +18,7 @@ type normalizeCleanupFailure struct {
 	local       uparams.ParamsRef
 	localLive   bool
 	rewriter    *astrewriter.TheoryRewriter
+	adhoc       *astrewriter.Traversal
 	equivalence *ast.ExprEquivClass
 	values      []ast.ASTRef
 	output      ast.ASTRef
@@ -48,6 +49,12 @@ func (f *normalizeCleanupFailure) close(includeOutput bool) (result error) {
 		if err := f.manager.DelRef(&f.output); err != nil {
 			return err
 		}
+	}
+	if f.adhoc != nil {
+		if err := f.adhoc.Close(); err != nil {
+			return err
+		}
+		f.adhoc = nil
 	}
 	if f.rewriter != nil {
 		if err := f.rewriter.Close(); err != nil {
@@ -172,137 +179,58 @@ func normalizeAdhocReduce(manager *ast.ASTManager, family ast.FamilyID, decl ast
 	return result, err == nil, err
 }
 
-// normalizeAdhoc is the concrete bottom-up adhoc_rewriter_cfg traversal.
-// Rebuild parents from rewritten children before applying the local rule.
+// adhocRewriterConfig is adhoc_rewriter_cfg, run by rewriter_tpl.
+type adhocRewriterConfig struct {
+	astrewriter.DefaultConfiguration
+	manager *ast.ASTManager
+	family  ast.FamilyID
+}
+
+func (c *adhocRewriterConfig) ReduceApp(decl ast.ASTHandle, args ast.AppArguments, out, _ ast.ASTRef) (astrewriter.RewriteStatus, error) {
+	values := make([]ast.ASTHandle, args.Count())
+	for i := range values {
+		value, err := args.At(uint32(i))
+		if err != nil {
+			return astrewriter.RewriteFailed, err
+		}
+		values[i] = value
+	}
+	result, done, err := normalizeAdhocReduce(c.manager, c.family, decl, values)
+	if err != nil || !done {
+		return astrewriter.RewriteFailed, err
+	}
+	if err = c.manager.SetRef(out, result); err != nil {
+		return astrewriter.RewriteFailed, err
+	}
+	return astrewriter.RewriteDone, nil
+}
+
+// newAdhocTraversal is rewriter_tpl<adhoc_rewriter_cfg> adhoc_rw(m, false,
+// adhoc_cfg). Its cache lives until Close, as the source local's does.
+func newAdhocTraversal(manager *ast.ASTManager) (*astrewriter.Traversal, error) {
+	family, err := manager.ArithmeticFamilyID()
+	if err != nil {
+		return nil, err
+	}
+	traversal, err := astrewriter.NewTraversal(manager, &adhocRewriterConfig{manager: manager, family: family})
+	if err != nil && traversal != nil {
+		err = errors.Join(err, traversal.Close())
+	}
+	return traversal, err
+}
+
+// normalizeAdhoc is adhoc_rw(out.get(), out) with its own rewriter.
 func normalizeAdhoc(manager *ast.ASTManager, root ast.ASTRef) (resultErr error) {
+	traversal, err := newAdhocTraversal(manager)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, traversal.Close()) }()
 	handle, err := manager.RefGet(root)
 	if err != nil {
 		return err
 	}
-	family, err := manager.ArithmeticFamilyID()
-	if err != nil {
-		return err
-	}
-	type frame struct {
-		node     ast.ASTHandle
-		children []ast.ASTHandle
-		patterns int
-		ready    bool
-	}
-	todo := []frame{{node: handle}}
-	cache := make(map[ast.ASTHandle]ast.ASTHandle)
-	owned := make([]ast.ASTRef, 0)
-	defer func() {
-		cleanup := &normalizeCleanupFailure{manager: manager, values: owned, cause: resultErr}
-		if err := cleanup.close(true); err != nil {
-			cleanup.cause = errors.Join(resultErr, err)
-			cleanup.cleanupErr = err
-			resultErr = cleanup
-		}
-	}()
-	for len(todo) != 0 {
-		current := todo[len(todo)-1]
-		todo = todo[:len(todo)-1]
-		if _, done := cache[current.node]; done {
-			continue
-		}
-		kind, err := manager.GetKind(current.node)
-		if err != nil {
-			return err
-		}
-		if !current.ready {
-			switch kind {
-			case ast.ASTApp:
-				count, err := manager.GetNumArgs(current.node)
-				if err != nil {
-					return err
-				}
-				for i := uint32(0); i < count; i++ {
-					child, err := manager.GetArg(current.node, i)
-					if err != nil {
-						return err
-					}
-					current.children = append(current.children, child)
-				}
-			case ast.ASTQuantifier:
-				body, err := manager.GetQuantifierBody(current.node)
-				if err != nil {
-					return err
-				}
-				current.children = append(current.children, body)
-				count, err := manager.GetNumPatterns(current.node)
-				if err != nil {
-					return err
-				}
-				current.patterns = int(count)
-				for i := uint32(0); i < count; i++ {
-					child, err := manager.GetPattern(current.node, i)
-					if err != nil {
-						return err
-					}
-					current.children = append(current.children, child)
-				}
-				count, err = manager.GetNumNoPatterns(current.node)
-				if err != nil {
-					return err
-				}
-				for i := uint32(0); i < count; i++ {
-					child, err := manager.GetNoPattern(current.node, i)
-					if err != nil {
-						return err
-					}
-					current.children = append(current.children, child)
-				}
-			}
-			current.ready = true
-			todo = append(todo, current)
-			for i := len(current.children); i > 0; i-- {
-				todo = append(todo, frame{node: current.children[i-1]})
-			}
-			continue
-		}
-		changed := false
-		children := make([]ast.ASTHandle, len(current.children))
-		for i, child := range current.children {
-			children[i] = cache[child]
-			changed = changed || children[i] != child
-		}
-		rebuilt := current.node
-		switch kind {
-		case ast.ASTApp:
-			// rewriter_tpl::process_app: reduce_app on the new arguments,
-			// then mk_app only when it fails and an argument changed.
-			decl, err := manager.GetDecl(current.node)
-			if err != nil {
-				return err
-			}
-			replacement, replaced, err := normalizeAdhocReduce(manager, family, decl, children)
-			if err != nil {
-				return err
-			}
-			if replaced {
-				rebuilt = replacement
-			} else if changed {
-				if rebuilt, err = manager.MkApp(decl, children); err != nil {
-					return err
-				}
-			}
-		case ast.ASTQuantifier:
-			if changed {
-				rebuilt, err = manager.UpdateQuantifierAnnotations(current.node, children[1:1+current.patterns], children[1+current.patterns:], children[0])
-				if err != nil {
-					return err
-				}
-			}
-		}
-		ref, err := manager.NewRef(rebuilt)
-		if err != nil {
-			return err
-		}
-		owned = append(owned, ref)
-		cache[current.node] = rebuilt
-	}
-	return manager.SetRef(root, cache[handle])
+	return traversal.Rewrite(handle, root)
 }
 
 // normalizeFormula returns an owning reference. It follows the retained
@@ -353,10 +281,20 @@ func normalizeFormula(manager *ast.ASTManager, context *uparams.ParamsContext, g
 	if err = rw.Rewrite(formula, out); err != nil {
 		return ast.ASTRef{}, err
 	}
-	if err = normalizeAdhoc(manager, out); err != nil {
+	// adhoc_rw is a normalize local: its cache dies after v, before rw.
+	adhoc, err := newAdhocTraversal(manager)
+	cleanup.adhoc = adhoc
+	if err != nil {
 		return ast.ASTRef{}, err
 	}
 	rewritten, err := manager.RefGet(out)
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	if err = adhoc.Rewrite(rewritten, out); err != nil {
+		return ast.ASTRef{}, err
+	}
+	rewritten, err = manager.RefGet(out)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
