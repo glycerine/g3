@@ -254,6 +254,7 @@ namespace datalog {
                   throw default_exception("bit-vector table is specialized to small domains that are powers of two");
             }
         }
+        // FORK FIX #56 (g3 audit, see FORK_BUGFIXES.md): reserve the bit vector after the column loop so a nullary table holds one bit (backport of upstream 8dac9b7b94)
         m_bv.reserve(1 << shift);
     }
     

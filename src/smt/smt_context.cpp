@@ -1806,6 +1806,7 @@ namespace smt {
     */
     bool context::decide() {
         bool_var var;
+        // FORK FIX #57 (g3 audit, see FORK_BUGFIXES.md): initialize phase to l_undef; theory_aware_branching_queue never writes it (as upstream; AUDIT smtcore_02-F9)
         lbool phase = l_undef;
         m_case_split_queue->next_case_split(var, phase);
 
