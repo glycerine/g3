@@ -253,17 +253,24 @@ func (c *factorCall) makeMuls() error {
 	return c.traceMuls()
 }
 
-func (c *factorCall) collectPowers() {
-	c.powers = c.powers[:0]
-	positions := make(map[ast.ASTHandle]int, len(c.factors))
+// collectPowers is factor_rewriter::collect_powers: m_powers is the
+// rewriter's obj_map<expr, unsigned>, reset and refilled, and its
+// consumers walk it in table order.
+func (c *factorCall) collectPowers() error {
+	powers := c.owner.powers
+	powers.Reset()
 	for _, h := range c.factors {
-		if i, ok := positions[h]; ok {
-			c.powers[i].count++
-		} else {
-			positions[h] = len(c.powers)
-			c.powers = append(c.powers, factorPower{h, 1})
+		entry, err := powers.InsertIfNotThere(h)
+		if err != nil {
+			return err
 		}
+		entry.Num++
 	}
+	c.powers = c.powers[:0]
+	for _, entry := range powers.Entries() {
+		c.powers = append(c.powers, factorPower{entry.Key, uint32(entry.Num)})
+	}
+	return nil
 }
 
 func removeFactor(row []ast.ASTHandle, i int) []ast.ASTHandle {
@@ -301,7 +308,9 @@ func (c *factorCall) extractFactors() (bool, error) {
 				c.factors = append(c.factors, minusOne)
 			}
 		}
-		c.collectPowers()
+		if err := c.collectPowers(); err != nil {
+			return false, err
+		}
 		return true, nil
 	}
 	for i := 0; i < len(c.muls[0]); {
@@ -369,7 +378,9 @@ func (c *factorCall) extractFactors() (bool, error) {
 	if err := c.traceFactors(); err != nil {
 		return false, err
 	}
-	c.collectPowers()
+	if err := c.collectPowers(); err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
@@ -529,7 +540,9 @@ type FactorRewriter struct {
 	config      factorRewriterConfiguration
 	traversal   *Traversal
 	trace       *diagnostic.TraceTags
-	closed      bool
+	// powers is the member m_powers (obj_map<expr, unsigned>).
+	powers *ast.ObjMap
+	closed bool
 }
 
 func NewFactorRewriter(m *ast.ASTManager) (*FactorRewriter, error) {
@@ -540,7 +553,7 @@ func NewFactorRewriter(m *ast.ASTManager) (*FactorRewriter, error) {
 	if err != nil {
 		return nil, err
 	}
-	r := &FactorRewriter{manager: m, arithFamily: family}
+	r := &FactorRewriter{manager: m, arithFamily: family, powers: ast.NewObjMap(m)}
 	r.self, r.config.owner = r, r
 	r.traversal, err = NewTraversal(m, &r.config)
 	if err != nil {
@@ -631,6 +644,9 @@ func (r *FactorRewriter) Close() error {
 		if err := r.traversal.Close(); err != nil {
 			return err
 		}
+	}
+	if r.powers != nil {
+		r.powers.Finalize()
 	}
 	r.closed = true
 	return nil

@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_rewriter_04-F1: factor_rewriter m_powers walks obj_map order.
+	"qe_nonlinear_factor_power_order.smt2": "(goals\n(goal\n  (let ((a!1 (or (and (not (<= a 0.0)) (not (<= b 0.0)))\n                 (and (not (<= 0.0 a)) (not (<= 0.0 b)))))\n        (a!2 (or (and (not (<= 0.0 a)) (not (<= b 0.0)))\n                 (and (not (<= a 0.0)) (not (<= 0.0 b))))))\n  (let ((a!3 (or (and (not (<= c 0.0)) a!1) (and (not (<= 0.0 c)) a!2)))\n        (a!4 (or (and (not (<= 0.0 c)) a!1) (and (not (<= c 0.0)) a!2))))\n    (or (= 0.0 b)\n        (= 0.0 a)\n        (= 0.0 c)\n        (= 0.0 d)\n        (and (not (<= 0.0 d)) a!3)\n        (and (not (<= d 0.0)) a!4))))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md ast_rewriter_03-F2: dt2bv model converters walk obj_map order.
 	"dt2bv_model_order.smt2": "sat\n(model \n  (define-fun e () Color\n    green)\n  (define-fun d () Color\n    red)\n  (define-fun c () Color\n    red)\n  (define-fun a () Color\n    blue)\n  (define-fun b () Color\n    green)\n  (define-fun f () Color\n    blue)\n)\n",
 	// AUDIT.md ast_rewriter_03-F2: enum2bv model extension walks obj_map order.

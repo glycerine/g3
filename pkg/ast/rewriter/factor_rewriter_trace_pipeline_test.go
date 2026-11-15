@@ -37,7 +37,9 @@ func TestFactorRewriterSourceTracePipeline(t *testing.T) {
 	}
 	// mk_adds visits each product once; only mk_muls expands its factors.
 	// Check the full ordered pipeline, including source spaces and the
-	// default SMT2 pretty-printer's let bindings and line breaks.
+	// default SMT2 pretty-printer's let bindings and line breaks. The mk_le
+	// result walks m_powers in obj_map table order (AUDIT.md
+	// ast_rewriter_04-F1), which puts the residual before x here.
 	const want = "-------- [factor_rewriter] mk_adds src/ast/rewriter/factor_rewriter.cpp:166 ---------\n" +
 		"0 (* trace-factor-x trace-factor-y)\n" +
 		"------------------------------------------------\n" +
@@ -55,11 +57,11 @@ func TestFactorRewriterSourceTracePipeline(t *testing.T) {
 		"------------------------------------------------\n" +
 		"-------- [factor_rewriter] mk_le src/ast/rewriter/factor_rewriter.cpp:90 ---------\n" +
 		"(* trace-factor-x trace-factor-y) <= (* trace-factor-x trace-factor-z)\n" +
-		"(let ((a!1 (and (< (+ trace-factor-y (- trace-factor-z)) 0)\n" +
-		"                (< 0 trace-factor-x)))\n" +
-		"      (a!2 (and (< 0 (+ trace-factor-y (- trace-factor-z)))\n" +
-		"                (< trace-factor-x 0))))\n" +
-		"  (or (= 0 trace-factor-x) (= 0 (+ trace-factor-y (- trace-factor-z))) a!1 a!2))\n" +
+		"(let ((a!1 (and (< trace-factor-x 0)\n" +
+		"                (< 0 (+ trace-factor-y (- trace-factor-z)))))\n" +
+		"      (a!2 (and (< 0 trace-factor-x)\n" +
+		"                (< (+ trace-factor-y (- trace-factor-z)) 0))))\n" +
+		"  (or (= 0 (+ trace-factor-y (- trace-factor-z))) (= 0 trace-factor-x) a!1 a!2))\n" +
 		"------------------------------------------------\n"
 	if got := output.String(); got != want {
 		t.Fatalf("source factor trace:\ngot:\n%swant:\n%s", got, want)

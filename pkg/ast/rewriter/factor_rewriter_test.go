@@ -70,6 +70,28 @@ func (f factorFixture) relation(op int32, lhs, rhs ast.ASTHandle) (ast.ASTHandle
 	return h, d
 }
 
+// factorEqualitiesInPowersOrder orders eqs (eqs[i] belongs to factors[i])
+// as factor_rewriter's m_powers obj_map iterates the factors.
+func factorEqualitiesInPowersOrder(t *testing.T, f factorFixture, zero ast.ASTHandle, factors, eqs []ast.ASTHandle) []ast.ASTHandle {
+	t.Helper()
+	table := ast.NewObjMap(f.m)
+	for _, h := range factors {
+		entry, e := table.InsertIfNotThere(h)
+		astTestMust(t, e)
+		entry.Num++
+	}
+	var out []ast.ASTHandle
+	for _, entry := range table.Entries() {
+		for i, h := range factors {
+			if h == entry.Key {
+				out = append(out, eqs[i])
+				break
+			}
+		}
+	}
+	return out
+}
+
 func TestFactorRewriterEqualitySingleAndCommonFactors(t *testing.T) {
 	f := newFactorFixture(t)
 	x, y, z, zero := f.variable("factor-x"), f.variable("factor-y"), f.variable("factor-z"), f.numeral(0)
@@ -89,7 +111,7 @@ func TestFactorRewriterEqualitySingleAndCommonFactors(t *testing.T) {
 	astTestMust(t, err)
 	y0, err := f.m.MkEq(y, zero)
 	astTestMust(t, err)
-	want, err := f.m.MkOrArray([]ast.ASTHandle{x0, y0})
+	want, err := f.m.MkOrArray(factorEqualitiesInPowersOrder(t, f, zero, []ast.ASTHandle{x, y}, []ast.ASTHandle{x0, y0}))
 	astTestMust(t, err)
 	got, err := f.m.RefGet(out)
 	astTestMust(t, err)
@@ -108,7 +130,7 @@ func TestFactorRewriterEqualitySingleAndCommonFactors(t *testing.T) {
 	residual := f.app(factorOpAdd, y, minusZ)
 	r0, err := f.m.MkEq(residual, zero)
 	astTestMust(t, err)
-	want, err = f.m.MkOrArray([]ast.ASTHandle{x0, r0})
+	want, err = f.m.MkOrArray(factorEqualitiesInPowersOrder(t, f, zero, []ast.ASTHandle{x, residual}, []ast.ASTHandle{x0, r0}))
 	astTestMust(t, err)
 	got, err = f.m.RefGet(out)
 	astTestMust(t, err)
@@ -127,7 +149,7 @@ func TestFactorRewriterEqualitySingleAndCommonFactors(t *testing.T) {
 	minusTwo := f.numeral(-2)
 	m20, err := f.m.MkEq(minusTwo, zero)
 	astTestMust(t, err)
-	want, err = f.m.MkOrArray([]ast.ASTHandle{m20, x0})
+	want, err = f.m.MkOrArray(factorEqualitiesInPowersOrder(t, f, zero, []ast.ASTHandle{minusTwo, x}, []ast.ASTHandle{m20, x0}))
 	astTestMust(t, err)
 	got, err = f.m.RefGet(out)
 	astTestMust(t, err)
@@ -235,4 +257,42 @@ func TestFactorRewriterRefusalZeroDifferenceTraversalAndGuards(t *testing.T) {
 		t.Fatal("closed owner accepted", err)
 	}
 	astTestMust(t, rw.Close())
+}
+
+// AUDIT.md ast_rewriter_04-F1: factor_rewriter::mk_eq walks m_powers, an
+// obj_map<expr, unsigned>, in table order rather than first-occurrence
+// order.
+func TestFactorRewriterPowersFollowObjMapOrder(t *testing.T) {
+	f := newFactorFixture(t)
+	a, b, c, d, zero := f.variable("factor-a"), f.variable("factor-b"), f.variable("factor-c"), f.variable("factor-d"), f.numeral(0)
+	rw, err := NewFactorRewriter(f.m)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, rw.Close()) }()
+	out := astTestPin(t, f.m, ast.ASTHandle{})
+	product := f.app(factorOpMul, a, b, c, d)
+	_, decl := f.relation(-1, product, zero)
+	status, err := rw.RewriteApp(decl, ast.SliceArguments([]ast.ASTHandle{product, zero}), out)
+	astTestMust(t, err)
+	if status != RewriteDone {
+		t.Fatal("product refused", status)
+	}
+	table := ast.NewObjMap(f.m)
+	for _, h := range []ast.ASTHandle{a, b, c, d} {
+		entry, e := table.InsertIfNotThere(h)
+		astTestMust(t, e)
+		entry.Num++
+	}
+	var eqs []ast.ASTHandle
+	for _, entry := range table.Entries() {
+		eq, e := f.m.MkEq(entry.Key, zero)
+		astTestMust(t, e)
+		eqs = append(eqs, eq)
+	}
+	want, err := f.m.MkOrArray(eqs)
+	astTestMust(t, err)
+	got, err := f.m.RefGet(out)
+	astTestMust(t, err)
+	if got != want {
+		t.Fatal("powers order", got, want)
+	}
 }
