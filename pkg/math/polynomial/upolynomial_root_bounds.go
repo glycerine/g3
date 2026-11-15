@@ -284,11 +284,24 @@ func (m *UPolynomialManager) DescartesBoundInterval(v UPolynomialView, bqm *unum
 		return 0, e
 	}
 	if nonnegative {
+		if e = m.traceUPolynomialRecordLazy("descartes_bound_a_b", 1412, func() (string, error) {
+			as, e := bqm.String(a)
+			if e != nil {
+				return "", e
+			}
+			bs, e := bqm.String(b)
+			return "pos interval... " + as + ", " + bs + "\n", e
+		}, v, "\n"); e != nil {
+			return 0, e
+		}
 		aux := &m.dbab1
 		if e = m.setView(aux, v); e != nil {
 			return 0, e
 		}
 		if e = m.TranslateBinaryViewInPlace(m.stateView(aux).WithCount(v.count), a); e != nil {
+			return 0, e
+		}
+		if e = m.traceUPolynomialRecord("descartes_bound_a_b", 1415, "after translation\n", m.stateView(aux), "\n"); e != nil {
 			return 0, e
 		}
 		var difference unumeral.BinaryRational
@@ -297,6 +310,12 @@ func (m *UPolynomialManager) DescartesBoundInterval(v UPolynomialView, bqm *unum
 			return 0, e
 		}
 		if e = m.ComposeBinaryXViewInPlace(m.stateView(aux), &difference); e != nil {
+			return 0, e
+		}
+		if e = m.traceUPolynomialRecordLazy("descartes_bound_a_b", 1419, func() (string, error) {
+			ds, e := bqm.String(&difference)
+			return "after composition: " + ds + "\n", e
+		}, m.stateView(aux), "\n"); e != nil {
 			return 0, e
 		}
 		return m.DescartesBoundZeroOne(m.stateView(aux))

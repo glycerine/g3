@@ -105,6 +105,11 @@ var goldenTraceSites = map[string]bool{
 	// AUDIT.md math_polynomial_08-F1 (compare with G3_GOLDEN_TAGS=rem_bug
 	// G3_GOLDEN_VECTORS=nra_rem_bug_trace).
 	"rem_bug rem src/math/polynomial/upolynomial.cpp": true,
+	// AUDIT.md math_polynomial_11-F1 (G3_GOLDEN_TAGS=upolynomial
+	// G3_GOLDEN_VECTORS=nra_translate_q_trace).
+	"upolynomial translate_q src/math/polynomial/upolynomial.cpp":         true,
+	"upolynomial translate_bq src/math/polynomial/upolynomial.cpp":        true,
+	"upolynomial descartes_bound_a_b src/math/polynomial/upolynomial.cpp": true,
 	// AUDIT.md qe_03-F4 (not in goldenTraceTags; compare with
 	// G3_GOLDEN_TAGS=qe,model_evaluator
 	// G3_GOLDEN_VECTORS=fp_spacer_array_project_eqs). The qe sites of

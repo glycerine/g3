@@ -23,12 +23,18 @@ func (m *UPolynomialManager) translate(v UPolynomialView, kind uint8, k uint32, 
 		if e := m.ComposePowerTwoDegreeDivideXViewInPlace(v, b.K()); e != nil {
 			return e
 		}
+		if e := m.traceUPolynomialRecord("translate_bq", 1543, "after compose 2kn_p_x_div_2k\n", v, "\n"); e != nil {
+			return e
+		}
 	}
 	if kind == 4 {
 		if q == nil {
 			return ErrUPolynomialOwner
 		}
 		if e := m.ComposeIntegerDegreeDivideXViewInPlace(v, &(*q.BorrowDenominator())); e != nil {
+			return e
+		}
+		if e := m.traceUPolynomialRecord("translate_q", 1565, "after compose_an_p_x_div_a\n", v, "\n"); e != nil {
 			return e
 		}
 	}
@@ -94,6 +100,12 @@ func (m *UPolynomialManager) translate(v UPolynomialView, kind uint8, k uint32, 
 				return e
 			}
 		}
+	}
+	switch kind {
+	case 3:
+		return m.traceUPolynomialRecord("translate_bq", 1556, "after special translation\n", v, "\n")
+	case 4:
+		return m.traceUPolynomialRecord("translate_q", 1578, "after special translation\n", v, "\n")
 	}
 	return nil
 }

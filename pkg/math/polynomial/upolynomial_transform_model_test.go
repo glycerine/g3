@@ -1,9 +1,11 @@
 package polynomial
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
@@ -140,5 +142,47 @@ func TestUPolynomialRootCountBoundsSourceBranches(t *testing.T) {
 	before := b.Used()
 	if before == 0 {
 		t.Fatal("real borrowed owner graph")
+	}
+}
+
+// AUDIT.md math_polynomial_11-F1: translate_bq and translate_q trace the
+// polynomial after step 1 and after the special translation.
+func TestUPolynomialTranslateRationalTrace(t *testing.T) {
+	m, q, _ := upolySourceOwner(t)
+	b := unumeral.NewBinaryIntPower(1, 1)
+	r := unumeral.NewRational()
+	if e := q.SetFraction(&r, 1, 3); e != nil {
+		t.Fatal(e)
+	}
+	defer q.Del(&r)
+	var text strings.Builder
+	tags := diagnostic.NewTraceTagsWithWriter(&text)
+	tags.Enable("upolynomial")
+	if !tags.ShouldTrace("upolynomial") {
+		t.Skip("TRACE compiled out")
+	}
+	for _, tc := range []struct {
+		call func(UPolynomialView) error
+		want []string
+	}{
+		{func(v UPolynomialView) error { return m.TranslateBinaryViewInPlace(v, &b) },
+			[]string{"translate_bq src/math/polynomial/upolynomial.cpp:1543", "after compose 2kn_p_x_div_2k\n3 x^2 + 4 x + 4\n", "translate_bq src/math/polynomial/upolynomial.cpp:1556", "after special translation\n12 x^2 + 20 x + 11\n"}},
+		{func(v UPolynomialView) error { return m.TranslateRationalViewInPlace(v, &r) },
+			[]string{"translate_q src/math/polynomial/upolynomial.cpp:1565", "after compose_an_p_x_div_a\n3 x^2 + 6 x + 9\n", "translate_q src/math/polynomial/upolynomial.cpp:1578", "after special translation\n27 x^2 + 36 x + 18\n"}},
+	} {
+		p := upolySourceNew(t, m, []int32{1, 2, 3})
+		text.Reset()
+		serviceMust(t, m.config.Integer.BindTrace(tags))
+		e := tc.call(mustUPolyView(t, m, p))
+		serviceMust(t, m.config.Integer.BindTrace(nil))
+		serviceMust(t, e)
+		pos := 0
+		for _, part := range tc.want {
+			i := strings.Index(text.String()[pos:], part)
+			if i < 0 {
+				t.Fatalf("missing/out-of-order %q in\n%s", part, text.String())
+			}
+			pos += i + len(part)
+		}
 	}
 }
