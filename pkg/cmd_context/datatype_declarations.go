@@ -125,6 +125,17 @@ func (c *Context) InstantiateSort(name string, arguments []ast.ASTHandle) (resul
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	if c.psortRecording != nil {
+		// In a define-sort body (parse_psort) the application stays a
+		// psort_app: C++ instantiates it, and declares its functions, only
+		// when the definition is used with actual sorts, never for the
+		// formal parameters themselves (such as (List T)).
+		if err = c.saveSortInfo(result, name, arguments); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		(*c.psortRecording)[len(*c.psortRecording)-1].datatype = true
+		return result, nil
+	}
 	if err = c.ensureDatatypeFunctions(result); err != nil {
 		return ast.ASTHandle{}, err
 	}

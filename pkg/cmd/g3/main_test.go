@@ -336,6 +336,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// A parametric define-sort body is a psort_app: (List T) over the formal
+	// T declares no functions; each use declares its instance's (zbug_crashes
+	// round 3, pdecl_manager::instantiate_datatype / notify_new_dt).
+	"define_sort_parametric_datatype_alias.smt2": "sat\n(model \n  (define-fun w () (List Real)\n    (insert (/ 5.0 2.0) (as nil (List Real))))\n  (define-fun z () (List (Array Int Bool))\n    (insert (_ as-array k!0) (as nil (List (Array Int Bool)))))\n  (define-fun k!0 ((x!0 Int)) Bool\n    (ite (= x!0 1) true\n      true))\n)\nsat\n(model \n  (define-fun z () (List (List Int))\n    (as nil (List (List Int))))\n)\n",
 	// muz_small_01-F5 reproduction: work input horn3.smt2 (HORN logic, nonlinear
 	// BMC); same bug as z3_bug_bmc_nonlinear_head_vars (fork fix #B).
 	"z3_bug_bmc_nonlinear_horn.smt2": "unsat\n",

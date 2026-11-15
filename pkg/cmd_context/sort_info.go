@@ -26,6 +26,10 @@ type pendingSortInfo struct {
 	sort ast.ASTHandle
 	args []ast.ASTHandle
 	refs []ast.ASTRef
+	// datatype marks a parametric datatype application (psort_app over a
+	// pdatatype_decl): its functions are declared when the definition is
+	// used, as pdecl_manager::instantiate_datatype notifies cmd_context then.
+	datatype bool
 }
 
 // SMT2SortInfo is the m_sort2info lookup used by pdecl_manager::pp.
@@ -170,6 +174,19 @@ func (c *Context) instantiateSortDefinitionInfos(name string, formals, arguments
 			}
 		}
 		if err := c.saveSortInfo(sort, pending.name, args); err != nil {
+			return err
+		}
+		if !pending.datatype {
+			continue
+		}
+		if c.psortRecording != nil {
+			// A definition used inside another definition's body stays a
+			// psort_app until the outer definition is used.
+			(*c.psortRecording)[len(*c.psortRecording)-1].datatype = true
+			continue
+		}
+		// instantiate_datatype: save_info, then notify_new_dt (dt_eh).
+		if err := c.ensureDatatypeFunctions(sort); err != nil {
 			return err
 		}
 	}
