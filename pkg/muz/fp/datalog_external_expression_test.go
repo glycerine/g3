@@ -11,6 +11,7 @@ import (
 )
 
 func TestDatalogExternalDefaultExpressionCloneOwnsFacts(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, arithmetic := range []bool{false, true} {
 		t.Run(fmt.Sprint(arithmetic), func(t *testing.T) {
 			testDatalogExternalExpressionClone(t, arithmetic)

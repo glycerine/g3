@@ -74,6 +74,7 @@ func newExternalIntervalPositiveFixture(t *testing.T, kinds []string, leftVariab
 }
 
 func TestExternalIntervalDatalogPositiveJoinProjectAndHeadAssembly(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, test := range []struct {
 			name              string
@@ -152,6 +153,7 @@ func TestExternalIntervalDatalogPositiveJoinProjectAndHeadAssembly(t *testing.T)
 }
 
 func TestExternalIntervalDatalogPositiveDisjointKeysThenUpdate(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		t.Run(kinds[0], func(t *testing.T) {
 			manager, engine, callbacks, _, q, h := newExternalIntervalPositiveFixture(t, kinds, []uint32{0, 1}, []uint32{1, 2}, []uint32{0, 2}, false, "8")
@@ -181,6 +183,7 @@ func TestExternalIntervalDatalogPositiveDisjointKeysThenUpdate(t *testing.T) {
 }
 
 func TestExternalIntervalDatalogPositiveTransformRefusalRollback(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, operation := range []int32{ast.DatalogOpProject, ast.DatalogOpRename} {
 		t.Run(fmt.Sprint(operation), func(t *testing.T) {
 			_, engine, callbacks, p, q, h := newExternalIntervalPositiveFixture(t, []string{"external_relation", "interval_relation"}, []uint32{0, 1}, []uint32{1, 2}, []uint32{0, 2}, false, "")

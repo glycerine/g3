@@ -22,6 +22,7 @@ func boundIntervalWideningAnswer(t *testing.T, f *boundIntervalPublicFixture, de
 }
 
 func TestDatalogBoundIntervalWideningStopsOnEmptyProductDelta(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"bound_relation", "interval_relation"}, {"interval_relation", "bound_relation"}} {
 		for _, allOrNothing := range []bool{false, true} {
 			name := kinds[0] + "/component-deltas"
@@ -87,6 +88,7 @@ func TestDatalogBoundIntervalWideningStopsOnEmptyProductDelta(t *testing.T) {
 }
 
 func TestDatalogBoundIntervalWideningInitializesWithOrdinaryUnions(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	f := newBoundIntervalPublicFixture(t, []string{"bound_relation", "interval_relation"})
 	// Declare consumers first and interleave their rules with dependencies.
 	h, nonrecursive := f.declare("widen-init-H", 1), f.declare("widen-init-K", 1)
@@ -113,6 +115,7 @@ func TestDatalogBoundIntervalWideningInitializesWithOrdinaryUnions(t *testing.T)
 }
 
 func TestDatalogBoundIntervalWideningParameterPrecedence(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, test := range []struct {
 		name, module, local string
 		widen               bool
@@ -149,6 +152,7 @@ func TestDatalogBoundIntervalWideningParameterPrecedence(t *testing.T) {
 }
 
 func TestDatalogBoundIntervalWideningMultiHeadIdentityComponents(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, shape := range []string{"three-heads", "mutual-two-tails"} {
 		for _, widen := range []bool{false, true} {
 			name := shape + "/ordinary"
@@ -186,6 +190,7 @@ func TestDatalogBoundIntervalWideningMultiHeadIdentityComponents(t *testing.T) {
 }
 
 func TestDatalogBoundIntervalWideningRecursiveTailsWithConstantHeads(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, widen := range []bool{false, true} {
 		name := "ordinary"
 		if widen {

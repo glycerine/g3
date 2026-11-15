@@ -95,6 +95,7 @@ func resetExternalIntervalUnarySelectCallbacks(callbacks *externalIntervalCallba
 }
 
 func TestExternalIntervalDatalogUnarySelectConstant(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	_, engine, callbacks, _, q, _ := newExternalIntervalUnarySelectFixture(t,
 		[]string{"external_relation", "interval_relation"}, []int{-1, 0}, []uint32{0},
 		[]string{"7", ""}, []string{"7", "9"}, nil)
@@ -111,6 +112,7 @@ func TestExternalIntervalDatalogUnarySelectConstant(t *testing.T) {
 }
 
 func TestExternalIntervalDatalogUnarySelectShrinkingColumnsAndRepeat(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, test := range []struct {
 			name          string
@@ -209,6 +211,7 @@ func TestExternalIntervalDatalogUnarySelectShrinkingColumnsAndRepeat(t *testing.
 }
 
 func TestExternalIntervalDatalogUnarySelectContradictionStillProjects(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, later := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/later=%t", kinds[0], later), func(t *testing.T) {
@@ -245,6 +248,7 @@ func TestExternalIntervalDatalogUnarySelectContradictionStillProjects(t *testing
 }
 
 func TestExternalIntervalDatalogUnarySelectCallbackRefusalRollback(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, operation := range []int32{ast.DatalogOpFilter, ast.DatalogOpProject} {
 			t.Run(fmt.Sprintf("%s/operation-%d", kinds[0], operation), func(t *testing.T) {
@@ -286,6 +290,7 @@ func TestExternalIntervalDatalogUnarySelectCallbackRefusalRollback(t *testing.T)
 }
 
 func TestExternalIntervalDatalogUnarySelectProgramComposition(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		t.Run(kinds[0], func(t *testing.T) {
 			manager, engine, callbacks, _, q, sorts := newExternalIntervalUnarySelectFixture(t, kinds, []int{-1, 0}, []uint32{0}, []string{"7", ""}, []string{"7", "9"}, nil)

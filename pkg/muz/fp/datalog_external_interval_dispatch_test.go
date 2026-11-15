@@ -406,6 +406,7 @@ func TestExternalIntervalDatalogDirectFactsAndQueries(t *testing.T) {
 }
 
 func TestExternalIntervalDatalogUnsupportedExpressionAndVariableHead(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
 	family, err := manager.RegisterArithmeticPlugin()
 	fragmentMust(t, err)

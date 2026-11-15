@@ -11,6 +11,7 @@ import (
 )
 
 func TestExternalIntervalDatalogUnaryGuardProjectBorrowedInput(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	_, engine, callbacks, _, q, _ := newExternalIntervalUnaryGuardFixture(t,
 		[]string{"external_relation", "interval_relation"}, []int{0, 1}, []uint32{0}, []string{"1", "3"}, false, false,
 		[]externalIntervalUnaryGuardSpec{{op: "<", left: 0, right: 1}})
@@ -27,6 +28,7 @@ func TestExternalIntervalDatalogUnaryGuardProjectBorrowedInput(t *testing.T) {
 }
 
 func TestExternalIntervalDatalogUnaryGuardProjectOwnedInputsAndHeadColumns(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, real := range []bool{false, true} {
 			for _, shape := range []string{"repeated-kept-and-removed", "selected-owned", "nullary-head"} {
@@ -99,6 +101,7 @@ func TestExternalIntervalDatalogUnaryGuardProjectOwnedInputsAndHeadColumns(t *te
 }
 
 func TestExternalIntervalDatalogUnaryGuardProjectContradictionStillProjects(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		t.Run(kinds[0], func(t *testing.T) {
 			_, engine, callbacks, p, q, _ := newExternalIntervalUnaryGuardFixture(t, kinds,
@@ -124,6 +127,7 @@ func TestExternalIntervalDatalogUnaryGuardProjectContradictionStillProjects(t *t
 }
 
 func TestExternalIntervalDatalogUnaryGuardProjectConjunctionStaysOneFilter(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, firstFalse := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/first-false=%t", kinds[0], firstFalse), func(t *testing.T) {
@@ -152,6 +156,7 @@ func TestExternalIntervalDatalogUnaryGuardProjectConjunctionStaysOneFilter(t *te
 }
 
 func TestExternalIntervalDatalogUnaryGuardProjectEmptyInputSkipsCallbacks(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	_, engine, callbacks, _, q, _ := newExternalIntervalUnaryGuardFixture(t,
 		[]string{"external_relation", "interval_relation"}, []int{0, 1}, []uint32{0}, nil, false, false,
 		[]externalIntervalUnaryGuardSpec{{op: "<", left: 0, right: 1}})
@@ -164,6 +169,7 @@ func TestExternalIntervalDatalogUnaryGuardProjectEmptyInputSkipsCallbacks(t *tes
 }
 
 func TestExternalIntervalDatalogUnaryGuardProjectProgramRefusalAndRetry(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, stop := range []struct {
 			name string

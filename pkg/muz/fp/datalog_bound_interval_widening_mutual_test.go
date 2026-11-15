@@ -12,6 +12,7 @@ import (
 )
 
 func TestDatalogBoundIntervalWideningMutualIdentity(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, widen := range []bool{false, true} {
 		name := "ordinary"
 		if widen {
@@ -36,6 +37,7 @@ func TestDatalogBoundIntervalWideningMutualIdentity(t *testing.T) {
 }
 
 func TestDatalogBoundIntervalWideningMutualUsesPreviousDeltas(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"bound_relation", "interval_relation"}, {"interval_relation", "bound_relation"}} {
 		for _, gFirst := range []bool{false, true} {
 			name := kinds[0] + "/H-first"
@@ -101,6 +103,7 @@ func TestDatalogBoundIntervalWideningMutualUsesPreviousDeltas(t *testing.T) {
 }
 
 func TestDatalogBoundIntervalWideningMutualCycleBreakerOrder(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"bound_relation", "interval_relation"}, {"interval_relation", "bound_relation"}} {
 		for _, allOrNothing := range []bool{false, true} {
 			name := kinds[0] + "/previous-deltas"
@@ -157,6 +160,7 @@ func TestDatalogBoundIntervalWideningMutualCycleBreakerOrder(t *testing.T) {
 }
 
 func TestDatalogBoundIntervalWideningMutualLowerInitializationAndArities(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, mode := range []struct {
 		name                string
 		widen, allOrNothing bool

@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_fp_01-F2: check_rules rejects Datalog rules over infinite sorts before any relation plugin.
+	"fp_datalog_int_rules_infinite_sorts.smt2":      "(error \"query failed: Rule contains infinite sorts in rule <null>:\np(0).\n\")\nunknown\n",
+	"fp_datalog_bound_relation_infinite_sorts.smt2": "(error \"query failed: Rule contains infinite sorts in rule <null>:\np(0).\n\")\nunknown\n",
 	// AUDIT.md muz_fp_04 (needs verification): xform.scale builds compound head arguments; release rule_manager::mk does not check them.
 	"fp_clp_scale_head_args.smt2": "sat\n",
 	"fp_bmc_scale_head_args.smt2": "sat\n",

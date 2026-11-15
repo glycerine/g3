@@ -387,8 +387,9 @@ func TestFixedpointQueryNegativeRulePrecedesStratification(t *testing.T) {
 	}
 }
 
-// Integer relations use the retained Datalog relation extension instead of
-// the ordinary finite engine's infinite-sort exception path.
+// Integer relations with rules take the ordinary infinite-sort exception
+// path of context::check_rules (AUDIT.md muz_fp_01-F2); the test name is kept
+// from the former Go-only Int relation extension.
 func TestFixedpointQueryIntegerRelationExtensionIsNotCaught(t *testing.T) {
 	context, err := cmd_context.NewStandaloneContext()
 	if err != nil {
@@ -411,7 +412,9 @@ func TestFixedpointQueryIntegerRelationExtensionIsNotCaught(t *testing.T) {
 	if err := smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := output.String(), "unknown\napproximated relations\n"; got != want {
+	// context::check_rules rejects the Int relation before any relation
+	// plugin is chosen (AUDIT.md muz_fp_01-F2).
+	if got, want := output.String(), "(error \"query failed: Rule contains infinite sorts in rule <null>:\nP(1).\n\")\nunknown\n"; got != want {
 		t.Fatalf("output = %q, want %q", got, want)
 	}
 }

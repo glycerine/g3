@@ -1,0 +1,6 @@
+(set-option :fixedpoint.engine datalog)
+(declare-rel p (Int))
+(declare-var x Int)
+(rule (p 0))
+(rule (=> (and (p x) (< x 3)) (p (+ x 1))))
+(query p :print-answer true)

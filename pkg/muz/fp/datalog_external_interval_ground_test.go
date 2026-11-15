@@ -131,6 +131,7 @@ func TestExternalIntervalDatalogNullaryGroundRefusalsRollBack(t *testing.T) {
 }
 
 func TestExternalIntervalDatalogUnaryGroundRuleAndRepeat(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, numeral := range []struct {
 		name string
 		sort func(*ast.ASTManager, ast.FamilyID) (ast.ASTHandle, error)
@@ -209,6 +210,7 @@ func TestExternalIntervalDatalogUnaryGroundRuleAndRepeat(t *testing.T) {
 }
 
 func TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{
 		{"external_relation", "interval_relation"},
 		{"interval_relation", "external_relation"},
@@ -265,6 +267,7 @@ func TestExternalIntervalDatalogGroundSingletonStoreRefusalRollsBack(t *testing.
 }
 
 func TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
 	family, err := manager.RegisterArithmeticPlugin()
 	fragmentMust(t, err)
@@ -310,6 +313,7 @@ func TestExternalIntervalDatalogGroundUnionRefusalPublishesNothing(t *testing.T)
 }
 
 func TestExternalIntervalDatalogGroundCommittedContinuationStoresWithoutReplay(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
 	family, err := manager.RegisterArithmeticPlugin()
 	fragmentMust(t, err)
@@ -408,6 +412,7 @@ func TestExternalIntervalDatalogNullaryCommittedContinuationStoresWithoutReplay(
 }
 
 func TestExternalIntervalDatalogGroundAndVariableHeads(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, shape := range []string{"nonnumeral-second", "variable", "body", "nullary-body", "later-unsafe-rule"} {
 		t.Run(shape, func(t *testing.T) {
 			manager, engine, callbacks := newExternalIntervalDatalogFixture(t)

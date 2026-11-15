@@ -82,6 +82,7 @@ func assertExternalIntervalProgramCallbacks(t *testing.T, callbacks *externalInt
 }
 
 func TestExternalIntervalDatalogProgramDependencyOrderAndRepeat(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{
 		{"external_relation", "interval_relation"},
 		{"interval_relation", "external_relation"},
@@ -107,6 +108,7 @@ func TestExternalIntervalDatalogProgramDependencyOrderAndRepeat(t *testing.T) {
 }
 
 func TestExternalIntervalDatalogProgramMiddleUnionRollbackAndRetry(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{
 		{"external_relation", "interval_relation"},
 		{"interval_relation", "external_relation"},

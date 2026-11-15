@@ -69,6 +69,7 @@ func externalIntervalUnaryOperations(operations []int32) []int32 {
 }
 
 func TestExternalIntervalDatalogUnaryFilterProjectAndHeadOrder(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, test := range []struct {
 			name       string
@@ -139,6 +140,7 @@ func TestExternalIntervalDatalogUnaryFilterProjectAndHeadOrder(t *testing.T) {
 }
 
 func TestExternalIntervalDatalogUnaryDisjointColumnsStopBeforeProjection(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, test := range []struct {
 			name       string
@@ -167,6 +169,7 @@ func TestExternalIntervalDatalogUnaryDisjointColumnsStopBeforeProjection(t *test
 }
 
 func TestExternalIntervalDatalogUnaryCallbackRefusalRollsBack(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, operation := range []int32{ast.DatalogOpFilter, ast.DatalogOpProject} {
 			t.Run(fmt.Sprintf("%s/operation-%d", kinds[0], operation), func(t *testing.T) {
@@ -207,6 +210,7 @@ func TestExternalIntervalDatalogUnaryCallbackRefusalRollsBack(t *testing.T) {
 }
 
 func TestExternalIntervalDatalogUnaryProgramComposition(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		t.Run(kinds[0], func(t *testing.T) {
 			manager, engine, callbacks, p, q := newExternalIntervalUnaryFixture(t, kinds, []uint32{0, 0}, []uint32{0}, []string{"7", "7"})

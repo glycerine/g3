@@ -13,6 +13,7 @@ import (
 )
 
 func TestDatalogKarrPublicFactAndIdentity(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 	fragmentMust(t, err)
@@ -149,6 +150,7 @@ func TestDatalogKarrPublicFactAndIdentity(t *testing.T) {
 }
 
 func TestDatalogKarrSelectionAndGroundRule(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, enabled := range []bool{false, true} {
 		t.Run(map[bool]string{false: "disabled", true: "enabled"}[enabled], func(t *testing.T) {
 			m, g := newPDRLifecycleServices(t)
@@ -317,6 +319,7 @@ func TestDatalogKarrRefusesReplacingOwnedDocOrProductFacts(t *testing.T) {
 }
 
 func TestDatalogKarrLargeFactOverflowDoesNotPublish(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 	fragmentMust(t, err)

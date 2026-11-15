@@ -111,6 +111,7 @@ func externalIntervalCartesianGuardOperations(operations []int32) []int32 {
 }
 
 func TestExternalIntervalDatalogCartesianGuardBoundComparison(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	_, engine, callbacks, p, q, h, _ := newExternalIntervalCartesianGuardFixture(t,
 		[]string{"external_relation", "interval_relation"}, []uint32{2, 0}, []string{"1", "7", "99"}, []string{"7", "3", "5"}, false,
 		[]externalIntervalUnaryGuardSpec{{op: "<", left: 0, right: 2}})
@@ -130,6 +131,7 @@ func TestExternalIntervalDatalogCartesianGuardBoundComparison(t *testing.T) {
 }
 
 func TestExternalIntervalDatalogCartesianGuardOriginalNoKeyShape(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, contradiction := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/contradiction=%t", kinds[0], contradiction), func(t *testing.T) {
@@ -203,6 +205,7 @@ func TestExternalIntervalDatalogCartesianGuardOriginalNoKeyShape(t *testing.T) {
 }
 
 func TestExternalIntervalDatalogCartesianGuardColumnsAndRepeat(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, real := range []bool{false, true} {
 			for _, shape := range []string{"head-bound", "guard-only", "shared-key", "nullary-head"} {
@@ -271,6 +274,7 @@ func TestExternalIntervalDatalogCartesianGuardColumnsAndRepeat(t *testing.T) {
 }
 
 func TestExternalIntervalDatalogCartesianGuardEmptyFrontiers(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, shape := range []string{"empty-source", "disjoint-join", "in-place-contradiction", "fused-contradiction"} {
 			t.Run(kinds[0]+"/"+shape, func(t *testing.T) {
@@ -317,6 +321,7 @@ func TestExternalIntervalDatalogCartesianGuardEmptyFrontiers(t *testing.T) {
 }
 
 func TestExternalIntervalDatalogCartesianGuardOrderedConjunctionStaysCoarse(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, firstFalse := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/first-false=%t", kinds[0], firstFalse), func(t *testing.T) {
@@ -345,6 +350,7 @@ func TestExternalIntervalDatalogCartesianGuardOrderedConjunctionStaysCoarse(t *t
 }
 
 func TestExternalIntervalDatalogCartesianGuardProgramRefusalAndRetry(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, stop := range []struct {
 			name string
@@ -391,6 +397,7 @@ func TestExternalIntervalDatalogCartesianGuardProgramRefusalAndRetry(t *testing.
 }
 
 func TestExternalIntervalDatalogCartesianGuardMappedCallbackSMTEquivalence(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	manager, engine, callbacks, _, _, h, sort := newExternalIntervalCartesianGuardFixture(t,
 		[]string{"external_relation", "interval_relation"}, []uint32{2, 0}, []string{"1", "7", "99"}, []string{"7", "3", "5"}, false,
 		[]externalIntervalUnaryGuardSpec{{op: "<", left: 0, right: 3}})

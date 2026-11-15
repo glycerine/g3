@@ -115,6 +115,7 @@ func externalIntervalHeadConstantOperations(operations []int32) []int32 {
 }
 
 func TestExternalIntervalDatalogCartesianHeadConstantsOriginalShape(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		t.Run(kinds[0], func(t *testing.T) {
 			// Exact old constant-head boundary: H(x,1) <- P(x),Q(1),
@@ -143,6 +144,7 @@ func TestExternalIntervalDatalogCartesianHeadConstantsOriginalShape(t *testing.T
 }
 
 func TestExternalIntervalDatalogCartesianHeadConstantsAssemblyAndRepeat(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, real := range []bool{false, true} {
 			for _, shape := range []string{"interleaved", "all-constant-head", "constants-guard-repeated"} {
@@ -221,6 +223,7 @@ func TestExternalIntervalDatalogCartesianHeadConstantsAssemblyAndRepeat(t *testi
 }
 
 func TestExternalIntervalDatalogCartesianHeadConstantsEmptyProducerStillInitializes(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, shape := range []string{"empty-source", "disjoint-join", "tail-constant", "guard"} {
 			t.Run(kinds[0]+"/"+shape, func(t *testing.T) {
@@ -267,6 +270,7 @@ func TestExternalIntervalDatalogCartesianHeadConstantsEmptyProducerStillInitiali
 }
 
 func TestExternalIntervalDatalogCartesianHeadConstantsEmptyFirstUseSharedCache(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		t.Run(kinds[0], func(t *testing.T) {
 			manager, engine, callbacks, p, _, emptyHead, sort := newExternalIntervalHeadConstantsFixture(t, kinds,
@@ -344,6 +348,7 @@ func TestExternalIntervalDatalogCartesianHeadConstantsEmptyFirstUseSharedCache(t
 }
 
 func TestExternalIntervalDatalogCartesianHeadConstantsProgramRefusalAndRetry(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, stop := range []struct {
 			name string

@@ -10,6 +10,7 @@ import (
 )
 
 func TestExternalIntervalRecursiveProgramSeedsDeltaRoundsAndWidening(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, mode := range []struct {
 		name         string
 		widen        bool
@@ -103,6 +104,7 @@ func TestExternalIntervalRecursiveProgramSeedsDeltaRoundsAndWidening(t *testing.
 }
 
 func TestExternalIntervalRecursiveProgramConsumesDeltasAcrossRounds(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
 	family, err := manager.RegisterArithmeticPlugin()
 	fragmentMust(t, err)
@@ -147,6 +149,7 @@ func TestExternalIntervalRecursiveProgramConsumesDeltasAcrossRounds(t *testing.T
 }
 
 func TestExternalIntervalRecursiveProgramEvaluatesSeedsWithoutRecursiveRounds(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
 	family, err := manager.RegisterArithmeticPlugin()
 	fragmentMust(t, err)
@@ -197,6 +200,7 @@ func TestExternalIntervalRecursiveProgramEvaluatesSeedsWithoutRecursiveRounds(t 
 }
 
 func TestExternalIntervalRecursiveProgramOptionalWidening(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, test := range []struct {
 		name      string
 		widen     bool

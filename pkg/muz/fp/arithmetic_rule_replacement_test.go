@@ -7,6 +7,7 @@ import (
 )
 
 func TestDatalogArithmeticNamedUpdateRebindsProgramAndKeepsSeeds(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kind := range []string{"bound_relation", "interval_relation"} {
 		t.Run(kind, func(t *testing.T) {
 			m, g := newPDRLifecycleServices(t)

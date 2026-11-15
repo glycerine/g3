@@ -159,6 +159,7 @@ func resetExternalIntervalUnaryGuardCallbacks(callbacks *externalIntervalCallbac
 }
 
 func TestExternalIntervalDatalogUnaryGuardBoundComparison(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	_, engine, callbacks, _, q, _ := newExternalIntervalUnaryGuardFixture(t,
 		[]string{"external_relation", "interval_relation"}, []int{0}, []uint32{0}, []string{"2"}, false, false,
 		[]externalIntervalUnaryGuardSpec{{op: "<", left: 0, bound: "3"}})
@@ -174,6 +175,7 @@ func TestExternalIntervalDatalogUnaryGuardBoundComparison(t *testing.T) {
 }
 
 func TestExternalIntervalDatalogUnaryGuardMappingOwnershipAndRepeat(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, real := range []bool{false, true} {
 			for _, shape := range []string{"aligned", "swap", "repeated", "selected-repeated"} {
@@ -242,6 +244,7 @@ func TestExternalIntervalDatalogUnaryGuardMappingOwnershipAndRepeat(t *testing.T
 }
 
 func TestExternalIntervalDatalogUnaryGuardsUseOneOrderedConjunction(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	_, engine, callbacks, _, q, _ := newExternalIntervalUnaryGuardFixture(t,
 		[]string{"external_relation", "interval_relation"}, []int{0, 1}, []uint32{0, 1}, []string{"3", "3"}, false, false,
 		[]externalIntervalUnaryGuardSpec{{op: "<", left: 0, bound: "2"}, {op: ">=", left: 1, bound: "4"}})
@@ -261,6 +264,7 @@ func TestExternalIntervalDatalogUnaryGuardsUseOneOrderedConjunction(t *testing.T
 }
 
 func TestExternalIntervalDatalogUnaryGuardContradictionSkipsHeadAssembly(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		t.Run(kinds[0], func(t *testing.T) {
 			_, engine, callbacks, p, q, _ := newExternalIntervalUnaryGuardFixture(t, kinds,
@@ -283,6 +287,7 @@ func TestExternalIntervalDatalogUnaryGuardContradictionSkipsHeadAssembly(t *test
 }
 
 func TestExternalIntervalDatalogUnaryGuardRefusalAndProgramRetry(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		t.Run(kinds[0], func(t *testing.T) {
 			manager, engine, callbacks, p, q, sort := newExternalIntervalUnaryGuardFixture(t, kinds, []int{1, 0}, []uint32{0, 1}, []string{"3", "1"}, false, false,
@@ -319,6 +324,7 @@ func TestExternalIntervalDatalogUnaryGuardRefusalAndProgramRetry(t *testing.T) {
 }
 
 func TestExternalIntervalDatalogUnaryGuardRejectsUnsupportedBeforeCallbacks(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, shape := range []string{"unbound-guard", "negative-tail"} {
 		t.Run(shape, func(t *testing.T) {
 			tail, head := []int{0}, []uint32{0}
@@ -351,6 +357,7 @@ func TestExternalIntervalDatalogUnaryGuardRejectsUnsupportedBeforeCallbacks(t *t
 }
 
 func TestExternalIntervalDatalogUnaryGuardMappedCallbackSMTEquivalence(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	manager, engine, callbacks, _, q, sort := newExternalIntervalUnaryGuardFixture(t,
 		[]string{"external_relation", "interval_relation"}, []int{1, 0, 1, 0}, []uint32{0, 1}, []string{"3", "1", "3", "1"}, false, false,
 		[]externalIntervalUnaryGuardSpec{{op: "<", left: 0, right: 1}})

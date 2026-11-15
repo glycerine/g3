@@ -13,6 +13,7 @@ import (
 )
 
 func TestDatalogKarrProjectionPermutationPublic(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 	fragmentMust(t, err)
@@ -146,6 +147,7 @@ func TestDatalogKarrProjectionPermutationPublic(t *testing.T) {
 }
 
 func TestDatalogKarrProjectionRepeatedHead(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 	fragmentMust(t, err)

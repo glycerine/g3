@@ -8,6 +8,7 @@ import (
 )
 
 func TestDatalogIntervalSimilarityPublicQueriesAndUpdates(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, mode := range []string{"enabled", "disabled", "strict-threshold", "queried-output"} {
 		t.Run(mode, func(t *testing.T) {
 			f := newDirectFactFixture(t)

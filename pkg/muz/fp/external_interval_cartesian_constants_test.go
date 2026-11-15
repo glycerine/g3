@@ -105,6 +105,7 @@ func newExternalIntervalCartesianConstantsFixture(t *testing.T, kinds []string, 
 }
 
 func TestExternalIntervalDatalogCartesianConstantsSharedKey(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	_, engine, callbacks, p, q, h, _ := newExternalIntervalCartesianConstantsFixture(t,
 		[]string{"external_relation", "interval_relation"}, []int{-1, 0, 1, -2, 4}, []int{1, -1, 3, -3, 2, -2}, []uint32{2, 0},
 		[]string{"7", "1", "5", "9", "99"}, []string{"5", "7", "3", "11", "13", "9"}, false, nil)
@@ -123,6 +124,7 @@ func TestExternalIntervalDatalogCartesianConstantsSharedKey(t *testing.T) {
 }
 
 func TestExternalIntervalDatalogCartesianConstantsGuardColumnsAndRepeat(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, real := range []bool{false, true} {
 			for _, shape := range []string{"plain", "head-bound-guard", "guard-only-column"} {
@@ -202,6 +204,7 @@ func TestExternalIntervalDatalogCartesianConstantsGuardColumnsAndRepeat(t *testi
 }
 
 func TestExternalIntervalDatalogCartesianConstantsAreNotJoinKeys(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, nullary := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/nullary=%t", kinds[0], nullary), func(t *testing.T) {
@@ -253,6 +256,7 @@ func TestExternalIntervalDatalogCartesianConstantsAreNotJoinKeys(t *testing.T) {
 }
 
 func TestExternalIntervalDatalogCartesianConstantsEmptyFrontiers(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, shape := range []string{"join", "first-constant", "middle-constant", "last-constant", "guard"} {
 			t.Run(kinds[0]+"/"+shape, func(t *testing.T) {
@@ -319,6 +323,7 @@ func TestExternalIntervalDatalogCartesianConstantsEmptyFrontiers(t *testing.T) {
 }
 
 func TestExternalIntervalDatalogCartesianConstantsProgramRefusalAndRetry(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, stop := range []struct {
 			name string

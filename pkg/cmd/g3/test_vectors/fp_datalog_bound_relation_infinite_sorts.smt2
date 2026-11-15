@@ -1,0 +1,7 @@
+(set-option :fixedpoint.engine datalog)
+(set-option :fixedpoint.datalog.default_relation bound_relation)
+(declare-rel p (Int))
+(declare-var x Int)
+(rule (p 0))
+(rule (=> (and (p x) (< x 3)) (p (+ x 1))))
+(query p :print-answer true)

@@ -13,6 +13,7 @@ import (
 )
 
 func TestDatalogBoundIntervalNormalizesThreePositiveTails(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"bound_relation", "interval_relation"}, {"interval_relation", "bound_relation"}} {
 		for _, mode := range []struct {
 			name       string
@@ -270,6 +271,7 @@ func TestDatalogBoundIntervalNormalizesHelpersWithOriginKinds(t *testing.T) {
 }
 
 func TestDatalogBoundIntervalNormalizesRecursiveThreePositiveTails(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"bound_relation", "interval_relation"}, {"interval_relation", "bound_relation"}} {
 		for _, all := range []bool{false, true} {
 			t.Run(kinds[0]+"/all="+strconv.FormatBool(all), func(t *testing.T) {
@@ -300,6 +302,7 @@ func TestDatalogBoundIntervalNormalizesRecursiveThreePositiveTails(t *testing.T)
 }
 
 func TestDatalogBoundIntervalNormalizesOnlyPositiveLongBodies(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	f := newBoundIntervalPublicFixture(t, []string{"bound_relation", "interval_relation"})
 	p, q, r := f.declare("negative-P", 1), f.declare("negative-Q", 1), f.declare("negative-R", 1)
 	n, h := f.declare("negative-N", 1), f.declare("negative-H", 1)

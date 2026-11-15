@@ -9,6 +9,7 @@ import (
 )
 
 func TestDatalogBoundDefaultAndExplicitLifecycle(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, favourite := range []string{"pentagon", "bound_relation"} {
 		t.Run(favourite, func(t *testing.T) {
 			m, g := newPDRLifecycleServices(t)

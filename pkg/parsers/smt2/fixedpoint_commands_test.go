@@ -634,10 +634,15 @@ func TestSMT2FixedpointUnknownReasonUsesSourceStatusLines(t *testing.T) {
 	}{
 		{
 			name: "approximated",
+			// Int rules are rejected by check_rules (AUDIT.md muz_fp_01-F2);
+			// nullary relations of the interval favourite are imprecise.
 			script: `(set-option :fixedpoint.engine datalog)
-(declare-rel P (Int) interval_relation)
-(rule (P 0))
-(query P :print-answer false)
+(set-option :fixedpoint.datalog.default_relation interval_relation)
+(declare-rel A ())
+(declare-rel B ())
+(rule A)
+(rule (=> A B))
+(query B :print-answer false)
 `,
 			want: "unknown\napproximated relations\n",
 		},

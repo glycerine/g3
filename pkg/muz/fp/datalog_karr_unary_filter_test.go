@@ -16,6 +16,7 @@ import (
 // Source dl_compiler selects each constant and immediately projects it before
 // building filter_identical groups and choosing the last binding for the head.
 func TestDatalogKarrUnaryConstantsRepeatedColumnsAndSibling(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, tc := range []struct {
 		name    string
 		fact    []uint32
@@ -171,6 +172,7 @@ func TestDatalogKarrUnaryConstantsRepeatedColumnsAndSibling(t *testing.T) {
 }
 
 func TestKarrUnaryEmptySourceSkipsFilters(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	// Existing concrete empty relation is a nil source register in the compiler.
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)

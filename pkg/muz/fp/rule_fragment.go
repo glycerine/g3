@@ -11,8 +11,8 @@ import (
 	"github.com/glycerine/g3/pkg/muz/base"
 )
 
-// Source checks these properties before transformations. The infinite-sort
-// check remains separate to preserve the integer-relation extension.
+// checkDatalogEarlyRuleProperties is context::check_rules for
+// DATALOG_ENGINE, run by get_rules() before any relation plugin is chosen.
 func (e *PropositionalEngine) checkDatalogEarlyRuleProperties() (result error) {
 	proof, err := e.sourceRuleProofTrace()
 	if err != nil {
@@ -35,6 +35,9 @@ func (e *PropositionalEngine) checkDatalogEarlyRuleProperties() (result error) {
 		return fmt.Errorf("%w: validate datalog rule fragment: %w", ErrPropositionalHorn, err)
 	}
 	if err = properties.CheckNestedFree(); err != nil {
+		return fmt.Errorf("%w: validate datalog rule fragment: %w", ErrPropositionalHorn, err)
+	}
+	if err = properties.CheckInfiniteSorts(); err != nil {
 		return fmt.Errorf("%w: validate datalog rule fragment: %w", ErrPropositionalHorn, err)
 	}
 	return nil

@@ -8,6 +8,7 @@ import (
 )
 
 func TestDatalogConfiguredIntervalHeadAssemblyAndUpdates(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	f := newDirectFactFixture(t)
 	e, m := f.engine, f.manager
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }

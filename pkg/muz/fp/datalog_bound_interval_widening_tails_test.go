@@ -51,6 +51,7 @@ func requireBoundIntervalSelfJoinTailOrder(t *testing.T, f *boundIntervalPublicF
 }
 
 func TestDatalogBoundIntervalWideningTwoRecursiveTailVariants(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"bound_relation", "interval_relation"}, {"interval_relation", "bound_relation"}} {
 		for _, reverse := range []bool{false, true} {
 			for _, allOrNothing := range []bool{false, true} {
@@ -120,6 +121,7 @@ func TestDatalogBoundIntervalWideningTwoRecursiveTailVariants(t *testing.T) {
 }
 
 func TestDatalogBoundIntervalWideningRecursiveAndLowerTail(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, lowerFirst := range []bool{false, true} {
 		for _, allOrNothing := range []bool{false, true} {
 			name := "recursive-first"

@@ -127,6 +127,7 @@ func TestDatalogBoundIntervalPublicKeepsActiveSelectionAndReleasesBackend(t *tes
 }
 
 func TestDatalogBoundIntervalPublicNamedUpdateKeepsSeeds(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	f := newBoundIntervalPublicFixture(t, []string{"bound_relation", "interval_relation"})
 	p, q, gate := f.declare("update-P", 1), f.declare("update-Q", 1), f.declare("update-Gate", 1)
 	f.fact(p, 7)

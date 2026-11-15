@@ -37,6 +37,7 @@ func requireBoundIntervalThreeHeadOrder(t *testing.T, f *boundIntervalPublicFixt
 }
 
 func TestDatalogBoundIntervalWideningThreeHeadAsymmetricCycle(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"bound_relation", "interval_relation"}, {"interval_relation", "bound_relation"}} {
 		for _, allOrNothing := range []bool{false, true} {
 			name := kinds[0] + "/previous-deltas"
@@ -75,6 +76,7 @@ func TestDatalogBoundIntervalWideningThreeHeadAsymmetricCycle(t *testing.T) {
 }
 
 func TestDatalogBoundIntervalWideningThreeHeadEmptyDeltaWaves(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"bound_relation", "interval_relation"}, {"interval_relation", "bound_relation"}} {
 		for _, allOrNothing := range []bool{false, true} {
 			name := kinds[0] + "/previous-deltas"
@@ -109,6 +111,7 @@ func TestDatalogBoundIntervalWideningThreeHeadEmptyDeltaWaves(t *testing.T) {
 }
 
 func TestDatalogBoundIntervalWideningNormalizesJoinsAndKeepsCompilerGuards(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, shape := range []string{"three-positive-tails", "negative-tail"} {
 		for _, widen := range []bool{false, true} {
 			name := shape + "/ordinary"

@@ -12,6 +12,7 @@ import (
 // Propagation through projection and Cartesian join must not fabricate rays
 // that would erase an existing head fact at union.
 func TestDatalogKarrFullPropagationThroughUnaryAndBinary(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }

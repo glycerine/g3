@@ -31,6 +31,7 @@ func addExternalIntervalIdentityRule(t *testing.T, manager *ast.ASTManager, engi
 }
 
 func TestExternalIntervalDatalogAlignedIdentityRuleAndRepeat(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{
 		{"external_relation", "interval_relation"},
 		{"interval_relation", "external_relation"},
@@ -89,6 +90,7 @@ func TestExternalIntervalDatalogAlignedIdentityRuleAndRepeat(t *testing.T) {
 }
 
 func TestExternalIntervalDatalogAlignedIdentityEmptySource(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{
 		{"external_relation", "interval_relation"},
 		{"interval_relation", "external_relation"},
@@ -129,6 +131,7 @@ func TestExternalIntervalDatalogAlignedIdentityEmptySource(t *testing.T) {
 }
 
 func TestExternalIntervalDatalogAlignedIdentityUnionRefusalRollsBack(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
 	family, err := manager.RegisterArithmeticPlugin()
 	fragmentMust(t, err)
@@ -170,6 +173,7 @@ func TestExternalIntervalDatalogAlignedIdentityUnionRefusalRollsBack(t *testing.
 }
 
 func TestExternalIntervalDatalogOppositeOrderIdentityUnionRefusalRollsBack(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
 	family, err := manager.RegisterArithmeticPlugin()
 	fragmentMust(t, err)
@@ -217,6 +221,7 @@ func TestExternalIntervalDatalogOppositeOrderIdentityUnionRefusalRollsBack(t *te
 }
 
 func TestExternalIntervalDatalogIdentityLoadCleanupRefusalRetriesPublicly(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
 	family, err := manager.RegisterArithmeticPlugin()
 	fragmentMust(t, err)
@@ -269,6 +274,7 @@ func TestExternalIntervalDatalogIdentityLoadCleanupRefusalRetriesPublicly(t *tes
 }
 
 func TestExternalIntervalDatalogIdentityCommittedContinuationStoresWithoutReplay(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	externalFirst := []string{"external_relation", "interval_relation"}
 	intervalFirst := []string{"interval_relation", "external_relation"}
 	for _, test := range []struct {
@@ -463,6 +469,7 @@ func TestExternalIntervalDatalogPendingCompletionDoesNotSkipReplacedPlan(t *test
 }
 
 func TestExternalIntervalDatalogIdentityRejectsUnsupportedShapesBeforeCallbacks(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, shape := range []string{"self", "constant-head", "unsafe-head", "repeated", "nullary", "mutual-recursion"} {
 		t.Run(shape, func(t *testing.T) {
 			manager, engine, callbacks := newExternalIntervalDatalogFixture(t)

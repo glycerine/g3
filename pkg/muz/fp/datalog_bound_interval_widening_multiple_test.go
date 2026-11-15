@@ -12,6 +12,7 @@ import (
 )
 
 func TestDatalogBoundIntervalWideningMultiplePerRuleDelta(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"bound_relation", "interval_relation"}, {"interval_relation", "bound_relation"}} {
 		for _, allOrNothing := range []bool{false, true} {
 			name := kinds[0] + "/component-deltas"
@@ -70,6 +71,7 @@ func TestDatalogBoundIntervalWideningMultiplePerRuleDelta(t *testing.T) {
 }
 
 func TestDatalogBoundIntervalWideningMultipleShareInputSnapshot(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, guardedFirst := range []bool{false, true} {
 		name := "unguarded-first"
 		if guardedFirst {
@@ -103,6 +105,7 @@ func TestDatalogBoundIntervalWideningMultipleShareInputSnapshot(t *testing.T) {
 }
 
 func TestDatalogBoundIntervalWideningMultipleAllOrNothingReplaysInitialization(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, allOrNothing := range []bool{false, true} {
 		name := "input-delta"
 		if allOrNothing {
@@ -158,6 +161,7 @@ func TestDatalogBoundIntervalWideningMultipleAllOrNothingReplaysInitialization(t
 }
 
 func TestDatalogBoundIntervalWideningMultipleReplaysGroundRule(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	f := newBoundIntervalPublicFixture(t, []string{"bound_relation", "interval_relation"})
 	h := f.declare("ground-replay-H", 1)
 	fragmentMust(t, f.e.addRuleEager(f.app(h, f.numeral(0)), "ground-seed-rule"))

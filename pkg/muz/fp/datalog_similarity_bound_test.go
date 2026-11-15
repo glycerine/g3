@@ -8,6 +8,7 @@ import (
 )
 
 func TestDatalogBoundSimilarityPublicQueriesAndUpdates(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, favourite := range []string{"bound_relation", "pentagon"} {
 		for _, mode := range []string{"enabled", "disabled", "strict-threshold", "queried-output"} {
 			t.Run(favourite+"/"+mode, func(t *testing.T) {

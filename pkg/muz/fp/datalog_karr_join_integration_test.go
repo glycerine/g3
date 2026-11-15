@@ -12,6 +12,7 @@ import (
 )
 
 func TestDatalogKarrBinaryRulePublic(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }

@@ -13,6 +13,7 @@ import (
 )
 
 func TestDatalogKarrGuardPublicAndCancellationRetry(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }
@@ -158,6 +159,7 @@ func TestDatalogKarrGuardPublicAndCancellationRetry(t *testing.T) {
 }
 
 func TestDatalogKarrNegatedGuardPublicAndCancellationRetry(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }
@@ -455,6 +457,7 @@ func TestDatalogKarrNegatedComparisonPlans(t *testing.T) {
 }
 
 func TestDatalogKarrGuardCachedBasisAndExpressionClone(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }

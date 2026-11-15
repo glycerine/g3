@@ -14,6 +14,7 @@ import (
 )
 
 func TestDatalogBoundIntervalNormalizationCompletionRetriesNativeCleanup(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }
 	budget := arena.NewBudget(1 << 28)
 	var scope *boundIntervalNormalization

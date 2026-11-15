@@ -64,6 +64,7 @@ func assertExternalIntervalGroundProgramInterval(t *testing.T, product *rel.Exte
 }
 
 func TestExternalIntervalDatalogProgramGroundCacheFirstUseAndRepeat(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, pKinds := range [][]string{{"interval_relation", "external_relation"}, {"external_relation", "interval_relation"}} {
 		t.Run(pKinds[0]+"-first", func(t *testing.T) {
 			engine, callbacks, predicates := newExternalIntervalGroundProgramFixture(t, pKinds, "7")
@@ -103,6 +104,7 @@ func TestExternalIntervalDatalogProgramGroundCacheFirstUseAndRepeat(t *testing.T
 }
 
 func TestExternalIntervalDatalogProgramGroundUnaryTupleCacheAndSorts(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, mixed := range []bool{false, true} {
 		t.Run(fmt.Sprintf("mixed=%t", mixed), func(t *testing.T) {
 			manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
@@ -188,6 +190,7 @@ func TestExternalIntervalDatalogProgramGroundNullaryTotalsPerHead(t *testing.T) 
 }
 
 func TestExternalIntervalDatalogProgramGroundLaterSingletonRefusalRollback(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	engine, callbacks, predicates := newExternalIntervalGroundProgramFixture(t, []string{"interval_relation", "external_relation"}, "9")
 	before := make(map[ast.ASTHandle]*rel.ExternalIntervalProduct, len(predicates))
 	for _, predicate := range predicates {

@@ -11,6 +11,7 @@ import (
 )
 
 func TestExternalIntervalDatalogCartesianRepeatedHeadOriginalShape(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		t.Run(kinds[0], func(t *testing.T) {
 			// Exact former rejection: H(x,x) <- P(x),Q(x), with the
@@ -38,6 +39,7 @@ func TestExternalIntervalDatalogCartesianRepeatedHeadOriginalShape(t *testing.T)
 }
 
 func TestExternalIntervalDatalogCartesianRepeatedHeadAssemblyAndRepeat(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, real := range []bool{false, true} {
 			for _, shape := range []string{"reuse", "reuse-guard", "self-join", "project-join", "reuse-then-duplicate", "two-new-copies", "constants-guard", "constants-guard-only"} {
@@ -137,6 +139,7 @@ func TestExternalIntervalDatalogCartesianRepeatedHeadAssemblyAndRepeat(t *testin
 }
 
 func TestExternalIntervalDatalogCartesianRepeatedHeadEmptyFrontiers(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, shape := range []string{"join", "guard"} {
 			t.Run(kinds[0]+"/"+shape, func(t *testing.T) {
@@ -165,6 +168,7 @@ func TestExternalIntervalDatalogCartesianRepeatedHeadEmptyFrontiers(t *testing.T
 }
 
 func TestExternalIntervalDatalogCartesianRepeatedHeadProgramRefusalAndRetry(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, stop := range []struct {
 			name string

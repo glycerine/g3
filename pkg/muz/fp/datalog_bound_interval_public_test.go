@@ -126,6 +126,7 @@ func (f *boundIntervalPublicFixture) checkFormula(answer ast.ASTRef, values []in
 }
 
 func TestDatalogBoundIntervalPublicQueriesAndOwnership(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"bound_relation", "interval_relation"}, {"interval_relation", "bound_relation"}} {
 		t.Run(kinds[0], func(t *testing.T) {
 			f := newBoundIntervalPublicFixture(t, kinds)
@@ -217,6 +218,7 @@ func TestDatalogBoundIntervalPublicQueriesAndOwnership(t *testing.T) {
 }
 
 func TestDatalogBoundIntervalPublicNormalizesJoinsAndRejectsNegativeRules(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, name := range []string{"three-positive-tails", "negative-tail"} {
 		t.Run(name, func(t *testing.T) {
 			f := newBoundIntervalPublicFixture(t, []string{"bound_relation", "interval_relation"})

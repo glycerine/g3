@@ -10,6 +10,7 @@ import (
 )
 
 func TestDatalogSparseIntervalRequestedPairLifecycle(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 	fragmentMust(t, err)

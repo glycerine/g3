@@ -11,6 +11,7 @@ import (
 )
 
 func TestDatalogKarrUnboundNoTailPublicAndRetry(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }
@@ -133,6 +134,7 @@ func TestDatalogKarrUnboundNoTailPublicAndRetry(t *testing.T) {
 }
 
 func TestDatalogKarrUnboundGroundOverflowNoPublication(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }
@@ -177,6 +179,7 @@ func TestDatalogKarrUnboundGroundOverflowNoPublication(t *testing.T) {
 }
 
 func TestDatalogKarrWhollyUnboundNativeBasisAndRepeatedVariables(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }

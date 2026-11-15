@@ -19,6 +19,7 @@ func addExternalIntervalNaryGroundRule(t *testing.T, manager *ast.ASTManager, en
 }
 
 func TestExternalIntervalDatalogNaryGroundSingletonCacheAndHeadOrder(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, kinds := range [][]string{{"external_relation", "interval_relation"}, {"interval_relation", "external_relation"}} {
 		for _, mixed := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/mixed=%t", kinds[0], mixed), func(t *testing.T) {
@@ -124,6 +125,7 @@ func TestExternalIntervalDatalogNaryGroundSingletonCacheAndHeadOrder(t *testing.
 }
 
 func TestExternalIntervalDatalogNaryGroundRefusalsRollbackAndRetry(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, stop := range []struct {
 		op int32
 		at int

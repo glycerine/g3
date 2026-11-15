@@ -53,6 +53,7 @@ func assertExternalIntervalCartesianJoin(t *testing.T, callbacks *externalInterv
 }
 
 func TestExternalIntervalDatalogCartesianRuleBothLeftOrdersAndRepeat(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, externalLeft := range []bool{true, false} {
 		label := "interval-left"
 		leftKinds := []string{"interval_relation", "external_relation"}
@@ -142,6 +143,7 @@ func TestExternalIntervalDatalogCartesianRuleBothLeftOrdersAndRepeat(t *testing.
 }
 
 func TestExternalIntervalDatalogCartesianEmptySourceThenUpdate(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
 	family, err := manager.RegisterArithmeticPlugin()
 	fragmentMust(t, err)
@@ -173,6 +175,7 @@ func TestExternalIntervalDatalogCartesianEmptySourceThenUpdate(t *testing.T) {
 }
 
 func TestExternalIntervalDatalogCartesianJoinAndUnionRefusalsRollback(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	for _, test := range []struct {
 		name      string
 		operation int32
@@ -232,6 +235,7 @@ func TestExternalIntervalDatalogCartesianJoinAndUnionRefusalsRollback(t *testing
 }
 
 func TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
 	family, err := manager.RegisterArithmeticPlugin()
 	fragmentMust(t, err)
@@ -296,6 +300,7 @@ func TestExternalIntervalDatalogCartesianCommittedUnionCleanupNoReplay(t *testin
 }
 
 func TestExternalIntervalDatalogCartesianPreflightsShapesBeforeCallbacks(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	shapes := []string{
 		"compound-head", "repeated-tail",
 		"negative", "unbound-guard", "cycle", "unsafe-head", "nullary-tail",

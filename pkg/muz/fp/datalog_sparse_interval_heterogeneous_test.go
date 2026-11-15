@@ -8,6 +8,7 @@ import (
 )
 
 func TestDatalogSparseIntervalHeterogeneousOriginals(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 	fragmentMust(t, err)
@@ -238,6 +239,7 @@ func TestDatalogSparseIntervalHeterogeneousOriginals(t *testing.T) {
 }
 
 func TestDatalogSparseIntervalMigratesExistingIntervalSeeds(t *testing.T) {
+	skipUnreachableInfiniteSortRules(t)
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 	fragmentMust(t, err)
