@@ -86,14 +86,16 @@ func TestLegacyArrayDirectEqualityAllocationFrontiers(t *testing.T) {
 				fmMust(t, cause)
 				fmMust(t, md.Core().RegisterConstant(decl, base))
 			}
+			current, err := m.NewRef(formula)
+			fmMust(t, err)
+			result := &legacyArrayProjectionResult{manager: m}
 			m.Budget().FailAfter(stop)
-			result, eliminated, err := p.projectDirectEquality(md.Core(), a, formula)
+			remaining, err := p.projectEqualities(md.Core(), []ast.ASTHandle{a}, current, result)
 			m.Budget().FailAfter(-1)
-			if result != nil {
-				fmMust(t, result.Close())
-			}
+			fmMust(t, result.Close())
+			fmMust(t, m.DelRef(&current))
 			if err == nil {
-				if !eliminated {
+				if len(remaining) != 0 {
 					t.Fatal("direct array equality was not eliminated")
 				}
 				success = true

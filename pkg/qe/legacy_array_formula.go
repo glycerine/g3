@@ -56,77 +56,10 @@ func (p *legacyArrayProjection) projectFormula(md *model.ModelCore, variables []
 			result = nil
 		}
 	}()
-	remaining := make([]ast.ASTHandle, 0, len(variables))
-	for _, variable := range variables {
-		currentHandle, err := p.syntax.manager.RefGet(current)
-		if err != nil {
-			return nil, err
-		}
-		direct, eliminated, err := p.projectDirectEquality(md, variable, currentHandle)
-		if err != nil {
-			return nil, fmt.Errorf("direct equality: %w", err)
-		}
-		if eliminated {
-			next, err := p.syntax.manager.RefGet(direct.formula)
-			if err == nil {
-				err = p.syntax.manager.SetRef(current, next)
-			}
-			err = closeFailedLegacyArrayRewrite(direct.manager, direct.formula, err)
-			if err != nil {
-				return nil, err
-			}
-			continue
-		}
-		currentHandle, err = p.syntax.manager.RefGet(current)
-		if err != nil {
-			return nil, err
-		}
-		store, eliminated, err := p.projectStoreEquality(md, variable, currentHandle)
-		if err != nil {
-			return nil, fmt.Errorf("store equality: %w", err)
-		}
-		if eliminated {
-			next, err := p.syntax.manager.RefGet(store.formula)
-			if err == nil {
-				err = p.syntax.manager.SetRef(current, next)
-			}
-			for _, auxiliary := range store.variables {
-				if err != nil {
-					break
-				}
-				handle, e := p.syntax.manager.RefGet(auxiliary)
-				if e == nil {
-					var copy ast.ASTRef
-					copy, e = p.syntax.manager.NewRef(handle)
-					if e == nil {
-						result.variables = append(result.variables, copy)
-					}
-				}
-				err = e
-			}
-			err = closeTransferredLegacyArraySelect(store, err)
-			if err != nil {
-				return nil, err
-			}
-			continue
-		}
-		currentHandle, err = p.syntax.manager.RefGet(current)
-		if err != nil {
-			return nil, err
-		}
-		polarized, err := p.replaceEqualityPolarities(md, variable, currentHandle)
-		if err != nil {
-			return nil, fmt.Errorf("equality polarity: %w", err)
-		}
-		next, err := p.syntax.manager.RefGet(polarized.formula)
-		if err == nil {
-			err = p.syntax.manager.SetRef(current, next)
-		}
-		err = closeFailedLegacyArrayRewrite(polarized.manager, polarized.formula, err)
-		if err != nil {
-			return nil, err
-		}
-		remaining = append(remaining, variable)
+	// 1. project array equalities
+	remaining, err := p.projectEqualities(md, variables, current, result)
+	if err != nil {
+		return nil, fmt.Errorf("array equalities: %w", err)
 	}
 	currentHandle, err := p.syntax.manager.RefGet(current)
 	if err != nil {
@@ -175,4 +108,26 @@ func (p *legacyArrayProjection) projectFormula(md *model.ModelCore, variables []
 		return nil, err
 	}
 	return result, nil
+}
+
+// projectEqualities is array_project_eqs: it updates current, appends the
+// auxiliary variables to result and returns the remaining array variables.
+func (p *legacyArrayProjection) projectEqualities(md *model.ModelCore, variables []ast.ASTHandle, current ast.ASTRef, result *legacyArrayProjectionResult) (remaining []ast.ASTHandle, resultErr error) {
+	ap, err := newLegacyArrayProjectEqs(p)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = closeFailedLegacyArrayProjectEqs(ap, resultErr) }()
+	remaining, auxiliary, err := ap.run(md, variables, current)
+	if err != nil {
+		return nil, err
+	}
+	for _, variable := range auxiliary {
+		copy, err := p.syntax.manager.NewRef(variable)
+		if err != nil {
+			return nil, err
+		}
+		result.variables = append(result.variables, copy)
+	}
+	return remaining, nil
 }

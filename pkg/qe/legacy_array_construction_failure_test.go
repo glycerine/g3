@@ -53,10 +53,10 @@ func TestLegacyArrayStoreConstructionFailuresAndRetry(t *testing.T) {
 			}
 
 			m.Budget().FailAfter(stop)
-			result, eliminated, cause := p.projectStoreEquality(md.Core(), a, formula)
+			result, cause := p.projectFormula(md.Core(), []ast.ASTHandle{a}, formula, false)
 			m.Budget().FailAfter(-1)
 			if cause != nil {
-				if result != nil || eliminated {
+				if result != nil {
 					t.Fatal("failed projection published a result")
 				}
 				if errors.Is(cause, ast.ErrASTHandle) {
@@ -71,12 +71,12 @@ func TestLegacyArrayStoreConstructionFailuresAndRetry(t *testing.T) {
 					t.Fatal(cause)
 				}
 				failures++
-				result, eliminated, err = p.projectStoreEquality(md.Core(), a, formula)
+				result, err = p.projectFormula(md.Core(), []ast.ASTHandle{a}, formula, false)
 				fmMust(t, err)
 			} else {
 				success = true
 			}
-			if !eliminated || result == nil {
+			if result == nil {
 				t.Fatal("store projection did not eliminate array")
 			}
 			defer func() { fmMust(t, result.Close()) }()
@@ -113,109 +113,6 @@ func TestLegacyArrayStoreConstructionFailuresAndRetry(t *testing.T) {
 		t.Fatal("missing failure/success frontier", failures, success)
 	}
 	t.Log("first successful allowance", failures)
-}
-
-func TestLegacyPartialSelectConstructionFailuresAndRetry(t *testing.T) {
-	for _, count := range []int{8, 64} {
-		t.Run(fmt.Sprint(count), func(t *testing.T) {
-			success, failures := false, 0
-			successfulAllowance := int64(-1)
-			for stop := int64(0); stop <= 1<<16 && !success; stop = nextLegacyArrayConstructionAllowance(stop) {
-				t.Run(fmt.Sprint(stop), func(t *testing.T) {
-					f := newFMFixture(t)
-					m := f.r.manager
-					start := m.Stats().LiveReferences
-					p, err := newLegacyArrayProjection(m, f.r.config)
-					fmMust(t, err)
-					helperRefs := m.Stats().LiveReferences - start
-					sort := f.own(m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{f.integer}), f.integer))
-					a, b := f.constant("factor-a", sort), f.constant("factor-b", sort)
-					zero := f.number("0")
-					array := f.own(m.MkConstArray(sort, zero))
-					indices := make([]ast.ASTHandle, count)
-					for n := range indices {
-						number := f.number(fmt.Sprint(n))
-						array = f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpStore, nil, []ast.ASTHandle{array, number, number}))
-						indices[n] = f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{a, number}))
-					}
-					expected := m.Stats().LiveReferences - helperRefs
-					partial, err := newLegacyPartialEquality(m, p.syntax.family, a, b, indices)
-					fmMust(t, err)
-					md, err := model.NewModel(m)
-					fmMust(t, err)
-					for _, variable := range []ast.ASTHandle{a, b} {
-						decl, err := m.GetDecl(variable)
-						fmMust(t, err)
-						fmMust(t, md.Core().RegisterConstant(decl, array))
-					}
-					evaluator, err := newLegacyModelEvaluator(md.Core(), model.ModelEvaluatorConfig{Context: f.r.config.Context, Globals: f.r.config.Globals, Memory: m.NumeralService().RuntimeOwner(), Cooperation: f.r.config.Cooperation})
-					fmMust(t, err)
-					fmMust(t, evaluator.SetModelCompletion(true))
-					t.Cleanup(func() {
-						fmMust(t, evaluator.Close())
-						fmMust(t, md.Close())
-						fmMust(t, partial.Close())
-						fmMust(t, p.Close())
-						if got := m.Stats().LiveReferences; got != expected {
-							t.Errorf("factoring roots survived cleanup: got %d want %d", got, expected)
-						}
-					})
-					m.Budget().FailAfter(stop)
-					result, cause := p.factorPartialSelects(md.Core(), evaluator, a, partial)
-					m.Budget().FailAfter(-1)
-					if cause != nil {
-						if result != nil {
-							t.Fatal("failed factoring published a result")
-						}
-						var cleanup memory.ConstructionFailure
-						if errors.As(cause, &cleanup) {
-							fmMust(t, cleanup.Cleanup())
-						}
-						var memout memory.Failure
-						if !errors.Is(cause, arena.ErrInjectedFailure) && (!errors.As(cause, &memout) || memout.Kind != memory.FailureMemout) {
-							t.Fatal(cause)
-						}
-						failures++
-						// projectStoreEquality constructs a new evaluator for
-						// each call; interrupted traversals are not reusable
-						// without explicit cleanup/reset.
-						fmMust(t, evaluator.Close())
-						evaluator, err = newLegacyModelEvaluator(md.Core(), model.ModelEvaluatorConfig{Context: f.r.config.Context, Globals: f.r.config.Globals, Memory: m.NumeralService().RuntimeOwner(), Cooperation: f.r.config.Cooperation})
-						fmMust(t, err)
-						fmMust(t, evaluator.SetModelCompletion(true))
-						result, err = p.factorPartialSelects(md.Core(), evaluator, a, partial)
-						fmMust(t, err)
-					} else {
-						success = true
-						successfulAllowance = stop
-					}
-					defer func() { fmMust(t, result.Close()) }()
-					if result.partial == nil || len(result.variables) != count || len(result.equalities) != count {
-						t.Fatal("factoring output shape", len(result.variables), len(result.equalities))
-					}
-					for _, equality := range result.equalities {
-						root, err := m.RefGet(equality)
-						fmMust(t, err)
-						value, err := evaluator.EvaluateValue(root)
-						fmMust(t, err)
-						handle, err := m.RefGet(value)
-						fmMust(t, err)
-						if !m.IsTrue(handle) {
-							t.Fatal("factored definition false in model")
-						}
-						fmMust(t, m.DelRef(&value))
-					}
-				})
-				if t.Failed() {
-					t.Fatal("partial select construction frontier", stop)
-				}
-			}
-			if !success || failures == 0 {
-				t.Fatal("missing failure/success frontier", failures, success)
-			}
-			t.Log("successful tested allowance", successfulAllowance, "injected failures", failures)
-		})
-	}
 }
 
 // Keep every original checkpoint through 2047. Debug AST storage uses direct
@@ -305,13 +202,25 @@ func testLegacyArrayConstructionFailures(t *testing.T, kinds []string) {
 							})
 							var selects *legacyArraySelectProjection
 							var projected *legacyArrayProjectionResult
-							eliminated := false
+							var current ast.ASTRef
+							remaining := []ast.ASTHandle{a}
 							run := func() error {
 								var cause error
 								if kind == "selects" {
 									selects, cause = p.projectSelects(md.Core(), []ast.ASTHandle{a}, formula)
 								} else if kind == "store" {
-									selects, eliminated, cause = p.projectStoreEquality(md.Core(), a, formula)
+									current, cause = m.NewRef(formula)
+									if cause != nil {
+										return cause
+									}
+									projected = &legacyArrayProjectionResult{manager: m}
+									remaining, cause = p.projectEqualities(md.Core(), []ast.ASTHandle{a}, current, projected)
+									if cause != nil {
+										cause = errors.Join(cause, projected.Close(), m.DelRef(&current))
+										projected = nil
+									} else {
+										projected.formula = current
+									}
 								} else {
 									projected, cause = p.projectFormula(md.Core(), []ast.ASTHandle{a}, formula, false)
 								}
@@ -321,7 +230,7 @@ func testLegacyArrayConstructionFailures(t *testing.T, kinds []string) {
 							cause := run()
 							m.Budget().FailAfter(-1)
 							if cause != nil {
-								if selects != nil || projected != nil || eliminated {
+								if selects != nil || projected != nil {
 									t.Fatal("failed projection published result")
 								}
 								var cleanup memory.ConstructionFailure
@@ -348,7 +257,7 @@ func testLegacyArrayConstructionFailures(t *testing.T, kinds []string) {
 							}
 							var root ast.ASTRef
 							var vars []ast.ASTRef
-							if kind == "selects" || kind == "store" {
+							if kind == "selects" {
 								root, vars = selects.formula, selects.variables
 								defer func() { fmMust(t, selects.Close()) }()
 							} else {
@@ -358,7 +267,7 @@ func testLegacyArrayConstructionFailures(t *testing.T, kinds []string) {
 							expectedVars := count
 							if storeInput {
 								expectedVars *= 2
-								if kind == "store" && !eliminated {
+								if kind == "store" && len(remaining) != 0 {
 									t.Fatal("store was not eliminated")
 								}
 							}

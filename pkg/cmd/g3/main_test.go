@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md qe_03-F4: spacer array_project_eqs_util (trace checked by
+	// TestTraceGolden with G3_GOLDEN_TAGS=qe,model_evaluator).
+	"fp_spacer_array_project_eqs.smt2": "sat\n\n",
 	// AUDIT.md math_polynomial_01-F1: sort_roots uses libstdc++ std::sort
 	// (compare trace checked by TestTraceGolden with G3_GOLDEN_TAGS=algebraic).
 	"nra_root_sort_order.smt2":         "sat\n",

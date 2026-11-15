@@ -36,11 +36,8 @@ func TestLegacyArrayProjectionSubstitutesDirectEquality(t *testing.T) {
 		fmMust(t, err)
 		fmMust(t, md.Core().RegisterConstant(decl, value))
 	}
-	result, eliminated, err := p.projectDirectEquality(md.Core(), a, formula)
+	result, err := p.projectFormula(md.Core(), []ast.ASTHandle{a}, formula, false)
 	fmMust(t, err)
-	if !eliminated {
-		t.Fatal("direct array equality was not eliminated")
-	}
 	defer func() { fmMust(t, result.Close()) }()
 	handle, err := m.RefGet(result.formula)
 	fmMust(t, err)
@@ -84,11 +81,8 @@ func TestLegacyArrayDirectSubstitutionPreservesOtherEqualities(t *testing.T) {
 		fmMust(t, err)
 		fmMust(t, md.Core().RegisterConstant(decl, value))
 	}
-	result, eliminated, err := p.projectDirectEquality(md.Core(), a, formula)
+	result, err := p.projectFormula(md.Core(), []ast.ASTHandle{a}, formula, false)
 	fmMust(t, err)
-	if !eliminated {
-		t.Fatal("direct array equality was not eliminated")
-	}
 	defer func() { fmMust(t, result.Close()) }()
 	actual, err := m.RefGet(result.formula)
 	fmMust(t, err)

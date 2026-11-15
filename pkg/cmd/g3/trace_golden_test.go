@@ -70,6 +70,15 @@ var goldenTraceSites = map[string]bool{
 	// AUDIT.md math_polynomial_01-F1 (not in goldenTraceTags; compare with
 	// G3_GOLDEN_TAGS=algebraic G3_GOLDEN_VECTORS=nra_root_sort_order).
 	"algebraic compare src/math/polynomial/algebraic_numbers.cpp": true,
+	// AUDIT.md qe_03-F4 (not in goldenTraceTags; compare with
+	// G3_GOLDEN_TAGS=qe,model_evaluator
+	// G3_GOLDEN_VECTORS=fp_spacer_array_project_eqs). The qe sites of
+	// array_project_eqs_util::project and ::operator() share their function
+	// names with unported sites, so only these are listed.
+	"qe find_arr_eqs src/muz/spacer/spacer_qe_project.cpp":                          true,
+	"qe find_subst_term src/muz/spacer/spacer_qe_project.cpp":                       true,
+	"model_evaluator eval_array_eq src/muz/spacer/spacer_mev_array.cpp":             true,
+	"model_evaluator extract_array_func_interp src/muz/spacer/spacer_mev_array.cpp": true,
 }
 
 // goldenIDMaskedSites print AST ids ("#123"). Until g3 allocates the same

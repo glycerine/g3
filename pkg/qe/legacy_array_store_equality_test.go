@@ -36,11 +36,8 @@ func TestLegacyArrayProjectionSubstitutesStoreEquality(t *testing.T) {
 		fmMust(t, err)
 		fmMust(t, md.Core().RegisterConstant(decl, value))
 	}
-	result, eliminated, err := p.projectStoreEquality(md.Core(), a, storeEquality)
+	result, err := p.projectFormula(md.Core(), []ast.ASTHandle{a}, storeEquality, false)
 	fmMust(t, err)
-	if !eliminated {
-		t.Fatal("store-chain array equality was not eliminated")
-	}
 	defer func() { fmMust(t, result.Close()) }()
 	if len(result.variables) != 1 {
 		t.Fatal("store-chain diff constant count", len(result.variables))
@@ -92,11 +89,8 @@ func TestLegacyArrayStoreSubstitutionPreservesOtherEqualities(t *testing.T) {
 		fmMust(t, err)
 		fmMust(t, md.Core().RegisterConstant(decl, value))
 	}
-	result, eliminated, err := p.projectStoreEquality(md.Core(), a, formula)
+	result, err := p.projectFormula(md.Core(), []ast.ASTHandle{a}, formula, false)
 	fmMust(t, err)
-	if !eliminated {
-		t.Fatal("store-chain array equality was not eliminated")
-	}
 	defer func() { fmMust(t, result.Close()) }()
 	actual, err := m.RefGet(result.formula)
 	fmMust(t, err)
@@ -139,11 +133,8 @@ func TestLegacyArrayProjectionFactorsSelectInsidePartialEquality(t *testing.T) {
 		fmMust(t, err)
 		fmMust(t, md.Core().RegisterConstant(decl, value))
 	}
-	result, eliminated, err := p.projectStoreEquality(md.Core(), a, formula)
+	result, err := p.projectFormula(md.Core(), []ast.ASTHandle{a}, formula, false)
 	fmMust(t, err)
-	if !eliminated {
-		t.Fatal("partial-equality select case was not eliminated")
-	}
 	defer func() { fmMust(t, result.Close()) }()
 	if len(result.variables) != 2 {
 		t.Fatal("partial-equality select and diff constants", len(result.variables))
