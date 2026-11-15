@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_arith_01-F1: degree-shift save_degree re-inserts a known
+	// constant, which can expand m_var2degree and reorder k!N.
+	"degree_shift_reinsert_expand.smt2": "(goals\n(goal\n  (not (<= (+ k!4 k!2 k!6 k!3 k!5 k!0 k!1) 1.0))\n  (not (<= 5.0 (^ k!4 2.0)))\n  (>= k!0 0.0)\n  (>= k!1 0.0)\n  (>= k!2 0.0)\n  (>= k!3 0.0)\n  (>= k!4 0.0)\n  (>= k!5 0.0)\n  (>= k!6 0.0)\n  :precision precise :depth 2)\n)\n",
 	// AUDIT.md tactic_arith_03-F5: pb2bv names the atom, not the monomial, as the
 	// offending expression.
 	"pb2bv_offending_atom.smt2": "(error \"tactic failed: goal is in a fragment unsupported by pb2bv. Offending expression: (>= (+ x y 1) 2)\")\n",

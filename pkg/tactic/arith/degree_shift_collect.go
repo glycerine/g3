@@ -49,6 +49,11 @@ func degreeShiftCandidatesOrdered(m *ast.ASTManager, roots []ast.ASTHandle, chec
 		}
 		if old := degrees[h]; old != nil {
 			old.GCD(nil, nil, old, degree)
+			// m_var2degree.insert(to_app(t), old_k) re-inserts the key;
+			// core_hashtable::insert may expand the table first.
+			if e = table.Insert(h, [2]ast.ASTHandle{}); e != nil {
+				return e
+			}
 		} else {
 			if e = table.Insert(h, [2]ast.ASTHandle{}); e != nil {
 				return e

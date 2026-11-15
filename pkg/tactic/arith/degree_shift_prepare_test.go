@@ -62,3 +62,50 @@ func TestDegreeShiftPrepare(t *testing.T) {
 		})
 	}
 }
+
+// AUDIT.md tactic_arith_01-F1: save_degree re-inserts an existing key into
+// m_var2degree, and core_hashtable::insert expands before the lookup, so a
+// second power of a known constant can grow the table and reorder it.
+func TestDegreeShiftPrepareReinsertExpandsTable(t *testing.T) {
+	_, m := fixDLFixture(t, false)
+	names := []string{"a", "b", "c", "d", "e", "f", "g"}
+	vars := make([]ast.ASTHandle, len(names))
+	powers := make([]ast.ASTHandle, len(names))
+	for i, name := range names {
+		vars[i] = fixDLConst(t, m, false, name)
+		powers[i] = fixDLApp(t, m, 18, vars[i], fixDLNumber(t, m, false, "2"))
+	}
+	sum := fixDLApp(t, m, 6, powers...)
+	second := fixDLApp(t, m, 18, vars[0], fixDLNumber(t, m, false, "4"))
+	_, order, err := degreeShiftCandidatesOrdered(m, []ast.ASTHandle{sum, second}, nil)
+	equationMust(t, err)
+	// The arguments of the sum are popped last-first, so the keys enter
+	// g..a; the second root then re-inserts a.
+	expanded, plain := ast.NewObjMap(m), ast.NewObjMap(m)
+	for i := len(vars) - 1; i >= 0; i-- {
+		equationMust(t, expanded.Insert(vars[i], [2]ast.ASTHandle{}))
+		equationMust(t, plain.Insert(vars[i], [2]ast.ASTHandle{}))
+	}
+	equationMust(t, expanded.Insert(vars[0], [2]ast.ASTHandle{}))
+	keys := func(o *ast.ObjMap) []ast.ASTHandle {
+		var out []ast.ASTHandle
+		for _, entry := range o.Entries() {
+			out = append(out, entry.Key)
+		}
+		return out
+	}
+	want, without := keys(expanded), keys(plain)
+	if len(order) != len(want) {
+		t.Fatal(len(order), len(want))
+	}
+	same := true
+	for i := range want {
+		if order[i] != want[i] {
+			t.Fatalf("candidate %d differs from the expanded obj_map order", i)
+		}
+		same = same && want[i] == without[i]
+	}
+	if same {
+		t.Fatal("fixture does not distinguish the expanded table")
+	}
+}
