@@ -47,7 +47,9 @@ func TestBVArray2UFRejectsCoresAndQuantifiers(t *testing.T) {
 	q, e := f.m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.index}, Names: []usymbol.Symbol{name}, Body: body})
 	arrayMust(t, e)
 	err = f.tactic.Apply(f.goal(t, false, false, false, q), &out)
-	if err == nil || !strings.Contains(err.Error(), "not implemented") {
+	// reduce_var is NOT_IMPLEMENTED_YET() in z3 4.7.1 (the process exits);
+	// the fork and upstream 4bad2dd92 throw this default_exception.
+	if err == nil || err.Error() != "not handled by bvarray2uf" {
 		t.Fatal(err)
 	}
 }

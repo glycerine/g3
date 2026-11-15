@@ -113,3 +113,12 @@ z3_bug_sine_filter_component
 # not apply to quantified goals" (pkg/tactic/core/symmetry_reduce_tactic.go
 # Apply). Reproduction: test_vectors/z3_bug_symmetry_reduce_quantified.smt2.
 z3_bug_symmetry_reduce_quantified
+#
+# bvarray2uf_rewriter_cfg::reduce_var and reduce_quantifier (and two
+# reduce_app cases) are NOT_IMPLEMENTED_YET(), which prints "NOT IMPLEMENTED
+# YET!" and kills z3 4.7.1 on any quantified goal (z3 bug:
+# src/tactic/bv/bvarray2uf_rewriter.cpp; upstream 4bad2dd92 throws
+# default_exception("not handled by bvarray2uf")). g3 and the fork throw
+# that exception (pkg/tactic/bv/bvarray2uf_rewriter.go). Reproduction:
+# test_vectors/z3_bug_bvarray2uf_quantifier.smt2.
+z3_bug_bvarray2uf_quantifier

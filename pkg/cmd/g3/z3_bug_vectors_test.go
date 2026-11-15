@@ -14,6 +14,8 @@ import (
 // scriptResults so the C++ reference comparison does not run them; this
 // test locks in g3's correct answers instead.
 var z3BugResults = map[string]string{
+	// bvarray2uf reports quantified goals as "not handled" (upstream 4bad2dd92).
+	"z3_bug_bvarray2uf_quantifier.smt2": "(error \"line 5 column 17: not handled by bvarray2uf\")\n(error \"tactic failed: not handled by bvarray2uf\")\n(error \"line 9 column 17: not handled by bvarray2uf\")\n",
 	// symmetry-reduce rejects a quantified goal (upstream 330b3cc8d).
 	"z3_bug_symmetry_reduce_quantified.smt2": "(error \"tactic failed: symmetry_reduce does not apply to quantified goals\")\nsat\nunknown\n",
 	// sine-filter on an empty goal and on a last formula without symbols.

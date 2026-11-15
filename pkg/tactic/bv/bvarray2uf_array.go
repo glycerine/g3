@@ -7,7 +7,7 @@ package bv
 import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
-	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 // ReduceApp is bvarray2uf_rewriter_cfg::reduce_app.
@@ -192,7 +192,7 @@ func (r *bvArrayRewriter) ReduceApp(f ast.ASTHandle, arguments ast.AppArguments,
 	}
 	if basic && rangeArray {
 		// NOT_IMPLEMENTED_YET() in the source.
-		return rewriter.RewriteFailed, tactic.NewTacticException("bvarray2uf: basic array-valued application is not implemented")
+		return rewriter.RewriteFailed, z3exception.NewDefaultException(bvArray2UFNotHandled)
 	}
 	if family == ast.NullFamilyID {
 		hasArrays := false
@@ -432,5 +432,5 @@ func (r *bvArrayRewriter) ReduceApp(f ast.ASTHandle, arguments ast.AppArguments,
 		return rewriter.RewriteDone, nil
 	}
 	// NOT_IMPLEMENTED_YET() in the source.
-	return rewriter.RewriteFailed, tactic.NewTacticException("bvarray2uf: array operation is not implemented")
+	return rewriter.RewriteFailed, z3exception.NewDefaultException(bvArray2UFNotHandled)
 }

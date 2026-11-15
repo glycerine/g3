@@ -8,6 +8,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 // bvArrayRewriter is bvarray2uf_rewriter: rewriter_tpl<bvarray2uf_rewriter_cfg>
@@ -134,9 +135,14 @@ func (r *bvArrayRewriter) PreVisit(t ast.ASTHandle) (bool, error) {
 	return true, nil
 }
 
+// bvArray2UFNotHandled is the default_exception message for the
+// NOT_IMPLEMENTED_YET() sites of bvarray2uf_rewriter.cpp, which kill z3
+// 4.7.1; the fork and upstream (4bad2dd92, "fix #3043") throw it instead.
+const bvArray2UFNotHandled = "not handled by bvarray2uf"
+
 // ReduceQuantifier is NOT_IMPLEMENTED_YET() in the source.
 func (r *bvArrayRewriter) ReduceQuantifier(ast.ASTHandle, ast.ASTHandle, ast.AppArguments, ast.AppArguments, ast.ASTRef, ast.ASTRef) (bool, error) {
-	return false, tactic.NewTacticException("bvarray2uf: quantified bit-vector arrays are not implemented")
+	return false, z3exception.NewDefaultException(bvArray2UFNotHandled)
 }
 
 // ReduceVar is bvarray2uf_rewriter_cfg::reduce_var.
@@ -148,5 +154,5 @@ func (r *bvArrayRewriter) ReduceVar(v ast.ASTHandle, _, _ ast.ASTRef) (bool, err
 	if uint64(idx) >= uint64(len(r.bindings)) {
 		return false, nil
 	}
-	return false, tactic.NewTacticException("bvarray2uf: quantified bit-vector arrays are not implemented")
+	return false, z3exception.NewDefaultException(bvArray2UFNotHandled)
 }
