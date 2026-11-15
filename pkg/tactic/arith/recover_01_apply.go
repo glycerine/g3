@@ -155,11 +155,17 @@ func recover01Apply(goal *tactic.Goal, rw *rewriter.TheoryRewriter, services mod
 		return err
 	}
 	defer func() { err = errors.Join(err, m.DelRef(&output)) }()
-	size, err = newGoal.Size()
-	if err != nil {
-		return err
-	}
-	for i := uint32(0); i < size; i++ {
+	// for (idx = 0; idx < new_goal->size(); idx++): the size is read again
+	// because update collapses a goal that became inconsistent to the single
+	// formula false. z3 4.7.1 read it once and crashed (AUDIT.md
+	// tactic_arith_03-F9; fixed upstream in c230d89a3).
+	for i := uint32(0); ; i++ {
+		if size, err = newGoal.Size(); err != nil {
+			return err
+		}
+		if i >= size {
+			break
+		}
 		form, e := newGoal.Form(i)
 		if e != nil {
 			return e

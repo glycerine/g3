@@ -14,10 +14,11 @@ import (
 // scriptResults so the C++ reference comparison does not run them; this
 // test locks in g3's correct answers instead.
 var z3BugResults = map[string]string{
-	"z3_bug_ufbv_demod_identical_subterm_var.smt2":    "unsat\n",                          // tactic_sls_ufbv_01-F1
-	"z3_bug_forward_trig_unsafe_after_purify.smt2":    "unknown\n((x 10.0)\n (y 10.0))\n", // tactic_arith_02-F2
-	"z3_bug_eq2bv_stale_rewriter_cache.smt2":          "unsat\n",                          // tactic_arith_01-F3
-	"z3_bug_pb2bv_numeral_lhs.smt2":                   "unsat\nunsat\n",                   // tactic_arith_03-F1
+	"z3_bug_recover01_inconsistent_update.smt2":       "(goals\n(goal\n  false\n  :precision precise :depth 1)\n)\n", // tactic_arith_03-F9
+	"z3_bug_ufbv_demod_identical_subterm_var.smt2":    "unsat\n",                                                     // tactic_sls_ufbv_01-F1
+	"z3_bug_forward_trig_unsafe_after_purify.smt2":    "unknown\n((x 10.0)\n (y 10.0))\n",                            // tactic_arith_02-F2
+	"z3_bug_eq2bv_stale_rewriter_cache.smt2":          "unsat\n",                                                     // tactic_arith_01-F3
+	"z3_bug_pb2bv_numeral_lhs.smt2":                   "unsat\nunsat\n",                                              // tactic_arith_03-F1
 	"z3_bug_automaton_product.smt2":                   "sat\n(model \n  (define-fun x () String\n    \"\")\n)\n",
 	"z3_bug_qe_nested_store.smt2":                     "sat\n",
 	"z3_bug_opt_stale_objective_term.smt2":            "sat\n(objectives\n (x 7)\n (y oo)\n (q (- 3))\n)\n",

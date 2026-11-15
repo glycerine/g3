@@ -234,3 +234,14 @@ z3_bug_forward_trig_unsafe_after_purify
 # tactic_sls_ufbv_01-F1). Reproduction:
 # test_vectors/z3_bug_ufbv_demod_identical_subterm_var.smt2.
 z3_bug_ufbv_demod_identical_subterm_var
+#
+# recover-01 reads past the end of the goal: its rewrite loop caches
+# new_goal->size(), goal::update collapses a goal that became
+# inconsistent to the single formula false, and form(idx) then reads out
+# of range; z3 4.7.1 segfaults (z3 bug:
+# src/tactic/arith/recover_01_tactic.cpp operator(); fixed upstream in
+# c230d89a3, "fix #5294"). g3 re-reads the size as upstream does
+# (pkg/tactic/arith/recover_01_apply.go recover01Apply; AUDIT.md
+# tactic_arith_03-F9). Reproduction:
+# test_vectors/z3_bug_recover01_inconsistent_update.smt2.
+z3_bug_recover01_inconsistent_update
