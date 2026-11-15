@@ -205,3 +205,56 @@ func TestAlgebraicIsolationCooperationKeepsExecutingOwners(t *testing.T) {
 	}
 	serviceMust(t, out.Close())
 }
+
+// TestAlgebraicIsolationSortComparisonOrder: sort_roots is std::sort with
+// lt_proc (algebraic_numbers.cpp:564), so the compare records (argument
+// order included) and the refinements they make follow libstdc++'s
+// insertion sort (AUDIT.md math_polynomial_01-F1). Expected lines come
+// from build_trace/z3 -tr:algebraic on (check-sat-using qfnra-nlsat) with
+// (> (- (* x x) 2) 0) and (> (+ (* x x x x) (* (- 10) x x) 1) 0); the
+// first isolate_roots of each run sorts exactly these roots.
+func TestAlgebraicIsolationSortComparisonOrder(t *testing.T) {
+	for _, tc := range []struct {
+		coeff []int32
+		want  []string
+	}{
+		{[]int32{-2, 0, 1}, []string{"comparing: (-4, 0) (0, 4)"}},
+		{[]int32{1, 0, -10, 0, 1}, []string{
+			"comparing: (0, 2) (2, 4)",
+			"comparing: (-4, -2) (0, 2)",
+			"comparing: (-2, 0) (-4, -2)",
+			"comparing: (-2, 0) (2, 4)",
+			"comparing: (-2, 0) (0, 2)",
+			"comparing: (-2, 0) (-4, -2)",
+		}},
+	} {
+		c, up, _ := algebraicControlledFixture(t)
+		p := algebraicPolynomial(t, up, tc.coeff...)
+		roots, e := c.NewVector()
+		serviceMust(t, e)
+		var output strings.Builder
+		tags := diagnostic.NewTraceTagsWithWriter(&output)
+		tags.Enable("algebraic")
+		serviceMust(t, c.config.Rationals.BindTrace(tags))
+		serviceMust(t, c.IsolateRoots(mustUPolyView(t, up, p), roots))
+		serviceMust(t, c.config.Rationals.BindTrace(nil))
+		if len(roots.values) != len(tc.coeff)-1 {
+			t.Fatal("root count", len(roots.values))
+		}
+		if tags.ShouldTrace("algebraic") {
+			if !strings.Contains(output.String(), "-------- [algebraic] compare src/math/polynomial/algebraic_numbers.cpp:1861 ---------\n"+tc.want[0]+"\n") {
+				t.Fatal("first compare record", output.String())
+			}
+			var got []string
+			for _, line := range strings.Split(output.String(), "\n") {
+				if strings.HasPrefix(line, "comparing: ") {
+					got = append(got, line)
+				}
+			}
+			if strings.Join(got, "\n") != strings.Join(tc.want, "\n") {
+				t.Fatalf("compare sequence\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(tc.want, "\n"))
+			}
+		}
+		serviceMust(t, roots.Close())
+	}
+}

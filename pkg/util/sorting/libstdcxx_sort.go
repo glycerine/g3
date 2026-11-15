@@ -76,6 +76,13 @@ package sorting
 //     2026-11-14 for AUDIT.md math_misc_01-F4: equal magnitudes tie, and
 //     Karr's dualization follows basis order.
 //
+//  9. algebraic_numbers::manager::imp::sort_roots
+//     (pkg/math/polynomial/algebraic_root_sort.go),
+//     src/math/polynomial/algebraic_numbers.cpp:564 with lt_proc, approved
+//     2026-11-14 for AUDIT.md math_polynomial_01-F1: every comparison is
+//     imp::compare, which traces and refines its arguments in place, so the
+//     exact comparison sequence is observable.
+//
 // The algorithm lives here in pkg/util/sorting so every approved call site
 // shares one verified implementation; the typed wrappers stay at the call
 // sites (smtcore/libstdcxx_sort.go, ast/rewriter/bv_polynomial_sort.go).

@@ -295,44 +295,10 @@ func (m *AlgebraicRootCore) isolateRootsForPolynomial(v UPolynomialView, out *Al
 			return err
 		}
 	}
-	// Concrete heap sort is the documented external std::sort backend adapter;
-	// it sorts the entire append-only output without extra heap scratch.
-	for start := len(out.values)/2 - 1; start >= 0; start-- {
-		if err = m.rootSift(out, uint32(start), uint32(len(out.values))); err != nil {
-			return err
-		}
-	}
-	for end := uint32(len(out.values)); end > 1; end-- {
-		out.values[0], out.values[end-1] = out.values[end-1], out.values[0]
-		if err = m.rootSift(out, 0, end-1); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-func (m *AlgebraicRootCore) rootSift(v *AlgebraicVector, root, end uint32) error {
-	for uint64(root)*2+1 < uint64(end) {
-		child := root*2 + 1
-		if child+1 < end {
-			d, e := m.Compare(&v.values[child], &v.values[child+1])
-			if e != nil {
-				return e
-			}
-			if d < 0 {
-				child++
-			}
-		}
-		d, e := m.Compare(&v.values[root], &v.values[child])
-		if e != nil {
-			return e
-		}
-		if d >= 0 {
-			return nil
-		}
-		v.values[root], v.values[child] = v.values[child], v.values[root]
-		root = child
-	}
-	return nil
+	// sort_roots (algebraic_numbers.cpp:563-565): std::sort with lt_proc
+	// through the user-approved libstdc++ port (algebraic_root_sort.go,
+	// AUDIT.md math_polynomial_01-F1).
+	return m.sortRoots(out)
 }
 func (m *AlgebraicRootCore) MkRoot(v UPolynomialView, index uint32, out *Algebraic) (err error) {
 	return m.mkRootWithConstruction(v, index, out, nil)

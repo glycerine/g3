@@ -67,6 +67,9 @@ var goldenTraceSites = map[string]bool{
 	"non_diff_logic internalize_term src/smt/theory_diff_logic_def.h":          true,
 	"non_diff_logic found_non_diff_logic_expr src/smt/theory_diff_logic_def.h": true,
 	"non_diff_logic mk_var src/smt/theory_diff_logic_def.h":                    true,
+	// AUDIT.md math_polynomial_01-F1 (not in goldenTraceTags; compare with
+	// G3_GOLDEN_TAGS=algebraic G3_GOLDEN_VECTORS=nra_root_sort_order).
+	"algebraic compare src/math/polynomial/algebraic_numbers.cpp": true,
 }
 
 // goldenIDMaskedSites print AST ids ("#123"). Until g3 allocates the same

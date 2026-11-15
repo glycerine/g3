@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md math_polynomial_01-F1: sort_roots uses libstdc++ std::sort
+	// (compare trace checked by TestTraceGolden with G3_GOLDEN_TAGS=algebraic).
+	"nra_root_sort_order.smt2":         "sat\n",
+	"nra_root_sort_order_quartic.smt2": "sat\n",
 	// AUDIT.md opt_01-F3: maxres sort_assumptions uses libstdc++ std::sort
 	// on 17 tied-weight assumptions, so the model order matches z3.
 	"maxres_hill_climb_tie_order.smt2": "sat\n(objectives\n ( 0)\n)\n(model \n  (define-fun p7 () Bool\n    true)\n  (define-fun p14 () Bool\n    true)\n  (define-fun p10 () Bool\n    false)\n  (define-fun p17 () Bool\n    true)\n  (define-fun p16 () Bool\n    true)\n  (define-fun p6 () Bool\n    true)\n  (define-fun p18 () Bool\n    false)\n  (define-fun p20 () Bool\n    false)\n  (define-fun p13 () Bool\n    true)\n  (define-fun p4 () Bool\n    true)\n  (define-fun p2 () Bool\n    true)\n  (define-fun p11 () Bool\n    true)\n  (define-fun p9 () Bool\n    true)\n  (define-fun p12 () Bool\n    true)\n  (define-fun p19 () Bool\n    true)\n  (define-fun p15 () Bool\n    true)\n  (define-fun p21 () Bool\n    true)\n)\n",
