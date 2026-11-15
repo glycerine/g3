@@ -12,6 +12,10 @@ func (e *maxResEngine) processCoreBatch(cores [][]ast.ASTHandle) error {
 			return err
 		}
 		e.clampPrimalDualLower()
+		// process_unsat(core): trace() after the lower bound moves.
+		if err := e.trace(); err != nil {
+			return err
+		}
 		if err := e.pivotAfterCore(core); err != nil {
 			return err
 		}

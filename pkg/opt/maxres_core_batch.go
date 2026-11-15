@@ -46,9 +46,15 @@ func (e *maxResEngine) collectCoreBatch(first []ast.ASTHandle, result *Arithmeti
 		// get_cores: ++m_stats.m_num_cores after every minimize_core.
 		e.stats.Cores++
 		if status != lbool.True {
+			if err = optProgress(100, "(opt.maxres minimization failed)\n"); err != nil {
+				return nil, lbool.Undef, err
+			}
 			break
 		}
 		if len(core) == 0 {
+			if err = optProgress(100, "(opt.maxres core is empty)\n"); err != nil {
+				return nil, lbool.Undef, err
+			}
 			e.lower.Set(&e.upper)
 			return nil, lbool.True, nil
 		}

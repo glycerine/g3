@@ -1,0 +1,52 @@
+(optimize:check-sat)
+(sat.sat-solver)
+(optimize:sat)
+(maxsmt)
+(opt.maxres [0:33])
+(sat.sat-solver)
+(sat.sat-solver)
+(opt.maxres [0:18])
+(sat.sat-solver)
+(maxres cs model valid: 1 cs size:8 core: 2)
+(opt.maxres [4:18])
+(maxres cs model valid: 1 cs size:7 core: 4)
+(opt.maxres [6:18])
+(sat.sat-solver)
+(sat.sat-solver)
+(opt.maxres [6:14])
+(sat.sat-solver)
+(maxres cs model valid: 1 cs size:6 core: 3)
+(opt.maxres [8:14])
+(sat.sat-solver)
+(sat.sat-solver)
+(opt.maxres [8:13])
+(sat.sat-solver)
+(maxres cs model valid: 1 cs size:5 core: 3)
+(opt.maxres [9:13])
+(sat.sat-solver)
+(sat.sat-solver)
+(opt.maxres [9:12])
+(sat.sat-solver)
+(maxres cs model valid: 1 cs size:4 core: 4)
+(opt.maxres [10:12])
+(sat.sat-solver)
+(sat.sat-solver)
+(sat.sat-solver)
+(opt.maxres [10:10])
+found optimum
+is-sat: l_true
+Satisfying soft constraints
+2: p0 |-> false 
+3: p1 |-> true 
+2: p2 |-> true 
+4: p3 |-> false 
+1: p4 |-> true 
+1: p5 |-> false 
+3: p6 |-> true 
+3: p7 |-> true 
+2: p8 |-> true 
+4: p9 |-> true 
+2: p10 |-> true 
+1: p11 |-> false 
+3: p12 |-> true 
+2: p13 |-> false 

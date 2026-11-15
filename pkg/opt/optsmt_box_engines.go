@@ -5,9 +5,11 @@ package opt
 import (
 	"errors"
 	"math/big"
+	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -144,6 +146,19 @@ func (s *ArithmeticSolver) farkasUpdateUpper(result *ArithmeticResult, models *O
 		}
 		switch checked {
 		case lbool.True:
+			// IF_VERBOSE(2, "(optsmt lower bound for v" << m_vars[i] << " := "
+			// << m_upper[i] << ")") (AUDIT.md FUZZ-F5; g3trace builds only).
+			if enabled, err := optProgressEnabled(2); err != nil {
+				return lbool.Undef, err
+			} else if enabled {
+				v, err := s.backend.ObjectiveTheoryVar(index)
+				if err != nil {
+					return lbool.Undef, err
+				}
+				if err = optProgress(2, "(optsmt lower bound for v"+strconv.Itoa(v)+" := "+infEpsText(&upper)+")\n"); err != nil {
+					return lbool.Undef, err
+				}
+			}
 			s.setOptLower(i, mid[k])
 			if err = s.backend.EnableObjectiveConflictRecording(index, ast.ASTHandle{}); err != nil {
 				return lbool.Undef, err
@@ -167,6 +182,12 @@ func (s *ArithmeticSolver) farkasUpdateUpper(result *ArithmeticResult, models *O
 			minimum, finite, err := s.backend.ObjectiveConflictMinimize(index)
 			if err != nil {
 				return lbool.Undef, err
+			}
+			// IF_VERBOSE(2, "(optsmt conflict: " << th.conflict_minimize() << ") \n").
+			if diagnostic.VerboseProgress {
+				if err = optProgress(2, "(optsmt conflict: "+infEpsText(&minimum)+") \n"); err != nil {
+					return lbool.Undef, err
+				}
 			}
 			if !finite {
 				// bounds is not in the core. The context is unsat.

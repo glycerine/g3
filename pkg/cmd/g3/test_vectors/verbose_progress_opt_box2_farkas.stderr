@@ -1,0 +1,4 @@
+(optimize:check-sat)
+(smt.searching)
+(optimize:sat)
+(optsmt conflict: -oo) 

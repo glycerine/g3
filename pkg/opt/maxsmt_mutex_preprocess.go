@@ -25,6 +25,7 @@ func (e *sortMaxEngine) preprocessMutexes() (status lbool.LBool, resultErr error
 	if err != nil {
 		return lbool.Undef, err
 	}
+	decomposition.scale = e.scale
 	for _, mutex := range mutexes {
 		if err = decomposition.transform(mutex); err != nil {
 			return lbool.Undef, err

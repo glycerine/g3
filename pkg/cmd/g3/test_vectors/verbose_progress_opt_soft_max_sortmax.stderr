@@ -1,0 +1,13 @@
+(optimize:check-sat)
+(optimize:sat)
+(opt :lex)
+(maxsmt)
+(opt.maxsat mutex size: 2 weight: 1)
+(opt.maxsat mutex size: 1 weight: 1)
+(opt.sortmax [1:2])
+is-sat: l_true
+Satisfying soft constraints
+2: |(not (<= x 3))!2| |-> false 
+1: |(not (<= 2 x))!3| |-> true 
+1: |(not (<= y x))!4| |-> true 
+(optsmt lower bound: 9)

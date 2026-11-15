@@ -1,0 +1,8 @@
+(declare-const x Int)
+(declare-const y Int)
+(assert-soft (> x 3) :weight 2)
+(assert-soft (< x 2) :weight 1)
+(assert-soft (> y x))
+(maximize (+ x y))
+(assert (< (+ x y) 10))
+(check-sat)

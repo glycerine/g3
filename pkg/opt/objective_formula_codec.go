@@ -14,6 +14,9 @@ type objectiveFormulaMetadata struct {
 	weights      []big.Rat
 	id           string
 	index        int // position in m_objectives (encoding order)
+	// softOriginal is m_objectives[index].m_terms, which is_maxsat's
+	// verbose lines print (g3trace builds only; held in derived).
+	softOriginal []ast.ASTHandle
 }
 
 type ObjectiveFormulaCodec struct {

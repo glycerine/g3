@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 func (c *ObjectiveFormulaCodec) normalizeSoft(args []ast.ASTHandle, metadata objectiveFormulaMetadata) (terms []ast.ASTHandle, weights []big.Rat, offset big.Rat, err error) {
@@ -29,10 +30,22 @@ func (c *ObjectiveFormulaCodec) normalizeSoft(args []ast.ASTHandle, metadata obj
 				c.derived = append(c.derived, ref)
 			}
 		}
-		if weight.Sign() == 0 || c.manager.IsTrue(argument) {
+		// is_maxsat: IF_VERBOSE(1, weight << ": " << mk_pp(m_terms[i]) <<
+		// " |-> true|false") for a term folded to a constant (AUDIT.md
+		// FUZZ-F5; g3trace builds only).
+		if c.manager.IsTrue(argument) {
+			if err = c.softFoldVerbose(metadata, i, &weight, "true"); err != nil {
+				return nil, nil, offset, err
+			}
+			continue
+		}
+		if weight.Sign() == 0 {
 			continue
 		}
 		if c.manager.IsFalse(argument) {
+			if err = c.softFoldVerbose(metadata, i, &weight, "false"); err != nil {
+				return nil, nil, offset, err
+			}
 			offset.Add(&offset, &weight)
 			continue
 		}
@@ -40,4 +53,18 @@ func (c *ObjectiveFormulaCodec) normalizeSoft(args []ast.ASTHandle, metadata obj
 		weights = append(weights, weight)
 	}
 	return terms, weights, offset, nil
+}
+
+func (c *ObjectiveFormulaCodec) softFoldVerbose(metadata objectiveFormulaMetadata, i int, weight *big.Rat, value string) error {
+	if !diagnostic.VerboseProgress || i >= len(metadata.softOriginal) {
+		return nil
+	}
+	if enabled, err := optProgressEnabled(1); err != nil || !enabled {
+		return err
+	}
+	text, err := mkPPStringOf(c.manager, metadata.softOriginal[i])
+	if err != nil {
+		return err
+	}
+	return optProgress(1, ratText(weight)+": "+text+" |-> "+value+"\n")
 }

@@ -5,6 +5,7 @@ package opt
 import (
 	"errors"
 	"math/big"
+	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
@@ -348,6 +349,22 @@ func (s *ArithmeticSolver) boxUpdateLower(models *OptsmtModels) (_ ast.ASTRef, r
 	}
 	if err = s.boxSetMax(models, values, disj); err != nil {
 		return ast.ASTRef{}, err
+	}
+	// IF_VERBOSE(2, "(optsmt.lower " << m_lower << ")"), each inf_eps
+	// followed by a space (AUDIT.md FUZZ-F5; g3trace builds only).
+	if enabled, err := optProgressEnabled(2); err != nil {
+		return ast.ASTRef{}, err
+	} else if enabled {
+		var out strings.Builder
+		out.WriteString("(optsmt.lower ")
+		for k := 0; k < n; k++ {
+			v := s.optLowerOf(s.boxOrigin(k))
+			out.WriteString(infEpsText(&v) + " ")
+		}
+		out.WriteString(")\n")
+		if err = optProgress(2, out.String()); err != nil {
+			return ast.ASTRef{}, err
+		}
 	}
 	args := make([]ast.ASTHandle, n)
 	for k := range disj {

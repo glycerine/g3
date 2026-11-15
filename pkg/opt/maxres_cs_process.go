@@ -2,7 +2,12 @@ package opt
 
 // Source: src/opt/maxres.cpp process_sat.
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"strconv"
+
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
+)
 
 func (e *maxResEngine) processCorrection(correction []ast.ASTHandle) error {
 	if len(correction) == 0 {
@@ -26,6 +31,11 @@ func (e *maxResEngine) processCorrection(correction []ast.ASTHandle) error {
 	}
 	if err = e.correctionResolve(correction, weight); err != nil {
 		return err
+	}
+	if diagnostic.VerboseProgress {
+		if err = optProgress(2, "(opt.maxres.correction-set "+strconv.Itoa(len(correction))+")\n"); err != nil {
+			return err
+		}
 	}
 	e.currentCorrection = nil
 	e.stats.CorrectionSets++

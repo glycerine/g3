@@ -8,6 +8,14 @@ func (e *maxResEngine) processSearchSAT(result *ArithmeticResult, full bool) (bo
 	if !full {
 		return false, nil
 	}
+	// primal_dual_solver's get_current_correction_set(cs) runs
+	// update_assignment on the same model again, which traces the
+	// (unchanged) bounds (AUDIT.md FUZZ-F5; g3trace builds only).
+	if e.strategy == maxResPrimalDual {
+		if err := e.trace(); err != nil {
+			return false, err
+		}
+	}
 	if e.strategy == maxResPrimalDual && len(e.currentCorrection) != 0 {
 		if err := e.processCorrection(append([]ast.ASTHandle(nil), e.currentCorrection...)); err != nil {
 			return false, err

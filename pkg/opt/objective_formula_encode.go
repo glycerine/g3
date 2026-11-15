@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 func (c *ObjectiveFormulaCodec) EncodeObjective(objective FormulaObjective) (ast.ASTHandle, error) {
@@ -29,6 +30,16 @@ func (c *ObjectiveFormulaCodec) EncodeObjective(objective FormulaObjective) (ast
 				return ast.ASTHandle{}, ast.ErrASTHandle
 			}
 			metadata.weights[i].Set(weight)
+		}
+		if diagnostic.VerboseProgress {
+			for _, term := range objective.SoftTerms {
+				ref, err := c.manager.NewRef(term)
+				if err != nil {
+					return ast.ASTHandle{}, err
+				}
+				c.derived = append(c.derived, ref)
+				metadata.softOriginal = append(metadata.softOriginal, term)
+			}
 		}
 	default:
 		return ast.ASTHandle{}, ast.ErrASTDomain

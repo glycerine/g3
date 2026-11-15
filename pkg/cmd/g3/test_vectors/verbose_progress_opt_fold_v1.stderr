@@ -1,0 +1,18 @@
+3: a |-> true
+2: b |-> false
+(optimize:check-sat)
+(optimize:sat)
+(opt :lex)
+(maxsmt)
+(opt.maxres [1:2])
+(opt.maxres [1:1])
+found optimum
+is-sat: l_true
+Satisfying soft constraints
+1: c |-> false 
+(maxsmt)
+(opt.maxres [0:0])
+found optimum
+(opt.maxres [0:0])
+is-sat: l_true
+Satisfying soft constraints

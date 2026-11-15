@@ -44,6 +44,11 @@ func (e *maxResEngine) optimize(result *ArithmeticResult) (status lbool.LBool, o
 	}
 	// init_local: is_sat = find_mutexes(new_soft); if (is_sat != l_true)
 	// return is_sat;
+	// mus_solver/primal_dual_solver: trace() right after init_local,
+	// before its status is tested (AUDIT.md FUZZ-F5; g3trace only).
+	if err = e.trace(); err != nil {
+		return lbool.Undef, false, err
+	}
 	if e.mutexStopped {
 		return e.mutexStatus, false, nil
 	}
@@ -52,10 +57,16 @@ func (e *maxResEngine) optimize(result *ArithmeticResult) (status lbool.LBool, o
 			if err = e.publishOptimum(result); err != nil {
 				return lbool.Undef, false, err
 			}
+			if err = e.finishVerbose(true); err != nil {
+				return lbool.Undef, false, err
+			}
 			return lbool.False, true, nil
 		}
 		if len(e.active) == 0 {
 			if err = e.publishOptimum(result); err != nil {
+				return lbool.Undef, false, err
+			}
+			if err = e.finishVerbose(false); err != nil {
 				return lbool.Undef, false, err
 			}
 			return lbool.False, true, nil
@@ -72,6 +83,11 @@ func (e *maxResEngine) optimize(result *ArithmeticResult) (status lbool.LBool, o
 				return lbool.Undef, false, fmt.Errorf("maxres satisfiable round: %w", e2)
 			}
 			if done {
+				// mus_solver's l_true branch: found_optimum(); return.
+				// primal_dual_solver closed the gap and leaves its loop.
+				if err = e.finishVerbose(false); err != nil {
+					return lbool.Undef, false, err
+				}
 				return lbool.False, true, nil
 			}
 		case lbool.False:
@@ -80,6 +96,10 @@ func (e *maxResEngine) optimize(result *ArithmeticResult) (status lbool.LBool, o
 				return lbool.Undef, false, e2
 			}
 			if roundStatus == lbool.False {
+				// m_lower = m_upper ends the loop.
+				if err = e.finishVerbose(true); err != nil {
+					return lbool.Undef, false, err
+				}
 				return lbool.False, true, nil
 			}
 			if roundStatus == lbool.Undef {

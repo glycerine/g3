@@ -5,6 +5,7 @@ package opt
 import (
 	"math/big"
 
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -43,6 +44,12 @@ func (e *sortMaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, 
 		}
 	}
 	for first < len(e.outputs) {
+		// trace_bounds("sortmax") (AUDIT.md FUZZ-F5; g3trace builds only).
+		if diagnostic.VerboseProgress {
+			if err = e.solver.traceBounds("sortmax", e.index, lower, upper); err != nil {
+				return lbool.Undef, false, err
+			}
+		}
 		if err = e.solver.solver().Assert(e.outputs[first]); err != nil {
 			return lbool.Undef, false, err
 		}

@@ -65,6 +65,23 @@ var verboseProgressCases = []verboseProgressCase{
 	// (get-consequences inc-limits) and the per-iteration progress line.
 	{"consequences_v1", "consequences", []string{"-v:1"}},
 	{"consequences_v100", "consequences", []string{"-v:100"}},
+	// opt: (maxsmt), (opt.maxsat mutex ...), trace_bounds of maxres,
+	// pd-maxres, wmax and sortmax, found optimum, is-sat/display_answer,
+	// new assumption/core lines of maxres, theory_pb's no propagation,
+	// is_maxsat's folded soft terms and the optsmt bound lines.
+	{"opt_ms_v3", "opt_ms", []string{"-v:3"}},
+	{"opt_ms_v100", "opt_ms", []string{"-v:100"}},
+	{"opt_ms_pd_v100", "opt_ms", []string{"-v:100", "opt.maxsat_engine=pd-maxres"}},
+	{"opt_ms_wmax_v10", "opt_ms", []string{"-v:10", "opt.maxsat_engine=wmax"}},
+	{"opt_ms_sortmax_v10", "opt_ms", []string{"-v:10", "opt.maxsat_engine=sortmax"}},
+	{"opt_ms2_wmax_v100", "opt_ms2", []string{"-v:100", "opt.maxsat_engine=wmax"}},
+	{"opt_ms2_sortmax_v100", "opt_ms2", []string{"-v:100", "opt.maxsat_engine=sortmax"}},
+	{"opt_conv_v10", "opt_conv", []string{"-v:10"}},
+	{"opt_fold_v1", "opt_fold", []string{"-v:1"}},
+	{"opt_soft_max_sortmax", "opt_soft_max", []string{"-v:1", "opt.maxsat_engine=sortmax"}},
+	{"opt_box2_symba", "opt_box2", []string{"-v:2", "opt.optsmt_engine=symba"}},
+	{"opt_box2_farkas", "opt_box2", []string{"-v:2", "opt.optsmt_engine=farkas"}},
+	{"opt_lex2_basic", "opt_lex2", []string{"-v:2", "opt.optsmt_engine=basic"}},
 }
 
 // verboseProgressFiltered keeps, for each case, only the lines starting
@@ -108,9 +125,19 @@ func filterVerboseProgress(name, log string) string {
 
 var verboseProgressMeasures = regexp.MustCompile(` :time [0-9.]+| :(before-|after-)?memory [0-9.]+`)
 
-// normalizeVerboseProgress drops timeit's time and memory fields.
+// normalizeVerboseProgress drops timeit's time and memory fields, and the
+// SAT solver's "checking model" notices: build/z3 is a release build, where
+// that IF_VERBOSE sits under #ifndef _EXTERNAL_RELEASE, while g3 keeps the
+// check (a separate release-profile question, not a FUZZ-F5 site).
 func normalizeVerboseProgress(log string) string {
-	return verboseProgressMeasures.ReplaceAllString(log, "")
+	log = verboseProgressMeasures.ReplaceAllString(log, "")
+	var out strings.Builder
+	for _, line := range strings.SplitAfter(log, "\n") {
+		if !strings.HasPrefix(line, "\"checking model") {
+			out.WriteString(line)
+		}
+	}
+	return out.String()
 }
 
 const verboseProgressChildEnv = "G3_TEST_VERBOSE_PROGRESS_ARGS"

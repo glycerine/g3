@@ -110,5 +110,12 @@ func (e *maxResEngine) updateCandidateModel(result *ArithmeticResult, md *model.
 	e.upper.Set(&cost)
 	e.bestSet = true
 	e.stats.Improvements++
+	// update_assignment: m_upper = upper; trace(); add_upper_bound_block()
+	// (AUDIT.md FUZZ-F5). maxsmt_solver_base::init does not trace.
+	if !e.initialCandidate {
+		if err = e.trace(); err != nil {
+			return err
+		}
+	}
 	return e.assertUpperBound(&satisfied)
 }

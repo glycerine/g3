@@ -15,6 +15,7 @@ import (
 	satsolver "github.com/glycerine/g3/pkg/sat/sat_solver"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
@@ -725,6 +726,23 @@ func (s *ArithmeticSolver) optimizeSoft(index int, result *ArithmeticResult) (st
 			return lbool.Undef, false, err
 		}
 	}
+	// maxsmt::operator(): IF_VERBOSE(1, "(maxsmt)") first, and "is-sat: "
+	// with display_answer once the engine returns (AUDIT.md FUZZ-F5;
+	// g3trace builds only). The engines report an optimum as l_true.
+	if diagnostic.VerboseProgress {
+		if err := maxsmtBeginVerbose(); err != nil {
+			return lbool.Undef, false, err
+		}
+		defer func() {
+			if resultErr == nil {
+				isSat := status
+				if optimal {
+					isSat = lbool.True
+				}
+				resultErr = s.maxsmtEndVerbose(index, isSat, result)
+			}
+		}()
+	}
 	var err error
 	objective := &s.objectives[index]
 	engine, err := newMaxSMTEngine(s, objective, index)
@@ -788,6 +806,21 @@ func (s *ArithmeticSolver) optimizeSoft(index int, result *ArithmeticResult) (st
 		setSoftObjectiveValue(result, index, cost, satisfied, assignment)
 		if len(objective.softTerms) == 0 {
 			finalizeSoftBounds(result, index)
+			// maxsmt::operator() runs maxres for an empty soft set:
+			// mus_solver traces after init_local, then found_optimum()
+			// and trace() as lower == upper (AUDIT.md FUZZ-F5).
+			if diagnostic.VerboseProgress {
+				bound := &objective.softOffset
+				if e := s.traceBounds("maxres", index, bound, bound); e != nil {
+					return lbool.Undef, false, e
+				}
+				if e := optProgress(1, "found optimum\n"); e != nil {
+					return lbool.Undef, false, e
+				}
+				if e := s.traceBounds("maxres", index, bound, bound); e != nil {
+					return lbool.Undef, false, e
+				}
+			}
 			return lbool.False, true, nil
 		}
 		blocker, e := s.softBound(objective, &satisfied, true)
@@ -1669,6 +1702,9 @@ func (s *ArithmeticSolver) updateLowerLex(idx int, v simplex.Infinitesimal) (res
 		return nil
 	}
 	s.setOptLower(idx, v)
+	if err := s.lowerLexVerbose(idx, v); err != nil {
+		return err
+	}
 	var tmp ast.ASTRef
 	defer func() {
 		if tmp != (ast.ASTRef{}) {

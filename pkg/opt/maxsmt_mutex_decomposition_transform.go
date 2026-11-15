@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 func (d *maxSMTMutexDecomposition) transform(mutex []ast.ASTHandle) error {
@@ -48,6 +49,15 @@ func (d *maxSMTMutexDecomposition) transform(mutex []ast.ASTHandle) error {
 			}
 		}
 		d.offset.Add(&d.offset, new(big.Int).Mul(&delta, big.NewInt(int64(i))))
+		if diagnostic.VerboseProgress {
+			weight := new(big.Rat).SetInt(&delta)
+			if d.scale != nil {
+				weight.Quo(weight, new(big.Rat).SetInt(d.scale))
+			}
+			if err = mutexVerbose(i+1, weight); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

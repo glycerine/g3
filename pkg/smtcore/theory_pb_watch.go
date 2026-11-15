@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -434,6 +435,14 @@ func (t *SMTPseudoBooleanTheory) assignVariable(v int32, isTrue bool, c *smtPBCo
 			}
 			return t.addAssign(c, ls, l)
 		}
+	}
+	// else IF_VERBOSE(14, display(verbose_stream() << "no propagation ", c,
+	// true)) (AUDIT.md FUZZ-F5; g3trace builds only).
+	if diagnostic.VerboseProgress {
+		return smtPBVerbose(14, func(out io.Writer) error {
+			_, _ = io.WriteString(out, "no propagation ")
+			return t.displayInequality(out, c, true)
+		})
 	}
 	return nil
 }

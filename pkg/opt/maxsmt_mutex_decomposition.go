@@ -16,6 +16,9 @@ type maxSMTMutexDecomposition struct {
 	// hash-table iteration order.
 	soft   *ast.ObjMap
 	offset big.Int
+	// scale divides the integer weights back to the rational weights
+	// process_mutex prints (nil: unscaled).
+	scale *big.Int
 }
 
 func newMaxSMTMutexDecomposition(manager *ast.ASTManager, terms []maxSMTWeightedTerm) (*maxSMTMutexDecomposition, error) {

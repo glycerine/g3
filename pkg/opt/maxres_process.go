@@ -5,8 +5,14 @@ package opt
 import "github.com/glycerine/g3/pkg/ast"
 
 func (e *maxResEngine) processCore(core []ast.ASTHandle) error {
+	if err := e.coreStartVerbose(core); err != nil {
+		return err
+	}
 	weight, err := e.splitCore(core)
 	if err != nil {
+		return err
+	}
+	if err = e.coreDisplayVerbose(core); err != nil {
 		return err
 	}
 	if err = e.maxResolve(core, weight); err != nil {

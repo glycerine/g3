@@ -12,6 +12,19 @@ func (e *maxResEngine) addAssumption(expression ast.ASTHandle, weight *big.Rat) 
 	if weight == nil || weight.Sign() <= 0 {
 		return errMaxResState
 	}
+	// new_assumption: IF_VERBOSE(13, "new assumption " << mk_pp(e, m) <<
+	// " " << w) (AUDIT.md FUZZ-F5; g3trace builds only).
+	if enabled, err := optProgressEnabled(13); err != nil {
+		return err
+	} else if enabled {
+		text, err := e.solver.mkPPString(expression)
+		if err != nil {
+			return err
+		}
+		if err = optProgress(13, "new assumption "+text+" "+ratText(weight)+"\n"); err != nil {
+			return err
+		}
+	}
 	// new_assumption: m_asm2weight.insert(e, w) replaces a retained weight
 	// (AUDIT.md FUZZ_J-F2); m_asms.push_back(e); m_trail.push_back(e)
 	if _, err := e.trail.hold(expression, nil); err != nil {

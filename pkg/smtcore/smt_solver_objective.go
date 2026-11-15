@@ -240,3 +240,13 @@ func (s *SMTSolver) clearObjectives() error {
 	}
 	return nil
 }
+
+// ObjectiveTheoryVar is opt_solver's m_objective_vars[index], the arithmetic
+// theory variable optsmt::m_vars prints (AUDIT.md FUZZ-F5).
+func (s *SMTSolver) ObjectiveTheoryVar(index uint32) (int, error) {
+	objective, err := s.objective(index)
+	if err != nil {
+		return 0, err
+	}
+	return int(objective.variable), nil
+}

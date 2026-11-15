@@ -1,0 +1,111 @@
+(simplifier :num-exprs 52 :num-asts 224)
+(propagate-values :num-exprs 52 :num-asts 224)
+(solve_eqs :num-exprs 52 :num-asts 224)
+(simplifier :num-exprs 52 :num-asts 224)
+(dt2bv :num-exprs 52 :num-asts 224)
+(elim01 :num-exprs 52 :num-asts 224)
+(cardinality-intro :num-exprs 52 :num-asts 224)
+(eq2bv :num-exprs 52 :num-asts 224)
+(simplifier :num-exprs 52 :num-asts 224)
+(optimize:check-sat)
+(card2bv :num-exprs 211 :num-asts 342)
+(simplifier :num-exprs 211 :num-asts 342)
+(max-bv-sharing :num-exprs 211 :num-asts 342)
+(bit-blaster :num-exprs 211 :num-asts 342)
+(simplifier :num-exprs 211 :num-asts 342)
+(sat.sat-solver)
+ (sat-cleaner :elim-literals 2 :elim-clauses 0 :cost 186 :clauses 54 :gc-clause 0)
+(optimize:sat)
+(opt :lex)
+(maxsmt)
+(opt.maxsat mutex size: 2 weight: 2)
+(opt.maxsat mutex size: 1 weight: 1)
+(opt.maxres [2:8])
+(card2bv :num-exprs 9 :num-asts 255)
+(simplifier :num-exprs 9 :num-asts 255)
+(max-bv-sharing :num-exprs 9 :num-asts 255)
+(bit-blaster :num-exprs 9 :num-asts 255)
+(simplifier :num-exprs 9 :num-asts 255)
+(card2bv :num-exprs 2 :num-asts 254)
+(simplifier :num-exprs 2 :num-asts 254)
+(max-bv-sharing :num-exprs 2 :num-asts 254)
+(bit-blaster :num-exprs 2 :num-asts 254)
+(simplifier :num-exprs 2 :num-asts 254)
+(sat.sat-solver)
+(card2bv :num-exprs 4 :num-asts 254)
+(simplifier :num-exprs 4 :num-asts 254)
+(max-bv-sharing :num-exprs 4 :num-asts 254)
+(bit-blaster :num-exprs 4 :num-asts 254)
+(simplifier :num-exprs 4 :num-asts 254)
+(sat.sat-solver)
+(opt.maxres [2:8])
+(card2bv :num-exprs 6 :num-asts 254)
+(simplifier :num-exprs 6 :num-asts 254)
+(max-bv-sharing :num-exprs 6 :num-asts 254)
+(bit-blaster :num-exprs 6 :num-asts 254)
+(simplifier :num-exprs 6 :num-asts 254)
+(sat.sat-solver)
+(maxres cs model valid: 1 cs size:1 core: 3)
+core: (not b6) : 1 (not b5) : 6 (not b7) : 2 
+(opt.maxres [8:8])
+found optimum
+(opt.maxres [8:8])
+is-sat: l_true
+Satisfying soft constraints
+1: b0 |-> false 
+2: b1 |-> true 
+3: b2 |-> false 
+4: b3 |-> false 
+5: b4 |-> false 
+6: b5 |-> true 
+7: b6 |-> false 
+8: b7 |-> false 
+(maxsmt)
+(opt.maxres [2:8])
+(card2bv :num-exprs 26 :num-asts 269)
+(simplifier :num-exprs 26 :num-asts 272)
+(max-bv-sharing :num-exprs 26 :num-asts 272)
+(bit-blaster :num-exprs 26 :num-asts 272)
+(simplifier :num-exprs 26 :num-asts 272)
+(card2bv :num-exprs 4 :num-asts 265)
+(simplifier :num-exprs 4 :num-asts 265)
+(max-bv-sharing :num-exprs 4 :num-asts 265)
+(bit-blaster :num-exprs 4 :num-asts 265)
+(simplifier :num-exprs 4 :num-asts 265)
+(sat.sat-solver)
+(card2bv :num-exprs 3 :num-asts 265)
+(simplifier :num-exprs 3 :num-asts 265)
+(max-bv-sharing :num-exprs 3 :num-asts 265)
+(bit-blaster :num-exprs 3 :num-asts 265)
+(simplifier :num-exprs 3 :num-asts 265)
+(sat.sat-solver)
+(card2bv :num-exprs 2 :num-asts 265)
+(simplifier :num-exprs 2 :num-asts 265)
+(max-bv-sharing :num-exprs 2 :num-asts 265)
+(bit-blaster :num-exprs 2 :num-asts 265)
+(simplifier :num-exprs 2 :num-asts 265)
+(sat.sat-solver)
+(card2bv :num-exprs 1 :num-asts 265)
+(simplifier :num-exprs 1 :num-asts 265)
+(max-bv-sharing :num-exprs 1 :num-asts 265)
+(bit-blaster :num-exprs 1 :num-asts 265)
+(simplifier :num-exprs 1 :num-asts 265)
+(sat.sat-solver)
+(opt.maxres [2:8])
+(maxres cs model valid: 1 cs size:3 core: 1)
+core: b0 : 2 
+(opt.maxres [2:6])
+(maxres cs model valid: 1 cs size:2 core: 1)
+core: b2 : 2 
+(opt.maxres [2:4])
+(maxres cs model valid: 1 cs size:1 core: 1)
+core: b3 : 2 
+(opt.maxres [2:2])
+found optimum
+(opt.maxres [2:2])
+is-sat: l_true
+Satisfying soft constraints
+2: b0 |-> false 
+2: b1 |-> true 
+2: b2 |-> false 
+2: b3 |-> false 

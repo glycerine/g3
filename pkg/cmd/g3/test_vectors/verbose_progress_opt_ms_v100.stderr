@@ -1,0 +1,200 @@
+(started "check-sat")
+(simplifier :num-exprs 89 :num-asts 232)
+(propagate-values :num-exprs 89 :num-asts 232)
+(solve_eqs :num-exprs 89 :num-asts 232)
+(simplifier :num-exprs 89 :num-asts 232)
+(dt2bv :num-exprs 89 :num-asts 232)
+(elim01 :num-exprs 89 :num-asts 232)
+(cardinality-intro :num-exprs 89 :num-asts 232)
+(eq2bv :num-exprs 89 :num-asts 232)
+(simplifier :num-exprs 89 :num-asts 232)
+(optimize:check-sat)
+(card2bv :num-exprs 88 :num-asts 231)
+(simplifier :num-exprs 88 :num-asts 231)
+(max-bv-sharing :num-exprs 88 :num-asts 231)
+(bit-blaster :num-exprs 88 :num-asts 231)
+(simplifier :num-exprs 88 :num-asts 231)
+(sat.sat-solver)
+(optimize:sat)
+(smt.collecting-features)
+(smt.preprocessing)
+(maxsmt)
+new assumption p7 3
+new assumption p10 2
+new assumption p1 3
+new assumption p3 4
+new assumption p6 3
+new assumption p13 2
+new assumption p4 1
+new assumption p2 2
+new assumption p9 4
+new assumption p11 1
+new assumption p8 2
+new assumption p12 3
+new assumption p5 1
+new assumption p0 2
+(opt.maxres [0:33])
+(card2bv :num-exprs 2 :num-asts 231)
+(simplifier :num-exprs 2 :num-asts 231)
+(max-bv-sharing :num-exprs 2 :num-asts 231)
+(bit-blaster :num-exprs 2 :num-asts 231)
+(simplifier :num-exprs 2 :num-asts 231)
+(sat.sat-solver)
+(card2bv :num-exprs 4 :num-asts 231)
+(simplifier :num-exprs 4 :num-asts 231)
+(max-bv-sharing :num-exprs 4 :num-asts 231)
+(bit-blaster :num-exprs 4 :num-asts 231)
+(simplifier :num-exprs 4 :num-asts 231)
+(sat.sat-solver)
+(opt.maxres [0:18])
+(card2bv :num-exprs 9 :num-asts 231)
+(simplifier :num-exprs 9 :num-asts 231)
+(max-bv-sharing :num-exprs 9 :num-asts 231)
+(bit-blaster :num-exprs 9 :num-asts 231)
+(simplifier :num-exprs 9 :num-asts 231)
+(sat.sat-solver)
+(maxres cs model valid: 1 cs size:8 core: 2)
+core: p9 : 4 p3 : 4 
+new assumption a!1 4
+(opt.maxres [4:18])
+(maxres cs model valid: 1 cs size:7 core: 4)
+new assumption p6 1
+core: p10 : 2 p6 : 1 p8 : 2 p13 : 2 
+new assumption a!2 2
+new assumption a!3 2
+new assumption a!5 2
+(opt.maxres [6:18])
+(card2bv :num-exprs 33 :num-asts 267)
+(simplifier :num-exprs 38 :num-asts 271)
+(max-bv-sharing :num-exprs 38 :num-asts 271)
+(bit-blaster :num-exprs 38 :num-asts 271)
+(simplifier :num-exprs 38 :num-asts 271)
+(card2bv :num-exprs 1 :num-asts 256)
+(simplifier :num-exprs 1 :num-asts 256)
+(max-bv-sharing :num-exprs 1 :num-asts 256)
+(bit-blaster :num-exprs 1 :num-asts 256)
+(simplifier :num-exprs 1 :num-asts 256)
+(sat.sat-solver)
+(card2bv :num-exprs 4 :num-asts 256)
+(simplifier :num-exprs 4 :num-asts 256)
+(max-bv-sharing :num-exprs 4 :num-asts 256)
+(bit-blaster :num-exprs 4 :num-asts 256)
+(simplifier :num-exprs 4 :num-asts 256)
+(sat.sat-solver)
+(opt.maxres [6:14])
+(card2bv :num-exprs 9 :num-asts 256)
+(simplifier :num-exprs 9 :num-asts 256)
+(max-bv-sharing :num-exprs 9 :num-asts 256)
+(bit-blaster :num-exprs 9 :num-asts 256)
+(simplifier :num-exprs 9 :num-asts 256)
+(sat.sat-solver)
+(maxres cs model valid: 1 cs size:6 core: 3)
+new assumption a!1 2
+new assumption p12 1
+core: a!1 : 2 p0 : 2 p12 : 1 
+new assumption a!6 2
+new assumption a!7 2
+(opt.maxres [8:14])
+(card2bv :num-exprs 15 :num-asts 271)
+(simplifier :num-exprs 18 :num-asts 275)
+(max-bv-sharing :num-exprs 18 :num-asts 275)
+(bit-blaster :num-exprs 18 :num-asts 275)
+(simplifier :num-exprs 18 :num-asts 275)
+(card2bv :num-exprs 2 :num-asts 267)
+(simplifier :num-exprs 2 :num-asts 267)
+(max-bv-sharing :num-exprs 2 :num-asts 267)
+(bit-blaster :num-exprs 2 :num-asts 267)
+(simplifier :num-exprs 2 :num-asts 267)
+(sat.sat-solver)
+(card2bv :num-exprs 9 :num-asts 267)
+(simplifier :num-exprs 9 :num-asts 267)
+(max-bv-sharing :num-exprs 9 :num-asts 267)
+(bit-blaster :num-exprs 9 :num-asts 267)
+(simplifier :num-exprs 9 :num-asts 267)
+(sat.sat-solver)
+(opt.maxres [8:13])
+(card2bv :num-exprs 14 :num-asts 267)
+(simplifier :num-exprs 14 :num-asts 267)
+(max-bv-sharing :num-exprs 14 :num-asts 267)
+(bit-blaster :num-exprs 14 :num-asts 267)
+(simplifier :num-exprs 14 :num-asts 267)
+(sat.sat-solver)
+(maxres cs model valid: 1 cs size:5 core: 3)
+new assumption p2 1
+new assumption p1 2
+core: p5 : 1 p2 : 1 p1 : 2 
+new assumption a!8 1
+new assumption a!9 1
+(opt.maxres [9:13])
+(card2bv :num-exprs 15 :num-asts 282)
+(simplifier :num-exprs 18 :num-asts 285)
+(max-bv-sharing :num-exprs 18 :num-asts 285)
+(bit-blaster :num-exprs 18 :num-asts 285)
+(simplifier :num-exprs 18 :num-asts 285)
+(card2bv :num-exprs 1 :num-asts 278)
+(simplifier :num-exprs 1 :num-asts 278)
+(max-bv-sharing :num-exprs 1 :num-asts 278)
+(bit-blaster :num-exprs 1 :num-asts 278)
+(simplifier :num-exprs 1 :num-asts 278)
+(sat.sat-solver)
+(card2bv :num-exprs 8 :num-asts 278)
+(simplifier :num-exprs 8 :num-asts 278)
+(max-bv-sharing :num-exprs 8 :num-asts 278)
+(bit-blaster :num-exprs 8 :num-asts 278)
+(simplifier :num-exprs 8 :num-asts 278)
+(sat.sat-solver)
+(opt.maxres [9:12])
+(card2bv :num-exprs 15 :num-asts 278)
+(simplifier :num-exprs 15 :num-asts 278)
+(max-bv-sharing :num-exprs 15 :num-asts 278)
+(bit-blaster :num-exprs 15 :num-asts 278)
+(simplifier :num-exprs 15 :num-asts 278)
+(sat.sat-solver)
+(maxres cs model valid: 1 cs size:4 core: 4)
+new assumption a!1 1
+core: p12 : 1 a!1 : 1 p4 : 1 p11 : 1 
+new assumption a!10 1
+new assumption a!11 1
+new assumption a!13 1
+(opt.maxres [10:12])
+(card2bv :num-exprs 25 :num-asts 306)
+(simplifier :num-exprs 29 :num-asts 310)
+(max-bv-sharing :num-exprs 29 :num-asts 310)
+(bit-blaster :num-exprs 29 :num-asts 310)
+(simplifier :num-exprs 29 :num-asts 310)
+(card2bv :num-exprs 1 :num-asts 297)
+(simplifier :num-exprs 1 :num-asts 297)
+(max-bv-sharing :num-exprs 1 :num-asts 297)
+(bit-blaster :num-exprs 1 :num-asts 297)
+(simplifier :num-exprs 1 :num-asts 297)
+(sat.sat-solver)
+(card2bv :num-exprs 7 :num-asts 297)
+(simplifier :num-exprs 7 :num-asts 297)
+(max-bv-sharing :num-exprs 7 :num-asts 297)
+(bit-blaster :num-exprs 7 :num-asts 297)
+(simplifier :num-exprs 7 :num-asts 297)
+(sat.sat-solver)
+(card2bv :num-exprs 15 :num-asts 297)
+(simplifier :num-exprs 15 :num-asts 297)
+(max-bv-sharing :num-exprs 15 :num-asts 297)
+(bit-blaster :num-exprs 15 :num-asts 297)
+(simplifier :num-exprs 15 :num-asts 297)
+(sat.sat-solver)
+(opt.maxres [10:10])
+found optimum
+is-sat: l_true
+Satisfying soft constraints
+2: p0 |-> false 
+3: p1 |-> true 
+2: p2 |-> true 
+4: p3 |-> false 
+1: p4 |-> true 
+1: p5 |-> false 
+3: p6 |-> true 
+3: p7 |-> true 
+2: p8 |-> true 
+4: p9 |-> true 
+2: p10 |-> true 
+1: p11 |-> false 
+3: p12 |-> true 
+2: p13 |-> false 

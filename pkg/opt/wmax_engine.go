@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -175,6 +176,12 @@ func (e *wmaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, opt
 	if err = e.theory.InitMinCost(&penalty); err != nil {
 		return lbool.Undef, false, err
 	}
+	// trace_bounds("wmax") (AUDIT.md FUZZ-F5; g3trace builds only).
+	if diagnostic.VerboseProgress {
+		if err = e.solver.traceBounds("wmax", e.index, &e.lower, &e.upper); err != nil {
+			return lbool.Undef, false, err
+		}
+	}
 	status = lbool.True
 	for e.lower.Cmp(&e.upper) < 0 {
 		status, err = e.solver.solver().CheckSat(nil)
@@ -213,6 +220,11 @@ func (e *wmaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, opt
 		limit.Sub(&e.upper, &e.lower)
 		if err = e.theory.InitMinCost(&limit); err != nil {
 			return lbool.Undef, false, err
+		}
+		if diagnostic.VerboseProgress {
+			if err = e.solver.traceBounds("wmax", e.index, &e.lower, &e.upper); err != nil {
+				return lbool.Undef, false, err
+			}
 		}
 	}
 	if status == lbool.False {

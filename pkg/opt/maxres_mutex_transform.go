@@ -43,6 +43,9 @@ func (e *maxResEngine) transformMutex(mutex []ast.ASTHandle, newSoft *softWeight
 		w := new(big.Rat).Set(&weights[i])
 		weight.Sub(w, &weight)
 		e.lower.Add(&e.lower, new(big.Rat).Mul(&weight, new(big.Rat).SetInt64(int64(i))))
+		if err = mutexVerbose(i+1, &weight); err != nil {
+			return err
+		}
 		if err = newSoft.insert(soft, &weight); err != nil {
 			return err
 		}
