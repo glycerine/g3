@@ -142,11 +142,11 @@ func eq2bvApply(goal *tactic.Goal, bounds *BoundManager, result *tactic.TacticRe
 			return e
 		}
 	}
-	boundTerms, err := eq2bvMakeBounds(plan, bounds)
+	release, err := eq2bvPinBoundDependencies(plan, bounds)
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, boundTerms.Close()) }()
+	defer func() { err = errors.Join(err, release()) }()
 	proofs, err := goal.ProofsEnabled()
 	if err != nil {
 		return err
@@ -196,6 +196,13 @@ func eq2bvApply(goal *tactic.Goal, bounds *BoundManager, result *tactic.TacticRe
 			return e
 		}
 	}
+	// C++ builds the bound formulas after rewriting every form (the m_max
+	// loop follows the update loop), so their ASTs are created later.
+	boundTerms, err := eq2bvMakeBounds(plan, bounds)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, boundTerms.Close()) }()
 	for _, entry := range boundTerms.entries {
 		h, e := m.RefGet(entry.formula)
 		if e != nil {

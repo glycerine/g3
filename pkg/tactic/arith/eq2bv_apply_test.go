@@ -201,3 +201,43 @@ func TestEq2BVApplyOwnsDependenciesDuringBoundReplacement(t *testing.T) {
 		t.Fatal("bound dependency disappeared")
 	}
 }
+
+// AUDIT.md tactic_arith_01-F7: eq2bv_tactic::operator() rewrites every form
+// before its m_max loop builds the bvule bound formulas.
+func TestEq2BVApplyBoundsBuiltAfterRewrite(t *testing.T) {
+	base, m := fixDLFixture(t, false)
+	bounds, e := NewBoundManager(m, base.context, base.globals)
+	equationMust(t, e)
+	t.Cleanup(func() { equationMust(t, bounds.Close()) })
+	x := fixDLConst(t, m, true, "order-x")
+	num := func(s string) ast.ASTHandle { return fixDLNumber(t, m, true, s) }
+	lower := fixDLApp(t, m, 3, x, num("0"))
+	upper := fixDLApp(t, m, 2, x, num("5"))
+	disj, e := m.MkOrArgs([]ast.ASTHandle{collectorEq(t, m, x, num("1")), collectorEq(t, m, x, num("2"))})
+	equationMust(t, e)
+	fixDLPin(t, m, disj)
+	goal := fixDLGoal(t, m, false, true, false, lower, upper, disj)
+	var result tactic.TacticResult
+	t.Cleanup(func() { equationMust(t, result.Close()) })
+	equationMust(t, eq2bvApply(goal, bounds, &result))
+	size, e := goal.Size()
+	equationMust(t, e)
+	if size != 5 {
+		t.Fatal("goal size", size)
+	}
+	form, e := goal.Form(2)
+	equationMust(t, e)
+	equality, e := m.GetArg(form, 0)
+	equationMust(t, e)
+	rewritten, e := m.GetASTID(equality)
+	equationMust(t, e)
+	for i := uint32(3); i < size; i++ {
+		bound, e := goal.Form(i)
+		equationMust(t, e)
+		id, e := m.GetASTID(bound)
+		equationMust(t, e)
+		if id < rewritten {
+			t.Fatalf("bound %d (id %d) built before the rewritten equality (id %d)", i, id, rewritten)
+		}
+	}
+}

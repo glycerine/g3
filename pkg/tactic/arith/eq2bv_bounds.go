@@ -152,3 +152,42 @@ func eq2bvMakeBounds(plan *eq2bvReplacements, source *BoundManager) (result *eq2
 	}
 	return result, nil
 }
+
+// eq2bvPinBoundDependencies keeps the bound dependencies of the plan's
+// variables alive while the goal is rewritten: rewriting replaces the bound
+// forms (and drops their dependencies) before the bound formulas are built,
+// whereas the source bound_manager holds its own references. The returned
+// function releases the pins.
+func eq2bvPinBoundDependencies(plan *eq2bvReplacements, source *BoundManager) (release func() error, err error) {
+	m := plan.manager
+	var pinned []ast.ASTDependency
+	release = func() error {
+		var e error
+		for len(pinned) != 0 {
+			i := len(pinned) - 1
+			e = errors.Join(e, m.DependencyDec(pinned[i]))
+			pinned = pinned[:i]
+		}
+		return e
+	}
+	for _, entry := range plan.entries {
+		for _, lower := range []bool{true, false} {
+			var dep ast.ASTDependency
+			var e error
+			if lower {
+				dep, e = source.LowerDependency(entry.original)
+			} else {
+				dep, e = source.UpperDependency(entry.original)
+			}
+			if e == nil && !dep.IsNull() {
+				if e = m.DependencyInc(dep); e == nil {
+					pinned = append(pinned, dep)
+				}
+			}
+			if e != nil {
+				return nil, errors.Join(e, release())
+			}
+		}
+	}
+	return release, nil
+}
