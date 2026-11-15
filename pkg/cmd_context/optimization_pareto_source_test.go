@@ -143,8 +143,10 @@ func TestParetoCanceledImprovementDropsBackendAndAllowsFreshSearch(t *testing.T)
 	func() {
 		// An unbounded integer objective keeps producing improvements until
 		// the source work limit interrupts its nested solver scope.
-		// (optimize() checks twice before gia_pareto's loop.)
-		contextMust(t, m.ResourceLimit().Push(3000))
+		// (optimize() checks twice before gia_pareto's loop.) context::propagate
+		// charges two units per round (AUDIT.md smtcore_08-F3), so the
+		// limit that lands in the improvement loop is 4000.
+		contextMust(t, m.ResourceLimit().Push(4000))
 		defer m.ResourceLimit().Pop()
 		result, err := c.checkOptimizePareto(nil, false)
 		contextMust(t, err)

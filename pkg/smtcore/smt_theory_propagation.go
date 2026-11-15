@@ -342,6 +342,8 @@ type smtRelevancyAssignmentBatch struct {
 	head, end      int
 	active         bool
 	caseSplitsDone bool
+	// qhead is context::propagate's round-start m_qhead; head advances.
+	qhead int
 }
 
 func (s *SMTInternalizerState) propagateRelevancyAssignments() error {
@@ -360,6 +362,16 @@ func (s *SMTInternalizerState) propagateRelevancyAssignments() error {
 	return nil
 }
 
+// propagationResourceLimitsExceeded is context::resource_limits_exceeded;
+// stand-alone states without a kernel check only the cancel flag
+// (get_cancel_flag, which charges the resource limit).
+func (s *SMTInternalizerState) propagationResourceLimitsExceeded() (bool, error) {
+	if s.resourceLimitsExceeded != nil {
+		return s.resourceLimitsExceeded()
+	}
+	return s.manager.Canceled()
+}
+
 // PropagateCore runs the retained logical-context queues to a fixed point.
 func (s *SMTInternalizerState) PropagateCore() (bool, error) {
 	if err := s.open(); err != nil {
@@ -376,8 +388,9 @@ func (s *SMTInternalizerState) PropagateCore() (bool, error) {
 				}
 				return consistent, nil
 			}
-			s.relevancyBatch = smtRelevancyAssignmentBatch{head: caseSplitHead, active: true}
+			s.relevancyBatch = smtRelevancyAssignmentBatch{head: caseSplitHead, active: true, qhead: caseSplitHead}
 		}
+		qhead := s.relevancyBatch.qhead
 		if !s.relevancyBatch.caseSplitsDone {
 			consistent, err := s.propagateTheoryCaseSplits(s.relevancyBatch.head)
 			if err != nil || !consistent {
@@ -388,6 +401,16 @@ func (s *SMTInternalizerState) PropagateCore() (bool, error) {
 			}
 			s.relevancyBatch.end = len(s.assignedLiterals)
 			s.relevancyBatch.caseSplitsDone = true
+			// if (get_cancel_flag()) { m_qhead = qhead; return true; }
+			canceled, err := s.manager.Canceled()
+			if err != nil {
+				return false, err
+			}
+			if canceled {
+				s.propagationHead = qhead
+				s.relevancyBatch = smtRelevancyAssignmentBatch{}
+				return true, nil
+			}
 		}
 		if err = s.propagateRelevancyAssignments(); err != nil {
 			return false, fmt.Errorf("assignment relevancy: %w", err)
@@ -432,6 +455,15 @@ func (s *SMTInternalizerState) PropagateCore() (bool, error) {
 		}
 		if s.inconsistent {
 			return false, nil
+		}
+		// if (resource_limits_exceeded()) { m_qhead = qhead; return true; }
+		exceeded, err := s.propagationResourceLimitsExceeded()
+		if err != nil {
+			return false, err
+		}
+		if exceeded {
+			s.propagationHead = qhead
+			return true, nil
 		}
 		// if (!can_propagate()) return true: evaluated after the quantifier
 		// manager ran, so instances it internalized only cause another
