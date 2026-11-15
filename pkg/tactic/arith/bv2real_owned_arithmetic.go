@@ -153,7 +153,8 @@ func (c *bv2RealCall) reducedOwned(a, b ast.ASTHandle, d, r *unumeral.OwnedRatio
 	if c.err != nil {
 		return ast.ASTHandle{}
 	}
-	rn := c.hold(c.u.manager.ArithmeticNumeral(r, false))
+	// mk_power(mk_numeral(r), mk_numeral(1/2)): GCC builds the 1/2
+	// numeral first.
 	half := c.number()
 	if c.err == nil {
 		c.err = c.u.manager.NumeralService().SetFractionSigned(half, 1, 2)
@@ -162,6 +163,7 @@ func (c *bv2RealCall) reducedOwned(a, b ast.ASTHandle, d, r *unumeral.OwnedRatio
 		return ast.ASTHandle{}
 	}
 	hn := c.hold(c.u.manager.ArithmeticNumeral(half, false))
+	rn := c.hold(c.u.manager.ArithmeticNumeral(r, false))
 	root := c.arith(18, rn, hn)
 	y = c.arith(9, y, root)
 	return c.arith(6, x, y)

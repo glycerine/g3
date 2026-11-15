@@ -418,3 +418,60 @@ func TestBV2RealRewriterComparisonsPrebuiltCPPOracle(t *testing.T) {
 		}
 	}
 }
+
+// AUDIT.md tactic_arith_01-F4: GCC evaluates call arguments right to left,
+// so mk_ite, mk_uminus and mk_bv2real_reduced build their last AST argument
+// first.
+func TestBV2RealRewriterConstructionOrder(t *testing.T) {
+	r, u, f := bv2RealRewriteFixture(t)
+	m := f.m
+	id := func(h ast.ASTHandle) uint32 {
+		v, err := m.GetASTID(h)
+		equationMust(t, err)
+		return v
+	}
+	components := func(h ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle) {
+		x, y := bv2RealOut(t, m), bv2RealOut(t, m)
+		var divisor, radical big.Rat
+		ok, err := u.Match(h, x, y, &divisor, &radical)
+		equationMust(t, err)
+		if !ok {
+			t.Fatal("result is not a bv2real term")
+		}
+		a, err := m.RefGet(x)
+		equationMust(t, err)
+		b, err := m.RefGet(y)
+		equationMust(t, err)
+		return a, b
+	}
+	boolean, err := m.MkBoolSort()
+	equationMust(t, err)
+	name, err := m.Symbols.Intern("order-cond")
+	equationMust(t, err)
+	cond, err := m.MkConst(name, boolean)
+	equationMust(t, err)
+	fixDLPin(t, m, cond)
+	s := bv2RealEncoding(t, u, 11, 13, 1, 3)
+	tv := bv2RealEncoding(t, u, 17, 19, 1, 3)
+	input := bv2RealCallResult(t, u, func(c *bv2RealCall) ast.ASTHandle { return c.basic(ast.ASTOpIte, cond, s, tv) })
+	first, second := components(bv2RealRewrite(t, r, input))
+	if id(second) > id(first) {
+		t.Fatal("(ite c s2 t2) must be built before (ite c s1 t1)")
+	}
+	neg := fixDLApp(t, m, 8, bv2RealEncoding(t, u, 23, 29, 1, 3))
+	first, second = components(bv2RealRewrite(t, r, neg))
+	if id(second) > id(first) {
+		t.Fatal("bvneg(s2) must be built before bvneg(s1)")
+	}
+	a := bv2RealCallResult(t, u, func(c *bv2RealCall) ast.ASTHandle { return c.signedNumeral(big.NewRat(31, 1)) })
+	b := bv2RealCallResult(t, u, func(c *bv2RealCall) ast.ASTHandle { return c.signedNumeral(big.NewRat(37, 1)) })
+	out := bv2RealOut(t, m)
+	equationMust(t, u.MkReduced(a, b, big.NewRat(2, 1), big.NewRat(97, 1), out))
+	half, err := m.ArithmeticRealNumeralText("1/2")
+	equationMust(t, err)
+	root, err := m.ArithmeticRealNumeralText("97")
+	equationMust(t, err)
+	if id(half) > id(root) {
+		t.Fatal("mk_bv2real_reduced must build the 1/2 numeral before the root numeral")
+	}
+}

@@ -258,7 +258,11 @@ func (c *bv2RealCall) ite(cond, s, t ast.ASTHandle) (result ast.ASTHandle, match
 	a, b, x, y = c.alignDivisorsOwned(a, b, x, y, d1, d2)
 	a, x = c.align(a, x)
 	b, y = c.align(b, y)
-	return c.wrap(c.basic(ast.ASTOpIte, cond, a, x), c.basic(ast.ASTOpIte, cond, b, y), d1, r)
+	// mk_bv2real(mk_ite(c, s1, t1), mk_ite(c, s2, t2), ...): GCC builds
+	// the second argument first.
+	second := c.basic(ast.ASTOpIte, cond, b, y)
+	first := c.basic(ast.ASTOpIte, cond, a, x)
+	return c.wrap(first, second, d1, r)
 }
 func (c *bv2RealCall) negate(s ast.ASTHandle) (result ast.ASTHandle, matched bool) {
 	mark := c.checkpoint()
@@ -269,7 +273,11 @@ func (c *bv2RealCall) negate(s ast.ASTHandle) (result ast.ASTHandle, matched boo
 	}
 	a := c.extend(1, term.first)
 	b := c.extend(1, term.second)
-	return c.wrap(c.bv(3, a), c.bv(3, b), term.divisor, term.root)
+	// mk_bv2real(mk_bv_neg(s1), mk_bv_neg(s2), ...): GCC builds
+	// bvneg(s2) first.
+	nb := c.bv(3, b)
+	na := c.bv(3, a)
+	return c.wrap(na, nb, term.divisor, term.root)
 }
 func (c *bv2RealCall) approxLE(s, t ast.ASTHandle, positive, negative bool) (result ast.ASTHandle, matched bool) {
 	mark := c.checkpoint()
@@ -377,8 +385,14 @@ func (c *bv2RealCall) le(s, t ast.ASTHandle) (result ast.ASTHandle, matched bool
 	xx, yy = c.align(xx, yy)
 	ge, le := c.bv(23, yy, xx), c.bv(23, xx, yy)
 	e1 := c.basic(ast.ASTOpOr, gz1, gz2)
-	e2 := c.basic(ast.ASTOpOr, c.basic(ast.ASTOpNot, gz1), c.basic(ast.ASTOpNot, lz2), ge)
-	e3 := c.basic(ast.ASTOpOr, c.basic(ast.ASTOpNot, gz2), c.basic(ast.ASTOpNot, lz1), le)
+	// mk_or(mk_not(gz1), mk_not(lz2), ge): GCC evaluates the arguments
+	// right to left, so mk_not(lz2) precedes mk_not(gz1) (same for e3).
+	notLz2 := c.basic(ast.ASTOpNot, lz2)
+	notGz1 := c.basic(ast.ASTOpNot, gz1)
+	e2 := c.basic(ast.ASTOpOr, notGz1, notLz2, ge)
+	notLz1 := c.basic(ast.ASTOpNot, lz1)
+	notGz2 := c.basic(ast.ASTOpNot, gz2)
+	e3 := c.basic(ast.ASTOpOr, notGz2, notLz1, le)
 	c.traceLine = 541
 	return c.basic(ast.ASTOpAnd, e1, e2, e3), true
 }
