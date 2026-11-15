@@ -743,6 +743,9 @@ struct purify_arith_proc {
 
     void operator()(model_converter_ref & mc, bool produce_models) {
         rw r(*this);
+        // find the unsafe sin/cos arguments before the loop below replaces
+        // the formulas that mention them by purified ones
+        find_unsafe();
         // purify
         expr_ref   new_curr(m());
         proof_ref  new_pr(m());
