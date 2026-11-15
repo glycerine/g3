@@ -263,11 +263,14 @@ func (b *predicateRuleBuilder) blastTermITE(formula ast.ASTHandle) (ast.ASTHandl
 }
 
 func (b *predicateRuleBuilder) stateApplication(transformer *PredicateTransformer, argument uint32, old *uint32) (ast.ASTHandle, error) {
-	if argument >= uint32(len(transformer.signature)) {
+	signature, err := transformer.sig()
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if argument >= uint32(len(signature)) {
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
-	declaration := transformer.signature[argument]
-	var err error
+	declaration := signature[argument]
 	if old == nil {
 		declaration, err = b.transformer.owner.OldToNew(declaration, 0)
 	} else {
@@ -292,8 +295,12 @@ func (b *predicateRuleBuilder) initializeAtom(atom ast.ASTHandle, variables *[]a
 	if owner == nil || owner.owner != b.transformer.owner {
 		return nil, fmt.Errorf("%w: missing predicate transformer", ast.ErrASTDomain)
 	}
+	signature, err := owner.sig()
+	if err != nil {
+		return nil, err
+	}
 	count, err := b.transformer.manager.GetNumArgs(atom)
-	if err != nil || count != uint32(len(owner.signature)) {
+	if err != nil || count != uint32(len(signature)) {
 		if err != nil {
 			return nil, err
 		}

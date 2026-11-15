@@ -75,9 +75,13 @@ func (c *Context) finiteFrameModel(level uint32, queryDeclaration ast.ASTHandle)
 		if x != nil {
 			return result, x
 		}
-		arguments := make([]ast.ASTHandle, len(transformer.signature))
+		signature, x := transformer.sig()
+		if x != nil {
+			return result, x
+		}
+		arguments := make([]ast.ASTHandle, len(signature))
 		for index := range arguments {
-			arguments[index], x = c.manager.MkApp(transformer.signature[len(arguments)-index-1], nil)
+			arguments[index], x = c.manager.MkApp(signature[len(arguments)-index-1], nil)
 			if x == nil {
 				x = pin(arguments[index])
 			}

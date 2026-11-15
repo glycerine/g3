@@ -29,17 +29,20 @@ type PredicateTransformerStatistics struct {
 // frame lemmas, proposition solver, and reachable-state cache. Rule
 // normalization populates InitialState and Transition through InitializeSystem.
 type PredicateTransformer struct {
-	owner         *Manager
-	manager       *ast.ASTManager
-	head          ast.ASTHandle
-	signature     []ast.ASTHandle
-	solver        *PropSolver
-	reachable     *ReachableCache
-	initialState  ast.ASTHandle
-	transition    ast.ASTHandle
-	levels        [][]ast.ASTHandle
-	invariants    []ast.ASTHandle
-	propertyLevel map[ast.ASTHandle]uint32
+	owner     *Manager
+	manager   *ast.ASTManager
+	head      ast.ASTHandle
+	signature []ast.ASTHandle
+	// signatureReady is !m_sig.empty() after init_sig (C++ re-runs it for a
+	// nullary head, which builds nothing).
+	signatureReady bool
+	solver         *PropSolver
+	reachable      *ReachableCache
+	initialState   ast.ASTHandle
+	transition     ast.ASTHandle
+	levels         [][]ast.ASTHandle
+	invariants     []ast.ASTHandle
+	propertyLevel  map[ast.ASTHandle]uint32
 	// propertyOrder is m_prop2level's obj_map table: every lemma ever
 	// inserted, in hash-table iteration order (inherit_properties).
 	propertyOrder *ast.ObjMap
@@ -105,9 +108,7 @@ func NewPredicateTransformer(owner *Manager, head ast.ASTHandle, cacheMode Reach
 	if err != nil {
 		return nil, err
 	}
-	if err = transformer.initializeSignature(name); err != nil {
-		return nil, err
-	}
+	// init_sig runs on the first sig(i)/sig_size() use, not here.
 	committed = true
 	return transformer, nil
 }
@@ -141,6 +142,21 @@ func (p *PredicateTransformer) headName() (string, error) {
 		return text, nil
 	}
 	return p.manager.Symbols.Display(name)
+}
+
+// sig is pred_transformer::sig()/sig_size(): init_sig on first use.
+func (p *PredicateTransformer) sig() ([]ast.ASTHandle, error) {
+	if !p.signatureReady {
+		name, err := p.headName()
+		if err != nil {
+			return nil, err
+		}
+		if err = p.initializeSignature(name); err != nil {
+			return nil, err
+		}
+		p.signatureReady = true
+	}
+	return p.signature, nil
 }
 
 func (p *PredicateTransformer) initializeSignature(headName string) error {
@@ -183,7 +199,11 @@ func (p *PredicateTransformer) Signature() ([]ast.ASTHandle, error) {
 	if err := p.open(); err != nil {
 		return nil, err
 	}
-	return append([]ast.ASTHandle(nil), p.signature...), nil
+	signature, err := p.sig()
+	if err != nil {
+		return nil, err
+	}
+	return append([]ast.ASTHandle(nil), signature...), nil
 }
 
 // InitializeSystem installs the normalized initial-state and transition
@@ -355,8 +375,12 @@ func (p *PredicateTransformer) AddCover(level int, property ast.ASTHandle) (resu
 	if level < -1 {
 		return ast.ErrASTDomain
 	}
-	arguments := make([]ast.ASTHandle, len(p.signature))
-	for index, declaration := range p.signature {
+	signature, err := p.sig()
+	if err != nil {
+		return err
+	}
+	arguments := make([]ast.ASTHandle, len(signature))
+	for index, declaration := range signature {
 		stateDeclaration, err := p.owner.OldToNew(declaration, 0)
 		if err != nil {
 			return err
@@ -425,7 +449,11 @@ func (p *PredicateTransformer) CoverDelta(level int) (result ast.ASTRef, resultE
 	}
 	owner.substitution = substitution
 	owner.hasSubstitution = true
-	for index, declaration := range p.signature {
+	signature, err := p.sig()
+	if err != nil {
+		return result, err
+	}
+	for index, declaration := range signature {
 		stateDeclaration, x := p.owner.OldToNew(declaration, 0)
 		if x != nil {
 			return result, x

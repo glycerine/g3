@@ -392,8 +392,12 @@ func (c *Context) unsatAnswer(queryDeclaration ast.ASTHandle) (result ast.ASTRef
 		if x != nil {
 			return result, x
 		}
-		arguments := make([]ast.ASTHandle, len(transformer.signature))
-		for index, signature := range transformer.signature {
+		signatures, x := transformer.sig()
+		if x != nil {
+			return result, x
+		}
+		arguments := make([]ast.ASTHandle, len(signatures))
+		for index, signature := range signatures {
 			arguments[index], x = c.manager.MkApp(signature, nil)
 			if x != nil {
 				return result, x

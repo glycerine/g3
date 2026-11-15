@@ -108,8 +108,12 @@ func (c *Context) createChildrenProjected(node *ModelNode) (resultErr error) {
 	}
 	node.selected = rule
 
-	eliminated := make([]ast.ASTHandle, 0, len(node.transformer.signature)+len(rule.auxiliaries))
-	for _, signature := range node.transformer.signature {
+	signatures, err := node.transformer.sig()
+	if err != nil {
+		return err
+	}
+	eliminated := make([]ast.ASTHandle, 0, len(signatures)+len(rule.auxiliaries))
+	for _, signature := range signatures {
 		declaration, x := c.owner.OldToNew(signature, 0)
 		if x != nil {
 			return x

@@ -74,9 +74,13 @@ func (c *Context) validateUNSATResult() (resultErr error) {
 		if err != nil {
 			return err
 		}
-		arguments := make([]ast.ASTHandle, len(pt.signature))
+		signature, err := pt.sig()
+		if err != nil {
+			return err
+		}
+		arguments := make([]ast.ASTHandle, len(signature))
 		for i := range arguments {
-			arguments[i], err = c.manager.MkApp(pt.signature[len(arguments)-i-1], nil)
+			arguments[i], err = c.manager.MkApp(signature[len(arguments)-i-1], nil)
 			if err != nil {
 				return err
 			}

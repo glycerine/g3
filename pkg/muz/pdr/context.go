@@ -733,8 +733,12 @@ func (c *Context) queryState(query ast.ASTHandle) (*PredicateTransformer, ast.AS
 	if transformer == nil {
 		return fail(ast.ErrASTDomain)
 	}
+	signature, err := transformer.sig()
+	if err != nil {
+		return fail(err)
+	}
 	count, err := c.manager.GetNumArgs(query)
-	if err != nil || count != uint32(len(transformer.signature)) {
+	if err != nil || count != uint32(len(signature)) {
 		if err != nil {
 			return fail(err)
 		}
@@ -742,7 +746,7 @@ func (c *Context) queryState(query ast.ASTHandle) (*PredicateTransformer, ast.AS
 	}
 	equalities := make([]ast.ASTHandle, count)
 	for index := uint32(0); index < count; index++ {
-		stateDeclaration, x := c.owner.OldToNew(transformer.signature[index], 0)
+		stateDeclaration, x := c.owner.OldToNew(signature[index], 0)
 		if x != nil {
 			return fail(x)
 		}
