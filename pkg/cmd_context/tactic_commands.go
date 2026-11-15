@@ -307,6 +307,7 @@ func (c *Context) NewBuiltinTacticWithOutput(name string, output io.Writer) (tac
 }
 
 func (c *Context) clearCheckSatResult() error {
+	c.checkSatUsingCore = nil
 	if c.tacticResult != nil {
 		if err := c.tacticResult.Close(); err != nil {
 			return err
@@ -490,6 +491,10 @@ func (c *Context) CheckSatUsing(selected tactic.Tactic, options *uparams.ParamsR
 				return lbool.Undef, errors.Join(checkErr, e)
 			}
 			wrapped.CollectStatistics(stats)
+			// The catch block falls through to the core, model and proof blocks.
+			if e = c.storeCheckSatUsingProducts(state, &md, proofRef, &dep); e != nil {
+				return lbool.Undef, errors.Join(checkErr, e)
+			}
 			return lbool.Undef, TacticCommandFailure{Cause: checkErr, Message: source.Message()}
 		}
 		return lbool.Undef, checkErr
@@ -506,27 +511,6 @@ func (c *Context) CheckSatUsing(selected tactic.Tactic, options *uparams.ParamsR
 			return lbool.Undef, err
 		}
 	}
-	model, err := md.Get()
-	if err != nil {
-		return lbool.Undef, err
-	}
-	if err = r.SetModel(model); err != nil {
-		return lbool.Undef, err
-	}
-	proof, err := m.RefGet(proofRef)
-	if err != nil {
-		return lbool.Undef, err
-	}
-	if err = r.SetProof(proof); err != nil {
-		return lbool.Undef, err
-	}
-	leaves, err := m.DependencyLinearize(dep.Get(), nil)
-	if err != nil {
-		return lbool.Undef, err
-	}
-	if err = r.SetUnsatCore(leaves); err != nil {
-		return lbool.Undef, err
-	}
 	if err = r.SetLabels(labels.Values); err != nil {
 		return lbool.Undef, err
 	}
@@ -536,10 +520,67 @@ func (c *Context) CheckSatUsing(selected tactic.Tactic, options *uparams.ParamsR
 	}
 	wrapped.CollectStatistics(stats)
 	c.status, c.checked = status, true
-	if status == lbool.True {
+	if err = c.storeCheckSatUsingProducts(state, &md, proofRef, &dep); err != nil {
+		return lbool.Undef, err
+	}
+	model, err := md.Get()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	// if (ctx.produce_models() && md) { ...; if (status == l_true) ctx.validate_model(); }
+	if state.Model && model != nil && status == lbool.True {
 		if err = c.validateModel(); err != nil {
 			return status, err
 		}
 	}
 	return status, nil
+}
+
+// storeCheckSatUsingProducts is the tail of check_sat_using_tactict_cmd::
+// execute: the core, model and proof are stored only when the matching
+// produce_* option is on (and the model/proof exist). The linearized core is
+// kept for print_unsat_core, which prints it whatever the status.
+func (c *Context) storeCheckSatUsingProducts(state smtcore.ContextParamsState, md *tactic.ModelRef, proofRef ast.ASTRef, dep *tactic.DependencyRef) error {
+	m := c.manager
+	r := c.tacticResult
+	c.checkSatUsingCore = nil
+	if state.UnsatCore {
+		leaves, err := m.DependencyLinearize(dep.Get(), nil)
+		if err != nil {
+			return err
+		}
+		if err = r.SetUnsatCore(leaves); err != nil {
+			return err
+		}
+		c.checkSatUsingCore = leaves
+	}
+	model, err := md.Get()
+	if err != nil {
+		return err
+	}
+	if state.Model && model != nil {
+		if err = r.SetModel(model); err != nil {
+			return err
+		}
+	}
+	proof, err := m.RefGet(proofRef)
+	if err != nil {
+		return err
+	}
+	if state.Proof && !proof.IsNull() {
+		if err = r.SetProof(proof); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// CheckSatUsingCore is the core_elems check-sat-using prints for
+// print_unsat_core. The handles are owned by the check-sat result and stay
+// valid until the next command clears it.
+func (c *Context) CheckSatUsingCore() []ast.ASTHandle {
+	if c.tacticResult == nil {
+		return nil
+	}
+	return c.checkSatUsingCore
 }

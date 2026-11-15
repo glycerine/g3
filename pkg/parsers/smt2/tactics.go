@@ -712,11 +712,9 @@ func (p *commandParser) checkSatUsing(execute bool) (err error) {
 	if err != nil {
 		return err
 	}
-	if printUnsatCore && produceCores && status == lbool.False {
-		core, e := p.context.UnsatCore()
-		if e != nil {
-			return e
-		}
+	// print_unsat_core prints the linearized core whatever the status.
+	if printUnsatCore && produceCores {
+		core := p.context.CheckSatUsingCore()
 		if _, err = fmt.Fprint(p.out, "(unsat-core"); err != nil {
 			return err
 		}

@@ -116,6 +116,7 @@ type Context struct {
 	datalogDisplay           *base.DatalogContext
 	solver                   solver.Solver
 	tacticResult             *solver.SimpleCheckSatResult
+	checkSatUsingCore        []ast.ASTHandle
 	retainedSolverResult     solver.Solver
 	logic                    string
 	functions                map[string][]ast.ASTHandle

@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md cmd_context_02-F6
+	"check_sat_using_print_core_sat.smt2": "sat\n(unsat-core)\n",
 	// AUDIT.md cmd_context_02-F4
 	"define_fun_rec_var_body_pop_declare.smt2": "(error \"line 1 column 70: invalid declaration, named expression already defined with this name f\")\nunsat\n",
 	// AUDIT.md cmd_context_02-F4
