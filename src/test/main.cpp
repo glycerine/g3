@@ -244,6 +244,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_qe_dt_eq_recognizer);
     TST(z3_4_7_1_qe_lite_fm_bvar);
     TST(z3_4_7_1_pb_mk_lt_coeffs);
+    TST(z3_4_7_1_opb_max_objective);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);

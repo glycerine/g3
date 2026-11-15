@@ -127,6 +127,8 @@ Abstract:
 #include "nlsat/nlsat_solver.h"
 #include "nlsat/nlsat_explain.h"
 #include "util/rlimit.h"
+#include "opt/opt_context.h"
+#include "opt/opt_parse.h"
 #include <iostream>
 #ifndef _WINDOWS
 #include <csignal>
@@ -1314,4 +1316,24 @@ void tst_z3_4_7_1_pb_mk_lt_coeffs() {
     fmls.push_back(p0);
     fmls.push_back(m.mk_not(p1));
     expect("pb_mk_lt_coeffs", "2*p0 + 3*p1 < 3 with p0, not p1", l_true, check_plain(m, fmls));
+}
+
+// opb::parse tries parse_token("min:") before parse_token("max:"), and
+// parse_token consumes the matching prefix "m" even when the token does not
+// match, so "max:" is read as "ax:" and parse_id exits with
+// (error line 1 "unexpected char: a" expected "x") and code 3.
+void tst_z3_4_7_1_opb_max_objective() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    opt::context opt(m);
+    unsigned_vector handles;
+    std::istringstream in("* test\nmax: +2 x1 +3 x2 ;\n+1 x1 +1 x2 <= 1 ;\n");
+    parse_opb(opt, in, handles);
+    ENSURE(handles.size() == 1);
+    lbool r = opt.optimize();
+    expr_ref lo = opt.get_lower(handles[0]);
+    expr_ref hi = opt.get_upper(handles[0]);
+    std::cout << "opb_max_objective: " << lbool_name(r) << " " << lo << " " << hi << "\n";
+    ENSURE(r == l_true);
+    ENSURE(lo == hi);
 }
