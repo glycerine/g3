@@ -1,0 +1,8 @@
+(set-option :auto_config false)
+(set-option :smt.pb.enable_simplex true)
+(declare-const a Bool)
+(declare-const b Bool)
+(declare-const c Bool)
+(declare-const d Bool)
+(assert ((_ pbge 3 2 1 1) ((_ pbge 2 1 1 1) (not b) (not d) a) b d))
+(check-sat)

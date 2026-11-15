@@ -635,7 +635,7 @@ func (t *SMTPseudoBooleanTheory) assignNative(v int32, isTrue bool) error {
 		}
 	}
 	if i.constraint != nil {
-		if t.controls.EnableSimplex {
+		if t.controls.EnableSimplex && t.simplexHasRow(v) {
 			ok, err := t.simplexAssignPredicate(i.constraint, isTrue)
 			if err != nil || !ok {
 				return err

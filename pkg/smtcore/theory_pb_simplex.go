@@ -112,6 +112,16 @@ func (t *SMTPseudoBooleanTheory) simplexInternalize(c *smtPBConstraint) error {
 		t.simplex = &smtPBSimplex{solver: simplex.NewSolver(t.state.manager.ResourceLimit()), rows: make(map[int32]smtPBSimplexRow), representatives: make(map[string]int32), variables: make(map[uint32]bool), lower: make(map[uint32]SMTLiteral), upper: make(map[uint32]SMTLiteral)}
 	}
 	s := t.simplex
+	// z3 4.7.1 bug: a predicate's Boolean ID names both its 0-1 literal
+	// column and its row's slack column, so a constraint whose argument is
+	// itself a PB predicate with a row bounds that row's weighted sum by
+	// [0,1] and z3 answers unsat on satisfiable nested constraints, or
+	// crashes. The fork fix gives such a constraint no simplex row.
+	for _, term := range c.args[0].terms {
+		if _, found := s.rows[term.literal.Var()]; found {
+			return nil
+		}
+	}
 	rep := c.args[0].copy()
 	var key strings.Builder
 	for i := range rep.terms {
@@ -322,7 +332,8 @@ func (t *SMTPseudoBooleanTheory) simplexRemove(c *smtPBConstraint) error {
 	s := t.simplex
 	info, found := s.rows[c.literal.Var()]
 	if !found {
-		return ast.ErrASTDomain
+		// No row: the fork fix skipped a constraint over a PB predicate.
+		return nil
 	}
 	owner, found := s.representatives[info.representative]
 	if !found {
@@ -336,4 +347,14 @@ func (t *SMTPseudoBooleanTheory) simplexRemove(c *smtPBConstraint) error {
 		delete(s.representatives, info.representative)
 	}
 	return nil
+}
+
+// simplexHasRow reports whether predicate v has a simplex row; the fork fix
+// leaves constraints over PB predicates without one.
+func (t *SMTPseudoBooleanTheory) simplexHasRow(v int32) bool {
+	if t.simplex == nil {
+		return false
+	}
+	_, found := t.simplex.rows[v]
+	return found
 }

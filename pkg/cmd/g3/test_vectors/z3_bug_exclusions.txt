@@ -638,3 +638,16 @@ z3_bug_bitvector_table_nullary
 # is positive: z3 4.7.1 prints a true, b false, c false; g3 prints c true.
 # Reproduction: test_vectors/z3_bug_case_split6_phase.smt2.
 z3_bug_case_split6_phase
+#
+# With smt.pb.enable_simplex, theory_pb::internalize_atom uses a pb atom's
+# bool var both as its 0-1 column and as its row's slack column, so a pb
+# constraint over another pb atom bounds that atom's weighted sum by
+# [0,1]: z3 answers unsat on satisfiable nested constraints or segfaults
+# (z3 bug: src/smt/theory_pb.cpp internalize_atom, the "TBD" comment;
+# upstream removed pb.enable_simplex). g3 and the fork give a constraint
+# over a pb atom no simplex row (pkg/smtcore/theory_pb_simplex.go
+# simplexInternalize; follow-up to AUDIT.md smtcore_12-F4). Reproductions:
+# test_vectors/z3_bug_pb_simplex_nested.smt2,
+# test_vectors/z3_bug_pb_simplex_nested_crash.smt2.
+z3_bug_pb_simplex_nested
+z3_bug_pb_simplex_nested_crash
