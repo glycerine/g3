@@ -225,10 +225,11 @@ func TestBMCQuantifiedLinearProofWithRuleVariables(t *testing.T) {
 	}
 	checker, err := proofs.NewChecker(m)
 	must(err)
-	// Source qlinear::get_model records hyper-resolution positions (0, 1);
-	// the source proof checker's set_false rejects them for these premises.
-	if _, _, err := checker.Check(proofHandle); err == nil {
-		t.Fatal("source qlinear positions passed structural checking")
+	// qlinear::get_model records hyper-resolution positions (1, 0) (z3 4.7.1
+	// had (0, 1), which the proof checker's set_false rejects; upstream
+	// 784b613b5 and the fork fix correct it), so the proof checks.
+	if _, _, err := checker.Check(proofHandle); err != nil {
+		t.Fatal("qlinear proof failed structural checking", err)
 	}
 }
 
@@ -308,9 +309,10 @@ func TestBMCQuantifiedLinearProofWithUninterpretedBinding(t *testing.T) {
 	}
 	checker, err := proofs.NewChecker(m)
 	must(err)
-	// Source qlinear::get_model records hyper-resolution positions (0, 1);
-	// the source proof checker's set_false rejects them for these premises.
-	if _, _, err := checker.Check(handle); err == nil {
-		t.Fatal("source qlinear positions passed structural checking")
+	// qlinear::get_model records hyper-resolution positions (1, 0) (z3 4.7.1
+	// had (0, 1), which the proof checker's set_false rejects; upstream
+	// 784b613b5 and the fork fix correct it), so the proof checks.
+	if _, _, err := checker.Check(handle); err != nil {
+		t.Fatal("qlinear proof failed structural checking", err)
 	}
 }

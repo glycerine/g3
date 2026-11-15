@@ -336,6 +336,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// muz_small_01-F8 follow-up: QBMC hyper-resolution positions (1,0),
+	// upstream 784b613b5 and fork fix #A; z3 4.7.1 prints (0,1).
+	"z3_bug_qbmc_hyper_res_positions.smt2": "sat\n(let ((a!1 (forall ((A Int)) (=> (p A) (query!0 A)))))\n  ((_ hyper-res 1 0)\n    (hyper-res (asserted a!1) a!1)\n    (asserted (p 0))\n    (query!0 0)))\n\n",
 	// AUDIT.md tactic_top_01-F1: the subgoals of split-clause are an OR-decomposition;
 	// a decided-sat branch decides the goal (fork fix of and_then_tactical and
 	// repeat_tactical: result.reset() before pushing the sat goal).
@@ -390,7 +393,7 @@ var scriptResults = map[string]string{
 	"z3_bug_duality_failed_query_requery.smt2":          "(error \"query failed: theory not supported by interpolation or bad proof\")\nunknown\nsat\n",
 	"z3_bug_lazy_sparse_nullary_union.smt2":             "sat\ntrue\n",
 	"z3_bug_check_table_nullary_empty.smt2":             "sat\n",
-	"z3_bug_qbmc_eval_level.smt2":                       "sat\n(let ((a!1 (forall ((A Int)) (=> (and (p A) (not (<= A 2))) q)))\n      (a!2 (forall ((A Int) (B Int)) (=> (and (p A) (= B (+ 1 A))) (p B)))))\n(let ((a!3 (hyper-res (hyper-res (asserted (=> q query!0))\n                                 (asserted a!1)\n                                 (=> (p 4) query!0))\n                      (asserted a!2)\n                      (=> (p 3) query!0))))\n(let ((a!4 (hyper-res (hyper-res a!3 (asserted a!2) (=> (p 2) query!0))\n                      (asserted a!2)\n                      (=> (p 1) query!0))))\n  ((_ hyper-res 0 1)\n    (hyper-res a!4 (asserted a!2) (=> (p 0) query!0))\n    (asserted (p 0))\n    query!0))))\n",
+	"z3_bug_qbmc_eval_level.smt2":                       "sat\n(let ((a!1 (forall ((A Int)) (=> (and (p A) (not (<= A 2))) q)))\n      (a!2 (forall ((A Int) (B Int)) (=> (and (p A) (= B (+ 1 A))) (p B)))))\n(let ((a!3 (hyper-res (hyper-res (asserted (=> q query!0))\n                                 (asserted a!1)\n                                 (=> (p 4) query!0))\n                      (asserted a!2)\n                      (=> (p 3) query!0))))\n(let ((a!4 (hyper-res (hyper-res a!3 (asserted a!2) (=> (p 2) query!0))\n                      (asserted a!2)\n                      (=> (p 1) query!0))))\n  ((_ hyper-res 1 0)\n    (hyper-res a!4 (asserted a!2) (=> (p 0) query!0))\n    (asserted (p 0))\n    query!0))))\n",
 	"z3_bug_spacer_min_cut_shared_node.smt2":            "sat\n\n",
 	"z3_bug_spacer_min_cut_shared_node_unsat.smt2":      "unsat\n\n",
 	"z3_bug_qi_weakening_proof.smt2":                    "sat\ntrue\n",

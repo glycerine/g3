@@ -57,7 +57,10 @@ func (c *Compiler) QuantifiedLinearTraceAndProof(rules *base.RuleSet, query ast.
 		if cause != nil {
 			return cause
 		}
-		position := ast.ASTProofPosition{First: 0, Second: 1}
+		// qlinear::get_model resolves tail 0 of the derivation with the
+		// selected rule's head: positions (1, 0). z3 4.7.1 records (0, 1);
+		// upstream 784b613b5 and the fork fix correct it.
+		position := ast.ASTProofPosition{First: 1, Second: 0}
 		next, proof, cause := c.linearProofStepWithBindings(rm, step.rule, bindings, previous, result, normalizer, position, true, false)
 		if cause != nil {
 			_, _, cause = advanceQuantifiedLinearProofStep(m, nil, next, ast.ASTRef{}, proof, cause)
@@ -107,8 +110,9 @@ func (c *Compiler) quantifiedLinearProofSteps(rules *base.RuleSet, width uint32,
 		if cause != nil {
 			return result, cause
 		}
-		// qlinear::get_model pushes positions (0, 1) for every resolved step.
-		position := ast.ASTProofPosition{First: 0, Second: 1}
+		// qlinear::get_model pushes positions (1, 0) for every resolved step
+		// (z3 4.7.1 has (0, 1); upstream 784b613b5 and the fork fix).
+		position := ast.ASTProofPosition{First: 1, Second: 0}
 		// This exported direct helper can start on a rule with a quantified
 		// body. Unlike the fixedpoint interface it has no synthetic query
 		// bridge, so its first proof must conclude the instantiated rule:

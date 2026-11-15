@@ -16,9 +16,10 @@ import (
 // at the selected derivation level, matching the corrected qlinear::get_model.
 // The rule ordinal still identifies the rule-specific indexed variables.
 // z3 4.7.1 evaluates at the rule ordinal and aborts in
-// VERIFY(unifier.unify_rules(...)) on recursive programs; the fork fix ports
-// upstream 784b613b5 except its (1,0) position change (AUDIT.md
-// muz_small_01-F8, test_vectors/z3_bug_qbmc_eval_level.smt2).
+// VERIFY(unifier.unify_rules(...)) on recursive programs; the fork fixes port
+// upstream 784b613b5, including its (1,0) position change (AUDIT.md
+// muz_small_01-F8, test_vectors/z3_bug_qbmc_eval_level.smt2 and
+// z3_bug_qbmc_hyper_res_positions.smt2).
 // The caller owns each nonempty reference.
 func (c *Compiler) QuantifiedLinearModelBindings(rule *base.Rule, ruleIndex, level, width uint32, md *model.ModelCore, services model.ModelEvaluatorConfig) (result []ast.ASTRef, resultErr error) {
 	if c == nil || c.manager == nil || rule == nil || md == nil || md.Manager() != c.manager {
