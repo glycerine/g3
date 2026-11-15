@@ -23,11 +23,11 @@ func (p *PredicateTransformer) selectRule(modelCore *model.ModelCore) (*normaliz
 	if modelCore == nil {
 		return nil, ast.ErrASTDomain
 	}
-	live := make([]*normalizedRule, 0, len(p.rules))
-	for _, rule := range p.rules {
-		if !rule.tag.IsNull() {
-			live = append(live, rule)
-		}
+	// pred_transformer::find_rule walks m_tag2rule in its table order.
+	// AUDIT.md FUZZ_F-F3.
+	live, err := p.tagTableRules()
+	if err != nil {
+		return nil, err
 	}
 	if len(live) == 1 {
 		return live[0], nil
@@ -812,10 +812,12 @@ func (p *PredicateTransformer) addUse(user *PredicateTransformer) {
 
 func (p *PredicateTransformer) makeAssumptions(head ast.ASTHandle, formula ast.ASTHandle) ([]ast.ASTHandle, error) {
 	result := make([]ast.ASTHandle, 0)
-	for _, rule := range p.rules {
-		if rule.tag.IsNull() {
-			continue
-		}
+	// mk_assumptions walks m_tag2rule (AUDIT.md FUZZ_F-F3).
+	ordered, err := p.tagTableRules()
+	if err != nil {
+		return nil, err
+	}
+	for _, rule := range ordered {
 		for index, predecessor := range rule.predecessors {
 			if predecessor.head != head {
 				continue
@@ -880,10 +882,12 @@ func (p *PredicateTransformer) makeAssumptionRefs(head ast.ASTHandle, formula as
 		return result, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&tmp1)) }()
-	for _, rule := range p.rules {
-		if rule.tag.IsNull() {
-			continue
-		}
+	// mk_assumptions walks m_tag2rule (AUDIT.md FUZZ_F-F3).
+	ordered, err := p.tagTableRules()
+	if err != nil {
+		return result, err
+	}
+	for _, rule := range ordered {
 		for index, predecessor := range rule.predecessors {
 			if predecessor.head != head {
 				continue
@@ -985,10 +989,12 @@ func (p *PredicateTransformer) PropagationFormula(level uint32) (result ast.ASTH
 	}
 	conjunction = append(conjunction, formulas)
 	if level > 0 {
-		for _, rule := range p.rules {
-			if rule.tag.IsNull() {
-				continue
-			}
+		// get_propagation_formula walks m_tag2rule (AUDIT.md FUZZ_F-F3).
+		ordered, err := p.tagTableRules()
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		for _, rule := range ordered {
 			for index, predecessor := range rule.predecessors {
 				ref, x := predecessor.FormulasRef(level-1, false)
 				if x != nil {
@@ -1141,6 +1147,29 @@ func (p *PredicateTransformer) Rules() ([]*base.Rule, error) {
 			return nil, err
 		}
 		result = append(result, owned)
+	}
+	return result, nil
+}
+
+// tagTableRules lists the tagged rules in the iteration order of
+// m_tag2rule, an obj_map<expr, rule const*> filled in rule order by
+// init_rules: its table order follows the tags' hashes.
+func (p *PredicateTransformer) tagTableRules() ([]*normalizedRule, error) {
+	tag2rule := ast.NewObjMap(p.manager)
+	byTag := make(map[ast.ASTHandle]*normalizedRule, len(p.rules))
+	for _, rule := range p.rules {
+		if rule.tag.IsNull() {
+			continue
+		}
+		if _, err := tag2rule.InsertIfNotThere(rule.tag); err != nil {
+			return nil, err
+		}
+		byTag[rule.tag] = rule
+	}
+	entries := tag2rule.Entries()
+	result := make([]*normalizedRule, 0, len(entries))
+	for _, entry := range entries {
+		result = append(result, byTag[entry.Key])
 	}
 	return result, nil
 }

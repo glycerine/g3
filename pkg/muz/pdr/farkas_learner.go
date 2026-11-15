@@ -320,38 +320,41 @@ func (f *FarkasLearner) FarkasLemmaLiterals(proof ast.ASTHandle, bPure []bool) (
 	return literals, selectedCoefficients, negationReferences, true, nil
 }
 
+// proofPostOrder is the todo loop of farkas_learner::get_lemmas: every
+// unvisited parent is pushed, todo.back() is examined again, and a proof is
+// marked (and so numbered) only once all its parents are visited, so the
+// last parent's subtree finishes first. AUDIT.md FUZZ_F-F5.
 func (f *FarkasLearner) proofPostOrder(root ast.ASTHandle) ([]ast.ASTHandle, error) {
-	type frame struct {
-		proof ast.ASTHandle
-		exit  bool
-	}
-	stack := []frame{{proof: root}}
+	todo := []ast.ASTHandle{root}
 	visited := make(map[ast.ASTHandle]bool)
 	order := make([]ast.ASTHandle, 0)
-	for len(stack) != 0 {
-		last := len(stack) - 1
-		current := stack[last]
-		stack = stack[:last]
-		if current.exit {
-			order = append(order, current.proof)
+	for len(todo) != 0 {
+		p := todo[len(todo)-1]
+		if visited[p] {
+			todo = todo[:len(todo)-1]
 			continue
 		}
-		if visited[current.proof] {
-			continue
-		}
-		visited[current.proof] = true
-		stack = append(stack, frame{proof: current.proof, exit: true})
-		count, err := f.manager.GetProofNumParents(current.proof)
+		allVisit := true
+		count, err := f.manager.GetProofNumParents(p)
 		if err != nil {
 			return nil, err
 		}
-		for i := count; i != 0; i-- {
-			parent, err := f.manager.GetProofParent(current.proof, i-1)
+		for i := uint32(0); i < count; i++ {
+			arg, err := f.manager.GetProofParent(p, i)
 			if err != nil {
 				return nil, err
 			}
-			stack = append(stack, frame{proof: parent})
+			if !visited[arg] {
+				allVisit = false
+				todo = append(todo, arg)
+			}
 		}
+		if !allVisit {
+			continue
+		}
+		visited[p] = true
+		todo = todo[:len(todo)-1]
+		order = append(order, p)
 	}
 	return order, nil
 }

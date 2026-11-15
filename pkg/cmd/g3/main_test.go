@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_F-F3, FUZZ_F-F5: pdr walks m_tag2rule in obj_map order and
+	// get_lemmas finishes the last proof parent first.
+	"pdr_tag_order_certificate.smt2": "sat\n(and (q0 (:var 5) 9)\n     (= (:var 5) (+ (- 3) (:var 8)))\n     (q0 10 (:var 8))\n     (= (:var 8) (* 2 (:var 13)))\n     (q0 (:var 13) 5)\n     (= (:var 13) (+ (- 3) (:var 16)))\n     (q0 6 (:var 16))\n     (= (:var 16) (* 2 (:var 21)))\n     (q0 (:var 21) 3)\n     (= (:var 21) (+ (- 3) (:var 24)))\n     (q0 4 (:var 24))\n     (= (:var 24) (- 4))\n     (q0 (- 2) 2)\n     (q0 3 1))\n",
 	// AUDIT.md FUZZ_F-F6: duality print_proof prints (name args...) for each step.
 	"duality_nullary_step.smt2": "sat\n(derivation\n(step s!3 (q0 0 3)\n rule!1  (subst\n    (= x 0)\n    (= y 3)\n  )\n  (labels  )\n  (ref   ))\n(step s!2 (err)\n rule!3  (subst\n    (= x 0)\n    (= y 3)\n  )\n  (labels  )\n  (ref  s!3  ))\n(step s!1 (@Fail!4)\n rule!4  (subst\n  )\n  (labels  )\n  (ref  s!2  ))\n)\n(model \n\"@under2 -> false\n@b_2 -> true\n@b_3 -> true\n@b_1 -> true\n@under3 -> false\n\")\n\n",
 	// labels_cmd prints label symbols unquoted (operator<<).
