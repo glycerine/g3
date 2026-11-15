@@ -60,6 +60,10 @@ Abstract:
                                   reverse arc to the sink and never
                                   terminates when augmenting paths share a
                                   node (pkg/AUDIT.md util_misc_01-F1).
+    z3_4_7_1_qi_weakening_proof   quantifier instantiation builds its
+                                  weakening proof with the modus-ponens
+                                  premises swapped (pkg/AUDIT.md
+                                  muz_transforms_01-F6).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -81,6 +85,11 @@ Abstract:
 #include "parsers/smt2/smt2parser.h"
 #include "tactic/portfolio/smt_strategic_solver.h"
 #include "util/min_cut.h"
+#include "ast/array_decl_plugin.h"
+#include "muz/base/dl_context.h"
+#include "muz/fp/dl_register_engine.h"
+#include "muz/transforms/dl_mk_quantifier_instantiation.h"
+#include "ast/scoped_proof.h"
 #include <sstream>
 #include <iostream>
 #ifndef _WINDOWS
@@ -599,4 +608,68 @@ void tst_z3_4_7_1_min_cut_shared_node() {
     for (unsigned n : cut) std::cout << " " << n;
     std::cout << "\n";
     ENSURE(cut.size() == 1 && cut[0] == 1);
+}
+
+// With proof traces on, mk_quantifier_instantiation::instantiate_rule proves
+// the instantiated rule from the original rule's proof p1 as a weakening. It
+// built that proof without enabling proof mode, so when the manager's proof
+// mode is off (as in a fixedpoint query) the rule got no proof and the rule
+// inliner later dereferenced it. With proof mode on it passed the premises
+// in the wrong order: mk_modus_ponens(def-axiom(fact(p1) => fml), p1) takes
+// its conclusion from fact(p1), here a forall, through to_app(...)->get_arg(1).
+// The proof must be mk_modus_ponens(p1, def-axiom(fact(p1) => fml)),
+// concluding the new rule. pkg/AUDIT.md muz_transforms_01-F6. Still present
+// upstream.
+void tst_z3_4_7_1_qi_weakening_proof() {
+    for (unsigned proofs_on = 0; proofs_on < 2; ++proofs_on) {
+        ast_manager m;
+        reg_decl_plugins(m);
+        array_util au(m);
+        datalog::register_engine re;
+        smt_params fp;
+        params_ref p;
+        p.set_bool("generate_proof_trace", true);
+        p.set_bool("xform.instantiate_quantifiers", true);
+        datalog::context ctx(m, re, fp, p);
+        sort* b = m.mk_bool_sort();
+        sort* arr = au.mk_array_sort(b, b);
+        func_decl_ref pd(m.mk_func_decl(symbol("p"), 0, static_cast<sort* const*>(nullptr), b), m);
+        ctx.register_predicate(pd, false);
+        // p :- (select a true) = false, forall y. (select a y) = false
+        expr_ref a(m.mk_var(0, arr), m);
+        expr_ref y(m.mk_var(0, b), m);
+        expr_ref a1(m.mk_var(1, arr), m);
+        expr* sel_y_args[2] = { a1, y };
+        expr_ref body(m.mk_eq(au.mk_select(2, sel_y_args), m.mk_false()), m);
+        symbol yn("y");
+        expr_ref all(m.mk_forall(1, &b, &yn, body), m);
+        expr* sel_t_args[2] = { a, m.mk_true() };
+        expr_ref tail(m.mk_and(m.mk_eq(au.mk_select(2, sel_t_args), m.mk_false()), all), m);
+        expr_ref rule_fml(m.mk_implies(tail, m.mk_const(pd)), m);
+        ctx.add_rule(rule_fml, symbol::null);
+        datalog::rule_set& rules = ctx.get_rules();
+        ENSURE(rules.get_num_rules() == 1 && rules.get_rule(0)->get_proof());
+        proof* p1 = rules.get_rule(0)->get_proof();
+        std::cout << "qi_weakening_proof: proof mode " << (proofs_on ? "on" : "off")
+                  << ", source proof fact " << mk_pp(m.get_fact(p1), m) << "\n";
+        scoped_proof_mode _spm(m, proofs_on ? PGM_ENABLED : PGM_DISABLED);
+        datalog::mk_quantifier_instantiation qi(ctx, 0);
+        scoped_ptr<datalog::rule_set> result = qi(rules);
+        ENSURE(result && result->get_num_rules() > 0);
+        for (unsigned i = 0; i < result->get_num_rules(); ++i) {
+            datalog::rule* r = result->get_rule(i);
+            proof* pr = r->get_proof();
+            std::cout << "  instantiated rule has a proof: " << (pr != nullptr) << "\n";
+            ENSURE(pr);
+            expr_ref fml(m);
+            ctx.get_rule_manager().to_formula(*r, fml);
+            ENSURE(m.get_num_parents(pr) == 2);
+            bool p1_first = m.get_parent(pr, 0) == p1;
+            std::cout << "  first premise is the source proof: " << p1_first << "\n";
+            ENSURE(p1_first);
+            bool concludes_rule = m.get_fact(pr) == fml.get();
+            std::cout << "  proof concludes the rule " << mk_pp(fml, m) << ": " << concludes_rule << "\n";
+            ENSURE(concludes_rule);
+        }
+    }
 }
