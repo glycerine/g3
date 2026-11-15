@@ -14,6 +14,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 // ---- m_util (arith_util) helpers used by this file ----
@@ -3104,6 +3105,9 @@ func (t *SMTTheoryArith) assignBoundLiteral(l SMTLiteral, r *smtArithmeticRow, i
 	if err := t.explainBound(r, idx, isLower, delta, ante); err != nil {
 		return err
 	}
+	if err := t.dumpLemmas(l, ante.literals, ante.equalities); err != nil {
+		return err
+	}
 	if uint32(len(ante.literals)) < t.smallLemmaSize() && len(ante.equalities) == 0 {
 		lits := make([]SMTLiteral, 0, 1+len(ante.literals))
 		lits = append(lits, l)
@@ -3219,12 +3223,32 @@ func (t *SMTTheoryArith) assignPropagatedLiteral(l SMTLiteral, ante *smtArithmet
 
 // ---- core.h:3056-3100 (set_conflict) ----
 
+// dumpLemmas is theory_arith::dump_lemmas: with smt.arith.dump_lemmas the
+// antecedents and consequent are written as lemma_N.smt2.
+func (t *SMTTheoryArith) dumpLemmas(l SMTLiteral, lits []SMTLiteral, eqs []SMTEnodePair) error {
+	if !t.params.DumpLemmas {
+		return nil
+	}
+	_, err := t.state.DumpLemmaAsSMTProblem(lits, eqs, l, usymbol.Symbol{})
+	var dump *SMTLemmaDumpError
+	if errors.As(err, &dump) {
+		return dump.OperandError
+	}
+	return err
+}
+
 func (t *SMTTheoryArith) setConflict(ante *smtArithmeticAntecedents, proofRule string) error {
+	if err := t.dumpLemmas(SMTFalseLiteral, ante.literals, ante.equalities); err != nil {
+		return err
+	}
 	return t.setConflictCore(ante.literals, ante.equalities, ante, proofRule)
 }
 
 func (t *SMTTheoryArith) setConflictDerived(ante smtArithDerivedBound, bounds *smtArithmeticAntecedents, proofRule string) error {
 	d := ante.derived()
+	if err := t.dumpLemmas(SMTFalseLiteral, d.literals, d.equalities); err != nil {
+		return err
+	}
 	return t.setConflictCore(d.literals, d.equalities, bounds, proofRule)
 }
 

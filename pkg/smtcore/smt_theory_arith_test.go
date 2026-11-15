@@ -2,6 +2,8 @@ package smtcore
 
 import (
 	"math/big"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -192,5 +194,39 @@ func TestSMTTheoryArithEliminateChargesStorageSize(t *testing.T) {
 	// pivot's limit().inc(r.size()) = 3, then eliminate's (3 + 3) * 2.
 	if got := f.m.Limit.Count() - before; got != 15 {
 		t.Fatal("pivot resource charge", got, "want 15")
+	}
+}
+
+// AUDIT.md smtcore_07-F3: set_conflict calls dump_lemmas(false_literal,
+// ante), which writes lemma_N.smt2 when smt.arith.dump_lemmas is set.
+func TestSMTTheoryArithDumpLemmasOnConflict(t *testing.T) {
+	t.Chdir(t.TempDir())
+	old := smtLemmaID
+	defer func() { smtLemmaID = old }()
+	for _, dump := range []bool{false, true} {
+		smtLemmaID = 0
+		f := newSMTTheoryArithFixture(t, false)
+		f.theory.params.DumpLemmas = dump
+		x := f.constant(t, "arith-dump-x", false)
+		y := f.constant(t, "arith-dump-y", false)
+		sum := f.app(t, smtArithOpAdd, x, y)
+		f.assertAtom(t, f.app(t, smtArithOpGE, x, f.num(t, "3", false)))
+		f.assertAtom(t, f.app(t, smtArithOpGE, y, f.num(t, "4", false)))
+		f.assertAtom(t, f.app(t, smtArithOpLE, sum, f.num(t, "6", false)))
+		ok, err := f.theory.propagateCore()
+		if err != nil || ok {
+			t.Fatal("x>=3, y>=4, x+y<=6 must conflict", ok, err)
+		}
+		text, err := os.ReadFile("lemma_0.smt2")
+		if !dump {
+			if smtLemmaID != 0 || err == nil {
+				t.Fatal("lemma dumped without dump_lemmas", smtLemmaID)
+			}
+			continue
+		}
+		astTestMust(t, err)
+		if smtLemmaID != 1 || strings.Count(string(text), "(assert ") != 3 {
+			t.Fatalf("conflict lemma dump %d:\n%s", smtLemmaID, text)
+		}
 	}
 }

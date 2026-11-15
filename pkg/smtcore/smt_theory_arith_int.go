@@ -636,6 +636,9 @@ func (t *SMTTheoryArith) mkGomoryCut(r *smtArithmeticRow) (result bool, err erro
 	if err = t.markLiteralAsRelevant(l); err != nil {
 		return false, err
 	}
+	if err = t.dumpLemmas(l, ante.literals, ante.equalities); err != nil {
+		return false, err
+	}
 	params, err := ante.parameters(m, "gomory-cut")
 	if err != nil {
 		return false, err
