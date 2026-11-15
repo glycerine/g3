@@ -43,3 +43,20 @@ func (i *forwardTrigInvocation) basis(theta ast.ASTHandle) (_ *forwardTrigPair, 
 	i.pairOrder = append(i.pairOrder, p)
 	return p, true, nil
 }
+
+// sinCosOrder lists the pairs in m_sin_cos (obj_map<app, std::pair<expr*,
+// expr*>>) iteration order: basis inserts each theta once, never erases.
+func (i *forwardTrigInvocation) sinCosOrder() ([]*forwardTrigPair, error) {
+	table := ast.NewObjMap(i.owner.manager)
+	for k, p := range i.pairOrder {
+		if err := table.InsertNum(p.theta, uint64(k)); err != nil {
+			return nil, err
+		}
+	}
+	entries := table.Entries()
+	out := make([]*forwardTrigPair, len(entries))
+	for k, entry := range entries {
+		out[k] = i.pairOrder[entry.Num]
+	}
+	return out, nil
+}

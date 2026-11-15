@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_arith_03-F3: purify-arith's extension model converter
+	// walks m_sin_cos in obj_map order.
+	"purify_arith_many_angles_mc.smt2": "(goals\n(goal\n  (not (<= (+ k!0 k!2 k!4 k!6 k!8 k!10 k!12 k!14 k!16 k!18) (/ 1.0 2.0)))\n  (= 1.0 (+ (* k!0 k!0) (* k!1 k!1)))\n  (= 1.0 (+ (* k!2 k!2) (* k!3 k!3)))\n  (= 1.0 (+ (* k!4 k!4) (* k!5 k!5)))\n  (= 1.0 (+ (* k!6 k!6) (* k!7 k!7)))\n  (= 1.0 (+ (* k!8 k!8) (* k!9 k!9)))\n  (= 1.0 (+ (* k!10 k!10) (* k!11 k!11)))\n  (= 1.0 (+ (* k!12 k!12) (* k!13 k!13)))\n  (= 1.0 (+ (* k!14 k!14) (* k!15 k!15)))\n  (= 1.0 (+ (* k!16 k!16) (* k!17 k!17)))\n  (= 1.0 (+ (* k!18 k!18) (* k!19 k!19)))\n  :precision precise :depth 4)\n)\n(concat-model-converter\n(filter-model-converter k!0 k!10 k!18 k!8 k!12 k!6 k!14 k!16 k!4 k!2)\n(extension-model-converter\n  (t0 (ite (>= k!0 0.0) (acos k!1) (+ (acos (- k!1)) pi)))\n  (t2 (ite (>= k!4 0.0) (acos k!5) (+ (acos (- k!5)) pi)))\n  (t5 (ite (>= k!10 0.0) (acos k!11) (+ (acos (- k!11)) pi)))\n  (t4 (ite (>= k!8 0.0) (acos k!9) (+ (acos (- k!9)) pi)))\n  (t7 (ite (>= k!14 0.0) (acos k!15) (+ (acos (- k!15)) pi)))\n  (t9 (ite (>= k!18 0.0) (acos k!19) (+ (acos (- k!19)) pi)))\n  (t8 (ite (>= k!16 0.0) (acos k!17) (+ (acos (- k!17)) pi)))\n  (t6 (ite (>= k!12 0.0) (acos k!13) (+ (acos (- k!13)) pi)))\n  (t1 (ite (>= k!2 0.0) (acos k!3) (+ (acos (- k!3)) pi)))\n  (t3 (ite (>= k!6 0.0) (acos k!7) (+ (acos (- k!7)) pi))))\n)\n",
 	// AUDIT.md tactic_arith_03-F7: recover-01 model order (get-model).
 	"recover01_two_vars_model.smt2": "sat\n(model \n  (define-fun x () Int\n    3)\n  (define-fun q () Bool\n    false)\n  (define-fun p () Bool\n    true)\n  (define-fun y () Int\n    7)\n  (define-fun r () Bool\n    true)\n)\n",
 	// AUDIT.md tactic_arith_03-F7: recover-01 interleaves the Boolean

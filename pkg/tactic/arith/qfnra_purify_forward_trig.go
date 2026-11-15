@@ -134,7 +134,11 @@ func (i *qfnraPurifyInvocation) publishModel(out *tactic.TacticResult) (err erro
 	}
 	var pairs []*forwardTrigPair
 	if i.trig != nil && i.trig.inv != nil {
-		pairs = i.trig.inv.pairOrder
+		// The extension loop walks m_sin_cos in obj_map order.
+		pairs, err = i.trig.inv.sinCosOrder()
+		if err != nil {
+			return err
+		}
 	}
 	m := i.owner.manager
 	filter, err := tactic.NewFilterModel(m)

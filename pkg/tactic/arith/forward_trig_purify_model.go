@@ -27,7 +27,12 @@ func (i *forwardTrigInvocation) publishModel(out *tactic.TacticResult) (err erro
 		return errors.Join(e, extension.Close())
 	}
 	defer func() { err = errors.Join(err, extension.DecRef()) }()
-	for _, pair := range i.pairOrder {
+	// m_sin_cos is an obj_map keyed by theta; walk it in table order.
+	pairs, e := i.sinCosOrder()
+	if e != nil {
+		return e
+	}
+	for _, pair := range pairs {
 		x, e := m.RefGet(pair.sin)
 		if e != nil {
 			return e
