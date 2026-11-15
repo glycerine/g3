@@ -694,6 +694,8 @@ namespace datalog {
                     return false; //overflow
                 }
                 res+=digit;
+                // FORK FIX #68 (g3 audit, see FORK_BUGFIXES.md): consume the digit; 4.7.1 rejected ULLONG_MAX (AUDIT cmd_context_02-F11)
+                s++;
             }
             else {
                 res*=10;
