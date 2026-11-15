@@ -43,6 +43,8 @@ func (e *maxResEngine) collectCoreBatch(first []ast.ASTHandle, result *Arithmeti
 		if err != nil {
 			return nil, lbool.Undef, err
 		}
+		// get_cores: ++m_stats.m_num_cores after every minimize_core.
+		e.stats.Cores++
 		if status != lbool.True {
 			break
 		}

@@ -16,6 +16,5 @@ func (e *maxResEngine) processCore(core []ast.ASTHandle) error {
 		return err
 	}
 	e.lower.Add(&e.lower, weight)
-	e.stats.Cores++
 	return nil
 }

@@ -2,6 +2,8 @@ package opt
 
 // Source: src/opt/maxres.cpp maxres::stats.
 
+import "github.com/glycerine/g3/pkg/util/statistics"
+
 type maxResStatistics struct {
 	Cores, Checks, Assumptions, Resolutions       uint32
 	Candidates, Improvements, CoreMinChecks       uint32
@@ -21,4 +23,10 @@ func (e *maxResEngine) statistics() MaxSMTStatistics {
 		UpperBoundBlocks: e.stats.UpperBoundBlocks,
 		Mutexes:          e.stats.Mutexes, MutexTerms: e.stats.MutexTerms, Auxiliaries: e.stats.Auxiliaries,
 	}
+}
+
+// collectStatistics is maxres::collect_statistics.
+func (e *maxResEngine) collectStatistics(st *statistics.Statistics) {
+	st.UpdateUint("maxres-cores", e.stats.Cores)
+	st.UpdateUint("maxres-correction-sets", e.stats.CorrectionSets)
 }

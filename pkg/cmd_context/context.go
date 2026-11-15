@@ -157,6 +157,14 @@ type Context struct {
 	optimizationSAT *satsolver.Solver
 	// retainedOptimizer is the last lex optimize()'s m_opt_solver.
 	retainedOptimizer *opt.ArithmeticSolver
+	// optimizationRunOptimizer is the optimizer runOptimize used during the
+	// current check-sat; optimizationStatsResult/optimizationStatsOptimizer
+	// pair the published opt check-sat result with it, so statistics
+	// reach opt::context::collect_statistics while m_check_sat_result is
+	// the opt context.
+	optimizationRunOptimizer   *opt.ArithmeticSolver
+	optimizationStatsResult    solver.CheckSatResult
+	optimizationStatsOptimizer *opt.ArithmeticSolver
 	// optimizationRunUsedSAT records that update_solver made
 	// optimizationSAT the last run's m_solver.
 	optimizationRunUsedSAT bool

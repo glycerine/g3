@@ -513,6 +513,7 @@ func (c *Context) runOptimize(assumptions []ast.ASTHandle, execute func(*opt.Ari
 		// allocates its replacement.
 		resultErr = errors.Join(resultErr, c.releaseRetainedOptimizer())
 		c.retainedOptimizer = optimizer
+		c.optimizationRunOptimizer = optimizer
 	}()
 	// optimize(): internalize() rewrites the arithmetic objectives, then
 	// check_sat on the hard constraints; a non-sat answer is the result.
@@ -713,6 +714,7 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 
 func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) (status lbool.LBool, resultErr error) {
 	c.optimizationException = ""
+	c.optimizationRunOptimizer = nil
 	execution, err := c.beginOptimizationExecution()
 	if err != nil {
 		return c.handleOptimizationFailure(err)
@@ -848,6 +850,7 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 		}
 	}
 	c.tacticResult = result
+	c.optimizationStatsResult, c.optimizationStatsOptimizer = result, c.optimizationRunOptimizer
 	c.status, c.checked = optimized.Status, true
 	published = true
 	return optimized.Status, nil

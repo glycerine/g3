@@ -57,11 +57,40 @@ func (c *Context) writeStatistics(out io.Writer, totalSeconds *float64) error {
 	}
 	st.UpdateUint64("rlimit count", m.Limit.Count())
 	if result := c.checkSatResult(); result != nil {
-		if err := result.CollectStatistics(st); err != nil {
+		if c.optimizationStatsOptimizer != nil && result == c.optimizationStatsResult && c.optimizationStatsOptimizer == c.retainedOptimizer {
+			if err := c.collectOptimizationStatistics(st); err != nil {
+				return err
+			}
+		} else if err := result.CollectStatistics(st); err != nil {
 			return err
 		}
 	}
 	return st.DisplaySMT2(out)
+}
+
+// collectOptimizationStatistics is opt::context::collect_statistics: m_solver
+// (the run's inc_sat_solver or opt_solver), m_simplify, each maxsmt, then
+// memory and rlimit again (the display sums the repeated keys).
+func (c *Context) collectOptimizationStatistics(st *statistics.Statistics) error {
+	optimizer := c.optimizationStatsOptimizer
+	if c.optimizationRunUsedSAT && c.optimizationSAT != nil {
+		if err := c.optimizationSAT.CollectStatistics(st); err != nil {
+			return err
+		}
+	} else if err := optimizer.CollectSolverStatistics(st); err != nil {
+		return err
+	}
+	if c.optimizationSimplify != nil {
+		c.optimizationSimplify.CollectStatistics(st)
+	}
+	optimizer.CollectMaxSMTStatistics(st)
+	statistics.AddProcessMemory(st)
+	m, err := c.Manager()
+	if err != nil {
+		return err
+	}
+	st.UpdateUint64("rlimit count", m.Limit.Count())
+	return nil
 }
 func (c *Context) WriteReasonUnknown(out io.Writer) error {
 	reason, err := c.ReasonUnknown()
