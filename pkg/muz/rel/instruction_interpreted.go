@@ -22,6 +22,7 @@ type interpretedFilterInstruction struct {
 	conditions      []ast.ASTRef
 	variableColumns map[uint32]int
 	variableSorts   map[uint32]ast.ASTHandle
+	numerals        *groundNumeralCache
 	closed          bool
 }
 
@@ -40,6 +41,7 @@ func newInterpretedFilterInstruction(manager *ast.ASTManager, relations *Relatio
 		accounting: base.NewAccountedObject(), manager: manager, relations: relations,
 		rewriter: rewriter, register: register, variableColumns: make(map[uint32]int, len(columns)),
 		variableSorts: make(map[uint32]ast.ASTHandle, len(sorts)),
+		numerals:      newGroundNumeralCache(relations),
 	}
 	for variable, column := range columns {
 		i.variableColumns[variable] = column
@@ -101,14 +103,19 @@ func (i *interpretedFilterInstruction) accepts(fact Fact) (accepted bool, result
 		if !found || column < 0 || column >= len(fact) {
 			return false, ErrInstruction
 		}
-		reference, err := i.relations.DecodeValue(sort, fact[column])
+		handle, cached, err := i.numerals.numeral(sort, fact[column])
 		if err != nil {
 			return false, err
 		}
-		references = append(references, reference)
-		handle, err := i.manager.RefGet(reference)
-		if err != nil {
-			return false, err
+		if !cached {
+			reference, err := i.relations.DecodeValue(sort, fact[column])
+			if err != nil {
+				return false, err
+			}
+			references = append(references, reference)
+			if handle, err = i.manager.RefGet(reference); err != nil {
+				return false, err
+			}
 		}
 		bindings[len(bindings)-int(variable)-1] = handle
 	}
@@ -289,6 +296,8 @@ func (i *interpretedFilterInstruction) Close() (result error) {
 		return nil
 	}
 	i.closed = true
+	result = i.numerals.close()
+	i.numerals = nil
 	for index := len(i.conditions) - 1; index >= 0; index-- {
 		result = errors.Join(result, i.manager.DelRef(&i.conditions[index]))
 	}

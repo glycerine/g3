@@ -14,7 +14,7 @@ func (r *TableRelation) FilterInterpreted(rewriter *astrewriter.TheoryRewriter, 
 	}
 	removed := make([]Fact, 0)
 	for _, fact := range r.table.rows.facts() {
-		accepted, err := r.acceptsInterpretedFact(rewriter, conditions, columns, sorts, fact)
+		accepted, err := r.acceptsInterpretedFact(rewriter, conditions, columns, sorts, fact, nil)
 		if err != nil {
 			return err
 		}

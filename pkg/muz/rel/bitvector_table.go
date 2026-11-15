@@ -507,7 +507,7 @@ func filterBitvectorInterpreted(table *BitvectorTable, manager *RelationManager,
 	relation := &TableRelation{manager: manager}
 	removed := make([]Fact, 0)
 	for _, fact := range facts {
-		accepted, evalErr := relation.acceptsInterpretedFact(rewriter, conditions, columns, sorts, fact)
+		accepted, evalErr := relation.acceptsInterpretedFact(rewriter, conditions, columns, sorts, fact, nil)
 		if evalErr != nil {
 			return evalErr
 		}

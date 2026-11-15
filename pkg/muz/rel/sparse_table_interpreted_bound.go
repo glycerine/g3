@@ -9,6 +9,12 @@ import (
 // do not necessarily equal relation columns. It computes all removals before
 // mutating packed storage.
 func filterSparseInterpretedBound(table *SparseTable, manager *RelationManager, rewriter *astrewriter.TheoryRewriter, conditions []ast.ASTHandle, columns map[uint32]int, sorts map[uint32]ast.ASTHandle) error {
+	return filterSparseInterpretedBoundCached(table, manager, rewriter, conditions, columns, sorts, nil)
+}
+
+// filterSparseInterpretedBoundCached reuses numerals across calls through
+// numerals (nil builds them per row).
+func filterSparseInterpretedBoundCached(table *SparseTable, manager *RelationManager, rewriter *astrewriter.TheoryRewriter, conditions []ast.ASTHandle, columns map[uint32]int, sorts map[uint32]ast.ASTHandle, numerals *groundNumeralCache) error {
 	if table == nil || table.open() != nil || manager == nil || manager.open() != nil || rewriter == nil || rewriter.Manager() != manager.manager || len(conditions) == 0 {
 		return ErrTable
 	}
@@ -29,7 +35,7 @@ func filterSparseInterpretedBound(table *SparseTable, manager *RelationManager, 
 	relation := &TableRelation{manager: manager}
 	removed := make([]Fact, 0)
 	for _, fact := range facts {
-		accepted, evalErr := relation.acceptsInterpretedFact(rewriter, conditions, columns, sorts, fact)
+		accepted, evalErr := relation.acceptsInterpretedFact(rewriter, conditions, columns, sorts, fact, numerals)
 		if evalErr != nil {
 			return evalErr
 		}

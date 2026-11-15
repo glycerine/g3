@@ -70,7 +70,7 @@ func (i *interpretedFilterProjectInstruction) projectSparse(table *SparseTable, 
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, clone.Close()) }()
-	if err = filterSparseInterpretedBound(clone, i.relations, i.rewriter, conditions, i.variableColumns, i.variableSorts); err != nil {
+	if err = filterSparseInterpretedBoundCached(clone, i.relations, i.rewriter, conditions, i.variableColumns, i.variableSorts, i.numerals); err != nil {
 		return nil, err
 	}
 	return clone.Project(i.removed)
