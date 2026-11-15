@@ -376,15 +376,7 @@ func (k *SMTKernel) configurePreprocessingParamsCore(context *uparams.ParamsCont
 	if err = k.internalizer.ConfigureDynamicAck(dynamic); err != nil {
 		return errors.Join(err, closeSMTKernelParams(full, borrowSource))
 	}
-	maintenance := SMTClauseMaintenanceConfig{
-		Strategy: fullState.LemmaGcStrategy, Half: fullState.LemmaGcHalf,
-		Recent: fullState.RecentLemmasSize, Initial: fullState.LemmaGcInitial,
-		Factor: fullState.LemmaGcFactor, InverseDecay: fullState.InvClauseDecay,
-		NewOldRatio: fullState.NewOldRatio, NewActivity: fullState.NewClauseActivity,
-		OldActivity: fullState.OldClauseActivity, NewRelevancy: fullState.NewClauseRelevancy,
-		OldRelevancy: fullState.OldClauseRelevancy,
-	}
-	if err = k.internalizer.ConfigureClauseMaintenance(maintenance); err != nil {
+	if err = k.internalizer.ConfigureClauseMaintenance(smtClauseMaintenanceConfigFor(fullState)); err != nil {
 		return errors.Join(err, closeSMTKernelParams(full, borrowSource))
 	}
 	if err = k.configureQueueHeuristics(fullState, false); err != nil {

@@ -28,6 +28,19 @@ func defaultSMTClauseMaintenanceConfig() SMTClauseMaintenanceConfig {
 	}
 }
 
+// smtClauseMaintenanceConfigFor selects the m_fparams fields that lemma
+// collection reads.
+func smtClauseMaintenanceConfigFor(state SMTParamsState) SMTClauseMaintenanceConfig {
+	return SMTClauseMaintenanceConfig{
+		Strategy: state.LemmaGcStrategy, Half: state.LemmaGcHalf,
+		Recent: state.RecentLemmasSize, Initial: state.LemmaGcInitial,
+		Factor: state.LemmaGcFactor, InverseDecay: state.InvClauseDecay,
+		NewOldRatio: state.NewOldRatio, NewActivity: state.NewClauseActivity,
+		OldActivity: state.OldClauseActivity, NewRelevancy: state.NewClauseRelevancy,
+		OldRelevancy: state.OldClauseRelevancy,
+	}
+}
+
 func (s *SMTInternalizerState) ConfigureClauseMaintenance(config SMTClauseMaintenanceConfig) error {
 	if err := s.open(); err != nil {
 		return err

@@ -373,6 +373,12 @@ func (k *SMTKernel) beginSearch() (*smtSearchSession, error) {
 	queue.phaseDefault = false
 	// init_search: m_num_conflicts_since_lemma_gc = 0 and
 	// m_lemma_gc_threshold = m_fparams.m_lemma_gc_initial.
+	// del_inactive_lemmas reads m_fparams when it runs, after setup has
+	// changed them (setup_QF_UFIDL sets m_lemma_gc_half for dense input).
+	// A kernel whose parameters were never configured keeps the defaults.
+	if k.smtParams != nil {
+		k.internalizer.clauseMaintenance = smtClauseMaintenanceConfigFor(k.smtState)
+	}
 	k.internalizer.conflictsSinceLemmaGC = 0
 	k.internalizer.lemmaGCThreshold = k.internalizer.clauseMaintenance.Initial
 	session := &smtSearchSession{
