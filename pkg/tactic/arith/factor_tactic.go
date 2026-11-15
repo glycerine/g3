@@ -83,15 +83,30 @@ func (c *factorRewriteConfig) ReduceApp(decl ast.ASTHandle, arguments ast.AppArg
 		return rewriter.RewriteFailed, err
 	}
 	if equality {
+		// C++ reduce_app: m.is_eq(f) && (m_util.is_arith_expr(args[0]) ||
+		// m_util.is_arith_expr(args[1])) && !m.is_bool(args[0]); otherwise
+		// the basic-family equality falls through to BR_FAILED.
+		arith, e := c.isArithExpr(left)
+		if e != nil {
+			return rewriter.RewriteFailed, e
+		}
+		if !arith {
+			if arith, e = c.isArithExpr(right); e != nil {
+				return rewriter.RewriteFailed, e
+			}
+		}
+		if !arith {
+			return rewriter.RewriteFailed, nil
+		}
 		sort, e := m.GetSort(left)
 		if e != nil {
 			return rewriter.RewriteFailed, e
 		}
-		sortFamily, e := m.GetFamilyID(sort)
+		boolean, e := m.MkBoolSort()
 		if e != nil {
 			return rewriter.RewriteFailed, e
 		}
-		if sortFamily != c.invocation.owner.arithmetic {
+		if sort == boolean {
 			return rewriter.RewriteFailed, nil
 		}
 	}
@@ -105,6 +120,21 @@ func (c *factorRewriteConfig) ReduceApp(decl ast.ASTHandle, arguments ast.AppArg
 		return rewriter.RewriteFailed, err
 	}
 	return rewriter.RewriteDone, m.SetRef(out, handle)
+}
+
+// isArithExpr is C++ arith_util::is_arith_expr: is_app(n) and the head
+// symbol's family is arith (not the sort of n).
+func (c *factorRewriteConfig) isArithExpr(h ast.ASTHandle) (bool, error) {
+	m := c.invocation.owner.manager
+	kind, err := m.GetKind(h)
+	if err != nil || kind != ast.ASTApp {
+		return false, err
+	}
+	family, err := m.GetFamilyID(h)
+	if err != nil {
+		return false, err
+	}
+	return family == c.invocation.owner.arithmetic, nil
 }
 
 func (i *factorInvocation) difference(left, right ast.ASTHandle) (_ *polynomial.PolynomialRef, matched bool, err error) {

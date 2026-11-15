@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_arith_02-F1: factor sends an equality to expr2polynomial
+	// only when a side is_arith_expr.
+	"factor_eq_var_order.smt2": "(goals\n(goal\n  (= c b)\n  (> (* (+ c (- 3)) (+ b (- 2)) (+ a (- 1))) 0)\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md tactic_top_01-F5: sine-filter re-asserts with null proofs under
 	// produce-proofs; goal::assert_expr only SASSERTs proof presence.
 	"sine_filter_proofs.smt2": "(goals\n(goal\n  (r b)\n  :precision over :depth 1)\n)\n",

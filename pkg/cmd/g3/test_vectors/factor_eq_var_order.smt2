@@ -1,0 +1,6 @@
+(declare-const a Int)
+(declare-const b Int)
+(declare-const c Int)
+(assert (= c b))
+(assert (> (* (- a 1) (- b 2) (- c 3)) 0))
+(apply factor)

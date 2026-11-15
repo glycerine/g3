@@ -93,3 +93,47 @@ func TestFactorTacticStrictEvenPowerAndParameterUpdate(t *testing.T) {
 		t.Fatal("split_factors parameter was ignored")
 	}
 }
+
+// AUDIT.md tactic_arith_02-F1: C++ reduce_app factors an equality only when
+// one side is an arithmetic application (is_arith_expr), so (= c b) never
+// reaches expr2polynomial and does not fix the variable order.
+func TestFactorTacticSkipsNonArithEqualityVariableOrder(t *testing.T) {
+	base, m := fixDLFixture(t, false)
+	runner, err := NewFactorTactic(m, base.context, base.globals, nil, base.services)
+	equationMust(t, err)
+	t.Cleanup(func() { equationMust(t, runner.Close()) })
+	a := fixDLConst(t, m, true, "factor-order-a")
+	b := fixDLConst(t, m, true, "factor-order-b")
+	c := fixDLConst(t, m, true, "factor-order-c")
+	zero := fixDLNumber(t, m, true, "0")
+	one := fixDLNumber(t, m, true, "1")
+	two := fixDLNumber(t, m, true, "2")
+	three := fixDLNumber(t, m, true, "3")
+	product := fixDLApp(t, m, 9, fixDLApp(t, m, 7, a, one), fixDLApp(t, m, 7, b, two), fixDLApp(t, m, 7, c, three))
+	positive := fixDLApp(t, m, factorGT, product, zero)
+	eq, err := m.MkEq(c, b)
+	equationMust(t, err)
+	fixDLPin(t, m, eq)
+	goal, err := tactic.NewGoal(m, false, false, false)
+	equationMust(t, err)
+	t.Cleanup(func() { equationMust(t, goal.Close()) })
+	equationMust(t, goal.Assert(eq))
+	equationMust(t, goal.Assert(positive))
+	var result tactic.TacticResult
+	t.Cleanup(func() { equationMust(t, result.Close()) })
+	equationMust(t, runner.Apply(goal, &result))
+	if f, err := goal.Form(0); err != nil || f != eq {
+		t.Fatal("equality changed", err)
+	}
+	rewritten, err := goal.Form(1)
+	equationMust(t, err)
+	prod, err := m.GetArg(rewritten, 0)
+	equationMust(t, err)
+	first, err := m.GetArg(prod, 0)
+	equationMust(t, err)
+	head, err := m.GetArg(first, 0)
+	equationMust(t, err)
+	if head != c {
+		t.Fatal("first factor is not (+ c (- 3)): expr2polynomial saw (= c b)")
+	}
+}
