@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md math_subpaving_01-F3: relevant_new_bound catches the mpf
+	// non-regular exception on a fixed variable.
+	"subpaving_mpf_fixed_var.smt2": "(goals\n(goal\n  (>= a 2.0)\n  (<= a 2.0)\n  (>= b 1.0)\n  (<= b 3.0)\n  (<= (* a b) 100.0)\n  (>= (* a b) 1.0)\n  :precision precise :depth 2)\n)\n",
 	// AUDIT.md math_misc_02-F1: resolve normalizes row_dst after the
 	// opposite-sign integer mul_add.
 	"qe2_int_resolve_normalize.smt2": "(goals\n(goal\n  (<= (+ z (* (- 1) y)) 0)\n  :precision precise :depth 1)\n)\n",

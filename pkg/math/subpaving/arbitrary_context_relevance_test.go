@@ -119,3 +119,37 @@ func TestArbitraryContextSourceCandidateRelevanceAndNormalization(t *testing.T) 
 		}
 	})
 }
+
+// AUDIT.md math_subpaving_01-F3: relevant_new_bound catches C::exception.
+// On a fixed variable sub(upper, lower) is zero, which f2n<mpf> rejects as
+// non-regular; the candidate is refused and the context marked failed.
+func TestArbitraryRelevantNewBoundCatchesNonRegular(t *testing.T) {
+	f := newArbitraryClauseFixtureWithPolicy(t, 2, false)
+	c := f.context
+	root, err := c.Root()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var three numeral.ArbitraryFloat
+	if err := f.numbers.SetInt32(&three, 3); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := f.numbers.Del(&three); err != nil {
+			t.Error(err)
+		}
+	})
+	if err := c.PublishBound(root, f.x, &f.four, true, false, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.PublishBound(root, f.x, &f.four, false, false, true); err != nil {
+		t.Fatal(err)
+	}
+	if c.arithmeticFailed {
+		t.Fatal("arithmetic failed before the candidate")
+	}
+	relevant, err := c.RelevantNewBound(root, f.x, &three, true, false)
+	if err != nil || relevant || !c.arithmeticFailed {
+		t.Fatalf("non-regular gap: relevant=%v err=%v failed=%v", relevant, err, c.arithmeticFailed)
+	}
+}

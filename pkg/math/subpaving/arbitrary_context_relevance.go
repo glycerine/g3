@@ -4,6 +4,8 @@ package subpaving
 // candidate normalization and bound relevance.
 
 import (
+	"errors"
+
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
@@ -48,13 +50,21 @@ func (c *ArbitraryContext) NormalizeBound(variable uint32, value *numeral.Arbitr
 
 // RelevantNewBound evaluates conflict, zero-epsilon improvement, max-bound,
 // then positive-epsilon gap in the source order. Candidate is normalized.
-func (c *ArbitraryContext) RelevantNewBound(n *ArbitraryNode, variable uint32, candidate *numeral.ArbitraryFloat, lower, open bool) (bool, error) {
+// A non-regular mpf result marks the context failed and refuses the
+// candidate, matching the source catch of C::exception.
+func (c *ArbitraryContext) RelevantNewBound(n *ArbitraryNode, variable uint32, candidate *numeral.ArbitraryFloat, lower, open bool) (relevant bool, err error) {
 	if err := c.checkNode(n, variable); err != nil {
 		return false, err
 	}
 	if candidate == nil {
 		return false, arena.ErrInvalidSlot
 	}
+	defer func() {
+		if errors.Is(err, numeral.ErrArbitraryFloatNonRegular) {
+			c.arithmeticFailed = true
+			relevant, err = false, nil
+		}
+	}()
 	m := c.numbers
 	currentLower, currentUpper := n.lower[variable], n.upper[variable]
 	if err := c.traceRelevantCandidate(variable, candidate, lower, open, currentLower, currentUpper); err != nil {
@@ -214,7 +224,7 @@ func (c *ArbitraryContext) RelevantNewBound(n *ArbitraryNode, variable uint32, c
 	if err := m.Sub(&currentUpper.value, delta, delta); err != nil {
 		return false, err
 	}
-	relevant, err := m.Less(candidate, delta)
+	relevant, err = m.Less(candidate, delta)
 	if err != nil {
 		return false, err
 	}
