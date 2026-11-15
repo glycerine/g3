@@ -106,7 +106,15 @@ func (v *LiteralVector) Close() error {
 		return ErrSearchOwner
 	}
 	if err := v.solver.open(); err != nil {
-		return err
+		// The C++ destructor only dec_refs the literals: the interrupted
+		// search's scoped locals were already destroyed as its exception
+		// left the solver call. Finish that unwinding first.
+		if e := v.solver.cleanupInterrupted(); e != nil {
+			return e
+		}
+		if err = v.solver.open(); err != nil {
+			return err
+		}
 	}
 	if err := v.values.close(); err != nil {
 		return err

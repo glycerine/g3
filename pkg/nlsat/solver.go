@@ -145,6 +145,27 @@ func (s *Solver) open() error {
 	return s.search.open()
 }
 
+// cleanupInterrupted completes the unwinding of a solver call stopped by an
+// exception (a cancellation, say): the scoped locals of the interrupted
+// search and evaluator calls, which C++ destroys as the exception leaves.
+func (s *Solver) cleanupInterrupted() error {
+	if s == nil || s.closed || s.search == nil {
+		return ErrSearchOwner
+	}
+	if s.atoms != nil && s.atoms.failed {
+		if err := s.atoms.cleanup(); err != nil {
+			return err
+		}
+	}
+	if err := s.search.cleanup(); err != nil {
+		return err
+	}
+	if s.evaluator != nil && s.evaluator.failed {
+		return s.evaluator.Cleanup()
+	}
+	return nil
+}
+
 func (s *Solver) PolynomialManager() (*polynomial.MultivariatePolynomialManager, error) {
 	if err := s.open(); err != nil {
 		return nil, err

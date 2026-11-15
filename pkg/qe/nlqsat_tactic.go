@@ -5,7 +5,6 @@ package qe
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/util/statistics"
-	"github.com/glycerine/g3/pkg/util/z3exception"
 	"math"
 	"reflect"
 
@@ -383,8 +382,10 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	if err = initExpr2Var(solver, compiler, preparation.variables); err != nil {
 		return err
 	}
+	// nlqsat::operator() has no try/catch: g2s's exceptions (a tactic_exception
+	// for a non-NRA goal, a default_exception on cancellation) leave as thrown.
 	if err = compiler.Compile(cnfGoal); err != nil {
-		return tactic.NewTacticException(z3exception.SourceMessage(err))
+		return err
 	}
 	if err = releaseCNF(); err != nil {
 		return err
@@ -397,7 +398,7 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	status, err := search.check()
 	t.rounds = uint64(search.rounds)
 	if err != nil {
-		return tactic.NewTacticException(z3exception.SourceMessage(err))
+		return err
 	}
 	if status == lbool.Undef {
 		return tactic.NewTacticException("search failed")
