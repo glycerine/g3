@@ -634,6 +634,7 @@ namespace datalog {
         for(unsigned i=0; i<col_cnt; i++) {
             //if at least one end of an equality is not an inner column, we ignore that equality
             //(which introduces imprecision)
+            // FORK FIX #54 (g3 audit, see FORK_BUGFIXES.md): sieve negation inner-column test was inverted and indexed by loop position (AUDIT muz_rel_06-F5)
             bool r_col_inner = !r_sieved || sr->is_inner_col(r_cols[i]);
             bool neg_col_inner = !neg_sieved || sneg->is_inner_col(neg_cols[i]);
             if(r_col_inner && neg_col_inner) {
