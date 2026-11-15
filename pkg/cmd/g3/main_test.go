@@ -368,6 +368,15 @@ var scriptResults = map[string]string{
 	"opt_find_mutexes_no_binary_opt.smt2": "sat\n(objectives\n ( 3)\n)\n(model \n  (define-fun b () Bool\n    false)\n  (define-fun a () Bool\n    true)\n  (define-fun c () Bool\n    false)\n)\n",
 	// z3 4.7.1 bugs fixed in the C++ fork (FORK_BUGFIXES.md): build/z3 is rebuilt
 	// from the fork, so these are checked against it like any other vector.
+	"z3_bug_sortmax_uninit_cmp.smt2":                    "sat\n(objectives\n ( 5)\n)\n(model \n  (define-fun d () Bool\n    true)\n  (define-fun b () Bool\n    true)\n  (define-fun a () Bool\n    false)\n  (define-fun c () Bool\n    false)\n)\n", // opt_01 sortmax psort_nw m_t (fork fix #A)
+	"z3_bug_datatype_inst_after_pop.smt2":               "sat\nsat\n",
+	"z3_bug_define_sort_alias_after_pop.smt2":           "sat\nsat\n",
+	"z3_bug_get_value_max_steps.smt2":                   "sat\n((error \"line 7 column 38: max. steps exceeded\")\n((x 1))\n(((+ x y 1 (* 2 x) (* 3 y)) 0))\n",
+	"z3_bug_bvarray2uf_quantifier.smt2":                 "(error \"line 5 column 17: not handled by bvarray2uf\")\n(error \"tactic failed: not handled by bvarray2uf\")\n(error \"line 9 column 17: not handled by bvarray2uf\")\n",
+	"z3_bug_symmetry_reduce_quantified.smt2":            "(error \"tactic failed: symmetry_reduce does not apply to quantified goals\")\nsat\nunknown\n",
+	"z3_bug_sine_filter_component.smt2":                 "(goals\n(goal\n  :precision over :depth 1)\n)\n(goals\n(goal\n  (> x 0)\n  :precision over :depth 1)\n)\n",
+	"z3_bug_elim_small_bv.smt2":                         "(goals\n(goal\n  (forall ((z Int)) (<= x z))\n  :precision precise :depth 1)\n)\n(goals\n(goal\n  false\n  :precision precise :depth 1)\n)\nunsat\n(goals\n(goal\n  (forall ((y (_ BitVec 2))) (q y))\n  :precision precise :depth 1)\n)\n(goals\n(goal\n  (q #b00)\n  (q #b01)\n  (q #b10)\n  (q #b11)\n  :precision precise :depth 1)\n)\n",
+	"elim_small_bv_max_steps_simplifier.smt2":           "(goals\n(goal\n  (forall ((x (_ BitVec 2)) (y (_ BitVec 2)) (z (_ BitVec 2))) (p x y z))\n  (forall ((x (_ BitVec 2))) (q x))\n  :precision precise :depth 1)\n)\n",
 	"z3_bug_rec_fun_model_eval.smt2":                    "sat\n(((even 0) true)\n ((even 5) false)\n ((odd 5) true))\n",
 	"z3_bug_datatype_param_size_subst.smt2":             "unsat\n",
 	"z3_bug_goal_update_flattened_false.smt2":           "(goals\n(goal\n  false\n  :precision precise :depth 1)\n)\n",
@@ -2126,6 +2135,9 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	// z3 4.7.1 bugs fixed in the fork whose correct output reports a command error.
+	"z3_bug_bvarray2uf_quantifier.smt2": true, // apply: not handled by bvarray2uf
+	"z3_bug_get_value_max_steps.smt2":   true, // get-value: max. steps exceeded
 	// AUDIT.md ast_05-F2: one-Real to_fp is rejected.
 	"fpa_to_fp_one_real.smt2": true,
 	// rlimit_agree: the resource limit stops qe2 inside a rewriter (z3's error).
@@ -2210,8 +2222,10 @@ func expectedParseError(name string, err error) bool {
 	if !parseErrorScripts[name] || err == nil {
 		return false
 	}
-	first := strings.SplitN(scriptResults[name], "\n", 2)[0]
-	return first == "(error \""+err.Error()+"\")"
+	// run returns the first command error; it is usually the first output
+	// line, but a command such as get-value can report it after earlier
+	// output, nested in its own result list.
+	return strings.Contains(scriptResults[name], "(error \""+err.Error()+"\")")
 }
 
 func TestSMTLibRunnerScripts(t *testing.T) {
