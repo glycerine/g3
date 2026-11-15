@@ -44,12 +44,21 @@ func TestDualityNativeSolverSettingsAndProofModeRestoration(t *testing.T) {
 			name string
 			want bool
 		}{
-			{"proof", true}, {"model", true}, {"unsat_core", true}, {"eq2ineq", true}, {"mbqi", mbqi},
+			{"proof", true}, {"model", true}, {"unsat_core", true}, {"mbqi", mbqi},
 		} {
 			got, err := settings.Params.GetBoolName(p, &tc.name, !tc.want)
 			must(err)
 			if got != tc.want {
 				t.Fatalf("%s=%v want %v", tc.name, got, tc.want)
+			}
+		}
+		// AUDIT.md duality_01-F3: Duality::solver::solver never sets eq2ineq.
+		eq2ineq := "eq2ineq"
+		for _, fallback := range []bool{false, true} {
+			got, err := settings.Params.GetBoolName(p, &eq2ineq, fallback)
+			must(err)
+			if got != fallback {
+				t.Fatal("native solver sets eq2ineq", got)
 			}
 		}
 		name := "mbqi.id"

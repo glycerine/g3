@@ -34,7 +34,7 @@ func NewNativeSolver(context *graph.Context, params *uparams.ParamsContext, fact
 		name  string
 		value bool
 	}{
-		{"proof", true}, {"model", true}, {"unsat_core", true}, {"mbqi", mbqi}, {"eq2ineq", true},
+		{"proof", true}, {"model", true}, {"unsat_core", true}, {"mbqi", mbqi},
 	} {
 		if err := params.SetBoolName(p, &setting.name, setting.value); err != nil {
 			return nil, err

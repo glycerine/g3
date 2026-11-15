@@ -23,6 +23,9 @@ type derivationExpansionCleanup struct {
 // a borrowed derivation tree. Solver scopes are pushed by its search caller.
 type BacktrackingDerivation struct {
 	sourceCovering *Covering
+	// sourceUnwinding is the outer solver whose updated_nodes RecordUpdate
+	// (through Duality::UpdateNodeToNode) marks.
+	sourceUnwinding *Unwinding
 	*DerivationTree
 	stack        []derivationLevel
 	nodeMap      map[*Node][]*Node

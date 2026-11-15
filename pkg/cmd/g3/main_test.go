@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md duality_01-F3 (with duality_03-F1): the native Duality solver
+	// does not set eq2ineq, so the learned invariant keeps its equalities.
+	"duality_no_eq2ineq_interpolant.smt2": "unsat\n(fixedpoint \n(define-fun err () Bool\n  false)\n(define-fun @Fail!0 () Bool\n  false)\n(define-fun q0 ((x!0 Int) (x!1 Int)) Bool\n  (or (and (= x!1 1) (= x!0 3)) (and (<= x!0 0) (= x!1 4))))\n)\n",
 	// AUDIT.md interp_02-F2: iZ3 simplifies with z3_simplify (no som or
 	// sort_sums), so sums keep rewriter order.
 	"interp_sum_order_get_interpolant.smt2": "unsat\n(interpolants\n (not (<= (+ (* (- 1) z) x) 1)))\n",

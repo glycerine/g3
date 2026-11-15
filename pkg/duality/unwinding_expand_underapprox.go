@@ -45,6 +45,7 @@ func (u *Unwinding) ExpandUnderapproxNodes(tree *RPFP, root *Node, services *Der
 			return err
 		}
 		derivation.sourceCovering = u.covering
+		derivation.sourceUnwinding = u
 		search := &DerivationSearch{Search: derivation, Checker: services.Checker, Auxiliary: services.Auxiliary, Simplifier: services.Simplifier, Cases: services.Cases, Config: services.Config, EnableRestarts: services.EnableRestarts}
 		sat, err := search.Derive(original, useUnderapprox, true)
 		if err != nil {

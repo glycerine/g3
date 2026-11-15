@@ -66,6 +66,7 @@ func (s *UnwindingSearch) newDerivation() (out *DerivationSearch, result error) 
 		return nil, err
 	}
 	bookkeeping.sourceCovering = u.covering
+	bookkeeping.sourceUnwinding = u
 	return &DerivationSearch{Search: bookkeeping, Checker: s.Local, Auxiliary: s.Auxiliary, Simplifier: s.Simplifier, Cases: s.Cases, Config: s.Config, EnableRestarts: s.EnableRestarts}, nil
 }
 

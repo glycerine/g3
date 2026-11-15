@@ -55,6 +55,13 @@ func (d *BacktrackingDerivation) RecordAnnotationUpdate(node *Node, aux solver.S
 			return false, err
 		}
 	}
+	// Duality::Update: updated_nodes.insert(node->map) on the outer solver.
+	if u := d.sourceUnwinding; u != nil {
+		if u.updatedNodes == nil {
+			u.updatedNodes = make(map[*Node]bool)
+		}
+		u.updatedNodes[original.Map] = true
+	}
 	if err = original.Annotation.IntersectWith(node.Annotation); err != nil {
 		return false, err
 	}

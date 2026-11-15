@@ -125,3 +125,57 @@ func TestDerivationUpdatesPropagateAcrossInstancesAndBacktracking(t *testing.T) 
 	}
 	must(working.Pop(1))
 }
+
+// AUDIT.md duality_03-F1: DerivationTreeSlow::RecordUpdate goes through
+// Duality::UpdateNodeToNode, so a learned fact marks the source node in the
+// outer solver's updated_nodes.
+func TestRecordAnnotationUpdateMarksOuterUpdatedNodes(t *testing.T) {
+	ctx, _, aux := dualityNativeSolverFixture(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	source, err := NewRPFP(ctx)
+	must(err)
+	defer source.Close()
+	term, err := ctx.BoolConst("record-update-R")
+	must(err)
+	closeExpr(t, term)
+	relation, err := source.CreateNode(term)
+	must(err)
+	graph, err := NewRPFPWithVocabulary(source.vocabulary)
+	must(err)
+	defer graph.Close()
+	covering, err := NewCovering(graph, aux)
+	must(err)
+	unwinding, err := NewUnwinding(source, graph, covering)
+	must(err)
+	instance, err := unwinding.CreateNodeInstance(relation, 0)
+	must(err)
+	working, err := NewRPFPWithVocabulary(source.vocabulary)
+	must(err)
+	defer working.Close()
+	base, err := NewDerivationTree(graph, working)
+	must(err)
+	search, err := NewBacktrackingDerivation(base)
+	must(err)
+	search.sourceCovering = covering
+	search.sourceUnwinding = unwinding
+	top, err := base.CreateApproximatedInstance(instance)
+	must(err)
+	base.Top = top
+	if unwinding.updatedNodes[relation] {
+		t.Fatal("source node marked before any update")
+	}
+	must(top.Annotation.SetEmpty())
+	changed, err := search.RecordAnnotationUpdate(top, aux)
+	must(err)
+	if !changed {
+		t.Fatal("learned false was redundant")
+	}
+	if !unwinding.updatedNodes[relation] {
+		t.Fatal("outer updated_nodes does not hold the source node")
+	}
+}

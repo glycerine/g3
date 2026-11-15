@@ -11,9 +11,9 @@ import (
 )
 
 // EngineConfig borrows the native solvers, factory, interpolation manager and
-// evaluator services. Native must produce proofs; arithmetic interpolation
-// requires eq2ineq normalization before assertions so certificates use the
-// supported inequality rules. Theory expressions are copied. A nil Quantifiers asks
+// evaluator services. Native must produce proofs; like the C++
+// Duality::solver it does not set eq2ineq, so arithmetic proofs iZ3 cannot
+// interpolate make the query fail. Theory expressions are copied. A nil Quantifiers asks
 // the engine to own its qe-lite service; a supplied service stays borrowed.
 type EngineConfig struct {
 	ReportOutput      io.Writer
