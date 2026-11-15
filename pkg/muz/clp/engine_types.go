@@ -8,13 +8,15 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 var ErrCLP = errors.New("muz/clp: invalid bounded search")
 
-// ErrSolverUnknown matches the source CLP solver-check failure. A search depth
+// ErrSolverUnknown matches the source CLP solver-check failure,
+// clp::imp::search's throw default_exception("undef"). A search depth
 // limit instead returns lbool.Undef without an error.
-var ErrSolverUnknown = errors.New("undef")
+var ErrSolverUnknown error = z3exception.NewDefaultException("undef")
 
 type Solver interface {
 	Push() error

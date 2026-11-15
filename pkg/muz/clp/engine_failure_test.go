@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/muz/clp"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/memory"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 func TestCLPSolverFailureBalancesScope(t *testing.T) {
@@ -194,5 +195,22 @@ func TestCLPSolverUnknownRaisesSourceErrorAndRestoresScope(t *testing.T) {
 	result, err := engine.Query(f.app["Q"])
 	if err != nil || result != lbool.True {
 		t.Fatal("retry", result, err)
+	}
+}
+
+// AUDIT.md muz_small_01-F3: clp::imp::search throws default_exception("undef")
+// on an unknown solver check, which dl_query_cmd reports as "query failed".
+func TestCLPSolverUnknownIsDefaultException(t *testing.T) {
+	f := newFixture(t)
+	f.solver.checks = []lbool.LBool{lbool.Undef}
+	engine, err := clp.NewEngine(f.m, f.set, f.solver, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer engine.Close()
+	_, err = engine.Query(f.app["Q"])
+	var exception z3exception.DefaultException
+	if !errors.As(err, &exception) || exception.Message() != "undef" {
+		t.Fatal("solver unknown is not default_exception(\"undef\")", err)
 	}
 }

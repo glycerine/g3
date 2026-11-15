@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_small_01-F3: an unknown CLP solver check throws
+	// default_exception("undef"), reported as "query failed".
+	"fp_clp_solver_undef.smt2": "(error \"query failed: undef\")\nunknown\ndone\n",
 	// AUDIT.md muz_small_01-F10: a DDNF compile sort error is an
 	// ast_exception, caught by dl_query_cmd as "query failed".
 	"fp_ddnf_compile_sort_mismatch.smt2": "(error \"query failed: Sort mismatch at argument #1 for function (declare-fun p ((_ BitVec 3)) Bool) supplied sort is (_ BitVec 4)\")\nunknown\ndone\n",
