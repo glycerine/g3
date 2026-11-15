@@ -1,0 +1,6 @@
+(declare-sort L 1)
+(declare-fun x () (L Int))
+(declare-fun y () (L Real))
+(assert (= x y))
+(declare-fun arr () (Array (L Int) Int))
+(assert (= arr x))

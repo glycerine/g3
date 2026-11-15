@@ -306,7 +306,12 @@ func (c *Context) WriteReplaySMT2(out io.Writer) error {
 		if err := c.writeReplaySortDeclarations(out, begin, end, emittedSorts); err != nil {
 			return err
 		}
-		if err := c.writeReplayFormulaDeclarations(out, begin, end, emittedDecls, emittedSorts); err != nil {
+		// Declarations print their sorts through cmd_context's pp_env
+		// (pdecl_manager::pp), which spells instantiated parametric user
+		// sorts such as (Box Bool); the base printer prints only the name.
+		if err := c.withPPEnv(func() error {
+			return c.writeReplayFormulaDeclarations(out, begin, end, emittedDecls, emittedSorts)
+		}); err != nil {
 			return err
 		}
 		if err := c.writeReplayAssertions(out, begin, end); err != nil {

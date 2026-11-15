@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_07-F3: the base sort printer prints an instantiated user sort
+	// as its name, as smt2_pp_environment::pp_sort does.
+	"smt2_pp_user_sort_param_error.smt2": "(error \"line 4 column 14: Sorts L and L are incompatible\")\n(error \"line 6 column 16: Sorts (Array L Int) and L are incompatible\")\n",
 	// AUDIT.md ast_05-F2: fpa_decl_plugin rejections print the C++ exception
 	// text.
 	"fpa_decl_error_messages.smt2": "(error \"line 5 column 31: sort mismatch, expected one argument of Real sort\")\n(error \"line 6 column 29: Unexpected argument combination for (_ to_fp eb sb). Supported argument combinations are: ((_ BitVec 1) (_ BitVec eb) (_ BitVec sb-1)), (_ BitVec (eb+sb)), (Real), (RoundingMode (_ BitVec (eb+sb))), (RoundingMode (_ FloatingPoint eb' sb')), (RoundingMode Int Real), (RoundingMode Real Int), (RoundingMode Int), and (RoundingMode Real).\")\n(error \"line 7 column 35: Unexpected argument combination for (_ to_fp eb sb). Supported argument combinations are: ((_ BitVec 1) (_ BitVec eb) (_ BitVec sb-1)), (_ BitVec (eb+sb)), (Real), (RoundingMode (_ BitVec (eb+sb))), (RoundingMode (_ FloatingPoint eb' sb')), (RoundingMode Int Real), (RoundingMode Real Int), (RoundingMode Int), and (RoundingMode Real).\")\n(error \"line 8 column 20: sort mismatch, expected three bit-vectors, the first one of size 1.\")\n(error \"line 9 column 20: invalid number of arguments to fp\")\n(error \"line 10 column 29: Unexpected argument combination for (_ to_fp eb sb). Supported argument combinations are: ((_ BitVec 1) (_ BitVec eb) (_ BitVec sb-1)), (_ BitVec (eb+sb)), (Real), (RoundingMode (_ BitVec (eb+sb))), (RoundingMode (_ FloatingPoint eb' sb')), (RoundingMode Int Real), (RoundingMode Real Int), (RoundingMode Int), and (RoundingMode Real).\")\n(error \"line 11 column 34: Unexpected argument combination for (_ to_fp eb sb). Supported argument combinations are: ((_ BitVec 1) (_ BitVec eb) (_ BitVec sb-1)), (_ BitVec (eb+sb)), (Real), (RoundingMode (_ BitVec (eb+sb))), (RoundingMode (_ FloatingPoint eb' sb')), (RoundingMode Int Real), (RoundingMode Real Int), (RoundingMode Int), and (RoundingMode Real).\")\n(error \"line 12 column 33: Unexpected argument combination for (_ to_fp eb sb). Supported argument combinations are: ((_ BitVec 1) (_ BitVec eb) (_ BitVec sb-1)), (_ BitVec (eb+sb)), (Real), (RoundingMode (_ BitVec (eb+sb))), (RoundingMode (_ FloatingPoint eb' sb')), (RoundingMode Int Real), (RoundingMode Real Int), (RoundingMode Int), and (RoundingMode Real).\")\n(error \"line 15 column 35: expecting two integer parameters to floating point sort (ebits, sbits)\")\nsat\n",
@@ -1888,6 +1891,9 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	// AUDIT.md ast_07-F3
+	"smt2_pp_user_sort_param_error.smt2": true,
+
 	// AUDIT.md ast_05-F2
 	"fpa_decl_error_messages.smt2": true,
 

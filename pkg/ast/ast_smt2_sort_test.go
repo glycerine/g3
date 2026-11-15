@@ -76,7 +76,7 @@ func TestASTSMT2SortSourceBuiltinAndParametricFormats(t *testing.T) {
 		{bvSort, "(_ BitVec 13)"}, {arraySort, "(Array Bool (_ BitVec 13))"},
 		{floatSort, "(_ FloatingPoint 8 24)"}, {stringSort, "String"},
 		{seqSort, "(Seq Bool)"}, {reSort, "(RegEx Bool)"},
-		{parametric, "(Box Bool)"}, {userParametric, "(UserBox Bool)"}, {custom, "Custom"},
+		{parametric, "(Box Bool)"}, {userParametric, "UserBox"}, {custom, "Custom"},
 	} {
 		format, e := m.SMT2PPSort(tc.sort)
 		paramsMust(t, e)
