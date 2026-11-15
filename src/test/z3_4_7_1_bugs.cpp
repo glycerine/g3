@@ -98,6 +98,10 @@ Abstract:
     z3_4_7_1_duality_failed_query_requery a Duality query after one that
                                   threw dereferences the null old solver
                                   and segfaults.
+    z3_4_7_1_duality_underapprox_flag_literals with use_underapprox,
+                                  FixCurrentState fixes the @under flags and
+                                  the next ExpansionChoices check throws
+                                  (pkg/AUDIT.md duality_02-F2).
     z3_4_7_1_implicant_nested_array_eq once a nested array index makes
                                   model_implicant::eval_array_eq mark the
                                   equality true, a later differing index
@@ -1518,4 +1522,24 @@ void tst_z3_4_7_1_implicant_nested_array_eq() {
     for (expr* l : lits) std::cout << " " << mk_pp(l, m);
     std::cout << "\n";
     ENSURE(lits.size() == 1 && lits.get(0) == neq.get());
+}
+
+// With fixedpoint.duality.use_underapprox, RPFP::FixCurrentState runs
+// UnderapproxFormula on the edge dual with an empty dont_cares set, so the
+// (or (not @underK) U_K) disjuncts fix the model polarity of the @under
+// flags into the edge constraints. The next ExpansionChoices check assumes
+// the opposite polarity, is unsat, and Duality throws the char const*
+// "error in ExpansionChoices", which escapes and aborts z3. Reach(2) is
+// derivable (0, 1, 2), so the answer is sat. pkg/AUDIT.md duality_02-F2.
+void tst_z3_4_7_1_duality_underapprox_flag_literals() {
+    char const* script =
+        "(set-option :fixedpoint.engine duality)\n"
+        "(set-option :fixedpoint.duality.use_underapprox true)\n"
+        "(declare-rel Reach (Int))\n"
+        "(declare-rel Goal ())\n"
+        "(declare-var x Int)\n"
+        "(rule (=> (or (= x 0) (and (> x 0) (Reach (- x 1)))) (Reach x)))\n"
+        "(rule (=> (and (Reach x) (= x 2)) Goal))\n"
+        "(query Goal)\n";
+    expect_script_output("duality_underapprox_flag_literals", script, "sat\n");
 }
