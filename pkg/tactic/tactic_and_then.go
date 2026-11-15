@@ -16,8 +16,10 @@ import (
 type andThenTactic struct {
 	self          *andThenTactic
 	first, second Tactic
-	references    uint32
-	closed        bool
+	// parallel marks par_and_then_tactical; see Apply.
+	parallel   bool
+	references uint32
+	closed     bool
 }
 
 func newAndThenTactic(first, second Tactic) (*andThenTactic, error) {
@@ -100,7 +102,17 @@ func (t *andThenTactic) Apply(g *Goal, out *TacticResult) (result error) {
 	if err := t.first.Apply(g, first); err != nil {
 		return err
 	}
-	return composeTacticResults(g, out, first, t.second.Apply, modes)
+	applySecond := t.second.Apply
+	if t.parallel && len(first.Goals) > 1 {
+		// par_and_then_tactical in the reference (OpenMP) build applies t2
+		// to each subgoal on a translated copy in its own ast_manager, whose
+		// resource limit is not this manager's: those steps are not counted
+		// here. The subgoals still run in order on this manager.
+		applySecond = func(sub *Goal, r *TacticResult) error {
+			return sub.manager.ResourceLimit().Uncharged(func() error { return t.second.Apply(sub, r) })
+		}
+	}
+	return composeTacticResults(g, out, first, applySecond, modes)
 }
 
 type tacticApplyFunc func(*Goal, *TacticResult) error
@@ -434,5 +446,9 @@ func (t *andThenTactic) Translate(m *ast.ASTManager) (Tactic, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newAndThenTactic(first, second)
+	result, err := newAndThenTactic(first, second)
+	if err == nil {
+		result.parallel = t.parallel
+	}
+	return result, err
 }

@@ -94,7 +94,11 @@ func TranslateWithContext(value Tactic, m *ast.ASTManager, params *uparams.Param
 		if err != nil {
 			return nil, err
 		}
-		return newAndThenTactic(a, b)
+		result, err := newAndThenTactic(a, b)
+		if err == nil {
+			result.parallel = t.parallel
+		}
+		return result, err
 	case *orElseTactic:
 		if err := t.open(); err != nil {
 			return nil, err

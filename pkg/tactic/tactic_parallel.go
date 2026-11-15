@@ -8,8 +8,19 @@ func NewParTactic(children ...Tactic) (Tactic, error) {
 	return NewOrElseTactic(children...)
 }
 
-// NewParAndThenTactic selects the source _NO_OMP_ implementation for this
-// single-goroutine port. It has the same subgoal composition as and_then.
+// NewParAndThenTactic runs the subgoals in order (the source's sequential
+// composition) for this single-goroutine port; the second tactic's resource
+// steps on several subgoals follow the reference build (see andThenTactic).
 func NewParAndThenTactic(children ...Tactic) (Tactic, error) {
-	return NewAndThenTactic(children...)
+	result, err := NewAndThenTactic(children...)
+	if err != nil {
+		return nil, err
+	}
+	for t, ok := result.(*andThenTactic); ok; t, ok = t.second.(*andThenTactic) {
+		t.parallel = true
+		if t.second == children[len(children)-1] {
+			break
+		}
+	}
+	return result, nil
 }
