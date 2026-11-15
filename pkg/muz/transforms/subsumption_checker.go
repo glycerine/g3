@@ -7,7 +7,6 @@ package transforms
 
 import (
 	"errors"
-	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
@@ -462,12 +461,10 @@ func (p *SubsumptionCheckerPlugin) transformRules(source, target *base.RuleSet) 
 		}
 		sizes = append(sizes, size)
 	}
-	// rule_size_comparator: shortest tails first.
-	order := make([]int, count)
-	for position := range order {
-		order[position] = position
-	}
-	sort.SliceStable(order, func(a, b int) bool { return sizes[order[a]] < sizes[order[b]] })
+	// rule_size_comparator: shortest tails first, through the approved
+	// libstdc++ std::sort port (subsumption_rule_order.go, AUDIT.md
+	// muz_transforms_02-F5).
+	order := subsumptionRuleOrder(sizes)
 	for _, position := range order {
 		rule := original[position]
 		declaration, e := rule.HeadDeclaration()

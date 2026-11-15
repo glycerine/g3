@@ -63,6 +63,13 @@ package sorting
 //     approved 2026-11-14 for AUDIT.md math_polynomial_04-F1: equal minimum
 //     degrees tie, and the order is mod_gcd_rec's elimination order.
 //
+//  7. mk_subsumption_checker::transform_rules
+//     (pkg/muz/transforms/subsumption_rule_order.go),
+//     src/muz/transforms/dl_mk_subsumption_checker.cpp:192 with
+//     rule_size_comparator, approved 2026-11-14 for AUDIT.md
+//     muz_transforms_02-F5: equal tail sizes tie, and the order is the
+//     output rule order and decides which duplicate rule survives.
+//
 // The algorithm lives here in pkg/util/sorting so every approved call site
 // shares one verified implementation; the typed wrappers stay at the call
 // sites (smtcore/libstdcxx_sort.go, ast/rewriter/bv_polynomial_sort.go).
