@@ -267,7 +267,7 @@ func (p *commandParser) declareDatatypes(single bool) error {
 			definition.Constructors = append(definition.Constructors, constructor)
 		}
 		if len(definition.Constructors) == 0 {
-			return fmt.Errorf("invalid datatype declaration, datatype must have at least one constructor")
+			return fmt.Errorf("invalid datatype declaration, datatype does not have any constructors")
 		}
 		definitions = append(definitions, definition)
 		if e = p.expect(RightParenToken); e != nil {
@@ -341,22 +341,55 @@ func (p *commandParser) declareDatatypes(single bool) error {
 			}
 		}
 	}
-	// Missing references precede duplicate-accessor checks in both retained
-	// declaration forms, including mutually recursive blocks.
+	// check_duplicate (pdatatype_decl::has_duplicate_accessors) reports at
+	// the position after the command name. parse_declare_datatype checks
+	// before commit; parse_declare_datatypes commits first, so SMT-LIB 2.6
+	// datatypes stay declared and a duplicate inside one constructor fails
+	// in the commit itself.
+	checkDuplicates := func() error {
+		for _, definition := range definitions {
+			accessorNames := make(map[string]bool)
+			for _, constructor := range definition.Constructors {
+				for _, accessor := range constructor.Accessors {
+					name, e := m.Symbols.String(accessor.Name)
+					if e != nil {
+						return e
+					}
+					if accessorNames[name] {
+						return &ScannerError{Message: fmt.Sprintf("invalid datatype declaration, repeated accessor identifier '%s'", name), Line: declLine, Column: declPos}
+					}
+					accessorNames[name] = true
+				}
+			}
+		}
+		return nil
+	}
+	if single || !modern {
+		// The legacy form inserts its sorts only after check_duplicate.
+		if err = checkDuplicates(); err != nil {
+			return err
+		}
+		return p.context.DeclareDatatypes(definitions)
+	}
+	if err = p.context.DeclareDatatypes(definitions); err != nil {
+		return err
+	}
+	// Two accessors of one constructor with the same name are the same
+	// func_decl, so cmd_context::insert rejects the second during commit.
 	for _, definition := range definitions {
-		accessorNames := make(map[string]bool)
 		for _, constructor := range definition.Constructors {
+			accessorNames := make(map[string]bool)
 			for _, accessor := range constructor.Accessors {
 				name, e := m.Symbols.String(accessor.Name)
 				if e != nil {
 					return e
 				}
 				if accessorNames[name] {
-					return fmt.Errorf("invalid datatype declaration, repeated accessor identifier '%s'", name)
+					return fmt.Errorf("invalid declaration, function '%s' (with the given signature) already declared", name)
 				}
 				accessorNames[name] = true
 			}
 		}
 	}
-	return p.context.DeclareDatatypes(definitions)
+	return checkDuplicates()
 }
