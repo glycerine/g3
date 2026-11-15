@@ -1271,3 +1271,25 @@ void tst_z3_4_7_1_qe_dt_eq_recognizer() {
     std::cout << "qe_dt_eq_recognizer: " << out;
     ENSURE(out == "unsat\n");
 }
+
+// Two quantified formulas in one goal for qe-light. fm::init resets
+// m_bvar2expr but not m_expr2bvar (it resets m_expr2var twice), so in the
+// second formula the literal a maps to the stale bvar of the first run,
+// which now names c: the clause (or b a) becomes (or b c). With a true and
+// b, c false the goal is satisfiable (z <= -2, x >= 5, g z), but z3
+// answers unsat.
+void tst_z3_4_7_1_qe_lite_fm_bvar() {
+    std::string out = eval_smtlib2(
+        "(declare-const a Bool)\n"
+        "(declare-const b Bool)\n"
+        "(declare-const c Bool)\n"
+        "(declare-fun g (Int) Bool)\n"
+        "(assert (exists ((x Int) (z Int)) (and (or a (<= (+ x z) 3)) (or b (>= (+ x z) 5)) (g z))))\n"
+        "(assert (exists ((x Int) (z Int)) (and (or c (<= (+ x z) 3)) (or b (>= x 5)) (or a (<= x 1)) (g z))))\n"
+        "(assert a)\n"
+        "(assert (not b))\n"
+        "(assert (not c))\n"
+        "(check-sat-using (then qe-light smt))\n");
+    std::cout << "qe_lite_fm_bvar: " << out;
+    ENSURE(out == "sat\n");
+}
