@@ -1921,7 +1921,10 @@ public:
             SASSERT(m_util.m_arith.is_real(x.x()));
             model_evaluator model_eval(*model);
             bounds_proc& bounds = get_bounds(x.x(), fml);
-            bool is_lower   = bounds.le_size() + bounds.lt_size() < bounds.ge_size() + bounds.gt_size();
+            // assign and subst read the branch in the family get_bound_sizes
+            // selects, which doubles the non-strict counts of a real.
+            unsigned t_size1, e_size1;
+            bool is_lower   = get_bound_sizes(bounds, x.x(), t_size1, e_size1);
             unsigned e_size = bounds.e_size(is_lower);
             numeral bound1, bound2, vl, x_val;
             unsigned idx1, idx2;
