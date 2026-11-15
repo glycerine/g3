@@ -141,6 +141,9 @@ Abstract:
                                   an equality between inner columns is
                                   dropped and the target is emptied
                                   (pkg/AUDIT.md muz_rel_06-F5).
+    z3_4_7_1_check_table_nullary_empty with default_table_checked, an empty
+                                  check_table with no columns is built by
+                                  the sparse plugin and z3 segfaults.
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -1891,5 +1894,42 @@ void tst_z3_4_7_1_sieve_negation_inner_cols() {
         (*fn)(*t, *n);
         std::cout << "sieve_negation_inner_cols: inner/full: t empty " << t->empty() << "\n";
         ENSURE(t->empty());
+    }
+}
+
+// With datalog.default_table_checked, the selection q(#b100) is projected
+// to a check_table with no columns, and the union into g's still-empty
+// register creates the target with the source's plugin:
+// check_table_plugin::mk_empty passes the 0-column signature to the sparse
+// plugin (the checked default table or the checker), which cannot handle
+// it and crashes in column_layout::make_byte_aligned_end. n(#b100) holds
+// and path(#b100, #b100) does not, so g is derivable. Found while fixing
+// the pkg/AUDIT.md muz_rel findings (no finding ID of its own).
+void tst_z3_4_7_1_check_table_nullary_empty() {
+    char const* tables[2][2] = { { "sparse", "hashtable" }, { "hashtable", "sparse" } };
+    for (unsigned i = 0; i < 2; ++i) {
+        std::string script =
+            std::string("(set-option :fixedpoint.engine datalog)\n"
+                        "(set-option :fixedpoint.datalog.default_table ") + tables[i][0] + ")\n"
+            "(set-option :fixedpoint.datalog.default_table_checked true)\n"
+            "(set-option :fixedpoint.datalog.default_table_checker " + tables[i][1] + ")\n"
+            "(define-sort s () (_ BitVec 3))\n"
+            "(declare-rel e (s s))\n"
+            "(declare-rel path (s s))\n"
+            "(declare-rel n (s))\n"
+            "(declare-rel q (s))\n"
+            "(declare-rel g ())\n"
+            "(declare-var x s)\n"
+            "(declare-var y s)\n"
+            "(rule (e #b001 #b010))\n"
+            "(rule (e #b100 #b101))\n"
+            "(rule (=> (e x y) (n x)))\n"
+            "(rule (=> (e x y) (path x y)))\n"
+            "(rule (=> (and (n x) (not (path x x))) (q x)))\n"
+            "(rule (=> (q #b100) g))\n"
+            "(query g)\n";
+        std::cout << "check_table_nullary_empty: default_table " << tables[i][0]
+                  << ", checker " << tables[i][1] << "\n";
+        expect_script_output("check_table_nullary_empty", script.c_str(), "sat\n");
     }
 }
