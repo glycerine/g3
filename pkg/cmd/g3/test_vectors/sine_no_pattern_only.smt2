@@ -1,0 +1,7 @@
+(declare-fun p (Int Int) Bool)
+(declare-fun q (Int) Bool)
+(declare-fun r (Int) Bool)
+(declare-const b Int)
+(assert (forall ((x Int)) (! (p x b) :no-pattern (q x))))
+(assert (r b))
+(apply sine-filter)

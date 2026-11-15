@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_top_01-F4: has_patterns counts no-patterns, so the body is not connected.
+	"sine_no_pattern_only.smt2": "(goals\n(goal\n  (r b)\n  :precision over :depth 1)\n)\n",
 	// AUDIT.md tactic_top_01-F3: num_consts_probe ignores patterns.
 	"probe_num_consts_pattern.smt2": "(goals\n(goal\n  (forall ((x Int)) (! (> x d) :pattern ((f x c))))\n  :precision precise :depth 0)\n)\n",
 	// AUDIT.md tactic_arith_03-F8: purify-arith keeps a null proof for an

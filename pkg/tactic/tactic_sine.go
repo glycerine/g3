@@ -202,7 +202,12 @@ func (t *sineTactic) filterExpressions(g *Goal) ([]ast.ASTHandle, error) {
 			if err != nil {
 				return nil, err
 			}
-			if !forall || patterns == 0 {
+			noPatterns, err := t.manager.GetNumNoPatterns(item.expression)
+			if err != nil {
+				return nil, err
+			}
+			// q->has_patterns() counts both patterns and no-patterns.
+			if !forall || patterns+noPatterns == 0 {
 				stack = append(stack, sineWorkItem{body, item.root})
 				continue
 			}

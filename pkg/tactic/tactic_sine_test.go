@@ -87,6 +87,23 @@ func TestSineTacticQuantifierPatternGating(t *testing.T) {
 	if len(selected) != 1 || selected[0] != seed {
 		t.Fatal("pattern-gated component", selected)
 	}
+
+	// tactic_top_01-F4: q->has_patterns() also counts no-patterns, so a
+	// forall with only :no-pattern takes the pattern path; with zero
+	// patterns quantifier_matches fails and the body is never connected.
+	noPatternBody, err := m.MkApp(f, []ast.ASTHandle{v})
+	satOK(t, err)
+	noPatternOnly, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{b}, Names: []usymbol.Symbol{astTestSymbol(t, m, "x")}, Body: noPatternBody, NoPatterns: []ast.ASTHandle{pattern}})
+	satOK(t, err)
+	astTestPin(t, m, noPatternOnly)
+	noPatternGoal := goalTestNew(t, m, false, false)
+	satOK(t, noPatternGoal.Assert(noPatternOnly))
+	satOK(t, noPatternGoal.Assert(seed))
+	selected, err = tacticBase.(*sineTactic).filterExpressions(noPatternGoal)
+	satOK(t, err)
+	if len(selected) != 1 || selected[0] != seed {
+		t.Fatal("no-pattern-only quantifier kept", selected)
+	}
 }
 
 // AUDIT.md tactic_top_01-F5: sine_filter re-asserts the kept formulas with a
