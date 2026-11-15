@@ -1668,7 +1668,7 @@ namespace nlsat {
                 unsigned d = degree(p, x);
                 lc = m_pm.coeff(p, x, d);
                 if (!is_const(lc)) {                    
-                    unsigned s = sign(p);
+                    int s = sign(p);
                     SASSERT(s != 0);
                     atom::kind k = (s > 0)?(atom::GT):(atom::LT);
                     add_simple_assumption(k, lc);
@@ -1683,7 +1683,7 @@ namespace nlsat {
                 unsigned d = degree(p, x);
                 lc = m_pm.coeff(p, x, d);
                 if (!is_const(lc)) {
-                    unsigned s = sign(p);
+                    int s = sign(p);
                     SASSERT(s != 0);
                     atom::kind k;
                     if (s > 0) {
