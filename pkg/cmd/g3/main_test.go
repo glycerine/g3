@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md model_01-F2: failed theory reduction falls back to evaluate_partial_theory_func.
+	"eval_partial_bvudiv0.smt2": "sat\n(model \n  (define-fun x () (_ BitVec 4)\n    #x1)\n  (define-fun y () (_ BitVec 4)\n    #x0)\n  (define-fun bvudiv0 ((x!1 (_ BitVec 4))) (_ BitVec 4)\n    (ite (= x!1 #x1) #x3\n      #unspecified))\n)\n#x3\n#x0\n(ite (= z #x1) #x3 #x0)\n(model \n  (define-fun x () (_ BitVec 4)\n    #x1)\n  (define-fun y () (_ BitVec 4)\n    #x0)\n  (define-fun bvudiv0 ((x!0 (_ BitVec 4))) (_ BitVec 4)\n    (ite (= x!0 #x1) #x3\n      #x0))\n)\n",
 	// AUDIT.md ast_sub_02-F1: nnf unary and/or with proofs.
 	"nnf_unary_and_or_proofs.smt2": "(goals\n(goal\n  (or (and (forall ((x Int)) (p x))) q)\n  (let ((a!1 (and (forall ((x Int)) (not (p x))))))\n    (or a!1 q))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md ast_sub_02-F1: nnf keeps unary and/or (raw mk_and/mk_or).

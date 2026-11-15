@@ -796,8 +796,11 @@ func (c *evaluatorConfiguration) finishTheoryReduction(status rewriter.RewriteSt
 	if err != nil {
 		return rewriter.RewriteFailed, err
 	}
+	// Source reduce_app: if (st == BR_FAILED && !m.is_builtin_family_id(fid))
+	// st = evaluate_partial_theory_func(...). Every caller here is a
+	// non-builtin theory family.
 	if status == rewriter.RewriteFailed {
-		return status, nil
+		return c.evaluatePartialTheoryWithTrace(d, args, out, proof)
 	}
 	final, err := c.evaluateReducedApp(status, out)
 	if err != nil || status == rewriter.RewriteDone && final == rewriter.Rewrite1 {

@@ -219,3 +219,61 @@ func TestModelEvaluatorBVUnspecifiedCompletionEveryReservation(t *testing.T) {
 	}
 	t.Fatal("completion reservation horizon exhausted")
 }
+
+// AUDIT.md model_01-F2: when the BV rewriter fails, reduce_app calls
+// evaluate_partial_theory_func for the non-builtin family, even without
+// model completion: a partial interpretation gets the else value
+// get_some_value(range), and the interpretation is instantiated.
+func TestModelEvaluatorBVUnspecifiedPartialInterpretationWithoutCompletion(t *testing.T) {
+	m, md, ev, c, p, _ := evaluatorFixture(t)
+	_, e := m.RegisterArithmeticPlugin()
+	astTestMust(t, e)
+	fid, e := m.RegisterBitVectorPlugin()
+	astTestMust(t, e)
+	s, e := m.BitVectorSort(8)
+	astTestMust(t, e)
+	numeral := func(v int64) ast.ASTHandle {
+		n, e := c.NumeralsField.NewValue()
+		astTestMust(t, e)
+		defer func() { astTestMust(t, c.NumeralsField.Del(&n)) }()
+		astTestMust(t, c.NumeralsField.SetInt64(&n, v))
+		h, e := m.BitVectorNumeral(&n, 8)
+		astTestMust(t, e)
+		astTestPin(t, m, h)
+		return h
+	}
+	zero, one, three, seven := numeral(0), numeral(1), numeral(3), numeral(7)
+	x, e := m.MkConst(astTestSymbol(t, m, "bv-partial-x"), s)
+	astTestMust(t, e)
+	astTestPin(t, m, x)
+	app, e := m.MkFamilyApp(fid, 13, nil, []ast.ASTHandle{x})
+	astTestMust(t, e)
+	astTestPin(t, m, app)
+	d, e := m.GetDecl(app)
+	astTestMust(t, e)
+	fi := modelTestFunction(t, m, 1)
+	astTestMust(t, fi.InsertNewEntry([]ast.ASTHandle{one}, three))
+	astTestMust(t, md.Core().RegisterFunction(d, fi))
+	key := "completion"
+	astTestMust(t, c.SetBoolName(p, &key, false))
+	astTestMust(t, ev.Reset(p))
+	out := astTestPin(t, m, ast.ASTHandle{})
+	for _, row := range []struct{ arg, want ast.ASTHandle }{{one, three}, {seven, zero}} {
+		ground, e := m.MkFamilyApp(fid, 13, nil, []ast.ASTHandle{row.arg})
+		astTestMust(t, e)
+		astTestPin(t, m, ground)
+		astTestMust(t, ev.Evaluate(ground, out))
+		got, e := m.RefGet(out)
+		astTestMust(t, e)
+		if got != row.want {
+			t.Fatal("partial bvudiv0 interpretation", row.arg, got, row.want)
+		}
+	}
+	registered, e := md.Core().FunctionInterpretation(d)
+	astTestMust(t, e)
+	elseValue, e := registered.Else()
+	astTestMust(t, e)
+	if elseValue != zero {
+		t.Fatal("partial interpretation else", elseValue, zero)
+	}
+}
