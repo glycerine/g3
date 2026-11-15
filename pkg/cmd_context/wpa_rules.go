@@ -7,11 +7,7 @@ import (
 )
 
 func (p *wpaParser) readRules() error {
-	files, err := p.files("rules")
-	if err != nil {
-		return err
-	}
-	for _, path := range files {
+	for _, path := range p.files("rules") {
 		contents, readErr := os.ReadFile(path)
 		if readErr != nil {
 			return readErr
@@ -19,10 +15,10 @@ func (p *wpaParser) readRules() error {
 		// WPA registers domains once, then parses each rules file into the
 		// same source constant tables that its relation tuples will use.
 		p.rules.lexer = newDatalogLexer(contents)
-		if err = p.rules.advance(); err != nil {
+		if err := p.rules.advance(); err != nil {
 			return err
 		}
-		if err = p.rules.parseRules(); err != nil {
+		if err := p.rules.parseRules(); err != nil {
 			return err
 		}
 	}

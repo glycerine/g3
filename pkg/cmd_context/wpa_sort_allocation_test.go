@@ -5,6 +5,10 @@ package cmd_context
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -27,9 +31,8 @@ func TestWPAFinishSortsAllocationFailureReleasesEverySort(t *testing.T) {
 			names := make([]string, mappedSorts)
 			for i := range names {
 				names[i] = fmt.Sprintf("allocation-sort-%03d", i)
-				p.sorts[names[i]] = &wpaSort{
-					name: names[i], numbers: map[uint64]bool{7: true, 19: true},
-				}
+				entry := p.ensureSortContent(names[i])
+				entry.numbers[7], entry.numbers[19] = true, true
 			}
 			for _, name := range append(names, "BOOL", "SHORT") {
 				_, err = m.Symbols.Intern(name)
@@ -75,5 +78,40 @@ func TestWPAFinishSortsAllocationFailureReleasesEverySort(t *testing.T) {
 	}
 	if !failed || !completed {
 		t.Fatal("sort allocation campaign missed failure or completion", failed, completed)
+	}
+}
+
+// AUDIT.md cmd_context_02-F11: finish_map_files registers BOOL, SHORT, then
+// the map sorts in m_sort_contents (map<symbol, ...>) table order, not in
+// alphabetical or file order.
+func TestWPAFinishSortsFollowsSortContentsTableOrder(t *testing.T) {
+	names := []string{"V", "W", "Apple", "Zed", "M3", "Q", "Kappa", "B", "Node", "Edge", "Heap", "Var"}
+	directory := t.TempDir()
+	for _, name := range names {
+		contextMust(t, os.WriteFile(filepath.Join(directory, name+".map"), []byte("1 one\n"), 0o600))
+	}
+	c := contextFixture(t)
+	p, err := newWPAParser(c, directory)
+	contextMust(t, err)
+	t.Cleanup(func() { contextMust(t, p.rules.close()) })
+	contextMust(t, p.readMaps())
+	contextMust(t, p.finishSorts())
+	var order []string
+	for _, e := range p.sortOrder.entries() {
+		order = append(order, e.name)
+	}
+	sorted := append([]string(nil), order...)
+	sort.Strings(sorted)
+	if reflect.DeepEqual(order, sorted) {
+		t.Fatal("test names do not distinguish table order from alphabetical order", order)
+	}
+	var previous uint32
+	for i, name := range append([]string{"BOOL", "SHORT"}, order...) {
+		id, err := p.manager.GetASTID(p.rules.sorts[name])
+		contextMust(t, err)
+		if i > 0 && id <= previous {
+			t.Fatalf("sort %s (id %d) was not registered after its predecessor (id %d); table order %v", name, id, previous, order)
+		}
+		previous = id
 	}
 }

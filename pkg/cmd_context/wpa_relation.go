@@ -3,127 +3,160 @@ package cmd_context
 // Source: wpa_parser_impl::parse_rel_file and inp_num_to_element.
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 func (p *wpaParser) readRelations() error {
-	files, err := p.files("rel")
-	if err != nil {
-		return err
-	}
-	for _, path := range files {
-		name := wpaBase(path)
-		if strings.Contains(name, "DirectCall") || strings.Contains(name, "FunctionFormals") || strings.Contains(name, "IndirectCall") {
+	for _, path := range p.files("rel") {
+		// skip relations which we do not support yet (the source tests the
+		// whole path, not only the file name)
+		if strings.Contains(path, "DirectCall") || strings.Contains(path, "FunctionFormals") || strings.Contains(path, "IndirectCall") {
 			continue
 		}
-		declaration := p.declarations[name]
-		if declaration.IsNull() {
-			return fmt.Errorf("tuple file %s has undeclared predicate %s", path, name)
-		}
-		if err = p.readRelation(path, declaration); err != nil {
+		if err := p.parseRelFile(path); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (p *wpaParser) readRelation(path string, declaration ast.ASTHandle) error {
+// parseRelFile is parse_rel_file.
+func (p *wpaParser) parseRelFile(fname string) error {
+	if err := wpaVerbose("Parsing relation file " + fname + "\n"); err != nil {
+		return err
+	}
+	p.currentFile, p.currentLine = fname, 0
+	predicateName := wpaBase(fname)
+	declaration := p.declarations[predicateName]
+	if declaration.IsNull() {
+		return fmt.Errorf("tuple file %s for undeclared predicate %s", p.currentFile, predicateName)
+	}
 	arity, err := p.manager.GetArity(declaration)
 	if err != nil {
 		return err
 	}
-	file, err := os.Open(path)
+	lines, err := readWPALines(fname)
 	if err != nil {
 		return err
 	}
-	scanner := bufio.NewScanner(file)
-	scanner.Buffer(make([]byte, 1024), int(^uint(0)>>1))
-	line := 0
-	for scanner.Scan() {
-		line++
-		values, present, parseErr := parseWPARelationLine(scanner.Text())
-		if parseErr != nil {
-			file.Close()
-			return fmt.Errorf("%s:%d: %w", path, line, parseErr)
+	for _, line := range lines {
+		p.currentLine++
+		values, present, rest, parseErr := parseWPARelationLine(line)
+		switch parseErr {
+		case nil:
+		case errWPANumberExpected:
+			return fmt.Errorf("number expected on line %d in file %s", p.currentLine, p.currentFile)
+		case errWPASpaceExpected:
+			return fmt.Errorf("' ' expected to separate numbers on line %d in file %s, got '%s'", p.currentLine, p.currentFile, rest)
+		default:
+			return parseErr
 		}
 		if !present {
 			continue
 		}
 		if len(values) != int(arity) {
-			file.Close()
-			return fmt.Errorf("%s:%d: got %d elements, want %d", path, line, len(values), arity)
+			return fmt.Errorf("invalid number of arguments on line %d in file %s", p.currentLine, p.currentFile)
 		}
 		fact := make([]uint32, len(values))
-		valid := true
+		factFail := false
 		for i, value := range values {
 			sortHandle, getErr := p.manager.GetDomain(declaration, uint32(i))
 			if getErr != nil {
-				file.Close()
 				return getErr
 			}
-			converted, found, getErr := p.relationElement(sortHandle, value)
+			converted, found, getErr := p.inpNumToElement(sortHandle, value)
 			if getErr != nil {
-				file.Close()
 				return getErr
 			}
 			if !found {
-				valid = false
+				factFail = true
 				break
 			}
 			fact[i] = converted
 		}
-		if valid {
-			if err = p.context.AddFixedpointTableFact(declaration, fact); err != nil {
-				file.Close()
-				return err
-			}
+		if factFail {
+			continue
+		}
+		if err = p.context.AddFixedpointTableFact(declaration, fact); err != nil {
+			return err
 		}
 	}
-	err = scanner.Err()
-	return joinClose(err, file.Close())
+	return nil
 }
 
-func (p *wpaParser) relationElement(sortHandle ast.ASTHandle, number uint64) (uint32, bool, error) {
+// mkNumericTableConst is mk_table_const(uint64_t, s): uint64_sort_domain
+// get_number numbers values by first use.
+func (p *wpaParser) mkNumericTableConst(sortHandle ast.ASTHandle, number uint64) (uint32, error) {
+	table := p.rules.numericConstants[sortHandle]
+	index, found := table[number]
+	if !found {
+		index = uint64(len(table))
+		table[number] = index
+	}
+	size, _, err := p.manager.DatalogFiniteSortSize(sortHandle)
+	if err != nil {
+		return 0, err
+	}
+	if index >= size {
+		name, err := p.sortName(sortHandle)
+		if err != nil {
+			return 0, err
+		}
+		return 0, fmt.Errorf("sort %s contains more constants than its declared size %d", name, size)
+	}
+	return uint32(index), nil
+}
+
+func (p *wpaParser) sortName(sortHandle ast.ASTHandle) (string, error) {
 	name, err := p.manager.GetASTName(sortHandle)
 	if err != nil {
-		return 0, false, err
+		return "", err
 	}
-	text, err := p.manager.Symbols.String(name)
+	return p.manager.Symbols.String(name)
+}
+
+// inpNumToElement is inp_num_to_element; found=false is its false return
+// after the "does not belong to sort" warning.
+func (p *wpaParser) inpNumToElement(sortHandle ast.ASTHandle, number uint64) (uint32, bool, error) {
+	if sortHandle == p.boolSort || sortHandle == p.shortSort {
+		index, err := p.mkNumericTableConst(sortHandle, number)
+		return index, err == nil, err
+	}
+	if number == 0 {
+		if !p.useMapNames {
+			index, err := p.mkNumericTableConst(sortHandle, 0)
+			return index, err == nil, err
+		}
+		index, err := p.rules.symbolicConstantNumber("<zero element>", sortHandle)
+		return uint32(index), err == nil, err
+	}
+	text, err := p.sortName(sortHandle)
 	if err != nil {
 		return 0, false, err
 	}
+	// Every WPA sort but BOOL and SHORT comes from a map file (rules files
+	// cannot declare domains), so the source's find_core always succeeds.
 	entry := p.sorts[text]
 	if entry == nil {
 		return 0, false, fmt.Errorf("unknown WPA sort %s", text)
 	}
-	builtin := text == "BOOL" || text == "SHORT"
-	if !builtin && number != 0 && !entry.numbers[number] {
-		return 0, false, nil
+	if !entry.numbers[number] {
+		// z3 4.7.1 formats the number with MSVC's %I64u, which glibc reads
+		// as a 64-wide %u of a 32-bit argument (undefined behavior). The
+		// fork prints it with PRIu64 (FORK FIX #67).
+		return 0, false, diagnostic.BorrowProcessWarningService().Warningf("symbol number %d on line %d in file %s does not belong to sort %s", number, p.currentLine, p.currentFile, text)
 	}
-	if builtin || !p.useMapNames {
-		table := p.rules.numericConstants[sortHandle]
-		if index, found := table[number]; found {
-			return uint32(index), true, nil
-		}
-		index := uint64(len(table))
-		if index >= entry.size {
-			return 0, false, fmt.Errorf("WPA sort %s exceeds finite domain size %d", text, entry.size)
-		}
-		table[number] = index
-		return uint32(index), true, nil
+	if !p.useMapNames {
+		index, err := p.mkNumericTableConst(sortHandle, number)
+		return index, err == nil, err
 	}
-	constant := "<zero element>"
-	if number != 0 {
-		var found bool
-		constant, found = p.mapNames[number]
-		if !found {
-			return 0, false, fmt.Errorf("unknown WPA symbol number %d", number)
-		}
+	constant, found := p.mapNames[number]
+	if !found {
+		return 0, false, fmt.Errorf("unknown symbol number %d on line %d in file %s", number, p.currentLine, p.currentFile)
 	}
 	index, err := p.rules.symbolicConstantNumber(constant, sortHandle)
 	return uint32(index), err == nil, err

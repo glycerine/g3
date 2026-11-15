@@ -7,6 +7,11 @@ import "math"
 // ReadUint64 reads a decimal token beginning exactly at offset. next is the
 // first unconsumed byte. On overflow the offending digit is not consumed,
 // matching the source pointer contract.
+//
+// z3 4.7.1's overflow-guarded branch never advances s, so it rejects every
+// value whose first 19 digits exceed (ULLONG_MAX-9)/10, ULLONG_MAX
+// included. The fork advances s there (FORK FIX #68, AUDIT.md
+// cmd_context_02-F11), which this function matches.
 func ReadUint64(text string, offset int) (value uint64, next int, ok bool) {
 	if offset < 0 || offset >= len(text) || text[offset] < '0' || text[offset] > '9' {
 		return 0, offset, false

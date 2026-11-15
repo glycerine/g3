@@ -42,9 +42,11 @@ func TestWPAMapLineLiteralSpaceAndIgnoredNames(t *testing.T) {
 			t.Errorf("accepted non-source map grammar %q", line)
 		}
 	}
+	// z3 4.7.1 indexes the empty name (undefined behavior); the fork's
+	// FORK FIX #69 gives the empty symbol.
 	for _, line := range []string{"23 ", "23  SC_EXTERN ignored"} {
-		if _, _, _, err := parseWPAMapLine(line); err == nil {
-			t.Errorf("accepted undefined source empty-name indexing %q", line)
+		if number, name, present, err := parseWPAMapLine(line); err != nil || number != 23 || name != "" || !present {
+			t.Errorf("empty name %q: %d %q %v %v", line, number, name, present, err)
 		}
 		number, name, present, err := parseWPAMapLineWithNames(line, false)
 		if err != nil || number != 23 || name != "<names ignored>" || !present {

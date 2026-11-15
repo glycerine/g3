@@ -1,57 +1,84 @@
 package cmd_context
 
+// Source: src/muz/fp/datalog_parser.cpp wpa_parser_impl::parse_map_file and
+// line_reader.
+
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"os"
+	"strings"
+
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 func joinClose(err error, closeErr error) error { return errors.Join(err, closeErr) }
 
+// readWPALines is line_reader: the file split at every '\n', including the
+// (possibly empty) piece after the last one. Each line is a C string, so it
+// ends at its first NUL byte.
+func readWPALines(path string) ([]string, error) {
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	lines := strings.Split(string(contents), "\n")
+	for i, line := range lines {
+		if end := strings.IndexByte(line, 0); end >= 0 {
+			lines[i] = line[:end]
+		}
+	}
+	return lines, nil
+}
+
 func (p *wpaParser) readMaps() error {
-	files, err := p.files("map")
+	for _, path := range p.files("map") {
+		if err := p.parseMapFile(path); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// parseMapFile is parse_map_file.
+func (p *wpaParser) parseMapFile(fname string) error {
+	if err := wpaVerbose("Parsing map file " + fname + "\n"); err != nil {
+		return err
+	}
+	p.currentFile, p.currentLine = fname, 0
+	sortElements := p.ensureSortContent(wpaBase(fname))
+	lines, err := readWPALines(fname)
 	if err != nil {
 		return err
 	}
-	for _, path := range files {
-		name := wpaBase(path)
-		entry := p.sorts[name]
-		if entry == nil {
-			entry = &wpaSort{name: name, numbers: make(map[uint64]bool)}
-			p.sorts[name] = entry
+	for _, line := range lines {
+		p.currentLine++
+		number, name, present, parseErr := parseWPAMapLineWithNames(line, p.useMapNames)
+		switch parseErr {
+		case nil:
+		case errWPANumberExpected:
+			return fmt.Errorf("number expected at line %d in file %s", p.currentLine, p.currentFile)
+		case errWPASpaceExpected:
+			return fmt.Errorf("' ' expected after the number at line %d in file %s", p.currentLine, p.currentFile)
+		default:
+			return parseErr
 		}
-		file, openErr := os.Open(path)
-		if openErr != nil {
-			return openErr
+		if !present {
+			continue
 		}
-		scanner := bufio.NewScanner(file)
-		scanner.Buffer(make([]byte, 1024), int(^uint(0)>>1))
-		line := 0
-		for scanner.Scan() {
-			line++
-			number, name, present, parseErr := parseWPAMapLineWithNames(scanner.Text(), p.useMapNames)
-			if parseErr != nil {
-				file.Close()
-				return fmt.Errorf("%s:%d: %w", path, line, parseErr)
+		sortElements.numbers[number] = true
+		if p.useMapNames {
+			// num2sym::insert_if_not_there2 keeps the first name; a
+			// different later spelling only warns.
+			old, found := p.mapNames[number]
+			if !found {
+				p.mapNames[number], old = name, name
 			}
-			if !present {
-				continue
-			}
-			entry.numbers[number] = true
-			// Source num2sym::insert_if_not_there2 keeps the first name when
-			// independent sort maps reuse a numeric symbol. A different later
-			// spelling is warning-only and must not reject the directory.
-			if p.useMapNames {
-				if _, found := p.mapNames[number]; !found {
-					p.mapNames[number] = name
+			if old != name {
+				if err = diagnostic.BorrowProcessWarningService().Warningf("mismatch of number names on line %d in file %s. old: \"%s\" new: \"%s\"", p.currentLine, fname, old, name); err != nil {
+					return err
 				}
 			}
-		}
-		err = scanner.Err()
-		err = joinClose(err, file.Close())
-		if err != nil {
-			return err
 		}
 	}
 	return nil

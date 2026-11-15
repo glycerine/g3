@@ -105,7 +105,16 @@ func (p *datalogParser) symbolicConstantNumber(name string, sort ast.ASTHandle) 
 		return 0, err
 	}
 	if value >= size {
-		return 0, fmt.Errorf("constant %q exceeds finite domain size %d", name, size)
+		// symbol_sort_domain::get_number's exception.
+		sortName, err := p.manager.GetASTName(sort)
+		if err != nil {
+			return 0, err
+		}
+		text, err := p.manager.Symbols.String(sortName)
+		if err != nil {
+			return 0, err
+		}
+		return 0, fmt.Errorf("sort %s contains more constants than its declared size %d", text, size)
 	}
 	return value, nil
 }

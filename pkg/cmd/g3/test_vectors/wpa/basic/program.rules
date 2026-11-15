@@ -1,0 +1,4 @@
+Edge(x:V, y:V) input
+Tagged(x:V, b:BOOL, w:W) input
+Out(x:V, y:V, w:W) printtuples
+Out(X,Y,W) :- Edge(X,Y), Tagged(X,B,W).
