@@ -90,10 +90,13 @@ func (m *ASTManager) smt2PPExprTreeWithInfo(root ASTHandle, names []usymbol.Symb
 }
 
 func (m *ASTManager) smt2PPExprTreeWithInfoProfile(root ASTHandle, names []usymbol.Symbol, requireBool bool, info *smt2PPInfo, config SMT2PPExprConfig) (ASTHandle, error) {
-	return m.smt2PPExprTreeWithInfoAt(root, names, requireBool, info, 0, true, config)
+	return m.smt2PPExprTreeWithInfoAt(root, names, requireBool, info, 0, true, config, nil)
 }
 
-func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Symbol, requireBool bool, info *smt2PPInfo, enclosingAliases int, allowAliases bool, config SMT2PPExprConfig) (document ASTHandle, resultErr error) {
+// smt2PPExprTreeWithInfoAt prints root. occurrences is smt2_printer's
+// m_soccs, computed once by process() on the outermost root and shared by
+// every nested quantifier body and pattern; nil computes it from root.
+func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Symbol, requireBool bool, info *smt2PPInfo, enclosingAliases int, allowAliases bool, config SMT2PPExprConfig, occurrences map[ASTHandle]uint32) (document ASTHandle, resultErr error) {
 	documents, err := newASTFormatDocuments(m)
 	if err != nil {
 		return ASTHandle{}, err
@@ -113,8 +116,13 @@ func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Sy
 	if err != nil {
 		return ASTHandle{}, err
 	}
+	if occurrences == nil {
+		if occurrences, err = m.smt2SharedOccurrences(root); err != nil {
+			return ASTHandle{}, err
+		}
+	}
 	if rootKind == ASTQuantifier {
-		format, err := documents.own(m.smt2PPQuantifierRootWithInfoAt(root, names, info, enclosingAliases, allowAliases, config))
+		format, err := documents.own(m.smt2PPQuantifierRootWithInfoAt(root, names, info, enclosingAliases, allowAliases, config, occurrences))
 		if err != nil || !allowAliases {
 			return format, err
 		}
@@ -122,53 +130,6 @@ func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Sy
 		// after the quantifier has already wrapped its own body.
 		return documents.own(m.smt2PPLetAt(format, nil, enclosingAliases))
 	}
-	// shared_occs visits each compound node's children once, but records a
-	// second incoming edge as shared. Its default profile ignores atomic nodes
-	// and quantifier patterns, while visiting each quantifier body.
-	occurrences := make(map[ASTHandle]uint32)
-	var countOccurrences func(ASTHandle) error
-	countOccurrences = func(h ASTHandle) error {
-		kind, e := m.GetKind(h)
-		if e != nil {
-			return e
-		}
-		if kind == ASTQuantifier {
-			occurrences[h]++
-			if occurrences[h] > 1 {
-				return nil
-			}
-			body, e := m.GetQuantifierBody(h)
-			if e != nil {
-				return e
-			}
-			return countOccurrences(body)
-		}
-		if kind != ASTApp {
-			return nil
-		}
-		n, e := m.GetNumArgs(h)
-		if e != nil || n == 0 {
-			return e
-		}
-		occurrences[h]++
-		if occurrences[h] > 1 {
-			return nil
-		}
-		for i := uint32(0); i < n; i++ {
-			child, e := m.GetArg(h, i)
-			if e != nil {
-				return e
-			}
-			if e = countOccurrences(child); e != nil {
-				return e
-			}
-		}
-		return nil
-	}
-	if err := countOccurrences(root); err != nil {
-		return ASTHandle{}, err
-	}
-
 	// These are the source info_stack fields. A flattened application leaves
 	// its child entries on the stack, so its own weight and depth disappear.
 	type result struct {
@@ -220,7 +181,7 @@ func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Sy
 		}
 		if kind == ASTQuantifier {
 			var childInfo smt2PPInfo
-			format, e := documents.own(m.smt2PPQuantifierRootWithInfoAt(h, names, &childInfo, enclosingAliases+len(bindings), allowAliases, config))
+			format, e := documents.own(m.smt2PPQuantifierRootWithInfoAt(h, names, &childInfo, enclosingAliases+len(bindings), allowAliases, config, occurrences))
 			if e != nil {
 				return result{}, e
 			}
@@ -409,4 +370,56 @@ func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Sy
 		return printed.docs[0], nil
 	}
 	return documents.own(m.smt2PPLetAt(printed.docs[0], bindings, enclosingAliases))
+}
+
+// smt2SharedOccurrences is shared_occs (m_soccs(n) in smt2_printer::
+// process) over root: the number of incoming edges of each compound node.
+func (m *ASTManager) smt2SharedOccurrences(root ASTHandle) (map[ASTHandle]uint32, error) {
+	occurrences := make(map[ASTHandle]uint32)
+	// shared_occs visits each compound node's children once, but records a
+	// second incoming edge as shared. Its default profile ignores atomic nodes
+	// and quantifier patterns, while visiting each quantifier body.
+	var countOccurrences func(ASTHandle) error
+	countOccurrences = func(h ASTHandle) error {
+		kind, e := m.GetKind(h)
+		if e != nil {
+			return e
+		}
+		if kind == ASTQuantifier {
+			occurrences[h]++
+			if occurrences[h] > 1 {
+				return nil
+			}
+			body, e := m.GetQuantifierBody(h)
+			if e != nil {
+				return e
+			}
+			return countOccurrences(body)
+		}
+		if kind != ASTApp {
+			return nil
+		}
+		n, e := m.GetNumArgs(h)
+		if e != nil || n == 0 {
+			return e
+		}
+		occurrences[h]++
+		if occurrences[h] > 1 {
+			return nil
+		}
+		for i := uint32(0); i < n; i++ {
+			child, e := m.GetArg(h, i)
+			if e != nil {
+				return e
+			}
+			if e = countOccurrences(child); e != nil {
+				return e
+			}
+		}
+		return nil
+	}
+	if err := countOccurrences(root); err != nil {
+		return nil, err
+	}
+	return occurrences, nil
 }

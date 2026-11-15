@@ -1,0 +1,5 @@
+(declare-fun P (Int) Bool)
+(declare-fun Q (Int Int) Bool)
+(declare-fun a () Int)
+(declare-fun b () Int)
+(display (and (P (+ a b a b a b a b a b a b a b)) (forall ((x Int)) (Q (+ a b a b a b a b a b a b a b) x))))

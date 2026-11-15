@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_07-F2: m_soccs is computed once for the root, so a term
+	// shared with a quantifier body is aliased inside the body.
+	"smt2_pp_quantifier_global_sharing.smt2": "(let ((a!1 (+ a b a b a b a b a b a b a b)))\n  (and (P a!1)\n       (forall ((x Int))\n         (let ((a!1 (+ a b a b a b a b a b a b a b)))\n           (Q a!1 x)))))\n",
 	// AUDIT.md ast_07-F3: the base sort printer prints an instantiated user sort
 	// as its name, as smt2_pp_environment::pp_sort does.
 	"smt2_pp_user_sort_param_error.smt2": "(error \"line 4 column 14: Sorts L and L are incompatible\")\n(error \"line 6 column 16: Sorts (Array L Int) and L are incompatible\")\n",

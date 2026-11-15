@@ -165,3 +165,62 @@ func TestASTSMT2QuantifierRenamesQuotedBinder(t *testing.T) {
 		t.Fatalf("renamed quoted binder %q, want %q", text, want)
 	}
 }
+
+// AUDIT.md ast_07-F2: smt2_printer::process runs m_soccs once on the root,
+// so a term shared between a quantifier body and the rest of the formula is
+// aliased inside the body too.
+func TestASTSMT2QuantifierBodyUsesGlobalSharing(t *testing.T) {
+	c, g, p, budget := dynAckSourceFixture(t)
+	m, err := NewASTManager(ASTManagerConfig{Symbols: c.SymbolsField, Numerals: c.NumeralsField, Budget: budget})
+	paramsMust(t, err)
+	defer func() { paramsMust(t, m.Close()) }()
+	boolSort, err := m.MkBoolSort()
+	paramsMust(t, err)
+	u, err := m.MkUninterpretedSort(astTestSymbol(t, m, "U"), nil)
+	paramsMust(t, err)
+	domain := make([]ASTHandle, 14)
+	for i := range domain {
+		domain[i] = u
+	}
+	h, err := m.MkFuncDecl(astTestSymbol(t, m, "h"), domain, u, ASTFuncDeclInfo{})
+	paramsMust(t, err)
+	pDecl, err := m.MkFuncDecl(astTestSymbol(t, m, "P"), []ASTHandle{u}, boolSort, ASTFuncDeclInfo{})
+	paramsMust(t, err)
+	qDecl, err := m.MkFuncDecl(astTestSymbol(t, m, "Q"), []ASTHandle{u, u}, boolSort, ASTFuncDeclInfo{})
+	paramsMust(t, err)
+	a, err := m.MkConst(astTestSymbol(t, m, "a"), u)
+	paramsMust(t, err)
+	b, err := m.MkConst(astTestSymbol(t, m, "b"), u)
+	paramsMust(t, err)
+	args := make([]ASTHandle, 14)
+	for i := range args {
+		args[i] = a
+		if i%2 == 1 {
+			args[i] = b
+		}
+	}
+	term, err := m.MkApp(h, args)
+	paramsMust(t, err)
+	pt, err := m.MkApp(pDecl, []ASTHandle{term})
+	paramsMust(t, err)
+	x, err := m.MkVar(0, u)
+	paramsMust(t, err)
+	qt, err := m.MkApp(qDecl, []ASTHandle{term, x})
+	paramsMust(t, err)
+	q, err := m.MkQuantifier(ASTQuantifierSpec{Forall: true, Sorts: []ASTHandle{u}, Names: []usymbol.Symbol{astTestSymbol(t, m, "x")}, Body: qt})
+	paramsMust(t, err)
+	root, err := m.MkAnd(pt, q)
+	paramsMust(t, err)
+	format, err := m.SMT2PPBooleanTree(root, nil)
+	paramsMust(t, err)
+	out, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: budget})
+	paramsMust(t, err)
+	paramsMust(t, m.PrintFormat(out, format, c, p, g))
+	text, err := out.String()
+	paramsMust(t, err)
+	paramsMust(t, out.Close())
+	want := "(let ((a!1 (h a b a b a b a b a b a b a b)))\n  (and (P a!1)\n       (forall ((x U)) (let ((a!1 (h a b a b a b a b a b a b a b))) (Q a!1 x)))))"
+	if text != want {
+		t.Fatalf("global sharing\n got %q\nwant %q", text, want)
+	}
+}

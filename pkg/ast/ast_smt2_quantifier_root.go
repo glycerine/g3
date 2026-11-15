@@ -11,13 +11,20 @@ import (
 
 // smt2PPQuantifierRoot prints source binder names, children and annotations.
 func (m *ASTManager) smt2PPQuantifierRootWithInfo(q ASTHandle, outer []usymbol.Symbol, info *smt2PPInfo) (ASTHandle, error) {
-	return m.smt2PPQuantifierRootWithInfoAt(q, outer, info, 0, true, SMT2PPExprConfig{DecimalPrecision: 10})
+	return m.smt2PPQuantifierRootWithInfoAt(q, outer, info, 0, true, SMT2PPExprConfig{DecimalPrecision: 10}, nil)
 }
 
-func (m *ASTManager) smt2PPQuantifierRootWithInfoAt(q ASTHandle, outer []usymbol.Symbol, info *smt2PPInfo, enclosingAliases int, allowAliases bool, config SMT2PPExprConfig) (document ASTHandle, resultErr error) {
+// smt2PPQuantifierRootWithInfoAt prints quantifier q; occurrences is the
+// outermost root's m_soccs (nil computes it from q).
+func (m *ASTManager) smt2PPQuantifierRootWithInfoAt(q ASTHandle, outer []usymbol.Symbol, info *smt2PPInfo, enclosingAliases int, allowAliases bool, config SMT2PPExprConfig, occurrences map[ASTHandle]uint32) (document ASTHandle, resultErr error) {
 	documents, err := newASTFormatDocuments(m)
 	if err != nil {
 		return ASTHandle{}, err
+	}
+	if occurrences == nil {
+		if occurrences, err = m.smt2SharedOccurrences(q); err != nil {
+			return ASTHandle{}, err
+		}
 	}
 	defer documents.finish(&document, &resultErr)
 	count, err := m.GetNumDeclarations(q)
@@ -120,7 +127,7 @@ func (m *ASTManager) smt2PPQuantifierRootWithInfoAt(q ASTHandle, outer []usymbol
 		if e != nil {
 			return ASTHandle{}, e
 		}
-		printed, e := documents.own(m.smt2PPExprTreeWithInfoAt(pattern, scopedNames, false, nil, enclosingAliases, false, config))
+		printed, e := documents.own(m.smt2PPExprTreeWithInfoAt(pattern, scopedNames, false, nil, enclosingAliases, false, config, occurrences))
 		if e != nil {
 			return ASTHandle{}, e
 		}
@@ -132,7 +139,7 @@ func (m *ASTManager) smt2PPQuantifierRootWithInfoAt(q ASTHandle, outer []usymbol
 		if e != nil {
 			return ASTHandle{}, e
 		}
-		printed, e := documents.own(m.smt2PPExprTreeWithInfoAt(pattern, scopedNames, false, nil, enclosingAliases, false, config))
+		printed, e := documents.own(m.smt2PPExprTreeWithInfoAt(pattern, scopedNames, false, nil, enclosingAliases, false, config, occurrences))
 		if e != nil {
 			return ASTHandle{}, e
 		}
@@ -143,7 +150,7 @@ func (m *ASTManager) smt2PPQuantifierRootWithInfoAt(q ASTHandle, outer []usymbol
 		return ASTHandle{}, err
 	}
 	var bodyInfo smt2PPInfo
-	printedBody, err := documents.own(m.smt2PPExprTreeWithInfoAt(body, scopedNames, false, &bodyInfo, enclosingAliases, allowAliases, config))
+	printedBody, err := documents.own(m.smt2PPExprTreeWithInfoAt(body, scopedNames, false, &bodyInfo, enclosingAliases, allowAliases, config, occurrences))
 	if err != nil {
 		return ASTHandle{}, err
 	}
