@@ -253,8 +253,8 @@ namespace datalog {
             if (shift >= 32) {
                   throw default_exception("bit-vector table is specialized to small domains that are powers of two");
             }
-            m_bv.reserve(1 << shift);
         }
+        m_bv.reserve(1 << shift);
     }
     
     unsigned bitvector_table::fact2offset(const table_element* f) const {
