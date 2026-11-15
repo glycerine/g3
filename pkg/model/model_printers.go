@@ -131,35 +131,51 @@ func newModelPrinter(md *ModelCore, out io.Writer, context *uparams.ParamsContex
 // WriteDebug implements model_pp's compact debugging syntax in registration
 // order. The parameter services are borrowed for the AST pretty printer.
 func (md *ModelCore) WriteDebug(out io.Writer, context *uparams.ParamsContext, globals *uparams.GlobalParamsService) error {
-	p, err := newModelPrinter(md, out, context, globals)
-	if err != nil {
-		return err
-	}
+	var sorts []ast.ASTHandle
+	var universes [][]ast.ASTHandle
 	if md.Derived != nil {
 		for _, sort := range md.Derived.sorts {
-			sortText, e := p.renderSort(sort, 0)
-			if e != nil {
-				return e
-			}
-			if e = p.write("(define-sort " + sortText); e != nil {
-				return e
-			}
 			u, found := md.Derived.Universes.Get2(sort)
 			if !found || u == nil {
 				return ast.ErrASTDomain
 			}
-			for _, value := range u.values {
-				text, e := p.render(value, nil)
-				if e != nil {
-					return e
-				}
-				if e = p.write(" " + text); e != nil {
-					return e
-				}
-			}
-			if e = p.write(")\n"); e != nil {
+			sorts = append(sorts, sort)
+			universes = append(universes, u.values)
+		}
+	}
+	return md.WriteDebugUniverses(out, context, globals, sorts, universes)
+}
+
+// WriteDebugUniverses is model_pp for a model_core whose
+// get_uninterpreted_sort/get_universe are supplied by the caller
+// (proto_model answers them from its user sort factory).
+func (md *ModelCore) WriteDebugUniverses(out io.Writer, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, sorts []ast.ASTHandle, universes [][]ast.ASTHandle) error {
+	p, err := newModelPrinter(md, out, context, globals)
+	if err != nil {
+		return err
+	}
+	if len(sorts) != len(universes) {
+		return ast.ErrASTDomain
+	}
+	for i, sort := range sorts {
+		sortText, e := p.renderSort(sort, 0)
+		if e != nil {
+			return e
+		}
+		if e = p.write("(define-sort " + sortText); e != nil {
+			return e
+		}
+		for _, value := range universes[i] {
+			text, e := p.render(value, nil)
+			if e != nil {
 				return e
 			}
+			if e = p.write(" " + text); e != nil {
+				return e
+			}
+		}
+		if e = p.write(")\n"); e != nil {
+			return e
 		}
 	}
 	for _, decl := range md.ConstantDeclarations {

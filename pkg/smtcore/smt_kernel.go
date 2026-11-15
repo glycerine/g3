@@ -597,6 +597,13 @@ func (k *SMTKernel) buildCandidateModelGenerator() (*SMTModelGenerator, error) {
 			return fail(err)
 		}
 	}
+	// IF_VERBOSE(11, model_pp(verbose_stream(), *m_proto_model);)
+	// (AUDIT.md FUZZ-F5; g3trace builds only).
+	if diagnostic.VerboseProgress {
+		if err = k.protoModelVerbose(generator); err != nil {
+			return fail(err)
+		}
+	}
 	return generator, nil
 }
 
@@ -828,6 +835,15 @@ func (k *SMTKernel) Assert(formula, proof ast.ASTHandle) (err error) {
 	if err := k.open(); err != nil {
 		return err
 	}
+	// context::assert_expr: timeit tt(get_verbosity_level() >= 100,
+	// "smt.simplifying") around assert_expr_core (AUDIT.md FUZZ-F5).
+	if diagnostic.VerboseProgress {
+		tt, err := k.startTimeit("smt.simplifying")
+		if err != nil {
+			return err
+		}
+		return closeTimeit(tt, k.assertFormulaCore(formula, proof))
+	}
 	return k.assertFormulaCore(formula, proof)
 }
 func (k *SMTKernel) assertFormulaCore(formula, proof ast.ASTHandle) (resultErr error) {
@@ -1057,11 +1073,20 @@ func (k *SMTKernel) Assertions() []SMTKernelAssertion {
 	return append([]SMTKernelAssertion(nil), k.assertions...)
 }
 
-func (k *SMTKernel) internalizePending() error {
+func (k *SMTKernel) internalizePending() (resultErr error) {
 	// context::get_cancel_flag is a counted reslimit::inc, including when
 	// the asserted manager is already inconsistent or has no pending rows.
 	if canceled, err := k.manager.Canceled(); canceled || err != nil {
 		return err
+	}
+	// timeit tt(get_verbosity_level() >= 100, "smt.preprocessing") for the
+	// rest of internalize_assertions (AUDIT.md FUZZ-F5).
+	if diagnostic.VerboseProgress {
+		tt, err := k.startTimeit("smt.preprocessing")
+		if err != nil {
+			return err
+		}
+		defer func() { resultErr = closeTimeit(tt, resultErr) }()
 	}
 	ready, err := k.reduceAssertedPending()
 	if err != nil || !ready {

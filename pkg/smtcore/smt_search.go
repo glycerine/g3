@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/memory"
 	"github.com/glycerine/g3/pkg/util/stopwatch"
@@ -275,6 +276,15 @@ type smtSearchSession struct {
 // the computed backjump scope and therefore participate in the next propagation
 // pass instead of re-exploring the conflicting branch.
 func (k *SMTKernel) search() (result lbool.LBool, resultErr error) {
+	// timeit tt(get_verbosity_level() >= 100, "smt.stats"), constructed
+	// before scoped_mk_model and so reported after it (AUDIT.md FUZZ-F5).
+	if diagnostic.VerboseProgress {
+		tt, err := k.startTimeit("smt.stats")
+		if err != nil {
+			return lbool.Undef, err
+		}
+		defer func() { resultErr = closeTimeit(tt, resultErr) }()
+	}
 	// scoped_mk_model: m_proto_model = nullptr; m_model = nullptr.
 	if err := errors.Join(k.releaseUpdateProto(), k.releaseProtoTrail()); err != nil {
 		return lbool.Undef, err
@@ -471,6 +481,7 @@ func (k *SMTKernel) endSearch(session *smtSearchSession) (resultErr error) {
 func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool, error) {
 	queue, baseLevel, conflictBase := session.queue, session.baseLevel, session.conflictBase
 	restarts := &session.restarts
+	tickCounter := uint32(0) // bounded_search's local counter for tick
 	for {
 		// while (!propagate()) { ... }
 		for {
@@ -480,6 +491,12 @@ func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool,
 			}
 			if consistent {
 				break
+			}
+			// tick(counter) (AUDIT.md FUZZ-F5; g3trace builds only).
+			if diagnostic.VerboseProgress {
+				if err = k.tickVerbose(&tickCounter, conflictBase); err != nil {
+					return lbool.Undef, false, err
+				}
 			}
 			resolved, err := k.resolveSearchConflict(session)
 			if err != nil {

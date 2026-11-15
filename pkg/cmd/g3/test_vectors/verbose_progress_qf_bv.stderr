@@ -1,0 +1,7 @@
+(started "check-sat")
+(combined-solver "using solver 1")
+(simplifier :num-exprs 3 :num-asts 154)
+(propagate-values :num-exprs 3 :num-asts 154)
+num. eliminated vars: 1
+(solve_eqs :num-exprs 0 :num-asts 153)
+(:num-elim-vars 1)

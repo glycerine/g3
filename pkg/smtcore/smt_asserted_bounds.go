@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/macros"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 // Source setup_AUFLIA / setup_AUFLIRA enable this hidden preprocessor field.
@@ -17,6 +18,13 @@ import (
 func (k *SMTKernel) setupAssertedBounds(useStaticFeatures bool) error {
 	if k.preprocessingSetupDone || k.smtParams == nil {
 		return nil
+	}
+	// setup::operator()'s (smt.configuring)/(smt.collecting-features) lines
+	// (AUDIT.md FUZZ-F5; g3trace builds only).
+	if diagnostic.VerboseProgress {
+		if err := k.setupVerbose(useStaticFeatures); err != nil {
+			return err
+		}
 	}
 	if !k.smtState.AutoConfig {
 		if err := k.setupBasicArithmetic(); err != nil {

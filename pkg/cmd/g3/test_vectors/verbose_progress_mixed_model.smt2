@@ -1,0 +1,6 @@
+(declare-const x Real)
+(declare-const y Int)
+(assert (> (+ x y) 2.5))
+(assert (< x 1.0))
+(check-sat)
+(get-model)

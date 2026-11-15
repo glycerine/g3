@@ -7,55 +7,66 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
 
 // The IF_VERBOSE progress lines ported for AUDIT.md FUZZ-F5 are compiled
 // only into g3trace builds (owner decision 2026-11-15), so this test is
-// tagged. It runs the g3 front end in a child process (the timeit lines go
-// to the process standard error, as std::cerr does in the C++) and keeps
-// the lines of every ported site, in order. With G3_CPP_REFERENCE set it
-// also compares them with build/z3's standard error.
-
-// verboseProgressPrefixes are the leading texts of the ported sites.
-var verboseProgressPrefixes = []string{
-	"(started \"check-sat\")", "(combined-solver ", "(smt.searching)",
-	"(smt.final-check ", "(smt.mbqi)", "(smt.giveup quantifiers)",
-}
-
-// verboseProgressLines keeps the ported progress lines of log, in order.
-// timeit's :time and memory fields are dropped.
-func verboseProgressLines(log string) []string {
-	var out []string
-	for _, line := range strings.Split(log, "\n") {
-		for _, prefix := range verboseProgressPrefixes {
-			if strings.HasPrefix(line, prefix) {
-				if head, _, found := strings.Cut(line, " :time "); found {
-					line = head + ")"
-				}
-				out = append(out, line)
-				break
-			}
-		}
-	}
-	return out
-}
+// tagged. It runs the g3 front end in a child process (timeit reports go to
+// std::cerr, the verbose lines to verbose_stream, both standard error in
+// the C++) and compares the whole standard error, with timeit's :time and
+// memory fields removed, against what build/z3 printed for the same
+// arguments: test_vectors/verbose_progress_<name>.stderr, and with
+// G3_CPP_REFERENCE set also the live reference binary.
 
 type verboseProgressCase struct {
-	name, script string
+	name, vector string
 	args         []string
-	want         []string
 }
 
 var verboseProgressCases = []verboseProgressCase{
-	{name: "arith", script: "(declare-const x Int)\n(declare-const y Int)\n(assert (> (+ x (* 3 y)) 7))\n(assert (< (- x y) 2))\n(assert (or (= x 5) (= y 9)))\n(check-sat)\n",
-		want: []string{"(started \"check-sat\")", "(combined-solver \"using solver 1\")", "(smt.searching)", "(smt.final-check \"arithmetic\")"}},
-	{name: "quantified", script: "(declare-fun f (Int) Int)\n(assert (forall ((x Int)) (= (f x) 3)))\n(assert (> (f 3) 1))\n(check-sat)\n",
-		want: []string{"(started \"check-sat\")", "(combined-solver \"using solver 1\")", "(smt.searching)",
-			"(smt.final-check \"arithmetic\")", "(smt.final-check \"array\")", "(smt.final-check \"datatype\")",
-			"(smt.final-check \"bit-vector\")", "(smt.final-check \"datalog\")", "(smt.final-check \"seq\")",
-			"(smt.final-check \"unknown\")", "(smt.final-check \"fpa\")", "(smt.final-check \"quantifiers\")", "(smt.mbqi)"}},
+	// (started "check-sat"), combined-solver, the three timeit lines,
+	// (smt.configuring), (smt.collecting-features), (smt.searching),
+	// (smt.final-check ...), the level-11 model dump.
+	{"arith", "arith", []string{"-v:100"}},
+	{"arith_v11", "arith", []string{"-v:11"}},
+	// final-check per theory, (smt.mbqi) after the proto model dump, the
+	// MBQI auxiliary context's own setup/timeit lines.
+	{"quantified", "quantified", []string{"-v:100"}},
+	{"quantified_no_mbqi", "quantified", []string{"-v:100", "smt.mbqi=false"}},
+	// (smt.restarting ...), (smt.delete-inactive-clauses ...); at -v:100
+	// the agility is fixed with two decimals because ~timeit left
+	// std::fixed/setprecision(2) on std::cerr.
+	{"pigeon8_v3", "pigeon8", []string{"-v:3"}},
+	{"pigeon8_v100", "pigeon8", []string{"-v:100"}},
+	// CFG_BASIC (setup_unknown) and :restart-outer for RS_IN_OUT_GEOMETRIC.
+	{"pigeon8_basic", "pigeon8", []string{"-v:3", "auto_config=false"}},
+	// (smt.working ...) every smt.tick conflicts of one bounded_search.
+	{"pigeon9_v3", "pigeon9", []string{"-v:3"}},
+	{"mixed_model", "mixed_model", []string{"-v:100"}},
+	{"datatype", "datatype", []string{"-v:100"}},
+	{"qf_s", "qf_s", []string{"-v:100"}},
+	{"string", "string", []string{"-v:100"}},
+	{"qf_bv", "qf_bv", []string{"-v:100"}},
+	{"qf_lia", "qf_lia", []string{"-v:100"}},
+	{"incremental", "incremental", []string{"-v:100"}},
+	// CFG_LOGIC (push before check-sat): setup_default per logic, and
+	// setup_seq_str's setup_str calling setup_arith again for z3str3.
+	{"logic_incremental", "logic_incremental", []string{"-v:100"}},
+	{"string_push", "string_push", []string{"-v:100"}},
+	{"string_push_z3str3", "string_push", []string{"-v:100", "smt.string_solver=z3str3"}},
+	{"array", "array", []string{"-v:100"}},
+	{"usort", "usort", []string{"-v:100"}},
+	{"unsat", "unsat", []string{"-v:100"}},
+}
+
+var verboseProgressMeasures = regexp.MustCompile(` :time [0-9.]+| :(before-|after-)?memory [0-9.]+`)
+
+// normalizeVerboseProgress drops timeit's time and memory fields.
+func normalizeVerboseProgress(log string) string {
+	return verboseProgressMeasures.ReplaceAllString(log, "")
 }
 
 const verboseProgressChildEnv = "G3_TEST_VERBOSE_PROGRESS_ARGS"
@@ -84,18 +95,18 @@ func TestVerboseProgressMessages(t *testing.T) {
 	reference := os.Getenv("G3_CPP_REFERENCE")
 	for _, tc := range verboseProgressCases {
 		t.Run(tc.name, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), tc.name+".smt2")
-			if err := os.WriteFile(path, []byte(tc.script), 0o644); err != nil {
+			path, err := filepath.Abs(filepath.Join("test_vectors", "verbose_progress_"+tc.vector+".smt2"))
+			if err != nil {
 				t.Fatal(err)
 			}
-			args := tc.args
-			if args == nil {
-				args = []string{"-v:100"}
+			expected, err := os.ReadFile(filepath.Join("test_vectors", "verbose_progress_"+tc.name+".stderr"))
+			if err != nil {
+				t.Fatal(err)
 			}
-			args = append(append([]string(nil), args...), path)
-			got := verboseProgressLines(runVerboseProgressChild(t, args))
-			if strings.Join(got, "\n") != strings.Join(tc.want, "\n") {
-				t.Fatalf("Go progress lines\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(tc.want, "\n"))
+			args := append(append([]string(nil), tc.args...), path)
+			got := normalizeVerboseProgress(runVerboseProgressChild(t, args))
+			if got != string(expected) {
+				t.Fatalf("g3 standard error\n%s\nwant (build/z3)\n%s", got, expected)
 			}
 			if reference == "" {
 				return
@@ -107,9 +118,8 @@ func TestVerboseProgressMessages(t *testing.T) {
 			if err := cmd.Run(); err != nil {
 				t.Fatal(err, native.String(), cppLog.String())
 			}
-			cpp := verboseProgressLines(cppLog.String())
-			if strings.Join(got, "\n") != strings.Join(cpp, "\n") {
-				t.Fatalf("Go/C++ progress lines differ\nGo:\n%s\nC++:\n%s", strings.Join(got, "\n"), strings.Join(cpp, "\n"))
+			if cpp := normalizeVerboseProgress(cppLog.String()); got != cpp {
+				t.Fatalf("Go/C++ standard error differ\nGo:\n%s\nC++:\n%s", got, cpp)
 			}
 		})
 	}

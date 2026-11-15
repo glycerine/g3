@@ -1,0 +1,6 @@
+(declare-const x Int)
+(declare-const y Int)
+(assert (> (+ x (* 3 y)) 7))
+(assert (< (- x y) 2))
+(assert (or (= x 5) (= y 9)))
+(check-sat)

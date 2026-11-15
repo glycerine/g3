@@ -590,16 +590,15 @@ func (q *SMTQuantifierManager) CheckModel() (SMTQuantifierModelCheckResult, erro
 		return SMTQuantifierModelSAT, nil
 	}
 	// default_qm_plugin::check_model: IF_VERBOSE(10, "(smt.mbqi)") when
-	// m_mbqi (AUDIT.md FUZZ-F5).
-	if q.mbqi {
-		if err := progressVerbose(10, "(smt.mbqi)\n"); err != nil {
-			return SMTQuantifierModelUnknown, err
-		}
-	}
+	// m_mbqi (AUDIT.md FUZZ-F5), after mk_proto_model built (and, at
+	// level 11, printed) the candidate.
 	if q.mbqi && q.modelChecker != nil && q.candidateModel != nil {
 		generator, err := q.candidateModel()
 		if err != nil {
 			return SMTQuantifierModelUnknown, err
+		}
+		if err = progressVerbose(10, "(smt.mbqi)\n"); err != nil {
+			return SMTQuantifierModelUnknown, errors.Join(err, generator.Close())
 		}
 		if err = q.modelChecker.SetCandidateTerms(generator.rootValues, generator.rootValuesInTableOrder()); err != nil {
 			return SMTQuantifierModelUnknown, errors.Join(err, generator.Close())
@@ -628,6 +627,11 @@ func (q *SMTQuantifierManager) CheckModel() (SMTQuantifierModelCheckResult, erro
 		}
 		q.acceptedModel = generator
 		return SMTQuantifierModelSAT, nil
+	}
+	if q.mbqi {
+		if err := progressVerbose(10, "(smt.mbqi)\n"); err != nil {
+			return SMTQuantifierModelUnknown, err
+		}
 	}
 	return SMTQuantifierModelUnknown, nil
 }

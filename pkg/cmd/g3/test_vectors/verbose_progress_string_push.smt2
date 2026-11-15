@@ -1,0 +1,5 @@
+(set-option :smt.string_solver auto)
+(declare-const s String)
+(push)
+(assert (= (str.len s) 3))
+(check-sat)

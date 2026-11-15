@@ -7,6 +7,7 @@ import (
 	"math"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/luby"
 )
 
@@ -84,6 +85,11 @@ func (k *SMTKernel) restartSearchAtBase(baseLevel uint32, state *smtRestartState
 		return err
 	}
 	if force || !k.smtState.RestartAdaptive || k.internalizer.searchAgility < k.smtState.RestartAgilityThreshold {
+		if diagnostic.VerboseProgress {
+			if err := k.restartVerbose(state); err != nil {
+				return err
+			}
+		}
 		k.internalizer.statistics.NumRestarts++
 		if count := k.internalizer.scopeLevel - baseLevel; count != 0 {
 			if err := k.internalizer.PopScopes(count); err != nil {

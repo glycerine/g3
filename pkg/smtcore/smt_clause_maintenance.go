@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -162,6 +163,14 @@ func (s *SMTInternalizerState) delInactiveLemmas1() (result error) {
 	if uint64(startAt)+uint64(config.Recent) >= uint64(sz) {
 		return nil
 	}
+	// IF_VERBOSE(2, "(smt.delete-inactive-lemmas") (AUDIT.md FUZZ-F5;
+	// g3trace builds only).
+	if diagnostic.VerboseProgress {
+		if err := progressVerbose(2, "(smt.delete-inactive-lemmas"); err != nil {
+			return err
+		}
+	}
+	numDelCls := 0
 	endAt := sz - int(config.Recent)
 	// std::stable_sort(m_lemmas.begin() + start_at, m_lemmas.begin() + end_at, clause_lt()).
 	old := s.lemmas[startAt:endAt]
@@ -185,6 +194,7 @@ func (s *SMTInternalizerState) delInactiveLemmas1() (result error) {
 			if err := s.delClause(&s.lemmas[i]); err != nil {
 				return err
 			}
+			numDelCls++
 			continue
 		}
 		s.lemmas[j] = record
@@ -197,6 +207,7 @@ func (s *SMTInternalizerState) delInactiveLemmas1() (result error) {
 			if err := s.delClause(&s.lemmas[i]); err != nil {
 				return err
 			}
+			numDelCls++
 			continue
 		}
 		s.lemmas[j] = record
@@ -207,7 +218,16 @@ func (s *SMTInternalizerState) delInactiveLemmas1() (result error) {
 	// The source then rescales activities when m_clause_decay > 1. No
 	// parameter sets m_clause_decay, which stays 1, so that loop is not
 	// reached.
-	return nil
+	return deleteInactiveVerboseEnd(numDelCls)
+}
+
+// deleteInactiveVerboseEnd is del_inactive_lemmas1/2's closing
+// IF_VERBOSE(2, " :num-deleted-clauses " << num_del_cls << ")" << std::endl).
+func deleteInactiveVerboseEnd(numDelCls int) error {
+	if !diagnostic.VerboseProgress {
+		return nil
+	}
+	return progressVerbose(2, " :num-deleted-clauses "+strconv.Itoa(numDelCls)+")\n")
 }
 
 // traceDelInactiveLemma is del_inactive_lemmas1's TRACE of a deleted lemma:
@@ -228,6 +248,14 @@ func (s *SMTInternalizerState) traceDelInactiveLemma(clause *SMTClause) {
 
 // delInactiveLemmas2 is context::del_inactive_lemmas2.
 func (s *SMTInternalizerState) delInactiveLemmas2() (result error) {
+	// IF_VERBOSE(2, "(smt.delete-inactive-clauses ") (AUDIT.md FUZZ-F5;
+	// g3trace builds only).
+	if diagnostic.VerboseProgress {
+		if err := progressVerbose(2, "(smt.delete-inactive-clauses "); err != nil {
+			return err
+		}
+	}
+	numDelCls := 0
 	config := s.clauseMaintenance
 	sz := len(s.lemmas)
 	startAt, err := s.lemmasStart()
@@ -256,6 +284,7 @@ func (s *SMTInternalizerState) delInactiveLemmas2() (result error) {
 				if err := s.delClause(&s.lemmas[i]); err != nil {
 					return err
 				}
+				numDelCls++
 				continue
 			}
 			// act_threshold is old - (old - new) * ((i - start_at) / real_sz)
@@ -275,6 +304,7 @@ func (s *SMTInternalizerState) delInactiveLemmas2() (result error) {
 					if err := s.delClause(&s.lemmas[i]); err != nil {
 						return err
 					}
+					numDelCls++
 					continue
 				}
 			}
@@ -288,7 +318,7 @@ func (s *SMTInternalizerState) delInactiveLemmas2() (result error) {
 	}
 	clear(s.lemmas[j:])
 	s.lemmas = s.lemmas[:j]
-	return nil
+	return deleteInactiveVerboseEnd(numDelCls)
 }
 
 // delInactiveLemmasIfDue is bounded_search's
