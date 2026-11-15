@@ -37,6 +37,14 @@ func (c *Context) handleOptimizationFailure(cause error) (lbool.LBool, error) {
 		return lbool.Undef, cause
 	}
 	status, err := c.publishOptimizationUnknown(message)
+	if err == nil {
+		// m_check_sat_result is the opt context: its collect_statistics
+		// reports m_solver, the solver this optimize() set up.
+		c.optimizationStatsResult, c.optimizationStatsOptimizer, c.optimizationStatsPareto = c.tacticResult, c.optimizationRunOptimizer, nil
+		if c.optimizationRunOptimizer == nil && c.optimizationParetoBackend != nil {
+			c.optimizationStatsPareto = c.optimizationParetoBackend
+		}
+	}
 	if err != nil || c.optimizationFrontend {
 		// opt_frontend catches the z3_exception and reports it on stderr.
 		return status, err
