@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"slices"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -1072,37 +1071,78 @@ func (c *finiteCompiler) filterNegatives(rule finiteCompiledRule, predicate ast.
 			}
 			variableColumns[variable] = []int{column}
 		}
-		negative, _, negativeOwned, negativeVariables, err := c.prepareTail(rule.rule, application, VoidRegister)
-		if err != nil {
-			return 0, Signature{}, false, false, nil, err
-		}
-		targetColumns := make([]int, 0, len(negativeVariables))
-		negativeColumns := make([]int, 0, len(negativeVariables))
-		// neg_intersection.populate scans the positive result columns in
-		// order (t_cols ascending).
-		negativeOrder := make([]uint32, 0, len(negativeVariables))
-		for variable := range negativeVariables {
-			negativeOrder = append(negativeOrder, variable)
-		}
-		slices.SortFunc(negativeOrder, func(a, b uint32) int {
-			ta, tb := variableColumns[a], variableColumns[b]
-			if len(ta) == 0 || len(tb) == 0 {
-				return len(ta) - len(tb)
+		// neg_intersection.populate(single_res_expr, neg_tail): every pair of
+		// a result column and a negated-tail argument holding the same
+		// variable, result columns outermost.
+		columnVariables := make(map[int]uint32)
+		for variable, columns := range variableColumns {
+			for _, column := range columns {
+				columnVariables[column] = variable
 			}
-			if ta[0] != tb[0] {
-				return ta[0] - tb[0]
-			}
-			return negativeVariables[a][0] - negativeVariables[b][0]
-		})
-		for _, variable := range negativeOrder {
-			columns := negativeVariables[variable]
-			target := variableColumns[variable]
-			if len(target) == 0 || len(columns) == 0 {
-				return 0, Signature{}, false, false, nil, ErrCompilerUnsupported
-			}
-			targetColumns = append(targetColumns, target[0])
-			negativeColumns = append(negativeColumns, columns[0])
 		}
+		var targetColumns, negativeColumns []int
+		for column := 0; column < signature.Len(); column++ {
+			variable, found := columnVariables[column]
+			if !found {
+				continue
+			}
+			for index := uint32(0); index < count; index++ {
+				argument, x := c.manager.GetArg(application, index)
+				if x != nil {
+					return 0, Signature{}, false, false, nil, x
+				}
+				kind, x := c.manager.GetKind(argument)
+				if x != nil {
+					return 0, Signature{}, false, false, nil, x
+				}
+				if kind != ast.ASTVar {
+					continue
+				}
+				argVariable, x := c.manager.GetVarIndex(argument)
+				if x != nil {
+					return 0, Signature{}, false, false, nil, x
+				}
+				if argVariable == variable {
+					targetColumns = append(targetColumns, column)
+					negativeColumns = append(negativeColumns, int(index))
+				}
+			}
+		}
+		// Constant arguments: make_add_constant_column joins a singleton
+		// column onto the result and filters on it.
+		for index := uint32(0); index < count; index++ {
+			argument, x := c.manager.GetArg(application, index)
+			if x != nil {
+				return 0, Signature{}, false, false, nil, x
+			}
+			kind, x := c.manager.GetKind(argument)
+			if x != nil {
+				return 0, Signature{}, false, false, nil, x
+			}
+			if kind == ast.ASTVar {
+				continue
+			}
+			value, x := c.relations.EncodeValue(sorts[index], argument)
+			if x != nil {
+				return 0, Signature{}, false, false, nil, x
+			}
+			domain, x := negativeSignature.Domain(int(index))
+			if x != nil {
+				return 0, Signature{}, false, false, nil, x
+			}
+			singleton, x := c.constantRegister(rule.rule, predicate, sorts[index], domain, value)
+			if x != nil {
+				return 0, Signature{}, false, false, nil, x
+			}
+			column := signature.Len()
+			current, signature, owned, present, x = c.appendColumn(current, signature, owned, present, singleton, domain, rule.rule)
+			if x != nil {
+				return 0, Signature{}, false, false, nil, x
+			}
+			targetColumns = append(targetColumns, column)
+			negativeColumns = append(negativeColumns, int(index))
+		}
+		negative := c.predicateRegs[negativePredicate]
 		if !owned {
 			clone := c.fresh(signature)
 			if err = c.emit(NewCloneInstruction(current, clone), rule.rule); err != nil {
@@ -1112,11 +1152,6 @@ func (c *finiteCompiler) filterNegatives(rule finiteCompiledRule, predicate ast.
 		}
 		if err = c.emit(NewFilterByNegationInstruction(current, negative, targetColumns, negativeColumns), rule.rule); err != nil {
 			return 0, Signature{}, false, false, nil, err
-		}
-		if negativeOwned {
-			if err = c.emit(NewDeallocateInstruction(negative), rule.rule); err != nil {
-				return 0, Signature{}, false, false, nil, err
-			}
 		}
 	}
 	return current, signature, owned, present, variableColumns, nil
