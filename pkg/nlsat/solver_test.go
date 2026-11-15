@@ -596,6 +596,47 @@ func TestSolverShuffledVariablePermutationSeedZero(t *testing.T) {
 	}
 }
 
+// AUDIT.md nlsat_03-F6: source check() runs simplify() only for a
+// non-incremental solver, and then on every check.
+func TestSolverIncrementalNeverInlines(t *testing.T) {
+	s := solverFixtureConfig(t, SolverConfig{MaxConflicts: ^uint32(0), InlineVars: true, Incremental: true})
+	for i := 0; i < 2; i++ {
+		_, err := s.MkVar(false)
+		assignmentMust(t, err)
+	}
+	solverUnit(t, s, AtomEQ, evaluatorPolynomial(t, s.evaluator,
+		evaluatorTerm{1, 1, 0}, evaluatorTerm{1, 0, 1}, evaluatorTerm{-3, 0, 0}))
+	solverUnit(t, s, AtomEQ, evaluatorPolynomial(t, s.evaluator,
+		evaluatorTerm{1, 0, 1}, evaluatorTerm{-1, 0, 0}))
+	result, err := s.Check()
+	assignmentMust(t, err)
+	if result != lbool.True || len(s.patches) != 0 {
+		t.Fatal("incremental solver inlined", result, len(s.patches))
+	}
+}
+
+func TestSolverNonIncrementalInlinesEveryCheck(t *testing.T) {
+	s := solverFixtureConfig(t, SolverConfig{MaxConflicts: ^uint32(0), InlineVars: true})
+	for i := 0; i < 2; i++ {
+		_, err := s.MkVar(false)
+		assignmentMust(t, err)
+	}
+	solverUnit(t, s, AtomEQ, evaluatorPolynomial(t, s.evaluator,
+		evaluatorTerm{1, 1, 0}, evaluatorTerm{-3, 0, 0}))
+	result, err := s.Check()
+	assignmentMust(t, err)
+	if result != lbool.True || len(s.patches) != 1 {
+		t.Fatal("first non-incremental check", result, len(s.patches))
+	}
+	solverUnit(t, s, AtomEQ, evaluatorPolynomial(t, s.evaluator,
+		evaluatorTerm{1, 0, 1}, evaluatorTerm{-1, 0, 0}))
+	result, err = s.Check()
+	assignmentMust(t, err)
+	if result != lbool.True || len(s.patches) != 2 {
+		t.Fatal("second non-incremental check", result, len(s.patches))
+	}
+}
+
 func TestSolverInlineVariablesPatchesModelAndConflict(t *testing.T) {
 	t.Run("model-patch", func(t *testing.T) {
 		s := solverFixtureConfig(t, SolverConfig{MaxConflicts: ^uint32(0), InlineVars: true, Reorder: true})

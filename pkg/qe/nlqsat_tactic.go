@@ -203,7 +203,7 @@ func (t *NLQSATTactic) solverConfig(polynomials *polynomial.MultivariatePolynomi
 		Algebraic: algebraic, Polynomial: polynomials, Limit: &t.manager.Limit,
 		MaxMemory: umemory.MegabytesToBytes(megabytes), Lazy: lazy,
 		SimplifyCore: simplify, MinimizeCore: minimize, Randomize: randomize,
-		Factor: false, InlineVars: inlineVariables, Reorder: reorder,
+		Factor: false, InlineVars: inlineVariables, Incremental: true, Reorder: reorder,
 		ShuffleVars: shuffle, Seed: seed, MaxConflicts: maxConflicts,
 	}, nil
 }

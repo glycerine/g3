@@ -28,6 +28,9 @@ type SolverConfig struct {
 	Randomize    bool
 	Factor       bool
 	InlineVars   bool
+	// Incremental is the source solver constructor's incremental flag:
+	// check() runs simplify() (inline_vars) only when it is false.
+	Incremental  bool
 	Reorder      bool
 	ShuffleVars  bool
 	Seed         uint32
@@ -52,7 +55,6 @@ type Solver struct {
 	patches        []inlineVariablePatch
 	fmBounds       []*fourierMotzkinBound
 	literalVectors uint32
-	inlined        bool
 	randomSeed     uint32
 	closed         bool
 }
@@ -259,11 +261,11 @@ func (s *Solver) Check() (result lbool.LBool, resultErr error) {
 		return lbool.Undef, err
 	}
 	s.explanation.fullDimensional = fullDimensional
-	if s.config.InlineVars && !s.inlined {
+	// if (!m_incremental && m_inline_vars) simplify(); (AUDIT.md nlsat_03-F6)
+	if !s.config.Incremental && s.config.InlineVars {
 		if err = s.inlineVariables(); err != nil {
 			return lbool.Undef, err
 		}
-		s.inlined = true
 	}
 	reordered := false
 	// z3 4.7.1 bug kept out of g3: check() reorders after inline_vars, and
