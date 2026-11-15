@@ -33,7 +33,10 @@ namespace datalog {
     }
 
     table_base * lazy_table_plugin::mk_empty(const table_signature & s) {
-        return alloc(lazy_table, alloc(lazy_table_base, *this, m_plugin.mk_empty(s)));
+        // The wrapped plugin may not handle s (sparse tables need at least one
+        // column); fall back to the table plugin the manager selects.
+        table_base * t = m_plugin.can_handle_signature(s) ? m_plugin.mk_empty(s) : get_manager().mk_empty_table(s);
+        return alloc(lazy_table, alloc(lazy_table_base, *this, t));
     }
 
     lazy_table const& lazy_table_plugin::get(table_base const& tb) { return dynamic_cast<lazy_table const&>(tb); }
