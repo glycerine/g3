@@ -1050,3 +1050,43 @@ void tst_z3_4_7_1_nlsat_eval_sign_overflow() {
     ENSURE(gt == l_true);
     ENSURE(lt == l_false);
 }
+
+// x0 = 2, x1 = 1/2: eq = x0*x1 - 1 = 0, q1 = x1 + x0 > 0, q2 = x1^2 - 3 < 0.
+// Signed projection onto x1 substitutes x1 = 1/x0 into q1 and q2.
+// explain::solve_eq never resets its table qs of powers of A = x0, so for
+// q2 (degree 2, after q1 of degree 1) it reads the powers 1, x0 of q1's
+// block: it computes the constant -2 instead of 1 - 3*x0^2 and drops the
+// condition 3*x0^2 - 1 > 0. The projection then holds at x0 = 1/5, where
+// x1 = 5 is forced and q2 = 22 > 0 (fixed upstream in 19e2f8c9d, "fix
+// #1694").
+void tst_z3_4_7_1_nlsat_solve_eq_powers() {
+    params_ref ps;
+    reslimit rlim;
+    nlsat::solver s(rlim, ps, false);
+    nlsat::pmanager& pm = s.pm();
+    nlsat::var x0 = s.mk_var(false);
+    nlsat::var x1 = s.mk_var(false);
+    polynomial_ref _x0(pm), _x1(pm), eq(pm), q1(pm), q2(pm);
+    _x0 = pm.mk_polynomial(x0);
+    _x1 = pm.mk_polynomial(x1);
+    eq = (_x0 * _x1) + (-1);
+    q1 = _x1 + _x0;
+    q2 = (_x1 * _x1) + (-3);
+    nlsat::assignment as(s.am());
+    nlsat_set_value(s, as, x0, 2);
+    nlsat_set_value(s, as, x1, 1, 2);
+    s.set_rvalues(as);
+    nlsat::scoped_literal_vector lits(s), result(s);
+    lits.push_back(nlsat_lit(s, nlsat::atom::EQ, eq));
+    lits.push_back(nlsat_lit(s, nlsat::atom::GT, q1));
+    lits.push_back(nlsat_lit(s, nlsat::atom::LT, q2));
+    nlsat_signed_project_check("nlsat_solve_eq_powers", s, x1, lits, result);
+    // At x0 = 1/5 the literals have no solution in x1, so some literal of
+    // the projection must be false there.
+    nlsat::assignment as2(s.am());
+    nlsat_set_value(s, as2, x0, 1, 5);
+    s.set_rvalues(as2);
+    unsigned bad = nlsat_num_not_true(s, result.size(), result.c_ptr());
+    std::cout << "  projection literals false at x0 = 1/5: " << bad << "\n";
+    ENSURE(bad > 0);
+}
