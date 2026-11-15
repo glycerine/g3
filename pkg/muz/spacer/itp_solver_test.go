@@ -13,6 +13,7 @@ import (
 	"github.com/glycerine/g3/pkg/muz/spacer"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
 func spacerBool(t *testing.T, manager *ast.ASTManager, name string) ast.ASTHandle {
@@ -163,6 +164,70 @@ func TestItpSolverExtractsFarkasCore(t *testing.T) {
 		spacerMust(t, manager.DelRef(&core[i]))
 	}
 
+	spacerMust(t, wrapped.Close())
+	spacerMust(t, backend.Close())
+	spacerMust(t, command.Close())
+}
+
+// AUDIT.md muz_spacer_01-F3: itp_solver::collect_statistics always reports
+// time.itp_solver.itp_core (m_itp_watch, timing get_itp_core), and
+// reset_statistics resets the watch.
+func TestItpSolverCollectsItpCoreTime(t *testing.T) {
+	command, err := cmd_context.NewStandaloneContext()
+	spacerMust(t, err)
+	manager, err := command.Manager()
+	spacerMust(t, err)
+	spacerMust(t, manager.ToggleProofMode(ast.ASTProofEnabled))
+	globals, err := command.GlobalParameters()
+	spacerMust(t, err)
+	backend, err := smtcore.NewSMTSolver(manager, nil, "QF_LRA", smtcore.SMTSolverConfig{Params: globals.Context, Globals: globals})
+	spacerMust(t, err)
+	wrapped, err := spacer.NewItpSolver(backend, spacer.ItpSolverConfig{Params: globals.Context, Globals: globals, SplitLiterals: true, CoreMode: spacer.ItpCoreLegacyFarkas})
+	spacerMust(t, err)
+	arithmetic, err := manager.RegisterArithmeticPlugin()
+	spacerMust(t, err)
+	realSort, err := manager.MkFamilySort(arithmetic, 0, nil)
+	spacerMust(t, err)
+	x, err := manager.MkFreshConst("spacer-itp-watch-x", realSort)
+	spacerMust(t, err)
+	zero, err := manager.ArithmeticRealNumeralText("0")
+	spacerMust(t, err)
+	minusOne, err := manager.ArithmeticRealNumeralText("-1")
+	spacerMust(t, err)
+	upper, err := manager.MkArithmeticLE(x, minusOne)
+	spacerMust(t, err)
+	lower, err := manager.MkArithmeticGE(x, zero)
+	spacerMust(t, err)
+	spacerMust(t, wrapped.Assert(upper))
+	status, err := wrapped.CheckSat([]ast.ASTHandle{lower})
+	spacerMust(t, err)
+	if status != lbool.False {
+		t.Fatal("arithmetic contradiction status", status)
+	}
+	core, err := wrapped.ItpCore()
+	spacerMust(t, err)
+	for i := range core {
+		spacerMust(t, manager.DelRef(&core[i]))
+	}
+	itpCoreTime := func() (float64, bool) {
+		st := statistics.New()
+		spacerMust(t, wrapped.CollectStatistics(st))
+		for i := 0; i < st.Size(); i++ {
+			if st.Key(i) == "time.itp_solver.itp_core" && !st.IsUint(i) {
+				return st.DoubleValue(i), true
+			}
+		}
+		return 0, false
+	}
+	if _, found := itpCoreTime(); !found {
+		t.Fatal("missing time.itp_solver.itp_core")
+	}
+	spacerMust(t, wrapped.ResetStatistics())
+	// statistics::update drops a zero increment, so after the reset the
+	// key is absent (or zero).
+	if seconds, found := itpCoreTime(); found && seconds != 0 {
+		t.Fatal("reset_statistics kept the itp_core time", seconds)
+	}
 	spacerMust(t, wrapped.Close())
 	spacerMust(t, backend.Close())
 	spacerMust(t, command.Close())

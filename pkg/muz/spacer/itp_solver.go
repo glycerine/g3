@@ -14,6 +14,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"github.com/glycerine/g3/pkg/util/stopwatch"
 )
 
 var ErrITPSolverOwner = errors.New("muz/spacer: invalid or closed interpolating solver")
@@ -78,7 +79,9 @@ type ItpSolver struct {
 	// maps to true with an asserted(true) proof, inserted when it is made.
 	elimSub    ast.ASTExprSubstitution
 	elimSubSet bool
-	closed     bool
+	// itpWatch is m_itp_watch, timing get_itp_core.
+	itpWatch stopwatch.Stopwatch
+	closed   bool
 }
 
 func NewItpSolver(backend solver.Solver, config ItpSolverConfig) (*ItpSolver, error) {
@@ -597,6 +600,16 @@ func (s *ItpSolver) ItpCore() (_ []ast.ASTRef, resultErr error) {
 	if err := s.open(); err != nil {
 		return nil, err
 	}
+	// scoped_watch _t_(m_itp_watch)
+	watch, err := stopwatch.NewScopedWatch(&s.itpWatch, false)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if e := watch.Close(); e != nil {
+			resultErr = errors.Join(resultErr, e)
+		}
+	}()
 	proof, err := s.backend.Proof()
 	if err != nil {
 		return nil, err
@@ -677,11 +690,23 @@ func (s *ItpSolver) CollectStatistics(destination *statistics.Statistics) error 
 	if err := s.open(); err != nil {
 		return err
 	}
-	return s.backend.CollectStatistics(destination)
+	seconds, err := s.itpWatch.Seconds()
+	if err != nil {
+		return err
+	}
+	if err = s.backend.CollectStatistics(destination); err != nil {
+		return err
+	}
+	destination.UpdateDouble("time.itp_solver.itp_core", seconds)
+	return nil
 }
 
 func (s *ItpSolver) ResetStatistics() error {
-	return s.open()
+	if err := s.open(); err != nil {
+		return err
+	}
+	s.itpWatch.Reset()
+	return nil
 }
 
 func (s *ItpSolver) Close() (result error) {
