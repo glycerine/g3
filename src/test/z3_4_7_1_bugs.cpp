@@ -159,6 +159,13 @@ Abstract:
                                   constraints are answered unsat, or z3
                                   segfaults (follow-up to pkg/AUDIT.md
                                   smtcore_12-F4).
+    z3_4_7_1_pb_simplex_pop       with smt.pb.enable_simplex, a bool var
+                                  freed by pop keeps its empty pb watch
+                                  list; reused as a pb atom, its
+                                  assignment bounds its own slack column as
+                                  a 0-1 literal and z3 answers unsat on a
+                                  sat problem (follow-up to pkg/AUDIT.md
+                                  smtcore_12-F4).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -2039,4 +2046,33 @@ void tst_z3_4_7_1_pb_simplex_nested() {
         "(assert (or (not d) (and a b c)))\n"
         "(check-sat)\n";
     expect_script_output("pb_simplex_nested", crash_script.c_str(), "sat\n");
+}
+
+// With smt.pb.enable_simplex, theory_pb::assign_eh bounds the 0-1 column of
+// a bool var whenever the var has a (possibly empty) literal watch list.
+// pop_scope_eh empties the watch lists of the popped constraints but keeps
+// the lists. In the scope below, v5 (bool var 5) is an argument; after the
+// pop, var 5 is reused for the atom (pbeq 0: 2*v0), whose slack column is
+// also 5. Assigning the atom true puts the literal lower bound 1 on column
+// 5, its slack upper bound 0 then conflicts, and z3 answers unsat; v0 =
+// v3 = false, v1 = v2 = v5 = true is a model. Follow-up to pkg/AUDIT.md
+// smtcore_12-F4; upstream removed pb.enable_simplex.
+void tst_z3_4_7_1_pb_simplex_pop() {
+    char const* script =
+        "(set-option :auto_config false)\n"
+        "(set-option :smt.pb.enable_simplex true)\n"
+        "(declare-const v0 Bool)\n"
+        "(declare-const v1 Bool)\n"
+        "(declare-const v2 Bool)\n"
+        "(declare-const v3 Bool)\n"
+        "(declare-const v4 Bool)\n"
+        "(declare-const v5 Bool)\n"
+        "(push 1)\n"
+        "(assert ((_ pble 1 2 3 2 1 4) v3 v0 v2 v4 (not v5)))\n"
+        "(check-sat)\n"
+        "(pop 1)\n"
+        "(assert (not ((_ pbge 3 3 5 5 4) (not v2) v3 (not v1) (not v5))))\n"
+        "(assert ((_ pbeq 1 1 2) v2 v0))\n"
+        "(check-sat)\n";
+    expect_script_output("pb_simplex_pop", script, "sat\nsat\n");
 }

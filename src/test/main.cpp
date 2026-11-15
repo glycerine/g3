@@ -264,6 +264,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_bitvector_table_nullary);
     TST(z3_4_7_1_case_split6_phase);
     TST(z3_4_7_1_pb_simplex_nested);
+    TST(z3_4_7_1_pb_simplex_pop);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);
