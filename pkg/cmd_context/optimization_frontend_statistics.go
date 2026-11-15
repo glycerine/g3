@@ -21,7 +21,7 @@ func (c *Context) WriteOptimizationFrontendStatistics(out io.Writer, seconds flo
 		return io.ErrClosedPipe
 	}
 	st := statistics.New()
-	if c.optimizationStatsOptimizer != nil {
+	if c.optimizationStatsOptimizer != nil || c.paretoStatsLive() {
 		if err := c.collectOptimizationStatistics(st); err != nil {
 			return err
 		}

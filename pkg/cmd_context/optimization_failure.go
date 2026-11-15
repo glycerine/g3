@@ -7,6 +7,8 @@ package cmd_context
 import (
 	"errors"
 
+	"github.com/glycerine/g3/pkg/opt"
+	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/z3exception"
 )
@@ -15,6 +17,10 @@ func (c *Context) handleOptimizationFailure(cause error) (lbool.LBool, error) {
 	var fatal z3exception.Z3Error
 	if errors.As(cause, &fatal) {
 		return lbool.Undef, cause
+	}
+	var preprocess opt.SATPreprocessError
+	if !c.optimizationFrontend && errors.As(cause, &preprocess) {
+		return c.publishOptimizationSolverException(preprocess.Err)
 	}
 	canceled, err := c.manager.Canceled()
 	if err != nil {
@@ -39,4 +45,38 @@ func (c *Context) handleOptimizationFailure(cause error) (lbool.LBool, error) {
 	// cmd_exception(ex.msg()); } so the command prints (error "...")
 	// instead of a check-sat result.
 	return lbool.Undef, z3exception.NewDefaultException(message)
+}
+
+// publishOptimizationSolverException is cmd_context::check_sat after an
+// exception that escaped optimize() from the inc_sat_solver's preprocessing:
+// m_check_sat_result is already the opt context, so a later reason-unknown is
+// opt::context::reason_unknown() (its m.canceled() test, then m_solver's
+// reason) and statistics are opt::context::collect_statistics; the command
+// prints cmd_exception(ex.msg()).
+func (c *Context) publishOptimizationSolverException(cause error) (status lbool.LBool, resultErr error) {
+	result, err := solver.NewSimpleCheckSatResult(c.manager)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	published := false
+	defer func() {
+		if !published {
+			resultErr = errors.Join(resultErr, result.Close())
+		}
+	}()
+	if err = result.SetStatus(lbool.Undef); err != nil {
+		return lbool.Undef, err
+	}
+	reason, err := c.optimizationSolverReasonUnknownCore(false)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if err = result.SetReasonUnknownAfterCancelCheck(reason); err != nil {
+		return lbool.Undef, err
+	}
+	c.tacticResult = result
+	c.status, c.checked = lbool.Undef, true
+	c.optimizationStatsResult, c.optimizationStatsOptimizer, c.optimizationStatsPareto = result, c.optimizationRunOptimizer, nil
+	published = true
+	return lbool.Undef, z3exception.NewDefaultException(z3exception.SourceMessage(cause))
 }

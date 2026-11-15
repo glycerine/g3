@@ -266,6 +266,15 @@ func (s *ArithmeticSolver) boxModels() (*OptsmtModels, func() error) {
 	return models, models.Close
 }
 
+// unsupportedBox is farkas_opt/symba_opt's early l_undef when the
+// optimizer is not theory_inf_arith: no m.canceled() test follows.
+func (s *ArithmeticSolver) unsupportedBox(result *ArithmeticResult) (*ArithmeticResult, error) {
+	var err error
+	result.Status = lbool.Undef
+	result.ReasonUnknown, err = s.backend.ReasonUnknown()
+	return result, err
+}
+
 // finishBox is the engine's exit: l_undef when canceled or undecided;
 // otherwise "set the solution tight" (m_upper = m_lower), and execute_box
 // collects m_optsmt.get_model(j) with the objective values.

@@ -76,6 +76,10 @@ func (e *maxResEngine) optimize(result *ArithmeticResult) (status lbool.LBool, o
 		if err != nil {
 			return lbool.Undef, false, err
 		}
+		// if (m.canceled()) return l_undef;
+		if canceled, e2 := e.trail.manager.Canceled(); e2 != nil || canceled {
+			return lbool.Undef, false, e2
+		}
 		switch status {
 		case lbool.True:
 			done, e2 := e.processSearchSAT(result, full)

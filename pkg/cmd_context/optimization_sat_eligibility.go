@@ -45,7 +45,9 @@ func (c *Context) optimizationSATCoreEligible(assumptions []ast.ASTHandle) (elig
 	}
 	for i := range c.objectives {
 		objective := &c.objectives[i]
-		if !objective.soft && !objective.bitVector {
+		// update_solver needs every objective to be O_MAXSMT; an unconverted
+		// bit-vector maximize/minimize is not.
+		if !objective.soft && (!objective.bitVector || c.optimizationUnconverted) {
 			return false, nil
 		}
 	}

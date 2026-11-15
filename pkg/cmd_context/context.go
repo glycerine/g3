@@ -151,7 +151,10 @@ type Context struct {
 	objectives                     []optimizationObjective
 	optimizationHardOverride       []ast.ASTHandle
 	optimizationHardOverrideActive bool
-	optimizationPreprocessor       tactic.ModelConverter
+	// optimizationUnconverted is set while an inconsistent normalization
+	// left maximize/minimize objectives unconverted (from_fmls saw only false).
+	optimizationUnconverted  bool
+	optimizationPreprocessor tactic.ModelConverter
 	// optimizationTerms are opt::context's m_hard_constraints and objective
 	// terms from the last from_fmls; they live until the next from_fmls.
 	optimizationTerms []ast.ASTRef
@@ -176,6 +179,9 @@ type Context struct {
 	optimizationRunOptimizer   *opt.ArithmeticSolver
 	optimizationStatsResult    solver.CheckSatResult
 	optimizationStatsOptimizer *opt.ArithmeticSolver
+	// optimizationStatsPareto is the Pareto run's m_solver (the opt_solver
+	// gia_pareto drives) when optimizationStatsResult came from a Pareto check.
+	optimizationStatsPareto *smtcore.SMTSolver
 	// optimizationRunUsedSAT records that update_solver made
 	// optimizationSAT the last run's m_solver.
 	optimizationRunUsedSAT bool

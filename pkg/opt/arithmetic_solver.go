@@ -329,6 +329,21 @@ func (s *ArithmeticSolver) InternalizeObjective(term ast.ASTHandle, maximize boo
 	return nil
 }
 
+// InternalizeUnconvertedObjective is optsmt::add(t) for a maximize/minimize
+// objective on a non-arithmetic term that normalize left unconverted: the
+// term is rewritten as it is and kept with the other m_objs.
+func (s *ArithmeticSolver) InternalizeUnconvertedObjective(term ast.ASTHandle, maximize bool) error {
+	if s == nil || s.backend == nil {
+		return ast.ErrASTHandle
+	}
+	rewritten, rewriteRef, err := s.rewriteObjective(term)
+	if err != nil {
+		return err
+	}
+	s.internalized = append(s.internalized, internalizedObjective{term: term, maximize: maximize, rewritten: rewritten, ref: rewriteRef})
+	return nil
+}
+
 type internalizedObjective struct {
 	term      ast.ASTHandle
 	maximize  bool
@@ -537,8 +552,20 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 			resultErr = errors.Join(resultErr, s.manager.DelRef(&held))
 		}
 	}()
+	// geometric_lex: while (!m.canceled()) precedes every check_sat, and
+	// after the loop's pop(num_scopes), if (m.canceled() || is_sat ==
+	// l_undef) return l_undef.
+	if canceled, err := s.manager.Canceled(); err != nil || canceled {
+		if err == nil {
+			_, err = s.manager.Canceled()
+		}
+		return lbool.Undef, false, err
+	}
 	status, err := s.backend.CheckSat(nil)
 	if err == nil && status == lbool.False && index > 0 {
+		if canceled, e := s.manager.Canceled(); e != nil || canceled {
+			return lbool.Undef, false, e
+		}
 		// geometric_lex: an unsat check ends the loop and still returns
 		// l_true (m_upper = m_lower); the committed earlier objectives
 		// made this one's search space empty. The reported value is
@@ -566,6 +593,12 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 				jumpScopes--
 				delta.SetInt64(1)
 				steps, stepIncs = 0, 0
+				if canceled, e := s.manager.Canceled(); e != nil || canceled {
+					if e != nil {
+						return lbool.Undef, false, e
+					}
+					break
+				}
 				status, err = s.backend.CheckSat(nil)
 				if err != nil {
 					return lbool.Undef, false, err
@@ -628,6 +661,12 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 		if err != nil {
 			return lbool.Undef, false, err
 		}
+		if canceled, e := s.manager.Canceled(); e != nil || canceled {
+			if e != nil {
+				return lbool.Undef, false, e
+			}
+			break
+		}
 		status, err = s.backend.CheckSat(nil)
 		if err != nil {
 			return lbool.Undef, false, err
@@ -638,6 +677,9 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 			return lbool.Undef, false, err
 		}
 		jumpScopes = 0
+	}
+	if canceled, e := s.manager.Canceled(); e != nil || canceled {
+		return lbool.Undef, false, e
 	}
 	if status == lbool.False {
 		s.finishGeometricLex(index)
@@ -752,11 +794,9 @@ func (s *ArithmeticSolver) optimizeSoft(index int, result *ArithmeticResult) (st
 		// l_undef like the engine run below.
 		var fatal z3exception.Z3Error
 		if !errors.As(err, &fatal) {
-			canceled, cancelErr := s.manager.Canceled()
-			if cancelErr != nil {
-				return lbool.Undef, false, errors.Join(err, cancelErr)
-			}
-			if canceled {
+			// maxsmt::operator() catches the cancellation exception; testing
+			// the limit here charges no step (inc(0)).
+			if !s.manager.ResourceLimit().IncOffset(0) {
 				return lbool.Undef, false, nil
 			}
 		}
@@ -773,11 +813,9 @@ func (s *ArithmeticSolver) optimizeSoft(index int, result *ArithmeticResult) (st
 		if err != nil {
 			var fatal z3exception.Z3Error
 			if !errors.As(err, &fatal) {
-				canceled, cancelErr := s.manager.Canceled()
-				if cancelErr != nil {
-					return lbool.Undef, false, errors.Join(err, cancelErr)
-				}
-				if canceled {
+				// maxsmt::operator() catches the cancellation exception; testing
+				// the limit here charges no step (inc(0)).
+				if !s.manager.ResourceLimit().IncOffset(0) {
 					return lbool.Undef, false, nil
 				}
 			}
@@ -941,10 +979,17 @@ func (s *ArithmeticSolver) optimizeBoxEngineObjective(index int, result *Arithme
 	return lbool.True, true, nil
 }
 
-func (s *ArithmeticSolver) captureArithmeticModel(index int, value *ObjectiveValue, md *model.ModelCore) (resultErr error) {
+// captureArithmeticModel reads the objective's value in md for the display.
+// opt::context evaluates nothing here (get-objectives prints optsmt's
+// bounds), so the evaluation charges no resource steps.
+func (s *ArithmeticSolver) captureArithmeticModel(index int, value *ObjectiveValue, md *model.ModelCore) error {
 	if value == nil || md == nil {
 		return ast.ErrASTHandle
 	}
+	return s.manager.ResourceLimit().Uncharged(func() error { return s.captureArithmeticModelCore(index, value, md) })
+}
+
+func (s *ArithmeticSolver) captureArithmeticModelCore(index int, value *ObjectiveValue, md *model.ModelCore) (resultErr error) {
 	evaluator, err := model.NewModelEvaluator(md, s.config.ModelEvaluator)
 	if err != nil {
 		if evaluator != nil {
@@ -1079,12 +1124,25 @@ func (s *ArithmeticSolver) retainRemainingModelValues(start int, result *Arithme
 // are committed in order to implement the retained lexicographic priority.
 // CheckHard is optimize()'s initial check_sat(0, nullptr) over the hard
 // constraints, before any objective is set up.
+// SATPreprocessError marks an exception of the inc_sat_solver's
+// preprocessing that escapes optimize(); m_solver is still that solver.
+type SATPreprocessError struct{ Err error }
+
+func (e SATPreprocessError) Error() string { return e.Err.Error() }
+func (e SATPreprocessError) Unwrap() error { return e.Err }
+
 func (s *ArithmeticSolver) CheckHard() (lbool.LBool, string, error) {
 	if s == nil || s.backend == nil {
 		return lbool.Undef, "", ast.ErrASTHandle
 	}
 	status, err := s.solver().CheckSat(nil)
 	if err != nil {
+		if s.sat != nil {
+			// inc_sat_solver::internalize_goal catches only tactic
+			// exceptions; any other exception of its preprocessing escapes
+			// optimize() while m_solver is the inc_sat_solver.
+			err = SATPreprocessError{err}
+		}
 		return status, "", err
 	}
 	// optimize(): if (is_sat != l_false) { s.get_model(m_model);

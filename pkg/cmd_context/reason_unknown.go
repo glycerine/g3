@@ -57,7 +57,11 @@ func (c *Context) writeStatistics(out io.Writer, totalSeconds *float64) error {
 	}
 	st.UpdateUint64("rlimit count", m.Limit.Count())
 	if result := c.checkSatResult(); result != nil {
-		if c.optimizationStatsOptimizer != nil && result == c.optimizationStatsResult && c.optimizationStatsOptimizer == c.retainedOptimizer {
+		if c.paretoStatsLive() && result == c.optimizationStatsResult {
+			if err := c.collectOptimizationStatistics(st); err != nil {
+				return err
+			}
+		} else if c.optimizationStatsOptimizer != nil && result == c.optimizationStatsResult && c.optimizationStatsOptimizer == c.retainedOptimizer {
 			if err := c.collectOptimizationStatistics(st); err != nil {
 				return err
 			}
@@ -73,7 +77,11 @@ func (c *Context) writeStatistics(out io.Writer, totalSeconds *float64) error {
 // memory and rlimit again (the display sums the repeated keys).
 func (c *Context) collectOptimizationStatistics(st *statistics.Statistics) error {
 	optimizer := c.optimizationStatsOptimizer
-	if c.optimizationRunUsedSAT && c.optimizationSAT != nil {
+	if c.paretoStatsLive() {
+		if err := c.optimizationStatsPareto.CollectStatistics(st); err != nil {
+			return err
+		}
+	} else if c.optimizationRunUsedSAT && c.optimizationSAT != nil {
 		if err := c.optimizationSAT.CollectStatistics(st); err != nil {
 			return err
 		}
@@ -92,6 +100,13 @@ func (c *Context) collectOptimizationStatistics(st *statistics.Statistics) error
 	st.UpdateUint64("rlimit count", m.Limit.Count())
 	return nil
 }
+
+// paretoStatsLive reports that the published opt result came from a Pareto
+// check whose m_solver is still the live Pareto backend.
+func (c *Context) paretoStatsLive() bool {
+	return c.optimizationStatsPareto != nil && c.optimizationStatsPareto == c.optimizationParetoBackend
+}
+
 func (c *Context) WriteReasonUnknown(out io.Writer) error {
 	reason, err := c.ReasonUnknown()
 	if err != nil {

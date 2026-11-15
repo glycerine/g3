@@ -535,6 +535,15 @@ func (c *Context) runOptimize(assumptions []ast.ASTHandle, execute func(*opt.Ari
 	// check_sat on the hard constraints; a non-sat answer is the result.
 	for i := range c.objectives {
 		objective := &c.objectives[i]
+		if objective.bitVector && c.optimizationUnconverted && !objective.expression.IsNull() {
+			// An unconverted bit-vector maximize/minimize is still an
+			// O_MAXIMIZE/O_MINIMIZE objective: internalize() calls
+			// optsmt::add on its term (no mk_uminus for a non-arithmetic term).
+			if err = optimizer.InternalizeUnconvertedObjective(objective.expression, objective.maximize); err != nil {
+				return nil, err
+			}
+			continue
+		}
 		if objective.soft || objective.bitVector {
 			continue
 		}
@@ -959,6 +968,10 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 		statsOptimizer = c.optimizationStatsOptimizer
 	}
 	c.optimizationStatsResult, c.optimizationStatsOptimizer = result, statsOptimizer
+	c.optimizationStatsPareto = nil
+	if statsOptimizer == nil && c.optimizationParetoBackend != nil {
+		c.optimizationStatsPareto = c.optimizationParetoBackend
+	}
 	c.status, c.checked = optimized.Status, true
 	published = true
 	return optimized.Status, nil

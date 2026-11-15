@@ -32,7 +32,7 @@ func (s *ArithmeticSolver) farkasBox(result *ArithmeticResult) (_ *ArithmeticRes
 	models, release := s.boxModels()
 	defer func() { resultErr = errors.Join(resultErr, release()) }()
 	if !supported {
-		return s.finishBox(result, models, lbool.Undef)
+		return s.unsupportedBox(result)
 	}
 	status := lbool.True
 	for status == lbool.True {
@@ -234,7 +234,7 @@ func (s *ArithmeticSolver) symbaBox(result *ArithmeticResult) (_ *ArithmeticResu
 		return nil, err
 	}
 	if !supported {
-		return s.finishBox(result, models, lbool.Undef)
+		return s.unsupportedBox(result)
 	}
 	status, err := func() (_ lbool.LBool, resultErr error) {
 		// expr_ref_vector ors(m), disj(m);

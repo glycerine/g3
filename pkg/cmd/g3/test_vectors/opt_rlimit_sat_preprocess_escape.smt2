@@ -1,0 +1,7 @@
+(declare-const x1 Bool)(declare-const x2 Bool)(declare-const x3 Bool)(declare-const x4 Bool)(declare-const x5 Bool)(declare-const x6 Bool)
+(assert ((_ at-most 5) x1 x2 x3 x4 x5 x6))
+(assert-soft x1 :weight 1)(assert-soft x2 :weight 2)(assert-soft x3 :weight 3)(assert-soft x4 :weight 4)(assert-soft x5 :weight 5)(assert-soft x6 :weight 6)
+(set-option :rlimit 100)
+(check-sat)
+(get-info :reason-unknown)
+(get-objectives)

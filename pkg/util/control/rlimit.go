@@ -211,6 +211,17 @@ func (s *LimitScope) Close() {
 	}
 }
 
+// Uncharged runs f with the limit suspended and restores the step count
+// afterwards: for Go-only work that has no counterpart in the source, so
+// that it neither charges steps nor fails on the step limit.
+func (r *Reslimit) Uncharged(f func() error) error {
+	r.CheckOpen()
+	steps, suspended := r.Steps, r.suspended
+	r.suspended = true
+	defer func() { r.Steps, r.suspended = steps, suspended }()
+	return f()
+}
+
 type SuspendLimit struct {
 	owner  *Reslimit
 	active bool

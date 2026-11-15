@@ -336,6 +336,12 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// rlimit_agree2: the limit is reached in max_bv_sharing inside the
+	// inc_sat_solver's preprocessing; internalize_goal catches only tactic
+	// exceptions, so the rewriter exception escapes optimize() and
+	// cmd_context::check_sat reports it while m_check_sat_result is the opt
+	// context (m_solver's reason, opt statistics).
+	"opt_rlimit_sat_preprocess_escape.smt2": "(error \"line 5 column 10: max. resource limit exceeded\")\n(:reason-unknown \"no reason given\")\n(objectives\n (  (interval 0 21))\n)\n",
 	// Duality zbug round 3 (fork fix): err <- forall z. p(z) with p = {1}; the
 	// infeasible candidate comes back unchanged, so Duality reports incompleteness
 	// (z3 4.7.1 livelocks; g3 answered an unsound sat with param-less edge solvers).
@@ -2182,6 +2188,9 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	// rlimit_agree2: the escaped optimize() exception is a command error.
+	"opt_rlimit_sat_preprocess_escape.smt2": true,
+
 	"opt_lex_exception_objectives_display.smt2": true, // gaps_misc2
 	"opt_box_exception_bounds_display.smt2":     true, // gaps_misc2
 

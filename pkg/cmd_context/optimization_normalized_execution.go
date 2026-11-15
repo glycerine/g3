@@ -155,6 +155,7 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	}
 	defer func() {
 		c.objectives = original
+		c.optimizationUnconverted = false
 		c.optimizationHardOverride = originalHardOverride
 		c.optimizationHardOverrideActive = originalHardOverrideActive
 		c.optimizationPreprocessor = originalPreprocessor
@@ -195,6 +196,7 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	// An inconsistent goal reaches from_fmls as the single formula false,
 	// so no objective is converted to maxsat (AUDIT.md FUZZ_A-F1).
 	decomposer.SetUnconverted(inconsistent)
+	c.optimizationUnconverted = inconsistent
 	decomposed, _, err := decomposer.Decompose(source)
 	if err != nil {
 		return nil, err
