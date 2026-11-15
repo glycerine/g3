@@ -65,7 +65,7 @@ func TestNonlinearBMCWarningMatchesSourceDispatch(t *testing.T) {
 				if status != lbool.True {
 					t.Fatal("nonlinear query", level, status)
 				}
-				got, err := stream.String()
+				got, err := transformFilteredString(stream)
 				fragmentMust(t, err)
 				// At verbosity 2 the search's own IF_VERBOSE lines follow
 				// the warning (AUDIT.md muz_small_01-F6).
@@ -89,7 +89,7 @@ func TestLinearBMCDoesNotEmitNonlinearWarning(t *testing.T) {
 			if status != lbool.True {
 				t.Fatal("linear query", status)
 			}
-			got, err := stream.String()
+			got, err := transformFilteredString(stream)
 			fragmentMust(t, err)
 			if strings.Contains(got, nonlinearBMCWarning) {
 				t.Fatal("linear query emitted nonlinear warning", got)
@@ -147,7 +147,7 @@ func TestNonlinearBMCWarningRefusalDoesNotChangeResult(t *testing.T) {
 	if status != lbool.True {
 		t.Fatal("query after warning refusal", status)
 	}
-	got, err := stream.String()
+	got, err := transformFilteredString(stream)
 	fragmentMust(t, err)
 	if got != nonlinearBMCWarning {
 		t.Fatalf("replacement warning: got %q, want %q", got, nonlinearBMCWarning)

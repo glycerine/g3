@@ -315,3 +315,9 @@ func (p *SeparateNegatedTailsPlugin) Close() error {
 	p.fresh = nil
 	return nil
 }
+
+// SourceTypeName is typeid(datalog::mk_separate_negated_tails).name() for the IF_VERBOSE
+// transform lines of rule_transformer::operator().
+func (p *SeparateNegatedTailsPlugin) SourceTypeName() string {
+	return base.DatalogPluginTypeName("mk_separate_negated_tails")
+}

@@ -475,3 +475,9 @@ func (p *RuleCoalescePlugin) Close() error {
 	p.rules = nil
 	return nil
 }
+
+// SourceTypeName is typeid(datalog::mk_coalesce).name() for the IF_VERBOSE
+// transform lines of rule_transformer::operator().
+func (p *RuleCoalescePlugin) SourceTypeName() string {
+	return base.DatalogPluginTypeName("mk_coalesce")
+}

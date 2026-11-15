@@ -246,3 +246,9 @@ func (p *MagicSymbolicPlugin) Close() error {
 	p.queries, p.answers = nil, nil
 	return nil
 }
+
+// SourceTypeName is typeid(datalog::mk_magic_symbolic).name() for the IF_VERBOSE
+// transform lines of rule_transformer::operator().
+func (p *MagicSymbolicPlugin) SourceTypeName() string {
+	return base.DatalogPluginTypeName("mk_magic_symbolic")
+}

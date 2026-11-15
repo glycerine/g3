@@ -764,3 +764,9 @@ func (p *InterpTailSimplifierPlugin) Close() error {
 	p.closed = true
 	return nil
 }
+
+// SourceTypeName is typeid(datalog::mk_interp_tail_simplifier).name() for the IF_VERBOSE
+// transform lines of rule_transformer::operator().
+func (p *InterpTailSimplifierPlugin) SourceTypeName() string {
+	return base.DatalogPluginTypeName("mk_interp_tail_simplifier")
+}

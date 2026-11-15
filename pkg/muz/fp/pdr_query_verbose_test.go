@@ -41,7 +41,7 @@ func TestPDRQueryDisplaysTransformedRulesAtSourceVerbosity(t *testing.T) {
 				if level >= 2 {
 					fragmentMust(t, f.engine.pdrRules.WriteDisplay(&expectedRules))
 				}
-				got, err := stream.String()
+				got, err := transformFilteredString(stream)
 				fragmentMust(t, err)
 				if !strings.HasPrefix(got, expectedRules.String()) {
 					t.Fatalf("verbosity %d transformed-rule prefix: got %q; want prefix %q", level, got, expectedRules.String())
@@ -141,8 +141,9 @@ func TestPDRQueryDisplaysEmptyProgramModelAtSourceVerbosity(t *testing.T) {
 				if f.manager.Stats().LiveReferences != before {
 					t.Fatal("caller model leaked references")
 				}
-				got, err := stream.String()
+				got, err := transformFilteredString(stream)
 				fragmentMust(t, err)
+				got = withoutTransformLines(got)
 				if got != expected.String() {
 					t.Fatalf("verbosity %d: got %q; want %q", level, got, expected.String())
 				}

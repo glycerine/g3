@@ -956,3 +956,9 @@ func (p *KarrInvariantsPlugin) Close() error {
 	p.model, p.modelOrder = nil, nil
 	return nil
 }
+
+// SourceTypeName is typeid(datalog::mk_karr_invariants).name() for the IF_VERBOSE
+// transform lines of rule_transformer::operator().
+func (p *KarrInvariantsPlugin) SourceTypeName() string {
+	return base.DatalogPluginTypeName("mk_karr_invariants")
+}

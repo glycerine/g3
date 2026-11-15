@@ -293,3 +293,9 @@ func (p *ArrayBlastPlugin) Close() error {
 	p.closed = true
 	return nil
 }
+
+// SourceTypeName is typeid(datalog::mk_array_blast).name() for the IF_VERBOSE
+// transform lines of rule_transformer::operator().
+func (p *ArrayBlastPlugin) SourceTypeName() string {
+	return base.DatalogPluginTypeName("mk_array_blast")
+}

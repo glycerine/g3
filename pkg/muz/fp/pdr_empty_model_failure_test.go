@@ -62,7 +62,7 @@ func TestPDREmptyProgramModelDiagnosticFailureOwnershipAndRetry(t *testing.T) {
 			}
 			fragmentMust(t, stream.ResetText())
 			fragmentMust(t, f.engine.writePDREmptyProgramModel(f.engine.pdrQueryTarget(f.declarations["u"])))
-			output, err := stream.String()
+			output, err := transformFilteredString(stream)
 			fragmentMust(t, err)
 			if output == "" {
 				t.Fatal("retry omitted converted model")

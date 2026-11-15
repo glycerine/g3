@@ -443,3 +443,7 @@ func (p *BitBlastPlugin) Close() error {
 	p.closed = true
 	return nil
 }
+
+// SourceTypeName is typeid(datalog::mk_bit_blast).name() for the IF_VERBOSE
+// transform lines of rule_transformer::operator().
+func (p *BitBlastPlugin) SourceTypeName() string { return base.DatalogPluginTypeName("mk_bit_blast") }

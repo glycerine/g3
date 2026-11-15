@@ -640,3 +640,9 @@ func (p *QuantifierAbstractionPlugin) Close() error {
 	p.oldToNew, p.order = nil, nil
 	return nil
 }
+
+// SourceTypeName is typeid(datalog::mk_quantifier_abstraction).name() for the IF_VERBOSE
+// transform lines of rule_transformer::operator().
+func (p *QuantifierAbstractionPlugin) SourceTypeName() string {
+	return base.DatalogPluginTypeName("mk_quantifier_abstraction")
+}

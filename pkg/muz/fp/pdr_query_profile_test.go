@@ -76,7 +76,7 @@ func TestPDRQueryRuleProfileParameters(t *testing.T) {
 					t.Fatal("fixture must preserve a non-fact rule for source profiling", ordinary.String())
 				}
 				fragmentMust(t, e.pdrRules.WriteDisplayWithProfile(&expected, tc.profile, tc.threshold))
-				got, err := stream.String()
+				got, err := transformFilteredString(stream)
 				fragmentMust(t, err)
 				if !strings.HasPrefix(got, expected.String()) {
 					t.Fatalf("diagnostic did not honor parameter precedence: got %q; want prefix %q", got, expected.String())

@@ -315,3 +315,9 @@ func (p *LoopCounterPlugin) Close() error {
 	p.oldToNew, p.newToOld = nil, nil
 	return nil
 }
+
+// SourceTypeName is typeid(datalog::mk_loop_counter).name() for the IF_VERBOSE
+// transform lines of rule_transformer::operator().
+func (p *LoopCounterPlugin) SourceTypeName() string {
+	return base.DatalogPluginTypeName("mk_loop_counter")
+}

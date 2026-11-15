@@ -86,8 +86,9 @@ func TestSpacerQueryDisplaysEmptyProgramModelAtSourceVerbosity(t *testing.T) {
 				if got := f.manager.Stats().LiveReferences; got != before {
 					t.Fatal("caller model leaked references", got, before)
 				}
-				got, err := stream.String()
+				got, err := transformFilteredString(stream)
 				fragmentMust(t, err)
+				got = withoutTransformLines(got)
 				if got != expected.String() {
 					t.Fatalf("verbosity %d: got %q; want %q", level, got, expected.String())
 				}
@@ -98,7 +99,7 @@ func TestSpacerQueryDisplaysEmptyProgramModelAtSourceVerbosity(t *testing.T) {
 				for repeat := 0; repeat < 3; repeat++ {
 					fragmentMust(t, stream.ResetText())
 					fragmentMust(t, f.engine.writeSpacerEmptyProgramModel(test.threshold))
-					got, err = stream.String()
+					got, err = transformFilteredString(stream)
 					fragmentMust(t, err)
 					if got != modelText {
 						t.Fatalf("repeat %d: got %q; want %q", repeat, got, modelText)

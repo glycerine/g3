@@ -1330,3 +1330,9 @@ func (p *RuleInlinerPlugin) Close() error {
 	p.closed = true
 	return nil
 }
+
+// SourceTypeName is typeid(datalog::mk_rule_inliner).name() for the IF_VERBOSE
+// transform lines of rule_transformer::operator().
+func (p *RuleInlinerPlugin) SourceTypeName() string {
+	return base.DatalogPluginTypeName("mk_rule_inliner")
+}

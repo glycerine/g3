@@ -696,3 +696,7 @@ func (p *MagicSetsPlugin) Close() error {
 	p.factProbe = nil
 	return nil
 }
+
+// SourceTypeName is typeid(datalog::mk_magic_sets).name() for the IF_VERBOSE
+// transform lines of rule_transformer::operator().
+func (p *MagicSetsPlugin) SourceTypeName() string { return base.DatalogPluginTypeName("mk_magic_sets") }

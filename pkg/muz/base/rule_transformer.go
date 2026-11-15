@@ -6,8 +6,10 @@ package base
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 var ErrRuleTransformerOwner = errors.New("muz/base: invalid or closed rule transformer")
@@ -163,7 +165,12 @@ func (t *RuleTransformer) Apply(rules *RuleSet) (modified bool, resultErr error)
 		if canceled {
 			break
 		}
+		if e := ruleTransformVerboseStart(plugin); e != nil {
+			return modified, e
+		}
+		started := time.Now()
 		next, e := plugin.Transform(current)
+		seconds := ruleTransformSeconds(time.Since(started).Seconds())
 		if e != nil {
 			if next != nil && next != current {
 				e = errors.Join(e, next.Close())
@@ -171,6 +178,9 @@ func (t *RuleTransformer) Apply(rules *RuleSet) (modified bool, resultErr error)
 			return modified, e
 		}
 		if next == nil {
+			if e = ruleTransformVerboseNoOp(seconds); e != nil {
+				return modified, e
+			}
 			continue
 		}
 		if next == current {
@@ -182,7 +192,13 @@ func (t *RuleTransformer) Apply(rules *RuleSet) (modified bool, resultErr error)
 		}
 		if !valid {
 			if plugin.CanDestratifyNegation() {
+				if e = diagnostic.BorrowProcessWarningService().Warning("a rule transformation skipped because it destratified negation"); e != nil {
+					return modified, errors.Join(e, next.Close())
+				}
 				if e = next.Close(); e != nil {
+					return modified, e
+				}
+				if e = ruleTransformVerboseNoOp(seconds); e != nil {
 					return modified, e
 				}
 				continue
@@ -194,6 +210,13 @@ func (t *RuleTransformer) Apply(rules *RuleSet) (modified bool, resultErr error)
 		}
 		current = next
 		modified = true
+		count, e := current.Len()
+		if e != nil {
+			return modified, e
+		}
+		if e = ruleTransformVerboseRules(uint64(count), seconds); e != nil {
+			return modified, e
+		}
 	}
 	if !modified {
 		return false, nil

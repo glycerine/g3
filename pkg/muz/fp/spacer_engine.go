@@ -255,7 +255,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 		}
 	}
 	if !instantiateQuantifiers {
-		if err = transformer.Register(noopTransformPlugin{priority: 37000}); err != nil {
+		if err = transformer.Register(noopTransformPlugin{priority: 37000, class: "mk_quantifier_instantiation"}); err != nil {
 			return nil, errors.Join(err, transformer.Close())
 		}
 	} else {
@@ -340,7 +340,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	// Registered after the inliner chain in the source; disabled stages are
 	// no-op plugins so the sorted order matches.
 	if !bitBlast {
-		if err = transformer.Register(noopTransformPlugin{priority: 35000}); err != nil {
+		if err = transformer.Register(noopTransformPlugin{priority: 35000, class: "mk_bit_blast"}); err != nil {
 			return nil, errors.Join(err, transformer.Close())
 		}
 	}
@@ -356,7 +356,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 		}
 	}
 	if !karr {
-		if err = transformer.Register(noopTransformPlugin{priority: 36010}); err != nil {
+		if err = transformer.Register(noopTransformPlugin{priority: 36010, class: "mk_karr_invariants"}); err != nil {
 			return nil, errors.Join(err, transformer.Close())
 		}
 	}
@@ -367,7 +367,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 		}
 	}
 	if !scale {
-		if err = transformer.Register(noopTransformPlugin{priority: 36030}); err != nil {
+		if err = transformer.Register(noopTransformPlugin{priority: 36030, class: "mk_scale"}); err != nil {
 			return nil, errors.Join(err, transformer.Close())
 		}
 	}
@@ -378,7 +378,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 		}
 	}
 	if !arrayBlast && !quantifyArrays {
-		if err = transformer.Register(noopTransformPlugin{priority: 35999}); err != nil {
+		if err = transformer.Register(noopTransformPlugin{priority: 35999, class: "mk_array_blast"}); err != nil {
 			return nil, errors.Join(err, transformer.Close())
 		}
 	}
@@ -832,7 +832,12 @@ func (e *PropositionalEngine) querySpacerAtLevel(declaration ast.ASTHandle, from
 
 // noopTransformPlugin stands for a source plugin that is registered but
 // disabled by its parameter (its operator() returns nullptr).
-type noopTransformPlugin struct{ priority uint32 }
+type noopTransformPlugin struct {
+	priority uint32
+	class    string // the disabled source plugin's class, for IF_VERBOSE
+}
+
+func (p noopTransformPlugin) SourceTypeName() string { return base.DatalogPluginTypeName(p.class) }
 
 func (p noopTransformPlugin) Priority() uint32                               { return p.priority }
 func (p noopTransformPlugin) CanDestratifyNegation() bool                    { return false }

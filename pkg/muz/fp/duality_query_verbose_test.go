@@ -47,7 +47,7 @@ func TestDualityQueryReportFollowsSourceVerbosityAndStreamState(t *testing.T) {
 		if status != lbool.True {
 			t.Fatal("reachable report fixture", level, status)
 		}
-		text, err := stream.String()
+		text, err := transformFilteredString(stream)
 		must(err)
 		if level == 0 && text != "" {
 			t.Fatal("verbosity-zero Duality report", text)
@@ -74,7 +74,7 @@ func TestDualityQueryReportFollowsSourceVerbosityAndStreamState(t *testing.T) {
 	if status != lbool.True {
 		t.Fatal("query after refused report", status)
 	}
-	text, err := stream.String()
+	text, err := transformFilteredString(stream)
 	must(err)
 	if text == "" || bytes.Contains([]byte(text), []byte("error")) {
 		t.Fatal("report stream replacement", text)

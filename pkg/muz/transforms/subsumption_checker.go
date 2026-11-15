@@ -635,3 +635,9 @@ func (p *SubsumptionCheckerPlugin) Transform(source *base.RuleSet) (_ *base.Rule
 	}
 	return result, nil
 }
+
+// SourceTypeName is typeid(datalog::mk_subsumption_checker).name() for the IF_VERBOSE
+// transform lines of rule_transformer::operator().
+func (p *SubsumptionCheckerPlugin) SourceTypeName() string {
+	return base.DatalogPluginTypeName("mk_subsumption_checker")
+}

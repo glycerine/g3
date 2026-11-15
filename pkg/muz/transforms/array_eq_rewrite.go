@@ -443,3 +443,9 @@ func (p *ArrayEqRewritePlugin) Close() error {
 	p.closed = true
 	return nil
 }
+
+// SourceTypeName is typeid(datalog::mk_array_eq_rewrite).name() for the IF_VERBOSE
+// transform lines of rule_transformer::operator().
+func (p *ArrayEqRewritePlugin) SourceTypeName() string {
+	return base.DatalogPluginTypeName("mk_array_eq_rewrite")
+}

@@ -828,3 +828,7 @@ func (p *RuleSlicePlugin) Close() error {
 	p.predicates = nil
 	return nil
 }
+
+// SourceTypeName is typeid(datalog::mk_slice).name() for the IF_VERBOSE
+// transform lines of rule_transformer::operator().
+func (p *RuleSlicePlugin) SourceTypeName() string { return base.DatalogPluginTypeName("mk_slice") }

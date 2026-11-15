@@ -619,3 +619,9 @@ func (p *ArrayInstantiationPlugin) Close() error {
 	p.selectVariables = nil
 	return nil
 }
+
+// SourceTypeName is typeid(datalog::mk_array_instantiation).name() for the IF_VERBOSE
+// transform lines of rule_transformer::operator().
+func (p *ArrayInstantiationPlugin) SourceTypeName() string {
+	return base.DatalogPluginTypeName("mk_array_instantiation")
+}

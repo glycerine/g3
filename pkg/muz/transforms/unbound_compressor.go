@@ -405,3 +405,9 @@ func (p *UnboundCompressorPlugin) Close() error {
 	p.closed, p.mapping = true, nil
 	return nil
 }
+
+// SourceTypeName is typeid(datalog::mk_unbound_compressor).name() for the IF_VERBOSE
+// transform lines of rule_transformer::operator().
+func (p *UnboundCompressorPlugin) SourceTypeName() string {
+	return base.DatalogPluginTypeName("mk_unbound_compressor")
+}

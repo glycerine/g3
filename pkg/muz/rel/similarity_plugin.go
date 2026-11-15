@@ -209,3 +209,9 @@ func (p *FiniteSimilarityCompressor) Transform(source *base.RuleSet) (result *ba
 	}
 	return result, nil
 }
+
+// SourceTypeName is typeid(datalog::mk_similarity_compressor).name() for the IF_VERBOSE
+// transform lines of rule_transformer::operator().
+func (p *FiniteSimilarityCompressor) SourceTypeName() string {
+	return base.DatalogPluginTypeName("mk_similarity_compressor")
+}

@@ -425,3 +425,7 @@ func (p *ScalePlugin) Close() error {
 	p.oldToNew, p.newOrder = nil, nil
 	return nil
 }
+
+// SourceTypeName is typeid(datalog::mk_scale).name() for the IF_VERBOSE
+// transform lines of rule_transformer::operator().
+func (p *ScalePlugin) SourceTypeName() string { return base.DatalogPluginTypeName("mk_scale") }

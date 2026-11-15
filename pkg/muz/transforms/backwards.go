@@ -130,3 +130,7 @@ func (p *BackwardsPlugin) Close() error {
 	p.closed = true
 	return nil
 }
+
+// SourceTypeName is typeid(datalog::mk_backwards).name() for the IF_VERBOSE
+// transform lines of rule_transformer::operator().
+func (p *BackwardsPlugin) SourceTypeName() string { return base.DatalogPluginTypeName("mk_backwards") }

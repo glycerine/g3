@@ -767,3 +767,9 @@ func (p *QuantifierInstantiationPlugin) Close() error {
 	p.closed = true
 	return nil
 }
+
+// SourceTypeName is typeid(datalog::mk_quantifier_instantiation).name() for the IF_VERBOSE
+// transform lines of rule_transformer::operator().
+func (p *QuantifierInstantiationPlugin) SourceTypeName() string {
+	return base.DatalogPluginTypeName("mk_quantifier_instantiation")
+}
