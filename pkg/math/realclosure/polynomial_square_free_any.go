@@ -1,6 +1,6 @@
 package realclosure
 
-// Source: src/math/realclosure/realclosure.cpp:3610-3629.
+// Source: src/math/realclosure/realclosure.cpp:3610-3629 (square_free).
 
 import "errors"
 
@@ -18,7 +18,12 @@ func (s *realValueStore) squareFreeAnyPolynomial(p []*realValue, usePrem bool) (
 		return nil, err
 	}
 	defer func() { err = errors.Join(err, s.releaseSturmCoefficients(derivative)) }()
-	gcd, err := s.gcdAnyPolynomials(p, derivative, usePrem)
+	var gcd []*realValue
+	if usePrem {
+		gcd, err = s.premGcdAnyPolynomials(p, derivative, usePrem)
+	} else {
+		gcd, err = s.gcdAnyPolynomials(p, derivative, usePrem)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -32,6 +37,9 @@ func (s *realValueStore) squareFreeAnyPolynomial(p []*realValue, usePrem bool) (
 	}
 	if len(remainder) != 0 {
 		return nil, errors.Join(errors.New("realclosure: non-exact algebraic square-free division"), s.releaseSturmCoefficients(result), s.releaseSturmCoefficients(remainder))
+	}
+	if usePrem {
+		return s.normalizeAnyIntCoeffsOwned(result, usePrem)
 	}
 	return result, nil
 }

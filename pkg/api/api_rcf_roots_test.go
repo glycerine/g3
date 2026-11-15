@@ -154,3 +154,18 @@ func TestAPIRCFRootsDisplayIntervals(t *testing.T) {
 		}
 	}
 }
+
+// AUDIT.md math_realclosure_01-F10: square_free under use_prem uses prem_gcd
+// and normalize_int_coeffs, so 2(x^2-2)^2 records x^2 - 2.
+func TestAPIRCFRootsSquareFreeNormalized(t *testing.T) {
+	f := newRCFFixture(t)
+	defer f.close()
+	zero := f.rational("0")
+	got := f.rootTexts(f.rational("8"), zero, f.rational("-8"), zero, f.rational("2"))
+	want := []string{"root(x^2 + -2, (-oo, 0), {})", "root(x^2 + -2, (0, +oo), {})"}
+	for i := range want {
+		if len(got) != len(want) || !strings.Contains(got[i], want[i]) {
+			t.Fatalf("2(x^2-2)^2 roots = %q, want %q", got, want)
+		}
+	}
+}

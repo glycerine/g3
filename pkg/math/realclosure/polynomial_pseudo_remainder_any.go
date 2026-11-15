@@ -21,7 +21,7 @@ func (s *realValueStore) signedPseudoRemainderAny(left, right []*realValue, useP
 	if len(right) == 1 {
 		return nil, nil
 	}
-	result, err = s.retainRationalPolynomial(left)
+	result, steps, err := s.pseudoRemainderAnyCore(left, right, usePrem)
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +29,55 @@ func (s *realValueStore) signedPseudoRemainderAny(left, right []*realValue, useP
 		return nil, errors.Join(cause, s.releaseSturmCoefficients(result))
 	}
 	leading := right[len(right)-1]
-	steps := 0
+	leadingSign, err := s.determineRankedRetainedValueSign(leading, usePrem)
+	if err != nil {
+		return fail(err)
+	}
+	if leadingSign == 0 {
+		return fail(arena.ErrInvalidSlot)
+	}
+	if steps%2 == 0 || leadingSign > 0 {
+		negated, e := s.negateAnyPolynomial(result, usePrem)
+		if e != nil {
+			return fail(e)
+		}
+		if e = s.releaseSturmCoefficients(result); e != nil {
+			_ = s.releaseSturmCoefficients(negated)
+			return nil, e
+		}
+		result = negated
+	}
+	return result, nil
+}
+
+// pseudoRemainderAny is the source prem (realclosure.cpp:2925-2978):
+// the pseudo-remainder without the sprem sign correction.
+func (s *realValueStore) pseudoRemainderAny(left, right []*realValue, usePrem bool) (result []*realValue, err error) {
+	if err = s.checkAnyPolynomial(left, true); err != nil {
+		return nil, err
+	}
+	if err = s.checkAnyPolynomial(right, false); err != nil {
+		return nil, err
+	}
+	if len(right) == 1 {
+		return nil, nil
+	}
+	result, _, err = s.pseudoRemainderAnyCore(left, right, usePrem)
+	return result, err
+}
+
+// pseudoRemainderAnyCore runs the prem elimination loop and reports the
+// number of eliminations d.
+func (s *realValueStore) pseudoRemainderAnyCore(left, right []*realValue, usePrem bool) (result []*realValue, steps int, err error) {
+	result, err = s.retainRationalPolynomial(left)
+	if err != nil {
+		return nil, 0, err
+	}
+	fail := func(cause error) ([]*realValue, int, error) {
+		return nil, 0, errors.Join(cause, s.releaseSturmCoefficients(result))
+	}
+	leading := right[len(right)-1]
+	steps = 0
 	for len(result) >= len(right) {
 		if err = s.checkpoint(); err != nil {
 			return fail(err)
@@ -81,23 +129,5 @@ func (s *realValueStore) signedPseudoRemainderAny(left, right []*realValue, useP
 		}
 		result = trimAnyPolynomial(result[:len(result)-1])
 	}
-	leadingSign, err := s.determineRankedRetainedValueSign(leading, usePrem)
-	if err != nil {
-		return fail(err)
-	}
-	if leadingSign == 0 {
-		return fail(arena.ErrInvalidSlot)
-	}
-	if steps%2 == 0 || leadingSign > 0 {
-		negated, e := s.negateAnyPolynomial(result, usePrem)
-		if e != nil {
-			return fail(e)
-		}
-		if e = s.releaseSturmCoefficients(result); e != nil {
-			_ = s.releaseSturmCoefficients(negated)
-			return nil, e
-		}
-		result = negated
-	}
-	return result, nil
+	return result, steps, nil
 }

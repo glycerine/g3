@@ -27,7 +27,19 @@ func TestAnyPolynomialSquareFreeOverAlgebraicCoefficients(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			f.expect(squareFree, want)
+			if usePrem {
+				// square_free under use_prem divides by the prem_gcd result,
+				// which is not monic (AUDIT.md math_realclosure_01-F10); the
+				// quotient is a constant multiple of (x - alpha)(x + 1).
+				monic, err := f.base.store.makeAnyPolynomialMonic(squareFree, usePrem)
+				if err != nil {
+					t.Fatal(err)
+				}
+				f.expect(monic, want)
+				f.release(monic)
+			} else {
+				f.expect(squareFree, want)
+			}
 			f.release(repeated, polynomial, want, squareFree, []*realValue{negativeAlpha})
 		})
 	}
