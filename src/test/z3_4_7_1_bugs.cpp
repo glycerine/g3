@@ -151,6 +151,14 @@ Abstract:
                                   reads an uninitialized phase and ignores
                                   smt.phase_selection (pkg/AUDIT.md
                                   smtcore_02-F9).
+    z3_4_7_1_pb_simplex_nested    with smt.pb.enable_simplex, a pb atom's
+                                  bool var is both its 0-1 column and its
+                                  row's slack column, so a pb constraint
+                                  over another pb atom bounds that atom's
+                                  weighted sum by [0,1]: sat nested
+                                  constraints are answered unsat, or z3
+                                  segfaults (follow-up to pkg/AUDIT.md
+                                  smtcore_12-F4).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -2003,4 +2011,32 @@ void tst_z3_4_7_1_case_split6_phase() {
         std::cout << "case_split6_phase: relevancy " << relevancy[i] << "\n";
         expect_script_output("case_split6_phase", script.c_str(), expected[i]);
     }
+}
+
+// theory_pb::internalize_atom with smt.pb.enable_simplex uses an atom's bool
+// var both as its 0-1 column (in rows whose argument it is) and as the slack
+// column of its own row (the "TBD" comment there). In
+// (pbge 3: 2*I + b + d) with I = (pbge 2: ~b + ~d + a), the outer row puts
+// [0,1] bounds on I's column, which is I's slack ~b + ~d + a, so once I is
+// true (slack >= 2) the simplex is infeasible and z3 answers unsat; a = b =
+// true, d = false satisfies both. With a disjunction over the inner atom's
+// arguments z3 segfaults instead. Follow-up to pkg/AUDIT.md smtcore_12-F4;
+// upstream removed pb.enable_simplex.
+void tst_z3_4_7_1_pb_simplex_nested() {
+    char const* header =
+        "(set-option :auto_config false)\n"
+        "(set-option :smt.pb.enable_simplex true)\n"
+        "(declare-const a Bool)\n"
+        "(declare-const b Bool)\n"
+        "(declare-const c Bool)\n"
+        "(declare-const d Bool)\n";
+    std::string unsat_script = std::string(header) +
+        "(assert ((_ pbge 3 2 1 1) ((_ pbge 2 1 1 1) (not b) (not d) a) b d))\n"
+        "(check-sat)\n";
+    expect_script_output("pb_simplex_nested", unsat_script.c_str(), "sat\n");
+    std::string crash_script = std::string(header) +
+        "(assert ((_ pbge 3 2 1 1) ((_ pbge 2 1 1 1) a b c) d (not a)))\n"
+        "(assert (or (not d) (and a b c)))\n"
+        "(check-sat)\n";
+    expect_script_output("pb_simplex_nested", crash_script.c_str(), "sat\n");
 }

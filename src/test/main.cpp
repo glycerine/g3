@@ -263,6 +263,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_check_table_nullary_empty);
     TST(z3_4_7_1_bitvector_table_nullary);
     TST(z3_4_7_1_case_split6_phase);
+    TST(z3_4_7_1_pb_simplex_nested);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);
