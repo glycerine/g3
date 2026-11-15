@@ -30,8 +30,28 @@ type EqualityDER struct {
 	rewriter     *rewriter.TheoryRewriter
 	arithmetic   ast.FamilyID
 	pending      []*equalityDERCall
-	bytes        uint64
-	closed       bool
+	// m_subst_map (expr_ref_vector) and m_new_args (expr_ref_buffer) are
+	// members of eq::der: they keep their terms after a call returns, until
+	// the next create_substitution / apply_substitution resets them or the
+	// der is destroyed (AUDIT.md FUZZ_F-F4).
+	substMap []ast.ASTRef
+	newArgs  []ast.ASTRef
+	bytes    uint64
+	closed   bool
+}
+
+// resetSubstMap is m_subst_map.reset(): release front to back.
+func (d *EqualityDER) resetSubstMap() error {
+	refs := d.substMap
+	d.substMap = nil
+	return closeEqualityRefs(d.manager, refs)
+}
+
+// resetNewArgs is m_new_args.reset(): release front to back.
+func (d *EqualityDER) resetNewArgs() error {
+	refs := d.newArgs
+	d.newArgs = nil
+	return closeEqualityRefs(d.manager, refs)
 }
 
 type equalityDefinition struct {
@@ -378,6 +398,13 @@ func (d *EqualityDER) Close() error {
 			return err
 		}
 		d.rewriter = nil
+	}
+	// ~der: m_rewriter, then m_new_args, then m_subst_map, then m_subst.
+	if err := d.resetNewArgs(); err != nil {
+		return err
+	}
+	if err := d.resetSubstMap(); err != nil {
+		return err
 	}
 	if d.substitution != nil {
 		if err := d.substitution.Close(); err != nil {

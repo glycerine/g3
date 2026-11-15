@@ -35,10 +35,21 @@ func (d *EqualityDER) applyQuantifierSubstitution(c *equalityDERCall, q ast.ASTH
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	// m_new_args.reset(), then the kept arguments are pushed: the member
+	// buffer owns them until the next apply_substitution or ~der
+	// (AUDIT.md FUZZ_F-F4).
+	if err = d.resetNewArgs(); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	var remaining []ast.ASTHandle
 	for i, h := range args {
 		index := c.positions[i]
 		if index < 0 || c.definitions[index].term.IsNull() {
+			ref, x := d.manager.NewRef(h)
+			if x != nil {
+				return ast.ASTHandle{}, x
+			}
+			d.newArgs = append(d.newArgs, ref)
 			remaining = append(remaining, h)
 		}
 	}

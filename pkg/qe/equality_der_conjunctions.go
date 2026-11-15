@@ -1,6 +1,10 @@
 package qe
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
 
 func (d *EqualityDER) appendConjunction(conjs *[]ast.ASTRef, h ast.ASTHandle) error {
 	r, err := d.manager.NewRef(h)
@@ -296,13 +300,42 @@ func (d *EqualityDER) substitute(c *equalityDERCall, h ast.ASTHandle, bindings [
 	return d.manager.RefGet(out)
 }
 func (d *EqualityDER) createSubstitution(c *equalityDERCall) ([]ast.ASTHandle, error) {
+	// m_subst_map.reset(); m_subst_map.resize(sz, nullptr);
+	if err := d.resetSubstMap(); err != nil {
+		return nil, err
+	}
 	bindings := make([]ast.ASTHandle, len(c.definitions))
+	d.substMap = make([]ast.ASTRef, len(bindings))
 	for _, index := range c.order {
-		h, err := d.substitute(c, c.definitions[index].term, bindings)
+		// expr_ref cur(m_map[m_order[i]], m); expr_ref r(m);
+		// m_subst(cur, ..., r); m_subst_map[inx] = r; then r and cur die
+		// (AUDIT.md FUZZ_F-F4).
+		inx := len(bindings) - int(index) - 1
+		h, err := func() (_ ast.ASTHandle, resultErr error) {
+			cur, err := d.manager.NewRef(c.definitions[index].term)
+			if err != nil {
+				return ast.ASTHandle{}, err
+			}
+			defer func() { resultErr = errors.Join(resultErr, d.manager.DelRef(&cur)) }()
+			r, err := d.manager.NewRef(ast.ASTHandle{})
+			if err != nil {
+				return ast.ASTHandle{}, err
+			}
+			defer func() { resultErr = errors.Join(resultErr, d.manager.DelRef(&r)) }()
+			if err = d.substitution.Substitute(c.definitions[index].term, bindings, r); err != nil {
+				return ast.ASTHandle{}, err
+			}
+			h, err := d.manager.RefGet(r)
+			if err != nil {
+				return ast.ASTHandle{}, err
+			}
+			d.substMap[inx], err = d.manager.NewRef(h)
+			return h, err
+		}()
 		if err != nil {
 			return nil, err
 		}
-		bindings[len(bindings)-int(index)-1] = h
+		bindings[inx] = h
 	}
 	return bindings, nil
 }
