@@ -32,7 +32,7 @@ func (s *PsortASTNetwork) traceCardEntry(k, n uint32) {
 	})
 }
 
-func (s *PsortASTNetwork) card(k, n uint32, p psortASTPointer, out *ASTLiteralVector) (err error) {
+func (s *PsortASTNetwork) cardBody(k, n uint32, p psortASTPointer, out *ASTLiteralVector) (err error) {
 	s.traceCardEntry(k, n)
 	if n <= k {
 		return s.sorting(n, p, out)
@@ -78,7 +78,7 @@ func (s *PsortASTNetwork) card(k, n uint32, p psortASTPointer, out *ASTLiteralVe
 	}
 	return s.mergeSmall(k, az, ap, bz, bp, out)
 }
-func (s *PsortASTNetwork) sorting(n uint32, p psortASTPointer, out *ASTLiteralVector) (err error) {
+func (s *PsortASTNetwork) sortingBody(n uint32, p psortASTPointer, out *ASTLiteralVector) (err error) {
 	s.tracePBEntry(744, "sorting", func(w io.Writer) error {
 		psortTraceText(w, "sorting: ")
 		psortTraceUint(w, n)
@@ -138,7 +138,7 @@ func (s *PsortASTNetwork) sorting(n uint32, p psortASTPointer, out *ASTLiteralVe
 	}
 	return s.merge(az, ap, bz, bp, out)
 }
-func (s *PsortASTNetwork) merge(a uint32, ap psortASTPointer, b uint32, bp psortASTPointer, out *ASTLiteralVector) (err error) {
+func (s *PsortASTNetwork) mergeBody(a uint32, ap psortASTPointer, b uint32, bp psortASTPointer, out *ASTLiteralVector) (err error) {
 	s.tracePBEntry(640, "merge", func(w io.Writer) error {
 		psortTraceText(w, "merge a: ")
 		psortTraceUint(w, a)
@@ -298,7 +298,7 @@ func (s *PsortASTNetwork) assertNotEmpty(v *ASTLiteralVector, line uint32, text 
 	}
 	return nil
 }
-func (s *PsortASTNetwork) interleave(a, b, out *ASTLiteralVector) error {
+func (s *PsortASTNetwork) interleaveBody(a, b, out *ASTLiteralVector) error {
 	s.tracePBEntry(712, "interleave", func(w io.Writer) error {
 		psortTraceText(w, "interleave: ")
 		az, e := a.Size()
@@ -473,7 +473,7 @@ func (s *PsortASTNetwork) interleave(a, b, out *ASTLiteralVector) error {
 	}
 	return nil
 }
-func (s *PsortASTNetwork) mergeSmall(c, a uint32, ap psortASTPointer, b uint32, bp psortASTPointer, out *ASTLiteralVector) (err error) {
+func (s *PsortASTNetwork) mergeSmallBody(c, a uint32, ap psortASTPointer, b uint32, bp psortASTPointer, out *ASTLiteralVector) (err error) {
 	s.tracePBEntry(805, "smerge", func(w io.Writer) error {
 		psortTraceText(w, "smerge: c:")
 		psortTraceUint(w, c)
@@ -1050,6 +1050,7 @@ func (s *PsortASTNetwork) directSort(m, n uint32, p psortASTPointer, out *ASTLit
 	return nil
 }
 func (s *PsortASTNetwork) addSubset(polarity bool, k, offset uint32, lits *ASTLiteralVector, n uint32, p psortASTPointer) error {
+	s.traceAddSubset(k, offset, n, lits)
 	on, e := s.assertions()
 	if e != nil {
 		return e

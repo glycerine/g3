@@ -256,6 +256,7 @@ func (s *PsortASTNetwork) not(a ASTHandle) (ASTHandle, error) { return s.context
 func (s *PsortASTNetwork) clause(n uint32, p psortASTPointer) (result error) {
 	s.stats.CompiledClauses++
 	s.stats.ClauseVariables += n
+	s.traceAddClause(n, p)
 	f, e := s.beginFrame(1)
 	if e != nil {
 		return e

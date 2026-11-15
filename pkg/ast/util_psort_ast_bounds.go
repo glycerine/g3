@@ -289,6 +289,7 @@ func (s *PsortASTNetwork) dualize(k *uint32, n uint32, p psortASTPointer, in *AS
 			return false, e
 		}
 	}
+	s.traceDualize(n, in, *k)
 	return true, nil
 }
 func (s *PsortASTNetwork) impliesOr(l ASTHandle, n uint32, p psortASTPointer) (err error) {
@@ -478,6 +479,7 @@ func (s *PsortASTNetwork) exactlyOne(full bool, n uint32, p psortASTPointer) (re
 	return r, s.impliesOr(r, sz, ptr)
 }
 func (s *PsortASTNetwork) atMostOne(full bool, n uint32, p psortASTPointer, ors *ASTLiteralVector, useOrs bool) (result ASTHandle, err error) {
+	s.traceAtMostOne(full, n, p)
 	// Source n>=4 && false erases the entire bimander call on this actual path.
 	f, e := s.beginFrame(2)
 	if e != nil {
