@@ -37,34 +37,26 @@ func (c *SMTContext) Substitute(term ast.ASTHandle, from, to []ast.ASTHandle) (r
 		}
 	}
 
-	substitution, err := m.NewExprSubstitution()
+	// expr_safe_replace subst(m); shifts sources and destinations through
+	// quantifier binders, so bound variables are never captured.
+	subst, err := rewriter.NewExprSafeReplace(m)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	replacer, err := rewriter.NewDefaultExprReplacer(m)
-	if err != nil {
-		return ast.ASTRef{}, errors.Join(err, m.DelExprSubstitution(&substitution))
-	}
-	cleanup := func() error {
-		return errors.Join(replacer.Close(), m.DelExprSubstitution(&substitution))
-	}
 	for i := range from {
-		if err = m.ExprSubstitutionInsert(substitution, from[i], to[i], ast.ASTHandle{}, ast.ASTDependency{}); err != nil {
-			return ast.ASTRef{}, errors.Join(err, cleanup())
+		if err = subst.Insert(from[i], to[i]); err != nil {
+			return ast.ASTRef{}, errors.Join(err, subst.Close())
 		}
-	}
-	if err = replacer.SetSubstitution(&substitution); err != nil {
-		return ast.ASTRef{}, errors.Join(err, cleanup())
 	}
 	result, err = m.NewRef(ast.ASTHandle{})
 	if err != nil {
-		return ast.ASTRef{}, errors.Join(err, cleanup())
+		return ast.ASTRef{}, errors.Join(err, subst.Close())
 	}
-	if err = replacer.Rewrite(term, result); err != nil {
-		resultErr = errors.Join(err, cleanup(), m.DelRef(&result))
+	if err = subst.Apply(term, result); err != nil {
+		resultErr = errors.Join(err, subst.Close(), m.DelRef(&result))
 		return ast.ASTRef{}, resultErr
 	}
-	if err = cleanup(); err != nil {
+	if err = subst.Close(); err != nil {
 		resultErr = errors.Join(err, m.DelRef(&result))
 		return ast.ASTRef{}, resultErr
 	}
