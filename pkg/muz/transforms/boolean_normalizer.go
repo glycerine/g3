@@ -383,6 +383,55 @@ func (n *booleanNormalizer) normalize(expression ast.ASTHandle) (ast.ASTHandle, 
 		}
 		return result, e
 	}
+	result, rewritten, err := n.reduceAndOr(operation, arguments)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	// normalizer_cfg::reduce_app returns BR_REWRITE1 when
+	// detect_equivalences replaced a pair: rewriter_tpl revisits the new
+	// and/or at depth 1, so reduce_app runs again on its (unrewritten)
+	// arguments until it returns BR_DONE.
+	for rewritten {
+		if result != expression {
+			if result, err = n.keep(result); err != nil {
+				return ast.ASTHandle{}, err
+			}
+		}
+		nextOperation, nextApp, e := n.operation(result)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		if !nextApp || nextOperation != ast.ASTOpAnd && nextOperation != ast.ASTOpOr {
+			break
+		}
+		nextCount, e := n.manager.GetNumArgs(result)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		nextArguments := make([]ast.ASTHandle, nextCount)
+		for index := uint32(0); index < nextCount; index++ {
+			if nextArguments[index], e = n.manager.GetArg(result, index); e != nil {
+				return ast.ASTHandle{}, e
+			}
+		}
+		if result, rewritten, err = n.reduceAndOr(nextOperation, nextArguments); err != nil {
+			return ast.ASTHandle{}, err
+		}
+	}
+	if result != expression {
+		if result, err = n.keep(result); err != nil {
+			return ast.ASTHandle{}, err
+		}
+	}
+	n.memo[expression] = result
+	return result, nil
+}
+
+// reduceAndOr is the and/or part of normalizer_cfg::reduce_app: sort,
+// remove_duplicates, detect_equivalences and rebuild. rewritten reports the
+// source's have_rewritten_args (BR_REWRITE1).
+func (n *booleanNormalizer) reduceAndOr(operation int32, arguments []ast.ASTHandle) (result ast.ASTHandle, rewritten bool, resultErr error) {
+	arguments = append([]ast.ASTHandle(nil), arguments...)
 	var compareErr error
 	sort.Slice(arguments, func(left, right int) bool {
 		if compareErr != nil {
@@ -396,7 +445,7 @@ func (n *booleanNormalizer) normalize(expression ast.ASTHandle) (ast.ASTHandle, 
 		return comparison < 0
 	})
 	if compareErr != nil {
-		return ast.ASTHandle{}, compareErr
+		return ast.ASTHandle{}, false, compareErr
 	}
 	unique := arguments[:0]
 	for _, argument := range arguments {
@@ -417,12 +466,12 @@ func (n *booleanNormalizer) normalize(expression ast.ASTHandle) (ast.ASTHandle, 
 	for _, argument := range arguments {
 		currentPair, matched, e := n.pair(argument, pairOperation)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return ast.ASTHandle{}, false, e
 		}
 		if matched && havePair {
 			equivalence, found, x := n.equivalence(priorPair, currentPair, insideDisjunction)
 			if x != nil {
-				return ast.ASTHandle{}, x
+				return ast.ASTHandle{}, false, x
 			}
 			if found {
 				resultArguments[priorIndex] = equivalence
@@ -439,8 +488,9 @@ func (n *booleanNormalizer) normalize(expression ast.ASTHandle) (ast.ASTHandle, 
 		}
 		resultArguments = append(resultArguments, argument)
 	}
+	rewritten = len(resultArguments) != len(arguments)
 	arguments = resultArguments
-	var result ast.ASTHandle
+	var err error
 	switch len(arguments) {
 	case 0:
 		result, err = n.manager.MkBoolVal(operation == ast.ASTOpAnd)
@@ -454,15 +504,9 @@ func (n *booleanNormalizer) normalize(expression ast.ASTHandle) (ast.ASTHandle, 
 		}
 	}
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTHandle{}, false, err
 	}
-	if result != expression {
-		if result, err = n.keep(result); err != nil {
-			return ast.ASTHandle{}, err
-		}
-	}
-	n.memo[expression] = result
-	return result, nil
+	return result, rewritten, nil
 }
 
 func normalizeBooleanExpression(manager *ast.ASTManager, expression ast.ASTHandle) (_ ast.ASTRef, resultErr error) {
