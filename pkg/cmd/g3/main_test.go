@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_fp_03-F3: horn classifies a Boolean variable disjunct with m.is_not / is_predicate.
+	"horn_bool_var_disjunct.smt2": "sat\n",
 	// AUDIT.md muz_fp_01-F1: nonlinear BMC inherits the m_mbqi a linear query left.
 	"fp_bmc_nonlinear_inherits_linear_mbqi.smt2": "sat\nunknown\n",
 	// AUDIT.md qe_04-F1: nlarith_plugin assign/subst apply factor_rewriter and th_rewriter.

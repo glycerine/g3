@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/cmd_context"
 	"github.com/glycerine/g3/pkg/muz/fp"
 	"github.com/glycerine/g3/pkg/tactic"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func hornInfiniteMust(t *testing.T, err error) {
@@ -132,5 +133,59 @@ func TestHornTacticReturnsPDRModelForInfiniteDomainGoal(t *testing.T) {
 	hornInfiniteMust(t, err)
 	if modelCore == nil {
 		t.Fatal("PDR Horn model converter returned no model")
+	}
+}
+
+// AUDIT.md muz_fp_03-F3: a Boolean bound variable disjunct is classified with
+// m.is_not / is_predicate, both false for a variable, so it becomes a negated
+// body atom instead of aborting the tactic.
+func TestHornTacticBooleanVariableDisjunct(t *testing.T) {
+	command, err := cmd_context.NewStandaloneContext()
+	hornInfiniteMust(t, err)
+	t.Cleanup(func() { hornInfiniteMust(t, command.Close()) })
+	manager, err := command.Manager()
+	hornInfiniteMust(t, err)
+	globals, err := command.GlobalParameters()
+	hornInfiniteMust(t, err)
+	boolean, err := manager.MkBoolSort()
+	hornInfiniteMust(t, err)
+	arithmetic, err := manager.ArithmeticFamilyID()
+	hornInfiniteMust(t, err)
+	integer, err := manager.MkFamilySort(arithmetic, 1, nil)
+	hornInfiniteMust(t, err)
+	name, err := manager.Symbols.Intern("horn-boolvar-p")
+	hornInfiniteMust(t, err)
+	p, err := manager.MkFuncDecl(name, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+	hornInfiniteMust(t, err)
+	// (forall ((x Int) (b Bool)) (=> (not (p x)) b))
+	x, err := manager.MkVar(1, integer)
+	hornInfiniteMust(t, err)
+	b, err := manager.MkVar(0, boolean)
+	hornInfiniteMust(t, err)
+	px, err := manager.MkApp(p, []ast.ASTHandle{x})
+	hornInfiniteMust(t, err)
+	notPx, err := manager.MkNot(px)
+	hornInfiniteMust(t, err)
+	body, err := manager.MkImplies(notPx, b)
+	hornInfiniteMust(t, err)
+	xName, err := manager.Symbols.Intern("x")
+	hornInfiniteMust(t, err)
+	bName, err := manager.Symbols.Intern("b")
+	hornInfiniteMust(t, err)
+	formula, err := manager.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{integer, boolean}, Names: []usymbol.Symbol{xName, bName}, Body: body})
+	hornInfiniteMust(t, err)
+	goal, err := tactic.NewGoal(manager, false, false, false)
+	hornInfiniteMust(t, err)
+	t.Cleanup(func() { hornInfiniteMust(t, goal.Close()) })
+	hornInfiniteMust(t, goal.Assert(formula))
+	horn, err := fp.NewHornTactic(manager, globals.Context, globals)
+	hornInfiniteMust(t, err)
+	hornInfiniteMust(t, horn.IncRef())
+	t.Cleanup(func() { hornInfiniteMust(t, horn.DecRef()) })
+	result := &tactic.TacticResult{}
+	t.Cleanup(func() { hornInfiniteMust(t, result.Close()) })
+	hornInfiniteMust(t, horn.Apply(goal, result))
+	if !result.DecidedSat() {
+		t.Fatal("Horn goal with a Boolean variable disjunct was not decided sat")
 	}
 }

@@ -228,12 +228,13 @@ func (t *HornTactic) isImplication(formula ast.ASTHandle) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	// while (m.is_implies(f, e1, f)) ;
 	for {
-		operator, err := t.manager.GetDeclKind(current)
+		implies, err := t.isBasicApp(current, ast.ASTOpImplies)
 		if err != nil {
 			return false, err
 		}
-		if operator != ast.ASTOpImplies {
+		if !implies {
 			_, predicate, err := t.predicate(current)
 			return predicate, err
 		}
@@ -242,6 +243,21 @@ func (t *HornTactic) isImplication(formula ast.ASTHandle) (bool, error) {
 			return false, err
 		}
 	}
+}
+
+// isBasicApp is ast_manager::is_app_of(e, basic_family_id, kind): false for
+// variables, quantifiers and applications of any other family.
+func (t *HornTactic) isBasicApp(expression ast.ASTHandle, kind int32) (bool, error) {
+	nodeKind, err := t.manager.GetKind(expression)
+	if err != nil || nodeKind != ast.ASTApp {
+		return false, err
+	}
+	family, err := t.manager.GetFamilyID(expression)
+	if err != nil || family != t.manager.BasicFamilyID() {
+		return false, err
+	}
+	operator, err := t.manager.GetDeclKind(expression)
+	return err == nil && operator == kind, err
 }
 
 func (t *HornTactic) normalizePolarity(formula ast.ASTHandle, temporaries *[]ast.ASTRef) (ast.ASTHandle, error) {
@@ -265,11 +281,11 @@ func (t *HornTactic) normalizePolarity(formula ast.ASTHandle, temporaries *[]ast
 			}
 		}
 		if kind == ast.ASTApp {
-			operator, x := t.manager.GetDeclKind(formula)
+			isNot, x := t.isBasicApp(formula, ast.ASTOpNot)
 			if x != nil {
 				return ast.ASTHandle{}, x
 			}
-			if operator == ast.ASTOpNot {
+			if isNot {
 				formula, x = t.manager.GetArg(formula, 0)
 				if x != nil {
 					return ast.ASTHandle{}, x
@@ -329,15 +345,12 @@ func (t *HornTactic) classify(formula ast.ASTHandle, f ast.ASTRef) (rule bool, n
 	body := make([]ast.ASTHandle, 0, len(arguments))
 	var head ast.ASTHandle
 	for _, argument := range arguments {
-		operator, x := t.manager.GetDeclKind(argument)
+		// m.is_not(a, a1)
+		isNot, child, x := t.manager.IsNot(argument)
 		if x != nil {
 			return false, normalized, x
 		}
-		if operator == ast.ASTOpNot {
-			child, y := t.manager.GetArg(argument, 0)
-			if y != nil {
-				return false, normalized, y
-			}
+		if isNot {
 			body = append(body, child)
 			continue
 		}
