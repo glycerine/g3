@@ -147,6 +147,9 @@ func binaryFrameInterpolant(manager *Manager, theBase *Base, proof ast.ASTHandle
 		return ast.ASTRef{}, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, destination.Close()) }()
+	if config != nil {
+		destination.SetProfiler(config.Profiler)
+	}
 	translationProfile, err := startProfile(config, "Proof translation")
 	if err != nil {
 		return ast.ASTRef{}, err

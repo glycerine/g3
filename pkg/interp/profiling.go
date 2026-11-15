@@ -61,7 +61,10 @@ func (p *Profiler) TimerStop(name string) error {
 	p.current = p.current.parent
 	return nil
 }
-func profileSeconds(d time.Duration) string { return fmt.Sprintf("%g", d.Seconds()) }
+
+// profileSeconds is output_time's `os << time`: the default ostream
+// precision 6 in %g style.
+func profileSeconds(d time.Duration) string { return fmt.Sprintf("%.6g", d.Seconds()) }
 func (p *Profiler) printNode(w io.Writer, node *profileNode, indent int, totals map[string]time.Duration) error {
 	prefix := strings.Repeat("  ", indent) + node.name
 	dots := 70 - 2*indent - len(node.name)
@@ -112,6 +115,6 @@ func (p *Profiler) ShowTime(w io.Writer) error {
 	if p == nil || p.now == nil || p.origin.IsZero() || w == nil {
 		return NewError("invalid interpolation profiler")
 	}
-	_, err := fmt.Fprintf(w, "%g\n", p.now().Sub(p.origin).Seconds())
+	_, err := fmt.Fprintf(w, "%s\n", profileSeconds(p.now().Sub(p.origin)))
 	return err
 }

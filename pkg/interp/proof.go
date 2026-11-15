@@ -31,6 +31,21 @@ type InterpolationProof struct {
 	nodes  []interpolationProofNode
 	owned  []ast.ASTRef
 	closed bool
+	// profiler receives iz3proof::interpolate's timers; nil disables them.
+	profiler *Profiler
+}
+
+// SetProfiler selects the timer tree for the iz3proof::interpolate phases.
+func (p *InterpolationProof) SetProfiler(profiler *Profiler) { p.profiler = profiler }
+
+func (p *InterpolationProof) timer(name string) (*profileScope, error) {
+	if p.profiler == nil {
+		return &profileScope{}, nil
+	}
+	if err := p.profiler.TimerStart(name); err != nil {
+		return nil, err
+	}
+	return &profileScope{profiler: p.profiler, name: name, active: true}, nil
 }
 
 func NewInterpolationProof(base *Base) (*InterpolationProof, error) {
@@ -128,8 +143,31 @@ func (p *InterpolationProof) Interpolate(node ProofNode, scope ScopeRange, weak 
 	if node < 0 || int(node) >= len(p.nodes) || scope.Hi < 0 || scope.Hi >= len(p.nodes[node].interpolants) {
 		return ast.ASTRef{}, ast.ErrASTDomain
 	}
-	result, err := p.base.Simplify(p.nodes[node].interpolants[scope.Hi])
+	// iz3proof::interpolate: find_B_lits under "Blits" (nothing to collect
+	// for a precomputed lemma), the node loop under "interp_proof", and
+	// pv->simplify under "simplifying".
+	timer, err := p.timer("Blits")
 	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	if err = timer.Stop(); err != nil {
+		return ast.ASTRef{}, err
+	}
+	if timer, err = p.timer("interp_proof"); err != nil {
+		return ast.ASTRef{}, err
+	}
+	interpolant := p.nodes[node].interpolants[scope.Hi]
+	if err = timer.Stop(); err != nil {
+		return ast.ASTRef{}, err
+	}
+	if timer, err = p.timer("simplifying"); err != nil {
+		return ast.ASTRef{}, err
+	}
+	result, err := p.base.Simplify(interpolant)
+	if err != nil {
+		return ast.ASTRef{}, errors.Join(err, timer.Stop())
+	}
+	if err = timer.Stop(); err != nil {
 		return ast.ASTRef{}, err
 	}
 	return p.base.manager.ast.NewRef(result)
