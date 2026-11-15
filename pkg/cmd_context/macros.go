@@ -41,10 +41,11 @@ func (c *Context) containsMacro(name string, domain []ast.ASTHandle) bool {
 // DefineFunction installs a nonrecursive SMT-LIB definition. The parser has
 // checked the declared result sort; variables in body use reversed binder order.
 func (c *Context) DefineFunction(name string, domain []ast.ASTHandle, body ast.ASTHandle) error {
-	return c.defineFunction(name, domain, body, false)
+	return c.defineFunction(name, domain, body)
 }
 
-func (c *Context) defineFunction(name string, domain []ast.ASTHandle, body ast.ASTHandle, recursiveIdentity bool) error {
+// defineFunction is cmd_context::insert(s, arity, domain, t).
+func (c *Context) defineFunction(name string, domain []ast.ASTHandle, body ast.ASTHandle) error {
 	m, err := c.Manager()
 	if err != nil {
 		return err
@@ -60,9 +61,6 @@ func (c *Context) defineFunction(name string, domain []ast.ASTHandle, body ast.A
 		return err
 	}
 	for _, d := range c.functions[name] {
-		if recursiveIdentity {
-			break
-		}
 		arity, err := m.GetArity(d)
 		if err != nil {
 			return err
@@ -89,6 +87,26 @@ func (c *Context) defineFunction(name string, domain []ast.ASTHandle, body ast.A
 			return fmt.Errorf("invalid named expression, declaration already defined with this name %s", name)
 		}
 	}
+	if err := c.insertMacro(name, domain, body); err != nil {
+		return err
+	}
+	c.macroTrail = append(c.macroTrail, name)
+	return nil
+}
+
+// macroDictionary is the m_macros dictionary layout: get_assignment walks it
+// in table order, and erase_macro leaves a name in it until reset_macros.
+func (c *Context) macroDictionary() *symbolDictionary {
+	if c.macroDecls == nil {
+		c.macroDecls = newSymbolDictionary()
+	}
+	return c.macroDecls
+}
+
+// insertMacro is cmd_context::insert_macro: no builtin, duplicate or
+// declaration checks, and nothing is recorded on m_macros_stack.
+func (c *Context) insertMacro(name string, domain []ast.ASTHandle, body ast.ASTHandle) error {
+	m := c.manager
 	d := macroDeclaration{domain: append([]ast.ASTHandle(nil), domain...), body: body}
 	// Pin unused parameter sorts too: unlike source borrowed domain pointers,
 	// Go AST handles must remain valid even when the body omits a parameter.
@@ -102,9 +120,27 @@ func (c *Context) defineFunction(name string, domain []ast.ASTHandle, body ast.A
 		}
 		d.refs = append(d.refs, ref)
 	}
+	c.macroDictionary().insertIfNotThere(name)
 	c.macros[name] = append(c.macros[name], d)
-	c.macroTrail = append(c.macroTrail, name)
 	return nil
+}
+
+// resetMacros is cmd_context::reset_macros: it also releases the macros
+// insert_rec_fun installed without a m_macros_stack entry.
+func (c *Context) resetMacros() error {
+	var err error
+	for _, e := range c.macroDictionary().entries() {
+		values := c.macros[e.name]
+		for i := range values {
+			for j := range values[i].refs {
+				err = errors.Join(err, c.manager.DelRef(&values[i].refs[j]))
+			}
+		}
+		delete(c.macros, e.name)
+	}
+	c.macroDictionary().reset()
+	c.macroTrail = nil
+	return err
 }
 
 func (c *Context) restoreMacros(size int) error {

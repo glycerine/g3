@@ -86,7 +86,8 @@ func (c *Context) DefineRecursiveFunction(declaration ast.ASTHandle, names []usy
 		if err != nil {
 			return err
 		}
-		return c.defineFunction(text, domain, body, true)
+		// insert_macro: no checks and no m_macros_stack entry, so pop keeps it.
+		return c.insertMacro(text, domain, body)
 	}
 	if arity != 0 && kind != ast.ASTApp {
 		return fmt.Errorf("Z3 only supports recursive definitions that are proper terms (not binders or variables)")

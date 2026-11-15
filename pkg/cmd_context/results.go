@@ -326,12 +326,9 @@ func (c *Context) WriteAssignment(out io.Writer) (result error) {
 		return err
 	}
 	first := true
-	seen := make(map[string]bool)
-	for _, name := range c.macroTrail {
-		if seen[name] {
-			continue
-		}
-		seen[name] = true
+	// for (auto const& kv : ctx.get_macros()): m_macros table order.
+	for _, entry := range c.macroDictionary().entries() {
+		name := entry.name
 		for _, declaration := range c.macros[name] {
 			if len(declaration.domain) != 0 {
 				continue

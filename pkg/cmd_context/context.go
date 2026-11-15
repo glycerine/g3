@@ -141,6 +141,7 @@ type Context struct {
 	// dictionary layouts; psortStack is m_psort_decls_stack.
 	funcDecls, psortDecls          *symbolDictionary
 	psortStack                     []string
+	macroDecls                     *symbolDictionary // m_macros layout
 	macros                         map[string][]macroDeclaration
 	macroTrail                     []string
 	userTactics                    *insdict.Dict[string, string]
@@ -1870,7 +1871,7 @@ func (c *Context) resetManagerState() error {
 			return err
 		}
 		c.logicChecker.Reset()
-		if err := c.restoreMacros(0); err != nil {
+		if err := c.resetMacros(); err != nil {
 			return err
 		}
 		if err := c.restoreAssertions(0); err != nil {

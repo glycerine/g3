@@ -338,6 +338,12 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md cmd_context_02-F4
+	"define_fun_rec_var_body_pop_declare.smt2": "(error \"line 1 column 70: invalid declaration, named expression already defined with this name f\")\nunsat\n",
+	// AUDIT.md cmd_context_02-F4
+	"define_fun_rec_var_body_pop.smt2": "unsat\n",
+	// AUDIT.md cmd_context_02-F3
+	"get_assignment_order.smt2": "sat\n((omega1 true) (beta true) (zeta true) (alpha true) (mid true))\n",
 	// AUDIT.md smtcore_09-F7
 	"array_bool_term_bool_var_order.smt2": "sat\n",
 	// AUDIT.md smtcore_09-F6
@@ -1803,6 +1809,8 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	"define_fun_rec_var_body_pop_declare.smt2": true, // AUDIT.md cmd_context_02-F4
+
 	// AUDIT.md interp_02-F4: compute-interpolant reports the command error.
 	"interp_unsupported_rule_message.smt2": true,
 
