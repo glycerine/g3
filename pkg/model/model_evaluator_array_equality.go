@@ -241,8 +241,8 @@ func (c *evaluatorConfiguration) arrayEq(a, b ast.ASTHandle, out ast.ASTRef) (st
 func (c *evaluatorConfiguration) arrayEqCore(f *arrayEquality, else1, else2 ast.ASTHandle, out ast.ASTRef) (rewriter.RewriteStatus, error) {
 	m := c.owner.model.manager
 	arity := len(f.left.stores[0]) - 1
-	f.table1.arity = arity
-	f.table2.arity = arity
+	f.table1.manager, f.table1.arity = m, arity
+	f.table2.manager, f.table2.arity = m, arity
 	for i := len(f.left.stores); i > 0; {
 		i--
 		if e := f.table1.insert(f.left.stores[i]); e != nil {
@@ -306,7 +306,7 @@ func (c *evaluatorConfiguration) arrayEqCore(f *arrayEquality, else1, else2 ast.
 			}
 		}
 	}
-	for _, row := range f.table1.rows.All() {
+	for _, row := range f.table1.entries() {
 		value := row[arity]
 		r, e := c.arrayCompare(value, else2)
 		if e != nil {

@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md model_01-F3: mk_array_eq_core iterates table1 in core_hashtable order.
+	"eval_array_eq_table_order.smt2": "sat\n(and (= w 0) (= s 0) (= u 0) (= t 0) (= v 0))\n",
 	// AUDIT.md model_01-F1: model_evaluator forces flat arith/bv rewriters.
 	"eval_flat_false.smt2": "sat\n(+ 1 b c)\n(* 2 b c)\n(bvadd #x01 x y)\n",
 	// AUDIT.md muz_fp_03-F2: the doc backend runs rel_context::transform_rules
