@@ -236,6 +236,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_nlsat_signed_infinity);
     TST(z3_4_7_1_nlsat_eval_sign_overflow);
     TST(z3_4_7_1_nlsat_solve_eq_powers);
+    TST(z3_4_7_1_nlsat_simplify_core_sign);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);

@@ -1090,3 +1090,46 @@ void tst_z3_4_7_1_nlsat_solve_eq_powers() {
     std::cout << "  projection literals false at x0 = 1/5: " << bad << "\n";
     ENSURE(bad > 0);
 }
+
+// Core {x1 < 0, 3*x1 + 2 = 0, x1 - x0 > 0} at x0 = 0. simplify rewrites
+// x1 < 0 with the equation to the constant -2 < 0, but tests s == -1
+// where sign(-2) returns -2: it builds -2 > 0, which is false, and drops
+// the rest of the core as if the assumptions alone implied the conflict
+// (normalize has the same s == -1 test). The lemma
+// not(x1 < 0) or not(3*x1 + 2 = 0) or not(x1 - x0 > 0) or <explanation>
+// is then false at x0 = -1, x1 = -2/3 (fixed upstream in 0f20175bd, "fix
+// #2556, sign of of inequality is not restricted to -1, 0, 1").
+void tst_z3_4_7_1_nlsat_simplify_core_sign() {
+    params_ref ps;
+    reslimit rlim;
+    nlsat::solver s(rlim, ps, false);
+    nlsat::pmanager& pm = s.pm();
+    nlsat::var x0 = s.mk_var(false);
+    nlsat::var x1 = s.mk_var(false);
+    polynomial_ref _x0(pm), _x1(pm), eq(pm), d(pm);
+    _x0 = pm.mk_polynomial(x0);
+    _x1 = pm.mk_polynomial(x1);
+    eq = (3 * _x1) + 2;
+    d = _x1 - _x0;
+    nlsat::scoped_literal_vector core(s), result(s);
+    core.push_back(nlsat_lit(s, nlsat::atom::LT, _x1));
+    core.push_back(nlsat_lit(s, nlsat::atom::EQ, eq));
+    core.push_back(nlsat_lit(s, nlsat::atom::GT, d));
+    nlsat::assignment as(s.am());
+    nlsat_set_value(s, as, x0, 0);
+    s.set_rvalues(as);
+    nlsat::explain& ex = s.get_explain();
+    ex.set_simplify_cores(true);
+    ex(core.size(), core.c_ptr(), result);
+    s.display(std::cout << "nlsat_simplify_core_sign: core ", core.size(), core.c_ptr());
+    s.display(std::cout << "\n  explanation ", result.size(), result.c_ptr());
+    // The lemma is (not core) or result; it must hold everywhere.
+    nlsat::assignment as2(s.am());
+    nlsat_set_value(s, as2, x0, -1);
+    nlsat_set_value(s, as2, x1, -2, 3);
+    s.set_rvalues(as2);
+    ENSURE(nlsat_num_not_true(s, core.size(), core.c_ptr()) == 0);
+    unsigned true_lits = result.size() - nlsat_num_not_true(s, result.size(), result.c_ptr());
+    std::cout << "\n  explanation literals true at x0 = -1, x1 = -2/3: " << true_lits << "\n";
+    ENSURE(true_lits > 0);
+}
