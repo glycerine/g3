@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_bv_01-F4: bv-bounds is_bound rejects (= numeral numeral).
+	"bv_bounds_numeral_equality.smt2": "(goals\n(goal\n  (or p (ite (= #x01 #x02) (= #x03 #x02) q))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md tactic_bv_01-F5: bvarray2uf declares produce_models, so
 	// using-params accepts it.
 	"bvarray2uf_produce_models_param.smt2": "(goals\n(goal\n  (= (f_t!!0 #x1) #x2)\n  :precision precise :depth 1)\n)\n",

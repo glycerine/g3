@@ -22,3 +22,26 @@ func TestBVBoundsSourceRecognizesUnsignedSignedAndEquality(t *testing.T) {
 		}
 	}
 }
+
+// AUDIT.md tactic_bv_01-F4: bv_bounds_simplifier::is_bound rejects
+// (= numeral numeral) and still accepts (= numeral x) and (= x numeral).
+func TestBVBoundsRecognizeRejectsNumeralEquality(t *testing.T) {
+	f := newBVBoundsFixture(t)
+	eq := func(a, b ast.ASTHandle) ast.ASTHandle {
+		h, e := f.m.MkEq(a, b)
+		sharingMust(t, e)
+		return f.pin(t, h)
+	}
+	_, _, ok, e := f.simp.recognize(eq(f.num(t, 1), f.num(t, 2)))
+	sharingMust(t, e)
+	if ok {
+		t.Fatal("(= #x01 #x02) recognized as a bound")
+	}
+	for _, h := range []ast.ASTHandle{eq(f.num(t, 1), f.x), eq(f.x, f.num(t, 1))} {
+		key, b, ok, e := f.simp.recognize(h)
+		sharingMust(t, e)
+		if !ok || key != f.x || len(b.ranges) != 1 || b.ranges[0].lo.Cmp(big.NewInt(1)) != 0 || b.ranges[0].hi.Cmp(big.NewInt(1)) != 0 {
+			t.Fatal(ok, key, b)
+		}
+	}
+}

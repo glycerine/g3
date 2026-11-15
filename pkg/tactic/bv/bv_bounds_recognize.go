@@ -88,20 +88,19 @@ func (s *BVBoundsSimplifier) recognize(h ast.ASTHandle) (variable ast.ASTHandle,
 	if e != nil {
 		return variable, bound, false, e
 	}
-	if yes && w > 64 {
-		yes = false
+	if yes && w <= 64 {
+		// C++ is_bound: if (m_bv.is_numeral(rhs)) return false;
+		_, _, rnum, e := bvBoundsNumeral(m, rhs)
+		if e != nil || rnum {
+			return variable, bound, false, e
+		}
+		return rhs, bvBoundsSingleton(w, v), true, nil
 	}
-	if !yes {
-		v, w, yes, e = bvBoundsNumeral(m, rhs)
-		lhs, rhs = rhs, lhs
-	}
-	if e != nil || !yes {
+	v, w, yes, e = bvBoundsNumeral(m, rhs)
+	if e != nil || !yes || w > 64 {
 		return variable, bound, false, e
 	}
-	if w > 64 {
-		return variable, bound, false, nil
-	}
-	return rhs, bvBoundsSingleton(w, v), true, nil
+	return lhs, bvBoundsSingleton(w, v), true, nil
 }
 func bvBoundsSignedLower(w uint32, v *big.Int) bvBoundsSet {
 	sign := new(big.Int).Lsh(big.NewInt(1), uint(w-1))
