@@ -93,3 +93,14 @@ z3_bug_ddnf_extract_width
 # ReduceQuantifier). Reproduction: test_vectors/z3_bug_elim_small_bv.smt2.
 z3_bug_elim_small_bv
 elim_small_bv_max_steps_simplifier
+#
+# sine_tactic::filter_expressions reads exp2const[visiting] for the goal's
+# last formula; obj_map::operator[] dereferences a missing entry, so a
+# last formula without an uninterpreted symbol at its root, such as
+# (> x 0), crashes z3 4.7.1, and an empty goal reads g->form(UINT_MAX)
+# (z3 bug: src/tactic/sine_filter.cpp; upstream fcd1f2b3c added the
+# contains check, then removed sine-filter in 490dc66ec). g3 and the fork
+# skip a formula with no entry and keep no formulas of an empty goal
+# (pkg/tactic/tactic_sine.go filterExpressions). Reproduction:
+# test_vectors/z3_bug_sine_filter_component.smt2.
+z3_bug_sine_filter_component

@@ -227,8 +227,10 @@ func (t *sineTactic) filterExpressions(g *Goal) ([]ast.ASTHandle, error) {
 			}
 		}
 	}
+	// z3 4.7.1 reads g->form(g->size() - 1) of an empty goal; g3 and the
+	// fork keep no formulas (an empty goal has no last formula).
 	if int(g.forms.size()) == 0 {
-		return nil, ast.ErrASTDomain
+		return nil, nil
 	}
 	visited := make(map[ast.ASTHandle]bool)
 	toVisit := []ast.ASTHandle{g.formSlice()[int(g.forms.size())-1]}
@@ -237,6 +239,9 @@ func (t *sineTactic) filterExpressions(g *Goal) ([]ast.ASTHandle, error) {
 		current := toVisit[last]
 		toVisit = toVisit[:last]
 		visited[current] = true
+		// A formula with no uninterpreted symbol at its root has no entry;
+		// z3 4.7.1 dereferences the missing obj_map entry (upstream added
+		// the contains check in fcd1f2b3c), g3 reads an empty set.
 		for declaration := range expressionConstants[current] {
 			for expression := range constantExpressions[declaration] {
 				if !visited[expression] {

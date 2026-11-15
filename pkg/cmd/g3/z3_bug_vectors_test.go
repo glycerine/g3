@@ -14,6 +14,8 @@ import (
 // scriptResults so the C++ reference comparison does not run them; this
 // test locks in g3's correct answers instead.
 var z3BugResults = map[string]string{
+	// sine-filter on an empty goal and on a last formula without symbols.
+	"z3_bug_sine_filter_component.smt2": "(goals\n(goal\n  :precision over :depth 1)\n)\n(goals\n(goal\n  (> x 0)\n  :precision over :depth 1)\n)\n",
 	// elim-small-bv enumerates every value of a small bit-vector variable
 	// and leaves a quantifier that does not fit in max_steps unchanged.
 	"z3_bug_elim_small_bv.smt2":               "(goals\n(goal\n  (forall ((z Int)) (<= x z))\n  :precision precise :depth 1)\n)\n(goals\n(goal\n  false\n  :precision precise :depth 1)\n)\nunsat\n(goals\n(goal\n  (forall ((y (_ BitVec 2))) (q y))\n  :precision precise :depth 1)\n)\n(goals\n(goal\n  (q #b00)\n  (q #b01)\n  (q #b10)\n  (q #b11)\n  :precision precise :depth 1)\n)\n",

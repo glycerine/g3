@@ -139,3 +139,18 @@ func TestSineTacticProofModeKeepsNullProofs(t *testing.T) {
 		t.Fatal("sine kept a proof", proof)
 	}
 }
+
+// z3 4.7.1 sine_filter reads g->form(g->size() - 1) of an empty goal and
+// crashes; g3 and the fork keep an empty goal (test_vectors/
+// z3_bug_sine_filter_component.smt2).
+func TestSineTacticEmptyGoal(t *testing.T) {
+	m := astTestManager(t)
+	goal := goalTestNew(t, m, false, false)
+	tacticBase, err := NewSineTactic(m, nil)
+	satOK(t, err)
+	selected, err := tacticBase.(*sineTactic).filterExpressions(goal)
+	satOK(t, err)
+	if len(selected) != 0 {
+		t.Fatal("empty goal selected", selected)
+	}
+}

@@ -1,0 +1,6 @@
+(apply sine-filter)
+(declare-const p Bool)
+(declare-const x Int)
+(assert p)
+(assert (> x 0))
+(apply sine-filter)
