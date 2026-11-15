@@ -15,7 +15,7 @@ func (p *DirectProofInterpolator) Interpolate(proof ast.ASTHandle) (result ast.A
 	if err := p.open(); err != nil {
 		return ast.ASTRef{}, err
 	}
-	simplified, err := p.base.manager.ReallySimplify(proof)
+	simplified, err := p.base.manager.Simplify(proof)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}

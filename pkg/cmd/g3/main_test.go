@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md interp_02-F2: iZ3 simplifies with z3_simplify (no som or
+	// sort_sums), so sums keep rewriter order.
+	"interp_sum_order_get_interpolant.smt2": "unsat\n(interpolants\n (not (<= (+ (* (- 1) z) x) 1)))\n",
+	"interp_sum_order_div.smt2":             "unsat\n(interpolants\n (let ((a!1 (+ (div (+ (- 1) (* (- 1) y)) 2) (div (+ 1 y) 2))))\n  (<= 0 a!1))\n (let ((a!1 (+ (div (+ (- 1) (* (- 1) y)) 2) (div (+ 1 y) 2))))\n  (<= 0 a!1)))\n",
 	// AUDIT.md interp_02-F1 (with interp_02-F3): the mp(quant-inst, rewrite)
 	// idiom tests get_locality_rec, and make_quant sets qid itp.
 	"interp_quant_inst_rewrite_axiom.smt2": "unsat\n(interpolants\n (forall ((%0 U)) (! (p %0) :qid itp))\n (forall ((%0 U)) (! (p %0) :qid itp)))\n",

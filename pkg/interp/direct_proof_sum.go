@@ -24,7 +24,7 @@ func (p *DirectProofInterpolator) ownedIntegerDivision(left, right ast.ASTHandle
 }
 
 func (p *DirectProofInterpolator) ownedSimplify(term ast.ASTHandle) (ast.ASTHandle, error) {
-	ref, err := p.base.manager.ReallySimplify(term)
+	ref, err := p.base.manager.Simplify(term)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}

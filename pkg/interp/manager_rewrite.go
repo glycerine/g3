@@ -61,6 +61,9 @@ func (m *Manager) Simplify(term ast.ASTHandle) (ast.ASTRef, error) {
 	return m.rewrite(term, false)
 }
 
+// ReallySimplify keeps som/sort_sums for the duality variable projector.
+// No iZ3 site calls the C++ z3_really_simplify (they all call z3_simplify,
+// i.e. Simplify; AUDIT.md interp_02-F2).
 func (m *Manager) ReallySimplify(term ast.ASTHandle) (ast.ASTRef, error) {
 	return m.rewrite(term, true)
 }

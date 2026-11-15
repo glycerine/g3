@@ -431,13 +431,22 @@ func TestInterpolationManagerTheorySimplifiers(t *testing.T) {
 	interpMust(t, err)
 	polynomial, err := w.Make(OperatorPlus, left, right)
 	interpMust(t, err)
-	strongRef, err := w.ReallySimplify(polynomial)
+	polynomial = interpPin(t, m, polynomial)
+	// AUDIT.md interp_02-F2: every iZ3 call site uses z3_simplify (empty
+	// params); the result is the same as a second Simplify of the input.
+	polyRef, err := w.Simplify(polynomial)
 	interpMust(t, err)
-	defer func() { interpMust(t, m.DelRef(&strongRef)) }()
-	strong, err := m.RefGet(strongRef)
+	defer func() { interpMust(t, m.DelRef(&polyRef)) }()
+	poly, err := m.RefGet(polyRef)
 	interpMust(t, err)
-	if op, e := w.Operator(strong); e != nil || op != OperatorPlus {
-		t.Fatal("strong simplifier", op, e)
+	if op, e := w.Operator(poly); e != nil || op != OperatorPlus {
+		t.Fatal("polynomial simplifier", op, e)
+	}
+	againRef, err := w.Simplify(polynomial)
+	interpMust(t, err)
+	defer func() { interpMust(t, m.DelRef(&againRef)) }()
+	if again, e := m.RefGet(againRef); e != nil || again != poly {
+		t.Fatal("simplifier is not deterministic", again, poly, e)
 	}
 }
 

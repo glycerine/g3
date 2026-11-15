@@ -11,7 +11,7 @@ import (
 )
 
 func (t *FullTranslation) ownedSimplify(term ast.ASTHandle) (ast.ASTHandle, error) {
-	ref, err := t.base.manager.ReallySimplify(term)
+	ref, err := t.base.manager.Simplify(term)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
