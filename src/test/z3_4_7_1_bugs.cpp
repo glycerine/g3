@@ -2887,3 +2887,21 @@ void tst_z3_4_7_1_symmetry_reduce_quantified() {
                         "(error \"tactic failed: symmetry_reduce does not apply to quantified goals\")\n"
                         "sat\n");
 }
+
+// bvarray2uf_rewriter_cfg::reduce_var and reduce_quantifier (and two
+// reduce_app cases) are NOT_IMPLEMENTED_YET(), which prints "NOT
+// IMPLEMENTED YET!" and exits (release build: segfault in UNREACHABLE),
+// so any quantifier in the goal kills z3 4.7.1. Upstream throws
+// default_exception("not handled by bvarray2uf") since 4bad2dd92
+// ("fix #3043").
+void tst_z3_4_7_1_bvarray2uf_quantifier() {
+    std::cout << "bvarray2uf_quantifier: running (apply bvarray2uf)\n";
+    std::cout.flush(); // z3 4.7.1 dies here
+    expect_shell_script("bvarray2uf_quantifier",
+                        "(declare-fun p (Int) Bool)\n"
+                        "(assert (forall ((x Int)) (p x)))\n"
+                        "(apply bvarray2uf)\n"
+                        "(check-sat-using (then bvarray2uf smt))\n",
+                        "(error \"line 3 column 17: not handled by bvarray2uf\")\n"
+                        "(error \"tactic failed: not handled by bvarray2uf\")\n");
+}
