@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_03-F3: param_size eval for parametric and array fields.
+	"datatype_param_array_sort_size.smt2": "sat\nunsat\nunsat\nunsat\n",
+	// AUDIT.md ast_03-F3: a same-block datatype field contributes the default infinite size.
+	"datatype_block_sort_size.smt2": "sat\n(model \n  (define-fun z () A\n    (mkA b2))\n  (define-fun y () A\n    (mkA b1))\n  (define-fun x () A\n    nilA)\n)\n",
 	// AUDIT.md ast_03-F2: mk_datatypes resets datatype::util for a redeclared datatype.
 	"datatype_redeclare_some_value.smt2": "sat\nb\nsat\nd\n",
 	// AUDIT.md ast_03-F1: the accessor index follows the current datatype definition.

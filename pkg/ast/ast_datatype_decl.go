@@ -36,6 +36,13 @@ func (m *ASTManager) isDatatypeSort(p *astDatatypePluginOwner, h ASTHandle) (ast
 }
 
 func (m *ASTManager) datatypeSort(kind int32, parameters []ASTParameter) (result astNodeRef, err error) {
+	return m.datatypeSortCore(kind, parameters, true)
+}
+
+// datatypeSortCore is plugin::mk_sort. applySize false is the block's first
+// instantiation in end_def_block, where the C++ m_defs already holds the new
+// definition, which has no size function yet ("not setting size").
+func (m *ASTManager) datatypeSortCore(kind int32, parameters []ASTParameter, applySize bool) (result astNodeRef, err error) {
 	p := m.datatypePlugin
 	if p == nil || !p.published {
 		return astNodeRef{}, ErrASTHandle
@@ -71,10 +78,16 @@ func (m *ASTManager) datatypeSort(kind int32, parameters []ASTParameter) (result
 	}
 	defer func() { err = errors.Join(err, m.dropInfoStorage(slot, generation)) }()
 	result, err = m.mkSort(first.symbol, ASTSortInfo{m.origin, slot, generation})
-	if err == nil {
-		if _, found := p.definitionNames[first.symbol]; found {
-			err = m.datatypeSetCardinality(result)
+	if err == nil && applySize {
+		arguments := make([]astNodeRef, 0, len(parameters)-1)
+		for _, parameter := range parameters[1:] {
+			value, e := m.parameter(parameter)
+			if e != nil {
+				return result, e
+			}
+			arguments = append(arguments, value.ast)
 		}
+		err = m.datatypeApplySortSize(result, arguments)
 	}
 	return result, err
 }

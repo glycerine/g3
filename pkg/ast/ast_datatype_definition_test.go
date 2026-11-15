@@ -380,3 +380,64 @@ func TestASTDatatypeRedefinitionResetsUtility(t *testing.T) {
 		t.Fatal("redefined constructor", text)
 	}
 }
+
+// AUDIT.md ast_03-F3: util::compute_datatype_size_functions reads a field's
+// stored sort size. A same-block datatype field still has the default
+// infinite size, so A is infinite; a separately declared B gives A size 3.
+func TestASTDatatypeBlockSiblingSizeIsInfinite(t *testing.T) {
+	bDefinition := func(m *ASTManager) DatatypeDefinition {
+		return DatatypeDefinition{
+			Name: astTestSymbol(t, m, "B"),
+			Constructors: []DatatypeConstructorDefinition{
+				{Name: astTestSymbol(t, m, "b1"), Recognizer: astTestSymbol(t, m, "is-b1")},
+				{Name: astTestSymbol(t, m, "b2"), Recognizer: astTestSymbol(t, m, "is-b2")},
+			},
+		}
+	}
+	aDefinition := func(m *ASTManager, field DatatypeAccessorDefinition) DatatypeDefinition {
+		return DatatypeDefinition{
+			Name: astTestSymbol(t, m, "A"),
+			Constructors: []DatatypeConstructorDefinition{
+				{Name: astTestSymbol(t, m, "mkA"), Recognizer: astTestSymbol(t, m, "is-mkA"), Accessors: []DatatypeAccessorDefinition{field}},
+				{Name: astTestSymbol(t, m, "nilA"), Recognizer: astTestSymbol(t, m, "is-nilA")},
+			},
+		}
+	}
+	m := astTestManager(t)
+	family, err := m.RegisterDatatypePlugin()
+	astTestMust(t, err)
+	sorts, err := m.MkDatatypes([]DatatypeDefinition{
+		aDefinition(m, DatatypeAccessorDefinition{Name: astTestSymbol(t, m, "f"), Recursive: true, RecursiveIndex: 1}),
+		bDefinition(m),
+	})
+	astTestMust(t, err)
+	if size, e := m.GetSortSize(sorts[0]); e != nil || !size.IsInfinite() {
+		t.Fatal("same-block A size", size, e)
+	}
+	nameParameter, err := m.NewParameterSymbol(astTestSymbol(t, m, "A"))
+	astTestMust(t, err)
+	again, err := m.MkFamilySort(family, ASTDatatypeSort, []ASTParameter{nameParameter})
+	astTestMust(t, err)
+	astTestMust(t, m.DelParameter(&nameParameter))
+	if size, e := m.GetSortSize(again); e != nil || !size.IsInfinite() {
+		t.Fatal("same-block A size after mk_sort", size, e)
+	}
+	if size, e := m.GetSortSize(sorts[1]); e != nil || !size.IsFinite() {
+		t.Fatal("B size", size, e)
+	} else if n, _ := size.Size(); n != 2 {
+		t.Fatal("B size", n)
+	}
+
+	m = astTestManager(t)
+	_, err = m.RegisterDatatypePlugin()
+	astTestMust(t, err)
+	bSorts, err := m.MkDatatypes([]DatatypeDefinition{bDefinition(m)})
+	astTestMust(t, err)
+	aSorts, err := m.MkDatatypes([]DatatypeDefinition{aDefinition(m, DatatypeAccessorDefinition{Name: astTestSymbol(t, m, "f"), Range: bSorts[0]})})
+	astTestMust(t, err)
+	if size, e := m.GetSortSize(aSorts[0]); e != nil || !size.IsFinite() {
+		t.Fatal("separate A size", size, e)
+	} else if n, _ := size.Size(); n != 3 {
+		t.Fatal("separate A size", n)
+	}
+}

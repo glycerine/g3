@@ -95,7 +95,7 @@ func (m *ASTManager) MkDatatypes(defs []DatatypeDefinition) (result []ASTHandle,
 			}
 			parameters = append(parameters, parameter)
 		}
-		sort, e := m.datatypeSort(ASTDatatypeSort, parameters)
+		sort, e := m.datatypeSortCore(ASTDatatypeSort, parameters, false)
 		for j := len(parameters) - 1; j >= 0; j-- {
 			e = errors.Join(e, m.dropParameter(parameters[j]))
 		}
@@ -220,19 +220,29 @@ func (m *ASTManager) MkDatatypes(defs []DatatypeDefinition) (result []ASTHandle,
 		p.definitions[definition.sort] = definition
 		result = append(result, m.external(sorts[i]))
 	}
-	for _, sort := range sorts {
-		if e := m.datatypeSetCardinality(sort); e != nil {
-			for i, definition := range built {
-				delete(p.definitions, definition.sort)
-				if previous[i] == nil {
-					delete(p.definitionNames, definition.name)
-				} else {
-					p.definitionNames[definition.name] = previous[i]
-					p.definitions[previous[i].sort] = previous[i]
-				}
+	// Source end_def_block: compute_datatype_size_functions(m_def_block),
+	// then instantiate each definition again; plugin::mk_sort writes the
+	// evaluated size onto the sort, with each parameter bound to its own
+	// stored size.
+	blockNames := make([]usymbol.Symbol, len(built))
+	for i, definition := range built {
+		blockNames[i] = definition.name
+	}
+	e := m.datatypeComputeSizeFunctions(blockNames)
+	for i := 0; e == nil && i < len(built); i++ {
+		e = m.datatypeApplySortSize(built[i].sort, built[i].parameters)
+	}
+	if e != nil {
+		for i, definition := range built {
+			delete(p.definitions, definition.sort)
+			if previous[i] == nil {
+				delete(p.definitionNames, definition.name)
+			} else {
+				p.definitionNames[definition.name] = previous[i]
+				p.definitions[previous[i].sort] = previous[i]
 			}
-			return nil, e
 		}
+		return nil, e
 	}
 	p.definitionRefs = append(p.definitionRefs, acquired...)
 	rollback = false

@@ -18,6 +18,9 @@ type astDatatypeDefinition struct {
 	sort         astNodeRef
 	parameters   []astNodeRef
 	constructors []astDatatypeConstructorDefinition
+	// sizeFunction is def::m_sort_size, set by
+	// util::compute_datatype_size_functions.
+	sizeFunction *datatypeParamSize
 }
 
 type astDatatypeConstructorDefinition struct {

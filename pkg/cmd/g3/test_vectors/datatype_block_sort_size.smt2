@@ -1,0 +1,7 @@
+(declare-datatypes ((A 0) (B 0)) (((mkA (f B)) (nilA)) ((b1) (b2))))
+(declare-const x A)
+(declare-const y A)
+(declare-const z A)
+(assert (distinct x y z))
+(check-sat)
+(get-model)
