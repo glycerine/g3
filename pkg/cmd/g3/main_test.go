@@ -2292,7 +2292,13 @@ func TestSMTLibRunnerCPPReference(t *testing.T) {
 			}
 			var goOutput bytes.Buffer
 			err = run(bytes.NewReader(script), &goOutput)
-			debugRefusal := sourceDebugMacroCoercionRefusal(t, name, err, &goOutput)
+			// Source debug builds (g3checked) stop where a C++ SASSERT fails;
+			// the reference is a release build, so its output is checked
+			// against the expected release result instead.
+			debugRefusal := sourceDebugMacroCoercionRefusal(t, name, err, &goOutput) ||
+				sourceDebugModusPonensRefusal(t, name, err, &goOutput) ||
+				sourceDebugQSATDefinitionRefusal(t, name, err, &goOutput) ||
+				sourceDebugGoalProofRefusal(t, name, err, &goOutput)
 			if err != nil && !debugRefusal && !expectedParseError(name, err) {
 				t.Fatal(err, goOutput.String())
 			}
@@ -2357,6 +2363,12 @@ func TestTraceLogCPPReference(t *testing.T) {
 			input, err := filepath.Abs(filepath.Join("test_vectors", name))
 			if err != nil {
 				t.Fatal(err)
+			}
+			if ast.ASTSourceDebug && name == "qe2_apply_div_by_zero.smt2" {
+				// qsat.cpp:626 validate_defs SASSERT fails in source debug
+				// builds (see sourceDebugQSATDefinitionRefusal), so g3 stops
+				// before the run the release reference traces.
+				t.Skip("source debug build refuses at the qsat validate_defs assertion")
 			}
 			dir := t.TempDir()
 			goLog, cppLog := filepath.Join(dir, "g3.log"), filepath.Join(dir, "z3.log")
