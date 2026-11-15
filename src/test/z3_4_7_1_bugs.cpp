@@ -98,6 +98,11 @@ Abstract:
     z3_4_7_1_duality_failed_query_requery a Duality query after one that
                                   threw dereferences the null old solver
                                   and segfaults.
+    z3_4_7_1_implicant_nested_array_eq once a nested array index makes
+                                  model_implicant::eval_array_eq mark the
+                                  equality true, a later differing index
+                                  cannot make it false (pkg/AUDIT.md
+                                  model_01-F5).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -139,6 +144,8 @@ Abstract:
 #include <fstream>
 #include <cstdio>
 #include "api/z3_replayer.h"
+#include "model/model_implicant.h"
+#include "model/model.h"
 void register_z3_replayer_cmds(z3_replayer & in);
 #include <iostream>
 #ifndef _WINDOWS
@@ -1468,4 +1475,47 @@ void tst_z3_4_7_1_duality_failed_query_requery() {
         "(query ok)\n";
     expect_script_output("duality_failed_query_requery", script,
                          "(error \"query failed: theory not supported by interpolation or bad proof\")\nunknown\nsat\n");
+}
+
+// model_implicant::eval_array_eq on arrays of arrays: at index 1 the values
+// are (store K0 0 1) and (store (store K0 0 1) 3 0), different terms for
+// equal arrays, so the nested call marks e true; at index 2 the values are
+// (store K0 0 5) and (store K0 0 6), which differ. The marks are bits and
+// set_false cannot clear a true mark, so a != b came out as (= a b) true
+// and minimize_literals dropped the disequality. pkg/AUDIT.md model_01-F5.
+void tst_z3_4_7_1_implicant_nested_array_eq() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    array_util au(m);
+    sort_ref I(a.mk_int(), m);
+    sort_ref AI(au.mk_array_sort(I, I), m);
+    sort_ref AAI(au.mk_array_sort(I, AI), m);
+    expr_ref n0(a.mk_int(0), m), n1(a.mk_int(1), m), n2(a.mk_int(2), m);
+    expr_ref n3(a.mk_int(3), m), n5(a.mk_int(5), m), n6(a.mk_int(6), m);
+    expr_ref K0(au.mk_const_array(AI, n0), m);
+    expr_ref KK(au.mk_const_array(AAI, K0), m);
+    auto store = [&](expr* base, expr* index, expr* value) {
+        expr* args[3] = { base, index, value };
+        return expr_ref(au.mk_store(3, args), m);
+    };
+    expr_ref X1 = store(K0, n0, n1);
+    expr_ref X2 = store(X1, n3, n0);
+    expr_ref A = store(store(KK, n2, store(K0, n0, n5)), n1, X1);
+    expr_ref B = store(store(KK, n2, store(K0, n0, n6)), n1, X2);
+    func_decl_ref ad(m.mk_const_decl(symbol("implicant_a"), AAI), m);
+    func_decl_ref bd(m.mk_const_decl(symbol("implicant_b"), AAI), m);
+    model_ref mdl = alloc(model, m);
+    mdl->register_decl(ad, A);
+    mdl->register_decl(bd, B);
+    expr_ref eq(m.mk_eq(m.mk_const(ad), m.mk_const(bd)), m);
+    expr_ref neq(m.mk_not(eq), m);
+    model_implicant mi(m);
+    ptr_vector<expr> fmls;
+    fmls.push_back(neq);
+    expr_ref_vector lits = mi.minimize_literals(fmls, mdl);
+    std::cout << "implicant literals:";
+    for (expr* l : lits) std::cout << " " << mk_pp(l, m);
+    std::cout << "\n";
+    ENSURE(lits.size() == 1 && lits.get(0) == neq.get());
 }
