@@ -147,7 +147,7 @@ func (g *GlobalParams) displayInto(out sourceTextBuffer, indent uint32, smt2, in
 	if !smt2 {
 		out.WriteString("To set a module parameter, use <module-name>.<parameter-name>=value\nExample:  pp.decimal=true\n\n")
 	}
-	for key, descriptor := range g.ModuleDescriptors.values.All() {
+	for key, descriptor := range g.ModuleDescriptors.all() {
 		if e := g.moduleHeaderInto(out, key); e != nil {
 			return e
 		}
@@ -177,7 +177,7 @@ func (g *GlobalParams) displayModulesInto(out sourceTextBuffer) error {
 	if e := g.ensureRegistered(); e != nil {
 		return e
 	}
-	for key := range g.ModuleDescriptors.values.All() {
+	for key := range g.ModuleDescriptors.all() {
 		if e := g.moduleHeaderInto(out, key); e != nil {
 			return e
 		}

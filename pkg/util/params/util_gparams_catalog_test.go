@@ -3,6 +3,7 @@ package params
 import (
 	"bytes"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -78,10 +79,23 @@ func TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher(t *testing.T) {
 	for i, moduleName := range modules {
 		key, e := sy.Intern(moduleName)
 		paramsMust(t, e)
-		descriptor, ok := g.ModuleDescriptors.get(key)
+		h, e := sy.Hash(key)
+		paramsMust(t, e)
+		descriptor, ok := g.ModuleDescriptors.get(key, h)
 		if !ok || descriptor != uint32(i+1) {
 			t.Fatal("source publication order", i, moduleName)
 		}
+	}
+	// display/display_modules walk the dictionary in core_hashtable slot
+	// order (AUDIT.md util_params_01-F1); this is z3's [module] order.
+	var order []string
+	for key := range g.ModuleDescriptors.all() {
+		name, _, e := sy.BareString(key)
+		paramsMust(t, e)
+		order = append(order, name)
+	}
+	if got := strings.Join(order, " "); got != "pi pp fixedpoint model sat opt lp nnf algebraic combined_solver rcf model_evaluator ackermannization nlsat parser rewriter interp smt sls" {
+		t.Fatal("module table order", got)
 	}
 	for _, row := range catalogSourceDescriptions {
 		// Last assignment for a repeated module wins independently of dictionary layout.

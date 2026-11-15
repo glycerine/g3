@@ -192,10 +192,11 @@ func (g *GlobalParams) moduleDescriptor(k usymbol.Symbol) (*ParamDescrs, error) 
 	if e := g.ensureRegistered(); e != nil {
 		return nil, e
 	}
-	if _, e := g.SymbolsField.Hash(k); e != nil {
+	h, e := g.SymbolsField.Hash(k)
+	if e != nil {
 		return nil, e
 	}
-	n, ok := g.ModuleDescriptors.get(k)
+	n, ok := g.ModuleDescriptors.get(k, h)
 	if !ok {
 		return nil, ErrGlobalParamsOwner
 	}
@@ -218,10 +219,11 @@ func (g *GlobalParams) registerModule(name string, d *ParamDescrs) error {
 	if e != nil {
 		return e
 	}
-	if _, e := g.SymbolsField.Hash(k); e != nil {
+	h, e := g.SymbolsField.Hash(k)
+	if e != nil {
 		return e
 	}
-	if descriptor, ok := g.ModuleDescriptors.get(k); ok {
+	if descriptor, ok := g.ModuleDescriptors.get(k, h); ok {
 		old := g.Descriptors[descriptor-1]
 		if old == d {
 			return ErrGlobalParamsOwner
@@ -239,7 +241,7 @@ func (g *GlobalParams) registerModule(name string, d *ParamDescrs) error {
 		return arena.ErrBounds
 	}
 	slot := uint32(len(g.Descriptors) + 1)
-	g.ModuleDescriptors.set(k, slot)
+	g.ModuleDescriptors.set(k, h, slot)
 	g.Descriptors = append(g.Descriptors, d)
 	return nil
 }
@@ -421,7 +423,7 @@ func (g *GlobalParams) closeLegacy() error {
 	if e := g.reset(); e != nil {
 		return e
 	}
-	for _, descriptor := range g.ModuleDescriptors.values.All() {
+	for _, descriptor := range g.ModuleDescriptors.all() {
 		d := g.Descriptors[descriptor-1]
 		if d != nil {
 			if e := d.Close(); e != nil {

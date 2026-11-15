@@ -171,10 +171,11 @@ func (g *GlobalParams) findModuleDescriptor(k usymbol.Symbol) (*ParamDescrs, boo
 	if e := g.ensureRegistered(); e != nil {
 		return nil, false, e
 	}
-	if _, e := g.SymbolsField.Hash(k); e != nil {
+	h, e := g.SymbolsField.Hash(k)
+	if e != nil {
 		return nil, false, e
 	}
-	n, ok := g.ModuleDescriptors.get(k)
+	n, ok := g.ModuleDescriptors.get(k, h)
 	if !ok {
 		return nil, false, nil
 	}
