@@ -1,5 +1,11 @@
 package rel
 
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/muz/base"
+)
+
 func (t *SparseTable) SelectEqualAndProject(value Element, column int) (*SparseTable, error) {
 	if err := t.open(); err != nil {
 		return nil, err
@@ -13,8 +19,12 @@ func (t *SparseTable) SelectEqualAndProject(value Element, column int) (*SparseT
 		if err != nil {
 			return nil, err
 		}
+		action, err := base.StartVerboseAction("select_equal_and_project", base.VerboseActionDefaultLevel)
+		if err != nil {
+			return nil, err
+		}
 		result, _, err := plan.Execute(t)
-		return result, err
+		return result, errors.Join(err, action.End())
 	}
 	filtered, err := t.Clone()
 	if err != nil {
@@ -71,6 +81,11 @@ func (t *SparseTable) FilterNegation(negative *SparseTable, tCols, nCols []int) 
 	if err != nil {
 		return err
 	}
+	// filter_by_negation_fn::operator()'s verbose_action.
+	action, err := base.StartVerboseAction("filter_by_negation", base.VerboseActionDefaultLevel)
+	if err != nil {
+		return err
+	}
 	_, err = plan.Execute(t, negative)
-	return err
+	return errors.Join(err, action.End())
 }

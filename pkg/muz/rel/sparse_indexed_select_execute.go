@@ -10,6 +10,9 @@ func (plan *SparseIndexedSelectPlan) Execute(table *SparseTable) (*SparseTable, 
 		return nil, stats, err
 	}
 	stats.Rows = rows
+	if err = sparseGetKeyIndexerVerbose(); err != nil {
+		return nil, stats, err
+	}
 	indexPlan, err := NewSparseKeyLookupPlan(table, []int{plan.column})
 	if err != nil {
 		return nil, stats, err

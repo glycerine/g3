@@ -1,5 +1,11 @@
 package rel
 
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/muz/base"
+)
+
 func sparseJoinTraversal(leftFacts, rightFacts []Fact, leftColumns, rightColumns []int, emit func(Fact, Fact) error) error {
 	match := func(left, right Fact, leftCols, rightCols []int) bool {
 		for index := range leftCols {
@@ -53,8 +59,13 @@ func (a *SparseTable) Join(b *SparseTable, left, right []int) (*SparseTable, err
 		if err != nil {
 			return nil, err
 		}
+		// self_agnostic_join_project's verbose_action _va("join_project", 1).
+		action, err := base.StartVerboseAction("join_project", 1)
+		if err != nil {
+			return nil, err
+		}
 		result, _, err := plan.Execute(a, b)
-		return result, err
+		return result, errors.Join(err, action.End())
 	}
 	// The sparse plugin declines indexes on functional join columns. The
 	// relation manager then uses its generic nested-loop join.
@@ -107,8 +118,12 @@ func (a *SparseTable) JoinProject(b *SparseTable, left, right, removed []int) (*
 		if planErr != nil {
 			return nil, planErr
 		}
+		action, planErr := base.StartVerboseAction("join_project", 1)
+		if planErr != nil {
+			return nil, planErr
+		}
 		result, _, executeErr := plan.Execute(a, b)
-		return result, executeErr
+		return result, errors.Join(executeErr, action.End())
 	}
 	return sparseJoinProjectFallback(a, b, left, right, removed)
 }

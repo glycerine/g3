@@ -1,9 +1,21 @@
 package rel
 
-func (t *SparseTable) Project(removed []int) (*SparseTable, error) {
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/muz/base"
+)
+
+func (t *SparseTable) Project(removed []int) (_ *SparseTable, resultErr error) {
 	if e := t.open(); e != nil {
 		return nil, e
 	}
+	// project_fn::operator()'s verbose_action _va("project").
+	action, e := base.StartVerboseAction("project", base.VerboseActionDefaultLevel)
+	if e != nil {
+		return nil, e
+	}
+	defer func() { resultErr = errors.Join(resultErr, action.End()) }()
 	if t.functional != 0 {
 		return t.ProjectFunctional(removed)
 	}
@@ -36,10 +48,16 @@ func (t *SparseTable) Project(removed []int) (*SparseTable, error) {
 	}
 	return out, nil
 }
-func (t *SparseTable) Rename(cycle []int) (*SparseTable, error) {
+func (t *SparseTable) Rename(cycle []int) (_ *SparseTable, resultErr error) {
 	if e := t.open(); e != nil {
 		return nil, e
 	}
+	// rename_fn::operator()'s verbose_action _va("rename").
+	action, e := base.StartVerboseAction("rename", base.VerboseActionDefaultLevel)
+	if e != nil {
+		return nil, e
+	}
+	defer func() { resultErr = errors.Join(resultErr, action.End()) }()
 	if t.functional != 0 {
 		return t.RenameFunctional(cycle)
 	}

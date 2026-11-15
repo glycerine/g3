@@ -1,5 +1,7 @@
 package rel
 
+import "github.com/glycerine/g3/pkg/muz/base"
+
 type SparseTable struct {
 	signature  Signature
 	layout     SparseLayout
@@ -131,6 +133,26 @@ func (t *SparseTable) Close() error {
 	if t == nil {
 		return ErrTable
 	}
+	// sparse_table::deallocate is sparse_table_plugin::recycle, whose
+	// verbose_action _va("recycle", 2) wraps the reset.
+	var err error
+	if t.data != nil {
+		var action base.VerboseAction
+		action, err = base.StartVerboseAction("recycle", 2)
+		if err == nil {
+			err = action.End()
+		}
+	}
 	t.data = nil
-	return nil
+	return err
+}
+
+// sparseGetKeyIndexerVerbose is sparse_table::get_key_indexer's
+// verbose_action _va("get_key_indexer") around the index lookup.
+func sparseGetKeyIndexerVerbose() error {
+	action, err := base.StartVerboseAction("get_key_indexer", base.VerboseActionDefaultLevel)
+	if err != nil {
+		return err
+	}
+	return action.End()
 }

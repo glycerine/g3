@@ -161,6 +161,12 @@ var verboseProgressFilteredCases = []verboseProgressCase{
 	{"dl_path_v1", "path", []string{"-v:1", "-dl"}},
 	{"dl_path_v10", "path", []string{"-v:10", "-dl"}},
 	{"dl_include_v2", "include", []string{"-v:2", "-dl"}},
+	// verbose_action's sparse_table lines: join_project (1), recycle and
+	// remove_fact (2), add_fact (10), get_key_indexer, union, project, ...
+	// (11).
+	{"dl_path_v2_actions", "path", []string{"-v:2", "-dl"}},
+	{"dl_path_v10_actions", "path", []string{"-v:10", "-dl"}},
+	{"dl_path_v11_actions", "path", []string{"-v:11", "-dl"}},
 	{"dl_path_v2_instructions", "path", []string{"-v:2", "-dl"}},
 	{"dl_path_v10_instructions", "path", []string{"-v:10", "-dl"}},
 	{"rel_bit_blast_v2_instructions", "rel_bit_blast", []string{"-v:2"}},
@@ -190,6 +196,11 @@ var verboseProgressMeasures = regexp.MustCompile(` :time [0-9.]+| :(before-|afte
 var verboseProgressNodeTimes = regexp.MustCompile(`(?m) (F|T|X|U|K|UNDEF) [0-9]+\.[0-9]+$`)
 var verboseProgressTransformTimes = regexp.MustCompile(`(no-op|rules) [0-9.e-]+s\)`)
 
+// verboseProgressActions masks verbose_action's elapsed seconds ("msg...0s",
+// or the seconds alone when a nested action's line came in between).
+var verboseProgressActions = regexp.MustCompile(`\.\.\.[0-9][0-9.e+-]*s`)
+var verboseProgressActionTail = regexp.MustCompile(`(?m)^[0-9][0-9.e+-]*s$`)
+
 // normalizeVerboseProgress drops timeit's time and memory fields, and the
 // SAT solver's "checking model" notices: build/z3 is a release build, where
 // that IF_VERBOSE sits under #ifndef _EXTERNAL_RELEASE, while g3 keeps the
@@ -198,6 +209,8 @@ func normalizeVerboseProgress(log string) string {
 	log = verboseProgressMeasures.ReplaceAllString(log, "")
 	log = verboseProgressNodeTimes.ReplaceAllString(log, " $1 t")
 	log = verboseProgressTransformTimes.ReplaceAllString(log, "$1 Ts)")
+	log = verboseProgressActions.ReplaceAllString(log, "...Ts")
+	log = verboseProgressActionTail.ReplaceAllString(log, "Ts")
 	var out strings.Builder
 	for _, line := range strings.SplitAfter(log, "\n") {
 		if !strings.HasPrefix(line, "\"checking model") {

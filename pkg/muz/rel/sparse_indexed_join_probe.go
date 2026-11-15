@@ -1,6 +1,9 @@
 package rel
 
 func (plan *SparseIndexedJoinPlan) executeIndexed(left, right *SparseTable, leftFacts, rightFacts []Fact, result *SparseTable, stats *SparseIndexedJoinStats) error {
+	if err := sparseGetKeyIndexerVerbose(); err != nil {
+		return err
+	}
 	stats.IndexedLeft = len(leftFacts) > len(rightFacts)
 	indexedTable, indexedColumns := right, plan.rightColumns
 	probeFacts, probeColumns := leftFacts, plan.leftColumns

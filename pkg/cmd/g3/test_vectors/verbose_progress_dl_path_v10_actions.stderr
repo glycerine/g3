@@ -1,0 +1,59 @@
+Z3 Datalog Engine
+parsing finished
+running saturation...
+path -> edge
+path -> path
+
+(transform N7datalog13mk_coi_filterE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog25mk_separate_negated_tailsE...no-op Ts)
+(transform N7datalog24mk_similarity_compressorE...no-op Ts)
+(transform N7datalog15mk_filter_rulesE...no-op Ts)
+(transform N7datalog15mk_simple_joinsE...no-op Ts)
+(transform N7datalog21mk_unbound_compressorE...no-op Ts)
+load path into 0
+load edge into 1
+mark_saturated edge
+union 1 into 0
+add_fact...Ts
+add_fact...Ts
+add_fact...Ts
+clone 0 into 2
+while(2)
+    join_project 2:2-3(1) and 1:2-3(0) into 4 removing columns (1,2)
+    union 4 into 0 with delta 3
+    dealloc 4
+    move 3 into 2
+looping ... 0
+join_project 2:2-3(1) and 1:2-3(0) into 4 removing columns (1,2)
+join_project...Ts
+union 4 into 0 with delta 3
+add_fact...Ts
+add_fact...Ts
+add_fact...Ts
+add_fact...Ts
+recycle...Ts
+move 3 into 2
+recycle...Ts
+looping ... 1
+join_project 2:2-2(1) and 1:2-3(0) into 4 removing columns (1,2)
+join_project...Ts
+union 4 into 0 with delta 3
+add_fact...Ts
+add_fact...Ts
+recycle...Ts
+move 3 into 2
+recycle...Ts
+looping ... 2
+join_project 2:2-1(1) and 1:2-3(0) into 4 removing columns (1,2)
+join_project...Ts
+recycle...Ts
+recycle...Ts
+mark_saturated path
+store 1 into edge
+recycle...Ts
+store 0 into path
+recycle...Ts
+recycle...Ts
+recycle...Ts
