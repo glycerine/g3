@@ -577,3 +577,34 @@ func TestDDNFPreprocessorRejectsQuantifierReachedThroughBooleanConnective(t *tes
 		t.Fatal("reachable quantifier should be rejected", ok, err)
 	}
 }
+
+// AUDIT.md muz_small_01-F2: process_todo tests the basic family before the
+// decl kind, so arithmetic > (OP_GT, the same kind number as OP_AND) is not
+// a connective and the rule is rejected.
+func TestDDNFPreprocessorRejectsArithmeticGreaterThan(t *testing.T) {
+	f := newPreprocessFixture(t)
+	preprocessor, err := muzddnf.NewPreprocessor(f.manager, f.registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = preprocessor.Close() })
+	two, err := f.manager.ArithmeticIntegerNumeralText("2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	integer, err := f.manager.GetSort(two)
+	if err != nil {
+		t.Fatal(err)
+	}
+	y, err := f.manager.MkVar(1, integer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	greater, err := f.manager.MkArithmeticGT(y, two)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := preprocessor.ProcessRule(f.rule(t, greater)); err != nil || ok {
+		t.Fatal("arithmetic > must be rejected, not treated as and", ok, err)
+	}
+}

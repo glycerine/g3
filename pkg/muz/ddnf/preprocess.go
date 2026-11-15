@@ -155,12 +155,11 @@ func (p *Preprocessor) processMany(roots []ast.ASTHandle) (bool, error) {
 		if kind != ast.ASTApp {
 			return false, nil
 		}
-		operator, err := p.manager.GetDeclKind(expression)
+		connective, err := isBasicApp(p.manager, expression, ast.ASTOpAnd, ast.ASTOpOr, ast.ASTOpIff, ast.ASTOpNot, ast.ASTOpImplies)
 		if err != nil {
 			return false, err
 		}
-		switch operator {
-		case ast.ASTOpAnd, ast.ASTOpOr, ast.ASTOpIff, ast.ASTOpNot, ast.ASTOpImplies:
+		if connective {
 			count, e := p.manager.GetNumArgs(expression)
 			if e != nil {
 				return false, e
@@ -188,6 +187,7 @@ func (p *Preprocessor) processMany(roots []ast.ASTHandle) (bool, error) {
 		if err != nil || !ok {
 			if err == nil {
 				p.failed = true
+				err = verboseCouldNotHandle(p.manager, expression)
 			}
 			return ok, err
 		}
@@ -196,8 +196,8 @@ func (p *Preprocessor) processMany(roots []ast.ASTHandle) (bool, error) {
 }
 
 func (p *Preprocessor) processAtomic(expression ast.ASTHandle) (bool, error) {
-	operator, err := p.manager.GetDeclKind(expression)
-	if err != nil || operator != ast.ASTOpEq {
+	equality, err := isBasicApp(p.manager, expression, ast.ASTOpEq)
+	if err != nil || !equality {
 		return false, err
 	}
 	left, err := p.manager.GetArg(expression, 0)

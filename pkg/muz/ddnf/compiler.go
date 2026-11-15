@@ -271,21 +271,24 @@ func (c *Compiler) CompileExpression(expression ast.ASTHandle) (ast.ASTHandle, e
 	if kind != ast.ASTApp {
 		return ast.ASTHandle{}, ErrCore
 	}
-	operator, err := c.manager.GetDeclKind(expression)
+	connective, err := isBasicApp(c.manager, expression, ast.ASTOpAnd, ast.ASTOpOr, ast.ASTOpIff, ast.ASTOpNot, ast.ASTOpImplies)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	switch operator {
-	case ast.ASTOpAnd, ast.ASTOpOr, ast.ASTOpIff, ast.ASTOpNot, ast.ASTOpImplies:
+	if connective {
 		return c.compileConnective(expression)
-	case ast.ASTOpEq:
-		if _, found := c.preprocessor.constraints[expression]; found {
-			return c.compileEquality(expression)
-		}
-		return c.compileVariableEquality(expression)
-	default:
+	}
+	equality, err := isBasicApp(c.manager, expression, ast.ASTOpEq)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if !equality {
 		return ast.ASTHandle{}, ErrCore
 	}
+	if _, found := c.preprocessor.constraints[expression]; found {
+		return c.compileEquality(expression)
+	}
+	return c.compileVariableEquality(expression)
 }
 
 func (c *Compiler) compileConnective(expression ast.ASTHandle) (ast.ASTHandle, error) {
