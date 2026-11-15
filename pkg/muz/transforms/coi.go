@@ -207,7 +207,7 @@ type coneRuleFilter struct {
 	unreachable   []ast.ASTHandle
 }
 
-func filteredRule(manager *base.RuleManager, rule *base.Rule, reachable *dataflow.Reachability, relations *rel.RelationManager) (result coneRuleFilter, resultErr error) {
+func filteredRule(manager *base.RuleManager, rule *base.Rule, reachable *dataflow.Reachability, facts coneFacts) (result coneRuleFilter, resultErr error) {
 	uninterpreted, err := rule.UninterpretedTailSize()
 	if err != nil {
 		return result, err
@@ -229,15 +229,13 @@ func filteredRule(manager *base.RuleManager, rule *base.Rule, reachable *dataflo
 			if x != nil {
 				return result, x
 			}
-			if relations != nil {
-				materialized, x := relations.HasFacts(declaration)
-				if x != nil {
-					return result, x
-				}
-				if materialized {
-					result.bailout = true
-					return result, nil
-				}
+			materialized, x := facts.has(declaration)
+			if x != nil {
+				return result, x
+			}
+			if materialized {
+				result.bailout = true
+				return result, nil
 			}
 			if !reachable.IsReachable(declaration) {
 				result.unreachable = append(result.unreachable, declaration)
@@ -263,7 +261,7 @@ func filteredRule(manager *base.RuleManager, rule *base.Rule, reachable *dataflo
 	return result, err
 }
 
-func bottomUpCone(source *base.RuleSet, captureModel bool, relations *rel.RelationManager) (_ *base.RuleSet, _ ConeModelStep, resultErr error) {
+func bottomUpCone(source *base.RuleSet, captureModel bool, facts coneFacts) (_ *base.RuleSet, _ ConeModelStep, resultErr error) {
 	reachable, err := dataflow.BottomUp(source)
 	if err != nil {
 		return nil, nil, err
@@ -307,7 +305,7 @@ func bottomUpCone(source *base.RuleSet, captureModel bool, relations *rel.Relati
 			return nil, nil, e
 		}
 		current = rule
-		filtered, e := filteredRule(manager, rule, reachable, relations)
+		filtered, e := filteredRule(manager, rule, reachable, facts)
 		replacement = filtered.replacement
 		if e != nil {
 			return nil, nil, e
@@ -389,18 +387,18 @@ func bottomUpCone(source *base.RuleSet, captureModel bool, relations *rel.Relati
 // result means neither pass changed the source. A non-nil result is owned by
 // the caller and is already finalized.
 func ConeOfInfluence(source *base.RuleSet) (*base.RuleSet, error) {
-	result, _, err := coneOfInfluence(source, false, nil)
+	result, _, err := coneOfInfluence(source, false, coneFacts{})
 	return result, err
 }
 
 // ConeOfInfluenceWithRelations preserves the source context bailout when a
 // bottom-up candidate references a predicate with materialized facts.
 func ConeOfInfluenceWithRelations(source *base.RuleSet, relations *rel.RelationManager) (*base.RuleSet, error) {
-	result, _, err := coneOfInfluence(source, false, relations)
+	result, _, err := coneOfInfluence(source, false, coneFacts{relations: relations})
 	return result, err
 }
 
-func coneOfInfluence(source *base.RuleSet, captureModel bool, relations *rel.RelationManager) (_ *base.RuleSet, _ []ConeModelStep, resultErr error) {
+func coneOfInfluence(source *base.RuleSet, captureModel bool, facts coneFacts) (_ *base.RuleSet, _ []ConeModelStep, resultErr error) {
 	rules, err := source.RuleManager()
 	if err != nil {
 		return nil, nil, err
@@ -428,7 +426,7 @@ func coneOfInfluence(source *base.RuleSet, captureModel bool, relations *rel.Rel
 	if top != nil {
 		basis = top
 	}
-	bottom, bottomStep, err = bottomUpCone(basis, captureModel, relations)
+	bottom, bottomStep, err = bottomUpCone(basis, captureModel, facts)
 	if err != nil {
 		return nil, nil, err
 	}

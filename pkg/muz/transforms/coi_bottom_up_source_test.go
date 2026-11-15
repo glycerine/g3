@@ -125,3 +125,39 @@ func TestConeBottomUpMaterializedBailoutReleasesCurrentRule(t *testing.T) {
 		t.Fatal("materialized-tail bailout leaked rule roots", before, after)
 	}
 }
+
+// muz_fp_03-F2: context::has_facts also sees relations stored outside the
+// relation manager (the fp doc owner), through the plugin's fact probe.
+func TestConeBottomUpFactProbeBailsOut(t *testing.T) {
+	f := newConeFixture(t, "Goal", "Stored")
+	addTransformRule(t, f, f.applications["Goal"], []ast.ASTHandle{f.applications["Stored"]}, nil, "stored-tail")
+	coneMust(t, f.set.SetOutputPredicate(f.declarations["Goal"]))
+	valid, err := f.set.Finalize()
+	coneMust(t, err)
+	if !valid {
+		t.Fatal("unstratified fixture")
+	}
+	for _, stored := range []bool{false, true} {
+		plugin := transforms.NewConePlugin(0)
+		probed := false
+		plugin.SetFactProbe(func(predicate ast.ASTHandle) (bool, error) {
+			probed = probed || predicate == f.declarations["Stored"]
+			return stored && predicate == f.declarations["Stored"], nil
+		})
+		result, err := plugin.Transform(f.set)
+		coneMust(t, err)
+		if !probed {
+			t.Fatal("bottom-up pass did not consult the fact probe")
+		}
+		if stored != (result == nil) {
+			t.Fatal("fact probe bailout", stored, result != nil)
+		}
+		if result != nil {
+			if count, err := result.Len(); err != nil || count != 0 {
+				t.Fatal("unreachable rule survived", count, err)
+			}
+			coneMust(t, result.Close())
+		}
+		coneMust(t, plugin.Close())
+	}
+}

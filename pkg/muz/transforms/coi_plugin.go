@@ -4,6 +4,7 @@ package transforms
 // plugin surface.
 
 import (
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/rel"
 )
@@ -12,6 +13,7 @@ type ConePlugin struct {
 	priority  uint32
 	steps     []ConeModelStep
 	relations *rel.RelationManager
+	factProbe ConeFactProbe
 	// noModelConverter mirrors a null m_context.get_model_converter(): the
 	// extension_model_converter steps are not built.
 	noModelConverter bool
@@ -32,6 +34,35 @@ func NewConePluginWithRelations(relations *rel.RelationManager, priority uint32)
 	return &ConePlugin{priority: priority, relations: relations}
 }
 
+// ConeFactProbe reports whether a predicate has materialized facts in a
+// relation backend that is not published through RelationManager (the doc
+// relations owned by the fp UDoc executor).
+type ConeFactProbe func(predicate ast.ASTHandle) (bool, error)
+
+// SetFactProbe adds probe to the context::has_facts check of the bottom-up
+// pass, consulted before the borrowed relation manager.
+func (p *ConePlugin) SetFactProbe(probe ConeFactProbe) { p.factProbe = probe }
+
+// coneFacts is context::has_facts: rel_context::has_facts reports a
+// nonempty relation, wherever the relation plugin stores it.
+type coneFacts struct {
+	relations *rel.RelationManager
+	probe     ConeFactProbe
+}
+
+func (f coneFacts) has(predicate ast.ASTHandle) (bool, error) {
+	if f.probe != nil {
+		populated, err := f.probe(predicate)
+		if err != nil || populated {
+			return populated, err
+		}
+	}
+	if f.relations == nil {
+		return false, nil
+	}
+	return f.relations.HasFacts(predicate)
+}
+
 func (p *ConePlugin) Priority() uint32 { return p.priority }
 
 // SetModelConverter reports whether the context has a model converter.
@@ -43,7 +74,7 @@ func (p *ConePlugin) Transform(source *base.RuleSet) (*base.RuleSet, error) {
 	if p == nil || p.closed || p.closing {
 		return nil, base.ErrRuleTransformerOwner
 	}
-	result, steps, err := coneOfInfluence(source, !p.noModelConverter, p.relations)
+	result, steps, err := coneOfInfluence(source, !p.noModelConverter, coneFacts{relations: p.relations, probe: p.factProbe})
 	if err != nil {
 		return nil, err
 	}
