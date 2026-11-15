@@ -199,7 +199,10 @@ func (i *qfnraPurifyInvocation) processQuantifier(q ast.ASTHandle) (result, proo
 	if err != nil {
 		return result, proof, err
 	}
-	if i.proofs {
+	// C++ (num_vars == 0) calls mk_quant_intro(q, result, nullptr), which
+	// returns nullptr, so an unchanged quantifier keeps a null proof. The
+	// recorded deviation keeps the body proof only when the body changed.
+	if i.proofs && result != q {
 		if bodyProof.IsNull() {
 			bodyProof, err = m.MkProofReflexivity(body)
 			if err != nil {

@@ -220,6 +220,11 @@ func TestPurifyUnchangedQuantifierWithProof(t *testing.T) {
 	if fact != q {
 		t.Fatal("unchanged quantified proof has wrong conclusion")
 	}
+	// AUDIT.md tactic_arith_03-F8: mk_quant_intro(q, q, nullptr) is
+	// nullptr, so the original asserted proof is kept unchanged.
+	if proof != p {
+		t.Fatal("unchanged quantifier gained a quant-intro step")
+	}
 }
 
 func TestPurifyQuantifiedModulusBindsBothAuxiliaries(t *testing.T) {

@@ -1,0 +1,6 @@
+(set-option :produce-proofs true)
+(declare-fun f (Int) Int)
+(assert (forall ((x Int)) (> (f x) 0)))
+(assert (< (f 1) 0))
+(check-sat-using (then purify-arith smt))
+(get-proof)
