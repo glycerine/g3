@@ -614,3 +614,15 @@ z3_bug_duality_certificate_eliminated_var
 # instruction_finite_table.go emptyFiniteLike). No AUDIT.md finding.
 # Reproduction: test_vectors/z3_bug_check_table_nullary_empty.smt2.
 z3_bug_check_table_nullary_empty
+#
+# With fixedpoint.datalog.default_table=bitvector, the bitvector_table
+# constructor reserves its bit vector inside the column loop, so a nullary
+# table (the query predicate g) reserves no bits and z3 segfaults in
+# bitvector_table::add_fact (z3 bug: src/muz/rel/dl_table.cpp
+# bitvector_table::bitvector_table; fixed upstream in 8dac9b7b94, which
+# reserves 1 << shift bits after the loop). g3 has no bitvector table; it
+# uses the hash table stand-in (AUDIT.md muz_fp_03-F5) and a hash table for
+# every nullary predicate (pkg/muz/fp/default_finite_table.go
+# applyDatalogDefaultFiniteTable), so it answers sat. No AUDIT.md finding.
+# Reproduction: test_vectors/z3_bug_bitvector_table_nullary.smt2.
+z3_bug_bitvector_table_nullary
