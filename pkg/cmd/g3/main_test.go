@@ -338,6 +338,13 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md math_subpaving_01-F1: interval div only SASSERTs a zero-free
+	// denominator; a closed zero endpoint takes the P1 branches. Before the
+	// fix all three failed with "interval: undefined extended rational
+	// operation" (print_nodes output goes to os.Stdout, so it is omitted).
+	"subpaving_div_zero_den.smt2":      "(goals\n(goal\n  (>= y (- 2.0))\n  (<= y 2.0)\n  (>= a 1.0)\n  (<= a 2.0)\n  (<= (* a (^ y 2.0)) 10.0)\n  (>= (* a (^ y 2.0)) 1.0)\n  :precision precise :depth 2)\n)\n",
+	"subpaving_div_zero_den_hwf.smt2":  "(goals\n(goal\n  (>= y (- 2.0))\n  (<= y 2.0)\n  (>= a 1.0)\n  (<= a 2.0)\n  (<= (* a (^ y 2.0)) 10.0)\n  (>= (* a (^ y 2.0)) 1.0)\n  :precision precise :depth 2)\n)\n",
+	"subpaving_div_zero_den_mpfx.smt2": "(goals\n(goal\n  (>= y (- 2.0))\n  (<= y 2.0)\n  (>= a 1.0)\n  (<= a 2.0)\n  (<= (* a (^ y 2.0)) 10.0)\n  (>= (* a (^ y 2.0)) 1.0)\n  :precision precise :depth 2)\n)\n",
 	// AUDIT.md duality_01-F3 follow-up (TestDualityScaleRealQueries): with
 	// xform.scale, q2's body becomes p(v, s) with v = 2.0*s and, without
 	// eq2ineq, iZ3 cannot interpolate the arithmetic rewrite proof.

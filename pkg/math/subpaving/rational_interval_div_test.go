@@ -115,6 +115,21 @@ func TestSubpavingRationalIntervalDivSixSignAndOpenZeroBranches(t *testing.T) {
 	must(b.ResetUpper())
 	must(out.Div(a, b))
 	show(out, "(0, 2]")
+	// math_subpaving_01-F1: the source only SASSERTs a zero-free denominator.
+	// A closed zero lower endpoint takes the P1 branches, where the raw
+	// m().is_zero(c) test turns the c-quotient into an infinity. The
+	// infinite endpoint keeps the closed flag b_o || c_o, as in the source.
+	set(b, "1", "8", false, false)
+	set(a, "0", "4", false, false)
+	must(out.Div(b, a))
+	show(out, "[1/4, +oo]")
+	set(b, "-8", "-1", false, false)
+	must(out.Div(b, a))
+	show(out, "[-oo, -1/4]")
+	set(b, "2", "4", false, false)
+	must(b.ResetUpper())
+	// A straddling denominator with nonzero endpoints yields an inverted
+	// result in the source; the Go invariant check reports it.
 	set(a, "-1", "1", false, false)
 	if err := out.Div(b, a); !errors.Is(err, interval.ErrExtendedDomain) {
 		t.Fatal("zero-containing divisor accepted", err)

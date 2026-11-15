@@ -170,6 +170,37 @@ func TestSubpavingFastIntervalDivSignBranches(t *testing.T) {
 	set(num, 0, 0, false, false)
 	must(out.Div(num, den))
 	check(out, 0, 0, false, false, false, false)
+	// math_subpaving_01-F1: the source only SASSERTs a zero-free denominator.
+	// A closed zero lower endpoint takes the P1 branches, where the raw
+	// m().is_zero(c) test turns the c-quotient into an infinity.
+	set(num, 1, 8, false, false)
+	set(den, 0, 4, false, false)
+	must(out.Div(num, den))
+	shape(out, false, true, false, false)
+	lower, _, err = out.endpoints()
+	must(err)
+	must(m.SetFraction32(values[2], 1, 4))
+	equal, err = m.Equal(lower, values[2])
+	must(err)
+	if !equal {
+		t.Fatal("positive over closed-zero denominator lower quotient")
+	}
+	set(num, -8, -1, false, false)
+	must(out.Div(num, den))
+	shape(out, true, false, false, false)
+	_, upper, err = out.endpoints()
+	must(err)
+	must(m.SetFraction32(values[2], -1, 4))
+	equal, err = m.Equal(upper, values[2])
+	must(err)
+	if !equal {
+		t.Fatal("negative over closed-zero denominator upper quotient")
+	}
+	set(num, -1, 1, false, false)
+	must(out.Div(num, den))
+	shape(out, true, true, false, false)
+	// A straddling denominator with nonzero endpoints yields an inverted
+	// result in the source; the Go invariant check reports it.
 	set(num, 1, 2, false, false)
 	set(den, -1, 1, false, false)
 	if err := out.Div(num, den); !errors.Is(err, interval.ErrExtendedDomain) {

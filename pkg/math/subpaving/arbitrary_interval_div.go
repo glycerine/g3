@@ -22,13 +22,6 @@ func (v *ArbitraryInterval) Div(num, den *ArbitraryInterval) (err error) {
 	if v == num {
 		return arena.ErrInvalidSlot
 	}
-	contains, err := den.ContainsZero()
-	if err != nil {
-		return err
-	}
-	if contains {
-		return interval.ErrExtendedDomain
-	}
 	zero, err := num.isSingletonZero()
 	if err != nil {
 		return err
@@ -65,18 +58,16 @@ func (v *ArbitraryInterval) Div(num, den *ArbitraryInterval) (err error) {
 	if err != nil {
 		return err
 	}
-	positive, err := e.IsPos(denLower, den.lowerKind())
-	if err != nil {
-		return err
-	}
-	lowerZero, err := e.IsZero(denLower, den.lowerKind())
-	if err != nil {
-		return err
-	}
 	dn := negative || upperZero && den.upperOpen
-	dp := positive || lowerZero && den.lowerOpen
-	if !dn && !dp {
-		return interval.ErrExtendedDomain
+	// Source: the zero-free denominator is only SASSERT(!contains_zero(i2)).
+	// Every denominator that is not N1 takes the P1 branches, whose
+	// m().is_zero(c) and m().is_zero(d) tests read the raw numerals.
+	if upperZero, err = v.numbers.IsZero(denUpper); err != nil {
+		return err
+	}
+	lowerZero, err := v.numbers.IsZero(denLower)
+	if err != nil {
+		return err
 	}
 	a, b, err := num.boundEndpoints()
 	if err != nil {

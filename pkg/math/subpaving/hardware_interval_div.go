@@ -20,13 +20,6 @@ func (v *HardwareInterval) Div(num, den *HardwareInterval) error {
 	if v == num {
 		return arena.ErrInvalidSlot
 	}
-	contains, err := den.ContainsZero()
-	if err != nil {
-		return err
-	}
-	if contains {
-		return interval.ErrExtendedDomain
-	}
 	if num.isSingletonZero() {
 		lo, hi, _ := v.endpoints()
 		if err := v.numbers.Reset(lo); err != nil {
@@ -43,13 +36,12 @@ func (v *HardwareInterval) Div(num, den *HardwareInterval) error {
 	e := interval.HardwareExtended{Numbers: v.numbers}
 	negative := e.IsNeg(d.value, d.kind)
 	upperZero := e.IsZero(d.value, d.kind)
-	positive := e.IsPos(c.value, c.kind)
-	lowerZero := e.IsZero(c.value, c.kind)
 	dn := negative || upperZero && d.open
-	dp := positive || lowerZero && c.open
-	if !dn && !dp {
-		return interval.ErrExtendedDomain
-	}
+	// Source: the zero-free denominator is only SASSERT(!contains_zero(i2)).
+	// Every denominator that is not N1 takes the P1 branches, whose
+	// m().is_zero(c) and m().is_zero(d) tests read the raw numerals.
+	upperZero = v.numbers.IsZero(d.value)
+	lowerZero := v.numbers.IsZero(c.value)
 	a, b := num.boundEndpoints()
 	var le, ld, ue, ud hardwareEndpoint
 	var lowerOpen, upperOpen, infLower, infUpper bool
@@ -91,6 +83,7 @@ func (v *HardwareInterval) Div(num, den *HardwareInterval) error {
 	m := v.numbers
 	var lower, upper numeral.HardwareFloat
 	lk, uk := interval.MinusInfinity, interval.PlusInfinity
+	var err error
 	if !infLower {
 		m.RoundToMinusInf()
 		lk, err = e.Div(le.value, le.kind, ld.value, ld.kind, &lower)

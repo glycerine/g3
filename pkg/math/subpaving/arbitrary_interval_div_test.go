@@ -166,6 +166,36 @@ func TestSubpavingMPFIntervalDivSixSignBranchesAndOpenZero(t *testing.T) {
 	if !zero {
 		t.Fatal("zero numerator quotient")
 	}
+	// math_subpaving_01-F1: the source only SASSERTs a zero-free denominator.
+	// A closed zero lower endpoint takes the P1 branches, where the raw
+	// m().is_zero(c) test turns the c-quotient into an infinity.
+	set(num, 1, 8)
+	must(m.Reset(&den.lower))
+	must(m.SetInt32(&den.upper, 4))
+	den.lowerInf, den.upperInf, den.lowerOpen, den.upperOpen = false, false, false, false
+	must(out.Div(num, den))
+	shape(out, false, true, false, false)
+	lo, _, err = out.endpoints()
+	must(err)
+	must(m.SetFractionSigned(&values[2], 1, 4))
+	eq, err = m.Equal(lo, &values[2])
+	must(err)
+	if !eq {
+		t.Fatal("positive over closed-zero denominator lower quotient")
+	}
+	set(num, -8, -1)
+	must(out.Div(num, den))
+	shape(out, true, false, false, false)
+	_, hi, err = out.endpoints()
+	must(err)
+	must(m.SetFractionSigned(&values[2], -1, 4))
+	eq, err = m.Equal(hi, &values[2])
+	must(err)
+	if !eq {
+		t.Fatal("negative over closed-zero denominator upper quotient")
+	}
+	// A straddling denominator with nonzero endpoints yields an inverted
+	// result in the source; the Go invariant check reports it.
 	set(num, 1, 2)
 	set(den, -1, 1)
 	if err := out.Div(num, den); !errors.Is(err, interval.ErrExtendedDomain) {

@@ -109,6 +109,23 @@ func TestSubpavingFixedIntervalDivSignBranches(t *testing.T) {
 	if got := show(c); got != "[0, 0]" {
 		t.Fatalf("zero numerator = %q", got)
 	}
+	// math_subpaving_01-F1: the source only SASSERTs a zero-free denominator.
+	// A closed zero lower endpoint takes the P1 branches, where the raw
+	// m().is_zero(c) test turns the c-quotient into an infinity. The
+	// infinite endpoint keeps the closed flag b_o || c_o, as in the source.
+	set(a, 1, 8, false, false)
+	set(b, 0, 4, false, false)
+	must(c.Div(a, b))
+	if got := show(c); got != "[1/2^2, +oo]" {
+		t.Fatalf("positive over closed-zero divisor = %q", got)
+	}
+	set(a, -8, -1, false, false)
+	must(c.Div(a, b))
+	if got := show(c); got != "[-oo, -1/2^2]" {
+		t.Fatalf("negative over closed-zero divisor = %q", got)
+	}
+	// A straddling denominator with nonzero endpoints yields an inverted
+	// result in the source; the Go invariant check reports it.
 	set(a, 1, 2, false, false)
 	set(b, -1, 1, false, false)
 	if err := c.Div(a, b); !errors.Is(err, interval.ErrExtendedDomain) {
