@@ -177,3 +177,56 @@ func TestBitvectorJoinResultPlugin(t *testing.T) {
 		t.Fatal(facts)
 	}
 }
+
+// AUDIT.md muz_fp_01-F6: check_table pairs with a bitvector side. The pair
+// handles a signature only when both plugins do, and bitvector_table takes
+// the nullary signature that sparse rejects.
+func TestFiniteCheckedBitvectorPair(t *testing.T) {
+	for _, tc := range []struct {
+		primary, checker string
+		nullary          bool
+	}{
+		{"bitvector", "sparse", false},
+		{"sparse", "bitvector", false},
+		{"bitvector", "hashtable", true},
+		{"bitvector", "bitvector", true},
+	} {
+		t.Run(tc.primary+"-"+tc.checker, func(t *testing.T) {
+			factory, err := NewFiniteCheckedFactory(tc.primary, tc.checker)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := factory.CanHandleSignature(bitvectorTestSignature(t)); got != tc.nullary {
+				t.Fatal("nullary", got)
+			}
+			if factory.CanHandleSignature(bitvectorTestSignature(t, 1<<16, 1<<16)) {
+				t.Fatal("34-bit signature accepted")
+			}
+			pair, err := factory.New(bitvectorTestSignature(t, 4, 4))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = pair.Close() }()
+			for _, fact := range []Fact{{3, 2}, {1, 0}, {2, 2}} {
+				if _, err = pair.Add(fact); err != nil {
+					t.Fatal(err)
+				}
+			}
+			primary, checker, err := pair.ConcreteKinds()
+			if err != nil || primary != tc.primary || checker != tc.checker {
+				t.Fatal(primary, checker, err)
+			}
+			facts, err := pair.Facts()
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := []Fact{{3, 2}, {1, 0}, {2, 2}}
+			if tc.primary == "bitvector" {
+				want = []Fact{{1, 0}, {2, 2}, {3, 2}}
+			}
+			if !reflect.DeepEqual(facts, want) {
+				t.Fatal(facts)
+			}
+		})
+	}
+}

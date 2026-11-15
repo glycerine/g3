@@ -35,7 +35,7 @@ func NewFiniteCheckedFactory(primaryKind, checkerKind string) (*FiniteCheckedFac
 func NewFiniteCheckedFactoryWithLazy(primaryKind, checkerKind string, lazy *LazySparseFiniteFactory) (*FiniteCheckedFactory, error) {
 	valid := func(kind string) bool {
 		switch kind {
-		case "hashtable", "tr_hashtable", "sparse", "tr_sparse":
+		case "hashtable", "tr_hashtable", "sparse", "tr_sparse", "bitvector", "tr_bitvector":
 			return true
 		case "lazy_sparse", "tr_lazy_sparse":
 			return lazy != nil && lazy.open() == nil
@@ -55,6 +55,8 @@ func checkedKindHandles(kind string, signature Signature) bool {
 		return true
 	case "sparse", "tr_sparse", "lazy_sparse", "tr_lazy_sparse":
 		return signature.Len() != 0
+	case "bitvector", "tr_bitvector":
+		return BitvectorCanHandleSignature(signature, 0)
 	default:
 		return false
 	}
@@ -111,6 +113,11 @@ func (f *FiniteCheckedFactory) table(kind string, signature Signature, functiona
 		return NewHashTable(signature), nil
 	case "sparse", "tr_sparse":
 		return NewSparseTable(signature, functional)
+	case "bitvector", "tr_bitvector":
+		if functional != 0 {
+			return nil, ErrCheckTable
+		}
+		return NewBitvectorTable(signature)
 	case "lazy_sparse", "tr_lazy_sparse":
 		if f.lazy == nil {
 			return nil, ErrCheckTable
@@ -172,6 +179,8 @@ func newFiniteTableKind(kind string, signature Signature) (FiniteTable, error) {
 		return NewHashTable(signature), nil
 	case "sparse", "tr_sparse":
 		return NewSparseTable(signature, 0)
+	case "bitvector", "tr_bitvector":
+		return NewBitvectorTable(signature)
 	default:
 		return nil, fmt.Errorf("%w: finite checker plugin %s", ErrTable, kind)
 	}
@@ -188,6 +197,12 @@ func newFiniteTableLike(template FiniteTable, signature Signature) (FiniteTable,
 		return NewSparseTable(signature, 0)
 	case *LazySparseTable:
 		return lazySparseInstructionResult(concrete, signature, 0)
+	case *BitvectorTable:
+		if BitvectorCanHandleSignature(signature, 0) {
+			return NewBitvectorTable(signature)
+		}
+		// get_appropriate_plugin: sparse for every nonnullary signature.
+		return NewSparseTable(signature, 0)
 	default:
 		return nil, fmt.Errorf("%w: unsupported checked component %T", ErrCheckTable, template)
 	}
@@ -431,6 +446,8 @@ func (p *FiniteCheckedPair) SizeEstimateRows() (uint32, error) {
 	switch primary := p.primary.(type) {
 	case *HashTable:
 		return primary.SizeEstimateRows()
+	case *BitvectorTable:
+		return primary.SizeEstimateRows()
 	case *SparseTable:
 		return primary.SizeEstimateRows()
 	case *LazySparseTable:
@@ -445,6 +462,8 @@ func (p *FiniteCheckedPair) SizeEstimateBytes() (uint32, error) {
 	}
 	switch primary := p.primary.(type) {
 	case *HashTable:
+		return primary.SizeEstimateBytes()
+	case *BitvectorTable:
 		return primary.SizeEstimateBytes()
 	case *SparseTable:
 		return primary.SizeEstimateBytes()
@@ -683,6 +702,8 @@ func filterCheckedPairInterpreted(table FiniteTable, manager *RelationManager, r
 		return relation.FilterInterpreted(theory, conditions, columns, sorts)
 	case *SparseTable:
 		return filterSparseInterpretedBound(concrete, manager, theory, conditions, columns, sorts)
+	case *BitvectorTable:
+		return filterBitvectorInterpreted(concrete, manager, theory, conditions, columns, sorts)
 	case *LazySparseTable:
 		return concrete.filterInterpretedCompiled(manager, theory, conditions, columns, sorts)
 	default:
@@ -763,6 +784,8 @@ func (p *FiniteCheckedPair) ConcreteKinds() (primary, checker string, err error)
 			return "hashtable"
 		case *SparseTable:
 			return "sparse"
+		case *BitvectorTable:
+			return "bitvector"
 		case *LazySparseTable:
 			return "lazy_sparse"
 		default:

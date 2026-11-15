@@ -24,6 +24,9 @@ type datalogCheckedPredicate struct {
 	nested      *rel.FormulaCheckedFinitePair
 	publish     rel.FiniteTable
 	doc         *rel.UDocNullaryTable
+	// publishBitvector: the checked relation wraps tr_bitvector, so the
+	// query result is a bitvector_table whatever the default table is.
+	publishBitvector bool
 }
 
 type datalogCheckRelationScope struct {
@@ -98,6 +101,33 @@ func publishCheckedFactsLike(original rel.FiniteTable, facts []rel.Fact) (_ rel.
 	return result, nil
 }
 
+// publishCheckedBitvectorFacts publishes the rows of a check_relation over
+// tr_bitvector as a bitvector_table.
+func publishCheckedBitvectorFacts(original rel.FiniteTable, facts []rel.Fact) (_ rel.FiniteTable, resultErr error) {
+	if original == nil {
+		return nil, rel.ErrTable
+	}
+	signature, err := original.Signature()
+	if err != nil {
+		return nil, err
+	}
+	result, err := rel.NewBitvectorTable(signature)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, result.Close())
+		}
+	}()
+	for _, fact := range facts {
+		if _, err = result.Add(fact); err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 func (e *PropositionalEngine) datalogCheckRelationName() (name string, enabled bool, resultErr error) {
 	if e.params == nil || e.globals == nil {
 		return "", false, nil
@@ -128,11 +158,13 @@ func (e *PropositionalEngine) datalogCheckRelationName() (name string, enabled b
 		name = "hashtable"
 	case "tr_sparse":
 		name = "sparse"
+	case "tr_bitvector":
+		name = "bitvector"
 	case "tr_lazy_sparse":
 		name = "lazy_sparse"
 	}
 	// doc selects the actual UDoc checking factory before finite execution.
-	if name != "hashtable" && name != "sparse" && name != "lazy_sparse" && name != "bound_relation" && name != "interval_relation" && name != "karr_relation" && name != "doc" && name != "check" {
+	if name != "hashtable" && name != "sparse" && name != "bitvector" && name != "lazy_sparse" && name != "bound_relation" && name != "interval_relation" && name != "karr_relation" && name != "doc" && name != "check" {
 		return "", false, fmt.Errorf("muz/fp: relation plugin %s is not available for datalog.check_relation", name)
 	}
 	return name, true, nil
@@ -189,6 +221,8 @@ func (e *PropositionalEngine) datalogDefaultTableCheck() (checker string, enable
 			return "hashtable"
 		case "tr_sparse":
 			return "sparse"
+		case "tr_bitvector":
+			return "bitvector"
 		case "tr_lazy_sparse":
 			return "lazy_sparse"
 		default:
@@ -196,7 +230,9 @@ func (e *PropositionalEngine) datalogDefaultTableCheck() (checker string, enable
 		}
 	}
 	base, checker = normalize(base), normalize(checker)
-	available := func(name string) bool { return name == "hashtable" || name == "sparse" || name == "lazy_sparse" }
+	available := func(name string) bool {
+		return name == "hashtable" || name == "sparse" || name == "bitvector" || name == "lazy_sparse"
+	}
 	if !available(base) || !available(checker) {
 		return "", false, fmt.Errorf("muz/fp: checked default table pair %s/%s is not available", base, checker)
 	}
@@ -370,6 +406,20 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 				continue
 			}
 		}
+		publishBitvector := false
+		if name == "bitvector" {
+			signature, err := state.table.Signature()
+			if err != nil {
+				return nil, err
+			}
+			// check_relation_plugin::can_handle_signature defers to the
+			// wrapped tr_bitvector plugin; other signatures fall through to
+			// the ordinary plugins.
+			if !rel.BitvectorCanHandleSignature(signature, 0) {
+				continue
+			}
+			publishBitvector = true
+		}
 		shadow, err := finiteHashSnapshot(state.table)
 		if err != nil {
 			return nil, err
@@ -382,7 +432,7 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 		if err != nil {
 			return nil, errors.Join(err, table.Close(), shadow.Close())
 		}
-		entry := datalogCheckedPredicate{declaration: declaration, state: state, original: state.table, shadow: shadow, checked: checked}
+		entry := datalogCheckedPredicate{declaration: declaration, state: state, original: state.table, shadow: shadow, checked: checked, publishBitvector: publishBitvector}
 		scope.entries = append(scope.entries, entry)
 		state.table, state.checked = checked.Table(), checked
 	}
@@ -427,7 +477,11 @@ func (s *datalogCheckRelationScope) complete(publish bool) (result error) {
 				publish = false
 				break
 			}
-			entry.publish, result = publishCheckedFactsLike(entry.original, facts)
+			if entry.publishBitvector {
+				entry.publish, result = publishCheckedBitvectorFacts(entry.original, facts)
+			} else {
+				entry.publish, result = publishCheckedFactsLike(entry.original, facts)
+			}
 			if result != nil {
 				publish = false
 				break

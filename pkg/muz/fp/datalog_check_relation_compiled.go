@@ -32,10 +32,12 @@ func (e *PropositionalEngine) datalogDefaultCheckedPrimary() (primary string, re
 		primary = "hashtable"
 	case "tr_sparse":
 		primary = "sparse"
+	case "tr_bitvector":
+		primary = "bitvector"
 	case "tr_lazy_sparse":
 		primary = "lazy_sparse"
 	}
-	if primary != "hashtable" && primary != "sparse" && primary != "lazy_sparse" {
+	if primary != "hashtable" && primary != "sparse" && primary != "bitvector" && primary != "lazy_sparse" {
 		return "", fmt.Errorf("muz/fp: checked default table %s is not available", primary)
 	}
 	return primary, nil

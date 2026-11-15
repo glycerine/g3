@@ -12,6 +12,9 @@ import (
 	"fmt"
 	mathbits "math/bits"
 
+	"github.com/glycerine/g3/pkg/ast"
+	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
+
 	"github.com/glycerine/g3/pkg/util/bitset"
 	"github.com/glycerine/g3/pkg/util/z3exception"
 )
@@ -489,3 +492,28 @@ func (t *BitvectorTable) Complement() (*BitvectorTable, error) {
 }
 
 var _ FiniteTable = (*BitvectorTable)(nil)
+
+// filterBitvectorInterpreted is default_table_filter_interpreted_fn over a
+// bitvector_table: rows whose ground condition rewrites to false are
+// removed.
+func filterBitvectorInterpreted(table *BitvectorTable, manager *RelationManager, rewriter *astrewriter.TheoryRewriter, conditions []ast.ASTHandle, columns map[uint32]int, sorts map[uint32]ast.ASTHandle) error {
+	if table == nil || table.open() != nil || manager == nil || manager.open() != nil || rewriter == nil || len(conditions) == 0 {
+		return ErrTable
+	}
+	facts, err := table.Facts()
+	if err != nil {
+		return err
+	}
+	relation := &TableRelation{manager: manager}
+	removed := make([]Fact, 0)
+	for _, fact := range facts {
+		accepted, evalErr := relation.acceptsInterpretedFact(rewriter, conditions, columns, sorts, fact)
+		if evalErr != nil {
+			return evalErr
+		}
+		if !accepted {
+			removed = append(removed, fact)
+		}
+	}
+	return table.RemoveFacts(removed)
+}
