@@ -1530,15 +1530,29 @@ func (k *SMTKernel) ConfigureModelGeneration(enabled bool, config model.ModelEva
 	return nil
 }
 
+// mkProtoModelEnabled is mk_proto_model's guard: m_fparams.m_model ||
+// m_fparams.m_model_on_final_check || m_qmanager->model_based(), where the
+// default plugin's model_based() is m_fparams->m_mbqi. So with smt.mbqi on
+// (the default) a check builds its proto model, and ~scoped_mk_model its
+// m_model, even when the caller turned m_model off (pdr's prop_solver).
+func (k *SMTKernel) mkProtoModelEnabled() bool {
+	if k.produceModel || k.smtState.Model || k.smtState.ModelOnFinalCheck {
+		return true
+	}
+	manager := k.internalizer.quantifierManager
+	return manager != nil && manager.mbqi
+}
+
 func (k *SMTKernel) buildGeneratedModel() error {
 	var generator *SMTModelGenerator
 	if manager := k.internalizer.quantifierManager; manager != nil {
 		generator = manager.acceptedModel
 		manager.acceptedModel = nil
 	}
-	// mk_proto_model runs when m_fparams.m_model (default true) or
-	// m_model_on_final_check holds; smt_solver ignores set_produce_models.
-	if !k.produceModel && !k.smtState.Model && !k.smtState.ModelOnFinalCheck {
+	// mk_proto_model runs when m_fparams.m_model (default true),
+	// m_model_on_final_check or m_qmanager->model_based() (smt.mbqi) holds;
+	// smt_solver ignores set_produce_models.
+	if !k.mkProtoModelEnabled() {
 		var err error
 		if manager := k.internalizer.quantifierManager; manager != nil {
 			err = manager.releaseRetiredProto()
@@ -1591,7 +1605,7 @@ func (k *SMTKernel) publishRetiredCandidate() error {
 	if manager == nil || manager.retiredProto == nil {
 		return nil
 	}
-	if !k.produceModel && !k.smtState.Model && !k.smtState.ModelOnFinalCheck {
+	if !k.mkProtoModelEnabled() {
 		return manager.releaseRetiredProto()
 	}
 	proto := manager.retiredProto

@@ -8,8 +8,10 @@ import (
 )
 
 // AUDIT.md muz_pdr_02-F6: check_safe_assumptions flets m_fparams.m_model to
-// m_model != nullptr, so a satisfiable check that wants no model builds none,
-// and the previous setting is restored afterwards.
+// m_model != nullptr and restores it afterwards. mk_proto_model still runs
+// when m_qmanager->model_based() (smt.mbqi, on by default) holds, so a
+// satisfiable check builds its model either way (AUDIT.md FUZZ-F5: the
+// proto model's values are live AST nodes that shift later IDs).
 func TestPropSolverModelGenerationFollowsRequest(t *testing.T) {
 	m, owner, transformer, _, closeBase := closureFixture(t)
 	defer closeBase()
@@ -30,8 +32,8 @@ func TestPropSolverModelGenerationFollowsRequest(t *testing.T) {
 		}
 		md, err := solver.context.solver.AcquireModel()
 		closureMust(t, err)
-		if (md != nil) != wantModel {
-			t.Fatal("model built against the request", wantModel, md != nil)
+		if md == nil {
+			t.Fatal("smt.mbqi check built no model", wantModel)
 		}
 		if md != nil {
 			closureMust(t, md.DecRef())

@@ -542,7 +542,12 @@ func TestSMTBitVectorBlastLimitGivesUnknown(t *testing.T) {
 	if smtcoreSourceDebug {
 		// The unattached 4-bit constant reaches mk_extra_fresh_value, whose
 		// SASSERT(s->is_infinite()) a debug source build also violates.
+		// mk_proto_model also runs when m_qmanager->model_based()
+		// (smt.mbqi) holds, so turn that off too.
 		solver.kernel.smtState.Model = false
+		if manager := solver.kernel.internalizer.quantifierManager; manager != nil {
+			manager.mbqi = false
+		}
 	}
 	one, err := m.BitVectorNumeralUint64(1, 4)
 	astTestMust(t, err)

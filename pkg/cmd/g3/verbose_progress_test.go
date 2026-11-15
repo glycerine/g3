@@ -115,6 +115,9 @@ var verboseProgressCases = []verboseProgressCase{
 	{"spacer_bit_blast_v2", "bit_blast", []string{"-v:2"}},
 	// horn_tactic's tactic_report("horn") line at level 10.
 	{"spacer_inv2_v10", "horn_inv2", []string{"-v:10", "fixedpoint.engine=spacer"}},
+	// with smt.mbqi on, mk_proto_model runs for checks that want no model:
+	// its values shift the pdr lemma ids.
+	{"pdr_count_v1", "horn_count", []string{"-v:1", "fixedpoint.engine=pdr"}},
 }
 
 // verboseProgressFiltered keeps, for each case, only the lines starting

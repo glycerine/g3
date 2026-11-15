@@ -1,0 +1,45 @@
+(transform N7datalog13mk_coi_filterE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...3 rules Ts)
+(transform N7datalog27mk_quantifier_instantiationE...no-op Ts)
+(transform N7datalog8mk_scaleE...no-op Ts)
+(transform N7datalog18mk_karr_invariantsE...no-op Ts)
+(transform N7datalog14mk_array_blastE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog12mk_bit_blastE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog13mk_coi_filterE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...3 rules Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog13mk_coi_filterE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...3 rules Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog8mk_sliceE...no-op Ts)
+Entering level 1
+Entering level 2
+Entering level 3
+Entering level 4
+Entering level 5
+Entering level 6
+
+6 query!0 closed
+  true 1
+ 5 inv closed
+   (= inv_0_n 5) 967
+  4 inv closed
+    (and (not (<= 5 inv_0_n)) (= 4 inv_0_n)) 864
+   3 inv closed
+     (and (not (<= 5 inv_0_n)) (= 3 inv_0_n)) 985
+    2 inv closed
+      (and (not (<= 5 inv_0_n)) (= 2 inv_0_n)) 488
+     1 inv closed
+       (and (not (<= 5 inv_0_n)) (= 1 inv_0_n)) 853
+      0 inv closed
+        (and (not (<= 5 inv_0_n)) (= 0 inv_0_n)) 740
+goals 0

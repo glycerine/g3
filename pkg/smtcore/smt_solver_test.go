@@ -1516,7 +1516,12 @@ func TestSMTSolverSetupUsesLinearRealArithmetic(t *testing.T) {
 		// Source lar_solver::pop keeps the conflict's x = y = 1, so x+y sits
 		// above its strict bound and get_model's update_delta SASSERT(l <= u)
 		// fails in a debug source build (release returns that model).
+		// mk_proto_model also runs when m_qmanager->model_based()
+		// (smt.mbqi) holds, so turn that off too.
 		s.kernel.smtState.Model = false
+		if manager := s.kernel.internalizer.quantifierManager; manager != nil {
+			manager.mbqi = false
+		}
 	}
 	status, err = s.CheckSat(nil)
 	astTestMust(t, err)
