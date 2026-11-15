@@ -62,3 +62,24 @@ func TestAPIRCFNumeratorDenominatorTranscendental(t *testing.T) {
 	product := f.keep(f.context.RCFMul(roots[1], f.keep(f.context.RCFInv(pi1))))
 	expect("r/(pi+1)", product, f.text(roots[1]), "pi + 1")
 }
+
+// AUDIT.md math_realclosure_01-F6: refine_infinitesimal_interval sets
+// (0, 1/2^prec) or (-1/2^prec, 0) for a value infinitely close to zero.
+func TestAPIRCFInfinitesimalDecimal(t *testing.T) {
+	f := newRCFFixture(t)
+	defer f.close()
+	eps := f.keep(f.context.RCFInfinitesimal())
+	for _, tc := range []struct {
+		value *RCFNumber
+		want  string
+	}{
+		{eps, "0.0000000000?"},
+		{f.keep(f.context.RCFNeg(eps)), "-0.0000000000?"},
+		{f.keep(f.context.RCFMul(f.rational("2"), eps)), "0.0000000000?"},
+	} {
+		got, err := f.context.RCFDecimalString(tc.value, 10)
+		if err != nil || got != tc.want {
+			t.Fatalf("decimal = %q, %v; want %q", got, err, tc.want)
+		}
+	}
+}

@@ -2,6 +2,7 @@ package realclosure
 
 import (
 	"errors"
+	"math"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/util/numeral"
@@ -197,16 +198,22 @@ func (s *realValueStore) refineInfinitesimalPolynomialValue(value *realValue, pr
 	if s == nil || value == nil || value.root == nil || value.root.kind != realExtensionInfinitesimal || value.functionInterval == nil || len(value.functionNumerator.coefficients) == 0 || len(value.functionDenominator.coefficients) == 0 {
 		return false, arena.ErrInvalidSlot
 	}
-	numIdx, _, err := s.firstNonzeroValue(value.functionNumerator.coefficients, usePrem)
+	numIdx, numSign, err := s.firstNonzeroValue(value.functionNumerator.coefficients, usePrem)
 	if err != nil {
 		return false, err
 	}
-	denIdx, _, err := s.firstNonzeroValue(value.functionDenominator.coefficients, usePrem)
+	denIdx, denSign, err := s.firstNonzeroValue(value.functionDenominator.coefficients, usePrem)
 	if err != nil {
 		return false, err
 	}
 	if numIdx != 0 || denIdx != 0 {
-		return false, nil
+		if numIdx == 0 {
+			// |v| is bigger than any binary rational; it cannot be refined.
+			return false, nil
+		}
+		// |v| is infinitely close to zero: (0, 1/2^prec) from above or
+		// (-1/2^prec, 0) from below, with set_lower/set_upper's open ends.
+		return true, s.setInfinitelyCloseToZeroInterval(value.functionInterval, numSign*denSign > 0, precision)
 	}
 	manager := value.functionInterval.numbers
 	numerator, err := NewBinaryInterval(manager)
@@ -400,4 +407,25 @@ func (s *realValueStore) addInfinitesimalInterval(source *BinaryInterval, plus b
 		}
 	}
 	return nil
+}
+
+func (s *realValueStore) setInfinitelyCloseToZeroInterval(target *BinaryInterval, positive bool, precision uint32) (err error) {
+	if precision > math.MaxInt32 {
+		return arena.ErrInvalidSlot
+	}
+	bounds := target.numbers
+	zero, tiny := numeral.NewBinaryRational(), numeral.NewBinaryRational()
+	defer func() {
+		err = errors.Join(err, s.releaseSturmBinary(bounds, &zero), s.releaseSturmBinary(bounds, &tiny))
+	}()
+	if err = bounds.SetInt32(&zero, 0); err != nil {
+		return err
+	}
+	if err = magnitudeToBinary(bounds, -int32(precision), !positive, &tiny); err != nil {
+		return err
+	}
+	if positive {
+		return target.SetFinite(&zero, &tiny, true, true)
+	}
+	return target.SetFinite(&tiny, &zero, true, true)
 }
