@@ -91,7 +91,13 @@ func TestSMT2BMCSpacerOptionsPreserveCertificates(t *testing.T) {
 						t.Fatal(closeErr)
 					}
 					got := output.String()
-					if !strings.HasPrefix(got, "sat\n") || !strings.Contains(got, "hyper-res") || !strings.Contains(got, "(P ") || strings.Contains(got, "!slice!") {
+					// With slicing the certificate proves the sliced rules, as
+					// the fixed fork does (fork fix 88).
+					if slice == "true" {
+						if !strings.HasPrefix(got, "sat\n") || !strings.Contains(got, "hyper-res") || !strings.Contains(got, "P!slice!") {
+							t.Fatalf("missing sliced-rule certificate: %s", got)
+						}
+					} else if !strings.HasPrefix(got, "sat\n") || !strings.Contains(got, "hyper-res") || !strings.Contains(got, "(P ") || strings.Contains(got, "!slice!") {
 						t.Fatalf("missing original-rule certificate: %s", got)
 					}
 					if options.unfold == 0 {

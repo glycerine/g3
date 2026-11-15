@@ -221,10 +221,10 @@ func TestSMT2BMCRecursiveCertificate(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	// Linear BMC records the source hyper-resolution positions (0, 1)
-	// (dl_bmc_engine.cpp), which the proof checker's set_false rejects.
-	if err == nil && valid {
-		t.Fatal("source (0, 1) BMC positions passed structural checking")
+	// Linear BMC records hyper-resolution positions (1, 0) (fork fix 94, as
+	// upstream 784b613b5 does for qlinear), which the proof checker accepts.
+	if err != nil || !valid {
+		t.Fatal("linear BMC certificate failed structural checking", err)
 	}
 	if err := checker.ReleaseSideConditions(conditions); err != nil {
 		t.Fatal(err)
@@ -333,6 +333,19 @@ func TestSMT2BMCNonlinearCertificateWithoutProofOption(t *testing.T) {
 						t.Fatal(err, output.String())
 					}
 					text := output.String()
+					if slice == "true" {
+						// With slicing, nonlinear BMC proves the sliced rules
+						// (fork fix 88); the fixed fork prints exactly this.
+						const want = "sat\n(let ((a!1 ((_ hyper-res 1 0 2 0)\n             (asserted (=> (and Q!slice!2 P!slice!1) Goal))\n             (asserted Q!slice!2)\n             (asserted P!slice!1)\n             Goal)))\n  ((_ hyper-res 1 0) (asserted (=> Goal query!0)) a!1 query!0))\n"
+						expected := want
+						if outputKind == "print-certificate" {
+							expected += "\n" // as the fork prints after a certificate
+						}
+						if text != expected {
+							t.Fatalf("sliced nonlinear certificate:\n%s\nwant:\n%s", text, expected)
+						}
+						return
+					}
 					if !strings.HasPrefix(text, "sat\n") || !strings.Contains(text, "hyper-res") || !strings.Contains(text, "(P ") || !strings.Contains(text, "(Q ") || strings.Contains(text, "!slice!") {
 						t.Fatal("nonlinear certificate without global proof option", text)
 					}

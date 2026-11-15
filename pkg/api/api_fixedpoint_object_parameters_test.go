@@ -32,7 +32,8 @@ func TestAPIFixedpointParametersAreOwnedAndLocal(t *testing.T) {
 		if status != lbool.False {
 			t.Fatal("empty local Duality query", status)
 		}
-		if answer, err := f.fp.Answer(f.p); answer != (ast.ASTRef{}) || !errors.Is(err, fp.ErrPropositionalEngine) {
+		// dl_interface::get_answer reports it is unsupported (fork fix 92).
+		if answer, err := f.fp.Answer(f.p); answer != (ast.ASTRef{}) || !errors.Is(err, fp.ErrDualityAnswer) {
 			t.Fatal("local Duality get_answer guard", answer, err)
 		}
 	}
