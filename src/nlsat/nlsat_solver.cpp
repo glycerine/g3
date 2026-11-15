@@ -2367,6 +2367,7 @@ namespace nlsat {
                     ps.reset();
                     even.reset();
                     bool change = false;
+                    bool vanished = false;
                     for (unsigned i = 0; i < sz; ++i) {
                         poly * po = a1.p(i);
                         m_pm.substitute(po, x, q, p, pr);
@@ -2377,11 +2378,16 @@ namespace nlsat {
                             ps.reset();
                             even.reset();
                             change = true;
+                            vanished = true;
                             break;
                         }
                     }               
                     if (!change) continue;
-                    literal l = mk_ineq_literal(a1.get_kind(), ps.size(), ps.c_ptr(), even.c_ptr());                            
+                    // A vanished factor makes the product zero, not an empty
+                    // product, and constant factors are folded.
+                    literal l = vanished ? 
+                        (a1.get_kind() == atom::EQ ? true_literal : false_literal) :
+                        mk_substituted_ineq_literal(a1.get_kind(), ps.size(), ps.c_ptr(), even.c_ptr());
                     if (a1.m_bool_var != l.var()) {                        
                         b2l.insert(a1.m_bool_var, l);
                         inc_ref(l);
@@ -2394,6 +2400,19 @@ namespace nlsat {
             }
         }
 
+
+        literal mk_substituted_ineq_literal(atom::kind k, unsigned sz, poly * const * ps, bool const * is_even) {
+            int sign = 1;
+            for (unsigned i = 0; i < sz; ++i) {
+                if (!m_pm.is_const(ps[i]))
+                    return mk_ineq_literal(k, sz, ps, is_even);
+                SASSERT(!m_pm.is_zero(ps[i]));
+                if (!is_even[i] && m_pm.m().is_neg(m_pm.coeff(ps[i], 0)))
+                    sign = -sign;
+            }
+            bool val = (k == atom::GT && sign > 0) || (k == atom::LT && sign < 0);
+            return val ? true_literal : false_literal;
+        }
 
         void update_clauses(u_map<literal> const& b2l) {
             literal_vector lits;
@@ -2423,6 +2442,8 @@ namespace nlsat {
                 if (changed) {
                     to_delete.push_back(c);
                     if (!is_tautology) {
+                        if (lits.empty()) 
+                            lits.push_back(false_literal);
                         mk_clause(lits.size(), lits.c_ptr(), c->is_learned(), static_cast<_assumption_set>(c->assumptions()));
                     }
                 }                        
