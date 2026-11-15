@@ -165,9 +165,8 @@ func (m *RuleManager) ReduceUnboundVariables(rule *Rule, lite *qe.Lite) (_ *Rule
 	if err != nil {
 		return nil, false, fmt.Errorf("muz/base: rebuild reduced rule: %w", err)
 	}
-	if err = m.MkRuleRewriteProof(rule, rebuilt); err != nil {
-		return nil, false, errors.Join(err, rebuilt.Close())
-	}
+	// Source reduce_unbound_vars never touches proofs; callers that carry
+	// one (mk_horn_rule, mk_subsumption_checker) add a single rewrite step.
 	return rebuilt, true, nil
 }
 
@@ -339,9 +338,7 @@ func (m *RuleManager) FixUnboundVariables(rule *Rule, lite *qe.Lite, enabled boo
 	if err != nil {
 		return nil, false, fmt.Errorf("muz/base: rebuild fixed rule: %w", err)
 	}
-	if err = m.MkRuleRewriteProof(current, rebuilt); err != nil {
-		return nil, false, errors.Join(err, rebuilt.Close())
-	}
+	// Source fix_unbound_vars never touches proofs (see above).
 	if err = rebuilt.SetAccountingParentRule(current); err != nil {
 		return nil, false, errors.Join(err, rebuilt.Close())
 	}

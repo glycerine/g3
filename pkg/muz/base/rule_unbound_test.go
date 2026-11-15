@@ -465,3 +465,92 @@ func TestRuleManagerFixUnboundSimplifiesIntegerEquation(t *testing.T) {
 		t.Fatalf("simplification left %d quantified variables, want one", count)
 	}
 }
+
+// muz_base_02-F3: reduce_unbound_vars and fix_unbound_vars never touch
+// proofs, so when both stages change a proof-carrying rule mk_horn_rule adds
+// exactly one rewrite: mp(asserted, rewrite(fml1, fml2)).
+func TestFixUnboundVariablesSingleRewriteProof(t *testing.T) {
+	f := newUnboundFixture(t)
+	arithmetic, err := f.manager.ArithmeticFamilyID()
+	ruleMust(t, err)
+	integer, err := f.manager.MkFamilySort(arithmetic, 1, nil)
+	ruleMust(t, err)
+	boolean, err := f.manager.MkBoolSort()
+	ruleMust(t, err)
+	x, err := f.manager.MkVar(2, integer)
+	ruleMust(t, err)
+	y, err := f.manager.MkVar(1, integer)
+	ruleMust(t, err)
+	z, err := f.manager.MkVar(0, boolean)
+	ruleMust(t, err)
+	head := f.predicate(t, "single-proof-head", []ast.ASTHandle{integer}, []ast.ASTHandle{x})
+	bound := f.predicate(t, "single-proof-bound", []ast.ASTHandle{integer}, []ast.ASTHandle{x})
+	three, err := f.manager.ArithmeticIntegerNumeralText("3")
+	ruleMust(t, err)
+	equality, err := f.manager.MkEq(y, three)
+	ruleMust(t, err)
+	opaqueName, err := f.manager.Symbols.Intern("single-proof-opaque")
+	ruleMust(t, err)
+	opaqueDecl, err := f.manager.MkFuncDecl(opaqueName, []ast.ASTHandle{boolean}, boolean, ast.ASTFuncDeclInfo{})
+	ruleMust(t, err)
+	opaque, err := f.manager.MkApp(opaqueDecl, []ast.ASTHandle{z})
+	ruleMust(t, err)
+	body, err := f.manager.MkAndArgs([]ast.ASTHandle{bound, equality, opaque})
+	ruleMust(t, err)
+	implication, err := f.manager.MkImplies(body, head)
+	ruleMust(t, err)
+	var names []usymbol.Symbol
+	for _, text := range []string{"x", "y", "z"} {
+		name, e := f.manager.Symbols.Intern(text)
+		ruleMust(t, e)
+		names = append(names, name)
+	}
+	formula, err := f.manager.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{integer, integer, boolean}, Names: names, Body: implication})
+	ruleMust(t, err)
+	set, err := base.NewRuleSet(f.rules)
+	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, set.Close()) })
+	ruleMust(t, f.manager.ToggleProofMode(ast.ASTProofEnabled))
+	asserted, err := f.manager.MkProofAsserted(formula)
+	ruleMust(t, err)
+	ruleMust(t, f.manager.ToggleProofMode(ast.ASTProofDisabled))
+	ruleMust(t, f.rules.AddFormulaWithProofAndUnboundFix(set, formula, asserted, "single-proof", f.lite, true))
+	rule, err := set.Rule(0)
+	ruleMust(t, err)
+	defer func() { ruleMust(t, rule.Close()) }()
+	if size, e := rule.TailSize(); e != nil || size != 2 {
+		t.Fatal("both QE-lite reduction and existential fixing should apply", size, e)
+	}
+	proof, found, err := rule.Proof()
+	ruleMust(t, err)
+	if !found {
+		t.Fatal("fixed rule lost its proof")
+	}
+	kind, err := f.manager.GetDeclKind(proof)
+	ruleMust(t, err)
+	if kind != ast.ASTPrModusPonens {
+		t.Fatal("fixed rule proof is not modus ponens", kind)
+	}
+	premise, err := f.manager.GetArg(proof, 0)
+	ruleMust(t, err)
+	// The premise is the rule's proof before fixing (the HNF proof). The
+	// old Go port nested a second mp(_, rewrite) here, one per stage.
+	premiseKind, err := f.manager.GetDeclKind(premise)
+	ruleMust(t, err)
+	if premiseKind == ast.ASTPrModusPonens {
+		inner, e := f.manager.GetArg(premise, 1)
+		ruleMust(t, e)
+		innerKind, e := f.manager.GetDeclKind(inner)
+		ruleMust(t, e)
+		if innerKind == ast.ASTPrRewrite {
+			t.Fatal("fixed rule proof nests two rewrite/modus-ponens steps")
+		}
+	}
+	rewrite, err := f.manager.GetArg(proof, 1)
+	ruleMust(t, err)
+	rewriteKind, err := f.manager.GetDeclKind(rewrite)
+	ruleMust(t, err)
+	if rewriteKind != ast.ASTPrRewrite {
+		t.Fatal("second premise is not a rewrite", rewriteKind)
+	}
+}
