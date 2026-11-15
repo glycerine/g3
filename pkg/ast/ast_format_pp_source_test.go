@@ -180,3 +180,44 @@ func TestASTFormatPrettyNativeWorklistGrowth(t *testing.T) {
 	}
 	astFormatPrettyNamedCold(t, m, g, b, out)
 }
+
+// AUDIT.md ast_04-F1: pp() reads pp_params p(_p), which falls back to the
+// process global "pp" module even when the caller passes no parameters.
+func TestPrintFormatNilOwnersUsesGlobalPP(t *testing.T) {
+	c, g, _, b := dynAckSourceFixture(t)
+	m, e := NewASTManager(ASTManagerConfig{Symbols: c.SymbolsField, Numerals: c.NumeralsField, Budget: b})
+	paramsMust(t, e)
+	defer func() { paramsMust(t, m.Close()) }()
+	out, e := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: b})
+	paramsMust(t, e)
+	defer func() { paramsMust(t, out.Close()) }()
+	a, e := m.FormatString("aa")
+	paramsMust(t, e)
+	z, e := m.FormatString("bb")
+	paramsMust(t, e)
+	line, e := m.FormatLineBreak()
+	paramsMust(t, e)
+	body, e := m.FormatCompose([]ASTHandle{a, line, z})
+	paramsMust(t, e)
+	print := func() string {
+		t.Helper()
+		paramsMust(t, out.ResetText())
+		paramsMust(t, m.PrintFormat(out, body, nil, nil, nil))
+		got, e := out.String()
+		paramsMust(t, e)
+		return got
+	}
+	if got := print(); got != "aa\nbb" {
+		t.Fatal("unbound defaults", got)
+	}
+	previous, e := uparams.BindProcessGlobalParamsService(g)
+	paramsMust(t, e)
+	defer func() { _, e := uparams.BindProcessGlobalParamsService(previous); paramsMust(t, e) }()
+	if got := print(); got != "aa\nbb" {
+		t.Fatal("global defaults", got)
+	}
+	paramsMust(t, g.SourceSetName("pp.single_line", "true"))
+	if got := print(); got != "aa bb" {
+		t.Fatal("global pp.single_line ignored", got)
+	}
+}

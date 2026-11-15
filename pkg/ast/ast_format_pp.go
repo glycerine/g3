@@ -282,6 +282,18 @@ func (m *ASTManager) PrintFormat(out *utext.NumericTextStream, h ASTHandle, c *u
 	}
 	defer f.unlockFormat()
 	defaults := c == nil && p == nil && g == nil
+	// Source pp() always builds pp_params p(_p), whose accessors fall back
+	// to gparams::get_module("pp"): an empty params_ref still follows the
+	// process global pp.* settings. Without a bound process service (a
+	// standalone manager) the parameter defaults below apply.
+	if defaults {
+		if svc := uparams.BorrowProcessGlobalParamsService(); svc != nil && svc.Context != nil &&
+			svc.Context.CheckServices(f.Symbols, nil) == nil && svc.CheckOwner(svc.Context, f.BudgetField) == nil {
+			empty := svc.Context.EmptyValue()
+			c, p, g = svc.Context, &empty, svc
+			defaults = false
+		}
+	}
 	if out == nil || !defaults && (c == nil || c.CheckServices(f.Symbols, nil) != nil || g == nil || g.CheckOwner(c, f.BudgetField) != nil) {
 		return uparams.ErrParamsOwner
 	}
