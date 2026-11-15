@@ -37,6 +37,9 @@ Abstract:
     z3_4_7_1_pb2bv_numeral_lhs    pb2bv encodes (= 3 x) and (<= 3 x) as the
                                   unit x when the numeral is on the left
                                   (pkg/AUDIT.md tactic_arith_03-F1).
+    z3_4_7_1_eq2bv_stale_cache    eq2bv reuses its rewriter cache across the
+                                  goals of one run (pkg/AUDIT.md
+                                  tactic_arith_01-F3).
     z3_4_7_1_pdr_nullary_cache    PDR's model_search cache keys nodes by
                                   state only, so two nullary predicates
                                   (state `true`) share an entry and an
@@ -710,4 +713,23 @@ void tst_z3_4_7_1_pb2bv_numeral_lhs() {
         "(check-sat-using (then pb2bv smt))\n"
         "(pop)\n";
     expect_script("pb2bv_numeral_lhs", script, "unsat\nunsat\n");
+}
+
+// split-clause makes two goals that share (= x 3). eq2bv rewrites it to
+// (= z!0 #b11) in the first goal; its member rewriter m_rw keeps the cache,
+// so the second goal gets the stale z!0 next to its own z!1 bounds and the
+// unsat problem is answered sat.
+void tst_z3_4_7_1_eq2bv_stale_cache() {
+    char const* script =
+        "(declare-const x Int)\n"
+        "(declare-const p Bool)\n"
+        "(declare-const b Bool)\n"
+        "(declare-const c Bool)\n"
+        "(assert (or p (not p)))\n"
+        "(assert (<= x 2))\n"
+        "(assert (or (= x 3) b))\n"
+        "(assert (or (= x 3) c))\n"
+        "(assert (not b))\n"
+        "(check-sat-using (then split-clause eq2bv smt))\n";
+    expect_script("eq2bv_stale_cache", script, "unsat\n");
 }

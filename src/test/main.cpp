@@ -219,6 +219,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_dom_simplify_oscillation);
     TST(z3_4_7_1_update_field_constructor);
     TST(z3_4_7_1_pb2bv_numeral_lhs);
+    TST(z3_4_7_1_eq2bv_stale_cache);
     TST(z3_4_7_1_pdr_nullary_cache);
     TST(z3_4_7_1_duality_unhoist_repeated_child);
     TST(z3_4_7_1_lazy_sparse_nullary_union);
