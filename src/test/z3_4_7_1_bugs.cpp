@@ -190,6 +190,11 @@ Abstract:
                                   z3 -dl DIRECTORY (the WPA benchmark
                                   loader) prints NOT IMPLEMENTED YET! and
                                   hangs (pkg/AUDIT.md cmd_context_02-F11).
+    z3_4_7_1_wpa_warning_number   the WPA loader's "does not belong to sort"
+                                  warning formats its uint64_t with MSVC's
+                                  %I64u, which glibc prints as a 64-wide %u
+                                  of a 32-bit argument (pkg/AUDIT.md
+                                  cmd_context_02-F11).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -243,6 +248,8 @@ Abstract:
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "muz/base/dl_util.h"
+#include "muz/fp/datalog_parser.h"
+#include "util/warning.h"
 void register_z3_replayer_cmds(z3_replayer & in);
 #include <iostream>
 #ifndef _WINDOWS
@@ -2418,5 +2425,66 @@ void tst_z3_4_7_1_get_file_names_posix() {
     std::string cleanup = "rm -rf '" + root + "'";
     ENSURE(system(cleanup.c_str()) == 0);
     std::cout << "get_file_names_posix: PASS\n";
+#endif
+}
+
+#ifndef _WINDOWS
+namespace {
+    // A fresh directory under $TMPDIR (or /tmp) holding the given files.
+    std::string wpa_test_directory(char const* const* files, unsigned n) {
+        char const* tmp = getenv("TMPDIR");
+        std::string tmpl = std::string(tmp && *tmp ? tmp : "/tmp") + "/z3_wpa_XXXXXX";
+        std::vector<char> buf(tmpl.begin(), tmpl.end());
+        buf.push_back(0);
+        ENSURE(mkdtemp(buf.data()) != nullptr);
+        std::string root(buf.data());
+        for (unsigned i = 0; i + 1 < n; i += 2) {
+            std::ofstream out((root + "/" + files[i]).c_str());
+            out << files[i + 1];
+            ENSURE(out.good());
+        }
+        return root;
+    }
+
+    // wpa_parser::parse_directory on root; the warnings go to warnings.
+    bool wpa_parse_directory(std::string const& root, std::ostream& warnings) {
+        ast_manager m;
+        smt_params s_params;
+        reg_decl_plugins(m);
+        datalog::register_engine re;
+        params_ref params;
+        params.set_sym("engine", symbol("datalog"));
+        datalog::context ctx(m, re, s_params, params);
+        set_warning_stream(&warnings);
+        scoped_ptr<datalog::wpa_parser> parser = datalog::wpa_parser::create(ctx, m);
+        bool ok = parser->parse_directory(root.c_str());
+        set_warning_stream(nullptr);
+        return ok;
+    }
+}
+#endif
+
+// A tuple number missing from the sort's map file is skipped with
+// warning_msg("symbol number %I64u on line %d ..."). %I64u is MSVC's
+// spelling of a 64-bit unsigned; glibc reads it as the I flag, field width
+// 64 and %u, so the number is padded to 64 columns and read as a 32-bit
+// unsigned int from a uint64_t argument (undefined behavior). The fork
+// formats it with PRIu64. Upstream (v5.4.2) still uses %I64u.
+void tst_z3_4_7_1_wpa_warning_number() {
+#ifndef _WINDOWS
+    char const* files[] = { "V.map", "1 a\n", "r.rules", "e(x:V) printtuples\n",
+                            "e.rel", "1\n4294967301\n" };
+    std::string root = wpa_test_directory(files, 6);
+    std::stringstream warnings;
+    ENSURE(wpa_parse_directory(root, warnings));
+    std::string expected = "WARNING: symbol number 4294967301 on line 2 in file " + root +
+        "/e.rel does not belong to sort V\n";
+    std::string cleanup = "rm -rf '" + root + "'";
+    ENSURE(system(cleanup.c_str()) == 0);
+    if (warnings.str() != expected) {
+        std::cerr << "wpa_warning_number: got\n" << warnings.str() << "want\n" << expected;
+        ENSURE(false);
+    }
+    std::cout << "wpa_warning_number: PASS\n";
 #endif
 }
