@@ -145,3 +145,46 @@ func (c *Context) IsNullaryFunction(name string) (bool, error) {
 	arity, err := m.GetArity(c.functions[name][0])
 	return arity == 0, err
 }
+
+// FindFunctionDeclarationByRange is find_func_decl(s, 0, nullptr, arity,
+// nullptr, range), the form parse_match_pattern uses. With no domain it skips
+// builtins and macros and consults m_func_decls only: func_decls::find
+// returns a sole declaration as is; among overloads it takes the first set
+// entry with the given range and arity whose (empty) domain check passes,
+// which only an arity of zero does. found is false where the C++ throws
+// "invalid function declaration reference, unknown function".
+func (c *Context) FindFunctionDeclarationByRange(name string, arity uint32, rangeSort ast.ASTHandle) (declaration ast.ASTHandle, found bool, err error) {
+	m, err := c.Manager()
+	if err != nil {
+		return ast.ASTHandle{}, false, err
+	}
+	var candidates []ast.ASTHandle
+	if entry := c.funcDictionary().find(name); entry != nil && entry.funcs != nil {
+		candidates = entry.funcs.entries()
+	}
+	if len(candidates) == 1 {
+		return candidates[0], true, nil
+	}
+	for _, candidate := range candidates {
+		if !rangeSort.IsNull() {
+			r, e := m.GetRange(candidate)
+			if e != nil {
+				return ast.ASTHandle{}, false, e
+			}
+			if r != rangeSort {
+				continue
+			}
+		}
+		a, e := m.GetArity(candidate)
+		if e != nil {
+			return ast.ASTHandle{}, false, e
+		}
+		if a != arity {
+			continue
+		}
+		if arity == 0 {
+			return candidate, true, nil
+		}
+	}
+	return ast.ASTHandle{}, false, nil
+}

@@ -172,7 +172,11 @@ func (p *commandParser) qualifiedLocal(name string, indices []identifierIndex, e
 			return ast.ASTHandle{}, false, err
 		}
 	}
-	ref, found, err := p.env.resolveQualifiedLocal(p.manager, p.shifter, symbol, p.bindings, &p.sorts, hasSort, uint32(len(indices)))
+	shifter, err := p.varShifter()
+	if err != nil {
+		return ast.ASTHandle{}, false, err
+	}
+	ref, found, err := p.env.resolveQualifiedLocal(p.manager, shifter, symbol, p.bindings, &p.sorts, hasSort, uint32(len(indices)))
 	if err != nil || !found {
 		return ast.ASTHandle{}, found, err
 	}
@@ -285,7 +289,11 @@ func (p *commandParser) expressionWithQuantifier(quantifier *ast.ASTQuantifierSp
 		if e != nil {
 			return ast.ASTHandle{}, "", e
 		}
-		ref, found, e := p.env.resolveLocal(m, p.shifter, symbol, p.bindings)
+		shifter, e := p.varShifter()
+		if e != nil {
+			return ast.ASTHandle{}, "", e
+		}
+		ref, found, e := p.env.resolveLocal(m, shifter, symbol, p.bindings)
 		if e != nil {
 			return ast.ASTHandle{}, "", e
 		}
@@ -344,6 +352,8 @@ func (p *commandParser) expressionWithQuantifier(quantifier *ast.ASTQuantifierSp
 				return p.quantifier(name == "forall")
 			case "let":
 				return p.letExpression()
+			case "match":
+				return p.matchExpression()
 			case "!":
 				return p.annotatedExpression(quantifier)
 			case "_":

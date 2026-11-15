@@ -137,3 +137,35 @@ func TestSMT2ParametricDatatypeInstantiationFunctionsFollowScopes(t *testing.T) 
 		t.Fatal(output.String())
 	}
 }
+
+// AUDIT.md parsers_shell_01-F3: push_match_frame compiles a match into an
+// ite chain over the constructor recognizers; check_patterns rejects
+// non-datatype scrutinees and missing constructors.
+func TestSMT2MatchExpression(t *testing.T) {
+	for _, tc := range []struct{ script, want string }{
+		{"(declare-datatypes ((L 0)) (((nil) (cons (hd Int) (tl L)))))(declare-const l L)(assert (= 3 (match l ((nil 0) ((cons h t) h)))))(check-sat)(get-value ((hd l)))",
+			"sat\n(((hd l) 3))\n"},
+		{"(declare-datatypes ((L 0)) (((nil) (cons (hd Int) (tl L)))))(declare-const l L)(simplify (match l ((nil 0) ((cons h t) (+ h 1)))))",
+			"(ite ((_ is nil) l) 0 (+ 1 (hd l)))\n"},
+		{"(simplify (match 3 ((x 1))))",
+			"(error \"line 1 column 27: pattern matching is only supported for algebraic datatypes\")\n"},
+		{"(declare-datatypes ((L 0)) (((nil) (cons (hd Int) (tl L)))))(declare-const l L)(simplify (match l ((nil 1) (nil 2))))",
+			"(error \"line 1 column 116: a constructor is missing from pattern match\")\n"},
+	} {
+		c, err := cmd_context.NewStandaloneContext()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out bytes.Buffer
+		err = ParseShellCommands(c, strings.NewReader(tc.script), &out)
+		if closeErr := c.Close(); closeErr != nil {
+			t.Fatal(closeErr)
+		}
+		if strings.HasPrefix(tc.want, "(error") != (err != nil) {
+			t.Fatal("parse error", tc.script, err)
+		}
+		if out.String() != tc.want {
+			t.Fatalf("%s: got %q want %q", tc.script, out.String(), tc.want)
+		}
+	}
+}

@@ -313,6 +313,20 @@ func (p *commandParser) astManager() (*ast.ASTManager, error) {
 	p.freshResetSortGap = false
 	return m, err
 }
+
+// varShifter is parser::shifter(): reset() drops m_var_shifter after an
+// error and the next use allocates a new one.
+func (p *commandParser) varShifter() (*rewriter.VarShifter, error) {
+	if p.shifter == nil && p.manager != nil {
+		shifter, err := rewriter.NewVarShifter(p.manager)
+		if err != nil {
+			return nil, err
+		}
+		p.shifter = shifter
+	}
+	return p.shifter, nil
+}
+
 func (p *commandParser) pin(value ast.ASTHandle, err error) (ast.ASTHandle, error) {
 	if err != nil {
 		return ast.ASTHandle{}, err

@@ -338,6 +338,12 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md parsers_shell_01-F3: SMT-LIB 2.6 match expressions
+	// (push_match_frame, compile_patterns, check_patterns).
+	"match_list_head.smt2":      "sat\n(((hd l) 3))\n",
+	"match_expressions.smt2":    "(ite ((_ is nil) l) 0 1)\n(let ((a!1 (ite ((_ is leaf) (left tr)) (+ 3 (val (left tr))) 3)))\n  (ite ((_ is leaf) tr) (+ 3 (val tr)) a!1))\n(ite (snd pp) (fst pp) 0)\n(forall ((q L))\n  (let ((a!1 (ite ((_ is nil) (tl (tl q))) 0 1)))\n  (let ((a!2 (ite ((_ is nil) (tl q)) (hd q) (+ (hd q) (hd (tl q)) a!1))))\n    (or (not (= q l)) (= 0 (ite ((_ is nil) q) 0 a!2))))))\n(ite ((_ is cons) l) (+ 1 (hd l)) 1)\n(ite ((_ is nil) l) (f 0) (f (hd l)))\n(ite ((_ is node) tr) 1 (val tr))\nsat\n(((left tr) (leaf 4)))\n1\n(ite ((_ is cons) l) (hd l) 9)\n(forall ((z Int)) (= z (ite ((_ is cons) l) (+ (hd l) z y) z)))\n",
+	"match_non_datatype.smt2":   "(error \"line 1 column 27: pattern matching is only supported for algebraic datatypes\")\n(error \"line 2 column 29: pattern matching is only supported for algebraic datatypes\")\n",
+	"match_pattern_errors.smt2": "(error \"line 3 column 36: a constructor is missing from pattern match\")\n(error \"line 4 column 28: non-exhaustive pattern match\")\n(error \"line 5 column 30: unexpected repeated variable in pattern expression\")\n(error \"line 6 column 31: invalid function declaration reference, unknown function foo\")\n(error \"line 7 column 30: mismatching number of variables supplied to constructor\")\n(error \"line 9 column 25: expecting a constructor\")\n(ite ((_ is nil) l) 1 (hd l))\n",
 	// AUDIT.md opt_01-F2: opt.enable_sls is inert in z3 4.7.1 (nothing
 	// calls enable_sls; pb_sls is dead), so MaxRes runs unchanged.
 	"maxres_enable_sls_inert.smt2": "sat\n(objectives\n ( 6)\n)\n(model \n  (define-fun p7 () Bool\n    true)\n  (define-fun y () Int\n    16)\n  (define-fun p1 () Bool\n    true)\n  (define-fun p4 () Bool\n    true)\n  (define-fun p2 () Bool\n    false)\n  (define-fun p3 () Bool\n    true)\n  (define-fun p5 () Bool\n    false)\n  (define-fun x () Int\n    0)\n  (define-fun p6 () Bool\n    true)\n  (define-fun p0 () Bool\n    false)\n)\n",
@@ -1497,6 +1503,9 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	"match_non_datatype.smt2":   true,
+	"match_pattern_errors.smt2": true,
+
 	"opt_message_texts.smt2": true,
 
 	"assert_effect_before_rparen.smt2":        true,

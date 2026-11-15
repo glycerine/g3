@@ -1,0 +1,5 @@
+(declare-datatypes ((L 0)) (((nil) (cons (hd Int) (tl L)))))
+(declare-const l L)
+(assert (= 3 (match l ((nil 0) ((cons h t) h)))))
+(check-sat)
+(get-value ((hd l)))
