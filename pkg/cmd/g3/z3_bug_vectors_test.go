@@ -26,6 +26,10 @@ var z3BugResults = map[string]string{
 	"z3_bug_pb_preprocess_resolve_no_complement.smt2": "unsat\nunsat\n",
 	"z3_bug_update_field_constructor.smt2":            "unsat\n(mkp j red)\n", // smtcore_10-F15
 	"z3_bug_dt_recognizer_relevancy1.smt2":            "sat\n((b false))\n",   // smtcore_10-F3
+
+	// muz_pdr_01
+	"z3_bug_pdr_nullary_cache.smt2":     "unsat\n",
+	"z3_bug_pdr_nullary_cache_sat.smt2": "sat\n(and G B (D 3) (D 2) (D 1) (D 0) A (C 3) (C 2) (C 1) (C 0))\n",
 }
 
 func TestZ3BugVectorsKeepCorrectAnswers(t *testing.T) {

@@ -105,3 +105,15 @@ z3_bug_dom_simplify_oscillation
 # rewriteUpdate; AUDIT.md smtcore_10-F15). Reproduction:
 # test_vectors/z3_bug_update_field_constructor.smt2.
 z3_bug_update_field_constructor
+#
+# PDR's model_search keys its node cache by state only (z3 bug:
+# src/muz/pdr/pdr_context.cpp model_search::add_leaf, cache,
+# update_models). Every nullary predicate has the state `true`, so the
+# obligation of a second nullary body predicate is pre-closed as a duplicate
+# of the first: z3 answers sat on an unsat query, and segfaults while
+# building the answer of a sat one. Upstream removed PDR (6adaed718) without
+# fixing it. g3 keys by predicate and state (pkg/muz/pdr/model_search.go
+# modelStateKey, answer.go updateTraceModels; AUDIT.md muz_pdr_01).
+# Reproductions: test_vectors/z3_bug_pdr_nullary_cache*.smt2.
+z3_bug_pdr_nullary_cache
+z3_bug_pdr_nullary_cache_sat
