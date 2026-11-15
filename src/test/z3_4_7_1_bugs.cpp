@@ -48,6 +48,9 @@ Abstract:
                                   of an identical non-ground subterm unbound
                                   and later binds it to a ground term
                                   (pkg/AUDIT.md tactic_sls_ufbv_01-F1).
+    z3_4_7_1_recover01_inconsistent recover-01 keeps indexing the goal after
+                                  an update collapsed it to false
+                                  (pkg/AUDIT.md tactic_arith_03-F9).
     z3_4_7_1_pdr_nullary_cache    PDR's model_search cache keys nodes by
                                   state only, so two nullary predicates
                                   (state `true`) share an entry and an
@@ -806,4 +809,25 @@ void tst_z3_4_7_1_ufbv_demod_unbound_var() {
     }
     std::cout << "ufbv_demod_unbound_var: expected\nunsat\ngot\n" << out.str();
     ENSURE(out.str() == "unsat\n");
+}
+
+// recover-01 rewrites (or p (= x 0)) to false; goal::update then shrinks the
+// goal to the single formula false, but the rewrite loop keeps reading
+// form(idx) up to the old size and z3 4.7.1 crashes (fixed upstream in
+// c230d89a3, "fix #5294").
+void tst_z3_4_7_1_recover01_inconsistent() {
+    char const* script =
+        "(declare-const x Int)\n"
+        "(declare-const p Bool)\n"
+        "(declare-const b Bool)\n"
+        "(assert (= p (not p)))\n"
+        "(assert b)\n"
+        "(assert (> x 0))\n"
+        "(assert (or p (= x 0)))\n"
+        "(assert (or (not p) (= x 3)))\n"
+        "(apply recover-01)\n";
+    std::cout << "recover01_inconsistent: running (apply recover-01)\n";
+    std::cout.flush(); // z3 4.7.1 dies here
+    expect_script("recover01_inconsistent", script,
+                  "(goals\n(goal\n  false\n  :precision precise :depth 1)\n)\n");
 }
