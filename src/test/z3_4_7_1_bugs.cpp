@@ -194,6 +194,11 @@ Abstract:
                                   store(store(A, i, u), j, v) = t with
                                   t[i] = u and store(t, i, u)[j] = v, which
                                   forces u = v when i = j.
+    z3_4_7_1_automaton_product_epsilon symbolic_automata::mk_product tests
+                                  only the initial states themselves for
+                                  finality, not their epsilon closures, so
+                                  ("" | a) & ("" | b) is empty (upstream
+                                  606754c09, a921b4ff4).
     z3_4_7_1_and_then_sat_branch  and_then_tactical appends a decided-sat
                                   subgoal to the undecided subgoals it
                                   already collected, so (then split-clause
@@ -2789,4 +2794,22 @@ void tst_z3_4_7_1_qe_nested_store() {
     out = eval_smtlib2(distinct);
     std::cout << "qe_nested_store i != j: " << out;
     ENSURE(out == "unsat\n");
+}
+
+// x = "" is in ("" | a) & ("" | b). re2automaton builds each union with an
+// epsilon move from a fresh initial state to the accepting initial state of
+// (str.to.re ""), so neither initial state is final by itself.
+// symbolic_automata::mk_product decides whether the product's initial state
+// is final with is_final_state(init()) instead of the epsilon closure, the
+// product has no final state, and z3 answers unsat. Upstream uses the
+// epsilon closures of the initial states (606754c09, "fix #2262", and
+// a921b4ff4 for the no-moves special case).
+void tst_z3_4_7_1_automaton_product_epsilon() {
+    char const* script =
+        "(declare-const x String)\n"
+        "(assert (str.in.re x (re.inter (re.union (str.to.re \"\") (str.to.re \"a\"))"
+        " (re.union (str.to.re \"\") (str.to.re \"b\")))))\n"
+        "(check-sat)\n"
+        "(get-value (x))\n";
+    expect_script_output("automaton_product_epsilon", script, "sat\n((x \"\"))\n");
 }
