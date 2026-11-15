@@ -1,0 +1,6 @@
+Z int
+
+P(x:Z)
+Q(x:Z) printtuples
+P("5").
+Q(X) :- P(X), X = "5".
