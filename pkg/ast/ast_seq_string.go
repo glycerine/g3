@@ -100,6 +100,14 @@ func decodeSequenceString(value string) string {
 	return out.String()
 }
 
+// DecodeZString is zstring::zstring(char const*, ascii): escape sequences
+// (is_escape_char) become single characters, masked to 0xFF.
+func DecodeZString(value string) string { return decodeSequenceString(value) }
+
+// EncodeZString is zstring::encode: control characters, backslash and
+// bytes >= 128 are written as escapes.
+func EncodeZString(value string) string { return encodeSequenceString(value) }
+
 // MkString constructs the retained seq_decl_plugin string constant.
 func (m *ASTManager) prepareSequencePlugin() error {
 	// Once all four plugins are registered, registering them again only looks

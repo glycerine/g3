@@ -108,3 +108,24 @@ func TestSMTContextSequenceAndRegexConstructorCoverage(t *testing.T) {
 		t.Fatalf("sequence unit sort = %v, want %v", sort, booleanSequenceSort)
 	}
 }
+
+// AUDIT.md api_02-F5: Z3_mk_string decodes escapes with
+// zstring(str, ascii); Z3_get_string returns zstring::encode().
+func TestAPIStringDecodesSourceEscapes(t *testing.T) {
+	f := newSMTAPIFixture(t, "ALL", nil)
+	s := f.pin(f.c.String("a\\x41"))
+	if got, ok, err := f.c.StringValue(s); err != nil || !ok || got != "aA" {
+		t.Fatalf("StringValue(String(a\\x41)) = %q %v %v", got, ok, err)
+	}
+	if other := f.pin(f.c.String("aA")); other != s {
+		t.Fatal("escaped and plain spellings must build the same constant")
+	}
+	newline := f.pin(f.c.String("\\n"))
+	raw, ok, err := f.m.SequenceStringValue(newline)
+	if err != nil || !ok || raw != "\n" {
+		t.Fatalf("String(\\n) holds %q", raw)
+	}
+	if got, ok, err := f.c.StringValue(newline); err != nil || !ok || got != "\\n" {
+		t.Fatalf("StringValue of byte 0x0A = %q", got)
+	}
+}

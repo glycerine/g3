@@ -62,19 +62,29 @@ func (c *SMTContext) StringSort() (ast.ASTHandle, error) {
 	}
 	return m.GetSort(v)
 }
+
+// String is Z3_mk_string: zstring s(str, zstring::ascii) decodes the
+// escape sequences in value before the string constant is built.
 func (c *SMTContext) String(value string) (ast.ASTHandle, error) {
 	m, e := c.sequenceManager()
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
-	return m.MkString(value)
+	return m.MkString(ast.DecodeZString(value))
 }
+
+// StringValue is Z3_get_string: the constant's zstring in its encode()
+// spelling.
 func (c *SMTContext) StringValue(value ast.ASTHandle) (string, bool, error) {
 	m, e := c.sequenceManager()
 	if e != nil {
 		return "", false, e
 	}
-	return m.SequenceStringValue(value)
+	text, matched, e := m.SequenceStringValue(value)
+	if e != nil || !matched {
+		return text, matched, e
+	}
+	return ast.EncodeZString(text), true, nil
 }
 func (c *SMTContext) IsSequenceSort(sort ast.ASTHandle) (bool, error) {
 	m, e := c.sequenceManager()
