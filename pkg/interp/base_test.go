@@ -173,3 +173,46 @@ func TestInterpolationBaseTreeToParentsRepresentation(t *testing.T) {
 		t.Fatal("tree position map", positions)
 	}
 }
+
+// interp_01-F13: simplify_and advances past the element swapped in from the
+// back, so that element is never examined.
+func TestInterpolationBaseSimplifyConjunctionSkipsSwappedElement(t *testing.T) {
+	m, manager := interpManagerFixture(t)
+	boolSort, err := manager.BoolType()
+	interpMust(t, err)
+	p, err := manager.MakeVariable("base-simplify-swap-p", boolSort)
+	interpMust(t, err)
+	p = interpPin(t, m, p)
+	b, err := NewBase(manager, []ast.ASTHandle{p}, nil, nil)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, b.Close()) })
+	truth, err := manager.Make(OperatorTrue)
+	interpMust(t, err)
+	notP, err := manager.MkNot(p)
+	interpMust(t, err)
+	result, err := b.simplifyConjunction([]ast.ASTHandle{truth, p, truth})
+	interpMust(t, err)
+	if count, e := manager.NumArgs(result); e != nil || count != 2 {
+		t.Fatal("[true p true] count", count, e)
+	}
+	if first, e := manager.Arg(result, 0); e != nil || first != truth {
+		t.Fatal("[true p true] first argument", first, e)
+	}
+	if second, e := manager.Arg(result, 1); e != nil || second != p {
+		t.Fatal("[true p true] second argument", second, e)
+	}
+	result, err = b.simplifyConjunction([]ast.ASTHandle{p, p, notP})
+	interpMust(t, err)
+	if op, e := manager.Operator(result); e != nil || op != OperatorAnd {
+		t.Fatal("[p p !p] is not an and", op, e)
+	}
+	if count, e := manager.NumArgs(result); e != nil || count != 2 {
+		t.Fatal("[p p !p] count", count, e)
+	}
+	if first, e := manager.Arg(result, 0); e != nil || first != p {
+		t.Fatal("[p p !p] first argument", first, e)
+	}
+	if second, e := manager.Arg(result, 1); e != nil || second != notP {
+		t.Fatal("[p p !p] second argument", second, e)
+	}
+}

@@ -35,7 +35,9 @@ func (b *Base) gatherConjuncts(term ast.ASTHandle, result *[]ast.ASTHandle, seen
 
 func (b *Base) simplifyConjunction(conjuncts []ast.ASTHandle) (ast.ASTHandle, error) {
 	seen := make(map[ast.ASTHandle]bool)
-	for i := 0; i < len(conjuncts); {
+	// As in iz3base::simplify_and, the loop index advances after a swap, so
+	// the element moved in from the back is not examined.
+	for i := 0; i < len(conjuncts); i++ {
 		isFalse, err := b.manager.IsFalse(conjuncts[i])
 		if err != nil {
 			return ast.ASTHandle{}, err
@@ -60,7 +62,6 @@ func (b *Base) simplifyConjunction(conjuncts []ast.ASTHandle) (ast.ASTHandle, er
 			return b.manager.Make(OperatorFalse)
 		}
 		seen[conjuncts[i]] = true
-		i++
 	}
 	if len(conjuncts) == 0 {
 		return b.manager.Make(OperatorTrue)
