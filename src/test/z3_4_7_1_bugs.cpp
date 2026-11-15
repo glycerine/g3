@@ -48,6 +48,11 @@ Abstract:
                                   register creates a 0-column sparse table
                                   through the lazy_sparse plugin and crashes
                                   (pkg/AUDIT.md muz_rel_04-F2).
+    z3_4_7_1_qbmc_eval_level      QBMC proof reconstruction reads rule
+                                  variables at the rule ordinal and expects
+                                  facts only at level 0; it aborts in
+                                  VERIFY(unify_rules) (pkg/AUDIT.md
+                                  muz_small_01-F8, upstream 784b613b5).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -467,4 +472,43 @@ void tst_z3_4_7_1_lazy_sparse_nullary_union() {
         "(rule (=> (and (p x y) (s x)) z))\n"
         "(query z :print-answer true)\n";
     expect_script_output("lazy_sparse_nullary_union", script, "sat\ntrue\n");
+}
+
+// QBMC proof reconstruction (qlinear::get_model) read the rule variables at
+// the rule ordinal instead of the trace level, and assumed that a fact is
+// only selected at level 0. On this recursive program the step it builds
+// does not unify with the previous one and z3 aborts in
+// VERIFY(unifier.unify_rules(...)). Fixed upstream in 784b613b5 (#11540),
+// which also puts the hyper-resolution positions in the (1, 0) order.
+// pkg/AUDIT.md muz_small_01-F8.
+void tst_z3_4_7_1_qbmc_eval_level() {
+    char const* script =
+        "(set-option :fixedpoint.engine qbmc)\n"
+        "(set-option :fixedpoint.xform.inline_linear false)\n"
+        "(set-option :fixedpoint.xform.inline_eager false)\n"
+        "(set-option :fixedpoint.xform.slice false)\n"
+        "(set-option :fixedpoint.print_answer true)\n"
+        "(declare-rel p (Int))\n"
+        "(declare-rel q ())\n"
+        "(declare-var x Int)\n"
+        "(declare-var y Int)\n"
+        "(rule (p 0))\n"
+        "(rule (=> (and (p x) (= y (+ x 1))) (p y)))\n"
+        "(rule (=> (and (p x) (> x 2)) q))\n"
+        "(query q)\n";
+    std::ostringstream out;
+    {
+        cmd_context ctx;
+        ctx.set_solver_factory(mk_smt_strategic_solver_factory());
+        install_dl_cmds(ctx);
+        ctx.set_regular_stream(out);
+        ctx.set_diagnostic_stream(out);
+        std::istringstream in(script);
+        parse_smt2_commands(ctx, in);
+    }
+    // The derivation depends on the model, so check its shape only: sat,
+    // and a proof that ends in the fact (p 0).
+    std::cout << "qbmc_eval_level: got\n" << out.str();
+    ENSURE(out.str().compare(0, 4, "sat\n") == 0);
+    ENSURE(out.str().find("(asserted (p 0))") != std::string::npos);
 }
