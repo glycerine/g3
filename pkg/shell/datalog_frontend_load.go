@@ -10,18 +10,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	utext "github.com/glycerine/g3/pkg/util/text"
-
-	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
-
-// datalogFrontendVerbose is read_datalog's IF_VERBOSE(1, ...); these
-// progress lines are compiled only into g3trace builds.
-func datalogFrontendVerbose(text string) error {
-	if !diagnostic.VerboseProgress {
-		return nil
-	}
-	return diagnostic.ProgressVerbose(1, text)
-}
 
 // DatalogParseError is a failed parse_file / parse_directory. The parser has
 // its own message (Message); read_datalog then prints "ERROR: failed to
@@ -37,9 +26,6 @@ func (e *DatalogParseError) Unwrap() error { return e.Cause }
 func (f *DatalogFrontend) Load(path string) error {
 	if f == nil || f.context == nil || f.loaded || path == "" {
 		return ErrDatalogFrontend
-	}
-	if err := datalogFrontendVerbose("Z3 Datalog Engine\n"); err != nil {
-		return err
 	}
 	f.started, f.path = time.Now(), path
 	// IF_VERBOSE(1, "Z3 Datalog Engine") (AUDIT.md FUZZ-F5; g3trace only).
@@ -94,10 +80,7 @@ func (f *DatalogFrontend) Load(path string) error {
 			}
 		}
 	}
-	if err = datalogFrontendVerbose("parsing finished\n"); err != nil {
-		return err
-	}
-	return datalogFrontendVerbose("running saturation...\n")
+	return nil
 }
 
 // datalogFrontendVerbose is IF_VERBOSE(level, verbose_stream() << text),
