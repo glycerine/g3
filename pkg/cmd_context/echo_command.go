@@ -2,10 +2,7 @@ package cmd_context
 
 // Source: src/cmd_context/basic_cmds.cpp:305-320, echo_cmd.
 
-import (
-	"io"
-	"strings"
-)
+import "io"
 
 func echoCommandWrite(out io.Writer, value string) error {
 	n, err := io.WriteString(out, value)
@@ -16,7 +13,7 @@ func echoCommandWrite(out io.Writer, value string) error {
 }
 
 // WriteEcho emits the source echo command representation. SMT-LIB-compliant
-// mode surrounds the decoded string with quotes and doubles embedded quotes.
+// mode only surrounds the decoded string with quotes (echo_cmd).
 func (c *Context) WriteEcho(out io.Writer, value string) error {
 	if err := c.valid(); err != nil {
 		return err
@@ -29,7 +26,7 @@ func (c *Context) WriteEcho(out io.Writer, value string) error {
 		return err
 	}
 	if compliant {
-		value = "\"" + strings.ReplaceAll(value, "\"", "\"\"") + "\""
+		value = "\"" + value + "\""
 	}
 	return echoCommandWrite(out, value+"\n")
 }

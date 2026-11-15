@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md cmd_context_01-F8
+	"echo_compliant_quote.smt2": "success\n\"a\"b\"\n",
 	// AUDIT.md cmd_context_02-F6
 	"check_sat_using_print_core_sat.smt2": "sat\n(unsat-core)\n",
 	// AUDIT.md cmd_context_02-F4

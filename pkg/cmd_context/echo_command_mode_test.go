@@ -18,7 +18,7 @@ func TestWriteEchoUsesRawAndCompliantSourceRepresentations(t *testing.T) {
 		t.Fatal(err)
 	}
 	output.Reset()
-	if err = context.WriteEcho(&output, "a\"b"); err != nil || output.String() != "\"a\"\"b\"\n" {
+	if err = context.WriteEcho(&output, "a\"b"); err != nil || output.String() != "\"a\"b\"\n" {
 		t.Fatal(err, output.String())
 	}
 	if err = context.Close(); err != nil {
