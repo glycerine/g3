@@ -146,6 +146,11 @@ func composeTacticResults(g *Goal, out, first *TacticResult, applySecond tacticA
 	if err = out.moveGoalsFrom(second); err != nil {
 		return err
 	}
+	// m_t2->operator()(r1_0, result, mc, pc, core) writes straight into the
+	// outputs; a disabled mode keeps whatever t2 returned for it.
+	if err = keepSecondTacticConverters(out, second, modes); err != nil {
+		return err
+	}
 	if modes.models {
 		combined, err := ConcatModels(g.manager.Budget(), first.ModelConverter, second.ModelConverter)
 		if err != nil {
@@ -170,6 +175,29 @@ func composeTacticResults(g *Goal, out, first *TacticResult, applySecond tacticA
 			return err
 		}
 		if err = out.SetCore(combined); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// keepSecondTacticConverters mirrors and_then_tactical / repeat_tactical
+// (src/tactic/tactical.cpp): t2 (or the recursive repeat) writes mc, pc and
+// core directly, and they are only concatenated with t1's for enabled modes,
+// so a disabled mode keeps the second result's converter or core.
+func keepSecondTacticConverters(out, second *TacticResult, modes goalModes) error {
+	if !modes.models && second.ModelConverter != nil {
+		if err := out.SetModelConverter(second.ModelConverter); err != nil {
+			return err
+		}
+	}
+	if !modes.proofs && second.ProofConverter != nil {
+		if err := out.SetProofConverter(second.ProofConverter); err != nil {
+			return err
+		}
+	}
+	if !modes.cores && !second.Core.IsNull() {
+		if err := out.SetCore(second.Core); err != nil {
 			return err
 		}
 	}

@@ -1,0 +1,5 @@
+(set-option :produce-models false)
+(declare-fun r (Int) Bool)
+(declare-const b Int)
+(assert (r b))
+(apply (then simplify sine-filter) :print_model_converter true)

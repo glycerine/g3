@@ -100,6 +100,9 @@ func (t *unaryTactic) repeatAt(depth uint64, g *Goal, out *TacticResult) (result
 	if err = out.moveGoalsFrom(second); err != nil {
 		return err
 	}
+	if err = keepSecondTacticConverters(out, second, modes); err != nil {
+		return err
+	}
 	if modes.models {
 		combined, err := ConcatModels(g.manager.Budget(), second.ModelConverter, first.ModelConverter)
 		if err != nil {

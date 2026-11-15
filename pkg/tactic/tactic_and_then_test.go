@@ -158,6 +158,32 @@ func TestAndThenComposesSingleGoalModelConverters(t *testing.T) {
 	}
 }
 
+// AUDIT.md tactic_top_01-F6: with models disabled, and_then_tactical leaves
+// mc as t2 wrote it instead of dropping it.
+func TestAndThenModelsDisabledKeepsSecondConverter(t *testing.T) {
+	m := astTestManager(t)
+	g, err := NewGoal(m, false, false, false)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, g.Close()) })
+	astTestMust(t, g.Assert(goalTestAtom(t, m, "and-then-models-off")))
+	calls := []string{}
+	converter := &modelConverterTestLeaf{name: "second", calls: &calls}
+	first := &countingSkipTactic{primitiveTactic: newPrimitiveTactic(primitiveSkip, "", 0)}
+	second := &converterSkipTactic{primitiveTactic: newPrimitiveTactic(primitiveSkip, "", 0), converter: converter}
+	sequence, err := NewAndThenTactic(first, second)
+	astTestMust(t, err)
+	tacticOwnForTest(t, sequence)
+	out := &TacticResult{}
+	astTestMust(t, sequence.Apply(g, out))
+	if out.ModelConverter != ModelConverter(converter) {
+		t.Fatalf("second converter dropped: %T", out.ModelConverter)
+	}
+	astTestMust(t, out.Close())
+	if !converter.closed {
+		t.Fatal("result did not release the second converter")
+	}
+}
+
 func TestAndThenFansOutAcrossMultipleSubgoals(t *testing.T) {
 	m := astTestManager(t)
 	g := goalTestNew(t, m, false, false)

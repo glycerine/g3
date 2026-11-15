@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_top_01-F6: and_then keeps t2's model converter when models are off.
+	"and_then_mc_models_off.smt2": "(goals\n(goal\n  (r b)\n  :precision over :depth 2)\n)\n(filter-model-converter)\n",
 	// AUDIT.md tactic_top_01-F4: has_patterns counts no-patterns, so the body is not connected.
 	"sine_no_pattern_only.smt2": "(goals\n(goal\n  (r b)\n  :precision over :depth 1)\n)\n",
 	// AUDIT.md tactic_top_01-F3: num_consts_probe ignores patterns.
