@@ -117,3 +117,14 @@ z3_bug_update_field_constructor
 # Reproductions: test_vectors/z3_bug_pdr_nullary_cache*.smt2.
 z3_bug_pdr_nullary_cache
 z3_bug_pdr_nullary_cache_sat
+#
+# Duality's RPFP::UnhoistLoop walks parent->Incoming, which lists an edge
+# once per child position, so an edge that uses the unhoisted loop
+# predicate twice is rewritten twice. The second pass adds the new
+# parameters to the already extended literal and the query fails with
+# "Wrong number of arguments (4) passed to function inv!2" / unknown on a
+# sat problem (z3 bug: src/duality/duality_rpfp.cpp UnhoistLoop; Duality
+# was removed upstream in 4f5775c53 without a fix). g3 rewrites each edge
+# once (pkg/duality/unhoist.go unhoistLoop; AUDIT.md duality_03-F2).
+# Reproduction: test_vectors/z3_bug_duality_unhoist_repeated_child.smt2.
+z3_bug_duality_unhoist_repeated_child

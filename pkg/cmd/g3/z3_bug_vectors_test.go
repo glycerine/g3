@@ -30,6 +30,9 @@ var z3BugResults = map[string]string{
 	// muz_pdr_01
 	"z3_bug_pdr_nullary_cache.smt2":     "unsat\n",
 	"z3_bug_pdr_nullary_cache_sat.smt2": "sat\n(and G B (D 3) (D 2) (D 1) (D 0) A (C 3) (C 2) (C 1) (C 0))\n",
+
+	// duality_03-F2
+	"z3_bug_duality_unhoist_repeated_child.smt2": "sat\n",
 }
 
 func TestZ3BugVectorsKeepCorrectAnswers(t *testing.T) {
