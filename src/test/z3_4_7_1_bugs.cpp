@@ -34,6 +34,9 @@ Abstract:
                                   is rewritten to (mkp i red): the rewriter
                                   looks up the update-field declaration as
                                   if it were the accessor.
+    z3_4_7_1_pb2bv_numeral_lhs    pb2bv encodes (= 3 x) and (<= 3 x) as the
+                                  unit x when the numeral is on the left
+                                  (pkg/AUDIT.md tactic_arith_03-F1).
     z3_4_7_1_pdr_nullary_cache    PDR's model_search cache keys nodes by
                                   state only, so two nullary predicates
                                   (state `true`) share an entry and an
@@ -672,4 +675,39 @@ void tst_z3_4_7_1_qi_weakening_proof() {
             ENSURE(concludes_rule);
         }
     }
+}
+
+namespace {
+    // Run an SMT-LIB2 script through the API and compare its output.
+    void expect_script(char const* test, char const* script, char const* expected) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string out = Z3_eval_smtlib2_string(ctx, script);
+        Z3_del_context(ctx);
+        std::cout << test << ": expected\n" << expected << "got\n" << out;
+        ENSURE(out == expected);
+    }
+}
+
+// x in [0,1], so (= 3 x) and (<= 3 x) are false and both checks are unsat.
+// pb2bv_tactic::imp::convert handles a numeral on the left in its own
+// branch, which turns (= 3 x) into the unit x and, with SASSERT compiled
+// out, (<= 3 x) into x as well.
+void tst_z3_4_7_1_pb2bv_numeral_lhs() {
+    char const* script =
+        "(declare-const x Int)\n"
+        "(declare-const b Bool)\n"
+        "(assert (<= 0 x))\n"
+        "(assert (<= x 1))\n"
+        "(assert (not b))\n"
+        "(push)\n"
+        "(assert (or b (= 3 x)))\n"
+        "(check-sat-using (then pb2bv smt))\n"
+        "(pop)\n"
+        "(push)\n"
+        "(assert (or b (<= 3 x)))\n"
+        "(check-sat-using (then pb2bv smt))\n"
+        "(pop)\n";
+    expect_script("pb2bv_numeral_lhs", script, "unsat\nunsat\n");
 }
