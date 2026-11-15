@@ -10,11 +10,12 @@ import (
 )
 
 type RuleSlicePlugin struct {
-	manager        *ast.ASTManager
-	rules          *base.RuleManager
-	priority       uint32
-	sliceable      map[ast.ASTHandle][]bool
-	order          []ast.ASTHandle
+	manager   *ast.ASTManager
+	rules     *base.RuleManager
+	priority  uint32
+	sliceable map[ast.ASTHandle][]bool
+	// sliceTable mirrors m_sliceable's obj_map iteration order.
+	sliceTable     *ast.ObjMap
 	predicates     map[ast.ASTHandle]ast.ASTHandle
 	proofTrace     bool
 	proofConverter *SliceProofConverter
@@ -52,7 +53,9 @@ func (p *RuleSlicePlugin) getSlice(declaration ast.ASTHandle) ([]bool, error) {
 		slice[index] = true
 	}
 	p.sliceable[declaration] = slice
-	p.order = append(p.order, declaration)
+	if err = p.sliceTable.Insert(declaration, [2]ast.ASTHandle{}); err != nil {
+		return nil, err
+	}
 	return slice, nil
 }
 
@@ -621,7 +624,7 @@ func (p *RuleSlicePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resu
 	}
 	p.sliceable = make(map[ast.ASTHandle][]bool)
 	p.predicates = make(map[ast.ASTHandle]ast.ASTHandle)
-	p.order = nil
+	p.sliceTable = ast.NewObjMap(p.manager)
 	changed := true
 	for changed {
 		changed = false
@@ -653,7 +656,10 @@ func (p *RuleSlicePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resu
 	if err != nil {
 		return nil, err
 	}
-	for _, declaration := range p.order {
+	// declare_predicates walks m_sliceable (obj_map table order), so the
+	// fresh !slice!N indices follow that order.
+	for _, entry := range p.sliceTable.Entries() {
+		declaration := entry.Key
 		slice := p.sliceable[declaration]
 		domain := make([]ast.ASTHandle, 0, len(slice))
 		for index, remove := range slice {
@@ -796,7 +802,7 @@ func (p *RuleSlicePlugin) Close() error {
 	p.manager = nil
 	p.rules = nil
 	p.sliceable = nil
-	p.order = nil
+	p.sliceTable = nil
 	p.predicates = nil
 	return nil
 }
