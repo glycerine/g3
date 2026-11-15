@@ -117,6 +117,34 @@ func TestArithmeticQECoefficientAndConstantSourceOrder(t *testing.T) {
 	arithmeticQEMust(t, f.manager.DelRef(&rest))
 }
 
+// AUDIT.md qe_01-F5: get_coeff builds rest with one n-ary mk_add over the
+// LIFO remainder.
+func TestCoefficientRestIsNaryAdd(t *testing.T) {
+	f := newArithmeticQEFixture(t)
+	family, err := f.manager.ArithmeticFamilyID()
+	arithmeticQEMust(t, err)
+	a := f.pin(f.manager.MkFreshConst("qe-arith-a", f.integer))
+	b := f.pin(f.manager.MkFreshConst("qe-arith-b", f.integer))
+	c := f.pin(f.manager.MkFreshConst("qe-arith-c", f.integer))
+	twoX := f.pin(f.manager.MkArithmeticMul(f.integerNumeral(t, "2"), f.x))
+	polynomial := f.pin(f.manager.MkFamilyApp(family, 6, nil, []ast.ASTHandle{a, b, c, twoX}))
+	contains, err := ast.NewContainsApp(f.manager, f.x)
+	arithmeticQEMust(t, err)
+	defer func() { arithmeticQEMust(t, contains.Close()) }()
+	coefficient, rest, matched, err := f.util.Coefficient(contains, polynomial)
+	arithmeticQEMust(t, err)
+	if !matched || coefficient.Cmp(big.NewRat(2, 1)) != 0 {
+		t.Fatal("coefficient match", matched, coefficient)
+	}
+	defer func() { arithmeticQEMust(t, f.manager.DelRef(&rest)) }()
+	restHandle, err := f.manager.RefGet(rest)
+	arithmeticQEMust(t, err)
+	want := f.pin(f.manager.MkFamilyApp(family, 6, nil, []ast.ASTHandle{c, b, a}))
+	if restHandle != want {
+		t.Fatal("rest is not (+ c b a)")
+	}
+}
+
 func TestArithmeticQERelationAndDivisibilityMatching(t *testing.T) {
 	f := newArithmeticQEFixture(t)
 	zero := f.integerNumeral(t, "0")

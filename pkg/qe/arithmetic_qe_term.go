@@ -180,24 +180,16 @@ func (u *ArithmeticQETermUtil) sum(terms []ast.ASTHandle, sortWitness ast.ASTHan
 		}
 		return u.manager.NewRef(zero)
 	}
-	result, err = u.manager.NewRef(terms[0])
+	if len(terms) == 1 {
+		return u.manager.NewRef(terms[0])
+	}
+	// rest = m_arith.mk_add(restl.size(), restl.c_ptr()): one n-ary node
+	// (AUDIT.md qe_01-F5).
+	sum, err := u.manager.MkFamilyApp(u.family, 6, nil, terms)
 	if err != nil {
 		return result, err
 	}
-	for _, term := range terms[1:] {
-		current, cause := u.manager.RefGet(result)
-		if cause != nil {
-			return result, errors.Join(cause, u.manager.DelRef(&result))
-		}
-		combined, cause := u.manager.MkArithmeticAdd(current, term)
-		if cause != nil {
-			return result, errors.Join(cause, u.manager.DelRef(&result))
-		}
-		if cause = u.manager.SetRef(result, combined); cause != nil {
-			return result, errors.Join(cause, u.manager.DelRef(&result))
-		}
-	}
-	return result, nil
+	return u.manager.NewRef(sum)
 }
 
 // Coefficient matches p = k*x + rest using the source LIFO flattening order.
