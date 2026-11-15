@@ -77,6 +77,9 @@ func (m *RelationManager) NewDefaultFiniteTable(signature Signature) (FiniteTabl
 		if m.lazyFinite.CanHandleSignature(signature) {
 			return m.lazyFinite.New(signature)
 		}
+		// Nullary: z3 4.7.1 segfaults creating a 0-column sparse table via
+		// lazy_table_plugin::mk_empty (AUDIT.md muz_rel_04-F2); the fixed
+		// fork falls back to the manager's plugin choice, Hash, as here.
 	}
 	return NewHashTable(signature), nil
 }

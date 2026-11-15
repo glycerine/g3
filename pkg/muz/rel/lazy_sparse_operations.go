@@ -189,6 +189,12 @@ func (e *LazySparseEngine) evalSparseJoinWithNullary(node *lazySparseNode) (*Spa
 	return source.Clone()
 }
 
+// evalFiniteNode evaluates nullary lazy nodes into a HashTable. z3 4.7.1
+// crashes here instead: instr_union::perform creates an empty nullary
+// target with the source's plugin, and lazy_table_plugin::mk_empty passes
+// the 0-column signature to sparse_table_plugin::mk_empty
+// (src/muz/rel/dl_lazy_table.cpp, dl_sparse_table.cpp). See
+// test_vectors/z3_bug_exclusions.txt and AUDIT.md muz_rel_04-F2.
 func (e *LazySparseEngine) evalFiniteNode(node *lazySparseNode) (FiniteTable, error) {
 	if err := e.open(); err != nil || node == nil {
 		return nil, ErrLazySparse

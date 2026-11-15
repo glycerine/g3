@@ -128,3 +128,17 @@ z3_bug_pdr_nullary_cache_sat
 # once (pkg/duality/unhoist.go unhoistLoop; AUDIT.md duality_03-F2).
 # Reproduction: test_vectors/z3_bug_duality_unhoist_repeated_child.smt2.
 z3_bug_duality_unhoist_repeated_child
+#
+# With fixedpoint.datalog.default_table=lazy_sparse, a union into an empty
+# nullary register creates the target with the source's plugin;
+# lazy_table_plugin::mk_empty hands the 0-column signature to
+# sparse_table_plugin::mk_empty, which cannot handle it, and z3 segfaults
+# in column_layout::make_byte_aligned_end (z3 bug:
+# src/muz/rel/dl_instruction.cpp instr_union::perform,
+# src/muz/rel/dl_lazy_table.cpp mk_empty; still present upstream). g3
+# evaluates nullary lazy nodes into a hash table
+# (pkg/muz/rel/lazy_sparse_operations.go evalFiniteNode,
+# relation_manager_default_finite.go NewDefaultFiniteTable; AUDIT.md
+# muz_rel_04-F2). Reproduction:
+# test_vectors/z3_bug_lazy_sparse_nullary_union.smt2.
+z3_bug_lazy_sparse_nullary_union

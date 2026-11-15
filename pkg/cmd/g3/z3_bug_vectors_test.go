@@ -33,6 +33,9 @@ var z3BugResults = map[string]string{
 
 	// duality_03-F2
 	"z3_bug_duality_unhoist_repeated_child.smt2": "sat\n",
+
+	// muz_rel_04-F2
+	"z3_bug_lazy_sparse_nullary_union.smt2": "sat\ntrue\n",
 }
 
 func TestZ3BugVectorsKeepCorrectAnswers(t *testing.T) {
