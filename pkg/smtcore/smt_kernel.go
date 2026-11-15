@@ -494,6 +494,8 @@ func (k *SMTKernel) configureQuantifiers(full *SMTParams, state SMTParamsState, 
 		if err != nil {
 			return errors.Join(err, costs.Close())
 		}
+		registry.profile = qi.Profile
+		registry.profileFrequency = qi.ProfileFrequency
 		k.internalizer.quantifiers = registry
 		k.quantifierCosts = costs
 	}
@@ -668,6 +670,8 @@ func (k *SMTKernel) UpdateParams(params *uparams.ParamsRef) error {
 		manager.maxLazyMultipatternMatching = quantifiers.MaxLazyMultipatternMatching
 		manager.lazyInstantiation = quantifiers.LazyInstantiation
 		manager.registry.maxInstances = quantifiers.MaxInstances
+		manager.registry.profile = quantifiers.Profile
+		manager.registry.profileFrequency = quantifiers.ProfileFrequency
 		manager.registry.schedule.lazyThreshold = float32(quantifiers.LazyThreshold)
 		// Source qi_queue caches its eager threshold and parsed cost/new-gen
 		// functions in the constructor; those remain unchanged on updates.

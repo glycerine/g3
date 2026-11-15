@@ -113,6 +113,7 @@ func NewSMTQuantifierManager(state *SMTInternalizerState, rw *rewriter.TheoryRew
 	if err != nil {
 		return nil, errors.Join(err, substitute.Close())
 	}
+	builder.registry = state.quantifiers
 	mam := newSMTMAMImpl(state, state.quantifiers, true)
 	lazyMAM := newSMTMAMImpl(state, state.quantifiers, true)
 	modelFinder, err := NewSMTModelFinder(state)

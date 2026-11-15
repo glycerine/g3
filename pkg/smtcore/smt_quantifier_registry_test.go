@@ -4,7 +4,9 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/symbol"
+	utext "github.com/glycerine/g3/pkg/util/text"
 )
 
 func smtRegistryQuantifier(t *testing.T, m *ast.ASTManager, name string, weight int32) ast.ASTHandle {
@@ -112,5 +114,61 @@ func TestSMTQuantifierRegistrySourceInstanceLimitScopesAndStackDeletion(t *testi
 	astTestMust(t, registry.Delete(firstQuantifier))
 	if !registry.Empty() {
 		t.Fatal("quantifier registry not empty")
+	}
+}
+
+// AUDIT.md smtcore_06-F9: del reports display_stats on verbose_stream()
+// when qi.profile is set; qi_queue::instantiate reports every
+// qi.profile_freq instances.
+func TestSMTQuantifierRegistryProfileDisplaysStats(t *testing.T) {
+	m := astTestManager(t)
+	costs, err := NewSMTQICostModel(m, "0", "0", nil)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, costs.Close()) })
+	schedule := NewSMTQIQueueSchedule(m, 1, 1, false)
+	registry, err := NewSMTQuantifierRegistry(m, schedule, costs, 10)
+	astTestMust(t, err)
+	quiet := smtRegistryQuantifier(t, m, "k!14", 1)
+	quantifier := smtRegistryQuantifier(t, m, "k!15", 1)
+	astTestMust(t, registry.Add(quiet, 0))
+	astTestMust(t, registry.Add(quantifier, 0))
+	stat, err := registry.Stat(quantifier)
+	astTestMust(t, err)
+	stat.IncrementInstances()
+	stat.UpdateMaxGeneration(2)
+	stat.UpdateMaxCost(3)
+
+	old, err := diagnostic.BorrowProcessVerboseStream()
+	astTestMust(t, err)
+	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: m.Budget()})
+	astTestMust(t, err)
+	t.Cleanup(func() {
+		astTestMust(t, diagnostic.SetProcessVerboseStream(old))
+		astTestMust(t, stream.Close())
+	})
+	astTestMust(t, diagnostic.SetProcessVerboseStream(stream))
+	captured := func() string {
+		t.Helper()
+		text, err := stream.String()
+		astTestMust(t, err)
+		return text
+	}
+
+	const line = "[quantifier_instances]       k!15 :      1 :   2 : 3\n"
+	astTestMust(t, registry.profileInstance(quantifier, stat)) // default frequency UINT_MAX
+	if got := captured(); got != "" {
+		t.Fatal("profile report at the default frequency", got)
+	}
+	registry.profileFrequency = 1
+	astTestMust(t, registry.profileInstance(quantifier, stat))
+	if got := captured(); got != line {
+		t.Fatalf("profile frequency report %q", got)
+	}
+	registry.profile = true
+	astTestMust(t, registry.Delete(quantifier))
+	// A quantifier without instances prints nothing.
+	astTestMust(t, registry.Delete(quiet))
+	if got := captured(); got != line+line {
+		t.Fatalf("qi.profile deletion report %q", got)
 	}
 }

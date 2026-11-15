@@ -123,6 +123,9 @@ type SMTQIInstanceBuilder struct {
 	checker      *SMTChecker
 	substitution *SMTCachedVarSubstitution
 	costs        *SMTQICostModel
+	// registry receives the qi.profile_freq report after each counted
+	// instance; nil in stand-alone builders.
+	registry *SMTQuantifierRegistry
 }
 
 func NewSMTQIInstanceBuilder(manager *ast.ASTManager, checker *SMTChecker, substitution *SMTCachedVarSubstitution, costs *SMTQICostModel) (*SMTQIInstanceBuilder, error) {
@@ -325,6 +328,9 @@ func (b *SMTQIInstanceBuilder) finishLemma(prepared *SMTQIPreparedInstance, simp
 		return result, nil
 	}
 	stat.IncrementInstances()
+	if err = b.registry.profileInstance(prepared.quantifier, stat); err != nil {
+		return nil, err
+	}
 	negatedQuantifier, err := b.manager.MkNot(prepared.quantifier)
 	if err != nil {
 		return nil, err
