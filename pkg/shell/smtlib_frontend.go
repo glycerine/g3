@@ -67,6 +67,14 @@ func NewSMTLIBFrontend(c SMTLIBFrontendConfig) (f *SMTLIBFrontend, err error) {
 	}
 	// read_smtlib2_commands: ctx.set_interpolating_solver_factory(mk_smt_solver_factory()).
 	f.context.SetInterpolatingSMTSolverFactory()
+	// cmd_context construction installs dl_context, whose smt_params snapshot
+	// smt.timeout for the Datalog soft timeout.
+	if err = f.context.CaptureFixedpointSoftTimeout(); err != nil {
+		if f.owned {
+			err = errors.Join(err, f.context.Close())
+		}
+		return nil, err
+	}
 	f.timer = c.Timer
 	if f.timer == nil {
 		f.timer = BorrowProcessTimeoutService()

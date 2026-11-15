@@ -12,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/rel"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
@@ -80,17 +81,49 @@ func nextDatalogRestartTimeout(current, initial uint32) uint32 {
 	return uint32(next)
 }
 
+// SMTModuleTimeout reads smt.timeout (default UINT_MAX) as smt_params does.
+func SMTModuleTimeout(context *uparams.ParamsContext, globals *uparams.GlobalParamsService) (timeout uint32, resultErr error) {
+	if context == nil || globals == nil {
+		return 0, nil
+	}
+	module, err := globals.SourceGetModuleName("smt")
+	if err != nil {
+		return 0, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, context.Del(&module)) }()
+	name := "timeout"
+	return context.GetUIntName(&module, &name, math.MaxUint32)
+}
+
 func (e *PropositionalEngine) queryFiniteDatalogWithRestarts(declarations []ast.ASTHandle) (lbool.LBool, error) {
+	e.datalogTimedOut = false
 	initial, err := e.datalogInitialRestartTimeout()
 	if err != nil {
 		return lbool.Undef, err
 	}
+	// rel_context::saturate: remaining_time_limit = soft_timeout(),
+	// restart_time = initial_restart_timeout(), time_limit = remaining != 0.
+	remaining := e.softTimeout
+	timeLimit := remaining != 0
+	restart := initial
 	if e.datalogExecTotals == nil {
 		e.datalogExecTotals = &rel.ExecutionStats{}
 	}
-	round := datalogRestartRound{timeout: initial, totals: e.datalogExecTotals}
+	round := datalogRestartRound{totals: e.datalogExecTotals}
 	conversionBase := len(e.datalogConversions)
 	for {
+		timeoutAfterThisRound := timeLimit && (restart == 0 || remaining <= restart)
+		round.timeout = 0
+		if timeLimit || restart != 0 {
+			switch {
+			case timeLimit && restart != 0:
+				round.timeout = min(remaining, restart)
+			case timeLimit:
+				round.timeout = remaining
+			default:
+				round.timeout = restart
+			}
+		}
 		status, err := e.queryFiniteDatalogRound(declarations, &round)
 		if err != nil || !round.interrupted {
 			return status, err
@@ -102,7 +135,15 @@ func (e *PropositionalEngine) queryFiniteDatalogWithRestarts(declarations []ast.
 			return lbool.Undef, err
 		}
 		e.datalogConversions = e.datalogConversions[:conversionBase]
-		round.timeout = nextDatalogRestartTimeout(round.timeout, initial)
+		if timeoutAfterThisRound {
+			// m_context.set_status(TIMEOUT); result = l_undef.
+			e.datalogTimedOut = true
+			return lbool.Undef, nil
+		}
+		if timeLimit {
+			remaining -= restart
+		}
+		restart = nextDatalogRestartTimeout(restart, initial)
 		round.restarting = true
 		round.interrupted = false
 	}

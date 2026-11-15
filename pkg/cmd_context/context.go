@@ -103,6 +103,11 @@ type Context struct {
 	objectRefs      *symbolDictionary
 	borrowedManager bool
 	fixedpoint      *muzfp.PropositionalEngine
+	// fixedpointSoftTimeout is dl_context's m_fparams.m_timeout: the smt
+	// timeout when install_dl_cmds created dl_context (the SMT-LIB front end
+	// start), not when the first fixedpoint command runs.
+	fixedpointSoftTimeout         uint32
+	fixedpointSoftTimeoutCaptured bool
 	// fixedpointQueryCmdParams is dl_query_cmd's parametric m_params, which
 	// lives as long as the command table; fixedpointContextParams is the
 	// datalog::context's m_params_ref, recreated with the context.

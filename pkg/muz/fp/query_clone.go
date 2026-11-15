@@ -56,6 +56,7 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 	}
 	clone.datalogRelationFavourite = e.datalogRelationFavourite
 	clone.datalogDefaultTable = e.datalogDefaultTable
+	clone.softTimeout = e.softTimeout
 	if clone.datalogDefaultTable != "" {
 		if err = clone.configureDatalogFiniteDefault(clone.datalogDefaultTable); err != nil {
 			return nil, errors.Join(err, e.discardQueryClone(clone))

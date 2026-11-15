@@ -269,6 +269,13 @@ type PropositionalEngine struct {
 	// latest query's answer over the derived Boolean relation
 	// (rules.get_pred(q) after mk_bit_blast).
 	bitBlastAnswers map[ast.ASTHandle]ast.ASTRef
+
+	// datalogTimedOut is rel_context::saturate's TIMEOUT status for the
+	// latest finite query.
+	datalogTimedOut bool
+	// softTimeout is context::soft_timeout(), m_fparams.m_timeout: the smt
+	// module's timeout when the context's smt_params were constructed.
+	softTimeout uint32
 }
 
 // NewPropositionalEngineWithServices adds the retained AST theory rewriter
@@ -288,8 +295,15 @@ func newPropositionalEngineWithServices(manager *ast.ASTManager, context *uparam
 	}
 	engine.params = context
 	engine.globals = globals
+	if engine.softTimeout, err = SMTModuleTimeout(context, globals); err != nil {
+		return nil, errors.Join(err, engine.Close())
+	}
 	return engine, nil
 }
+
+// SetSoftTimeout replaces the smt_params timeout snapshot; the SMT-LIB
+// front end captures it when its command context is created.
+func (e *PropositionalEngine) SetSoftTimeout(milliseconds uint32) { e.softTimeout = milliseconds }
 
 func NewPropositionalEngine(manager *ast.ASTManager) (*PropositionalEngine, error) {
 	return newPropositionalEngine(manager, nil)

@@ -33,8 +33,26 @@ func (c *Context) fixedpointContext() (*muzfp.PropositionalEngine, error) {
 	if err != nil {
 		return nil, err
 	}
+	if c.fixedpointSoftTimeoutCaptured {
+		engine.SetSoftTimeout(c.fixedpointSoftTimeout)
+	}
 	c.fixedpoint = engine
 	return engine, nil
+}
+
+// CaptureFixedpointSoftTimeout snapshots smt.timeout as dl_context's
+// smt_params m_fparams does when install_dl_cmds runs at front-end start;
+// later (set-option :smt.timeout ...) commands do not change it.
+func (c *Context) CaptureFixedpointSoftTimeout() error {
+	if err := c.valid(); err != nil {
+		return err
+	}
+	timeout, err := muzfp.SMTModuleTimeout(c.config.Params, c.config.Globals)
+	if err != nil {
+		return err
+	}
+	c.fixedpointSoftTimeout, c.fixedpointSoftTimeoutCaptured = timeout, true
+	return nil
 }
 
 func (c *Context) DeclareRelation(name string, domain []ast.ASTHandle) (ast.ASTHandle, error) {

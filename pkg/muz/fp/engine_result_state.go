@@ -58,6 +58,8 @@ func (e *PropositionalEngine) recordResultSnapshot(result lbool.LBool, queryErr 
 }
 
 func (e *PropositionalEngine) recordQueryStatusWithApproximation(result lbool.LBool, err error, approximate bool) {
+	timedOut := e.datalogTimedOut
+	e.datalogTimedOut = false
 	e.recordResultSnapshot(result, err)
 	if err != nil {
 		e.lastStatus = fixedpointFailureStatus(err)
@@ -90,7 +92,9 @@ func (e *PropositionalEngine) recordQueryStatusWithApproximation(result lbool.LB
 		// CLP, TAB, BMC/QBMC, DDNF and ordinary PDR/Spacer unknowns leave it
 		// unchanged. The explicit flag preserves the public multi-relation
 		// non-Datalog extension, which is intentionally approximate.
-		if e.backend == "datalog" {
+		if e.backend == "datalog" && timedOut {
+			e.lastStatus = "timeout"
+		} else if e.backend == "datalog" {
 			e.lastStatus = "approximated"
 		} else {
 			e.lastStatus = "ok"
