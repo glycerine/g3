@@ -582,3 +582,21 @@ z3_bug_duality_certificate_eliminated_var
 # finite-domain sorts, so there is no vector; see
 # TestDatalogPluginOtherBranchPreservesNegativeEqualitySemantics in
 # pkg/qe/datalog_branch_test.go.
+#
+# sieve_relation_plugin::mk_filter_by_negation_fn computes its "column is
+# inner" flags as !is_inner_col, so an equality between two inner columns
+# is dropped (the inner relations are subtracted on zero columns, emptying
+# the target whenever the negated relation is nonempty), an equality on a
+# full negative column becomes the identity, and the inner column is looked
+# up by the equality's index instead of its column (z3 bug:
+# src/muz/rel/dl_sieve_relation.cpp mk_filter_by_negation_fn; still
+# present upstream). g3 joins inner columns, skips full negative columns
+# and keeps a full target column as the identity
+# (pkg/muz/rel/udoc_sieve_negation.go, sieve_operations.go FilterByNegation,
+# sieve_relation_table_negation.go; AUDIT.md muz_rel_06-F5). Sieve
+# relations come only from datalog.explanations_on_relation_level, which
+# rel_context applies only to API queries (query(expr)), not to the SMT-LIB
+# (query p) command, so there is no vector; see
+# TestUDocSieveNegationColumnClassification and
+# TestSieveNegationFullNegativeColumnSubtractsAll in
+# pkg/muz/rel/udoc_sieve_negation_test.go.

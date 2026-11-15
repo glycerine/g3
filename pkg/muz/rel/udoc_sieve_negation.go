@@ -2,6 +2,8 @@ package rel
 
 // Source: dl_sieve_relation.cpp mk_filter_by_negation_fn maps only equalities
 // owned by both inner relations and applies the resulting filter to them.
+// This follows the source's comments: z3 4.7.1 inverts its inner-column
+// test (a z3 bug; see z3_bug_exclusions.txt and AUDIT.md muz_rel_06-F5).
 
 import "github.com/glycerine/g3/pkg/ast"
 
