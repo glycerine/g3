@@ -108,8 +108,9 @@ func (p *DirectProofInterpolator) MakeLeqToEq(x, y, xLeqY, yLeqX ast.ASTHandle) 
 	}
 	literals := []ast.ASTHandle{negatedConclusion, xLeqY, yLeqX}
 	arguments := make([]ast.ASTHandle, len(literals))
-	for i, literal := range literals {
-		arguments[i], err = p.placeholder(literal)
+	// make(leq2eq, get_placeholder(...) x3): GCC evaluates right to left.
+	for i := len(literals) - 1; i >= 0; i-- {
+		arguments[i], err = p.placeholder(literals[i])
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
@@ -182,11 +183,13 @@ func (p *DirectProofInterpolator) MakeEqToLeq(x, y, xLeqY ast.ASTHandle) (ast.AS
 		return ast.ASTHandle{}, err
 	}
 	literals := []ast.ASTHandle{equality, negatedInequality}
-	first, err := p.placeholder(literals[0])
+	// make(eq2leq,get_placeholder(conjs[0]),get_placeholder(conjs[1])):
+	// GCC evaluates right to left.
+	second, err := p.placeholder(literals[1])
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	second, err := p.placeholder(literals[1])
+	first, err := p.placeholder(literals[0])
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -216,11 +219,13 @@ func (p *DirectProofInterpolator) MakeCutRule(tLeqC, divisor, conclusion, premis
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		first, e := p.placeholder(tLeqC)
+		// make(sum,get_placeholder(conjs[0]),d,get_placeholder(conjs[1])):
+		// GCC evaluates right to left.
+		second, e := p.placeholder(negatedConclusion)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		second, e := p.placeholder(negatedConclusion)
+		first, e := p.placeholder(tLeqC)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}

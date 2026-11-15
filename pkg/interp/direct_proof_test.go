@@ -2020,3 +2020,38 @@ func TestDirectProofLocalizeSelectOverMixedArray(t *testing.T) {
 		t.Fatal("select arguments were not localized to the empty array scope", len(terms))
 	}
 }
+
+// AUDIT.md interp_01-F11: GCC evaluates
+// make(cong,foo,make_int(rational(pos)),get_placeholder(mk_not(con))) right
+// to left, so (not con) and its placeholder exist before the numeral.
+func TestDirectProofMixedCongruenceCreationOrder(t *testing.T) {
+	_, manager, base, p, q := directProofFixture(t)
+	direct, err := NewDirectProofInterpolator(base, DownwardScopeRange(0), false)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, direct.Close()) })
+	premise, err := manager.Make(OperatorIff, p, q)
+	interpMust(t, err)
+	leftArgs := []ast.ASTHandle{q, q, q, q, q, q, q, p}
+	rightArgs := []ast.ASTHandle{q, q, q, q, q, q, q, q}
+	left, err := manager.Make(OperatorAnd, leftArgs...)
+	interpMust(t, err)
+	right, err := manager.Make(OperatorAnd, rightArgs...)
+	interpMust(t, err)
+	conclusion, err := manager.Make(OperatorIff, left, right)
+	interpMust(t, err)
+	_, err = direct.makeMixedCongruence(premise, conclusion)
+	interpMust(t, err)
+	negated, err := manager.MkNot(conclusion)
+	interpMust(t, err)
+	placeholder, err := direct.placeholder(negated)
+	interpMust(t, err)
+	seven, err := manager.MakeIntText("7")
+	interpMust(t, err)
+	placeholderID, err := manager.ASTID(placeholder)
+	interpMust(t, err)
+	sevenID, err := manager.ASTID(seven)
+	interpMust(t, err)
+	if placeholderID > sevenID {
+		t.Fatal("placeholder(not con) created after the position numeral", placeholderID, sevenID)
+	}
+}

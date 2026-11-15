@@ -80,22 +80,6 @@ func (p *DirectProofInterpolator) collectContraResolvents(from uint32, pivot1, p
 	if err != nil {
 		return err
 	}
-	negatedLiteral, err := p.base.manager.Arg(pivot1, 1)
-	if err != nil {
-		return err
-	}
-	negatedLiteral, err = p.base.manager.MkNot(negatedLiteral)
-	if err != nil {
-		return err
-	}
-	placeholder, err := p.placeholder(negatedLiteral)
-	if err != nil {
-		return err
-	}
-	proof, err := p.base.manager.Arg(pivot1, 0)
-	if err != nil {
-		return err
-	}
 	for i := from; i < count; i++ {
 		entry, e := p.base.manager.Arg(conjunction, i)
 		if e != nil {
@@ -103,6 +87,24 @@ func (p *DirectProofInterpolator) collectContraResolvents(from uint32, pivot1, p
 		}
 		if entry == pivot {
 			continue
+		}
+		// ph = get_placeholder(mk_not(arg(pivot1,1))), built only for an
+		// entry other than the pivot.
+		negatedLiteral, e := p.base.manager.Arg(pivot1, 1)
+		if e != nil {
+			return e
+		}
+		negatedLiteral, e = p.base.manager.MkNot(negatedLiteral)
+		if e != nil {
+			return e
+		}
+		placeholder, e := p.placeholder(negatedLiteral)
+		if e != nil {
+			return e
+		}
+		proof, e := p.base.manager.Arg(pivot1, 0)
+		if e != nil {
+			return e
 		}
 		entryProof, e := p.base.manager.Arg(entry, 0)
 		if e != nil {

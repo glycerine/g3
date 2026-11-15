@@ -319,11 +319,12 @@ func (p *DirectProofInterpolator) divideInequality(inequality, divisor ast.ASTHa
 		}
 		return p.makeNormal(body, chain)
 	}
-	value, numeral, err := p.base.manager.Numeral(divisor)
+	// divisor == make_int(rational(1)): a node comparison with the Int 1.
+	one, err := p.base.manager.MakeIntText("1")
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if numeral && value.Cmp(big.NewRat(1, 1)) == 0 {
+	if divisor == one {
 		return inequality, nil
 	}
 	op, err := p.base.manager.Operator(inequality)

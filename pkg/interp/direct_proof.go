@@ -348,26 +348,13 @@ func (p *DirectProofInterpolator) hypothesis(formula ast.ASTHandle) (ast.ASTHand
 	case TermB:
 		return p.base.manager.Make(OperatorTrue)
 	}
-	negated, err := p.base.manager.MkNot(formula)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	formulaPlaceholder, err := p.placeholder(formula)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	negativePlaceholder, err := p.placeholder(negated)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	var proof ast.ASTHandle
+	// The reference GCC build evaluates the arguments of make(...) right to
+	// left; the ASTs (and @p!n placeholders) are created in that order.
+	var proof, negated, formulaPlaceholder, negativePlaceholder ast.ASTHandle
 	switch op {
 	case OperatorGE, OperatorLE, OperatorGT, OperatorLT:
+		// zleqz = make(Leq,make_int("0"),make_int("0"))
 		zero, e := p.base.manager.MakeIntText("0")
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		one, e := p.base.manager.MakeIntText("1")
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
@@ -375,14 +362,53 @@ func (p *DirectProofInterpolator) hypothesis(formula ast.ASTHandle) (ast.ASTHand
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
+		// fark1 = make(sum,zleqz,make_int("1"),get_placeholder(P))
+		if formulaPlaceholder, e = p.placeholder(formula); e != nil {
+			return ast.ASTHandle{}, e
+		}
+		one, e := p.base.manager.MakeIntText("1")
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
 		first, e := p.makeSymbol(p.sum, zeroInequality, one, formulaPlaceholder)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
+		// fark2 = make(sum,fark1,make_int("1"),get_placeholder(mk_not(P)))
+		if negated, e = p.base.manager.MkNot(formula); e != nil {
+			return ast.ASTHandle{}, e
+		}
+		if negativePlaceholder, e = p.placeholder(negated); e != nil {
+			return ast.ASTHandle{}, e
+		}
+		if one, e = p.base.manager.MakeIntText("1"); e != nil {
+			return ast.ASTHandle{}, e
+		}
 		proof, err = p.makeSymbol(p.sum, first, one, negativePlaceholder)
 	default:
+		// em = make(exmid,P,get_placeholder(P),get_placeholder(mk_not(P)))
+		if negated, err = p.base.manager.MkNot(formula); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if negativePlaceholder, err = p.placeholder(negated); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if formulaPlaceholder, err = p.placeholder(formula); err != nil {
+			return ast.ASTHandle{}, err
+		}
 		proof, err = p.makeSymbol(p.excludedMid, formula, formulaPlaceholder, negativePlaceholder)
 	}
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	// make(And,make(contra,fark2,mk_false()),
+	//      make(contra,get_placeholder(mk_not(P)),P),
+	//      make(contra,get_placeholder(P),mk_not(P)))
+	third, err := p.makeSymbol(p.contra, formulaPlaceholder, negated)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	second, err := p.makeSymbol(p.contra, negativePlaceholder, formula)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -391,14 +417,6 @@ func (p *DirectProofInterpolator) hypothesis(formula ast.ASTHandle) (ast.ASTHand
 		return ast.ASTHandle{}, err
 	}
 	first, err := p.makeSymbol(p.contra, proof, falsehood)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	second, err := p.makeSymbol(p.contra, negativePlaceholder, formula)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	third, err := p.makeSymbol(p.contra, formulaPlaceholder, negated)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -426,7 +444,9 @@ func (p *DirectProofInterpolator) MakeReflexivity(conclusion ast.ASTHandle) (ast
 	if side == TermB {
 		return p.keep(p.base.manager.Make(OperatorTrue))
 	}
-	falsehood, err := p.base.manager.Make(OperatorFalse)
+	// make(And,make(contra,no_proof,mk_false()),make(contra,mk_true(),mk_not(con))),
+	// arguments evaluated right to left.
+	negated, err := p.base.manager.MkNot(conclusion)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -434,15 +454,15 @@ func (p *DirectProofInterpolator) MakeReflexivity(conclusion ast.ASTHandle) (ast
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	negated, err := p.base.manager.MkNot(conclusion)
+	second, err := p.makeSymbol(p.contra, truth, negated)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	falsehood, err := p.base.manager.Make(OperatorFalse)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	first, err := p.makeSymbol(p.contra, p.noProof, falsehood)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	second, err := p.makeSymbol(p.contra, truth, negated)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}

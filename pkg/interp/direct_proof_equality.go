@@ -197,15 +197,17 @@ func (p *DirectProofInterpolator) makeMixedCongruence(premiseConclusion, conclus
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	positionTerm, err := p.base.manager.MakeIntText(strconv.Itoa(position))
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
+	// make(cong,foo,make_int(rational(pos)),get_placeholder(mk_not(con))):
+	// GCC evaluates the arguments right to left.
 	negatedConclusion, err := p.base.manager.MkNot(conclusion)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	conclusionPlaceholder, err := p.placeholder(negatedConclusion)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	positionTerm, err := p.base.manager.MakeIntText(strconv.Itoa(position))
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}

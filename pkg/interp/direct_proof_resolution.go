@@ -37,15 +37,17 @@ func (p *DirectProofInterpolator) MakeSymmetry(conclusion, premiseConclusion, pr
 		return ast.ASTHandle{}, err
 	}
 	if side == TermMixed {
+		// GCC evaluates make(...) arguments right to left:
+		// em = make(exmid,con,make(symm,get_placeholder(premcon)),get_placeholder(mk_not(con)))
 		negatedConclusion, e := p.base.manager.MkNot(conclusion)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		premisePlaceholder, e := p.placeholder(premiseConclusion)
+		negatedPlaceholder, e := p.placeholder(negatedConclusion)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		negatedPlaceholder, e := p.placeholder(negatedConclusion)
+		premisePlaceholder, e := p.placeholder(premiseConclusion)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
@@ -57,11 +59,10 @@ func (p *DirectProofInterpolator) MakeSymmetry(conclusion, premiseConclusion, pr
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		falsehood, e := p.base.manager.Make(OperatorFalse)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		first, e := p.makeSymbol(p.contra, excludedMiddle, falsehood)
+		// make(And,make(contra,em,mk_false()),
+		//      make(contra,make(symm,get_placeholder(mk_not(con))),premcon),
+		//      make(contra,make(symm,get_placeholder(premcon)),mk_not(con)))
+		third, e := p.makeSymbol(p.contra, symmetricPremise, negatedConclusion)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
@@ -73,7 +74,11 @@ func (p *DirectProofInterpolator) MakeSymmetry(conclusion, premiseConclusion, pr
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		third, e := p.makeSymbol(p.contra, symmetricPremise, negatedConclusion)
+		falsehood, e := p.base.manager.Make(OperatorFalse)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		first, e := p.makeSymbol(p.contra, excludedMiddle, falsehood)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}

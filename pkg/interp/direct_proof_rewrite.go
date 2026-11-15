@@ -238,11 +238,13 @@ func (p *DirectProofInterpolator) updateRewrite(rewrite, position, replacement, 
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	condition, err = p.base.manager.MkAnd(condition, extraCondition)
+	// make(sym(rew),rewrite_pos(rew),my_and(...),make(op(equality),...)):
+	// GCC builds the new equality before the conjunction.
+	equality, err = p.base.manager.Make(op, left, right)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	equality, err = p.base.manager.Make(op, left, right)
+	condition, err = p.base.manager.MkAnd(condition, extraCondition)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -575,7 +577,10 @@ func (p *DirectProofInterpolator) chainSideProof(side TermSide, chain ast.ASTHan
 	if side == TermA {
 		other = TermB
 	}
-	otherConditions, err := p.chainSideConjunction(other, chain, false)
+	// my_and(chain_conditions(other_side,chain),
+	//        my_implies(chain_conditions(side,chain),chain_formulas(side,chain))),
+	// arguments evaluated right to left.
+	formulas, err := p.chainSideConjunction(side, chain, true)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -583,11 +588,11 @@ func (p *DirectProofInterpolator) chainSideProof(side TermSide, chain ast.ASTHan
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	formulas, err := p.chainSideConjunction(side, chain, true)
+	proof, err := p.base.manager.MkImplies(conditions, formulas)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	proof, err := p.base.manager.MkImplies(conditions, formulas)
+	otherConditions, err := p.chainSideConjunction(other, chain, false)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -739,16 +744,20 @@ func (p *DirectProofInterpolator) contradictChains(negativeChain, positiveChain 
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		aConditions, err := p.chainSideConjunction(TermA, chain, false)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		bConditions, err := p.chainSideConjunction(TermB, chain, false)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
+		// The construction order below follows GCC's right-to-left
+		// evaluation of the my_and/my_implies arguments.
 		if headSide == TermB {
+			// condition = chain_conditions(LitB,chain);
+			// my_and(my_implies(chain_conditions(LitA,chain),chain_formulas(LitA,chain)),condition)
+			bConditions, e := p.chainSideConjunction(TermB, chain, false)
+			if e != nil {
+				return ast.ASTHandle{}, e
+			}
 			aFormulas, e := p.chainSideConjunction(TermA, chain, true)
+			if e != nil {
+				return ast.ASTHandle{}, e
+			}
+			aConditions, e := p.chainSideConjunction(TermA, chain, false)
 			if e != nil {
 				return ast.ASTHandle{}, e
 			}
@@ -757,6 +766,12 @@ func (p *DirectProofInterpolator) contradictChains(negativeChain, positiveChain 
 				return ast.ASTHandle{}, e
 			}
 			return p.base.manager.MkAnd(result, bConditions)
+		}
+		// condition = chain_conditions(LitA,chain);
+		// my_and(chain_conditions(LitB,chain),my_implies(condition,mk_not(chain_formulas(LitB,chain))))
+		aConditions, err := p.chainSideConjunction(TermA, chain, false)
+		if err != nil {
+			return ast.ASTHandle{}, err
 		}
 		bFormulas, err := p.chainSideConjunction(TermB, chain, true)
 		if err != nil {
@@ -767,6 +782,10 @@ func (p *DirectProofInterpolator) contradictChains(negativeChain, positiveChain 
 			return ast.ASTHandle{}, err
 		}
 		result, err := p.base.manager.MkImplies(aConditions, bFormulas)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		bConditions, err := p.chainSideConjunction(TermB, chain, false)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
@@ -784,7 +803,9 @@ func (p *DirectProofInterpolator) contradictChains(negativeChain, positiveChain 
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	aConditions, err := p.chainSideConjunction(TermA, chain, false)
+	// my_and(my_implies(chain_conditions(LitA,chain),chain_formulas(LitA,chain)),
+	//        chain_conditions(LitB,chain)), arguments evaluated right to left.
+	bConditions, err := p.chainSideConjunction(TermB, chain, false)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -792,7 +813,7 @@ func (p *DirectProofInterpolator) contradictChains(negativeChain, positiveChain 
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	bConditions, err := p.chainSideConjunction(TermB, chain, false)
+	aConditions, err := p.chainSideConjunction(TermA, chain, false)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
