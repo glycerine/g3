@@ -235,6 +235,23 @@ func (s *clauseStore) attach(c *Clause) error {
 	*v = append(*v, c)
 	return nil
 }
+
+// reattachArith is the loop body of source reattach_arith_clauses: only a
+// clause with an arithmetic maximum variable is watched again.
+func (s *clauseStore) reattachArith(c *Clause) error {
+	x, err := s.maxVar(c.Literals())
+	if err != nil {
+		return err
+	}
+	if x == NullVariable {
+		return nil
+	}
+	if uint64(x) >= uint64(len(s.vars.watches)) {
+		return arena.ErrBounds
+	}
+	s.vars.watches[x] = append(s.vars.watches[x], c)
+	return nil
+}
 func removeClause(values []*Clause, c *Clause) []*Clause {
 	for i, old := range values {
 		if old == c {

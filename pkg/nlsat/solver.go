@@ -284,20 +284,13 @@ func (s *Solver) Check() (result lbool.LBool, resultErr error) {
 		if x != nil {
 			return lbool.Undef, x
 		}
+		// Source check() reorders even by the identity permutation, which
+		// rebuilds the arithmetic watches (AUDIT.md nlsat_03-F7).
 		if supported {
-			identity := true
-			for variable, target := range permutation {
-				if uint32(variable) != target {
-					identity = false
-					break
-				}
+			if x = s.ReorderVariables(permutation); x != nil {
+				return lbool.Undef, x
 			}
-			if !identity {
-				if x = s.ReorderVariables(permutation); x != nil {
-					return lbool.Undef, x
-				}
-				reordered = true
-			}
+			reordered = true
 		}
 	}
 	defer func() {

@@ -201,11 +201,10 @@ func (s *Solver) ReorderVariables(permutation []uint32) (resultErr error) {
 	if err = s.cache.Reset(); err != nil {
 		return err
 	}
+	// Source reset_watches clears only the arithmetic watches; m_bwatches
+	// keep their creation order (AUDIT.md nlsat_03-F7).
 	for i := range s.clauses.vars.watches {
 		s.clauses.vars.watches[i] = nil
-	}
-	for i := range s.atoms.bools.watches {
-		s.atoms.bools.watches[i] = nil
 	}
 	variables := &s.clauses.vars
 	oldInteger := append([]bool(nil), variables.isInt...)
@@ -336,9 +335,10 @@ func (s *Solver) ReorderVariables(permutation []uint32) (resultErr error) {
 	if err = s.assignment.Swap(nextAssignment); err != nil {
 		return err
 	}
+	// reattach_arith_clauses(m_clauses); reattach_arith_clauses(m_learned).
 	for _, clauses := range [][]*Clause{s.clauses.originals, s.clauses.learned} {
 		for _, clause := range clauses {
-			if err = s.clauses.attach(clause); err != nil {
+			if err = s.clauses.reattachArith(clause); err != nil {
 				return err
 			}
 		}

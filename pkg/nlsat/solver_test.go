@@ -520,6 +520,38 @@ func TestSolverSeedReachesIntervalSetManager(t *testing.T) {
 	}
 }
 
+// AUDIT.md nlsat_03-F7: source reorder rebuilds only the arithmetic
+// watches; Boolean watch lists keep their creation order.
+func TestSolverReorderKeepsBooleanWatchOrder(t *testing.T) {
+	s := solverFixtureConfig(t, SolverConfig{MaxConflicts: ^uint32(0)})
+	for i := 0; i < 2; i++ {
+		_, err := s.MkVar(false)
+		assignmentMust(t, err)
+	}
+	b1, err := s.MkBoolVar()
+	assignmentMust(t, err)
+	b2, err := s.MkBoolVar()
+	assignmentMust(t, err)
+	assignmentMust(t, s.AddClause([]sat.Literal{sat.MakeLiteral(b1, false), sat.MakeLiteral(b2, false)}, Assumption{}))
+	_, err = s.clauses.mkClause([]sat.Literal{sat.MakeLiteral(b1, true), sat.MakeLiteral(b2, false)}, true, nil)
+	assignmentMust(t, err)
+	assignmentMust(t, s.AddClause([]sat.Literal{sat.MakeLiteral(b1, false), sat.MakeLiteral(b2, true)}, Assumption{}))
+	before := append([]*Clause(nil), s.atoms.bools.watches[b2]...)
+	if len(before) != 3 {
+		t.Fatal("fixture watches", len(before))
+	}
+	assignmentMust(t, s.ReorderVariables([]uint32{1, 0}))
+	after := s.atoms.bools.watches[b2]
+	if len(after) != len(before) {
+		t.Fatal("Boolean watches after reorder", len(after), len(before))
+	}
+	for i := range before {
+		if after[i] != before[i] {
+			t.Fatal("Boolean watch order changed at", i)
+		}
+	}
+}
+
 func TestSolverShuffledVariablePermutation(t *testing.T) {
 	s := solverFixtureConfig(t, SolverConfig{MaxConflicts: ^uint32(0), Seed: 7})
 	for i := 0; i < 4; i++ {
