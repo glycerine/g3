@@ -179,6 +179,9 @@ type Context struct {
 	// optimizationRunUsedSAT records that update_solver made
 	// optimizationSAT the last run's m_solver.
 	optimizationRunUsedSAT bool
+	// optimizationFrontend marks the context of the OPB/WCNF front ends,
+	// which call opt::context::optimize() directly, objectives or not.
+	optimizationFrontend bool
 	// optimizedObjectives is opt::context::m_objectives.size(): the
 	// objectives import_scoped_state copied for the last optimize (0 once
 	// m_opt is dropped). optsmtReset records that pop ran m_optsmt.reset()
@@ -1453,7 +1456,8 @@ func (c *Context) CheckSat(assumptions []ast.ASTHandle) (status lbool.LBool, err
 	if err := c.clearCheckSatResult(); err != nil {
 		return lbool.Undef, err
 	}
-	if len(c.objectives) != 0 {
+	// opt_frontend calls opt::context::optimize() whatever the objectives.
+	if len(c.objectives) != 0 || c.optimizationFrontend {
 		status, err = c.checkOptimize(assumptions, optimizationContinuation)
 		if err != nil {
 			return lbool.Undef, err

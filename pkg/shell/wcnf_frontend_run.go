@@ -61,6 +61,7 @@ func (f *WCNFFrontend) run(openInput func() (io.Reader, io.Closer, error)) error
 		if timedOut() {
 			return lbool.Undef, nil
 		}
+		f.context.SetOptimizationFrontend()
 		status, err := f.context.CheckSat(nil)
 		if err != nil {
 			return status, err

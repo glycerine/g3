@@ -292,6 +292,17 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 			c.optimizationPreprocessor = c.optimizationModelConverter
 		}
 	}
+	if inconsistent {
+		// simplify_fmls leaves the inconsistent goal's single formula
+		// false, and from_fmls makes it all of m_hard_constraints: the
+		// solver checks false, not the original assertions.
+		falseFormula, e := c.manager.MkFalse()
+		if e != nil {
+			return nil, e
+		}
+		c.optimizationHardOverride = []ast.ASTHandle{falseFormula}
+		c.optimizationHardOverrideActive = true
+	}
 	// optimize(): a single objective runs execute(m_objectives[0], true,
 	// false) whatever the priority; only several objectives reach
 	// execute_pareto or execute_box. (The m_pareto1 toggle set there is

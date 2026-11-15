@@ -10,7 +10,7 @@ import (
 )
 
 func (c *Context) optimizationSATCoreEligible(assumptions []ast.ASTHandle) (eligible bool, resultErr error) {
-	if c.manager == nil || len(c.objectives) == 0 {
+	if c.manager == nil || len(c.objectives) == 0 && !c.optimizationFrontend {
 		return false, nil
 	}
 	proofs, err := c.manager.ProofsEnabled()
@@ -136,3 +136,8 @@ func (c *Context) optimizationSATFormula(root ast.ASTHandle, booleanFamily, pseu
 	}
 	return true, nil
 }
+
+// SetOptimizationFrontend marks the context of opt_frontend (OPB and WCNF
+// input): check-sat runs opt::context::optimize() even with no objectives,
+// so update_solver may install the incremental SAT solver.
+func (c *Context) SetOptimizationFrontend() { c.optimizationFrontend = true }

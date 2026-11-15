@@ -1087,7 +1087,10 @@ func (s *ArithmeticSolver) CheckHard() (lbool.LBool, string, error) {
 }
 
 func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
-	if s == nil || s.backend == nil || len(s.objectives) == 0 {
+	// optimize() with no objectives (opt_frontend on an OPB or WCNF input
+	// without any) is a no op after the initial check: the loop below does
+	// nothing and the status stays l_true.
+	if s == nil || s.backend == nil {
 		return nil, ast.ErrASTHandle
 	}
 	result = &ArithmeticResult{Status: lbool.Undef, Values: make([]ObjectiveValue, len(s.objectives))}
