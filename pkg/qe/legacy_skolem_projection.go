@@ -44,6 +44,10 @@ func (p *LegacyProjection) ProjectSkolem(md *model.ModelCore, variables []ast.AS
 	if err = lite.Close(); err != nil {
 		return nil, err
 	}
+	// rw(fml);
+	if err = p.rewriteProjectionCurrent(current); err != nil {
+		return nil, err
+	}
 	booleanSort, err := p.manager.MkBoolSort()
 	if err != nil {
 		return nil, err
@@ -74,14 +78,26 @@ func (p *LegacyProjection) ProjectSkolem(md *model.ModelCore, variables []ast.AS
 			return nil, x
 		}
 		current = next
+		// rw(fml);
+		if x = p.rewriteProjectionCurrent(current); x != nil {
+			return nil, x
+		}
 	}
 	if len(arithmetic) != 0 {
 		body, x := p.manager.RefGet(current)
 		if x != nil {
 			return nil, x
 		}
-		projected, x := p.arithmetic.projectFormulaMapped(md, arithmetic, body, mapping)
+		// { scoped_no_proof _sp(m); qe::arith_project(*M, arith_vars, fml, map); }
+		scope, x := ast.NewScopedNoProof(p.manager)
 		if x != nil {
+			return nil, x
+		}
+		projected, x := p.arithmetic.projectFormulaMapped(md, arithmetic, body, mapping)
+		if x = errors.Join(x, scope.Close()); x != nil {
+			if projected != nil {
+				x = errors.Join(x, projected.Close())
+			}
 			return nil, x
 		}
 		nextBody, x := p.manager.RefGet(projected.formula)
