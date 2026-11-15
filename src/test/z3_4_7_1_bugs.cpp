@@ -127,6 +127,10 @@ Abstract:
                                   tail remove_duplicate_tails merged away
                                   against a stale unifier (pkg/AUDIT.md
                                   muz_pdr_02-F2).
+    z3_4_7_1_rewriter_stale_stacks an evaluation that exceeds max_steps leaves
+                                  the rewriter's frame and result stacks
+                                  behind and the next evaluation returns a
+                                  stale result (pkg/AUDIT.md smtcore_14-F3).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -170,6 +174,7 @@ Abstract:
 #include "api/z3_replayer.h"
 #include "model/model_implicant.h"
 #include "model/model.h"
+#include "model/model_evaluator.h"
 void register_z3_replayer_cmds(z3_replayer & in);
 #include <iostream>
 #ifndef _WINDOWS
@@ -1733,4 +1738,48 @@ void tst_z3_4_7_1_pdr_proof_merged_tails() {
         "    (asserted (=> G query!0))\n"
         "    (hyper-res a!3 a!6 (asserted (P 0)) (asserted (Q 0)) G)\n"
         "    query!0)))\n");
+}
+
+// A model evaluation that exceeds max_steps throws rewriter_exception and
+// leaves the frame and result stacks of the interrupted traversal behind.
+// The next evaluation's main_loop resumes them and mixes the stale results
+// with the new ones: evaluating (> x 0) applies + to a Bool and throws
+// "Sort mismatch". proto_model::eval catches the exception and goes on
+// evaluating, so MBQI later reports such a sort mismatch or segfaults
+// (pkg/AUDIT.md smtcore_14-F3). Upstream rewriter_tpl::operator() clears
+// the stale stacks first (Z3Prover/z3 18bb90f93, b013df9a9).
+void tst_z3_4_7_1_rewriter_stale_stacks() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util a(m);
+    app_ref x(m.mk_const(symbol("x"), a.mk_int()), m);
+    model_ref md = alloc(model, m);
+    md->register_decl(x->get_decl(), a.mk_numeral(rational(1), true));
+    expr_ref deep(x, m);
+    for (unsigned i = 0; i < 20; ++i)
+        deep = a.mk_add(x, a.mk_mul(x, deep));
+    params_ref p;
+    p.set_uint("max_steps", 40);
+    model_evaluator ev(*md, p);
+    bool thrown = false;
+    try {
+        expr_ref r(m);
+        ev(deep, r);
+    }
+    catch (model_evaluator_exception &) {
+        thrown = true;
+    }
+    std::cout << "rewriter_stale_stacks: first evaluation threw: " << thrown << "\n";
+    ENSURE(thrown);
+    expr_ref gt(a.mk_gt(x, a.mk_int(0)), m);
+    expr_ref r(m);
+    try {
+        ev(gt, r);
+    }
+    catch (z3_exception & ex) {
+        std::cout << "rewriter_stale_stacks: second evaluation threw: " << ex.msg() << "\n";
+        ENSURE(false);
+    }
+    std::cout << "rewriter_stale_stacks: " << mk_pp(gt, m) << " -> " << mk_pp(r, m) << "\n";
+    ENSURE(m.is_true(r));
 }

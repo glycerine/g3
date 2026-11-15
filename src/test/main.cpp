@@ -257,6 +257,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_pdr_proof_duplicate_leaf);
     TST(z3_4_7_1_pdr_boogie_without_proof_trace);
     TST(z3_4_7_1_pdr_proof_merged_tails);
+    TST(z3_4_7_1_rewriter_stale_stacks);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);
