@@ -229,8 +229,12 @@ func (p *PredicateTransformer) InitReachFacts() (resultErr error) {
 	if err := p.open(); err != nil {
 		return err
 	}
-	for _, rule := range p.rules {
-		if !rule.initial || rule.tag.IsNull() {
+	rules, err := p.ruleTableRules()
+	if err != nil {
+		return err
+	}
+	for _, rule := range rules {
+		if !rule.initial {
 			continue
 		}
 		fact, err := NewReachFact(p.manager, rule.rule, rule.transition, rule.auxiliaries, true)

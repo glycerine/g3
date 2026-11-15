@@ -964,3 +964,29 @@ func (p *PredicateTransformer) tagTableRules() ([]*spacerNormalizedRule, error) 
 	}
 	return result, nil
 }
+
+// ruleTableRules returns the tagged rules in m_rule2tag order: an
+// obj_map<datalog::rule const, expr*> hashed by rule::hash(), filled by
+// init_rules in transition order.
+func (p *PredicateTransformer) ruleTableRules() ([]*spacerNormalizedRule, error) {
+	rule2tag := ast.NewObjMap(p.manager)
+	byTag := make(map[ast.ASTHandle]*spacerNormalizedRule, len(p.rules))
+	for _, rule := range p.rules {
+		if rule.tag.IsNull() {
+			continue
+		}
+		hash, err := rule.rule.Hash()
+		if err != nil {
+			return nil, err
+		}
+		// The entry is keyed by the rule; its tag stands for it here.
+		rule2tag.InsertPairKeys(rule.tag, ast.ASTHandle{}, hash)
+		byTag[rule.tag] = rule
+	}
+	entries := rule2tag.Entries()
+	result := make([]*spacerNormalizedRule, 0, len(entries))
+	for _, entry := range entries {
+		result = append(result, byTag[entry.Key])
+	}
+	return result, nil
+}

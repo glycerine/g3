@@ -291,3 +291,100 @@ func TestSpacerPredicateRulesBlastTermITEIntroducesNoFreshConstants(t *testing.T
 	}
 	spacerMust(t, features.Close())
 }
+
+// AUDIT.md muz_spacer_02-F4: init_reach_facts walks m_rule2tag, an
+// obj_map<rule const, expr*> hashed by rule::hash() (linear probing over a
+// power-of-two table starting at capacity 8), not the rule order.
+func TestSpacerInitReachFactsFollowsRuleTableOrder(t *testing.T) {
+	_, manager, owner := lemmaOwnerFixture(t)
+	one, err := manager.ArithmeticIntegerNumeralText("1")
+	spacerMust(t, err)
+	integer, err := manager.GetSort(one)
+	spacerMust(t, err)
+	boolean, err := manager.MkBoolSort()
+	spacerMust(t, err)
+	name, err := manager.Symbols.Intern("spacer-rule2tag-p")
+	spacerMust(t, err)
+	declaration, err := manager.MkFuncDecl(name, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+	spacerMust(t, err)
+	transformer, err := spacer.NewRulePredicateTransformer(owner, declaration, spacer.PropSolverConfig{})
+	spacerMust(t, err)
+	ruleManager, err := base.NewRuleManager(manager)
+	spacerMust(t, err)
+	spacerMust(t, ruleManager.RegisterPredicate(declaration))
+	var rules []*base.Rule
+	for _, text := range []string{"5", "0", "3", "7", "11"} {
+		value, err := manager.ArithmeticIntegerNumeralText(text)
+		spacerMust(t, err)
+		head, err := manager.MkApp(declaration, []ast.ASTHandle{value})
+		spacerMust(t, err)
+		rule, err := ruleManager.NewRule(head, nil, nil, "fact-"+text)
+		spacerMust(t, err)
+		rules = append(rules, rule)
+	}
+	variable, err := manager.MkVar(0, integer)
+	spacerMust(t, err)
+	recursiveHead, err := manager.MkApp(declaration, []ast.ASTHandle{variable})
+	spacerMust(t, err)
+	recursive, err := ruleManager.NewRule(recursiveHead, []ast.ASTHandle{recursiveHead}, nil, "recursive")
+	spacerMust(t, err)
+	all := append(append([]*base.Rule(nil), rules...), recursive)
+	spacerMust(t, transformer.InitializeRules(map[ast.ASTHandle]*spacer.PredicateTransformer{declaration: transformer}, all))
+	spacerMust(t, transformer.InitReachFacts())
+
+	// Independent model of core_hashtable insertion and iteration.
+	type slot struct {
+		used bool
+		rule *base.Rule
+		hash uint32
+	}
+	table := make([]slot, 8)
+	size := 0
+	insert := func(entries []slot, entry slot) {
+		mask := uint32(len(entries) - 1)
+		for i := uint32(0); i < uint32(len(entries)); i++ {
+			index := (entry.hash + i) & mask
+			if !entries[index].used {
+				entries[index] = entry
+				return
+			}
+		}
+		t.Fatal("full table")
+	}
+	for _, rule := range all {
+		hash, err := rule.Hash()
+		spacerMust(t, err)
+		if size<<2 > len(table)*3 {
+			grown := make([]slot, len(table)*2)
+			for _, entry := range table {
+				if entry.used {
+					insert(grown, entry)
+				}
+			}
+			table = grown
+		}
+		insert(table, slot{used: true, rule: rule, hash: hash})
+		size++
+	}
+	var want []uint32
+	for _, entry := range table {
+		if entry.used && entry.rule != recursive {
+			want = append(want, entry.hash)
+		}
+	}
+	facts, err := transformer.ReachFacts()
+	spacerMust(t, err)
+	if len(facts) != len(want) {
+		t.Fatal("initial reach facts", len(facts), len(want))
+	}
+	for i, fact := range facts {
+		rule, err := fact.Rule()
+		spacerMust(t, err)
+		hash, err := rule.Hash()
+		spacerMust(t, err)
+		if hash != want[i] {
+			t.Fatal("initial reach facts not in m_rule2tag order at", i)
+		}
+		spacerMust(t, fact.Close())
+	}
+}
