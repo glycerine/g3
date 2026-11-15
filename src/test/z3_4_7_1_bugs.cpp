@@ -185,6 +185,11 @@ Abstract:
                                   so Z3_get_implied_equalities' produce_models
                                   turns a solver-level smt.mbqi=false back on
                                   (pkg/AUDIT.md smtcore_03-F10 follow-up).
+    z3_4_7_1_get_file_names_posix datalog::get_file_names is
+                                  NOT_IMPLEMENTED_YET outside _WINDOWS, so
+                                  z3 -dl DIRECTORY (the WPA benchmark
+                                  loader) prints NOT IMPLEMENTED YET! and
+                                  hangs (pkg/AUDIT.md cmd_context_02-F11).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -237,11 +242,14 @@ Abstract:
 #include "muz/rel/rel_context.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "muz/base/dl_util.h"
 void register_z3_replayer_cmds(z3_replayer & in);
 #include <iostream>
 #ifndef _WINDOWS
 #include <csignal>
 #include <unistd.h>
+#include <cstdlib>
+#include <sys/stat.h>
 #endif
 
 namespace {
@@ -2337,4 +2345,78 @@ void tst_z3_4_7_1_to_fp_one_real() {
         "(RoundingMode Real Int), (RoundingMode Int), and (RoundingMode Real).\")\n";
     std::cout << "to_fp_one_real: got\n" << out.str();
     ENSURE(out.str() == expected);
+}
+
+#ifndef _WINDOWS
+namespace {
+    void get_file_names_posix_timeout(int) {
+        static char const msg[] =
+            "get_file_names_posix: get_file_names did not return within 20 seconds\n";
+        ssize_t n = write(2, msg, sizeof(msg) - 1);
+        (void)n;
+        _exit(1);
+    }
+
+    void get_file_names_touch(std::string const& path) {
+        std::ofstream out(path.c_str());
+        ENSURE(out.good());
+    }
+}
+#endif
+
+// datalog::get_file_names lists the files with a given extension, as the WPA
+// directory loader (wpa_parser_impl::parse_directory_core) needs. In 4.7.1
+// the POSIX branch is NOT_IMPLEMENTED_YET(): z3 prints NOT IMPLEMENTED YET!
+// and reaches UNREACHABLE(), which hangs a release build. The expected list
+// follows the Windows code: the files of a directory whose names end with
+// ".map", then each subdirectory not starting with '.', recursively; names
+// are visited in sorted order so the result does not depend on readdir.
+void tst_z3_4_7_1_get_file_names_posix() {
+#ifndef _WINDOWS
+    signal(SIGALRM, get_file_names_posix_timeout);
+    alarm(20);
+    char const* tmp = getenv("TMPDIR");
+    std::string tmpl = std::string(tmp && *tmp ? tmp : "/tmp") + "/z3_get_file_names_XXXXXX";
+    std::vector<char> buf(tmpl.begin(), tmpl.end());
+    buf.push_back(0);
+    ENSURE(mkdtemp(buf.data()) != nullptr);
+    std::string root(buf.data());
+    char const* dirs[] = { "/sub", "/sub/deeper", "/a0", "/.hid", "/d.map" };
+    for (char const* d : dirs) {
+        ENSURE(mkdir((root + d).c_str(), 0700) == 0);
+    }
+    char const* files[] = { "/b.map", "/a.map", "/c.rel", "/map", "/xmap", "/e.mapx",
+                            "/.h.map", "/sub/z.map", "/sub/deeper/y.map", "/a0/w.map",
+                            "/.hid/q.map" };
+    for (char const* f : files) {
+        get_file_names_touch(root + f);
+    }
+    datalog::string_vector res;
+    datalog::get_file_names(root, "map", true, res);
+    std::cout.flush(); // the watchdog leaves with _exit
+    char const* expected[] = { "/.h.map", "/a.map", "/b.map", "/a0/w.map", "/sub/z.map",
+                               "/sub/deeper/y.map" };
+    unsigned const n = sizeof(expected) / sizeof(expected[0]);
+    bool ok = res.size() == n;
+    for (unsigned i = 0; ok && i < n; ++i) {
+        ok = res[i] == root + expected[i];
+    }
+    datalog::string_vector flat;
+    datalog::get_file_names(root + "/", "rel", false, flat);
+    ok = ok && flat.size() == 1 && flat[0] == root + "/c.rel";
+    alarm(0);
+    if (!ok) {
+        std::cerr << "get_file_names_posix: FAIL\n";
+        for (std::string const& r : res) {
+            std::cerr << "  " << r << "\n";
+        }
+        for (std::string const& r : flat) {
+            std::cerr << "  rel: " << r << "\n";
+        }
+        ENSURE(false);
+    }
+    std::string cleanup = "rm -rf '" + root + "'";
+    ENSURE(system(cleanup.c_str()) == 0);
+    std::cout << "get_file_names_posix: PASS\n";
+#endif
 }
