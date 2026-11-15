@@ -422,3 +422,12 @@ z3_bug_qe_lite_fm_stale_bvar
 # (pkg/opt/maxres_upper_block.go assertUpperBound; AUDIT.md opt_01-F4).
 # Reproduction: test_vectors/z3_bug_maxres_upper_bound_block.smt2.
 z3_bug_maxres_upper_bound_block
+#
+# OPB max: objectives: opb::parse tries parse_token("min:") before
+# parse_token("max:"), and parse_token consumes the matching prefix "m", so
+# z3 4.7.1 reads "max:" as "ax:" and exits with (error line 1 "unexpected
+# char: a" expected "x") (z3 bug: src/opt/opt_parse.cpp:74-82 parse_token,
+# :283-301 opb::parse; still present upstream). g3 parses max: objectives
+# (pkg/opt/opb_parse.go ParseOPB; AUDIT.md opt_02-F4). Not an SMT-LIB
+# vector: the case opb-max-objective in
+# pkg/cmd/g3/optimization_frontend_test.go locks g3's answer.

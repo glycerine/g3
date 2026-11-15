@@ -34,6 +34,9 @@ func ParseOPB(input io.Reader) (OPBDocument, error) {
 			result.Objectives = append(result.Objectives, objective)
 			continue
 		}
+		// z3 4.7.1 bug kept out of g3: its parse_token("min:") consumes the
+		// "m" of "max:", so every max: objective is a parse error there
+		// (opt_parse.cpp opb::parse; AUDIT.md opt_02-F4).
 		if yes, _ := s.consume("max:"); yes {
 			objective, e := parseOPBObjective(s, false)
 			if e != nil {

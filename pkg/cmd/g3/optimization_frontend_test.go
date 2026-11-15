@@ -20,6 +20,10 @@ func TestOptimizationFrontendArguments(t *testing.T) {
 		{"opb-lia2card-false", "-bpo", "min: +1 x1 ;\n+1 x1 +1 x2 >= 3 ;\n", "unsat\n  [(* (- 1) oo):oo]\n"},
 		// AUDIT.md FUZZ_J-F4: a one-term constraint stays (>= (ite x6 5 0) 1).
 		{"opb-single-term-constraint", "-bpo", "min: +1 x6 ;\n-1 x2 +3 x7 = 0 ;\n+3 x6 +4 x2 >= 5 ;\n+5 x6 >= 1 ;\n", "unsat\n  [0:1]\n"},
+		// AUDIT.md opt_02-F4: z3 4.7.1 rejects every max: objective
+		// (parse_token("min:") eats the "m"); g3 parses it, with the C++
+		// mk_sub + minimize semantics of parse_objective(false).
+		{"opb-max-objective", "-bpo", "* test\nmax: +2 x1 +3 x2 ;\n+1 x1 +1 x2 <= 1 ;\n", "sat\n   (- 3)\n"},
 		{"wcnf", "-wcnf", "p wcnf 1 3 10\n10 1 0\n2 -1 0\n3 1 0\n", "sat\n   2\n"},
 		// AUDIT.md FUZZ_J-F2: a pivot inside a core batch keeps the weights.
 		{"wcnf-maxres-batch-pivot", "-wcnf", "p wcnf 4 6 50\n6 2 0\n5 -1 0\n50 3 0\n50 -4 0\n5 4 1 -3 0\n4 -2 -3 0\n", "sat\n   9\n"},
