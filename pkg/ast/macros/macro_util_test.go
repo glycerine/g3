@@ -512,6 +512,25 @@ func TestMacroUtilArithmeticCandidatesAndPseudoPredicates(t *testing.T) {
 	if !yes || gotHead != bvHead || gotValue != bvValue || gotDefinition != bvVar {
 		t.Fatal("pseudo predicate", yes, gotHead, gotValue, gotDefinition)
 	}
+
+	// AUDIT.md ast_sub_01-F4: is_pseudo_head rejects every uninterpreted
+	// sort, including a declare-sort sort.
+	userSort, err := m.MkUninterpretedSort(mustSymbol(t, m, "pseudo-S"), nil)
+	must(t, err)
+	userHeadDecl := declaration(t, m, "pseudo-g", []ast.ASTHandle{b}, userSort)
+	userHead, err := m.MkApp(userHeadDecl, []ast.ASTHandle{bvVar})
+	must(t, err)
+	userValue, err := m.MkConst(mustSymbol(t, m, "pseudo-c"), userSort)
+	must(t, err)
+	userAtom, err := m.MkEq(userHead, userValue)
+	must(t, err)
+	userBody, err := m.MkIff(userAtom, bvVar)
+	must(t, err)
+	userPseudo, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{b}, Names: []usymbol.Symbol{mustSymbol(t, m, "pseudo-y")}, Body: userBody})
+	must(t, err)
+	if _, _, _, yes, err = u.IsPseudoPredicateMacro(userPseudo); err != nil || yes {
+		t.Fatal("pseudo predicate over a declare-sort sort", yes, err)
+	}
 }
 
 func TestMacroManagerExpandProofChain(t *testing.T) {

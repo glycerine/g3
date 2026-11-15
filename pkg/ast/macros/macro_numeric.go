@@ -343,8 +343,9 @@ func (u *Util) IsPseudoHead(term ast.ASTHandle, declarations uint32) (head, grou
 	if err != nil {
 		return head, ground, false, err
 	}
-	sortFamily, err := u.manager.GetFamilyID(sort)
-	if err != nil || sortFamily == ast.NullFamilyID {
+	// m_manager.is_uninterp(s): the null family or a declare-sort sort.
+	uninterpreted, err := u.manager.IsUninterpretedSort(sort)
+	if err != nil || uninterpreted {
 		return head, ground, false, err
 	}
 	size, err := u.manager.GetSortSize(sort)
