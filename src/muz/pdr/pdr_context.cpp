@@ -1397,14 +1397,21 @@ namespace pdr {
                 vector<expr_ref_vector> substs;
                 svector<std::pair<unsigned,unsigned> > positions;
                 substs.push_back(binding); // TODO base substitution.
+                ptr_vector<proof> premises;
+                premises.push_back(pfs[0]);
                 for (unsigned i = 1; i < rls.size(); ++i) {
                     datalog::rule& src = *rls[i];
-                    bool unified = unif.unify_rules(*reduced_rule, 0, src);
+                    bool unified = reduced_rule->get_uninterpreted_tail_size() > 0 &&
+                        unif.unify_rules(*reduced_rule, 0, src);
                     if (!unified) {
                         IF_VERBOSE(0,
                                    verbose_stream() << "Could not unify rules: ";
                                    reduced_rule->display(dctx, verbose_stream());
                                    src.display(dctx, verbose_stream()););
+                        // remove_duplicate_tails merged this child's tail
+                        // with an identical, already resolved one: leave
+                        // its premise out.
+                        continue;
                     }
                     expr_ref_vector sub1 = unif.get_rule_subst(*reduced_rule, true);
                     TRACE("pdr",
@@ -1424,7 +1431,8 @@ namespace pdr {
                         }
                     }
 
-                    positions.push_back(std::make_pair(i,0));
+                    premises.push_back(pfs[i]);
+                    positions.push_back(std::make_pair(premises.size() - 1, 0));
                     substs.push_back(unif.get_rule_subst(src, false));
                     VERIFY(unif.apply(*reduced_rule.get(), 0, src, r3));
                     reduced_rule = r3;
@@ -1432,7 +1440,7 @@ namespace pdr {
 
                 expr_ref fml_concl(m);
                 rm.to_formula(*reduced_rule.get(), fml_concl);
-                p1 = m.mk_hyper_resolve(pfs.size(), pfs.c_ptr(), fml_concl, positions, substs);
+                p1 = m.mk_hyper_resolve(premises.size(), premises.c_ptr(), fml_concl, positions, substs);
 
             }
             cache.insert(n->pt().head(), n->state(), p1);
