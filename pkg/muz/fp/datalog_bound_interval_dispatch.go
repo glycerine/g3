@@ -63,7 +63,8 @@ func (e *PropositionalEngine) ensureBoundIntervalDatalog() (bool, error) {
 	if _, enabled, err := e.datalogDefaultTableCheck(); err != nil || enabled {
 		return true, errors.Join(err, ErrBoundIntervalDatalogFragment)
 	}
-	if e.params != nil && e.globals != nil {
+	// rel_context::query(expr*) runs mk_magic_sets; rel_query does not.
+	if e.expressionClone && e.params != nil && e.globals != nil {
 		view, err := e.fixedpointParamView()
 		if err != nil {
 			return true, err

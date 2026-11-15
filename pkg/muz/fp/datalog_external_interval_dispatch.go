@@ -119,7 +119,8 @@ func (e *PropositionalEngine) ensureExternalIntervalDatalog() (_ bool, resultErr
 	if _, enabled, cause := e.datalogDefaultTableCheck(); cause != nil || enabled {
 		return true, errors.Join(cause, fmt.Errorf("%w: default table checking is active", ErrExternalIntervalDatalogFragment))
 	}
-	if e.params != nil && e.globals != nil {
+	// rel_context::query(expr*) runs mk_magic_sets; rel_query does not.
+	if e.expressionClone && e.params != nil && e.globals != nil {
 		view, cause := e.fixedpointParamView()
 		if cause != nil {
 			return true, cause

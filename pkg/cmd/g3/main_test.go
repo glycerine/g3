@@ -338,6 +338,18 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_fp_02-F4: Karr favourite with similarity threshold 1.
+	"datalog_karr_similarity_threshold_one.smt2": "unknown\napproximated relations\nunsat\n",
+	// AUDIT.md muz_fp_02-F4: rel_query does not run mk_explanations (bound favourite).
+	"datalog_bound_explanations_rel_query.smt2": "unknown\napproximated relations\nunsat\n",
+	// AUDIT.md muz_fp_02-F4: rel_query does not run mk_explanations (Karr favourite).
+	"datalog_karr_explanations_rel_query.smt2": "unknown\napproximated relations\nunsat\n",
+	// AUDIT.md muz_fp_02-F4: rel_query does not run mk_explanations (interval favourite).
+	"datalog_interval_explanations_rel_query.smt2": "unknown\napproximated relations\nunsat\n",
+	// AUDIT.md muz_fp_02-F4: rel_query does not run mk_magic_sets (bound favourite).
+	"datalog_bound_magic_sets_rel_query.smt2": "unknown\napproximated relations\nunsat\n",
+	// AUDIT.md muz_fp_02-F4: rel_query does not run mk_magic_sets (interval favourite).
+	"datalog_interval_magic_sets_rel_query.smt2": "unknown\napproximated relations\nunsat\n",
 	// AUDIT.md muz_transforms_01-F3: coi model converter walks func_decl_set table order.
 	"horn_coi_model_order.smt2": "sat\n(model \n  (define-fun inv ((x!0 Int)) Bool\n    (<= x!0 10))\n  (define-fun a4 ((x!0 Int)) Bool\n    true)\n  (define-fun a3 ((x!0 Int)) Bool\n    true)\n  (define-fun a2 ((x!0 Int)) Bool\n    true)\n  (define-fun a1 ((x!0 Int)) Bool\n    true)\n  (define-fun a5 ((x!0 Int)) Bool\n    true)\n)\n",
 	// AUDIT.md muz_transforms_02-F3: mk_slice declares !slice!N predicates in m_sliceable obj_map order.
