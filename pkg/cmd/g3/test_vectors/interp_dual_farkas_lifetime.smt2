@@ -1,0 +1,7 @@
+(declare-const c Int)
+(declare-const d Int)
+(declare-const a0 Int)
+(declare-const b0 Int)
+(declare-const a1 Int)
+(declare-fun f (Int) Int)
+(compute-interpolant (interp (and (= b0 c) (= (+ d b0) (* (- 3) d)) (= (f d) c))) (and (not (= a1 d)) (<= (f d) d) (>= (f d) d) (<= a1 c) (>= a1 c)))

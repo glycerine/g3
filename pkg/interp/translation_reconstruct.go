@@ -169,7 +169,26 @@ func (t *FullTranslation) painfullyNormalizeInequality(inequality ast.ASTHandle,
 	return t.base.manager.Make(op, left, right)
 }
 
-func (t *FullTranslation) reconstructFarkasFromProof(sourcePremises, translatedPremises []ast.ASTHandle, conclusion ast.ASTHandle, painful bool, direct *DirectProofInterpolator) (ast.ASTHandle, bool, error) {
+// holdOwned keeps a reference to h until the translation closes and returns
+// the reference slot, so callers can reassign it like an ast_r.
+func (t *FullTranslation) holdOwned(h ast.ASTHandle) (ast.ASTRef, error) {
+	ref, err := t.base.manager.ast.NewRef(h)
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	t.owned = append(t.owned, ref)
+	return ref, nil
+}
+
+func (t *FullTranslation) reconstructFarkasFromProof(sourcePremises, translatedPremises []ast.ASTHandle, conclusion ast.ASTHandle, painful bool, direct *DirectProofInterpolator) (result ast.ASTHandle, found bool, resultErr error) {
+	// The C++ pcons/npcons vectors hold ast_r references, so the temporary
+	// is_sat solver cannot free the normalized inequalities or mk_not(con).
+	// Other translation state keeps these handles without references, so
+	// they are held for the translation's lifetime.
+	pin := func(h ast.ASTHandle) error {
+		_, err := t.holdOwned(h)
+		return err
+	}
 	replacements := make(map[ast.ASTHandle]ast.ASTHandle)
 	normalizedToProof := make(map[ast.ASTHandle]ast.ASTHandle, len(sourcePremises))
 	normalizedToConclusion := make(map[ast.ASTHandle]ast.ASTHandle, len(sourcePremises))
@@ -188,6 +207,9 @@ func (t *FullTranslation) reconstructFarkasFromProof(sourcePremises, translatedP
 		if err != nil {
 			return ast.ASTHandle{}, false, err
 		}
+		if err = pin(value); err != nil {
+			return ast.ASTHandle{}, false, err
+		}
 		normalized = append(normalized, value)
 		normalizedToProof[value] = translatedPremises[i]
 		normalizedToConclusion[value] = premiseConclusion
@@ -203,6 +225,12 @@ func (t *FullTranslation) reconstructFarkasFromProof(sourcePremises, translatedP
 		normalizedNegation, err = t.reallyNormalizeInequality(negated)
 	}
 	if err != nil {
+		return ast.ASTHandle{}, false, err
+	}
+	if err = pin(negated); err != nil {
+		return ast.ASTHandle{}, false, err
+	}
+	if err = pin(normalizedNegation); err != nil {
 		return ast.ASTHandle{}, false, err
 	}
 	normalized = append(normalized, normalizedNegation)
@@ -291,7 +319,7 @@ func (t *FullTranslation) reconstructFarkasFromProof(sourcePremises, translatedP
 	if err != nil {
 		return ast.ASTHandle{}, false, err
 	}
-	result, err := direct.MakeFarkas(falsehood, proofs, conclusions, coefficients)
+	result, err = direct.MakeFarkas(falsehood, proofs, conclusions, coefficients)
 	return result, err == nil, err
 }
 
@@ -306,6 +334,12 @@ func rationalDenominatorLCM(values []*big.Rat) *big.Int {
 }
 
 func (t *FullTranslation) reconstructFarkasWithDual(sourcePremises, translatedPremises []ast.ASTHandle, conclusion ast.ASTHandle, direct *DirectProofInterpolator) (result ast.ASTHandle, resultErr error) {
+	// The C++ npcons, cvec, dual_map, rhs and cnstrs are ast_r values: they
+	// hold references, so the temporary is_sat solver cannot free them.
+	// Other translation state keeps some of these handles without
+	// references, so they are held for the translation's lifetime; the
+	// dual_map and rhs slots are reassigned like ast_r.
+	pin := t.holdOwned
 	replacements := make(map[ast.ASTHandle]ast.ASTHandle)
 	normalized := make([]ast.ASTHandle, 0, len(sourcePremises)+1)
 	for _, source := range sourcePremises {
@@ -345,6 +379,9 @@ func (t *FullTranslation) reconstructFarkasWithDual(sourcePremises, translatedPr
 				return ast.ASTHandle{}, e
 			}
 		}
+		if _, e := pin(value); e != nil {
+			return ast.ASTHandle{}, e
+		}
 		normalized = append(normalized, value)
 	}
 	negated, err := t.base.manager.MkNot(conclusion)
@@ -353,6 +390,9 @@ func (t *FullTranslation) reconstructFarkasWithDual(sourcePremises, translatedPr
 	}
 	normalizedNegation, err := t.painfullyNormalizeInequality(negated, replacements)
 	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if _, err = pin(normalizedNegation); err != nil {
 		return ast.ASTHandle{}, err
 	}
 	normalized = append(normalized, normalizedNegation)
@@ -364,13 +404,23 @@ func (t *FullTranslation) reconstructFarkasWithDual(sourcePremises, translatedPr
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	if _, err = pin(zero); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	coefficients := make([]ast.ASTHandle, 0, len(normalized))
-	dual := make(map[ast.ASTHandle]ast.ASTHandle)
+	dual := make(map[ast.ASTHandle]ast.ASTRef)
 	var variablesSeen []ast.ASTHandle
+	rhsRef, err := pin(zero)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
 	rhs := zero
 	for _, inequality := range normalized {
 		coefficient, e := t.base.manager.FreshConstant("@c", realSort)
 		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		if _, e = pin(coefficient); e != nil {
 			return ast.ASTHandle{}, e
 		}
 		coefficients = append(coefficients, coefficient)
@@ -384,10 +434,17 @@ func (t *FullTranslation) reconstructFarkasWithDual(sourcePremises, translatedPr
 			return ast.ASTHandle{}, e
 		}
 		for i, variable := range variables {
-			current, found := dual[variable]
+			slot, found := dual[variable]
 			if !found {
-				current = zero
+				if slot, e = pin(zero); e != nil {
+					return ast.ASTHandle{}, e
+				}
+				dual[variable] = slot
 				variablesSeen = append(variablesSeen, variable)
+			}
+			current, e := t.base.manager.ast.RefGet(slot)
+			if e != nil {
+				return ast.ASTHandle{}, e
 			}
 			factor, e := t.base.manager.MakeReal(values[i])
 			if e != nil {
@@ -401,7 +458,9 @@ func (t *FullTranslation) reconstructFarkasWithDual(sourcePremises, translatedPr
 			if e != nil {
 				return ast.ASTHandle{}, e
 			}
-			dual[variable] = current
+			if e = t.base.manager.ast.SetRef(slot, current); e != nil {
+				return ast.ASTHandle{}, e
+			}
 		}
 		right, e := t.base.manager.Arg(inequality, 1)
 		if e != nil {
@@ -415,42 +474,58 @@ func (t *FullTranslation) reconstructFarkasWithDual(sourcePremises, translatedPr
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
+		if e = t.base.manager.ast.SetRef(rhsRef, rhs); e != nil {
+			return ast.ASTHandle{}, e
+		}
 	}
+	// cnstrs: every element is held; pop_back releases the last one.
 	constraints := make([]ast.ASTHandle, 0, len(variablesSeen)+len(coefficients)+1)
+	var constraintRefs []ast.ASTRef
+	defer func() {
+		for i := len(constraintRefs) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, t.base.manager.ast.DelRef(&constraintRefs[i]))
+		}
+	}()
+	pushConstraint := func(h ast.ASTHandle, err error) error {
+		if err != nil {
+			return err
+		}
+		ref, err := t.base.manager.ast.NewRef(h)
+		if err != nil {
+			return err
+		}
+		constraintRefs = append(constraintRefs, ref)
+		constraints = append(constraints, h)
+		return nil
+	}
 	for _, variable := range variablesSeen {
-		equality, e := t.base.manager.Make(OperatorEqual, dual[variable], zero)
+		value, e := t.base.manager.ast.RefGet(dual[variable])
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		constraints = append(constraints, equality)
+		if e = pushConstraint(t.base.manager.Make(OperatorEqual, value, zero)); e != nil {
+			return ast.ASTHandle{}, e
+		}
 	}
-	bound, err := t.base.manager.Make(OperatorLE, rhs, zero)
-	if err != nil {
+	if err = pushConstraint(t.base.manager.Make(OperatorLE, rhs, zero)); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	constraints = append(constraints, bound)
 	for _, coefficient := range coefficients[:len(coefficients)-1] {
-		nonnegative, e := t.base.manager.Make(OperatorGE, coefficient, zero)
-		if e != nil {
+		if e := pushConstraint(t.base.manager.Make(OperatorGE, coefficient, zero)); e != nil {
 			return ast.ASTHandle{}, e
 		}
-		constraints = append(constraints, nonnegative)
 	}
 	one, err := t.base.manager.MakeReal(big.NewRat(1, 1))
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	last, err := t.base.manager.Make(OperatorEqual, coefficients[len(coefficients)-1], one)
-	if err != nil {
+	if err = pushConstraint(t.base.manager.Make(OperatorEqual, coefficients[len(coefficients)-1], one)); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	constraints = append(constraints, last)
 	for _, coefficient := range coefficients[:len(coefficients)-1] {
-		zeroConstraint, e := t.base.manager.Make(OperatorEqual, coefficient, zero)
-		if e != nil {
+		if e := pushConstraint(t.base.manager.Make(OperatorEqual, coefficient, zero)); e != nil {
 			return ast.ASTHandle{}, e
 		}
-		constraints = append(constraints, zeroConstraint)
 		check, e := t.base.IsSAT(constraints, nil)
 		if e != nil {
 			return ast.ASTHandle{}, e
@@ -461,6 +536,11 @@ func (t *FullTranslation) reconstructFarkasWithDual(sourcePremises, translatedPr
 		}
 		if unsatisfiable {
 			constraints = constraints[:len(constraints)-1]
+			lastRef := len(constraintRefs) - 1
+			if e = t.base.manager.ast.DelRef(&constraintRefs[lastRef]); e != nil {
+				return ast.ASTHandle{}, e
+			}
+			constraintRefs = constraintRefs[:lastRef]
 		}
 	}
 	model, err := t.base.IsSAT(constraints, coefficients)

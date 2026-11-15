@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md interp_01-F3: the dual-LP Farkas reconstruction holds its
+	// constraints like the C++ ast_r vectors across the is_sat solver.
+	"interp_dual_farkas_lifetime.smt2": "unsat\n(interpolants\n (let ((a!1 (>= (+ d (* (- 1) (f d))) 0)) (a!3 (<= (+ d (* (- 1) (f d))) 0)))\n(let ((a!2 (= a!1 (<= (+ c (* (- 1) d)) 0)))\n      (a!4 (= a!3 (>= (+ c (* (- 1) d)) 0))))\n  (and a!2 a!4)))\n (let ((a!1 (>= (+ d (* (- 1) (f d))) 0)) (a!3 (<= (+ d (* (- 1) (f d))) 0)))\n(let ((a!2 (= a!1 (<= (+ c (* (- 1) d)) 0)))\n      (a!4 (= a!3 (>= (+ c (* (- 1) d)) 0))))\n  (and a!2 a!4))))\n",
 	// AUDIT.md duality_01-F3 (with duality_03-F1): the native Duality solver
 	// does not set eq2ineq, so the learned invariant keeps its equalities.
 	"duality_no_eq2ineq_interpolant.smt2": "unsat\n(fixedpoint \n(define-fun err () Bool\n  false)\n(define-fun @Fail!0 () Bool\n  false)\n(define-fun q0 ((x!0 Int) (x!1 Int)) Bool\n  (or (and (= x!1 1) (= x!0 3)) (and (<= x!0 0) (= x!1 4))))\n)\n",
