@@ -1,0 +1,5 @@
+(declare-const a Bool)
+(declare-const b Bool)
+(assert (or a (not false) b))
+(assert (or (not a) b))
+(apply pb-preprocess)

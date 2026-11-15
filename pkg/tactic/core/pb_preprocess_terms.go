@@ -149,16 +149,18 @@ func (t *PBPreprocessTactic) parse(h ast.ASTHandle) (*pbPreprocessConstraint, er
 	return result, nil
 }
 
+// pureLiteral is the per-argument test of pure_args: strip one not, then
+// accept an uninterpreted constant, true or false (so (not false) is pure).
 func (t *PBPreprocessTactic) pureLiteral(h ast.ASTHandle) (bool, error) {
-	if t.manager.IsTrue(h) || t.manager.IsFalse(h) {
-		return true, nil
-	}
-	if yes, e := t.isConstant(h); e != nil || yes {
-		return yes, e
-	}
 	child, yes, e := t.negated(h)
-	if e != nil || !yes {
+	if e != nil {
 		return false, e
 	}
-	return t.isConstant(child)
+	if yes {
+		h = child
+	}
+	if c, e := t.isConstant(h); e != nil || c {
+		return c, e
+	}
+	return t.manager.IsTrue(h) || t.manager.IsFalse(h), nil
 }
