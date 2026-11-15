@@ -51,7 +51,7 @@ func (t *SMTDenseDiffTheory) Display(out io.Writer) error {
 			if err != nil {
 				return err
 			}
-			if err = smtWriteTheoryText(out, fmt.Sprintf("#%-5d -- %-10s : id%-5d --> #%d\n", sourceID, smtDenseInfText(&cell.distance), cell.edge, targetID)); err != nil {
+			if err = smtWriteTheoryText(out, fmt.Sprintf("#%-5d -- %-10s : id%-5d --> #%d\n", sourceID, smtDenseNumText(cell.distance), cell.edge, targetID)); err != nil {
 				return err
 			}
 		}

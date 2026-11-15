@@ -19,6 +19,7 @@ type smtDenseAtom struct {
 	variable       int32
 	source, target int
 	offset         smtInfRational
+	num            smtDenseNum // offset
 }
 type smtDenseScope struct {
 	atoms       int
@@ -35,7 +36,6 @@ type SMTDenseDiffTheory struct {
 	config      SMTArithState
 	atoms       []smtDenseAtom
 	byBool      map[int32]int
-	occurrences map[[2]int][]int
 	integer     []bool
 	scopes      []smtDenseScope
 	unsupported bool
@@ -53,7 +53,7 @@ func NewSMTDenseDiffTheory(family ast.FamilyID) (*SMTDenseDiffTheory, error) {
 	if err != nil {
 		return nil, err
 	}
-	t := &SMTDenseDiffTheory{SMTTheoryBase: base, matrix: newSMTDenseDiffMatrix(), adapter: adapter, byBool: make(map[int32]int), occurrences: make(map[[2]int][]int)}
+	t := &SMTDenseDiffTheory{SMTTheoryBase: base, matrix: newSMTDenseDiffMatrix(), adapter: adapter, byBool: make(map[int32]int)}
 	t.syntax.SMTTheoryBase, t.syntax.equalityAdapter = base, adapter
 	// theory_dense_diff_logic uses arith_eq_adapter::mk_axioms itself.
 	adapter.source = true
@@ -387,12 +387,13 @@ func (t *SMTDenseDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (
 	if err = t.state.SetVariableTheory(v, t.FamilyID()); err != nil {
 		return false, err
 	}
-	a := smtDenseAtom{v, int(s), int(u), weight}
+	a := smtDenseAtom{v, int(s), int(u), weight, smtDenseNumOf(&weight)}
 	index := len(t.atoms)
 	t.byBool[v] = index
 	t.atoms = append(t.atoms, a)
-	t.occurrences[[2]int{int(s), int(u)}] = append(t.occurrences[[2]int{int(s), int(u)}], index)
-	t.occurrences[[2]int{int(u), int(s)}] = append(t.occurrences[[2]int{int(u), int(s)}], index)
+	// m_matrix[source][target].m_occs.push_back(a), and the reverse cell.
+	t.matrix.occs[s][u] = append(t.matrix.occs[s][u], index)
+	t.matrix.occs[u][s] = append(t.matrix.occs[u][s], index)
 	t.traceDDL("ddl", "internalize_atom", 194, func() string { return "succeeded internalizing:\n" + t.ddlPP(expression) + "\n" })
 	return true, nil
 }
@@ -463,11 +464,16 @@ func (t *SMTDenseDiffTheory) addEdge(source, target int, offset *smtInfRational,
 }
 
 func (t *SMTDenseDiffTheory) propagateCell(source, target int) error {
-	distance, connected := t.matrix.distance(source, target)
-	if !connected {
+	if !t.matrix.valid(source) || !t.matrix.valid(target) {
 		return nil
 	}
-	for _, index := range t.occurrences[[2]int{source, target}] {
+	cell := &t.matrix.rows[source][target]
+	occurrences := t.matrix.occs[source][target]
+	if cell.edge < 0 || len(occurrences) == 0 {
+		return nil
+	}
+	distance := cell.distance
+	for _, index := range occurrences {
 		a := &t.atoms[index]
 		literal := NewSMTLiteral(a.variable, false)
 		assignment, err := t.state.Assignment(literal)
@@ -477,11 +483,9 @@ func (t *SMTDenseDiffTheory) propagateCell(source, target int) error {
 		if assignment != lbool.Undef {
 			continue
 		}
-		implied := distance.Cmp(&a.offset) <= 0
+		implied := smtDenseNumCmp(distance, a.num) <= 0
 		if a.source != source {
-			var negative smtInfRational
-			negative.Neg(&distance)
-			implied = negative.Cmp(&a.offset) > 0
+			implied = smtDenseNumCmp(smtDenseNumNeg(distance), a.num) > 0
 			literal = literal.Negated()
 		}
 		if !implied {
@@ -496,7 +500,7 @@ func (t *SMTDenseDiffTheory) propagateCell(source, target int) error {
 			sourceID, _ := t.variables[source].OwnerID()
 			targetID, _ := t.variables[target].OwnerID()
 			return "asserting atom to true: " + t.displayAtomText(a) +
-				fmt.Sprintf("distance(#%d, #%d): %s\n", sourceID, targetID, smtDenseInfText(&distance))
+				fmt.Sprintf("distance(#%d, #%d): %s\n", sourceID, targetID, smtDenseNumText(distance))
 		})
 		reason, err := t.matrix.antecedents(source, target)
 		if err != nil {
@@ -541,14 +545,9 @@ func (t *SMTDenseDiffTheory) PopScopes(count uint32) error {
 	for i := len(t.atoms) - 1; i >= s.atoms; i-- {
 		a := &t.atoms[i]
 		t.traceDeleteAtom(a, func() { delete(t.byBool, a.variable) })
-		for _, key := range [][2]int{{a.source, a.target}, {a.target, a.source}} {
-			list := t.occurrences[key]
-			list = list[:len(list)-1]
-			if len(list) == 0 {
-				delete(t.occurrences, key)
-			} else {
-				t.occurrences[key] = list
-			}
+		for _, key := range [2][2]int{{a.source, a.target}, {a.target, a.source}} {
+			list := &t.matrix.occs[key[0]][key[1]]
+			*list = (*list)[:len(*list)-1]
 		}
 	}
 	t.atoms, t.unsupported = t.atoms[:s.atoms], s.unsupported
