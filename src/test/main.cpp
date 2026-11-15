@@ -259,6 +259,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_pdr_proof_merged_tails);
     TST(z3_4_7_1_rewriter_stale_stacks);
     TST(z3_4_7_1_qe_dl_other_value_neq);
+    TST(z3_4_7_1_sieve_negation_inner_cols);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);

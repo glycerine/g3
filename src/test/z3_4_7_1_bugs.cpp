@@ -136,6 +136,11 @@ Abstract:
                                   occurring equalities, so exists x. x != c
                                   over a finite sort becomes false
                                   (pkg/AUDIT.md qe_01-F4).
+    z3_4_7_1_sieve_negation_inner_cols sieve_relation_plugin's negation
+                                  filter inverts its inner-column test, so
+                                  an equality between inner columns is
+                                  dropped and the target is emptied
+                                  (pkg/AUDIT.md muz_rel_06-F5).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -182,6 +187,8 @@ Abstract:
 #include "model/model_evaluator.h"
 #include "qe/qe.h"
 #include "ast/dl_decl_plugin.h"
+#include "muz/rel/dl_sieve_relation.h"
+#include "muz/rel/rel_context.h"
 void register_z3_replayer_cmds(z3_replayer & in);
 #include <iostream>
 #ifndef _WINDOWS
@@ -1812,4 +1819,77 @@ void tst_z3_4_7_1_qe_dl_other_value_neq() {
     qe(m.mk_true(), fml, result);
     std::cout << "qe_dl_other_value_neq: " << mk_pp(fml, m) << " -> " << mk_pp(result, m) << "\n";
     ENSURE(m.is_true(result));
+}
+
+// sieve_relation_plugin::mk_filter_by_negation_fn computes its
+// "column is inner" flags as !is_inner_col, so it handles each equality
+// in the wrong case: an equality between two inner columns is dropped (the
+// inner relations are then subtracted on zero columns, which empties the
+// target whenever the negated relation is nonempty), and an equality on a
+// sieved (full) column of the negated relation, which always holds, turns
+// the whole filter into the identity. It also maps the equality's loop
+// index, not its column, to the inner column. pkg/AUDIT.md muz_rel_06-F5.
+void tst_z3_4_7_1_sieve_negation_inner_cols() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    datalog::register_engine re;
+    smt_params fp;
+    datalog::context ctx(m, re, fp);
+    datalog::relation_manager & rmgr = ctx.get_rel_context()->get_rmanager();
+    datalog::dl_decl_util & dl = ctx.get_decl_util();
+    datalog::sieve_relation_plugin & sieve = datalog::sieve_relation_plugin::get_plugin(rmgr);
+    sort_ref s(dl.mk_sort(symbol("S"), 4), m);
+    datalog::relation_signature sig;
+    sig.push_back(s);
+    sig.push_back(s);
+    datalog::relation_signature inner_sig;
+    inner_sig.push_back(s);
+    // Column 0 is sieved (full), column 1 is the inner column.
+    bool inner_cols[2] = { false, true };
+    auto mk_rel = [&](unsigned n, unsigned const* vals) {
+        datalog::sieve_relation * r = sieve.mk_from_inner(sig, inner_cols,
+            rmgr.mk_empty_relation(inner_sig, null_family_id));
+        for (unsigned i = 0; i < n; ++i) {
+            datalog::relation_fact f(m);
+            f.push_back(dl.mk_numeral(0, s));
+            f.push_back(dl.mk_numeral(vals[i], s));
+            r->add_fact(f);
+        }
+        return r;
+    };
+    auto has = [&](datalog::relation_base const& r, unsigned v) {
+        datalog::relation_fact f(m);
+        f.push_back(dl.mk_numeral(2, s));
+        f.push_back(dl.mk_numeral(v, s));
+        return r.contains_fact(f);
+    };
+    unsigned tgt_vals[2] = { 0, 1 };
+    unsigned neg_vals[1] = { 1 };
+    // Both ends inner: t(_, y) minus n(_, y) on column 1 keeps only y = 0.
+    {
+        datalog::scoped_rel<datalog::relation_base> t = mk_rel(2, tgt_vals);
+        datalog::scoped_rel<datalog::relation_base> n = mk_rel(1, neg_vals);
+        unsigned cols[1] = { 1 };
+        scoped_ptr<datalog::relation_intersection_filter_fn> fn =
+            rmgr.mk_filter_by_negation_fn(*t, *n, 1, cols, cols);
+        ENSURE(fn);
+        (*fn)(*t, *n);
+        std::cout << "sieve_negation_inner_cols: inner/inner: y=0 kept " << has(*t, 0)
+                  << ", y=1 kept " << has(*t, 1) << "\n";
+        ENSURE(has(*t, 0) && !has(*t, 1));
+    }
+    // Negated column full (sieved): the equality always holds, so a nonempty
+    // n removes every row of t.
+    {
+        datalog::scoped_rel<datalog::relation_base> t = mk_rel(2, tgt_vals);
+        datalog::scoped_rel<datalog::relation_base> n = mk_rel(1, neg_vals);
+        unsigned t_cols[1] = { 1 };
+        unsigned n_cols[1] = { 0 };
+        scoped_ptr<datalog::relation_intersection_filter_fn> fn =
+            rmgr.mk_filter_by_negation_fn(*t, *n, 1, t_cols, n_cols);
+        ENSURE(fn);
+        (*fn)(*t, *n);
+        std::cout << "sieve_negation_inner_cols: inner/full: t empty " << t->empty() << "\n";
+        ENSURE(t->empty());
+    }
 }
