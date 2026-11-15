@@ -356,3 +356,33 @@ z3_bug_nlsat_inline_reorder
 # realBranch; AUDIT.md qe_01-F2). Reproduction:
 # test_vectors/z3_bug_qe_sat_project_real_direction.smt2.
 z3_bug_qe_sat_project_real_direction
+#
+# qe mod by zero: bounds_proc::get_divides takes (= (mod t 0) 0) as a
+# divisibility constraint with divisor 0, div_z folds it into the lcm 0,
+# and (apply qe) returns false, which is unsound since (mod t 0) is
+# uninterpreted (z3 bug: src/qe/qe_arith_plugin.cpp:40-57 is_divides,
+# :1239-1263 div_z; upstream keeps the quantifier). g3 aborted with
+# "AST source precondition"; it now treats (mod t 0) as no divisibility
+# and keeps the quantifier (pkg/qe/arithmetic_qe_relation.go dividesSide;
+# AUDIT.md qe_01-F3). Reproduction: test_vectors/z3_bug_qe_mod_zero_divisor.smt2.
+z3_bug_qe_mod_zero_divisor
+#
+# qe mod by a negative constant: is_divides keeps the divisor -3, div_z
+# folds it into a negative lcm and (apply qe) returns false, although
+# x = 3, a = 0, b = 10 satisfies the formula (z3 bug:
+# src/qe/qe_arith_plugin.cpp is_divides, div_z; still present upstream).
+# g3 uses |k|, since (mod t k) = (mod t |k|) (pkg/qe/arithmetic_qe_relation.go
+# dividesSide; AUDIT.md qe_01-F3). Reproduction:
+# test_vectors/z3_bug_qe_mod_negative_divisor.smt2.
+z3_bug_qe_mod_negative_divisor
+#
+# qe nested mod by a negative constant: bounds_proc::get_nested_divs takes
+# (mod t -3) inside (= (mod t -3) 1) as a nested divisibility with divisor
+# -3; the residue bound z1 <= k - 1 is empty and (apply qe) returns
+# false, although x = 1, a = 0, b = 10 satisfies the formula (z3 bug:
+# src/qe/qe_arith_plugin.cpp:1321-1333; still present upstream). g3 gave
+# false as well; both now take only a positive k as a nested divisibility
+# and keep the quantifier otherwise (pkg/qe/arithmetic_qe_nested_divides.go;
+# AUDIT.md qe_01-F3). Reproduction:
+# test_vectors/z3_bug_qe_mod_negative_nested.smt2.
+z3_bug_qe_mod_negative_nested

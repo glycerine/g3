@@ -145,7 +145,16 @@ func (u *ArithmeticQETermUtil) dividesSide(zero, modular ast.ASTHandle) (divisor
 	if err != nil || !numeral {
 		return nil, term, false, err
 	}
-	return divisor, args[0], true, nil
+	// z3 4.7.1 bug kept out of g3: is_divides accepts k = 0 and keeps a
+	// negative k, and div_z then folds them into a zero or negative lcm,
+	// so (apply qe) answers false (unsound). (mod p k) = (mod p |k|), and
+	// (mod p 0) is no divisibility constraint (AUDIT.md qe_01-F3;
+	// test_vectors/z3_bug_qe_mod_zero_divisor.smt2,
+	// z3_bug_qe_mod_negative_divisor.smt2).
+	if divisor.Sign() == 0 {
+		return nil, term, false, nil
+	}
+	return new(big.Rat).Abs(divisor), args[0], true, nil
 }
 
 // MatchDivides recognizes 0 = p mod k in either equality orientation.

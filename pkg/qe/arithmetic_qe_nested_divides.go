@@ -45,7 +45,10 @@ func (p *ArithmeticBoundsProcessor) addNestedDivides(variable *ast.ContainsApp, 
 			if cause != nil {
 				return false, cause
 			}
-			if numeral {
+			// z3 4.7.1 also takes a zero or negative k here; its residue
+			// variable then has no values and the result is false. Only a
+			// positive k is a nested divisibility (AUDIT.md qe_01-F3).
+			if numeral && divisor.Sign() > 0 {
 				coefficient, rest, found, cause := p.util.Coefficient(variable, args[0])
 				if cause != nil {
 					return false, cause
