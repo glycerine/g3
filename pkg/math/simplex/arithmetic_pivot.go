@@ -43,13 +43,14 @@ func (s *Solver) selectArithmeticPatch() uint32 {
 	return best
 }
 
-func (s *Solver) checkArithmeticBlands(v uint32, left map[uint32]bool, repeated *uint32) {
+// checkBlandsRule is simplex::check_blands_rule; arithmeticBland is m_bland.
+func (s *Solver) checkBlandsRule(v uint32, left map[uint32]bool, repeated *uint32, threshold uint32) {
 	if s.arithmeticBland {
 		return
 	}
 	if left[v] {
 		(*repeated)++
-		if *repeated > s.arithmeticBlandThreshold {
+		if *repeated > threshold {
 			s.arithmeticBland = true
 		}
 	} else {

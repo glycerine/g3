@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/util/control"
+
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -217,5 +219,48 @@ func TestSimplexRetainedSourceFeasibilityCases(t *testing.T) {
 				t.Fatal("feasibility", got, err)
 			}
 		})
+	}
+}
+
+// AUDIT.md math_misc_02-F2: select_smallest_var is a bare erase_min, so a
+// patch entry that is already back in bounds still costs one m_limit.inc().
+func TestSimplexMakeFeasibleCountsStalePatchEntries(t *testing.T) {
+	lim := &control.Reslimit{}
+	s := NewSolver(lim)
+	if _, err := s.AddRationalRow(1, []uint32{1, 0}, integerRow(1, -1)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AddRationalRow(2, []uint32{2, 0}, integerRow(1, -1)); err != nil {
+		t.Fatal(err)
+	}
+	for _, v := range []uint32{1, 2} {
+		if err := s.SetLower(v, RationalInfinitesimal(rat(1, 1))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	result, err := s.MakeFeasible()
+	if err != nil || result != lbool.True {
+		t.Fatal("feasible", result, err)
+	}
+	if lim.Count() != 2 || s.Stats.NumPivots != 1 {
+		t.Fatalf("rlimit count = %d, pivots = %d; want 2 and 1", lim.Count(), s.Stats.NumPivots)
+	}
+}
+
+// AUDIT.md math_misc_02-F2: check_blands_rule runs for the default policy
+// and switches to Bland's rule after m_blands_rule_threshold repeats.
+func TestSimplexMakeFeasibleBlandAfterThreshold(t *testing.T) {
+	s := NewSolver(nil)
+	left := make(map[uint32]bool)
+	var repeated uint32
+	for i := 0; i <= blandsRuleThreshold; i++ {
+		s.checkBlandsRule(7, left, &repeated, blandsRuleThreshold)
+		if s.arithmeticBland {
+			t.Fatalf("Bland's rule after %d selections", i+1)
+		}
+	}
+	s.checkBlandsRule(7, left, &repeated, blandsRuleThreshold)
+	if !s.arithmeticBland || repeated != blandsRuleThreshold+1 {
+		t.Fatalf("Bland's rule not enabled: repeated=%d", repeated)
 	}
 }

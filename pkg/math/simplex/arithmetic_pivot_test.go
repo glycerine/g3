@@ -112,12 +112,12 @@ func TestArithmeticBlandThresholdAndEligiblePivot(t *testing.T) {
 	}
 	left := make(map[uint32]bool)
 	var repeated uint32
-	s.checkArithmeticBlands(2, left, &repeated)
-	s.checkArithmeticBlands(2, left, &repeated)
+	s.checkBlandsRule(2, left, &repeated, s.arithmeticBlandThreshold)
+	s.checkBlandsRule(2, left, &repeated, s.arithmeticBlandThreshold)
 	if s.arithmeticBland {
 		t.Fatal("Bland enabled at rather than above threshold")
 	}
-	s.checkArithmeticBlands(2, left, &repeated)
+	s.checkBlandsRule(2, left, &repeated, s.arithmeticBlandThreshold)
 	if !s.arithmeticBland {
 		t.Fatal("repeated leaving variable did not activate Bland")
 	}

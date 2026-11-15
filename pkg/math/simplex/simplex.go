@@ -426,6 +426,19 @@ func (s *Solver) SetValue(v uint32, value Infinitesimal) {
 	s.updateValue(v, &d)
 }
 
+// selectSmallestVar is simplex::select_smallest_var: a bare erase_min, so
+// variables that are back in bounds still count as iterations.
+func (s *Solver) selectSmallestVar() uint32 {
+	v, ok := s.patch.popMin()
+	if !ok {
+		return NullVariable
+	}
+	return v
+}
+
+// blandsRuleThreshold is simplex::m_blands_rule_threshold.
+const blandsRuleThreshold = 1000
+
 func (s *Solver) selectPatch() uint32 {
 	for {
 		v, ok := s.patch.popMin()
@@ -560,9 +573,10 @@ func (s *Solver) MakeFeasible() (lbool.LBool, error) {
 	s.Stats.NumChecks++
 	s.infeasible = NullVariable
 	s.arithmeticBland = false
-	var left map[uint32]bool
+	left := make(map[uint32]bool)
+	threshold := uint32(blandsRuleThreshold)
 	if s.arithmeticPolicy {
-		left = make(map[uint32]bool)
+		threshold = s.arithmeticBlandThreshold
 	}
 	var repeated uint32
 	for iteration := uint32(0); ; iteration++ {
@@ -570,7 +584,7 @@ func (s *Solver) MakeFeasible() (lbool.LBool, error) {
 		if s.arithmeticPolicy {
 			v = s.selectArithmeticPatch()
 		} else {
-			v = s.selectPatch()
+			v = s.selectSmallestVar()
 		}
 		if v == NullVariable {
 			return lbool.True, nil
@@ -578,9 +592,7 @@ func (s *Solver) MakeFeasible() (lbool.LBool, error) {
 		if (s.limit != nil && !s.limit.Inc()) || iteration > s.maxIterations {
 			return lbool.Undef, nil
 		}
-		if s.arithmeticPolicy {
-			s.checkArithmeticBlands(v, left, &repeated)
-		}
+		s.checkBlandsRule(v, left, &repeated, threshold)
 		ok, err := s.makeVariableFeasible(v)
 		if err != nil {
 			return lbool.Undef, err
@@ -665,8 +677,9 @@ func (s *Solver) DeleteRow(variable uint32) error {
 			return err
 		}
 	}
+	// Source del_row leaves the variable in m_to_patch; with its bounds
+	// cleared, make_var_feasible accepts it when it is popped.
 	base := s.rowBase[r.id]
-	s.patch.erase(base)
 	x := &s.vars[base]
 	x.base, x.lowerValid, x.upperValid = false, false, false
 	s.rowBase[r.id] = NullVariable
