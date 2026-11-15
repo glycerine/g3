@@ -26,6 +26,10 @@ type Unwinding struct {
 	source, graph      *RPFP
 	covering           *Covering
 	unexpanded         []*Node
+	// progress counts annotation updates, expansions and extensions; the
+	// forked SolveMainInt compares it to detect a candidate that is rejected
+	// again with nothing changed (fork fix, AUDIT duality zbug round 3).
+	progress uint64
 }
 
 func NewUnwinding(source, graph *RPFP, covering *Covering) (*Unwinding, error) {

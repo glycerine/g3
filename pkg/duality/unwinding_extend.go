@@ -29,6 +29,7 @@ func (u *Unwinding) Extend(candidate ExpansionCandidate, services *ExtensionSear
 	if services.Bounds.Checker == nil || services.Bounds.Auxiliary == nil {
 		return nil, false, ErrWrapperOwner
 	}
+	u.progress++
 	for _, child := range candidate.Children {
 		if child == nil || child.closed || child.Owner != u.graph {
 			return nil, false, ErrWrapperOwner

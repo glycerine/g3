@@ -113,6 +113,7 @@ func (u *Unwinding) ExpandNode(node *Node, native solver.Solver, evaluator model
 		return err
 	}
 	defer func() { result = errors.Join(result, timer.Close()) }()
+	u.progress++
 	if err := u.ActivateInstance(node); err != nil {
 		return err
 	}

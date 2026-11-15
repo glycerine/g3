@@ -1,5 +1,7 @@
 package duality
 
+import "github.com/glycerine/g3/pkg/util/z3exception"
+
 // TestRecursionBounded records whether any uncovered active instance exceeds
 // an original node's recursion limit. Covered instances do not affect results;
 // each active cutoff publishes the source relation/depth message.
@@ -55,6 +57,16 @@ func (s *UnwindingSearch) SolveMain() (bool, error) {
 	if err := u.DoTopoSort(); err != nil {
 		return false, err
 	}
+	// Candidate generation and the feasibility check depend only on the
+	// annotations, expansions and extensions. A candidate rejected again
+	// with none of those changed would be produced and rejected forever
+	// (z3 4.7.1 livelocks on work/duality_01/qbody: the induction check
+	// ignores the non-itp quantifier that the feasibility check refutes).
+	// The fork throws Solver::Incompleteness, which dl_interface::query
+	// reports as default_exception("incompleteness") (fork fix, AUDIT
+	// duality zbug round 3).
+	var rejected []ExpansionCandidate
+	rejectedAt := u.progress
 	for {
 		if err := u.source.checkpoint(); err != nil {
 			return false, err
@@ -72,11 +84,21 @@ func (s *UnwindingSearch) SolveMain() (bool, error) {
 			}
 			return true, nil
 		}
+		if rejectedAt != u.progress {
+			rejected = rejected[:0]
+			rejectedAt = u.progress
+		}
+		for _, r := range rejected {
+			if sameExpansionCandidate(r, candidate) {
+				return false, z3exception.NewDefaultException("incompleteness")
+			}
+		}
 		feasible, err := u.CandidateFeasible(candidate, s.Native, s.Simplifier)
 		if err != nil {
 			return false, err
 		}
 		if !feasible {
+			rejected = append(rejected, candidate)
 			continue
 		}
 		node, satisfied, err := s.Extend(candidate)
@@ -87,4 +109,16 @@ func (s *UnwindingSearch) SolveMain() (bool, error) {
 			return false, err
 		}
 	}
+}
+
+func sameExpansionCandidate(a, b ExpansionCandidate) bool {
+	if a.Edge != b.Edge || len(a.Children) != len(b.Children) {
+		return false
+	}
+	for i := range a.Children {
+		if a.Children[i] != b.Children[i] {
+			return false
+		}
+	}
+	return true
 }

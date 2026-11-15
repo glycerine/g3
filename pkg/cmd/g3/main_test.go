@@ -336,6 +336,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// Duality zbug round 3 (fork fix): err <- forall z. p(z) with p = {1}; the
+	// infeasible candidate comes back unchanged, so Duality reports incompleteness
+	// (z3 4.7.1 livelocks; g3 answered an unsound sat with param-less edge solvers).
+	"duality_quantified_body_incompleteness.smt2": "(error \"query failed: incompleteness\")\nunknown\n",
 	// gaps_misc2: opt::context display_assignment and get_model after an optimize()
 	// that threw or stopped undecided; cmd_context::check_sat rethrows the
 	// exception as a cmd_exception.

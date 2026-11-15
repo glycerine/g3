@@ -36,6 +36,7 @@ func (u *Unwinding) update(node *Node, fact *Transformer, aux solver.Solver, eag
 	if err = node.Annotation.IntersectWith(fact); err != nil {
 		return false, err
 	}
+	u.progress++
 	return true, nil
 }
 
