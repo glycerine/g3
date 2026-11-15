@@ -151,3 +151,46 @@ func TestSMTTheoryArithPopRestoresBounds(t *testing.T) {
 		t.Fatal("pop must restore the bound and unwind the trail")
 	}
 }
+
+// AUDIT.md smtcore_07-F2: eliminate charges
+// (r1_sz + r2.size()) * a_kj.storage_size(), with storage_size the
+// mpz size_info of numerator plus denominator.
+func TestSMTTheoryArithEliminateChargesStorageSize(t *testing.T) {
+	for _, test := range []struct {
+		q    *big.Rat
+		want uint
+	}{
+		{big.NewRat(1, 1), 2},
+		{new(big.Rat).SetInt(new(big.Int).Lsh(big.NewInt(1), 40)), 4},
+		{new(big.Rat).SetFrac(big.NewInt(1), new(big.Int).Lsh(big.NewInt(1), 40)), 4},
+		{big.NewRat(1<<31-1, 1), 2},
+		{big.NewRat(1<<32, 1), 4},
+		{big.NewRat(-(1 << 31), 1), 2},
+	} {
+		if got := smtRatStorageSize(test.q); got != test.want {
+			t.Fatal("storage size", test.q.RatString(), got, "want", test.want)
+		}
+	}
+	f := newSMTTheoryArithFixture(t, true)
+	x := f.constant(t, "arith-storage-x", true)
+	y := f.constant(t, "arith-storage-y", true)
+	s1 := f.app(t, smtArithOpAdd, x, y)
+	s2 := f.app(t, smtArithOpAdd, x, f.app(t, smtArithOpMul, f.num(t, "-1", true), y))
+	astTestMust(t, f.state.Internalize(s1, false))
+	astTestMust(t, f.state.Internalize(s2, false))
+	vs1 := f.state.context.enodes.get(s1).TheoryVar(f.family)
+	vx := f.state.context.enodes.get(x).TheoryVar(f.family)
+	row := &f.theory.rows[f.theory.getVarRow(vs1)]
+	index := row.indexOf(vx)
+	if index < 0 {
+		t.Fatal("x missing from the row of x + y")
+	}
+	var coefficient big.Rat
+	coefficient.Set(&row.entries[index].coefficient)
+	before := f.m.Limit.Count()
+	astTestMust(t, f.theory.pivot(true, vs1, vx, &coefficient, false))
+	// pivot's limit().inc(r.size()) = 3, then eliminate's (3 + 3) * 2.
+	if got := f.m.Limit.Count() - before; got != 15 {
+		t.Fatal("pivot resource charge", got, "want 15")
+	}
+}

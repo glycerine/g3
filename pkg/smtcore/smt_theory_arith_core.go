@@ -2391,7 +2391,7 @@ func (t *SMTTheoryArith) eliminate(lazy bool, xi SMTTheoryVar, applyGCDTest bool
 				if err := t.addRow(entry.rowID, &akj, rowID, applyGCDTest); err != nil {
 					return err
 				}
-				t.limitInc(uint(t.rows[rowID].size+r2.size) * uint(akj.Num().BitLen()/32+1))
+				t.limitInc(uint(t.rows[rowID].size+r2.size) * smtRatStorageSize(&akj))
 			}
 		} else {
 			sPos = i

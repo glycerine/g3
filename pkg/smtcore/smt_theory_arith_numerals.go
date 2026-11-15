@@ -134,3 +134,16 @@ func smtRatIsBig(q *big.Rat) bool {
 	}
 	return !small(q.Num()) || !small(q.Denom())
 }
+
+// smtRatStorageSize is rational::storage_size(): mpz_manager::size_info of
+// the numerator plus that of the denominator, where size_info is 1 for a
+// small (int) mpz and m_size + 1 (32-bit digits plus one) otherwise.
+func smtRatStorageSize(q *big.Rat) uint {
+	sizeInfo := func(x *big.Int) uint {
+		if x.IsInt64() && x.Int64() >= math.MinInt32 && x.Int64() <= math.MaxInt32 {
+			return 1
+		}
+		return uint((x.BitLen()+31)/32) + 1
+	}
+	return sizeInfo(q.Num()) + sizeInfo(q.Denom())
+}
