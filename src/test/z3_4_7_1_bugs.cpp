@@ -185,6 +185,11 @@ Abstract:
                                   so Z3_get_implied_equalities' produce_models
                                   turns a solver-level smt.mbqi=false back on
                                   (pkg/AUDIT.md smtcore_03-F10 follow-up).
+    z3_4_7_1_opt_stale_orig_term  opt::context::from_fmls keeps orig_term
+                                  across its loop, so an assert-soft group
+                                  after a maximize is verified against the
+                                  maximize term and reports its initial
+                                  cost (upstream b33f5f879).
     z3_4_7_1_and_then_sat_branch  and_then_tactical appends a decided-sat
                                   subgoal to the undecided subgoals it
                                   already collected, so (then split-clause
@@ -266,6 +271,7 @@ Abstract:
 #include "util/rlimit.h"
 #include "opt/opt_context.h"
 #include "opt/opt_parse.h"
+#include "opt/opt_cmds.h"
 #include <fstream>
 #include <cstdio>
 #include "api/z3_replayer.h"
@@ -2703,4 +2709,42 @@ void tst_z3_4_7_1_repeat_sat_branch() {
                          "sat\n"
                          "(model \n  (define-fun y () Int\n    3)\n)\n"
                          "true\n");
+}
+
+// opt::context::from_fmls declares orig_term outside its loop and is_maxsat
+// never clears it, so the assert-soft group q, which follows the maximize
+// objectives, takes the term of (maximize y) as its m_term. verify_model
+// then checks every improving maxres model against that term, rejects it,
+// and q keeps its initial cost -1 instead of the optimum -3 (a true,
+// b false). Upstream declares orig_term inside the loop and clears it in
+// is_maxsat (b33f5f879, "fix another bug reported by Mark Dunlop").
+void tst_z3_4_7_1_opt_stale_orig_term() {
+    char const* script =
+        "(set-option :opt.priority box)\n"
+        "(declare-const a Bool)\n"
+        "(declare-const b Bool)\n"
+        "(declare-const x Int)\n"
+        "(declare-const y Int)\n"
+        "(assert (<= x 7))\n"
+        "(assert (=> a (< x 3)))\n"
+        "(assert (=> b (> x 1)))\n"
+        "(maximize x)\n"
+        "(maximize y)\n"
+        "(assert-soft a :weight 2 :id q)\n"
+        "(assert-soft b :weight -3 :id q)\n"
+        "(check-sat)\n"
+        "(get-objectives)\n";
+    char const* expected = "sat\n(objectives\n (x 7)\n (y oo)\n (q (- 3))\n)\n";
+    std::ostringstream out;
+    {
+        cmd_context ctx;
+        ctx.set_solver_factory(mk_smt_strategic_solver_factory());
+        install_opt_cmds(ctx);
+        ctx.set_regular_stream(out);
+        ctx.set_diagnostic_stream(out);
+        std::istringstream in(script);
+        parse_smt2_commands(ctx, in);
+    }
+    std::cout << "opt_stale_orig_term: expected\n" << expected << "got\n" << out.str();
+    ENSURE(out.str() == expected);
 }
