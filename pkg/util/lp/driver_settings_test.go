@@ -252,8 +252,14 @@ func TestLPDriverSetupLimitsAndFailurePrefixes(t *testing.T) {
 			if settings.MaxTotalIterations != 71 || settings.TimeLimit != 9 {
 				t.Fatal("limits must precede flip and diagnostic failure")
 			}
+			// flip_costs walks the columns in libstdc++ order (1 before 0),
+			// so a null column 1 stops it before column 0 flips.
 			c, _ := m.Columns.Get2(0)
-			lpSparseRationalCheck(t, h, &c.Cost, big.NewRat(-7, 13))
+			if profile == "flip-failure" {
+				lpSparseRationalCheck(t, h, &c.Cost, big.NewRat(7, 13))
+			} else {
+				lpSparseRationalCheck(t, h, &c.Cost, big.NewRat(-7, 13))
+			}
 			if profile == "diagnostic" && (settings.PartialPivotingConstant != 13 || settings.ReportFrequency != 5 || !settings.PrintStatistics) || profile == "flip-failure" && (settings.SimplexStrategy != StrategyUndecided || settings.ReportFrequency != 17 || settings.PrintStatistics) {
 				t.Fatal("setup publication prefix", profile)
 			}
@@ -288,7 +294,8 @@ func TestLPDriverSetupLimitsAndFailurePrefixes(t *testing.T) {
 		if err != want {
 			t.Fatal(profile, err, want)
 		}
-		if profile == "zero" && (m.Settings.MaxTotalIterations != 31 || m.Settings.TimeLimit != 37 || m.Columns[0].Cost != 7) || (profile == "diagnostic" || profile == "flip-failure") && (m.Settings.MaxTotalIterations != 71 || m.Settings.TimeLimit != 9 || m.Columns[0].Cost != -7) {
+		if profile == "zero" && (m.Settings.MaxTotalIterations != 31 || m.Settings.TimeLimit != 37 || m.Columns[0].Cost != 7) || (profile == "diagnostic" || profile == "flip-failure") && (m.Settings.MaxTotalIterations != 71 || m.Settings.TimeLimit != 9 || m.Columns[0].Cost != map[bool]float64{false: -7, true: 7}[profile == "flip-failure"]) {
+			// flip_costs visits column 1 before column 0 (libstdc++ order).
 			t.Fatal("float setup publication prefix", profile)
 		}
 	}
@@ -310,8 +317,10 @@ func TestLPDriverSetupPhysicalOwnership(t *testing.T) {
 				}
 				m := lpRationalInputModel(t, h)
 				m.Settings = lpDriverSettings(t)
-				h.must(m.SetCostForColumn(0, lpScalarBoundValue(h, "7")))
-				h.must(m.SetCostForColumn(1, lpScalarBoundValue(h, strings.Repeat("1234567890", 100)+"7/13")))
+				// flip_costs visits column 1 before column 0 (libstdc++
+				// order), so the large cost sits in the later column 0.
+				h.must(m.SetCostForColumn(0, lpScalarBoundValue(h, strings.Repeat("1234567890", 100)+"7/13")))
+				h.must(m.SetCostForColumn(1, lpScalarBoundValue(h, "7")))
 				a := lpDriverAllSettings(t)
 				h.budget.FailAfter(ordinal)
 				err := m.SetupFromDriver(71, 9, true, a, nil)
@@ -329,7 +338,7 @@ func TestLPDriverSetupPhysicalOwnership(t *testing.T) {
 					if !lpExactPriorityPhysicalRefusal(err) || m.SetupFromDriver(0, 0, false, a, nil) != ErrExactVectorPending || m.Settings.SimplexStrategy != StrategyUndecided || m.Settings.ReportFrequency != 17 || m.Settings.PrintStatistics {
 						t.Fatal("cost flip failure prefix", err)
 					}
-					c, _ := m.Columns.Get2(0)
+					c, _ := m.Columns.Get2(1)
 					value, inspectErr := h.m.Int64(&c.Cost)
 					prefix = prefix || inspectErr == nil && value == -7
 				}

@@ -19,7 +19,8 @@ func TestLPMPSDefaultRationalSourceDefaults(t *testing.T) {
 		args := lpDriverArgs(t, "lp-test", "--min", "--mpq", "--max_iters", "bad", "--simplex_strategy", "bad")
 		d := NewMPSFileDriver(name, args, h.m, MPSDriverConfig{Output: &out, Clock: clock.read})
 		h.must(d.RunRationalDefault(false))
-		want := "solving " + name + "\nextended A[1,3]\nstatus is OPTIMAL\nx=0 y=0 \ncost = 0\n"
+		// print_x walks m_columns in libstdc++ order: y, x.
+		want := "solving " + name + "\nextended A[1,3]\nstatus is OPTIMAL\ny=0 x=0 \ncost = 0\n"
 		if out.String() != want || d.Status != StatusOptimal || d.TotalIterations != 1 || clock.calls != 0 || d.minimum || !d.closed || d.work != nil {
 			t.Fatal(world, out.String(), d.Status, d.TotalIterations, clock.calls)
 		}
@@ -197,7 +198,7 @@ func TestLPMPSDefaultRationalNumberPhysicalOwnership(t *testing.T) {
 						}
 						var out bytes.Buffer
 						d := lpMPSDriverFixedObjective(t, h, dual, false, &out)
-						d.rationalBase().NamesToColumns["x"] = 0
+						d.rationalBase().NamesToColumns.Put("x", 0)
 						var name *string
 						x := "x"
 						if named {
@@ -274,7 +275,7 @@ func TestLPMPSDefaultRationalLiveNumberLifetime(t *testing.T) {
 	}
 	d = NewMPSFileDriver(lpMPSDriverFile(t, lpMPSDriverModel(3, 2, 2, 4, 3)), nil, h.m, MPSDriverConfig{Output: w})
 	h.must(d.RunRationalDefault(false))
-	if changed != 4 || !strings.HasSuffix(w.buffer.String(), "x=1 y=0 \ncost = 10\n") || d.work != nil {
+	if changed != 4 || !strings.HasSuffix(w.buffer.String(), "y=0 x=1 \ncost = 10\n") || d.work != nil {
 		t.Fatal(changed, w.buffer.String())
 	}
 	lpExactVectorNamedCensus(t, h, nil)

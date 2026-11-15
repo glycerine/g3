@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/glycerine/g3/pkg/util/numeral"
-	"github.com/glycerine/insdict"
 )
 
 type rationalMPSBound struct {
@@ -27,12 +26,13 @@ type rationalMPSRow struct {
 	index        uint32
 	typ          mpsRowType
 	rhs, span    *numeral.Rational
-	coefficients *insdict.Dict[string, *numeral.Rational]
+	coefficients *StdUnorderedStringRationalMap // row::m_row_columns
 }
 
-// RationalMPSReader parses exact numerals in a borrowed manager. Go text and
-// insertion-ordered dictionaries replace source string/unordered containers;
-// iteration order is input order. Close after returned solver owners and before
+// RationalMPSReader parses exact numerals in a borrowed manager. Go text
+// replaces source strings; m_rows, each row's m_row_columns and m_columns
+// iterate in libstdc++ unordered_map order (mps_reader_maps_exact.go,
+// std_unordered_lp_maps.go). Close after returned solver owners and before
 // the numeral manager, except that a successful CreateLARSolver leaves no
 // borrowed reader numerals and permits the source file driver's earlier Close.
 // Failed lexical arithmetic retains its reached prefix
@@ -40,8 +40,8 @@ type rationalMPSRow struct {
 type RationalMPSReader struct {
 	input                 *bufio.Reader
 	file                  *os.File
-	rows                  *insdict.Dict[string, *rationalMPSRow]
-	columns               *insdict.Dict[string, *rationalMPSColumn]
+	rows                  *rationalMPSRowMap
+	columns               *rationalMPSColumnMap
 	namesToVarIndex       map[string]uint32
 	line, Name, costName  string
 	LineNumber, costLines uint32
@@ -55,7 +55,7 @@ type RationalMPSReader struct {
 }
 
 func NewRationalMPSReader(manager *numeral.RationalManager, in io.Reader) *RationalMPSReader {
-	m := &RationalMPSReader{manager: manager, ok: true, Messages: os.Stdout, rows: insdict.NewDict[string, *rationalMPSRow](), columns: insdict.NewDict[string, *rationalMPSColumn](), namesToVarIndex: make(map[string]uint32)}
+	m := &RationalMPSReader{manager: manager, ok: true, Messages: os.Stdout, rows: newRationalMPSRowMap(), columns: newRationalMPSColumnMap(), namesToVarIndex: make(map[string]uint32)}
 	if in != nil {
 		m.input = bufio.NewReader(in)
 	}
@@ -288,7 +288,7 @@ func (m *RationalMPSReader) readName() error {
 	}
 }
 func (m *RationalMPSReader) newRow(name string, index uint32, typ mpsRowType) *rationalMPSRow {
-	return &rationalMPSRow{name: name, index: index, typ: typ, rhs: m.newValue(), span: m.newValue(), coefficients: insdict.NewDict[string, *numeral.Rational]()}
+	return &rationalMPSRow{name: name, index: index, typ: typ, rhs: m.newValue(), span: m.newValue(), coefficients: NewStdUnorderedStringRationalMap()}
 }
 func (m *RationalMPSReader) addRow() error {
 	if len(m.line) < 2 {

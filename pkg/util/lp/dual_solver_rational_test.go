@@ -262,7 +262,9 @@ func TestLPRationalDualOuterPreparationIndependentRows(t *testing.T) {
 		}
 		slack, artificial := uint32(cols), uint32(cols)+slacks
 		for i := 0; i < rows; i++ {
-			rel := LPRelation(i % 3)
+			// Core rows follow m_A_values' libstdc++ order.
+			ext := int(m.CoreRowsToExternal[uint32(i)])
+			rel := LPRelation(ext % 3)
 			wantBasis := slack
 			want := map[uint32]int64{}
 			switch rel {
@@ -272,7 +274,7 @@ func TestLPRationalDualOuterPreparationIndependentRows(t *testing.T) {
 				artificial++
 			case RelationGreaterOrEqual:
 				want[slack] = -1
-				if rhs[i].Sign() > 0 {
+				if rhs[ext].Sign() > 0 {
 					wantBasis = artificial
 					want[artificial] = 1
 					artificial++
@@ -280,7 +282,7 @@ func TestLPRationalDualOuterPreparationIndependentRows(t *testing.T) {
 				slack++
 			case RelationLessOrEqual:
 				want[slack] = 1
-				if rhs[i].Sign() < 0 {
+				if rhs[ext].Sign() < 0 {
 					wantBasis = artificial
 					want[artificial] = -1
 					artificial++
@@ -297,12 +299,14 @@ func TestLPRationalDualOuterPreparationIndependentRows(t *testing.T) {
 			}
 		}
 		if !sourceDebugEnabled {
+			// Core columns and rows follow m_A_values' libstdc++ order.
 			for j := uint32(0); j < uint32(cols); j++ {
-				if m.CoreColumnTypes[j] != ColumnBoxed || m.CanEnterBasis[j] != (j%3 != 1) {
+				ext := m.CoreColumnsToExternal[j]
+				if m.CoreColumnTypes[j] != ColumnBoxed || m.CanEnterBasis[j] != (ext%3 != 1) {
 					t.Fatal(world, j, m.CoreColumnTypes, m.CanEnterBasis)
 				}
 				upper := int64(0)
-				if j%3 == 0 {
+				if ext%3 == 0 {
 					upper = 1
 				}
 				lpSparseRationalCheck(t, h, &m.UpperBounds.Data[j], big.NewRat(upper, 1))
@@ -310,11 +314,11 @@ func TestLPRationalDualOuterPreparationIndependentRows(t *testing.T) {
 			h.must(m.CopyBAsideAndSetToZeros())
 			for i := range rhs {
 				lpSparseRationalCheck(t, h, &m.B.Data[i], new(big.Rat))
-				lpSparseRationalCheck(t, h, &m.BCopy.Data[i], rhs[i])
+				lpSparseRationalCheck(t, h, &m.BCopy.Data[i], rhs[m.CoreRowsToExternal[uint32(i)]])
 			}
 			h.must(m.RestoreRightSides())
 			for i := range rhs {
-				lpSparseRationalCheck(t, h, &m.B.Data[i], rhs[i])
+				lpSparseRationalCheck(t, h, &m.B.Data[i], rhs[m.CoreRowsToExternal[uint32(i)]])
 			}
 		}
 		h.must(m.Close())
@@ -599,7 +603,9 @@ func lpRationalDualOuterOperation(m *RationalDualSimplex, op string, out *numera
 	case "cost":
 		return m.GetCurrentCost(out)
 	case "value":
-		return m.GetColumnValue(10, out)
+		// Core column 0 holds the huge X; its external index follows the
+		// libstdc++ m_A_values order.
+		return m.GetColumnValue(m.CoreColumnsToExternal[0], out)
 	}
 	panic(op)
 }
@@ -722,7 +728,9 @@ func TestLPRationalDualOuterMetadataPublication(t *testing.T) {
 			h.must(m.Scale())
 			h.must(m.AugmentMatrixAndAllocateFields())
 			b, up, scale, costs, logical, basis := m.B.Data, m.UpperBounds.Data, m.ColumnScale.Data, m.Costs.Data, m.LogicalColumnTypes, m.Basis
-			removedColumn, _ := m.Columns.Get2(11)
+			// The external column of core column 1 (libstdc++ m_A_values order).
+			removedExt := m.CoreColumnsToExternal[1]
+			removedColumn, _ := m.Columns.Get2(removedExt)
 			slack, artificial := uint32(2), uint32(2)+m.Slacks
 			want := error(ErrBounds)
 			var e error
@@ -734,7 +742,7 @@ func TestLPRationalDualOuterMetadataPublication(t *testing.T) {
 				}
 				e = m.FillFirstStageStructuralColumn(1)
 			case "missing-column":
-				m.Columns.Del(11)
+				m.Columns.Del(removedExt)
 				if sourceDebugEnabled {
 					want = ErrAssertion
 				}
@@ -815,7 +823,7 @@ func TestLPRationalDualOuterMetadataPublication(t *testing.T) {
 			}
 			if phase != "stage1-repeat" {
 				if phase == "missing-column" {
-					m.Columns.Set(11, removedColumn)
+					m.Columns.Set(removedExt, removedColumn)
 				}
 				m.B.Data = b
 				m.UpperBounds.Data = up

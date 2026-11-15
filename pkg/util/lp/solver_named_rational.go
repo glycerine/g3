@@ -15,7 +15,7 @@ func (m *RationalPrimalSimplex) GetColumnValueByName(name string, out *numeral.R
 		return err
 	}
 	defer func() { m.outerStopped = err != nil }()
-	column, ok := m.NamesToColumns[name]
+	column, ok := m.NamesToColumns.Get2(name)
 	if !ok {
 		return z3exception.NewDefaultException(fmt.Sprintf("get_column_value_by_name %s", name))
 	}
@@ -27,7 +27,7 @@ func (m *RationalDualSimplex) GetColumnValueByName(name string, out *numeral.Rat
 		return err
 	}
 	defer func() { m.outerStopped = err != nil }()
-	column, ok := m.NamesToColumns[name]
+	column, ok := m.NamesToColumns.Get2(name)
 	if !ok {
 		return z3exception.NewDefaultException(fmt.Sprintf("get_column_value_by_name %s", name))
 	}

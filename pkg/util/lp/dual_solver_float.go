@@ -6,7 +6,6 @@ package lp
 import (
 	"fmt"
 	"io"
-	"sort"
 )
 
 func (m *FloatLPSolver) PrintStatisticsOnA(out io.Writer) error {
@@ -188,11 +187,8 @@ func (m *FloatDualSimplex) GetColumnValue(column uint32) (float64, error) {
 	return m.ColumnValueFromCore(column, x)
 }
 func (m *FloatDualSimplex) GetCurrentCost() (float64, error) {
-	keys := make([]uint32, 0, len(m.Columns))
-	for j := range m.Columns {
-		keys = append(keys, j)
-	}
-	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	// m_map_from_var_index_to_column_info walk in libstdc++ node order.
+	keys := m.columnKeys()
 	ret := 0.0
 	for _, j := range keys {
 		ci := m.Columns[j]

@@ -632,8 +632,10 @@ func TestLPFloatDualCostFlipIEEEAndPublication(t *testing.T) {
 	if m.Columns[0].Cost != 2 || !math.Signbit(m.Columns[1].Cost) {
 		t.Fatal("double flip")
 	}
+	// libstdc++ order visits 4 3 2 1 0: columns 4..2 flip, then the null
+	// column 1 stops the walk before column 0.
 	m.Columns[1] = nil
-	if err := m.FlipCosts(); err != ErrBounds || m.Columns[0].Cost != -2 || !math.IsInf(m.Columns[2].Cost, 1) {
+	if err := m.FlipCosts(); err != ErrBounds || m.Columns[0].Cost != 2 || !math.IsInf(m.Columns[2].Cost, -1) || !math.IsInf(m.Columns[3].Cost, 1) {
 		t.Fatal("cost flip failure prefix", err)
 	}
 	// Source metadata aliases are visited per key, so the shared value flips twice.

@@ -3,8 +3,6 @@ package lp
 // Source: src/util/lp/lp_primal_simplex.hpp:169-187,227-271,360-367;
 // lp_primal_simplex.h:86-88; lp_solver.hpp:43-48.
 
-import "sort"
-
 func (m *FloatPrimalSimplex) FindMaximalSolution() error {
 	if m.ProblemIsEmpty() {
 		m.Status = StatusEmpty
@@ -79,14 +77,11 @@ func (m *FloatPrimalSimplex) GetColumnValue(column uint32) (float64, error) {
 }
 
 // GetCurrentCost reconstructs the original objective, including shifts,
-// upper-bound flips, scaling and fixed columns. Native external indices choose
-// a deterministic order for the source unordered-map sum.
+// upper-bound flips, scaling and fixed columns, summed in
+// m_map_from_var_index_to_column_info's libstdc++ order.
 func (m *FloatPrimalSimplex) GetCurrentCost() (float64, error) {
-	keys := make([]uint32, 0, len(m.Columns))
-	for j := range m.Columns {
-		keys = append(keys, j)
-	}
-	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	// m_map_from_var_index_to_column_info walk in libstdc++ node order.
+	keys := m.columnKeys()
 	cost := 0.0
 	for _, j := range keys {
 		c := m.Columns[j]

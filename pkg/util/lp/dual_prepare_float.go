@@ -5,19 +5,15 @@ package lp
 
 import (
 	"fmt"
-	"sort"
 
 	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 // FlipCosts is the common lp_solver.hpp:97-102 operation used by dual setup.
-// Numeric indices choose deterministic order for the source unordered map.
+// It walks m_map_from_var_index_to_column_info in libstdc++ order.
 func (m *FloatLPSolver) FlipCosts() error {
-	keys := make([]uint32, 0, len(m.Columns))
-	for j := range m.Columns {
-		keys = append(keys, j)
-	}
-	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	// m_map_from_var_index_to_column_info walk in libstdc++ node order.
+	keys := m.columnKeys()
 	for _, j := range keys {
 		c := m.Columns[j]
 		if c == nil {
@@ -69,7 +65,7 @@ func (m *FloatDualSimplex) structuralInfo(j uint32, assertMaps bool) (*FloatColu
 		if assertMaps && sourceDebugEnabled {
 			return nil, ErrAssertion
 		}
-		m.Columns[external] = nil
+		m.setColumnInfo(external, nil)
 	}
 	if ci == nil {
 		return nil, ErrBounds

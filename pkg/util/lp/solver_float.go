@@ -3,10 +3,10 @@ package lp
 // Source: src/util/lp/lp_solver.h and lp_solver.hpp, floating common LP layer.
 
 import (
+	"sort"
 	"strconv"
 
 	"github.com/glycerine/g3/pkg/util/z3exception"
-	"github.com/glycerine/insdict"
 )
 
 type LPRelation uint32
@@ -26,8 +26,11 @@ var ErrLPFixedColumn = z3exception.NewDefaultException("found fixed column")
 var ErrLPSolverMissingRow = z3exception.NewDefaultException("cannot find row")
 
 // FloatLPSolver implements the common floating data preparation layer. Primal
-// and dual optimization are connected by their concrete simplex types; exact/LAR variants remain partial. Ordered row
-// dictionaries choose insertion order for source unordered-map traversals.
+// and dual optimization are connected by their concrete simplex types;
+// exact/LAR variants remain partial. m_A_values and the key order of
+// m_map_from_var_index_to_column_info follow libstdc++ unordered_map node
+// order (std_unordered_lp_maps.go): lp_solver numbers core rows/columns and
+// sums costs in those orders.
 type FloatLPSolver struct {
 	A                                                             *FloatStaticMatrix
 	B, ColumnScale, Costs                                         []float64
@@ -35,9 +38,10 @@ type FloatLPSolver struct {
 	Basis, NBasis                                                 []uint32
 	Heading                                                       []int32
 	ColumnTypes                                                   []ColumnType
-	AValues                                                       *insdict.Dict[uint32, *insdict.Dict[uint32, float64]]
+	AValues                                                       *StdUnorderedFloatRows // m_A_values
 	Constraints                                                   map[uint32]FloatConstraint
 	Columns                                                       map[uint32]*FloatColumnInfo
+	columnOrder                                                   *StdUnorderedUintMap   // m_map_from_var_index_to_column_info node order
 	NamesToColumns                                                *StdUnorderedStringMap // std::unordered_map<std::string, unsigned>
 	ExternalRowsToCore, CoreRowsToExternal, CoreColumnsToExternal map[uint32]uint32
 	Artificials, Slacks                                           uint32
@@ -51,20 +55,54 @@ func NewFloatLPSolver() (*FloatLPSolver, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &FloatLPSolver{Settings: s, AValues: insdict.NewDict[uint32, *insdict.Dict[uint32, float64]](), Constraints: make(map[uint32]FloatConstraint), Columns: make(map[uint32]*FloatColumnInfo), NamesToColumns: NewStdUnorderedStringMap(), ExternalRowsToCore: make(map[uint32]uint32), CoreRowsToExternal: make(map[uint32]uint32), CoreColumnsToExternal: make(map[uint32]uint32)}, nil
+	return &FloatLPSolver{Settings: s, AValues: NewStdUnorderedFloatRows(), columnOrder: NewStdUnorderedUintMap(), Constraints: make(map[uint32]FloatConstraint), Columns: make(map[uint32]*FloatColumnInfo), NamesToColumns: NewStdUnorderedStringMap(), ExternalRowsToCore: make(map[uint32]uint32), CoreRowsToExternal: make(map[uint32]uint32), CoreColumnsToExternal: make(map[uint32]uint32)}, nil
 }
 func (m *FloatLPSolver) GetOrCreateColumnInfo(column uint32) *FloatColumnInfo {
 	if c, ok := m.Columns[column]; ok {
 		return c
 	}
 	c := NewFloatColumnInfo(InvalidColumnIndex)
-	m.Columns[column] = c
+	m.setColumnInfo(column, c)
 	return c
+}
+
+// setColumnInfo is m_map_from_var_index_to_column_info[column] = c,
+// including operator[]'s insertion of a null entry.
+func (m *FloatLPSolver) setColumnInfo(column uint32, c *FloatColumnInfo) {
+	if m.columnOrder == nil {
+		m.columnOrder = NewStdUnorderedUintMap()
+	}
+	if _, ok := m.columnOrder.Get2(column); !ok {
+		m.columnOrder.Put(column, 0)
+	}
+	m.Columns[column] = c
+}
+
+// columnKeys lists m_map_from_var_index_to_column_info's keys in libstdc++
+// node order. Entries stored into Columns directly (tests) join the order
+// in ascending key order first.
+func (m *FloatLPSolver) columnKeys() []uint32 {
+	if m.columnOrder == nil {
+		m.columnOrder = NewStdUnorderedUintMap()
+	}
+	if m.columnOrder.Len() != len(m.Columns) {
+		var missing []uint32
+		for j := range m.Columns {
+			if _, ok := m.columnOrder.Get2(j); !ok {
+				missing = append(missing, j)
+			}
+		}
+		sort.Slice(missing, func(a, b int) bool { return missing[a] < missing[b] })
+		for _, j := range missing {
+			m.columnOrder.Put(j, 0)
+		}
+	}
+	return m.columnOrder.Keys()
 }
 func (m *FloatLPSolver) SetRowColumnCoefficient(row, column uint32, v float64) {
 	r, ok := m.AValues.Get2(row)
 	if !ok {
-		r = insdict.NewDict[uint32, float64]()
+		r = NewStdUnorderedFloatRow()
 		m.AValues.Set(row, r)
 	}
 	r.Set(column, v)
@@ -130,7 +168,7 @@ func (m *FloatLPSolver) MapExternalColumnsToCoreSolverColumns() error {
 			}
 			c := m.Columns[j]
 			if c == nil {
-				m.Columns[j] = nil
+				m.setColumnInfo(j, nil)
 			}
 			if c == nil {
 				return ErrBounds
@@ -203,7 +241,7 @@ func (m *FloatLPSolver) LowBoundShiftForRow(row uint32) (float64, error) {
 	for j, v := range r.All() {
 		c := m.Columns[j]
 		if c == nil {
-			m.Columns[j] = nil
+			m.setColumnInfo(j, nil)
 		}
 		if c == nil {
 			return sum, ErrBounds
@@ -323,7 +361,7 @@ func (m *FloatLPSolver) SetScaledCost(j uint32) error {
 	}
 	c := m.Columns[external]
 	if c == nil {
-		m.Columns[external] = nil
+		m.setColumnInfo(external, nil)
 	}
 	if c == nil {
 		return ErrBounds

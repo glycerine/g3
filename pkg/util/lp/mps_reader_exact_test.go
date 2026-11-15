@@ -60,7 +60,7 @@ func TestLPRationalMPSIndependentExactModels(t *testing.T) {
 		}
 		input.WriteString("ENDATA\n")
 		r := lpReadExactMPS(t, h, input.String())
-		if r.Name != "EXACT" || !reflect.DeepEqual(r.ColumnNames(), []string{"x", "y"}) || r.rows.Len() != 7 {
+		if r.Name != "EXACT" || !reflect.DeepEqual(r.ColumnNames(), []string{"y", "x"}) || r.rows.Len() != 7 { // libstdc++ m_columns order
 			t.Fatal(r.Name, r.ColumnNames(), r.rows.Len())
 		}
 		abs := new(big.Rat).Abs(span)
@@ -438,7 +438,7 @@ func TestLPRationalMPSFixedFieldsAndRepeatedPublication(t *testing.T) {
 	r = lpReadExactMPS(t, h, text)
 	cost, _ := r.rows.Get2("COST")
 	lpSparseRationalCheck(t, h, cost.coefficients.Get("x"), big.NewRat(3, 1))
-	if !reflect.DeepEqual(r.ColumnNames(), []string{"x", "MARK"}) {
+	if !reflect.DeepEqual(r.ColumnNames(), []string{"MARK", "x"}) { // libstdc++ m_columns order
 		t.Fatal(r.ColumnNames())
 	}
 	h.must(r.Close())

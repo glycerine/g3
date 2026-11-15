@@ -39,7 +39,8 @@ func (m *FloatPrimalSimplex) SetCoreSolverBounds() error {
 		m.ColumnTypes = append(m.ColumnTypes, ColumnFree)
 	}
 	m.UpperBounds = resizeFloatSolverValues(m.UpperBounds, n)
-	for _, c := range m.Columns {
+	for _, j := range m.columnKeys() {
+		c := m.Columns[j]
 		if c == nil {
 			return ErrBounds
 		}

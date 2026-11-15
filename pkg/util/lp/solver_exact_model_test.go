@@ -5,9 +5,6 @@ import (
 	"math/big"
 	"strings"
 	"testing"
-
-	"github.com/glycerine/g3/pkg/util/numeral"
-	"github.com/glycerine/insdict"
 )
 
 func lpRationalInputModel(t *testing.T, h *lpPairHarness) *RationalLPSolver {
@@ -97,7 +94,7 @@ func TestLPRationalInputModelSourceReplacementAndNames(t *testing.T) {
 	h := newLPPairHarness(t)
 	m := lpRationalInputModel(t, h)
 	zero, one, two := h.pair("0", "0"), h.pair("1/3", "0"), h.pair("2/7", "0")
-	m.AValues.Set(9, insdict.NewDict[uint32, *numeral.Rational]())
+	m.AValues.Set(9, NewStdUnorderedRationalMap())
 	if !m.ProblemIsEmpty() {
 		t.Fatal("empty stored row")
 	}

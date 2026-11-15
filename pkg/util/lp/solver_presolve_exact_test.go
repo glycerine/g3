@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/util/numeral"
-	"github.com/glycerine/insdict"
 )
 
 func lpRationalCornerExtrema(a, lo, up []*big.Rat) (min, max *big.Rat, argmin, argmax []*big.Rat) {
@@ -36,7 +35,7 @@ func lpRationalCornerExtrema(a, lo, up []*big.Rat) (min, max *big.Rat, argmin, a
 	}
 	return
 }
-func lpRationalPresolveRow(t *testing.T, h *lpPairHarness, m *RationalLPSolver, a, lo, up []*big.Rat) *insdict.Dict[uint32, *numeral.Rational] {
+func lpRationalPresolveRow(t *testing.T, h *lpPairHarness, m *RationalLPSolver, a, lo, up []*big.Rat) *StdUnorderedRationalMap {
 	t.Helper()
 	for j := range a {
 		h.must(m.SetRowColumnCoefficient(100, uint32(10+7*j), &h.pair(a[j].RatString(), "0").X))
@@ -94,6 +93,16 @@ func TestLPRationalPresolveUnknownBoundsAndZeroRead(t *testing.T) {
 				h := newLPPairHarness(t)
 				m := lpRationalInputModel(t, h)
 				out := h.pair("91", "0")
+				lowFirst := coefficient > 0
+				if maximum {
+					lowFirst = coefficient < 0
+				}
+				if lowFirst && flags&1 == 0 || !lowFirst && flags&2 == 0 {
+					// Inserted first, the missing column 30 is visited last
+					// in libstdc++ order (20 10 30): the walk must stop at
+					// the unknown bound of 20 before reaching it.
+					h.must(m.SetRowColumnCoefficient(100, 30, &h.pair("1", "0").X))
+				}
 				h.must(m.SetRowColumnCoefficient(100, 10, &h.pair("2", "0").X))
 				h.must(m.SetLowBound(10, &h.pair("3", "0").X))
 				h.must(m.SetUpperBound(10, &h.pair("5", "0").X))
@@ -113,9 +122,6 @@ func TestLPRationalPresolveUnknownBoundsAndZeroRead(t *testing.T) {
 				if low {
 					wantKnown = flags&1 != 0
 				}
-				if !wantKnown {
-					h.must(m.SetRowColumnCoefficient(100, 30, &h.pair("1", "0").X))
-				} // must not reach this missing column
 				row, _ := m.AValues.Get2(100)
 				var known bool
 				var err error
@@ -132,13 +138,15 @@ func TestLPRationalPresolveUnknownBoundsAndZeroRead(t *testing.T) {
 				if maximum {
 					base = 10
 				}
-				want := big.NewRat(base, 1)
+				// libstdc++ visits column 20 before 10, so an unknown bound
+				// stops the walk before column 10's contribution.
+				want := new(big.Rat)
 				if wantKnown {
 					endpoint := int64(11)
 					if low {
 						endpoint = -7
 					}
-					want.Add(want, big.NewRat(coefficient*endpoint, 1))
+					want.Add(big.NewRat(base, 1), big.NewRat(coefficient*endpoint, 1))
 				}
 				lpSparseRationalCheck(t, h, &out.X, want)
 				if _, exists := m.Columns.Get2(30); exists {
@@ -210,7 +218,7 @@ func TestLPRationalPresolveZeroRowsAndUnknownRelations(t *testing.T) {
 			for _, rhs := range []int64{-1, 0, 1} {
 				h := newLPPairHarness(t)
 				m := lpRationalInputModel(t, h)
-				row := insdict.NewDict[uint32, *numeral.Rational]()
+				row := NewStdUnorderedRationalMap()
 				if explicit {
 					h.must(m.SetRowColumnCoefficient(100, 10, &h.pair("0", "0").X))
 					row, _ = m.AValues.Get2(100)
@@ -332,8 +340,8 @@ func TestLPRationalPresolveDeferredErasureAndFailurePrefixes(t *testing.T) {
 		m := lpRationalInputModel(t, h)
 		switch phase {
 		case "rows":
-			m.AValues.Set(100, insdict.NewDict[uint32, *numeral.Rational]())
-			m.AValues.Set(101, insdict.NewDict[uint32, *numeral.Rational]())
+			m.AValues.Set(100, NewStdUnorderedRationalMap())
+			m.AValues.Set(101, NewStdUnorderedRationalMap())
 			h.must(m.AddConstraint(RelationEqual, &h.pair("0", "0").X, 100))
 			h.must(m.AddConstraint(RelationEqual, &h.pair("1", "0").X, 101))
 			n, err := m.TryToRemoveSomeRows()
@@ -344,8 +352,9 @@ func TestLPRationalPresolveDeferredErasureAndFailurePrefixes(t *testing.T) {
 		case "columns":
 			h.must(m.AddConstraint(RelationEqual, &h.pair("7", "0").X, 100))
 			h.must(m.SetFixedValue(10, &h.pair("2", "0").X))
-			h.must(m.SetRowColumnCoefficient(100, 10, &h.pair("3", "0").X))
+			// Inserting 20 before 10 makes libstdc++ visit column 10 first.
 			h.must(m.SetRowColumnCoefficient(100, 20, &h.pair("1", "0").X))
+			h.must(m.SetRowColumnCoefficient(100, 10, &h.pair("3", "0").X))
 			row, _ := m.AValues.Get2(100)
 			want := ErrBounds
 			if sourceDebugEnabled {
@@ -357,9 +366,10 @@ func TestLPRationalPresolveDeferredErasureAndFailurePrefixes(t *testing.T) {
 			c, _ := m.Constraints.Get2(100)
 			lpSparseRationalCheck(t, h, c.RightSide, big.NewRat(1, 1))
 		case "pin":
+			// Inserting 20 before 10 makes libstdc++ visit column 10 first.
+			h.must(m.SetRowColumnCoefficient(100, 20, &h.pair("1", "0").X))
 			h.must(m.SetRowColumnCoefficient(100, 10, &h.pair("3", "0").X))
 			h.must(m.SetUpperBound(10, &h.pair("2", "0").X))
-			h.must(m.SetRowColumnCoefficient(100, 20, &h.pair("1", "0").X))
 			row, _ := m.AValues.Get2(100)
 			if err := m.PinVarsOnRowWithSign(row, &h.pair("1", "0").X); err != ErrBounds {
 				t.Fatal(err)
@@ -601,10 +611,11 @@ func TestLPRationalPresolvePinSignsAndMissingBoundAssertions(t *testing.T) {
 	// Zero extrema use an upper bound, but zero pin products select lower.
 	h := newLPPairHarness(t)
 	m := lpRationalInputModel(t, h)
+	// Inserting 20 before 10 makes libstdc++ visit column 10 first.
+	h.must(m.SetRowColumnCoefficient(100, 20, &h.pair("0", "0").X))
 	h.must(m.SetRowColumnCoefficient(100, 10, &h.pair("1", "0").X))
 	h.must(m.SetLowBound(10, &h.pair("0", "0").X))
 	h.must(m.SetUpperBound(10, &h.pair("2", "0").X))
-	h.must(m.SetRowColumnCoefficient(100, 20, &h.pair("0", "0").X))
 	h.must(m.SetUpperBound(20, &h.pair("9", "0").X))
 	h.must(m.AddConstraint(RelationEqual, &h.pair("0", "0").X, 100))
 	row, _ := m.AValues.Get2(100)
@@ -674,7 +685,7 @@ func TestLPRationalPresolveReachedGuards(t *testing.T) {
 		m := lpRationalInputModel(t, h)
 		out := h.pair("91", "0")
 		v := h.pair("7/13", "0")
-		row := insdict.NewDict[uint32, *numeral.Rational]()
+		row := NewStdUnorderedRationalMap()
 		var err error
 		switch phase {
 		case 0:
@@ -776,7 +787,7 @@ func TestLPRationalPresolveCleanupOutputModes(t *testing.T) {
 		want := error(nil)
 		if mode != "no-pass" {
 			for i := uint32(100); i < 103; i++ {
-				m.AValues.Set(i, insdict.NewDict[uint32, *numeral.Rational]())
+				m.AValues.Set(i, NewStdUnorderedRationalMap())
 				h.must(m.AddConstraint(RelationEqual, &h.pair("0", "0").X, i))
 			}
 		}
@@ -900,7 +911,7 @@ func TestLPRationalPresolveForeignBorrowedNumerals(t *testing.T) {
 		text := strings.Repeat("1234567890", 20) + "7/13"
 		v := foreign.pair(text, "0")
 		out := h.pair("91", "0")
-		row := insdict.NewDict[uint32, *numeral.Rational]()
+		row := NewStdUnorderedRationalMap()
 		row.Set(10, &v.X)
 		h.must(m.SetLowBound(10, &h.pair("1", "0").X))
 		h.must(m.SetUpperBound(10, &h.pair("2", "0").X))

@@ -7,8 +7,6 @@ import (
 	"math/big"
 	"strings"
 	"testing"
-
-	"github.com/glycerine/insdict"
 )
 
 func TestLPRationalMPSCommonModelIndependentPopulation(t *testing.T) {
@@ -162,7 +160,7 @@ func TestLPRationalMPSCommonModelReachedGuards(t *testing.T) {
 			row.typ = mpsCost
 			want = ErrMPSUnhandled
 		case 4:
-			r.columns = insdict.NewDict[string, *rationalMPSColumn]()
+			r.columns = newRationalMPSColumnMap()
 			if sourceDebugEnabled {
 				want = ErrAssertion
 			}

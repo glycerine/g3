@@ -10,8 +10,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-
-	"github.com/glycerine/insdict"
 )
 
 var ErrMPSStalled = errors.New("lp: source MPS row-header loop cannot advance")
@@ -40,19 +38,20 @@ type floatMPSRow struct {
 	index        uint32
 	typ          mpsRowType
 	rhs, span    float64
-	coefficients *insdict.Dict[string, float64]
+	coefficients *StdUnorderedStringFloatMap // row::m_row_columns
 }
 
-// FloatMPSReader uses native Go text and insertion-ordered dictionaries. Input
-// order chooses a deterministic iteration order where C++ used unordered maps,
-// except m_columns, whose libstdc++ order decides the model report order
-// (floatMPSColumnMap, AUDIT.md util_lp_06-F1). Numeric tokens follow
+// FloatMPSReader uses native Go text. Its unordered maps (m_rows, each row's
+// m_row_columns, m_columns) iterate in libstdc++ node order, because that
+// order decides lp_solver's row/column numbering and the model report order
+// (floatMPSRowMap, StdUnorderedStringFloatMap, floatMPSColumnMap; AUDIT.md
+// util_lp_06-F1 and the owner's 2026-11-14 lp_solver task). Numeric tokens follow
 // numeric_traits<double>::from_string, libc atof (mpsNumber, AUDIT.md
 // util_lp_04-F1).
 type FloatMPSReader struct {
 	input                 *bufio.Reader
 	file                  *os.File
-	rows                  *insdict.Dict[string, *floatMPSRow]
+	rows                  *floatMPSRowMap
 	columns               *floatMPSColumnMap
 	line, Name, costName  string
 	LineNumber, costLines uint32
@@ -61,7 +60,7 @@ type FloatMPSReader struct {
 }
 
 func NewFloatMPSReader(in io.Reader) *FloatMPSReader {
-	m := &FloatMPSReader{ok: true, Messages: os.Stdout, rows: insdict.NewDict[string, *floatMPSRow](), columns: newFloatMPSColumnMap()}
+	m := &FloatMPSReader{ok: true, Messages: os.Stdout, rows: newFloatMPSRowMap(), columns: newFloatMPSColumnMap()}
 	if in != nil {
 		m.input = bufio.NewReader(in)
 	}
@@ -284,7 +283,7 @@ func (m *FloatMPSReader) readName() error {
 	}
 }
 func newFloatMPSRow(name string, index uint32, typ mpsRowType) *floatMPSRow {
-	return &floatMPSRow{name: name, index: index, typ: typ, coefficients: insdict.NewDict[string, float64]()}
+	return &floatMPSRow{name: name, index: index, typ: typ, coefficients: NewStdUnorderedStringFloatMap()}
 }
 func (m *FloatMPSReader) addRow() error {
 	if len(m.line) < 2 {

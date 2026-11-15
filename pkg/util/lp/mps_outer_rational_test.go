@@ -395,9 +395,13 @@ func TestLPRationalMPSOuterFactoryPhysicalOwnership(t *testing.T) {
 							h = newLPPairHarness(t)
 						}
 						large := strings.Repeat("1234567890", 100) + "7/13"
-						input := "NAME REFUSE\nROWS\n N COST\n L R\nCOLUMNS\n" + lpExactMPSPair("x", "COST", "7")
+						// m_row_columns walks y before x (libstdc++ order), so
+						// the cost phase puts its large value on x.
+						input := "NAME REFUSE\nROWS\n N COST\n L R\nCOLUMNS\n"
 						if phase == "cost" {
-							input += lpExactMPSPair("y", "COST", large)
+							input += lpExactMPSPair("x", "COST", large) + lpExactMPSPair("y", "COST", "7")
+						} else {
+							input += lpExactMPSPair("x", "COST", "7")
 						}
 						input += lpExactMPSPair("x", "R", "1")
 						if phase == "row" {
@@ -423,10 +427,12 @@ func TestLPRationalMPSOuterFactoryPhysicalOwnership(t *testing.T) {
 							}
 							// A completed small cost survives a later refusal while
 							// source symbolic names have not yet been published.
-							if c, ok := s.base().Columns.Get2(0); ok && c != nil && len(s.base().NamesToColumns) == 0 {
-								value, inspectErr := h.m.Int64(&c.Cost)
-								if inspectErr == nil && value == 7 {
-									prefix = true
+							for _, j := range []uint32{0, 1} {
+								if c, ok := s.base().Columns.Get2(j); ok && c != nil && s.base().NamesToColumns.Len() == 0 {
+									value, inspectErr := h.m.Int64(&c.Cost)
+									if inspectErr == nil && value == 7 {
+										prefix = true
+									}
 								}
 							}
 							retry, retryErr := lpCreateMPSExactOuter(r, dual)
@@ -442,7 +448,10 @@ func TestLPRationalMPSOuterFactoryPhysicalOwnership(t *testing.T) {
 						t.FailNow()
 					}
 				}
-				if !success || direct && (failures == 0 || !prefix) {
+				// fill_solver_on_rows visits row R before the cost row
+				// (libstdc++ m_rows order), so the row phase fails before
+				// any cost is published.
+				if !success || direct && (failures == 0 || !prefix && phase != "row") {
 					t.Fatal("factory refusal campaign", dual, direct, phase, success, failures, prefix)
 				}
 			}
@@ -466,7 +475,7 @@ func TestLPRationalMPSOuterNamedLookup(t *testing.T) {
 			case "unknown":
 				name = " f\tmissing "
 			case "orphan":
-				s.base().NamesToColumns["orphan"] = 77
+				s.base().NamesToColumns.Put("orphan", 77)
 				name, want = "orphan", new(big.Rat)
 			case "unsigned":
 				h.must(s.base().SetFixedValue(^uint32(0), lpScalarBoundValue(h, "11/31")))

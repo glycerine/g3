@@ -19,14 +19,16 @@ type RationalConstraint struct {
 // RationalLPSolver owns the exact input model shared by the source primal and
 // dual solvers, including exact matrix/RHS preparation. Concrete core/outer
 // optimization is not implemented by this layer.
-// Dictionaries use insertion order in place of source unordered traversal.
+// m_A_values, m_map_from_var_index_to_column_info and m_names_to_columns
+// iterate in libstdc++ unordered_map order (std_unordered_lp_maps.go);
+// m_constraints is only looked up and keeps an insertion-ordered dictionary.
 // Do not copy owning values or the solver. Column owners and numerical call
 // receipts close before model entries and their borrowed numeral manager.
 type RationalLPSolver struct {
-	AValues                                *insdict.Dict[uint32, *insdict.Dict[uint32, *numeral.Rational]]
+	AValues                                *StdUnorderedRationalRows // m_A_values
 	Constraints                            *insdict.Dict[uint32, *RationalConstraint]
-	Columns                                *insdict.Dict[uint32, *RationalColumnInfo]
-	NamesToColumns                         map[string]uint32
+	Columns                                *StdUnorderedRationalColumns // m_map_from_var_index_to_column_info
+	NamesToColumns                         *StdUnorderedStringMap       // m_names_to_columns
 	CoreColumnsToExternal                  map[uint32]uint32
 	ExternalRowsToCore, CoreRowsToExternal map[uint32]uint32
 	A                                      *RationalStaticMatrix
@@ -55,10 +57,10 @@ func NewRationalLPSolver(m *numeral.RationalManager) (*RationalLPSolver, error) 
 	}
 	return &RationalLPSolver{
 		manager: m, Settings: settings,
-		AValues:        insdict.NewDict[uint32, *insdict.Dict[uint32, *numeral.Rational]](),
+		AValues:        NewStdUnorderedRationalRows(),
 		Constraints:    insdict.NewDict[uint32, *RationalConstraint](),
-		Columns:        insdict.NewDict[uint32, *RationalColumnInfo](),
-		NamesToColumns: make(map[string]uint32), CoreColumnsToExternal: make(map[uint32]uint32),
+		Columns:        NewStdUnorderedRationalColumns(),
+		NamesToColumns: NewStdUnorderedStringMap(), CoreColumnsToExternal: make(map[uint32]uint32),
 		ExternalRowsToCore: make(map[uint32]uint32), CoreRowsToExternal: make(map[uint32]uint32),
 		B: NewIndexedRationalVector(m, 0), ColumnScale: NewIndexedRationalVector(m, 0),
 		Costs: NewIndexedRationalVector(m, 0),
@@ -110,7 +112,7 @@ func (m *RationalLPSolver) SetRowColumnCoefficient(row, column uint32, value *nu
 	defer func() { m.stopped = err != nil }()
 	r, ok := m.AValues.Get2(row)
 	if !ok {
-		r = insdict.NewDict[uint32, *numeral.Rational]()
+		r = NewStdUnorderedRationalMap()
 		m.AValues.Set(row, r)
 	}
 	if r == nil {
@@ -231,7 +233,7 @@ func (m *RationalLPSolver) GiveSymbolicNameToColumn(name string, column uint32) 
 		return err
 	}
 	c.Name = name
-	m.NamesToColumns[name] = column
+	m.NamesToColumns.Put(name, column)
 	return nil
 }
 func (m *RationalLPSolver) ColumnName(core uint32) string {

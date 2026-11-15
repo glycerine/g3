@@ -93,8 +93,11 @@ func TestLPFloatPrimalPreparedBasisIndependentOracle(t *testing.T) {
 					t.Fatal("structural coefficient changed")
 				}
 			}
+			// Core row i is external row CoreRowsToExternal[i] (libstdc++
+			// m_A_values order).
+			rel := LPRelation(m.CoreRowsToExternal[uint32(i)] % 3)
 			sign := 1.
-			if LPRelation(i%3) == RelationGreaterOrEqual {
+			if rel == RelationGreaterOrEqual {
 				sign = -1
 			}
 			cell := row[len(row)-1]
@@ -103,7 +106,7 @@ func TestLPFloatPrimalPreparedBasisIndependentOracle(t *testing.T) {
 			}
 			lpScalerNear(t, m.X[nc+i], sign*b[i])
 			wantType := ColumnLowBound
-			if LPRelation(i%3) == RelationEqual {
+			if rel == RelationEqual {
 				wantType = ColumnFixed
 			}
 			if m.ColumnTypes[nc+i] != wantType || m.Costs[nc+i] != 0 || m.LowBounds[nc+i] != 0 || m.UpperBounds[nc+i] != 0 {
@@ -116,7 +119,7 @@ func TestLPFloatPrimalPreparedBasisIndependentOracle(t *testing.T) {
 			lpScalerNear(t, dot, b[i])
 		}
 		for j := 0; j < nc; j++ {
-			c := m.Columns[uint32(j)]
+			c := m.Columns[m.CoreColumnsToExternal[uint32(j)]] // core column j
 			cost := c.Cost
 			if c.IsFlipped() {
 				cost = -cost

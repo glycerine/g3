@@ -290,20 +290,22 @@ func TestLPRationalPrimalStageIndependentRows(t *testing.T) {
 		}
 		for i := 0; i < rows; i++ {
 			j := uint32(cols + i)
+			// Core row i is external row ext (libstdc++ m_A_values order).
+			ext := int(m.CoreRowsToExternal[uint32(i)])
 			sign := int64(1)
-			if LPRelation(i%3) == RelationGreaterOrEqual {
+			if LPRelation(ext%3) == RelationGreaterOrEqual {
 				sign = -1
 			}
 			if m.Basis[i] != j {
 				t.Fatal("basis", world, i)
 			}
-			want := new(big.Rat).Mul(expected[i], big.NewRat(sign, 1))
+			want := new(big.Rat).Mul(expected[ext], big.NewRat(sign, 1))
 			lpSparseRationalCheck(t, h, &m.X.Data[j], want)
 			v, e := m.A.ColumnValue(m.A.Columns[j][0])
 			h.must(e)
 			lpSparseRationalCheck(t, h, v, big.NewRat(sign, 1))
 			typ := ColumnLowBound
-			if LPRelation(i%3) == RelationEqual {
+			if LPRelation(ext%3) == RelationEqual {
 				typ = ColumnFixed
 			}
 			if m.ColumnTypes[j] != typ {

@@ -294,8 +294,10 @@ func TestLPRationalCoreValuesUpstreamSolveRationalBasis(t *testing.T) {
 	out := h.pair("91", "0")
 	h.must(c.GetCost(&out.X))
 	lpSparseRationalCheck(t, h, &out.X, big.NewRat(24, 1))
-	lpSparseRationalCheck(t, h, &c.Y.Data[0], big.NewRat(-2, 1))
-	lpSparseRationalCheck(t, h, &c.Y.Data[1], big.NewRat(-3, 1))
+	// Core rows follow m_A_values' libstdc++ order, so look the duals up
+	// through the external row map.
+	lpSparseRationalCheck(t, h, &c.Y.Data[m.ExternalRowsToCore[0]], big.NewRat(-2, 1))
+	lpSparseRationalCheck(t, h, &c.Y.Data[m.ExternalRowsToCore[1]], big.NewRat(-3, 1))
 	for ext, v := range point {
 		j, _ := m.Columns.Get2(uint32(ext))
 		h.must(m.ColumnValueFromCore(uint32(ext), x.Data, &out.X))

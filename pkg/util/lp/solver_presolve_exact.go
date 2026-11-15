@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/util/numeral"
-	"github.com/glycerine/insdict"
 )
 
 // Compound assignments mutate their existing left operand. Binary expressions
@@ -47,7 +46,7 @@ func (m *RationalLPSolver) presolveNegate(v *numeral.Rational) error {
 
 // Bounds are source out-refs: an unknown endpoint returns false with the
 // prefix intact. Fixed flags do not replace bounds; out outlives Close on error.
-func (m *RationalLPSolver) presolveRowBound(row *insdict.Dict[uint32, *numeral.Rational], out *numeral.Rational, maximum bool) (known bool, err error) {
+func (m *RationalLPSolver) presolveRowBound(row *StdUnorderedRationalMap, out *numeral.Rational, maximum bool) (known bool, err error) {
 	zero := numeral.NewRational()
 	if err = m.copyValue(out, &zero); err != nil {
 		return false, err
@@ -117,14 +116,14 @@ func (m *RationalLPSolver) presolveRowBound(row *insdict.Dict[uint32, *numeral.R
 	}
 	return true, nil
 }
-func (m *RationalLPSolver) MinimalRowValue(row *insdict.Dict[uint32, *numeral.Rational], out *numeral.Rational) (known bool, err error) {
+func (m *RationalLPSolver) MinimalRowValue(row *StdUnorderedRationalMap, out *numeral.Rational) (known bool, err error) {
 	if err = m.ready(); err != nil {
 		return false, err
 	}
 	defer func() { m.stopped = err != nil }()
 	return m.presolveRowBound(row, out, false)
 }
-func (m *RationalLPSolver) MaximalRowValue(row *insdict.Dict[uint32, *numeral.Rational], out *numeral.Rational) (known bool, err error) {
+func (m *RationalLPSolver) MaximalRowValue(row *StdUnorderedRationalMap, out *numeral.Rational) (known bool, err error) {
 	if err = m.ready(); err != nil {
 		return false, err
 	}
@@ -132,7 +131,7 @@ func (m *RationalLPSolver) MaximalRowValue(row *insdict.Dict[uint32, *numeral.Ra
 	return m.presolveRowBound(row, out, true)
 }
 
-func (m *RationalLPSolver) pinVars(row *insdict.Dict[uint32, *numeral.Rational], sign *numeral.Rational) (err error) {
+func (m *RationalLPSolver) pinVars(row *StdUnorderedRationalMap, sign *numeral.Rational) (err error) {
 	if sign == nil {
 		return ErrBounds
 	}
@@ -203,7 +202,7 @@ func (m *RationalLPSolver) pinVars(row *insdict.Dict[uint32, *numeral.Rational],
 	}
 	return nil
 }
-func (m *RationalLPSolver) PinVarsOnRowWithSign(row *insdict.Dict[uint32, *numeral.Rational], sign *numeral.Rational) (err error) {
+func (m *RationalLPSolver) PinVarsOnRowWithSign(row *StdUnorderedRationalMap, sign *numeral.Rational) (err error) {
 	if err = m.ready(); err != nil {
 		return err
 	}
@@ -211,7 +210,7 @@ func (m *RationalLPSolver) PinVarsOnRowWithSign(row *insdict.Dict[uint32, *numer
 	return m.pinVars(row, sign)
 }
 
-func (m *RationalLPSolver) presolveRowIsZero(row *insdict.Dict[uint32, *numeral.Rational]) (bool, error) {
+func (m *RationalLPSolver) presolveRowIsZero(row *StdUnorderedRationalMap) (bool, error) {
 	if row == nil {
 		return false, ErrBounds
 	}
@@ -235,7 +234,7 @@ func (m *RationalLPSolver) defaultConstraint(index uint32) *RationalConstraint {
 	m.Constraints.Set(index, c)
 	return c
 }
-func (m *RationalLPSolver) rowBoundObsolete(row *insdict.Dict[uint32, *numeral.Rational], maximum bool) (bool, error) {
+func (m *RationalLPSolver) rowBoundObsolete(row *StdUnorderedRationalMap, maximum bool) (bool, error) {
 	w := m.work
 	bound := &w.Data[1]
 	if maximum {
@@ -303,7 +302,7 @@ func (m *RationalLPSolver) rowBoundObsolete(row *insdict.Dict[uint32, *numeral.R
 	}
 	return false, nil
 }
-func (m *RationalLPSolver) rowIsObsolete(row *insdict.Dict[uint32, *numeral.Rational], index uint32) (obsolete bool, err error) {
+func (m *RationalLPSolver) rowIsObsolete(row *StdUnorderedRationalMap, index uint32) (obsolete bool, err error) {
 	c := m.defaultConstraint(index)
 	if c == nil || !c.relationSet {
 		return false, ErrBounds
@@ -360,7 +359,7 @@ func (m *RationalLPSolver) rowIsObsolete(row *insdict.Dict[uint32, *numeral.Rati
 	}
 	return false, nil
 }
-func (m *RationalLPSolver) RowIsObsolete(row *insdict.Dict[uint32, *numeral.Rational], index uint32) (obsolete bool, err error) {
+func (m *RationalLPSolver) RowIsObsolete(row *StdUnorderedRationalMap, index uint32) (obsolete bool, err error) {
 	if err = m.ready(); err != nil {
 		return false, err
 	}
@@ -378,7 +377,7 @@ func (m *RationalLPSolver) releaseInputValue(v *numeral.Rational) error {
 	*v = numeral.NewRational()
 	return nil
 }
-func (m *RationalLPSolver) removeFixedFromRow(index uint32, row *insdict.Dict[uint32, *numeral.Rational]) (err error) {
+func (m *RationalLPSolver) removeFixedFromRow(index uint32, row *StdUnorderedRationalMap) (err error) {
 	c := m.defaultConstraint(index)
 	if c == nil || c.RightSide == nil || row == nil {
 		return ErrBounds
@@ -433,7 +432,7 @@ func (m *RationalLPSolver) removeFixedFromRow(index uint32, row *insdict.Dict[ui
 	}
 	return nil
 }
-func (m *RationalLPSolver) RemoveFixedOrZeroColumnsFromRow(index uint32, row *insdict.Dict[uint32, *numeral.Rational]) (err error) {
+func (m *RationalLPSolver) RemoveFixedOrZeroColumnsFromRow(index uint32, row *StdUnorderedRationalMap) (err error) {
 	if err = m.ready(); err != nil {
 		return err
 	}

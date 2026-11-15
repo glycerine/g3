@@ -4,15 +4,13 @@ package lp
 
 import (
 	"fmt"
-
-	"github.com/glycerine/insdict"
 )
 
-func (m *FloatLPSolver) PinVarsOnRowWithSign(row *insdict.Dict[uint32, float64], sign float64) error {
+func (m *FloatLPSolver) PinVarsOnRowWithSign(row *StdUnorderedFloatRow, sign float64) error {
 	for j, a := range row.All() {
 		c, ok := m.Columns[j]
 		if !ok {
-			m.Columns[j] = nil
+			m.setColumnInfo(j, nil)
 		}
 		if c == nil {
 			return ErrBounds
@@ -34,12 +32,12 @@ func (m *FloatLPSolver) PinVarsOnRowWithSign(row *insdict.Dict[uint32, float64],
 
 // The returned value includes the successfully accumulated prefix when a
 // missing bound makes the row extremum unknown, just like the source out-ref.
-func (m *FloatLPSolver) rowBound(row *insdict.Dict[uint32, float64], maximum bool) (float64, bool, error) {
+func (m *FloatLPSolver) rowBound(row *StdUnorderedFloatRow, maximum bool) (float64, bool, error) {
 	var sum float64
 	for j, a := range row.All() {
 		c, ok := m.Columns[j]
 		if !ok {
-			m.Columns[j] = nil
+			m.setColumnInfo(j, nil)
 		}
 		if c == nil {
 			return sum, false, ErrBounds
@@ -62,14 +60,14 @@ func (m *FloatLPSolver) rowBound(row *insdict.Dict[uint32, float64], maximum boo
 	}
 	return sum, true, nil
 }
-func (m *FloatLPSolver) MinimalRowValue(row *insdict.Dict[uint32, float64]) (float64, bool, error) {
+func (m *FloatLPSolver) MinimalRowValue(row *StdUnorderedFloatRow) (float64, bool, error) {
 	return m.rowBound(row, false)
 }
-func (m *FloatLPSolver) MaximalRowValue(row *insdict.Dict[uint32, float64]) (float64, bool, error) {
+func (m *FloatLPSolver) MaximalRowValue(row *StdUnorderedFloatRow) (float64, bool, error) {
 	return m.rowBound(row, true)
 }
 
-func floatSolverRowIsZero(row *insdict.Dict[uint32, float64]) bool {
+func floatSolverRowIsZero(row *StdUnorderedFloatRow) bool {
 	for _, a := range row.All() {
 		if a != 0 {
 			return false
@@ -78,7 +76,7 @@ func floatSolverRowIsZero(row *insdict.Dict[uint32, float64]) bool {
 	return true
 }
 
-func (m *FloatLPSolver) rowBoundObsolete(row *insdict.Dict[uint32, float64], rhs float64, upper bool) (bool, error) {
+func (m *FloatLPSolver) rowBoundObsolete(row *StdUnorderedFloatRow, rhs float64, upper bool) (bool, error) {
 	bound, known, err := m.rowBound(row, upper)
 	if err != nil {
 		return false, err
@@ -108,7 +106,7 @@ func (m *FloatLPSolver) rowBoundObsolete(row *insdict.Dict[uint32, float64], rhs
 	return false, nil
 }
 
-func (m *FloatLPSolver) RowIsObsolete(row *insdict.Dict[uint32, float64], index uint32) (bool, error) {
+func (m *FloatLPSolver) RowIsObsolete(row *StdUnorderedFloatRow, index uint32) (bool, error) {
 	c, ok := m.Constraints[index]
 	if !ok {
 		// Source operator[] constructs an indeterminate floating constraint.
@@ -146,7 +144,7 @@ func (m *FloatLPSolver) RowIsObsolete(row *insdict.Dict[uint32, float64], index 
 	return false, nil
 }
 
-func (m *FloatLPSolver) RemoveFixedOrZeroColumnsFromRow(index uint32, row *insdict.Dict[uint32, float64]) error {
+func (m *FloatLPSolver) RemoveFixedOrZeroColumnsFromRow(index uint32, row *StdUnorderedFloatRow) error {
 	c, initialized := m.Constraints[index]
 	if !initialized {
 		m.Constraints[index] = c
@@ -158,7 +156,7 @@ func (m *FloatLPSolver) RemoveFixedOrZeroColumnsFromRow(index uint32, row *insdi
 			if err := sourceAssertionFailure(); err != nil {
 				return err
 			}
-			m.Columns[j] = nil
+			m.setColumnInfo(j, nil)
 		}
 		if ci == nil {
 			return ErrBounds

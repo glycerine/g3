@@ -213,10 +213,12 @@ func TestLPRationalObjectiveSourceLookupAndFixedPrefixes(t *testing.T) {
 				err = m.ColumnValueFromCore(999, nil, nil)
 				want = ErrBounds
 			case "nil-flip":
+				// The new key 20 is visited before column 10 in libstdc++
+				// order, so column 10's cost is not flipped.
 				m.Columns.Set(20, nil)
 				err = m.FlipCosts()
 				want = ErrBounds
-				lpSparseRationalCheck(t, h, &c.Cost, big.NewRat(-7, 13))
+				lpSparseRationalCheck(t, h, &c.Cost, big.NewRat(7, 13))
 			}
 			if err != want {
 				t.Fatal(kind, err, want)
@@ -333,8 +335,8 @@ func TestLPRationalObjectiveActualMPSPreparation(t *testing.T) {
 		h.must(m.ColumnValueFromCore(ext, x.Data, &out.X))
 		want, cost := big.NewRat(2, 7), big.NewRat(7, 13)
 		switch ext {
-		case m.NamesToColumns["X"]:
-		case m.NamesToColumns["Y"]:
+		case lpTestNamedColumn(t, m.NamesToColumns, "X"):
+		case lpTestNamedColumn(t, m.NamesToColumns, "Y"):
 			// Source FR is sticky: a later UP does not re-enable bounds.
 			cost.SetFrac64(-11, 19)
 			c, _ := m.Columns.Get2(ext)

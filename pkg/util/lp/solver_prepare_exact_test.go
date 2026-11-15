@@ -6,9 +6,6 @@ import (
 	"math/rand"
 	"strings"
 	"testing"
-
-	"github.com/glycerine/g3/pkg/util/numeral"
-	"github.com/glycerine/insdict"
 )
 
 func TestLPRationalPreparationIndependentMatricesAndRHS(t *testing.T) {
@@ -65,6 +62,20 @@ func TestLPRationalPreparationIndependentMatricesAndRHS(t *testing.T) {
 		if m.A.RowCount() != uint32(nr) || m.A.ColumnCount() != uint32(nc) || len(m.B.Data) != nr {
 			t.Fatal("prepared extents")
 		}
+		// Core rows and columns are numbered in m_A_values' libstdc++ order
+		// (row keys, then each row's column keys by first appearance).
+		ro, co = ro[:0], co[:0]
+		seenColumn := map[uint32]bool{}
+		for _, ext := range m.AValues.Keys() {
+			ro = append(ro, int(ext-100)/11)
+			row, _ := m.AValues.Get2(ext)
+			for _, col := range row.Keys() {
+				if !seenColumn[col] {
+					seenColumn[col] = true
+					co = append(co, int(col-10)/7)
+				}
+			}
+		}
 		for r, i := range ro {
 			if m.ExternalRowsToCore[uint32(100+11*i)] != uint32(r) || m.CoreRowsToExternal[uint32(r)] != uint32(100+11*i) {
 				t.Fatal("row mapping")
@@ -74,12 +85,18 @@ func TestLPRationalPreparationIndependentMatricesAndRHS(t *testing.T) {
 			lpSparseRationalCheck(t, h, &out.X, rowShift[i])
 			for c, j := range co {
 				info, _ := m.Columns.Get2(uint32(10 + 7*j))
-				cell := &m.A.Rows[r][c]
-				if info.Index != uint32(c) || m.CoreColumnsToExternal[uint32(c)] != uint32(10+7*j) || cell.Column != uint32(c) {
+				k := -1
+				for p := range m.A.Rows[r] {
+					if m.A.Rows[r][p].Column == uint32(c) {
+						k = p
+					}
+				}
+				if k < 0 || info.Index != uint32(c) || m.CoreColumnsToExternal[uint32(c)] != uint32(10+7*j) {
 					t.Fatal("column mapping")
 				}
+				cell := &m.A.Rows[r][k]
 				link := m.A.Columns[cell.Column][cell.Offset]
-				if link.Row != uint32(r) || link.Offset != uint32(c) {
+				if link.Row != uint32(r) || link.Offset != uint32(k) {
 					t.Fatal("reciprocal matrix links")
 				}
 				want := new(big.Rat).Set(a[i][j])
@@ -145,8 +162,9 @@ func TestLPRationalPreparationSourceMappingPrefixes(t *testing.T) {
 		one, zero := h.pair("7/13", "0"), h.pair("0", "0")
 		c, err := m.GetOrCreateColumnInfo(10)
 		h.must(err)
-		h.must(m.SetRowColumnCoefficient(100, 10, &one.X))
+		// Inserting 20 before 10 makes libstdc++ visit column 10 first.
 		h.must(m.SetRowColumnCoefficient(100, 20, &one.X))
+		h.must(m.SetRowColumnCoefficient(100, 10, &one.X))
 		wantErr := error(nil)
 		switch kind {
 		case "zero":
@@ -205,8 +223,8 @@ func TestLPRationalPreparationDenseResizeAndExactScale(t *testing.T) {
 		h.must(m.B.copySlot(&m.B.Data[i], &large.X))
 	}
 	// Empty coefficient rows still obtain core row IDs.
-	m.AValues.Set(50, insdict.NewDict[uint32, *numeral.Rational]())
-	m.AValues.Set(70, insdict.NewDict[uint32, *numeral.Rational]())
+	m.AValues.Set(50, NewStdUnorderedRationalMap())
+	m.AValues.Set(70, NewStdUnorderedRationalMap())
 	h.must(m.FillMatrixAAndInitRightSide())
 	if len(m.B.Data) != 2 || m.A.ColumnCount() != 0 {
 		t.Fatal("dense shrink")
@@ -244,7 +262,7 @@ func TestLPRationalPreparationDescendingRHSAndCounters(t *testing.T) {
 	h := newLPPairHarness(t)
 	m := lpRationalInputModel(t, h)
 	for i := uint32(0); i < 3; i++ {
-		m.AValues.Set(10+i, insdict.NewDict[uint32, *numeral.Rational]())
+		m.AValues.Set(10+i, NewStdUnorderedRationalMap())
 		if i != 1 {
 			h.must(m.AddConstraint(RelationEqual, &h.pair(fmt.Sprint(7+i), "0").X, 10+i))
 		}
@@ -260,7 +278,12 @@ func TestLPRationalPreparationDescendingRHSAndCounters(t *testing.T) {
 	if err := m.FillB(); err != want {
 		t.Fatal(err)
 	}
-	lpSparseRationalCheck(t, h, &m.B.Data[2], big.NewRat(9, 1))
+	// libstdc++ numbers the rows 12, 11, 10: fill_m_b writes core row 2
+	// (external 10) and stops at the missing constraint of external 11.
+	if m.CoreRowsToExternal[2] != 10 || m.CoreRowsToExternal[1] != 11 {
+		t.Fatal("core row order", m.CoreRowsToExternal)
+	}
+	lpSparseRationalCheck(t, h, &m.B.Data[2], big.NewRat(7, 1))
 	lpSparseRationalCheck(t, h, &m.B.Data[1], big.NewRat(91, 1))
 	lpSparseRationalCheck(t, h, &m.B.Data[0], big.NewRat(91, 1))
 	h.must(m.Close())
@@ -453,7 +476,7 @@ func TestLPRationalPreparationReachedDomains(t *testing.T) {
 			m.AValues.Set(100, nil)
 			err = m.MapExternalColumnsToCoreSolverColumns()
 		case 5:
-			m.AValues.Set(100, insdict.NewDict[uint32, *numeral.Rational]())
+			m.AValues.Set(100, NewStdUnorderedRationalMap())
 			row, _ := m.AValues.Get2(100)
 			row.Set(10, nil)
 			err = m.MapExternalColumnsToCoreSolverColumns()
@@ -474,7 +497,7 @@ func TestLPRationalPreparationReachedDomains(t *testing.T) {
 				h.must(m.MapExternalRowsToCoreSolverRows())
 			}
 			if phase == 9 {
-				m.Columns = insdict.NewDict[uint32, *RationalColumnInfo]()
+				m.Columns = NewStdUnorderedRationalColumns()
 			}
 			if phase == 10 {
 				m.AValues.Set(100, nil)
@@ -501,7 +524,7 @@ func TestLPRationalPreparationReachedDomains(t *testing.T) {
 		case 14:
 			m.A = NewRationalStaticMatrix(h.m, 1, 0)
 			h.must(m.AddConstraint(RelationEqual, &v.X, 0))
-			m.AValues.Set(0, insdict.NewDict[uint32, *numeral.Rational]())
+			m.AValues.Set(0, NewStdUnorderedRationalMap())
 			err = m.FillB()
 		case 15:
 			h.must(m.AddConstraint(RelationLessOrEqual, &v.X, 0))
@@ -516,7 +539,7 @@ func TestLPRationalPreparationReachedDomains(t *testing.T) {
 				want = ErrAssertion
 			}
 		case 17:
-			row := insdict.NewDict[uint32, *numeral.Rational]()
+			row := NewStdUnorderedRationalMap()
 			row.Set(10, nil)
 			m.AValues.Set(100, row)
 			err = m.LowBoundShiftForRow(100, &out.X)
@@ -645,8 +668,9 @@ func TestLPRationalPreparationLateFailuresKeepReachedPrefix(t *testing.T) {
 		m := lpRationalInputModel(t, h)
 		out := h.pair("91", "0")
 		h.must(m.SetLowBound(10, &h.pair("2", "0").X))
-		h.must(m.SetRowColumnCoefficient(100, 10, &h.pair("7/13", "0").X))
+		// Inserting 20 before 10 makes libstdc++ visit column 10 first.
 		h.must(m.SetRowColumnCoefficient(100, 20, &h.pair("3/17", "0").X))
+		h.must(m.SetRowColumnCoefficient(100, 10, &h.pair("7/13", "0").X))
 		switch phase {
 		case "shift":
 			if m.LowBoundShiftForRow(100, &out.X) != ErrBounds {

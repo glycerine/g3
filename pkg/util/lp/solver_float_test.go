@@ -6,9 +6,9 @@ import (
 	"testing"
 )
 
-func lpTestNamedColumn(t *testing.T, names map[string]uint32, name string) uint32 {
+func lpTestNamedColumn(t *testing.T, names *StdUnorderedStringMap, name string) uint32 {
 	t.Helper()
-	column, ok := names[name]
+	column, ok := names.Get2(name)
 	if !ok {
 		t.Fatalf("missing column name %q", name)
 	}
@@ -92,6 +92,31 @@ func TestLPFloatSolverIndependentAssemblyScalingAndRestoration(t *testing.T) {
 			t.Fatal(world, err)
 		}
 		originalB := append([]float64(nil), m.B...)
+		// map_external_rows_to_core_solver_rows and
+		// map_external_columns_to_core_solver_columns number rows and
+		// columns in m_A_values' libstdc++ order (row keys, then each row's
+		// column keys by first appearance), not in insertion order.
+		ro, co = ro[:0], co[:0]
+		seen := map[uint32]bool{}
+		for _, ext := range m.AValues.Keys() {
+			ro = append(ro, int(ext-100)/11)
+			row, _ := m.AValues.Get2(ext)
+			for _, col := range row.Keys() {
+				if !seen[col] {
+					seen[col] = true
+					co = append(co, int(col-10)/7)
+				}
+			}
+		}
+		cell := func(r, c int) float64 {
+			for _, v := range m.A.Rows[r] {
+				if v.Column == uint32(c) {
+					return v.Value
+				}
+			}
+			t.Fatal("missing cell", r, c)
+			return 0
+		}
 		for r, i := range ro {
 			if m.ExternalRowsToCore[uint32(100+11*i)] != uint32(r) || m.CoreRowsToExternal[uint32(r)] != uint32(100+11*i) {
 				t.Fatal("row order")
@@ -101,7 +126,7 @@ func TestLPFloatSolverIndependentAssemblyScalingAndRestoration(t *testing.T) {
 				if m.Columns[uint32(10+7*j)].Index != uint32(c) {
 					t.Fatal("column order")
 				}
-				lpScalerNear(t, m.A.Rows[r][c].Value, a[i][j]*sign[j])
+				lpScalerNear(t, cell(r, c), a[i][j]*sign[j])
 				wantB += a[i][j] * (externalX[j] - shift[j])
 			}
 			lpScalerNear(t, m.B[r], wantB)
@@ -144,7 +169,7 @@ func TestLPFloatSolverIndependentAssemblyScalingAndRestoration(t *testing.T) {
 		for r, i := range ro {
 			lpScalerNear(t, m.B[r], originalB[r])
 			for c, j := range co {
-				lpScalerNear(t, m.A.Rows[r][c].Value, a[i][j]*sign[j])
+				lpScalerNear(t, cell(r, c), a[i][j]*sign[j])
 				lpScalerNear(t, m.ColumnScale[c], 1)
 			}
 		}
@@ -319,7 +344,9 @@ func TestLPFloatSolverSourceErrorsAndPublicationPrefixes(t *testing.T) {
 	m.GetOrCreateColumnInfo(10).SetFixedValue(3)
 	m.SetRowColumnCoefficient(4, 9, 1)
 	m.SetRowColumnCoefficient(5, 10, 1)
-	if err := m.FillMatrixAAndInitRightSide(); err != ErrLPFixedColumn || len(m.CoreColumnsToExternal) != 1 || len(m.ExternalRowsToCore) != 2 {
+	// m_A_values walks row 5 (the fixed column 10) before row 4 (libstdc++
+	// order), so no column is mapped before the exception.
+	if err := m.FillMatrixAAndInitRightSide(); err != ErrLPFixedColumn || len(m.CoreColumnsToExternal) != 0 || len(m.ExternalRowsToCore) != 2 {
 		t.Fatal(err, m)
 	}
 	// Replacement coefficients retain their insertion position and names.
@@ -405,8 +432,10 @@ func TestLPFloatSolverSourceErrorsAndPublicationPrefixes(t *testing.T) {
 	old = m.A
 	m.ColumnScale = []float64{3}
 	m.B = []float64{77, 88}
-	delete(m.Constraints, 0)
-	if err := m.Unscale(); err != lpSolverDomainError() || m.A == old || old.RowCount() != 0 || m.ColumnScale[0] != 1 || m.B[0] != 77 || m.B[1] != 5 {
+	// Core rows follow m_A_values' libstdc++ order; drop the constraint of
+	// core row 0 so the descending fill_m_b fills core row 1 first.
+	delete(m.Constraints, m.CoreRowsToExternal[0])
+	if err := m.Unscale(); err != lpSolverDomainError() || m.A == old || old.RowCount() != 0 || m.ColumnScale[0] != 1 || m.B[0] != 77 || m.B[1] != float64(m.CoreRowsToExternal[1]+4) {
 		t.Fatal(err, m.B, m.ColumnScale)
 	}
 	delete(m.ExternalRowsToCore, 0)

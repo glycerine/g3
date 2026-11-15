@@ -146,7 +146,8 @@ func TestLPFloatPrimalValidationOutputAndMutationPrefixes(t *testing.T) {
 	solution := map[string]float64{"a": 4, "b": 1}
 	var out bytes.Buffer
 	value, err := m.GetRowValue(0, solution, &out)
-	if err != nil || value != 5 || out.String() != "2(a=4) -3(b=1)  = 5\n" {
+	// get_row_value walks the row in libstdc++ order: column 2, then 1.
+	if err != nil || value != 5 || out.String() != "-3(b=1) 2(a=4)  = 5\n" {
 		t.Fatal(value, err, out.String())
 	}
 	for _, relation := range []LPRelation{RelationEqual, RelationLessOrEqual, RelationGreaterOrEqual} {
@@ -176,12 +177,12 @@ func TestLPFloatPrimalValidationOutputAndMutationPrefixes(t *testing.T) {
 	}
 	w := &lpValidationWriter{allowed: 1, err: want}
 	value, err = m.GetRowValue(0, solution, w)
-	if err != want || value != 8 || w.String() != "2(a=4) " {
+	if err != want || value != -3 || w.String() != "-3(b=1) " {
 		t.Fatal(value, err, w.String())
 	}
 	delete(m.Constraints, 0)
 	out.Reset()
-	if ok, err := m.RowConstraintHolds(0, solution, &out); ok || err != ErrBounds || out.String() != "2(a=4) -3(b=1)  = 5\n" {
+	if ok, err := m.RowConstraintHolds(0, solution, &out); ok || err != ErrBounds || out.String() != "-3(b=1) 2(a=4)  = 5\n" {
 		t.Fatal(ok, err, out.String())
 	}
 	if _, exists := m.Constraints[0]; !exists {
@@ -229,7 +230,13 @@ func TestLPFloatPrimalValidationMissingMetadata(t *testing.T) {
 	if ok, err := m.RowConstraintHolds(2, map[string]float64{"z": 0}, nil); ok || err != errWant {
 		t.Fatal(ok, err)
 	}
-	if ok, err := m.RowConstraintsHold(nil); ok || err != ErrBounds {
+	// row_constraints_hold walks m_A_values in libstdc++ order and reaches
+	// row 2 (whose relation 99 trips the debug assertion) before row 1.
+	rowsWant := error(ErrBounds)
+	if sourceDebugEnabled {
+		rowsWant = ErrAssertion
+	}
+	if ok, err := m.RowConstraintsHold(nil); ok || err != rowsWant {
 		t.Fatal(ok, err)
 	}
 	m.AValues.Set(3, nil)
@@ -265,7 +272,8 @@ func TestLPFloatPrimalValidationEveryReportByteAndEndl(t *testing.T) {
 	m.SetRowColumnCoefficient(0, 1, 2)
 	m.SetRowColumnCoefficient(0, 2, -3)
 	solution := map[string]float64{"a": 4, "b": 1}
-	first, second := "2(a=4) ", "-3(b=1) "
+	// libstdc++ row order: column 2 (b), then column 1 (a).
+	first, second := "-3(b=1) ", "2(a=4) "
 	row := first + second + " = 5\n"
 	for _, refused := range []error{nil, lpErrResidualWrite} {
 		wantErr := refused
@@ -277,7 +285,7 @@ func TestLPFloatPrimalValidationEveryReportByteAndEndl(t *testing.T) {
 			got, err := m.GetRowValue(0, solution, w)
 			want := 0.0
 			if n >= len(first) {
-				want = 8
+				want = -3
 			}
 			if n >= len(first)+len(second) {
 				want = 5

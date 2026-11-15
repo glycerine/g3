@@ -182,9 +182,11 @@ func TestLPFloatPresolveUnknownBoundsAndPinPrefixes(t *testing.T) {
 			}
 			row, _ := m.AValues.Get2(0)
 			v, known, err := m.rowBound(row, maximum)
-			want := 2.
+			// libstdc++ visits columns 2 1 0: column 2 (3 * [6, 7])
+			// contributes before the unknown bound of column 1.
+			want := 18.
 			if maximum {
-				want = 3
+				want = 21
 			}
 			if err != nil || known || v != want {
 				t.Fatal(maximum, coefficient, v, known, err)
@@ -194,16 +196,17 @@ func TestLPFloatPresolveUnknownBoundsAndPinPrefixes(t *testing.T) {
 	}
 	m := lpPresolveFixture(t, []float64{1, 1}, []float64{2, 4}, []float64{3, 5}, RelationEqual, 0)
 	row, _ := m.AValues.Get2(0)
-	m.Columns[1].LowSet = false
+	// libstdc++ visits column 1 before column 0.
+	m.Columns[0].LowSet = false
 	err := m.PinVarsOnRowWithSign(row, -1)
-	if !m.Columns[0].Fixed || m.Columns[0].FixedValue != 2 {
+	if !m.Columns[1].Fixed || m.Columns[1].FixedValue != 4 {
 		t.Fatal("successful earlier pin")
 	}
 	if sourceDebugEnabled {
-		if err != ErrAssertion || m.Columns[1].Fixed {
+		if err != ErrAssertion || m.Columns[0].Fixed {
 			t.Fatal(err)
 		}
-	} else if err != nil || !m.Columns[1].Fixed || m.Columns[1].FixedValue != 4 {
+	} else if err != nil || !m.Columns[0].Fixed || m.Columns[0].FixedValue != 2 {
 		t.Fatal(err)
 	}
 	m = lpPresolveFixture(t, []float64{1}, []float64{2}, []float64{3}, RelationEqual, 0)
@@ -222,7 +225,9 @@ func TestLPFloatPresolveUnknownBoundsAndPinPrefixes(t *testing.T) {
 	m.Columns[1].LowSet = false
 	got, err := m.RowIsObsolete(row, 0)
 	if sourceDebugEnabled {
-		if got || err != ErrAssertion || !m.Columns[0].Fixed {
+		// libstdc++ visits column 1 (the missing-bound assertion) before
+		// column 0 is pinned.
+		if got || err != ErrAssertion || m.Columns[0].Fixed {
 			t.Fatal(got, err)
 		}
 	} else if !got || err != nil {
@@ -375,13 +380,14 @@ func TestLPFloatPresolveCleanupPassesAndDeferredErasure(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Infeasibility returns before deleting pending obsolete rows or removing
-	// fixed terms, while successful earlier pins remain observable.
+	// fixed terms. libstdc++ visits the infeasible row 1 before row 0, so
+	// row 0 has not pinned its column yet.
 	m = lpPresolveFixture(t, []float64{1}, []float64{0}, []float64{1}, RelationEqual, 0)
 	m.SetRowColumnCoefficient(1, 0, 1)
 	if err := m.AddConstraint(RelationEqual, -1, 1); err != nil {
 		t.Fatal(err)
 	}
-	if n, err := m.TryToRemoveSomeRows(); err != nil || n != 0 || m.Status != StatusInfeasible || m.AValues.Len() != 2 || !m.Columns[0].Fixed {
+	if n, err := m.TryToRemoveSomeRows(); err != nil || n != 0 || m.Status != StatusInfeasible || m.AValues.Len() != 2 || m.Columns[0].Fixed {
 		t.Fatal(n, err, m.Status)
 	}
 	row, _ = m.AValues.Get2(0)
@@ -400,7 +406,9 @@ func TestLPFloatPresolveInputAndWriterErrorPrefixes(t *testing.T) {
 	m.Columns[0].SetFixedValue(3)
 	delete(m.Columns, 1)
 	err := m.RemoveFixedOrZeroColumnsFromRow(0, row)
-	if err != lpSolverDomainError() || row.Len() != 2 || m.Constraints[0].RightSide != 4 {
+	// libstdc++ visits the missing column 1 before the fixed column 0, so
+	// the right side is not adjusted yet.
+	if err != lpSolverDomainError() || row.Len() != 2 || m.Constraints[0].RightSide != 10 {
 		t.Fatal(err, row.Len(), m.Constraints[0])
 	}
 	m = lpPresolveFixture(t, []float64{1}, []float64{0}, []float64{1}, RelationEqual, .5)
@@ -476,8 +484,9 @@ func TestLPFloatPresolveComposedErrorsAndPreparedProblem(t *testing.T) {
 	m.Settings.DebugOut = nil
 	m.GetOrCreateColumnInfo(0)
 	m.SetRowColumnCoefficient(0, 0, 0)
-	m.SetRowColumnCoefficient(1, 0, 1)
+	// Inserting 2 before 0 makes libstdc++ visit column 0 first.
 	m.SetRowColumnCoefficient(1, 2, 1)
+	m.SetRowColumnCoefficient(1, 0, 1)
 	for i := uint32(0); i < 2; i++ {
 		if err := m.AddConstraint(RelationEqual, 0, i); err != nil {
 			t.Fatal(err)

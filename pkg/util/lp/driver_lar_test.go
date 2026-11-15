@@ -386,7 +386,7 @@ func TestLPLARDriverActualComparisonReportAndLookupFailures(t *testing.T) {
 	var d *LARRunDriver
 	w.action = func(text string) error {
 		if strings.HasPrefix(text, "extended A") {
-			delete(d.comparison.NamesToColumns, "x")
+			d.comparison.NamesToColumns.Del("x")
 		}
 		return nil
 	}
