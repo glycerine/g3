@@ -214,3 +214,33 @@ func unsafeRuleColumnVerbose(m *ast.ASTManager, rule *base.Rule, column int) (re
 	}
 	return diagnostic.ProgressVerbose(3, fmt.Sprintf("Compiling unsafe rule column %d\n%s\n", column, text))
 }
+
+// finiteTablePlugin names the table plugin a finite table belongs to, or ""
+// for tables that are not a table_relation's table.
+func finiteTablePlugin(table FiniteTable) string {
+	switch table.(type) {
+	case *HashTable:
+		return "hashtable"
+	case *SparseTable:
+		return "sparse"
+	case *BitvectorTable:
+		return "bitvector"
+	case *LazySparseTable:
+		return "lazy_sparse"
+	}
+	return ""
+}
+
+// newTableTypeVerbose is table_relation_plugin::tr_join_project_fn's
+// IF_VERBOSE(1, "new type returned"): the table join returned a table of
+// another plugin than the first relation's.
+func newTableTypeVerbose(first, result FiniteTable) error {
+	if !diagnostic.VerboseProgress || result == nil {
+		return nil
+	}
+	before, after := finiteTablePlugin(first), finiteTablePlugin(result)
+	if before == "" || after == "" || before == after {
+		return nil
+	}
+	return diagnostic.ProgressVerbose(1, "new type returned\n")
+}

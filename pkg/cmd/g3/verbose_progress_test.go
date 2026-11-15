@@ -164,6 +164,9 @@ var verboseProgressFilteredCases = []verboseProgressCase{
 	// verbose_action's sparse_table lines: join_project (1), recycle and
 	// remove_fact (2), add_fact (10), get_key_indexer, union, project, ...
 	// (11).
+	// table_relation's join returning a sparse table for bitvector
+	// operands: "new type returned" (level 1).
+	{"rel_new_type_v2", "rel_bitvector_join", []string{"-v:2"}},
 	// rel_context::saturate's report_big_relations(1000) at level 10.
 	{"rel_report_v10", "rel_report", []string{"-v:10"}},
 	{"dl_path_v2_actions", "path", []string{"-v:2", "-dl"}},

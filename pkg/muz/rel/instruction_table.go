@@ -193,6 +193,9 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 		if x != nil {
 			return false, x
 		}
+		if x = newTableTypeVerbose(first, value); x != nil {
+			return false, errors.Join(x, value.Close())
+		}
 		return true, setNonemptyFiniteRegister(context, i.result, value)
 	case "filter_equal":
 		context.stats.FilterEqual++

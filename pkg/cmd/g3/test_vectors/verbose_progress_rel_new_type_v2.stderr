@@ -1,0 +1,34 @@
+(transform N7datalog13mk_coi_filterE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog25mk_separate_negated_tailsE...no-op Ts)
+(transform N7datalog24mk_similarity_compressorE...no-op Ts)
+(transform N7datalog15mk_filter_rulesE...no-op Ts)
+(transform N7datalog15mk_simple_joinsE...no-op Ts)
+(transform N7datalog21mk_unbound_compressorE...no-op Ts)
+load e into 0
+load q into 1
+mk_unary_singleton into 2 sort:(_ BitVec 8) val:5
+mk_unary_singleton into 3 sort:(_ BitVec 8) val:3
+join 2() and 3() into 4
+union 4 into 0
+mk_unary_singleton into 5 sort:(_ BitVec 8) val:7
+join 3() and 5() into 6
+union 6 into 0
+mk_unary_singleton into 7 sort:(_ BitVec 8) val:1
+join 5() and 7() into 8
+union 8 into 0
+mark_saturated e
+join 0() and 0() into 9
+new type returned
+rename 9 into 9 with cycle (0,2)
+recycle...Ts
+rename 9 into 9 with cycle (1,3)
+recycle...Ts
+union 9 into 1
+recycle...Ts
+mark_saturated q
+store 0 into e
+store 1 into q
+recycle...Ts
+recycle...Ts
