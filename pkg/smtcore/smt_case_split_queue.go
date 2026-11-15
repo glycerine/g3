@@ -192,6 +192,18 @@ func (q *SMTActivityCaseSplitQueue) selectVariable() (int32, lbool.LBool, error)
 	case 1:
 		return q.nextDelayedActivity()
 	case 6:
+		// *** DELIBERATE DIVERGENCE FROM z3 4.7.1: UNDEFINED BEHAVIOR NOT COPIED ***
+		// context::decide declares `lbool phase;` uninitialized and
+		// theory_aware_branching_queue::next_case_split
+		// (src/smt/smt_case_split_queue.cpp:1165-1188) returns without
+		// writing it, so z3 reads an indeterminate value. The reference build
+		// happens to decide negative every time, whatever smt.phase_selection
+		// says. g3 must not reproduce undefined behavior: it returns
+		// lbool.Undef, so the configured phase selection decides, which is
+		// deterministic and what the source evidently intends. Expect
+		// different decisions, models and statistics from build/z3 under
+		// smt.case_split=6 (AUDIT.md smtcore_02-F9; owner decision
+		// 2026-11-15: keep g3, document the divergence).
 		variable, err := q.state.theoryAwareBranching.next(q.randomVariableFrequency)
 		return variable, lbool.Undef, err
 	case 3:
