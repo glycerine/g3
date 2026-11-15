@@ -1,0 +1,8 @@
+(declare-const x (_ BitVec 8))
+(declare-const y (_ BitVec 4))
+(assert (= (bvadd x y) x))
+(assert (= (bvneg x y) x))
+(assert (bvule x y))
+(assert (= (bvadd x x y) x))
+(assert (bvult (bvnot y) x))
+(check-sat)

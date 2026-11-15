@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_02-F1: bv_decl_plugin prints the mismatching argument and the
+	// declaration.
+	"bv_argument_sort_mismatch_message.smt2": "(error \"line 3 column 21: Argument y at position 1 does not match declaration (declare-fun bvadd ((_ BitVec 8) (_ BitVec 8)) (_ BitVec 8))\")\n(error \"line 4 column 21: declared arity mismatches supplied arity\")\n(error \"line 5 column 18: Argument y at position 1 does not match declaration (declare-fun bvule ((_ BitVec 8) (_ BitVec 8)) Bool)\")\n(error \"line 6 column 23: declared sorts do not match supplied sorts\")\n(error \"line 7 column 26: Argument x at position 1 does not match declaration (declare-fun bvult ((_ BitVec 4) (_ BitVec 4)) Bool)\")\nsat\n",
 	// AUDIT.md ast_01-F1: array decl plugin rejections print the
 	// array_decl_plugin raise_exception text.
 	"array_decl_error_messages.smt2": "(error \"line 2 column 45: invalid const array definition, sort mismatch between array range and argument\")\n(error \"line 4 column 23: parameter mismatch. There should be more than one parameter to defaults\")\n(error \"line 5 column 25: invalid default array definition, invalid domain size\")\n(error \"line 6 column 27: map expects the argument at position 0 to have the array range the same as the function\")\n(error \"line 7 column 21: expecting boolean range\")\n(error \"line 8 column 21: argument 1 is not of array sort\")\n(error \"line 11 column 28: set complement takes one argument\")\n(error \"line 12 column 22: subset takes two arguments\")\n(error \"line 13 column 26: set difference takes precisely two arguments\")\n(error \"line 14 column 23: invalid function application, arguments missing\")\n(error \"line 17 column 27: as-array takes one parameter, a function declaration with arity greater than zero\")\n(error \"line 18 column 27: map expects to take as many arguments as the function being mapped, it was given 2 but expects 1\")\n(error \"line 19 column 27: invalid array sort definition, invalid number of parameters\")\nsat\n",
@@ -1873,6 +1876,9 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	// AUDIT.md ast_02-F1
+	"bv_argument_sort_mismatch_message.smt2": true,
+
 	// AUDIT.md ast_01-F1
 	"array_decl_error_messages.smt2": true,
 

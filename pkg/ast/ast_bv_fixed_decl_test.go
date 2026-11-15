@@ -268,3 +268,39 @@ func TestASTBitVectorFixedCachesSourceFinalize(t *testing.T) {
 	}
 	astTestMust(t, m.Close())
 }
+
+// AUDIT.md ast_02-F1: bv_decl_plugin::mk_func_decl's expression overload
+// prints the mismatching argument and the declaration.
+func TestASTBitVectorExprDeclArgumentMismatchMessage(t *testing.T) {
+	m := astTestManager(t)
+	_, e := m.RegisterArithmeticPlugin()
+	astTestMust(t, e)
+	fid, e := m.RegisterBitVectorPlugin()
+	astTestMust(t, e)
+	s8, e := m.BitVectorSort(8)
+	astTestMust(t, e)
+	s16, e := m.BitVectorSort(16)
+	astTestMust(t, e)
+	x, e := m.MkConst(astTestSymbol(t, m, "x"), s8)
+	astTestMust(t, e)
+	astTestPin(t, m, x)
+	y, e := m.MkConst(astTestSymbol(t, m, "y"), s16)
+	astTestMust(t, e)
+	astTestPin(t, m, y)
+	for _, row := range []struct {
+		kind    int32
+		message string
+	}{
+		{4, "Argument y at position 1 does not match declaration (declare-fun bvadd ((_ BitVec 8) (_ BitVec 8)) (_ BitVec 8))"},
+		{22, "Argument y at position 1 does not match declaration (declare-fun bvule ((_ BitVec 8) (_ BitVec 8)) Bool)"},
+	} {
+		_, e := m.MkFamilyApp(fid, row.kind, nil, []ASTHandle{x, y})
+		if e == nil || e.Error() != row.message {
+			t.Fatalf("kind %d: %v", row.kind, e)
+		}
+	}
+	_, e = m.MkBitVectorAddArguments(SliceArguments([]ASTHandle{x, y}))
+	if e == nil || e.Error() != "Argument y at position 1 does not match declaration (declare-fun bvadd ((_ BitVec 8) (_ BitVec 8)) (_ BitVec 8))" {
+		t.Fatalf("borrowed bvadd: %v", e)
+	}
+}

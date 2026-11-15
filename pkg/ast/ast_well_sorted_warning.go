@@ -84,6 +84,23 @@ func (m *ASTManager) SMT2PPDeclString(decl ASTHandle) (string, error) {
 	return m.smt2PPDeclString(decl)
 }
 
+// smt2PPExprString is mk_pp(n, m) for an expression.
+func (m *ASTManager) smt2PPExprString(n ASTHandle) (text string, result error) {
+	out, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: m.BudgetField})
+	if err != nil {
+		return "", err
+	}
+	defer func() { result = errors.Join(result, out.Close()) }()
+	formatted, err := m.SMT2PPExprTree(n, nil)
+	if err != nil {
+		return "", err
+	}
+	if err = m.PrintFormatTransient(out, formatted, nil, nil, nil); err != nil {
+		return "", err
+	}
+	return out.String()
+}
+
 // smt2PPDeclString is mk_pp(f, m) for a function declaration.
 func (m *ASTManager) smt2PPDeclString(decl ASTHandle) (text string, result error) {
 	out, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: m.BudgetField})

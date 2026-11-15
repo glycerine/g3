@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/glycerine/g3/pkg/arena"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 func (m *ASTManager) basicSort(name string, k int32, size SortSize) (astNodeRef, error) {
@@ -152,6 +153,18 @@ func (m *ASTManager) formatSortErrors(e error) error {
 			return e
 		}
 		return &ASTSortError{Message: "Wrong number of arguments (" + strconv.FormatUint(uint64(count.count), 10) + ") passed to function " + decl}
+	}
+	var bvMismatch *astBVArgumentMismatchError
+	if errors.As(e, &bvMismatch) {
+		argument, err := m.smt2PPExprString(m.external(bvMismatch.argument))
+		if err != nil {
+			return e
+		}
+		decl, err := m.smt2PPDeclString(m.external(bvMismatch.decl))
+		if err != nil {
+			return e
+		}
+		return ASTException{z3exception.NewDefaultException("Argument " + argument + " at position " + strconv.FormatUint(uint64(bvMismatch.index), 10) + " does not match declaration " + decl)}
 	}
 	var mismatch *astArgumentSortError
 	if errors.As(e, &mismatch) {

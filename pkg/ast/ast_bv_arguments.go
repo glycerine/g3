@@ -33,8 +33,12 @@ func (m *ASTManager) mkBitVectorArguments(kind int32, args AppArguments) (ASTHan
 	if e := m.lock(); e != nil {
 		return ASTHandle{}, e
 	}
-	defer m.mu.Unlock()
-	return m.bitVectorArgumentsCore(kind, args)
+	r, e := m.bitVectorArgumentsCore(kind, args)
+	m.mu.Unlock()
+	if e != nil {
+		return r, m.formatSortErrors(e)
+	}
+	return r, nil
 }
 
 func (m *ASTManager) bitVectorArgumentsCore(kind int32, args AppArguments) (ASTHandle, error) {

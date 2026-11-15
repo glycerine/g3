@@ -4,9 +4,23 @@ package ast
 
 import (
 	"math"
+	"strconv"
 
 	"github.com/glycerine/g3/pkg/util/z3exception"
 )
+
+// astBVArgumentMismatchError is the pending bv_decl_plugin::mk_func_decl
+// message "Argument <arg> at position <i> does not match declaration <f>"
+// (bv_decl_plugin.cpp:619-626); formatSortErrors prints both ASTs.
+type astBVArgumentMismatchError struct {
+	argument, decl astNodeRef
+	index          uint32
+}
+
+func (e *astBVArgumentMismatchError) Error() string {
+	return "Argument at position " + strconv.FormatUint(uint64(e.index), 10) + " does not match declaration"
+}
+func (e *astBVArgumentMismatchError) Unwrap() error { return ErrASTDomain }
 
 func bvDeclarationError(message string) error {
 	return ASTException{z3exception.NewDefaultException(message)}
@@ -270,9 +284,10 @@ func (m *ASTManager) bitVectorExprDeclArguments(k int32, ps []ASTParameter, args
 			if mismatch && associative {
 				return astNodeRef{}, true, bvDeclarationError("declared sorts do not match supplied sorts")
 			}
-			// This source branch formats both ASTs via mk_pp into an ostringstream.
-			// Preserve rejection; full SMT2 diagnostic formatting remains required.
-			return astNodeRef{}, true, ErrASTDomain
+			// The source formats both ASTs via mk_pp into an ostringstream;
+			// formatSortErrors renders the message once the manager is
+			// unlocked.
+			return astNodeRef{}, true, &astBVArgumentMismatchError{argument: argument, index: i, decl: decl}
 		}
 	}
 	return decl, true, nil
