@@ -112,6 +112,11 @@ func (n *explanationAssumptions) signedSolveLinearEquality(x, equalityIndex uint
 		if err != nil {
 			return err
 		}
+		// z3 4.7.1 bug kept out of g3: solve_eq declares qs once and never
+		// resets it, so qs.get(d-j) reads the first polynomial's powers of A
+		// for every later q and asserts the sign of a wrong polynomial
+		// (nlsat_explain.cpp:1723-1761; fixed upstream in 19e2f8c9d, "fix
+		// #1694"; AUDIT.md nlsat_01-F3). g3 builds the powers for each q.
 		powers := make([]polynomial.Polynomial, 0, d+1)
 		power := one
 		for j := uint32(0); j <= d; j++ {

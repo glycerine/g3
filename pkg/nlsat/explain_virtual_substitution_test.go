@@ -75,3 +75,26 @@ func TestSignedSolveLinearEqualityRejectsNonlinearSelection(t *testing.T) {
 		t.Fatal("rejected substitution changed input", values)
 	}
 }
+
+// z3 4.7.1 never resets solve_eq's table qs of powers of A, so for q2,
+// whose degree is above q1's, it reads q1's block and computes the
+// constant -2 in place of 1 - 3*x0^2, dropping its sign condition
+// (nlsat_explain.cpp:1723-1761; fixed upstream in 19e2f8c9d; AUDIT.md
+// nlsat_01-F3). g3 rebuilds the powers for each polynomial: the result
+// holds the signs of A = x0, of x0^2 + 1 and of 3*x0^2 - 1.
+func TestSignedSolveLinearEqualityPowerTableAcrossPolynomials(t *testing.T) {
+	e, _, n, _ := projectionCoefficientFixture(t, true)
+	evaluatorSetFraction(t, e, 0, 2, 1)
+	evaluatorSetFraction(t, e, 1, 1, 2)
+	equality := evaluatorPolynomial(t, e, evaluatorTerm{1, 1, 1}, evaluatorTerm{-1, 0, 0})
+	q1 := evaluatorPolynomial(t, e, evaluatorTerm{1, 0, 1}, evaluatorTerm{1, 1, 0})
+	q2 := evaluatorPolynomial(t, e, evaluatorTerm{1, 0, 2}, evaluatorTerm{-3, 0, 0})
+	ps := projectionOutput(t, e)
+	assignmentMust(t, ps.Push(equality))
+	assignmentMust(t, ps.Push(q1))
+	assignmentMust(t, ps.Push(q2))
+	assignmentMust(t, n.collectSignedProjection(ps, 1))
+	if len(n.output.result) != 3 {
+		t.Fatal("virtual substitution lost a sign condition", n.output.result)
+	}
+}
