@@ -14,13 +14,14 @@ import (
 
 type bv1BlasterImplementation struct {
 	rewriter.DefaultConfiguration
-	owner           *BV1BlasterTactic
-	traversal       *rewriter.Traversal
-	family          ast.FamilyID
-	one, zero       ast.ASTHandle
-	held, scratch   []ast.ASTHandle
-	bindings        []BitBlasterBinding
-	constants       map[ast.ASTHandle]ast.ASTHandle
+	owner         *BV1BlasterTactic
+	traversal     *rewriter.Traversal
+	family        ast.FamilyID
+	one, zero     ast.ASTHandle
+	held, scratch []ast.ASTHandle
+	// constants is m_const2bits (obj_map<func_decl, expr*>); the model
+	// converter walks it in table order.
+	constants       *ast.ObjMap
 	out, proof      ast.ASTRef
 	maxMemory       uint64
 	maxSteps, steps uint32
@@ -105,8 +106,8 @@ func (r *bv1BlasterImplementation) save(h ast.ASTHandle) (ast.ASTHandle, error) 
 }
 func (r *bv1BlasterImplementation) constant(d ast.ASTHandle) (ast.ASTHandle, error) {
 	m := r.owner.manager
-	if h, ok := r.constants[d]; ok {
-		return h, nil
+	if v, ok, err := r.constants.Find(d); err != nil || ok {
+		return v[0], err
 	}
 	sort, err := m.GetRange(d)
 	if err != nil {
@@ -144,9 +145,24 @@ func (r *bv1BlasterImplementation) constant(d ast.ASTHandle) (ast.ASTHandle, err
 	if err = r.hold(d, false); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	r.constants[d] = h
-	r.bindings = append(r.bindings, BitBlasterBinding{Variable: d, Bits: h})
+	if err = r.constants.Insert(d, [2]ast.ASTHandle{h}); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	return h, nil
+}
+
+// bindings lists m_const2bits in obj_map iteration order, as
+// bit_blaster_model_converter's constructor copies it.
+func (r *bv1BlasterImplementation) bindings() []BitBlasterBinding {
+	if r.constants == nil {
+		return nil
+	}
+	entries := r.constants.Entries()
+	out := make([]BitBlasterBinding, len(entries))
+	for i, entry := range entries {
+		out[i] = BitBlasterBinding{Variable: entry.Key, Bits: entry.Value[0]}
+	}
+	return out
 }
 func (r *bv1BlasterImplementation) numeral(d ast.ASTHandle) (result ast.ASTHandle, err error) {
 	m := r.owner.manager

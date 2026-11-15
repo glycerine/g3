@@ -54,10 +54,10 @@ func TestBV1BlasterCachePolicyTranslationAndCleanup(t *testing.T) {
 	var first tactic.TacticResult
 	t.Cleanup(func() { sharingMust(t, first.Close()) })
 	sharingMust(t, r.Apply(g, &first))
-	if len(r.current.bindings) != 1 {
+	if len(r.current.bindings()) != 1 {
 		t.Fatal("wide constant cache")
 	}
-	binding := r.current.bindings[0]
+	binding := r.current.bindings()[0]
 	steps, err := r.NumSteps()
 	sharingMust(t, err)
 	if steps == 0 {
@@ -67,7 +67,7 @@ func TestBV1BlasterCachePolicyTranslationAndCleanup(t *testing.T) {
 	t.Cleanup(func() { sharingMust(t, second.Close()) })
 	g2 := bv1NativeGoal(t, r)
 	sharingMust(t, r.Apply(g2, &second))
-	if len(r.current.bindings) != 1 || r.current.bindings[0] != binding {
+	if len(r.current.bindings()) != 1 || r.current.bindings()[0] != binding {
 		t.Fatal("raw apply discarded the source mapping")
 	}
 	settings, err := r.context.NewValue()
@@ -87,7 +87,7 @@ func TestBV1BlasterCachePolicyTranslationAndCleanup(t *testing.T) {
 		t.Fatal("cleanup replaced the live implementation before construction succeeded", err)
 	}
 	sharingMust(t, r.Cleanup())
-	if len(r.current.bindings) != 0 || r.current.maxSteps != 0 {
+	if len(r.current.bindings()) != 0 || r.current.maxSteps != 0 {
 		t.Fatal("cleanup did not reset cache and preserve parameters")
 	}
 	var display bytes.Buffer
@@ -213,5 +213,56 @@ func TestBV1BlasterApplicationAndCleanupAllocationFrontiers(t *testing.T) {
 				t.Fatal("no successful allocation frontier")
 			}
 		})
+	}
+}
+
+// AUDIT.md tactic_bv_01-F3: mk_bv1_blaster_model_converter copies
+// m_const2bits (obj_map<func_decl, expr*>) in table order, not in the order
+// the constants were first blasted.
+func TestBV1BlasterModelConverterObjMapOrder(t *testing.T) {
+	r := bv1Fixture(t)
+	m := r.manager
+	sort, err := m.BitVectorSort(2)
+	sharingMust(t, err)
+	value, err := m.BitVectorNumeralUnsigned(1, 2)
+	sharingMust(t, err)
+	g, err := tactic.NewGoal(m, false, true, false)
+	sharingMust(t, err)
+	t.Cleanup(func() { sharingMust(t, g.Close()) })
+	want := ast.NewObjMap(m)
+	var inserted []ast.ASTHandle
+	for i := 0; i < 11; i++ {
+		name, err := m.Symbols.Intern(fmt.Sprintf("bv1-order-%d", i))
+		sharingMust(t, err)
+		x, err := m.MkConst(name, sort)
+		sharingMust(t, err)
+		d, err := m.GetDecl(x)
+		sharingMust(t, err)
+		sharingMust(t, want.Insert(d, [2]ast.ASTHandle{}))
+		inserted = append(inserted, d)
+		eq, err := m.MkEq(x, value)
+		sharingMust(t, err)
+		sharingMust(t, g.Assert(eq))
+	}
+	var out tactic.TacticResult
+	t.Cleanup(func() { sharingMust(t, out.Close()) })
+	sharingMust(t, r.Apply(g, &out))
+	mc, ok := out.ModelConverter.(*BitBlasterModelConverter)
+	if !ok {
+		t.Fatalf("model converter %T", out.ModelConverter)
+	}
+	entries := want.Entries()
+	if len(mc.variables) != len(entries) {
+		t.Fatal(len(mc.variables), len(entries))
+	}
+	same := true
+	for i, entry := range entries {
+		if mc.variables[i] != entry.Key {
+			t.Fatal("converter order differs from obj_map order at", i)
+		}
+		same = same && entry.Key == inserted[i]
+	}
+	if same {
+		t.Fatal("fixture does not distinguish obj_map order from insertion order")
 	}
 }

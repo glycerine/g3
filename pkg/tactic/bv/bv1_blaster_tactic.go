@@ -110,7 +110,7 @@ func (t *BV1BlasterTactic) policy(r *bv1BlasterImplementation) error {
 	return err
 }
 func (t *BV1BlasterTactic) build() (r *bv1BlasterImplementation, err error) {
-	r = &bv1BlasterImplementation{owner: t, constants: make(map[ast.ASTHandle]ast.ASTHandle)}
+	r = &bv1BlasterImplementation{owner: t, constants: ast.NewObjMap(t.manager)}
 	r.family, err = t.manager.BitVectorUtilityFamilyID()
 	if err != nil {
 		return r, err
@@ -179,7 +179,6 @@ func (t *BV1BlasterTactic) closeImplementation(r *bv1BlasterImplementation) erro
 		}
 		r.held = r.held[:i]
 	}
-	r.bindings = nil
 	r.constants = nil
 	return nil
 }
@@ -455,7 +454,7 @@ func (t *BV1BlasterTactic) Apply(g *tactic.Goal, result *tactic.TacticResult) (e
 		return err
 	}
 	if models {
-		mc, e := NewBV1BlasterModelConverter(t.manager, t.context, t.globals, r.bindings)
+		mc, e := NewBV1BlasterModelConverter(t.manager, t.context, t.globals, r.bindings())
 		if e != nil {
 			return e
 		}
