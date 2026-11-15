@@ -61,5 +61,12 @@ func constrainExprQEBranch(node *exprQETree, variables *exprQEBranchVariables, s
 	if err != nil {
 		return err
 	}
+	// expr_ref ub(m_bv.mk_ule(b, max_val), m) keeps the literal alive across
+	// add_constraint, whose m_literals.reset() may drop the last reference.
+	ub, err := m.NewRef(bound)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, m.DelRef(&ub)) }()
 	return assertExprQETreeConstraint(node, solver, true, bound)
 }

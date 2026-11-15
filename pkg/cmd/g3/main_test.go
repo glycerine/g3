@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md qe_01-F1: constrain_assignment keeps the b <= k-1 literal alive across add_constraint.
+	"qe_branch_limit_literal_lifetime.smt2": "(goals\n(goal\n  (or (not (<= 7.0 b)) (not (= a b)))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md nlsat_03-F1: nlqsat's nlsat params fall back to the global nlsat module.
 	"nlqsat_global_max_conflicts.smt2": "unknown\n",
 	// AUDIT.md nlsat_03-F1: nlsat params fall back to the global nlsat module.

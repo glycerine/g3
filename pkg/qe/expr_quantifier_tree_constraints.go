@@ -39,6 +39,19 @@ func assertExprQETreeConstraint(current *exprQETree, solver *smtcore.SMTSolver, 
 		return ast.ErrASTDomain
 	}
 	m := current.manager
+	// The C++ callers pass l1..l3 held in expr_refs, so m_literals.reset()
+	// never frees them. Pin them for the call: a caller's fresh literal may
+	// be hash-consed with one m_literals holds last.
+	for i := range literals {
+		if literals[i].IsNull() {
+			continue
+		}
+		pin, e := m.NewRef(literals[i])
+		if e != nil {
+			return e
+		}
+		defer func() { err = errors.Join(err, m.DelRef(&pin)) }()
+	}
 	held := current.literals
 	if held == nil {
 		held = &exprQELiterals{}
