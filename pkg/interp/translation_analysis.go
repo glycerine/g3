@@ -148,7 +148,11 @@ func (t *FullTranslation) scanSkolemsRecursive(proof ast.ASTHandle, frame int, m
 		if e != nil {
 			return 0, e
 		}
-		err = t.base.addFrameRange(frame, skolem)
+		if err = t.base.addFrameRange(frame, skolem); err == nil {
+			// r = ast_scope(arg(conc(proof),1)): ast_scope memoizes, so the
+			// scopes of the skolemized formula are fixed at this point.
+			_, err = t.base.ASTScope(skolem)
+		}
 	case ast.ASTPrModusPonensOEq:
 		first, e := t.base.manager.Premise(proof, 0)
 		if e != nil {

@@ -471,3 +471,54 @@ func TestFullTranslationRewritesClauseByMonotonicity(t *testing.T) {
 	interpMust(t, err)
 	interpMust(t, m.DelRef(&interpolant))
 }
+
+// AUDIT.md interp_02-F8: scan_skolems_rec calls ast_scope on the skolemized
+// formula right after add_frame_range. ast_scope memoizes, so a later
+// skolemization that adds another frame to the same subterms does not
+// change the scope already computed.
+func TestFullTranslationScanSkolemsFreezesSkolemScope(t *testing.T) {
+	m, manager := interpProofManagerFixture(t)
+	integer, err := manager.IntType()
+	interpMust(t, err)
+	boolean, err := manager.BoolType()
+	interpMust(t, err)
+	c, err := manager.MakeVariable("skolem-scope-c", integer)
+	interpMust(t, err)
+	c = interpPin(t, m, c)
+	q, err := manager.MakeVariable("skolem-scope-q", boolean)
+	interpMust(t, err)
+	q = interpPin(t, m, q)
+	sk, err := manager.MakeVariable("skolem-scope-sk", integer)
+	interpMust(t, err)
+	sk = interpPin(t, m, sk)
+	name, err := m.Symbols.Intern("skolem-scope-p")
+	interpMust(t, err)
+	p, err := m.MkFuncDecl(name, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+	interpMust(t, err)
+	p = interpPin(t, m, p)
+	pc, err := m.MkApp(p, []ast.ASTHandle{c})
+	interpMust(t, err)
+	pc = interpPin(t, m, pc)
+	psk, err := m.MkApp(p, []ast.ASTHandle{sk})
+	interpMust(t, err)
+	psk = interpPin(t, m, psk)
+	base, err := NewBase(manager, []ast.ASTHandle{pc, q}, nil, nil)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, base.Close()) })
+	translation, err := NewFullTranslation(base)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, translation.Close()) })
+	first, err := m.MkProofSkolemization(pc, psk)
+	interpMust(t, err)
+	first = interpPin(t, m, first)
+	second, err := m.MkProofSkolemization(q, psk)
+	interpMust(t, err)
+	second = interpPin(t, m, second)
+	interpMust(t, translation.ScanSkolems(first))
+	interpMust(t, translation.ScanSkolems(second))
+	scope, err := base.ASTScope(psk)
+	interpMust(t, err)
+	if scope.Lo != 0 || scope.Hi != 0 {
+		t.Fatal("skolemized formula scope was not frozen after the first skolemization", scope)
+	}
+}
