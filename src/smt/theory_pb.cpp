@@ -1241,6 +1241,10 @@ namespace smt {
     literal theory_pb::assert_ge(context& ctx, unsigned k, unsigned n, literal const* xs) {
         theory_pb_params p;
         theory_pb th(ctx.get_manager(), p);
+        // FORK FIX #62 (g3 audit, see FORK_BUGFIXES.md): th is not
+        // registered with ctx, so without init its manager is null and
+        // psort_expr::mk_clause (th.justify, proofs_enabled) segfaults.
+        th.init(&ctx);
         psort_expr ps(ctx, th);
         psort_nw<psort_expr> sort(ps);
         return sort.ge(false, k, n, xs);
