@@ -55,7 +55,9 @@ func processExprQEScalarPartition(node *exprQETree, partition *exprQETreePartiti
 		}
 		child.variables = child.variables[:i]
 	}
-	if err = assertExprQETreeConstraint(child, solver, true); err != nil {
+	// block_assignment() walks from m_current, which process_partition does
+	// not advance to the new child (AUDIT.md qe_02-F3).
+	if err = assertExprQETreeConstraint(node, solver, true); err != nil {
 		return false, err
 	}
 	return true, nil
