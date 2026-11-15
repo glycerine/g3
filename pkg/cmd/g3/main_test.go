@@ -338,6 +338,11 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_rel_05-F2: same, kinds in the reverse order.
+	"datalog_sparse_interval_finite_only_rev.smt2": "sat\n(or (and (= (:var 0) #b001) (= (:var 1) #b010))\n    (and (= (:var 0) #b010) (= (:var 1) #b011))\n    (and (= (:var 0) #b011) (= (:var 1) #b001))\n    (and (= (:var 0) #b011) (= (:var 1) #b010))\n    (and (= (:var 0) #b001) (= (:var 1) #b011))\n    (and (= (:var 0) #b010) (= (:var 1) #b001))\n    (and (= (:var 0) #b010) (= (:var 1) #b010))\n    (and (= (:var 0) #b011) (= (:var 1) #b011))\n    (and (= (:var 0) #b001) (= (:var 1) #b001)))\n",
+	// AUDIT.md muz_rel_05-F2: tr_sparse interval_relation on a purely finite
+	// signature is accepted (no spurious error line).
+	"datalog_sparse_interval_finite_only.smt2": "sat\n(or (and (= (:var 0) #b001) (= (:var 1) #b010))\n    (and (= (:var 0) #b010) (= (:var 1) #b011))\n    (and (= (:var 0) #b011) (= (:var 1) #b001))\n    (and (= (:var 0) #b011) (= (:var 1) #b010))\n    (and (= (:var 0) #b001) (= (:var 1) #b011))\n    (and (= (:var 0) #b010) (= (:var 1) #b001))\n    (and (= (:var 0) #b010) (= (:var 1) #b010))\n    (and (= (:var 0) #b011) (= (:var 1) #b011))\n    (and (= (:var 0) #b001) (= (:var 1) #b001)))\n",
 	// AUDIT.md ast_04-F1: pp() with an empty params_ref still follows the
 	// global pp.* settings.
 	"pp_single_line_sort_mismatch.smt2": "(error \"line 6 column 12: Sort mismatch at argument #1 for function (declare-fun f ((Array LongSortNameNumberOneForTesting (Array LongSortNameNumberTwoForTesting LongSortNameNumberOneForTesting))) Bool) supplied sort is (Array LongSortNameNumberTwoForTesting (Array LongSortNameNumberOneForTesting LongSortNameNumberTwoForTesting))\")\n(error \"line 9 column 12: Sort mismatch at argument #1 for function (declare-fun f\n             ((Array LongSortNameNumberOneForTesting\n                     (Array LongSortNameNumberTwoForTesting\n                            LongSortNameNumberOneForTesting)))\n             Bool) supplied sort is (Array LongSortNameNumberTwoForTesting\n       (Array LongSortNameNumberOneForTesting\n              LongSortNameNumberTwoForTesting))\")\n",

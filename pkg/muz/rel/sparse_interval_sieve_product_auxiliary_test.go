@@ -25,8 +25,10 @@ func TestSparseIntervalSieveProductAuxiliaryPureAndNullaryConstruction(t *testin
 		t.Run(tc.name, func(t *testing.T) {
 			selectable, selectErr := CanSelectSparseIntervalSieveProduct(relations, tc.sorts, kinds)
 			astTestMust(t, selectErr)
-			if selectable {
-				t.Fatal("public representation selector accepted auxiliary signature")
+			// Source: a purely finite signature is a selectable product (its
+			// interval sieve is full); the fp layer evaluates it as tr_sparse.
+			if selectable != (tc.name == "finite") {
+				t.Fatal("public representation selector disagreed with source", tc.name, selectable)
 			}
 			if public, publicErr := NewSparseIntervalSieveProduct(relations, tc.sorts, kinds, false); publicErr == nil {
 				_ = public.Close()

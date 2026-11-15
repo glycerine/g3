@@ -21,6 +21,25 @@ func (e *PropositionalEngine) selectSparseIntervalRepresentation(declaration ast
 	if !supported {
 		return ErrSparseIntervalDatalogFragment
 	}
+	pureFinite, err := rel.SparseIntervalSignatureIsPureFinite(e.relations, state.sorts)
+	if err != nil {
+		return err
+	}
+	if pureFinite {
+		// The interval component of the product is the full zero-column
+		// sieve, contributing true to product_relation::to_formula; the
+		// product evaluates exactly as its sparse table.
+		if state.table == nil {
+			return ErrSparseIntervalDatalogFragment
+		}
+		if err := e.selectFiniteRepresentation(declaration, "tr_sparse"); err != nil {
+			return err
+		}
+		state.explicitFiniteRepresentation = true
+		state.requestedRepresentations = []string{"tr_sparse"}
+		e.revision++
+		return nil
+	}
 	state.requestedRepresentations = append([]string(nil), kinds...)
 	state.explicitFiniteRepresentation = false
 	e.revision++

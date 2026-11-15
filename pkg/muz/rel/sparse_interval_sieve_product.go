@@ -85,6 +85,9 @@ func sparseIntervalProductColumns(manager *RelationManager, sorts []ast.ASTHandl
 // CanSelectSparseIntervalSieveProduct checks the caller-visible concrete
 // representation boundary without constructing an owned relation. Generated
 // pure and nullary intermediates use NewSparseIntervalSieveProductAuxiliary.
+// Source: rel_context::set_predicate_representation builds the product for
+// any signature; a purely finite one sieves the interval component down to
+// zero inner columns (the full relation), so it is accepted here as well.
 func CanSelectSparseIntervalSieveProduct(manager *RelationManager, sorts []ast.ASTHandle, kinds []string) (bool, error) {
 	if !sparseIntervalKinds(kinds) {
 		return false, nil
@@ -93,7 +96,18 @@ func CanSelectSparseIntervalSieveProduct(manager *RelationManager, sorts []ast.A
 	if err != nil {
 		return false, err
 	}
-	return len(finiteColumns) != 0 && len(finiteColumns) != len(sorts), nil
+	return len(finiteColumns) != 0, nil
+}
+
+// SparseIntervalSignatureIsPureFinite reports whether no column of sorts is
+// handled by the interval component, so that a tr_sparse/interval_relation
+// product reduces to its sparse table (the interval sieve is full).
+func SparseIntervalSignatureIsPureFinite(manager *RelationManager, sorts []ast.ASTHandle) (bool, error) {
+	finiteColumns, _, _, err := sparseIntervalProductColumns(manager, sorts)
+	if err != nil {
+		return false, err
+	}
+	return len(sorts) != 0 && len(finiteColumns) == len(sorts), nil
 }
 
 func newSparseIntervalSieveProduct(manager *RelationManager, sorts []ast.ASTHandle, full, requireMixed bool) (_ *SparseIntervalSieveProduct, resultErr error) {

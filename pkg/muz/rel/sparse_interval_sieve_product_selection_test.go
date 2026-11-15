@@ -40,7 +40,6 @@ func TestCanSelectSparseIntervalSieveProductRejectsNonMixedAndNames(t *testing.T
 		name  string
 		sorts []ast.ASTHandle
 	}{
-		{name: "finite", sorts: []ast.ASTHandle{f.boolean}},
 		{name: "arithmetic", sorts: []ast.ASTHandle{integer}},
 		{name: "nullary"},
 	} {
@@ -79,5 +78,28 @@ func TestCanSelectSparseIntervalSieveProductReportsUnsupportedSort(t *testing.T)
 		[]ast.ASTHandle{unsupported, integer}, []string{"tr_sparse", "interval_relation"})
 	if cause == nil || selected {
 		t.Fatal("unsupported finite sort did not report selection error", selected, cause)
+	}
+}
+
+// muz_rel_05-F2: rel_context::set_predicate_representation accepts
+// tr_sparse/interval_relation on a purely finite signature (the interval
+// component is the full zero-column sieve), in either order.
+func TestCanSelectSparseIntervalSieveProductAcceptsPureFinite(t *testing.T) {
+	f, _, _ := intervalSieveFixture(t)
+	relations, err := NewRelationManager(f.ast)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, relations.Close()) }()
+	for _, kinds := range [][]string{
+		{"tr_sparse", "interval_relation"},
+		{"interval_relation", "tr_sparse"},
+	} {
+		selected, cause := CanSelectSparseIntervalSieveProduct(relations, []ast.ASTHandle{f.boolean}, kinds)
+		if cause != nil || !selected {
+			t.Fatalf("pure finite signature was not selected: %v, %v, %v", kinds, selected, cause)
+		}
+	}
+	pure, err := SparseIntervalSignatureIsPureFinite(relations, []ast.ASTHandle{f.boolean})
+	if err != nil || !pure {
+		t.Fatal("pure finite signature not classified", pure, err)
 	}
 }
