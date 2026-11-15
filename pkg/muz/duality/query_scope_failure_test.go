@@ -150,7 +150,9 @@ func newQueryScopeFixture(t *testing.T) *queryScopeFixture {
 }
 
 func TestDualityBackgroundScopeFailureAndRetry(t *testing.T) {
-	for _, side := range []string{"native", "auxiliary"} {
+	// Background axioms enter only the interpolating (native) solver;
+	// LogicSolver::aux_solver never sees them, so it has no scope to refuse.
+	for _, side := range []string{"native"} {
 		for _, failure := range []string{"push-before", "push-after", "pop-before", "pop-after"} {
 			t.Run(side+"/"+failure, func(t *testing.T) {
 				f := newQueryScopeFixture(t)
@@ -208,7 +210,7 @@ func TestDualityBackgroundScopeFailureAndRetry(t *testing.T) {
 
 func TestDualityBackgroundScopeCloseRetry(t *testing.T) {
 	f := newQueryScopeFixture(t)
-	f.auxiliary.failure = "pop-before"
+	f.native.failure = "pop-before"
 	if status, err := f.engine.Query(f.with); status != lbool.Undef || !errors.Is(err, queryScopeRefusal) {
 		t.Fatal("query scope refusal", status, err)
 	}
@@ -225,7 +227,7 @@ func TestDualityBackgroundScopeCloseRetry(t *testing.T) {
 	if md, err := f.engine.GetModel(); md != nil || err == nil {
 		t.Fatal("close refusal published model", md, err)
 	}
-	f.auxiliary.failure = ""
+	f.native.failure = ""
 	if err := f.engine.Close(); err != nil {
 		t.Fatal("close retry", err)
 	}

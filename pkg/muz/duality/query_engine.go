@@ -220,8 +220,11 @@ func (e *QueryEngine) Query(prepared *PreparedQuery) (status lbool.LBool, result
 			config.Theory[i] = converted
 		}
 	}
+	// interpolating_solver::AssertInterpolationAxiom adds the axiom to the
+	// interpolating solver only; LogicSolver::aux_solver (Auxiliary, used by
+	// Transformer::SubsetEq covering checks) never sees it.
 	if len(config.Theory) > 0 {
-		for _, native := range []solver.Solver{config.Native, config.Auxiliary} {
+		for _, native := range []solver.Solver{config.Native} {
 			if err := next.pushScope(native); err != nil {
 				return lbool.Undef, err
 			}

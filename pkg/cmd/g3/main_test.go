@@ -336,6 +336,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// Duality zbug round 2: background axioms reach only the interpolating
+	// solver, not aux_solver, so covering checks ignore them as in z3.
+	"duality_background_axiom_cover.smt2": "unsat\n(fixedpoint \n(define-fun err () Bool\n  (= c0 c1))\n(define-fun @Fail!0 () Bool\n  (= c0 c1))\n(define-fun q ((x!0 Int)) Bool\n  (= x!0 c0))\n)\n\n",
 	// AUDIT.md muz_fp_01-F6: check_relation tr_bitvector publishes bitvector_table order.
 	"fp_datalog_check_relation_tr_bitvector.smt2": "sat\n(or (= (:var 0) #b01) (= (:var 0) #b10))\nsat\n(or (and (= (:var 0) #x3) (= (:var 1) #x1))\n    (and (= (:var 0) #x7) (= (:var 1) #x1))\n    (and (= (:var 0) #x9) (= (:var 1) #x1))\n    (and (= (:var 0) #x9) (= (:var 1) #x3))\n    (and (= (:var 0) #x3) (= (:var 1) #x7))\n    (and (= (:var 0) #x9) (= (:var 1) #x7)))\n",
 	// AUDIT.md muz_fp_01-F6: check_relation tr_bitvector over a hashtable default.
