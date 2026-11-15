@@ -246,6 +246,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_pb_mk_lt_coeffs);
     TST(z3_4_7_1_opb_max_objective);
     TST(z3_4_7_1_probe_nary_fold);
+    TST(z3_4_7_1_pb_log_replay);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);

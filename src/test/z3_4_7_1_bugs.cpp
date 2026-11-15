@@ -129,6 +129,10 @@ Abstract:
 #include "util/rlimit.h"
 #include "opt/opt_context.h"
 #include "opt/opt_parse.h"
+#include <fstream>
+#include <cstdio>
+#include "api/z3_replayer.h"
+void register_z3_replayer_cmds(z3_replayer & in);
 #include <iostream>
 #ifndef _WINDOWS
 #include <csignal>
@@ -1348,4 +1352,47 @@ void tst_z3_4_7_1_probe_nary_fold() {
         "(check-sat-using (if (= (+ 1 2 4) 7) (fail-if 1) smt))\n");
     std::cout << "probe_nary_fold:\n" << out;
     ENSURE(out == "sat\nsat\nunknown\nunknown\n");
+}
+
+// Log Z3_mk_pble, Z3_mk_pbge and Z3_mk_pbeq and replay the log. The
+// generated log_Z3_mk_pble writes the int coefficients with U and Au, but
+// exec_Z3_mk_pble reads them with get_int_array, so every replay prints
+// "[z3 exception]: expecting int_array at position 3 but got uint_array"
+// (fixed upstream in fed977b49, "fix #1782", which logs I and Ai and
+// replays 'i' arrays).
+void tst_z3_4_7_1_pb_log_replay() {
+    char const* log_name = "z3_4_7_1_pb_log_replay.log";
+    ENSURE(Z3_open_log(log_name));
+    {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        Z3_ast args[2] = {
+            Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "a"), Z3_mk_bool_sort(ctx)),
+            Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "b"), Z3_mk_bool_sort(ctx))
+        };
+        int coeffs[2] = { 1, -2 };
+        Z3_mk_pble(ctx, 2, args, coeffs, 1);
+        Z3_mk_pbge(ctx, 2, args, coeffs, -1);
+        Z3_mk_pbeq(ctx, 2, args, coeffs, 1);
+        Z3_del_context(ctx);
+    }
+    Z3_close_log();
+    std::ostringstream out;
+    {
+        std::ifstream in(log_name);
+        z3_replayer r(in);
+        register_z3_replayer_cmds(r);
+        std::streambuf* saved = std::cout.rdbuf(out.rdbuf());
+        try {
+            r.parse();
+        }
+        catch (z3_exception & ex) {
+            out << "replay error: " << ex.msg() << "\n";
+        }
+        std::cout.rdbuf(saved);
+    }
+    std::remove(log_name);
+    std::cout << "pb_log_replay: replay output:\n" << out.str();
+    ENSURE(out.str().empty());
 }
