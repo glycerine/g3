@@ -31,7 +31,6 @@ var z3BugResults = map[string]string{
 	"z3_bug_elim_small_bv.smt2":               "(goals\n(goal\n  (forall ((z Int)) (<= x z))\n  :precision precise :depth 1)\n)\n(goals\n(goal\n  false\n  :precision precise :depth 1)\n)\nunsat\n(goals\n(goal\n  (forall ((y (_ BitVec 2))) (q y))\n  :precision precise :depth 1)\n)\n(goals\n(goal\n  (q #b00)\n  (q #b01)\n  (q #b10)\n  (q #b11)\n  :precision precise :depth 1)\n)\n",
 	"elim_small_bv_max_steps_simplifier.smt2": "(goals\n(goal\n  (forall ((x (_ BitVec 2)) (y (_ BitVec 2)) (z (_ BitVec 2))) (p x y z))\n  (forall ((x (_ BitVec 2))) (q x))\n  :precision precise :depth 1)\n)\n",
 	// muz_pdr_01
-	"z3_bug_pdr_boogie_without_proof_trace.smt2": "sat\n(derivation\n(step\n s!0 (inv 0)\n null\n (subst)\n (labels)\n (ref)\n)\n(step\n s!1 (inv 1)\n null\n (subst\n  (= B 0)\n  (= A 1))\n (labels)\n (ref s!0)\n)\n(step\n s!2 (inv 2)\n null\n (subst\n  (= B 0)\n  (= A 1))\n (labels)\n (ref s!1)\n)\n(step\n s!3 query!0\n null\n (subst\n  (= B 0)\n  (= A 1))\n (labels)\n (ref s!2)\n)\n)\n\n", // muz_pdr_02-F2
 
 }
 

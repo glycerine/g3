@@ -336,6 +336,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// muz_pdr_02-F2 (fork fix 50): with the boogie_proof debug prints removed
+	// (fork fix #C, upstream 73a24ca0a), z3 prints the certificate as g3 does.
+	"z3_bug_pdr_boogie_without_proof_trace.smt2": "sat\n(derivation\n(step\n s!0 (inv 0)\n null\n (subst)\n (labels)\n (ref)\n)\n(step\n s!1 (inv 1)\n null\n (subst\n  (= B 0)\n  (= A 1))\n (labels)\n (ref s!0)\n)\n(step\n s!2 (inv 2)\n null\n (subst\n  (= B 0)\n  (= A 1))\n (labels)\n (ref s!1)\n)\n(step\n s!3 query!0\n null\n (subst\n  (= B 0)\n  (= A 1))\n (labels)\n (ref s!2)\n)\n)\n\n",
 	// muz_small_01-F9 (fork fix 17): the DDNF rule dump goes to the shell's
 	// stdout, as dump_rules writes to std::cout.
 	"z3_bug_ddnf_extract_width.smt2": "(declare-rel q ())\n(declare-rel p ((_ BitVec 2)))\n(declare-var A (_ BitVec 2))\n(rule (=> (= A #b01) (p A)))\n(rule (=> (and (p A) (or (= A #b01) (= A #b10))) q))\n(query q)\nunknown\ndone\n",

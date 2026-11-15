@@ -2,14 +2,6 @@
 # deliberately fixes a z3 4.7.1 bug that they expose. Details, reproductions
 # and code locations: TODO.md, section "z3 4.7.1 bugs fixed in g3".
 #
-# fixedpoint.print_boogie_certificate turns on the PDR proof trace without
-# generate_proof_trace, so the rules carry no proofs: get_proof_trace's
-# SASSERT(p1) is off in release builds and z3 4.7.1 segfaults building the
-# certificate. g3 asserts the rule formula for a rule without a proof
-# (pkg/muz/pdr/proof_trace.go proofTrace; AUDIT.md muz_pdr_02-F2).
-# Reproduction: test_vectors/z3_bug_pdr_boogie_without_proof_trace.smt2.
-z3_bug_pdr_boogie_without_proof_trace
-#
 # OPB max: objectives: opb::parse tries parse_token("min:") before
 # parse_token("max:"), and parse_token consumes the matching prefix "m", so
 # z3 4.7.1 reads "max:" as "ax:" and exits with (error line 1 "unexpected
