@@ -185,6 +185,17 @@ Abstract:
                                   so Z3_get_implied_equalities' produce_models
                                   turns a solver-level smt.mbqi=false back on
                                   (pkg/AUDIT.md smtcore_03-F10 follow-up).
+    z3_4_7_1_and_then_sat_branch  and_then_tactical appends a decided-sat
+                                  subgoal to the undecided subgoals it
+                                  already collected, so (then split-clause
+                                  solve-eqs) answers unknown on a goal one
+                                  of whose OR-branches is decided sat
+                                  (pkg/AUDIT.md tactic_top_01-F1).
+    z3_4_7_1_repeat_sat_branch    repeat_tactical has the same append, and
+                                  its sat branch applies the branch model
+                                  converter to a null model, so z3
+                                  segfaults when that converter is not null
+                                  (pkg/AUDIT.md tactic_top_01-F1).
     z3_4_7_1_goal_update_false    goal::update flattens a formula to false
                                   but pushes the unflattened formula, so
                                   the goal does not become inconsistent.
@@ -2640,4 +2651,56 @@ void tst_z3_4_7_1_datatype_param_size() {
     std::cout << "datatype_param_size: running\n";
     std::cout.flush(); // a segfault loses buffered output
     expect_script("datatype_param_size", script, "unsat\n");
+}
+
+// split-clause turns (or (> x 0) (= y 3)) into the subgoals (> x 0) and
+// (= y 3), an OR-decomposition of the goal. solve-eqs leaves the first
+// undecided and decides the second sat (model y = 3), so the goal is sat.
+// and_then_tactical::operator() appended the decided-sat goal to the
+// undecided one already in result, so the result was not decided and
+// check-sat-using answered unknown. Upstream resets result before pushing
+// the sat goal (src/tactic/tactical.cpp, and_then_tactical::operator()).
+// pkg/AUDIT.md tactic_top_01-F1.
+void tst_z3_4_7_1_and_then_sat_branch() {
+    char const* script =
+        "(set-option :produce-models true)\n"
+        "(declare-const x Int)\n"
+        "(declare-const y Int)\n"
+        "(assert (or (> x 0) (= y 3)))\n"
+        "(apply (then split-clause solve-eqs))\n"
+        "(check-sat-using (then split-clause solve-eqs))\n"
+        "(get-model)\n"
+        "(eval (or (> x 0) (= y 3)))\n";
+    expect_script_output("and_then_sat_branch", script,
+                         "(goals\n(goal\n  :precision precise :depth 2)\n)\n"
+                         "sat\n"
+                         "(model \n  (define-fun y () Int\n    3)\n)\n"
+                         "true\n");
+}
+
+// The same goal under (repeat (or-else split-clause solve-eqs)).
+// repeat_tactical::operator() also appended the decided-sat goal to the
+// undecided one (unknown without models), and with models (the shell
+// default) its sat branch ran the branch's model converter on a null
+// model_ref and z3 segfaulted.
+// Upstream repeat_tactical still lacks the reset (its model converters were
+// redesigned away). pkg/AUDIT.md tactic_top_01-F1.
+void tst_z3_4_7_1_repeat_sat_branch() {
+    char const* goal =
+        "(declare-const x Int)\n"
+        "(declare-const y Int)\n"
+        "(assert (or (> x 0) (= y 3)))\n";
+    std::string no_models = std::string("(set-option :produce-models false)\n") + goal +
+        "(check-sat-using (repeat (or-else split-clause solve-eqs)))\n";
+    expect_script_output("repeat_sat_branch (no models)", no_models.c_str(), "sat\n");
+    std::string models = std::string("(set-option :produce-models true)\n") + goal +
+        "(apply (repeat (or-else split-clause solve-eqs)))\n"
+        "(check-sat-using (repeat (or-else split-clause solve-eqs)))\n"
+        "(get-model)\n"
+        "(eval (or (> x 0) (= y 3)))\n";
+    expect_script_output("repeat_sat_branch (models)", models.c_str(),
+                         "(goals\n(goal\n  :precision precise :depth 2)\n)\n"
+                         "sat\n"
+                         "(model \n  (define-fun y () Int\n    3)\n)\n"
+                         "true\n");
 }
