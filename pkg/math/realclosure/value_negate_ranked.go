@@ -24,9 +24,7 @@ func (s *realValueStore) negateRankedRetainedValue(value *realValue, usePrem boo
 	if err = approximation.Neg(value.functionInterval); err != nil {
 		return nil, err
 	}
-	result, err = s.newRankedAlgebraicPolynomialValue(value.root, numerator, approximation)
-	if err != nil {
-		return nil, err
-	}
-	return s.canonicalizeRankedRetainedResult(result, usePrem)
+	// neg_rf negates only the numerator and keeps the denominator ad; it
+	// does not call determine_sign, since -interval(a) excludes zero.
+	return s.newRankedRationalFunctionValue(value.root, numerator, value.functionDenominator.coefficients, approximation)
 }
