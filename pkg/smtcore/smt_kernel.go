@@ -846,7 +846,11 @@ func (k *SMTKernel) assertFormulaCore(formula, proof ast.ASTHandle) (resultErr e
 	if err := k.internalizer.initContextEnodes(); err != nil {
 		return err
 	}
-	// context::assert_expr_core starts with pop_to_base_lvl.
+	// context::assert_expr_core: if (get_cancel_flag()) return;
+	if canceled, err := k.manager.Canceled(); canceled || err != nil {
+		return err
+	}
+	// Then pop_to_base_lvl.
 	if err := k.popToBaseLevel(); err != nil {
 		return err
 	}

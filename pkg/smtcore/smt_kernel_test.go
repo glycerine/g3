@@ -466,3 +466,29 @@ func TestSMTKernelScopesRestoreAssertionsAndContext(t *testing.T) {
 		t.Fatal("base assertion after rollback", result)
 	}
 }
+
+// smtcore_04-F4: context::assert_expr_core starts with get_cancel_flag(): one
+// resource step per assertion, and a canceled context drops the assertion.
+func TestSMTKernelAssertCountsCancelCheck(t *testing.T) {
+	m := astTestManager(t)
+	kernel := smtTestKernel(t, m)
+	a := smtRelevancyBool(t, m, "kernel-assert-cancel-a")
+	b := smtRelevancyBool(t, m, "kernel-assert-cancel-b")
+	c := smtRelevancyBool(t, m, "kernel-assert-cancel-c")
+	astTestMust(t, kernel.Assert(a, ast.ASTHandle{}))
+	before := m.Limit.Count()
+	astTestMust(t, kernel.Assert(b, ast.ASTHandle{}))
+	// This fixture kernel has no assertion rewriter, so the only step is
+	// the cancel check (the CLI adds the rewriter's step, as z3 does).
+	if got := m.Limit.Count() - before; got != 1 {
+		t.Fatalf("resource steps for asserting a constant = %d, want 1", got)
+	}
+	count := len(kernel.Assertions())
+	m.Limit.Cancel()
+	t.Cleanup(m.Limit.ResetCancel)
+	astTestMust(t, kernel.Assert(c, ast.ASTHandle{}))
+	m.Limit.ResetCancel()
+	if len(kernel.Assertions()) != count {
+		t.Fatal("canceled assert_expr_core must not assert", count, len(kernel.Assertions()))
+	}
+}

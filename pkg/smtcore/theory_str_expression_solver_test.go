@@ -9,7 +9,6 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	umemory "github.com/glycerine/g3/pkg/util/memory"
-	"github.com/glycerine/g3/pkg/util/messages"
 )
 
 func stringExpressionSolverFixture(t *testing.T) (*ast.ASTManager, *SMTKernel, *SMTStringTheory) {
@@ -114,8 +113,11 @@ func TestSMTStringExpressionSolverErrorsAndCancellationRestoreScope(t *testing.T
 	m.Limit.Cancel()
 	got, err := solver.CheckSatisfiable(trueValue)
 	m.Limit.ResetCancel()
-	if err == nil || err.Error() != messages.Canceled || got != lbool.Undef {
-		t.Fatal("canceled query did not propagate cancellation", got, err)
+	// context::assert_expr_core returns before the rewriter when
+	// get_cancel_flag() is set, and check() answers l_undef: no exception
+	// reaches seq_expr_solver::check_sat (smtcore_04-F4).
+	if err != nil || got != lbool.Undef {
+		t.Fatal("canceled query was not unknown", got, err)
 	}
 	if len(solver.kernel.scopes) != 0 || len(solver.kernel.assertions) != 0 {
 		t.Fatal("unknown query leaked a scope")
