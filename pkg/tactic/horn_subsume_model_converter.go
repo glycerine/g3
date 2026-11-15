@@ -223,7 +223,13 @@ func (c *HornSubsumeModelConverter) MkHorn(head, body ast.ASTHandle) (predicate 
 			conjuncts = append(conjuncts, eq)
 		}
 	}
-	bodyRef, err := c.manager.NewRef(ast.ASTHandle{})
+	// body_expr = m.mk_and(conjs.size(), conjs.c_ptr()): the raw
+	// ast_manager application, without flattening or a unary shortcut.
+	conjunction, err := c.manager.MkAndArgs(conjuncts)
+	if err != nil {
+		return ast.ASTHandle{}, ast.ASTRef{}, false, err
+	}
+	bodyRef, err := c.manager.NewRef(conjunction)
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTRef{}, false, err
 	}
@@ -233,9 +239,6 @@ func (c *HornSubsumeModelConverter) MkHorn(head, body ast.ASTHandle) (predicate 
 			err = errors.Join(err, c.manager.DelRef(&bodyRef))
 		}
 	}()
-	if err = rewriter.SimplifyBooleanGateDefault(c.manager, ast.ASTOpAnd, conjuncts, bodyRef); err != nil {
-		return ast.ASTHandle{}, ast.ASTRef{}, false, err
-	}
 	if len(substitution) != 0 {
 		vs, e := rewriter.NewVarSubstitution(c.manager, false)
 		if e != nil {
@@ -349,111 +352,165 @@ func (c *HornSubsumeModelConverter) isBasicOp(h ast.ASTHandle, op int32) (bool, 
 	return declKind == op, err
 }
 
+// addDefaultFalseInterpretations is add_default_false_interpretation:
+// for_each_expr(proc, e), that is for_each_expr_core with IgnorePatterns=false
+// (src/ast/for_each_expr.h). The walk is post-order with children left to
+// right; 0-ary applications are processed when first reached, quantifier
+// children are the body, then patterns, then no-patterns.
 func (c *HornSubsumeModelConverter) addDefaultFalseInterpretations(root ast.ASTHandle, md *model.ModelCore) error {
 	falsehood, err := c.manager.MkFalse()
 	if err != nil {
 		return err
 	}
-	seen := make(map[ast.ASTHandle]struct{})
-	stack := []ast.ASTHandle{root}
-	for len(stack) != 0 {
-		i := len(stack) - 1
-		n := stack[i]
-		stack = stack[:i]
-		if _, found := seen[n]; found {
-			continue
+	boolSort, err := c.manager.MkBoolSort()
+	if err != nil {
+		return err
+	}
+	// add_default_proc::operator()(app*)
+	proc := func(n ast.ASTHandle) error {
+		decl, e := c.manager.GetDecl(n)
+		if e != nil {
+			return e
 		}
-		seen[n] = struct{}{}
-		kind, e := c.manager.GetKind(n)
+		family, e := c.manager.GetFamilyID(decl)
+		if e != nil {
+			return e
+		}
+		sort, e := c.manager.GetSort(n)
+		if e != nil {
+			return e
+		}
+		if sort != boolSort || family != ast.NullFamilyID {
+			return nil
+		}
+		has, e := md.HasInterpretation(decl)
+		if e != nil || has {
+			return e
+		}
+		arity, e := c.manager.GetArity(decl)
+		if e != nil {
+			return e
+		}
+		if arity == 0 {
+			return md.RegisterConstant(decl, falsehood)
+		}
+		fi, e := model.NewFunctionInterpretation(c.manager, arity)
+		if e != nil {
+			return e
+		}
+		if e = fi.SetElse(falsehood); e != nil {
+			return errors.Join(e, fi.Close())
+		}
+		if e = md.RegisterFunction(decl, fi); e != nil {
+			return errors.Join(e, fi.Close())
+		}
+		return nil
+	}
+	quantifierChild := func(q ast.ASTHandle, i uint32) (ast.ASTHandle, error) {
+		if i == 0 {
+			return c.manager.GetQuantifierBody(q)
+		}
+		patterns, e := c.manager.GetNumPatterns(q)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		if i-1 < patterns {
+			return c.manager.GetPattern(q, i-1)
+		}
+		return c.manager.GetNoPattern(q, i-1-patterns)
+	}
+	type frame struct {
+		n     ast.ASTHandle
+		child uint32
+	}
+	visited := map[ast.ASTHandle]bool{root: true}
+	stack := []frame{{n: root}}
+	for len(stack) != 0 {
+		top := len(stack) - 1
+		curr := stack[top].n
+		kind, e := c.manager.GetKind(curr)
 		if e != nil {
 			return e
 		}
 		switch kind {
+		case ast.ASTVar:
+			stack = stack[:top]
 		case ast.ASTApp:
-			decl, e := c.manager.GetDecl(n)
+			numArgs, e := c.manager.GetNumArgs(curr)
 			if e != nil {
 				return e
 			}
-			family, e := c.manager.GetFamilyID(decl)
-			if e != nil {
-				return e
-			}
-			sort, e := c.manager.GetSort(n)
-			if e != nil {
-				return e
-			}
-			boolSort, e := c.manager.MkBoolSort()
-			if e != nil {
-				return e
-			}
-			if sort == boolSort && family == ast.NullFamilyID {
-				has, e := md.HasInterpretation(decl)
+			pushed := false
+			for stack[top].child < numArgs {
+				arg, e := c.manager.GetArg(curr, stack[top].child)
 				if e != nil {
 					return e
 				}
-				if !has {
-					arity, e := c.manager.GetArity(decl)
+				stack[top].child++
+				if visited[arg] {
+					continue
+				}
+				visited[arg] = true
+				argKind, e := c.manager.GetKind(arg)
+				if e != nil {
+					return e
+				}
+				if argKind == ast.ASTVar {
+					continue
+				}
+				if argKind == ast.ASTApp {
+					argArgs, e := c.manager.GetNumArgs(arg)
 					if e != nil {
 						return e
 					}
-					if arity == 0 {
-						if e = md.RegisterConstant(decl, falsehood); e != nil {
+					if argArgs == 0 {
+						if e = proc(arg); e != nil {
 							return e
 						}
-					} else {
-						fi, e := model.NewFunctionInterpretation(c.manager, arity)
-						if e != nil {
-							return e
-						}
-						if e = fi.SetElse(falsehood); e != nil {
-							return errors.Join(e, fi.Close())
-						}
-						if e = md.RegisterFunction(decl, fi); e != nil {
-							return errors.Join(e, fi.Close())
-						}
+						continue
 					}
+				} else if argKind != ast.ASTQuantifier {
+					return ast.ErrASTDomain
 				}
+				stack = append(stack, frame{n: arg})
+				pushed = true
+				break
 			}
-			nargs, e := c.manager.GetNumArgs(n)
-			if e != nil {
+			if pushed {
+				continue
+			}
+			stack = stack[:top]
+			if e = proc(curr); e != nil {
 				return e
-			}
-			for j := uint32(0); j < nargs; j++ {
-				arg, x := c.manager.GetArg(n, j)
-				if x != nil {
-					return x
-				}
-				stack = append(stack, arg)
 			}
 		case ast.ASTQuantifier:
-			qbody, e := c.manager.GetQuantifierBody(n)
+			patterns, e := c.manager.GetNumPatterns(curr)
 			if e != nil {
 				return e
 			}
-			stack = append(stack, qbody)
-			np, e := c.manager.GetNumPatterns(n)
+			noPatterns, e := c.manager.GetNumNoPatterns(curr)
 			if e != nil {
 				return e
 			}
-			for j := uint32(0); j < np; j++ {
-				p, x := c.manager.GetPattern(n, j)
-				if x != nil {
-					return x
+			numChildren := 1 + patterns + noPatterns
+			pushed := false
+			for stack[top].child < numChildren {
+				child, e := quantifierChild(curr, stack[top].child)
+				if e != nil {
+					return e
 				}
-				stack = append(stack, p)
-			}
-			np, e = c.manager.GetNumNoPatterns(n)
-			if e != nil {
-				return e
-			}
-			for j := uint32(0); j < np; j++ {
-				p, x := c.manager.GetNoPattern(n, j)
-				if x != nil {
-					return x
+				stack[top].child++
+				if visited[child] {
+					continue
 				}
-				stack = append(stack, p)
+				visited[child] = true
+				stack = append(stack, frame{n: child})
+				pushed = true
+				break
 			}
-		case ast.ASTVar:
+			if !pushed {
+				stack = stack[:top]
+			}
 		default:
 			return ast.ErrASTDomain
 		}

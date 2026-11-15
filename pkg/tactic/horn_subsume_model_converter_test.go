@@ -161,3 +161,82 @@ func TestHornSubsumeDelayedTranslationAndInheritedOperations(t *testing.T) {
 		t.Fatal("translated declaration mismatch")
 	}
 }
+
+// AUDIT.md tactic_top_01-F7: add_default_false_interpretation uses
+// for_each_expr, a post-order walk with arguments left to right.
+func TestHornSubsumeDefaultFalseRegistrationOrder(t *testing.T) {
+	m, md, _, config := extensionFixture(t)
+	c, err := NewHornSubsumeModelConverter(m, config)
+	satOK(t, err)
+	t.Cleanup(func() { satOK(t, c.Close()) })
+	a := hornTestPredicate(t, m, "horn-order-a", 1)
+	b := hornTestPredicate(t, m, "horn-order-b", 1)
+	boolSort, err := m.MkBoolSort()
+	satOK(t, err)
+	x, err := m.MkVar(0, boolSort)
+	satOK(t, err)
+	ax, err := m.MkApp(a, []ast.ASTHandle{x})
+	satOK(t, err)
+	bx, err := m.MkApp(b, []ast.ASTHandle{x})
+	satOK(t, err)
+	body, err := m.MkAnd(ax, bx)
+	satOK(t, err)
+	astTestPin(t, m, body)
+	satOK(t, c.addDefaultFalseInterpretations(body, md.Core()))
+	n, err := md.Core().NumDeclarations()
+	satOK(t, err)
+	if n != 2 {
+		t.Fatal("default-false declarations", n)
+	}
+	for i, want := range []ast.ASTHandle{a, b} {
+		got, err := md.Core().Declaration(uint32(i))
+		satOK(t, err)
+		if got != want {
+			t.Fatalf("declaration %d: got %v want %v", i, got, want)
+		}
+	}
+}
+
+// AUDIT.md tactic_top_01-F7: mk_horn builds body_expr with the raw
+// ast_manager::mk_and, so a conjunctive body is not flattened:
+// (and (and q r) (= v true)).
+func TestHornSubsumeMkHornUsesRawAnd(t *testing.T) {
+	m, _, _, config := extensionFixture(t)
+	c, err := NewHornSubsumeModelConverter(m, config)
+	satOK(t, err)
+	t.Cleanup(func() { satOK(t, c.Close()) })
+	p := hornTestPredicate(t, m, "horn-raw-p", 1)
+	q := hornTestPredicate(t, m, "horn-raw-q", 0)
+	r := hornTestPredicate(t, m, "horn-raw-r", 0)
+	yes, err := m.MkTrue()
+	satOK(t, err)
+	head, err := m.MkApp(p, []ast.ASTHandle{yes})
+	satOK(t, err)
+	astTestPin(t, m, head)
+	qApp, err := m.MkApp(q, nil)
+	satOK(t, err)
+	rApp, err := m.MkApp(r, nil)
+	satOK(t, err)
+	body, err := m.MkAnd(qApp, rApp)
+	satOK(t, err)
+	astTestPin(t, m, body)
+	_, converted, ok, err := c.MkHorn(head, body)
+	satOK(t, err)
+	if !ok {
+		t.Fatal("Horn head was not recognized")
+	}
+	t.Cleanup(func() { satOK(t, m.DelRef(&converted)) })
+	got, err := m.RefGet(converted)
+	satOK(t, err)
+	boolSort, err := m.MkBoolSort()
+	satOK(t, err)
+	v, err := m.MkVar(0, boolSort)
+	satOK(t, err)
+	eq, err := m.MkEq(v, yes)
+	satOK(t, err)
+	want, err := m.MkAnd(body, eq)
+	satOK(t, err)
+	if got != want {
+		t.Fatal("mk_horn body is not the raw conjunction", got, want)
+	}
+}
