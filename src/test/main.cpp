@@ -274,6 +274,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_get_file_names_posix);
     TST(z3_4_7_1_wpa_warning_number);
     TST(z3_4_7_1_read_uint64_max);
+    TST(z3_4_7_1_wpa_empty_map_name);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);

@@ -199,6 +199,11 @@ Abstract:
                                   whose first 19 digits exceed
                                   (ULLONG_MAX-9)/10, ULLONG_MAX included
                                   (pkg/AUDIT.md cmd_context_02-F11).
+    z3_4_7_1_wpa_empty_map_name   parse_map_line reads the last character
+                                  of an empty name (undefined behavior;
+                                  not observable in a release build, so
+                                  this test is not red) (pkg/AUDIT.md
+                                  cmd_context_02-F11).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -2515,4 +2520,28 @@ void tst_z3_4_7_1_read_uint64_max() {
         }
     }
     std::cout << "read_uint64_max: PASS\n";
+}
+
+// A map line whose name is empty ("1 ", or "2  SC_EXTERN x" once the
+// SC_EXTERN tail is cut) makes parse_map_line test
+// rest_of_line[rest_of_line.size()-1], an out-of-range index (undefined
+// behavior). The fork tests for the empty name first, which then is the
+// empty symbol: the two maps agree on it and no mismatch is reported. A
+// release build happens to read a byte that is not ' ', so this test also
+// passes without the fix; it documents the defined behavior.
+void tst_z3_4_7_1_wpa_empty_map_name() {
+#ifndef _WINDOWS
+    char const* files[] = { "V.map", "1 \n2  SC_EXTERN x\n", "W.map", "1 \n",
+                            "r.rules", "e(x:V, y:W) printtuples\n", "e.rel", "1 1\n2 1\n" };
+    std::string root = wpa_test_directory(files, 8);
+    std::stringstream warnings;
+    bool ok = wpa_parse_directory(root, warnings);
+    std::string cleanup = "rm -rf '" + root + "'";
+    ENSURE(system(cleanup.c_str()) == 0);
+    if (!ok || !warnings.str().empty()) {
+        std::cerr << "wpa_empty_map_name: ok=" << ok << " warnings\n" << warnings.str();
+        ENSURE(false);
+    }
+    std::cout << "wpa_empty_map_name: PASS\n";
+#endif
 }
