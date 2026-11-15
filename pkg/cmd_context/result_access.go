@@ -107,7 +107,7 @@ func (c *Context) ImpliedEqualities(terms []ast.ASTHandle) (lbool.LBool, []uint3
 		return lbool.Undef, nil, err
 	}
 	c.checked = false
-	return smtcore.ImpliedEqualities(c.solver, terms)
+	return smtcore.ImpliedEqualities(c.solver, c.config.ModelEvaluator, terms)
 }
 
 // UnsatCore returns a borrowed copy of the most recent unsatisfiable result's

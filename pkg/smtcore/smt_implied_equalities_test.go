@@ -13,7 +13,7 @@ func TestSMTSolverImpliedEqualitiesPartitionsByProofAndSort(t *testing.T) {
 	astTestMust(t, err)
 	uninterpreted, err := m.MkSort(astTestSymbol(t, m, "implied-sort"), ast.ASTSortInfo{})
 	astTestMust(t, err)
-	solver, err := NewSMTSolver(m, nil, "QF_UF", SMTSolverConfig{Params: config.Context})
+	solver, err := NewSMTSolver(m, nil, "QF_UF", SMTSolverConfig{Params: config.Context, ModelEvaluator: config})
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, solver.Close()) })
 	makeConstant := func(name string, sort ast.ASTHandle) ast.ASTHandle {
@@ -39,7 +39,10 @@ func TestSMTSolverImpliedEqualitiesPartitionsByProofAndSort(t *testing.T) {
 	if status != lbool.True || len(classes) != 5 {
 		t.Fatal("implied equality result", status, classes)
 	}
-	if classes[0] != classes[1] || classes[1] != classes[2] || classes[3] == classes[0] || classes[4] == classes[0] || classes[4] == classes[3] {
+	// C++ union_find::merge keeps the second argument's root on a size
+	// tie: filter_basic's merge(0, 1) makes b the root (AUDIT.md
+	// smtcore_03-F10).
+	if classes[0] != 1 || classes[1] != 1 || classes[2] != 1 || classes[3] != 3 || classes[4] != 4 {
 		t.Fatal("implied equality classes", classes)
 	}
 	after, err := solver.ScopeLevel()

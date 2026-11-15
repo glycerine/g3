@@ -12,5 +12,9 @@ func (s *APISimpleSolver) ImpliedEqualities(terms []ast.ASTHandle) (lbool.LBool,
 	if err := s.open(); err != nil {
 		return lbool.Undef, nil, err
 	}
-	return smtcore.ImpliedEqualities(s.solver, terms)
+	services, err := s.owner.command.ModelEvaluatorConfig()
+	if err != nil {
+		return lbool.Undef, nil, err
+	}
+	return smtcore.ImpliedEqualities(s.solver, services, terms)
 }

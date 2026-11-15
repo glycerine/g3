@@ -1009,7 +1009,7 @@ var assertExprForwarders = []string{
 var assertExprRawTemporaries = []string{
 	"/pkg/smtcore.(*UnitSubsumptionTactic).",
 	// get_implied_equalities: m_solver.assert_expr(m.mk_not(m.mk_eq(s, t))).
-	"/pkg/smtcore.(*smtImpliedEqualityEngine).",
+	"/pkg/smtcore.(*smtImpliedEqualities).",
 	// qsat's m_fa.assert_expr(m.mk_not(fml)).
 	"/pkg/qe.(*qsatSearch).prepareKernels",
 	// qe_sat_tactic weaken/extrapolate: m_solver.assert_expr(m.mk_not(B))
