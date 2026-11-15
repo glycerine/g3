@@ -59,6 +59,7 @@ func (t *HornTactic) simplifyGoal(goal *tactic.Goal, out *tactic.TacticResult, e
 	if slice {
 		transformer := base.NewRuleTransformer()
 		plugin := transforms.NewRuleSlicePlugin(t.manager, engine.rules, 1)
+		plugin.SetUnboundFixer(engine.unboundFixer())
 		generateProof, err := parameters.Bool("generate_proof_trace", false)
 		if err != nil {
 			return errors.Join(err, plugin.Close(), transformer.Close())

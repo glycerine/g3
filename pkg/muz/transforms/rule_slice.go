@@ -21,6 +21,14 @@ type RuleSlicePlugin struct {
 	proofConverter *SliceProofConverter
 	closed         bool
 	closing        bool
+	// fixUnbound is rule_manager::fix_unbound_vars(new_rule, false).
+	fixUnbound func(*base.Rule) (*base.Rule, error)
+}
+
+// SetUnboundFixer supplies rule_manager::fix_unbound_vars, which
+// mk_slice::update_rule applies to every rewritten rule.
+func (p *RuleSlicePlugin) SetUnboundFixer(fix func(*base.Rule) (*base.Rule, error)) {
+	p.fixUnbound = fix
 }
 
 // SetGenerateProofTrace requests asserted proofs for rewritten rules. These
@@ -570,6 +578,20 @@ func (p *RuleSlicePlugin) updateRule(rule *base.Rule, variables *[]uint32) (_ *b
 	updatedRule, err := p.rules.NewRuleWithSymbol(head, tails, negated, name)
 	if err != nil {
 		return nil, err
+	}
+	// rm.fix_unbound_vars(new_rule, false). The Go-only slice proof
+	// converter maps the rule's variables back to the original rule through
+	// variables, which a reduction would renumber, so proof mode keeps the
+	// unreduced rule.
+	if p.fixUnbound != nil && variables == nil {
+		fixed, fixErr := p.fixUnbound(updatedRule)
+		if fixErr = errors.Join(fixErr, updatedRule.Close()); fixErr != nil {
+			if fixed != nil {
+				fixErr = errors.Join(fixErr, fixed.Close())
+			}
+			return nil, fixErr
+		}
+		updatedRule = fixed
 	}
 	if p.proofTrace {
 		if err = p.rules.MkRuleAssertedProof(updatedRule); err != nil {

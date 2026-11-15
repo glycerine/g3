@@ -521,6 +521,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	if sliceStage && sliceRules && (!generateProofTrace || allowSliceProof) {
 		slicer := base.NewRuleTransformer()
 		plugin := transforms.NewRuleSlicePlugin(e.manager, e.rules, 1)
+		plugin.SetUnboundFixer(e.unboundFixer())
 		plugin.SetGenerateProofTrace(generateProofTrace)
 		if err = slicer.Register(plugin); err != nil {
 			return nil, errors.Join(err, plugin.Close(), slicer.Close())
