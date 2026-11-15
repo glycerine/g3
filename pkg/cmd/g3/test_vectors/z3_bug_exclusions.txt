@@ -131,3 +131,24 @@ z3_bug_bvarray2uf_quantifier
 # 335d672bf). g3 and the fork report the exception as a command error.
 # Reproduction: test_vectors/z3_bug_get_value_max_steps.smt2.
 z3_bug_get_value_max_steps
+#
+# A pop resets the whole instance cache of a parametric datatype
+# (cmd_context::restore_psort_inst), also (List Real) created outside the
+# popped scope, so the next (List Real) declares its constructors again:
+# "invalid declaration, constant 'nil' (with the given signature) already
+# declared", and with :global-declarations scoped instances fail the same
+# way (z3 bug: src/cmd_context/pdecl.cpp instantiate_datatype; fixed
+# upstream in 19f655c69, 120467159, 2d358a9a5, 984767509, and in the fork).
+# g3 declares each datatype function once (pkg/cmd_context/
+# datatype_declarations.go ensureDatatypeFunction). Reproduction:
+# test_vectors/z3_bug_datatype_inst_after_pop.smt2.
+z3_bug_datatype_inst_after_pop
+#
+# An alias such as (define-sort L () (List Int)) used first inside a popped
+# scope keeps its cached sort; the pop removed the constructors, and the
+# cache hit never declares them again, so nil is unknown afterwards (z3 bug:
+# src/cmd_context/pdecl.cpp psort_user_decl/psort_app::instantiate; still
+# present upstream and in the fork). g3 declares them on every
+# instantiation. Reproduction:
+# test_vectors/z3_bug_define_sort_alias_after_pop.smt2.
+z3_bug_define_sort_alias_after_pop

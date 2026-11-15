@@ -1,0 +1,7 @@
+(define-sort L () (List Int))
+(push 1)
+(declare-const k L)
+(pop 1)
+(declare-const k L)
+(assert (= k (insert 1 nil)))
+(check-sat)

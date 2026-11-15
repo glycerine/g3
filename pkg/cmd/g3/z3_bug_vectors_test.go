@@ -14,6 +14,10 @@ import (
 // scriptResults so the C++ reference comparison does not run them; this
 // test locks in g3's correct answers instead.
 var z3BugResults = map[string]string{
+	// Datatype instances after pop (upstream 19f655c69 and the fork) and an
+	// alias used in a popped scope (still present upstream and in the fork).
+	"z3_bug_datatype_inst_after_pop.smt2":     "sat\nsat\n",
+	"z3_bug_define_sort_alias_after_pop.smt2": "sat\n",
 	// get-value reports the evaluator's max-steps exception (upstream 335d672bf).
 	"z3_bug_get_value_max_steps.smt2": "sat\n((error \"line 7 column 38: max. steps exceeded\")\n((x 1))\n(((+ x y 1 (* 2 x) (* 3 y)) 0))\n",
 	// bvarray2uf reports quantified goals as "not handled" (upstream 4bad2dd92).
