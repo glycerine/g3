@@ -244,6 +244,10 @@ Abstract:
                                   opened is read through a null FILE and
                                   z3 crashes (pkg/AUDIT.md
                                   cmd_context_02-F11).
+    z3_4_7_1_qbmc_hyper_res_positions QBMC proof reconstruction gives its
+                                  two-premise hyper-resolution the positions
+                                  (0,1) instead of (1,0) (upstream
+                                  784b613b5).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -3034,4 +3038,28 @@ void tst_z3_4_7_1_wpa_unreadable_file() {
     }
     std::cout << "wpa_unreadable_file: PASS\n";
 #endif
+}
+
+// qlinear::get_model resolves tail 0 of the derivation built so far (the
+// first premise) against the head of the selected rule (the second premise),
+// so the hyper-resolution positions are (1,0): body literal 1 of premise 0,
+// head literal 0 of premise 1. 4.7.1 records (0,1), which names the head of
+// the derivation and a literal of the rule that does not exist for a fact.
+// Upstream fixed it in 784b613b5 (#11540).
+void tst_z3_4_7_1_qbmc_hyper_res_positions() {
+    char const* script =
+        "(set-option :fixedpoint.engine qbmc)\n"
+        "(declare-rel p (Int))\n"
+        "(declare-var x Int)\n"
+        "(rule (p 0))\n"
+        "(rule (=> (and (p x) (< x 3)) (p (+ x 1))))\n"
+        "(query p :print-certificate true)\n";
+    expect_script_output("qbmc_hyper_res_positions", script,
+        "sat\n"
+        "(let ((a!1 (forall ((A Int)) (=> (p A) (query!0 A)))))\n"
+        "  ((_ hyper-res 1 0)\n"
+        "    (hyper-res (asserted a!1) a!1)\n"
+        "    (asserted (p 0))\n"
+        "    (query!0 0)))\n"
+        "\n");
 }
