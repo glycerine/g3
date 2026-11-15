@@ -141,14 +141,16 @@ func TestPDRExpressionStatisticsSurviveCloneDisposal(t *testing.T) {
 	if _, err := prior.LastResult(); err == nil {
 		t.Fatal("parameter update left the old clone open")
 	}
-	if got := checks(e); got != total {
-		t.Fatal("clone disposal lost or duplicated cumulative checks", got, total)
+	// pdr::dl_interface::updt_params deallocates the pdr::context, and with
+	// it every counter of its pdr::manager (AUDIT.md muz_fp_04-F1).
+	if got := checks(e); got != 0 {
+		t.Fatal("parameter update kept the replaced context's checks", got, total)
 	}
 	if value(e, "PDR num properties") != 0 {
 		t.Fatal("disposed query left live property statistics")
 	}
 	must(e.SetQueryParameters(nil))
-	if got := checks(e); got != total {
-		t.Fatal("repeated cleanup duplicated archived statistics", got, total)
+	if got := checks(e); got != 0 {
+		t.Fatal("repeated cleanup resurrected archived statistics", got)
 	}
 }

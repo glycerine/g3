@@ -110,7 +110,7 @@ func (e *PropositionalEngine) SetQueryParameters(params *uparams.ParamsRef) (res
 	// keep their rules until the next query replaces them.
 	oldRules, pdrRules := e.pdrSourceRules, e.pdrRules
 	e.pdrSourceRules, e.pdrRules = nil, nil
-	if err := e.closePDRForReplacement(); err != nil {
+	if err := e.resetPDRForParameterUpdate(); err != nil {
 		e.pdrSourceRules, e.pdrRules = oldRules, pdrRules
 		return err
 	}

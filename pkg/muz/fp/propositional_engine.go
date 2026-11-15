@@ -656,7 +656,7 @@ func (e *PropositionalEngine) ParametersUpdated() error {
 	if err := e.clearQueryResources(); err != nil {
 		return err
 	}
-	if err := e.closePDRForReplacement(); err != nil {
+	if err := e.resetPDRForParameterUpdate(); err != nil {
 		return err
 	}
 	if err := e.resetSpacerForParameterUpdate(); err != nil {

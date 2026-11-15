@@ -89,6 +89,17 @@ func (e *PropositionalEngine) collectPDRStatistics(destination *statistics.Stati
 	return previous.Collect(destination)
 }
 
+// resetPDRForParameterUpdate mirrors pdr::dl_interface::updt_params, which
+// deallocates m_context and allocates a fresh pdr::context: every counter of
+// the old context (and its pdr::manager) is discarded with it.
+func (e *PropositionalEngine) resetPDRForParameterUpdate() error {
+	if err := e.closePDRForReplacement(); err != nil {
+		return err
+	}
+	e.pdrStatistics = pdr.StatisticsSnapshot{}
+	return nil
+}
+
 func (e *PropositionalEngine) closePDRForReplacement() error {
 	if e.pdr != nil {
 		// A later source member can refuse destruction after the solver pool
