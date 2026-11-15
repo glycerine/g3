@@ -4,9 +4,10 @@ package transforms
 
 import (
 	"fmt"
+
+	"github.com/glycerine/g3/pkg/muz/base"
 	"io"
 	"math"
-	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -75,59 +76,33 @@ func (p *SimpleJoinsPlugin) writeSimpleJoinPredicate(w io.Writer, predicate ast.
 	return err
 }
 
-func (p *SimpleJoinsPlugin) tracePairRegistration(state *simpleJoinRuleState, left, right ast.ASTHandle, outside []ast.ASTHandle, cost float32, consumers uint32, stratified bool) error {
-	return p.manager.EmitTrace("dl", "register_pair", "src/muz/rel/dl_mk_simple_joins.cpp", 290, func(w io.Writer) error {
-		if err := p.writeSimpleJoinPredicate(w, left); err != nil {
+// writeRegisterPairTrace is the TRACE("dl") of join_planner::register_pair.
+func (p *SimpleJoinsPlugin) writeRegisterPairTrace(w io.Writer, t1, t2 ast.ASTHandle, nonLocalVars []uint32, rule *base.Rule, inf *pairInfo) error {
+	if err := p.writeSimpleJoinPredicate(w, t1); err != nil {
+		return err
+	}
+	if _, err := io.WriteString(w, " "); err != nil {
+		return err
+	}
+	if err := p.writeSimpleJoinPredicate(w, t2); err != nil {
+		return err
+	}
+	for _, variable := range nonLocalVars {
+		if _, err := fmt.Fprintf(w, " %d", variable); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(w, " "); err != nil {
-			return err
-		}
-		if err := p.writeSimpleJoinPredicate(w, right); err != nil {
-			return err
-		}
-		pair, err := p.normalizePair(left, right)
-		if err != nil {
-			return err
-		}
-		live := make(map[uint32]ast.ASTHandle)
-		for _, expression := range outside {
-			if err = p.variables(expression, live); err != nil {
-				return err
-			}
-		}
-		variables := make([]uint32, 0)
-		for variable := range pair.actualToCanonical {
-			if _, needed := live[variable]; needed {
-				variables = append(variables, variable)
-			}
-		}
-		sort.Slice(variables, func(i, j int) bool { return variables[i] < variables[j] })
-		for _, variable := range variables {
-			if _, err = fmt.Fprintf(w, " %d", variable); err != nil {
-				return err
-			}
-		}
-		if _, err = io.WriteString(w, "\n"); err != nil {
-			return err
-		}
-		if err = p.rules.WriteRuleDisplay(w, state.rule); err != nil {
-			return err
-		}
-		if consumers > 0 {
-			amortized := cost / float32(consumers)
-			if stratified {
-				if amortized > 0 {
-					amortized /= 16
-				} else {
-					amortized *= 16
-				}
-			}
-			_, err = fmt.Fprintf(w, "cost: %g\n", amortized)
-			return err
-		}
-		return nil
-	})
+	}
+	if _, err := io.WriteString(w, "\n"); err != nil {
+		return err
+	}
+	if err := p.rules.WriteRuleDisplay(w, rule); err != nil {
+		return err
+	}
+	if inf.canBeJoined() {
+		_, err := fmt.Fprintf(w, "cost: %g\n", inf.getCost())
+		return err
+	}
+	return nil
 }
 
 func (p *SimpleJoinsPlugin) variableSorts(expressions []ast.ASTHandle) (map[uint32]ast.ASTHandle, error) {
@@ -223,113 +198,104 @@ func (p *SimpleJoinsPlugin) tailCost(tail ast.ASTHandle) (float32, map[uint32]as
 	return result, variables, nil
 }
 
-func (p *SimpleJoinsPlugin) estimatedPairCost(tails []ast.ASTHandle, outside []ast.ASTHandle, leftIndex, rightIndex int) (float32, error) {
-	left, _, err := p.tailCost(tails[leftIndex])
+// computeCost is join_planner::compute_cost.
+func (p *SimpleJoinsPlugin) computeCost(t1, t2 ast.ASTHandle, nonLocalVars map[uint32]struct{}) (float32, error) {
+	t1Pred, err := p.manager.GetDecl(t1)
 	if err != nil {
 		return 0, err
 	}
-	right, _, err := p.tailCost(tails[rightIndex])
+	t2Pred, err := p.manager.GetDecl(t2)
 	if err != nil {
 		return 0, err
 	}
-	other := make([]ast.ASTHandle, 0, len(outside)+len(tails)-2)
-	other = append(other, outside...)
-	for index, tail := range tails {
-		if index != leftIndex && index != rightIndex {
-			other = append(other, tail)
+	n1, err := p.manager.GetNumArgs(t1)
+	if err != nil {
+		return 0, err
+	}
+	n2, err := p.manager.GetNumArgs(t2)
+	if err != nil {
+		return 0, err
+	}
+	argVar := func(t ast.ASTHandle, i uint32) (uint32, bool, error) {
+		argument, err := p.manager.GetArg(t, i)
+		if err != nil {
+			return 0, false, err
 		}
-	}
-	nonLocal, err := p.variableSorts(other)
-	if err != nil {
-		return 0, err
-	}
-	intersectionSize := float32(1)
-	leftArity, err := p.manager.GetNumArgs(tails[leftIndex])
-	if err != nil {
-		return 0, err
-	}
-	rightArity, err := p.manager.GetNumArgs(tails[rightIndex])
-	if err != nil {
-		return 0, err
-	}
-	leftDecl, err := p.manager.GetDecl(tails[leftIndex])
-	if err != nil {
-		return 0, err
-	}
-	rightDecl, err := p.manager.GetDecl(tails[rightIndex])
-	if err != nil {
-		return 0, err
-	}
-	// The source variable_intersection records positional matches, including
-	// repeated occurrences of one variable. Its projected-column loops are
-	// positional too, so keep multiplicity here instead of collapsing to sets.
-	leftIndices := make([]uint32, 0, leftArity)
-	leftVariables := make([]uint32, 0, leftArity)
-	for index := uint32(0); index < leftArity; index++ {
-		argument, x := p.manager.GetArg(tails[leftIndex], index)
-		if x != nil {
-			return 0, x
+		kind, err := p.manager.GetKind(argument)
+		if err != nil || kind != ast.ASTVar {
+			return 0, false, err
 		}
-		kind, x := p.manager.GetKind(argument)
-		if x != nil {
-			return 0, x
-		}
-		if kind == ast.ASTVar {
-			variable, x := p.manager.GetVarIndex(argument)
-			if x != nil {
-				return 0, x
-			}
-			leftIndices = append(leftIndices, index)
-			leftVariables = append(leftVariables, variable)
-			if _, live := nonLocal[variable]; !live {
-				sort, x := p.manager.GetDomain(leftDecl, index)
-				if x != nil {
-					return 0, x
-				}
-				intersectionSize *= p.domainCost(sort)
-			}
-		}
+		index, err := p.manager.GetVarIndex(argument)
+		return index, err == nil, err
 	}
-	for index := uint32(0); index < rightArity; index++ {
-		argument, x := p.manager.GetArg(tails[rightIndex], index)
-		if x != nil {
-			return 0, x
+	domainSize := func(pred ast.ASTHandle, i uint32) (float32, error) {
+		s, err := p.manager.GetDomain(pred, i)
+		if err != nil {
+			return 0, err
 		}
-		kind, x := p.manager.GetKind(argument)
-		if x != nil {
-			return 0, x
+		return p.domainCost(s), nil
+	}
+	intersSize := float32(1)
+	// variable_intersection vi; vi.populate(t1, t2): remove contributions
+	// from joined columns.
+	for i1 := uint32(0); i1 < n1; i1++ {
+		v1, isVar1, err := argVar(t1, i1)
+		if err != nil {
+			return 0, err
 		}
-		if kind != ast.ASTVar {
+		if !isVar1 {
 			continue
 		}
-		variable, x := p.manager.GetVarIndex(argument)
-		if x != nil {
-			return 0, x
-		}
-		if _, live := nonLocal[variable]; !live {
-			sort, x := p.manager.GetDomain(rightDecl, index)
-			if x != nil {
-				return 0, x
+		for i2 := uint32(0); i2 < n2; i2++ {
+			v2, isVar2, err := argVar(t2, i2)
+			if err != nil {
+				return 0, err
 			}
-			intersectionSize *= p.domainCost(sort)
-		}
-		for occurrence, leftVariable := range leftVariables {
-			if leftVariable != variable {
+			if !isVar2 || v1 != v2 {
 				continue
 			}
-			if _, live := nonLocal[variable]; !live {
-				continue
+			if _, found := nonLocalVars[v1]; found {
+				d, err := domainSize(t1Pred, i1)
+				if err != nil {
+					return 0, err
+				}
+				intersSize *= d
 			}
-			leftSort, x := p.manager.GetDomain(leftDecl, leftIndices[occurrence])
-			if x != nil {
-				return 0, x
-			}
-			intersectionSize *= p.domainCost(leftSort)
 		}
 	}
-	if intersectionSize == 0 {
-		return 0, nil
+	// remove contributions from projected columns.
+	for _, side := range []struct {
+		t, pred ast.ASTHandle
+		n       uint32
+	}{{t1, t1Pred, n1}, {t2, t2Pred, n2}} {
+		for i := uint32(0); i < side.n; i++ {
+			v, isVar, err := argVar(side.t, i)
+			if err != nil {
+				return 0, err
+			}
+			if !isVar {
+				continue
+			}
+			if _, found := nonLocalVars[v]; !found {
+				d, err := domainSize(side.pred, i)
+				if err != nil {
+					return 0, err
+				}
+				intersSize *= d
+			}
+		}
 	}
-	cost := left * right / intersectionSize
-	return cost, nil
+	s1, _, err := p.tailCost(t1)
+	if err != nil {
+		return 0, err
+	}
+	s2, _, err := p.tailCost(t2)
+	if err != nil {
+		return 0, err
+	}
+	res := s1 * s2 / intersSize
+	if err = p.tracePairCost(t1, t2, res); err != nil {
+		return 0, err
+	}
+	return res, nil
 }

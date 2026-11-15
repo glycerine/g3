@@ -16,8 +16,10 @@ func TestSimpleJoinsOriginUsesLastRegisteredSharedConsumer(t *testing.T) {
 	for _, name := range []string{"H1", "H2"} {
 		addTransformRule(t, f, f.applications[name], tails, nil, name)
 	}
-	// The last pair consumer is already short enough for the compiler. Source
-	// registration still chooses its head as the shared split's kind origin.
+	// join_planner::pick_best_pair breaks the equal-cost tie in m_costs table
+	// order; as in z3 4.7.1 the selected pair is consumed by H1 and H2 only, so
+	// its split predicate is named after (and inherits the kind of) the last
+	// registered consumer H2. The short rule keeps its tails.
 	addTransformRule(t, f, f.applications["Short"], tails[:2], nil, "short")
 	plugin := transforms.NewSimpleJoinsPlugin(f.manager, f.rules, 0)
 	defer func() { coneMust(t, plugin.Close()) }()
@@ -31,17 +33,23 @@ func TestSimpleJoinsOriginUsesLastRegisteredSharedConsumer(t *testing.T) {
 	if len(fresh) != 1 {
 		t.Fatal("shared pair should create exactly one auxiliary", len(fresh))
 	}
-	if origin, found := plugin.FreshPredicateOrigin(fresh[0]); !found || origin != f.declarations["Short"] {
+	if origin, found := plugin.FreshPredicateOrigin(fresh[0]); !found || origin != f.declarations["H2"] {
 		t.Fatal("split origin is not the last registered pair consumer", origin, found)
 	}
 	for i, name := range []string{"H1", "H2", "Short"} {
 		rule, cause := result.Rule(i)
 		coneMust(t, cause)
-		declaration, cause := rule.TailDeclaration(0)
+		size, cause := rule.TailSize()
 		coneMust(t, cause)
+		uses := false
+		for j := 0; j < size; j++ {
+			declaration, cause := rule.TailDeclaration(j)
+			coneMust(t, cause)
+			uses = uses || declaration == fresh[0]
+		}
 		coneMust(t, rule.Close())
-		if declaration != fresh[0] {
-			t.Fatal("consumer did not reuse shared auxiliary", name, declaration)
+		if size != 2 || uses != (name != "Short") {
+			t.Fatal("unexpected consumer of the shared auxiliary", name, size, uses)
 		}
 	}
 	if _, found := plugin.FreshPredicateOrigin(f.declarations["Short"]); found {

@@ -86,13 +86,16 @@ func testDatalogCompiledMixedFiniteAndNullary(t *testing.T, representation strin
 		if len(rows) != 1 || len(rows[0]) != 1 || rows[0][0] != 1 {
 			t.Fatal("mixed sparse/hash join tuples", rows)
 		}
-		// Under the lazy_sparse default the nullary union target comes from
-		// the lazy source plugin: a lazy table over the Hash fallback (the
-		// fork's lazy_table_plugin::mk_empty nullary fix).
+		// When the lazy_sparse kind reaches u, the nullary union target comes
+		// from the lazy source plugin: a lazy table over the Hash fallback
+		// (the fork's lazy_table_plugin::mk_empty nullary fix). With
+		// tr_lazy_sparse the join planner's split (compiled-hash-filter
+		// joined with compiled-sparse-source, as z3 4.7.1 chooses) carries
+		// the lazy kind to u.
 		switch e.predicates[f.declarations["u"]].table.(type) {
 		case *rel.HashTable:
 		case *rel.LazySparseTable:
-			if representation != "default_lazy_sparse" {
+			if representation != "default_lazy_sparse" && representation != "tr_lazy_sparse" {
 				t.Fatal("nullary output lost Hash fallback")
 			}
 		default:

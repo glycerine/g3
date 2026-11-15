@@ -2,6 +2,7 @@ package transforms
 
 import (
 	"bytes"
+	"io"
 	"math"
 	"strings"
 	"testing"
@@ -163,11 +164,10 @@ func TestSimpleJoinPairCostCountsRepeatedVariablePositions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	state, err := newSimpleJoinState(plugin, rule)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = plugin.tracePairRegistration(state, left, right, []ast.ASTHandle{left}, 4, 2, true); err != nil {
+	inf := &pairInfo{totalCost: 4, consumers: 2, stratified: true}
+	if err = manager.EmitTrace("dl", "register_pair", "src/muz/rel/dl_mk_simple_joins.cpp", 290, func(w io.Writer) error {
+		return plugin.writeRegisterPairTrace(w, left, right, []uint32{0}, rule, inf)
+	}); err != nil {
 		t.Fatal(err)
 	}
 	if err = rule.Close(); err != nil {
@@ -234,29 +234,5 @@ func TestSimpleJoinPairCostCountsRepeatedVariablePositions(t *testing.T) {
 	}
 	if err := plugin.Close(); err != nil {
 		t.Fatal(err)
-	}
-}
-
-func TestSimpleJoinPairRegistrationHistoryKeepsSourceOrder(t *testing.T) {
-	key := normalizedPairKey{}
-	first, second := &simpleJoinRuleState{}, &simpleJoinRuleState{}
-	history := map[normalizedPairKey][]*simpleJoinRuleState{key: {first, second}}
-	traceCounts := map[normalizedPairKey]map[*simpleJoinRuleState]int{key: {first: 1, second: 1}}
-	if err := updateSimpleJoinRegistrationHistory(history, traceCounts, first, map[normalizedPairKey]int{key: 1}, map[normalizedPairKey]int{key: 2}); err != nil {
-		t.Fatal(err)
-	}
-	registrations := history[key]
-	if len(registrations) != 3 || registrations[0] != first || registrations[1] != second || registrations[2] != first {
-		t.Fatal("dynamic pair registrations do not preserve append order")
-	}
-	if err := updateSimpleJoinRegistrationHistory(history, traceCounts, first, map[normalizedPairKey]int{key: 2}, map[normalizedPairKey]int{key: 1}); err != nil {
-		t.Fatal(err)
-	}
-	registrations = history[key]
-	if len(registrations) != 2 || registrations[0] != second || registrations[1] != first {
-		t.Fatal("removed pair registration does not delete the first matching rule")
-	}
-	if err := updateSimpleJoinRegistrationHistory(history, traceCounts, &simpleJoinRuleState{}, map[normalizedPairKey]int{key: 1}, map[normalizedPairKey]int{}); err == nil {
-		t.Fatal("missing source pair registration was silently ignored")
 	}
 }
