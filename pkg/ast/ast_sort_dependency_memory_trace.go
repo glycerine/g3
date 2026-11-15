@@ -46,7 +46,12 @@ func (o *sortDependencyOrder) traceDependencySetsDeallocated() {
 	if !udiag.DebugBuild || !tags.ShouldTrace("memory") {
 		return
 	}
-	for i := range o.roots {
+	if o.roots == nil {
+		return
+	}
+	// ~top_sort deallocates the sets in m_deps table order.
+	for _, root := range o.roots.Entries() {
+		i := int(root.Num)
 		_ = tags.EmitConditional("memory", "deallocate", "src/util/memory_manager.cpp", 204,
 			func() bool { return !o.owner.astMemoryFinalizing(tags) }, func(w io.Writer) error {
 				for _, part := range [...]string{

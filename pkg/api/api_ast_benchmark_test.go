@@ -1,6 +1,7 @@
 package api
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -46,5 +47,26 @@ func TestAPIBenchmarkUsesGlobalSimplifyImplies(t *testing.T) {
 		if !strings.Contains(text, tc.want) {
 			t.Fatal("benchmark implication setting", tc.setting, text)
 		}
+	}
+}
+
+// AUDIT.md ast_07-F5: decl_collector::order_deps emits the sorts in
+// top_sort's obj_map table order. The expected text is what
+// Z3_benchmark_to_smtlib_string(ctx, "b", "", "", "", 0, 0, r) prints with
+// build/libz3.so for the same objects.
+func TestAPIBenchmarkSortOrderMatchesObjMap(t *testing.T) {
+	f := newSMTAPIFixture(t, "ALL", nil)
+	eqs := make([]ast.ASTHandle, 6)
+	for i := range eqs {
+		s := f.pin(f.c.UninterpretedSort("S" + strconv.Itoa(i)))
+		x := f.pin(f.c.Constant("x"+strconv.Itoa(i), s))
+		eqs[i] = f.pin(f.c.Equal(x, x))
+	}
+	root := f.pin(f.c.And(eqs...))
+	text, err := f.c.BenchmarkSMT2(root, APIBenchmarkConfig{Name: "b"})
+	astTestMust(t, err)
+	want := "(declare-sort S2)\n (declare-sort S0)\n (declare-sort S1)\n (declare-sort S5)\n (declare-sort S4)\n (declare-sort S3)\n (declare-fun x5 () S5)\n(declare-fun x4 () S4)\n(declare-fun x3 () S3)\n(declare-fun x2 () S2)\n(declare-fun x1 () S1)\n(declare-fun x0 () S0)\n(assert\n (and (= x0 x0) (= x1 x1) (= x2 x2) (= x3 x3) (= x4 x4) (= x5 x5)))\n(check-sat)\n"
+	if !strings.HasSuffix(text, want) {
+		t.Fatalf("benchmark sort order:\n%s\nwant suffix:\n%s", text, want)
 	}
 }

@@ -8,15 +8,22 @@ import udiag "github.com/glycerine/g3/pkg/util/diagnostic"
 // sortDependencyOrder records only sorts collected by decl_collector. A
 // dependency outside this set is ignored by the source traversal.
 type sortDependencyOrder struct {
-	roots []ASTHandle
+	// roots is top_sort's m_deps (obj_map<sort, sort_set*>) laid out as the
+	// source hash table: its iteration order is the traversal order of
+	// topological_sort and the deallocation order of ~top_sort. Num is the
+	// insertion index that names the root's dependency set.
+	roots *ObjMap
+	count int
+	// deps holds each root's sort_set keys in that set's table order.
 	deps  map[ASTHandle][]ASTHandle
 	trace *udiag.TraceTags
 	owner *ASTManager
 }
 
-// insertASTSort supplies the parameter-sort edges collected by
-// decl_collector::collect_deps before top_sort<sort> traverses them. Datatype
-// constructor edges are included before ordinary sort parameters.
+// insertASTSort is st.insert(s, collect_deps(s)) in decl_collector::
+// order_deps. collect_deps builds an obj_hashtable<sort>: s itself, the
+// datatype parameter sorts, each constructor's range and domains, then the
+// sort's AST parameters from last to first; it then removes s.
 func (o *sortDependencyOrder) insertASTSort(m *ASTManager, sort ASTHandle) error {
 	if o == nil || m == nil {
 		return ErrASTHandle
@@ -33,18 +40,11 @@ func (o *sortDependencyOrder) insertASTSort(m *ASTManager, sort ASTHandle) error
 		o.trace = m.traceTags
 	}
 	o.owner = m
-	var deps []ASTHandle
-	seen := make(map[ASTHandle]struct{})
+	set := NewObjMap(nil)
 	add := func(child astNodeRef) {
-		h := m.external(child)
-		if h == sort {
-			return
-		}
-		if _, found := seen[h]; !found {
-			seen[h] = struct{}{}
-			deps = append(deps, h)
-		}
+		set.InsertPairIfNotThere(m.external(child), 0, m.nodeAt(child.slot).hash)
 	}
+	add(r)
 	family, kind, e := m.declIdentity(r)
 	if e != nil {
 		return e
@@ -62,6 +62,7 @@ func (o *sortDependencyOrder) insertASTSort(m *ASTManager, sort ASTHandle) error
 			add(parameter)
 		}
 		for i := range definition.constructors {
+			// The constructor's range is s itself, already in the set.
 			ranges, e := m.datatypeInstantiatedRanges(r, definition, &definition.constructors[i])
 			if e != nil {
 				return e
@@ -92,30 +93,41 @@ func (o *sortDependencyOrder) insertASTSort(m *ASTManager, sort ASTHandle) error
 			add(pv.ast)
 		}
 	}
+	if e = set.EraseHash(sort, m.nodeAt(r.slot).hash); e != nil {
+		return e
+	}
+	entries := set.Entries()
+	deps := make([]ASTHandle, len(entries))
+	for i, entry := range entries {
+		deps[i] = entry.Key
+	}
 	_, present := o.deps[sort]
 	if !present {
-		o.traceDependencySetAllocated(len(o.roots))
+		o.traceDependencySetAllocated(o.count)
 	}
-	o.insert(sort, deps)
+	o.insert(sort, m.nodeAt(r.slot).hash, deps)
 	return nil
 }
 
-func (o *sortDependencyOrder) insert(sort ASTHandle, deps []ASTHandle) {
+// insert is top_sort::insert(t, s), m_deps.insert(t, s), for a sort whose
+// AST hash is hash; deps lists the set in its table order.
+func (o *sortDependencyOrder) insert(sort ASTHandle, hash uint32, deps []ASTHandle) {
 	if o.deps == nil {
 		o.deps = make(map[ASTHandle][]ASTHandle)
+		o.roots = NewObjMap(nil)
 	}
 	if _, present := o.deps[sort]; !present {
-		o.roots = append(o.roots, sort)
+		o.roots.InsertPairIfNotThere(sort, uint64(o.count), hash)
+		o.count++
 	}
 	o.deps[sort] = append([]ASTHandle(nil), deps...)
 }
 
-// order follows the source preorder and completion stacks. The source
-// obj_map iteration order is not a semantic contract, so roots and each
-// dependency set are traversed in the order supplied by the AST caller.
+// order follows the source preorder and completion stacks, visiting roots
+// in m_deps table order and each dependency set in its table order.
 func (o *sortDependencyOrder) order() []ASTHandle {
 	var result []ASTHandle
-	if o == nil {
+	if o == nil || o.roots == nil {
 		return result
 	}
 	dfsNum := make(map[ASTHandle]uint32, len(o.deps))
@@ -162,8 +174,8 @@ func (o *sortDependencyOrder) order() []ASTHandle {
 			stackP = stackP[:len(stackP)-1]
 		}
 	}
-	for _, root := range o.roots {
-		traverse(root)
+	for _, root := range o.roots.Entries() {
+		traverse(root.Key)
 	}
 	return result
 }
