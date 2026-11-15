@@ -131,6 +131,11 @@ Abstract:
                                   the rewriter's frame and result stacks
                                   behind and the next evaluation returns a
                                   stale result (pkg/AUDIT.md smtcore_14-F3).
+    z3_4_7_1_qe_dl_other_value_neq the qe datalog plugin's "other value"
+                                  branch substitutes true for negatively
+                                  occurring equalities, so exists x. x != c
+                                  over a finite sort becomes false
+                                  (pkg/AUDIT.md qe_01-F4).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -175,6 +180,8 @@ Abstract:
 #include "model/model_implicant.h"
 #include "model/model.h"
 #include "model/model_evaluator.h"
+#include "qe/qe.h"
+#include "ast/dl_decl_plugin.h"
 void register_z3_replayer_cmds(z3_replayer & in);
 #include <iostream>
 #ifndef _WINDOWS
@@ -1782,4 +1789,27 @@ void tst_z3_4_7_1_rewriter_stale_stacks() {
     }
     std::cout << "rewriter_stale_stacks: " << mk_pp(gt, m) << " -> " << mk_pp(r, m) << "\n";
     ENSURE(m.is_true(r));
+}
+
+// exists x:S. x != c over a finite-domain (datalog) sort of size 4 is true.
+// The domain is large (4 >= one atom), so the dl plugin has one branch, the
+// "other value" branch, where x differs from c. assign_large_domain asserts
+// not (= x c), but subst_large_domain substitutes true for the negatively
+// occurring atom (= x c), so z3 eliminates the quantifier to false.
+void tst_z3_4_7_1_qe_dl_other_value_neq() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    datalog::dl_decl_util dl(m);
+    sort_ref s(dl.mk_sort(symbol("S"), 4), m);
+    app_ref c(m.mk_const(symbol("c"), s), m);
+    expr_ref body(m.mk_not(m.mk_eq(m.mk_var(0, s), c)), m);
+    sort* ss[1] = { s };
+    symbol names[1] = { symbol("x") };
+    expr_ref fml(m.mk_exists(1, ss, names, body), m);
+    smt_params fp;
+    qe::expr_quant_elim qe(m, fp);
+    expr_ref result(m);
+    qe(m.mk_true(), fml, result);
+    std::cout << "qe_dl_other_value_neq: " << mk_pp(fml, m) << " -> " << mk_pp(result, m) << "\n";
+    ENSURE(m.is_true(result));
 }
