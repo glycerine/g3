@@ -141,7 +141,9 @@ namespace Duality {
         Solver *old_rs = nullptr;
         if(old_data){
             old_rs = old_data->old_rs;
-            old_rs->GetCounterexample().swap(old_data->cex);
+            // FORK FIX #44 (g3 audit, see FORK_BUGFIXES.md): a query that threw left no old solver (AUDIT duality_01-F3 follow-up)
+            if(old_rs)
+                old_rs->GetCounterexample().swap(old_data->cex);
         }
 
         scoped_proof generate_proofs_please(m_ctx.get_manager());
