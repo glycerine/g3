@@ -54,9 +54,11 @@ func TestAPISimpleSolverTranslateIndependentContext(t *testing.T) {
 	if status != lbool.True {
 		t.Fatal("translated status", status)
 	}
-	if _, err = copy.Model(); !errors.Is(err, ast.ErrASTDomain) {
-		t.Fatal("translated model setting", err)
-	}
+	// The translated smt_solver ignores model=false as the original does:
+	// C++ Z3_solver_get_model on the translated solver prints p -> true.
+	md, err := copy.Model()
+	astTestMust(t, err)
+	astTestMust(t, md.Close())
 	assertions, err := copy.Assertions()
 	astTestMust(t, err)
 	if len(assertions) != 1 {

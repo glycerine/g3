@@ -1,10 +1,8 @@
 package api
 
 import (
-	"errors"
 	"testing"
 
-	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -47,9 +45,12 @@ func TestAPISimpleSolverParameterDescriptionsAndApplication(t *testing.T) {
 	if status, e := s.Check(); e != nil || status != lbool.True {
 		t.Fatal("check", status, e)
 	}
-	if _, err = s.Model(); !errors.Is(err, ast.ErrASTDomain) {
-		t.Fatal("disabled model", err)
-	}
+	// smt_solver ignores set_produce_models: the C++ simple solver still
+	// answers Z3_solver_get_model after model=false (AUDIT.md
+	// smtcore_03-F10 follow-up; checked against build/libz3.a).
+	md, err := s.Model()
+	astTestMust(t, err)
+	astTestMust(t, md.Close())
 	astTestMust(t, overlay.Close())
 	astTestMust(t, parameters.Close())
 

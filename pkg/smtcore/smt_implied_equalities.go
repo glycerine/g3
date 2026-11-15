@@ -88,8 +88,8 @@ type smtImpliedEqualities struct {
 // assertions imply. On an unsatisfiable first check the status is
 // lbool.False and no identifiers are returned (the C++ leaves class_ids
 // untouched); on unknown the identifiers are still computed. The solver's
-// assertion stack is restored, and produce_models (the parameter and the
-// solver's produce-models flag) is left set to true.
+// assertion stack is restored, and the produce_models parameter is left
+// set to true.
 // services are the model-evaluator services that the C++ model::eval takes
 // from the process.
 func ImpliedEqualities(s solver.Solver, services model.ModelEvaluatorConfig, terms []ast.ASTHandle) (status lbool.LBool, classIDs []uint32, result error) {
@@ -166,15 +166,6 @@ func (gi *smtImpliedEqualities) updtProduceModels(value bool) (result error) {
 // run is get_implied_equalities_impl::operator().
 func (gi *smtImpliedEqualities) run(terms []ast.ASTHandle, classIDs []uint32) (isSat lbool.LBool, result error) {
 	if err := gi.updtProduceModels(true); err != nil {
-		return lbool.Undef, err
-	}
-	// g3: the C++ produce_models parameter reaches no reader; the smt_solver
-	// that answers these checks (the simple solver, or combined_solver's
-	// incremental solver after the push below) builds its model from
-	// smt_params::m_model, which is true. A g3 SMTSolver also requires its
-	// produce-models flag, so it is set here and, like the parameter, left
-	// set.
-	if err := gi.solver.SetProduceModels(true); err != nil {
 		return lbool.Undef, err
 	}
 	timer := gi.timers.startCall()

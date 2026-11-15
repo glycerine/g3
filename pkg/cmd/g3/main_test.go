@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_03-F10 follow-up: smt_solver builds its model whatever the
+	// produce-models flag; cmd_context alone decides whether it is shown.
+	"smt_solver_models_push.smt2": "sat\n(model \n  (define-fun y () Int\n    8)\n  (define-fun x () Int\n    7)\n)\n((x 7)\n ((+ x 1) 8))\nsat\nsat\n((x 1))\nsat\n(model \n  (define-fun x () Int\n    1)\n)\n",
 	// gaps_misc (AUDIT.md smtcore F3 follow-up): reason-unknown and (error ...)
 	// print the source exception's msg(), not the Go wrapping context.
 	"rlimit_error_line_source_message.smt2":                "(error \"line 11 column 5: max. resource limit exceeded\")\nunknown\n",

@@ -806,7 +806,11 @@ func (s *SMTSolver) checkSatCore(assumptions []ast.ASTHandle, setup bool) (lbool
 	// smt_solver::get_model is context::get_model for every status: m_model
 	// unless the context is inconsistent. It exists after l_undef when the
 	// search left a proto model (context::restart, ~scoped_mk_model).
-	if s.produceModels && !s.kernel.Inconsistent() {
+	// smt_solver ignores set_produce_models (solver::set_produce_models is a
+	// no-op it does not override), so the produce-models flag does not gate
+	// the model; whether one was built is smt_params::m_model's business
+	// (context::mk_proto_model).
+	if !s.kernel.Inconsistent() {
 		if md := s.kernel.GeneratedModel(); md != nil {
 			if err = result.SetModel(md); err != nil {
 				return lbool.Undef, err
@@ -989,8 +993,8 @@ func (s *SMTSolver) GetConsequences(assumptions []ast.ASTHandle, variables []ast
 	// The solver is the check-sat result: smt_solver::get_model is
 	// context::get_model (m_model unless the context is inconsistent) and
 	// smt_solver::reason_unknown is last_failure_as_string(), as after
-	// check_sat.
-	if s.produceModels && !s.kernel.Inconsistent() {
+	// check_sat. The produce-models flag does not gate it (see Check).
+	if !s.kernel.Inconsistent() {
 		if md := s.kernel.GeneratedModel(); md != nil {
 			if err = result.SetModel(md); err != nil {
 				return lbool.Undef, nil, err
