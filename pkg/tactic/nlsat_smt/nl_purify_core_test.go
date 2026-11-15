@@ -70,3 +70,48 @@ func TestNLPurifyLearnsInterfaceCoreAndPreservesContextDependencies(t *testing.T
 		t.Fatal("joined dependencies", leaves)
 	}
 }
+
+// AUDIT.md tactic_small_01-F6: the blocking clause negates core literals with
+// ast_util::mk_not, so a negated assumption contributes the bare atom.
+func TestNLPurifyLearnStripsDoubleNegation(t *testing.T) {
+	m := astTestManager(t)
+	boolean, err := m.MkBoolSort()
+	astTestMust(t, err)
+	a := analysisConst(t, m, boolean, "strip-a")
+	p := analysisConst(t, m, boolean, "strip-formula-p")
+	i := analysisConst(t, m, boolean, "strip-interface-i")
+	j := analysisConst(t, m, boolean, "strip-interface-j")
+	goal, err := tactic.NewGoal(m, false, true, true)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, goal.Close()) }()
+	dep, err := m.DependencyLeaf(a)
+	astTestMust(t, err)
+	astTestMust(t, goal.AssertWithProof(p, ast.ASTHandle{}, dep))
+	extraction, err := solver.ExtractClausesAndDependencies(goal)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, extraction.Close()) }()
+	tracker, err := newNLCoreTracker(m, extraction)
+	astTestMust(t, err)
+	nonlinear, err := tactic.NewGoal(m, false, true, false)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, nonlinear.Close()) }()
+	notI, err := m.MkNot(i)
+	astTestMust(t, err)
+	astTestPin(t, m, notI)
+	learned, err := tracker.learn([]ast.ASTHandle{notI, j}, nonlinear)
+	astTestMust(t, err)
+	if !learned {
+		t.Fatal("interface core was not learned")
+	}
+	notJ, err := m.MkNot(j)
+	astTestMust(t, err)
+	got, err := nonlinear.Form(0)
+	astTestMust(t, err)
+	want1, err := m.MkOr(i, notJ)
+	astTestMust(t, err)
+	want2, err := m.MkOr(notJ, i)
+	astTestMust(t, err)
+	if got != want1 && got != want2 {
+		t.Fatal("blocking clause kept a double negation", got)
+	}
+}

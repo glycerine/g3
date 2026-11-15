@@ -65,7 +65,8 @@ func (s *nlCoreTracker) learn(core []ast.ASTHandle, nonlinear *tactic.Goal) (_ b
 	}()
 	literals := make([]ast.ASTHandle, len(external))
 	for i, atom := range external {
-		literal, err := s.manager.MkNot(atom)
+		// ast_util::mk_not strips a leading not and folds true/false.
+		literal, err := s.manager.MkNotSimplified(atom)
 		if err != nil {
 			return false, err
 		}
