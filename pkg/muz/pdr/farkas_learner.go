@@ -209,12 +209,31 @@ func (f *FarkasLearner) FarkasPremises(proof ast.ASTHandle) (_ []ast.ASTHandle, 
 // B-derived parent from the arithmetic combination. Coefficients attached to
 // the lemma conclusion are applied to the negated conclusion literals.
 func (f *FarkasLearner) CombineFarkasLemma(proof ast.ASTHandle, bPure []bool) (_ ast.ASTRef, _ bool, resultErr error) {
-	facts, coefficients, matched, err := f.FarkasPremises(proof)
-	if err != nil || !matched {
+	literals, coefficients, negations, produced, err := f.FarkasLemmaLiterals(proof, bPure)
+	defer func() {
+		for i := range negations {
+			resultErr = errors.Join(resultErr, f.manager.DelRef(&negations[i]))
+		}
+	}()
+	if err != nil || !produced {
 		return ast.ASTRef{}, false, err
 	}
+	combined, err := f.CombineConstraints(literals, coefficients)
+	return combined, err == nil, err
+}
+
+// FarkasLemmaLiterals is CombineFarkasLemma's literal selection: the
+// premises whose bPure entry is false, then the simplified negations of the
+// conclusion literals, each with its absolute Farkas coefficient. The
+// caller releases the returned negation references (which own the negated
+// literals) after combining, including on error.
+func (f *FarkasLearner) FarkasLemmaLiterals(proof ast.ASTHandle, bPure []bool) (_ []ast.ASTHandle, _ []*big.Rat, negationReferences []ast.ASTRef, _ bool, resultErr error) {
+	facts, coefficients, matched, err := f.FarkasPremises(proof)
+	if err != nil || !matched {
+		return nil, nil, nil, false, err
+	}
 	if len(bPure) != len(facts) {
-		return ast.ASTRef{}, false, ast.ErrASTDomain
+		return nil, nil, negationReferences, false, ast.ErrASTDomain
 	}
 	literals := make([]ast.ASTHandle, 0, len(facts))
 	selectedCoefficients := make([]*big.Rat, 0, len(coefficients))
@@ -228,16 +247,16 @@ func (f *FarkasLearner) CombineFarkasLemma(proof ast.ASTHandle, bPure []bool) (_
 		selectedCoefficients = append(selectedCoefficients, coefficients[i])
 	}
 	if bPureCount == 0 {
-		return ast.ASTRef{}, false, nil
+		return nil, nil, negationReferences, false, nil
 	}
 
 	declaration, err := f.manager.GetDecl(proof)
 	if err != nil {
-		return ast.ASTRef{}, false, err
+		return nil, nil, negationReferences, false, err
 	}
 	parameters, err := f.manager.GetDeclParametersCopy(declaration)
 	if err != nil {
-		return ast.ASTRef{}, false, err
+		return nil, nil, negationReferences, false, err
 	}
 	defer func() {
 		for i := range parameters {
@@ -248,53 +267,47 @@ func (f *FarkasLearner) CombineFarkasLemma(proof ast.ASTHandle, bPure []bool) (_
 	if len(parameters) > parentParameterEnd {
 		fact, err := f.manager.GetProofFact(proof)
 		if err != nil {
-			return ast.ASTRef{}, false, err
+			return nil, nil, negationReferences, false, err
 		}
 		conclusionLiterals := []ast.ASTHandle{fact}
 		family, err := f.manager.GetFamilyID(fact)
 		if err != nil {
-			return ast.ASTRef{}, false, err
+			return nil, nil, negationReferences, false, err
 		}
 		kind, err := f.manager.GetDeclKind(fact)
 		if err != nil {
-			return ast.ASTRef{}, false, err
+			return nil, nil, negationReferences, false, err
 		}
 		if family == f.manager.BasicFamilyID() && kind == ast.ASTOpOr {
 			count, err := f.manager.GetNumArgs(fact)
 			if err != nil {
-				return ast.ASTRef{}, false, err
+				return nil, nil, negationReferences, false, err
 			}
 			conclusionLiterals = make([]ast.ASTHandle, count)
 			for i := uint32(0); i < count; i++ {
 				conclusionLiterals[i], err = f.manager.GetArg(fact, i)
 				if err != nil {
-					return ast.ASTRef{}, false, err
+					return nil, nil, negationReferences, false, err
 				}
 			}
 		}
 		if len(parameters) != parentParameterEnd+len(conclusionLiterals) {
-			return ast.ASTRef{}, false, ast.ErrASTDomain
+			return nil, nil, negationReferences, false, ast.ErrASTDomain
 		}
-		negationReferences := make([]ast.ASTRef, 0, len(conclusionLiterals))
-		defer func() {
-			for i := range negationReferences {
-				resultErr = errors.Join(resultErr, f.manager.DelRef(&negationReferences[i]))
-			}
-		}()
 		for i, literal := range conclusionLiterals {
 			// brwr.mk_not(prem_e, tmp) simplifies.
 			negation, err := f.manager.MkNotSimplified(literal)
 			if err != nil {
-				return ast.ASTRef{}, false, err
+				return nil, nil, negationReferences, false, err
 			}
 			negationReference, err := f.manager.NewRef(negation)
 			if err != nil {
-				return ast.ASTRef{}, false, err
+				return nil, nil, negationReferences, false, err
 			}
 			negationReferences = append(negationReferences, negationReference)
 			coefficient, err := f.rationalParameter(parameters[parentParameterEnd+i])
 			if err != nil {
-				return ast.ASTRef{}, false, err
+				return nil, nil, negationReferences, false, err
 			}
 			coefficient.Abs(coefficient)
 			literals = append(literals, negation)
@@ -302,10 +315,9 @@ func (f *FarkasLearner) CombineFarkasLemma(proof ast.ASTHandle, bPure []bool) (_
 		}
 	}
 	if len(literals) == 0 {
-		return ast.ASTRef{}, false, ast.ErrASTDomain
+		return nil, nil, negationReferences, false, ast.ErrASTDomain
 	}
-	combined, err := f.CombineConstraints(literals, selectedCoefficients)
-	return combined, err == nil, err
+	return literals, selectedCoefficients, negationReferences, true, nil
 }
 
 func (f *FarkasLearner) proofPostOrder(root ast.ASTHandle) ([]ast.ASTHandle, error) {

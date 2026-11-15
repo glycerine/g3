@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_spacer_02-F2: the unoptimized Farkas plugin combines with
+	// a fresh farkas_util, which does not split without split literals.
+	"fixedpoint_spacer_farkas_unoptimized.smt2": "unsat\n",
 	// AUDIT.md muz_transforms_02-F1: the eager inliner records
 	// del_rule(m_mc, r, true) entries, so eliminated predicates print false.
 	"inline_unreachable_model.smt2": "sat\n(model \n  (define-fun R ((x!0 Int)) Bool\n    (not (<= x!0 3)))\n  (define-fun Q ((x!0 Int)) Bool\n    false)\n  (define-fun P ((x!0 Int)) Bool\n    false)\n  (define-fun A ((x!0 Int)) Bool\n    (= x!0 1))\n)\n",

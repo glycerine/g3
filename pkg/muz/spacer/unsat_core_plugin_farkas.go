@@ -9,12 +9,19 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/pdr"
+	"github.com/glycerine/g3/pkg/smtcore"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
+// UnsatCoreFarkasPlugin keeps a pdr.FarkasLearner only to recognize Farkas
+// lemmas and read their premises; compute_linear_combination combines with
+// a fresh smt::farkas_util.
 type UnsatCoreFarkasPlugin struct {
 	learner          *UnsatCoreLearner
 	farkas           *pdr.FarkasLearner
+	context          *uparams.ParamsContext
+	globals          *uparams.GlobalParamsService
+	splitLiterals    bool
 	useConstantFromA bool
 	closed           bool
 }
@@ -27,10 +34,7 @@ func NewUnsatCoreFarkasPlugin(learner *UnsatCoreLearner, context *uparams.Params
 	if err != nil {
 		return nil, err
 	}
-	if err = farkas.SetSplitLiterals(splitLiterals); err != nil {
-		return nil, errors.Join(err, farkas.Close())
-	}
-	return &UnsatCoreFarkasPlugin{learner: learner, farkas: farkas, useConstantFromA: useConstantFromA}, nil
+	return &UnsatCoreFarkasPlugin{learner: learner, farkas: farkas, context: context, globals: globals, splitLiterals: splitLiterals, useConstantFromA: useConstantFromA}, nil
 }
 
 func (p *UnsatCoreFarkasPlugin) open() error {
@@ -71,60 +75,80 @@ func (p *UnsatCoreFarkasPlugin) ComputePartialCore(step ast.ASTHandle) (resultEr
 	if err != nil || !pure {
 		return err
 	}
-	var combined ast.ASTRef
-	produced := false
+	var literals []ast.ASTHandle
+	var coefficients []*big.Rat
 	if p.useConstantFromA {
-		combined, produced, err = p.farkas.CombineFarkasLemma(step, bOpen)
+		var negations []ast.ASTRef
+		var produced bool
+		literals, coefficients, negations, produced, err = p.farkas.FarkasLemmaLiterals(step, bOpen)
+		defer func() {
+			for i := range negations {
+				resultErr = errors.Join(resultErr, p.learner.manager.DelRef(&negations[i]))
+			}
+		}()
 		if err != nil || !produced {
 			return err
 		}
 	} else {
-		facts, coefficients, found, err := p.farkas.FarkasPremises(step)
+		facts, factCoefficients, found, err := p.farkas.FarkasPremises(step)
 		if err != nil || !found {
 			return err
 		}
-		selectedFacts := make([]ast.ASTHandle, 0, openCount)
-		selectedCoefficients := make([]*big.Rat, 0, openCount)
+		literals = make([]ast.ASTHandle, 0, openCount)
+		coefficients = make([]*big.Rat, 0, openCount)
 		for i := range facts {
 			if bOpen[i] {
-				selectedFacts = append(selectedFacts, facts[i])
-				selectedCoefficients = append(selectedCoefficients, coefficients[i])
+				literals = append(literals, facts[i])
+				coefficients = append(coefficients, factCoefficients[i])
 			}
 		}
-		combined, err = p.farkas.CombineConstraints(selectedFacts, selectedCoefficients)
-		if err != nil {
-			return err
-		}
-		weighted, err := p.learner.manager.RefGet(combined)
-		if err != nil {
-			return errors.Join(err, p.learner.manager.DelRef(&combined))
-		}
-		negated, err := p.learner.manager.MkNotSimplified(weighted) // ast_util mk_not strips the negation
-		if err != nil {
-			return errors.Join(err, p.learner.manager.DelRef(&combined))
-		}
-		negatedRef, err := p.learner.manager.NewRef(negated)
-		if err != nil {
-			return errors.Join(err, p.learner.manager.DelRef(&combined))
-		}
-		if err = p.learner.manager.DelRef(&combined); err != nil {
-			return errors.Join(err, p.learner.manager.DelRef(&negatedRef))
-		}
-		combined = negatedRef
-		produced = true
-	}
-	if !produced {
-		return nil
-	}
-	defer func() { resultErr = errors.Join(resultErr, p.learner.manager.DelRef(&combined)) }()
-	handle, err := p.learner.manager.RefGet(combined)
-	if err != nil {
-		return err
 	}
 	if err = p.learner.SetClosed(step, true); err != nil {
 		return err
 	}
-	return p.learner.AddLemmaToCore(handle)
+	lemma, combined, err := p.computeLinearCombination(coefficients, literals)
+	if combined != (ast.ASTRef{}) {
+		defer func() { resultErr = errors.Join(resultErr, p.learner.manager.DelRef(&combined)) }()
+	}
+	if err != nil {
+		return err
+	}
+	return p.learner.AddLemmaToCore(lemma)
+}
+
+// computeLinearCombination is unsat_core_plugin_farkas_lemma::
+// compute_linear_combination. The returned reference owns util.get()'s
+// result; the caller releases it after using the lemma.
+func (p *UnsatCoreFarkasPlugin) computeLinearCombination(coefficients []*big.Rat, literals []ast.ASTHandle) (_ ast.ASTHandle, combined ast.ASTRef, resultErr error) {
+	manager := p.learner.manager
+	util, err := smtcore.NewSMTFarkasUtil(manager, p.context, p.globals)
+	if err != nil {
+		return ast.ASTHandle{}, combined, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, util.Close()) }()
+	if p.useConstantFromA {
+		if err = util.SetSplitLiterals(p.splitLiterals); err != nil {
+			return ast.ASTHandle{}, combined, err
+		}
+	}
+	for i := range literals {
+		if err = util.Add(coefficients[i], literals[i]); err != nil {
+			return ast.ASTHandle{}, combined, err
+		}
+	}
+	if combined, err = manager.NewRef(ast.ASTHandle{}); err != nil {
+		return ast.ASTHandle{}, ast.ASTRef{}, err
+	}
+	if err = util.Get(combined); err != nil {
+		return ast.ASTHandle{}, combined, err
+	}
+	result, err := manager.RefGet(combined)
+	if err != nil || p.useConstantFromA {
+		return result, combined, err
+	}
+	// res = mk_not(m, negated_linear_combination): ast_util mk_not.
+	negated, err := manager.MkNotSimplified(result)
+	return negated, combined, err
 }
 
 func (p *UnsatCoreFarkasPlugin) Finalize() error { return p.open() }
