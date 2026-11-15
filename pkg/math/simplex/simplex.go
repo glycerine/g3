@@ -510,6 +510,10 @@ func (s *Solver) selectPivot(base uint32, below bool) (uint32, *big.Rat) {
 func (s *Solver) pivot(oldBase, newBase uint32, pivotCoeff *big.Rat) error {
 	r := Row{s.vars[oldBase].row}
 	rows := s.matrix.ColumnRows(newBase)
+	// The source walks newBase's column with a col_iterator, so that column
+	// is not compressed while the other rows are updated.
+	s.matrix.RetainColumn(newBase)
+	defer s.matrix.ReleaseColumn(newBase)
 	s.rowBase[r.id] = newBase
 	n := &s.vars[newBase]
 	n.row = r.id
@@ -673,7 +677,11 @@ func (s *Solver) DeleteRow(variable uint32) error {
 			target = s.vars[old].upper.Clone()
 		}
 		coeff, _ := s.matrix.coefficient(r, variable)
-		if err := s.updateAndPivot(old, variable, new(big.Rat).Set(coeff), &target); err != nil {
+		// The source col_iterator over variable's column is live here.
+		s.matrix.RetainColumn(variable)
+		err := s.updateAndPivot(old, variable, new(big.Rat).Set(coeff), &target)
+		s.matrix.ReleaseColumn(variable)
+		if err != nil {
 			return err
 		}
 	}
