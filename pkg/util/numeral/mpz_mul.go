@@ -72,6 +72,14 @@ func (m *IntegerManager) mulWithAllocationContext(a, b, c *Int, context integerA
 // input; public Mul stages it in source-equivalent owner scratch.
 func (m *IntegerManager) multiplyCells(a, b, c NumericCellRef) {
 	na, nb := m.Cell(a).Size, m.Cell(b).Size
+	if da, la, ok := m.digitsDirect(a); ok {
+		if db, lb, ok := m.digitsDirect(b); ok {
+			if dc, lc, ok := m.digitsDirect(c); ok {
+				multiplyDigits(da, la, na, db, lb, nb, dc, lc)
+				return
+			}
+		}
+	}
 	for i := uint32(0); i < na; i++ {
 		m.writeDigit(c, i, 0)
 	}
@@ -88,5 +96,70 @@ func (m *IntegerManager) multiplyCells(a, b, c NumericCellRef) {
 			k = uint32(t >> 32)
 		}
 		m.writeDigit(c, j+na, k)
+	}
+}
+
+// multiplyDigits is multiplyCells over digit payloads read with Digit's
+// limits (la, lb, lc): the same limb reads, writes and bounds panics.
+func multiplyDigits(da []uint32, la, na uint32, db []uint32, lb, nb uint32, dc []uint32, lc uint32) {
+	read := func(d []uint32, limit, i uint32) uint32 {
+		if i >= limit {
+			return 0
+		}
+		if uint64(i) >= uint64(len(d)) {
+			panic(arena.ErrBounds)
+		}
+		return d[i]
+	}
+	if uint64(na)+uint64(nb) > uint64(len(dc)) || na > la || na > uint32(len(da)) || nb > lb || nb > uint32(len(db)) || uint64(na)+uint64(nb) > uint64(lc) {
+		// Out-of-range shapes keep the exact per-limb semantics.
+		for i := uint32(0); i < na; i++ {
+			if uint64(i) >= uint64(len(dc)) {
+				panic(arena.ErrBounds)
+			}
+			dc[i] = 0
+		}
+		for j := uint32(0); j < nb; j++ {
+			v := read(db, lb, j)
+			if v == 0 {
+				if uint64(j+na) >= uint64(len(dc)) {
+					panic(arena.ErrBounds)
+				}
+				dc[j+na] = 0
+				continue
+			}
+			var k uint32
+			for i := uint32(0); i < na; i++ {
+				t := uint64(read(da, la, i))*uint64(v) + uint64(read(dc, lc, i+j)) + uint64(k)
+				if uint64(i+j) >= uint64(len(dc)) {
+					panic(arena.ErrBounds)
+				}
+				dc[i+j] = uint32(t)
+				k = uint32(t >> 32)
+			}
+			if uint64(j+na) >= uint64(len(dc)) {
+				panic(arena.ErrBounds)
+			}
+			dc[j+na] = k
+		}
+		return
+	}
+	a, b, c := da[:na], db[:nb], dc[:na+nb]
+	for i := range a {
+		c[i] = 0
+	}
+	for j, v := range b {
+		if v == 0 {
+			c[j+len(a)] = 0
+			continue
+		}
+		var k uint32
+		cj := c[j : j+len(a)]
+		for i, u := range a {
+			t := uint64(u)*uint64(v) + uint64(cj[i]) + uint64(k)
+			cj[i] = uint32(t)
+			k = uint32(t >> 32)
+		}
+		c[j+len(a)] = k
 	}
 }

@@ -1174,6 +1174,20 @@ func (m *IntegerManager) signCell(a *Int, idx int) (int32, NumericCellRef, error
 	return sign, m.Arg[idx], nil
 }
 func (m *IntegerManager) compareCells(a, b NumericCellRef) int {
+	if da, la, ok := m.digitsDirect(a); ok {
+		if db, lb, ok := m.digitsDirect(b); ok {
+			for i := max(m.Cell(a).Size, m.Cell(b).Size); i > 0; i-- {
+				u, v := directDigit(da, la, i-1), directDigit(db, lb, i-1)
+				if u > v {
+					return 1
+				}
+				if u < v {
+					return -1
+				}
+			}
+			return 0
+		}
+	}
 	for i := max(m.Cell(a).Size, m.Cell(b).Size); i > 0; i-- {
 		u, v := m.Digit(a, i-1), m.Digit(b, i-1)
 		if u > v {
@@ -1368,22 +1382,24 @@ func (m *IntegerManager) addSubWithAllocationContext(a, b, c *Int, subtract bool
 			}
 		}
 		var k uint32
-		for j := uint32(0); j < n; j++ {
-			u, v := m.Digit(ca, j), m.Digit(cb, j)
-			r := u + v
-			c1 := r < u
-			out := r + k
-			c2 := out < r
-			m.writeDigit(m.Tmp[0], j, out)
-			k = 0
-			if c1 || c2 {
-				k = 1
-			}
-		}
-		m.writeDigit(m.Tmp[0], n, k)
 		realSize := n + 1
-		for realSize > 1 && m.Digit(m.Tmp[0], realSize-1) == 0 {
-			realSize--
+		if !m.addDigitsDirect(ca, cb, m.Tmp[0], n, &realSize) {
+			for j := uint32(0); j < n; j++ {
+				u, v := m.Digit(ca, j), m.Digit(cb, j)
+				r := u + v
+				c1 := r < u
+				out := r + k
+				c2 := out < r
+				m.writeDigit(m.Tmp[0], j, out)
+				k = 0
+				if c1 || c2 {
+					k = 1
+				}
+			}
+			m.writeDigit(m.Tmp[0], n, k)
+			for realSize > 1 && m.Digit(m.Tmp[0], realSize-1) == 0 {
+				realSize--
+			}
 		}
 		if diagnostic.DebugBuild {
 			d := diagnostic.BorrowProcessDebugContext()
@@ -1433,16 +1449,18 @@ func (m *IntegerManager) addSubWithAllocationContext(a, b, c *Int, subtract bool
 		limbView{allocator: m.Allocator, backing: m.Cell(ca).Backing, size: n},
 		limbView{allocator: m.Allocator, backing: m.Cell(cb).Backing, size: m.Cell(cb).Size}, "-")
 	var k uint32
-	for j := uint32(0); j < n; j++ {
-		u, v := m.Digit(ca, j), m.Digit(cb, j)
-		r := u - v
-		c1 := r > u
-		out := r - k
-		c2 := out > r
-		m.writeDigit(m.Tmp[0], j, out)
-		k = 0
-		if c1 || c2 {
-			k = 1
+	if !m.subDigitsDirect(ca, cb, m.Tmp[0], n, &k) {
+		for j := uint32(0); j < n; j++ {
+			u, v := m.Digit(ca, j), m.Digit(cb, j)
+			r := u - v
+			c1 := r > u
+			out := r - k
+			c2 := out > r
+			m.writeDigit(m.Tmp[0], j, out)
+			k = 0
+			if c1 || c2 {
+				k = 1
+			}
 		}
 	}
 	m.Natural.traceMPNUnaryView(limbView{allocator: m.Allocator, backing: m.Cell(m.Tmp[0]).Backing, size: n}, 427, true)
@@ -1613,4 +1631,107 @@ func (m *IntegerManager) modularMemberCleanupAuthorized(owner *IntegerModularMan
 		}
 	}
 	return owner.PowerPending && a == &owner.PowerTemporary
+}
+
+// digitsDirect returns the live cell's native digit payload and the limit
+// below which Digit reads it (max(Size, span); Digit reads 0 above it), for
+// loops that would otherwise call Digit/writeDigit once per limb. ok is false
+// in checked/debug builds and for a dead record; callers then keep the
+// per-limb accessors, which re-validate every access.
+func (m *IntegerManager) digitsDirect(ref NumericCellRef) (d []uint32, limit uint32, ok bool) {
+	if numericValidateCells {
+		return nil, 0, false
+	}
+	c := m.Cells.recordPtr(NumericSlot(ref))
+	if c == nil {
+		return nil, 0, false
+	}
+	return c.Backing.digitsUnchecked(m.Allocator), max(c.Size, c.span), true
+}
+
+// directDigit is Digit over a digitsDirect payload.
+func directDigit(d []uint32, limit, i uint32) uint32 {
+	if i >= limit {
+		return 0
+	}
+	if uint64(i) >= uint64(len(d)) {
+		panic(arena.ErrBounds)
+	}
+	return d[i]
+}
+
+// directWrite is writeDigit over a digitsDirect payload.
+func directWrite(d []uint32, i, v uint32) {
+	if uint64(i) >= uint64(len(d)) {
+		panic(arena.ErrBounds)
+	}
+	d[i] = v
+}
+
+// addDigitsDirect is the same-sign limb loop of addSubWithAllocationContext
+// (mpn add, then the real-size scan) over digitsDirect payloads. It reports
+// false, having done nothing, when a payload is not directly readable.
+func (m *IntegerManager) addDigitsDirect(ca, cb, out NumericCellRef, n uint32, realSize *uint32) bool {
+	da, la, ok := m.digitsDirect(ca)
+	if !ok {
+		return false
+	}
+	db, lb, ok := m.digitsDirect(cb)
+	if !ok {
+		return false
+	}
+	dt, lt, ok := m.digitsDirect(out)
+	if !ok {
+		return false
+	}
+	var k uint32
+	for j := uint32(0); j < n; j++ {
+		u, v := directDigit(da, la, j), directDigit(db, lb, j)
+		r := u + v
+		c1 := r < u
+		o := r + k
+		c2 := o < r
+		directWrite(dt, j, o)
+		k = 0
+		if c1 || c2 {
+			k = 1
+		}
+	}
+	directWrite(dt, n, k)
+	for *realSize > 1 && directDigit(dt, lt, *realSize-1) == 0 {
+		*realSize--
+	}
+	return true
+}
+
+// subDigitsDirect is the borrow loop of addSubWithAllocationContext over
+// digitsDirect payloads; k receives the final borrow.
+func (m *IntegerManager) subDigitsDirect(ca, cb, out NumericCellRef, n uint32, k *uint32) bool {
+	da, la, ok := m.digitsDirect(ca)
+	if !ok {
+		return false
+	}
+	db, lb, ok := m.digitsDirect(cb)
+	if !ok {
+		return false
+	}
+	dt, _, ok := m.digitsDirect(out)
+	if !ok {
+		return false
+	}
+	var b uint32
+	for j := uint32(0); j < n; j++ {
+		u, v := directDigit(da, la, j), directDigit(db, lb, j)
+		r := u - v
+		c1 := r > u
+		o := r - b
+		c2 := o > r
+		directWrite(dt, j, o)
+		b = 0
+		if c1 || c2 {
+			b = 1
+		}
+	}
+	*k = b
+	return true
 }
