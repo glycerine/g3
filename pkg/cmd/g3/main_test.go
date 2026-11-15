@@ -338,6 +338,12 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_fp_02-F7: threshold 1 merges a two-rule class.
+	"datalog_similarity_threshold_one_merge.smt2": "sat\n(or (= (:var 0) #b10) (= (:var 0) #b01))\n",
+	// AUDIT.md muz_fp_02-F7: similarity threshold 0 runs the compressor.
+	"datalog_similarity_threshold_zero.smt2": "sat\n(= (:var 0) #b01)\n",
+	// AUDIT.md muz_fp_02-F7: similarity threshold 1 runs the compressor.
+	"datalog_similarity_threshold_one.smt2": "sat\n(= (:var 0) #b01)\n",
 	// AUDIT.md interp_02-F4: the unsupported-rule diagnostic goes to stderr.
 	"interp_unsupported_rule_message.smt2": "(error \"line 5 column 131: theory not supported by interpolation or bad proof\")\n",
 	// AUDIT.md tactic_sls_ufbv_01-F2: SLS initialize/reset trace vector (TestTraceGolden).

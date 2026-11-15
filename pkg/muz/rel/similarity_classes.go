@@ -26,9 +26,6 @@ func similarityClassesExcept(source *base.RuleSet, input []*base.Rule, threshold
 	if source == nil {
 		return nil, false, base.ErrRuleSetOwner
 	}
-	if threshold <= 1 {
-		return nil, false, ast.ErrASTDomain
-	}
 	if _, err = source.Len(); err != nil {
 		return nil, false, err
 	}

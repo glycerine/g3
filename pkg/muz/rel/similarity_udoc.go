@@ -26,7 +26,7 @@ type UDocSimilarityProgram struct {
 }
 
 func NewUDocSimilarityProgram(manager *ast.ASTManager, relationManager *RelationManager, productHeads map[ast.ASTHandle]bool, rules *base.RuleManager, factory *UDocRelationFactory, source *base.RuleSet, threshold uint32, outputs []ast.ASTHandle) (_ *UDocSimilarityProgram, resultErr error) {
-	if manager == nil || relationManager == nil || relationManager.manager != manager || rules == nil || factory == nil || factory.manager != manager || source == nil || threshold <= 1 {
+	if manager == nil || relationManager == nil || relationManager.manager != manager || rules == nil || factory == nil || factory.manager != manager || source == nil {
 		return nil, ast.ErrASTDomain
 	}
 	owner, err := source.RuleManager()

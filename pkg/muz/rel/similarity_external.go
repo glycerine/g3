@@ -27,7 +27,7 @@ type ExternalSimilarityProgram struct {
 }
 
 func NewExternalSimilarityProgram(manager *ast.ASTManager, source *base.RuleSet, threshold uint32, outputs []ast.ASTHandle) (_ *ExternalSimilarityProgram, resultErr error) {
-	if manager == nil || source == nil || threshold <= 1 {
+	if manager == nil || source == nil {
 		return nil, ast.ErrASTDomain
 	}
 	p := &ExternalSimilarityProgram{manager: manager, rows: make(map[ast.ASTHandle][][]ast.ASTHandle)}

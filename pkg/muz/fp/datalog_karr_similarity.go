@@ -12,7 +12,7 @@ import (
 )
 
 func (a *karrDatalogActivation) queryWithSimilarity(declarations []ast.ASTHandle, threshold uint32) (status lbool.LBool, resultErr error) {
-	if a == nil || a.closed || threshold <= 1 {
+	if a == nil || a.closed {
 		return lbool.Undef, ErrKarrDatalogFragment
 	}
 	a.results = nil

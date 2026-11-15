@@ -26,7 +26,7 @@ type FiniteSimilarityCompressor struct {
 }
 
 func NewFiniteSimilarityCompressor(context *base.DatalogContext, relations *RelationManager, threshold uint32) (*FiniteSimilarityCompressor, error) {
-	if context == nil || relations == nil || threshold <= 1 {
+	if context == nil || relations == nil {
 		return nil, ast.ErrASTDomain
 	}
 	m, e := context.Manager()
@@ -58,7 +58,7 @@ func NewFiniteSimilarityCompressorForRules(rules *base.RuleManager, relations *R
 // finite plugin of explicitly selected source predicates. Unselected heads
 // continue to use the current favourite for their generated auxiliary table.
 func NewFiniteSimilarityCompressorForRulesWithRequestedKinds(rules *base.RuleManager, relations *RelationManager, threshold uint32, outputs, requested []ast.ASTHandle) (*FiniteSimilarityCompressor, error) {
-	if rules == nil || relations == nil || threshold <= 1 {
+	if rules == nil || relations == nil {
 		return nil, ast.ErrASTDomain
 	}
 	if err := relations.open(); err != nil {

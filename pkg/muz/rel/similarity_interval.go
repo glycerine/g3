@@ -135,7 +135,7 @@ func NewKarrSimilarityProgram(manager *ast.ASTManager, source *base.RuleSet, thr
 }
 
 func newArithmeticSimilarityProgram(manager *ast.ASTManager, source *base.RuleSet, threshold uint32, outputs []ast.ASTHandle, backend similarityBackend) (_ *arithmeticSimilarityProgram, resultErr error) {
-	if manager == nil || source == nil || threshold <= 1 {
+	if manager == nil || source == nil {
 		return nil, ast.ErrASTDomain
 	}
 	p := &arithmeticSimilarityProgram{manager: manager, origins: make(map[ast.ASTHandle]ast.ASTHandle)}
