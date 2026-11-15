@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_small_02-F1: tab.selection=basic-weight keeps
+	// BASIC_WEIGHT_SELECT (no score cache, no weight aging).
+	"tab_basic_weight_selection.smt2": "unsat\n",
 	// AUDIT.md muz_rel_06-F1: a var/var bit-vector equality in a doc guard
 	// merges through a fresh union-find, so it cannot leak across conjuncts.
 	"datalog_doc_guard_equality_scope.smt2": "sat\n(and (= (:var 0) #b00) (= (:var 1) #b01) (= (:var 2) #b01))\n",

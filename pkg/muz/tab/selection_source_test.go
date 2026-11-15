@@ -156,9 +156,10 @@ func TestTabSelectionNaturalDecayAndRolloverPreserveCachedChoices(t *testing.T) 
 	}
 }
 
-// Source set_strategy assigns BASIC_WEIGHT_SELECT, then its separate
-// first/var-use if-else chain overwrites that assignment with WEIGHT_SELECT.
-func TestTabBasicWeightUsesSourceWeightAging(t *testing.T) {
+// AUDIT.md muz_small_02-F1: set_strategy keeps BASIC_WEIGHT_SELECT, so
+// basic_weight_select neither caches scores nor ages them with
+// prepare_weight_select.
+func TestTabBasicWeightIgnoresWeightAging(t *testing.T) {
 	f := newTabDiagnosticsFixture(t)
 	m := f.ctx.manager
 	own := func(h ast.ASTHandle, err error) ast.ASTHandle {
@@ -192,7 +193,10 @@ func TestTabBasicWeightUsesSourceWeightAging(t *testing.T) {
 	}
 	got, err := sel.Select(choice)
 	tabDiagnosticsMust(t, err)
-	if got != 1 {
-		t.Fatalf("basic-weight selected %d; source cached weight selects old predicate 1", got)
+	if got != 0 {
+		t.Fatalf("basic-weight selected %d; source basic_weight_select keeps the first of equal scores", got)
+	}
+	if sel.multiplier != 1 || len(sel.cache) != 0 {
+		t.Fatalf("basic-weight aged or cached scores: multiplier %v cache %d", sel.multiplier, len(sel.cache))
 	}
 }

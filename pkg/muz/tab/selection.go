@@ -18,9 +18,13 @@ func newPredicateSelection(m *ast.ASTManager, strategy string) (*predicateSelect
 	if m == nil {
 		return nil, ast.ErrASTHandle
 	}
-	// The source basic-weight assignment falls through the following independent
-	// if/else chain and is overwritten with WEIGHT_SELECT.
-	if strategy != "first" && strategy != "var-use" {
+	// set_strategy: "weight" sets WEIGHT_SELECT and then falls into the
+	// final else (WEIGHT_SELECT again); "basic-weight", "first" and
+	// "var-use" each match a branch of the if/else-if chain; every other
+	// symbol takes the final else.
+	switch strategy {
+	case "basic-weight", "first", "var-use":
+	default:
 		strategy = "weight"
 	}
 	return &predicateSelection{manager: m, strategy: strategy, scores: make(map[ast.ASTHandle][]float64), cache: make(map[ast.ASTHandle]float64), multiplier: 1, frequency: 20, next: 20}, nil

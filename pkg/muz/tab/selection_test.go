@@ -74,6 +74,15 @@ func TestPredicateSelectionStrategiesAndCachedScores(t *testing.T) {
 		if got != tc.want {
 			t.Fatalf("%s selected %d want %d", tc.strategy, got, tc.want)
 		}
+		if tc.strategy == "basic-weight" {
+			for i := 0; i < 20; i++ {
+				_, e = sel.Select(target)
+				must(e)
+			}
+			if sel.multiplier != 1 || sel.next != 20 {
+				t.Fatalf("basic-weight schedule %v %d", sel.multiplier, sel.next)
+			}
+		}
 		if tc.strategy == "weight" {
 			for i := 0; i < 19; i++ {
 				_, e = sel.Select(target)
