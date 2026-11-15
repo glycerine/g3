@@ -2866,3 +2866,24 @@ void tst_z3_4_7_1_sine_filter_component() {
                         "(apply sine-filter)\n",
                         "(goals\n(goal\n  :precision over :depth 1)\n)\n");
 }
+
+// symmetry_reduce_tactic colors only the ground part of a goal: its
+// sort_colors visitor ignores quantifiers, so merge_colors's
+// VERIFY(colors1.find(a, v2)) fails on a goal with a quantified pattern
+// and z3 4.7.1 aborts (release build: segfault). Upstream rejects
+// quantified goals with fail_if_has_quantifiers since 330b3cc8d
+// ("fix #3584").
+void tst_z3_4_7_1_symmetry_reduce_quantified() {
+    std::cout << "symmetry_reduce_quantified: running (apply symmetry-reduce)\n";
+    std::cout.flush(); // z3 4.7.1 dies here
+    expect_shell_script("symmetry_reduce_quantified",
+                        "(declare-fun f (Int) Int)\n"
+                        "(declare-const a Int)\n"
+                        "(declare-const b Int)\n"
+                        "(assert (forall ((x Int)) (! (> (f x) 0) :pattern ((f x)))))\n"
+                        "(assert (or (= a 1) (= b 1)))\n"
+                        "(apply symmetry-reduce)\n"
+                        "(check-sat-using (or-else symmetry-reduce smt))\n",
+                        "(error \"tactic failed: symmetry_reduce does not apply to quantified goals\")\n"
+                        "sat\n");
+}
