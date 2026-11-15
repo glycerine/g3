@@ -284,7 +284,7 @@ func TestFullTranslationReconstructsEqualityPropagationWithDual(t *testing.T) {
 	arithmetic, err := m.ArithmeticFamilyID()
 	interpMust(t, err)
 	lemma := interpTheoryLemma(t, m, arithmetic, "eq-propagate", equality, source)
-	result, err := translation.translateTheoryLemma(lemma, equality, translated, []ast.ASTHandle{xLeqY, xGeqY}, direct)
+	result, err := translation.translateTheoryLemma(lemma, equality, false, translated, []ast.ASTHandle{xLeqY, xGeqY}, direct)
 	if err != nil {
 		t.Fatal("equality propagation", err, "solver calls", call)
 	}
@@ -370,7 +370,7 @@ func TestFullTranslationReconstructsMysteryArithmeticFromProof(t *testing.T) {
 	mystery, err := m.MkProofTheoryLemma(arithmetic, inequality, []ast.ASTHandle{source}, nil)
 	interpMust(t, err)
 	mystery = interpPin(t, m, mystery)
-	result, err := translation.translateTheoryLemma(mystery, inequality, []ast.ASTHandle{translated}, []ast.ASTHandle{inequality}, direct)
+	result, err := translation.translateTheoryLemma(mystery, inequality, false, []ast.ASTHandle{translated}, []ast.ASTHandle{inequality}, direct)
 	interpMust(t, err)
 	interpolant, err := direct.Interpolate(result)
 	interpMust(t, err)
@@ -503,5 +503,72 @@ func TestFullTranslationCommutativityUsesConclusionOperator(t *testing.T) {
 	interpMust(t, err)
 	if equivalence != expected {
 		t.Fatal("comm_equiv is not (= (+ x y) (+ x y))")
+	}
+}
+
+// interp_02-F5: the array theory lemma axiom uses translate_main's lits,
+// which are the clause literals only when expect_clause is set.
+func TestFullTranslationArrayLemmaHonorsExpectClause(t *testing.T) {
+	m, manager := interpRewritingManagerFixture(t)
+	integer, err := manager.IntType()
+	interpMust(t, err)
+	arraySort, err := manager.ArrayType(integer, integer)
+	interpMust(t, err)
+	variable := func(name string, sort ast.ASTHandle) ast.ASTHandle {
+		h, e := manager.MakeVariable(name, sort)
+		interpMust(t, e)
+		return interpPin(t, m, h)
+	}
+	a := variable("array-lemma-a", arraySort)
+	i := variable("array-lemma-i", integer)
+	v := variable("array-lemma-v", integer)
+	j := variable("array-lemma-j", integer)
+	selectAI, err := manager.Make(OperatorSelect, a, i)
+	interpMust(t, err)
+	first, err := manager.Make(OperatorEqual, selectAI, v)
+	interpMust(t, err)
+	second, err := manager.Make(OperatorEqual, j, j)
+	interpMust(t, err)
+	base, err := NewBase(manager, []ast.ASTHandle{first, second}, nil, nil)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, base.Close()) })
+	translation, err := NewFullTranslation(base)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, translation.Close()) })
+	store, err := manager.Make(OperatorStore, a, i, v)
+	interpMust(t, err)
+	readStore, err := manager.Make(OperatorSelect, store, j)
+	interpMust(t, err)
+	readA, err := manager.Make(OperatorSelect, a, j)
+	interpMust(t, err)
+	indexEquality, err := manager.Make(OperatorEqual, i, j)
+	interpMust(t, err)
+	readEquality, err := manager.Make(OperatorEqual, readStore, readA)
+	interpMust(t, err)
+	conclusion, err := manager.Make(OperatorOr, indexEquality, readEquality)
+	interpMust(t, err)
+	conclusion = interpPin(t, m, conclusion)
+	array, err := m.ArrayFamilyID()
+	interpMust(t, err)
+	lemma := interpTheoryLemma(t, m, array, "", conclusion, nil)
+	scope, err := base.ASTScope(store)
+	interpMust(t, err)
+	for _, tc := range []struct {
+		expectClause bool
+		literals     []ast.ASTHandle
+	}{
+		{false, []ast.ASTHandle{conclusion}},
+		{true, []ast.ASTHandle{indexEquality, readEquality}},
+	} {
+		direct, err := NewDirectProofInterpolator(base, DownwardScopeRange(0), false)
+		interpMust(t, err)
+		result, err := translation.translateTheoryLemma(lemma, conclusion, tc.expectClause, nil, nil, direct)
+		interpMust(t, err)
+		expected, err := direct.MakeAxiomInRange(tc.literals, scope)
+		interpMust(t, err)
+		interpMust(t, direct.Close())
+		if result != expected {
+			t.Fatal("array lemma axiom literals, expect_clause =", tc.expectClause)
+		}
 	}
 }

@@ -328,7 +328,7 @@ func (t *FullTranslation) translateMain(proof ast.ASTHandle, expectClause bool, 
 			result, err = direct.MakeModusPonens(premiseConclusions[1], premises[0], premises[1])
 		}
 	case ast.ASTPrTheoryLemma:
-		result, err = t.translateTheoryLemma(proof, conclusion, premises, premiseConclusions, direct)
+		result, err = t.translateTheoryLemma(proof, conclusion, expectClause, premises, premiseConclusions, direct)
 	case ast.ASTPrHypothesis:
 		result, err = direct.MakeHypothesis(conclusion)
 	case ast.ASTPrQuantInst, ast.ASTPrDefAxiom:
@@ -416,13 +416,14 @@ func (t *FullTranslation) findStore(term ast.ASTHandle) (ast.ASTHandle, bool, er
 	return ast.ASTHandle{}, false, nil
 }
 
-func (t *FullTranslation) translateTheoryLemma(proof, conclusion ast.ASTHandle, premises, premiseConclusions []ast.ASTHandle, direct *DirectProofInterpolator) (ast.ASTHandle, error) {
+func (t *FullTranslation) translateTheoryLemma(proof, conclusion ast.ASTHandle, expectClause bool, premises, premiseConclusions []ast.ASTHandle, direct *DirectProofInterpolator) (ast.ASTHandle, error) {
 	theory, err := t.base.manager.TheoryLemmaTheory(proof)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	if theory == ArrayTheory {
-		literals, e := t.clauseLiterals(conclusion)
+		// translate_main's lits: the clause literals only when expect_clause.
+		literals, e := t.proofLiterals(conclusion, expectClause)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
