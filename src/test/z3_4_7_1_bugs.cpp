@@ -34,6 +34,11 @@ Abstract:
                                   is rewritten to (mkp i red): the rewriter
                                   looks up the update-field declaration as
                                   if it were the accessor.
+    z3_4_7_1_pdr_nullary_cache    PDR's model_search cache keys nodes by
+                                  state only, so two nullary predicates
+                                  (state `true`) share an entry and an
+                                  unreachable query is answered sat
+                                  (pkg/AUDIT.md muz_pdr_01).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -50,6 +55,11 @@ Abstract:
 #include "tactic/core/dom_simplify_tactic.h"
 #include "tactic/core/pb_preprocess_tactic.h"
 #include "api/z3.h"
+#include "cmd_context/cmd_context.h"
+#include "muz/fp/dl_cmds.h"
+#include "parsers/smt2/smt2parser.h"
+#include "tactic/portfolio/smt_strategic_solver.h"
+#include <sstream>
 #include <iostream>
 #ifndef _WINDOWS
 #include <csignal>
@@ -348,4 +358,52 @@ void tst_z3_4_7_1_update_field_constructor() {
     std::string expected = "unsat\n(mkp j red)\n";
     std::cout << "update_field_constructor: expected\n" << expected << "got\n" << out;
     ENSURE(out == expected);
+}
+
+namespace {
+    // Run an SMT-LIB2 script as the z3 shell does (with the Datalog/Horn
+    // commands installed) and compare its whole output, errors included.
+    void expect_script_output(char const* test, char const* script, char const* expected) {
+        std::ostringstream out;
+        {
+            cmd_context ctx;
+            ctx.set_solver_factory(mk_smt_strategic_solver_factory());
+            install_dl_cmds(ctx);
+            ctx.set_regular_stream(out);
+            ctx.set_diagnostic_stream(out);
+            std::istringstream in(script);
+            parse_smt2_commands(ctx, in);
+        }
+        std::cout << test << ": expected\n" << expected << "got\n" << out.str();
+        ENSURE(out.str() == expected);
+    }
+}
+
+// PDR with two nullary body predicates: G :- B, A. A is reachable, B is not
+// (D only takes even values, so D(3) never holds), so the answer is unsat.
+// model_search keyed its node cache by state alone, and the state of every
+// nullary predicate is `true`, so B's obligation was pre-closed as a
+// duplicate of A's and the query was answered sat (with :print-answer the
+// trace extraction then crashes). pkg/AUDIT.md muz_pdr_01.
+void tst_z3_4_7_1_pdr_nullary_cache() {
+    char const* script =
+        "(set-option :fixedpoint.engine pdr)\n"
+        "(set-option :fixedpoint.xform.slice false)\n"
+        "(set-option :fixedpoint.xform.inline_linear false)\n"
+        "(set-option :fixedpoint.xform.inline_eager false)\n"
+        "(declare-rel A ())\n"
+        "(declare-rel B ())\n"
+        "(declare-rel C (Int))\n"
+        "(declare-rel D (Int))\n"
+        "(declare-rel G ())\n"
+        "(declare-var x Int)\n"
+        "(rule (C 0))\n"
+        "(rule (=> (and (C x) (< x 3)) (C (+ x 1))))\n"
+        "(rule (=> (C 3) A))\n"
+        "(rule (D 0))\n"
+        "(rule (=> (and (D x) (< x 3)) (D (+ x 2))))\n"
+        "(rule (=> (D 3) B))\n"
+        "(rule (=> (and B A) G))\n"
+        "(query G)\n";
+    expect_script_output("pdr_nullary_cache", script, "unsat\n");
 }
