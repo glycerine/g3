@@ -51,6 +51,12 @@ package sorting
 //     entering-column scan order (and the LRA optimum's model) depends on
 //     libstdc++'s permutation.
 //
+//  5. maxres::sort_assumptions and maxsmt_solver_base::process_mutex
+//     (pkg/opt/maxres_std_sort.go), the std::sort calls in
+//     src/opt/maxres.cpp:417 and src/opt/maxsmt.cpp:195, approved
+//     2026-11-14 for AUDIT.md opt_01-F3: weight-only comparators tie, and
+//     the order is the check_sat assumption order.
+//
 // The algorithm lives here in pkg/util/sorting so every approved call site
 // shares one verified implementation; the typed wrappers stay at the call
 // sites (smtcore/libstdcxx_sort.go, ast/rewriter/bv_polynomial_sort.go).

@@ -4,19 +4,17 @@ package opt
 // sort_assumptions.
 
 import (
-	"sort"
-
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/sorting"
 )
 
 // sortedAssumptions is sort_assumptions on check_sat_hill_climb's local
-// copy: m_asms keeps its order. (Go's stable sort; std::sort is not ported.)
+// copy: m_asms keeps its order. maxres.cpp:417 std::sort goes through the
+// user-approved libstdc++ port (maxres_std_sort.go, AUDIT.md opt_01-F3).
 func (e *maxResEngine) sortedAssumptions(asms []ast.ASTHandle) []ast.ASTHandle {
 	out := append([]ast.ASTHandle(nil), asms...)
-	sort.SliceStable(out, func(i, j int) bool {
-		return e.weights[out[i]].Cmp(e.weights[out[j]]) > 0
-	})
+	sorting.LibstdcxxSort(ratWeightDesc{v: out, w: e.weights})
 	return out
 }
 
