@@ -4,6 +4,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -122,9 +123,15 @@ func replayParameterName(r *Z3Replayer) (string, error) {
 		return "", err
 	}
 	if v.numericSymbol {
-		return "", ErrZ3ReplayReference
+		// norm_param_name(to_symbol(k)) reads symbol::str(): "k!<n>".
+		return replayNumericSymbolText(v), nil
 	}
 	return v.s, nil
+}
+
+// replayNumericSymbolText is symbol::str() of a numerical symbol.
+func replayNumericSymbolText(v z3ReplayValue) string {
+	return fmt.Sprintf("k!%d", uint32(v.u))
 }
 func replaySetParameterBool(r *Z3Replayer) error {
 	p, err := replayParameters(r)

@@ -191,7 +191,10 @@ func TestGeneratedParserReplayParsesBindingsAndFiles(t *testing.T) {
 	}
 }
 
-func TestGeneratedParserReplayRejectsUnsupportedBindingSymbol(t *testing.T) {
+// AUDIT.md api_03-F6: parse_smtlib2_stream accepts any binding symbol; a
+// numeric name cannot be referenced from SMT-LIB text, so the replay
+// continues (this test used to expect a Go-only rejection).
+func TestGeneratedParserReplayAcceptsNumericBindingSymbol(t *testing.T) {
 	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\nR\nP 0x41\nS \"\"\nU 1\n# 7\ns 1\nP 0x42\np 1\nU 0\ns 0\np 0\nC 335\n"
 	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
 	if err != nil {
@@ -208,7 +211,7 @@ func TestGeneratedParserReplayRejectsUnsupportedBindingSymbol(t *testing.T) {
 	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
 		t.Fatal(err)
 	}
-	if err = r.Parse(); err == nil || !strings.Contains(err.Error(), "binding symbols are not supported") {
+	if err = r.Parse(); err != nil {
 		t.Fatal("numeric parser binding", err)
 	}
 }

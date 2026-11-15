@@ -86,12 +86,15 @@ func replayParseSMT2(r *Z3Replayer, file bool) (err error) {
 			return ErrZ3ReplayReference
 		}
 		for i := uint32(0); i < count; i++ {
-			if names[i].numericSymbol || names[i].nullSymbol {
-				return z3ReplayUnsupported("parser replay: numeric and null binding symbols are not supported")
-			}
 			value, e := r.astByID(owner, values[i])
 			if e != nil {
 				return e
+			}
+			if names[i].numericSymbol || names[i].nullSymbol {
+				// parse_smtlib2_stream inserts the binding under its
+				// symbol, but SMT-LIB text only produces string symbols,
+				// so a numeric or null name can never be referenced.
+				continue
 			}
 			if positions[0] == 2 {
 				bindings.Sorts = append(bindings.Sorts, SMT2SortBinding{Name: names[i].s, Sort: value.handle})

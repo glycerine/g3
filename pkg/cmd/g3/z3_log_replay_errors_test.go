@@ -57,3 +57,12 @@ func TestZ3LogFrontendFromStringParseError(t *testing.T) {
 		})
 	}
 }
+
+// AUDIT.md api_03-F6: Z3_optimize_assert_soft accepts any symbol id; a
+// numeric id (Python's add_soft(..., id=1)) no longer stops the replay.
+func TestZ3LogFrontendOptimizeNumericSoftID(t *testing.T) {
+	out, diagnostics := replayLog(t, `R/P 0/C 6/= 10/R/P 10/C 32/= 11/R/P 10/$ |a|/P 11/C 51/= 12/R/P 10/C 538/= 13/R/P 10/P 13/P 12/S "2"/# 1/C 542/R/P 10/P 13/C 547/M "after"/R/P 10/C 8`)
+	if !strings.HasPrefix(out, "after\nmax. heap size:") || diagnostics != "" {
+		t.Fatalf("numeric soft id: %q %q", out, diagnostics)
+	}
+}

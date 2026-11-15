@@ -264,10 +264,17 @@ func TestGeneratedOptimizeReplaySoftGroups(t *testing.T) {
 	}
 }
 
-func TestGeneratedOptimizeReplayRejectsUnsupportedSoftGroupSymbol(t *testing.T) {
-	for _, name := range []string{"# 7", "$ ||"} {
+// AUDIT.md api_03-F6: a numeric soft id is accepted (named by
+// symbol::str(), "k!7"); a non-null empty id remains a Go-only replay
+// limitation because the command context keys null soft groups by "".
+// (This test used to expect both to be rejected.)
+func TestGeneratedOptimizeReplaySoftGroupSymbols(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		reject bool
+	}{{"# 7", false}, {"$ ||", true}} {
 		log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 54\n= 0x42\nR\nP 0x41\nC 538\n= 0x43\nR\nP 0x41\nP 0x43\nC 539\n" +
-			"R\nP 0x41\nP 0x43\nP 0x42\nS \"1\"\n" + name + "\nC 542\n"
+			"R\nP 0x41\nP 0x43\nP 0x42\nS \"1\"\n" + tc.name + "\nC 542\n"
 		r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
 		if err != nil {
 			t.Fatal(err)
@@ -279,8 +286,8 @@ func TestGeneratedOptimizeReplayRejectsUnsupportedSoftGroupSymbol(t *testing.T) 
 			t.Fatal(err)
 		}
 		err = r.Parse()
-		if err == nil || !strings.Contains(err.Error(), "soft group names are not supported") {
-			t.Fatal("soft group symbol", name, err)
+		if tc.reject != (err != nil && strings.Contains(err.Error(), "soft group names are not supported")) || !tc.reject && err != nil {
+			t.Fatal("soft group symbol", tc.name, err)
 		}
 		if err = r.Close(); err != nil {
 			t.Fatal(err)
