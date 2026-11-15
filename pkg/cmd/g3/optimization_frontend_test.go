@@ -121,13 +121,13 @@ func TestOptimizationFrontendResourceLimitedSortMaxBounds(t *testing.T) {
 	input := "p wcnf 6 7 100\n100 -1 -2 -3 -4 -5 -6 0\n" +
 		"1 1 0\n1 2 0\n1 3 0\n1 4 0\n1 5 0\n1 6 0\n"
 	var output bytes.Buffer
-	// rlimit tuned to g3's resource accounting (z3 prints sat at every
-	// rlimit). context::propagate's two limit checks per round (AUDIT.md
-	// smtcore_08-F3) and WCNF skipping simplify_fmls (cmd_context_02-F2)
-	// move the [0:2] window in opposite directions; together it is 2200.
-	// bcp's per-literal get_cancel_flag() (smtcore_01-F6) moves it to 2300
-	// (also inside the window after smtcore_04-F4, 04-F3, 05-F8, 05-F4).
-	args := []string{"rlimit=2300", "opt.maxsat_engine=sortmax", "-wcnf", "-in"}
+	// z3 4.7.1's WCNF front end ignores rlimit= (it prints sat at every
+	// rlimit), so the window is read off z3's resource count instead: g3
+	// counts exactly what z3 counts on this input (2616 steps, -st), and
+	// in z3's step sequence sortmax's m.canceled() after its 4th and 5th
+	// check_sat are steps 2342 and 2480. Any rlimit in [2342, 2479] stops
+	// sortmax with the bounds [0:2].
+	args := []string{"rlimit=2400", "opt.maxsat_engine=sortmax", "-wcnf", "-in"}
 	if err := runArguments(args, strings.NewReader(input), &output); err != nil {
 		t.Fatal(err, output.String())
 	}

@@ -28,44 +28,6 @@ type quantifierInferenceOptions struct {
 	warningService               *diagnostic.WarningService
 }
 
-// Without a quantifier below the body, pull_quant cannot change the formula.
-// Its remaining rewriting cases still require the separate pull_quant port.
-func (c *patternCandidates) bodyContainsQuantifier(body ast.ASTHandle) (bool, error) {
-	seen := make(map[ast.ASTHandle]struct{})
-	work := []ast.ASTHandle{body}
-	for len(work) != 0 {
-		last := len(work) - 1
-		current := work[last]
-		work = work[:last]
-		if _, visited := seen[current]; visited {
-			continue
-		}
-		seen[current] = struct{}{}
-		kind, err := c.manager.GetKind(current)
-		if err != nil {
-			return false, err
-		}
-		if kind == ast.ASTQuantifier {
-			return true, nil
-		}
-		if kind != ast.ASTApp {
-			continue
-		}
-		n, err := c.manager.GetNumArgs(current)
-		if err != nil {
-			return false, err
-		}
-		for i := uint32(0); i < n; i++ {
-			child, err := c.manager.GetArg(current, i)
-			if err != nil {
-				return false, err
-			}
-			work = append(work, child)
-		}
-	}
-	return false, nil
-}
-
 func (c *patternCandidates) quantifierWarning(opts quantifierInferenceOptions, q ast.ASTHandle, format string, values ...any) error {
 	if !opts.warnings {
 		return nil
@@ -306,111 +268,94 @@ func (c *patternCandidates) reduceQuantifierNoDatabaseCore(q, newBody ast.ASTHan
 		if e = holdProof(sourceQuantIntro); e != nil {
 			return out, false, e
 		}
-		if len(patterns) == 0 && opts.pullQuantifiers {
-			// pull(new_q, new_expr, new_pr): an unchanged quantifier gets
-			// a reflexivity proof.
-			if contained, e := c.bodyContainsQuantifier(newBody); e != nil {
-				return out, false, e
-			} else if !contained {
-				pullRefl, e := c.manager.MkProofReflexivity(newQ)
-				if e != nil {
-					return out, false, e
-				}
-				if e = holdProof(pullRefl); e != nil {
-					return out, false, e
-				}
-			}
-		}
 	}
 	if len(patterns) == 0 && opts.pullQuantifiers {
-		contained, e := c.bodyContainsQuantifier(newBody)
+		// pull(new_q, new_expr, new_pr) runs the pull_quant rewriter even
+		// when the body holds no nested quantifier: its traversal charges
+		// the resource limit, and with proofs an unchanged quantifier gets
+		// a reflexivity proof.
+		preliminary, e := c.manager.UpdateQuantifierPatterns(q, nil, newBody)
 		if e != nil {
 			return out, false, e
 		}
-		if contained {
-			preliminary, e := c.manager.UpdateQuantifierPatterns(q, nil, newBody)
+		preliminaryRef, e := c.manager.NewRef(preliminary)
+		if e != nil {
+			return out, false, e
+		}
+		defer func() {
+			if cleanup := c.manager.DelRef(&preliminaryRef); cleanup != nil {
+				if preliminaryRef != (ast.ASTRef{}) {
+					c.pendingPatternRefs = append(c.pendingPatternRefs, preliminaryRef)
+				}
+				err = errors.Join(err, cleanup)
+			}
+		}()
+		originalWeight, e := c.manager.GetQuantifierWeight(q)
+		if e != nil {
+			return out, false, e
+		}
+		if weight != originalWeight {
+			preliminary, e = c.manager.UpdateQuantifierWeight(preliminary, weight)
 			if e != nil {
 				return out, false, e
 			}
-			preliminaryRef, e := c.manager.NewRef(preliminary)
-			if e != nil {
+			if e = c.manager.SetRef(preliminaryRef, preliminary); e != nil {
 				return out, false, e
 			}
-			defer func() {
-				if cleanup := c.manager.DelRef(&preliminaryRef); cleanup != nil {
-					if preliminaryRef != (ast.ASTRef{}) {
-						c.pendingPatternRefs = append(c.pendingPatternRefs, preliminaryRef)
-					}
-					err = errors.Join(err, cleanup)
-				}
-			}()
-			originalWeight, e := c.manager.GetQuantifierWeight(q)
-			if e != nil {
-				return out, false, e
+		}
+		// pull_quant pull(m); pull(new_q, new_expr, new_pr): with proofs
+		// the traversal's quant-intro/pull-quant chain is new_pr.
+		var pulledRef, pulledProofRef ast.ASTRef
+		if proofs {
+			pulledRef, pulledProofRef, e = c.pullWithProof(preliminary)
+			if e == nil {
+				proofHolds = append(proofHolds, pulledProofRef)
 			}
-			if weight != originalWeight {
-				preliminary, e = c.manager.UpdateQuantifierWeight(preliminary, weight)
-				if e != nil {
-					return out, false, e
+		} else {
+			pulledRef, e = c.pullNoProof(preliminary)
+		}
+		if e != nil {
+			return out, false, e
+		}
+		defer func() {
+			if cleanup := c.manager.DelRef(&pulledRef); cleanup != nil {
+				if pulledRef != (ast.ASTRef{}) {
+					c.pendingPatternRefs = append(c.pendingPatternRefs, pulledRef)
 				}
-				if e = c.manager.SetRef(preliminaryRef, preliminary); e != nil {
-					return out, false, e
-				}
+				err = errors.Join(err, cleanup)
 			}
-			// pull_quant pull(m); pull(new_q, new_expr, new_pr): with proofs
-			// the traversal's quant-intro/pull-quant chain is new_pr.
-			var pulledRef, pulledProofRef ast.ASTRef
+		}()
+		pulled, e := c.manager.RefGet(pulledRef)
+		if e != nil {
+			return out, false, e
+		}
+		if pulled != preliminary {
 			if proofs {
-				pulledRef, pulledProofRef, e = c.pullWithProof(preliminary)
-				if e == nil {
-					proofHolds = append(proofHolds, pulledProofRef)
+				if pulledProof, e = c.manager.RefGet(pulledProofRef); e != nil {
+					return out, false, e
 				}
-			} else {
-				pulledRef, e = c.pullNoProof(preliminary)
 			}
+			pulledBody, e := c.manager.GetQuantifierBody(pulled)
 			if e != nil {
 				return out, false, e
 			}
-			defer func() {
-				if cleanup := c.manager.DelRef(&pulledRef); cleanup != nil {
-					if pulledRef != (ast.ASTRef{}) {
-						c.pendingPatternRefs = append(c.pendingPatternRefs, pulledRef)
-					}
-					err = errors.Join(err, cleanup)
-				}
-			}()
-			pulled, e := c.manager.RefGet(pulledRef)
+			pulledBindings, e := c.manager.GetNumDeclarations(pulled)
 			if e != nil {
 				return out, false, e
 			}
-			if pulled != preliminary {
-				if proofs {
-					if pulledProof, e = c.manager.RefGet(pulledProofRef); e != nil {
-						return out, false, e
-					}
-				}
-				pulledBody, e := c.manager.GetQuantifierBody(pulled)
-				if e != nil {
-					return out, false, e
-				}
-				pulledBindings, e := c.manager.GetNumDeclarations(pulled)
-				if e != nil {
-					return out, false, e
-				}
-				patterns, err = c.inferPatternBody(pulledBody, pulledBindings, nil, opts.maxExtraMulti)
-				if err != nil {
+			patterns, err = c.inferPatternBody(pulledBody, pulledBindings, nil, opts.maxExtraMulti)
+			if err != nil {
+				return out, false, err
+			}
+			if len(patterns) != 0 {
+				if err = c.quantifierWarning(opts, q, "pulled nested quantifier to be able to find an useable pattern (quantifier id: %s)"); err != nil {
 					return out, false, err
 				}
-				if len(patterns) != 0 {
-					if err = c.quantifierWarning(opts, q, "pulled nested quantifier to be able to find an useable pattern (quantifier id: %s)"); err != nil {
-						return out, false, err
-					}
-					baseQ, outputBody = pulled, pulledBody
-					pulledWithPatterns = true
-					weight, err = c.manager.GetQuantifierWeight(pulled)
-					if err != nil {
-						return out, false, err
-					}
+				baseQ, outputBody = pulled, pulledBody
+				pulledWithPatterns = true
+				weight, err = c.manager.GetQuantifierWeight(pulled)
+				if err != nil {
+					return out, false, err
 				}
 			}
 		}

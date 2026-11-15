@@ -73,9 +73,13 @@ func TestOptimizationResourceLimitDuringMaxResCoreIsUnknown(t *testing.T) {
 	if status != lbool.Undef {
 		t.Fatalf("limited optimization status = %v, want unknown", status)
 	}
+	// opt::context::reason_unknown() tests m.canceled() only when the
+	// reason is requested, after check-sat popped its scoped rlimit, so it
+	// reports m_solver->reason_unknown() (z3 4.7.1 prints "no reason given"
+	// after a resource-limited optimization).
 	reason, err := c.ReasonUnknown()
 	contextMust(t, err)
-	if reason != "max. resource limit exceeded" {
+	if reason != "no reason given" {
 		t.Fatalf("unknown reason = %q", reason)
 	}
 	lower, err := c.ObjectiveBound(0, true)

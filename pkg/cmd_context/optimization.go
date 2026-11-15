@@ -786,21 +786,18 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 		return lbool.Undef, err
 	}
 	if optimized.Status == lbool.Undef {
-		reason, reasonErr := c.optimizationResultUnknownReason(optimized)
-		if reasonErr != nil {
-			return lbool.Undef, reasonErr
-		}
-		if err = result.SetReasonUnknown(reason); err != nil {
+		// opt::context::reason_unknown() runs when the reason is requested.
+		if err = result.SetReasonUnknownAfterCancelCheck(optimizationResultUnknownReasonCore(optimized)); err != nil {
 			return lbool.Undef, err
 		}
 	} else {
 		// opt::context::reason_unknown() is m_solver->reason_unknown()
 		// whatever the status (AUDIT.md FUZZ_A-F12).
-		reason, reasonErr := c.optimizationSolverReasonUnknown(paretoContinuation)
+		reason, reasonErr := c.optimizationSolverReasonUnknownCore(paretoContinuation)
 		if reasonErr != nil {
 			return lbool.Undef, reasonErr
 		}
-		if err = result.SetReasonUnknown(reason); err != nil {
+		if err = result.SetReasonUnknownAfterCancelCheck(reason); err != nil {
 			return lbool.Undef, err
 		}
 	}
@@ -856,7 +853,13 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 		}
 	}
 	c.tacticResult = result
-	c.optimizationStatsResult, c.optimizationStatsOptimizer = result, c.optimizationRunOptimizer
+	// A box or Pareto continuation runs no optimizer; opt::context keeps
+	// its m_solver, whose statistics collect_statistics still reports.
+	statsOptimizer := c.optimizationRunOptimizer
+	if statsOptimizer == nil && (paretoContinuation || boxContinuation) {
+		statsOptimizer = c.optimizationStatsOptimizer
+	}
+	c.optimizationStatsResult, c.optimizationStatsOptimizer = result, statsOptimizer
 	c.status, c.checked = optimized.Status, true
 	published = true
 	return optimized.Status, nil
@@ -885,6 +888,12 @@ func (c *Context) optimizationSolverReasonUnknown(paretoContinuation bool) (stri
 	if canceled {
 		return c.manager.ResourceLimit().CancelMessage(), nil
 	}
+	return c.optimizationSolverReasonUnknownCore(paretoContinuation)
+}
+
+// optimizationSolverReasonUnknownCore is opt::context::reason_unknown()
+// past its m.canceled() test.
+func (c *Context) optimizationSolverReasonUnknownCore(paretoContinuation bool) (string, error) {
 	if c.optimizationParetoBackend != nil {
 		return c.optimizationParetoBackend.ReasonUnknown()
 	}
@@ -905,10 +914,16 @@ func (c *Context) optimizationResultUnknownReason(result *opt.ArithmeticResult) 
 	if canceled {
 		return c.manager.ResourceLimit().CancelMessage(), nil
 	}
+	return optimizationResultUnknownReasonCore(result), nil
+}
+
+// optimizationResultUnknownReasonCore is optimizationResultUnknownReason past
+// its m.canceled() test.
+func optimizationResultUnknownReasonCore(result *opt.ArithmeticResult) string {
 	if result != nil && result.ReasonUnknown != "" {
-		return result.ReasonUnknown, nil
+		return result.ReasonUnknown
 	}
-	return "unknown", nil
+	return "unknown"
 }
 
 func (c *Context) WriteObjectives(out io.Writer) error {

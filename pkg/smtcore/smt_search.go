@@ -463,22 +463,28 @@ func (k *SMTKernel) endSearch(session *smtSearchSession) (resultErr error) {
 // boundedSearch is bounded_search. It returns restartDue when the restart
 // threshold is reached (the source returns l_undef with m_last_search_failure
 // OK); the caller restarts (search) or raises the limits (get_consequences).
+// The get_cancel_flag() exits also return l_undef without recording a
+// failure, which the callers treat the same way.
+//
+// The resource checks mirror the source's placement exactly, since each
+// get_cancel_flag() charges the resource limit: none before the first
+// propagate(); after a resolved conflict that left the context consistent,
+// resource_limits_exceeded() then get_cancel_flag(); after propagation,
+// resource_limits_exceeded() then get_cancel_flag(); and at the end of a round
+// that decided or ran final_check(), resource_limits_exceeded() again.
 func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool, error) {
-	queue, baseLevel, conflictBase, timer := session.queue, session.baseLevel, session.conflictBase, session.timer
+	queue, baseLevel, conflictBase := session.queue, session.baseLevel, session.conflictBase
 	restarts := &session.restarts
 	for {
-		exceeded, err := k.searchResourceLimitExceeded(timer, &session.nextProgressSample)
-		if err != nil {
-			return lbool.Undef, false, fmt.Errorf("smt search resource check: %w", err)
-		}
-		if exceeded {
-			return lbool.Undef, false, nil
-		}
-		consistent, err := k.internalizer.PropagateCore()
-		if err != nil {
-			return lbool.Undef, false, fmt.Errorf("smt search propagate: %w", err)
-		}
-		if !consistent {
+		// while (!propagate()) { ... }
+		for {
+			consistent, err := k.internalizer.PropagateCore()
+			if err != nil {
+				return lbool.Undef, false, fmt.Errorf("smt search propagate: %w", err)
+			}
+			if consistent {
+				break
+			}
 			resolved, err := k.resolveSearchConflict(session)
 			if err != nil {
 				return lbool.Undef, false, err
@@ -486,10 +492,24 @@ func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool,
 			if !resolved {
 				return lbool.False, false, nil
 			}
-			// if (!inconsistent()) { restart and conflict-limit checks }
-			// A conflict left by the learned clause goes straight back to
-			// resolve_conflict after propagate_eh.
+			// if (!inconsistent()) { resource, cancel, restart and
+			// conflict-limit checks } A conflict left by the learned clause
+			// goes straight back to resolve_conflict after propagate_eh.
 			if !k.internalizer.inconsistent {
+				exceeded, err := k.resourceLimitsExceeded()
+				if err != nil {
+					return lbool.Undef, false, fmt.Errorf("smt search resource check: %w", err)
+				}
+				if exceeded {
+					return lbool.Undef, false, nil
+				}
+				canceled, err := k.manager.Canceled()
+				if err != nil {
+					return lbool.Undef, false, err
+				}
+				if canceled {
+					return lbool.Undef, true, nil
+				}
 				if k.restartDue(restarts) {
 					return lbool.Undef, true, nil
 				}
@@ -509,14 +529,22 @@ func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool,
 			if err = k.internalizer.dynamicAck.propagate(); err != nil {
 				return lbool.Undef, false, fmt.Errorf("dynamic Ackermann propagation: %w", err)
 			}
-			continue
 		}
-		exceeded, err = k.searchResourceLimitExceeded(timer, &session.nextProgressSample)
+		// if (resource_limits_exceeded() && !inconsistent()) return l_undef;
+		exceeded, err := k.resourceLimitsExceeded()
 		if err != nil {
 			return lbool.Undef, false, fmt.Errorf("smt search resource recheck: %w", err)
 		}
-		if exceeded {
+		if exceeded && !k.internalizer.inconsistent {
 			return lbool.Undef, false, nil
+		}
+		// if (get_cancel_flag()) return l_undef;
+		canceled, err := k.manager.Canceled()
+		if err != nil {
+			return lbool.Undef, false, err
+		}
+		if canceled {
+			return lbool.Undef, true, nil
 		}
 		// Source simplification is restricted to the user base, below the
 		// temporary assumption scope. Discarding reasons there loses cores.
@@ -538,6 +566,9 @@ func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool,
 			k.internalizer.traceDecide(variable, phase == lbool.True)
 			if err = k.internalizer.assignDecisionLiteral(smtDecisionLiteral(variable, phase)); err != nil {
 				return lbool.Undef, false, fmt.Errorf("smt search decision: %w", err)
+			}
+			if stop, err := k.boundedSearchRoundEnd(); stop || err != nil {
+				return lbool.Undef, false, err
 			}
 			continue
 		}
@@ -592,7 +623,21 @@ func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool,
 		default:
 			return lbool.Undef, false, ast.ErrASTDomain
 		}
+		if stop, err := k.boundedSearchRoundEnd(); stop || err != nil {
+			return lbool.Undef, false, err
+		}
 	}
+}
+
+// boundedSearchRoundEnd is the check at the end of a bounded_search round
+// that decided or ran final_check():
+// if (resource_limits_exceeded() && !inconsistent()) return l_undef;
+func (k *SMTKernel) boundedSearchRoundEnd() (bool, error) {
+	exceeded, err := k.resourceLimitsExceeded()
+	if err != nil {
+		return false, fmt.Errorf("smt search resource check: %w", err)
+	}
+	return exceeded && !k.internalizer.inconsistent, nil
 }
 
 // restartDue is bounded_search's restart test

@@ -2020,6 +2020,9 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	// rlimit_agree: the resource limit stops qe2 inside a rewriter (z3's error).
+	"qe2_constrain_free_vars_compress.smt2": true,
+
 	"rlimit_error_line_source_message.smt2": true, // gaps_misc: source exception text
 
 	"check_sat_assuming_non_literal.smt2": true, // AUDIT.md sat_04-F2

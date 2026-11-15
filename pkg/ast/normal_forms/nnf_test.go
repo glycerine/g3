@@ -73,12 +73,16 @@ func TestNNFMemoryLimitAndOptionGuards(t *testing.T) {
 	b, e := m.MkBoolSort()
 	definedNamesMust(t, e)
 	a := nameExprBoolConst(t, m, "memory-nnf", b)
+	// process() checks the limits once per frame-loop iteration; a constant
+	// root is handled by visit() without a frame, so use (not a).
+	na, e := m.MkNot(a)
+	definedNamesMust(t, e)
 	limited := options
 	limited.MaxMemoryMB = 0
 	definedNamesMust(t, n.UpdateOptions(limited))
 	out, proof := nameExprOutputs(t, m)
 	var definitions, definitionProofs []ast.ASTRef
-	e = n.Transform(a, &definitions, &definitionProofs, out, proof)
+	e = n.Transform(na, &definitions, &definitionProofs, out, proof)
 	if e == nil || e.Error() != messages.MaxMemory {
 		t.Fatal("NNF memory checkpoint", e)
 	}
@@ -87,7 +91,7 @@ func TestNNFMemoryLimitAndOptionGuards(t *testing.T) {
 	}
 	definedNamesMust(t, n.UpdateOptions(options))
 	m.Limit.Cancel()
-	e = n.Transform(a, &definitions, &definitionProofs, out, proof)
+	e = n.Transform(na, &definitions, &definitionProofs, out, proof)
 	if e == nil || e.Error() != messages.Canceled {
 		t.Fatal("NNF cancellation checkpoint", e)
 	}
@@ -96,7 +100,7 @@ func TestNNFMemoryLimitAndOptionGuards(t *testing.T) {
 	if !m.Limit.Inc() {
 		t.Fatal("NNF resource fixture exhausted its first step")
 	}
-	e = n.Transform(a, &definitions, &definitionProofs, out, proof)
+	e = n.Transform(na, &definitions, &definitionProofs, out, proof)
 	m.Limit.Pop()
 	if e == nil || e.Error() != messages.MaxResource {
 		t.Fatal("NNF resource-limit diagnostic", e)

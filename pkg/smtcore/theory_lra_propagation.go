@@ -185,14 +185,18 @@ func (t *SMTLRATheory) propagateLPBounds() (err error) {
 				return err
 			}
 		} else {
-			for _, implied := range t.propagator.FoundBounds {
+			// for (i = 0; !m.canceled() && !ctx().inconsistent() &&
+			// i < bp.m_ibounds.size(); ++i): m.canceled() is evaluated
+			// first, also on the final test that ends the loop.
+			for i := 0; ; i++ {
 				canceled, err = t.state.manager.Canceled()
 				if err != nil {
 					return err
 				}
-				if canceled || t.state.inconsistent {
+				if canceled || t.state.inconsistent || i >= len(t.propagator.FoundBounds) {
 					break
 				}
+				implied := t.propagator.FoundBounds[i]
 				v := t.variableForLPIndex(implied.Column)
 				if v == SMTNullTheoryVar {
 					continue

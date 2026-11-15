@@ -240,19 +240,28 @@ func (c *exprConverter) convertOne(h ast.ASTHandle) (*Ref, error) {
 		return nil, ast.ErrASTDomain
 	}
 	err := c.visit(h)
+	// One checkpoint per iteration of the source's frame loop: the inner
+	// while visits arguments until one pushes a frame (goto loop).
 	for err == nil && len(c.frames) != 0 {
 		if err = c.manager.checkpoint(); err != nil {
 			break
 		}
 		last := len(c.frames) - 1
-		fr := &c.frames[last]
-		if fr.next < len(fr.args) {
+		pushed := false
+		for err == nil && c.frames[last].next < len(c.frames[last].args) {
+			fr := &c.frames[last]
 			arg := fr.args[fr.next]
 			fr.next++
 			err = c.visit(arg)
+			if len(c.frames) != last+1 {
+				pushed = true
+				break
+			}
+		}
+		if err != nil || pushed {
 			continue
 		}
-		finished := *fr
+		finished := c.frames[last]
 		err = c.complete(finished)
 		c.frames = c.frames[:last]
 	}

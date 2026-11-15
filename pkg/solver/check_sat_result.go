@@ -39,15 +39,18 @@ type ProgressCallback interface {
 }
 
 type SimpleCheckSatResult struct {
-	self                             *SimpleCheckSatResult
-	manager                          *ast.ASTManager
-	status                           lbool.LBool
-	stats                            statistics.Statistics
-	model                            *model.ModelCore
-	core                             []ast.ASTRef
-	proof                            ast.ASTRef
-	labels                           []usymbol.Symbol
-	unknown                          string
+	self    *SimpleCheckSatResult
+	manager *ast.ASTManager
+	status  lbool.LBool
+	stats   statistics.Statistics
+	model   *model.ModelCore
+	core    []ast.ASTRef
+	proof   ast.ASTRef
+	labels  []usymbol.Symbol
+	unknown string
+	// unknownCancelCheck: ReasonUnknown first tests m.canceled() when
+	// called, as opt::context::reason_unknown() does.
+	unknownCancelCheck               bool
 	references                       uint32
 	modelOwned, modelCleanup, closed bool
 }
@@ -271,6 +274,17 @@ func (r *SimpleCheckSatResult) ReasonUnknown() (string, error) {
 	if err := r.open(); err != nil {
 		return "", err
 	}
+	if r.unknownCancelCheck {
+		// if (m.canceled()) return Z3_CANCELED_MSG; evaluated (and charged
+		// to the resource limit) only when the reason is requested.
+		canceled, err := r.manager.Canceled()
+		if err != nil {
+			return "", err
+		}
+		if canceled {
+			return r.manager.ResourceLimit().CancelMessage(), nil
+		}
+	}
 	return r.unknown, nil
 }
 
@@ -279,6 +293,18 @@ func (r *SimpleCheckSatResult) SetReasonUnknown(message string) error {
 		return err
 	}
 	r.unknown = message
+	r.unknownCancelCheck = false
+	return nil
+}
+
+// SetReasonUnknownAfterCancelCheck is opt::context::reason_unknown(): when
+// the reason is requested it reports the cancel message if m.canceled(),
+// else message.
+func (r *SimpleCheckSatResult) SetReasonUnknownAfterCancelCheck(message string) error {
+	if err := r.SetReasonUnknown(message); err != nil {
+		return err
+	}
+	r.unknownCancelCheck = true
 	return nil
 }
 

@@ -205,6 +205,13 @@ func (t *MacroTactic) run(manager *macros.Manager, inputs []macros.Formula) (_ *
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, quasi.Close()) }()
+	// while (more) { if (m().canceled()) throw ...; more = qm(...); }: the
+	// check also precedes the first application.
+	if canceled, checkErr := t.manager.Canceled(); checkErr != nil {
+		return nil, checkErr
+	} else if canceled {
+		return nil, tactic.NewTacticException(t.manager.Limit.CancelMessage())
+	}
 	current, more, err := quasi.Apply(inputs)
 	if err != nil {
 		return nil, err

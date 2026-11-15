@@ -56,7 +56,10 @@ type NNF struct {
 	scratch     []ast.ASTRef
 	todoDefs    []ast.ASTRef
 	todoProofs  []ast.ASTRef
-	closed      bool
+	// frames is the depth of m_frame_stack: the number of convert calls
+	// that pushed a frame and are still running.
+	frames int
+	closed bool
 }
 
 func NewNNF(m *ast.ASTManager, names *DefinedNames, options NNFOptions) (*NNF, error) {
@@ -283,10 +286,13 @@ func (n *NNF) mkProof(polarity bool, old, value ast.ASTHandle, parents []ast.AST
 	return n.manager.MkProofNNFNeg(old, value, parents)
 }
 
+// convert is visit plus, for a term that pushes a frame, the frame's
+// iterations of process's loop. process calls checkpoint() once per loop
+// iteration: when the frame is first processed and again each time one of its
+// children's frames is popped. A term visit handles at once (skip, cached
+// result) costs nothing, and neither does the root frame's pop, after which
+// the loop ends.
 func (n *NNF) convert(t ast.ASTHandle, polarity, inQuantifier, proofs bool) (nnfResult, error) {
-	if e := n.checkpoint(); e != nil {
-		return nnfResult{}, e
-	}
 	m := n.manager
 	if n.options.Mode == NNFSkolem || (n.options.Mode == NNFQuantifiers && !inQuantifier) {
 		hasQ, e := m.HasQuantifiers(t)
@@ -316,11 +322,13 @@ func (n *NNF) convert(t ast.ASTHandle, polarity, inQuantifier, proofs bool) (nnf
 		return nnfResult{}, e
 	}
 	var r nnfResult
+	framed := false
 	switch kind {
 	case ast.ASTVar:
 		r, e = n.skip(t, polarity, proofs)
 	case ast.ASTQuantifier:
-		r, e = n.convertQuantifier(t, polarity, inQuantifier, proofs)
+		framed = true
+		r, e = n.convertFrame(t, polarity, inQuantifier, proofs, true)
 	case ast.ASTApp:
 		count, x := m.GetNumArgs(t)
 		if x != nil {
@@ -329,7 +337,8 @@ func (n *NNF) convert(t ast.ASTHandle, polarity, inQuantifier, proofs bool) (nnf
 		if count == 0 {
 			r, e = n.skip(t, polarity, proofs)
 		} else {
-			r, e = n.convertApp(t, polarity, inQuantifier, proofs)
+			framed = true
+			r, e = n.convertFrame(t, polarity, inQuantifier, proofs, false)
 		}
 	default:
 		e = ast.ErrASTDomain
@@ -346,6 +355,29 @@ func (n *NNF) convert(t ast.ASTHandle, polarity, inQuantifier, proofs bool) (nnf
 	if cache {
 		e = n.cacheResult(t, polarity, inQuantifier, r)
 	}
+	if e == nil && framed && n.frames > 0 {
+		// The frame was popped; the parent frame's next loop iteration
+		// starts with checkpoint().
+		e = n.checkpoint()
+	}
+	return r, e
+}
+
+// convertFrame is push_frame and the frame's first loop iteration in
+// process, which starts with checkpoint().
+func (n *NNF) convertFrame(t ast.ASTHandle, polarity, inQuantifier, proofs, quantifier bool) (nnfResult, error) {
+	if e := n.checkpoint(); e != nil {
+		return nnfResult{}, e
+	}
+	n.frames++
+	var r nnfResult
+	var e error
+	if quantifier {
+		r, e = n.convertQuantifier(t, polarity, inQuantifier, proofs)
+	} else {
+		r, e = n.convertApp(t, polarity, inQuantifier, proofs)
+	}
+	n.frames--
 	return r, e
 }
 

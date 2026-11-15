@@ -77,9 +77,14 @@ func (e *Engine) shift(bits, amountBits []ast.ASTHandle, direction shiftDirectio
 	}
 	stage := 0
 	shift := 1
-	for stage < len(bits) && shift < len(bits) {
+	// for (; i < sz; ++i) { checkpoint(); if (shift_i >= sz) break; ... }:
+	// the checkpoint also runs on the iteration that ends the loop.
+	for stage < len(bits) {
 		if err := e.checkpoint(); err != nil {
 			return nil, err
+		}
+		if shift >= len(bits) {
+			break
 		}
 		current, err := e.handles(out)
 		if err != nil {

@@ -51,6 +51,14 @@ func (e *sortMaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, 
 		if err != nil {
 			return lbool.Undef, false, err
 		}
+		// if (m.canceled()) is_sat = l_undef;
+		canceled, err := e.owner.manager.Canceled()
+		if err != nil {
+			return lbool.Undef, false, err
+		}
+		if canceled {
+			status = lbool.Undef
+		}
 		if status == lbool.Undef {
 			return status, false, nil
 		}
