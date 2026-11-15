@@ -83,10 +83,12 @@ type finiteCompiler struct {
 	options       FiniteCompilerOptions
 	predicateRegs map[ast.ASTHandle]uint32
 	signatures    []Signature
-	loaded        []ast.ASTHandle
-	constants     map[constantRegisterKey]uint32
-	totals        map[totalRegisterKey]uint32
-	emptyTotals   map[ast.ASTHandle]uint32
+	// predicateLayout is m_pred_regs' obj_map layout: the termination
+	// stores follow its table order.
+	predicateLayout *ast.ObjMap
+	constants       map[constantRegisterKey]uint32
+	totals          map[totalRegisterKey]uint32
+	emptyTotals     map[ast.ASTHandle]uint32
 }
 
 func newFiniteCompiler(relations *RelationManager, guard *astrewriter.TheoryRewriter) (*finiteCompiler, error) {
@@ -153,7 +155,12 @@ func (c *finiteCompiler) ensureLoaded(predicate ast.ASTHandle) error {
 		return err
 	}
 	c.predicateRegs[predicate] = register
-	c.loaded = append(c.loaded, predicate)
+	if c.predicateLayout == nil {
+		c.predicateLayout = ast.NewObjMap(c.manager)
+	}
+	if err = c.predicateLayout.InsertNum(predicate, uint64(register)); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -1837,9 +1844,14 @@ func (c *finiteCompiler) compileDependentRules(set *base.RuleSet, headPreds []as
 	return nil
 }
 
-// storePredicates is the store loop of compiler::do_compilation.
+// storePredicates is the store loop of compiler::do_compilation, in
+// m_pred_regs' (obj_map) iteration order.
 func (c *finiteCompiler) storePredicates() error {
-	for _, predicate := range c.loaded {
+	if c.predicateLayout == nil {
+		return nil
+	}
+	for _, entry := range c.predicateLayout.Entries() {
+		predicate := entry.Key
 		instruction, x := NewStoreInstruction(c.relations, predicate, c.predicateRegs[predicate])
 		if x != nil {
 			return x
