@@ -28,6 +28,7 @@ Revision History:
 #include "ast/pattern/pattern_inference.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_util.h"
+#include "ast/scoped_proof.h"
 
 
 namespace datalog {
@@ -237,11 +238,12 @@ namespace datalog {
         rm.mk_rule(fml, pr, added_rules, r.name());
         if (r.get_proof()) {
             // use def-axiom to encode that new rule is a weakening of the original.
+            scoped_proof _sp(m);
             proof* p1 = r.get_proof();
             for (unsigned i = 0; i < added_rules.get_num_rules(); ++i) {
                 rule* r2 = added_rules.get_rule(i);
                 rm.to_formula(*r2, fml);
-                pr = m.mk_modus_ponens(m.mk_def_axiom(m.mk_implies(m.get_fact(p1), fml)), p1);
+                pr = m.mk_modus_ponens(p1, m.mk_def_axiom(m.mk_implies(m.get_fact(p1), fml)));
                 r2->set_proof(m, pr);
             }
         }
