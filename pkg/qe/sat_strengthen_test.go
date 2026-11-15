@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
@@ -51,6 +52,51 @@ func TestSATSolverNNFStrengtheningAndScope(t *testing.T) {
 		t.Fatal("strengthening leaked assertions", status)
 	}
 	fmMust(t, solver.Pop(1))
+}
+
+// AUDIT.md qe_05-F4: nnf_strengthen/nnf_weaken iterate the atom_set in
+// obj_hashtable order, not in AST id order.
+func TestSATExclusiveAtomsUseTableOrder(t *testing.T) {
+	f := qsatKernelFixture(t)
+	m := f.r.manager
+	defaults := &satNNFDefault{manager: m}
+	normalizer, err := NewQENNFNormalizer(m, defaults, defaults, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, normalizer.Close()) }()
+	var args []ast.ASTHandle
+	for _, name := range []string{"order-a", "order-b", "order-c", "order-d", "order-e", "order-f"} {
+		args = append(args, f.constant(name, f.boolean))
+	}
+	b := f.own(m.MkOrArray(args))
+	ref, err := m.NewRef(b)
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&ref)) }()
+	atoms, err := normalizer.Normalize(ref)
+	fmMust(t, err)
+	defer func() { fmMust(t, atoms.Close()) }()
+	got, err := satExclusiveAtoms(atoms, true)
+	fmMust(t, err)
+	want, err := atoms.positiveTable()
+	fmMust(t, err)
+	if len(got) != len(args) || len(got) != len(want) {
+		t.Fatal("atom count", len(got), len(want))
+	}
+	byID := true
+	for i := range got {
+		if got[i] != want[i] {
+			t.Fatal("atom order differs from obj_hashtable order at", i)
+		}
+		if i > 0 {
+			a, e := m.GetASTID(got[i-1])
+			fmMust(t, e)
+			b, e := m.GetASTID(got[i])
+			fmMust(t, e)
+			byID = byID && a < b
+		}
+	}
+	if byID {
+		t.Log("fixture table order coincides with AST id order")
+	}
 }
 
 func TestSATSolverNNFStrengtheningSkipsMixedPolarityAndCleansFailure(t *testing.T) {

@@ -4,7 +4,6 @@ package qe
 
 import (
 	"errors"
-	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -12,26 +11,25 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func satExclusiveAtoms(m *ast.ASTManager, set, other map[ast.ASTHandle]ast.ASTRef) ([]ast.ASTHandle, error) {
-	type item struct {
-		h  ast.ASTHandle
-		id uint32
+// satExclusiveAtoms walks one atom_set in obj_hashtable iteration order,
+// leaving out the atoms remove_duplicates deletes; removal does not reorder
+// the remaining entries (AUDIT.md qe_05-F4).
+func satExclusiveAtoms(atoms *BoolAtomIndex, positive bool) ([]ast.ASTHandle, error) {
+	set, other := atoms.positiveAtoms(), atoms.negativeAtoms()
+	table, err := atoms.positiveTable()
+	if !positive {
+		set, other = other, set
+		table, err = atoms.negativeTable()
 	}
-	items := make([]item, 0, len(set))
-	for h := range set {
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ast.ASTHandle, 0, len(set))
+	for _, h := range table {
 		if _, both := other[h]; both {
 			continue
 		}
-		id, err := m.GetASTID(h)
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, item{h, id})
-	}
-	sort.Slice(items, func(i, j int) bool { return items[i].id < items[j].id })
-	out := make([]ast.ASTHandle, len(items))
-	for i := range items {
-		out[i] = items[i].h
+		out = append(out, h)
 	}
 	return out, nil
 }
@@ -62,12 +60,11 @@ func satStrengthen(m *ast.ASTManager, normalizer *QENNFNormalizer, solver *smtco
 		return result, err
 	}
 	defer func() { err = errors.Join(err, m.DelExprSubstitution(&sub)) }()
-	positive, negative := atoms.positiveAtoms(), atoms.negativeAtoms()
-	pos, err := satExclusiveAtoms(m, positive, negative)
+	pos, err := satExclusiveAtoms(atoms, true)
 	if err != nil {
 		return result, err
 	}
-	neg, err := satExclusiveAtoms(m, negative, positive)
+	neg, err := satExclusiveAtoms(atoms, false)
 	if err != nil {
 		return result, err
 	}

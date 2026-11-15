@@ -30,11 +30,11 @@ func satWeaken(m *ast.ASTManager, normalizer *QENNFNormalizer, solver *smtcore.S
 		return result, err
 	}
 	defer func() { err = errors.Join(err, atoms.Close()) }()
-	pos, err := satExclusiveAtoms(m, atoms.positiveAtoms(), atoms.negativeAtoms())
+	pos, err := satExclusiveAtoms(atoms, true)
 	if err != nil {
 		return result, err
 	}
-	neg, err := satExclusiveAtoms(m, atoms.negativeAtoms(), atoms.positiveAtoms())
+	neg, err := satExclusiveAtoms(atoms, false)
 	if err != nil {
 		return result, err
 	}
