@@ -1275,7 +1275,9 @@ func (r *ArithRewriter) dividePolynomial(h ast.ASTHandle, divisor *big.Int, trea
 	return quotient, err == nil, err
 }
 
-func (r *ArithRewriter) reducePolynomialGCD(left, right ast.ASTHandle, relation int32) (ast.ASTHandle, ast.ASTHandle, bool, bool, error) {
+// setLeft is the caller's new_arg1 assignment: div_polynomial(arg1, ...)
+// writes new_arg1, releasing its previous value, before arg2 is divided.
+func (r *ArithRewriter) reducePolynomialGCD(left, right ast.ASTHandle, relation int32, setLeft func(ast.ASTHandle) error) (ast.ASTHandle, ast.ASTHandle, bool, bool, error) {
 	integer, err := r.integerTerm(left)
 	if err != nil || !integer {
 		return left, right, false, false, err
@@ -1303,15 +1305,13 @@ func (r *ArithRewriter) reducePolynomialGCD(left, right ast.ASTHandle, relation 
 	if err != nil || !possible {
 		return left, right, false, !possible, err
 	}
+	// new_arg1 is an expr_ref local of mk_le_ge_eq_core: it holds the
+	// quotient from here, and dies when the rewrite returns.
+	if err = setLeft(newLeft); err != nil {
+		return left, right, false, false, err
+	}
 	newRight, possible, err := r.dividePolynomial(right, gcd, rightTreatment)
 	if err != nil || !possible {
-		// new_arg1 is an expr_ref local of mk_le_ge_eq_core: the quotient
-		// already built for arg1 dies when the rewrite returns false.
-		if held, e := r.manager.NewRef(newLeft); e == nil {
-			err = errors.Join(err, r.manager.DelRef(&held))
-		} else {
-			err = errors.Join(err, e)
-		}
 		return left, right, false, !possible, err
 	}
 	return newLeft, newRight, true, false, nil

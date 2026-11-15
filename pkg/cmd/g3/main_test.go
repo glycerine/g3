@@ -973,9 +973,8 @@ var scriptResults = map[string]string{
 	// AUDIT.md nlsat_02-F1: max_conflicts=0 is not remapped to unlimited.
 	"nlsat_max_conflicts_zero.smt2": "unknown\n",
 	// AUDIT.md qe_01 Needs verification: constrain_free_vars must stop when internalizing a bound compresses the row (was index out of range).
-	// rlimit 31500: g3's resource steps equal z3's through step 31921 of this run (trace comparison); past that a theory_arith
-	// bound atom is built with a different term order and the searches part, so a larger limit stops them at different points.
-	"qe2_constrain_free_vars_compress.smt2": "(error \"line 2 column 277: max. resource limit exceeded\")\n",
+	// rlimit_agree2: g3's resource steps equal z3's through the whole run (trace comparison), so the limit stops both at the same point.
+	"qe2_constrain_free_vars_compress.smt2": "(error \"tactic failed: (resource limits reached)\")\n",
 	// AUDIT.md qe_05-F1: qe-sat has no proof/unsat-core fail_if checks.
 	"qe_sat_unsat_cores.smt2": "sat\n(:reason-unknown \"\")\n",
 	// AUDIT.md qe_05-F1: qe-sat has no proof/unsat-core fail_if checks.
@@ -2191,8 +2190,6 @@ var parseErrorScripts = map[string]bool{
 	"z3_bug_get_value_max_steps.smt2":   true, // get-value: max. steps exceeded
 	// AUDIT.md ast_05-F2: one-Real to_fp is rejected.
 	"fpa_to_fp_one_real.smt2": true,
-	// rlimit_agree: the resource limit stops qe2 inside a rewriter (z3's error).
-	"qe2_constrain_free_vars_compress.smt2": true,
 
 	"rlimit_error_line_source_message.smt2": true, // gaps_misc: source exception text
 

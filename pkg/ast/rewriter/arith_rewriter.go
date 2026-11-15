@@ -487,7 +487,7 @@ func (r *ArithRewriter) rewriteComparison(kind int32, left, right ast.ASTHandle,
 			}
 		}
 		if r.gcdRounding {
-			newLeft, newRight, reduced, impossible, e := r.reducePolynomialGCD(left, right, kind)
+			newLeft, newRight, reduced, impossible, e := r.reducePolynomialGCD(left, right, kind, func(h ast.ASTHandle) error { return locals.set(0, h) })
 			if e != nil {
 				return RewriteFailed, e
 			}
@@ -495,11 +495,8 @@ func (r *ArithRewriter) rewriteComparison(kind int32, left, right ast.ASTHandle,
 				return RewriteDone, r.setBool(out, false)
 			}
 			if reduced {
-				// div_polynomial writes new_arg1, then new_arg2.
-				if e = locals.set(0, newLeft); e == nil {
-					e = locals.set(1, newRight)
-				}
-				if e != nil {
+				// div_polynomial wrote new_arg1; now new_arg2.
+				if e = locals.set(1, newRight); e != nil {
 					return RewriteFailed, e
 				}
 				left, right, changed = newLeft, newRight, true
@@ -1331,7 +1328,7 @@ func (r *ArithRewriter) MkEqCore(left, right ast.ASTHandle, out ast.ASTRef) (sta
 			}
 		}
 		if r.gcdRounding {
-			newLeft, newRight, reduced, impossible, e := r.reducePolynomialGCD(left, right, arithRelationEq)
+			newLeft, newRight, reduced, impossible, e := r.reducePolynomialGCD(left, right, arithRelationEq, func(h ast.ASTHandle) error { return locals.set(0, h) })
 			if e != nil {
 				return RewriteFailed, e
 			}
@@ -1339,11 +1336,8 @@ func (r *ArithRewriter) MkEqCore(left, right ast.ASTHandle, out ast.ASTRef) (sta
 				return RewriteDone, r.setBool(out, false)
 			}
 			if reduced {
-				// div_polynomial writes new_arg1, then new_arg2.
-				if e = locals.set(0, newLeft); e == nil {
-					e = locals.set(1, newRight)
-				}
-				if e != nil {
+				// div_polynomial wrote new_arg1; now new_arg2.
+				if e = locals.set(1, newRight); e != nil {
 					return RewriteFailed, e
 				}
 				left, right, changed = newLeft, newRight, true
