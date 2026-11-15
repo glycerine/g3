@@ -164,6 +164,8 @@ namespace Duality {
         expr_ref query_ref(m_ctx.get_manager());
         if(m_ctx.quantify_arrays()){
             datalog::rule_manager& rm = m_ctx.get_rule_manager();
+            // FORK FIX #43 (g3 audit, see FORK_BUGFIXES.md): restore the untransformed rules after the query (AUDIT muz_fp_03)
+            datalog::rule_set old_rules(m_ctx.get_rules());
             rm.mk_query(query, m_ctx.get_rules());
             apply_default_transformation(m_ctx);
             datalog::rule_set &rs = m_ctx.get_rules();
@@ -188,6 +190,8 @@ namespace Duality {
                 rm.to_formula(*rs.get_rule(i), f);
                 rules.push_back(f);
             }
+            m_ctx.reopen();
+            m_ctx.replace_rules(old_rules);
         }
         else
             m_ctx.get_raw_rule_formulas(rules, names, bounds);
