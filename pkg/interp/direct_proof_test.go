@@ -1794,3 +1794,27 @@ func TestDirectProofLeqToEqMixedEndpointUsesAxiom(t *testing.T) {
 		}
 	}
 }
+
+// interp_01-F10: simplify_rec clones a fully substituted @leq2eq/@eq2leq
+// (their simplifiers are under #if 0 in the C++).
+func TestDirectProofLeqToEqWithoutPlaceholderIsCloned(t *testing.T) {
+	_, manager, base, _, _ := directProofFixture(t)
+	direct, err := NewDirectProofInterpolator(base, DownwardScopeRange(0), false)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, direct.Close()) })
+	truth, err := manager.Make(OperatorTrue)
+	interpMust(t, err)
+	for _, declaration := range []ast.ASTHandle{direct.leqToEq, direct.eqToLeq} {
+		args := []ast.ASTHandle{truth, truth, truth}
+		if declaration == direct.eqToLeq {
+			args = args[:2]
+		}
+		proof, err := direct.makeSymbol(declaration, args...)
+		interpMust(t, err)
+		result, err := direct.SimplifyProofTerm(proof)
+		interpMust(t, err)
+		if result != proof {
+			t.Fatal("fully substituted rule was not cloned", result, proof)
+		}
+	}
+}
