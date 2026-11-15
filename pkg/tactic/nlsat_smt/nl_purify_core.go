@@ -17,13 +17,16 @@ type nlCoreTracker struct {
 	context    map[ast.ASTHandle]struct{}
 	usedSet    map[ast.ASTHandle]struct{}
 	used       []ast.ASTHandle
+	// usedOrder is obj_hashtable<expr> m_used_asms, iterated in table order
+	// by core2result.
+	usedOrder *ast.ObjMap
 }
 
 func newNLCoreTracker(m *ast.ASTManager, extraction *solver.ClauseExtraction) (*nlCoreTracker, error) {
 	if m == nil || extraction == nil {
 		return nil, ast.ErrASTHandle
 	}
-	state := &nlCoreTracker{manager: m, extraction: extraction, context: make(map[ast.ASTHandle]struct{}), usedSet: make(map[ast.ASTHandle]struct{})}
+	state := &nlCoreTracker{manager: m, extraction: extraction, context: make(map[ast.ASTHandle]struct{}), usedSet: make(map[ast.ASTHandle]struct{}), usedOrder: ast.NewObjMap(m)}
 	for _, a := range extraction.Assumptions {
 		state.context[a] = struct{}{}
 	}
@@ -50,6 +53,9 @@ func (s *nlCoreTracker) learn(core []ast.ASTHandle, nonlinear *tactic.Goal) (_ b
 		if _, ok := s.usedSet[item]; !ok {
 			s.usedSet[item] = struct{}{}
 			s.used = append(s.used, item)
+			if err := s.usedOrder.Insert(item, [2]ast.ASTHandle{}); err != nil {
+				return false, err
+			}
 		}
 		external[i] = external[len(external)-1]
 		external = external[:len(external)-1]
@@ -98,7 +104,8 @@ func (s *nlCoreTracker) finish(g *tactic.Goal, core *tactic.DependencyRef) (resu
 	}
 	var joined tactic.DependencyRef
 	defer func() { resultErr = errors.Join(resultErr, joined.Close()) }()
-	for _, assumption := range s.used {
+	for _, entry := range s.usedOrder.Entries() {
+		assumption := entry.Key
 		dependency, ok := s.extraction.BoolToDependency[assumption]
 		if !ok {
 			return ast.ErrASTDomain

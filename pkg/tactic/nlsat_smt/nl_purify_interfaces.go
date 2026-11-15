@@ -17,6 +17,7 @@ type nlInterfaceRewriter struct {
 	arithmetic           ast.FamilyID
 	real                 ast.ASTHandle
 	cache                map[ast.ASTHandle]ast.ASTHandle
+	cacheOrder           *ast.ObjMap // obj_map m_interface_cache table order
 	memo                 map[ast.ASTHandle]ast.ASTHandle
 	refs                 []ast.ASTRef
 	newReals             []ast.ASTHandle
@@ -37,7 +38,7 @@ func newNLInterfaceRewriter(m *ast.ASTManager) (*nlInterfaceRewriter, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &nlInterfaceRewriter{manager: m, arithmetic: family, real: real, cache: make(map[ast.ASTHandle]ast.ASTHandle), memo: make(map[ast.ASTHandle]ast.ASTHandle)}, nil
+	return &nlInterfaceRewriter{manager: m, arithmetic: family, real: real, cache: make(map[ast.ASTHandle]ast.ASTHandle), cacheOrder: ast.NewObjMap(m), memo: make(map[ast.ASTHandle]ast.ASTHandle)}, nil
 }
 
 func (r *nlInterfaceRewriter) hold(h ast.ASTHandle) error {
@@ -65,6 +66,9 @@ func (r *nlInterfaceRewriter) interfaceVar(arg ast.ASTHandle) (ast.ASTHandle, er
 			return ast.ASTHandle{}, err
 		}
 		r.cache[arg] = arg
+		if err = r.cacheOrder.Insert(arg, [2]ast.ASTHandle{arg}); err != nil {
+			return ast.ASTHandle{}, err
+		}
 		r.interfaceValues = append(r.interfaceValues, arg)
 		return arg, nil
 	}
@@ -86,6 +90,9 @@ func (r *nlInterfaceRewriter) interfaceVar(arg ast.ASTHandle) (ast.ASTHandle, er
 		return ast.ASTHandle{}, err
 	}
 	r.cache[arg] = value
+	if err = r.cacheOrder.Insert(arg, [2]ast.ASTHandle{value}); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	r.interfaceValues = append(r.interfaceValues, value)
 	r.newReals = append(r.newReals, value)
 	if family == r.arithmetic {
@@ -94,6 +101,18 @@ func (r *nlInterfaceRewriter) interfaceVar(arg ast.ASTHandle) (ast.ASTHandle, er
 		r.smtDefinitions = append(r.smtDefinitions, eq)
 	}
 	return value, nil
+}
+
+// interfaceValuesInCacheOrder lists the interface variables (the
+// m_interface_cache values) in the obj_map's table order, which
+// enforce_equalities iterates.
+func (r *nlInterfaceRewriter) interfaceValuesInCacheOrder() []ast.ASTHandle {
+	entries := r.cacheOrder.Entries()
+	values := make([]ast.ASTHandle, len(entries))
+	for i, entry := range entries {
+		values[i] = entry.Value[0]
+	}
+	return values
 }
 
 func (r *nlInterfaceRewriter) rewrite(term ast.ASTHandle) (ast.ASTHandle, error) {

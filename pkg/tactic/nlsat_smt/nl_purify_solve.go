@@ -146,7 +146,7 @@ func (c *nlCooperation) iterate(out *tactic.TacticResult) (_ bool, resultErr err
 		if e != nil {
 			return false, e
 		}
-		if _, e = c.equalities.enforce(evaluator, p.interfaces.interfaceValues, p.nonlinear, c.smt); e != nil {
+		if _, e = c.equalities.enforce(evaluator, p.interfaces.interfaceValuesInCacheOrder(), p.nonlinear, c.smt); e != nil {
 			return false, e
 		}
 		assumptions, e = makeNLAssumptions(m, evaluator, p.extraction.Assumptions, p.predicates.newPredicates, p.predicates.polarities, c.equalities.predicates, c.equalities.values)
@@ -218,7 +218,7 @@ func (c *nlCooperation) finishSat(out *tactic.TacticResult, nlModel *tactic.Mode
 		}
 		return false, err
 	}
-	changed, err := c.equalities.enforce(evaluator, p.interfaces.interfaceValues, p.nonlinear, c.smt)
+	changed, err := c.equalities.enforce(evaluator, p.interfaces.interfaceValuesInCacheOrder(), p.nonlinear, c.smt)
 	err = errors.Join(err, evaluator.Close())
 	if err != nil || changed {
 		return changed, err

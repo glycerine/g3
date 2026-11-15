@@ -88,3 +88,40 @@ func TestNLPurifyEnforcesModelEqualitiesInBothSolvers(t *testing.T) {
 		t.Fatal("equality predicate remained in model", value, err)
 	}
 }
+
+// AUDIT.md tactic_small_01-F7: enforce_equalities walks m_interface_cache,
+// an obj_map, in table order rather than in creation order.
+func TestNLPurifyEnforceEqualitiesFollowsObjMapOrder(t *testing.T) {
+	m := astTestManager(t)
+	family, err := m.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	real, err := m.MkFamilySort(family, 0, nil)
+	astTestMust(t, err)
+	r, err := newNLInterfaceRewriter(m)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, r.Close()) })
+	want := ast.NewObjMap(m)
+	var created []ast.ASTHandle
+	for _, name := range []string{"order-a", "order-b", "order-c", "order-d", "order-e", "order-f", "order-g", "order-h", "order-i", "order-j"} {
+		c := analysisConst(t, m, real, name)
+		v, err := r.interfaceVar(c)
+		astTestMust(t, err)
+		astTestMust(t, want.Insert(c, [2]ast.ASTHandle{v}))
+		created = append(created, v)
+	}
+	got := r.interfaceValuesInCacheOrder()
+	entries := want.Entries()
+	if len(got) != len(entries) {
+		t.Fatal("interface count", len(got), len(entries))
+	}
+	sameAsCreation := true
+	for i, entry := range entries {
+		if got[i] != entry.Value[0] {
+			t.Fatal("interface order differs from obj_map order at", i)
+		}
+		sameAsCreation = sameAsCreation && got[i] == created[i]
+	}
+	if sameAsCreation {
+		t.Fatal("test constants did not exercise a table order different from creation order")
+	}
+}
