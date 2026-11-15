@@ -57,6 +57,9 @@ type Solver struct {
 	literalVectors uint32
 	randomSeed     uint32
 	closed         bool
+	// cacheResetStopped records a cache Reset that failed after it began
+	// releasing; Close then retires the cache before the other owners.
+	cacheResetStopped bool
 }
 
 type integerCut struct {
@@ -136,7 +139,7 @@ func NewSolver(config SolverConfig) (s *Solver, err error) {
 }
 
 func (s *Solver) open() error {
-	if s == nil || s.closed || s.search == nil || s.resolution == nil {
+	if s == nil || s.closed || s.search == nil || s.resolution == nil || s.cache == nil {
 		return ErrSearchOwner
 	}
 	return s.search.open()
@@ -287,17 +290,8 @@ func (s *Solver) Check() (result lbool.LBool, resultErr error) {
 			return lbool.Undef, x
 		}
 		// Source check() reorders even by the identity permutation, which
-		// rebuilds the arithmetic watches (AUDIT.md nlsat_03-F7). That path
-		// still leaks under allocation failure (TestNLPurifyAllocation*), so
-		// the identity permutation is skipped until the leak is fixed.
-		identity := true
-		for variable, target := range permutation {
-			if uint32(variable) != target {
-				identity = false
-				break
-			}
-		}
-		if supported && !identity {
+		// rebuilds the arithmetic watches (AUDIT.md nlsat_03-F7).
+		if supported {
 			if x = s.ReorderVariables(permutation); x != nil {
 				return lbool.Undef, x
 			}
@@ -597,6 +591,20 @@ func (s *Solver) Close() (err error) {
 		if err = s.atoms.cleanup(); err != nil {
 			return err
 		}
+	}
+	// A stopped cache reset (ReorderVariables or Reset) leaves the cache
+	// pending on the polynomial manager, which then refuses the owners
+	// released below. Its references are already released, so close it first;
+	// that completes the reset without allocating a replacement imp.
+	if s.cacheResetStopped && s.cache != nil {
+		if err = s.cache.Close(); err != nil {
+			return err
+		}
+		if s.atoms != nil {
+			s.atoms.ineq.polynomialsRetired = true
+		}
+		s.cache = nil
+		s.cacheResetStopped = false
 	}
 	if s.resolution != nil {
 		err = errors.Join(err, s.resolution.close())

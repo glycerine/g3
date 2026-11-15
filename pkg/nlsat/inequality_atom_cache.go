@@ -40,6 +40,10 @@ type inequalityAtomCache struct {
 	allocationFailed        bool
 	header                  uint64
 	running, failed, closed bool
+	// polynomialsRetired marks a cache the closing solver already closed
+	// after a stopped reset; the remaining atom retirement needs only the
+	// polynomial manager.
+	polynomialsRetired bool
 }
 
 func newInequalityAtomCache(pm *polynomial.MultivariatePolynomialManager, pc *polynomial.PolynomialCache, a *umemory.SmallAllocator) (*inequalityAtomCache, error) {
@@ -90,6 +94,9 @@ func (c *inequalityAtomCache) open() error {
 	}
 	if c.running || c.failed || c.pending != nil || c.factor != nil || c.allocationFailed {
 		return ErrAtomCachePending
+	}
+	if c.polynomialsRetired {
+		return nil
 	}
 	_, err := c.polynomials.Manager()
 	return err

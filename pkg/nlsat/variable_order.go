@@ -199,6 +199,7 @@ func (s *Solver) ReorderVariables(permutation []uint32) (resultErr error) {
 		return err
 	}
 	if err = s.cache.Reset(); err != nil {
+		s.cacheResetStopped = true
 		return err
 	}
 	// Source reset_watches clears only the arithmetic watches; m_bwatches

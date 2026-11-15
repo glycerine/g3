@@ -2,12 +2,14 @@ package nlsat
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/math/polynomial"
 	"github.com/glycerine/g3/pkg/sat"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	umemory "github.com/glycerine/g3/pkg/util/memory"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	z3rand "github.com/glycerine/g3/pkg/util/random"
 )
@@ -777,5 +779,53 @@ func TestSolverInlineVariablesPatchesModelAndConflict(t *testing.T) {
 				t.Fatal("symbolic-coefficient patch violates equality", sign)
 			}
 		})
+	}
+}
+
+// An allocation failure anywhere inside ReorderVariables, including the
+// cache reset (AUDIT.md nlsat_03-F7 identity reorder), must leave a solver
+// that still closes and retains nothing.
+func TestSolverReorderVariablesAllocationFailureReleases(t *testing.T) {
+	for _, permutation := range [][]uint32{{0, 1}, {1, 0}} {
+		completed, stoppedReset := false, false
+		for stop := int64(0); stop < 4096 && !completed; stop++ {
+			t.Run(fmt.Sprint(permutation, stop), func(t *testing.T) {
+				s := solverFixtureConfig(t, SolverConfig{MaxConflicts: ^uint32(0)})
+				for i := 0; i < 2; i++ {
+					_, err := s.MkVar(false)
+					assignmentMust(t, err)
+				}
+				x0 := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{1, 1, 0})
+				x1Cubed := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{1, 0, 3})
+				solverUnit(t, s, AtomGT, x0)
+				solverUnit(t, s, AtomGT, x1Cubed)
+				status, err := s.Check()
+				assignmentMust(t, err)
+				if status != lbool.True {
+					t.Fatal("fixture result", status)
+				}
+				budget := s.atoms.ineq.budget
+				budget.FailAfter(stop)
+				err = s.ReorderVariables(permutation)
+				budget.FailAfter(-1)
+				if err == nil {
+					completed = true
+					return
+				}
+				var physical umemory.Failure
+				if !errors.Is(err, arena.ErrInjectedFailure) && !(errors.As(err, &physical) && physical.Kind == umemory.FailureMemout) {
+					t.Fatal(err)
+				}
+				stoppedReset = stoppedReset || s.cacheResetStopped
+				// The fixture cleanup closes the solver and checks that the
+				// budget returns to zero.
+			})
+		}
+		if !completed {
+			t.Fatal("allocation sweep did not reach success", permutation)
+		}
+		if !stoppedReset {
+			t.Fatal("sweep never stopped the cache reset", permutation)
+		}
 	}
 }

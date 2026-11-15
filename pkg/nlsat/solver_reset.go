@@ -32,6 +32,7 @@ func (s *Solver) Reset() error {
 		return err
 	}
 	if err := s.cache.Reset(); err != nil {
+		s.cacheResetStopped = true
 		return err
 	}
 	return s.assignment.Reset()
