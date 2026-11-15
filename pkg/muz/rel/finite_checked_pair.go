@@ -128,6 +128,9 @@ func (f *FiniteCheckedFactory) New(signature Signature) (*FiniteCheckedPair, err
 	if !f.CanHandleSignature(signature) {
 		return nil, ErrCheckTable
 	}
+	if err := checkTableVerbose("mk_empty"); err != nil {
+		return nil, err
+	}
 	primary, err := f.table(f.primaryKind, signature, 0)
 	if err != nil {
 		return nil, err
@@ -257,6 +260,11 @@ func NewFiniteCheckedPairFromFactory(source FiniteTable, factory *FiniteCheckedF
 	if !factory.CanHandleSignature(signature) {
 		return nil, ErrCheckTable
 	}
+	// The source relation manager creates each checked predicate relation
+	// through check_table_plugin::mk_empty.
+	if err := checkTableVerbose("mk_empty"); err != nil {
+		return nil, err
+	}
 	primary, err := source.CloneFinite()
 	if err != nil {
 		return nil, err
@@ -375,6 +383,9 @@ func (p *FiniteCheckedPair) Add(fact Fact) (bool, error) {
 	if err := p.open(); err != nil {
 		return false, err
 	}
+	if err := checkTableVerbose("add_fact"); err != nil {
+		return false, err
+	}
 	a, err := p.primary.Add(fact)
 	if err != nil {
 		return false, err
@@ -454,6 +465,9 @@ func (p *FiniteCheckedPair) Reset() error {
 // kinds. It is the checked equivalent of table_plugin::mk_empty.
 func (p *FiniteCheckedPair) EmptyLike() (*FiniteCheckedPair, error) {
 	if err := p.open(); err != nil {
+		return nil, err
+	}
+	if err := checkTableVerbose("mk_empty"); err != nil {
 		return nil, err
 	}
 	primary, err := emptyFiniteLike(p.primary)
@@ -543,6 +557,9 @@ func (p *FiniteCheckedPair) Join(other *FiniteCheckedPair, left, right []int) (*
 	if err := p.open(); err != nil || other == nil || other.open() != nil {
 		return nil, ErrCheckTable
 	}
+	if err := checkTableVerbose("operator()"); err != nil {
+		return nil, err
+	}
 	primary, err := finiteTableJoin(p.primary, other.primary, left, right)
 	if err != nil {
 		return nil, err
@@ -586,6 +603,9 @@ func (p *FiniteCheckedPair) Project(removed []int) (*FiniteCheckedPair, error) {
 
 func (p *FiniteCheckedPair) RenameCycle(cycle []int) (*FiniteCheckedPair, error) {
 	if err := p.open(); err != nil {
+		return nil, err
+	}
+	if err := checkTableVerbose("operator()"); err != nil {
 		return nil, err
 	}
 	primary, err := finiteTableRename(p.primary, cycle)
@@ -644,6 +664,9 @@ func (p *FiniteCheckedPair) FilterByNegation(negative *FiniteCheckedPair, target
 	if err := p.open(); err != nil || negative == nil || negative.open() != nil {
 		return ErrCheckTable
 	}
+	if err := checkTableVerbose("operator()"); err != nil {
+		return err
+	}
 	if err := finiteTableFilterNegation(p.primary, negative.primary, targetColumns, negativeColumns); err != nil {
 		return err
 	}
@@ -689,6 +712,9 @@ func (p *FiniteCheckedPair) UnionFrom(source, delta *FiniteCheckedPair) error {
 }
 
 func (p *FiniteCheckedPair) CloneFinite() (FiniteTable, error) {
+	if err := checkTableVerbose("clone"); err != nil {
+		return nil, err
+	}
 	if err := p.verify("clone"); err != nil {
 		return nil, err
 	}

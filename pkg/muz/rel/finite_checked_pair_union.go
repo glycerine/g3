@@ -4,6 +4,9 @@ package rel
 // concrete plugin performs its own union (including LazySparse forcing), then
 // both the target and optional delta are checked extensionally.
 func (p *FiniteCheckedPair) unionFromConcrete(source, delta *FiniteCheckedPair) error {
+	if err := checkTableVerbose("operator()"); err != nil {
+		return err
+	}
 	if err := p.verify("union target input"); err != nil {
 		return err
 	}

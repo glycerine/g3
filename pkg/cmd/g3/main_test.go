@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_rel_02-F1: check_table IF_VERBOSE(1) lines are compared by
+	// TestCheckTableVerboseTrace.
+	"check_table_verbose.smt2": "sat\n",
 	// AUDIT.md muz_rel_01-F1: rel_context::saturate exits after fixedpoint.print_aig
 	// (no answer, no later commands).
 	"datalog_print_aig_exit.smt2": "before\n",
