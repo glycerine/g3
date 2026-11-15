@@ -208,8 +208,11 @@ func (s *SMTInternalizerState) garbageCollectLearnedClauses() error {
 	return s.deleteLearnedClauseIndexes(remove)
 }
 
-func (s *SMTInternalizerState) recordConflictForClauseMaintenance() error {
-	s.conflictsSinceLemmaGC++
+// delInactiveLemmasIfDue is bounded_search's
+// if (m_num_conflicts_since_lemma_gc > m_lemma_gc_threshold &&
+// (LGC_FIXED || LGC_GEOMETRIC)) del_inactive_lemmas(); resolve_conflict
+// counts the conflicts.
+func (s *SMTInternalizerState) delInactiveLemmasIfDue() error {
 	if s.clauseMaintenance.Strategy > 1 || s.conflictsSinceLemmaGC <= s.lemmaGCThreshold {
 		return nil
 	}

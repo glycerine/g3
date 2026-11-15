@@ -20,6 +20,8 @@ var searchStatisticsVectors = []struct {
 }{
 	// AUDIT.md smtcore_06-F3: restart depth measured from m_base_lvl.
 	{"restart_assumption_base_level.smt2", nil, map[string]string{"conflicts": "713", "decisions": "847", "restarts": "6"}},
+	// AUDIT.md smtcore_06-F4: lemma GC after the restart exit.
+	{"lemma_gc_at_restart.smt2", nil, map[string]string{"conflicts": "15386", "decisions": "18408", "del-clause": "14147", "restarts": "10"}},
 }
 
 var searchStatisticLine = regexp.MustCompile(`(?m)^\s*\(?:([a-z0-9-]+)\s+([0-9.]+)\)?\s*$`)

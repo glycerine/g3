@@ -486,6 +486,13 @@ func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool,
 					k.lastFailure = SMTFailureConflictLimit
 					return lbool.Undef, false, nil
 				}
+			}
+			// The lemma GC follows the restart and conflict-limit exits, so
+			// a restart at the threshold conflict postpones it.
+			if err = k.internalizer.delInactiveLemmasIfDue(); err != nil {
+				return lbool.Undef, false, fmt.Errorf("smt search collect learned clauses: %w", err)
+			}
+			if !k.internalizer.inconsistent {
 				// propagate_eh runs once per resolved conflict, not inside
 				// propagate().
 				if err = k.internalizer.dynamicAck.propagate(); err != nil {
@@ -589,6 +596,8 @@ func (k *SMTKernel) restartDue(restarts *smtRestartState) bool {
 func (k *SMTKernel) resolveSearchConflict(session *smtSearchSession) (bool, error) {
 	queue, baseLevel, resolver := session.queue, session.baseLevel, session.resolver
 	var err error
+	// resolve_conflict: m_num_conflicts_since_lemma_gc++.
+	k.internalizer.conflictsSinceLemmaGC++
 	if err = queue.PrepareConflict(); err != nil {
 		return false, fmt.Errorf("smt search prepare conflict: %w", err)
 	}
@@ -658,9 +667,6 @@ func (k *SMTKernel) resolveSearchConflict(session *smtSearchSession) (bool, erro
 	delayed := newScopeLevel != resolution.NewScopeLevel
 	if err = k.internalizer.addLearnedClauseWithProof(resolution.Lemma, proof, delayed); err != nil {
 		return false, fmt.Errorf("smt search learn clause: %w", err)
-	}
-	if err = k.internalizer.recordConflictForClauseMaintenance(); err != nil {
-		return false, fmt.Errorf("smt search collect learned clauses: %w", err)
 	}
 	k.internalizer.decayBooleanActivity()
 	if err = queue.RecordConflict(); err != nil {

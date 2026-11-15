@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_06-F4
+	"lemma_gc_at_restart.smt2": "unsat\n",
 	// AUDIT.md smtcore_06-F3
 	"restart_assumption_base_level.smt2": "unsat\n",
 	// AUDIT.md qe_02-F6: add_constraint calls during subst assert at once.
