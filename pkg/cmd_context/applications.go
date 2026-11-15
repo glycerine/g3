@@ -4,7 +4,9 @@ package cmd_context
 // find_func_decl. Builtin names come from the retained declaration plugins.
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/solver"
@@ -209,14 +211,25 @@ func (c *Context) MakeApp(name string, args []ast.ASTHandle, indices []ast.ASTPa
 		}
 		return ast.ASTHandle{}, fmt.Errorf("unknown function/constant %s", name)
 	}
+	if len(args) == 0 && rangeSort.IsNull() {
+		if len(c.functions[name]) > 1 {
+			// "disumbiguate" (sic) is z3 4.7.1's spelling (cmd_context.cpp:1073).
+			return ast.ASTHandle{}, fmt.Errorf("ambiguous constant reference, more than one constant with the same sort, use a qualified expression (as <symbol> <sort>) to disumbiguate %s", name)
+		}
+		f := c.functions[name][0]
+		arity, err := m.GetArity(f)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if arity != 0 {
+			return ast.ASTHandle{}, fmt.Errorf("invalid function application, missing arguments %s", name)
+		}
+		return m.MkApp(f, nil)
+	}
 	// Source func_decls::find returns the sole declaration directly. MkApp
 	// then validates arity and performs the manager's arithmetic coercions.
 	if declarations := c.functions[name]; len(declarations) == 1 {
 		return m.MkApp(declarations[0], args)
-	}
-	if len(args) == 0 && rangeSort.IsNull() && len(c.functions[name]) > 1 {
-		// "disumbiguate" (sic) is z3 4.7.1's spelling (cmd_context.cpp:1073).
-		return ast.ASTHandle{}, fmt.Errorf("ambiguous constant reference, more than one constant with the same sort, use a qualified expression (as <symbol> <sort>) to disumbiguate %s", name)
 	}
 	// Source func_decls::find walks the func_decl_set in table order and
 	// returns the first declaration whose range (when given), arity and
@@ -264,7 +277,56 @@ func (c *Context) MakeApp(name string, args []ast.ASTHandle, indices []ast.ASTPa
 		}
 	}
 	if match.IsNull() {
-		return ast.ASTHandle{}, fmt.Errorf("unknown constant %s or no matching function signature", name)
+		return ast.ASTHandle{}, c.noMatchingSignatureError(name, args, rangeSort, candidates)
 	}
 	return m.MkApp(match, args)
+}
+
+// noMatchingSignatureError is mk_app's message when func_decls::find fails:
+// the argument sorts, the range when given, and every declaration in
+// get_entry order.
+func (c *Context) noMatchingSignatureError(name string, args []ast.ASTHandle, rangeSort ast.ASTHandle, candidates []ast.ASTHandle) error {
+	m := c.manager
+	var buffer strings.Builder
+	buffer.WriteString("unknown constant " + name + " ")
+	buffer.WriteString(" (")
+	for i, arg := range args {
+		if i > 0 {
+			buffer.WriteString(" ")
+		}
+		sort, err := m.GetSort(arg)
+		if err != nil {
+			return err
+		}
+		text, err := m.SMT2PPSortString(sort)
+		if err != nil {
+			return err
+		}
+		buffer.WriteString(text)
+	}
+	buffer.WriteString(") ")
+	if !rangeSort.IsNull() {
+		text, err := m.SMT2PPSortString(rangeSort)
+		if err != nil {
+			return err
+		}
+		buffer.WriteString(text + " ")
+	}
+	for _, decl := range candidates {
+		text, err := m.SMT2PPDeclString(decl)
+		if err != nil {
+			return err
+		}
+		buffer.WriteString("\ndeclared: " + text + " ")
+	}
+	return errors.New(buffer.String())
+}
+
+// constantOrFunction is cmd_context::insert's f->get_arity() == 0 ?
+// "constant" : "function".
+func constantOrFunction(arity int) string {
+	if arity == 0 {
+		return "constant"
+	}
+	return "function"
 }

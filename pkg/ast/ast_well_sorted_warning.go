@@ -79,6 +79,11 @@ func (m *ASTManager) SMT2PPSortString(sort ASTHandle) (text string, result error
 	return out.String()
 }
 
+// SMT2PPDeclString is mk_pp(f, m) for a function declaration.
+func (m *ASTManager) SMT2PPDeclString(decl ASTHandle) (string, error) {
+	return m.smt2PPDeclString(decl)
+}
+
 // smt2PPDeclString is mk_pp(f, m) for a function declaration.
 func (m *ASTManager) smt2PPDeclString(decl ASTHandle) (text string, result error) {
 	out, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: m.BudgetField})

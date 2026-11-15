@@ -1199,7 +1199,7 @@ func (c *Context) publishFunctionDeclaration(name string, d ast.ASTHandle) (resu
 	}
 	for _, prior := range c.functions[name] {
 		if prior == d {
-			return ast.ASTHandle{}, fmt.Errorf("invalid declaration, '%s' (with the given signature) already declared", name)
+			return ast.ASTHandle{}, fmt.Errorf("invalid declaration, %s '%s' (with the given signature) already declared", constantOrFunction(len(domain)), name)
 		}
 	}
 	c.functions[name] = append(c.functions[name], d)

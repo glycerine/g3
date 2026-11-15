@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md cmd_context_01-F2
+	"decl_error_texts_missing_arguments.smt2": "(error \"line 1 column 37: invalid function application, missing arguments f\")\nsat\n",
+	// AUDIT.md cmd_context_01-F2
+	"decl_error_texts_duplicate.smt2": "(error \"line 1 column 42: invalid declaration, constant 'f' (with the given signature) already declared\")\n(error \"line 2 column 49: invalid declaration, function 'g' (with the given signature) already declared\")\n",
 	// AUDIT.md parsers_shell_01-F5
 	"set_option_expand_definitions.smt2": "unsupported\n",
 	// AUDIT.md parsers_shell_01-F5
@@ -1823,6 +1827,10 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	"decl_error_texts_missing_arguments.smt2": true, // AUDIT.md cmd_context_01-F2
+
+	"decl_error_texts_duplicate.smt2": true, // AUDIT.md cmd_context_01-F2
+
 	"error_behavior_immediate_exit.smt2": true, // AUDIT.md parsers_shell_01-F6
 
 	"define_fun_rec_var_body_pop_declare.smt2": true, // AUDIT.md cmd_context_02-F4

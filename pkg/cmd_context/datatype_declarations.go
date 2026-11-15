@@ -210,7 +210,7 @@ func (c *Context) insertDatatypeFunction(d ast.ASTHandle) error {
 	}
 	for _, prior := range c.functions[name] {
 		if prior == d {
-			return fmt.Errorf("invalid declaration, '%s' (with the given signature) already declared", name)
+			return fmt.Errorf("invalid declaration, %s '%s' (with the given signature) already declared", constantOrFunction(int(arity)), name)
 		}
 	}
 	ref, err := m.NewRef(d)
