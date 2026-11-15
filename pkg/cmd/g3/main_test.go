@@ -338,6 +338,11 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md opt_01-F1: sortmax throws for a weight that is not
+	// unsigned after find_mutexes, and maxsmt answers unknown.
+	"sortmax_fractional_weight.smt2":              "unknown\n(objectives\n ( (/ 3.0 2.0))\n)\n(model \n  (define-fun b () Bool\n    false)\n  (define-fun a () Bool\n    false)\n)\n",
+	"sortmax_fractional_weight_mutex.smt2":        "unknown\n(objectives\n ( (/ 3.0 2.0))\n)\n(model \n  (define-fun b () Bool\n    false)\n  (define-fun a () Bool\n    false)\n)\n",
+	"sortmax_fractional_weight_second_group.smt2": "unknown\n(objectives\n ( 2)\n (g2 0)\n)\n(model \n  (define-fun b () Bool\n    false)\n  (define-fun a () Bool\n    false)\n  (define-fun c () Bool\n    false)\n)\n",
 	// AUDIT.md cmd_context_01-F3: opt::context never runs check_logic on
 	// objectives or soft constraints; its sort errors use the C++ texts.
 	"opt_objective_outside_logic.smt2": "sat\n(objectives\n ((* x y) 4)\n)\n",

@@ -13,6 +13,14 @@ func (e *sortMaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, 
 	if err != nil || status != lbool.True {
 		return status, false, err
 	}
+	// sortmax::operator(): offset = m_lower; m_upper = offset; before the
+	// expansion that throws for a weight that is not unsigned.
+	offset := new(big.Rat).SetFrac(e.scaledOffset, e.scale)
+	offset.Add(offset, &e.objective.softOffset)
+	if err = e.unscaleTerms(); err != nil {
+		e.setBounds(result, offset, offset)
+		return lbool.Undef, false, err
+	}
 	encoder := newSortMaxEncoder(e)
 	e.outputs, err = encoder.network(e.inputs)
 	if err != nil {

@@ -4,9 +4,11 @@ package opt
 
 import (
 	"errors"
+	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 func (e *sortMaxEngine) preprocessMutexes() (status lbool.LBool, resultErr error) {
@@ -30,17 +32,31 @@ func (e *sortMaxEngine) preprocessMutexes() (status lbool.LBool, resultErr error
 		e.stats.Mutexes++
 		e.stats.MutexTerms += uint32(len(mutex))
 	}
-	offset := decomposition.lowerOffset()
-	if !offset.IsInt64() {
-		return lbool.Undef, errors.New("opt: SortMax mutex offset overflow")
-	}
-	e.offset = int(offset.Int64())
 	e.terms = decomposition.terms()
+	e.scaledOffset = decomposition.lowerOffset()
+	decomposition.transferOwner(&e.owner)
+	return lbool.True, nil
+}
+
+// unscaleTerms is sortmax::operator()'s expansion check: every new_soft
+// weight must be unsigned. It then fixes the integer weights, m_lower and
+// the network inputs.
+func (e *sortMaxEngine) unscaleTerms() error {
 	total := 0
 	for i := range e.terms {
-		total += int(e.terms[i].weight.Int64())
+		weight, unsigned := maxSMTUnscaleUnsigned(&e.terms[i].weight, e.scale)
+		if !unsigned {
+			return z3exception.NewDefaultException("sortmax can only handle unsigned weights. Use a different heuristic.")
+		}
+		e.terms[i].weight.SetUint64(uint64(weight))
+		total += int(weight)
 	}
-	decomposition.transferOwner(&e.owner)
+	var offset, remainder big.Int
+	offset.QuoRem(e.scaledOffset, e.scale, &remainder)
+	if remainder.Sign() != 0 || !offset.IsInt64() {
+		return errors.New("opt: SortMax mutex offset overflow")
+	}
+	e.offset = int(offset.Int64())
 	e.inputs = maxSMTExpandTerms(e.terms, total)
-	return lbool.True, nil
+	return nil
 }

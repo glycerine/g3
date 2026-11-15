@@ -2,7 +2,11 @@ package opt
 
 // Source: src/opt/sortmax.cpp sortmax state and construction.
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"math/big"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
 
 type sortMaxEngine struct {
 	solver    *ArithmeticSolver
@@ -14,16 +18,33 @@ type sortMaxEngine struct {
 	outputs   []ast.ASTHandle
 	offset    int
 	stats     sortMaxStatistics
+	// scale turns the rational soft weights into the integers terms holds
+	// until unscaleTerms divides it out again; scaledOffset is
+	// find_mutexes' m_lower times scale.
+	scale, scaledOffset *big.Int
 }
 
+// maxsmt::operator() builds sortmax for maxsat_engine=sortmax whatever the
+// weights; sortmax::operator() rejects a non-unsigned weight itself.
+// Recorded deviation: a positive weight total above maxSortMaxInputs is
+// not expanded into a sorting network here (usable is false) because the
+// Go network needs far more memory than z3's for thousands of inputs.
 func newSortMaxEngine(s *ArithmeticSolver, objective *arithmeticObjective, index int) (*sortMaxEngine, bool, error) {
-	terms, total, usable, err := maxSMTIntegralTerms(s.manager, objective)
-	if err != nil || !usable {
-		return nil, usable, err
+	total := new(big.Rat)
+	for _, weight := range objective.softWeights {
+		if weight.Sign() > 0 {
+			total.Add(total, weight)
+		}
 	}
-	engine := &sortMaxEngine{solver: s, objective: objective, index: index, terms: terms}
+	if total.Cmp(big.NewRat(maxSortMaxInputs, 1)) > 0 {
+		return nil, false, nil
+	}
+	terms, scale, err := maxSMTScaledTerms(s.manager, objective)
+	if err != nil {
+		return nil, false, err
+	}
+	engine := &sortMaxEngine{solver: s, objective: objective, index: index, terms: terms, scale: scale}
 	engine.owner.manager = s.manager
-	engine.inputs = maxSMTExpandTerms(terms, total)
 	return engine, true, nil
 }
 

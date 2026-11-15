@@ -1,0 +1,1 @@
+(set-option :opt.maxsat_engine sortmax)(declare-const a Bool)(declare-const b Bool)(declare-const c Bool)(assert (or (not a) (not b)))(assert-soft a :weight 3)(assert-soft b :weight 2)(assert-soft c :weight 1)(assert-soft c :weight 0.5 :id g2)(check-sat)(get-objectives)(get-model)

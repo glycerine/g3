@@ -199,3 +199,65 @@ func TestArithmeticSolverUsesSortMaxForWeightedMutex(t *testing.T) {
 		}
 	}
 }
+
+// AUDIT.md opt_01-F1: maxsat_engine=sortmax always builds sortmax, whose
+// operator() throws for a weight that is not unsigned; maxsmt::operator()
+// turns that into l_undef. There is no fallback to another engine.
+func TestSortMaxRejectsFractionalWeight(t *testing.T) {
+	manager, evaluator := sortMaxFixture(t)
+	key := "maxsat_engine"
+	sortmax, err := manager.Symbols.Intern("sortmax")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = evaluator.Context.SetSymbolName(evaluator.Params, &key, sortmax); err != nil {
+		t.Fatal(err)
+	}
+	p := sortMaxBool(t, manager, "sortmax-fraction-p")
+	if err := manager.IncRef(p); err != nil {
+		t.Fatal(err)
+	}
+	defer manager.DecRef(p)
+	q := sortMaxBool(t, manager, "sortmax-fraction-q")
+	if err := manager.IncRef(q); err != nil {
+		t.Fatal(err)
+	}
+	defer manager.DecRef(q)
+	pAndQ, err := manager.MkAnd(p, q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mutex, err := manager.MkNot(pAndQ)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expression := range []ast.ASTHandle{pAndQ, mutex} {
+		if err = manager.IncRef(expression); err != nil {
+			t.Fatal(err)
+		}
+		defer manager.DecRef(expression)
+	}
+	config := smtcore.SMTSolverConfig{Params: evaluator.Context, Globals: evaluator.Globals, ModelEvaluator: evaluator}
+	solver, err := opt.NewArithmeticSolver(manager, evaluator.Params, "", config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer solver.Close()
+	if err = solver.Assert(mutex); err != nil {
+		t.Fatal(err)
+	}
+	if err = solver.AddSoftObjective([]ast.ASTHandle{p, q}, []*big.Rat{big.NewRat(3, 2), big.NewRat(2, 1)}); err != nil {
+		t.Fatal(err)
+	}
+	result, err := solver.Check()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer result.Close()
+	if result.Status != lbool.Undef || result.Optimal {
+		t.Fatal("sortmax with a fractional weight", result.Status, result.Optimal)
+	}
+	if len(result.MaxSMT) != 1 || result.MaxSMT[0].Engine != "sortmax" {
+		t.Fatal("engine", result.MaxSMT)
+	}
+}
