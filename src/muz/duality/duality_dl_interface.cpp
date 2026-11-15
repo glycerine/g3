@@ -309,8 +309,11 @@ namespace Duality {
         _d->rpfp->FromClauses(clauses,&std_bounds);
 
         // populate the edge-to-clause map
+        // FORK FIX #91 (g3 audit, see FORK_BUGFIXES.md): map each edge to its own clause after RemoveDeadNodes (AUDIT duality zbug round 2)
+        // FromClauses creates edge number i+1 for clause i, but RemoveDeadNodes
+        // may delete edges, so the position in edges is not the clause index.
         for(unsigned i = 0; i < _d->rpfp->edges.size(); ++i)
-            _d->map[_d->rpfp->edges[i]] = i;
+            _d->map[_d->rpfp->edges[i]] = _d->rpfp->edges[i]->number - 1;
 
         // create a solver object
 
