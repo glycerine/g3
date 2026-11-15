@@ -1,64 +1,118 @@
 package transforms
 
 // Source: src/muz/transforms/dl_mk_interp_tail_simplifier.cpp normalizer_cfg
-// and normalizer_rw. This is the source-specific Boolean pass between the two
-// general theory-rewriter invocations.
+// and normalizer_rw (rewriter_tpl<normalizer_cfg>): the Boolean pass between
+// the two context theory-rewriter invocations of simplify_expr.
 
 import (
 	"errors"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
+	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
-type booleanNormalizer struct {
+// normalizerConfig is mk_interp_tail_simplifier::normalizer_cfg.
+type normalizerConfig struct {
+	astrewriter.DefaultConfiguration
 	manager *ast.ASTManager
-	refs    []ast.ASTRef
-	memo    map[ast.ASTHandle]ast.ASTHandle
+	// brwr is m_brwr (bool_rewriter with default parameters); nil only for
+	// a plugin built without parameter services, where mk_not falls back to
+	// ast_util's mk_not.
+	brwr *astrewriter.BoolRewriter
+	// appArgs is m_app_args, reset by each reduce_app.
+	appArgs []ast.ASTRef
 }
 
-func newBooleanNormalizer(manager *ast.ASTManager) *booleanNormalizer {
-	return &booleanNormalizer{manager: manager, memo: make(map[ast.ASTHandle]ast.ASTHandle)}
-}
-
-func (n *booleanNormalizer) close() (result error) {
-	for index := len(n.refs) - 1; index >= 0; index-- {
-		result = errors.Join(result, n.manager.DelRef(&n.refs[index]))
+func (n *normalizerConfig) resetAppArgs() error {
+	for len(n.appArgs) != 0 {
+		if err := n.manager.DelRef(&n.appArgs[0]); err != nil {
+			return err
+		}
+		n.appArgs = n.appArgs[1:]
 	}
-	n.refs = nil
-	return result
+	return nil
 }
 
-func (n *booleanNormalizer) keep(handle ast.ASTHandle) (ast.ASTHandle, error) {
+func (n *normalizerConfig) close() error {
+	if err := n.resetAppArgs(); err != nil {
+		return err
+	}
+	if n.brwr != nil {
+		if err := n.brwr.Close(); err != nil {
+			return err
+		}
+		n.brwr = nil
+	}
+	return nil
+}
+
+func (n *normalizerConfig) pushAppArg(handle ast.ASTHandle) error {
 	reference, err := n.manager.NewRef(handle)
-	if err != nil {
-		return ast.ASTHandle{}, err
+	if err == nil {
+		n.appArgs = append(n.appArgs, reference)
 	}
-	n.refs = append(n.refs, reference)
-	return handle, nil
+	return err
 }
 
-func (n *booleanNormalizer) operation(handle ast.ASTHandle) (int32, bool, error) {
+func (n *normalizerConfig) appArgHandles() ([]ast.ASTHandle, error) {
+	handles := make([]ast.ASTHandle, len(n.appArgs))
+	for index := range n.appArgs {
+		handle, err := n.manager.RefGet(n.appArgs[index])
+		if err != nil {
+			return nil, err
+		}
+		handles[index] = handle
+	}
+	return handles, nil
+}
+
+// basicOp reports the basic-family operation of an application or function
+// declaration.
+func (n *normalizerConfig) basicOp(handle ast.ASTHandle) (int32, bool, error) {
 	kind, err := n.manager.GetKind(handle)
-	if err != nil || kind != ast.ASTApp {
+	if err != nil || (kind != ast.ASTApp && kind != ast.ASTFuncDecl) {
 		return 0, false, err
 	}
 	family, err := n.manager.GetFamilyID(handle)
 	if errors.Is(err, ast.ErrASTDomain) {
 		// Plain uninterpreted declarations have no family metadata.
-		return -1, true, nil
+		return 0, false, nil
 	}
-	if err != nil {
+	if err != nil || family != n.manager.BasicFamilyID() {
 		return 0, false, err
-	}
-	if family != n.manager.BasicFamilyID() {
-		return -1, true, nil
 	}
 	operation, err := n.manager.GetDeclKind(handle)
 	return operation, err == nil, err
 }
 
-func (n *booleanNormalizer) compare(left, right ast.ASTHandle, depth int) (int, error) {
+func (n *normalizerConfig) isOp(handle ast.ASTHandle, operation int32) (bool, error) {
+	op, basic, err := n.basicOp(handle)
+	return basic && op == operation, err
+}
+
+// pushNot is m_brwr.mk_not(arg, tmp) followed by m_app_args.push_back(tmp).
+func (n *normalizerConfig) pushNot(argument ast.ASTHandle) error {
+	if n.brwr == nil {
+		negated, err := n.manager.MkNotSimplified(argument)
+		if err != nil {
+			return err
+		}
+		return n.pushAppArg(negated)
+	}
+	tmp, err := n.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return err
+	}
+	if err = n.brwr.MkNot(argument, tmp); err != nil {
+		return errors.Join(err, n.manager.DelRef(&tmp))
+	}
+	n.appArgs = append(n.appArgs, tmp)
+	return nil
+}
+
+func (n *normalizerConfig) compare(left, right ast.ASTHandle, depth int) (int, error) {
 	if left == right {
 		return 0, nil
 	}
@@ -211,310 +265,386 @@ func compareUint32(left, right uint32) int {
 	return 0
 }
 
-type booleanPair struct {
+// argPair is normalizer_cfg::arg_pair.
+type argPair struct {
 	first  ast.ASTHandle
 	second ast.ASTHandle
 }
 
-func (n *booleanNormalizer) pair(expression ast.ASTHandle, operation int32) (booleanPair, bool, error) {
-	op, app, err := n.operation(expression)
-	if err != nil || !app || op != operation {
-		return booleanPair{}, false, err
+// matchArgPair is match_arg_pair: m.is_and(e, a, b) / m.is_or(e, a, b) match
+// binary applications only.
+func (n *normalizerConfig) matchArgPair(expression ast.ASTHandle, seekConjunction bool) (argPair, bool, error) {
+	operation := int32(ast.ASTOpOr)
+	if seekConjunction {
+		operation = ast.ASTOpAnd
+	}
+	matched, err := n.isOp(expression, operation)
+	if err != nil || !matched {
+		return argPair{}, false, err
+	}
+	kind, err := n.manager.GetKind(expression)
+	if err != nil || kind != ast.ASTApp {
+		return argPair{}, false, err
 	}
 	count, err := n.manager.GetNumArgs(expression)
 	if err != nil || count != 2 {
-		return booleanPair{}, false, err
+		return argPair{}, false, err
 	}
 	first, err := n.manager.GetArg(expression, 0)
 	if err != nil {
-		return booleanPair{}, false, err
+		return argPair{}, false, err
 	}
 	second, err := n.manager.GetArg(expression, 1)
-	return booleanPair{first: first, second: second}, err == nil, err
+	return argPair{first: first, second: second}, err == nil, err
 }
 
-func (n *booleanNormalizer) equivalence(first, second booleanPair, insideDisjunction bool) (ast.ASTHandle, bool, error) {
-	firstLeftNegated, firstLeft, err := n.manager.IsNot(first.first)
+// detectEquivalence is detect_equivalence; the returned equality is held by
+// the caller's m_app_args slot.
+func (n *normalizerConfig) detectEquivalence(p1, p2 argPair, insideDisjunction bool) (ast.ASTHandle, bool, error) {
+	firstLeftNegated, firstLeft, err := n.manager.IsNot(p1.first)
 	if err != nil {
 		return ast.ASTHandle{}, false, err
 	}
-	if !firstLeftNegated {
-		firstLeft = first.first
-	}
-	secondLeftNegated, secondLeft, err := n.manager.IsNot(second.first)
+	secondLeftNegated, secondLeft, err := n.manager.IsNot(p2.first)
 	if err != nil {
 		return ast.ASTHandle{}, false, err
 	}
-	if !secondLeftNegated {
-		secondLeft = second.first
-	}
-	firstRightNegated, firstRight, err := n.manager.IsNot(first.second)
-	if err != nil {
-		return ast.ASTHandle{}, false, err
-	}
-	if !firstRightNegated {
-		firstRight = first.second
-	}
-	secondRightNegated, secondRight, err := n.manager.IsNot(second.second)
-	if err != nil {
-		return ast.ASTHandle{}, false, err
-	}
-	if !secondRightNegated {
-		secondRight = second.second
-	}
-	if firstLeftNegated == secondLeftNegated || firstRightNegated == secondRightNegated || firstLeft != secondLeft || firstRight != secondRight {
+	if firstLeftNegated == secondLeftNegated {
 		return ast.ASTHandle{}, false, nil
+	}
+	firstRightNegated, firstRight, err := n.manager.IsNot(p1.second)
+	if err != nil {
+		return ast.ASTHandle{}, false, err
+	}
+	secondRightNegated, secondRight, err := n.manager.IsNot(p2.second)
+	if err != nil {
+		return ast.ASTHandle{}, false, err
+	}
+	if firstRightNegated == secondRightNegated {
+		return ast.ASTHandle{}, false, nil
+	}
+	var firstBare ast.ASTHandle
+	if firstLeftNegated {
+		if p2.first != firstLeft {
+			return ast.ASTHandle{}, false, nil
+		}
+		firstBare = firstLeft
+	}
+	if secondLeftNegated {
+		if p1.first != secondLeft {
+			return ast.ASTHandle{}, false, nil
+		}
+		firstBare = secondLeft
+	}
+	var secondBare ast.ASTHandle
+	if firstRightNegated {
+		if p2.second != firstRight {
+			return ast.ASTHandle{}, false, nil
+		}
+		secondBare = firstRight
+	}
+	if secondRightNegated {
+		if p1.second != secondRight {
+			return ast.ASTHandle{}, false, nil
+		}
+		secondBare = secondRight
 	}
 	boolean, err := n.manager.MkBoolSort()
 	if err != nil {
 		return ast.ASTHandle{}, false, err
 	}
-	leftSort, err := n.manager.GetSort(firstLeft)
+	firstSort, err := n.manager.GetSort(firstBare)
 	if err != nil {
 		return ast.ASTHandle{}, false, err
 	}
-	rightSort, err := n.manager.GetSort(firstRight)
-	if err != nil || leftSort != boolean || rightSort != boolean {
+	secondSort, err := n.manager.GetSort(secondBare)
+	if err != nil || firstSort != boolean || secondSort != boolean {
 		return ast.ASTHandle{}, false, err
 	}
+	// both negations are in the same pair
 	negsTogether := firstLeftNegated == firstRightNegated
-	right := firstRight
+	right := secondBare
 	if negsTogether != insideDisjunction {
-		right, err = n.manager.MkNotSimplified(right)
-		if err != nil {
-			return ast.ASTHandle{}, false, err
-		}
-		if right, err = n.keep(right); err != nil {
+		if right, err = n.manager.MkNot(right); err != nil {
 			return ast.ASTHandle{}, false, err
 		}
 	}
-	equivalence, err := n.manager.MkEq(firstLeft, right)
-	if err != nil {
-		return ast.ASTHandle{}, false, err
-	}
-	equivalence, err = n.keep(equivalence)
+	equivalence, err := n.manager.MkEq(firstBare, right)
 	return equivalence, err == nil, err
 }
 
-func (n *booleanNormalizer) normalize(expression ast.ASTHandle) (ast.ASTHandle, error) {
-	if cached, found := n.memo[expression]; found {
-		return cached, nil
-	}
-	operation, app, err := n.operation(expression)
-	if err != nil || !app {
-		return expression, err
-	}
-	count, err := n.manager.GetNumArgs(expression)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	arguments := make([]ast.ASTHandle, count)
-	changed := false
-	for index := uint32(0); index < count; index++ {
-		argument, e := n.manager.GetArg(expression, index)
-		if e != nil {
-			return ast.ASTHandle{}, e
+// detectEquivalences is detect_equivalences over m_app_args.
+func (n *normalizerConfig) detectEquivalences(insideDisjunction bool) (bool, error) {
+	havePair := false
+	prevPairIndex := 0
+	var pair argPair
+	readIndex, writeIndex := 0, 0
+	for readIndex < len(n.appArgs) {
+		expression, err := n.manager.RefGet(n.appArgs[readIndex])
+		if err != nil {
+			return false, err
 		}
-		arguments[index], e = n.normalize(argument)
-		if e != nil {
-			return ast.ASTHandle{}, e
+		newPair, matched, err := n.matchArgPair(expression, insideDisjunction)
+		if err != nil {
+			return false, err
 		}
-		changed = changed || arguments[index] != argument
-	}
-	if operation == ast.ASTOpNot && len(arguments) == 1 {
-		childOperation, childApp, e := n.operation(arguments[0])
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		if childApp && (childOperation == ast.ASTOpAnd || childOperation == ast.ASTOpOr) {
-			childCount, e := n.manager.GetNumArgs(arguments[0])
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			negated := make([]ast.ASTHandle, childCount)
-			for index := uint32(0); index < childCount; index++ {
-				child, x := n.manager.GetArg(arguments[0], index)
-				if x != nil {
-					return ast.ASTHandle{}, x
-				}
-				negated[index], x = n.manager.MkNotSimplified(child)
-				if x != nil {
-					return ast.ASTHandle{}, x
-				}
-				if negated[index], x = n.keep(negated[index]); x != nil {
-					return ast.ASTHandle{}, x
+		if matched {
+			var equivalence ast.ASTHandle
+			found := false
+			if havePair {
+				if equivalence, found, err = n.detectEquivalence(pair, newPair, insideDisjunction); err != nil {
+					return false, err
 				}
 			}
-			var demorgan ast.ASTHandle
-			if childOperation == ast.ASTOpAnd {
-				demorgan, e = n.manager.MkOrArgs(negated)
-			} else {
-				demorgan, e = n.manager.MkAndArgs(negated)
+			if found {
+				havePair = false
+				if err = n.manager.SetRef(n.appArgs[prevPairIndex], equivalence); err != nil {
+					return false, err
+				}
+				readIndex++
+				continue
 			}
-			if e != nil {
-				return ast.ASTHandle{}, e
+			havePair = true
+			prevPairIndex = writeIndex
+			pair = newPair
+		} else {
+			havePair = false
+		}
+		if writeIndex != readIndex {
+			if err = n.manager.SetRef(n.appArgs[writeIndex], expression); err != nil {
+				return false, err
 			}
-			if demorgan, e = n.keep(demorgan); e != nil {
-				return ast.ASTHandle{}, e
-			}
-			result, e := n.normalize(demorgan)
-			if e == nil {
-				n.memo[expression] = result
-			}
-			return result, e
+		}
+		readIndex++
+		writeIndex++
+	}
+	for index := writeIndex; index < len(n.appArgs); index++ {
+		if err := n.manager.DelRef(&n.appArgs[index]); err != nil {
+			return false, err
 		}
 	}
-	if operation != ast.ASTOpAnd && operation != ast.ASTOpOr {
-		if !changed {
-			n.memo[expression] = expression
-			return expression, nil
-		}
-		declaration, e := n.manager.GetDecl(expression)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		result, e := n.manager.MkApp(declaration, arguments)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		result, e = n.keep(result)
-		if e == nil {
-			n.memo[expression] = result
-		}
-		return result, e
-	}
-	result, rewritten, err := n.reduceAndOr(operation, arguments)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	// normalizer_cfg::reduce_app returns BR_REWRITE1 when
-	// detect_equivalences replaced a pair: rewriter_tpl revisits the new
-	// and/or at depth 1, so reduce_app runs again on its (unrewritten)
-	// arguments until it returns BR_DONE.
-	for rewritten {
-		if result != expression {
-			if result, err = n.keep(result); err != nil {
-				return ast.ASTHandle{}, err
-			}
-		}
-		nextOperation, nextApp, e := n.operation(result)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		if !nextApp || nextOperation != ast.ASTOpAnd && nextOperation != ast.ASTOpOr {
-			break
-		}
-		nextCount, e := n.manager.GetNumArgs(result)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		nextArguments := make([]ast.ASTHandle, nextCount)
-		for index := uint32(0); index < nextCount; index++ {
-			if nextArguments[index], e = n.manager.GetArg(result, index); e != nil {
-				return ast.ASTHandle{}, e
-			}
-		}
-		if result, rewritten, err = n.reduceAndOr(nextOperation, nextArguments); err != nil {
-			return ast.ASTHandle{}, err
-		}
-	}
-	if result != expression {
-		if result, err = n.keep(result); err != nil {
-			return ast.ASTHandle{}, err
-		}
-	}
-	n.memo[expression] = result
-	return result, nil
+	n.appArgs = n.appArgs[:writeIndex]
+	return readIndex != writeIndex, nil
 }
 
-// reduceAndOr is the and/or part of normalizer_cfg::reduce_app: sort,
-// remove_duplicates, detect_equivalences and rebuild. rewritten reports the
-// source's have_rewritten_args (BR_REWRITE1).
-func (n *booleanNormalizer) reduceAndOr(operation int32, arguments []ast.ASTHandle) (result ast.ASTHandle, rewritten bool, resultErr error) {
-	arguments = append([]ast.ASTHandle(nil), arguments...)
+// ReduceApp is normalizer_cfg::reduce_app.
+func (n *normalizerConfig) ReduceApp(declaration ast.ASTHandle, arguments ast.AppArguments, out, _ ast.ASTRef) (astrewriter.RewriteStatus, error) {
+	isNot, err := n.isOp(declaration, ast.ASTOpNot)
+	if err != nil {
+		return astrewriter.RewriteFailed, err
+	}
+	if isNot && arguments.Count() == 1 {
+		argument, err := arguments.At(0)
+		if err != nil {
+			return astrewriter.RewriteFailed, err
+		}
+		argumentAnd, err := n.isOp(argument, ast.ASTOpAnd)
+		if err != nil {
+			return astrewriter.RewriteFailed, err
+		}
+		argumentOr, err := n.isOp(argument, ast.ASTOpOr)
+		if err != nil {
+			return astrewriter.RewriteFailed, err
+		}
+		if argumentAnd || argumentOr {
+			if err = n.resetAppArgs(); err != nil {
+				return astrewriter.RewriteFailed, err
+			}
+			count, err := n.manager.GetNumArgs(argument)
+			if err != nil {
+				return astrewriter.RewriteFailed, err
+			}
+			for index := uint32(0); index < count; index++ {
+				child, err := n.manager.GetArg(argument, index)
+				if err != nil {
+					return astrewriter.RewriteFailed, err
+				}
+				if err = n.pushNot(child); err != nil {
+					return astrewriter.RewriteFailed, err
+				}
+			}
+			handles, err := n.appArgHandles()
+			if err != nil {
+				return astrewriter.RewriteFailed, err
+			}
+			var result ast.ASTHandle
+			if argumentAnd {
+				result, err = n.manager.MkOrArray(handles)
+			} else {
+				result, err = n.manager.MkAndArray(handles)
+			}
+			if err == nil {
+				err = n.manager.SetRef(out, result)
+			}
+			if err != nil {
+				return astrewriter.RewriteFailed, err
+			}
+			return astrewriter.Rewrite2, nil
+		}
+	}
+	isAnd, err := n.isOp(declaration, ast.ASTOpAnd)
+	if err != nil {
+		return astrewriter.RewriteFailed, err
+	}
+	isOr, err := n.isOp(declaration, ast.ASTOpOr)
+	if err != nil {
+		return astrewriter.RewriteFailed, err
+	}
+	if !isAnd && !isOr {
+		return astrewriter.RewriteFailed, nil
+	}
+	count := arguments.Count()
+	if count == 0 {
+		result, err := n.manager.MkBoolVal(isAnd)
+		if err == nil {
+			err = n.manager.SetRef(out, result)
+		}
+		if err != nil {
+			return astrewriter.RewriteFailed, err
+		}
+		return astrewriter.RewriteDone, nil
+	}
+	if count == 1 {
+		argument, err := arguments.At(0)
+		if err == nil {
+			err = n.manager.SetRef(out, argument)
+		}
+		if err != nil {
+			return astrewriter.RewriteFailed, err
+		}
+		return astrewriter.RewriteDone, nil
+	}
+	if err = n.resetAppArgs(); err != nil {
+		return astrewriter.RewriteFailed, err
+	}
+	handles := make([]ast.ASTHandle, count)
+	for index := uint32(0); index < count; index++ {
+		if handles[index], err = arguments.At(index); err != nil {
+			return astrewriter.RewriteFailed, err
+		}
+	}
+	// std::sort with expr_cmp: a total order (ties only for identical
+	// expressions), so the sorted sequence does not depend on the algorithm.
 	var compareErr error
-	sort.Slice(arguments, func(left, right int) bool {
+	sort.Slice(handles, func(left, right int) bool {
 		if compareErr != nil {
 			return false
 		}
-		comparison, e := n.compare(arguments[left], arguments[right], 4)
+		comparison, e := n.compare(handles[left], handles[right], 4)
 		if e != nil {
 			compareErr = e
 			return false
 		}
-		return comparison < 0
+		return comparison == -1
 	})
 	if compareErr != nil {
-		return ast.ASTHandle{}, false, compareErr
+		return astrewriter.RewriteFailed, compareErr
 	}
-	unique := arguments[:0]
-	for _, argument := range arguments {
-		if len(unique) == 0 || unique[len(unique)-1] != argument {
-			unique = append(unique, argument)
+	// remove_duplicates
+	unique := handles[:1]
+	for _, handle := range handles[1:] {
+		if unique[len(unique)-1] != handle {
+			unique = append(unique, handle)
 		}
 	}
-	arguments = unique
-	pairOperation := int32(ast.ASTOpOr)
-	insideDisjunction := operation == ast.ASTOpOr
-	if insideDisjunction {
-		pairOperation = ast.ASTOpAnd
+	for _, handle := range unique {
+		if err = n.pushAppArg(handle); err != nil {
+			return astrewriter.RewriteFailed, err
+		}
 	}
-	resultArguments := make([]ast.ASTHandle, 0, len(arguments))
-	havePair := false
-	var priorPair booleanPair
-	priorIndex := 0
-	for _, argument := range arguments {
-		currentPair, matched, e := n.pair(argument, pairOperation)
-		if e != nil {
-			return ast.ASTHandle{}, false, e
-		}
-		if matched && havePair {
-			equivalence, found, x := n.equivalence(priorPair, currentPair, insideDisjunction)
-			if x != nil {
-				return ast.ASTHandle{}, false, x
-			}
-			if found {
-				resultArguments[priorIndex] = equivalence
-				havePair = false
-				continue
-			}
-		}
-		if matched {
-			havePair = true
-			priorPair = currentPair
-			priorIndex = len(resultArguments)
-		} else {
-			havePair = false
-		}
-		resultArguments = append(resultArguments, argument)
+	haveRewrittenArgs, err := n.detectEquivalences(isOr)
+	if err != nil {
+		return astrewriter.RewriteFailed, err
 	}
-	rewritten = len(resultArguments) != len(arguments)
-	arguments = resultArguments
-	var err error
-	switch len(arguments) {
-	case 0:
-		result, err = n.manager.MkBoolVal(operation == ast.ASTOpAnd)
-	case 1:
-		result = arguments[0]
-	default:
-		if operation == ast.ASTOpAnd {
-			result, err = n.manager.MkAndArgs(arguments)
-		} else {
-			result, err = n.manager.MkOrArgs(arguments)
-		}
+	resultArgs, err := n.appArgHandles()
+	if err != nil {
+		return astrewriter.RewriteFailed, err
+	}
+	var result ast.ASTHandle
+	if len(resultArgs) == 1 {
+		result = resultArgs[0]
+	} else if isAnd {
+		result, err = n.manager.MkAndArgs(resultArgs)
+	} else {
+		result, err = n.manager.MkOrArgs(resultArgs)
+	}
+	if err == nil {
+		err = n.manager.SetRef(out, result)
 	}
 	if err != nil {
-		return ast.ASTHandle{}, false, err
+		return astrewriter.RewriteFailed, err
 	}
-	return result, rewritten, nil
+	if haveRewrittenArgs {
+		return astrewriter.Rewrite1, nil
+	}
+	return astrewriter.RewriteDone, nil
 }
 
-func normalizeBooleanExpression(manager *ast.ASTManager, expression ast.ASTHandle) (_ ast.ASTRef, resultErr error) {
-	normalizer := newBooleanNormalizer(manager)
-	defer func() { resultErr = errors.Join(resultErr, normalizer.close()) }()
-	result, err := normalizer.normalize(expression)
+// booleanNormalizer is mk_interp_tail_simplifier's m_cfg and m_rw: one
+// rewriter_tpl<normalizer_cfg> per plugin, so its cache outlives each
+// simplify_expr call as in the source.
+type booleanNormalizer struct {
+	cfg *normalizerConfig
+	rw  *astrewriter.Traversal
+}
+
+func newBooleanNormalizer(manager *ast.ASTManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService) (_ *booleanNormalizer, resultErr error) {
+	n := &booleanNormalizer{cfg: &normalizerConfig{manager: manager}}
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, n.close())
+		}
+	}()
+	if context != nil && globals != nil {
+		brwr, err := astrewriter.NewBoolRewriter(manager, context, globals, nil)
+		if err != nil {
+			if brwr != nil {
+				err = errors.Join(err, brwr.Close())
+			}
+			return nil, err
+		}
+		n.cfg.brwr = brwr
+	}
+	rw, err := astrewriter.NewTraversal(manager, n.cfg)
+	if err != nil {
+		if rw != nil {
+			err = errors.Join(err, rw.Close())
+		}
+		return nil, err
+	}
+	n.rw = rw
+	return n, nil
+}
+
+// close is ~mk_interp_tail_simplifier: dealloc(m_rw), then dealloc(m_cfg).
+// A refused release leaves the remaining owners reachable for a retry.
+func (n *booleanNormalizer) close() error {
+	if n == nil {
+		return nil
+	}
+	if n.rw != nil {
+		if err := n.rw.Close(); err != nil {
+			return err
+		}
+		n.rw = nil
+	}
+	if n.cfg != nil {
+		if err := n.cfg.close(); err != nil {
+			return err
+		}
+		n.cfg = nil
+	}
+	return nil
+}
+
+// normalize is (*m_rw)(expression, result).
+func (n *booleanNormalizer) normalize(expression ast.ASTHandle) (ast.ASTRef, error) {
+	out, err := n.cfg.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	return manager.NewRef(result)
+	if err = n.rw.Rewrite(expression, out); err != nil {
+		return ast.ASTRef{}, errors.Join(err, n.cfg.manager.DelRef(&out))
+	}
+	return out, nil
 }

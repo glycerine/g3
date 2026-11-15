@@ -35,8 +35,10 @@ type InterpTailSimplifierPlugin struct {
 	ruleHead    ast.ASTRef
 	ruleTails   []ast.ASTRef
 	ruleNeg     []bool
-	closed      bool
-	closing     bool
+	// normalizer is m_cfg and m_rw.
+	normalizer *booleanNormalizer
+	closed     bool
+	closing    bool
 }
 
 func NewInterpTailSimplifierPlugin(manager *ast.ASTManager, rules *base.RuleManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, priority uint32) (*InterpTailSimplifierPlugin, error) {
@@ -52,6 +54,9 @@ func NewInterpTailSimplifierPlugin(manager *ast.ASTManager, rules *base.RuleMana
 	}
 	p := &InterpTailSimplifierPlugin{manager: manager, rules: rules, rewriter: rewriter, params: context, globals: globals, priority: priority}
 	if err = p.initRuleSubstitution(); err != nil {
+		return nil, errors.Join(err, p.Close())
+	}
+	if p.normalizer, err = newBooleanNormalizer(manager, context, globals); err != nil {
 		return nil, errors.Join(err, p.Close())
 	}
 	return p, nil
@@ -78,6 +83,10 @@ func NewInterpTailSimplifierPluginShared(manager *ast.ASTManager, rules *base.Ru
 	}
 	p := &InterpTailSimplifierPlugin{manager: manager, rules: rules, rewriter: rewriter, borrowed: true, params: context, globals: globals, priority: priority}
 	if err := p.initRuleSubstitution(); err != nil {
+		return nil, errors.Join(err, p.Close())
+	}
+	var err error
+	if p.normalizer, err = newBooleanNormalizer(manager, context, globals); err != nil {
 		return nil, errors.Join(err, p.Close())
 	}
 	return p, nil
@@ -191,7 +200,7 @@ func (p *InterpTailSimplifierPlugin) simplifyRule(rule *base.Rule) (_ *base.Rule
 	if err != nil {
 		return nil, false, false, err
 	}
-	normalized, err := normalizeBooleanExpression(p.manager, simplified)
+	normalized, err := p.normalizer.normalize(simplified)
 	if err != nil {
 		return nil, false, false, err
 	}
@@ -751,6 +760,11 @@ func (p *InterpTailSimplifierPlugin) Close() error {
 		return nil
 	}
 	p.closing = true
+	// ~mk_interp_tail_simplifier deallocates m_rw, then m_cfg.
+	if err := p.normalizer.close(); err != nil {
+		return err
+	}
+	p.normalizer = nil
 	if p.rewriter != nil && !p.borrowed {
 		if err := p.rewriter.Close(); err != nil {
 			return err
