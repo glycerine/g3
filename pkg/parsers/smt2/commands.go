@@ -1284,6 +1284,14 @@ func (p *commandParser) command() (bool, error) {
 			if e != nil {
 				return false, e
 			}
+			// eval_cmd::init_pdescrs: model_evaluator params, model_index,
+			// timeout and max_memory; parametric_cmd::set_next_arg rejects
+			// any other keyword (rlimit included) at the keyword itself.
+			switch keyword {
+			case "completion", "cache", "array_equalities", "max_memory", "max_steps", "timeout", "model_index":
+			default:
+				return false, fmt.Errorf("invalid keyword argument")
+			}
 			if err = p.advance(); err != nil {
 				return false, err
 			}
@@ -1304,7 +1312,7 @@ func (p *commandParser) command() (bool, error) {
 				if err = p.advance(); err != nil {
 					return false, err
 				}
-			case "max_memory", "max_steps", "timeout", "rlimit", "model_index":
+			case "max_memory", "max_steps", "timeout", "model_index":
 				value, e := p.unsigned()
 				if e != nil {
 					return false, e
@@ -1316,13 +1324,9 @@ func (p *commandParser) command() (bool, error) {
 					options.MaxSteps = &value
 				case "timeout":
 					options.Timeout = value
-				case "rlimit":
-					options.RLimit = value
 				default:
 					options.ModelIndex = value
 				}
-			default:
-				return false, fmt.Errorf("invalid keyword argument")
 			}
 		}
 		if err = p.context.WriteEvaluationWithOptions(p.out, expression, options); err != nil {

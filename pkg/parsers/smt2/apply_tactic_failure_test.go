@@ -24,7 +24,7 @@ func TestSMT2ApplyTacticRejectsMalformedOptions(t *testing.T) {
 }
 
 func TestSMT2ApplyTacticAcceptsSourceOptions(t *testing.T) {
-	output, err := runApplyTacticScript(t, `(apply skip :print false :print_proof true :timeout 10 :rlimit 0 :max_memory 0)`)
+	output, err := runApplyTacticScript(t, `(apply skip :print false :print_proof true :timeout 10 :max_memory 0)`)
 	if err != nil {
 		t.Fatal(err, output)
 	}

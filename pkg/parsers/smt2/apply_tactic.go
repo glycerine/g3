@@ -10,6 +10,9 @@ import (
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
+// applyTacticParameterKinds is apply_tactic_cmd::init_pdescrs plus
+// exec_given_tactic_cmd::init_pdescrs: timeout, max_memory and
+// print_statistics, but no rlimit.
 var applyTacticParameterKinds = map[string]uparams.ParamKind{
 	"print":                 uparams.ParamBool,
 	"print_proof":           uparams.ParamBool,
@@ -18,7 +21,6 @@ var applyTacticParameterKinds = map[string]uparams.ParamKind{
 	"print_dependencies":    uparams.ParamBool,
 	"print_statistics":      uparams.ParamBool,
 	"timeout":               uparams.ParamUInt,
-	"rlimit":                uparams.ParamUInt,
 	"max_memory":            uparams.ParamUInt,
 }
 
