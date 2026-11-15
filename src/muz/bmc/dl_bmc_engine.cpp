@@ -287,7 +287,7 @@ namespace datalog {
 
                 // extract values for the variables in the rule.
                 for (unsigned j = 0; j < sub.size(); ++j) {
-                    expr_ref vl = eval_q(md, sub[j].get(), i);
+                    expr_ref vl = eval_q(md, sub[j].get(), level); // the trace level, not the rule ordinal i
                     if (vl) {
                         // vl can be 0 if the interpretation does not assign a value to it.
                         sub[j] = vl;
@@ -344,10 +344,10 @@ namespace datalog {
                     r0 = r2;
                 }
 
-                if (level == 0) {
-                    SASSERT(r->get_uninterpreted_tail_size() == 0);
-                    break;
+                if (r->get_uninterpreted_tail_size() == 0) {
+                    break; // a fact can be selected at any level
                 }
+                VERIFY(level > 0);
                 --level;
                 SASSERT(r->get_uninterpreted_tail_size() == 1);
                 pred = r->get_decl(0);
