@@ -20,7 +20,7 @@ func (f *OPBFrontend) WriteResult() error {
 		return err
 	}
 	if f.options.DisplayStatistics {
-		if err := f.context.WriteStatisticsWithTotalTime(f.output, f.elapsed.Seconds()); err != nil {
+		if err := f.context.WriteOptimizationFrontendStatistics(f.output, f.elapsed.Seconds()); err != nil {
 			return err
 		}
 	}
@@ -58,7 +58,7 @@ func (f *OPBFrontend) WriteProgress() error {
 		return nil
 	}
 	if f.options.DisplayStatistics {
-		if err := f.context.WriteStatisticsWithTotalTime(f.output, f.elapsed.Seconds()); err != nil {
+		if err := f.context.WriteOptimizationFrontendStatistics(f.output, f.elapsed.Seconds()); err != nil {
 			return err
 		}
 	}

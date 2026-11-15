@@ -17,7 +17,7 @@ func TestSMTContextRunWCNFReturnsOwnedResults(t *testing.T) {
 	if r.Status != lbool.True || r.Summary != (cmd_context.WCNFLoadSummary{Variables: 2, HardClauses: 1, SoftClauses: 1}) {
 		t.Fatal(r.Status, r.Summary)
 	}
-	if !strings.HasPrefix(r.Output, "sat\n") || !strings.Contains(r.Output, ":total-time") || !strings.HasSuffix(r.Output, "   0\n") {
+	if !strings.HasPrefix(r.Output, "sat\n") || !strings.Contains(r.Output, "\ntime:                ") /* AUDIT.md FUZZ_J-F6 */ || !strings.HasSuffix(r.Output, "   0\n") {
 		t.Fatal(r.Output)
 	}
 	r.Document.Clauses[0].Literals[0].Variable = 99

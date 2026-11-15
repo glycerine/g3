@@ -227,3 +227,25 @@ func TestWCNFFrontendSkipsSimplifyFormulas(t *testing.T) {
 		}
 	}
 }
+
+// AUDIT.md FUZZ_J-F6: -st prints opt::context::collect_statistics (with the
+// maxres counters) as plain "name: value" lines and the "time:" line.
+func TestWCNFFrontendStatisticsUseOptContext(t *testing.T) {
+	var output bytes.Buffer
+	f, err := NewWCNFFrontend(wcnfFrontendContext(t), &output, WCNFFrontendOptions{DisplayStatistics: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = f.Run(strings.NewReader("p wcnf 4 6 50\n6 2 0\n5 -1 0\n50 3 0\n50 -4 0\n5 4 1 -3 0\n4 -2 -3 0\n")); err != nil {
+		t.Fatal(err)
+	}
+	text := output.String()
+	for _, key := range []string{"\nmaxres-cores:", "\nmaxres-correction-sets:", "\nrlimit count:", "\ntime:                "} {
+		if !strings.Contains(text, key) {
+			t.Fatalf("missing %q in %q", key, text)
+		}
+	}
+	if strings.Contains(text, ":total-time") || !strings.HasSuffix(text, " secs\n   9\n") {
+		t.Fatalf("statistics layout %q", text)
+	}
+}

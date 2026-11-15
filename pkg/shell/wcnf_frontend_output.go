@@ -21,7 +21,7 @@ func (f *WCNFFrontend) WriteResult() error {
 		return e
 	}
 	if f.options.DisplayStatistics {
-		if e := f.context.WriteStatisticsWithTotalTime(f.output, f.elapsed.Seconds()); e != nil {
+		if e := f.context.WriteOptimizationFrontendStatistics(f.output, f.elapsed.Seconds()); e != nil {
 			return e
 		}
 	}
@@ -61,7 +61,7 @@ func (f *WCNFFrontend) WriteProgress() error {
 		return nil
 	}
 	if f.options.DisplayStatistics {
-		if err := f.context.WriteStatisticsWithTotalTime(f.output, f.elapsed.Seconds()); err != nil {
+		if err := f.context.WriteOptimizationFrontendStatistics(f.output, f.elapsed.Seconds()); err != nil {
 			return err
 		}
 	}

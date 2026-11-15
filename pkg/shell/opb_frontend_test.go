@@ -143,9 +143,22 @@ func TestOPBFrontendStatisticsPrecedeObjective(t *testing.T) {
 	if err = f.Run(strings.NewReader("min: 1 x1 +2 x2; 1 x1 +1 x2 >= 1;")); err != nil {
 		t.Fatal(err)
 	}
+	// opt_frontend display_statistics: opt::context::collect_statistics as
+	// plain "name: value" lines, then "time: ... secs", then the objective
+	// value (AUDIT.md FUZZ_J-F6).
 	text := output.String()
-	statistics, value := strings.Index(text, ":total-time"), strings.LastIndex(text, "   1\n")
-	if statistics < 0 || value < statistics {
+	var keys []string
+	for _, line := range strings.Split(text, "\n") {
+		if i := strings.Index(line, ":"); i > 0 {
+			keys = append(keys, line[:i])
+		}
+	}
+	want := []string{"binary propagations", "decisions", "max memory", "memory", "mk binary clause", "mk bool var", "num allocs", "rlimit count", "time"}
+	if strings.Join(keys, ",") != strings.Join(want, ",") {
+		t.Fatalf("statistics keys %q, want %q in %q", keys, want, text)
+	}
+	timeLine, value := strings.Index(text, "\ntime:                "), strings.LastIndex(text, " secs\n   1\n")
+	if timeLine < 0 || value < timeLine || strings.Contains(text, ":total-time") {
 		t.Fatalf("statistics and objective order: %q", text)
 	}
 }

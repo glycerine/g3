@@ -21,7 +21,9 @@ func TestOPBFrontendFileStatisticsAndDocumentCopy(t *testing.T) {
 	if err = f.RunFile(path); err != nil {
 		t.Fatal(err)
 	}
-	if text := output.String(); !strings.HasPrefix(text, "sat\n") || !strings.Contains(text, ":total-time") {
+	// display_statistics prints plain "name: value" lines and the "time:"
+	// line (AUDIT.md FUZZ_J-F6).
+	if text := output.String(); !strings.HasPrefix(text, "sat\n") || !strings.Contains(text, "\nrlimit count: ") || !strings.Contains(text, "\ntime:                ") {
 		t.Fatal(text)
 	}
 	document, err := f.Document()
