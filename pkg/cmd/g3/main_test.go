@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_spacer_02-F1: spacer.blast_term_ite runs the standalone
+	// blast_term_ite rewriter, not elim_term_ite.
+	"fixedpoint_spacer_blast_term_ite.smt2": "unsat\n",
 	// AUDIT.md muz_small_02-F1: tab.selection=basic-weight keeps
 	// BASIC_WEIGHT_SELECT (no score cache, no weight aging).
 	"tab_basic_weight_selection.smt2": "unsat\n",

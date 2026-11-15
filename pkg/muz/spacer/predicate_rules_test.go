@@ -3,6 +3,8 @@ package spacer_test
 // Source: src/muz/spacer/spacer_context.cpp predicate rule initialization.
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -227,4 +229,65 @@ func TestSpacerPredicateRulesBuildTaggedInitialAndTransitionSystem(t *testing.T)
 	spacerMust(t, ruleManager.Close())
 	spacerMust(t, owner.Close())
 	spacerMust(t, command.Close())
+}
+
+// AUDIT.md muz_spacer_02-F1: pred_transformer::init_rule runs the standalone
+// blast_term_ite rewriter, which hoists term ITEs into Boolean ITEs and
+// introduces no fresh constants (elim_term_ite would add k!N symbols).
+func TestSpacerPredicateRulesBlastTermITEIntroducesNoFreshConstants(t *testing.T) {
+	_, manager, owner := lemmaOwnerFixture(t)
+	arithmetic, err := manager.RegisterArithmeticPlugin()
+	spacerMust(t, err)
+	integer, err := manager.MkFamilySort(arithmetic, 1, nil)
+	spacerMust(t, err)
+	boolean, err := manager.MkBoolSort()
+	spacerMust(t, err)
+	pName, err := manager.Symbols.Intern("spacer-blast-ite-p")
+	spacerMust(t, err)
+	pDecl, err := manager.MkFuncDecl(pName, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+	spacerMust(t, err)
+	transformer, err := spacer.NewRulePredicateTransformer(owner, pDecl, spacer.PropSolverConfig{})
+	spacerMust(t, err)
+	ruleManager, err := base.NewRuleManager(manager)
+	spacerMust(t, err)
+	spacerMust(t, ruleManager.RegisterPredicate(pDecl))
+	x, err := manager.MkVar(0, integer)
+	spacerMust(t, err)
+	y, err := manager.MkVar(1, integer)
+	spacerMust(t, err)
+	one, err := manager.ArithmeticIntegerNumeralText("1")
+	spacerMust(t, err)
+	ten, err := manager.ArithmeticIntegerNumeralText("10")
+	spacerMust(t, err)
+	condition, err := manager.MkArithmeticLT(x, ten)
+	spacerMust(t, err)
+	successor, err := manager.MkArithmeticAdd(x, one)
+	spacerMust(t, err)
+	choice, err := manager.MkIte(condition, successor, x)
+	spacerMust(t, err)
+	constraint, err := manager.MkEq(y, choice)
+	spacerMust(t, err)
+	head, err := manager.MkApp(pDecl, []ast.ASTHandle{y})
+	spacerMust(t, err)
+	tail, err := manager.MkApp(pDecl, []ast.ASTHandle{x})
+	spacerMust(t, err)
+	recursive, err := ruleManager.NewRule(head, []ast.ASTHandle{tail, constraint}, nil, "recursive-ite")
+	spacerMust(t, err)
+	spacerMust(t, transformer.InitializeRules(map[ast.ASTHandle]*spacer.PredicateTransformer{pDecl: transformer}, []*base.Rule{recursive}))
+	transition, err := transformer.RuleTransition(recursive)
+	spacerMust(t, err)
+	printer, err := ast.NewSimpleASTPrinterContext(manager, nil, nil)
+	spacerMust(t, err)
+	var text bytes.Buffer
+	spacerMust(t, printer.DisplayExpr(&text, transition, 0))
+	if strings.Contains(text.String(), "k!") {
+		t.Fatal("blast_term_ite introduced fresh constants", text.String())
+	}
+	features, err := ast.NewStaticFeatures(manager)
+	spacerMust(t, err)
+	spacerMust(t, features.Collect(transition))
+	if features.NumITETerms != 0 {
+		t.Fatal("Spacer rule normalization retained term ITE", features.NumITETerms, text.String())
+	}
+	spacerMust(t, features.Close())
 }
