@@ -4,6 +4,8 @@ package fp_test
 // engine selected by the fixedpoint auto-configuration path.
 
 import (
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -187,5 +189,60 @@ func TestHornTacticBooleanVariableDisjunct(t *testing.T) {
 	hornInfiniteMust(t, horn.Apply(goal, result))
 	if !result.DecidedSat() {
 		t.Fatal("Horn goal with a Boolean variable disjunct was not decided sat")
+	}
+}
+
+// AUDIT.md muz_fp_03-F4: the horn tactic's datalog::context resolves its
+// engine from the tactic params (context::configure_engine), so engine=datalog
+// rejects an Int goal with the infinite-sort exception instead of auto-config
+// selecting PDR.
+func TestHornTacticHonorsEngineParameter(t *testing.T) {
+	command, err := cmd_context.NewStandaloneContext()
+	hornInfiniteMust(t, err)
+	t.Cleanup(func() { hornInfiniteMust(t, command.Close()) })
+	manager, err := command.Manager()
+	hornInfiniteMust(t, err)
+	globals, err := command.GlobalParameters()
+	hornInfiniteMust(t, err)
+	boolean, err := manager.MkBoolSort()
+	hornInfiniteMust(t, err)
+	arithmetic, err := manager.ArithmeticFamilyID()
+	hornInfiniteMust(t, err)
+	integer, err := manager.MkFamilySort(arithmetic, 1, nil)
+	hornInfiniteMust(t, err)
+	zero, err := manager.ArithmeticIntegerNumeralText("0")
+	hornInfiniteMust(t, err)
+	name, err := manager.Symbols.Intern("horn-engine-P")
+	hornInfiniteMust(t, err)
+	p, err := manager.MkFuncDecl(name, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+	hornInfiniteMust(t, err)
+	pZero, err := manager.MkApp(p, []ast.ASTHandle{zero})
+	hornInfiniteMust(t, err)
+	query, err := manager.MkNot(pZero)
+	hornInfiniteMust(t, err)
+	goal, err := tactic.NewGoal(manager, false, false, false)
+	hornInfiniteMust(t, err)
+	t.Cleanup(func() { hornInfiniteMust(t, goal.Close()) })
+	for _, formula := range []ast.ASTHandle{pZero, query} {
+		hornInfiniteMust(t, goal.Assert(formula))
+	}
+	horn, err := fp.NewHornTactic(manager, globals.Context, globals)
+	hornInfiniteMust(t, err)
+	hornInfiniteMust(t, horn.IncRef())
+	t.Cleanup(func() { hornInfiniteMust(t, horn.DecRef()) })
+	value, err := globals.Context.NewValue()
+	hornInfiniteMust(t, err)
+	t.Cleanup(func() { hornInfiniteMust(t, globals.Context.Del(&value)) })
+	key := "engine"
+	datalog, err := manager.Symbols.Intern("datalog")
+	hornInfiniteMust(t, err)
+	hornInfiniteMust(t, globals.Context.SetSymbolName(&value, &key, datalog))
+	hornInfiniteMust(t, horn.UpdateParams(&value))
+	result := &tactic.TacticResult{}
+	t.Cleanup(func() { hornInfiniteMust(t, result.Close()) })
+	err = horn.Apply(goal, result)
+	var exception *fp.HornTacticException
+	if !errors.As(err, &exception) || !strings.HasPrefix(exception.Error(), "Rule contains infinite sorts") {
+		t.Fatalf("engine=datalog Horn goal: %v, want the infinite-sort tactic exception", err)
 	}
 }

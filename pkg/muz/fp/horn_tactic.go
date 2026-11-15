@@ -556,7 +556,7 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 		return t.simplifyGoal(goal, out, engine, query, declaration)
 	}
 	// The backend receives the expression and constructs its own query rule.
-	if err = engine.SelectEngine("auto-config"); err != nil {
+	if err = engine.SelectConfiguredEngine(); err != nil {
 		return err
 	}
 	status, err := engine.QueryExpression(query)

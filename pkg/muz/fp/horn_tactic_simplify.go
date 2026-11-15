@@ -24,7 +24,7 @@ func (t *HornTactic) simplifyGoal(goal *tactic.Goal, out *tactic.TacticResult, e
 	// m_ctx.get_rules(); // flush adding rules.
 	// Source flush_add_rules ends with check_rules, whose property checks
 	// follow get_engine(), configured here from the pending rules.
-	if err := engine.SelectEngine("auto-config"); err != nil {
+	if err := engine.SelectConfiguredEngine(); err != nil {
 		return err
 	}
 	if err := engine.flushPendingRules(); err != nil {

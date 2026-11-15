@@ -1,0 +1,5 @@
+(declare-fun p (Int) Bool)
+(assert (forall ((x Int)) (=> (= x 0) (p x))))
+(assert (forall ((x Int)) (=> (and (p x) (< x 10)) (p (+ x 1)))))
+(assert (forall ((x Int)) (=> (p x) (<= x 10))))
+(check-sat-using (using-params horn :engine datalog))

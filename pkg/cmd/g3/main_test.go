@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_fp_03-F4: horn resolves fixedpoint.engine / :engine instead of forcing auto-config.
+	"horn_tactic_engine_param.smt2":        "(error \"tactic failed: Rule contains infinite sorts in rule <null>:\np(#0) :- \n (= (:var 0) 0).\n\")\n",
+	"horn_tactic_using_params_engine.smt2": "(error \"tactic failed: Rule contains infinite sorts in rule <null>:\np(#0) :- \n (= (:var 0) 0).\n\")\n",
 	// AUDIT.md muz_fp_01-F2: check_rules rejects Datalog rules over infinite sorts before any relation plugin.
 	"fp_datalog_int_rules_infinite_sorts.smt2":      "(error \"query failed: Rule contains infinite sorts in rule <null>:\np(0).\n\")\nunknown\n",
 	"fp_datalog_bound_relation_infinite_sorts.smt2": "(error \"query failed: Rule contains infinite sorts in rule <null>:\np(0).\n\")\nunknown\n",
