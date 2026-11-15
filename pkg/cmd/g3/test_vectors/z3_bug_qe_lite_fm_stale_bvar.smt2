@@ -1,0 +1,7 @@
+(declare-const a Bool)
+(declare-const b Bool)
+(declare-const c Bool)
+(declare-fun g (Int) Bool)
+(assert (exists ((x Int) (z Int)) (and (or a (<= (+ x z) 3)) (or b (>= (+ x z) 5)) (g z))))
+(assert (exists ((x Int) (z Int)) (and (or c (<= (+ x z) 3)) (or b (>= x 5)) (or a (<= x 1)) (g z))))
+(apply qe-light)

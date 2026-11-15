@@ -142,7 +142,10 @@ func (f *FourierMotzkin) Apply(forms *[]ast.ASTRef) (err error) {
 	}
 	// Source init resets all expression vectors. A fresh native run also
 	// clears Boolean indices: C++ accidentally resets m_expr2var twice and
-	// leaves m_expr2bvar pointing into the emptied Boolean vector.
+	// leaves m_expr2bvar pointing into the emptied Boolean vector, so a
+	// later formula's literal can name another constant (z3 4.7.1 bug,
+	// qe_lite.cpp:1531-1552 fm::init; AUDIT.md qe_02-F5;
+	// test_vectors/z3_bug_qe_lite_fm_stale_bvar.smt2).
 	f.store, err = newFMStore(&f.recognizer)
 	if err != nil {
 		return err

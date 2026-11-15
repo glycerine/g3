@@ -401,3 +401,13 @@ z3_bug_qe_dt_recursive_eq_recognizer
 # qe datatype equality branch, cons variant: z3 4.7.1 omits
 # ((_ is cons) (tl y)); see z3_bug_qe_dt_recursive_eq_recognizer above.
 z3_bug_qe_dt_recursive_eq_recognizer_cons
+#
+# qe-light Fourier-Motzkin stale Boolean map: fm::init resets m_bvar2expr
+# but not m_expr2bvar (it resets m_expr2var twice), so in a later formula
+# a Boolean literal maps to a stale bvar that now names another constant;
+# here the second formula gets (or b c) where (or b a) is right (z3 bug:
+# src/qe/qe_lite.cpp:1531-1552 fm::init, :1681-1686 to_bvar; still present
+# upstream in src/qe/lite/qe_lite_tactic.cpp). g3 starts each run with a
+# fresh store (pkg/qe/fourier_motzkin.go Apply; AUDIT.md qe_02-F5).
+# Reproduction: test_vectors/z3_bug_qe_lite_fm_stale_bvar.smt2.
+z3_bug_qe_lite_fm_stale_bvar
