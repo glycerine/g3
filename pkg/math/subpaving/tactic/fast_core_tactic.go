@@ -67,15 +67,27 @@ func NewFastCoreTacticOwned(m *ast.ASTManager, pc *params.ParamsContext, p *para
 		return nil, arena.ErrInvalidSlot
 	}
 	q := m.NumeralService()
-	if q == nil || q.RuntimeOwner() == nil || pc.Numerals() == nil || pc.Numerals().RuntimeOwner() == nil {
+	if q == nil || pc.Numerals() == nil {
 		return nil, arena.ErrConfig
 	}
+	// Source: subpaving_tactic::imp::updt_params builds the MPFF context from
+	// plain manager members, so construction cannot fail. As in the MPFX
+	// tactic, a missing runtime or process owner is accepted; only two
+	// distinct process owners are refused.
 	runtime := q.RuntimeOwner()
-	process := runtime.ProcessOwner()
-	if process == nil || pc.Numerals().RuntimeOwner().ProcessOwner() != process {
-		return nil, arena.ErrConfig
+	var process *memory.ProcessAccounting
+	if runtime != nil {
+		process = runtime.ProcessOwner()
 	}
-	budget := runtime.Budget()
+	if other := pc.Numerals().RuntimeOwner(); other != nil {
+		if otherProcess := other.ProcessOwner(); (process != nil || otherProcess != nil) && process != otherProcess {
+			return nil, arena.ErrConfig
+		}
+	}
+	budget := m.Budget()
+	if runtime != nil {
+		budget = runtime.Budget()
+	}
 	integers := numeral.IntegerConfig{Memory: runtime, Process: process, Cells: arena.Config{Budget: budget}, Words: arena.VectorConfig{Descriptors: arena.Config{Budget: budget}}}
 	rational, err := numeral.NewRationalManager(numeral.RationalConfig{Integers: integers})
 	if err != nil {
@@ -123,16 +135,17 @@ func NewFastCoreTactic(m *ast.ASTManager, numbers *numeral.FastFloatManager, rat
 		return nil, arena.ErrInvalidSlot
 	}
 	owners := []*memory.Runtime{numbers.RuntimeOwner(), rational.RuntimeOwner(), astNumerals.RuntimeOwner(), parameterNumerals.RuntimeOwner()}
+	var process *memory.ProcessAccounting
+	processSet := false
 	for _, owner := range owners {
 		if owner == nil {
-			return nil, arena.ErrInvalidSlot
+			continue
 		}
-	}
-	process := owners[0].ProcessOwner()
-	for _, owner := range owners[1:] {
-		if other := owner.ProcessOwner(); (process != nil || other != nil) && process != other {
+		other := owner.ProcessOwner()
+		if processSet && (process != nil || other != nil) && process != other {
 			return nil, arena.ErrConfig
 		}
+		process, processSet = other, true
 	}
 	owned, err := pc.NewValue()
 	if err != nil {

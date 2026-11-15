@@ -13,8 +13,14 @@ import (
 
 func publicFactoryFixture(t *testing.T) (*ast.ASTManager, *params.ParamsContext, *params.GlobalParamsService) {
 	t.Helper()
+	return publicFactoryFixtureWithProcess(t, memory.NewProcessAccounting())
+}
+
+// publicFactoryFixtureWithProcess accepts a nil process owner, which is how
+// the command-line context builds its memory runtime.
+func publicFactoryFixtureWithProcess(t *testing.T, process *memory.ProcessAccounting) (*ast.ASTManager, *params.ParamsContext, *params.GlobalParamsService) {
+	t.Helper()
 	b := arena.NewBudget(1 << 29)
-	process := memory.NewProcessAccounting()
 	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: b, Process: process, SizeTBits: 64})
 	if err != nil {
 		t.Fatal(err)
@@ -102,6 +108,40 @@ func TestSubpavingCoreFactoryAllConcreteEngines(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
+	}
+}
+
+// AUDIT.md math_subpaving_04-F1: the command-line AST manager has a memory
+// runtime without a process owner; :numeral mpff must still construct, as
+// subpaving_tactic::imp::updt_params cannot fail.
+func TestSubpavingCoreFactoryMPFFWithoutRuntime(t *testing.T) {
+	m, c, _ := publicFactoryFixtureWithProcess(t, nil)
+	p, err := c.NewValue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := c.Del(&p); err != nil {
+			t.Error(err)
+		}
+	}()
+	s, err := c.SymbolsField.Intern("mpff")
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := "numeral"
+	if err = c.SetSymbolName(&p, &key, s); err != nil {
+		t.Fatal(err)
+	}
+	created, err := NewSubpavingCoreTactic(m, c, &p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = created.IncRef(); err != nil {
+		t.Fatal(err)
+	}
+	if err = created.DecRef(); err != nil {
+		t.Fatal(err)
 	}
 }
 

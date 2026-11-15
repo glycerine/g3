@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md math_subpaving_04-F1: the :numeral mpff subpaving tactic
+	// constructs without a process owner (command-line AST manager).
+	"subpaving_mpff_basic.smt2":        "unknown\n",
+	"subpaving_div_zero_den_mpff.smt2": "(goals\n(goal\n  (>= y (- 2.0))\n  (<= y 2.0)\n  (>= a 1.0)\n  (<= a 2.0)\n  (<= (* a (^ y 2.0)) 10.0)\n  (>= (* a (^ y 2.0)) 1.0)\n  :precision precise :depth 2)\n)\n",
 	// AUDIT.md math_subpaving_01-F1: interval div only SASSERTs a zero-free
 	// denominator; a closed zero endpoint takes the P1 branches. Before the
 	// fix all three failed with "interval: undefined extended rational
