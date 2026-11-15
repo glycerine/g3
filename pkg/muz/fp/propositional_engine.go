@@ -264,6 +264,11 @@ type PropositionalEngine struct {
 	datalogExplanationQuery   bool
 	datalogExplanationAnswer  ast.ASTRef
 	datalogExplanationCleanup []*datalogExplanationOwners
+
+	// bitBlastAnswers holds, per bit-blasted original predicate, the
+	// latest query's answer over the derived Boolean relation
+	// (rules.get_pred(q) after mk_bit_blast).
+	bitBlastAnswers map[ast.ASTHandle]ast.ASTRef
 }
 
 // NewPropositionalEngineWithServices adds the retained AST theory rewriter
@@ -2581,7 +2586,18 @@ func (e *PropositionalEngine) buildRelationAnswer(declarations []ast.ASTHandle) 
 	}()
 	values := make([]ast.ASTHandle, 0, len(declarations))
 	for _, declaration := range declarations {
-		ref, err := e.finiteRelationAnswer(e.predicates[declaration])
+		var ref ast.ASTRef
+		var err error
+		if blasted, found := e.bitBlastAnswers[declaration]; found {
+			// rel_context::query reads get_relation(rules.get_pred(q)):
+			// the bit-blasted Boolean relation.
+			var h ast.ASTHandle
+			if h, err = e.manager.RefGet(blasted); err == nil {
+				ref, err = e.manager.NewRef(h)
+			}
+		} else {
+			ref, err = e.finiteRelationAnswer(e.predicates[declaration])
+		}
 		if err != nil {
 			return err
 		}
@@ -2619,6 +2635,9 @@ func (e *PropositionalEngine) buildRelationAnswer(declarations []ast.ASTHandle) 
 }
 
 func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandle) (status lbool.LBool, resultErr error) {
+	if err := e.releaseBitBlastAnswers(); err != nil {
+		return lbool.Undef, err
+	}
 	if err := e.checkDatalogEarlyRuleProperties(); err != nil {
 		return lbool.Undef, err
 	}
@@ -3152,6 +3171,11 @@ func (e *PropositionalEngine) computeAnswer(declaration ast.ASTHandle) (answer a
 		}
 		return answer, ErrPropositionalEngine
 	}
+	if blasted, found := e.bitBlastAnswers[declaration]; found {
+		// rel_context::query answers from get_relation(rules.get_pred(q)),
+		// the bit-blasted Boolean relation.
+		return e.manager.CopyRef(blasted)
+	}
 	return e.finiteRelationAnswer(state)
 }
 
@@ -3436,6 +3460,9 @@ func (e *PropositionalEngine) Close() (result error) {
 			return err
 		}
 		e.relAnswer = ast.ASTRef{}
+	}
+	if err := e.releaseBitBlastAnswers(); err != nil {
+		return err
 	}
 	e.closing = true
 	e.queryReady = false

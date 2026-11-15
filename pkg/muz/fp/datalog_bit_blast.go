@@ -2,11 +2,13 @@ package fp
 
 // Source: rel_context::transform_rules registers bit blasting at 22000 and
 // another interpreted-tail simplifier at 21000. Predicate expansion comes from
-// dl_mk_bit_blast.cpp. The C++ transform does not migrate stored facts, and its
-// relational answer uses transformed Boolean coordinates. Go preserves its
-// existing finite fact, original-domain Answer and Model contracts by importing
-// stored rows and materializing completed Boolean results back into their
-// original tables before the query scope releases transformed predicates.
+// dl_mk_bit_blast.cpp. The relational answer uses the transformed Boolean
+// coordinates (rel_context::query reads get_relation(rules.get_pred(q))), so
+// publish records it from the derived relation. Go stores ground rules as
+// table rows, so install imports them into the derived tables (the C++
+// transforms those rules); the completed Boolean results are also
+// materialized back into the original tables before the query scope releases
+// the transformed predicates.
 
 import (
 	"errors"
@@ -165,6 +167,26 @@ func (q *datalogBitBlastQuery) publish() (resultErr error) {
 			}
 		}
 	}()
+	for _, columns := range q.columns {
+		derived := e.predicates[columns.derived]
+		if derived == nil || derived.table == nil {
+			return ErrPropositionalEngine
+		}
+		answer, err := e.finiteRelationAnswer(derived)
+		if err != nil {
+			return err
+		}
+		if e.bitBlastAnswers == nil {
+			e.bitBlastAnswers = make(map[ast.ASTHandle]ast.ASTRef)
+		}
+		if old, found := e.bitBlastAnswers[columns.original]; found {
+			err = e.manager.DelRef(&old)
+		}
+		e.bitBlastAnswers[columns.original] = answer
+		if err != nil {
+			return err
+		}
+	}
 	for index, columns := range q.columns {
 		original, derived := e.predicates[columns.original], e.predicates[columns.derived]
 		if original == nil || original.table == nil || derived == nil || derived.table == nil {
@@ -200,4 +222,17 @@ func (q *datalogBitBlastQuery) publish() (resultErr error) {
 		}
 	}
 	return nil
+}
+
+// releaseBitBlastAnswers drops the previous query's Boolean-relation answers.
+func (e *PropositionalEngine) releaseBitBlastAnswers() error {
+	var err error
+	for declaration, answer := range e.bitBlastAnswers {
+		if cause := e.manager.DelRef(&answer); cause != nil {
+			err = errors.Join(err, cause)
+			continue
+		}
+		delete(e.bitBlastAnswers, declaration)
+	}
+	return err
 }

@@ -290,12 +290,26 @@ func TestDatalogBitBlastFiniteQueriesPreserveOriginalDomain(t *testing.T) {
 				must(err)
 				substitution, err := astrewriter.NewVarSubstitution(m, false)
 				must(err)
+				// rel_context::query answers from the bit-blasted relation
+				// (AUDIT.md muz_fp_01-F5): one Boolean column per bit, most
+				// significant first ((:var 0) is the high bit; the
+				// non-standard var_subst binds (:var i) to bindings[n-1-i]).
 				for value := uint64(0); value < 4; value++ {
-					constant, err := m.BitVectorNumeralUint64(value, 2)
-					must(err)
+					var bindings []ast.ASTHandle
+					if tc.enabled {
+						high, err := m.MkBoolVal(value&2 != 0)
+						must(err)
+						low, err := m.MkBoolVal(value&1 != 0)
+						must(err)
+						bindings = []ast.ASTHandle{low, high}
+					} else {
+						constant, err := m.BitVectorNumeralUint64(value, 2)
+						must(err)
+						bindings = []ast.ASTHandle{constant}
+					}
 					ground, err := m.NewRef(ast.ASTHandle{})
 					must(err)
-					must(substitution.Substitute(formula, []ast.ASTHandle{constant}, ground))
+					must(substitution.Substitute(formula, bindings, ground))
 					expression, err := m.RefGet(ground)
 					must(err)
 					reduced, err := m.NewRef(ast.ASTHandle{})
@@ -305,7 +319,7 @@ func TestDatalogBitBlastFiniteQueriesPreserveOriginalDomain(t *testing.T) {
 					must(err)
 					want := value == 1 || attempt == 1 && value == 0
 					if m.IsTrue(truth) != want || !m.IsTrue(truth) && !m.IsFalse(truth) {
-						t.Fatal("original BV answer coordinates", value, want)
+						t.Fatal("Boolean answer coordinates", value, want)
 					}
 					must(m.DelRef(&reduced))
 					must(m.DelRef(&ground))

@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_fp_01-F5: the bit-blast answer is the Boolean relation's formula.
+	"fp_datalog_bit_blast_answer.smt2": "sat\n(or (and (= (:var 0) false) (= (:var 1) true))\n    (and (= (:var 0) true) (= (:var 1) false)))\n",
 	// AUDIT.md muz_fp_02-F4: Karr favourite with similarity threshold 1.
 	"datalog_karr_similarity_threshold_one.smt2": "unknown\napproximated relations\nunsat\n",
 	// AUDIT.md muz_fp_02-F4: rel_query does not run mk_explanations (bound favourite).
