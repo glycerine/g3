@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_06-F3: is_pattern requires application arguments, so a
+	// rewritten pattern that became a variable keeps the original.
+	"rewrite_patterns_var_trigger.smt2": "(forall ((x Int)) (! (not (<= (f x) 0)) :pattern ((+ x 0) (f x))))\n(forall ((x (_ BitVec 8))) (! (= x #x01) :pattern ((bvadd x #x00))))\n(forall ((x Int) (y Int))\n  (! (not (<= (f x) y)) :pattern ((select (store a x y) x) (f x))))\n",
 	// AUDIT.md ast_06-F2: seq_decl_plugin ignores declaration parameters
 	// outside re.loop, string constants and skolems.
 	"seq_indexed_ignored_params.smt2": "sat\n",

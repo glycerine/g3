@@ -33,17 +33,10 @@ func (m *ASTManager) RewriterCommutative(d ASTHandle) (bool, error) {
 	return flags.Commutative, e
 }
 
+// RewriterPattern is m_manager.is_pattern(np[i]) in
+// rewriter_tpl::reduce_quantifier.
 func (m *ASTManager) RewriterPattern(t ASTHandle) (bool, error) {
-	kind, e := m.GetKind(t)
-	if e != nil || kind != ASTApp {
-		return false, e
-	}
-	fid, e := m.GetFamilyID(t)
-	if e != nil || fid != 2 {
-		return false, e
-	}
-	op, e := m.GetDeclKind(t)
-	return op == 0, e
+	return m.IsPattern(t)
 }
 
 // AppArgumentView borrows an application's checked handle array for a source

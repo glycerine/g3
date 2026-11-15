@@ -1,0 +1,5 @@
+(declare-fun f (Int) Int)
+(declare-fun a () (Array Int Int))
+(simplify (forall ((x Int)) (! (> (f x) 0) :pattern ((+ x 0) (f x)))) :rewrite_patterns true)
+(simplify (forall ((x (_ BitVec 8))) (! (= (bvadd x #x00) #x01) :pattern ((bvadd x #x00)))) :rewrite_patterns true)
+(simplify (forall ((x Int) (y Int)) (! (> (f x) y) :pattern ((select (store a x y) x) (f x)))) :rewrite_patterns true)
