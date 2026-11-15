@@ -206,7 +206,9 @@ func (t *FullTranslation) translateProofIdiom(proof, conclusion ast.ASTHandle, r
 			return ast.ASTHandle{}, false, err
 		}
 		if firstRule == ast.ASTPrQuantInst {
-			locality, e := t.Locality(second)
+			// C++ get_locality_rec, not get_locality: INT_MAX means the
+			// rewrite premise has no asserted leaves.
+			locality, e := t.localityRecursive(second)
 			if e != nil {
 				return ast.ASTHandle{}, false, e
 			}

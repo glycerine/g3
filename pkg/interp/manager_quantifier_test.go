@@ -120,6 +120,15 @@ func TestInterpolationManagerCloseUniversally(t *testing.T) {
 	if name, e := w.QuantifierBoundName(closed, 0); e != nil || name != "%%0" {
 		t.Fatal("generated bound name", name, e)
 	}
+	// AUDIT.md interp_02-F3: iz3mgr::make_quant sets weight 0 and qid "itp".
+	qid, _, err := m.GetQuantifierIDs(closed)
+	interpMust(t, err)
+	if text, e := m.Symbols.String(qid); e != nil || text != "itp" {
+		t.Fatal("quantifier qid", text, e)
+	}
+	if weight, e := m.GetQuantifierWeight(closed); e != nil || weight != 0 {
+		t.Fatal("quantifier weight", weight, e)
+	}
 	if _, err = w.ApplyQuantifier(OperatorPlus, free, body); err == nil {
 		t.Fatal("accepted non-quantifier operator")
 	}

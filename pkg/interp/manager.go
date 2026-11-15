@@ -527,7 +527,12 @@ func (m *Manager) MakeQuantifier(op Operator, bound []ast.ASTHandle, body ast.AS
 			return ast.ASTHandle{}, e
 		}
 	}
-	return m.ast.MkQuantifier(ast.ASTQuantifierSpec{Forall: op == OperatorForall, Sorts: sorts, Names: names, Body: abstracted})
+	// iz3mgr::make_quant: weight 0, qid symbol("itp").
+	qid, err := m.ast.Symbols.Intern("itp")
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return m.ast.MkQuantifier(ast.ASTQuantifierSpec{Forall: op == OperatorForall, Sorts: sorts, Names: names, Body: abstracted, QID: qid})
 }
 
 func (m *Manager) Clone(h ast.ASTHandle, args []ast.ASTHandle) (ast.ASTHandle, error) {

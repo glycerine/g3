@@ -338,6 +338,11 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md interp_02-F1 (with interp_02-F3): the mp(quant-inst, rewrite)
+	// idiom tests get_locality_rec, and make_quant sets qid itp.
+	"interp_quant_inst_rewrite_axiom.smt2": "unsat\n(interpolants\n (forall ((%0 U)) (! (p %0) :qid itp))\n (forall ((%0 U)) (! (p %0) :qid itp)))\n",
+	// AUDIT.md interp_02-F3: iz3mgr::make_quant sets qid itp.
+	"interp_quantified_qid.smt2": "unsat\n(interpolants\n (forall ((%0 Int)) (! (not (<= (f %0) 0)) :qid itp))\n (forall ((%0 Int)) (! (not (<= (f %0) 0)) :qid itp)))\n",
 	// AUDIT.md muz_pdr_01-F1: get_trace keeps every popped predicate, with
 	// no Go-only nonlinear/recursive-anchor abbreviation.
 	"fixedpoint_pdr_two_recursive_trace.smt2":      "sat\n(and (Q 12) (Q 11) (Q 10) (P 3) (P 2) (P 1) (P 0))\n",

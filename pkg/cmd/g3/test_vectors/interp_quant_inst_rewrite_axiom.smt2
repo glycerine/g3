@@ -1,0 +1,8 @@
+(declare-sort U 0)
+(declare-fun p (U) Bool)
+(declare-fun q (U) Bool)
+(declare-fun r (U) Bool)
+(declare-fun h (U) U)
+(declare-const b U)
+(declare-const c U)
+(compute-interpolant (interp (and (forall ((x U)) (! (or (p x) (q x)) :pattern ((p x)))) (forall ((y U)) (not (q y))))) (and (or (not (p b)) (r b)) (or (not (p b)) (not (r b)))))
