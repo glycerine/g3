@@ -153,10 +153,19 @@ func (c *SMTContext) NumeralString(value ast.ASTHandle) (string, error) {
 	}
 	return "", errAPINumeralArgument
 }
+
+// IsNumeral is Z3_is_numeral_ast: the arith, bit-vector, floating-point and
+// rounding-mode numeral recognizers, or dl_decl_util::is_numeral_ext, which
+// also accepts true and false. NumeralString (Z3_get_numeral_string) covers
+// all but the Boolean values.
 func (c *SMTContext) IsNumeral(value ast.ASTHandle) (bool, error) {
 	_, e := c.NumeralString(value)
 	if errors.Is(e, errAPINumeralArgument) {
-		return false, nil
+		m, err := c.Manager()
+		if err != nil {
+			return false, err
+		}
+		return m.IsTrue(value) || m.IsFalse(value), nil
 	}
 	return e == nil, e
 }

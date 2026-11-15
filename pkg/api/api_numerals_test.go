@@ -107,3 +107,24 @@ func TestAPINumeralRejectsNonNumeralText(t *testing.T) {
 		t.Fatal("non-numeral sort", err)
 	}
 }
+
+// AUDIT.md api_02-F4: Z3_is_numeral_ast accepts true/false through
+// dl_decl_util::is_numeral_ext; Z3_get_numeral_string still rejects them.
+func TestAPIIsNumeralMatchesSourceRecognizers(t *testing.T) {
+	f := newSMTAPIFixture(t, "ALL", nil)
+	for _, value := range []bool{true, false} {
+		h := f.pin(f.c.Bool(value))
+		yes, err := f.c.IsNumeral(h)
+		if err != nil || !yes {
+			t.Fatal("IsNumeral bool", value, yes, err)
+		}
+		if _, err = f.c.NumeralString(h); !errors.Is(err, errAPINumeralArgument) {
+			t.Fatal("NumeralString bool", value, err)
+		}
+	}
+	boolean := f.pin(f.m.MkBoolSort())
+	p := f.pin(f.c.Constant("is-numeral-p", boolean))
+	if yes, err := f.c.IsNumeral(p); err != nil || yes {
+		t.Fatal("IsNumeral constant", yes, err)
+	}
+}
