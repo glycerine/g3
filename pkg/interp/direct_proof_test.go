@@ -2,6 +2,8 @@ package interp
 
 import (
 	"errors"
+	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -1568,5 +1570,159 @@ func TestDirectProofEqFromIneqRealZeroKeepsSum(t *testing.T) {
 		if !real && (left != x || right != y) {
 			t.Fatal("Int 0 did not split the sum", left, right)
 		}
+	}
+}
+
+func directProofIntegerFixture(t *testing.T, prefix string) (*ast.ASTManager, *Manager, *DirectProofInterpolator, ast.ASTHandle, ast.ASTHandle) {
+	t.Helper()
+	m, manager := interpRewritingManagerFixture(t)
+	integer, err := manager.IntType()
+	interpMust(t, err)
+	x, err := manager.MakeVariable(prefix+"-x", integer)
+	interpMust(t, err)
+	x = interpPin(t, m, x)
+	y, err := manager.MakeVariable(prefix+"-y", integer)
+	interpMust(t, err)
+	y = interpPin(t, m, y)
+	base, err := NewBase(manager, []ast.ASTHandle{x, y}, nil, nil)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, base.Close()) })
+	direct, err := NewDirectProofInterpolator(base, DownwardScopeRange(0), false)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, direct.Close()) })
+	return m, manager, direct, x, y
+}
+
+// AUDIT.md interp_01-F5: rotate_sum_rec returns a @normal accumulator at
+// the placeholder instead of simplifying it as an inequality.
+func TestDirectProofRotatedSumKeepsNormal(t *testing.T) {
+	_, manager, direct, x, _ := directProofIntegerFixture(t, "rot-normal")
+	truth, err := manager.Make(OperatorTrue)
+	interpMust(t, err)
+	zero, err := manager.MakeIntText("0")
+	interpMust(t, err)
+	one, err := manager.MakeIntText("1")
+	interpMust(t, err)
+	step, err := direct.makeNormalStep(x, zero, truth)
+	interpMust(t, err)
+	chain, err := direct.consNormal(step, truth)
+	interpMust(t, err)
+	inequality, err := manager.Make(OperatorLE, zero, x)
+	interpMust(t, err)
+	normal, err := direct.makeNormal(inequality, chain)
+	interpMust(t, err)
+	literal, err := manager.Make(OperatorLE, x, zero)
+	interpMust(t, err)
+	placeholder, err := direct.placeholder(literal)
+	interpMust(t, err)
+	proof, err := direct.makeSymbol(direct.sum, placeholder, one, normal)
+	interpMust(t, err)
+	// simplify_rotate_sum itself; the final normalize of SimplifyProofTerm
+	// would substitute the chain away.
+	result, err := direct.simplifyRotatedSum([]ast.ASTHandle{literal, proof})
+	interpMust(t, err)
+	found := false
+	var visit func(ast.ASTHandle)
+	visit = func(h ast.ASTHandle) {
+		if isNormal, e := direct.isNormalWrapper(h); e == nil && isNormal {
+			found = true
+			return
+		}
+		if op, e := manager.Operator(h); e != nil || (op != OperatorAnd && op != OperatorImplies) {
+			return
+		}
+		args, e := manager.Args(h)
+		interpMust(t, e)
+		for _, arg := range args {
+			visit(arg)
+		}
+	}
+	visit(result)
+	if !found {
+		var text strings.Builder
+		_ = manager.PrintExpr(&text, result)
+		t.Fatal("rotated sum lost the @normal accumulator", text.String())
+	}
+}
+
+// AUDIT.md interp_01-F5: idiv_ineq divides inside @normal and builds
+// make(op(ineq), ...) for any comparison.
+func TestDirectProofIdivNormal(t *testing.T) {
+	_, manager, direct, x, _ := directProofIntegerFixture(t, "idiv-normal")
+	truth, err := manager.Make(OperatorTrue)
+	interpMust(t, err)
+	zero, err := manager.MakeIntText("0")
+	interpMust(t, err)
+	two, err := manager.MakeIntText("2")
+	interpMust(t, err)
+	three, err := manager.MakeIntText("3")
+	interpMust(t, err)
+	step, err := direct.makeNormalStep(x, zero, truth)
+	interpMust(t, err)
+	chain, err := direct.consNormal(step, truth)
+	interpMust(t, err)
+	inequality, err := manager.Make(OperatorLE, x, three)
+	interpMust(t, err)
+	normal, err := direct.makeNormal(inequality, chain)
+	interpMust(t, err)
+	divided, err := direct.divideInequality(normal, two)
+	interpMust(t, err)
+	isNormal, err := direct.isNormalWrapper(divided)
+	interpMust(t, err)
+	if !isNormal {
+		t.Fatal("idiv dropped @normal", divided)
+	}
+	body, dividedChain, err := direct.destructNormal(divided)
+	interpMust(t, err)
+	if dividedChain != chain {
+		t.Fatal("idiv changed the normal chain")
+	}
+	if op, e := manager.Operator(body); e != nil || op != OperatorLE {
+		t.Fatal("idiv body operator", op, e)
+	}
+	right, err := manager.Arg(body, 1)
+	interpMust(t, err)
+	if value, numeral, e := manager.Numeral(right); e != nil || !numeral || value.Cmp(big.NewRat(1, 1)) != 0 {
+		t.Fatal("idiv bound", value, numeral, e)
+	}
+	greater, err := manager.Make(OperatorGE, x, three)
+	interpMust(t, err)
+	divided, err = direct.divideInequality(greater, two)
+	interpMust(t, err)
+	if op, e := manager.Operator(divided); e != nil || op != OperatorGE {
+		t.Fatal("idiv of >=", op, e)
+	}
+}
+
+// AUDIT.md interp_01-F5: simplify_rotate_leq2eq applies ineq_from_chain
+// to each premise before round_ineq, so a rewrite-chain premise is accepted.
+func TestDirectProofRotatedLeqToEqFromChain(t *testing.T) {
+	_, manager, direct, x, y := directProofIntegerFixture(t, "rot-leq2eq-chain")
+	truth, err := manager.Make(OperatorTrue)
+	interpMust(t, err)
+	equality, err := manager.Make(OperatorEqual, x, y)
+	interpMust(t, err)
+	negativeEquality, err := manager.MkNot(equality)
+	interpMust(t, err)
+	placeholder, err := direct.placeholder(negativeEquality)
+	interpMust(t, err)
+	xLeqY, err := manager.Make(OperatorLE, x, y)
+	interpMust(t, err)
+	headEquality, err := manager.Make(OperatorIff, truth, xLeqY)
+	interpMust(t, err)
+	head, err := direct.makeRewrite(TermA, direct.topPosition, truth, headEquality)
+	interpMust(t, err)
+	chain, err := direct.chainCons(truth, head)
+	interpMust(t, err)
+	yLeqX, err := manager.Make(OperatorLE, y, x)
+	interpMust(t, err)
+	proof, err := direct.makeSymbol(direct.leqToEq, placeholder, chain, yLeqX)
+	interpMust(t, err)
+	proof, err = direct.makeSymbol(direct.rotateSum, negativeEquality, proof)
+	interpMust(t, err)
+	result, err := direct.SimplifyProofTerm(proof)
+	interpMust(t, err)
+	if declaration, e := manager.Symbol(result); e != nil || declaration != direct.concat {
+		t.Fatal("rotated leq2eq from chain", declaration, e)
 	}
 }

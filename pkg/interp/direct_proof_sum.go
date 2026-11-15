@@ -303,6 +303,22 @@ func (p *DirectProofInterpolator) distributeSumCoefficient(coefficient, expressi
 }
 
 func (p *DirectProofInterpolator) divideInequality(inequality, divisor ast.ASTHandle) (ast.ASTHandle, error) {
+	// idiv_ineq: a @normal wrapper divides its inequality and keeps the chain.
+	normal, err := p.isNormalWrapper(inequality)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if normal {
+		body, chain, e := p.destructNormal(inequality)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		body, e = p.divideInequality(body, divisor)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		return p.makeNormal(body, chain)
+	}
 	value, numeral, err := p.base.manager.Numeral(divisor)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -339,11 +355,13 @@ func (p *DirectProofInterpolator) divideInequality(inequality, divisor ast.ASTHa
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		op = OperatorLE
+		op, err = p.base.manager.Operator(inequality)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
 	}
-	if op != OperatorLE {
-		return ast.ASTHandle{}, ProofError{}
-	}
+	// make(op(ineq), mk_idiv(arg0), mk_idiv(arg1)) for any operator; GCC
+	// evaluates the right mk_idiv first.
 	left, err := p.base.manager.Arg(inequality, 0)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -352,11 +370,11 @@ func (p *DirectProofInterpolator) divideInequality(inequality, divisor ast.ASTHa
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	left, err = p.ownedIntegerDivision(left, divisor)
+	right, err = p.ownedIntegerDivision(right, divisor)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	right, err = p.ownedIntegerDivision(right, divisor)
+	left, err = p.ownedIntegerDivision(left, divisor)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -387,6 +405,14 @@ func (p *DirectProofInterpolator) simplifyRotatedSum(args []ast.ASTHandle) (ast.
 	var rotate func(ast.ASTHandle, ast.ASTHandle) (ast.ASTHandle, error)
 	rotate = func(proof, current ast.ASTHandle) (ast.ASTHandle, error) {
 		if proof == placeholder {
+			// rotate_sum_rec: a @normal accumulator is returned as is.
+			normal, e := p.isNormalWrapper(current)
+			if e != nil {
+				return ast.ASTHandle{}, e
+			}
+			if normal {
+				return current, nil
+			}
 			return p.base.manager.SimplifyInequality(current)
 		}
 		op, e := p.base.manager.Operator(proof)
@@ -502,6 +528,25 @@ func (p *DirectProofInterpolator) inequalityRight(inequality ast.ASTHandle) (ast
 	return p.base.manager.Arg(inequality, 1)
 }
 
+// inequalityFromChain is ineq_from_chain: a rewrite chain (@concat) becomes
+// its normal inequality; any other term is returned unchanged.
+func (p *DirectProofInterpolator) inequalityFromChain(chain ast.ASTHandle, aProof, bProof *ast.ASTHandle) (ast.ASTHandle, error) {
+	op, err := p.base.manager.Operator(chain)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if op == OperatorUninterpreted {
+		declaration, e := p.base.manager.Symbol(chain)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		if declaration == p.concat {
+			return p.rewriteChainToNormalInequality(chain, aProof, bProof)
+		}
+	}
+	return chain, nil
+}
+
 func (p *DirectProofInterpolator) simplifyRotatedLeqToEq(placeholder, negativeEquality, proof ast.ASTHandle) (ast.ASTHandle, error) {
 	first, err := p.base.manager.Arg(proof, 0)
 	if err != nil || first != placeholder {
@@ -540,7 +585,16 @@ func (p *DirectProofInterpolator) simplifyRotatedLeqToEq(placeholder, negativeEq
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	// round_ineq(ineq_from_chain(pf1)) and then the same for pf2.
+	xLeqY, err = p.inequalityFromChain(xLeqY, &aProof1, &bProof1)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
 	xLeqY, err = p.roundInequality(xLeqY)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	yLeqX, err = p.inequalityFromChain(yLeqX, &aProof1, &bProof1)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
