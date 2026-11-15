@@ -228,10 +228,21 @@ type macroTheoryNormalizer struct {
 	rewrite *rewriter.TheoryRewriter
 }
 
-func newMacroTheoryNormalizer(m *ast.ASTManager) (n *macroTheoryNormalizer, result error) {
+// newMacroTheoryNormalizer is th_rewriter rw(m): it reads the process
+// gparams rewriter module from context/globals. Without them (unit tests
+// that build a bare Manager) a private default service supplies the
+// rewriter defaults.
+func newMacroTheoryNormalizer(m *ast.ASTManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService) (n *macroTheoryNormalizer, result error) {
 	n = &macroTheoryNormalizer{}
 	fail := func(err error) (*macroTheoryNormalizer, error) { return n, errors.Join(err, n.close()) }
 	var err error
+	if context != nil && globals != nil {
+		n.rewrite, err = rewriter.NewTheoryRewriter(m, context, globals, nil)
+		if err != nil {
+			return fail(err)
+		}
+		return n, nil
+	}
 	n.context, err = uparams.NewParamsContext(m.Symbols, m.NumeralService(), uparams.ParamsConfig{Budget: m.Budget(), Text: arena.VectorConfig{Descriptors: arena.Config{Budget: m.Budget()}}})
 	if err != nil {
 		return fail(err)
@@ -406,7 +417,7 @@ func (m *Manager) ExpandMacros(term, proof ast.ASTHandle, dependency ast.ASTDepe
 	if !changed {
 		return resultDependency, nil
 	}
-	normalizer, err := newMacroTheoryNormalizer(m.manager)
+	normalizer, err := newMacroTheoryNormalizer(m.manager, m.paramsContext, m.globals)
 	if err != nil {
 		return resultDependency, err
 	}

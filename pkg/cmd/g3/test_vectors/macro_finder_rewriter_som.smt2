@@ -1,0 +1,6 @@
+(set-option :rewriter.som true)
+(declare-fun f (Int) Int)
+(declare-fun a () Int)
+(assert (forall ((x Int)) (= (f x) (* x (+ x 1)))))
+(assert (> (f a) 3))
+(apply macro-finder)

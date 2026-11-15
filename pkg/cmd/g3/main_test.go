@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_sub_01-F2: expand_macros' th_rewriter(m) reads the global
+	// rewriter module (rewriter.som).
+	"macro_finder_rewriter_som.smt2": "(goals\n(goal\n  (not (<= (+ a (* a a)) 3))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md ast_rewriter_06-F1: blaster's bool_rewriter reads the global
 	// rewriter module (ite_extra_rules) before set_flat/set_elim_and.
 	"bit_blast_ite_extra_rules.smt2": "(goals\n(goal\n  (let ((a!1 (not (ite (or k!6 k!7)\n                       k!3\n                       (ite k!5 (ite k!4 k!3 k!2) (ite k!4 k!1 k!0))))))\n    (not (= a!1 k!8)))\n  (let ((a!1 (= (not (ite (or k!6 k!7 k!5) k!3 (ite k!4 k!2 k!1))) k!9)))\n    (not a!1))\n  (let ((a!1 (= (not (ite (or k!6 k!7 k!5 k!4) k!3 k!2)) k!10)))\n    (not a!1))\n  (not (= (not k!3) k!11))\n  :precision precise :depth 1)\n)\n",

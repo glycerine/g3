@@ -306,6 +306,9 @@ func (t *MacroTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (err
 		return err
 	}
 	defer func() { err = errors.Join(err, manager.Close()) }()
+	if err = manager.SetRewriterParams(t.context, t.globals); err != nil {
+		return err
+	}
 	output, err := t.run(manager, inputs)
 	if err != nil {
 		return err

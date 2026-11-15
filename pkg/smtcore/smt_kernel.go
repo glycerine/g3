@@ -290,6 +290,10 @@ func (k *SMTKernel) configurePreprocessingParamsCore(context *uparams.ParamsCont
 	}
 	k.paramContext = context
 	k.paramGlobals = globals
+	// expand_macros' th_rewriter(m) reads the process rewriter module.
+	if err := k.assertedMacros.SetRewriterParams(context, globals); err != nil {
+		return err
+	}
 	local, err := context.NewValue()
 	if err != nil {
 		return err

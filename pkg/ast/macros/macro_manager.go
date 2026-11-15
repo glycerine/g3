@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
 type managerEntry struct {
@@ -38,6 +39,20 @@ type Manager struct {
 	closed        bool
 	cleanup       uint8
 	popCount      uint32
+	// paramsContext and globals are the process gparams that th_rewriter(m)
+	// reads in expand_macros; nil means the rewriter defaults.
+	paramsContext *uparams.ParamsContext
+	globals       *uparams.GlobalParamsService
+}
+
+// SetRewriterParams binds the process parameter services, which the
+// th_rewriter built by expand_macros (and quasi_macros::m_rewriter) read.
+func (m *Manager) SetRewriterParams(context *uparams.ParamsContext, globals *uparams.GlobalParamsService) error {
+	if m == nil || (context == nil) != (globals == nil) || globals != nil && globals.Context != context {
+		return ast.ErrASTHandle
+	}
+	m.paramsContext, m.globals = context, globals
+	return nil
 }
 
 func NewManager(m *ast.ASTManager) (owner *Manager, result error) {
