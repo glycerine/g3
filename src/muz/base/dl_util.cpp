@@ -22,6 +22,9 @@ Revision History:
 #include <sys/stat.h>
 #ifdef _WINDOWS
 #include <windows.h>
+#else
+#include <dirent.h>
+#include <algorithm>
 #endif
 #include "ast/ast_pp.h"
 #include "ast/rewriter/bool_rewriter.h"
@@ -595,7 +598,40 @@ namespace datalog {
         }
 
 #else
-        NOT_IMPLEMENTED_YET();
+        // FORK FIX #66 (g3 audit, see FORK_BUGFIXES.md): POSIX get_file_names; was NOT_IMPLEMENTED_YET (AUDIT cmd_context_02-F11)
+        // Mirrors the Windows branch: the files matching *.extension, then
+        // every entry not starting with '.', recursively (a non-directory
+        // fails opendir and adds nothing). readdir order is unspecified, so
+        // names are visited in sorted order. A directory named *.extension
+        // is not listed as a file.
+        string_vector names;
+        DIR * dir = opendir(directory.c_str());
+        if (dir == nullptr) {
+            return;
+        }
+        while (struct dirent * ent = readdir(dir)) {
+            names.push_back(std::string(ent->d_name));
+        }
+        closedir(dir);
+        std::sort(names.begin(), names.end());
+
+        for (std::string const & name : names) {
+            size_t len = name.size();
+            if (len > extension.size() && name[len-extension.size()-1] == '.' &&
+                extension == name.substr(len-extension.size()) &&
+                !is_directory(directory+name)) {
+                res.push_back(directory+name);
+            }
+        }
+
+        if(traverse_subdirs) {
+            for (std::string const & name : names) {
+                if(name[0]=='.') {
+                    continue;
+                }
+                get_file_names(directory+name, extension, traverse_subdirs, res);
+            }
+        }
 #endif
     }
 
