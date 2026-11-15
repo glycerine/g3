@@ -106,6 +106,10 @@ Abstract:
                                   DerivationTree::Build interpolates the proof
                                   of the leaf-assumption check
                                   (pkg/AUDIT.md duality_01-F6).
+    z3_4_7_1_duality_certificate_dead_edge after RemoveDeadNodes the edge-to-
+                                  clause map is off by the deleted edges, so a
+                                  certificate step prints another rule's
+                                  variables (pkg/AUDIT.md duality zbug round 2).
     z3_4_7_1_implicant_nested_array_eq once a nested array index makes
                                   model_implicant::eval_array_eq mark the
                                   equality true, a later differing index
@@ -1744,6 +1748,55 @@ void tst_z3_4_7_1_duality_underapprox_stale_proof() {
         "(rule (=> (and (Reach x) (= x 2)) Goal))\n"
         "(query Goal)\n";
     expect_script_output("duality_underapprox_stale_proof", script, "sat\n");
+}
+
+// dl_interface::query maps edge i of the RPFP to clause i, but FromClauses'
+// RemoveDeadNodes has deleted the edge of the q2 rule, so every later edge
+// is printed with the clause before its own: rule!4 shows rule 3's variables
+// (x and x1) and the query rule!5 shows x. pkg/AUDIT.md duality zbug round 2.
+void tst_z3_4_7_1_duality_certificate_dead_edge() {
+    char const* script =
+        "(set-option :fixedpoint.engine duality)\n"
+        "(declare-rel q0 (Int))\n"
+        "(declare-rel q2 (Int))\n"
+        "(declare-rel err ())\n"
+        "(declare-var x Int)\n"
+        "(declare-var x1 Int)\n"
+        "(rule (=> (= x 1) (q0 x)))\n"
+        "(rule (=> (and (q0 x) (= x1 (- x 2))) (q2 x1)))\n"
+        "(rule (=> (and (q0 x) (= x1 3)) (q0 x1)))\n"
+        "(rule (=> (and (q0 x) (>= x 1)) err))\n"
+        "(query err :print-certificate true)\n";
+    char const* expected =
+        "sat\n"
+        "(derivation\n"
+        "(step s!3 (q0 1)\n"
+        " rule!1  (subst\n"
+        "    (= x 1)\n"
+        "  )\n"
+        "  (labels  )\n"
+        "  (ref   ))\n"
+        "(step s!2 (err)\n"
+        " rule!4  (subst\n"
+        "    (= x 1)\n"
+        "  )\n"
+        "  (labels  )\n"
+        "  (ref  s!3  ))\n"
+        "(step s!1 (@Fail!0)\n"
+        " rule!5  (subst\n"
+        "  )\n"
+        "  (labels  )\n"
+        "  (ref  s!2  ))\n"
+        ")\n"
+        "(model \n"
+        "\"@b_2 -> true\n"
+        "@b_3 -> true\n"
+        "@under2 -> false\n"
+        "@b_1 -> true\n"
+        "@under3 -> false\n"
+        "\")\n"
+        "\n";
+    expect_script_output("duality_certificate_dead_edge", script, expected);
 }
 
 // PDR proof trace for Goal :- P(x), with P(x) a fact. The query!0 root and
