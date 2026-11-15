@@ -289,3 +289,14 @@ z3_bug_lia2card_empty_equation
 # AUDIT.md nlsat_01-F1). Reproduction:
 # test_vectors/z3_bug_nlsat_signed_infinity_sign.smt2.
 z3_bug_nlsat_signed_infinity_sign
+#
+# nlsat evaluator sign product overflow: evaluator::eval_ineq multiplies the
+# raw numerators eval_sign returns in a 32-bit int, so (x)(y) > 0 is false
+# at x = y = 50000 and z3 4.7.1 propagates z > 0, takes a conflict and
+# reports different nlsat statistics (z3 bug:
+# src/nlsat/nlsat_evaluator.cpp:384-415 eval_sign, eval_ineq; fixed upstream
+# in f79dccccf and 6071797ba, "fix #2238"). g3 normalizes the signs
+# (pkg/nlsat/evaluator.go evalSign; AUDIT.md nlsat_01-F2). Reproduction:
+# test_vectors/z3_bug_nlsat_eval_sign_overflow.smt2 (same model, compare
+# -st).
+z3_bug_nlsat_eval_sign_overflow

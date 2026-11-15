@@ -155,7 +155,16 @@ func (e *Evaluator) evalSign(p polynomial.Polynomial) (value int, err error) {
 		return 0, err
 	}
 	defer e.finishPolynomial(&err)
-	return e.am.EvalSign(e.pm, p, e.assignment)
+	value, err = e.am.EvalSign(e.pm, p, e.assignment)
+	if err != nil {
+		return 0, err
+	}
+	// z3 4.7.1 bug kept out of g3: eval_sign returns the raw numerator of
+	// the value, and eval_ineq multiplies those in a 32-bit int, so
+	// (x)(y) > 0 is false at x = y = 50000. Normalize as upstream
+	// f79dccccf/6071797ba ("fix #2238") does (AUDIT.md nlsat_01-F2;
+	// test_vectors/z3_bug_nlsat_eval_sign_overflow.smt2).
+	return normalizeSign(value), nil
 }
 func (e *Evaluator) evalInequality(a *InequalityAtom, neg bool) (bool, error) {
 	if err := e.assertAssigned(403, "m_assignment.is_assigned(a->max_var())", a.maxVar); err != nil {

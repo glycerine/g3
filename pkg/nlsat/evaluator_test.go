@@ -218,3 +218,32 @@ func TestEvaluatorRootProjectionAndEvaluationIndependentModels(t *testing.T) {
 		}
 	}
 }
+
+// z3 4.7.1 multiplies the raw numerators of the factor values in a 32-bit
+// int, so (x0)(x1) > 0 evaluates to false at x0 = x1 = 50000 (AUDIT.md
+// nlsat_01-F2). g3 normalizes the signs as upstream does; without that,
+// three factors of 2^22 would wrap a 64-bit product to 0.
+func TestEvaluatorInequalitySignProductOverflow(t *testing.T) {
+	e := evaluatorFixture(t)
+	x0 := evaluatorPolynomial(t, e, evaluatorTerm{1, 1, 0})
+	x1 := evaluatorPolynomial(t, e, evaluatorTerm{1, 0, 1})
+	for _, value := range []int64{50000, 1 << 22} {
+		evaluatorSetFraction(t, e, 0, value, 1)
+		evaluatorSetFraction(t, e, 1, value, 1)
+		for _, factors := range [][]polynomial.Polynomial{{x0, x1}, {x0, x1, x0}} {
+			for _, tc := range []struct {
+				kind AtomKind
+				want bool
+			}{{AtomGT, true}, {AtomLT, false}} {
+				var a InequalityAtom
+				even := make([]bool, len(factors))
+				assignmentMust(t, a.initialize(tc.kind, factors, even, 1, make([]InequalityFactor, len(factors))))
+				got, err := e.Eval(&a, false)
+				assignmentMust(t, err)
+				if got != tc.want {
+					t.Fatal("product of", len(factors), "factors at", value, tc.kind, got)
+				}
+			}
+		}
+	}
+}
