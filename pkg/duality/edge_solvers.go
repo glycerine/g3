@@ -55,7 +55,8 @@ func (p *EdgeSolverPool) SolverForEdge(edge *Edge, models, withAxioms bool, axio
 			out = nil
 		}
 	}()
-	state.solver, err = p.factory.New(m, nil, false, models, false, "")
+	// p.set(new solver(ctx,true,models)): the Duality::solver constructor.
+	state.solver, err = newDualitySolver(p.context, p.factory, models)
 	if err != nil {
 		return nil, err
 	}
@@ -152,4 +153,65 @@ func (s *EdgeSolverScope) Close() error {
 		return nil
 	}
 	return s.mode.Close()
+}
+
+// newDualitySolver is Duality::solver::solver(context&, bool extensional,
+// bool models) (duality_wrapper.cpp): an SMT solver made by the factory with
+// proofs, models and unsat cores enabled, whose parameters carry the
+// context's mbqi setting, mbqi.id "itp" (MBQI only for quantifiers of
+// interpolants) and mbqi.max_iterations 1, and array.extensional when mbqi
+// is on. The caller sets the manager's proof mode.
+func newDualitySolver(context *Context, factory solver.Factory, models bool) (out solver.Solver, result error) {
+	if err := context.config.open(); err != nil {
+		return nil, err
+	}
+	params := context.config.params
+	p, err := params.NewValue()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { result = errors.Join(result, params.Del(&p)) }()
+	set := func(name string, value bool) error { return params.SetBoolName(&p, &name, value) }
+	if err := set("proof", true); err != nil {
+		return nil, err
+	}
+	if models {
+		if err := set("model", true); err != nil {
+			return nil, err
+		}
+	}
+	if err := set("unsat_core", true); err != nil {
+		return nil, err
+	}
+	name := "mbqi"
+	mbqi, err := params.GetBoolName(&context.config.value, &name, true)
+	if err != nil {
+		return nil, err
+	}
+	if err := set("mbqi", mbqi); err != nil {
+		return nil, err
+	}
+	name, id := "mbqi.id", "itp"
+	if err := params.SetStringName(&p, &name, &id); err != nil {
+		return nil, err
+	}
+	name = "mbqi.max_iterations"
+	if err := params.SetUIntName(&p, &name, 1); err != nil {
+		return nil, err
+	}
+	// extensional = mbqi && (true || _extensional)
+	if mbqi {
+		if err := set("array.extensional", true); err != nil {
+			return nil, err
+		}
+	}
+	out, err = factory.New(context.manager, &p, true, true, true, "")
+	if err != nil {
+		return nil, err
+	}
+	// m_solver->updt_params(p)
+	if err := out.UpdateParams(&p); err != nil {
+		return nil, errors.Join(err, out.Close())
+	}
+	return out, nil
 }
