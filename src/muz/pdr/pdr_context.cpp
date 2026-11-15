@@ -1316,6 +1316,19 @@ namespace pdr {
         unif.set_normalize(true);
         todo.push_back(m_root);
         update_models();
+        // A repeated obligation is closed without children. Such a
+        // duplicate must not be cached with its unresolved rule: resolve the
+        // expanded node of the same predicate and state first.
+        obj_pair_map<func_decl, expr, model_node*> expanded;
+        while (!todo.empty()) {
+            model_node* n = todo.back();
+            todo.pop_back();
+            if (!n->children().empty() && !expanded.contains(n->pt().head(), n->state())) {
+                expanded.insert(n->pt().head(), n->state(), n);
+            }
+            todo.append(n->children().size(), n->children().c_ptr());
+        }
+        todo.push_back(m_root);
         while (!todo.empty()) {
             model_node* n = todo.back();
             TRACE("pdr", n->display(tout, 0););
@@ -1326,6 +1339,11 @@ namespace pdr {
             ptr_vector<proof> pfs;
             ptr_vector<datalog::rule> rls;
             ptr_vector<model_node> const& chs = n->children();
+            model_node* rep = nullptr;
+            if (chs.empty() && expanded.find(n->pt().head(), n->state(), rep) && rep != n) {
+                todo.push_back(rep);
+                continue;
+            }
             pfs.push_back(0);
             rls.push_back(0);
             for (unsigned i = 0; i < chs.size(); ++i) {
