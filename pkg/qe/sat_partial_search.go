@@ -4,6 +4,7 @@ package qe
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
@@ -11,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
@@ -155,6 +157,11 @@ func (s *satPartialSearch) qt(index uint32, context ast.ASTHandle) (result *satP
 	}
 	m := s.manager
 	for {
+		// IF_VERBOSE(1, verbose_stream() << "(qt " << i << ")\n";)
+		// (AUDIT.md qe_05-F5).
+		if err = satVerbose(1, fmt.Sprintf("(qt %d)\n", index)); err != nil {
+			return nil, err
+		}
 		if err = s.checkpoint(); err != nil {
 			return nil, err
 		}
@@ -225,4 +232,17 @@ func (s *satPartialSearch) qt(index uint32, context ast.ASTHandle) (result *satP
 			return nil, e
 		}
 	}
+}
+
+// satVerbose is IF_VERBOSE(level, verbose_stream() << text).
+func satVerbose(level uint32, text string) error {
+	enabled, err := diagnostic.ProcessVerboseEnabled(level)
+	if err != nil || !enabled {
+		return err
+	}
+	out, err := diagnostic.BorrowProcessVerboseStream()
+	if err != nil {
+		return err
+	}
+	return out.AppendCString(text)
 }

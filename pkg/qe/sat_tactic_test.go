@@ -6,7 +6,9 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/symbol"
+	utext "github.com/glycerine/g3/pkg/util/text"
 )
 
 func TestQESATTacticPartialGoalsAndModels(t *testing.T) {
@@ -57,6 +59,44 @@ func TestQESATTacticPartialGoalsAndModels(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// AUDIT.md qe_05-F5: sat_tactic::qt prints (qt i) at verbosity 1 on every
+// loop iteration; the sequence below is z3's for this goal.
+func TestQESATTacticQtVerboseLines(t *testing.T) {
+	f := qsatKernelFixture(t)
+	m := f.r.manager
+	y := f.constant("qt-y", f.integer)
+	z := f.own(m.MkVar(0, f.integer))
+	x := f.own(m.MkVar(1, f.integer))
+	inner := f.own(m.MkAnd(f.own(m.MkArithmeticGT(z, x)), f.own(m.MkArithmeticGT(z, y))))
+	exists := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: inner}))
+	forall := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(1)}, Body: exists}))
+	goal := f.goal(false, false)
+	fmMust(t, goal.Assert(forall))
+	port, err := NewQESATTactic(m, nil, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, port.Close()) }()
+	oldLevel, err := diagnostic.ProcessVerbosityLevel()
+	fmMust(t, err)
+	oldStream, err := diagnostic.BorrowProcessVerboseStream()
+	fmMust(t, err)
+	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: m.Budget()})
+	fmMust(t, err)
+	defer func() {
+		fmMust(t, diagnostic.SetProcessVerbosityLevel(oldLevel))
+		fmMust(t, diagnostic.SetProcessVerboseStream(oldStream))
+		fmMust(t, stream.Close())
+	}()
+	fmMust(t, diagnostic.SetProcessVerbosityLevel(1))
+	fmMust(t, diagnostic.SetProcessVerboseStream(stream))
+	out := f.result()
+	fmMust(t, port.Apply(goal, out))
+	text, err := stream.String()
+	fmMust(t, err)
+	if want := "(qt 0)\n(qt 1)\n(qt 2)\n(qt 1)\n"; text != want {
+		t.Fatalf("verbose output %q, want %q", text, want)
 	}
 }
 
