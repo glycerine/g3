@@ -14,52 +14,13 @@ import (
 // scriptResults so the C++ reference comparison does not run them; this
 // test locks in g3's correct answers instead.
 var z3BugResults = map[string]string{
-	// model evaluation of mutually recursive define-fun-rec predicates
-	"z3_bug_rec_fun_model_eval.smt2": "sat\n(((even 0) true)\n ((even 5) false)\n ((odd 5) true))\n",
-
-	// datatype get_sort_size keys sparam::subst by the actual sort
-	"z3_bug_datatype_param_size_subst.smt2": "unsat\n",
-
-	// goal::update pushes the unflattened formula (FORK_BUGFIXES known bug)
-	"z3_bug_goal_update_flattened_false.smt2": "(goals\n(goal\n  false\n  :precision precise :depth 1)\n)\n",
-
-	"z3_bug_automaton_product.smt2":        "sat\n(model \n  (define-fun x () String\n    \"\")\n)\n",
-	"z3_bug_qe_nested_store.smt2":          "sat\n",
-	"z3_bug_opt_stale_objective_term.smt2": "sat\n(objectives\n (x 7)\n (y oo)\n (q (- 3))\n)\n",
-
 	// muz_pdr_01
 	"z3_bug_pdr_boogie_without_proof_trace.smt2": "sat\n(derivation\n(step\n s!0 (inv 0)\n null\n (subst)\n (labels)\n (ref)\n)\n(step\n s!1 (inv 1)\n null\n (subst\n  (= B 0)\n  (= A 1))\n (labels)\n (ref s!0)\n)\n(step\n s!2 (inv 2)\n null\n (subst\n  (= B 0)\n  (= A 1))\n (labels)\n (ref s!1)\n)\n(step\n s!3 query!0\n null\n (subst\n  (= B 0)\n  (= A 1))\n (labels)\n (ref s!2)\n)\n)\n\n", // muz_pdr_02-F2
-
-	// duality_03-F2
-
-	// muz_fp_03 (duality quantify_arrays rules not restored)
-
-	// duality_01-F4 (certificate substitutions of qe-lite-eliminated
-	// variables). The nullary steps print as `(err)` (FUZZ_F-F6).
-	"z3_bug_duality_certificate_eliminated_var.smt2": "sat\n(derivation\n(step s!4 (q0 2)\n rule!1  (subst\n    (= x 2)\n  )\n  (labels  )\n  (ref   ))\n(step s!3 (q0 5)\n rule!2  (subst\n    (= x 2)\n    (= x1 5)\n  )\n  (labels  )\n  (ref  s!4  ))\n(step s!2 (err)\n rule!3  (subst\n    (= x 5)\n  )\n  (labels  )\n  (ref  s!3  ))\n(step s!1 (@Fail!0)\n rule!4  (subst\n  )\n  (labels  )\n  (ref  s!2  ))\n)\n(model \n\"@under2 -> false\n@under4 -> false\n@b_2 -> true\n@b_3 -> true\n@b_1 -> true\n@under3 -> false\n@b_4 -> true\n\")\n\n",
-
-	// duality_01-F6 (Build interpolates the leaf-assumption proof)
-
-	// duality_02-F2 (FixCurrentState fixes the @under flags)
-
-	// duality_01-F3 follow-up (query after a failed Duality query)
-
-	// muz_rel_04-F2
-
-	// default_table_checked nullary check_table (no AUDIT.md finding)
-
-	// muz_small_01-F8
-	// qlinear::compile asserts per formula (muz_small_01-F7), which steers
-	// the search to a shorter trace.
 
 	// muz_small_01-F9
 	// The compiled rules go to os.Stdout; TestZ3BugDDNFExtractWidthDump
 	// checks them.
 	"z3_bug_ddnf_extract_width.smt2": "unknown\ndone\n",
-
-	// util_misc_01-F1
-
-	// muz_transforms_01-F6
 }
 
 func TestZ3BugVectorsKeepCorrectAnswers(t *testing.T) {

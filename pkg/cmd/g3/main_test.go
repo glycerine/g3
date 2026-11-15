@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,7 +9,6 @@ import (
 	"sort"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -350,6 +348,13 @@ var scriptResults = map[string]string{
 	"opt_find_mutexes_no_binary_opt.smt2": "sat\n(objectives\n ( 3)\n)\n(model \n  (define-fun b () Bool\n    false)\n  (define-fun a () Bool\n    true)\n  (define-fun c () Bool\n    false)\n)\n",
 	// z3 4.7.1 bugs fixed in the C++ fork (FORK_BUGFIXES.md): build/z3 is rebuilt
 	// from the fork, so these are checked against it like any other vector.
+	"z3_bug_rec_fun_model_eval.smt2":                    "sat\n(((even 0) true)\n ((even 5) false)\n ((odd 5) true))\n",
+	"z3_bug_datatype_param_size_subst.smt2":             "unsat\n",
+	"z3_bug_goal_update_flattened_false.smt2":           "(goals\n(goal\n  false\n  :precision precise :depth 1)\n)\n",
+	"z3_bug_automaton_product.smt2":                     "sat\n(model \n  (define-fun x () String\n    \"\")\n)\n",
+	"z3_bug_qe_nested_store.smt2":                       "sat\n",
+	"z3_bug_opt_stale_objective_term.smt2":              "sat\n(objectives\n (x 7)\n (y oo)\n (q (- 3))\n)\n",
+	"z3_bug_duality_certificate_eliminated_var.smt2":    "sat\n(derivation\n(step s!4 (q0 2)\n rule!1  (subst\n    (= x 2)\n  )\n  (labels  )\n  (ref   ))\n(step s!3 (q0 5)\n rule!2  (subst\n    (= x 2)\n    (= x1 5)\n  )\n  (labels  )\n  (ref  s!4  ))\n(step s!2 (err)\n rule!3  (subst\n    (= x 5)\n  )\n  (labels  )\n  (ref  s!3  ))\n(step s!1 (@Fail!0)\n rule!4  (subst\n  )\n  (labels  )\n  (ref  s!2  ))\n)\n(model \n\"@under2 -> false\n@under4 -> false\n@b_2 -> true\n@b_3 -> true\n@b_1 -> true\n@under3 -> false\n@b_4 -> true\n\")\n\n",
 	"z3_bug_pb_eq_no_args.smt2":                         "unsat\n",                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   // z3 4.7.1 pb equality with no arguments left (fork fix)
 	"z3_bug_pb_simplex_pop.smt2":                        "sat\nsat\n",                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                // smtcore_12-F4 follow-up: pb simplex bound on a slack reused after pop
 	"z3_bug_pb_simplex_nested.smt2":                     "sat\n",                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     // smtcore_12-F4 follow-up: pb simplex over a nested pb atom
@@ -1904,8 +1909,8 @@ var scriptResults = map[string]string{
 	"shared_linear_expression_bounds.smt2":         "unsat\nunsat\nsat\n",
 	"row_bound_propagation_scopes.smt2":            "unsat\n(x_strict y_lower blocked_sum)\nsat\n((x (/ 3.0 2.0))\n (y 2.0)\n ((+ x y) (/ 7.0 2.0)))\n",
 	"sequence_word_equations_relations.smt2":       "unsat\nsat\n((x \"aa\"))\nsat\n((x \"ab\"))\nsat\n((x \"bc\"))\nsat\n((x \"ab\"))\nsat\nunsat\nsat\nsat\nsat\nsat\nsat\nsat\n",
-	// sequence_helper_inventory: excluded, g3 fixes a z3 4.7.1 automaton product bug (test_vectors/z3_bug_exclusions.txt).
-	// "sequence_helper_inventory.smt2":               "unsat\nsat\nunsat\nsat\nunsat\nunsat\nunsat\nunsat\nunsat\nunsat\nunsat\nunsat\nsat\n",
+	// sequence_helper_inventory: the automaton product bug is fixed in the fork (FORK_BUGFIXES.md 77).
+	"sequence_helper_inventory.smt2":                  "unsat\nsat\nunsat\nsat\nunsat\nunsat\nunsat\nunsat\nunsat\nunsat\nunsat\nunsat\nsat\n",
 	"mixed_equality_and_ite_join.smt2":                "sat\nunsat\nunsat\nunsat\nsat\n",
 	"integer_gcd_scopes.smt2":                         "unsat\nsat\n",
 	"integer_extended_gcd.smt2":                       "unsat\nsat\n",
@@ -2315,27 +2320,10 @@ func TestSMTLibRunnerCPPReference(t *testing.T) {
 				t.Fatal(err, goOutput.String())
 			}
 			cmd := exec.Command(reference, "-in")
-			var referenceContext context.Context
-			if name == "recursive_mutual_boolean_model.smt2" {
-				var cancel context.CancelFunc
-				referenceContext, cancel = context.WithTimeout(context.Background(), 2*time.Second)
-				defer cancel()
-				cmd = exec.CommandContext(referenceContext, reference, "-in")
-			}
 			cmd.Stdin = bytes.NewReader(script)
 			var cppDiagnostics bytes.Buffer
 			cmd.Stderr = &cppDiagnostics
 			cppOutput, err := cmd.Output()
-			if referenceContext != nil && referenceContext.Err() == context.DeadlineExceeded {
-				// The old reference eagerly evaluates a dead recursive OR branch
-				// in Boolean model interpretations. Keep the full native oracle,
-				// and require the precise observed reference prefix on timeout.
-				if canonicalOutput(string(cppOutput)) != "sat" || canonicalOutput(goOutput.String()) != canonicalOutput(scriptResults[name]) {
-					t.Fatal("unexpected Boolean recursive reference failure", err, string(cppOutput), goOutput.String())
-				}
-				t.Log("known reference Boolean-recursive model-evaluation loop; integer mutual recursion remains an exact C++ oracle")
-				return
-			}
 			if err != nil && !parseErrorScripts[name] {
 				t.Fatal("C++ reference", err, string(cppOutput), cppDiagnostics.String())
 			}
