@@ -135399,14 +135399,6 @@
         "pkg/opt/maxres_register.go",
         "pkg/opt/maxres_termination.go",
         "pkg/opt/maxres_primal_dual.go",
-        "pkg/opt/maxres_sls.go",
-        "pkg/opt/maxres_sls_assignment.go",
-        "pkg/opt/maxres_sls_compile.go",
-        "pkg/opt/maxres_sls_search.go",
-        "pkg/opt/maxres_sls_seed.go",
-        "pkg/opt/maxres_sls_types.go",
-        "pkg/opt/maxres_sls_external_test.go",
-        "pkg/opt/maxres_sls_guard_test.go",
         "pkg/opt/maxres_registration_test.go",
         "pkg/opt/maxres_search_round.go",
         "pkg/opt/maxres_unsat.go",
@@ -135477,7 +135469,8 @@
         "TestMaxResUpperBoundBlockProvesImprovedCandidateOptimal",
         "TestMaxResUpperBoundUsesOnlySourceParameterGate",
         "TestMaxResZeroCoreSizeStopsAfterFirstCore",
-        "TestPrimalDualClampsOvershootingLowerBoundOnlyAfterCandidate"
+        "TestPrimalDualClampsOvershootingLowerBoundOnlyAfterCandidate",
+        "TestMaxResEnableSLSIsInert"
       ],
       "assertions": [
         {
@@ -135753,7 +135746,7 @@
       "tests": [
         "TestMaxSMTConfigDecodesLocalEngineAndMaxResControls",
         "TestMaxSMTASTOwnerHoldsAndReleasesExpressions",
-        "TestMaxSMTIntegralTermsAndExpansionPreserveMultiplicity",
+        "TestMaxSMTScaledTermsAndExpansionPreserveMultiplicity",
         "TestMaxSMTMutexDecompositionPreservesTotalAndLowerOffset"
       ],
       "conditionals": [
@@ -135781,7 +135774,7 @@
           "tests": [
             "TestMaxSMTConfigDecodesLocalEngineAndMaxResControls",
             "TestMaxSMTASTOwnerHoldsAndReleasesExpressions",
-            "TestMaxSMTIntegralTermsAndExpansionPreserveMultiplicity",
+            "TestMaxSMTScaledTermsAndExpansionPreserveMultiplicity",
             "TestMaxSMTMutexDecompositionPreservesTotalAndLowerOffset"
           ]
         }
@@ -135989,9 +135982,6 @@
         "pkg/api/api_optimization_model_comparison.go",
         "pkg/cmd/g3/optimization_normalization_test.go",
         "pkg/opt/box_value_clone.go",
-        "pkg/opt/maxres_sls.go",
-        "pkg/opt/maxres_sls_external_test.go",
-        "pkg/opt/maxres_sls_guard_test.go",
         "pkg/opt/maxsmt_bounds_api.go",
         "pkg/opt/maxsmt_bounds_api_test.go",
         "pkg/opt/maxsmt_result_bounds_external_test.go",
@@ -136050,11 +136040,6 @@
         "TestLIA2CardNumeralWrappersFractionsAndFailure",
         "TestObjectiveDecompositionWrappedCoefficientConditionalValues",
         "TestLexSoftResultsPublishTightBoundsAndAssignments",
-        "TestMaxResDisableSLSDoesNotRunCandidateSearch",
-        "TestMaxResEnableSLSRunsValidatedCandidateSearch",
-        "TestMaxResSLSDisabledOrEmptyObjectiveDoesNotStartSearch",
-        "TestMaxResSLSErrorJoinPreservesBothFailures",
-        "TestMaxResSLSSeedRequiresPublishedModel",
         "TestOptimizationNormalizedBoxContinuation",
         "TestOptimizationNormalizedIndicatorObjectives",
         "TestSMT2AssertSoftNormalizesOptionsAndValidatesFormulaFirst",
@@ -137429,29 +137414,9 @@
       "path": "src/opt/pb_sls.cpp",
       "component": "opt",
       "role": "production",
-      "status": "ported",
-      "go_targets": [
-        "pkg/opt/pb_sls_types.go",
-        "pkg/opt/pb_sls_compile.go",
-        "pkg/opt/pb_sls_search.go",
-        "pkg/opt/pb_sls_model.go",
-        "pkg/opt/maxres_sls.go",
-        "pkg/opt/maxres_sls_assignment.go",
-        "pkg/opt/maxres_sls_compile.go",
-        "pkg/opt/maxres_sls_external_test.go",
-        "pkg/opt/maxres_sls_search.go",
-        "pkg/opt/maxres_sls_seed.go",
-        "pkg/opt/pb_sls_test.go"
-      ],
-      "tests": [
-        "TestPBSLSBooleanHardSoftSearchStatisticsAndModel",
-        "TestPBSLSPseudoBooleanCompileNegationAndOwnedModel",
-        "TestPBSLSBooleanEqualityAndIffCompilationMatchSource",
-        "TestPBSLSNonBooleanEqualityRemainsOneAtomicLiteral",
-        "TestPBSLSPseudoBooleanRelationsMatchAllAssignments",
-        "TestMaxResDisableSLSDoesNotRunCandidateSearch",
-        "TestMaxResEnableSLSRunsValidatedCandidateSearch"
-      ],
+      "status": "dead_deleted",
+      "go_targets": [],
+      "tests": [],
       "assertions": [
         {
           "line": 61,
@@ -137504,66 +137469,19 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [
-        {
-          "name": "PB clause compilation, Boolean literal encoding, weighted hard/soft clause evaluation and source negation normalization (pb_sls.cpp:522-739)",
-          "status": "ported",
-          "go_target": "pkg/opt/pb_sls_compile.go",
-          "tests": [
-            "TestPBSLSPseudoBooleanCompileNegationAndOwnedModel",
-            "TestPBSLSBooleanEqualityAndIffCompilationMatchSource",
-            "TestPBSLSNonBooleanEqualityRemainsOneAtomicLiteral",
-            "TestPBSLSPseudoBooleanRelationsMatchAllAssignments"
-          ]
-        },
-        {
-          "name": "initial model import, violated-clause sets, source seeded flip loop, weighted penalty updates, hard/soft move selection, 40-round recovery and statistics (pb_sls.cpp:187-521)",
-          "status": "ported",
-          "go_target": "pkg/opt/pb_sls_search.go",
-          "tests": [
-            "TestPBSLSBooleanHardSoftSearchStatisticsAndModel"
-          ]
-        },
-        {
-          "name": "Boolean model publication, soft-clause query, reset and lifecycle APIs (pb_sls.cpp:253-302; pb_sls.h:28-44)",
-          "status": "ported",
-          "go_target": "pkg/opt/pb_sls_model.go",
-          "tests": [
-            "TestPBSLSBooleanHardSoftSearchStatisticsAndModel"
-          ]
-        }
-      ],
-      "ownership": [
-        {
-          "name": "input model is copied on SetModel and closed on replacement/reset/Close; generated clause origins and variable AST handles are reference-counted until releaseState, and returned models own their AST manager reference",
-          "status": "ported",
-          "go_targets": [
-            "pkg/opt/pb_sls_compile.go",
-            "pkg/opt/pb_sls_types.go",
-            "pkg/opt/pb_sls_model.go"
-          ]
-        }
-      ],
-      "deviations": []
+      "methods": [],
+      "ownership": [],
+      "deviations": [
+        "Dead in z3 4.7.1: pb_sls is used only by opt_sls_solver.h, which no file includes, and nothing calls maxsmt_solver_base::enable_sls, so opt.enable_sls changes nothing. The former Go PB-SLS port and its MaxRes candidate search were deleted (AUDIT.md opt_01-F2)."
+      ]
     },
     {
       "path": "src/opt/pb_sls.h",
       "component": "opt",
       "role": "production",
-      "status": "ported",
-      "go_targets": [
-        "pkg/opt/pb_sls_types.go",
-        "pkg/opt/pb_sls_compile.go",
-        "pkg/opt/pb_sls_search.go",
-        "pkg/opt/pb_sls_model.go"
-      ],
-      "tests": [
-        "TestPBSLSBooleanHardSoftSearchStatisticsAndModel",
-        "TestPBSLSPseudoBooleanCompileNegationAndOwnedModel",
-        "TestPBSLSBooleanEqualityAndIffCompilationMatchSource",
-        "TestPBSLSNonBooleanEqualityRemainsOneAtomicLiteral",
-        "TestPBSLSPseudoBooleanRelationsMatchAllAssignments"
-      ],
+      "status": "dead_deleted",
+      "go_targets": [],
+      "tests": [],
       "conditionals": [
         {
           "line": 19,
@@ -137576,25 +137494,11 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [
-        {
-          "name": "public PB SLS construction, clause registration, model input/output, checking, statistics, parameter update, reset and soft_holds operations (pb_sls.h:28-44)",
-          "status": "ported",
-          "go_target": "pkg/opt/pb_sls_types.go",
-          "tests": [
-            "TestPBSLSBooleanHardSoftSearchStatisticsAndModel",
-            "TestPBSLSPseudoBooleanCompileNegationAndOwnedModel"
-          ]
-        }
-      ],
-      "ownership": [
-        {
-          "name": "opaque implementation ownership maps to PBSLS; Close releases its rewriter, source model copy, clause-origin references and Boolean variable references",
-          "status": "ported",
-          "go_target": "pkg/opt/pb_sls_types.go"
-        }
-      ],
-      "deviations": []
+      "methods": [],
+      "ownership": [],
+      "deviations": [
+        "Dead in z3 4.7.1: pb_sls is used only by opt_sls_solver.h, which no file includes, and nothing calls maxsmt_solver_base::enable_sls, so opt.enable_sls changes nothing. The former Go PB-SLS port and its MaxRes candidate search were deleted (AUDIT.md opt_01-F2)."
+      ]
     },
     {
       "path": "src/opt/sortmax.cpp",
@@ -137627,7 +137531,8 @@
         "TestArithmeticSolverUsesSortMaxForWeightedMutex",
         "TestSortMaxPacketOptimizesWeightedMutex",
         "TestMaxSMTASTOwnerHoldsAndReleasesExpressions",
-        "TestMaxSMTIntegralTermsAndExpansionPreserveMultiplicity"
+        "TestMaxSMTScaledTermsAndExpansionPreserveMultiplicity",
+        "TestSortMaxRejectsFractionalWeight"
       ],
       "methods_audited": true,
       "ownership_audited": true,
@@ -137673,7 +137578,8 @@
         }
       ],
       "deviations": [
-        "sortmax.cpp calls psort_nw::sorting without initializing m_t; the installed 4.7.1 reference follows the zero-valued LE path, which Go selects explicitly and tests against the source's objective/model output (pkg/opt/sortmax_encoded_network.go, pkg/opt/maxsmt_sort_search.go)."
+        "sortmax.cpp calls psort_nw::sorting without initializing m_t; the installed 4.7.1 reference follows the zero-valued LE path, which Go selects explicitly and tests against the source's objective/model output (pkg/opt/sortmax_encoded_network.go, pkg/opt/maxsmt_sort_search.go).",
+        "maxsat_engine=sortmax builds sortmax for any weights; rational weights are scaled to integers by the lcm of their denominators so the integer mutex decomposition yields find_mutexes' exact new_soft weights and m_lower, and a weight that is not unsigned raises sortmax's default_exception (AUDIT.md opt_01-F1). Recorded deviation: a positive weight total above maxSortMaxInputs (4096) does not build a sorting network; the Go network needs about 10 GB for 6500 inputs where z3 4.7.1 needs 0.5 GB (pkg/opt/maxsmt_sort_engine.go)."
       ]
     },
     {
@@ -138002,7 +137908,8 @@
         "pkg/parsers/smt2/check_sat_command.go",
         "pkg/parsers/smt2/local_let.go",
         "pkg/parsers/smt2/local_sorted_vars.go",
-        "pkg/parsers/smt2/parametric_sorts_test.go"
+        "pkg/parsers/smt2/parametric_sorts_test.go",
+        "pkg/parsers/smt2/match_expression.go"
       ],
       "tests": [
         "TestSMT2ShellDiagnosticStdoutTracksNextSession",
@@ -138100,7 +138007,8 @@
         "TestFixedpointCollectorRuleSymbolsPreserveScopesAndLegacyNames",
         "TestFixedpointParserRuleNameRejectsNumeralToken",
         "TestSMT2ParametricSortArityAndScopeRefusals",
-        "TestSMT2ParametricSortDeclarationsAndDefinitions"
+        "TestSMT2ParametricSortDeclarationsAndDefinitions",
+        "TestSMT2MatchExpression"
       ],
       "assertions": [
         {
@@ -139184,6 +139092,15 @@
           ],
           "go_targets": [
             "pkg/cmd/g3/main_test.go"
+          ]
+        },
+        {
+          "name": "push_match_frame, compile_patterns, check_patterns, bind_match, parse_constructor_pattern and parse_match_pattern: match expressions compile to an ite chain over constructor recognizers (smt2parser.cpp:1318-1511, AUDIT.md parsers_shell_01-F3)",
+          "status": "ported",
+          "go_target": "pkg/parsers/smt2/match_expression.go",
+          "tests": [
+            "TestSMT2MatchExpression",
+            "TestSMTLibRunnerCPPReference"
           ]
         }
       ],
