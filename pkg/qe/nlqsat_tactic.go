@@ -24,13 +24,17 @@ import (
 )
 
 type NLQSATTactic struct {
-	self        *NLQSATTactic
-	manager     *ast.ASTManager
-	config      Config
-	mode        qsatMode
-	statistics  statistics.Statistics // m_st
-	rounds      uint64                // m_stats.m_num_rounds
-	params      uparams.ParamsRef
+	self       *NLQSATTactic
+	manager    *ast.ASTManager
+	config     Config
+	mode       qsatMode
+	statistics statistics.Statistics // m_st
+	rounds     uint64                // m_stats.m_num_rounds
+	params     uparams.ParamsRef
+	// ctorParams is the source m_params: the constructor params, which
+	// goal2nlsat and translate read; updt_params reaches only the nlsat
+	// solver (AUDIT.md qe_03-F2).
+	ctorParams  uparams.ParamsRef
 	paramsReady bool
 	bytes       uint64
 	refs        uint32
@@ -74,10 +78,17 @@ func newNLQTactic(manager *ast.ASTManager, params *uparams.ParamsRef, config Con
 		manager.Budget().Release(bytes)
 		return nil, err
 	}
-	t.params, t.paramsReady = value, true
+	ctor, err := config.Context.NewValue()
+	if err != nil {
+		return nil, errors.Join(err, config.Context.Del(&value), t.releaseHeader())
+	}
+	t.params, t.ctorParams, t.paramsReady = value, ctor, true
 	if params != nil {
-		if err = config.Context.Assign(&t.params, params); err != nil {
-			return nil, errors.Join(err, config.Context.Del(&t.params), t.releaseHeader())
+		if err = config.Context.Assign(&t.params, params); err == nil {
+			err = config.Context.Assign(&t.ctorParams, params)
+		}
+		if err != nil {
+			return nil, errors.Join(err, config.Context.Del(&t.ctorParams), config.Context.Del(&t.params), t.releaseHeader())
 		}
 	}
 	return t, nil
@@ -135,6 +146,9 @@ func (t *NLQSATTactic) Close() error {
 	}
 	if t.paramsReady {
 		if err := t.config.Context.Del(&t.params); err != nil {
+			return err
+		}
+		if err := t.config.Context.Del(&t.ctorParams); err != nil {
 			return err
 		}
 		t.paramsReady = false
@@ -358,7 +372,10 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 		return err
 	}
 	defer func() { err = errors.Join(err, compiler.Close()) }()
-	if err = compiler.SetFactor(false); err != nil {
+	// g2s(*result[0], m_params, ...): goal2nlsat::updt_params reads factor
+	// (default true) and the factor_params from the constructor params
+	// (AUDIT.md qe_03-F2).
+	if err = t.setCompilerFactor(compiler); err != nil {
 		return err
 	}
 	if err = initExpr2Var(solver, compiler, preparation.variables); err != nil {
@@ -486,5 +503,35 @@ func (t *NLQSATTactic) Translate(manager *ast.ASTManager) (tactic.Tactic, error)
 	if err := t.open(); err != nil {
 		return nil, err
 	}
-	return newNLQTactic(manager, &t.params, t.config, t.mode)
+	return newNLQTactic(manager, &t.ctorParams, t.config, t.mode)
+}
+
+// setCompilerFactor is goal2nlsat::imp::updt_params over m_params:
+// m_factor = p.get_bool("factor", true) and m_fparams.updt_params(p).
+func (t *NLQSATTactic) setCompilerFactor(compiler *nlsattactic.GoalCompiler) error {
+	context := t.config.Context
+	name := "factor"
+	factor, err := context.GetBoolName(&t.ctorParams, &name, true)
+	if err != nil {
+		return err
+	}
+	if err = compiler.SetFactor(factor); err != nil {
+		return err
+	}
+	read := func(name string, fallback uint32) (uint32, error) {
+		return context.GetUIntName(&t.ctorParams, &name, fallback)
+	}
+	maxPrime, err := read("max_prime", math.MaxUint32)
+	if err != nil {
+		return err
+	}
+	primeTrials, err := read("num_primes", 1)
+	if err != nil {
+		return err
+	}
+	maxSearchSize, err := read("max_search_size", math.MaxUint32)
+	if err != nil {
+		return err
+	}
+	return compiler.SetFactorParams(polynomial.UPolynomialFactorParams{MaxPrime: maxPrime, PrimeTrials: primeTrials, MaxSearchSize: maxSearchSize})
 }

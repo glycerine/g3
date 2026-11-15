@@ -270,9 +270,6 @@ func TestNLQSATTacticPurifiesSymbolicDivision(t *testing.T) {
 
 func TestNLQSATTacticParametersAndTranslation(t *testing.T) {
 	f := newFMFixture(t)
-	runner, err := NewNLQSATTactic(f.r.manager, f.r.config)
-	fmMust(t, err)
-	t.Cleanup(func() { fmMust(t, runner.Close()) })
 	params, err := f.r.config.Context.NewValue()
 	fmMust(t, err)
 	t.Cleanup(func() { fmMust(t, f.r.config.Context.Del(&params)) })
@@ -282,7 +279,19 @@ func TestNLQSATTacticParametersAndTranslation(t *testing.T) {
 	fmMust(t, f.r.config.Context.SetBoolName(&params, &randomizeName, disabled))
 	factorName, enabled := "factor", true
 	fmMust(t, f.r.config.Context.SetBoolName(&params, &factorName, enabled))
-	fmMust(t, runner.UpdateParams(&params))
+	runner, err := NewNLQSATTacticWithParams(f.r.manager, &params, f.r.config)
+	fmMust(t, err)
+	t.Cleanup(func() { fmMust(t, runner.Close()) })
+	// AUDIT.md qe_03-F2: translate copies the constructor m_params;
+	// updt_params reaches only the nlsat solver.
+	updated, err := f.r.config.Context.NewValue()
+	fmMust(t, err)
+	t.Cleanup(func() { fmMust(t, f.r.config.Context.Del(&updated)) })
+	fmMust(t, f.r.config.Context.SetUIntName(&updated, &seedName, seed+4))
+	fmMust(t, runner.UpdateParams(&updated))
+	if got, cause := f.r.config.Context.GetUIntName(&runner.params, &seedName, 0); cause != nil || got != seed+4 {
+		t.Fatal("updated solver seed", got, cause)
+	}
 	translated, err := runner.Translate(f.r.manager)
 	fmMust(t, err)
 	copy, ok := translated.(*NLQSATTactic)
