@@ -1254,3 +1254,20 @@ void tst_z3_4_7_1_qe_mod_divisor() {
         ENSURE(out == "sat\n");
     }
 }
+
+// exists x. is-nil(x) and (x = y or x = z), with y and z both cons, is
+// unsat. datatype_plugin::subst_rec replaces is-nil(x) by true and x by y
+// (resp. z) in the equality branches but drops is-nil(y), so qe returns
+// true and z3 answers sat.
+void tst_z3_4_7_1_qe_dt_eq_recognizer() {
+    std::string out = eval_smtlib2(
+        "(declare-datatypes ((Lst 0)) (((cons (hd Int) (tl Lst)) (nil))))\n"
+        "(declare-const y Lst)\n"
+        "(declare-const z Lst)\n"
+        "(assert (exists ((x Lst)) (and ((_ is nil) x) (or (= x y) (= x z)))))\n"
+        "(assert ((_ is cons) y))\n"
+        "(assert ((_ is cons) z))\n"
+        "(check-sat-using (then qe smt))\n");
+    std::cout << "qe_dt_eq_recognizer: " << out;
+    ENSURE(out == "unsat\n");
+}
