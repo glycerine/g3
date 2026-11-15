@@ -5,10 +5,12 @@ package solver
 import (
 	"math/big"
 	"reflect"
+	"strconv"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -215,6 +217,13 @@ func (u *MUS) GetMUS() (status lbool.LBool, result []ast.ASTHandle, err error) {
 	}
 	mus := make([]ast.ASTHandle, 0, len(literals))
 	for len(unknown) != 0 {
+		// IF_VERBOSE(12, "(mus reducing core: " << unknown.size() << " new
+		// core: " << mus.size() << ")") (AUDIT.md FUZZ-F5; g3trace only).
+		if diagnostic.VerboseProgress {
+			if e := diagnostic.ProgressVerbose(12, "(mus reducing core: "+strconv.Itoa(len(unknown))+" new core: "+strconv.Itoa(len(mus))+")\n"); e != nil {
+				return lbool.Undef, nil, e
+			}
+		}
 		last := len(unknown) - 1
 		literal := unknown[last]
 		unknown = unknown[:last]

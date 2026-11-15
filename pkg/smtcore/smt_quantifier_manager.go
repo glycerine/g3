@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -462,6 +463,13 @@ func (q *SMTQuantifierManager) quickCheck() (bool, error) {
 	if !q.quickUnsat && !q.quickNotSat {
 		return true, nil
 	}
+	// IF_VERBOSE(10, "quick checking quantifiers (unsat)...") once
+	// m_quantifiers is known to be nonempty (AUDIT.md FUZZ-F5).
+	if diagnostic.VerboseProgress && !q.registry.Empty() {
+		if err := progressVerbose(10, "quick checking quantifiers (unsat)...\n"); err != nil {
+			return false, err
+		}
+	}
 	result := true
 	for _, quantifier := range q.registry.quantifiers {
 		if !q.active(quantifier) {
@@ -480,6 +488,11 @@ func (q *SMTQuantifierManager) quickCheck() (bool, error) {
 			return false, err
 		}
 		return result, nil
+	}
+	if diagnostic.VerboseProgress {
+		if err := progressVerbose(10, "quick checking quantifiers (not sat)...\n"); err != nil {
+			return false, err
+		}
 	}
 	for _, quantifier := range q.registry.quantifiers {
 		if !q.active(quantifier) {

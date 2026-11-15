@@ -60,6 +60,37 @@ var verboseProgressCases = []verboseProgressCase{
 	{"array", "array", []string{"-v:100"}},
 	{"usort", "usort", []string{"-v:100"}},
 	{"unsat", "unsat", []string{"-v:100"}},
+	// complete_model's (model.completion <name>) at level 12.
+	{"model_completion", "model_completion", []string{"-v:12"}},
+	// (get-consequences inc-limits) and the per-iteration progress line.
+	{"consequences_v1", "consequences", []string{"-v:1"}},
+	{"consequences_v100", "consequences", []string{"-v:100"}},
+}
+
+// verboseProgressFiltered keeps, for each case, only the lines starting
+// with the given prefix: the rest of those runs' output (opt) is not
+// ported yet.
+var verboseProgressFiltered = map[string]string{
+	// mus::get_mus1's (mus reducing core: ...) from maxres's minimize_core.
+	"mus": "(mus ",
+}
+
+var verboseProgressFilteredCases = []verboseProgressCase{
+	{"mus", "mus", []string{"-v:12"}},
+}
+
+func filterVerboseProgress(name, log string) string {
+	prefix, found := verboseProgressFiltered[name]
+	if !found {
+		return log
+	}
+	var out strings.Builder
+	for _, line := range strings.SplitAfter(log, "\n") {
+		if strings.HasPrefix(line, prefix) {
+			out.WriteString(line)
+		}
+	}
+	return out.String()
 }
 
 var verboseProgressMeasures = regexp.MustCompile(` :time [0-9.]+| :(before-|after-)?memory [0-9.]+`)
@@ -93,7 +124,7 @@ func TestVerboseProgressMessages(t *testing.T) {
 		return
 	}
 	reference := os.Getenv("G3_CPP_REFERENCE")
-	for _, tc := range verboseProgressCases {
+	for _, tc := range append(append([]verboseProgressCase(nil), verboseProgressCases...), verboseProgressFilteredCases...) {
 		t.Run(tc.name, func(t *testing.T) {
 			path, err := filepath.Abs(filepath.Join("test_vectors", "verbose_progress_"+tc.vector+".smt2"))
 			if err != nil {
@@ -104,7 +135,7 @@ func TestVerboseProgressMessages(t *testing.T) {
 				t.Fatal(err)
 			}
 			args := append(append([]string(nil), tc.args...), path)
-			got := normalizeVerboseProgress(runVerboseProgressChild(t, args))
+			got := filterVerboseProgress(tc.name, normalizeVerboseProgress(runVerboseProgressChild(t, args)))
 			if got != string(expected) {
 				t.Fatalf("g3 standard error\n%s\nwant (build/z3)\n%s", got, expected)
 			}
@@ -118,7 +149,7 @@ func TestVerboseProgressMessages(t *testing.T) {
 			if err := cmd.Run(); err != nil {
 				t.Fatal(err, native.String(), cppLog.String())
 			}
-			if cpp := normalizeVerboseProgress(cppLog.String()); got != cpp {
+			if cpp := filterVerboseProgress(tc.name, normalizeVerboseProgress(cppLog.String())); got != cpp {
 				t.Fatalf("Go/C++ standard error differ\nGo:\n%s\nC++:\n%s", got, cpp)
 			}
 		})

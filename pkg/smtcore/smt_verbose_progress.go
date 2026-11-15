@@ -14,8 +14,11 @@ import (
 )
 
 // startTimeit is `timeit tt(get_verbosity_level() >= 100, msg)`: the report
-// goes to std::cerr (timeit's default stream), not to verbose_stream; the
-// process default verbose stream is g3's std::cerr. It
+// goes to std::cerr, timeit's default stream. The command context binds
+// verbose_stream() to its diagnostic channel, std::cerr by default, so g3
+// writes to the current process verbose stream, which then stands for
+// std::cerr. (Only with :diagnostic-output-channel redirected to a file
+// does the C++ keep timeit on std::cerr while g3 follows the channel.) It
 // returns nil when the scope is disabled; pass the result to closeTimeit.
 func (k *SMTKernel) startTimeit(msg string) (*stopwatch.Timeit, error) {
 	if !diagnostic.VerboseProgress {
@@ -32,9 +35,12 @@ func (k *SMTKernel) startTimeit(msg string) (*stopwatch.Timeit, error) {
 			memory = runtime.AllocationSize
 		}
 	}
+	cerr, err := diagnostic.BorrowProcessVerboseStream()
+	if err != nil {
+		return nil, err
+	}
 	t := &stopwatch.Timeit{}
-	cerr := cerrWriter{diagnostic.BorrowDefaultProcessVerboseStream()}
-	if err = t.Construct(true, stopwatch.TimeitConfig{Output: cerr, Message: msg, Memory: memory}); err != nil {
+	if err = t.Construct(true, stopwatch.TimeitConfig{Output: cerrWriter{cerr}, Message: msg, Memory: memory}); err != nil {
 		return nil, errors.Join(err, t.Cleanup())
 	}
 	return t, nil
@@ -52,11 +58,14 @@ func closeTimeit(t *stopwatch.Timeit, cause error) error {
 	// ~timeit wrote `std::fixed << std::setprecision(2)` into std::cerr; the
 	// flags stay set, so later doubles printed to std::cerr (the default
 	// verbose_stream) are fixed with two decimals, as in the C++.
-	cerr := diagnostic.BorrowDefaultProcessVerboseStream()
+	cerr, err := diagnostic.BorrowProcessVerboseStream()
+	if err != nil {
+		return errors.Join(cause, err)
+	}
 	return errors.Join(cause, cerr.SetFloatMode(utext.NumericFixedFloat), cerr.SetPrecision(2))
 }
 
-// cerrWriter writes to the process stream that stands for std::cerr.
+// cerrWriter writes to the stream that stands for std::cerr.
 type cerrWriter struct{ out *utext.NumericTextStream }
 
 func (w cerrWriter) Write(p []byte) (int, error) {

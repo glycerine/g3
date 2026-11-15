@@ -8,8 +8,10 @@ package smtcore
 import (
 	"errors"
 	"sort"
+	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/stopwatch"
 )
@@ -617,7 +619,9 @@ func (k *SMTKernel) GetConsequences(assumptions0, vars0 []ast.ASTHandle, evaluat
 	}
 	defer func() { resultErr = errors.Join(resultErr, k.endSearch(session)) }()
 	const chunkSize = 100
+	numIterations, numFixedEqs := 0, 0 // num_iterations, num_fixed_eqs
 	for c.var2val.size != 0 {
+		numIterations++
 		numVars := 0
 		for _, entry := range c.var2val.entries() {
 			if numVars >= chunkSize {
@@ -670,7 +674,13 @@ func (k *SMTKernel) GetConsequences(assumptions0, vars0 []ast.ASTHandle, evaluat
 				return lbool.Undef, nil, err
 			}
 			if restartDue {
-				// inc_limits
+				// IF_VERBOSE(1, "(get-consequences inc-limits)") (AUDIT.md
+				// FUZZ-F5; g3trace builds only), then inc_limits.
+				if diagnostic.VerboseProgress {
+					if err = progressVerbose(1, "(get-consequences inc-limits)\n"); err != nil {
+						return lbool.Undef, nil, err
+					}
+				}
 				if err = session.restarts.advance(k.smtState); err != nil {
 					return lbool.Undef, nil, err
 				}
@@ -693,8 +703,19 @@ func (k *SMTKernel) GetConsequences(assumptions0, vars0 []ast.ASTHandle, evaluat
 		if err = c.extractFixed(&numUnits, searchLevel, assumptionSet); err != nil {
 			return lbool.Undef, nil, err
 		}
-		if _, err = c.extractFixedEqs(); err != nil {
+		fixedEqs, err := c.extractFixedEqs()
+		if err != nil {
 			return lbool.Undef, nil, err
+		}
+		numFixedEqs += fixedEqs
+		// IF_VERBOSE(1, display_consequence_progress(...)) (AUDIT.md
+		// FUZZ-F5; g3trace builds only).
+		if diagnostic.VerboseProgress {
+			if err = progressVerbose(1, "(get-consequences iterations: "+strconv.Itoa(numIterations)+
+				" variables: "+strconv.Itoa(int(c.var2val.size))+" fixed: "+strconv.Itoa(len(c.conseq))+
+				" unfixed: "+strconv.Itoa(len(c.unfixed))+" fixed-eqs: "+strconv.Itoa(numFixedEqs)+")\n"); err != nil {
+				return lbool.Undef, nil, err
+			}
 		}
 	}
 	return lbool.True, nil, pop()

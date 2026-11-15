@@ -7,7 +7,9 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 // completeModel applies the command-context model.completion option to the
@@ -42,6 +44,9 @@ func (c *Context) completeModel() (resultErr error) {
 	for _, entry := range c.psortDictionary().entries() {
 		if entry.psort == nil || !entry.psort.userDecl {
 			continue
+		}
+		if err := modelCompletionVerbose(entry.name); err != nil {
+			return err
 		}
 		var parameters []ast.ASTHandle
 		if constructor, found := c.sortConstructors[entry.name]; found {
@@ -81,6 +86,15 @@ func (c *Context) completeModel() (resultErr error) {
 			return err
 		}
 		interpretation, err := md.FunctionInterpretation(declaration)
+		if err == nil && diagnostic.VerboseProgress {
+			var name usymbol.Symbol
+			if name, err = c.manager.GetASTName(declaration); err == nil {
+				var text string
+				if text, err = c.manager.Symbols.String(name); err == nil {
+					err = modelCompletionVerbose(text)
+				}
+			}
+		}
 		if err != nil || interpretation == nil {
 			if err != nil {
 				return err
@@ -111,6 +125,9 @@ func (c *Context) completeModel() (resultErr error) {
 		if entry.funcs == nil {
 			continue
 		}
+		if err := modelCompletionVerbose(entry.name); err != nil {
+			return err
+		}
 		for _, function := range entry.funcs.entries() {
 			if err := c.completeFunction(md, function); err != nil {
 				return err
@@ -118,6 +135,16 @@ func (c *Context) completeModel() (resultErr error) {
 		}
 	}
 	return nil
+}
+
+// modelCompletionVerbose is complete_model's
+// IF_VERBOSE(12, "(model.completion " << name << ")") (AUDIT.md FUZZ-F5;
+// g3trace builds only).
+func modelCompletionVerbose(name string) error {
+	if !diagnostic.VerboseProgress {
+		return nil
+	}
+	return diagnostic.ProgressVerbose(12, "(model.completion "+name+")\n")
 }
 
 // completeFunction is one complete_model m_func_decls entry.
