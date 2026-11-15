@@ -167,3 +167,56 @@ func TestExprSafeReplaceApplySubstitutionAndSortGuard(t *testing.T) {
 	astTestMust(t, m.DelRef(&value))
 	astTestMust(t, replace.Close())
 }
+
+// AUDIT.md ast_rewriter_04-F4: the quantifier branch's shifted src/dst die
+// with the branch, so the shifted (:var 1) is freed before the rest of the
+// traversal builds new apps, and its id is recycled by the next node.
+func TestExprSafeReplaceQuantifierTemporariesReleasedAtBranchEnd(t *testing.T) {
+	m := astTestManager(t)
+	boolSort, err := m.MkBoolSort()
+	astTestMust(t, err)
+	c, err := m.MkConst(astTestSymbol(t, m, "safe-branch-c"), boolSort)
+	astTestMust(t, err)
+	astTestPin(t, m, c)
+	v0, err := m.MkVar(0, boolSort)
+	astTestMust(t, err)
+	astTestPin(t, m, v0)
+	p, err := m.MkFuncDecl(astTestSymbol(t, m, "safe-branch-p"), []ast.ASTHandle{boolSort}, boolSort, ast.ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	astTestPin(t, m, p)
+	q, err := m.MkFuncDecl(astTestSymbol(t, m, "safe-branch-q"), []ast.ASTHandle{boolSort}, boolSort, ast.ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	astTestPin(t, m, q)
+	py, err := m.MkApp(p, []ast.ASTHandle{v0})
+	astTestMust(t, err)
+	forall, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{boolSort}, Names: []usymbol.Symbol{astTestSymbol(t, m, "y")}, Body: py})
+	astTestMust(t, err)
+	qc, err := m.MkApp(q, []ast.ASTHandle{c})
+	astTestMust(t, err)
+	// (and (q c) (forall ((y Bool)) (p y))): the quantifier is visited first.
+	root, err := m.MkFamilyApp(0, ast.ASTOpAnd, nil, []ast.ASTHandle{qc, forall})
+	astTestMust(t, err)
+	astTestPin(t, m, root)
+	replace, err := NewExprSafeReplace(m)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, replace.Close()) })
+	astTestMust(t, replace.Insert(c, v0))
+	out := astTestPin(t, m, ast.ASTHandle{})
+	astTestMust(t, replace.Apply(root, out))
+	got, err := m.RefGet(out)
+	astTestMust(t, err)
+	qv := safeReplaceArg(t, m, got, 0)
+	if arg := safeReplaceArg(t, m, qv, 0); arg != v0 {
+		t.Fatal("c was not replaced by (:var 0)", arg, v0)
+	}
+	qvID, err := m.GetASTID(qv)
+	astTestMust(t, err)
+	v1, err := m.MkVar(1, boolSort)
+	astTestMust(t, err)
+	astTestPin(t, m, v1)
+	v1ID, err := m.GetASTID(v1)
+	astTestMust(t, err)
+	if qvID > v1ID {
+		t.Fatal("shifted (:var 1) outlived the quantifier branch: (q (:var 0)) did not reuse its id", qvID, v1ID)
+	}
+}

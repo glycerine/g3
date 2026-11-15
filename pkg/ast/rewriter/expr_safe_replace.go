@@ -82,15 +82,9 @@ func (r *ExprSafeReplace) Empty() (bool, error) {
 	return len(r.substitution) == 0, nil
 }
 
+// clearTemporary is m_refs.reset(): front to back.
 func (r *ExprSafeReplace) clearTemporary() error {
-	for len(r.temporary) != 0 {
-		last := len(r.temporary) - 1
-		if err := r.manager.DelRef(&r.temporary[last]); err != nil {
-			return err
-		}
-		r.temporary = r.temporary[:last]
-	}
-	return nil
+	return releaseRefsForward(r.manager, &r.temporary)
 }
 
 func (r *ExprSafeReplace) scratch() (ast.ASTRef, error) {
@@ -111,101 +105,125 @@ func (r *ExprSafeReplace) retainTemporary(h ast.ASTHandle) error {
 	return nil
 }
 
+// rewriteQuantifier is the quantifier branch of operator(). Its locals
+// (replace, shift, new_body, src, dst, tmp, pats, nopats) die when the
+// branch ends, in reverse declaration order, after b joins m_refs.
 func (r *ExprSafeReplace) rewriteQuantifier(q ast.ASTHandle) (result ast.ASTHandle, err error) {
-	nested, err := NewExprSafeReplace(r.manager)
+	m := r.manager
+	nested, err := NewExprSafeReplace(m)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	defer func() { err = errors.Join(err, nested.Close()) }()
-	shifter, err := newVarShifter(r.manager)
+	shifter, err := newVarShifter(m)
 	if shifter != nil {
 		defer func() { err = errors.Join(err, shifter.Close()) }()
 	}
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	declarations, err := r.manager.GetNumDeclarations(q)
+	// expr_ref new_body, src, dst, tmp; expr_ref_vector pats, nopats.
+	var newBody, src, dst, tmp ast.ASTRef
+	var pats, nopats []ast.ASTRef
+	defer func() {
+		err = errors.Join(err,
+			releaseRefsForward(m, &nopats),
+			releaseRefsForward(m, &pats),
+			m.DelRef(&tmp), m.DelRef(&dst), m.DelRef(&src), m.DelRef(&newBody))
+	}()
+	for _, ref := range []*ast.ASTRef{&newBody, &src, &dst, &tmp} {
+		if *ref, err = m.NewRef(ast.ASTHandle{}); err != nil {
+			return ast.ASTHandle{}, err
+		}
+	}
+	declarations, err := m.GetNumDeclarations(q)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	for _, replacement := range r.replacements {
-		sourceOut, e := r.scratch()
+		if err = shifter.ShiftBy(replacement.source, declarations, src); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if err = shifter.ShiftBy(replacement.destination, declarations, dst); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		shiftedSource, e := m.RefGet(src)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		if e = shifter.ShiftBy(replacement.source, declarations, sourceOut); e != nil {
-			return ast.ASTHandle{}, e
-		}
-		destinationOut, e := r.scratch()
+		shiftedDestination, e := m.RefGet(dst)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		if e = shifter.ShiftBy(replacement.destination, declarations, destinationOut); e != nil {
-			return ast.ASTHandle{}, e
-		}
-		shiftedSource, e := r.manager.RefGet(sourceOut)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		shiftedDestination, e := r.manager.RefGet(destinationOut)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		if e = nested.Insert(shiftedSource, shiftedDestination); e != nil {
-			return ast.ASTHandle{}, e
+		if err = nested.Insert(shiftedSource, shiftedDestination); err != nil {
+			return ast.ASTHandle{}, err
 		}
 	}
-	rewriteChild := func(h ast.ASTHandle) (ast.ASTHandle, error) {
-		out, e := r.scratch()
+	// replace(child, tmp); vector.push_back(tmp).
+	rewriteInto := func(h ast.ASTHandle, vector *[]ast.ASTRef) (ast.ASTHandle, error) {
+		if e := nested.Apply(h, tmp); e != nil {
+			return ast.ASTHandle{}, e
+		}
+		value, e := m.RefGet(tmp)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		if e = nested.Apply(h, out); e != nil {
+		held, e := m.NewRef(value)
+		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		return r.manager.RefGet(out)
+		*vector = append(*vector, held)
+		return value, nil
 	}
-	patternCount, err := r.manager.GetNumPatterns(q)
+	patternCount, err := m.GetNumPatterns(q)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	patterns := make([]ast.ASTHandle, 0, patternCount)
 	for i := uint32(0); i < patternCount; i++ {
-		pattern, e := r.manager.GetPattern(q, i)
+		pattern, e := m.GetPattern(q, i)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		pattern, e = rewriteChild(pattern)
-		if e != nil {
+		if pattern, e = rewriteInto(pattern, &pats); e != nil {
 			return ast.ASTHandle{}, e
 		}
 		patterns = append(patterns, pattern)
 	}
-	noPatternCount, err := r.manager.GetNumNoPatterns(q)
+	noPatternCount, err := m.GetNumNoPatterns(q)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	noPatterns := make([]ast.ASTHandle, 0, noPatternCount)
 	for i := uint32(0); i < noPatternCount; i++ {
-		noPattern, e := r.manager.GetNoPattern(q, i)
+		noPattern, e := m.GetNoPattern(q, i)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		noPattern, e = rewriteChild(noPattern)
-		if e != nil {
+		if noPattern, e = rewriteInto(noPattern, &nopats); e != nil {
 			return ast.ASTHandle{}, e
 		}
 		noPatterns = append(noPatterns, noPattern)
 	}
-	body, err := r.manager.GetQuantifierBody(q)
+	body, err := m.GetQuantifierBody(q)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	body, err = rewriteChild(body)
+	if err = nested.Apply(body, newBody); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if body, err = m.RefGet(newBody); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	b, err := m.UpdateQuantifierAnnotations(q, patterns, noPatterns, body)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	return r.manager.UpdateQuantifierAnnotations(q, patterns, noPatterns, body)
+	// m_refs.push_back(b) before the locals are destroyed.
+	if err = r.retainTemporary(b); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return b, nil
 }
 
 func (r *ExprSafeReplace) Apply(root ast.ASTHandle, out ast.ASTRef) (result error) {
@@ -303,9 +321,6 @@ func (r *ExprSafeReplace) Apply(root ast.ASTHandle, out ast.ASTRef) (result erro
 		case ast.ASTQuantifier:
 			rewritten, e := r.rewriteQuantifier(current)
 			if e != nil {
-				return e
-			}
-			if e = r.retainTemporary(rewritten); e != nil {
 				return e
 			}
 			cache[current] = rewritten
