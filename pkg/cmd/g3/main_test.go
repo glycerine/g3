@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md sat_04-F2: parse_assumptions accepts only (negated) constants.
+	"check_sat_assuming_non_literal.smt2": "(error \"line 7 column 22: invalid check-sat command, 'not' expected, assumptions must be Boolean literals\")\n(error \"line 8 column 10: model is not available\")\n(error \"line 9 column 26: invalid check-sat command, literal expected\")\n(error \"line 10 column 25: invalid check-sat command, argument must be a Boolean literal\")\n(error \"line 11 column 22: invalid check-sat command, argument must be a Boolean literal\")\n(error \"line 12 column 28: invalid check-sat command, argument must be a Boolean literal\")\nsat\n(error \"line 14 column 12: invalid check-sat command, 'not' expected, assumptions must be Boolean literals\")\nsat\n(error \"line 16 column 22: unsat assumptions construction is not enabled, use command (set-option :produce-unsat-assumptions true)\")\n",
 	// AUDIT.md solver_misc_01-F1: tactic2solver::get_labels returns no labels.
 	"tactic_solver_labels.smt2": "sat\n(labels)\n",
 	// AUDIT.md smtcore_02-F7: get-consequences reuses m_var2val and its capacity
@@ -1959,6 +1961,8 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	"check_sat_assuming_non_literal.smt2": true, // AUDIT.md sat_04-F2
+
 	// AUDIT.md ast_04-F1
 	"pp_single_line_sort_mismatch.smt2": true,
 
