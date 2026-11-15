@@ -1,0 +1,6 @@
+(declare-const a Real)
+(declare-const b Real)
+(declare-const c Real)
+(assert (forall ((y Real)) (exists ((x Real)) (and (>= x (+ a y)) (< x (+ b y)) (< x (+ c y))))))
+(check-sat-using (using-params qe-sat :projection_mode false))
+(get-model)

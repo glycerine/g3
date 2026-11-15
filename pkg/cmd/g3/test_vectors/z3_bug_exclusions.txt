@@ -344,3 +344,15 @@ z3_bug_nlsat_inline_constant_atom
 # patches exist (pkg/nlsat/solver.go Check, variable_order.go; AUDIT.md
 # nlsat_03-F8). Reproduction: test_vectors/z3_bug_nlsat_inline_reorder.smt2.
 z3_bug_nlsat_inline_reorder
+#
+# qe-sat real projection direction: arith_plugin::project_real picks the
+# bound family from raw counts (le + lt < ge + gt) and encodes the branch
+# for it, but assign and subst read the branch in the family
+# get_bound_sizes picks, which doubles the non-strict counts of a real; on
+# this input z3 4.7.1 qe-sat with projection_mode false never terminates
+# (z3 bug: src/qe/qe_arith_plugin.cpp:1920-1955 project_real; upstream
+# removed qe-sat in 8717c7d7f, project_real is unchanged and dead there).
+# g3 uses the assign/subst family (pkg/qe/arithmetic_model_project_real.go
+# realBranch; AUDIT.md qe_01-F2). Reproduction:
+# test_vectors/z3_bug_qe_sat_project_real_direction.smt2.
+z3_bug_qe_sat_project_real_direction

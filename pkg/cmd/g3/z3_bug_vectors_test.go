@@ -58,13 +58,14 @@ var z3BugResults = map[string]string{
 	"z3_bug_spacer_min_cut_shared_node_unsat.smt2": "unsat\n\n",
 
 	// muz_transforms_01-F6
-	"z3_bug_qi_weakening_proof.smt2":         "sat\ntrue\n",
-	"z3_bug_nlsat_signed_infinity_sign.smt2": "unsat\n",                                                                                                                                    // nlsat_01-F1
-	"z3_bug_nlsat_eval_sign_overflow.smt2":   "sat\n(model \n  (define-fun x () Real\n    50000.0)\n  (define-fun y () Real\n    50000.0)\n  (define-fun z () Real\n    (- 2.0))\n)\n",     // nlsat_01-F2
-	"z3_bug_nlsat_normalize_sign.smt2":       "unsat\n",                                                                                                                                    // nlsat_01-F4
-	"z3_bug_nlsat_inline_zero_factor.smt2":   "unsat\n",                                                                                                                                    // nlsat_02-F2
-	"z3_bug_nlsat_inline_constant_atom.smt2": "sat\n((z (- 2.0)))\n",                                                                                                                       // nlsat_02-F2
-	"z3_bug_nlsat_inline_reorder.smt2":       "sat\n(model \n  (define-fun y () Real\n    (/ 1.0 8.0))\n  (define-fun x () Real\n    7.0)\n  (define-fun z () Real\n    (/ 1.0 2.0))\n)\n", // nlsat_03-F8
+	"z3_bug_qi_weakening_proof.smt2":            "sat\ntrue\n",
+	"z3_bug_nlsat_signed_infinity_sign.smt2":    "unsat\n",                                                                                                                                    // nlsat_01-F1
+	"z3_bug_nlsat_eval_sign_overflow.smt2":      "sat\n(model \n  (define-fun x () Real\n    50000.0)\n  (define-fun y () Real\n    50000.0)\n  (define-fun z () Real\n    (- 2.0))\n)\n",     // nlsat_01-F2
+	"z3_bug_nlsat_normalize_sign.smt2":          "unsat\n",                                                                                                                                    // nlsat_01-F4
+	"z3_bug_nlsat_inline_zero_factor.smt2":      "unsat\n",                                                                                                                                    // nlsat_02-F2
+	"z3_bug_nlsat_inline_constant_atom.smt2":    "sat\n((z (- 2.0)))\n",                                                                                                                       // nlsat_02-F2
+	"z3_bug_nlsat_inline_reorder.smt2":          "sat\n(model \n  (define-fun y () Real\n    (/ 1.0 8.0))\n  (define-fun x () Real\n    7.0)\n  (define-fun z () Real\n    (/ 1.0 2.0))\n)\n", // nlsat_03-F8
+	"z3_bug_qe_sat_project_real_direction.smt2": "sat\n(model \n  (define-fun b () Real\n    1.0)\n  (define-fun a () Real\n    (- 1.0))\n  (define-fun c () Real\n    0.0)\n)\n",             // qe_01-F2
 }
 
 func TestZ3BugVectorsKeepCorrectAnswers(t *testing.T) {
