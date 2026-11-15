@@ -637,6 +637,7 @@ namespace qe {
             ctx.set_projection_mode(m_projection_mode_param);
             m_solvers[idx+1]->push();
             while (ctx.get_num_vars() > 0) {
+                // FORK FIX #95 (g3 audit, see FORK_BUGFIXES.md): qsat::project stops with the cancel message when the solver check is undecided (was VERIFY, then a segfault)
                 // Under a resource limit the check is l_undef and
                 // project_var would read a null model: stop with the
                 // cancel message instead.
