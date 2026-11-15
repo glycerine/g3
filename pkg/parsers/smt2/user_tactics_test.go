@@ -17,9 +17,9 @@ func TestSMT2UserTacticDeclarationLookupDisplayAndApply(t *testing.T) {
 	if err != nil {
 		t.Fatal(err, output)
 	}
-	wantDeclarations := `((declare-tactic custom skip)
-(declare-tactic alias custom))
-`
+	// get_user_tactics_cmd separates entries with "\n " (z3 4.7.1 itself
+	// segfaults here, AUDIT.md cmd_context_02).
+	wantDeclarations := "((declare-tactic custom skip)\n (declare-tactic alias custom))\n"
 	if !strings.HasPrefix(output, wantDeclarations) {
 		t.Fatalf("user tactic display = %q, want prefix %q", output, wantDeclarations)
 	}

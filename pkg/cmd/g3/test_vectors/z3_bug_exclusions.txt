@@ -450,3 +450,14 @@ z3_bug_probe_nary_fold
 # z3_generated_pseudo_boolean_commands.go; AUDIT.md api_03-F3). Not an
 # SMT-LIB vector: TestZ3LogFrontendReplaysPseudoBooleanCoefficients in
 # pkg/cmd/g3/z3_log_frontend_test.go locks both.
+#
+# get-user-tactics segfault: sexpr::display prints an atom with
+# display_atom and then, missing a return, walks it as a composite, so
+# (get-user-tactics) crashes z3 4.7.1 whenever a declared tactic is a plain
+# symbol (z3 bug: src/util/sexpr.cpp:187-189 sexpr::display; fixed upstream
+# in 202ed79a2, "#5445"). g3 prints the declarations
+# (pkg/parsers/smt2/commands.go get-user-tactics; AUDIT.md cmd_context_02).
+# With two or more tactics the order still differs: z3 iterates its
+# dictionary in hash order, g3 in insertion order. Reproduction:
+# test_vectors/z3_bug_get_user_tactics_symbol.smt2.
+z3_bug_get_user_tactics_symbol

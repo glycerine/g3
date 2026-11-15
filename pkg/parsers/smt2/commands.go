@@ -1162,7 +1162,9 @@ func (p *commandParser) command() (bool, error) {
 		var declarations strings.Builder
 		for _, declaration := range p.context.UserTacticDeclarations() {
 			if declarations.Len() != 0 {
-				declarations.WriteByte('\n')
+				// get_user_tactics_cmd separates entries with "\n "
+				// (tactic_cmds.cpp:83).
+				declarations.WriteString("\n ")
 			}
 			fmt.Fprintf(&declarations, "(declare-tactic %s %s)", declaration.Name, declaration.Body)
 		}
