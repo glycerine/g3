@@ -218,16 +218,8 @@ namespace qe {
             // -> 
             // A |-> store(store(t, i, w), j, w') where w, w' are fresh.
             // t[i] = v
-            // store(t, i, v)[j] = u
+            // i = j or t[j] = u
             //
-            // g3 note (z3 bug, still present in upstream z3 4.17.0; see g3
-            // TODO.md "z3 4.7.1 bugs fixed in g3"): the second condition is
-            // wrong when i = j, because the outer store overwrites u, so
-            // store(t, i, v)[j] = v and the result demands u = v. The correct
-            // condition is t[i] = v and (i = j or t[j] = u). Reproduction:
-            // g3 pkg/cmd/g3/test_vectors/z3_bug_qe_nested_store.smt2, which
-            // is sat but answers unsat under (then qe smt). g3's fix:
-            // pkg/qe/qe_array_plugin_store.go TryStoreEquality.
             unsigned idx = 0;
             vector<ptr_vector<expr> > args;
             if (is_store_update(lhs, idx, rhs, args)) {
@@ -235,18 +227,31 @@ namespace qe {
                 app* A = contains_A.x();
                 app_ref w(m);
 
-                expr_ref store_t(rhs, m), store_T(rhs, m), select_t(m);
+                expr_ref store_t(rhs, m), select_t(m), eq(m), same(m);
                 ptr_vector<expr> args2;
                 for (unsigned i = args.size(); i > 0; ) {
                     --i;
                     args2.reset();
                     w = m.mk_fresh_const("w", m.get_sort(args[i].back()));
-                    args2.push_back(store_T);
+                    args2.push_back(rhs);
                     args2.append(args[i]);
                     
+                    // FORK FIX #76: an inner write (args[i]) is visible in t
+                    // only where no outer write (args[0..i)) uses the same
+                    // index. The old condition store(t, i, v)[j] = u, with
+                    // the outer writes stored into t, forced u = v when
+                    // i = j.
                     select_t = m.mk_app(m_fid, OP_SELECT, args2.size()-1, args2.c_ptr());
-                    fml = m.mk_and(fml, m.mk_eq(select_t, args2.back()));
-                    store_T = m.mk_app(m_fid, OP_STORE, args2.size(), args2.c_ptr());
+                    eq = m.mk_eq(select_t, args2.back());
+                    for (unsigned k = 0; k < i; ++k) {
+                        same = nullptr;
+                        for (unsigned l = 0; l + 1 < args[i].size(); ++l) {
+                            expr* e = m.mk_eq(args[i][l], args[k][l]);
+                            same = same ? m.mk_and(same, e) : e;
+                        }
+                        eq = m.mk_or(same, eq);
+                    }
+                    fml = m.mk_and(fml, eq);
 
                     args2[0] = store_t;
                     args2.back() = w;
