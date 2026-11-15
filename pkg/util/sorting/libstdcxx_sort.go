@@ -15,7 +15,8 @@ package sorting
 // The project rule (AGENTS.md) is: never port the C++ standard library.
 // This file is one of the few approved exceptions (approved by the user on
 // 2026-11-13, alongside the lar_term unordered_map and lu.h unordered_set
-// exceptions in pkg/util/lp). It serves exactly THREE approved call sites:
+// exceptions in pkg/util/lp). It serves exactly the approved call sites
+// listed below:
 //
 //  1. SMTTheoryArith.flushBoundAxioms (smt_theory_arith_core.go), the port
 //     of theory_arith<Ext>::flush_bound_axioms in
@@ -42,6 +43,13 @@ package sorting
 //     approved 2026-11-14 for AUDIT.md ast_rewriter_02-F2: mon_lt compares
 //     monomials by their variable part only, so x and (bvmul c x) tie, and
 //     with more than 16 arguments introsort permutes them.
+//
+//  4. lp_primal_core_solver::sort_non_basis_rational and sort_non_basis
+//     (pkg/util/lp/nbasis_libstdcxx_sort.go), the std::sort of m_nbasis in
+//     src/util/lp/lp_primal_core_solver.hpp:34,41,68, approved 2026-11-14
+//     for AUDIT.md util_lp_05-F1: column counts tie constantly, so the
+//     entering-column scan order (and the LRA optimum's model) depends on
+//     libstdc++'s permutation.
 //
 // The algorithm lives here in pkg/util/sorting so every approved call site
 // shares one verified implementation; the typed wrappers stay at the call

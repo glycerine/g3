@@ -2,8 +2,6 @@ package lp
 
 // Source: src/util/lp/lp_primal_core_solver.hpp:59-148,233-271.
 
-import "sort"
-
 func (m *FloatPrimalCoreSolver) ColumnIsBeneficialForEnteringOnBreakpoints(j uint32) (bool, error) {
 	if uint64(j) >= uint64(len(m.D)) || uint64(j) >= uint64(len(*m.ColumnTypes)) {
 		return false, ErrBounds
@@ -96,8 +94,9 @@ func (m *FloatPrimalCoreSolver) SortNonBasis() error {
 		d := m.D[j]
 		m.SteepestEdge[j] = d * d / m.ColumnNorms[j]
 	}
-	// Use Go sorting; equal/unordered keys have no specified C++ sort order.
-	sort.Slice(*m.NBasis, func(i, j int) bool { return m.SteepestEdge[(*m.NBasis)[i]] > m.SteepestEdge[(*m.NBasis)[j]] })
+	// lp_primal_core_solver.hpp:68 std::sort: approved libstdc++ port
+	// (nbasis_libstdcxx_sort.go, AUDIT.md util_lp_05-F1).
+	sortNonBasisBySteepestEdge(*m.NBasis, m.SteepestEdge)
 	m.NonBasisList = m.NonBasisList[:0]
 	for i, j := range *m.NBasis {
 		if uint64(j) >= uint64(len(*m.Heading)) {

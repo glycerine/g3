@@ -557,3 +557,45 @@ func TestLPExactPrimalPricingBreakpointDirection(t *testing.T) {
 		lpExactVectorNamedCensus(t, h, nil)
 	}
 }
+
+// TestLPExactPrimalSortNonBasisLibstdcxxOrder: AUDIT.md util_lp_05-F1.
+// sort_non_basis_rational's std::sort on counts [3,0,2]: libstdc++
+// __insertion_sort sees comp(2, 3) and moves column 6 to the front, giving
+// [6,4,5]; Go's sort.Slice left [4,5,6]. Expected order from a g++ 13.3
+// program running the same comparator (see nbasis_libstdcxx_sort.go).
+func TestLPExactPrimalSortNonBasisLibstdcxxOrder(t *testing.T) {
+	h := newLPPairHarness(t)
+	s := lpNewLARLUPreparedModel(t, h, lpExactIdentity(4))
+	m := s.Core.RPrimal
+	for j := 0; j < 3; j++ {
+		_, e := s.AddVar(uint32(100 + j))
+		h.must(e)
+	}
+	m.ColumnsNZ = []uint32{0, 0, 0, 0, 3, 0, 2}
+	if want := []uint32{4, 5, 6}; !reflect.DeepEqual(*m.NBasis, want) {
+		t.Fatal("setup", *m.NBasis)
+	}
+	h.must(m.SortNonBasis())
+	want := []uint32{6, 4, 5}
+	if !reflect.DeepEqual(*m.NBasis, want) || !reflect.DeepEqual(m.NonBasisList, want) {
+		t.Fatal(*m.NBasis, want)
+	}
+	h.must(s.Close())
+	lpExactVectorNamedCensus(t, h, nil)
+}
+
+// TestLPSortNonBasisLibstdcxxTieOrder pins sort_non_basis_rational's
+// comparator on 20 tie-heavy counts (introsort path) to the permutation
+// g++ 13.3 std::sort produces (util_lp_05-F1).
+func TestLPSortNonBasisLibstdcxxTieOrder(t *testing.T) {
+	counts := []uint32{2, 0, 1, 3, 0, 2, 1, 1, 0, 2, 3, 1, 2, 0, 1, 2, 1, 3, 0, 2}
+	nbasis := make([]uint32, len(counts))
+	for j := range nbasis {
+		nbasis[j] = uint32(j)
+	}
+	sortNonBasisByColumnCount(nbasis, func(j uint32) uint32 { return counts[j] })
+	want := []uint32{2, 19, 10, 18, 6, 7, 16, 11, 14, 5, 9, 0, 12, 15, 17, 13, 8, 4, 3, 1}
+	if !reflect.DeepEqual(nbasis, want) {
+		t.Fatal(nbasis, want)
+	}
+}

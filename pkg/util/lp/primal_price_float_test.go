@@ -264,3 +264,27 @@ func TestLPFloatPrimalPricingPublicationAndAssertions(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// TestLPFloatPrimalSortNonBasisLibstdcxxTieOrder: sort_non_basis's
+// std::sort (steepest edge, descending) on 20 columns with tied
+// coefficients must leave g++ 13.3's introsort permutation (util_lp_05-F1).
+func TestLPFloatPrimalSortNonBasisLibstdcxxTieOrder(t *testing.T) {
+	d := []float64{1, 2, 1, 3, 2, 1, 3, 1, 2, 2, 1, 3, 1, 1, 2, 3, 2, 1, 3, 1}
+	m := lpFloatPrimalCore(t, 0, uint32(len(d)))
+	for j, v := range d {
+		m.ColumnNorms[j] = 1
+		m.D[j] = v
+	}
+	// The constructor lists the nonbasic columns in reverse; start from
+	// 0..19 as the C++ control does.
+	for i := range *m.NBasis {
+		(*m.NBasis)[i] = uint32(i)
+	}
+	if err := m.SortNonBasis(); err != nil {
+		t.Fatal(err)
+	}
+	want := []uint32{3, 18, 6, 11, 15, 1, 4, 8, 9, 16, 14, 19, 0, 17, 13, 12, 10, 7, 5, 2}
+	if !reflect.DeepEqual(*m.NBasis, want) || !reflect.DeepEqual(m.NonBasisList, want) {
+		t.Fatal(*m.NBasis, want)
+	}
+}

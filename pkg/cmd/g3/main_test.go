@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md util_lp_05-F1: sort_non_basis_rational uses libstdc++
+	// std::sort, so the LRA optimum's model matches z3.
+	"lra_sort_non_basis_introsort.smt2": "sat\n(objectives\n ((+ x3 x9 x5 x17 x19 x20 x22 x2 x21 x23 x0 x12) 45)\n)\n(model \n  (define-fun x20 () Real\n    4.0)\n  (define-fun x0 () Real\n    1.0)\n  (define-fun x22 () Real\n    2.0)\n  (define-fun x9 () Real\n    4.0)\n  (define-fun x17 () Real\n    4.0)\n  (define-fun x23 () Real\n    2.0)\n  (define-fun x13 () Real\n    0.0)\n  (define-fun x8 () Real\n    0.0)\n  (define-fun x14 () Real\n    0.0)\n  (define-fun x2 () Real\n    2.0)\n  (define-fun x7 () Real\n    0.0)\n  (define-fun x1 () Real\n    0.0)\n  (define-fun x6 () Real\n    0.0)\n  (define-fun x10 () Real\n    0.0)\n  (define-fun x21 () Real\n    10.0)\n  (define-fun x18 () Real\n    0.0)\n  (define-fun x3 () Real\n    7.0)\n  (define-fun x12 () Real\n    1.0)\n  (define-fun x19 () Real\n    7.0)\n  (define-fun x15 () Real\n    (- 1.0))\n  (define-fun x5 () Real\n    1.0)\n  (define-fun x4 () Real\n    0.0)\n  (define-fun x11 () Real\n    0.0)\n)\n",
 	// AUDIT.md math_misc_01-F1: grobner merge_monomials charges
 	// limit().inc(sz); model_finder::fix_model has no entry checkpoint.
 	"grobner_rlimit_unknown.smt2": "unknown\n",

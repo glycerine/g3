@@ -2,8 +2,6 @@ package lp
 
 // Source: src/util/lp/lp_primal_core_solver.hpp:31-57,86-110,151-232.
 
-import "sort"
-
 // pricingCompareEpsilon owns only its rational expression/comparison. Bound
 // comparisons are delegated separately to the exact base core.
 func (m *RationalPrimalCoreSolver) pricingCompareEpsilon(j uint32, negative bool) (value int, err error) {
@@ -182,9 +180,9 @@ func (m *RationalPrimalCoreSolver) ColumnIsBeneficialForEnteringBasis(j uint32) 
 	return m.AboveBound(&(*m.X)[j], &(*m.LowBounds)[j])
 }
 
-// SortNonBasis uses Go sorting with the literal source comparison. Zero-count
-// columns compare neither before nor after nonzero columns; their relative
-// placement is not a portable C++ sort guarantee.
+// SortNonBasis is sort_non_basis_rational. Its std::sort goes through the
+// user-approved libstdc++ port (nbasis_libstdcxx_sort.go, AUDIT.md
+// util_lp_05-F1).
 func (m *RationalPrimalCoreSolver) SortNonBasis() (err error) {
 	if err = m.ready(); err != nil {
 		return err
@@ -203,19 +201,12 @@ func (m *RationalPrimalCoreSolver) SortNonBasis() (err error) {
 			return ErrBounds
 		}
 	}
-	sort.Slice(*m.NBasis, func(i, j int) bool {
-		a, b := (*m.NBasis)[i], (*m.NBasis)[j]
-		var ca, cb uint32
-		if tableau {
-			ca, cb = uint32(len(m.A.Columns[a])), uint32(len(m.A.Columns[b]))
-		} else {
-			ca, cb = m.ColumnsNZ[a], m.ColumnsNZ[b]
-		}
-		if ca == 0 && cb != 0 {
-			return false
-		}
-		return ca < cb
-	})
+	// lp_primal_core_solver.hpp:34 / :41 std::sort: approved libstdc++ port.
+	if tableau {
+		sortNonBasisByColumnCount(*m.NBasis, func(j uint32) uint32 { return uint32(len(m.A.Columns[j])) })
+	} else {
+		sortNonBasisByColumnCount(*m.NBasis, func(j uint32) uint32 { return m.ColumnsNZ[j] })
+	}
 	m.NonBasisList = m.NonBasisList[:0]
 	for i, j := range *m.NBasis {
 		if uint64(j) >= uint64(len(*m.Heading)) {
