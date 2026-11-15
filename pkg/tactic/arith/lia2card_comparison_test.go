@@ -86,7 +86,16 @@ func TestLIA2CardComparisonTrivialAndUnsupported(t *testing.T) {
 		}
 		value, err := m.RefGet(ref)
 		equationMust(t, err)
-		if (tc.want && !m.IsTrue(value)) || (!tc.want && !m.IsFalse(value)) {
+		if tc.compile {
+			// mk_eq with compile_equality builds (_ pbeq 1) without terms,
+			// as z3 does; only the uncompiled form is folded (fork fix for
+			// the lia2card (= 2 3) hang, AUDIT.md tactic_arith_02).
+			count, e := m.GetNumArgs(value)
+			equationMust(t, e)
+			if m.IsTrue(value) || m.IsFalse(value) || count != 0 {
+				t.Fatal("compiled constant equality", tc, value)
+			}
+		} else if (tc.want && !m.IsTrue(value)) || (!tc.want && !m.IsFalse(value)) {
 			t.Fatal("constant comparison", tc, value)
 		}
 		equationMust(t, m.DelRef(&ref))

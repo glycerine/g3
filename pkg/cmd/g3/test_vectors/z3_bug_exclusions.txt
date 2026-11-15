@@ -267,3 +267,15 @@ z3_bug_distribute_forall_proof
 # ast_rewriter_04-F3). Reproduction:
 # test_vectors/z3_bug_pb2bv_fractional_coefficients.smt2.
 z3_bug_pb2bv_fractional_coefficients
+#
+# lia2card never terminates on an equation without 0-1 terms such as
+# (= 2 3) when compile_equality is off: mk_eq builds (and false true),
+# goal::update flattens it to false but appends the unflattened
+# conjunction as a new formula, and the rewrite loop visits and appends
+# it again forever (z3 bug: src/tactic/arith/lia2card_tactic.cpp mk_eq,
+# src/tactic/goal.cpp update; still present upstream with
+# :compile_equality false). g3 folds the empty sum to true/false
+# (pkg/tactic/arith/lia2card_comparison.go; AUDIT.md tactic_arith_02,
+# Needs verification). Reproduction:
+# test_vectors/z3_bug_lia2card_empty_equation.smt2.
+z3_bug_lia2card_empty_equation

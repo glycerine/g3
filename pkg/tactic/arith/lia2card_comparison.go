@@ -123,14 +123,18 @@ func lia2cardComparisonRetaining(m *ast.ASTManager, left, right ast.ASTHandle, z
 		output, err = makeLE()
 	} else if boundRat.Sign() < 0 {
 		output, err = m.MkFalse()
+	} else if compileEquality {
+		output, err = m.MkPseudoBooleanEQ(weights, sum.Args, &bound)
 	} else if len(weights) == 0 {
+		// z3 4.7.1 builds (and false true) here; goal::update appends it
+		// unflattened and lia2card loops forever. The fork fix folds the
+		// empty sum (AUDIT.md tactic_arith_02, Needs verification;
+		// test_vectors/z3_bug_exclusions.txt).
 		if boundRat.Sign() == 0 {
 			output, err = m.MkTrue()
 		} else {
 			output, err = m.MkFalse()
 		}
-	} else if compileEquality {
-		output, err = m.MkPseudoBooleanEQ(weights, sum.Args, &bound)
 	} else {
 		var ge, le ast.ASTHandle
 		ge, err = makeGE()

@@ -1979,3 +1979,6 @@ func TestSMTLibRunnerRelevancyUpdatesKeepModelsValid(t *testing.T) {
 		t.Log("C++ reference returned models violating asserted formulas after the relevancy update; Go models remain valid")
 	}
 }
+	// AUDIT.md tactic_arith_02 (Needs verification): with compile_equality an
+	// empty lia2card equation stays a pbeq atom, as in z3.
+	"lia2card_empty_equation_compiled.smt2": "(goals\n(goal\n  (_ pbeq 1)\n  :precision precise :depth 1)\n)\n(goals\n(goal\n  (_ pbeq 0)\n  :precision precise :depth 1)\n)\n",
