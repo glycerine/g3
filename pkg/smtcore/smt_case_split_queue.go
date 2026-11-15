@@ -200,10 +200,12 @@ func (q *SMTActivityCaseSplitQueue) selectVariable() (int32, lbool.LBool, error)
 		// happens to decide negative every time, whatever smt.phase_selection
 		// says. g3 must not reproduce undefined behavior: it returns
 		// lbool.Undef, so the configured phase selection decides, which is
-		// deterministic and what the source evidently intends. Expect
-		// different decisions, models and statistics from build/z3 under
-		// smt.case_split=6 (AUDIT.md smtcore_02-F9; owner decision
-		// 2026-11-15: keep g3, document the divergence).
+		// deterministic and what the source evidently intends; upstream z3
+		// initializes it to l_undef in decide, and the C++ fork is fixed the
+		// same way. An unfixed z3 4.7.1 build gives different decisions,
+		// models and statistics under smt.case_split=6 (AUDIT.md
+		// smtcore_02-F9; owner decision 2026-11-15: keep g3, document the
+		// divergence; vector test_vectors/z3_bug_case_split6_phase.smt2).
 		variable, err := q.state.theoryAwareBranching.next(q.randomVariableFrequency)
 		return variable, lbool.Undef, err
 	case 3:

@@ -626,3 +626,15 @@ z3_bug_check_table_nullary_empty
 # applyDatalogDefaultFiniteTable), so it answers sat. No AUDIT.md finding.
 # Reproduction: test_vectors/z3_bug_bitvector_table_nullary.smt2.
 z3_bug_bitvector_table_nullary
+#
+# With smt.case_split=6, context::decide declares `lbool phase;` without a
+# value and theory_aware_branching_queue::next_case_split returns without
+# writing it, so z3 reads an indeterminate phase; the reference build
+# decides negative every time, whatever smt.phase_selection says (z3 bug:
+# src/smt/smt_context.cpp context::decide; upstream initializes the phase
+# to l_undef). g3 returns l_undef, so the configured phase selection
+# decides (pkg/smtcore/smt_case_split_queue.go selectVariable case 6;
+# AUDIT.md smtcore_02-F9). With smt.phase_selection=1 the first decision
+# is positive: z3 4.7.1 prints a true, b false, c false; g3 prints c true.
+# Reproduction: test_vectors/z3_bug_case_split6_phase.smt2.
+z3_bug_case_split6_phase
