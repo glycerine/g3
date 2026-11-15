@@ -230,6 +230,18 @@ func (s *RuleSet) Rule(index int) (*Rule, error) {
 	return s.rules[index].Retain()
 }
 
+// Contains is rule_set::contains: whether some rule ever had the predicate
+// as its head (m_head2rules keeps a key after its rules are deleted).
+func (s *RuleSet) Contains(declaration ast.ASTHandle) (bool, error) {
+	if err := s.open(); err != nil {
+		return false, err
+	}
+	if s.headTable == nil {
+		return false, nil
+	}
+	return s.headTable.Contains(declaration)
+}
+
 // PredicateRules returns new owning references in the rule set's current
 // grouped order. The caller must close each result.
 func (s *RuleSet) PredicateRules(declaration ast.ASTHandle) ([]*Rule, error) {

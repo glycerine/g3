@@ -54,7 +54,11 @@ func (c *bitBlastExpansion) push(refs *[]ast.ASTRef, h ast.ASTHandle) error {
 
 func (c *bitBlastExpansion) ReduceApp(declaration ast.ASTHandle, arguments ast.AppArguments, out, _ ast.ASTRef) (astrewriter.RewriteStatus, error) {
 	if arguments.Count() == 0 {
-		return astrewriter.RewriteFailed, nil
+		output, err := c.source.IsOutputPredicate(declaration)
+		if err == nil && output {
+			err = c.target.SetOutputPredicate(declaration)
+		}
+		return astrewriter.RewriteFailed, err
 	}
 	for i := uint32(0); i < arguments.Count(); i++ {
 		argument, err := arguments.At(i)
@@ -244,9 +248,6 @@ func (p *BitBlastPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resul
 			resultErr = errors.Join(resultErr, result.Close())
 		}
 	}()
-	if err = result.InheritPredicates(source); err != nil {
-		return nil, err
-	}
 	p.expansion.source, p.expansion.target = source, result
 	traversal, err := astrewriter.NewTraversal(p.manager, &p.expansion)
 	if err != nil {
@@ -292,6 +293,20 @@ func (p *BitBlastPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resul
 		transformErr = errors.Join(transformErr, rule.Close())
 		if transformErr != nil {
 			return nil, transformErr
+		}
+	}
+	// copy output predicates without any rule (bit-blasting not really needed)
+	outputs, err := source.OutputPredicates()
+	if err != nil {
+		return nil, err
+	}
+	for _, declaration := range outputs {
+		defined, containsErr := source.Contains(declaration)
+		if containsErr == nil && !defined {
+			containsErr = result.SetOutputPredicate(declaration)
+		}
+		if containsErr != nil {
+			return nil, containsErr
 		}
 	}
 	keep = true

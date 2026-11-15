@@ -111,6 +111,8 @@ var verboseProgressCases = []verboseProgressCase{
 	// compile_eq's (or (= w id) ...) follows the ptr_hashtable of the
 	// node's descendants (level-20 rule display).
 	{"ddnf_v20", "ddnf", []string{"-v:20", "fixedpoint.engine=ddnf"}},
+	// mk_bit_blast keeps only the bit-blasted query as output.
+	{"spacer_bit_blast_v2", "bit_blast", []string{"-v:2"}},
 }
 
 // verboseProgressFiltered keeps, for each case, only the lines starting

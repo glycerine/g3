@@ -1,0 +1,39 @@
+(transform N7datalog13mk_coi_filterE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...2 rules Ts)
+(transform N7datalog27mk_quantifier_instantiationE...no-op Ts)
+(transform N7datalog8mk_scaleE...no-op Ts)
+(transform N7datalog18mk_karr_invariantsE...no-op Ts)
+(transform N7datalog14mk_array_blastE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog12mk_bit_blastE...2 rules Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog13mk_coi_filterE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog13mk_coi_filterE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog22mk_subsumption_checkerE...no-op Ts)
+; rule count: 2
+; predicate count: 2
+; output: query!0!bv!2
+<null>:
+query!0!bv!2(#0,#1,#2) :- 
+ p!bv!1(#0,#1,#2).
+<null>:
+p!bv!1(true,false,true).
+expand: query!0!bv!2 (0, 0) FAR  w(0) 1(smt.searching)
+Itp Core:
+true
+. F t
+(spacer::context::check_reachability)
+Entering level 1
+expand: query!0!bv!2 (1, 0) FAR  w(0) 1(smt.searching)
+. T t
+(spacer::context::check_reachability)
