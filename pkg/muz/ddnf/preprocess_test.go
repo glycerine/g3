@@ -2,6 +2,7 @@ package ddnf_test
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -606,5 +607,43 @@ func TestDDNFPreprocessorRejectsArithmeticGreaterThan(t *testing.T) {
 	}
 	if ok, err := preprocessor.ProcessRule(f.rule(t, greater)); err != nil || ok {
 		t.Fatal("arithmetic > must be rejected, not treated as and", ok, err)
+	}
+}
+
+// AUDIT.md muz_small_01-F1: process_todo appends connective arguments to its
+// stack in order and pops the last one first, so (= x #x2) gets the first
+// DDNF node after the root.
+func TestDDNFPreprocessorVisitsConnectiveArgumentsLastFirst(t *testing.T) {
+	f := newPreprocessFixture(t)
+	preprocessor, err := muzddnf.NewPreprocessor(f.manager, f.registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = preprocessor.Close() })
+	first, err := f.manager.MkEq(f.x, ddnfBVNumeral(t, f.manager, 1, 4))
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := f.manager.MkEq(f.x, ddnfBVNumeral(t, f.manager, 2, 4))
+	if err != nil {
+		t.Fatal(err)
+	}
+	disjunction, err := f.manager.MkOr(first, second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := preprocessor.ProcessRule(f.rule(t, disjunction)); err != nil || !ok {
+		t.Fatal("disjunction of equalities rejected", ok, err)
+	}
+	core, err := f.registry.Get(4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	display, err := core.Display()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(display, "node[1: 0010") || !strings.Contains(display, "node[2: 0001") {
+		t.Fatalf("DDNF nodes not in process_todo order:\n%s", display)
 	}
 }

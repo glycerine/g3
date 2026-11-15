@@ -164,8 +164,10 @@ func (p *Preprocessor) processMany(roots []ast.ASTHandle) (bool, error) {
 			if e != nil {
 				return false, e
 			}
-			for index := count; index != 0; index-- {
-				argument, x := p.manager.GetArg(expression, index-1)
+			// m_todo.append(args): pushed in order, so the last argument
+			// is popped first.
+			for index := uint32(0); index < count; index++ {
+				argument, x := p.manager.GetArg(expression, index)
 				if x != nil {
 					return false, x
 				}

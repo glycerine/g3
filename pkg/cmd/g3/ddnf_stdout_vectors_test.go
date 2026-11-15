@@ -13,6 +13,12 @@ import (
 // compiled rules (dump_rules) to std::cout. dump is what the engine writes
 // to os.Stdout, out what the runner writes; z3 prints dump followed by out.
 var ddnfStdoutVectors = map[string]struct{ dump, out string }{
+	// AUDIT.md muz_small_01-F1: process_todo pops the last connective
+	// argument first, which fixes the DDNF node numbering.
+	"fp_ddnf_or_traversal_order.smt2": {
+		dump: "(declare-rel q ())\n(declare-rel p ((_ BitVec 2)))\n(declare-var A (_ BitVec 2))\n(rule (=> (or (= A #b10) (= A #b01)) (p A)))\n(rule (=> (and (p A) (= A #b01)) q))\n(query q)\n",
+		out:  "unknown\ndone\n",
+	},
 	// AUDIT.md muz_small_01-F2: DDNF tests the basic family, so arithmetic
 	// > is rejected (the "Could not handle" line goes to stderr).
 	"fp_ddnf_arith_gt_rejected.smt2": {
