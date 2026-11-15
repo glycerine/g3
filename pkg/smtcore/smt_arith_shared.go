@@ -127,11 +127,6 @@ type smtArithmeticEqualityCandidate struct {
 	left, right SMTTheoryVar
 }
 
-type smtArithmeticSharedValueKey struct {
-	sort                    ast.ASTHandle
-	infinity, main, epsilon string
-}
-
 func floorSMTRational(value *big.Rat) *big.Int {
 	floor := new(big.Int).Quo(value.Num(), value.Denom())
 	if value.Sign() < 0 && !value.IsInt() {

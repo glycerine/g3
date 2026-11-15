@@ -485,41 +485,64 @@ func (t *SMTDenseDiffTheory) PopScopes(count uint32) error {
 	return t.SMTTheoryBase.PopScopes(count)
 }
 
+// smtDenseVarValueKey is var_value_hash/var_value_eq: two variables share a
+// table entry when their assignments and their is_int flags are equal.
+type smtDenseVarValueKey struct {
+	integer             bool
+	main, infinitesimal string
+}
+
+// FinalCheck is theory_dense_diff_logic<Ext>::final_check_eh.
 func (t *SMTDenseDiffTheory) FinalCheck() (SMTFinalCheckStatus, error) {
-	t.values = t.matrix.assignment()
-	values := make(map[smtArithmeticSharedValueKey]*SMTEnode)
-	for v, node := range t.variables {
-		if !t.state.isRelevant(node.owner) {
-			continue
-		}
-		shared, err := smtSharedArithmeticNode(t.SMTTheoryBase, node, false)
-		if err != nil {
-			return SMTFinalCheckGiveUp, err
-		}
-		if !shared {
-			continue
-		}
-		sort, err := t.state.manager.GetSort(node.owner)
-		if err != nil {
-			return SMTFinalCheckGiveUp, err
-		}
-		key := smtArithmeticSharedValueKey{sort, "0", t.values[v].rational.RatString(), t.values[v].infinitesimal.RatString()}
-		if other := values[key]; other != nil && other.root != node.root {
-			progress, err := t.state.assumeEquality(other, node)
-			if err != nil {
-				return SMTFinalCheckGiveUp, err
-			}
-			if progress {
-				return SMTFinalCheckContinue, nil
-			}
-		} else {
-			values[key] = node
-		}
+	t.values = t.matrix.assignment() // init_model()
+	assumed, err := t.assumeEqs()
+	if err != nil {
+		return SMTFinalCheckGiveUp, err
 	}
+	if assumed {
+		return SMTFinalCheckContinue, nil
+	}
+	// logical context contains arithmetic expressions that are not
+	// in the difference logic fragment.
 	if t.unsupported {
 		return SMTFinalCheckGiveUp, nil
 	}
 	return SMTFinalCheckDone, nil
+}
+
+// assumeEqs is theory::assume_eqs(m_var_value_table): every relevant and
+// shared variable is looked up by value; the first variable with a value
+// stays its representative, and assume_eq(n, n2) is tried for every later
+// one.
+func (t *SMTDenseDiffTheory) assumeEqs() (bool, error) {
+	table := make(map[smtDenseVarValueKey]int)
+	result := false
+	for v, node := range t.variables {
+		if node == nil || !t.state.isRelevant(node.owner) {
+			continue
+		}
+		shared, err := smtSharedArithmeticNode(t.SMTTheoryBase, node, false)
+		if err != nil {
+			return false, err
+		}
+		if !shared {
+			continue
+		}
+		key := smtDenseVarValueKey{t.integer[v], t.values[v].rational.RatString(), t.values[v].infinitesimal.RatString()}
+		other, found := table[key] // insert_if_not_there(v)
+		if !found {
+			table[key] = v
+			continue
+		}
+		progress, err := t.state.assumeEquality(node, t.variables[other])
+		if err != nil {
+			return false, err
+		}
+		if progress {
+			result = true
+		}
+	}
+	return result, nil
 }
 
 func (t *SMTDenseDiffTheory) InitializeModel(generator *SMTModelGenerator) error {

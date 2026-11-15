@@ -20,6 +20,11 @@ type smtcoreStatisticsVector struct {
 }
 
 var smtcoreStatisticsVectors = map[string]smtcoreStatisticsVector{
+	// AUDIT.md smtcore_10-F6: theory::assume_eqs assumes every interface
+	// equality in one final check.
+	"dense_assume_eqs_all.smt2": {
+		want: map[string]string{"final-checks": "2", "mk-clause": "3", "mk-bool-var": "28", "binary-propagations": "4"},
+	},
 	// AUDIT.md smtcore_10-F5: the dense theory builds its equality axioms
 	// with arith_eq_adapter::mk_axioms.
 	"dense_equality_axiom_order.smt2": {
