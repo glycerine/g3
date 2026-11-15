@@ -70,8 +70,10 @@ func TestFiniteCheckedPairCompiledInstructionDispatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok = storedEmpty.(*FiniteCheckedPair); !ok {
-		t.Fatalf("empty checked owner discarded: %T", storedEmpty)
+	// Source: check_table/check_relation forward fast_empty, so an empty
+	// checked result leaves the register null (make_empty).
+	if storedEmpty != nil {
+		t.Fatalf("empty checked owner kept in register: %T", storedEmpty)
 	}
 
 	filtered := checkedPairForInstruction(t, lazySignature(t, 2), Fact{1})
@@ -91,10 +93,9 @@ func TestFiniteCheckedPairCompiledInstructionDispatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if checked, ok := filteredEmpty.(*FiniteCheckedPair); !ok {
-		t.Fatalf("interpreted filter discarded checked owner: %T", filteredEmpty)
-	} else if count, countErr := checked.Len(); countErr != nil || count != 0 {
-		t.Fatal("interpreted checked empty", count, countErr)
+	// instr_filter_interpreted::perform: if (r.fast_empty()) make_empty.
+	if filteredEmpty != nil {
+		t.Fatalf("interpreted filter kept an empty checked owner: %T", filteredEmpty)
 	}
 
 	rows, bytes, err := finiteTableSizeEstimates(pair)

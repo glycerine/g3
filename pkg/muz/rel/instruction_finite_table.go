@@ -24,17 +24,13 @@ func setNonemptyFiniteRegister(context *ExecutionContext, index uint32, table Fi
 	}
 	// Source instructions follow every result with
 	// if (reg->fast_empty()) make_empty(reg): sparse tables report emptiness
-	// exactly, so their empty results leave the register null as well.
+	// exactly, and check_relation/check_table forward fast_empty to the
+	// wrapped relation, so every empty result leaves the register null.
 	if count == 0 {
-		switch table.(type) {
-		case *FiniteCheckedPair, *FormulaCheckedTable, *FormulaCheckedFinitePair:
-			// Preserve concrete empty owners selected by the relation manager.
-		default:
-			if err = table.Close(); err != nil {
-				return err
-			}
-			return context.MakeEmpty(index)
+		if err = table.Close(); err != nil {
+			return err
 		}
+		return context.MakeEmpty(index)
 	}
 	return context.SetFiniteRegister(index, table)
 }

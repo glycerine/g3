@@ -340,6 +340,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 var scriptResults = map[string]string{
 	// AUDIT.md muz_rel_03-F1: dl.* statistics are checked by a Go test.
 	"rel_load_empty_stats.smt2": "sat\n(or (= (:var 0) #b000) (= (:var 0) #b001) (= (:var 0) #b010))\n",
+	// AUDIT.md muz_rel_03-F2: dl.* statistics are checked by a Go test.
+	"rel_filter_empty_sparse_stats.smt2": "sat\n(or (= (:var 0) #b000) (= (:var 0) #b001) (= (:var 0) #b010))\n",
 	// AUDIT.md muz_rel_05-F3: mk_total over a 2^19 domain (stderr also gets
 	// "WARNING: creating large table of size 524288 for relation z2").
 	"datalog_large_table_warning.smt2": "sat\n(or (= (:var 0) #b0000000000000000000)\n    (= (:var 0) #b0000000000000000001)\n    (= (:var 0) #b0000000000000000010))\n",

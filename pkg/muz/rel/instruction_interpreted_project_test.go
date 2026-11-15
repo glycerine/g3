@@ -169,8 +169,10 @@ func TestFilterInterpretedAndProjectInstructionConcreteFiniteDispatch(t *testing
 			if err != nil || result == nil {
 				t.Fatal("concrete fused result", result, err)
 			}
-			if lazy, ok := result.(*LazySparseTable); ok && lazy.Forced() {
-				t.Fatal("lazy fused result was forced eagerly")
+			// instr_filter_interpreted_and_project::perform tests
+			// fast_empty, which evaluates a lazy result.
+			if lazy, ok := result.(*LazySparseTable); ok && !lazy.Forced() {
+				t.Fatal("lazy fused result was not evaluated by fast_empty")
 			}
 			finiteInterpretedProjectWantTable(t, result, Fact{0}, Fact{1})
 			finiteInterpretedProjectWantTable(t, source, Fact{0, 0}, Fact{0, 1}, Fact{1, 1})

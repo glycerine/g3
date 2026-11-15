@@ -55,8 +55,10 @@ func TestLazySparseCompiledInterpretedFilterDefersAndFusesProject(t *testing.T) 
 	if err != nil || !complete {
 		t.Fatal("compiled interpreted filter", complete, err)
 	}
-	if table.Forced() {
-		t.Fatal("compiled interpreted filter forced eagerly")
+	// Source instr_filter_interpreted::perform tests r.fast_empty(), and
+	// lazy_table::empty() evaluates m_ref, so the filter is forced here.
+	if !table.Forced() {
+		t.Fatal("compiled interpreted filter was not evaluated by fast_empty")
 	}
 	if got := f.ast.Stats().LiveReferences; got != baseline+4 {
 		// Two instruction refs and two independent lazy-node refs.

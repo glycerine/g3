@@ -126,11 +126,9 @@ func (i *interpretedFilterProjectInstruction) Perform(context *ExecutionContext)
 	if err != nil {
 		return false, err
 	}
-	if _, lazy := result.(*LazySparseTable); lazy {
-		err = context.SetFiniteRegister(i.result, result)
-	} else {
-		err = setNonemptyFiniteRegister(context, i.result, result)
-	}
+	// lazy_table::empty() evaluates the pending expression, so lazy results
+	// take the same fast_empty test.
+	err = setNonemptyFiniteRegister(context, i.result, result)
 	if err != nil {
 		return false, errors.Join(err, result.Close())
 	}

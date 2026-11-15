@@ -191,7 +191,7 @@ func (i *interpretedFilterInstruction) Perform(context *ExecutionContext) (bool,
 		if err = concrete.filterInterpretedCompiled(i.relations, i.rewriter, conditions, i.variableColumns, i.variableSorts); err != nil {
 			return false, err
 		}
-		return true, nil
+		return i.emptyAfterFilter(context, table)
 	case *FiniteCheckedPair:
 		relationSorts, sortErr := i.relationSorts(table)
 		if sortErr != nil {
@@ -200,7 +200,7 @@ func (i *interpretedFilterInstruction) Perform(context *ExecutionContext) (bool,
 		if err = concrete.FilterInterpreted(i.relations, relationSorts, i.rewriter, conditions, i.variableColumns, i.variableSorts); err != nil {
 			return false, err
 		}
-		return true, nil
+		return i.emptyAfterFilter(context, table)
 	}
 	facts, err := table.Facts()
 	if err != nil {
@@ -225,10 +225,20 @@ func (i *interpretedFilterInstruction) Perform(context *ExecutionContext) (bool,
 		}
 	}
 	if len(kept) == 0 {
-		switch table.(type) {
-		case *SparseTable, *FiniteCheckedPair:
-			return true, nil
-		}
+		return true, context.MakeEmpty(i.register)
+	}
+	return true, nil
+}
+
+// emptyAfterFilter is instr_filter_interpreted::perform's
+// if (r.fast_empty()) ctx.make_empty(m_reg); table_relation::fast_empty is
+// the table's exact emptiness and check_relation forwards it.
+func (i *interpretedFilterInstruction) emptyAfterFilter(context *ExecutionContext, table FiniteTable) (bool, error) {
+	count, err := table.Len()
+	if err != nil {
+		return false, err
+	}
+	if count == 0 {
 		return true, context.MakeEmpty(i.register)
 	}
 	return true, nil

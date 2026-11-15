@@ -77,8 +77,10 @@ func TestRelationExplanationNestedCheckerConstructionAndMixedDispatch(t *testing
 	astTestMust(t, setNonemptyFiniteRegister(context, 7, empty))
 	stored, err := context.FiniteRegister(7)
 	astTestMust(t, err)
-	if _, ok := stored.(*FormulaCheckedFinitePair); !ok {
-		t.Fatalf("empty nested owner discarded: %T", stored)
+	// check_relation::fast_empty forwards to the wrapped relation, so the
+	// empty nested result leaves the register null.
+	if stored != nil {
+		t.Fatalf("empty nested owner kept in register: %T", stored)
 	}
 }
 
