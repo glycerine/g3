@@ -261,8 +261,11 @@ namespace pdr {
         bool               m_bfs;
         model_node*        m_root;
         model_node*        m_goal;
-        vector<obj_map<expr, model_nodes > > m_cache;
-        obj_map<expr, model_nodes>& cache(model_node const& n);
+        typedef obj_map<expr, model_nodes> state_cache;
+        // Nodes are cached per level and per predicate: the states of
+        // distinct nullary predicates are all `true`.
+        vector<obj_map<func_decl, state_cache> > m_cache;
+        state_cache& cache(model_node const& n);
         void erase_children(model_node& n, bool backtrack);
         void remove_node(model_node& n, bool backtrack);
         void enqueue_leaf(model_node* n); // add leaf to priority queue.

@@ -49,6 +49,7 @@ Notes:
 #include "model/model_implicant.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/ast_util.h"
+#include "util/obj_pair_hashtable.h"
 
 namespace pdr {
 
@@ -999,7 +1000,12 @@ namespace pdr {
         if (l >= m_cache.size()) {
             m_cache.resize(l + 1);
         }
-        return m_cache[l];
+        func_decl* p = n.pt().head();
+        obj_map<func_decl, state_cache>::obj_map_entry* e = m_cache[l].find_core(p);
+        if (!e) {
+            e = m_cache[l].insert_if_not_there2(p, state_cache());
+        }
+        return e->get_data().m_value;
     }
 
     void model_search::erase_children(model_node& n, bool backtrack) {
@@ -1144,15 +1150,15 @@ namespace pdr {
        get_trace and get_proof_trace rely on models to extract rules.
      */
     void model_search::update_models() {
-        obj_map<expr, model*> models;
-        obj_map<expr, datalog::rule const*> rules;
+        obj_pair_map<func_decl, expr, model*> models;
+        obj_pair_map<func_decl, expr, datalog::rule const*> rules;
         ptr_vector<model_node> todo;
         todo.push_back(m_root);
         while (!todo.empty()) {
             model_node* n = todo.back();
             if (n->get_model_ptr()) {
-                models.insert(n->state(), n->get_model_ptr());
-                rules.insert(n->state(), n->get_rule());
+                models.insert(n->pt().head(), n->state(), n->get_model_ptr());
+                rules.insert(n->pt().head(), n->state(), n->get_rule());
             }
             todo.pop_back();
             todo.append(n->children().size(), n->children().c_ptr());
@@ -1163,11 +1169,11 @@ namespace pdr {
             model_node* n = todo.back();
             model* md = nullptr;
             if (!n->get_model_ptr()) {
-                if (models.find(n->state(), md)) {
+                if (models.find(n->pt().head(), n->state(), md)) {
                     TRACE("pdr", tout << n->state() << "\n";);
                     model_ref mr(md);
                     n->set_model(mr);
-                    datalog::rule const* rule = rules.find(n->state());
+                    datalog::rule const* rule = rules.find(n->pt().head(), n->state());
                     n->set_rule(rule);
                 }
                 else {
@@ -1474,11 +1480,13 @@ namespace pdr {
 
     void context::reset(bool full) {
         TRACE("pdr", tout << "reset\n";);
+        // The search cache is keyed by the nodes' predicate transformers:
+        // drop the nodes before the transformers.
+        m_search.reset();
         reset(m_rels);
         if (full) {
             reset(m_rels_tmp);
         }
-        m_search.reset();
         m_query = nullptr;
         m_last_result = l_undef;
         m_inductive_lvl = 0;
