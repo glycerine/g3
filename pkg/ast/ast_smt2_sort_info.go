@@ -116,6 +116,23 @@ type SMT2FuncDeclTable interface {
 	SMT2FuncDecls(decl ASTHandle) ([]ASTHandle, bool)
 }
 
+// SMT2SymbolUser is smt2_pp_environment::uses, overridden by
+// cmd_context::pp_env (cmd_context.cpp:427-431) to report builtin and
+// declared function symbols. A table installed with SetSMT2SortInfoTable
+// may also implement it.
+type SMT2SymbolUser interface {
+	SMT2Uses(name string) bool
+}
+
+// SMT2Uses is m_env.uses(name): false for the base environment.
+func (m *ASTManager) SMT2Uses(name string) bool {
+	table, ok := m.smt2SortInfoTable.(SMT2SymbolUser)
+	if !ok {
+		return false
+	}
+	return table.SMT2Uses(name)
+}
+
 func (m *ASTManager) smt2FuncDecls(decl ASTHandle) ([]ASTHandle, bool) {
 	table, ok := m.smt2SortInfoTable.(SMT2FuncDeclTable)
 	if !ok {

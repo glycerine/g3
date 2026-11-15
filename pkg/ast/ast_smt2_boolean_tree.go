@@ -191,6 +191,10 @@ func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Sy
 		for {
 			name := "a!" + strconv.FormatUint(uint64(nextAlias), 10)
 			nextAlias++
+			// Source smt2_printer::next_name skips env-used and bound names.
+			if m.SMT2Uses(name) {
+				continue
+			}
 			if usedNames[name] {
 				continue
 			}

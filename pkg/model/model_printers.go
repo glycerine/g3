@@ -289,6 +289,37 @@ func (p *modelPrinter) functionNames(arity uint32, first uint32) ([]string, []us
 	return vars, names, nil
 }
 
+// smt2FunctionVarNames is the var_names step of
+// smt2_printer::operator()(n, num, "x", r, var_names) reached from
+// model_smt2_pp's ctx.pp(f_i->get_else(), arity, "x", ...): next_name("x",
+// idx) from idx 0 skips names the environment uses (cmd_context
+// pp_env::uses) and names already taken.
+func (p *modelPrinter) smt2FunctionVarNames(arity uint32) ([]string, []usymbol.Symbol, error) {
+	m := p.model.manager
+	vars := make([]string, arity)
+	names := make([]usymbol.Symbol, arity)
+	taken := make(map[string]bool, arity)
+	idx := uint64(0)
+	for i := uint32(0); i < arity; i++ {
+		for {
+			candidate := "x!" + strconv.FormatUint(idx, 10)
+			idx++
+			if m.SMT2Uses(candidate) || taken[candidate] {
+				continue
+			}
+			vars[i] = candidate
+			break
+		}
+		taken[vars[i]] = true
+		s, err := m.Symbols.Intern(vars[i])
+		if err != nil {
+			return nil, nil, err
+		}
+		names[arity-i-1] = s
+	}
+	return vars, names, nil
+}
+
 func (md *ModelCore) sortedFunctions() ([]ast.ASTHandle, error) {
 	visited := make(map[ast.ASTHandle]bool)
 	result := make([]ast.ASTHandle, 0, len(md.functionDeclarations))
@@ -639,7 +670,13 @@ func (p *modelPrinter) writeFunctionSMT2(decl ast.ASTHandle, indent uint32) (res
 	if partial {
 		first = 1 // "x!" << (j+1)
 	}
-	vars, exprNames, err := p.functionNames(fi.arity, first)
+	var vars []string
+	var exprNames []usymbol.Symbol
+	if partial {
+		vars, exprNames, err = p.functionNames(fi.arity, first)
+	} else {
+		vars, exprNames, err = p.smt2FunctionVarNames(fi.arity)
+	}
 	if err != nil {
 		return err
 	}

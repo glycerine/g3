@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_07-F1: model define-fun argument names skip declared x!k.
+	"smt2_model_var_names_env_uses.smt2": "sat\n(model \n  (define-fun x!1 () Int\n    0)\n  (define-fun x!0 () Int\n    3)\n  (define-fun f ((x!2 Int) (x!3 Int)) Int\n    (ite (and (= x!2 1) (= x!3 2)) 3\n    (ite (and (= x!2 2) (= x!3 2)) 4\n      3)))\n)\n",
+	// AUDIT.md ast_07-F1: aliases and binder names skip pp_env::uses symbols.
+	"smt2_pp_alias_env_uses.smt2": "(let ((a!2 (+ a!1 b a b a b a b a b a b a)))\n  (and (P a!2) (Q a!2 a!1)))\n(forall ((a!1!1 Int) (x Int)) (Q a!1!1 x))\n(forall ((P!1 Int) (x Int)) (Q P!1 x))\n(forall ((and!1 Bool) (x Int)) (and (Q x x) and!1))\n",
 	// AUDIT.md ast_05-F1: unary fp.sub is fp.neg.
 	"fpa_unary_sub_is_neg.smt2": "unsat\n(fp.neg f)\n",
 	// AUDIT.md ast_03-F3: param_size eval for parametric and array fields.

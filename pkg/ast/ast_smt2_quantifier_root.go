@@ -68,10 +68,13 @@ func (m *ASTManager) smt2PPQuantifierRootWithInfoAt(q ASTHandle, outer []usymbol
 			}
 			prefix = spelling
 		}
-		if name.IsNumerical() || used[spelling] {
+		// Source register_var_names: rename a numerical name, or one the
+		// environment uses (cmd_context pp_env::uses) or a bound variable
+		// already has; next_name skips env-used and bound candidates.
+		if name.IsNumerical() || m.SMT2Uses(spelling) || used[spelling] {
 			for suffix := uint32(1); ; suffix++ {
 				candidate := prefix + "!" + strconv.FormatUint(uint64(suffix), 10)
-				if used[candidate] {
+				if m.SMT2Uses(candidate) || used[candidate] {
 					if suffix == ^uint32(0) {
 						return ASTHandle{}, ErrASTDomain
 					}

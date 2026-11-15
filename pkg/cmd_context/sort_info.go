@@ -208,6 +208,12 @@ func (c *Context) withPPEnv(format func() error) error {
 	return format()
 }
 
+// SMT2Uses is cmd_context::pp_env::uses: m_builtin_decls.contains(s) ||
+// m_func_decls.contains(s).
+func (c *Context) SMT2Uses(name string) bool {
+	return len(c.builtins[name]) != 0 || len(c.functions[name]) != 0
+}
+
 // SMT2FuncDecls is pp_env's m_func_decls.find(f->get_name(), fs) &&
 // fs.contains(f).
 func (c *Context) SMT2FuncDecls(decl ast.ASTHandle) ([]ast.ASTHandle, bool) {

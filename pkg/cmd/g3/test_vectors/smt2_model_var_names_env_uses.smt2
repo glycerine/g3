@@ -1,0 +1,8 @@
+(declare-fun x!0 () Int)
+(declare-fun x!1 () Int)
+(declare-fun f (Int Int) Int)
+(assert (= (f 1 2) 3))
+(assert (= (f 2 2) 4))
+(assert (= x!0 (f x!1 x!1)))
+(check-sat)
+(get-model)
