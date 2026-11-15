@@ -518,13 +518,33 @@ namespace datalog {
             b.m_rule_trace.push_back(r);
             rm.to_formula(*r, fml);
             IF_VERBOSE(1, verbose_stream() << mk_pp(fml, m) << "\n";);
-            prs.push_back(r->get_proof());
+            // FORK FIX #88 (g3 audit, see FORK_BUGFIXES.md): a rule without a proof is asserted, as in linear::get_model
+            proof_ref rule_pr(r->get_proof(), m);
+            if (!rule_pr) {
+                rule_pr = m.mk_asserted(fml);
+            }
+            prs.push_back(rule_pr);
             unsigned sz = r->get_uninterpreted_tail_size();
 
             ptr_vector<sort> rule_vars;
             r->get_vars(m, rule_vars);
             args.append(prop->get_num_args(), prop->get_args());
+            // FORK FIX #88 (g3 audit, see FORK_BUGFIXES.md): bind head variables to prop's arguments, as compile does, and Skolemize only the others
+            expr_ref_vector head_binding(m);
+            head_binding.resize(rule_vars.size());
+            for (unsigned i = 0; i < r->get_decl()->get_arity(); ++i) {
+                expr* arg = r->get_head()->get_arg(i);
+                if (is_var(arg) && rule_vars[to_var(arg)->get_idx()]) {
+                    rule_vars[to_var(arg)->get_idx()] = 0;
+                    head_binding[to_var(arg)->get_idx()] = prop->get_arg(i);
+                }
+            }
             expr_ref_vector sub = mk_skolem_binding(*r, rule_vars, args);
+            for (unsigned j = 0; j < sub.size(); ++j) {
+                if (head_binding.get(j)) {
+                    sub[j] = head_binding.get(j);
+                }
+            }
             if (sub.empty() && sz == 0) {
                 pr = prs[0].get();
                 return pr;
@@ -547,7 +567,14 @@ namespace datalog {
                 positions.push_back(std::make_pair(j+1,0));
                 substs.push_back(expr_ref_vector(m));
             }
-            pr = m.mk_hyper_resolve(sz+1, prs.c_ptr(), prop, positions, substs);
+            // FORK FIX #88 (g3 audit, see FORK_BUGFIXES.md): conclude pred at the model values, not the level predicate of the query
+            expr_ref_vector vals(m);
+            for (unsigned j = 0; j < prop->get_num_args(); ++j) {
+                md->eval(prop->get_arg(j), tmp);
+                vals.push_back(tmp);
+            }
+            expr_ref concl(m.mk_app(pred, vals.size(), vals.c_ptr()), m);
+            pr = m.mk_hyper_resolve(sz+1, prs.c_ptr(), concl, positions, substs);
             return pr;
         }
 
