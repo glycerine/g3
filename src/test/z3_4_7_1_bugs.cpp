@@ -119,6 +119,10 @@ Abstract:
                                   indexes as positions and @Fail!0 as the
                                   query conclusion (pkg/AUDIT.md duality zbug
                                   round 2).
+    z3_4_7_1_duality_rejected_candidate_loop Duality rejects the same
+                                  infeasible candidate forever on a rule with
+                                  a universally quantified body (pkg/AUDIT.md
+                                  duality zbug round 3).
     z3_4_7_1_implicant_nested_array_eq once a nested array index makes
                                   model_implicant::eval_array_eq mark the
                                   equality true, a later differing index
@@ -1866,6 +1870,25 @@ void tst_z3_4_7_1_duality_proof_hyper_resolve() {
     ENSURE(out.str().find("((_ hyper-res 7 2) (asserted ") != std::string::npos);
     ENSURE(out.str().find("((_ hyper-res 7 2 2 0) (asserted ") != std::string::npos);
     ENSURE(out.str().find("(q0 2 7)) false)") != std::string::npos);
+}
+
+// err <- forall z. p(z) with p = {1}. The induction-failure check ignores the
+// quantifier (mbqi.id=itp excludes it from MBQI) and proposes extending err;
+// the feasibility check refutes that candidate, nothing changes, and the same
+// candidate is proposed again forever. The fork reports incompleteness. The
+// timeout only stops the unfixed loop. pkg/AUDIT.md duality zbug round 3.
+void tst_z3_4_7_1_duality_rejected_candidate_loop() {
+    char const* script =
+        "(set-option :fixedpoint.engine duality)\n"
+        "(set-option :fixedpoint.timeout 3000)\n"
+        "(declare-rel p (Int))\n"
+        "(declare-rel err ())\n"
+        "(declare-var x Int)\n"
+        "(rule (=> (= x 1) (p x)))\n"
+        "(rule (=> (forall ((z Int)) (p z)) err))\n"
+        "(query err)\n";
+    expect_script_output("duality_rejected_candidate_loop", script,
+                         "(error \"query failed: incompleteness\")\nunknown\n");
 }
 
 // PDR proof trace for Goal :- P(x), with P(x) a fact. The query!0 root and
