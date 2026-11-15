@@ -8,6 +8,7 @@ import (
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 type UnsupportedProofError struct{ Proof ast.ASTHandle }
@@ -387,6 +388,9 @@ func (t *FullTranslation) translateMain(proof ast.ASTHandle, expectClause bool, 
 		}
 		result, err = direct.MakeResolution(premiseConclusions[0], []ast.ASTHandle{conclusion}, axiom, premises[0])
 	default:
+		if e := t.reportUnsupportedProofRule(proof); e != nil {
+			return ast.ASTHandle{}, e
+		}
 		return ast.ASTHandle{}, UnsupportedProofError{Proof: proof}
 	}
 	if err != nil {
@@ -394,6 +398,35 @@ func (t *FullTranslation) translateMain(proof ast.ASTHandle, expectClause bool, 
 	}
 	cache[proof] = result
 	return result, nil
+}
+
+// reportUnsupportedProofRule is translate_main's
+// IF_VERBOSE(0, verbose_stream() << "Unsupported proof rule: "
+// << expr_ref(proof) << "\n";).
+func (t *FullTranslation) reportUnsupportedProofRule(proof ast.ASTHandle) error {
+	enabled, err := diagnostic.ProcessVerboseEnabled(0)
+	if err != nil || !enabled {
+		return err
+	}
+	stream, err := diagnostic.BorrowProcessVerboseStream()
+	if err != nil {
+		return err
+	}
+	m := t.base.manager.ast
+	if err = stream.AppendCString("Unsupported proof rule: "); err != nil {
+		return err
+	}
+	format, err := m.SMT2PPExprTree(proof, nil)
+	if err != nil {
+		return err
+	}
+	if err = m.PrintFormatTransient(stream, format, nil, nil, nil); err != nil {
+		return err
+	}
+	if err = stream.AppendCString("\n"); err != nil {
+		return err
+	}
+	return stream.Flush()
 }
 
 func (t *FullTranslation) findStore(term ast.ASTHandle) (ast.ASTHandle, bool, error) {

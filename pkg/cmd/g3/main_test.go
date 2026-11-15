@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md interp_02-F4: the unsupported-rule diagnostic goes to stderr.
+	"interp_unsupported_rule_message.smt2": "(error \"line 5 column 131: theory not supported by interpolation or bad proof\")\n",
 	// AUDIT.md tactic_sls_ufbv_01-F2: SLS initialize/reset trace vector (TestTraceGolden).
 	"sls_trace_initialize_reset.smt2": "sat\n",
 	// AUDIT.md tactic_sls_ufbv_01-F2: SLS reset/randomize/mk_random_move trace vector (TestTraceGolden).
@@ -1734,6 +1736,9 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	// AUDIT.md interp_02-F4: compute-interpolant reports the command error.
+	"interp_unsupported_rule_message.smt2": true,
+
 	"match_non_datatype.smt2":   true,
 	"match_pattern_errors.smt2": true,
 
