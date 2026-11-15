@@ -106,3 +106,31 @@ func TestFixedSearchRetainsRefusedSplitChildrenForClose(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// AUDIT.md math_subpaving_02-F2: the MPFX root is queued only when init left
+// it consistent, as set_conflict removes it from the source leaf list.
+func TestFixedSearchRootConflictSkipsLoop(t *testing.T) {
+	m, c, v, _ := fixedClauseFixture(t, []bool{false})
+	for _, entry := range []struct {
+		value int64
+		lower bool
+	}{{2, true}, {1, false}} {
+		a := fixedClauseAtom(t, m, c, v, 0, entry.value, entry.lower, false)
+		if err := c.AddUnitClause(a, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := c.InitializeRoot(); err != nil {
+		t.Fatal(err)
+	}
+	if !c.root.inconsistent {
+		t.Fatal("root must conflict during init")
+	}
+	before := c.limit.Count()
+	if err := c.Search(); err != nil {
+		t.Fatal(err)
+	}
+	if c.limit.Count() != before || len(c.leafQueue) != 0 {
+		t.Fatalf("search loop processed a conflicting root: %d -> %d, leaves=%d", before, c.limit.Count(), len(c.leafQueue))
+	}
+}

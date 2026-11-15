@@ -43,7 +43,11 @@ func (c *FixedContext) Search() error {
 		if c.root.children != 0 {
 			return arena.ErrInvalidSlot
 		}
-		c.leafQueue = []*FixedNode{c.root}
+		// Source mk_node puts the root on the leaf list during init, and
+		// set_conflict removes it again when init finds a conflict.
+		if !c.root.inconsistent {
+			c.leafQueue = []*FixedNode{c.root}
+		}
 		c.searchStarted = true
 	}
 	for c.searchNode != nil || len(c.leafQueue) != 0 {

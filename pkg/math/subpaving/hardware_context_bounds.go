@@ -135,6 +135,8 @@ func (c *HardwareContext) publishBound(n *HardwareNode, variable uint32, value *
 		}
 		c.numConflicts++
 		n.conflictVar = variable
+		// Source set_conflict: remove_from_leaf_dlist(n).
+		c.removeLeaf(n)
 	}
 	c.timestamp++
 	if c.timestamp == math.MaxUint64 {

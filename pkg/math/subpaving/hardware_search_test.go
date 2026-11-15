@@ -87,3 +87,56 @@ func TestHardwareSearchBreadthFirstSplitLimitAndChildCancellation(t *testing.T) 
 		t.Fatal("search tree closes children before root")
 	}
 }
+
+// AUDIT.md math_subpaving_02-F2: set_conflict removes the node from the leaf
+// list, so a root that conflicts during init never enters the search loop
+// (no extra checkpoint).
+func TestHardwareSearchRootConflictSkipsLoop(t *testing.T) {
+	m, err := numeral.NewHardwareFloatNumeralManager(numeral.NewHardwareFloatManager(), 11, 53)
+	if err != nil {
+		t.Fatal(err)
+	}
+	limit := &control.Reslimit{Limit: 10000}
+	c, err := NewHardwareContext(m, limit, 0, 2, 8192)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	x, err := c.NewVariable(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range []struct {
+		value int32
+		lower bool
+	}{{2, true}, {1, false}} {
+		var v numeral.HardwareFloat
+		if err := m.SetInt32(&v, entry.value); err != nil {
+			t.Fatal(err)
+		}
+		a, err := c.NewInequality(x, &v, entry.lower, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := c.AddUnitClause(a, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := c.InitializeRoot(); err != nil {
+		t.Fatal(err)
+	}
+	if c.leafHead != nil || c.root.queuedLeaf {
+		t.Fatal("conflicting root must leave the leaf list")
+	}
+	before := limit.Count()
+	if err := c.Search(); err != nil {
+		t.Fatal(err)
+	}
+	if limit.Count() != before {
+		t.Fatalf("search loop checkpointed a conflicting root: %d -> %d", before, limit.Count())
+	}
+}
