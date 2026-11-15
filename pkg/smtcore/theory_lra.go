@@ -33,8 +33,15 @@ type smtLRAFrontendScope struct {
 	termBounds                                int
 	assumptions, assumptionHead               int
 	axiomRefs                                 int
-	unassigned                                []uint32
+	unassignedTrail, unassigned               int
 	notHandled                                ast.ASTHandle
+}
+
+// smtLRAUnassignedChange is the vector_value_trail entry pushed by
+// updt_unassigned_bounds: the old value of m_unassigned_bounds[v].
+type smtLRAUnassignedChange struct {
+	variable SMTTheoryVar
+	old      uint32
 }
 
 type smtLRAResourceLimit struct{ manager *ast.ASTManager }
@@ -75,6 +82,7 @@ type SMTLRATheory struct {
 	axiomManager                      *ast.ASTManager
 	axiomRefs, pendingAxiomRoots      []ast.ASTRef
 	unassigned                        []uint32
+	unassignedTrail                   []smtLRAUnassignedChange
 	assignments                       []smtLRAAssignment
 	assignmentHead                    int
 	scopes                            []smtLRAFrontendScope
@@ -824,7 +832,7 @@ func (t *SMTLRATheory) PushScope() error {
 	if err := t.SMTTheoryBase.PushScope(); err != nil {
 		return err
 	}
-	t.scopes = append(t.scopes, smtLRAFrontendScope{bounds: len(t.boundTrail), assignments: len(t.assignments), head: t.assignmentHead, underspecified: len(t.underspecified), termBounds: len(t.termBoundTrail), assumptions: len(t.assumeCandidates), assumptionHead: t.assumeHead, axiomRefs: len(t.axiomRefs), notHandled: t.notHandled, unassigned: append([]uint32(nil), t.unassigned...)})
+	t.scopes = append(t.scopes, smtLRAFrontendScope{bounds: len(t.boundTrail), assignments: len(t.assignments), head: t.assignmentHead, underspecified: len(t.underspecified), termBounds: len(t.termBoundTrail), assumptions: len(t.assumeCandidates), assumptionHead: t.assumeHead, axiomRefs: len(t.axiomRefs), notHandled: t.notHandled, unassignedTrail: len(t.unassignedTrail), unassigned: len(t.unassigned)})
 	if err := t.equalityAdapter.PushScope(); err != nil {
 		return err
 	}
@@ -862,8 +870,13 @@ func (t *SMTLRATheory) PopScopes(n uint32) error {
 	t.assignmentHead = scope.head
 	t.notHandled = scope.notHandled
 	t.underspecified = t.underspecified[:scope.underspecified]
-	copy(t.unassigned, scope.unassigned)
-	clear(t.unassigned[len(scope.unassigned):])
+	// Undo the updt_unassigned_bounds trail entries in reverse order.
+	for i := len(t.unassignedTrail) - 1; i >= scope.unassignedTrail; i-- {
+		change := t.unassignedTrail[i]
+		t.unassigned[change.variable] = change.old
+	}
+	t.unassignedTrail = t.unassignedTrail[:scope.unassignedTrail]
+	clear(t.unassigned[scope.unassigned:])
 	t.scopes = t.scopes[:level]
 	t.newBounds = nil // Native user-push contract flushes pending parent axioms first.
 	t.boundChecks = nil
@@ -961,6 +974,7 @@ func (t *SMTLRATheory) Close() error {
 	t.modelValues = nil
 	t.modelOwner = nil
 	t.unassigned = nil
+	t.unassignedTrail = nil
 	t.assignments = nil
 	t.scopes = nil
 	t.underspecified = nil

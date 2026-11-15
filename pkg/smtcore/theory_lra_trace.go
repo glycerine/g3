@@ -173,8 +173,9 @@ func (t *SMTLRATheory) updateUnassignedBounds(v SMTTheoryVar, increment int) err
 	}); err != nil {
 		return err
 	}
-	// The native vector holds unsigned values. Preserve its arithmetic; the
-	// enclosing context/scope already owns the restoration trail in Go.
+	// ctx().push_trail(vector_value_trail<context, unsigned>(m_unassigned_bounds, v));
+	// The native vector holds unsigned values. Preserve its arithmetic.
+	t.unassignedTrail = append(t.unassignedTrail, smtLRAUnassignedChange{variable: v, old: t.unassigned[v]})
 	t.unassigned[v] += uint32(increment)
 	return nil
 }

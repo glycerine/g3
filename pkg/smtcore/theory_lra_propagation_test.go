@@ -441,3 +441,52 @@ func TestSMTLRALPPropagationAllocationCleanup(t *testing.T) {
 	}
 	t.Log("physical allocation samples", "refusals", refusals, "successes", successes)
 }
+
+// AUDIT.md smtcore_11-F4: updt_unassigned_bounds pushes a
+// vector_value_trail entry per change and push_scope_eh records only sizes,
+// so a scope no longer copies the whole m_unassigned_bounds vector.
+func TestSMTLRAUnassignedBoundsTrailRestore(t *testing.T) {
+	f := newLRAFrontendFixture(t, true)
+	x, y := f.variable("lra-unassigned-x"), f.variable("lra-unassigned-y")
+	astTestMust(t, f.s.Internalize(f.app(smtArithOpLE, x, f.number(1)), true))
+	astTestMust(t, f.s.Internalize(f.app(smtArithOpGE, y, f.number(2)), true))
+	vx := f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID())
+	vy := f.s.context.enodes.get(y).TheoryVar(f.a.FamilyID())
+	if vx == SMTNullTheoryVar || vy == SMTNullTheoryVar {
+		t.Fatal("missing theory variables")
+	}
+	base := append([]uint32(nil), f.a.unassigned...)
+	baseTrail := len(f.a.unassignedTrail)
+	astTestMust(t, f.s.PushScope())
+	astTestMust(t, f.a.updateUnassignedBounds(vx, -1))
+	astTestMust(t, f.s.PushScope())
+	astTestMust(t, f.a.updateUnassignedBounds(vx, 3))
+	astTestMust(t, f.a.updateUnassignedBounds(vy, -1))
+	z := f.variable("lra-unassigned-z")
+	astTestMust(t, f.s.Internalize(f.app(smtArithOpLE, z, f.number(4)), true))
+	vz := f.s.context.enodes.get(z).TheoryVar(f.a.FamilyID())
+	if f.a.unassigned[vx] != base[vx]+2 || f.a.unassigned[vy] != base[vy]-1 || f.a.unassigned[vz] == 0 {
+		t.Fatal("unassigned updates", f.a.unassigned)
+	}
+	for _, scope := range f.a.scopes {
+		if scope.unassigned > len(f.a.unassigned) {
+			t.Fatal("scope records a size, not a copy")
+		}
+	}
+	astTestMust(t, f.s.PopScopes(1))
+	if f.a.unassigned[vx] != base[vx]-1 || f.a.unassigned[vy] != base[vy] {
+		t.Fatal("first pop", f.a.unassigned)
+	}
+	if int(vz) < len(f.a.unassigned) && f.a.unassigned[vz] != 0 {
+		t.Fatal("variable created in the popped scope kept its count", f.a.unassigned)
+	}
+	astTestMust(t, f.s.PopScopes(1))
+	for i, value := range base {
+		if f.a.unassigned[i] != value {
+			t.Fatal("second pop", f.a.unassigned, base)
+		}
+	}
+	if len(f.a.unassignedTrail) != baseTrail {
+		t.Fatal("trail not unwound", len(f.a.unassignedTrail))
+	}
+}
