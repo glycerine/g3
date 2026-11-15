@@ -138,20 +138,40 @@ class elim_small_bv_tactic : public tactic {
             expr_ref body(old_body, m);
             for (unsigned i = num_decls-1; i != ((unsigned)-1) && !max_steps_exceeded(num_steps); i--) {
                 sort * s = q->get_decl_sort(i);
-                unsigned bv_sz = m_util.get_bv_size(s);
 
                 if (is_small_bv(s) && !max_steps_exceeded(num_steps)) {
+                    // FORK FIX #79 (g3 audit, see FORK_BUGFIXES.md): backport of upstream
+                    // b6ee0b151, 8e033c1e7, aa901c4e8: read the bit-vector size only of a
+                    // bit-vector sort (get_bv_size of an Int sort crashed), enumerate all
+                    // 2^bv_sz values (not bv_sz of them), and leave the quantifier alone
+                    // when they do not fit in max_steps (a partial expansion is unsound).
+                    unsigned bv_sz = m_util.get_bv_size(s);
                     TRACE("elim_small_bv", tout << "eliminating " << q->get_decl_name(i) <<
                         "; sort = " << mk_ismt2_pp(s, m) <<
                         "; body = " << mk_ismt2_pp(body, m) << std::endl;);
 
+                    if (bv_sz >= 31) {
+                        m_bindings.shrink(old_sz);
+                        return false;
+                    }
+                    unsigned max_num = 1u << bv_sz;
+                    if (max_num + num_steps > m_max_steps) {
+                        m_bindings.shrink(old_sz);
+                        return false;
+                    }
+
                     expr_ref_vector new_bodies(m);
-                    for (unsigned j = 0; j < bv_sz && !max_steps_exceeded(num_steps); j ++) {
+                    for (unsigned j = 0; j < max_num && !max_steps_exceeded(num_steps); j ++) {
                         expr_ref n(m_util.mk_numeral(j, bv_sz), m);
                         expr_ref nb(m);
                         nb = replace_var(uv, num_decls, max_var_idx_p1, i, s, body, n);
                         new_bodies.push_back(nb);
                         num_steps++;
+                    }
+
+                    if (max_steps_exceeded(num_steps)) {
+                        m_bindings.shrink(old_sz);
+                        return false;
                     }
 
                     TRACE("elim_small_bv", tout << "new bodies: " << std::endl;
