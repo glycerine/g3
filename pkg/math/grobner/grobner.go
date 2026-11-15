@@ -408,6 +408,9 @@ func (s *Solver) simplifyMonomials(ms []*Monomial) ([]*Monomial, error) {
 	if len(ms) == 0 {
 		return ms, nil
 	}
+	// grobner.cpp merge_monomials: m_manager.limit().inc(sz), charged with
+	// the size before merging; the C++ ignores the return value.
+	s.manager.ResourceLimit().IncOffset(uint32(len(ms)))
 	out := ms[:0]
 	for _, m := range ms {
 		if len(out) != 0 && sameBody(out[len(out)-1], m) {

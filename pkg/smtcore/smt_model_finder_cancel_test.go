@@ -26,9 +26,10 @@ func TestSMTModelFinderCancellationAndResourceCheckpoint(t *testing.T) {
 	if len(finder.quantifiers) != 0 || len(finder.flat) != 0 || len(finder.sets) != 0 {
 		t.Fatal("canceled registration retained analysis state")
 	}
-	err = finder.FixModel(proto)
-	if err == nil || !strings.Contains(err.Error(), "canceled") {
-		t.Fatal("model fixing ignored cancellation", err)
+	// model_finder::fix_model returns before any checkpoint when no
+	// quantifier is relevant (math_misc_01-F1 follow-up).
+	if err = finder.FixModel(proto); err != nil {
+		t.Fatal("model fixing without quantifiers checked cancellation", err)
 	}
 	m.Limit.ResetCancel()
 	astTestMust(t, finder.RegisterQuantifier(q))

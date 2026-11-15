@@ -243,3 +243,21 @@ func TestDependencyJoinShape(t *testing.T) {
 		t.Fatal("leaf reported as join")
 	}
 }
+
+// math_misc_01-F1: grobner.cpp merge_monomials charges
+// m_manager.limit().inc(sz) with the pre-merge monomial count, and returns
+// before charging when sz == 0.
+func TestMergeChargesResourceLimit(t *testing.T) {
+	f := newFixture(t)
+	x := f.variable(t, "x")
+	before := f.m.ResourceLimit().Count()
+	must(t, f.s.AssertMonomialsZero([]*Monomial{monomial(t, f.s, 1, x), monomial(t, f.s, 2, x), monomial(t, f.s, 3, x), monomial(t, f.s, -1)}, nil))
+	after := f.m.ResourceLimit().Count()
+	if after-before != 4 {
+		t.Fatalf("merge charged %d, want 4", after-before)
+	}
+	must(t, f.s.AssertMonomialsZero(nil, nil))
+	if got := f.m.ResourceLimit().Count(); got != after {
+		t.Fatalf("empty merge charged %d, want 0", got-after)
+	}
+}

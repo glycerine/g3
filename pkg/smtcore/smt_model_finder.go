@@ -615,9 +615,9 @@ func (f *SMTModelFinder) FixModel(model *protomodel.ProtoModel) error {
 	if model == nil || model.Core() == nil {
 		return ast.ErrASTHandle
 	}
-	if err := f.checkpoint(); err != nil {
-		return err
-	}
+	// model_finder::fix_model has no checkpoint on entry; with no relevant
+	// quantifiers it returns before any cancellation check, so a resource
+	// limit hit during search does not abort mk_proto_model.
 	relevant, err := f.relevantQuantifiers()
 	if err != nil {
 		return err

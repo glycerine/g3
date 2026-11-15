@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md math_misc_01-F1: grobner merge_monomials charges
+	// limit().inc(sz); model_finder::fix_model has no entry checkpoint.
+	"grobner_rlimit_unknown.smt2": "unknown\n",
 	// AUDIT.md util_numeral_02-F1: f2n floor/ceil only SASSERT regularity,
 	// so an mpf integer bound that rounds to zero is accepted.
 	"subpaving_mpf_int_bound_floor_zero.smt2": "(goals\n(goal\n  (<= (to_real x) (/ 1.0 2.0))\n  (>= (to_real x) (- 3.0))\n  :precision precise :depth 2)\n)\n",
