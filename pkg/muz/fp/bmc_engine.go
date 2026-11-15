@@ -229,10 +229,6 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 		return lbool.Undef, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, view.Close()) }()
-	proofTrace, err := view.Bool("generate_proof_trace", false)
-	if err != nil {
-		return lbool.Undef, err
-	}
 	if err = e.validateFragment(); err != nil {
 		return lbool.Undef, err
 	}
@@ -268,8 +264,7 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 	}
 	// IF_VERBOSE(2, m_ctx.display_rules(verbose_stream())) after the
 	// context's rules are restored (AUDIT.md FUZZ-F5; g3trace builds only).
-	// The nonlinear proof retry re-enters here; the source prints once.
-	if diagnostic.VerboseProgress && !e.forceProofTrace {
+	if diagnostic.VerboseProgress {
 		if err = e.writeBMCContextRules(sourceDeclaration); err != nil {
 			return lbool.Undef, err
 		}
@@ -281,20 +276,7 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 	if err != nil {
 		return lbool.Undef, err
 	}
-	// Nonlinear answers require rule proofs even when the caller asks for
-	// them only after the query. Rebuild nonlinear preprocessing with proofs;
-	// ordinary linear queries keep their existing certificate path.
-	if !linear && !proofTrace && !e.forceProofTrace {
-		if err = preprocessed.Close(); err != nil {
-			return lbool.Undef, err
-		}
-		e.forceProofTrace = true
-		defer func() { e.forceProofTrace = false }()
-		return e.queryBMCPredicateWithSliceProof(sourceDeclaration, allowSliceProof)
-	}
 	if !linear {
-		// Keep this after the proof-preparation retry so one public query emits
-		// the source warning exactly once.
 		warnNonlinearBMC()
 	}
 	depth, err := view.UInt("bmc.linear_unrolling_depth", math.MaxUint32)
@@ -391,8 +373,10 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 		}
 		defer func() { resultErr = errors.Join(resultErr, cooperation.Close()) }()
 		services := model.ModelEvaluatorConfig{Context: e.params, Globals: e.globals, Memory: e.manager.NumeralService().RuntimeOwner(), Cooperation: cooperation}
+		// nonlinear::get_model always builds the proof; a rule without a
+		// proof is asserted (fork fix, as linear::get_model does).
 		e.bmcTrace, err = compiler.NonlinearTrace(rules, declaration, level, md, services)
-		if err == nil && (proofTrace || e.forceProofTrace) {
+		if err == nil {
 			e.bmcProof, err = compiler.NonlinearProof(rules, declaration, level, md, services)
 		}
 	}

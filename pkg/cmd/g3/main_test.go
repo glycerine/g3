@@ -336,6 +336,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// muz_small_01-F5 reproduction, muz_fp_01 notes: nonlinear BMC binds head
+	// variables and asserts unproved rules (fork fix #B; z3 4.7.1 segfaults).
+	"z3_bug_bmc_nonlinear_head_vars.smt2":       "sat\n(let ((a!1 (forall ((A Int) (B Int))\n             (=> (and (p A) (p B) (= A (+ 1 B))) (query!0 B))))\n      (a!2 (forall ((A Int) (B Int))\n             (=> (and (p B) (not (<= 3 B)) (= A (+ 1 B))) (p A)))))\n  (hyper-res (asserted a!1)\n             (hyper-res (asserted a!2) (asserted (p 0)) (p 1))\n             (asserted (p 0))\n             (query!0 0)))\n",
+	"z3_bug_bmc_nonlinear_quantified_tail.smt2": "sat\n(let ((a!1 (forall ((A Int)) (=> (p A) (query!0 A)))))\n  ((_ hyper-res 1 0)\n    (hyper-res (asserted a!1) a!1)\n    (asserted (p 0))\n    (query!0 0)))\n\nsat\n(let ((a!1 (asserted (forall ((A Int)) (=> (r A) (query!43 A)))))\n      (a!2 (forall ((A Int) (B Int))\n             (let ((a!1 (forall ((z Int)) (=> (> z 0) (> (+ z B) 0)))))\n               (=> (and (p B) (p A) (= A (+ B 1)) (= a!1 true)) (r B)))))\n      (a!3 (forall ((A Int) (B Int))\n             (=> (and (p B) (not (<= 3 B)) (= A (+ 1 B))) (p A)))))\n(let ((a!4 (hyper-res (asserted a!2)\n                      (asserted (p 0))\n                      (hyper-res (asserted a!3) (asserted (p 0)) (p 1))\n                      (r 0))))\n  (hyper-res a!1 a!4 (query!43 0))))\n",
 	// muz_small_01-F8 follow-up: QBMC hyper-resolution positions (1,0),
 	// upstream 784b613b5 and fork fix #A; z3 4.7.1 prints (0,1).
 	"z3_bug_qbmc_hyper_res_positions.smt2": "sat\n(let ((a!1 (forall ((A Int)) (=> (p A) (query!0 A)))))\n  ((_ hyper-res 1 0)\n    (hyper-res (asserted a!1) a!1)\n    (asserted (p 0))\n    (query!0 0)))\n\n",

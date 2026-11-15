@@ -98,12 +98,11 @@ func TestBMCNonlinearTraceVisitsModelSelectedRules(t *testing.T) {
 			t.Fatal("trace rule", i, name, want[i])
 		}
 	}
-	if proof, err := compiler.NonlinearProof(set, goal, level, md, config); err == nil {
-		if proof != (ast.ASTRef{}) {
-			must(m.DelRef(&proof))
-		}
-		t.Fatal("nonlinear proof accepted rules without proofs")
-	}
+	// A rule without a proof is asserted, as linear::get_model does (fork
+	// fix; z3 4.7.1 passes the null proof to mk_hyper_resolve).
+	unproved, err := compiler.NonlinearProof(set, goal, level, md, config)
+	must(err)
+	defer func() { must(m.DelRef(&unproved)) }()
 	scope, err := ast.NewScopedProof(m)
 	must(err)
 	for _, rule := range trace {
@@ -125,6 +124,9 @@ func TestBMCNonlinearTraceVisitsModelSelectedRules(t *testing.T) {
 	must(err)
 	if fact != app(goal) {
 		t.Fatal("nonlinear proof conclusion", fact, app(goal))
+	}
+	if unprovedProof, err := m.RefGet(unproved); err != nil || unprovedProof != proof {
+		t.Fatal("asserted-rule proof differs from the proof of rules without proofs", err)
 	}
 	checker, err := proofs.NewChecker(m)
 	must(err)

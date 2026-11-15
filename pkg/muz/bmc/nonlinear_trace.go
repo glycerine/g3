@@ -181,7 +181,26 @@ func (c *Compiler) traceNonlinearRule(rules *base.RuleSet, evaluator *model.Mode
 			return err
 		}
 		if !found {
-			return fmt.Errorf("bmc: nonlinear rule has no proof")
+			// A rule carries no proof unless the proof trace is generated.
+			// The fork asserts the rule's formula, as linear::get_model does
+			// (z3 4.7.1 passes the null proof to mk_hyper_resolve and
+			// segfaults; test_vectors/z3_bug_bmc_nonlinear_head_vars.smt2).
+			fmlRef, err := selected.ToFormula()
+			if err != nil {
+				return err
+			}
+			fml, err := m.RefGet(fmlRef)
+			if err == nil {
+				proof, err = m.MkProofAsserted(fml)
+			}
+			var pinned ast.ASTRef
+			if err == nil {
+				pinned, err = m.NewRef(proof)
+			}
+			if err = disposeASTRefs(m, []ast.ASTRef{fmlRef}, err); err != nil {
+				return err
+			}
+			defer func() { resultErr = disposeASTRefs(m, []ast.ASTRef{pinned}, resultErr) }()
 		}
 		if len(variableSorts) == 0 && tails == 0 {
 			*proofResult, err = m.NewRef(proof)
@@ -205,9 +224,12 @@ func (c *Compiler) traceNonlinearRule(rules *base.RuleSet, evaluator *model.Mode
 		resultErr = disposeASTRefs(m, refs, resultErr)
 	}()
 	bindings := make([]ast.ASTHandle, len(variableSorts))
-	// The source proof path normally sees transformed rules. When compiling a
-	// raw rule, variables occurring directly in its head are not Skolemized:
-	// recover them from the corresponding model-evaluated head arguments.
+	// nonlinear::compile binds the variables occurring directly in the head
+	// to the head arguments and Skolemizes only the others, so the model
+	// interprets no Skolem function for a head variable: bind it to the
+	// model-evaluated head argument. z3 4.7.1 Skolemizes every variable, no
+	// tail rule is selected and it segfaults; the fork fix binds them as
+	// here (test_vectors/z3_bug_bmc_nonlinear_head_vars.smt2).
 	head, err := selected.Head()
 	if err != nil {
 		return err
@@ -330,8 +352,10 @@ func (c *Compiler) traceNonlinearRule(rules *base.RuleSet, evaluator *model.Mode
 		}
 	}
 	if proofResult != nil {
-		// The search uses a level-indexed predicate at the root. Proofs must
-		// conclude the original predicate at the model-evaluated arguments.
+		// The search uses a level-indexed predicate at the root. Proofs
+		// conclude the original predicate at the model-evaluated arguments
+		// (z3 4.7.1 concludes the root with the level predicate applied to
+		// the query constants; the fork fix concludes as here).
 		values := make([]ast.ASTHandle, len(args))
 		for i, argument := range args {
 			value, e := evaluator.EvaluateValue(argument)

@@ -1,0 +1,8 @@
+(set-option :fixedpoint.engine bmc)
+(declare-rel p (Int))
+(declare-rel r (Int))
+(declare-var x Int)
+(rule (p 0))
+(rule (=> (and (p x) (< x 3)) (p (+ x 1))))
+(rule (=> (and (p x) (p (+ x 1))) (r x)))
+(query r :print-answer true)
