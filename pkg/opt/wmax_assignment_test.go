@@ -9,7 +9,7 @@ import (
 )
 
 func TestWMaxAssignmentUsesIncompleteModel(t *testing.T) {
-	m, fixture := pbSLSFixture(t)
+	m, fixture := maxSMTTestFixture(t)
 	if err := m.RegisterDeclarationPlugins(); err != nil {
 		t.Fatal(err)
 	}

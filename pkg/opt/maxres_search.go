@@ -28,9 +28,6 @@ func (e *maxResEngine) optimize(result *ArithmeticResult) (status lbool.LBool, o
 			value.SoftBoundsValid = true
 		}
 	}()
-	if err = e.trySLSCandidate(result); err != nil {
-		return lbool.Undef, false, err
-	}
 	// maxsmt_solver_base::init reads its model captured before MaxRes mutex
 	// discovery. Those preprocessing checks must not replace that candidate.
 	if result.Model == nil {

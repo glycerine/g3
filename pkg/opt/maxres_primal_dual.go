@@ -7,9 +7,6 @@ package opt
 import "github.com/glycerine/g3/pkg/util/lbool"
 
 func (e *maxResEngine) optimizePrimalDual(result *ArithmeticResult) (lbool.LBool, bool, error) {
-	if err := e.trySLSCandidate(result); err != nil {
-		return lbool.Undef, false, err
-	}
 	for iteration := 0; iteration < maxResIterationLimit; iteration++ {
 		status, full, err := e.checkHillClimb(result)
 		if err != nil || status == lbool.Undef {

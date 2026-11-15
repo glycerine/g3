@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md opt_01-F2: opt.enable_sls is inert in z3 4.7.1 (nothing
+	// calls enable_sls; pb_sls is dead), so MaxRes runs unchanged.
+	"maxres_enable_sls_inert.smt2": "sat\n(objectives\n ( 6)\n)\n(model \n  (define-fun p7 () Bool\n    true)\n  (define-fun y () Int\n    16)\n  (define-fun p1 () Bool\n    true)\n  (define-fun p4 () Bool\n    true)\n  (define-fun p2 () Bool\n    false)\n  (define-fun p3 () Bool\n    true)\n  (define-fun p5 () Bool\n    false)\n  (define-fun x () Int\n    0)\n  (define-fun p6 () Bool\n    true)\n  (define-fun p0 () Bool\n    false)\n)\n",
 	// AUDIT.md opt_01-F1: sortmax throws for a weight that is not
 	// unsigned after find_mutexes, and maxsmt answers unknown.
 	"sortmax_fractional_weight.smt2":              "unknown\n(objectives\n ( (/ 3.0 2.0))\n)\n(model \n  (define-fun b () Bool\n    false)\n  (define-fun a () Bool\n    false)\n)\n",

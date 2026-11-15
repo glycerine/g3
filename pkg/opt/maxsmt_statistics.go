@@ -21,8 +21,4 @@ type MaxSMTStatistics struct {
 	MutexTerms             uint32
 	Auxiliaries            uint32
 	NetworkClauses         uint32
-	SLSAttempts            uint32
-	SLSChecks              uint32
-	SLSFlips               uint32
-	SLSImprovements        uint32
 }

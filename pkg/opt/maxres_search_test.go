@@ -13,7 +13,7 @@ import (
 )
 
 func TestMaxResSearchFindsRationalWeightedOptimumWithoutRegistration(t *testing.T) {
-	manager, fixture := pbSLSFixture(t)
+	manager, fixture := maxSMTTestFixture(t)
 	p := maxResTestBool(t, manager, "maxres-search-p")
 	q := maxResTestBool(t, manager, "maxres-search-q")
 	r := maxResTestBool(t, manager, "maxres-search-r")
@@ -70,7 +70,7 @@ func TestMaxResSearchFindsRationalWeightedOptimumWithoutRegistration(t *testing.
 }
 
 func TestMaxResInterruptedSearchPublishesCandidateBounds(t *testing.T) {
-	manager, fixture := pbSLSFixture(t)
+	manager, fixture := maxSMTTestFixture(t)
 	variables := []ast.ASTHandle{
 		maxResTestBool(t, manager, "maxres-interrupted-p"),
 		maxResTestBool(t, manager, "maxres-interrupted-q"),
@@ -122,7 +122,7 @@ func TestMaxResInterruptedSearchPublishesCandidateBounds(t *testing.T) {
 }
 
 func TestMaxResCoreMinimizationMatchesSourceForMoreThanThirtyTwoLiterals(t *testing.T) {
-	manager, fixture := pbSLSFixture(t)
+	manager, fixture := maxSMTTestFixture(t)
 	const count = 33
 	terms := make([]ast.ASTHandle, count)
 	weights := make([]*big.Rat, count)
