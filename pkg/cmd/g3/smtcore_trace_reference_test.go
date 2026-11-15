@@ -15,6 +15,7 @@ import (
 var smtcoreTraceVectors = []string{
 	"array_default_store_epsilon_order.smt2", // AUDIT.md smtcore_09-F3
 	"array_interface_eq_var_owner.smt2",      // AUDIT.md smtcore_09-F4
+	"array_skolem_release_order.smt2",        // AUDIT.md smtcore_09-F5
 }
 
 var smtcoreTracePointer = regexp.MustCompile(`0x[0-9a-f]+`)

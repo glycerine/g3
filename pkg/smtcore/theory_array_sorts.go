@@ -49,11 +49,13 @@ func (t *SMTArrayTheory) restoreArraySorts(limit int) error {
 	for len(t.sortTrail) > limit {
 		sort := t.sortTrail[len(t.sortTrail)-1]
 		declarations := t.sortDeclarations[sort]
+		// dealloc(funcs): ~ref_vector's dec_range_ref releases front to
+		// back.
 		for len(declarations) != 0 {
-			if err := m.DecRef(declarations[len(declarations)-1]); err != nil {
+			if err := m.DecRef(declarations[0]); err != nil {
 				return err
 			}
-			declarations = declarations[:len(declarations)-1]
+			declarations = declarations[1:]
 			t.sortDeclarations[sort] = declarations
 		}
 		delete(t.sortDeclarations, sort)

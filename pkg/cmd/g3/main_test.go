@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_09-F5
+	"array_skolem_release_order.smt2": "sat\nsat\n(model \n  (define-fun x () Int\n    0)\n  (define-fun f ((x!0 Int)) Int\n    (ite (= x!0 0) 3\n    (ite (= x!0 3) 4\n    (ite (= x!0 1) 5\n    (ite (= x!0 2) 7\n      3)))))\n  (define-fun g ((x!0 Int)) Int\n    (ite (= x!0 0) 3\n    (ite (= x!0 3) 4\n    (ite (= x!0 1) 6\n    (ite (= x!0 2) 8\n      3)))))\n)\n",
 	// AUDIT.md smtcore_09-F4
 	"array_interface_eq_var_owner.smt2": "sat\n(model \n  (define-fun c () Bool\n    true)\n  (define-fun a () (Array Int Int)\n    (_ as-array k!0))\n  (define-fun b () (Array Int Int)\n    (_ as-array k!1))\n  (define-fun d () (Array Int Int)\n    (_ as-array k!2))\n  (define-fun k!0 ((x!0 Int)) Int\n    (ite (= x!0 5) 6\n    (ite (= x!0 0) 3\n      6)))\n  (define-fun k!1 ((x!0 Int)) Int\n    (ite (= x!0 0) 4\n      4))\n  (define-fun f ((x!0 (Array Int Int))) Int\n    (ite (= x!0 (_ as-array k!0)) 1\n    (ite (= x!0 (_ as-array k!2)) 2\n      1)))\n  (define-fun k!2 ((x!0 Int)) Int\n    (ite (= x!0 5) 7\n      7))\n)\n",
 	// AUDIT.md smtcore_09-F3
