@@ -741,7 +741,13 @@ func (g *Goal) Update(i uint32, f, pr ast.ASTHandle, d ast.ASTDependency) (err e
 		if g.proofsEnabled {
 			return g.pushBack(out, rp, d)
 		}
-		return g.pushBack(f, ast.ASTHandle{}, d)
+		// z3 4.7.1 appends the unprocessed f here (push_back(f, ...)), so
+		// an update whose first flattened conjunct is false, such as
+		// (and false (not a)), leaves the goal consistent with the stale
+		// formula still at i. Push the flattened false, as the proof branch
+		// does (z3 bug, still present upstream; reproduction:
+		// test_vectors/z3_bug_goal_update_flattened_false.smt2).
+		return g.pushBack(out, ast.ASTHandle{}, d)
 	}
 	if err = g.exprArrays().set(&g.forms, i, goalArrayValue{h: out}); err != nil {
 		return err

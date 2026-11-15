@@ -118,3 +118,14 @@ z3_bug_duality_certificate_eliminated_var
 # TestUDocSieveNegationColumnClassification and
 # TestSieveNegationFullNegativeColumnSubtractsAll in
 # pkg/muz/rel/udoc_sieve_negation_test.go.
+#
+# goal::update (no proofs) flattens the new formula with quick_process,
+# and when the first flattened conjunct is false it calls push_back(f)
+# with the unflattened f instead of false, so the goal never becomes
+# inconsistent and keeps the stale formula at i. nnf turns
+# (not (=> false a)) into (and false (not a)) and z3 prints a three-formula
+# goal instead of false (z3 bug: src/tactic/goal.cpp goal::update; still
+# present upstream). g3 and the fork push false (pkg/tactic/tactic_goal.go
+# Update). Reproduction:
+# test_vectors/z3_bug_goal_update_flattened_false.smt2.
+z3_bug_goal_update_flattened_false

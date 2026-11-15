@@ -328,7 +328,11 @@ func TestTacticGoalUpdateRetainsSavedFirstBeforeLaterFalse(t *testing.T) {
 	}
 }
 
-func TestTacticGoalUpdateLiteralFalseHeadSourceBehavior(t *testing.T) {
+// goal::update without proofs flattens (and false p) to false. z3 4.7.1
+// (goal.cpp:291-292) then pushes the unflattened f, which leaves the goal
+// consistent with the stale formula still at the index; g3 pushes false
+// (cmd/g3/test_vectors/z3_bug_goal_update_flattened_false.smt2).
+func TestTacticGoalUpdateLiteralFalseHeadMakesGoalInconsistent(t *testing.T) {
 	m := astTestManager(t)
 	p := goalTestAtom(t, m, "p")
 	q := goalTestAtom(t, m, "q")
@@ -338,11 +342,9 @@ func TestTacticGoalUpdateLiteralFalseHeadSourceBehavior(t *testing.T) {
 	astTestMust(t, e)
 	input := goalTestApp(t, m, ast.ASTOpAnd, f, p)
 	astTestMust(t, g.Update(0, input, ast.ASTHandle{}, ast.ASTDependency{}))
-	// goal.cpp:297-298 deliberately pushes original f, rather than the rewritten
-	// fr, on this branch. Preserve that observable source behavior.
-	goalTestForms(t, g, q, p, input)
-	if g.inconsistent {
-		t.Fatal("rewritten false must not replace original f in the source branch")
+	goalTestForms(t, g, f)
+	if !g.inconsistent || !g.IsDecidedUnsat() {
+		t.Fatal("update to a formula that flattens to false must decide UNSAT")
 	}
 }
 
