@@ -183,12 +183,27 @@ func (e *wmaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, opt
 		}
 	}
 	status = lbool.True
-	for e.lower.Cmp(&e.upper) < 0 {
+	m := e.solver.manager
+	// while (!m.canceled() && m_lower < m_upper)
+	for {
+		canceled, cause := m.Canceled()
+		if cause != nil {
+			return lbool.Undef, false, cause
+		}
+		if canceled || e.lower.Cmp(&e.upper) >= 0 {
+			break
+		}
 		status, err = e.solver.solver().CheckSat(nil)
 		if err != nil {
 			return lbool.Undef, false, err
 		}
 		e.checks++
+		// if (m.canceled()) is_sat = l_undef;
+		if canceled, cause = m.Canceled(); cause != nil {
+			return lbool.Undef, false, cause
+		} else if canceled {
+			status = lbool.Undef
+		}
 		if status != lbool.True {
 			break
 		}
@@ -227,11 +242,16 @@ func (e *wmaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, opt
 			}
 		}
 	}
-	if status == lbool.False {
-		e.lower.Set(&e.upper)
+	// if (!m.canceled() && is_sat == l_undef && m_lower == m_upper)
+	canceled, err := m.Canceled()
+	if err != nil {
+		return lbool.Undef, false, err
+	}
+	if !canceled && status == lbool.Undef && e.lower.Cmp(&e.upper) == 0 {
 		status = lbool.True
 	}
-	if status == lbool.Undef && e.lower.Cmp(&e.upper) == 0 {
+	if status == lbool.False {
+		e.lower.Set(&e.upper)
 		status = lbool.True
 	}
 	if err = e.publishAssignment(result); err != nil {
