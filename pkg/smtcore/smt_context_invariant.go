@@ -43,7 +43,7 @@ func (s *SMTInternalizerState) CheckInvariant() error {
 				return ast.ErrASTDomain
 			}
 		}
-		for _, literal := range s.watches[index].literals {
+		for _, literal := range s.watches[index].Literals() {
 			if literal.Index() < 0 || int(literal.Index()) >= len(s.assignment) {
 				return ast.ErrASTDomain
 			}

@@ -3,6 +3,7 @@ package smtcore
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -78,5 +79,61 @@ func TestSMTWatchListCompactionResetAndGuards(t *testing.T) {
 	watches.ResetAndReleaseMemory()
 	if watches.Size() != 0 || watches.Clauses() != nil || watches.Literals() != nil {
 		t.Fatal("release reset")
+	}
+}
+
+// AUDIT.md smtcore_14-F2: insert_literal writes in front of the live
+// literals and remove_literal shifts only the literals in front of the
+// removed one, so wide binary-clause fan-out is not quadratic.
+func TestSMTWatchListLiteralInsertAndNewestFirstRemovalAreAmortizedConstant(t *testing.T) {
+	const n = 300000
+	start := time.Now()
+	var watches SMTWatchList
+	for i := int32(0); i < n; i++ {
+		if err := watches.InsertLiteral(NewSMTLiteral(i, false)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := watches.Literals(); len(got) != n || got[0] != NewSMTLiteral(n-1, false) || got[n-1] != NewSMTLiteral(0, false) {
+		t.Fatal("newest-first literal order")
+	}
+	for i := int32(n - 1); i >= 0; i-- {
+		if !watches.RemoveLiteral(NewSMTLiteral(i, false)) {
+			t.Fatal("remove", i)
+		}
+	}
+	if watches.Size() != 0 || len(watches.Literals()) != 0 {
+		t.Fatal("watch list not empty", watches.Size())
+	}
+	if elapsed := time.Since(start); elapsed > 2*time.Second {
+		t.Fatal("literal insert/remove is not amortized constant", elapsed)
+	}
+
+	// Middle removal after growth keeps the relative order of the rest.
+	watches.Reset()
+	for i := int32(0); i < 10; i++ {
+		if err := watches.InsertLiteral(NewSMTLiteral(i, false)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if !watches.RemoveLiteral(NewSMTLiteral(6, false)) { // the 4th newest
+		t.Fatal("middle removal")
+	}
+	want := []int32{9, 8, 7, 5, 4, 3, 2, 1, 0}
+	got := watches.Literals()
+	if len(got) != len(want) || watches.Size() != len(want) {
+		t.Fatal("middle removal size", got)
+	}
+	for i, v := range want {
+		if got[i] != NewSMTLiteral(v, false) {
+			t.Fatal("middle removal order", got)
+		}
+	}
+	if err := watches.InsertLiteral(NewSMTLiteral(42, false)); err != nil || watches.Literals()[0] != NewSMTLiteral(42, false) || watches.FindLiteral(NewSMTLiteral(0, false)) != len(want) {
+		t.Fatal("insert after removal", err, watches.Literals())
+	}
+	watches.ResetAndReleaseMemory()
+	if watches.Size() != 0 || len(watches.Literals()) != 0 {
+		t.Fatal("release")
 	}
 }

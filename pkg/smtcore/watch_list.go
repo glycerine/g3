@@ -5,18 +5,22 @@ package smtcore
 import "github.com/glycerine/g3/pkg/ast"
 
 // SMTWatchList stores the two source watch-list regions as typed Go slices.
-// Clause pointers are in insertion order. Literals are in iterator order,
-// which is reverse insertion order in the packed source representation.
+// Clause pointers are in insertion order. Literals keep the source layout:
+// they grow downward from the end of their buffer (insert_literal writes in
+// front of the others, and expand keeps them at the end), so literals[begin:]
+// is in iterator order, which is reverse insertion order, and inserting or
+// removing the newest literal moves nothing.
 type SMTWatchList struct {
 	clauses  []*SMTClause
-	literals []SMTLiteral
+	literals []SMTLiteral // literals[begin:] are live, newest first
+	begin    int
 }
 
 func (w *SMTWatchList) Size() int {
 	if w == nil {
 		return 0
 	}
-	return len(w.clauses) + len(w.literals)
+	return len(w.clauses) + len(w.literals) - w.begin
 }
 
 func (w *SMTWatchList) Reset() {
@@ -24,7 +28,7 @@ func (w *SMTWatchList) Reset() {
 		return
 	}
 	w.clauses = w.clauses[:0]
-	w.literals = w.literals[:0]
+	w.begin = len(w.literals)
 }
 
 func (w *SMTWatchList) ResetAndReleaseMemory() {
@@ -33,6 +37,7 @@ func (w *SMTWatchList) ResetAndReleaseMemory() {
 	}
 	w.clauses = nil
 	w.literals = nil
+	w.begin = 0
 }
 
 // Clauses and Literals return the live mutable views used by propagation.
@@ -47,7 +52,7 @@ func (w *SMTWatchList) Literals() []SMTLiteral {
 	if w == nil {
 		return nil
 	}
-	return w.literals
+	return w.literals[w.begin:]
 }
 
 func (w *SMTWatchList) FindClause(clause *SMTClause) int {
@@ -66,7 +71,7 @@ func (w *SMTWatchList) FindLiteral(literal SMTLiteral) int {
 	if w == nil {
 		return -1
 	}
-	for i, candidate := range w.literals {
+	for i, candidate := range w.literals[w.begin:] {
 		if candidate == literal {
 			return i
 		}
@@ -86,9 +91,16 @@ func (w *SMTWatchList) InsertLiteral(literal SMTLiteral) error {
 	if w == nil {
 		return ast.ErrASTHandle
 	}
-	w.literals = append(w.literals, 0)
-	copy(w.literals[1:], w.literals[:len(w.literals)-1])
-	w.literals[0] = literal
+	if w.begin == 0 {
+		// expand: grow by half and keep the literals at the end.
+		live := len(w.literals)
+		capacity := live + live/2 + 4
+		grown := make([]SMTLiteral, capacity)
+		copy(grown[capacity-live:], w.literals)
+		w.literals, w.begin = grown, capacity-live
+	}
+	w.begin--
+	w.literals[w.begin] = literal
 	return nil
 }
 
@@ -108,8 +120,10 @@ func (w *SMTWatchList) RemoveLiteral(literal SMTLiteral) bool {
 	if i < 0 {
 		return false
 	}
-	copy(w.literals[i:], w.literals[i+1:])
-	w.literals = w.literals[:len(w.literals)-1]
+	// remove_literal shifts only the literals in front of the removed one.
+	live := w.literals[w.begin:]
+	copy(live[1:i+1], live[:i])
+	w.begin++
 	return true
 }
 
