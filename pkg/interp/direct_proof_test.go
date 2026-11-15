@@ -1904,3 +1904,32 @@ func TestDirectProofConditionalNegationChainSymmetryDropsCondition(t *testing.T)
 		t.Fatal("result is not a chain", e)
 	}
 }
+
+// interp_01-F8: simplify_modpon returns normalize(nQ2) for an inequality
+// conclusion, so no @normal term escapes a nested modus ponens.
+func TestDirectProofModusPonensNormalizesInequality(t *testing.T) {
+	_, manager, direct, x, y := directProofIntegerFixture(t, "modpon-normal")
+	truth, err := manager.Make(OperatorTrue)
+	interpMust(t, err)
+	zero, err := manager.MakeIntText("0")
+	interpMust(t, err)
+	one, err := manager.MakeIntText("1")
+	interpMust(t, err)
+	xInequality, err := manager.Make(OperatorLE, zero, x)
+	interpMust(t, err)
+	chain, err := direct.makeLocalRewrite(TermA, xInequality)
+	interpMust(t, err)
+	step, err := direct.makeNormalStep(y, one, truth)
+	interpMust(t, err)
+	normalChain, err := direct.consNormal(step, truth)
+	interpMust(t, err)
+	yInequality, err := manager.Make(OperatorLE, zero, y)
+	interpMust(t, err)
+	normal, err := direct.makeNormal(yInequality, normalChain)
+	interpMust(t, err)
+	result, err := direct.simplifyModusPonens([]ast.ASTHandle{chain, truth, normal})
+	interpMust(t, err)
+	if _, found := directProofFindSymbol(manager, result, direct.normal); found {
+		t.Fatal("@normal survived simplify_modpon")
+	}
+}

@@ -988,6 +988,11 @@ func (p *DirectProofInterpolator) simplifyModusPonens(args []ast.ASTHandle) (ast
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
+		// simplify_modpon: interp = normalize(nQ2).
+		converted, e = p.normalizeProofTerm(converted)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
 		converted, e = p.base.manager.MkImplies(bProof, converted)
 		if e != nil {
 			return ast.ASTHandle{}, e
