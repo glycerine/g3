@@ -1,0 +1,8 @@
+(declare-fun q ((_ BitVec 2)) Bool)
+(declare-fun r ((_ BitVec 2)) Bool)
+(declare-fun s ((_ BitVec 2)) Bool)
+(assert (forall ((x (_ BitVec 2))) (q x)))
+(assert (forall ((y (_ BitVec 2))) (r y)))
+(assert (forall ((y (_ BitVec 2))) (s y)))
+(assert (forall ((y (_ BitVec 2))) (= y #b11)))
+(check-sat-using (then (using-params elim-small-bv :max_steps 5) smt))

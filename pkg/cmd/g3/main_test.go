@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_bv_01-F1: elim-small-bv num_steps is local to each
+	// reduce_quantifier call; a later quantifier must not become true.
+	"elim_small_bv_step_limit_per_quantifier.smt2": "unsat\n",
 	// AUDIT.md tactic_top_01-F1: and_then/repeat append a decided-sat subgoal to the
 	// earlier undecided ones (C++ never resets result).
 	"and_then_sat_branch_keeps_goals.smt2": "(goals\n(goal\n  (not (<= x 0))\n  :precision precise :depth 2)\n(goal\n  :precision precise :depth 2)\n)\nunknown\n",

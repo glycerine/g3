@@ -166,7 +166,7 @@ type elimSmallBVConfig struct {
 	bindings          []ast.ASTHandle
 	maxBits, maxSteps uint32
 	maxMemory         uint64
-	steps, eliminated uint32
+	eliminated        uint32
 }
 
 func (c *elimSmallBVConfig) PreVisit(h ast.ASTHandle) (bool, error) {
@@ -189,13 +189,15 @@ func (c *elimSmallBVConfig) PreVisit(h ast.ASTHandle) (bool, error) {
 	}
 	return true, nil
 }
-func (c *elimSmallBVConfig) checkpoint() (bool, error) {
+
+// checkpoint is C++ rw_cfg::max_steps_exceeded(num_steps).
+func (c *elimSmallBVConfig) checkpoint(numSteps uint64) (bool, error) {
 	if c.owner.cooperation != nil {
 		if e := c.owner.cooperation.Cooperate("elim-small-bv"); e != nil {
 			return false, e
 		}
 	}
-	if c.steps > c.maxSteps {
+	if numSteps > uint64(c.maxSteps) {
 		return true, nil
 	}
 	if c.owner.manager.Budget().Used() > c.maxMemory {
@@ -233,7 +235,14 @@ func (c *elimSmallBVConfig) ReduceQuantifier(q, body ast.ASTHandle, _, _ ast.App
 		}
 		return e
 	}
+	// C++ reduce_quantifier: num_steps is a local, restarted per quantifier.
+	var numSteps uint64
 	for i := int(n) - 1; i >= 0; i-- {
+		if stop, e := c.checkpoint(numSteps); e != nil {
+			return false, e
+		} else if stop {
+			break
+		}
 		sort, e := m.GetDeclarationSort(q, uint32(i))
 		if e != nil {
 			return false, e
@@ -252,9 +261,14 @@ func (c *elimSmallBVConfig) ReduceQuantifier(q, body ast.ASTHandle, _, _ ast.App
 		if width > c.maxBits {
 			continue
 		}
+		if stop, e := c.checkpoint(numSteps); e != nil {
+			return false, e
+		} else if stop {
+			continue
+		}
 		bodies := []ast.ASTHandle{}
 		for j := uint32(0); j < width; j++ {
-			stop, e := c.checkpoint()
+			stop, e := c.checkpoint(numSteps)
 			if e != nil {
 				return false, e
 			}
@@ -295,7 +309,7 @@ func (c *elimSmallBVConfig) ReduceQuantifier(q, body ast.ASTHandle, _, _ ast.App
 				return false, e
 			}
 			bodies = append(bodies, v)
-			c.steps++
+			numSteps++
 		}
 		forall, e := m.IsForall(q)
 		if e != nil {
