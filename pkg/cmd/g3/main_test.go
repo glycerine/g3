@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_top_01-F3: num_consts_probe ignores patterns.
+	"probe_num_consts_pattern.smt2": "(goals\n(goal\n  (forall ((x Int)) (! (> x d) :pattern ((f x c))))\n  :precision precise :depth 0)\n)\n",
 	// AUDIT.md tactic_arith_03-F8: purify-arith keeps a null proof for an
 	// unchanged quantifier (mk_quant_intro with a null premise).
 	"purify_arith_unchanged_quantifier_proof.smt2": "unsat\n((proof\n(let ((?x38 (f 1)))\n (let (($x493 (<= ?x38 0)))\n (let (($x47 (>= ?x38 0)))\n (let (($x48 (not $x47)))\n (let ((@x50 (monotonicity (rewrite (= (<= 0 ?x38) $x47)) (= (not (<= 0 ?x38)) $x48))))\n (let (($x42 (not (<= 0 ?x38))))\n (let ((@x60 (mp (asserted (< ?x38 0)) (rewrite (= (< ?x38 0) $x42)) $x42)))\n (let (($x483 (forall ((x Int) )(! (not (<= (f x) 0)) :pattern ( (f x) ) :qid k!3))\n ))\n (let (($x33 (forall ((x Int) )(! (not (<= (f x) 0)) :qid k!3))\n ))\n (let ((@x487 (quant-intro (refl (= (not (<= (f ?0) 0)) (not (<= (f ?0) 0)))) (= $x33 $x483))))\n (let ((@x65 (nnf-pos (refl (~ (not (<= (f ?0) 0)) (not (<= (f ?0) 0)))) (~ $x33 $x33))))\n (let (($x27 (forall ((x Int) )(! (let ((?x24 (f x)))\n (> ?x24 0)) :qid k!3))\n ))\n (let ((@x35 (quant-intro (rewrite (= (> (f ?0) 0) (not (<= (f ?0) 0)))) (= $x27 $x33))))\n (let ((@x57 (nnf-pos (refl (~ (> (f ?0) 0) (> (f ?0) 0))) (~ $x27 $x27))))\n (let ((@x488 (mp (mp~ (mp (mp~ (asserted $x27) @x57 $x27) @x35 $x33) @x65 $x33) @x487 $x483)))\n (unit-resolution ((_ quant-inst 1) (or (not $x483) (not $x493))) @x488 (unit-resolution ((_ th-lemma arith farkas 1 1) (or $x493 $x47)) (mp @x60 @x50 $x48) $x493) false))))))))))))))))))\n\n",

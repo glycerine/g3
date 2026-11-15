@@ -1,0 +1,5 @@
+(declare-fun f (Int Int) Int)
+(declare-const c Int)
+(declare-const d Int)
+(assert (forall ((x Int)) (! (> x d) :pattern ((f x c)))))
+(apply (fail-if (> num-consts 1)))

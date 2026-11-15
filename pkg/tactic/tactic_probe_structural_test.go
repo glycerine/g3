@@ -115,4 +115,25 @@ func TestProbeConstantCountsQuantifiersPatternsAndFragments(t *testing.T) {
 			t.Fatalf("quantified fragment %d: %v", kind, got)
 		}
 	}
+
+	// tactic_top_01-F3: num_consts_probe ignores patterns, so a constant that
+	// occurs only in a pattern is not counted.
+	patternOnly := goalTestAtom(t, m, "probe-pattern-only")
+	onlyPattern, err := m.MkPattern([]ast.ASTHandle{patternOnly})
+	astTestMust(t, err)
+	astTestPin(t, m, onlyPattern)
+	patternQuantifier, err := m.MkQuantifier(ast.ASTQuantifierSpec{
+		Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []usymbol.Symbol{astTestSymbol(t, m, "x")},
+		Body: atom, Patterns: []ast.ASTHandle{onlyPattern},
+	})
+	astTestMust(t, err)
+	astTestPin(t, m, patternQuantifier)
+	patternGoal := goalTestNew(t, m, false, false)
+	astTestMust(t, patternGoal.Assert(patternQuantifier))
+	if got := probeEvalKind(t, patternGoal, ProbeNumBoolConsts); got != 1 {
+		t.Fatal("pattern-only constant counted", got)
+	}
+	if got := probeEvalKind(t, patternGoal, ProbeHasPattern); got != 1 {
+		t.Fatal("pattern probe with pattern-only constant", got)
+	}
 }

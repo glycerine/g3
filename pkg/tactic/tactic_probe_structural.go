@@ -5,6 +5,14 @@ package tactic
 import "github.com/glycerine/g3/pkg/ast"
 
 func walkGoalExpressions(g *Goal, visit func(ast.ASTHandle, ast.ASTKind) (bool, error)) (bool, error) {
+	return walkGoalExpressionsCore(g, false, visit)
+}
+
+// walkGoalExpressionsCore visits every subterm of the goal's formulas once.
+// ignorePatterns mirrors the IgnorePatterns template argument of
+// for_each_expr_core (src/ast/for_each_expr.h): when set, quantifier
+// patterns and no-patterns are not traversed.
+func walkGoalExpressionsCore(g *Goal, ignorePatterns bool, visit func(ast.ASTHandle, ast.ASTKind) (bool, error)) (bool, error) {
 	visited := make(map[ast.ASTHandle]bool)
 	forms := g.formSlice()
 	stack := make([]ast.ASTHandle, 0, len(forms))
@@ -47,6 +55,9 @@ func walkGoalExpressions(g *Goal, visit func(ast.ASTHandle, ast.ASTKind) (bool, 
 				return false, err
 			}
 			stack = append(stack, body)
+			if ignorePatterns {
+				break
+			}
 			n, err := g.manager.GetNumNoPatterns(h)
 			if err != nil {
 				return false, err
@@ -98,7 +109,9 @@ func (p *Probe) countConstants(g *Goal) (uint32, error) {
 	if err != nil {
 		return 0, err
 	}
-	_, err = walkGoalExpressions(g, func(h ast.ASTHandle, kind ast.ASTKind) (bool, error) {
+	// num_consts_probe uses for_each_expr_core<proc, expr_fast_mark1, true, true>:
+	// IgnorePatterns=true, so constants only in patterns are not counted.
+	_, err = walkGoalExpressionsCore(g, true, func(h ast.ASTHandle, kind ast.ASTKind) (bool, error) {
 		if kind != ast.ASTApp {
 			return false, nil
 		}
