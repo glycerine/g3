@@ -1,0 +1,5 @@
+(declare-const a Bool)
+(declare-fun f (Int Bool) Int)
+(assert a)
+(assert (forall ((x Int)) (! (> x 0) :pattern ((f x a)))))
+(apply pb-preprocess)

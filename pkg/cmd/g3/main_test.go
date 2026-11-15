@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_core_02-F3: the declassifier visits quantifier patterns.
+	"pb_preprocess_pattern_declassify.smt2": "(goals\n(goal\n  a\n  (forall ((x Int)) (! (> x 0) :pattern ((f x a))))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md tactic_core_02-F2: pure_args accepts (not false).
 	"pb_preprocess_not_false.smt2": "(goals\n(goal\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md tactic_core_01-F2: injectivity keeps m_eq's rewriter cache across applications.

@@ -199,19 +199,35 @@ func (t *PBPreprocessTactic) declassify(r *pbPreprocessRound, roots []ast.ASTHan
 			if e != nil {
 				return e
 			}
-			var count uint32
+			var count, patterns uint32
 			switch kind {
 			case ast.ASTApp:
 				if count, e = m.GetNumArgs(top.h); e != nil {
 					return e
 				}
 			case ast.ASTQuantifier:
-				count = 1
+				// for_each_expr has IgnorePatterns=false: the children are
+				// the body, the patterns and then the no-patterns.
+				if patterns, e = m.GetNumPatterns(top.h); e != nil {
+					return e
+				}
+				noPatterns, e := m.GetNumNoPatterns(top.h)
+				if e != nil {
+					return e
+				}
+				count = 1 + patterns + noPatterns
 			}
 			if top.next < count {
 				var child ast.ASTHandle
 				if kind == ast.ASTQuantifier {
-					child, e = m.GetQuantifierBody(top.h)
+					switch {
+					case top.next == 0:
+						child, e = m.GetQuantifierBody(top.h)
+					case top.next-1 < patterns:
+						child, e = m.GetPattern(top.h, top.next-1)
+					default:
+						child, e = m.GetNoPattern(top.h, top.next-1-patterns)
+					}
 				} else {
 					child, e = m.GetArg(top.h, top.next)
 				}
