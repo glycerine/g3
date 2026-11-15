@@ -789,3 +789,18 @@ func TestLARDriverQueryHeadingExtent(t *testing.T) {
 	h.must(s.Close())
 	lpExactVectorNamedCensus(t, h, nil)
 }
+
+// AUDIT.md util_lp_04-F2: the rational reader shares read_bounds.
+func TestLPRationalMPSBoundsAtEOF(t *testing.T) {
+	h := newLPPairHarness(t)
+	text := "NAME T\nROWS\n N COST\n L R\nCOLUMNS\n" + lpExactMPSPair("X", "R", "1") + "RHS\n" + lpExactMPSPair("RHS", "R", "4") + "BOUNDS\n" + lpMPSBoundLine("UP", "X 4")
+	r := NewRationalMPSReader(h.m, strings.NewReader(text))
+	out := &bytes.Buffer{}
+	r.Messages = out
+	if err := r.Read(); err != nil || r.IsOK() {
+		t.Fatal(err, r.IsOK())
+	}
+	if out.String() != "setting m_is_OK to false\ncannot read from file\n" {
+		t.Fatalf("messages %q", out.String())
+	}
+}

@@ -313,7 +313,8 @@ func TestLPFloatMPSMalformedAndStreamPrefixes(t *testing.T) {
 	m = NewFloatMPSReader(strings.NewReader(""))
 	m.Messages = &bytes.Buffer{}
 	m.line = "BOUNDS"
-	if err := m.readBounds(); err != ErrBounds {
+	// End of file inside BOUNDS leaves the loop (AUDIT.md util_lp_04-F2).
+	if err := m.readBounds(); err != nil || m.IsOK() {
 		t.Fatal(err)
 	}
 	for _, typ := range []string{"UP", "LO", "FX"} {
@@ -644,5 +645,21 @@ func TestLPFloatMPSAtofNumericPrefix(t *testing.T) {
 	col, ok := m.columns.Get2("X1")
 	if !ok || col.bound == nil || !col.bound.upperSet || col.bound.upper != 4 {
 		t.Fatal("X1 bound", col)
+	}
+}
+
+// AUDIT.md util_lp_04-F2: when the file ends inside BOUNDS (no ENDATA),
+// read_line clears m_line and m_line[0] is '\0', so read_bounds just leaves
+// its loop; is_ok() is false and nothing else is reported.
+func TestLPFloatMPSBoundsAtEOF(t *testing.T) {
+	text := "NAME T\nROWS\n N COST\n L R\nCOLUMNS\n" + lpMPSPair("X", "R", 1) + "RHS\n" + lpMPSPair("RHS", "R", 4) + "BOUNDS\n" + lpMPSBoundLine("UP", "X 4")
+	m := NewFloatMPSReader(strings.NewReader(text))
+	out := &bytes.Buffer{}
+	m.Messages = out
+	if err := m.Read(); err != nil || m.IsOK() {
+		t.Fatal(err, m.IsOK())
+	}
+	if out.String() != "setting m_is_OK to false\ncannot read from file\n" {
+		t.Fatalf("messages %q", out.String())
 	}
 }

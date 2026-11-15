@@ -667,10 +667,8 @@ func (m *FloatMPSReader) readBounds() error {
 		if err := m.readLine(); err != nil {
 			return err
 		}
-		if len(m.line) == 0 {
-			return ErrBounds
-		}
-		if m.line[0] != ' ' {
+		// m_line[0] on an empty std::string is '\0': the loop just ends.
+		if len(m.line) == 0 || m.line[0] != ' ' {
 			return nil
 		}
 		if err := m.createBound(); err != nil {
