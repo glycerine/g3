@@ -45,6 +45,8 @@ func TestSLSRandomizeLocalSourceTrace(t *testing.T) {
 			if err := search.Reset(); err != nil {
 				t.Fatal(err)
 			}
+			// initialize and reset trace too (TestSLSInitializeAndResetSourceTrace).
+			output.Reset()
 			decl, err := manager.GetDecl(p)
 			if err != nil {
 				t.Fatal(err)
@@ -71,5 +73,38 @@ func TestSLSRandomizeLocalSourceTrace(t *testing.T) {
 				t.Fatalf("source trace %q, want %q", output.String(), want)
 			}
 		})
+	}
+}
+
+// AUDIT.md tactic_sls_ufbv_01-F2: sls_tracker::initialize and reset trace the
+// tracker's model under tag sls.
+func TestSLSInitializeAndResetSourceTrace(t *testing.T) {
+	var output bytes.Buffer
+	tags := diagnostic.NewTraceTagsWithWriter(&output)
+	tags.Enable("sls")
+	_, search, _, _, manager, _ := slsEngineFixture(t, tags)
+	if !tags.ShouldTrace("sls") {
+		t.Skip("source trace sites are compiled out")
+	}
+	p := slsBoolConst(t, manager, "sls-init-trace-p")
+	q := slsBoolConst(t, manager, "sls-init-trace-q")
+	root, err := manager.MkAnd(p, q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	slsPin(t, manager, p, q, root)
+	if err := search.Initialize([]ast.ASTHandle{root}); err != nil {
+		t.Fatal(err)
+	}
+	if err := search.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	model := "sls-init-trace-p = 0\nsls-init-trace-q = 0\n"
+	want := "-------- [sls] initialize src/tactic/sls/sls_tracker.h:454 ---------\nInitial model:\n" + model +
+		"------------------------------------------------\n" +
+		"-------- [sls] reset src/tactic/sls/sls_tracker.h:661 ---------\nAbandoned model:\n" + model +
+		"------------------------------------------------\n"
+	if output.String() != want {
+		t.Fatalf("source trace %q, want %q", output.String(), want)
 	}
 }

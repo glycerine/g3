@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_sls_ufbv_01-F2: SLS initialize/reset trace vector (TestTraceGolden).
+	"sls_trace_initialize_reset.smt2": "sat\n",
+	// AUDIT.md tactic_sls_ufbv_01-F2: SLS reset/randomize/mk_random_move trace vector (TestTraceGolden).
+	"sls_trace_random_moves.smt2": "unknown\n",
 	// AUDIT.md tactic_small_02-F1: QF_BV uses the SMT solver incrementally when rewriter.hi_div0 is false.
 	"qfbv_hi_div0_false_incremental.smt2": "sat\n(model \n  (define-fun y () (_ BitVec 8)\n    #x00)\n  (define-fun x () (_ BitVec 8)\n    #x00)\n  (define-fun bvudiv0 ((x!0 (_ BitVec 8))) (_ BitVec 8)\n    (ite (= x!0 #x00) #x05\n      #x05))\n)\n",
 	// AUDIT.md tactic_small_01-F3: fpa2bv applies max_steps and reports a tactic failure.

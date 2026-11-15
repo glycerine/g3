@@ -807,3 +807,5 @@ utvpi_real_strict_scopes
 utvpi_unknown_first_push
 weighted_soft_optimization
 z3_bug_opt_stale_objective_term
+sls_trace_initialize_reset
+sls_trace_random_moves

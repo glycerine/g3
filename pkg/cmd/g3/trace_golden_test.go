@@ -42,7 +42,7 @@ import (
 )
 
 // goldenTraceTags are enabled on both sides by default.
-var goldenTraceTags = []string{"assign_core", "decide", "add_eq_detail", "mk_bool_var", "seq", "conflict"}
+var goldenTraceTags = []string{"assign_core", "decide", "add_eq_detail", "mk_bool_var", "seq", "conflict", "sls"}
 
 // goldenTraceSites lists the TRACE records the Go port emits, as
 // "tag function file" with the source path relative to the repository. Line
@@ -79,6 +79,13 @@ var goldenTraceSites = map[string]bool{
 	"qe find_subst_term src/muz/spacer/spacer_qe_project.cpp":                       true,
 	"model_evaluator eval_array_eq src/muz/spacer/spacer_mev_array.cpp":             true,
 	"model_evaluator extract_array_func_interp src/muz/spacer/spacer_mev_array.cpp": true,
+	// AUDIT.md tactic_sls_ufbv_01-F2: SLS tracker and engine sites.
+	"sls operator() src/tactic/sls/sls_tactic.cpp":       true,
+	"sls initialize src/tactic/sls/sls_tracker.h":        true,
+	"sls reset src/tactic/sls/sls_tracker.h":             true,
+	"sls randomize src/tactic/sls/sls_tracker.h":         true,
+	"sls randomize_local src/tactic/sls/sls_evaluator.h": true,
+	"sls mk_random_move src/tactic/sls/sls_engine.cpp":   true,
 }
 
 // goldenIDMaskedSites print AST ids ("#123"). Until g3 allocates the same

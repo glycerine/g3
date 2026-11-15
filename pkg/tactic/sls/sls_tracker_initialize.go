@@ -169,6 +169,9 @@ func (t *Tracker) InitializeExpressions(roots []ast.ASTHandle) error {
 	if err := t.calculateExprDistances(roots); err != nil {
 		return err
 	}
+	if err := t.traceModel("initialize", "src/tactic/sls/sls_tracker.h", 454, "Initial model:"); err != nil {
+		return err
+	}
 	if t.ucbInit {
 		t.touched = uint32(len(roots))
 	} else {

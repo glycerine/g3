@@ -565,6 +565,7 @@ func (e *Engine) RandomMove(declarations []ast.ASTHandle) (result error) {
 		if choice == 3 {
 			choice = 0
 		}
+		var position uint32
 		switch choice {
 		case 0:
 			width := uint32(32)
@@ -578,17 +579,25 @@ func (e *Engine) RandomMove(declarations []ast.ASTHandle) (result error) {
 			case bits < 65536:
 				width = 16
 			}
-			position, x := e.search.RandomUint(width)
+			random, x := e.search.RandomUint(width)
 			if x != nil {
 				return x
 			}
-			err = e.MkFlip(sort, oldValue, position%bits, &value)
+			position = random % bits
+			err = e.MkFlip(sort, oldValue, position, &value)
 		case 1:
 			err = e.MkIncrement(bits, oldValue, &value)
 		default:
 			err = e.MkDecrement(bits, oldValue, &value)
 		}
 		if err != nil {
+			return err
+		}
+		move, err := e.randomMoveText(choice, position, decl)
+		if err != nil {
+			return err
+		}
+		if err = e.traceRandomMove(declarations, move); err != nil {
 			return err
 		}
 	}

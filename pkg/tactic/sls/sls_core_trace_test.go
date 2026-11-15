@@ -104,7 +104,13 @@ func TestSLSCoreSourceTraceAndTacticReport(t *testing.T) {
 			record := func(line int, body string) string {
 				return fmt.Sprintf("-------- [sls] operator() src/tactic/sls/sls_tactic.cpp:%d ---------\n%s------------------------------------------------\n", line, body)
 			}
-			want := record(70, "(goal\n  sls-trace-p)\n") + record(77, "(goal)\n")
+			tracker := func(function string, line int, body string) string {
+				return fmt.Sprintf("-------- [sls] %s src/tactic/sls/sls_tracker.h:%d ---------\n%s------------------------------------------------\n", function, line, body)
+			}
+			want := record(70, "(goal\n  sls-trace-p)\n") +
+				tracker("initialize", 454, "Initial model:\nsls-trace-p = 0\n") +
+				tracker("reset", 661, "Abandoned model:\nsls-trace-p = 0\n") +
+				record(77, "(goal)\n")
 			if trace.String() != want {
 				t.Fatalf("source trace %q, want %q", trace.String(), want)
 			}

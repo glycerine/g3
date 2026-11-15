@@ -93,6 +93,9 @@ func ApplyGoal(engine *Engine, goal *tactic.Goal, out *tactic.TacticResult) (sta
 			}
 			// converter's model reference is now the sole owner. Its final DEC
 			// closes current; do not directly close the transferred model.
+			if x = traceModelConverter(goal.Manager(), converter); x != nil {
+				return status, x
+			}
 		}
 		if err = goal.Reset(); err != nil {
 			return status, err

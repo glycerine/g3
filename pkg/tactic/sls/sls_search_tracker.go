@@ -301,6 +301,9 @@ func (s *SearchTracker) Reset() error {
 	if err := s.open(); err != nil {
 		return err
 	}
+	if err := s.base.traceModel("reset", "src/tactic/sls/sls_tracker.h", 661, "Abandoned model:"); err != nil {
+		return err
+	}
 	for _, decl := range s.base.entryPointDecls() {
 		entry := s.base.entryPoints[decl]
 		if err := s.base.SetValue(entry, &s.base.zero); err != nil {
@@ -316,6 +319,9 @@ func (s *SearchTracker) Randomize() (result error) {
 	}
 	temp := numeral.NewInt(0)
 	defer func() { result = errors.Join(result, s.base.numbers.Del(&temp)) }()
+	if err := s.base.traceModel("randomize", "src/tactic/sls/sls_tracker.h", 647, "Abandoned model:"); err != nil {
+		return err
+	}
 	for _, decl := range s.base.entryPointDecls() {
 		entry := s.base.entryPoints[decl]
 		sort, err := s.base.manager.GetRange(decl)
@@ -329,7 +335,7 @@ func (s *SearchTracker) Randomize() (result error) {
 			return err
 		}
 	}
-	return nil
+	return s.base.traceModel("randomize", "src/tactic/sls/sls_tracker.h", 657, "Randomized model:")
 }
 
 func (s *SearchTracker) Score(node ast.ASTHandle) (float64, error) {
