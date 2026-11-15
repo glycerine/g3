@@ -461,3 +461,18 @@ z3_bug_probe_nary_fold
 # dictionary in hash order, g3 in insertion order. Reproduction:
 # test_vectors/z3_bug_get_user_tactics_symbol.smt2.
 z3_bug_get_user_tactics_symbol
+#
+# With fixedpoint.xform.quantify_arrays, Duality's dl_interface::query
+# applies the default transformation to the context's own rule set and
+# never restores it (pdr and spacer save old_rules and call replace_rules).
+# The next query starts from the transformed rules of the previous one: the
+# coi filter for q1 has removed q2's rule and the third query loses q1's
+# rule, so z3 answers "sat unsat unsat"; with xform.scale the stale query!0
+# output is picked for q2, which answers sat (z3 bug:
+# src/muz/duality/duality_dl_interface.cpp dl_interface::query; Duality
+# was removed upstream in 4f5775c53 without a fix). g3 transforms a
+# discarded clone (pkg/muz/fp/duality_preprocess.go
+# prepareDualityTransformedQuery; AUDIT.md muz_fp_03). Reproductions:
+# test_vectors/z3_bug_duality_quantify_arrays_requery*.smt2.
+z3_bug_duality_quantify_arrays_requery
+z3_bug_duality_quantify_arrays_requery_scale
