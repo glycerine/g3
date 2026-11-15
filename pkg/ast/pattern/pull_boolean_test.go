@@ -278,3 +278,80 @@ func TestPatternInferencePullsBooleanApplicationThenFindsPattern(t *testing.T) {
 		t.Fatal("source pulled pattern term", patTerm, term)
 	}
 }
+
+// AUDIT.md ast_sub_02-F3: pull_quant is a rewriter_tpl, so a shared
+// subterm is pulled once and its fresh binder names are drawn once.
+func TestPatternPullNoProofSharedSubtermPulledOnce(t *testing.T) {
+	m := patternManager(t)
+	pin := func(h ast.ASTHandle) ast.ASTHandle {
+		t.Helper()
+		patternMust(t, m.IncRef(h))
+		t.Cleanup(func() { patternMust(t, m.DecRef(h)) })
+		return h
+	}
+	b, err := m.MkBoolSort()
+	patternMust(t, err)
+	intern := func(s string) symbol.Symbol {
+		t.Helper()
+		v, e := m.Symbols.Intern(s)
+		patternMust(t, e)
+		return v
+	}
+	decl := func(name string) ast.ASTHandle {
+		t.Helper()
+		d, e := m.MkFuncDecl(intern(name), []ast.ASTHandle{b, b}, b, ast.ASTFuncDeclInfo{})
+		patternMust(t, e)
+		return pin(d)
+	}
+	p, q := decl("pull-share-p"), decl("pull-share-q")
+	x, err := m.MkVar(0, b)
+	patternMust(t, err)
+	y, err := m.MkVar(1, b)
+	patternMust(t, err)
+	inner := func(f ast.ASTHandle) ast.ASTHandle {
+		t.Helper()
+		body, e := m.MkApp(f, []ast.ASTHandle{x, y})
+		patternMust(t, e)
+		forall, e := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{b}, Names: []symbol.Symbol{intern("x")}, Body: body})
+		patternMust(t, e)
+		return pin(forall)
+	}
+	shared, err := m.MkOr(inner(p), inner(q))
+	patternMust(t, err)
+	pin(shared)
+	r1, err := m.MkConst(intern("pull-share-r1"), b)
+	patternMust(t, err)
+	r2, err := m.MkConst(intern("pull-share-r2"), b)
+	patternMust(t, err)
+	left, err := m.MkAnd(shared, r1)
+	patternMust(t, err)
+	right, err := m.MkAnd(shared, r2)
+	patternMust(t, err)
+	disjunction, err := m.MkOr(left, right)
+	patternMust(t, err)
+	root, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{b}, Names: []symbol.Symbol{intern("y")}, Body: disjunction})
+	patternMust(t, err)
+	pin(root)
+	c, err := newPatternCandidates(m, 0, nil, false)
+	patternMust(t, err)
+	t.Cleanup(func() { patternMust(t, c.close()) })
+	pulled, err := c.pullNoProof(root)
+	patternMust(t, err)
+	t.Cleanup(func() { patternMust(t, m.DelRef(&pulled)) })
+	got, err := m.RefGet(pulled)
+	patternMust(t, err)
+	n, err := m.GetNumDeclarations(got)
+	patternMust(t, err)
+	var names []string
+	for i := uint32(0); i < n; i++ {
+		name, e := m.GetDeclarationName(got, i)
+		patternMust(t, e)
+		text, e := m.Symbols.Display(name)
+		patternMust(t, e)
+		names = append(names, text)
+	}
+	// The C++ trace prints (y x!0!2 x!1 x!0 x) for this shape.
+	if want := "y x!0!2 x!1 x!0 x"; strings.Join(names, " ") != want {
+		t.Fatalf("pulled binder names %q, want %q", strings.Join(names, " "), want)
+	}
+}

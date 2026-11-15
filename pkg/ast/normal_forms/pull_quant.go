@@ -10,7 +10,8 @@ import (
 
 type pullQuantConfiguration struct {
 	rewriter.DefaultConfiguration
-	core *pullQuantCore
+	core   *pullQuantCore
+	proofs bool
 }
 
 func (c *pullQuantConfiguration) ReduceApp(d ast.ASTHandle, args ast.AppArguments, out, proof ast.ASTRef) (rewriter.RewriteStatus, error) {
@@ -36,6 +37,10 @@ func (c *pullQuantConfiguration) ReduceApp(d ast.ASTHandle, args ast.AppArgument
 	}
 	if err = m.SetRef(out, value); err != nil {
 		return rewriter.RewriteFailed, err
+	}
+	// The source builds mk_app(f, num, args) only for the proof.
+	if !c.proofs {
+		return rewriter.RewriteDone, nil
 	}
 	before, err := m.MkApp(d, children)
 	if err != nil {
@@ -72,6 +77,9 @@ func (c *pullQuantConfiguration) ReduceQuantifier(q, body ast.ASTHandle, _, _ as
 	if err = m.SetRef(out, value); err != nil {
 		return false, err
 	}
+	if !c.proofs {
+		return true, nil
+	}
 	p, err := m.MkProofPullQuant(q, value)
 	if err == nil {
 		err = m.SetRef(proof, p)
@@ -99,7 +107,7 @@ func NewPullQuant(m *ast.ASTManager) (*PullQuant, error) {
 		return nil, err
 	}
 	p := &PullQuant{core: pullQuantCore{manager: m}, proofs: proofs}
-	p.config.core = &p.core
+	p.config.core, p.config.proofs = &p.core, proofs
 	p.core.shift, err = rewriter.NewVarShifter(m)
 	if err != nil {
 		return p, err

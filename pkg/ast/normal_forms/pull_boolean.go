@@ -18,150 +18,49 @@ type pullQuantCore struct {
 	shift     *rewriter.VarShifter
 }
 
-func PullQuantifierNoProof(manager *ast.ASTManager, root ast.ASTHandle, tags *diagnostic.TraceTags) (out ast.ASTRef, err error) {
+// PullQuantifier is a local `pull_quant pull(m); pull(root, r, p)`: the
+// rewriter_tpl traversal (which caches shared subterms) with proofs when
+// the manager produces them. Both returned references belong to the caller;
+// proof stays null without proofs.
+func PullQuantifier(manager *ast.ASTManager, root ast.ASTHandle, tags *diagnostic.TraceTags) (out, proof ast.ASTRef, err error) {
 	if manager == nil {
-		return out, ast.ErrASTHandle
+		return out, proof, ast.ErrASTHandle
 	}
-	shift, err := rewriter.NewVarShifter(manager)
-	if err != nil {
-		return out, err
-	}
-	defer func() {
-		if cleanup := shift.Close(); cleanup != nil {
-			err = errors.Join(err, cleanup)
-			if out != (ast.ASTRef{}) {
-				err = errors.Join(err, releasePullRefs(manager, []ast.ASTRef{out}))
-				out = ast.ASTRef{}
+	pull, err := NewPullQuant(manager)
+	if pull != nil {
+		pull.core.traceTags = tags
+		defer func() {
+			if cleanup := pull.Close(); cleanup != nil {
+				err = errors.Join(err, cleanup, releasePullRefs(manager, []ast.ASTRef{out, proof}))
+				out, proof = ast.ASTRef{}, ast.ASTRef{}
 			}
-		}
-	}()
-	return (&pullQuantCore{manager: manager, traceTags: tags, shift: shift}).pullExpr(root)
+		}()
+	}
+	if err != nil {
+		return out, proof, err
+	}
+	if out, err = manager.NewRef(ast.ASTHandle{}); err != nil {
+		return out, proof, err
+	}
+	if proof, err = manager.NewRef(ast.ASTHandle{}); err != nil {
+		return out, proof, errors.Join(err, releasePullRefs(manager, []ast.ASTRef{out}))
+	}
+	if err = pull.RewriteWithProof(root, out, proof); err != nil {
+		return ast.ASTRef{}, ast.ASTRef{}, errors.Join(err, releasePullRefs(manager, []ast.ASTRef{out, proof}))
+	}
+	return out, proof, nil
 }
 
-func (p *pullQuantCore) pullExpr(h ast.ASTHandle) (out ast.ASTRef, err error) {
-	defer func() {
-		if err != nil && out != (ast.ASTRef{}) {
-			err = errors.Join(err, p.releaseRefs([]ast.ASTRef{out}))
-			out = ast.ASTRef{}
-		}
-	}()
-	m := p.manager
-	kind, err := m.GetKind(h)
+// PullQuantifierNoProof is PullQuantifier for callers that drop the proof.
+func PullQuantifierNoProof(manager *ast.ASTManager, root ast.ASTHandle, tags *diagnostic.TraceTags) (out ast.ASTRef, err error) {
+	out, proof, err := PullQuantifier(manager, root, tags)
 	if err != nil {
 		return out, err
 	}
-	switch kind {
-	case ast.ASTVar:
-		return m.NewRef(h)
-	case ast.ASTQuantifier:
-		body, e := m.GetQuantifierBody(h)
-		if e != nil {
-			return out, e
-		}
-		bodyRef, e := p.pullExpr(body)
-		if e != nil {
-			return out, e
-		}
-		defer func() {
-			if cleanup := p.releaseRefs([]ast.ASTRef{bodyRef}); cleanup != nil {
-				err = errors.Join(err, cleanup)
-			}
-		}()
-		newBody, e := m.RefGet(bodyRef)
-		if e != nil {
-			return out, e
-		}
-		result := h
-		bodyKind, e := m.GetKind(newBody)
-		if e != nil {
-			return out, e
-		}
-		if bodyKind == ast.ASTQuantifier {
-			outerForall, e := m.IsForall(h)
-			if e != nil {
-				return out, e
-			}
-			innerForall, e := m.IsForall(newBody)
-			if e != nil {
-				return out, e
-			}
-			if !outerForall || !innerForall {
-				return out, ast.ErrASTPending
-			}
-			result, e = p.pullDirectForall(h, newBody)
-			if e != nil {
-				return out, e
-			}
-		} else if newBody != body {
-			result, e = m.UpdateQuantifierBody(h, newBody)
-			if e != nil {
-				return out, e
-			}
-		}
-		return m.NewRef(result)
-	case ast.ASTApp:
-		n, e := m.GetNumArgs(h)
-		if e != nil {
-			return out, e
-		}
-		args := make([]ast.ASTHandle, n)
-		refs := make([]ast.ASTRef, 0, n)
-		defer func() {
-			if cleanup := p.releaseRefs(refs); cleanup != nil {
-				err = errors.Join(err, cleanup)
-			}
-		}()
-		changed := false
-		for i := uint32(0); i < n; i++ {
-			child, e := m.GetArg(h, i)
-			if e != nil {
-				return out, e
-			}
-			ref, e := p.pullExpr(child)
-			if e != nil {
-				return out, e
-			}
-			refs = append(refs, ref)
-			args[i], e = m.RefGet(ref)
-			if e != nil {
-				return out, e
-			}
-			changed = changed || args[i] != child
-		}
-		decl, e := m.GetDecl(h)
-		if e != nil {
-			return out, e
-		}
-		family, e := m.GetFamilyID(decl)
-		if e != nil {
-			return out, e
-		}
-		if family == m.BasicFamilyID() {
-			operator, e := m.GetDeclKind(decl)
-			if e != nil {
-				return out, e
-			}
-			if operator == ast.ASTOpNot || operator == ast.ASTOpAnd || operator == ast.ASTOpOr {
-				pulled, didPull, e := p.pullBooleanApp(decl, operator, args)
-				if e != nil {
-					return out, e
-				}
-				if didPull {
-					return m.NewRef(pulled)
-				}
-			}
-		}
-		if !changed {
-			return m.NewRef(h)
-		}
-		rebuilt, e := m.MkApp(decl, args)
-		if e != nil {
-			return out, e
-		}
-		return m.NewRef(rebuilt)
-	default:
-		return out, ast.ErrASTDomain
+	if err = manager.DelRef(&proof); err != nil {
+		return ast.ASTRef{}, errors.Join(err, releasePullRefs(manager, []ast.ASTRef{out}))
 	}
+	return out, nil
 }
 
 func (p *pullQuantCore) pullBooleanApp(decl ast.ASTHandle, operator int32, args []ast.ASTHandle) (out ast.ASTHandle, changed bool, err error) {
