@@ -232,11 +232,9 @@ func (m *AlgebraicManager) CollectStatistics(s *statistics.Statistics) error {
 	if s == nil {
 		return arena.ErrConfig
 	}
-	c := m.AlgebraicRootCore
-	s.UpdateUint("algebraic compare cheap", c.compareCheap)
-	s.UpdateUint("algebraic compare sturm", c.compareSturm)
-	s.UpdateUint("algebraic compare refine", c.compareRefine)
-	s.UpdateUint("algebraic compare poly", c.comparePoly)
+	// The four "algebraic compare" counters are reported only under
+	// #ifndef _EXTERNAL_RELEASE (algebraic_numbers.cpp:142); g3 follows the
+	// release build, where collect_statistics adds nothing.
 	return nil
 }
 func (m *AlgebraicManager) Close() error {

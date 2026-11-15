@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ-F7: nlsat factorization without the internal-profile
+	// :distinct-factors verbose line (release_profile_verbose_test.go).
+	"release_profile_factor_verbose.smt2": "sat\n",
 	// AUDIT.md FUZZ-F7: the SAT model check is internal-profile only
 	// (release_profile_verbose_test.go checks the -v:10 log).
 	"release_profile_sat_model.smt2": "sat\n",

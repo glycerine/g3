@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	utext "github.com/glycerine/g3/pkg/util/text"
-	"os"
 	"testing"
 )
 
@@ -21,7 +20,7 @@ func factorVerboseFixture(t *testing.T, level uint32, out *utext.NumericTextStre
 		serviceMust(t, diagnostic.SetProcessVerboseStream(oldOut))
 	})
 }
-func TestUPolynomialFactorVerboseThresholdAndResult(t *testing.T) {
+func TestUPolynomialFactorReleaseOmitsVerbose(t *testing.T) {
 	for _, f := range []struct {
 		name  string
 		coeff []int32
@@ -46,70 +45,12 @@ func TestUPolynomialFactorVerboseThresholdAndResult(t *testing.T) {
 				}
 				text, e := stream.String()
 				serviceMust(t, e)
-				want := ""
-				if level >= 1000 {
-					want = fmt.Sprintf("(polynomial-factorization :distinct-factors %d)\n", f.count)
-				}
-				if text != want {
-					t.Fatal(text, want)
+				// AUDIT.md FUZZ-F7: the :distinct-factors line is
+				// #ifndef _EXTERNAL_RELEASE; g3 follows the release build.
+				if text != "" {
+					t.Fatal("release-profile factor verbose", text)
 				}
 			})
 		}
-	}
-}
-func TestUPolynomialFactorVerboseUsesNumericFlags(t *testing.T) {
-	q, s := preparationPhysicalFixture(t)
-	m := s.manager
-	p := upolySourceNew(t, m, []int32{1, 1})
-	fs, e := m.NewFactors()
-	serviceMust(t, e)
-	t.Cleanup(func() { serviceMust(t, fs.Close()) })
-	for i := 0; i < 10; i++ {
-		serviceMust(t, fs.PushCopy(mustUPolyView(t, m, p), uint32(i+1)))
-	}
-	stream, e := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: q.Budget()})
-	serviceMust(t, e)
-	t.Cleanup(func() { serviceMust(t, stream.Close()) })
-	serviceMust(t, stream.SetIntegerBase(16))
-	serviceMust(t, stream.SetShowBase(true))
-	factorVerboseFixture(t, 1000, stream)
-	serviceMust(t, s.verboseFactorCount(fs))
-	text, e := stream.String()
-	serviceMust(t, e)
-	if text != "(polynomial-factorization :distinct-factors 0xa)\n" {
-		t.Fatal("source insertion flags/count versus multiplicity", text)
-	}
-}
-func TestUPolynomialFactorVerboseClosedFileAndFailedBody(t *testing.T) {
-	for _, cancel := range []bool{false, true} {
-		t.Run(fmt.Sprint(cancel), func(t *testing.T) {
-			q, s := preparationPhysicalFixture(t)
-			m := s.manager
-			p := upolySourceNew(t, m, []int32{-1, 0, 1})
-			fs, e := m.NewFactors()
-			serviceMust(t, e)
-			t.Cleanup(func() { serviceMust(t, s.CleanupRetained()); serviceMust(t, fs.Close()) })
-			file, e := os.CreateTemp(t.TempDir(), "factor-verbose-*")
-			serviceMust(t, e)
-			stream, e := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: q.Budget(), BorrowedFile: file})
-			serviceMust(t, e)
-			t.Cleanup(func() { serviceMust(t, stream.Close()) })
-			serviceMust(t, file.Close())
-			factorVerboseFixture(t, 1000, stream)
-			if cancel {
-				m.config.Checkpoint = func() bool { return false }
-			}
-			_, e = s.Factor(mustUPolyView(t, m, p), fs, DefaultUPolynomialFactorParams())
-			if cancel {
-				if e == nil || stream.FileBad {
-					t.Fatal("abnormal body reached verbose stream", e, stream.FileBad)
-				}
-			} else {
-				serviceMust(t, e)
-				if !stream.FileBad || fs.count != 2 {
-					t.Fatal("closed physical file changed result/failbit", stream.FileBad, fs.count)
-				}
-			}
-		})
 	}
 }

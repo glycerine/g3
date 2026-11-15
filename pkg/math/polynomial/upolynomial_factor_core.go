@@ -14,11 +14,10 @@ func (s *UPolynomialFactorizationService) Factor(f UPolynomialView, out *UPolyno
 	if e := s.manager.checkFactors(out); e != nil {
 		return false, e
 	}
-	result, e := s.factorCore(f, out, params)
-	if e != nil {
-		return result, e
-	}
-	return result, s.verboseFactorCount(out)
+	// The ":distinct-factors" verbose line after factor_core is
+	// #ifndef _EXTERNAL_RELEASE (upolynomial.cpp:3114); g3 follows the
+	// release build.
+	return s.factorCore(f, out, params)
 }
 func (s *UPolynomialFactorizationService) flipFactorConstant(fs *UPolynomialFactors) (cause error) {
 	m := s.manager

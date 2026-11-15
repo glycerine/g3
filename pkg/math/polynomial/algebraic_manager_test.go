@@ -169,14 +169,9 @@ func TestAlgebraicManagerConstructorParametersAndPublicUpdateNoop(t *testing.T) 
 	m.compareCheap, m.compareSturm, m.compareRefine, m.comparePoly = 2, 3, 5, 7
 	stats := statistics.New()
 	serviceMust(t, m.CollectStatistics(stats))
-	if stats.Size() != 4 {
-		t.Fatal("source statistics", stats.Size())
-	}
-	want := []statistics.Key{"algebraic compare cheap", "algebraic compare sturm", "algebraic compare refine", "algebraic compare poly"}
-	for i, key := range want {
-		if stats.Key(i) != key {
-			t.Fatal("source statistics order", i, stats.Key(i))
-		}
+	// AUDIT.md FUZZ-F7: release builds report no algebraic statistics.
+	if stats.Size() != 0 {
+		t.Fatal("release-profile statistics", stats.Size())
 	}
 	serviceMust(t, m.ResetStatistics())
 	stats.Reset()

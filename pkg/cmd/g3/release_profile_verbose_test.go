@@ -24,6 +24,8 @@ func TestReleaseProfileVerboseLinesAbsent(t *testing.T) {
 	}{
 		// sat_solver.cpp:1276 solver::mk_model.
 		{"release_profile_sat_model.smt2", 10, "checking model"},
+		// upolynomial.cpp:3114 upolynomial::manager::factor.
+		{"release_profile_factor_verbose.smt2", 1000, "(polynomial-factorization"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			script, err := os.ReadFile(filepath.Join("test_vectors", tc.name))
