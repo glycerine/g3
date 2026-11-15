@@ -641,6 +641,9 @@ void symmetry_reduce_tactic::operator()(goal_ref const & g,
                                         expr_dependency_ref & core) {
     fail_if_proof_generation("symmetry_reduce", g);
     fail_if_unsat_core_generation("symmetry_reduce", g);
+    // FORK FIX #81 (g3 audit, see FORK_BUGFIXES.md): backport of upstream 330b3cc8d:
+    // the coloring ignores quantifiers, so a quantified goal failed merge_colors's VERIFY
+    fail_if_has_quantifiers("symmetry_reduce", g);
     mc = nullptr; pc = nullptr; core = nullptr; result.reset();
     (*m_imp)(*(g.get()));
     g->inc_depth();
