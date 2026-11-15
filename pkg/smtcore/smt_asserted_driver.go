@@ -142,19 +142,20 @@ func (k *SMTKernel) reduceAssertedPending() (bool, error) {
 	}
 	// Definitions removed by earlier macro discovery remain active even if
 	// discovery or preprocessing is subsequently disabled.
+	// The fork's reduce: with preprocessing and macro_finder on, the
+	// invoke(m_find_macros) expands the stored macros (and finds new ones);
+	// otherwise expand_macros() alone. The invoke's boolean is ignored.
 	if k.assertedMacros.HasMacros() {
-		if err := k.expandPendingMacros(); err != nil {
+		if k.preprocess && k.shouldApplyAssertedPass(assertedMacros) {
+			if _, _, err := k.invokeAssertedPass(assertedMacros); err != nil {
+				return false, err
+			}
+		} else if err := k.expandPendingMacros(); err != nil {
 			return false, err
 		}
 	}
 	if !k.preprocess {
 		return true, nil
-	}
-	if k.assertedMacros.HasMacros() {
-		// reduce deliberately ignores the first invoke's boolean result.
-		if _, _, err := k.invokeAssertedPass(assertedMacros); err != nil {
-			return false, err
-		}
 	}
 	if err := k.traceAssertedState("before_reduce", "reduce", 238, false); err != nil {
 		return false, err
