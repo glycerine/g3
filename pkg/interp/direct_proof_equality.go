@@ -177,10 +177,6 @@ func (p *DirectProofInterpolator) MakeCongruence(premiseConclusion, conclusion, 
 }
 
 func (p *DirectProofInterpolator) makeMixedCongruence(premiseConclusion, conclusion ast.ASTHandle) (ast.ASTHandle, error) {
-	position, err := p.findCongruencePosition(premiseConclusion, conclusion)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
 	premiseSide, err := p.TermSide(premiseConclusion)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -193,6 +189,11 @@ func (p *DirectProofInterpolator) makeMixedCongruence(premiseConclusion, conclus
 	} else {
 		proof, err = p.makeLocalRewrite(premiseSide, premiseConclusion)
 	}
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	// make_mixed_congruence keeps the last matching argument position.
+	position, err := p.findLastCongruencePosition(premiseConclusion, conclusion)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -217,6 +218,14 @@ func (p *DirectProofInterpolator) makeMixedCongruence(premiseConclusion, conclus
 }
 
 func (p *DirectProofInterpolator) findCongruencePosition(premiseConclusion, conclusion ast.ASTHandle) (int, error) {
+	return p.congruencePosition(premiseConclusion, conclusion, false)
+}
+
+func (p *DirectProofInterpolator) findLastCongruencePosition(premiseConclusion, conclusion ast.ASTHandle) (int, error) {
+	return p.congruencePosition(premiseConclusion, conclusion, true)
+}
+
+func (p *DirectProofInterpolator) congruencePosition(premiseConclusion, conclusion ast.ASTHandle, last bool) (int, error) {
 	x, err := p.base.manager.Arg(premiseConclusion, 0)
 	if err != nil {
 		return 0, err
@@ -237,6 +246,7 @@ func (p *DirectProofInterpolator) findCongruencePosition(premiseConclusion, conc
 	if err != nil {
 		return 0, err
 	}
+	position := -1
 	for i := uint32(0); i < count; i++ {
 		leftArg, e := p.base.manager.Arg(left, i)
 		if e != nil {
@@ -247,10 +257,16 @@ func (p *DirectProofInterpolator) findCongruencePosition(premiseConclusion, conc
 			return 0, e
 		}
 		if leftArg == x && rightArg == y {
-			return int(i), nil
+			position = int(i)
+			if !last {
+				break
+			}
 		}
 	}
-	return 0, ProofError{}
+	if position == -1 {
+		return 0, ProofError{}
+	}
+	return position, nil
 }
 
 func (p *DirectProofInterpolator) substituteArgument(position int, term, application ast.ASTHandle) (ast.ASTHandle, error) {

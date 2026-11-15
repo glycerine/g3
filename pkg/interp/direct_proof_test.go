@@ -1818,3 +1818,60 @@ func TestDirectProofLeqToEqWithoutPlaceholderIsCloned(t *testing.T) {
 		}
 	}
 }
+
+// directProofFindSymbol returns the first application of declaration in root.
+func directProofFindSymbol(manager *Manager, root, declaration ast.ASTHandle) (ast.ASTHandle, bool) {
+	seen := make(map[ast.ASTHandle]bool)
+	var visit func(ast.ASTHandle) (ast.ASTHandle, bool)
+	visit = func(h ast.ASTHandle) (ast.ASTHandle, bool) {
+		if seen[h] {
+			return ast.ASTHandle{}, false
+		}
+		seen[h] = true
+		if op, e := manager.Operator(h); e == nil && op == OperatorUninterpreted {
+			if symbol, e := manager.Symbol(h); e == nil && symbol == declaration {
+				return h, true
+			}
+		}
+		args, e := manager.Args(h)
+		if e != nil {
+			return ast.ASTHandle{}, false
+		}
+		for _, arg := range args {
+			if found, ok := visit(arg); ok {
+				return found, true
+			}
+		}
+		return ast.ASTHandle{}, false
+	}
+	return visit(root)
+}
+
+// interp_01-F12: make_mixed_congruence keeps the last argument position
+// that matches the premise.
+func TestDirectProofMixedCongruenceLastPosition(t *testing.T) {
+	_, manager, base, p, q := directProofFixture(t)
+	direct, err := NewDirectProofInterpolator(base, DownwardScopeRange(0), false)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, direct.Close()) })
+	premise, err := manager.Make(OperatorIff, p, q)
+	interpMust(t, err)
+	left, err := manager.Make(OperatorAnd, p, p)
+	interpMust(t, err)
+	right, err := manager.Make(OperatorAnd, q, q)
+	interpMust(t, err)
+	conclusion, err := manager.Make(OperatorIff, left, right)
+	interpMust(t, err)
+	result, err := direct.makeMixedCongruence(premise, conclusion)
+	interpMust(t, err)
+	congruence, found := directProofFindSymbol(manager, result, direct.congruence)
+	if !found {
+		t.Fatal("no @cong in mixed congruence")
+	}
+	position, err := manager.Arg(congruence, 1)
+	interpMust(t, err)
+	value, numeral, err := manager.Numeral(position)
+	if err != nil || !numeral || value.Cmp(big.NewRat(1, 1)) != 0 {
+		t.Fatal("@cong position is not the last match", value, numeral, err)
+	}
+}
