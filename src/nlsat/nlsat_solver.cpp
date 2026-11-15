@@ -2016,7 +2016,9 @@ namespace nlsat {
                     if (m_atoms[i]->is_root_atom()) return false;
                 }
             }
-            return true;
+            // fix_patch assigns the inlined variables by their indices
+            // before reordering.
+            return m_patch_var.empty();
         }
 
         /**
