@@ -429,7 +429,7 @@ namespace nlsat {
                             bool lit_val  = l.sign() ? !atom_val : atom_val;
                             return lit_val ? true_literal : false_literal;
                         }
-                        else if (s == -1 && a->is_odd(i)) {
+                        else if (s < 0 && a->is_odd(i)) {
                             atom_sign = -atom_sign;
                         }
                         normalized = true;
@@ -1134,7 +1134,7 @@ namespace nlsat {
                                 info.add_lc_ineq();
                             }
                         }
-                        if (s == -1 && !is_even) {
+                        if (s < 0 && !is_even) {
                             atom_sign = -atom_sign;
                         }
                     }
