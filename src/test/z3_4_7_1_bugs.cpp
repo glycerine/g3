@@ -1233,3 +1233,24 @@ void tst_z3_4_7_1_qe_project_real_direction() {
     std::cout << "qe_project_real_direction: " << out;
     ENSURE(out == "sat\n");
 }
+
+// exists x. (mod (+ x a) k) = r and bounds, with a = 0 and b = 10, is
+// satisfiable for k = 0 (mod by 0 is uninterpreted), for k = -3, r = 0
+// (x = 3) and for k = -3, r = 1 (x = 1). bounds_proc takes (mod t 0) and
+// (mod t -3) as divisibility constraints with divisors 0 and -3, div_z
+// folds them into an lcm of 0 or -3, and qe returns false.
+void tst_z3_4_7_1_qe_mod_divisor() {
+    char const* bodies[3] = {
+        "(and (= (mod (+ x a) 0) 0) (< x b))",
+        "(and (= (mod (+ x a) (- 3)) 0) (< x b) (> x a))",
+        "(and (= (mod (+ x a) (- 3)) 1) (< x b) (> x a))"
+    };
+    for (char const* body : bodies) {
+        std::string script =
+            std::string("(declare-const a Int)\n(declare-const b Int)\n(assert (exists ((x Int)) ") + body + "))\n"
+            "(assert (= a 0))\n(assert (= b 10))\n(check-sat-using (then qe smt))\n";
+        std::string out = eval_smtlib2(script.c_str());
+        std::cout << "qe_mod_divisor " << body << ": " << out;
+        ENSURE(out == "sat\n");
+    }
+}
