@@ -12,6 +12,7 @@ type upolySquareFreeDiagnosticHistory struct {
 	receipt                          upolyFactorPreparationReceipt
 	next                             *upolySquareFreeDiagnosticHistory
 	header                           uint64
+	retired                          bool // clean; off squareFreeDiagnosticHistory
 	bodyCause, sourceCause, ownCause error
 }
 
@@ -26,8 +27,11 @@ type upolyFactorSquareFreeInvocationReceipt struct {
 
 func (s *UPolynomialFactorizationService) matchesDiagnosticHistory(r *upolyFactorSquareFreeInvocationReceipt) bool {
 	h := r.history
-	if h == nil || h.self != h || h.service != s || h.header == 0 || h.receipt != r.diagnostic || h.receipt.frame != &s.diagnostic || h.receipt.service != s || h.receipt.invocation == 0 {
+	if h == nil || h.self != h || h.service != s || h.header == 0 && !h.retired || h.receipt != r.diagnostic || h.receipt.frame != &s.diagnostic || h.receipt.service != s || h.receipt.invocation == 0 {
 		return false
+	}
+	if h.header == 0 {
+		return true // retired clean record
 	}
 	for old := s.squareFreeDiagnosticHistory; old != nil; old = old.next {
 		if old == h {
@@ -35,6 +39,24 @@ func (s *UPolynomialFactorizationService) matchesDiagnosticHistory(r *upolyFacto
 		}
 	}
 	return false
+}
+
+// retireSquareFreeDiagnostic drops a clean diagnostic record once its factor
+// invocation has completed (debug builds only create these records).
+func (s *UPolynomialFactorizationService) retireSquareFreeDiagnostic(h *upolySquareFreeDiagnosticHistory) {
+	if h == nil || h.self != h || h.service != s || h.header == 0 || h.bodyCause != nil || h.sourceCause != nil || h.ownCause != nil {
+		return
+	}
+	for p := &s.squareFreeDiagnosticHistory; *p != nil; p = &(*p).next {
+		if *p == h {
+			*p = h.next
+			h.next = nil
+			s.manager.config.Integer.Budget().Release(h.header)
+			h.header = 0
+			h.retired = true
+			return
+		}
+	}
 }
 func (s *UPolynomialFactorizationService) matchesSquareFreeHistory(r *upolyFactorSquareFreeInvocationReceipt) bool {
 	if s == nil || s.self != s || s.closed || s.manager == nil || s.manager.self != s.manager || r == nil || r.service != s {
@@ -53,8 +75,13 @@ func (s *UPolynomialFactorizationService) matchesSquareFreeHistory(r *upolyFacto
 	if s.scope == c && !c.retired {
 		return true
 	}
-	if !c.retired || c.header == 0 {
+	if !c.retired {
 		return false
+	}
+	// A clean released scope has nothing left to clean. Only scopes kept
+	// for an unresolved cause or trace stay linked on squareFreeHistory.
+	if c.header == 0 {
+		return c.released
 	}
 	for old := s.squareFreeHistory; old != nil; old = old.historyNext {
 		if old == c {
@@ -86,10 +113,13 @@ func (s *UPolynomialFactorizationService) factorSquareFreeInvocationSourceCause(
 }
 func (s *UPolynomialFactorizationService) releaseSquareFreeScope(c *upolyFactorSquareFreeScope) {
 	c.retired = true
-	if c.historyRequired {
+	// factor_square_free keeps only scoped locals. Keep the scope for its
+	// receipt holder only while a cause or a trace is still unresolved.
+	if c.historyRequired && (c.bodyCause != nil || c.sourceCause != nil || c.ownCause != nil || c.tracePending()) {
 		c.historyNext = s.squareFreeHistory
 		s.squareFreeHistory = c
 	} else {
+		c.released = c.historyRequired
 		s.manager.config.Integer.Budget().Release(c.header)
 		c.header = 0
 	}

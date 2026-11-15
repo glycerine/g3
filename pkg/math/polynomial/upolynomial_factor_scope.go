@@ -25,6 +25,7 @@ type upolyFactorSquareFreeScope struct {
 	issuedReceipt                                     upolyFactorSquareFreeInvocationReceipt
 	historyNext                                       *upolyFactorSquareFreeScope
 	historyRequired                                   bool
+	released                                          bool // retired clean; header released at once
 	invocation                                        uint64
 	executing, sourceExecuting, ownExecuting, retired bool
 	bodyCause, sourceCause, ownCause                  error

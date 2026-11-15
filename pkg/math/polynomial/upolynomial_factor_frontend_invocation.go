@@ -58,6 +58,7 @@ type upolyFactorFrontendHistory struct {
 	modularGCDBodyCause, modularGCDSourceCause, modularGCDOwnCause error
 	issued                                                         upolyFactorFrontendInvocationReceipt
 	complete                                                       bool
+	retired                                                        bool // complete and clean; off frontendHistory
 	gcdRaw, divisionRaw, extendedRaw                               unumeral.IntegerRawInvocationReceipt
 	normalize                                                      unumeral.IntegerNormalizeInvocationReceipt
 	squareFree                                                     upolyFactorSquareFreeInvocationReceipt
@@ -282,7 +283,10 @@ func (q *upolyFactorFrontendScope) finish(body error) error {
 	if !q.active {
 		return errors.Join(q.bodyCause, q.sourceCause)
 	}
-	defer q.recordHistory()
+	defer func() {
+		q.recordHistory()
+		q.service.retireFactorFrontendHistory(q)
+	}()
 	if q.bodyCause == nil {
 		q.bodyCause = body
 	}
@@ -373,6 +377,7 @@ func (q *upolyFactorFrontendScope) own(abort bool) (cause error) {
 			q.ownCause = cause
 		}
 		q.recordHistory()
+		q.service.retireFactorFrontendHistory(q)
 	}()
 	if e := q.cra.trace.cleanup(); e != nil {
 		return e
@@ -757,8 +762,13 @@ func (s *UPolynomialFactorizationService) matchesFactorFrontendHistory(r *upolyF
 		return false
 	}
 	h := r.history
-	if h.self != h || h.service != s || h.header == 0 || h.invocation != r.invocation || h.issued != *r {
+	if h.self != h || h.service != s || h.invocation != r.invocation || h.issued != *r {
 		return false
+	}
+	// A retired history is complete and off the list. Only histories with
+	// something unresolved stay linked, so this scan is short.
+	if h.header == 0 {
+		return h.retired
 	}
 	for old := s.frontendHistory; old != nil; old = old.next {
 		if old == h {
@@ -766,6 +776,28 @@ func (s *UPolynomialFactorizationService) matchesFactorFrontendHistory(r *upolyF
 		}
 	}
 	return false
+}
+
+// retireFactorFrontendHistory drops the history of a factor invocation that
+// completed with nothing left to clean. manager::factor_core keeps only
+// scoped locals, so per-call state must not outlive the call.
+func (s *UPolynomialFactorizationService) retireFactorFrontendHistory(q *upolyFactorFrontendScope) {
+	h := q.history
+	if h == nil || h.self != h || h.service != s || h.header == 0 || h.invocation != q.invocation || !h.complete ||
+		q.active || q.executing || q.sourceExecuting || q.ownExecuting || q.bodyCause != nil || q.sourceCause != nil || q.ownCause != nil {
+		return
+	}
+	for p := &s.frontendHistory; *p != nil; p = &(*p).next {
+		if *p == h {
+			*p = h.next
+			h.next = nil
+			s.manager.config.Integer.Budget().Release(h.header)
+			h.header = 0
+			h.retired = true
+			s.retireSquareFreeDiagnostic(q.squareFree.history)
+			return
+		}
+	}
 }
 func (s *UPolynomialFactorizationService) cleanupFactorFrontendInvocation(r *upolyFactorFrontendInvocationReceipt, abort bool) error {
 	if !s.matchesFactorFrontendHistory(r) {

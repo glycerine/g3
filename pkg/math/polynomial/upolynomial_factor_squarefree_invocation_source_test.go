@@ -148,13 +148,15 @@ func TestUPolynomialFactorSquareFreeIssuedHistoryAndArchiveRefusal(t *testing.T)
 	var r upolyFactorSquareFreeInvocationReceipt
 	_, e = s.factorSquareFreeWithReceipt(m.stateView(&input), out, 1, DefaultUPolynomialFactorParams(), &r)
 	serviceMust(t, e)
-	if r.frame == nil || !r.frame.retired || r.frame.header == 0 || s.squareFreeHistory != r.frame {
-		t.Fatal("issued history lost real cold charge")
+	// AUDIT.md math_polynomial_09-F1: a clean issued scope is released at
+	// once (factor_square_free keeps only scoped locals) but stays matched.
+	if r.frame == nil || !r.frame.retired || r.frame.header != 0 || !r.frame.released || s.squareFreeHistory != nil || !s.matchesSquareFreeHistory(&r) {
+		t.Fatal("clean issued history retained a cold charge")
 	}
 	before := r
 	oldFrame := *r.frame
 	// A matching-looking fabricated frame is neither the real active member nor an issued history record.
-	fake := &upolyFactorSquareFreeScope{service: s, manager: m, invocation: r.invocation, retired: true, header: r.frame.header}
+	fake := &upolyFactorSquareFreeScope{service: s, manager: m, invocation: r.invocation, retired: true, header: 1}
 	fake.self = fake
 	forged := r
 	forged.frame = fake

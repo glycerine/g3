@@ -20,8 +20,10 @@ func TestUPolynomialFactorFrontendActualHistoryReservation(t *testing.T) {
 	defer func() { serviceMust(t, m.reset(&input)); m.freeBacking(&input) }()
 	yes, e := s.Factor(m.stateView(&input), fs, DefaultUPolynomialFactorParams())
 	serviceMust(t, e)
-	if !yes || s.frontend.history == nil || s.frontend.history.header == 0 {
-		t.Fatal("actual completed frontend has no charged diagnostic history")
+	// AUDIT.md math_polynomial_09-F1: a clean completed invocation keeps no
+	// charged history; its record is retired but stays readable.
+	if !yes || s.frontend.history == nil || s.frontend.history.header != 0 || !s.frontend.history.retired || !s.frontend.history.complete {
+		t.Fatal("actual completed frontend retained a charged diagnostic history")
 	}
 	old := s.frontend
 	h := old.history

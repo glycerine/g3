@@ -89,10 +89,27 @@ func (s *UPolynomialFactorizationService) setFrontendConstant(fs *UPolynomialFac
 			q.bodyCause = cause
 			q.sourceCause = nil
 			q.retired = !polynomialNegNumericPending(&q.numeric) && !m.modular.MatchesPNormalizeInvocation(&q.normalize)
+			if q.retired && cause == nil {
+				s.unlinkFrontendConstantCall(q)
+			}
 		}
 	}()
 	context := integerAllocationInvocationContext{factorFrontendConstant: b, factorFrontendConstantInvocation: b.invocation}
 	return fs.setConstantWithSourceContext(a, context)
+}
+
+// unlinkFrontendConstantCall drops a clean retired constant-set record; the
+// source call keeps no state after it returns.
+func (s *UPolynomialFactorizationService) unlinkFrontendConstantCall(q *upolyFactorConstantCall) {
+	for p := &s.frontendConstantCalls; *p != nil; p = &(*p).next {
+		if *p == q {
+			*p = q.next
+			q.next = nil
+			s.manager.config.Integer.Budget().Release(q.header)
+			q.header = 0
+			return
+		}
+	}
 }
 func (s *UPolynomialFactorizationService) constantCallerExecuting() bool {
 	if s == nil || s.self != s || s.closed || s.manager == nil || s.manager.self != s.manager {
