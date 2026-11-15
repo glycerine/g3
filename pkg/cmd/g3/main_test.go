@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ_F-F6: duality print_proof prints (name args...) for each step.
+	"duality_nullary_step.smt2": "sat\n(derivation\n(step s!3 (q0 0 3)\n rule!1  (subst\n    (= x 0)\n    (= y 3)\n  )\n  (labels  )\n  (ref   ))\n(step s!2 (err)\n rule!3  (subst\n    (= x 0)\n    (= y 3)\n  )\n  (labels  )\n  (ref  s!3  ))\n(step s!1 (@Fail!4)\n rule!4  (subst\n  )\n  (labels  )\n  (ref  s!2  ))\n)\n(model \n\"@under2 -> false\n@b_2 -> true\n@b_3 -> true\n@b_1 -> true\n@under3 -> false\n\")\n\n",
 	// labels_cmd prints label symbols unquoted (operator<<).
 	"labels_unquoted.smt2": "sat\n(labels a b)\n",
 	// AUDIT.md sat_04-F1, sat_05-F1: sat.dimacs.display prints the atom

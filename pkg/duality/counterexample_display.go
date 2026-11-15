@@ -62,22 +62,55 @@ func (c *Counterexample) writeDerivation(out io.Writer, writeExpr func(io.Writer
 				}
 			}
 		}
-		fact, err := g.EvalNode(node)
+		// print the label and the proved fact: "(step s!N (name args...)".
+		// AUDIT.md FUZZ_F-F6: the source prints the node's name and the
+		// evaluated edge.F.IndParams, not the evaluated node application.
+		if _, err := fmt.Fprintf(out, "(step s!%d (", node.Number); err != nil {
+			return err
+		}
+		nameHandle, err := m.RefGet(node.Name)
 		if err != nil {
 			return err
 		}
-		defer func() { result = errors.Join(result, fact.Close()) }()
-		h, err := fact.Raw()
+		nameDecl, err := NewFuncDecl(g.context, nameHandle)
 		if err != nil {
 			return err
 		}
-		if _, err = fmt.Fprintf(out, "(step s!%d ", node.Number); err != nil {
+		defer func() { result = errors.Join(result, nameDecl.Close()) }()
+		nameSymbol, err := nameDecl.Name()
+		if err != nil {
 			return err
 		}
-		if err = writeExpr(out, h); err != nil {
+		if err = nameSymbol.Write(out); err != nil {
 			return err
 		}
-		if _, err = fmt.Fprintf(out, "\n rule!%d  (subst\n", edge.Map.Number); err != nil {
+		for _, paramRef := range edge.F.individualParams {
+			ph, err := m.RefGet(paramRef)
+			if err != nil {
+				return err
+			}
+			param, err := NewExpr(g.context, ph)
+			if err != nil {
+				return err
+			}
+			defer func() { result = errors.Join(result, param.Close()) }()
+			value, err := g.Eval(edge, param)
+			if err != nil {
+				return err
+			}
+			defer func() { result = errors.Join(result, value.Close()) }()
+			vh, err := value.Raw()
+			if err != nil {
+				return err
+			}
+			if _, err = io.WriteString(out, " "); err != nil {
+				return err
+			}
+			if err = writeExpr(out, vh); err != nil {
+				return err
+			}
+		}
+		if _, err = fmt.Fprintf(out, ")\n rule!%d  (subst\n", edge.Map.Number); err != nil {
 			return err
 		}
 		original, err := edge.Map.Owner.OriginalClause(edge.Map)
