@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_05-F1: unary fp.sub is fp.neg.
+	"fpa_unary_sub_is_neg.smt2": "unsat\n(fp.neg f)\n",
 	// AUDIT.md ast_03-F3: param_size eval for parametric and array fields.
 	"datatype_param_array_sort_size.smt2": "sat\nunsat\nunsat\nunsat\n",
 	// AUDIT.md ast_03-F3: a same-block datatype field contributes the default infinite size.

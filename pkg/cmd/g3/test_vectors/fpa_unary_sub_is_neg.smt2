@@ -1,0 +1,5 @@
+(declare-const f (_ FloatingPoint 3 3))
+(assert (= f ((_ to_fp 3 3) RNE 6.0)))
+(assert (= f (fp.sub f)))
+(check-sat)
+(simplify (fp.sub f))

@@ -86,3 +86,41 @@ func TestASTFPARMBinaryDeclarationsAndNumericCleanup(t *testing.T) {
 		}
 	}
 }
+
+// AUDIT.md ast_05-F1: fpa_decl_plugin::mk_func_decl turns a unary OP_FPA_SUB
+// into mk_unary_decl(OP_FPA_NEG, ...).
+func TestASTFPAUnarySubIsNegation(t *testing.T) {
+	m := astTestManager(t)
+	_, err := m.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	_, err = m.RegisterBitVectorPlugin()
+	astTestMust(t, err)
+	family, err := m.RegisterFloatingPointPlugin()
+	astTestMust(t, err)
+	floatSort, err := m.MkFamilySort(family, 3, nil)
+	astTestMust(t, err)
+	floatRef, err := m.internal(floatSort)
+	astTestMust(t, err)
+	checkNeg := func(decl ASTHandle) {
+		t.Helper()
+		r, e := m.internal(decl)
+		astTestMust(t, e)
+		name, e := m.Symbols.String(m.declAt(r.slot).name)
+		astTestMust(t, e)
+		_, kind, e := m.declIdentity(r)
+		astTestMust(t, e)
+		if name != "fp.neg" || kind != astFPANeg || m.declAt(r.slot).arity != 1 || m.declAt(r.slot).rangeSort != floatRef {
+			t.Fatal("unary fp.sub declaration", name, kind, m.declAt(r.slot).arity)
+		}
+	}
+	decl, err := m.MkFamilyFuncDecl(family, FPAOpSub, nil, []ASTHandle{floatSort}, ASTHandle{})
+	astTestMust(t, err)
+	checkNeg(decl)
+	x, err := m.MkConst(astTestSymbol(t, m, "x"), floatSort)
+	astTestMust(t, err)
+	app, err := m.MkFamilyApp(family, FPAOpSub, nil, []ASTHandle{x})
+	astTestMust(t, err)
+	head, err := m.GetDecl(app)
+	astTestMust(t, err)
+	checkNeg(head)
+}

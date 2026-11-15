@@ -249,6 +249,10 @@ func (m *ASTManager) mkFamilyAppDomainCore(fid FamilyID, k int32, ps []ASTParame
 			decl, e = m.floatingPointBVWrapDecl(ps, domain)
 		} else if k == astFPABV2RM {
 			decl, e = m.floatingPointBV2RMDecl(ps, domain, ASTHandle{})
+		} else if k == astFPASub && len(domain) == 1 {
+			// Source fpa_decl_plugin::mk_func_decl: unary OP_FPA_SUB is
+			// mk_unary_decl(OP_FPA_NEG, ...).
+			decl, e = m.floatingPointUnaryDecl(astFPANeg, domain)
 		} else if k == astFPAAdd || k == astFPASub || k == astFPAMul || k == astFPADiv {
 			decl, e = m.floatingPointRMBinaryDecl(k, domain)
 		} else if k == astFPARem || k == astFPAMin || k == astFPAMax {
@@ -347,6 +351,10 @@ func (m *ASTManager) mkFamilyFuncDecl(fid FamilyID, k int32, ps []ASTParameter, 
 			r, e = m.floatingPointBVWrapDecl(ps, domain)
 		} else if k == astFPABV2RM {
 			r, e = m.floatingPointBV2RMDecl(ps, domain, rangeSort)
+		} else if k == astFPASub && len(domain) == 1 {
+			// Source fpa_decl_plugin::mk_func_decl: unary OP_FPA_SUB is
+			// mk_unary_decl(OP_FPA_NEG, ...).
+			r, e = m.floatingPointUnaryDecl(astFPANeg, domain)
 		} else if k == astFPAAdd || k == astFPASub || k == astFPAMul || k == astFPADiv {
 			r, e = m.floatingPointRMBinaryDecl(k, domain)
 		} else if k == astFPARem || k == astFPAMin || k == astFPAMax {
