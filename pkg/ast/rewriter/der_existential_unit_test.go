@@ -1,6 +1,6 @@
 package rewriter
 
-// Source: src/ast/rewriter/der.cpp:98-132,153-165.
+// Source: src/ast/rewriter/der.cpp:149-155,219-225.
 
 import (
 	"testing"
@@ -37,7 +37,10 @@ func derReduce(t *testing.T, d *DER, m *ast.ASTManager, q ast.ASTHandle) ast.AST
 	return result
 }
 
-func TestDERExistentialUnitEqualityAndBooleanDuals(t *testing.T) {
+// AUDIT.md ast_rewriter_03-F1: der::reduce1 in 4.7.1 returns any
+// non-universal quantifier unchanged, so existential unit equalities and
+// Boolean variables are not eliminated.
+func TestDERExistentialUnitEqualityAndBooleanLeftUnchanged(t *testing.T) {
 	f := newFactorFixture(t)
 	d, err := NewDER(f.m)
 	astTestMust(t, err)
@@ -46,10 +49,9 @@ func TestDERExistentialUnitEqualityAndBooleanDuals(t *testing.T) {
 	astTestMust(t, err)
 	equality, err := f.m.MkEq(v, f.numeral(7))
 	astTestMust(t, err)
-	truth, err := f.m.MkTrue()
-	astTestMust(t, err)
-	if got := derReduce(t, d, f.m, derQuantifier(t, f.m, false, []ast.ASTHandle{f.sort}, equality)); got != truth {
-		t.Fatal("existential equality", got, truth)
+	q := derQuantifier(t, f.m, false, []ast.ASTHandle{f.sort}, equality)
+	if got := derReduce(t, d, f.m, q); got != q {
+		t.Fatal("existential equality changed", got, q)
 	}
 	boolean, err := f.m.MkBoolSort()
 	astTestMust(t, err)
@@ -58,8 +60,9 @@ func TestDERExistentialUnitEqualityAndBooleanDuals(t *testing.T) {
 	notBV, err := f.m.MkNot(bv)
 	astTestMust(t, err)
 	for _, body := range []ast.ASTHandle{bv, notBV} {
-		if got := derReduce(t, d, f.m, derQuantifier(t, f.m, false, []ast.ASTHandle{boolean}, body)); got != truth {
-			t.Fatal("existential Boolean unit", body, got)
+		q := derQuantifier(t, f.m, false, []ast.ASTHandle{boolean}, body)
+		if got := derReduce(t, d, f.m, q); got != q {
+			t.Fatal("existential Boolean unit changed", body, got)
 		}
 	}
 }

@@ -20,7 +20,7 @@ func (d *DER) substituteTerm(c *derCall, term ast.ASTHandle, bindings []ast.ASTH
 	return c.hold(value)
 }
 
-func (d *DER) applySubstitution(c *derCall, q ast.ASTHandle, literals []ast.ASTHandle, disjunction bool, positions []int32, definitions []ast.ASTHandle, order []uint32) (result ast.ASTHandle, err error) {
+func (d *DER) applySubstitution(c *derCall, q ast.ASTHandle, literals []ast.ASTHandle, positions []int32, definitions []ast.ASTHandle, order []uint32) (result ast.ASTHandle, err error) {
 	bindings := make([]ast.ASTHandle, len(definitions))
 	scratch, err := d.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
@@ -42,13 +42,13 @@ func (d *DER) applySubstitution(c *derCall, q ast.ASTHandle, literals []ast.ASTH
 		}
 		args = append(args, literals[i])
 	}
+	// Source: t = (sz == 1) ? m_new_args[0] : m_manager.mk_or(sz, ...); the
+	// raw mk_or keeps a nullary or.
 	var reducedBody ast.ASTHandle
 	if len(args) == 1 {
 		reducedBody = args[0]
-	} else if disjunction {
-		reducedBody, err = d.manager.MkOrArray(args)
 	} else {
-		reducedBody, err = d.manager.MkAndArray(args)
+		reducedBody, err = d.manager.MkOrArgs(args)
 	}
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -90,10 +90,16 @@ func (d *DER) applySubstitution(c *derCall, q ast.ASTHandle, literals []ast.ASTH
 	return d.manager.UpdateQuantifierAnnotations(q, patterns, noPatterns, reducedBody)
 }
 
+// reduceOnce is der::reduce1. Only universal quantifiers are reduced. A
+// top-level or contributes its direct arguments; any other body is reduced
+// only by the unit rule.
 func (d *DER) reduceOnce(c *derCall, q ast.ASTHandle) (ast.ASTHandle, error) {
 	forall, err := d.manager.IsForall(q)
 	if err != nil {
 		return q, err
+	}
+	if !forall {
+		return q, nil
 	}
 	body, err := d.manager.GetQuantifierBody(q)
 	if err != nil {
@@ -103,83 +109,85 @@ func (d *DER) reduceOnce(c *derCall, q ast.ASTHandle) (ast.ASTHandle, error) {
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	variable, _, definition, matched, err := d.matchVariableLiteral(c, body, declarations, forall)
+	isOr, err := d.isBasic(body, ast.ASTOpOr)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if isOr {
+		count, err := d.manager.GetNumArgs(body)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		literals := make([]ast.ASTHandle, count)
+		positions := make([]int32, count)
+		for i := range literals {
+			literals[i], err = d.manager.GetArg(body, uint32(i))
+			if err != nil {
+				return ast.ASTHandle{}, err
+			}
+			positions[i] = -1
+		}
+		definitions := make([]ast.ASTHandle, declarations)
+		variables := make([]ast.ASTHandle, declarations)
+		matches := uint32(0)
+		// Find all disequalities.
+		for i, arg := range literals {
+			variable, index, definition, matched, x := d.isVarDiseq(c, arg, declarations)
+			if x != nil {
+				return ast.ASTHandle{}, x
+			}
+			if !matched {
+				continue
+			}
+			if definitions[index] == (ast.ASTHandle{}) {
+				definitions[index] = definition
+				variables[index] = variable
+				positions[i] = int32(index)
+				matches++
+			}
+		}
+		if matches == 0 {
+			if err = d.traceNoCandidate(q); err != nil {
+				return ast.ASTHandle{}, err
+			}
+			return q, nil
+		}
+		if err = d.traceDefinitions(definitions); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		order, err := d.sortVariables(variables, definitions)
+		if err != nil {
+			return q, err
+		}
+		if err = d.traceEliminationOrder(order); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if len(order) == 0 {
+			return q, nil
+		}
+		return d.applySubstitution(c, q, literals, positions, definitions, order)
+	}
+	// get_elimination_order/top-sort checks for cycles, but it is not
+	// invoked for unit clauses, so the occurs check is done here.
+	variable, _, definition, matched, err := d.isVarDiseq(c, body, declarations)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	if matched {
-		hasQuantifiers, x := d.manager.HasQuantifiers(definition)
-		if x != nil {
-			return ast.ASTHandle{}, x
-		}
 		occurs, x := d.manager.OccursExpr(variable, definition)
 		if x != nil {
 			return ast.ASTHandle{}, x
 		}
-		if !hasQuantifiers && !occurs {
-			if forall {
-				return d.manager.MkFalse()
-			}
-			return d.manager.MkTrue()
+		if !occurs {
+			return d.manager.MkFalse()
 		}
 	}
-
-	var literals []ast.ASTHandle
-	if forall {
-		literals, err = d.manager.FlattenOr([]ast.ASTHandle{body})
-	} else {
-		literals, err = d.manager.FlattenAnd([]ast.ASTHandle{body})
-	}
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	count := len(literals)
-	positions := make([]int32, count)
-	for i := range positions {
-		positions[i] = -1
-	}
-	definitions := make([]ast.ASTHandle, declarations)
-	variables := make([]ast.ASTHandle, declarations)
-	matches := uint32(0)
-	for i, arg := range literals {
-		variable, index, definition, matched, x := d.matchVariableLiteral(c, arg, declarations, forall)
-		if x != nil || !matched {
-			if x != nil {
-				return ast.ASTHandle{}, x
-			}
-			continue
-		}
-		if definitions[index] == (ast.ASTHandle{}) {
-			definitions[index] = definition
-			variables[index] = variable
-			positions[i] = int32(index)
-			matches++
-		}
-	}
-	if matches == 0 {
-		if err = d.traceNoCandidate(q); err != nil {
-			return ast.ASTHandle{}, err
-		}
-		return q, nil
-	}
-	if err = d.traceDefinitions(definitions); err != nil {
-		return ast.ASTHandle{}, err
-	}
-	order, err := d.sortVariables(variables, definitions)
-	if err != nil {
-		return q, err
-	}
-	if err = d.traceEliminationOrder(order); err != nil {
-		return ast.ASTHandle{}, err
-	}
-	if len(order) == 0 {
-		return q, nil
-	}
-	return d.applySubstitution(c, q, literals, forall, positions, definitions, order)
+	return q, nil
 }
 
-// ReduceQuantifier applies DER to a universal or existential quantifier to a
-// fixed point and then removes declarations made unused by substitution.
+// ReduceQuantifier is der::operator(): it applies reduce1 to a fixed point
+// and then, if something was reduced and the result is still a universal
+// quantifier, removes declarations made unused by substitution.
 func (d *DER) ReduceQuantifier(q ast.ASTHandle, out, proof ast.ASTRef) (result error) {
 	if err := d.open(); err != nil {
 		return err
@@ -194,6 +202,11 @@ func (d *DER) ReduceQuantifier(q ast.ASTHandle, out, proof ast.ASTRef) (result e
 	if err := d.traceQuantifier(q); err != nil {
 		return err
 	}
+	proofs, err := d.manager.ProofsEnabled()
+	if err != nil {
+		return err
+	}
+	var pr ast.ASTHandle
 	current := q
 	reduced := false
 	for {
@@ -205,10 +218,25 @@ func (d *DER) ReduceQuantifier(q ast.ASTHandle, out, proof ast.ASTRef) (result e
 			break
 		}
 		reduced = true
-		current, err = call.hold(next)
-		if err != nil {
+		if next, err = call.hold(next); err != nil {
 			return err
 		}
+		if proofs {
+			step, err := d.manager.MkProofDER(current, next)
+			if err != nil {
+				return err
+			}
+			if step, err = call.hold(step); err != nil {
+				return err
+			}
+			if pr, err = d.manager.MkProofTransitivity(pr, step); err != nil {
+				return err
+			}
+			if pr, err = call.hold(pr); err != nil {
+				return err
+			}
+		}
+		current = next
 		kind, err := d.manager.GetKind(current)
 		if err != nil {
 			return err
@@ -217,38 +245,56 @@ func (d *DER) ReduceQuantifier(q ast.ASTHandle, out, proof ast.ASTRef) (result e
 			break
 		}
 	}
+	// Eliminate variables that have become unused.
 	if reduced {
+		forall := false
 		kind, err := d.manager.GetKind(current)
 		if err != nil {
 			return err
 		}
 		if kind == ast.ASTQuantifier {
+			if forall, err = d.manager.IsForall(current); err != nil {
+				return err
+			}
+		}
+		if forall {
 			eliminated, err := ElimUnusedVarsUFBV(d.manager, current)
 			if err != nil {
 				return err
 			}
 			defer func() { result = errors.Join(result, d.manager.DelRef(&eliminated)) }()
-			current, err = d.manager.RefGet(eliminated)
+			r, err := d.manager.RefGet(eliminated)
 			if err != nil {
 				return err
 			}
+			if proofs {
+				p1, err := d.manager.MkProofElimUnusedVars(current, r)
+				if err != nil {
+					return err
+				}
+				if p1, err = call.hold(p1); err != nil {
+					return err
+				}
+				if pr, err = d.manager.MkProofTransitivity(pr, p1); err != nil {
+					return err
+				}
+				if pr, err = call.hold(pr); err != nil {
+					return err
+				}
+			}
+			current = r
 		}
 	}
 	if err := d.manager.SetRef(out, current); err != nil {
 		return err
 	}
-	proofs, err := d.manager.ProofsEnabled()
-	if err != nil || !proofs {
-		return err
+	if !proofs {
+		return nil
 	}
-	if !reduced {
+	if pr.IsNull() {
 		return d.manager.ResetRef(proof)
 	}
-	p, err := d.manager.MkProofDER(q, current)
-	if err != nil {
-		return err
-	}
-	return d.manager.SetRef(proof, p)
+	return d.manager.SetRef(proof, pr)
 }
 
 type DERConfiguration struct {

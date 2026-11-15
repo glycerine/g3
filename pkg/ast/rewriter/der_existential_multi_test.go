@@ -1,6 +1,6 @@
 package rewriter
 
-// Source: src/ast/rewriter/der.cpp:166-242,361-397.
+// Source: src/ast/rewriter/der.cpp:149-155.
 
 import (
 	"testing"
@@ -9,7 +9,9 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func TestDERExistentialConjunctionSubstitutesBodyAndAnnotations(t *testing.T) {
+// AUDIT.md ast_rewriter_03-F1: der::reduce1 in 4.7.1 leaves existential
+// conjunctions alone.
+func TestDERExistentialConjunctionLeftUnchanged(t *testing.T) {
 	f := newFactorFixture(t)
 	d, err := NewDER(f.m)
 	astTestMust(t, err)
@@ -30,22 +32,7 @@ func TestDERExistentialConjunctionSubstitutesBodyAndAnnotations(t *testing.T) {
 	astTestMust(t, err)
 	q, err := f.m.MkQuantifier(ast.ASTQuantifierSpec{Forall: false, Sorts: []ast.ASTHandle{f.sort, f.sort}, Names: []usymbol.Symbol{astTestSymbol(t, f.m, "x"), astTestSymbol(t, f.m, "y")}, Body: body, NoPatterns: []ast.ASTHandle{px}})
 	astTestMust(t, err)
-	got := derReduce(t, d, f.m, q)
-	if count, xerr := f.m.GetNumDeclarations(got); xerr != nil || count != 1 {
-		t.Fatal("remaining declaration", count, xerr)
-	}
-	newBody, err := f.m.GetQuantifierBody(got)
-	astTestMust(t, err)
-	arg, err := f.m.GetArg(newBody, 0)
-	astTestMust(t, err)
-	if index, xerr := f.m.GetVarIndex(arg); xerr != nil || index != 0 {
-		t.Fatal("body substitution", index, xerr)
-	}
-	pattern, err := f.m.GetNoPattern(got, 0)
-	astTestMust(t, err)
-	arg, err = f.m.GetArg(pattern, 0)
-	astTestMust(t, err)
-	if index, xerr := f.m.GetVarIndex(arg); xerr != nil || index != 0 {
-		t.Fatal("annotation substitution", index, xerr)
+	if got := derReduce(t, d, f.m, q); got != q {
+		t.Fatal("existential conjunction changed", got, q)
 	}
 }

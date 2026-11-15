@@ -338,6 +338,16 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_rewriter_03-F1: der follows 4.7.1 der::reduce1.
+	"der_all_literals_eliminated.smt2": "(goals\n(goal\n  or\n  :precision precise :depth 1)\n)\n",
+	// AUDIT.md ast_rewriter_03-F1: der follows 4.7.1 der::reduce1.
+	"der_unit_quantified_definition.smt2": "(goals\n(goal\n  false\n  :precision precise :depth 1)\n)\n",
+	// AUDIT.md ast_rewriter_03-F1: der follows 4.7.1 der::reduce1.
+	"der_literal_order.smt2": "(goals\n(goal\n  (forall ((y Int)) (or (p y) (q a)))\n  (or (q (+ a 1)) (p a))\n  (forall ((x Int)) (not (= x (f x))))\n  :precision precise :depth 1)\n)\n",
+	// AUDIT.md ast_rewriter_03-F1: der follows 4.7.1 der::reduce1.
+	"der_nested_or_untouched.smt2": "(goals\n(goal\n  (forall ((x Int) (y Int)) (or (p y) (not (= x a)) (q x)))\n  :precision precise :depth 1)\n)\n",
+	// AUDIT.md ast_rewriter_03-F1: der follows 4.7.1 der::reduce1.
+	"der_exists_untouched.smt2": "(goals\n(goal\n  (exists ((x Int)) (and (= x a) (p x)))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md ast_07-F1: model define-fun argument names skip declared x!k.
 	"smt2_model_var_names_env_uses.smt2": "sat\n(model \n  (define-fun x!1 () Int\n    0)\n  (define-fun x!0 () Int\n    3)\n  (define-fun f ((x!2 Int) (x!3 Int)) Int\n    (ite (and (= x!2 1) (= x!3 2)) 3\n    (ite (and (= x!2 2) (= x!3 2)) 4\n      3)))\n)\n",
 	// AUDIT.md ast_07-F1: aliases and binder names skip pp_env::uses symbols.

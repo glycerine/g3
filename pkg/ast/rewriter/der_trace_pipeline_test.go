@@ -11,7 +11,9 @@ import (
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
-func TestDERExistentialSourceTracePipeline(t *testing.T) {
+// AUDIT.md ast_rewriter_03-F1: der 4.7.1 reduces only universal
+// quantifiers; the trace follows a forall disequality reduction.
+func TestDERUniversalSourceTracePipeline(t *testing.T) {
 	f := newFactorFixture(t)
 	bindBVTraceGlobals(t, f.m)
 	d, err := NewDER(f.m)
@@ -21,13 +23,17 @@ func TestDERExistentialSourceTracePipeline(t *testing.T) {
 	astTestMust(t, err)
 	equality, err := f.m.MkEq(x, f.numeral(5))
 	astTestMust(t, err)
+	diseq, err := f.m.MkNot(equality)
+	astTestMust(t, err)
 	boolean, err := f.m.MkBoolSort()
 	astTestMust(t, err)
 	p, err := f.m.MkConst(astTestSymbol(t, f.m, "der-trace-p"), boolean)
 	astTestMust(t, err)
-	body, err := f.m.MkAndArray([]ast.ASTHandle{equality, p})
+	r, err := f.m.MkConst(astTestSymbol(t, f.m, "der-trace-r"), boolean)
 	astTestMust(t, err)
-	q := derQuantifier(t, f.m, false, []ast.ASTHandle{f.sort}, body)
+	body, err := f.m.MkOr(diseq, p)
+	astTestMust(t, err)
+	q := derQuantifier(t, f.m, true, []ast.ASTHandle{f.sort}, body)
 	var output bytes.Buffer
 	tags := diagnostic.NewTraceTagsWithWriter(&output)
 	tags.Enable("der")
@@ -38,20 +44,22 @@ func TestDERExistentialSourceTracePipeline(t *testing.T) {
 		return
 	}
 	trace := output.String()
-	for _, want := range []string{"der.cpp:140", "der.cpp:100", "der.cpp:344", "DEFINITIONS:", "VAR 0 = 5", "der.cpp:356", "Elimination m_order:\n0\n"} {
+	for _, want := range []string{"operator()", "is_var_diseq", "get_elimination_order", "DEFINITIONS:", "VAR 0 = 5", "Elimination m_order:\n0\n"} {
 		if !strings.Contains(trace, want) {
 			t.Fatalf("missing trace %q in %q", want, trace)
 		}
 	}
 	output.Reset()
 	tags.Enable("der_bug")
-	noCandidate := derQuantifier(t, f.m, false, []ast.ASTHandle{f.sort}, p)
+	candidateFree, err := f.m.MkOr(p, r)
+	astTestMust(t, err)
+	noCandidate := derQuantifier(t, f.m, true, []ast.ASTHandle{f.sort}, candidateFree)
 	if got := derReduce(t, d, f.m, noCandidate); got != noCandidate {
 		t.Fatal("candidate-free quantifier changed", got, noCandidate)
 	}
 	if tags.ShouldTrace("der_bug") {
 		trace = output.String()
-		for _, want := range []string{"der.cpp:229", "Did not find any diseq", "der-trace-p"} {
+		for _, want := range []string{"reduce1", "Did not find any diseq", "der-trace-p"} {
 			if !strings.Contains(trace, want) {
 				t.Fatalf("missing no-candidate trace %q in %q", want, trace)
 			}

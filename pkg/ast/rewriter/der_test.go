@@ -280,3 +280,80 @@ func TestDERRewriterNestedCycleAndProofEntry(t *testing.T) {
 	}
 	astTestMust(t, rw.Reset())
 }
+
+// AUDIT.md ast_rewriter_03-F1: der::reduce1 reads the direct arguments of
+// the top-level or and apply_substitution keeps the surviving ones in
+// their original order (no flatten_or reordering).
+func TestDERKeepsDirectOrArgumentOrder(t *testing.T) {
+	f := newFactorFixture(t)
+	d, err := NewDER(f.m)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, d.Close()) })
+	boolean, err := f.m.MkBoolSort()
+	astTestMust(t, err)
+	pDecl, err := f.m.MkFuncDecl(astTestSymbol(t, f.m, "der-order-p"), []ast.ASTHandle{f.sort}, boolean, ast.ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	astTestPin(t, f.m, pDecl)
+	qDecl, err := f.m.MkFuncDecl(astTestSymbol(t, f.m, "der-order-q"), []ast.ASTHandle{f.sort}, boolean, ast.ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	astTestPin(t, f.m, qDecl)
+	y, err := f.m.MkVar(0, f.sort)
+	astTestMust(t, err)
+	x, err := f.m.MkVar(1, f.sort)
+	astTestMust(t, err)
+	py, err := f.m.MkApp(pDecl, []ast.ASTHandle{y})
+	astTestMust(t, err)
+	eq, err := f.m.MkEq(x, f.numeral(5))
+	astTestMust(t, err)
+	diseq, err := f.m.MkNot(eq)
+	astTestMust(t, err)
+	qx, err := f.m.MkApp(qDecl, []ast.ASTHandle{x})
+	astTestMust(t, err)
+	body, err := f.m.MkOrArgs([]ast.ASTHandle{py, diseq, qx})
+	astTestMust(t, err)
+	got := derReduce(t, d, f.m, derQuantifier(t, f.m, true, []ast.ASTHandle{f.sort, f.sort}, body))
+	if count, e := f.m.GetNumDeclarations(got); e != nil || count != 1 {
+		t.Fatal("remaining declarations", count, e)
+	}
+	reduced, err := f.m.GetQuantifierBody(got)
+	astTestMust(t, err)
+	for i, want := range []ast.ASTHandle{pDecl, qDecl} {
+		arg, e := f.m.GetArg(reduced, uint32(i))
+		astTestMust(t, e)
+		decl, e := f.m.GetDecl(arg)
+		astTestMust(t, e)
+		if decl != want {
+			t.Fatal("or argument order", i, decl, want)
+		}
+	}
+}
+
+// AUDIT.md ast_rewriter_03-F1: the 4.7.1 unit rule has no has_quantifiers
+// test: (forall ((x Bool)) (not (= x (forall ...)))) is false.
+func TestDERUnitIgnoresQuantifiedDefinition(t *testing.T) {
+	f := newFactorFixture(t)
+	d, err := NewDER(f.m)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, d.Close()) })
+	boolean, err := f.m.MkBoolSort()
+	astTestMust(t, err)
+	pDecl, err := f.m.MkFuncDecl(astTestSymbol(t, f.m, "der-unit-p"), []ast.ASTHandle{f.sort}, boolean, ast.ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	astTestPin(t, f.m, pDecl)
+	y, err := f.m.MkVar(0, f.sort)
+	astTestMust(t, err)
+	py, err := f.m.MkApp(pDecl, []ast.ASTHandle{y})
+	astTestMust(t, err)
+	inner := derQuantifier(t, f.m, true, []ast.ASTHandle{f.sort}, py)
+	x, err := f.m.MkVar(0, boolean)
+	astTestMust(t, err)
+	eq, err := f.m.MkEq(x, inner)
+	astTestMust(t, err)
+	diseq, err := f.m.MkNot(eq)
+	astTestMust(t, err)
+	falseValue, err := f.m.MkFalse()
+	astTestMust(t, err)
+	if got := derReduce(t, d, f.m, derQuantifier(t, f.m, true, []ast.ASTHandle{boolean}, diseq)); got != falseValue {
+		t.Fatal("unit rule with quantified definition", got)
+	}
+}

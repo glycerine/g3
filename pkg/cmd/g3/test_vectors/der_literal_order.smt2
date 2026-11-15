@@ -1,0 +1,8 @@
+(declare-fun f (Int) Int)
+(declare-fun p (Int) Bool)
+(declare-fun q (Int) Bool)
+(declare-const a Int)
+(assert (forall ((x Int) (y Int)) (or (p y) (not (= x a)) (q x))))
+(assert (forall ((x Int) (y Int)) (or (not (= y (+ x 1))) (not (= x a)) (q y) (p x))))
+(assert (forall ((x Int)) (not (= x (f x)))))
+(apply der)

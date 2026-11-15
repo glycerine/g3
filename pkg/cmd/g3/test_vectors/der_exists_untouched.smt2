@@ -1,0 +1,5 @@
+(declare-fun f (Int) Int)
+(declare-fun p (Int) Bool)
+(declare-const a Int)
+(assert (exists ((x Int)) (and (= x a) (p x))))
+(apply der)
