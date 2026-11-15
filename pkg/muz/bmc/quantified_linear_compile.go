@@ -14,6 +14,15 @@ import (
 // CompileQuantifiedLinear returns the universally indexed rule implications.
 // Each returned AST reference belongs to the caller.
 func (c *Compiler) CompileQuantifiedLinear(rules *base.RuleSet, width uint32) (result []ast.ASTRef, resultErr error) {
+	return c.compileQuantifiedLinear(rules, width, nil)
+}
+
+// compileQuantifiedLinear is qlinear::compile. With a nil emit it returns
+// owning references to the formulas; otherwise it hands each formula to
+// emit (the source b.assert_expr) as soon as it is built, so assertion-time
+// preprocessing interleaves with compilation as in the source. emit borrows
+// the formula and nothing is returned.
+func (c *Compiler) compileQuantifiedLinear(rules *base.RuleSet, width uint32, emit func(ast.ASTHandle) error) (result []ast.ASTRef, resultErr error) {
 	if c == nil || c.manager == nil || rules == nil {
 		return nil, ast.ErrASTHandle
 	}
@@ -39,7 +48,7 @@ func (c *Compiler) CompileQuantifiedLinear(rules *base.RuleSet, width uint32) (r
 		return nil, err
 	}
 	for _, predicate := range predicates {
-		if err = q.compileGroup(c, rules, predicate, &result); err != nil {
+		if err = q.compileGroup(c, rules, predicate, &result, emit); err != nil {
 			return result, err
 		}
 	}
@@ -54,7 +63,20 @@ func (q *quantifiedLinear) quantify(body ast.ASTHandle) (ast.ASTHandle, error) {
 	return q.hold(q.manager.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{q.index}, Names: []symbol.Symbol{name}, Body: body, Weight: 1}))
 }
 
-func (q *quantifiedLinear) compileGroup(c *Compiler, rules *base.RuleSet, predicate ast.ASTHandle, result *[]ast.ASTRef) (resultErr error) {
+// publish emits a compiled formula, or keeps an owning reference to it.
+func (q *quantifiedLinear) publish(formula ast.ASTHandle, result *[]ast.ASTRef, emit func(ast.ASTHandle) error) error {
+	if emit != nil {
+		return emit(formula)
+	}
+	ref, err := q.manager.NewRef(formula)
+	if err != nil {
+		return err
+	}
+	*result = append(*result, ref)
+	return nil
+}
+
+func (q *quantifiedLinear) compileGroup(c *Compiler, rules *base.RuleSet, predicate ast.ASTHandle, result *[]ast.ASTRef, emit func(ast.ASTHandle) error) (resultErr error) {
 	group, err := rules.PredicateRules(predicate)
 	if err != nil {
 		return err
@@ -62,6 +84,11 @@ func (q *quantifiedLinear) compileGroup(c *Compiler, rules *base.RuleSet, predic
 	defer func() {
 		resultErr = disposeRuleOwners(q.manager, group, resultErr)
 	}()
+	// pr = mk_q_func_decl(p); pred = m.mk_app(pr, var): built before the rules.
+	head, err := q.predicate(predicate, q.variable)
+	if err != nil {
+		return err
+	}
 	var alternatives []ast.ASTHandle
 	for i, rule := range group {
 		atom, e := q.rule(predicate, uint32(i))
@@ -81,11 +108,9 @@ func (q *quantifiedLinear) compileGroup(c *Compiler, rules *base.RuleSet, predic
 		if e != nil {
 			return e
 		}
-		ref, e := q.manager.NewRef(quantified)
-		if e != nil {
+		if e = q.publish(quantified, result, emit); e != nil {
 			return e
 		}
-		*result = append(*result, ref)
 	}
 	disjunction, err := c.simplifyBoolean(false, alternatives)
 	if err != nil {
@@ -93,10 +118,6 @@ func (q *quantifiedLinear) compileGroup(c *Compiler, rules *base.RuleSet, predic
 	}
 	q.refs = append(q.refs, disjunction)
 	value, err := q.manager.RefGet(disjunction)
-	if err != nil {
-		return err
-	}
-	head, err := q.predicate(predicate, q.variable)
 	if err != nil {
 		return err
 	}
@@ -108,12 +129,7 @@ func (q *quantifiedLinear) compileGroup(c *Compiler, rules *base.RuleSet, predic
 	if err != nil {
 		return err
 	}
-	ref, err := q.manager.NewRef(quantified)
-	if err != nil {
-		return err
-	}
-	*result = append(*result, ref)
-	return nil
+	return q.publish(quantified, result, emit)
 }
 
 func (q *quantifiedLinear) compileRule(c *Compiler, rule *base.Rule, predicate ast.ASTHandle, ruleIndex uint32) (_ ast.ASTHandle, resultErr error) {
@@ -190,11 +206,20 @@ func (q *quantifiedLinear) compileRule(c *Compiler, rule *base.Rule, predicate a
 		if e = addEqualities(tail, decl, false); e != nil {
 			return ast.ASTHandle{}, e
 		}
+		// qr = mk_q_func_decl(q) is built before bvsub(var, 1).
+		rangeSort, e := q.manager.GetRange(decl)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		qr, e := q.declaration(decl, "#", rangeSort)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
 		previous, e := q.hold(q.manager.MkBitVectorSub(q.variable, q.one))
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		pred, e := q.predicate(decl, previous)
+		pred, e := q.hold(q.manager.MkApp(qr, []ast.ASTHandle{previous}))
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}

@@ -215,6 +215,15 @@ func (q *quantifiedLinear) rule(predicate ast.ASTHandle, index uint32) (ast.ASTH
 }
 
 func (q *quantifiedLinear) argument(predicate ast.ASTHandle, column uint32, current bool) (ast.ASTHandle, error) {
+	// mk_q_arg builds bvsub(var, 1) before the func_decl.
+	index := q.variable
+	var err error
+	if !current {
+		index, err = q.hold(q.manager.MkBitVectorSub(index, q.one))
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+	}
 	sort, err := q.manager.GetDomain(predicate, column)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -222,13 +231,6 @@ func (q *quantifiedLinear) argument(predicate ast.ASTHandle, column uint32, curr
 	decl, err := q.declaration(predicate, fmt.Sprintf("#%d", column), sort)
 	if err != nil {
 		return ast.ASTHandle{}, err
-	}
-	index := q.variable
-	if !current {
-		index, err = q.hold(q.manager.MkBitVectorSub(index, q.one))
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
 	}
 	return q.hold(q.manager.MkApp(decl, []ast.ASTHandle{index}))
 }

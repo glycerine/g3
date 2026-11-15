@@ -69,25 +69,8 @@ func (c *Compiler) checkQuantifiedLinearWidth(rules *base.RuleSet, query ast.AST
 	if err := verboseLine(1, "bit_width: %d\n", width); err != nil {
 		return lbool.Undef, nil, err
 	}
-	formulas, err := c.CompileQuantifiedLinear(rules, width)
-	if err != nil {
-		return lbool.Undef, nil, err
-	}
-	for i := range formulas {
-		value, cause := c.manager.RefGet(formulas[i])
-		if cause == nil {
-			cause = solver.AssertFormula(value)
-		}
-		if cause != nil {
-			err = cause
-			break
-		}
-	}
-	// qlinear::check owns the complete compiled formula vector until it has
-	// been asserted. Preserve the reverse cleanup frontier when native AST
-	// destruction refuses instead of losing the remaining formula roots.
-	err = disposeASTRefs(c.manager, formulas, err)
-	if err != nil {
+	// qlinear::compile asserts each formula as soon as it is built.
+	if _, err := c.compileQuantifiedLinear(rules, width, solver.AssertFormula); err != nil {
 		return lbool.Undef, nil, err
 	}
 	// qlinear::check checkpoints after compiling/asserting one width and
@@ -105,6 +88,15 @@ func (c *Compiler) checkQuantifiedLinearWidth(rules *base.RuleSet, query ast.AST
 		return lbool.Undef, nil, err
 	}
 	attempt.terms = q
+	// q = mk_q_func_decl(b.m_query_pred) is built before T.
+	rangeSort, err := c.manager.GetRange(query)
+	if err != nil {
+		return lbool.Undef, nil, err
+	}
+	qr, err := q.declaration(query, "#", rangeSort)
+	if err != nil {
+		return lbool.Undef, nil, err
+	}
 	name, err := c.manager.Symbols.Intern("T")
 	if err != nil {
 		return lbool.Undef, nil, err
@@ -113,7 +105,7 @@ func (c *Compiler) checkQuantifiedLinearWidth(rules *base.RuleSet, query ast.AST
 	if err != nil {
 		return lbool.Undef, nil, err
 	}
-	goal, err := q.predicate(query, index)
+	goal, err := q.hold(c.manager.MkApp(qr, []ast.ASTHandle{index}))
 	if err != nil {
 		return lbool.Undef, nil, err
 	}
