@@ -142,3 +142,14 @@ z3_bug_duality_unhoist_repeated_child
 # muz_rel_04-F2). Reproduction:
 # test_vectors/z3_bug_lazy_sparse_nullary_union.smt2.
 z3_bug_lazy_sparse_nullary_union
+#
+# Quantified BMC (qbmc) proof reconstruction reads the rule variables at the
+# rule ordinal instead of the trace level and assumes facts are selected
+# only at level 0, so on a recursive program the next step does not unify
+# and z3 aborts in VERIFY(unifier.unify_rules(...)) (z3 bug:
+# src/muz/bmc/dl_bmc_engine.cpp qlinear::get_model; fixed upstream in
+# 784b613b5, #11540). g3 evaluates at the level and stops at any fact
+# (pkg/muz/bmc/quantified_linear_bind.go, quantified_linear_trace.go;
+# AUDIT.md muz_small_01-F8). Reproduction:
+# test_vectors/z3_bug_qbmc_eval_level.smt2.
+z3_bug_qbmc_eval_level

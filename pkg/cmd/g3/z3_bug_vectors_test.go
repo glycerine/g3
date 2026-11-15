@@ -36,6 +36,9 @@ var z3BugResults = map[string]string{
 
 	// muz_rel_04-F2
 	"z3_bug_lazy_sparse_nullary_union.smt2": "sat\ntrue\n",
+
+	// muz_small_01-F8
+	"z3_bug_qbmc_eval_level.smt2": "sat\n(let ((a!1 (forall ((A Int)) (=> (and (p A) (not (<= A 2))) q)))\n      (a!2 (forall ((A Int) (B Int)) (=> (and (p A) (= B (+ 1 A))) (p B)))))\n(let ((a!3 (hyper-res (hyper-res (asserted (=> q query!0))\n                                 (asserted a!1)\n                                 (=> (p 5) query!0))\n                      (asserted a!2)\n                      (=> (p 4) query!0))))\n(let ((a!4 (hyper-res (hyper-res a!3 (asserted a!2) (=> (p 3) query!0))\n                      (asserted a!2)\n                      (=> (p 2) query!0))))\n(let ((a!5 (hyper-res (hyper-res a!4 (asserted a!2) (=> (p 1) query!0))\n                      (asserted a!2)\n                      (=> (p 0) query!0))))\n  ((_ hyper-res 0 1) a!5 (asserted (p 0)) query!0)))))\n",
 }
 
 func TestZ3BugVectorsKeepCorrectAnswers(t *testing.T) {
