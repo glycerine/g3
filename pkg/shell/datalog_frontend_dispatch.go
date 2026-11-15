@@ -17,12 +17,13 @@ func RunDatalogFrontend(context *cmd_context.Context, path string, output, diagn
 	if err != nil {
 		return err
 	}
+	if diagnostics == nil {
+		diagnostics = os.Stderr
+	}
+	frontend.SetDiagnostics(diagnostics)
 	err = frontend.Run(path)
 	var parseError *DatalogParseError
 	if errors.As(err, &parseError) {
-		if diagnostics == nil {
-			diagnostics = os.Stderr
-		}
 		if _, err = io.WriteString(diagnostics, parseError.Message+"ERROR: failed to parse file\n"); err != nil {
 			return err
 		}

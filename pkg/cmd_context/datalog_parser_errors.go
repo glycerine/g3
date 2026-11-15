@@ -1,18 +1,20 @@
 package cmd_context
 
+// Source: dparser::unexpected and the default_exception throws of
+// datalog_parser.cpp, caught by parse_stream as z3_exception.
+
 import "fmt"
 
-func (p *datalogParser) expected(what string) error {
-	name := "unknown"
-	if int(p.current.kind) < len(datalogTokenNames) {
-		name = datalogTokenNames[p.current.kind]
-	}
-	return fmt.Errorf("datalog:%d:%d: expected %s, found %s %q", p.current.line, p.current.col, what, name, p.current.text)
+// datalogException is a default_exception thrown by the Datalog parser.
+type datalogException struct{ msg string }
+
+func (e *datalogException) Error() string { return e.msg }
+
+func datalogExceptionf(format string, args ...any) error {
+	return &datalogException{msg: fmt.Sprintf(format, args...)}
 }
 
-func (p *datalogParser) require(kind datalogToken, what string) error {
-	if p.current.kind != kind {
-		return p.expected(what)
-	}
-	return nil
+// unexpected throws "%s at line %u '%s' found '%s'\n".
+func (p *datalogParser) unexpected(tok dtoken, msg string) (dtoken, error) {
+	return tok, datalogExceptionf("%s at line %d '%s' found '%s'\n", msg, p.lexer.getLine(), p.lexer.tokenData(), dtokenStrings[tok])
 }

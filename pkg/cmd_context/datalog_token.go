@@ -1,34 +1,52 @@
 package cmd_context
 
-// Source: src/muz/fp/datalog_parser.cpp dtoken and reserved_symbols.
+// Source: src/muz/fp/datalog_parser.cpp dtoken, dtoken_strings and
+// reserved_symbols.
 
-type datalogToken uint8
+type dtoken uint8
 
 const (
-	dlLeftParen datalogToken = iota
-	dlRightParen
-	dlString
-	dlIdentifier
-	dlNumber
-	dlPeriod
-	dlInclude
-	dlComma
-	dlColon
-	dlWildcard
-	dlLeftArrow
-	dlEOF
-	dlNewline
-	dlNotEqual
-	dlLess
-	dlGreater
-	dlEqual
-	dlNegation
+	dtkLP dtoken = iota
+	dtkRP
+	dtkString
+	dtkID
+	dtkNum
+	dtkPeriod
+	dtkInclude
+	dtkComma
+	dtkColon
+	dtkWild
+	dtkLeftArrow
+	dtkEOS
+	dtkNewline
+	dtkError
+	dtkNEQ
+	dtkLT
+	dtkGT
+	dtkEQ
+	dtkNeg
 )
 
-var datalogTokenNames = [...]string{"(", ")", "string", "identifier", "number", ".", ".include", ",", ":", "_", ":-", "end of input", "newline", "!=", "<", ">", "=", "!"}
+var dtokenStrings = [...]string{"(", ")", "<string>", "<id>", "<num>", ".", ".include", ",", ":", "_", ":-", "<eos>", "\\n", "<error>", "!=", "<", ">", "=", "!"}
 
-type datalogLexeme struct {
-	kind      datalogToken
-	text      string
-	line, col int
+// datalogReservedSymbols is reserved_symbols::m_str2token.
+var datalogReservedSymbols = map[string]dtoken{
+	":-":       dtkLeftArrow,
+	"_":        dtkWild,
+	".":        dtkPeriod,
+	"!=":       dtkNEQ,
+	"=":        dtkEQ,
+	"<":        dtkLT,
+	">":        dtkGT,
+	":":        dtkColon,
+	".include": dtkInclude,
+	"!":        dtkNeg,
+}
+
+// string2dtoken is reserved_symbols::string2dtoken.
+func string2dtoken(str string) dtoken {
+	if tok, found := datalogReservedSymbols[str]; found {
+		return tok
+	}
+	return dtkID
 }

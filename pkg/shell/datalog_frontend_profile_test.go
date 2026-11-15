@@ -21,14 +21,16 @@ func TestDatalogFrontendProfileRendersRelationSizes(t *testing.T) {
 		t.Fatal(err)
 	}
 	profile, err := frontend.Profile()
-	if err != nil || profile.RuleCount != 2 || profile.RelationCount != 2 || profile.TupleCount != 2 {
+	// The fact P. goes to context::add_fact (dparser::add_rule), so the
+	// rule set holds only Q :- P.
+	if err != nil || profile.RuleCount != 1 || profile.RelationCount != 2 || profile.TupleCount != 2 {
 		t.Fatalf("profile %#v error %v", profile, err)
 	}
 	var output bytes.Buffer
 	if err = frontend.WriteProfile(&output); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"relation sizes\n", "P: 1\n", "Q: 1\n", "rules: 2\n", "relations: 2\n", "tuples: 2\n", "compiled: true\n"} {
+	for _, want := range []string{"relation sizes\n", "P: 1\n", "Q: 1\n", "rules: 1\n", "relations: 2\n", "tuples: 2\n", "compiled: true\n"} {
 		if !strings.Contains(output.String(), want) {
 			t.Fatalf("profile missing %q: %q", want, output.String())
 		}

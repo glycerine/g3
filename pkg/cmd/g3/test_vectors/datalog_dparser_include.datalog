@@ -1,0 +1,7 @@
+.include "datalog_dparser_include_part.dl"
+F 4 datalog_dparser_include_names.map
+
+.include "datalog_dparser_include_rules.dl"
+Q(x:F) printtuples
+Q("beta").
+Q("gamma").

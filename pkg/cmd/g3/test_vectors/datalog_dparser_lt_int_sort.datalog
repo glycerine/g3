@@ -1,0 +1,6 @@
+I int
+
+P(x:I) printtuples
+Q(x:I) printtuples
+P(1).
+Q(X) :- P(X), X < 3.

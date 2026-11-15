@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
+	"github.com/glycerine/g3/pkg/muz/base"
 )
 
 func TestWPAFinishSortsAllocationFailureReleasesEverySort(t *testing.T) {
@@ -49,10 +50,10 @@ func TestWPAFinishSortsAllocationFailureReleasesEverySort(t *testing.T) {
 				}
 			} else {
 				completed = true
-				if len(p.rules.sorts) != mappedSorts+2 {
-					t.Fatal("successful construction lost sorts", len(p.rules.sorts))
+				if len(p.rules.sortDict) != mappedSorts+2 {
+					t.Fatal("successful construction lost sorts", len(p.rules.sortDict))
 				}
-				for name, handle := range p.rules.sorts {
+				for name, handle := range p.rules.sortDict {
 					size, finite, err := m.DatalogFiniteSortSize(handle)
 					contextMust(t, err)
 					want := uint64(3) // Two distinct mapped numbers plus zero capacity.
@@ -67,6 +68,13 @@ func TestWPAFinishSortsAllocationFailureReleasesEverySort(t *testing.T) {
 				}
 			}
 			contextMust(t, p.rules.close())
+			// The parser registers each sort with the context's datalog
+			// owner (context::register_finite_sort), which keeps it until
+			// the owner closes. A fresh owner holds what the original held
+			// before finishSorts.
+			contextMust(t, c.datalogDisplay.Close())
+			c.datalogDisplay, err = base.NewDatalogContext(m)
+			contextMust(t, err)
 			after := m.Stats()
 			if after.LiveNodes != before.LiveNodes || after.LiveReferences != before.LiveReferences || after.LiveInfos != before.LiveInfos || after.LiveParameters != before.LiveParameters {
 				t.Fatalf("sort construction left owners after cleanup: nodes %d/%d refs %d/%d infos %d/%d parameters %d/%d; cause %v", after.LiveNodes, before.LiveNodes, after.LiveReferences, before.LiveReferences, after.LiveInfos, before.LiveInfos, after.LiveParameters, before.LiveParameters, cause)
@@ -107,7 +115,7 @@ func TestWPAFinishSortsFollowsSortContentsTableOrder(t *testing.T) {
 	}
 	var previous uint32
 	for i, name := range append([]string{"BOOL", "SHORT"}, order...) {
-		id, err := p.manager.GetASTID(p.rules.sorts[name])
+		id, err := p.manager.GetASTID(p.rules.sortDict[name])
 		contextMust(t, err)
 		if i > 0 && id <= previous {
 			t.Fatalf("sort %s (id %d) was not registered after its predecessor (id %d); table order %v", name, id, previous, order)

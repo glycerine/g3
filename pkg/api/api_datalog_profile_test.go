@@ -15,7 +15,9 @@ func TestAPIProfileDatalogPathReturnsNamedRelationSummary(t *testing.T) {
 	astTestMust(t, os.WriteFile(path, []byte("\nP\nQ\nP.\nQ :- P.\n"), 0o600))
 	result, err := context.ProfileDatalogPath(path)
 	astTestMust(t, err)
-	if result.Profile.RuleCount != 2 || result.Profile.TupleCount != 2 || len(result.Profile.Relations) != 2 || result.Profile.Relations[1].Name != "Q" || !strings.Contains(result.Output, "Q: 1") {
+	// The fact P. goes to context::add_fact (dparser::add_rule), so the
+	// rule set holds only Q :- P.
+	if result.Profile.RuleCount != 1 || result.Profile.TupleCount != 2 || len(result.Profile.Relations) != 2 || result.Profile.Relations[1].Name != "Q" || !strings.Contains(result.Output, "Q: 1") {
 		t.Fatalf("result %#v output %q", result, result.Output)
 	}
 }

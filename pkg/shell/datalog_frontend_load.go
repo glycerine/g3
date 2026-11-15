@@ -4,8 +4,10 @@ package shell
 // src/muz/fp/datalog_parser.cpp parser_impl::parse_file.
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -41,21 +43,31 @@ func (f *DatalogFrontend) Load(path string) error {
 	var err error
 	if info, statErr := os.Stat(path); statErr == nil && info.IsDir() {
 		err = f.context.ParseWPADirectory(path)
-	} else {
-		// parse_file: char_reader reader(filename); if (!reader()) ...
-		input, openErr := os.Open(path)
-		if openErr != nil {
-			f.parseFinished = time.Now()
-			return &DatalogParseError{Message: fmt.Sprintf("ERROR: could not open file '%s'.\n", path), Cause: openErr}
+		f.parseFinished = time.Now()
+		if err != nil {
+			return &DatalogParseError{Message: err.Error() + "\n", Cause: fmt.Errorf("Datalog parse %s: %w", path, err)}
 		}
-		if err = input.Close(); err != nil {
+	} else {
+		// parser::parse_file prints its own messages to std::cerr.
+		var printed bytes.Buffer
+		var ok bool
+		ok, err = f.context.ParseDatalogFileTo(path, &printed)
+		f.parseFinished = time.Now()
+		if err != nil {
 			return err
 		}
-		err = f.context.ParseDatalogFile(path)
-	}
-	f.parseFinished = time.Now()
-	if err != nil {
-		return &DatalogParseError{Message: err.Error() + "\n", Cause: fmt.Errorf("Datalog parse %s: %w", path, err)}
+		if !ok {
+			return &DatalogParseError{Message: printed.String(), Cause: fmt.Errorf("Datalog parse %s: %s", path, strings.TrimRight(printed.String(), "\n"))}
+		}
+		if printed.Len() != 0 {
+			diagnostics := f.diagnostics
+			if diagnostics == nil {
+				diagnostics = os.Stderr
+			}
+			if _, err = diagnostics.Write(printed.Bytes()); err != nil {
+				return err
+			}
+		}
 	}
 	f.loaded = true
 	// IF_VERBOSE(1, "parsing finished"), IF_VERBOSE(1, "running

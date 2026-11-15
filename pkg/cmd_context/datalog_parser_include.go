@@ -1,63 +1,48 @@
 package cmd_context
 
-// Source: dparser::parse_include with source-relative nested resolution.
+// Source: dparser::parse_include. The included file is named relative to
+// the directory prefix of the top-level file (m_path).
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
+	"io"
 
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
-func (p *datalogParser) parseInclude(domains bool) error {
-	if err := p.advance(); err != nil {
-		return err
-	}
-	if p.current.kind != dlString {
-		return p.expected("include filename string")
-	}
-	filename := p.current.text
-	// IF_VERBOSE(2, "include: " << filename) (AUDIT.md FUZZ-F5; g3trace only).
-	if err := datalogParserVerbose(2, "include: "+filename+"\n"); err != nil {
-		return err
-	}
-	if !filepath.IsAbs(filename) {
-		filename = filepath.Join(p.path, filename)
-	}
-	input, err := os.ReadFile(filename)
-	if err != nil {
-		return fmt.Errorf("datalog include %s: %w", filename, err)
-	}
-	outerLexer, outerCurrent, outerPath := p.lexer, p.current, p.path
-	p.lexer, p.path = newDatalogLexer(input), filepath.Dir(filename)
-	p.lexer.parsingDomains = domains
-	if err = p.advance(); err == nil {
-		if domains {
-			err = p.parseDomains()
-		} else {
-			err = p.parseRules()
+func (p *datalogParser) parseInclude(filename string, parsingDomain bool) (dtoken, error) {
+	// IF_VERBOSE(2, ...) progress line: g3trace builds only (owner decision
+	// 2026-11-15).
+	if diagnostic.VerboseProgress {
+		if err := diagnostic.ProgressVerbose(2, "include: "+filename+"\n"); err != nil {
+			return dtkError, err
 		}
 	}
-	p.lexer, p.current, p.path = outerLexer, outerCurrent, outerPath
+	path := p.path + filename
+	stream := newDatalogCharReader(path)
+	if !stream.ok() {
+		_, err := io.WriteString(p.errOut, "ERROR: could not open file '"+path+"'.\n")
+		return dtkError, err
+	}
+	lexer := newDlexer()
+	outer := p.lexer
+	p.lexer = lexer
+	tok, err := func() (dtoken, error) {
+		defer func() { p.lexer = outer }()
+		p.lexer.setStream(nil, stream)
+		tok := p.lexer.nextToken()
+		var err error
+		if parsingDomain {
+			if tok, err = p.parseDomains(tok); err != nil {
+				return tok, err
+			}
+		}
+		return p.parseDecls(tok)
+	}()
 	if err != nil {
-		return err
+		return tok, err
 	}
-	if err = p.advance(); err != nil {
-		return err
+	if tok == dtkEOS {
+		tok = p.lexer.nextToken()
 	}
-	if domains && p.current.kind == dlNewline {
-		return p.advance()
-	}
-	return nil
-}
-
-// datalogParserVerbose is IF_VERBOSE(level, verbose_stream() << text) for
-// the datalog/WPA parsers, compiled only into g3trace builds (AUDIT.md
-// FUZZ-F5).
-func datalogParserVerbose(level uint32, text string) error {
-	if !diagnostic.VerboseProgress {
-		return nil
-	}
-	return diagnostic.ProgressVerbose(level, text)
+	return tok, nil
 }

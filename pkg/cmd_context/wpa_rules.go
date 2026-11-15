@@ -13,11 +13,9 @@ func (p *wpaParser) readRules() error {
 		contents, _ := os.ReadFile(path)
 		// WPA registers domains once, then parses each rules file into the
 		// same source constant tables that its relation tuples will use.
-		p.rules.lexer = newDatalogLexer(contents)
-		if err := p.rules.advance(); err != nil {
-			return err
-		}
-		if err := p.rules.parseRules(); err != nil {
+		p.rules.lexer = newDlexer()
+		p.rules.lexer.setStream(&datalogStreamInput{data: contents}, nil)
+		if _, err := p.rules.parseDecls(p.rules.lexer.nextToken()); err != nil {
 			return err
 		}
 	}

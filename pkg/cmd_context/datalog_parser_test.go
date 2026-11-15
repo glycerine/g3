@@ -1,6 +1,7 @@
 package cmd_context
 
 import (
+	"bytes"
 	"errors"
 	"testing"
 
@@ -23,8 +24,9 @@ func TestDatalogParserDeclarationsFactsRulesAndInfix(t *testing.T) {
 	contextMust(t, err)
 	rules, err := engine.Rules()
 	contextMust(t, err)
-	if len(rules) != 2 {
-		t.Fatalf("parsed rules %d, want 2", len(rules))
+	// The ground fact goes to context::add_fact, not to the rule set.
+	if len(rules) != 1 {
+		t.Fatalf("parsed rules %d, want 1", len(rules))
 	}
 	manager, err := context.Manager()
 	contextMust(t, err)
@@ -75,5 +77,57 @@ func TestDatalogParserCommentOnlyLinesDoNotEndDomains(t *testing.T) {
 		if !found || size != want {
 			t.Fatalf("domain %d size %d found %v, want %d", i, size, found, want)
 		}
+	}
+}
+
+// AUDIT.md cmd_context_01-F9: parse_domain returns the newline after `int`
+// unconsumed, so parse_domains ends the domain section there and `W 5` is
+// parsed as a rule.
+func TestDatalogIntDomainEndsDomainSection(t *testing.T) {
+	context := contextFixture(t)
+	var printed bytes.Buffer
+	ok, err := context.ParseDatalogStringTo("V int\nW 5\n\nedge(a:W, b:W)\n", &printed)
+	contextMust(t, err)
+	if want := "unexpected token at line 2 '5' found '<num>'\n\n"; ok || printed.String() != want {
+		t.Fatalf("ok %v printed %q, want %q", ok, printed.String(), want)
+	}
+}
+
+// The parser messages of dparser and the exceptions parse_stream catches.
+func TestDatalogParserMessagesMatchCPP(t *testing.T) {
+	for _, tc := range []struct{ input, want string }{
+		{"V 10\n\nedge(a:V, b:V)\nedge(1,2)", "'.' expected at the end of rule at line 4 '' found '<eos>'\n\n"},
+		{"V 0\n", "Domain size of sort 'V' may not be 0\n"},
+		{"V 2\n\nedge(a:V)\nedge(1).\nedge(2).\nedge(3).\n", "sort V contains more constants than its declared size 2\n"},
+		{"V 2\nV1 3\n", "sort V already declared\n"},
+		{"V 2\n\nP(x:W)\n", "unknown sort \"W\"\n"},
+		{"P\nQ\n", "numeral or 'int' at line 2 '' found '\\n'\n\n"},
+		{"V 3\n\nP(x:V)\nQ(x:V)\nP(1).\nQ(X) :- P(X), R(y:V), X < Y.\n", "identifier at line 6 'Y' found '<id>'\n\n"},
+		{"I int\n\nP(x:I)\nP(-3).\n", "integer expected at line 4 '-3' found '<num>'\n\n"},
+		{"I int\n\nP(x:I)\nP(\"abc\").\n", "Invalid integer: \"abc\"\n"},
+		{"V 3\nW 3\n\nP(x:V)\nQ(x:W)\nR(x:V)\nR(X) :- P(X), Q(X).\n", "sort: W expected, but got: V\n\n"},
+		{"V 3\n\nP(x:V)\nP(1,2).\n", "too many arguments passed to predicate at line 4 '2' found '<num>'\n\n"},
+		{"V 3\n\nP(x:V)\nP().\n", "too many arguments passed to predicate at line 4 '.' found '.'\n\n"},
+		{"V 3\n\nP(x:V)\nP(X) :- !.\n", "expected predicate or relation at line 4 '.' found '.'\n\n"},
+		// A string on the last line of a string input is read like any
+		// other; a file's last line fails (see the -dl vectors).
+		{"V 3\n\nP(x:V)\nP(\"a\n", "too few arguments passed to predicate at line 4 'a' found '<error>'\n\n"},
+	} {
+		context := contextFixture(t)
+		var printed bytes.Buffer
+		ok, err := context.ParseDatalogStringTo(tc.input, &printed)
+		contextMust(t, err)
+		if ok || printed.String() != tc.want {
+			t.Errorf("%q: ok %v printed %q, want %q", tc.input, ok, printed.String(), tc.want)
+		}
+	}
+}
+
+// parse_pred declares a predicate first used in a rule body.
+func TestDatalogParserBodyDeclaresPredicate(t *testing.T) {
+	context := contextFixture(t)
+	contextMust(t, context.ParseDatalogString("V 3\n\nP(x:V)\nQ(x:V)\nP(1).\nQ(X) :- P(X), R(y:V).\n"))
+	if _, err := context.FindFunctionDeclaration("R", nil, nil, ast.ASTHandle{}); err != nil {
+		t.Fatal("body predicate was not declared", err)
 	}
 }

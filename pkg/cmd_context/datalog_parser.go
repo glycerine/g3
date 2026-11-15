@@ -1,38 +1,75 @@
 package cmd_context
 
-// Source: src/muz/fp/datalog_parser.cpp dparser retained API/shell parser.
+// Source: src/muz/fp/datalog_parser.cpp dparser (parse_file, parse_string,
+// reset, set_path, parse_stream).
 
 import (
+	"bytes"
 	"errors"
-	"os"
-	"path/filepath"
+	"io"
+	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/base"
 )
 
 type datalogParser struct {
-	context    *Context
-	manager    *ast.ASTManager
-	lexer      *datalogLexer
-	current    datalogLexeme
-	path       string
-	sorts      map[string]ast.ASTHandle
+	context *Context
+	manager *ast.ASTManager
+	// owner is the datalog context's sort domains: register_finite_sort and
+	// get_constant_number.
+	owner *base.DatalogContext
+	lexer *dlexer
+
+	numVars  uint32
+	vars     map[string]ast.ASTHandle
+	path     string
+	sortDict map[string]ast.ASTHandle
+	// predicates is context::m_preds_by_name, for try_get_predicate_decl.
 	predicates map[string]ast.ASTHandle
-	constants  map[ast.ASTHandle]map[string]uint64
-	// WPA numeric domains use uint64 keys for relation tuples. Ordinary
-	// Datalog finite domains keep their existing symbolic constant identity.
-	numericConstants map[ast.ASTHandle]map[uint64]uint64
-	variables        map[string]ast.ASTHandle
-	nextVar          uint32
-	pins             []ast.ASTRef
+	// errOut is get_err(), std::cerr.
+	errOut io.Writer
+	pins   []ast.ASTRef
 }
 
-func newDatalogParser(context *Context) (*datalogParser, error) {
+func newDatalogParser(context *Context, errOut io.Writer) (*datalogParser, error) {
 	manager, err := context.Manager()
 	if err != nil {
 		return nil, err
 	}
-	return &datalogParser{context: context, manager: manager, sorts: make(map[string]ast.ASTHandle), predicates: make(map[string]ast.ASTHandle), constants: make(map[ast.ASTHandle]map[string]uint64)}, nil
+	if context.datalogDisplay == nil {
+		owner, err := base.NewDatalogContext(manager)
+		if err != nil {
+			return nil, err
+		}
+		context.datalogDisplay = owner
+	}
+	if errOut == nil {
+		errOut = io.Discard
+	}
+	p := &datalogParser{context: context, manager: manager, owner: context.datalogDisplay, sortDict: make(map[string]ast.ASTHandle), predicates: make(map[string]ast.ASTHandle), vars: make(map[string]ast.ASTHandle), errOut: errOut}
+	// Predicates registered by an earlier parse of the same context are
+	// found by name, as context::try_get_predicate_decl finds them.
+	engine, err := context.fixedpointContext()
+	if err != nil {
+		return nil, err
+	}
+	declarations, err := engine.Predicates()
+	if err != nil {
+		return nil, err
+	}
+	for _, declaration := range declarations {
+		name, err := manager.GetASTName(declaration)
+		if err != nil {
+			return nil, err
+		}
+		text, err := manager.Symbols.String(name)
+		if err != nil {
+			return nil, err
+		}
+		p.predicates[text] = declaration
+	}
+	return p, nil
 }
 
 func (p *datalogParser) close() (err error) {
@@ -51,55 +88,120 @@ func (p *datalogParser) pin(h ast.ASTHandle) (ast.ASTHandle, error) {
 	return h, err
 }
 
-func (p *datalogParser) advance() error {
-	token, err := p.lexer.next()
+// parseFile is dparser::parse_file for a named file.
+func (p *datalogParser) parseFile(filename string) (bool, error) {
+	p.reset()
+	p.setPath(filename)
+	reader := newDatalogCharReader(filename)
+	if !reader.ok() {
+		_, err := io.WriteString(p.errOut, "ERROR: could not open file '"+filename+"'.\n")
+		return false, err
+	}
+	return p.parseStream(nil, reader)
+}
+
+// parseString is dparser::parse_string.
+func (p *datalogParser) parseString(input string) (bool, error) {
+	p.reset()
+	return p.parseStream(&datalogStreamInput{data: []byte(input)}, nil)
+}
+
+func (p *datalogParser) reset() {
+	p.numVars = 0
+	p.vars = make(map[string]ast.ASTHandle)
+	p.path = ""
+	p.sortDict = make(map[string]ast.ASTHandle)
+}
+
+func (p *datalogParser) setPath(filename string) {
+	div := strings.LastIndexByte(filename, '/')
+	if div < 0 {
+		div = strings.LastIndexByte(filename, '\\')
+	}
+	if div >= 0 {
+		p.path = filename[:div+1]
+	}
+}
+
+// parseStream is dparser::parse_stream. A z3_exception (datalogException)
+// is printed with std::endl and makes the parse fail; other Go errors are
+// internal failures.
+func (p *datalogParser) parseStream(is *datalogStreamInput, r *datalogCharReader) (bool, error) {
+	p.lexer = newDlexer()
+	p.lexer.setStream(is, r)
+	tok := p.lexer.nextToken()
+	tok, err := p.parseDomains(tok)
 	if err == nil {
-		p.current = token
+		tok, err = p.parseDecls(tok)
+	}
+	if err != nil {
+		var exception *datalogException
+		if errors.As(err, &exception) {
+			_, err = io.WriteString(p.errOut, exception.msg+"\n")
+			return false, err
+		}
+		return false, err
+	}
+	// m_error is never set (unexpected throws), so only the token decides.
+	return tok == dtkEOS, nil
+}
+
+// datalogParseFailure is a false result of parse_file/parse_string for the
+// error-returning API: the text the parser printed to std::cerr.
+type datalogParseFailure struct{ printed string }
+
+func (e *datalogParseFailure) Error() string {
+	if e.printed == "" {
+		return "datalog: failed to parse"
+	}
+	return strings.TrimRight(e.printed, "\n")
+}
+
+func (c *Context) parseDatalog(errOut io.Writer, run func(*datalogParser) (bool, error)) (ok bool, resultErr error) {
+	p, err := newDatalogParser(c, errOut)
+	if err != nil {
+		return false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, p.close()) }()
+	ok, err = run(p)
+	if err != nil || !ok {
+		return false, err
+	}
+	return true, c.rememberDatalogDisplay(p)
+}
+
+// ParseDatalogFileTo is parser::parse_file: the messages the C++ parser
+// prints to std::cerr go to errOut, and ok is the C++ result. err reports
+// only internal failures.
+func (c *Context) ParseDatalogFileTo(filename string, errOut io.Writer) (ok bool, err error) {
+	return c.parseDatalog(errOut, func(p *datalogParser) (bool, error) { return p.parseFile(filename) })
+}
+
+// ParseDatalogStringTo is parser::parse_string, reporting like
+// ParseDatalogFileTo.
+func (c *Context) ParseDatalogStringTo(input string, errOut io.Writer) (ok bool, err error) {
+	return c.parseDatalog(errOut, func(p *datalogParser) (bool, error) { return p.parseString(input) })
+}
+
+// ParseDatalogString parses the legacy Datalog syntax and adds declarations,
+// facts and Horn rules to this context's fixedpoint engine. A failed parse
+// is an error carrying the parser's message.
+func (c *Context) ParseDatalogString(input string) error {
+	var printed bytes.Buffer
+	ok, err := c.ParseDatalogStringTo(input, &printed)
+	if err == nil && !ok {
+		err = &datalogParseFailure{printed: printed.String()}
 	}
 	return err
 }
 
-func (p *datalogParser) parse(input []byte, path string) error {
-	p.path = path
-	p.lexer = newDatalogLexer(input)
-	p.lexer.parsingDomains = true
-	if err := p.advance(); err != nil {
-		return err
+// ParseDatalogFile is ParseDatalogString for a file; includes and map files
+// are resolved against the file's directory prefix.
+func (c *Context) ParseDatalogFile(filename string) error {
+	var printed bytes.Buffer
+	ok, err := c.ParseDatalogFileTo(filename, &printed)
+	if err == nil && !ok {
+		err = &datalogParseFailure{printed: printed.String()}
 	}
-	if err := p.parseDomains(); err != nil {
-		return err
-	}
-	p.lexer.parsingDomains = false
-	return p.parseRules()
-}
-
-// ParseDatalogString parses the legacy Datalog syntax and adds declarations,
-// facts and Horn rules to this context's fixedpoint engine.
-func (c *Context) ParseDatalogString(input string) (resultErr error) {
-	p, err := newDatalogParser(c)
-	if err != nil {
-		return err
-	}
-	defer func() { resultErr = errors.Join(resultErr, p.close()) }()
-	if err = p.parse([]byte(input), ""); err != nil {
-		return err
-	}
-	return c.rememberDatalogDisplay(p)
-}
-
-// ParseDatalogFile preserves source-relative .include resolution.
-func (c *Context) ParseDatalogFile(filename string) (resultErr error) {
-	input, err := os.ReadFile(filename)
-	if err != nil {
-		return err
-	}
-	p, err := newDatalogParser(c)
-	if err != nil {
-		return err
-	}
-	defer func() { resultErr = errors.Join(resultErr, p.close()) }()
-	if err = p.parse(input, filepath.Dir(filename)); err != nil {
-		return err
-	}
-	return c.rememberDatalogDisplay(p)
+	return err
 }

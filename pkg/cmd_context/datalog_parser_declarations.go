@@ -1,153 +1,149 @@
 package cmd_context
 
-// Source: dparser::parse_pred and declaration branch of parse_args.
+// Source: dparser::parse_pred and parse_args.
 
 import (
-	"fmt"
-
 	"github.com/glycerine/g3/pkg/ast"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func (p *datalogParser) predicate(name string, declarationAllowed bool) (ast.ASTHandle, bool, error) {
-	declaration, found := p.predicates[name]
+func (p *datalogParser) parsePred(tok dtoken, s string) (dtoken, ast.ASTHandle, bool, error) {
+	var args []ast.ASTHandle
+	var argNames []usymbol.Symbol
+	f, found := p.predicates[s] // context::try_get_predicate_decl
+	tok, args, argNames, err := p.parseArgs(tok, f, found, args, argNames)
+	if err != nil {
+		return tok, ast.ASTHandle{}, false, err
+	}
+	isPredicateDeclaration := !found
+	engine, err := p.context.fixedpointContext()
+	if err != nil {
+		return tok, ast.ASTHandle{}, false, err
+	}
 	if !found {
-		if !declarationAllowed {
-			return ast.ASTHandle{}, false, fmt.Errorf("datalog:%d: predicate %s must be declared before use", p.current.line, name)
-		}
-		domain, names, err := p.declarationArguments()
-		if err != nil {
-			return ast.ASTHandle{}, false, err
-		}
-		declaration, err = p.context.DeclareRelation(name, domain)
-		if err != nil {
-			return ast.ASTHandle{}, false, err
-		}
-		p.predicates[name] = declaration
-		engine, err := p.context.fixedpointContext()
-		if err != nil {
-			return ast.ASTHandle{}, false, err
-		}
-		if err = engine.SetArgumentNames(declaration, names); err != nil {
-			return ast.ASTHandle{}, false, err
-		}
-		arguments := make([]ast.ASTHandle, len(domain))
-		for i, sort := range domain {
-			arguments[i], err = p.manager.MkVar(uint32(i), sort)
-			if err != nil {
-				return ast.ASTHandle{}, false, err
+		// We are in a declaration.
+		domain := make([]ast.ASTHandle, len(args))
+		for i, arg := range args {
+			if domain[i], err = p.manager.GetSort(arg); err != nil {
+				return tok, ast.ASTHandle{}, false, err
 			}
 		}
-		application, err := p.manager.MkApp(declaration, arguments)
-		if err != nil {
-			return ast.ASTHandle{}, false, err
+		// mk_func_decl and register_predicate(f, true).
+		if f, err = p.context.DeclareRelation(s, domain); err != nil {
+			return tok, ast.ASTHandle{}, false, err
 		}
-		application, err = p.pin(application)
-		return application, true, err
+		p.predicates[s] = f
+
+		for tok == dtkID {
+			predPragma := p.lexer.tokenData()
+			if predPragma == "printtuples" || predPragma == "outputtuples" {
+				if err = engine.SetOutputPredicate(f); err != nil {
+					return tok, ast.ASTHandle{}, false, err
+				}
+			}
+			tok = p.lexer.nextToken()
+		}
+		if err = engine.SetArgumentNames(f, argNames); err != nil {
+			return tok, ast.ASTHandle{}, false, err
+		}
 	}
-	arguments, err := p.applicationArguments(declaration)
+	arity, err := p.manager.GetArity(f)
 	if err != nil {
-		return ast.ASTHandle{}, false, err
+		return tok, ast.ASTHandle{}, false, err
 	}
-	application, err := p.manager.MkApp(declaration, arguments)
+	if uint32(len(args)) < arity {
+		tok, err = p.unexpected(tok, "too few arguments passed to predicate")
+		return tok, ast.ASTHandle{}, false, err
+	}
+	pred, err := p.manager.MkApp(f, args)
 	if err != nil {
-		return ast.ASTHandle{}, false, err
+		return tok, ast.ASTHandle{}, false, err
 	}
-	application, err = p.pin(application)
-	return application, false, err
+	pred, err = p.pin(pred)
+	return tok, pred, isPredicateDeclaration, err
 }
 
-func (p *datalogParser) declarationArguments() ([]ast.ASTHandle, []usymbol.Symbol, error) {
-	if p.current.kind != dlLeftParen {
-		return nil, nil, nil
+// parseArgs parses predicate arguments. If found is false, they are the
+// arguments of a predicate declaration, and their names are pushed to
+// argNames.
+func (p *datalogParser) parseArgs(tok dtoken, f ast.ASTHandle, found bool, args []ast.ASTHandle, argNames []usymbol.Symbol) (dtoken, []ast.ASTHandle, []usymbol.Symbol, error) {
+	if tok != dtkLP {
+		return tok, args, argNames, nil
 	}
-	if err := p.advance(); err != nil {
-		return nil, nil, err
+	var arity uint32
+	if found {
+		var err error
+		if arity, err = p.manager.GetArity(f); err != nil {
+			return tok, args, argNames, err
+		}
 	}
-	var domain []ast.ASTHandle
-	var names []usymbol.Symbol
-	for {
-		if err := p.require(dlIdentifier, "argument name"); err != nil {
-			return nil, nil, err
-		}
-		argumentName, err := p.manager.Symbols.Intern(p.current.text)
-		if err != nil {
-			return nil, nil, err
-		}
-		if err := p.advance(); err != nil {
-			return nil, nil, err
-		}
-		if err := p.require(dlColon, "colon in predicate declaration"); err != nil {
-			return nil, nil, err
-		}
-		if err := p.advance(); err != nil {
-			return nil, nil, err
-		}
-		if err := p.require(dlIdentifier, "sort name"); err != nil {
-			return nil, nil, err
-		}
-		name, err := datalogDomainName(p.current.text)
-		if err != nil {
-			return nil, nil, err
-		}
-		sort, found := p.sorts[name]
+	argIdx := uint32(0)
+	tok = p.lexer.nextToken()
+	for tok != dtkEOS && tok != dtkError {
 		if !found {
-			return nil, nil, fmt.Errorf("datalog:%d: unknown sort %s", p.current.line, name)
-		}
-		domain = append(domain, sort)
-		names = append(names, argumentName)
-		if err = p.advance(); err != nil {
-			return nil, nil, err
-		}
-		if p.current.kind == dlRightParen {
-			return domain, names, p.advance()
-		}
-		if p.current.kind != dlComma {
-			return nil, nil, p.expected("comma or right parenthesis")
-		}
-		if err = p.advance(); err != nil {
-			return nil, nil, err
-		}
-	}
-}
+			// We are in a predicate declaration.
+			if tok != dtkID {
+				tok, err := p.unexpected(tok, "Expecting variable in declaration")
+				return tok, args, argNames, err
+			}
+			varSymbol, err := p.manager.Symbols.Intern(p.lexer.tokenData())
+			if err != nil {
+				return tok, args, argNames, err
+			}
+			tok = p.lexer.nextToken()
+			if tok != dtkColon {
+				tok, err = p.unexpected(tok,
+					"Expecting colon in declaration (first occurrence of a predicate must be a declaration)")
+				return tok, args, argNames, err
+			}
+			tok = p.lexer.nextToken()
 
-func (p *datalogParser) applicationArguments(declaration ast.ASTHandle) ([]ast.ASTHandle, error) {
-	arity, err := p.manager.GetArity(declaration)
-	if err != nil {
-		return nil, err
-	}
-	if arity == 0 && p.current.kind != dlLeftParen {
-		return nil, nil
-	}
-	if err = p.require(dlLeftParen, "left parenthesis"); err != nil {
-		return nil, err
-	}
-	if err = p.advance(); err != nil {
-		return nil, err
-	}
-	arguments := make([]ast.ASTHandle, 0, arity)
-	for uint32(len(arguments)) < arity {
-		sort, e := p.manager.GetDomain(declaration, uint32(len(arguments)))
-		if e != nil {
-			return nil, e
+			if tok != dtkID {
+				tok, err = p.unexpected(tok, "Expecting sort after colon in declaration")
+				return tok, args, argNames, err
+			}
+			sortName, ok := extractDomainName(p.lexer.tokenData())
+			if !ok {
+				tok, err = p.unexpected(dtkID, "sort name")
+				return tok, args, argNames, err
+			}
+			s, err := p.getSort(sortName)
+			if err != nil {
+				return tok, args, argNames, err
+			}
+			// Every declaration argument is the variable m_num_vars.
+			v, err := p.manager.MkVar(p.numVars, s)
+			if err != nil {
+				return tok, args, argNames, err
+			}
+			if v, err = p.pin(v); err != nil {
+				return tok, args, argNames, err
+			}
+			args = append(args, v)
+			argNames = append(argNames, varSymbol)
+			tok = p.lexer.nextToken()
+		} else {
+			if argIdx >= arity {
+				tok, err := p.unexpected(tok, "too many arguments passed to predicate")
+				return tok, args, argNames, err
+			}
+			s, err := p.manager.GetDomain(f, argIdx)
+			if err != nil {
+				return tok, args, argNames, err
+			}
+			if tok, args, err = p.parseArg(tok, s, args); err != nil {
+				return tok, args, argNames, err
+			}
 		}
-		argument, e := p.parseArgument(sort)
-		if e != nil {
-			return nil, e
+
+		argIdx++
+
+		if tok == dtkRP {
+			return p.lexer.nextToken(), args, argNames, nil
 		}
-		arguments = append(arguments, argument)
-		if uint32(len(arguments)) == arity {
-			break
-		}
-		if p.current.kind != dlComma {
-			return nil, p.expected("comma")
-		}
-		if e = p.advance(); e != nil {
-			return nil, e
+		if tok == dtkComma {
+			tok = p.lexer.nextToken()
 		}
 	}
-	if p.current.kind != dlRightParen {
-		return nil, p.expected("right parenthesis")
-	}
-	return arguments, p.advance()
+	return tok, args, argNames, nil
 }

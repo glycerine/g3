@@ -6,129 +6,160 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func (p *datalogParser) parseRules() error {
-	for p.current.kind != dlEOF {
-		switch p.current.kind {
-		case dlNewline:
-			if err := p.advance(); err != nil {
-				return err
+func (p *datalogParser) parseDecls(tok dtoken) (dtoken, error) {
+	var err error
+	for tok != dtkEOS && tok != dtkError {
+		switch tok {
+		case dtkID:
+			tok, err = p.parseRule(tok)
+		case dtkNewline:
+			tok = p.lexer.nextToken()
+		case dtkInclude:
+			tok = p.lexer.nextToken()
+			if tok != dtkString {
+				tok, err = p.unexpected(tok, "a string")
+				break
 			}
-		case dlInclude:
-			if err := p.parseInclude(false); err != nil {
-				return err
-			}
-		case dlIdentifier:
-			if err := p.parseRule(); err != nil {
-				return err
-			}
+			tok, err = p.parseInclude(p.lexer.tokenData(), false)
 		default:
-			return p.expected("predicate or include")
+			tok, err = p.unexpected(tok, "identifier")
+		}
+		if err != nil {
+			return tok, err
 		}
 	}
-	return nil
+	return tok, nil
 }
 
-func (p *datalogParser) parseRule() error {
-	p.variables, p.nextVar = make(map[string]ast.ASTHandle), 0
-	name := p.current.text
-	if err := p.advance(); err != nil {
-		return err
-	}
-	head, declaration, err := p.predicate(name, true)
-	if err != nil {
-		return err
-	}
-	if declaration {
-		for p.current.kind == dlIdentifier { // source pragmas
-			if p.current.text == "printtuples" || p.current.text == "outputtuples" {
-				engine, engineErr := p.context.fixedpointContext()
-				if engineErr != nil {
-					return engineErr
-				}
-				declaration, found := p.predicates[name]
-				if !found {
-					return p.expected("registered predicate")
-				}
-				if engineErr = engine.SetOutputPredicate(declaration); engineErr != nil {
-					return engineErr
-				}
+func (p *datalogParser) parseRule(tok dtoken) (dtoken, error) {
+	p.numVars = 0
+	p.vars = make(map[string]ast.ASTHandle)
+
+	switch tok {
+	case dtkEOS:
+		return tok, nil
+	case dtkID:
+		s := p.lexer.tokenData()
+		tok = p.lexer.nextToken()
+		tok, pred, isPredicateDeclaration, err := p.parsePred(tok, s)
+		if err != nil {
+			return tok, err
+		}
+		switch tok {
+		case dtkPeriod:
+			if isPredicateDeclaration {
+				return p.unexpected(tok, "predicate declaration should not end with '.'")
 			}
-			if err = p.advance(); err != nil {
-				return err
+			if err = p.addRule(pred, nil, nil); err != nil {
+				return tok, err
 			}
-		}
-		if p.current.kind == dlPeriod {
-			return p.expected("predicate declaration without period")
-		}
-		if p.current.kind == dlNewline {
-			return p.advance()
-		}
-		if p.current.kind == dlEOF {
-			return nil
-		}
-		if p.current.kind != dlLeftArrow {
-			return p.expected("end of predicate declaration or :-")
-		}
-	}
-	if p.current.kind == dlPeriod {
-		if err = p.context.AddFixedpointRule(head, ""); err != nil {
-			return err
-		}
-		return p.advance()
-	}
-	if p.current.kind != dlLeftArrow {
-		return p.expected(":- or period")
-	}
-	if err = p.advance(); err != nil {
-		return err
-	}
-	var tails []ast.ASTHandle
-	var negated []bool
-	for {
-		negative := false
-		if p.current.kind == dlNegation {
-			negative = true
-			if err = p.advance(); err != nil {
-				return err
+			return p.lexer.nextToken(), nil
+		case dtkLeftArrow:
+			return p.parseBody(pred)
+		case dtkNewline, dtkEOS:
+			if !isPredicateDeclaration {
+				return p.unexpected(tok, "'.' expected at the end of rule")
 			}
+			return tok, nil
+		default:
+			return p.unexpected(tok, "unexpected token")
 		}
-		var tail ast.ASTHandle
-		if p.current.kind == dlIdentifier {
-			text := p.current.text
-			if _, variable := p.variables[text]; variable {
-				tail, err = p.parseInfix()
-			} else {
-				if err = p.advance(); err == nil {
-					tail, _, err = p.predicate(text, false)
-				}
+	default:
+		return p.unexpected(tok, "rule expected")
+	}
+}
+
+func (p *datalogParser) parseBody(head ast.ASTHandle) (dtoken, error) {
+	var body []ast.ASTHandle
+	var polarity []bool
+	tok := p.lexer.nextToken()
+	for tok != dtkError && tok != dtkEOS {
+		if tok == dtkPeriod {
+			if err := p.addRule(head, body, polarity); err != nil {
+				return tok, err
 			}
-		} else if p.current.kind == dlString || p.current.kind == dlNumber {
-			tail, err = p.parseInfix()
+			return p.lexer.nextToken(), nil
+		}
+		var pred ast.ASTHandle
+		var err error
+		isNeg := false
+		if tok == dtkNeg {
+			tok = p.lexer.nextToken()
+			isNeg = true
+		}
+
+		// td is a pointer into the lexer's buffer, so it reads the data of
+		// the token after a '!'.
+		td := p.lexer.tokenData()
+		_, isVar := p.vars[td]
+		if tok == dtkString || tok == dtkNum || (tok == dtkID && isVar) {
+			tok, pred, err = p.parseInfix(tok, td)
+		} else if tok == dtkID {
+			tok = p.lexer.nextToken()
+			// SASSERT(!is_declaration) is debug only: a predicate first used
+			// in a body is declared there.
+			tok, pred, _, err = p.parsePred(tok, td)
 		} else {
-			return p.expected("predicate or infix relation")
+			return p.unexpected(tok, "expected predicate or relation")
 		}
+		if err != nil {
+			return tok, err
+		}
+		body = append(body, pred)
+		polarity = append(polarity, isNeg)
+
+		if tok == dtkComma {
+			tok = p.lexer.nextToken()
+		} else if tok == dtkPeriod {
+			continue
+		} else {
+			return p.unexpected(tok, "expected comma or period")
+		}
+	}
+	return tok, nil
+}
+
+// addRule sends a ground body-less head to context::add_fact and any other
+// rule, as the formula `body => head`, to context::add_rule.
+func (p *datalogParser) addRule(head ast.ASTHandle, body []ast.ASTHandle, isNeg []bool) error {
+	if len(body) == 0 {
+		args, fact, err := p.factArgs(head)
 		if err != nil {
 			return err
 		}
-		tails, negated = append(tails, tail), append(negated, negative)
-		if p.current.kind == dlPeriod {
-			break
+		if fact {
+			decl, err := p.manager.GetDecl(head)
+			if err != nil {
+				return err
+			}
+			return p.context.AddFixedpointFact(decl, args)
 		}
-		if p.current.kind != dlComma {
-			return p.expected("comma or period")
-		}
-		if err = p.advance(); err != nil {
-			return err
-		}
+		return p.context.AddFixedpointRule(head, "")
 	}
-	rule, err := p.fixedpointRule(head, tails, negated)
+	rule, err := p.fixedpointRule(head, body, isNeg)
 	if err != nil {
 		return err
 	}
-	if err = p.context.AddFixedpointRule(rule, ""); err != nil {
-		return err
+	return p.context.AddFixedpointRule(rule, "")
+}
+
+// factArgs is rule_manager::is_fact: every argument of head is a value.
+func (p *datalogParser) factArgs(head ast.ASTHandle) ([]ast.ASTHandle, bool, error) {
+	n, err := p.manager.GetNumArgs(head)
+	if err != nil {
+		return nil, false, err
 	}
-	return p.advance()
+	args := make([]ast.ASTHandle, n)
+	for i := range args {
+		if args[i], err = p.manager.GetArg(head, uint32(i)); err != nil {
+			return nil, false, err
+		}
+		value, err := p.manager.IsValue(args[i])
+		if err != nil || !value {
+			return nil, false, err
+		}
+	}
+	return args, true, nil
 }
 
 func (p *datalogParser) fixedpointRule(head ast.ASTHandle, tails []ast.ASTHandle, negated []bool) (ast.ASTHandle, error) {

@@ -91,24 +91,8 @@ func (p *wpaParser) parseRelFile(fname string) error {
 // mkNumericTableConst is mk_table_const(uint64_t, s): uint64_sort_domain
 // get_number numbers values by first use.
 func (p *wpaParser) mkNumericTableConst(sortHandle ast.ASTHandle, number uint64) (uint32, error) {
-	table := p.rules.numericConstants[sortHandle]
-	index, found := table[number]
-	if !found {
-		index = uint64(len(table))
-		table[number] = index
-	}
-	size, _, err := p.manager.DatalogFiniteSortSize(sortHandle)
-	if err != nil {
-		return 0, err
-	}
-	if index >= size {
-		name, err := p.sortName(sortHandle)
-		if err != nil {
-			return 0, err
-		}
-		return 0, fmt.Errorf("sort %s contains more constants than its declared size %d", name, size)
-	}
-	return uint32(index), nil
+	index, err := p.rules.owner.Uint64Number(sortHandle, number)
+	return uint32(index), err
 }
 
 func (p *wpaParser) sortName(sortHandle ast.ASTHandle) (string, error) {
@@ -131,7 +115,7 @@ func (p *wpaParser) inpNumToElement(sortHandle ast.ASTHandle, number uint64) (ui
 			index, err := p.mkNumericTableConst(sortHandle, 0)
 			return index, err == nil, err
 		}
-		index, err := p.rules.symbolicConstantNumber("<zero element>", sortHandle)
+		index, err := p.rules.getConstantNumber(sortHandle, "<zero element>")
 		return uint32(index), err == nil, err
 	}
 	text, err := p.sortName(sortHandle)
@@ -158,6 +142,6 @@ func (p *wpaParser) inpNumToElement(sortHandle ast.ASTHandle, number uint64) (ui
 	if !found {
 		return 0, false, fmt.Errorf("unknown symbol number %d on line %d in file %s", number, p.currentLine, p.currentFile)
 	}
-	index, err := p.rules.symbolicConstantNumber(constant, sortHandle)
+	index, err := p.rules.getConstantNumber(sortHandle, constant)
 	return uint32(index), err == nil, err
 }

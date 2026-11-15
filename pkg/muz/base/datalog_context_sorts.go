@@ -64,6 +64,13 @@ func (c *DatalogContext) sortDomain(sort ast.ASTHandle, kind DatalogSortKind) (*
 	}
 	return d, nil
 }
+
+// DatalogDomainSizeError is the default_exception sort_domain::get_number
+// throws when a sort gets more constants than its declared size.
+type DatalogDomainSizeError struct{ Message string }
+
+func (e *DatalogDomainSizeError) Error() string { return e.Message }
+
 func (c *DatalogContext) checkDomainLimit(sort ast.ASTHandle, d *datalogSortDomain, n uint64) error {
 	if d.finite && n >= d.limit {
 		name, err := c.manager.GetASTName(sort)
@@ -74,7 +81,7 @@ func (c *DatalogContext) checkDomainLimit(sort ast.ASTHandle, d *datalogSortDoma
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("sort %s contains more constants than its declared size %d", text, d.limit)
+		return &DatalogDomainSizeError{Message: fmt.Sprintf("sort %s contains more constants than its declared size %d", text, d.limit)}
 	}
 	return nil
 }

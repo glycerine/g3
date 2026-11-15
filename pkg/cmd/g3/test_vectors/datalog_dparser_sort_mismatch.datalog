@@ -1,0 +1,9 @@
+V 3
+W 3
+
+P(x:V) printtuples
+Q(x:W) printtuples
+R(x:V) printtuples
+P(1).
+Q(1).
+R(X) :- P(X), Q(Y), X = Y.

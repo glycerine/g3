@@ -24,6 +24,7 @@ type DatalogPredicateResult struct {
 type DatalogFrontend struct {
 	context                             *cmd_context.Context
 	output                              io.Writer
+	diagnostics                         io.Writer // std::cerr; nil is os.Stderr
 	path                                string
 	loaded, saturated                   bool
 	printTuples                         bool
@@ -65,4 +66,11 @@ func (f *DatalogFrontend) Results() ([]DatalogPredicateResult, error) {
 		return nil, ErrDatalogFrontend
 	}
 	return append([]DatalogPredicateResult(nil), f.results...), nil
+}
+
+// SetDiagnostics sets the stream for the parser's std::cerr messages.
+func (f *DatalogFrontend) SetDiagnostics(diagnostics io.Writer) {
+	if f != nil {
+		f.diagnostics = diagnostics
+	}
 }

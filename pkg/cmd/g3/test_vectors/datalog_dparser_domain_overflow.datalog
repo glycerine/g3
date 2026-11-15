@@ -1,0 +1,6 @@
+V 2
+
+edge(a:V) printtuples
+edge(1).
+edge(2).
+edge(3).

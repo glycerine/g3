@@ -1,0 +1,4 @@
+F 2 datalog_dparser_include_names.map
+
+Q(x:F) printtuples
+Q("beta").

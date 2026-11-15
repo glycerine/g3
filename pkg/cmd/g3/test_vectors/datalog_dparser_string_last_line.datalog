@@ -1,0 +1,4 @@
+V 3
+
+P(x:V) printtuples
+P("a").

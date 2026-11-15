@@ -10,9 +10,9 @@ package cmd_context
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
@@ -56,7 +56,7 @@ func newWPAParser(context *Context, directory string) (*wpaParser, error) {
 	if err != nil {
 		return nil, err
 	}
-	rules, err := newDatalogParser(context)
+	rules, err := newDatalogParser(context, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -124,36 +124,17 @@ func (p *wpaParser) parseDirectoryCore() error {
 // registerFiniteSort is dparser::register_finite_sort. numeric selects
 // context::SK_UINT64, otherwise SK_SYMBOL.
 func (p *wpaParser) registerFiniteSort(name string, size uint64, numeric bool) (ast.ASTHandle, error) {
-	if _, found := p.rules.sorts[name]; found {
-		return ast.ASTHandle{}, fmt.Errorf("sort %s already declared", name)
-	}
-	symbol, err := p.manager.Symbols.Intern(name)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	root, err := p.manager.NewRef(ast.ASTHandle{})
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	p.rules.pins = append(p.rules.pins, root)
-	handle, err := p.manager.MkDatalogFiniteSort(symbol, size)
-	if err = errors.Join(err, p.manager.SetRef(root, handle)); err != nil {
-		return ast.ASTHandle{}, err
-	}
-	p.rules.sorts[name] = handle
+	kind := base.DatalogSortSymbol
 	if numeric {
-		p.rules.numericConstants[handle] = make(map[uint64]uint64)
-	} else {
-		p.rules.constants[handle] = make(map[string]uint64)
+		kind = base.DatalogSortUint64
 	}
-	return handle, p.rules.seedDatalogDomain(handle, numeric)
+	return p.rules.registerFiniteSort(name, size, kind)
 }
 
 // finishSorts is finish_map_files: BOOL and SHORT first, then the map sorts
 // in m_sort_contents table order. A map file named BOOL or SHORT fails with
 // register_finite_sort's "already declared".
 func (p *wpaParser) finishSorts() error {
-	p.rules.numericConstants = make(map[ast.ASTHandle]map[uint64]uint64)
 	var err error
 	if p.boolSort, err = p.registerFiniteSort("BOOL", 2, true); err != nil {
 		return err

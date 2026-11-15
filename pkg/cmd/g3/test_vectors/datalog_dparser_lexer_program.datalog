@@ -1,0 +1,15 @@
+# lexer and parser features of dlexer/dparser
+V 4 # trailing comment
+W1 3
+
+edge(a:V, b:V) printtuples
+reach(a:V, b:V) printtuples
+edge(1, \ #continued
+ 2).
+edge(2,3).
+edge(|_|, 3).
+edge("x<y", 1).
+reach(X,Y) :- edge(X,Y), X != Y.
+reach(X,Z) :- reach(X,Y), edge(Y,Z), !far(y:W2) outputtuples, Y < Z.
+low(a:V) printtuples
+low(X) :- edge(X,_), X < 1.

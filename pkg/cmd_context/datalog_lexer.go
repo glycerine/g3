@@ -1,166 +1,318 @@
 package cmd_context
 
-// Source: src/muz/fp/datalog_parser.cpp dlexer. Input is retained as bytes;
-// Datalog identifiers are byte strings in the source lexer too.
+// Source: src/muz/fp/datalog_parser.cpp line_reader, char_reader and dlexer.
+//
+// Characters are C++ `char` values: signed, so a 0xFF input byte reads as
+// EOF (-1), exactly as `m_curr_char == EOF` sees it in the C++ lexer.
 
-import "fmt"
+import (
+	"io"
+	"os"
+)
 
-type datalogLexer struct {
-	input          []byte
-	index          int
-	line, column   int
+const dlEOF = -1
+
+// dlChar converts an input byte to the signed char the C++ lexer stores.
+func dlChar(b byte) int { return int(int8(b)) }
+
+// datalogLineReader is line_reader: the file split at '\n'. The text after
+// the last '\n' (possibly empty) is a final line, and eof() becomes true once
+// that line has been handed out.
+type datalogLineReader struct {
+	data []byte
+	next int
+	eof  bool
+	ok   bool
+}
+
+// newDatalogLineReader is line_reader(fname): fopen(fname, "rb"). A read
+// failure after a successful open ends the data, as fread's short count does.
+func newDatalogLineReader(fname string) *datalogLineReader {
+	r := &datalogLineReader{}
+	file, err := os.Open(fname)
+	if err != nil {
+		return r
+	}
+	r.ok = true
+	r.data, _ = io.ReadAll(file)
+	file.Close()
+	return r
+}
+
+// getLine is line_reader::get_line. The returned line is a C string: it
+// ends at its first NUL byte.
+func (r *datalogLineReader) getLine() []byte {
+	start := r.next
+	end := start
+	for end < len(r.data) && r.data[end] != '\n' {
+		end++
+	}
+	if end == len(r.data) {
+		r.eof = true
+	}
+	r.next = end + 1
+	line := r.data[start:end]
+	for i, c := range line {
+		if c == 0 {
+			return line[:i]
+		}
+	}
+	return line
+}
+
+// datalogCharReader is char_reader.
+type datalogCharReader struct {
+	lineReader *datalogLineReader
+	line       []byte
+	haveLine   bool
+}
+
+func newDatalogCharReader(fname string) *datalogCharReader {
+	return &datalogCharReader{lineReader: newDatalogLineReader(fname)}
+}
+
+func (r *datalogCharReader) ok() bool { return r.lineReader.ok }
+
+func (r *datalogCharReader) get() int {
+	if !r.haveLine {
+		if r.lineReader.eof {
+			return dlEOF
+		}
+		r.line, r.haveLine = r.lineReader.getLine(), true
+	}
+	if len(r.line) == 0 {
+		r.haveLine = false
+		return '\n'
+	}
+	result := dlChar(r.line[0])
+	r.line = r.line[1:]
+	return result
+}
+
+func (r *datalogCharReader) eofReached() bool { return r.lineReader.eof }
+
+// datalogStreamInput is the std::istream read with get() (parse_string and
+// the WPA rules files).
+type datalogStreamInput struct {
+	data []byte
+	pos  int
+	eof  bool
+}
+
+func (s *datalogStreamInput) get() int {
+	if s.pos >= len(s.data) {
+		s.eof = true
+		return dlEOF
+	}
+	c := s.data[s.pos]
+	s.pos++
+	return dlChar(c)
+}
+
+// dlIsDigit is isdigit/iswdigit on a char in the C locale.
+func dlIsDigit(c int) bool { return c >= '0' && c <= '9' }
+
+// dlIsSpace is iswspace on a char in the C locale. A negative char converts
+// to a wint_t outside the ASCII range, which is not a space.
+func dlIsSpace(c int) bool {
+	return c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '\f' || c == '\r'
+}
+
+// dlexer is the C++ dlexer.
+type dlexer struct {
+	input    *datalogStreamInput
+	reader   *datalogCharReader
+	prevChar int
+	currChar int
+	line     int
+	buffer   []byte
+	// When parsing domains, '.' is allowed in IDs, but elsewhere it is not
+	// (because of the "y." in rules like "P(x,y):-x=y.").
 	parsingDomains bool
 }
 
-func newDatalogLexer(input []byte) *datalogLexer {
-	return &datalogLexer{input: input, line: 1, column: 1}
-}
+func newDlexer() *dlexer { return &dlexer{line: 1} }
 
-func (l *datalogLexer) atEnd() bool { return l.index >= len(l.input) }
-func (l *datalogLexer) peek() byte {
-	if l.atEnd() {
-		return 0
-	}
-	return l.input[l.index]
-}
-func (l *datalogLexer) take() byte {
-	c := l.peek()
-	if l.atEnd() {
-		return 0
-	}
-	l.index++
-	if c == '\n' {
-		l.line, l.column = l.line+1, 1
+func (l *dlexer) eos() bool { return l.currChar == dlEOF }
+
+func (l *dlexer) next() {
+	l.prevChar = l.currChar
+	if l.reader != nil {
+		l.currChar = l.reader.get()
 	} else {
-		l.column++
+		l.currChar = l.input.get()
 	}
-	return c
 }
 
-func dlSpace(c byte) bool { return c == ' ' || c == '\t' || c == '\r' }
-func dlDigit(c byte) bool { return c >= '0' && c <= '9' }
+func (l *dlexer) saveChar(c int) { l.buffer = append(l.buffer, byte(c)) }
 
-func (l *datalogLexer) next() (datalogLexeme, error) {
+func (l *dlexer) saveAndNext() {
+	l.buffer = append(l.buffer, byte(l.currChar))
+	l.next()
+}
+
+func (l *dlexer) setStream(s *datalogStreamInput, r *datalogCharReader) {
+	l.input = s
+	l.reader = r
+	l.next()
+}
+
+func (l *dlexer) readNum() dtoken {
+	for dlIsDigit(l.currChar) {
+		l.saveAndNext()
+	}
+	return dtkNum
+}
+
+func (l *dlexer) readID() dtoken {
+	for !l.eos() && l.currChar != '(' && l.currChar != ')' &&
+		l.currChar != '#' && l.currChar != ',' && (l.parsingDomains || l.currChar != '.') &&
+		l.currChar != ':' && l.currChar != '=' && !dlIsSpace(l.currChar) {
+		l.saveAndNext()
+	}
+	return string2dtoken(l.tokenData())
+}
+
+// readBid reads an id of the form '|'.*'|'.
+func (l *dlexer) readBid() dtoken {
+	for !l.eos() && l.currChar != '|' {
+		l.saveAndNext()
+	}
+	if l.currChar == '|' {
+		l.next()
+	}
+	return string2dtoken(l.tokenData())
+}
+
+func (l *dlexer) readString() dtoken {
+	l.next()
+	for l.currChar != '"' {
+		if l.input != nil && l.input.eof {
+			return dtkError
+		}
+		if l.reader != nil && l.reader.eofReached() {
+			return dtkError
+		}
+		if l.currChar == '\n' {
+			return dtkError
+		}
+		l.saveAndNext()
+	}
+	l.next()
+	return dtkString
+}
+
+func (l *dlexer) readComment() {
+	lineComment := l.prevChar == '\n' || l.prevChar == 0
+	for l.currChar != '\n' && !l.eos() {
+		l.next()
+	}
+	if lineComment && l.currChar == '\n' {
+		l.line++
+		l.next()
+	}
+}
+
+func (l *dlexer) lookaheadNewline() bool {
+	for l.currChar == ' ' {
+		l.saveAndNext()
+	}
+	if l.currChar == '\n' {
+		l.next()
+		l.line++
+		l.buffer = l.buffer[:0]
+		return true
+	}
+	if l.currChar == '#' {
+		l.buffer = l.buffer[:0]
+		l.prevChar = 0
+		l.readComment()
+		return true
+	}
+	return false
+}
+
+func (l *dlexer) nextToken() dtoken {
 	for {
-		if l.atEnd() {
-			return datalogLexeme{kind: dlEOF, line: l.line, col: l.column}, nil
+		if l.eos() {
+			return dtkEOS
 		}
-		if dlSpace(l.peek()) {
-			l.take()
-			continue
-		}
-		if l.peek() == '#' {
-			lineComment := l.column == 1
-			for !l.atEnd() && l.peek() != '\n' {
-				l.take()
+		l.buffer = l.buffer[:0]
+		switch l.currChar {
+		case '#': // comment
+			l.readComment()
+		case '\n':
+			l.next()
+			l.line++
+			return dtkNewline
+		case '\\':
+			// Here we ignore a newline if it is preceded by a backslash.
+			// We need to take care, since anywhere else backslash is used
+			// as a regular character.
+			l.next()
+			l.saveChar('\\')
+			if l.lookaheadNewline() {
+				break
 			}
-			// Source read_comment consumes the terminator only for a comment
-			// beginning in the first physical column. In particular, such a
-			// comment does not terminate the domain-declaration section.
-			if lineComment && l.peek() == '\n' {
-				l.take()
+			return l.readID()
+		case '(':
+			l.next()
+			return dtkLP
+		case ')':
+			l.next()
+			return dtkRP
+		case ',':
+			l.next()
+			return dtkComma
+		case '=':
+			l.next()
+			return dtkEQ
+		case '!':
+			l.next()
+			if l.currChar == '=' {
+				l.next()
+				return dtkNEQ
 			}
-			continue
-		}
-		if l.peek() == '\\' {
-			line, col := l.line, l.column
-			l.take()
-			for l.peek() == ' ' {
-				l.take()
+			return dtkNeg
+		case ':':
+			l.next()
+			if l.currChar == '-' {
+				l.next()
+				return dtkLeftArrow
 			}
-			if l.peek() == '\n' {
-				l.take()
-				continue
+			return dtkColon
+		case '"':
+			return l.readString()
+		case '|':
+			l.next()
+			return l.readBid()
+		default:
+			if dlIsSpace(l.currChar) {
+				l.next()
+				break
+			} else if dlIsDigit(l.currChar) {
+				l.saveAndNext()
+				return l.readNum()
+			} else {
+				old := l.currChar
+				l.saveAndNext()
+				if old == '-' && dlIsDigit(l.currChar) {
+					return l.readNum()
+				}
+				return l.readID()
 			}
-			return l.readIdentifier("\\", line, col), nil
 		}
-		break
-	}
-	line, col := l.line, l.column
-	switch c := l.take(); c {
-	case '\n':
-		return datalogLexeme{kind: dlNewline, line: line, col: col}, nil
-	case '(':
-		return datalogLexeme{kind: dlLeftParen, text: "(", line: line, col: col}, nil
-	case ')':
-		return datalogLexeme{kind: dlRightParen, text: ")", line: line, col: col}, nil
-	case ',':
-		return datalogLexeme{kind: dlComma, text: ",", line: line, col: col}, nil
-	case '=':
-		return datalogLexeme{kind: dlEqual, text: "=", line: line, col: col}, nil
-	case '<':
-		return datalogLexeme{kind: dlLess, text: "<", line: line, col: col}, nil
-	case '>':
-		return datalogLexeme{kind: dlGreater, text: ">", line: line, col: col}, nil
-	case '!':
-		if l.peek() == '=' {
-			l.take()
-			return datalogLexeme{kind: dlNotEqual, text: "!=", line: line, col: col}, nil
-		}
-		return datalogLexeme{kind: dlNegation, text: "!", line: line, col: col}, nil
-	case ':':
-		if l.peek() == '-' {
-			l.take()
-			return datalogLexeme{kind: dlLeftArrow, text: ":-", line: line, col: col}, nil
-		}
-		return datalogLexeme{kind: dlColon, text: ":", line: line, col: col}, nil
-	case '"':
-		start := l.index
-		for !l.atEnd() && l.peek() != '"' && l.peek() != '\n' {
-			l.take()
-		}
-		if l.atEnd() || l.peek() != '"' {
-			return datalogLexeme{}, fmt.Errorf("datalog:%d:%d: unterminated string", line, col)
-		}
-		text := string(l.input[start:l.index])
-		l.take()
-		return datalogLexeme{kind: dlString, text: text, line: line, col: col}, nil
-	case '|':
-		start := l.index
-		for !l.atEnd() && l.peek() != '|' {
-			l.take()
-		}
-		if l.atEnd() {
-			return datalogLexeme{}, fmt.Errorf("datalog:%d:%d: unterminated quoted identifier", line, col)
-		}
-		text := string(l.input[start:l.index])
-		l.take()
-		return datalogLexeme{kind: dlIdentifier, text: text, line: line, col: col}, nil
-	default:
-		prefix := string([]byte{c})
-		if dlDigit(c) || (c == '-' && dlDigit(l.peek())) {
-			return l.readNumber(prefix, line, col), nil
-		}
-		return l.readIdentifier(prefix, line, col), nil
 	}
 }
 
-func (l *datalogLexer) readNumber(prefix string, line, col int) datalogLexeme {
-	start := l.index
-	for dlDigit(l.peek()) {
-		l.take()
+// tokenData is get_token_data: m_buffer.c_str(), which ends at a NUL byte.
+func (l *dlexer) tokenData() string {
+	for i, c := range l.buffer {
+		if c == 0 {
+			return string(l.buffer[:i])
+		}
 	}
-	return datalogLexeme{kind: dlNumber, text: prefix + string(l.input[start:l.index]), line: line, col: col}
+	return string(l.buffer)
 }
 
-func (l *datalogLexer) readIdentifier(prefix string, line, col int) datalogLexeme {
-	start := l.index
-	for !l.atEnd() {
-		c := l.peek()
-		if c == '(' || c == ')' || c == '#' || c == ',' || c == ':' || c == '=' || c == '!' || c == '<' || c == '>' || c == '\n' || dlSpace(c) || (!l.parsingDomains && c == '.') {
-			break
-		}
-		l.take()
-	}
-	text := prefix + string(l.input[start:l.index])
-	kind := dlIdentifier
-	switch text {
-	case ".":
-		kind = dlPeriod
-	case ".include":
-		kind = dlInclude
-	case "_":
-		kind = dlWildcard
-	}
-	return datalogLexeme{kind: kind, text: text, line: line, col: col}
-}
+func (l *dlexer) getLine() int { return l.line }
