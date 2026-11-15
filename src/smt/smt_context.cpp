@@ -1806,7 +1806,7 @@ namespace smt {
     */
     bool context::decide() {
         bool_var var;
-        lbool phase;
+        lbool phase = l_undef;
         m_case_split_queue->next_case_split(var, phase);
 
         if (var == null_bool_var) {
