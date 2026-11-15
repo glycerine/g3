@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_06-F2: seq_decl_plugin ignores declaration parameters
+	// outside re.loop, string constants and skolems.
+	"seq_indexed_ignored_params.smt2": "sat\n",
 	// AUDIT.md ast_06-F1: re.all/re.allchar/re.empty accept any range; the
 	// `as` sort reaches the builtin's mk_func_decl as range.
 	"seq_regex_const_foreign_range.smt2": "sat\n",

@@ -125,8 +125,11 @@ func (m *ASTManager) sequenceDecl(kind int32, parameters []ASTParameter, domain 
 			return astNodeRef{}, err
 		}
 	}
+	// Source: seq_decl_plugin.cpp:648-810. Every kind except OP_RE_LOOP,
+	// OP_STRING_CONST and _OP_SEQ_SKOLEM ignores num_parameters/parameters
+	// and builds a parameterless func_decl_info(m_family_id, k).
 	if kind == ASTSequenceOpEmpty {
-		if len(parameters) != 0 || len(domain) != 0 {
+		if len(domain) != 0 {
 			return astNodeRef{}, ErrASTDomain
 		}
 		if result == p.stringSort {
@@ -162,8 +165,8 @@ func (m *ASTManager) sequenceDecl(kind int32, parameters []ASTParameter, domain 
 		} else if len(domain) != 2 && len(domain) != 3 {
 			return astNodeRef{}, ErrASTDomain
 		}
-	} else if len(parameters) != 0 {
-		return astNodeRef{}, ErrASTDomain
+	} else {
+		parameters = nil
 	}
 	name := signature.name
 	stringInput := len(domainRefs) != 0 && domainRefs[0] == p.stringSort

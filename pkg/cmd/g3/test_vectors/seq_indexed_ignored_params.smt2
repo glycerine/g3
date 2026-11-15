@@ -1,0 +1,6 @@
+(declare-const s String)
+(assert (= ((_ str.len 3) s) 2))
+(declare-const t (Seq Int))
+(assert (= t (as (_ seq.empty 4) (Seq Int))))
+(assert (= ((_ seq.len 7) t) 0))
+(check-sat)

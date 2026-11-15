@@ -169,3 +169,37 @@ func TestASTSequenceRegexConstantsUncheckedRange(t *testing.T) {
 		}
 	}
 }
+
+// AUDIT.md ast_06-F2: seq_decl_plugin::mk_func_decl ignores the parameters
+// of every kind except re.loop, string constants and skolems.
+func TestASTSequenceIgnoresIndexParameters(t *testing.T) {
+	m := astTestManager(t)
+	astTestMust(t, m.prepareSequencePlugin())
+	family := m.sequencePlugin.family
+	str, err := m.MkString("a")
+	astTestMust(t, err)
+	stringSort, err := m.GetSort(str)
+	astTestMust(t, err)
+	p3, err := m.NewParameterInt(3)
+	astTestMust(t, err)
+	plain, err := m.MkFamilyFuncDecl(family, 31, nil, []ASTHandle{stringSort}, ASTHandle{})
+	astTestMust(t, err)
+	indexed, err := m.MkFamilyFuncDecl(family, 31, []ASTParameter{p3}, []ASTHandle{stringSort}, ASTHandle{})
+	if err != nil {
+		t.Fatalf("indexed str.len: %v", err)
+	}
+	if indexed != plain {
+		t.Fatalf("indexed str.len decl %v differs from %v", indexed, plain)
+	}
+	elementSort := m.external(m.arithmeticPlugin.fields[1])
+	element, err := m.NewParameterAST(elementSort)
+	astTestMust(t, err)
+	seqInt, err := m.MkFamilySort(family, 0, []ASTParameter{element})
+	astTestMust(t, err)
+	emptyPlain, err := m.MkFamilyFuncDecl(family, ASTSequenceOpEmpty, nil, nil, seqInt)
+	astTestMust(t, err)
+	emptyIndexed, err := m.MkFamilyFuncDecl(family, ASTSequenceOpEmpty, []ASTParameter{p3}, nil, seqInt)
+	if err != nil || emptyIndexed != emptyPlain {
+		t.Fatalf("indexed seq.empty: %v %v %v", emptyIndexed, emptyPlain, err)
+	}
+}
