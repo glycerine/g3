@@ -1001,12 +1001,15 @@ class repeat_tactical : public unary_tactical {
                     SASSERT(r2.size() == 1);
                     if (is_decided_sat(r2)) {                                                          
                         // found solution...                                                                
+                        // FORK FIX #74 (g3 audit, see FORK_BUGFIXES.md): as and_then (FORK FIX #73), a sat subgoal decides the goal; start from an empty model, not a null one (AUDIT tactic_top_01-F1)
+                        result.reset();
                         result.push_back(r2[0]);
                         if (models_enabled) {
                             // mc2 contains the actual model                                                    
                             model_ref md;                                                                      
-                            if (mc2) (*mc2)(md, 0);                                                             
-                            if (mc1) (*mc1)(md, i);                                                             
+                            md = alloc(model, m);
+                            apply(mc2, md, 0);
+                            apply(mc1, md, i);
                             mc   = model2model_converter(md.get());                                             
                         }
                         SASSERT(!pc); SASSERT(!core);
