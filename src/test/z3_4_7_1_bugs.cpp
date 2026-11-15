@@ -39,6 +39,11 @@ Abstract:
                                   (state `true`) share an entry and an
                                   unreachable query is answered sat
                                   (pkg/AUDIT.md muz_pdr_01).
+    z3_4_7_1_duality_unhoist_repeated_child Duality's UnhoistLoop
+                                  rewrites an edge once per occurrence of
+                                  the unhoisted predicate and fails with a
+                                  wrong number of arguments
+                                  (pkg/AUDIT.md duality_03-F2).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -406,4 +411,28 @@ void tst_z3_4_7_1_pdr_nullary_cache() {
         "(rule (=> (and B A) G))\n"
         "(query G)\n";
     expect_script_output("pdr_nullary_cache", script, "unsat\n");
+}
+
+// Duality unhoists the loop predicate inv, which occurs twice in the body
+// of the err rule. Parent->Incoming lists that edge once per child
+// position, so RPFP::UnhoistLoop rewrote it twice; the second pass added
+// the new parameters to the already extended literal again and the query
+// failed with "Wrong number of arguments (4) passed to function inv!2".
+// err is reachable (k = -1 gives inv(0, -2) and 0 > -1), so the answer is
+// sat. pkg/AUDIT.md duality_03-F2.
+void tst_z3_4_7_1_duality_unhoist_repeated_child() {
+    char const* script =
+        "(set-option :fixedpoint.engine duality)\n"
+        "(declare-rel inv (Int Int))\n"
+        "(declare-rel err ())\n"
+        "(declare-var x Int)\n"
+        "(declare-var n Int)\n"
+        "(declare-var k Int)\n"
+        "(declare-var y Int)\n"
+        "(declare-var m Int)\n"
+        "(rule (=> (and (= x 0) (= n (* 2 k))) (inv x n)))\n"
+        "(rule (=> (and (inv x n) (< x n)) (inv (+ x 1) n)))\n"
+        "(rule (=> (and (inv x n) (inv y m) (> x (+ n 1))) err))\n"
+        "(query err)\n";
+    expect_script_output("duality_unhoist_repeated_child", script, "sat\n");
 }
