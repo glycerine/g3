@@ -93,7 +93,10 @@ func (c *Compiler) linearProofStep(rm *base.RuleManager, rule *base.Rule, index,
 	if err != nil {
 		return nil, ast.ASTRef{}, err
 	}
-	return c.linearProofStepWithBindings(rm, rule, bindings, previous, previousProof, normalizer, ast.ASTProofPosition{First: 0, Second: 1}, false, false)
+	// linear::get_model resolves tail 0 of the derivation with the selected
+	// rule's head: positions (1, 0), as qlinear::get_model. z3 4.7.1 records
+	// (0, 1), which the proof checker rejects; the fork fix corrects it.
+	return c.linearProofStepWithBindings(rm, rule, bindings, previous, previousProof, normalizer, ast.ASTProofPosition{First: 1, Second: 0}, false, false)
 }
 
 // linearProofStepWithBindings takes ownership of all supplied references.

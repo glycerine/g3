@@ -354,7 +354,7 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 			if position.First == 0 {
 				// translate_hyper_res ignores positions and always unifies
 				// tail 0 of the accumulated rule ("brittle. TBD get index
-				// from positions"); bmc linear records (0, 1).
+				// from positions"); z3 4.7.1's bmc linear recorded (0, 1).
 				originalIndex = 0
 			} else if position.Second != 0 {
 				return value, fmt.Errorf("%w: resolution positions", ErrSliceProofUnsupported)

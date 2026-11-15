@@ -147,14 +147,11 @@ func testBMCSlicedProofUsesOriginalRules(t *testing.T, backend string, nonlinear
 	}
 	checker, err := proofs.NewChecker(m)
 	fragmentMust(t, err)
-	// An unsliced linear proof keeps the source (0, 1) hyper-resolution
-	// positions, which the checker's set_false does not accept; slicing
-	// rebuilds the nodes with body pivots.
-	valid, conditions := true, []ast.ASTHandle(nil)
-	if nonlinear || slicing {
-		valid, conditions, err = checker.Check(proof)
-		fragmentMust(t, err)
-	}
+	// linear::get_model records hyper-resolution positions (1, 0) (z3 4.7.1
+	// had (0, 1), which the checker's set_false rejects; the fork fix
+	// corrects it), so unsliced linear proofs check too.
+	valid, conditions, err := checker.Check(proof)
+	fragmentMust(t, err)
 	defer func() {
 		for _, condition := range conditions {
 			fragmentMust(t, m.DecRef(condition))
