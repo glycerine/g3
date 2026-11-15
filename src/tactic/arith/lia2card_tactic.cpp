@@ -270,6 +270,11 @@ public:
         if (m_compile_equality) {
             return m_pb.mk_eq(sz, weights, args, w);
         }
+        else if (sz == 0) {
+            // (and false true) would reach goal::update unflattened and be
+            // pushed as a new goal formula on every round
+            return w.is_zero()?m.mk_true():m.mk_false();
+        }
         else {
             return m.mk_and(mk_ge(sz, weights, args, w), mk_le(sz, weights, args, w));
         }
