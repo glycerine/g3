@@ -595,6 +595,9 @@ func (s *ModelSearch) BacktrackLevel(usesLevel bool, node *ModelNode) error {
 		return ast.ErrASTDomain
 	}
 	if usesLevel && s.root.level > node.level {
+		if err := verboseText(2, "Increase level %d\n", node.level); err != nil {
+			return err
+		}
 		if err := node.IncreaseLevel(); err != nil {
 			return err
 		}

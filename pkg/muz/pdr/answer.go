@@ -303,6 +303,11 @@ func (c *Context) updateTraceModels(root *ModelNode) error {
 			// As in source update_models, leave unmatched nodes untouched.
 			// Constraint-cache initial hits have no expanded donor; their own
 			// transformer selects an initial rule in selectedTraceRule.
+			// IF_VERBOSE(1, n->display(verbose_stream() << "no model:\n", 0);
+			//            verbose_stream() << n->state() << "\n").
+			if err = verboseNoModel(node); err != nil {
+				return err
+			}
 			continue
 		}
 		modelCore, _, err := donor.Model()

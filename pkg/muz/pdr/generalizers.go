@@ -119,6 +119,11 @@ func generalizeConvexCore(transformer *PredicateTransformer, level uint32, input
 		check, x := withFarkasCore(transformer, func() (PropCheckResult, error) {
 			return transformer.CheckReachable(level, stateHandle, true, false)
 		})
+		if x == nil && check.Status == lbool.False {
+			// expr_ref state1 = mk_and(conv2); IF_VERBOSE(0, state
+			// "Generalized to:" state1), while state is still alive.
+			x = verboseConvexGeneralized(transformer.manager, stateHandle, check.Core)
+		}
 		x = errors.Join(x, transformer.manager.DelRef(&state))
 		if x != nil {
 			return nil, x
@@ -315,6 +320,9 @@ func generalizeBoolInductiveCore(transformer *PredicateTransformer, level uint32
 			processed[literal] = true
 			failures++
 			index++
+		}
+		if err = verboseText(2, "old size: %d new size: %d\n", len(input), len(core)); err != nil {
+			return nil, nil, usesLevel, err
 		}
 	}
 	resultReferences, err = pinASTHandles(transformer.manager, core)

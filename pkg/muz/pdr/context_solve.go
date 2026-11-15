@@ -114,6 +114,9 @@ func (c *Context) expandNode(node *ModelNode) (resultStatus lbool.LBool, resultE
 		}
 		return lbool.False, nil
 	}
+	if err = verboseText(1, "unknown state\n"); err != nil {
+		return lbool.Undef, err
+	}
 	return lbool.Undef, nil
 }
 
@@ -149,6 +152,9 @@ func (c *Context) checkReachability(level uint32) (lbool.LBool, error) {
 		}
 		if !found {
 			break
+		}
+		if x = verboseText(2, "Expand node: %d\n", node.level); x != nil {
+			return lbool.Undef, x
 		}
 		status, x := c.expandNode(node)
 		if x != nil {
@@ -335,6 +341,9 @@ func (c *Context) Solve(queryDeclaration ast.ASTHandle) (result lbool.LBool, res
 		// lvl++; m_stats.m_max_depth = std::max(m_stats.m_max_depth, lvl);
 		if level+1 > c.maxDepth {
 			c.maxDepth = level + 1
+		}
+		if err = verboseText(1, "Entering level %d\n", level+1); err != nil {
+			return lbool.Undef, err
 		}
 	}
 }

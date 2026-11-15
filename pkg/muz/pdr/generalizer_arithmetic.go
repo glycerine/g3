@@ -487,6 +487,14 @@ func generalizeArithmeticInductiveCore(transformer *PredicateTransformer, level 
 	if err != nil {
 		return generalizedCore{}, err
 	}
+	// check_inductive replaces new_core by its core when inductive.
+	printed := candidate
+	if inductive {
+		printed = reduced
+	}
+	if err = verboseArithmeticInductive(transformer.manager, inductive, input.literals, printed); err != nil {
+		return generalizedCore{}, err
+	}
 	if !inductive {
 		return pinGeneralizedCore(transformer.manager, input.literals, input.usesLevel)
 	}

@@ -263,6 +263,9 @@ func (c *Context) createChildrenProjected(node *ModelNode) (resultErr error) {
 			return fmt.Errorf("muz/pdr: projected state-index collection: %w", x)
 		}
 		if len(indices) == 0 {
+			if x = verbosePP(c.manager, 3, "Skipping ", literal, "\n"); x != nil {
+				return x
+			}
 			continue
 		}
 		if len(indices) == 1 {
@@ -363,10 +366,20 @@ func (c *Context) addProjectedChild(node *ModelNode, predecessor *PredicateTrans
 		return nCube, fmt.Errorf("muz/pdr: projected model-node construction: %w", err)
 	}
 	c.nodes++
+	if err = c.search.AddLeaf(child); err != nil {
+		return nCube, err
+	}
+	closed := "open"
+	if child.IsClosed() {
+		closed = "closed"
+	}
+	if err = verbosePP(c.manager, 2, "Predecessor: ", cube, " "+closed+"\n"); err != nil {
+		return nCube, err
+	}
 	if child.depth > c.maxDepth {
 		c.maxDepth = child.depth
 	}
-	return nCube, c.search.AddLeaf(child)
+	return nCube, nil
 }
 
 // normalizeProjectedPhi follows create_children: Boolean conjunction, QE,

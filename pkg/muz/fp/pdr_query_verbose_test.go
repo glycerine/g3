@@ -57,6 +57,11 @@ func TestPDRQueryDisplaysTransformedRulesAtSourceVerbosity(t *testing.T) {
 				// diagnostic after pdr_dl_interface's IF_VERBOSE(2) rule list.
 				// The solved predicate is mk_query's fresh query!N (q is
 				// inlined into it), named afresh by every query.
+				// At verbosity 2 check_reachability's "Expand node: 0"
+				// (AUDIT.md muz_pdr_01-F4) precedes the display.
+				if level >= 2 {
+					got = strings.TrimPrefix(got, "Expand node: 0\n")
+				}
 				if !strings.HasPrefix(got, "\n0 query!") || !strings.Contains(got, " closed\n  true ") || !strings.HasSuffix(got, "\ngoals 0\n") {
 					t.Fatalf("verbosity %d reachable-search suffix: %q", level, got)
 				}
