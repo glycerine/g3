@@ -2704,7 +2704,31 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 			return lbool.FromBool(nonempty), nil
 		}
 	}
-	return e.queryFiniteDatalogWithRestarts(declarations)
+	status, err = e.queryFiniteDatalogWithRestarts(declarations)
+	if err == nil && status == lbool.True && e.datalogImpreciseFavouriteNullary(declarations) {
+		// rel_context::query: a non-empty answer that includes an imprecise
+		// relation is l_undef with status APPROX.
+		status = lbool.Undef
+	}
+	return status, err
+}
+
+// datalogImpreciseFavouriteNullary reports a queried nullary relation whose
+// plugin is the interval or bound favourite. Those plugins handle the empty
+// signature (relation_manager::try_get_appropriate_plugin prefers the
+// favourite) and are not precise, while the finite path evaluates the
+// remaining signatures on tables. A nullary relation is either empty or full,
+// so table evaluation computes the same emptiness.
+func (e *PropositionalEngine) datalogImpreciseFavouriteNullary(declarations []ast.ASTHandle) bool {
+	if e.datalogRelationFavourite != "interval_relation" && e.datalogRelationFavourite != "bound_relation" {
+		return false
+	}
+	for _, declaration := range declarations {
+		if state := e.predicates[declaration]; state != nil && len(state.sorts) == 0 && len(state.requestedRepresentations) == 0 && !state.explicitFiniteRepresentation {
+			return true
+		}
+	}
+	return false
 }
 
 // recordDatalogTransformedRules is context::record_transformed_rules:

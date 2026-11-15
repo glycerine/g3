@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_fp_02-F2: arithmetic default_relation favourites fall back to tables for finite signatures.
+	"datalog_arith_favourite_finite_fallback.smt2":      "sat\n(= (:var 0) #b01)\n",
+	"datalog_bound_favourite_finite_fallback.smt2":      "sat\n(= (:var 0) #b01)\n",
+	"datalog_interval_favourite_nullary_imprecise.smt2": "unknown\napproximated relations\nsat\n(= (:var 0) #b01)\n",
 	// AUDIT.md muz_fp_01-F3: the default favourite falls back to tables per signature; unused Int relations stay empty.
 	"fp_datalog_unused_int_relation.smt2":     "sat\n(or (= (:var 0) #b00) (= (:var 0) #b01) (= (:var 0) #b10))\n",
 	"fp_datalog_empty_mixed_int_nullary.smt2": "unsat\nunsat\n",

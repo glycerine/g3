@@ -97,6 +97,12 @@ func (e *PropositionalEngine) ensureIntervalDatalog() (bool, error) {
 		return true, err
 	}
 	if !selected {
+		// The favourite is used only for signatures it can handle
+		// (relation_manager::try_get_appropriate_plugin); the others get
+		// tables. Without an explicit request, continue on the table path.
+		if !checkerRequests && !representationRequested {
+			return false, nil
+		}
 		return true, ErrIntervalDatalogFragment
 	}
 	owner.formulaCheck = formulaCheck

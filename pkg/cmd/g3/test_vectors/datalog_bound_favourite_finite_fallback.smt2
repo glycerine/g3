@@ -1,0 +1,8 @@
+(set-option :fixedpoint.engine datalog)
+(set-option :fixedpoint.datalog.default_relation bound_relation)
+(declare-rel P ((_ BitVec 2)))
+(declare-rel Q ((_ BitVec 2)))
+(declare-var x (_ BitVec 2))
+(rule (P #b01))
+(rule (=> (P x) (Q x)))
+(query Q :print-answer true)

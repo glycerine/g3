@@ -1,0 +1,8 @@
+(set-option :fixedpoint.engine datalog)
+(set-option :fixedpoint.datalog.default_relation interval_relation)
+(declare-rel A ())
+(declare-rel P ((_ BitVec 2)))
+(rule A)
+(rule (P #b01))
+(query A)
+(query P :print-answer true)

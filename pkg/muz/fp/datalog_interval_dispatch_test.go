@@ -147,3 +147,41 @@ func TestDatalogConfiguredIntervalEmptyProgramQuery(t *testing.T) {
 		t.Fatal("empty interval query request", status)
 	}
 }
+
+// AUDIT.md muz_fp_02-F2: an arithmetic default_relation favourite is used only
+// for the signatures it can handle; finite signatures fall back to tables, and
+// a queried non-empty nullary favourite relation is imprecise.
+func TestDatalogArithmeticFavouriteFallsBackToTables(t *testing.T) {
+	for _, favourite := range []string{"interval_relation", "bound_relation"} {
+		t.Run(favourite, func(t *testing.T) {
+			f := newDirectFactFixture(t)
+			e, m := f.engine, f.manager
+			must := func(err error) { t.Helper(); fragmentMust(t, err) }
+			must(e.SelectEngine("datalog"))
+			must(e.globals.SourceSetName("fixedpoint.datalog.default_relation", favourite))
+			bv, err := m.BitVectorSort(2)
+			must(err)
+			boolean, err := m.MkBoolSort()
+			must(err)
+			name, err := m.Symbols.Intern("favourite-fallback-bv")
+			must(err)
+			r, err := m.MkFuncDecl(name, []ast.ASTHandle{bv}, boolean, ast.ASTFuncDeclInfo{})
+			must(err)
+			must(e.RegisterPredicate(r))
+			one, err := m.BitVectorNumeralUnsigned(1, 2)
+			must(err)
+			must(e.AddFact(r, []ast.ASTHandle{one}))
+			must(e.AddFact(f.declarations["p"], nil))
+			status, err := e.QueryPredicate(r)
+			must(err)
+			if status != lbool.True {
+				t.Fatal("finite predicate under arithmetic favourite", status)
+			}
+			status, err = e.QueryPredicate(f.declarations["p"])
+			must(err)
+			if status != lbool.Undef {
+				t.Fatal("non-empty nullary favourite relation must be imprecise", status)
+			}
+		})
+	}
+}

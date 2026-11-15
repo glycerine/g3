@@ -85,6 +85,12 @@ func (e *PropositionalEngine) ensureBoundDatalog() (bool, error) {
 		return true, err
 	}
 	if !selected {
+		// The bound_relation favourite is used only for signatures it can
+		// handle (relation_manager::try_get_appropriate_plugin); the others
+		// get tables. Without an explicit request, continue on that path.
+		if !boundRepresentationRequested(e) && !checkEnabled {
+			return false, nil
+		}
 		return true, ErrBoundDatalogFragment
 	}
 	owner.formulaCheck = formulaCheck
@@ -141,4 +147,17 @@ func (e *PropositionalEngine) closeBoundDatalog() error {
 	}
 	e.boundDatalog = nil
 	return nil
+}
+
+// boundRepresentationRequested reports a set-predicate-representation request
+// naming bound_relation.
+func boundRepresentationRequested(e *PropositionalEngine) bool {
+	for _, state := range e.predicates {
+		for _, name := range state.requestedRepresentations {
+			if name == "bound_relation" {
+				return true
+			}
+		}
+	}
+	return false
 }
