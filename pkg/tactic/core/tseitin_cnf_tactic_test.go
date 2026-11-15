@@ -4,6 +4,7 @@ package core
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -241,5 +242,31 @@ func TestTseitinCNFITEExtraClausesKeepChainContext(t *testing.T) {
 	}
 	if found != 2 {
 		t.Fatal("ite_extra clauses lost the chain context", found, size)
+	}
+}
+
+// AUDIT.md tactic_core_02-F5: the tactic_report lives in imp::operator(), so
+// its line precedes report_tactic_progress(":cnf-aux-vars", ...).
+func TestTseitinProgressAfterReport(t *testing.T) {
+	m, c, g, services := solveEqFixture(t)
+	runner, err := NewTseitinCNFCoreTactic(m, c, g, nil, services)
+	simplifyMust(t, err)
+	t.Cleanup(func() { simplifyMust(t, runner.Close()) })
+	a := tseitinAtoms(t, m, 3)
+	iff, err := m.MkEq(a[1], a[2])
+	simplifyMust(t, err)
+	formula, err := m.MkOr(a[0], iff)
+	simplifyMust(t, err)
+	goal, err := tactic.NewGoal(m, false, true, false)
+	simplifyMust(t, err)
+	t.Cleanup(func() { simplifyMust(t, goal.Close()) })
+	simplifyMust(t, goal.Assert(formula))
+	var result tactic.TacticResult
+	t.Cleanup(func() { simplifyMust(t, result.Close()) })
+	output := captureProcessVerbose(t, 10, func() { simplifyMust(t, runner.Apply(goal, &result)) })
+	report := strings.Index(output, "(tseitin-cnf ")
+	progress := strings.Index(output, "(:cnf-aux-vars ")
+	if report < 0 || progress < 0 || report > progress {
+		t.Fatalf("report/progress order: %q", output)
 	}
 }

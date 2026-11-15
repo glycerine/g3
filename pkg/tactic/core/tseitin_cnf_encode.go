@@ -1087,7 +1087,18 @@ func (c *tseitinInvocation) process(root ast.ASTHandle, dep ast.ASTDependency) e
 	return nil
 }
 
-func (t *TseitinCNFTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (err error) {
+// Apply is tseitin_cnf_tactic::operator(): imp::operator() owns the
+// tactic_report, and the progress line follows it unless imp throws.
+func (t *TseitinCNFTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) error {
+	if err := t.applyImp(goal, result); err != nil {
+		return err
+	}
+	return tactic.ReportTacticProgress(":cnf-aux-vars", t.numAux)
+}
+
+// applyImp is tseitin_cnf_tactic::imp::operator(); its deferred cleanup adds
+// the invocation's auxiliary variables to t.numAux (imp::m_num_aux_vars).
+func (t *TseitinCNFTactic) applyImp(goal *tactic.Goal, result *tactic.TacticResult) (err error) {
 	if err = t.open(); err != nil {
 		return err
 	}
@@ -1188,5 +1199,5 @@ func (t *TseitinCNFTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult)
 	if e = result.AddGoal(goal); e != nil {
 		return e
 	}
-	return tactic.ReportTacticProgress(":cnf-aux-vars", t.numAux+inv.numAux)
+	return nil
 }

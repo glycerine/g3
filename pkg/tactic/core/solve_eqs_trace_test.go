@@ -132,3 +132,53 @@ func TestSolveEquationsSortTraceAndStreamRefusal(t *testing.T) {
 		t.Fatal("trace stream refusal changed the result")
 	}
 }
+
+// captureProcessVerbose runs apply with the process verbose stream redirected
+// at the given level and returns what was written.
+func captureProcessVerbose(t *testing.T, level uint32, apply func()) string {
+	t.Helper()
+	verbose := diagnostic.BorrowProcessVerboseContext()
+	previousLevel, err := verbose.VerbosityLevel()
+	simplifyMust(t, err)
+	previousStream, err := verbose.VerboseStream()
+	simplifyMust(t, err)
+	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{})
+	simplifyMust(t, err)
+	defer func() {
+		simplifyMust(t, verbose.SetVerbosityLevel(previousLevel))
+		simplifyMust(t, verbose.SetVerboseStream(previousStream))
+		simplifyMust(t, stream.Close())
+	}()
+	simplifyMust(t, verbose.SetVerboseStream(stream))
+	simplifyMust(t, verbose.SetVerbosityLevel(level))
+	apply()
+	simplifyMust(t, verbose.SetVerbosityLevel(previousLevel))
+	output, err := stream.String()
+	simplifyMust(t, err)
+	return output
+}
+
+// AUDIT.md tactic_core_02-F5: the tactic_report lives in imp::operator(), so
+// its line precedes report_tactic_progress(":num-elim-vars", ...).
+func TestSolveEqsProgressAfterReport(t *testing.T) {
+	m, c, g, services := solveEqFixture(t)
+	runner, err := NewSolveEquationsTactic(m, c, g, nil, services)
+	simplifyMust(t, err)
+	t.Cleanup(func() { simplifyMust(t, runner.Close()) })
+	a, b, _ := propagateAtoms(t, m)
+	eq, err := m.MkEq(a, b)
+	simplifyMust(t, err)
+	simplifyPin(t, m, eq)
+	goal, err := tactic.NewGoal(m, false, true, false)
+	simplifyMust(t, err)
+	t.Cleanup(func() { simplifyMust(t, goal.Close()) })
+	simplifyMust(t, goal.Assert(eq))
+	var result tactic.TacticResult
+	t.Cleanup(func() { simplifyMust(t, result.Close()) })
+	output := captureProcessVerbose(t, 10, func() { simplifyMust(t, runner.Apply(goal, &result)) })
+	report := strings.Index(output, "(solve_eqs ")
+	progress := strings.Index(output, "(:num-elim-vars ")
+	if report < 0 || progress < 0 || report > progress {
+		t.Fatalf("report/progress order: %q", output)
+	}
+}

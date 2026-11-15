@@ -267,7 +267,17 @@ func (t *SolveEquationsTactic) Close() error {
 	return nil
 }
 
-func (t *SolveEquationsTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (err error) {
+// Apply is solve_eqs_tactic::operator(): imp::operator() owns the
+// tactic_report, and the progress line follows it unless imp throws.
+func (t *SolveEquationsTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) error {
+	if err := t.applyImp(goal, result); err != nil {
+		return err
+	}
+	return tactic.ReportTacticProgress(":num-elim-vars", t.eliminated)
+}
+
+// applyImp is solve_eqs_tactic::imp::operator().
+func (t *SolveEquationsTactic) applyImp(goal *tactic.Goal, result *tactic.TacticResult) (err error) {
 	if err = t.open(); err != nil {
 		return err
 	}
@@ -399,7 +409,7 @@ func (t *SolveEquationsTactic) Apply(goal *tactic.Goal, result *tactic.TacticRes
 	} else if !sorted {
 		return ast.ErrASTDomain
 	}
-	return tactic.ReportTacticProgress(":num-elim-vars", t.eliminated)
+	return nil
 }
 
 func (t *SolveEquationsTactic) collectOccurrences(goal *tactic.Goal) error {
