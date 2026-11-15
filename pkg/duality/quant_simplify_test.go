@@ -213,3 +213,37 @@ func TestDualityQuantifierSimplificationNestedAnnotationsAndDeMorgan(t *testing.
 		t.Fatal("De Morgan independent term not shifted/collected")
 	}
 }
+
+// duality_02-F3: a raw arithmetic OP_GT body is an atom for CloneQuantAndSimp.
+func TestDualityQuantifierSimplificationArithmeticGreaterThanIsAtom(t *testing.T) {
+	ctx, m, _ := dualityNativeSolverFixture(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	wrap := func(h ast.ASTHandle, err error) *Expr {
+		t.Helper()
+		must(err)
+		v, e := NewExpr(ctx, h)
+		must(e)
+		closeExpr(t, v)
+		return v
+	}
+	raw := func(v *Expr) ast.ASTHandle { t.Helper(); h, err := v.Raw(); must(err); return h }
+	zero := wrap(m.ArithmeticIntegerNumeralText("0"))
+	integer, err := m.GetSort(raw(zero))
+	must(err)
+	y := wrap(m.MkVar(0, integer))
+	arith, err := m.ArithmeticFamilyID()
+	must(err)
+	body := wrap(m.MkFamilyApp(arith, 5, nil, []ast.ASTHandle{raw(y), raw(zero)}))
+	q := wrap(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{integer}, Names: []usymbol.Symbol{usymbol.Numerical(0)}, Body: raw(body), Weight: 1}))
+	out, err := ctx.CloneQuantAndSimp(q, body)
+	must(err)
+	defer out.Close()
+	if raw(out) != raw(q) {
+		t.Fatal("quantified arithmetic > was not kept as an atom")
+	}
+}

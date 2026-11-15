@@ -78,6 +78,15 @@ func (g *RPFP) UnderapproxFullFormula(formula *Expr, extensional bool) (out *Exp
 			if err != nil {
 				return err
 			}
+			// Duality's get_decl_kind maps only the basic family to
+			// And/Or/Not/Implies/Iff/Equal.
+			family, err := m.GetFamilyID(h)
+			if err != nil {
+				return err
+			}
+			if family != m.BasicFamilyID() {
+				op = -1
+			}
 			switch op {
 			case ast.ASTOpImplies, ast.ASTOpIff, ast.ASTOpAnd, ast.ASTOpOr, ast.ASTOpNot:
 				count, err := m.GetNumArgs(h)

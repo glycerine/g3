@@ -227,3 +227,67 @@ func TestDualityFullImplicantAllocationFailureCleanup(t *testing.T) {
 		t.Fatal("allocation campaign did not reach successful full implicant")
 	}
 }
+
+// duality_02-F3: get_decl_kind maps only the basic family to And/Or/...;
+// arithmetic OP_GT (5) is an atom, not an `and`.
+func TestDualityFullImplicantKeepsArithmeticGreaterThan(t *testing.T) {
+	ctx, m, s, globals := dualityNativeSolverServicesFixture(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	g, err := NewRPFP(ctx)
+	must(err)
+	defer func() { must(g.Close()) }()
+	must(g.BindSolver(s))
+	must(g.BindModelEvaluator(derivationEvaluatorFixture(t, ctx, globals)))
+	wrap := func(h ast.ASTHandle, err error) *Expr {
+		t.Helper()
+		must(err)
+		v, e := NewExpr(ctx, h)
+		must(e)
+		closeExpr(t, v)
+		return v
+	}
+	raw := func(v *Expr) ast.ASTHandle { t.Helper(); h, err := v.Raw(); must(err); return h }
+	p, err := ctx.BoolConst("full-implicant-gt-p")
+	must(err)
+	closeExpr(t, p)
+	one := wrap(m.ArithmeticIntegerNumeralText("1"))
+	three := wrap(m.ArithmeticIntegerNumeralText("3"))
+	integer, err := m.GetSort(raw(one))
+	must(err)
+	symbol, err := m.Symbols.Intern("full-implicant-gt-x")
+	must(err)
+	x := wrap(m.MkConst(symbol, integer))
+	arith, err := m.ArithmeticFamilyID()
+	must(err)
+	gt := wrap(m.MkFamilyApp(arith, 5, nil, []ast.ASTHandle{raw(x), raw(one)}))
+	eq := wrap(m.MkEq(raw(x), raw(three)))
+	must(s.Push())
+	defer func() { must(s.Pop(1)) }()
+	must(s.Assert(raw(eq)))
+	status, err := g.CheckUpdateModel(nil, []*Expr{p})
+	must(err)
+	if status != lbool.True {
+		t.Fatal(status)
+	}
+	formula := wrap(m.MkAnd(raw(p), raw(gt)))
+	out, err := g.UnderapproxFullFormula(formula, true)
+	must(err)
+	defer out.Close()
+	count, err := m.GetNumArgs(raw(out))
+	must(err)
+	if count != 2 {
+		t.Fatal("arithmetic > literal dropped from cube", count)
+	}
+	first, err := m.GetArg(raw(out), 0)
+	must(err)
+	second, err := m.GetArg(raw(out), 1)
+	must(err)
+	if first != raw(p) || second != raw(gt) {
+		t.Fatal("cube is not (and p (> x 1))")
+	}
+}

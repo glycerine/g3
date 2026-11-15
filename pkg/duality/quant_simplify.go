@@ -31,6 +31,14 @@ func (s *quantSimplification) op(h ast.ASTHandle) (int32, error) {
 	if kind != ast.ASTApp {
 		return -1, nil
 	}
+	// Duality's get_decl_kind maps only the basic family to And/Or/Not.
+	family, err := m.GetFamilyID(h)
+	if err != nil {
+		return -1, err
+	}
+	if family != m.BasicFamilyID() {
+		return -1, nil
+	}
 	return m.GetDeclKind(h)
 }
 func (s *quantSimplification) simple(args []ast.ASTHandle, and bool) (ast.ASTHandle, error) {
