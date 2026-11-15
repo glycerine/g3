@@ -40,6 +40,10 @@ Abstract:
     z3_4_7_1_eq2bv_stale_cache    eq2bv reuses its rewriter cache across the
                                   goals of one run (pkg/AUDIT.md
                                   tactic_arith_01-F3).
+    z3_4_7_1_purify_trig_unsafe   purify-arith decides which sin/cos
+                                  arguments are safe to replace after the
+                                  formulas that mention them were already
+                                  purified (pkg/AUDIT.md tactic_arith_02-F2).
     z3_4_7_1_pdr_nullary_cache    PDR's model_search cache keys nodes by
                                   state only, so two nullary predicates
                                   (state `true`) share an entry and an
@@ -732,4 +736,30 @@ void tst_z3_4_7_1_eq2bv_stale_cache() {
         "(assert (not b))\n"
         "(check-sat-using (then split-clause eq2bv smt))\n";
     expect_script("eq2bv_stale_cache", script, "unsat\n");
+}
+
+// x/y = 1, y = 10, sin x = 1/2 is unsat (sin 10 != 1/2). purify-arith runs
+// find_unsafe lazily, on the goal whose first formula was already purified
+// to (= k!0 1.0) etc., so it no longer sees x under the division, replaces
+// (sin x) by a fresh basis and z3 4.7.1 answers sat with an x that violates
+// x/y = 1. Any answer but sat is acceptable; after (apply purify-arith) the
+// (sin x) must stay.
+void tst_z3_4_7_1_purify_trig_unsafe() {
+    char const* script =
+        "(declare-const x Real)\n"
+        "(declare-const y Real)\n"
+        "(assert (= (/ x y) 1.0))\n"
+        "(assert (= y 10.0))\n"
+        "(assert (= (sin x) 0.5))\n"
+        "(check-sat-using qfufnra)\n";
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    std::string out = Z3_eval_smtlib2_string(ctx, script);
+    std::cout << "purify_trig_unsafe: check-sat-using qfufnra: " << out;
+    ENSURE(out != "sat\n");
+    std::string goal = Z3_eval_smtlib2_string(ctx, "(apply purify-arith)\n");
+    Z3_del_context(ctx);
+    std::cout << "purify_trig_unsafe: purify-arith:\n" << goal;
+    ENSURE(goal.find("(sin x)") != std::string::npos);
 }
