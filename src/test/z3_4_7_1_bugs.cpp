@@ -2813,3 +2813,32 @@ void tst_z3_4_7_1_automaton_product_epsilon() {
         "(get-value (x))\n";
     expect_script_output("automaton_product_epsilon", script, "sat\n((x \"\"))\n");
 }
+
+// elim_small_bv_tactic::rw_cfg::reduce_quantifier enumerates only the
+// values j < bv_sz of a bit-vector variable of size bv_sz, so
+// (forall ((y (_ BitVec 2))) (not (= y #b11))) checks #b00 and #b01 and
+// becomes true: an unsat goal is answered sat. It also reads
+// get_bv_size of every bound variable's sort before checking that the
+// sort is a bit-vector sort, so a quantifier over Int crashes. Fixed
+// upstream in b6ee0b151 ("fix #3027"), 8e033c1e7 ("fix #3716 fix #3719")
+// and aa901c4e8.
+void tst_z3_4_7_1_elim_small_bv() {
+    expect_shell_script("elim_small_bv",
+                        "(assert (forall ((y (_ BitVec 2))) (not (= y #b11))))\n"
+                        "(check-sat-using (then elim-small-bv smt))\n"
+                        "(reset)\n"
+                        "(declare-fun q ((_ BitVec 2)) Bool)\n"
+                        "(assert (forall ((y (_ BitVec 2))) (q y)))\n"
+                        "(apply (using-params elim-small-bv :max_steps 3))\n",
+                        "unsat\n"
+                        "(goals\n(goal\n  (forall ((y (_ BitVec 2))) (q y))\n"
+                        "  :precision precise :depth 1)\n)\n");
+    std::cout << "elim_small_bv: running (apply elim-small-bv) on an Int quantifier\n";
+    std::cout.flush(); // z3 4.7.1 dies here
+    expect_shell_script("elim_small_bv",
+                        "(declare-const x Int)\n"
+                        "(assert (forall ((z Int)) (<= x z)))\n"
+                        "(apply elim-small-bv)\n",
+                        "(goals\n(goal\n  (forall ((z Int)) (<= x z))\n"
+                        "  :precision precise :depth 1)\n)\n");
+}
