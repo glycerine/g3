@@ -2842,3 +2842,27 @@ void tst_z3_4_7_1_elim_small_bv() {
                         "(goals\n(goal\n  (forall ((z Int)) (<= x z))\n"
                         "  :precision precise :depth 1)\n)\n");
 }
+
+// sine_tactic::filter_expressions starts the connected component at the
+// goal's last formula and reads exp2const[visiting], but obj_map's
+// operator[] dereferences a missing entry, and a formula without an
+// uninterpreted application at its root (such as (> x 0)) never gets
+// one: z3 4.7.1 crashes. Upstream added the contains check in fcd1f2b3c
+// ("fix #3459") and later removed sine-filter (490dc66ec). An empty goal
+// also reads g->form(g->size() - 1) = g->form(UINT_MAX).
+void tst_z3_4_7_1_sine_filter_component() {
+    std::cout << "sine_filter_component: running (apply sine-filter)\n";
+    std::cout.flush(); // z3 4.7.1 dies here
+    expect_shell_script("sine_filter_component",
+                        "(declare-const p Bool)\n"
+                        "(declare-const x Int)\n"
+                        "(assert p)\n"
+                        "(assert (> x 0))\n"
+                        "(apply sine-filter)\n",
+                        "(goals\n(goal\n  (> x 0)\n  :precision over :depth 1)\n)\n");
+    std::cout << "sine_filter_component: running (apply sine-filter) on an empty goal\n";
+    std::cout.flush(); // z3 4.7.1 dies here
+    expect_shell_script("sine_filter_component",
+                        "(apply sine-filter)\n",
+                        "(goals\n(goal\n  :precision over :depth 1)\n)\n");
+}

@@ -284,6 +284,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_read_uint64_max);
     TST(z3_4_7_1_wpa_empty_map_name);
     TST(z3_4_7_1_elim_small_bv);
+    TST(z3_4_7_1_sine_filter_component);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);
