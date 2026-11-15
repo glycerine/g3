@@ -111,7 +111,7 @@ func newCofactorTermITERewriter(owner *CofactorTermITETactic) (*cofactorTermITER
 	r := &cofactorTermITERewriter{owner: owner, refs: contextSimplifyRefs{m: owner.manager}, memo: make(map[ast.ASTHandle]ast.ASTHandle), hasITE: make(map[ast.ASTHandle]bool)}
 	r.cfg.owner = r
 	var err error
-	r.cfg.mkApp, err = rewriter.NewSimplifiedApp(owner.manager, owner.context, owner.globals, &owner.params)
+	r.cfg.mkApp, err = rewriter.NewSimplifiedApp(owner.manager, owner.context, owner.globals, &owner.engineParams)
 	if err != nil {
 		if r.cfg.mkApp != nil {
 			err = errors.Join(err, r.cfg.mkApp.Close())

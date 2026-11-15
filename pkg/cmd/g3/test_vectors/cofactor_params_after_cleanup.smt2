@@ -1,0 +1,7 @@
+(declare-const x Int)
+(declare-const y Int)
+(declare-const a Bool)
+(declare-const b Bool)
+(assert (or a b))
+(assert (> (ite (= x 1) (+ x y) y) 0))
+(apply (then split-clause (using-params cofactor-term-ite :cofactor_equalities false)))

@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_core_01-F1: cofactor_elim_term_ite::cleanup restores the constructor params.
+	"cofactor_params_after_cleanup.smt2": "(goals\n(goal\n  a\n  (ite (= x 1) (not (<= (+ x y) 0)) (not (<= y 0)))\n  :precision precise :depth 2)\n(goal\n  b\n  (ite (= x 1) (not (<= y (- 1))) (not (<= y 0)))\n  :precision precise :depth 2)\n)\n",
 	// AUDIT.md tactic_top_01-F6: and_then keeps t2's model converter when models are off.
 	"and_then_mc_models_off.smt2": "(goals\n(goal\n  (r b)\n  :precision over :depth 2)\n)\n(filter-model-converter)\n",
 	// AUDIT.md tactic_top_01-F4: has_patterns counts no-patterns, so the body is not connected.

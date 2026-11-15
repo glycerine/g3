@@ -23,11 +23,13 @@ type CofactorTermITETactic struct {
 	globals            *uparams.GlobalParamsService
 	services           model.ModelEvaluatorConfig
 	params             uparams.ParamsRef
+	engineParams       uparams.ParamsRef // cofactor_elim_term_ite::m_params: constructor params only
 	maxMemory          uint64
 	cofactorEqualities bool
 	refs               uint32
 	header             uint64
 	paramsReady        bool
+	engineReady        bool
 	closed             bool
 }
 
@@ -59,6 +61,16 @@ func NewCofactorTermITETactic(m *ast.ASTManager, c *uparams.ParamsContext, g *up
 	t.paramsReady = true
 	if p != nil {
 		if err = c.Assign(&t.params, p); err != nil {
+			return nil, err
+		}
+	}
+	t.engineParams, err = c.NewValue()
+	if err != nil {
+		return nil, err
+	}
+	t.engineReady = true
+	if p != nil {
+		if err = c.Assign(&t.engineParams, p); err != nil {
 			return nil, err
 		}
 	}
@@ -153,9 +165,16 @@ func (t *CofactorTermITETactic) Translate(m *ast.ASTManager) (tactic.Tactic, err
 	return NewCofactorTermITETactic(m, t.context, t.globals, &t.params, t.services)
 }
 
-// Cleanup is cofactor_term_ite_tactic::cleanup: the elimination state is
-// rebuilt per formula, so nothing is retained between applications.
-func (t *CofactorTermITETactic) Cleanup() error { return t.open() }
+// Cleanup is cofactor_term_ite_tactic::cleanup, which calls
+// cofactor_elim_term_ite::cleanup: the imp is rebuilt with alloc(imp, m,
+// m_params) from the constructor params, so updt_params values are dropped.
+// The remaining elimination state is rebuilt per formula.
+func (t *CofactorTermITETactic) Cleanup() error {
+	if err := t.open(); err != nil {
+		return err
+	}
+	return t.readPolicy(&t.engineParams)
+}
 
 func (t *CofactorTermITETactic) Reset() error                             { return t.Cleanup() }
 func (t *CofactorTermITETactic) CollectStatistics(*statistics.Statistics) {}
@@ -243,6 +262,10 @@ func (t *CofactorTermITETactic) Close() (result error) {
 	if t.paramsReady {
 		result = errors.Join(result, t.context.Del(&t.params))
 		t.paramsReady = false
+	}
+	if t.engineReady {
+		result = errors.Join(result, t.context.Del(&t.engineParams))
+		t.engineReady = false
 	}
 	if result != nil {
 		return result

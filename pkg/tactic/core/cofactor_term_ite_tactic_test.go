@@ -107,3 +107,32 @@ func TestCofactorTermITEGuardsProofsAndCores(t *testing.T) {
 		simplifyMust(t, goal.Close())
 	}
 }
+
+// AUDIT.md tactic_core_01-F1: cofactor_elim_term_ite::cleanup rebuilds its imp
+// from the constructor params, so an updt_params value lasts only until the
+// next cleanup.
+func TestCofactorTermITECleanupRestoresConstructorParams(t *testing.T) {
+	m, c, g, services := solveEqFixture(t)
+	if err := m.RegisterDeclarationPlugins(); err != nil {
+		t.Fatal(err)
+	}
+	runner, err := NewCofactorTermITETactic(m, c, g, nil, services)
+	simplifyMust(t, err)
+	t.Cleanup(func() { simplifyMust(t, runner.Close()) })
+	key := "cofactor_equalities"
+	updated, err := c.NewValue()
+	simplifyMust(t, err)
+	simplifyMust(t, c.SetBoolName(&updated, &key, false))
+	simplifyMust(t, runner.UpdateParams(&updated))
+	simplifyMust(t, c.Del(&updated))
+	if runner.cofactorEqualities {
+		t.Fatal("updt_params did not reach the elimination engine")
+	}
+	simplifyMust(t, runner.Cleanup())
+	if !runner.cofactorEqualities {
+		t.Fatal("cleanup kept the updated cofactor_equalities")
+	}
+	if value, err := c.GetBoolName(&runner.params, &key, true); err != nil || value {
+		t.Fatal("tactic m_params lost the update", value, err)
+	}
+}
