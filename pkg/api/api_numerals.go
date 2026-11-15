@@ -11,10 +11,58 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
+// errAPINumeralParse is Z3_PARSER_ERROR from Z3_mk_numeral's character
+// filter.
+var errAPINumeralParse = errors.New("api: numeral text contains a character outside the numeral alphabet")
+
+// apiIsNumeralSort is is_numeral_sort: arith, bv, datalog_relation and fpa
+// family sorts.
+func apiIsNumeralSort(m *ast.ASTManager, sort ast.ASTHandle) (bool, error) {
+	family, err := m.GetFamilyID(sort)
+	if err != nil {
+		return false, err
+	}
+	name, err := apiRegisteredFamilyName(m, family)
+	if err != nil {
+		return false, err
+	}
+	switch name {
+	case "arith", "bv", "datalog_relation", "fpa":
+		return true, nil
+	}
+	return false, nil
+}
+
 func (c *SMTContext) Numeral(value string, sort ast.ASTHandle) (result ast.ASTHandle, err error) {
 	m, err := c.Manager()
 	if err != nil {
 		return result, err
+	}
+	// check_numeral_sort runs first: Z3_INVALID_ARG.
+	if numeral, e := apiIsNumeralSort(m, sort); e != nil {
+		return result, e
+	} else if !numeral {
+		return result, ast.ErrASTDomain
+	}
+	// The character filter runs for every sort; p, P and + are accepted only
+	// for floating-point sorts (fpa_util::is_float, not rounding modes).
+	_, _, isFloat, e := m.FloatingPointSortShape(sort)
+	if e != nil {
+		return result, e
+	}
+	for i := 0; i < len(value); i++ {
+		ch := value[i]
+		if !(('0' <= ch && ch <= '9') ||
+			ch == '/' || ch == '-' ||
+			ch == ' ' || ch == '\n' ||
+			ch == '.' || ch == 'e' ||
+			ch == 'E' ||
+			(isFloat &&
+				(ch == 'p' ||
+					ch == 'P' ||
+					ch == '+'))) {
+			return result, errAPINumeralParse
+		}
 	}
 	if yes, e := m.IsBitVectorSort(sort); e == nil && yes {
 		bits, e := m.BitVectorSize(sort)
@@ -76,12 +124,6 @@ func (c *SMTContext) Numeral(value string, sort ast.ASTHandle) (result ast.ASTHa
 		return result, e
 	}
 	if family == floatingPointFamily {
-		for i := 0; i < len(value); i++ {
-			ch := value[i]
-			if !('0' <= ch && ch <= '9') && ch != '/' && ch != '-' && ch != '+' && ch != ' ' && ch != '\n' && ch != '.' && ch != 'e' && ch != 'E' && ch != 'p' && ch != 'P' {
-				return result, ast.ErrASTDomain
-			}
-		}
 		return floatingPoint.MkFPANumeralString(value, sort)
 	}
 	return result, ast.ErrASTDomain
