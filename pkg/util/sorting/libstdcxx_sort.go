@@ -83,6 +83,14 @@ package sorting
 //     imp::compare, which traces and refines its arguments in place, so the
 //     exact comparison sequence is observable.
 //
+//  10. theory_wmaxsat::block and theory_wmaxsat::mk_block
+//     (pkg/smtcore/theory_wmaxsat.go sortedCosts),
+//     src/smt/theory_wmaxsat.cpp:244,282 with compare_cost (decreasing
+//     scaled weight), approved by the owner on 2026-11-15 as an added
+//     site, for AUDIT.md smtcore_13-F8: equal weights tie, and
+//     the order decides which slack literals enter the conflict and the
+//     blocking clause.
+//
 // The algorithm lives here in pkg/util/sorting so every approved call site
 // shares one verified implementation; the typed wrappers stay at the call
 // sites (smtcore/libstdcxx_sort.go, ast/rewriter/bv_polynomial_sort.go).
