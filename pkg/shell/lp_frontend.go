@@ -5,17 +5,22 @@ package shell
 import (
 	"errors"
 	"io"
+	"os"
 
 	"github.com/glycerine/g3/pkg/util/control"
 	lp "github.com/glycerine/g3/pkg/util/lp"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
+// LPFrontendConfig: a nil Input is an MPS file that could not be opened;
+// mps_reader::read then reports it (set_m_ok_to_false). Diagnostics is
+// std::cerr, which receives "cannot process" (os.Stderr when nil).
 type LPFrontendConfig struct {
-	Globals *uparams.GlobalParamsService
-	Input   io.Reader
-	Output  io.Writer
-	Name    string
+	Globals     *uparams.GlobalParamsService
+	Input       io.Reader
+	Output      io.Writer
+	Diagnostics io.Writer
+	Name        string
 }
 
 type LPFrontend struct {
@@ -27,6 +32,7 @@ type LPFrontend struct {
 	solver  *lp.FloatPrimalSimplex
 	input   io.Reader
 	output  io.Writer
+	stderr  io.Writer
 	name    string
 	min     bool
 	running bool
@@ -34,10 +40,14 @@ type LPFrontend struct {
 }
 
 func NewLPFrontend(c LPFrontendConfig) (f *LPFrontend, err error) {
-	if c.Globals == nil || c.Input == nil || c.Output == nil {
+	if c.Globals == nil || c.Output == nil {
 		return nil, ErrShellOptionService
 	}
-	f = &LPFrontend{globals: c.Globals, input: c.Input, output: c.Output, name: c.Name}
+	diagnostics := c.Diagnostics
+	if diagnostics == nil {
+		diagnostics = os.Stderr
+	}
+	f = &LPFrontend{globals: c.Globals, input: c.Input, output: c.Output, stderr: diagnostics, name: c.Name}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, f.Close())

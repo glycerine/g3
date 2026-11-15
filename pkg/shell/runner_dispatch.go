@@ -14,7 +14,7 @@ func (r *Runner) dispatch(kind InputKind) (result error) {
 	}
 	switch kind {
 	case InputDatalog:
-		return RunDatalogFrontend(r.context, r.result.InputName, r.output)
+		return RunDatalogFrontend(r.context, r.result.InputName, r.output, r.diagnostics)
 	case InputSMT2:
 		var frontend *SMTLIBFrontend
 		if _, selected := r.command.Input.Selected(); selected {
@@ -63,7 +63,7 @@ func (r *Runner) dispatch(kind InputKind) (result error) {
 		return frontend.Run(r.input)
 	case InputMPS:
 		frontend, err := NewLPFrontend(LPFrontendConfig{
-			Globals: globals, Input: r.input, Output: r.output, Name: r.result.InputName,
+			Globals: globals, Input: r.input, Output: r.output, Diagnostics: r.diagnostics, Name: r.result.InputName,
 		})
 		if err != nil {
 			return err

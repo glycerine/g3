@@ -88,21 +88,30 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 		if err = context.RefreshGlobalParameters(); err != nil {
 			return err
 		}
-		return shell.RunDatalogFrontend(context, filename, output)
+		return shell.RunDatalogFrontend(context, filename, output, diagnostics)
 	}
 	if kind != shell.InputSMT2 && kind != shell.InputDIMACS && kind != shell.InputOPB && kind != shell.InputWCNF && kind != shell.InputZ3Log && kind != shell.InputMPS {
 		return fmt.Errorf("selected input frontend is not ported yet")
 	}
 	if selected && kind != shell.InputSMT2 && kind != shell.InputOPB && kind != shell.InputWCNF {
 		file, err := os.Open(filename)
-		if err != nil {
-			if kind == shell.InputZ3Log {
-				return &z3LogOpenError{filename: filename, cause: err}
-			}
+		switch {
+		case err == nil:
+			defer func() { result = errors.Join(result, file.Close()) }()
+			input = file
+		case kind == shell.InputZ3Log:
+			return &z3LogOpenError{filename: filename, cause: err}
+		case kind == shell.InputDIMACS:
+			// read_dimacs: (error "failed to open file '<name>'") and
+			// exit(ERR_OPEN_FILE), the SMT-LIB front end's text.
+			return &shell.SMTLIBFileOpenError{Name: filename, Cause: err}
+		case kind == shell.InputMPS:
+			// mps_reader keeps the unopened stream and reports through
+			// read(): the LP front end gets no input.
+			input = nil
+		default:
 			return &shellInputOpenError{filename: filename, cause: err}
 		}
-		defer func() { result = errors.Join(result, file.Close()) }()
-		input = file
 	}
 	if err = context.RefreshGlobalParameters(); err != nil {
 		return err
@@ -193,7 +202,7 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 		return frontend.Run(input)
 	}
 	if kind == shell.InputMPS {
-		frontend, err := shell.NewLPFrontend(shell.LPFrontendConfig{Globals: globals, Input: input, Output: output, Name: filename})
+		frontend, err := shell.NewLPFrontend(shell.LPFrontendConfig{Globals: globals, Input: input, Output: output, Diagnostics: diagnostics, Name: filename})
 		if err != nil {
 			return err
 		}

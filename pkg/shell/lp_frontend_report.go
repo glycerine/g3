@@ -10,8 +10,9 @@ import (
 	lp "github.com/glycerine/g3/pkg/util/lp"
 )
 
+// cannotProcess is run_solver's std::cerr << "cannot process " << file.
 func (f *LPFrontend) cannotProcess(cause error) error {
-	_, err := fmt.Fprintf(f.output, "cannot process %s\n", f.name)
+	_, err := fmt.Fprintf(f.stderr, "cannot process %s\n", f.name)
 	return errors.Join(cause, err)
 }
 

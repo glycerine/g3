@@ -41,7 +41,7 @@ func newAPIMPSInvocation(input *apiMPSInput, options *MPSRunOptions) (*apiMPSInv
 		}
 	}
 	result.frontend, err = shell.NewLPFrontend(shell.LPFrontendConfig{
-		Globals: globals, Input: input.reader, Output: &result.output, Name: input.name,
+		Globals: globals, Input: input.reader, Output: &result.output, Diagnostics: &result.output, Name: input.name,
 	})
 	if err != nil {
 		return nil, errors.Join(err, command.Close())

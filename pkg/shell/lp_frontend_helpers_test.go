@@ -37,7 +37,7 @@ func lpFrontendFixture(t *testing.T, input string, values map[string]string) (*s
 		}
 	}
 	out := &bytes.Buffer{}
-	frontend, err := shell.NewLPFrontend(shell.LPFrontendConfig{Globals: globals, Input: strings.NewReader(input), Output: out, Name: "fixture.mps"})
+	frontend, err := shell.NewLPFrontend(shell.LPFrontendConfig{Globals: globals, Input: strings.NewReader(input), Output: out, Diagnostics: out, Name: "fixture.mps"})
 	if err != nil {
 		t.Fatal(err)
 	}
