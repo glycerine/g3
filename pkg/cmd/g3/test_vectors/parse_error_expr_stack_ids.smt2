@@ -1,0 +1,5 @@
+(declare-const v0 (_ BitVec 3))
+(declare-const v1 (_ BitVec 3))
+(declare-fun f ((_ BitVec 3) (_ BitVec 3)) (_ BitVec 3))
+(assert (= (f (bvnot v0) (bvadd v0 v1)) (f v1 (undefined_fn v0))))
+(assert (= (bvmul v0 v1) (bvor v1 v0)))

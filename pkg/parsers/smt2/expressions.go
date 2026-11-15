@@ -217,7 +217,9 @@ func (p *commandParser) expressionFrame(quantifier *ast.ASTQuantifierSpec) (valu
 		return value, named, resultErr
 	}
 	if resultErr != nil {
-		resultErr = errors.Join(resultErr, p.exprs.shrink(p.manager, start))
+		// A parser_exception unwinds without shrinking m_expr_stack; the
+		// command loop's reset() releases the whole stack front to back
+		// (clearCommand). AUDIT.md FUZZ_C-F6.
 		return ast.ASTHandle{}, "", resultErr
 	}
 	if len(p.exprs.refs) <= start {
