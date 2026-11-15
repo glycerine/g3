@@ -90,6 +90,17 @@ func (c *Context) simplifyOptimizationGoal(set *opt.ObjectiveFormulaSet, result 
 	if err != nil {
 		return nil, err
 	}
+	// if (m_is_clausal) return; (WCNF input): fmls stay as to_fmls made them.
+	if c.optimizationClausal {
+		for _, formula := range formulas {
+			ref, e := c.manager.NewRef(formula)
+			if e != nil {
+				return nil, e
+			}
+			result.refs = append(result.refs, ref)
+		}
+		return formulas, nil
+	}
 	goal, err := tactic.NewGoal(c.manager, false, true, false)
 	if err != nil {
 		return nil, err

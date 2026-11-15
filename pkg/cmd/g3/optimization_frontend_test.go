@@ -121,9 +121,11 @@ func TestOptimizationFrontendResourceLimitedSortMaxBounds(t *testing.T) {
 	input := "p wcnf 6 7 100\n100 -1 -2 -3 -4 -5 -6 0\n" +
 		"1 1 0\n1 2 0\n1 3 0\n1 4 0\n1 5 0\n1 6 0\n"
 	var output bytes.Buffer
-	// rlimit tuned to g3's resource accounting; context::propagate's two
-	// limit checks per round (AUDIT.md smtcore_08-F3) moved it from 2200.
-	args := []string{"rlimit=2300", "opt.maxsat_engine=sortmax", "-wcnf", "-in"}
+	// rlimit tuned to g3's resource accounting (z3 prints sat at every
+	// rlimit). context::propagate's two limit checks per round (AUDIT.md
+	// smtcore_08-F3) and WCNF skipping simplify_fmls (cmd_context_02-F2)
+	// move the [0:2] window in opposite directions; together it is 2200.
+	args := []string{"rlimit=2200", "opt.maxsat_engine=sortmax", "-wcnf", "-in"}
 	if err := runArguments(args, strings.NewReader(input), &output); err != nil {
 		t.Fatal(err, output.String())
 	}

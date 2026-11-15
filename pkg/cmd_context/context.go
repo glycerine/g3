@@ -143,6 +143,7 @@ type Context struct {
 	funcDecls, psortDecls          *symbolDictionary
 	psortStack                     []string
 	macroDecls                     *symbolDictionary // m_macros layout
+	optimizationClausal            bool              // opt::context::m_is_clausal
 	macros                         map[string][]macroDeclaration
 	macroTrail                     []string
 	userTactics                    *insdict.Dict[string, string]
@@ -1709,6 +1710,7 @@ func (c *Context) ResetAssertions() error {
 	}
 	// m_opt = nullptr (AUDIT.md FUZZ_A-F13).
 	c.optimizedObjectives, c.optsmtReset = 0, false
+	c.optimizationClausal = false
 	for i := range c.scopes {
 		c.scopes[i].assertions = 0
 		c.scopes[i].objectives = 0
@@ -1832,6 +1834,7 @@ func (c *Context) resetManagerState() error {
 		}
 		// m_opt = nullptr (AUDIT.md FUZZ_A-F13).
 		c.optimizedObjectives, c.optsmtReset = 0, false
+		c.optimizationClausal = false
 		c.resetDeclarationDictionaries()
 		if err := c.restoreDeclarations(0, 0); err != nil {
 			return err

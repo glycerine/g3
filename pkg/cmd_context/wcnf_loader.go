@@ -3,10 +3,10 @@ package cmd_context
 import (
 	"fmt"
 	"math/big"
-	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/opt"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 type WCNFLoadSummary struct{ Variables, HardClauses, SoftClauses int }
@@ -19,6 +19,8 @@ func (c *Context) LoadWCNF(document opt.WCNFDocument) (WCNFLoadSummary, error) {
 	if err != nil {
 		return WCNFLoadSummary{}, err
 	}
+	// wcnf::wcnf: opt.set_clausal(true).
+	c.optimizationClausal = true
 	decls := make(map[uint32]ast.ASTHandle)
 	summary := WCNFLoadSummary{}
 	for i := range document.Clauses {
@@ -50,19 +52,16 @@ func (c *Context) makeWCNFClause(literals []opt.WCNFLiteral, decls map[uint32]as
 	}
 	terms := make([]ast.ASTHandle, len(literals))
 	for i, literal := range literals {
-		decl, found := decls[literal.Variable]
-		if !found {
-			sort, e := m.MkBoolSort()
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			decl, e = c.DeclareFunction(strconv.FormatUint(uint64(literal.Variable), 10), nil, sort)
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			decls[literal.Variable] = decl
+		// read_clause: m.mk_const(symbol(var), m.mk_bool_sort()), a
+		// numerical symbol (printed k!var) and no cmd_context declaration.
+		sort, e := m.MkBoolSort()
+		if e != nil {
+			return ast.ASTHandle{}, e
 		}
-		terms[i], err = m.MkApp(decl, nil)
+		terms[i], err = m.MkConst(usymbol.Numerical(literal.Variable), sort)
+		if err == nil {
+			decls[literal.Variable] = terms[i]
+		}
 		if err == nil && literal.Negative {
 			terms[i], err = m.MkNot(terms[i])
 		}
