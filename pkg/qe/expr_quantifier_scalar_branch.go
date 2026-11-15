@@ -74,17 +74,7 @@ func stepExprQEScalarBranch(parent *exprQETree, variables *exprQEBranchVariables
 		}
 		// plugin(x).assign runs with m_current at the new child, so its
 		// add_constraint calls assert over the child's path at once.
-		var assignContext *SolverContext
-		switch p := plugin.(type) {
-		case *ArithmeticPlugin:
-			assignContext = p.context
-		case *NonlinearArithmeticPlugin:
-			assignContext = p.context
-		case *DatatypeSolverPlugin:
-			assignContext = p.context
-		case *DatalogPlugin:
-			assignContext = p.context
-		}
+		assignContext := exprQEPluginSolverContext(plugin)
 		if assignContext != nil {
 			assignContext.sink = &exprQEConstraintSink{current: child, solver: solver}
 		}
@@ -164,6 +154,13 @@ func stepExprQEScalarBranch(parent *exprQETree, variables *exprQEBranchVariables
 		defer func() { err = errors.Join(err, m.DelRef(&definition)) }()
 		definitionArg = &definition
 	}
+	// plugin(x).subst runs with m_current at the child too: add_constraint
+	// calls made during substitution (assign_divs, ...) assert at once,
+	// interleaved with the plugin's term construction (AUDIT.md qe_02-F6).
+	substContext := exprQEPluginSolverContext(plugin)
+	if substContext != nil {
+		substContext.sink = &exprQEConstraintSink{current: child, solver: solver}
+	}
 	switch p := plugin.(type) {
 	case *BoolPlugin:
 		err = p.Substitute(variables.entries[entry].contains, &n, tmp, definitionArg)
@@ -184,6 +181,9 @@ func stepExprQEScalarBranch(parent *exprQETree, variables *exprQEBranchVariables
 		}
 	case *DatalogPlugin:
 		err = p.Substitute(variables.entries[entry].contains, &n, tmp, definitionArg)
+	}
+	if substContext != nil {
+		substContext.sink = nil
 	}
 	if err != nil {
 		return nil, status, err
@@ -268,4 +268,20 @@ func stepExprQEScalarBranch(parent *exprQETree, variables *exprQEBranchVariables
 		return nil, status, err
 	}
 	return child, exprQEChooseVariable, nil
+}
+
+// exprQEPluginSolverContext returns the i_solver_context of a plugin whose
+// add_constraint calls go through SolverContext.sink.
+func exprQEPluginSolverContext(plugin SolverPlugin) *SolverContext {
+	switch p := plugin.(type) {
+	case *ArithmeticPlugin:
+		return p.context
+	case *NonlinearArithmeticPlugin:
+		return p.context
+	case *DatatypeSolverPlugin:
+		return p.context
+	case *DatalogPlugin:
+		return p.context
+	}
+	return nil
 }

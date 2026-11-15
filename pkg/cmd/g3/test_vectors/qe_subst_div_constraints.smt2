@@ -1,0 +1,6 @@
+(declare-const y Int)
+(assert (exists ((x Int)) (and (= (mod x 3) 1) (> x y))))
+(apply qe)
+(declare-const z Int)
+(assert (exists ((x Int)) (and (= (mod (* 2 x) 5) 1) (< x z) (> (* 3 x) y))))
+(apply qe)
