@@ -61,11 +61,6 @@ func (e *PropositionalEngine) queryEmptyDatalogProgram(declarations []ast.ASTHan
 // empty program after transform_rules: no instructions are executed, the
 // cancellation check after execution still runs, and the round completes.
 func (e *PropositionalEngine) finishEmptyDatalogRound(round *datalogRestartRound) (lbool.LBool, error) {
-	if !round.restarting {
-		if err := e.resetNegationDependentTables(); err != nil {
-			return lbool.Undef, err
-		}
-	}
 	e.compiled = false
 	e.datalogStats.Reset()
 	canceled, err := e.manager.Canceled()

@@ -2148,12 +2148,46 @@ func (e *PropositionalEngine) resetNegationDependentTables() error {
 			return x
 		}
 		if rows != 0 {
-			if x = state.table.Reset(); x != nil {
+			if x = e.resetNegatedTable(state.table, rows); x != nil {
 				return x
 			}
 		}
 	}
 	return nil
+}
+
+// resetNegatedTable is relation_base::reset: mk_filter_interpreted_fn(rel,
+// false). Hash and sparse tables use the default table filter, whose
+// should_remove grounds the condition with var_subst and simplifies it with
+// the context rewriter for every row.
+func (e *PropositionalEngine) resetNegatedTable(table rel.FiniteTable, rows int) (resultErr error) {
+	switch table.(type) {
+	case *rel.HashTable, *rel.SparseTable:
+		if e.guard == nil {
+			break
+		}
+		signature, err := table.Signature()
+		if err != nil {
+			return err
+		}
+		bottom, err := e.manager.MkFalse()
+		if err != nil {
+			return err
+		}
+		// The condition has no free variables: every argument is null.
+		bindings := make([]ast.ASTHandle, signature.Len())
+		out, err := e.manager.NewRef(ast.ASTHandle{})
+		if err != nil {
+			return err
+		}
+		defer func() { resultErr = errors.Join(resultErr, e.manager.DelRef(&out)) }()
+		for i := 0; i < rows; i++ {
+			if err = e.relations.GroundCondition(e.guard, bottom, bindings, out); err != nil {
+				return err
+			}
+		}
+	}
+	return table.Reset()
 }
 
 func (e *PropositionalEngine) saturate() error {
@@ -2833,6 +2867,14 @@ func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHand
 			return lbool.Undef, err
 		}
 	}
+	// rel_context::query calls reset_negated_tables on the closed,
+	// untransformed rule set before saturate (and its transform_rules), once
+	// per query, not per restart round.
+	if !round.restarting {
+		if err = e.resetNegationDependentTables(); err != nil {
+			return lbool.Undef, err
+		}
+	}
 	// rel_context::saturate resets m_code before transform_rules.
 	if err = e.releaseDatalogCode(); err != nil {
 		return lbool.Undef, err
@@ -2874,14 +2916,6 @@ func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHand
 		}
 	}
 	e.datalogStats.Reset()
-	// rel_context::query resets negation-dependent tables before choosing and
-	// running the relational saturation implementation. Keep this outside the
-	// direct evaluator so compiled and interpreted execution see the same state.
-	if !round.restarting {
-		if err = e.resetNegationDependentTables(); err != nil {
-			return lbool.Undef, err
-		}
-	}
 	checkScope, err := e.beginDatalogCheckRelation()
 	if err != nil {
 		return lbool.Undef, err
