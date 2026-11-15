@@ -1,4 +1,4 @@
-//go:build debug
+//go:build g3debug
 
 package tactic
 
