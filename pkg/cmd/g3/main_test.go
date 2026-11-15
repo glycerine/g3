@@ -338,6 +338,11 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md cmd_context_01-F3: opt::context never runs check_logic on
+	// objectives or soft constraints; its sort errors use the C++ texts.
+	"opt_objective_outside_logic.smt2": "sat\n(objectives\n ((* x y) 4)\n)\n",
+	"opt_soft_outside_logic.smt2":      "sat\n(objectives\n ( 0)\n)\n",
+	"opt_message_texts.smt2":           "(error \"line 1 column 36: Invalid type for expression. Expected Boolean type.\")\n(error \"line 1 column 70: Objective must be bit-vector, integer or real\")\nsat\n",
 	// AUDIT.md cmd_context_02-F1: after get-consequences the solver is the
 	// check-sat result, with its model and reason-unknown.
 	"consequences_get_model.smt2":      "sat\n\n(=> true x)\n(model \n  (define-fun x () Bool\n    true)\n)\n",
@@ -1484,6 +1489,8 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	"opt_message_texts.smt2": true,
+
 	"assert_effect_before_rparen.smt2":        true,
 	"declare_const_effect_before_rparen.smt2": true,
 	"define_fun_effect_before_rparen.smt2":    true,

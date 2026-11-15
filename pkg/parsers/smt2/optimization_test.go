@@ -491,7 +491,7 @@ func TestSMT2AssertSoftNormalizesOptionsAndValidatesFormulaFirst(t *testing.T) {
 		}
 	}()
 	err = ParseCommands(other, strings.NewReader(`(assert-soft 3 :junk 2)`), &output)
-	if err == nil || !strings.Contains(err.Error(), "expected Boolean type") {
+	if err == nil || !strings.Contains(err.Error(), "Invalid type for expression. Expected Boolean type.") {
 		t.Fatal("non-Boolean formula should be rejected first", err)
 	}
 }

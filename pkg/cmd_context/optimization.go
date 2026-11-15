@@ -124,11 +124,10 @@ func (c *Context) AddObjective(expression ast.ASTHandle, maximize bool) error {
 		return err
 	}
 	isBitVector := family == bitVector
+	// opt::context::scoped_state::add(app*, bool); opt::context never runs
+	// the cmd_context logic checker on objectives.
 	if family != arithmetic && !isBitVector {
-		return fmt.Errorf("objective must be bit-vector, integer or real")
-	}
-	if err = c.logicChecker.CheckExpression(expression); err != nil {
-		return err
+		return fmt.Errorf("Objective must be bit-vector, integer or real")
 	}
 	ref, err := m.NewRef(expression)
 	if err != nil {
@@ -164,13 +163,12 @@ func (c *Context) AddSoftConstraint(expression ast.ASTHandle, weight *big.Rat, i
 	if err != nil {
 		return err
 	}
+	// opt::context::scoped_state::add(expr*, rational, symbol); the
+	// assert-soft command checks the sort first with its own message.
 	if sort != boolean {
-		return fmt.Errorf("invalid type for expression: expected Boolean type")
+		return fmt.Errorf("Soft constraint should be Boolean")
 	}
 	if err = c.invalidateOptimizationState(); err != nil {
-		return err
-	}
-	if err = c.logicChecker.CheckExpression(expression); err != nil {
 		return err
 	}
 	index, found := c.softObjectiveIndex[id]

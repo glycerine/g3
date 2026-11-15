@@ -882,7 +882,8 @@ func (p *commandParser) command() (bool, error) {
 			return false, err
 		}
 		if sort != boolean {
-			return false, fmt.Errorf("invalid type for expression: expected Boolean type")
+			// Source assert_soft_cmd::set_next_arg (opt_cmds.cpp).
+			return false, fmt.Errorf("Invalid type for expression. Expected Boolean type.")
 		}
 		weight := new(big.Rat).Set(&p.softWeight)
 		id := p.softID
