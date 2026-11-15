@@ -110,6 +110,10 @@ Abstract:
                                   clause map is off by the deleted edges, so a
                                   certificate step prints another rule's
                                   variables (pkg/AUDIT.md duality zbug round 2).
+    z3_4_7_1_duality_print_answer with fixedpoint.print_answer, the null
+                                  answer of dl_interface::get_answer crashes
+                                  the query command (pkg/AUDIT.md duality zbug
+                                  round 2).
     z3_4_7_1_implicant_nested_array_eq once a nested array index makes
                                   model_implicant::eval_array_eq mark the
                                   equality true, a later differing index
@@ -1797,6 +1801,26 @@ void tst_z3_4_7_1_duality_certificate_dead_edge() {
         "\")\n"
         "\n";
     expect_script_output("duality_certificate_dead_edge", script, expected);
+}
+
+// dl_interface::get_answer is SASSERT(false) and returns a null expression;
+// with fixedpoint.print_answer the query command prints it and z3 crashes.
+// The fork reports the unsupported operation. pkg/AUDIT.md duality zbug
+// round 2.
+void tst_z3_4_7_1_duality_print_answer() {
+    char const* script =
+        "(set-option :fixedpoint.engine duality)\n"
+        "(set-option :fixedpoint.print_answer true)\n"
+        "(declare-rel r (Int))\n"
+        "(declare-rel q ())\n"
+        "(declare-var x Int)\n"
+        "(rule (r 1))\n"
+        "(rule (=> (r x) q))\n"
+        "(query q)\n";
+    char const* expected =
+        "sat\n"
+        "(error \"line 8 column 8: duality does not support get_answer\")\n";
+    expect_script_output("duality_print_answer", script, expected);
 }
 
 // PDR proof trace for Goal :- P(x), with P(x) a fact. The query!0 root and
