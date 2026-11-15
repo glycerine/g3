@@ -81,6 +81,15 @@ func (r *ArithRewriter) open() error {
 	return err
 }
 
+// SetFlat mirrors poly_rewriter::set_flat: it changes only m_flat.
+func (r *ArithRewriter) SetFlat(flat bool) error {
+	if err := r.open(); err != nil {
+		return err
+	}
+	r.flat = flat
+	return nil
+}
+
 func (r *ArithRewriter) updateParams(c *uparams.ParamsContext, g *uparams.GlobalParamsService, local *uparams.ParamsRef) (result error) {
 	p, err := NewArithRewriterParams(c, g, local)
 	if err != nil {

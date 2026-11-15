@@ -173,6 +173,14 @@ func (p *BVRewriter) Update(local *uparams.ParamsRef) error {
 	}
 	return nil
 }
+
+// SetFlat mirrors poly_rewriter::set_flat: it changes only m_flat.
+func (p *BVRewriter) SetFlat(v bool) error {
+	if e := p.open(); e != nil {
+		return e
+	}
+	return p.polynomial.config.SetFlat(v)
+}
 func (p *BVRewriter) SetMkBVToNumeral(v bool) error {
 	if e := p.open(); e != nil {
 		return e

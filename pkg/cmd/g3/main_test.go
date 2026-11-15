@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md model_01-F1: model_evaluator forces flat arith/bv rewriters.
+	"eval_flat_false.smt2": "sat\n(+ 1 b c)\n(* 2 b c)\n(bvadd #x01 x y)\n",
 	// AUDIT.md muz_fp_03-F2: the doc backend runs rel_context::transform_rules
 	// (coi filter, inliner, interp tail simplifier, filter/simple joins).
 	"datalog_doc_coi_filter.smt2":           "sat\n(or (and (= (:var 0) #b000) (= (:var 1) #b001))\n    (and (= (:var 0) #b001) (= (:var 1) #b010)))\n",

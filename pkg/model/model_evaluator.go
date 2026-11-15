@@ -218,6 +218,12 @@ func (ev *ModelEvaluator) init(p *uparams.ParamsRef) error {
 	if e = ev.cfg.boolean.SetFlat(true); e != nil {
 		return e
 	}
+	if e = ev.cfg.arithmetic.SetFlat(true); e != nil {
+		return e
+	}
+	if e = ev.cfg.bitVector.SetFlat(true); e != nil {
+		return e
+	}
 	if e = ev.cfg.bitVector.SetMkBVToNumeral(true); e != nil {
 		return e
 	}
