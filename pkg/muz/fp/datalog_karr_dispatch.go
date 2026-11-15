@@ -25,20 +25,18 @@ func (e *PropositionalEngine) ensureKarrDatalog() (bool, error) {
 	if !selected {
 		return false, nil
 	}
+	// rel_context registers karr_relation_plugin only when xform.karr is set.
+	// Without it the favourite names no plugin and the checker cannot be
+	// constructed, so evaluation continues with the ordinary plugins.
+	enabled, err := e.datalogKarrEnabled()
+	if err != nil {
+		return true, err
+	}
+	if !enabled && e.karrDatalog == nil {
+		return false, nil
+	}
 	if e.udocDatalog != nil || e.sparseIntervalDatalog != nil || e.intervalDatalog != nil || e.boundDatalog != nil || e.boundIntervalDatalog != nil || e.externalIntervalDatalog != nil {
 		return true, ErrKarrDatalogFragment
-	}
-	enabled := false
-	if e.params != nil && e.globals != nil {
-		view, err := e.fixedpointParamView()
-		if err != nil {
-			return true, err
-		}
-		enabled, err = view.Bool("xform.karr", false)
-		err = errors.Join(err, view.Close())
-		if err != nil {
-			return true, err
-		}
 	}
 	if !enabled {
 		return true, ErrKarrDatalogFragment
@@ -246,4 +244,17 @@ func (e *PropositionalEngine) karrDatalogAnswer(declaration ast.ASTHandle) (resu
 		resultErr = a.checkpoint()
 	}
 	return result, resultErr
+}
+
+// datalogKarrEnabled reads context::karr() (fixedpoint.xform.karr).
+func (e *PropositionalEngine) datalogKarrEnabled() (bool, error) {
+	if e.params == nil || e.globals == nil {
+		return false, nil
+	}
+	view, err := e.fixedpointParamView()
+	if err != nil {
+		return false, err
+	}
+	enabled, err := view.Bool("xform.karr", false)
+	return enabled, errors.Join(err, view.Close())
 }

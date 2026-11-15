@@ -3,6 +3,7 @@ package fp
 import (
 	"errors"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -127,4 +128,27 @@ func TestKarrDatalogIdentitySnapshotAndGuards(t *testing.T) {
 		t.Fatal("recursive program must refuse without publishing", status, err)
 	}
 
+}
+
+// AUDIT.md muz_fp_02-F3: with xform.karr off rel_context never registers the
+// Karr plugin, so naming it as the favourite leaves ordinary evaluation and an
+// explicit karr_relation representation names a missing plugin.
+func TestKarrFavouriteWithoutXformKarrUsesOrdinaryPlugins(t *testing.T) {
+	f := newDirectFactFixture(t)
+	e := f.engine
+	must := func(err error) { t.Helper(); fragmentMust(t, err) }
+	must(e.SelectEngine("datalog"))
+	must(e.globals.SourceSetName("fixedpoint.datalog.default_relation", "karr_relation"))
+	if err := e.SetPredicateRepresentation(f.declarations["u"], []string{"karr_relation"}); err == nil || !strings.Contains(err.Error(), "relation plugin karr_relation does not exist") {
+		t.Fatal("karr_relation representation without xform.karr", err)
+	}
+	must(e.AddFact(f.declarations["p"], nil))
+	status, err := e.QueryPredicate(f.declarations["p"])
+	must(err)
+	if status != lbool.True {
+		t.Fatal("nullary fact under a disabled Karr favourite", status)
+	}
+	if e.karrDatalog != nil {
+		t.Fatal("disabled Karr plugin installed the Karr backend")
+	}
 }

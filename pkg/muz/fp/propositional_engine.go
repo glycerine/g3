@@ -454,6 +454,18 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 	if e.karrDatalog != nil && (len(kinds) != 1 || kinds[0] != "karr_relation") {
 		return ErrKarrDatalogFragment
 	}
+	for _, kind := range kinds {
+		// rel_context registers karr_relation_plugin only when xform.karr is
+		// set; get_ordinary_relation_plugin then reports the missing plugin.
+		if kind != "karr_relation" {
+			continue
+		}
+		if enabled, err := e.datalogKarrEnabled(); err != nil {
+			return err
+		} else if !enabled {
+			return fmt.Errorf("muz/fp: relation plugin %s does not exist", kind)
+		}
+	}
 	if len(kinds) == 1 && kinds[0] == "karr_relation" {
 		if e.udocDatalog != nil || e.sparseIntervalDatalog != nil || e.intervalDatalog != nil || e.boundDatalog != nil || e.boundIntervalDatalog != nil || e.externalIntervalDatalog != nil {
 			return ErrKarrDatalogFragment
