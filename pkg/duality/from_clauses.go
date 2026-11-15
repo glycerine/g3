@@ -128,8 +128,10 @@ func (g *RPFP) FromClauses(clauses []*Expr, bounds []uint32, simplifier *interp.
 			return cause
 		}
 		args := make([]ast.ASTHandle, len(normalized.Parameters))
+		// The parameters share one sb_memo, destroyed at the end of its block.
+		sbMemo := newIZ3Table()
 		for i, param := range normalized.Parameters {
-			value, err := g.SubstBound(p.Replacements, param)
+			value, err := g.substBoundRec(sbMemo, p.Replacements, param)
 			if value != nil {
 				indparams = append(indparams, value)
 			}
@@ -137,8 +139,11 @@ func (g *RPFP) FromClauses(clauses []*Expr, bounds []uint32, simplifier *interp.
 				args[i], err = value.Raw()
 			}
 			if err != nil {
-				return errors.Join(err, normalized.close(), closeIndparams())
+				return errors.Join(err, normalized.close(), closeIndparams(), sbMemo.clear(m))
 			}
+		}
+		if err := sbMemo.clear(m); err != nil {
+			return errors.Join(err, normalized.close(), closeIndparams())
 		}
 		app, err := m.MkApp(decl, args)
 		if err != nil {
@@ -203,16 +208,27 @@ func (g *RPFP) clauseEdge(p *preparedHornClause, predicates map[ast.ASTHandle]*N
 		return err
 	}
 	defer func() { result = errors.Join(result, scanned.Close()) }()
+	// labeled is reassigned to its SubstBound image when there are labels;
+	// the source destroys it just before Children and scan_memo.
+	var labeledHeld *Expr
+	defer func() {
+		if labeledHeld != nil {
+			result = errors.Join(result, labeledHeld.Close())
+		}
+	}()
 	body, labels, err := g.RemoveLabels(scanned.Term)
 	if err != nil {
 		return err
 	}
-	expressions = append(expressions, body)
 	defer func() {
 		for i := range labels {
 			result = errors.Join(result, labels[i].Close())
 		}
 	}()
+	// FromClauses' sb_memo lives to the end of the loop iteration and is
+	// destroyed right after the transformer T.
+	sbMemo := newIZ3Table()
+	defer func() { result = errors.Join(result, sbMemo.clear(m)) }()
 	original, err := scanned.Term.Raw()
 	if err != nil {
 		return err
@@ -225,10 +241,17 @@ func (g *RPFP) clauseEdge(p *preparedHornClause, predicates map[ast.ASTHandle]*N
 		*someLabels = true
 	}
 	ref, err := simplifier.Simplify(stripped)
+	// body = body.simplify() drops the RemoveLabels result.
+	err = errors.Join(err, body.Close())
 	if err != nil {
-		return err
+		return errors.Join(err, m.DelRef(&ref))
 	}
-	defer func() { result = errors.Join(result, m.DelRef(&ref)) }()
+	refHeld := true
+	defer func() {
+		if refHeld {
+			result = errors.Join(result, m.DelRef(&ref))
+		}
+	}()
 	if !*someLabels {
 		indices := []uint32{}
 		seen := make(map[uint32]bool)
@@ -259,8 +282,21 @@ func (g *RPFP) clauseEdge(p *preparedHornClause, predicates map[ast.ASTHandle]*N
 		if err != nil {
 			return err
 		}
-		err = local.EliminateIndices(indices, false, ref)
-		if err = errors.Join(err, local.Close()); err != nil {
+		// expr::qe_lite works on its own expr_ref result and returns a new
+		// Term; body = ... releases the simplified body only after the
+		// qe_lite object is gone.
+		h, err := m.RefGet(ref)
+		if err != nil {
+			return errors.Join(err, local.Close())
+		}
+		eliminated, err := m.NewRef(h)
+		if err != nil {
+			return errors.Join(err, local.Close())
+		}
+		err = local.EliminateIndices(indices, false, eliminated)
+		err = errors.Join(err, local.Close(), m.DelRef(&ref))
+		ref = eliminated
+		if err != nil {
 			return err
 		}
 	}
@@ -268,24 +304,29 @@ func (g *RPFP) clauseEdge(p *preparedHornClause, predicates map[ast.ASTHandle]*N
 	if err != nil {
 		return err
 	}
-	simplified, err := hold(NewExpr(g.context, h))
+	simplified, err := NewExpr(g.context, h)
 	if err != nil {
 		return err
 	}
-	substituted, err := hold(g.SubstBound(p.Replacements, simplified))
+	substituted, err := hold(g.substBoundRec(sbMemo, p.Replacements, simplified))
+	// body = SubstBoundRec(...) drops the simplified body; sb_memo keeps
+	// its own references.
+	err = errors.Join(err, simplified.Close(), m.DelRef(&ref))
+	refHeld = false
 	if err != nil {
 		return err
 	}
 	labeled := scanned.Term
 	if *someLabels {
-		labeled, err = hold(g.SubstBound(p.Replacements, labeled))
+		labeledHeld, err = g.substBoundRec(sbMemo, p.Replacements, labeled)
 		if err != nil {
 			return err
 		}
+		labeled = labeledHeld
 	}
 	params := make([]*Expr, len(normalized.Parameters))
 	for i, param := range normalized.Parameters {
-		params[i], err = hold(g.SubstBound(p.Replacements, param))
+		params[i], err = hold(g.substBoundRec(sbMemo, p.Replacements, param))
 		if err != nil {
 			return err
 		}

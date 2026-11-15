@@ -11,6 +11,16 @@ import (
 // background constants; inserted replacements are deliberately not declared.
 // Source: duality_rpfp.cpp:3436-3476, active FromClauses consumer.
 func (g *RPFP) SubstBound(replacements map[uint32]*Expr, term *Expr) (out *Expr, result error) {
+	// SubstBound's memo is a local destroyed after the result is copied.
+	memo := newIZ3Table()
+	defer func() { result = errors.Join(result, memo.clear(g.context.manager)) }()
+	return g.substBoundRec(memo, replacements, term)
+}
+
+// substBoundRec is SubstBoundRec at level 0 with a caller-owned
+// hash_map<int,hash_map<ast,Term>> memo (FromClauses shares one memo across
+// several terms and keeps it until the end of the loop iteration).
+func (g *RPFP) substBoundRec(levels *iz3Table, replacements map[uint32]*Expr, term *Expr) (out *Expr, result error) {
 	if err := g.open(); err != nil {
 		return nil, err
 	}
@@ -40,16 +50,7 @@ func (g *RPFP) SubstBound(replacements map[uint32]*Expr, term *Expr) (out *Expr,
 	if err != nil {
 		return nil, err
 	}
-	type key struct {
-		term  ast.ASTHandle
-		level uint32
-	}
-	memo := make(map[key]ast.ASTHandle)
-	var pins []ast.ASTRef
 	defer func() {
-		for i := range pins {
-			result = errors.Join(result, m.DelRef(&pins[i]))
-		}
 		if result != nil && out != nil {
 			result = errors.Join(result, out.Close())
 			out = nil
@@ -57,9 +58,23 @@ func (g *RPFP) SubstBound(replacements map[uint32]*Expr, term *Expr) (out *Expr,
 	}()
 	var visit func(ast.ASTHandle, uint32) (ast.ASTHandle, error)
 	visit = func(h ast.ASTHandle, depth uint32) (ast.ASTHandle, error) {
-		k := key{h, depth}
-		if value, found := memo[k]; found {
-			return value, nil
+		// memo[level].insert(pair(t, expr(ctx))): the entry, holding t,
+		// exists before the recursion; a hit returns the stored result.
+		level, _ := levels.lookup(uint64(depth))
+		if level.inner == nil {
+			level.inner = newIZ3Table()
+		}
+		id, err := m.GetASTID(h)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		entry, inserted := level.inner.lookup(uint64(id))
+		if !inserted {
+			return m.RefGet(entry.value)
+		}
+		entry.key, err = m.NewRef(h)
+		if err != nil {
+			return ast.ASTHandle{}, err
 		}
 		kind, err := m.GetKind(h)
 		if err != nil {
@@ -159,12 +174,10 @@ func (g *RPFP) SubstBound(replacements map[uint32]*Expr, term *Expr) (out *Expr,
 			}
 
 		}
-		pin, err := m.NewRef(changed)
+		entry.value, err = m.NewRef(changed)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		pins = append(pins, pin)
-		memo[k] = changed
 		return changed, nil
 	}
 	h, err := visit(root, 0)

@@ -14,6 +14,11 @@ type ScannedBody struct {
 	Parameters       []*FuncDecl
 	Children         []*Node
 	QuantifiedTheory bool
+	// memo holds the ScanBody memo's references (FromClauses' scan_memo,
+	// a hash_space::hash_map<ast,Term>): the source keeps them until the end
+	// of the FromClauses loop iteration.
+	memo *iz3Table
+	m    *ast.ASTManager
 }
 
 func (s *ScannedBody) Close() error {
@@ -21,12 +26,19 @@ func (s *ScannedBody) Close() error {
 		return nil
 	}
 	var result error
+	// The source destroys labeled (Term), then scan_memo, then Relparams.
 	if s.Term != nil {
 		if err := s.Term.Close(); err != nil {
 			result = errors.Join(result, err)
 		} else {
 			s.Term = nil
 		}
+	}
+	if s.memo != nil {
+		if err := s.memo.clear(s.m); err != nil {
+			return errors.Join(result, err)
+		}
+		s.memo = nil
 	}
 	for i, p := range s.Parameters {
 		if p == nil {
@@ -73,8 +85,8 @@ func (g *RPFP) scanBody(term *Expr, predicates map[ast.ASTHandle]*Node, quantifi
 			return nil, ErrWrapperOwner
 		}
 	}
-	out = &ScannedBody{}
 	m := g.context.manager
+	out = &ScannedBody{memo: newIZ3Table(), m: m}
 	var pins []ast.ASTRef
 	defer func() {
 		for i := range pins {
@@ -94,6 +106,14 @@ func (g *RPFP) scanBody(term *Expr, predicates map[ast.ASTHandle]*Node, quantifi
 	var visit func(ast.ASTHandle, bool, bool) (ast.ASTHandle, error)
 	visit = func(h ast.ASTHandle, bound, eligible bool) (ast.ASTHandle, error) {
 		key := scanKey{handle: h, bound: bound && quantifiedTheory, eligible: !quantifiedTheory || eligible}
+		id, err := m.GetASTID(h)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if out.memo.find(uint64(id)) != nil {
+			// memo[t] on a hit is still an inserting lookup.
+			out.memo.resize()
+		}
 		if v, ok := memo[key]; ok {
 			return v, nil
 		}
@@ -232,7 +252,16 @@ func (g *RPFP) scanBody(term *Expr, predicates map[ast.ASTHandle]*Node, quantifi
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		pins = append(pins, ref)
+		if entry, inserted := out.memo.lookup(uint64(id)); !inserted {
+			pins = append(pins, ref)
+		} else {
+			// memo[t] = res: the pair holds t and then res.
+			entry.value = ref
+			entry.key, err = m.NewRef(h)
+			if err != nil {
+				return ast.ASTHandle{}, err
+			}
+		}
 		memo[key] = changed
 		return changed, nil
 	}
