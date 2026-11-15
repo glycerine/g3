@@ -2974,3 +2974,30 @@ void tst_z3_4_7_1_datatype_inst_after_pop() {
                         "(check-sat)\n",
                         "sat\n");
 }
+
+// (define-sort L () (List Int)) used first inside a scope: the pop removes
+// the scoped constructors of (List Int) and resets List's instance cache,
+// but L's own cache (psort_user_decl, and psort_app for (List Int)) keeps
+// the sort, so the next use of L never declares nil, insert, ... again and
+// z3 4.7.1 reports "unknown constant nil". The same holds for a parametric
+// alias (define-sort M (T) (List T)). Still present upstream.
+void tst_z3_4_7_1_define_sort_alias_after_pop() {
+    expect_shell_script("define_sort_alias_after_pop",
+                        "(define-sort L () (List Int))\n"
+                        "(push 1)\n"
+                        "(declare-const k L)\n"
+                        "(pop 1)\n"
+                        "(declare-const k L)\n"
+                        "(assert (= k (insert 1 nil)))\n"
+                        "(check-sat)\n",
+                        "sat\n");
+    expect_shell_script("define_sort_alias_after_pop",
+                        "(define-sort M (T) (List T))\n"
+                        "(push 1)\n"
+                        "(declare-const b (M Bool))\n"
+                        "(pop 1)\n"
+                        "(declare-const b (M Bool))\n"
+                        "(assert (is-insert b))\n"
+                        "(check-sat)\n",
+                        "sat\n");
+}
