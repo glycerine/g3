@@ -3,6 +3,7 @@ package bv
 import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 	"strings"
 	"testing"
@@ -143,5 +144,25 @@ func TestBVArray2UFFoldsIteAndNamesFreshFunctions(t *testing.T) {
 	arrayMust(t, e)
 	if k != ast.ASTApp {
 		t.Fatal("distinct over arrays became a quantifier", inner)
+	}
+}
+
+// AUDIT.md tactic_bv_01-F5: bvarray2uf_tactic::collect_param_descrs calls
+// insert_produce_models.
+func TestBVArray2UFDeclaresProduceModels(t *testing.T) {
+	f := newArrayFixture(t)
+	descr, err := uparams.NewParamDescrs(f.m.Symbols, uparams.ParamDescrsConfig{Budget: f.m.Budget()})
+	arrayMust(t, err)
+	t.Cleanup(func() { arrayMust(t, descr.Close()) })
+	arrayMust(t, f.tactic.CollectParamDescrs(descr))
+	n, err := descr.Size()
+	arrayMust(t, err)
+	if n != 1 {
+		t.Fatal("expected only produce_models", n)
+	}
+	k, err := descr.KindName("produce_models")
+	arrayMust(t, err)
+	if k != uparams.ParamBool {
+		t.Fatal(k)
 	}
 }

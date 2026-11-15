@@ -188,12 +188,20 @@ func (t *BVArray2UFTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (err 
 	}
 	return out.AddGoal(g)
 }
-func (t *BVArray2UFTactic) UpdateParams(*uparams.ParamsRef) error         { return t.open() }
-func (t *BVArray2UFTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *BVArray2UFTactic) CollectStatistics(*statistics.Statistics)      {}
-func (t *BVArray2UFTactic) ResetStatistics() error                        { return t.open() }
-func (t *BVArray2UFTactic) SetLogic(usymbol.Symbol) error                 { return t.open() }
-func (t *BVArray2UFTactic) SetProgressCallback(func(uint32)) error        { return t.open() }
+func (t *BVArray2UFTactic) UpdateParams(*uparams.ParamsRef) error { return t.open() }
+
+// CollectParamDescrs mirrors bvarray2uf_tactic::collect_param_descrs,
+// which calls insert_produce_models(r).
+func (t *BVArray2UFTactic) CollectParamDescrs(d *uparams.ParamDescrs) error {
+	if err := t.open(); err != nil {
+		return err
+	}
+	return uparams.InsertProduceModels(d)
+}
+func (t *BVArray2UFTactic) CollectStatistics(*statistics.Statistics) {}
+func (t *BVArray2UFTactic) ResetStatistics() error                   { return t.open() }
+func (t *BVArray2UFTactic) SetLogic(usymbol.Symbol) error            { return t.open() }
+func (t *BVArray2UFTactic) SetProgressCallback(func(uint32)) error   { return t.open() }
 func (t *BVArray2UFTactic) Cleanup() error {
 	if e := t.open(); e != nil {
 		return e

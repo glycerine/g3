@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_bv_01-F5: bvarray2uf declares produce_models, so
+	// using-params accepts it.
+	"bvarray2uf_produce_models_param.smt2": "(goals\n(goal\n  (= (f_t!!0 #x1) #x2)\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md ast_sub_02-F4: nnf/snf collect_param_descrs is
 	// nnf::get_param_descrs; a bad mode throws "invalid NNF mode".
 	"nnf_tactic_params.smt2": "(error \"line 3 column 35: invalid NNF mode\")\n(goals\n(goal\n  (exists ((x Int)) (not (p x)))\n  :precision precise :depth 1)\n)\n(goals\n(goal\n  (not (p x!0))\n  :precision precise :depth 1)\n)\n",
