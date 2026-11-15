@@ -364,3 +364,82 @@ func TestSpacerDerivationSkipsProjectionWithoutVariables(t *testing.T) {
 	})
 
 }
+
+// AUDIT.md muz_spacer_01-F1: derivation::create_next_child builds m_trans
+// with the spacer manager's mk_and, the bool_rewriter's flattening and.
+func TestSpacerDerivationPreImageUsesBoolRewriterAnd(t *testing.T) {
+	command, manager, owner := lemmaOwnerFixture(t)
+	defer func() { spacerMust(t, command.Close()) }()
+	defer func() { spacerMust(t, owner.Close()) }()
+	boolean, err := manager.MkBoolSort()
+	spacerMust(t, err)
+	name, err := manager.Symbols.Intern("derivation-flat-p")
+	spacerMust(t, err)
+	predicate, err := manager.MkFuncDecl(name, nil, boolean, ast.ASTFuncDeclInfo{})
+	spacerMust(t, err)
+	transformer, err := spacer.NewRulePredicateTransformer(owner, predicate, spacer.PropSolverConfig{})
+	spacerMust(t, err)
+	defer func() { spacerMust(t, transformer.Close()) }()
+	rules, err := base.NewRuleManager(manager)
+	spacerMust(t, err)
+	defer func() { spacerMust(t, rules.Close()) }()
+	spacerMust(t, rules.RegisterPredicate(predicate))
+	head, err := manager.MkApp(predicate, nil)
+	spacerMust(t, err)
+	rule, err := rules.NewRule(head, nil, nil, "flat")
+	spacerMust(t, err)
+	defer func() { spacerMust(t, rule.Close()) }()
+	recursive, err := rules.NewRule(head, []ast.ASTHandle{head}, []bool{false}, "flat-recursive")
+	spacerMust(t, err)
+	defer func() { spacerMust(t, recursive.Close()) }()
+	spacerMust(t, transformer.InitializeRules(map[ast.ASTHandle]*spacer.PredicateTransformer{predicate: transformer}, []*base.Rule{rule, recursive}))
+	truth, err := manager.MkTrue()
+	spacerMust(t, err)
+	root, err := transformer.NewProofObligation(nil, 2, 1, truth, nil)
+	spacerMust(t, err)
+	var pins []ast.ASTRef
+	defer func() {
+		for i := range pins {
+			spacerMust(t, manager.DelRef(&pins[i]))
+		}
+	}()
+	own := func(value ast.ASTHandle, err error) ast.ASTHandle {
+		t.Helper()
+		spacerMust(t, err)
+		ref, err := manager.NewRef(value)
+		spacerMust(t, err)
+		pins = append(pins, ref)
+		return value
+	}
+	constant := func(text string) ast.ASTHandle {
+		t.Helper()
+		name, err := manager.Symbols.Intern(text)
+		spacerMust(t, err)
+		decl, err := manager.MkFuncDecl(name, nil, boolean, ast.ASTFuncDeclInfo{})
+		spacerMust(t, err)
+		return own(manager.MkApp(decl, nil))
+	}
+	a, b := constant("derivation-flat-a"), constant("derivation-flat-b")
+	c, d := constant("derivation-flat-c"), constant("derivation-flat-d")
+	summary := own(manager.MkAnd(a, b))
+	transition := own(manager.MkAnd(c, d))
+	want := own(manager.MkAndArray([]ast.ASTHandle{a, b, c, d}))
+	md, err := model.NewModel(manager)
+	spacerMust(t, err)
+	defer func() { spacerMust(t, md.Close()) }()
+	derivation, err := spacer.NewDerivation(root, rule, transition, nil)
+	spacerMust(t, err)
+	defer func() { spacerMust(t, derivation.Close()) }()
+	spacerMust(t, derivation.AddPremise(transformer, 0, summary, true, nil))
+	spacerMust(t, derivation.AddPremise(transformer, 1, truth, false, nil))
+	child, err := derivation.CreateFirstChild(md.Core())
+	spacerMust(t, err)
+	if child == nil {
+		t.Fatal("missing child")
+	}
+	actual, err := derivation.Transition()
+	spacerMust(t, err)
+	if actual != want {
+		t.Fatal("pre-image is not the bool_rewriter's flat and")
+	}
+}

@@ -357,19 +357,16 @@ func (d *Derivation) createProjectedChild(md *model.ModelCore) (_ *ProofObligati
 		return nil, err
 	}
 	summaries = append(summaries, transition)
-	preFormula, err := manager.MkAndArray(summaries)
+	// m_trans = get_manager().mk_and(summaries) (the bool_rewriter's and);
+	// summaries.reset() then releases the old m_trans, and qe_project
+	// rewrites m_trans in place.
+	preRef, preFormula, err := d.pmAnd(summaries)
 	if err != nil {
 		return nil, err
 	}
-	preimage, remaining, err := d.projectIfNonempty(d.parent.transformer.groundCTI, md, variables, preFormula)
-	if err != nil {
+	if err = d.replaceTransition(preRef, md, variables, preFormula); err != nil {
 		return nil, err
 	}
-	if err = manager.DelRef(&d.transition); err != nil {
-		return nil, errors.Join(err, manager.DelRef(&preimage), releaseNormalizeRefs(manager, remaining))
-	}
-	d.transition = preimage
-	d.appendExistentials(remaining)
 	active := d.premises[d.active]
 	activeSummary, err := active.Summary()
 	if err != nil {
@@ -421,16 +418,24 @@ func (d *Derivation) createProjectedChild(md *model.ModelCore) (_ *ProofObligati
 		return nil, err
 	}
 	summaries = append(summaries, transition)
-	postFormula, err := manager.MkAndArray(summaries)
+	// post = get_manager().mk_and(summaries), projected in place.
+	postRef, postFormula, err := d.pmAnd(summaries)
 	if err != nil {
 		return nil, err
 	}
-	postRef, remaining, err := d.projectIfNonempty(d.parent.transformer.groundCTI, md, variables, postFormula)
-	if err != nil {
-		return nil, err
+	defer func() {
+		if postRef != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, manager.DelRef(&postRef))
+		}
+	}()
+	if len(variables) != 0 {
+		projected, remaining, err := d.project(d.parent.transformer.groundCTI, true, md, variables, postFormula, &postRef)
+		if err != nil {
+			return nil, err
+		}
+		postRef = projected
+		d.appendExistentials(remaining)
 	}
-	defer func() { resultErr = errors.Join(resultErr, manager.DelRef(&postRef)) }()
-	d.appendExistentials(remaining)
 	post, err := manager.RefGet(postRef)
 	if err != nil {
 		return nil, err
@@ -551,13 +556,9 @@ func (d *Derivation) CreateNextChild() (_ *ProofObligation, resultErr error) {
 		return nil, err
 	}
 	summaries = append(summaries, activeTransition)
-	state, err := manager.MkAndArray(summaries)
-	if err != nil {
-		return nil, err
-	}
 	// pm.mk_and(summaries) is an expr_ref temporary owning the state across
 	// is_must_reachable, whose assert_expr rewrite releases its own copy.
-	stateRef, err := manager.NewRef(state)
+	stateRef, state, err := d.pmAnd(summaries)
 	if err != nil {
 		return nil, err
 	}
@@ -598,7 +599,9 @@ func (d *Derivation) CreateNextChild() (_ *ProofObligation, resultErr error) {
 	if err = active.SetSummary(implicant, true, auxiliaries); err != nil {
 		return nil, err
 	}
-	combined, err := manager.MkAnd(implicant, activeTransition)
+	// m_trans = pm.mk_and([v, active_trans]) (the bool_rewriter's and),
+	// projected in place below.
+	combinedRef, combined, err := d.pmAnd([]ast.ASTHandle{implicant, activeTransition})
 	if err != nil {
 		return nil, err
 	}
@@ -618,15 +621,9 @@ func (d *Derivation) CreateNextChild() (_ *ProofObligation, resultErr error) {
 		}
 		variables = append(variables, value)
 	}
-	projected, remaining, err := d.projectIfNonempty(d.parent.transformer.groundCTI, md, variables, combined)
-	if err != nil {
+	if err = d.replaceTransition(combinedRef, md, variables, combined); err != nil {
 		return nil, err
 	}
-	if err = manager.DelRef(&d.transition); err != nil {
-		return nil, errors.Join(err, manager.DelRef(&projected), releaseNormalizeRefs(manager, remaining))
-	}
-	d.transition = projected
-	d.appendExistentials(remaining)
 	d.active++
 	return d.createProjectedChild(md)
 }
@@ -652,4 +649,44 @@ func (d *Derivation) Close() (result error) {
 		d.closed = true
 	}
 	return result
+}
+
+// pmAnd is spacer::manager::mk_and (m_brwr.mk_and): the bool_rewriter's
+// flattening and. The returned reference owns the result.
+func (d *Derivation) pmAnd(args []ast.ASTHandle) (ast.ASTRef, ast.ASTHandle, error) {
+	manager := d.parent.transformer.manager
+	ref, err := manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return ast.ASTRef{}, ast.ASTHandle{}, err
+	}
+	if err = d.parent.transformer.owner.boolean.MkAnd(args, ref); err != nil {
+		return ast.ASTRef{}, ast.ASTHandle{}, errors.Join(err, manager.DelRef(&ref))
+	}
+	handle, err := manager.RefGet(ref)
+	if err != nil {
+		return ast.ASTRef{}, ast.ASTHandle{}, errors.Join(err, manager.DelRef(&ref))
+	}
+	return ref, handle, nil
+}
+
+// replaceTransition is m_trans = conjunction (the old m_trans dies), then,
+// when variables is not empty, qe_project(m, vars, m_trans, ...), which
+// rewrites m_trans in place; the eliminated-variable remainder joins
+// m_evars. conjunctionRef is the owning reference to conjunction.
+func (d *Derivation) replaceTransition(conjunctionRef ast.ASTRef, md *model.ModelCore, variables []ast.ASTHandle, conjunction ast.ASTHandle) error {
+	manager := d.parent.transformer.manager
+	if err := manager.DelRef(&d.transition); err != nil {
+		return errors.Join(err, manager.DelRef(&conjunctionRef))
+	}
+	d.transition = conjunctionRef
+	if len(variables) == 0 {
+		return nil
+	}
+	projected, remaining, err := d.project(d.parent.transformer.groundCTI, true, md, variables, conjunction, &d.transition)
+	if err != nil {
+		return err
+	}
+	d.transition = projected
+	d.appendExistentials(remaining)
+	return nil
 }

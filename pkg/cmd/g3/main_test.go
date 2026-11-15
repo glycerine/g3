@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_spacer_01-F1: derivations build m_trans with the spacer
+	// manager's bool_rewriter mk_and (the search order is checked by
+	// TestSpacerDerivationPreImageUsesBoolRewriterAnd).
+	"fp_spacer_nonlinear_derivation_order.smt2": "sat\n(and bad\n     (P 6 12)\n     (Q 4 13)\n     (P 5 10)\n     (Q 3 10)\n     (P 4 8)\n     (Q 2 7)\n     (P 3 6)\n     (Q 1 4)\n     (P 2 4)\n     (Q 0 1)\n     (P 1 2)\n     (P 0 0))\n",
 	// AUDIT.md muz_small_01-F3: an unknown CLP solver check throws
 	// default_exception("undef"), reported as "query failed".
 	"fp_clp_solver_undef.smt2": "(error \"query failed: undef\")\nunknown\ndone\n",
