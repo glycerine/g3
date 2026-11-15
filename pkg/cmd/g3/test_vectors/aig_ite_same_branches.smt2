@@ -1,0 +1,7 @@
+(declare-const x Bool)
+(declare-const y Bool)
+(declare-const z Bool)
+(declare-const p Bool)
+(declare-const q Bool)
+(assert (or p (ite q x x) (and y z)))
+(apply aig)

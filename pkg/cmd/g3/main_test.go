@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_small_01-F1: mk_ite dec_refs n1 before n2.
+	"aig_ite_same_branches.smt2": "(goals\n(goal\n  (or p x (not (or (not y) (not z))))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md tactic_core_02-F3: the declassifier visits quantifier patterns.
 	"pb_preprocess_pattern_declassify.smt2": "(goals\n(goal\n  a\n  (forall ((x Int)) (! (> x 0) :pattern ((f x a))))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md tactic_core_02-F2: pure_args accepts (not false).

@@ -142,3 +142,43 @@ func TestAIGNarySortedFolds(t *testing.T) {
 	aigMust(t, a.Close())
 	aigMust(t, g.Close())
 }
+
+// AUDIT.md tactic_small_01-F1: mk_ite dec_refs n1 and then n2; id_gen
+// recycles freed ids LIFO, so the next node reuses n2's id.
+func TestAIGIteReleasesTemporariesInSourceOrder(t *testing.T) {
+	m, _ := aigFixture(t)
+	h, err := m.MkTrue()
+	aigMust(t, err)
+	g, err := NewManager(m)
+	aigMust(t, err)
+	t.Cleanup(func() { aigMust(t, g.Close()) })
+	vars := make([]*Ref, 4)
+	for i := range vars {
+		vars[i], err = g.MakeVariable(h)
+		aigMust(t, err)
+	}
+	q, x := vars[0], vars[1]
+	// Free one node id so n1 reuses it and n2 takes a fresh id.
+	probe, err := g.InternAnd(vars[2], vars[3])
+	aigMust(t, err)
+	n1ID, _, err := probe.ID()
+	aigMust(t, err)
+	aigMust(t, probe.Close())
+	out, err := g.Ite(q, x, x)
+	aigMust(t, err)
+	if !out.Same(x) {
+		t.Fatal("ite(q, x, x) did not reduce to x")
+	}
+	aigMust(t, out.Close())
+	next, err := g.InternAnd(vars[2], vars[3])
+	aigMust(t, err)
+	nextID, _, err := next.ID()
+	aigMust(t, err)
+	aigMust(t, next.Close())
+	if nextID == n1ID {
+		t.Fatal("n2 was released before n1: reused id", nextID)
+	}
+	for _, v := range vars {
+		aigMust(t, v.Close())
+	}
+}

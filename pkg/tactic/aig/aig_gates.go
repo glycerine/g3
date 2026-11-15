@@ -22,7 +22,9 @@ func (m *Manager) composeGate(build func(*gateTemps) (*Ref, error)) (*Ref, error
 	}
 	t := &gateTemps{}
 	result, err := build(t)
-	for i := len(t.refs) - 1; i >= 0; i-- {
+	// mk_ite/mk_iff dec_ref their temporaries in creation order (n1, then
+	// n2); id_gen recycles freed ids LIFO, so the order decides later ids.
+	for i := 0; i < len(t.refs); i++ {
 		err = errors.Join(err, t.refs[i].Close())
 	}
 	if err != nil && result != nil {
