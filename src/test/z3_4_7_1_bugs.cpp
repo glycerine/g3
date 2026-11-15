@@ -254,6 +254,10 @@ Abstract:
                                   the tail predicate is selected and z3
                                   segfaults (pkg/AUDIT.md muz_small_01-F5
                                   reproduction, muz_fp_01 notes).
+    z3_4_7_1_boogie_proof_debug_output boogie_proof writes leftover debug
+                                  lines ("set proof", "proof set",
+                                  "get_subst" and each proof) to std::cout
+                                  (upstream 73a24ca0a).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -3102,4 +3106,39 @@ void tst_z3_4_7_1_bmc_nonlinear_head_vars() {
         "             (hyper-res (asserted a!2) (asserted (p 0)) (p 1))\n"
         "             (asserted (p 0))\n"
         "             (query!0 0)))\n");
+}
+
+// boogie_proof::set_proof and get_subst wrote leftover debug lines straight
+// to std::cout: "set proof", "proof set" and, for every step, "get_subst"
+// followed by the whole proof. They are not part of the certificate and
+// reach stdout even when the regular stream is redirected. Upstream
+// commented them out in 73a24ca0a. Same input as
+// z3_4_7_1_pdr_boogie_without_proof_trace (pkg/AUDIT.md muz_pdr_02-F2).
+void tst_z3_4_7_1_boogie_proof_debug_output() {
+    char const* script =
+        "(set-option :fixedpoint.engine pdr)\n"
+        "(set-option :fixedpoint.print_boogie_certificate true)\n"
+        "(declare-rel inv (Int))\n"
+        "(declare-rel err ())\n"
+        "(declare-var x Int)\n"
+        "(rule (=> (= x 0) (inv x)))\n"
+        "(rule (=> (and (inv x) (< x 3)) (inv (+ x 1))))\n"
+        "(rule (=> (and (inv x) (= x 2)) err))\n"
+        "(query err :print-certificate true)\n";
+    std::ostringstream out, cout_capture;
+    std::streambuf* saved = std::cout.rdbuf(cout_capture.rdbuf());
+    {
+        cmd_context ctx;
+        ctx.set_solver_factory(mk_smt_strategic_solver_factory());
+        install_dl_cmds(ctx);
+        ctx.set_regular_stream(out);
+        ctx.set_diagnostic_stream(out);
+        std::istringstream in(script);
+        parse_smt2_commands(ctx, in);
+    }
+    std::cout.rdbuf(saved);
+    std::cout << "boogie_proof_debug_output: regular stream\n" << out.str()
+              << "std::cout\n" << cout_capture.str();
+    ENSURE(out.str().compare(0, 4, "sat\n") == 0);
+    ENSURE(cout_capture.str().empty());
 }
