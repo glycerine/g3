@@ -13,6 +13,13 @@ import (
 // the solver. Check commands are syntax-checked but not executed. Parsing is
 // completed before the solver is mutated.
 func (s *APISimpleSolver) LoadSMT2(input io.Reader) (resultErr error) {
+	return s.loadSMT2(input, nil)
+}
+
+// loadSMT2 with a non-nil out prints parse errors there as (error "...")
+// and returns a *smt2.ReportedParseError, as solver_from_stream's
+// parse_smt2_commands does on std::cout.
+func (s *APISimpleSolver) loadSMT2(input io.Reader, out io.Writer) (resultErr error) {
 	if err := s.open(); err != nil {
 		return err
 	}
@@ -24,7 +31,12 @@ func (s *APISimpleSolver) LoadSMT2(input io.Reader) (resultErr error) {
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, parser.Close()) }()
-	if err = smt2.ParseAssertions(parser, input); err != nil {
+	if out == nil {
+		err = smt2.ParseAssertions(parser, input)
+	} else {
+		err = smt2.ParseAssertionsReporting(parser, input, out)
+	}
+	if err != nil {
 		return err
 	}
 	assertions, err := parser.Assertions()

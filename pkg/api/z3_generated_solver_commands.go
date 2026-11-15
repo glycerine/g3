@@ -5,8 +5,10 @@ package api
 import (
 	"errors"
 	"reflect"
+	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/parsers/smt2"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/tactic"
 )
@@ -325,7 +327,19 @@ func replaySolverFromString(r *Z3Replayer) error {
 	if e != nil {
 		return e
 	}
-	return s.value.LoadSMT2String(text)
+	return replaySolverLoadResult(s, s.value.loadSMT2(strings.NewReader(text), r.output))
+}
+
+// replaySolverLoadResult is solver_from_stream's failed parse_smt2_commands:
+// the parser already printed (error ...) on the regular stream, then
+// SET_ERROR_CODE(Z3_PARSER_ERROR) and the replay continues.
+func replaySolverLoadResult(s *replaySolver, err error) error {
+	var reported *smt2.ReportedParseError
+	if errors.As(err, &reported) {
+		s.owner.results.setErrorCode(4) // Z3_PARSER_ERROR
+		return nil
+	}
+	return err
 }
 func replaySolverCheck(r *Z3Replayer) error {
 	s, e := replayGetSolver(r)
@@ -478,7 +492,7 @@ func replaySolverFromFile(r *Z3Replayer) error {
 	if err != nil {
 		return err
 	}
-	return s.value.LoadFile(path)
+	return replaySolverLoadResult(s, s.value.loadFile(path, r.output))
 }
 func replaySolverProof(r *Z3Replayer) (err error) {
 	s, err := replayGetSolver(r)

@@ -77,6 +77,14 @@ func ParseAssertions(context *cmd_context.Context, input io.Reader) error {
 	return parseCommands(context, input, io.Discard, true, nil)
 }
 
+// ParseAssertionsReporting is ParseAssertions with the temporary
+// cmd_context's regular stream left at out (api_solver.cpp
+// solver_from_stream never redirects it): parse errors are printed as
+// (error "...") and the result is a *ReportedParseError.
+func ParseAssertionsReporting(context *cmd_context.Context, input io.Reader, out io.Writer) error {
+	return parseCommandsWithOptions(context, input, out, true, nil, false, "", true)
+}
+
 func parseCommands(context *cmd_context.Context, input io.Reader, out io.Writer, ignoreChecks bool, collector *fixedpointQueryCollector) (result error) {
 	return parseCommandsWithOutput(context, input, out, ignoreChecks, collector, false)
 }

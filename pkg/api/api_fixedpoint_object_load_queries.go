@@ -14,6 +14,12 @@ import (
 // of its query expressions. The vector must be closed before its context.
 // Parsing completes in a separate context before the fixedpoint is changed.
 func (f *APIFixedpoint) LoadSMT2WithQueries(input io.Reader) (vector *ASTVector, resultErr error) {
+	return f.loadSMT2WithQueries(input, nil)
+}
+
+// loadSMT2WithQueries with a non-nil out prints parse errors there as
+// (error "..."), as Z3_fixedpoint_from_stream's parse_smt2_commands does.
+func (f *APIFixedpoint) loadSMT2WithQueries(input io.Reader, out io.Writer) (vector *ASTVector, resultErr error) {
 	if err := f.open(); err != nil {
 		return nil, err
 	}
@@ -36,7 +42,12 @@ func (f *APIFixedpoint) LoadSMT2WithQueries(input io.Reader) (vector *ASTVector,
 	if err != nil {
 		return nil, err
 	}
-	program, err := smt2.ParseFixedpointProgram(parser, input)
+	var program smt2.FixedpointProgram
+	if out == nil {
+		program, err = smt2.ParseFixedpointProgram(parser, input)
+	} else {
+		program, err = smt2.ParseFixedpointProgramReporting(parser, input, out)
+	}
 	if err != nil {
 		return nil, err
 	}

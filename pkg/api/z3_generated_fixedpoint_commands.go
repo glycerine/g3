@@ -125,7 +125,7 @@ func replayFixedpointCommand(r *Z3Replayer, id uint32) (err error) {
 			defer func() { err = errors.Join(err, file.Close()) }()
 			reader = file
 		}
-		vector, e := f.value.LoadSMT2WithQueries(reader)
+		vector, e := f.value.loadSMT2WithQueries(reader, r.output)
 		if e != nil {
 			owner.parserError = e.Error()
 			owner.results.setErrorCode(4)

@@ -52,6 +52,17 @@ type FixedpointProgram struct {
 // ParseFixedpointProgram collects fixedpoint commands without executing checks
 // or ingesting rules into the parser's fixedpoint engine.
 func ParseFixedpointProgram(context *cmd_context.Context, input io.Reader) (program FixedpointProgram, resultErr error) {
+	return parseFixedpointProgram(context, input, nil)
+}
+
+// ParseFixedpointProgramReporting is ParseFixedpointProgram with parse
+// errors printed to out as (error "...") (Z3_fixedpoint_from_stream keeps
+// the cmd_context regular stream).
+func ParseFixedpointProgramReporting(context *cmd_context.Context, input io.Reader, out io.Writer) (FixedpointProgram, error) {
+	return parseFixedpointProgram(context, input, out)
+}
+
+func parseFixedpointProgram(context *cmd_context.Context, input io.Reader, out io.Writer) (program FixedpointProgram, resultErr error) {
 	c := &fixedpointQueryCollector{}
 	defer func() {
 		if resultErr != nil {
@@ -63,7 +74,13 @@ func ParseFixedpointProgram(context *cmd_context.Context, input io.Reader) (prog
 			}
 		}
 	}()
-	if err := parseCommands(context, input, io.Discard, true, c); err != nil {
+	var err error
+	if out == nil {
+		err = parseCommands(context, input, io.Discard, true, c)
+	} else {
+		err = parseCommandsWithOptions(context, input, out, true, c, false, "", true)
+	}
+	if err != nil {
 		return program, err
 	}
 	return FixedpointProgram{Queries: c.queries, Rules: c.rules, Relations: c.relations, Names: c.names, NameSymbols: c.nameSymbols, manager: c.manager}, nil

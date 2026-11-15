@@ -39,3 +39,21 @@ func TestZ3LogFrontendIncRefNull(t *testing.T) {
 		t.Fatalf("inc_ref null: %q %q", out, diagnostics)
 	}
 }
+
+// AUDIT.md api_03-F5: solver_from_stream and Z3_fixedpoint_from_stream keep
+// the temporary cmd_context's regular stream, so the parser prints
+// (error ...) before SET_ERROR_CODE(Z3_PARSER_ERROR) fires the handler.
+// (The parser's message text is a separate divergence.)
+func TestZ3LogFrontendFromStringParseError(t *testing.T) {
+	for _, tc := range []struct{ name, log, prefix string }{
+		{"solver", `R/P 0/C 6/= 10/R/P 10/C 408/= 11/R/P 10/P 11/S "(assert (foo"/C 426/M "after"/R/P 10/C 8`, `(error "line 1 column 10: `},
+		{"fixedpoint", `R/P 0/C 6/= 10/R/P 10/C 511/= 11/R/P 10/P 11/S "(declare-rel q ())(rule q)(foo"/C 534/= 12/M "after"/R/P 10/C 8`, `(error "line 1 column 28: `},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			out, diagnostics := replayLog(t, tc.log)
+			if !strings.HasPrefix(out, tc.prefix) || !strings.Contains(out, "\")\n[REPLAYER ERROR HANDLER]: parser error\nafter\nmax. heap size:") || diagnostics != "" {
+				t.Fatalf("from_string parse error: %q %q", out, diagnostics)
+			}
+		})
+	}
+}
