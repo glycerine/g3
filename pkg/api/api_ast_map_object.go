@@ -184,12 +184,10 @@ func (a *apiASTMapObject) keyVector() (*apiASTVectorObject, error) {
 	return v, nil
 }
 
+// string is Z3_ast_map_to_string: keys and values through
+// mk_ismt2_pp(n, m, 3).
 func (a *apiASTMapObject) string() (string, error) {
 	if e := a.check(); e != nil {
-		return "", e
-	}
-	printer, e := ast.NewSimpleASTPrinterContext(a.object.context.manager, nil, nil)
-	if e != nil {
 		return "", e
 	}
 	var out bytes.Buffer
@@ -197,13 +195,16 @@ func (a *apiASTMapObject) string() (string, error) {
 	for _, key := range a.orderedKeys() {
 		entry := a.entries[key]
 		out.WriteString("\n  (")
-		if e = writeAPIAST(printer, &out, key, 0); e != nil {
+		text, e := a.object.context.ismt2PP(key, 3)
+		if e != nil {
 			return "", e
 		}
+		out.WriteString(text)
 		out.WriteString("\n   ")
-		if e = writeAPIAST(printer, &out, entry.value, 0); e != nil {
+		if text, e = a.object.context.ismt2PP(entry.value, 3); e != nil {
 			return "", e
 		}
+		out.WriteString(text)
 		out.WriteByte(')')
 	}
 	out.WriteByte(')')

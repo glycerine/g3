@@ -24,19 +24,22 @@ var errAPIObjectOwner = errors.New("api: invalid, copied or retired context resu
 // reproducing the source hash table's physical buckets. Values index a cold
 // directory of API wrappers.
 type apiContextResults struct {
-	self                          *apiContextResults
-	manager                       *ast.ASTManager
-	lastResult, astTrail          []ast.ASTHandle
-	lastObject, pendingDestroy    *apiObject
-	allocated                     insdict.Dict[uint32, uint32]
-	objects                       []*apiObject
-	freeIDs                       []uint32
-	ownerBytes                    uint64
-	trace                         *diagnostic.TraceTags
-	warnings                      *diagnostic.WarningService
-	errorHandler                  func(*apiContextResults, uint32)
-	memoryProcess                 *memory.ProcessAccounting
-	pendingDestroyLine            int
+	self                       *apiContextResults
+	manager                    *ast.ASTManager
+	lastResult, astTrail       []ast.ASTHandle
+	lastObject, pendingDestroy *apiObject
+	allocated                  insdict.Dict[uint32, uint32]
+	objects                    []*apiObject
+	freeIDs                    []uint32
+	ownerBytes                 uint64
+	trace                      *diagnostic.TraceTags
+	warnings                   *diagnostic.WarningService
+	errorHandler               func(*apiContextResults, uint32)
+	memoryProcess              *memory.ProcessAccounting
+	pendingDestroyLine         int
+	// smt is the owning api::context, when there is one: mk_ismt2_pp
+	// (Z3_ast_vector_to_string, Z3_ast_map_to_string) prints through it.
+	smt                           *smtContextState
 	errorCode                     uint32
 	exceptionMessage              string
 	userRefCount, closing, closed bool

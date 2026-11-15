@@ -21,6 +21,7 @@ func (v *ASTVector) Translate(target *SMTContext) (result *ASTVector, resultErr 
 	if err != nil {
 		return nil, err
 	}
+	owner.smt = target.smtContextState
 	defer func() {
 		if resultErr != nil {
 			resultErr = errors.Join(resultErr, owner.Close())

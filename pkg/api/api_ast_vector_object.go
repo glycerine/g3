@@ -174,23 +174,46 @@ func (v *apiASTVectorObject) translate(target *apiContextResults) (result *apiAS
 	return result, nil
 }
 
+// string is Z3_ast_vector_to_string: each element through
+// mk_ismt2_pp(e, m, 2).
 func (v *apiASTVectorObject) string() (string, error) {
 	if e := v.check(); e != nil {
-		return "", e
-	}
-	printer, e := ast.NewSimpleASTPrinterContext(v.object.context.manager, nil, nil)
-	if e != nil {
 		return "", e
 	}
 	var out bytes.Buffer
 	out.WriteString("(ast-vector")
 	for _, h := range v.values {
 		out.WriteString("\n  ")
-		if x := writeAPIAST(printer, &out, h, 0); x != nil {
+		text, x := v.object.context.ismt2PP(h, 2)
+		if x != nil {
 			return "", x
 		}
+		out.WriteString(text)
 	}
 	out.WriteByte(')')
+	return out.String(), nil
+}
+
+// ismt2PP is mk_ismt2_pp(n, m, indent): "null" for a null AST, otherwise
+// the SMT2 format of the expression, sort or declaration (declare-fun),
+// wrapped in mk_indent when indent > 0. A results owner without an
+// api::context (internal fixtures) falls back to the simple printer.
+func (c *apiContextResults) ismt2PP(h ast.ASTHandle, indent uint32) (string, error) {
+	if h.IsNull() {
+		return "null", nil
+	}
+	if c.smt != nil {
+		printer := &APIASTPrinter{owner: c.smt, mode: APIASTPrintSMT2}
+		return printer.smt2StringIndented(c.manager, h, indent)
+	}
+	printer, e := ast.NewSimpleASTPrinterContext(c.manager, nil, nil)
+	if e != nil {
+		return "", e
+	}
+	var out bytes.Buffer
+	if e = writeAPIAST(printer, &out, h, 0); e != nil {
+		return "", e
+	}
 	return out.String(), nil
 }
 

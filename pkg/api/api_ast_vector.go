@@ -24,6 +24,7 @@ func (c *SMTContext) NewASTVector() (result *ASTVector, resultErr error) {
 	if err != nil {
 		return nil, err
 	}
+	owner.smt = c.smtContextState
 	defer func() {
 		if resultErr != nil {
 			resultErr = errors.Join(resultErr, owner.Close())
