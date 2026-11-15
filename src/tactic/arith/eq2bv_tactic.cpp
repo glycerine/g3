@@ -155,6 +155,8 @@ public:
         m_max.reset();
         m_nonfd.reset();
         m_bounds.reset();
+        // the cache maps fd atoms to this goal's fresh bit-vectors
+        m_rw.reset();
         ref<bvmc> mc1 = alloc(bvmc);
 
         tactic_report report("eq2bv", *g);
