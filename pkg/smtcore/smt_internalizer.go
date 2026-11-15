@@ -367,8 +367,10 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 	if err != nil {
 		return err
 	}
+	// The source's else-if branch is taken whenever literal 0 is not false,
+	// so a true first watch with a false second watch is marked too.
 	if kind == SMTClauseAuxLemma && s.scopeLevel > s.baseLevel &&
-		(firstValue == lbool.False || secondValue == lbool.False && firstValue == lbool.Undef) {
+		(firstValue == lbool.False || secondValue == lbool.False) {
 		// Source also revisits unit/conflicting auxiliary lemmas whose atoms
 		// survive, since their assignment can belong to the discarded scope:
 		// mark_for_reinit(cls, m_scope_lvl, save_atoms).

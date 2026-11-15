@@ -632,3 +632,33 @@ func TestSMTInternalizerAssertLargeDistinctUsesAuxFunction(t *testing.T) {
 		}
 	}
 }
+
+// smtcore_03-F9: context::mk_clause marks an auxiliary lemma for reinit at
+// m_scope_lvl when literal 1 is false and literal 0 is not, true included.
+func TestSMTInternalizerAuxLemmaTrueFalseWatchesIsReinitialized(t *testing.T) {
+	m := astTestManager(t)
+	_, _, state := smtInternalizerFixture(t, m, nil)
+	expressions := []ast.ASTHandle{
+		smtRelevancyBool(t, m, "reinit-true-false-p"), smtRelevancyBool(t, m, "reinit-true-false-q"), smtRelevancyBool(t, m, "reinit-true-false-r"),
+	}
+	literals := make([]SMTLiteral, len(expressions))
+	for i, expression := range expressions {
+		astTestMust(t, state.Internalize(expression, true))
+		var err error
+		literals[i], err = state.Literal(expression)
+		astTestMust(t, err)
+	}
+	p, q, r := literals[0], literals[1], literals[2]
+	astTestMust(t, state.PushScope())
+	astTestMust(t, state.AssignLiteral(q.Negated(), NewSMTBooleanAxiom()))
+	astTestMust(t, state.AssignLiteral(r.Negated(), NewSMTBooleanAxiom()))
+	astTestMust(t, state.PushScope())
+	astTestMust(t, state.AssignLiteral(p, NewSMTBooleanAxiom()))
+	astTestMust(t, state.PushScope())
+	astTestMust(t, state.addClauseKindWithJustificationAndDeleteHandler([]SMTLiteral{p, q, r}, false, SMTClauseAuxLemma, ast.ASTHandle{}, nil, nil))
+	clause := state.clauses[len(state.clauses)-1].clause
+	if clause == nil || !clause.InReinitStack() || clause.reinitLevel != 3 {
+		t.Fatal("aux lemma with a true and a false watch must be marked for reinit at the scope level", clause.InReinitStack(), clause.reinitLevel)
+	}
+	astTestMust(t, state.PopScopes(3))
+}
