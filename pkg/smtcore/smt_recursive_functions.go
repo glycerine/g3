@@ -93,6 +93,8 @@ func (c *SMTModelChecker) checkRecursiveFunction(md *protomodel.ProtoModel, q as
 		if err = c.manager.ResetRef(evaluated); err != nil {
 			return false, err
 		}
+		// check_rec_fun ignores the result of eval: a term that could not be
+		// evaluated leaves a null result, which is neither true nor false.
 		if _, err = md.Eval(term, evaluated, true); err != nil {
 			return false, err
 		}

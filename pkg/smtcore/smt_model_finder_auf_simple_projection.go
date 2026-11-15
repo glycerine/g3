@@ -202,8 +202,11 @@ func (g *smtModelFinderAUFGraph) makeSimpleProjection(node *smtModelFinderAUFNod
 		if err != nil {
 			return fail(err)
 		}
-		if err = interpretation.SetElse(value); err != nil {
-			return fail(err)
+		// pi->set_else(else_val): a null value leaves the else unset.
+		if !value.IsNull() {
+			if err = interpretation.SetElse(value); err != nil {
+				return fail(err)
+			}
 		}
 	}
 	for _, value := range values {

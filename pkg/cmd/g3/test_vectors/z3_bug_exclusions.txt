@@ -517,6 +517,17 @@ z3_bug_duality_quantify_arrays_requery_scale
 # test_vectors/z3_bug_duality_failed_query_requery.smt2.
 z3_bug_duality_failed_query_requery
 #
+# A model evaluation that throws model_evaluator_exception (max. steps
+# exceeded) leaves the rewriter's frame and result stacks behind; the next
+# proto_model::eval resumes them and returns a stale value, so the MBQI
+# model check later fails with a sort mismatch (unknown) or segfaults
+# (max_steps <= 7) (z3 bug: src/ast/rewriter/rewriter_def.h main_loop and
+# rewriter_tpl::operator(); fixed upstream, which clears stale stacks in
+# rewriter_tpl::operator()). g3 clears them the same way
+# (pkg/ast/rewriter/rewriter_engine.go rewrite) and catches the exception
+# in pkg/smtcore/proto_model/proto_model.go Eval. AUDIT.md smtcore_14-F3.
+# Reproduction: test_vectors/z3_bug_proto_eval_max_steps.smt2.
+z3_bug_proto_eval_max_steps
 # model_implicant::eval_array_eq keeps a nested array index's "true" mark
 # (mark bits: set_false/set_x cannot clear it), so arrays of arrays that
 # agree at one index and differ at a later one compare equal and PDR's

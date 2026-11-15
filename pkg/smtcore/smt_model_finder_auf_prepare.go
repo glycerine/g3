@@ -41,12 +41,16 @@ func (g *smtModelFinderAUFGraph) evalCached(term ast.ASTHandle, completion bool)
 		return ast.ASTHandle{}, errors.Join(err, m.DelRef(&ref))
 	}
 	var value ast.ASTHandle
-	if ok {
-		if value, err = m.RefGet(ref); err != nil {
-			return ast.ASTHandle{}, errors.Join(err, m.DelRef(&ref))
+	if !ok {
+		// r = nullptr: the null entry of m_eval_cache_range owns nothing.
+		if err = m.DelRef(&ref); err != nil {
+			return ast.ASTHandle{}, err
 		}
-	} else if err = m.DelRef(&ref); err != nil {
-		return ast.ASTHandle{}, err
+		g.evalCache[index][term] = value
+		return value, nil
+	}
+	if value, err = m.RefGet(ref); err != nil {
+		return ast.ASTHandle{}, errors.Join(err, m.DelRef(&ref))
 	}
 	g.evalCache[index][term] = value
 	g.evalRange = append(g.evalRange, ref)
@@ -75,9 +79,12 @@ func (g *smtModelFinderAUFGraph) cleanInstantiationSets() error {
 			if err != nil {
 				return err
 			}
-			isValue, err := g.finder.manager.IsValue(value)
-			if err != nil {
-				return err
+			// if (!n_val || !m.is_value(n_val)) to_delete.push_back(n);
+			isValue := false
+			if !value.IsNull() {
+				if isValue, err = g.finder.manager.IsValue(value); err != nil {
+					return err
+				}
 			}
 			if !isValue {
 				if err := node.set.Remove(term); err != nil {

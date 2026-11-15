@@ -1074,7 +1074,13 @@ func (r *rewriterEngine) rewrite(t ast.ASTHandle, out, proof ast.ASTRef) error {
 	}
 	c := &r.core
 	if len(c.frames) != 0 || c.cache != c.cacheStack[0] {
-		return ast.ErrASTDomain
+		// A rewriter_exception (max. steps or max. memory exceeded) leaves the
+		// frame and result stacks of the interrupted traversal behind. z3
+		// 4.7.1 resumes them inside the next main_loop and returns a stale
+		// result; later z3 (rewriter_tpl::operator()) clears them first.
+		if e := c.Reset(); e != nil {
+			return e
+		}
 	}
 	c.root = t
 	c.numQVars = 0

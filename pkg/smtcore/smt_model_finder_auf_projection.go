@@ -28,7 +28,7 @@ func (g *smtModelFinderAUFGraph) instantiationValues(node *smtModelFinderAUFNode
 		if err != nil {
 			return nil, err
 		}
-		if !seen[value] {
+		if !value.IsNull() && !seen[value] {
 			seen[value] = true
 			values = append(values, value)
 		}

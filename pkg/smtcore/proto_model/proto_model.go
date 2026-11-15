@@ -2,6 +2,7 @@ package protomodel
 
 import (
 	"errors"
+	"io"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
@@ -277,9 +278,34 @@ func (p *ProtoModel) Eval(term ast.ASTHandle, out ast.ASTRef, completion bool) (
 		return false, err
 	}
 	if err := p.evaluator.Evaluate(term, out); err != nil {
-		return false, err
+		if !rewriter.IsRewriterException(err) {
+			return false, err
+		}
+		// catch (model_evaluator_exception & ex): the term could not be
+		// evaluated (max. steps/memory exceeded, or canceled).
+		if traceErr := p.traceEvaluatorException(err); traceErr != nil {
+			return false, traceErr
+		}
+		return false, nil
 	}
 	return true, nil
+}
+
+// traceEvaluatorException is TRACE("model_evaluator", tout << ex.msg() << "\n";)
+// in proto_model::eval.
+func (p *ProtoModel) traceEvaluatorException(exception error) error {
+	tags := p.manager.BorrowSourceTraceTags()
+	if !tags.ShouldTrace("model_evaluator") {
+		return nil
+	}
+	err := tags.EmitConditional("model_evaluator", "eval", "src/smt/proto_model/proto_model.cpp", 95, func() bool { return true }, func(out io.Writer) error {
+		_, _ = io.WriteString(out, exception.Error()+"\n")
+		return nil
+	})
+	if tags.IsStreamFailure(err) {
+		return nil
+	}
+	return err
 }
 func (p *ProtoModel) Compress() error {
 	if err := p.open(); err != nil {

@@ -40,6 +40,13 @@ func protoFixture(t *testing.T) (*ast.ASTManager, *ProtoModel) {
 }
 func protoFixtureWithConfig(t *testing.T) (*ast.ASTManager, *ProtoModel, model.ModelEvaluatorConfig) {
 	t.Helper()
+	return protoFixtureWithParams(t, nil)
+}
+
+// protoFixtureWithParams is protoFixtureWithConfig with a hook that updates
+// the evaluator parameters before NewProtoModel.
+func protoFixtureWithParams(t *testing.T, setup func(*uparams.ParamsContext, *uparams.ParamsRef)) (*ast.ASTManager, *ProtoModel, model.ModelEvaluatorConfig) {
+	t.Helper()
 	budget := arena.NewBudget(^uint64(0))
 	symbols, err := usymbol.NewManager(usymbol.Config{Budget: budget, PageSize: 64, DescriptorPageSize: 2})
 	protoMust(t, err)
@@ -54,6 +61,9 @@ func protoFixtureWithConfig(t *testing.T) (*ast.ASTManager, *ProtoModel, model.M
 	protoMust(t, globals.InitializeSource())
 	params, err := context.NewValue()
 	protoMust(t, err)
+	if setup != nil {
+		setup(context, &params)
+	}
 	memory, err := umemory.NewRuntime(umemory.RuntimeConfig{Budget: budget})
 	protoMust(t, err)
 	cooperation, err := cooperate.NewCooperation(budget)
@@ -305,5 +315,46 @@ func TestProtoModelCompletionCleanupEvaluationAndFinalModel(t *testing.T) {
 	protoMust(t, err)
 	if copyFI == nil {
 		t.Fatal("final model lost function interpretation")
+	}
+}
+
+// AUDIT.md smtcore_14-F3: proto_model::eval catches model_evaluator_exception
+// (max. steps exceeded here) and returns false; the next evaluation starts
+// from a clean rewriter, as rewriter_tpl::operator() does in later z3.
+func TestProtoModelEvalReturnsFalseOnEvaluatorException(t *testing.T) {
+	for _, limited := range []bool{true, false} {
+		m, p, _ := protoFixtureWithParams(t, func(context *uparams.ParamsContext, params *uparams.ParamsRef) {
+			if limited {
+				name := "max_steps"
+				protoMust(t, context.SetUIntName(params, &name, 0))
+			}
+		})
+		b, err := m.MkBoolSort()
+		protoMust(t, err)
+		d, err := m.MkFuncDecl(protoSymbol(t, m, "d"), []ast.ASTHandle{b}, b, ast.ASTFuncDeclInfo{})
+		protoMust(t, err)
+		protoPin(t, m, d)
+		fi, err := model.NewFunctionInterpretation(m, 1)
+		protoMust(t, err)
+		yes, err := m.MkTrue()
+		protoMust(t, err)
+		protoMust(t, fi.SetElse(yes))
+		protoMust(t, p.Core().RegisterFunction(d, fi))
+		app, err := m.MkApp(d, []ast.ASTHandle{yes})
+		protoMust(t, err)
+		protoPin(t, m, app)
+		out := protoPin(t, m, ast.ASTHandle{})
+		ok, err := p.Eval(app, out, true)
+		if err != nil || ok == limited {
+			t.Fatal("eval under max_steps", limited, ok, err)
+		}
+		// The interrupted traversal must not leak into the next evaluation.
+		ok, err = p.Eval(yes, out, true)
+		protoMust(t, err)
+		value, err := m.RefGet(out)
+		protoMust(t, err)
+		if !ok || value != yes {
+			t.Fatal("evaluation after a caught exception", ok, value)
+		}
 	}
 }

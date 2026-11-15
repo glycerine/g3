@@ -376,6 +376,10 @@ func (c *SMTModelChecker) auxiliaryBindings(cex *coremodel.ModelCore, quantifier
 	return raw, bindings, inverseOK, generation, nil
 }
 
+// errSMTModelCheckerUnevaluatedQuantifier reports a quantifier body that the
+// candidate model could not evaluate (proto_model::eval returned false).
+var errSMTModelCheckerUnevaluatedQuantifier = errors.New("model checker: the quantifier body could not be evaluated in the candidate model")
+
 func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel, quantifier ast.ASTHandle, remaining *uint32) (found bool, result error) {
 	if c.auxiliary == nil {
 		return false, nil
@@ -440,8 +444,16 @@ func (c *SMTModelChecker) auxiliaryCounterexamples(model *protomodel.ProtoModel,
 		return false, err
 	}
 	holdTemporary(evaluated)
-	if _, err = model.Eval(body, evaluated, true); err != nil {
+	ok, err := model.Eval(body, evaluated, true)
+	if err != nil {
 		return false, err
+	}
+	if !ok {
+		// assert_neg_q_m returns without creating the skolem constants, and
+		// check(q) then hands the empty sks vector to
+		// restrict_sks_to_inst_set, which indexes past its end (undefined
+		// behavior in the source; it crashes or throws). Stop here instead.
+		return false, errSMTModelCheckerUnevaluatedQuantifier
 	}
 	evaluatedBody, err := c.manager.RefGet(evaluated)
 	if err != nil {
