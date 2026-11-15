@@ -23,6 +23,16 @@ func datatypeDeclarationError(message string) error {
 	return ASTException{z3exception.NewDefaultException(message)}
 }
 
+// astDatatypeUpdateFieldSortError is plugin::mk_update_field's pending
+// "second argument to field update should be <rng> instead of <dom>",
+// whose sorts formatSortErrors prints with mk_ismt2_pp once the manager
+// is unlocked.
+type astDatatypeUpdateFieldSortError struct{ expected, actual astNodeRef }
+
+func (e *astDatatypeUpdateFieldSortError) Error() string {
+	return "second argument to field update has the wrong sort"
+}
+
 func (m *ASTManager) isDatatypeSort(p *astDatatypePluginOwner, h ASTHandle) (astNodeRef, bool, error) {
 	r, err := m.requireKind(h, ASTSort)
 	if err != nil {
@@ -133,55 +143,67 @@ func (m *ASTManager) datatypeDecl(kind int32, parameters []ASTParameter, domain 
 	}
 	boolRange := func() astNodeRef { return m.boolSort }
 
+	// Source VALIDATE_PARAM(_pred_): "invalid parameter to datatype
+	// function " followed by the predicate's source text.
+	invalid := func(predicate string) error {
+		return datatypeDeclarationError("invalid parameter to datatype function " + predicate)
+	}
+	isDatatype := func(h ASTHandle) (astNodeRef, bool, error) {
+		return m.isDatatypeSort(p, h)
+	}
+
 	switch kind {
 	case ASTDatatypeConstructor:
+		const predicate = "num_parameters == 1 && parameters[0].is_symbol() && range && u().is_datatype(range)"
 		if len(parameters) != 1 || suppliedRange.IsNull() {
-			return astNodeRef{}, datatypeDeclarationError("invalid parameter to datatype function")
+			return astNodeRef{}, invalid(predicate)
 		}
 		name, err := parameter(0, ASTParameterSymbol)
 		if err != nil {
-			return astNodeRef{}, datatypeDeclarationError("invalid parameter to datatype function")
+			return astNodeRef{}, invalid(predicate)
 		}
-		rangeSort, yes, err := m.isDatatypeSort(p, suppliedRange)
+		rangeSort, yes, err := isDatatype(suppliedRange)
 		if err != nil {
 			return astNodeRef{}, err
 		}
 		if !yes {
-			return astNodeRef{}, datatypeDeclarationError("invalid parameter to datatype function")
+			return astNodeRef{}, invalid(predicate)
 		}
 		return m.pluginDecl(name.symbol, p.family, kind, parameters, domain, rangeSort, ASTFuncFlags{}, true)
 
 	case ASTDatatypeRecognizer:
+		const predicate = "arity == 1 && num_parameters == 2 && parameters[1].is_symbol() && parameters[0].is_ast() && is_func_decl(parameters[0].get_ast())"
 		if len(domain) != 1 || len(parameters) != 2 {
-			return astNodeRef{}, datatypeDeclarationError("invalid parameter to datatype function")
-		}
-		if _, err := funcDeclParameter(0); err != nil {
-			return astNodeRef{}, datatypeDeclarationError("invalid parameter to datatype function")
+			return astNodeRef{}, invalid(predicate)
 		}
 		name, err := parameter(1, ASTParameterSymbol)
 		if err != nil {
-			return astNodeRef{}, datatypeDeclarationError("invalid parameter to datatype function")
+			return astNodeRef{}, invalid(predicate)
 		}
-		if _, yes, err := m.isDatatypeSort(p, domain[0]); err != nil || !yes {
+		if _, err := funcDeclParameter(0); err != nil {
+			return astNodeRef{}, invalid(predicate)
+		}
+		if _, yes, err := isDatatype(domain[0]); err != nil || !yes {
 			if err != nil {
 				return astNodeRef{}, err
 			}
-			return astNodeRef{}, datatypeDeclarationError("invalid parameter to datatype function")
+			return astNodeRef{}, invalid("u().is_datatype(domain[0])")
 		}
 		return m.pluginDecl(name.symbol, p.family, kind, parameters, domain, boolRange(), ASTFuncFlags{}, true)
 
 	case ASTDatatypeIs:
+		const predicate = "arity == 1 && num_parameters == 1 && parameters[0].is_ast() && is_func_decl(parameters[0].get_ast())"
 		if len(domain) != 1 || len(parameters) != 1 {
-			return astNodeRef{}, datatypeDeclarationError("invalid parameter to datatype function")
+			return astNodeRef{}, invalid(predicate)
 		}
 		if _, err := funcDeclParameter(0); err != nil {
-			return astNodeRef{}, datatypeDeclarationError("invalid parameter to datatype function")
+			return astNodeRef{}, invalid(predicate)
 		}
-		if _, yes, err := m.isDatatypeSort(p, domain[0]); err != nil || !yes {
+		if _, yes, err := isDatatype(domain[0]); err != nil || !yes {
 			if err != nil {
 				return astNodeRef{}, err
 			}
-			return astNodeRef{}, datatypeDeclarationError("invalid parameter to datatype function")
+			return astNodeRef{}, invalid("u().is_datatype(domain[0])")
 		}
 		name, err := m.Symbols.Intern("is")
 		if err != nil {
@@ -190,21 +212,26 @@ func (m *ASTManager) datatypeDecl(kind int32, parameters []ASTParameter, domain 
 		return m.pluginDecl(name, p.family, kind, parameters, domain, boolRange(), ASTFuncFlags{}, true)
 
 	case ASTDatatypeAccessor:
-		if len(domain) != 1 || len(parameters) != 2 || suppliedRange.IsNull() {
-			return astNodeRef{}, datatypeDeclarationError("invalid parameter to datatype function")
+		const predicate = "arity == 1 && num_parameters == 2 && parameters[0].is_symbol() && parameters[1].is_symbol()"
+		if len(domain) != 1 || len(parameters) != 2 {
+			return astNodeRef{}, invalid(predicate)
 		}
 		name, err := parameter(0, ASTParameterSymbol)
 		if err != nil {
-			return astNodeRef{}, datatypeDeclarationError("invalid parameter to datatype function")
+			return astNodeRef{}, invalid(predicate)
 		}
 		if _, err = parameter(1, ASTParameterSymbol); err != nil {
-			return astNodeRef{}, datatypeDeclarationError("invalid parameter to datatype function")
+			return astNodeRef{}, invalid(predicate)
 		}
-		if _, yes, err := m.isDatatypeSort(p, domain[0]); err != nil || !yes {
+		if _, yes, err := isDatatype(domain[0]); err != nil || !yes {
 			if err != nil {
 				return astNodeRef{}, err
 			}
-			return astNodeRef{}, datatypeDeclarationError("invalid parameter to datatype function")
+			return astNodeRef{}, invalid("u().is_datatype(domain[0])")
+		}
+		// Source SASSERT(range).
+		if suppliedRange.IsNull() {
+			return astNodeRef{}, ErrASTDomain
 		}
 		rangeSort, err := m.requireKind(suppliedRange, ASTSort)
 		if err != nil {
@@ -213,8 +240,15 @@ func (m *ASTManager) datatypeDecl(kind int32, parameters []ASTParameter, domain 
 		return m.pluginDecl(name.symbol, p.family, kind, parameters, domain, rangeSort, ASTFuncFlags{}, true)
 
 	case ASTDatatypeUpdateField:
-		if len(parameters) != 1 || len(domain) != 2 {
+		// Source plugin::mk_update_field.
+		if len(parameters) != 1 {
 			return astNodeRef{}, datatypeDeclarationError("invalid parameters for datatype field update")
+		}
+		if _, err := parameter(0, ASTParameterAST); err != nil {
+			return astNodeRef{}, datatypeDeclarationError("invalid parameters for datatype field update")
+		}
+		if len(domain) != 2 {
+			return astNodeRef{}, datatypeDeclarationError("invalid number of arguments for datatype field update")
 		}
 		accessor, err := funcDeclParameter(0)
 		if err != nil {
@@ -244,7 +278,7 @@ func (m *ASTManager) datatypeDecl(kind int32, parameters []ASTParameter, domain 
 			return astNodeRef{}, datatypeDeclarationError("first argument to field update should be a data-type")
 		}
 		if record.rangeSort != second {
-			return astNodeRef{}, datatypeDeclarationError("second argument to field update has the wrong sort")
+			return astNodeRef{}, &astDatatypeUpdateFieldSortError{expected: record.rangeSort, actual: second}
 		}
 		name, err := m.Symbols.Intern("update-field")
 		if err != nil {

@@ -166,6 +166,18 @@ func (m *ASTManager) formatSortErrors(e error) error {
 		}
 		return ASTException{z3exception.NewDefaultException("Argument " + argument + " at position " + strconv.FormatUint(uint64(bvMismatch.index), 10) + " does not match declaration " + decl)}
 	}
+	var updateField *astDatatypeUpdateFieldSortError
+	if errors.As(e, &updateField) {
+		expected, err := m.SMT2PPSortString(m.external(updateField.expected))
+		if err != nil {
+			return e
+		}
+		actual, err := m.SMT2PPSortString(m.external(updateField.actual))
+		if err != nil {
+			return e
+		}
+		return datatypeDeclarationError("second argument to field update should be " + expected + " instead of " + actual)
+	}
 	var mismatch *astArgumentSortError
 	if errors.As(e, &mismatch) {
 		decl, err := m.smt2PPDeclString(m.external(mismatch.decl))
