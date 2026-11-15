@@ -42,6 +42,25 @@ func TestSimplifyQEQuantifierPreservesOuterBindings(t *testing.T) {
 	}
 }
 
+// AUDIT.md qe_05-F3: reduce_quantifier negates a forall body with
+// ast_util mk_not, which strips the body's not and folds true to false.
+func TestSimplifyQEQuantifierForallUsesASTUtilNot(t *testing.T) {
+	f := qsatKernelFixture(t)
+	m := f.r.manager
+	y := f.constant("y", f.integer)
+	x := f.own(m.MkVar(0, f.integer))
+	body := f.own(m.MkNot(f.own(m.MkEq(x, y))))
+	q := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
+	result, err := SimplifyQuantifiers(m, f.r.config, q)
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&result)) }()
+	got, err := m.RefGet(result)
+	fmMust(t, err)
+	if got != f.own(m.MkFalse()) {
+		t.Fatal("forall x. x != y did not simplify to false")
+	}
+}
+
 func TestSimplifyQEQuantifierSkipsPatterns(t *testing.T) {
 	f := qsatKernelFixture(t)
 	m := f.r.manager

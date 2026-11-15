@@ -338,7 +338,8 @@ func simplifyQEQuantifier(m *ast.ASTManager, ctx *simplifySolverContext, quantif
 		return result, err
 	}
 	if forall {
-		body, err = m.MkNot(body)
+		// ast_util mk_not (AUDIT.md qe_05-F3).
+		body, err = m.MkNotSimplified(body)
 		if err == nil {
 			err = m.SetRef(cur, body)
 		}
@@ -369,7 +370,7 @@ func simplifyQEQuantifier(m *ast.ASTManager, ctx *simplifySolverContext, quantif
 		if isNot {
 			body = arg
 		} else {
-			body, err = m.MkNot(body)
+			body, err = m.MkNotSimplified(body)
 			if err != nil {
 				return result, err
 			}
