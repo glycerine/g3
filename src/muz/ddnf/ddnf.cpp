@@ -852,7 +852,7 @@ namespace datalog {
             VERIFY(m_expr2tbv.find(e, t));            
             var_ref w(m);
             compile_var(v, w);
-            unsigned num_bits = bv.get_bv_size(c);
+            unsigned num_bits = bv.get_bv_size(v); // the tbv has the width of v, not of c
             ddnf_nodes const& ns = m_ddnfs.lookup(num_bits, *t);
             ddnf_nodes::iterator it = ns.begin(), end = ns.end();
             expr_ref_vector eqs(m);
