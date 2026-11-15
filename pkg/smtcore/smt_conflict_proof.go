@@ -796,7 +796,8 @@ func (b *smtConflictProofBuilder) objectProof(object SMTJustification) (ast.ASTH
 			}
 			parents = append(parents, equality)
 		}
-		fact, e := b.state.manager.MkEq(value.Left.owner, value.Right.owner)
+		// ext_theory_eq_propagation_justification::mk_proof: ctx.mk_eq_atom.
+		fact, e := b.state.MkEqAtom(value.Left.owner, value.Right.owner)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}

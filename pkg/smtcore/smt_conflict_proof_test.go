@@ -168,3 +168,39 @@ func TestSMTConflictProofBuildsCongruenceEquality(t *testing.T) {
 		t.Fatal("congruence proof fact", fact, want)
 	}
 }
+
+// smtcore_02-F8: ext_theory_eq_propagation_justification::mk_proof states
+// ctx.mk_eq_atom(lhs, rhs), which puts the smaller id first.
+func TestSMTConflictProofExtTheoryEqualityUsesEqAtomOrder(t *testing.T) {
+	m := astTestManager(t)
+	_, _, state := smtInternalizerFixture(t, m, nil)
+	sort, err := m.MkSort(symbol.Numerical(2860), ast.ASTSortInfo{})
+	astTestMust(t, err)
+	_, small := smtEnodeConstant(t, m, 2861, sort, 0)
+	_, large := smtEnodeConstant(t, m, 2862, sort, 0)
+	smallID, err := m.GetASTID(small.owner)
+	astTestMust(t, err)
+	largeID, err := m.GetASTID(large.owner)
+	astTestMust(t, err)
+	if smallID >= largeID {
+		t.Fatal("fixture ids", smallID, largeID)
+	}
+	astTestMust(t, m.ToggleProofMode(ast.ASTProofEnabled))
+	family, err := m.ArithmeticFamilyID()
+	astTestMust(t, err)
+	justification, err := NewSMTExtTheoryEqualityPropagationJustification(m, SMTTheoryID(family), nil, nil, large, small, nil)
+	astTestMust(t, err)
+	builder := &smtConflictProofBuilder{
+		state: state, marked: make(map[int32]struct{}), literal: make(map[SMTLiteral]ast.ASTHandle),
+		objects: make(map[SMTJustification]ast.ASTHandle), equality: make(map[smtEnodePairKey]ast.ASTHandle),
+	}
+	proof, err := builder.objectProof(justification)
+	astTestMust(t, err)
+	got, err := m.GetProofFact(proof)
+	astTestMust(t, err)
+	want, err := m.MkEq(small.owner, large.owner)
+	astTestMust(t, err)
+	if got != want {
+		t.Fatal("eq-propagate proof fact is not mk_eq_atom order", got, want)
+	}
+}
