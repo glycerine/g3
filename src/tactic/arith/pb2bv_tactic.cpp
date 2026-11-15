@@ -633,33 +633,14 @@ private:
             }            
 
             numeral c; bool is_int;
-            if (m_arith_util.is_numeral(lhs, c)) {
-                adjust(pos, k, c);
-                if (is_uninterp_const(rhs)) {
-                    add_bounds_dependencies(rhs);
-
-                    if (k == EQ) {
-                        bool sign = c.is_zero();
-                        if (!pos) sign = !sign;                        
-                        r = mk_unit(rhs, sign);
-                    }
-                    else if ((c.is_zero() && k == LE) ||
-                             (c.is_one() && k == GE)) {
-                        // redundant 0 <= x, 1 >= x
-                        TRACE("pb2bv", tout << "discarding:\n" << mk_ismt2_pp(t, m) << "\n";);
-                        SASSERT(pos);                        
-                        r = m.mk_true();
-                    }
-                    else {
-                        SASSERT((c.is_zero() && k == GE) ||
-                                (c.is_one() && k == LE));
-                        // unit 0 >= x, 1 <= x
-                        SASSERT(pos);
-                        r = mk_unit(rhs, k == GE);
-                    }
-                    return;
-                }
-                throw_non_pb(t);
+            if (m_arith_util.is_numeral(lhs)) {
+                // c k x --> x k' c: the checked branch below handles c
+                // outside {0,1} and negated atoms.
+                if (!is_uninterp_const(rhs))
+                    throw_non_pb(t);
+                std::swap(lhs, rhs);
+                if (k == LE) k = GE;
+                else if (k == GE) k = LE;
             }
             if (!m_arith_util.is_numeral(rhs, c, is_int) || !is_int)
                 throw_non_pb(t);
