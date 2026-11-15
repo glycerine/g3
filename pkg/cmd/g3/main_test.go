@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_top_01-F5: sine-filter re-asserts with null proofs under
+	// produce-proofs; goal::assert_expr only SASSERTs proof presence.
+	"sine_filter_proofs.smt2": "(goals\n(goal\n  (r b)\n  :precision over :depth 1)\n)\n",
 	// AUDIT.md tactic_top_01-F2: probe > and < are not(le) in C++, true on NaN.
 	"probe_nan_compare.smt2": "(error \"tactic failed: fail-if tactic\")\n",
 	// AUDIT.md tactic_bv_01-F1: elim-small-bv num_steps is local to each
@@ -1489,6 +1492,9 @@ func TestSMTLibRunnerScripts(t *testing.T) {
 			if sourceDebugQSATDefinitionRefusal(t, name, err, &out) {
 				return
 			}
+			if sourceDebugGoalProofRefusal(t, name, err, &out) {
+				return
+			}
 			if parseErrorScripts[name] && !expectedParseError(name, err) {
 				t.Fatal("expected the first parser error", err, out.String())
 			}
@@ -1514,6 +1520,21 @@ func sourceDebugModusPonensRefusal(t *testing.T, name string, err error, out *by
 	want := "line 8 column 26: " + ast.ErrASTDomain.Error()
 	if err == nil || err.Error() != want || out.String() != "(error \""+want+"\")\n" {
 		t.Fatalf("source debug modus ponens assertion err=%q output=%q", err, out.String())
+	}
+	return true
+}
+
+// The native executable is a release build. sine_filter.cpp re-asserts the
+// kept formulas with a null proof; goal.cpp asserts proofs_enabled() ==
+// (pr != 0) in source debug builds (AUDIT.md tactic_top_01-F5).
+func sourceDebugGoalProofRefusal(t *testing.T, name string, err error, out *bytes.Buffer) bool {
+	t.Helper()
+	if !ast.ASTSourceDebug || name != "sine_filter_proofs.smt2" {
+		return false
+	}
+	want := "line 8 column 18: " + ast.ErrASTDomain.Error()
+	if err == nil || err.Error() != want || out.String() != "(error \""+want+"\")\n" {
+		t.Fatalf("source debug goal proof assertion err=%q output=%q", err, out.String())
 	}
 	return true
 }

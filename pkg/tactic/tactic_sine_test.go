@@ -3,6 +3,7 @@ package tactic
 // Source: src/tactic/sine_filter.cpp; src/tactic/sine_filter.h.
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -85,5 +86,39 @@ func TestSineTacticQuantifierPatternGating(t *testing.T) {
 	satOK(t, err)
 	if len(selected) != 1 || selected[0] != seed {
 		t.Fatal("pattern-gated component", selected)
+	}
+}
+
+// AUDIT.md tactic_top_01-F5: sine_filter re-asserts the kept formulas with a
+// null proof; goal::assert_expr only SASSERTs proof presence, so release
+// builds keep the formulas (with null proofs) under proof mode.
+func TestSineTacticProofModeKeepsNullProofs(t *testing.T) {
+	m := astTestManager(t)
+	astTestMust(t, m.ToggleProofMode(ast.ASTProofEnabled))
+	p := goalTestAtom(t, m, "sine-proof-p")
+	q := goalTestAtom(t, m, "sine-proof-q")
+	goal := goalTestNew(t, m, true, false)
+	for _, a := range []ast.ASTHandle{p, q} {
+		pr, err := m.MkProofAsserted(a)
+		satOK(t, err)
+		satOK(t, goal.AssertWithProof(a, pr, ast.ASTDependency{}))
+	}
+	tacticBase, err := NewSineTactic(m, nil)
+	satOK(t, err)
+	result := &TacticResult{}
+	t.Cleanup(func() { satOK(t, result.Close()) })
+	err = tacticBase.Apply(goal, result)
+	if ast.ASTSourceDebug {
+		if !errors.Is(err, ast.ErrASTDomain) {
+			t.Fatal("source debug goal::assert_expr proof SASSERT", err)
+		}
+		return
+	}
+	satOK(t, err)
+	goalTestForms(t, goal, q)
+	proof, err := goal.Proof(0)
+	satOK(t, err)
+	if !proof.IsNull() {
+		t.Fatal("sine kept a proof", proof)
 	}
 }

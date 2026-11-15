@@ -1,0 +1,8 @@
+(set-option :produce-proofs true)
+(declare-fun r (Int) Bool)
+(declare-fun s (Int) Bool)
+(declare-const b Int)
+(declare-const c Int)
+(assert (s c))
+(assert (r b))
+(apply sine-filter)

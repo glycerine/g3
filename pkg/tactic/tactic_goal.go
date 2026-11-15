@@ -476,7 +476,10 @@ func (g *Goal) AssertWithProof(f, pr ast.ASTHandle, d ast.ASTDependency) (err er
 	if err != nil {
 		return err
 	}
-	if g.proofsEnabled != (!pr.IsNull() && !undef) {
+	// C++ goal::assert_expr: SASSERT(proofs_enabled() == (pr != 0 &&
+	// !m().is_undef_proof(pr))) is debug only; release builds go on and
+	// store the formula with a null proof (sine_filter relies on this).
+	if ast.ASTSourceDebug && g.proofsEnabled != (!pr.IsNull() && !undef) {
 		return ast.ErrASTDomain
 	}
 	if g.inconsistent {
