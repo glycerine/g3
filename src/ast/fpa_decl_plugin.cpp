@@ -511,19 +511,7 @@ func_decl * fpa_decl_plugin::mk_to_fp(decl_kind k, unsigned num_parameters, para
         symbol name("to_fp");
         return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
     }
-    else if (arity == 1 &&
-             is_sort_of(domain[0], m_arith_fid, REAL_SORT))
-    {
-        // 1 Real -> 1 FP
-        if (!(num_parameters == 2 && parameters[0].is_int() && parameters[1].is_int()))
-            m_manager->raise_exception("expecting two integer parameters to to_fp");
-        if (domain[1] != m_real_sort)
-            m_manager->raise_exception("sort mismatch, expected one argument of Real sort");
-
-        sort * fp = mk_float_sort(parameters[0].get_int(), parameters[1].get_int());
-        symbol name("to_fp");
-        return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
-    }
+    // FORK FIX #65 (g3 audit, see FORK_BUGFIXES.md): no "1 Real -> 1 FP" branch (it read domain[1] past the arity-1 domain; fpa2bv has no such to_fp); upstream removed it and "(Real)" below (AUDIT ast_05-F2)
     else if (arity == 2 &&
              is_sort_of(domain[0], m_family_id, ROUNDING_MODE_SORT) &&
              is_sort_of(domain[1], m_arith_fid, REAL_SORT))
@@ -551,7 +539,6 @@ func_decl * fpa_decl_plugin::mk_to_fp(decl_kind k, unsigned num_parameters, para
         m_manager->raise_exception("Unexpected argument combination for (_ to_fp eb sb). Supported argument combinations are: "
                                    "((_ BitVec 1) (_ BitVec eb) (_ BitVec sb-1)), "
                                    "(_ BitVec (eb+sb)), "
-                                   "(Real), "
                                    "(RoundingMode (_ BitVec (eb+sb))), "
                                    "(RoundingMode (_ FloatingPoint eb' sb')), "
                                    "(RoundingMode Int Real), "
