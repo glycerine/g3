@@ -111,6 +111,10 @@ Abstract:
                                   equality true, a later differing index
                                   cannot make it false (pkg/AUDIT.md
                                   model_01-F5).
+    z3_4_7_1_pdr_proof_nullary_root the PDR proof trace cache is keyed by
+                                  state only, so the query!0 root takes the
+                                  proof of another node with state `true`
+                                  (pkg/AUDIT.md muz_pdr_02-F2).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -1568,4 +1572,36 @@ void tst_z3_4_7_1_duality_underapprox_stale_proof() {
         "(rule (=> (and (Reach x) (= x 2)) Goal))\n"
         "(query Goal)\n";
     expect_script_output("duality_underapprox_stale_proof", script, "sat\n");
+}
+
+// PDR proof trace for Goal :- P(x), with P(x) a fact. The query!0 root and
+// the nullary Goal node both have the state `true`, and the P node too, so
+// model_search::get_proof_trace, whose cache is keyed by the state alone,
+// gave the root the proof of the first cached node: z3 printed a proof of
+// (forall x (P x)) instead of one of query!0. pkg/AUDIT.md muz_pdr_02-F2.
+void tst_z3_4_7_1_pdr_proof_nullary_root() {
+    char const* script =
+        "(set-option :fixedpoint.engine pdr)\n"
+        "(set-option :fixedpoint.generate_proof_trace true)\n"
+        "(set-option :fixedpoint.xform.inline_eager false)\n"
+        "(set-option :fixedpoint.xform.inline_linear false)\n"
+        "(set-option :fixedpoint.xform.subsumption_checker false)\n"
+        "(declare-rel P (Int))\n"
+        "(declare-rel Goal ())\n"
+        "(declare-var x Int)\n"
+        "(rule (P x))\n"
+        "(rule (=> (P x) Goal))\n"
+        "(query Goal :print-certificate true)\n";
+    expect_script_output("pdr_proof_nullary_root", script,
+        "sat\n"
+        "(let ((a!1 (forall ((x Int)) (=> (P x) Goal)))\n"
+        "      (a!2 (forall ((A Int)) (=> (P A) Goal)))\n"
+        "      (a!4 (forall ((x Int)) (P x)))\n"
+        "      (a!5 (forall ((A Int)) (P A))))\n"
+        "(let ((a!3 (mp (asserted a!1) (symm (der (= a!2 a!1)) (= a!1 a!2)) a!2))\n"
+        "      (a!6 (mp (asserted a!4) (symm (der (= a!5 a!4)) (= a!4 a!5)) a!5)))\n"
+        "  ((_ hyper-res 1 0)\n"
+        "    (asserted (=> Goal query!0))\n"
+        "    (hyper-res a!3 a!6 Goal)\n"
+        "    query!0)))\n");
 }

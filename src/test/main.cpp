@@ -253,6 +253,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_implicant_nested_array_eq);
     TST(z3_4_7_1_duality_underapprox_flag_literals);
     TST(z3_4_7_1_duality_underapprox_stale_proof);
+    TST(z3_4_7_1_pdr_proof_nullary_root);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);
