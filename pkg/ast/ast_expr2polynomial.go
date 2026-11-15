@@ -160,15 +160,11 @@ func (x *Expr2Polynomial) SetCancel(cancel bool) error {
 	return nil
 }
 
+// checkpoint is expr2polynomial::imp::checkpoint: it tests only the
+// converter's own m_cancel flag (set_cancel); it does not consult the
+// manager's resource limit, so it charges no resource step.
 func (x *Expr2Polynomial) checkpoint() error {
 	if x.canceled {
-		return ErrExprPolynomialCanceled
-	}
-	canceled, err := x.ast.Canceled()
-	if err != nil {
-		return err
-	}
-	if canceled {
 		return ErrExprPolynomialCanceled
 	}
 	return nil

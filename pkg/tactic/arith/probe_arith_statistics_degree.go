@@ -18,7 +18,8 @@ func (p *ArithmeticStatisticProbe) evalDegree(g *tactic.Goal) (_ float64, err er
 	if e != nil {
 		return 0, e
 	}
-	pm, e := polynomial.NewMultivariatePolynomialManager(polynomial.MultivariatePolynomialManagerConfig{Core: polynomial.MultivariatePolynomialConfig{Integer: q.Integers(), Rationals: q, Checkpoint: func() bool { return true }, Cooperation: func() error { return nil }}})
+	// proc: m_pm(m.limit(), m_qm); polynomial checkpoints charge m.limit().
+	pm, e := polynomial.NewMultivariatePolynomialManager(polynomial.MultivariatePolynomialManagerConfig{Core: polynomial.MultivariatePolynomialConfig{Integer: q.Integers(), Rationals: q, Checkpoint: m.Limit.Inc, Cooperation: func() error { return nil }}})
 	if e != nil {
 		return 0, e
 	}
