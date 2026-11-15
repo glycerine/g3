@@ -293,3 +293,52 @@ func TestNNFDeepTraversalCacheResetAndOwnerGuards(t *testing.T) {
 		t.Fatal("closed NNF owner accepted", e)
 	}
 }
+
+// AUDIT.md ast_sub_02-F1: nnf::process_and_or builds the raw
+// ast_manager mk_and/mk_or(n, args), so a unary and/or keeps its
+// connective (and flips to or under negation), and the proof is built.
+func TestNNFUnaryAndOrKeepsConnective(t *testing.T) {
+	m, _, n := nnfOwner(t, true, DefaultNNFOptions())
+	b, e := m.MkBoolSort()
+	definedNamesMust(t, e)
+	fName, e := m.Symbols.Intern("nnf-unary-p")
+	definedNamesMust(t, e)
+	f, e := m.MkFuncDecl(fName, []ast.ASTHandle{b}, b, ast.ASTFuncDeclInfo{})
+	definedNamesMust(t, e)
+	definedNamesPin(t, m, f)
+	v0, e := m.MkVar(0, b)
+	definedNamesMust(t, e)
+	body, e := m.MkApp(f, []ast.ASTHandle{v0})
+	definedNamesMust(t, e)
+	xName, e := m.Symbols.Intern("x")
+	definedNamesMust(t, e)
+	q, e := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{b}, Names: []usymbol.Symbol{xName}, Body: body})
+	definedNamesMust(t, e)
+	definedNamesPin(t, m, q)
+	unary, e := m.MkFamilyApp(m.BasicFamilyID(), ast.ASTOpAnd, nil, []ast.ASTHandle{q})
+	definedNamesMust(t, e)
+	definedNamesPin(t, m, unary)
+	result, proof, _, _ := nnfTransform(t, m, n, unary)
+	if op, x := m.GetDeclKind(result); x != nil || op != ast.ASTOpAnd {
+		t.Fatal("unary and connective", op, x)
+	}
+	if count, x := m.GetNumArgs(result); x != nil || count != 1 {
+		t.Fatal("unary and arity", count, x)
+	}
+	if proof.IsNull() {
+		t.Fatal("unary and proof missing")
+	}
+	negated, e := m.MkNot(unary)
+	definedNamesMust(t, e)
+	definedNamesPin(t, m, negated)
+	result, proof, _, _ = nnfTransform(t, m, n, negated)
+	if op, x := m.GetDeclKind(result); x != nil || op != ast.ASTOpOr {
+		t.Fatal("negated unary and connective", op, x)
+	}
+	if count, x := m.GetNumArgs(result); x != nil || count != 1 {
+		t.Fatal("negated unary and arity", count, x)
+	}
+	if proof.IsNull() {
+		t.Fatal("negated unary and proof missing")
+	}
+}

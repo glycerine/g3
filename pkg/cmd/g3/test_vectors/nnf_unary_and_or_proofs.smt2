@@ -1,0 +1,6 @@
+(set-option :produce-proofs true)
+(declare-fun p (Int) Bool)
+(declare-fun q () Bool)
+(assert (or (and (forall ((x Int)) (p x))) q))
+(assert (or (not (or (exists ((x Int)) (p x)))) q))
+(apply nnf)

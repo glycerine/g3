@@ -393,10 +393,12 @@ func (n *NNF) convertApp(t ast.ASTHandle, polarity, inQ, proofs bool) (nnfResult
 			}
 			isAnd := op == ast.ASTOpAnd
 			var value ast.ASTHandle
+			// Source process_and_or: the raw ast_manager mk_and/mk_or(n,
+			// args), which keeps a unary and/or.
 			if isAnd == polarity {
-				value, x = m.MkAndArray(args)
+				value, x = m.MkAndArgs(args)
 			} else {
-				value, x = m.MkOrArray(args)
+				value, x = m.MkOrArgs(args)
 			}
 			if x != nil {
 				return nnfResult{}, x
@@ -426,10 +428,11 @@ func (n *NNF) convertApp(t ast.ASTHandle, polarity, inQ, proofs bool) (nnfResult
 			}
 			args := []ast.ASTHandle{left.value, right.value}
 			var value ast.ASTHandle
+			// Source process_implies: mk_or(2, ...) / mk_and(2, ...).
 			if polarity {
-				value, x = m.MkOrArray(args)
+				value, x = m.MkOrArgs(args)
 			} else {
-				value, x = m.MkAndArray(args)
+				value, x = m.MkAndArgs(args)
 			}
 			if x != nil {
 				return nnfResult{}, x

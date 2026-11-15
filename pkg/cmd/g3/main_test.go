@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_sub_02-F1: nnf unary and/or with proofs.
+	"nnf_unary_and_or_proofs.smt2": "(goals\n(goal\n  (or (and (forall ((x Int)) (p x))) q)\n  (let ((a!1 (and (forall ((x Int)) (not (p x))))))\n    (or a!1 q))\n  :precision precise :depth 1)\n)\n",
+	// AUDIT.md ast_sub_02-F1: nnf keeps unary and/or (raw mk_and/mk_or).
+	"nnf_unary_and_or.smt2": "(goals\n(goal\n  (or (and (forall ((x Int)) (p x))) q)\n  (let ((a!1 (and (forall ((x Int)) (not (p x))))))\n    (or a!1 q))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md ast_rewriter_04-F2: 4.7.1 pb2bv mk_le_ge has no gcd reduction.
 	"card2bv_pb_no_gcd_reduction.smt2": "(goals\n(goal\n  (let ((a!1 ((_ extract 2 2)\n               (bvadd ((_ zero_extend 1) (ite a #b10 #b00))\n                      ((_ zero_extend 1) (ite b #b10 #b00))))))\n    (= a!1 #b0))\n  sn!0\n  true\n  (or (not sn!0) (not a) (not b))\n  (or (not sn!0) (not a) (not c))\n  (or (not sn!0) (not b) (not c))\n  (or sn!1 b c)\n  (or sn!1 a c)\n  (or sn!1 a b)\n  (or sn!0 (not sn!1))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md ast_rewriter_04-F1: factor_rewriter m_powers walks obj_map order.
