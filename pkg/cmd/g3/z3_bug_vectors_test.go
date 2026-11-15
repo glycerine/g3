@@ -14,6 +14,8 @@ import (
 // scriptResults so the C++ reference comparison does not run them; this
 // test locks in g3's correct answers instead.
 var z3BugResults = map[string]string{
+	"z3_bug_sortmax_uninit_cmp.smt2": "sat\n(objectives\n ( 5)\n)\n(model \n  (define-fun d () Bool\n    true)\n  (define-fun b () Bool\n    true)\n  (define-fun a () Bool\n    false)\n  (define-fun c () Bool\n    false)\n)\n", // opt_01 sortmax psort_nw m_t (fork fix #A)
+
 	// Datatype instances after pop (upstream 19f655c69 and the fork) and an
 	// alias used in a popped scope (still present upstream; fork fixed).
 	"z3_bug_datatype_inst_after_pop.smt2":     "sat\nsat\n",

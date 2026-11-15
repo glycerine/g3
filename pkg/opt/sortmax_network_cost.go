@@ -1,7 +1,7 @@
 package opt
 
-// Source: src/util/sorting_network.h psort_nw vc_* cost model. sortmax reaches
-// the zero-valued LE comparator mode, which counts one direction of clauses.
+// Source: src/util/sorting_network.h psort_nw vc_* cost model in the GE
+// comparator mode fork fix #A gives sortmax (see comparator).
 
 type sortMaxNetworkCost struct {
 	wires, clauses int64
@@ -56,7 +56,7 @@ func (e *sortMaxEncoder) useDirectMerge(a, b, c int) bool {
 func (e *sortMaxEncoder) directMergeCost(a, b, c int) sortMaxNetworkCost {
 	left, right := minInt(a, c), minInt(b, c)
 	productHalf := int64(left) * int64(right) / 2
-	return sortMaxNetworkCost{wires: int64(c), clauses: int64(a+b) + productHalf}
+	return sortMaxNetworkCost{wires: int64(c), clauses: productHalf}
 }
 
 func (e *sortMaxEncoder) mergeCost(a, b int) sortMaxNetworkCost {
@@ -101,12 +101,12 @@ func (e *sortMaxEncoder) recursiveSubmergeCost(a, b, c int) sortMaxNetworkCost {
 	return e.submergeCost(ceilA, ceilB, c1).
 		add(e.submergeCost(floorA, floorB, c2)).
 		add(e.interleaveCost(ceilA+ceilB, floorA+floorB)).
-		add(sortMaxNetworkCost{wires: 1, clauses: 2})
+		add(sortMaxNetworkCost{wires: 1, clauses: 1})
 }
 
 func (e *sortMaxEncoder) submergeCost(a, b, c int) sortMaxNetworkCost {
 	if a == 1 && b == 1 && c == 1 {
-		return sortMaxNetworkCost{wires: 1, clauses: 2}
+		return sortMaxNetworkCost{wires: 1, clauses: 1}
 	}
 	if a == 0 || b == 0 {
 		return sortMaxNetworkCost{}

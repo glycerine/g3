@@ -39,7 +39,7 @@ func TestSortMaxPacketUsesDirectCardinalityNetworkAndFiltersWires(t *testing.T) 
 	defer result.Close()
 	statistics := result.MaxSMT[0]
 	if result.Values[0].SoftCost.Cmp(big.NewRat(0, 1)) != 0 || result.Values[0].SoftSatisfied.Cmp(big.NewRat(3, 1)) != 0 {
-		t.Fatal("source LE network objective bounds", result.Values[0].SoftCost.RatString(), result.Values[0].SoftSatisfied.RatString())
+		t.Fatal("SortMax network objective bounds", result.Values[0].SoftCost.RatString(), result.Values[0].SoftSatisfied.RatString())
 	}
 	if statistics.Inputs != 3 || statistics.Auxiliaries != 3 || statistics.NetworkClauses != 7 || !result.ModelFiltered {
 		t.Fatal("SortMax network", statistics, result.ModelFiltered)
@@ -63,8 +63,10 @@ func TestSortMaxPacketUsesDirectCardinalityNetworkAndFiltersWires(t *testing.T) 
 		if evalErr != nil {
 			t.Fatal(evalErr)
 		}
-		if isTrue {
-			t.Fatal("source LE network leaves unneeded soft inputs false")
+		// The GE network (fork fix #A) only lets an output hold when
+		// enough inputs are true, so the model satisfies every soft input.
+		if !isTrue {
+			t.Fatal("SortMax model leaves a soft input false at cost 0")
 		}
 	}
 }

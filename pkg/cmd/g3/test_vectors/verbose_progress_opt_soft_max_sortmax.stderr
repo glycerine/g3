@@ -7,7 +7,6 @@
 (opt.sortmax [1:2])
 is-sat: l_true
 Satisfying soft constraints
-2: |(not (<= x 3))!2| |-> false 
-1: |(not (<= 2 x))!3| |-> true 
+2: |(not (<= x 3))!2| |-> true 
+1: |(not (<= 2 x))!3| |-> false 
 1: |(not (<= y x))!4| |-> true 
-(optsmt lower bound: 9)

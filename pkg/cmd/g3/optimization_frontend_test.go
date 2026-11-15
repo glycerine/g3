@@ -123,11 +123,11 @@ func TestOptimizationFrontendResourceLimitedSortMaxBounds(t *testing.T) {
 	var output bytes.Buffer
 	// z3 4.7.1's WCNF front end ignores rlimit= (it prints sat at every
 	// rlimit), so the window is read off z3's resource count instead: g3
-	// counts exactly what z3 counts on this input (2616 steps, -st), and
-	// in z3's step sequence sortmax's m.canceled() after its 4th and 5th
-	// check_sat are steps 2342 and 2480. Any rlimit in [2342, 2479] stops
-	// sortmax with the bounds [0:2].
-	args := []string{"rlimit=2400", "opt.maxsat_engine=sortmax", "-wcnf", "-in"}
+	// counts exactly what z3 with fork fix #A (psort_nw m_t = GE) counts on
+	// this input (2386 steps, -st; the optimum is 1). Any rlimit in
+	// [2249, 2356] stops sortmax after the check_sat that lowers its upper
+	// bound to 2, with the bounds [0:2].
+	args := []string{"rlimit=2300", "opt.maxsat_engine=sortmax", "-wcnf", "-in"}
 	if err := runArguments(args, strings.NewReader(input), &output); err != nil {
 		t.Fatal(err, output.String())
 	}

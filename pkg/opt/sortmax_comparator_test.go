@@ -11,7 +11,7 @@ import (
 
 // AUDIT.md opt_02-F3: mk_max/mk_min return a when a == b, so merge(1,1)
 // over equal inputs outputs [a, a] and builds no or/and term; cmp() still
-// emits its three cmp_le clauses.
+// emits its three cmp_ge clauses (fork fix #A gives sortmax GE mode).
 func TestSortMaxComparatorEqualInputs(t *testing.T) {
 	manager, fixture := maxSMTTestFixture(t)
 	a := maxResTestBool(t, manager, "sortmax-cmp-a")

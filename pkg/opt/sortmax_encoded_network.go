@@ -1,7 +1,8 @@
 package opt
 
 // Source: src/util/sorting_network.h psort_nw::sorting/merge/dsorting, used
-// by src/opt/sortmax.cpp. This is a concrete Boolean-wire implementation.
+// by src/opt/sortmax.cpp. This is a concrete Boolean-wire implementation of
+// the GE comparator mode (fork fix #A; see comparator).
 
 import "github.com/glycerine/g3/pkg/ast"
 
@@ -29,8 +30,9 @@ func (e *sortMaxEncoder) network(inputs []ast.ASTHandle) ([]ast.ASTHandle, error
 	return e.merge(left, right)
 }
 
-// directSort emits the source's LE-direction subset clauses. In the 4.7.1
-// sortmax caller, psort_nw's comparator mode has the zero-valued LE tag.
+// directSort is dsorting(n, n, xs) in the GE mode fork fix #A gives
+// sortmax's psort_nw (see comparator): each output implies that enough
+// inputs are true.
 func (e *sortMaxEncoder) directSort(inputs []ast.ASTHandle) ([]ast.ASTHandle, error) {
 	outputs := make([]ast.ASTHandle, len(inputs))
 	for i := range outputs {
@@ -40,40 +42,37 @@ func (e *sortMaxEncoder) directSort(inputs []ast.ASTHandle) ([]ast.ASTHandle, er
 		}
 		outputs[i] = wire
 	}
-	for k, output := range outputs {
-		if err := e.addSubsetImplications(output, inputs, k+1); err != nil {
+	for k := 1; k <= len(outputs); k++ {
+		notOutput, err := e.negate(outputs[k-1])
+		if err != nil {
+			return nil, err
+		}
+		if err = e.addSubset(notOutput, inputs, len(inputs)-k+1); err != nil {
 			return nil, err
 		}
 	}
 	return outputs, nil
 }
 
-// addSubsetImplications emits every clause requiring k true inputs to set the
-// sorted output true. The source LE mode does not emit the reverse direction.
-func (e *sortMaxEncoder) addSubsetImplications(output ast.ASTHandle, inputs []ast.ASTHandle, k int) error {
-	prefix := []ast.ASTHandle{output}
-	var visit func(start, left int) error
-	visit = func(start, left int) error {
-		if left == 0 {
-			return e.clause(prefix...)
+// addSubset is add_subset(false, k, 0, lits, n, xs) with lits = {first}:
+// one clause first or xs[i1] or ... or xs[ik] per k-subset of the inputs.
+func (e *sortMaxEncoder) addSubset(first ast.ASTHandle, inputs []ast.ASTHandle, k int) error {
+	literals := []ast.ASTHandle{first}
+	var visit func(k, offset int) error
+	visit = func(k, offset int) error {
+		if k == 0 {
+			return e.clause(literals...)
 		}
-		last := len(inputs) - left
-		for i := start; i <= last; i++ {
-			literal := inputs[i]
-			var err error
-			literal, err = e.negate(literal)
-			if err != nil {
+		for i := offset; i < len(inputs)-k+1; i++ {
+			literals = append(literals, inputs[i])
+			if err := visit(k-1, i+1); err != nil {
 				return err
 			}
-			prefix = append(prefix, literal)
-			if err := visit(i+1, left-1); err != nil {
-				return err
-			}
-			prefix = prefix[:len(prefix)-1]
+			literals = literals[:len(literals)-1]
 		}
 		return nil
 	}
-	return visit(0, k)
+	return visit(k, 0)
 }
 
 func (e *sortMaxEncoder) merge(left, right []ast.ASTHandle) ([]ast.ASTHandle, error) {
@@ -110,9 +109,11 @@ func (e *sortMaxEncoder) merge(left, right []ast.ASTHandle) ([]ast.ASTHandle, er
 	return e.interleave(first, second)
 }
 
+// directMerge is dsmerge(a + b, a, as, b, bs) in GE mode (fork fix #A).
 func (e *sortMaxEncoder) directMerge(left, right []ast.ASTHandle) ([]ast.ASTHandle, error) {
 	a, b := len(left), len(right)
-	outputs := make([]ast.ASTHandle, a+b)
+	c := a + b
+	outputs := make([]ast.ASTHandle, c)
 	for i := range outputs {
 		wire, err := e.fresh()
 		if err != nil {
@@ -120,36 +121,27 @@ func (e *sortMaxEncoder) directMerge(left, right []ast.ASTHandle) ([]ast.ASTHand
 		}
 		outputs[i] = wire
 	}
-	for i, input := range left {
-		notInput, err := e.negate(input)
+	for k := 0; k < c; k++ {
+		notOutput, err := e.negate(outputs[k])
 		if err != nil {
 			return nil, err
 		}
-		if err = e.clause(notInput, outputs[i]); err != nil {
-			return nil, err
-		}
-	}
-	for i, input := range right {
-		notInput, err := e.negate(input)
-		if err != nil {
-			return nil, err
-		}
-		if err = e.clause(notInput, outputs[i]); err != nil {
-			return nil, err
-		}
-	}
-	for i := 1; i <= a; i++ {
-		for j := 1; j <= b && i+j <= a+b; j++ {
-			notLeft, err := e.negate(left[i-1])
-			if err != nil {
+		if a <= k {
+			if err = e.clause(notOutput, right[k-a]); err != nil {
 				return nil, err
 			}
-			notRight, err := e.negate(right[j-1])
-			if err != nil {
+		}
+		if b <= k {
+			if err = e.clause(notOutput, left[k-b]); err != nil {
 				return nil, err
 			}
-			if err = e.clause(notLeft, notRight, outputs[i+j-1]); err != nil {
-				return nil, err
+		}
+		for i := 0; i < minInt(a, k+1); i++ {
+			j := k - i
+			if j < b {
+				if err = e.clause(notOutput, left[i], right[j]); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}

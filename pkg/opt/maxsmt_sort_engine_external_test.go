@@ -183,7 +183,9 @@ func TestArithmeticSolverUsesSortMaxForWeightedMutex(t *testing.T) {
 	if err = modelEvaluator.SetModelCompletion(true); err != nil {
 		t.Fatal(err)
 	}
-	for _, expression := range []ast.ASTHandle{p, q, r} {
+	// The GE network (fork fix #A) makes the model meet its cost 3: p and r
+	// true, q false.
+	for i, expression := range []ast.ASTHandle{p, q, r} {
 		value, evalErr := modelEvaluator.EvaluateValue(expression)
 		if evalErr != nil {
 			t.Fatal(evalErr)
@@ -194,8 +196,8 @@ func TestArithmeticSolverUsesSortMaxForWeightedMutex(t *testing.T) {
 		if evalErr != nil {
 			t.Fatal(evalErr)
 		}
-		if isTrue {
-			t.Fatal("source SortMax network leaves soft terms false in its filtered model")
+		if isTrue != (i != 1) {
+			t.Fatal("SortMax model does not match its optimum", i, isTrue)
 		}
 	}
 }

@@ -970,7 +970,7 @@ var scriptResults = map[string]string{
 	// unsigned after find_mutexes, and maxsmt answers unknown.
 	"sortmax_fractional_weight.smt2":              "unknown\n(objectives\n ( (/ 3.0 2.0))\n)\n(model \n  (define-fun b () Bool\n    false)\n  (define-fun a () Bool\n    false)\n)\n",
 	"sortmax_fractional_weight_mutex.smt2":        "unknown\n(objectives\n ( (/ 3.0 2.0))\n)\n(model \n  (define-fun b () Bool\n    false)\n  (define-fun a () Bool\n    false)\n)\n",
-	"sortmax_fractional_weight_second_group.smt2": "unknown\n(objectives\n ( 2)\n (g2 0)\n)\n(model \n  (define-fun b () Bool\n    false)\n  (define-fun a () Bool\n    false)\n  (define-fun c () Bool\n    false)\n)\n",
+	"sortmax_fractional_weight_second_group.smt2": "unknown\n(objectives\n ( 2)\n (g2 0)\n)\n(model \n  (define-fun b () Bool\n    false)\n  (define-fun a () Bool\n    true)\n  (define-fun c () Bool\n    true)\n)\n",
 	// AUDIT.md cmd_context_01-F3: opt::context never runs check_logic on
 	// objectives or soft constraints; its sort errors use the C++ texts.
 	"opt_objective_outside_logic.smt2": "sat\n(objectives\n ((* x y) 4)\n)\n",
@@ -2069,7 +2069,7 @@ var scriptResults = map[string]string{
 	"fixedpoint_pdr_inductive_reachability.smt2":        "sat\ntrue\n",
 	"fixedpoint_pdr_bit_blast.smt2":                     "sat\n",
 	"fixedpoint_pdr_scale.smt2":                         "sat\n",
-	"sortmax_soft_hash_order.smt2":                      "sat\n(objectives\n ( 0)\n)\n",
+	"sortmax_soft_hash_order.smt2":                      "sat\n(objectives\n ( 1)\n)\n",
 	"setup_unknown_qf_fp_with_int.smt2":                 "sat\n(model \n  (define-fun f () (_ FloatingPoint 3 5)\n    (fp #b0 #b010 #x0))\n  (define-fun y () Int\n    1)\n  (define-fun x () Int\n    1)\n)\n",
 	"setup_basic_qf_fp_with_int.smt2":                   "sat\n(model \n  (define-fun f () (_ FloatingPoint 3 5)\n    (fp #b0 #b010 #x0))\n  (define-fun y () Int\n    1)\n  (define-fun x () Int\n    1)\n)\n",
 	"maxres_single_correction_set.smt2":                 "sat\n(objectives\n ( 3)\n)\n(model \n  (define-fun y () Int\n    0)\n  (define-fun x () Int\n    8)\n)\n",

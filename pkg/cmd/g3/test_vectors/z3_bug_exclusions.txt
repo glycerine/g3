@@ -135,3 +135,11 @@ z3_bug_datatype_inst_after_pop
 # declares them on every instantiation. Reproduction:
 # test_vectors/z3_bug_define_sort_alias_after_pop.smt2.
 z3_bug_define_sort_alias_after_pop
+#
+# sortmax's psort_nw reads its comparator mode m_t uninitialized (z3 bug:
+# src/util/sorting_network.h psort_nw constructor; fork fix #A and upstream
+# initialize it to GE). Read as LE, the network lets outputs hold without
+# their inputs, so sortmax reports optima below the true cost. g3 builds
+# the GE network (pkg/opt/sortmax_encoded_*.go; AUDIT.md opt_01 sortmax
+# m_t note). Reproduction: test_vectors/z3_bug_sortmax_uninit_cmp.smt2.
+z3_bug_sortmax_uninit_cmp

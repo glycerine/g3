@@ -20,23 +20,29 @@ func (e *sortMaxEncoder) comparator(left, right ast.ASTHandle) (high, low ast.AS
 		}
 		e.engine.stats.Comparators++
 	}
-	notLeft, err := e.negate(left)
+	// cmp_ge: y2 -> x1, y2 -> x2, y1 -> x1 or x2. psort_nw's constructor
+	// leaves m_t uninitialized in 4.7.1 (undefined behavior; sortmax never
+	// calls ge/le/eq to set it). Fork fix #A initializes it to GE, as
+	// upstream z3 does, so these are the cmp_ge clauses.
+	notLow, err := e.negate(low)
 	if err != nil {
 		return high, low, err
 	}
-	notRight, err := e.negate(right)
+	if err = e.clause(notLow, left); err != nil {
+		return high, low, err
+	}
+	notLow, err = e.negate(low)
 	if err != nil {
 		return high, low, err
 	}
-	// sortmax reaches psort_nw with the zero-valued LE comparator mode in the
-	// 4.7.1 source. These are the three cmp_le clauses for this concrete sort.
-	if err = e.clause(notLeft, high); err != nil {
+	if err = e.clause(notLow, right); err != nil {
 		return high, low, err
 	}
-	if err = e.clause(notRight, high); err != nil {
+	notHigh, err := e.negate(high)
+	if err != nil {
 		return high, low, err
 	}
-	if err = e.clause(notLeft, notRight, low); err != nil {
+	if err = e.clause(notHigh, left, right); err != nil {
 		return high, low, err
 	}
 	return high, low, nil

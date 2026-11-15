@@ -108,7 +108,7 @@
 (smt.reduce-asserted)
 (smt.simplifier-done)
 (smt.searching)
-(smt.simplifying-clause-set :num-deleted-clauses 78)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
 (opt.sortmax [0:20])
 (smt.propagate-values)
 (smt.reduce-asserted)
@@ -179,72 +179,8 @@
 (smt.reduce-asserted)
 (smt.simplifier-done)
 (smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 184)
 (opt.sortmax [0:10])
-(smt.propagate-values)
-(smt.reduce-asserted)
-(smt.maximizing-bv-sharing)
-(smt.reduce-asserted)
-(smt.simplifier-done)
-(smt.searching)
-(smt.simplifying-clause-set :num-deleted-clauses 149)
-(opt.sortmax [0:9])
-(smt.propagate-values)
-(smt.reduce-asserted)
-(smt.maximizing-bv-sharing)
-(smt.reduce-asserted)
-(smt.simplifier-done)
-(smt.searching)
-(opt.sortmax [0:8])
-(smt.propagate-values)
-(smt.reduce-asserted)
-(smt.maximizing-bv-sharing)
-(smt.reduce-asserted)
-(smt.simplifier-done)
-(smt.searching)
-(opt.sortmax [0:7])
-(smt.propagate-values)
-(smt.reduce-asserted)
-(smt.maximizing-bv-sharing)
-(smt.reduce-asserted)
-(smt.simplifier-done)
-(smt.searching)
-(opt.sortmax [0:6])
-(smt.propagate-values)
-(smt.reduce-asserted)
-(smt.maximizing-bv-sharing)
-(smt.reduce-asserted)
-(smt.simplifier-done)
-(smt.searching)
-(opt.sortmax [0:5])
-(smt.propagate-values)
-(smt.reduce-asserted)
-(smt.maximizing-bv-sharing)
-(smt.reduce-asserted)
-(smt.simplifier-done)
-(smt.searching)
-(opt.sortmax [0:4])
-(smt.propagate-values)
-(smt.reduce-asserted)
-(smt.maximizing-bv-sharing)
-(smt.reduce-asserted)
-(smt.simplifier-done)
-(smt.searching)
-(opt.sortmax [0:3])
-(smt.propagate-values)
-(smt.reduce-asserted)
-(smt.maximizing-bv-sharing)
-(smt.reduce-asserted)
-(smt.simplifier-done)
-(smt.searching)
-(opt.sortmax [0:2])
-(smt.propagate-values)
-(smt.reduce-asserted)
-(smt.maximizing-bv-sharing)
-(smt.reduce-asserted)
-(smt.simplifier-done)
-(smt.searching)
-(smt.simplifying-clause-set :num-deleted-clauses 44)
-(opt.sortmax [0:1])
 (smt.propagate-values)
 (smt.reduce-asserted)
 (smt.maximizing-bv-sharing)
@@ -254,16 +190,16 @@
 is-sat: l_true
 Satisfying soft constraints
 2: p0 |-> false 
-3: p1 |-> false 
-2: p2 |-> false 
+3: p1 |-> true 
+2: p2 |-> true 
 4: p3 |-> false 
-1: p4 |-> false 
+1: p4 |-> true 
 1: p5 |-> false 
-3: p6 |-> false 
-3: p7 |-> false 
-2: p8 |-> false 
-4: p9 |-> false 
-2: p10 |-> false 
+3: p6 |-> true 
+3: p7 |-> true 
+2: p8 |-> true 
+4: p9 |-> true 
+2: p10 |-> true 
 1: p11 |-> false 
-3: p12 |-> false 
+3: p12 |-> true 
 2: p13 |-> false 
