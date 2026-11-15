@@ -302,3 +302,27 @@ func TestSubpavingFastMonomialIntervalDisplaySmoke(t *testing.T) {
 		t.Fatal("monomial view", out.String(), err)
 	}
 }
+
+// AUDIT.md math_subpaving_01-F5: the found-zero branch of
+// propagate_monomial calls propagate_bound directly, so the weaker lower
+// bound 0 replaces k >= 5 and the upper bound 0 does not conflict.
+func TestFastMonomialFoundZeroBypassesRelevance(t *testing.T) {
+	m, c, v, root := fastMonomialFixture(t, []bool{false, false})
+	k, err := c.DefineMonomial([]FastPower{{Variable: 0, Degree: 1}, {Variable: 1, Degree: 1}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fastMonomialBound(t, m, c, root, v, 0, 0, true)
+	fastMonomialBound(t, m, c, root, v, 0, 0, false)
+	fastMonomialBound(t, m, c, root, v, 1, 1, true)
+	fastMonomialBound(t, m, c, root, v, 1, 3, false)
+	fastMonomialBound(t, m, c, root, v, k, 5, true)
+	if err := c.PropagateMonomial(k, root); err != nil {
+		t.Fatal(err)
+	}
+	if root.inconsistent {
+		t.Fatal("found-zero bounds must bypass relevance; root became inconsistent")
+	}
+	fastMonomialCheckBound(t, m, root, v, k, 0, true)
+	fastMonomialCheckBound(t, m, root, v, k, 0, false)
+}

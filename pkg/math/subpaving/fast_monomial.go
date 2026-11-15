@@ -129,10 +129,11 @@ func (c *FastContext) PropagateMonomial(variable uint32, n *FastNode) (err error
 			return err
 		}
 		reason := fastBoundReason{kind: fastReasonVariableDefinition, variable: variable}
-		if _, err = c.propagateCandidateReason(n, variable, v, true, false, reason); err != nil || n.inconsistent {
+		// Source propagate_bound: mk_bound plus enqueue, no relevance filter.
+		if err = c.propagateBoundReason(n, variable, v, true, false, reason); err != nil || n.inconsistent {
 			return err
 		}
-		_, err = c.propagateCandidateReason(n, variable, v, false, false, reason)
+		err = c.propagateBoundReason(n, variable, v, false, false, reason)
 		return err
 	}
 	xUnbounded, err := n.IsUnbounded(variable)
