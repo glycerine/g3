@@ -63,6 +63,15 @@ func (p *ArithmeticPlugin) IsUninterpreted(application ast.ASTHandle) (bool, err
 		_, numeral, err := p.util.numeral(d)
 		return !numeral, err
 	case 9:
+		// a.is_mul(f, m, n) matches binary products only (MATCH_BINARY);
+		// any other product is uninterpreted (AUDIT.md qe_04-F2).
+		n, err := p.manager.GetNumArgs(application)
+		if err != nil {
+			return false, err
+		}
+		if n != 2 {
+			return true, nil
+		}
 		a, err := p.manager.GetArg(application, 0)
 		if err != nil {
 			return false, err

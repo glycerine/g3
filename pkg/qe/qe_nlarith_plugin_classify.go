@@ -30,9 +30,14 @@ func (p *NonlinearArithmeticPlugin) IsUninterpreted(application ast.ASTHandle) (
 	case 0, 2, 3, 4, 5, 6, 7, 8:
 		return false, nil
 	case 9:
+		// a.is_mul(f, m, n) matches binary products only (MATCH_BINARY);
+		// any other product is uninterpreted (AUDIT.md qe_04-F2).
 		n, err := p.manager.GetNumArgs(application)
 		if err != nil {
 			return false, err
+		}
+		if n != 2 {
+			return true, nil
 		}
 		for i := uint32(0); i < n; i++ {
 			a, cause := p.manager.GetArg(application, i)

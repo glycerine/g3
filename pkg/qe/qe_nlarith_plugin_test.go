@@ -80,6 +80,14 @@ func TestNonlinearArithmeticPluginClassificationAndModelMode(t *testing.T) {
 	if opaque, err := plugin.IsUninterpreted(nonlinear); err != nil || !opaque {
 		t.Fatal("nonlinear classification", opaque, err)
 	}
+	// AUDIT.md qe_04-F2: only a binary product with a numeral is
+	// interpreted (a.is_mul(f, m, n) is MATCH_BINARY).
+	family, err := f.manager.ArithmeticFamilyID()
+	pluginMust(t, err)
+	ternary := f.pin(f.manager.MkFamilyApp(family, 9, nil, []ast.ASTHandle{two, f.rx, f.ry}))
+	if opaque, err := plugin.IsUninterpreted(ternary); err != nil || !opaque {
+		t.Fatal("ternary classification", opaque, err)
+	}
 	modelPlugin, err := qe.NewNonlinearArithmeticPlugin(context, f.config, true)
 	pluginMust(t, err)
 	defer func() { pluginMust(t, modelPlugin.Close()) }()

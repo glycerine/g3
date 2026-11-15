@@ -38,6 +38,23 @@ func TestArithmeticPluginClassificationWeightAndClose(t *testing.T) {
 	}
 }
 
+// AUDIT.md qe_04-F2: arith_plugin::is_uninterpreted uses the binary
+// a.is_mul(f, m, n), so a ternary product with a numeral is uninterpreted.
+func TestArithmeticPluginTernaryMulIsUninterpreted(t *testing.T) {
+	f := newArithmeticPluginFixture(t, false)
+	family, err := f.manager.ArithmeticFamilyID()
+	pluginMust(t, err)
+	two := f.integerNumeral(t, "2")
+	ternary := f.pin(f.manager.MkFamilyApp(family, 9, nil, []ast.ASTHandle{two, f.x, f.y}))
+	if got, err := f.plugin.IsUninterpreted(ternary); err != nil || !got {
+		t.Fatal("ternary product", got, err)
+	}
+	binary := f.pin(f.manager.MkArithmeticMul(two, f.x))
+	if got, err := f.plugin.IsUninterpreted(binary); err != nil || got {
+		t.Fatal("binary product with numeral", got, err)
+	}
+}
+
 func TestArithmeticPluginRejectsUnrecognizedContainingAtomWithoutCaching(t *testing.T) {
 	f := newArithmeticPluginFixture(t, false)
 	opaque := f.pin(f.manager.MkArithmeticMul(f.x, f.y))
