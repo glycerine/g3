@@ -70,6 +70,12 @@ package sorting
 //     muz_transforms_02-F5: equal tail sizes tie, and the order is the
 //     output rule order and decides which duplicate rule survives.
 //
+//  8. hilbert_basis::saturate's final basis sort
+//     (pkg/math/hilbert/ordered_resolve.go orderBasis),
+//     src/math/hilbert/hilbert_basis.cpp:981 with vector_lt_t, approved
+//     2026-11-14 for AUDIT.md math_misc_01-F4: equal magnitudes tie, and
+//     Karr's dualization follows basis order.
+//
 // The algorithm lives here in pkg/util/sorting so every approved call site
 // shares one verified implementation; the typed wrappers stay at the call
 // sites (smtcore/libstdcxx_sort.go, ast/rewriter/bv_polynomial_sort.go).
