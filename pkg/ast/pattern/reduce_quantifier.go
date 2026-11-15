@@ -357,7 +357,17 @@ func (c *patternCandidates) reduceQuantifierNoDatabaseCore(q, newBody ast.ASTHan
 					return out, false, e
 				}
 			}
-			pulledRef, e := c.pullNoProof(preliminary)
+			// pull_quant pull(m); pull(new_q, new_expr, new_pr): with proofs
+			// the traversal's quant-intro/pull-quant chain is new_pr.
+			var pulledRef, pulledProofRef ast.ASTRef
+			if proofs {
+				pulledRef, pulledProofRef, e = c.pullWithProof(preliminary)
+				if e == nil {
+					proofHolds = append(proofHolds, pulledProofRef)
+				}
+			} else {
+				pulledRef, e = c.pullNoProof(preliminary)
+			}
 			if e != nil {
 				return out, false, e
 			}
@@ -375,8 +385,7 @@ func (c *patternCandidates) reduceQuantifierNoDatabaseCore(q, newBody ast.ASTHan
 			}
 			if pulled != preliminary {
 				if proofs {
-					pulledProof, e = c.manager.MkProofRewrite(preliminary, pulled)
-					if e != nil {
+					if pulledProof, e = c.manager.RefGet(pulledProofRef); e != nil {
 						return out, false, e
 					}
 				}

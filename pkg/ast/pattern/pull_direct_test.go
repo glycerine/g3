@@ -118,4 +118,14 @@ func TestPatternInferencePullDirectNestedForallFindsPattern(t *testing.T) {
 	if fact != wantFact {
 		t.Fatal("pulled quantifier proof fact", fact, wantFact)
 	}
+	// AUDIT.md ast_sub_02-F2: result_pr = mk_transitivity(new_pr, ...)
+	// where new_pr comes from the proof-producing pull_quant, not rewrite.
+	if trans, e := m.IsProofKind(p, ast.ASTPrTransitivity); e != nil || !trans {
+		t.Fatal("pulled quantifier proof is not a transitivity", trans, e)
+	}
+	first, err := m.GetProofParent(p, 0)
+	patternMust(t, err)
+	if pull, e := m.IsProofKind(first, ast.ASTPrPullQuant); e != nil || !pull {
+		t.Fatal("pull step is not a pull-quant proof", pull, e)
+	}
 }
