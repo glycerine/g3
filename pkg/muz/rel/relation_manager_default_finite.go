@@ -1,5 +1,7 @@
 package rel
 
+import "github.com/glycerine/g3/pkg/ast"
+
 // SetCheckedFiniteFactory borrows a factory for compiler temporaries created
 // during one checked query scope. Nil restores ordinary favourite selection.
 func (m *RelationManager) SetCheckedFiniteFactory(factory *FiniteCheckedFactory) error {
@@ -47,6 +49,44 @@ func (m *RelationManager) SetDefaultFiniteTable(name string) error {
 	default:
 		return ErrTable
 	}
+}
+
+// SetRequestedFiniteKind records rel_context::set_predicate_representation's
+// requested table plugin for predicate (kind is tr_sparse, tr_hashtable or
+// tr_lazy_sparse).
+func (m *RelationManager) SetRequestedFiniteKind(predicate ast.ASTHandle, kind string) error {
+	if err := m.open(); err != nil {
+		return err
+	}
+	if m.requestedFinite == nil {
+		m.requestedFinite = make(map[ast.ASTHandle]string)
+	}
+	m.requestedFinite[predicate] = kind
+	return nil
+}
+
+// NewFiniteTableForPredicate is relation_manager::mk_empty_relation(s, pred):
+// the predicate's requested plugin when it can handle the signature,
+// otherwise the appropriate default plugin.
+func (m *RelationManager) NewFiniteTableForPredicate(predicate ast.ASTHandle, signature Signature) (FiniteTable, error) {
+	if err := m.open(); err != nil {
+		return nil, err
+	}
+	if m.checkedFinite == nil {
+		switch m.requestedFinite[predicate] {
+		case "tr_hashtable":
+			return NewHashTable(signature), nil
+		case "tr_sparse":
+			if signature.Len() != 0 {
+				return NewSparseTable(signature, 0)
+			}
+		case "tr_lazy_sparse":
+			if m.lazyFinite != nil && m.lazyFinite.CanHandleSignature(signature) {
+				return m.lazyFinite.New(signature)
+			}
+		}
+	}
+	return m.NewDefaultFiniteTable(signature)
 }
 
 // NewDefaultFiniteTable mirrors get_appropriate_plugin: the configured sparse

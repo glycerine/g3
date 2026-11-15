@@ -13,9 +13,9 @@ func (t *HashTable) FilterByIntersection(source *HashTable, targetColumns, sourc
 		return nil
 	}
 	index := buildTableIntersectionIndex(source, sourceColumns)
-	for key, fact := range t.rows.All() {
+	for _, fact := range t.rows.facts() {
 		if _, found := index[tableIntersectionKey(fact, targetColumns)]; !found {
-			t.rows.Del(key)
+			t.rows.remove(fact)
 		}
 	}
 	return nil

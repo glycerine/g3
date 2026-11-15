@@ -33,6 +33,9 @@ type constructInstruction struct {
 	// mk_full_relation; hasPredicate is false for a null p.
 	predicateName string
 	hasPredicate  bool
+	// predicate is the instruction's func_decl* pred, whose requested kind
+	// selects the plugin of mk_empty_relation / mk_full_relation.
+	predicate ast.ASTHandle
 }
 
 func NewUnarySingletonInstruction(domain uint64, value Element, target uint32) (Instruction, error) {
@@ -62,6 +65,28 @@ func NewTotalInstructionForPredicate(signature Signature, target uint32, predica
 		signature: Signature{domains: signature.Domains()}, target: target,
 		predicateName: predicateName, hasPredicate: true,
 	}
+}
+
+// NewTotalInstructionForPredicateKind is NewTotalInstructionForPredicate
+// whose table is created with the predicate's requested plugin.
+func NewTotalInstructionForPredicateKind(signature Signature, target uint32, predicate ast.ASTHandle, predicateName string) Instruction {
+	return &constructInstruction{
+		accounting: base.NewAccountedObject(), kind: "mk_total",
+		signature: Signature{domains: signature.Domains()}, target: target,
+		predicateName: predicateName, hasPredicate: true, predicate: predicate,
+	}
+}
+
+// NewUnarySingletonInstructionForPredicate is
+// instruction::mk_unary_singleton(m, pred, s, val, reg): the singleton
+// relation is mk_empty_relation(sig, pred).
+func NewUnarySingletonInstructionForPredicate(domain uint64, value Element, target uint32, predicate ast.ASTHandle) (Instruction, error) {
+	instruction, err := NewUnarySingletonInstruction(domain, value, target)
+	if err != nil {
+		return nil, err
+	}
+	instruction.(*constructInstruction).predicate = predicate
+	return instruction, nil
 }
 
 // warnLargeTotalTable is the warning of table_base::complement (dl_base.cpp),
@@ -221,8 +246,11 @@ func fillTotalTable(table FiniteTable, signature Signature) error {
 	}
 }
 
-func constructFiniteTable(context *ExecutionContext, signature Signature) (FiniteTable, error) {
+func constructFiniteTable(context *ExecutionContext, signature Signature, predicate ast.ASTHandle) (FiniteTable, error) {
 	if context != nil && context.relations != nil {
+		if !predicate.IsNull() {
+			return context.relations.NewFiniteTableForPredicate(predicate, signature)
+		}
 		return context.relations.NewDefaultFiniteTable(signature)
 	}
 	return NewHashTable(signature), nil
@@ -238,7 +266,7 @@ func (i *constructInstruction) Perform(context *ExecutionContext) (bool, error) 
 	switch i.kind {
 	case "mk_unary_singleton":
 		context.stats.UnarySingleton++
-		table, err := constructFiniteTable(context, i.signature)
+		table, err := constructFiniteTable(context, i.signature, i.predicate)
 		if err != nil {
 			return false, err
 		}
@@ -251,7 +279,7 @@ func (i *constructInstruction) Perform(context *ExecutionContext) (bool, error) 
 		return true, nil
 	case "mk_total":
 		context.stats.Total++
-		table, err := constructFiniteTable(context, i.signature)
+		table, err := constructFiniteTable(context, i.signature, i.predicate)
 		if err != nil {
 			return false, err
 		}

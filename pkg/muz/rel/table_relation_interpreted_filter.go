@@ -12,18 +12,18 @@ func (r *TableRelation) FilterInterpreted(rewriter *astrewriter.TheoryRewriter, 
 	if err := r.validateInterpretedFilter(rewriter, conditions, columns, sorts); err != nil {
 		return err
 	}
-	removed := make([]string, 0)
-	for key, fact := range r.table.rows.All() {
+	removed := make([]Fact, 0)
+	for _, fact := range r.table.rows.facts() {
 		accepted, err := r.acceptsInterpretedFact(rewriter, conditions, columns, sorts, fact)
 		if err != nil {
 			return err
 		}
 		if !accepted {
-			removed = append(removed, key)
+			removed = append(removed, fact)
 		}
 	}
-	for _, key := range removed {
-		r.table.rows.Del(key)
+	for _, fact := range removed {
+		r.table.rows.remove(fact)
 	}
 	return nil
 }

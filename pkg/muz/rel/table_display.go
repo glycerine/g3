@@ -8,7 +8,7 @@ import (
 	"io"
 )
 
-// Display writes the source table signature and insertion-ordered rows.
+// Display writes the source table signature and rows in slot order.
 func (t *HashTable) Display(out io.Writer) error {
 	if err := t.open(); err != nil || out == nil {
 		if err != nil {
@@ -32,7 +32,7 @@ func (t *HashTable) Display(out io.Writer) error {
 	if _, err := io.WriteString(out, "):\n"); err != nil {
 		return err
 	}
-	for _, fact := range t.rows.All() {
+	for _, fact := range t.rows.facts() {
 		if _, err := io.WriteString(out, "("); err != nil {
 			return err
 		}

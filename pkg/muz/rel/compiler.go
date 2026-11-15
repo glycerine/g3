@@ -494,13 +494,13 @@ func (c *finiteCompiler) orderRecursiveRules(rules []finiteCompiledRule) ([]fini
 	return orderedRules, nil
 }
 
-func (c *finiteCompiler) constantRegister(rule *base.Rule, sort ast.ASTHandle, domain uint64, value Element) (uint32, error) {
+func (c *finiteCompiler) constantRegister(rule *base.Rule, predicate, sort ast.ASTHandle, domain uint64, value Element) (uint32, error) {
 	key := constantRegisterKey{sort: sort, value: value}
 	if register, found := c.constants[key]; found {
 		return register, nil
 	}
 	register := c.fresh(Signature{domains: []uint64{domain}})
-	instruction, err := NewUnarySingletonInstruction(domain, value, register)
+	instruction, err := NewUnarySingletonInstructionForPredicate(domain, value, register, predicate)
 	if err != nil {
 		return 0, err
 	}
@@ -522,7 +522,7 @@ func (c *finiteCompiler) totalRegister(rule *base.Rule, predicate, sort ast.ASTH
 	if err != nil {
 		return 0, err
 	}
-	if err := c.emit(NewTotalInstructionForPredicate(signature, register, name), rule); err != nil {
+	if err := c.emit(NewTotalInstructionForPredicateKind(signature, register, predicate, name), rule); err != nil {
 		return 0, err
 	}
 	c.totals[key] = register
@@ -549,7 +549,7 @@ func (c *finiteCompiler) emptyTotalRegister(rule *base.Rule, predicate ast.ASTHa
 	if err != nil {
 		return 0, err
 	}
-	if err := c.emit(NewTotalInstructionForPredicate(signature, register, name), rule); err != nil {
+	if err := c.emit(NewTotalInstructionForPredicateKind(signature, register, predicate, name), rule); err != nil {
 		return 0, err
 	}
 	c.emptyTotals[predicate] = register
@@ -842,7 +842,7 @@ func (c *finiteCompiler) assembleHead(rule finiteCompiledRule, predicate ast.AST
 		if x != nil {
 			return 0, false, x
 		}
-		singleton, x := c.constantRegister(rule.rule, sorts[index], domain, value)
+		singleton, x := c.constantRegister(rule.rule, predicate, sorts[index], domain, value)
 		if x != nil {
 			return 0, false, x
 		}

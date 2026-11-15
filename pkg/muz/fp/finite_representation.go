@@ -15,6 +15,11 @@ func (e *PropositionalEngine) selectFiniteRepresentation(declaration ast.ASTHand
 	if state == nil || state.table == nil {
 		return ErrPropositionalHorn
 	}
+	if kind == "tr_sparse" || kind == "tr_hashtable" || kind == "tr_lazy_sparse" {
+		if err := e.relations.SetRequestedFiniteKind(declaration, kind); err != nil {
+			return err
+		}
+	}
 	if kind == "tr_lazy_sparse" {
 		if e.lazyFinite != nil && e.lazyFinite.Owns(state.table) {
 			return nil

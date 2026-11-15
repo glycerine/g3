@@ -25,7 +25,7 @@ func TestLazyTableDisplayForcesDeferredIteratorOwner(t *testing.T) {
 	if err = projected.Display(&output); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := output.String(), "table with signature (3):\n(1)\n(2)\n\n"; got != want {
+	if got, want := output.String(), "table with signature (3):\n(2)\n(1)\n\n"; got != want { // hashtable slot order
 		t.Fatalf("display got %q, want %q", got, want)
 	}
 	if !projected.Forced() {

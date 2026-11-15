@@ -94,8 +94,9 @@ func TestHashTableSetCloneAndValidation(t *testing.T) {
 	add(t, table, 2, 1)
 	add(t, table, 0, 1)
 	ordered, err := table.Facts()
-	if err != nil || fmt.Sprint(ordered) != "[[1 0] [2 1] [0 1]]" {
-		t.Fatal("fact insertion order", ordered, err)
+	// hashtable_table iterates in core_hashtable slot order.
+	if err != nil || fmt.Sprint(ordered) != "[[0 1] [1 0] [2 1]]" {
+		t.Fatal("fact slot order", ordered, err)
 	}
 	inserted, err := table.Add(rel.Fact{1, 0})
 	if err != nil || inserted {
@@ -190,7 +191,7 @@ func TestHashTableComplementSourceZeroAndOneColumnRules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []rel.Fact{{0}, {2}}
+	want := []rel.Fact{{2}, {0}} // slot order
 	if fmt.Sprint(rows) != fmt.Sprint(want) {
 		t.Fatalf("one-column complement = %v, want %v", rows, want)
 	}
@@ -214,7 +215,7 @@ func TestHashTableRemoveFactsUsesSourceSequentialLoop(t *testing.T) {
 		t.Fatal(err)
 	}
 	rows, err := table.Facts()
-	if err != nil || fmt.Sprint(rows) != "[[0] [2]]" {
+	if err != nil || fmt.Sprint(rows) != "[[2] [0]]" { // slot order
 		t.Fatalf("sequential removal rows %v, error %v", rows, err)
 	}
 	if err = table.RemoveFacts([]rel.Fact{{0}, {4}}); !errors.Is(err, rel.ErrTable) {
@@ -289,5 +290,42 @@ func TestHashTableUnionDeltaAndNegation(t *testing.T) {
 	}
 	if count != 0 {
 		t.Fatal("zero-column negation", count)
+	}
+}
+
+// muz_rel_05-F1: hashtable_table stores rows in a core_hashtable keyed by
+// svector_hash<uint64_hash> and iterates them in slot order. build/z3 prints
+// the answer of e = {3,1,2,5,4} (tr_hashtable) as 4,2,1,3,5.
+func TestHashTableFactsFollowCoreHashtableSlotOrder(t *testing.T) {
+	signature, err := rel.NewSignature([]uint64{16})
+	if err != nil {
+		t.Fatal(err)
+	}
+	table := rel.NewHashTable(signature)
+	for _, value := range []rel.Element{3, 1, 2, 5, 4} {
+		if _, err = table.Add(rel.Fact{value}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	facts, err := table.Facts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []rel.Element
+	for _, fact := range facts {
+		got = append(got, fact[0])
+	}
+	want := []rel.Element{4, 2, 1, 3, 5}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("slot order %v, want %v", got, want)
+	}
+	clone, err := table.Clone()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clone.Close()
+	cloned, err := clone.Facts()
+	if err != nil || fmt.Sprint(cloned) != fmt.Sprint(facts) {
+		t.Fatal("table_base::clone reinsertion changed the order", cloned, err)
 	}
 }

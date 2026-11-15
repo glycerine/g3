@@ -45,7 +45,8 @@ func TestFiniteRelationConstructionInstructions(t *testing.T) {
 	instructionWantFacts(t, instructionFacts(t, context, 0), Fact{2})
 	instructionWantFacts(t, instructionFacts(t, context, 1), Fact{})
 	instructionWantFacts(t, instructionFacts(t, context, 2),
-		Fact{0, 0}, Fact{0, 1}, Fact{0, 2}, Fact{1, 0}, Fact{1, 1}, Fact{1, 2})
+		// hashtable_table slot order.
+		Fact{0, 0}, Fact{0, 1}, Fact{0, 2}, Fact{1, 2}, Fact{1, 0}, Fact{1, 1})
 	stats, err := context.Statistics()
 	if err != nil || stats.UnarySingleton != 1 || stats.Total != 2 {
 		t.Fatal("construct statistics", stats, err)

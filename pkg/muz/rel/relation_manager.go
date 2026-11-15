@@ -35,6 +35,10 @@ type RelationManager struct {
 	// conditions (GroundCondition).
 	varSubst *astrewriter.VarSubstitution
 	closed   bool
+
+	// requestedFinite is get_requested_predicate_kind for finite table
+	// plugins (tr_sparse, tr_hashtable, tr_lazy_sparse).
+	requestedFinite map[ast.ASTHandle]string
 }
 
 func NewRelationManager(manager *ast.ASTManager) (*RelationManager, error) {

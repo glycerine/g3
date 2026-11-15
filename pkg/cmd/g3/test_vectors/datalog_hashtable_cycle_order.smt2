@@ -1,0 +1,7 @@
+(set-option :fixedpoint.engine datalog)(declare-rel e ((_ BitVec 4) (_ BitVec 4)) tr_hashtable)(declare-rel p ((_ BitVec 4) (_ BitVec 4)) tr_hashtable)(declare-var x (_ BitVec 4))(declare-var y (_ BitVec 4))(declare-var z (_ BitVec 4))
+(rule (e #x1 #x2))
+(rule (e #x2 #x3))
+(rule (e #x3 #x4))
+(rule (e #x4 #x5))
+(rule (e #x5 #x1))
+(rule (=> (e x y) (p x y)))(rule (=> (and (p x y) (e y z)) (p x z)))(query p :print-answer true)

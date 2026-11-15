@@ -10,7 +10,7 @@ func tableIntersectionKey(fact Fact, columns []int) string {
 
 func buildTableIntersectionIndex(source *HashTable, columns []int) map[string]struct{} {
 	index := make(map[string]struct{}, source.rows.Len())
-	for _, fact := range source.rows.All() {
+	for _, fact := range source.rows.facts() {
 		index[tableIntersectionKey(fact, columns)] = struct{}{}
 	}
 	return index

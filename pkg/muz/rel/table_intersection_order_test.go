@@ -11,7 +11,8 @@ func TestHashTableIntersectionPreservesOrderAndValidatesColumns(t *testing.T) {
 	if err := target.FilterByIntersection(source, []int{0}, []int{0}); err != nil {
 		t.Fatal(err)
 	}
-	intersectionWantFacts(t, target, Fact{4}, Fact{3}, Fact{2})
+	// Removal keeps the survivors in hashtable slot order.
+	intersectionWantFacts(t, target, Fact{4}, Fact{2}, Fact{3})
 	differentBound := intersectionTestTable(t, []uint64{4}, Fact{3})
 	if err := target.FilterByIntersection(differentBound, []int{0}, []int{0}); err != nil {
 		t.Fatal("different finite domain bounds", err)

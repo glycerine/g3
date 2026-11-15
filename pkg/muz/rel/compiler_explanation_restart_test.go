@@ -226,7 +226,8 @@ func TestExplanationCompilerRestartPreservesCompletedStrataAndProofs(t *testing.
 			must(err)
 			rows, err := output.Facts()
 			must(err)
-			instructionWantFacts(t, rows, Fact{0}, Fact{1}, Fact{2}, Fact{3})
+			// hashtable_table slot order (svector_hash<uint64_hash>).
+			instructionWantFacts(t, rows, Fact{2}, Fact{0}, Fact{1}, Fact{3})
 			for _, predicate := range []ast.ASTHandle{explainedEdge, explainedReach, reach} {
 				checkMark(predicate, true)
 			}
