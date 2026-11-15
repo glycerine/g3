@@ -341,8 +341,24 @@ func TestRuleInlinerEliminatesAcyclicChainIntoProtectedOutput(t *testing.T) {
 	modelRules, err := plugin.TakeModelRules()
 	coneMust(t, err)
 	t.Cleanup(func() { coneMust(t, transforms.CloseInlineModelRules(modelRules)) })
-	if len(modelRules) != 2 {
+	// plan_inlining records the two eliminated definitions; then
+	// transform_rule records the rewritten Goal rule and transform_rules
+	// the rules of the eliminated P and Q, each with a false body
+	// (AUDIT.md muz_transforms_02-F1).
+	if len(modelRules) != 5 {
 		t.Fatal("inliner model-rule count", len(modelRules))
+	}
+	for i, want := range []string{"Goal", "P", "Q"} {
+		entry := modelRules[2+i]
+		headHandle, err := f.manager.RefGet(entry.Head)
+		coneMust(t, err)
+		headDecl, err := f.manager.GetDecl(headHandle)
+		coneMust(t, err)
+		body, err := f.manager.RefGet(entry.Body)
+		coneMust(t, err)
+		if headDecl != f.declarations[want] || !f.manager.IsFalse(body) {
+			t.Fatal("unreachable model rule", i, want)
+		}
 	}
 	rule, err := f.set.Rule(0)
 	coneMust(t, err)

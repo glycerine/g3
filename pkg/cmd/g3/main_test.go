@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_transforms_02-F1: the eager inliner records
+	// del_rule(m_mc, r, true) entries, so eliminated predicates print false.
+	"inline_unreachable_model.smt2": "sat\n(model \n  (define-fun R ((x!0 Int)) Bool\n    (not (<= x!0 3)))\n  (define-fun Q ((x!0 Int)) Bool\n    false)\n  (define-fun P ((x!0 Int)) Bool\n    false)\n  (define-fun A ((x!0 Int)) Bool\n    (= x!0 1))\n)\n",
 	// AUDIT.md muz_pdr_02-F1: PDR default_exceptions become "query failed"
 	// and the script continues.
 	"pdr_nonground_tail.smt2": "(error \"query failed: PDR cannot solve non-ground tails: (let ((a!1 (forall ((y Int)) (or (> (* y y) p_0_0) (< y 0)))))\n  (= a!1 true))\")\nunknown\n(error \"query failed: PDR cannot solve non-ground tails: (let ((a!1 (forall ((y Int)) (or (> (* y y) p_0_0) (< y 0)))))\n  (= a!1 true))\")\nunknown\n",

@@ -104,15 +104,23 @@ func TestDatalogBitBlastComposesInliningModelsAndExpressionQueries(t *testing.T)
 		defer func() { must(inductive.Close()) }()
 		count, err := inductive.Core().NumDeclarations()
 		must(err)
-		if count != 3 {
+		// The inliner rewrites the Goal rule, so transform_rule records
+		// del_rule(m_mc, goal-rule, true): Goal is interpreted as false
+		// (AUDIT.md muz_transforms_02-F1).
+		if count != 4 {
 			t.Fatal("original model declaration count", count)
 		}
 		for i := uint32(0); i < count; i++ {
 			d, err := inductive.Core().Declaration(i)
 			must(err)
-			if !originals[d] || d == goal {
+			if !originals[d] {
 				t.Fatal("generated predicate escaped the original model", d)
 			}
+		}
+		goalValue, err := inductive.Core().ConstantInterpretation(goal)
+		must(err)
+		if !m.IsFalse(goalValue) {
+			t.Fatal("unreachable Goal is not interpreted as false", goalValue)
 		}
 		cooperation, err := cooperate.NewCooperation(m.Budget())
 		must(err)

@@ -1105,6 +1105,9 @@ func (p *RuleInlinerPlugin) Transform(source *base.RuleSet) (transformed *base.R
 		return nil, err
 	}
 	changed := false
+	// transform_rules' something_done: some non-eliminated rule was
+	// rewritten by transform_rule.
+	somethingDone := false
 	for index := 0; index < count; index++ {
 		rule, getErr := source.Rule(index)
 		if getErr != nil {
@@ -1122,6 +1125,7 @@ func (p *RuleInlinerPlugin) Transform(source *base.RuleSet) (transformed *base.R
 			continue
 		}
 		queue := []*base.Rule{rule}
+		modified := false
 		for len(queue) != 0 {
 			current := queue[len(queue)-1]
 			queue = queue[:len(queue)-1]
@@ -1147,6 +1151,7 @@ func (p *RuleInlinerPlugin) Transform(source *base.RuleSet) (transformed *base.R
 				continue
 			}
 			changed = true
+			modified = true
 			for _, definition := range definitions[declaration] {
 				resolved, resolveErr := p.resolve(current, inlineIndex, definition)
 				if resolveErr != nil {
@@ -1160,6 +1165,35 @@ func (p *RuleInlinerPlugin) Transform(source *base.RuleSet) (transformed *base.R
 			}
 			if currentErr = current.Close(); currentErr != nil {
 				return nil, errors.Join(currentErr, closeRules(queue))
+			}
+		}
+		// transform_rule: if (modified) datalog::del_rule(m_mc, *r0, true).
+		if modified {
+			somethingDone = true
+			original, getErr := source.Rule(index)
+			if getErr != nil {
+				return nil, getErr
+			}
+			getErr = p.captureDeletedModelRule(original, true)
+			if getErr = errors.Join(getErr, original.Close()); getErr != nil {
+				return nil, getErr
+			}
+		}
+	}
+	// transform_rules: the rules of every eliminated predicate are recorded
+	// as unreachable once something was done.
+	if somethingDone && !p.noModelConverter {
+		for index := 0; index < count; index++ {
+			rule, getErr := source.Rule(index)
+			if getErr != nil {
+				return nil, getErr
+			}
+			head, getErr := rule.HeadDeclaration()
+			if getErr == nil && allowed[head] {
+				getErr = p.captureDeletedModelRule(rule, true)
+			}
+			if getErr = errors.Join(getErr, rule.Close()); getErr != nil {
+				return nil, getErr
 			}
 		}
 	}
