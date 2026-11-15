@@ -249,6 +249,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_pb_log_replay);
     TST(z3_4_7_1_sexpr_display_atom);
     TST(z3_4_7_1_duality_quantify_arrays_requery);
+    TST(z3_4_7_1_duality_failed_query_requery);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);

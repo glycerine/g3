@@ -95,6 +95,9 @@ Abstract:
                                   a Duality query leaves the transformed
                                   rules in the context, so later queries
                                   answer wrongly (pkg/AUDIT.md muz_fp_03).
+    z3_4_7_1_duality_failed_query_requery a Duality query after one that
+                                  threw dereferences the null old solver
+                                  and segfaults.
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -1440,4 +1443,29 @@ void tst_z3_4_7_1_duality_quantify_arrays_requery() {
         "(query q2)\n"
         "(query q1)\n";
     expect_script_output("duality_quantify_arrays_requery", script, "sat\nunsat\nsat\n");
+}
+
+// A Duality query that throws (here iZ3 refuses the arithmetic rewrite
+// proof of the err query) has already replaced the saved duality_data with
+// a fresh one whose old_rs is null. The next query dereferences that null
+// solver to swap back its counterexample and segfaults. ok is reachable
+// (s = 1 gives p(1, 1)), so the second query must answer sat.
+// pkg/AUDIT.md duality_01-F3 (follow-up: the Duality scale pipeline test).
+void tst_z3_4_7_1_duality_failed_query_requery() {
+    char const* script =
+        "(set-option :fixedpoint.engine duality)\n"
+        "(declare-rel p (Real Real))\n"
+        "(declare-rel q2 (Real))\n"
+        "(declare-rel err ())\n"
+        "(declare-rel ok ())\n"
+        "(declare-var s Real)\n"
+        "(declare-var v Real)\n"
+        "(rule (=> (not (<= s 0.0)) (p s s)))\n"
+        "(rule (=> (and (p v s) (not (<= s 0.0)) (= v (* 2.0 s))) (q2 s)))\n"
+        "(rule (=> (and (q2 s) (not (<= s 0.0))) err))\n"
+        "(rule (=> (and (p s s) (not (<= s 0.0))) ok))\n"
+        "(query err)\n"
+        "(query ok)\n";
+    expect_script_output("duality_failed_query_requery", script,
+                         "(error \"query failed: theory not supported by interpolation or bad proof\")\nunknown\nsat\n");
 }
