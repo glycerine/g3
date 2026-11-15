@@ -84,39 +84,187 @@ func (e *Equation) Monomials() []*Monomial {
 func (e *Equation) Dependency() *Dependency   { return e.dependency }
 func (e *Equation) IsLinearCombination() bool { return e.linear }
 
+// equationSet is grobner::equation_set, an obj_hashtable<equation> whose
+// hash is the equation's m_bidx (src/math/grobner/grobner.h:73,120-122). It
+// is a concrete port of core_hashtable's open addressing
+// (src/util/hashtable.h): capacity 8, linear probing, deleted slots reused
+// on insert, growth when (size+deleted)*4 > capacity*3, and iteration in
+// slot order.
 type equationSet struct {
-	items []*Equation
-	has   map[*Equation]bool
+	table      []*Equation
+	size       int
+	numDeleted int
 }
 
+// deletedEquation marks a deleted slot, as obj_hash_entry uses pointer 1.
+var deletedEquation = &Equation{}
+
+const (
+	equationSetInitialCapacity = 8  // DEFAULT_HASHTABLE_INITIAL_CAPACITY
+	equationSetSmallCapacity   = 64 // SMALL_TABLE_CAPACITY
+)
+
+func equationSlotUsed(e *Equation) bool { return e != nil && e != deletedEquation }
+
+func (s *equationSet) ensureTable() {
+	if s.table == nil {
+		s.table = make([]*Equation, equationSetInitialCapacity)
+	}
+}
+
+// moveEquationTable is core_hashtable::move_table.
+func moveEquationTable(source, target []*Equation) {
+	mask := uint32(len(target) - 1)
+	for _, e := range source {
+		if !equationSlotUsed(e) {
+			continue
+		}
+		begin := int(e.index & mask)
+		placed := false
+		for i := begin; i < len(target); i++ {
+			if target[i] == nil {
+				target[i] = e
+				placed = true
+				break
+			}
+		}
+		for i := 0; !placed && i < begin; i++ {
+			if target[i] == nil {
+				target[i] = e
+				placed = true
+			}
+		}
+	}
+}
+
+func (s *equationSet) expandTable() {
+	table := make([]*Equation, len(s.table)<<1)
+	moveEquationTable(s.table, table)
+	s.table = table
+	s.numDeleted = 0
+}
+
+func (s *equationSet) removeDeletedEntries() {
+	table := make([]*Equation, len(s.table))
+	moveEquationTable(s.table, table)
+	s.table = table
+	s.numDeleted = 0
+}
+
+// insert is core_hashtable::insert.
 func (s *equationSet) insert(e *Equation) {
 	if e == nil {
 		return
 	}
-	if s.has == nil {
-		s.has = make(map[*Equation]bool)
+	s.ensureTable()
+	if (s.size+s.numDeleted)<<2 > len(s.table)*3 {
+		s.expandTable()
 	}
-	if !s.has[e] {
-		s.has[e] = true
-		s.items = append(s.items, e)
+	begin := int(e.index & uint32(len(s.table)-1))
+	delEntry := -1
+	visit := func(i int) bool {
+		switch curr := s.table[i]; {
+		case curr == e:
+			return true
+		case curr == nil:
+			if delEntry >= 0 {
+				i = delEntry
+				s.numDeleted--
+			}
+			s.table[i] = e
+			s.size++
+			return true
+		case curr == deletedEquation:
+			delEntry = i
+		}
+		return false
 	}
-}
-func (s *equationSet) erase(e *Equation) {
-	if !s.has[e] {
-		return
-	}
-	delete(s.has, e)
-	for i, x := range s.items {
-		if x == e {
-			copy(s.items[i:], s.items[i+1:])
-			s.items = s.items[:len(s.items)-1]
+	for i := begin; i < len(s.table); i++ {
+		if visit(i) {
 			return
 		}
 	}
+	for i := 0; i < begin; i++ {
+		if visit(i) {
+			return
+		}
+	}
+	panic("grobner: equation set has no free slot")
 }
-func (s *equationSet) reset() { s.items = nil; s.has = nil }
+
+// erase is core_hashtable::remove.
+func (s *equationSet) erase(e *Equation) {
+	if e == nil || s.table == nil {
+		return
+	}
+	begin := int(e.index & uint32(len(s.table)-1))
+	found := -1
+	for i := begin; found < 0 && i < len(s.table); i++ {
+		if s.table[i] == e {
+			found = i
+		} else if s.table[i] == nil {
+			return
+		}
+	}
+	for i := 0; found < 0 && i < begin; i++ {
+		if s.table[i] == e {
+			found = i
+		} else if s.table[i] == nil {
+			return
+		}
+	}
+	if found < 0 {
+		return
+	}
+	next := found + 1
+	if next == len(s.table) {
+		next = 0
+	}
+	if s.table[next] == nil {
+		s.table[found] = nil
+		s.size--
+		return
+	}
+	s.table[found] = deletedEquation
+	s.numDeleted++
+	s.size--
+	if s.numDeleted > s.size && s.numDeleted > equationSetSmallCapacity {
+		s.removeDeletedEntries()
+	}
+}
+
+// reset is core_hashtable::reset.
+func (s *equationSet) reset() {
+	if s.size == 0 && s.numDeleted == 0 {
+		return
+	}
+	overhead := 0
+	for i, e := range s.table {
+		if e != nil {
+			s.table[i] = nil
+		} else {
+			overhead++
+		}
+	}
+	if len(s.table) > 16 && overhead<<2 > len(s.table)*3 {
+		s.table = make([]*Equation, len(s.table)>>1)
+	}
+	s.size = 0
+	s.numDeleted = 0
+}
+
+func (s *equationSet) empty() bool { return s.size == 0 }
+
+// snapshot lists the used slots in table order, as the source iterator
+// visits them.
 func (s *equationSet) snapshot() []*Equation {
-	return append([]*Equation(nil), s.items...)
+	r := make([]*Equation, 0, s.size)
+	for _, e := range s.table {
+		if equationSlotUsed(e) {
+			r = append(r, e)
+		}
+	}
+	return r
 }
 
 type scope struct{ unfreeze, delete int }
@@ -714,15 +862,19 @@ func (s *Solver) UpdateOrder() error {
 			return err
 		}
 	}
+	var remove []*Equation
 	for _, e := range s.processed.snapshot() {
 		changed, err := s.updateEquationOrder(e)
 		if err != nil {
 			return err
 		}
 		if changed {
-			s.processed.erase(e)
+			remove = append(remove, e)
 			s.pending.insert(e)
 		}
+	}
+	for _, e := range remove {
+		s.processed.erase(e)
 	}
 	return nil
 }
@@ -731,8 +883,8 @@ func (s *Solver) Equations() []*Equation {
 	if s == nil {
 		return nil
 	}
-	r := append([]*Equation(nil), s.processed.items...)
-	return append(r, s.pending.items...)
+	r := s.processed.snapshot()
+	return append(r, s.pending.snapshot()...)
 }
 
 func (s *Solver) DisplayMonomial(w io.Writer, m *Monomial) error {
@@ -797,21 +949,21 @@ func (s *Solver) DisplayEquation(w io.Writer, e *Equation) error {
 }
 
 func (s *Solver) Display(w io.Writer) error {
-	if len(s.processed.items) != 0 {
+	if !s.processed.empty() {
 		if _, err := io.WriteString(w, "processed:\n"); err != nil {
 			return err
 		}
-		for _, e := range s.processed.items {
+		for _, e := range s.processed.snapshot() {
 			if err := s.DisplayEquation(w, e); err != nil {
 				return err
 			}
 		}
 	}
-	if len(s.pending.items) != 0 {
+	if !s.pending.empty() {
 		if _, err := io.WriteString(w, "to process:\n"); err != nil {
 			return err
 		}
-		for _, e := range s.pending.items {
+		for _, e := range s.pending.snapshot() {
 			if err := s.DisplayEquation(w, e); err != nil {
 				return err
 			}

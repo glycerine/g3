@@ -261,3 +261,56 @@ func TestMergeChargesResourceLimit(t *testing.T) {
 		t.Fatalf("empty merge charged %d, want 0", got-after)
 	}
 }
+
+// AUDIT.md math_misc_01-F2: equation_set is obj_hashtable<equation> hashed
+// by m_bidx, so iteration follows core_hashtable slot order.
+func TestEquationSetsIterateInHashSlotOrder(t *testing.T) {
+	eqs := make([]*Equation, 16)
+	for i := range eqs {
+		eqs[i] = &Equation{index: uint32(i)}
+	}
+	order := func(s *equationSet) []uint32 {
+		var r []uint32
+		for _, e := range s.snapshot() {
+			r = append(r, e.index)
+		}
+		return r
+	}
+	same := func(got, want []uint32) bool {
+		if len(got) != len(want) {
+			return false
+		}
+		for i := range got {
+			if got[i] != want[i] {
+				return false
+			}
+		}
+		return true
+	}
+	var s equationSet
+	for _, i := range []int{3, 5, 9} {
+		s.insert(eqs[i])
+	}
+	if got := order(&s); !same(got, []uint32{9, 3, 5}) {
+		t.Fatalf("capacity-8 slot order = %v, want [9 3 5]", got)
+	}
+	var d equationSet
+	for _, i := range []int{0, 1, 2} {
+		d.insert(eqs[i])
+	}
+	d.erase(eqs[1])  // slot 2 is used, so slot 1 becomes deleted
+	d.insert(eqs[9]) // probes the deleted slot 1 and reuses it
+	if got := order(&d); !same(got, []uint32{0, 9, 2}) || d.numDeleted != 0 {
+		t.Fatalf("deleted-slot reuse order = %v (deleted %d), want [0 9 2]", got, d.numDeleted)
+	}
+	var g equationSet
+	for _, i := range []int{9, 8, 7, 6, 5, 4, 3, 2, 1, 0} {
+		g.insert(eqs[i])
+	}
+	if len(g.table) != 16 {
+		t.Fatalf("capacity = %d, want 16 after growth", len(g.table))
+	}
+	if got := order(&g); !same(got, []uint32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+		t.Fatalf("grown slot order = %v", got)
+	}
+}
