@@ -14,6 +14,9 @@ import (
 // build/z3 prints them. AUDIT.md cmd_context_01-F9: the Datalog front end
 // is a port of dlexer/dparser (src/muz/fp/datalog_parser.cpp).
 var datalogFrontEndResults = map[string]struct{ stdout, stderr string }{
+	// datalog::string_to_uint64 and a blank string (fork fix 78; build/z3 is
+	// rebuilt from the fork).
+	"z3_bug_datalog_int_empty_string.datalog": {"", "Invalid integer: \"\"\nERROR: failed to parse file\n"},
 	// muz_pipeline: dparser::add_rule builds rules with rule_manager::mk, keeping the body order.
 	"datalog_dparser_rule_body_order.datalog":         {"Tuples in p: \n\t(x=0(0),y=1(1))\n\t(x=1(1),y=0(0))\n\t(x=0(0),y=0(0))\n\t(x=1(1),y=1(1))\n", ""},
 	"datalog_dparser_domain_overflow.datalog":         {"", "sort V contains more constants than its declared size 2\nERROR: failed to parse file\n"},
@@ -72,11 +75,7 @@ func TestDatalogFrontEndVectorsMatchCPP(t *testing.T) {
 // z3BugDatalogResults holds g3's correct -dl output (stdout without the
 // timing lines, stderr) for Datalog vectors that expose a z3 4.7.1 bug
 // (see test_vectors/z3_bug_exclusions.txt).
-var z3BugDatalogResults = map[string]struct{ stdout, stderr string }{
-	// datalog::string_to_uint64 accepts a blank string and leaves its
-	// result unset (cmd_context_01-F9 follow-up).
-	"z3_bug_datalog_int_empty_string.datalog": {"", "Invalid integer: \"\"\nERROR: failed to parse file\n"},
-}
+var z3BugDatalogResults = map[string]struct{ stdout, stderr string }{}
 
 func TestZ3BugDatalogVectorsKeepCorrectAnswers(t *testing.T) {
 	for name, want := range z3BugDatalogResults {
