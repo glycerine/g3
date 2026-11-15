@@ -31,6 +31,7 @@ Revision History:
 #include "parsers/smt2/smt2scanner.h"
 #include "parsers/util/pattern_validation.h"
 #include "parsers/util/parser_params.hpp"
+#include "model/model_evaluator.h" // FORK FIX #83
 #include<sstream>
 
 namespace smt2 {
@@ -2593,7 +2594,13 @@ namespace smt2 {
             expr ** expr_end = expr_it + m_cached_strings.size();
             for (unsigned i = 0; expr_it < expr_end; expr_it++, i++) {
                 expr_ref v(m());
-                md->eval(*expr_it, v, true);
+                // FORK FIX #83 (g3 audit, see FORK_BUGFIXES.md): model::eval swallows the
+                // evaluator's exception (max_steps, max_memory) and leaves v null, which
+                // display dereferenced. As upstream 335d672bf, let the exception reach
+                // the command loop as an error.
+                model_evaluator ev(*md.get());
+                ev.set_model_completion(true);
+                ev(*expr_it, v);
                 if (i > 0)
                     m_ctx.regular_stream() << "\n ";
                 m_ctx.regular_stream() << "(" << m_cached_strings[i] << " ";
