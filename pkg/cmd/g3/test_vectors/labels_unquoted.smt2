@@ -1,0 +1,6 @@
+(declare-const p Bool)
+(declare-const q Bool)
+(push)
+(assert (or (! p :lblpos |a b|) (! q :lblpos first)))
+(check-sat)
+(labels)

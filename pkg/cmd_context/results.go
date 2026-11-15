@@ -476,7 +476,8 @@ func (c *Context) WriteLabels(out io.Writer) error {
 		return err
 	}
 	for _, label := range labels {
-		name, e := c.smt2SymbolName(label)
+		// labels_cmd streams the symbol (operator<<): no SMT2 quoting.
+		name, e := c.manager.Symbols.String(label)
 		if e != nil {
 			return e
 		}

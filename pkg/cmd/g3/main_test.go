@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// labels_cmd prints label symbols unquoted (operator<<).
+	"labels_unquoted.smt2": "sat\n(labels a b)\n",
 	// AUDIT.md sat_04-F1, sat_05-F1: sat.dimacs.display prints the atom
 	// comment lines in atom2bool_var obj_map table order, not sorted.
 	"sat_dimacs_display_atom_order.smt2": "p cnf 24 57\n1 2 3 0\n1 -2 -3 0\n1 4 5 6 0\n1 -7 9 0\n1 8 9 0\n1 7 -8 -9 0\n1 -10 12 0\n1 11 12 0\n1 10 -11 -12 0\n1 3 13 0\n1 -2 13 0\n1 2 -3 -13 0\n1 -10 14 0\n1 13 14 0\n1 10 -13 -14 0\n1 11 15 0\n1 13 15 0\n1 -11 -13 -15 0\n1 12 16 0\n1 14 16 0\n1 15 16 0\n1 -12 -14 -15 -16 0\n1 -7 17 0\n1 16 17 0\n1 7 -16 -17 0\n1 8 18 0\n1 16 18 0\n1 -8 -16 -18 0\n1 9 19 0\n1 17 19 0\n1 18 19 0\n1 -9 -17 -18 -19 0\n1 -4 -19 0\n1 5 -6 0\n1 3 10 -20 0\n1 -3 -10 -20 0\n1 3 -10 20 0\n1 -3 10 20 0\n1 3 -20 -21 0\n1 -3 20 -21 0\n1 3 20 21 0\n1 -3 -20 21 0\n1 -11 21 0\n1 11 -21 0\n1 -10 22 0\n1 -3 22 0\n1 3 10 -22 0\n1 7 22 -23 0\n1 -7 -22 -23 0\n1 -7 22 23 0\n1 7 -22 23 0\n1 22 -23 -24 0\n1 -22 23 -24 0\n1 22 23 24 0\n1 -22 -23 24 0\n1 -8 24 0\n1 8 -24 0\nc 1 k!0\nc 3 p\nc 4 q\nc 6 k!5\nc 9 k!4\nc 2 k!3\nc 7 k!2\nc 10 k!1\nc 5 r\np cnf 17 41\n1 -2 0\n-3 -17 0\n-4 6 0\n-4 12 0\n-5 6 0\n6 13 0\n-7 15 0\n-7 16 0\n-9 14 0\n-9 15 0\n-11 12 0\n12 13 0\n13 14 0\n13 16 0\n14 17 0\n15 17 0\n16 17 0\n4 5 -6 0\n6 -7 -8 0\n-6 7 -8 0\n6 7 8 0\n-6 -7 8 0\n6 -8 -9 0\n-6 8 -9 0\n-6 -8 9 0\n6 8 9 0\n-4 5 -10 0\n4 -5 -10 0\n4 5 10 0\n-4 -5 10 0\n-5 10 -11 0\n5 -10 -11 0\n5 10 11 0\n-5 -10 11 0\n4 11 -12 0\n-6 -12 -13 0\n9 -13 -14 0\n7 9 -15 0\n7 -13 -16 0\n-14 -15 -16 -17 0\n1 2 3 0\nc 6 k!8\nc 0 q\nc 2 p\nc 3 k!7\nc 4 k!6\nc 1 r\nunknown\n",

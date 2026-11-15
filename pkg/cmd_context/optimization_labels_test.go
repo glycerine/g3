@@ -54,7 +54,7 @@ func TestOptimizationPublishesRelevantLabels(t *testing.T) {
 			}
 			var out bytes.Buffer
 			contextMust(t, c.WriteLabels(&out))
-			if got := out.String(); got != "(labels first |a b|)\n" {
+			if got := out.String(); got != "(labels first a b)\n" {
 				t.Fatalf("source optimization labels = %q", got)
 			}
 			labels, err := c.checkSatResult().Labels()
@@ -76,7 +76,7 @@ func TestOptimizationPublishesRelevantLabels(t *testing.T) {
 				}
 				out.Reset()
 				contextMust(t, c.WriteLabels(&out))
-				if got := out.String(); got != "(labels first |a b|)\n" {
+				if got := out.String(); got != "(labels first a b)\n" {
 					t.Fatalf("cached box labels = %q", got)
 				}
 			}
