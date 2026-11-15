@@ -16,6 +16,11 @@ type qfnraForwardTrigState struct {
 	inv   *forwardTrigInvocation
 }
 
+// prepare runs find_unsafe on the original goal before any formula is
+// rewritten. This deliberately deviates from z3 4.7.1, whose convert_basis
+// runs find_unsafe lazily on the partly purified goal and so misses an angle
+// that also occurs under a purified operator (an unsound rewrite; AUDIT.md
+// tactic_arith_02-F2, test_vectors/z3_bug_exclusions.txt).
 func (s *qfnraForwardTrigState) prepare(i *qfnraPurifyInvocation) error {
 	m := i.owner.manager
 	found, err := visitArithmeticGoal(i.goal, func(term ast.ASTHandle, kind ast.ASTKind) (bool, error) {

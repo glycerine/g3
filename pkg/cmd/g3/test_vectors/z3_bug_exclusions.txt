@@ -211,3 +211,14 @@ z3_bug_pb2bv_numeral_lhs
 # tactic_arith_01-F3). Reproduction:
 # test_vectors/z3_bug_eq2bv_stale_rewriter_cache.smt2.
 z3_bug_eq2bv_stale_rewriter_cache
+#
+# purify-arith decides which sin/cos arguments are unsafe lazily, at the
+# first sin/cos, after the earlier goal formulas were already replaced by
+# purified ones; x in (/ x y) is then no longer seen, (sin x) is replaced
+# by a fresh basis and an unsat problem is reported sat with an invalid
+# model (z3 bug: src/tactic/arith/purify_arith_tactic.cpp convert_basis,
+# find_unsafe; still present upstream). g3 scans the original goal first
+# (pkg/tactic/arith/qfnra_purify_forward_trig.go prepare; AUDIT.md
+# tactic_arith_02-F2). Reproduction:
+# test_vectors/z3_bug_forward_trig_unsafe_after_purify.smt2.
+z3_bug_forward_trig_unsafe_after_purify
