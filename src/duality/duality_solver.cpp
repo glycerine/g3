@@ -1955,7 +1955,9 @@ namespace Duality {
                             if(constrained) goto expand_some_nodes;   // in constrained mode, keep expanding
                             goto we_are_sat;                          // else if underapprox is sat, we stop
                         }
-                        // tree->Check(top);
+                        // Discard the proof of CheckWithUnderapprox, which was
+                        // derived under the leaf assumptions, before interpolating.
+                        tree->Check(top);
                         res = tree->Solve(top, 1);            // incremental solve, keep interpolants for one pop
 #endif
                         if (res == l_false)
