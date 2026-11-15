@@ -281,7 +281,7 @@ func (t *FastCoreTactic) ApplyWithOutput(g *goaltactic.Goal, out io.Writer) (res
 	}
 	if options.PrintNodes {
 		stream := &fastTacticOutput{out: out}
-		if err := shell.DisplayConstraints(stream, true); err != nil {
+		if err := shell.DisplayConstraints(stream, false); err != nil {
 			return nil, err
 		}
 		if err := subpavingWriteDisplay(stream, "bounds at leaves: \n"); err != nil {

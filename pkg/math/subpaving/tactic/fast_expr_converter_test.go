@@ -403,10 +403,10 @@ func TestFastExprConverterTermsAndClause(t *testing.T) {
 		t.Fatal(err)
 	}
 	var out bytes.Buffer
-	if err := shell.DisplayConstraints(&out, true); err != nil {
+	if err := shell.DisplayConstraints(&out, false); err != nil {
 		t.Fatal("MPFF constraints", err)
 	}
-	if got, want := out.String(), "x2 = 1 + x0 + x1\nx3 = x0^2\nx4 = x0\nx5 = x0*x1\nx2 <= 2\nx2 <= 2\nx2 <= 2 or 2 < x2\n"; got != want {
+	if got, want := out.String(), "x2 = 1 + x0 + x1\nx3 = x0^2\nx4 = x0\nx5 = x0 x1\nx2 <= 2\nx2 <= 2\nx2 <= 2 or 2 < x2\n"; got != want {
 		t.Fatal("source-order MPFF constraints", out.String())
 	}
 	out.Reset()
