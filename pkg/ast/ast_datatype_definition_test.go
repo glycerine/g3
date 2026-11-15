@@ -336,3 +336,47 @@ func TestASTDatatypeRedefinitionAccessorIndex(t *testing.T) {
 		t.Fatal("accessor b index", index, matched, e)
 	}
 }
+
+// AUDIT.md ast_03-F2: plugin::mk_datatypes resets the plugin's util for
+// each redeclared datatype, so get_non_rec_constructor does not return a
+// constructor of the previous definition and m_start advances.
+func TestASTDatatypeRedefinitionResetsUtility(t *testing.T) {
+	m := astTestManager(t)
+	_, err := m.RegisterDatatypePlugin()
+	astTestMust(t, err)
+	define := func(first, second string) ASTHandle {
+		t.Helper()
+		sorts, err := m.MkDatatypes([]DatatypeDefinition{{
+			Name: astTestSymbol(t, m, "L"),
+			Constructors: []DatatypeConstructorDefinition{
+				{Name: astTestSymbol(t, m, first), Recognizer: astTestSymbol(t, m, "is-"+first)},
+				{Name: astTestSymbol(t, m, second), Recognizer: astTestSymbol(t, m, "is-"+second)},
+			},
+		}})
+		astTestMust(t, err)
+		return sorts[0]
+	}
+	sort := define("a", "b")
+	constructor, found, err := m.DatatypeNonRecursiveConstructor(sort)
+	astTestMust(t, err)
+	if !found {
+		t.Fatal("no constructor for the first definition")
+	}
+	firstName, err := m.GetASTName(constructor)
+	astTestMust(t, err)
+	if text, _ := m.Symbols.String(firstName); text != "b" {
+		t.Fatal("first definition constructor", text)
+	}
+	sort = define("c", "d")
+	constructor, found, err = m.DatatypeNonRecursiveConstructor(sort)
+	astTestMust(t, err)
+	if !found {
+		t.Fatal("no constructor for the redefinition")
+	}
+	// start: 0 -> 1 (first call), 2 (reset), 3 (second call): index 1.
+	name, err := m.GetASTName(constructor)
+	astTestMust(t, err)
+	if text, _ := m.Symbols.String(name); text != "d" {
+		t.Fatal("redefined constructor", text)
+	}
+}

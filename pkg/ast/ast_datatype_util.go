@@ -226,6 +226,27 @@ func (u *DatatypeUtil) Reset() error {
 	return nil
 }
 
+// resetLocked is Reset for a caller that already holds the manager lock
+// (plugin::mk_datatypes calls u().reset() for each redeclared datatype).
+func (u *DatatypeUtil) resetLocked() error {
+	if u == nil || u.self != u || u.manager == nil || u.operation == 2 {
+		return ErrASTHandle
+	}
+	if u.operation == 0 {
+		clear(u.constructors)
+		clear(u.lists)
+		clear(u.recursive)
+		clear(u.enum)
+		u.operation = 1
+	}
+	if err := u.releasePreferencesLocked(); err != nil {
+		return err
+	}
+	u.start++
+	u.operation = 0
+	return nil
+}
+
 // Source ref_vector dec_range walks forward. Retired zero tokens identify
 // actual completed decrements; owning retries never replay them.
 func (u *DatatypeUtil) releasePreferences() error {

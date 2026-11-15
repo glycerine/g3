@@ -156,6 +156,25 @@ func (m *ASTManager) MkDatatypes(defs []DatatypeDefinition) (result []ASTHandle,
 		}
 	}
 
+	// Source plugin::mk_datatypes: before end_def_block checks
+	// well-foundedness, each datatype that replaces a previous definition
+	// calls u().reset(), which clears the util caches and advances m_start.
+	for _, definition := range built {
+		if p.definitionNames[definition.name] == nil {
+			continue
+		}
+		if p.utility == nil {
+			utility, e := m.newDatatypeUtil()
+			if e != nil {
+				return nil, e
+			}
+			p.utility = utility
+		}
+		if e := p.utility.resetLocked(); e != nil {
+			return nil, e
+		}
+	}
+
 	wellFounded := make([]bool, len(built))
 	count := 0
 	changed := true
