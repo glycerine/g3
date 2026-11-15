@@ -15,16 +15,22 @@ type fixedpointTimeoutScope struct {
 	timer   *control.ScopedTimer
 }
 
-func (c *Context) fixedpointTimeout(params *uparams.ParamsRef) (value uint32, resultErr error) {
+// fixedpointTimeout is the query timeout. The API (Z3_fixedpoint_query)
+// defaults to the context timeout; the query command (dl_query_cmd::execute)
+// reads fixedpoint_params::timeout(), whose default is UINT_MAX.
+func (c *Context) fixedpointTimeout(params *uparams.ParamsRef, command bool) (value uint32, resultErr error) {
 	module, err := c.config.Globals.SourceGetModuleName("fixedpoint")
 	if err != nil {
 		return 0, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, c.config.Params.Del(&module)) }()
 	name := "timeout"
-	defaultTimeout, err := c.config.Params.GetUIntName(&c.params, &name, math.MaxUint32)
-	if err != nil {
-		return 0, err
+	defaultTimeout := uint32(math.MaxUint32)
+	if !command {
+		defaultTimeout, err = c.config.Params.GetUIntName(&c.params, &name, math.MaxUint32)
+		if err != nil {
+			return 0, err
+		}
 	}
 	if params == nil {
 		return c.config.Params.GetUIntName(&module, &name, defaultTimeout)
@@ -32,8 +38,8 @@ func (c *Context) fixedpointTimeout(params *uparams.ParamsRef) (value uint32, re
 	return c.config.Params.GetUIntFallbackName(params, &name, &module, defaultTimeout)
 }
 
-func (c *Context) beginFixedpointTimeout(params *uparams.ParamsRef) (*fixedpointTimeoutScope, error) {
-	timeout, err := c.fixedpointTimeout(params)
+func (c *Context) beginFixedpointTimeout(params *uparams.ParamsRef, command bool) (*fixedpointTimeoutScope, error) {
+	timeout, err := c.fixedpointTimeout(params, command)
 	if err != nil {
 		return nil, err
 	}

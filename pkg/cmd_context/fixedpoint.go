@@ -376,7 +376,7 @@ func (c *Context) queryFixedpoint(query ast.ASTHandle, params *uparams.ParamsRef
 	if err != nil {
 		return lbool.Undef, err
 	}
-	scope, err := c.beginFixedpointTimeout(params)
+	scope, err := c.beginFixedpointTimeout(params, command)
 	if err != nil {
 		return lbool.Undef, err
 	}
@@ -414,7 +414,7 @@ func (c *Context) QueryFixedpointRelationsWithParams(declarations []ast.ASTHandl
 	if err != nil {
 		return lbool.Undef, err
 	}
-	scope, err := c.beginFixedpointTimeout(params)
+	scope, err := c.beginFixedpointTimeout(params, false)
 	if err != nil {
 		return lbool.Undef, err
 	}

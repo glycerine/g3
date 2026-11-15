@@ -16,10 +16,10 @@ func TestFixedpointQueryTimeoutScopeUsesLocalParametersAndRestoresCancellation(t
 	defer func() { contextMust(t, c.config.Params.Del(&params)) }()
 	name := "timeout"
 	contextMust(t, c.config.Params.SetUIntName(&params, &name, 1))
-	if timeout, e := c.fixedpointTimeout(&params); e != nil || timeout != 1 {
+	if timeout, e := c.fixedpointTimeout(&params, false); e != nil || timeout != 1 {
 		t.Fatal("local fixedpoint timeout", timeout, e)
 	}
-	scope, err := c.beginFixedpointTimeout(&params)
+	scope, err := c.beginFixedpointTimeout(&params, false)
 	contextMust(t, err)
 	deadline := time.Now().Add(time.Second)
 	for !c.manager.ResourceLimit().CancelFlag() && time.Now().Before(deadline) {
@@ -35,12 +35,12 @@ func TestFixedpointQueryTimeoutScopeUsesLocalParametersAndRestoresCancellation(t
 		t.Fatal("fixedpoint timer leaked cancellation")
 	}
 	contextMust(t, c.config.Params.SetUIntName(&params, &name, 0))
-	if timeout, e := c.fixedpointTimeout(&params); e != nil || timeout != 0 {
+	if timeout, e := c.fixedpointTimeout(&params, false); e != nil || timeout != 0 {
 		t.Fatal("disabled local fixedpoint timeout", timeout, e)
 	}
 	limit := c.manager.ResourceLimit()
 	limit.IncCancel()
-	scope, err = c.beginFixedpointTimeout(&params)
+	scope, err = c.beginFixedpointTimeout(&params, false)
 	contextMust(t, err)
 	scope.handler.HandleEvent(control.EventCallerTimeout)
 	contextMust(t, scope.Close())
@@ -53,7 +53,7 @@ func TestFixedpointQueryTimeoutScopeUsesLocalParametersAndRestoresCancellation(t
 func TestFixedpointTimeoutFallsBackToContext(t *testing.T) {
 	c := contextFixture(t)
 	contextMust(t, c.SetUIntOption("timeout", 37))
-	value, err := c.fixedpointTimeout(nil)
+	value, err := c.fixedpointTimeout(nil, false)
 	contextMust(t, err)
 	if value != 37 {
 		t.Fatal("fixedpoint did not use context timeout", value)
@@ -63,9 +63,21 @@ func TestFixedpointTimeoutFallsBackToContext(t *testing.T) {
 	defer func() { contextMust(t, c.config.Params.Del(&params)) }()
 	name := "timeout"
 	contextMust(t, c.config.Params.SetUIntName(&params, &name, 0))
-	value, err = c.fixedpointTimeout(&params)
+	value, err = c.fixedpointTimeout(&params, false)
 	contextMust(t, err)
 	if value != 0 {
 		t.Fatal("explicit timeout did not override context", value)
+	}
+}
+
+// AUDIT.md cmd_context_01-F7: dl_query_cmd reads fixedpoint.timeout, whose
+// default is UINT_MAX; the global timeout is not consulted.
+func TestFixedpointQueryCommandIgnoresContextTimeout(t *testing.T) {
+	c := contextFixture(t)
+	contextMust(t, c.SetUIntOption("timeout", 37))
+	value, err := c.fixedpointTimeout(nil, true)
+	contextMust(t, err)
+	if value != ^uint32(0) {
+		t.Fatal("query command used the context timeout", value)
 	}
 }
