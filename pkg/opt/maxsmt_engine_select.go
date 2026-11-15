@@ -22,10 +22,11 @@ func selectMaxSMTEngine(s *ArithmeticSolver, objective *arithmeticObjective, ind
 		return newWMaxEngine(s, objective, index)
 	}
 	if config.engine == "sortmax" {
-		engine, usable, err := newSortMaxEngine(s, objective, index)
-		if err != nil || usable {
-			return engine, err
+		engine, err := newSortMaxEngine(s, objective, index)
+		if err != nil {
+			return nil, err
 		}
+		return engine, nil
 	}
 	if maxSMTFallbackFactory != nil {
 		return maxSMTFallbackFactory(s, objective, index, config)

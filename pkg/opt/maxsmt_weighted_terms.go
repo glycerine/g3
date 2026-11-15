@@ -8,8 +8,6 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-const maxSortMaxInputs = 4096
-
 type maxSMTWeightedTerm struct {
 	expression ast.ASTHandle
 	weight     big.Int

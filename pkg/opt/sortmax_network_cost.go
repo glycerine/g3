@@ -59,7 +59,31 @@ func (e *sortMaxEncoder) directMergeCost(a, b, c int) sortMaxNetworkCost {
 	return sortMaxNetworkCost{wires: int64(c), clauses: productHalf}
 }
 
+// sortMaxCostKey names a memoized cost: c is -1 for vc_merge(a, b).
+type sortMaxCostKey struct{ a, b, c int }
+
+func (e *sortMaxEncoder) cachedCost(key sortMaxCostKey) (sortMaxNetworkCost, bool) {
+	cost, ok := e.costs[key]
+	return cost, ok
+}
+
+func (e *sortMaxEncoder) storeCost(key sortMaxCostKey, cost sortMaxNetworkCost) sortMaxNetworkCost {
+	if e.costs == nil {
+		e.costs = make(map[sortMaxCostKey]sortMaxNetworkCost)
+	}
+	e.costs[key] = cost
+	return cost
+}
+
 func (e *sortMaxEncoder) mergeCost(a, b int) sortMaxNetworkCost {
+	key := sortMaxCostKey{a, b, -1}
+	if cost, ok := e.cachedCost(key); ok {
+		return cost
+	}
+	return e.storeCost(key, e.mergeCostCore(a, b))
+}
+
+func (e *sortMaxEncoder) mergeCostCore(a, b int) sortMaxNetworkCost {
 	if a == 0 || b == 0 {
 		return sortMaxNetworkCost{}
 	}
@@ -105,6 +129,14 @@ func (e *sortMaxEncoder) recursiveSubmergeCost(a, b, c int) sortMaxNetworkCost {
 }
 
 func (e *sortMaxEncoder) submergeCost(a, b, c int) sortMaxNetworkCost {
+	key := sortMaxCostKey{a, b, c}
+	if cost, ok := e.cachedCost(key); ok {
+		return cost
+	}
+	return e.storeCost(key, e.submergeCostCore(a, b, c))
+}
+
+func (e *sortMaxEncoder) submergeCostCore(a, b, c int) sortMaxNetworkCost {
 	if a == 1 && b == 1 && c == 1 {
 		return sortMaxNetworkCost{wires: 1, clauses: 1}
 	}

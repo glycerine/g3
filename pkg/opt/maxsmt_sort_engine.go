@@ -25,27 +25,16 @@ type sortMaxEngine struct {
 }
 
 // maxsmt::operator() builds sortmax for maxsat_engine=sortmax whatever the
-// weights; sortmax::operator() rejects a non-unsigned weight itself.
-// Recorded deviation: a positive weight total above maxSortMaxInputs is
-// not expanded into a sorting network here (usable is false) because the
-// Go network needs far more memory than z3's for thousands of inputs.
-func newSortMaxEngine(s *ArithmeticSolver, objective *arithmeticObjective, index int) (*sortMaxEngine, bool, error) {
-	total := new(big.Rat)
-	for _, weight := range objective.softWeights {
-		if weight.Sign() > 0 {
-			total.Add(total, weight)
-		}
-	}
-	if total.Cmp(big.NewRat(maxSortMaxInputs, 1)) > 0 {
-		return nil, false, nil
-	}
+// weights or their total; sortmax::operator() rejects a non-unsigned weight
+// itself.
+func newSortMaxEngine(s *ArithmeticSolver, objective *arithmeticObjective, index int) (*sortMaxEngine, error) {
 	terms, scale, err := maxSMTScaledTerms(s.manager, objective)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 	engine := &sortMaxEngine{solver: s, objective: objective, index: index, terms: terms, scale: scale}
 	engine.owner.manager = s.manager
-	return engine, true, nil
+	return engine, nil
 }
 
 func (e *sortMaxEngine) close() error {

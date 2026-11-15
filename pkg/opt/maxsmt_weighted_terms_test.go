@@ -49,3 +49,34 @@ func TestMaxSMTScaledTermsAndExpansionPreserveMultiplicity(t *testing.T) {
 		t.Fatal("2^32 is not unsigned")
 	}
 }
+
+// AUDIT.md opt_01-F1: maxsmt::operator() builds sortmax for
+// maxsat_engine=sortmax whatever the weight total; g3 used to fall back to
+// MaxRes above a total of 4096.
+func TestSortMaxSelectedForLargeWeightTotal(t *testing.T) {
+	fixture := newWeightedSoftFixture(t)
+	refs := make([]ast.ASTRef, 2)
+	var err error
+	refs[0], err = fixture.manager.NewRef(fixture.p)
+	if err == nil {
+		refs[1], err = fixture.manager.NewRef(fixture.q)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fixture.manager.DelRef(&refs[0])
+	defer fixture.manager.DelRef(&refs[1])
+	objective := &arithmeticObjective{soft: true, softTerms: refs, softWeights: []*big.Rat{big.NewRat(100000, 1), big.NewRat(5000, 1)}}
+	solver := &ArithmeticSolver{manager: fixture.manager}
+	engine, err := selectMaxSMTEngine(solver, objective, 0, maxSMTConfig{engine: "sortmax"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sortmax, ok := engine.(*sortMaxEngine)
+	if !ok {
+		t.Fatalf("maxsat_engine=sortmax built %T", engine)
+	}
+	if err = sortmax.close(); err != nil {
+		t.Fatal(err)
+	}
+}
