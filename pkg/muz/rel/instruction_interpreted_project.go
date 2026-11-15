@@ -88,6 +88,32 @@ func (i *interpretedFilterProjectInstruction) projectLazySparse(table *LazySpars
 	return clone.Project(i.removed)
 }
 
+// projectBitvector is default_table_filter_interpreted_and_project_fn over a
+// bitvector_table: filter a clone, then project it.
+func (i *interpretedFilterProjectInstruction) projectBitvector(table *BitvectorTable) (_ FiniteTable, resultErr error) {
+	clone, err := table.Clone()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, clone.Close()) }()
+	facts, err := clone.Facts()
+	if err != nil {
+		return nil, err
+	}
+	for _, fact := range facts {
+		accepted, x := i.accepts(fact)
+		if x != nil {
+			return nil, x
+		}
+		if !accepted {
+			if _, err = clone.Remove(fact); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return finiteTableProject(clone, i.removed)
+}
+
 func (i *interpretedFilterProjectInstruction) project(table FiniteTable, conditions []ast.ASTHandle) (FiniteTable, error) {
 	switch concrete := table.(type) {
 	case *HashTable:
@@ -96,6 +122,8 @@ func (i *interpretedFilterProjectInstruction) project(table FiniteTable, conditi
 		return i.projectSparse(concrete, conditions)
 	case *LazySparseTable:
 		return i.projectLazySparse(concrete, conditions)
+	case *BitvectorTable:
+		return i.projectBitvector(concrete)
 	case *FiniteCheckedPair:
 		return concrete.FilterInterpretedAndProject(i.relations, i.relationSorts, i.rewriter, conditions, i.variableColumns, i.variableSorts, i.removed)
 	default:

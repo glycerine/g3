@@ -469,7 +469,7 @@ func (e *PropositionalEngine) installDatalogExplanationMagicFinite(plugin *trans
 		}
 		kind := state.requestedRepresentations[0]
 		switch kind {
-		case "tr_hashtable", "tr_sparse", "tr_lazy_sparse":
+		case "tr_hashtable", "tr_sparse", "tr_bitvector", "tr_lazy_sparse":
 		default:
 			continue
 		}
@@ -500,7 +500,11 @@ func (e *PropositionalEngine) installDatalogExplanationMagicFinite(plugin *trans
 			return err
 		}
 		var table rel.FiniteTable
-		if kind == "tr_hashtable" || signature.Len() == 0 {
+		if kind == "tr_bitvector" && rel.BitvectorCanHandleSignature(signature, 0) {
+			table, err = rel.NewBitvectorTable(signature)
+		} else if kind == "tr_bitvector" {
+			table, err = e.relations.NewDefaultFiniteTable(signature)
+		} else if kind == "tr_hashtable" || signature.Len() == 0 {
 			table = rel.NewHashTable(signature)
 		} else if kind == "tr_sparse" {
 			table, err = rel.NewSparseTable(signature, 0)

@@ -593,7 +593,7 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 			return fmt.Errorf("muz/fp: relation plugin %s does not exist", kind)
 		}
 	}
-	if len(kinds) == 1 && (kinds[0] == "tr_sparse" || kinds[0] == "tr_hashtable" || kinds[0] == "tr_lazy_sparse") {
+	if len(kinds) == 1 && (kinds[0] == "tr_sparse" || kinds[0] == "tr_hashtable" || kinds[0] == "tr_bitvector" || kinds[0] == "tr_lazy_sparse") {
 		if err := e.selectFiniteRepresentation(declaration, kinds[0]); err != nil {
 			return err
 		}

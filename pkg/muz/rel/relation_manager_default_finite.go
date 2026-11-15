@@ -37,7 +37,7 @@ func (m *RelationManager) SetDefaultFiniteTable(name string) error {
 		return err
 	}
 	switch name {
-	case "hashtable", "sparse":
+	case "hashtable", "sparse", "bitvector":
 		m.defaultFinite = name
 		return nil
 	case "lazy_sparse":
@@ -52,8 +52,8 @@ func (m *RelationManager) SetDefaultFiniteTable(name string) error {
 }
 
 // SetRequestedFiniteKind records rel_context::set_predicate_representation's
-// requested table plugin for predicate (kind is tr_sparse, tr_hashtable or
-// tr_lazy_sparse).
+// requested table plugin for predicate (kind is tr_sparse, tr_hashtable,
+// tr_bitvector or tr_lazy_sparse).
 func (m *RelationManager) SetRequestedFiniteKind(predicate ast.ASTHandle, kind string) error {
 	if err := m.open(); err != nil {
 		return err
@@ -79,6 +79,10 @@ func (m *RelationManager) NewFiniteTableForPredicate(predicate ast.ASTHandle, si
 		case "tr_sparse":
 			if signature.Len() != 0 {
 				return NewSparseTable(signature, 0)
+			}
+		case "tr_bitvector":
+			if BitvectorCanHandleSignature(signature, 0) {
+				return NewBitvectorTable(signature)
 			}
 		case "tr_lazy_sparse":
 			if m.lazyFinite != nil && m.lazyFinite.CanHandleSignature(signature) {
@@ -107,6 +111,16 @@ func (m *RelationManager) NewDefaultFiniteTable(signature Signature) (FiniteTabl
 	}
 	switch m.defaultFinite {
 	case "sparse":
+		if signature.Len() != 0 {
+			return NewSparseTable(signature, 0)
+		}
+	case "bitvector":
+		if BitvectorCanHandleSignature(signature, 0) {
+			return NewBitvectorTable(signature)
+		}
+		// try_get_appropriate_plugin: the first registered plugin that
+		// handles the signature, sparse for every nonnullary signature (the
+		// bitvector plugin handles the nullary one).
 		if signature.Len() != 0 {
 			return NewSparseTable(signature, 0)
 		}

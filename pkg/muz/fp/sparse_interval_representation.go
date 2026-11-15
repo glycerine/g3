@@ -26,17 +26,16 @@ func (e *PropositionalEngine) selectSparseIntervalRepresentation(declaration ast
 		return err
 	}
 	if pureFinite {
-		// The interval component of the product is the full zero-column
-		// sieve, contributing true to product_relation::to_formula; the
-		// product evaluates exactly as its sparse table.
+		// interval_relation_plugin rejects every column, so the product
+		// kind cannot handle the signature and relation_manager::
+		// mk_empty_relation falls through to the favourite plugins exactly
+		// as for a predicate with no requested kind: the default table
+		// (sparse, hashtable, bitvector or lazy_sparse).
 		if state.table == nil {
 			return ErrSparseIntervalDatalogFragment
 		}
-		if err := e.selectFiniteRepresentation(declaration, "tr_sparse"); err != nil {
-			return err
-		}
-		state.explicitFiniteRepresentation = true
-		state.requestedRepresentations = []string{"tr_sparse"}
+		state.explicitFiniteRepresentation = false
+		state.requestedRepresentations = nil
 		e.revision++
 		return nil
 	}

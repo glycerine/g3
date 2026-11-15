@@ -154,6 +154,10 @@ func (c *ExecutionContext) SetFiniteRegister(index uint32, value FiniteTable) er
 		if concrete == nil {
 			value = nil
 		}
+	case *BitvectorTable:
+		if concrete == nil {
+			value = nil
+		}
 	}
 	if index == ^uint32(0) {
 		return ErrInstruction
@@ -446,6 +450,13 @@ func finiteTableSizeEstimates(table FiniteTable) (uint32, uint32, error) {
 		bytes, err := value.SizeEstimateBytes()
 		return rows, bytes, err
 	case *SparseTable:
+		rows, err := value.SizeEstimateRows()
+		if err != nil {
+			return 0, 0, err
+		}
+		bytes, err := value.SizeEstimateBytes()
+		return rows, bytes, err
+	case *BitvectorTable:
 		rows, err := value.SizeEstimateRows()
 		if err != nil {
 			return 0, 0, err

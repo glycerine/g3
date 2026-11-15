@@ -11,7 +11,8 @@ import (
 func TestDatalogDefaultFiniteTableSelectionAndLifetime(t *testing.T) {
 	for _, tc := range []struct {
 		name, module, local, explicit string
-		sparse, lazy                  bool
+		sparse, lazy, bitvector       bool
+		nullaryBitvector              bool
 	}{
 		{name: "source-default", sparse: true},
 		{name: "module-hash", module: "hashtable"},
@@ -19,6 +20,11 @@ func TestDatalogDefaultFiniteTableSelectionAndLifetime(t *testing.T) {
 		{name: "explicit-hash", explicit: "tr_hashtable"},
 		{name: "explicit-sparse", module: "hashtable", explicit: "tr_sparse", sparse: true},
 		{name: "module-lazy", module: "lazy_sparse", lazy: true},
+		// AUDIT.md muz_fp_03-F5: bitvector selects bitvector_table, which
+		// also handles the nullary signature.
+		{name: "module-bitvector", module: "bitvector", bitvector: true, nullaryBitvector: true},
+		{name: "local-bitvector", module: "hashtable", local: "bitvector", bitvector: true, nullaryBitvector: true},
+		{name: "explicit-hash-over-bitvector", module: "bitvector", explicit: "tr_hashtable", nullaryBitvector: true},
 		// AUDIT.md muz_fp_03-F5: tr_ spellings and unknown names are not
 		// table plugin names, so source selection falls back to sparse.
 		{name: "local-tr-lazy-is-unknown", module: "hashtable", local: "tr_lazy_sparse", sparse: true},
@@ -71,7 +77,15 @@ func TestDatalogDefaultFiniteTableSelectionAndLifetime(t *testing.T) {
 				if sparse != tc.sparse {
 					t.Fatal("configured concrete storage", sparse, tc.sparse)
 				}
-				if _, ok := e.predicates[f.declarations["p"]].table.(*rel.HashTable); !ok {
+				_, bitvector := e.predicates[d].table.(*rel.BitvectorTable)
+				if bitvector != tc.bitvector {
+					t.Fatal("configured bitvector storage", bitvector, tc.bitvector)
+				}
+				if tc.nullaryBitvector {
+					if _, ok := e.predicates[f.declarations["p"]].table.(*rel.BitvectorTable); !ok {
+						t.Fatal("nullary bitvector default fell back")
+					}
+				} else if _, ok := e.predicates[f.declarations["p"]].table.(*rel.HashTable); !ok {
 					t.Fatal("nullary default lost Hash fallback")
 				}
 				found, err := e.predicates[d].table.Contains(rel.Fact{1})

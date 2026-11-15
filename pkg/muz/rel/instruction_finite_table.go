@@ -55,6 +55,9 @@ func emptyFiniteLike(table FiniteTable) (FiniteTable, error) {
 	if checked, ok := table.(*FormulaCheckedFinitePair); ok {
 		return checked.EmptyLike()
 	}
+	if bv, ok := table.(*BitvectorTable); ok {
+		return bv.emptyLike(signature)
+	}
 	return NewHashTable(signature), nil
 }
 
@@ -62,6 +65,9 @@ func newFiniteJoinResult(signature Signature, functional int, first, second Fini
 	// Source default_table_join_fn asks each actual plugin whether it can
 	// handle the result. Lazy Sparse inherits Sparse's nonnullary capability;
 	// its same-kind direct join above this fallback can still return Lazy.
+	if _, bv := first.(*BitvectorTable); bv && BitvectorCanHandleSignature(signature, functional) {
+		return NewBitvectorTable(signature)
+	}
 	if lazy, ok := first.(*LazySparseTable); ok && signature.Len() != 0 {
 		return lazySparseInstructionResult(lazy, signature, functional)
 	}
@@ -78,6 +84,17 @@ func newFiniteJoinResult(signature Signature, functional int, first, second Fini
 	}
 	if lazy, ok := second.(*LazySparseTable); ok && signature.Len() != 0 {
 		return lazySparseInstructionResult(lazy, signature, functional)
+	}
+	if _, bv := second.(*BitvectorTable); bv && BitvectorCanHandleSignature(signature, functional) {
+		return NewBitvectorTable(signature)
+	}
+	// Neither bitvector operand handles the result: get_appropriate_plugin
+	// passes over the bitvector favourite to the first registered plugin
+	// that can, sparse for every nonnullary signature.
+	_, firstBV := first.(*BitvectorTable)
+	_, secondBV := second.(*BitvectorTable)
+	if (firstBV || secondBV) && signature.Len() != 0 {
+		return NewSparseTable(signature, functional)
 	}
 	return NewHashTable(signature), nil
 }
@@ -249,6 +266,8 @@ func finiteTableProject(source FiniteTable, removed []int) (FiniteTable, error) 
 			return table.Project(removed)
 		case *SparseTable:
 			return table.Project(removed)
+		case *BitvectorTable:
+			return table.Project(removed)
 		}
 	}
 	result := NewHashTable(projected)
@@ -376,6 +395,8 @@ func finiteTableRename(source FiniteTable, cycle []int) (FiniteTable, error) {
 	switch table := source.(type) {
 	case *HashTable:
 		return table.RenameCycle(cycle)
+	case *BitvectorTable:
+		return table.RenameCycle(cycle)
 	case *SparseTable:
 		return table.Rename(cycle)
 	case *LazySparseTable:
@@ -395,6 +416,8 @@ func finiteTableFilterEqual(table FiniteTable, value Element, column int) error 
 	switch concrete := table.(type) {
 	case *HashTable:
 		return concrete.FilterEqual(value, column)
+	case *BitvectorTable:
+		return concrete.FilterEqual(value, column)
 	case *SparseTable:
 		return concrete.FilterEqual(value, column)
 	case *LazySparseTable:
@@ -413,6 +436,8 @@ func finiteTableFilterEqual(table FiniteTable, value Element, column int) error 
 func finiteTableFilterIdentical(table FiniteTable, columns []int) error {
 	switch concrete := table.(type) {
 	case *HashTable:
+		return concrete.FilterIdentical(columns)
+	case *BitvectorTable:
 		return concrete.FilterIdentical(columns)
 	case *SparseTable:
 		return concrete.FilterIdentical(columns)
@@ -476,6 +501,8 @@ func finiteTableSelectProject(table FiniteTable, value Element, column int) (Fin
 	}
 	switch concrete := table.(type) {
 	case *HashTable:
+		return concrete.SelectEqualAndProject(value, column)
+	case *BitvectorTable:
 		return concrete.SelectEqualAndProject(value, column)
 	case *SparseTable:
 		return concrete.SelectEqualAndProject(value, column)

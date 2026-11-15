@@ -45,8 +45,8 @@ func (e *PropositionalEngine) inheritDatalogQueryKind(query, head ast.ASTHandle)
 		if len(target.requestedRepresentations) == 1 {
 			name := target.requestedRepresentations[0]
 			switch name {
-			case "tr_hashtable", "tr_sparse", "tr_lazy_sparse":
-				supported := target.table != nil && (name == "tr_hashtable" || len(target.sorts) != 0)
+			case "tr_hashtable", "tr_sparse", "tr_bitvector", "tr_lazy_sparse":
+				supported := target.table != nil && (name == "tr_hashtable" || name == "tr_bitvector" || len(target.sorts) != 0)
 				if supported {
 					if err := e.selectFiniteRepresentation(head, name); err != nil {
 						return err

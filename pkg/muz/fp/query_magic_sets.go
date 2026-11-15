@@ -96,14 +96,14 @@ func (e *PropositionalEngine) inheritDatalogFiniteRepresentation(declaration, or
 	}
 	kind := source.requestedRepresentations[0]
 	switch kind {
-	case "tr_hashtable", "tr_sparse", "tr_lazy_sparse":
+	case "tr_hashtable", "tr_sparse", "tr_bitvector", "tr_lazy_sparse":
 	default:
 		return nil
 	}
 	target.requestedRepresentations = []string{kind}
 	target.explicitFiniteRepresentation = false
 	supported := target.table != nil
-	if kind != "tr_hashtable" {
+	if kind != "tr_hashtable" && kind != "tr_bitvector" {
 		supported = supported && len(target.sorts) != 0
 	}
 	if !supported {

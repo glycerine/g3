@@ -15,7 +15,7 @@ func (e *PropositionalEngine) selectFiniteRepresentation(declaration ast.ASTHand
 	if state == nil || state.table == nil {
 		return ErrPropositionalHorn
 	}
-	if kind == "tr_sparse" || kind == "tr_hashtable" || kind == "tr_lazy_sparse" {
+	if kind == "tr_sparse" || kind == "tr_hashtable" || kind == "tr_bitvector" || kind == "tr_lazy_sparse" {
 		if err := e.relations.SetRequestedFiniteKind(declaration, kind); err != nil {
 			return err
 		}
@@ -42,6 +42,10 @@ func (e *PropositionalEngine) selectFiniteRepresentation(declaration ast.ASTHand
 		if _, ok := state.table.(*rel.HashTable); ok {
 			return nil
 		}
+	case "tr_bitvector":
+		if _, ok := state.table.(*rel.BitvectorTable); ok {
+			return nil
+		}
 	default:
 		return ErrPropositionalHorn
 	}
@@ -50,9 +54,16 @@ func (e *PropositionalEngine) selectFiniteRepresentation(declaration ast.ASTHand
 		return err
 	}
 	var replacement rel.FiniteTable
-	if kind == "tr_sparse" {
+	switch {
+	case kind == "tr_sparse":
 		replacement, err = rel.NewSparseTable(signature, 0)
-	} else {
+	case kind == "tr_bitvector" && rel.BitvectorCanHandleSignature(signature, 0):
+		replacement, err = rel.NewBitvectorTable(signature)
+	case kind == "tr_bitvector":
+		// mk_empty_relation(s, kind): the bitvector plugin rejects the
+		// signature, so the manager's appropriate plugin is used.
+		replacement, err = e.relations.NewDefaultFiniteTable(signature)
+	default:
 		replacement = rel.NewHashTable(signature)
 	}
 	if err != nil {

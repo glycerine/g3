@@ -38,11 +38,7 @@ func (e *PropositionalEngine) applyDatalogDefaultFiniteTable() (resultErr error)
 		// first registered plugin that handles the signature: sparse
 		// (registration order sparse, hashtable, bitvector, lazy_sparse).
 		switch name {
-		case "sparse", "hashtable", "lazy_sparse":
-		case "bitvector":
-			// bitvector_table is not ported (AUDIT.md muz_fp_03-F5); keep
-			// the established hashtable stand-in.
-			name = "hashtable"
+		case "sparse", "hashtable", "bitvector", "lazy_sparse":
 		default:
 			name = "sparse"
 		}
@@ -57,7 +53,9 @@ func (e *PropositionalEngine) applyDatalogDefaultFiniteTable() (resultErr error)
 			continue
 		}
 		kind := "tr_" + name
-		if len(state.sorts) == 0 {
+		if len(state.sorts) == 0 && name != "bitvector" {
+			// Sparse and lazy_sparse reject the empty signature and
+			// registration order reaches hashtable; bitvector handles it.
 			kind = "tr_hashtable"
 		}
 		if err := e.selectFiniteRepresentation(decl, kind); err != nil {
