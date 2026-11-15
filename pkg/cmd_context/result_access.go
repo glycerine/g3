@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 // Assertions returns the borrowed formulas in command-session order.
@@ -57,8 +58,9 @@ func (c *Context) Statistics() (statistics.Statistics, error) {
 	return result, nil
 }
 
-// Consequences replaces the prior command result and delegates to the
-// installed solver's concrete consequence engine.
+// Consequences is cmd_context::get_consequences: the solver itself becomes
+// the check-sat result (tacticResult and retainedSolverResult are cleared,
+// so checkSatResult returns c.solver with its model and reason-unknown).
 func (c *Context) Consequences(assumptions, variables []ast.ASTHandle) (status lbool.LBool, consequences []ast.ASTHandle, resultErr error) {
 	if err := c.valid(); err != nil {
 		return lbool.Undef, nil, err
@@ -79,7 +81,17 @@ func (c *Context) Consequences(assumptions, variables []ast.ASTHandle) (status l
 		return lbool.Undef, nil, errors.Join(resultErr, err)
 	}
 	if resultErr != nil {
-		return status, consequences, resultErr
+		// catch (z3_exception & ex): m_solver->set_reason_unknown(ex.msg());
+		// r = l_undef. A z3_error propagates.
+		var fatal z3exception.Z3Error
+		var exception z3exception.Z3Exception
+		if errors.As(resultErr, &fatal) || !errors.As(resultErr, &exception) {
+			return status, consequences, resultErr
+		}
+		if err = c.solver.SetReasonUnknown(exception.Message()); err != nil {
+			return lbool.Undef, consequences, errors.Join(resultErr, err)
+		}
+		status = lbool.Undef
 	}
 	c.status, c.checked = status, true
 	return status, consequences, nil

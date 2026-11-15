@@ -935,6 +935,24 @@ func (s *SMTSolver) GetConsequences(assumptions []ast.ASTHandle, variables []ast
 	if err = result.SetStatus(status); err != nil {
 		return lbool.Undef, nil, err
 	}
+	// The solver is the check-sat result: smt_solver::get_model is
+	// context::get_model (m_model unless the context is inconsistent) and
+	// smt_solver::reason_unknown is last_failure_as_string(), as after
+	// check_sat.
+	if s.produceModels && !s.kernel.Inconsistent() {
+		if md := s.kernel.GeneratedModel(); md != nil {
+			if err = result.SetModel(md); err != nil {
+				return lbool.Undef, nil, err
+			}
+		}
+	}
+	reason, err := s.kernel.ReasonUnknown()
+	if err != nil {
+		return lbool.Undef, nil, err
+	}
+	if err = result.SetReasonUnknown(reason); err != nil {
+		return lbool.Undef, nil, err
+	}
 	for i := range refs {
 		h, e := s.manager.RefGet(refs[i])
 		if e != nil {

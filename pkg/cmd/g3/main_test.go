@@ -338,6 +338,11 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md cmd_context_02-F1: after get-consequences the solver is the
+	// check-sat result, with its model and reason-unknown.
+	"consequences_get_model.smt2":      "sat\n\n(=> true x)\n(model \n  (define-fun x () Bool\n    true)\n)\n",
+	"consequences_reason_unknown.smt2": "sat\n\n(=> true x)\n(:reason-unknown \"unknown\")\n",
+	"consequences_get_value.smt2":      "sat\n\n(=> b b)\n((x 4)\n (b true))\n5\n(:reason-unknown \"unknown\")\n",
 	// AUDIT.md cmd_context_01-F4: optimize() warns about quantified hard
 	// constraints (stderr) and solves a bounded objective as usual. The
 	// unbounded case raises "unbounded objectives on quantified constraints
