@@ -225,11 +225,9 @@ func (k *SMTKernel) searchResourceLimitExceeded(timer *stopwatch.Timer, nextProg
 		return false, err
 	}
 	if exceeded {
-		if k.manager.Limit.CancelFlag() {
-			k.lastFailure = SMTFailureCanceled
-		} else {
-			k.lastFailure = SMTFailureResourceLimit
-		}
+		// get_cancel_flag() is !limit().inc(): a cancel and an exhausted
+		// resource limit are both recorded as CANCELED (AUDIT.md FUZZ-F8).
+		k.lastFailure = SMTFailureCanceled
 		return true, nil
 	}
 	above, err := k.aboveMemoryWatermark()
@@ -425,11 +423,9 @@ func (k *SMTKernel) resourceLimitsExceeded() (bool, error) {
 		return false, err
 	}
 	if exceeded {
-		if k.manager.Limit.CancelFlag() {
-			k.lastFailure = SMTFailureCanceled
-		} else {
-			k.lastFailure = SMTFailureResourceLimit
-		}
+		// get_cancel_flag() is !limit().inc(): a cancel and an exhausted
+		// resource limit are both recorded as CANCELED (AUDIT.md FUZZ-F8).
+		k.lastFailure = SMTFailureCanceled
 		return true, nil
 	}
 	above, err := k.aboveMemoryWatermark()
@@ -630,14 +626,20 @@ func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool,
 }
 
 // boundedSearchRoundEnd is the check at the end of a bounded_search round
-// that decided or ran final_check():
-// if (resource_limits_exceeded() && !inconsistent()) return l_undef;
+// that decided or ran final_check(): when resource_limits_exceeded() and the
+// context is consistent it sets m_last_search_failure = RESOURCE_LIMIT,
+// overwriting whatever resource_limits_exceeded() recorded, and returns
+// l_undef (AUDIT.md FUZZ-F8).
 func (k *SMTKernel) boundedSearchRoundEnd() (bool, error) {
 	exceeded, err := k.resourceLimitsExceeded()
 	if err != nil {
 		return false, fmt.Errorf("smt search resource check: %w", err)
 	}
-	return exceeded && !k.internalizer.inconsistent, nil
+	if exceeded && !k.internalizer.inconsistent {
+		k.lastFailure = SMTFailureResourceLimit
+		return true, nil
+	}
+	return false, nil
 }
 
 // restartDue is bounded_search's restart test

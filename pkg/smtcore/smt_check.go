@@ -123,12 +123,10 @@ func (k *SMTKernel) finalizeCheck(result lbool.LBool, resultErr error) (lbool.LB
 	if err != nil {
 		return lbool.Undef, err
 	}
+	// check_finalize only turns l_true into l_undef; it records no failure
+	// (AUDIT.md FUZZ-F8).
 	if canceled {
 		result = lbool.Undef
-		k.lastFailure = SMTFailureResourceLimit
-		if k.manager.Limit.CancelFlag() {
-			k.lastFailure = SMTFailureCanceled
-		}
 	}
 	return result, nil
 }

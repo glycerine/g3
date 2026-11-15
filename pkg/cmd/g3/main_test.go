@@ -338,6 +338,13 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ-F8: resource_limits_exceeded records CANCELED for an exhausted
+	// rlimit too (the limit fires in search; the value depends on rlimit counts).
+	"smt_rlimit_reason_canceled.smt2": "unknown\n(:reason-unknown \"canceled\")\n",
+	// AUDIT.md FUZZ-F8: the limit is reached in add_rec_funs_to_model after a sat
+	// search; check_finalize turns l_true into l_undef and records no failure, so
+	// qsat reports "unknown" (g3's steps equal z3's through this limit).
+	"qe2_rlimit_check_finalize.smt2": "(error \"tactic failed: unknown\")\n",
 	// AUDIT.md FUZZ-F7 follow-up: help_cmd::execute writes the escaped
 	// display_cmd entries between quotes without re-escaping or trimming the
 	// body (release command list).

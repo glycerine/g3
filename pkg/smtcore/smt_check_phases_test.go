@@ -173,7 +173,9 @@ func TestSMTCheckFinalSATCancellationBecomesUnknown(t *testing.T) {
 	status, err := k.Check()
 	m.Limit.ResetCancel()
 	astTestMust(t, err)
-	if status != lbool.Undef || k.lastFailure != SMTFailureCanceled || theory.initCalls != 1 {
+	// check_finalize turns l_true into l_undef and records no failure
+	// (AUDIT.md FUZZ-F8).
+	if status != lbool.Undef || k.lastFailure != SMTFailureOK || theory.initCalls != 1 {
 		t.Fatal("final SAT cancellation was not observed", status, k.lastFailure)
 	}
 }

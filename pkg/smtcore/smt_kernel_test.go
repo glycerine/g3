@@ -79,14 +79,16 @@ func TestSMTKernelSearchReportsCancellationAndResourceLimit(t *testing.T) {
 	scope, err := control.NewLimitScope(&m.Limit, 1)
 	astTestMust(t, err)
 	defer scope.Close()
+	// resource_limits_exceeded records CANCELED for an exhausted limit too:
+	// get_cancel_flag() is !limit().inc() (AUDIT.md FUZZ-F8).
 	status, err = kernel.Check()
 	astTestMust(t, err)
-	if status != lbool.Undef || kernel.lastFailure != SMTFailureResourceLimit {
+	if status != lbool.Undef || kernel.lastFailure != SMTFailureCanceled {
 		t.Fatal("resource-limited search", status, kernel.lastFailure)
 	}
 	reason, err = kernel.ReasonUnknown()
 	astTestMust(t, err)
-	if reason != "(resource limits reached)" {
+	if reason != "canceled" {
 		t.Fatal("resource-limit reason", reason)
 	}
 }
