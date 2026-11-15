@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md duality_01-F3 follow-up (TestDualityScaleRealQueries): with
+	// xform.scale, q2's body becomes p(v, s) with v = 2.0*s and, without
+	// eq2ineq, iZ3 cannot interpolate the arithmetic rewrite proof.
+	"duality_scale_interpolation_refusal.smt2": "(error \"query failed: theory not supported by interpolation or bad proof\")\nunknown\n",
 	// AUDIT.md muz_fp_02-F5: rel_context keeps engine_base::get_model, an empty model.
 	"datalog_horn_empty_model.smt2": "sat\n(model \n)\n(P #b01)\n(Q #b01)\n",
 	// AUDIT.md muz_fp_01-F4: (query r) is rel_context::query(num_rels, rels), which ignores generate_explanations.

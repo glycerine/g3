@@ -3,10 +3,12 @@ package fp
 // Source: duality_dl_interface.cpp's quantify_arrays query branch and
 // dl_mk_scale.cpp's default transformation.
 import (
+	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/proofs"
+	"github.com/glycerine/g3/pkg/interp"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -72,11 +74,23 @@ func TestDualityScaleRealQueries(t *testing.T) {
 						fragmentMust(t, safeModel.Close())
 					}
 				}()
+				// Scaling turns p(2.0) into p(v, s) with v = 2.0*s. Like the C++
+				// Duality::solver (no eq2ineq), iZ3 then gets an arithmetic
+				// rewrite proof it cannot interpolate, so z3 refuses that query
+				// with "theory not supported by interpolation or bad proof";
+				// the next query still answers.
+				refused := arrays && scale
 				for index, query := range []struct {
 					term ast.ASTHandle
 					want lbool.LBool
 				}{{fact, lbool.True}, {absent, lbool.False}, {fact, lbool.True}} {
 					status, err := e.QueryExpression(query.term)
+					if refused && query.want == lbool.False {
+						if !errors.As(err, new(interp.InterpolationError)) || status != lbool.Undef {
+							t.Fatalf("scaled unreachable query = %v, %v; want the interpolation refusal", status, err)
+						}
+						continue
+					}
 					fragmentMust(t, err)
 					if status != query.want {
 						t.Fatalf("query status = %v, want %v", status, query.want)
@@ -137,8 +151,10 @@ func TestDualityScaleRealQueries(t *testing.T) {
 						t.Fatal("refutation proof side condition is not valid", status)
 					}
 				}
-				_, err = safeModel.Core().HasInterpretation(predicate)
-				fragmentMust(t, err)
+				if !refused {
+					_, err = safeModel.Core().HasInterpretation(predicate)
+					fragmentMust(t, err)
+				}
 				if arrays {
 					// Check the same default transform pipeline used by the Duality
 					// query branch; status alone cannot show that scaling ran.
