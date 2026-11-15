@@ -72,7 +72,8 @@ func (c *SMTContext) DatatypeRecognizer(sort ast.ASTHandle, index uint32) (ast.A
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	return m.DatatypeConstructorRecognizer(constructor)
+	// Z3_get_datatype_sort_recognizer: dt_util.get_constructor_is(decl).
+	return m.DatatypeConstructorIs(constructor)
 }
 
 func (c *SMTContext) datatypeConstructorAccessors(constructor ast.ASTHandle) ([]ast.ASTHandle, error) {

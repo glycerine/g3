@@ -29,7 +29,7 @@ func (o *APIDatatypeConstructorObject) QueryFields(count uint32) (APIDatatypeCon
 	if err != nil {
 		return APIDatatypeConstructorQuery{}, err
 	}
-	recognizer, err := manager.DatatypeConstructorRecognizer(o.constructor)
+	recognizer, err := manager.DatatypeConstructorIs(o.constructor) // Z3_query_constructor: get_constructor_is
 	if err != nil {
 		return APIDatatypeConstructorQuery{}, err
 	}

@@ -37,10 +37,9 @@ func TestAPIDatatypeSymbolNamesAndGeneratedRecognizers(t *testing.T) {
 		astTestMust(t, err)
 		spelling, err := f.c.SymbolString(actual)
 		astTestMust(t, err)
-		want := "is_k!37"
-		if name.IsNull() {
-			want = "is_<null>"
-		}
+		// Z3_get_datatype_sort_recognizer returns get_constructor_is: the
+		// generic OP_DT_IS declaration named "is" (AUDIT api_01-F2).
+		want := "is"
 		if spelling != want {
 			t.Fatal("source symbol::str recognizer", spelling, want)
 		}
@@ -61,7 +60,7 @@ func TestAPIDatatypeSymbolNamesAndGeneratedRecognizers(t *testing.T) {
 		astTestMust(t, err)
 		spelling, err := f.c.SymbolString(symbol)
 		astTestMust(t, err)
-		if spelling != []string{"is_k!2", "is_<null>", "is_plain"}[i] {
+		if spelling != "is" { // get_constructor_is (AUDIT api_01-F2)
 			t.Fatal("enumeration recognizer spelling", i, spelling)
 		}
 	}
@@ -99,8 +98,10 @@ func TestAPIDatatypeConstructorSymbolSnapshotAndQueryPrefixes(t *testing.T) {
 		}
 		name, err = f.c.DeclarationSymbol(query.Recognizer)
 		astTestMust(t, err)
-		if !name.IsNull() {
-			t.Fatal("constructor null recognizer", name)
+		// Z3_query_constructor returns get_constructor_is, named "is"
+		// whatever the recognizer symbol (AUDIT api_01-F2).
+		if spelling, e := f.c.SymbolString(name); e != nil || spelling != "is" {
+			t.Fatal("constructor query recognizer", spelling, e)
 		}
 		if count != 0 {
 			query.Accessors[0] = ast.ASTHandle{}
