@@ -43,3 +43,33 @@ func TestBMCSolverProfilesInstallSourceParameters(t *testing.T) {
 		})
 	}
 }
+
+// muz_fp_01-F1: bmc::nonlinear::setup does not assign m_fparams.m_mbqi, so a
+// nonlinear query inherits the value the previous linear setup() left on the
+// same engine.
+func TestBMCNonlinearInheritsLinearMBQI(t *testing.T) {
+	engine := newDirectFactFixture(t).engine
+	engine.bmcSlot = &bmcSolverSlot{owner: engine}
+	defer func() { engine.bmcSlot = nil }()
+	mbqi := "mbqi"
+	run := func(linear bool) (bool, bool) {
+		local, err := engine.params.NewValue()
+		fragmentMust(t, err)
+		defer func() { fragmentMust(t, engine.params.Del(&local)) }()
+		fragmentMust(t, engine.configureBMCSolverParams(&local, linear, false))
+		stored, err := engine.params.ContainsName(&local, &mbqi)
+		fragmentMust(t, err)
+		value, err := engine.params.GetBoolName(&local, &mbqi, true)
+		fragmentMust(t, err)
+		return stored, value
+	}
+	if stored, _ := run(false); stored {
+		t.Fatal("nonlinear setup on a fresh engine must keep the smt_params default")
+	}
+	if stored, value := run(true); !stored || value {
+		t.Fatal("linear setup must disable MBQI", stored, value)
+	}
+	if stored, value := run(false); !stored || value {
+		t.Fatal("nonlinear setup must inherit the linear m_mbqi=false", stored, value)
+	}
+}

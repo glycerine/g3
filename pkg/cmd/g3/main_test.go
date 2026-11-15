@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_fp_01-F1: nonlinear BMC inherits the m_mbqi a linear query left.
+	"fp_bmc_nonlinear_inherits_linear_mbqi.smt2": "sat\nunknown\n",
 	// AUDIT.md qe_04-F1: nlarith_plugin assign/subst apply factor_rewriter and th_rewriter.
 	"qe_nlarith_exists_square.smt2": "(goals\n(goal\n  (exists ((x!0 Real)) (= (* x!0 x!0) y))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md qe_04-F1: nlarith_plugin assign/subst apply factor_rewriter and th_rewriter.

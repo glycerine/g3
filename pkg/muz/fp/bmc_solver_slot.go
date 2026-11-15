@@ -22,6 +22,10 @@ type bmcSolverSlot struct {
 	// fresh records that bmc::query's reset already ran for the current
 	// query; a Go-only retry of the same query resets again.
 	fresh bool
+	// mbqi is the bmc engine's persistent m_fparams.m_mbqi as left by the
+	// last encoding setup(); nil means the smt_params default. linear and
+	// qlinear setup() assign it, nonlinear setup() leaves it unchanged.
+	mbqi *bool
 	// owner is the engine (bmc) whose m_rule_trace and m_answer the query
 	// clones replace.
 	owner *PropositionalEngine

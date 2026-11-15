@@ -20,9 +20,10 @@ import (
 
 var errRetryUnslicedProof = errors.New("muz/fp: retry proof without slicing")
 
-// configureBMCSolverParams installs the three source setup profiles. Nonlinear
-// BMC leaves MBQI at its inherited default; linear BMC disables it and QBMC
-// enables it explicitly.
+// configureBMCSolverParams installs the three source setup profiles. Linear
+// BMC disables MBQI and QBMC enables it; both assign the engine's persistent
+// m_fparams.m_mbqi. Nonlinear BMC leaves m_mbqi as the previous setup() of the
+// same engine left it (the source assignment is commented out).
 func (e *PropositionalEngine) configureBMCSolverParams(local *uparams.ParamsRef, linear, quantified bool) error {
 	if e == nil || e.params == nil || local == nil || quantified && !linear {
 		return ErrPropositionalEngine
@@ -31,9 +32,17 @@ func (e *PropositionalEngine) configureBMCSolverParams(local *uparams.ParamsRef,
 	if err := e.params.SetBoolName(local, &compact, true); err != nil {
 		return err
 	}
+	mbqi := "mbqi"
 	if linear {
-		mbqi := "mbqi"
 		if err := e.params.SetBoolName(local, &mbqi, quantified); err != nil {
+			return err
+		}
+		if e.bmcSlot != nil {
+			value := quantified
+			e.bmcSlot.mbqi = &value
+		}
+	} else if e.bmcSlot != nil && e.bmcSlot.mbqi != nil {
+		if err := e.params.SetBoolName(local, &mbqi, *e.bmcSlot.mbqi); err != nil {
 			return err
 		}
 	}
@@ -289,13 +298,13 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 	}
 	defer func() { resultErr = errors.Join(resultErr, e.params.Del(&local)) }()
 	quantified := linear && e.backend == "qbmc"
-	if err = e.configureBMCSolverParams(&local, linear, quantified); err != nil {
-		return lbool.Undef, err
-	}
 	// The engine's kernel (m_solver) was reset by bmc::query; the compile
 	// step then sets m_fparams for the selected encoding.
 	solver, err := e.bmcQuerySolver()
 	if err != nil {
+		return lbool.Undef, err
+	}
+	if err = e.configureBMCSolverParams(&local, linear, quantified); err != nil {
 		return lbool.Undef, err
 	}
 	if err = solver.UpdateParams(&local); err != nil {
