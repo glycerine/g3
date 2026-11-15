@@ -12,25 +12,10 @@ func (s *RuleSet) Strata() ([][]ast.ASTHandle, error) {
 	if !s.finalized {
 		return nil, fmt.Errorf("muz/base: finalize rule set before reading strata")
 	}
-	max := uint32(0)
-	for _, value := range s.strata {
-		if value > max {
-			max = value
-		}
-	}
-	result := make([][]ast.ASTHandle, max+1)
-	seen := make(map[ast.ASTHandle]bool)
-	appendDeclaration := func(declaration ast.ASTHandle) {
-		if !seen[declaration] {
-			seen[declaration] = true
-			result[s.strata[declaration]] = append(result[s.strata[declaration]], declaration)
-		}
-	}
-	for _, declaration := range s.headOrder {
-		appendDeclaration(declaration)
-		for _, dependency := range s.dependencies[declaration] {
-			appendDeclaration(dependency)
-		}
+	// rule_stratifier::get_strats, verbatim.
+	result := make([][]ast.ASTHandle, len(s.strats))
+	for i := range s.strats {
+		result[i] = append([]ast.ASTHandle(nil), s.strats[i]...)
 	}
 	return result, nil
 }
