@@ -888,6 +888,29 @@ func TestSequenceRewriterDeclarationDispatch(t *testing.T) {
 		t.Fatalf("two-argument index dispatch: status=%d kind=%d error=%v", status, kind, e)
 	}
 
+	// AUDIT.md ast_rewriter_05-F1: mk_app_core returns the sole argument
+	// of a unary re.++ / re.union.
+	toRe, err := m.MkSequenceToRegex(a)
+	astTestMust(t, err)
+	astTestPin(t, m, toRe)
+	for name, build := range map[string]func(l, r ast.ASTHandle) (ast.ASTHandle, error){
+		"re.++":    m.MkRegexConcat,
+		"re.union": m.MkRegexUnion,
+	} {
+		binary, e := build(toRe, toRe)
+		astTestMust(t, e)
+		astTestPin(t, m, binary)
+		regexDecl, e := m.GetDecl(binary)
+		astTestMust(t, e)
+		status, err = rw.RewriteApp(regexDecl, ast.SliceArguments([]ast.ASTHandle{toRe}), out)
+		astTestMust(t, err)
+		result, err = m.RefGet(out)
+		astTestMust(t, err)
+		if status != RewriteDone || result != toRe {
+			t.Fatalf("unary %s dispatch: status=%d result=%v want %v", name, status, result, toRe)
+		}
+	}
+
 	truth, err := m.MkTrue()
 	astTestMust(t, err)
 	truthDecl, err := m.GetDecl(truth)

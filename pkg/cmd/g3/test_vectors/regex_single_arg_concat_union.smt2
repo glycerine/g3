@@ -1,0 +1,5 @@
+(declare-const x String)
+(simplify (re.++ (str.to.re "a")))
+(simplify (re.union (str.to.re "a")))
+(simplify (str.in.re x (re.++ (str.to.re "a"))))
+(simplify (str.in.re x (re.union (str.to.re "a"))))

@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_rewriter_05-F1: mk_app_core returns the sole argument of a
+	// unary re.++ / re.union.
+	"regex_single_arg_concat_union.smt2": "(str.to.re \"a\")\n(str.to.re \"a\")\n(= x \"a\")\n(= x \"a\")\n",
 	// AUDIT.md opt_02-F2: sortmax evaluates soft terms without model completion.
 	"opt_sortmax_negated_soft.smt2": "sat\n(model \n  (define-fun x3 () Bool\n    false)\n  (define-fun x2 () Bool\n    false)\n)\n",
 	// AUDIT.md model_01-F3: mk_array_eq_core iterates table1 in core_hashtable order.

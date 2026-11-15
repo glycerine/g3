@@ -190,10 +190,16 @@ func (r *SequenceRewriter) RewriteApp(decl ast.ASTHandle, args ast.AppArguments,
 			return r.RewriteRegexOptional(values[0], out)
 		}
 	case 17:
+		if len(values) == 1 {
+			return RewriteDone, r.manager.SetRef(out, values[0])
+		}
 		if len(values) == 2 {
 			return r.RewriteRegexConcat(values[0], values[1], out)
 		}
 	case 18:
+		if len(values) == 1 {
+			return RewriteDone, r.manager.SetRef(out, values[0])
+		}
 		if len(values) == 2 {
 			return r.RewriteRegexUnion(values[0], values[1], out)
 		}
