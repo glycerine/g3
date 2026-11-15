@@ -351,7 +351,11 @@ func (t *FullTranslation) translateMain(proof ast.ASTHandle, expectClause bool, 
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		equivalence, e := t.base.manager.Make(OperatorIff, left, left)
+		operator, e := t.base.manager.Operator(conclusion)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		equivalence, e := t.base.manager.Make(operator, left, left)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}

@@ -458,3 +458,50 @@ func TestInterpolationManagerSimplifierConfigurationGuard(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// interp_02-F6: PR_COMMUTATIVITY builds comm_equiv with op(con), so a
+// commutativity over Int terms gives an Equal, not an ill-sorted Iff.
+func TestFullTranslationCommutativityUsesConclusionOperator(t *testing.T) {
+	m, manager := interpRewritingManagerFixture(t)
+	integer, err := manager.IntType()
+	interpMust(t, err)
+	x, err := manager.MakeVariable("commute-int-x", integer)
+	interpMust(t, err)
+	x = interpPin(t, m, x)
+	y, err := manager.MakeVariable("commute-int-y", integer)
+	interpMust(t, err)
+	y = interpPin(t, m, y)
+	zero, err := manager.MakeIntText("0")
+	interpMust(t, err)
+	xFrame, err := manager.Make(OperatorLE, x, zero)
+	interpMust(t, err)
+	yFrame, err := manager.Make(OperatorLE, y, zero)
+	interpMust(t, err)
+	base, err := NewBase(manager, []ast.ASTHandle{xFrame, yFrame}, nil, nil)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, base.Close()) })
+	translation, err := NewFullTranslation(base)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, translation.Close()) })
+	direct, err := NewDirectProofInterpolator(base, DownwardScopeRange(0), false)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, direct.Close()) })
+	sum, err := manager.Make(OperatorPlus, x, y)
+	interpMust(t, err)
+	sum = interpPin(t, m, sum)
+	commutativity, err := m.MkProofCommutativity(sum)
+	interpMust(t, err)
+	commutativity = interpPin(t, m, commutativity)
+	commuted, err := translation.translateMain(commutativity, false, direct, newTranslationMemo())
+	interpMust(t, err)
+	if marked, e := translation.isCommuted(commuted); e != nil || !marked {
+		t.Fatal("commutativity marker", marked, e)
+	}
+	equivalence, err := manager.Arg(commuted, 1)
+	interpMust(t, err)
+	expected, err := manager.Make(OperatorEqual, sum, sum)
+	interpMust(t, err)
+	if equivalence != expected {
+		t.Fatal("comm_equiv is not (= (+ x y) (+ x y))")
+	}
+}
