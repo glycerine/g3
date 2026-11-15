@@ -106,6 +106,34 @@ func TestNLSATTacticReadsPolynomialFactorizationParameters(t *testing.T) {
 	}
 }
 
+// AUDIT.md nlsat_03-F1: the generated nlsat_params accessors fall back to
+// the global nlsat module, so set-option :nlsat.X reaches the solver.
+func TestNLSATTacticReadsGlobalModuleParameters(t *testing.T) {
+	fixture := newGoalCompilerFixture(t)
+	value, err := NewNLSATTactic(fixture.manager, fixture.context, fixture.globals, nil, fixture.services)
+	compilerMust(t, err)
+	t.Cleanup(func() { compilerMust(t, value.Close()) })
+	compilerMust(t, fixture.globals.SourceSetName("nlsat.seed", "5"))
+	compilerMust(t, fixture.globals.SourceSetName("nlsat.max_conflicts", "3"))
+	t.Cleanup(func() { compilerMust(t, fixture.globals.SourceReset()) })
+	got, err := value.solverConfig(nil, nil)
+	compilerMust(t, err)
+	if got.Seed != 5 || got.MaxConflicts != 3 {
+		t.Fatalf("global nlsat params: seed=%d max_conflicts=%d, want 5 and 3", got.Seed, got.MaxConflicts)
+	}
+	params, err := fixture.context.NewValue()
+	compilerMust(t, err)
+	t.Cleanup(func() { compilerMust(t, fixture.context.Del(&params)) })
+	name := "seed"
+	compilerMust(t, fixture.context.SetUIntName(&params, &name, 9))
+	compilerMust(t, value.UpdateParams(&params))
+	got, err = value.solverConfig(nil, nil)
+	compilerMust(t, err)
+	if got.Seed != 9 || got.MaxConflicts != 3 {
+		t.Fatalf("local params must override the module: seed=%d max_conflicts=%d", got.Seed, got.MaxConflicts)
+	}
+}
+
 func TestNLSATTacticRetainsParametersAcrossTranslation(t *testing.T) {
 	fixture := newGoalCompilerFixture(t)
 	value, err := NewNLSATTactic(fixture.manager, fixture.context, fixture.globals, nil, fixture.services)

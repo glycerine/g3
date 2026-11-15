@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md nlsat_03-F1: nlqsat's nlsat params fall back to the global nlsat module.
+	"nlqsat_global_max_conflicts.smt2": "unknown\n",
+	// AUDIT.md nlsat_03-F1: nlsat params fall back to the global nlsat module.
+	"nlsat_global_max_conflicts.smt2": "unknown\n",
 	// AUDIT.md nlsat_02-F1: max_conflicts=0 is not remapped to unlimited.
 	"nlsat_max_conflicts_zero.smt2": "unknown\n",
 	// AUDIT.md qe_01 Needs verification: constrain_free_vars must stop when internalizing a bound compresses the row (was index out of range).

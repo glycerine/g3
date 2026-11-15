@@ -1,0 +1,6 @@
+(set-option :nlsat.max_conflicts 1)
+(declare-const x Real)
+(declare-const y Real)
+(assert (> (* x y) 1.0))
+(assert (< (+ (* x x) (* y y)) 1.0))
+(check-sat-using qfnra-nlsat)

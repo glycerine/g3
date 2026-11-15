@@ -144,12 +144,20 @@ func (t *NLQSATTactic) Close() error {
 	return nil
 }
 
-func (t *NLQSATTactic) solverConfig(polynomials *polynomial.MultivariatePolynomialManager, algebraic *polynomial.AlgebraicManager) (nlsat.SolverConfig, error) {
+// solverConfig is nlqsat::updt_params -> solver::imp::updt_params: the
+// generated nlsat_params accessors read the local params_ref first and fall
+// back to the global "nlsat" module (gparams::get_module("nlsat")).
+func (t *NLQSATTactic) solverConfig(polynomials *polynomial.MultivariatePolynomialManager, algebraic *polynomial.AlgebraicManager) (_ nlsat.SolverConfig, err error) {
+	global, err := t.config.Globals.SourceGetModuleName("nlsat")
+	if err != nil {
+		return nlsat.SolverConfig{}, err
+	}
+	defer func() { err = errors.Join(err, t.config.Context.Del(&global)) }()
 	uintParameter := func(name string, fallback uint32) (uint32, error) {
-		return t.config.Context.GetUIntName(&t.params, &name, fallback)
+		return t.config.Context.GetUIntFallbackName(&t.params, &name, &global, fallback)
 	}
 	boolParameter := func(name string, fallback bool) (bool, error) {
-		return t.config.Context.GetBoolName(&t.params, &name, fallback)
+		return t.config.Context.GetBoolFallbackName(&t.params, &name, &global, fallback)
 	}
 	megabytes, err := uintParameter("max_memory", math.MaxUint32)
 	if err != nil {

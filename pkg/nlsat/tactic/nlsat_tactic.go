@@ -201,12 +201,20 @@ func (t *NLSATTactic) ResetStatistics() error {
 func (t *NLSATTactic) SetLogic(usymbol.Symbol) error          { return t.open() }
 func (t *NLSATTactic) SetProgressCallback(func(uint32)) error { return t.open() }
 
-func (t *NLSATTactic) solverConfig(polynomials *polynomial.MultivariatePolynomialManager, algebraic *polynomial.AlgebraicManager) (nlsat.SolverConfig, error) {
+// solverConfig is solver::imp::updt_params: the generated nlsat_params
+// accessors read the local params_ref first and fall back to the global
+// "nlsat" module (gparams::get_module("nlsat")).
+func (t *NLSATTactic) solverConfig(polynomials *polynomial.MultivariatePolynomialManager, algebraic *polynomial.AlgebraicManager) (_ nlsat.SolverConfig, err error) {
+	global, err := t.globals.SourceGetModuleName("nlsat")
+	if err != nil {
+		return nlsat.SolverConfig{}, err
+	}
+	defer func() { err = errors.Join(err, t.context.Del(&global)) }()
 	uintParameter := func(name string, fallback uint32) (uint32, error) {
-		return t.context.GetUIntName(&t.params, &name, fallback)
+		return t.context.GetUIntFallbackName(&t.params, &name, &global, fallback)
 	}
 	boolParameter := func(name string, fallback bool) (bool, error) {
-		return t.context.GetBoolName(&t.params, &name, fallback)
+		return t.context.GetBoolFallbackName(&t.params, &name, &global, fallback)
 	}
 	megabytes, err := uintParameter("max_memory", math.MaxUint32)
 	if err != nil {
@@ -366,7 +374,15 @@ func (t *NLSATTactic) Apply(goal *basetactic.Goal, result *basetactic.TacticResu
 	if err != nil {
 		return err
 	}
-	if err = compiler.SetFactor(config.Factor); err != nil {
+	// goal2nlsat::updt_params reads m_factor = p.get_bool("factor", true)
+	// from the tactic params only; the solver's explain factor (config.Factor)
+	// also falls back to the nlsat module.
+	factorName := "factor"
+	compilerFactor, err := t.context.GetBoolName(&t.params, &factorName, true)
+	if err != nil {
+		return err
+	}
+	if err = compiler.SetFactor(compilerFactor); err != nil {
 		return err
 	}
 	factorParams, cause := t.factorizationParams()
