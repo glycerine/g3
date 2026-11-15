@@ -96,3 +96,42 @@ func TestProbeGoalProductionConfiguration(t *testing.T) {
 		astTestMust(t, p.Close())
 	}
 }
+
+// AUDIT.md tactic_top_01-F2: C++ encodes lt/gt as not(le), so a NaN operand
+// makes both true, while le/ge are false.
+func TestProbeComparisonsWithNaNMatchSourceEncoding(t *testing.T) {
+	m := astTestManager(t)
+	g := goalTestNew(t, m, false, false)
+	b := m.Budget()
+	z1, err := NewProbe(b, ProbeConstant, 0)
+	astTestMust(t, err)
+	z2, err := NewProbe(b, ProbeConstant, 0)
+	astTestMust(t, err)
+	nan, err := NewBinaryProbe(b, ProbeDivide, z1, z2)
+	astTestMust(t, err)
+	one, err := NewProbe(b, ProbeConstant, 1)
+	astTestMust(t, err)
+	tests := []struct {
+		kind ProbeKind
+		want float64
+	}{
+		{ProbeLess, 1}, {ProbeGreater, 1}, {ProbeLessEqual, 0}, {ProbeGreaterEqual, 0},
+	}
+	roots := []*Probe{}
+	for _, tc := range tests {
+		p, err := NewBinaryProbe(b, tc.kind, nan, one)
+		astTestMust(t, err)
+		roots = append(roots, p)
+		got, err := p.Eval(g)
+		astTestMust(t, err)
+		if got != tc.want {
+			t.Fatalf("kind %d: got %v want %v", tc.kind, got, tc.want)
+		}
+	}
+	for _, p := range roots {
+		astTestMust(t, p.Close())
+	}
+	if !nan.Closed || !one.Closed || !z1.Closed || !z2.Closed {
+		t.Fatal("NaN comparison probes did not release children")
+	}
+}

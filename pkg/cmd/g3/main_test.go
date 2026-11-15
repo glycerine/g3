@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_top_01-F2: probe > and < are not(le) in C++, true on NaN.
+	"probe_nan_compare.smt2": "(error \"tactic failed: fail-if tactic\")\n",
 	// AUDIT.md tactic_bv_01-F1: elim-small-bv num_steps is local to each
 	// reduce_quantifier call; a later quantifier must not become true.
 	"elim_small_bv_step_limit_per_quantifier.smt2": "unsat\n",

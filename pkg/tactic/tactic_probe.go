@@ -271,11 +271,14 @@ func (p *Probe) Eval(g *Goal) (float64, error) {
 	case ProbeLessEqual:
 		return boolProbeValue(left <= right), nil
 	case ProbeLess:
-		return boolProbeValue(left < right), nil
+		// C++ mk_lt(p1, p2) = mk_not(mk_le(p2, p1)); differs from < on NaN.
+		return boolProbeValue(!(right <= left)), nil
 	case ProbeGreaterEqual:
-		return boolProbeValue(left >= right), nil
+		// C++ mk_ge(p1, p2) = mk_le(p2, p1).
+		return boolProbeValue(right <= left), nil
 	case ProbeGreater:
-		return boolProbeValue(left > right), nil
+		// C++ mk_gt(p1, p2) = mk_lt(p2, p1) = mk_not(mk_le(p1, p2)).
+		return boolProbeValue(!(left <= right)), nil
 	case ProbeAdd:
 		return left + right, nil
 	case ProbeSubtract:
