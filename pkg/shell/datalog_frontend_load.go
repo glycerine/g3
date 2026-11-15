@@ -9,6 +9,9 @@ import (
 	"time"
 
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	utext "github.com/glycerine/g3/pkg/util/text"
+
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 // datalogFrontendVerbose is read_datalog's IF_VERBOSE(1, ...); these
@@ -39,6 +42,10 @@ func (f *DatalogFrontend) Load(path string) error {
 		return err
 	}
 	f.started, f.path = time.Now(), path
+	// IF_VERBOSE(1, "Z3 Datalog Engine") (AUDIT.md FUZZ-F5; g3trace only).
+	if err := datalogFrontendVerbose(1, "Z3 Datalog Engine\n"); err != nil {
+		return err
+	}
 	// read_datalog constructs its context with a local Datalog engine
 	// choice, overriding a conflicting fixedpoint module engine parameter.
 	if err := f.context.SelectDatalogFrontendEngine(); err != nil {
@@ -65,8 +72,48 @@ func (f *DatalogFrontend) Load(path string) error {
 		return &DatalogParseError{Message: err.Error() + "\n", Cause: fmt.Errorf("Datalog parse %s: %w", path, err)}
 	}
 	f.loaded = true
+	// IF_VERBOSE(1, "parsing finished"), IF_VERBOSE(1, "running
+	// saturation..."), then ctx.close() and IF_VERBOSE(10,
+	// original_rules.display_deps(verbose_stream())).
+	if err = datalogFrontendVerbose(1, "parsing finished\nrunning saturation...\n"); err != nil {
+		return err
+	}
+	if diagnostic.VerboseProgress {
+		if enabled, verr := diagnostic.ProcessVerboseEnabled(10); verr != nil {
+			return verr
+		} else if enabled {
+			stream, verr := diagnostic.BorrowProcessVerboseStream()
+			if verr != nil {
+				return verr
+			}
+			if verr = f.context.WriteFixedpointRuleDependencies(datalogVerboseWriter{stream}); verr != nil {
+				return verr
+			}
+			if verr = stream.Flush(); verr != nil {
+				return verr
+			}
+		}
+	}
 	if err = datalogFrontendVerbose("parsing finished\n"); err != nil {
 		return err
 	}
 	return datalogFrontendVerbose("running saturation...\n")
+}
+
+// datalogFrontendVerbose is IF_VERBOSE(level, verbose_stream() << text),
+// compiled only into g3trace builds (AUDIT.md FUZZ-F5).
+func datalogFrontendVerbose(level uint32, text string) error {
+	if !diagnostic.VerboseProgress {
+		return nil
+	}
+	return diagnostic.ProgressVerbose(level, text)
+}
+
+type datalogVerboseWriter struct{ stream *utext.NumericTextStream }
+
+func (w datalogVerboseWriter) Write(p []byte) (int, error) {
+	if err := w.stream.AppendCString(string(p)); err != nil {
+		return 0, err
+	}
+	return len(p), nil
 }

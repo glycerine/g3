@@ -5,6 +5,7 @@ package ddnf
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
@@ -139,6 +140,15 @@ func (c *Compiler) compileRule(source *base.Rule, oldRules, newRules *base.RuleS
 		return err
 	}
 	if err = newRules.Add(compiledRule); err != nil {
+		return errors.Join(err, compiledRule.Close())
+	}
+	// IF_VERBOSE(20, r_new->display(m_ctx, verbose_stream())) (AUDIT.md
+	// FUZZ-F5; g3trace builds only).
+	if err = verbose(20, func() (string, error) {
+		var out strings.Builder
+		err := c.rules.WriteRuleDisplayWithProfile(&out, compiledRule, false)
+		return out.String(), err
+	}); err != nil {
 		return errors.Join(err, compiledRule.Close())
 	}
 	if err = compiledRule.Close(); err != nil {

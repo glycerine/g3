@@ -12,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	muzfp "github.com/glycerine/g3/pkg/muz/fp"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
@@ -381,6 +382,13 @@ func (c *Context) queryFixedpoint(query ast.ASTHandle, params *uparams.ParamsRef
 	if err != nil {
 		return lbool.Undef, err
 	}
+	// dl_query_cmd::execute: IF_VERBOSE(10, "(query)") before the timer
+	// (AUDIT.md FUZZ-F5; g3trace builds only).
+	if command && diagnostic.VerboseProgress {
+		if err = diagnostic.ProgressVerbose(10, "(query)\n"); err != nil {
+			return lbool.Undef, err
+		}
+	}
 	scope, err := c.beginFixedpointTimeout(params, command)
 	if err != nil {
 		return lbool.Undef, err
@@ -654,4 +662,14 @@ func (c *Context) FixedpointRules() ([]ast.ASTRef, error) {
 		return nil, err
 	}
 	return engine.RuleFormulas()
+}
+
+// WriteFixedpointRuleDependencies is rule_set::display_deps of the closed
+// fixedpoint rules (read_datalog's IF_VERBOSE(10, ...)).
+func (c *Context) WriteFixedpointRuleDependencies(out io.Writer) error {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return err
+	}
+	return engine.WriteRuleDependencies(out)
 }

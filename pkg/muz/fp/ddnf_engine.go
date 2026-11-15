@@ -12,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/ddnf"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -61,12 +62,19 @@ func (e *PropositionalEngine) queryDDNF() (result lbool.LBool, resultErr error) 
 	if output == nil {
 		output = os.Stdout
 	}
+	// IF_VERBOSE(10, "(ddnf.preprocess)") (AUDIT.md FUZZ-F5; g3trace only).
+	if err = ddnf.Verbose(10, "(ddnf.preprocess)\n"); err != nil {
+		return lbool.Undef, err
+	}
 	ok, err := preprocessor.PreprocessRulesWithDiagnostic(e.set, e.rules, output)
 	if err != nil || !ok {
 		if err != nil {
 			return lbool.Undef, fmt.Errorf("ddnf preprocess: %w", err)
 		}
 		return lbool.Undef, nil
+	}
+	if err = ddnf.Verbose(10, "(ddnf.compile)\n"); err != nil {
+		return lbool.Undef, err
 	}
 	compiler, err := ddnf.NewCompiler(preprocessor, e.rules)
 	if err != nil {
@@ -81,6 +89,20 @@ func (e *PropositionalEngine) queryDDNF() (result lbool.LBool, resultErr error) 
 	compiled, err := compiler.CompileRuleSet(e.set)
 	if err != nil {
 		return lbool.Undef, err
+	}
+	// IF_VERBOSE(15, m_ddnfs.display(verbose_stream()))
+	if diagnostic.VerboseProgress {
+		if enabled, verr := diagnostic.ProcessVerboseEnabled(15); verr != nil {
+			return lbool.Undef, errors.Join(verr, compiled.Close())
+		} else if enabled {
+			text, verr := e.ddnf.registry.Display()
+			if verr == nil {
+				verr = diagnostic.ProgressVerbose(15, text)
+			}
+			if verr != nil {
+				return lbool.Undef, errors.Join(verr, compiled.Close())
+			}
+		}
 	}
 	// The formatter may return a native cleanup owner. Drain it before the
 	// compiled rule set, preserving both scopes if cleanup has to retry.

@@ -182,6 +182,13 @@ func (c *Core) Insert(vector *rel.TBV) (*Node, error) {
 	newVectors := []*rel.TBV{vector}
 	for i := 0; i < len(newVectors); i++ {
 		candidateVector := newVectors[i]
+		// IF_VERBOSE(10, "insert: " << nt)
+		if err := verbose(10, func() (string, error) {
+			t, err := c.tbvText(candidateVector)
+			return "insert: " + t + "\n", err
+		}); err != nil {
+			return nil, err
+		}
 		candidate, err := c.find(candidateVector)
 		if errors.Is(err, ErrCore) {
 			candidate = &Node{manager: c, vector: candidateVector, id: uint32(len(c.nodes))}
@@ -202,6 +209,17 @@ func (c *Core) Insert(vector *rel.TBV) (*Node, error) {
 }
 
 func (c *Core) insertUnder(root, candidate *Node, intersections *[]*rel.TBV) error {
+	// IF_VERBOSE(10, "root: " << root << " new node " << new_tbv)
+	if err := verbose(10, func() (string, error) {
+		r, err := c.tbvText(root.vector)
+		if err != nil {
+			return "", err
+		}
+		n, err := c.tbvText(candidate.vector)
+		return "root: " + r + " new node " + n + "\n", err
+	}); err != nil {
+		return err
+	}
 	contains, err := c.vectors.Contains(root.vector, candidate.vector)
 	if err != nil {
 		return err
@@ -219,6 +237,17 @@ func (c *Core) insertUnder(root, candidate *Node, intersections *[]*rel.TBV) err
 		c.stats.Comparisons++
 		contains, err = c.vectors.Contains(child.vector, candidate.vector)
 		if err != nil {
+			return err
+		}
+		// IF_VERBOSE(10, "child " << child << " contains: " << bool)
+		if err = verbose(10, func() (string, error) {
+			t, err := c.tbvText(child.vector)
+			flag := "0"
+			if contains {
+				flag = "1"
+			}
+			return "child " + t + " contains: " + flag + "\n", err
+		}); err != nil {
 			return err
 		}
 		if contains {
@@ -252,6 +281,13 @@ func (c *Core) insertUnder(root, candidate *Node, intersections *[]*rel.TBV) err
 		}
 		if contains {
 			subsetChildren = append(subsetChildren, child)
+			// IF_VERBOSE(10, "contains child" << child)
+			if err = verbose(10, func() (string, error) {
+				t, err := c.tbvText(child.vector)
+				return "contains child" + t + "\n", err
+			}); err != nil {
+				return err
+			}
 			c.stats.Comparisons++
 			continue
 		}
@@ -262,6 +298,13 @@ func (c *Core) insertUnder(root, candidate *Node, intersections *[]*rel.TBV) err
 		}
 		if wellFormed {
 			*intersections = append(*intersections, intersection)
+			// IF_VERBOSE(10, "intersect child " << child)
+			if err = verbose(10, func() (string, error) {
+				t, err := c.tbvText(child.vector)
+				return "intersect child " + t + "\n", err
+			}); err != nil {
+				return err
+			}
 			intersectionLive = false
 			intersection, err = c.vectors.Allocate()
 			if err != nil {
@@ -328,8 +371,24 @@ func (c *Core) WellFormed() (bool, error) {
 		c.marked[node.id] = true
 		for _, child := range node.children {
 			contains, err := c.vectors.Contains(node.vector, child.vector)
-			if err != nil || !contains {
+			if err != nil {
 				return false, err
+			}
+			if !contains {
+				// IF_VERBOSE(0, "parent " << n << " does not contains child: "
+				// << child; display(verbose_stream()))
+				return false, verbose(0, func() (string, error) {
+					p, err := c.tbvText(node.vector)
+					if err != nil {
+						return "", err
+					}
+					ch, err := c.tbvText(child.vector)
+					if err != nil {
+						return "", err
+					}
+					d, err := c.Display()
+					return "parent " + p + " does not contains child: " + ch + d, err
+				})
 			}
 			todo = append(todo, child)
 		}

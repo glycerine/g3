@@ -3706,3 +3706,29 @@ func (s *ruleManagerShare) release() error {
 	s.owners = 0
 	return nil
 }
+
+// WriteRuleDependencies is read_datalog's ctx.close() followed by
+// original_rules.display_deps(out): the rule set is flushed and closed, then
+// each stratum's "p -> q" dependencies are written.
+func (e *PropositionalEngine) WriteRuleDependencies(out io.Writer) error {
+	if err := e.open(); err != nil {
+		return err
+	}
+	if err := e.flushPendingRules(); err != nil {
+		return err
+	}
+	finalized, err := e.set.IsFinalized()
+	if err != nil {
+		return err
+	}
+	if !finalized {
+		valid, err := e.set.Finalize()
+		if err != nil {
+			return err
+		}
+		if !valid {
+			return ErrUnstratifiedNegation
+		}
+	}
+	return e.set.WriteDependencies(out)
+}

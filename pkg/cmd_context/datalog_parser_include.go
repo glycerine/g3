@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 func (p *datalogParser) parseInclude(domains bool) error {
@@ -16,6 +18,10 @@ func (p *datalogParser) parseInclude(domains bool) error {
 		return p.expected("include filename string")
 	}
 	filename := p.current.text
+	// IF_VERBOSE(2, "include: " << filename) (AUDIT.md FUZZ-F5; g3trace only).
+	if err := datalogParserVerbose(2, "include: "+filename+"\n"); err != nil {
+		return err
+	}
 	if !filepath.IsAbs(filename) {
 		filename = filepath.Join(p.path, filename)
 	}
@@ -44,4 +50,14 @@ func (p *datalogParser) parseInclude(domains bool) error {
 		return p.advance()
 	}
 	return nil
+}
+
+// datalogParserVerbose is IF_VERBOSE(level, verbose_stream() << text) for
+// the datalog/WPA parsers, compiled only into g3trace builds (AUDIT.md
+// FUZZ-F5).
+func datalogParserVerbose(level uint32, text string) error {
+	if !diagnostic.VerboseProgress {
+		return nil
+	}
+	return diagnostic.ProgressVerbose(level, text)
 }
