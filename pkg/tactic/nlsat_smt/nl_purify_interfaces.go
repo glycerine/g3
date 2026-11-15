@@ -19,6 +19,8 @@ type nlInterfaceRewriter struct {
 	cache                map[ast.ASTHandle]ast.ASTHandle
 	cacheOrder           *ast.ObjMap // obj_map m_interface_cache table order
 	memo                 map[ast.ASTHandle]ast.ASTHandle
+	memoRefs             []ast.ASTRef // the rewriter cache's references
+	root                 ast.ASTHandle
 	refs                 []ast.ASTRef
 	newReals             []ast.ASTHandle
 	interfaceValues      []ast.ASTHandle
@@ -119,9 +121,6 @@ func (r *nlInterfaceRewriter) rewrite(term ast.ASTHandle) (ast.ASTHandle, error)
 	if r == nil || r.manager == nil {
 		return ast.ASTHandle{}, ast.ErrASTHandle
 	}
-	if value, ok := r.memo[term]; ok {
-		return value, nil
-	}
 	kind, err := r.manager.GetKind(term)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -136,6 +135,15 @@ func (r *nlInterfaceRewriter) rewrite(term ast.ASTHandle) (ast.ASTHandle, error)
 	count, err := r.manager.GetNumArgs(term)
 	if err != nil {
 		return ast.ASTHandle{}, err
+	}
+	cache, err := mustCache(r.manager, term, r.root, count)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if cache {
+		if value, ok := r.memo[term]; ok {
+			return value, nil
+		}
 	}
 	args := make([]ast.ASTHandle, count)
 	changed := false
@@ -184,15 +192,17 @@ func (r *nlInterfaceRewriter) rewrite(term ast.ASTHandle) (ast.ASTHandle, error)
 			return ast.ASTHandle{}, e
 		}
 	}
-	if err = r.hold(value); err != nil {
-		return ast.ASTHandle{}, err
-	}
 	if value != term {
-		if err = r.hold(term); err != nil {
+		if err = r.hold(value); err != nil {
 			return ast.ASTHandle{}, err
 		}
 	}
-	r.memo[term] = value
+	if cache {
+		if err = holdCacheEntry(r.manager, &r.memoRefs, term, value); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		r.memo[term] = value
+	}
 	return value, nil
 }
 
@@ -216,6 +226,10 @@ func (r *nlInterfaceRewriter) rewriteGoal(g, nonlinear *tactic.Goal) error {
 	if proofs {
 		return tactic.NewTacticException("qfufnra-purify does not support proof generation")
 	}
+	// rewrite_goal starts with r.reset(): the cache is cleared.
+	if err = releaseCache(r.manager, &r.memoRefs, r.memo); err != nil {
+		return err
+	}
 	count, err := g.Size()
 	if err != nil {
 		return err
@@ -225,6 +239,8 @@ func (r *nlInterfaceRewriter) rewriteGoal(g, nonlinear *tactic.Goal) error {
 		if err != nil {
 			return err
 		}
+		// rewriter_tpl's m_root: the root is never cached.
+		r.root = original
 		start := len(r.nonlinearDefinitions)
 		value, err := r.rewrite(original)
 		if err != nil {
@@ -250,6 +266,7 @@ func (r *nlInterfaceRewriter) Close() (result error) {
 	if r == nil || r.manager == nil {
 		return nil
 	}
+	result = releaseCache(r.manager, &r.memoRefs, r.memo)
 	for i := len(r.refs) - 1; i >= 0; i-- {
 		result = errors.Join(result, r.manager.DelRef(&r.refs[i]))
 	}

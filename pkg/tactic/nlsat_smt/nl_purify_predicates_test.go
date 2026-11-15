@@ -33,6 +33,11 @@ func TestNLPurifyPredicateRewriteRespectsPolarity(t *testing.T) {
 			r, err := newNLPredicateRewriter(m, goal, polarities)
 			astTestMust(t, err)
 			defer func() { astTestMust(t, r.Close()) }()
+			// A second reference makes the atom shared, so must_cache lets
+			// the second rewrite reuse the cached predicate.
+			shared, err := m.NewRef(atom)
+			astTestMust(t, err)
+			defer func() { astTestMust(t, m.DelRef(&shared)) }()
 			pred, err := r.rewrite(atom)
 			astTestMust(t, err)
 			if len(r.newPredicates) != 1 || r.newPredicates[0] != pred || polarities[pred] != tc.pol {
@@ -127,5 +132,38 @@ func TestNLPurifyInterfaceAndPredicateGoalRewrites(t *testing.T) {
 	astTestMust(t, err)
 	if left != predicates.newPredicates[0] {
 		t.Fatal("goal atom was not abstracted", left, predicates.newPredicates[0])
+	}
+}
+
+// AUDIT.md tactic_small_01-F4: rewriter_core::must_cache never caches the
+// root of a rewrite, so an atom asserted on its own and also shared inside
+// another formula is abstracted twice.
+func TestNLPurifyRootAtomGetsFreshPredicateLikeRewriterTpl(t *testing.T) {
+	m := astTestManager(t)
+	family, err := m.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	real, err := m.MkFamilySort(family, 0, nil)
+	astTestMust(t, err)
+	boolean, err := m.MkBoolSort()
+	astTestMust(t, err)
+	x := analysisConst(t, m, real, "root-x")
+	y := analysisConst(t, m, real, "root-y")
+	p := analysisConst(t, m, boolean, "root-p")
+	h, err := m.MkArithmeticMul(x, x)
+	square := analysisKeep(t, m, h, err)
+	h, err = m.MkArithmeticLT(square, y)
+	atom := analysisKeep(t, m, h, err)
+	h, err = m.MkOr(atom, p)
+	clause := analysisKeep(t, m, h, err)
+	goal, err := tactic.NewGoal(m, false, true, true)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, goal.Close()) }()
+	astTestMust(t, goal.AssertWithProof(atom, ast.ASTHandle{}, ast.ASTDependency{}))
+	astTestMust(t, goal.AssertWithProof(clause, ast.ASTHandle{}, ast.ASTDependency{}))
+	prep, err := prepareNLPurification(goal)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, prep.Close()) }()
+	if len(prep.predicates.newPredicates) != 2 {
+		t.Fatal("root atom shared the cached predicate", len(prep.predicates.newPredicates))
 	}
 }

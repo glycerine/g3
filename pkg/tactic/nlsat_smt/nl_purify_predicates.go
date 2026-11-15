@@ -18,6 +18,8 @@ type nlPredicateRewriter struct {
 	nonlinear     *tactic.Goal
 	polarities    map[ast.ASTHandle]polarity
 	memo          map[ast.ASTHandle]ast.ASTHandle
+	memoRefs      []ast.ASTRef // the rewriter cache's references
+	root          ast.ASTHandle
 	refs          []ast.ASTRef
 	newPredicates []ast.ASTHandle
 }
@@ -105,9 +107,6 @@ func (r *nlPredicateRewriter) rewrite(term ast.ASTHandle) (ast.ASTHandle, error)
 	if r == nil || r.manager == nil {
 		return ast.ASTHandle{}, ast.ErrASTHandle
 	}
-	if value, ok := r.memo[term]; ok {
-		return value, nil
-	}
 	kind, err := r.manager.GetKind(term)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -118,6 +117,15 @@ func (r *nlPredicateRewriter) rewrite(term ast.ASTHandle) (ast.ASTHandle, error)
 	count, err := r.manager.GetNumArgs(term)
 	if err != nil {
 		return ast.ASTHandle{}, err
+	}
+	cache, err := mustCache(r.manager, term, r.root, count)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if cache {
+		if value, ok := r.memo[term]; ok {
+			return value, nil
+		}
 	}
 	args := make([]ast.ASTHandle, count)
 	changed := false
@@ -170,13 +178,12 @@ func (r *nlPredicateRewriter) rewrite(term ast.ASTHandle) (ast.ASTHandle, error)
 			return ast.ASTHandle{}, err
 		}
 	}
-	if err = r.hold(term); err != nil {
-		return ast.ASTHandle{}, err
+	if cache {
+		if err = holdCacheEntry(r.manager, &r.memoRefs, term, value); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		r.memo[term] = value
 	}
-	if err = r.hold(value); err != nil {
-		return ast.ASTHandle{}, err
-	}
-	r.memo[term] = value
 	return value, nil
 }
 
@@ -194,6 +201,10 @@ func (r *nlPredicateRewriter) rewriteGoal(g *tactic.Goal) error {
 	if proofs {
 		return tactic.NewTacticException("qfufnra-purify does not support proof generation")
 	}
+	// rewrite_goal starts with r.reset(): the cache is cleared.
+	if err = releaseCache(r.manager, &r.memoRefs, r.memo); err != nil {
+		return err
+	}
 	count, err := g.Size()
 	if err != nil {
 		return err
@@ -203,6 +214,8 @@ func (r *nlPredicateRewriter) rewriteGoal(g *tactic.Goal) error {
 		if e != nil {
 			return e
 		}
+		// rewriter_tpl's m_root: the root is never cached.
+		r.root = old
 		value, e := r.rewrite(old)
 		if e != nil {
 			return e
@@ -222,6 +235,7 @@ func (r *nlPredicateRewriter) Close() (result error) {
 	if r == nil || r.manager == nil {
 		return nil
 	}
+	result = releaseCache(r.manager, &r.memoRefs, r.memo)
 	for i := len(r.refs) - 1; i >= 0; i-- {
 		result = errors.Join(result, r.manager.DelRef(&r.refs[i]))
 	}
