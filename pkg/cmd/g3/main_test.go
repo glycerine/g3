@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_fp_03-F6: udoc apply_guard failure_case is a query default_exception.
+	"datalog_doc_unhandled_guard.smt2": "(error \"query failed: Guard expression is not handled(bvule (:var 0) (:var 1))\")\nunknown\n",
 	// AUDIT.md muz_fp_03-F5: tr_lazy_sparse is not a table plugin name (sparse fallback).
 	"datalog_default_table_tr_lazy_sparse.smt2": "sat\n(or (and (= (:var 0) #x9) (= (:var 1) #x3))\n    (and (= (:var 0) #x3) (= (:var 1) #x7))\n    (and (= (:var 0) #x7) (= (:var 1) #x1))\n    (and (= (:var 0) #x1) (= (:var 1) #xc))\n    (and (= (:var 0) #xc) (= (:var 1) #x5))\n    (and (= (:var 0) #x9) (= (:var 1) #x7))\n    (and (= (:var 0) #x3) (= (:var 1) #x1))\n    (and (= (:var 0) #x7) (= (:var 1) #xc))\n    (and (= (:var 0) #x1) (= (:var 1) #x5))\n    (and (= (:var 0) #x9) (= (:var 1) #x1))\n    (and (= (:var 0) #x3) (= (:var 1) #xc))\n    (and (= (:var 0) #x7) (= (:var 1) #x5))\n    (and (= (:var 0) #x9) (= (:var 1) #xc))\n    (and (= (:var 0) #x3) (= (:var 1) #x5))\n    (and (= (:var 0) #x9) (= (:var 1) #x5)))\n",
 	// AUDIT.md muz_fp_03-F5: an unknown default_table name falls back to sparse.

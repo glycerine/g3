@@ -13,6 +13,7 @@ import (
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/rel"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 type udocGuardAttempt struct {
@@ -130,13 +131,13 @@ func (c *datalogUDocContext) filterConditionAndProject(working *rel.TypedUDocRel
 	}
 	if len(removed) == 0 {
 		if err = working.FilterInterpreted(mapped); err != nil {
-			return nil, errors.Join(err, ErrUDocDatalogFragment)
+			return nil, udocGuardError(err)
 		}
 		return working, nil
 	}
 	result, err = working.FilterInterpretedAndProject(mapped, removed)
 	if err != nil {
-		return result, errors.Join(err, ErrUDocDatalogFragment)
+		return result, udocGuardError(err)
 	}
 	return result, nil
 }
@@ -191,4 +192,36 @@ func (c *datalogUDocContext) filterInterpretedTailsAndProject(working *rel.Typed
 		variables[variable] = column - shift
 	}
 	return result, nil
+}
+
+// udocGuardError marks a guard the Go doc evaluator does not support as a
+// fragment failure. udoc_relation::apply_guard's own failure_case is a
+// default_exception that rel_query lets escape to dl_query_cmd ("query
+// failed: Guard expression is not handled..."), so it stays unmarked.
+func udocGuardError(err error) error {
+	if soleDefaultException(err) {
+		return err
+	}
+	return errors.Join(err, ErrUDocDatalogFragment)
+}
+
+// soleDefaultException reports whether err is only a source
+// default_exception, possibly behind single-error joins left by cleanup
+// (errors.Join(cause, nil-close)).
+func soleDefaultException(err error) bool {
+	for err != nil {
+		if _, ok := err.(z3exception.DefaultException); ok {
+			return true
+		}
+		if multi, ok := err.(interface{ Unwrap() []error }); ok {
+			children := multi.Unwrap()
+			if len(children) != 1 {
+				return false
+			}
+			err = children[0]
+			continue
+		}
+		return false
+	}
+	return false
 }

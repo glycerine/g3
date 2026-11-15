@@ -61,6 +61,9 @@ func (c *datalogUDocContext) saturateStratified(set *base.RuleSet) (resultErr er
 				}
 				ruleChanged, err := c.evaluateRule(rule)
 				if err != nil {
+					if soleDefaultException(err) {
+						return err
+					}
 					return fmt.Errorf("muz/fp: evaluate UDoc rule %d: %w", index, err)
 				}
 				changed = changed || ruleChanged

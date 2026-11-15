@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 func TestTypedUDocFiniteEqualityFilterProjectAndOwnership(t *testing.T) {
@@ -97,7 +98,9 @@ func TestTypedUDocFiniteEqualityKeepsOrdinaryGuardBoundary(t *testing.T) {
 	equality, err := m.MkEq(left, right)
 	astTestMust(t, err)
 	astTestPin(t, m, equality)
-	if err = source.FilterInterpreted(equality); !errors.Is(err, ErrDOC) {
+	// udoc_relation::apply_guard failure_case (AUDIT.md muz_fp_03-F6).
+	var unhandled z3exception.DefaultException
+	if err = source.FilterInterpreted(equality); !errors.As(err, &unhandled) || unhandled.Message() != "Guard expression is not handled(= (:var 0) (:var 1))" {
 		t.Fatal("ordinary finite equality guard boundary changed", err)
 	}
 	one, err := m.MkDatalogNumeral(1, finite)

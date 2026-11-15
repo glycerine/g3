@@ -6,6 +6,8 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/backtrack"
+	utext "github.com/glycerine/g3/pkg/util/text"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 // CompileGuard translates the retained UDoc guard language into a DOC union.
@@ -460,7 +462,7 @@ func (r *UDocRelation) applyGuard(m *ast.ASTManager, expression ast.ASTHandle, c
 		return errors.Join(e, r.manager.Deallocate(cube))
 	}
 	if kind != ast.ASTApp {
-		return ErrDOC
+		return udocGuardNotHandled(m, expression)
 	}
 	family, err := m.GetFamilyID(expression)
 	if err != nil {
@@ -471,7 +473,7 @@ func (r *UDocRelation) applyGuard(m *ast.ASTManager, expression ast.ASTHandle, c
 		return err
 	}
 	if family != m.BasicFamilyID() {
-		return ErrDOC
+		return udocGuardNotHandled(m, expression)
 	}
 	switch declKind {
 	case ast.ASTOpAnd:
@@ -545,7 +547,12 @@ func (r *UDocRelation) applyGuard(m *ast.ASTManager, expression ast.ASTHandle, c
 		if leftSort == boolean {
 			return r.applyBooleanIff(m, left, right, classes, discarded)
 		}
-		return r.applyBitVectorEquality(m, left, right, classes, discarded)
+		// apply_bv_eq returning false reaches failure_case with g the
+		// equality itself.
+		if e = r.applyBitVectorEquality(m, left, right, classes, discarded); e == ErrDOC {
+			return udocGuardNotHandled(m, expression)
+		}
+		return e
 	case ast.ASTOpIff:
 		left, e := m.GetArg(expression, 0)
 		if e != nil {
@@ -557,8 +564,33 @@ func (r *UDocRelation) applyGuard(m *ast.ASTManager, expression ast.ASTHandle, c
 		}
 		return r.applyBooleanIff(m, left, right, classes, discarded)
 	default:
-		return ErrDOC
+		return udocGuardNotHandled(m, expression)
 	}
+}
+
+// udocGuardNotHandled is udoc_relation::apply_guard's failure_case:
+// throw default_exception("Guard expression is not handled" << mk_pp(g, m)).
+func udocGuardNotHandled(m *ast.ASTManager, guard ast.ASTHandle) (result error) {
+	out, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: m.BudgetField})
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, out.Close()) }()
+	if err = out.AppendCString("Guard expression is not handled"); err != nil {
+		return err
+	}
+	formatted, err := m.SMT2PPExprTree(guard, nil)
+	if err != nil {
+		return err
+	}
+	if err = m.PrintFormatTransient(out, formatted, nil, nil, nil); err != nil {
+		return err
+	}
+	text, err := out.String()
+	if err != nil {
+		return err
+	}
+	return z3exception.NewDefaultException(text)
 }
 
 func (r *UDocRelation) applyBooleanIff(m *ast.ASTManager, left, right ast.ASTHandle, classes *backtrack.UnionFind, discarded []bool) error {
