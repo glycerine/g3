@@ -1133,3 +1133,49 @@ void tst_z3_4_7_1_nlsat_simplify_core_sign() {
     std::cout << "\n  explanation literals true at x0 = -1, x1 = -2/3: " << true_lits << "\n";
     ENSURE(true_lits > 0);
 }
+
+namespace {
+    // Run an SMT-LIB script and return its output.
+    std::string eval_smtlib2(char const* script) {
+        Z3_config cfg = Z3_mk_config();
+        Z3_context ctx = Z3_mk_context(cfg);
+        Z3_del_config(cfg);
+        std::string out = Z3_eval_smtlib2_string(ctx, script);
+        Z3_del_context(ctx);
+        return out;
+    }
+
+    // out must start with expected and, after that, contain no "false":
+    // the scripts end with get-value of their assertions.
+    void expect_valid_answer(char const* test, std::string const& out, char const* expected) {
+        std::cout << test << ":\n" << out;
+        ENSURE(out.compare(0, strlen(expected), expected) == 0);
+        ENSURE(out.find("false") == std::string::npos);
+    }
+}
+
+// x := y^2 is inlined. In x - y^2 > 0 the factor vanishes; substitute_var
+// treats it as an empty product, mk_ineq_literal makes 1 > 0 or 1 < 0 of
+// it, and update_clauses then calls mk_clause with no literals, which
+// segfaults. In (or (> (- x (* y y)) 1) (> (* z z y) 1)) the first factor
+// becomes the constant -1: the atom -1 > 0 over a constant polynomial is
+// kept, and the model violates (> (* z z y) 1). Both are fixed upstream by
+// the 2024 rewrite of the inline_vars simplifier (29e724f78, 8fe357f1f).
+void tst_z3_4_7_1_nlsat_inline_vars() {
+    expect_valid_answer("nlsat_inline_vars zero factor", eval_smtlib2(
+        "(declare-const x Real)\n"
+        "(declare-const y Real)\n"
+        "(assert (= x (* y y)))\n"
+        "(assert (> (- x (* y y)) 0))\n"
+        "(check-sat-using (then simplify purify-arith (using-params nlsat :inline_vars true :reorder false)))\n"),
+        "unsat\n");
+    expect_valid_answer("nlsat_inline_vars constant atom", eval_smtlib2(
+        "(declare-const x Real)\n"
+        "(declare-const y Real)\n"
+        "(declare-const z Real)\n"
+        "(assert (= x (* y y)))\n"
+        "(assert (or (> (- x (* y y)) 1) (> (* z z y) 1)))\n"
+        "(check-sat-using (then simplify purify-arith (using-params nlsat :inline_vars true :reorder false)))\n"
+        "(get-value ((= x (* y y)) (or (> (- x (* y y)) 1) (> (* z z y) 1))))\n"),
+        "sat\n");
+}
