@@ -475,9 +475,9 @@ func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool,
 			if !resolved {
 				return lbool.False, false, nil
 			}
-			// if (!inconsistent()) { restart and conflict-limit checks;
-			// m_dyn_ack_manager.propagate_eh(); } A conflict left by the
-			// learned clause goes straight back to resolve_conflict.
+			// if (!inconsistent()) { restart and conflict-limit checks }
+			// A conflict left by the learned clause goes straight back to
+			// resolve_conflict after propagate_eh.
 			if !k.internalizer.inconsistent {
 				if k.restartDue(restarts) {
 					return lbool.Undef, true, nil
@@ -492,12 +492,11 @@ func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool,
 			if err = k.internalizer.delInactiveLemmasIfDue(); err != nil {
 				return lbool.Undef, false, fmt.Errorf("smt search collect learned clauses: %w", err)
 			}
-			if !k.internalizer.inconsistent {
-				// propagate_eh runs once per resolved conflict, not inside
-				// propagate().
-				if err = k.internalizer.dynamicAck.propagate(); err != nil {
-					return lbool.Undef, false, fmt.Errorf("dynamic Ackermann propagation: %w", err)
-				}
+			// m_dyn_ack_manager.propagate_eh() is outside the
+			// if (!inconsistent()) block: it runs after every resolved
+			// conflict that does not return, not inside propagate().
+			if err = k.internalizer.dynamicAck.propagate(); err != nil {
+				return lbool.Undef, false, fmt.Errorf("dynamic Ackermann propagation: %w", err)
 			}
 			continue
 		}
