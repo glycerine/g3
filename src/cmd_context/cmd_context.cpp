@@ -1330,6 +1330,9 @@ void cmd_context::push() {
     s.m_macros_stack_lim       = m_macros_stack.size();
     s.m_aux_pdecls_lim         = m_aux_pdecls.size();
     s.m_assertions_lim         = m_assertions.size();
+    // FORK FIX #84 (g3 audit, see FORK_BUGFIXES.md): backport of upstream 120467159, 2d358a9a5
+    if (!m_global_decls)
+        pm().push();
     m().limit().push(m_params.rlimit());
     if (m_solver) 
         m_solver->push();
@@ -1446,6 +1449,9 @@ void cmd_context::pop(unsigned n) {
     restore_assertions(s.m_assertions_lim);
     restore_psort_inst(s.m_psort_inst_stack_lim);
     m_scopes.shrink(new_lvl);
+    // FORK FIX #84 (g3 audit, see FORK_BUGFIXES.md): backport of upstream 120467159, 2d358a9a5
+    if (!m_global_decls)
+        pm().pop(n);
     while (n--) {
         m().limit().pop();
     }
@@ -2031,7 +2037,9 @@ void cmd_context::dt_eh::operator()(sort * dt, pdecl* pd) {
             m_owner.insert(a);
         }
     }
-    if (m_owner.m_scopes.size() > 0) {
+    // FORK FIX #84 (g3 audit, see FORK_BUGFIXES.md): backport of upstream 984767509: with global
+    // declarations a pop keeps the constructors, so it must keep the instances too
+    if (m_owner.m_scopes.size() > 0 && !m_owner.m_global_decls) {
         m_owner.pm().inc_ref(pd);
         m_owner.m_psort_inst_stack.push_back(pd);
     }

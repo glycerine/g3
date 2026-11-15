@@ -679,8 +679,11 @@ sort* pdecl_manager::instantiate_datatype(psort_decl* p, symbol const& name, uns
     TRACE("datatype", tout << name << " "; for (unsigned i = 0; i < n; ++i) tout << s[i]->get_name() << " "; tout << "\n";);
     pdecl_manager& m = *this;
     sort * r = p->find(s);
-    if (r)
+    if (r) {
+        // FORK FIX #84 (g3 audit, see FORK_BUGFIXES.md): backport of upstream 19f655c69
+        notify_datatype(r, p, n, s);
         return r;
+    }
     buffer<parameter> ps;
     ps.push_back(parameter(name));
     for (unsigned i = 0; i < n; i++)
@@ -689,7 +692,21 @@ sort* pdecl_manager::instantiate_datatype(psort_decl* p, symbol const& name, uns
     r = m.m().mk_sort(util.get_family_id(), DATATYPE_SORT, ps.size(), ps.c_ptr());
     p->cache(m, s, r);
     m.save_info(r, p, n, s);
-    if (n > 0 && util.is_declared(r)) {
+    notify_datatype(r, p, n, s);
+    return r;
+}
+
+// FORK FIX #84 (g3 audit, see FORK_BUGFIXES.md): backport of upstream 19f655c69 ("fix #3930"),
+// 120467159 ("fix #4534"). A pop resets the whole instance cache of a
+// datatype declaration, also instances created outside the popped scope,
+// whose constructors are still declared; declaring them again failed with
+// "already declared". Notify each instance once per scope instead.
+void pdecl_manager::notify_datatype(sort *r, psort_decl* p, unsigned n, sort* const* s) {
+    if (m_notified.contains(r) || n == 0)
+        return;
+    pdecl_manager& m = *this;
+    datatype_util util(m.m());
+    if (util.is_declared(r)) {
         bool has_typevar = false;
         // crude check ..
         for (unsigned i = 0; !has_typevar && i < n; ++i) {
@@ -698,8 +715,23 @@ sort* pdecl_manager::instantiate_datatype(psort_decl* p, symbol const& name, uns
         if (!has_typevar) {
             m.notify_new_dt(r, p);
         }
+        m_notified.insert(r);
+        m_notified_trail.push_back(r);
     }
-    return r;
+}
+
+void pdecl_manager::push() {
+    m_notified_lim.push_back(m_notified_trail.size());
+}
+
+void pdecl_manager::pop(unsigned n) {
+    SASSERT(n > 0);
+    unsigned new_sz = m_notified_lim[m_notified_lim.size() - n];
+    for (unsigned i = m_notified_trail.size(); i-- > new_sz; ) {
+        m_notified.erase(m_notified_trail[i]);
+    }
+    m_notified_trail.shrink(new_sz);
+    m_notified_lim.shrink(m_notified_lim.size() - n);
 }
 
 bool pdatatypes_decl::instantiate(pdecl_manager & m, sort * const * s) {
