@@ -271,6 +271,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_pb_eq_no_args);
     TST(z3_4_7_1_pb_assert_ge_uninit);
     TST(z3_4_7_1_goal_update_false);
+    TST(z3_4_7_1_rec_fun_model_eval);
     TST(z3_4_7_1_to_fp_one_real);
     TST(z3_4_7_1_get_file_names_posix);
     TST(z3_4_7_1_wpa_warning_number);

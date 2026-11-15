@@ -188,6 +188,10 @@ Abstract:
     z3_4_7_1_goal_update_false    goal::update flattens a formula to false
                                   but pushes the unflattened formula, so
                                   the goal does not become inconsistent.
+    z3_4_7_1_rec_fun_model_eval   get-value of a mutually recursive
+                                  define-fun-rec predicate never terminates:
+                                  the model evaluator rewrites the dead
+                                  recursive or/and branch forever.
     z3_4_7_1_get_file_names_posix datalog::get_file_names is
                                   NOT_IMPLEMENTED_YET outside _WINDOWS, so
                                   z3 -dl DIRECTORY (the WPA benchmark
@@ -2572,4 +2576,44 @@ void tst_z3_4_7_1_goal_update_false() {
     expect_script("goal_update_false",
                   "(declare-const a Bool)\n(assert (not (=> false a)))\n(apply nnf)\n",
                   "(goals\n(goal\n  false\n  :precision precise :depth 1)\n)\n");
+}
+
+#ifndef _WINDOWS
+namespace {
+    void rec_fun_model_eval_timeout(int) {
+        static char const msg[] =
+            "rec_fun_model_eval: get-value did not terminate within 20 seconds\n";
+        ssize_t n = write(2, msg, sizeof(msg) - 1);
+        (void)n;
+        _exit(1);
+    }
+}
+#endif
+
+// The model interprets even as (or (<= x 0) (odd (+ -1 x))) and odd as
+// (not (or (<= x 0) (not (even (+ -1 x))))). The model evaluator only folds
+// ite before rewriting the remaining arguments, so evaluating (even 0)
+// rewrites the dead (odd -1) disjunct, which unfolds into (even -2), and so
+// on forever. Upstream replaced define-fun-rec with its recfun theory. A
+// watchdog turns the hang into a failure.
+void tst_z3_4_7_1_rec_fun_model_eval() {
+#ifndef _WINDOWS
+    signal(SIGALRM, rec_fun_model_eval_timeout);
+    alarm(20);
+#endif
+    std::cout << "rec_fun_model_eval: running get-value\n";
+    std::cout.flush(); // the watchdog leaves with _exit
+    char const* script =
+        "(set-option :produce-models true)\n"
+        "(define-funs-rec ((even ((n Int)) Bool) (odd ((n Int)) Bool))\n"
+        "  ((ite (<= n 0) true (odd (- n 1)))\n"
+        "   (ite (<= n 0) false (even (- n 1)))))\n"
+        "(assert (even 4))\n"
+        "(check-sat-using (using-params smt :auto_config false))\n"
+        "(get-value ((even 0) (even 5) (odd 5)))\n";
+    expect_script("rec_fun_model_eval", script,
+                  "sat\n(((even 0) true)\n ((even 5) false)\n ((odd 5) true))\n");
+#ifndef _WINDOWS
+    alarm(0);
+#endif
 }
