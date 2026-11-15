@@ -65,6 +65,26 @@ func TestSMTBitVectorLogicSetupProfiles(t *testing.T) {
 						t.Fatal("BV profile changed satisfiability", status)
 					}
 					check()
+					if logic == "QF_BVRE" {
+						// AUDIT.md smtcore_06-F11: setup_QF_BVRE registers
+						// bv, then arith, then seq; setup_unknown keeps its
+						// own order.
+						var order []string
+						for _, plugin := range k.internalizer.theoryOrder {
+							name, err := m.FamilyName(plugin.FamilyID())
+							astTestMust(t, err)
+							text, err := m.Symbols.String(name)
+							astTestMust(t, err)
+							order = append(order, text)
+						}
+						want := "[bv arith seq]"
+						if !automatic {
+							want = "[arith array bv datatype datalog_relation seq pb fpa]"
+						}
+						if got := fmt.Sprint(order); got != want {
+							t.Fatal("QF_BVRE theory order", got, "want", want)
+						}
+					}
 					if push {
 						astTestMust(t, solver.Pop(1))
 						check()

@@ -232,6 +232,32 @@ func smtInstallRetainedSetup(kernel *SMTKernel, manager *ast.ASTManager, logic s
 		}
 		return kernel.RegisterTheory(dummy)
 	}
+	installBitVectors := func() error {
+		name, err := manager.Symbols.Intern("bv")
+		if err != nil {
+			return err
+		}
+		family, err := manager.FamilyIDForSymbol(name)
+		if err != nil {
+			return err
+		}
+		theory, theoryErr := NewSMTBitVectorTheory(family)
+		if theoryErr != nil {
+			return theoryErr
+		}
+		if err = kernel.RegisterTheory(theory); err != nil {
+			return err
+		}
+		return nil
+	}
+	// setup_QF_BVRE runs setup_QF_BV() (theory_bv) before setup_QF_LIA()
+	// (theory_i_arith), then registers theory_seq.
+	bvreBitVectorsFirst := kernel.smtState.AutoConfig && logic == "QF_BVRE"
+	if bvreBitVectorsFirst {
+		if err := installBitVectors(); err != nil {
+			return err
+		}
+	}
 	// setup_unknown order: arith, arrays, bv, datatypes, dl, seq_str, card,
 	// fpa. Logic-specific setups install subsets in the same relative order.
 	if smtLogicUsesArithmetic(logic) {
@@ -303,24 +329,6 @@ func smtInstallRetainedSetup(kernel *SMTKernel, manager *ast.ASTManager, logic s
 		}
 		return nil
 	}
-	installBitVectors := func() error {
-		name, err := manager.Symbols.Intern("bv")
-		if err != nil {
-			return err
-		}
-		family, err := manager.FamilyIDForSymbol(name)
-		if err != nil {
-			return err
-		}
-		theory, theoryErr := NewSMTBitVectorTheory(family)
-		if theoryErr != nil {
-			return theoryErr
-		}
-		if err = kernel.RegisterTheory(theory); err != nil {
-			return err
-		}
-		return nil
-	}
 	// setup_QF_AUFBV (setup_default and setup_auto_config for these logics)
 	// registers theory_bv before theory_array; setup_unknown() (CFG_BASIC)
 	// and every other profile register arrays first.
@@ -335,7 +343,7 @@ func smtInstallRetainedSetup(kernel *SMTKernel, manager *ast.ASTManager, logic s
 			return err
 		}
 	}
-	if !bitVectorsFirst && smtLogicUsesBitVectors(logic) {
+	if !bitVectorsFirst && !bvreBitVectorsFirst && smtLogicUsesBitVectors(logic) {
 		if err := installBitVectors(); err != nil {
 			return err
 		}
