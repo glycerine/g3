@@ -1,0 +1,7 @@
+(set-option :fixedpoint.engine datalog)
+(declare-rel unused (Int))
+(declare-rel q ((_ BitVec 2)))
+(declare-var x (_ BitVec 2))
+(rule (q #b00))
+(rule (=> (and (q x) (bvult x #b10)) (q (bvadd x #b01))))
+(query q :print-answer true)

@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_fp_01-F3: the default favourite falls back to tables per signature; unused Int relations stay empty.
+	"fp_datalog_unused_int_relation.smt2":     "sat\n(or (= (:var 0) #b00) (= (:var 0) #b01) (= (:var 0) #b10))\n",
+	"fp_datalog_empty_mixed_int_nullary.smt2": "unsat\nunsat\n",
 	// AUDIT.md muz_fp_03-F4: horn resolves fixedpoint.engine / :engine instead of forcing auto-config.
 	"horn_tactic_engine_param.smt2":        "(error \"tactic failed: Rule contains infinite sorts in rule <null>:\np(#0) :- \n (= (:var 0) 0).\n\")\n",
 	"horn_tactic_using_params_engine.smt2": "(error \"tactic failed: Rule contains infinite sorts in rule <null>:\np(#0) :- \n (= (:var 0) 0).\n\")\n",

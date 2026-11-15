@@ -38,11 +38,12 @@ func (e *PropositionalEngine) ensureBoundDatalog() (bool, error) {
 		}
 		// Original finite predicates keep their table semantics. A synthetic
 		// query predicate instead inherits its arithmetic producer's relation kind.
-		if !arithmetic {
+		// relation_manager::mk_empty_relation chooses a plugin per
+		// signature: finite signatures get tables, so any finite predicate
+		// sends the query to the finite-table path, where rule-free
+		// arithmetic predicates read as empty relations.
+		if !arithmetic || finite {
 			return false, nil
-		}
-		if finite {
-			return true, ErrBoundDatalogFragment
 		}
 	}
 	for _, state := range e.predicates {

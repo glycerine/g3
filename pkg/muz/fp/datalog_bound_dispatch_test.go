@@ -192,11 +192,15 @@ func TestDatalogBoundFinitePrecedenceAndMixedGuard(t *testing.T) {
 	d, err := m.MkFuncDecl(name, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
 	must(err)
 	must(e.RegisterPredicate(d))
-	_, err = e.QueryPredicate(d)
-	if !errors.Is(err, ErrBoundDatalogFragment) {
-		t.Fatal("mixed original finite/arithmetic silently converted", err)
+	// relation_manager picks a plugin per signature: the finite predicates
+	// keep tables and the rule-free Int predicate is an empty relation
+	// (AUDIT.md muz_fp_01-F3; this formerly asserted ErrBoundDatalogFragment).
+	status, err := e.QueryPredicate(d)
+	must(err)
+	if status != lbool.False {
+		t.Fatal("mixed original finite/arithmetic program: empty Int relation", status)
 	}
 	if e.boundDatalog != nil {
-		t.Fatal("unsupported hybrid installed whole-program bound store")
+		t.Fatal("mixed program installed whole-program bound store")
 	}
 }

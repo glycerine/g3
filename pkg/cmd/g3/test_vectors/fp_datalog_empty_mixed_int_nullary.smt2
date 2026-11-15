@@ -1,0 +1,5 @@
+(set-option :fixedpoint.engine datalog)
+(declare-rel p (Int Real))
+(declare-rel q ())
+(query p)
+(query q)
