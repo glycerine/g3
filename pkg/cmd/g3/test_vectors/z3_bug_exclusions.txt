@@ -148,7 +148,7 @@ z3_bug_datatype_inst_after_pop
 # scope keeps its cached sort; the pop removed the constructors, and the
 # cache hit never declares them again, so nil is unknown afterwards (z3 bug:
 # src/cmd_context/pdecl.cpp psort_user_decl/psort_app::instantiate; still
-# present upstream and in the fork). g3 declares them on every
-# instantiation. Reproduction:
+# present upstream; the fork re-instantiates on such a cache hit). g3
+# declares them on every instantiation. Reproduction:
 # test_vectors/z3_bug_define_sort_alias_after_pop.smt2.
 z3_bug_define_sort_alias_after_pop
