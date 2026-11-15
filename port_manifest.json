@@ -129047,9 +129047,7 @@
       "ownership": [
         "Each cone pass returns one finalized RuleSet or nil on source no-change/fact-table bailout. Converter formula references transfer to ordered Horn model-conversion steps and are released after replay or failure."
       ],
-      "deviations": [
-        "Go retains deterministic rule-traversal converter ordering; C++ func_decl_set iteration uses pointer hashing, which has no stable cross-language order."
-      ]
+      "deviations": []
     },
     {
       "path": "src/muz/transforms/dl_mk_coi_filter.h",

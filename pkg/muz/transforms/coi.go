@@ -188,6 +188,12 @@ func topDownCone(source *base.RuleSet, captureModel bool) (_ *base.RuleSet, _ Co
 		return nil, nil, err
 	}
 	if captureModel {
+		// mc0 is filled walking pruned_preds, a func_decl_set (obj_hashtable
+		// hashed by ast::hash()): its table order, not rule order.
+		prunedOrder, err = funcDeclTableOrder(manager, prunedOrder)
+		if err != nil {
+			return nil, nil, err
+		}
 		for _, declaration := range prunedOrder {
 			heads := pruned[declaration]
 			formula, makeErr := coneHeadDefinition(manager, heads)
@@ -365,10 +371,20 @@ func bottomUpCone(source *base.RuleSet, captureModel bool, facts coneFacts) (_ *
 				declarationOrder = append(declarationOrder, declaration)
 			}
 		}
-		for _, declaration := range reachable.KnownDeclarations() {
+		// bottom_up walks the dataflow engine's m_facts obj_map and then the
+		// unreachable func_decl_set, both in hash-table order.
+		known, orderErr := funcDeclTableOrder(astManager, reachable.KnownDeclarations())
+		if orderErr != nil {
+			return nil, nil, orderErr
+		}
+		tails, orderErr := funcDeclTableOrder(astManager, unreachableTailOrder)
+		if orderErr != nil {
+			return nil, nil, orderErr
+		}
+		for _, declaration := range known {
 			appendUnreachable(declaration)
 		}
-		for _, declaration := range unreachableTailOrder {
+		for _, declaration := range tails {
 			appendUnreachable(declaration)
 		}
 		for _, declaration := range declarationOrder {
@@ -444,4 +460,22 @@ func coneOfInfluence(source *base.RuleSet, captureModel bool, facts coneFacts) (
 		return bottom, steps, nil
 	}
 	return top, steps, nil
+}
+
+// funcDeclTableOrder returns the iteration order of an obj_map /
+// func_decl_set into which declarations were inserted in the given order
+// (never erased).
+func funcDeclTableOrder(manager *ast.ASTManager, inserted []ast.ASTHandle) ([]ast.ASTHandle, error) {
+	table := ast.NewObjMap(manager)
+	for _, declaration := range inserted {
+		if _, err := table.InsertIfNotThere(declaration); err != nil {
+			return nil, err
+		}
+	}
+	entries := table.Entries()
+	result := make([]ast.ASTHandle, len(entries))
+	for i, entry := range entries {
+		result[i] = entry.Key
+	}
+	return result, nil
 }

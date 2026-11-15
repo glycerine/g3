@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_transforms_01-F3: coi model converter walks func_decl_set table order.
+	"horn_coi_model_order.smt2": "sat\n(model \n  (define-fun inv ((x!0 Int)) Bool\n    (<= x!0 10))\n  (define-fun a4 ((x!0 Int)) Bool\n    true)\n  (define-fun a3 ((x!0 Int)) Bool\n    true)\n  (define-fun a2 ((x!0 Int)) Bool\n    true)\n  (define-fun a1 ((x!0 Int)) Bool\n    true)\n  (define-fun a5 ((x!0 Int)) Bool\n    true)\n)\n",
 	// AUDIT.md muz_transforms_02-F3: mk_slice declares !slice!N predicates in m_sliceable obj_map order.
 	"slice_fresh_name_order.smt2": "unsat\n(define-fun G () Bool\n  false)\n(define-fun P!slice!3 ((x!0 Int)) Bool\n  (<= x!0 10))\n(define-fun R!slice!1 ((x!0 Int)) Bool\n  true)\n(define-fun Q!slice!2 ((x!0 Int)) Bool\n  (<= x!0 10))\n\n",
 	// AUDIT.md muz_fp_03-F6: udoc apply_guard failure_case is a query default_exception.
