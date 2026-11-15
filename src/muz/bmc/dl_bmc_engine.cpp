@@ -320,7 +320,8 @@ namespace datalog {
                     }
                     proof* premises[2] = { pr, p };
 
-                    positions.push_back(std::make_pair(0, 1));
+                    // FORK FIX #87 (g3 audit, see FORK_BUGFIXES.md): tail 0 of the derivation resolves with the rule's head; backport of upstream 784b613b5
+                    positions.push_back(std::make_pair(1, 0));
 
                     substs.push_back(sub1);
                     substs.push_back(sub);
