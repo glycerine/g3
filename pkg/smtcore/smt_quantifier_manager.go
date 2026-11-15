@@ -247,7 +247,15 @@ func (q *SMTQuantifierManager) CanPropagate() bool {
 	}
 	// quantifier_manager::can_propagate: m_qi_queue.has_work() ||
 	// m_plugin->can_propagate() (m_mam->has_work()).
-	return q.registry.schedule.HasWork() || q.mam.HasWork() || q.hasNewEnodes()
+	// Enodes created since the last scan are not work: propagate() scans
+	// them on its next (unconditional) call.
+	return q.registry.schedule.HasWork() || q.mam.HasWork()
+}
+
+// propagates reports whether context::propagate's unconditional
+// m_qmanager->propagate() reaches this manager.
+func (q *SMTQuantifierManager) propagates() bool {
+	return q != nil && !q.closed && q.registry != nil
 }
 
 // Source default_qm_plugin::propagate scans newly internalized enodes when

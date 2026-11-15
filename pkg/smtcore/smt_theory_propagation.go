@@ -423,8 +423,9 @@ func (s *SMTInternalizerState) PropagateCore() (bool, error) {
 				return false, nil
 			}
 		}
-		// m_qmanager->propagate(); its work is visible to can_propagate().
-		if s.quantifierManager != nil && s.quantifierManager.CanPropagate() {
+		// m_qmanager->propagate() runs every round; its work is visible to
+		// can_propagate().
+		if s.quantifierManager.propagates() {
 			if err = s.quantifierManager.Propagate(); err != nil {
 				return false, fmt.Errorf("quantifier propagation: %w", err)
 			}

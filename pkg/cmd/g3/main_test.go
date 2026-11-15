@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_06-F7
+	"relevancy0_new_enode_scan_order.smt2": "unknown\n",
 	// AUDIT.md smtcore_06-F4
 	"lemma_gc_at_restart.smt2": "unsat\n",
 	// AUDIT.md smtcore_06-F3

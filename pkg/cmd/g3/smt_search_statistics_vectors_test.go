@@ -22,6 +22,8 @@ var searchStatisticsVectors = []struct {
 	{"restart_assumption_base_level.smt2", nil, map[string]string{"conflicts": "713", "decisions": "847", "restarts": "6"}},
 	// AUDIT.md smtcore_06-F4: lemma GC after the restart exit.
 	{"lemma_gc_at_restart.smt2", nil, map[string]string{"conflicts": "15386", "decisions": "18408", "del-clause": "14147", "restarts": "10"}},
+	// AUDIT.md smtcore_06-F7: unscanned enodes are not quantifier work.
+	{"relevancy0_new_enode_scan_order.smt2", nil, map[string]string{"binary-propagations": "2", "conflicts": "1", "decisions": "3", "propagations": "2"}},
 }
 
 var searchStatisticLine = regexp.MustCompile(`(?m)^\s*\(?:([a-z0-9-]+)\s+([0-9.]+)\)?\s*$`)

@@ -100,11 +100,21 @@ func TestSMTQuantifierManagerNewEnodesAndCursorRollback(t *testing.T) {
 		astTestMust(t, err)
 		astTestMust(t, state.Internalize(application, true))
 		astTestMust(t, state.context.SetAssignment(application, lbool.False))
-		if !manager.CanPropagate() {
-			t.Fatal("new unmarked enode did not expose E-matching work", cycle)
+		// AUDIT.md smtcore_06-F7: can_propagate is qi_queue.has_work() ||
+		// mam.has_work(); an unscanned enode is not work. The next
+		// (unconditional) propagate() scans it.
+		if manager.CanPropagate() {
+			t.Fatal("new unmarked enode reported as E-matching work", cycle)
+		}
+		astTestMust(t, manager.Propagate())
+		if manager.newEnodeHead != len(state.enodeStack) {
+			t.Fatal("propagate did not scan the new enode", cycle, manager.newEnodeHead, len(state.enodeStack))
 		}
 		// propagate matches before reporting new enodes as relevant, so
 		// their candidates are matched on the next round.
+		if !manager.CanPropagate() {
+			t.Fatal("scanned enode did not queue E-matching work", cycle)
+		}
 		for manager.CanPropagate() {
 			astTestMust(t, manager.Propagate())
 		}
