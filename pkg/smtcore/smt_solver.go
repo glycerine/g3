@@ -1044,20 +1044,9 @@ func (s *SMTSolver) FindMutexes(variables []ast.ASTHandle) (lbool.LBool, [][]ast
 		literals = append(literals, uint32(NewSMTLiteral(variable, negative).Index()))
 	}
 	finder := cliques.New()
-	// The retained internalizer still stores binary clauses in the ordinary
-	// two-watch region. Feed those same clause edges to max_cliques directly.
-	for _, records := range state.clauseRecordLists() {
-		for index := range records {
-			clause := records[index].clause
-			if clause == nil || clause.Deleted() || len(clause.Literals()) != 2 {
-				continue
-			}
-			pair := clause.Literals()
-			if err := finder.AddEdge(uint32(pair[0].Index()), uint32(pair[1].Index())); err != nil {
-				return lbool.Undef, nil, err
-			}
-		}
-	}
+	// context::find_mutexes: the edges are the binary clauses of the watch
+	// lists only. A two-literal clause kept as a clause object (binary
+	// clause optimization off, e.g. with proofs) adds no edge.
 	for index := range state.watches {
 		for _, watched := range state.watches[index].Literals() {
 			left, right := uint32(index)^1, uint32(watched.Index())

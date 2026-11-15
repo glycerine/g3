@@ -28,6 +28,13 @@ var lemmaGCStatisticsVectors = []struct {
 	{"lemma_gc_half_sorted_order.smt2", nil, map[string]string{
 		"conflicts": "10004", "decisions": "13262", "del-clause": "6174", "mk-clause": "10402",
 		"propagations": "177645", "minimized-lits": "34505", "restarts": "25", "dd-assertions": "157465"}},
+	// context::find_mutexes adds clique edges only from binary watch
+	// literals: with proofs the pairwise exclusions are clause objects, no
+	// mutex is found, and maxres needs three cores.
+	{"opt_find_mutexes_no_binary_opt.smt2", nil, map[string]string{
+		"conflicts": "3", "decisions": "3", "final-checks": "5", "maxres-cores": "3",
+		"maxres-correction-sets": "1", "mk-bool-var": "5", "mk-clause": "5", "num-checks": "7",
+		"propagations": "9"}},
 }
 
 func TestLemmaGCStatisticsVectors(t *testing.T) {
