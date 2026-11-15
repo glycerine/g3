@@ -328,6 +328,15 @@ func NewQFBVStrategicSolverWithOutput(m *ast.ASTManager, p *uparams.ParamsRef, p
 	if err != nil {
 		return nil, err
 	}
+	// mk_solver_for_logic uses mk_inc_sat_solver for QF_BV only when
+	// bv_rewriter(m).hi_div0() holds; otherwise it uses mk_smt_solver.
+	hiDiv0, err := qfbvRewriterHiDiv0(config)
+	if err != nil {
+		return nil, err
+	}
+	if !hiDiv0 {
+		return newStrategicSolver(m, strategy, "QF_BV", p, proofs, models, cores, config)
+	}
 	var targetServices func(*ast.ASTManager) (model.ModelEvaluatorConfig, error)
 	if config.TargetConfig != nil {
 		targetServices = func(target *ast.ASTManager) (model.ModelEvaluatorConfig, error) {
@@ -344,6 +353,23 @@ func NewQFBVStrategicSolverWithOutput(m *ast.ASTManager, p *uparams.ParamsRef, p
 		return nil, err
 	}
 	return newStrategicSolverWithBackend(m, strategy, backend, "QF_BV", p, proofs, models, cores, config)
+}
+
+// qfbvRewriterHiDiv0 is bv_rewriter rw(m); rw.hi_div0(): the rewriter is
+// built with empty params, so bv_rewriter_params reads the global
+// rewriter.hi_div0 with default true.
+func qfbvRewriterHiDiv0(config smtcore.SMTSolverConfig) (_ bool, err error) {
+	if config.Params == nil || config.Globals == nil {
+		return false, uparams.ErrParamsOwner
+	}
+	global, err := config.Globals.SourceGetModuleName("rewriter")
+	if err != nil {
+		return false, err
+	}
+	defer func() { err = errors.Join(err, config.Params.Del(&global)) }()
+	empty := config.Params.EmptyValue()
+	key := "hi_div0"
+	return config.Params.GetBoolFallbackName(&empty, &key, &global, true)
 }
 
 func NewQFAUFBVStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, models, cores bool, config smtcore.SMTSolverConfig) (solver.Solver, error) {

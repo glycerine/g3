@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_small_02-F1: QF_BV uses the SMT solver incrementally when rewriter.hi_div0 is false.
+	"qfbv_hi_div0_false_incremental.smt2": "sat\n(model \n  (define-fun y () (_ BitVec 8)\n    #x00)\n  (define-fun x () (_ BitVec 8)\n    #x00)\n  (define-fun bvudiv0 ((x!0 (_ BitVec 8))) (_ BitVec 8)\n    (ite (= x!0 #x00) #x05\n      #x05))\n)\n",
 	// AUDIT.md tactic_small_01-F3: fpa2bv applies max_steps and reports a tactic failure.
 	"fpa2bv_max_steps.smt2": "(error \"tactic failed: max. steps exceeded\")\n",
 	// AUDIT.md tactic_small_01-F1: mk_ite dec_refs n1 before n2.
