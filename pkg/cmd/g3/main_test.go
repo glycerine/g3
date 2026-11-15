@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md parsers_shell_01-F1: parse_assert rejects a non-Boolean term.
+	"assert_non_boolean.smt2": "(error \"line 1 column 10: invalid assert command, term is not Boolean\")\nsat\n",
 	// AUDIT.md parsers_shell_01-F4: an empty quantifier binder list is a
 	// parser error and the assertion is dropped.
 	"quantifier_empty_binders.smt2": "(error \"line 1 column 20: invalid quantifier, list of sorted variables is empty\")\nsat\n",
@@ -1459,6 +1461,7 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	"assert_non_boolean.smt2":       true,
 	"quantifier_empty_binders.smt2": true,
 
 	"sat_scc_tr_unknown_param.smt2":                    true,

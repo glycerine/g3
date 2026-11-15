@@ -752,6 +752,14 @@ func (p *commandParser) command() (bool, error) {
 		if err != nil {
 			return false, err
 		}
+		// Source parse_assert: the term must be Boolean.
+		isBool, err := p.booleanExpression(expression)
+		if err != nil {
+			return false, err
+		}
+		if !isBool {
+			return false, errors.New("invalid assert command, term is not Boolean")
+		}
 		if err = p.requireEnd(); err != nil {
 			return false, err
 		}

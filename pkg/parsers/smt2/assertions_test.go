@@ -95,3 +95,26 @@ func TestSMT2NamedExpressionRejectsFreeVariables(t *testing.T) {
 		t.Fatal("free named expression accepted", err)
 	}
 }
+
+// AUDIT.md parsers_shell_01-F1: parse_assert rejects a non-Boolean term with
+// a command error, and the assertion is dropped.
+func TestSMT2AssertRejectsNonBoolean(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := context.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	var out bytes.Buffer
+	err = ParseShellCommands(context, strings.NewReader("(assert 0)(check-sat)"), &out)
+	const message = "line 1 column 10: invalid assert command, term is not Boolean"
+	if err == nil || err.Error() != message {
+		t.Fatal("first parse error", err)
+	}
+	if want := "(error \"" + message + "\")\nsat\n"; out.String() != want {
+		t.Fatal("non-Boolean assert", out.String(), want)
+	}
+}
