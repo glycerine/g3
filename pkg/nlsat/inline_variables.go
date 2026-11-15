@@ -240,6 +240,12 @@ func (s *Solver) substituteInlineVariable(variable uint32, denominator, numerato
 				err = cause
 				break
 			}
+			// z3 4.7.1 bug kept out of g3: substitute_var resets the factor
+			// list when a factor vanishes and mk_ineq_literal then treats it as
+			// the empty product 1, so x - y^2 > 0 under x := y^2 becomes true
+			// (and LT/EQ false); g3 gives the zero product its real value
+			// (AUDIT.md nlsat_02-F2;
+			// test_vectors/z3_bug_nlsat_inline_zero_factor.smt2).
 			if zero {
 				factors = factors[:0]
 				even = even[:0]
@@ -262,6 +268,10 @@ func (s *Solver) substituteInlineVariable(variable uint32, denominator, numerato
 			} else if len(factors) == 0 {
 				literal, cause = s.atoms.mkInequalityLiteral(old.kind, factors, even)
 			} else {
+				// z3 4.7.1 keeps an atom over a constant polynomial here and
+				// returns an invalid model; g3 folds constant products as
+				// upstream mk_ineq_literal does (AUDIT.md nlsat_02-F2;
+				// test_vectors/z3_bug_nlsat_inline_constant_atom.smt2).
 				literal, cause = s.MkInequality(old.kind, factors, even, false)
 			}
 			if cause != nil {
@@ -311,6 +321,7 @@ func (s *Solver) rewriteInlineClauses(replacements map[sat.BoolVar]sat.Literal) 
 			continue
 		}
 		if !tautology {
+			// z3 4.7.1 calls mk_clause with no literals here and segfaults.
 			if len(literals) == 0 {
 				literals = append(literals, FalseLiteral)
 			}

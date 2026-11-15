@@ -313,3 +313,24 @@ z3_bug_nlsat_eval_sign_overflow
 # nlsat_01-F4). The answer is the same here; the atoms and the trace differ.
 # Reproduction: test_vectors/z3_bug_nlsat_normalize_sign.smt2.
 z3_bug_nlsat_normalize_sign
+#
+# nlsat.inline_vars, vanished factor: substitute_var resets the factor list
+# when a factor becomes zero, so mk_ineq_literal reads the empty product as
+# 1 (x - y^2 > 0 under x := y^2 becomes true, LT and EQ false), and
+# update_clauses then passes a clause with no literals to mk_clause, which
+# segfaults (z3 bug: src/nlsat/nlsat_solver.cpp substitute_var,
+# update_clauses; upstream rewrote the simplifier in 29e724f78/8fe357f1f).
+# g3 gives the zero product its value and keeps an empty clause as false
+# (pkg/nlsat/inline_variables.go substituteInlineVariable,
+# rewriteInlineClauses; AUDIT.md nlsat_02-F2). Reproduction:
+# test_vectors/z3_bug_nlsat_inline_zero_factor.smt2.
+z3_bug_nlsat_inline_zero_factor
+#
+# nlsat.inline_vars, constant atom: substitute_var keeps an atom over the
+# constant polynomial x - y^2 - 1 = -1, and z3 4.7.1 returns the invalid
+# model z = -1/2 (z^2 y = 1/8) (z3 bug: src/nlsat/nlsat_solver.cpp
+# substitute_var/mk_ineq_literal; upstream folds constant products in
+# mk_ineq_literal). g3 folds them (pkg/nlsat/inline_variables.go,
+# Solver.MkInequality; AUDIT.md nlsat_02-F2). Reproduction:
+# test_vectors/z3_bug_nlsat_inline_constant_atom.smt2.
+z3_bug_nlsat_inline_constant_atom

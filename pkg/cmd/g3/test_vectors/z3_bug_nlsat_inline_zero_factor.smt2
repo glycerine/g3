@@ -1,0 +1,5 @@
+(declare-const x Real)
+(declare-const y Real)
+(assert (= x (* y y)))
+(assert (> (- x (* y y)) 0))
+(check-sat-using (then simplify purify-arith (using-params nlsat :inline_vars true :reorder false)))
