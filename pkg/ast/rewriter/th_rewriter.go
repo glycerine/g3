@@ -230,7 +230,10 @@ func (c *theoryRewriterConfiguration) ReduceQuantifier(old, body ast.ASTHandle, 
 		return false, err
 	}
 	defer func() { err = errors.Join(err, m.DelRef(&updatedRef)) }()
-	eliminated, err := elimUnusedVars(m, updated, c.ignoreGroundPatterns)
+	// elim_unused_vars(m(), q1, params_ref(), result): the empty params_ref
+	// keeps ignore_patterns_on_ground_qbody at its default true; the stored
+	// m_ignore_patterns_on_ground_qbody is never read.
+	eliminated, err := elimUnusedVars(m, updated, true)
 	if err != nil {
 		return false, err
 	}

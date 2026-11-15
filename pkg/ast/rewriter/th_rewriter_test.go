@@ -117,6 +117,45 @@ func TestTheoryRewriterQuantifierMergeAndUnusedProof(t *testing.T) {
 	}
 }
 
+// AUDIT.md ast_rewriter_05-F3: th_rewriter_cfg::reduce_quantifier calls
+// elim_unused_vars with an empty params_ref, so a ground body always drops
+// the quantifier and its patterns, whatever ignore_patterns_on_ground_qbody
+// says.
+func TestTheoryRewriterGroundBodyIgnoresLocalParam(t *testing.T) {
+	m, context, globals, local := boolRewriterConfigFixture(t)
+	key := "ignore_patterns_on_ground_qbody"
+	astTestMust(t, context.SetBoolName(local, &key, false))
+	r, err := NewTheoryRewriter(m, context, globals, local)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, r.Close()) })
+	sort, err := m.MkBoolSort()
+	astTestMust(t, err)
+	g, err := m.MkFuncDecl(astTestSymbol(t, m, "ground-qbody-g"), []ast.ASTHandle{sort}, sort, ast.ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	astTestPin(t, m, g)
+	body, err := m.MkConst(astTestSymbol(t, m, "ground-qbody-a"), sort)
+	astTestMust(t, err)
+	astTestPin(t, m, body)
+	variable, err := m.MkVar(0, sort)
+	astTestMust(t, err)
+	gx, err := m.MkApp(g, []ast.ASTHandle{variable})
+	astTestMust(t, err)
+	astTestPin(t, m, gx)
+	pattern, err := m.MkPattern([]ast.ASTHandle{gx})
+	astTestMust(t, err)
+	astTestPin(t, m, pattern)
+	q, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{sort}, Names: []usymbol.Symbol{usymbol.Numerical(0)}, Body: body, Patterns: []ast.ASTHandle{pattern}})
+	astTestMust(t, err)
+	astTestPin(t, m, q)
+	out := astTestPin(t, m, ast.ASTHandle{})
+	astTestMust(t, r.Rewrite(q, out))
+	got, err := m.RefGet(out)
+	astTestMust(t, err)
+	if got != body {
+		t.Fatal("ground quantifier body kept its quantifier", got, body)
+	}
+}
+
 func TestTheoryRewriterModularSumWithBoundVariable(t *testing.T) {
 	m, r := theoryRewriterFixture(t)
 	one := arithRewriterNumeral(t, m, "1", true)

@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_rewriter_05-F3: th_rewriter passes an empty params_ref to
+	// elim_unused_vars, so a ground body drops its quantifier.
+	"th_rewriter_ground_qbody_param.smt2": "(not (<= (f a) 0))\n",
 	// AUDIT.md ast_rewriter_05-F2: mk_seq_at bounds only a single atom
 	// (min_length(1, &a, len)); a concat of units is left alone.
 	"seq_at_concat_out_of_range.smt2": "(seq.at (seq.++ (seq.unit x) (seq.unit y)) 5)\n",
