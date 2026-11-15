@@ -1,0 +1,5 @@
+(declare-fun Q (Int Int) Bool)
+(declare-fun R (Int Int Int) Bool)
+(display (forall ((|x y| Int)) (forall ((|x y| Int)) (Q |x y| 1))))
+(display (forall ((|x y| Int)) (forall ((|x y| Int)) (forall ((|x y| Int)) (R |x y| 1 2)))))
+(display (forall ((|x y| Int) (|x y| Int)) (Q |x y| 1)))

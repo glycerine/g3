@@ -71,27 +71,36 @@ func (m *ASTManager) smt2PPQuantifierRootWithInfoAt(q ASTHandle, outer []usymbol
 		// Source register_var_names: rename a numerical name, or one the
 		// environment uses (cmd_context pp_env::uses) or a bound variable
 		// already has; next_name skips env-used and bound candidates.
+		// The source stores the next_name symbol unquoted (prefix is the
+		// ensure_quote_sym spelling, so `|x y|` gives `|x y|!1`) and
+		// pp_var/pp_var_decls quote it again when printing: binders keeps
+		// that symbol and used holds its printed spelling, the key every
+		// outer binder is registered under.
 		if name.IsNumerical() || m.SMT2Uses(spelling) || used[spelling] {
 			for suffix := uint32(1); ; suffix++ {
 				candidate := prefix + "!" + strconv.FormatUint(uint64(suffix), 10)
-				if m.SMT2Uses(candidate) || used[candidate] {
+				if m.SMT2Uses(candidate) {
 					if suffix == ^uint32(0) {
 						return ASTHandle{}, ErrASTDomain
 					}
 					continue
 				}
-				name, e = m.Symbols.Intern(candidate)
+				candidateName, e := m.Symbols.Intern(candidate)
 				if e != nil {
 					return ASTHandle{}, e
 				}
-				printed, quoteErr := m.smt2EnsureQuote(name)
-				if quoteErr != nil {
-					return ASTHandle{}, quoteErr
+				printed, e := m.smt2EnsureQuote(candidateName)
+				if e != nil {
+					return ASTHandle{}, e
 				}
-				if printed != candidate {
-					return ASTHandle{}, ErrASTDomain
+				if used[printed] {
+					if suffix == ^uint32(0) {
+						return ASTHandle{}, ErrASTDomain
+					}
+					continue
 				}
-				spelling = candidate
+				name = candidateName
+				spelling = printed
 				break
 			}
 		}

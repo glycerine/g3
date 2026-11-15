@@ -136,3 +136,32 @@ func TestASTSMT2QuantifierRootSourceFormat(t *testing.T) {
 		t.Fatalf("deep quantified child did not receive source depth alias: %q", deepText)
 	}
 }
+
+// AUDIT.md ast_07-F6: register_var_names renames a clashing quoted binder
+// to the unquoted next_name symbol, which pp_var then quotes again.
+func TestASTSMT2QuantifierRenamesQuotedBinder(t *testing.T) {
+	c, g, p, budget := dynAckSourceFixture(t)
+	m, err := NewASTManager(ASTManagerConfig{Symbols: c.SymbolsField, Numerals: c.NumeralsField, Budget: budget})
+	paramsMust(t, err)
+	defer func() { paramsMust(t, m.Close()) }()
+	boolSort, err := m.MkBoolSort()
+	paramsMust(t, err)
+	xy := astTestSymbol(t, m, "x y")
+	v, err := m.MkVar(0, boolSort)
+	paramsMust(t, err)
+	inner, err := m.MkQuantifier(ASTQuantifierSpec{Forall: true, Sorts: []ASTHandle{boolSort}, Names: []usymbol.Symbol{xy}, Body: v})
+	paramsMust(t, err)
+	outer, err := m.MkQuantifier(ASTQuantifierSpec{Forall: true, Sorts: []ASTHandle{boolSort}, Names: []usymbol.Symbol{xy}, Body: inner})
+	paramsMust(t, err)
+	format, err := m.SMT2PPBooleanTree(outer, nil)
+	paramsMust(t, err)
+	out, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: budget})
+	paramsMust(t, err)
+	paramsMust(t, m.PrintFormat(out, format, c, p, g))
+	text, err := out.String()
+	paramsMust(t, err)
+	paramsMust(t, out.Close())
+	if want := `(forall ((|x y| Bool)) (forall ((|\|x y\|!1| Bool)) |\|x y\|!1|))`; text != want {
+		t.Fatalf("renamed quoted binder %q, want %q", text, want)
+	}
+}

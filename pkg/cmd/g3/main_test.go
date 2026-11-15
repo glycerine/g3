@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_07-F6: a clashing quoted binder is renamed to |x y|!1 and
+	// printed quoted again, instead of failing.
+	"smt2_pp_quoted_binder_rename.smt2": "(forall ((|x y| Int)) (forall ((|\\|x y\\|!1| Int)) (Q |\\|x y\\|!1| 1)))\n(forall ((|x y| Int))\n  (forall ((|\\|x y\\|!1| Int)) (forall ((|\\|x y\\|!2| Int)) (R |\\|x y\\|!2| 1 2))))\n(forall ((|x y| Int) (|\\|x y\\|!1| Int)) (Q |\\|x y\\|!1| 1))\n",
 	// AUDIT.md ast_06-F3: is_pattern requires application arguments, so a
 	// rewritten pattern that became a variable keeps the original.
 	"rewrite_patterns_var_trigger.smt2": "(forall ((x Int)) (! (not (<= (f x) 0)) :pattern ((+ x 0) (f x))))\n(forall ((x (_ BitVec 8))) (! (= x #x01) :pattern ((bvadd x #x00))))\n(forall ((x Int) (y Int))\n  (! (not (<= (f x) y)) :pattern ((select (store a x y) x) (f x))))\n",
