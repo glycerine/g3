@@ -1722,11 +1722,13 @@ namespace nlsat {
 
         void solve_eq(var x, unsigned idx, polynomial_ref_vector const& ps) {
             polynomial_ref p(m_pm), A(m_pm), B(m_pm), C(m_pm), D(m_pm), E(m_pm), q(m_pm), r(m_pm);
-            polynomial_ref_vector qs(m_pm);
+            polynomial_ref_vector As(m_pm), Bs(m_pm);
             p = ps.get(idx);
             SASSERT(degree(p, x) == 1);
             A = m_pm.coeff(p, x, 1);
             B = m_pm.coeff(p, x, 0);
+            As.push_back(m_pm.mk_const(rational(1)));
+            Bs.push_back(m_pm.mk_const(rational(1)));
             B = neg(B);
             TRACE("nlsat_explain", tout << "p: " << p << " A: " << A << " B: " << B << "\n";);
             // x = B/A
@@ -1737,18 +1739,18 @@ namespace nlsat {
                     D = m_pm.mk_const(rational(1));
                     E = D;
                     r = m_pm.mk_zero();
-                    for (unsigned j = 0; j <= d; ++j) {                       
-                        qs.push_back(D);
-                        D = D*A;
+                    for (unsigned j = As.size(); j <= d; ++j) {
+                        D = As.back(); As.push_back(A * D);
+                        D = Bs.back(); Bs.push_back(B * D);
                     }
                     for (unsigned j = 0; j <= d; ++j) {
                         // A^d*p0 + A^{d-1}*B*p1 + ... + B^j*A^{d-j}*pj + ... + B^d*p_d
                         C = m_pm.coeff(q, x, j);
                         if (!is_zero(C)) {
-                            D = qs.get(d-j);
+                            D = As.get(d - j);
+                            E = Bs.get(j);
                             r = r + D*E*C;
                         }
-                        E = E*B;
                     }
                     TRACE("nlsat_explain", tout << "q: " << q << " r: " << r << "\n";);
                     ensure_sign(r);
