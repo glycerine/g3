@@ -667,10 +667,11 @@ namespace datalog {
 #else
         int converted = sscanf(s, "%" SCNu64, &res);
 #endif
-        if(converted==0) {
+        // FORK FIX #78: sscanf returns EOF for an empty or blank string
+        // without storing res; that is not an integer either.
+        if(converted!=1) {
             return false;
         }
-        SASSERT(converted==1);
         return true;
     }
 
