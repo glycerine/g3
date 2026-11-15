@@ -22,6 +22,16 @@ func (p assertedPass) sourceName() string {
 	}[p]
 }
 
+// progressVerbose is IF_VERBOSE(level, verbose_stream() << text) for the
+// progress lines ported for AUDIT.md FUZZ-F5. They are compiled only into
+// g3trace builds (owner decision 2026-11-15); untagged builds drop the call.
+func progressVerbose(level uint32, text string) error {
+	if !diagnostic.VerboseProgress {
+		return nil
+	}
+	return diagnostic.ProgressVerbose(level, text)
+}
+
 func assertedVerbose(level uint32, text string) error {
 	enabled, err := diagnostic.ProcessVerboseEnabled(level)
 	if err != nil || !enabled {

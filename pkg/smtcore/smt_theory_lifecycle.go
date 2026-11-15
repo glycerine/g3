@@ -3,7 +3,10 @@ package smtcore
 // Source: src/smt/smt_context.cpp theory setup, search initialization,
 // restart, and round-robin final-check dispatch.
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
+)
 
 func (s *SMTInternalizerState) SetupTheories() error {
 	if err := s.open(); err != nil {
@@ -93,13 +96,15 @@ func (s *SMTInternalizerState) FinalCheckTheories() (SMTFinalCheckStatus, error)
 		var err error
 		if index < count {
 			// IF_VERBOSE(100, "(smt.final-check \"" << th->get_name() << "\")")
-			// (AUDIT.md FUZZ-F5).
-			name := "unknown"
-			if named, ok := s.theoryOrder[index].(interface{ Name() string }); ok {
-				name = named.Name()
-			}
-			if err = assertedVerbose(100, "(smt.final-check \""+name+"\")\n"); err != nil {
-				return SMTFinalCheckGiveUp, err
+			// (AUDIT.md FUZZ-F5; g3trace builds only).
+			if diagnostic.VerboseProgress {
+				name := "unknown"
+				if named, ok := s.theoryOrder[index].(interface{ Name() string }); ok {
+					name = named.Name()
+				}
+				if err = progressVerbose(100, "(smt.final-check \""+name+"\")\n"); err != nil {
+					return SMTFinalCheckGiveUp, err
+				}
 			}
 			status, err = s.theoryOrder[index].FinalCheck()
 		} else if s.quantifierManager != nil {

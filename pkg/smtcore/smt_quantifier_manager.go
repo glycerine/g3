@@ -516,7 +516,7 @@ func (q *SMTQuantifierManager) FinalCheck(full bool) (SMTFinalCheckStatus, error
 	}
 	// IF_VERBOSE(100, if (!m_quantifiers.empty()) "(smt.final-check
 	// \"quantifiers\")") (AUDIT.md FUZZ-F5).
-	if err := assertedVerbose(100, "(smt.final-check \"quantifiers\")\n"); err != nil {
+	if err := progressVerbose(100, "(smt.final-check \"quantifiers\")\n"); err != nil {
 		return SMTFinalCheckGiveUp, err
 	}
 	done, entries, err := q.registry.schedule.FinalCheck()
@@ -592,7 +592,7 @@ func (q *SMTQuantifierManager) CheckModel() (SMTQuantifierModelCheckResult, erro
 	// default_qm_plugin::check_model: IF_VERBOSE(10, "(smt.mbqi)") when
 	// m_mbqi (AUDIT.md FUZZ-F5).
 	if q.mbqi {
-		if err := assertedVerbose(10, "(smt.mbqi)\n"); err != nil {
+		if err := progressVerbose(10, "(smt.mbqi)\n"); err != nil {
 			return SMTQuantifierModelUnknown, err
 		}
 	}

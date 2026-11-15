@@ -440,20 +440,13 @@ func (c *CombinedSolver) CheckSat(a []ast.ASTHandle) (lbool.LBool, error) {
 }
 
 // combinedSolverVerbose is IF_VERBOSE(PS_VB_LVL, verbose_stream() << text)
-// with PS_VB_LVL 15 (combined_solver.cpp). AUDIT.md FUZZ-F5.
+// with PS_VB_LVL 15 (combined_solver.cpp). AUDIT.md FUZZ-F5; compiled only
+// into g3trace builds (diagnostic.VerboseProgress).
 func combinedSolverVerbose(text string) error {
-	enabled, err := diagnostic.ProcessVerboseEnabled(15)
-	if err != nil || !enabled {
-		return err
+	if !diagnostic.VerboseProgress {
+		return nil
 	}
-	out, err := diagnostic.BorrowProcessVerboseStream()
-	if err != nil {
-		return err
-	}
-	if err = out.AppendCString(text); err != nil {
-		return err
-	}
-	return out.Flush()
+	return diagnostic.ProgressVerbose(15, text)
 }
 
 func (c *CombinedSolver) GetConsequences(a, v []ast.ASTHandle) (status lbool.LBool, out []ast.ASTHandle, err error) {

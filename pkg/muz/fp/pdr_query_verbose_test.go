@@ -43,7 +43,7 @@ func TestPDRQueryDisplaysTransformedRulesAtSourceVerbosity(t *testing.T) {
 				}
 				got, err := transformFilteredString(stream)
 				fragmentMust(t, err)
-				// Each SMT check prints (smt.searching) at level 2 (AUDIT.md FUZZ-F5).
+				// g3trace builds print (smt.searching) at level 2 per SMT check (AUDIT.md FUZZ-F5).
 				got = strings.ReplaceAll(got, "(smt.searching)\n", "")
 				if !strings.HasPrefix(got, expectedRules.String()) {
 					t.Fatalf("verbosity %d transformed-rule prefix: got %q; want prefix %q", level, got, expectedRules.String())

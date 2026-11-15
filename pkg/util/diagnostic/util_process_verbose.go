@@ -59,3 +59,23 @@ func ProcessVerboseEnabled(level uint32) (bool, error) {
 	current, err := ProcessVerbosityLevel()
 	return current >= level, err
 }
+
+// ProgressVerbose is IF_VERBOSE(level, verbose_stream() << text) for the
+// AUDIT.md FUZZ-F5 progress lines. Call it only under VerboseProgress.
+func ProgressVerbose(level uint32, text string) error {
+	if !VerboseProgress {
+		return nil
+	}
+	enabled, err := ProcessVerboseEnabled(level)
+	if err != nil || !enabled {
+		return err
+	}
+	out, err := BorrowProcessVerboseStream()
+	if err != nil {
+		return err
+	}
+	if err = out.AppendCString(text); err != nil {
+		return err
+	}
+	return out.Flush()
+}

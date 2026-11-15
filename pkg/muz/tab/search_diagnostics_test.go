@@ -158,8 +158,13 @@ func TestTabQuerySelectionVerboseTranscriptAndState(t *testing.T) {
 						want = "g0 (diagnostic-p 0)\ng3 (diagnostic-p 1)\n"
 					case 2:
 						// Each SMT check prints (smt.searching) at level 2
-						// (context::search; AUDIT.md FUZZ-F5).
-						want = "g0 (diagnostic-p 0)\n(diagnostic-p 0)\n(smt.searching)\n(diagnostic-q 0)\n(smt.searching)\ntrue\ng3 (diagnostic-p 1)\n(diagnostic-p 1)\n(smt.searching)\n(diagnostic-q 1)\n"
+						// (context::search; AUDIT.md FUZZ-F5), in g3trace
+						// builds only.
+						searching := ""
+						if diagnostic.VerboseProgress {
+							searching = "(smt.searching)\n"
+						}
+						want = "g0 (diagnostic-p 0)\n(diagnostic-p 0)\n" + searching + "(diagnostic-q 0)\n" + searching + "true\ng3 (diagnostic-p 1)\n(diagnostic-p 1)\n" + searching + "(diagnostic-q 1)\n"
 					}
 				}
 				if output.String() != want {
