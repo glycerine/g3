@@ -14,6 +14,7 @@ import (
 // scriptResults so the C++ reference comparison does not run them; this
 // test locks in g3's correct answers instead.
 var z3BugResults = map[string]string{
+	"z3_bug_ufbv_demod_identical_subterm_var.smt2":    "unsat\n",                          // tactic_sls_ufbv_01-F1
 	"z3_bug_forward_trig_unsafe_after_purify.smt2":    "unknown\n((x 10.0)\n (y 10.0))\n", // tactic_arith_02-F2
 	"z3_bug_eq2bv_stale_rewriter_cache.smt2":          "unsat\n",                          // tactic_arith_01-F3
 	"z3_bug_pb2bv_numeral_lhs.smt2":                   "unsat\nunsat\n",                   // tactic_arith_03-F1

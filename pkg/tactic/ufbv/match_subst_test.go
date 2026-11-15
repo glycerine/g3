@@ -122,3 +122,57 @@ func TestMatchSubstConcretePairCacheAndVariableBindings(t *testing.T) {
 		t.Fatal("matcher close retained substitution bindings")
 	}
 }
+
+// Pattern f(x, g(x)) must not match f(c, g(x)): the identical non-ground
+// pair (g(x), g(x)) binds x to itself, so the pair (x, c) fails. z3 4.7.1's
+// match_args_aux_proc left x unbound and bound x := c, an unsound demodulation
+// (AUDIT.md tactic_sls_ufbv_01-F1; fixed upstream in b76ed6a47).
+func TestMatchSubstIdenticalSubtermBindsUnboundVariable(t *testing.T) {
+	m := cacheFixture(t)
+	b, e := m.MkBoolSort()
+	cacheMust(t, e)
+	pin := func(h ast.ASTHandle) ast.ASTHandle {
+		t.Helper()
+		cacheMust(t, m.IncRef(h))
+		t.Cleanup(func() { cacheMust(t, m.DecRef(h)) })
+		return h
+	}
+	declare := func(name string, arity int) ast.ASTHandle {
+		t.Helper()
+		n, e := m.Symbols.Intern(name)
+		cacheMust(t, e)
+		domain := make([]ast.ASTHandle, arity)
+		for i := range domain {
+			domain[i] = b
+		}
+		d, e := m.MkFuncDecl(n, domain, b, ast.ASTFuncDeclInfo{})
+		cacheMust(t, e)
+		return pin(d)
+	}
+	app := func(d ast.ASTHandle, args ...ast.ASTHandle) ast.ASTHandle {
+		t.Helper()
+		h, e := m.MkApp(d, args)
+		cacheMust(t, e)
+		return pin(h)
+	}
+	x, e := m.MkVar(0, b)
+	cacheMust(t, e)
+	pin(x)
+	f, g := declare("match_f", 2), declare("match_g", 1)
+	c := app(declare("match_c", 0))
+	gx := app(g, x)
+	pattern := app(f, x, gx)
+	s, e := newMatchSubst(m)
+	cacheMust(t, e)
+	t.Cleanup(func() { cacheMust(t, s.close()) })
+	ok, e := s.matchArgs(pattern, []ast.ASTHandle{c, gx})
+	cacheMust(t, e)
+	if ok {
+		t.Fatal("f(x, g(x)) matched f(c, g(x)) by binding x := c", s.bindings)
+	}
+	ok, e = s.isInstance(pattern, app(f, x, gx))
+	cacheMust(t, e)
+	if !ok {
+		t.Fatal("f(x, g(x)) must match itself")
+	}
+}

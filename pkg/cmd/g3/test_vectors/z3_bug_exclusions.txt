@@ -222,3 +222,15 @@ z3_bug_eq2bv_stale_rewriter_cache
 # tactic_arith_02-F2). Reproduction:
 # test_vectors/z3_bug_forward_trig_unsafe_after_purify.smt2.
 z3_bug_forward_trig_unsafe_after_purify
+#
+# The UFBV demodulator leaves a variable of an identical non-ground
+# subterm unbound: match_args_aux_proc only re-binds X:0 -> X:1 when X is
+# already bound to itself, so for pattern f(x, g(x)) and instance
+# f(c, g(y)) the pair (x, c) binds x := c and the quantifier is dropped;
+# an unsat problem is reported sat (z3 bug:
+# src/tactic/ufbv/ufbv_rewriter.cpp match_args_aux_proc; fixed upstream
+# in b76ed6a47, "proper fix to #6476"). g3 binds the unbound variable to
+# itself (pkg/tactic/ufbv/match_subst.go bindIdentical; AUDIT.md
+# tactic_sls_ufbv_01-F1). Reproduction:
+# test_vectors/z3_bug_ufbv_demod_identical_subterm_var.smt2.
+z3_bug_ufbv_demod_identical_subterm_var

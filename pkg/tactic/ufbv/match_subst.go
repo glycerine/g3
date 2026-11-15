@@ -104,8 +104,13 @@ func (s *matchSubst) sameDecl(a, b ast.ASTHandle) (bool, error) {
 	return da == db, e
 }
 
-// bindIdentical traverses an equal, non-ground application. A variable may be
-// left unbound or already bound to itself at offset 1; another binding fails.
+// bindIdentical traverses an equal, non-ground application. Each variable is
+// bound to itself at offset 1 unless it is already bound; a binding to
+// anything else fails. This is the behavior the C++ comment in
+// match_subst::match_args describes and upstream adopted in b76ed6a47; z3
+// 4.7.1's match_args_aux_proc leaves an unbound variable unbound, so a later
+// pair can bind it to a ground term (an unsound demodulation; AUDIT.md
+// tactic_sls_ufbv_01-F1, test_vectors/z3_bug_exclusions.txt).
 func (s *matchSubst) bindIdentical(root ast.ASTHandle) (bool, error) {
 	stack := []ast.ASTHandle{root}
 	seen := make(map[ast.ASTHandle]struct{})
