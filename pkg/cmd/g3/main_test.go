@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md qe_02-F1: eq::der reduce_var_set uses m.mk_and (trace site qe_lite flatten_definitions).
+	"qe_lite_der_singleton.smt2": "(goals\n(goal\n  (exists ((z Int)) (not (<= z y)))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md nlsat_03-F5: nlsat accepts the algebraic params.
 	"nlsat_algebraic_params.smt2": "unsat\n",
 	// AUDIT.md nlsat_03-F5: the solver's own algebraic manager, irrational model value.

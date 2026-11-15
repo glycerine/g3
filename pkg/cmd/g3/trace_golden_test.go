@@ -86,6 +86,9 @@ var goldenTraceSites = map[string]bool{
 	"sls randomize src/tactic/sls/sls_tracker.h":         true,
 	"sls randomize_local src/tactic/sls/sls_evaluator.h": true,
 	"sls mk_random_move src/tactic/sls/sls_engine.cpp":   true,
+	// AUDIT.md qe_02-F1 (not in goldenTraceTags; compare with
+	// G3_GOLDEN_TAGS=qe_lite G3_GOLDEN_VECTORS=qe_lite_der_singleton).
+	"qe_lite flatten_definitions src/qe/qe_lite.cpp": true,
 }
 
 // goldenIDMaskedSites print AST ids ("#123"). Until g3 allocates the same

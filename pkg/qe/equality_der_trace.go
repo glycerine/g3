@@ -13,7 +13,8 @@ func (d *EqualityDER) traceConjunctions(function string, line int, prefix string
 		if err != nil {
 			return err
 		}
-		h, err := d.manager.MkAndArray(args)
+		// TRACE uses m.mk_and (AUDIT.md qe_02-F1).
+		h, err := d.manager.MkAndArgs(args)
 		if err != nil {
 			return err
 		}

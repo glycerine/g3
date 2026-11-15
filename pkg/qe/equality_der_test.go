@@ -1,12 +1,15 @@
 package qe_test
 
 import (
+	"bytes"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/qe"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -188,6 +191,29 @@ func TestEqualityDERChainsCyclesAndOccursRefusals(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// AUDIT.md qe_02-F1: reduce_var_set and the flatten_definitions traces use
+// m.mk_and, so a single conjunct prints as the unary (and c).
+func TestEqualityDERSingletonConjunctionUsesPlainAnd(t *testing.T) {
+	f := setup(t)
+	x := f.variable(t, 0, f.integer)
+	p := predicate(t, f, "singleton-p", x)
+	var trace bytes.Buffer
+	tags := diagnostic.NewTraceTagsWithWriter(&trace)
+	tags.Enable("qe_lite")
+	t.Cleanup(tags.Finalize)
+	f.config.Trace = tags
+	conjs := conjunctions(t, f, p)
+	d := equalityReducer(t, f, nil, selector(t, f, []uint32{0}, true))
+	must(t, d.EliminateConjunctions(conjs))
+	if !tags.ShouldTrace("qe_lite") {
+		t.Skip("TRACE records need -tags g3trace")
+	}
+	want := "(and " + render(t, f, p) + ")"
+	if !strings.Contains(trace.String(), want) {
+		t.Fatalf("flatten_definitions trace lacks %q:\n%s", want, trace.String())
 	}
 }
 

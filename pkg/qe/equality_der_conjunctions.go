@@ -329,7 +329,8 @@ func (d *EqualityDER) reduceVariableSet(c *equalityDERCall, conjs *[]ast.ASTRef)
 			// term dies there); conjs.reset(); flatten_and(new_r, conjs);
 			// then new_r and r die at the block's end.
 			rootIndex := len(c.refs)
-			root, err := d.manager.MkAndArray(args)
+			// m.mk_and, not ast_util mk_and (AUDIT.md qe_02-F1).
+			root, err := d.manager.MkAndArgs(args)
 			if err != nil {
 				return false, err
 			}
