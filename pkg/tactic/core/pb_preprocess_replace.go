@@ -62,6 +62,14 @@ func (t *PBPreprocessTactic) replace(g *tactic.Goal, r *rewriter.TheoryRewriter,
 		if next == h {
 			continue
 		}
+		if x = t.pbTrace("replace", 651, func() (string, error) {
+			return t.pbText(h, " -> ", next, " by ", variable, " |-> ", value, "\n")
+		}); x != nil {
+			return false, x
+		}
+		if x = t.pbVerbose(3, func() (string, error) { return t.pbText("replace ", h, " -> ", next, "\n") }); x != nil {
+			return false, x
+		}
 		pr, x := g.Proof(index)
 		if x != nil {
 			return false, x

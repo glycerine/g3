@@ -13,6 +13,7 @@ package core
 import (
 	"errors"
 	"math/big"
+	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -343,6 +344,11 @@ func (t *PBPreprocessTactic) simplify(g *tactic.Goal, mc *tactic.PBPreprocModelC
 	for i := nextResolvent(r, entries, 0); i < len(entries); i = nextResolvent(r, entries, i+1) {
 		e := entries[i].Key
 		rec := r.recs[entries[i].Num]
+		if err = t.pbTrace("simplify", 203, func() (string, error) {
+			return t.pbText(e, " "+strconv.Itoa(len(rec.pos))+" "+strconv.Itoa(len(rec.neg))+"\n")
+		}); err != nil {
+			return false, err
+		}
 		if len(rec.pos) == 0 {
 			changed, x := t.replace(g, rw, rec.neg, e, falsehood)
 			if x != nil {
@@ -444,6 +450,9 @@ func (t *PBPreprocessTactic) simplify(g *tactic.Goal, mc *tactic.PBPreprocModelC
 			if x != nil {
 				return false, x
 			}
+			if x = t.pbVerbose(3, func() (string, error) { return t.pbText("replace ", fk, "\n") }); x != nil {
+				return false, x
+			}
 			joined, x := m.DependencyJoin(di, dk)
 			if x != nil {
 				return false, x
@@ -505,16 +514,19 @@ func (t *PBPreprocessTactic) resolve(g *tactic.Goal, mc *tactic.PBPreprocModelCo
 	if err != nil {
 		return false, err
 	}
+	f2, err := g.Form(idx2)
+	if err != nil {
+		return false, err
+	}
+	if err = t.pbTrace("resolve", 522, func() (string, error) { return t.pbText(f1, " ", f2, "\n") }); err != nil {
+		return false, err
+	}
 	first, err := t.parse(f1)
 	if err != nil || first == nil {
 		return false, err
 	}
 	if first.bound.Cmp(big.NewRat(1, 1)) != 0 {
 		return false, nil
-	}
-	f2, err := g.Form(idx2)
-	if err != nil {
-		return false, err
 	}
 	second, err := t.parse(f2)
 	if err != nil || second == nil {
@@ -536,6 +548,9 @@ func (t *PBPreprocessTactic) resolve(g *tactic.Goal, mc *tactic.PBPreprocModelCo
 		}
 		rec, found, e := r.rec(m, x)
 		if e != nil || !found {
+			return false, e
+		}
+		if e = t.pbTrace("resolve", 538, func() (string, error) { return t.pbText(x, "\n") }); e != nil {
 			return false, e
 		}
 		if len(rec.pos) != 1 || len(rec.neg) != 1 {
@@ -592,6 +607,15 @@ func (t *PBPreprocessTactic) resolve(g *tactic.Goal, mc *tactic.PBPreprocModelCo
 	if err != nil {
 		return false, err
 	}
+	if err = t.pbVerbose(3, func() (string, error) {
+		parts := []any{" ", tmp1, "\n"}
+		for _, term := range terms {
+			parts = append(parts, term.expression, " ")
+		}
+		return t.pbText(append(parts, "\n")...)
+	}); err != nil {
+		return false, errors.Join(err, m.DelRef(&pin))
+	}
 	out, err := m.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return false, errors.Join(err, m.DelRef(&pin))
@@ -628,6 +652,15 @@ func (t *PBPreprocessTactic) resolve(g *tactic.Goal, mc *tactic.PBPreprocModelCo
 					return false, err
 				}
 			}
+		}
+		resolution := func() (string, error) {
+			return t.pbText("resolve: ", f1, "\n", f2, "\n", tmp1, "\n", "to\n", f2, " -> ", tmp2, "\n")
+		}
+		if err = t.pbVerbose(3, resolution); err != nil {
+			return false, err
+		}
+		if err = t.pbTrace("resolve", 584, resolution); err != nil {
+			return false, err
 		}
 		d1, err := g.Dependency(idx1)
 		if err != nil {

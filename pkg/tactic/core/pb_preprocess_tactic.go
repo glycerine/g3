@@ -95,11 +95,7 @@ func (t *PBPreprocessTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (er
 	if err = tactic.FailIfProofGeneration("pb-preprocess", g); err != nil {
 		return
 	}
-	report, e := tactic.NewTacticReport("pb-preprocess", g)
-	if e != nil {
-		return e
-	}
-	defer func() { err = errors.Join(err, report.Close()) }()
+	// pb_preprocess_tactic::operator() creates no tactic_report.
 	converter, e := tactic.NewPBPreprocModelConverter(t.manager)
 	if e != nil {
 		return e
