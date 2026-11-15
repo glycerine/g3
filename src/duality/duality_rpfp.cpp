@@ -2518,6 +2518,11 @@ namespace Duality {
 
     void RPFP::FixCurrentState(Edge *edge){
         hash_set<ast> dont_cares;
+        // The @under flags are query controls, not part of the state: fixing
+        // their polarity contradicts the assumptions of the next
+        // ExpansionChoices check.
+        for (hash_map<ast,Node *>::iterator it = underapprox_flag_rev.begin(), en = underapprox_flag_rev.end(); it != en; ++it)
+            dont_cares.insert(it->first);
         resolve_ite_memo.clear();
         timer_start("UnderapproxFormula");
         Term dual = edge->dual.null() ? ctx.bool_val(true) : edge->dual;
