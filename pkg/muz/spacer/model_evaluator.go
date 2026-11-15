@@ -8,6 +8,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/util/memory"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 // spacerModelEvaluatorConstructionFailure keeps a partially initialized
@@ -124,7 +125,10 @@ func traceSpacerModelEvaluationFailure(manager *ast.ASTManager, config model.Mod
 		tags = manager.BorrowSourceTraceTags()
 	}
 	err := tags.EmitConditional("spacer_model_evaluator", "eval", "src/muz/spacer/spacer_util.cpp", 101,
-		func() bool { return true }, func(out io.Writer) error { _, err := io.WriteString(out, failure.Error()+"\n"); return err })
+		func() bool { return true }, func(out io.Writer) error {
+			_, err := io.WriteString(out, z3exception.SourceMessage(failure)+"\n")
+			return err
+		})
 	if tags.IsStreamFailure(err) {
 		return nil
 	}

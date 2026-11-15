@@ -164,3 +164,19 @@ func cStringLength(value string) int {
 type ProcessExit struct{ Status int }
 
 func (e *ProcessExit) Error() string { return fmt.Sprintf("exit(%d)", e.Status) }
+
+// SourceMessage is the ex.msg() a C++ catch site sees for err. A C++
+// exception propagates unchanged through the frames it unwinds; the Go port
+// adds fmt.Errorf("context: %w") wrappers for Go callers only. So when err's
+// chain holds a source exception, its own message is the text; an error with
+// no source exception keeps its Go text.
+func SourceMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	var source Z3Exception
+	if errors.As(err, &source) {
+		return source.Message()
+	}
+	return err.Error()
+}

@@ -31,7 +31,7 @@ func WrapTacticException(cause error) TacticException {
 	if cause == nil {
 		return TacticException{}
 	}
-	return TacticException{message: cause.Error(), cause: cause}
+	return TacticException{message: z3exception.SourceMessage(cause), cause: cause}
 }
 
 func (e TacticException) Error() string                    { return e.message }

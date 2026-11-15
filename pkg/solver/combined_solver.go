@@ -19,6 +19,7 @@ import (
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 type IncrementalUnknownBehavior uint32
@@ -469,7 +470,7 @@ func (c *CombinedSolver) GetConsequences(a, v []ast.ASTHandle) (status lbool.LBo
 		if e != nil {
 			return lbool.Undef, nil, e
 		}
-		reason := err.Error()
+		reason := z3exception.SourceMessage(err)
 		if canceled {
 			reason = messages.Canceled
 		}

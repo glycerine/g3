@@ -1,0 +1,8 @@
+(set-logic QF_S)
+(set-option :auto_config false)
+(declare-const x String)
+(set-option :auto_config true)
+(set-option :smt.string_solver invalid)
+(assert (not (= x "")))
+(check-sat)
+(get-info :reason-unknown)

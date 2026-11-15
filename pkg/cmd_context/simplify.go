@@ -15,6 +15,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/stopwatch"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 type SimplifyDetails struct {
@@ -203,7 +204,7 @@ func (c *Context) simplifyWithDetails(expression ast.ASTHandle, params *uparams.
 			return result, proof, details, rewriteErr
 		}
 		details.Failed = true
-		details.Failure = rewriteErr.Error()
+		details.Failure = z3exception.SourceMessage(rewriteErr)
 		if err = m.SetRef(result, expression); err != nil {
 			return result, proof, details, err
 		}

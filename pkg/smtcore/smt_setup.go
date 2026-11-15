@@ -5,9 +5,9 @@ package smtcore
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 // smtLogicUsesUnknownSetup mirrors setup::setup_default's fallthrough to
@@ -183,7 +183,8 @@ func (k *SMTKernel) setupSequenceBackend(useStaticFeatures bool) (result error) 
 		case "auto":
 			legacy = !features.HasNonStringSequence
 		default:
-			return fmt.Errorf("invalid parameter for smt.string_solver, valid options are 'z3str3', 'seq', 'auto'")
+			// smt_setup.cpp: throw default_exception(...).
+			return z3exception.NewDefaultException("invalid parameter for smt.string_solver, valid options are 'z3str3', 'seq', 'auto'")
 		}
 	}
 	family, err := k.manager.RegisterSequencePlugin()

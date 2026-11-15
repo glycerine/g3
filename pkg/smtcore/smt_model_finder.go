@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast/pattern"
 	"github.com/glycerine/g3/pkg/model"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
+	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -93,7 +94,8 @@ func (f *SMTModelFinder) checkpoint() error {
 		return err
 	}
 	if canceled {
-		return errors.New(f.manager.ResourceLimit().CancelMessage())
+		// model_finder::checkpoint: throw tactic_exception(get_cancel_msg()).
+		return tactic.NewTacticException(f.manager.ResourceLimit().CancelMessage())
 	}
 	return nil
 }

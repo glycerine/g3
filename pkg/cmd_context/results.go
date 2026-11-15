@@ -21,6 +21,7 @@ import (
 	usmt2 "github.com/glycerine/g3/pkg/util/smt2"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 	utext "github.com/glycerine/g3/pkg/util/text"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 // EvaluationOptions are the command-local parameters accepted by eval_cmd.
@@ -250,7 +251,7 @@ func (c *Context) WriteEvaluationWithOptions(out io.Writer, expression ast.ASTHa
 	value, err := c.EvaluateWithOptions(expression, options)
 	if err != nil {
 		if rewriter.IsRewriterException(err) {
-			message := strings.ReplaceAll(err.Error(), "\"", "\"\"")
+			message := strings.ReplaceAll(z3exception.SourceMessage(err), "\"", "\"\"")
 			_, resultErr = fmt.Fprintf(out, "(error \"evaluator failed: %s\")\n", message)
 			return resultErr
 		}

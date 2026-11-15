@@ -12,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 func (i *ModelImplicant) evaluateModelWithoutCompletion(expression ast.ASTHandle, out ast.ASTRef) (resultErr error) {
@@ -40,7 +41,10 @@ func (i *ModelImplicant) traceModelEvaluationFailure(failure error) {
 	if tags == nil {
 		tags = diagnostic.BorrowProcessTraceTags()
 	}
-	_ = tags.EmitConditional("model_evaluator", "eval", "src/model/model.cpp", 88, func() bool { return true }, func(w io.Writer) error { _, err := io.WriteString(w, failure.Error()+"\n"); return err })
+	_ = tags.EmitConditional("model_evaluator", "eval", "src/model/model.cpp", 88, func() bool { return true }, func(w io.Writer) error {
+		_, err := io.WriteString(w, z3exception.SourceMessage(failure)+"\n")
+		return err
+	})
 }
 
 func (i *ModelImplicant) traceUnknownEquality(value ast.ASTHandle) error {

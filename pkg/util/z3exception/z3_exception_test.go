@@ -2,6 +2,7 @@ package z3exception
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -94,5 +95,23 @@ func TestDefaultExceptionRetainedDatalogUnsignedSymbol(t *testing.T) {
 	got = NewDefaultExceptionf("%%I64u = %I64u", uint64(42))
 	if want := "%I64u = 42"; got.Message() != want {
 		t.Fatalf("escaped percent = %q, want %q", got.Message(), want)
+	}
+}
+
+// SourceMessage is the ex.msg() a C++ catch site prints: Go wrapping context
+// around a source exception does not reach the user; a plain Go error keeps
+// its text.
+func TestSourceMessageSkipsGoWrapping(t *testing.T) {
+	source := NewDefaultException("max. resource limit exceeded")
+	wrapped := fmt.Errorf("smt kernel internalize assertions: %w", errors.Join(fmt.Errorf("asserted preprocessing nnf: %w", source), nil))
+	if got := SourceMessage(wrapped); got != "max. resource limit exceeded" {
+		t.Fatalf("wrapped source message %q", got)
+	}
+	plain := fmt.Errorf("context: %w", errors.New("plain"))
+	if got := SourceMessage(plain); got != "context: plain" {
+		t.Fatalf("plain message %q", got)
+	}
+	if got := SourceMessage(nil); got != "" {
+		t.Fatalf("nil message %q", got)
 	}
 }

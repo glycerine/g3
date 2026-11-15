@@ -7,6 +7,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 	"io"
 )
 
@@ -72,7 +73,7 @@ func (g *RPFP) evaluate(term *Expr) (out *Expr, result error) {
 			tags = diagnostic.BorrowProcessTraceTags()
 		}
 		failure := err
-		_ = tags.EmitConditional("model_evaluator", "eval", "src/model/model.cpp", 88, func() bool { return true }, func(w io.Writer) error { _, e := io.WriteString(w, failure.Error()+"\n"); return e })
+		_ = tags.EmitConditional("model_evaluator", "eval", "src/model/model.cpp", 88, func() bool { return true }, func(w io.Writer) error { _, e := io.WriteString(w, z3exception.SourceMessage(failure)+"\n"); return e })
 		err = nil
 	}
 	if err != nil {

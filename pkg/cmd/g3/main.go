@@ -298,7 +298,7 @@ func main() {
 		if errors.As(err, &exception) && exception.HasErrorCode() {
 			code = exception.ErrorCode()
 		}
-		fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
+		fmt.Fprintf(os.Stderr, "ERROR: %s\n", z3exception.SourceMessage(err))
 		os.Exit(int(code))
 	}
 }

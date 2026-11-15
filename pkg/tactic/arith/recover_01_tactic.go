@@ -5,6 +5,7 @@ package arith
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -194,7 +195,7 @@ func (t *Recover01Tactic) BindTrace(tags *diagnostic.TraceTags) error {
 func (t *Recover01Tactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (err error) {
 	defer func() {
 		if rewriter.IsRewriterException(err) {
-			err = tactic.NewTacticException(err.Error())
+			err = tactic.NewTacticException(z3exception.SourceMessage(err))
 		}
 	}()
 	if err = t.open(); err != nil {

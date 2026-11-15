@@ -245,7 +245,7 @@ func parserScannerError(err error, scanner *Scanner) *ScannerError {
 	if errors.As(err, &parseError) {
 		return parseError
 	}
-	return &ScannerError{Message: err.Error(), Line: scanner.Line(), Column: scanner.Position()}
+	return &ScannerError{Message: z3exception.SourceMessage(err), Line: scanner.Line(), Column: scanner.Position()}
 }
 
 // reportFailure ends the parse after a failed report. An immediate-exit
@@ -269,7 +269,7 @@ func reportParserError(p *commandParser, err error) error {
 	}
 	var parseError *ScannerError
 	if !errors.As(err, &parseError) {
-		parseError = &ScannerError{Message: err.Error(), Line: p.scanner.Line(), Column: p.scanner.Position()}
+		parseError = &ScannerError{Message: z3exception.SourceMessage(err), Line: p.scanner.Line(), Column: p.scanner.Position()}
 	}
 	var cause error
 	if p.errorForVS {

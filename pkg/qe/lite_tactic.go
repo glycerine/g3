@@ -5,6 +5,7 @@ package qe
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 	"io"
 	"reflect"
 
@@ -209,7 +210,7 @@ func (t *LiteTactic) finish(c *liteTacticCall, err *error) {
 		return
 	}
 	if !errors.As(*err, &failure) && rewriter.IsRewriterException(*err) {
-		*err = tactic.NewTacticException((*err).Error())
+		*err = tactic.NewTacticException(z3exception.SourceMessage(*err))
 	}
 }
 func (t *LiteTactic) checkpoint() error {

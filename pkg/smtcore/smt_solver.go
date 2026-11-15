@@ -941,7 +941,7 @@ func (s *SMTSolver) GetConsequences(assumptions []ast.ASTHandle, variables []ast
 			status = lbool.Undef
 			return
 		}
-		_ = s.SetReasonUnknown(err.Error())
+		_ = s.SetReasonUnknown(z3exception.SourceMessage(err))
 	}()
 	result, err := solver.NewSimpleCheckSatResult(s.manager)
 	if err != nil {

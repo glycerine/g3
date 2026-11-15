@@ -12,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/sat"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/messages"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 func (s *Solver) internalizeVariable(v ast.ASTHandle, variables *[]sat.BoolVar) (complete bool, err error) {
@@ -191,7 +192,7 @@ func (s *Solver) GetConsequences(asms, variables []ast.ASTHandle) (status lbool.
 				status = lbool.Undef
 				err = nil
 			} else {
-				s.unknown = err.Error()
+				s.unknown = z3exception.SourceMessage(err)
 			}
 		}
 	}()

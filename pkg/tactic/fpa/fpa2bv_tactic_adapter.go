@@ -5,6 +5,7 @@ package fpa
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
@@ -87,7 +88,7 @@ func (t *FPA2BVTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (err e
 	// catch (rewriter_exception & ex) { throw tactic_exception(ex.msg()); }
 	defer func() {
 		if rewriter.IsRewriterException(err) {
-			err = tactic.NewTacticException(err.Error())
+			err = tactic.NewTacticException(z3exception.SourceMessage(err))
 		}
 	}()
 	if err = t.open(); err != nil {

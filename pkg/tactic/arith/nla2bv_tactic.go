@@ -5,6 +5,7 @@ package arith
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -210,7 +211,7 @@ func (t *NLA2BVTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (err erro
 		}
 		err = errors.Join(err, cleanup)
 		if rewriter.IsRewriterException(err) {
-			err = tactic.NewTacticException(err.Error())
+			err = tactic.NewTacticException(z3exception.SourceMessage(err))
 		}
 	}()
 	if err != nil {

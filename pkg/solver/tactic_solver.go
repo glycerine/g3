@@ -371,7 +371,7 @@ func (s *TacticSolver) traceException(cause error) {
 		tags = diagnostic.BorrowProcessTraceTags()
 	}
 	_ = tags.EmitConditional("tactic2solver", "check_sat_core", "src/solver/tactic2solver.cpp", 117, func() bool { return true }, func(w io.Writer) error {
-		_, err := io.WriteString(w, "exception: "+cause.Error()+"\n")
+		_, err := io.WriteString(w, "exception: "+z3exception.SourceMessage(cause)+"\n")
 		return err
 	})
 }
@@ -457,7 +457,7 @@ func (s *TacticSolver) CheckSatCore(assumptions []ast.ASTHandle) (status lbool.L
 			return lbool.Undef, err
 		}
 		status = lbool.Undef
-		reason = err.Error()
+		reason = z3exception.SourceMessage(err)
 		err = nil
 	}
 	if err = result.SetStatus(status); err != nil {

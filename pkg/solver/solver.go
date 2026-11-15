@@ -13,6 +13,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/messages"
 	uparams "github.com/glycerine/g3/pkg/util/params"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 // Solver is the incremental solver surface used by the API, command context,
@@ -248,7 +249,7 @@ func DefaultGetConsequences(s Solver, assumptions, variables []ast.ASTHandle, fa
 			status = lbool.Undef
 			return
 		}
-		_ = s.SetReasonUnknown(err.Error())
+		_ = s.SetReasonUnknown(z3exception.SourceMessage(err))
 	}()
 	status, err = s.CheckSat(assumptions)
 	if err != nil || status != lbool.True {

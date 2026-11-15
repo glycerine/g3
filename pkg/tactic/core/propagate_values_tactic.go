@@ -5,6 +5,7 @@ package core
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 	"io"
 	"reflect"
 
@@ -116,7 +117,7 @@ func (t *PropagateValuesTactic) DecRef() error {
 func (t *PropagateValuesTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (err error) {
 	defer func() {
 		if rewriter.IsRewriterException(err) {
-			err = tactic.NewTacticException(err.Error())
+			err = tactic.NewTacticException(z3exception.SourceMessage(err))
 		}
 	}()
 	if err = t.open(); err != nil {

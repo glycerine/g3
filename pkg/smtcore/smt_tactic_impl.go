@@ -18,6 +18,7 @@ import (
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 // SMTTactic creates a fresh SMT context per application. Unlike the general
@@ -124,7 +125,7 @@ func (p smtTacticProgress) SlowProgressSample() { p.callback(1) }
 func (t *SMTTactic) Apply(in *tactic.Goal, result *tactic.TacticResult) (err error) {
 	defer func() {
 		if rewriter.IsRewriterException(err) {
-			err = tactic.NewTacticException(err.Error())
+			err = tactic.NewTacticException(z3exception.SourceMessage(err))
 		}
 	}()
 	if err = t.open(); err != nil {

@@ -338,6 +338,11 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// gaps_misc (AUDIT.md smtcore F3 follow-up): reason-unknown and (error ...)
+	// print the source exception's msg(), not the Go wrapping context.
+	"rlimit_error_line_source_message.smt2":                "(error \"line 11 column 5: max. resource limit exceeded\")\nunknown\n",
+	"rlimit_reason_unknown_source_message.smt2":            "unknown\n(:reason-unknown \"max. resource limit exceeded\")\nunknown\n(:reason-unknown \"max. resource limit exceeded\")\n",
+	"reason_unknown_default_exception_source_message.smt2": "unknown\n(:reason-unknown \"invalid parameter for smt.string_solver, valid options are 'z3str3', 'seq', 'auto'\")\n",
 	// AUDIT.md parsers_shell_01-F17: stderr checked by TestSimpleParserWarningPrefixMatchesReference.
 	"qi_cost_parser_error_warning.smt2": "unsat\n",
 	// smtcore_12-F4 follow-up: pb simplex columns are bool vars, reused after pop.
@@ -1993,6 +1998,8 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	"rlimit_error_line_source_message.smt2": true, // gaps_misc: source exception text
+
 	"check_sat_assuming_non_literal.smt2": true, // AUDIT.md sat_04-F2
 
 	// AUDIT.md ast_04-F1

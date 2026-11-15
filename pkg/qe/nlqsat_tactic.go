@@ -5,6 +5,7 @@ package qe
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 	"math"
 	"reflect"
 
@@ -383,7 +384,7 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 		return err
 	}
 	if err = compiler.Compile(cnfGoal); err != nil {
-		return tactic.NewTacticException(err.Error())
+		return tactic.NewTacticException(z3exception.SourceMessage(err))
 	}
 	if err = releaseCNF(); err != nil {
 		return err
@@ -396,7 +397,7 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	status, err := search.check()
 	t.rounds = uint64(search.rounds)
 	if err != nil {
-		return tactic.NewTacticException(err.Error())
+		return tactic.NewTacticException(z3exception.SourceMessage(err))
 	}
 	if status == lbool.Undef {
 		return tactic.NewTacticException("search failed")

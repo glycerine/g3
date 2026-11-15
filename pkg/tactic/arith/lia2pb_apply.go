@@ -9,12 +9,13 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 func (t *LIA2PBTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (err error) {
 	defer func() {
 		if rewriter.IsRewriterException(err) {
-			err = tactic.NewTacticException(err.Error())
+			err = tactic.NewTacticException(z3exception.SourceMessage(err))
 		}
 	}()
 	if err = t.open(); err != nil {

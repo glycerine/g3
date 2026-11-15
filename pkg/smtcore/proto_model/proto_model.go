@@ -8,6 +8,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 type ProtoModel struct {
@@ -299,7 +300,7 @@ func (p *ProtoModel) traceEvaluatorException(exception error) error {
 		return nil
 	}
 	err := tags.EmitConditional("model_evaluator", "eval", "src/smt/proto_model/proto_model.cpp", 95, func() bool { return true }, func(out io.Writer) error {
-		_, _ = io.WriteString(out, exception.Error()+"\n")
+		_, _ = io.WriteString(out, z3exception.SourceMessage(exception)+"\n")
 		return nil
 	})
 	if tags.IsStreamFailure(err) {

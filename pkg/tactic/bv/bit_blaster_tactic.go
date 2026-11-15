@@ -5,6 +5,7 @@ package bv
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 	"io"
 	"reflect"
 
@@ -299,7 +300,7 @@ func (t *BitBlasterTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult)
 	}
 	defer func() {
 		if rewriter.IsRewriterException(err) {
-			err = tactic.NewTacticException(err.Error())
+			err = tactic.NewTacticException(z3exception.SourceMessage(err))
 		}
 	}()
 	proofs, err := goal.ProofsEnabled()

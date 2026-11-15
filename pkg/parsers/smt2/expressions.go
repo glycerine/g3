@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/math/polynomial"
 	usexpr "github.com/glycerine/g3/pkg/util/sexpr"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 func (p *commandParser) rootObjectExpression() (result ast.ASTHandle, resultErr error) {
@@ -626,5 +627,5 @@ func positionedError(err error, line, column int) error {
 	if errors.As(err, &positioned) {
 		return err
 	}
-	return &ScannerError{Message: err.Error(), Line: line, Column: column}
+	return &ScannerError{Message: z3exception.SourceMessage(err), Line: line, Column: column}
 }

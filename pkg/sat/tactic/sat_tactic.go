@@ -20,6 +20,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/statistics"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 	utext "github.com/glycerine/g3/pkg/util/text"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 // SATTactic stores parameters and accumulated statistics; each application
@@ -455,7 +456,7 @@ func (t *SATTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (err error) 
 			return errors.Join(err, e)
 		}
 		if err != nil {
-			return tactic.NewTacticException(err.Error())
+			return tactic.NewTacticException(z3exception.SourceMessage(err))
 		}
 	} else {
 		return err
