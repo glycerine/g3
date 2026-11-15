@@ -4,6 +4,7 @@ package bmc_test
 // bmc::checkpoint before compiling and asserting each unfolding level.
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -13,6 +14,7 @@ import (
 	"github.com/glycerine/g3/pkg/muz/bmc"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 func TestBMCLinearSearchCancellationPrecedesLevelCompilation(t *testing.T) {
@@ -68,9 +70,28 @@ func TestBMCLinearSearchCancellationPrecedesLevelCompilation(t *testing.T) {
 	if canceled == nil || status != lbool.Undef || level != 0 {
 		t.Fatal("linear search ignored pre-level cancellation", status, level, canceled)
 	}
+	// AUDIT.md muz_small_01-F4: bmc::checkpoint throws
+	// default_exception(Z3_CANCELED_MSG), with no "bmc:" prefix.
+	assertCanceledDefaultException(t, "linear", canceled)
+	m.Limit.IncCancel()
+	_, _, canceled = compiler.SearchNonlinear(set, declaration, solver)
+	m.Limit.DecCancel()
+	assertCanceledDefaultException(t, "nonlinear", canceled)
+	m.Limit.IncCancel()
+	_, _, _, canceled = compiler.SearchQuantifiedLinear(set, declaration, solver)
+	m.Limit.DecCancel()
+	assertCanceledDefaultException(t, "quantified linear", canceled)
 	status, level, err = compiler.SearchLinear(set, declaration, solver, 1)
 	must(err)
 	if status != lbool.True || level != 0 {
 		t.Fatal("canceled linear search mutated solver", status, level)
+	}
+}
+
+func assertCanceledDefaultException(t *testing.T, search string, err error) {
+	t.Helper()
+	var exception z3exception.DefaultException
+	if !errors.As(err, &exception) || exception.Message() != "canceled" || err.Error() != "canceled" {
+		t.Fatalf("%s search cancellation is not default_exception(\"canceled\"): %v", search, err)
 	}
 }

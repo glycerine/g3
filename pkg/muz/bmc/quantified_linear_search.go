@@ -4,13 +4,13 @@ package bmc
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 // SearchQuantifiedLinear checks increasing index widths beginning at four.
@@ -43,7 +43,7 @@ func (c *Compiler) searchQuantifiedLinear(rules *base.RuleSet, query ast.ASTHand
 			return lbool.Undef, width, nil, err
 		}
 		if canceled {
-			return lbool.Undef, width, nil, fmt.Errorf("bmc: %s", c.manager.ResourceLimit().CancelMessage())
+			return lbool.Undef, width, nil, z3exception.NewDefaultException(c.manager.ResourceLimit().CancelMessage())
 		}
 		status, winning, err = c.checkQuantifiedLinearWidth(rules, query, solver, width, consume)
 		if err != nil || status != lbool.False {
@@ -95,7 +95,7 @@ func (c *Compiler) checkQuantifiedLinearWidth(rules *base.RuleSet, query ast.AST
 		return lbool.Undef, nil, err
 	}
 	if canceled {
-		return lbool.Undef, nil, fmt.Errorf("bmc: %s", c.manager.ResourceLimit().CancelMessage())
+		return lbool.Undef, nil, z3exception.NewDefaultException(c.manager.ResourceLimit().CancelMessage())
 	}
 	q, err := newQuantifiedLinear(c.manager, width)
 	if err != nil {

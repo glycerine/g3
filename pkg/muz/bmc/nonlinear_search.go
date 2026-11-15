@@ -3,12 +3,11 @@ package bmc
 // Source: src/muz/bmc/dl_bmc_engine.cpp, nonlinear::check and check(level).
 
 import (
-	"fmt"
-
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 // SearchNonlinear incrementally asserts nonlinear rule encodings and checks a
@@ -28,7 +27,7 @@ func (c *Compiler) SearchNonlinear(rules *base.RuleSet, query ast.ASTHandle, sol
 			return lbool.Undef, level, err
 		}
 		if canceled {
-			return lbool.Undef, level, fmt.Errorf("bmc: %s", m.ResourceLimit().CancelMessage())
+			return lbool.Undef, level, z3exception.NewDefaultException(m.ResourceLimit().CancelMessage())
 		}
 		formulas, err := c.Compile(rules, level)
 		if err != nil {

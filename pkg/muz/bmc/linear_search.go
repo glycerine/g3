@@ -3,12 +3,11 @@ package bmc
 // Source: src/muz/bmc/dl_bmc_engine.cpp, linear::check.
 
 import (
-	"fmt"
-
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 // SearchLinear checks source linear encodings from level zero up to maxDepth.
@@ -34,7 +33,7 @@ func (c *Compiler) SearchLinear(rules *base.RuleSet, query ast.ASTHandle, solver
 			return lbool.Undef, level, err
 		}
 		if canceled {
-			return lbool.Undef, level, fmt.Errorf("bmc: %s", m.ResourceLimit().CancelMessage())
+			return lbool.Undef, level, z3exception.NewDefaultException(m.ResourceLimit().CancelMessage())
 		}
 		err = c.compileLinearEach(rules, level, solver.AssertFormula)
 		if err != nil {

@@ -49,15 +49,13 @@ func (c *Compiler) LinearProof(rules *base.RuleSet, query ast.ASTHandle, level u
 			normalizer.SetContextRewriter(normalization[0].ContextRewriter)
 		}
 	}
+	// linear::get_model returns quietly, with no answer, when canceled.
+	canceled, err := m.Canceled()
+	if err != nil || canceled {
+		return result, err
+	}
 	predicate := query
 	for {
-		canceled, err := m.Canceled()
-		if err != nil {
-			return result, err
-		}
-		if canceled {
-			return result, fmt.Errorf("bmc: %s", m.ResourceLimit().CancelMessage())
-		}
 		rule, index, err := c.selectedLinearRule(rules, predicate, level, md)
 		if err != nil {
 			return result, err

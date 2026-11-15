@@ -13,6 +13,7 @@ import (
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/memory"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 // QuantifiedLinearTrace follows model-selected rules from the query to a fact.
@@ -199,7 +200,7 @@ func (c *Compiler) quantifiedLinearStepsVisit(rules *base.RuleSet, query ast.AST
 			return result, e
 		}
 		if canceled {
-			return result, fmt.Errorf("bmc: %s", m.ResourceLimit().CancelMessage())
+			return result, z3exception.NewDefaultException(m.ResourceLimit().CancelMessage())
 		}
 		levelExpr, e := q.hold(m.BitVectorNumeralRat(new(big.Rat).SetUint64(uint64(level)), width))
 		if e != nil {

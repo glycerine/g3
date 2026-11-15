@@ -104,7 +104,8 @@ func (c *Compiler) traceNonlinearRule(rules *base.RuleSet, evaluator *model.Mode
 		return err
 	}
 	if canceled {
-		return fmt.Errorf("bmc: %s", m.ResourceLimit().CancelMessage())
+		// nonlinear::get_proof returns a null proof when canceled.
+		return nil
 	}
 	group, err := rules.PredicateRules(predicate)
 	if err != nil {
@@ -301,6 +302,12 @@ func (c *Compiler) traceNonlinearRule(rules *base.RuleSet, evaluator *model.Mode
 			return err
 		}
 		if proofResult != nil {
+			if child == (ast.ASTRef{}) {
+				// A canceled child returned a null proof. The source would
+				// hand it to mk_hyper_resolve; the null proof is returned
+				// unchanged instead.
+				return nil
+			}
 			refs = append(refs, child)
 			childProof, err := m.RefGet(child)
 			if err != nil {
