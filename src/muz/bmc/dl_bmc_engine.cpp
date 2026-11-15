@@ -1284,7 +1284,8 @@ namespace datalog {
                     scoped_proof _sp(m);
                     proof* premises[2] = { pr, p };
 
-                    positions.push_back(std::make_pair(0, 1));
+                    // FORK FIX #94 (g3 audit, see FORK_BUGFIXES.md): tail 0 of the derivation resolves with the rule's head, as in qlinear::get_model
+                    positions.push_back(std::make_pair(1, 0));
 
                     substs.push_back(sub1);
                     substs.push_back(sub);
