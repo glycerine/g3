@@ -189,3 +189,13 @@ z3_bug_spacer_min_cut_shared_node_unsat
 # muz_transforms_01-F6). Reproduction:
 # test_vectors/z3_bug_qi_weakening_proof.smt2.
 z3_bug_qi_weakening_proof
+#
+# pb2bv with a numeral on the left: convert's numeral-lhs branch encodes
+# (= c x) as the unit x for every c outside {0,1}, and (<= c x)/(>= c x)
+# without range checks, so an unsat goal is reported sat (z3 bug:
+# src/tactic/arith/pb2bv_tactic.cpp convert; upstream still encodes
+# (= 3 x) as x). g3 mirrors the atom so the numeral is on the right and
+# uses the checked branch (pkg/tactic/arith/pb2bv_convert.go convertCore;
+# AUDIT.md tactic_arith_03-F1). Reproduction:
+# test_vectors/z3_bug_pb2bv_numeral_lhs.smt2.
+z3_bug_pb2bv_numeral_lhs

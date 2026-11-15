@@ -1,0 +1,15 @@
+; pb2bv with a numeral on the left (AUDIT.md tactic_arith_03-F1). z3 4.7.1
+; encodes (= 3 x) and (<= 3 x) as the unit x and answers sat; both are unsat.
+(declare-const x Int)
+(declare-const b Bool)
+(assert (<= 0 x))
+(assert (<= x 1))
+(assert (not b))
+(push)
+(assert (or b (= 3 x)))
+(check-sat-using (then pb2bv smt))
+(pop)
+(push)
+(assert (or b (<= 3 x)))
+(check-sat-using (then pb2bv smt))
+(pop)

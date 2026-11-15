@@ -142,6 +142,43 @@ func TestPB2BVEncodingTruthTables(t *testing.T) {
 	}
 }
 
+// A numeral on the left is mirrored onto the right before encoding: z3 4.7.1
+// turned (= 3 x) into the unit x and (<= 3 x) into x (AUDIT.md
+// tactic_arith_03-F1).
+func TestPB2BVNumeralOnLeft(t *testing.T) {
+	for _, tc := range []struct {
+		op    int32
+		bound string
+		want  bool
+	}{{-1, "3", false}, {2, "3", false}, {3, "2", true}, {2, "-1", true}} {
+		for _, positive := range []bool{true, false} {
+			r := pbTacticFixture(t)
+			m := r.manager
+			x := fixDLConst(t, m, true, "x")
+			c := fixDLNumber(t, m, true, tc.bound)
+			var atom ast.ASTHandle
+			if tc.op < 0 {
+				var e error
+				atom, e = m.MkEq(c, x)
+				equationMust(t, e)
+				fixDLPin(t, m, atom)
+			} else {
+				atom = fixDLApp(t, m, tc.op, c, x)
+			}
+			out, e := m.NewRef(ast.ASTHandle{})
+			equationMust(t, e)
+			equationMust(t, r.convert(atom, out, positive, false))
+			h, e := m.RefGet(out)
+			equationMust(t, e)
+			want := tc.want == positive
+			if (want && !m.IsTrue(h)) || (!want && !m.IsFalse(h)) {
+				t.Fatal("numeral-left encoding", tc.op, tc.bound, positive, h, want)
+			}
+			equationMust(t, m.DelRef(&out))
+		}
+	}
+}
+
 func TestPB2BVCoefficientNormalization(t *testing.T) {
 	r := pbTacticFixture(t)
 	m := r.manager

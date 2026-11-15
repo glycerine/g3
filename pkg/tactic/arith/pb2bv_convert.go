@@ -150,12 +150,16 @@ func (t *PB2BVTactic) convertCore(term ast.ASTHandle, positive, root bool, s *pb
 	} else {
 		return ast.ASTHandle{}, t.nonPB(term)
 	}
-	c, _, number, err := t.numeral(lhs)
+	// z3 4.7.1 handled a numeral on the left in its own branch, which
+	// encoded (= c x) as the unit x for every c outside {0,1} and
+	// (<= c x)/(>= c x) without range checks (AUDIT.md tactic_arith_03-F1;
+	// fork fix in pb2bv_tactic.cpp convert). Mirror the atom so the
+	// numeral is on the right and use the checked rhs-numeral code.
+	_, _, number, err := t.numeral(lhs)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	if number {
-		pbAdjust(&positive, &kind, &c)
 		constant, e := t.bounds.constant(rhs)
 		if e != nil {
 			return ast.ASTHandle{}, e
@@ -163,26 +167,12 @@ func (t *PB2BVTactic) convertCore(term ast.ASTHandle, positive, root bool, s *pb
 		if !constant {
 			return ast.ASTHandle{}, t.nonPB(term)
 		}
-		if err = t.addBoundsDependencies(rhs); err != nil {
-			return ast.ASTHandle{}, err
+		lhs, rhs = rhs, lhs
+		if kind == pbLessEqual {
+			kind = pbGreaterEqual
+		} else if kind == pbGreaterEqual {
+			kind = pbLessEqual
 		}
-		if kind == pbEqual {
-			sign := c.Sign() == 0
-			if !positive {
-				sign = !sign
-			}
-			return t.integerLiteral(rhs, sign)
-		}
-		if (c.Sign() == 0 && kind == pbLessEqual) || (c.Cmp(big.NewRat(1, 1)) == 0 && kind == pbGreaterEqual) {
-			if err = t.traceDiscard(term, 649); err != nil {
-				return ast.ASTHandle{}, err
-			}
-			return m.MkTrue()
-		}
-		if !positive || !((c.Sign() == 0 && kind == pbGreaterEqual) || (c.Cmp(big.NewRat(1, 1)) == 0 && kind == pbLessEqual)) {
-			return ast.ASTHandle{}, ast.ErrASTDomain
-		}
-		return t.integerLiteral(rhs, kind == pbGreaterEqual)
 	}
 	c, integer, number, err := t.numeral(rhs)
 	if err != nil {

@@ -14,6 +14,7 @@ import (
 // scriptResults so the C++ reference comparison does not run them; this
 // test locks in g3's correct answers instead.
 var z3BugResults = map[string]string{
+	"z3_bug_pb2bv_numeral_lhs.smt2":                   "unsat\nunsat\n", // tactic_arith_03-F1
 	"z3_bug_automaton_product.smt2":                   "sat\n(model \n  (define-fun x () String\n    \"\")\n)\n",
 	"z3_bug_qe_nested_store.smt2":                     "sat\n",
 	"z3_bug_opt_stale_objective_term.smt2":            "sat\n(objectives\n (x 7)\n (y oo)\n (q (- 3))\n)\n",
