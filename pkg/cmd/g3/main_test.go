@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md nlsat_03-F4: shuffle_vars reorders by the shuffled vector itself.
+	"nlsat_shuffle_perm.smt2": "sat\n(model \n  (define-fun a () Real\n    9.0)\n  (define-fun b () Real\n    (/ 1.0 8.0))\n  (define-fun c () Real\n    (- 21.0))\n  (define-fun d () Real\n    (/ 1.0 2.0))\n)\n",
 	// AUDIT.md nlsat_03-F3: the nlsat seed reaches the interval-set manager.
 	"nlsat_seed_witness.smt2": "sat\n(model \n  (define-fun a () Real\n    (- (/ 1.0 8.0)))\n  (define-fun b () Real\n    (- 9.0))\n  (define-fun c () Real\n    2.0)\n  (define-fun d () Real\n    3.0)\n)\n",
 	// AUDIT.md muz_fp_01-F5: the bit-blast answer is the Boolean relation's formula.

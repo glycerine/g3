@@ -139,11 +139,9 @@ func (s *Solver) ShuffledVariablePermutation() ([]uint32, bool, error) {
 	}
 	s.randomSeed++
 	z3rand.ShuffleUint32(order, z3rand.New(s.randomSeed))
-	permutation := make([]uint32, count)
-	for position, variable := range order {
-		permutation[variable] = uint32(position)
-	}
-	return permutation, true, nil
+	// Source shuffle_vars passes the shuffled vector itself to reorder as
+	// the internal-to-new-position map (AUDIT.md nlsat_03-F4).
+	return order, true, nil
 }
 
 func validateVariablePermutation(permutation []uint32, count int) error {

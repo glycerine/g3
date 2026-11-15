@@ -532,16 +532,34 @@ func TestSolverShuffledVariablePermutation(t *testing.T) {
 		if !supported {
 			t.Fatal("shuffle refused inequality-only solver")
 		}
-		order := []uint32{0, 1, 2, 3}
-		z3rand.ShuffleUint32(order, z3rand.New(seed))
-		want := make([]uint32, len(order))
-		for position, variable := range order {
-			want[variable] = uint32(position)
-		}
+		// AUDIT.md nlsat_03-F4: the shuffled vector is the permutation.
+		want := []uint32{0, 1, 2, 3}
+		z3rand.ShuffleUint32(want, z3rand.New(seed))
 		for i := range want {
 			if got[i] != want[i] {
 				t.Fatal("shuffle permutation", attempt, got, want)
 			}
+		}
+	}
+}
+
+// AUDIT.md nlsat_03-F4: with seed 0 and four variables source shuffle_vars
+// reorders by the shuffled vector [3 0 2 1] itself, not by its inverse.
+func TestSolverShuffledVariablePermutationSeedZero(t *testing.T) {
+	s := solverFixtureConfig(t, SolverConfig{MaxConflicts: ^uint32(0), Seed: 0})
+	for i := 0; i < 4; i++ {
+		_, err := s.MkVar(false)
+		assignmentMust(t, err)
+	}
+	got, supported, err := s.ShuffledVariablePermutation()
+	assignmentMust(t, err)
+	want := []uint32{3, 0, 2, 1}
+	if !supported || len(got) != len(want) {
+		t.Fatal("shuffle permutation", supported, got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatal("shuffle permutation", got, want)
 		}
 	}
 }
