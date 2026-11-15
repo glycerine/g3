@@ -45,6 +45,7 @@ type commandParser struct {
 	ignoreUserPatterns bool
 	ignoreBadPatterns  bool
 	errorForVS         bool
+	stop               func() bool
 	ignoreChecks       bool
 	queryCollector     *fixedpointQueryCollector
 	tacticExpansion    []string
@@ -71,6 +72,14 @@ func ParseShellCommands(context *cmd_context.Context, input io.Reader, out io.Wr
 	return parseCommandsWithOutput(context, input, out, false, nil, true)
 }
 
+// ParseShellCommandsWithStop is ParseShellCommands for a run the shell can
+// end from outside: once stop reports true no further command starts. It
+// stands for the source timeout handler's exit(0) (smtlib_frontend.cpp
+// on_timeout), which ends the process in the middle of the command stream.
+func ParseShellCommandsWithStop(context *cmd_context.Context, input io.Reader, out io.Writer, stop func() bool) error {
+	return parseCommandsWithStop(context, input, out, false, nil, true, "", true, stop)
+}
+
 // ParseAssertions parses a solver-loading SMT-LIB stream. Check commands are
 // syntax-checked but not executed or printed; callers consume the context's
 // final assertion set only, matching api_solver.cpp solver_from_stream.
@@ -95,6 +104,10 @@ func parseCommandsWithOutput(context *cmd_context.Context, input io.Reader, out 
 }
 
 func parseCommandsWithOptions(context *cmd_context.Context, input io.Reader, out io.Writer, ignoreChecks bool, collector *fixedpointQueryCollector, shell bool, filename string, reportErrors bool) (result error) {
+	return parseCommandsWithStop(context, input, out, ignoreChecks, collector, shell, filename, reportErrors, nil)
+}
+
+func parseCommandsWithStop(context *cmd_context.Context, input io.Reader, out io.Writer, ignoreChecks bool, collector *fixedpointQueryCollector, shell bool, filename string, reportErrors bool, stop func() bool) (result error) {
 	var err error
 	if shell {
 		err = context.SetShellRegularOutput(out)
@@ -127,7 +140,7 @@ func parseCommandsWithOptions(context *cmd_context.Context, input io.Reader, out
 	if err != nil {
 		return err
 	}
-	p := &commandParser{context: context, scanner: scanner, filename: filename, out: context.RegularOutput(), ignoreChecks: ignoreChecks, queryCollector: collector}
+	p := &commandParser{context: context, scanner: scanner, filename: filename, out: context.RegularOutput(), ignoreChecks: ignoreChecks, queryCollector: collector, stop: stop}
 	p.softWeight.SetInt64(1)
 	defer func() {
 		result = errors.Join(result, p.clearCommand())
@@ -153,6 +166,9 @@ func parseCommandsWithOptions(context *cmd_context.Context, input io.Reader, out
 		}
 	}
 	for p.token != EOFToken {
+		if p.stop != nil && p.stop() {
+			return nil
+		}
 		exit, err := p.command()
 		if err != nil {
 			parseErr := parserScannerError(err, scanner)

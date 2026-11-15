@@ -94,13 +94,15 @@ func (f *SMTLIBFrontend) Run() (result error) {
 		f.result.Completed = true
 	}()
 
-	if err := f.context.SetShellDiagnosticOutput(f.diagnostics); err != nil {
+	// The source timeout handler exits the process: nothing the parser
+	// writes after the timeout fired reaches the output.
+	var timedOut atomic.Bool
+	if err := f.context.SetShellDiagnosticOutput(timeoutGateWriter(f.diagnostics, &timedOut)); err != nil {
 		return err
 	}
 	if err := f.watch.Start(); err != nil {
 		return err
 	}
-	var timedOut atomic.Bool
 	if err := f.timer.RegisterOnTimeoutProc(func() {
 		timedOut.Store(true)
 		_ = f.context.SetCancel(true)
@@ -129,7 +131,7 @@ func (f *SMTLIBFrontend) Run() (result error) {
 		<-interruptDone
 	}()
 
-	parseErr := smt2.ParseShellCommands(f.context, f.input, f.output)
+	parseErr := smt2.ParseShellCommandsWithStop(f.context, f.input, timeoutGateWriter(f.output, &timedOut), timedOut.Load)
 	stopErr := f.watch.Stop()
 	seconds, secondsErr := f.watch.Seconds()
 	f.result.DurationSeconds = seconds
@@ -166,4 +168,24 @@ func (f *SMTLIBFrontend) begin() error {
 	}
 	f.running = true
 	return nil
+}
+
+// gatedWriter drops every write once the timeout fired.
+type gatedWriter struct {
+	w      io.Writer
+	closed *atomic.Bool
+}
+
+func timeoutGateWriter(w io.Writer, closed *atomic.Bool) io.Writer {
+	if w == nil {
+		return nil
+	}
+	return &gatedWriter{w: w, closed: closed}
+}
+
+func (g *gatedWriter) Write(p []byte) (int, error) {
+	if g.closed.Load() {
+		return len(p), nil
+	}
+	return g.w.Write(p)
 }
