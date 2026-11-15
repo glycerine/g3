@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_fp_01-F4: (query r) is rel_context::query(num_rels, rels), which ignores generate_explanations.
+	"fp_datalog_relation_query_ignores_explanations.smt2": "sat\n(or (= (:var 0) #b10) (= (:var 0) #b01))\n",
 	// AUDIT.md muz_fp_02-F3: without xform.karr the karr_relation favourite names no plugin.
 	"datalog_karr_favourite_disabled.smt2":    "sat\ntrue\nunsat\n",
 	"datalog_karr_favourite_disabled_bv.smt2": "sat\n(= (:var 0) #b01)\n",

@@ -108,8 +108,12 @@ func (e *PropositionalEngine) ensureRelationExplanationUDocFactory() error {
 	return nil
 }
 
+// datalogExplanationsEnabled is context::generate_explanations() as read by
+// rel_context::query(expr*). The relation query rel_context::query(num_rels,
+// rels), which serves (query r), never applies mk_explanations, so only the
+// expression-query clone sees the option.
 func (e *PropositionalEngine) datalogExplanationsEnabled() (bool, error) {
-	if e.backend != "datalog" || e.params == nil || e.globals == nil {
+	if e.backend != "datalog" || e.params == nil || e.globals == nil || !e.expressionClone {
 		return false, nil
 	}
 	view, err := e.fixedpointParamView()
