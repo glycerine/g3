@@ -578,7 +578,7 @@ func TestPolynomialNewtonMkGrowthAndCancellationPrefixes(t *testing.T) {
 	m.config.Checkpoint = func() bool { visits++; return false }
 	m.config.Cooperation = func() error { t.Fatal("cooperate after cancel"); return nil }
 	e = n.Mk(0, r)
-	if e != ErrUPolynomialCanceled || visits != 1 || r.root.value != m.unit {
+	if e != polynomialCancellationError || visits != 1 || r.root.value != m.unit {
 		t.Fatal(e, visits, r.root)
 	}
 	polynomialNewtonPhysicalAudit(t, m, []*PolynomialNewtonInterpolator{n}, []*PolynomialRef{r}, nil, nil, outputs[:], nil)

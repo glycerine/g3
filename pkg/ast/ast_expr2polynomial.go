@@ -15,11 +15,24 @@ import (
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	utext "github.com/glycerine/g3/pkg/util/text"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
-var ErrExprNotPolynomial = errors.New("the given expression is not a polynomial")
-var ErrExprPolynomialIntegerVariable = errors.New("integer variables are not allowed in the given polynomial")
-var ErrExprPolynomialCanceled = errors.New("canceled")
+// expr2polynomial throws default_exception for each of these.
+var ErrExprNotPolynomial error = exprPolynomialException{z3exception.NewDefaultException("the given expression is not a polynomial"), 1}
+var ErrExprPolynomialIntegerVariable error = exprPolynomialException{z3exception.NewDefaultException("integer variables are not allowed in the given polynomial"), 2}
+
+// ErrExprPolynomialCanceled is checkpoint's default_exception(Z3_CANCELED_MSG).
+var ErrExprPolynomialCanceled error = exprPolynomialException{z3exception.NewDefaultException("canceled"), 3}
+
+// exprPolynomialException is a default_exception; the tag keeps the three
+// sentinels distinct for errors.Is.
+type exprPolynomialException struct {
+	z3exception.DefaultException
+	tag int
+}
+
+func (e exprPolynomialException) Unwrap() error { return e.DefaultException }
 
 type Expr2PolynomialConfig struct {
 	AST           *ASTManager

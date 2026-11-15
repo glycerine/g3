@@ -22,7 +22,7 @@ func (m *MultivariatePolynomialCore) checkpoint() error {
 	defer func() { m.callbackDepth-- }()
 
 	if !m.config.Checkpoint() {
-		return ErrUPolynomialCanceled
+		return polynomialCancellationError
 	}
 	return m.config.Cooperation()
 }

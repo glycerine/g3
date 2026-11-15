@@ -139,13 +139,23 @@ func (c *GoalCompiler) processArithmeticAtom(expression ast.ASTHandle, kind nlsa
 		return 0, err
 	}
 	p1, d1, matched, err := c.expressions.ToPolynomial(left)
-	if err != nil || !matched {
-		return 0, errors.Join(ast.ErrExprNotPolynomial, err)
+	// to_polynomial throws its own default_exception: canceled, not a
+	// polynomial, or an integer variable.
+	if err != nil {
+		return 0, err
+	}
+	if !matched {
+		return 0, ast.ErrExprNotPolynomial
 	}
 	defer func() { err = errors.Join(err, p1.Close(), d1.Close()) }()
 	p2, d2, matched, err := c.expressions.ToPolynomial(right)
-	if err != nil || !matched {
-		return 0, errors.Join(ast.ErrExprNotPolynomial, err)
+	// to_polynomial throws its own default_exception: canceled, not a
+	// polynomial, or an integer variable.
+	if err != nil {
+		return 0, err
+	}
+	if !matched {
+		return 0, ast.ErrExprNotPolynomial
 	}
 	defer func() { err = errors.Join(err, p2.Close(), d2.Close()) }()
 

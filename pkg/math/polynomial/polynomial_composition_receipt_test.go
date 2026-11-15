@@ -241,7 +241,7 @@ func TestPolynomialCompositionCancellationRestoresActualDegreeMap(t *testing.T) 
 			polynomialImpPhysicalAuditNamed(t, m, []Polynomial{p, q, r.root.value, r.root.incoming}, nil, r.header)
 			if cause == nil {
 				success = true
-			} else if cause != ErrUPolynomialCanceled {
+			} else if cause != polynomialCancellationError {
 				t.Fatal("actual checkpoint frontier", cause)
 			}
 			if control.cooperation > control.checkpoints {
@@ -398,7 +398,7 @@ func TestPolynomialCompositionEarlyRoutesPreserveOlderContext(t *testing.T) {
 	serviceMust(t, e)
 	defer func() { serviceMust(t, m.CleanupComposition()); serviceMust(t, r.Close()) }()
 	control.checkpoints, control.limit = 0, 0
-	if e = m.Compose(p, q, r); e != ErrUPolynomialCanceled || !m.composition.active {
+	if e = m.Compose(p, q, r); e != polynomialCancellationError || !m.composition.active {
 		t.Fatal("actual older source body cancellation", e)
 	}
 	old := m.composition.bodyCause

@@ -5,6 +5,7 @@ package arith
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -730,6 +731,15 @@ func (t *FactorTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	if goal == nil || result == nil || goal.Manager() != t.manager {
 		return ast.ErrASTHandle
 	}
+	// operator(): catch (z3_error) rethrows; any other z3_exception (a
+	// polynomial cancellation, say) becomes a tactic_exception.
+	defer func() {
+		var fatal z3exception.Z3Error
+		var source z3exception.Z3Exception
+		if err != nil && !errors.As(err, &fatal) && errors.As(err, &source) {
+			err = tactic.WrapTacticException(err)
+		}
+	}()
 	if err = result.Prepare(t.manager); err != nil {
 		return err
 	}
