@@ -51,6 +51,9 @@ Abstract:
     z3_4_7_1_recover01_inconsistent recover-01 keeps indexing the goal after
                                   an update collapsed it to false
                                   (pkg/AUDIT.md tactic_arith_03-F9).
+    z3_4_7_1_distribute_forall_proof distribute-forall gives no proof for
+                                  its rewrite when proofs are on
+                                  (pkg/AUDIT.md tactic_core_01-F5).
     z3_4_7_1_pdr_nullary_cache    PDR's model_search cache keys nodes by
                                   state only, so two nullary predicates
                                   (state `true`) share an entry and an
@@ -830,4 +833,40 @@ void tst_z3_4_7_1_recover01_inconsistent() {
     std::cout.flush(); // z3 4.7.1 dies here
     expect_script("recover01_inconsistent", script,
                   "(goals\n(goal\n  false\n  :precision precise :depth 1)\n)\n");
+}
+
+namespace {
+    // Run an SMT-LIB2 script as the z3 shell does, with its own cmd_context
+    // and ast_manager, so options such as :produce-proofs can still be set.
+    void expect_shell_script(char const* test, char const* script, char const* expected) {
+        std::stringstream out;
+        {
+            cmd_context ctx;
+            ctx.set_solver_factory(mk_smt_strategic_solver_factory());
+            ctx.set_interpolating_solver_factory(mk_smt_solver_factory());
+            ctx.set_regular_stream(out);
+            ctx.set_diagnostic_stream(out);
+            std::istringstream in(script);
+            parse_smt2_commands(ctx, in);
+        }
+        std::cout << test << ": expected\n" << expected << "got\n" << out.str();
+        ENSURE(out.str() == expected);
+    }
+}
+
+// With proofs on, distribute_forall_tactic::rw_cfg::reduce_quantifier sets
+// result but not result_pr, and z3 4.7.1 crashes building the goal's
+// proof (fixed upstream in d530d1314, "fix #3276").
+void tst_z3_4_7_1_distribute_forall_proof() {
+    char const* script =
+        "(set-option :produce-proofs true)\n"
+        "(declare-fun p (Int) Bool)\n"
+        "(declare-fun q (Int) Bool)\n"
+        "(assert (forall ((x Int) (y Int)) (and (p x) (q y))))\n"
+        "(apply distribute-forall)\n";
+    std::cout << "distribute_forall_proof: running (apply distribute-forall)\n";
+    std::cout.flush(); // z3 4.7.1 dies here
+    expect_shell_script("distribute_forall_proof", script,
+                  "(goals\n(goal\n  (forall ((x Int)) (p x))\n  (forall ((y Int)) (q y))\n"
+                  "  :precision precise :depth 1)\n)\n");
 }
