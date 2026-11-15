@@ -722,6 +722,8 @@ namespace qe {
                 if (!m.is_true(c)) {
                     fml = m.mk_and(c, fml);
                 }
+                // the branch assumed r(x); keep it for the term t.
+                fml = m.mk_and(m.mk_app(r, t), fml);
             }
             else {                
                 for (unsigned i = 0; i < eqs.num_eqs(); ++i) {
