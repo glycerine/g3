@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md solver_misc_01-F1: tactic2solver::get_labels returns no labels.
+	"tactic_solver_labels.smt2": "sat\n(labels)\n",
 	// AUDIT.md smtcore_02-F7: get-consequences reuses m_var2val and its capacity
 	"get_consequences_table_reuse.smt2": "sat\n\nsat\n\n(=> true v0)\n(=> true v2)\n(=> true v3)\n(=> true v4)\n(=> true v1)\n(=> true v5)\n(=> true v6)\n(=> true v7)\n",
 	// AUDIT.md smtcore_05-F5: model_checker::check sets the mbqi iteration-limit reason

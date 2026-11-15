@@ -5,10 +5,12 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
@@ -214,4 +216,48 @@ func TestTacticSolverBaseLevelTranslation(t *testing.T) {
 		t.Fatal("translated assertion is not owned by target", err)
 	}
 	solverMust(t, target.Close())
+}
+
+// labelTactic decides the goal like skip and installs a stored model
+// converter that carries a label, as the smt tactic does.
+type labelTactic struct {
+	tactic.Tactic
+	label usymbol.Symbol
+}
+
+func (t *labelTactic) Apply(g *tactic.Goal, result *tactic.TacticResult) error {
+	if err := t.Tactic.Apply(g, result); err != nil {
+		return err
+	}
+	md, err := model.NewModel(g.Manager())
+	if err != nil {
+		return err
+	}
+	mc, err := tactic.NewStoredModelWithLabels(md.Core(), []usymbol.Symbol{t.label})
+	if err != nil {
+		return err
+	}
+	return result.SetModelConverter(mc)
+}
+
+// solver_misc_01-F1: tactic2solver::get_labels is empty, so the labels the
+// tactic reports through ::check_sat never reach the solver's caller.
+func TestTacticSolverLabelsAlwaysEmpty(t *testing.T) {
+	m := solverTestManager(t)
+	params := solverTestParams(t, m)
+	label, err := m.Symbols.Intern("L1")
+	solverMust(t, err)
+	s, err := NewTacticSolver(m, &labelTactic{Tactic: tactic.NewSkipTactic(), label: label}, nil, false, true, true, "QF_UF", TacticSolverConfig{Params: params})
+	solverMust(t, err)
+	t.Cleanup(func() { solverMust(t, s.Close()) })
+	status, err := s.CheckSat(nil)
+	solverMust(t, err)
+	if status != lbool.True {
+		t.Fatal("label tactic status", status)
+	}
+	labels, err := s.Labels()
+	solverMust(t, err)
+	if labels == nil || len(labels) != 0 {
+		t.Fatal("tactic solver labels must be empty", labels)
+	}
 }

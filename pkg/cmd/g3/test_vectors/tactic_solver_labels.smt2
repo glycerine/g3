@@ -1,0 +1,6 @@
+(set-logic AUFLIA)
+(declare-fun f (Int) Int)
+(declare-const x Int)
+(assert (! (> (f x) 2) :lblpos L1))
+(check-sat)
+(labels)

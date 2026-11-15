@@ -224,14 +224,14 @@ func (s *TacticSolver) SetReasonUnknown(v string) error {
 	}
 	return s.result.SetReasonUnknown(v)
 }
+
+// Labels mirrors tactic2solver::get_labels, whose override is empty: the
+// labels check_sat_core receives from ::check_sat are discarded.
 func (s *TacticSolver) Labels() ([]usymbol.Symbol, error) {
 	if err := s.open(); err != nil {
 		return nil, err
 	}
-	if s.result == nil {
-		return []usymbol.Symbol{}, nil
-	}
-	return s.result.Labels()
+	return []usymbol.Symbol{}, nil
 }
 func (s *TacticSolver) Manager() (*ast.ASTManager, error) {
 	if err := s.open(); err != nil {
@@ -486,9 +486,6 @@ func (s *TacticSolver) CheckSatCore(assumptions []ast.ASTHandle) (status lbool.L
 		if e = result.SetUnsatCore(values); e != nil {
 			return lbool.Undef, e
 		}
-	}
-	if err = result.SetLabels(labels.Values); err != nil {
-		return lbool.Undef, err
 	}
 	s.tactic.CollectStatistics(&result.stats)
 	s.tactic.CollectStatistics(&s.stats)
