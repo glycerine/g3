@@ -311,3 +311,109 @@ func TestBMCNonlinearCompilationPreservesRepeatedHeadVariables(t *testing.T) {
 		}
 	}
 }
+
+// AUDIT.md muz_small_01-F5: nonlinear::compile walks the rule set's grouped
+// rules (decl2rules table order), not the heads' first appearance in rule
+// order. Each group ends with its level predicate's implication.
+func TestBMCNonlinearCompilationFollowsGroupedOrder(t *testing.T) {
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	context, err := cmd_context.NewStandaloneContext()
+	must(err)
+	defer func() { must(context.Close()) }()
+	m, err := context.Manager()
+	must(err)
+	family, err := m.RegisterArithmeticPlugin()
+	must(err)
+	integer, err := m.MkFamilySort(family, 1, nil)
+	must(err)
+	boolean, err := m.MkBoolSort()
+	must(err)
+	rm, err := base.NewRuleManager(m)
+	must(err)
+	defer func() { must(rm.Close()) }()
+	set, err := base.NewRuleSet(rm)
+	must(err)
+	defer func() { must(set.Close()) }()
+	names := []string{"grp-a", "grp-b", "grp-c", "grp-d", "grp-e", "grp-f", "grp-g"}
+	decls := make([]ast.ASTHandle, len(names))
+	for i, name := range names {
+		sym, err := m.Symbols.Intern(name)
+		must(err)
+		decls[i], err = m.MkFuncDecl(sym, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+		must(err)
+		must(rm.RegisterPredicate(decls[i]))
+	}
+	zero, err := m.ArithmeticIntegerNumeralText("0")
+	must(err)
+	// Add the facts in reverse declaration order.
+	var ruleOrder []ast.ASTHandle
+	for i := len(decls) - 1; i >= 0; i-- {
+		head, err := m.MkApp(decls[i], []ast.ASTHandle{zero})
+		must(err)
+		rule, err := rm.NewRule(head, nil, nil, names[i])
+		must(err)
+		must(set.Add(rule))
+		must(rule.Close())
+		ruleOrder = append(ruleOrder, decls[i])
+	}
+	ok, err := set.Finalize()
+	must(err)
+	if !ok {
+		t.Fatal("rule set did not finalize")
+	}
+	grouped, err := set.GroupedPredicates()
+	must(err)
+	compiler, err := bmc.NewCompiler(m)
+	must(err)
+	defer func() { must(compiler.Close()) }()
+	formulas, err := compiler.Compile(set, 0)
+	must(err)
+	defer func() {
+		for i := range formulas {
+			must(m.DelRef(&formulas[i]))
+		}
+	}()
+	if len(formulas) != 2*len(grouped) {
+		t.Fatal("compiled formulas", len(formulas), len(grouped))
+	}
+	headName := func(formula ast.ASTHandle) string {
+		kind, err := m.GetKind(formula)
+		must(err)
+		if kind == ast.ASTQuantifier {
+			formula, err = m.GetQuantifierBody(formula)
+			must(err)
+		}
+		head, err := m.GetArg(formula, 0)
+		must(err)
+		decl, err := m.GetDecl(head)
+		must(err)
+		name, err := m.GetASTName(decl)
+		must(err)
+		text, err := m.Symbols.Display(name)
+		must(err)
+		return text
+	}
+	for i, predicate := range grouped {
+		value, err := m.RefGet(formulas[2*i+1])
+		must(err)
+		name, err := m.GetASTName(predicate)
+		must(err)
+		text, err := m.Symbols.Display(name)
+		must(err)
+		if got, want := headName(value), text+"#0"; got != want {
+			t.Fatalf("group %d head %s, want %s (grouped order)", i, got, want)
+		}
+	}
+	same := true
+	for i := range grouped {
+		same = same && grouped[i] == ruleOrder[i]
+	}
+	if same {
+		t.Log("grouped order coincides with rule order for this fixture")
+	}
+}

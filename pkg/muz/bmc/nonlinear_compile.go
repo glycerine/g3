@@ -406,26 +406,11 @@ func (c *Compiler) Compile(rules *base.RuleSet, level uint32) (result []ast.ASTR
 	if err != nil {
 		return result, err
 	}
-	count, err := rules.Len()
+	// nonlinear::compile walks begin_grouped_rules()..end_grouped_rules(),
+	// the rule set's decl2rules table order.
+	predicates, err := rules.GroupedPredicates()
 	if err != nil {
 		return result, err
-	}
-	var predicates []ast.ASTHandle
-	seen := make(map[ast.ASTHandle]struct{})
-	for i := 0; i < count; i++ {
-		rule, err := rules.Rule(i)
-		if err != nil {
-			return result, err
-		}
-		decl, e := rule.HeadDeclaration()
-		e = errors.Join(e, closeRuleOwners(m, []*base.Rule{rule}))
-		if e != nil {
-			return result, e
-		}
-		if _, found := seen[decl]; !found {
-			seen[decl] = struct{}{}
-			predicates = append(predicates, decl)
-		}
 	}
 	for _, predicate := range predicates {
 		if err := c.compileGroup(rules, manager, predicate, level, &result); err != nil {
