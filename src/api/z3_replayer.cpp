@@ -497,6 +497,7 @@ struct z3_replayer::imp {
             case 'p':
             case 's':
             case 'u':
+            case 'i':
                 // push array
                 next(); skip_blank(); read_uint64();
                 TRACE("z3_replayer", tout << "[" << m_line << "] " << "A " << m_uint64 << "\n";);
@@ -504,6 +505,8 @@ struct z3_replayer::imp {
                     push_array(static_cast<unsigned>(m_uint64), OBJECT);
                 else if (c == 's')
                     push_array(static_cast<unsigned>(m_uint64), SYMBOL);
+                else if (c == 'i')
+                    push_array(static_cast<unsigned>(m_uint64), INT64);
                 else
                     push_array(static_cast<unsigned>(m_uint64), UINT64);
                 break;
