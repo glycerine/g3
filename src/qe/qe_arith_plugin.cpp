@@ -42,7 +42,11 @@ namespace qe {
         if (a.is_mod(e2, t1, t2) && 
             a.is_numeral(e1, k) && 
             k.is_zero() &&
-            a.is_numeral(t2, k)) {
+            a.is_numeral(t2, k) &&
+            !k.is_zero()) {
+            // (mod t k) = (mod t |k|), and (mod t 0) is not a divisibility
+            // constraint.
+            k = abs(k);
             p = t1;
             return true;
         }
@@ -1321,6 +1325,7 @@ namespace qe {
                 a = to_app(e);
                 if (m_util.m_arith.is_mod(e) && 
                     m_util.m_arith.is_numeral(to_app(e)->get_arg(1), k1) &&
+                    k1.is_pos() &&
                     m_util.get_coeff(contains_x, to_app(e)->get_arg(0), k2, rest)) {
                     app_ref z(m), z_bv(m);
                     m_util.mk_bounded_var(k1, z_bv, z);
