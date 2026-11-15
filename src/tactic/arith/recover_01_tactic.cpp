@@ -366,8 +366,8 @@ class recover_01_tactic : public tactic {
             m_rw.set_substitution(subst);
             expr_ref   new_curr(m);
             proof_ref  new_pr(m);
-            unsigned size = new_goal->size();
-            for (unsigned idx = 0; idx < size; idx++) {
+            // update can collapse the goal to false: re-read its size
+            for (unsigned idx = 0; idx < new_goal->size(); idx++) {
                 expr * curr = new_goal->form(idx);
                 m_rw(curr, new_curr);
                 new_goal->update(idx, new_curr);
