@@ -201,7 +201,10 @@ func (c *bv2IntCall) mod(s, t ast.ASTHandle) (ast.ASTHandle, bool) {
 }
 func (c *bv2IntCall) neg(s ast.ASTHandle) (ast.ASTHandle, bool) {
 	if s1, s2, ok := c.difference(s); ok {
-		return c.ai(7, c.toInt(s2), c.toInt(s1)), true
+		// mk_sub(mk_bv2int(s2), mk_bv2int(s1)): GCC builds bv2int(s1) first.
+		r := c.toInt(s1)
+		l := c.toInt(s2)
+		return c.ai(7, l, r), true
 	}
 	if s1, ok := c.signed(s); ok {
 		return c.signedInt(c.bi(3, s1)), true

@@ -395,7 +395,10 @@ func (c *bv2IntCall) difference(h ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, 
 			return ast.ASTHandle{}, ast.ASTHandle{}, false
 		}
 		q.Neg(q)
-		return c.small(0, 1), c.bn(q, uint32(q.Num().BitLen())), true
+		// is_bv2int_diff assigns t = mk_numeral(k, ...) before s = #b0.
+		t := c.bn(q, uint32(q.Num().BitLen()))
+		s := c.small(0, 1)
+		return s, t, true
 	}
 	if c.is(h, c.r.arith, 7, 2) {
 		s, a := c.unsigned(c.arg(h, 0))

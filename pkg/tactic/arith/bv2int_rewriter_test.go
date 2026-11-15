@@ -712,3 +712,40 @@ func TestBV2IntMulBVReleasesIntermediateExtensions(t *testing.T) {
 	}
 	equationMust(t, call.close())
 }
+
+// AUDIT.md tactic_arith_01-F5: is_bv2int_diff assigns the |k| numeral before
+// #b0, and mk_uminus's mk_sub(mk_bv2int(s2), mk_bv2int(s1)) builds
+// bv2int(s1) first (GCC evaluates arguments right to left).
+func TestBV2IntRewriterConstructionOrder(t *testing.T) {
+	f := bv2IntRewriteFixture(t, ^uint32(0))
+	id := func(h ast.ASTHandle) uint32 {
+		v, err := f.m.GetASTID(h)
+		equationMust(t, err)
+		return v
+	}
+	minusThree, err := f.m.ArithmeticIntegerNumeralText("-3")
+	equationMust(t, err)
+	fixDLPin(t, f.m, minusThree)
+	call := &bv2IntCall{r: f.r}
+	result, ok := call.neg(minusThree)
+	equationMust(t, call.err)
+	if !ok {
+		t.Fatal("uminus of a negative numeral not rewritten")
+	}
+	fixDLPin(t, f.m, result)
+	equationMust(t, call.close())
+	left, err := f.m.GetArg(result, 0)
+	equationMust(t, err)
+	right, err := f.m.GetArg(result, 1)
+	equationMust(t, err)
+	three, err := f.m.GetArg(left, 0)
+	equationMust(t, err)
+	zero, err := f.m.GetArg(right, 0)
+	equationMust(t, err)
+	if id(three) > id(zero) {
+		t.Fatal("#b11 must be built before #b0")
+	}
+	if id(right) > id(left) {
+		t.Fatal("bv2int(s1) must be built before bv2int(s2)")
+	}
+}
