@@ -97,6 +97,12 @@ func (u *ArithmeticQETermUtil) Close() error {
 }
 
 func (u *ArithmeticQETermUtil) operation(expression ast.ASTHandle, family ast.FamilyID, kind int32) ([]ast.ASTHandle, bool, error) {
+	// is_app_of: a variable or quantifier (blast_or leaves an exists when
+	// expr_quant_elim was interrupted) is no application.
+	astKind, err := u.manager.GetKind(expression)
+	if err != nil || astKind != ast.ASTApp {
+		return nil, false, err
+	}
 	actualFamily, err := u.manager.GetFamilyID(expression)
 	if err != nil {
 		return nil, false, err

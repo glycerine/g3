@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/cmd_context"
 	"github.com/glycerine/g3/pkg/qe"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 type arithmeticQEFixture struct {
@@ -259,4 +260,27 @@ func TestArithmeticQEBoundsAbsMinMaxAndFlattening(t *testing.T) {
 	if _, _, err = f.util.MatchLE(h); !errors.Is(err, arena.ErrClosed) {
 		t.Fatal("closed arithmetic QE utility accepted", err)
 	}
+}
+
+// mk_flat_and tests m.is_and on each argument: a quantifier (qe-sat's
+// blast_or leaves an exists when expr_quant_elim is interrupted) is kept
+// as one conjunct, not rejected.
+func TestArithmeticQEFlatAndKeepsQuantifierConjunct(t *testing.T) {
+	f := newArithmeticQEFixture(t)
+	le, err := f.manager.MkArithmeticLE(f.x, f.y)
+	arithmeticQEMust(t, err)
+	name, err := f.manager.Symbols.Intern("flat-and-z")
+	arithmeticQEMust(t, err)
+	q, err := f.manager.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []usymbol.Symbol{name}, Body: le})
+	arithmeticQEMust(t, err)
+	flat, err := f.util.MakeFlatAnd(le, q)
+	arithmeticQEMust(t, err)
+	h, err := f.manager.RefGet(flat)
+	arithmeticQEMust(t, err)
+	parts, err := f.manager.FlattenAnd([]ast.ASTHandle{h})
+	arithmeticQEMust(t, err)
+	if len(parts) != 2 || parts[0] != q && parts[1] != q {
+		t.Fatal("quantifier conjunct", parts)
+	}
+	arithmeticQEMust(t, f.manager.DelRef(&flat))
 }

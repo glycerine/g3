@@ -410,6 +410,8 @@ var scriptResults = map[string]string{
 	"opt_find_mutexes_no_binary_opt.smt2": "sat\n(objectives\n ( 3)\n)\n(model \n  (define-fun b () Bool\n    false)\n  (define-fun a () Bool\n    true)\n  (define-fun c () Bool\n    false)\n)\n",
 	// z3 4.7.1 bugs fixed in the C++ fork (FORK_BUGFIXES.md): build/z3 is rebuilt
 	// from the fork, so these are checked against it like any other vector.
+	// qe-sat VERIFY on a canceled projection check (gaps_misc2; fork fix 95).
+	"z3_bug_qe_sat_projection_canceled.smt2":            "unknown\n(:reason-unknown \"max. resource limit exceeded\")\n",
 	"z3_bug_sortmax_uninit_cmp.smt2":                    "sat\n(objectives\n ( 5)\n)\n(model \n  (define-fun d () Bool\n    true)\n  (define-fun b () Bool\n    true)\n  (define-fun a () Bool\n    false)\n  (define-fun c () Bool\n    false)\n)\n", // opt_01 sortmax psort_nw m_t (fork fix #A)
 	"z3_bug_datatype_inst_after_pop.smt2":               "sat\nsat\n",
 	"z3_bug_define_sort_alias_after_pop.smt2":           "sat\nsat\n",

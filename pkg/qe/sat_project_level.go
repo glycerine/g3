@@ -64,6 +64,19 @@ func projectSATPartialLevel(levels *satLevels, index uint32, variables []ast.AST
 		if e != nil {
 			return e
 		}
+		// VERIFY(l_true == m_solvers[idx+1]->check()). Under a resource
+		// limit the check is l_undef and z3 4.7.1 goes on to project with
+		// no model and crashes (z3_bug_qe_sat_projection_canceled); the
+		// fork throws the cancel message as a tactic_exception instead.
+		if status == lbool.Undef {
+			canceled, e := m.Canceled()
+			if e != nil {
+				return e
+			}
+			if canceled {
+				return tactic.NewTacticException(m.ResourceLimit().CancelMessage())
+			}
+		}
 		if status != lbool.True {
 			return tactic.NewTacticException("qe-sat projection requires a satisfiable successor")
 		}
