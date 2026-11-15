@@ -1494,7 +1494,8 @@ private:
                 rest_of_line = rest_of_line.substr(0, rest_of_line.size()-ignored_suffix_len);
             }
 
-            if(rest_of_line[rest_of_line.size()-1]==' ') {
+            // FORK FIX #69 (g3 audit, see FORK_BUGFIXES.md): an empty name has no last character to test (AUDIT cmd_context_02-F11)
+            if(!rest_of_line.empty() && rest_of_line[rest_of_line.size()-1]==' ') {
                 rest_of_line = rest_of_line.substr(0, rest_of_line.size()-1);
             }
 
