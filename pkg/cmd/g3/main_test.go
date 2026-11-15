@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_09-F6
+	"array_map_delayed_order.smt2": "sat\n",
 	// AUDIT.md smtcore_09-F5
 	"array_skolem_release_order.smt2": "sat\nsat\n(model \n  (define-fun x () Int\n    0)\n  (define-fun f ((x!0 Int)) Int\n    (ite (= x!0 0) 3\n    (ite (= x!0 3) 4\n    (ite (= x!0 1) 5\n    (ite (= x!0 2) 7\n      3)))))\n  (define-fun g ((x!0 Int)) Int\n    (ite (= x!0 0) 3\n    (ite (= x!0 3) 4\n    (ite (= x!0 1) 6\n    (ite (= x!0 2) 8\n      3)))))\n)\n",
 	// AUDIT.md smtcore_09-F4

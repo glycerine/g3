@@ -506,6 +506,8 @@ func (t *SMTArrayTheory) assertDelayedStoreAxioms() (bool, error) {
 		return false, nil
 	}
 	progress := false
+	// theory_array::assert_delayed_axioms: instantiate_axiom2b_for(v) for
+	// every variable.
 	for _, data := range t.arrayData {
 		if !data.propUpward {
 			continue
@@ -519,15 +521,25 @@ func (t *SMTArrayTheory) assertDelayedStoreAxioms() (bool, error) {
 				progress = progress || added
 			}
 		}
-		if !t.simple {
-			for _, mapped := range data.parentMaps {
-				for _, read := range data.parentSelects {
-					added, err := t.instantiateMapRead(read, mapped)
-					if err != nil {
-						return false, err
-					}
-					progress = progress || added
+	}
+	if t.simple {
+		return progress, nil
+	}
+	// theory_array_full::assert_delayed_axioms then runs
+	// instantiate_axiom_map_for(v) over all variables (get_num_vars() read
+	// again), with num_maps and num_selects read up front.
+	for _, data := range t.arrayData {
+		if !data.propUpward {
+			continue
+		}
+		maps, selects := data.parentMaps, data.parentSelects
+		for _, mapped := range maps {
+			for _, read := range selects {
+				added, err := t.instantiateMapRead(read, mapped)
+				if err != nil {
+					return false, err
 				}
+				progress = progress || added
 			}
 		}
 	}
