@@ -1179,3 +1179,20 @@ void tst_z3_4_7_1_nlsat_inline_vars() {
         "(get-value ((= x (* y y)) (or (> (- x (* y y)) 1) (> (* z z y) 1))))\n"),
         "sat\n");
 }
+
+// With inline_vars the equation x*y + z^3 = 1 is solved for x, then check()
+// still reorders the variables; search_check calls fix_patch, which writes
+// x's value through the pre-reorder index into the reordered assignment, so
+// the model violates both remaining assertions.
+void tst_z3_4_7_1_nlsat_inline_reorder() {
+    expect_valid_answer("nlsat_inline_reorder", eval_smtlib2(
+        "(declare-const x Real)\n"
+        "(declare-const y Real)\n"
+        "(declare-const z Real)\n"
+        "(assert (> y 0.0))\n"
+        "(assert (= (+ (* x y) (* z z z)) 1.0))\n"
+        "(assert (> (* x z) 2.0))\n"
+        "(check-sat-using (using-params qfnra-nlsat :inline_vars true))\n"
+        "(get-value ((> y 0.0) (= (+ (* x y) (* z z z)) 1.0) (> (* x z) 2.0)))\n"),
+        "sat\n");
+}
