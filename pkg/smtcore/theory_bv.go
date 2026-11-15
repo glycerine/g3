@@ -565,13 +565,13 @@ func (t *SMTBitVectorTheory) InternalizeTerm(expression ast.ASTHandle) (bool, er
 		return false, nil
 	}
 	if !retainedBVTermOperation(op) {
-		if err = t.traceBVExpression("bv_op", "internalize_term", 911, "unsupported operator: ", expression); err != nil {
+		if err = t.traceBVLowLevelExpression("bv_op", "internalize_term", 911, "unsupported operator: ", expression); err != nil {
 			return false, err
 		}
 		return false, diagnostic.BorrowProcessDebugContext().UnreachableSource("src/smt/theory_bv.cpp", 912)
 	}
 	if op == 58 {
-		if err = t.traceBVExpression("bv", "internalize_bv2int", 557, "", expression); err != nil {
+		if err = t.traceBVBoundedExpression("bv", "internalize_bv2int", 557, "", expression); err != nil {
 			return false, err
 		}
 	}

@@ -36,6 +36,10 @@ func TestSMTBVConversionSourceTrace(t *testing.T) {
 	bvToInt, err := m.MkBitVectorToInt(w)
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(bvToInt, false))
+	// AUDIT.md smtcore_10-F10: internalize_bv2int prints mk_bounded_pp.
+	nested, err := m.MkBitVectorToInt(converted)
+	astTestMust(t, err)
+	astTestMust(t, state.Internalize(nested, false))
 
 	if tags.ShouldTrace("bv") {
 		trace := output.String()
@@ -44,6 +48,7 @@ func TestSMTBVConversionSourceTrace(t *testing.T) {
 			"-------- [bv] assert_int2bv_axiom src/smt/theory_bv.cpp:662 ---------\n",
 			"-------- [bv] assert_int2bv_axiom src/smt/theory_bv.cpp:678 ---------\n",
 			"-------- [bv] internalize_bv2int src/smt/theory_bv.cpp:557 ---------\n(bv2int trace-conversion-w)\n",
+			"-------- [bv] internalize_bv2int src/smt/theory_bv.cpp:557 ---------\n(bv2int (int2bv[2] trace-conversion-x))\n",
 			"-------- [bv2int_bug] assert_bv2int_axiom src/smt/theory_bv.cpp:574 ---------\nbv2int:\n(bv2int trace-conversion-w)\n",
 			"-------- [bv] assert_bv2int_axiom src/smt/theory_bv.cpp:611 ---------\n(bv2int trace-conversion-w)\n",
 		} {

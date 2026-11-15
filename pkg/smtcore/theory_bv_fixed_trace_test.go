@@ -4,6 +4,7 @@ package smtcore
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -44,5 +45,47 @@ func TestSMTBVInitWatchAndFixedEqualitySourceTrace(t *testing.T) {
 		}
 	} else if output.Len() != 0 {
 		t.Fatal("compiled-out BV fixed-bit source trace executed", output.String())
+	}
+}
+
+// AUDIT.md smtcore_10-F10: init_bits prints the simplified bit with
+// mk_ll_pp, so a negated bit is "#a := (bit2bool[i] x)\n(not #a)\n" followed
+// by the TRACE's own newline.
+func TestSMTBVInitBitsLowLevelTrace(t *testing.T) {
+	var output bytes.Buffer
+	m, state, theory := bvOccurrenceFixture(t)
+	tags := diagnostic.NewTraceTagsWithWriter(&output)
+	tags.Enable("init_bits")
+	theory.trace = tags
+	sort, err := m.BitVectorSort(2)
+	astTestMust(t, err)
+	word, err := m.MkConst(astTestSymbol(t, m, "trace-init-not"), sort)
+	astTestMust(t, err)
+	negated, err := m.MkBitVectorNot(word)
+	astTestMust(t, err)
+	astTestPin(t, m, negated)
+	astTestMust(t, state.Internalize(negated, false))
+	if !tags.ShouldTrace("init_bits") {
+		if output.Len() != 0 {
+			t.Fatal("compiled-out init_bits trace executed", output.String())
+		}
+		return
+	}
+	id, err := m.GetASTID(negated)
+	astTestMust(t, err)
+	header := fmt.Sprintf("-------- [init_bits] init_bits src/smt/theory_bv.cpp:321 ---------\nbit 0 of #%d\n", id)
+	trace := output.String()
+	at := strings.Index(trace, header)
+	if at < 0 {
+		t.Fatalf("missing init_bits record for #%d in %q", id, trace)
+	}
+	body := trace[at+len(header):]
+	var bitID int
+	if _, err := fmt.Sscanf(body, "#%d := (bit2bool[0] trace-init-not)\n", &bitID); err != nil {
+		t.Fatalf("init_bits body is not mk_ll_pp: %q", body)
+	}
+	want := fmt.Sprintf("#%d := (bit2bool[0] trace-init-not)\n(not #%d)\n\n", bitID, bitID)
+	if !strings.HasPrefix(body, want) {
+		t.Fatalf("init_bits body %q, want prefix %q", body, want)
 	}
 }

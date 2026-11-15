@@ -140,8 +140,11 @@ func TestSMTBVUnsupportedOperatorSourceUnreachableAndTrace(t *testing.T) {
 			t.Fatal("wrong unsupported-term source site", string(data))
 		}
 		if tags.ShouldTrace("bv_op") {
-			if !strings.Contains(output.String(), "-------- [bv_op] internalize_term src/smt/theory_bv.cpp:911 ---------\nunsupported operator: (bvneg") {
-				t.Fatal("missing unsupported operator source trace", output.String())
+			// AUDIT.md smtcore_10-F10: the record prints mk_ll_pp.
+			trace := output.String()
+			if !strings.Contains(trace, "-------- [bv_op] internalize_term src/smt/theory_bv.cpp:911 ---------\nunsupported operator: #") ||
+				!strings.Contains(trace, " := (mkbv operator-unreachable-p)\n(bvneg #") {
+				t.Fatal("missing unsupported operator source trace", trace)
 			}
 		} else if output.Len() != 0 {
 			t.Fatal("compiled-out unsupported operator trace executed", output.String())

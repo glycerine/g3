@@ -3,11 +3,13 @@ package smtcore
 // Source: src/smt/theory_bv.cpp:321,337-350,471-473.
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	utext "github.com/glycerine/g3/pkg/util/text"
 )
 
 func (t *SMTBitVectorTheory) emitBVTrace(tag, function string, line int, body func(io.Writer) error) error {
@@ -44,24 +46,62 @@ func (t *SMTBitVectorTheory) displayBVTraceExpression(out io.Writer, expression 
 	return printer.DisplayExpr(out, expression, 0)
 }
 
-func (t *SMTBitVectorTheory) traceBVInitBit(owner ast.ASTHandle, index uint32, bit SMTLiteral) error {
+// displayBVLowLevel is out << mk_ll_pp(n, m) (only_exprs, compact).
+func (t *SMTBitVectorTheory) displayBVLowLevel(out io.Writer, expression ast.ASTHandle) (result error) {
 	state, err := t.State()
 	if err != nil {
 		return err
 	}
-	id, err := state.manager.GetASTID(owner)
+	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: state.manager.Budget()})
 	if err != nil {
 		return err
 	}
-	expression, err := state.literalExpression(bit)
+	defer func() { result = errors.Join(result, stream.Close()) }()
+	if err = state.manager.DisplayLowLevel(stream, expression, true, true); err != nil {
+		return err
+	}
+	body, err := stream.String()
 	if err != nil {
 		return err
 	}
+	_, err = io.WriteString(out, body)
+	return err
+}
+
+// traceBVLowLevelExpression is for records that print mk_ll_pp.
+func (t *SMTBitVectorTheory) traceBVLowLevelExpression(tag, function string, line int, prefix string, expression ast.ASTHandle) error {
+	return t.emitBVTrace(tag, function, line, func(out io.Writer) error {
+		if _, err := io.WriteString(out, prefix); err != nil {
+			return err
+		}
+		if err := t.displayBVLowLevel(out, expression); err != nil {
+			return err
+		}
+		_, err := io.WriteString(out, "\n")
+		return err
+	})
+}
+
+// traceBVInitBit is TRACE("init_bits", tout << "bit " << i << " of #" <<
+// n->get_owner_id() << "\n" << mk_ll_pp(s_bit, m) << "\n";).
+func (t *SMTBitVectorTheory) traceBVInitBit(owner ast.ASTHandle, index uint32, bit SMTLiteral) error {
 	return t.emitBVTrace("init_bits", "init_bits", 321, func(out io.Writer) error {
+		state, err := t.State()
+		if err != nil {
+			return err
+		}
+		id, err := state.manager.GetASTID(owner)
+		if err != nil {
+			return err
+		}
+		expression, err := state.literalExpression(bit)
+		if err != nil {
+			return err
+		}
 		if _, err = fmt.Fprintf(out, "bit %d of #%d\n", index, id); err != nil {
 			return err
 		}
-		if err = t.displayBVTraceExpression(out, expression); err != nil {
+		if err = t.displayBVLowLevel(out, expression); err != nil {
 			return err
 		}
 		_, err = io.WriteString(out, "\n")
