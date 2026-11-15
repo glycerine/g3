@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md util_numeral_02-F1: f2n floor/ceil only SASSERT regularity,
+	// so an mpf integer bound that rounds to zero is accepted.
+	"subpaving_mpf_int_bound_floor_zero.smt2": "(goals\n(goal\n  (<= (to_real x) (/ 1.0 2.0))\n  (>= (to_real x) (- 3.0))\n  :precision precise :depth 2)\n)\n",
+	"subpaving_mpf_int_bound_ceil_zero.smt2":  "(goals\n(goal\n  (>= (to_real x) (- (/ 1.0 2.0)))\n  (<= (to_real x) 3.0)\n  :precision precise :depth 2)\n)\n",
 	// AUDIT.md math_subpaving_04-F1: the :numeral mpff subpaving tactic
 	// constructs without a process owner (command-line AST manager).
 	"subpaving_mpff_basic.smt2":        "unknown\n",

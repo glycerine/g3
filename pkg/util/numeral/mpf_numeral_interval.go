@@ -124,14 +124,14 @@ func (m *ArbitraryFloatNumeralManager) Neg(in, out *ArbitraryFloat) error {
 	return m.core.NegCopy(out, in, nil)
 }
 
+// Floor mirrors f2n::floor. Its is_regular tests on the input, the rounded
+// scratch and the result are SASSERTs only, so they are not checked here: a
+// formatted zero is not regular, and floor(0.5) = 0 must not fail.
 func (m *ArbitraryFloatNumeralManager) Floor(in, out *ArbitraryFloat) error {
-	if e := m.check(in); e != nil {
+	if e := m.guard(); e != nil {
 		return e
 	}
 	if e := m.core.RoundToIntegral(ArbitraryFloatTowardNegative, in, &m.tmp); e != nil {
-		return e
-	}
-	if e := m.check(&m.tmp); e != nil {
 		return e
 	}
 	le, e := m.core.Lte(&m.tmp, in)
@@ -147,16 +147,15 @@ func (m *ArbitraryFloatNumeralManager) Floor(in, out *ArbitraryFloat) error {
 			return e
 		}
 	}
-	return m.check(out)
+	return nil
 }
+
+// Ceil mirrors f2n::ceil; see Floor for the regularity SASSERTs.
 func (m *ArbitraryFloatNumeralManager) Ceil(in, out *ArbitraryFloat) error {
-	if e := m.check(in); e != nil {
+	if e := m.guard(); e != nil {
 		return e
 	}
 	if e := m.core.RoundToIntegral(ArbitraryFloatTowardPositive, in, &m.tmp); e != nil {
-		return e
-	}
-	if e := m.check(&m.tmp); e != nil {
 		return e
 	}
 	ge, e := m.core.Gte(&m.tmp, in)
@@ -172,5 +171,5 @@ func (m *ArbitraryFloatNumeralManager) Ceil(in, out *ArbitraryFloat) error {
 			return e
 		}
 	}
-	return m.check(out)
+	return nil
 }

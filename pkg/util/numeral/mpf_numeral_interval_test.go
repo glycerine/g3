@@ -2,6 +2,7 @@ package numeral
 
 import (
 	"errors"
+	"math"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -113,5 +114,45 @@ func TestArbitraryFloatNumeralSourceFloorCeilAndClose(t *testing.T) {
 	}
 	if err := m.Floor(&x, &out); !errors.Is(err, arena.ErrClosed) {
 		t.Fatal("closed floor", err)
+	}
+}
+
+// AUDIT.md util_numeral_02-F1: f2n::floor/ceil only SASSERT regularity, so a
+// result that rounds to (signed) zero is returned rather than refused.
+func TestArbitraryFloatNumeralFloorCeilToZero(t *testing.T) {
+	core, _, _ := mpfNumeralHelpersFixture(t)
+	m, err := NewArbitraryFloatNumeralManager(core, 11, 53)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var x, out ArbitraryFloat
+	if err := m.SetFractionSigned(&x, 1, 2); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Floor(&x, &out); err != nil {
+		t.Fatal(err)
+	}
+	got, err := core.ToDouble(&out)
+	if err != nil || got != 0 || math.Signbit(got) {
+		t.Fatalf("floor 1/2: %v, %v", got, err)
+	}
+	if err := m.SetFractionSigned(&x, -1, 2); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Ceil(&x, &out); err != nil {
+		t.Fatal(err)
+	}
+	got, err = core.ToDouble(&out)
+	if err != nil || got != 0 || !math.Signbit(got) {
+		t.Fatalf("ceil -1/2: %v, %v", got, err)
+	}
+	if err := core.Del(&x); err != nil {
+		t.Fatal(err)
+	}
+	if err := core.Del(&out); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Close(); err != nil {
+		t.Fatal(err)
 	}
 }
