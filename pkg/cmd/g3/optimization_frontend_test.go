@@ -125,7 +125,9 @@ func TestOptimizationFrontendResourceLimitedSortMaxBounds(t *testing.T) {
 	// rlimit). context::propagate's two limit checks per round (AUDIT.md
 	// smtcore_08-F3) and WCNF skipping simplify_fmls (cmd_context_02-F2)
 	// move the [0:2] window in opposite directions; together it is 2200.
-	args := []string{"rlimit=2200", "opt.maxsat_engine=sortmax", "-wcnf", "-in"}
+	// bcp's per-literal get_cancel_flag() (smtcore_01-F6) moves it to 2300
+	// (also inside the window after smtcore_04-F4, 04-F3, 05-F8, 05-F4).
+	args := []string{"rlimit=2300", "opt.maxsat_engine=sortmax", "-wcnf", "-in"}
 	if err := runArguments(args, strings.NewReader(input), &output); err != nil {
 		t.Fatal(err, output.String())
 	}

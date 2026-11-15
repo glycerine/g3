@@ -255,6 +255,13 @@ func (s *SMTInternalizerState) Propagate() (bool, error) {
 		return false, nil
 	}
 	for s.propagationHead < len(s.assignedLiterals) {
+		// context::bcp: if (get_cancel_flag()) return true;
+		// get_cancel_flag is !m_manager.limit().inc(); BCP touches no AST,
+		// so the step is counted on the limit directly (Canceled would
+		// also validate manager re-entrancy, which BCP never needs).
+		if !s.manager.Limit.Inc() {
+			return true, nil
+		}
 		assigned := s.assignedLiterals[s.propagationHead]
 		s.propagationHead++
 		s.simplifyCounter--

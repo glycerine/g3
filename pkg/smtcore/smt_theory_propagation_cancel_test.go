@@ -35,9 +35,10 @@ func TestSMTPropagateCoreChecksCancelLikeContextPropagate(t *testing.T) {
 	if !ok || !theory.propagationCalled || s.propagationHead == head {
 		t.Fatal("resumed propagation", ok, theory.propagationCalled, s.propagationHead)
 	}
-	// One round: get_cancel_flag() and resource_limits_exceeded()'s
+	// One round: bcp's get_cancel_flag() for the one dequeued literal
+	// (smtcore_01-F6), then get_cancel_flag() and resource_limits_exceeded()'s
 	// get_cancel_flag() each charge one unit.
-	if got := m.Limit.Count() - before; got != 2 {
-		t.Fatal("propagation round resource charge", got, "want 2")
+	if got := m.Limit.Count() - before; got != 3 {
+		t.Fatal("propagation round resource charge", got, "want 3")
 	}
 }
