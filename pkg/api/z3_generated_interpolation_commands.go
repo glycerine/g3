@@ -500,5 +500,5 @@ func replayMkInterpolationContext(r *Z3Replayer) (err error) {
 	if err = SetParamValue(config, "model", "true"); err != nil {
 		return err
 	}
-	return replayCreateContextWithConfig(r, config, false)
+	return replayCreateContextWithConfig(r, config, false, false)
 }

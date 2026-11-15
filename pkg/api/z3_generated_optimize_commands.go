@@ -4,7 +4,6 @@ package api
 
 import (
 	"errors"
-	"fmt"
 	"math/big"
 	"reflect"
 
@@ -144,7 +143,7 @@ func replayOptimizeCommand(r *Z3Replayer, id uint32) (err error) {
 			return e
 		}
 		if name.numericSymbol || (!name.nullSymbol && name.s == "") {
-			return fmt.Errorf("optimizer replay: numeric and empty-string soft group names are not supported")
+			return z3ReplayUnsupported("optimizer replay: numeric and empty-string soft group names are not supported")
 		}
 		service := owner.results.manager.NumeralService()
 		weight, e := service.NewValue()

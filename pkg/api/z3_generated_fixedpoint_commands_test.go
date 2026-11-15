@@ -495,9 +495,10 @@ func TestGeneratedFixedpointReplayParameterUpdate(t *testing.T) {
 }
 
 func TestGeneratedFixedpointReplayRejectsNonSpacerLevelQuery(t *testing.T) {
+	var out strings.Builder
 	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 54\n= 0x42\nR\nP 0x41\nC 511\n= 0x43\nR\nP 0x41\nP 0x43\nC 512\n" +
 		"R\nP 0x41\nP 0x43\nP 0x42\nU 0\nC 651\n"
-	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	r, err := NewZ3Replayer(strings.NewReader(log+"M \"after\"\n"), &out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -512,7 +513,14 @@ func TestGeneratedFixedpointReplayRejectsNonSpacerLevelQuery(t *testing.T) {
 	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
 		t.Fatal(err)
 	}
-	if err = r.Parse(); err == nil || !strings.Contains(err.Error(), "invalid or closed propositional engine") {
-		t.Fatal("non-Spacer level query", err)
+	// AUDIT api_03-F1: the API error goes to Z3_replayer_error_handler and
+	// replay continues. build/z3 prints "[REPLAYER ERROR HANDLER]: operation is not supported for datalog (Z3_EXCEPTION)"; the
+	// Go wrapper does not yet report that code/text, so only the handler
+	// line and the continuation are checked here.
+	if err = r.Parse(); err != nil {
+		t.Fatal("non-Spacer level query stopped the replay", err)
+	}
+	if text := out.String(); !strings.HasPrefix(text, "[REPLAYER ERROR HANDLER]: ") || !strings.HasSuffix(text, "\nafter\n") {
+		t.Fatalf("non-Spacer level query: replay output %q", text)
 	}
 }

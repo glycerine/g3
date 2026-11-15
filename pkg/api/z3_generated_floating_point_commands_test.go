@@ -280,10 +280,11 @@ func TestGeneratedFloatingPointReplayConversions(t *testing.T) {
 }
 
 func TestGeneratedFloatingPointReplayRejectsWrongConversionSort(t *testing.T) {
+	var out strings.Builder
 	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 585\n= 0x42\nR\nP 0x41\nC 572\n= 0x43\n" +
 		"R\nP 0x41\nU 32\nC 35\n= 0x44\nR\nP 0x41\nU 1\nP 0x44\nC 151\n= 0x45\n" +
 		"R\nP 0x41\nP 0x43\nP 0x45\nP 0x42\nC 625\n"
-	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	r, err := NewZ3Replayer(strings.NewReader(log+"M \"after\"\n"), &out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,8 +299,15 @@ func TestGeneratedFloatingPointReplayRejectsWrongConversionSort(t *testing.T) {
 	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
 		t.Fatal(err)
 	}
-	if err = r.Parse(); err == nil || !strings.Contains(err.Error(), ast.ErrASTDomain.Error()) {
-		t.Fatal("wrong conversion source sort", err)
+	// AUDIT api_03-F1: the API error goes to Z3_replayer_error_handler and
+	// replay continues. build/z3 prints "[REPLAYER ERROR HANDLER]: invalid argument (Z3_INVALID_ARG)"; the
+	// Go wrapper does not yet report that code/text, so only the handler
+	// line and the continuation are checked here.
+	if err = r.Parse(); err != nil {
+		t.Fatal("wrong conversion source sort stopped the replay", err)
+	}
+	if text := out.String(); !strings.HasPrefix(text, "[REPLAYER ERROR HANDLER]: ") || !strings.HasSuffix(text, "\nafter\n") {
+		t.Fatalf("wrong conversion source sort: replay output %q", text)
 	}
 }
 

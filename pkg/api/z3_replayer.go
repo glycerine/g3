@@ -50,6 +50,8 @@ type Z3Replayer struct {
 	datatypeConstructors map[uint64]*replayDatatypeConstructor
 	datatypeLists        map[uint64]*replayDatatypeList
 	nextObjectID         uint64
+	handlerErr           error         // first output error from an API error handler
+	exit                 *Z3ReplayExit // set by default_error_handler's exit(1)
 	closed               bool
 }
 

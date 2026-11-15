@@ -98,6 +98,22 @@ func (r *Z3Replayer) Parse() error {
 					if commandErr, ok := err.(*Z3ReplayCommandError); ok {
 						_, writeErr := fmt.Fprintln(r.output, "[z3 exception]: "+commandErr.Message)
 						err = writeErr
+					} else if err != nil && !isZ3ReplayStructuralError(err) {
+						// The API call failed inside its own context: the C
+						// API sets the error code (or catches the exception)
+						// and invokes the context's error handler, returns
+						// null, and the replay goes on.
+						if owner := r.commandContext(); owner != nil {
+							owner.results.handleAPIError(err)
+							r.result = 0
+							err = r.handlerErr
+						}
+					}
+					if err == nil && r.handlerErr != nil {
+						err = r.handlerErr
+					}
+					if err == nil && r.exit != nil {
+						return r.exit
 					}
 				}
 			}
@@ -147,4 +163,13 @@ func (r *Z3Replayer) Parse() error {
 			return r.failure(err.Error())
 		}
 	}
+}
+
+// commandContext returns the context passed as argument 0 of the current
+// command, the context of every API call that can set an error code.
+func (r *Z3Replayer) commandContext() *replayContextOwner {
+	if len(r.args) == 0 || r.args[0].kind != replayObject {
+		return nil
+	}
+	return r.contexts[r.args[0].u]
 }

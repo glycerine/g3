@@ -4,7 +4,6 @@ package api
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -88,7 +87,7 @@ func replayParseSMT2(r *Z3Replayer, file bool) (err error) {
 		}
 		for i := uint32(0); i < count; i++ {
 			if names[i].numericSymbol || names[i].nullSymbol {
-				return fmt.Errorf("parser replay: numeric and null binding symbols are not supported")
+				return z3ReplayUnsupported("parser replay: numeric and null binding symbols are not supported")
 			}
 			value, e := r.astByID(owner, values[i])
 			if e != nil {

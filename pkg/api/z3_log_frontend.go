@@ -25,6 +25,11 @@ func ReplayZ3LogStream(replayer *Z3Replayer, output, diagnostics io.Writer, proc
 	}
 	parseErr := replayer.Parse()
 	if parseErr != nil {
+		var exit *Z3ReplayExit
+		if errors.As(parseErr, &exit) {
+			// default_error_handler called exit(1): no usage report.
+			return parseErr
+		}
 		var replayErr *Z3ReplayError
 		if !errors.As(parseErr, &replayErr) {
 			return parseErr

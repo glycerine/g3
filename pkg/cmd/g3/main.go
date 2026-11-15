@@ -241,6 +241,11 @@ func main() {
 			// the shell never uses ERR_PARSER for SMT2 input.
 			os.Exit(1)
 		}
+		var replayExit *api.Z3ReplayExit
+		if errors.As(err, &replayExit) {
+			// default_error_handler already printed "Error: ..." and exited.
+			os.Exit(replayExit.Status)
+		}
 		var openError *z3LogOpenError
 		if errors.As(err, &openError) {
 			fmt.Fprintln(os.Stderr, openError.Error())

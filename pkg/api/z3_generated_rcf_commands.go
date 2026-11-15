@@ -6,7 +6,6 @@ package api
 
 import (
 	"errors"
-	"fmt"
 	"math/big"
 	"reflect"
 
@@ -262,7 +261,7 @@ func replayRCFCommand(r *Z3Replayer, id uint32) (err error) {
 			return e
 		}
 		if power >= 1<<31 {
-			return fmt.Errorf("rcf replay: exponent exceeds terminating source range")
+			return z3ReplayUnsupported("rcf replay: exponent exceeds terminating source range")
 		}
 		if power == 0 {
 			one, e := replayRCFOne(r, owner)

@@ -148,11 +148,12 @@ func TestGeneratedRelationInspectionReplay(t *testing.T) {
 }
 
 func TestGeneratedDatatypeUpdateReplayReportsSourceError(t *testing.T) {
+	var out strings.Builder
 	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\n" +
 		"R\nP 0x41\n$ |Pair|\nU 1\n$ |field|\ns 1\nP 0x42\np 1\nP 0\nP 0\np 1\nC 39\n= 0x43\n* 0x44 5\n@ 0x45 6 0\n" +
 		"R\nP 0x41\nC 54\n= 0x46\nR\nP 0x41\nP 0x44\nU 1\nP 0x46\np 1\nC 50\n= 0x47\n" +
 		"R\nP 0x41\nP 0x45\nP 0x47\nP 0x46\nC 219\n"
-	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	r, err := NewZ3Replayer(strings.NewReader(log+"M \"after\"\n"), &out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,7 +168,14 @@ func TestGeneratedDatatypeUpdateReplayReportsSourceError(t *testing.T) {
 	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
 		t.Fatal(err)
 	}
-	if err = r.Parse(); err == nil || !strings.Contains(err.Error(), ast.ErrASTDomain.Error()) {
-		t.Fatal("source field-update error", err)
+	// AUDIT api_03-F1: the API error goes to Z3_replayer_error_handler and
+	// replay continues. build/z3 prints "[REPLAYER ERROR HANDLER]: invalid default array definition, invalid domain size (Z3_EXCEPTION)"; the
+	// Go wrapper does not yet report that code/text, so only the handler
+	// line and the continuation are checked here.
+	if err = r.Parse(); err != nil {
+		t.Fatal("source field-update error stopped the replay", err)
+	}
+	if text := out.String(); !strings.HasPrefix(text, "[REPLAYER ERROR HANDLER]: ") || !strings.HasSuffix(text, "\nafter\n") {
+		t.Fatalf("source field-update error: replay output %q", text)
 	}
 }

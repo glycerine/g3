@@ -118,6 +118,7 @@ func TestGeneratedQuantifierReplayBoundPatternAndSymbols(t *testing.T) {
 }
 
 func TestGeneratedQuantifierReplayRejectsInvalidPattern(t *testing.T) {
+	var out strings.Builder
 	log := "R\nP 0\nC 6\n= 0x41\n" +
 		"R\nP 0x41\nC 32\n= 0x42\n" +
 		"R\nP 0x41\nC 54\n= 0x43\n" +
@@ -125,7 +126,7 @@ func TestGeneratedQuantifierReplayRejectsInvalidPattern(t *testing.T) {
 		"R\nP 0x41\nP 0x44\nU 1\nP 0x43\np 1\nC 50\n= 0x45\n" +
 		"R\nP 0x41\nU 1\nP 0x45\np 1\nC 190\n= 0x46\n" +
 		"R\nP 0x41\nU 1\nU 1\nP 0x46\np 1\nU 1\nP 0x42\np 1\n$ |x|\ns 1\nP 0x43\nC 192\n"
-	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	r, err := NewZ3Replayer(strings.NewReader(log+"M \"after\"\n"), &out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,8 +141,15 @@ func TestGeneratedQuantifierReplayRejectsInvalidPattern(t *testing.T) {
 	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
 		t.Fatal(err)
 	}
-	if err = r.Parse(); err == nil {
-		t.Fatal("pattern without quantified variables was accepted")
+	// AUDIT api_03-F1: the API error goes to Z3_replayer_error_handler and
+	// replay continues. build/z3 prints "[REPLAYER ERROR HANDLER]: invalid pattern (Z3_INVALID_PATTERN), after a "pattern does not contain any variable" warning"; the
+	// Go wrapper does not yet report that code/text, so only the handler
+	// line and the continuation are checked here.
+	if err = r.Parse(); err != nil {
+		t.Fatal("pattern without quantified variables stopped the replay", err)
+	}
+	if text := out.String(); !strings.HasPrefix(text, "[REPLAYER ERROR HANDLER]: ") || !strings.HasSuffix(text, "\nafter\n") {
+		t.Fatalf("pattern without quantified variables: replay output %q", text)
 	}
 }
 
@@ -190,10 +198,11 @@ func TestGeneratedQuantifierReplayZeroBindersReturnsBody(t *testing.T) {
 }
 
 func TestGeneratedPatternReplayRejectsBoundVariableTerm(t *testing.T) {
+	var out strings.Builder
 	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\n" +
 		"R\nP 0x41\nU 0\nP 0x42\nC 191\n= 0x43\n" +
 		"R\nP 0x41\nU 1\nP 0x43\np 1\nC 190\n"
-	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	r, err := NewZ3Replayer(strings.NewReader(log+"M \"after\"\n"), &out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,8 +217,15 @@ func TestGeneratedPatternReplayRejectsBoundVariableTerm(t *testing.T) {
 	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
 		t.Fatal(err)
 	}
-	if err = r.Parse(); err == nil {
-		t.Fatal("pattern containing a bare variable was accepted")
+	// AUDIT api_03-F1: the API error goes to Z3_replayer_error_handler and
+	// replay continues. build/z3 prints "[REPLAYER ERROR HANDLER]: invalid argument (Z3_INVALID_ARG)"; the
+	// Go wrapper does not yet report that code/text, so only the handler
+	// line and the continuation are checked here.
+	if err = r.Parse(); err != nil {
+		t.Fatal("pattern containing a bare variable stopped the replay", err)
+	}
+	if text := out.String(); !strings.HasPrefix(text, "[REPLAYER ERROR HANDLER]: ") || !strings.HasSuffix(text, "\nafter\n") {
+		t.Fatalf("pattern containing a bare variable: replay output %q", text)
 	}
 }
 
@@ -354,9 +370,10 @@ func TestGeneratedConstantQuantifierReplay(t *testing.T) {
 }
 
 func TestGeneratedConstantQuantifierReplayRejectsEmptyBounds(t *testing.T) {
+	var out strings.Builder
 	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 54\n= 0x42\n" +
 		"R\nP 0x41\nU 1\nU 0\np 0\nU 0\np 0\nP 0x42\nC 196\n"
-	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	r, err := NewZ3Replayer(strings.NewReader(log+"M \"after\"\n"), &out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -371,7 +388,14 @@ func TestGeneratedConstantQuantifierReplayRejectsEmptyBounds(t *testing.T) {
 	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
 		t.Fatal(err)
 	}
-	if err = r.Parse(); err == nil {
-		t.Fatal("constant quantifier accepted an empty bound list")
+	// AUDIT api_03-F1: the API error goes to Z3_replayer_error_handler and
+	// replay continues. build/z3 prints "[REPLAYER ERROR HANDLER]: invalid usage (Z3_INVALID_USAGE)"; the
+	// Go wrapper does not yet report that code/text, so only the handler
+	// line and the continuation are checked here.
+	if err = r.Parse(); err != nil {
+		t.Fatal("constant quantifier with an empty bound list stopped the replay", err)
+	}
+	if text := out.String(); !strings.HasPrefix(text, "[REPLAYER ERROR HANDLER]: ") || !strings.HasSuffix(text, "\nafter\n") {
+		t.Fatalf("constant quantifier with an empty bound list: replay output %q", text)
 	}
 }

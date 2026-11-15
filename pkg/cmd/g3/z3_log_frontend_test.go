@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -249,5 +250,39 @@ func TestZ3LogFrontendReplaysDatatypeConstructors(t *testing.T) {
 	}
 	if diagnostics.Len() != 0 || !strings.HasPrefix(out.String(), "datatype-replayed\nmax. heap size:") {
 		t.Fatal(out.String(), diagnostics.String())
+	}
+}
+
+// AUDIT api_03-F1: exec_Z3_mk_context installs Z3_replayer_error_handler, so
+// an API error inside a replayed call prints a handler line and the replay
+// goes on. Expected stdout is what build/z3 prints for the same logs.
+func TestZ3LogFrontendReplayerErrorHandler(t *testing.T) {
+	for _, tc := range []struct{ name, log, want string }{
+		// Z3_mk_eq on Int and Bool: the caught exception's message.
+		{"exception", "V \"4.7.1.0\"\nR\nP 0\nC 6\n= 10\nR\nP 10\nC 33\n= 11\nR\nP 10\nC 32\n= 12\nR\nP 10\n$ |x|\nP 11\nC 51\n= 13\nR\nP 10\n$ |y|\nP 12\nC 51\n= 14\nR\nP 10\nP 13\nP 14\nC 56\n= 15\nM \"after\"\nR\nP 10\nC 8\n",
+			"[REPLAYER ERROR HANDLER]: Sorts Int and Bool are incompatible\nafter\nmax. heap size:"},
+		// Z3_parse_smtlib2_string failure, then Z3_set_error(c, Z3_IOB).
+		{"error-code", "R\nP 0\nC 6\n= 10\nR\nP 10\nS \"(assert (foo\"\nU 0\ns 0\np 0\nU 0\ns 0\np 0\nC 335\n= 11\nM \"after-parse\"\nR\nP 10\nU 2\nC 340\nM \"after-set-error\"\nR\nP 10\nC 8\n",
+			"[REPLAYER ERROR HANDLER]: parser error\nafter-parse\n[REPLAYER ERROR HANDLER]: index out of bounds\nafter-set-error\nmax. heap size:"},
+	} {
+		var out, diagnostics bytes.Buffer
+		if err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader(tc.log), &out, &diagnostics); err != nil {
+			t.Fatal(tc.name, err)
+		}
+		if diagnostics.Len() != 0 || !strings.HasPrefix(out.String(), tc.want) {
+			t.Fatalf("%s: stdout %q diagnostics %q", tc.name, out.String(), diagnostics.String())
+		}
+	}
+	// exec_Z3_mk_interpolation_context keeps default_error_handler:
+	// printf("Error: %s\n", ...); exit(1), with no usage report.
+	log := "R\nP 0\nC 564\n= 10\nM \"before\"\nR\nP 10\nU 2\nC 340\nM \"after\"\nR\nP 10\nC 8\n"
+	var out, diagnostics bytes.Buffer
+	err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader(log), &out, &diagnostics)
+	var exit *api.Z3ReplayExit
+	if !errors.As(err, &exit) || exit.Status != 1 {
+		t.Fatal("default error handler exit", err)
+	}
+	if out.String() != "before\nError: index out of bounds\n" || diagnostics.Len() != 0 {
+		t.Fatalf("default error handler: stdout %q diagnostics %q", out.String(), diagnostics.String())
 	}
 }

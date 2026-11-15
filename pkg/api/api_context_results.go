@@ -38,6 +38,7 @@ type apiContextResults struct {
 	memoryProcess                 *memory.ProcessAccounting
 	pendingDestroyLine            int
 	errorCode                     uint32
+	exceptionMessage              string
 	userRefCount, closing, closed bool
 }
 
