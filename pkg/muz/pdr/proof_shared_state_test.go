@@ -84,6 +84,9 @@ func TestContextProofSharesNoninitialDiamondState(t *testing.T) {
 						rule, cause := rules.NewRule(head, tail, nil, name)
 						pdrMust(t, cause)
 						defer func() { pdrMust(t, rule.Close()) }()
+						// The datalog context gives every rule its asserted proof
+						// when proof traces are generated.
+						pdrMust(t, rules.MkRuleAssertedProof(rule))
 						pdrMust(t, set.Add(rule))
 						formula, cause := rule.ToFormula()
 						pdrMust(t, cause)

@@ -146,30 +146,29 @@ type PropositionalEngine struct {
 	pdrRules            *base.RuleSet
 	// pdrRetiredRules is m_pdr_rules after a parameter update rebuilt the
 	// context: it is released when the next query replaces it.
-	pdrRetiredRules *base.RuleSet
-	pdrSourceRules  *base.RuleSet
-	pdrRuleRevision uint64
-	pdrQuery        ast.ASTHandle
-	pdrTraceQuery   ast.ASTHandle // borrowed only during the enclosing expression-query call
-	pdrDerived      map[ast.ASTHandle]ast.ASTHandle
-	pdrPredicates   map[ast.ASTHandle]ast.ASTHandle
-	pdrSlices       map[ast.ASTHandle][]bool
-	pdrQuantified   map[ast.ASTHandle]ast.ASTHandle
-	pdrInstantiated map[ast.ASTHandle]ast.ASTHandle
-	pdrBitBlasted   map[ast.ASTHandle]ast.ASTHandle
-	pdrScaled       map[ast.ASTHandle]ast.ASTHandle
-	pdrMagic        map[ast.ASTHandle]ast.ASTHandle
-	pdrKarr         map[ast.ASTHandle]rel.KarrMatrix
-	pdrConversions  []hornModelConversion
-	pdrProof        ast.ASTRef
-	pdrSliceProof   bool
-	pdrStatistics   muzpdr.StatisticsSnapshot
-	pdrDisposal     *pdrContextDisposal
-	bmcStatistics   statistics.Statistics
-	bmcTrace        []*base.Rule
-	bmcProof        ast.ASTRef
-	bmcSlot         *bmcSolverSlot
-	bmcSlotBorrowed bool
+	pdrRetiredRules   *base.RuleSet
+	pdrSourceRules    *base.RuleSet
+	pdrRuleRevision   uint64
+	pdrQuery          ast.ASTHandle
+	pdrTraceQuery     ast.ASTHandle // borrowed only during the enclosing expression-query call
+	pdrDerived        map[ast.ASTHandle]ast.ASTHandle
+	pdrPredicates     map[ast.ASTHandle]ast.ASTHandle
+	pdrSlices         map[ast.ASTHandle][]bool
+	pdrQuantified     map[ast.ASTHandle]ast.ASTHandle
+	pdrInstantiated   map[ast.ASTHandle]ast.ASTHandle
+	pdrBitBlasted     map[ast.ASTHandle]ast.ASTHandle
+	pdrScaled         map[ast.ASTHandle]ast.ASTHandle
+	pdrMagic          map[ast.ASTHandle]ast.ASTHandle
+	pdrKarr           map[ast.ASTHandle]rel.KarrMatrix
+	pdrConversions    []hornModelConversion
+	pdrProofConverter *transforms.SliceProofConverter
+	pdrStatistics     muzpdr.StatisticsSnapshot
+	pdrDisposal       *pdrContextDisposal
+	bmcStatistics     statistics.Statistics
+	bmcTrace          []*base.Rule
+	bmcProof          ast.ASTRef
+	bmcSlot           *bmcSolverSlot
+	bmcSlotBorrowed   bool
 	// relationQuery marks a rel_query in progress: the engine was ensured
 	// before the query expression and bmc::query resets before flushing.
 	relationQuery       bool
@@ -3101,12 +3100,6 @@ func (e *PropositionalEngine) computeAnswer(declaration ast.ASTHandle) (answer a
 			}
 			return e.inductiveModelAnswer(inductive)
 		}
-		if e.pdrProof != (ast.ASTRef{}) {
-			if e.pdrPredicate(declaration) != e.pdrPredicate(e.pdrQuery) {
-				return answer, ast.ErrASTDomain
-			}
-			return e.manager.CopyRef(e.pdrProof)
-		}
 		// Relation-query answers intentionally retain sliced predicate names,
 		// matching pdr_dl_interface's converter-free reachable-trace surface.
 		return e.pdr.Answer(e.pdrPredicate(declaration))
@@ -3182,12 +3175,6 @@ func (e *PropositionalEngine) Proof(declaration ast.ASTHandle) (result ast.ASTRe
 		return ast.ASTRef{}, err
 	}
 	if kind == EnginePDR || kind == EngineQPDR {
-		if e.pdrProof != (ast.ASTRef{}) {
-			if e.pdrPredicate(declaration) != e.pdrPredicate(e.pdrQuery) {
-				return ast.ASTRef{}, ast.ErrASTDomain
-			}
-			return e.manager.CopyRef(e.pdrProof)
-		}
 		return e.pdr.Proof(e.pdrPredicate(declaration))
 	}
 	if kind == EngineSpacer {
@@ -3340,7 +3327,9 @@ func (e *PropositionalEngine) WriteCertificate(out io.Writer, declaration ast.AS
 	if err != nil {
 		return false, err
 	}
-	return true, writeExpression(out, handle)
+	// pdr::context::display_certificate: strm << mk_pp(mk_sat_answer(), m),
+	// without the command context's declarations.
+	return true, e.writePDRTraceExpression(out, handle)
 }
 
 // Model exports the selected engine's model for its latest valid query result.

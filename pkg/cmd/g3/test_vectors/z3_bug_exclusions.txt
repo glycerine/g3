@@ -118,6 +118,35 @@ z3_bug_update_field_constructor
 z3_bug_pdr_nullary_cache
 z3_bug_pdr_nullary_cache_sat
 #
+# model_search::get_proof_trace has the same state-only cache: the query!0
+# root and a nullary body predicate share the state `true`, so the root
+# takes the body predicate's proof and z3 prints a proof of the wrong fact.
+# A repeated obligation pre-closed without children can also be reached
+# before its expanded twin and cached with its unresolved rule, so z3's
+# proof concludes an implication instead of the query. g3 keys the trace
+# cache by predicate and state and resolves the expanded twin first
+# (pkg/muz/pdr/proof_trace.go proofTrace; AUDIT.md muz_pdr_02-F2).
+# Reproductions: test_vectors/z3_bug_pdr_proof_*.smt2.
+z3_bug_pdr_proof_nullary_root
+z3_bug_pdr_proof_duplicate_leaf
+#
+# fixedpoint.print_boogie_certificate turns on the PDR proof trace without
+# generate_proof_trace, so the rules carry no proofs: get_proof_trace's
+# SASSERT(p1) is off in release builds and z3 4.7.1 segfaults building the
+# certificate. g3 asserts the rule formula for a rule without a proof
+# (pkg/muz/pdr/proof_trace.go proofTrace; AUDIT.md muz_pdr_02-F2).
+# Reproduction: test_vectors/z3_bug_pdr_boogie_without_proof_trace.smt2.
+z3_bug_pdr_boogie_without_proof_trace
+#
+# get_proof_trace always unifies tail 0 of the partly resolved rule with the
+# next child. When remove_duplicate_tails merged that child's tail with an
+# identical, already resolved one, unification fails and z3 4.7.1 goes on
+# with the stale unifier (here the state-only cache also drops the root).
+# g3 leaves the merged premise out (pkg/muz/pdr/proof_trace.go proofTrace;
+# AUDIT.md muz_pdr_02-F2).
+# Reproduction: test_vectors/z3_bug_pdr_proof_merged_tails.smt2.
+z3_bug_pdr_proof_merged_tails
+#
 # Duality's RPFP::UnhoistLoop walks parent->Incoming, which lists an edge
 # once per child position, so an edge that uses the unhoisted loop
 # predicate twice is rewritten twice. The second pass adds the new

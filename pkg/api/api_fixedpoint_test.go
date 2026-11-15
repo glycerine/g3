@@ -455,7 +455,11 @@ func TestSMTContextFixedpointPDRProofTrace(t *testing.T) {
 	astTestMust(t, err)
 	factSort, err := manager.GetSort(fact)
 	astTestMust(t, err)
-	if !hyper && !asserted || hyper && parents == 0 || factSort != boolean {
+	// get_proof_trace keeps a childless node's own rule proof, which can be
+	// a modus-ponens chain from the rule's transformations.
+	modusPonens, err := manager.IsProofKind(proofHandle, ast.ASTPrModusPonens)
+	astTestMust(t, err)
+	if !hyper && !asserted && !modusPonens || hyper && parents == 0 || factSort != boolean {
 		t.Fatal("PDR proof trace", hyper, asserted, parents, factSort, boolean)
 	}
 	answer, err := context.FixedpointAnswer(q)
@@ -466,8 +470,10 @@ func TestSMTContextFixedpointPDRProofTrace(t *testing.T) {
 	astTestMust(t, err)
 	answerIsAsserted, err := manager.IsProofKind(answerHandle, ast.ASTPrAsserted)
 	astTestMust(t, err)
+	answerIsModusPonens, err := manager.IsProofKind(answerHandle, ast.ASTPrModusPonens)
+	astTestMust(t, err)
 	astTestMust(t, manager.DelRef(&answer))
-	if !answerIsHyper && !answerIsAsserted {
+	if !answerIsHyper && !answerIsAsserted && !answerIsModusPonens {
 		t.Fatal("generate_proof_trace did not select the proof as the reachable answer")
 	}
 }

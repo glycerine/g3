@@ -338,6 +338,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_pdr_02-F2: model_search::get_proof_trace instantiates each
+	// node's rule, hyper-resolves all children at once, and keeps the rules'
+	// transformation proofs (mp/der/rewrite, the inliner's query!0 hyper-res).
+	"pdr_proof_trace_certificate.smt2": "sat\n(let ((a!1 (forall ((x Int)) (=> (and (inv x) (= x 2)) err)))\n      (a!2 (forall ((A Int)) (=> (and (inv A) (= A 2)) err)))\n      (a!6 (forall ((x Int)) (=> (and (inv x) (< x 3)) (inv (+ x 1)))))\n      (a!7 (forall ((A Int) (B Int))\n             (=> (and (inv B) (= A (+ B 1)) (< B 3)) (inv A))))\n      (a!9 (forall ((A Int) (B Int))\n             (=> (and (inv B) (not (<= 3 B)) (= A (+ 1 B))) (inv A))))\n      (a!11 (forall ((x Int)) (=> (= x 0) (inv x))))\n      (a!12 (forall ((A Int)) (=> (= A 0) (inv A)))))\n(let ((a!3 (mp (asserted a!1) (symm (der (= a!2 a!1)) (= a!1 a!2)) a!2))\n      (a!4 (rewrite (= a!2 (=> (inv 2) err))))\n      (a!8 (mp (asserted a!6) (symm (der (= a!7 a!6)) (= a!6 a!7)) a!7))\n      (a!13 (mp (asserted a!11) (symm (der (= a!12 a!11)) (= a!11 a!12)) a!12)))\n(let ((a!5 ((_ hyper-res 1 0)\n             (asserted (=> err query!0))\n             (mp a!3 a!4 (=> (inv 2) err))\n             (=> (inv 2) query!0)))\n      (a!10 (mp (mp a!8 (rewrite (= a!7 a!9)) a!9) (rewrite (= a!9 a!9)) a!9))\n      (a!14 (mp a!13 (rewrite (= a!12 (inv 0))) (inv 0))))\n(let ((a!15 (hyper-res (mp a!10 (rewrite (= a!9 a!9)) a!9) a!14 (inv 1))))\n(let ((a!16 (hyper-res (mp a!10 (rewrite (= a!9 a!9)) a!9) a!15 (inv 2))))\n  ((_ hyper-res 1 0) a!5 a!16 query!0))))))\n",
 	// AUDIT.md qe_03-F4: spacer array_project_eqs_util (trace checked by
 	// TestTraceGolden with G3_GOLDEN_TAGS=qe,model_evaluator).
 	"fp_spacer_array_project_eqs.smt2": "sat\n\n",

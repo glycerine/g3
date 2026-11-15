@@ -9,7 +9,6 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/pdr"
-	"github.com/glycerine/g3/pkg/muz/transforms"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/statistics"
@@ -143,12 +142,17 @@ func (e *PropositionalEngine) clearPDRPreprocessing() error {
 		return err
 	}
 	e.pdrConversions = nil
-	if e.pdrProof != (ast.ASTRef{}) {
-		if err := e.manager.DelRef(&e.pdrProof); err != nil {
+	if e.pdrProofConverter != nil {
+		if err := e.pdrProofConverter.Close(); err != nil {
 			return err
 		}
+		e.pdrProofConverter = nil
+		if e.pdr != nil {
+			if err := e.pdr.SetProofConverter(nil); err != nil {
+				return err
+			}
+		}
 	}
-	e.pdrSliceProof = false
 	e.pdrDerived = nil
 	e.pdrPredicates = nil
 	e.pdrSlices = nil
@@ -192,17 +196,6 @@ func solvePDRProgram(context *pdr.Context, rules *base.RuleSet, query ast.ASTHan
 }
 
 func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool, resultErr error) {
-	status, err := e.queryPDRWithSliceProof(declaration, true)
-	if onlyErrorKind(err, errRetryUnslicedProof) {
-		if closeErr := e.closePDRForReplacement(); closeErr != nil {
-			return lbool.Undef, closeErr
-		}
-		return e.queryPDRWithSliceProof(declaration, false)
-	}
-	return status, err
-}
-
-func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, allowSliceProof bool) (_ lbool.LBool, resultErr error) {
 	if e.params == nil || e.globals == nil {
 		return lbool.Undef, fmt.Errorf("muz/fp: PDR requires parameter and global services")
 	}
@@ -275,12 +268,18 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 		}
 		return context.Close()
 	}
-	preprocessed, err := e.preprocessHornRulesWithSliceProof(declaration, true, true, allowSliceProof)
+	preprocessed, err := e.preprocessHornRulesWithSliceProof(declaration, true, true, true)
 	if err != nil {
 		return lbool.Undef, errors.Join(err, closeContext())
 	}
 	defer func() { resultErr = errors.Join(resultErr, preprocessed.Close()) }()
 	prepared := preprocessed.rules
+	// The query's later m_ctx.get_rules() runs flush_add_rules and
+	// check_rules on the transformed set: rule_properties::collect gives
+	// every rule still without a proof its asserted proof.
+	if err = e.assertTransformedRuleProofs(prepared); err != nil {
+		return lbool.Undef, errors.Join(err, closeContext())
+	}
 	if err = e.tracePDRTransformedRules(prepared); err != nil {
 		return lbool.Undef, errors.Join(err, closeContext())
 	}
@@ -388,7 +387,25 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 		e.pdrSourceRules = sourceSnapshot
 	}
 	e.installPDRPreprocessing(preprocessed)
-	e.pdrSliceProof = preprocessed.sliceProof != nil
+	// m_context->set_proof_converter(m_ctx.get_proof_converter()): the
+	// slice converter is the only one the PDR transformations register.
+	if preprocessed.sliceProof != nil {
+		converter := preprocessed.sliceProof
+		preprocessed.sliceProof = nil
+		e.pdrProofConverter = converter
+		unifier, unifierErr := pdrProofRuleServices{engine: e}.NewProofRuleUnifier()
+		if unifierErr == nil {
+			unifierErr = converter.SetRuleUnifier(unifier)
+		}
+		if unifierErr == nil {
+			unifierErr = context.SetProofConverter(converter)
+		}
+		if unifierErr != nil {
+			return lbool.Undef, unifierErr
+		}
+	} else if err = context.SetProofConverter(nil); err != nil {
+		return lbool.Undef, err
+	}
 	e.pdrDerived = derivedPredicates
 	e.pdr = context
 	e.pdrRevision = e.revision
@@ -400,44 +417,7 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 	if err == nil && status == lbool.False {
 		err = e.writePDREmptyProgramModel(declaration)
 	}
-	if err != nil || status != lbool.True || preprocessed.sliceProof == nil {
-		return status, err
-	}
-	proof, err := context.Proof(queryDeclaration)
-	if err != nil {
-		if onlyErrorKind(err, ast.ErrASTDomain) {
-			return lbool.Undef, fmt.Errorf("%w: context proof: %v", errRetryUnslicedProof, err)
-		}
-		return lbool.Undef, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, e.manager.DelRef(&proof)) }()
-	original, err := e.manager.RefGet(proof)
-	if err != nil {
-		return lbool.Undef, err
-	}
-	converted, err := preprocessed.sliceProof.Convert(original)
-	if err != nil {
-		if onlyErrorKind(err, transforms.ErrSliceProofUnsupported) || onlyErrorKind(err, ast.ErrASTDomain) {
-			return lbool.Undef, fmt.Errorf("%w: %v", errRetryUnslicedProof, err)
-		}
-		return lbool.Undef, err
-	}
-	convertedHandle, err := e.manager.RefGet(converted)
-	if err == nil {
-		var before, after ast.ASTHandle
-		before, err = e.manager.GetProofFact(original)
-		if err == nil {
-			after, err = e.manager.GetProofFact(convertedHandle)
-		}
-		if err == nil && before != after {
-			err = errRetryUnslicedProof
-		}
-	}
-	if err != nil {
-		return lbool.Undef, errors.Join(err, e.manager.DelRef(&converted))
-	}
-	e.pdrProof = converted
-	return status, nil
+	return status, err
 }
 
 func (e *PropositionalEngine) pdrContext() (_ *pdr.Context, resultErr error) {
@@ -820,6 +800,9 @@ func (e *PropositionalEngine) newConfiguredPDRContext(parameters *fixedpointPara
 	if err = context.SetCertificateModelConverter(pdrCertificateModelConverter{engine: e}); err != nil {
 		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
+	if err = context.SetProofRuleServices(pdrProofRuleServices{engine: e}); err != nil {
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
+	}
 	simplifyPre, err := parameters.Bool("pdr.simplify_formulas_pre", false)
 	if err != nil {
 		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
@@ -930,4 +913,28 @@ func (e *PropositionalEngine) newConfiguredPDRContext(parameters *fixedpointPara
 		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	return context, nil
+}
+
+// assertTransformedRuleProofs is the mk_rule_asserted_proof step of
+// rule_properties::collect when fixedpoint.generate_proof_trace is set.
+func (e *PropositionalEngine) assertTransformedRuleProofs(rules *base.RuleSet) error {
+	enabled, err := e.pendingProofEnabled()
+	if err != nil || !enabled {
+		return err
+	}
+	count, err := rules.Len()
+	if err != nil {
+		return err
+	}
+	for index := 0; index < count; index++ {
+		rule, err := rules.Rule(index)
+		if err != nil {
+			return err
+		}
+		err = errors.Join(e.rules.MkRuleAssertedProof(rule), rule.Close())
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

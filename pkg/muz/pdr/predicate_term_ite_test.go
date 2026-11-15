@@ -81,6 +81,8 @@ func TestPDRTermITEHoistingPreservesVocabularyAndSemantics(t *testing.T) {
 			add := func(head ast.ASTHandle, tail []ast.ASTHandle, name string) {
 				rule, cause := rules.NewRule(head, tail, nil, name)
 				closureMust(t, cause)
+				// generate_proof_trace: the datalog context asserts each rule.
+				closureMust(t, rules.MkRuleAssertedProof(rule))
 				closureMust(t, set.Add(rule))
 				closureMust(t, rule.Close())
 			}

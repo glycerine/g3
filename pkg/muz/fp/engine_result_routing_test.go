@@ -472,7 +472,9 @@ func TestPDRAndSpacerResultSnapshotsInvalidateAfterParameterRevision(t *testing.
 				return nil
 			})
 			fpMust(t, err)
-			if (backend == "pdr" || backend == "qpdr") && (!found || calls != 1) {
+			// pdr::context::display_certificate prints the answer with mk_pp,
+			// not through the command context's expression writer.
+			if (backend == "pdr" || backend == "qpdr") && (!found || calls != 0 || certificate.Len() == 0) {
 				t.Fatal("PDR reachable certificate route", found, calls)
 			}
 			if backend == "spacer" && (found || calls != 0 || certificate.Len() != 0) {

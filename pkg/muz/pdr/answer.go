@@ -15,53 +15,55 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func (c *Context) instantiateTraceExpression(node *ModelNode, rule *normalizedRule, expression ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+// traceStateValues is mk_instantiate's obj_map<expr,expr*> model, read from
+// the flattened node state: equalities with a value, negations and atoms.
+func (c *Context) traceStateValues(node *ModelNode) (map[ast.ASTHandle]ast.ASTHandle, error) {
 	conjuncts, err := c.manager.FlattenAnd([]ast.ASTHandle{node.state})
 	if err != nil {
-		return result, err
+		return nil, err
 	}
 	values := make(map[ast.ASTHandle]ast.ASTHandle)
 	truth, err := c.manager.MkTrue()
 	if err != nil {
-		return result, err
+		return nil, err
 	}
 	falsity, err := c.manager.MkFalse()
 	if err != nil {
-		return result, err
+		return nil, err
 	}
 	for _, conjunct := range conjuncts {
 		kind, x := c.manager.GetKind(conjunct)
 		if x != nil {
-			return result, x
+			return nil, x
 		}
 		matched := false
 		if kind == ast.ASTApp {
 			family, y := c.manager.GetFamilyID(conjunct)
 			if y != nil {
-				return result, y
+				return nil, y
 			}
 			operation, y := c.manager.GetDeclKind(conjunct)
 			if y != nil {
-				return result, y
+				return nil, y
 			}
 			if family == c.manager.BasicFamilyID() && (operation == ast.ASTOpEq || operation == ast.ASTOpIff) {
 				left, y := c.manager.GetArg(conjunct, 0)
 				if y != nil {
-					return result, y
+					return nil, y
 				}
 				right, y := c.manager.GetArg(conjunct, 1)
 				if y != nil {
-					return result, y
+					return nil, y
 				}
 				rightValue, y := c.manager.IsValue(right)
 				if y != nil {
-					return result, y
+					return nil, y
 				}
 				if rightValue {
 					values[left] = right
 					matched = true
 				} else if leftValue, y := c.manager.IsValue(left); y != nil {
-					return result, y
+					return nil, y
 				} else if leftValue {
 					values[right] = left
 					matched = true
@@ -72,12 +74,20 @@ func (c *Context) instantiateTraceExpression(node *ModelNode, rule *normalizedRu
 			continue
 		}
 		if negated, argument, x := c.manager.IsNot(conjunct); x != nil {
-			return result, x
+			return nil, x
 		} else if negated {
 			values[argument] = falsity
 		} else {
 			values[conjunct] = truth
 		}
+	}
+	return values, nil
+}
+
+func (c *Context) instantiateTraceExpression(node *ModelNode, rule *normalizedRule, expression ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+	values, err := c.traceStateValues(node)
+	if err != nil {
+		return result, err
 	}
 	used, err := ast.NewASTUsedVars(c.manager)
 	if err != nil {

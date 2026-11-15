@@ -56,7 +56,8 @@ func TestPDRBoogieCertificateParameterSelectsSourcePresentation(t *testing.T) {
 				if !found || !errors.Is(err, io.ErrClosedPipe) {
 					t.Fatal("Boogie writer refusal", found, err)
 				}
-			} else if ordinaryCalls != 1 || output.String() != "ordinary" {
+			} else if ordinaryCalls != 0 || output.String() != "true" {
+				// display_certificate prints mk_pp(mk_sat_answer(), m) itself.
 				t.Fatalf("ordinary certificate route: calls=%d output=%q", ordinaryCalls, output.String())
 			}
 		})

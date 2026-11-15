@@ -32,21 +32,22 @@ func TestHornPreprocessClosePreservesPendingRuleAndProofOwners(t *testing.T) {
 			callbacks++
 			if !inEngineClose {
 				inEngineClose = true
-				rootProof, background := rootEngine.pdrProof, rootEngine.background
+				background := rootEngine.background
 				rootRules, rootGuard, rootParams := rootEngine.rules, rootEngine.guard, rootEngine.params
 				for i := 0; i < 2; i++ {
 					cause := rootEngine.Close()
-					intact = intact && errors.Is(cause, ast.ErrASTPending) && !rootEngine.closed && rootEngine.pdrProof == rootProof && rootEngine.background == background && len(rootEngine.pdrConversions) == 1 && rootEngine.rules == rootRules && rootEngine.guard == rootGuard && rootEngine.params == rootParams
+					intact = intact && errors.Is(cause, ast.ErrASTPending) && !rootEngine.closed && rootEngine.background == background && len(rootEngine.pdrConversions) == 1 && rootEngine.rules == rootRules && rootEngine.guard == rootGuard && rootEngine.params == rootParams
 				}
 				inEngineClose = false
 			}
 
-			for _, target := range []*PropositionalEngine{backend, proofBackend} {
-				pdrProof := target.pdrProof
+			// proofBackend holds only predicate maps, which clear without a
+			// pending owner; backend's model conversions refuse.
+			for _, target := range []*PropositionalEngine{backend} {
 				conversions := len(target.pdrConversions)
 				for i := 0; i < 2; i++ {
 					cause := target.clearPDRPreprocessing()
-					intact = intact && errors.Is(cause, ast.ErrASTPending) && target.pdrProof == pdrProof && len(target.pdrConversions) == conversions && len(target.pdrPredicates) == 1
+					intact = intact && errors.Is(cause, ast.ErrASTPending) && len(target.pdrConversions) == conversions && len(target.pdrPredicates) == 1
 				}
 			}
 
@@ -122,7 +123,7 @@ func TestHornPreprocessClosePreservesPendingRuleAndProofOwners(t *testing.T) {
 	must(err)
 	ga, err := m.MkApp(goal, nil)
 	must(err)
-	var original, originalProof ast.ASTHandle
+	var original ast.ASTHandle
 	for i, spec := range []struct {
 		head ast.ASTHandle
 		tail []ast.ASTHandle
@@ -136,7 +137,6 @@ func TestHornPreprocessClosePreservesPendingRuleAndProofOwners(t *testing.T) {
 			if !found {
 				t.Fatal("missing original proof")
 			}
-			originalProof = proof
 			original, e = m.GetProofFact(proof)
 			must(e)
 		}
@@ -212,13 +212,9 @@ func TestHornPreprocessClosePreservesPendingRuleAndProofOwners(t *testing.T) {
 	must(ledgerPlugin.Close())
 	backend = &PropositionalEngine{manager: m}
 	backend.installPDRPreprocessing(&hornPreprocessResult{slicedPredicates: map[ast.ASTHandle]ast.ASTHandle{p: derived}, modelConversions: []hornModelConversion{{kind: hornConvertInline, inline: ledgerRules}}})
-	backend.pdrProof, err = m.NewRef(originalProof)
-	must(err)
 	defer func() { must(backend.clearPDRPreprocessing()) }()
 	proofBackend = &PropositionalEngine{manager: m}
 	proofBackend.installPDRPreprocessing(&hornPreprocessResult{slicedPredicates: map[ast.ASTHandle]ast.ASTHandle{p: derived}})
-	proofBackend.pdrProof, err = m.NewRef(originalProof)
-	must(err)
 	parameters, e := uparams.NewParamsContext(symbols, numbers, uparams.ParamsConfig{Budget: budget})
 	must(e)
 	catalog, e := uparams.NewGlobalParamsCatalog(symbols, uparams.GlobalParamsCatalogConfig{Budget: budget})
@@ -245,8 +241,6 @@ func TestHornPreprocessClosePreservesPendingRuleAndProofOwners(t *testing.T) {
 	must(rootSet.Close())
 	must(rootPlugin.Close())
 	rootEngine.installPDRPreprocessing(&hornPreprocessResult{slicedPredicates: map[ast.ASTHandle]ast.ASTHandle{p: derived}, modelConversions: []hornModelConversion{{kind: hornConvertInline, inline: rootModels}}})
-	rootEngine.pdrProof, e = m.NewRef(originalProof)
-	must(e)
 	defer func() { must(rootEngine.clearPDRPreprocessing()); must(rootEngine.Close()) }()
 
 	defer func() { must(proofBackend.clearPDRPreprocessing()) }()
@@ -270,29 +264,23 @@ func TestHornPreprocessClosePreservesPendingRuleAndProofOwners(t *testing.T) {
 	}
 	must(rootEngine.Close())
 	must(rootEngine.Close())
-	if rootEngine.pdrProof != (ast.ASTRef{}) || rootEngine.pdrConversions != nil {
+	if rootEngine.pdrProofConverter != nil || rootEngine.pdrConversions != nil {
 		t.Fatal("engine disposal left preprocessing owners without a live backend context")
 	}
-	preserved, e := m.RefGet(backend.pdrProof)
-	must(e)
-	factBefore, e := m.GetProofFact(preserved)
-	must(e)
-	if factBefore != original || backend.pdrPredicate(p) != derived {
-		t.Fatal("refused PDR cleanup changed proof or predicate mapping")
+	if backend.pdrPredicate(p) != derived {
+		t.Fatal("refused PDR cleanup changed predicate mapping")
 	}
-	preservedProof, e := m.RefGet(proofBackend.pdrProof)
-	must(e)
-	if preservedProof != originalProof || proofBackend.pdrPredicate(p) != derived {
-		t.Fatal("refused proof-only cleanup changed proof or predicate mapping")
+	if proofBackend.pdrPredicate(p) != derived {
+		t.Fatal("refused predicate-only cleanup changed predicate mapping")
 	}
 	must(proofBackend.clearPDRPreprocessing())
 	must(proofBackend.clearPDRPreprocessing())
-	if proofBackend.pdrProof != (ast.ASTRef{}) || proofBackend.pdrPredicates != nil {
-		t.Fatal("proof-only cleanup retry did not retire owners")
+	if proofBackend.pdrProofConverter != nil || proofBackend.pdrPredicates != nil {
+		t.Fatal("predicate-only cleanup retry did not retire owners")
 	}
 	must(backend.clearPDRPreprocessing())
 	must(backend.clearPDRPreprocessing())
-	if backend.pdrProof != (ast.ASTRef{}) || backend.pdrConversions != nil || backend.pdrPredicates != nil {
+	if backend.pdrProofConverter != nil || backend.pdrConversions != nil || backend.pdrPredicates != nil {
 		t.Fatal("PDR cleanup retry did not retire owners")
 	}
 	if got := result.takeModelConversions(); got != nil || len(result.modelConversions) != 1 {

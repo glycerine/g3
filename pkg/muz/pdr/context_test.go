@@ -176,6 +176,7 @@ func TestContextBoundedQueryTraversesTaggedHornChain(t *testing.T) {
 		pdrMust(t, x)
 		rule, x := ruleManager.NewRule(head, []ast.ASTHandle{tail}, nil, "bounded")
 		pdrMust(t, x)
+		pdrMust(t, ruleManager.MkRuleAssertedProof(rule))
 		pdrMust(t, set.Add(rule))
 		pdrMust(t, rule.Close())
 	}
@@ -185,6 +186,7 @@ func TestContextBoundedQueryTraversesTaggedHornChain(t *testing.T) {
 	pdrMust(t, err)
 	selfRule, err := ruleManager.NewRule(selfHead, []ast.ASTHandle{selfTail}, nil, "bounded-self")
 	pdrMust(t, err)
+	pdrMust(t, ruleManager.MkRuleAssertedProof(selfRule))
 	pdrMust(t, set.Add(selfRule))
 	pdrMust(t, selfRule.Close())
 	pdrMust(t, context.Initialize(set))

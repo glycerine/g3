@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/cmd_context"
+	"github.com/glycerine/g3/pkg/parsers/smt2"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -90,5 +92,75 @@ func TestContextDisplayCertificateSourceResultPresentations(t *testing.T) {
 	pdrMust(t, inductive.Core().WriteSMT2(&modelOutput, globals.Context, globals, 0))
 	if !strings.Contains(modelOutput.String(), "false") {
 		t.Fatalf("inductive model ignored finite cover = %q", modelOutput.String())
+	}
+}
+
+// TestPDRProofTraceInstantiatesRules: model_search::get_proof_trace
+// instantiates each node's rule with mk_instantiate before resolving its
+// children (AUDIT.md muz_pdr_02-F2). The root proof's second premise is the
+// derivation of the ground fact (inv 2), not a quantified rule.
+func TestPDRProofTraceInstantiatesRules(t *testing.T) {
+	command, err := cmd_context.NewStandaloneContext()
+	pdrMust(t, err)
+	defer func() { pdrMust(t, command.Close()) }()
+	script := `(set-option :fixedpoint.engine pdr)
+(set-option :fixedpoint.generate_proof_trace true)
+(declare-rel inv (Int))
+(declare-rel err ())
+(declare-var x Int)
+(rule (=> (= x 0) (inv x)))
+(rule (=> (and (inv x) (< x 3)) (inv (+ x 1))))
+(rule (=> (and (inv x) (= x 2)) err))
+(query err)
+`
+	var output bytes.Buffer
+	pdrMust(t, smt2.ParseCommands(command, strings.NewReader(script), &output))
+	if output.String() != "sat\n" {
+		t.Fatalf("query output = %q", output.String())
+	}
+	manager, err := command.Manager()
+	pdrMust(t, err)
+	predicates, err := command.FixedpointPredicates()
+	pdrMust(t, err)
+	var inv, goal ast.ASTHandle
+	for _, declaration := range predicates {
+		name, x := manager.GetASTName(declaration)
+		pdrMust(t, x)
+		text, x := manager.Symbols.String(name)
+		pdrMust(t, x)
+		switch text {
+		case "inv":
+			inv = declaration
+		case "err":
+			goal = declaration
+		}
+	}
+	if inv.IsNull() || goal.IsNull() {
+		t.Fatal("missing declarations")
+	}
+	proof, err := command.FixedpointProof(goal)
+	pdrMust(t, err)
+	defer func() { pdrMust(t, manager.DelRef(&proof)) }()
+	root, err := manager.RefGet(proof)
+	pdrMust(t, err)
+	hyper, err := manager.IsProofKind(root, ast.ASTPrHyperResolve)
+	pdrMust(t, err)
+	count, err := manager.GetProofNumParents(root)
+	pdrMust(t, err)
+	if !hyper || count != 2 {
+		t.Fatal("root is not a two-premise hyper-resolution", hyper, count)
+	}
+	second, err := manager.GetProofParent(root, 1)
+	pdrMust(t, err)
+	fact, err := manager.GetProofFact(second)
+	pdrMust(t, err)
+	two, err := manager.ArithmeticIntegerNumeralText("2")
+	pdrMust(t, err)
+	want, err := manager.MkApp(inv, []ast.ASTHandle{two})
+	pdrMust(t, err)
+	if fact != want {
+		var text bytes.Buffer
+		pdrMust(t, ast.DisplayLegacySMT(&text, manager, fact, 0, nil))
+		t.Fatal("second premise does not conclude (inv 2):", text.String())
 	}
 }

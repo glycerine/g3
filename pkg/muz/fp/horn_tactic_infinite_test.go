@@ -77,7 +77,11 @@ func TestHornTacticSelectsPDRForInfiniteDomainGoal(t *testing.T) {
 	hornInfiniteMust(t, err)
 	asserted, err := manager.IsProofKind(proof, ast.ASTPrAsserted)
 	hornInfiniteMust(t, err)
-	if !hyper && !asserted {
+	// get_proof_trace keeps a childless root's rule proof (its mp/rewrite
+	// chain) rather than wrapping it in a hyper-resolution.
+	modusPonens, err := manager.IsProofKind(proof, ast.ASTPrModusPonens)
+	hornInfiniteMust(t, err)
+	if !hyper && !asserted && !modusPonens {
 		t.Fatal("infinite-domain Horn tactic omitted the PDR proof trace")
 	}
 }

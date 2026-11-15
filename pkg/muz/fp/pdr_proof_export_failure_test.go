@@ -128,9 +128,14 @@ func testPDRProofExportFailure(t *testing.T, available int, stop int64, symbolic
 	must(engine.addRuleEager(edge, "proof-export-edge"))
 	status, err := engine.QueryPredicate(goal)
 	must(err)
-	if status != lbool.True || engine.pdrProof != (ast.ASTRef{}) {
+	if status != lbool.True || engine.pdrProofConverter != nil {
 		t.Fatal("missing uncached, unsliced reachable query", status)
 	}
+	// get_proof_trace's rule_unifier fixes unbound variables with the rule
+	// manager's qe_lite (m_qe), a member that exists for the context's
+	// lifetime; create it before measuring the export's owners.
+	_, err = engine.ruleManagerLite()
+	must(err)
 
 	// Exhaust reference pages through the public owner API, then leave a
 	// varying prefix for the formula/proof trail before its next physical page.

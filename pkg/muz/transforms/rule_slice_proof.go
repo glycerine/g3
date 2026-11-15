@@ -30,6 +30,7 @@ type SliceProofConverter struct {
 	normalizationParams  *uparams.ParamsContext
 	normalizationGlobals *uparams.GlobalParamsService
 	normalization        *RuleNormalizationParams
+	translation          sliceProofTranslation
 }
 
 type slicePredicateOrigin struct {
@@ -135,6 +136,11 @@ func (c *SliceProofConverter) Close() error {
 	// A native numerical invocation can call error transport while the AST
 	// manager is executing. Reject reentrant destruction before changing owners.
 	if _, err := c.manager.ProofMode(); err != nil {
+		return err
+	}
+	// slice_proof_converter members die in reverse declaration order:
+	// m_unifier, then m_pinned_exprs, then m_pinned_rules.
+	if err := c.closeTranslation(); err != nil {
 		return err
 	}
 	for len(c.formulas) != 0 {

@@ -67,6 +67,8 @@ type Context struct {
 	generateProofTrace       bool
 	printBoogieCert          bool
 	certificateModel         CertificateModelConverter
+	proofRules               ProofRuleServices
+	proofConverter           ProofConverter
 	validateResult           bool
 	simplifyPre              bool
 	simplifyPost             bool
@@ -924,6 +926,8 @@ func (c *Context) Close() (result error) {
 		c.cooperation = nil
 		c.query = nil
 		c.certificateModel = nil
+		c.proofRules = nil
+		c.proofConverter = nil
 		c.closed = true
 	}
 	return result
