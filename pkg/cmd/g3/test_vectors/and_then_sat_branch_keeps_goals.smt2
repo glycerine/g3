@@ -1,0 +1,5 @@
+(declare-const x Int)
+(declare-const y Int)
+(assert (or (> x 0) (= y y)))
+(apply (then split-clause simplify))
+(check-sat-using (then split-clause simplify))

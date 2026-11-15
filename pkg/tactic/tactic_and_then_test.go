@@ -361,3 +361,67 @@ func TestAndThenJoinsAllUnsatDependencies(t *testing.T) {
 	}
 	astTestMust(t, out.Close())
 }
+
+// scriptedSplitSatTactic splits on its first application when split is set
+// (after changing the goal, so repeat does not stop at a fixpoint), leaves the
+// next goal undecided and decides every later goal sat.
+type scriptedSplitSatTactic struct {
+	*primitiveTactic
+	split        bool
+	marker       ast.ASTHandle
+	applications uint32
+}
+
+func (t *scriptedSplitSatTactic) Apply(g *Goal, out *TacticResult) error {
+	t.applications++
+	if t.split && t.applications == 1 {
+		if err := g.Assert(t.marker); err != nil {
+			return err
+		}
+		return (&splitOwnedTactic{primitiveTactic: t.primitiveTactic}).Apply(g, out)
+	}
+	if (t.split && t.applications == 2) || (!t.split && t.applications == 1) {
+		return t.primitiveTactic.Apply(g, out)
+	}
+	return (&decideTactic{primitiveTactic: t.primitiveTactic, sat: true}).Apply(g, out)
+}
+
+// AUDIT.md tactic_top_01-F1: C++ and_then_tactical appends the decided-sat
+// goal to the undecided subgoals already in result.
+func TestAndThenSatSubgoalKeepsEarlierUndecidedGoals(t *testing.T) {
+	m := astTestManager(t)
+	g := goalTestNew(t, m, false, false)
+	astTestMust(t, g.Assert(goalTestAtom(t, m, "and-then-sat-keeps")))
+	sequence, err := NewAndThenTactic(
+		&splitOwnedTactic{primitiveTactic: newPrimitiveTactic(primitiveSkip, "", 0)},
+		&scriptedSplitSatTactic{primitiveTactic: newPrimitiveTactic(primitiveSkip, "", 0)},
+	)
+	astTestMust(t, err)
+	tacticOwnForTest(t, sequence)
+	out := &TacticResult{}
+	astTestMust(t, sequence.Apply(g, out))
+	if len(out.Goals) != 2 || out.DecidedSat() || out.ModelConverter == nil {
+		t.Fatal("sat branch dropped earlier goals", len(out.Goals), out.DecidedSat(), out.ModelConverter)
+	}
+	if out.Goals[0].IsDecided() || !out.Goals[1].IsDecidedSat() {
+		t.Fatal("goal order", out.Goals[0].IsDecided(), out.Goals[1].IsDecidedSat())
+	}
+	astTestMust(t, out.Close())
+}
+
+// AUDIT.md tactic_top_01-F1: repeat_tactical shares the multi-subgoal path.
+func TestRepeatSatSubgoalKeepsEarlierUndecidedGoals(t *testing.T) {
+	m := astTestManager(t)
+	g := goalTestNew(t, m, false, false)
+	astTestMust(t, g.Assert(goalTestAtom(t, m, "repeat-sat-keeps")))
+	child := &scriptedSplitSatTactic{primitiveTactic: newPrimitiveTactic(primitiveSkip, "", 0), split: true, marker: goalTestAtom(t, m, "repeat-sat-marker")}
+	repeat, err := NewRepeatTactic(child, ^uint32(0))
+	astTestMust(t, err)
+	tacticOwnForTest(t, repeat)
+	out := &TacticResult{}
+	astTestMust(t, repeat.Apply(g, out))
+	if len(out.Goals) != 2 || out.DecidedSat() || out.ModelConverter == nil {
+		t.Fatal("repeat sat branch dropped earlier goals", len(out.Goals), out.DecidedSat(), out.ModelConverter)
+	}
+	astTestMust(t, out.Close())
+}

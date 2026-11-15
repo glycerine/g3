@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_top_01-F1: and_then/repeat append a decided-sat subgoal to the
+	// earlier undecided ones (C++ never resets result).
+	"and_then_sat_branch_keeps_goals.smt2": "(goals\n(goal\n  (not (<= x 0))\n  :precision precise :depth 2)\n(goal\n  :precision precise :depth 2)\n)\nunknown\n",
 	// AUDIT.md tactic_core_02-F1: pb-preprocess normalize reads a negated pbge
 	// directly, for any arguments.
 	"pb_preprocess_negated_compound.smt2": "(goals\n(goal\n  ((_ pbge 1 1 1) (not (and a b)) (not c))\n  :precision precise :depth 1)\n)\n",

@@ -199,14 +199,20 @@ func composeMultipleTacticResults(g *Goal, out, first *TacticResult, applySecond
 		}
 		first.transferBorrowedGoalOwnershipTo(branch)
 		if branch.DecidedSat() {
-			if err = out.Reset(); err != nil {
-				return err
-			}
+			// C++ and_then_tactical / repeat_tactical: result already holds
+			// the undecided subgoals of earlier iterations; the sat goal is
+			// appended (result.push_back(r2[0])), never reset. core keeps the
+			// value joined so far (SASSERT(!core) is debug only).
 			if err = out.appendMovedGoalsFrom(branch); err != nil {
 				return err
 			}
 			if modes.models {
 				if err = publishComposedSATModel(g, out, first.ModelConverter, branch.ModelConverter, uint32(subgoalIndex)); err != nil {
+					return err
+				}
+			}
+			if modes.cores {
+				if err = out.SetCore(core); err != nil {
 					return err
 				}
 			}
