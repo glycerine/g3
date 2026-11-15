@@ -1,0 +1,5 @@
+(declare-const a Bool)
+(declare-const b Bool)
+(declare-const c Bool)
+(assert (not ((_ pbge 2 1 1) (and a b) c)))
+(apply pb-preprocess)

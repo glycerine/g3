@@ -56,11 +56,22 @@ func (t *PBPreprocessTactic) negateLiteral(h ast.ASTHandle) (ast.ASTHandle, erro
 }
 
 func (t *PBPreprocessTactic) normalize(g *tactic.Goal) error {
-	n, e := g.Size()
-	if e != nil {
-		return e
-	}
-	for i := uint32(0); i < n; i++ {
+	// C++ pb_preprocess_tactic::normalize: for (i = 0; !g->inconsistent() && i < g->size(); ++i).
+	for i := uint32(0); ; i++ {
+		inconsistent, e := g.Inconsistent()
+		if e != nil {
+			return e
+		}
+		if inconsistent {
+			break
+		}
+		n, e := g.Size()
+		if e != nil {
+			return e
+		}
+		if i >= n {
+			break
+		}
 		h, x := g.Form(i)
 		if x != nil {
 			return x
@@ -79,21 +90,36 @@ func (t *PBPreprocessTactic) normalize(g *tactic.Goal) error {
 		if !ge {
 			continue
 		}
-		parsed, x := t.parse(child)
+		// Read k, the coefficients and the arguments straight from the pb
+		// app, for any arguments (C++ reads pb.get_k / pb.get_coeff and
+		// negate(arg) without requiring literal arguments).
+		k, x := t.rational(child, nil)
+		if x != nil {
+			return x
+		}
+		numArgs, x := t.manager.GetNumArgs(child)
 		if x != nil {
 			return x
 		}
 		sum := new(big.Rat)
-		terms := make([]pbPreprocessTerm, len(parsed.terms))
-		for j, term := range parsed.terms {
-			sum.Add(sum, term.coefficient)
-			terms[j].coefficient = new(big.Rat).Set(term.coefficient)
-			terms[j].expression, x = t.negateLiteral(term.expression)
-			if x != nil {
-				return x
+		terms := make([]pbPreprocessTerm, numArgs)
+		for j := uint32(0); j < numArgs; j++ {
+			c, y := t.rational(child, &j)
+			if y != nil {
+				return y
+			}
+			sum.Add(sum, c)
+			terms[j].coefficient = c
+			a, y := t.manager.GetArg(child, j)
+			if y != nil {
+				return y
+			}
+			terms[j].expression, y = t.negateLiteral(a)
+			if y != nil {
+				return y
 			}
 		}
-		bound := new(big.Rat).Sub(sum, parsed.bound)
+		bound := new(big.Rat).Sub(sum, k)
 		bound.Add(bound, big.NewRat(1, 1))
 		next, x := t.makeGE(terms, bound)
 		if x != nil {

@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_core_02-F1: pb-preprocess normalize reads a negated pbge
+	// directly, for any arguments.
+	"pb_preprocess_negated_compound.smt2": "(goals\n(goal\n  ((_ pbge 1 1 1) (not (and a b)) (not c))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md tactic_arith_02 (Needs verification): with compile_equality an
 	// empty lia2card equation stays a pbeq atom, as in z3.
 	"lia2card_empty_equation_compiled.smt2": "(goals\n(goal\n  (_ pbeq 1)\n  :precision precise :depth 1)\n)\n(goals\n(goal\n  (_ pbeq 0)\n  :precision precise :depth 1)\n)\n",
