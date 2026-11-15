@@ -179,3 +179,66 @@ func TestLegacyArrayAckermannBooleanIndexClasses(t *testing.T) {
 		t.Fatal("distinct Boolean index classes require a disequality")
 	}
 }
+
+// AUDIT.md qe_03-F5: array_project_selects_util::project ackermannizes the
+// array variables in m_sel_terms (obj_map) slot order, so the fresh sel
+// constants follow that order rather than the argument order.
+func TestLegacyArraySelectProjectionObjMapOrder(t *testing.T) {
+	f := newFMFixture(t)
+	m := f.r.manager
+	p, err := newLegacyArrayProjection(m, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, p.Close()) }()
+	arraySort := f.own(m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{f.integer}), f.integer))
+	i := f.constant("objmap-i", f.integer)
+	md, err := model.NewModel(m)
+	fmMust(t, err)
+	defer func() { fmMust(t, md.Close()) }()
+	register := func(variable, value ast.ASTHandle) {
+		decl, err := m.GetDecl(variable)
+		fmMust(t, err)
+		fmMust(t, md.Core().RegisterConstant(decl, value))
+	}
+	register(i, f.own(m.ArithmeticIntegerNumeralText("0")))
+	var arrays, conjuncts []ast.ASTHandle
+	values := make(map[ast.ASTHandle]string)
+	for n, name := range []string{"objmap-a", "objmap-b", "objmap-c", "objmap-d", "objmap-e", "objmap-f"} {
+		a := f.constant(name, arraySort)
+		text := []string{"10", "11", "12", "13", "14", "15"}[n]
+		register(a, f.own(m.MkConstArray(arraySort, f.own(m.ArithmeticIntegerNumeralText(text)))))
+		values[a] = text
+		arrays = append(arrays, a)
+		read := f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{a, i}))
+		conjuncts = append(conjuncts, f.own(m.MkArithmeticGE(read, i)))
+	}
+	formula := f.own(m.MkAndArray(conjuncts))
+	result, err := p.projectSelects(md.Core(), arrays, formula)
+	fmMust(t, err)
+	defer func() { fmMust(t, result.Close()) }()
+	table := ast.NewObjMap(m)
+	for _, a := range arrays {
+		fmMust(t, table.Insert(a, [2]ast.ASTHandle{}))
+	}
+	entries := table.Entries()
+	if len(result.variables) != len(entries) {
+		t.Fatal("sel constant count", len(result.variables), len(entries))
+	}
+	inputOrder := true
+	for k, entry := range entries {
+		constant, err := m.RefGet(result.variables[k])
+		fmMust(t, err)
+		decl, err := m.GetDecl(constant)
+		fmMust(t, err)
+		value, err := md.Core().ConstantInterpretation(decl)
+		fmMust(t, err)
+		text, _, _, err := m.ArithmeticNumeralText(value)
+		fmMust(t, err)
+		if text != values[entry.Key] {
+			t.Fatalf("sel constant %d has value %s, want %s (obj_map order)", k, text, values[entry.Key])
+		}
+		inputOrder = inputOrder && entry.Key == arrays[k]
+	}
+	if inputOrder {
+		t.Log("fixture obj_map order coincides with the input order")
+	}
+}

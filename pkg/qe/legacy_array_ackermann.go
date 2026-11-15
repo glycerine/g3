@@ -73,8 +73,14 @@ func (p *legacyArrayProjection) projectSelects(md *model.ModelCore, variables []
 		return nil, err
 	}
 	selected := make(map[ast.ASTHandle][]ast.ASTHandle)
+	// m_sel_terms is an obj_map<app, ptr_vector<app>*>; project walks it
+	// in hash-table slot order (AUDIT.md qe_03-F5).
+	selectTable := ast.NewObjMap(p.syntax.manager)
 	for _, variable := range variables {
 		selected[variable] = nil
+		if err = selectTable.Insert(variable, [2]ast.ASTHandle{}); err != nil {
+			return nil, err
+		}
 	}
 	done := make(map[ast.ASTHandle]bool)
 	var todo []ast.ASTHandle
@@ -148,7 +154,8 @@ func (p *legacyArrayProjection) projectSelects(md *model.ModelCore, variables []
 		constant       ast.ASTHandle
 		number         *big.Rat
 	}
-	for _, variable := range variables {
+	for _, entry := range selectTable.Entries() {
+		variable := entry.Key
 		terms := selected[variable]
 		if len(terms) == 0 {
 			continue
