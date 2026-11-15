@@ -540,7 +540,16 @@ namespace smt {
         m_var_infos[abv].m_ineq = c;
         m_ineqs_trail.push_back(abv);
 
-        if (m_enable_simplex) {
+        // FORK FIX #58 (g3 audit, see FORK_BUGFIXES.md): abv is both the
+        // 0-1 column of the atom and the slack column of its row, so a
+        // constraint over another pb atom bounds that atom's weighted sum
+        // by [0,1] (unsat on sat nested constraints, or a crash). Such a
+        // constraint gets no simplex row.
+        bool use_simplex = m_enable_simplex;
+        for (unsigned i = 0; use_simplex && i < c->size(); ++i) {
+            use_simplex = !m_ineq_row_info.contains(c->lit(i).var());
+        }
+        if (use_simplex) {
             //
             // TBD: using abv as slack identity doesn't quite 
             // work if psuedo-Booleans are used 
@@ -813,7 +822,7 @@ namespace smt {
         }
         ineq* c = m_var_infos[v].m_ineq;
         if (c != nullptr) {
-            if (m_enable_simplex) {
+            if (m_enable_simplex && m_ineq_row_info.contains(v)) { // FORK FIX #58: no row over pb atoms
                 row_info const& info = m_ineq_row_info.find(v);
                 unsynch_mpq_manager mgr;
                 scoped_eps_numeral coeff(m_mpq_inf_mgr);
@@ -1330,9 +1339,8 @@ namespace smt {
             clear_watch(*c);
             m_var_infos[v].m_ineq = nullptr;
             m_ineqs_trail.pop_back();
-            if (m_enable_simplex) {
-                row_info r_info;
-                VERIFY(m_ineq_row_info.find(v, r_info));
+            row_info r_info;
+            if (m_enable_simplex && m_ineq_row_info.find(v, r_info)) { // FORK FIX #58: no row over pb atoms
                 m_ineq_row_info.erase(v);
                 bool_var v2 = m_ineq_rep.find(r_info.m_rep);
                 if (v == v2) {
