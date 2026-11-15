@@ -70,3 +70,25 @@ func TestAPIValuesInverseRecurrenceRefinesCoprimeReducibleExtension(t *testing.T
 		t.Fatalf("1/(r+1) = %q", got)
 	}
 }
+
+// AUDIT.md math_realclosure_02-F4: add_rf_rf and mul_rf_rf test the
+// normalized fraction in mk_add_value/mk_mul_value, so a fraction that
+// cancels to a constant is that rational, not a pi-extension value.
+func TestAPIValuesFractionCancelsToRational(t *testing.T) {
+	f := newAPIValuesFixture(t)
+	defer f.close()
+	pi := f.keep(f.v.Pi())
+	one := f.rational("1")
+	pi1 := f.keep(f.v.Add(pi, one))
+	s := f.keep(f.v.Add(f.keep(f.v.Div(pi, pi1)), f.keep(f.v.Div(one, pi1))))
+	m := f.keep(f.v.Mul(f.keep(f.v.Div(pi, pi1)), f.keep(f.v.Div(pi1, pi))))
+	for name, x := range map[string]*APIValue{"sum": s, "product": m} {
+		if x.value == nil || !x.value.isRational {
+			t.Fatalf("%s is not rational: %q", name, f.display(x, true))
+		}
+		comparison, err := f.v.Compare(x, one)
+		if err != nil || comparison != 0 {
+			t.Fatalf("%s compare 1 = %d, %v", name, comparison, err)
+		}
+	}
+}

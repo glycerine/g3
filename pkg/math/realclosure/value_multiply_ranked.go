@@ -111,6 +111,14 @@ func (s *realValueStore) multiplyRankedRetainedValues(left, right *realValue, us
 			defer func() {
 				err = errors.Join(err, s.releaseSturmCoefficients(normalizedNumerator), s.releaseSturmCoefficients(normalizedDenominator))
 			}()
+			// Source mk_add_value/mk_mul_value: after normalize_fraction a
+			// single coefficient over a denominator of size <= 1 is the
+			// result itself.
+			if len(normalizedNumerator) == 1 && len(normalizedDenominator) <= 1 {
+				result = normalizedNumerator[0]
+				normalizedNumerator[0] = nil
+				return result, nil
+			}
 			result, err = s.newRankedRationalFunctionValue(root, normalizedNumerator, normalizedDenominator, approximation)
 		}
 	}
