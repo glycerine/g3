@@ -317,7 +317,7 @@ func (p *commandParser) helpTactic() (resultErr error) {
 	text.WriteString("- (par-or <tactic>+) executes the given tactics in parallel until one of them succeeds (i.e., the first that doesn't fail).\n")
 	text.WriteString("- (par-then <tactic1> <tactic2>) executes tactic1 and then tactic2 to every subgoal produced by tactic1. All subgoals are processed in parallel.\n")
 	text.WriteString("- (try-for <tactic> <num>) executes the given tactic for at most <num> milliseconds, it fails if the execution takes more than <num> milliseconds.\n")
-	text.WriteString("- (if <probe> <tactic> <tactic>) if <probe> evaluates to true, then execute the first tactic. Otherwise execute the second tactic.\n")
+	text.WriteString("- (if <probe> <tactic> <tactic>) if <probe> evaluates to true, then execute the first tactic. Otherwise execute the second.\n")
 	text.WriteString("- (when <probe> <tactic>) shorthand for (if <probe> <tactic> skip).\n")
 	text.WriteString("- (fail-if <probe>) fail if <probe> evaluates to true.\n")
 	text.WriteString("- (using-params <tactic> <attribute>*) executes the given tactic using the given attributes, where <attribute> ::= <keyword> <value>. ! is a syntax sugar for using-params.\n")
@@ -379,8 +379,10 @@ func (p *commandParser) helpTactic() (resultErr error) {
 	for _, probe := range tactic.BuiltinProbeDescriptors() {
 		fmt.Fprintf(&text, "- %s %s\n", probe.Name, probe.Description)
 	}
+	// help_tactic writes escaped(buf.str().c_str()): trim_nl defaults to
+	// false, so the final newline before the closing quote is kept.
 	contents := text.String()
-	quoted, err := escaped.String(&contents, true, 0)
+	quoted, err := escaped.String(&contents, false, 0)
 	if err != nil {
 		return err
 	}

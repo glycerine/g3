@@ -135,13 +135,14 @@ func (t *ElimSmallBVTactic) CollectParamDescrs(d *uparams.ParamDescrs) error {
 	if e := t.open(); e != nil {
 		return e
 	}
-	a, b, c := "maximum amount of memory in megabytes", "maximum number of steps", "maximum bit-vector size of quantified bit-vectors to be eliminated"
-	if e := d.InsertName("max_memory", uparams.ParamUInt, &a, nil, nil); e != nil {
+	// elim_small_bv_tactic::collect_param_descrs (elim_small_bv_tactic.cpp:284-288).
+	if e := uparams.InsertMaxMemory(d); e != nil {
 		return e
 	}
-	if e := d.InsertName("max_steps", uparams.ParamUInt, &b, nil, nil); e != nil {
+	if e := uparams.InsertMaxSteps(d); e != nil {
 		return e
 	}
+	c := "(default: 4) maximum bit-vector size of quantified bit-vectors to be eliminated."
 	return d.InsertName("max_bits", uparams.ParamUInt, &c, nil, nil)
 }
 func (t *ElimSmallBVTactic) CollectStatistics(*statistics.Statistics) {}

@@ -153,12 +153,11 @@ func (t *RewriterTacticAdapter) Apply(goal *tactic.Goal, result *tactic.TacticRe
 	}
 	return published.ReleaseDuplicateReference()
 }
-func (t *RewriterTacticAdapter) UpdateParams(*uparams.ParamsRef) error         { return t.open() }
-func (t *RewriterTacticAdapter) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *RewriterTacticAdapter) CollectStatistics(*statistics.Statistics)      {}
-func (t *RewriterTacticAdapter) ResetStatistics() error                        { return t.open() }
-func (t *RewriterTacticAdapter) SetLogic(usymbol.Symbol) error                 { return t.open() }
-func (t *RewriterTacticAdapter) SetProgressCallback(func(uint32)) error        { return t.open() }
+func (t *RewriterTacticAdapter) UpdateParams(*uparams.ParamsRef) error    { return t.open() }
+func (t *RewriterTacticAdapter) CollectStatistics(*statistics.Statistics) {}
+func (t *RewriterTacticAdapter) ResetStatistics() error                   { return t.open() }
+func (t *RewriterTacticAdapter) SetLogic(usymbol.Symbol) error            { return t.open() }
+func (t *RewriterTacticAdapter) SetProgressCallback(func(uint32)) error   { return t.open() }
 func (t *RewriterTacticAdapter) Cleanup() error {
 	if err := t.open(); err != nil {
 		return err
@@ -171,4 +170,19 @@ func (t *RewriterTacticAdapter) Translate(m *ast.ASTManager) (tactic.Tactic, err
 		return nil, err
 	}
 	return NewRewriterTacticAdapter(m, t.context, t.globals)
+}
+
+// CollectParamDescrs is ufbv_rewriter_tactic::collect_param_descrs
+// (ufbv_rewriter_tactic.cpp:97-101).
+func (t *RewriterTacticAdapter) CollectParamDescrs(out *uparams.ParamDescrs) error {
+	if err := t.open(); err != nil {
+		return err
+	}
+	if err := uparams.InsertMaxMemory(out); err != nil {
+		return err
+	}
+	if err := uparams.InsertProduceModels(out); err != nil {
+		return err
+	}
+	return uparams.InsertProduceProofs(out)
 }

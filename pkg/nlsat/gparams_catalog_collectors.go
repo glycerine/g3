@@ -51,6 +51,11 @@ func catalogCollectNlsatParams(d *uparams.ParamDescrs) error {
 	return nil
 }
 
+// CollectParamDescriptions is the generated nlsat_params::collect_param_descrs.
+func CollectParamDescriptions(d *uparams.ParamDescrs) error {
+	return catalogCollectNlsatParams(d)
+}
+
 func init() {
 	uparams.RegisterGlobalParamsCollector("catalogCollectNlsatParams", catalogCollectNlsatParams)
 }

@@ -137,10 +137,23 @@ func (t *MacroTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	if err := t.open(); err != nil {
 		return err
 	}
-	if out == nil || t.kind != macroFinderKind {
+	if out == nil {
 		return nil
 	}
-	description := "(default: false) eliminate conjunctions during internal simplifier calls."
+	// macro_finder_tactic.cpp:113-118, quasi_macros_tactic.cpp:125-129.
+	if err := uparams.InsertMaxMemory(out); err != nil {
+		return err
+	}
+	if err := uparams.InsertProduceModels(out); err != nil {
+		return err
+	}
+	if err := uparams.InsertProduceProofs(out); err != nil {
+		return err
+	}
+	if t.kind != macroFinderKind {
+		return nil
+	}
+	description := "(default: false) eliminate conjunctions during (internal) calls to the simplifier."
 	return out.InsertName("elim_and", uparams.ParamBool, &description, nil, nil)
 }
 

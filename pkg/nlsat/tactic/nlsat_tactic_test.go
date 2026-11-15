@@ -37,11 +37,14 @@ func TestNLSATTacticAdvertisesSourceParameterCatalog(t *testing.T) {
 		{"factor_max_prime", "", uparams.ParamUInt},
 		{"factor_num_primes", "", uparams.ParamUInt},
 		{"factor_search_size", "", uparams.ParamUInt},
+		// AUDIT.md FUZZ-F7 follow-up: the generated nlsat_params
+		// descriptors (nlsat_params.pyg); max_memory and factor were
+		// already inserted, and param_descrs::insert keeps the first.
 		{"lazy", "how lazy the solver is.", uparams.ParamUInt},
 		{"reorder", "reorder variables.", uparams.ParamBool},
-		{"simplify_conflicts", "simplify conflicts using equalities before resolving them.", uparams.ParamBool},
+		{"simplify_conflicts", "simplify conflicts using equalities before resolving them in nlsat solver.", uparams.ParamBool},
 		{"minimize_conflicts", "minimize conflicts", uparams.ParamBool},
-		{"randomize", "randomize selection of a witness.", uparams.ParamBool},
+		{"randomize", "randomize selection of a witness in nlsat.", uparams.ParamBool},
 		{"max_conflicts", "maximum number of conflicts.", uparams.ParamUInt},
 		{"shuffle_vars", "use a random variable order.", uparams.ParamBool},
 		{"inline_vars", "inline variables that can be isolated from equations", uparams.ParamBool},

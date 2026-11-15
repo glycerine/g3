@@ -159,46 +159,22 @@ func (t *NLSATTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	if err := uparams.InsertMaxMemory(out); err != nil {
 		return err
 	}
+	// nlsat_tactic::collect_param_descrs: goal2nlsat::collect_param_descrs
+	// (insert_max_memory, factor, factor_params::get_param_descrs), then
+	// nlsat::solver::collect_param_descrs (algebraic params, then the
+	// generated nlsat_params), then algebraic params again, which adds
+	// nothing. param_descrs::insert keeps the first entry for a name.
 	factorDescription := "(default: true) factor polynomials."
 	if err := out.InsertName("factor", uparams.ParamBool, &factorDescription, nil, nil); err != nil {
 		return err
 	}
-	type entry struct {
-		name, description string
-		kind              uparams.ParamKind
-	}
-	insert := func(entries []entry) error {
-		for _, entry := range entries {
-			if err := out.InsertName(entry.name, entry.kind, &entry.description, nil, nil); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	if err := insert([]entry{
-		{"max_search_size", "(default: infty) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. This parameter can be used to limit the search space.", uparams.ParamUInt},
-		{"max_prime", "(default: infty) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. This parameter limits the maximum prime number p to be used in the first step.", uparams.ParamUInt},
-		{"num_primes", "(default: 1) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. The search space may be reduced by factoring the polynomial in different GF(p)'s. This parameter specify the maximum number of finite factorizations to be considered, before lifiting and searching.", uparams.ParamUInt},
-	}); err != nil {
+	if err := polynomial.FactorParamsGetParamDescrs(out); err != nil {
 		return err
 	}
-	// nlsat::solver::collect_param_descrs starts with
-	// algebraic_numbers::manager::collect_param_descrs (AUDIT.md
-	// nlsat_03-F5); the tactic's own trailing call adds nothing new.
 	if err := polynomial.CollectAlgebraicParamDescriptions(out); err != nil {
 		return err
 	}
-	return insert([]entry{
-		{"lazy", "how lazy the solver is.", uparams.ParamUInt},
-		{"reorder", "reorder variables.", uparams.ParamBool},
-		{"simplify_conflicts", "simplify conflicts using equalities before resolving them.", uparams.ParamBool},
-		{"minimize_conflicts", "minimize conflicts", uparams.ParamBool},
-		{"randomize", "randomize selection of a witness.", uparams.ParamBool},
-		{"max_conflicts", "maximum number of conflicts.", uparams.ParamUInt},
-		{"shuffle_vars", "use a random variable order.", uparams.ParamBool},
-		{"inline_vars", "inline variables that can be isolated from equations", uparams.ParamBool},
-		{"seed", "random seed.", uparams.ParamUInt},
-	})
+	return nlsat.CollectParamDescriptions(out)
 }
 
 func (t *NLSATTactic) CollectStatistics(st *statistics.Statistics) {

@@ -657,22 +657,12 @@ func (t *FactorTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	if err := t.open(); err != nil {
 		return err
 	}
-	entries := []struct{ name, text string }{
-		{"split_factors", "(default: true) apply simplifications such as (= (* p1 p2) 0) --> (or (= p1 0) (= p2 0))."},
-		{"max_search_size", "(default: infty) limit the polynomial factorization search space."},
-		{"max_prime", "(default: infty) maximum prime used by polynomial factorization."},
-		{"num_primes", "(default: 1) number of finite factorizations considered before lifting and searching."},
+	// factor_tactic::collect_param_descrs (factor_tactic.cpp:309-313).
+	split := "(default: true) apply simplifications such as (= (* p1 p2) 0) --> (or (= p1 0) (= p2 0))."
+	if err := out.InsertName("split_factors", uparams.ParamBool, &split, nil, nil); err != nil {
+		return err
 	}
-	for j := range entries {
-		kind := uparams.ParamUInt
-		if j == 0 {
-			kind = uparams.ParamBool
-		}
-		if err := out.InsertName(entries[j].name, kind, &entries[j].text, nil, nil); err != nil {
-			return err
-		}
-	}
-	return nil
+	return polynomial.FactorParamsGetParamDescrs(out)
 }
 
 func (t *FactorTactic) CollectStatistics(*statistics.Statistics) {}

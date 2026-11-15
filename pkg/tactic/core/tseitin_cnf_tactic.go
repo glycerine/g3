@@ -230,12 +230,13 @@ func (t *TseitinCNFTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 		kind uparams.ParamKind
 		text string
 	}{
-		{"common_patterns", uparams.ParamBool, "minimize auxiliary variables by identifying common patterns"},
-		{"distributivity", uparams.ParamBool, "apply distributivity over unshared subformulas"},
-		{"distributivity_blowup", uparams.ParamUInt, "maximum overhead for distributive CNF encoding"},
+		// tseitin_cnf_tactic.cpp:877-884, text verbatim.
+		{"common_patterns", uparams.ParamBool, "(default: true) minimize the number of auxiliary variables during CNF encoding by identifing commonly used patterns"},
+		{"distributivity", uparams.ParamBool, "(default: true) minimize the number of auxiliary variables during CNF encoding by applying distributivity over unshared subformulas"},
+		{"distributivity_blowup", uparams.ParamUInt, "(default: 32) maximum overhead for applying distributivity during CNF encoding"},
 		// Keep the source descriptor typo; parameter lookup itself uses ite_chains.
-		{"ite_chaing", uparams.ParamBool, "identify if-then-else chains"},
-		{"ite_extra", uparams.ParamBool, "add redundant clauses improving ITE unit propagation"},
+		{"ite_chaing", uparams.ParamBool, "(default: true) minimize the number of auxiliary variables during CNF encoding by identifing if-then-else chains"},
+		{"ite_extra", uparams.ParamBool, "(default: true) add redundant clauses (that improve unit propagation) when encoding if-then-else formulas"},
 	} {
 		if err := out.InsertName(d.name, d.kind, tseitinDescr(d.text), nil, nil); err != nil {
 			return err
