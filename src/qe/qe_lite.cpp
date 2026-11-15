@@ -1541,7 +1541,7 @@ namespace fm {
             m_var2pos.reset();
             m_forbidden.reset();
             m_var2expr.reset();
-            m_expr2var.reset();
+            m_expr2bvar.reset();
             m_lowers.reset();
             m_uppers.reset();
             m_new_fmls.reset();
