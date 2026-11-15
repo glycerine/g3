@@ -166,6 +166,11 @@ Abstract:
                                   a 0-1 literal and z3 answers unsat on a
                                   sat problem (follow-up to pkg/AUDIT.md
                                   smtcore_12-F4).
+    z3_4_7_1_solver_updt_params   smt_solver::updt_params re-reads
+                                  smt_params from the new parameters alone,
+                                  so Z3_get_implied_equalities' produce_models
+                                  turns a solver-level smt.mbqi=false back on
+                                  (pkg/AUDIT.md smtcore_03-F10 follow-up).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -2075,4 +2080,38 @@ void tst_z3_4_7_1_pb_simplex_pop() {
         "(assert ((_ pbeq 1 1 2) v2 v0))\n"
         "(check-sat)\n";
     expect_script_output("pb_simplex_pop", script, "sat\nsat\n");
+}
+
+// smt_solver::updt_params(p) passed p alone to smt_params::updt_params and
+// context::updt_params, so every smt setting not in p was re-read from the
+// global defaults. Z3_get_implied_equalities calls updt_params with just
+// produce_models=true, which silently re-enabled mbqi on a solver created
+// with mbqi=false: the quantified problem below then answered sat instead of
+// unknown (and a quantifier internalized under mbqi=false crashed the model
+// checker on the next check). Upstream applies the solver's merged
+// parameters (solver::get_params()) instead.
+void tst_z3_4_7_1_solver_updt_params() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_solver s = Z3_mk_simple_solver(ctx);
+    Z3_solver_inc_ref(ctx, s);
+    Z3_params p = Z3_mk_params(ctx);
+    Z3_params_inc_ref(ctx, p);
+    Z3_params_set_bool(ctx, p, Z3_mk_string_symbol(ctx, "mbqi"), false);
+    Z3_solver_set_params(ctx, s, p);
+    Z3_params_dec_ref(ctx, p);
+    Z3_ast q = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "q"), Z3_mk_bool_sort(ctx));
+    unsigned id = 0;
+    Z3_lbool ie = Z3_get_implied_equalities(ctx, s, 1, &q, &id);
+    Z3_solver_from_string(ctx, s,
+        "(declare-fun f (Int) Int)(declare-const c Int)"
+        "(assert (forall ((x Int)) (! (> (f x) 0) :pattern ((f x)))))"
+        "(assert (> (f c) 1))");
+    Z3_lbool r = Z3_solver_check(ctx, s);
+    std::cout << "solver_updt_params: implied equalities " << ie << ", check " << r << " (expected 0: mbqi stays off)\n";
+    Z3_solver_dec_ref(ctx, s);
+    Z3_del_context(ctx);
+    ENSURE(ie == Z3_L_TRUE);
+    ENSURE(r == Z3_L_UNDEF);
 }
