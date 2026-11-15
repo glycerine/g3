@@ -5,6 +5,7 @@ package spacer
 
 import (
 	"errors"
+	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
@@ -663,12 +664,36 @@ func (c *Context) propagate(minimum, maximum uint32) (_ bool, resultErr error) {
 	if minimum == InfinityLevel {
 		return false, nil
 	}
+	// timeit _timer(get_verbosity_level() >= 1, "spacer::context::propagate",
+	// verbose_stream()) (AUDIT.md FUZZ-F5; g3trace builds only).
+	if timer, err := spacerTimeit("spacer::context::propagate"); err != nil {
+		return false, err
+	} else if timer != nil {
+		defer func() { resultErr = errors.Join(resultErr, closeSpacerTimeit(timer)) }()
+	}
 	if c.simplifyPre {
 		if err := c.simplifyFormulas(); err != nil {
 			return false, err
 		}
 	}
+	// IF_VERBOSE(1, "Propagating: "), then each level (with " ! " before
+	// the first level past maximum) and a closing newline.
+	verbose := spacerProgressEnabled()
+	if verbose {
+		if err := spacerProgress("Propagating: "); err != nil {
+			return false, err
+		}
+	}
 	for level := minimum; ; level++ {
+		if verbose {
+			text := ""
+			if level > maximum && level == maximum+1 {
+				text = " ! "
+			}
+			if err := spacerProgress(text + strconv.FormatUint(uint64(level), 10) + " "); err != nil {
+				return false, err
+			}
+		}
 		if err := spacerCheckpoint(c.manager); err != nil {
 			return false, err
 		}
@@ -694,6 +719,11 @@ func (c *Context) propagate(minimum, maximum uint32) (_ bool, resultErr error) {
 			}
 			if level <= maximum {
 				c.inductive = level
+				if verbose {
+					if err := spacerProgress("\n"); err != nil {
+						return false, err
+					}
+				}
 				return true, nil
 			}
 			break
@@ -704,6 +734,11 @@ func (c *Context) propagate(minimum, maximum uint32) (_ bool, resultErr error) {
 	}
 	if c.simplifyPost {
 		if err := c.simplifyFormulas(); err != nil {
+			return false, err
+		}
+	}
+	if verbose {
+		if err := spacerProgress("\n"); err != nil {
 			return false, err
 		}
 	}
@@ -802,6 +837,9 @@ func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr e
 				if err = watch.Close(); err != nil {
 					return c.lastResult, err
 				}
+				if err = c.inductivePropertyVerbose(); err != nil {
+					return c.lastResult, err
+				}
 				return c.lastResult, c.validate()
 			}
 		}
@@ -811,6 +849,12 @@ func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr e
 		level = c.queue.MaximumLevel()
 		if level > c.stats.maxDepth {
 			c.stats.maxDepth = level
+		}
+		// IF_VERBOSE(1, "Entering level " << lvl) (AUDIT.md FUZZ-F5).
+		if spacerProgressEnabled() {
+			if err = spacerProgress("Entering level " + strconv.FormatUint(uint64(level), 10) + "\n"); err != nil {
+				return lbool.Undef, err
+			}
 		}
 	}
 	c.lastResult = lbool.Undef

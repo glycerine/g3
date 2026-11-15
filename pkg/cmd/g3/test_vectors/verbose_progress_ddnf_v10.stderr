@@ -1,0 +1,131 @@
+(query)
+(ddnf.preprocess)
+insert: xxx1
+root: xxxx new node xxx1
+insert: x01x
+root: xxxx new node x01x
+child xxx1 contains: 0
+intersect child xxx1
+insert: x011
+root: xxxx new node x011
+child xxx1 contains: 1
+root: xxx1 new node x011
+child x01x contains: 1
+root: x01x new node x011
+insert: 00xx
+root: xxxx new node 00xx
+child xxx1 contains: 0
+child x01x contains: 0
+intersect child xxx1
+intersect child x01x
+insert: 00x1
+root: xxxx new node 00x1
+child xxx1 contains: 1
+root: xxx1 new node 00x1
+child x011 contains: 0
+intersect child x011
+child x01x contains: 0
+child 00xx contains: 1
+root: 00xx new node 00x1
+insert: 001x
+root: xxxx new node 001x
+child xxx1 contains: 0
+child x01x contains: 1
+root: x01x new node 001x
+child x011 contains: 0
+intersect child x011
+child 00xx contains: 1
+root: 00xx new node 001x
+child 00x1 contains: 0
+intersect child 00x1
+insert: 0011
+root: xxxx new node 0011
+child xxx1 contains: 1
+root: xxx1 new node 0011
+child x011 contains: 1
+root: x011 new node 0011
+child 00x1 contains: 1
+root: 00x1 new node 0011
+child x01x contains: 1
+root: x01x new node 0011
+child x011 contains: 1
+root: x011 new node 0011
+child 0011 contains: 1
+root: 0011 new node 0011
+child 001x contains: 1
+root: 001x new node 0011
+child 00xx contains: 1
+root: 00xx new node 0011
+child 00x1 contains: 1
+root: 00x1 new node 0011
+child 0011 contains: 1
+root: 0011 new node 0011
+child 001x contains: 1
+root: 001x new node 0011
+child 0011 contains: 1
+root: 0011 new node 0011
+insert: 0011
+root: xxxx new node 0011
+child xxx1 contains: 1
+root: xxx1 new node 0011
+child x011 contains: 1
+root: x011 new node 0011
+child 0011 contains: 1
+root: 0011 new node 0011
+child 00x1 contains: 1
+root: 00x1 new node 0011
+child 0011 contains: 1
+root: 0011 new node 0011
+child x01x contains: 1
+root: x01x new node 0011
+child x011 contains: 1
+root: x011 new node 0011
+child 0011 contains: 1
+root: 0011 new node 0011
+child 001x contains: 1
+root: 001x new node 0011
+child 0011 contains: 1
+root: 0011 new node 0011
+child 00xx contains: 1
+root: 00xx new node 0011
+child 00x1 contains: 1
+root: 00x1 new node 0011
+child 0011 contains: 1
+root: 0011 new node 0011
+child 001x contains: 1
+root: 001x new node 0011
+child 0011 contains: 1
+root: 0011 new node 0011
+insert: 0011
+root: xxxx new node 0011
+child xxx1 contains: 1
+root: xxx1 new node 0011
+child x011 contains: 1
+root: x011 new node 0011
+child 0011 contains: 1
+root: 0011 new node 0011
+child 00x1 contains: 1
+root: 00x1 new node 0011
+child 0011 contains: 1
+root: 0011 new node 0011
+child x01x contains: 1
+root: x01x new node 0011
+child x011 contains: 1
+root: x011 new node 0011
+child 0011 contains: 1
+root: 0011 new node 0011
+child 001x contains: 1
+root: 001x new node 0011
+child 0011 contains: 1
+root: 0011 new node 0011
+child 00xx contains: 1
+root: 00xx new node 0011
+child 00x1 contains: 1
+root: 00x1 new node 0011
+child 0011 contains: 1
+root: 0011 new node 0011
+child 001x contains: 1
+root: 001x new node 0011
+child 0011 contains: 1
+root: 0011 new node 0011
+(ddnf.compile)

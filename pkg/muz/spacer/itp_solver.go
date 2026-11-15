@@ -683,7 +683,16 @@ func (s *ItpSolver) ItpCore() (_ []ast.ASTRef, resultErr error) {
 	if err != nil {
 		return nil, err
 	}
-	return simplifyBounds(s.manager, s.config.Params, s.config.Globals, values)
+	values, err = simplifyBounds(s.manager, s.config.Params, s.config.Globals, values)
+	if err != nil {
+		return values, err
+	}
+	// IF_VERBOSE(2, "Itp Core:\n" << mk_pp(mk_and(core), m)) (AUDIT.md
+	// FUZZ-F5; g3trace builds only).
+	if err = itpCoreVerbose(s.manager, values); err != nil {
+		return values, err
+	}
+	return values, nil
 }
 
 func (s *ItpSolver) CollectStatistics(destination *statistics.Statistics) error {

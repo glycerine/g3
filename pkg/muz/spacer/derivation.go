@@ -464,7 +464,22 @@ func (d *Derivation) createProjectedChild(md *model.ModelCore) (_ *ProofObligati
 	if err != nil {
 		return nil, err
 	}
-	return active.transformer.NewProofObligation(d.parent, previousSpacerLevel(level), depth, current, bindings)
+	child, err := active.transformer.NewProofObligation(d.parent, previousSpacerLevel(level), depth, current, bindings)
+	if err != nil {
+		return nil, err
+	}
+	// IF_VERBOSE(1, "\n\tcreate_child: " << name << " (" << level << ", " <<
+	// depth << ") " << FAR|SUB << post id) (AUDIT.md FUZZ-F5; g3trace only).
+	if spacerProgressEnabled() {
+		label, err := child.verboseLabel(child.depth, false)
+		if err == nil {
+			err = spacerProgress("\n\tcreate_child: " + label)
+		}
+		if err != nil {
+			return child, err
+		}
+	}
+	return child, nil
 }
 
 // modelImplicant is compute_implicant_literals(mev, forms, lits) followed by

@@ -1,0 +1,4 @@
+.include "verbose_progress_inc_dom.datalog"
+
+edge(x : Z, y : Z) input
+edge(1,2).

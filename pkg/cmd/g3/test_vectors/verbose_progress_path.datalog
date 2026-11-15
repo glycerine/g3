@@ -1,0 +1,10 @@
+Z 64
+
+edge(x : Z, y : Z) input
+path(x : Z, y : Z) printtuples
+
+edge(1,2).
+edge(2,3).
+edge(3,4).
+path(X,Y) :- edge(X,Y).
+path(X,Z) :- path(X,Y), edge(Y,Z).

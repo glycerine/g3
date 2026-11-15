@@ -16,6 +16,9 @@ func (c *Context) finishEarlyUnreachable(inductive uint32) (lbool.LBool, error) 
 	if err := c.simplifyFormulas(); err != nil {
 		return c.lastResult, err
 	}
+	if err := c.inductivePropertyVerbose(); err != nil {
+		return c.lastResult, err
+	}
 	return c.lastResult, c.validate()
 }
 

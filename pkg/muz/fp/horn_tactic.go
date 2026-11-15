@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -561,6 +562,14 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 	}
 	status, err := engine.QueryExpression(query)
 	if err != nil {
+		// verify: catch (default_exception& ex) { IF_VERBOSE(1,
+		// verbose_stream() << ex.msg() << "\n"); throw ex; } (AUDIT.md
+		// FUZZ-F5; g3trace builds only).
+		if diagnostic.VerboseProgress {
+			if message := SourceDefaultExceptionMessage(err); message != "" {
+				err = errors.Join(err, diagnostic.ProgressVerbose(1, message+"\n"))
+			}
+		}
 		return err
 	}
 	resultEngine, resultDeclaration := engine, declaration

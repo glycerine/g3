@@ -1,6 +1,7 @@
 package spacer
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/model"
@@ -87,6 +88,14 @@ func TestSpacerDerivationSummaryUsesSourceBooleanProbePolicy(t *testing.T) {
 			expected := ""
 			if name != "true" && level != 0 {
 				expected = "Summary unexpectendly not true\n"
+			}
+			if name == "true" && level != 0 && diagnostic.VerboseProgress {
+				// g3trace builds print create_next_child's "\n\tcreate_child:"
+				// line for the new child (AUDIT.md FUZZ-F5).
+				if !strings.HasPrefix(message, "\n\tcreate_child: ") {
+					t.Fatal("missing create_child diagnostic", message)
+				}
+				message = ""
 			}
 			if message != expected {
 				t.Fatal("wrong source summary diagnostic", message, expected)

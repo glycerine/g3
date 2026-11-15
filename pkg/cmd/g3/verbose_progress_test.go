@@ -98,6 +98,16 @@ var verboseProgressCases = []verboseProgressCase{
 	{"bmc_count_v2", "horn_count", []string{"-v:2", "fixedpoint.engine=bmc"}},
 	// pdr farkas_learner's combined lemma.
 	{"pdr_inv2_v2", "horn_inv2", []string{"-v:2", "fixedpoint.engine=pdr"}},
+	// spacer: expand:/is-reachable:/create_child with the stopwatch times
+	// masked, Entering level, Propagating:, the check_reachability and
+	// propagate timeit lines, Itp Core:, the inductive property on l_false.
+	{"spacer_inv2_v1", "horn_inv2", []string{"-v:1", "fixedpoint.engine=spacer"}},
+	{"spacer_inv2_v2", "horn_inv2", []string{"-v:2", "fixedpoint.engine=spacer"}},
+	{"spacer_count_v1", "horn_count", []string{"-v:1", "fixedpoint.engine=spacer"}},
+	// ddnf: (query), (ddnf.preprocess), the insert/root/child lines,
+	// (ddnf.compile) and the level-15 node display.
+	{"ddnf_v10", "ddnf", []string{"-v:10", "fixedpoint.engine=ddnf"}},
+	{"ddnf_v15", "ddnf", []string{"-v:15", "fixedpoint.engine=ddnf"}},
 }
 
 // verboseProgressFiltered keeps, for each case, only the lines starting
@@ -112,6 +122,12 @@ var verboseProgressFiltered = map[string][]string{
 	"opt_pareto": {"(optimize:", "(opt :lex)"},
 	"opt_box":    {"(optimize:", "(opt :lex)"},
 	"opt_unsat":  {"(optimize:", "(opt :lex)"},
+	// read_datalog's front-end lines, the parser's include: line and, at
+	// level 10, original_rules.display_deps. The rest of the -dl output
+	// (instruction log, relation code) is not ported yet.
+	"dl_path_v1":    {"Z3 Datalog Engine", "parsing finished", "running saturation", "path -> ", "edge -> "},
+	"dl_path_v10":   {"Z3 Datalog Engine", "parsing finished", "running saturation", "path -> ", "edge -> "},
+	"dl_include_v2": {"Z3 Datalog Engine", "include: ", "parsing finished", "running saturation"},
 }
 
 var verboseProgressFilteredCases = []verboseProgressCase{
@@ -120,6 +136,9 @@ var verboseProgressFilteredCases = []verboseProgressCase{
 	{"opt_pareto", "opt_pareto", []string{"-v:1"}},
 	{"opt_box", "opt_box", []string{"-v:1"}},
 	{"opt_unsat", "opt_unsat", []string{"-v:1"}},
+	{"dl_path_v1", "path", []string{"-v:1", "-dl"}},
+	{"dl_path_v10", "path", []string{"-v:10", "-dl"}},
+	{"dl_include_v2", "include", []string{"-v:2", "-dl"}},
 }
 
 func filterVerboseProgress(name, log string) string {
@@ -141,12 +160,19 @@ func filterVerboseProgress(name, log string) string {
 
 var verboseProgressMeasures = regexp.MustCompile(` :time [0-9.]+| :(before-|after-)?memory [0-9.]+`)
 
+// verboseProgressTimes masks spacer's per-node stopwatch seconds and the rule
+// transformer's elapsed seconds, which vary from run to run.
+var verboseProgressNodeTimes = regexp.MustCompile(`(?m) (F|T|X|U|K|UNDEF) [0-9]+\.[0-9]+$`)
+var verboseProgressTransformTimes = regexp.MustCompile(`(no-op|rules) [0-9.e-]+s\)`)
+
 // normalizeVerboseProgress drops timeit's time and memory fields, and the
 // SAT solver's "checking model" notices: build/z3 is a release build, where
 // that IF_VERBOSE sits under #ifndef _EXTERNAL_RELEASE, while g3 keeps the
 // check (a separate release-profile question, not a FUZZ-F5 site).
 func normalizeVerboseProgress(log string) string {
 	log = verboseProgressMeasures.ReplaceAllString(log, "")
+	log = verboseProgressNodeTimes.ReplaceAllString(log, " $1 t")
+	log = verboseProgressTransformTimes.ReplaceAllString(log, "$1 Ts)")
 	var out strings.Builder
 	for _, line := range strings.SplitAfter(log, "\n") {
 		if !strings.HasPrefix(line, "\"checking model") {
@@ -182,7 +208,11 @@ func TestVerboseProgressMessages(t *testing.T) {
 	reference := os.Getenv("G3_CPP_REFERENCE")
 	for _, tc := range append(append([]verboseProgressCase(nil), verboseProgressCases...), verboseProgressFilteredCases...) {
 		t.Run(tc.name, func(t *testing.T) {
-			path, err := filepath.Abs(filepath.Join("test_vectors", "verbose_progress_"+tc.vector+".smt2"))
+			extension := ".smt2"
+			if strings.HasPrefix(tc.name, "dl_") {
+				extension = ".datalog"
+			}
+			path, err := filepath.Abs(filepath.Join("test_vectors", "verbose_progress_"+tc.vector+extension))
 			if err != nil {
 				t.Fatal(err)
 			}

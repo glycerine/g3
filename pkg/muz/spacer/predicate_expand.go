@@ -39,6 +39,13 @@ func (p *PredicateTransformer) ExpandObligation(obligation *ProofObligation) (_ 
 	if err := p.open(); err != nil {
 		return ExpansionResult{}, err
 	}
+	// IF_VERBOSE(1, "expand: " << name << " (" << level << ", " << depth -
+	// min_depth << ") " << FAR|SUB << " w(" << weakness << ") " << post id),
+	// then the verdict and the stopwatch (AUDIT.md FUZZ-F5; g3trace only).
+	watch, err := obligation.verboseBegin("expand: ", obligation.depth-p.verboseMinDepth, true)
+	if err != nil {
+		return ExpansionResult{}, err
+	}
 	// flet<bool> _arith_ignore_int_(fparams.m_arith_ignore_int,
 	//     m_weak_abs && n.weakness() < 1);
 	// flet<bool> _array_weak_(fparams.m_array_weak,
@@ -61,6 +68,9 @@ func (p *PredicateTransformer) ExpandObligation(obligation *ProofObligation) (_ 
 	}
 	defer func() { resultErr = errors.Join(resultErr, check.Close(p.manager)) }()
 	if err = spacerCheckpoint(p.manager); err != nil {
+		return ExpansionResult{}, err
+	}
+	if err = watch.dot(); err != nil {
 		return ExpansionResult{}, err
 	}
 	result := ExpansionResult{Status: check.Status, Concrete: check.IsConcrete}
@@ -136,13 +146,13 @@ func (p *PredicateTransformer) ExpandObligation(obligation *ProofObligation) (_ 
 					}
 					result.Status = lbool.Undef
 					result.Child = child
-					return result, nil
+					return result, watch.end(" X ")
 				}
 				if err = derivation.Close(); err != nil {
 					return ExpansionResult{}, err
 				}
 			}
-			return result, nil
+			return result, watch.end(" T ")
 		}
 		child, err := p.createDerivationChildWith(obligation, check.Rule, mev, check.ReachPredUsed, p.reverseChildren)
 		if err != nil {
@@ -153,7 +163,7 @@ func (p *PredicateTransformer) ExpandObligation(obligation *ProofObligation) (_ 
 		}
 		result.Status = lbool.Undef
 		result.Child = child
-		return result, nil
+		return result, watch.end(" U ")
 	case lbool.False:
 		cube := make([]ast.ASTHandle, len(check.Core))
 		for i := range check.Core {
@@ -209,7 +219,7 @@ func (p *PredicateTransformer) ExpandObligation(obligation *ProofObligation) (_ 
 		if err = p.assertExpansionInvariants(obligation); err != nil {
 			return ExpansionResult{}, err
 		}
-		return result, nil
+		return result, watch.end(" F ")
 	default:
 		weakness, weaknessErr := obligation.Weakness()
 		if weaknessErr != nil {
@@ -236,8 +246,11 @@ func (p *PredicateTransformer) ExpandObligation(obligation *ProofObligation) (_ 
 			}
 			if child != nil {
 				result.Child = child
-				return result, nil
+				return result, watch.end(" UNDEF ")
 			}
+		}
+		if err = watch.end(" UNDEF "); err != nil {
+			return ExpansionResult{}, err
 		}
 		if err = obligation.BumpWeakness(); err != nil {
 			return ExpansionResult{}, err

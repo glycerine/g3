@@ -59,9 +59,12 @@ type PredicateTransformer struct {
 	context                  *Context
 	contextStats             *contextStatistics
 	contextTimers            *contextTiming
-	reachAsInitial           bool
-	initializeReachFacts     bool
-	closed                   bool
+	// verboseMinDepth is m_pob_queue.min_depth() for expand_node's
+	// verbose header (AUDIT.md FUZZ-F5).
+	verboseMinDepth      uint32
+	reachAsInitial       bool
+	initializeReachFacts bool
+	closed               bool
 }
 
 func (p *PredicateTransformer) SetProofObligationNormalization(simplifyBounds, factorEqualities bool) error {

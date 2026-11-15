@@ -6,6 +6,7 @@ package pdr
 import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 type contextArithmeticPlan struct {
@@ -41,6 +42,12 @@ func (c *Context) planArithmetic(forms []ast.ASTHandle, nonBoolean, hasArithmeti
 		return contextArithmeticPlan{}, err
 	}
 	if utvpi {
+		// IF_VERBOSE(1, "UTVPI") (AUDIT.md FUZZ-F5; g3trace builds only).
+		if diagnostic.VerboseProgress {
+			if err = diagnostic.ProgressVerbose(1, "UTVPI\n"); err != nil {
+				return contextArithmeticPlan{}, err
+			}
+		}
 		plan.mode = smtcore.SMTArithmeticUTVPI
 		plan.eq2ineq = true
 	}

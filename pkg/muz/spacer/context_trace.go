@@ -94,6 +94,11 @@ func (c *Context) counterexampleDepth() (depth uint32, resultErr error) {
 	start := len(facts)
 	facts = append(facts, children...)
 	if len(children) != 1 {
+		// get_cex_depth: IF_VERBOSE(1, "Warning: counterexample is trivial
+		// or non-existent") (AUDIT.md FUZZ-F5; g3trace builds only).
+		if spacerProgressEnabled() {
+			return 0, spacerProgress("Warning: counterexample is trivial or non-existent\n")
+		}
 		return 0, nil
 	}
 	// Frontier boundaries serve as the source queue's null depth markers.

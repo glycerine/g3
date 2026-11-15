@@ -1,0 +1,4 @@
+Z3 Datalog Engine
+include: verbose_progress_inc_dom.datalog
+parsing finished
+running saturation...

@@ -6,6 +6,7 @@ package spacer
 import (
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/luby"
@@ -49,6 +50,12 @@ func (q *ProofObligationQueue) confirmConcreteReachability(obligation *ProofObli
 		}
 		defer func() { resultErr = errors.Join(resultErr, watch.Close()) }()
 	}
+	// IF_VERBOSE(1, "is-reachable: " << name << " (" << level << ", " <<
+	// depth - min_depth << ") " << FAR|SUB << post id) (AUDIT.md FUZZ-F5).
+	watch, err := obligation.verboseBegin("is-reachable: ", obligation.depth-q.MinimumDepth(), false)
+	if err != nil {
+		return false, err
+	}
 	saved := obligation.level
 	obligation.level = InfinityLevel
 	// n.pt().is_reachable(n, nullptr, &model, ...): no core.
@@ -59,7 +66,7 @@ func (q *ProofObligationQueue) confirmConcreteReachability(obligation *ProofObli
 	}
 	defer func() { resultErr = errors.Join(resultErr, check.Close(obligation.transformer.manager)) }()
 	if check.Status != lbool.True || !check.IsConcrete {
-		return false, nil
+		return false, watch.end(" F ")
 	}
 	// model_evaluator_util mev(m); mev.set_model(*model): mev lives to the
 	// end of is_reachable, through the recursion on the next child.
@@ -102,14 +109,14 @@ func (q *ProofObligationQueue) confirmConcreteReachability(obligation *ProofObli
 		return false, fmt.Errorf("spacer: confirm reachability close obligation: %w", err)
 	}
 	if derivation == nil {
-		return true, nil
+		return true, watch.end(" T ")
 	}
 	next, err := derivation.CreateNextChild()
 	if err != nil {
 		return false, fmt.Errorf("spacer: confirm reachability next child: %w", errors.Join(err, derivation.Close()))
 	}
 	if next == nil {
-		return true, derivation.Close()
+		return true, errors.Join(derivation.Close(), watch.end(" T "))
 	}
 	if err = next.SetDerivation(derivation); err != nil {
 		return false, fmt.Errorf("spacer: confirm reachability set derivation: %w", errors.Join(err, derivation.Close()))
@@ -126,6 +133,9 @@ func (q *ProofObligationQueue) confirmConcreteReachability(obligation *ProofObli
 		}
 	}
 	if err = q.Push(next); err != nil {
+		return false, err
+	}
+	if err = watch.end(" X "); err != nil {
 		return false, err
 	}
 	return q.confirmConcreteReachability(next)
@@ -148,6 +158,14 @@ func (q *ProofObligationQueue) checkReachability(reset, flexible bool, flexibleD
 			return false, err
 		}
 		defer func() { resultErr = errors.Join(resultErr, watch.Close()) }()
+	}
+	// timeit _timer(get_verbosity_level() >= 1,
+	// "spacer::context::check_reachability", verbose_stream()) (AUDIT.md
+	// FUZZ-F5; g3trace builds only).
+	if timer, err := spacerTimeit("spacer::context::check_reachability"); err != nil {
+		return false, err
+	} else if timer != nil {
+		defer func() { resultErr = errors.Join(resultErr, closeSpacerTimeit(timer)) }()
 	}
 	if reset {
 		if err := q.Reset(); err != nil {
@@ -195,6 +213,17 @@ func (q *ProofObligationQueue) checkReachability(reset, flexible bool, flexibleD
 				return false, err
 			}
 			if closed {
+				// IF_VERBOSE(1, "Deleting closed node: " << name << "(" <<
+				// level << ", " << depth << ")" << " " << post id)
+				if spacerProgressEnabled() {
+					label, labelErr := node.closedLabel()
+					if labelErr != nil {
+						return false, labelErr
+					}
+					if labelErr = spacerProgress("Deleting closed node: " + label + "\n"); labelErr != nil {
+						return false, labelErr
+					}
+				}
 				if q.IsRoot(node) {
 					return true, nil
 				}
@@ -218,6 +247,13 @@ func (q *ProofObligationQueue) checkReachability(reset, flexible bool, flexibleD
 				return false, restartErr
 			}
 			if restartNow {
+				// IF_VERBOSE(1, "(restarting :lemmas " << m_num_lemmas <<
+				// " :restart_threshold " << threshold << ")")
+				if spacerProgressEnabled() {
+					if err = spacerProgress("(restarting :lemmas " + strconv.FormatUint(lemmas, 10) + " :restart_threshold " + strconv.FormatUint(uint64(restart.threshold), 10) + ")\n"); err != nil {
+						return false, err
+					}
+				}
 				q.restarts++
 				if stats := q.root.transformer.contextStats; stats != nil {
 					stats.restarts++
@@ -247,10 +283,22 @@ func (q *ProofObligationQueue) checkReachability(reset, flexible bool, flexibleD
 			return false, err
 		}
 		frameBlocked := false
+		node.transformer.verboseMinDepth = q.MinimumDepth()
 		if flexible {
 			frameBlocked, _, err = node.transformer.IsBlocked(node)
 			if err != nil {
 				return false, err
+			}
+			// expand_node prints its header before the flexible-trace
+			// is_blocked test and " K " when it holds (AUDIT.md FUZZ-F5).
+			if frameBlocked {
+				watch, err := node.verboseBegin("expand: ", node.depth-q.MinimumDepth(), true)
+				if err != nil {
+					return false, err
+				}
+				if err = watch.end(" K "); err != nil {
+					return false, err
+				}
 			}
 		}
 		expansion := ExpansionResult{Status: lbool.False}
