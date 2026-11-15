@@ -5,6 +5,8 @@ package numeral
 
 import (
 	"math"
+
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 // U32GCD and U64GCD are concrete translations of the source binary gcd_core.
@@ -177,6 +179,16 @@ func (m *IntegerManager) gcdWithAllocationContext(a, b, c *Int, context integerA
 			return e
 		}
 		return m.absWithAllocationContext(c, context)
+	}
+	if av, bv, ok := m.gcdWordOperands(a, b); ok {
+		// Go-only shortcut: the Lehmer loop below returns the same normalized
+		// value for operands that fit one machine word. It is skipped only
+		// while no bignum trace tag could observe the loop's steps.
+		g := U64GCD(av, bv)
+		if g <= math.MaxInt64 {
+			return m.setInt64WithAllocationContext(c, int64(g), context)
+		}
+		return m.setUint64WithAllocationContext(c, g, context)
 	}
 	s := &m.GcdRaw
 	receipt, e := m.beginRawInvocation(s, 5)
@@ -352,4 +364,104 @@ func (m *IntegerManager) gcdWithAllocationContext(a, b, c *Int, context integerA
 			}
 		}
 	}
+}
+
+// gcdWordOperands reduces gcd(a, b) to a gcd of two machine words when
+// both magnitudes fit in 64 bits, or when one operand is inline and the other
+// is a big cell (then |big| mod |inline| replaces the big operand, which is
+// the first step the Lehmer loop takes too). Every big operand must be in the
+// source's normalized form (a big cell never holds a value the inline
+// representation could hold), and no bignum trace tag may be enabled. Under
+// those conditions every branch of the Lehmer loop ends with a normalized
+// result, so U64GCD of the returned words reproduces it exactly. The
+// shortcut is off while an allocation can fail (an injected failure is
+// armed, or a memory size or allocation count limit is set), so every
+// Lehmer allocation, and so every source out-of-memory point, is kept.
+func (m *IntegerManager) gcdWordOperands(a, b *Int) (uint64, uint64, bool) {
+	if diagnostic.TraceCompiled() && !m.bignumTraceQuiet() || m.BudgetField.InjectionArmed() || m.Memory.AllocationLimited() {
+		return 0, 0, false
+	}
+	// A pending or exhausted RAW frame makes the Lehmer path refuse; keep
+	// that refusal.
+	if s := &m.GcdRaw; s.Active || s.Invocation == ^uint64(0) {
+		return 0, 0, false
+	}
+	if a.IsSmall() != b.IsSmall() {
+		small, big := a, b
+		if !a.IsSmall() {
+			small, big = b, a
+		}
+		v := int64(small.Val)
+		if v < 0 {
+			v = -v
+		}
+		r, ok := m.normalizedMagnitudeMod(big, uint64(v))
+		if !ok {
+			return 0, 0, false
+		}
+		return r, uint64(v), true
+	}
+	av, ok := m.normalizedWordMagnitude(a)
+	if !ok {
+		return 0, 0, false
+	}
+	bv, ok := m.normalizedWordMagnitude(b)
+	if !ok {
+		return 0, 0, false
+	}
+	return av, bv, true
+}
+
+func (m *IntegerManager) normalizedWordMagnitude(a *Int) (uint64, bool) {
+	if a.IsSmall() {
+		v := int64(a.Val)
+		if v < 0 {
+			v = -v
+		}
+		return uint64(v), true
+	}
+	size, ok := m.normalizedBigSize(a)
+	if !ok || size > 2 {
+		return 0, false
+	}
+	if size == 1 {
+		return uint64(m.Digit(a.Cell, 0)), true
+	}
+	return uint64(m.Digit(a.Cell, 1))<<32 | uint64(m.Digit(a.Cell, 0)), true
+}
+
+// normalizedMagnitudeMod returns |a| mod d for a normalized big a and a
+// nonzero d below 2^32.
+func (m *IntegerManager) normalizedMagnitudeMod(a *Int, d uint64) (uint64, bool) {
+	size, ok := m.normalizedBigSize(a)
+	if !ok || d == 0 {
+		return 0, false
+	}
+	r := uint64(0)
+	for i := size; i > 0; i-- {
+		r = (r<<32 | uint64(m.Digit(a.Cell, i-1))) % d
+	}
+	return r, true
+}
+
+// normalizedBigSize returns the digit count of a big cell whose value the
+// inline representation could not hold.
+func (m *IntegerManager) normalizedBigSize(a *Int) (uint32, bool) {
+	c := m.Cells.recordPtr(NumericSlot(a.Cell))
+	if c == nil || c.Size == 0 {
+		return 0, false
+	}
+	top := m.Digit(a.Cell, c.Size-1)
+	if top == 0 || (c.Size == 1 && top <= math.MaxInt32) {
+		return 0, false
+	}
+	return c.Size, true
+}
+
+// bignumTraceQuiet reports that none of the mpz/mpn/memory trace tags that
+// the bignum primitives emit is enabled.
+func (m *IntegerManager) bignumTraceQuiet() bool {
+	t := m.sourceTraceTags()
+	return !t.ShouldTrace("mpz") && !t.ShouldTrace("mpn") && !t.ShouldTrace("mpn_div") &&
+		!t.ShouldTrace("mpn_norm") && !t.ShouldTrace("mpn_dbg") && !t.ShouldTrace("memory")
 }

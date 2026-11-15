@@ -669,6 +669,9 @@ func TestRationalInspectionWarmAllocationAndIndependentValues(t *testing.T) {
 					t.Fatal(e)
 				}
 			}
+			// An armed (never reached) injection keeps GCD on the Lehmer
+			// path, whose warmed allocation events Inc and Dec must show.
+			b.FailAfter(1 << 40)
 			beforeWarm := numericWarmProfileSnapshot(t, m.Z, b)
 			allocs = testing.AllocsPerRun(20, func() { e = call() })
 			b.FailAfter(-1)

@@ -654,7 +654,11 @@ func TestScopedNumeralDeepCloneFailureCleanup(t *testing.T) {
 		m, b := rationalManager(t, true)
 		s, _ := NewScopedRational(m)
 		num, _ := s.Get()
+		// An armed (never reached) injection keeps GCD on the Lehmer path,
+		// whose cell layout this sweep was calibrated on.
+		b.FailAfter(1 << 40)
 		m.SetFraction(num, -9223372036854775807, 18446744073709551615)
+		b.FailAfter(-1)
 		var fillers []Int
 		for m.Z.Cells.Stats().Live+m.Z.Cells.Stats().Retired < m.Z.Cells.Stats().Slots {
 			var x Int

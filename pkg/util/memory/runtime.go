@@ -380,6 +380,18 @@ func (m *Runtime) Write(h Block, i uint64, v byte) error {
 	b.initialized[i/64] |= uint64(1) << (i % 64)
 	return nil
 }
+
+// AllocationLimited reports whether a memory size or allocation count limit
+// is set, so that an allocation can fail. Go-only shortcuts that skip source
+// allocations stay off while it does, keeping every source failure point.
+func (m *Runtime) AllocationLimited() bool {
+	if m == nil || m.self != m {
+		return false
+	}
+	a := m.accountingOwner()
+	return a.maxSize != 0 || a.maxCount != 0
+}
+
 func (m *Runtime) SetMaxSize(n uint64) error {
 	if e := m.open(); e != nil {
 		return e

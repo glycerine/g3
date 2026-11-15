@@ -56,3 +56,10 @@ func (b *Budget) FailAfter(n int64) {
 		b.remaining = n
 	}
 }
+
+// InjectionArmed reports whether FailAfter has armed an injected failure.
+// Go-only shortcuts that skip source allocations stay off while it is, so
+// fault-injection sweeps see every source allocation point.
+func (b *Budget) InjectionArmed() bool {
+	return b != nil && b.remaining >= 0
+}

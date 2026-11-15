@@ -379,3 +379,71 @@ func TestIntegerGCDAndFusedWarmAllocations(t *testing.T) {
 		t.Fatal("gcd warm result")
 	}
 }
+
+// TestIntegerGCDWordShortcutMatchesLehmer checks the Go-only one-word GCD
+// shortcut against the Lehmer path (forced by an armed, never reached
+// injection): same value and same inline/big representation, for word-sized
+// operands and for a big operand against an inline one, with aliasing.
+func TestIntegerGCDWordShortcutMatchesLehmer(t *testing.T) {
+	m, b := integerManager(t)
+	rng := rand.New(rand.NewSource(0x67636477))
+	edges := []string{"0", "1", "-1", "3", "2147483647", "-2147483647", "-2147483648", "2147483648", "4294967295",
+		"4294967296", "9223372036854775807", "-9223372036854775808", "18446744073709551615", "-18446744073709551615",
+		"18446744073709551616", "340282366920938463463374607431768211455", "-170141183460469231731687303715884105728"}
+	values := append([]string{}, edges...)
+	for i := 0; i < 300; i++ {
+		v := new(big.Int).Rand(rng, new(big.Int).Lsh(big.NewInt(1), uint(1+rng.Intn(100))))
+		if rng.Intn(4) == 0 {
+			v.Mul(v, big.NewInt(int64(1+rng.Intn(1<<20))))
+		}
+		if rng.Intn(2) == 0 {
+			v.Neg(v)
+		}
+		values = append(values, v.String())
+	}
+	run := func(x, y string, lehmer bool, alias int) (string, bool) {
+		var a, c, out Int
+		if e := m.SetString(&a, x); e != nil {
+			t.Fatal(e)
+		}
+		if e := m.SetString(&c, y); e != nil {
+			t.Fatal(e)
+		}
+		dst := &out
+		if alias == 1 {
+			dst = &a
+		} else if alias == 2 {
+			dst = &c
+		}
+		if lehmer {
+			b.FailAfter(1 << 40)
+		}
+		e := m.GCD(&a, &c, dst)
+		b.FailAfter(-1)
+		if e != nil {
+			t.Fatal(x, y, e)
+		}
+		s, small := integerString(t, m, dst), dst.IsSmall()
+		m.Del(&a)
+		m.Del(&c)
+		m.Del(&out)
+		return s, small
+	}
+	for i, x := range values {
+		for j := 0; j < 40; j++ {
+			y := values[(i*31+j*7)%len(values)]
+			if j < len(edges) {
+				y = edges[j]
+			}
+			alias := (i + j) % 3
+			fast, fastSmall := run(x, y, false, alias)
+			slow, slowSmall := run(x, y, true, alias)
+			bx, _ := new(big.Int).SetString(x, 10)
+			by, _ := new(big.Int).SetString(y, 10)
+			want := new(big.Int).GCD(nil, nil, new(big.Int).Abs(bx), new(big.Int).Abs(by)).String()
+			if fast != slow || fastSmall != slowSmall || fast != want {
+				t.Fatal(x, y, alias, fast, slow, want, fastSmall, slowSmall)
+			}
+		}
+	}
+}

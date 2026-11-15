@@ -168,7 +168,11 @@ func TestPolynomialEvaluationRawReceiptForeignReplacement(t *testing.T) {
 			for i := range v.values {
 				v.values[i] = unumeral.NewRational()
 			}
+			// An armed (never reached) injection keeps GCD on the Lehmer
+			// path, whose warmed allocator state this sweep was calibrated on.
+			q.Budget().FailAfter(1 << 40)
 			serviceMust(t, q.SetString(&v.values[0], "184467440737095516170000000000000000003"))
+			q.Budget().FailAfter(-1)
 			out := unumeral.NewRational()
 			q.Budget().FailAfter(ordinal)
 			e := m.EvaluateRational(p, &v, &out)
