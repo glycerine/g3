@@ -28,7 +28,10 @@ type FullTranslation struct {
 	equivalences        map[ast.ASTHandle]translationEquivalence
 	equivalencesVisited map[ast.ASTHandle]bool
 	locality            map[ast.ASTHandle]int
-	closed              bool
+	// direct is the source member iproof: the current frame's interpolator
+	// while Translate runs, nil otherwise.
+	direct *DirectProofInterpolator
+	closed bool
 }
 
 func NewFullTranslation(base *Base) (result *FullTranslation, resultErr error) {
@@ -227,7 +230,21 @@ func (t *FullTranslation) localityRecursive(proof ast.ASTHandle) (int, error) {
 			return 0, e
 		}
 		result, err = t.base.FrameOfAssertion(conclusion)
-	} else if rule != ast.ASTPrQuantInst {
+	} else if rule == ast.ASTPrQuantInst {
+		// get_locality_rec: iproof->make_axiom(lits) localizes the instance
+		// literals over the full range; the node itself is discarded.
+		if t.direct != nil {
+			conclusion, e := t.base.manager.Conclusion(proof)
+			if e != nil {
+				return 0, e
+			}
+			literals, e := t.clauseLiterals(conclusion)
+			if e != nil {
+				return 0, e
+			}
+			_, err = t.direct.MakeAxiom(literals)
+		}
+	} else {
 		count, e := t.base.manager.NumPremises(proof)
 		if e != nil {
 			return 0, e

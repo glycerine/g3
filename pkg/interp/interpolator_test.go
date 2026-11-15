@@ -7,6 +7,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func TestInterpolationOptionsErrorsAndLinearParents(t *testing.T) {
@@ -520,5 +521,69 @@ func TestFullTranslationScanSkolemsFreezesSkolemScope(t *testing.T) {
 	interpMust(t, err)
 	if scope.Lo != 0 || scope.Hi != 0 {
 		t.Fatal("skolemized formula scope was not frozen after the first skolemization", scope)
+	}
+}
+
+// AUDIT.md interp_02-F7: get_locality_rec calls iproof->make_axiom(lits) for
+// every PR_QUANT_INST it visits, which localizes the instance's mixed
+// literals in the current iproof before any rule is translated.
+func TestFullTranslationLocalityLocalizesQuantInstLiterals(t *testing.T) {
+	m, manager := interpProofManagerFixture(t)
+	integer, err := manager.IntType()
+	interpMust(t, err)
+	a, err := manager.MakeVariable("locality-qi-a", integer)
+	interpMust(t, err)
+	a = interpPin(t, m, a)
+	b, err := manager.MakeVariable("locality-qi-b", integer)
+	interpMust(t, err)
+	b = interpPin(t, m, b)
+	zero, err := manager.MakeIntText("0")
+	interpMust(t, err)
+	aFrame, err := manager.Make(OperatorLE, a, zero)
+	interpMust(t, err)
+	aFrame = interpPin(t, m, aFrame)
+	bFrame, err := manager.Make(OperatorLE, b, zero)
+	interpMust(t, err)
+	bFrame = interpPin(t, m, bFrame)
+	base, err := NewBase(manager, []ast.ASTHandle{aFrame, bFrame}, nil, nil)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, base.Close()) })
+	translation, err := NewFullTranslation(base)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, translation.Close()) })
+	direct, err := NewDirectProofInterpolator(base, DownwardScopeRange(0), false)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, direct.Close()) })
+	// quant-inst of (or (not (forall x (<= x a))) (<= b a)): the instance
+	// literal (<= b a) mixes the A symbol a and the B symbol b.
+	variable, err := m.MkVar(0, integer)
+	interpMust(t, err)
+	body, err := manager.Make(OperatorLE, variable, a)
+	interpMust(t, err)
+	symbol, err := m.Symbols.Intern("x")
+	interpMust(t, err)
+	quantifier, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{integer}, Names: []usymbol.Symbol{symbol}, Body: body, Weight: 1})
+	interpMust(t, err)
+	quantifier = interpPin(t, m, quantifier)
+	notQuantifier, err := manager.MkNot(quantifier)
+	interpMust(t, err)
+	instance, err := manager.Make(OperatorLE, b, a)
+	interpMust(t, err)
+	instance = interpPin(t, m, instance)
+	clause, err := manager.Make(OperatorOr, notQuantifier, instance)
+	interpMust(t, err)
+	clause = interpPin(t, m, clause)
+	proof, err := m.MkProofQuantInstantiation(clause, []ast.ASTHandle{b})
+	interpMust(t, err)
+	proof = interpPin(t, m, proof)
+	translation.direct = direct
+	defer func() { translation.direct = nil }()
+	if _, err = translation.Locality(proof); err != nil {
+		t.Fatal(err)
+	}
+	// make_axiom narrows the range to the first literal's (frame A), so b,
+	// the B symbol of the instance, gets the first localization variable.
+	if len(direct.localizationVariables) != 1 || direct.localizationVariables[0].term != b {
+		t.Fatal("quant-inst literals were not localized by get_locality", len(direct.localizationVariables))
 	}
 }

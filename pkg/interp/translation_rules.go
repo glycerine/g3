@@ -947,6 +947,7 @@ func (t *FullTranslation) Translate(proof ast.ASTHandle, destination *Interpolat
 		if e != nil {
 			return NullProofNode, e
 		}
+		t.direct = direct
 		translated, e := t.translateMain(proof, true, direct, newTranslationMemo())
 		if e == nil {
 			var ref ast.ASTRef
@@ -962,6 +963,7 @@ func (t *FullTranslation) Translate(proof ast.ASTHandle, destination *Interpolat
 				}
 			}
 		}
+		t.direct = nil
 		e = errors.Join(e, direct.Close())
 		if e != nil {
 			return NullProofNode, e
