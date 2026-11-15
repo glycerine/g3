@@ -182,8 +182,8 @@ func TestSMTInternalizerBuildsGateAndRootClauseProofs(t *testing.T) {
 		state: state, marked: make(map[int32]struct{}), literal: make(map[SMTLiteral]ast.ASTHandle),
 		objects: make(map[SMTJustification]ast.ASTHandle), equality: make(map[smtEnodePairKey]ast.ASTHandle),
 	}
-	for index := range state.clauses {
-		clause := state.clauses[index].clause
+	for index := range state.testClauses() {
+		clause := state.testClauses()[index].clause
 		proof, proofErr := builder.clauseProof(clause)
 		astTestMust(t, proofErr)
 		fact, proofErr := m.GetProofFact(proof)
@@ -198,14 +198,14 @@ func TestSMTInternalizerBuildsGateAndRootClauseProofs(t *testing.T) {
 		}
 	}
 
-	before := len(state.clauses)
+	before := len(state.testClauses())
 	iff, err := m.MkIff(a, b)
 	astTestMust(t, err)
 	asserted, err := m.MkProofAsserted(iff)
 	astTestMust(t, err)
 	astTestMust(t, state.Assert(iff, asserted, 0))
-	for index := before; index < len(state.clauses); index++ {
-		clause := state.clauses[index].clause
+	for index := before; index < len(state.testClauses()); index++ {
+		clause := state.testClauses()[index].clause
 		proof, proofErr := builder.clauseProof(clause)
 		astTestMust(t, proofErr)
 		fact, proofErr := m.GetProofFact(proof)
@@ -286,7 +286,7 @@ func TestSMTInternalizerBuildsTheoryAxiomProofs(t *testing.T) {
 	aExpression, a := makeLiteral("theory-axiom-a")
 	bExpression, b := makeLiteral("theory-axiom-b")
 	astTestMust(t, state.addTheoryAxiom(family, []SMTLiteral{a, b}))
-	clause := state.clauses[0].clause
+	clause := state.testClauses()[0].clause
 	builder := &smtConflictProofBuilder{
 		state: state, marked: make(map[int32]struct{}), literal: make(map[SMTLiteral]ast.ASTHandle),
 		objects: make(map[SMTJustification]ast.ASTHandle), equality: make(map[smtEnodePairKey]ast.ASTHandle),
@@ -656,7 +656,7 @@ func TestSMTInternalizerAuxLemmaTrueFalseWatchesIsReinitialized(t *testing.T) {
 	astTestMust(t, state.AssignLiteral(p, NewSMTBooleanAxiom()))
 	astTestMust(t, state.PushScope())
 	astTestMust(t, state.addClauseKindWithJustificationAndDeleteHandler([]SMTLiteral{p, q, r}, false, SMTClauseAuxLemma, ast.ASTHandle{}, nil, nil))
-	clause := state.clauses[len(state.clauses)-1].clause
+	clause := state.testClauses()[len(state.testClauses())-1].clause
 	if clause == nil || !clause.InReinitStack() || clause.reinitLevel != 3 {
 		t.Fatal("aux lemma with a true and a false watch must be marked for reinit at the scope level", clause.InReinitStack(), clause.reinitLevel)
 	}

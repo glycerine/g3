@@ -113,7 +113,7 @@ func TestSMTPBCompilationPigeonholeSearchAndScopeRecovery(t *testing.T) {
 
 func smtPBNetworkClauses(s *SMTInternalizerState) [][]SMTLiteral {
 	var out [][]SMTLiteral
-	for _, c := range s.clauses {
+	for _, c := range s.testClauses() {
 		if c.clause == nil || !c.clause.Deleted() {
 			out = append(out, append([]SMTLiteral{}, c.Literals...))
 		}
@@ -248,7 +248,7 @@ func TestSMTPBCompilationWeightedDefinitionsAndBaseFolding(t *testing.T) {
 				if proofs {
 					// Auxiliary clause justifications are scope-owned
 					// (m_justifications); the clause still carries one.
-					for _, clause := range s.clauses {
+					for _, clause := range s.testClauses() {
 						if clause.clause == nil || clause.clause.Justification() == nil {
 							t.Fatal("compiled proof clause has no theory axiom")
 						}
@@ -267,8 +267,8 @@ func TestSMTPBCompilationWeightedDefinitionsAndBaseFolding(t *testing.T) {
 	c.propagations = c.compilationThreshold - 1
 	pb.incPropagations(c)
 	astTestMust(t, pb.Restart())
-	if c.compiled != lbool.Undef || pb.statistics.compiled != 1 || pb.statistics.compiledVariables != 0 || len(s.clauses) != 0 || len(pb.toCompile) != 0 {
-		t.Fatal("source early-return lifecycle", c.compiled, pb.statistics, len(s.clauses))
+	if c.compiled != lbool.Undef || pb.statistics.compiled != 1 || pb.statistics.compiledVariables != 0 || len(s.testClauses()) != 0 || len(pb.toCompile) != 0 {
+		t.Fatal("source early-return lifecycle", c.compiled, pb.statistics, len(s.testClauses()))
 	}
 	// Equality at the boundary k==m reaches ge(0), rather than returning.
 	_, s2, p2, _, ls := smtPBWatchFixture(t, []int64{4, 3, 2, 2, 1}, 6, false)
@@ -317,14 +317,14 @@ func TestSMTPBCompilationThresholdRestartAndRollback(t *testing.T) {
 	if c.compiled != lbool.True || len(pb.toCompile) != 0 || pb.statistics.compiled != 1 || pb.statistics.compiledVariables == 0 || pb.statistics.compiledClauses == 0 {
 		t.Fatal("restart failed to compile", pb.statistics)
 	}
-	for _, clause := range s.clauses {
+	for _, clause := range s.testClauses() {
 		if clause.clause != nil && clause.clause.Kind() != SMTClauseAux {
 			t.Fatal("network became learned lemma")
 		}
 	}
 	astTestMust(t, s.PopScopes(1))
-	if c.compiled != lbool.False || len(s.clauses) != 0 {
-		t.Fatal("compiled circuit survived scope pop", c.compiled, len(s.clauses))
+	if c.compiled != lbool.False || len(s.testClauses()) != 0 {
+		t.Fatal("compiled circuit survived scope pop", c.compiled, len(s.testClauses()))
 	}
 	pb.incPropagations(c)
 	if len(pb.toCompile) != 1 {

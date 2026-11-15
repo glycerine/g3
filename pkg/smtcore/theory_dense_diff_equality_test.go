@@ -76,8 +76,8 @@ func TestSMTDenseDifferenceEagerEqualityAxiomControl(t *testing.T) {
 					t.Fatal(err)
 				}
 				f.equality(t, f.x, f.y)
-				if len(f.theory.atoms) != test.wantAtoms || len(f.state.clauses) != test.wantClauses || f.theory.adapter.NumAxioms() != test.wantAxioms {
-					t.Fatal("dense eager equality policy", len(f.theory.atoms), len(f.state.clauses), f.theory.adapter.NumAxioms())
+				if len(f.theory.atoms) != test.wantAtoms || len(f.state.testClauses()) != test.wantClauses || f.theory.adapter.NumAxioms() != test.wantAxioms {
+					t.Fatal("dense eager equality policy", len(f.theory.atoms), len(f.state.testClauses()), f.theory.adapter.NumAxioms())
 				}
 				if f.theory.adapter.binary != test.config.AddBinaryBounds {
 					t.Fatal("dense binary-bound adapter configuration")
@@ -87,12 +87,12 @@ func TestSMTDenseDifferenceEagerEqualityAxiomControl(t *testing.T) {
 				if test.wantAxioms == 0 {
 					wantClauses = 3
 				}
-				if len(f.theory.atoms) != 2 || len(f.state.clauses) != wantClauses || f.theory.adapter.NumAxioms() != 1 {
-					t.Fatal("dense equality-event axioms", len(f.theory.atoms), len(f.state.clauses), f.theory.adapter.NumAxioms())
+				if len(f.theory.atoms) != 2 || len(f.state.testClauses()) != wantClauses || f.theory.adapter.NumAxioms() != 1 {
+					t.Fatal("dense equality-event axioms", len(f.theory.atoms), len(f.state.testClauses()), f.theory.adapter.NumAxioms())
 				}
 				astTestMust(t, f.theory.NewDisequality(xv, yv))
-				if len(f.theory.atoms) != 2 || len(f.state.clauses) != wantClauses || f.theory.adapter.NumAxioms() != 1 {
-					t.Fatal("dense duplicate relation axioms", len(f.theory.atoms), len(f.state.clauses), f.theory.adapter.NumAxioms())
+				if len(f.theory.atoms) != 2 || len(f.state.testClauses()) != wantClauses || f.theory.adapter.NumAxioms() != 1 {
+					t.Fatal("dense duplicate relation axioms", len(f.theory.atoms), len(f.state.testClauses()), f.theory.adapter.NumAxioms())
 				}
 			})
 		}
@@ -112,8 +112,8 @@ func TestSMTDenseDifferenceForcesDifferenceEqualityWithNumeral(t *testing.T) {
 			two, err := f.manager.ArithmeticNumeralRat(big.NewRat(2, 1), integer)
 			astTestMust(t, err)
 			f.equality(t, difference, two)
-			if len(f.theory.atoms) != 2 || len(f.state.clauses) != 3 || f.theory.adapter.NumAxioms() != 1 {
-				t.Fatal("forced difference equality axioms", len(f.theory.atoms), len(f.state.clauses), f.theory.adapter.NumAxioms())
+			if len(f.theory.atoms) != 2 || len(f.state.testClauses()) != 3 || f.theory.adapter.NumAxioms() != 1 {
+				t.Fatal("forced difference equality axioms", len(f.theory.atoms), len(f.state.testClauses()), f.theory.adapter.NumAxioms())
 			}
 			first, second := &f.theory.atoms[0], &f.theory.atoms[1]
 			if first.offset.rational.Cmp(big.NewRat(2, 1)) != 0 || second.offset.rational.Cmp(big.NewRat(-2, 1)) != 0 {
@@ -142,8 +142,8 @@ func TestSMTDenseDifferenceEqualityPhaseAndProofHint(t *testing.T) {
 	astTestMust(t, f.theory.InternalizeEquality(equality, variable))
 	// arith_eq_adapter::mk_axioms passes its triangle-eq proof hint to each
 	// clause; the clauses are checked below.
-	if len(f.theory.atoms) != 2 || len(f.state.clauses) != 3 {
-		t.Fatal("dense proof equality shape", len(f.theory.atoms), len(f.state.clauses))
+	if len(f.theory.atoms) != 2 || len(f.state.testClauses()) != 3 {
+		t.Fatal("dense proof equality shape", len(f.theory.atoms), len(f.state.testClauses()))
 	}
 	for _, atom := range f.theory.atoms {
 		data, err := f.state.BooleanData(atom.variable)
@@ -152,7 +152,7 @@ func TestSMTDenseDifferenceEqualityPhaseAndProofHint(t *testing.T) {
 			t.Fatal("equality true-first phase was not copied to a dense bound")
 		}
 	}
-	for _, entry := range f.state.clauses {
+	for _, entry := range f.state.testClauses() {
 		justification, ok := entry.clause.Justification().(*SMTTheoryAxiomJustification)
 		if !ok || len(justification.Parameters()) != 1 {
 			t.Fatal("dense triangle proof hint missing")
@@ -178,16 +178,16 @@ func TestSMTDenseDifferenceEqualityRestartRecreatesEagerDisabledAxioms(t *testin
 	t.Cleanup(func() { astTestMust(t, f.state.endSearchPersistence()) })
 	astTestMust(t, f.state.PushScope())
 	astTestMust(t, f.theory.NewEquality(xv, yv))
-	if len(f.theory.adapter.restart) != 1 || len(f.state.clauses) != 3 {
-		t.Fatal("dense equality was not queued for restart", len(f.theory.adapter.restart), len(f.state.clauses))
+	if len(f.theory.adapter.restart) != 1 || len(f.state.testClauses()) != 3 {
+		t.Fatal("dense equality was not queued for restart", len(f.theory.adapter.restart), len(f.state.testClauses()))
 	}
 	astTestMust(t, f.state.PopScopes(1))
-	if len(f.state.clauses) != 0 || len(f.theory.atoms) != 0 {
-		t.Fatal("dense child equality survived backtracking", len(f.state.clauses), len(f.theory.atoms))
+	if len(f.state.testClauses()) != 0 || len(f.theory.atoms) != 0 {
+		t.Fatal("dense child equality survived backtracking", len(f.state.testClauses()), len(f.theory.atoms))
 	}
 	astTestMust(t, f.state.RestartTheories())
-	if len(f.theory.adapter.restart) != 0 || f.theory.adapter.NumAxioms() != 2 || len(f.state.clauses) != 3 || len(f.theory.atoms) != 2 {
-		t.Fatal("dense restart did not recreate equality axioms", len(f.theory.adapter.restart), f.theory.adapter.NumAxioms(), len(f.state.clauses), len(f.theory.atoms))
+	if len(f.theory.adapter.restart) != 0 || f.theory.adapter.NumAxioms() != 2 || len(f.state.testClauses()) != 3 || len(f.theory.atoms) != 2 {
+		t.Fatal("dense restart did not recreate equality axioms", len(f.theory.adapter.restart), f.theory.adapter.NumAxioms(), len(f.state.testClauses()), len(f.theory.atoms))
 	}
 }
 
@@ -287,15 +287,15 @@ func TestSMTDenseDifferenceRestartRecreatesVariables(t *testing.T) {
 	yv, err := f.theory.term(f.y)
 	astTestMust(t, err)
 	astTestMust(t, f.theory.NewEquality(xv, yv))
-	if len(f.theory.adapter.restart) != 1 || len(f.state.clauses) != 3 {
-		t.Fatal("dense equality was not queued for restart", len(f.theory.adapter.restart), len(f.state.clauses))
+	if len(f.theory.adapter.restart) != 1 || len(f.state.testClauses()) != 3 {
+		t.Fatal("dense equality was not queued for restart", len(f.theory.adapter.restart), len(f.state.testClauses()))
 	}
 	astTestMust(t, f.state.PopScopes(1))
 	if f.theory.IsAttachedToVariable(f.state.context.enodes.get(f.x)) || f.theory.IsAttachedToVariable(f.state.context.enodes.get(f.y)) {
 		t.Fatal("dense variables survived the pop")
 	}
 	astTestMust(t, f.state.RestartTheories())
-	if len(f.theory.adapter.restart) != 0 || len(f.state.clauses) != 3 || len(f.theory.atoms) != 2 {
-		t.Fatal("dense restart did not recreate the axioms", len(f.theory.adapter.restart), len(f.state.clauses), len(f.theory.atoms))
+	if len(f.theory.adapter.restart) != 0 || len(f.state.testClauses()) != 3 || len(f.theory.atoms) != 2 {
+		t.Fatal("dense restart did not recreate the axioms", len(f.theory.adapter.restart), len(f.state.testClauses()), len(f.theory.atoms))
 	}
 }

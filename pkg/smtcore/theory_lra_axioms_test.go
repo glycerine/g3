@@ -263,7 +263,7 @@ func TestSMTLRAAxiomProofOwnershipAndPhase(t *testing.T) {
 			t.Fatal("triangle proof hint missing")
 		}
 		triangles := 0
-		for _, entry := range f.s.clauses {
+		for _, entry := range f.s.testClauses() {
 			j, ok := entry.clause.Justification().(*SMTTheoryAxiomJustification)
 			if !ok {
 				continue
@@ -295,7 +295,7 @@ func TestSMTLRAAxiomProofOwnershipAndPhase(t *testing.T) {
 		astTestMust(t, f.s.Internalize(second, true))
 		astTestMust(t, f.a.Propagate())
 		farkas := 0
-		for _, entry := range f.s.clauses {
+		for _, entry := range f.s.testClauses() {
 			j, ok := entry.clause.Justification().(*SMTTheoryAxiomJustification)
 			if !ok || len(j.Parameters()) != 3 {
 				continue

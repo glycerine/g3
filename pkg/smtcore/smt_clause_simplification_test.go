@@ -63,10 +63,10 @@ func TestSMTClauseSimplificationDropsFalseTailLiteral(t *testing.T) {
 		t.Fatal("unexpected conflict before simplification")
 	}
 	astTestMust(t, state.simplifyClausesAtBase(0))
-	if len(state.clauses) != 1 || len(state.clauses[0].clause.literals) != 2 {
+	if len(state.testClauses()) != 1 || len(state.testClauses()[0].clause.literals) != 2 {
 		t.Fatal("false tail literal was not removed")
 	}
-	for _, literal := range state.clauses[0].clause.literals {
+	for _, literal := range state.testClauses()[0].clause.literals {
 		if literal == literals[2] {
 			t.Fatal("false tail literal survived simplification")
 		}
@@ -96,7 +96,7 @@ func TestSMTClauseSimplificationDeletesSatisfiedReasonSafely(t *testing.T) {
 		t.Fatal("clause did not justify propagated literal")
 	}
 	astTestMust(t, state.simplifyClausesAtBase(0))
-	if len(state.clauses) != 0 {
+	if len(state.testClauses()) != 0 {
 		t.Fatal("satisfied clause was not deleted")
 	}
 	if state.booleanData[firstVar].Justification().Kind() != SMTBooleanJustificationAxiom {
@@ -168,12 +168,12 @@ func TestSMTClauseSimplificationRetainsWrappedRegionProofReason(t *testing.T) {
 	if !consistent {
 		t.Fatal("unexpected first propagation conflict")
 	}
-	deleted, err := state.simplifyClause(&state.clauses[0])
+	deleted, err := state.simplifyClause(&state.auxClauses[0])
 	astTestMust(t, err)
 	if deleted {
 		t.Fatal("partially simplified clause was deleted")
 	}
-	if _, wrapped := state.clauses[0].clause.Justification().(*SMTUnitResolutionJustification); !wrapped {
+	if _, wrapped := state.testClauses()[0].clause.Justification().(*SMTUnitResolutionJustification); !wrapped {
 		t.Fatal("false tail did not wrap the original region proof")
 	}
 	astTestMust(t, state.AssignLiteral(literals[1].Negated(), NewSMTBooleanAxiom()))
@@ -183,7 +183,7 @@ func TestSMTClauseSimplificationRetainsWrappedRegionProofReason(t *testing.T) {
 		t.Fatal("unexpected second propagation conflict")
 	}
 	astTestMust(t, state.simplifyClausesAtBase(0))
-	if len(state.clauses) != 0 {
+	if len(state.testClauses()) != 0 {
 		t.Fatal("satisfied clause was not deleted")
 	}
 	justification, found := state.booleanData[literals[0].Var()].Justification().Justification()

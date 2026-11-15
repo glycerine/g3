@@ -214,9 +214,9 @@ func TestSMTBVComparisonDefinitionSurvivesRelevancePop(t *testing.T) {
 				if !ok {
 					t.Fatal("source comparison definition was not retained")
 				}
-				before := len(s.clauses)
+				before := len(s.testClauses())
 				bridges := 0
-				for _, clause := range s.clauses {
+				for _, clause := range s.testClauses() {
 					if len(clause.Literals) != 2 {
 						continue
 					}
@@ -238,15 +238,15 @@ func TestSMTBVComparisonDefinitionSurvivesRelevancePop(t *testing.T) {
 				}
 				for attempt := 0; attempt < 2; attempt++ {
 					astTestMust(t, solver.Push())
-					before = len(s.clauses)
+					before = len(s.testClauses())
 					astTestMust(t, s.relevancy.MarkRelevant(term))
 					expr, err := s.BoolExpression(definition.Var())
 					astTestMust(t, err)
 					if !s.relevancy.IsRelevant(expr) {
 						t.Fatal("comparison definition not relevant")
 					}
-					if lazy && len(s.clauses) != before+2 {
-						t.Fatal("lazy bridge missing after re-entry", attempt, before, len(s.clauses))
+					if lazy && len(s.testClauses()) != before+2 {
+						t.Fatal("lazy bridge missing after re-entry", attempt, before, len(s.testClauses()))
 					}
 					astTestMust(t, solver.Pop(1))
 					if got, ok := bv.comparisonAtoms[variable]; !ok || got != definition {

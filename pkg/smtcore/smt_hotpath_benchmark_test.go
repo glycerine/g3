@@ -218,21 +218,21 @@ func BenchmarkSMTScopeRestoration(b *testing.B) {
 					benchmarkMust(b, s.AddLearnedClauseWithProof([]SMTLiteral{
 						literals[2*j], literals[2*j+1].Negated(), literals[(2*j+2)%len(literals)],
 					}, ast.ASTHandle{}))
-					original[j] = s.clauses[j].clause
+					original[j] = s.testClauses()[j].clause
 				}
 				b.StartTimer()
 				err := s.PopScopes(1)
 				b.StopTimer()
 				benchmarkMust(b, err)
-				if s.scopeLevel != 1 || len(s.clauses) != clauses {
-					b.Fatal("search backtrack lost learned clauses", s.scopeLevel, len(s.clauses))
+				if s.scopeLevel != 1 || len(s.testClauses()) != clauses {
+					b.Fatal("search backtrack lost learned clauses", s.scopeLevel, len(s.testClauses()))
 				}
 				for _, expression := range expressions {
 					if _, found := s.BoolVar(expression); !found || p.IsRelevant(expression) == scoped {
 						b.Fatal("restoration lost a learned atom or changed source relevance")
 					}
 				}
-				for j, record := range s.clauses {
+				for j, record := range s.testClauses() {
 					if record.clause != original[j] {
 						b.Fatal("backtrack replaced a learned clause object")
 					}
@@ -243,8 +243,8 @@ func BenchmarkSMTScopeRestoration(b *testing.B) {
 				}
 				benchmarkMust(b, s.endSearchPersistence())
 				benchmarkMust(b, s.PopScopes(1))
-				if len(s.clauses) != 0 || len(s.booleanStack) != 0 {
-					b.Fatal("benchmark round left scoped clauses or atoms behind", len(s.clauses), len(s.booleanStack))
+				if len(s.testClauses()) != 0 || len(s.booleanStack) != 0 {
+					b.Fatal("benchmark round left scoped clauses or atoms behind", len(s.testClauses()), len(s.booleanStack))
 				}
 			}
 			b.ReportMetric(clauses, "clauses/op")

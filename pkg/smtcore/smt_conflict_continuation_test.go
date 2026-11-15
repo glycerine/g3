@@ -39,12 +39,12 @@ func TestSMTClausePublicationContinuesWithoutReplacingConflict(t *testing.T) {
 	astTestMust(t, s.AssignLiteral(xs[0], NewSMTBooleanAxiom()))
 	first, _ := s.Conflict()
 	count := s.statistics.NumConflicts
-	before := len(s.clauses)
+	before := len(s.testClauses())
 	astTestMust(t, s.addClauseKindWithJustificationAndDeleteHandler(xs[1:], false, SMTClauseAuxLemma, ast.ASTHandle{}, nil, nil))
 	astTestMust(t, s.addClauseKindWithJustificationAndDeleteHandler(nil, false, SMTClauseAuxLemma, ast.ASTHandle{}, nil, nil))
 	got, _ := s.Conflict()
-	if len(s.clauses) != before+1 || got != first || s.ConflictLiteral() != xs[0].Negated() || s.statistics.NumConflicts != count {
-		t.Fatal("source clause tail or first conflict was lost", len(s.clauses)-before, s.ConflictLiteral(), s.statistics.NumConflicts)
+	if len(s.testClauses()) != before+1 || got != first || s.ConflictLiteral() != xs[0].Negated() || s.statistics.NumConflicts != count {
+		t.Fatal("source clause tail or first conflict was lost", len(s.testClauses())-before, s.ConflictLiteral(), s.statistics.NumConflicts)
 	}
 }
 
@@ -109,8 +109,8 @@ func TestSMTBinaryClausePublicationAssignsDuringContinuation(t *testing.T) {
 			astTestMust(t, s.addClauseKindWithJustificationAndDeleteHandler([]SMTLiteral{xs[1].Negated(), xs[0]}, false, SMTClauseAuxLemma, ast.ASTHandle{}, nil, nil))
 			value, err := s.Assignment(xs[0])
 			astTestMust(t, err)
-			if value != lbool.True || len(s.clauses) != 1 || !s.clauses[0].Binary {
-				t.Fatal("source binary-clause publication lost its immediate assignment", value, len(s.clauses))
+			if value != lbool.True || len(s.testClauses()) != 1 || !s.testClauses()[0].Binary {
+				t.Fatal("source binary-clause publication lost its immediate assignment", value, len(s.testClauses()))
 			}
 			reason, ok := s.booleanData[xs[0].Var()].Justification().Literal()
 			if !ok || reason != xs[1] {

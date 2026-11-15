@@ -65,8 +65,8 @@ func TestSMTInternalizerPopResumesNativeRootRetirement(t *testing.T) {
 						t.Fatal("Boolean retirement lost its live owner")
 					}
 				case "clause":
-					if len(state.clauses) != 1 || state.clauses[0].closeWatches != 2 || state.clauses[0].clause == nil {
-						t.Fatal("clause retirement lost its detached owner", state.clauses)
+					if len(state.testClauses()) != 1 || state.testClauses()[0].closeWatches != 2 || state.testClauses()[0].clause == nil {
+						t.Fatal("clause retirement lost its detached owner", state.testClauses())
 					}
 				}
 				if err := state.PushScope(); !errors.Is(err, ast.ErrASTPending) {
@@ -83,7 +83,7 @@ func TestSMTInternalizerPopResumesNativeRootRetirement(t *testing.T) {
 					return
 				}
 				astTestMust(t, state.PopScopes(1))
-				if state.scopeLevel != 0 || state.pendingPop != nil || len(state.booleanStack) != 0 || len(state.enodeStack) != smtInitEnodes || len(state.clauses) != 0 {
+				if state.scopeLevel != 0 || state.pendingPop != nil || len(state.booleanStack) != 0 || len(state.enodeStack) != smtInitEnodes || len(state.testClauses()) != 0 {
 					t.Fatal("pop retry left owned scope state")
 				}
 				smtTestUserPush(t, state)

@@ -24,10 +24,10 @@ func TestSMTLearnedClauseRestorePropagatesAcrossFalseWatchOnce(t *testing.T) {
 	// A or B clause must publish A once and make C propagate from that event.
 	astTestMust(t, state.AssignLiteral(literals[1].Negated(), NewSMTBooleanAxiom()))
 	astTestMust(t, state.AddLearnedClause([]SMTLiteral{literals[0].Negated(), literals[2]}))
-	baseClauses := len(state.clauses)
+	baseClauses := len(state.testClauses())
 	smtTestUserPush(t, state)
 	astTestMust(t, state.AddLearnedClause([]SMTLiteral{literals[0], literals[1]}))
-	astTestMust(t, state.clauses[len(state.clauses)-1].clause.SetActivity(19))
+	astTestMust(t, state.testClauses()[len(state.testClauses())-1].clause.SetActivity(19))
 	saved, err := state.preserveLearnedClauses(baseClauses)
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, state.releasePreservedLearnedClauses(saved)) })
@@ -40,8 +40,8 @@ func TestSMTLearnedClauseRestorePropagatesAcrossFalseWatchOnce(t *testing.T) {
 	}
 	astTestMust(t, state.restoreLearnedClauses(saved))
 	astTestMust(t, state.restoreLearnedClauses(saved))
-	if len(state.clauses) != baseClauses+1 || len(state.assignedLiterals) != before+1 || state.assignedLiterals[before] != literals[0] {
-		t.Fatal("restoration lost or duplicated clause assignment", len(state.clauses), len(state.assignedLiterals))
+	if len(state.testClauses()) != baseClauses+1 || len(state.assignedLiterals) != before+1 || state.assignedLiterals[before] != literals[0] {
+		t.Fatal("restoration lost or duplicated clause assignment", len(state.testClauses()), len(state.assignedLiterals))
 	}
 	data := state.booleanData[literals[0].Var()]
 	if data.ScopeLevel != 0 || state.context.assignments.get(expressions[0]) != lbool.True || data.Justification() != NewSMTBooleanClause(saved[0].clause) {

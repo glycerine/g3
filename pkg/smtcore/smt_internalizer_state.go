@@ -30,7 +30,8 @@ type smtInternalizerScope struct {
 	pendingLimit         int
 	equalityLimit        int
 	assignmentLimit      int
-	clauseLimit          int
+	auxClauseLimit       int // scope::m_aux_clauses_lim
+	lemmaLimit           int // base_scope::m_lemmas_lim, read only for base scopes
 	justificationLimit   int
 	theoryLimit          int
 	assignedLimit        int
@@ -255,16 +256,23 @@ type SMTInternalizerState struct {
 	// atomQueue is m_atom_propagation_queue: assign_core appends a literal
 	// whose atom is relevant (or relevancy is off) when it is assigned, and
 	// relevant_eh appends an assigned atom when it becomes relevant.
-	atomQueue                []SMTLiteral
-	notifyTrail              []smtInternalizerNotifyTrail
-	enodeFlagTrail           []int32
-	mergeTFTrail             []*SMTEnode // set_merge_tf_trail
-	trueFirstTrail           []int32
-	atomNotified             map[int32]bool
-	atomNotifiedTrail        []int32
-	relevancyLevel           uint32
-	newCore2thEq             bool
-	clauses                  []SMTInternalizedClause
+	atomQueue         []SMTLiteral
+	notifyTrail       []smtInternalizerNotifyTrail
+	enodeFlagTrail    []int32
+	mergeTFTrail      []*SMTEnode // set_merge_tf_trail
+	trueFirstTrail    []int32
+	atomNotified      map[int32]bool
+	atomNotifiedTrail []int32
+	relevancyLevel    uint32
+	newCore2thEq      bool
+	// auxClauses and lemmas are context::m_aux_clauses and m_lemmas, in
+	// their source order: lemma GC sorts m_lemmas in place, search pops keep
+	// every lemma, and only a base-scope pop truncates m_lemmas.
+	// binaryClauses holds the watch-only binary clauses, which the source
+	// keeps in neither vector.
+	auxClauses               []SMTInternalizedClause
+	lemmas                   []SMTInternalizedClause
+	binaryClauses            []SMTInternalizedClause
 	ownedJustifications      []SMTJustification
 	assignedLiterals         []SMTLiteral
 	propagationHead          int
@@ -444,7 +452,7 @@ func (s *SMTInternalizerState) SetBinaryClauseOptimization(enabled bool) error {
 	if err := s.open(); err != nil {
 		return err
 	}
-	if len(s.booleanStack) != 0 || len(s.enodeStack) != s.initEnodes || len(s.clauses) != 0 || len(s.scopes) != 0 {
+	if len(s.booleanStack) != 0 || len(s.enodeStack) != s.initEnodes || s.numClauseRecords() != 0 || len(s.scopes) != 0 {
 		return ast.ErrASTDomain
 	}
 	if enabled {
@@ -902,7 +910,7 @@ func (s *SMTInternalizerState) PushScope() error {
 		theoryCaseSplitLimit: len(s.theoryCaseSplitSets),
 		booleanLimit:         len(s.booleanStack), enodeLimit: len(s.enodeStack), coreTrailLimit: len(s.coreTrail), pendingLimit: len(s.pending),
 		equalityLimit:   len(s.equalityTrail),
-		assignmentLimit: len(s.assignmentTrail), clauseLimit: len(s.clauses), justificationLimit: len(s.ownedJustifications), theoryLimit: len(s.theoryTrail), inconsistent: s.inconsistent,
+		assignmentLimit: len(s.assignmentTrail), auxClauseLimit: len(s.auxClauses), lemmaLimit: len(s.lemmas), justificationLimit: len(s.ownedJustifications), theoryLimit: len(s.theoryTrail), inconsistent: s.inconsistent,
 		assignedLimit: len(s.assignedLiterals), propagationHead: s.propagationHead, relevancyBatch: s.relevancyBatch, conflict: s.conflict,
 		conflictLiteral:  s.conflictLiteral,
 		disequalityLimit: len(s.context.disequalityTrail),
@@ -1179,62 +1187,87 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 			}
 		}
 	}
-	if scope.clauseLimit < 0 || scope.clauseLimit > len(s.clauses) {
+	flushing := s.closing
+	// pop_scope_core deletes m_lemmas past bs.m_lemmas_lim only when it
+	// pops a base scope (new_lvl < m_base_lvl); a search pop keeps every
+	// lemma and reinit_clauses repairs those whose atoms it retires.
+	preserve := !flushing && s.pendingPop != nil && s.pendingPop.preserve
+	lemmaLimit := len(s.lemmas)
+	if !preserve {
+		lemmaLimit = scope.lemmaLimit
+	}
+	if scope.auxClauseLimit < 0 || scope.auxClauseLimit > len(s.auxClauses) || lemmaLimit < 0 || lemmaLimit > len(s.lemmas) {
 		return ast.ErrASTDomain
 	}
-	flushing := s.closing
-	for index := len(s.clauses); index > scope.clauseLimit; index-- {
-		record := &s.clauses[index-1]
-		if s.keepClauseAcrossPop(record) {
-			if record.clause == nil {
-				continue // binary lemma: watches only
+	if preserve {
+		// Detach the lemmas whose atoms this pop retires before retiring
+		// their Boolean variables. closeWatches also makes destruction safe
+		// if a later owner refuses the pop.
+		for index := range s.pendingPop.learned {
+			saved := &s.pendingPop.learned[index]
+			if !saved.retired {
+				continue
 			}
-			retired := false
-			for _, literal := range record.clause.literals {
-				retired = retired || int(literal.Var()) >= scope.booleanLimit+int(SMTFirstBoolVar)
+			record := &s.lemmas[saved.recordIndex]
+			if record.clause != saved.clause {
+				return ast.ErrASTDomain
 			}
-			if retired {
-				// Detach before retiring Boolean variables. closeWatches also
-				// makes destruction safe if a later owner refuses the pop.
-				for record.closeWatches < 2 {
-					literal := record.clause.literals[record.closeWatches]
-					if !s.watches[literal.Negated().Index()].RemoveClause(record.clause) {
-						return ast.ErrASTDomain
-					}
-					record.closeWatches++
+			for record.closeWatches < 2 {
+				literal := record.clause.literals[record.closeWatches]
+				if !s.watches[literal.Negated().Index()].RemoveClause(record.clause) {
+					return ast.ErrASTDomain
 				}
+				record.closeWatches++
 			}
-			continue
 		}
-		if flushing && !record.Binary && record.clause != nil {
-			// context::flush runs undo_trail_stack(0) before del_clauses: the
-			// watches go now, the clause (its proof, then its atoms) after the
-			// trail, auxiliary clauses before lemmas, newest first. The record
-			// keeps the detached clause until then, so a refused step can
-			// resume here.
-			if err := s.detachClause(record); err != nil {
+	}
+	// del_clauses(v, old_size) deletes v[old_size..] newest first:
+	// pop_scope_core runs it on m_lemmas, then on m_aux_clauses.
+	delClauses := func(records []SMTInternalizedClause, limit int) error {
+		for index := len(records); index > limit; index-- {
+			record := &records[index-1]
+			if flushing && !record.Binary && record.clause != nil {
+				// context::flush runs undo_trail_stack(0) before del_clauses: the
+				// watches go now, the clause (its proof, then its atoms) after the
+				// trail, auxiliary clauses before lemmas, newest first. The record
+				// keeps the detached clause until then, so a refused step can
+				// resume here.
+				if err := s.detachClause(record); err != nil {
+					return fmt.Errorf("close clause: %w", err)
+				}
+				continue
+			}
+			if err := s.closeClause(record); err != nil {
 				return fmt.Errorf("close clause: %w", err)
 			}
-			continue
 		}
-		if err := s.closeClause(&s.clauses[index-1]); err != nil {
-			return fmt.Errorf("close clause: %w", err)
+		return nil
+	}
+	if err := delClauses(s.lemmas, lemmaLimit); err != nil {
+		return err
+	}
+	if err := delClauses(s.auxClauses, scope.auxClauseLimit); err != nil {
+		return err
+	}
+	if flushing {
+		// Watch-only binary clauses live in no clause vector; flush drops
+		// their watch lists.
+		if err := delClauses(s.binaryClauses, 0); err != nil {
+			return err
 		}
 	}
 	compactClauses := func() {
-		write := scope.clauseLimit
-		for index := scope.clauseLimit; index < len(s.clauses); index++ {
-			if s.keepClauseAcrossPop(&s.clauses[index]) {
-				s.clauses[write] = s.clauses[index]
-				write++
-			} else if !s.clauses[index].Binary {
-				// del_clause deletes allocated clauses; binary clauses live
-				// only in the watch lists and are not counted.
-				s.statistics.NumDelClause++
-			}
+		// del_clause counts each deleted clause; binary clauses live only in
+		// the watch lists and are not counted.
+		s.statistics.NumDelClause += uint32(len(s.lemmas) - lemmaLimit + len(s.auxClauses) - scope.auxClauseLimit)
+		clear(s.lemmas[lemmaLimit:])
+		s.lemmas = s.lemmas[:lemmaLimit]
+		clear(s.auxClauses[scope.auxClauseLimit:])
+		s.auxClauses = s.auxClauses[:scope.auxClauseLimit]
+		if flushing {
+			clear(s.binaryClauses)
+			s.binaryClauses = nil
 		}
-		clear(s.clauses[write:])
-		s.clauses = s.clauses[:write]
 	}
 	if !flushing {
 		compactClauses()
@@ -1361,10 +1394,10 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 	}
 	if flushing {
 		// del_clauses(m_aux_clauses, 0); del_clauses(m_lemmas, 0): newest first.
-		for _, lemmas := range []bool{false, true} {
-			for index := len(s.clauses); index > scope.clauseLimit; index-- {
-				record := &s.clauses[index-1]
-				if record.Binary || record.clause == nil || record.clause.IsLemma() != lemmas {
+		for _, records := range [][]SMTInternalizedClause{s.auxClauses, s.lemmas} {
+			for index := len(records); index > 0; index-- {
+				record := &records[index-1]
+				if record.clause == nil {
 					continue
 				}
 				if err := record.clause.Close(); err != nil {
@@ -1488,7 +1521,7 @@ func (s *SMTInternalizerState) PopScopes(count uint32) error {
 				pop.learned = nil
 			}
 			var err error
-			pop.learned, err = s.preserveLearnedClauses(s.scopes[pop.level].clauseLimit)
+			pop.learned, err = s.preserveLearnedClauses(0)
 			if err != nil {
 				return err
 			}

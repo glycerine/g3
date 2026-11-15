@@ -21,11 +21,16 @@ func (s *SMTInternalizerState) DisplayClauseSections(out io.Writer) error {
 		return ast.ErrASTHandle
 	}
 	out = smtContextDisplayWriter{out}
+	// display_clauses(m_aux_clauses), then display_clauses(m_lemmas).
 	for _, lemma := range []bool{false, true} {
 		first := true
-		for i := range s.clauses {
-			clause := s.clauses[i].clause
-			if clause == nil || (clause.Kind() != SMTClauseAux) != lemma {
+		records := s.auxClauses
+		if lemma {
+			records = s.lemmas
+		}
+		for i := range records {
+			clause := records[i].clause
+			if clause == nil {
 				continue
 			}
 			if first {

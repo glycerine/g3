@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_02-F10: m_lemmas stays in activity order after a
+	// collection; statistics in lemma_gc_statistics_vectors_test.go.
+	"lemma_gc_half_sorted_order.smt2": "unknown\n",
 	// AUDIT.md smtcore_02-F10 (follow-up): dense QF_UFIDL lemma GC halves;
 	// statistics in lemma_gc_statistics_vectors_test.go.
 	"lemma_gc_half_dense_setup.smt2": "unknown\n",

@@ -16,17 +16,19 @@ func (s *SMTInternalizerState) LemmaAverageActivity() (uint32, error) {
 	}
 	var sum uint64
 	var count uint64
-	for i := range s.clauses {
-		clause := s.clauses[i].clause
-		if clause == nil || clause.Kind() == SMTClauseAux {
-			continue
+	for _, records := range s.clauseRecordLists() {
+		for i := range records {
+			clause := records[i].clause
+			if clause == nil || clause.Kind() == SMTClauseAux {
+				continue
+			}
+			activity, err := clause.Activity()
+			if err != nil {
+				return 0, err
+			}
+			sum += uint64(activity)
+			count++
 		}
-		activity, err := clause.Activity()
-		if err != nil {
-			return 0, err
-		}
-		sum += uint64(activity)
-		count++
 	}
 	if count == 0 {
 		return 0, nil
@@ -39,16 +41,18 @@ func (s *SMTInternalizerState) clauseLiteralOccurrences() ([]uint32, error) {
 		return nil, err
 	}
 	result := make([]uint32, len(s.assignment))
-	for i := range s.clauses {
-		clause := s.clauses[i].clause
-		if clause == nil {
-			continue
-		}
-		for _, literal := range clause.Literals() {
-			if literal.Index() < 0 || int(literal.Index()) >= len(result) {
-				return nil, ast.ErrASTDomain
+	for _, records := range s.clauseRecordLists() {
+		for i := range records {
+			clause := records[i].clause
+			if clause == nil {
+				continue
 			}
-			result[literal.Index()]++
+			for _, literal := range clause.Literals() {
+				if literal.Index() < 0 || int(literal.Index()) >= len(result) {
+					return nil, ast.ErrASTDomain
+				}
+				result[literal.Index()]++
+			}
 		}
 	}
 	return result, nil
@@ -128,17 +132,19 @@ func (s *SMTInternalizerState) variableOccurrences() ([]uint32, error) {
 		return nil, err
 	}
 	result := make([]uint32, len(s.booleanData))
-	for i := range s.clauses {
-		clause := s.clauses[i].clause
-		if clause == nil {
-			continue
-		}
-		for _, literal := range clause.Literals() {
-			variable := literal.Var()
-			if variable < 0 || int(variable) >= len(result) {
-				return nil, ast.ErrASTDomain
+	for _, records := range s.clauseRecordLists() {
+		for i := range records {
+			clause := records[i].clause
+			if clause == nil {
+				continue
 			}
-			result[variable]++
+			for _, literal := range clause.Literals() {
+				variable := literal.Var()
+				if variable < 0 || int(variable) >= len(result) {
+					return nil, ast.ErrASTDomain
+				}
+				result[variable]++
+			}
 		}
 	}
 	return result, nil
@@ -181,21 +187,23 @@ func (s *SMTInternalizerState) DisplayMinimumVariableOccurrences(out io.Writer) 
 		return ast.ErrASTHandle
 	}
 	occurrences := make([]uint32, len(s.booleanData))
-	for i := range s.clauses {
-		clause := s.clauses[i].clause
-		if clause == nil || len(clause.Literals()) == 0 {
-			continue
-		}
-		minimum := clause.Literals()[0].Var()
-		for _, literal := range clause.Literals()[1:] {
-			if literal.Var() < minimum {
-				minimum = literal.Var()
+	for _, records := range s.clauseRecordLists() {
+		for i := range records {
+			clause := records[i].clause
+			if clause == nil || len(clause.Literals()) == 0 {
+				continue
 			}
+			minimum := clause.Literals()[0].Var()
+			for _, literal := range clause.Literals()[1:] {
+				if literal.Var() < minimum {
+					minimum = literal.Var()
+				}
+			}
+			if minimum < 0 || int(minimum) >= len(occurrences) {
+				return ast.ErrASTDomain
+			}
+			occurrences[minimum]++
 		}
-		if minimum < 0 || int(minimum) >= len(occurrences) {
-			return ast.ErrASTDomain
-		}
-		occurrences[minimum]++
 	}
 	if _, err := io.WriteString(out, "number of min occs:\n"); err != nil {
 		return err

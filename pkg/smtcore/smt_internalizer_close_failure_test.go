@@ -115,12 +115,12 @@ func TestSMTInternalizerCloseDiscardsPreservedLearnedRoots(t *testing.T) {
 	astTestMust(t, err)
 	state.pendingPop = &smtInternalizerPendingPop{count: 1, preserve: true, stage: 1, learned: learned}
 	trigger()
-	if !errors.Is(failure, ast.ErrASTPending) || state.pendingPop == nil || state.pendingPop.learned[0].proof.IsNull() || len(state.clauses) != 1 {
+	if !errors.Is(failure, ast.ErrASTPending) || state.pendingPop == nil || state.pendingPop.learned[0].proof.IsNull() || len(state.testClauses()) != 1 {
 		t.Fatal("refused destruction lost preserved or installed clause owners", failure)
 	}
 	created := state.statistics.NumMkBoolVar
 	astTestMust(t, state.Close())
-	if state.statistics.NumMkBoolVar != created || state.pendingPop != nil || len(state.clauses) != 0 {
+	if state.statistics.NumMkBoolVar != created || state.pendingPop != nil || len(state.testClauses()) != 0 {
 		t.Fatal("destruction restored a discarded learned clause")
 	}
 	if registry.scopeLevel != 0 || registry.pendingPop != 0 || len(registry.fingerprints.scopes) != 0 {

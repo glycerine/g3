@@ -120,7 +120,7 @@ func TestSMTInternalizerInstallsLearnedClauseInCurrentScope(t *testing.T) {
 	smtTestUserPush(t, state)
 	astTestMust(t, state.AddLearnedClause(variables))
 	clauses := state.Clauses()
-	if len(clauses) != 1 || state.clauses[0].clause.Kind() != SMTClauseLearned {
+	if len(clauses) != 1 || state.testClauses()[0].clause.Kind() != SMTClauseLearned {
 		t.Fatal("learned clause kind", clauses)
 	}
 	astTestMust(t, state.PopScopes(1))
@@ -146,7 +146,7 @@ func TestSMTInternalizerLearnedClausePreservesFalseAntecedents(t *testing.T) {
 	astTestMust(t, state.AssignLiteral(literals[1].Negated(), NewSMTBooleanAxiom()))
 	astTestMust(t, state.AssignLiteral(literals[2].Negated(), NewSMTBooleanAxiom()))
 	astTestMust(t, state.AddLearnedClause(literals))
-	if len(state.clauses) != 1 || len(state.clauses[0].clause.Literals()) != 3 {
+	if len(state.testClauses()) != 1 || len(state.testClauses()[0].clause.Literals()) != 3 {
 		t.Fatal("learned clause discarded false antecedents", state.Clauses())
 	}
 	value, err := state.Assignment(literals[0])
@@ -156,7 +156,7 @@ func TestSMTInternalizerLearnedClausePreservesFalseAntecedents(t *testing.T) {
 	}
 	justification := state.booleanData[literals[0].Var()].Justification()
 	clause, ok := justification.Clause()
-	if !ok || clause != state.clauses[0].clause {
+	if !ok || clause != state.testClauses()[0].clause {
 		t.Fatal("asserting literal lost learned-clause justification")
 	}
 }
@@ -182,7 +182,7 @@ func TestSMTInternalizerLearnedClauseRetainsProof(t *testing.T) {
 	astTestMust(t, err)
 	astTestMust(t, state.PushScope())
 	astTestMust(t, state.AddLearnedClauseWithProof(literals, proof))
-	clause := state.clauses[0].clause
+	clause := state.testClauses()[0].clause
 	builder := &smtConflictProofBuilder{
 		state: state, marked: make(map[int32]struct{}), literal: make(map[SMTLiteral]ast.ASTHandle),
 		objects: make(map[SMTJustification]ast.ASTHandle), equality: make(map[smtEnodePairKey]ast.ASTHandle),

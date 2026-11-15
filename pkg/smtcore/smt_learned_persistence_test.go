@@ -24,16 +24,16 @@ func TestSMTLearnedClauseSurvivesSearchBacktrack(t *testing.T) {
 	astTestMust(t, state.AddLearnedClauseWithProof([]SMTLiteral{
 		NewSMTLiteral(firstVar, false), NewSMTLiteral(secondVar, true),
 	}, ast.ASTHandle{}))
-	if len(state.clauses) != 1 || state.clauses[0].clause == nil {
+	if len(state.testClauses()) != 1 || state.testClauses()[0].clause == nil {
 		t.Fatal("missing scoped learned clause")
 	}
-	astTestMust(t, state.clauses[0].clause.SetActivity(9))
+	astTestMust(t, state.testClauses()[0].clause.SetActivity(9))
 
 	astTestMust(t, state.PopScopes(1))
-	if state.scopeLevel != 0 || len(state.clauses) != 1 {
-		t.Fatal("learned clause was not moved to the search base", state.scopeLevel, len(state.clauses))
+	if state.scopeLevel != 0 || len(state.testClauses()) != 1 {
+		t.Fatal("learned clause was not moved to the search base", state.scopeLevel, len(state.testClauses()))
 	}
-	clause := state.clauses[0].clause
+	clause := state.testClauses()[0].clause
 	if clause == nil || !clause.IsLearned() {
 		t.Fatal("restored record is not a learned clause")
 	}

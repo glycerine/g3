@@ -81,7 +81,7 @@ func TestSMTPBLiteralNetworkStatisticsWrapBeforeFactoryAndClause(t *testing.T) {
 	}
 	network.add(SMTTrueLiteral)
 	astTestMust(t, network.err)
-	if network.clauses != 0 || network.clauseVariables != 0 || len(s.clauses) != 0 {
+	if network.clauses != 0 || network.clauseVariables != 0 || len(s.testClauses()) != 0 {
 		t.Fatal("source counts attempted tautological clauses before context simplification")
 	}
 }

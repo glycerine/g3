@@ -28,11 +28,11 @@ func TestSMTDynamicAckManagerBuildsPairAndTripleClauses(t *testing.T) {
 	astTestMust(t, state.dynamicAck.schedule.usedEquality(applications[0], applications[1], applications[2], true))
 	state.statistics.NumConflicts = 2
 	astTestMust(t, state.dynamicAck.propagate())
-	if state.statistics.NumDynAck != 2 || len(state.clauses) != 2 {
-		t.Fatal("dynamic Ackermann propagation", state.statistics.NumDynAck, len(state.clauses))
+	if state.statistics.NumDynAck != 2 || len(state.testClauses()) != 2 {
+		t.Fatal("dynamic Ackermann propagation", state.statistics.NumDynAck, len(state.testClauses()))
 	}
-	if len(state.clauses[0].Literals) != 2 || len(state.clauses[1].Literals) != 3 {
-		t.Fatal("dynamic Ackermann clause shapes", state.clauses[0].Literals, state.clauses[1].Literals)
+	if len(state.testClauses()[0].Literals) != 2 || len(state.testClauses()[1].Literals) != 3 {
+		t.Fatal("dynamic Ackermann clause shapes", state.testClauses()[0].Literals, state.testClauses()[1].Literals)
 	}
 	pair := dynAckPair{applications[0], applications[1]}
 	triple := dynAckTriple{applications[0], applications[1], applications[2]}
@@ -73,10 +73,10 @@ func TestSMTDynamicAckManagerBuildsClauseProof(t *testing.T) {
 	astTestMust(t, state.dynamicAck.schedule.conflictCongruence(first, second, dynAckRoot))
 	state.statistics.NumConflicts = 1
 	astTestMust(t, state.dynamicAck.propagate())
-	if len(state.clauses) != 1 || state.clauses[0].clause == nil {
-		t.Fatal("dynamic Ackermann proof clause", len(state.clauses))
+	if len(state.testClauses()) != 1 || state.testClauses()[0].clause == nil {
+		t.Fatal("dynamic Ackermann proof clause", len(state.testClauses()))
 	}
-	clause := state.clauses[0].clause
+	clause := state.testClauses()[0].clause
 	if _, ok := clause.justification.(*smtDynamicAckJustification); !ok {
 		t.Fatalf("dynamic Ackermann justification %T", clause.justification)
 	}
@@ -132,8 +132,8 @@ func TestSMTDynamicAckClauseDeletionCallbackRunsDuringLemmaGC(t *testing.T) {
 	state.statistics.NumConflicts = 2
 	astTestMust(t, state.dynamicAck.propagate())
 	astTestMust(t, state.garbageCollectLearnedClauses())
-	if len(state.clauses) != 1 || state.statistics.NumDelDynAck != 1 {
-		t.Fatal("dynamic Ackermann lemma collection", len(state.clauses), state.statistics.NumDelDynAck)
+	if len(state.testClauses()) != 1 || state.statistics.NumDelDynAck != 1 {
+		t.Fatal("dynamic Ackermann lemma collection", len(state.testClauses()), state.statistics.NumDelDynAck)
 	}
 	astTestMust(t, state.PopScopes(1))
 	if state.statistics.NumDelDynAck != 2 {
@@ -159,10 +159,10 @@ func TestSMTDynamicAckTripleWithProofs(t *testing.T) {
 	astTestMust(t, state.dynamicAck.schedule.usedEquality(values[0], values[1], values[2], true))
 	state.statistics.NumConflicts = 1
 	astTestMust(t, state.dynamicAck.propagate())
-	if state.statistics.NumDynAck != 1 || len(state.clauses) != 1 || len(state.clauses[0].Literals) != 3 {
-		t.Fatal("dynamic Ackermann triple with proofs", state.statistics.NumDynAck, len(state.clauses))
+	if state.statistics.NumDynAck != 1 || len(state.testClauses()) != 1 || len(state.testClauses()[0].Literals) != 3 {
+		t.Fatal("dynamic Ackermann triple with proofs", state.statistics.NumDynAck, len(state.testClauses()))
 	}
-	clause := state.clauses[0].clause
+	clause := state.testClauses()[0].clause
 	if clause == nil {
 		t.Fatal("dynamic Ackermann triple clause was not installed")
 	}

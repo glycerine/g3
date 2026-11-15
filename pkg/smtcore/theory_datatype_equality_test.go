@@ -46,11 +46,11 @@ func TestSMTDatatypeEqualityAxiomSourceBranchesAndRollback(t *testing.T) {
 					case "constant-false":
 						antecedent = SMTFalseLiteral
 					}
-					clauses, bools, owners := len(s.clauses), len(s.boolExpr), len(s.ownedJustifications)
+					clauses, bools, owners := len(s.testClauses()), len(s.boolExpr), len(s.ownedJustifications)
 					astTestMust(t, dt.equalityAxiom(x, y, antecedent))
 					direct := !proofs && (guard == "null" || guard == "true" || guard == "constant-true")
 					if direct {
-						if left.root == right.root || len(s.clauses) != clauses || len(s.boolExpr) != bools {
+						if left.root == right.root || len(s.testClauses()) != clauses || len(s.boolExpr) != bools {
 							t.Fatal("queued datatype equality merged eagerly or created SAT encoding")
 						}
 						if guard != "null" {

@@ -6,6 +6,8 @@ package smtcore
 
 import (
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -45,7 +47,7 @@ func (s *SMTInternalizerState) ConfigureClauseMaintenance(config SMTClauseMainte
 	if err := s.open(); err != nil {
 		return err
 	}
-	if len(s.clauses) != 0 || len(s.scopes) != 0 || config.Strategy > 3 || config.NewOldRatio == 0 || config.Factor < 1 || config.InverseDecay <= 0 {
+	if s.numClauseRecords() != 0 || len(s.scopes) != 0 || config.Strategy > 3 || config.NewOldRatio == 0 || config.Factor < 1 || config.InverseDecay <= 0 {
 		return ast.ErrASTDomain
 	}
 	s.clauseMaintenance = config
@@ -90,135 +92,203 @@ func (s *SMTInternalizerState) clauseHasUnknowns(clause *SMTClause, threshold ui
 	return false, nil
 }
 
-func (s *SMTInternalizerState) deleteLearnedClauseIndexes(remove map[int]struct{}) error {
-	if len(remove) == 0 {
-		return nil
+// delClause is context::del_clause for a record of m_aux_clauses or
+// m_lemmas.
+func (s *SMTInternalizerState) delClause(record *SMTInternalizedClause) error {
+	if err := s.closeClause(record); err != nil {
+		return err
 	}
-	removedBefore := make([]int, len(s.clauses)+1)
-	kept := 0
-	var deleted uint32
-	for index := range s.clauses {
-		removedBefore[index+1] = removedBefore[index]
-		if _, found := remove[index]; found {
-			// del_clause counts allocated clauses only; binary clauses live
-			// in the watch lists.
-			if !s.clauses[index].Binary {
-				deleted++
-			}
-			if err := s.closeClause(&s.clauses[index]); err != nil {
-				return err
-			}
-			removedBefore[index+1]++
-			continue
-		}
-		if kept != index {
-			s.clauses[kept] = s.clauses[index]
-		}
-		kept++
-	}
-	for index := range s.scopes {
-		limit := s.scopes[index].clauseLimit
-		if limit < 0 || limit >= len(removedBefore) {
-			return ast.ErrASTDomain
-		}
-		s.scopes[index].clauseLimit -= removedBefore[limit]
-	}
-	s.statistics.NumDelClause += deleted
-	s.clauses = s.clauses[:kept]
+	s.statistics.NumDelClause++
 	return nil
 }
 
+// compactClauseRecords finishes an in-place filter of records that read
+// up to i and kept j records: on error the unread tail moves down behind
+// the kept prefix, so the list holds every live record exactly once.
+func compactClauseRecords(records []SMTInternalizedClause, i, j int) []SMTInternalizedClause {
+	if i != j {
+		j += copy(records[j:], records[i:])
+		clear(records[j:])
+	}
+	return records[:j]
+}
+
+// lemmasStart is m_base_lvl == 0 ? 0 : m_base_scopes[m_base_lvl - 1].m_lemmas_lim.
+func (s *SMTInternalizerState) lemmasStart() (int, error) {
+	if s.baseLevel == 0 {
+		return 0, nil
+	}
+	if int(s.baseLevel) > len(s.scopes) {
+		return 0, ast.ErrASTDomain
+	}
+	start := s.scopes[s.baseLevel-1].lemmaLimit
+	if start < 0 || start > len(s.lemmas) {
+		return 0, ast.ErrASTDomain
+	}
+	return start, nil
+}
+
+// garbageCollectLearnedClauses is context::del_inactive_lemmas without the
+// threshold update, which delInactiveLemmasIfDue does.
 func (s *SMTInternalizerState) garbageCollectLearnedClauses() error {
 	if err := s.open(); err != nil {
 		return err
 	}
-	config := s.clauseMaintenance
-	if config.Strategy == 3 {
+	if s.clauseMaintenance.Strategy == 3 { // LGC_NONE
 		return nil
 	}
-	// m_lemmas past m_base_scopes[m_base_lvl - 1].m_lemmas_lim, in order,
-	// reinit-stack lemmas included: can_delete keeps those.
-	start := 0
-	if s.baseLevel != 0 {
-		if int(s.baseLevel) > len(s.scopes) {
-			return ast.ErrASTDomain
-		}
-		start = s.scopes[s.baseLevel-1].clauseLimit
+	if s.clauseMaintenance.Half {
+		return s.delInactiveLemmas1()
 	}
-	learned := make([]int, 0)
-	for index := start; index < len(s.clauses); index++ {
-		clause := s.clauses[index].clause
-		if clause != nil && clause.IsLemma() {
-			learned = append(learned, index)
-		}
+	return s.delInactiveLemmas2()
+}
+
+// clauseActivity is clause::get_activity of a lemma.
+func clauseActivity(record *SMTInternalizedClause) uint32 {
+	activity, _ := record.clause.Activity()
+	return activity
+}
+
+// delInactiveLemmas1 is context::del_inactive_lemmas1: it sorts the old
+// lemmas by activity in place, so the next collection starts from that
+// order, and deletes (approximately) the less active half.
+func (s *SMTInternalizerState) delInactiveLemmas1() (result error) {
+	config := s.clauseMaintenance
+	sz := len(s.lemmas)
+	startAt, err := s.lemmasStart()
+	if err != nil {
+		return err
 	}
-	remove := make(map[int]struct{})
-	if config.Half {
-		// del_inactive_lemmas1
-		if uint32(len(learned)) <= config.Recent {
-			return nil
+	if uint64(startAt)+uint64(config.Recent) >= uint64(sz) {
+		return nil
+	}
+	endAt := sz - int(config.Recent)
+	// std::stable_sort(m_lemmas.begin() + start_at, m_lemmas.begin() + end_at, clause_lt()).
+	old := s.lemmas[startAt:endAt]
+	sort.SliceStable(old, func(i, j int) bool { return clauseActivity(&old[i]) > clauseActivity(&old[j]) })
+	startDelAt := (startAt + endAt) / 2
+	i, j := startDelAt, startDelAt
+	if smtTraceEnabled("del_inactive_lemmas") {
+		emitSMTTrace("del_inactive_lemmas", "del_inactive_lemmas1", "src/smt/smt_context.cpp", 2698,
+			"sz: "+strconv.Itoa(sz)+", start_at: "+strconv.Itoa(startAt)+", end_at: "+strconv.Itoa(endAt)+
+				", start_del_at: "+strconv.Itoa(startDelAt)+"\n")
+	}
+	defer func() {
+		if result != nil {
+			s.lemmas = compactClauseRecords(s.lemmas, i, j)
 		}
-		oldEnd := len(learned) - int(config.Recent)
-		candidates := append([]int(nil), learned[:oldEnd]...)
-		sort.SliceStable(candidates, func(i, j int) bool {
-			left, _ := s.clauses[candidates[i]].clause.Activity()
-			right, _ := s.clauses[candidates[j]].clause.Activity()
-			return left > right
-		})
-		for _, index := range candidates[len(candidates)/2:] {
-			if s.clauseCanDelete(s.clauses[index].clause) {
-				remove[index] = struct{}{}
-			}
-		}
-		for _, index := range learned[oldEnd:] {
-			if clause := s.clauses[index].clause; clause.Deleted() && s.clauseCanDelete(clause) {
-				remove[index] = struct{}{}
-			}
-		}
-	} else {
-		// del_inactive_lemmas2. Its activity threshold is
-		// old - (old - new) * ((i - start_at) / real_sz) in unsigned
-		// arithmetic, and (i - start_at) / real_sz is 0 for every lemma.
-		realSize := uint32(len(learned))
-		ratio := config.NewOldRatio
-		newFirst := uint32(0)
-		if ratio != 0 {
-			newFirst = realSize / ratio * (ratio - 1)
-		}
-		for position, index := range learned {
-			clause := s.clauses[index].clause
-			activity, err := clause.Activity()
-			if err != nil {
+	}()
+	for ; i < endAt; i++ {
+		record := s.lemmas[i]
+		if s.clauseCanDelete(record.clause) {
+			s.traceDelInactiveLemma(record.clause)
+			if err := s.delClause(&s.lemmas[i]); err != nil {
 				return err
 			}
-			if s.clauseCanDelete(clause) {
-				if clause.Deleted() {
-					remove[index] = struct{}{}
-					continue
+			continue
+		}
+		s.lemmas[j] = record
+		j++
+	}
+	// keep recent clauses
+	for ; i < sz; i++ {
+		record := s.lemmas[i]
+		if record.clause.Deleted() && s.clauseCanDelete(record.clause) {
+			if err := s.delClause(&s.lemmas[i]); err != nil {
+				return err
+			}
+			continue
+		}
+		s.lemmas[j] = record
+		j++
+	}
+	clear(s.lemmas[j:])
+	s.lemmas = s.lemmas[:j]
+	// The source then rescales activities when m_clause_decay > 1. No
+	// parameter sets m_clause_decay, which stays 1, so that loop is not
+	// reached.
+	return nil
+}
+
+// traceDelInactiveLemma is del_inactive_lemmas1's TRACE of a deleted lemma:
+// display_clause and its activity.
+func (s *SMTInternalizerState) traceDelInactiveLemma(clause *SMTClause) {
+	if !smtTraceEnabled("del_inactive_lemmas") {
+		return
+	}
+	var out strings.Builder
+	out.WriteString("deleting: ")
+	if err := clause.DisplayCompact(&out, s.boolExpr); err != nil {
+		out.WriteString("<" + err.Error() + ">")
+	}
+	activity, _ := clause.Activity()
+	out.WriteString(", activity: " + strconv.FormatUint(uint64(activity), 10) + "\n")
+	emitSMTTrace("del_inactive_lemmas", "del_inactive_lemmas1", "src/smt/smt_context.cpp", 2703, out.String())
+}
+
+// delInactiveLemmas2 is context::del_inactive_lemmas2.
+func (s *SMTInternalizerState) delInactiveLemmas2() (result error) {
+	config := s.clauseMaintenance
+	sz := len(s.lemmas)
+	startAt, err := s.lemmasStart()
+	if err != nil {
+		return err
+	}
+	realSz := uint32(sz - startAt)
+	// idx of the first learned clause considered "new"
+	newFirstIdx := uint32(startAt) + (realSz/config.NewOldRatio)*(config.NewOldRatio-1)
+	i, j := startAt, startAt
+	defer func() {
+		if result != nil {
+			s.lemmas = compactClauseRecords(s.lemmas, i, j)
+		}
+	}()
+	for ; i < sz; i++ {
+		record := s.lemmas[i]
+		clause := record.clause
+		activity, err := clause.Activity()
+		if err != nil {
+			return err
+		}
+		if s.clauseCanDelete(clause) {
+			if clause.Deleted() {
+				// clause is already marked for deletion
+				if err := s.delClause(&s.lemmas[i]); err != nil {
+					return err
 				}
-				if activity < config.OldActivity {
-					relevancy := config.OldRelevancy
-					if uint32(position) >= newFirst {
-						relevancy = config.NewRelevancy
-					}
-					unknowns, err := s.clauseHasUnknowns(clause, relevancy)
-					if err != nil {
+				continue
+			}
+			// act_threshold is old - (old - new) * ((i - start_at) / real_sz)
+			// in unsigned arithmetic; (i - start_at) / real_sz is 0 for every
+			// lemma.
+			actThreshold := config.OldActivity - (config.OldActivity-config.NewActivity)*(uint32(i-startAt)/realSz)
+			if activity < actThreshold {
+				relThreshold := config.OldRelevancy
+				if uint32(i) >= newFirstIdx {
+					relThreshold = config.NewRelevancy
+				}
+				unknowns, err := s.clauseHasUnknowns(clause, relThreshold)
+				if err != nil {
+					return err
+				}
+				if unknowns {
+					if err := s.delClause(&s.lemmas[i]); err != nil {
 						return err
 					}
-					if unknowns {
-						remove[index] = struct{}{}
-						continue
-					}
-				}
-			}
-			if config.InverseDecay != 1 {
-				if err = clause.SetActivity(uint32(float64(activity) / config.InverseDecay)); err != nil {
-					return err
+					continue
 				}
 			}
 		}
+		s.lemmas[j] = record
+		j++
+		if err = clause.SetActivity(uint32(float64(activity) / config.InverseDecay)); err != nil {
+			i++
+			return err
+		}
 	}
-	return s.deleteLearnedClauseIndexes(remove)
+	clear(s.lemmas[j:])
+	s.lemmas = s.lemmas[:j]
+	return nil
 }
 
 // delInactiveLemmasIfDue is bounded_search's

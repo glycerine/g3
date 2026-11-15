@@ -448,10 +448,10 @@ func TestSMTBVNativeDisequalitySkipsComplementaryPositions(t *testing.T) {
 	astTestMust(t, err)
 	_, left := bvNativeWord(t, m, s, bv, p, q)
 	_, right := bvNativeWord(t, m, s, bv, np, q)
-	before := len(s.clauses)
+	before := len(s.testClauses())
 	astTestMust(t, bv.NewDisequality(left, right))
-	if bv.statistics.diseqStatic != 1 || bv.statistics.diseqDynamic != 0 || len(s.clauses) != before {
-		t.Fatal("static complementary bit expanded dynamically", bv.statistics, len(s.clauses), before)
+	if bv.statistics.diseqStatic != 1 || bv.statistics.diseqDynamic != 0 || len(s.testClauses()) != before {
+		t.Fatal("static complementary bit expanded dynamically", bv.statistics, len(s.testClauses()), before)
 	}
 }
 
@@ -462,10 +462,10 @@ func TestSMTBVNativeEqualityInternalizationIsSourceNoop(t *testing.T) {
 	right, rv := bvNativeWord(t, m, s, bv, q)
 	expression, err := m.MkEq(left.owner, right.owner)
 	astTestMust(t, err)
-	clauses, booleans := len(s.clauses), len(s.boolExpr)
+	clauses, booleans := len(s.testClauses()), len(s.boolExpr)
 	astTestMust(t, s.Internalize(expression, true))
-	if len(s.clauses) != clauses || len(s.boolExpr) != booleans+1 || bv.statistics.eqDynamic != 0 {
-		t.Fatal("source no-op equality callback expanded a Boolean definition", len(s.clauses), clauses, len(s.boolExpr), booleans, bv.statistics)
+	if len(s.testClauses()) != clauses || len(s.boolExpr) != booleans+1 || bv.statistics.eqDynamic != 0 {
+		t.Fatal("source no-op equality callback expanded a Boolean definition", len(s.testClauses()), clauses, len(s.boolExpr), booleans, bv.statistics)
 	}
 	if bv.privateFind[lv] != lv || bv.privateFind[rv] != rv {
 		t.Fatal("unasserted equality merged private classes")

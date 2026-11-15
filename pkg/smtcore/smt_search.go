@@ -173,7 +173,7 @@ func (s *SMTInternalizerState) reinternalizeLemmaAtoms(atoms []smtRetainedLemmaA
 func (s *SMTInternalizerState) searchProgress() smtSearchProgress {
 	result := smtSearchProgress{
 		theory:    s.theoryProgress,
-		variables: len(s.boolExpr), clauses: len(s.clauses), assigned: len(s.assignedLiterals),
+		variables: len(s.boolExpr), clauses: s.numClauseRecords(), assigned: len(s.assignedLiterals),
 		equalities: len(s.theoryEqualities), disequalities: len(s.theoryDisequalities),
 		queuedEqualities: len(s.pending), processedEqualities: s.pendingHead,
 	}

@@ -76,8 +76,8 @@ func TestSMTBitVectorNumeralBit2Bool(t *testing.T) {
 	astTestMust(t, err)
 	variable := state.context.enodes.get(value).TheoryVar(theory.FamilyID())
 	want := []SMTLiteral{SMTFalseLiteral, SMTTrueLiteral, SMTFalseLiteral}
-	if assignment != lbool.Undef || len(state.clauses) != 0 || theory.statistics.bit2core != 0 {
-		t.Fatal("source internal numeral projection creates an atom without eager semantic bridge", assignment, len(state.clauses), theory.statistics)
+	if assignment != lbool.Undef || len(state.testClauses()) != 0 || theory.statistics.bit2core != 0 {
+		t.Fatal("source internal numeral projection creates an atom without eager semantic bridge", assignment, len(state.testClauses()), theory.statistics)
 	}
 	for index, bit := range want {
 		if theory.bitLiterals[variable][index] != bit {

@@ -61,7 +61,7 @@ func TestSMTLRALPDerivedBoundStrictnessReasonsAndScopes(t *testing.T) {
 					want := boundClauseSet([]SMTLiteral{left.Negated(), right.Negated(), literal})
 					if small != 0 {
 						found := false
-						for _, c := range f.s.clauses {
+						for _, c := range f.s.testClauses() {
 							if c.clause != nil && c.clause.IsAuxLemma() && boundClauseSet(c.Literals) == want {
 								found = true
 								if proofs {

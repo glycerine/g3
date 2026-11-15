@@ -22,6 +22,12 @@ var lemmaGCStatisticsVectors = []struct {
 	{"lemma_gc_half_dense_setup.smt2", nil, map[string]string{
 		"conflicts": "5003", "decisions": "6742", "del-clause": "2450", "mk-clause": "5401",
 		"propagations": "85344", "minimized-lits": "16814", "restarts": "18", "dd-assertions": "76372"}},
+	// AUDIT.md smtcore_02-F10: the second collection starts from the
+	// first one's activity order (deletion order: golden trace
+	// del_inactive_lemmas).
+	{"lemma_gc_half_sorted_order.smt2", nil, map[string]string{
+		"conflicts": "10004", "decisions": "13262", "del-clause": "6174", "mk-clause": "10402",
+		"propagations": "177645", "minimized-lits": "34505", "restarts": "25", "dd-assertions": "157465"}},
 }
 
 func TestLemmaGCStatisticsVectors(t *testing.T) {

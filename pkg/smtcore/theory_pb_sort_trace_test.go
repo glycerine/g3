@@ -38,8 +38,8 @@ func TestSMTPBLiteralNetworkTraceActualComparatorClauseOrder(t *testing.T) {
 	network := smtPBSort{theory: pb, mode: smtPBSortGEFull}
 	out := network.merge(inputs[:1], inputs[1:])
 	astTestMust(t, network.err)
-	if len(out) != 2 || network.variables != 2 || network.clauses != 3 || len(s.clauses) != 3 {
-		t.Fatal("actual comparator publication", out, network.variables, network.clauses, len(s.clauses))
+	if len(out) != 2 || network.variables != 2 || network.clauses != 3 || len(s.testClauses()) != 3 {
+		t.Fatal("actual comparator publication", out, network.variables, network.clauses, len(s.testClauses()))
 	}
 	want := smtPBNetworkTraceRecord("merge", 640, "merge a: 1 b: 1\n") +
 		smtPBNetworkTraceRecord("add_clause", 561, fmt.Sprintf("(not p%d) p%d \n", out[1].Var(), inputs[0].Var())) +
@@ -100,7 +100,7 @@ func TestSMTPBLiteralNetworkTraceBadStreamPreservesClauses(t *testing.T) {
 	network := smtPBSort{theory: pb, mode: smtPBSortGEFull}
 	out := network.sort(xs)
 	astTestMust(t, network.err)
-	if len(out) != 2 || len(s.clauses) != 3 || network.variables != 2 || network.clauses != 3 {
+	if len(out) != 2 || len(s.testClauses()) != 3 || network.variables != 2 || network.clauses != 3 {
 		t.Fatal("sticky ostream failure interrupted the actual network")
 	}
 }
@@ -121,8 +121,8 @@ func TestSMTPBLiteralNetworkRecursiveDiagnosticsPreserveThreshold(t *testing.T) 
 	if len(out) != 5 || network.clauses == 0 {
 		t.Fatal("recursive threshold network shape", len(out), network.clauses)
 	}
-	clauses := make([][]SMTLiteral, len(s.clauses))
-	for i, c := range s.clauses {
+	clauses := make([][]SMTLiteral, len(s.testClauses()))
+	for i, c := range s.testClauses() {
 		clauses[i] = append([]SMTLiteral{}, c.Literals...)
 	}
 	// Independent existential SAT checks around the threshold, with the
@@ -179,7 +179,7 @@ func TestSMTPBLiteralNetworkDebugGuardsPrecedeEffects(t *testing.T) {
 			case "cost-direct":
 				network.costDirectSort(3, 2)
 			}
-			if network.err != ast.ErrASTDomain || len(s.boolExpr) != before || len(s.clauses) != 0 || network.variables != 0 || network.clauses != 0 {
+			if network.err != ast.ErrASTDomain || len(s.boolExpr) != before || len(s.testClauses()) != 0 || network.variables != 0 || network.clauses != 0 {
 				t.Fatal("source guard did not precede side effects", network.err, network.variables, network.clauses)
 			}
 			if strings.Contains(output.String(), "[pb] add_clause") {

@@ -25,7 +25,7 @@ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLear
 			// A clause whose watched variables survived the pop is still
 			// watched: reinit_clauses removes those watches first, since the
 			// clause may get new watch literals.
-			if record := &s.clauses[saved.recordIndex]; saved.bindHead == 0 && record.clause == saved.clause {
+			if record := &s.lemmas[saved.recordIndex]; saved.bindHead == 0 && record.clause == saved.clause {
 				for record.closeWatches < 2 {
 					literal := saved.clause.literals[record.closeWatches]
 					if !s.watches[literal.Negated().Index()].RemoveClause(saved.clause) {
@@ -62,7 +62,7 @@ func (s *SMTInternalizerState) reinitializeLearnedClause(saved *smtPreservedLear
 				return err
 			}
 			literals[1], literals[second] = literals[second], literals[1]
-			record := &s.clauses[saved.recordIndex]
+			record := &s.lemmas[saved.recordIndex]
 			if record.clause != saved.clause || record.closeWatches != 2 {
 				return ast.ErrASTDomain
 			}

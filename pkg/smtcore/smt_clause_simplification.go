@@ -136,6 +136,38 @@ func (s *SMTInternalizerState) simplifyClause(record *SMTInternalizedClause) (bo
 	return false, nil
 }
 
+// simplifyClauseRecords is context::simplify_clauses(clauses, starting_at):
+// satisfied clauses are deleted as they are found, the others counted in
+// m_simp_counter.
+func (s *SMTInternalizerState) simplifyClauseRecords(records *[]SMTInternalizedClause, startingAt int) (deleted int, result error) {
+	clauses := *records
+	if startingAt < 0 || startingAt > len(clauses) {
+		return 0, ast.ErrASTDomain
+	}
+	i, j := startingAt, startingAt
+	defer func() {
+		*records = compactClauseRecords(clauses, i, j)
+	}()
+	for ; i < len(clauses); i++ {
+		satisfied, err := s.simplifyClause(&clauses[i])
+		if err != nil {
+			return deleted, err
+		}
+		if satisfied {
+			if err = s.delClause(&clauses[i]); err != nil {
+				return deleted, err
+			}
+			deleted++
+			continue
+		}
+		record := clauses[i]
+		clauses[j] = record
+		j++
+		s.simplifyCounter += len(record.clause.literals)
+	}
+	return deleted, nil
+}
+
 func (s *SMTInternalizerState) simplifyClausesAtBase(baseLevel uint32) error {
 	if err := s.open(); err != nil {
 		return err
@@ -145,22 +177,15 @@ func (s *SMTInternalizerState) simplifyClausesAtBase(baseLevel uint32) error {
 	}
 	// m_aux_clauses.empty() && m_lemmas.empty(): binary clauses live only in
 	// the watch lists.
-	hasClauses := false
-	for index := range s.clauses {
-		if !s.clauses[index].Binary {
-			hasClauses = true
-			break
-		}
-	}
-	if !hasClauses {
+	if len(s.auxClauses) == 0 && len(s.lemmas) == 0 {
 		return nil
 	}
-	start := 0
+	auxStart, lemmaStart := 0, 0
 	if baseLevel != 0 {
 		if int(baseLevel) > len(s.scopes) {
 			return ast.ErrASTDomain
 		}
-		start = s.scopes[baseLevel-1].clauseLimit
+		auxStart, lemmaStart = s.scopes[baseLevel-1].auxClauseLimit, s.scopes[baseLevel-1].lemmaLimit
 	}
 	// IF_VERBOSE(2, "(smt.simplifying-clause-set")
 	if err := assertedVerbose(2, "(smt.simplifying-clause-set"); err != nil {
@@ -168,29 +193,17 @@ func (s *SMTInternalizerState) simplifyClausesAtBase(baseLevel uint32) error {
 	}
 	s.simplifyHead = len(s.assignedLiterals)
 	s.simplifyCounter = 0
-	remove := make(map[int]struct{})
-	for index := start; index < len(s.clauses); index++ {
-		// Binary clauses live only in the watch lists, outside m_aux_clauses
-		// and m_lemmas: simplify_clauses neither deletes nor counts them.
-		if s.clauses[index].Binary {
-			continue
-		}
-		deleted, err := s.simplifyClause(&s.clauses[index])
-		if err != nil {
-			return err
-		}
-		if deleted {
-			remove[index] = struct{}{}
-			continue
-		}
-		if clause := s.clauses[index].clause; clause != nil {
-			s.simplifyCounter += len(clause.literals)
-		} else {
-			s.simplifyCounter += len(s.clauses[index].Literals)
-		}
-	}
-	if err := s.deleteLearnedClauseIndexes(remove); err != nil {
+	numDelClauses := 0
+	// simplify_clauses(m_aux_clauses, ...), then simplify_clauses(m_lemmas, ...).
+	deleted, err := s.simplifyClauseRecords(&s.auxClauses, auxStart)
+	numDelClauses += deleted
+	if err != nil {
 		return err
 	}
-	return assertedVerbose(2, " :num-deleted-clauses "+strconv.Itoa(len(remove))+")\n")
+	deleted, err = s.simplifyClauseRecords(&s.lemmas, lemmaStart)
+	numDelClauses += deleted
+	if err != nil {
+		return err
+	}
+	return assertedVerbose(2, " :num-deleted-clauses "+strconv.Itoa(numDelClauses)+")\n")
 }

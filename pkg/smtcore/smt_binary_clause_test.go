@@ -31,8 +31,8 @@ func newSMTBinaryClauseFixture(t *testing.T) (*SMTInternalizerState, SMTLiteral,
 func TestSMTBinaryClauseOptimizationPropagationAndInvariant(t *testing.T) {
 	state, a, b := newSMTBinaryClauseFixture(t)
 	astTestMust(t, state.addClause([]SMTLiteral{a, b}, false, ast.ASTHandle{}))
-	if len(state.clauses) != 1 || !state.clauses[0].Binary || state.clauses[0].clause != nil {
-		t.Fatal("binary clause representation", state.clauses)
+	if len(state.testClauses()) != 1 || !state.testClauses()[0].Binary || state.testClauses()[0].clause != nil {
+		t.Fatal("binary clause representation", state.testClauses())
 	}
 	if state.watches[a.Negated().Index()].FindLiteral(b) < 0 || state.watches[b.Negated().Index()].FindLiteral(a) < 0 {
 		t.Fatal("reciprocal binary watches")
@@ -82,11 +82,11 @@ func TestSMTBinaryClauseOptimizationDefersScopedClauses(t *testing.T) {
 	state, a, b := newSMTBinaryClauseFixture(t)
 	astTestMust(t, state.PushScope())
 	astTestMust(t, state.addClause([]SMTLiteral{a, b}, false, ast.ASTHandle{}))
-	if len(state.clauses) != 1 || state.clauses[0].Binary || state.clauses[0].clause == nil {
-		t.Fatal("scoped clause used persistent binary representation", state.clauses)
+	if len(state.testClauses()) != 1 || state.testClauses()[0].Binary || state.testClauses()[0].clause == nil {
+		t.Fatal("scoped clause used persistent binary representation", state.testClauses())
 	}
 	astTestMust(t, state.PopScopes(1))
-	if len(state.clauses) != 0 {
+	if len(state.testClauses()) != 0 {
 		t.Fatal("scoped ordinary clause survived pop")
 	}
 }

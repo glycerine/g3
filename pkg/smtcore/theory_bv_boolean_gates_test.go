@@ -27,8 +27,8 @@ func TestSMTBitVectorCarryXor3SourceClausesAndScopes(t *testing.T) {
 			if op == 60 {
 				want = 8
 			}
-			if len(s.clauses) != want {
-				t.Fatal("source gate clause count", len(s.clauses), want)
+			if len(s.testClauses()) != want {
+				t.Fatal("source gate clause count", len(s.testClauses()), want)
 			}
 			v, found := s.BoolVar(gate)
 			if !found {

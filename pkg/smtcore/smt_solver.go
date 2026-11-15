@@ -1046,14 +1046,16 @@ func (s *SMTSolver) FindMutexes(variables []ast.ASTHandle) (lbool.LBool, [][]ast
 	finder := cliques.New()
 	// The retained internalizer still stores binary clauses in the ordinary
 	// two-watch region. Feed those same clause edges to max_cliques directly.
-	for index := range state.clauses {
-		clause := state.clauses[index].clause
-		if clause == nil || clause.Deleted() || len(clause.Literals()) != 2 {
-			continue
-		}
-		pair := clause.Literals()
-		if err := finder.AddEdge(uint32(pair[0].Index()), uint32(pair[1].Index())); err != nil {
-			return lbool.Undef, nil, err
+	for _, records := range state.clauseRecordLists() {
+		for index := range records {
+			clause := records[index].clause
+			if clause == nil || clause.Deleted() || len(clause.Literals()) != 2 {
+				continue
+			}
+			pair := clause.Literals()
+			if err := finder.AddEdge(uint32(pair[0].Index()), uint32(pair[1].Index())); err != nil {
+				return lbool.Undef, nil, err
+			}
 		}
 	}
 	for index := range state.watches {

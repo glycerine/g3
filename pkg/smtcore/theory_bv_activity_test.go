@@ -11,7 +11,7 @@ func TestSMTBVFixedEqualityAxiomsAreEagerAcrossScopes(t *testing.T) {
 	_, right := bvFixedSymbolic(t, m, s, bv, "activity-right", 2)
 	astTestMust(t, s.PushScope())
 	for hit := 1; hit <= 16; hit++ {
-		clauses := len(s.clauses)
+		clauses := len(s.testClauses())
 		if hit%2 == 0 {
 			astTestMust(t, bv.addFixedEquality(right, left))
 		} else {
@@ -20,7 +20,7 @@ func TestSMTBVFixedEqualityAxiomsAreEagerAcrossScopes(t *testing.T) {
 		if got, want := bv.statistics.eqDynamic, uint64(hit); got != want {
 			t.Fatalf("hit %d: emitted %d, want %d", hit, got, want)
 		}
-		if len(s.clauses) <= clauses {
+		if len(s.testClauses()) <= clauses {
 			t.Fatalf("hit %d skipped fixed equality axioms", hit)
 		}
 		if hit == 8 {

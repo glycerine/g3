@@ -141,9 +141,9 @@ func TestSMTArrayReadQueueRechecksIndexRootsAndClearsPoppedWork(t *testing.T) {
 		}
 		if attempt == 0 {
 			astTestMust(t, state.addEquality(state.context.enodes.get(indices[1]), state.context.enodes.get(indices[0]), NewSMTEqualityAxiom()))
-			before := len(state.clauses)
+			before := len(state.testClauses())
 			astTestMust(t, theory.Propagate())
-			if len(state.clauses) != before {
+			if len(state.testClauses()) != before {
 				t.Fatal("queued read used stale unequal index roots")
 			}
 		}

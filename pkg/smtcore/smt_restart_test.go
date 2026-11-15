@@ -72,7 +72,7 @@ func TestSMTRestartPreservesAssumptionScopeClauseReasons(t *testing.T) {
 	restart := newSMTRestartState(k.smtState)
 	astTestMust(t, k.restartSearchAtBase(1, &restart, true))
 	after, found := s.booleanData[ql.Var()].Justification().Clause()
-	if !found || after != before || len(s.clauses) != 1 {
+	if !found || after != before || len(s.testClauses()) != 1 {
 		t.Fatal("restart simplified above the user base and discarded an assumption reason")
 	}
 }
@@ -141,7 +141,7 @@ func TestSMTRestartBacktracksAndPreservesLearnedClause(t *testing.T) {
 	if state.scopeLevel != 0 || state.statistics.NumRestarts != 1 {
 		t.Fatal("restart did not return to search base", state.scopeLevel, state.statistics.NumRestarts)
 	}
-	if len(state.clauses) != 1 || state.clauses[0].clause == nil || !state.clauses[0].clause.IsLearned() {
+	if len(state.testClauses()) != 1 || state.testClauses()[0].clause == nil || !state.testClauses()[0].clause.IsLearned() {
 		t.Fatal("restart lost learned clause")
 	}
 }

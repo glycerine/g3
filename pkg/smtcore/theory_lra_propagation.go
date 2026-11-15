@@ -403,9 +403,9 @@ func (t *SMTLRATheory) assignLRABound(literal SMTLiteral, core []SMTLiteral, par
 		if justification != nil {
 			owner = justification
 		}
-		beforeClauses, beforeOwners := len(s.clauses), len(s.ownedJustifications)
+		beforeClauses, beforeOwners := s.numClauseRecords(), len(s.ownedJustifications)
 		err = s.addClauseKindWithJustificationAndDeleteHandler(clause, false, SMTClauseAuxLemma, ast.ASTHandle{}, owner, nil)
-		if justification != nil && len(s.clauses) == beforeClauses && len(s.ownedJustifications) == beforeOwners {
+		if justification != nil && s.numClauseRecords() == beforeClauses && len(s.ownedJustifications) == beforeOwners {
 			return errors.Join(err, justification.Release(s.manager))
 		}
 		return err

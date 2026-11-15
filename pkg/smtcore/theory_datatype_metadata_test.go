@@ -94,7 +94,7 @@ func TestSMTDatatypeMergedFalseRecognizersPropagateWithSourceEvidence(t *testing
 				t.Fatal("independent false recognizer classes reconstructed a constructor")
 			}
 			astTestMust(t, s.PushScope())
-			clauses, bools := len(s.clauses), len(s.boolExpr)
+			clauses, bools := len(s.testClauses()), len(s.boolExpr)
 			astTestMust(t, s.addEquality(rootNode, s.context.enodes.get(y), NewSMTEqualityAxiom()))
 			astTestMust(t, s.PropagateTheoryEvents())
 			if !existing {
@@ -119,7 +119,7 @@ func TestSMTDatatypeMergedFalseRecognizersPropagateWithSourceEvidence(t *testing
 			if !existing {
 				wantNew = 1
 			}
-			if len(s.clauses) != clauses || len(s.boolExpr)-bools != wantNew || info.TryTrueFirst() || !s.isRelevant(survivorExpr) {
+			if len(s.testClauses()) != clauses || len(s.boolExpr)-bools != wantNew || info.TryTrueFirst() || !s.isRelevant(survivorExpr) {
 				t.Fatal("survivor used SAT guards/split phases or lost relevance")
 			}
 			_, err = s.PropagateCore()

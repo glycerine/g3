@@ -199,9 +199,9 @@ func TestSMTBVFixedEqualitySourceClauseSchedule(t *testing.T) {
 	right, rv := bvFixedSymbolic(t, m, s, bv, "clause-second", 2)
 	wordEq, err := bv.MkEqualityLiteral(left.owner, right.owner, true)
 	astTestMust(t, err)
-	before := len(s.clauses)
+	before := len(s.testClauses())
 	astTestMust(t, bv.addFixedEquality(rv, lv))
-	added := s.clauses[before:]
+	added := s.testClauses()[before:]
 	if len(added) != 19 {
 		t.Fatal("two Boolean equality gates, five native axioms per bit, final word clause", len(added))
 	}

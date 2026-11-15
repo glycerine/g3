@@ -36,21 +36,23 @@ func TestSMTClauseMaintenanceDeletesInactiveLemmasAndRepairsScopes(t *testing.T)
 		astTestMust(t, state.AddLearnedClause(literals[index:index+3]))
 	}
 	astTestMust(t, state.garbageCollectLearnedClauses())
-	if len(state.clauses) != 3 || state.statistics.NumDelClause != 3 {
-		t.Fatal("learned-clause collection", len(state.clauses), state.statistics.NumDelClause)
+	if len(state.testClauses()) != 3 || state.statistics.NumDelClause != 3 {
+		t.Fatal("learned-clause collection", len(state.testClauses()), state.statistics.NumDelClause)
 	}
-	if limit := state.scopes[1].clauseLimit; limit != 2 {
-		t.Fatal("repaired inner clause limit", limit)
-	}
-	astTestMust(t, state.CheckInvariant())
-	astTestMust(t, state.PopScopes(1))
-	if len(state.clauses) != 3 {
-		t.Fatal("lemmas kept across a search pop", len(state.clauses))
+	// Only base scopes keep an m_lemmas limit; a search pop deletes no
+	// lemma, so collection leaves every limit alone.
+	if limit := state.scopes[0].lemmaLimit; limit != 0 || len(state.lemmas) != 3 {
+		t.Fatal("base-scope lemma limit", limit, len(state.lemmas))
 	}
 	astTestMust(t, state.CheckInvariant())
 	astTestMust(t, state.PopScopes(1))
-	if len(state.clauses) != 0 {
-		t.Fatal("repaired outer clause limit", len(state.clauses))
+	if len(state.testClauses()) != 3 {
+		t.Fatal("lemmas kept across a search pop", len(state.testClauses()))
+	}
+	astTestMust(t, state.CheckInvariant())
+	astTestMust(t, state.PopScopes(1))
+	if len(state.testClauses()) != 0 {
+		t.Fatal("base-scope pop kept lemmas", len(state.testClauses()))
 	}
 }
 
@@ -119,4 +121,58 @@ func TestSMTLemmaGCSkippedWhenRestartIsDue(t *testing.T) {
 		astTestMust(t, k.restartSearch(session.baseLevel, &session.restarts))
 	}
 	t.Fatal("no restart after a non-restarting conflict")
+}
+
+// AUDIT.md smtcore_02-F10: del_inactive_lemmas1 stable-sorts m_lemmas in
+// place, so the next collection breaks activity ties in the previous
+// activity order, not in creation order.
+func TestSMTClauseMaintenanceHalfKeepsSortedOrder(t *testing.T) {
+	m := astTestManager(t)
+	_, _, state := smtInternalizerFixture(t, m, nil)
+	config := defaultSMTClauseMaintenanceConfig()
+	config.Half = true
+	config.Recent = 0
+	astTestMust(t, state.ConfigureClauseMaintenance(config))
+	literals := make([]SMTLiteral, 6)
+	for index := range literals {
+		expression := smtRelevancyBool(t, m, "half-order-"+string(rune('a'+index)))
+		astTestMust(t, state.Internalize(expression, true))
+		variable, found := state.BoolVar(expression)
+		if !found {
+			t.Fatal("missing half-order variable", index)
+		}
+		literals[index] = NewSMTLiteral(variable, false)
+	}
+	var lemmas [4]*SMTClause
+	for index, activity := range []uint32{1, 2, 2, 1} {
+		astTestMust(t, state.AddLearnedClause(literals[index:index+3]))
+		lemmas[index] = state.lemmas[len(state.lemmas)-1].clause
+		astTestMust(t, lemmas[index].SetActivity(activity))
+	}
+	order := func() []*SMTClause {
+		var result []*SMTClause
+		for _, record := range state.lemmas {
+			result = append(result, record.clause)
+		}
+		return result
+	}
+	// First collection: every lemma is pinned (can_delete is false for a
+	// clause on the reinit stack), so only the sort shows.
+	for _, lemma := range lemmas {
+		lemma.reinit = true
+	}
+	astTestMust(t, state.garbageCollectLearnedClauses())
+	for _, lemma := range lemmas {
+		lemma.reinit = false
+	}
+	if got, want := order(), []*SMTClause{lemmas[1], lemmas[2], lemmas[0], lemmas[3]}; fmt.Sprint(got) != fmt.Sprint(want) || state.statistics.NumDelClause != 0 {
+		t.Fatal("first collection did not leave m_lemmas in activity order", got, want, state.statistics.NumDelClause)
+	}
+	for _, lemma := range lemmas {
+		astTestMust(t, lemma.SetActivity(1))
+	}
+	astTestMust(t, state.garbageCollectLearnedClauses())
+	if got, want := order(), []*SMTClause{lemmas[1], lemmas[2]}; fmt.Sprint(got) != fmt.Sprint(want) || state.statistics.NumDelClause != 2 {
+		t.Fatal("second collection broke ties in creation order", got, want, state.statistics.NumDelClause)
+	}
 }

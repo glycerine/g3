@@ -46,9 +46,9 @@ func TestSMTScopeRestorationReassertsUnitAndConflictInPlace(t *testing.T) {
 			}
 			cl := scopeRestorationLiterals(t, s, c)[0]
 			astTestMust(t, s.AddLearnedClause([]SMTLiteral{cl, base[0], base[1]}))
-			original := s.clauses[len(s.clauses)-1].clause
+			original := s.testClauses()[len(s.testClauses())-1].clause
 			astTestMust(t, s.PopScopes(1))
-			if s.clauses[0].clause != original || s.inconsistent != conflict {
+			if s.testClauses()[0].clause != original || s.inconsistent != conflict {
 				t.Fatal("restoration lost identity or conflict status", s.inconsistent, conflict)
 			}
 			if conflict {
@@ -82,14 +82,14 @@ func TestSMTScopeRestorationReassertsStableAuxiliaryLemma(t *testing.T) {
 	astTestMust(t, s.beginSearchPersistence(1, SMTParamsState{}))
 	astTestMust(t, s.PushScope())
 	astTestMust(t, s.addClauseKind([]SMTLiteral{ls[1], ls[0]}, false, SMTClauseAuxLemma, ast.ASTHandle{}))
-	original := s.clauses[0].clause
+	original := s.testClauses()[0].clause
 	if !original.InReinitStack() || original.ReinternalizeAtoms() {
 		t.Fatal("wrong source reinitialization flags for stable auxiliary unit")
 	}
 	astTestMust(t, s.PopScopes(1))
 	value, err := s.Assignment(ls[1])
 	astTestMust(t, err)
-	if value != lbool.True || s.clauses[0].clause != original || original.InReinitStack() {
+	if value != lbool.True || s.testClauses()[0].clause != original || original.InReinitStack() {
 		t.Fatal("stable auxiliary unit was not reasserted at the search base", value)
 	}
 	astTestMust(t, s.endSearchPersistence())
@@ -112,12 +112,12 @@ func TestSMTScopeRestorationCrossesMultipleSearchScopes(t *testing.T) {
 	cl := scopeRestorationLiterals(t, s, c)[0]
 	astTestMust(t, p.MarkRelevant(c))
 	astTestMust(t, s.AddLearnedClause([]SMTLiteral{al, bl.Negated(), cl}))
-	original := s.clauses[0].clause
+	original := s.testClauses()[0].clause
 	if !original.ReinternalizeAtoms() || original.NumAtoms() != 3 {
 		t.Fatal("scoped lemma did not acquire its source atom owners")
 	}
 	astTestMust(t, s.PopScopes(2))
-	if s.scopeLevel != 1 || len(s.clauses) != 1 || s.clauses[0].clause != original || original.ReinternalizeAtoms() || len(original.atoms) != 0 {
+	if s.scopeLevel != 1 || len(s.testClauses()) != 1 || s.testClauses()[0].clause != original || original.ReinternalizeAtoms() || len(original.atoms) != 0 {
 		t.Fatal("multi-pop lost clause identity or kept temporary atom roots")
 	}
 	if p.IsRelevant(b) || p.IsRelevant(c) {
@@ -144,7 +144,7 @@ func TestSMTScopeRestorationSavesAtomsBeforeWatchSelection(t *testing.T) {
 	astTestMust(t, s.AssignLiteral(ls[1].Negated(), NewSMTBooleanAxiom()))
 	astTestMust(t, s.PushScope())
 	astTestMust(t, s.AddLearnedClause(ls))
-	original := s.clauses[0].clause
+	original := s.testClauses()[0].clause
 	if original.literals[1] != ls[2] {
 		t.Fatal("setup did not move the second watch")
 	}
@@ -183,14 +183,14 @@ func TestSMTScopeRestorationNestedMixedClausesAndMovedWatches(t *testing.T) {
 	astTestMust(t, p.MarkRelevant(d))
 	astTestMust(t, s.addGateClause([]SMTLiteral{base[0].Negated(), base[1]})) // scoped auxiliary before lemma
 	astTestMust(t, s.AddLearnedClause([]SMTLiteral{base[0], base[1], dl}))
-	first := s.clauses[len(s.clauses)-1].clause
+	first := s.testClauses()[len(s.testClauses())-1].clause
 	astTestMust(t, s.PushScope())
 	e := smtRelevancyBool(t, m, "nested-restore-e")
 	el := scopeRestorationLiterals(t, s, e)[0]
 	astTestMust(t, p.MarkRelevant(e))
 	astTestMust(t, s.addGateClause([]SMTLiteral{base[0].Negated(), el}))
 	astTestMust(t, s.addClauseKind([]SMTLiteral{base[0], dl.Negated(), el}, false, SMTClauseAuxLemma, ast.ASTHandle{}))
-	second := s.clauses[len(s.clauses)-1].clause
+	second := s.testClauses()[len(s.testClauses())-1].clause
 	astTestMust(t, s.AssignLiteral(base[0].Negated(), NewSMTBooleanAxiom()))
 	ok, err := s.Propagate()
 	astTestMust(t, err)
@@ -202,8 +202,8 @@ func TestSMTScopeRestorationNestedMixedClausesAndMovedWatches(t *testing.T) {
 		t.Fatal("setup did not move the false watch")
 	}
 	astTestMust(t, s.PopScopes(1))
-	if len(s.clauses) != 3 || s.clauses[1].clause != first || s.clauses[2].clause != second {
-		t.Fatal("nested pop lost clause order or identity", len(s.clauses))
+	if len(s.testClauses()) != 3 || s.testClauses()[1].clause != first || s.testClauses()[2].clause != second {
+		t.Fatal("nested pop lost clause order or identity", len(s.testClauses()))
 	}
 	if first.literals[0] != watches[0] || first.literals[1] != watches[1] {
 		t.Fatal("surviving watch positions changed")
@@ -212,7 +212,7 @@ func TestSMTScopeRestorationNestedMixedClausesAndMovedWatches(t *testing.T) {
 		t.Fatal("nested relevance did not follow scope lifetimes")
 	}
 	astTestMust(t, s.PopScopes(1))
-	if len(s.clauses) != 2 || s.clauses[0].clause != first || s.clauses[1].clause != second {
+	if len(s.testClauses()) != 2 || s.testClauses()[0].clause != first || s.testClauses()[1].clause != second {
 		t.Fatal("auxiliary deletion shifted or lost surviving lemmas")
 	}
 	if !p.IsRelevant(a) || !p.IsRelevant(b) || p.IsRelevant(d) || p.IsRelevant(e) {
@@ -250,7 +250,7 @@ func TestSMTScopeRestorationPreservesNonGateNotVariable(t *testing.T) {
 	c := smtRelevancyBool(t, m, "restore-not-c")
 	others := scopeRestorationLiterals(t, s, b, c)
 	astTestMust(t, s.AddLearnedClause([]SMTLiteral{NewSMTLiteral(notVar, false), others[0], others[1]}))
-	original := s.clauses[len(s.clauses)-1].clause
+	original := s.testClauses()[len(s.testClauses())-1].clause
 	astTestMust(t, s.PopScopes(1))
 	notVar, found = s.BoolVar(notA)
 	if !found {
@@ -319,14 +319,14 @@ func TestSMTScopeRestorationProofOwnershipFailureRetryAndClose(t *testing.T) {
 				astTestMust(t, err)
 				handler := &smtClauseTestDeleteHandler{}
 				astTestMust(t, s.addClauseKindWithDeleteHandler(ls, false, SMTClauseLearned, proof, handler))
-				original := s.clauses[0].clause
+				original := s.testClauses()[0].clause
 				owner := original.Justification()
 				refs, err := m.GetRefCount(proof)
 				astTestMust(t, err)
 				if stage == "rebind" {
 					theory.hold = true
 					err = s.PopScopes(1)
-					if !errors.Is(err, ast.ErrASTPending) || s.pendingPop == nil || s.pendingPop.stage != 3 || s.clauses[0].closeWatches != 2 {
+					if !errors.Is(err, ast.ErrASTPending) || s.pendingPop == nil || s.pendingPop.stage != 3 || s.testClauses()[0].closeWatches != 2 {
 						t.Fatal("did not reach detached clause boundary", err)
 					}
 					theory.hold = false
@@ -335,7 +335,7 @@ func TestSMTScopeRestorationProofOwnershipFailureRetryAndClose(t *testing.T) {
 				if !errors.Is(err, ast.ErrASTPending) || s.pendingPop == nil || original.closed || handler.calls != 0 {
 					t.Fatal("native refusal lost live clause", err)
 				}
-				if stage == "rebind" && (s.pendingPop.stage != 6 || s.pendingPop.learned[0].installed || s.clauses[0].closeWatches != 2) {
+				if stage == "rebind" && (s.pendingPop.stage != 6 || s.pendingPop.learned[0].installed || s.testClauses()[0].closeWatches != 2) {
 					t.Fatal("refused reinitialization lost its cursor")
 				}
 				if abandon {
@@ -346,7 +346,7 @@ func TestSMTScopeRestorationProofOwnershipFailureRetryAndClose(t *testing.T) {
 					return
 				}
 				astTestMust(t, s.PopScopes(1))
-				if len(s.clauses) != 1 || s.clauses[0].clause != original || original.Justification() != owner || handler.calls != 0 {
+				if len(s.testClauses()) != 1 || s.testClauses()[0].clause != original || original.Justification() != owner || handler.calls != 0 {
 					t.Fatal("retry replaced clause, proof owner, or deletion handler")
 				}
 				after, err := m.GetRefCount(proof)
@@ -420,12 +420,12 @@ func TestSMTScopeRestorationSourceContract(t *testing.T) {
 				astTestMust(t, err)
 			}
 			astTestMust(t, s.AddLearnedClause([]SMTLiteral{literals[0], literals[1].Negated(), literals[2]}))
-			original := s.clauses[0].clause
+			original := s.testClauses()[0].clause
 			astTestMust(t, original.SetActivity(37))
 			creation := s.booleanCreation[literals[0].Var()]
 			made, deleted := s.statistics.NumMkClause, s.statistics.NumDelClause
 			astTestMust(t, s.PopScopes(1))
-			if len(s.clauses) != 1 || s.clauses[0].clause != original {
+			if len(s.testClauses()) != 1 || s.testClauses()[0].clause != original {
 				t.Fatal("backtrack replaced the learned clause object")
 			}
 			if s.statistics.NumMkClause != made || s.statistics.NumDelClause != deleted {
@@ -481,7 +481,7 @@ func TestSMTScopeRestorationSourceContract(t *testing.T) {
 			}
 			astTestMust(t, s.endSearchPersistence())
 			astTestMust(t, s.PopScopes(1))
-			if !original.closed || len(s.clauses) != 0 {
+			if !original.closed || len(s.testClauses()) != 0 {
 				t.Fatal("learned clause survived its user base")
 			}
 		})

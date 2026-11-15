@@ -102,8 +102,8 @@ func TestSMTLearnedClauseRestoreFailureResumesWithoutDuplicates(t *testing.T) {
 	}
 	astTestMust(t, state.AddLearnedClause([]SMTLiteral{literals[0], literals[1]}))
 	astTestMust(t, state.AddLearnedClause([]SMTLiteral{literals[1].Negated(), literals[2]}))
-	for i := range state.clauses {
-		astTestMust(t, state.clauses[i].clause.SetActivity(uint32(7+i)))
+	for i := range state.testClauses() {
+		astTestMust(t, state.testClauses()[i].clause.SetActivity(uint32(7+i)))
 	}
 	saved, err := state.preserveLearnedClauses(0)
 	astTestMust(t, err)
@@ -114,15 +114,15 @@ func TestSMTLearnedClauseRestoreFailureResumesWithoutDuplicates(t *testing.T) {
 	astTestMust(t, state.restoreLearnedClauses(saved[:1]))
 	var cause error
 	f.refuse(t, func() { cause = state.restoreLearnedClauses(saved) })
-	if !errors.Is(cause, ast.ErrASTPending) || !saved[0].installed || saved[1].installed || len(state.clauses) != 1 || saved[1].atoms[0].expression.IsNull() {
-		t.Fatal("refusal lost partial installation or pending roots", cause, len(state.clauses))
+	if !errors.Is(cause, ast.ErrASTPending) || !saved[0].installed || saved[1].installed || len(state.testClauses()) != 1 || saved[1].atoms[0].expression.IsNull() {
+		t.Fatal("refusal lost partial installation or pending roots", cause, len(state.testClauses()))
 	}
 	astTestMust(t, state.restoreLearnedClauses(saved))
 	astTestMust(t, state.restoreLearnedClauses(saved))
-	if len(state.clauses) != 2 {
-		t.Fatal("retry duplicated or lost clauses", len(state.clauses))
+	if len(state.testClauses()) != 2 {
+		t.Fatal("retry duplicated or lost clauses", len(state.testClauses()))
 	}
-	for i, clause := range state.clauses {
+	for i, clause := range state.testClauses() {
 		activity, err := clause.clause.Activity()
 		astTestMust(t, err)
 		if activity != uint32(7+i) {

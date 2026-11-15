@@ -3189,9 +3189,9 @@ func (t *SMTTheoryArith) mkAuxLemmaClause(lits []SMTLiteral, ante *smtArithmetic
 	if justification != nil {
 		owner = justification
 	}
-	beforeClauses, beforeOwners := len(t.state.clauses), len(t.state.ownedJustifications)
+	beforeClauses, beforeOwners := t.state.numClauseRecords(), len(t.state.ownedJustifications)
 	err := t.state.addClauseKindWithJustificationAndDeleteHandler(lits, false, SMTClauseAuxLemma, ast.ASTHandle{}, owner, nil)
-	if justification != nil && len(t.state.clauses) == beforeClauses && len(t.state.ownedJustifications) == beforeOwners {
+	if justification != nil && t.state.numClauseRecords() == beforeClauses && len(t.state.ownedJustifications) == beforeOwners {
 		err = errors.Join(err, justification.Release(m))
 	}
 	return err

@@ -425,7 +425,7 @@ func TestSMTDatalogNativeOrderBridgeTermContextAndRelevance(t *testing.T) {
 	// axiom; they are not guarded by an extra permanent once-only cache.
 	astTestMust(t, f.dl.Relevant(f.node.owner))
 	var units int
-	for _, clause := range f.s.clauses {
+	for _, clause := range f.s.testClauses() {
 		if !clause.Root && len(clause.Literals) == 1 {
 			expression, err := f.s.BoolExpression(clause.Literals[0].Var())
 			astTestMust(t, err)

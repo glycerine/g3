@@ -53,38 +53,40 @@ func (s *SMTInternalizerState) CheckInvariant() error {
 			}
 		}
 	}
-	for index := range s.clauses {
-		record := &s.clauses[index]
-		if record.Binary {
-			if record.clause != nil || len(record.Literals) != 2 {
+	for _, records := range s.clauseRecordLists() {
+		for index := range records {
+			record := &records[index]
+			if record.Binary {
+				if record.clause != nil || len(record.Literals) != 2 {
+					return ast.ErrASTDomain
+				}
+				first, second := record.Literals[0], record.Literals[1]
+				if s.watches[first.Negated().Index()].FindLiteral(second) < 0 ||
+					s.watches[second.Negated().Index()].FindLiteral(first) < 0 {
+					return ast.ErrASTDomain
+				}
+				continue
+			}
+			if record.clause == nil || record.clause.Deleted() || len(record.Literals) < 2 {
 				return ast.ErrASTDomain
 			}
-			first, second := record.Literals[0], record.Literals[1]
-			if s.watches[first.Negated().Index()].FindLiteral(second) < 0 ||
-				s.watches[second.Negated().Index()].FindLiteral(first) < 0 {
+			literals := record.clause.Literals()
+			if len(literals) != len(record.Literals) {
 				return ast.ErrASTDomain
 			}
-			continue
-		}
-		if record.clause == nil || record.clause.Deleted() || len(record.Literals) < 2 {
-			return ast.ErrASTDomain
-		}
-		literals := record.clause.Literals()
-		if len(literals) != len(record.Literals) {
-			return ast.ErrASTDomain
-		}
-		for literalIndex := range literals {
-			if literals[literalIndex] != record.Literals[literalIndex] && literalIndex >= 2 {
-				return ast.ErrASTDomain
+			for literalIndex := range literals {
+				if literals[literalIndex] != record.Literals[literalIndex] && literalIndex >= 2 {
+					return ast.ErrASTDomain
+				}
+				if literals[literalIndex].Index() < 0 || int(literals[literalIndex].Index()) >= len(s.assignment) {
+					return ast.ErrASTDomain
+				}
 			}
-			if literals[literalIndex].Index() < 0 || int(literals[literalIndex].Index()) >= len(s.assignment) {
-				return ast.ErrASTDomain
-			}
-		}
-		for watchIndex := 0; watchIndex < 2; watchIndex++ {
-			literal := literals[watchIndex]
-			if s.watches[literal.Negated().Index()].FindClause(record.clause) < 0 {
-				return ast.ErrASTDomain
+			for watchIndex := 0; watchIndex < 2; watchIndex++ {
+				literal := literals[watchIndex]
+				if s.watches[literal.Negated().Index()].FindClause(record.clause) < 0 {
+					return ast.ErrASTDomain
+				}
 			}
 		}
 	}

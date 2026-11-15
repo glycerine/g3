@@ -28,7 +28,8 @@ type smtPreservedLearnedClause struct {
 	clause      *SMTClause
 	pending     smtLearnedAssignment
 	inPlace     bool
-	recordIndex int
+	recordIndex int             // index of the in-place lemma in s.lemmas
+	retired     bool            // the pop retires one of its atoms: popTo detaches it
 	sourceAtoms []smtClauseAtom // borrowed from the surviving clause owner
 	bindHead    int
 	keepReinit  bool
@@ -183,44 +184,32 @@ func (s *SMTInternalizerState) learnedClauseProof(clause *SMTClause) (ast.ASTHan
 }
 
 // A failed acquisition returns its owned prefix to the pending Pop; it must
-// release that prefix before attempting another capture.
+// release that prefix before attempting another capture. During a live
+// search pop it walks every lemma, as reinit_clauses walks
+// m_clauses_to_reinit, and limit is unused; otherwise it snapshots
+// m_lemmas[limit..].
 func (s *SMTInternalizerState) preserveLearnedClauses(limit int) ([]smtPreservedLearnedClause, error) {
-	if limit < 0 || limit > len(s.clauses) {
+	if limit < 0 || limit > len(s.lemmas) {
 		return nil, ast.ErrASTDomain
 	}
 	var result []smtPreservedLearnedClause
 	livePop := s.pendingPop != nil && s.pendingPop.preserve && s.pendingPop.stage == 0
-	booleanLimit, kept := 0, 0
-	if livePop {
-		booleanLimit = s.scopes[s.pendingPop.level].booleanLimit + int(SMTFirstBoolVar)
-	}
+	booleanLimit := 0
 	start := limit
 	if livePop {
+		booleanLimit = s.scopes[s.pendingPop.level].booleanLimit + int(SMTFirstBoolVar)
 		// reinit_clauses walks m_clauses_to_reinit[m_scope_lvl+1..lim], which
-		// also holds older lemmas re-pushed by an earlier reinit.
+		// also holds older lemmas re-pushed by an earlier reinit. A search
+		// pop deletes no lemma, so every index stays valid.
 		start = 0
 	}
-	for index := start; index < len(s.clauses); index++ {
-		clause := s.clauses[index].clause
-		recordIndex := index
-		if index >= limit {
-			// The pop compacts s.clauses to the records keepClauseAcrossPop
-			// keeps, binary lemmas (no clause object) included; count every
-			// kept slot.
-			keeps := livePop && s.keepClauseAcrossPop(&s.clauses[index])
-			if clause == nil || !clause.IsLemma() {
-				if keeps {
-					kept++
-				}
-				continue
-			}
-			recordIndex = limit + kept
-			kept++
-		} else if clause == nil || !clause.IsLemma() {
+	for index := start; index < len(s.lemmas); index++ {
+		clause := s.lemmas[index].clause
+		if clause == nil || !clause.IsLemma() {
 			continue
 		}
+		retired := false
 		if livePop {
-			retired := false
 			for _, literal := range clause.literals {
 				retired = retired || int(literal.Var()) >= booleanLimit
 			}
@@ -234,7 +223,7 @@ func (s *SMTInternalizerState) preserveLearnedClauses(limit int) ([]smtPreserved
 		result = append(result, smtPreservedLearnedClause{})
 		saved := &result[len(result)-1]
 		if livePop {
-			saved.inPlace, saved.clause, saved.recordIndex = true, clause, recordIndex
+			saved.inPlace, saved.clause, saved.recordIndex, saved.retired = true, clause, index, retired
 			saved.sourceAtoms = clause.atoms
 			// Source clause objects already own their atoms and proof. Do not
 			// acquire a second snapshot merely to keep the same object alive.
@@ -303,15 +292,21 @@ func (s *SMTInternalizerState) restoreLearnedClauses(clauses []smtPreservedLearn
 			if err != nil {
 				return err
 			}
-			before, assigned := len(s.clauses), len(s.assignedLiterals)
+			lemmas, binaries, assigned := len(s.lemmas), len(s.binaryClauses), len(s.assignedLiterals)
 			first := literals[0]
 			assignment := s.assignment[first.Index()]
 			err = s.addLearnedClauseWithProof(literals, saved.proof, false)
-			if len(s.clauses) > before {
+			var added *SMTInternalizedClause
+			if len(s.lemmas) > lemmas {
+				added = &s.lemmas[len(s.lemmas)-1]
+			} else if len(s.binaryClauses) > binaries {
+				added = &s.binaryClauses[len(s.binaryClauses)-1]
+			}
+			if added != nil {
 				saved.installed = true
-				saved.clause = s.clauses[len(s.clauses)-1].clause
+				saved.clause = added.clause
 				if err != nil {
-					record := s.clauses[len(s.clauses)-1]
+					record := *added
 					justification := NewSMTBooleanClause(record.clause)
 					if record.Binary {
 						justification = NewSMTBooleanBinaryClause(record.Literals[1].Negated())

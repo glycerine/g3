@@ -80,20 +80,37 @@ func smtInternalizerGateOperation(operation int32) bool {
 	return operation == ast.ASTOpAnd || operation == ast.ASTOpOr || operation == ast.ASTOpIff || operation == ast.ASTOpIte || operation == ast.ASTOpImplies
 }
 
+// numClauseRecords counts the stored clauses: m_aux_clauses, m_lemmas and
+// the watch-only binary clauses.
+func (s *SMTInternalizerState) numClauseRecords() int {
+	return len(s.auxClauses) + len(s.lemmas) + len(s.binaryClauses)
+}
+
+// clauseRecordLists returns m_aux_clauses, m_lemmas and the watch-only
+// binary clauses, in that order.
+func (s *SMTInternalizerState) clauseRecordLists() [3][]SMTInternalizedClause {
+	return [3][]SMTInternalizedClause{s.auxClauses, s.lemmas, s.binaryClauses}
+}
+
+// Clauses lists the auxiliary clauses, then the lemmas in m_lemmas order,
+// then the watch-only binary clauses.
 func (s *SMTInternalizerState) Clauses() []SMTInternalizedClause {
 	if s == nil {
 		return nil
 	}
-	result := make([]SMTInternalizedClause, len(s.clauses))
-	for index := range s.clauses {
-		result[index] = s.clauses[index]
-		literals := s.clauses[index].Literals
-		if s.clauses[index].clause != nil {
-			literals = s.clauses[index].clause.Literals()
+	result := make([]SMTInternalizedClause, 0, s.numClauseRecords())
+	for _, records := range s.clauseRecordLists() {
+		for index := range records {
+			record := records[index]
+			literals := record.Literals
+			if record.clause != nil {
+				literals = record.clause.Literals()
+			}
+			record.Literals = append([]SMTLiteral(nil), literals...)
+			record.clause = nil
+			record.owner = nil
+			result = append(result, record)
 		}
-		result[index].Literals = append([]SMTLiteral(nil), literals...)
-		result[index].clause = nil
-		result[index].owner = nil
 	}
 	return result
 }
@@ -302,7 +319,7 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 			_ = s.watches[first.Negated().Index()].RemoveLiteral(second)
 			return err
 		}
-		s.clauses = append(s.clauses, SMTInternalizedClause{Literals: kept, Root: root, Binary: true, Lemma: lemma, Proof: proof})
+		s.binaryClauses = append(s.binaryClauses, SMTInternalizedClause{Literals: kept, Root: root, Binary: true, Lemma: lemma, Proof: proof})
 		value, err := s.Assignment(second)
 		if err != nil {
 			return err
@@ -355,7 +372,12 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 		s.ownedJustifications = append(s.ownedJustifications, owner)
 		owner = nil
 	}
-	s.clauses = append(s.clauses, SMTInternalizedClause{Literals: kept, Root: root, Proof: proof, clause: clause, owner: owner})
+	record := SMTInternalizedClause{Literals: kept, Root: root, Proof: proof, clause: clause, owner: owner}
+	if lemma {
+		s.lemmas = append(s.lemmas, record) // m_lemmas.push_back(cls)
+	} else {
+		s.auxClauses = append(s.auxClauses, record) // m_aux_clauses.push_back(cls)
+	}
 	// Source mk_clause counts a two-literal clause that is not stored as a
 	// binary watch only in m_num_mk_clause (case 2 falls through).
 	s.statistics.NumMkClause++
@@ -468,9 +490,9 @@ func (s *SMTInternalizerState) addTheoryAxiomWithParameters(theory SMTTheoryID, 
 	if err != nil {
 		return err
 	}
-	beforeClauses, beforeOwners := len(s.clauses), len(s.ownedJustifications)
+	beforeClauses, beforeOwners := s.numClauseRecords(), len(s.ownedJustifications)
 	err = s.addClauseKindWithJustificationAndDeleteHandler(literals, false, SMTClauseAux, ast.ASTHandle{}, justification, nil)
-	if len(s.clauses) == beforeClauses && len(s.ownedJustifications) == beforeOwners {
+	if s.numClauseRecords() == beforeClauses && len(s.ownedJustifications) == beforeOwners {
 		return errors.Join(err, justification.Release(s.manager))
 	}
 	if len(parameters) != 0 {

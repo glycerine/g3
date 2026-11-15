@@ -36,7 +36,7 @@ func TestSMTContextInvariantWatchesAssignmentsAndJustifications(t *testing.T) {
 	state.assignment = append(state.assignment, lastAssignment)
 	astTestMust(t, state.CheckInvariant())
 
-	clause := state.clauses[0].clause
+	clause := state.testClauses()[0].clause
 	watch := &state.watches[clause.Literals()[0].Negated().Index()]
 	if !watch.RemoveClause(clause) {
 		t.Fatal("missing test watch")
@@ -60,7 +60,7 @@ func TestSMTContextInvariantDetectsInvalidClauseJustification(t *testing.T) {
 	bLiteral, err := state.Literal(b)
 	astTestMust(t, err)
 	astTestMust(t, state.addClause([]SMTLiteral{aLiteral, bLiteral}, false, ast.ASTHandle{}))
-	state.booleanData[aLiteral.Var()].SetJustification(NewSMTBooleanClause(state.clauses[0].clause))
+	state.booleanData[aLiteral.Var()].SetJustification(NewSMTBooleanClause(state.testClauses()[0].clause))
 	if err = state.ValidateJustification(aLiteral.Var()); !errors.Is(err, ast.ErrASTDomain) {
 		t.Fatal("false clause justification", err)
 	}

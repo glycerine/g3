@@ -36,12 +36,12 @@ func TestSMTDatatypeSplitCreatesOneRecognizerAndAwaitsAssignment(t *testing.T) {
 	_, dt, x, sort, constructors := smtDatatypeSplitFixture(t)
 	s, err := dt.State()
 	astTestMust(t, err)
-	clauses := len(s.clauses)
+	clauses := len(s.testClauses())
 	for i := 0; i < 3; i++ {
 		astTestMust(t, dt.split(x, sort))
 		slots, err := dt.recognizerSlots(x)
 		astTestMust(t, err)
-		if len(slots) != 1 || slots[constructors[1]].expression.IsNull() || len(s.clauses) != clauses || dt.statistics.splits != uint32(i+1) {
+		if len(slots) != 1 || slots[constructors[1]].expression.IsNull() || len(s.testClauses()) != clauses || dt.statistics.splits != uint32(i+1) {
 			t.Fatal("split expanded cases or changed source split-call statistics")
 		}
 		assignment, err := s.Assignment(slots[constructors[1]].literal)

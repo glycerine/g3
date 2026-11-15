@@ -65,8 +65,8 @@ func smtPBWatchAssign(t *testing.T, s *SMTInternalizerState, literal SMTLiteral)
 
 func TestSMTPBWeightedWatchReplacementJustificationAndRollback(t *testing.T) {
 	_, s, pb, atom, ls := smtPBWatchFixture(t, []int64{4, 3, 2, 2, 1}, 6, false)
-	if len(s.clauses) != 0 || len(pb.constraints) != 1 {
-		t.Fatal("weighted atom was encoded into SAT", len(s.clauses))
+	if len(s.testClauses()) != 0 || len(pb.constraints) != 1 {
+		t.Fatal("weighted atom was encoded into SAT", len(s.testClauses()))
 	}
 	c := pb.constraints[0]
 	for attempt := 0; attempt < 2; attempt++ {
@@ -98,7 +98,7 @@ func TestSMTPBWeightedWatchReplacementJustificationAndRollback(t *testing.T) {
 				t.Fatal("weighted deficit did not force remaining inputs", l, value)
 			}
 		}
-		if len(s.clauses) != 0 || c.watchSum.RatString() != "6" {
+		if len(s.testClauses()) != 0 || c.watchSum.RatString() != "6" {
 			t.Fatal("propagation used encoding clauses or incorrect watch sum")
 		}
 		astTestMust(t, s.PopScopes(1))
@@ -138,7 +138,7 @@ func TestSMTPBUnassignedAtomBoundsAndEqualityInference(t *testing.T) {
 		if value != want {
 			t.Fatal("variable-watch bounds did not infer atom", positive, value)
 		}
-		if pb.statistics.propagations == 0 || len(s.clauses) != 0 {
+		if pb.statistics.propagations == 0 || len(s.testClauses()) != 0 {
 			t.Fatal("atom inference bypassed native watches")
 		}
 		astTestMust(t, s.PopScopes(1))
@@ -172,7 +172,7 @@ func TestSMTPBLargeArityUsesLinearWatchStorage(t *testing.T) {
 		weights[i] = 1
 	}
 	_, s, pb, atom, ls := smtPBWatchFixture(t, weights, 32, false)
-	if len(s.clauses) != 0 || len(s.boolExpr) != 66 || len(pb.constraints) != 1 {
+	if len(s.testClauses()) != 0 || len(s.boolExpr) != 66 || len(pb.constraints) != 1 {
 		t.Fatal("large PB predicate expanded to an encoding")
 	}
 	astTestMust(t, s.PushScope())

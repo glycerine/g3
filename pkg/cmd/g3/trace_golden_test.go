@@ -50,6 +50,10 @@ var goldenTraceTags = []string{"assign_core", "decide", "add_eq_detail", "mk_boo
 // Records at other sites (z3 traces many more) are not compared. Add a site
 // here when its record is ported.
 var goldenTraceSites = map[string]bool{
+	// AUDIT.md smtcore_02-F10, deletion order of the lemma GC (not in
+	// goldenTraceTags; compare with G3_GOLDEN_TAGS=del_inactive_lemmas
+	// G3_GOLDEN_VECTORS=lemma_gc_half_sorted_order).
+	"del_inactive_lemmas del_inactive_lemmas1 src/smt/smt_context.cpp":         true,
 	"assign_core assign_core src/smt/smt_context.cpp":                          true,
 	"add_eq_detail add_eq src/smt/smt_context.cpp":                             true,
 	"decide decide src/smt/smt_context.cpp":                                    true,
