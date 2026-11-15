@@ -778,6 +778,7 @@ struct match_args_aux_proc {
                 throw no_match();
             }
         }
+        // FORK FIX #23 (g3 audit, see FORK_BUGFIXES.md): backport of upstream b76ed6a47: bind unbound identical vars (AUDIT tactic_sls_ufbv_01-F1)
         else
             m_subst.insert(n, 0, expr_offset(n, 1));
     }

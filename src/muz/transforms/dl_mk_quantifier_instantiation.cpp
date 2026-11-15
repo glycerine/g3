@@ -28,6 +28,7 @@ Revision History:
 #include "ast/pattern/pattern_inference.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_util.h"
+// FORK FIX #19 (g3 audit, see FORK_BUGFIXES.md): QI weakening proof under scoped_proof, premises in order (AUDIT muz_transforms_01-F6)
 #include "ast/scoped_proof.h"
 
 
@@ -238,6 +239,7 @@ namespace datalog {
         rm.mk_rule(fml, pr, added_rules, r.name());
         if (r.get_proof()) {
             // use def-axiom to encode that new rule is a weakening of the original.
+            // FORK FIX #19 (g3 audit, see FORK_BUGFIXES.md): QI weakening proof under scoped_proof, premises in order (AUDIT muz_transforms_01-F6)
             scoped_proof _sp(m);
             proof* p1 = r.get_proof();
             for (unsigned i = 0; i < added_rules.get_num_rules(); ++i) {

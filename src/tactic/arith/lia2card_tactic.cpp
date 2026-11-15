@@ -270,6 +270,7 @@ public:
         if (m_compile_equality) {
             return m_pb.mk_eq(sz, weights, args, w);
         }
+        // FORK FIX #27 (g3 audit, see FORK_BUGFIXES.md): lia2card folds equations without terms (AUDIT tactic_arith_02)
         else if (sz == 0) {
             // (and false true) would reach goal::update unflattened and be
             // pushed as a new goal formula on every round

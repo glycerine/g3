@@ -313,6 +313,7 @@ struct pb2bv_rewriter::imp {
                 case OP_NUM:
                     VERIFY(au.is_numeral(a, r));
                     m_k -= mul * r;
+                    // FORK FIX #26 (g3 audit, see FORK_BUGFIXES.md): backport of upstream 10768bd00/f7a7b9e1f: reject fractional pb sums (AUDIT ast_rewriter_04-F3)
                     return m_k.is_int();
                 case OP_MUL:
                     if (sz != 2) {
@@ -344,6 +345,7 @@ struct pb2bv_rewriter::imp {
                     m_coeffs.push_back(r1-r2);
                     m_k -= r2;
                 }
+                // FORK FIX #26 (g3 audit, see FORK_BUGFIXES.md): backport of upstream 10768bd00/f7a7b9e1f: reject fractional pb sums (AUDIT ast_rewriter_04-F3)
                 return m_k.is_int() && (r1-r2).is_int();
             }
             return false;

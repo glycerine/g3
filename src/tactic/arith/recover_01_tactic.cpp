@@ -366,6 +366,7 @@ class recover_01_tactic : public tactic {
             m_rw.set_substitution(subst);
             expr_ref   new_curr(m);
             proof_ref  new_pr(m);
+            // FORK FIX #24 (g3 audit, see FORK_BUGFIXES.md): backport of upstream c230d89a3: re-read goal size (AUDIT tactic_arith_03-F9)
             // update can collapse the goal to false: re-read its size
             for (unsigned idx = 0; idx < new_goal->size(); idx++) {
                 expr * curr = new_goal->form(idx);

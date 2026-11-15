@@ -54,6 +54,7 @@ class distribute_forall_tactic : public tactic {
                     new_args.push_back(new_q);
                 }
                 result = m.mk_and(new_args.size(), new_args.c_ptr());
+                // FORK FIX #25 (g3 audit, see FORK_BUGFIXES.md): backport of upstream d530d1314: distribute-forall proof (AUDIT tactic_core_01-F5)
                 if (m.proofs_enabled()) {
                     result_pr = m.mk_push_quant(old_q, result);
                 }
@@ -77,6 +78,7 @@ class distribute_forall_tactic : public tactic {
                     new_args.push_back(new_q);
                 }
                 result = m.mk_and(new_args.size(), new_args.c_ptr());
+                // FORK FIX #25 (g3 audit, see FORK_BUGFIXES.md): backport of upstream d530d1314: distribute-forall proof (AUDIT tactic_core_01-F5)
                 if (m.proofs_enabled()) {
                     result_pr = m.mk_push_quant(old_q, result);
                 }

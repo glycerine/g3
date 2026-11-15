@@ -633,6 +633,7 @@ private:
             }            
 
             numeral c; bool is_int;
+            // FORK FIX #20 (g3 audit, see FORK_BUGFIXES.md): pb2bv mirrors numeral-on-left atoms (AUDIT tactic_arith_03-F1)
             if (m_arith_util.is_numeral(lhs)) {
                 // c k x --> x k' c: the checked branch below handles c
                 // outside {0,1} and negated atoms.

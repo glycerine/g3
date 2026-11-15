@@ -155,6 +155,7 @@ public:
         m_max.reset();
         m_nonfd.reset();
         m_bounds.reset();
+        // FORK FIX #21 (g3 audit, see FORK_BUGFIXES.md): eq2bv resets its rewriter per goal (AUDIT tactic_arith_01-F3)
         // the cache maps fd atoms to this goal's fresh bit-vectors
         m_rw.reset();
         ref<bvmc> mc1 = alloc(bvmc);

@@ -261,6 +261,7 @@ namespace pdr {
         bool               m_bfs;
         model_node*        m_root;
         model_node*        m_goal;
+        // FORK FIX #13 (g3 audit, see FORK_BUGFIXES.md): PDR model_search cache keyed by predicate (AUDIT muz_pdr_01)
         typedef obj_map<expr, model_nodes> state_cache;
         // Nodes are cached per level and per predicate: the states of
         // distinct nullary predicates are all `true`.

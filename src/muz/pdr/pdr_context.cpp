@@ -49,6 +49,7 @@ Notes:
 #include "model/model_implicant.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/ast_util.h"
+// FORK FIX #13 (g3 audit, see FORK_BUGFIXES.md): PDR model_search cache keyed by predicate (AUDIT muz_pdr_01)
 #include "util/obj_pair_hashtable.h"
 
 namespace pdr {
@@ -1000,6 +1001,7 @@ namespace pdr {
         if (l >= m_cache.size()) {
             m_cache.resize(l + 1);
         }
+        // FORK FIX #13 (g3 audit, see FORK_BUGFIXES.md): PDR model_search cache keyed by predicate (AUDIT muz_pdr_01)
         func_decl* p = n.pt().head();
         obj_map<func_decl, state_cache>::obj_map_entry* e = m_cache[l].find_core(p);
         if (!e) {
@@ -1150,6 +1152,7 @@ namespace pdr {
        get_trace and get_proof_trace rely on models to extract rules.
      */
     void model_search::update_models() {
+        // FORK FIX #13 (g3 audit, see FORK_BUGFIXES.md): PDR model_search cache keyed by predicate (AUDIT muz_pdr_01)
         obj_pair_map<func_decl, expr, model*> models;
         obj_pair_map<func_decl, expr, datalog::rule const*> rules;
         ptr_vector<model_node> todo;
@@ -1169,6 +1172,7 @@ namespace pdr {
             model_node* n = todo.back();
             model* md = nullptr;
             if (!n->get_model_ptr()) {
+                // FORK FIX #13 (g3 audit, see FORK_BUGFIXES.md): PDR model_search cache keyed by predicate (AUDIT muz_pdr_01)
                 if (models.find(n->pt().head(), n->state(), md)) {
                     TRACE("pdr", tout << n->state() << "\n";);
                     model_ref mr(md);
@@ -1480,6 +1484,7 @@ namespace pdr {
 
     void context::reset(bool full) {
         TRACE("pdr", tout << "reset\n";);
+        // FORK FIX #13 (g3 audit, see FORK_BUGFIXES.md): PDR model_search cache keyed by predicate (AUDIT muz_pdr_01)
         // The search cache is keyed by the nodes' predicate transformers:
         // drop the nodes before the transformers.
         m_search.reset();

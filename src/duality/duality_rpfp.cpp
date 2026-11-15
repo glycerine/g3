@@ -3943,6 +3943,7 @@ namespace Duality {
         std::vector<Edge *> &incoming = parent->Incoming;
         for(unsigned i = 0; i < incoming.size(); i++){
             Edge *in_edge = incoming[i];
+            // FORK FIX #14 (g3 audit, see FORK_BUGFIXES.md): unhoist each incoming edge once (AUDIT duality_03-F2)
             // Incoming has one entry per child position. Rewrite each edge
             // once: the loop below handles all of its positions.
             bool seen = false;

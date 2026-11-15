@@ -33,6 +33,7 @@ namespace datalog {
     }
 
     table_base * lazy_table_plugin::mk_empty(const table_signature & s) {
+        // FORK FIX #15 (g3 audit, see FORK_BUGFIXES.md): lazy_table mk_empty fallback for nullary signatures (AUDIT muz_rel_04-F2)
         // The wrapped plugin may not handle s (sparse tables need at least one
         // column); fall back to the table plugin the manager selects.
         table_base * t = m_plugin.can_handle_signature(s) ? m_plugin.mk_empty(s) : get_manager().mk_empty_table(s);
