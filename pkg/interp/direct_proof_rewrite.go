@@ -477,17 +477,17 @@ func (p *DirectProofInterpolator) chainPositionAdd(index int64, chain ast.ASTHan
 }
 
 func (p *DirectProofInterpolator) chainSideConjunction(side TermSide, chain ast.ASTHandle, formulas bool) (ast.ASTHandle, error) {
-	result, err := p.base.manager.Make(OperatorTrue)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
+	// chain_conditions/chain_formulas recurse on chain_rest before
+	// conjoining the last rewrite, so the conjunction is folded from the
+	// earliest rewrite to the latest.
+	var entries []ast.ASTHandle
 	for {
 		empty, e := p.base.manager.IsTrue(chain)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
 		if empty {
-			return result, nil
+			break
 		}
 		rest, last, e := p.chainParts(chain)
 		if e != nil {
@@ -502,13 +502,21 @@ func (p *DirectProofInterpolator) chainSideConjunction(side TermSide, chain ast.
 			if formulas {
 				entry = equality
 			}
-			result, e = p.base.manager.MkAnd(result, entry)
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
+			entries = append(entries, entry)
 		}
 		chain = rest
 	}
+	result, err := p.base.manager.Make(OperatorTrue)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	for i := len(entries) - 1; i >= 0; i-- {
+		result, err = p.base.manager.MkAnd(result, entries[i])
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+	}
+	return result, nil
 }
 
 func (p *DirectProofInterpolator) applyRewriteChain(term, chain ast.ASTHandle) (ast.ASTHandle, error) {

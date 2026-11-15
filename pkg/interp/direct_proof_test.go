@@ -1933,3 +1933,43 @@ func TestDirectProofModusPonensNormalizesInequality(t *testing.T) {
 		t.Fatal("@normal survived simplify_modpon")
 	}
 }
+
+// interp_01-F9: chain_conditions/chain_formulas conjoin the earliest rewrite
+// first.
+func TestDirectProofChainConditionsOrder(t *testing.T) {
+	_, manager, base, p, q := directProofFixture(t)
+	direct, err := NewDirectProofInterpolator(base, DownwardScopeRange(0), false)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, direct.Close()) })
+	truth, err := manager.Make(OperatorTrue)
+	interpMust(t, err)
+	firstEquality, err := manager.Make(OperatorIff, p, q)
+	interpMust(t, err)
+	secondEquality, err := manager.Make(OperatorIff, q, p)
+	interpMust(t, err)
+	first, err := direct.makeRewrite(TermA, direct.topPosition, p, firstEquality)
+	interpMust(t, err)
+	second, err := direct.makeRewrite(TermA, direct.topPosition, q, secondEquality)
+	interpMust(t, err)
+	chain, err := direct.chainCons(truth, first)
+	interpMust(t, err)
+	chain, err = direct.chainCons(chain, second)
+	interpMust(t, err)
+	for _, tc := range []struct {
+		formulas      bool
+		first, second ast.ASTHandle
+	}{
+		{false, p, q},
+		{true, firstEquality, secondEquality},
+	} {
+		result, err := direct.chainSideConjunction(TermA, chain, tc.formulas)
+		interpMust(t, err)
+		left, err := manager.Arg(result, 0)
+		interpMust(t, err)
+		right, err := manager.Arg(result, 1)
+		interpMust(t, err)
+		if left != tc.first || right != tc.second {
+			t.Fatal("chain conjunction order", tc.formulas)
+		}
+	}
+}
