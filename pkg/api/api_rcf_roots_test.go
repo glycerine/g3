@@ -121,3 +121,36 @@ func TestAPIRCFRootsInfinitesimalClose(t *testing.T) {
 		}
 	}
 }
+
+func (f *rcfFixture) rootTexts(coefficients ...*RCFNumber) []string {
+	f.t.Helper()
+	roots, _ := f.rootDecimals(coefficients...)
+	texts := make([]string, len(roots))
+	for i, root := range roots {
+		texts[i] = f.text(root)
+	}
+	return texts
+}
+
+// AUDIT.md math_realclosure_01-F9: mk_neg_interval, mk_pos_interval and the
+// bisection use set_lower/set_upper, whose endpoints are open, and a single
+// root on a half-line is added without bisection.
+func TestAPIRCFRootsDisplayIntervals(t *testing.T) {
+	f := newRCFFixture(t)
+	defer f.close()
+	zero := f.rational("0")
+	got := f.rootTexts(f.rational("-2"), zero, f.rational("1"))
+	want := []string{"root(x^2 + -2, (-oo, 0), {})", "root(x^2 + -2, (0, +oo), {})"}
+	for i := range want {
+		if len(got) != len(want) || !strings.Contains(got[i], want[i]) {
+			t.Fatalf("x^2-2 roots = %q, want %q", got, want)
+		}
+	}
+	got = f.rootTexts(f.rational("1"), f.rational("-3"), zero, f.rational("1"))
+	want = []string{"root(x^3 + -3*x + 1, (-oo, 0), {})", "root(x^3 + -3*x + 1, (1/2^3, 35/2^5), {})", "root(x^3 + -3*x + 1, (35/2^5, 33/2^4), {})"}
+	for i := range want {
+		if len(got) != len(want) || !strings.Contains(got[i], want[i]) {
+			t.Fatalf("x^3-3x+1 roots = %q, want %q", got, want)
+		}
+	}
+}

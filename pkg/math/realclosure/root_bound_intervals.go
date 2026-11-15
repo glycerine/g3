@@ -88,21 +88,22 @@ func makeRootBoundInterval(bounds *numeral.BinaryRationalManager, lowerMagnitude
 			return nil, err
 		}
 	}
-	// mk_neg_interval and mk_pos_interval assign the endpoints with set_lower
-	// and set_upper without validating them. When a half-line has no roots the
+	// mk_neg_interval and mk_pos_interval assign the endpoints with set_lower,
+	// set_upper, set_lower_zero and set_upper_zero, which all make them open,
+	// without validating them. When a half-line has no roots the
 	// Knuth bounds can be inverted; nl_nz_sqf_isolate_roots never uses such an
 	// interval because its root count is zero.
 	if !negative || hasLower {
 		if err = bounds.Copy(&result.lower, &lower); err != nil {
 			return nil, err
 		}
-		result.lowerInf, result.lowerOpen = false, false
+		result.lowerInf, result.lowerOpen = false, true
 	}
 	if negative || hasUpper {
 		if err = bounds.Copy(&result.upper, &upper); err != nil {
 			return nil, err
 		}
-		result.upperInf, result.upperOpen = false, false
+		result.upperInf, result.upperOpen = false, true
 	}
 	return result, nil
 }

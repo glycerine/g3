@@ -57,14 +57,32 @@ func (o *algebraicRootOwner) isolateNonlinearSquareFreeTowerRoots(p []*realValue
 		return nil, fmt.Errorf("tower positive half count: %w", err)
 	}
 	if negativeCount > 0 {
-		part, childErr := o.bisectTowerRoots(p, negative, negativeHalf, negativeCount, usePrem)
+		var part []*realValue
+		var childErr error
+		if negativeCount == 1 {
+			// Source add_root on the bound interval, without bisection.
+			var value *realValue
+			value, childErr = o.publishSingleIsolatedRoot(p, negative, negativeHalf)
+			part = []*realValue{value}
+		} else {
+			part, childErr = o.bisectTowerRoots(p, negative, negativeHalf, negativeCount, usePrem)
+		}
 		roots = append(roots, part...)
 		if childErr != nil {
 			return roots, fmt.Errorf("tower negative isolation: %w", childErr)
 		}
 	}
 	if positiveCount > 0 {
-		part, childErr := o.bisectTowerRoots(p, positive, positiveHalf, positiveCount, usePrem)
+		var part []*realValue
+		var childErr error
+		if positiveCount == 1 {
+			// Source add_root on the bound interval, without bisection.
+			var value *realValue
+			value, childErr = o.publishSingleIsolatedRoot(p, positive, positiveHalf)
+			part = []*realValue{value}
+		} else {
+			part, childErr = o.bisectTowerRoots(p, positive, positiveHalf, positiveCount, usePrem)
+		}
 		roots = append(roots, part...)
 		if childErr != nil {
 			return roots, fmt.Errorf("tower positive isolation: %w", childErr)

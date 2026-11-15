@@ -53,10 +53,11 @@ func (o *algebraicRootOwner) bisectTowerRoots(p []*realValue, interval, isolatin
 		return nil, errors.Join(err, left.Close())
 	}
 	defer func() { err = errors.Join(err, left.Close(), right.Close()) }()
-	if err = left.SetFinite(&interval.lower, &midpoint, interval.lowerOpen, false); err != nil {
+	// Source set_lower/set_upper default to open endpoints.
+	if err = left.SetFinite(&interval.lower, &midpoint, true, true); err != nil {
 		return nil, err
 	}
-	if err = right.SetFinite(&midpoint, &interval.upper, true, interval.upperOpen); err != nil {
+	if err = right.SetFinite(&midpoint, &interval.upper, true, true); err != nil {
 		return nil, err
 	}
 	leftCount, err := o.values.rootCountBinaryIntervalRanked(p, left, usePrem)

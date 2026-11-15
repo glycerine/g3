@@ -58,7 +58,12 @@ func (o *algebraicRootOwner) isolateNonlinearSquareFreeAnyRoots(p []*realValue, 
 	if negativeCount > 0 {
 		var part []*realValue
 		var childErr error
-		if negativeCount > 1 && !hasNegLower {
+		if negativeCount == 1 {
+			// Source add_root on the bound interval, without bisection.
+			var value *realValue
+			value, childErr = o.publishSingleIsolatedRoot(p, negative, negativeHalf)
+			part = []*realValue{value}
+		} else if !hasNegLower {
 			part, childErr = o.isolateAnyRootsBySigns(p, negativeCount, negativeHalf, negativeHalf, usePrem)
 		} else {
 			part, childErr = o.bisectAnyRoots(p, negative, negativeHalf, negativeCount, usePrem)
@@ -71,7 +76,12 @@ func (o *algebraicRootOwner) isolateNonlinearSquareFreeAnyRoots(p []*realValue, 
 	if positiveCount > 0 {
 		var part []*realValue
 		var childErr error
-		if positiveCount > 1 && !hasPosUpper {
+		if positiveCount == 1 {
+			// Source add_root on the bound interval, without bisection.
+			var value *realValue
+			value, childErr = o.publishSingleIsolatedRoot(p, positive, positiveHalf)
+			part = []*realValue{value}
+		} else if !hasPosUpper {
 			part, childErr = o.isolateAnyRootsBySigns(p, positiveCount, positiveHalf, positiveHalf, usePrem)
 		} else {
 			part, childErr = o.bisectAnyRoots(p, positive, positiveHalf, positiveCount, usePrem)
