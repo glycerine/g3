@@ -246,26 +246,23 @@ func (m *smtDynAckManager) propagate() error {
 	return nil
 }
 
-func (m *smtDynAckManager) recordConflictUses(expander *SMTAntecedentExpander) error {
-	if m == nil || m.closed || expander == nil {
+// usedCongruence is dyn_ack_manager::used_cg_eh (cg_eh under DACK_CR).
+func (m *smtDynAckManager) usedCongruence(first, second *SMTEnode) error {
+	if m == nil || m.closed {
 		return ast.ErrASTHandle
 	}
-	for _, use := range expander.congruenceUses {
-		if err := m.schedule.usedCongruence(use.First.owner, use.Second.owner, m.strategy); err != nil {
-			return err
-		}
+	return m.schedule.usedCongruence(first.owner, second.owner, m.strategy)
+}
+
+// usedEquality is dyn_ack_manager::used_eq_eh (eq_eh under dack.eq).
+func (m *smtDynAckManager) usedEquality(first, second, common *SMTEnode) error {
+	if m == nil || m.closed {
+		return ast.ErrASTHandle
 	}
-	if m.equalities {
-		for _, use := range expander.equalityUses {
-			if err := m.schedule.usedEquality(use.First.owner, use.Second.owner, use.Common.owner, true); err != nil {
-				return err
-			}
-		}
+	if !m.equalities {
+		return nil
 	}
-	// cg_conflict_eh is reported by add_eq and propagate_bool_enode_assignment,
-	// not by conflict resolution.
-	expander.ResetUses()
-	return nil
+	return m.schedule.usedEquality(first.owner, second.owner, common.owner, true)
 }
 
 func (m *smtDynAckManager) close() error {

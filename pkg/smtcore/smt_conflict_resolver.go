@@ -197,6 +197,7 @@ func NewSMTConflictResolver(state *SMTInternalizerState) (*SMTConflictResolver, 
 	}
 	resolver := &SMTConflictResolver{state: state, expander: NewSMTAntecedentExpander(), lemmaProof: proof}
 	resolver.expander.literalOf = resolver.enodeLiteral
+	resolver.expander.dynAck = state
 	return resolver, nil
 }
 
@@ -412,9 +413,6 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 	conflictLevel, err := SMTBooleanJustificationMaxLevel(r.expander, consequent, conflict, levels)
 	if err != nil {
 		return SMTConflictResolution{}, fmt.Errorf("conflict maximum level (%s, literal %d): %w", conflict.Kind(), notLiteral, err)
-	}
-	if err = r.state.dynamicAck.recordConflictUses(r.expander); err != nil {
-		return SMTConflictResolution{}, err
 	}
 	result := SMTConflictResolution{ConflictLevel: conflictLevel}
 	st := r.state

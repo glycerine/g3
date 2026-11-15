@@ -391,8 +391,10 @@ func (c *smtConsequences) extractFixedEqs() (int, error) {
 		if nk == nil || nv == nil || nk.root != nv.root {
 			continue
 		}
+		// m_conflict_resolution->eq2literals reports used_eq_eh.
 		e := NewSMTAntecedentExpander()
 		e.literalOf = (&SMTConflictResolver{state: s}).enodeLiteral
+		e.dynAck = s
 		literals, err := e.ExpandEquality(nv, nk)
 		if err != nil {
 			return 0, err

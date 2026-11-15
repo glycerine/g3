@@ -233,3 +233,43 @@ func TestSMTDynamicAckUsesCanonicalEqualityAtoms(t *testing.T) {
 	}
 	astTestMust(t, state.PopScopes(1))
 }
+
+// smtcore_03-F6: conflict_resolution calls used_cg_eh/used_eq_eh inline while
+// it expands an equality, so the counts are in place before propagate_eh.
+func TestSMTDynamicAckConflictUsesAreCountedWithinTheConflict(t *testing.T) {
+	manager := astTestManager(t)
+	sort, values := smtUFConstants(t, manager, "dynamic-ack-inline-", 2)
+	_, _, state := smtInternalizerFixture(t, manager, nil)
+	config := defaultSMTDynAckState()
+	config.Strategy = uint32(dynAckConflictResolution)
+	config.Threshold = 2
+	config.Factor = 1
+	config.Equalities = true
+	astTestMust(t, state.ConfigureDynamicAck(config))
+	a, b := state.context.enodes.get(values[0]), state.context.enodes.get(values[1])
+	if a == nil || b == nil {
+		var err error
+		a, err = NewSMTEnode(manager, values[0], nil, SMTEnodeOptions{})
+		astTestMust(t, err)
+		b, err = NewSMTEnode(manager, values[1], nil, SMTEnodeOptions{})
+		astTestMust(t, err)
+	}
+	b.root, b.trans = a, SMTTransJustification{Target: a, Justification: NewSMTEqualityAxiom()}
+	decl, err := manager.MkFuncDecl(astTestSymbol(t, manager, "dynamic-ack-inline-f"), []ast.ASTHandle{sort}, sort, ast.ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	fa := smtCGTestApplication(t, manager, decl, []ast.ASTHandle{values[0]}, []*SMTEnode{a})
+	fb := smtCGTestApplication(t, manager, decl, []ast.ASTHandle{values[1]}, []*SMTEnode{b})
+	fb.root, fb.trans = fa, SMTTransJustification{Target: fa, Justification: NewSMTEqualityCongruence(false)}
+	resolver, err := NewSMTConflictResolver(state)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, resolver.Close()) })
+	_, err = resolver.expander.ExpandEquality(fb, fa)
+	astTestMust(t, err)
+	if len(resolver.expander.congruenceUses) != 0 || len(resolver.expander.equalityUses) != 0 {
+		t.Fatal("conflict-resolution uses were buffered instead of delivered")
+	}
+	counts := state.dynamicAck.pairs.counts
+	if len(counts) != 1 || counts[dynAckPair{fa.owner, fb.owner}]+counts[dynAckPair{fb.owner, fa.owner}] != 1 {
+		t.Fatal("used_cg_eh count", counts)
+	}
+}

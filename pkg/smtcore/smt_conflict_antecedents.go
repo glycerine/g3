@@ -28,7 +28,12 @@ type SMTAntecedentExpander struct {
 	processed       map[smtEnodePairKey]struct{}
 	congruenceUses  []SMTCongruenceUse
 	equalityUses    []SMTEqualityUse
-	active          bool
+	// dynAck, when set, is the context whose m_dyn_ack_manager receives
+	// used_cg_eh/used_eq_eh inline, as conflict_resolution calls them
+	// (read at call time: the manager is replaced on parameter updates).
+	// Otherwise the uses are only buffered.
+	dynAck *SMTInternalizerState
+	active bool
 }
 
 func NewSMTAntecedentExpander() *SMTAntecedentExpander {
@@ -154,7 +159,14 @@ func (e *SMTAntecedentExpander) expandEqualityJustification(first, second *SMTEn
 		if first == nil || second == nil || len(first.arguments) != len(second.arguments) {
 			return ast.ErrASTDomain
 		}
-		e.congruenceUses = append(e.congruenceUses, SMTCongruenceUse{first, second})
+		if e.dynAck != nil {
+			// m_dyn_ack_manager.used_cg_eh(lhs->get_owner(), rhs->get_owner())
+			if err := e.dynAck.dynamicAck.usedCongruence(first, second); err != nil {
+				return err
+			}
+		} else {
+			e.congruenceUses = append(e.congruenceUses, SMTCongruenceUse{first, second})
+		}
 		commuted, ok := justification.UsedCommutativity()
 		if !ok {
 			return ast.ErrASTDomain
@@ -233,6 +245,10 @@ func (e *SMTAntecedentExpander) expandEquality(first, second *SMTEnode) error {
 	}
 	if err = e.expandBranch(second, common); err != nil {
 		return fmt.Errorf("expand second equality proof branch: %w", err)
+	}
+	if e.dynAck != nil {
+		// m_dyn_ack_manager.used_eq_eh(n1, n2, c)
+		return e.dynAck.dynamicAck.usedEquality(first, second, common)
 	}
 	e.equalityUses = append(e.equalityUses, SMTEqualityUse{first, second, common})
 	return nil
