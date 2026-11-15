@@ -185,6 +185,7 @@ void sexpr::display_atom(std::ostream & out) const {
 }
 
 void sexpr::display(std::ostream & out) const {
+    // FORK FIX #42 (g3 audit, see FORK_BUGFIXES.md): backport of upstream 202ed79a2: sexpr::display returns after an atom (AUDIT cmd_context_02)
     if (!is_composite()) {
         display_atom(out);
         return;

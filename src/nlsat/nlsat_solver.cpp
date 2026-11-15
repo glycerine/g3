@@ -2016,6 +2016,7 @@ namespace nlsat {
                     if (m_atoms[i]->is_root_atom()) return false;
                 }
             }
+            // FORK FIX #33 (g3 audit, see FORK_BUGFIXES.md): backport of upstream 983a55232: no reorder with inlined vars (AUDIT nlsat_03-F8)
             // fix_patch assigns the inlined variables by their indices
             // before reordering.
             return m_patch_var.empty();
@@ -2369,6 +2370,7 @@ namespace nlsat {
                     ps.reset();
                     even.reset();
                     bool change = false;
+                    // FORK FIX #32 (g3 audit, see FORK_BUGFIXES.md): backport of upstream 29f3f6a7a/99784a92e: inline_vars zero and constant atoms (AUDIT nlsat_02-F2)
                     bool vanished = false;
                     for (unsigned i = 0; i < sz; ++i) {
                         poly * po = a1.p(i);
@@ -2380,6 +2382,7 @@ namespace nlsat {
                             ps.reset();
                             even.reset();
                             change = true;
+                            // FORK FIX #32 (g3 audit, see FORK_BUGFIXES.md): backport of upstream 29f3f6a7a/99784a92e: inline_vars zero and constant atoms (AUDIT nlsat_02-F2)
                             vanished = true;
                             break;
                         }
@@ -2403,6 +2406,7 @@ namespace nlsat {
         }
 
 
+        // FORK FIX #32 (g3 audit, see FORK_BUGFIXES.md): backport of upstream 29f3f6a7a/99784a92e: inline_vars zero and constant atoms (AUDIT nlsat_02-F2)
         literal mk_substituted_ineq_literal(atom::kind k, unsigned sz, poly * const * ps, bool const * is_even) {
             int sign = 1;
             for (unsigned i = 0; i < sz; ++i) {
@@ -2444,6 +2448,7 @@ namespace nlsat {
                 if (changed) {
                     to_delete.push_back(c);
                     if (!is_tautology) {
+                        // FORK FIX #32 (g3 audit, see FORK_BUGFIXES.md): backport of upstream 29f3f6a7a/99784a92e: inline_vars zero and constant atoms (AUDIT nlsat_02-F2)
                         if (lits.empty()) 
                             lits.push_back(false_literal);
                         mk_clause(lits.size(), lits.c_ptr(), c->is_learned(), static_cast<_assumption_set>(c->assumptions()));

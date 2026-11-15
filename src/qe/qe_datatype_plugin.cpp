@@ -722,6 +722,7 @@ namespace qe {
                 if (!m.is_true(c)) {
                     fml = m.mk_and(c, fml);
                 }
+                // FORK FIX #36 (g3 audit, see FORK_BUGFIXES.md): datatype subst keeps the recognizer (AUDIT qe_02-F4)
                 // the branch assumed r(x); keep it for the term t.
                 fml = m.mk_and(m.mk_app(r, t), fml);
             }

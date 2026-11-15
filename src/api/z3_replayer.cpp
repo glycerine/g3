@@ -497,6 +497,7 @@ struct z3_replayer::imp {
             case 'p':
             case 's':
             case 'u':
+            // FORK FIX #41 (g3 audit, see FORK_BUGFIXES.md): backport of upstream fed977b49: log int arrays as int arrays (AUDIT api_03-F3)
             case 'i':
                 // push array
                 next(); skip_blank(); read_uint64();
@@ -505,6 +506,7 @@ struct z3_replayer::imp {
                     push_array(static_cast<unsigned>(m_uint64), OBJECT);
                 else if (c == 's')
                     push_array(static_cast<unsigned>(m_uint64), SYMBOL);
+                // FORK FIX #41 (g3 audit, see FORK_BUGFIXES.md): backport of upstream fed977b49: log int arrays as int arrays (AUDIT api_03-F3)
                 else if (c == 'i')
                     push_array(static_cast<unsigned>(m_uint64), INT64);
                 else

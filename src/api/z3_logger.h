@@ -42,6 +42,7 @@ static void __declspec(noinline) Sy(Z3_symbol sym) {
 }
 static void __declspec(noinline) Ap(unsigned sz) { *g_z3_log << "p " << sz << "\n"; g_z3_log->flush(); }
 static void __declspec(noinline) Au(unsigned sz) { *g_z3_log << "u " << sz << "\n"; g_z3_log->flush(); }
+// FORK FIX #41 (g3 audit, see FORK_BUGFIXES.md): backport of upstream fed977b49: log int arrays as int arrays (AUDIT api_03-F3)
 static void __declspec(noinline) Ai(unsigned sz) { *g_z3_log << "i " << sz << "\n"; g_z3_log->flush(); }
 static void __declspec(noinline) Asy(unsigned sz) { *g_z3_log << "s " << sz << "\n"; g_z3_log->flush(); }
 static void __declspec(noinline) C(unsigned id)   { *g_z3_log << "C " << id << "\n"; g_z3_log->flush(); }

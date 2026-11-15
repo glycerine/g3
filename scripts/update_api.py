@@ -955,6 +955,7 @@ def def_API(name, result, params):
                 log_c.write("  Au(a%s);\n" % sz)
                 exe_c.write("in.get_uint_array(%s)" % i)
             elif ty == INT:
+                # FORK FIX #41 (g3 audit, see FORK_BUGFIXES.md): backport of upstream fed977b49: log int arrays as int arrays (AUDIT api_03-F3)
                 log_c.write("I(a%s[i]);" % i)
                 log_c.write(" }\n")
                 log_c.write("  Ai(a%s);\n" % sz)

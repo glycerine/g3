@@ -289,6 +289,7 @@ public:
             else if (*in == '*') {
                 in.skip_line();
             }
+            // FORK FIX #39 (g3 audit, see FORK_BUGFIXES.md): OPB parser reads max: objectives (AUDIT opt_02-F4)
             else if (*in == 'm') {
                 // parse_token consumes a matching prefix, so read the
                 // common "m" once before telling "min:" from "max:".

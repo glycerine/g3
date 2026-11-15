@@ -1541,6 +1541,7 @@ namespace fm {
             m_var2pos.reset();
             m_forbidden.reset();
             m_var2expr.reset();
+            // FORK FIX #37 (g3 audit, see FORK_BUGFIXES.md): fm::init resets m_expr2bvar (AUDIT qe_02-F5)
             m_expr2bvar.reset();
             m_lowers.reset();
             m_uppers.reset();
