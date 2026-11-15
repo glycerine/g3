@@ -199,3 +199,15 @@ z3_bug_qi_weakening_proof
 # AUDIT.md tactic_arith_03-F1). Reproduction:
 # test_vectors/z3_bug_pb2bv_numeral_lhs.smt2.
 z3_bug_pb2bv_numeral_lhs
+#
+# eq2bv keeps its rewriter cache across goals: m_rw is a member
+# rewriter_tpl that operator() never resets and cleanup() is empty, so
+# after split-clause a shared (= x 3) rewritten for the first goal to
+# (= z!0 #b11) is reused in the second goal, whose fd variable is z!1,
+# and an unsat problem is reported sat (z3 bug:
+# src/tactic/arith/eq2bv_tactic.cpp:122,181 m_rw; still present
+# upstream). g3 builds a fresh rewriter per goal
+# (pkg/tactic/arith/eq2bv_rewrite.go eq2bvRewrite; AUDIT.md
+# tactic_arith_01-F3). Reproduction:
+# test_vectors/z3_bug_eq2bv_stale_rewriter_cache.smt2.
+z3_bug_eq2bv_stale_rewriter_cache
