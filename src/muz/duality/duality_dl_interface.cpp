@@ -38,6 +38,10 @@
 #include "ast/used_vars.h"
 #include "ast/func_decl_dependencies.h"
 #include "muz/transforms/dl_transforms.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "model/model_evaluator.h"
+#include "smt/smt_solver.h"
 
 // template class symbol_table<family_id>;
 
@@ -65,6 +69,7 @@ namespace Duality {
 
         DualityStatus status;
         std::vector<expr> clauses;
+        std::vector<expr> axioms;   // the background axioms, for certificate witnesses
         std::vector<std::vector<RPFP::label_struct> > clause_labels;
         hash_map<RPFP::Edge *,int> map;  // edges to clauses
         Solver *old_rs;
@@ -247,6 +252,8 @@ namespace Duality {
         for (unsigned i = 0; i < num_asserts; ++i) {
             expr e(_d->ctx,m_ctx.get_assertion(i));
             _d->rpfp->AssertAxiom(e);
+            // FORK FIX #63 (g3 audit, see FORK_BUGFIXES.md): keep the raw axioms for certificate witnesses (AUDIT duality_01-F4)
+            _d->axioms.push_back(e);
         }
 
         // make sure each predicate is the head of at least one clause
@@ -395,6 +402,182 @@ namespace Duality {
 
     static hash_set<func_decl> *local_func_decls;
 
+    // FORK FIX #63 (g3 audit, see FORK_BUGFIXES.md): certificate witnesses for rule variables qe-lite eliminated (AUDIT duality_01-F4)
+    //
+    // print_proof and extract_proof used tree->Eval(&edge, skolem) as the
+    // value of each rule variable. A variable that qe-lite eliminated from
+    // the edge formula is unconstrained in the counterexample model, so its
+    // model default was printed: q0(5) was certified by x1 = x + 3 with x = 0.
+    // As g3's recoverProofWitness does, solve the original rule for its
+    // variables instead: the head must equal the step's proved fact, each
+    // used body predicate must equal its child's proved fact, and the rest of
+    // the body must hold together with the background axioms.
+
+    // Split a clause (quantifier body) into its head and its body conjuncts.
+    static ::expr *witness_clause_shape(ast_manager &m, ::expr *clause, ::expr *&body, ptr_vector< ::expr> &atoms) {
+        atoms.reset();
+        body = nullptr;
+        if (!m.is_implies(clause))
+            return clause;
+        body = to_app(clause)->get_arg(0);
+        if (m.is_and(body))
+            atoms.append(to_app(body)->get_num_args(), to_app(body)->get_args());
+        else
+            atoms.push_back(body);
+        return to_app(clause)->get_arg(1);
+    }
+
+    // The fact a counterexample node proves: its original rule's head symbol
+    // applied to the evaluated edge parameters.
+    static bool witness_node_fact(dl_interface *d, RPFP *tree, RPFP::Node *node, expr_ref &fact) {
+        ast_manager &m = d->dd()->ctx.m();
+        RPFP::Edge &edge = *node->Outgoing;
+        ::expr *t = to_expr(d->dd()->clauses[d->dd()->map[edge.map]].raw());
+        if (is_quantifier(t) && to_quantifier(t)->is_forall())
+            t = to_quantifier(t)->get_expr();
+        ::expr *body;
+        ptr_vector< ::expr> atoms;
+        ::expr *head = witness_clause_shape(m, t, body, atoms);
+        if (!is_app(head))
+            return false;
+        ::func_decl *f = to_app(head)->get_decl();
+        if (f->get_arity() > edge.F.IndParams.size())
+            return false;
+        std::vector<expr> vals;
+        ptr_vector< ::expr> args;
+        for (unsigned i = 0; i < f->get_arity(); i++) {
+            vals.push_back(tree->Eval(&edge, edge.F.IndParams[i]));
+            args.push_back(to_expr(vals.back().raw()));
+        }
+        fact = m.mk_app(f, args.size(), args.c_ptr());
+        return true;
+    }
+
+    // Values of the original rule's bound variables for this step, indexed
+    // by declaration. Returns false if none are found; the caller then keeps
+    // the counterexample model's values.
+    static bool find_step_witness(dl_interface *d, RPFP *tree, RPFP::Node *root, expr_ref_vector &witness) {
+        ast_manager &m = d->dd()->ctx.m();
+        scoped_proof _sp(m);
+        RPFP::Edge &edge = *root->Outgoing;
+        ::expr *t = to_expr(d->dd()->clauses[d->dd()->map[edge.map]].raw());
+        if (!is_quantifier(t) || !to_quantifier(t)->is_forall())
+            return false;
+        ::quantifier *q = to_quantifier(t);
+        ::expr *clause = q->get_expr();
+        try {
+            // the predicate symbols are the uninterpreted clause heads
+            obj_hashtable< ::func_decl> preds;
+            for (unsigned i = 0; i < d->dd()->clauses.size(); i++) {
+                ::expr *c = to_expr(d->dd()->clauses[i].raw());
+                if (is_quantifier(c))
+                    c = to_quantifier(c)->get_expr();
+                if (m.is_implies(c))
+                    c = to_app(c)->get_arg(1);
+                if (!is_app(c))
+                    return false;
+                if (to_app(c)->get_family_id() == null_family_id)
+                    preds.insert(to_app(c)->get_decl());
+            }
+            // body positions of each distinct predicate atom, one group per edge child
+            ::expr *body;
+            ptr_vector< ::expr> atoms;
+            witness_clause_shape(m, clause, body, atoms);
+            vector<unsigned_vector> positions;
+            obj_map< ::expr, unsigned> seen;
+            for (unsigned i = 0; i < atoms.size(); i++) {
+                ::expr *a = atoms[i];
+                if (!is_app(a) || !preds.contains(to_app(a)->get_decl()))
+                    continue;
+                unsigned idx;
+                if (!seen.find(a, idx)) {
+                    idx = positions.size();
+                    seen.insert(a, idx);
+                    positions.push_back(unsigned_vector());
+                }
+                positions[idx].push_back(i + 1);
+            }
+            if (positions.size() != edge.Children.size())
+                return false;
+            // instantiate the rule with fresh constants
+            unsigned n = q->get_num_decls();
+            expr_ref_vector skolem(m);
+            skolem.resize(n);
+            for (unsigned j = 0; j < n; j++)
+                skolem[n - 1 - j] = m.mk_fresh_const("@proof", q->get_decl_sort(j));
+            var_subst vs(m, false);
+            expr_ref inst(m);
+            vs(clause, n, skolem.c_ptr(), inst);
+            ::expr *ibody;
+            ptr_vector< ::expr> iatoms;
+            ::expr *ihead = witness_clause_shape(m, inst, ibody, iatoms);
+            expr_ref ibody_ref(ibody ? ibody : m.mk_true(), m);
+            if (!ibody)
+                iatoms.push_back(ibody_ref.get());
+            // predicate atoms of unused children are false, used ones are
+            // true and their arguments equal the child's proved fact
+            obj_map< ::expr, ::expr*> replacements;
+            for (unsigned i = 0; i < positions.size(); i++)
+                for (unsigned k = 0; k < positions[i].size(); k++) {
+                    if (positions[i][k] > iatoms.size())
+                        return false;
+                    replacements.insert(iatoms[positions[i][k] - 1], m.mk_false());
+                }
+            expr_ref_vector constraints(m), facts(m);
+            for (unsigned i = 0; i < edge.Children.size(); i++) {
+                if (tree->Empty(edge.Children[i]))
+                    continue;
+                expr_ref fact(m);
+                if (!witness_node_fact(d, tree, edge.Children[i], fact))
+                    return false;
+                facts.push_back(fact);
+                for (unsigned k = 0; k < positions[i].size(); k++) {
+                    ::expr *a = iatoms[positions[i][k] - 1];
+                    if (!is_app(a) || to_app(a)->get_decl() != to_app(fact)->get_decl())
+                        return false;
+                    for (unsigned j = 0; j < to_app(a)->get_num_args(); j++)
+                        constraints.push_back(m.mk_eq(to_app(a)->get_arg(j), to_app(fact)->get_arg(j)));
+                    replacements.insert(a, m.mk_true());
+                }
+            }
+            expr_ref conclusion(m);
+            if (!witness_node_fact(d, tree, root, conclusion))
+                return false;
+            if (!is_app(ihead) || to_app(ihead)->get_decl() != to_app(conclusion)->get_decl())
+                return false;
+            for (unsigned j = 0; j < to_app(ihead)->get_num_args(); j++)
+                constraints.push_back(m.mk_eq(to_app(ihead)->get_arg(j), to_app(conclusion)->get_arg(j)));
+            expr_safe_replace rep(m);
+            for (auto const& kv : replacements)
+                rep.insert(kv.m_key, kv.m_value);
+            expr_ref condition(m);
+            rep(ibody_ref.get(), condition);
+            constraints.push_back(condition);
+            // solve in a fresh solver, with the background axioms
+            ref< ::solver> s = mk_smt_solver(m, params_ref(), ::symbol::null);
+            s->set_produce_models(true);
+            for (unsigned i = 0; i < d->dd()->axioms.size(); i++)
+                s->assert_expr(to_expr(d->dd()->axioms[i].raw()));
+            for (unsigned i = 0; i < constraints.size(); i++)
+                s->assert_expr(constraints.get(i));
+            if (s->check_sat(0, nullptr) != l_true)
+                return false;
+            model_ref mdl;
+            s->get_model(mdl);
+            if (!mdl)
+                return false;
+            model_evaluator ev(*mdl.get());
+            ev.set_model_completion(true);
+            witness.reset();
+            for (unsigned j = 0; j < n; j++)
+                witness.push_back(ev(skolem.get(n - 1 - j)));
+            return true;
+        }
+        catch (z3_exception &) {
+            return false;
+        }
+    }
+
     static void print_proof(dl_interface *d, std::ostream& out, RPFP *tree, RPFP::Node *root) {
         context &ctx = d->dd()->ctx;
         RPFP::Node &node = *root;
@@ -431,11 +614,15 @@ namespace Duality {
             std::vector<sort> sorts;
             std::vector<symbol> names;
             hash_map<int,expr> subst;
+            // FORK FIX #63 (g3 audit, see FORK_BUGFIXES.md): print the original rule's witness (AUDIT duality_01-F4)
+            expr_ref_vector witness(ctx.m());
+            bool has_witness = find_step_witness(d,tree,root,witness);
             for(int j = 0; j < bound; j++){
                 sort the_sort = t.get_quantifier_bound_sort(j);
                 symbol name = t.get_quantifier_bound_name(j);
                 expr skolem = ctx.constant(symbol(ctx,name),sort(ctx,the_sort));
-                out << "    (= " << skolem << " " << tree->Eval(&edge,skolem) << ")\n";
+                expr val = has_witness ? ctx.cook(witness.get(j)) : tree->Eval(&edge,skolem);
+                out << "    (= " << skolem << " " << val << ")\n";
                 expr local_skolem = tree->Localize(&edge,skolem);
                 (*local_func_decls).insert(local_skolem.decl());
             }
@@ -579,11 +766,14 @@ namespace Duality {
             std::vector<sort> sorts;
             std::vector<symbol> names;
             hash_map<int,expr> subst;
+            // FORK FIX #63 (g3 audit, see FORK_BUGFIXES.md): substitute the original rule's witness (AUDIT duality_01-F4)
+            expr_ref_vector witness(mgr);
+            bool has_witness = find_step_witness(d,tree,root,witness);
             for(int j = 0; j < bound; j++){
                 sort the_sort = t.get_quantifier_bound_sort(j);
                 symbol name = t.get_quantifier_bound_name(j);
                 expr skolem = ctx.constant(symbol(ctx,name),sort(ctx,the_sort));
-                expr val = tree->Eval(&edge,skolem);
+                expr val = has_witness ? ctx.cook(witness.get(j)) : tree->Eval(&edge,skolem);
                 expr_ref thing(ctx.uncook(val),mgr);
                 substs[0].push_back(thing);
                 expr local_skolem = tree->Localize(&edge,skolem);
