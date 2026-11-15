@@ -14,6 +14,9 @@ import (
 // scriptResults so the C++ reference comparison does not run them; this
 // test locks in g3's correct answers instead.
 var z3BugResults = map[string]string{
+	// datatype get_sort_size keys sparam::subst by the actual sort
+	"z3_bug_datatype_param_size_subst.smt2": "unsat\n",
+
 	// goal::update pushes the unflattened formula (FORK_BUGFIXES known bug)
 	"z3_bug_goal_update_flattened_false.smt2": "(goals\n(goal\n  false\n  :precision precise :depth 1)\n)\n",
 

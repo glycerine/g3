@@ -129,3 +129,14 @@ z3_bug_duality_certificate_eliminated_var
 # Update). Reproduction:
 # test_vectors/z3_bug_goal_update_flattened_false.smt2.
 z3_bug_goal_update_flattened_false
+#
+# datatype::util::get_sort_size builds the substitution for a parametric
+# datatype field keyed by the field's actual parameter sorts, but the
+# field datatype's size function names its own formal parameters. When a
+# parametric datatype instantiates another one at a different sort, the
+# sparam::subst lookup misses and z3 segfaults (z3 bug:
+# src/ast/datatype_decl_plugin.cpp get_sort_size; fixed upstream in
+# f1c3e1aa7, "fix #2077"). g3 and the fork key by the formal parameter
+# (pkg/ast/ast_datatype_cardinality.go datatypeGetSortSize). Reproduction:
+# test_vectors/z3_bug_datatype_param_size_subst.smt2.
+z3_bug_datatype_param_size_subst

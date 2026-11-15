@@ -148,9 +148,9 @@ func datatypeParamSizeMkPlus(szs []*datatypeParamSize) *datatypeParamSize {
 }
 
 // subst is size::subst. The C++ sparam::subst reads S[m_param] with an
-// asserting obj_map lookup; a missing key there is a null dereference (z3
-// 4.7.1 crashes when a parametric datatype field instantiates another
-// block's parametric datatype at a different sort). Go keeps the parameter.
+// asserting obj_map lookup. get_sort_size binds every formal parameter of
+// the definition, so the lookup does not miss; Go keeps the parameter if it
+// ever does.
 func (s *datatypeParamSize) subst(S map[astNodeRef]*datatypeParamSize) *datatypeParamSize {
 	switch s.kind {
 	case datatypeParamSizeOffset:
@@ -264,17 +264,24 @@ func (m *ASTManager) datatypeGetSortSize(params []astNodeRef, s astNodeRef) (*da
 		if err != nil {
 			return nil, err
 		}
-		for _, ps := range parameters {
+		d := m.datatypePlugin.definitionNames[name]
+		if d == nil || d.sizeFunction == nil || len(parameters) != len(d.parameters) {
+			// Source get_def asserts the definition and its size exist,
+			// and SASSERT(n == d.params().size()).
+			return nil, ErrASTDomain
+		}
+		// z3 4.7.1 keys S by the actual parameter sort ps, but the size
+		// function names the definition's formal parameters, so a field
+		// that instantiates another parametric datatype at a different
+		// sort misses in sparam::subst and segfaults. Key by the formal
+		// parameter, as upstream f1c3e1aa7 ("fix #2077") does
+		// (test_vectors/z3_bug_datatype_param_size_subst.smt2).
+		for i, ps := range parameters {
 			sz, err := m.datatypeGetSortSize(params, ps)
 			if err != nil {
 				return nil, err
 			}
-			S[ps] = sz
-		}
-		d := m.datatypePlugin.definitionNames[name]
-		if d == nil || d.sizeFunction == nil {
-			// Source get_def asserts the definition and its size exist.
-			return nil, ErrASTDomain
+			S[d.parameters[i]] = sz
 		}
 		return d.sizeFunction.subst(S), nil
 	}
