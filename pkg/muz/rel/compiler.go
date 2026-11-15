@@ -88,7 +88,6 @@ type finiteCompiler struct {
 	constants     map[constantRegisterKey]uint32
 	totals        map[totalRegisterKey]uint32
 	emptyTotals   map[ast.ASTHandle]uint32
-	marked        map[ast.ASTHandle]bool
 }
 
 func newFiniteCompiler(relations *RelationManager, guard *astrewriter.TheoryRewriter) (*finiteCompiler, error) {
@@ -102,7 +101,6 @@ func newFiniteCompiler(relations *RelationManager, guard *astrewriter.TheoryRewr
 		constants:     make(map[constantRegisterKey]uint32),
 		totals:        make(map[totalRegisterKey]uint32),
 		emptyTotals:   make(map[ast.ASTHandle]uint32),
-		marked:        make(map[ast.ASTHandle]bool),
 	}, nil
 }
 
@@ -284,68 +282,6 @@ func (c *finiteCompiler) readRules(set *base.RuleSet) ([]finiteCompiledRule, err
 		rules = append(rules, compiled)
 	}
 	return rules, nil
-}
-
-func (c *finiteCompiler) orderRules(rules []finiteCompiledRule) ([]finiteCompiledRule, error) {
-	byHead := make(map[ast.ASTHandle][]finiteCompiledRule)
-	headOrder := make([]ast.ASTHandle, 0)
-	seenHead := make(map[ast.ASTHandle]bool)
-	dependencies := make(map[ast.ASTHandle][]ast.ASTHandle)
-	for _, rule := range rules {
-		head, err := c.manager.GetDecl(rule.head)
-		if err != nil {
-			return nil, err
-		}
-		if !seenHead[head] {
-			seenHead[head] = true
-			headOrder = append(headOrder, head)
-		}
-		byHead[head] = append(byHead[head], rule)
-		if rule.kind == finiteSingleTailRule || rule.kind == finiteTwoTailRule {
-			for _, application := range []ast.ASTHandle{rule.tail, rule.tail2} {
-				if application.IsNull() {
-					continue
-				}
-				tail, x := c.manager.GetDecl(application)
-				if x != nil {
-					return nil, x
-				}
-				dependencies[head] = append(dependencies[head], tail)
-			}
-		}
-	}
-	state := make(map[ast.ASTHandle]uint8)
-	orderedHeads := make([]ast.ASTHandle, 0, len(headOrder))
-	var visit func(ast.ASTHandle) error
-	visit = func(head ast.ASTHandle) error {
-		if state[head] == 1 {
-			return ErrCompilerUnsupported
-		}
-		if state[head] == 2 {
-			return nil
-		}
-		state[head] = 1
-		for _, dependency := range dependencies[head] {
-			if seenHead[dependency] {
-				if err := visit(dependency); err != nil {
-					return err
-				}
-			}
-		}
-		state[head] = 2
-		orderedHeads = append(orderedHeads, head)
-		return nil
-	}
-	for _, head := range headOrder {
-		if err := visit(head); err != nil {
-			return nil, err
-		}
-	}
-	ordered := make([]finiteCompiledRule, 0, len(rules))
-	for _, head := range orderedHeads {
-		ordered = append(ordered, byHead[head]...)
-	}
-	return ordered, nil
 }
 
 type finitePredicateOrderKey struct {
@@ -1619,11 +1555,6 @@ func (c *finiteCompiler) compileRecursive(set *base.RuleSet, rules []finiteCompi
 	}()
 	c.current = body
 	defer func() { c.current = nil }()
-	for _, head := range headOrder {
-		if err := c.emit(NewDeallocateInstruction(nextDeltas[head]), nil); err != nil {
-			return err
-		}
-	}
 	for _, rule := range rules {
 		head, err := c.manager.GetDecl(rule.head)
 		if err != nil {
@@ -1681,6 +1612,9 @@ func (c *finiteCompiler) compile(set *base.RuleSet) (resultErr error) {
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, closeCompiledRules(rules)) }()
+	if len(rules) == 0 {
+		return nil
+	}
 	for _, rule := range rules {
 		head, x := c.manager.GetDecl(rule.head)
 		if x != nil {
@@ -1713,57 +1647,43 @@ func (c *finiteCompiler) compile(set *base.RuleSet) (resultErr error) {
 			}
 		}
 	}
-	rulesByStratum := make(map[uint32][]finiteCompiledRule)
-	var maximum uint32
+	if err = c.compileStrats(set, rules); err != nil {
+		return err
+	}
+	return c.storePredicates()
+}
+
+// compileStrats is compiler::compile_strats over the stratifier's strata with
+// no input deltas, empty output deltas and saturation marks.
+func (c *finiteCompiler) compileStrats(set *base.RuleSet, rules []finiteCompiledRule) error {
+	rulesByHead := make(map[ast.ASTHandle][]finiteCompiledRule)
 	for _, rule := range rules {
 		head, x := c.manager.GetDecl(rule.head)
 		if x != nil {
 			return x
 		}
-		stratum, x := set.PredicateStratum(head)
+		// m_rule_set.get_predicate_rules(head) keeps insertion order.
+		rulesByHead[head] = append(rulesByHead[head], rule)
+	}
+	strats, err := set.Strata()
+	if err != nil {
+		return err
+	}
+	for _, stratPreds := range strats {
+		allSaturated, x := c.allSaturated(stratPreds)
 		if x != nil {
 			return x
 		}
-		rulesByStratum[stratum] = append(rulesByStratum[stratum], rule)
-		if stratum > maximum {
-			maximum = stratum
-		}
-	}
-	for stratum := uint32(0); stratum <= maximum; stratum++ {
-		group := rulesByStratum[stratum]
-		if len(group) == 0 {
-			continue
-		}
-		allSaturated := true
-		for _, rule := range group {
-			head, x := c.manager.GetDecl(rule.head)
-			if x != nil {
-				return x
-			}
-			done, x := c.relations.IsSaturated(head)
-			if x != nil {
-				return x
-			}
-			allSaturated = allSaturated && done
-		}
 		if allSaturated {
+			//all predicates in stratum are saturated, so no need to compile rules for them
 			continue
 		}
 		_ = c.manager.EmitTrace("dl", "compile_strats", "src/muz/rel/dl_compiler.cpp", 1272, func(out io.Writer) error {
 			if _, err := io.WriteString(out, "Stratum: "); err != nil {
 				return err
 			}
-			seenHeads := make(map[ast.ASTHandle]bool)
-			for _, rule := range group {
-				declaration, err := c.manager.GetDecl(rule.head)
-				if err != nil {
-					return err
-				}
-				if seenHeads[declaration] {
-					continue
-				}
-				seenHeads[declaration] = true
-				name, err := c.manager.GetASTName(declaration)
+			for _, pred := range stratPreds {
+				name, err := c.manager.GetASTName(pred)
 				if err != nil {
 					return err
 				}
@@ -1778,41 +1698,97 @@ func (c *finiteCompiler) compile(set *base.RuleSet) (resultErr error) {
 			_, err := io.WriteString(out, "\n")
 			return err
 		})
-		ordered, x := c.orderRules(group)
+		nonrecursive, x := c.isNonrecursiveStratum(stratPreds, rulesByHead)
 		if x != nil {
-			if !errors.Is(x, ErrCompilerUnsupported) {
-				return x
-			}
-			if x = c.compileRecursive(set, group); x != nil {
-				return x
-			}
-		} else {
-			for _, rule := range ordered {
-				if x = c.compileRule(rule, VoidRegister, [2]uint32{VoidRegister, VoidRegister}); x != nil {
-					return x
-				}
-			}
+			return x
 		}
-		for _, rule := range group {
-			head, x := c.manager.GetDecl(rule.head)
-			if x != nil {
-				return x
-			}
-			if !c.marked[head] {
-				c.marked[head] = true
-				// Source compile_{nonrecursive,recursive}_stratum marks only
-				// after its execution completes. A timed-out round still stores
-				// partial relations, but must not mark unfinished work saturated.
-				instruction, x := NewMarkSaturatedInstruction(c.relations, head)
-				if x != nil {
-					return x
-				}
-				if x = c.append(c.execution, instruction, nil); x != nil {
-					return x
-				}
-			}
+		if nonrecursive {
+			//this stratum contains just a single non-recursive rule
+			x = c.compileNonrecursiveStratum(stratPreds[0], rulesByHead[stratPreds[0]])
+		} else {
+			x = c.compileDependentRules(set, stratPreds, rulesByHead)
+		}
+		if x != nil {
+			return x
 		}
 	}
+	return nil
+}
+
+// allSaturated is compiler::all_saturated.
+func (c *finiteCompiler) allSaturated(preds []ast.ASTHandle) (bool, error) {
+	for _, pred := range preds {
+		saturated, err := c.relations.IsSaturated(pred)
+		if err != nil || !saturated {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+// isNonrecursiveStratum is compiler::is_nonrecursive_stratum.
+func (c *finiteCompiler) isNonrecursiveStratum(preds []ast.ASTHandle, rulesByHead map[ast.ASTHandle][]finiteCompiledRule) (bool, error) {
+	if len(preds) > 1 {
+		return false, nil
+	}
+	headPred := preds[0]
+	for _, rule := range rulesByHead[headPred] {
+		//it is sufficient to check just for presence of the first head predicate,
+		//since if the rules are recursive and their heads are strongly connected by dependence,
+		//this predicate must appear in some tail
+		inTail, err := rule.rule.IsInTail(headPred, false)
+		if err != nil || inTail {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+// markSaturated is acc.push_back(instruction::mk_mark_saturated(m, pred)).
+func (c *finiteCompiler) markSaturated(pred ast.ASTHandle) error {
+	instruction, err := NewMarkSaturatedInstruction(c.relations, pred)
+	if err != nil {
+		return err
+	}
+	return c.append(c.execution, instruction, nil)
+}
+
+// compileNonrecursiveStratum is compiler::compile_nonrecursive_stratum with
+// no output delta and saturation marks.
+func (c *finiteCompiler) compileNonrecursiveStratum(headPred ast.ASTHandle, rules []finiteCompiledRule) error {
+	for _, rule := range rules {
+		if err := c.compileRule(rule, VoidRegister, [2]uint32{VoidRegister, VoidRegister}); err != nil {
+			return err
+		}
+	}
+	//now the predicate is saturated, so we may mark it as such
+	return c.markSaturated(headPred)
+}
+
+// compileDependentRules is compiler::compile_dependent_rules with saturation
+// marks: the recursive loop, then a mark for every predicate of the stratum.
+func (c *finiteCompiler) compileDependentRules(set *base.RuleSet, headPreds []ast.ASTHandle, rulesByHead map[ast.ASTHandle][]finiteCompiledRule) error {
+	var group []finiteCompiledRule
+	for _, pred := range headPreds {
+		group = append(group, rulesByHead[pred]...)
+	}
+	if len(group) != 0 {
+		if err := c.compileRecursive(set, group); err != nil {
+			return err
+		}
+	}
+	//after the loop finishes, all predicates in the group are saturated,
+	//so we may mark them as such
+	for _, pred := range headPreds {
+		if err := c.markSaturated(pred); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// storePredicates is the store loop of compiler::do_compilation.
+func (c *finiteCompiler) storePredicates() error {
 	for _, predicate := range c.loaded {
 		instruction, x := NewStoreInstruction(c.relations, predicate, c.predicateRegs[predicate])
 		if x != nil {
