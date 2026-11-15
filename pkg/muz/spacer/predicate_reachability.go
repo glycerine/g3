@@ -115,7 +115,15 @@ func (p *PredicateTransformer) reachAssumptions(level uint32) (_ []ast.ASTHandle
 
 // CheckReachability checks an obligation at its frame level and, on SAT,
 // selects the active rule and predecessor reach facts from the returned model.
+// It asks for a core, as expand_node's is_reachable(n, &cube, ...) does.
 func (p *PredicateTransformer) CheckReachability(obligation *ProofObligation) (result *ReachabilityResult, resultErr error) {
+	return p.checkReachability(obligation, true)
+}
+
+// checkReachability is pred_transformer::is_reachable; needCore is
+// core != nullptr. context::is_reachable passes a null core, so the prop
+// solver computes no unsat core on an unsat result.
+func (p *PredicateTransformer) checkReachability(obligation *ProofObligation, needCore bool) (result *ReachabilityResult, resultErr error) {
 	if err := p.open(); err != nil {
 		return nil, err
 	}
@@ -153,7 +161,7 @@ func (p *PredicateTransformer) CheckReachability(obligation *ProofObligation) (r
 	}
 	check, err := p.solver.CheckAssumptions([]ast.ASTHandle{post}, soft, PropCheckOptions{
 		Background:      []ast.ASTHandle{extension},
-		NeedCore:        true,
+		NeedCore:        needCore,
 		NeedModel:       true,
 		SubsetBasedCore: !useFarkas,
 		Level:           &level,

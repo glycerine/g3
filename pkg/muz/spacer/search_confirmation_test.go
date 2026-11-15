@@ -196,3 +196,53 @@ func TestSpacerReachFactExpansionAdvancesSiblingDerivation(t *testing.T) {
 		})
 	}
 }
+
+// AUDIT.md muz_spacer_02-F5: context::is_reachable calls
+// pred_transformer::is_reachable with a null core, so the prop solver
+// extracts no core on an unsat check; expand_node passes &cube.
+func TestSpacerConfirmReachabilitySkipsCore(t *testing.T) {
+	f := newContextAnswerFixture(t, false)
+	c, m := f.context, f.context.manager
+	boolean, err := m.MkBoolSort()
+	if err != nil {
+		t.Fatal(err)
+	}
+	name, err := m.Symbols.Intern("confirmation-core-b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := m.MkConst(name, boolean)
+	if err != nil {
+		t.Fatal(err)
+	}
+	notB, err := m.MkNot(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := c.transformers[f.query]
+	if _, err = p.AddLemma(notB, InfinityLevel); err != nil {
+		t.Fatal(err)
+	}
+	for _, needCore := range []bool{true, false} {
+		obligation, err := p.NewProofObligation(nil, InfinityLevel, 0, b, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		check, err := p.checkReachability(obligation, needCore)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if check.Status != lbool.False {
+			t.Fatal("blocked post is not unreachable", check.Status)
+		}
+		if needCore && len(check.Core) == 0 {
+			t.Fatal("expand_node's check computed no core")
+		}
+		if !needCore && len(check.Core) != 0 {
+			t.Fatal("is_reachable computed a core", len(check.Core))
+		}
+		if err = check.Close(m); err != nil {
+			t.Fatal(err)
+		}
+	}
+}

@@ -51,7 +51,8 @@ func (q *ProofObligationQueue) confirmConcreteReachability(obligation *ProofObli
 	}
 	saved := obligation.level
 	obligation.level = InfinityLevel
-	check, err := obligation.transformer.CheckReachability(obligation)
+	// n.pt().is_reachable(n, nullptr, &model, ...): no core.
+	check, err := obligation.transformer.checkReachability(obligation, false)
 	obligation.level = saved
 	if err != nil {
 		return false, fmt.Errorf("spacer: confirm concrete reachability: %w", err)
