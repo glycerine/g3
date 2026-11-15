@@ -39,6 +39,22 @@ func (p *PredicateTransformer) ExpandObligation(obligation *ProofObligation) (_ 
 	if err := p.open(); err != nil {
 		return ExpansionResult{}, err
 	}
+	// flet<bool> _arith_ignore_int_(fparams.m_arith_ignore_int,
+	//     m_weak_abs && n.weakness() < 1);
+	// flet<bool> _array_weak_(fparams.m_array_weak,
+	//     m_weak_abs && n.weakness() < 2);
+	// The flets cover the rest of expand_node: generalizers, add_lemma,
+	// create_children and the recursive expand_node after bump_weakness,
+	// which installs its own nested flets (AUDIT.md FUZZ_F-F2).
+	weakness, err := obligation.Weakness()
+	if err != nil {
+		return ExpansionResult{}, err
+	}
+	restoreWeakness, err := p.solver.scopedWeakAbstraction(p.solver.contexts[0], p.weakAbstraction, weakness)
+	if err != nil {
+		return ExpansionResult{}, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, restoreWeakness()) }()
 	check, err := p.CheckReachability(obligation)
 	if err != nil {
 		return ExpansionResult{}, err

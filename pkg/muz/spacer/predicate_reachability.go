@@ -155,18 +155,14 @@ func (p *PredicateTransformer) checkReachability(obligation *ProofObligation, ne
 	if err != nil {
 		return nil, err
 	}
-	weakness, err := obligation.Weakness()
-	if err != nil {
-		return nil, err
-	}
+	// The weak-abstraction flets belong to expand_node (ExpandObligation),
+	// not to is_reachable (AUDIT.md FUZZ_F-F2).
 	check, err := p.solver.CheckAssumptions([]ast.ASTHandle{post}, soft, PropCheckOptions{
 		Background:      []ast.ASTHandle{extension},
 		NeedCore:        needCore,
 		NeedModel:       true,
 		SubsetBasedCore: !useFarkas,
 		Level:           &level,
-		WeakAbstraction: p.weakAbstraction,
-		Weakness:        &weakness,
 		SoftRefs:        &references,
 	})
 	if err != nil {
