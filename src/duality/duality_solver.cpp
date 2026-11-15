@@ -293,6 +293,8 @@ namespace Duality {
         std::vector<RPFP::Node *> leaves;    // leaf nodes of unwinding (unused)
         Unexpanded unexpanded;               // unexpanded nodes
         std::list<Candidate> candidates;     // candidates for expansion
+        // FORK FIX #96 (g3 audit, see FORK_BUGFIXES.md): counts annotation updates, expansions and extensions (AUDIT duality zbug round 3)
+        unsigned fork_progress = 0;
         // maps children to edges in input RPFP
         hash_map<Node *, std::vector<Edge *> > edges_by_child;
         // maps each node in input RPFP to its expanded instances
@@ -697,6 +699,7 @@ namespace Duality {
         /** If the current proposed solution is not inductive,
             use the induction failure to generate candidates for extension. */
         void ExpandNode(Node *node){
+            fork_progress++; // FORK FIX #96
             unexpanded.erase(node);
             insts_of_node[node->map].push_back(node);
             timer_start("GenCandIndFailUsing");
@@ -1100,6 +1103,15 @@ namespace Duality {
 #ifdef BOUNDED
             DoTopoSort();
 #endif
+            // FORK FIX #96 (g3 audit, see FORK_BUGFIXES.md): give up when a rejected candidate comes back with nothing changed (AUDIT duality zbug round 3)
+            // Candidate generation and the feasibility check depend only on
+            // the annotations, expansions and extensions; if none changed
+            // since a candidate was rejected, producing it again means it is
+            // produced and rejected forever (work/duality_01/qbody: the
+            // induction check ignores the non-itp quantifier that the
+            // feasibility check refutes). Report incompleteness instead.
+            std::vector<std::pair<Edge *, std::vector<Node *> > > rejected;
+            unsigned rejected_at = fork_progress;
             while(true){
                 timer_start("ProduceCandidatesForExtension");
                 ProduceCandidatesForExtension();
@@ -1111,7 +1123,19 @@ namespace Duality {
                 }
                 Candidate cand = candidates.front();
                 candidates.pop_front();
-                if(CandidateFeasible(cand)){
+                if(rejected_at != fork_progress){
+                    rejected.clear();
+                    rejected_at = fork_progress;
+                }
+                std::pair<Edge *, std::vector<Node *> > key(cand.edge, cand.Children);
+                for(unsigned i = 0; i < rejected.size(); i++)
+                    if(rejected[i] == key)
+                        throw Incompleteness();
+                if(!CandidateFeasible(cand)){
+                    rejected.push_back(key);
+                    continue;
+                }
+                {
                     Node *new_node;
                     if(!Extend(cand,new_node))
                         return false;
@@ -1566,6 +1590,7 @@ namespace Duality {
                 indset->Update(node,fact);
                 updated_nodes.insert(node->map);
                 node->Annotation.IntersectWith(fact);
+                fork_progress++; // FORK FIX #96
                 return true;
             }
             return false;
@@ -1717,6 +1742,7 @@ namespace Duality {
 
         /** Extend the unwinding, keeping it solved. */
         bool Extend(Candidate &cand, Node *&node){
+            fork_progress++; // FORK FIX #96
             timer_start("Extend");
             node = CreateNodeInstance(cand.edge->Parent);
             CreateEdgeInstance(cand.edge,node,cand.Children);
