@@ -49,8 +49,9 @@ func TestInterpolationWriteProblemSerializesSequenceAndTree(t *testing.T) {
 	if err := f.c.WriteInterpolationProblem(&withTheory, constraints[:2], nil, theory); err != nil {
 		t.Fatal(err)
 	}
-	constraintPosition := strings.Index(withTheory.String(), "write-a")
-	theoryPosition := strings.Index(withTheory.String(), "write-background")
+	// Declarations come in iz3pp's func_decl_set order; compare the asserts.
+	constraintPosition := strings.Index(withTheory.String(), "(assert (! write-a ")
+	theoryPosition := strings.Index(withTheory.String(), "(assert (! write-background ")
 	if constraintPosition < 0 || theoryPosition <= constraintPosition {
 		t.Fatal("writer omitted a source theory assertion")
 	}

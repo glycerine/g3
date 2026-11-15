@@ -94,3 +94,57 @@ func TestInterpolationPrettyPrintDuplicateAndBadTree(t *testing.T) {
 		t.Fatal("source prefix before bad tree was not preserved", out.String())
 	}
 }
+
+// AUDIT.md interp_02-F11: iz3pp collects declarations with
+// free_func_visitor into a func_decl_set (hash-table order), prints them
+// with mk_smt_pp plus "\n", and names every constraint before printing,
+// so a duplicate constraint uses its last name. The expected text is what
+// the C++ Z3_write_interpolation_problem writes for the same problems.
+func TestInterpolationPrettyPrintSourceDeclarationsAndNames(t *testing.T) {
+	m := interpASTFixture(t)
+	intern := func(name string) symbol.Symbol {
+		s, err := m.Symbols.Intern(name)
+		interpMust(t, err)
+		return s
+	}
+	pin := func(h ast.ASTHandle, err error) ast.ASTHandle {
+		t.Helper()
+		interpMust(t, err)
+		return interpPin(t, m, h)
+	}
+	// A C API context has already registered one user-sort name when the
+	// harness declares U, so U is user-sort kind 1 there; match its hash.
+	pin(m.MkUninterpretedSort(intern("pp-user-sort-0"), nil))
+	u := pin(m.MkUninterpretedSort(intern("U"), nil))
+	boolSort := pin(m.MkBoolSort())
+	f := pin(m.MkFuncDecl(intern("f"), []ast.ASTHandle{u}, u, ast.ASTFuncDeclInfo{}))
+	p := pin(m.MkFuncDecl(intern("p"), []ast.ASTHandle{u}, boolSort, ast.ASTFuncDeclInfo{}))
+	a := pin(m.MkConst(intern("a"), u))
+	b := pin(m.MkConst(intern("b"), u))
+	fa := pin(m.MkApp(f, []ast.ASTHandle{a}))
+	fb := pin(m.MkApp(f, []ast.ASTHandle{b}))
+	first := pin(m.MkEq(fa, b))
+	second := pin(m.MkNot(pin(m.MkEq(fb, a))))
+	third := pin(m.MkApp(p, []ast.ASTHandle{a}))
+	inner := pin(m.MkAnd(pin(m.MkInterp(first)), second))
+	tree := pin(m.MkAnd(pin(m.MkInterp(inner)), third))
+	var out bytes.Buffer
+	interpMust(t, PrettyPrintProblem(m, []ast.ASTHandle{first, second, third}, tree, &out))
+	want := "(set-option :produce-interpolants true)\n" +
+		"(declare-fun p (U) Bool)\n(declare-fun b () U)\n(declare-fun a () U)\n(declare-fun f (U) U)\n" +
+		"(assert (! (= (f a) b) :named f!1))\n(assert (! (not (= (f b) a)) :named f!2))\n(assert (! (p a) :named f!3))\n" +
+		"(check-sat)\n(get-interpolant (and (interp (and (interp f!1) f!2)) f!3))\n"
+	if out.String() != want {
+		t.Fatalf("pretty interpolation problem:\n%s\nwant:\n%s", out.String(), want)
+	}
+	truth := pin(m.MkTrue())
+	duplicate := pin(m.MkAnd(pin(m.MkInterp(truth)), truth))
+	out.Reset()
+	interpMust(t, PrettyPrintProblem(m, []ast.ASTHandle{truth, truth}, duplicate, &out))
+	want = "(set-option :produce-interpolants true)\n" +
+		"(assert (! true :named f!2))\n(assert (! true :named f!2))\n" +
+		"(check-sat)\n(get-interpolant (and (interp f!2) f!2))\n"
+	if out.String() != want {
+		t.Fatalf("duplicate constraint names:\n%s\nwant:\n%s", out.String(), want)
+	}
+}
