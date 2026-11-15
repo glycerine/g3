@@ -264,3 +264,36 @@ func TestSimplexMakeFeasibleBlandAfterThreshold(t *testing.T) {
 		t.Fatalf("Bland's rule not enabled: repeated=%d", repeated)
 	}
 }
+
+// AUDIT.md smtcore_12-F4: select_pivot_core breaks (dependencies, column
+// size) ties with m_random()%n (random_gen, seed 0). Two rows, each with four
+// equally good free candidates; a harness linked against the reference
+// build's libz3.a (simplex<mpq_ext>, same rows and bounds) printed
+// "status l_true row1 base v3 row2 base v6" with 2 pivots.
+func TestSelectPivotRandomTie(t *testing.T) {
+	s := NewSolver(nil)
+	r1, err := s.AddRationalRow(0, []uint32{0, 1, 2, 3, 4}, integerRow(-1, 1, 1, 1, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r2, err := s.AddRationalRow(5, []uint32{5, 6, 7, 8, 9}, integerRow(-1, 1, 1, 1, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	one := RationalInfinitesimal(rat(1, 1))
+	if err = s.SetLower(0, one); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.SetLower(5, one); err != nil {
+		t.Fatal(err)
+	}
+	status, err := s.MakeFeasible()
+	if err != nil || status != lbool.True {
+		t.Fatal(status, err)
+	}
+	b1, _ := s.BaseVariable(r1)
+	b2, _ := s.BaseVariable(r2)
+	if b1 != 3 || b2 != 6 || s.Stats.NumPivots != 2 || s.Stats.NumChecks != 1 {
+		t.Fatalf("row1 base v%d row2 base v%d pivots %d checks %d; want v3 v6 2 1", b1, b2, s.Stats.NumPivots, s.Stats.NumChecks)
+	}
+}

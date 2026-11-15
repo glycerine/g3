@@ -338,6 +338,12 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_12-F4 / math_misc_02-F3: PB simplex pivot tie-break and
+	// sparse_matrix slot reuse; TestPBSimplexStatisticsMatchSource checks -st.
+	"pb_simplex_pivot_stats.smt2":    "sat\n",
+	"pb_simplex_add_rows_stats.smt2": "unsat\n",
+	"pb_simplex_tie_stats.smt2":      "unsat\n",
+	"pb_simplex_scopes_stats.smt2":   "sat\nsat\nsat\nsat\nsat\n",
 	// AUDIT.md math_polynomial_10-F1: DRS root isolation traces its
 	// upolynomial records (G3_GOLDEN_TAGS=upolynomial).
 	"nra_cube_root_two.smt2": "sat\n(model \n  (define-fun x () Real\n    (root-obj (+ (^ x 3) (- 2)) 1))\n)\n",

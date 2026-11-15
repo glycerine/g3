@@ -1,0 +1,7 @@
+(set-option :auto_config false)
+(set-option :smt.pb.enable_simplex true)
+(set-option :smt.pb.enable_compilation false)
+(set-logic ALL)
+(declare-const a Bool)(declare-const b Bool)(declare-const c Bool)
+(assert ((_ at-least 2) (not a) b c))
+(check-sat)

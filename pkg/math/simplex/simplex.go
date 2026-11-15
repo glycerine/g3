@@ -7,6 +7,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	z3rand "github.com/glycerine/g3/pkg/util/random"
 )
 
 // Infinitesimal is the exact c*infinity+a+b*epsilon value. Infinity is zero
@@ -195,6 +196,7 @@ type Solver struct {
 	arithmeticPivotStrategy  uint32
 	arithmeticBlandThreshold uint32
 	arithmeticBland          bool
+	random                   z3rand.Generator // m_random, seed 0
 	infeasible               uint32
 	Stats                    Stats
 }
@@ -464,11 +466,16 @@ func (s *Solver) nonFreeDependencies(v uint32) int {
 	}
 	return n
 }
+
+// selectPivot is select_pivot: select_pivot_blands under Bland's rule,
+// otherwise select_pivot_core, which breaks (dependencies, column size) ties
+// uniformly at random with m_random.
 func (s *Solver) selectPivot(base uint32, below bool) (uint32, *big.Rat) {
 	entries, _ := s.matrix.Entries(Row{s.vars[base].row})
 	result := NullVariable
 	bestDep := int(^uint(0) >> 1)
 	bestCol := ^uint32(0)
+	n := uint32(0)
 	for _, e := range entries {
 		v := e.Variable
 		if v == base {
@@ -490,10 +497,16 @@ func (s *Solver) selectPivot(base uint32, below bool) (uint32, *big.Rat) {
 			continue
 		}
 		dep, col := s.nonFreeDependencies(v), s.matrix.ColumnSize(v)
-		if dep < bestDep || (dep == bestDep && (col < bestCol || (col == bestCol && v < result))) {
+		if dep < bestDep || (dep == bestDep && col < bestCol) {
 			result = v
 			bestDep = dep
 			bestCol = col
+			n = 1
+		} else if dep == bestDep && col == bestCol {
+			n++
+			if s.random.Next()%n == 0 {
+				result = v
+			}
 		}
 	}
 	if result == NullVariable {
