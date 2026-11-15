@@ -56,6 +56,10 @@ Abstract:
     z3_4_7_1_ddnf_extract_width   DDNF compile_eq looks an extract equality
                                   up by the constant's width and segfaults
                                   (pkg/AUDIT.md muz_small_01-F9).
+    z3_4_7_1_min_cut_shared_node  min_cut::augment_path adds the residual
+                                  reverse arc to the sink and never
+                                  terminates when augmenting paths share a
+                                  node (pkg/AUDIT.md util_misc_01-F1).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -76,6 +80,7 @@ Abstract:
 #include "muz/fp/dl_cmds.h"
 #include "parsers/smt2/smt2parser.h"
 #include "tactic/portfolio/smt_strategic_solver.h"
+#include "util/min_cut.h"
 #include <sstream>
 #include <iostream>
 #ifndef _WINDOWS
@@ -552,4 +557,46 @@ void tst_z3_4_7_1_ddnf_extract_width() {
         "unknown\n";
     std::cout << "ddnf_extract_width: expected\n" << expected << "got\n" << out.str();
     ENSURE(out.str() == expected);
+}
+
+#ifndef _WINDOWS
+namespace {
+    void min_cut_shared_node_timeout(int) {
+        static char const msg[] =
+            "min_cut_shared_node: compute_min_cut did not terminate within 20 seconds\n";
+        ssize_t n = write(2, msg, sizeof(msg) - 1);
+        (void)n;
+        _exit(1);
+    }
+}
+#endif
+
+// Source 0, sink 1, and the diamond 0->2, 0->3, 2->4, 3->4, 4->1: both
+// augmenting paths share node 4. min_cut::augment_path added the missing
+// residual reverse arc as k -> 1 (the sink) instead of k -> l, which keeps
+// refilling capacity into the sink, so compute_min_cut never terminated.
+// The cut is the single edge 4->1, reported as node 1. Used by spacer with
+// fixedpoint.spacer.minimize_unsat_core=true. Fixed upstream in 8150cd6e8
+// (#11401). pkg/AUDIT.md util_misc_01-F1.
+void tst_z3_4_7_1_min_cut_shared_node() {
+#ifndef _WINDOWS
+    signal(SIGALRM, min_cut_shared_node_timeout);
+    alarm(20);
+#endif
+    min_cut mc;
+    unsigned a = mc.new_node(), b = mc.new_node(), c = mc.new_node();
+    mc.add_edge(0, a);
+    mc.add_edge(0, b);
+    mc.add_edge(a, c);
+    mc.add_edge(b, c);
+    mc.add_edge(c, 1);
+    unsigned_vector cut;
+    mc.compute_min_cut(cut);
+#ifndef _WINDOWS
+    alarm(0);
+#endif
+    std::cout << "min_cut_shared_node: cut:";
+    for (unsigned n : cut) std::cout << " " << n;
+    std::cout << "\n";
+    ENSURE(cut.size() == 1 && cut[0] == 1);
 }
