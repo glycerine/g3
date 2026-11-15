@@ -7,9 +7,9 @@ func TestRankedFieldPolynomialModularInverse(t *testing.T) {
 		t.Run(map[bool]string{false: "remainder", true: "pseudo"}[usePrem], func(t *testing.T) {
 			f := newRankedValueFixture(t, usePrem)
 			modulus := f.gamma.root.polynomial.coefficients
-			inverse, coprime, err := f.base.store.invertRankedPolynomialModulo([]*realValue{nil, f.one}, modulus, usePrem)
-			if err != nil || !coprime {
-				t.Fatal("modular inverse", coprime, err)
+			inverse, g, coprime, err := f.base.store.invertRankedPolynomialModulo([]*realValue{nil, f.one}, modulus, usePrem)
+			if err != nil || !coprime || g != nil {
+				t.Fatal("modular inverse", coprime, g, err)
 			}
 			product, err := f.base.store.multiplyRankedPolynomials([]*realValue{nil, f.one}, inverse, usePrem)
 			if err != nil {

@@ -62,3 +62,29 @@ func TestAPIRCFAlgebraicTimesPiDecimal(t *testing.T) {
 		}
 	}
 }
+
+// AUDIT math_realclosure_01b-F1 and 02-F3: inv_algebraic refines the
+// reducible defining polynomial (x-1)(x^2-2) of r, so 1/(r^2+1) is 1/3.
+func TestAPIRCFInverseRefinesExtension(t *testing.T) {
+	f := newRCFFixture(t)
+	defer f.close()
+	roots, err := f.context.RCFRoots([]*RCFNumber{f.rational("2"), f.rational("-2"), f.rational("-1"), f.rational("1")})
+	if err != nil || len(roots) != 3 {
+		t.Fatal(len(roots), err)
+	}
+	for _, root := range roots {
+		f.keep(root, nil)
+	}
+	r := roots[2]
+	q := f.keep(f.context.RCFAdd(f.keep(f.context.RCFMul(r, r)), f.rational("1")))
+	inverse := f.keep(f.context.RCFInv(q))
+	if got := f.text(inverse); got != "1/3" {
+		t.Fatalf("1/(r^2+1) = %q, want 1/3", got)
+	}
+	numerator, denominator, err := f.context.RCFNumeratorDenominator(inverse)
+	f.keep(numerator, err)
+	f.keep(denominator, err)
+	if f.text(numerator) != "1" || f.text(denominator) != "3" {
+		t.Fatal(f.text(numerator), f.text(denominator))
+	}
+}
