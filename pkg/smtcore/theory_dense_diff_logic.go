@@ -52,6 +52,8 @@ func NewSMTDenseDiffTheory(family ast.FamilyID) (*SMTDenseDiffTheory, error) {
 	}
 	t := &SMTDenseDiffTheory{SMTTheoryBase: base, matrix: newSMTDenseDiffMatrix(), adapter: adapter, byBool: make(map[int32]int), occurrences: make(map[[2]int][]int)}
 	t.syntax.SMTTheoryBase, t.syntax.equalityAdapter = base, adapter
+	// theory_dense_diff_logic uses arith_eq_adapter::mk_axioms itself.
+	adapter.source = true
 	t.matrix.owner = t
 	return t, nil
 }

@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_10-F5: dense equality axioms come from arith_eq_adapter::mk_axioms.
+	"dense_equality_axiom_order.smt2": "unsat\n",
 	// AUDIT.md smtcore_12-F5: no pb-clauses statistic (checked in TestSMTCoreStatisticsVectors).
 	"pb_statistics_no_clause_key.smt2": "sat\n",
 	// AUDIT.md smtcore_10-F4: datatype final check visits all roots after a split conflict.

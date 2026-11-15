@@ -140,8 +140,10 @@ func TestSMTDenseDifferenceEqualityPhaseAndProofHint(t *testing.T) {
 		t.Fatal(err)
 	}
 	astTestMust(t, f.theory.InternalizeEquality(equality, variable))
-	if len(f.theory.atoms) != 2 || len(f.state.clauses) != 3 || len(f.theory.adapter.hint) != 1 {
-		t.Fatal("dense proof equality shape", len(f.theory.atoms), len(f.state.clauses), len(f.theory.adapter.hint))
+	// arith_eq_adapter::mk_axioms passes its triangle-eq proof hint to each
+	// clause; the clauses are checked below.
+	if len(f.theory.atoms) != 2 || len(f.state.clauses) != 3 {
+		t.Fatal("dense proof equality shape", len(f.theory.atoms), len(f.state.clauses))
 	}
 	for _, atom := range f.theory.atoms {
 		data, err := f.state.BooleanData(atom.variable)
@@ -219,5 +221,81 @@ func TestSMTDenseDifferenceAtomAcceptsAttachedOffsetTerm(t *testing.T) {
 	source := f.state.context.enodes.get(f.y).TheoryVar(f.family)
 	if a := f.theory.atoms[0]; a.target != int(target) || a.source != int(source) {
 		t.Fatal("atom operands", a.source, a.target, source, target)
+	}
+}
+
+// AUDIT.md smtcore_10-F5: new_eq_eh/new_diseq_eh go through
+// arith_eq_adapter::mk_axioms, which orders the pair by owner id and builds
+// (= t1 t2), t1 - t2 and the le/ge atoms itself.
+func TestSMTDenseDifferenceRelationEventOrdersPairByOwnerID(t *testing.T) {
+	f := newSMTDenseEqualityFixture(t, true, SMTArithState{})
+	m := f.manager
+	xv, err := f.theory.term(f.x)
+	astTestMust(t, err)
+	yv, err := f.theory.term(f.y)
+	astTestMust(t, err)
+	before := len(f.state.boolExpr)
+	astTestMust(t, f.theory.NewEquality(yv, xv))
+	equality, err := m.MkEq(f.x, f.y)
+	astTestMust(t, err)
+	astTestPin(t, m, equality)
+	if _, found := f.state.BoolVar(equality); !found {
+		t.Fatal("the equality atom is not (= x y)")
+	}
+	reversed, err := m.MkEq(f.y, f.x)
+	astTestMust(t, err)
+	astTestPin(t, m, reversed)
+	if _, found := f.state.BoolVar(reversed); found {
+		t.Fatal("an unordered (= y x) atom was internalized")
+	}
+	if got := len(f.state.boolExpr) - before; got != 3 {
+		t.Fatal("expected the equality and the two bound atoms", got)
+	}
+	minusOne, err := m.ArithmeticNumeralRat(big.NewRat(-1, 1), true)
+	astTestMust(t, err)
+	negativeY, err := m.MkFamilyApp(f.family, smtArithOpMul, nil, []ast.ASTHandle{minusOne, f.y})
+	astTestMust(t, err)
+	difference, err := m.MkFamilyApp(f.family, smtArithOpAdd, nil, []ast.ASTHandle{f.x, negativeY})
+	astTestMust(t, err)
+	zero, err := m.ArithmeticNumeralRat(new(big.Rat), true)
+	astTestMust(t, err)
+	lower, err := m.MkFamilyApp(f.family, smtArithOpLE, nil, []ast.ASTHandle{difference, zero})
+	astTestMust(t, err)
+	astTestPin(t, m, lower)
+	if _, found := f.state.BoolVar(lower); !found {
+		t.Fatal("the lower bound is not (<= (+ x (* -1 y)) 0)")
+	}
+	count := len(f.state.boolExpr)
+	astTestMust(t, f.theory.NewDisequality(xv, yv))
+	if len(f.state.boolExpr) != count || f.theory.adapter.NumAxioms() != 1 {
+		t.Fatal("an already processed pair created atoms again", len(f.state.boolExpr)-count, f.theory.adapter.NumAxioms())
+	}
+}
+
+// AUDIT.md smtcore_10-F14: restart_eh calls mk_axioms on the stored enodes,
+// whose dense variables may have been popped; the bound atoms recreate them.
+func TestSMTDenseDifferenceRestartRecreatesVariables(t *testing.T) {
+	f := newSMTDenseEqualityFixture(t, true, SMTArithState{})
+	astTestMust(t, f.state.Internalize(f.x, false))
+	astTestMust(t, f.state.Internalize(f.y, false))
+	astTestMust(t, f.state.InitializeTheorySearch())
+	astTestMust(t, f.state.beginSearchPersistence(0, SMTParamsState{AgilityFactor: 0.9999, RestartAdaptive: true}))
+	t.Cleanup(func() { astTestMust(t, f.state.endSearchPersistence()) })
+	astTestMust(t, f.state.PushScope())
+	xv, err := f.theory.term(f.x)
+	astTestMust(t, err)
+	yv, err := f.theory.term(f.y)
+	astTestMust(t, err)
+	astTestMust(t, f.theory.NewEquality(xv, yv))
+	if len(f.theory.adapter.restart) != 1 || len(f.state.clauses) != 3 {
+		t.Fatal("dense equality was not queued for restart", len(f.theory.adapter.restart), len(f.state.clauses))
+	}
+	astTestMust(t, f.state.PopScopes(1))
+	if f.theory.IsAttachedToVariable(f.state.context.enodes.get(f.x)) || f.theory.IsAttachedToVariable(f.state.context.enodes.get(f.y)) {
+		t.Fatal("dense variables survived the pop")
+	}
+	astTestMust(t, f.state.RestartTheories())
+	if len(f.theory.adapter.restart) != 0 || len(f.state.clauses) != 3 || len(f.theory.atoms) != 2 {
+		t.Fatal("dense restart did not recreate the axioms", len(f.theory.adapter.restart), len(f.state.clauses), len(f.theory.atoms))
 	}
 }

@@ -20,6 +20,11 @@ type smtcoreStatisticsVector struct {
 }
 
 var smtcoreStatisticsVectors = map[string]smtcoreStatisticsVector{
+	// AUDIT.md smtcore_10-F5: the dense theory builds its equality axioms
+	// with arith_eq_adapter::mk_axioms.
+	"dense_equality_axiom_order.smt2": {
+		want: map[string]string{"dd-assertions": "8", "mk-bool-var": "16", "arith-eq-adapter": "2"},
+	},
 	// AUDIT.md smtcore_12-F5: theory_pb::collect_statistics has no
 	// "pb clauses" key.
 	"pb_statistics_no_clause_key.smt2": {
