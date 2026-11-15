@@ -57,6 +57,12 @@ package sorting
 //     2026-11-14 for AUDIT.md opt_01-F3: weight-only comparators tie, and
 //     the order is the check_sat assumption order.
 //
+//  6. polynomial::manager::imp::mod_gcd's degree sort
+//     (pkg/math/polynomial/polynomial_gcd_power_buffer.go sortDegrees),
+//     src/math/polynomial/polynomial.cpp:4253 with power::lt_degree,
+//     approved 2026-11-14 for AUDIT.md math_polynomial_04-F1: equal minimum
+//     degrees tie, and the order is mod_gcd_rec's elimination order.
+//
 // The algorithm lives here in pkg/util/sorting so every approved call site
 // shares one verified implementation; the typed wrappers stay at the call
 // sites (smtcore/libstdcxx_sort.go, ast/rewriter/bv_polynomial_sort.go).

@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/glycerine/g3/pkg/arena"
+	"github.com/glycerine/g3/pkg/util/sorting"
 )
 
 // GCD variable/degree pairs use native Go storage. The enclosing invocation
@@ -48,8 +49,26 @@ func (b *polynomialGCDPowers) push(x, k uint32) error {
 func (b *polynomialGCDPowers) sortVariables() {
 	sort.Slice(*b, func(i, j int) bool { return (*b)[i].Var < (*b)[j].Var })
 }
+
+// gcdPowersByDegree is power::lt_degree (polynomial.cpp:117-121).
+type gcdPowersByDegree []MonomialPower
+
+func (a gcdPowersByDegree) Len() int           { return len(a) }
+func (a gcdPowersByDegree) Less(i, j int) bool { return a[i].Degree < a[j].Degree }
+func (a gcdPowersByDegree) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+
+// sortDegrees is mod_gcd's
+//
+//	std::sort(var_min_degrees.begin(), var_min_degrees.end(), power::lt_degree());
+//
+// (polynomial.cpp:4253). USER-APPROVED libstdc++ std::sort CALL SITE (owner,
+// 2026-11-14, AUDIT.md math_polynomial_04-F1): lt_degree compares degrees
+// only, so variables with equal minimum degree tie, and from 17 variables on
+// libstdc++'s introsort permutes them; that order is the mod_gcd_rec
+// elimination order. It must use pkg/util/sorting/libstdcxx_sort.go, never
+// sort.Slice. (sortVariables may stay on sort.Slice: variables never tie.)
 func (b *polynomialGCDPowers) sortDegrees() {
-	sort.Slice(*b, func(i, j int) bool { return (*b)[i].Degree < (*b)[j].Degree })
+	sorting.LibstdcxxSort(gcdPowersByDegree(*b))
 }
 
 func (m *MultivariatePolynomialManager) variableDegrees(p Polynomial, pws *polynomialGCDPowers, max bool) error {

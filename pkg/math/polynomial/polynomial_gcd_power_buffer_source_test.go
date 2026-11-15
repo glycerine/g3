@@ -177,3 +177,38 @@ func TestPolynomialGCDVariableDegreesNativeCache(t *testing.T) {
 	}
 	polynomialImpPhysicalAuditNamed(t, full, []Polynomial{p, q}, nil, 0)
 }
+
+// TestGCDPowersSortDegreesMatchesLibstdcxx: mod_gcd's std::sort with
+// power::lt_degree (polynomial.cpp:4253) must leave libstdc++'s order
+// (AUDIT.md math_polynomial_04-F1). Expected orders come from g++ 13.3
+// std::sort with the same comparator.
+func TestGCDPowersSortDegreesMatchesLibstdcxx(t *testing.T) {
+	// 13 entries: insertion sort, ties keep input order (sort.Slice did not).
+	b := polynomialGCDPowers{{0, 2}}
+	for x := uint32(1); x <= 12; x++ {
+		b = append(b, MonomialPower{x, 1})
+	}
+	b.sortDegrees()
+	for i, p := range b {
+		want := MonomialPower{uint32(i + 1), 1}
+		if i == 12 {
+			want = MonomialPower{0, 2}
+		}
+		if p != want {
+			t.Fatalf("13 entries: position %d = %v, want %v", i, p, want)
+		}
+	}
+	// 20 tie-heavy entries: introsort path.
+	degrees := []uint32{1, 2, 1, 1, 3, 1, 2, 1, 1, 1, 2, 1, 1, 3, 1, 1, 2, 1, 1, 1}
+	order := []uint32{19, 2, 3, 18, 5, 17, 7, 8, 9, 0, 11, 12, 14, 15, 10, 16, 6, 1, 13, 4}
+	b = b[:0]
+	for x, d := range degrees {
+		b = append(b, MonomialPower{uint32(x), d})
+	}
+	b.sortDegrees()
+	for i, x := range order {
+		if b[i] != (MonomialPower{x, degrees[x]}) {
+			t.Fatalf("20 entries: position %d = %v, want var %d", i, b[i], x)
+		}
+	}
+}
