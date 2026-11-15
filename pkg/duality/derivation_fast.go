@@ -44,7 +44,10 @@ func (s *DerivationSearch) buildFast() (sat bool, result error) {
 		}
 		if !checkUnder {
 			// Discard a proof derived with temporary leaf assumptions before
-			// interpolating the unassumed constraint tree.
+			// interpolating the unassumed constraint tree. DerivationTree::Build
+			// does not (interpolate_tree reuses that proof and iZ3 fails with
+			// "unknown assertion"); that is a z3 4.7.1 bug, see
+			// z3_bug_exclusions.txt and AUDIT.md duality_01-F6.
 			if _, err := d.tree.solver.CheckSat(nil); err != nil {
 				return false, err
 			}

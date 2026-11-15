@@ -536,3 +536,15 @@ z3_bug_duality_failed_query_requery
 # answers sat: Reach(2) is derivable. Reproduction:
 # test_vectors/z3_bug_duality_underapprox_flag_literals.smt2.
 z3_bug_duality_underapprox_flag_literals
+#
+# With fixedpoint.duality.use_underapprox, DerivationTree::Build runs
+# CheckWithUnderapprox under the @under leaf assumptions and, when it is
+# unsat, interpolates that proof: interpolate_tree only re-checks when the
+# solver has no proof. The assumption leaves are not interpolation
+# constraints and iZ3 fails with "unknown assertion" (z3 bug:
+# src/duality/duality_solver.cpp DerivationTree::Build; Duality was removed
+# upstream without a fix). g3 re-checks without assumptions first
+# (pkg/duality/derivation_fast.go buildFast; AUDIT.md duality_01-F6) and
+# answers sat. Reproduction:
+# test_vectors/z3_bug_duality_underapprox_stale_proof.smt2.
+z3_bug_duality_underapprox_stale_proof
