@@ -2905,3 +2905,30 @@ void tst_z3_4_7_1_bvarray2uf_quantifier() {
                         "(error \"line 3 column 17: not handled by bvarray2uf\")\n"
                         "(error \"tactic failed: not handled by bvarray2uf\")\n");
 }
+
+// smt2::parser::parse_get_value evaluates each term with model::eval,
+// which catches the evaluator's exception (here "max. steps exceeded"
+// under model_evaluator.max_steps) and returns false with the value
+// still null; display then dereferences it and z3 4.7.1 crashes. Fork
+// fix 52 (stale rewriter stacks) does not cover this. Upstream evaluates
+// with model::operator(), so the exception becomes a command error, since
+// 335d672bf ("fix #1675").
+void tst_z3_4_7_1_get_value_max_steps() {
+    std::cout << "get_value_max_steps: running (get-value ...) under model_evaluator.max_steps\n";
+    std::cout.flush(); // z3 4.7.1 dies here
+    expect_shell_script("get_value_max_steps",
+                        "(set-option :produce-models true)\n"
+                        "(declare-const x Int)\n"
+                        "(declare-const y Int)\n"
+                        "(assert (> x (+ y 1)))\n"
+                        "(check-sat)\n"
+                        "(set-option :model_evaluator.max_steps 3)\n"
+                        "(get-value ((+ x y 1 (* 2 x) (* 3 y))))\n"
+                        "(get-value (x))\n"
+                        "(set-option :model_evaluator.max_steps 4294967295)\n"
+                        "(get-value ((+ x y 1 (* 2 x) (* 3 y))))\n",
+                        "sat\n"
+                        "((error \"line 7 column 38: max. steps exceeded\")\n"
+                        "((x 1))\n"
+                        "(((+ x y 1 (* 2 x) (* 3 y)) 0))\n");
+}
