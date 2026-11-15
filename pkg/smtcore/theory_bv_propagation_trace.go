@@ -25,28 +25,19 @@ func (t *SMTBitVectorTheory) traceBVPropagating(variable SMTTheoryVar, index uin
 	})
 }
 
-func writeBVSourceLiteral(out io.Writer, literal SMTLiteral) error {
-	if literal.Sign() {
-		if _, err := io.WriteString(out, "-"); err != nil {
-			return err
-		}
-	}
-	_, err := fmt.Fprintf(out, "%d", literal.Var())
-	return err
-}
-
 func (t *SMTBitVectorTheory) traceBVPropagationConflict(first, second SMTLiteral) error {
 	return t.emitBVTrace("bv_bit_prop", "propagate_bits", 1223, func(out io.Writer) error {
 		if _, err := io.WriteString(out, "inconsistent "); err != nil {
 			return err
 		}
-		if err := writeBVSourceLiteral(out, first); err != nil {
+		// smt::literal operator<<: true, false, pN or (not pN).
+		if err := smtPBWriteLiteral(out, first); err != nil {
 			return err
 		}
 		if _, err := io.WriteString(out, " "); err != nil {
 			return err
 		}
-		if err := writeBVSourceLiteral(out, second); err != nil {
+		if err := smtPBWriteLiteral(out, second); err != nil {
 			return err
 		}
 		_, err := io.WriteString(out, "\n")

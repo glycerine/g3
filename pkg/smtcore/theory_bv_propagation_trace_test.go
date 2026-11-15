@@ -82,7 +82,9 @@ func TestSMTBVPropagationAndMergeConflictSourceTrace(t *testing.T) {
 		astTestMust(t, state.AssignLiteral(pLiteral, NewSMTBooleanAxiom()))
 		astTestMust(t, state.AssignLiteral(qLiteral.Negated(), NewSMTBooleanAxiom()))
 		astTestMust(t, theory.Assign(pLiteral.Var(), true))
-		if tags.ShouldTrace("bv_bit_prop") && !strings.Contains(output.String(), "-------- [bv_bit_prop] propagate_bits src/smt/theory_bv.cpp:1223 ---------\ninconsistent ") {
+		// AUDIT.md smtcore_10-F9: the literals use smt::literal's operator<<.
+		want := fmt.Sprintf("-------- [bv_bit_prop] propagate_bits src/smt/theory_bv.cpp:1223 ---------\ninconsistent p%d p%d\n", pLiteral.Var(), qLiteral.Var())
+		if tags.ShouldTrace("bv_bit_prop") && !strings.Contains(output.String(), want) {
 			t.Fatal("missing source propagation conflict trace", output.String())
 		}
 	})
