@@ -18,7 +18,7 @@ func TestAnyPolynomialScalarDivideAndNegate(t *testing.T) {
 			}
 			f.expect(divided, []*realValue{f.alpha, f.two})
 
-			negated, err := f.base.store.negateAnyPolynomial(divided)
+			negated, err := f.base.store.negateAnyPolynomial(divided, true)
 			if err != nil {
 				t.Fatal(err)
 			}

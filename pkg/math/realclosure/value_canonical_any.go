@@ -6,7 +6,7 @@ func (s *realValueStore) canonicalizeAnyRetainedResult(value *realValue, usePrem
 	if value == nil || value.isRational {
 		return value, nil
 	}
-	sign, err := s.determineAnyRetainedValueSign(value, usePrem)
+	sign, err := s.determineRankedRetainedValueSign(value, usePrem)
 	if err != nil {
 		return value, err
 	}

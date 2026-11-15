@@ -11,7 +11,7 @@ func (s *realValueStore) negativeRootLowerBoundAny(p []*realValue, bounds *numer
 	if len(p) < 2 || p[len(p)-1] == nil || bounds == nil {
 		return 0, false, arena.ErrInvalidSlot
 	}
-	lcSign, err := s.determineAnyRetainedValueSign(p[len(p)-1], usePrem)
+	lcSign, err := s.determineRankedRetainedValueSign(p[len(p)-1], usePrem)
 	if err != nil {
 		return 0, false, err
 	}
@@ -29,7 +29,7 @@ func (s *realValueStore) negativeRootLowerBoundAny(p []*realValue, bounds *numer
 		if coefficient == nil {
 			continue
 		}
-		sign, err := s.determineAnyRetainedValueSign(coefficient, usePrem)
+		sign, err := s.determineRankedRetainedValueSign(coefficient, usePrem)
 		if err != nil {
 			return 0, false, err
 		}

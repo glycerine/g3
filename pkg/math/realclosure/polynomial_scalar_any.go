@@ -13,7 +13,7 @@ func (s *realValueStore) divideAnyPolynomialByScalar(p []*realValue, scalar *rea
 		}
 	}()
 	for i, coefficient := range p {
-		result[i], err = s.divideRetainedValues(coefficient, scalar)
+		result[i], err = s.divideRankedRetainedValues(coefficient, scalar, usePrem)
 		if err != nil {
 			return nil, err
 		}
@@ -25,7 +25,7 @@ func (s *realValueStore) divideAnyPolynomialByScalar(p []*realValue, scalar *rea
 	return trimAnyPolynomial(result), nil
 }
 
-func (s *realValueStore) negateAnyPolynomial(p []*realValue) (result []*realValue, err error) {
+func (s *realValueStore) negateAnyPolynomial(p []*realValue, usePrem bool) (result []*realValue, err error) {
 	result = make([]*realValue, len(p))
 	defer func() {
 		if err != nil {
@@ -34,7 +34,7 @@ func (s *realValueStore) negateAnyPolynomial(p []*realValue) (result []*realValu
 		}
 	}()
 	for i, coefficient := range p {
-		result[i], err = s.negateRetainedValue(coefficient)
+		result[i], err = s.negateRankedRetainedValue(coefficient, usePrem)
 		if err != nil {
 			return nil, err
 		}

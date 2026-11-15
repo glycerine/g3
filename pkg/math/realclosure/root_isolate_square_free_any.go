@@ -16,11 +16,11 @@ func (o *algebraicRootOwner) isolateNonzeroSquareFreeAnyRoots(p []*realValue, us
 		return nil, nil
 	}
 	if len(p) == 2 {
-		negative, err := o.values.negateRetainedValue(p[0])
+		negative, err := o.values.negateRankedRetainedValue(p[0], usePrem)
 		if err != nil {
 			return nil, err
 		}
-		value, divideErr := o.values.divideRetainedValues(negative, p[1])
+		value, divideErr := o.values.divideRankedRetainedValues(negative, p[1], usePrem)
 		releaseErr := o.values.releaseSturmScratch(negative)
 		if divideErr != nil {
 			return nil, errors.Join(divideErr, releaseErr)

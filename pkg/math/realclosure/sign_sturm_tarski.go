@@ -254,7 +254,7 @@ func (s *realValueStore) tarskiFromUnboundedSequenceAny(rows []realPolynomial, u
 			if len(row.coefficients) == 0 || row.coefficients[len(row.coefficients)-1] == nil {
 				return 0, arena.ErrInvalidSlot
 			}
-			sign, err := s.determineAnyRetainedValueSign(row.coefficients[len(row.coefficients)-1], usePrem)
+			sign, err := s.determineRankedRetainedValueSign(row.coefficients[len(row.coefficients)-1], usePrem)
 			if err != nil {
 				return 0, err
 			}

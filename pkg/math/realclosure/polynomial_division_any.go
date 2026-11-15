@@ -28,7 +28,7 @@ func (s *realValueStore) divideAnyPolynomials(left, right []*realValue, usePrem 
 			return fail(err)
 		}
 		shift := len(remainder) - len(right)
-		ratio, e := s.divideRetainedValues(remainder[len(remainder)-1], right[len(right)-1])
+		ratio, e := s.divideRankedRetainedValues(remainder[len(remainder)-1], right[len(right)-1], usePrem)
 		if e != nil {
 			return fail(e)
 		}

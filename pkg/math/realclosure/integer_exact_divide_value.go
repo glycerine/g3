@@ -17,7 +17,7 @@ func (s *realValueStore) exactDivideValueByInteger(value *realValue, divisor *nu
 		return nil, err
 	}
 	defer func() { err = errors.Join(err, s.releaseSturmScratch(scalar)) }()
-	result, err = s.divideRetainedValues(value, scalar)
+	result, err = s.divideRankedRetainedValues(value, scalar, usePrem)
 	if err != nil {
 		return nil, err
 	}

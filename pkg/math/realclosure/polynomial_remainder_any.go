@@ -27,7 +27,7 @@ func (s *realValueStore) signedRemainderAny(left, right []*realValue, usePrem bo
 			return fail(err)
 		}
 		shift := len(result) - len(right)
-		ratio, e := s.divideRetainedValues(result[len(result)-1], right[len(right)-1])
+		ratio, e := s.divideRankedRetainedValues(result[len(result)-1], right[len(right)-1], usePrem)
 		if e != nil {
 			return fail(e)
 		}
@@ -62,7 +62,7 @@ func (s *realValueStore) signedRemainderAny(left, right []*realValue, usePrem bo
 		}
 		result = trimAnyPolynomial(result[:len(result)-1])
 	}
-	negated, err := s.negateAnyPolynomial(result)
+	negated, err := s.negateAnyPolynomial(result, usePrem)
 	if err != nil {
 		return fail(err)
 	}

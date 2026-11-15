@@ -81,7 +81,7 @@ func (s *realValueStore) signedPseudoRemainderAny(left, right []*realValue, useP
 		}
 		result = trimAnyPolynomial(result[:len(result)-1])
 	}
-	leadingSign, err := s.determineAnyRetainedValueSign(leading, usePrem)
+	leadingSign, err := s.determineRankedRetainedValueSign(leading, usePrem)
 	if err != nil {
 		return fail(err)
 	}
@@ -89,7 +89,7 @@ func (s *realValueStore) signedPseudoRemainderAny(left, right []*realValue, useP
 		return fail(arena.ErrInvalidSlot)
 	}
 	if steps%2 == 0 || leadingSign > 0 {
-		negated, e := s.negateAnyPolynomial(result)
+		negated, e := s.negateAnyPolynomial(result, usePrem)
 		if e != nil {
 			return fail(e)
 		}

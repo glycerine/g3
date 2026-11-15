@@ -52,5 +52,5 @@ func (s *realValueStore) signAnyPolynomialAtBinaryBound(coefficients []*realValu
 		}
 		acc = next
 	}
-	return s.determineAnyRetainedValueSign(acc, usePrem)
+	return s.determineRankedRetainedValueSign(acc, usePrem)
 }

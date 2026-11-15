@@ -1,6 +1,9 @@
 package api
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // rootDecimals isolates the roots of the ascending coefficients and returns
 // their decimal strings at precision 10, keeping the roots for f.close.
@@ -59,5 +62,44 @@ func TestAPIRCFInverseOfInfinitesimalDifference(t *testing.T) {
 	inverse := f.keep(f.context.RCFInv(d))
 	if got, want := f.text(inverse), "(-1)/(eps!1^2 + -1*eps!1)"; got != want {
 		t.Fatalf("1/(eps-eps^2) = %q, want %q", got, want)
+	}
+}
+
+// AUDIT math_realclosure_01-F3: square_free, gcd, div_rem, rem and prem
+// operate on coefficients of every extension kind.
+func TestAPIRCFRootsTranscendentalCoefficient(t *testing.T) {
+	f := newRCFFixture(t)
+	defer f.close()
+	pi := f.keep(f.context.RCFPi())
+	_, got := f.rootDecimals(f.keep(f.context.RCFNeg(pi)), f.rational("0"), f.rational("1"))
+	f.expectDecimals("x^2-pi", got, "-1.7724538509?", "1.7724538509?")
+}
+
+// AUDIT math_realclosure_01-F1: clean_denominators cleans the denominators
+// of rational-function coefficients, so the roots are those of the cleaned
+// polynomial (pi + 1)*x^2 - 1.
+func TestAPIRCFRootsRationalFunctionCoefficient(t *testing.T) {
+	f := newRCFFixture(t)
+	defer f.close()
+	pi := f.keep(f.context.RCFPi())
+	pi1 := f.keep(f.context.RCFAdd(pi, f.rational("1")))
+	c := f.keep(f.context.RCFNeg(f.keep(f.context.RCFInv(pi1))))
+	roots, got := f.rootDecimals(c, f.rational("0"), f.rational("1"))
+	f.expectDecimals("x^2-1/(pi+1)", got, "-0.4913786798?", "0.4913786798?")
+	for i, root := range roots {
+		if text := f.text(root); !strings.Contains(text, "root((pi + 1)*x^2 + -1, ") {
+			t.Fatalf("root %d = %q", i, text)
+		}
+	}
+	// Structurally equal non-rational denominators are not multiplied into
+	// their own term, but they are multiplied into the rational ones.
+	third := f.rational("1/3")
+	inverse := f.keep(f.context.RCFDiv(f.rational("1"), pi1))
+	roots, got = f.rootDecimals(c, inverse, third)
+	f.expectDecimals("x^2/3+x/(pi+1)-1/(pi+1)", got, "-0.5147034125?", "0.3398047487?")
+	for i, root := range roots {
+		if text := f.text(root); !strings.Contains(text, "root((pi^2 + 2*pi + 1)*x^2 + 3*x + -3, ") {
+			t.Fatalf("root %d = %q", i, text)
+		}
 	}
 }
