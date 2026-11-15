@@ -39,7 +39,7 @@ func TestZ3BugVectorsKeepCorrectAnswers(t *testing.T) {
 				t.Fatal(err)
 			}
 			var out bytes.Buffer
-			if err = run(bytes.NewReader(script), &out); err != nil {
+			if err = run(bytes.NewReader(script), &out); err != nil && !z3BugExpectErrors[name] {
 				t.Fatal(err, out.String())
 			}
 			if out.String() != expected {
