@@ -637,7 +637,14 @@ namespace qe {
             ctx.set_projection_mode(m_projection_mode_param);
             m_solvers[idx+1]->push();
             while (ctx.get_num_vars() > 0) {
-                VERIFY(l_true == m_solvers[idx+1]->check());
+                // Under a resource limit the check is l_undef and
+                // project_var would read a null model: stop with the
+                // cancel message instead.
+                lbool is_sat = m_solvers[idx+1]->check();
+                if (is_sat == l_undef && m.canceled()) {
+                    throw tactic_exception(m.limit().get_cancel_msg());
+                }
+                VERIFY(l_true == is_sat);
                 ctx.project_var(ctx.get_num_vars()-1);               
             }
             m_solvers[idx+1]->pop(1);            
