@@ -121,6 +121,9 @@ func (p *datalogParser) parseBody(head ast.ASTHandle) (dtoken, error) {
 
 // addRule sends a ground body-less head to context::add_fact and any other
 // rule, as the formula `body => head`, to context::add_rule.
+// addRule is dparser::add_rule: a fact goes to context::add_fact; any
+// other rule is built by rule_manager::mk(head, sz, body, is_neg) and added
+// with context::add_rule(rule_ref&), keeping the body in source order.
 func (p *datalogParser) addRule(head ast.ASTHandle, body []ast.ASTHandle, isNeg []bool) error {
 	if len(body) == 0 {
 		args, fact, err := p.factArgs(head)
@@ -134,13 +137,8 @@ func (p *datalogParser) addRule(head ast.ASTHandle, body []ast.ASTHandle, isNeg 
 			}
 			return p.context.AddFixedpointFact(decl, args)
 		}
-		return p.context.AddFixedpointRule(head, "")
 	}
-	rule, err := p.fixedpointRule(head, body, isNeg)
-	if err != nil {
-		return err
-	}
-	return p.context.AddFixedpointRule(rule, "")
+	return p.context.AddFixedpointRuleObject(head, body, isNeg)
 }
 
 // factArgs is rule_manager::is_fact: every argument of head is a value.
@@ -160,27 +158,4 @@ func (p *datalogParser) factArgs(head ast.ASTHandle) ([]ast.ASTHandle, bool, err
 		}
 	}
 	return args, true, nil
-}
-
-func (p *datalogParser) fixedpointRule(head ast.ASTHandle, tails []ast.ASTHandle, negated []bool) (ast.ASTHandle, error) {
-	body := make([]ast.ASTHandle, len(tails))
-	for i, tail := range tails {
-		body[i] = tail
-		if negated[i] {
-			var err error
-			body[i], err = p.manager.MkNot(tail)
-			if err != nil {
-				return ast.ASTHandle{}, err
-			}
-		}
-	}
-	conjunction, err := p.manager.MkAndArray(body)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	formula, err := p.manager.MkImplies(conjunction, head)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	return p.pin(formula)
 }

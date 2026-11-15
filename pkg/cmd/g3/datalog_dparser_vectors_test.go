@@ -14,6 +14,8 @@ import (
 // build/z3 prints them. AUDIT.md cmd_context_01-F9: the Datalog front end
 // is a port of dlexer/dparser (src/muz/fp/datalog_parser.cpp).
 var datalogFrontEndResults = map[string]struct{ stdout, stderr string }{
+	// muz_pipeline: dparser::add_rule builds rules with rule_manager::mk, keeping the body order.
+	"datalog_dparser_rule_body_order.datalog":         {"Tuples in p: \n\t(x=0(0),y=1(1))\n\t(x=1(1),y=0(0))\n\t(x=0(0),y=0(0))\n\t(x=1(1),y=1(1))\n", ""},
 	"datalog_dparser_domain_overflow.datalog":         {"", "sort V contains more constants than its declared size 2\nERROR: failed to parse file\n"},
 	"datalog_dparser_domain_size_zero.datalog":        {"", "Domain size of sort 'V' may not be 0\nERROR: failed to parse file\n"},
 	"datalog_dparser_fact_order.datalog":              {"Tuples in P: \n\t(x=3(0))\n\t(x=1(1))\n\t(x=2(2))\n", ""},
