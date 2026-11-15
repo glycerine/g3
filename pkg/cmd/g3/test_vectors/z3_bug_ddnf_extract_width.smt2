@@ -1,0 +1,8 @@
+(set-option :fixedpoint.engine ddnf)
+(declare-rel p ((_ BitVec 4)))
+(declare-rel q ())
+(declare-var x (_ BitVec 4))
+(rule (=> (= x #x5) (p x)))
+(rule (=> (and (p x) (= ((_ extract 0 0) x) #b1)) q))
+(query q)
+(echo "done")

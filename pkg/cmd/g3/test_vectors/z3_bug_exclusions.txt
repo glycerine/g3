@@ -153,3 +153,12 @@ z3_bug_lazy_sparse_nullary_union
 # AUDIT.md muz_small_01-F8). Reproduction:
 # test_vectors/z3_bug_qbmc_eval_level.smt2.
 z3_bug_qbmc_eval_level
+#
+# DDNF compile_eq looks the tbv of an extract equality up in the DDNF of
+# the constant's width, but process_eq stored it under the variable's
+# width; for (= ((_ extract 0 0) x) #b1) no 1-bit DDNF exists and z3
+# segfaults (z3 bug: src/muz/ddnf/ddnf.cpp compile_eq; still present
+# upstream). g3 uses the variable's width (pkg/muz/ddnf/compiler.go
+# compileEquality; AUDIT.md muz_small_01-F9). Reproduction:
+# test_vectors/z3_bug_ddnf_extract_width.smt2.
+z3_bug_ddnf_extract_width

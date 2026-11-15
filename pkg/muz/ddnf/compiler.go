@@ -352,6 +352,10 @@ func (c *Compiler) compileVariableEquality(expression ast.ASTHandle) (ast.ASTHan
 
 func (c *Compiler) compileEquality(expression ast.ASTHandle) (ast.ASTHandle, error) {
 	constraint := c.preprocessor.constraints[expression]
+	// The DDNF is selected by the variable's width, the width process_eq
+	// stored the tbv under. z3 4.7.1 compile_eq uses the constant's width
+	// and segfaults on extract equalities (src/muz/ddnf/ddnf.cpp; AUDIT.md
+	// muz_small_01-F9, test_vectors/z3_bug_ddnf_extract_width.smt2).
 	width, err := c.manager.BitVectorSize(constraint.variable)
 	if err != nil {
 		return ast.ASTHandle{}, err

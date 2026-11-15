@@ -39,6 +39,11 @@ var z3BugResults = map[string]string{
 
 	// muz_small_01-F8
 	"z3_bug_qbmc_eval_level.smt2": "sat\n(let ((a!1 (forall ((A Int)) (=> (and (p A) (not (<= A 2))) q)))\n      (a!2 (forall ((A Int) (B Int)) (=> (and (p A) (= B (+ 1 A))) (p B)))))\n(let ((a!3 (hyper-res (hyper-res (asserted (=> q query!0))\n                                 (asserted a!1)\n                                 (=> (p 5) query!0))\n                      (asserted a!2)\n                      (=> (p 4) query!0))))\n(let ((a!4 (hyper-res (hyper-res a!3 (asserted a!2) (=> (p 3) query!0))\n                      (asserted a!2)\n                      (=> (p 2) query!0))))\n(let ((a!5 (hyper-res (hyper-res a!4 (asserted a!2) (=> (p 1) query!0))\n                      (asserted a!2)\n                      (=> (p 0) query!0))))\n  ((_ hyper-res 0 1) a!5 (asserted (p 0)) query!0)))))\n",
+
+	// muz_small_01-F9
+	// The compiled rules go to os.Stdout; TestZ3BugDDNFExtractWidthDump
+	// checks them.
+	"z3_bug_ddnf_extract_width.smt2": "unknown\ndone\n",
 }
 
 func TestZ3BugVectorsKeepCorrectAnswers(t *testing.T) {
@@ -73,5 +78,43 @@ func TestZ3BugExclusionsHaveResults(t *testing.T) {
 				t.Error("no z3BugResults entry for", line)
 			}
 		}
+	}
+}
+
+// muz_small_01-F9: the ddnf engine dumps its compiled rules to os.Stdout, as
+// the C++ dump_rules writes to std::cout. z3 4.7.1 segfaults on this input.
+func TestZ3BugDDNFExtractWidthDump(t *testing.T) {
+	script, err := os.ReadFile(filepath.Join("test_vectors", "z3_bug_ddnf_extract_width.smt2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dump, err := os.CreateTemp(t.TempDir(), "ddnf-dump")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dump.Close()
+	saved := os.Stdout
+	os.Stdout = dump
+	var out bytes.Buffer
+	err = run(bytes.NewReader(script), &out)
+	os.Stdout = saved
+	if err != nil {
+		t.Fatal(err, out.String())
+	}
+	dumped, err := os.ReadFile(dump.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "(declare-rel q ())\n" +
+		"(declare-rel p ((_ BitVec 2)))\n" +
+		"(declare-var A (_ BitVec 2))\n" +
+		"(rule (=> (= A #b01) (p A)))\n" +
+		"(rule (=> (and (p A) (or (= A #b01) (= A #b10))) q))\n" +
+		"(query q)\n"
+	if string(dumped) != want {
+		t.Fatalf("ddnf dump\n%s\nwant\n%s", dumped, want)
+	}
+	if out.String() != "unknown\ndone\n" {
+		t.Fatalf("g3 output\n%s", out.String())
 	}
 }
