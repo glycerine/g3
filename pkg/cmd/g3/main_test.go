@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_spacer_01-F5: spacer.eq_prop=false configures only the
+	// first context family (checked by TestSpacerEqPropOnlyConfiguresFirstFamily).
+	"fp_spacer_eq_prop_off.smt2": "sat\n(and bad (P 6 12) (P 5 10) (P 4 8) (P 3 6) (P 2 4) (P 1 2) (P 0 0))\n",
 	// AUDIT.md muz_spacer_01-F2: the array-equality generalizer orders the
 	// array constants by func_decl_set order (the order itself is checked by
 	// TestArrayGeneralizerUsesFuncDeclSetOrder).

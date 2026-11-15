@@ -30,6 +30,11 @@ type Manager struct {
 	paramsContext *uparams.ParamsContext
 	solverParams  uparams.ParamsRef
 	paramsReceipt uparams.ParamsDecrementReceipt
+	// auxParams are the fparams2/fparams3 families' parameters: the source
+	// configures seed, mbqi and eq_prop only on m_pm.fparams().
+	auxParams     uparams.ParamsRef
+	auxReceipt    uparams.ParamsDecrementReceipt
+	ownsAuxParams bool
 	useNativeMBP  bool
 	ownsParams    bool
 	unique        uint32
@@ -69,6 +74,15 @@ func NewManager(manager *ast.ASTManager, params *uparams.ParamsRef, maximumConte
 	if err != nil {
 		return nil, err
 	}
+	equalityPropagation, err := parameters.Bool("spacer.eq_prop", true)
+	if err != nil {
+		return nil, err
+	}
+	result.auxParams, err = spacerAuxSolverParams(params, config)
+	if err != nil {
+		return nil, err
+	}
+	result.ownsAuxParams = true
 	if config.ModelEvaluator.Context == nil {
 		config.ModelEvaluator.Context = config.Params
 	}
@@ -89,8 +103,14 @@ func NewManager(manager *ast.ASTManager, params *uparams.ParamsRef, maximumConte
 	if err != nil {
 		return nil, err
 	}
+	// m_contexts gets the eq_prop/seed/mbqi settings of
+	// init_lemma_generalizers; m_contexts2 and m_contexts3 keep defaults.
 	for index := range result.contexts {
-		result.contexts[index], err = NewSMTContextManager(manager, &result.solverParams, maximumContexts, config)
+		if index == 0 {
+			result.contexts[index], err = newSMTContextManagerFamily(manager, &result.solverParams, maximumContexts, config, false, !equalityPropagation)
+		} else {
+			result.contexts[index], err = newSMTContextManagerFamily(manager, &result.auxParams, maximumContexts, config, true, false)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -151,6 +171,16 @@ func spacerSolverParams(source *uparams.ParamsRef, config smtcore.SMTSolverConfi
 		}
 	}
 	return construction.params, nil
+}
+
+// spacerAuxSolverParams is the parameter set of the secondary context
+// families: spacer::manager builds m_contexts2 and m_contexts3 with an empty
+// params_ref, so their smt_params keep the global defaults.
+func spacerAuxSolverParams(_ *uparams.ParamsRef, config smtcore.SMTSolverConfig) (uparams.ParamsRef, error) {
+	if config.Params == nil || config.Globals == nil {
+		return uparams.ParamsRef{}, ErrManagerOwner
+	}
+	return config.Params.EmptyValue(), nil
 }
 
 func (m *Manager) open() error {
@@ -678,6 +708,19 @@ func (m *Manager) Close() (result error) {
 		}
 		m.paramsReceipt = uparams.ParamsDecrementReceipt{}
 		m.ownsParams = false
+	}
+	if result == nil && m.ownsAuxParams {
+		var paramErr error
+		if m.auxReceipt.Invocation() != 0 {
+			paramErr = m.paramsContext.CompleteDecrement(&m.auxParams, m.auxReceipt)
+		} else {
+			paramErr = m.paramsContext.DelTracked(&m.auxParams, &m.auxReceipt)
+		}
+		if paramErr != nil {
+			return paramErr
+		}
+		m.auxReceipt = uparams.ParamsDecrementReceipt{}
+		m.ownsAuxParams = false
 	}
 	if result != nil {
 		return result

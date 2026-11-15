@@ -25,6 +25,13 @@ type SMTContextManager struct {
 	created   uint32
 	factories []*VirtualSolverFactory
 	dump      VirtualSolverDumpConfig
+	// secondary marks the fparams2/fparams3 families: init_lemma_generalizers
+	// configures only m_pm.fparams(), so their dump settings stay off.
+	secondary bool
+	// eqPropOff applies the !spacer.eq_prop smt_params fields that have no
+	// parameter name (m_arith_auto_config_simplex = true,
+	// m_arith_eager_eq_axioms = false) to the family's kernels.
+	eqPropOff bool
 	closed    bool
 }
 
@@ -32,7 +39,16 @@ func NewSMTContextManager(manager *ast.ASTManager, params *uparams.ParamsRef, ma
 	if manager == nil || config.Params == nil || config.Globals == nil {
 		return nil, ErrSMTContextManagerOwner
 	}
-	result := &SMTContextManager{manager: manager, params: params, config: config, maximum: maximum}
+	return newSMTContextManagerFamily(manager, params, maximum, config, false, false)
+}
+
+// newSMTContextManagerFamily is one of spacer::manager's m_contexts,
+// m_contexts2 and m_contexts3.
+func newSMTContextManagerFamily(manager *ast.ASTManager, params *uparams.ParamsRef, maximum uint32, config smtcore.SMTSolverConfig, secondary, eqPropOff bool) (*SMTContextManager, error) {
+	if manager == nil || config.Params == nil || config.Globals == nil {
+		return nil, ErrSMTContextManagerOwner
+	}
+	result := &SMTContextManager{manager: manager, params: params, config: config, maximum: maximum, secondary: secondary, eqPropOff: eqPropOff}
 	dump, err := result.readDumpConfig(params)
 	if err != nil {
 		return nil, err
@@ -42,6 +58,9 @@ func NewSMTContextManager(manager *ast.ASTManager, params *uparams.ParamsRef, ma
 }
 
 func (m *SMTContextManager) readDumpConfig(params *uparams.ParamsRef) (_ VirtualSolverDumpConfig, resultErr error) {
+	if m.secondary {
+		return VirtualSolverDumpConfig{}, nil
+	}
 	view, err := newFixedpointParamView(params, m.config.Params, m.config.Globals)
 	if err != nil {
 		return VirtualSolverDumpConfig{}, err
@@ -95,6 +114,9 @@ func (m *SMTContextManager) newFactory() (*VirtualSolverFactory, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err = m.applyEqPropOff(backend); err != nil {
+		return nil, errors.Join(err, backend.Close())
+	}
 	factory, err := NewVirtualSolverFactoryWithDump(backend, m.dump)
 	if err != nil {
 		return nil, errors.Join(err, backend.Close())
@@ -134,6 +156,11 @@ func (m *SMTContextManager) UpdateParams(params *uparams.ParamsRef) error {
 	for _, factory := range m.factories {
 		if err := factory.backend.UpdateParams(params); err != nil {
 			return err
+		}
+		if backend, ok := factory.backend.(*smtcore.SMTSolver); ok {
+			if err := m.applyEqPropOff(backend); err != nil {
+				return err
+			}
 		}
 		if err := factory.UpdateDumpConfig(dump); err != nil {
 			return err
@@ -184,4 +211,19 @@ func (m *SMTContextManager) Close() (result error) {
 	m.params = nil
 	m.closed = true
 	return result
+}
+
+// applyEqPropOff sets the smt_params fields init_lemma_generalizers changes
+// when spacer.eq_prop is false and that have no parameter name.
+func (m *SMTContextManager) applyEqPropOff(backend *smtcore.SMTSolver) error {
+	if !m.eqPropOff {
+		return nil
+	}
+	state, err := backend.ArithmeticState()
+	if err != nil {
+		return err
+	}
+	state.AutoConfigSimplex = true
+	state.EagerEqAxioms = false
+	return backend.SetArithmeticState(state)
 }
