@@ -486,7 +486,7 @@ func (k *SMTKernel) configureQuantifiers(full *SMTParams, state SMTParamsState, 
 		if err != nil {
 			return err
 		}
-		costs, err := NewSMTQICostModel(k.manager, costText, newGenerationText, nil)
+		costs, err := NewSMTQICostModel(k.manager, costText, newGenerationText, k.queueWarnings)
 		if err != nil {
 			return err
 		}

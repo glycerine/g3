@@ -42,6 +42,7 @@ type SMTQICostModel struct {
 	costFunction  ast.ASTRef
 	newGeneration ast.ASTRef
 	values        [smtQICostValueCount]float32
+	warnings      *diagnostic.WarningService
 	closed        bool
 }
 
@@ -53,7 +54,10 @@ func NewSMTQICostModel(manager *ast.ASTManager, costText, newGenerationText stri
 	if err != nil {
 		return nil, err
 	}
-	model := &SMTQICostModel{manager: manager, parser: parser}
+	if warnings == nil {
+		warnings = diagnostic.BorrowProcessWarningService()
+	}
+	model := &SMTQICostModel{manager: manager, parser: parser, warnings: warnings}
 	for _, name := range smtQICostVariableNames {
 		if _, err = parser.AddCostVariable(name); err != nil {
 			return model, errors.Join(err, model.Close())
@@ -63,21 +67,26 @@ func NewSMTQICostModel(manager *ast.ASTManager, costText, newGenerationText stri
 	if err != nil {
 		return model, errors.Join(err, model.Close())
 	}
-	model.costFunction, err = model.parseWithFallback(costText, "(+ weight generation)")
+	model.costFunction, err = model.parseWithFallback(costText, "(+ weight generation)", "invalid cost function '%s', switching to default one")
 	if err != nil {
 		return model, errors.Join(err, model.Close())
 	}
-	model.newGeneration, err = model.parseWithFallback(newGenerationText, "cost")
+	model.newGeneration, err = model.parseWithFallback(newGenerationText, "cost", "invalid new_gen function '%s', switching to default one")
 	if err != nil {
 		return model, errors.Join(err, model.Close())
 	}
 	return model, nil
 }
 
-func (m *SMTQICostModel) parseWithFallback(text, fallback string) (ast.ASTRef, error) {
+// parseWithFallback is one qi_queue::setup step: parse text, or warn and
+// parse the default function.
+func (m *SMTQICostModel) parseWithFallback(text, fallback, warning string) (ast.ASTRef, error) {
 	result, ok, err := m.parser.ParseString(text)
 	if err != nil || ok {
 		return result, err
+	}
+	if err = m.warnings.Warningf(warning, text); err != nil {
+		return ast.ASTRef{}, err
 	}
 	result, ok, err = m.parser.ParseString(fallback)
 	if err != nil {

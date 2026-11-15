@@ -1,9 +1,12 @@
 package smtcore
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -47,8 +50,18 @@ func TestSMTQICostModelPublishesSourceVariablesAndNewGeneration(t *testing.T) {
 func TestSMTQICostModelInvalidFunctionsUseSourceFallbacks(t *testing.T) {
 	m := astTestManager(t)
 	quantifier, pattern := smtQICostQuantifier(t, m)
-	model, err := NewSMTQICostModel(m, "(", "(bad", nil)
+	var warnings bytes.Buffer
+	model, err := NewSMTQICostModel(m, "(", "(bad", diagnostic.NewWarningService(&warnings))
 	astTestMust(t, err)
+	// smtcore_05-F7: qi_queue::setup warns before switching to the defaults.
+	for _, want := range []string{
+		"WARNING: invalid cost function '(', switching to default one\n",
+		"WARNING: invalid new_gen function '(bad', switching to default one\n",
+	} {
+		if !strings.Contains(warnings.String(), want) {
+			t.Fatalf("missing warning %q in %q", want, warnings.String())
+		}
+	}
 	t.Cleanup(func() { astTestMust(t, model.Close()) })
 	stat := &SMTQuantifierStat{}
 	cost, err := model.Cost(quantifier, pattern, stat, 3, 0, 0, 0)
