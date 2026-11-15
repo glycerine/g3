@@ -66,9 +66,11 @@ func (c *ElimBoundsConfiguration) arithmeticNumeral(h ast.ASTHandle) (bool, erro
 	return matched, err
 }
 
+// minusOne mirrors `m_util.is_numeral(arg, k, is_int) && k.is_minus_one()`:
+// is_int is only an output there, so a Real -1 counts too.
 func (c *ElimBoundsConfiguration) minusOne(h ast.ASTHandle) (bool, error) {
-	text, integer, matched, err := c.manager.ArithmeticNumeralText(h)
-	return matched && integer && text == "-1", err
+	text, _, matched, err := c.manager.ArithmeticNumeralText(h)
+	return matched && text == "-1", err
 }
 
 func (c *ElimBoundsConfiguration) variable(h ast.ASTHandle) (bool, error) {

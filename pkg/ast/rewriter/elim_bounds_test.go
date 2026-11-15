@@ -194,3 +194,56 @@ func TestElimBoundsProofProducingEntry(t *testing.T) {
 		}
 	}
 }
+
+// AUDIT.md ast_rewriter_03-F3: elim_bounds_cfg::is_bound only asks for the
+// value -1; a Real -1.0 coefficient is a difference bound too.
+func TestElimBoundsRecognizesRealMinusOne(t *testing.T) {
+	f := newFactorFixture(t)
+	realSort, err := f.m.MkFamilySort(f.family, 0, nil)
+	astTestMust(t, err)
+	astTestPin(t, f.m, realSort)
+	f.sort = realSort
+	realNumeral := func(value int64) ast.ASTHandle {
+		t.Helper()
+		q := f.m.NumeralService()
+		n, err := q.NewValue()
+		astTestMust(t, err)
+		astTestMust(t, q.SetInt64(&n, value))
+		defer func() { astTestMust(t, q.Del(&n)) }()
+		h, err := f.m.ArithmeticNumeral(&n, false)
+		astTestMust(t, err)
+		astTestPin(t, f.m, h)
+		return h
+	}
+	c, err := NewElimBoundsConfiguration(f.m)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, c.Close()) })
+	x, err := f.m.MkVar(0, realSort)
+	astTestMust(t, err)
+	y, err := f.m.MkVar(1, realSort)
+	astTestMust(t, err)
+	three := realNumeral(3)
+	minusY := f.app(9, realNumeral(-1), y)
+	bound := f.app(2, f.app(6, x, minusY), three)
+	pair, matched, err := c.isBound(bound)
+	astTestMust(t, err)
+	if !matched || pair.upper != x || pair.lower != y {
+		t.Fatal("Real difference bound", matched, pair)
+	}
+
+	rw, err := NewElimBounds(f.m)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, rw.Close()) })
+	out, err := f.m.NewRef(ast.ASTHandle{})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, f.m.DelRef(&out)) }()
+	q := elimBoundsQuantifier(t, f, true, []ast.ASTHandle{realSort, realSort}, bound)
+	astTestMust(t, rw.Rewrite(q, out))
+	got, err := f.m.RefGet(out)
+	astTestMust(t, err)
+	falseValue, err := f.m.MkFalse()
+	astTestMust(t, err)
+	if got != falseValue {
+		t.Fatal("Real difference bound quantifier was not reduced to false", got, falseValue)
+	}
+}
