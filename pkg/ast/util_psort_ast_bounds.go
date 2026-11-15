@@ -42,20 +42,6 @@ func (s *PsortASTNetwork) ge(full bool, k, n uint32, p psortASTPointer) (result 
 		}
 		return s.le(full, k, sz, p)
 	}
-	if s.encoding == PsortASTUnate {
-		mode := uint8(psortGE)
-		if full {
-			mode = psortGEFull
-		}
-		return s.unateCompare(mode, k, n, p)
-	}
-	if s.encoding == PsortASTCircuit {
-		mode := uint8(psortGE)
-		if full {
-			mode = psortGEFull
-		}
-		return s.circuitCompare(mode, k, n, p)
-	}
 	on, e = s.assertions()
 	if e != nil {
 		return result, e
@@ -117,28 +103,7 @@ func (s *PsortASTNetwork) le(full bool, k, n uint32, p psortASTPointer) (result 
 		if e = s.defaultVectors(g); e != nil {
 			return result, e
 		}
-		switch s.encoding {
-		case PsortASTBimander:
-			return s.atMostOneBimander(full, n, p, &g.vectors[0])
-		case PsortASTOrdered:
-			return s.orderedOne(full, false, n, p)
-		default:
-			return s.atMostOne(full, n, p, &g.vectors[0], false)
-		}
-	}
-	if s.encoding == PsortASTUnate {
-		mode := uint8(psortLE)
-		if full {
-			mode = psortLEFull
-		}
-		return s.unateCompare(mode, k, n, p)
-	}
-	if s.encoding == PsortASTCircuit {
-		mode := uint8(psortLE)
-		if full {
-			mode = psortLEFull
-		}
-		return s.circuitCompare(mode, k, n, p)
+		return s.atMostOne(full, n, p, &g.vectors[0], false)
 	}
 	on, e = s.assertions()
 	if e != nil {
@@ -197,20 +162,7 @@ func (s *PsortASTNetwork) eq(full bool, k, n uint32, p psortASTPointer) (result 
 		return s.eq(full, k, n, p)
 	}
 	if k == 1 {
-		switch s.encoding {
-		case PsortASTBimander:
-			return s.exactOneBimander(full, n, p)
-		case PsortASTOrdered:
-			return s.orderedOne(full, true, n, p)
-		default:
-			return s.exactlyOne(full, n, p)
-		}
-	}
-	if s.encoding == PsortASTUnate {
-		return s.unateCompare(psortEQ, k, n, p)
-	}
-	if s.encoding == PsortASTCircuit {
-		return s.circuitCompare(psortEQ, k, n, p)
+		return s.exactlyOne(full, n, p)
 	}
 	on, e = s.assertions()
 	if e != nil {
@@ -696,110 +648,4 @@ func (s *PsortASTNetwork) atMostOnePairwise(n uint32, p psortASTPointer) (result
 		}
 	}
 	return s.makeAnd(ands)
-}
-func (s *PsortASTNetwork) atMostOneBimander(full bool, n uint32, p psortASTPointer, ors *ASTLiteralVector) (result ASTHandle, err error) {
-	if full {
-		return s.atMostOne(full, n, p, ors, true)
-	}
-	f, e := s.beginFrame(3)
-	if e != nil {
-		return result, e
-	}
-	defer func() { err = s.finishFrame(f, err) }()
-	if e = s.rangeVector(f, 0, n, p); e != nil {
-		return result, e
-	}
-	in, ands, bits := &f.vectors[0], &f.vectors[1], &f.vectors[2]
-	r, e := s.fresh()
-	if e != nil {
-		return result, e
-	}
-	incSize := uint32(2)
-	if e = s.defaultVector(f, 1); e != nil {
-		return result, e
-	}
-	for i := uint32(0); i < n; i += incSize {
-		inc := psortMin(n-i, incSize)
-		ptr, e := psortVectorPointer(in)
-		if e != nil {
-			return result, e
-		}
-		if e = s.atMostOneSmall(full, inc, ptr.add(i), r, ands); e != nil {
-			return result, e
-		}
-		ptr, e = psortVectorPointer(in)
-		if e != nil {
-			return result, e
-		}
-		h, e := s.makeOr(inc, ptr.add(i))
-		if e != nil {
-			return result, e
-		}
-		if e = ors.Push(h); e != nil {
-			return result, e
-		}
-	}
-	nbits := uint32(0)
-	for {
-		sz, e := ors.Size()
-		if e != nil {
-			return result, e
-		}
-		if nbits >= 31 {
-			return result, ErrASTDomain
-		}
-		if uint32(1)<<nbits >= sz {
-			break
-		}
-		nbits++
-	}
-	if e = s.defaultVector(f, 2); e != nil {
-		return result, e
-	}
-	for k := uint32(0); k < nbits; k++ {
-		h, e := s.fresh()
-		if e != nil {
-			return result, e
-		}
-		if e = bits.Push(h); e != nil {
-			return result, e
-		}
-	}
-	for i := uint32(0); ; i++ {
-		sz, e := ors.Size()
-		if e != nil {
-			return result, e
-		}
-		if i >= sz {
-			break
-		}
-		for k := uint32(0); k < nbits; k++ {
-			a, e := s.not(r)
-			if e != nil {
-				return result, e
-			}
-			b, e := ors.At(i)
-			if e != nil {
-				return result, e
-			}
-			b, e = s.not(b)
-			if e != nil {
-				return result, e
-			}
-			c, e := bits.At(k)
-			if e != nil {
-				return result, e
-			}
-			if i&(uint32(1)<<k) == 0 {
-				c, e = s.not(c)
-				if e != nil {
-					return result, e
-				}
-			}
-			if e = s.clause3(a, b, c); e != nil {
-				return result, e
-			}
-		}
-	}
-	return r, nil
 }

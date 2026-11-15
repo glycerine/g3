@@ -28,10 +28,12 @@ func TestPB2BVParametersSurviveCleanupReplacement(t *testing.T) {
 	astTestMust(t, c.SetUInt(p, key, 29))
 	astTestMust(t, r.UpdateParams(p))
 	astTestMust(t, c.Del(p))
+	// pb2bv_rewriter::imp::updt_params is empty in 4.7.1: cleanup() keeps
+	// the constructor's m_params.
 	value, err := c.GetUInt(&r.parameters, key, 0)
 	astTestMust(t, err)
-	if value != 29 {
-		t.Fatal("source parameter append omitted update", value)
+	if value != 17 {
+		t.Fatal("updt_params changed the constructor parameters", value)
 	}
 	m.Budget().FailAfter(0)
 	err = r.Cleanup()
@@ -41,13 +43,13 @@ func TestPB2BVParametersSurviveCleanupReplacement(t *testing.T) {
 	}
 	value, err = c.GetUInt(&r.cleanupParameters, key, 0)
 	astTestMust(t, err)
-	if value != 29 {
+	if value != 17 {
 		t.Fatal("cleanup local snapshot", value)
 	}
 	astTestMust(t, r.Cleanup())
 	value, err = c.GetUInt(&r.parameters, key, 0)
 	astTestMust(t, err)
-	if value != 29 || r.cleanupParameters != (uparams.ParamsRef{}) || c.Stats().References != 1 {
+	if value != 17 || r.cleanupParameters != (uparams.ParamsRef{}) || c.Stats().References != 1 {
 		t.Fatal("reconstruction did not retire temporary", value, c.Stats())
 	}
 	astTestMust(t, r.Close())

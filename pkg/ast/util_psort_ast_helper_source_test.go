@@ -7,9 +7,9 @@ import (
 	"testing"
 )
 
-func TestPsortASTNetworkDefinedPairwiseAndErasedBimanderHelpers(t *testing.T) {
+func TestPsortASTNetworkDefinedPairwiseHelper(t *testing.T) {
 	for n := uint32(1); n <= 5; n++ {
-		for helper := 0; helper < 3; helper++ {
+		for helper := 0; helper < 1; helper++ {
 			m := astTestManager(t)
 			c, e := NewPsortASTContext(m)
 			astTestMust(t, e)
@@ -33,15 +33,12 @@ func TestPsortASTNetworkDefinedPairwiseAndErasedBimanderHelpers(t *testing.T) {
 			}
 			p, e := in.Span()
 			astTestMust(t, e)
-			// Direct kernel fixtures cover actual source definitions. Bimander remains
-			// unreachable through the literal n>=4 && false public policy.
+			// Direct kernel fixture covers the actual source definition. The
+			// bimander helper is not ported: the literal n>=4 && false policy
+			// never reaches it in 4.7.1.
 			s.running = true
 			var result ASTHandle
-			if helper == 0 {
-				result, e = s.atMostOnePairwise(n, psortASTPointer{span: p})
-			} else {
-				result, e = s.atMostOneBimander(helper == 2, n, psortASTPointer{span: p}, ors)
-			}
+			result, e = s.atMostOnePairwise(n, psortASTPointer{span: p})
 			s.running = false
 			astTestMust(t, e)
 			q := psortOracleCNF{ids: map[ASTHandle]int{}}

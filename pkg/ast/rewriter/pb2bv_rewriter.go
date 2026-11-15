@@ -55,10 +55,6 @@ type PB2BVRewriter struct {
 	numTranslated       uint32
 	compileBV           uint32
 	compileCard         uint32
-	keepCardinality     bool
-	pbSolver            string
-	minArity            uint32
-	cardinalityEncoding ast.PsortASTEncoding
 	header              uint64
 	closed              bool
 }
@@ -99,9 +95,6 @@ func (r *PB2BVRewriter) constructMembers(p *uparams.ParamsRef) (err error) {
 	if err = r.paramsContext.Assign(&r.parameters, p); err != nil {
 		return err
 	}
-	if err = r.loadProfile(); err != nil {
-		return err
-	}
 	m := r.manager
 	if r.pseudo, err = NewPseudoBooleanRewriter(m); err != nil {
 		return err
@@ -119,9 +112,6 @@ func (r *PB2BVRewriter) constructMembers(p *uparams.ParamsRef) (err error) {
 		return err
 	}
 	if r.network, err = ast.NewPsortASTNetwork(r.context, r.runtime, m.Budget(), nil); err != nil {
-		return err
-	}
-	if err = r.network.SetEncoding(r.cardinalityEncoding); err != nil {
 		return err
 	}
 	r.configuration = pb2BVConfiguration{owner: r}
@@ -292,9 +282,6 @@ func (r *PB2BVRewriter) weighted(mode pb2BVComparison, args []ast.ASTHandle, coe
 	}
 	if !boundValue.IsInt() || boundValue.Num().BitLen() > int(^uint32(0)) {
 		return ast.ASTHandle{}, ast.ErrASTDomain
-	}
-	if result, matched, err := r.profileWeighted(mode, args, coefficients, boundValue); err != nil || matched {
-		return result, err
 	}
 	width := uint32(boundValue.Num().BitLen())
 	zero, err := r.bitVectorNumeral(big.NewRat(0, 1), width)
@@ -787,17 +774,11 @@ func (r *PB2BVRewriter) rewriteApp(decl ast.ASTHandle, args ast.AppArguments, ou
 		}
 	}
 	if !unsigned || !unit {
-		if r.retainWeighted(kind, decl, bound) {
-			return RewriteFailed, nil
-		}
 		if err := r.weightedPBInto(kind, decl, args, bound, out); err != nil {
 			return RewriteFailed, err
 		}
 		r.numTranslated++
 		return RewriteDone, nil
-	}
-	if r.keepCardinality && args.Count() >= r.minArity {
-		return RewriteFailed, nil
 	}
 	result, err := r.cardinality(true, kind, k, args)
 	if err != nil {
@@ -830,14 +811,10 @@ func (r *PB2BVRewriter) Manager() (*ast.ASTManager, error) {
 	return r.manager, nil
 }
 
+// UpdateParams mirrors pb2bv_rewriter::imp::updt_params, which is empty:
+// the constructor parameters are kept unchanged for cleanup().
 func (r *PB2BVRewriter) UpdateParams(p *uparams.ParamsRef) error {
-	if err := r.open(); err != nil {
-		return err
-	}
-	if err := r.paramsContext.Append(&r.parameters, p); err != nil {
-		return err
-	}
-	return r.loadProfile()
+	return r.open()
 }
 
 func (r *PB2BVRewriter) NumTranslated() (uint32, error) {
