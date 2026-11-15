@@ -44,6 +44,10 @@ var z3BugResults = map[string]string{
 	// The compiled rules go to os.Stdout; TestZ3BugDDNFExtractWidthDump
 	// checks them.
 	"z3_bug_ddnf_extract_width.smt2": "unknown\ndone\n",
+
+	// util_misc_01-F1
+	"z3_bug_spacer_min_cut_shared_node.smt2":       "sat\n\n",
+	"z3_bug_spacer_min_cut_shared_node_unsat.smt2": "unsat\n\n",
 }
 
 func TestZ3BugVectorsKeepCorrectAnswers(t *testing.T) {

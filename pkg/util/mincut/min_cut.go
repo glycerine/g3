@@ -262,9 +262,11 @@ func (m *MinCut) augmentPath() {
 			}
 		}
 		if !reverseExists {
-			// min_cut.cpp adds edge(1, max) here. On a multi-edge path that
-			// creates a sink self-loop and can repeat augmentation forever;
-			// target the actual predecessor to retain a terminating residual graph.
+			// z3 4.7.1 min_cut.cpp adds edge(1, max) here. On a multi-edge path
+			// that creates a sink self-loop and can repeat augmentation forever;
+			// target the actual predecessor to retain a terminating residual
+			// graph, as upstream 8150cd6e8 (#11401) and the fork fix do
+			// (AUDIT.md util_misc_01-F1).
 			m.edges[node] = append(m.edges[node], minCutEdge{node: previous, weight: bottleneck})
 		}
 	}

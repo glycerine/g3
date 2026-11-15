@@ -162,3 +162,15 @@ z3_bug_qbmc_eval_level
 # compileEquality; AUDIT.md muz_small_01-F9). Reproduction:
 # test_vectors/z3_bug_ddnf_extract_width.smt2.
 z3_bug_ddnf_extract_width
+#
+# With fixedpoint.spacer.minimize_unsat_core=true, spacer computes cores
+# with min_cut, whose augment_path adds a missing residual reverse arc
+# k -> 1 (the sink) instead of k -> l; when augmenting paths share a node
+# the capacity into the sink is refilled forever and z3 never returns (z3
+# bug: src/util/min_cut.cpp augment_path; fixed upstream in 8150cd6e8,
+# #11401). g3 adds the arc to the predecessor (pkg/util/mincut/min_cut.go
+# augmentPath; TestMinCutSharedNodeDiamondTerminates; AUDIT.md
+# util_misc_01-F1). Reproductions:
+# test_vectors/z3_bug_spacer_min_cut_shared_node*.smt2.
+z3_bug_spacer_min_cut_shared_node
+z3_bug_spacer_min_cut_shared_node_unsat

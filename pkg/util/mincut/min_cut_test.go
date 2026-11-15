@@ -236,3 +236,26 @@ func minCutTestAllReachedCanReachSink(edges [][2]uint32) bool {
 	}
 	return fromSource[1]
 }
+
+// z3 4.7.1 never returns on this diamond: both augmenting paths share node
+// 4, and augment_path's sink-directed reverse arc keeps refilling capacity
+// into the sink (AUDIT.md util_misc_01-F1, upstream 8150cd6e8). The cut is
+// the edge 4->1, reported as node 1, as in the fixed C++.
+func TestMinCutSharedNodeDiamondTerminates(t *testing.T) {
+	m := New()
+	a := m.NewNode()
+	b := m.NewNode()
+	c := m.NewNode()
+	for _, edge := range [][2]uint32{{0, a}, {0, b}, {a, c}, {b, c}, {c, 1}} {
+		if err := m.AddEdge(edge[0], edge[1]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := m.ComputeMinCut(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []uint32{1}; !reflect.DeepEqual(got, want) {
+		t.Fatal("cut nodes", got, want)
+	}
+}
