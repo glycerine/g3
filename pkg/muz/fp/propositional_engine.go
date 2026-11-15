@@ -281,6 +281,11 @@ type PropositionalEngine struct {
 	// datalogTimedOut is rel_context::saturate's TIMEOUT status for the
 	// latest finite query.
 	datalogTimedOut bool
+	// datalogEmptyAnswer is the answer of a rule-free relational query whose
+	// outputs include relations the finite tables cannot represent: the
+	// round still transforms the (empty) rule set and runs the empty
+	// instruction blocks, as rel_context::saturate does, then answers it.
+	datalogEmptyAnswer *lbool.LBool
 	// softTimeout is context::soft_timeout(), m_fparams.m_timeout: the smt
 	// module's timeout when the context's smt_params were constructed.
 	softTimeout uint32
@@ -2755,9 +2760,7 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 			nonempty = nonempty || size != 0
 		}
 		if hasInfinite {
-			e.compiled = false
-			e.datalogStats.Reset()
-			return lbool.FromBool(nonempty), nil
+			return e.queryEmptyDatalogProgram(declarations, lbool.FromBool(nonempty))
 		}
 	}
 	status, err = e.queryFiniteDatalogWithRestarts(declarations)
@@ -2863,6 +2866,9 @@ func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHand
 	}
 	if canceled {
 		return lbool.Undef, z3exception.NewDefaultException(e.manager.ResourceLimit().CancelMessage())
+	}
+	if e.datalogEmptyAnswer != nil {
+		return e.finishEmptyDatalogRound(round)
 	}
 	if err = e.validateFragment(); err != nil {
 		return lbool.Undef, err
