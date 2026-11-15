@@ -479,7 +479,7 @@ func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool,
 			// m_dyn_ack_manager.propagate_eh(); } A conflict left by the
 			// learned clause goes straight back to resolve_conflict.
 			if !k.internalizer.inconsistent {
-				if restarts.due(k.internalizer.scopeLevel, baseLevel) {
+				if k.restartDue(restarts) {
 					return lbool.Undef, true, nil
 				}
 				if k.internalizer.statistics.NumConflicts-conflictBase > k.smtState.MaxConflicts {
@@ -572,6 +572,14 @@ func (k *SMTKernel) boundedSearch(session *smtSearchSession) (lbool.LBool, bool,
 			return lbool.Undef, false, ast.ErrASTDomain
 		}
 	}
+}
+
+// restartDue is bounded_search's restart test
+// m_num_conflicts_since_restart > m_restart_threshold &&
+// m_scope_lvl - m_base_lvl > 2. m_base_lvl is the user base level, below the
+// scope init_assumptions pushes, not the search level.
+func (k *SMTKernel) restartDue(restarts *smtRestartState) bool {
+	return restarts.due(k.internalizer.scopeLevel, k.internalizer.searchUserBaseLevel)
 }
 
 // resolveSearchConflict is context::resolve_conflict for the session's

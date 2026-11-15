@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_06-F3
+	"restart_assumption_base_level.smt2": "unsat\n",
 	// AUDIT.md qe_02-F6: add_constraint calls during subst assert at once.
 	"qe_subst_div_constraints.smt2": "(goals\n(goal\n  :precision precise :depth 1)\n)\n(goals\n(goal\n  (let ((a!1 (= 0 (mod (+ 3 (mod z 5)) 5)))\n        (a!3 (= 0 (mod (+ 1 (mod z 5)) 5)))\n        (a!5 (= 0 (mod (+ 4 (mod z 5)) 5)))\n        (a!7 (and (= 0 (mod z 5)) (<= (+ (* (- 3) z) y) (- 7)))))\n  (let ((a!2 (and a!1 (<= (+ (* (- 3) z) y) (- 13))))\n        (a!4 (and a!3 (<= (+ (* (- 3) z) y) (- 4))))\n        (a!6 (and a!5 (<= (+ (* (- 3) z) y) (- 10)))))\n  (let ((a!8 (and (<= (+ y (* (- 3) z)) (- 4)) (or a!2 a!4 a!6 a!7))))\n    (or (<= (+ y (* (- 3) z)) (- 16)) a!8))))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md qe_03-F3: nlqsat in proof mode fails inside tseitin-cnf.

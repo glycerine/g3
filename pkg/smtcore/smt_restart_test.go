@@ -77,6 +77,36 @@ func TestSMTRestartPreservesAssumptionScopeClauseReasons(t *testing.T) {
 	}
 }
 
+// AUDIT.md smtcore_06-F3: bounded_search measures the restart depth from
+// m_base_lvl, the user base below the assumption scope.
+func TestSMTRestartDueMeasuresFromUserBaseUnderAssumptions(t *testing.T) {
+	m := astTestManager(t)
+	k := smtTestKernel(t, m)
+	s := k.internalizer
+	p := smtRelevancyBool(t, m, "restart-due-assumption-p")
+	astTestMust(t, s.Internalize(p, true))
+	pl, err := s.Literal(p)
+	astTestMust(t, err)
+	astTestMust(t, s.PushScope()) // init_assumptions
+	k.assumptions = map[SMTLiteral]ast.ASTHandle{pl: p}
+	defer func() { k.assumptions = nil }()
+	session, err := k.beginSearch()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, k.endSearch(session)) }()
+	if session.baseLevel != 1 || s.searchUserBaseLevel != 0 {
+		t.Fatal("search and user base levels", session.baseLevel, s.searchUserBaseLevel)
+	}
+	session.restarts.conflicts = session.restarts.threshold + 1
+	astTestMust(t, s.PushScope())
+	if k.restartDue(&session.restarts) {
+		t.Fatal("restart due two levels above the user base")
+	}
+	astTestMust(t, s.PushScope())
+	if !k.restartDue(&session.restarts) {
+		t.Fatal("restart not due three levels above the user base (two above the assumption scope)")
+	}
+}
+
 func TestSMTRestartBacktracksAndPreservesLearnedClause(t *testing.T) {
 	m := astTestManager(t)
 	kernel, err := NewSMTKernel(m, nil)
