@@ -44,14 +44,15 @@ type simplifySolverContext struct {
 	boolean    *BoolPlugin
 	arithmetic *ArithmeticPlugin
 	// m_pos and m_neg; the source context never fills them.
-	atoms *BoolAtomIndex
+	atoms  *BoolAtomIndex
+	config Config
 }
 
 func newSimplifySolverContext(m *ast.ASTManager, config Config) (result *simplifySolverContext, err error) {
 	if m == nil {
 		return nil, ast.ErrASTHandle
 	}
-	result = &simplifySolverContext{manager: m}
+	result = &simplifySolverContext{manager: m, config: config}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, result.Close())
@@ -184,6 +185,18 @@ func (s *simplifySolverContext) solve(variables []ast.ASTHandle, formula ast.AST
 			}
 		}
 		if e = conjs.Close(); e != nil {
+			return nil, e
+		}
+		// AUDIT.md qe_05-F6.
+		if solved {
+			f, e = m.RefGet(formula)
+			if e == nil {
+				e = qeTrace(m, s.config, "solve", "src/qe/qe.cpp", 2501, "solved\n", f, "\n")
+			}
+		} else {
+			e = qeTrace(m, s.config, "solve", "src/qe/qe.cpp", 2501, "not solved\n")
+		}
+		if e != nil {
 			return nil, e
 		}
 		if !solved {

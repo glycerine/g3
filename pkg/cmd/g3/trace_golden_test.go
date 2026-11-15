@@ -89,6 +89,13 @@ var goldenTraceSites = map[string]bool{
 	// AUDIT.md qe_02-F1 (not in goldenTraceTags; compare with
 	// G3_GOLDEN_TAGS=qe_lite G3_GOLDEN_VECTORS=qe_lite_der_singleton).
 	"qe_lite flatten_definitions src/qe/qe_lite.cpp": true,
+	// AUDIT.md qe_05-F6 (not in goldenTraceTags; compare with
+	// G3_GOLDEN_TAGS=qe G3_GOLDEN_VECTORS=qe_partition_block_parent).
+	"qe operator() src/qe/qe.cpp":            true,
+	"qe eliminate_block src/qe/qe.cpp":       true,
+	"qe solve src/qe/qe.cpp":                 true,
+	"qe reduce_quantifier src/qe/qe.cpp":     true,
+	"qe operator() src/qe/qe_sat_tactic.cpp": true,
 }
 
 // goldenIDMaskedSites print AST ids ("#123"). Until g3 allocates the same

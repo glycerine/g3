@@ -303,6 +303,10 @@ func (t *QESATTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (err er
 		return err
 	}
 	defer func() { err = errors.Join(err, m.DelRef(&ref)) }()
+	// AUDIT.md qe_05-F6.
+	if err = qeTrace(m, t.config, "operator()", "src/qe/qe_sat_tactic.cpp", 246, "input: ", conjunction, "\n"); err != nil {
+		return err
+	}
 	preprocessed, err := t.qeRW.rewrite(conjunction)
 	if err != nil {
 		return err
@@ -314,6 +318,9 @@ func (t *QESATTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (err er
 	}
 	// m_fml = tmp releases the input conjunction.
 	if err = m.SetRef(ref, conjunction); err != nil {
+		return err
+	}
+	if err = qeTrace(m, t.config, "operator()", "src/qe/qe_sat_tactic.cpp", 250, "reduced: ", conjunction, "\n"); err != nil {
 		return err
 	}
 	if t.alt, err = extractSATAlternation(m, t.config, conjunction); err != nil {

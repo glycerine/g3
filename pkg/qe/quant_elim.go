@@ -74,6 +74,10 @@ func (e *exprQuantElim) collectStatistics(st *statistics.Statistics) error {
 // run is expr_quant_elim::operator()(assumption, fml, result).
 func (e *exprQuantElim) run(assumption, fml ast.ASTHandle) (result ast.ASTRef, err error) {
 	m := e.manager
+	// AUDIT.md qe_05-F6: TRACE("qe", tout << "elim input\n" << ...).
+	if err = qeTrace(m, e.config, "operator()", "src/qe/qe.cpp", 2234, "elim input\n", fml, "\n"); err != nil {
+		return result, err
+	}
 	instantiated, err := instantiateExprFreeVars(m, fml)
 	if err != nil {
 		return result, err
@@ -93,7 +97,18 @@ func (e *exprQuantElim) run(assumption, fml ast.ASTHandle) (result ast.ASTRef, e
 	if err != nil {
 		return result, err
 	}
-	return instantiated.abstract(value)
+	result, err = instantiated.abstract(value)
+	if err != nil {
+		return result, err
+	}
+	abstracted, err := m.RefGet(result)
+	if err == nil {
+		err = qeTrace(m, e.config, "operator()", "src/qe/qe.cpp", 2243, "elim result\n", abstracted, "\n")
+	}
+	if err != nil {
+		return result, errors.Join(err, m.DelRef(&result))
+	}
+	return result, nil
 }
 
 // elim is expr_quant_elim::elim's todo walk over applications and
@@ -393,6 +408,10 @@ func (q *quantElimNew) eliminateBlock(vars []ast.ASTHandle, fml ast.ASTRef, free
 	if quantified {
 		return lbool.Undef, appendQEFreeVars(m, free, vars)
 	}
+	trace := append(qeTraceVars(vars, " "), "\n", value, "\n")
+	if err = qeTrace(m, q.config, "eliminate_block", "src/qe/qe.cpp", 2145, trace...); err != nil {
+		return lbool.Undef, err
+	}
 	// expr_ref fml0(fml, m): the input formula stays alive until
 	// eliminate_block returns, after check and push_context's reset.
 	fml0, err := m.NewRef(value)
@@ -411,6 +430,14 @@ func (q *quantElimNew) eliminateBlock(vars []ast.ASTHandle, fml ast.ASTRef, free
 	}
 	value, err = m.RefGet(fml)
 	if err != nil {
+		return lbool.Undef, err
+	}
+	input, err := m.RefGet(fml0)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	trace = append(qeTraceVars(vars, " "), "\n", "Input:\n", input, "\n", "Result:\n", value, "\n")
+	if err = qeTrace(m, q.config, "eliminate_block", "src/qe/qe.cpp", 2161, trace...); err != nil {
 		return lbool.Undef, err
 	}
 	if m.IsFalse(value) {

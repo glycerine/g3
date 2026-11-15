@@ -310,6 +310,14 @@ func simplifyQEExpression(m *ast.ASTManager, rw *simplifyRewriterStar, expressio
 // The source threads one expr_ref, result, through every step, so each
 // assignment releases the previous formula; cur is that slot.
 func simplifyQEQuantifier(m *ast.ASTManager, ctx *simplifySolverContext, quantifier ast.ASTHandle) (result ast.ASTRef, err error) {
+	// AUDIT.md qe_05-F6: the reduce_quantifier TRACEs.
+	newBody, err := m.GetQuantifierBody(quantifier)
+	if err != nil {
+		return result, err
+	}
+	if err = qeTrace(m, ctx.config, "reduce_quantifier", "src/qe/qe.cpp", 2600, "simplifying", newBody, "\n"); err != nil {
+		return result, err
+	}
 	extracted, err := extractExprQuantifier(m, quantifier)
 	if err != nil {
 		return result, closeFailedExprQuantifierExtract(extracted, err)
@@ -331,6 +339,9 @@ func simplifyQEQuantifier(m *ast.ASTManager, ctx *simplifySolverContext, quantif
 	}
 	body, err := m.RefGet(cur)
 	if err != nil {
+		return result, err
+	}
+	if err = qeTrace(m, ctx.config, "reduce_quantifier", "src/qe/qe.cpp", 2603, "variables extracted", body, "\n"); err != nil {
 		return result, err
 	}
 	forall, err := m.IsForall(quantifier)
@@ -382,6 +393,9 @@ func simplifyQEQuantifier(m *ast.ASTManager, ctx *simplifySolverContext, quantif
 	if len(remaining) == 0 {
 		// The source still shifts and abstracts over zero variables, which
 		// leave the formula unchanged.
+		if err = qeTrace(m, ctx.config, "reduce_quantifier", "src/qe/qe.cpp", 2616, "abstracted", body, "\n"); err != nil {
+			return result, err
+		}
 		result, cur = cur, ast.ASTRef{}
 		return result, nil
 	}
@@ -430,6 +444,9 @@ func simplifyQEQuantifier(m *ast.ASTManager, ctx *simplifySolverContext, quantif
 	}
 	body, err = m.RefGet(cur)
 	if err != nil {
+		return result, err
+	}
+	if err = qeTrace(m, ctx.config, "reduce_quantifier", "src/qe/qe.cpp", 2616, "abstracted", body, "\n"); err != nil {
 		return result, err
 	}
 	q, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: forall, Sorts: sorts, Names: names, Body: body, Weight: 1})

@@ -125,3 +125,43 @@ func (d *ArrayDER) traceSelect(left, right ast.ASTHandle) error {
 	}
 	return err
 }
+
+// qeTrace emits TRACE("qe", ...) for a site in file (a path such as
+// src/qe/qe.cpp). Each part is a string, written as is, or an expression,
+// written with mk_ismt2_pp.
+func qeTrace(m *ast.ASTManager, config Config, function, file string, line int, parts ...interface{}) error {
+	tags := config.Trace
+	if tags == nil {
+		tags = diagnostic.BorrowProcessTraceTags()
+	}
+	err := tags.EmitConditional("qe", function, file, line, func() bool { return true }, func(out io.Writer) error {
+		w := traceBodyWriter{out}
+		for _, part := range parts {
+			switch v := part.(type) {
+			case string:
+				_, _ = io.WriteString(w, v)
+			case ast.ASTHandle:
+				if err := writeExpression(m, config, w, v); err != nil {
+					return err
+				}
+			default:
+				return ast.ErrASTDomain
+			}
+		}
+		return nil
+	})
+	if tags.IsStreamFailure(err) {
+		return nil
+	}
+	return err
+}
+
+// qeTraceVars lists vars as eliminate_block's TRACE does: each followed by
+// sep.
+func qeTraceVars(vars []ast.ASTHandle, sep string) []interface{} {
+	parts := make([]interface{}, 0, 2*len(vars))
+	for _, v := range vars {
+		parts = append(parts, v, sep)
+	}
+	return parts
+}

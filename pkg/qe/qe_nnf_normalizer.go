@@ -22,6 +22,7 @@ type QENNFNormalizer struct {
 	// scratch is nnf::m_trail; literalTrail is nnf_normalize_literals'.
 	scratch      []ast.ASTRef
 	literalTrail []ast.ASTRef
+	config       Config
 	closed       bool
 }
 
@@ -33,7 +34,7 @@ func NewQENNFNormalizer(manager *ast.ASTManager, relevance QENNFRelevance, atoms
 	if err != nil {
 		return nil, err
 	}
-	n := &QENNFNormalizer{manager: manager, relevance: relevance, atoms: atoms, replacer: replacer}
+	n := &QENNFNormalizer{manager: manager, relevance: relevance, atoms: atoms, replacer: replacer, config: config}
 	n.self = n
 	defer func() {
 		if resultErr != nil {
@@ -112,6 +113,14 @@ func (n *QENNFNormalizer) Normalize(formula ast.ASTRef) (index *BoolAtomIndex, r
 	index, err = NewBoolAtomIndex(m, positive, negative)
 	if err != nil {
 		return nil, err
+	}
+	// AUDIT.md qe_05-F6: nnf_normalizer::operator()'s TRACE.
+	original, err := m.RefGet(orig)
+	if err == nil {
+		err = qeTrace(m, n.config, "operator()", "src/qe/qe.cpp", 866, original, "\n-->\n", normalized, "\n")
+	}
+	if err != nil {
+		return nil, errors.Join(err, index.Close())
 	}
 	if err = m.DelRef(&orig); err != nil {
 		return nil, errors.Join(err, index.Close())
