@@ -52,9 +52,29 @@ func NewQFNRATactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SMTS
 	b.boolean(p1, "factor", false)
 	b.uint(p2, "seed", 13)
 	b.boolean(p2, "factor", false)
-	bounded4, bounded6 := copyParams(), copyParams()
-	b.uint(bounded4, "nla2bv_max_bv_size", 4)
-	b.uint(bounded6, "nla2bv_max_bv_size", 6)
+	// mk_qfnra_sat_solver: nra2sat_p = p with nla2bv_max_bv_size set to
+	// p.get_uint("nla2bv_max_bv_size", bv_size). These are only constructor
+	// params: updt_params later replaces them (nla2bv's m_params = p).
+	boundedParams := func(size uint32) *uparams.ParamsRef {
+		value := copyParams()
+		if b.err != nil {
+			return value
+		}
+		source := p
+		if source == nil {
+			empty := c.EmptyValue()
+			source = &empty
+		}
+		key := "nla2bv_max_bv_size"
+		n, e := c.GetUIntName(source, &key, size)
+		if e != nil {
+			b.err = e
+			return value
+		}
+		b.uint(value, key, n)
+		return value
+	}
+	bounded4, bounded6 := boundedParams(4), boundedParams(6)
 	if b.err != nil {
 		return nil, b.err
 	}
@@ -72,11 +92,7 @@ func NewQFNRATactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SMTS
 		return route
 	}
 	bounded := func(params *uparams.ParamsRef) tactic.Tactic {
-		return b.then(
-			b.using(b.keep(arith.NewNLA2BVTactic(m, c, g, params, config.ModelEvaluator)), params),
-			b.keep(smtcore.NewSMTTactic(m, nil, config)),
-			b.keep(tactic.NewFailIfUndecidedTactic(), nil),
-		)
+		return b.keep(qfnraSATSolverRoute(m, params, config))
 	}
 	timedSMT := b.then(
 		b.timed(b.keep(smtcore.NewSMTTactic(m, nil, config)), 5000),
@@ -107,4 +123,31 @@ func NewQFNRATactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SMTS
 	}
 	err = result.UpdateParams(p)
 	return result, err
+}
+
+// qfnraSATSolverRoute is the and_then of mk_qfnra_sat_solver, built from the
+// already adjusted nra2sat_p. nla2bv keeps the params only until its next
+// updt_params, which replaces them (m_params = p).
+func qfnraSATSolverRoute(m *ast.ASTManager, params *uparams.ParamsRef, config smtcore.SMTSolverConfig) (result tactic.Tactic, err error) {
+	b := qfliaConstruction{c: config.Params, m: m}
+	defer func() {
+		if cleanup := b.close(); cleanup != nil {
+			err = errors.Join(err, cleanup)
+		}
+		if err != nil && result != nil {
+			if acquire := result.IncRef(); acquire != nil {
+				err = errors.Join(err, acquire)
+			} else {
+				err = errors.Join(err, result.DecRef())
+			}
+			result = nil
+		}
+	}()
+	nla2bv := b.keep(arith.NewNLA2BVTactic(m, config.Params, config.Globals, params, config.ModelEvaluator))
+	smt := b.keep(smtcore.NewSMTTactic(m, nil, config))
+	undecided := b.keep(tactic.NewFailIfUndecidedTactic(), nil)
+	if b.err != nil {
+		return nil, b.err
+	}
+	return tactic.NewAndThenTactic(nla2bv, smt, undecided)
 }
