@@ -153,7 +153,23 @@ func (p *ExternalIntervalProduct) Union(source, delta *ExternalIntervalProduct, 
 			return err
 		}
 	}
+	unaligned := !externalIntervalProductKindsEqual(p.kinds, source.kinds)
+	if delta != nil {
+		unaligned = unaligned || !externalIntervalProductKindsEqual(p.kinds, delta.kinds)
+	}
 	p.canonicalizeUnalignedUnion(source, delta)
+	if unaligned && !externalIntervalProductKindsEqual(source.kinds, p.kinds) {
+		// unaligned_union_fn: tgt (and delta) take the common spec, then a
+		// source of another kind is cloned (src0.clone(), OP_RA_CLONE on the
+		// external component) and converted before the aligned union.
+		clone, err := source.Clone()
+		if err != nil {
+			return err
+		}
+		defer func() { resultErr = errors.Join(resultErr, clone.Close()) }()
+		clone.kinds = append([]string(nil), p.kinds...)
+		source = clone
+	}
 	targetCandidate, err := p.interval.Clone()
 	if err != nil {
 		return err
@@ -182,6 +198,16 @@ func (p *ExternalIntervalProduct) Union(source, delta *ExternalIntervalProduct, 
 		return err
 	}
 	if _, err = deltaCandidate.Union(freshInterval, false); err != nil {
+		return err
+	}
+	// The side-union loop of aligned_union_fn allocates a fresh delta for
+	// every component (mk_empty, OP_RA_EMPTY for the external one) even
+	// though no cross-kind side union applies; it is dropped unused.
+	sideFresh, err := p.plugin.NewEmpty(p.sorts)
+	if err != nil {
+		return err
+	}
+	if err = sideFresh.Close(); err != nil {
 		return err
 	}
 	owner := &externalIntervalUnionOwner{runtime: p.plugin.ast.NumeralService().RuntimeOwner()}
