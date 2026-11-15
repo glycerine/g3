@@ -130,6 +130,7 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 						}
 					}
 					plugin := NewRuleCoalescePluginWithProofTrace(m, c.rules, 50, true)
+					plugin.SetParamServices(c.normalizationParams, c.normalizationGlobals)
 					compatible, e := plugin.sameBody(a.rule, b.rule)
 					if e != nil || !compatible {
 						return value, errors.Join(ErrSliceProofUnsupported, e, plugin.Close())

@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/muz/base"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
 type RuleCoalescePlugin struct {
@@ -17,6 +18,54 @@ type RuleCoalescePlugin struct {
 	priority           uint32
 	generateProofTrace bool
 	closed             bool
+	// params and globals back the local bool_rewriter bwr(m) that
+	// extract_conjs and merge_rules use for mk_and / mk_or.
+	params  *uparams.ParamsContext
+	globals *uparams.GlobalParamsService
+}
+
+// SetParamServices supplies the parameter services for the source's local
+// bool_rewriter (default params_ref, so only module defaults apply).
+// Without them the plugin builds the raw and/or applications.
+func (p *RuleCoalescePlugin) SetParamServices(context *uparams.ParamsContext, globals *uparams.GlobalParamsService) {
+	p.params, p.globals = context, globals
+}
+
+// mkBool is bwr.mk_and / bwr.mk_or into a fresh reference.
+func (p *RuleCoalescePlugin) mkBool(or bool, args []ast.ASTHandle) (_ ast.ASTRef, resultErr error) {
+	if p.params == nil || p.globals == nil {
+		var result ast.ASTHandle
+		var err error
+		if or {
+			result, err = p.manager.MkOrArgs(args)
+		} else {
+			result, err = p.manager.MkAndArgs(args)
+		}
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		return p.manager.NewRef(result)
+	}
+	bwr, err := astrewriter.NewBoolRewriter(p.manager, p.params, p.globals, nil)
+	if bwr != nil {
+		defer func() { resultErr = errors.Join(resultErr, bwr.Close()) }()
+	}
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	out, err := p.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	if or {
+		err = bwr.MkOr(args, out)
+	} else {
+		err = bwr.MkAnd(args, out)
+	}
+	if err != nil {
+		return ast.ASTRef{}, errors.Join(err, p.manager.DelRef(&out))
+	}
+	return out, nil
 }
 
 func NewRuleCoalescePlugin(manager *ast.ASTManager, rules *base.RuleManager, priority uint32) *RuleCoalescePlugin {
@@ -248,11 +297,7 @@ func (p *RuleCoalescePlugin) extractConjunction(sub []ast.ASTHandle, rule *base.
 		}
 		conjuncts = append(conjuncts, updatedHandle)
 	}
-	combined, err := p.manager.MkAndArgs(conjuncts)
-	if err != nil {
-		return ast.ASTRef{}, err
-	}
-	return p.manager.NewRef(combined)
+	return p.mkBool(false, conjuncts)
 }
 
 func (p *RuleCoalescePlugin) merge(target, source *base.Rule) (_ *base.Rule, resultErr error) {
@@ -310,7 +355,12 @@ func (p *RuleCoalescePlugin) merge(target, source *base.Rule) (_ *base.Rule, res
 	if err != nil {
 		return nil, err
 	}
-	disjunction, err := p.manager.MkOrArgs([]ast.ASTHandle{leftHandle, rightHandle})
+	disjunctionRef, err := p.mkBool(true, []ast.ASTHandle{leftHandle, rightHandle})
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&disjunctionRef)) }()
+	disjunction, err := p.manager.RefGet(disjunctionRef)
 	if err != nil {
 		return nil, err
 	}

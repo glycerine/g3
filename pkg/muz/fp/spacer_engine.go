@@ -547,6 +547,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 		// round) dies before transf1 at the end of the block.
 		coalescer := base.NewRuleTransformer()
 		coalescePlugin := transforms.NewRuleCoalescePluginWithProofTrace(e.manager, e.rules, 50, generateProofTrace)
+		coalescePlugin.SetParamServices(e.params, e.globals)
 		if err = coalescer.Register(coalescePlugin); err != nil {
 			return nil, errors.Join(err, coalescePlugin.Close(), coalescer.Close())
 		}

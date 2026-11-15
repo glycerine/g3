@@ -263,3 +263,114 @@ func TestRuleCoalesceEmitsHeadsInGroupedOrder(t *testing.T) {
 		}
 	}
 }
+
+// AUDIT.md muz_transforms_01-F5: extract_conjs and merge_rules combine the
+// guards with bool_rewriter::mk_and / mk_or, not raw applications.
+func TestRuleCoalesceSimplifiesGuardWithBoolRewriter(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		guard func(f *coneFixture, v ast.ASTHandle) [2][]ast.ASTHandle
+		check func(t *testing.T, f *coneFixture, guard ast.ASTHandle)
+	}{
+		{name: "empty-conjunction-absorbs", guard: func(f *coneFixture, v ast.ASTHandle) [2][]ast.ASTHandle {
+			one, err := f.manager.ArithmeticNumeralRat(big.NewRat(1, 1), true)
+			coneMust(t, err)
+			bound, err := f.manager.MkArithmeticGT(v, one)
+			coneMust(t, err)
+			return [2][]ast.ASTHandle{nil, {bound}}
+		}, check: func(t *testing.T, f *coneFixture, guard ast.ASTHandle) {
+			if !f.manager.IsTrue(guard) {
+				t.Fatal("bool_rewriter mk_or(true, c) must give true")
+			}
+		}},
+		{name: "single-conjuncts", guard: func(f *coneFixture, v ast.ASTHandle) [2][]ast.ASTHandle {
+			var eqs [2][]ast.ASTHandle
+			for i := range eqs {
+				value, err := f.manager.ArithmeticNumeralRat(big.NewRat(int64(i+1), 1), true)
+				coneMust(t, err)
+				eq, err := f.manager.MkEq(v, value)
+				coneMust(t, err)
+				eqs[i] = []ast.ASTHandle{eq}
+			}
+			return eqs
+		}, check: func(t *testing.T, f *coneFixture, guard ast.ASTHandle) {
+			operation, err := f.manager.GetDeclKind(guard)
+			coneMust(t, err)
+			if operation != ast.ASTOpOr {
+				t.Fatal("merged guard is not a disjunction", operation)
+			}
+			n, err := f.manager.GetNumArgs(guard)
+			coneMust(t, err)
+			for i := uint32(0); i < n; i++ {
+				arg, err := f.manager.GetArg(guard, i)
+				coneMust(t, err)
+				operation, err := f.manager.GetDeclKind(arg)
+				coneMust(t, err)
+				if operation != ast.ASTOpEq {
+					t.Fatal("disjunct", i, "is not the single equality", operation)
+				}
+			}
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			f := newConeFixture(t)
+			boolean, err := f.manager.MkBoolSort()
+			coneMust(t, err)
+			zero, err := f.manager.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+			coneMust(t, err)
+			integer, err := f.manager.GetSort(zero)
+			coneMust(t, err)
+			declare := func(name string) ast.ASTHandle {
+				symbol, makeErr := f.manager.Symbols.Intern("coalesce-bwr-" + name)
+				coneMust(t, makeErr)
+				declaration, makeErr := f.manager.MkFuncDecl(symbol, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+				coneMust(t, makeErr)
+				coneMust(t, f.rules.RegisterPredicate(declaration))
+				return declaration
+			}
+			p := declare("P")
+			q := declare("Q")
+			// P(#0) :- Q(#1), guard(#1): every head/tail argument is a
+			// distinct variable, so extract_conjs adds no equalities.
+			headVariable, err := f.manager.MkVar(0, integer)
+			coneMust(t, err)
+			variable, err := f.manager.MkVar(1, integer)
+			coneMust(t, err)
+			pVariable, err := f.manager.MkApp(p, []ast.ASTHandle{headVariable})
+			coneMust(t, err)
+			qVariable, err := f.manager.MkApp(q, []ast.ASTHandle{variable})
+			coneMust(t, err)
+			for _, guard := range test.guard(f, variable) {
+				rule, makeErr := f.rules.NewRule(pVariable, append([]ast.ASTHandle{qVariable}, guard...), nil, "branch")
+				coneMust(t, makeErr)
+				coneMust(t, f.set.Add(rule))
+				coneMust(t, rule.Close())
+			}
+			coneMust(t, f.set.SetOutputPredicate(p))
+			valid, err := f.set.Finalize()
+			coneMust(t, err)
+			if !valid {
+				t.Fatal("coalesce fixture rejected")
+			}
+			plugin := transforms.NewRuleCoalescePlugin(f.manager, f.rules, 0)
+			plugin.SetParamServices(f.globals.Context, f.globals)
+			defer func() { coneMust(t, plugin.Close()) }()
+			result, err := plugin.Transform(f.set)
+			coneMust(t, err)
+			defer func() { coneMust(t, result.Close()) }()
+			count, err := result.Len()
+			coneMust(t, err)
+			if count != 1 {
+				t.Fatal("coalesced rule count", count)
+			}
+			rule, err := result.Rule(0)
+			coneMust(t, err)
+			defer func() { coneMust(t, rule.Close()) }()
+			total, err := rule.TailSize()
+			coneMust(t, err)
+			guard, _, err := rule.Tail(total - 1)
+			coneMust(t, err)
+			test.check(t, f, guard)
+		})
+	}
+}
