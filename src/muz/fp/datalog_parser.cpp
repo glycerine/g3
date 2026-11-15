@@ -1380,6 +1380,10 @@ private:
         //SASSERT(!stm.fail());
         //line_reader rdr(stm);
         line_reader rdr(fname.c_str());
+        // FORK FIX #86 (g3 audit, see FORK_BUGFIXES.md): report an unreadable relation file instead of reading a null FILE (AUDIT cmd_context_02-F11)
+        if (!rdr()) {
+            throw default_exception(default_exception::fmt(), "ERROR: could not open file '%s'.", fname.c_str());
+        }
         while(!rdr.eof()) {
             m_current_line++;
             char * full_line = rdr.get_line();
@@ -1519,6 +1523,10 @@ private:
         //SASSERT(!stm.fail());
         //line_reader rdr(stm);
         line_reader rdr(fname.c_str());
+        // FORK FIX #86 (g3 audit, see FORK_BUGFIXES.md): report an unreadable map file instead of reading a null FILE (AUDIT cmd_context_02-F11)
+        if (!rdr()) {
+            throw default_exception(default_exception::fmt(), "ERROR: could not open file '%s'.", fname.c_str());
+        }
         while(!rdr.eof()) {
             m_current_line++;
             char * full_line = rdr.get_line();
