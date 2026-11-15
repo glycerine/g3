@@ -95,9 +95,13 @@ func (c *distributeForallConfiguration) distribute(q, body ast.ASTHandle, negate
 		}
 		return nil
 	}
-	step, err := c.manager.MkProofRewrite(q, conjunction)
+	// result_pr = m.mk_push_quant(old_q, result): z3 4.7.1 left result_pr
+	// null and crashed under proofs; this follows the fork fix and upstream
+	// d530d1314 ("fix #3276"). AUDIT.md tactic_core_01-F5,
+	// test_vectors/z3_bug_exclusions.txt.
+	step, err := c.manager.MkProofPushQuant(q, conjunction)
 	if err != nil {
-		return fmt.Errorf("distribute-forall proof rewrite: %w", err)
+		return fmt.Errorf("distribute-forall proof push-quant: %w", err)
 	}
 	if err = c.manager.SetRef(proof, step); err != nil {
 		return fmt.Errorf("distribute-forall proof output: %w", err)

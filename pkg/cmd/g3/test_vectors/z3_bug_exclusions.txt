@@ -245,3 +245,13 @@ z3_bug_ufbv_demod_identical_subterm_var
 # tactic_arith_03-F9). Reproduction:
 # test_vectors/z3_bug_recover01_inconsistent_update.smt2.
 z3_bug_recover01_inconsistent_update
+#
+# distribute-forall gives no proof for its rewrite: with proofs on,
+# rw_cfg::reduce_quantifier sets result but not result_pr and z3 4.7.1
+# segfaults (z3 bug: src/tactic/core/distribute_forall_tactic.cpp
+# reduce_quantifier; fixed upstream in d530d1314, "fix #3276", with
+# mk_push_quant). g3 builds the same push-quant step
+# (pkg/tactic/core/distribute_forall_tactic.go distribute; AUDIT.md
+# tactic_core_01-F5). Reproduction:
+# test_vectors/z3_bug_distribute_forall_proof.smt2.
+z3_bug_distribute_forall_proof

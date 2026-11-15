@@ -1,0 +1,16 @@
+; distribute-forall with proofs (AUDIT.md tactic_core_01-F5): z3 4.7.1 sets
+; no proof for the split and segfaults; the fork fix and upstream use push-quant.
+(set-option :produce-proofs true)
+(declare-fun p (Int) Bool)
+(declare-fun q (Int) Bool)
+(assert (forall ((x Int) (y Int)) (and (p x) (q y))))
+(apply distribute-forall)
+(check-sat)
+(reset)
+(set-option :produce-proofs true)
+(declare-fun p (Int) Bool)
+(declare-fun q (Int) Bool)
+(assert (forall ((x Int) (y Int)) (and (p x) (q y))))
+(assert (not (p 3)))
+(check-sat-using (then distribute-forall smt))
+(get-proof)
