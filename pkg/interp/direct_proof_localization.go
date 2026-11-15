@@ -61,8 +61,13 @@ func (p *DirectProofInterpolator) localizeTerm(term ast.ASTHandle, scope ScopeRa
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
+	// localize_term calls pv->ast_scope(e), which memoizes the scope.
+	if _, err = p.base.ASTScope(term); err != nil {
+		return ast.ASTHandle{}, ast.ASTHandle{}, err
+	}
+	useCached := false
 	if cached, found := maps.terms[term]; found {
-		useCached := true
+		useCached = true
 		sort, e := p.base.manager.Type(term)
 		if e != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, e
@@ -82,49 +87,56 @@ func (p *DirectProofInterpolator) localizeTerm(term ast.ASTHandle, scope ScopeRa
 			}
 		}
 		if useCached {
-			return cached, maps.proofs[term], nil
+			// A cache hit still goes through the range test below.
+			proof = maps.proofs[term]
+			term = cached
 		}
 	}
-	args, err := p.base.manager.Args(term)
-	if err != nil {
-		return ast.ASTHandle{}, ast.ASTHandle{}, err
-	}
-	if len(args) != 0 {
-		argumentScope := scope
-		op, e := p.base.manager.Operator(term)
-		if e != nil {
-			return ast.ASTHandle{}, ast.ASTHandle{}, e
+	if !useCached {
+		args, err := p.base.manager.Args(term)
+		if err != nil {
+			return ast.ASTHandle{}, ast.ASTHandle{}, err
 		}
-		if op == OperatorUninterpreted {
-			declaration, e := p.base.manager.Symbol(term)
+		if len(args) != 0 {
+			argumentScope := scope
+			op, e := p.base.manager.Operator(term)
 			if e != nil {
 				return ast.ASTHandle{}, ast.ASTHandle{}, e
 			}
-			symbolScope, e := p.base.SymbolRange(declaration)
-			if e != nil {
-				return ast.ASTHandle{}, ast.ASTHandle{}, e
-			}
-			intersects, e := p.base.scopes.RangesIntersect(symbolScope, scope)
-			if e != nil {
-				return ast.ASTHandle{}, ast.ASTHandle{}, e
-			}
-			if intersects {
-				argumentScope, e = p.base.scopes.RangeGLB(symbolScope, scope)
+			if op == OperatorUninterpreted {
+				declaration, e := p.base.manager.Symbol(term)
 				if e != nil {
 					return ast.ASTHandle{}, ast.ASTHandle{}, e
 				}
-			} else {
-				argumentScope = symbolScope
-			}
-		} else if op == OperatorSelect {
-			arrayScope, e := p.base.ASTScope(args[0])
-			if e != nil {
-				return ast.ASTHandle{}, ast.ASTHandle{}, e
-			}
-			if !arrayScope.IsEmpty() {
-				intersects, e := p.base.scopes.RangesIntersect(arrayScope, scope)
+				symbolScope, e := p.base.SymbolRange(declaration)
 				if e != nil {
 					return ast.ASTHandle{}, ast.ASTHandle{}, e
+				}
+				intersects, e := p.base.scopes.RangesIntersect(symbolScope, scope)
+				if e != nil {
+					return ast.ASTHandle{}, ast.ASTHandle{}, e
+				}
+				if intersects {
+					argumentScope, e = p.base.scopes.RangeGLB(symbolScope, scope)
+					if e != nil {
+						return ast.ASTHandle{}, ast.ASTHandle{}, e
+					}
+				} else {
+					argumentScope = symbolScope
+				}
+			} else if op == OperatorSelect {
+				arrayScope, e := p.base.ASTScope(args[0])
+				if e != nil {
+					return ast.ASTHandle{}, ast.ASTHandle{}, e
+				}
+				// As in localize_term, an empty array scope also localizes the
+				// arguments to that (empty) scope.
+				intersects := false
+				if !arrayScope.IsEmpty() {
+					intersects, e = p.base.scopes.RangesIntersect(arrayScope, scope)
+					if e != nil {
+						return ast.ASTHandle{}, ast.ASTHandle{}, e
+					}
 				}
 				if intersects {
 					argumentScope, e = p.base.scopes.RangeGLB(arrayScope, scope)
@@ -135,47 +147,47 @@ func (p *DirectProofInterpolator) localizeTerm(term ast.ASTHandle, scope ScopeRa
 					argumentScope = arrayScope
 				}
 			}
-		}
-		var equalities, proofs []ast.ASTHandle
-		for i, argument := range args {
-			localizedArgument, argumentProof, e := p.localizeTerm(argument, argumentScope)
-			if e != nil {
-				return ast.ASTHandle{}, ast.ASTHandle{}, e
-			}
-			args[i] = localizedArgument
-			argumentASTScope, e := p.base.ASTScope(localizedArgument)
-			if e != nil {
-				return ast.ASTHandle{}, ast.ASTHandle{}, e
-			}
-			argumentScope, e = p.base.scopes.RangeGLB(argumentScope, argumentASTScope)
-			if e != nil {
-				return ast.ASTHandle{}, ast.ASTHandle{}, e
-			}
-			if localizedArgument != argument {
-				equality, e := p.makeEquivalence(localizedArgument, argument)
+			var equalities, proofs []ast.ASTHandle
+			for i, argument := range args {
+				localizedArgument, argumentProof, e := p.localizeTerm(argument, argumentScope)
 				if e != nil {
 					return ast.ASTHandle{}, ast.ASTHandle{}, e
 				}
-				equalities = append(equalities, equality)
-				proofs = append(proofs, argumentProof)
+				args[i] = localizedArgument
+				argumentASTScope, e := p.base.ASTScope(localizedArgument)
+				if e != nil {
+					return ast.ASTHandle{}, ast.ASTHandle{}, e
+				}
+				argumentScope, e = p.base.scopes.RangeGLB(argumentScope, argumentASTScope)
+				if e != nil {
+					return ast.ASTHandle{}, ast.ASTHandle{}, e
+				}
+				if localizedArgument != argument {
+					equality, e := p.makeEquivalence(localizedArgument, argument)
+					if e != nil {
+						return ast.ASTHandle{}, ast.ASTHandle{}, e
+					}
+					equalities = append(equalities, equality)
+					proofs = append(proofs, argumentProof)
+				}
+			}
+			term, err = p.base.manager.Clone(term, args)
+			if err != nil {
+				return ast.ASTHandle{}, ast.ASTHandle{}, err
+			}
+			if len(proofs) != 0 {
+				conclusion, e := p.makeEquivalence(term, original)
+				if e != nil {
+					return ast.ASTHandle{}, ast.ASTHandle{}, e
+				}
+				proof, e = p.MakeCongruences(equalities, conclusion, proofs)
+				if e != nil {
+					return ast.ASTHandle{}, ast.ASTHandle{}, e
+				}
 			}
 		}
-		term, err = p.base.manager.Clone(term, args)
-		if err != nil {
-			return ast.ASTHandle{}, ast.ASTHandle{}, err
-		}
-		if len(proofs) != 0 {
-			conclusion, e := p.makeEquivalence(term, original)
-			if e != nil {
-				return ast.ASTHandle{}, ast.ASTHandle{}, e
-			}
-			proof, e = p.MakeCongruences(equalities, conclusion, proofs)
-			if e != nil {
-				return ast.ASTHandle{}, ast.ASTHandle{}, e
-			}
-		}
+		maps.terms[original], maps.proofs[original] = term, proof
 	}
-	maps.terms[original], maps.proofs[original] = term, proof
 	termScope, err := p.base.ASTScope(term)
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err

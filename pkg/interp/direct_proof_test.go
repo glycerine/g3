@@ -1973,3 +1973,50 @@ func TestDirectProofChainConditionsOrder(t *testing.T) {
 		}
 	}
 }
+
+// interp_01-F14: localize_term localizes the arguments of a select over an
+// array term with an empty scope to that empty scope.
+func TestDirectProofLocalizeSelectOverMixedArray(t *testing.T) {
+	m, manager := interpRewritingManagerFixture(t)
+	integer, err := manager.IntType()
+	interpMust(t, err)
+	arraySort, err := manager.ArrayType(integer, integer)
+	interpMust(t, err)
+	variable := func(name string, sort ast.ASTHandle) ast.ASTHandle {
+		h, e := manager.MakeVariable(name, sort)
+		interpMust(t, e)
+		return interpPin(t, m, h)
+	}
+	a := variable("localize-select-a", arraySort)
+	i := variable("localize-select-i", integer)
+	v := variable("localize-select-v", integer)
+	j := variable("localize-select-j", integer)
+	selectAI, err := manager.Make(OperatorSelect, a, i)
+	interpMust(t, err)
+	first, err := manager.Make(OperatorEqual, selectAI, j)
+	interpMust(t, err)
+	second, err := manager.Make(OperatorEqual, v, j)
+	interpMust(t, err)
+	base, err := NewBase(manager, []ast.ASTHandle{first, second}, nil, nil)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, base.Close()) })
+	direct, err := NewDirectProofInterpolator(base, DownwardScopeRange(0), false)
+	interpMust(t, err)
+	t.Cleanup(func() { interpMust(t, direct.Close()) })
+	store, err := manager.Make(OperatorStore, a, i, v)
+	interpMust(t, err)
+	term, err := manager.Make(OperatorSelect, store, j)
+	interpMust(t, err)
+	_, _, err = direct.localizeTerm(term, DownwardScopeRange(0))
+	interpMust(t, err)
+	// The store's scope is empty, so its arguments are localized to the
+	// empty range: a, i and v each get a localization variable. Localizing
+	// to the requested A range instead would only replace v.
+	var terms []ast.ASTHandle
+	for _, entry := range direct.localizationVariables {
+		terms = append(terms, entry.term)
+	}
+	if len(terms) != 3 || terms[0] != a || terms[1] != i || terms[2] != v {
+		t.Fatal("select arguments were not localized to the empty array scope", len(terms))
+	}
+}
