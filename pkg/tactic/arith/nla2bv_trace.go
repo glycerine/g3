@@ -148,9 +148,11 @@ func (c *nla2BVInvocation) verboseSatPreserving() error {
 	if err != nil {
 		return err
 	}
-	value := "false"
+	// verbose_stream() << m_is_sat_preserving: a bool without std::boolalpha
+	// prints as 0 or 1 (AUDIT.md FUZZ-F5).
+	value := "0"
 	if c.satPreserving {
-		value = "true"
+		value = "1"
 	}
 	if err = stream.AppendCString("(nla->bv :sat-preserving " + value + ")\n"); err != nil {
 		return err

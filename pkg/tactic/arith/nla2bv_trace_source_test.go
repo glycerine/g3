@@ -204,8 +204,8 @@ func TestNLA2BVVerboseSatPreservationMatchesSource(t *testing.T) {
 	got, err = stream.String()
 	equationMust(t, err)
 	for _, want := range []string{
-		"(nla->bv :sat-preserving true)\n",
-		"(nla->bv :sat-preserving false)\n",
+		"(nla->bv :sat-preserving 1)\n",
+		"(nla->bv :sat-preserving 0)\n",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("verbose NLA2BV output lacks %q:\n%s", want, got)
