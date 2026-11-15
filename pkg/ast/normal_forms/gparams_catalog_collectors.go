@@ -36,6 +36,12 @@ func catalogCollectNnfParams(d *uparams.ParamDescrs) error {
 	return nil
 }
 
+// CollectNNFParamDescrs is nnf::get_param_descrs (nnf_params::
+// collect_param_descrs).
+func CollectNNFParamDescrs(d *uparams.ParamDescrs) error {
+	return catalogCollectNnfParams(d)
+}
+
 func init() {
 	uparams.RegisterGlobalParamsCollector("catalogCollectNnf", catalogCollectNnf)
 	uparams.RegisterGlobalParamsCollector("catalogCollectNnfParams", catalogCollectNnfParams)

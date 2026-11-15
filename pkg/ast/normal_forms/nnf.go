@@ -141,7 +141,7 @@ func nnfOptionsFromParams(p *NNFParams) (NNFOptions, error) {
 	case "full":
 		o.Mode = NNFFull
 	default:
-		return o, ast.ErrASTDomain
+		return o, z3exception.NewDefaultException("invalid NNF mode")
 	}
 	if o.IgnoreLabels, e = p.IgnoreLabels(); e != nil {
 		return o, e

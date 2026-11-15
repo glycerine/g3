@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_sub_02-F4: nnf/snf collect_param_descrs is
+	// nnf::get_param_descrs; a bad mode throws "invalid NNF mode".
+	"nnf_tactic_params.smt2": "(error \"line 3 column 35: invalid NNF mode\")\n(goals\n(goal\n  (exists ((x Int)) (not (p x)))\n  :precision precise :depth 1)\n)\n(goals\n(goal\n  (not (p x!0))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md ast_sub_01-F1: quasi_macros::apply_macros th-rewrites every
 	// expanded formula with its member m_rewriter.
 	"quasi_macros_rewrites_unchanged.smt2": "(goals\n(goal\n  (not (<= a 1))\n  (not (<= (g 2) (+ 1 a)))\n  :precision precise :depth 1)\n)\n",
@@ -1696,6 +1699,9 @@ var parseErrorScripts = map[string]bool{
 	"list_predeclared_ambiguous_nil.smt2":           true,
 	"parametric_datatype_constructor_as_print.smt2": true,
 	"list_predeclared_legacy_field_error.smt2":      true,
+
+	// AUDIT.md ast_sub_02-F4: the bad nnf mode comes first.
+	"nnf_tactic_params.smt2": true,
 }
 
 // expectedParseError checks run's error against the first error line of a

@@ -1,0 +1,5 @@
+(declare-fun p (Int) Bool)
+(assert (not (forall ((x Int)) (p x))))
+(apply (using-params snf :mode foo))
+(apply (using-params snf :skolemize false))
+(apply (using-params nnf :mode full))

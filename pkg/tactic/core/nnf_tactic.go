@@ -135,13 +135,18 @@ func (t *NNFTactic) UpdateParams(params *uparams.ParamsRef) error {
 	}
 	return t.applyMode()
 }
-func (t *NNFTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *NNFTactic) CollectStatistics(*statistics.Statistics)      {}
-func (t *NNFTactic) ResetStatistics() error                        { return t.open() }
-func (t *NNFTactic) Cleanup() error                                { return t.open() }
-func (t *NNFTactic) Reset() error                                  { return t.open() }
-func (t *NNFTactic) SetLogic(usymbol.Symbol) error                 { return t.open() }
-func (t *NNFTactic) SetProgressCallback(func(uint32)) error        { return t.open() }
+func (t *NNFTactic) CollectParamDescrs(d *uparams.ParamDescrs) error {
+	if err := t.open(); err != nil {
+		return err
+	}
+	return normalforms.CollectNNFParamDescrs(d)
+}
+func (t *NNFTactic) CollectStatistics(*statistics.Statistics) {}
+func (t *NNFTactic) ResetStatistics() error                   { return t.open() }
+func (t *NNFTactic) Cleanup() error                           { return t.open() }
+func (t *NNFTactic) Reset() error                             { return t.open() }
+func (t *NNFTactic) SetLogic(usymbol.Symbol) error            { return t.open() }
+func (t *NNFTactic) SetProgressCallback(func(uint32)) error   { return t.open() }
 func (t *NNFTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
 	if err := t.open(); err != nil {
 		return nil, err
