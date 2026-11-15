@@ -102,6 +102,10 @@ Abstract:
                                   FixCurrentState fixes the @under flags and
                                   the next ExpansionChoices check throws
                                   (pkg/AUDIT.md duality_02-F2).
+    z3_4_7_1_duality_underapprox_stale_proof with use_underapprox,
+                                  DerivationTree::Build interpolates the proof
+                                  of the leaf-assumption check
+                                  (pkg/AUDIT.md duality_01-F6).
     z3_4_7_1_implicant_nested_array_eq once a nested array index makes
                                   model_implicant::eval_array_eq mark the
                                   equality true, a later differing index
@@ -1542,4 +1546,26 @@ void tst_z3_4_7_1_duality_underapprox_flag_literals() {
         "(rule (=> (and (Reach x) (= x 2)) Goal))\n"
         "(query Goal)\n";
     expect_script_output("duality_underapprox_flag_literals", script, "sat\n");
+}
+
+// With fixedpoint.duality.use_underapprox, DerivationTree::Build first runs
+// CheckWithUnderapprox, a check under the @under leaf assumptions. When it
+// is unsat, tree->Solve calls interpolate_tree, which only re-checks when
+// the solver has no proof, so it interpolates the proof derived under those
+// assumptions. Its leaves include the assumption literals, which are not
+// constraints of the interpolation problem, and iZ3 fails with "unknown
+// assertion". Reach(2) is derivable, so the answer is sat.
+// pkg/AUDIT.md duality_01-F6.
+void tst_z3_4_7_1_duality_underapprox_stale_proof() {
+    char const* script =
+        "(set-option :fixedpoint.engine duality)\n"
+        "(set-option :fixedpoint.duality.use_underapprox true)\n"
+        "(declare-rel Reach (Int))\n"
+        "(declare-rel Goal ())\n"
+        "(declare-var x Int)\n"
+        "(rule (=> (= x 0) (Reach x)))\n"
+        "(rule (=> (and (> x 0) (Reach (- x 1))) (Reach x)))\n"
+        "(rule (=> (and (Reach x) (= x 2)) Goal))\n"
+        "(query Goal)\n";
+    expect_script_output("duality_underapprox_stale_proof", script, "sat\n");
 }
