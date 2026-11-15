@@ -3,6 +3,7 @@ package qe
 // Source: src/qe/qe_arith.cpp imp::linearize/extract_coefficients.
 
 import (
+	"errors"
 	"io"
 	"math/big"
 	"sort"
@@ -11,9 +12,17 @@ import (
 	"github.com/glycerine/g3/pkg/math/simplex"
 )
 
-func (c *arithmeticProjectionCall) linearizeTerm(multiplier *big.Rat, h ast.ASTHandle, constant *big.Rat, forms *[]ast.ASTRef, terms *projectionTermMap) error {
+func (c *arithmeticProjectionCall) linearizeTerm(multiplier *big.Rat, h ast.ASTHandle, constant *big.Rat, forms *[]ast.ASTRef, terms *projectionTermMap) (err error) {
 	p := c.owner
 	m := p.manager
+	// expr_ref val(m): assigned by the ite and mod cases, it dies when this
+	// call returns.
+	var val ast.ASTRef
+	defer func() {
+		if val != (ast.ASTRef{}) {
+			err = errors.Join(err, m.DelRef(&val))
+		}
+	}()
 	args, mul, err := p.operation(h, p.family, 9)
 	if err != nil {
 		return err
@@ -71,7 +80,8 @@ func (c *arithmeticProjectionCall) linearizeTerm(multiplier *big.Rat, h ast.ASTH
 		return err
 	}
 	if ite && len(args) == 3 {
-		value, err := c.eval(args[0])
+		var value ast.ASTHandle
+		val, value, err = c.evalLocal(args[0])
 		if err != nil {
 			return err
 		}
@@ -117,7 +127,8 @@ func (c *arithmeticProjectionCall) linearizeTerm(multiplier *big.Rat, h ast.ASTH
 			return err
 		}
 		if ok && modulus.Sign() != 0 {
-			value, err := c.eval(h)
+			var value ast.ASTHandle
+			val, value, err = c.evalLocal(h)
 			if err != nil {
 				return err
 			}
@@ -161,9 +172,21 @@ func (c *arithmeticProjectionCall) linearizeTerm(multiplier *big.Rat, h ast.ASTH
 	return terms.set(h, new(big.Rat).Set(multiplier))
 }
 
-func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]ast.ASTRef) (bool, error) {
+func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]ast.ASTRef) (_ bool, err error) {
 	p := c.owner
 	m := p.manager
+	// The block-scoped `expr_ref val1 = eval(e1), val2 = eval(e2)` of the
+	// negated equality die, val2 first, after its two linearize calls.
+	var locals []ast.ASTRef
+	release := func() error {
+		var e error
+		for i := len(locals) - 1; i >= 0; i-- {
+			e = errors.Join(e, m.DelRef(&locals[i]))
+		}
+		locals = nil
+		return e
+	}
+	defer func() { err = errors.Join(err, release()) }()
 	if ast.ASTSourceDebug {
 		// DEBUG_CODE(eval(lit, val); SASSERT(m.is_true(val))), isolated from
 		// the shared evaluator so release builds see the same cache and IDs.
@@ -249,14 +272,16 @@ func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]
 				relation = simplex.Equal
 				matched = true
 				if negative {
-					lv, err := c.eval(left)
+					lr, lv, err := c.evalLocal(left)
 					if err != nil {
 						return false, err
 					}
-					rv, err := c.eval(right)
+					locals = append(locals, lr)
+					rr, rv, err := c.evalLocal(right)
 					if err != nil {
 						return false, err
 					}
+					locals = append(locals, rr)
 					l, ok, err := p.numeral(lv)
 					if err != nil || !ok {
 						return false, err
@@ -294,10 +319,15 @@ func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]
 					}
 					values := make([]entry, 0, len(args))
 					for _, arg := range args {
-						v, e := c.eval(arg)
+						// val = eval(arg): the new value replaces the old.
+						r, v, e := c.evalLocal(arg)
 						if e != nil {
 							return false, e
 						}
+						if e = release(); e != nil {
+							return false, errors.Join(e, m.DelRef(&r))
+						}
+						locals = append(locals, r)
 						q, ok, e := p.numeral(v)
 						if e != nil || !ok {
 							return false, e
@@ -309,12 +339,17 @@ func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]
 						if ast.ASTSourceDebug && values[i].value.Cmp(values[i+1].value) >= 0 {
 							return false, ast.ErrASTDomain
 						}
-						h, e := c.hold(m.MkFamilyApp(p.family, 4, nil, []ast.ASTHandle{values[i].h, values[i+1].h}))
+						// expr_ref fml(a.mk_lt(...)) dies after each iteration.
+						h, e := m.MkFamilyApp(p.family, 4, nil, []ast.ASTHandle{values[i].h, values[i+1].h})
+						if e != nil {
+							return false, e
+						}
+						fml, e := m.NewRef(h)
 						if e != nil {
 							return false, e
 						}
 						ok, e := c.linearizeLiteral(h, forms)
-						if e != nil || !ok {
+						if e = errors.Join(e, m.DelRef(&fml)); e != nil || !ok {
 							return false, e
 						}
 					}
@@ -322,10 +357,16 @@ func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]
 				}
 				values := make(map[string]ast.ASTHandle)
 				for _, arg := range args {
-					v, e := c.eval(arg)
+					// expr_ref val = eval(arg1) dies at the end of each
+					// iteration; the matching one after its linearize calls.
+					if e := release(); e != nil {
+						return false, e
+					}
+					r, v, e := c.evalLocal(arg)
 					if e != nil {
 						return false, e
 					}
+					locals = append(locals, r)
 					q, ok, e := p.numeral(v)
 					if e != nil || !ok {
 						return false, e
@@ -366,6 +407,9 @@ func (c *arithmeticProjectionCall) linearizeLiteral(lit ast.ASTHandle, forms *[]
 		return false, err
 	}
 	if err = c.linearizeTerm(new(big.Rat).Neg(mul), right, constant, forms, terms); err != nil {
+		return false, err
+	}
+	if err = release(); err != nil {
 		return false, err
 	}
 	coeffs, err := c.coefficients(terms)

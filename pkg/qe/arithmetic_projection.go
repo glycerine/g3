@@ -329,6 +329,25 @@ func (p *ArithmeticProjection) shrink(v *[]ast.ASTRef, n int) error {
 	}
 	return nil
 }
+
+// evalLocal is `expr_ref val = eval(h)` for a C++ local: the caller releases
+// the returned reference where the local dies.
+func (c *arithmeticProjectionCall) evalLocal(h ast.ASTHandle) (ast.ASTRef, ast.ASTHandle, error) {
+	m := c.owner.manager
+	r, err := m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return ast.ASTRef{}, ast.ASTHandle{}, err
+	}
+	if err = c.evaluator.Evaluate(h, r); err != nil {
+		return ast.ASTRef{}, ast.ASTHandle{}, errors.Join(err, m.DelRef(&r))
+	}
+	v, err := m.RefGet(r)
+	if err != nil {
+		return ast.ASTRef{}, ast.ASTHandle{}, errors.Join(err, m.DelRef(&r))
+	}
+	return r, v, nil
+}
+
 func (c *arithmeticProjectionCall) eval(h ast.ASTHandle) (ast.ASTHandle, error) {
 	r, err := c.owner.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
