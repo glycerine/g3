@@ -190,6 +190,10 @@ Abstract:
                                   after a maximize is verified against the
                                   maximize term and reports its initial
                                   cost (upstream b33f5f879).
+    z3_4_7_1_qe_nested_store      qe's array plugin solves
+                                  store(store(A, i, u), j, v) = t with
+                                  t[i] = u and store(t, i, u)[j] = v, which
+                                  forces u = v when i = j.
     z3_4_7_1_and_then_sat_branch  and_then_tactical appends a decided-sat
                                   subgoal to the undecided subgoals it
                                   already collected, so (then split-clause
@@ -2747,4 +2751,42 @@ void tst_z3_4_7_1_opt_stale_orig_term() {
     }
     std::cout << "opt_stale_orig_term: expected\n" << expected << "got\n" << out.str();
     ENSURE(out.str() == expected);
+}
+
+// array_plugin::solve_store eliminates A from store(store(A, i, v1), j, v2) = b
+// with the conditions b[i] = v1 and store(b, i, v1)[j] = v2. When i = j the
+// outer store overwrites v1, so b = store(store(a, i, v1), j, v2) holds for
+// any b with b[j] = v2, but the conditions force v1 = v2. With v1 = 0 and
+// v2 = 1 qe returns false and z3 answers unsat; plain (check-sat) says sat.
+// The second script checks that an inner write still constrains b when
+// the indices differ. Still present in upstream z3 5.4.2.
+void tst_z3_4_7_1_qe_nested_store() {
+    char const* aliased =
+        "(declare-const b (Array Int Int))\n"
+        "(declare-const i Int)\n"
+        "(declare-const j Int)\n"
+        "(declare-const v1 Int)\n"
+        "(declare-const v2 Int)\n"
+        "(assert (exists ((a (Array Int Int))) (= b (store (store a i v1) j v2))))\n"
+        "(assert (= i j))\n"
+        "(assert (= v1 0))\n"
+        "(assert (= v2 1))\n"
+        "(check-sat-using (then qe smt))\n";
+    std::string out = eval_smtlib2(aliased);
+    std::cout << "qe_nested_store i = j: " << out;
+    ENSURE(out == "sat\n");
+    char const* distinct =
+        "(declare-const b (Array Int Int))\n"
+        "(declare-const i Int)\n"
+        "(declare-const j Int)\n"
+        "(declare-const v1 Int)\n"
+        "(declare-const v2 Int)\n"
+        "(assert (exists ((a (Array Int Int))) (= b (store (store a i v1) j v2))))\n"
+        "(assert (not (= i j)))\n"
+        "(assert (= v1 0))\n"
+        "(assert (= (select b i) 5))\n"
+        "(check-sat-using (then qe smt))\n";
+    out = eval_smtlib2(distinct);
+    std::cout << "qe_nested_store i != j: " << out;
+    ENSURE(out == "unsat\n");
 }
