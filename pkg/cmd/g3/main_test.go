@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md ast_rewriter_06-F1: blaster's bool_rewriter reads the global
+	// rewriter module (ite_extra_rules) before set_flat/set_elim_and.
+	"bit_blast_ite_extra_rules.smt2": "(goals\n(goal\n  (let ((a!1 (not (ite (or k!6 k!7)\n                       k!3\n                       (ite k!5 (ite k!4 k!3 k!2) (ite k!4 k!1 k!0))))))\n    (not (= a!1 k!8)))\n  (let ((a!1 (= (not (ite (or k!6 k!7 k!5) k!3 (ite k!4 k!2 k!1))) k!9)))\n    (not a!1))\n  (let ((a!1 (= (not (ite (or k!6 k!7 k!5 k!4) k!3 k!2)) k!10)))\n    (not a!1))\n  (not (= (not k!3) k!11))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md ast_rewriter_05-F3: th_rewriter passes an empty params_ref to
 	// elim_unused_vars, so a ground body drops its quantifier.
 	"th_rewriter_ground_qbody_param.smt2": "(not (<= (f a) 0))\n",

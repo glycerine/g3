@@ -1,0 +1,6 @@
+(set-option :rewriter.ite_extra_rules true)
+(declare-const x (_ BitVec 4))
+(declare-const y (_ BitVec 4))
+(declare-const z (_ BitVec 4))
+(assert (= (bvashr x y) z))
+(apply bit-blast)

@@ -43,31 +43,31 @@ type SMTBitVectorTheory struct {
 	literalBits map[ast.ASTHandle]bool
 	// bitLocals are the blaster locals of a term until internalize_* returns.
 	bitLocals map[ast.ASTHandle][]ast.ASTRef
-	// bitBlasterFlat/ElimAnd are m_bb's bool_rewriter flags, read once.
-	bitBlasterFlat, bitBlasterElimAnd, bitBlasterFlagsRead bool
-	bitAtoms                                               map[int32][]smtBVBitOccurrence
-	bitAtomTrail                                           []int32
-	bitOccurrenceTrail                                     []smtBVBitOccurrenceTrail
-	bitLiterals                                            [][]SMTLiteral
-	privateFind                                            []SMTTheoryVar
-	privateSize                                            []uint32
-	privateNext                                            []SMTTheoryVar
-	privateTrail                                           []smtBVPrivateTrail
-	zeroOneBits                                            [][]smtBVZeroOneBit
-	mergeAux                                               [2][]SMTTheoryVar
-	watchedPosition                                        []uint32
-	propagationQueue                                       []smtBVBitOccurrence
-	bitOwners                                              map[ast.ASTHandle][]ast.ASTRef
-	bitTrail                                               []ast.ASTHandle
-	comparisonAtoms                                        map[int32]SMTLiteral
-	fixedVariables                                         map[smtBVFixedKey]SMTTheoryVar
-	temporary                                              []ast.ASTRef
-	scopes                                                 []smtBVScope
-	unsupported                                            bool
-	statistics                                             smtBVStatistics
-	trace                                                  *diagnostic.TraceTags
-	config                                                 SMTBVState
-	bitBlasterParams                                       bit_blaster.SMTBitBlasterParams
+	// bitBlasterBoolRewriter is m_bb's bool_rewriter m_rw, built once.
+	bitBlasterBoolRewriter *rewriter.BoolGateRewriter
+	bitAtoms               map[int32][]smtBVBitOccurrence
+	bitAtomTrail           []int32
+	bitOccurrenceTrail     []smtBVBitOccurrenceTrail
+	bitLiterals            [][]SMTLiteral
+	privateFind            []SMTTheoryVar
+	privateSize            []uint32
+	privateNext            []SMTTheoryVar
+	privateTrail           []smtBVPrivateTrail
+	zeroOneBits            [][]smtBVZeroOneBit
+	mergeAux               [2][]SMTTheoryVar
+	watchedPosition        []uint32
+	propagationQueue       []smtBVBitOccurrence
+	bitOwners              map[ast.ASTHandle][]ast.ASTRef
+	bitTrail               []ast.ASTHandle
+	comparisonAtoms        map[int32]SMTLiteral
+	fixedVariables         map[smtBVFixedKey]SMTTheoryVar
+	temporary              []ast.ASTRef
+	scopes                 []smtBVScope
+	unsupported            bool
+	statistics             smtBVStatistics
+	trace                  *diagnostic.TraceTags
+	config                 SMTBVState
+	bitBlasterParams       bit_blaster.SMTBitBlasterParams
 }
 
 func (t *SMTBitVectorTheory) ConfigureBitVector(config SMTBVState) error {
@@ -176,27 +176,22 @@ func (t *SMTBitVectorTheory) nativeBitBlaster() (*bit_blaster.Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-	// theory_bv's m_bb owns bool_rewriter m_rw(m): updt_params reads the
-	// rewriter module (rewriter.flat, rewriter.elim_and) when it is built.
-	if !t.bitBlasterFlagsRead {
-		t.bitBlasterFlat, t.bitBlasterElimAnd, t.bitBlasterFlagsRead = true, false, true
-		if c, g := state.paramsContext, state.globals; c != nil && g != nil {
-			rw, err := rewriter.NewBoolRewriter(state.manager, c, g, nil)
-			if err == nil {
-				t.bitBlasterFlat, err = rw.Flat()
-			}
-			if err == nil {
-				t.bitBlasterElimAnd, err = rw.EliminateAnd()
-			}
-			if rw != nil {
-				err = errors.Join(err, rw.Close())
-			}
-			if err != nil {
-				return nil, err
-			}
+	// theory_bv's m_bb owns one bool_rewriter m_rw(m): updt_params reads
+	// the whole rewriter module when it is built, and the instance (with
+	// its m_local_ctx_cost) persists across blasting calls.
+	if t.bitBlasterBoolRewriter == nil {
+		rw, err := rewriter.NewBoolGateRewriter(state.manager)
+		if err != nil {
+			return nil, err
 		}
+		if err = rw.LoadGlobalParams(state.paramsContext, state.globals); err != nil {
+			return nil, err
+		}
+		t.bitBlasterBoolRewriter = rw
 	}
-	config.SetBoolRewriterFlags(t.bitBlasterFlat, t.bitBlasterElimAnd)
+	if err = config.SetBoolRewriter(t.bitBlasterBoolRewriter); err != nil {
+		return nil, err
+	}
 	return bit_blaster.NewEngine(config)
 }
 

@@ -123,6 +123,11 @@ func SimplifyBooleanGateConfigured(m *ast.ASTManager, operation int32, args []as
 		return ast.ErrASTHandle
 	}
 	rw := boolRewriter{manager: m, flat: flat, elimAnd: elimAnd, localContextLimit: ^uint32(0)}
+	return rw.simplifyGate(operation, args, result)
+}
+
+// simplifyGate dispatches one bool_rewriter mk_* gate operation.
+func (rw *boolRewriter) simplifyGate(operation int32, args []ast.ASTHandle, result ast.ASTRef) error {
 	switch operation {
 	case ast.ASTOpNot:
 		if len(args) != 1 {

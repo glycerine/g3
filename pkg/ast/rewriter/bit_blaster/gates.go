@@ -9,16 +9,18 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
 // Config is the concrete bit_blaster_cfg gate layer. The arithmetic bit-vector
 // template is a separate source unit; this value borrows its AST manager.
 type Config struct {
-	manager       *ast.ASTManager
-	family        ast.FamilyID
-	params        SMTBitBlasterParams
-	flat          bool
-	elimAnd       bool
+	manager *ast.ASTManager
+	family  ast.FamilyID
+	params  SMTBitBlasterParams
+	// boolRewriter is the persistent bool_rewriter (bit_blaster::m_rw or
+	// blaster::m_rewriter) every gate goes through.
+	boolRewriter  *rewriter.BoolGateRewriter
 	rewriterGates bool
 }
 
@@ -26,21 +28,38 @@ func NewConfig(m *ast.ASTManager, family ast.FamilyID, params SMTBitBlasterParam
 	if m == nil {
 		return nil, ast.ErrASTHandle
 	}
-	return &Config{manager: m, family: family, params: params, flat: true}, nil
-}
-
-// SetBoolRewriterFlags sets the bool_rewriter m_rw's flat and elim_and,
-// which bool_rewriter::updt_params reads from the rewriter module.
-func (c *Config) SetBoolRewriterFlags(flat, elimAnd bool) {
-	c.flat, c.elimAnd = flat, elimAnd
-}
-
-func newRewriterConfig(m *ast.ASTManager, family ast.FamilyID) (*Config, error) {
-	c, err := NewConfig(m, family, SMTBitBlasterParams{})
-	if err == nil {
-		c.flat, c.elimAnd, c.rewriterGates = false, true, true
+	rw, err := rewriter.NewBoolGateRewriter(m)
+	if err != nil {
+		return nil, err
 	}
-	return c, err
+	return &Config{manager: m, family: family, params: params, boolRewriter: rw}, nil
+}
+
+// SetBoolRewriter makes the gates use rw, the owner's persistent
+// bool_rewriter m_rw, so its configuration and m_local_ctx_cost carry over
+// between blasters built on it.
+func (c *Config) SetBoolRewriter(rw *rewriter.BoolGateRewriter) error {
+	if rw == nil {
+		return ast.ErrASTHandle
+	}
+	c.boolRewriter = rw
+	return nil
+}
+
+// newRewriterConfig is blaster(m): m_rewriter(m) reads the global rewriter
+// module, then set_flat(false) and set_elim_and(true).
+func newRewriterConfig(m *ast.ASTManager, family ast.FamilyID, context *uparams.ParamsContext, globals *uparams.GlobalParamsService) (*Config, error) {
+	c, err := NewConfig(m, family, SMTBitBlasterParams{})
+	if err != nil {
+		return c, err
+	}
+	if err = c.boolRewriter.LoadGlobalParams(context, globals); err != nil {
+		return c, err
+	}
+	c.boolRewriter.SetFlat(false)
+	c.boolRewriter.SetElimAnd(true)
+	c.rewriterGates = true
+	return c, nil
 }
 
 func (c *Config) sorted(a, b, d ast.ASTHandle) ([3]ast.ASTHandle, error) {
@@ -67,7 +86,7 @@ func (c *Config) complement(a, b ast.ASTHandle) (bool, error) {
 }
 
 func (c *Config) simplify(op int32, out ast.ASTRef, args ...ast.ASTHandle) error {
-	return rewriter.SimplifyBooleanGateConfigured(c.manager, op, args, out, c.flat, c.elimAnd)
+	return c.boolRewriter.Simplify(op, args, out)
 }
 
 func (c *Config) MkXor3(a, b, d ast.ASTHandle, out ast.ASTRef) (result error) {

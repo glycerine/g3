@@ -10,6 +10,7 @@ import (
 	parent "github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
 type RewriterParams struct {
@@ -49,7 +50,14 @@ type BitBlasterRewriter struct {
 	trace             *diagnostic.TraceTags
 }
 
+// NewBitBlasterRewriter builds the rewriter with the bool_rewriter
+// defaults; NewBitBlasterRewriterWithGlobals reads the global rewriter
+// module as blaster's bool_rewriter(m) does.
 func NewBitBlasterRewriter(m *ast.ASTManager, params *RewriterParams) (*BitBlasterRewriter, error) {
+	return NewBitBlasterRewriterWithGlobals(m, params, nil, nil)
+}
+
+func NewBitBlasterRewriterWithGlobals(m *ast.ASTManager, params *RewriterParams, context *uparams.ParamsContext, globals *uparams.GlobalParamsService) (*BitBlasterRewriter, error) {
 	if m == nil {
 		return nil, ast.ErrASTHandle
 	}
@@ -61,7 +69,7 @@ func NewBitBlasterRewriter(m *ast.ASTManager, params *RewriterParams) (*BitBlast
 	if err != nil {
 		return nil, err
 	}
-	config, err := newRewriterConfig(m, family)
+	config, err := newRewriterConfig(m, family, context, globals)
 	if err != nil {
 		return nil, err
 	}

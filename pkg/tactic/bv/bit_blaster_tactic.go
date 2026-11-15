@@ -129,7 +129,7 @@ func (t *BitBlasterTactic) build() (*bitBlasterImplementation, error) {
 		return nil, err
 	}
 	r := &bitBlasterImplementation{blastQuant: p.BlastQuant}
-	r.base, err = bb.NewBitBlasterRewriter(t.manager, &p)
+	r.base, err = bb.NewBitBlasterRewriterWithGlobals(t.manager, &p, t.context, t.globals)
 	if err == nil {
 		r.active = r.base
 		if t.external != nil {

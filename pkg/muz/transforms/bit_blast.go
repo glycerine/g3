@@ -197,7 +197,7 @@ func bitBlastAssertedProof(manager *ast.ASTManager, formula ast.ASTHandle) (proo
 func NewBitBlastPlugin(manager *ast.ASTManager, rules *base.RuleManager, contextRewriter *astrewriter.TheoryRewriter, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, priority uint32) (_ *BitBlastPlugin, resultErr error) {
 	params := bitblaster.DefaultRewriterParams()
 	params.BlastFull, params.BlastQuant = true, true
-	blaster, err := bitblaster.NewBitBlasterRewriter(manager, &params)
+	blaster, err := bitblaster.NewBitBlasterRewriterWithGlobals(manager, &params, context, globals)
 	if err != nil {
 		return nil, err
 	}

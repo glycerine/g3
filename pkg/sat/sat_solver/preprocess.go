@@ -284,7 +284,7 @@ func (r *IncrementalEncoder) initPreprocess() error {
 	}
 	if r.blaster == nil {
 		var err error
-		r.blaster, err = bb.NewBitBlasterRewriter(r.manager, nil)
+		r.blaster, err = bb.NewBitBlasterRewriterWithGlobals(r.manager, nil, r.services.Context, r.services.Globals)
 		if err != nil {
 			return err
 		}
