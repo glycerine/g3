@@ -427,6 +427,9 @@ func (c *convexClosure) closeFormula(expression ast.ASTHandle) (ast.ASTHandle, e
 		return ast.ASTHandle{}, err
 	}
 	if kind != ast.ASTApp {
+		if err = verbosePP(c.manager, 1, "Cannot close: ", expression, "\n"); err != nil {
+			return ast.ASTHandle{}, err
+		}
 		return c.manager.MkTrue()
 	}
 	family, err := c.manager.GetFamilyID(expression)
@@ -439,6 +442,9 @@ func (c *convexClosure) closeFormula(expression ast.ASTHandle) (ast.ASTHandle, e
 	}
 	if family == c.manager.BasicFamilyID() && operator == ast.ASTOpEq {
 		return expression, nil
+	}
+	if err = verbosePP(c.manager, 1, "Cannot close: ", expression, "\n"); err != nil {
+		return ast.ASTHandle{}, err
 	}
 	return c.manager.MkTrue()
 }

@@ -71,3 +71,47 @@ func TestSolveEmitsSourceSearchVerbose(t *testing.T) {
 		t.Fatalf("search verbose output %q", output)
 	}
 }
+
+// AUDIT.md muz_pdr_02-F3: add_property prints IF_VERBOSE(2,
+// pp_level(lvl) << " " << mk_pp(lemma_i, m)), with "oo" for infinity.
+func TestPDRAddPropertyVerboseLine(t *testing.T) {
+	fixture := newValidationBatchFixture(t, "add_property_verbose")
+	transformer, found, err := fixture.context.Transformer(fixture.declaration)
+	pdrMust(t, err)
+	if !found {
+		t.Fatal("missing transformer")
+	}
+	boolean, err := fixture.manager.MkBoolSort()
+	pdrMust(t, err)
+	constant := func(name string) ast.ASTHandle {
+		symbol, err := fixture.manager.Symbols.Intern(name)
+		pdrMust(t, err)
+		value, err := fixture.manager.MkConst(symbol, boolean)
+		pdrMust(t, err)
+		return value
+	}
+	oldLevel, err := diagnostic.ProcessVerbosityLevel()
+	pdrMust(t, err)
+	oldStream, err := diagnostic.BorrowProcessVerboseStream()
+	pdrMust(t, err)
+	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: fixture.manager.Budget()})
+	pdrMust(t, err)
+	defer func() {
+		pdrMust(t, diagnostic.SetProcessVerbosityLevel(oldLevel))
+		pdrMust(t, diagnostic.SetProcessVerboseStream(oldStream))
+		pdrMust(t, stream.Close())
+	}()
+	pdrMust(t, diagnostic.SetProcessVerbosityLevel(2))
+	pdrMust(t, diagnostic.SetProcessVerboseStream(stream))
+	if _, err = transformer.AddProperty(constant("add-property-a"), 0); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = transformer.AddProperty(constant("add-property-b"), pdr.InfinityLevel); err != nil {
+		t.Fatal(err)
+	}
+	output, err := stream.String()
+	pdrMust(t, err)
+	if !strings.Contains(output, "0 add-property-a\n") || !strings.Contains(output, "oo add-property-b\n") {
+		t.Fatalf("add_property verbose output %q", output)
+	}
+}

@@ -55,6 +55,9 @@ func (p *PredicateTransformer) InheritProperties(other *PredicateTransformer) er
 		return err
 	}
 	for _, property := range properties {
+		if err = verbosePP(p.manager, 2, "(pdr-inherit: ", property.Formula, ")\n"); err != nil {
+			return err
+		}
 		if _, err = p.AddProperty(property.Formula, property.Level); err != nil {
 			return err
 		}

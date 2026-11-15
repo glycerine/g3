@@ -128,3 +128,33 @@ func verboseNoModel(node *ModelNode) error {
 	}
 	return verbosePP(node.transformer.manager, 1, "", node.state, "\n")
 }
+
+// ppLevel is pdr_context.cpp's pp_level: "oo" for the infinity level.
+func ppLevel(level uint32) string {
+	if level == InfinityLevel {
+		return "oo"
+	}
+	return fmt.Sprint(level)
+}
+
+// verboseLemmaRefs is extract_theory_core's IF_VERBOSE(2, header and one
+// mk_pp line per lemma).
+func verboseLemmaRefs(m *ast.ASTManager, header string, lemmas []ast.ASTRef) error {
+	out, enabled, err := pdrVerboseStream(2)
+	if err != nil || !enabled {
+		return err
+	}
+	if err = out.stream.AppendCString(header); err != nil {
+		return err
+	}
+	for i := range lemmas {
+		lemma, err := m.RefGet(lemmas[i])
+		if err != nil {
+			return err
+		}
+		if err = verbosePP(m, 2, "", lemma, "\n"); err != nil {
+			return err
+		}
+	}
+	return nil
+}

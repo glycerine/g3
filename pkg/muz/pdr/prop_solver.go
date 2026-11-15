@@ -231,7 +231,10 @@ func (p *PropSolver) AddFormula(formula ast.ASTHandle) error {
 	if err := p.open(); err != nil {
 		return err
 	}
-	return p.context.Assert(formula)
+	if err := p.context.Assert(formula); err != nil {
+		return err
+	}
+	return verbosePP(p.manager, 21, "$ asserted ", formula, "\n")
 }
 
 func (p *PropSolver) AddLevelFormula(formula ast.ASTHandle, level uint32) (resultErr error) {
@@ -960,7 +963,13 @@ func (p *PropSolver) extractTheoryCore(safe *safeAssumptions, wantConsequences b
 		return nil, nil, false, fmt.Errorf("muz/pdr: classify Farkas lemmas: %w", err)
 	}
 	if !inside {
+		if err = verboseLemmaRefs(p.manager, "not diff\n", learned); err != nil {
+			return nil, nil, false, errors.Join(err, closeASTRefs(p.manager, learned))
+		}
 		return nil, nil, false, closeASTRefs(p.manager, learned)
+	}
+	if err = verboseLemmaRefs(p.manager, "Lemmas\n", learned); err != nil {
+		return nil, nil, false, errors.Join(err, closeASTRefs(p.manager, learned))
 	}
 	core, err := p.publishTheoryResults(safe, learned)
 	if err != nil || len(core) == 0 || !wantConsequences {

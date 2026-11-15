@@ -310,6 +310,9 @@ func (p *PredicateTransformer) AddProperty(lemma ast.ASTHandle, level uint32) (b
 		}
 		changed = changed || added
 		if added {
+			if x = verbosePP(p.manager, 2, ppLevel(level)+" ", conjunct, "\n"); x != nil {
+				return changed, x
+			}
 			target := level
 			if target != InfinityLevel {
 				target++
@@ -662,6 +665,15 @@ func (p *PredicateTransformer) PropagateToNextLevel(sourceLevel uint32) (bool, e
 		p.propagations++
 	}
 	p.levels[sourceLevel] = source
+	// IF_VERBOSE(3, "propagate: " << pp_level(src_level) and the lemmas left).
+	if err := verboseText(3, "propagate: %s\n", ppLevel(sourceLevel)); err != nil {
+		return false, err
+	}
+	for _, lemma := range source {
+		if err := verbosePP(p.manager, 3, "", lemma, "\n"); err != nil {
+			return false, err
+		}
+	}
 	return len(source) == 0, nil
 }
 

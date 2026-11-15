@@ -19,6 +19,9 @@ func (c *Context) validateUNSATResult() (resultErr error) {
 	if err := c.open(); err != nil {
 		return err
 	}
+	if err := verboseText(1, "(pdr.validate_model)\n"); err != nil {
+		return err
+	}
 	md, err := model.NewModel(c.manager)
 	if err != nil {
 		return err

@@ -107,6 +107,9 @@ func (c *Context) validateProofHandle(proofHandle ast.ASTHandle) (result error) 
 		if x != nil {
 			return x
 		}
+		if x = verbosePP(c.manager, 2, "checking side-condition:\n", condition, "\n"); x != nil {
+			return x
+		}
 		contexts := c.owner.contexts
 		solver, x := smtcore.NewSMTSolver(c.manager, contexts.params, "", contexts.config)
 		if x != nil {
