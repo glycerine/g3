@@ -64,6 +64,8 @@ func (m *Runtime) emitFailure(kind FailureKind) error {
 	if policy != nil && kind != FailureVectorOverflow {
 		atomic.AddUint32(&m.failureTransportDepth, 1)
 		defer atomic.AddUint32(&m.failureTransportDepth, ^uint32(0))
+		atomic.AddUint32(&anyFailureTransportDepth, 1)
+		defer atomic.AddUint32(&anyFailureTransportDepth, ^uint32(0))
 		e := policy.HandleMemoryFailure(m, f)
 		if e == nil {
 			return ErrFailureTransport
@@ -73,6 +75,8 @@ func (m *Runtime) emitFailure(kind FailureKind) error {
 	if m.config.Transport != nil {
 		atomic.AddUint32(&m.failureTransportDepth, 1)
 		defer atomic.AddUint32(&m.failureTransportDepth, ^uint32(0))
+		atomic.AddUint32(&anyFailureTransportDepth, 1)
+		defer atomic.AddUint32(&anyFailureTransportDepth, ^uint32(0))
 		e := m.config.Transport(f)
 		if e == nil {
 			return ErrFailureTransport
@@ -89,4 +93,15 @@ func (m *Runtime) emitFailure(kind FailureKind) error {
 // invocation, without rejecting its ordinary serialized calls.
 func (m *Runtime) FailureTransportActive() bool {
 	return m != nil && m.self == m && atomic.LoadUint32(&m.failureTransportDepth) != 0
+}
+
+// anyFailureTransportDepth counts the failure transports of every Runtime
+// that are running now. It is a Go-only shortcut: when it is zero, no
+// Runtime's FailureTransportActive can be true.
+var anyFailureTransportDepth uint32
+
+// AnyFailureTransportActive reports whether some Runtime is inside its
+// failure transport. Hot guards test it before scanning for a specific one.
+func AnyFailureTransportActive() bool {
+	return atomic.LoadUint32(&anyFailureTransportDepth) != 0
 }

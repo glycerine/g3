@@ -249,7 +249,10 @@ func (m *IntegerManager) Cleanup() error       { return m.CloseChecked() }
 // release/reset after a source allocation prefix. Ordinary reads use check.
 func (m *IntegerManager) checkCleanup(a *Int) error { return m.checkCleanupWithModularOwner(a, nil) }
 func (m *IntegerManager) checkCleanupWithModularOwner(a *Int, owner *IntegerModularManager) error {
-	if m.stringSetTransportActive() {
+	// Every transport test here needs some Runtime's failure transport to be
+	// running (see checkReady).
+	transport := umemory.AnyFailureTransportActive()
+	if transport && m.stringSetTransportActive() {
 		return ErrNumericPending
 	}
 	if m == nil || m.self != m {
@@ -257,10 +260,12 @@ func (m *IntegerManager) checkCleanupWithModularOwner(a *Int, owner *IntegerModu
 	}
 	// A callback cannot release a numeral borrowed by an executing caller.
 	// Literal source destructors run after the callback returns.
-	if (callerBindingsCallbackActive(m.callerBindings) || m.numericCallerExecuting() && (m.RuntimeOwner().FailureTransportActive() || m.BorrowTraceTags().OutputCallbackActive())) && !m.modularMemberCleanupAuthorized(owner, a) {
+	// The guards are pure, so the cheap transport/output test runs before
+	// the binding scan of numericCallerExecuting.
+	if (callerBindingsCallbackActive(m.callerBindings) || (m.RuntimeOwner().FailureTransportActive() || m.BorrowTraceTags().OutputCallbackActive()) && m.numericCallerExecuting()) && !m.modularMemberCleanupAuthorized(owner, a) {
 		return ErrNumericPending
 	}
-	if m.rationalServiceReadCallbackActive() || (m.mpfValueRead != nil && m.mpfBorrowedSourceCallbackActive()) {
+	if transport && (m.rationalServiceReadCallbackActive() || (m.mpfValueRead != nil && m.mpfBorrowedSourceCallbackActive())) {
 		return ErrNumericPending
 	}
 	if m.closed || m.SourceFinalizing || m.constructionFailed {
@@ -283,11 +288,15 @@ func (m *IntegerManager) checkReady() error {
 	if m == nil || m.self != m {
 		return umemory.ErrRuntimeOwner
 	}
-	if m.stringSetTransportActive() || m.decimalStreamExecuting(true) || m.smt2StreamExecuting(true) || m.rationalStringExecuting(true) || m.mpfToMPZExecuting(true) || m.mpfArithmeticTransportActive() || m.myMPZSqrtTransportActive() {
-		return ErrNumericPending
-	}
-	if m.rationalServiceReadCallbackActive() || (m.mpfValueRead != nil && m.mpfBorrowedSourceCallbackActive()) {
-		return ErrNumericPending
+	// Each pending test below requires some Runtime's failure transport to be
+	// running, so they are skipped together when none is.
+	if umemory.AnyFailureTransportActive() {
+		if m.stringSetTransportActive() || m.decimalStreamExecuting(true) || m.smt2StreamExecuting(true) || m.rationalStringExecuting(true) || m.mpfToMPZExecuting(true) || m.mpfArithmeticTransportActive() || m.myMPZSqrtTransportActive() {
+			return ErrNumericPending
+		}
+		if m.rationalServiceReadCallbackActive() || (m.mpfValueRead != nil && m.mpfBorrowedSourceCallbackActive()) {
+			return ErrNumericPending
+		}
 	}
 	if m.closed || m.SourceFinalizing || m.constructionFailed {
 		return arena.ErrClosed
@@ -301,12 +310,27 @@ func (m *IntegerManager) check(a *Int) error {
 	if a == nil {
 		return arena.ErrInvalidSlot
 	}
-	if a.Cell != 0 && (!ValidNumericRef(m.Cells, a.Cell) || m.Cell(a.Cell).Released) {
+	if a.Cell == 0 {
+		return nil
+	}
+	if !numericValidateCells {
+		// Same test as below without copying the record out twice.
+		if c := m.Cells.recordPtr(NumericSlot(a.Cell)); c == nil || c.Released {
+			return arena.ErrInvalidSlot
+		}
+		return nil
+	}
+	if !ValidNumericRef(m.Cells, a.Cell) || m.Cell(a.Cell).Released {
 		return arena.ErrInvalidSlot
 	}
 	return nil
 }
 func (m *IntegerManager) Cell(ref NumericCellRef) NumericCell {
+	if !numericValidateCells {
+		if c := m.Cells.recordPtr(NumericSlot(ref)); c != nil {
+			return *c
+		}
+	}
 	c, e := m.Cells.Read(NumericSlot(ref))
 	if e != nil {
 		panic(e)
@@ -714,7 +738,7 @@ func (m *IntegerManager) CloseChecked() error {
 // big positive/negative value leaves inline +1/-1. Reset additionally writes 0.
 func (m *IntegerManager) Del(a *Int) error { return m.delWithModularOwner(a, nil) }
 func (m *IntegerManager) delWithModularOwner(a *Int, owner *IntegerModularManager) error {
-	if m.stringSetTransportActive() || m.decimalStreamExecuting(true) || m.smt2StreamExecuting(true) || m.rationalStringExecuting(true) || m.mpfToMPZExecuting(true) || m.mpfArithmeticTransportActive() || m.myMPZSqrtTransportActive() {
+	if umemory.AnyFailureTransportActive() && (m.stringSetTransportActive() || m.decimalStreamExecuting(true) || m.smt2StreamExecuting(true) || m.rationalStringExecuting(true) || m.mpfToMPZExecuting(true) || m.mpfArithmeticTransportActive() || m.myMPZSqrtTransportActive()) {
 		return ErrNumericPending
 	}
 	if e := m.checkCleanupWithModularOwner(a, owner); e != nil {

@@ -275,3 +275,33 @@ func TestMemoryNilTransportCannotSuppressFailure(t *testing.T) {
 		t.Fatal("transport refusal metadata cleanup", b.Used())
 	}
 }
+
+// TestMemoryAnyFailureTransportActiveCoversEveryRuntime checks the Go-only
+// process-wide shortcut: it is set exactly while some Runtime's transport runs.
+func TestMemoryAnyFailureTransportActiveCoversEveryRuntime(t *testing.T) {
+	b := arena.NewBudget(1 << 20)
+	var r *Runtime
+	seenOwn, seenAny := false, false
+	transport := func(f Failure) error {
+		seenOwn, seenAny = r.FailureTransportActive(), AnyFailureTransportActive()
+		return memoryAPIBridgedFailure{f}
+	}
+	r, e := NewRuntime(RuntimeConfig{Budget: b, SizeTBits: 64, Transport: transport})
+	memoryAPIMust(t, e)
+	if AnyFailureTransportActive() {
+		t.Fatal("transport reported outside any transport")
+	}
+	c, e := NewSmallAllocator(SmallAllocatorConfig{Runtime: r, Profile: SmallAllocatorProfile{PointerBits: 64}})
+	memoryAPIMust(t, e)
+	memoryAPIMust(t, r.SetMaxSize(1))
+	_, e = c.Allocate(7)
+	var f memoryAPIBridgedFailure
+	if !errors.As(e, &f) || !seenOwn || !seenAny {
+		t.Fatal("transport not observed", e, seenOwn, seenAny)
+	}
+	if AnyFailureTransportActive() || r.FailureTransportActive() {
+		t.Fatal("transport still reported after it returned")
+	}
+	memoryAPIMust(t, c.Close())
+	memoryAPIMust(t, r.Close())
+}
