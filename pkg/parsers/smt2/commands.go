@@ -44,6 +44,7 @@ type commandParser struct {
 	datatypeHeaders    map[string]uint32
 	ignoreUserPatterns bool
 	ignoreBadPatterns  bool
+	errorForVS         bool
 	ignoreChecks       bool
 	queryCollector     *fixedpointQueryCollector
 	tacticExpansion    []string
@@ -145,10 +146,10 @@ func parseCommandsWithOptions(context *cmd_context.Context, input io.Reader, out
 			report = func(cause error) error { return reportParserError(p, cause) }
 		}
 		if err = report(firstParseError); err != nil {
-			return errors.Join(firstParseError, err)
+			return reportFailure(firstParseError, err)
 		}
 		if err = p.syncAfterError(report); err != nil {
-			return errors.Join(firstParseError, err)
+			return reportFailure(firstParseError, err)
 		}
 	}
 	for p.token != EOFToken {
@@ -163,7 +164,7 @@ func parseCommandsWithOptions(context *cmd_context.Context, input io.Reader, out
 				report = func(cause error) error { return reportParserError(p, cause) }
 			}
 			if err = report(parseErr); err != nil {
-				return errors.Join(firstParseError, err)
+				return reportFailure(firstParseError, err)
 			}
 			if err = p.clearCommand(); err != nil {
 				return errors.Join(firstParseError, err)
@@ -180,7 +181,7 @@ func parseCommandsWithOptions(context *cmd_context.Context, input io.Reader, out
 				}
 				return report(cause)
 			}); err != nil {
-				return errors.Join(firstParseError, err)
+				return reportFailure(firstParseError, err)
 			}
 			continue
 		}
@@ -224,19 +225,50 @@ func parserScannerError(err error, scanner *Scanner) *ScannerError {
 	return &ScannerError{Message: err.Error(), Line: scanner.Line(), Column: scanner.Position()}
 }
 
+// reportFailure ends the parse after a failed report. An immediate-exit
+// report is returned alone so the shell exits with status 1.
+func reportFailure(first, err error) error {
+	var reported *ReportedParseError
+	if errors.As(err, &reported) {
+		return reported
+	}
+	return errors.Join(first, err)
+}
+
+// reportParserError is parser::error: it clears the cancel flag, writes the
+// Visual Studio form to the diagnostic stream when
+// parser.error_for_visual_studio is on (else the (error ...) form to the
+// regular stream), and with :error-behavior immediate-exit ends the run,
+// which the source does with _Exit(1).
 func reportParserError(p *commandParser, err error) error {
+	if cause := p.context.SetCancel(false); cause != nil {
+		return cause
+	}
 	var parseError *ScannerError
 	if !errors.As(err, &parseError) {
 		parseError = &ScannerError{Message: err.Error(), Line: p.scanner.Line(), Column: p.scanner.Position()}
 	}
-	message, cause := escaped.String(&parseError.Message, true, 0)
-	if cause != nil {
-		return cause
-	}
-	if p.filename != "" {
-		_, cause = fmt.Fprintf(p.out, "(error \"%s: line %d column %d: %s\")\n", p.filename, parseError.Line, parseError.Column, message)
+	var cause error
+	if p.errorForVS {
+		message := parseError.Message
+		_, cause = fmt.Fprintf(p.context.DiagnosticOutput(), "Z3(%d, %d): ERROR: %s", parseError.Line, parseError.Column, message)
+		if cause == nil && !strings.HasSuffix(message, "\n") {
+			_, cause = fmt.Fprintln(p.context.DiagnosticOutput())
+		}
 	} else {
-		_, cause = fmt.Fprintf(p.out, "(error \"line %d column %d: %s\")\n", parseError.Line, parseError.Column, message)
+		var message string
+		message, cause = escaped.String(&parseError.Message, true, 0)
+		if cause != nil {
+			return cause
+		}
+		if p.filename != "" {
+			_, cause = fmt.Fprintf(p.out, "(error \"%s: line %d column %d: %s\")\n", p.filename, parseError.Line, parseError.Column, message)
+		} else {
+			_, cause = fmt.Fprintf(p.out, "(error \"line %d column %d: %s\")\n", parseError.Line, parseError.Column, message)
+		}
+	}
+	if cause == nil && p.context.ExitOnError {
+		return &ReportedParseError{cause: parseError}
 	}
 	return cause
 }

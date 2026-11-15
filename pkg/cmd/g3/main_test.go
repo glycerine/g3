@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md parsers_shell_01-F6
+	"error_behavior_immediate_exit.smt2": "(error \"line 1 column 54: invalid assert command, term is not Boolean\")\n",
 	// AUDIT.md cmd_context_01-F7
 	"fixedpoint_global_timeout_ignored.smt2": "sat\n",
 	// AUDIT.md cmd_context_02-F5
@@ -1817,6 +1819,8 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	"error_behavior_immediate_exit.smt2": true, // AUDIT.md parsers_shell_01-F6
+
 	"define_fun_rec_var_body_pop_declare.smt2": true, // AUDIT.md cmd_context_02-F4
 
 	// AUDIT.md interp_02-F4: compute-interpolant reports the command error.

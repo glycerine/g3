@@ -30,6 +30,11 @@ func (p *commandParser) configurePatternOptions() (result error) {
 		return err
 	}
 	p.ignoreBadPatterns, err = params.IgnoreBadPatterns()
+	if err != nil {
+		return err
+	}
+	// m_display_error_for_vs = p.error_for_visual_studio()
+	p.errorForVS, err = params.ErrorForVisualStudio()
 	return err
 }
 

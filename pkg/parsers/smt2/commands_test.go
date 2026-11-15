@@ -2,6 +2,7 @@ package smt2
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"os/exec"
 	"sort"
@@ -418,5 +419,54 @@ func TestSMT2CommandEffectPrecedesRParen(t *testing.T) {
 				t.Fatalf("C++ differential %s: %q %q", tc.script, output.String(), cpp)
 			}
 		}
+	}
+}
+
+// AUDIT.md parsers_shell_01-F6: parser::error ends the run under
+// :error-behavior immediate-exit (_Exit(1)), and writes the Visual Studio
+// form to the diagnostic stream under parser.error_for_visual_studio.
+func TestSMT2ErrorBehaviorImmediateExitStops(t *testing.T) {
+	c, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var output, diagnostics bytes.Buffer
+	if err = c.SetDiagnosticOutput(&diagnostics); err != nil {
+		t.Fatal(err)
+	}
+	err = ParseShellCommands(c, strings.NewReader("(set-option :error-behavior immediate-exit)(assert 1 2)(check-sat)(echo \"after\")"), &output)
+	var reported *ReportedParseError
+	if !errors.As(err, &reported) {
+		t.Fatal("expected a reported parse error", err)
+	}
+	if closeErr := c.Close(); closeErr != nil {
+		t.Fatal(closeErr)
+	}
+	if want := "(error \"line 1 column 54: invalid assert command, term is not Boolean\")\n"; output.String() != want {
+		t.Fatalf("got %q want %q", output.String(), want)
+	}
+}
+
+func TestSMT2ErrorForVisualStudioFormat(t *testing.T) {
+	c, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var output, diagnostics bytes.Buffer
+	if err = c.SetDiagnosticOutput(&diagnostics); err != nil {
+		t.Fatal(err)
+	}
+	err = ParseShellCommands(c, strings.NewReader("(set-option :parser.error_for_visual_studio true)(assert 1 2)\n(check-sat)\n"), &output)
+	if err == nil {
+		t.Fatal("expected a parse error")
+	}
+	if closeErr := c.Close(); closeErr != nil {
+		t.Fatal(closeErr)
+	}
+	if output.String() != "sat\n" {
+		t.Fatalf("stdout %q", output.String())
+	}
+	if want := "Z3(1, 60): ERROR: invalid assert command, term is not Boolean\n"; diagnostics.String() != want {
+		t.Fatalf("diagnostics %q want %q", diagnostics.String(), want)
 	}
 }
