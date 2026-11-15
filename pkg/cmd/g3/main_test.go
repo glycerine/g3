@@ -819,7 +819,9 @@ var scriptResults = map[string]string{
 	// AUDIT.md nlsat_02-F1: max_conflicts=0 is not remapped to unlimited.
 	"nlsat_max_conflicts_zero.smt2": "unknown\n",
 	// AUDIT.md qe_01 Needs verification: constrain_free_vars must stop when internalizing a bound compresses the row (was index out of range).
-	"qe2_constrain_free_vars_compress.smt2": "(error \"tactic failed: (resource limits reached)\")\n",
+	// rlimit 31500: g3's resource steps equal z3's through step 31921 of this run (trace comparison); past that a theory_arith
+	// bound atom is built with a different term order and the searches part, so a larger limit stops them at different points.
+	"qe2_constrain_free_vars_compress.smt2": "(error \"line 2 column 277: max. resource limit exceeded\")\n",
 	// AUDIT.md qe_05-F1: qe-sat has no proof/unsat-core fail_if checks.
 	"qe_sat_unsat_cores.smt2": "sat\n(:reason-unknown \"\")\n",
 	// AUDIT.md qe_05-F1: qe-sat has no proof/unsat-core fail_if checks.
