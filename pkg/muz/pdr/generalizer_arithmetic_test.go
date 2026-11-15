@@ -267,3 +267,36 @@ func TestArithmeticInductiveCoreOwnsFallbackAndAdoptedSubset(t *testing.T) {
 	closureMust(t, closeGeneralizedCores(manager, []generalizedCore{adopted}))
 	closeAll()
 }
+
+// AUDIT.md muz_pdr_01-F5: substitute_alias only rewrites bounds at r, r-1
+// and r+1; a distant bound such as (<= y 5) with r = 2 is kept verbatim.
+func TestArithmeticInductiveCandidateLeavesDistantBoundsUnchanged(t *testing.T) {
+	manager, transformer, x, closeAll := arithmeticGeneralizerFixture(t, true)
+	integerSort, err := manager.GetSort(x)
+	closureMust(t, err)
+	y, err := manager.MkFreshConst("arithmetic_inductive_distant_y", integerSort)
+	closureMust(t, err)
+	zero, err := manager.ArithmeticIntegerNumeralText("0")
+	closureMust(t, err)
+	two, err := manager.ArithmeticIntegerNumeralText("2")
+	closureMust(t, err)
+	five, err := manager.ArithmeticIntegerNumeralText("5")
+	closureMust(t, err)
+	input := []ast.ASTHandle{
+		arithmeticGeneralizerRelation(t, manager, closureArithLE, y, five),
+		arithmeticGeneralizerRelation(t, manager, closureArithGE, y, zero),
+		arithmeticGeneralizerRelation(t, manager, closureArithGE, x, two),
+		arithmeticGeneralizerRelation(t, manager, closureArithLE, x, two),
+	}
+	candidate, references, changed, err := arithmeticInductiveCandidate(transformer, input)
+	closureMust(t, err)
+	if !changed || len(candidate) != len(input) {
+		t.Fatal("candidate publication", changed, len(candidate), len(input))
+	}
+	if candidate[0] != input[0] || candidate[1] != input[1] {
+		t.Fatal("distant bounds were rewritten")
+	}
+	arithmeticGeneralizerWantRelation(t, manager, candidate[3], closureArithLE, x, zero)
+	closureMust(t, closeASTRefs(manager, references))
+	closeAll()
+}

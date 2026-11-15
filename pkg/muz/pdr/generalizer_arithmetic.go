@@ -314,7 +314,13 @@ func substituteArithmeticInductiveAlias(manager *ast.ASTManager, matchedValue *b
 	if err != nil || !found {
 		return ast.ASTHandle{}, false, err
 	}
-	comparison := value.Cmp(matchedValue)
+	// substitute_alias rewrites only r2 == r, r2 == r - 1 and r2 == r + 1;
+	// comparison is r2 - r restricted to those cases.
+	difference := new(big.Rat).Sub(&value, matchedValue)
+	if !difference.IsInt() || difference.Num().CmpAbs(big.NewInt(1)) > 0 {
+		return ast.ASTHandle{}, false, nil
+	}
+	comparison := difference.Sign()
 	var result ast.ASTHandle
 	switch operator {
 	case closureArithLE:
