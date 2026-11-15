@@ -143,6 +143,10 @@ type SMTInternalizerState struct {
 	registeredJustification SMTJustification
 	// reinitSeq orders pushes onto m_clauses_to_reinit.
 	reinitSeq uint64
+	// reinitBuckets[level] is m_clauses_to_reinit[level]: each push of
+	// markForReinit, with its sequence number. An entry is live while the
+	// clause is still on the reinit stack with that level and number.
+	reinitBuckets [][]smtReinitEntry
 	// afterFlush runs in Close between context::flush and the destruction
 	// of m_theories: ~context destroys m_model and m_proto_model there.
 	afterFlush func() error
@@ -1531,6 +1535,9 @@ func (s *SMTInternalizerState) PopScopes(count uint32) error {
 				return err
 			}
 		}
+		// reinit_clauses resets the walked buckets; a base-scope pop deletes
+		// the lemmas they hold.
+		s.dropReinitBucketsAbove(pop.level)
 		pop.stage++
 	}
 	if pop.stage == 1 {
@@ -1684,6 +1691,7 @@ func (s *SMTInternalizerState) Close() error {
 	s.scopes = nil
 	s.scopeLevel = 0
 	s.baseLevel = 0
+	s.reinitBuckets = nil
 	if s.afterFlush != nil {
 		if err := s.afterFlush(); err != nil {
 			return err

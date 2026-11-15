@@ -5,6 +5,7 @@ package smtcore
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -185,9 +186,8 @@ func (s *SMTInternalizerState) learnedClauseProof(clause *SMTClause) (ast.ASTHan
 
 // A failed acquisition returns its owned prefix to the pending Pop; it must
 // release that prefix before attempting another capture. During a live
-// search pop it walks every lemma, as reinit_clauses walks
-// m_clauses_to_reinit, and limit is unused; otherwise it snapshots
-// m_lemmas[limit..].
+// search pop it walks m_clauses_to_reinit as reinit_clauses does, and limit
+// is unused; otherwise it snapshots m_lemmas[limit..].
 func (s *SMTInternalizerState) preserveLearnedClauses(limit int) ([]smtPreservedLearnedClause, error) {
 	if limit < 0 || limit > len(s.lemmas) {
 		return nil, ast.ErrASTDomain
@@ -203,32 +203,40 @@ func (s *SMTInternalizerState) preserveLearnedClauses(limit int) ([]smtPreserved
 		// pop deletes no lemma, so every index stays valid.
 		start = 0
 	}
+	if livePop {
+		// Only the lemmas on m_clauses_to_reinit[level+1..m_scope_lvl] are
+		// revisited; every lemma with an atom this pop retires is among them
+		// (mk_clause marks a lemma at its atoms' maximum scope, and reinit
+		// re-pushes it at the scope that re-internalizes them).
+		candidates, err := s.reinitCandidates(s.pendingPop.level)
+		if err != nil {
+			return nil, err
+		}
+		if smtcoreSourceDebug {
+			if err = s.checkReinitCandidates(candidates, booleanLimit); err != nil {
+				return nil, err
+			}
+		}
+		for clause, index := range candidates {
+			retired := false
+			for _, literal := range clause.literals {
+				retired = retired || int(literal.Var()) >= booleanLimit
+			}
+			// C++ keeps the object, proof owner, literal storage and watches.
+			// There is no snapshot or reconstruction for surviving bindings.
+			// Source clause objects already own their atoms and proof. Do not
+			// acquire a second snapshot merely to keep the same object alive.
+			result = append(result, smtPreservedLearnedClause{inPlace: true, clause: clause, recordIndex: index, retired: retired, sourceAtoms: clause.atoms})
+		}
+		start = len(s.lemmas)
+	}
 	for index := start; index < len(s.lemmas); index++ {
 		clause := s.lemmas[index].clause
 		if clause == nil || !clause.IsLemma() {
 			continue
 		}
-		retired := false
-		if livePop {
-			for _, literal := range clause.literals {
-				retired = retired || int(literal.Var()) >= booleanLimit
-			}
-			inBucket := clause.InReinitStack() && clause.reinitLevel > uint32(s.pendingPop.level) && clause.reinitLevel <= s.scopeLevel
-			if !retired && !inBucket {
-				// C++ keeps the object, proof owner, literal storage and watches.
-				// There is no snapshot or reconstruction for surviving bindings.
-				continue
-			}
-		}
 		result = append(result, smtPreservedLearnedClause{})
 		saved := &result[len(result)-1]
-		if livePop {
-			saved.inPlace, saved.clause, saved.recordIndex, saved.retired = true, clause, index, retired
-			saved.sourceAtoms = clause.atoms
-			// Source clause objects already own their atoms and proof. Do not
-			// acquire a second snapshot merely to keep the same object alive.
-			continue
-		}
 		var err error
 		saved.atoms, err = s.captureLemmaAtoms(clause.literals)
 		if err != nil {
@@ -249,6 +257,8 @@ func (s *SMTInternalizerState) preserveLearnedClauses(limit int) ([]smtPreserved
 	if livePop {
 		// reinit_clauses walks m_clauses_to_reinit level by level, each
 		// level in push order.
+		// Sequence numbers are unique, so the order does not depend on the
+		// map's iteration order.
 		sort.SliceStable(result, func(i, j int) bool {
 			a, b := result[i].clause, result[j].clause
 			if a.reinitLevel != b.reinitLevel {
@@ -260,10 +270,64 @@ func (s *SMTInternalizerState) preserveLearnedClauses(limit int) ([]smtPreserved
 	return result, nil
 }
 
+// smtReinitEntry is one push onto m_clauses_to_reinit.
+type smtReinitEntry struct {
+	clause *SMTClause
+	seq    uint64
+}
+
 // markForReinit records the clause's place in m_clauses_to_reinit.
 func (s *SMTInternalizerState) markForReinit(clause *SMTClause, level uint32) {
 	s.reinitSeq++
 	clause.reinitLevel, clause.reinitSeq = level, s.reinitSeq
+	for uint32(len(s.reinitBuckets)) <= level {
+		s.reinitBuckets = append(s.reinitBuckets, nil)
+	}
+	s.reinitBuckets[level] = append(s.reinitBuckets[level], smtReinitEntry{clause, s.reinitSeq})
+}
+
+// dropReinitBucketsAbove empties m_clauses_to_reinit[level+1..]: a pop to
+// level has walked (or deleted) them.
+func (s *SMTInternalizerState) dropReinitBucketsAbove(level int) {
+	for l := level + 1; l < len(s.reinitBuckets); l++ {
+		clear(s.reinitBuckets[l])
+		s.reinitBuckets[l] = s.reinitBuckets[l][:0]
+	}
+}
+
+// reinitCandidates returns the lemmas on m_clauses_to_reinit[level+1..
+// m_scope_lvl] with their index in m_lemmas, each once.
+func (s *SMTInternalizerState) reinitCandidates(level int) (map[*SMTClause]int, error) {
+	var candidates map[*SMTClause]int
+	for l := level + 1; l <= int(s.scopeLevel) && l < len(s.reinitBuckets); l++ {
+		for _, entry := range s.reinitBuckets[l] {
+			clause := entry.clause
+			if clause.reinitSeq != entry.seq || !clause.InReinitStack() || int(clause.reinitLevel) != l || !clause.IsLemma() {
+				continue
+			}
+			if candidates == nil {
+				candidates = make(map[*SMTClause]int)
+			}
+			candidates[clause] = -1
+		}
+	}
+	if len(candidates) == 0 {
+		return nil, nil
+	}
+	found := 0
+	for index := range s.lemmas {
+		if position, ok := candidates[s.lemmas[index].clause]; ok && position < 0 {
+			candidates[s.lemmas[index].clause] = index
+			found++
+			if found == len(candidates) {
+				break
+			}
+		}
+	}
+	if found != len(candidates) {
+		return nil, ast.ErrASTDomain
+	}
+	return candidates, nil
 }
 
 func (s *SMTInternalizerState) releasePreservedLearnedClauses(clauses []smtPreservedLearnedClause) (result error) {
@@ -454,6 +518,29 @@ func (s *SMTInternalizerState) discardLearnedUnitsFrom(limit int) error {
 			return err
 		}
 		s.learnedUnits = s.learnedUnits[:index]
+	}
+	return nil
+}
+
+// checkReinitCandidates (debug builds) checks the claim preserveLearnedClauses
+// relies on: no lemma outside m_clauses_to_reinit[level+1..] has an atom the
+// pop retires, and every lemma on those buckets was found.
+func (s *SMTInternalizerState) checkReinitCandidates(candidates map[*SMTClause]int, booleanLimit int) error {
+	level := uint32(s.pendingPop.level)
+	for index := range s.lemmas {
+		clause := s.lemmas[index].clause
+		if clause == nil || !clause.IsLemma() {
+			continue
+		}
+		retired := false
+		for _, literal := range clause.literals {
+			retired = retired || int(literal.Var()) >= booleanLimit
+		}
+		inBucket := clause.InReinitStack() && clause.reinitLevel > level && clause.reinitLevel <= s.scopeLevel
+		_, candidate := candidates[clause]
+		if (retired || inBucket) != candidate {
+			return fmt.Errorf("reinit buckets out of step with m_lemmas: retired %v, on stack %v, candidate %v: %w", retired, inBucket, candidate, ast.ErrASTDomain)
+		}
 	}
 	return nil
 }
