@@ -1366,7 +1366,13 @@ namespace pdr {
             proof_ref p1(m), p2(m);
             p1 = r0->get_proof();
             IF_VERBOSE(0, if (!p1) r0->display(dctx, verbose_stream()););
-            SASSERT(p1);
+            if (!p1) {
+                // print_boogie_certificate turns the trace on without
+                // generate_proof_trace, so the rule has no proof: assert it.
+                expr_ref fml(m);
+                rm.to_formula(*r0.get(), fml);
+                p1 = m.mk_asserted(fml);
+            }
             pfs[0] = p1;
             rls[0] = r1;
             TRACE("pdr",
