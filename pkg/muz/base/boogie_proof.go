@@ -399,7 +399,7 @@ func (b *BoogieProof) ppStep(out io.Writer, id uint32, step *boogieStep) error {
 	if err := b.render(out, step.fact); err != nil {
 		return err
 	}
-	ruleName, err := b.manager.Symbols.String(step.ruleName)
+	ruleName, err := b.manager.Symbols.Display(step.ruleName)
 	if err != nil {
 		return err
 	}
@@ -407,7 +407,7 @@ func (b *BoogieProof) ppStep(out io.Writer, id uint32, step *boogieStep) error {
 		return err
 	}
 	for _, assignment := range step.subst {
-		name, e := b.manager.Symbols.String(assignment.name)
+		name, e := b.manager.Symbols.Display(assignment.name)
 		if e != nil {
 			return e
 		}
@@ -425,7 +425,7 @@ func (b *BoogieProof) ppStep(out io.Writer, id uint32, step *boogieStep) error {
 		return err
 	}
 	for _, label := range step.labels {
-		text, e := b.manager.Symbols.String(label)
+		text, e := b.manager.Symbols.Display(label)
 		if e != nil {
 			return e
 		}
