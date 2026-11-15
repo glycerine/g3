@@ -9,7 +9,7 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func TestElimSmallBVRetainsSourceWidthBoundEnumerationAndLifecycle(t *testing.T) {
+func TestElimSmallBVEnumeratesAllValuesAndLifecycle(t *testing.T) {
 	base := sharingTacticFixture(t, false)
 	m := base.manager
 	globals := uparams.BorrowProcessGlobalParamsService()
@@ -39,15 +39,58 @@ func TestElimSmallBVRetainsSourceWidthBoundEnumerationAndLifecycle(t *testing.T)
 	f, err := out.Goals[0].Form(0)
 	sharingMust(t, err)
 	if !m.IsFalse(f) {
-		t.Fatal("source j < bit-width expansion was not retained")
+		t.Fatal("forall y:bv2. y = #b01 did not expand to false")
 	}
 	if d, err := out.Goals[0].Depth(); err != nil || d != 1 {
 		t.Fatal("depth", d, err)
 	}
 }
 
+// z3 4.7.1 reduce_quantifier enumerated only j < bv_sz values, so
+// forall y:bv2. y != #b11 checked #b00 and #b01 and became true (an unsat
+// goal answered sat). All 2^bv_sz values are enumerated, as upstream
+// 8e033c1e7 ("fix #3716 fix #3719"); test_vectors/z3_bug_elim_small_bv.smt2.
+func TestElimSmallBVEnumeratesEveryValue(t *testing.T) {
+	base := sharingTacticFixture(t, false)
+	m := base.manager
+	globals := uparams.BorrowProcessGlobalParamsService()
+	x, err := NewElimSmallBVTactic(m, base.context, globals, nil, nil)
+	sharingMust(t, err)
+	t.Cleanup(func() { sharingMust(t, x.Close()) })
+	s, err := m.BitVectorSort(2)
+	sharingMust(t, err)
+	v, err := m.MkVar(0, s)
+	sharingMust(t, err)
+	three, err := m.BitVectorNumeralUnsigned(3, 2)
+	sharingMust(t, err)
+	eq, err := m.MkEq(v, three)
+	sharingMust(t, err)
+	ne, err := m.MkNot(eq)
+	sharingMust(t, err)
+	q, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{s}, Names: []usymbol.Symbol{usymbol.Numerical(0)}, Body: ne})
+	sharingMust(t, err)
+	g, err := tactic.NewGoal(m, false, false, false)
+	sharingMust(t, err)
+	t.Cleanup(func() { sharingMust(t, g.Close()) })
+	sharingMust(t, g.Assert(q))
+	var out tactic.TacticResult
+	t.Cleanup(func() { sharingMust(t, out.Close()) })
+	sharingMust(t, x.Apply(g, &out))
+	if len(out.Goals) != 1 {
+		t.Fatal("result goals", len(out.Goals))
+	}
+	f, err := out.Goals[0].Form(0)
+	sharingMust(t, err)
+	if !m.IsFalse(f) {
+		t.Fatal("forall y:bv2. y != #b11 did not expand to false")
+	}
+}
+
 // AUDIT.md tactic_bv_01-F1: C++ reduce_quantifier restarts num_steps for every
 // quantifier, so a later quantifier is still expanded instead of becoming true.
+// Each quantifier enumerates all four values of its bv2 variable (z3 4.7.1
+// enumerated only two; fixed upstream in 8e033c1e7), and four fit in
+// max_steps = 5.
 func TestElimSmallBVStepLimitIsPerQuantifier(t *testing.T) {
 	base := sharingTacticFixture(t, false)
 	m := base.manager
@@ -79,7 +122,7 @@ func TestElimSmallBVStepLimitIsPerQuantifier(t *testing.T) {
 		q, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{s}, Names: []usymbol.Symbol{usymbol.Numerical(0)}, Body: body})
 		sharingMust(t, err)
 		sharingMust(t, g.Assert(q))
-		for j := uint32(0); j < 2; j++ {
+		for j := uint32(0); j < 4; j++ {
 			n, err := m.BitVectorNumeralUnsigned(j, 2)
 			sharingMust(t, err)
 			a, err := m.MkApp(decl, []ast.ASTHandle{n})
@@ -95,8 +138,8 @@ func TestElimSmallBVStepLimitIsPerQuantifier(t *testing.T) {
 	}
 	n, err := out.Goals[0].Size()
 	sharingMust(t, err)
-	if n != 8 {
-		t.Fatal("expected 8 expanded formulas, got", n)
+	if n != 16 {
+		t.Fatal("expected 16 expanded formulas, got", n)
 	}
 	for i := uint32(0); i < n; i++ {
 		f, err := out.Goals[0].Form(i)
@@ -110,6 +153,8 @@ func TestElimSmallBVStepLimitIsPerQuantifier(t *testing.T) {
 // AUDIT.md tactic_bv_01-F2: rw_cfg builds th_rewriter m_simp(_m) with empty
 // params, so the tactic's max_steps never reaches the simplifier; the outer
 // rewriter reaches rw_cfg::max_steps_exceeded instead and stops expanding.
+// With max_steps = 3 the four values of a bv2 variable do not fit, so both
+// quantifiers stay unexpanded (as upstream 8e033c1e7).
 func TestElimSmallBVSimplifierIgnoresTacticParams(t *testing.T) {
 	base := sharingTacticFixture(t, false)
 	m := base.manager
@@ -160,6 +205,6 @@ func TestElimSmallBVSimplifierIgnoresTacticParams(t *testing.T) {
 	f, err := out.Goals[0].Form(0)
 	sharingMust(t, err)
 	if k, err := m.GetKind(f); err != nil || k != ast.ASTQuantifier {
-		t.Fatal("first formula should stay a partly expanded quantifier", k, err)
+		t.Fatal("first formula should stay a quantifier", k, err)
 	}
 }

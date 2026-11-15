@@ -80,3 +80,16 @@ z3_bug_ddnf_extract_width
 # TestUDocSieveNegationColumnClassification and
 # TestSieveNegationFullNegativeColumnSubtractsAll in
 # pkg/muz/rel/udoc_sieve_negation_test.go.
+#
+# elim_small_bv_tactic::rw_cfg::reduce_quantifier enumerates only the
+# values j < bv_sz of a small bit-vector variable, so
+# (forall ((y (_ BitVec 2))) (not (= y #b11))) becomes true (sat on an
+# unsat goal); under max_steps it keeps a partial expansion, which drops
+# instances too; and it reads get_bv_size of a non-bit-vector sort, so a
+# quantifier over Int crashes (z3 bug: src/tactic/bv/elim_small_bv_tactic.cpp
+# reduce_quantifier; fixed upstream in b6ee0b151, 8e033c1e7, aa901c4e8).
+# g3 and the fork enumerate all 2^bv_sz values and leave a quantifier that
+# does not fit in max_steps unchanged (pkg/tactic/bv/elim_small_bv_tactic.go
+# ReduceQuantifier). Reproduction: test_vectors/z3_bug_elim_small_bv.smt2.
+z3_bug_elim_small_bv
+elim_small_bv_max_steps_simplifier

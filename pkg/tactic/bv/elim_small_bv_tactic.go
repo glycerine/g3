@@ -278,8 +278,20 @@ func (c *elimSmallBVConfig) ReduceQuantifier(q, body ast.ASTHandle, _, _ ast.App
 		} else if stop {
 			continue
 		}
+		// z3 4.7.1 enumerates only j < bv_sz values, so (forall ((y (_
+		// BitVec 2))) (not (= y #b11))) becomes true, and a partial
+		// enumeration under max_steps drops instances too. As upstream
+		// (8e033c1e7, aa901c4e8) enumerate all 2^bv_sz values and leave
+		// the quantifier alone when they do not fit in max_steps.
+		if width >= 31 {
+			return false, nil
+		}
+		maxNum := uint32(1) << width
+		if uint64(maxNum)+numSteps > uint64(c.maxSteps) {
+			return false, nil
+		}
 		bodies := []ast.ASTHandle{}
-		for j := uint32(0); j < width; j++ {
+		for j := uint32(0); j < maxNum; j++ {
 			stop, e := c.checkpoint(numSteps)
 			if e != nil {
 				return false, e
@@ -322,6 +334,11 @@ func (c *elimSmallBVConfig) ReduceQuantifier(q, body ast.ASTHandle, _, _ ast.App
 			}
 			bodies = append(bodies, v)
 			numSteps++
+		}
+		if stop, e := c.checkpoint(numSteps); e != nil {
+			return false, e
+		} else if stop {
+			return false, nil
 		}
 		forall, e := m.IsForall(q)
 		if e != nil {

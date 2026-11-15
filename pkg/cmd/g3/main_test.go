@@ -764,7 +764,9 @@ var scriptResults = map[string]string{
 	"bv1_blast_model_order.smt2": "sat\n(model \n  (define-fun e () (_ BitVec 4)\n    #x2)\n  (define-fun c () (_ BitVec 4)\n    #xc)\n  (define-fun d () (_ BitVec 4)\n    #x1)\n  (define-fun b () (_ BitVec 4)\n    #x4)\n  (define-fun a () (_ BitVec 4)\n    #x4)\n)\n",
 	// AUDIT.md tactic_bv_01-F2: elim-small-bv's th_rewriter ignores the tactic's
 	// max_steps; the outer rewriter stops expanding instead.
-	"elim_small_bv_max_steps_simplifier.smt2": "(goals\n(goal\n  (forall ((x (_ BitVec 2)))\n    (and (p x #b00 #b00) (p x #b00 #b01) (p x #b01 #b00) (p x #b01 #b01)))\n  (q #b00)\n  (q #b01)\n  :precision precise :depth 1)\n)\n",
+	// elim_small_bv_max_steps_simplifier: excluded, g3 fixes z3 4.7.1's partial
+	// elim-small-bv expansion (test_vectors/z3_bug_exclusions.txt).
+	// "elim_small_bv_max_steps_simplifier.smt2": "(goals\n(goal\n  (forall ((x (_ BitVec 2)))\n    (and (p x #b00 #b00) (p x #b00 #b01) (p x #b01 #b00) (p x #b01 #b01)))\n  (q #b00)\n  (q #b01)\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md tactic_bv_01-F4: bv-bounds is_bound rejects (= numeral numeral).
 	"bv_bounds_numeral_equality.smt2": "(goals\n(goal\n  (or p (ite (= #x01 #x02) (= #x03 #x02) q))\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md tactic_bv_01-F5: bvarray2uf declares produce_models, so
