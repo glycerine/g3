@@ -3360,7 +3360,9 @@ func (e *PropositionalEngine) Model(declaration ast.ASTHandle) (*model.Model, er
 		return nil, err
 	}
 	if e.backend == "datalog" {
-		return e.datalogModel(declaration)
+		// rel_context keeps engine_base::get_model, an empty model, and
+		// context::get_model returns it unchanged.
+		return model.NewModel(e.manager)
 	}
 	if kind == EngineDuality && e.duality != nil {
 		if e.lastResult != lbool.False {

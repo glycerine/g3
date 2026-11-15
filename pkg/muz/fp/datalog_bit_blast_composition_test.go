@@ -7,9 +7,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
-	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/rel"
-	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -99,48 +97,16 @@ func TestDatalogBitBlastComposesInliningModelsAndExpressionQueries(t *testing.T)
 		}
 	}
 	func() {
+		// rel_context keeps the empty engine_base::get_model (AUDIT.md
+		// muz_fp_02-F5; this formerly asserted a replayed bit-blast/inliner
+		// model).
 		inductive, err := e.Model(goal)
 		must(err)
 		defer func() { must(inductive.Close()) }()
 		count, err := inductive.Core().NumDeclarations()
 		must(err)
-		// The inliner rewrites the Goal rule, so transform_rule records
-		// del_rule(m_mc, goal-rule, true): Goal is interpreted as false
-		// (AUDIT.md muz_transforms_02-F1).
-		if count != 4 {
-			t.Fatal("original model declaration count", count)
-		}
-		for i := uint32(0); i < count; i++ {
-			d, err := inductive.Core().Declaration(i)
-			must(err)
-			if !originals[d] {
-				t.Fatal("generated predicate escaped the original model", d)
-			}
-		}
-		goalValue, err := inductive.Core().ConstantInterpretation(goal)
-		must(err)
-		if !m.IsFalse(goalValue) {
-			t.Fatal("unreachable Goal is not interpreted as false", goalValue)
-		}
-		cooperation, err := cooperate.NewCooperation(m.Budget())
-		must(err)
-		defer func() { must(cooperation.Close()) }()
-		evaluator, err := model.NewModelEvaluator(inductive.Core(), model.ModelEvaluatorConfig{Context: globals.Context, Globals: globals, Memory: m.NumeralService().RuntimeOwner(), Cooperation: cooperation})
-		must(err)
-		defer func() { must(evaluator.Close()) }()
-		for _, d := range []ast.ASTHandle{seed, middle, result} {
-			for value := uint64(0); value < 4; value++ {
-				constant, err := m.BitVectorNumeralUint64(value, 2)
-				must(err)
-				evaluated, err := evaluator.EvaluateValue(app(d, constant))
-				must(err)
-				truth, err := m.RefGet(evaluated)
-				must(err)
-				if m.IsTrue(truth) != (value == 1) || !m.IsTrue(truth) && !m.IsFalse(truth) {
-					t.Fatal("bit-blast/inliner model replay order", d, value, truth)
-				}
-				must(m.DelRef(&evaluated))
-			}
+		if count != 0 {
+			t.Fatal("datalog model must be empty", count)
 		}
 	}()
 

@@ -46,8 +46,16 @@ func TestDatalogBoundIntervalPublicMigratesEagerNullaryFact(t *testing.T) {
 	if f.e.predicates[unit].table != nil || f.e.predicates[output].table != nil {
 		t.Fatal("product activation left eager finite tables exposed")
 	}
-	if _, err := f.e.Model(output); !errors.Is(err, ErrBoundIntervalDatalogFragment) {
-		t.Fatal("product model used stale finite nullary tables", err)
+	// rel_context keeps the empty engine_base::get_model (AUDIT.md
+	// muz_fp_02-F5), so no finite table can leak into the model.
+	if md, err := f.e.Model(output); err != nil {
+		t.Fatal("datalog model", err)
+	} else {
+		count, err := md.Core().NumDeclarations()
+		fragmentMust(t, errors.Join(err, md.Close()))
+		if count != 0 {
+			t.Fatal("datalog model must be empty", count)
+		}
 	}
 	// Resetting the selected store must not revive the old eager table tuple
 	// when the next public query synchronizes its predicate declarations.

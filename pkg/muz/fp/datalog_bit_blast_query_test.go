@@ -5,9 +5,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
-	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/rel"
-	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -323,29 +321,13 @@ func TestDatalogBitBlastFiniteQueriesPreserveOriginalDomain(t *testing.T) {
 			if status != lbool.False {
 				t.Fatal("unreachable original goal", status)
 			}
+			// rel_context keeps the empty engine_base::get_model (AUDIT.md
+			// muz_fp_02-F5; this formerly asserted the original-domain model).
 			inductive, err := e.Model(goal)
 			must(err)
 			defer func() { must(inductive.Close()) }()
-			cooperation, err := cooperate.NewCooperation(m.Budget())
-			must(err)
-			defer func() { must(cooperation.Close()) }()
-			evaluator, err := model.NewModelEvaluator(inductive.Core(), model.ModelEvaluatorConfig{Context: globals.Context, Globals: globals, Memory: m.NumeralService().RuntimeOwner(), Cooperation: cooperation})
-			must(err)
-			defer func() { must(evaluator.Close()) }()
-			for _, d := range []ast.ASTHandle{p, q} {
-				for value := uint64(0); value < 4; value++ {
-					constant, err := m.BitVectorNumeralUint64(value, 2)
-					must(err)
-					result, err := evaluator.EvaluateValue(app(d, constant))
-					must(err)
-					truth, err := m.RefGet(result)
-					must(err)
-					want := value < 2 || d == p && value == 2
-					if m.IsTrue(truth) != want || !m.IsTrue(truth) && !m.IsFalse(truth) {
-						t.Fatal("original BV model interpretation", d, value, want)
-					}
-					must(m.DelRef(&result))
-				}
+			if count, err := inductive.Core().NumDeclarations(); err != nil || count != 0 {
+				t.Fatal("datalog model must be empty", count, err)
 			}
 		})
 	}

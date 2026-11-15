@@ -5,8 +5,6 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
-	"github.com/glycerine/g3/pkg/model"
-	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -122,32 +120,14 @@ func TestDatalogInliningPreservesFactsModelsAndQueryScope(t *testing.T) {
 			if eliminated != enabled {
 				t.Fatal("default inlining or fact/parameter protection", eliminated, enabled)
 			}
+			// rel_context keeps engine_base::get_model, and context::get_model
+			// applies no model converter: the model is empty (AUDIT.md
+			// muz_fp_02-F5; this formerly asserted the inline reconstruction).
 			inductive, err := e.Model(output)
 			must(err)
-			cooperation, err := cooperate.NewCooperation(budget)
-			must(err)
-			evaluator, err := model.NewModelEvaluator(inductive.Core(), model.ModelEvaluatorConfig{Context: globals.Context, Globals: globals, Memory: m.NumeralService().RuntimeOwner(), Cooperation: cooperation})
-			must(err)
-			for _, value := range []bool{false, true} {
-				argument, err := m.MkFalse()
-				if value {
-					argument, err = m.MkTrue()
-				}
-				must(err)
-				result, err := evaluator.EvaluateValue(app(middle, argument))
-				must(err)
-				handle, err := m.RefGet(result)
-				must(err)
-				// Source inline_linear records del_rule(..., true), which
-				// supplies a false default for its removed definition.
-				wantTrue := (!value || tc.facts) && !tc.linearOnly
-				if m.IsTrue(handle) != wantTrue || !m.IsTrue(handle) && !m.IsFalse(handle) {
-					t.Fatal("inline model did not reconstruct the removed relation", value, handle)
-				}
-				must(m.DelRef(&result))
+			if present, err := inductive.Core().HasInterpretation(middle); err != nil || present {
+				t.Fatal("datalog model must be empty", present, err)
 			}
-			must(evaluator.Close())
-			must(cooperation.Close())
 			must(inductive.Close())
 			status, err = e.QueryPredicate(middle)
 			must(err)

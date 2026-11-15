@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md muz_fp_02-F5: rel_context keeps engine_base::get_model, an empty model.
+	"datalog_horn_empty_model.smt2": "sat\n(model \n)\n(P #b01)\n(Q #b01)\n",
 	// AUDIT.md muz_fp_01-F4: (query r) is rel_context::query(num_rels, rels), which ignores generate_explanations.
 	"fp_datalog_relation_query_ignores_explanations.smt2": "sat\n(or (= (:var 0) #b10) (= (:var 0) #b01))\n",
 	// AUDIT.md muz_fp_02-F3: without xform.karr the karr_relation favourite names no plugin.

@@ -1,7 +1,8 @@
 package fp_test
 
-// Source: src/muz/base/dl_context.cpp get_model for saturated finite
-// relations and src/muz/fp/horn_tactic.cpp verify model conversion.
+// Source: src/muz/base/dl_engine_base.h get_model (rel_context keeps the
+// empty model), src/muz/base/dl_context.cpp get_model and
+// src/muz/fp/horn_tactic.cpp verify model conversion (AUDIT.md muz_fp_02-F5).
 
 import (
 	"testing"
@@ -13,7 +14,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func TestDatalogModelMaterializesFiniteRelationTables(t *testing.T) {
+func TestDatalogModelIsEmpty(t *testing.T) {
 	command, err := cmd_context.NewStandaloneContext()
 	fpMust(t, err)
 	t.Cleanup(func() { fpMust(t, command.Close()) })
@@ -40,31 +41,17 @@ func TestDatalogModelMaterializesFiniteRelationTables(t *testing.T) {
 	if status != lbool.False {
 		t.Fatal("empty finite query was reachable", status)
 	}
-	inductive, err := engine.Model(omitted)
+	empty, err := engine.Model(omitted)
 	fpMust(t, err)
-	t.Cleanup(func() { fpMust(t, inductive.Close()) })
-	if present, err := inductive.Core().HasInterpretation(omitted); err != nil || present {
-		t.Fatal("synthetic query was not filtered", present, err)
-	}
-	interpretation, err := inductive.Core().FunctionInterpretation(relation)
-	fpMust(t, err)
-	if interpretation == nil || interpretation.NumEntries() != 1 {
-		t.Fatal("finite relation graph was not materialized")
-	}
-	fallback, err := interpretation.Else()
-	fpMust(t, err)
-	entry, err := interpretation.Entry(0)
-	fpMust(t, err)
-	entryResult, err := entry.Result()
-	fpMust(t, err)
-	argument, err := entry.Argument(0)
-	fpMust(t, err)
-	if !manager.IsFalse(fallback) || !manager.IsTrue(entryResult) || !manager.IsTrue(argument) {
-		t.Fatal("finite relation model does not encode its exact table")
+	t.Cleanup(func() { fpMust(t, empty.Close()) })
+	for _, declaration := range []ast.ASTHandle{relation, omitted} {
+		if present, err := empty.Core().HasInterpretation(declaration); err != nil || present {
+			t.Fatal("rel_context model must be empty", present, err)
+		}
 	}
 }
 
-func TestHornTacticReturnsDatalogModelForFiniteGoal(t *testing.T) {
+func TestHornTacticReturnsEmptyDatalogModelForFiniteGoal(t *testing.T) {
 	command, err := cmd_context.NewStandaloneContext()
 	fpMust(t, err)
 	t.Cleanup(func() { fpMust(t, command.Close()) })
@@ -83,8 +70,8 @@ func TestHornTacticReturnsDatalogModelForFiniteGoal(t *testing.T) {
 		fpMust(t, x)
 		return declaration, application
 	}
-	p, pApp := declare("horn-finite-model-P")
-	q, qApp := declare("horn-finite-model-Q")
+	_, pApp := declare("horn-finite-model-P")
+	_, qApp := declare("horn-finite-model-Q")
 	query, err := manager.MkNot(qApp)
 	fpMust(t, err)
 	goal, err := tactic.NewGoal(manager, false, true, false)
@@ -107,11 +94,7 @@ func TestHornTacticReturnsDatalogModelForFiniteGoal(t *testing.T) {
 	fpMust(t, result.ModelConverter.ApplyModel(&converted, 0))
 	core, err := converted.Get()
 	fpMust(t, err)
-	pValue, err := core.ConstantInterpretation(p)
-	fpMust(t, err)
-	qValue, err := core.ConstantInterpretation(q)
-	fpMust(t, err)
-	if !manager.IsTrue(pValue) || !manager.IsFalse(qValue) {
-		t.Fatal("finite Horn model does not preserve saturated predicates")
+	if count, err := core.NumDeclarations(); err != nil || count != 0 {
+		t.Fatal("datalog Horn model must be empty", count, err)
 	}
 }
