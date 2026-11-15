@@ -11,10 +11,25 @@ import (
 	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
+// getOptionKeywords are the keyword symbols get_option_cmd::set_next_arg
+// compares an SMT-LIB keyword against; any other spelling (":produce_models",
+// ":Print-Success") goes to gparams::get_value.
+var getOptionKeywords = map[string]bool{
+	":print-success": true, ":expand-definitions": true, ":interactive-mode": true,
+	":produce-assertions": true, ":produce-proofs": true, ":produce-interpolants": true,
+	":produce-unsat-cores": true, ":produce-models": true, ":produce-assignments": true,
+	":global-decls": true, ":global-declarations": true, ":random-seed": true,
+	":verbosity": true, ":regular-output-channel": true, ":diagnostic-output-channel": true,
+	":error-behavior": true, ":int-real-coercions": true,
+}
+
+// GetOption reads an option. A name with a leading colon is an SMT-LIB
+// get-option keyword: only the exact built-in keywords are context options.
 func (c *Context) GetOption(name string) (string, bool, error) {
 	if err := c.valid(); err != nil {
 		return "", false, err
 	}
+	keyword := strings.HasPrefix(name, ":") && !getOptionKeywords[name]
 	name = strings.ReplaceAll(strings.TrimPrefix(name, ":"), "-", "_")
 	state, err := c.parameters.State()
 	if err != nil {
@@ -23,7 +38,13 @@ func (c *Context) GetOption(name string) (string, bool, error) {
 	boolean := func(value bool) (string, bool, error) {
 		return strconv.FormatBool(value), true, nil
 	}
-	switch name {
+	selector := name
+	if keyword && name != "timeout" && name != "rlimit" {
+		// gparams::get_value(opt); timeout and rlimit are read from the
+		// context parameters gparams::set updated.
+		selector = ""
+	}
+	switch selector {
 	case "print_success":
 		return boolean(c.PrintSuccess)
 	case "interactive_mode", "produce_assertions":

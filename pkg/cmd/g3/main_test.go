@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md cmd_context_02-F5
+	"get_option_underscore.smt2": "unsupported\nunsupported\n",
 	// AUDIT.md cmd_context_01-F8
 	"echo_compliant_quote.smt2": "success\n\"a\"b\"\n",
 	// AUDIT.md cmd_context_02-F6
