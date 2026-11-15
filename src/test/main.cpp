@@ -225,6 +225,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_recover01_inconsistent);
     TST(z3_4_7_1_distribute_forall_proof);
     TST(z3_4_7_1_pb2bv_fractional);
+    TST(z3_4_7_1_lia2card_empty_eq);
     TST(z3_4_7_1_pdr_nullary_cache);
     TST(z3_4_7_1_duality_unhoist_repeated_child);
     TST(z3_4_7_1_lazy_sparse_nullary_union);

@@ -57,6 +57,10 @@ Abstract:
     z3_4_7_1_pb2bv_fractional     the pb2bv rewriter accepts fractional
                                   coefficients and bounds and builds a wrong
                                   circuit (pkg/AUDIT.md ast_rewriter_04-F3).
+    z3_4_7_1_lia2card_empty_eq    lia2card loops forever on an equation
+                                  between numerals such as (= 2 3)
+                                  (pkg/AUDIT.md tactic_arith_02, Needs
+                                  verification).
     z3_4_7_1_pdr_nullary_cache    PDR's model_search cache keys nodes by
                                   state only, so two nullary predicates
                                   (state `true`) share an entry and an
@@ -888,4 +892,35 @@ void tst_z3_4_7_1_pb2bv_fractional() {
         "(assert b)\n"
         "(check-sat-using (then card2bv smt))\n";
     expect_script("pb2bv_fractional", script, "unsat\n");
+}
+
+#ifndef _WINDOWS
+namespace {
+    void lia2card_empty_eq_timeout(int) {
+        static char const msg[] =
+            "lia2card_empty_eq: lia2card did not terminate within 20 seconds\n";
+        ssize_t n = write(2, msg, sizeof(msg) - 1);
+        (void)n;
+        _exit(1);
+    }
+}
+#endif
+
+// lia2card rewrites (= 2 3) to (and false true). goal::update flattens that
+// to false but then pushes the unflattened (and false true) as a new
+// formula, so the goal stays consistent and grows by one formula that the
+// rewrite loop visits, rewrites and pushes again, forever. A watchdog turns
+// the hang into a failure.
+void tst_z3_4_7_1_lia2card_empty_eq() {
+#ifndef _WINDOWS
+    signal(SIGALRM, lia2card_empty_eq_timeout);
+    alarm(20);
+#endif
+    std::cout << "lia2card_empty_eq: running (apply lia2card)\n";
+    std::cout.flush(); // the watchdog leaves with _exit
+    expect_script("lia2card_empty_eq", "(assert (= 2 3))\n(apply lia2card)\n",
+                  "(goals\n(goal\n  false\n  :precision precise :depth 1)\n)\n");
+#ifndef _WINDOWS
+    alarm(0);
+#endif
 }
