@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md smtcore_09-F4
+	"array_interface_eq_var_owner.smt2": "sat\n(model \n  (define-fun c () Bool\n    true)\n  (define-fun a () (Array Int Int)\n    (_ as-array k!0))\n  (define-fun b () (Array Int Int)\n    (_ as-array k!1))\n  (define-fun d () (Array Int Int)\n    (_ as-array k!2))\n  (define-fun k!0 ((x!0 Int)) Int\n    (ite (= x!0 5) 6\n    (ite (= x!0 0) 3\n      6)))\n  (define-fun k!1 ((x!0 Int)) Int\n    (ite (= x!0 0) 4\n      4))\n  (define-fun f ((x!0 (Array Int Int))) Int\n    (ite (= x!0 (_ as-array k!0)) 1\n    (ite (= x!0 (_ as-array k!2)) 2\n      1)))\n  (define-fun k!2 ((x!0 Int)) Int\n    (ite (= x!0 5) 7\n      7))\n)\n",
 	// AUDIT.md smtcore_09-F3
 	"array_default_store_epsilon_order.smt2": "sat\n",
 	// AUDIT.md smtcore_06-F8

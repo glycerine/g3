@@ -14,6 +14,7 @@ import (
 // reference. Fingerprint addresses ([new-match] 0x...) are masked.
 var smtcoreTraceVectors = []string{
 	"array_default_store_epsilon_order.smt2", // AUDIT.md smtcore_09-F3
+	"array_interface_eq_var_owner.smt2",      // AUDIT.md smtcore_09-F4
 }
 
 var smtcoreTracePointer = regexp.MustCompile(`0x[0-9a-f]+`)

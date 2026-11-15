@@ -84,6 +84,7 @@ func (t *SMTArrayTheory) makeInterfaceEqualities() (bool, error) {
 	}
 	seen := make(map[*SMTEnode]bool)
 	var roots []*SMTEnode
+	var rootVars []SMTTheoryVar
 	for _, node := range t.variables {
 		if node == nil || s.relevancy != nil && !s.relevancy.IsRelevant(node.owner) {
 			continue
@@ -119,14 +120,20 @@ func (t *SMTArrayTheory) makeInterfaceEqualities() (bool, error) {
 			}); err != nil {
 				return false, err
 			}
-			roots = append(roots, root)
+			// result.push_back(r->get_th_var(get_id())); mk_interface_eqs
+			// then works on get_enode(v), the enode that owns the variable.
+			variable := root.TheoryVar(t.FamilyID())
+			if variable == SMTNullTheoryVar || int(variable) >= len(t.variables) {
+				return false, ast.ErrASTDomain
+			}
+			rootVars = append(rootVars, variable)
+			roots = append(roots, t.variables[variable])
 		}
 	}
 	progress := false
 	for i, left := range roots {
 		if err = t.emitArrayTrace("array_bug", "mk_interface_eqs", 459, nil, func(out io.Writer) error {
-			variable := left.TheoryVar(t.FamilyID())
-			_, err := fmt.Fprintf(out, "mk_interface_eqs: processing: v%d\n", variable)
+			_, err := fmt.Fprintf(out, "mk_interface_eqs: processing: v%d\n", rootVars[i])
 			return err
 		}); err != nil {
 			return false, err
