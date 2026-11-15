@@ -215,6 +215,21 @@ func TestSMTStringRegexStageBoundConsequencesAndDisabledLowerCase(t *testing.T) 
 			astTestMust(t, frame.locals.close())
 			axiom, err := m.RefGet(theory.refs[len(theory.refs)-1])
 			astTestMust(t, err)
+			// AUDIT.md smtcore_13-F9: mk_and(lhs) is created at
+			// assert_implication, after the rhs atoms.
+			negatedGuard, err := m.GetArg(axiom, 0)
+			astTestMust(t, err)
+			guard, err := m.GetArg(negatedGuard, 0)
+			astTestMust(t, err)
+			consequence, err := m.GetArg(axiom, 1)
+			astTestMust(t, err)
+			guardID, err := m.GetASTID(guard)
+			astTestMust(t, err)
+			consequenceID, err := m.GetASTID(consequence)
+			astTestMust(t, err)
+			if guardID < consequenceID {
+				t.Fatal("guard conjunction built before the right-hand side", guardID, consequenceID)
+			}
 			for _, truth := range []bool{false, true} {
 				var boolean ast.ASTHandle
 				if truth {

@@ -325,10 +325,6 @@ func (f *smtStringRegexStage) refineBound(member, length ast.ASTHandle, owner *r
 	if err != nil {
 		return err
 	}
-	guard, err := f.pin(m.MkAndArray([]ast.ASTHandle{member, bound}))
-	if err != nil {
-		return err
-	}
 	var rhs ast.ASTHandle
 	if at {
 		if next == -1 {
@@ -366,6 +362,11 @@ func (f *smtStringRegexStage) refineBound(member, length ast.ASTHandle, owner *r
 			rhs, err = f.pin(m.MkArithmeticGE(length, refined))
 		}
 	}
+	if err != nil {
+		return err
+	}
+	// mk_and(lhs) is built only at assert_implication, after the rhs atoms.
+	guard, err := f.pin(m.MkAndArray([]ast.ASTHandle{member, bound}))
 	if err != nil {
 		return err
 	}
