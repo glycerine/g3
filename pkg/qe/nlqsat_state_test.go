@@ -55,7 +55,7 @@ func nlqBareSolverWithFixture(t *testing.T, f *fmFixture) *nlsat.Solver {
 	})
 	fmMust(t, err)
 	t.Cleanup(func() { fmMust(t, pm.CloseChecked()) })
-	solver, err := nlsat.NewSolver(nlsat.SolverConfig{Algebraic: am, Polynomial: pm, Limit: &f.r.manager.Limit, SimplifyCore: true})
+	solver, err := nlsat.NewSolver(nlsat.SolverConfig{Algebraic: am, Polynomial: pm, Limit: &f.r.manager.Limit, SimplifyCore: true, MaxConflicts: ^uint32(0)})
 	fmMust(t, err)
 	t.Cleanup(func() { fmMust(t, solver.Close()) })
 	return solver

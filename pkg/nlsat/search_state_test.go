@@ -13,7 +13,7 @@ import (
 func searchStateFixture(t *testing.T) (*Evaluator, *searchState) {
 	t.Helper()
 	e, s, limit := clauseStoreFixtureWithLimit(t)
-	r, err := newSearchState(s, e, searchConfig{Limit: limit, MaxMemory: uint64(^uint32(0)), SimplifyCores: true})
+	r, err := newSearchState(s, e, searchConfig{Limit: limit, MaxMemory: uint64(^uint32(0)), SimplifyCores: true, MaxConflicts: ^uint32(0)})
 	assignmentMust(t, err)
 	t.Cleanup(func() { assignmentMust(t, r.close()) })
 	return e, r

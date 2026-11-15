@@ -13,7 +13,7 @@ import (
 func explanationAssumptionFixture(t *testing.T) (*Evaluator, *searchState, *explanationAssumptions) {
 	t.Helper()
 	e, s, limit := clauseStoreFixtureConfigured(t, true)
-	r, err := newSearchState(s, e, searchConfig{Limit: limit, MaxMemory: uint64(^uint32(0))})
+	r, err := newSearchState(s, e, searchConfig{Limit: limit, MaxMemory: uint64(^uint32(0)), MaxConflicts: ^uint32(0)})
 	assignmentMust(t, err)
 	t.Cleanup(func() { assignmentMust(t, r.close()) })
 	n, err := newExplanationAssumptions(r)

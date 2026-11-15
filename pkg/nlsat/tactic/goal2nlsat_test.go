@@ -94,6 +94,7 @@ func newGoalCompilerFixture(t *testing.T) *goalCompilerFixture {
 	t.Cleanup(func() { compilerMust(t, polynomials.CloseChecked()) })
 	solver, err := nlsat.NewSolver(nlsat.SolverConfig{
 		Algebraic: algebraic, Polynomial: polynomials, Limit: limit, SimplifyCore: true,
+		MaxConflicts: ^uint32(0),
 	})
 	compilerMust(t, err)
 	t.Cleanup(func() { compilerMust(t, solver.Close()) })

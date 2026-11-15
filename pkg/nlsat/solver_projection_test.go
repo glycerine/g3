@@ -10,7 +10,7 @@ import (
 )
 
 func TestSolverProjectOwnsResultAndRestoresVariableOrder(t *testing.T) {
-	s := solverFixtureConfig(t, SolverConfig{SimplifyCore: true, Factor: true})
+	s := solverFixtureConfig(t, SolverConfig{MaxConflicts: ^uint32(0), SimplifyCore: true, Factor: true})
 	for i := 0; i < 2; i++ {
 		_, err := s.MkVar(false)
 		assignmentMust(t, err)

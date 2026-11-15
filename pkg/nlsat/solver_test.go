@@ -80,7 +80,7 @@ func TestSolverValueReturnsZeroForUnassignedVariables(t *testing.T) {
 }
 
 func solverFixture(t *testing.T) *Solver {
-	return solverFixtureConfig(t, SolverConfig{SimplifyCore: true})
+	return solverFixtureConfig(t, SolverConfig{SimplifyCore: true, MaxConflicts: ^uint32(0)})
 }
 
 func solverFixtureConfig(t *testing.T, config SolverConfig) *Solver {
@@ -99,7 +99,7 @@ func solverFixtureConfig(t *testing.T, config SolverConfig) *Solver {
 }
 
 func TestSolverConflictMinimizationWithEquality(t *testing.T) {
-	s := solverFixtureConfig(t, SolverConfig{SimplifyCore: true, MinimizeCore: true, Factor: true})
+	s := solverFixtureConfig(t, SolverConfig{MaxConflicts: ^uint32(0), SimplifyCore: true, MinimizeCore: true, Factor: true})
 	_, err := s.MkVar(false)
 	assignmentMust(t, err)
 	equality := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{1, 1, 0}, evaluatorTerm{-1, 0, 0})
@@ -315,6 +315,29 @@ func TestSolverMixedPolynomialSearchAndRepeatedModel(t *testing.T) {
 	}
 }
 
+// AUDIT.md nlsat_02-F1: solver::imp::search checks m_conflicts >=
+// m_max_conflicts after resolving each conflict, with no remapping of 0, so
+// max_conflicts=0 gives up after the first resolved conflict.
+func TestSolverMaxConflictsZeroStopsAfterFirstConflict(t *testing.T) {
+	s := solverFixtureConfig(t, SolverConfig{SimplifyCore: true, MaxConflicts: 0})
+	b, err := s.MkBoolVar()
+	assignmentMust(t, err)
+	c, err := s.MkBoolVar()
+	assignmentMust(t, err)
+	bl := sat.MakeLiteral(b, false)
+	cl := sat.MakeLiteral(c, false)
+	for _, clause := range [][]sat.Literal{{bl, cl}, {bl, cl.Negated()}, {bl.Negated(), cl}} {
+		assignmentMust(t, s.AddClause(clause, Assumption{}))
+	}
+	result, err := s.Check()
+	assignmentMust(t, err)
+	statistics, err := s.Statistics()
+	assignmentMust(t, err)
+	if result != lbool.Undef || statistics["nlsat conflicts"] != 1 {
+		t.Fatal("max_conflicts=0 must stop after the first resolved conflict", result, statistics["nlsat conflicts"])
+	}
+}
+
 func TestSolverMixedLinearConflict(t *testing.T) {
 	s := solverFixture(t)
 	for i := 0; i < 2; i++ {
@@ -454,7 +477,7 @@ func TestSolverHeuristicVariablePermutation(t *testing.T) {
 func TestSolverReorderPreservesBooleanModel(t *testing.T) {
 	for _, positive := range []bool{false, true} {
 		t.Run(map[bool]string{false: "false", true: "true"}[positive], func(t *testing.T) {
-			s := solverFixtureConfig(t, SolverConfig{Reorder: true})
+			s := solverFixtureConfig(t, SolverConfig{MaxConflicts: ^uint32(0), Reorder: true})
 			for i := 0; i < 2; i++ {
 				_, err := s.MkVar(false)
 				assignmentMust(t, err)
@@ -489,7 +512,7 @@ func TestSolverReorderPreservesBooleanModel(t *testing.T) {
 }
 
 func TestSolverShuffledVariablePermutation(t *testing.T) {
-	s := solverFixtureConfig(t, SolverConfig{Seed: 7})
+	s := solverFixtureConfig(t, SolverConfig{MaxConflicts: ^uint32(0), Seed: 7})
 	for i := 0; i < 4; i++ {
 		_, err := s.MkVar(false)
 		assignmentMust(t, err)
@@ -516,7 +539,7 @@ func TestSolverShuffledVariablePermutation(t *testing.T) {
 
 func TestSolverInlineVariablesPatchesModelAndConflict(t *testing.T) {
 	t.Run("model-patch", func(t *testing.T) {
-		s := solverFixtureConfig(t, SolverConfig{InlineVars: true, Reorder: true})
+		s := solverFixtureConfig(t, SolverConfig{MaxConflicts: ^uint32(0), InlineVars: true, Reorder: true})
 		for i := 0; i < 2; i++ {
 			_, err := s.MkVar(false)
 			assignmentMust(t, err)
@@ -542,7 +565,7 @@ func TestSolverInlineVariablesPatchesModelAndConflict(t *testing.T) {
 	})
 
 	t.Run("substituted-conflict", func(t *testing.T) {
-		s := solverFixtureConfig(t, SolverConfig{InlineVars: true})
+		s := solverFixtureConfig(t, SolverConfig{MaxConflicts: ^uint32(0), InlineVars: true})
 		_, err := s.MkVar(false)
 		assignmentMust(t, err)
 		xMinusOne := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{1, 1, 0}, evaluatorTerm{-1, 0, 0})
@@ -557,7 +580,7 @@ func TestSolverInlineVariablesPatchesModelAndConflict(t *testing.T) {
 	})
 
 	t.Run("eliminated-equality-remains-guarded", func(t *testing.T) {
-		s := solverFixtureConfig(t, SolverConfig{InlineVars: true})
+		s := solverFixtureConfig(t, SolverConfig{MaxConflicts: ^uint32(0), InlineVars: true})
 		_, err := s.MkVar(false)
 		assignmentMust(t, err)
 		xMinusOne := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{1, 1, 0}, evaluatorTerm{-1, 0, 0})
@@ -575,7 +598,7 @@ func TestSolverInlineVariablesPatchesModelAndConflict(t *testing.T) {
 	})
 
 	t.Run("reorder-suppressed-with-patch", func(t *testing.T) {
-		s := solverFixtureConfig(t, SolverConfig{InlineVars: true, Reorder: true})
+		s := solverFixtureConfig(t, SolverConfig{MaxConflicts: ^uint32(0), InlineVars: true, Reorder: true})
 		for i := 0; i < 2; i++ {
 			_, err := s.MkVar(false)
 			assignmentMust(t, err)
@@ -600,7 +623,7 @@ func TestSolverInlineVariablesPatchesModelAndConflict(t *testing.T) {
 	})
 
 	t.Run("three-variable-substitution", func(t *testing.T) {
-		s := solverFixtureConfig(t, SolverConfig{InlineVars: true})
+		s := solverFixtureConfig(t, SolverConfig{MaxConflicts: ^uint32(0), InlineVars: true})
 		for i := 0; i < 3; i++ {
 			_, err := s.MkVar(false)
 			assignmentMust(t, err)
@@ -633,7 +656,7 @@ func TestSolverInlineVariablesPatchesModelAndConflict(t *testing.T) {
 		kind AtomKind
 	}{{"positive-symbolic-coefficient", AtomGT}, {"negative-symbolic-coefficient", AtomLT}} {
 		t.Run(tc.name, func(t *testing.T) {
-			s := solverFixtureConfig(t, SolverConfig{InlineVars: true})
+			s := solverFixtureConfig(t, SolverConfig{MaxConflicts: ^uint32(0), InlineVars: true})
 			for i := 0; i < 2; i++ {
 				_, err := s.MkVar(false)
 				assignmentMust(t, err)
