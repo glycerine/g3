@@ -289,7 +289,8 @@ void goal::update(unsigned i, expr * f, proof * pr, expr_dependency * d) {
         quick_process(true, fr, d);
         if (!m_inconsistent) {
             if (m().is_false(fr)) {
-                push_back(f, nullptr, d);
+                // FORK FIX #70 (g3 audit, see FORK_BUGFIXES.md): push the flattened false, not f
+                push_back(fr, nullptr, d);
             }
             else {
                 m().set(m_forms, i, fr);
