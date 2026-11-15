@@ -7,15 +7,49 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/util/memory"
 )
+
+// substituteModelValues runs one create_children substitution block on a
+// copy of expression with a replacer of its own: sub maps each source to
+// mev.eval(M, source), then (*rep)(expression).
+func (c *Context) substituteModelValues(modelCore *model.ModelCore, expression ast.ASTHandle, sources []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+	var rep *rewriter.SimplifyingExprReplacer
+	defer func() {
+		if rep != nil {
+			resultErr = errors.Join(resultErr, rep.Close())
+		}
+		if resultErr != nil && result != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, c.manager.DelRef(&result))
+			result = ast.ASTRef{}
+		}
+	}()
+	if modelCore == nil || modelCore.DerivedModel() == nil {
+		return result, ast.ErrASTDomain
+	}
+	sub, err := c.newModelSubstitution()
+	if err != nil {
+		return result, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, sub.close()) }()
+	for _, source := range sources {
+		if _, err = sub.add(modelCore, source); err != nil {
+			return result, err
+		}
+	}
+	if result, err = c.manager.NewRef(expression); err != nil {
+		return result, err
+	}
+	return result, sub.apply(&rep, result)
+}
 
 func TestPDRModelSubstitutionColdFailureAndIncompleteModelRetry(t *testing.T) {
 	for _, incomplete := range []bool{false, true} {
 		t.Run(fmt.Sprintf("incomplete=%t", incomplete), func(t *testing.T) {
 			succeeded, failures := false, 0
-			for stop := int64(0); stop < 2048 && !succeeded; stop++ {
+			for stop := int64(0); stop < 4096 && !succeeded; stop++ {
 				t.Run(fmt.Sprint(stop), func(t *testing.T) {
 					m, owner, transformer, _, closeBase := closureFixture(t)
 					defer func() { closureMust(t, transformer.Close()); closureMust(t, owner.Close()); closeBase() }()

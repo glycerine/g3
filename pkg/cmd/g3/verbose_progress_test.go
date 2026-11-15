@@ -122,6 +122,8 @@ var verboseProgressCases = []verboseProgressCase{
 	// adhoc rewriter release their terms where the source does.
 	{"spacer_projection_v1", "horn_projection", []string{"-v:1", "fixedpoint.engine=spacer"}},
 	{"spacer_eq_prop_off_v1", "spacer_eq_prop_off", []string{"-v:1"}},
+	// pdr create_children's rep, child_states and n_cube lifetimes.
+	{"pdr_projection_v1", "horn_projection", []string{"-v:1"}},
 }
 
 // verboseProgressFiltered keeps, for each case, only the lines starting
