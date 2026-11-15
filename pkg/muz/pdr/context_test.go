@@ -349,6 +349,19 @@ func TestContextSolveFindsInductiveUnreachablePredicate(t *testing.T) {
 	if level == 0 {
 		t.Fatal("fixture did not establish an inductive frame")
 	}
+	// AUDIT.md muz_pdr_01-F3: solve_impl raises m_max_depth to each level
+	// it enters, so the depth is at least the inductive level.
+	maxDepth := uint32(0)
+	depthStats := statistics.New()
+	pdrMust(t, context.CollectStatistics(depthStats))
+	for index := 0; index < depthStats.Size(); index++ {
+		if depthStats.IsUint(index) && depthStats.Key(index) == "PDR max depth" {
+			maxDepth = depthStats.UintValue(index)
+		}
+	}
+	if maxDepth < level {
+		t.Fatal("PDR max depth misses the solve_impl level update", maxDepth, level)
+	}
 	pdrMust(t, context.ResetStatistics())
 	if got := inductiveLevel(); got != level {
 		t.Fatal("statistics reset changed the inductive result frame", got, level)

@@ -332,6 +332,10 @@ func (c *Context) Solve(queryDeclaration ast.ASTHandle) (result lbool.LBool, res
 		if level == InfinityLevel-1 {
 			return lbool.Undef, nil
 		}
+		// lvl++; m_stats.m_max_depth = std::max(m_stats.m_max_depth, lvl);
+		if level+1 > c.maxDepth {
+			c.maxDepth = level + 1
+		}
 	}
 }
 
