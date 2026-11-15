@@ -1,0 +1,4 @@
+(sat.sat-solver)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 1)
+Max. non linear arithmetic rounds. Increase threshold using NL_ARITH_ROUNDS=<limit>

@@ -82,6 +82,12 @@ var verboseProgressCases = []verboseProgressCase{
 	{"opt_box2_symba", "opt_box2", []string{"-v:2", "opt.optsmt_engine=symba"}},
 	{"opt_box2_farkas", "opt_box2", []string{"-v:2", "opt.optsmt_engine=farkas"}},
 	{"opt_lex2_basic", "opt_lex2", []string{"-v:2", "opt.optsmt_engine=basic"}},
+	// theory_utvpi's parity conflict and set_conflict lines.
+	{"utvpi_v2", "utvpi", []string{"-v:2"}},
+	// theory_arith's Max. non linear arithmetic rounds.
+	{"nl_rounds_v3", "nl_rounds", []string{"-v:3", "smt.arith.nl.rounds=1"}},
+	// ctx_solver_simplify_tactic's (ctx-solver-simplify :num-steps N).
+	{"ctx_solver_simplify_v10", "ctx_solver_simplify", []string{"-v:10"}},
 }
 
 // verboseProgressFiltered keeps, for each case, only the lines starting

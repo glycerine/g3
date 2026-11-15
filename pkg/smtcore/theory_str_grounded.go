@@ -6,9 +6,11 @@ package smtcore
 import (
 	"errors"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 type smtStringGroundedConcat struct {
@@ -27,6 +29,8 @@ type smtStringGrounding struct {
 	variableConcats map[ast.ASTHandle]map[ast.ASTHandle]int
 	grounded        map[ast.ASTHandle][]smtStringGroundedConcat
 	locals          smtStringLengthPremises
+	// depth is get_grounded_concats' depth argument (verbose only).
+	depth uint32
 }
 
 func newStringGrounding(theory *SMTStringTheory) *smtStringGrounding {
@@ -127,6 +131,17 @@ func (g *smtStringGrounding) ground(expression ast.ASTHandle) error {
 	if _, found := g.grounded[expression]; found {
 		return nil
 	}
+	// IF_VERBOSE(100, "concats " << depth; if (depth > 100) mk_pp(node))
+	// (AUDIT.md FUZZ-F5; g3trace builds only).
+	if diagnostic.VerboseProgress {
+		text := "concats " + strconv.FormatUint(uint64(g.depth), 10) + "\n"
+		if g.depth > 100 {
+			text += smtPPText(m, expression) + "\n"
+		}
+		if err := progressVerbose(100, text); err != nil {
+			return err
+		}
+	}
 	if _, literal, err := m.SequenceStringValue(expression); err != nil {
 		return err
 	} else if literal {
@@ -154,10 +169,10 @@ func (g *smtStringGrounding) ground(expression ast.ASTHandle) error {
 		if err != nil {
 			return err
 		}
-		if err := g.ground(leftAlias); err != nil {
+		if err := g.groundChild(leftAlias); err != nil {
 			return err
 		}
-		if err := g.ground(rightAlias); err != nil {
+		if err := g.groundChild(rightAlias); err != nil {
 			return err
 		}
 		leftEntries, rightEntries := g.entries(leftAlias), g.entries(rightAlias)
@@ -231,7 +246,7 @@ func (g *smtStringGrounding) ground(expression ast.ASTHandle) error {
 		if err != nil {
 			return err
 		}
-		if err := g.ground(choice); err != nil {
+		if err := g.groundChild(choice); err != nil {
 			return err
 		}
 		for _, child := range g.entries(choice) {
@@ -395,4 +410,12 @@ func (g *smtStringGrounding) computeContains() error {
 		}
 	}
 	return nil
+}
+
+// groundChild is get_grounded_concats(depth + 1, ...).
+func (g *smtStringGrounding) groundChild(expression ast.ASTHandle) error {
+	g.depth++
+	err := g.ground(expression)
+	g.depth--
+	return err
 }

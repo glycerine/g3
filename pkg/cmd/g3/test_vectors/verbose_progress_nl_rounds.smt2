@@ -1,0 +1,6 @@
+(declare-const x Int)
+(declare-const y Int)
+(assert (= (* x y) 13))
+(assert (> x 1))
+(assert (> y 1))
+(check-sat)

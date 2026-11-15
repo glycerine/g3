@@ -8,11 +8,13 @@ import (
 	"github.com/glycerine/g3/pkg/util/statistics"
 	"math/big"
 	"reflect"
+	"strconv"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -263,7 +265,15 @@ func (t *ContextSolverSimplifyTactic) reduceGoal(g *tactic.Goal) (resultErr erro
 	if err = g.Reset(); err != nil {
 		return err
 	}
-	return g.Assert(result)
+	if err = g.Assert(result); err != nil {
+		return err
+	}
+	// IF_VERBOSE(TACTIC_VERBOSITY_LVL, "(ctx-solver-simplify :num-steps "
+	// << m_num_steps << ")") (AUDIT.md FUZZ-F5; g3trace builds only).
+	if diagnostic.VerboseProgress {
+		return progressVerbose(10, "(ctx-solver-simplify :num-steps "+strconv.FormatUint(uint64(t.steps), 10)+")\n")
+	}
+	return nil
 }
 
 // ctxSolverExprPos is expr_pos.

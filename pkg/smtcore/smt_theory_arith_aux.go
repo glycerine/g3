@@ -10,6 +10,7 @@ import (
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 // ---- aux.h:440-723 (auxiliary methods) ----
@@ -718,6 +719,13 @@ func (t *SMTTheoryArith) recordConflict(lits []SMTLiteral, eqs []SMTEnodePair, b
 		t.upperBoundRecorded.set(&cand)
 		if strict {
 			t.upperBoundRecorded.sub(t.getEpsilon(a.variable))
+		}
+		// IF_VERBOSE(1, "new upper bound: " << m_upper_bound) (AUDIT.md
+		// FUZZ-F5; g3trace builds only).
+		if diagnostic.VerboseProgress {
+			if err := progressVerbose(1, "new upper bound: "+smtInfEpsText(&t.upperBoundRecorded)+"\n"); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

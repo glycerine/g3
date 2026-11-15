@@ -7,7 +7,10 @@ package smtcore
 
 import (
 	"errors"
+	"math/big"
+	"strings"
 
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/stopwatch"
 	utext "github.com/glycerine/g3/pkg/util/text"
@@ -303,4 +306,135 @@ func (k *SMTKernel) tickVerbose(counter *uint32, conflictBase uint32) error {
 		return err
 	}
 	return out.Flush()
+}
+
+// smtInfEpsText is inf_eps_rational<inf_rational>::to_string.
+func smtInfEpsText(v *smtArithmeticValue) string {
+	r := v.rational.RatString()
+	if v.infinitesimal.Sign() != 0 {
+		sign := " +e*"
+		if v.infinitesimal.Sign() < 0 {
+			sign = " -e*"
+		}
+		r = "(" + r + sign + new(big.Rat).Abs(&v.infinitesimal).RatString() + ")"
+	}
+	if v.infinity.Sign() == 0 {
+		return r
+	}
+	var si string
+	switch {
+	case v.infinity.Cmp(big.NewRat(1, 1)) == 0:
+		si = "oo"
+	case v.infinity.Cmp(big.NewRat(-1, 1)) == 0:
+		si = "-oo"
+	default:
+		si = v.infinity.RatString() + "*oo"
+	}
+	if v.rational.Sign() == 0 && v.infinitesimal.Sign() == 0 {
+		return si
+	}
+	return "(" + si + " + " + r + ")"
+}
+
+// smtPPText is mk_pp(h, m) as text.
+func smtPPText(m *ast.ASTManager, h ast.ASTHandle) string {
+	var out string
+	if failure := tracePPText(m, h, func(text string) { out = text }); failure != "" {
+		return failure
+	}
+	return out
+}
+
+// utvpiConflictVerbose is theory_utvpi::set_conflict's IF_VERBOSE(2,
+// "conflict:\n", then mk_pp of each literal2expr and a blank line).
+func (t *SMTUTVPITheory) utvpiConflictVerbose(literals []SMTLiteral) error {
+	if enabled, err := diagnostic.ProcessVerboseEnabled(2); err != nil || !enabled {
+		return err
+	}
+	var out strings.Builder
+	out.WriteString("conflict:\n")
+	for _, literal := range literals {
+		e, err := t.state.literalExpression(literal)
+		if err != nil {
+			return err
+		}
+		out.WriteString(smtPPText(t.state.manager, e) + "\n")
+	}
+	out.WriteString("\n")
+	return progressVerbose(2, out.String())
+}
+
+// smtPPIndentText is ast_smt2_pp(out, e, env, p, indent): mk_pp with every
+// line after the first indented by indent columns.
+func smtPPIndentText(m *ast.ASTManager, h ast.ASTHandle, indent int) string {
+	return strings.ReplaceAll(smtPPText(m, h), "\n", "\n"+strings.Repeat(" ", indent))
+}
+
+// smtPPVectorText is `out << expr_ref_vector`: mk_seq of the elements, each
+// preceded by a line break.
+func smtPPVectorText(m *ast.ASTManager, hs []ast.ASTHandle) string {
+	var out strings.Builder
+	for _, h := range hs {
+		out.WriteString("\n" + smtPPText(m, h))
+	}
+	return out.String()
+}
+
+// seqDisplayDeps is theory_seq::display_deps(out, dep).
+func (t *SMTTheorySeq) seqDisplayDeps(out *strings.Builder, dep *seqDep) error {
+	var eqs []SMTEnodePair
+	var lits []SMTLiteral
+	t.linearize(dep, &eqs, &lits)
+	for _, eq := range eqs {
+		out.WriteString("  (= " + smtPPIndentText(t.m, eq.First.Owner(), 5) + "\n     " + smtPPIndentText(t.m, eq.Second.Owner(), 5) + ")\n")
+	}
+	for _, l := range lits {
+		switch l {
+		case SMTTrueLiteral:
+			out.WriteString("   true")
+		case SMTFalseLiteral:
+			out.WriteString("   false")
+		default:
+			e, err := t.state.BoolExpression(l.Var())
+			if err != nil {
+				return err
+			}
+			if l.Sign() {
+				out.WriteString("  (not " + smtPPIndentText(t.m, e, 7) + ")")
+			} else {
+				out.WriteString("  " + smtPPIndentText(t.m, e, 2))
+			}
+		}
+		out.WriteString("\n")
+	}
+	return nil
+}
+
+// seqGiveupVerbose is theory_seq::is_solved's IF_VERBOSE(10, "(seq.giveup
+// ...") lines (AUDIT.md FUZZ-F5; g3trace builds only). kind: 0 equation,
+// 1 regular expression, 2 non-contains.
+func (t *SMTTheorySeq) seqGiveupVerbose(kind int) {
+	if !diagnostic.VerboseProgress {
+		return
+	}
+	if enabled, err := diagnostic.ProcessVerboseEnabled(10); err != nil || !enabled {
+		return
+	}
+	var out strings.Builder
+	switch kind {
+	case 0:
+		eq := t.eqs.at(0)
+		out.WriteString("(seq.giveup " + smtPPVectorText(t.m, eq.ls.handles()) + " = " + smtPPVectorText(t.m, eq.rs.handles()) + " is unsolved)\n")
+	case 1:
+		out.WriteString("(seq.giveup regular expression did not compile to automaton)\n")
+	case 2:
+		// display_nc: "not " << mk_pp(contains) "\n" then "  <- " deps "\n".
+		nc := t.ncs.at(0)
+		out.WriteString("(seq.giveup not " + smtPPText(t.m, nc.contains) + "\n  <- ")
+		if err := t.seqDisplayDeps(&out, nc.dep); err != nil {
+			return
+		}
+		out.WriteString("\n is unsolved)\n")
+	}
+	_ = progressVerbose(10, out.String())
 }

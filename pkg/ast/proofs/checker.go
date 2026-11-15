@@ -9,6 +9,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 // ReleaseSideConditions releases handles returned by Check.
@@ -78,6 +79,11 @@ func (c *Checker) Check(proof ast.ASTHandle) (valid bool, side []ast.ASTHandle, 
 		}
 		todo = append(todo, parents...)
 		ok, added, err := c.checkBasic(p, parents)
+		if err == nil && !ok && diagnostic.VerboseProgress {
+			// IF_VERBOSE(0, ast_ll_pp(verbose_stream() << "Proof check
+			// failed\n", m, curr)) (AUDIT.md FUZZ-F5; g3trace builds only).
+			err = c.checkFailedVerbose(p)
+		}
 		if err != nil || !ok {
 			return ok, append(side, added...), err
 		}
@@ -225,4 +231,23 @@ func invalid(err error) (bool, []ast.ASTHandle, error) {
 		return false, nil, nil
 	}
 	return false, nil, err
+}
+
+// checkFailedVerbose writes "Proof check failed" and ast_ll_pp(curr)
+// (only_exprs and compact) to the verbose stream.
+func (c *Checker) checkFailedVerbose(p ast.ASTHandle) error {
+	if enabled, err := diagnostic.ProcessVerboseEnabled(0); err != nil || !enabled {
+		return err
+	}
+	out, err := diagnostic.BorrowProcessVerboseStream()
+	if err != nil {
+		return err
+	}
+	if err = out.AppendCString("Proof check failed\n"); err != nil {
+		return err
+	}
+	if err = c.manager.DisplayLowLevel(out, p, true, true); err != nil {
+		return err
+	}
+	return out.Flush()
 }

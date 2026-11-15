@@ -1,0 +1,5 @@
+(declare-const x Int)
+(declare-const y Int)
+(declare-const p Bool)
+(assert (and (> x 2) (or (> x 1) p) (=> p (< y x))))
+(apply ctx-solver-simplify)

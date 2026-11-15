@@ -95,14 +95,17 @@ func (t *SMTTheorySeq) checkContains() bool {
 // isSolved: no equations, every regex compiled, no non-contains left.
 func (t *SMTTheorySeq) isSolved() bool {
 	if t.eqs.len() != 0 {
+		t.seqGiveupVerbose(0)
 		return false
 	}
 	for _, a := range t.automata {
 		if a == nil {
+			t.seqGiveupVerbose(1)
 			return false
 		}
 	}
 	if t.ncs.len() != 0 {
+		t.seqGiveupVerbose(2)
 		return false
 	}
 	return true

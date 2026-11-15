@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -70,6 +71,14 @@ func ApplyGoal(engine *Engine, goal *tactic.Goal, out *tactic.TacticResult) (sta
 				return status, x
 			}
 			if !one {
+				// verbose_stream() << "Terminated before all assertions were
+				// SAT!" << std::endl; then NOT_IMPLEMENTED_YET() (AUDIT.md
+				// FUZZ-F5; the line is compiled only into g3trace builds).
+				if diagnostic.VerboseProgress {
+					if x = diagnostic.ProgressVerbose(0, "Terminated before all assertions were SAT!\n"); x != nil {
+						return status, x
+					}
+				}
 				return status, ErrSLSSearch
 			}
 		}

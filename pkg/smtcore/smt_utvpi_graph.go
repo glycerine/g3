@@ -14,6 +14,9 @@ type smtUTVPIGraph struct {
 	integer      []bool
 	coefficients []uint32
 	scopes       []int
+	// parityVariable is the variable of the last parityConflict, which
+	// check_z_consistency's verbose line prints.
+	parityVariable int
 }
 
 type smtUTVPIGraphTerm struct {
@@ -148,6 +151,7 @@ func (g *smtUTVPIGraph) parityConflict() ([]int32, error) {
 		if err != nil || !found {
 			return nil, errSMTDiffGraphDomain
 		}
+		g.parityVariable = variable
 		return append(forward, backward...), nil
 	}
 	return nil, nil

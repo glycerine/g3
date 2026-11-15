@@ -1,0 +1,8 @@
+(set-option :smt.arith.solver 4)
+(declare-const x Int)
+(declare-const y Int)
+(assert (<= (+ x y) 1))
+(assert (>= (+ x y) 1))
+(assert (<= (- x y) 0))
+(assert (>= (- x y) 0))
+(check-sat)

@@ -12,6 +12,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/grobner"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 func (t *SMTTheoryArith) mkNaryMul(x *smtArithExprs, args []ast.ASTHandle, isInt bool) (ast.ASTHandle, error) {
@@ -2108,6 +2109,13 @@ func (t *SMTTheoryArith) computeGrobner(nlCluster []SMTTheoryVar) (result smtAri
 		t.stats.gbNumProcessed += uint32(gb.Stats.NumProcessed)
 		t.stats.gbComputeBasis++
 		if !r && !warn {
+			// IF_VERBOSE(3, "Grobner basis computation interrupted. ...")
+			// (AUDIT.md FUZZ-F5; g3trace builds only).
+			if diagnostic.VerboseProgress {
+				if err = progressVerbose(3, "Grobner basis computation interrupted. Increase threshold using NL_ARITH_GB_THRESHOLD=<limit>\n"); err != nil {
+					return smtArithGbFail, err
+				}
+			}
 			// m_nl_gb_exhausted is restored by the scope record (value_trail).
 			t.nlGbExhausted = true
 			warn = true
@@ -2214,6 +2222,13 @@ func (t *SMTTheoryArith) processNonLinear() (SMTFinalCheckStatus, error) {
 		return SMTFinalCheckGiveUp, nil
 	}
 	if t.nlRounds > t.params.NLArithRounds {
+		// IF_VERBOSE(3, "Max. non linear arithmetic rounds. ...") (AUDIT.md
+		// FUZZ-F5; g3trace builds only).
+		if diagnostic.VerboseProgress {
+			if err = progressVerbose(3, "Max. non linear arithmetic rounds. Increase threshold using NL_ARITH_ROUNDS=<limit>\n"); err != nil {
+				return SMTFinalCheckGiveUp, err
+			}
+		}
 		return SMTFinalCheckGiveUp, nil
 	}
 	// m_nl_rounds is restored by the scope record (value_trail).

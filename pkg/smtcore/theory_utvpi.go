@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
@@ -305,6 +306,11 @@ func (t *SMTUTVPITheory) setConflict(edges []int32) (result error) {
 		antecedents.literals = append(antecedents.literals, edge.explanation)
 		antecedents.literalCoefficients = append(antecedents.literalCoefficients, big.NewRat(int64(t.graph.coefficients[id]), 1))
 	}
+	if diagnostic.VerboseProgress {
+		if err := t.utvpiConflictVerbose(antecedents.literals); err != nil {
+			return err
+		}
+	}
 	var parameters []ast.ASTParameter
 	proofs, err := t.state.manager.ProofsEnabled()
 	if err != nil {
@@ -365,6 +371,21 @@ func (t *SMTUTVPITheory) FinalCheck() (SMTFinalCheckStatus, error) {
 		return SMTFinalCheckGiveUp, nil
 	}
 	if len(conflict) > 0 {
+		// check_z_consistency: IF_VERBOSE(1, "parity conflict " <<
+		// mk_pp(e->get_owner())) (AUDIT.md FUZZ-F5; g3trace builds only).
+		if diagnostic.VerboseProgress {
+			if enabled, err := diagnostic.ProcessVerboseEnabled(1); err != nil {
+				return SMTFinalCheckGiveUp, err
+			} else if enabled {
+				node, err := t.Enode(SMTTheoryVar(t.graph.parityVariable))
+				if err != nil {
+					return SMTFinalCheckGiveUp, err
+				}
+				if err = progressVerbose(1, "parity conflict "+smtPPText(t.state.manager, node.Owner())+"\n"); err != nil {
+					return SMTFinalCheckGiveUp, err
+				}
+			}
+		}
 		return SMTFinalCheckContinue, t.setConflict(conflict)
 	}
 	if t.unsupported {
