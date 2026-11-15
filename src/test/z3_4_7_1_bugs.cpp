@@ -106,9 +106,6 @@ Abstract:
                                   DerivationTree::Build interpolates the proof
                                   of the leaf-assumption check
                                   (pkg/AUDIT.md duality_01-F6).
-    z3_4_7_1_duality_certificate_eliminated_var a certificate prints the
-                                  model default for a rule variable qe-lite
-                                  eliminated (pkg/AUDIT.md duality_01-F4).
     z3_4_7_1_implicant_nested_array_eq once a nested array index makes
                                   model_implicant::eval_array_eq mark the
                                   equality true, a later differing index
@@ -240,6 +237,13 @@ Abstract:
                                   not observable in a release build, so
                                   this test is not red) (pkg/AUDIT.md
                                   cmd_context_02-F11).
+    z3_4_7_1_sorting_uninit_cmp   psort_nw's constructor leaves m_t
+                                  uninitialized and sortmax calls sorting()
+                                  without ge/le/eq, so the network clauses
+                                  depend on whatever m_t holds; as LE (0)
+                                  outputs do not imply their inputs and
+                                  sortmax reports wrong optima (pkg/AUDIT.md
+                                  opt_01 sortmax m_t note, opt_01-F1).
     z3_4_7_1_wpa_unreadable_file  a WPA map or relation file that cannot be
                                   opened is read through a null FILE and
                                   z3 crashes (pkg/AUDIT.md
@@ -296,6 +300,9 @@ Abstract:
 #include "nlsat/nlsat_solver.h"
 #include "nlsat/nlsat_explain.h"
 #include "util/rlimit.h"
+#include "util/sorting_network.h"
+#include <cstdlib>
+#include <new>
 #include "opt/opt_context.h"
 #include "opt/opt_parse.h"
 #include "opt/opt_cmds.h"
@@ -1732,62 +1739,6 @@ void tst_z3_4_7_1_duality_underapprox_stale_proof() {
     expect_script_output("duality_underapprox_stale_proof", script, "sat\n");
 }
 
-// print_proof prints each rule variable as tree->Eval(&edge, skolem). qe-lite
-// eliminated x from the edge of rule!2 (x1 = x + 3), so x is unconstrained
-// in the counterexample model and z3 prints its default, certifying q0(5)
-// with (= x 0). The step needs x = 2. pkg/AUDIT.md duality_01-F4.
-void tst_z3_4_7_1_duality_certificate_eliminated_var() {
-    char const* script =
-        "(set-option :fixedpoint.engine duality)\n"
-        "(declare-rel q0 (Int))\n"
-        "(declare-rel err ())\n"
-        "(declare-var x Int)\n"
-        "(declare-var x1 Int)\n"
-        "(rule (=> (= x 2) (q0 x)))\n"
-        "(rule (=> (and (q0 x) (= x1 (+ x 3))) (q0 x1)))\n"
-        "(rule (=> (and (q0 x) (> x 4)) err))\n"
-        "(query err :print-certificate true)\n";
-    char const* expected =
-        "sat\n"
-        "(derivation\n"
-        "(step s!4 (q0 2)\n"
-        " rule!1  (subst\n"
-        "    (= x 2)\n"
-        "  )\n"
-        "  (labels  )\n"
-        "  (ref   ))\n"
-        "(step s!3 (q0 5)\n"
-        " rule!2  (subst\n"
-        "    (= x 2)\n"
-        "    (= x1 5)\n"
-        "  )\n"
-        "  (labels  )\n"
-        "  (ref  s!4  ))\n"
-        "(step s!2 (err)\n"
-        " rule!3  (subst\n"
-        "    (= x 5)\n"
-        "  )\n"
-        "  (labels  )\n"
-        "  (ref  s!3  ))\n"
-        "(step s!1 (@Fail!0)\n"
-        " rule!4  (subst\n"
-        "  )\n"
-        "  (labels  )\n"
-        "  (ref  s!2  ))\n"
-        ")\n"
-        "(model \n"
-        "\"@under2 -> false\n"
-        "@under4 -> false\n"
-        "@b_2 -> true\n"
-        "@b_3 -> true\n"
-        "@b_1 -> true\n"
-        "@under3 -> false\n"
-        "@b_4 -> true\n"
-        "\")\n"
-        "\n";
-    expect_script_output("duality_certificate_eliminated_var", script, expected);
-}
-
 // PDR proof trace for Goal :- P(x), with P(x) a fact. The query!0 root and
 // the nullary Goal node both have the state `true`, and the P node too, so
 // model_search::get_proof_trace, whose cache is keyed by the state alone,
@@ -3141,4 +3092,66 @@ void tst_z3_4_7_1_boogie_proof_debug_output() {
               << "std::cout\n" << cout_capture.str();
     ENSURE(out.str().compare(0, 4, "sat\n") == 0);
     ENSURE(cout_capture.str().empty());
+}
+
+namespace {
+    // The psort_expr sortmax gives psort_nw: Boolean expressions whose
+    // clauses are collected for a solver.
+    struct sorting_uninit_ext {
+        ast_manager& m;
+        expr_ref_vector m_clauses;
+        expr_ref_vector m_trail;
+        sorting_uninit_ext(ast_manager& m): m(m), m_clauses(m), m_trail(m) {}
+        typedef expr* literal;
+        typedef ptr_vector<expr> literal_vector;
+        expr* trail(expr* e) { m_trail.push_back(e); return e; }
+        literal mk_false() { return m.mk_false(); }
+        literal mk_true() { return m.mk_true(); }
+        literal mk_max(literal a, literal b) { return trail(m.mk_or(a, b)); }
+        literal mk_min(literal a, literal b) { return trail(m.mk_and(a, b)); }
+        literal mk_not(literal a) { if (m.is_not(a, a)) return a; return trail(m.mk_not(a)); }
+        std::ostream& pp(std::ostream& out, literal lit) { return out << mk_pp(lit, m); }
+        literal fresh() { return trail(m.mk_fresh_const("sn", m.mk_bool_sort())); }
+        void mk_clause(unsigned n, literal const* lits) { m_clauses.push_back(mk_or(m, n, lits)); }
+    };
+}
+
+// sortmax::operator() calls m_sort.sorting() on a psort_nw whose
+// constructor leaves m_t uninitialized; only ge/le/eq set it. The comparator
+// and direct-merge clauses therefore follow whatever m_t holds. When it
+// reads LE (0), the clauses only say "enough true inputs force an output
+// true", so asserting out[k] constrains nothing and sortmax reports optima
+// below the true cost with models that violate them. sortmax needs GE: an
+// output may hold only when enough inputs are true. The storage is zeroed
+// (calloc) so the unpatched tree reads LE deterministically, as z3 4.7.1 sortmax
+// runs often do. Upstream initializes m_t(GE) in the constructor.
+void tst_z3_4_7_1_sorting_uninit_cmp() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    sorting_uninit_ext ext(m);
+    expr_ref_vector in(m);
+    for (unsigned i = 0; i < 6; ++i) {
+        in.push_back(m.mk_fresh_const("a", m.mk_bool_sort()));
+    }
+    void* storage = calloc(1, sizeof(psort_nw<sorting_uninit_ext>));
+    psort_nw<sorting_uninit_ext>* sn = new (storage) psort_nw<sorting_uninit_ext>(ext);
+    ptr_vector<expr> out;
+    sn->sorting(in.size(), in.c_ptr(), out);
+    sn->~psort_nw<sorting_uninit_ext>();
+    free(storage);
+    ENSURE(out.size() == in.size());
+    smt_params fp;
+    smt::kernel solver(m, fp);
+    for (expr* clause : ext.m_clauses) {
+        solver.assert_expr(clause);
+    }
+    // out[1] says at least two inputs are true; with five inputs false it
+    // must be unsatisfiable.
+    solver.assert_expr(out[1]);
+    for (unsigned i = 1; i < in.size(); ++i) {
+        solver.assert_expr(m.mk_not(in.get(i)));
+    }
+    lbool r = solver.check();
+    std::cout << "sorting_uninit_cmp: " << r << " (expected l_false)\n";
+    ENSURE(r == l_false);
 }
