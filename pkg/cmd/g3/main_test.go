@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md math_polynomial_10-F1: DRS root isolation traces its
+	// upolynomial records (G3_GOLDEN_TAGS=upolynomial).
+	"nra_cube_root_two.smt2": "sat\n(model \n  (define-fun x () Real\n    (root-obj (+ (^ x 3) (- 2)) 1))\n)\n",
 	// AUDIT.md math_polynomial_11-F1: translate_q traces after step 1 and
 	// after the special translation (G3_GOLDEN_TAGS=upolynomial).
 	"nra_translate_q_trace.smt2": "sat\n",

@@ -110,6 +110,14 @@ var goldenTraceSites = map[string]bool{
 	"upolynomial translate_q src/math/polynomial/upolynomial.cpp":         true,
 	"upolynomial translate_bq src/math/polynomial/upolynomial.cpp":        true,
 	"upolynomial descartes_bound_a_b src/math/polynomial/upolynomial.cpp": true,
+	// AUDIT.md math_polynomial_10-F1 (G3_GOLDEN_TAGS=upolynomial
+	// G3_GOLDEN_VECTORS=nra_cube_root_two).
+	"upolynomial drs_isolate_0_1_roots src/math/polynomial/upolynomial.cpp":  true,
+	"upolynomial drs_isolate_roots src/math/polynomial/upolynomial.cpp":      true,
+	"upolynomial add_isolating_interval src/math/polynomial/upolynomial.cpp": true,
+	"upolynomial add_root src/math/polynomial/upolynomial.cpp":               true,
+	"upolynomial sqf_isolate_roots src/math/polynomial/upolynomial.cpp":      true,
+	"upolynomial isolate_roots src/math/polynomial/upolynomial.cpp":          true,
 	// AUDIT.md qe_03-F4 (not in goldenTraceTags; compare with
 	// G3_GOLDEN_TAGS=qe,model_evaluator
 	// G3_GOLDEN_VECTORS=fp_spacer_array_project_eqs). The qe sites of

@@ -2,6 +2,7 @@ package polynomial
 
 import (
 	"math"
+	"strconv"
 
 	"github.com/glycerine/g3/pkg/arena"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
@@ -130,6 +131,16 @@ func (m *UPolynomialManager) addDRSInterval(s *upolyDRSStack, b *unumeral.Binary
 			return arena.ErrBounds
 		}
 		f := &s.values[i]
+		if e := m.traceUPolynomialText("add_isolating_interval", 2151, func() (string, error) {
+			ls, e := b.String(&lower)
+			if e != nil {
+				return "", e
+			}
+			us, e := b.String(&upper)
+			return "normalizing...\nidx: " + strconv.FormatUint(uint64(i), 10) + ", left: " + drsFlag(f.leftChild()) + ", l: " + ls + ", u: " + us + "\n", e
+		}); e != nil {
+			return e
+		}
 		if !f.leftChild() {
 			if e := b.AddInteger(&lower, &one, &lower); e != nil {
 				return e
@@ -145,6 +156,16 @@ func (m *UPolynomialManager) addDRSInterval(s *upolyDRSStack, b *unumeral.Binary
 			return e
 		}
 		i = f.parent
+	}
+	if e := m.traceUPolynomialText("add_isolating_interval", 2166, func() (string, error) {
+		ls, e := b.String(&lower)
+		if e != nil {
+			return "", e
+		}
+		us, e := b.String(&upper)
+		return "adding normalized interval (" + ls + ", " + us + ")\n", e
+	}); e != nil {
+		return e
 	}
 	if _, e := numericBinaryRationalManager_binaryPushDefault(b, &l.state); e != nil {
 		return e
@@ -178,20 +199,33 @@ func (m *UPolynomialManager) addDRSRoot(s *upolyDRSStack, b *unumeral.BinaryRati
 		}
 		i = f.parent
 	}
+	if e := m.traceUPolynomialText("add_root", 2192, func() (string, error) {
+		vs, e := b.String(&value)
+		return "adding normalized root: " + vs + "\n", e
+	}); e != nil {
+		return e
+	}
 	if _, e := numericBinaryRationalManager_binaryPushDefault(b, &r.state); e != nil {
 		return e
 	}
 	return b.Swap(&r.state.values[r.state.size-1], &value)
 }
 func (m *UPolynomialManager) drsZeroOne(v UPolynomialView, b *unumeral.BinaryRationalManager, r, l, u *BinaryRationalVector) error {
+	const fn = "drs_isolate_0_1_roots"
+	if e := m.traceUPolynomialRecord(fn, 2199, "isolating (0,1) roots of:\n", v, "\n"); e != nil {
+		return e
+	}
 	k, e := m.DescartesBoundZeroOne(v)
 	if e != nil {
 		return e
 	}
 	if k == 0 {
-		return nil
+		return m.traceUPolynomialText(fn, 2203, drsText("polynomial does not have any roots\n"))
 	}
 	if k == 1 {
+		if e = m.traceUPolynomialText(fn, 2207, drsText("polynomial has one root in (0, 1)\n")); e != nil {
+			return e
+		}
 		if e = numericBinaryRationalManager_binaryLiteral(b, &l.state, unumeral.NewBinaryInt(0)); e != nil {
 			return e
 		}
@@ -200,6 +234,9 @@ func (m *UPolynomialManager) drsZeroOne(v UPolynomialView, b *unumeral.BinaryRat
 	var q, p upolyVectorState
 	defer m.dropLocalVector(&q)
 	defer m.dropLocalVector(&p)
+	if e = m.traceUPolynomialText(fn, 2212, drsText("polynomial has more than one root in (0, 1), starting search...\n")); e != nil {
+		return e
+	}
 	var s upolyDRSStack
 	defer m.dropDRS(&s)
 	half, e := m.HasOneHalfRoot(v)
@@ -207,6 +244,9 @@ func (m *UPolynomialManager) drsZeroOne(v UPolynomialView, b *unumeral.BinaryRat
 		return e
 	}
 	if half {
+		if e = m.traceUPolynomialText(fn, 2217, drsText("polynomial has a 1/2 root\n")); e != nil {
+			return e
+		}
 		if e = numericBinaryRationalManager_binaryLiteral(b, &r.state, unumeral.NewBinaryIntPower(1, 1)); e != nil {
 			return e
 		}
@@ -249,6 +289,17 @@ func (m *UPolynomialManager) drsZeroOne(v UPolynomialView, b *unumeral.BinaryRat
 		current := m.stateView(&p)
 		current.start = p.size - sz
 		current.count = sz
+		frameIndex := uint32(len(s.values)) - 1
+		first, left, parent := f.firstVisit(), f.leftChild(), f.parent
+		if e = m.traceUPolynomialRecordLazy(fn, 2232, func() (string, error) {
+			parentText := "<null>"
+			if parent != math.MaxUint32 {
+				parentText = strconv.FormatUint(uint64(parent), 10)
+			}
+			return "processing frame #" + strconv.FormatUint(uint64(frameIndex), 10) + "\nfirst: " + drsFlag(first) + ", left: " + drsFlag(left) + ", sz: " + strconv.FormatUint(uint64(sz), 10) + ", parent_idx: " + parentText + "\np: ", nil
+		}, current, "\n"); e != nil {
+			return e
+		}
 		if !f.firstVisit() {
 			if e = m.popDRS(&p, &s); e != nil {
 				return e
@@ -261,12 +312,18 @@ func (m *UPolynomialManager) drsZeroOne(v UPolynomialView, b *unumeral.BinaryRat
 			return e
 		}
 		if k == 0 {
+			if e = m.traceUPolynomialText(fn, 2243, drsText("(0, 1) does not have roots\n")); e != nil {
+				return e
+			}
 			if e = m.popDRS(&p, &s); e != nil {
 				return e
 			}
 			continue
 		}
 		if k == 1 {
+			if e = m.traceUPolynomialText(fn, 2248, drsText("(0, 1) is isolating interval\n")); e != nil {
+				return e
+			}
 			if e = m.addDRSInterval(&s, b, l, u); e != nil {
 				return e
 			}
@@ -275,11 +332,17 @@ func (m *UPolynomialManager) drsZeroOne(v UPolynomialView, b *unumeral.BinaryRat
 			}
 			continue
 		}
+		if e = m.traceUPolynomialText(fn, 2253, drsText("polynomial has more than one root in (0, 1) creating child frames...\n")); e != nil {
+			return e
+		}
 		half, e = m.HasOneHalfRoot(current)
 		if e != nil {
 			return e
 		}
 		if half {
+			if e = m.traceUPolynomialText(fn, 2255, drsText("1/2 is a root\n")); e != nil {
+				return e
+			}
 			if e = m.addDRSRoot(&s, b, r); e != nil {
 				return e
 			}
@@ -340,6 +403,9 @@ func (m *UPolynomialManager) DRSIsolateRootsWithBounds(v UPolynomialView, neg, p
 	if e := m.ComposePowerTwoXViewInPlace(m.stateView(&aux).WithCount(v.count), pos); e != nil {
 		return e
 	}
+	if e := m.traceUPolynomialText("drs_isolate_roots", 2300, drsText("searching at (0, 1)\n")); e != nil {
+		return e
+	}
 	oldR, oldL := r.state.size, l.state.size
 	if e := m.drsZeroOne(m.stateView(&aux).WithCount(v.count), b, r, l, u); e != nil {
 		return e
@@ -359,6 +425,9 @@ func (m *UPolynomialManager) DRSIsolateRootsWithBounds(v UPolynomialView, neg, p
 		return e
 	}
 	if e := m.ComposePowerTwoXViewInPlace(v, neg); e != nil {
+		return e
+	}
+	if e := m.traceUPolynomialRecord("drs_isolate_roots", 2313, "searching at (-1, 0) using:\n", v, "\n"); e != nil {
 		return e
 	}
 	oldR, oldL = r.state.size, l.state.size
@@ -419,6 +488,31 @@ func (m *UPolynomialManager) DRSIsolateRoots(v UPolynomialView, b *unumeral.Bina
 	if e := m.normalize(m.stateView(&p)); e != nil {
 		return e
 	}
+	if e := m.traceUPolynomialText("drs_isolate_roots", 2333, func() (string, error) {
+		// The source computes these bounds only inside the TRACE.
+		var bound unumeral.Int
+		defer m.modular.Del(&bound)
+		if e := m.RootUpperBound(m.stateView(&p), &bound); e != nil {
+			return "", e
+		}
+		log, e := m.modular.Log2(&bound)
+		if e != nil {
+			return "", e
+		}
+		text := "Cauchy     U: 2^" + strconv.FormatUint(uint64(log+1), 10) + "\n"
+		knuthPos, e := m.KnuthPositiveRootUpperBound(v)
+		if e != nil {
+			return "", e
+		}
+		text += "Knuth  pos U: 2^" + strconv.FormatUint(uint64(knuthPos), 10) + "\n"
+		knuthNeg, e := m.KnuthNegativeRootUpperBound(v)
+		if e != nil {
+			return "", e
+		}
+		return text + "Knuth  neg U: 2^" + strconv.FormatUint(uint64(knuthNeg), 10) + "\n", nil
+	}); e != nil {
+		return e
+	}
 	pos, e := m.KnuthPositiveRootUpperBound(v)
 	if e != nil {
 		return e
@@ -469,6 +563,9 @@ func (m *UPolynomialManager) SquareFreeIsolateRoots(v UPolynomialView, b *unumer
 	if e = m.removeZeroRootsState(v, &nz); e != nil {
 		return e
 	}
+	if e = m.traceUPolynomialRecord("sqf_isolate_roots", 2501, "after removing zero root:\n", m.stateView(&nz), "\n"); e != nil {
+		return e
+	}
 	if polynomialSourceDebug {
 		zero, e = m.HasZeroRoots(m.stateView(&nz))
 		if e != nil {
@@ -487,10 +584,27 @@ func (m *UPolynomialManager) IsolateRoots(v UPolynomialView, b *unumeral.BinaryR
 	if polynomialSourceDebug && v.count == 0 {
 		return ErrUPolynomialAssertion
 	}
+	if e := m.traceUPolynomialRecord("isolate_roots", 2512, "isolating roots of:\n", v, "\n"); e != nil {
+		return e
+	}
 	var sqf upolyVectorState
 	defer m.dropLocalVector(&sqf)
 	if e := m.squareFree(v, &sqf); e != nil {
 		return e
 	}
+	if e := m.traceUPolynomialRecord("isolate_roots", 2515, "square free part:\n", m.stateView(&sqf), "\n"); e != nil {
+		return e
+	}
 	return m.SquareFreeIsolateRoots(m.stateView(&sqf), b, r, l, u)
+}
+
+func drsFlag(b bool) string {
+	if b {
+		return "1"
+	}
+	return "0"
+}
+
+func drsText(text string) func() (string, error) {
+	return func() (string, error) { return text, nil }
 }
