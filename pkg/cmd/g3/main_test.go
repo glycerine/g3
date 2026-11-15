@@ -338,6 +338,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md tactic_arith_03-F5: pb2bv names the atom, not the monomial, as the
+	// offending expression.
+	"pb2bv_offending_atom.smt2": "(error \"tactic failed: goal is in a fragment unsupported by pb2bv. Offending expression: (>= (+ x y 1) 2)\")\n",
 	// AUDIT.md tactic_arith_03-F6: arith-max-bw/arith-max-deg walk quantifier
 	// bodies (for_each_expr_at).
 	"probe_arith_quantified_stats.smt2": "(error \"tactic failed: fail-if tactic\")\n(error \"tactic failed: fail-if tactic\")\n",

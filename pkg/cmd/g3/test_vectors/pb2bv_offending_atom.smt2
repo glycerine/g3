@@ -1,0 +1,8 @@
+(declare-const x Int)
+(declare-const y Int)
+(assert (<= 0 x))
+(assert (<= x 1))
+(assert (<= 0 y))
+(assert (<= y 1))
+(assert (>= (+ x y 1) 2))
+(apply pb2bv)

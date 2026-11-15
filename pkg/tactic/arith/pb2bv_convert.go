@@ -239,16 +239,17 @@ func (t *PB2BVTactic) convertCore(term ast.ASTHandle, positive, root bool, s *pb
 	if !app || family != t.bounds.family || op != 6 {
 		return ast.ASTHandle{}, t.nonPB(term)
 	}
-	// Validate every monomial before collecting any bound dependencies.
-	for _, term := range terms {
-		constant, e := t.bounds.constant(term)
+	// Validate every monomial before collecting any bound dependencies;
+	// C++ throw_non_pb(t) names the atom, not the monomial.
+	for _, mon := range terms {
+		constant, e := t.bounds.constant(mon)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
 		if constant {
 			continue
 		}
-		f, k, a, ok, e := t.bounds.app(term)
+		f, k, a, ok, e := t.bounds.app(mon)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
@@ -268,16 +269,16 @@ func (t *PB2BVTactic) convertCore(term ast.ASTHandle, positive, root bool, s *pb
 		}
 	}
 	p := make(pbPolynomial, 0, len(terms))
-	for _, term := range terms {
-		constant, e := t.bounds.constant(term)
+	for _, mon := range terms {
+		constant, e := t.bounds.constant(mon)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
 		weight := big.NewRat(1, 1)
-		variable := term
+		variable := mon
 		negative := false
 		if !constant {
-			_, _, a, _, e := t.bounds.app(term)
+			_, _, a, _, e := t.bounds.app(mon)
 			if e != nil {
 				return ast.ASTHandle{}, e
 			}
