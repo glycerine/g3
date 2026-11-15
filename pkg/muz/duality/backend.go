@@ -97,6 +97,15 @@ func (b *Backend) Query(prepared *PreparedQuery) (lbool.LBool, error) {
 	return b.queries.Query(prepared)
 }
 
+// AbandonQuery records a query that failed before Query; see
+// QueryEngine.AbandonQuery.
+func (b *Backend) AbandonQuery() {
+	if b.open() != nil {
+		return
+	}
+	b.queries.AbandonQuery()
+}
+
 // Counterexample is borrowed until the next Query or Close.
 func (b *Backend) Counterexample() *graph.Counterexample {
 	if b == nil || b.self != b || b.closed || b.queries == nil {

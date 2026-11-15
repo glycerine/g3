@@ -14,6 +14,10 @@ import (
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
+// HasLearningSourceForTest reports whether the next Query learns from an
+// old solver (the source's old_data->old_rs is non-null).
+func HasLearningSourceForTest(e *QueryEngine) bool { return e.active != nil }
+
 // A queryRun owns each copied source background axiom through teardown.
 func TestQueryRunCloseAfterConsumedBackgroundRelease(t *testing.T) {
 	queryRunConsumedRelease(t)

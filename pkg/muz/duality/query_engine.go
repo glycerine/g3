@@ -167,6 +167,7 @@ func (e *QueryEngine) Query(prepared *PreparedQuery) (status lbool.LBool, result
 		if result != nil {
 			status = lbool.Undef
 			e.status = lbool.Undef
+			e.forgetActive()
 		}
 	}()
 	e.status = lbool.Undef
@@ -269,6 +270,25 @@ func (e *QueryEngine) Query(prepared *PreparedQuery) (status lbool.LBool, result
 		}
 	}
 	return status, nil
+}
+
+// forgetActive mirrors a failed dl_interface::query: the source has already
+// replaced _d with a fresh duality_data whose old_rs is null, so the next
+// query learns from no solver. The forgotten run is closed by the next reap.
+func (e *QueryEngine) forgetActive() {
+	e.active = nil
+}
+
+// AbandonQuery records a query that failed before reaching Query (rule
+// transformation or clause conversion): the source failed after replacing
+// _d, so it too leaves no solver to learn from. A closing engine has
+// nothing left to forget.
+func (e *QueryEngine) AbandonQuery() {
+	if e.open() != nil {
+		return
+	}
+	e.status = lbool.Undef
+	e.forgetActive()
 }
 
 // Counterexample returns a borrowed result, invalidated by Query or Close.

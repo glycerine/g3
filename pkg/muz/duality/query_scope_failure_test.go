@@ -178,6 +178,11 @@ func TestDualityBackgroundScopeFailureAndRetry(t *testing.T) {
 				if f.engine.Counterexample() != nil || f.engine.IsResultRecursionBounded() {
 					t.Fatal("failed scope cleanup published result metadata")
 				}
+				// dl_interface::query replaced _d before failing; the next
+				// query has no old solver to learn from.
+				if duality.HasLearningSourceForTest(f.engine) {
+					t.Fatal("failed query kept the baseline solver as a learning source")
+				}
 				if failure == "pop-before" {
 					pushes := f.native.pushes + f.auxiliary.pushes
 					if status, err := f.engine.Query(f.without); status != lbool.Undef || !errors.Is(err, queryScopeRefusal) {

@@ -476,3 +476,14 @@ z3_bug_get_user_tactics_symbol
 # test_vectors/z3_bug_duality_quantify_arrays_requery*.smt2.
 z3_bug_duality_quantify_arrays_requery
 z3_bug_duality_quantify_arrays_requery_scale
+#
+# A Duality query that throws (here iZ3 cannot interpolate the arithmetic
+# rewrite proof of err) has already replaced dl_interface's duality_data
+# with a fresh one whose old_rs is null; the next query dereferences it to
+# swap back the counterexample and z3 segfaults (z3 bug:
+# src/muz/duality/duality_dl_interface.cpp dl_interface::query; Duality
+# was removed upstream without a fix). g3 answers the next query without an
+# old solver to learn from, as the fork fix does
+# (pkg/muz/duality/query_engine.go forgetActive). Reproduction:
+# test_vectors/z3_bug_duality_failed_query_requery.smt2.
+z3_bug_duality_failed_query_requery

@@ -114,6 +114,13 @@ func (e *PropositionalEngine) queryDuality(query ast.ASTHandle) (status lbool.LB
 	if err := e.duality.SetOptions(options); err != nil {
 		return lbool.Undef, err
 	}
+	// dl_interface::query replaces _d before transforming the rules, so a
+	// failure from here on leaves the next query no old solver to learn from.
+	defer func() {
+		if result != nil {
+			e.duality.AbandonQuery()
+		}
+	}()
 	var prepared *duality.PreparedQuery
 	if quantifyArrays {
 		prepared, err = e.prepareDualityTransformedQuery(query, bound)

@@ -46,6 +46,9 @@ var z3BugResults = map[string]string{
 	"z3_bug_duality_quantify_arrays_requery.smt2":       "sat\nunsat\nsat\n",
 	"z3_bug_duality_quantify_arrays_requery_scale.smt2": "sat\n(error \"query failed: theory not supported by interpolation or bad proof\")\nunknown\nsat\n",
 
+	// duality_01-F3 follow-up (query after a failed Duality query)
+	"z3_bug_duality_failed_query_requery.smt2": "(error \"query failed: theory not supported by interpolation or bad proof\")\nunknown\nsat\n",
+
 	// muz_rel_04-F2
 	"z3_bug_lazy_sparse_nullary_union.smt2": "sat\ntrue\n",
 
