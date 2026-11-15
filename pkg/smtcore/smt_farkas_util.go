@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
@@ -660,7 +661,15 @@ func (f *SMTFarkasUtil) GetPDRConstraint(out ast.ASTRef) (err error) {
 	if err != nil {
 		return err
 	}
-	return f.manager.SetRef(out, disjunction)
+	if err = f.manager.SetRef(out, disjunction); err != nil {
+		return err
+	}
+	// IF_VERBOSE(2, if (lits.size() > 1) "combined lemma: " << mk_pp(res, m))
+	// (AUDIT.md FUZZ-F5; g3trace builds only).
+	if diagnostic.VerboseProgress && len(literals) > 1 {
+		return progressVerbose(2, "combined lemma: "+smtPPText(f.manager, disjunction)+"\n")
+	}
+	return nil
 }
 
 func (f *SMTFarkasUtil) Get(out ast.ASTRef) (err error) {
@@ -717,5 +726,13 @@ func (f *SMTFarkasUtil) Get(out ast.ASTRef) (err error) {
 	if err != nil {
 		return err
 	}
-	return f.manager.SetRef(out, disjunction)
+	if err = f.manager.SetRef(out, disjunction); err != nil {
+		return err
+	}
+	// IF_VERBOSE(2, if (lits.size() > 1) "combined lemma: " << mk_pp(res, m))
+	// (AUDIT.md FUZZ-F5; g3trace builds only).
+	if diagnostic.VerboseProgress && len(literals) > 1 {
+		return progressVerbose(2, "combined lemma: "+smtPPText(f.manager, disjunction)+"\n")
+	}
+	return nil
 }

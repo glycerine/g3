@@ -68,7 +68,13 @@ func TestNonlinearBMCWarningMatchesSourceDispatch(t *testing.T) {
 				got, err := transformFilteredString(stream)
 				fragmentMust(t, err)
 				// At verbosity 2 the search's own IF_VERBOSE lines follow
-				// the warning (AUDIT.md muz_small_01-F6).
+				// the warning (AUDIT.md muz_small_01-F6); g3trace builds
+				// print bmc::query's display_rules before it (FUZZ-F5).
+				if level == 2 && diagnostic.VerboseProgress {
+					if i := strings.Index(got, nonlinearBMCWarning); i > 0 && strings.HasPrefix(got, "; rule count: ") {
+						got = got[i:]
+					}
+				}
 				if level == 0 && got != nonlinearBMCWarning || !strings.HasPrefix(got, nonlinearBMCWarning) {
 					t.Fatalf("verbosity %d warning: got %q, want %q", level, got, nonlinearBMCWarning)
 				}

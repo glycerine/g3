@@ -10,10 +10,18 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/solver"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 func TestTabSearchTerminalCancellationAndRetry(t *testing.T) {
+	if diagnostic.VerboseProgress {
+		// g3trace builds also print the run loop's instruction and
+		// subsumption lines (AUDIT.md FUZZ-F5), so the writer below cancels
+		// at a different point; cmd/g3's verbose_progress_test compares the
+		// tab transcript with build/z3 there.
+		t.Skip("transcript-driven cancellation assumes the untagged verbose lines")
+	}
 	f := newTabDiagnosticsFixture(t)
 	m := f.ctx.manager
 	session, err := NewSession(m, "weight")

@@ -2,7 +2,11 @@ package tab
 
 // Source: src/muz/tab/tab_context.cpp, selection strategy and scoring.
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"strconv"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
 
 type predicateSelection struct {
 	manager         *ast.ASTManager
@@ -254,16 +258,35 @@ func (s *predicateSelection) Select(c *Clause) (uint32, error) {
 							return 0, ast.ErrASTDomain
 						}
 						score += varScores[idx]
-					} else if j < len(weights) {
-						score += weights[j] * v
+					} else {
+						weight := 0.0
+						if j < len(weights) {
+							weight = weights[j]
+						}
+						// IF_VERBOSE(2, p_scores[j] << " " << scores[j])
+						if e = tabVerboseDoubles(2, weight, v); e != nil {
+							return 0, e
+						}
+						score += weight * v
 					}
 				}
 			}
+		}
+		// IF_VERBOSE(2, "score: " << mk_pp(p, m) << " " << score)
+		if e := tabVerboseScore(s.manager, pred, score); e != nil {
+			return 0, e
 		}
 		if score > best {
 			best = score
 			selected = uint32(i)
 		}
 	}
-	return selected, nil
+	// andrei_select: IF_VERBOSE(1, "select:" << result); the weight
+	// selections: IF_VERBOSE(2, "select " << result) (AUDIT.md FUZZ-F5).
+	if s.strategy == "var-use" {
+		err = tabVerboseText(1, "select:"+strconv.FormatUint(uint64(selected), 10)+"\n")
+	} else {
+		err = tabVerboseText(2, "select "+strconv.FormatUint(uint64(selected), 10)+"\n")
+	}
+	return selected, err
 }

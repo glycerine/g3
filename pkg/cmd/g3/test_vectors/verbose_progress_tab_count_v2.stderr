@@ -1,0 +1,129 @@
+g0 (inv 5)
+select-predicate
+score: (inv 5) 2
+select 0
+(inv 5)
+select-rule
+select-rule
+(smt.searching)
+r1: (=> (and (inv (:var 0)) (not (<= 5 (:var 0))) (= (:var 1) (+ 1 (:var 0))))
+    (inv (:var 1)))
+g1 {g0 inv pos: 0 rule: 1}
+(inv 4)
+setup-match: (inv 4) (and true)
+select-predicate
+score: (inv 4) 2
+select 0
+(inv 4)
+select-rule
+select-rule
+(smt.searching)
+g2 {g1 inv pos: 0 rule: 1}
+(inv 3)
+setup-match: (inv 3) (and true)
+try-match
+(inv 4)
+(inv 4) = (inv 3)
+different:4 3
+select-predicate
+score: (inv 3) 2
+select 0
+(inv 3)
+select-rule
+select-rule
+(smt.searching)
+g3 {g2 inv pos: 0 rule: 1}
+(inv 2)
+setup-match: (inv 2) (and true)
+try-match
+(inv 4)
+(inv 4) = (inv 2)
+different:4 2
+try-match
+(inv 3)
+(inv 3) = (inv 2)
+different:3 2
+select-predicate
+score: (inv 2) 2
+select 0
+(inv 2)
+select-rule
+select-rule
+(smt.searching)
+g4 {g3 inv pos: 0 rule: 1}
+(inv 1)
+setup-match: (inv 1) (and true)
+try-match
+(inv 4)
+(inv 4) = (inv 1)
+different:4 1
+try-match
+(inv 3)
+(inv 3) = (inv 1)
+different:3 1
+try-match
+(inv 2)
+(inv 2) = (inv 1)
+different:2 1
+select-predicate
+score: (inv 1) 2
+select 0
+(inv 1)
+select-rule
+select-rule
+(smt.searching)
+g5 {g4 inv pos: 0 rule: 1}
+(inv 0)
+setup-match: (inv 0) (and true)
+try-match
+(inv 4)
+(inv 4) = (inv 0)
+different:4 0
+try-match
+(inv 3)
+(inv 3) = (inv 0)
+different:3 0
+try-match
+(inv 2)
+(inv 2) = (inv 0)
+different:2 0
+try-match
+(inv 1)
+(inv 1) = (inv 0)
+different:1 0
+select-predicate
+score: (inv 0) 2
+select 0
+(inv 0)
+select-rule
+(smt.searching)
+r0: (inv 0)
+g6 {g5 inv pos: 0 rule: 0}
+true
+setup-match: (and true)
+try-match
+(inv 4)
+try-match
+(inv 3)
+try-match
+(inv 2)
+try-match
+(inv 1)
+try-match
+(inv 0)
+select-predicate
+true
+unsat
+(inv 5)
+(let ((a!1 (forall ((A Int) (B Int))
+             (=> (and (inv B) (= A (+ 1 B)) (not (<= 5 B))) (inv A)))))
+(let ((a!2 (hyper-res (asserted (=> (inv 5) false))
+                      (asserted a!1)
+                      (=> (inv 4) false))))
+(let ((a!3 (hyper-res (hyper-res a!2 (asserted a!1) (=> (inv 3) false))
+                      (asserted a!1)
+                      (=> (inv 2) false))))
+(let ((a!4 (hyper-res (hyper-res a!3 (asserted a!1) (=> (inv 1) false))
+                      (asserted a!1)
+                      (=> (inv 0) false))))
+  ((_ hyper-res 1 0) a!4 (asserted (inv 0)) false)))))

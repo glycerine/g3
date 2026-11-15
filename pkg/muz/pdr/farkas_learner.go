@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast/proofs"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
@@ -477,6 +478,13 @@ func (f *FarkasLearner) GetLemmas(root ast.ASTHandle, bAssertions []ast.ASTHandl
 	root, err = f.manager.RefGet(rootReference)
 	if err != nil {
 		return nil, err
+	}
+	// IF_VERBOSE(3, "Reduced proof:\n" << mk_ismt2_pp(pr, m)) (AUDIT.md
+	// FUZZ-F5; g3trace builds only).
+	if diagnostic.VerboseProgress {
+		if err = verbosePP(f.manager, 3, "Reduced proof:\n", root, "\n"); err != nil {
+			return nil, err
+		}
 	}
 	order, err := f.proofPostOrder(root)
 	if err != nil {

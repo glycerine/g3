@@ -13,6 +13,7 @@ import (
 )
 
 type subsumptionSearch struct {
+	query          *Clause // index::m_clause (verbose only)
 	manager        *ast.ASTManager
 	goal           *groundClause
 	matcher        *SemanticMatcher
@@ -49,7 +50,7 @@ func (s *subsumptionSearch) matchPredicates(candidate *Clause, index int) (match
 		return false, err
 	}
 	if index == len(candidate.predicates) {
-		return validateSubsumption(s.manager, candidate, s.bindings, s.conditions, s.lite, s.smt, s.falseLiterals, s.modelEvaluator)
+		return validateSubsumptionFor(s.query, s.manager, candidate, s.bindings, s.conditions, s.lite, s.smt, s.falseLiterals, s.modelEvaluator)
 	}
 	pattern, err := s.manager.RefGet(candidate.predicates[index])
 	if err != nil {
@@ -68,6 +69,9 @@ func (s *subsumptionSearch) matchPredicates(candidate *Clause, index int) (match
 			return false, e
 		}
 		start := len(s.conditions)
+		if e = tabVerboseMatchPredicate(s.manager, index, pattern, term); e != nil {
+			return false, e
+		}
 		ok, e := s.matcher.Match(pattern, term, s.bindings, &s.conditions)
 		if e == nil && ok {
 			ok, e = s.matchPredicates(candidate, index+1)
@@ -121,6 +125,9 @@ func isClauseSubsumedRetaining(query *Clause, candidates []*Clause, lite *qe.Lit
 		return false, 0, err
 	}
 	attempt.grounded = grounded
+	if err = tabVerboseSetupMatch(m, grounded.predicates, grounded.precondition); err != nil {
+		return false, 0, err
+	}
 	if retain != nil {
 		defer func() {
 			if err == nil {
@@ -147,7 +154,7 @@ func isClauseSubsumedRetaining(query *Clause, candidates []*Clause, lite *qe.Lit
 	if len(evaluator) == 1 {
 		modelEvaluator = evaluator[0]
 	}
-	search := &subsumptionSearch{manager: m, goal: grounded, matcher: matcher, bindings: bindings, lite: lite, smt: smt, falseLiterals: falseLiterals, modelEvaluator: modelEvaluator}
+	search := &subsumptionSearch{query: query, manager: m, goal: grounded, matcher: matcher, bindings: bindings, lite: lite, smt: smt, falseLiterals: falseLiterals, modelEvaluator: modelEvaluator}
 	attempt.search = search
 	if err = attempt.scope.begin(); err != nil {
 		return false, 0, err
@@ -181,6 +188,9 @@ func isClauseSubsumedRetaining(query *Clause, candidates []*Clause, lite *qe.Lit
 			return false, 0, e
 		}
 		if e = bindings.Reserve(2, candidate.numVars); e != nil {
+			return false, 0, e
+		}
+		if e = tabVerboseTryMatch(candidate); e != nil {
 			return false, 0, e
 		}
 		candidateHead, e := candidate.Head()

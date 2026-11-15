@@ -1,0 +1,29 @@
+g0 (inv 5)
+r1: (=> (and (inv (:var 0)) (not (<= 5 (:var 0))) (= (:var 1) (+ 1 (:var 0))))
+    (inv (:var 1)))
+g1 {g0 inv pos: 0 rule: 1}
+(inv 4)
+g2 {g1 inv pos: 0 rule: 1}
+(inv 3)
+g3 {g2 inv pos: 0 rule: 1}
+(inv 2)
+g4 {g3 inv pos: 0 rule: 1}
+(inv 1)
+g5 {g4 inv pos: 0 rule: 1}
+(inv 0)
+r0: (inv 0)
+g6 {g5 inv pos: 0 rule: 0}
+true
+(inv 5)
+(let ((a!1 (forall ((A Int) (B Int))
+             (=> (and (inv B) (= A (+ 1 B)) (not (<= 5 B))) (inv A)))))
+(let ((a!2 (hyper-res (asserted (=> (inv 5) false))
+                      (asserted a!1)
+                      (=> (inv 4) false))))
+(let ((a!3 (hyper-res (hyper-res a!2 (asserted a!1) (=> (inv 3) false))
+                      (asserted a!1)
+                      (=> (inv 2) false))))
+(let ((a!4 (hyper-res (hyper-res a!3 (asserted a!1) (=> (inv 1) false))
+                      (asserted a!1)
+                      (=> (inv 0) false))))
+  ((_ hyper-res 1 0) a!4 (asserted (inv 0)) false)))))

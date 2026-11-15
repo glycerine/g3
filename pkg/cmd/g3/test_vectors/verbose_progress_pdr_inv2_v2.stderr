@@ -1,0 +1,546 @@
+(transform N7datalog13mk_coi_filterE...no-op 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...3 rules 0s)
+(transform N7datalog27mk_quantifier_instantiationE...no-op 0s)
+(transform N7datalog8mk_scaleE...no-op 0s)
+(transform N7datalog18mk_karr_invariantsE...no-op 0s)
+(transform N7datalog14mk_array_blastE...no-op 0s)
+(transform N7datalog22mk_subsumption_checkerE...no-op 0s)
+(transform N7datalog12mk_bit_blastE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...no-op 0s)
+(transform N7datalog13mk_coi_filterE...no-op 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...3 rules 0s)
+(transform N7datalog22mk_subsumption_checkerE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...no-op 0s)
+(transform N7datalog13mk_coi_filterE...no-op 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...3 rules 0s)
+(transform N7datalog22mk_subsumption_checkerE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...no-op 0s)
+(transform N7datalog22mk_subsumption_checkerE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...no-op 0s)
+(transform N7datalog22mk_subsumption_checkerE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...no-op 0s)
+(transform N7datalog22mk_subsumption_checkerE...no-op 0s)
+(transform N7datalog8mk_sliceE...no-op 0s)
+; rule count: 3
+; predicate count: 2
+; output: query!0
+<null>:
+inv(0,0).
+<null>:
+inv(#2,#3) :- 
+ inv(#1,#0),
+ (= (:var 2) (+ 1 (:var 1))),
+ (not (<= 10 (:var 1))),
+ (= (:var 3) (+ 2 (:var 0))).
+<null>:
+query!0(#1,#0) :- 
+ inv(#1,#0),
+ (not (<= (:var 0) (* 2 (:var 1)))).
+non-diff: (<= (:var 0) (* 2 (:var 1)))
+non-utvpi: (<= (:var 0) (* 2 (:var 1)))
+Expand node: 0
+(smt.searching)
+Lemmas
+0 false
+Entering level 1
+Expand node: 1
+(smt.searching)
+Predecessor: (not (<= inv_1_n (* 2 inv_0_n))) open
+Expand node: 0
+(smt.searching)
+combined lemma: (or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))
+Lemmas
+(or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))
+0 (<= inv_1_n 0)
+0 (>= inv_0_n 0)
+Expand node: 1
+(smt.searching)
+Lemmas
+1 false
+(smt.searching)
+(smt.searching)
+1 (>= inv_0_n 0)
+(smt.searching)
+2 (>= inv_0_n 0)
+(smt.searching)
+Entering level 2
+Expand node: 2
+(smt.searching)
+Predecessor: (not (<= inv_1_n (* 2 inv_0_n))) open
+Expand node: 1
+(smt.searching)
+combined lemma: (or (not (<= inv_1_n 2)) (not (>= inv_0_n 1)))
+combined lemma: (or (not (<= inv_1_n 0)) (not (>= inv_0_n 0)))
+Lemmas
+(or (not (<= inv_1_n 2)) (not (>= inv_0_n 1)))
+(or (not (<= inv_1_n 0)) (not (>= inv_0_n 0)))
+(smt.searching)
+(smt.searching)
+old size: 2 new size: 2
+1 (let ((a!1 (not (or (not (<= inv_1_n 2)) (not (>= inv_0_n 1)))))
+      (a!2 (not (or (not (<= inv_1_n 0)) (not (>= inv_0_n 0))))))
+  (or a!1 a!2))
+Expand node: 2
+(smt.searching)
+Lemmas
+2 false
+(smt.searching)
+(smt.searching)
+3 (>= inv_0_n 0)
+(smt.searching)
+Entering level 3
+Expand node: 3
+(smt.searching)
+Predecessor: (not (<= inv_1_n (* 2 inv_0_n))) open
+Expand node: 2
+(smt.searching)
+combined lemma: (or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))
+combined lemma: (or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))
+combined lemma: (or (not (<= inv_1_n 2)) (not (>= inv_0_n 1)))
+Lemmas
+(or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))
+(or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))
+(or (not (<= inv_1_n 2)) (not (>= inv_0_n 1)))
+(smt.searching)
+(smt.searching)
+(smt.searching)
+old size: 3 new size: 3
+2 (let ((a!1 (not (or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))))
+      (a!2 (not (or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))))
+      (a!3 (not (or (not (<= inv_1_n 2)) (not (>= inv_0_n 1))))))
+  (or a!1 a!2 a!3))
+Expand node: 3
+(smt.searching)
+Lemmas
+3 false
+(smt.searching)
+(smt.searching)
+4 (>= inv_0_n 0)
+(smt.searching)
+Entering level 4
+Expand node: 4
+(smt.searching)
+Predecessor: (not (<= inv_1_n (* 2 inv_0_n))) open
+Expand node: 3
+(smt.searching)
+combined lemma: (or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))
+combined lemma: (or (not (>= inv_0_n 1)) (not (<= inv_1_n 2)))
+combined lemma: (or (not (>= inv_0_n 2)) (not (<= inv_1_n 4)))
+combined lemma: (or (not (>= inv_0_n 3)) (not (<= inv_1_n 6)))
+Lemmas
+(or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))
+(or (not (>= inv_0_n 1)) (not (<= inv_1_n 2)))
+(or (not (>= inv_0_n 2)) (not (<= inv_1_n 4)))
+(or (not (>= inv_0_n 3)) (not (<= inv_1_n 6)))
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+old size: 4 new size: 4
+3 (let ((a!1 (not (or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))))
+      (a!2 (not (or (not (>= inv_0_n 1)) (not (<= inv_1_n 2)))))
+      (a!3 (not (or (not (>= inv_0_n 2)) (not (<= inv_1_n 4)))))
+      (a!4 (not (or (not (>= inv_0_n 3)) (not (<= inv_1_n 6))))))
+  (or a!1 a!2 a!3 a!4))
+Expand node: 4
+(smt.searching)
+Lemmas
+4 false
+(smt.searching)
+(smt.searching)
+5 (>= inv_0_n 0)
+(smt.searching)
+Entering level 5
+Expand node: 5
+(smt.searching)
+Predecessor: (not (<= inv_1_n (* 2 inv_0_n))) open
+Expand node: 4
+(smt.searching)
+combined lemma: (or (not (>= inv_0_n 1)) (not (<= inv_1_n 2)))
+combined lemma: (or (not (>= inv_0_n 2)) (not (<= inv_1_n 4)))
+combined lemma: (or (not (>= inv_0_n 4)) (not (<= inv_1_n 8)))
+combined lemma: (or (not (>= inv_0_n 3)) (not (<= inv_1_n 6)))
+combined lemma: (or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))
+Lemmas
+(or (not (>= inv_0_n 1)) (not (<= inv_1_n 2)))
+(or (not (>= inv_0_n 2)) (not (<= inv_1_n 4)))
+(or (not (>= inv_0_n 4)) (not (<= inv_1_n 8)))
+(or (not (>= inv_0_n 3)) (not (<= inv_1_n 6)))
+(or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+old size: 5 new size: 5
+4 (let ((a!1 (not (or (not (>= inv_0_n 1)) (not (<= inv_1_n 2)))))
+      (a!2 (not (or (not (>= inv_0_n 2)) (not (<= inv_1_n 4)))))
+      (a!3 (not (or (not (>= inv_0_n 4)) (not (<= inv_1_n 8)))))
+      (a!4 (not (or (not (>= inv_0_n 3)) (not (<= inv_1_n 6)))))
+      (a!5 (not (or (not (>= inv_0_n 0)) (not (<= inv_1_n 0))))))
+  (or a!1 a!2 a!3 a!4 a!5))
+Expand node: 5
+(smt.searching)
+Lemmas
+5 false
+(smt.searching)
+(smt.searching)
+6 (>= inv_0_n 0)
+(smt.searching)
+Entering level 6
+Expand node: 6
+(smt.searching)
+Predecessor: (not (<= inv_1_n (* 2 inv_0_n))) open
+Expand node: 5
+(smt.searching)
+combined lemma: (or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))
+combined lemma: (or (not (<= inv_1_n 2)) (not (>= inv_0_n 1)))
+combined lemma: (or (not (<= inv_1_n 8)) (not (>= inv_0_n 4)))
+combined lemma: (or (not (<= inv_1_n 10)) (not (>= inv_0_n 5)))
+combined lemma: (or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))
+combined lemma: (or (not (<= inv_1_n 6)) (not (>= inv_0_n 3)))
+Lemmas
+(or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))
+(or (not (<= inv_1_n 2)) (not (>= inv_0_n 1)))
+(or (not (<= inv_1_n 8)) (not (>= inv_0_n 4)))
+(or (not (<= inv_1_n 10)) (not (>= inv_0_n 5)))
+(or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))
+(or (not (<= inv_1_n 6)) (not (>= inv_0_n 3)))
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+old size: 6 new size: 6
+5 (let ((a!1 (not (or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))))
+      (a!2 (not (or (not (<= inv_1_n 2)) (not (>= inv_0_n 1)))))
+      (a!3 (not (or (not (<= inv_1_n 8)) (not (>= inv_0_n 4)))))
+      (a!4 (not (or (not (<= inv_1_n 10)) (not (>= inv_0_n 5)))))
+      (a!5 (not (or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))))
+      (a!6 (not (or (not (<= inv_1_n 6)) (not (>= inv_0_n 3))))))
+  (or a!1 a!2 a!3 a!4 a!5 a!6))
+Expand node: 6
+(smt.searching)
+Lemmas
+6 false
+(smt.searching)
+(smt.searching)
+7 (>= inv_0_n 0)
+(smt.searching)
+Entering level 7
+Expand node: 7
+(smt.searching)
+Predecessor: (not (<= inv_1_n (* 2 inv_0_n))) open
+Expand node: 6
+(smt.searching)
+combined lemma: (or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))
+combined lemma: (or (not (<= inv_1_n 12)) (not (>= inv_0_n 6)))
+combined lemma: (or (not (<= inv_1_n 10)) (not (>= inv_0_n 5)))
+combined lemma: (or (not (<= inv_1_n 8)) (not (>= inv_0_n 4)))
+combined lemma: (or (not (<= inv_1_n 6)) (not (>= inv_0_n 3)))
+combined lemma: (or (not (<= inv_1_n 2)) (not (>= inv_0_n 1)))
+combined lemma: (or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))
+Lemmas
+(or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))
+(or (not (<= inv_1_n 12)) (not (>= inv_0_n 6)))
+(or (not (<= inv_1_n 10)) (not (>= inv_0_n 5)))
+(or (not (<= inv_1_n 8)) (not (>= inv_0_n 4)))
+(or (not (<= inv_1_n 6)) (not (>= inv_0_n 3)))
+(or (not (<= inv_1_n 2)) (not (>= inv_0_n 1)))
+(or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+old size: 7 new size: 7
+6 (let ((a!1 (not (or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))))
+      (a!2 (not (or (not (<= inv_1_n 12)) (not (>= inv_0_n 6)))))
+      (a!3 (not (or (not (<= inv_1_n 10)) (not (>= inv_0_n 5)))))
+      (a!4 (not (or (not (<= inv_1_n 8)) (not (>= inv_0_n 4)))))
+      (a!5 (not (or (not (<= inv_1_n 6)) (not (>= inv_0_n 3)))))
+      (a!6 (not (or (not (<= inv_1_n 2)) (not (>= inv_0_n 1)))))
+      (a!7 (not (or (not (<= inv_1_n 4)) (not (>= inv_0_n 2))))))
+  (or a!1 a!2 a!3 a!4 a!5 a!6 a!7))
+Expand node: 7
+(smt.searching)
+Lemmas
+7 false
+(smt.searching)
+(smt.searching)
+8 (>= inv_0_n 0)
+(smt.searching)
+Entering level 8
+Expand node: 8
+(smt.searching)
+Predecessor: (not (<= inv_1_n (* 2 inv_0_n))) open
+Expand node: 7
+(smt.searching)
+combined lemma: (or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))
+combined lemma: (or (not (<= inv_1_n 2)) (not (>= inv_0_n 1)))
+combined lemma: (or (not (<= inv_1_n 12)) (not (>= inv_0_n 6)))
+combined lemma: (or (not (<= inv_1_n 6)) (not (>= inv_0_n 3)))
+combined lemma: (or (not (<= inv_1_n 10)) (not (>= inv_0_n 5)))
+combined lemma: (or (not (<= inv_1_n 14)) (not (>= inv_0_n 7)))
+combined lemma: (or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))
+combined lemma: (or (not (<= inv_1_n 8)) (not (>= inv_0_n 4)))
+Lemmas
+(or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))
+(or (not (<= inv_1_n 2)) (not (>= inv_0_n 1)))
+(or (not (<= inv_1_n 12)) (not (>= inv_0_n 6)))
+(or (not (<= inv_1_n 6)) (not (>= inv_0_n 3)))
+(or (not (<= inv_1_n 10)) (not (>= inv_0_n 5)))
+(or (not (<= inv_1_n 14)) (not (>= inv_0_n 7)))
+(or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))
+(or (not (<= inv_1_n 8)) (not (>= inv_0_n 4)))
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+old size: 8 new size: 8
+7 (let ((a!1 (not (or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))))
+      (a!2 (not (or (not (<= inv_1_n 2)) (not (>= inv_0_n 1)))))
+      (a!3 (not (or (not (<= inv_1_n 12)) (not (>= inv_0_n 6)))))
+      (a!4 (not (or (not (<= inv_1_n 6)) (not (>= inv_0_n 3)))))
+      (a!5 (not (or (not (<= inv_1_n 10)) (not (>= inv_0_n 5)))))
+      (a!6 (not (or (not (<= inv_1_n 14)) (not (>= inv_0_n 7)))))
+      (a!7 (not (or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))))
+      (a!8 (not (or (not (<= inv_1_n 8)) (not (>= inv_0_n 4))))))
+  (or a!1 a!2 a!3 a!4 a!5 a!6 a!7 a!8))
+Expand node: 8
+(smt.searching)
+Lemmas
+8 false
+(smt.searching)
+(smt.searching)
+9 (>= inv_0_n 0)
+(smt.searching)
+Entering level 9
+Expand node: 9
+(smt.searching)
+Predecessor: (not (<= inv_1_n (* 2 inv_0_n))) open
+Expand node: 8
+(smt.searching)
+combined lemma: (or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))
+combined lemma: (or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))
+combined lemma: (or (not (<= inv_1_n 12)) (not (>= inv_0_n 6)))
+combined lemma: (or (not (<= inv_1_n 8)) (not (>= inv_0_n 4)))
+combined lemma: (or (not (<= inv_1_n 10)) (not (>= inv_0_n 5)))
+combined lemma: (or (not (<= inv_1_n 6)) (not (>= inv_0_n 3)))
+combined lemma: (or (not (<= inv_1_n 16)) (not (>= inv_0_n 8)))
+combined lemma: (or (not (<= inv_1_n 14)) (not (>= inv_0_n 7)))
+combined lemma: (or (not (<= inv_1_n 2)) (not (>= inv_0_n 1)))
+Lemmas
+(or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))
+(or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))
+(or (not (<= inv_1_n 12)) (not (>= inv_0_n 6)))
+(or (not (<= inv_1_n 8)) (not (>= inv_0_n 4)))
+(or (not (<= inv_1_n 10)) (not (>= inv_0_n 5)))
+(or (not (<= inv_1_n 6)) (not (>= inv_0_n 3)))
+(or (not (<= inv_1_n 16)) (not (>= inv_0_n 8)))
+(or (not (<= inv_1_n 14)) (not (>= inv_0_n 7)))
+(or (not (<= inv_1_n 2)) (not (>= inv_0_n 1)))
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+old size: 9 new size: 9
+8 (let ((a!1 (not (or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))))
+      (a!2 (not (or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))))
+      (a!3 (not (or (not (<= inv_1_n 12)) (not (>= inv_0_n 6)))))
+      (a!4 (not (or (not (<= inv_1_n 8)) (not (>= inv_0_n 4)))))
+      (a!5 (not (or (not (<= inv_1_n 10)) (not (>= inv_0_n 5)))))
+      (a!6 (not (or (not (<= inv_1_n 6)) (not (>= inv_0_n 3)))))
+      (a!7 (not (or (not (<= inv_1_n 16)) (not (>= inv_0_n 8)))))
+      (a!8 (not (or (not (<= inv_1_n 14)) (not (>= inv_0_n 7)))))
+      (a!9 (not (or (not (<= inv_1_n 2)) (not (>= inv_0_n 1))))))
+  (or a!1 a!2 a!3 a!4 a!5 a!6 a!7 a!8 a!9))
+Expand node: 9
+(smt.searching)
+Lemmas
+9 false
+(smt.searching)
+(smt.searching)
+10 (>= inv_0_n 0)
+(smt.searching)
+Entering level 10
+Expand node: 10
+(smt.searching)
+Predecessor: (not (<= inv_1_n (* 2 inv_0_n))) open
+Expand node: 9
+(smt.searching)
+combined lemma: (or (not (<= inv_1_n 0)) (not (>= inv_0_n 0)))
+combined lemma: (or (not (<= inv_1_n 2)) (not (>= inv_0_n 1)))
+combined lemma: (or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))
+combined lemma: (or (not (<= inv_1_n 14)) (not (>= inv_0_n 7)))
+combined lemma: (or (not (<= inv_1_n 10)) (not (>= inv_0_n 5)))
+combined lemma: (or (not (<= inv_1_n 6)) (not (>= inv_0_n 3)))
+combined lemma: (or (not (<= inv_1_n 12)) (not (>= inv_0_n 6)))
+combined lemma: (or (not (<= inv_1_n 8)) (not (>= inv_0_n 4)))
+combined lemma: (or (not (<= inv_1_n 18)) (not (>= inv_0_n 9)))
+combined lemma: (or (not (<= inv_1_n 16)) (not (>= inv_0_n 8)))
+Lemmas
+(or (not (<= inv_1_n 0)) (not (>= inv_0_n 0)))
+(or (not (<= inv_1_n 2)) (not (>= inv_0_n 1)))
+(or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))
+(or (not (<= inv_1_n 14)) (not (>= inv_0_n 7)))
+(or (not (<= inv_1_n 10)) (not (>= inv_0_n 5)))
+(or (not (<= inv_1_n 6)) (not (>= inv_0_n 3)))
+(or (not (<= inv_1_n 12)) (not (>= inv_0_n 6)))
+(or (not (<= inv_1_n 8)) (not (>= inv_0_n 4)))
+(or (not (<= inv_1_n 18)) (not (>= inv_0_n 9)))
+(or (not (<= inv_1_n 16)) (not (>= inv_0_n 8)))
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+old size: 10 new size: 10
+9 (let ((a!1 (not (or (not (<= inv_1_n 0)) (not (>= inv_0_n 0)))))
+      (a!2 (not (or (not (<= inv_1_n 2)) (not (>= inv_0_n 1)))))
+      (a!3 (not (or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))))
+      (a!4 (not (or (not (<= inv_1_n 14)) (not (>= inv_0_n 7)))))
+      (a!5 (not (or (not (<= inv_1_n 10)) (not (>= inv_0_n 5)))))
+      (a!6 (not (or (not (<= inv_1_n 6)) (not (>= inv_0_n 3)))))
+      (a!7 (not (or (not (<= inv_1_n 12)) (not (>= inv_0_n 6)))))
+      (a!8 (not (or (not (<= inv_1_n 8)) (not (>= inv_0_n 4)))))
+      (a!9 (not (or (not (<= inv_1_n 18)) (not (>= inv_0_n 9)))))
+      (a!10 (not (or (not (<= inv_1_n 16)) (not (>= inv_0_n 8))))))
+  (or a!1 a!2 a!3 a!4 a!5 a!6 a!7 a!8 a!9 a!10))
+Expand node: 10
+(smt.searching)
+Lemmas
+10 false
+(smt.searching)
+(smt.searching)
+11 (>= inv_0_n 0)
+(smt.searching)
+Entering level 11
+Expand node: 11
+(smt.searching)
+Predecessor: (not (<= inv_1_n (* 2 inv_0_n))) open
+Expand node: 10
+(smt.searching)
+combined lemma: (or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))
+combined lemma: (or (not (<= inv_1_n 16)) (not (>= inv_0_n 8)))
+combined lemma: (or (not (<= inv_1_n 18)) (not (>= inv_0_n 9)))
+combined lemma: (or (not (<= inv_1_n 20)) (not (>= inv_0_n 10)))
+combined lemma: (or (not (<= inv_1_n 12)) (not (>= inv_0_n 6)))
+combined lemma: (or (not (<= inv_1_n 14)) (not (>= inv_0_n 7)))
+combined lemma: (or (not (<= inv_1_n 8)) (not (>= inv_0_n 4)))
+combined lemma: (or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))
+combined lemma: (or (not (<= inv_1_n 10)) (not (>= inv_0_n 5)))
+combined lemma: (or (not (<= inv_1_n 6)) (not (>= inv_0_n 3)))
+combined lemma: (or (not (<= inv_1_n 2)) (not (>= inv_0_n 1)))
+Lemmas
+(or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))
+(or (not (<= inv_1_n 16)) (not (>= inv_0_n 8)))
+(or (not (<= inv_1_n 18)) (not (>= inv_0_n 9)))
+(or (not (<= inv_1_n 20)) (not (>= inv_0_n 10)))
+(or (not (<= inv_1_n 12)) (not (>= inv_0_n 6)))
+(or (not (<= inv_1_n 14)) (not (>= inv_0_n 7)))
+(or (not (<= inv_1_n 8)) (not (>= inv_0_n 4)))
+(or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))
+(or (not (<= inv_1_n 10)) (not (>= inv_0_n 5)))
+(or (not (<= inv_1_n 6)) (not (>= inv_0_n 3)))
+(or (not (<= inv_1_n 2)) (not (>= inv_0_n 1)))
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+old size: 11 new size: 11
+10 (let ((a!1 (not (or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))))
+      (a!2 (not (or (not (<= inv_1_n 16)) (not (>= inv_0_n 8)))))
+      (a!3 (not (or (not (<= inv_1_n 18)) (not (>= inv_0_n 9)))))
+      (a!4 (not (or (not (<= inv_1_n 20)) (not (>= inv_0_n 10)))))
+      (a!5 (not (or (not (<= inv_1_n 12)) (not (>= inv_0_n 6)))))
+      (a!6 (not (or (not (<= inv_1_n 14)) (not (>= inv_0_n 7)))))
+      (a!7 (not (or (not (<= inv_1_n 8)) (not (>= inv_0_n 4)))))
+      (a!8 (not (or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))))
+      (a!9 (not (or (not (<= inv_1_n 10)) (not (>= inv_0_n 5)))))
+      (a!10 (not (or (not (<= inv_1_n 6)) (not (>= inv_0_n 3)))))
+      (a!11 (not (or (not (<= inv_1_n 2)) (not (>= inv_0_n 1))))))
+  (or a!1 a!2 a!3 a!4 a!5 a!6 a!7 a!8 a!9 a!10 a!11))
+Expand node: 11
+(smt.searching)
+Lemmas
+11 false
+(smt.searching)
+11 (let ((a!1 (not (or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))))
+      (a!2 (not (or (not (<= inv_1_n 16)) (not (>= inv_0_n 8)))))
+      (a!3 (not (or (not (<= inv_1_n 18)) (not (>= inv_0_n 9)))))
+      (a!4 (not (or (not (<= inv_1_n 20)) (not (>= inv_0_n 10)))))
+      (a!5 (not (or (not (<= inv_1_n 12)) (not (>= inv_0_n 6)))))
+      (a!6 (not (or (not (<= inv_1_n 14)) (not (>= inv_0_n 7)))))
+      (a!7 (not (or (not (<= inv_1_n 8)) (not (>= inv_0_n 4)))))
+      (a!8 (not (or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))))
+      (a!9 (not (or (not (<= inv_1_n 10)) (not (>= inv_0_n 5)))))
+      (a!10 (not (or (not (<= inv_1_n 6)) (not (>= inv_0_n 3)))))
+      (a!11 (not (or (not (<= inv_1_n 2)) (not (>= inv_0_n 1))))))
+  (or a!1 a!2 a!3 a!4 a!5 a!6 a!7 a!8 a!9 a!10 a!11))
+(smt.searching)
+12 (>= inv_0_n 0)
+(smt.searching)
+12 (let ((a!1 (not (or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))))
+      (a!2 (not (or (not (<= inv_1_n 16)) (not (>= inv_0_n 8)))))
+      (a!3 (not (or (not (<= inv_1_n 18)) (not (>= inv_0_n 9)))))
+      (a!4 (not (or (not (<= inv_1_n 20)) (not (>= inv_0_n 10)))))
+      (a!5 (not (or (not (<= inv_1_n 12)) (not (>= inv_0_n 6)))))
+      (a!6 (not (or (not (<= inv_1_n 14)) (not (>= inv_0_n 7)))))
+      (a!7 (not (or (not (<= inv_1_n 8)) (not (>= inv_0_n 4)))))
+      (a!8 (not (or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))))
+      (a!9 (not (or (not (<= inv_1_n 10)) (not (>= inv_0_n 5)))))
+      (a!10 (not (or (not (<= inv_1_n 6)) (not (>= inv_0_n 3)))))
+      (a!11 (not (or (not (<= inv_1_n 2)) (not (>= inv_0_n 1))))))
+  (or a!1 a!2 a!3 a!4 a!5 a!6 a!7 a!8 a!9 a!10 a!11))
+(smt.searching)
+12 false
+(define-fun inv ((x!0 Int) (x!1 Int)) Bool
+  (let ((a!1 (not (or (not (<= x!1 2)) (not (>= x!0 1)))))
+        (a!2 (not (or (not (>= x!0 0)) (not (<= x!1 0)))))
+        (a!3 (not (or (not (<= x!1 16)) (not (>= x!0 8)))))
+        (a!4 (not (or (not (<= x!1 18)) (not (>= x!0 9)))))
+        (a!5 (not (or (not (<= x!1 20)) (not (>= x!0 10)))))
+        (a!6 (not (or (not (<= x!1 12)) (not (>= x!0 6)))))
+        (a!7 (not (or (not (<= x!1 14)) (not (>= x!0 7)))))
+        (a!8 (not (or (not (<= x!1 8)) (not (>= x!0 4)))))
+        (a!9 (not (or (not (<= x!1 4)) (not (>= x!0 2)))))
+        (a!10 (not (or (not (<= x!1 10)) (not (>= x!0 5)))))
+        (a!11 (not (or (not (<= x!1 6)) (not (>= x!0 3))))))
+    (or a!1 a!2 a!3 a!4 a!5 a!6 a!7 a!8 a!9 a!10 a!11)))
+oo (let ((a!1 (not (or (not (>= inv_0_n 0)) (not (<= inv_1_n 0)))))
+      (a!2 (not (or (not (<= inv_1_n 16)) (not (>= inv_0_n 8)))))
+      (a!3 (not (or (not (<= inv_1_n 18)) (not (>= inv_0_n 9)))))
+      (a!4 (not (or (not (<= inv_1_n 20)) (not (>= inv_0_n 10)))))
+      (a!5 (not (or (not (<= inv_1_n 12)) (not (>= inv_0_n 6)))))
+      (a!6 (not (or (not (<= inv_1_n 14)) (not (>= inv_0_n 7)))))
+      (a!7 (not (or (not (<= inv_1_n 8)) (not (>= inv_0_n 4)))))
+      (a!8 (not (or (not (<= inv_1_n 4)) (not (>= inv_0_n 2)))))
+      (a!9 (not (or (not (<= inv_1_n 10)) (not (>= inv_0_n 5)))))
+      (a!10 (not (or (not (<= inv_1_n 6)) (not (>= inv_0_n 3)))))
+      (a!11 (not (or (not (<= inv_1_n 2)) (not (>= inv_0_n 1))))))
+  (or a!1 a!2 a!3 a!4 a!5 a!6 a!7 a!8 a!9 a!10 a!11))

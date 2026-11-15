@@ -88,6 +88,16 @@ var verboseProgressCases = []verboseProgressCase{
 	{"nl_rounds_v3", "nl_rounds", []string{"-v:3", "smt.arith.nl.rounds=1"}},
 	// ctx_solver_simplify_tactic's (ctx-solver-simplify :num-steps N).
 	{"ctx_solver_simplify_v10", "ctx_solver_simplify", []string{"-v:10"}},
+	// muz/tab: run()'s instructions, apply_rule, select scores, the
+	// subsumption index's setup-match/try-match/check lines, the
+	// certificate with get_proof's body instance.
+	{"tab_inv2_v2", "horn_inv2", []string{"-v:2", "fixedpoint.engine=tab"}},
+	{"tab_count_v1", "horn_count", []string{"-v:1", "fixedpoint.engine=tab"}},
+	{"tab_count_v2", "horn_count", []string{"-v:2", "fixedpoint.engine=tab"}},
+	// bmc::query's display_rules at level 2.
+	{"bmc_count_v2", "horn_count", []string{"-v:2", "fixedpoint.engine=bmc"}},
+	// pdr farkas_learner's combined lemma.
+	{"pdr_inv2_v2", "horn_inv2", []string{"-v:2", "fixedpoint.engine=pdr"}},
 }
 
 // verboseProgressFiltered keeps, for each case, only the lines starting

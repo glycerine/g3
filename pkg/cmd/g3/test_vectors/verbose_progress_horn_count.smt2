@@ -1,0 +1,6 @@
+(set-logic HORN)
+(declare-fun inv (Int) Bool)
+(assert (forall ((x Int)) (=> (= x 0) (inv x))))
+(assert (forall ((x Int)) (=> (and (inv x) (< x 5)) (inv (+ x 1)))))
+(assert (forall ((x Int)) (=> (and (inv x) (= x 5)) false)))
+(check-sat)

@@ -12,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/muz/bmc"
 	"github.com/glycerine/g3/pkg/muz/transforms"
 	"github.com/glycerine/g3/pkg/util/cooperate"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/symbol"
@@ -264,6 +265,14 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 	}
 	if canceled {
 		return lbool.Undef, z3exception.NewDefaultException(e.manager.ResourceLimit().CancelMessage())
+	}
+	// IF_VERBOSE(2, m_ctx.display_rules(verbose_stream())) after the
+	// context's rules are restored (AUDIT.md FUZZ-F5; g3trace builds only).
+	// The nonlinear proof retry re-enters here; the source prints once.
+	if diagnostic.VerboseProgress && !e.forceProofTrace {
+		if err = e.writeBMCContextRules(sourceDeclaration); err != nil {
+			return lbool.Undef, err
+		}
 	}
 	if len(group) == 0 {
 		return lbool.False, nil

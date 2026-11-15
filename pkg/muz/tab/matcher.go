@@ -46,7 +46,8 @@ func (m *SemanticMatcher) equal(left, right ast.ASTHandle) (lbool.LBool, error) 
 		return lbool.Undef, err
 	}
 	if leftValue && rightValue {
-		return lbool.False, nil
+		// IF_VERBOSE(2, "different:" << mk_pp(s) << " " << mk_pp(t)) (AUDIT.md FUZZ-F5).
+		return lbool.False, tabVerbosePair(m.manager, "different:", left, right)
 	}
 	leftDecl, leftConstructor, err := m.manager.DatatypeConstructorApp(left)
 	if err != nil {
@@ -60,7 +61,7 @@ func (m *SemanticMatcher) equal(left, right ast.ASTHandle) (lbool.LBool, error) 
 		return lbool.Undef, nil
 	}
 	if leftDecl != rightDecl {
-		return lbool.False, nil
+		return lbool.False, tabVerbosePair(m.manager, "different constructors:", left, right)
 	}
 	count, err := m.manager.GetNumArgs(left)
 	if err != nil {
@@ -148,7 +149,7 @@ func (m *SemanticMatcher) Match(pattern, term ast.ASTHandle, bindings *substitut
 			return false, err
 		}
 		if kind != ast.ASTApp {
-			return false, nil
+			return false, tabVerboseText(2, "term is not app\n")
 		}
 		kind, err = m.manager.GetKind(current.pattern)
 		if err != nil {
@@ -172,13 +173,18 @@ func (m *SemanticMatcher) Match(pattern, term ast.ASTHandle, bindings *substitut
 			}
 			left = binding.Expr()
 		} else if kind != ast.ASTApp {
-			return false, nil
+			return false, tabVerboseText(2, "pattern is not app\n")
 		}
 		state, err := m.equal(left, current.term)
 		if err != nil {
 			return false, err
 		}
 		if state == lbool.False {
+			// A bound variable whose match_var fails falls through to the
+			// source's !is_app(p) test.
+			if kind == ast.ASTVar {
+				return false, tabVerboseText(2, "pattern is not app\n")
+			}
 			return false, nil
 		}
 		if state == lbool.Undef {

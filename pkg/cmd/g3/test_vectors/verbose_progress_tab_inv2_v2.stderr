@@ -1,0 +1,43 @@
+g0 (and (inv (:var 1) (:var 0)) (not (<= (:var 0) (* 2 (:var 1)))))
+select-predicate
+score: (inv (:var 1) (:var 0)) 1
+select 0
+(inv (:var 1) (:var 0))
+select-rule
+select-rule
+(smt.searching)
+r1: (=> (and (inv (:var 1) (:var 0))
+         (not (<= 10 (:var 1)))
+         (= (:var 3) (+ 2 (:var 0)))
+         (= (:var 2) (+ 1 (:var 1))))
+    (inv (:var 2) (:var 3)))
+g1 {g0 inv pos: 0 rule: 1}
+(and (inv (:var 1) (:var 0))
+     (not (<= 10 (:var 1)))
+     (not (<= (:var 0) (* 2 (:var 1)))))
+setup-match: (inv k!1 k!0) (and (not (<= 10 k!1)) (not (<= k!0 (* 2 k!1))))
+select-predicate
+score: (inv (:var 1) (:var 0)) 1
+select 0
+(inv (:var 1) (:var 0))
+select-rule
+select-rule
+(smt.searching)
+g2 {g1 inv pos: 0 rule: 1}
+(and (inv (:var 1) (:var 0))
+     (not (<= (:var 0) (* 2 (:var 1))))
+     (not (<= 10 (:var 1)))
+     (not (<= 9 (:var 1))))
+setup-match: (inv k!1 k!0) (and (not (<= k!0 (* 2 k!1))) (not (<= 10 k!1)) (not (<= 9 k!1)))
+try-match
+(and (inv (:var 1) (:var 0))
+     (not (<= 10 (:var 1)))
+     (not (<= (:var 0) (* 2 (:var 1)))))
+(inv (:var 1) (:var 0)) = (inv k!1 k!0)
+ check: (and (not (<= k!0 (* 2 k!1))) (not (<= 10 k!1)))
+subsumed by g1
+select-rule
+backtrack
+select-rule
+backtrack
+sat

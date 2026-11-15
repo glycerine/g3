@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -166,6 +167,16 @@ func TestTabQuerySelectionVerboseTranscriptAndState(t *testing.T) {
 						}
 						want = "g0 (diagnostic-p 0)\n(diagnostic-p 0)\n" + searching + "(diagnostic-q 0)\n" + searching + "true\ng3 (diagnostic-p 1)\n(diagnostic-p 1)\n" + searching + "(diagnostic-q 1)\n"
 					}
+				}
+				if diagnostic.VerboseProgress && !refuse && level > 0 {
+					// g3trace builds add the AUDIT.md FUZZ-F5 search lines
+					// (instructions, apply_rule, subsumption, certificate);
+					// cmd/g3's verbose_progress_test compares them with
+					// build/z3. Only the initial goal line is fixed here.
+					if !strings.HasPrefix(output.String(), "g0 (diagnostic-p 0)\n") {
+						t.Fatalf("source query transcript start: %q", output.String())
+					}
+					return
 				}
 				if output.String() != want {
 					t.Fatalf("source query/selection transcript\ngot  %q\nwant %q", output.String(), want)

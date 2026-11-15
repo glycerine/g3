@@ -4,12 +4,14 @@ package tab
 
 import (
 	"errors"
+	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/qe"
 	"github.com/glycerine/g3/pkg/solver"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -31,6 +33,8 @@ type tabSearch struct {
 	// unifier is imp::m_unifier when there is no session.
 	unifier *unifierMembers
 	closed  bool
+	// displayedRules is imp::m_displayed_rules (verbose only).
+	displayedRules map[*Clause]bool
 }
 
 // groundedSlot is the source index's m_head/m_preds/m_precond: a member of
@@ -209,6 +213,24 @@ func (s *tabSearch) Run() (lbool.LBool, error) {
 	selectPredicate := true
 	backtrack, complete := false, false
 	for {
+		// run(): IF_VERBOSE(2, m_instruction << "\n") before the
+		// cancellation test (AUDIT.md FUZZ-F5; g3trace builds only).
+		if diagnostic.VerboseProgress {
+			instruction := "select-rule"
+			switch {
+			case complete:
+				instruction = "unsat"
+			case len(s.stack) == 0:
+				instruction = "sat"
+			case backtrack:
+				instruction = "backtrack"
+			case selectPredicate:
+				instruction = "select-predicate"
+			}
+			if err := verboseInstruction(instruction); err != nil {
+				return lbool.Undef, err
+			}
+		}
 		canceled, err := s.manager.Canceled()
 		if err != nil {
 			return lbool.Undef, err
@@ -219,6 +241,13 @@ func (s *tabSearch) Run() (lbool.LBool, error) {
 		// Source run checks cancellation before interpreting SATISFIABLE or
 		// UNSATISFIABLE, including after the empty-clause diagnostic.
 		if complete {
+			// UNSATISFIABLE: IF_VERBOSE(1, display_certificate(verbose_stream()))
+			// (AUDIT.md FUZZ-F5; g3trace builds only).
+			if diagnostic.VerboseProgress {
+				if err = s.verboseCertificate(); err != nil {
+					return lbool.Undef, err
+				}
+			}
 			return lbool.True, nil
 		}
 		if len(s.stack) == 0 {
@@ -302,11 +331,17 @@ func (s *tabSearch) Run() (lbool.LBool, error) {
 		child.index = uint32(len(s.stack))
 		child.sequence = s.nextSequence
 		s.nextSequence++
-		found, _, e := isClauseSubsumedRetaining(child, s.index, s.lite, s.subsumptionSolver, s.groundedSlot(), s.modelEvaluator)
+		if e = s.verboseApplyRule(current, rule, child); e != nil {
+			return lbool.Undef, errors.Join(e, child.Close())
+		}
+		found, subsumer, e := isClauseSubsumedRetaining(child, s.index, s.lite, s.subsumptionSolver, s.groundedSlot(), s.modelEvaluator)
 		if e != nil {
 			return lbool.Undef, errors.Join(e, child.Close())
 		}
 		if found {
+			if e = tabVerboseText(1, "subsumed by g"+strconv.FormatUint(uint64(subsumer), 10)+"\n"); e != nil {
+				return lbool.Undef, errors.Join(e, child.Close())
+			}
 			s.subsumed++
 			if e = child.Close(); e != nil {
 				return lbool.Undef, e

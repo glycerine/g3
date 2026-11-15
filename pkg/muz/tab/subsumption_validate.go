@@ -14,6 +14,12 @@ import (
 )
 
 func validateSubsumption(m *ast.ASTManager, candidate *Clause, bindings *substitution.Substitution, side []ast.ASTRef, lite *qe.Lite, smt solver.Solver, falseLiterals map[ast.ASTHandle]ast.ASTRef, evaluator *model.ModelEvaluatorConfig) (valid bool, err error) {
+	return validateSubsumptionFor(nil, m, candidate, bindings, side, lite, smt, falseLiterals, evaluator)
+}
+
+// validateSubsumptionFor is check_substitution; query is index::m_clause,
+// which only the verbose non-ground diagnostic prints.
+func validateSubsumptionFor(query *Clause, m *ast.ASTManager, candidate *Clause, bindings *substitution.Substitution, side []ast.ASTRef, lite *qe.Lite, smt solver.Solver, falseLiterals map[ast.ASTHandle]ast.ASTRef, evaluator *model.ModelEvaluatorConfig) (valid bool, err error) {
 	if m == nil || candidate == nil || candidate.closed || candidate.manager != m || bindings == nil || lite == nil || smt == nil {
 		return false, ast.ErrASTHandle
 	}
@@ -98,9 +104,17 @@ func validateSubsumption(m *ast.ASTManager, candidate *Clause, bindings *substit
 	if m.IsTrue(h) {
 		return true, nil
 	}
-	ground, err := m.IsGround(h)
-	if err != nil || !ground {
+	// IF_VERBOSE(2, num_predicates spaces, "check: " << mk_pp(postcond, m,
+	// 7 + num_predicates)) (AUDIT.md FUZZ-F5; g3trace builds only).
+	if err = tabVerboseCheck(m, len(candidate.predicates), h); err != nil {
 		return false, err
+	}
+	ground, err := m.IsGround(h)
+	if err != nil {
+		return false, err
+	}
+	if !ground {
+		return false, tabVerboseNonGround(m, h, query, candidate)
 	}
 	negated, err := m.MkNot(h)
 	if err != nil {
