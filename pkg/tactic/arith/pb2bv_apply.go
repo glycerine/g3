@@ -236,8 +236,19 @@ func (t *PB2BVTactic) publishModel(result *tactic.TacticResult) (err error) {
 	if err = filter.BindTrace(t.trace, t.globals); err != nil {
 		return err
 	}
+	// Both the filter and pb2bv_model_converter's constructor iterate
+	// m_const2bit (obj_map<func_decl, expr*>) in table order.
+	decls := make([]ast.ASTHandle, len(t.entries))
+	for i, entry := range t.entries {
+		decls[i] = entry.declaration
+	}
+	order, err := pbObjMapOrder(m, decls)
+	if err != nil {
+		return err
+	}
 	bindings := make([]PB2BVBinding, 0, len(t.entries))
-	for _, entry := range t.entries {
+	for _, i := range order {
+		entry := t.entries[i]
 		decl, e := m.GetDecl(entry.positive)
 		if e != nil {
 			return e

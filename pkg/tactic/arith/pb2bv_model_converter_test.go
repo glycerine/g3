@@ -191,3 +191,50 @@ func TestPB2BVModelConverterAllocationFrontiers(t *testing.T) {
 		}
 	}
 }
+
+// AUDIT.md tactic_arith_03-F4: the filter and pb2bv_model_converter both
+// iterate m_const2bit (obj_map<func_decl, expr*>) in table order.
+func TestPB2BVModelConverterObjMapOrder(t *testing.T) {
+	r := pbTacticFixture(t)
+	m := r.manager
+	var forms, terms []ast.ASTHandle
+	names := map[ast.ASTHandle]string{}
+	for i := 0; i < 12; i++ {
+		x := fixDLConst(t, m, true, fmt.Sprintf("x%d", i))
+		d, err := m.GetDecl(x)
+		equationMust(t, err)
+		names[d] = fmt.Sprintf("x%d", i)
+		forms = append(forms, diffNeqTestBounds(t, m, x, "1")...)
+		terms = append(terms, fixDLApp(t, m, 9, fixDLNumber(t, m, true, fmt.Sprint(i+1)), x))
+	}
+	forms = append(forms, fixDLApp(t, m, 3, fixDLApp(t, m, 6, terms...), fixDLNumber(t, m, true, "20")))
+	g := fixDLGoal(t, m, false, true, false, forms...)
+	var out tactic.TacticResult
+	t.Cleanup(func() { equationMust(t, out.Close()) })
+	equationMust(t, r.Apply(g, &out))
+	if len(r.entries) < 9 {
+		t.Fatal("entries", len(r.entries))
+	}
+	decls := make([]ast.ASTHandle, len(r.entries))
+	for i, entry := range r.entries {
+		decls[i] = entry.declaration
+	}
+	order, err := pbObjMapOrder(m, decls)
+	equationMust(t, err)
+	var display bytes.Buffer
+	equationMust(t, out.ModelConverter.Display(&display))
+	text := display.String()
+	last, inOrder := -1, true
+	for k, i := range order {
+		s := names[decls[i]]
+		at := bytes.Index([]byte(text), []byte("("+s+" "))
+		if at < 0 || at < last {
+			t.Fatalf("binding %d (%s) out of obj_map order:\n%s", k, s, text)
+		}
+		last = at
+		inOrder = inOrder && i == k
+	}
+	if inOrder {
+		t.Fatal("fixture does not distinguish obj_map order from creation order")
+	}
+}
