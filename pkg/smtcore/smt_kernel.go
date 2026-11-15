@@ -735,6 +735,22 @@ func (k *SMTKernel) UpdateParams(params *uparams.ParamsRef) error {
 	return err
 }
 
+// UpdateContextParams is context::updt_params: m_params.append(p) and
+// m_asserted_formulas.updt_params(p), which also only appends. Unlike
+// UpdateParams (smt_solver::updt_params) it leaves smt_params unchanged.
+func (k *SMTKernel) UpdateContextParams(params *uparams.ParamsRef) error {
+	if err := k.open(); err != nil {
+		return err
+	}
+	if k.paramContext == nil || !k.assertedParamsReady {
+		return uparams.ErrParamsOwner
+	}
+	if params == nil {
+		return nil
+	}
+	return k.paramContext.Append(&k.assertedParams, params)
+}
+
 func (k *SMTKernel) open() error {
 	if err := k.openOwner(); err != nil {
 		return err

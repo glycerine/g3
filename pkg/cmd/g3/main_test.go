@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// smtcore_01-F5: tactic smt params do not reach ctx-solver-simplify's kernel.
+	"ctx_solver_simplify_ignores_tactic_smt_params.smt2": "(goals\n(goal\n  a\n  (or c d)\n  (or (not a) c)\n  (or (not a) q)\n  :precision precise :depth 1)\n)\n(goals\n(goal\n  a\n  (or c d)\n  (or (not a) c)\n  (or (not a) q)\n  :precision precise :depth 1)\n)\n",
 	// AUDIT.md smtcore_12-F4 / math_misc_02-F3: PB simplex pivot tie-break and
 	// sparse_matrix slot reuse; TestPBSimplexStatisticsMatchSource checks -st.
 	"pb_simplex_pivot_stats.smt2":    "sat\n",

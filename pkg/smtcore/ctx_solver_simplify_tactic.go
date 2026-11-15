@@ -78,11 +78,13 @@ func NewContextSolverSimplifyTactic(m *ast.ASTManager, p *uparams.ParamsRef, con
 	if err == nil {
 		t.boolSort, err = m.MkBoolSort()
 	}
+	// m_solver(m, m_front_p) and m_mk_app(m): both use default parameters.
+	// The constructor's p is only kept in m_params for translate.
 	if err == nil {
-		t.solver, err = NewSMTSolver(m, &t.params, "", config)
+		t.solver, err = NewSMTSolver(m, nil, "", config)
 	}
 	if err == nil {
-		t.mkApp, err = rewriter.NewSimplifiedApp(m, config.Params, config.Globals, &t.params)
+		t.mkApp, err = rewriter.NewSimplifiedApp(m, config.Params, config.Globals, nil)
 	}
 	t.fns = ast.NewObjMap(m)
 	if err == nil {
@@ -563,10 +565,10 @@ func (t *ContextSolverSimplifyTactic) UpdateParams(p *uparams.ParamsRef) error {
 	if err := t.open(); err != nil {
 		return err
 	}
-	if err := t.config.Params.Assign(&t.params, p); err != nil {
-		return err
-	}
-	return t.solver.UpdateParams(p)
+	// updt_params is m_solver.updt_params(p), i.e. kernel ->
+	// context::updt_params: it only appends p to the context and
+	// asserted-formulas params_ref; m_front_p and m_params are unchanged.
+	return t.solver.kernel.UpdateContextParams(p)
 }
 func (t *ContextSolverSimplifyTactic) CollectParamDescrs(d *uparams.ParamDescrs) error {
 	if err := t.open(); err != nil {
@@ -593,7 +595,10 @@ func (t *ContextSolverSimplifyTactic) Cleanup() error {
 	}
 	t.steps = 0
 	old := t.solver
-	next, err := NewSMTSolver(t.manager, &t.params, "", t.config)
+	// kernel::reset rebuilds the context from the same m_front_p (as setup
+	// left it) and the kernel's constructor params_ref (empty here); the
+	// params appended by updt_params are dropped.
+	next, err := newSMTSolver(t.manager, nil, "", t.config, old.kernel.smtParams)
 	if err != nil {
 		return err
 	}

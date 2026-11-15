@@ -1,0 +1,8 @@
+(declare-const a Bool)
+(declare-const b Bool)
+(declare-const c Bool)
+(declare-const d Bool)
+(declare-const q Bool)
+(assert (and (or a b d) (or a (not b) d) (or a b (not d)) (or a (not b) (not d)) (or (not a) c d) (or (not a) c (not d)) (or (not a) (not c) q)))
+(apply ctx-solver-simplify)
+(apply (using-params ctx-solver-simplify :max_conflicts 0))
