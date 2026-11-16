@@ -222,7 +222,7 @@ func TestLARFloatingSignatureIndependentFeasibilityModels(t *testing.T) {
 				t.Fatal("independent feasibility", world, c.DX, target)
 			}
 			if target > 0 {
-				if !reflect.DeepEqual(trace, []uint32{1, 0}) || !reflect.DeepEqual(c.DBasis, []uint32{1}) || math.Abs(c.DX[0]-target) > 1e-9 || math.Abs(c.DX[1]+target/2) > 1e-9 {
+				if !reflect.DeepEqual(trace, []uint32{1, 0}) || !reflect.DeepEqual(c.DBasis, []uint32{1}) || math.Abs(c.DX[0]-target) > 1e-9 || math.Abs(c.DX[1]+float64(target/2)) > 1e-9 {
 					t.Fatal("independent exchanged solution", world, trace, c.DX, c.DBasis)
 				}
 				if !lpSignatureEqual(signature, map[uint32]NonBasicColumnValuePosition{0: PositionAtLowBound, 2: PositionAtFixed}) {

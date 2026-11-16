@@ -43,9 +43,9 @@ func TestLPFloatDualPreparationIndependentModels(t *testing.T) {
 					v = -v
 				}
 				m.SetRowColumnCoefficient(uint32(i), uint32(j), v)
-				shift += v * m.Columns[uint32(j)].Shift()
+				shift += float64(v * m.Columns[uint32(j)].Shift())
 			}
-			lpStaticMust(t, m.AddConstraint(LPRelation(i%3), shift+float64(rng.Intn(11)-5)/2, uint32(i)))
+			lpStaticMust(t, m.AddConstraint(LPRelation(i%3), shift+float64(float64(rng.Intn(11)-5)/2), uint32(i)))
 		}
 		lpStaticMust(t, m.FlipCosts())
 		lpStaticMust(t, m.FillMatrixAAndInitRightSide())
@@ -195,7 +195,7 @@ func TestLPFloatDualPreparationIndependentModels(t *testing.T) {
 		for i, row := range m.A.Rows {
 			sum := 0.0
 			for _, c := range row {
-				sum += c.Value * m.X[c.Column]
+				sum += float64(c.Value * m.X[c.Column])
 			}
 			if math.Abs(sum-b[i]) > 1e-8 || core.Betas[i] != 1 {
 				t.Fatal(world, i, sum, b[i])

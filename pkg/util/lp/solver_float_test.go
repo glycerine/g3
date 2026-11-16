@@ -61,7 +61,7 @@ func TestLPFloatSolverIndependentAssemblyScalingAndRestoration(t *testing.T) {
 			}
 			c.Cost = float64(rng.Intn(17)-8) / 4
 			coreValue[j] = float64(rng.Intn(9)-4) / 4
-			externalX[j] = shift[j] + sign[j]*coreValue[j]
+			externalX[j] = shift[j] + float64(sign[j]*coreValue[j])
 		}
 		ro, co := rng.Perm(nr), rng.Perm(nc)
 		for i := range a {
@@ -75,7 +75,7 @@ func TestLPFloatSolverIndependentAssemblyScalingAndRestoration(t *testing.T) {
 					v = -v
 				}
 				a[i][j] = v
-				rhs += v * externalX[j]
+				rhs += float64(v * externalX[j])
 				m.SetRowColumnCoefficient(uint32(100+11*i), uint32(10+7*j), v)
 			}
 			if err := m.AddConstraint(LPRelation(i%3), rhs, uint32(100+11*i)); err != nil {
@@ -127,7 +127,7 @@ func TestLPFloatSolverIndependentAssemblyScalingAndRestoration(t *testing.T) {
 					t.Fatal("column order")
 				}
 				lpScalerNear(t, cell(r, c), a[i][j]*sign[j])
-				wantB += a[i][j] * (externalX[j] - shift[j])
+				wantB += float64(a[i][j] * (externalX[j] - shift[j]))
 			}
 			lpScalerNear(t, m.B[r], wantB)
 		}
@@ -148,14 +148,14 @@ func TestLPFloatSolverIndependentAssemblyScalingAndRestoration(t *testing.T) {
 			if err := m.SetScaledCost(uint32(c)); err != nil {
 				t.Fatal(err)
 			}
-			gotCost += m.Costs[c] * x[c]
-			wantCost += m.Columns[uint32(10+7*j)].Cost * (externalX[j] - shift[j])
+			gotCost += float64(m.Costs[c] * x[c])
+			wantCost += float64(m.Columns[uint32(10+7*j)].Cost * (externalX[j] - shift[j]))
 		}
 		lpScalerNear(t, gotCost, wantCost)
 		for r, row := range m.A.Rows {
 			var sum float64
 			for _, c := range row {
-				sum += c.Value * x[c.Column]
+				sum += float64(c.Value * x[c.Column])
 			}
 			lpScalerNear(t, sum, m.B[r])
 		}

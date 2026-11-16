@@ -41,7 +41,7 @@ func TestLPFloatPrimalRefreshIndependentBasisWorlds(t *testing.T) {
 			for i := 0; i < rows; i++ {
 				v := 0.0
 				for k := 0; k < rows; k++ {
-					v += b[i][k] * coord[j][k]
+					v += float64(b[i][k] * coord[j][k])
 				}
 				lpStaticMust(t, in.A.Set(uint32(i), uint32(j), v))
 			}
@@ -74,7 +74,7 @@ func TestLPFloatPrimalRefreshIndependentBasisWorlds(t *testing.T) {
 		for i := 0; i < rows; i++ {
 			v := coord[enter][i]
 			for k := 0; k < i; k++ {
-				v -= b[k][i] * beta[k]
+				v -= float64(b[k][i] * beta[k])
 			}
 			beta[i] = v / b[i][i]
 			if math.Abs(m.Beta.Data[i]-beta[i]) > 1e-10 {
@@ -84,7 +84,7 @@ func TestLPFloatPrimalRefreshIndependentBasisWorlds(t *testing.T) {
 		for j := 0; j < cols; j++ {
 			m.ColumnNorms[j] = 1
 			for _, v := range coord[j] {
-				m.ColumnNorms[j] += v * v
+				m.ColumnNorms[j] += float64(v * v)
 			}
 		}
 		lpStaticMust(t, m.ChangeBasis(enter, leave))
@@ -102,14 +102,14 @@ func TestLPFloatPrimalRefreshIndependentBasisWorlds(t *testing.T) {
 			transformed[row] = coord[j][row] / coord[enter][row]
 			for i := 0; i < rows; i++ {
 				if i != row {
-					transformed[i] -= coord[enter][i] * transformed[row]
+					transformed[i] -= float64(coord[enter][i] * transformed[row])
 				}
 			}
 			wantNorm := 1.0
 			wantCost := (*in.Costs)[j]
 			for i, v := range transformed {
-				wantNorm += v * v
-				wantCost -= (*in.Costs)[(*in.Basis)[i]] * v
+				wantNorm += float64(v * v)
+				wantCost -= float64((*in.Costs)[(*in.Basis)[i]] * v)
 			}
 			if math.Abs(m.ColumnNorms[j]-wantNorm) > 1e-9 || math.Abs(m.D[j]-wantCost) > 1e-9 {
 				t.Fatalf("world %d j %d norm %g want %g cost %g want %g", world, j, m.ColumnNorms[j], wantNorm, m.D[j], wantCost)

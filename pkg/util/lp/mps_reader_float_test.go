@@ -80,7 +80,7 @@ func TestLPFloatMPSIndependentOptima(t *testing.T) {
 			}
 		}
 		for i := range b {
-			if a[i][0]*solution["x"]+a[i][1]*solution["y"] > b[i]+1e-7 {
+			if float64(a[i][0]*solution["x"])+float64(a[i][1]*solution["y"]) > b[i]+1e-7 {
 				t.Fatal(world, i, solution)
 			}
 		}

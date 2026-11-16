@@ -59,11 +59,11 @@ func TestLPFloatPrimalAdvanceIndependentRayWorlds(t *testing.T) {
 					v = 1
 				}
 				lpStaticMust(t, in.A.Set(i, j, v))
-				incoming += v * ed[j]
-				rhs += v * before[j]
+				incoming += float64(v * ed[j])
+				rhs += float64(v * before[j])
 			}
 			lpStaticMust(t, in.A.Set(i, rows, incoming))
-			(*in.B)[i] = rhs + incoming*(*in.X)[rows]
+			(*in.B)[i] = rhs + float64(incoming*(*in.X)[rows])
 		}
 		(*in.Costs)[rows] = 2 * sign
 		m, err := NewFloatPrimalCoreSolver(in)
@@ -91,7 +91,7 @@ func TestLPFloatPrimalAdvanceIndependentRayWorlds(t *testing.T) {
 			t.Fatal(world, m.Status, *in.Basis, m.NonBasisList)
 		}
 		for i := uint32(0); i < rows; i++ {
-			want := before[i] - theta*math.Abs(ed[i])
+			want := before[i] - float64(theta*math.Abs(ed[i]))
 			if math.Abs((*in.X)[i]-want) > 1e-9 {
 				t.Fatal(world, i, (*in.X)[i], want)
 			}
@@ -100,7 +100,7 @@ func TestLPFloatPrimalAdvanceIndependentRayWorlds(t *testing.T) {
 		if sign < 0 {
 			initial = 100
 		}
-		if math.Abs((*in.X)[rows]-(initial+theta*sign)) > 1e-9 {
+		if math.Abs((*in.X)[rows]-(initial+float64(theta*sign))) > 1e-9 {
 			t.Fatal(world, *in.X)
 		}
 		if math.Abs(m.D[leave]+2/math.Abs(ed[leave])) > 1e-9 || m.D[rows] != 0 {

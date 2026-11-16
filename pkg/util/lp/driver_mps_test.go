@@ -116,7 +116,7 @@ func TestLPMPSDriverIndependentFileMinMax(t *testing.T) {
 							found = true
 						}
 					}
-					if !found || gotX < 0 || gotX > float64(u) || gotY < 0 || gotY > float64(v) || gotX+gotY > float64(rhs) || gotX*float64(cx)+gotY*float64(cy) != float64(want) {
+					if !found || gotX < 0 || gotX > float64(u) || gotY < 0 || gotY > float64(v) || gotX+gotY > float64(rhs) || float64(gotX*float64(cx))+float64(gotY*float64(cy)) != float64(want) {
 						t.Fatal("independent reported model", world, minimum, gotX, gotY)
 					}
 				}

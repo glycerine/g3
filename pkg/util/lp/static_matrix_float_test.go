@@ -201,7 +201,7 @@ func TestLPFloatStaticMatrixIndependentPivotOracle(t *testing.T) {
 			}
 			key := IndexPair{target, j}
 			v, old := want[key]
-			v -= alpha * p
+			v -= float64(alpha * p)
 			if old && v == 0 {
 				delete(want, key)
 				canceled++

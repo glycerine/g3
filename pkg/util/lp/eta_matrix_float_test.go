@@ -21,7 +21,7 @@ func lpFloatMatrixProduct(a, b [][]float64) [][]float64 {
 		for j := range out[i] {
 			out[i][j] = 0
 			for k := range b {
-				out[i][j] += a[i][k] * b[k][j]
+				out[i][j] += float64(a[i][k] * b[k][j])
 			}
 		}
 	}
@@ -44,7 +44,7 @@ func lpFloatMatrixVector(m [][]float64, v []float64, right bool) []float64 {
 			if right {
 				coefficient = m[j][i]
 			}
-			out[i] += coefficient * v[j]
+			out[i] += float64(coefficient * v[j])
 		}
 	}
 	return out

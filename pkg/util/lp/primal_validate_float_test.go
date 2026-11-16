@@ -33,14 +33,14 @@ func TestLPFloatPrimalValidationIndependentRows(t *testing.T) {
 			sum := 0.0
 			for j := 0; j < 5; j++ {
 				coeff[j] = float64(rng.Intn(9)-4) / 2
-				sum += coeff[j] * values[j]
+				sum += float64(coeff[j] * values[j])
 			}
 			// Dictionary order differs from the independent dense coordinate sum.
 			for _, j := range rng.Perm(5) {
 				m.SetRowColumnCoefficient(uint32(i), uint32(j), coeff[j])
 			}
 			relation := LPRelation((world + i) % 3)
-			offset := float64(rng.Intn(3)-1) / 4
+			offset := float64(float64(rng.Intn(3)-1) / 4)
 			right := sum + offset
 			lpStaticMust(t, m.AddConstraint(relation, right, uint32(i)))
 			want := false

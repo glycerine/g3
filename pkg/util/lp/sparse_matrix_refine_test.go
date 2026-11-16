@@ -115,7 +115,7 @@ func TestLPSparseIndexedRefinementIndependentOracle(t *testing.T) {
 				sum := float64(0)
 				for j := range a[i] {
 					v, _ := a[i][j].Float64()
-					sum += v * y.Data[j]
+					sum += float64(v * y.Data[j])
 				}
 				rhs, _ := b[i].Float64()
 				if math.Abs(sum-rhs) > 3e-13*(1+math.Abs(rhs)) {

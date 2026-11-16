@@ -59,7 +59,7 @@ func TestLPFloatCoreValueReconstructionIndependentOracle(t *testing.T) {
 				if err := in.A.Set(uint32(i), uint32(j), v); err != nil {
 					t.Fatal(err)
 				}
-				(*in.B)[i] += v * known[j]
+				(*in.B)[i] += float64(v * known[j])
 			}
 			(*in.X)[order[i]] = 99
 		}

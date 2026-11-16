@@ -47,8 +47,8 @@ func TestLPFloatCoreNumericalBasisUpdateIndependentOracle(t *testing.T) {
 		for i, row := range m.A.Rows {
 			var incoming, rhs float64
 			for _, c := range row {
-				incoming += c.Value * d[c.Column]
-				rhs += c.Value * before[c.Column]
+				incoming += float64(c.Value * d[c.Column])
+				rhs += float64(c.Value * before[c.Column])
 			}
 			if err := m.A.Set(uint32(i), uint32(r), incoming); err != nil {
 				t.Fatal(err)
@@ -83,7 +83,7 @@ func TestLPFloatCoreNumericalBasisUpdateIndependentOracle(t *testing.T) {
 		for j, x := range *m.X {
 			want := step
 			if j < r {
-				want = before[j] - step*d[j]
+				want = before[j] - float64(step*d[j])
 			}
 			if math.Abs(x-want) > 1e-10 {
 				t.Fatal("independent nullspace update", world, j, x, want)

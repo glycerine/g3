@@ -47,7 +47,7 @@ func TestLPFloatDualOuterIndependentVertices(t *testing.T) {
 			m.SetRowColumnCoefficient(row, 10, a)
 			m.SetRowColumnCoefficient(row, 11, b)
 			m.SetRowColumnCoefficient(row, 99, float64(i+1))
-			lpStaticMust(t, m.AddConstraint(RelationLessOrEqual, bound+a*shift[0]+b*shift[1]+5*float64(i+1), row))
+			lpStaticMust(t, m.AddConstraint(RelationLessOrEqual, bound+float64(a*shift[0])+float64(b*shift[1])+float64(5*float64(i+1)), row))
 		}
 		for j := 0; j < 2; j++ {
 			if boxed[j] {
@@ -65,7 +65,7 @@ func TestLPFloatDualOuterIndependentVertices(t *testing.T) {
 			copy(a[i], row)
 			a[i][2+i] = 1
 		}
-		want := lpVertexMaximum(a, rhs, c) + cost[0]*shift[0] + cost[1]*shift[1] + 10
+		want := lpVertexMaximum(a, rhs, c) + float64(cost[0]*shift[0]) + float64(cost[1]*shift[1]) + 10
 		lpStaticMust(t, m.FindMaximalSolution())
 		got, err := m.GetCurrentCost()
 		lpStaticMust(t, err)
@@ -81,7 +81,7 @@ func TestLPFloatDualOuterIndependentVertices(t *testing.T) {
 			}
 		}
 		for i, row := range inequalities {
-			lhs := row[0]*(values[0]-shift[0]) + row[1]*(values[1]-shift[1])
+			lhs := float64(row[0]*(values[0]-shift[0])) + float64(row[1]*(values[1]-shift[1]))
 			if lhs > rhs[i]+1e-7 {
 				t.Fatal(world, i, lhs, rhs[i])
 			}

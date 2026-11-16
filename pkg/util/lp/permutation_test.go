@@ -220,9 +220,9 @@ func TestLPFloatPermutationIndependentDenseAndSparseProducts(t *testing.T) {
 				for j := range dense {
 					switch op {
 					case "left", "reverse-right-t", "reverse-right-x":
-						want[i] += float64(matrix[i][j]) * dense[j]
+						want[i] += float64(float64(matrix[i][j]) * dense[j])
 					default:
-						want[i] += dense[j] * float64(matrix[j][i])
+						want[i] += float64(dense[j] * float64(matrix[j][i]))
 					}
 				}
 			}

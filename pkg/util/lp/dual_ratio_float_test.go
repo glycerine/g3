@@ -132,7 +132,7 @@ func TestLPFloatDualHarrisIndependentWindows(t *testing.T) {
 			(*m.ColumnTypes)[j] = ColumnBoxed
 			(*m.LowBounds)[j], (*m.UpperBounds)[j] = 0, 10
 			(*m.X)[j] = 0
-			d := float64((world+int(j))%13) / 8
+			d := float64(float64((world+int(j))%13) / 8)
 			a := float64(j) / 4
 			m.D[j], m.PivotRow.Data[j] = d, a
 			if (world+int(j))%2 == 0 {
@@ -313,13 +313,13 @@ func TestLPFloatDualFlipsIndependentEquations(t *testing.T) {
 			(*m.B)[i] = float64(i+world) / 4
 			x := (*m.B)[i]
 			for j := 3; j < 8; j++ {
-				x -= float64((world+i+j)%7-3) / 4 * old[j]
+				x -= float64(float64((world+i+j)%7-3) / 4 * old[j])
 			}
 			(*m.X)[i] = x
 		}
 		lpStaticMust(t, m.UpdateDAndXB())
 		for j := 3; j < 8; j++ {
-			want := float64(j) - m.ThetaD*float64(j-5)/4
+			want := float64(j) - float64(m.ThetaD*float64(j-5)/4)
 			if m.D[j] != want {
 				t.Fatal(world, j, m.D[j], want)
 			}
@@ -343,7 +343,7 @@ func TestLPFloatDualFlipsIndependentEquations(t *testing.T) {
 		for i := 0; i < 3; i++ {
 			lhs := (*m.X)[i]
 			for j := 3; j < 8; j++ {
-				lhs += float64((world+i+j)%7-3) / 4 * (*m.X)[j]
+				lhs += float64(float64((world+i+j)%7-3) / 4 * (*m.X)[j])
 			}
 			if lhs != (*m.B)[i] {
 				t.Fatal(world, i, lhs, (*m.B)[i])

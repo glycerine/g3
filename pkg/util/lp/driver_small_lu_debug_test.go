@@ -68,7 +68,7 @@ func TestLPSmallLUDriverIndependentExtendedSolves(t *testing.T) {
 			}
 			for i := range rhs {
 				for j := range x {
-					rhs[i] += b[i][j] * x[j]
+					rhs[i] += float64(b[i][j] * x[j])
 				}
 			}
 			if err := d.LU.SolveBy(rhs[:]); err != nil {

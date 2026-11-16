@@ -37,7 +37,7 @@ func TestLPFloatDualCoreIndependentDualVectors(t *testing.T) {
 		for _, j := range []uint32{1, 3, 5} {
 			want := float64(j)
 			for i, v := range y {
-				want -= v * float64(i+int(j)+1) / 4
+				want -= float64(v * float64(i+int(j)+1) / 4)
 			}
 			if math.Abs(m.D[j]-want) > 1e-12 {
 				t.Fatal(world, j, m.D[j], want)

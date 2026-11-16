@@ -20,7 +20,7 @@ func TestLPFloatPrimalHarrisIndependentBounds(t *testing.T) {
 		for i := 0; i < 8; i++ {
 			low := float64(r.Intn(30) - 20)
 			upper := low + float64(1+r.Intn(20))
-			x := low + (upper-low)*r.Float64()
+			x := low + float64((upper-low)*r.Float64())
 			(*m.LowBounds)[i] = low
 			(*m.UpperBounds)[i] = upper
 			(*m.X)[i] = x

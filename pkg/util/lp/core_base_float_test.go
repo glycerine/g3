@@ -183,7 +183,7 @@ func TestLPFloatCoreFeasibilityExactDyadicOracle(t *testing.T) {
 		t.Fatal("cached set complements")
 	}
 	for _, b := range []float64{-10, 0, 10} {
-		lo, hi := b-(math.Abs(b)+1)*.125, b+(math.Abs(b)+1)*.125
+		lo, hi := b-float64((math.Abs(b)+1)*.125), b+float64((math.Abs(b)+1)*.125)
 		if m.BelowBound(lo, b) || !m.BelowBound(math.Nextafter(lo, math.Inf(-1)), b) || m.AboveBound(hi, b) || !m.AboveBound(math.Nextafter(hi, math.Inf(1)), b) {
 			t.Fatal("strict boundary", b)
 		}

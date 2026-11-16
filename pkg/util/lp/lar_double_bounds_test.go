@@ -92,10 +92,10 @@ func TestLARDoubleBoundsIndependentConversionModels(t *testing.T) {
 			lowSet := kind != ColumnFree && kind != ColumnUpperBound
 			upperSet := kind != ColumnFree && kind != ColumnLowBound
 			if lowSet {
-				wantLow[j] = convert(lows[j][0]) + df*convert(lows[j][1])
+				wantLow[j] = convert(lows[j][0]) + float64(df*convert(lows[j][1]))
 			}
 			if upperSet {
-				wantUp[j] = convert(ups[j][0]) + df*convert(ups[j][1])
+				wantUp[j] = convert(ups[j][0]) + float64(df*convert(ups[j][1]))
 			}
 			if sourceDebugEnabled && lowSet && upperSet && !(wantUp[j] >= wantLow[j]) {
 				wantErr = ErrAssertion

@@ -65,7 +65,7 @@ func lpFloatLUCheckSolutions(t *testing.T, m *FloatLU, b [][]*big.Rat, x []*big.
 					v = b[j][i]
 				}
 				coefficient, _ := v.Float64()
-				sum += coefficient * y[j]
+				sum += float64(coefficient * y[j])
 			}
 			lpFloatBlockNear(t, sum, rhs[i])
 		}
@@ -94,7 +94,7 @@ func lpFloatLUCheckFactorization(t *testing.T, m *FloatLU, b [][]*big.Rat) {
 					lpStaticMust(t, err)
 					u, err := m.U.Get(uint32(k), uint32(l))
 					lpStaticMust(t, err)
-					sum += float64(q*r) * u
+					sum += float64(float64(q*r) * u)
 				}
 			}
 			lpFloatBlockNear(t, column[i], new(big.Rat).SetFloat64(sum))

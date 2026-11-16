@@ -24,8 +24,8 @@ func TestLPFloatDualAdvanceIndependentInverseRows(t *testing.T) {
 			rhs := 0.0
 			for j := 0; j < 3; j++ {
 				lpStaticMust(t, in.A.Set(uint32(i), uint32(j), b[i][j]))
-				column += b[i][j] * u[j]
-				rhs += b[i][j] * x[j]
+				column += float64(b[i][j] * u[j])
+				rhs += float64(b[i][j] * x[j])
 			}
 			lpStaticMust(t, in.A.Set(uint32(i), 3, column))
 			(*in.B)[i] = rhs
@@ -41,7 +41,7 @@ func TestLPFloatDualAdvanceIndependentInverseRows(t *testing.T) {
 		for i := 0; i < 3; i++ {
 			want := 0.0
 			for _, v := range oldInv[i] {
-				want += v * v
+				want += float64(v * v)
 			}
 			if m.Betas[i] != want {
 				t.Fatal(world, i, m.Betas[i], want)
@@ -63,16 +63,16 @@ func TestLPFloatDualAdvanceIndependentInverseRows(t *testing.T) {
 		// B, normalized U has two superdiagonal 1/2 entries; diagonal-scaling
 		// tails are deliberately absent from this independently solved RHS.
 		ready := []float64{0, 0, oldInv[r][2]}
-		ready[1] = oldInv[r][1] - 0.5*ready[2]
-		ready[0] = oldInv[r][0] - 0.5*ready[1]
+		ready[1] = oldInv[r][1] - float64(0.5*ready[2])
+		ready[0] = oldInv[r][0] - float64(0.5*ready[1])
 		oldNorm := make([]float64, 3)
 		for i := 0; i < 3; i++ {
 			for _, v := range oldInv[i] {
-				oldNorm[i] += v * v
+				oldNorm[i] += float64(v * v)
 			}
 		}
 		for i := 0; i < 3; i++ {
-			want := x[i] - step*u[i]
+			want := x[i] - float64(step*u[i])
 			if i == r {
 				want = 0
 			}
@@ -81,16 +81,16 @@ func TestLPFloatDualAdvanceIndependentInverseRows(t *testing.T) {
 			}
 			beta := 0.0
 			for j := 0; j < 3; j++ {
-				v := oldInv[i][j] - u[i]/u[r]*oldInv[r][j]
+				v := oldInv[i][j] - float64(u[i]/u[r]*oldInv[r][j])
 				if i == r {
 					v = oldInv[r][j] / u[r]
 				}
-				beta += v * v
+				beta += float64(v * v)
 			}
 			if math.Abs(m.PivotRowB1.Data[i]-ready[i]) > 1e-10 {
 				t.Fatal(world, i, m.PivotRowB1.Data, ready)
 			}
-			sourceBeta := oldNorm[i] + u[i]*u[i]*oldNorm[r]/(u[r]*u[r]) - 2*u[i]/u[r]*ready[i]
+			sourceBeta := oldNorm[i] + float64(u[i]*u[i]*oldNorm[r]/(u[r]*u[r])) - float64(2*u[i]/u[r]*ready[i])
 			if i == r {
 				sourceBeta = oldNorm[r] / (u[r] * u[r])
 			}
@@ -242,7 +242,7 @@ func TestLPFloatDualBetaIEEEAndSourceClamp(t *testing.T) {
 			if v > want {
 				want = v
 			}
-			other := 1 + 2*(2*want-2*inv*3)
+			other := 1 + float64(2*(float64(2*want)-float64(2*inv*3)))
 			if other < 0.0001 {
 				other = 0.0001
 			}

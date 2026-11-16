@@ -137,7 +137,7 @@ func TestLPFloatSparseIndependentPivotOracle(t *testing.T) {
 			}
 			p := IndexPair{rows[target], j}
 			old, present := want[p]
-			result := old + alpha*v
+			result := old + float64(alpha*v)
 			if math.Abs(result) < s.DropTolerance {
 				if present {
 					cancellations++

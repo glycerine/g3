@@ -57,7 +57,7 @@ func TestLPLUCheckFileIndependentSolutions(t *testing.T) {
 					v = float64(8*n + 1)
 				}
 				a[i][basis[j]] = v
-				a[i][26] += v * x[j]
+				a[i][26] += float64(v * x[j])
 			}
 		}
 		name := lpMPSDriverFile(t, lpLUCheckText(a, basis))

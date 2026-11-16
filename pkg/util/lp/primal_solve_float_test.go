@@ -51,7 +51,7 @@ func lpVertexMaximum(a [][]float64, b, c []float64) float64 {
 				if i != k {
 					v := augmented[i][k]
 					for j := k; j <= rows; j++ {
-						augmented[i][j] -= v * augmented[k][j]
+						augmented[i][j] -= float64(v * augmented[k][j])
 					}
 				}
 			}
@@ -62,7 +62,7 @@ func lpVertexMaximum(a [][]float64, b, c []float64) float64 {
 			if x < -1e-9 {
 				return
 			}
-			cost += c[choice[i]] * x
+			cost += float64(c[choice[i]] * x)
 		}
 		if cost > best {
 			best = cost
@@ -128,7 +128,7 @@ func TestLPFloatPrimalSolveOriginalNumericalFixtures(t *testing.T) {
 			want := lpVertexMaximum(f.a, f.b, f.c)
 			cost := 0.0
 			for j, v := range *m.X {
-				cost += f.c[j] * v
+				cost += float64(f.c[j] * v)
 				if v < -1e-7 {
 					t.Fatal(i, "negative solution", *m.X)
 				}
@@ -181,7 +181,7 @@ func TestLPFloatPrimalSolveIndependentVertices(t *testing.T) {
 		want := lpVertexMaximum(a, b, c)
 		cost := 0.0
 		for j, v := range *m.X {
-			cost += c[j] * v
+			cost += float64(c[j] * v)
 		}
 		if err != nil || m.Status != StatusOptimal || math.Abs(cost-want) > 1e-7 || iterations > 100 {
 			t.Fatal(world, iterations, m.Status, cost, want, err)

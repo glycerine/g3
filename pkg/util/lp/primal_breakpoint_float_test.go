@@ -137,7 +137,7 @@ func TestLPFloatPrimalBreakpointIndependentSlope(t *testing.T) {
 					if typ == BreakpointFixed && delta != 0 {
 						jump *= 2
 					}
-					want := 3 + float64(sign)*jump
+					want := 3 + float64(float64(sign)*jump)
 					slope := 3.0
 					lpStaticMust(t, m.ChangeSlopeOnBreakpoint(1, FloatBreakpoint{0, typ, delta}, &slope))
 					if slope != want {

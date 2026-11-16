@@ -41,7 +41,7 @@ func TestLPFloatPresolveIndependentCornerOracle(t *testing.T) {
 				a[j] = -a[j]
 			}
 			lo[j] = float64(rng.Intn(9)-4) / 4
-			hi[j] = lo[j] + float64(1+rng.Intn(7))/4
+			hi[j] = lo[j] + float64(float64(1+rng.Intn(7))/4)
 		}
 		var minimum, maximum *big.Rat
 		var minX, maxX []float64

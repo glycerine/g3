@@ -12,8 +12,8 @@ func TestArbitraryFloatRemIndependentIEEEAndAlias(t *testing.T) {
 	m, _, _ := mpfNumeralHelpersFixture(t)
 	rng := rand.New(rand.NewChaCha8([32]byte{14, 38, 14, 85}))
 	for sample := 0; sample < 100; sample++ {
-		a := math.Ldexp(1+rng.Float64(), rng.IntN(601)-300)
-		b := math.Ldexp(1+rng.Float64(), rng.IntN(601)-300)
+		a := math.Ldexp(1+float64(rng.Float64()), rng.IntN(601)-300)
+		b := math.Ldexp(1+float64(rng.Float64()), rng.IntN(601)-300)
 		if sample%2 != 0 {
 			a = -a
 		}

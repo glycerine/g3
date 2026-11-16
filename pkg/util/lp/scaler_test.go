@@ -62,7 +62,7 @@ func TestLPFloatScalerIndependentSolutionOracle(t *testing.T) {
 					v = -v
 				}
 				rows[i][j] = v
-				b[i] += v * x[j]
+				b[i] += float64(v * x[j])
 			}
 		}
 		m := lpScalerFixture(t, rows, b)

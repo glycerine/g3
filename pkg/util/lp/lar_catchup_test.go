@@ -106,7 +106,7 @@ func lpCheckLARCatchUpSolve(t *testing.T, h *lpPairHarness, c *LARCoreSolver, a 
 			for j, col := range basis {
 				av, _ := a[i][col].Float64()
 				xv, _ := xs[j].Float64()
-				rhs[i] += av * xv
+				rhs[i] += float64(av * xv)
 			}
 		}
 		h.must(c.DPrimal.Factorization.SolveBy(rhs))

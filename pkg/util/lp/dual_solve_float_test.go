@@ -76,7 +76,7 @@ func TestLPFloatDualSolveIndependentVertices(t *testing.T) {
 		for i, row := range a {
 			lhs := 0.0
 			for j, v := range row {
-				lhs += v * (*m.X)[j]
+				lhs += float64(v * (*m.X)[j])
 			}
 			if math.Abs(lhs-b[i]) > 1e-7 {
 				t.Fatal(world, i, lhs, b[i])

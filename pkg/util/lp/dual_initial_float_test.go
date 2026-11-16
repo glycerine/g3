@@ -49,7 +49,7 @@ func TestLPFloatDualInitialIndependentEquations(t *testing.T) {
 		for i := 0; i < 3; i++ {
 			b := want[i]
 			for j := 3; j < 8; j++ {
-				b += float64((world+i+j)%9-4) / 4 * want[j]
+				b += float64(float64((world+i+j)%9-4) / 4 * want[j])
 			}
 			(*m.B)[i] = b
 			(*m.X)[i] = 1000

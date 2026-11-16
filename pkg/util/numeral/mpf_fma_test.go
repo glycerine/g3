@@ -15,7 +15,7 @@ func TestArbitraryFloatFMAIndependentIEEEAndAllAliases(t *testing.T) {
 	for sample := 0; sample < 150; sample++ {
 		var triple [3]float64
 		for i := range triple {
-			triple[i] = math.Ldexp(1+float64(rng.Uint64()>>11)*math.Ldexp(1, -53), rng.IntN(401)-200)
+			triple[i] = math.Ldexp(1+float64(float64(rng.Uint64()>>11)*math.Ldexp(1, -53)), rng.IntN(401)-200)
 			if rng.IntN(2) == 0 {
 				triple[i] = -triple[i]
 			}

@@ -44,7 +44,7 @@ func TestLPFloatPrimalOuterIndependentVertices(t *testing.T) {
 			inequalities = append(inequalities, []float64{a, b})
 			rhs = append(rhs, bound)
 			originalA[i] = []float64{a * sign[0], b * sign[1], float64(i + 1)}
-			originalB[i] = bound + originalA[i][0]*shift[0] + originalA[i][1]*shift[1] + 5*originalA[i][2]
+			originalB[i] = bound + float64(originalA[i][0]*shift[0]) + float64(originalA[i][1]*shift[1]) + float64(5*originalA[i][2])
 			for j, external := range []uint32{10, 11, 99} {
 				m.SetRowColumnCoefficient(uint32(100+i), external, originalA[i][j])
 			}
@@ -67,7 +67,7 @@ func TestLPFloatPrimalOuterIndependentVertices(t *testing.T) {
 			copy(a[i], v)
 			a[i][2+i] = 1
 		}
-		want := lpVertexMaximum(a, rhs, c) + cost[0]*sign[0]*shift[0] + cost[1]*sign[1]*shift[1] + 10
+		want := lpVertexMaximum(a, rhs, c) + float64(cost[0]*sign[0]*shift[0]) + float64(cost[1]*sign[1]*shift[1]) + 10
 		lpStaticMust(t, m.FindMaximalSolution())
 		got, err := m.GetCurrentCost()
 		if err != nil || m.Status != StatusOptimal || math.Abs(got-want) > 1e-7 || m.CoreSolver == nil || m.TotalIterations != m.CoreSolver.TotalIterations {
@@ -90,7 +90,7 @@ func TestLPFloatPrimalOuterIndependentVertices(t *testing.T) {
 		for i, v := range originalA {
 			sum := 0.0
 			for j, x := range values {
-				sum += v[j] * x
+				sum += float64(v[j] * x)
 			}
 			if sum > originalB[i]+1e-7 {
 				t.Fatal(world, i, sum, originalB[i], values)

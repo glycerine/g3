@@ -33,7 +33,7 @@ func TestLPFloatMPSDualIndependentMinMax(t *testing.T) {
 		}
 		input.WriteString("RHS\n")
 		for i := 0; i < 3; i++ {
-			input.WriteString(lpMPSPair("RHS1", fmt.Sprint("R", i), b[i]+a[i][0]*shift[0]+a[i][1]*shift[1]))
+			input.WriteString(lpMPSPair("RHS1", fmt.Sprint("R", i), b[i]+float64(a[i][0]*shift[0])+float64(a[i][1]*shift[1])))
 		}
 		input.WriteString("BOUNDS\n")
 		input.WriteString(lpMPSBoundLine("LO", "x -2"))
@@ -50,7 +50,7 @@ func TestLPFloatMPSDualIndependentMinMax(t *testing.T) {
 					objective[j] = -objective[j]
 				}
 			}
-			want := lpVertexMaximum(a, b, objective) + objective[0]*shift[0] + objective[1]*shift[1]
+			want := lpVertexMaximum(a, b, objective) + float64(objective[0]*shift[0]) + float64(objective[1]*shift[1])
 			if minimum {
 				want = -want
 			}
@@ -91,7 +91,7 @@ func TestLPFloatMPSDualIndependentMinMax(t *testing.T) {
 				t.Fatal(world, minimum, x, y)
 			}
 			for i := range b {
-				lhs := a[i][0]*(x+2) + a[i][1]*(y-1)
+				lhs := float64(a[i][0]*(x+2)) + float64(a[i][1]*(y-1))
 				if lhs > b[i]+1e-7 {
 					t.Fatal(world, minimum, i, lhs, b[i])
 				}

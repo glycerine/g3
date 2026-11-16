@@ -45,9 +45,9 @@ func TestLPFloatPrimalPreparedBasisIndependentOracle(t *testing.T) {
 					v = -v
 				}
 				m.SetRowColumnCoefficient(uint32(i), uint32(j), v)
-				shift += v * m.Columns[uint32(j)].Shift()
+				shift += float64(v * m.Columns[uint32(j)].Shift())
 			}
-			if err := m.AddConstraint(LPRelation(i%3), float64(rng.Intn(11)-5)/2+shift, uint32(i)); err != nil {
+			if err := m.AddConstraint(LPRelation(i%3), float64(float64(rng.Intn(11)-5)/2)+shift, uint32(i)); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -114,7 +114,7 @@ func TestLPFloatPrimalPreparedBasisIndependentOracle(t *testing.T) {
 			}
 			var dot float64
 			for _, c := range row {
-				dot += c.Value * m.X[c.Column]
+				dot += float64(c.Value * m.X[c.Column])
 			}
 			lpScalerNear(t, dot, b[i])
 		}

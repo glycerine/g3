@@ -128,7 +128,7 @@ func TestLPFloatCoreReducedCostsAndEnteringColumnIndependentOracle(t *testing.T)
 			for j := range *in.Costs {
 				var c float64
 				for i := 0; i < r; i++ {
-					c += wantY[i] * base[i][j/3] * float64(j%3+1)
+					c += float64(wantY[i] * base[i][j/3] * float64(j%3+1))
 				}
 				if (*in.Heading)[j] < 0 {
 					wantD[j] = float64(rng.Intn(7) - 3)

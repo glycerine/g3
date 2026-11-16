@@ -39,7 +39,7 @@ func TestLPFloatPrimalFindFeasibleIndependentSystems(t *testing.T) {
 		b := []float64{-float64(1 + rng.Intn(16)), -float64(1 + rng.Intn(16))}
 		witness := math.Max(b[0]/a[0][0], b[1]/a[1][0])
 		for i := range b {
-			if b[i]-a[i][0]*witness < -1e-12 {
+			if b[i]-float64(a[i][0]*witness) < -1e-12 {
 				t.Fatal("invalid independent witness")
 			}
 		}
@@ -85,7 +85,7 @@ func TestLPFloatPrimalFindFeasibleIndependentSystems(t *testing.T) {
 		for i, row := range a {
 			sum := 0.0
 			for j, v := range row {
-				sum += v * (*m.X)[j]
+				sum += float64(v * (*m.X)[j])
 			}
 			if math.Abs(sum-b[i]) > 1e-8 {
 				t.Fatal(world, i, sum, b[i])
