@@ -39,7 +39,6 @@ func TestEngineClosePreservesBinderAfterConsumedNativeRelease(t *testing.T) {
 	engine, err := NewPropositionalEngine(manager)
 	must(err)
 	binder := engine.binder
-	relations := engine.relations
 	background := engine.background
 	var recovery memory.Block
 	t.Cleanup(func() {
@@ -135,8 +134,11 @@ func TestEngineClosePreservesBinderAfterConsumedNativeRelease(t *testing.T) {
 	if !errors.Is(err, arena.ErrBounds) || engine.closed || !engine.closing || engine.binder != binder {
 		t.Fatal("engine discarded its interrupted binder", err, engine.closed, engine.closing, engine.binder == binder)
 	}
-	if engine.relations != relations || engine.background != background {
-		t.Fatal("engine disposed later owners after its binder failed")
+	// context::reset drops the engine, and with it the relation manager,
+	// before ~context destroys m_bind_variables; m_var_subst and the
+	// background members die after it.
+	if engine.relations != nil || engine.contextVarSubst == nil || engine.background != background {
+		t.Fatal("engine disposed later owners after its binder failed", engine.relations == nil, engine.contextVarSubst == nil)
 	}
 	// ~context destroys m_bind_variables before m_rule_manager, so the
 	// label rewriter's three scratch references are still held.

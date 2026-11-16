@@ -142,10 +142,14 @@ func TestEngineClosePreservesRuleManagerAfterConsumedNativeRelease(t *testing.T)
 	if engine.binder != nil {
 		t.Fatal("engine kept its binder past the rule manager's failure")
 	}
-	// The relation manager's three var_subst scratch references go first,
-	// then the consumed predicate (context::m_pinned is destroyed before
-	// m_rule_manager and so before its label rewriter m_rwr).
-	if manager.Stats().LiveReferences+4 != before || runtime.Stats().LiveBlocks+1 != blocks {
+	// Only the consumed predicate goes (context::m_pinned is destroyed
+	// before m_rule_manager and so before its label rewriter m_rwr); the
+	// three context::m_var_subst scratch references, which the relation
+	// manager handed back to the context, die after m_rule_manager.
+	if engine.contextVarSubst == nil {
+		t.Fatal("engine destroyed m_var_subst before its rule manager")
+	}
+	if manager.Stats().LiveReferences+1 != before || runtime.Stats().LiveBlocks+1 != blocks {
 		t.Fatal("failure did not consume exactly one predicate reference and native allocation", before, manager.Stats().LiveReferences, blocks, runtime.Stats().LiveBlocks)
 	}
 	live, consumed := 0, 0

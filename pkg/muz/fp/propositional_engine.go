@@ -147,10 +147,13 @@ type PropositionalEngine struct {
 	clpContext *PropositionalEngine
 	// rulesShare counts the engines (a context and its query clones) that
 	// use rules, the context's one rule manager; the last closes it.
-	rulesShare          *ruleManagerShare
-	ruleProperties      *base.RuleProperties
-	binder              *base.VariableBinder
-	relations           *rel.RelationManager
+	rulesShare     *ruleManagerShare
+	ruleProperties *base.RuleProperties
+	binder         *base.VariableBinder
+	relations      *rel.RelationManager
+	// contextVarSubst is context::m_var_subst once the relation manager,
+	// which owns it while the engine lives, is gone (see Close).
+	contextVarSubst     *astrewriter.VarSubstitution
 	external            *rel.ExternalRelationPlugin
 	externalSimilarity  *externalSimilarityQueryScope
 	guard               *astrewriter.TheoryRewriter
@@ -3634,9 +3637,6 @@ func (e *PropositionalEngine) Close() (result error) {
 	e.closing = true
 	e.queryReady = false
 	e.lastResult = lbool.Undef
-	if err := errors.Join(e.releaseDatalogExecution(), e.releaseDatalogCode()); err != nil {
-		return err
-	}
 	if err := e.closeExternalIntervalDatalog(); err != nil {
 		return err
 	}
@@ -3683,8 +3683,15 @@ func (e *PropositionalEngine) Close() (result error) {
 	if err := e.cleanupRetiredRawRules(); err != nil {
 		return errors.Join(result, err)
 	}
-	// context::reset: m_engine = nullptr (rel_context::m_answer) comes
-	// after m_rule_set.reset() and m_rule_fmls.reset().
+	// context::reset: m_engine = nullptr comes after m_rule_set.reset() and
+	// m_rule_fmls.reset(). ~rel_context destroys m_code, then m_ectx (the
+	// registers), then m_answer.
+	if err := e.releaseDatalogCode(); err != nil {
+		return errors.Join(result, err)
+	}
+	if err := e.releaseDatalogExecution(); err != nil {
+		return errors.Join(result, err)
+	}
 	if e.relAnswer != (ast.ASTRef{}) {
 		if err := e.manager.DelRef(&e.relAnswer); err != nil {
 			return errors.Join(result, err)
@@ -3740,6 +3747,19 @@ func (e *PropositionalEngine) Close() (result error) {
 	if e.spacerTransformedRules != nil {
 		result = errors.Join(result, e.spacerTransformedRules.Close())
 		e.spacerTransformedRules = nil
+	}
+	// context::reset drops m_engine and m_rel (the relation manager, whose
+	// relations hold formulas over the transformed rules) in ~context's
+	// body, before the members, among them m_transformed_rule_set and
+	// m_rule_manager, are destroyed.
+	if e.relations != nil {
+		if e.contextVarSubst == nil {
+			e.contextVarSubst = e.relations.DetachContextVarSubst()
+		}
+		if err := e.relations.Close(); err != nil {
+			return errors.Join(result, fmt.Errorf("close relation manager: %w", err))
+		}
+		e.relations = nil
 	}
 	if e.datalogTransformedRules != nil {
 		result = errors.Join(result, e.datalogTransformedRules.Close())
@@ -3808,19 +3828,18 @@ func (e *PropositionalEngine) Close() (result error) {
 		result = errors.Join(result, e.unboundCooperation.Close())
 		e.unboundCooperation = nil
 	}
-	// context::reset drops m_rel (the relation manager) in ~context's
-	// body, before the members, among them m_rule_manager, are destroyed.
-	if e.relations != nil {
-		if err := e.relations.Close(); err != nil {
-			return errors.Join(result, fmt.Errorf("close relation manager: %w", err))
-		}
-		e.relations = nil
-	}
 	if e.rules != nil {
 		if err := e.rulesShare.release(); err != nil {
 			return errors.Join(result, err)
 		}
 		e.rules = nil
+	}
+	// context::m_var_subst is declared before m_rule_manager.
+	if e.contextVarSubst != nil {
+		if err := e.contextVarSubst.Close(); err != nil {
+			return errors.Join(result, err)
+		}
+		e.contextVarSubst = nil
 	}
 	if e.guard != nil {
 		result = errors.Join(result, e.guard.Close())

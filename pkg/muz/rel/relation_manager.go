@@ -238,6 +238,18 @@ func (m *RelationManager) ResetRelations() (result error) {
 	return result
 }
 
+// DetachContextVarSubst hands context::m_var_subst to the caller, which
+// destroys it with the context's members, after the engine (and this
+// relation manager) that context::reset drops.
+func (m *RelationManager) DetachContextVarSubst() *astrewriter.VarSubstitution {
+	if m == nil {
+		return nil
+	}
+	v := m.varSubst
+	m.varSubst = nil
+	return v
+}
+
 func (m *RelationManager) Close() (result error) {
 	if m == nil {
 		return ErrTable
