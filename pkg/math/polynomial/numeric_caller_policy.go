@@ -109,6 +109,8 @@ func (r *polynomialNumericRoots) NumericBound(executing bool) bool {
 	return valid && (!executing || r.caller.roots(r.integer) == r)
 }
 
+// NumericPrepare is idempotent: every history it prepares is recorded once
+// per frame (history != nil / historyRecorded / record != nil / header != 0).
 func (r *polynomialNumericRoots) NumericPrepare(z *unumeral.IntegerManager, phase string) error {
 	if r.NumericRoots(z, nil) == nil {
 		return unumeral.ErrNumericOwner

@@ -427,6 +427,11 @@ func (m *IntegerManager) allocateWithSourceContext(capacity, size uint32, s *int
 	if m.PendingCell.Object != (umemory.ObjectRef{}) {
 		return 0, umemory.ErrAllocatorPending
 	}
+	// One caller prepare per allocation: the prepare policy is idempotent
+	// (NumericCallerPreparePolicy) and nothing between the former
+	// "constant-history", "display-storage" and "factor-history" calls
+	// changes the caller's frames, so the later two always repeated the
+	// first call's result.
 	if e := context.prepareCaller(m, "constant-history"); e != nil {
 		return 0, e
 	}
@@ -454,13 +459,7 @@ func (m *IntegerManager) allocateWithSourceContext(capacity, size uint32, s *int
 	if roots != nil {
 		out = &outcome
 	}
-	if e := context.prepareCaller(m, "display-storage"); e != nil {
-		return 0, e
-	}
 	if e := context.prepareConversionHistory(m); e != nil {
-		return 0, e
-	}
-	if e := context.prepareCaller(m, "factor-history"); e != nil {
 		return 0, e
 	}
 	if modularSourceDebug {

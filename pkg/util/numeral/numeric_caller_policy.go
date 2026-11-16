@@ -13,6 +13,10 @@ type NumericCallerBoundPolicy interface{ NumericBound(bool) bool }
 type NumericCallerModularPolicy interface {
 	NumericModularOwner(*IntegerModularManager) bool
 }
+
+// NumericCallerPreparePolicy prepares the caller's allocation history before
+// a cell allocation. It must be idempotent while the caller's frames do not
+// change: IntegerManager calls it once per allocation.
 type NumericCallerPreparePolicy interface {
 	NumericPrepare(*IntegerManager, string) error
 }
