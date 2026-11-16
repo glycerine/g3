@@ -1,0 +1,22 @@
+(transform N7datalog13mk_coi_filterE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...3 rules Ts)
+(transform N7datalog15mk_rule_inlinerE...1 rules Ts)
+(transform N7datalog12mk_bit_blastE...1 rules Ts)
+(transform N7datalog25mk_separate_negated_tailsE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op Ts)
+(transform N7datalog24mk_similarity_compressorE...no-op Ts)
+(transform N7datalog15mk_filter_rulesE...no-op Ts)
+(transform N7datalog15mk_simple_joinsE...no-op Ts)
+load r!bv!0 into 0
+mk_unary_singleton into 1 sort:Bool val:1
+mk_unary_singleton into 2 sort:Bool val:0
+join 1() and 2() into 3
+join_project...Ts
+union 3 into 0
+recycle...Ts
+mark_saturated r!bv!0
+store 0 into r!bv!0
+recycle...Ts
+recycle...Ts
+recycle...Ts
+recycle...Ts

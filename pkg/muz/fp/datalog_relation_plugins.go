@@ -61,15 +61,61 @@ func (e *PropositionalEngine) datalogRelationPlugins(checkedDoc bool) error {
 	return e.relations.SetDefaultRelation(e.datalogRelationFavourite)
 }
 
+// datalogRelationKind classifies a predicate's relation the way
+// relation_manager::mk_empty_relation chooses it: "doc" for udoc_plugin
+// (requested, or the favourite handling the signature), "table" for a
+// table_relation, "" when neither applies here (product relations,
+// other plugins, external relations).
+func (e *PropositionalEngine) datalogRelationKind(probe *rel.UDocPlugin, state *predicateState, docFavourite bool) (string, error) {
+	if state == nil || state.table == nil || state.external != nil || state.checked != nil || state.sparse != nil {
+		return "", nil
+	}
+	udoc, err := probe.CanHandleSignature(state.sorts)
+	if err != nil {
+		return "", err
+	}
+	_, tableErr := state.table.Signature()
+	table := tableErr == nil
+	switch {
+	case len(state.requestedRepresentations) == 1 && state.requestedRepresentations[0] == "doc":
+		if udoc {
+			return "doc", nil
+		}
+	case state.explicitFiniteRepresentation && len(state.requestedRepresentations) == 1:
+		// A requested table plugin (tr_*) that rejects the signature
+		// leaves the choice to the favourite.
+		if table && e.relations.RequestedFiniteKindHandles(state.sorts, state.requestedRepresentations[0]) {
+			return "table", nil
+		}
+	case len(state.requestedRepresentations) != 0:
+		return "", nil
+	}
+	if docFavourite && udoc {
+		return "doc", nil
+	}
+	if table {
+		return "table", nil
+	}
+	return "", nil
+}
+
 // selectCompiledRelationFavourite reports whether the query runs on the
-// favourite relation plugin's relations through the compiled pipeline. It
-// holds when the favourite is a ported relation plugin that handles every
-// predicate's signature and no checker, explanation or explicit
-// representation applies; those configurations keep their existing
-// evaluators until their plugins are ported.
+// relation plugins' relations through the compiled pipeline. Every
+// predicate's relation must be udoc's or a table's, every rule must use
+// relations of one kind (relation_manager joins a table_relation with a
+// udoc relation only through product relations), and a doc rule's
+// variables must be udoc columns. Checkers other than check_relation(doc),
+// explanations and default_table_checked keep their evaluators.
 func (e *PropositionalEngine) selectCompiledRelationFavourite() (bool, error) {
 	if err := e.cacheDatalogRelationFavourite(); err != nil {
 		return false, err
+	}
+	if e.compiledRelationPlugins {
+		// Already selected by an earlier query.
+		return true, nil
+	}
+	if e.udocDatalog != nil {
+		return false, nil
 	}
 	checkName, checkEnabled, err := e.datalogCheckRelationName()
 	if err != nil {
@@ -78,52 +124,34 @@ func (e *PropositionalEngine) selectCompiledRelationFavourite() (bool, error) {
 	// rel_context::updt_params: a check_relation names the checked plugin
 	// and check_relation becomes the default relation.
 	checkedDoc := checkEnabled && checkName == "doc"
-	if checkEnabled && !checkedDoc || !checkedDoc && e.datalogRelationFavourite != "doc" || e.udocDatalog != nil {
+	if checkEnabled && !checkedDoc {
 		return false, nil
 	}
-	if fav := e.relations.FavouriteRelationPlugin(); fav != nil {
-		// Already selected by an earlier query.
-		return true, nil
-	}
+	docFavourite := checkedDoc || e.datalogRelationFavourite == "doc"
 	if enabled, err := e.datalogExplanationsEnabled(); err != nil || enabled {
 		return false, err
 	}
 	if _, enabled, err := e.datalogDefaultTableCheck(); err != nil || enabled {
 		return false, err
 	}
-	if e.params != nil && e.globals != nil {
-		// mk_bit_blast's Bool relations are table relations next to the
-		// favourite's; the mixed operations are not ported.
-		view, err := e.fixedpointParamView()
-		if err != nil {
-			return false, err
-		}
-		bitBlast, err := view.Bool("xform.bit_blast", false)
-		if err = errors.Join(err, view.Close()); err != nil || bitBlast {
-			return false, err
-		}
-	}
 	probe, err := rel.NewUDocPlugin(e.relations)
 	if err != nil {
 		return false, err
 	}
 	defer probe.Close()
+	kinds := make(map[ast.ASTHandle]string, len(e.predicateOrder))
+	anyDoc := false
 	for _, d := range e.predicateOrder {
-		state := e.predicates[d]
-		if state == nil || state.table == nil || state.external != nil || state.explicitFiniteRepresentation || len(state.requestedRepresentations) != 0 || state.checked != nil || state.sparse != nil {
-			return false, nil
-		}
-		ok, err := probe.CanHandleSignature(state.sorts)
-		if err != nil || !ok {
+		kind, err := e.datalogRelationKind(probe, e.predicates[d], docFavourite)
+		if err != nil || kind == "" {
 			return false, err
 		}
-		if _, err = state.table.Signature(); err != nil {
-			return false, nil
-		}
+		kinds[d] = kind
+		anyDoc = anyDoc || kind == "doc"
 	}
-	// Every rule variable's column must be the favourite's too: an unbound
-	// variable of another sort makes a total relation of that sort (a
-	// table or another plugin's relation next to the favourite's).
+	if !anyDoc {
+		return false, nil
+	}
 	count, err := e.set.Len()
 	if err != nil {
 		return false, err
@@ -137,19 +165,41 @@ func (e *PropositionalEngine) selectCompiledRelationFavourite() (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		roots := make([]ast.ASTHandle, 0, n+1)
 		head, err := rule.Head()
 		if err != nil {
 			return false, err
 		}
-		roots = append(roots, head)
+		headDecl, err := rule.HeadDeclaration()
+		if err != nil {
+			return false, err
+		}
+		kind := kinds[headDecl]
+		roots := []ast.ASTHandle{head}
+		uninterpreted, err := rule.UninterpretedTailSize()
+		if err != nil {
+			return false, err
+		}
 		for j := 0; j < n; j++ {
 			tail, _, err := rule.Tail(j)
 			if err != nil {
 				return false, err
 			}
 			roots = append(roots, tail)
+			if j < uninterpreted {
+				decl, err := rule.TailDeclaration(j)
+				if err != nil {
+					return false, err
+				}
+				if kinds[decl] != kind {
+					return false, nil
+				}
+			}
 		}
+		if kind != "doc" {
+			continue
+		}
+		// An unbound variable of another sort makes a total relation of
+		// that sort next to the udoc relations.
 		for _, root := range roots {
 			sorts, err := e.expressionVariableSorts(root)
 			if err != nil {
@@ -157,8 +207,11 @@ func (e *PropositionalEngine) selectCompiledRelationFavourite() (bool, error) {
 			}
 			for _, sort := range sorts {
 				ok, err := probe.CanHandleSignature([]ast.ASTHandle{sort})
-				if err != nil || !ok {
+				if err != nil {
 					return false, err
+				}
+				if _, table := e.relations.SortDomain(sort); !ok && !table {
+					return false, nil
 				}
 			}
 		}
@@ -166,11 +219,28 @@ func (e *PropositionalEngine) selectCompiledRelationFavourite() (bool, error) {
 	if err = e.datalogRelationPlugins(checkedDoc); err != nil {
 		return false, err
 	}
+	udoc := e.relations.GetRelationPlugin("doc")
 	for _, d := range e.predicateOrder {
+		if kinds[d] == "table" && e.predicates[d].explicitFiniteRepresentation {
+			if err = e.relations.SetRequestedTableKind(d, e.predicates[d].requestedRepresentations[0]); err != nil {
+				return false, err
+			}
+		}
+		if kinds[d] != "doc" {
+			continue
+		}
+		state := e.predicates[d]
+		if len(state.requestedRepresentations) == 1 && state.requestedRepresentations[0] == "doc" {
+			// rel_context::set_predicate_representation: set_predicate_kind.
+			if err = e.relations.SetRequestedRelationKind(d, udoc); err != nil {
+				return false, err
+			}
+		}
 		if err = e.migrateToFavouriteRelation(d); err != nil {
 			return false, err
 		}
 	}
+	e.compiledRelationPlugins = true
 	return true, nil
 }
 

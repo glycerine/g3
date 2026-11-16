@@ -105,6 +105,9 @@ func newFiniteJoinResult(signature Signature, functional int, first, second Fini
 func finiteTableJoin(first, second FiniteTable, left, right []int) (FiniteTable, error) {
 	if r, ok, err := relationOperands(first, second); ok || err != nil {
 		if err != nil {
+			if result, mixed, joinErr := mixedEmptySignatureJoin(first, second); mixed {
+				return result, joinErr
+			}
 			return nil, err
 		}
 		return relationJoin(r[0], r[1], left, right)
@@ -310,7 +313,17 @@ func finiteTableProject(source FiniteTable, removed []int) (FiniteTable, error) 
 func finiteTableJoinProject(first, second FiniteTable, left, right, removed []int) (FiniteTable, error) {
 	if r, ok, err := relationOperands(first, second); ok || err != nil {
 		if err != nil {
-			return nil, err
+			// default_relation_join_project_fn over the empty-signature
+			// join, projected by the joined relation's plugin.
+			joined, mixed, joinErr := mixedEmptySignatureJoin(first, second)
+			if !mixed {
+				return nil, err
+			}
+			if joinErr != nil {
+				return nil, joinErr
+			}
+			result, projectErr := finiteTableProject(joined, removed)
+			return result, errors.Join(projectErr, joined.Close())
 		}
 		return relationJoinProject(r[0], r[1], left, right, removed)
 	}

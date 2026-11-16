@@ -121,6 +121,10 @@ func (m *RelationManager) relationPluginFor(predicate ast.ASTHandle, sorts []ast
 				return plugin, err
 			}
 		}
+		// A requested table_relation plugin that handles the signature.
+		if kind := m.requestedTable[predicate]; kind != "" && m.RequestedFiniteKindHandles(sorts, kind) {
+			return nil, nil
+		}
 	}
 	if p := m.favouriteRelation; p != nil {
 		ok, err := p.CanHandleSignature(sorts)
@@ -478,4 +482,47 @@ func (m *RelationManager) MkRelationFilterByNegationFn(t, neg RelationBase, tCol
 		res, err = neg.RelationPlugin().MkFilterByNegationFn(t, neg, tCols, negCols)
 	}
 	return res, err
+}
+
+// SetRequestedTableKind records rel_context::set_predicate_representation's
+// requested table_relation plugin (tr_*) for mk_empty_relation's choice
+// among relation plugins.
+func (m *RelationManager) SetRequestedTableKind(predicate ast.ASTHandle, kind string) error {
+	if err := m.open(); err != nil {
+		return err
+	}
+	if m.requestedTable == nil {
+		m.requestedTable = make(map[ast.ASTHandle]string)
+	}
+	m.requestedTable[predicate] = kind
+	return nil
+}
+
+// RequestedFiniteKindHandles is can_handle_signature(s, kind) of the
+// table_relation plugin of the requested table plugin kind (tr_sparse,
+// tr_hashtable, tr_bitvector, tr_lazy_sparse).
+func (m *RelationManager) RequestedFiniteKindHandles(sorts []ast.ASTHandle, kind string) bool {
+	signature, ok := m.signatureIsTable(sorts)
+	if !ok {
+		return false
+	}
+	switch kind {
+	case "tr_hashtable":
+		return true
+	case "tr_sparse":
+		return signature.Len() != 0
+	case "tr_bitvector":
+		return BitvectorCanHandleSignature(signature, 0)
+	case "tr_lazy_sparse":
+		// lazy_table_plugin::can_handle_signature is its sparse plugin's.
+		return signature.Len() != 0
+	}
+	return false
+}
+
+// SortDomain is the table domain of a relation sort, ok false when the
+// sort is not a bounded finite domain.
+func (m *RelationManager) SortDomain(sort ast.ASTHandle) (uint64, bool) {
+	domain, err := m.sortDomain(sort)
+	return domain, err == nil
 }

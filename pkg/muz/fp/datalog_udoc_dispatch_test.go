@@ -205,7 +205,7 @@ func TestDatalogUDocSelectionAndNullary(t *testing.T) {
 			selected := mode == "favourite" || mode == "requested" || mode == "nullary" || mode == "ground-rule"
 			// The doc favourite runs either through the compiled relation
 			// plugin (udoc_plugin) or the remaining Go UDoc evaluator.
-			docUsed := e.udocDatalog != nil || e.relations.FavouriteRelationPlugin() != nil
+			docUsed := e.udocDatalog != nil || e.compiledRelationPlugins
 			if docUsed != selected {
 				t.Fatal("wrong source doc capability/precedence", mode, docUsed)
 			}

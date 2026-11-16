@@ -336,6 +336,13 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// plugins_doc 04: bit-blast, Bool table relations next to udoc,
+	// requested doc/table kinds, check_relation(doc) with another favourite.
+	"datalog_doc_bit_blast.smt2":                  "sat\n(and (= (:var 0) true) (= (:var 1) false))\n",
+	"datalog_doc_bool_tables.smt2":                "sat\n(= (:var 0) false)\nsat\nsat\n(= (:var 0) #b00)\n",
+	"datalog_doc_requested.smt2":                  "sat\n(or (and (= (:var 0) #b001) (= (:var 1) #b010))\n    (and (= (:var 0) #b010) (= (:var 1) #b011))\n    (and (= (:var 0) #b001) (= (:var 1) #b011)))\n",
+	"datalog_doc_explicit_table.smt2":             "sat\n(and (= (:var 0) #b001) (= (:var 1) #b011))\nsat\n(= (:var 0) #b011)\n",
+	"datalog_doc_checked_interval_favourite.smt2": "sat\nsat\n(= (:var 0) #b01)\n",
 	// AUDIT.md FUZZ-F5 (relation plugins): with fixedpoint.xform.karr the
 	// Int/Real predicates still get bound/interval relations.
 	"plugins_arith_karr_xform_bound_empty_body.smt2": "unsat\n",

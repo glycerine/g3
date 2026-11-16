@@ -52,6 +52,8 @@ type RelationManager struct {
 	// requestedRelation is get_requested_predicate_kind for relation
 	// plugins.
 	requestedRelation map[ast.ASTHandle]RelationPlugin
+	// requestedTable is an explicitly requested table_relation kind.
+	requestedTable map[ast.ASTHandle]string
 	// arithElements interns the Int/Real relation elements the compiler
 	// encodes (EncodeRelationElement); fnRoots holds the conditions the
 	// relation plugins' filter functors keep (app_ref m_cond).

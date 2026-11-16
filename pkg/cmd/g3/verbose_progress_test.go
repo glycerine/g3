@@ -37,6 +37,9 @@ var verboseProgressCases = []verboseProgressCase{
 	{"rel_doc_v3", "rel_doc", []string{"-v:3"}},
 	// check_relation over doc: the <objective> verified lines.
 	{"rel_doc_checked_v3", "rel_doc_checked", []string{"-v:3"}},
+	// Explicit table kinds next to udoc relations; xform.bit_blast.
+	{"rel_doc_explicit_table_v3", "rel_doc_explicit_table", []string{"-v:3"}},
+	{"rel_doc_bit_blast_v3", "rel_doc_bit_blast", []string{"-v:3"}},
 	{"rel_filter_v2", "rel_filter", []string{"-v:2"}},
 	// Relations exist only once get_relation creates them.
 	{"horn_empty_model_v2", "horn_empty_model", []string{"-v:2"}},

@@ -97,6 +97,9 @@ type PropositionalEngine struct {
 	// relationQueryEmpty is rel_context::query's rel.empty() of each queried
 	// relation_base, which the answer (m_answer) reuses.
 	relationQueryEmpty map[ast.ASTHandle]bool
+	// compiledRelationPlugins: the relation plugins' relations have
+	// replaced the eager tables and queries run them compiled.
+	compiledRelationPlugins bool
 	// constantNames is the datalog front end's context, whose sort
 	// domains name constants in instruction displays (borrowed).
 	constantNames *base.DatalogContext
@@ -2866,17 +2869,23 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 			}
 			return e.queryUDocDatalog(declarations)
 		}
-		if selected, err := e.ensureSparseIntervalDatalog(); err != nil {
+		if compiledFavourite {
+			// The relation plugins' relations run compiled.
+		} else if selected, err := e.ensureSparseIntervalDatalog(); err != nil {
 			return lbool.Undef, err
 		} else if selected {
 			return e.querySparseIntervalDatalog(declarations)
 		}
-		if selected, err := e.ensureIntervalDatalog(); err != nil {
+		if compiledFavourite {
+			// The relation plugins' relations run compiled.
+		} else if selected, err := e.ensureIntervalDatalog(); err != nil {
 			return lbool.Undef, err
 		} else if selected {
 			return e.queryIntervalDatalog(declarations)
 		}
-		if selected, err := e.ensureBoundDatalog(); err != nil {
+		if compiledFavourite {
+			// The relation plugins' relations run compiled.
+		} else if selected, err := e.ensureBoundDatalog(); err != nil {
 			return lbool.Undef, err
 		} else if selected {
 			return e.queryBoundDatalog(declarations)
@@ -2928,6 +2937,11 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 // remaining signatures on tables. A nullary relation is either empty or full,
 // so table evaluation computes the same emptiness.
 func (e *PropositionalEngine) datalogImpreciseFavouriteNullary(declarations []ast.ASTHandle) bool {
+	if e.compiledRelationPlugins {
+		// The relations are the selected plugins' own; rel_context::query
+		// reads their is_precise.
+		return false
+	}
 	if e.datalogRelationFavourite != "interval_relation" && e.datalogRelationFavourite != "bound_relation" {
 		return false
 	}

@@ -231,3 +231,53 @@ func relationRegisterEmpty(table FiniteTable) (bool, bool) {
 func unsupportedRelationOperationOne(op, kind string) error {
 	return z3exception.NewDefaultException("trying to perform unsupported " + op + " operation on a relation of kind " + kind)
 }
+
+// finiteEmptySignature reports whether a register value has the empty
+// signature.
+func finiteEmptySignature(t FiniteTable) (bool, error) {
+	if r, ok := AsRelation(t); ok {
+		return len(r.RelationSignature()) == 0, nil
+	}
+	sig, err := t.Signature()
+	return sig.Len() == 0, err
+}
+
+// finiteEmpty is relation_base::empty() of a register value.
+func finiteEmpty(t FiniteTable) (bool, error) {
+	if r, ok := AsRelation(t); ok {
+		return r.Empty()
+	}
+	n, err := t.Len()
+	return n == 0, err
+}
+
+// mixedEmptySignatureJoin is relation_manager::mk_join_fn's
+// empty_signature_relation_join_fn for a table_relation joined with
+// another plugin's relation when one of them has the empty signature
+// (neither plugin's mk_join_fn applies to the pair). ok is false when
+// neither operand has the empty signature.
+func mixedEmptySignatureJoin(first, second FiniteTable) (_ FiniteTable, ok bool, err error) {
+	e1, err := finiteEmptySignature(first)
+	if err != nil {
+		return nil, true, err
+	}
+	nullary, other := first, second
+	if !e1 {
+		e2, err := finiteEmptySignature(second)
+		if err != nil || !e2 {
+			return nil, err != nil, err
+		}
+		nullary, other = second, first
+	}
+	empty, err := finiteEmpty(nullary)
+	if err != nil {
+		return nil, true, err
+	}
+	if empty {
+		// r.get_manager().mk_empty_relation(r.get_signature(), r.get_kind())
+		result, err := emptyFiniteLike(other)
+		return result, true, err
+	}
+	result, err := other.CloneFinite()
+	return result, true, err
+}

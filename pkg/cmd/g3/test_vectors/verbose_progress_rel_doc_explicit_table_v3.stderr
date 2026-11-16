@@ -1,0 +1,37 @@
+(transform N7datalog13mk_coi_filterE...3 rules Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog25mk_separate_negated_tailsE...no-op Ts)
+(transform N7datalog24mk_similarity_compressorE...no-op Ts)
+(transform N7datalog15mk_filter_rulesE...no-op Ts)
+(transform N7datalog15mk_simple_joinsE...no-op Ts)
+load e into 0
+load f into 1
+mk_unary_singleton into 2 sort:(_ BitVec 3) val:1
+mk_unary_singleton into 3 sort:(_ BitVec 3) val:2
+join 2() and 3() into 4
+union 4 into 0
+mk_unary_singleton into 5 sort:(_ BitVec 3) val:3
+join 3() and 5() into 6
+union 6 into 0
+mark_saturated e
+join_project 0:2-2(0) and 0:2-2(1) into 7 removing columns (0,3)
+rename 7 into 7 with cycle (0,1)
+union 7 into 1
+mark_saturated f
+store 0 into e
+store 1 into f
+(transform N7datalog13mk_coi_filterE...2 rules Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...1 rules Ts)
+(transform N7datalog25mk_separate_negated_tailsE...no-op Ts)
+(transform N7datalog24mk_similarity_compressorE...no-op Ts)
+(transform N7datalog15mk_filter_rulesE...no-op Ts)
+(transform N7datalog15mk_simple_joinsE...no-op Ts)
+load q into 0
+mk_unary_singleton into 1 sort:(_ BitVec 3) val:3
+union 1 into 0
+orig:  {}
+union: {011}
+mark_saturated q
+store 0 into q

@@ -129,8 +129,14 @@ func (q *datalogBitBlastQuery) install() error {
 		if err = e.inheritDatalogFiniteRepresentation(derived, original); err != nil {
 			return err
 		}
-		facts, err := source.table.Facts()
-		if err != nil {
+		var facts []rel.Fact
+		if relation, ok := rel.AsRelation(source.table); ok {
+			// A relation plugin's relation has no rows to copy; an empty
+			// one (facts arrive as rules the transformer blasts) has none.
+			if !relation.FastEmpty() {
+				return fmt.Errorf("%w: bit-blast of a non-empty %s relation", ErrPropositionalHorn, relation.RelationPlugin().Name())
+			}
+		} else if facts, err = source.table.Facts(); err != nil {
 			return err
 		}
 		for _, fact := range facts {
