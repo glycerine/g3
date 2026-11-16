@@ -336,6 +336,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	"plugins3_interval_filter_gt.smt2": "sat\n",
+	"plugins3_interval_filter_ge.smt2": "sat\n",
+	"plugins3_bound_filter_gt.smt2":    "sat\n",
+	"plugins3_pentagon_filter_ge.smt2": "sat\n",
 	// AUDIT.md FUZZ-F5 (relation plugins): doc and check_relation programs
 	// with Int/Bool predicates and doc/table joins run the compiled route.
 	// plugins3_doc_table_join: the product_relation union of the

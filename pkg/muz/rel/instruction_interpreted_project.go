@@ -121,7 +121,25 @@ func (i *interpretedFilterProjectInstruction) project(table FiniteTable, conditi
 		if len(conditions) != 1 {
 			return nil, ErrInstruction
 		}
-		return relationFilterInterpretedAndProject(r, conditions[0], i.removed)
+		// instr_filter_interpreted_and_project::perform: find_fn, else
+		// mk_filter_interpreted_and_project_fn and store_fn.
+		m := r.RelationPlugin().Manager()
+		kind := m.RelationKindOf(r)
+		fn := i.projectFnCache[kind]
+		if fn == nil {
+			var err error
+			if fn, err = m.MkRelationFilterInterpretedAndProjectFn(r, conditions[0], i.removed); err != nil {
+				return nil, err
+			}
+			if fn == nil {
+				return nil, unsupportedRelationOperationOne("filter_interpreted_and_project", r.RelationPlugin().Name())
+			}
+			if i.projectFnCache == nil {
+				i.projectFnCache = make(map[int]RelationTransformerFn)
+			}
+			i.projectFnCache[kind] = fn
+		}
+		return unwrapResult(fn(r))
 	}
 	switch concrete := table.(type) {
 	case *HashTable:

@@ -24,7 +24,12 @@ type interpretedFilterInstruction struct {
 	variableColumns map[uint32]int
 	variableSorts   map[uint32]ast.ASTHandle
 	numerals        *groundNumeralCache
-	closed          bool
+	// fnCache is instruction::m_fn_cache: the functor made for the first
+	// relation of a kind is reused for later relations of that kind
+	// (find_fn / store_fn keyed by get_kind()).
+	fnCache        map[int]RelationMutatorFn
+	projectFnCache map[int]RelationTransformerFn
+	closed         bool
 }
 
 // NewFilterInterpretedInstruction retains conditions and copies the concrete
@@ -204,7 +209,22 @@ func (i *interpretedFilterInstruction) Perform(context *ExecutionContext) (bool,
 		if len(conditions) != 1 {
 			return false, ErrInstruction
 		}
-		if err = relationFilterInterpreted(r, conditions[0]); err != nil {
+		m := r.RelationPlugin().Manager()
+		kind := m.RelationKindOf(r)
+		fn := i.fnCache[kind]
+		if fn == nil {
+			if fn, err = m.MkRelationFilterInterpretedFn(r, conditions[0]); err != nil {
+				return false, err
+			}
+			if fn == nil {
+				return false, unsupportedRelationOperationOne("filter_interpreted", r.RelationPlugin().Name())
+			}
+			if i.fnCache == nil {
+				i.fnCache = make(map[int]RelationMutatorFn)
+			}
+			i.fnCache[kind] = fn
+		}
+		if err = fn(r); err != nil {
 			return false, err
 		}
 		return i.emptyAfterFilter(context, table)
