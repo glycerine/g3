@@ -76,9 +76,6 @@ func (e *PropositionalEngine) removePendingEagerRules() (prefix int, resultErr e
 	if err = replacement.InheritPredicates(e.set); err != nil {
 		return 0, err
 	}
-	if err = e.rebindArithmeticRules(e.set); err != nil {
-		return 0, err
-	}
 	if err = attempt.closeRules(); err != nil {
 		return 0, err
 	}

@@ -82,7 +82,6 @@ func TestArithmeticTableFactInsertionAndCleanupRefusalKeepsRoots(t *testing.T) {
 	root, err := manager.NewRef(two)
 	must(err)
 	attempt = &arithmeticTableFactAttempt{manager: manager, roots: []ast.ASTRef{root}, handles: []ast.ASTHandle{two}}
-	owner := engine.boundDatalog
 	value, err := numbers.NewValue()
 	must(err)
 	defer func() { must(numbers.Del(&value)) }()
@@ -100,8 +99,8 @@ func TestArithmeticTableFactInsertionAndCleanupRefusalKeepsRoots(t *testing.T) {
 	if len(attempt.roots) != 1 || attempt.roots[0] != root || len(engine.arithmeticFactCleanup) != 1 || engine.arithmeticFactCleanup[0] != attempt {
 		t.Fatal("refusal lost owning numeral roots")
 	}
-	if engine.queryReady || engine.boundDatalog != owner {
-		t.Fatal("refused backend switch exposed stale result or discarded bound owner")
+	if engine.queryReady {
+		t.Fatal("refused backend switch exposed stale result")
 	}
 	var receipt memory.ConstructionFailure
 	if !errors.As(failure, &receipt) || receipt.RuntimeOwner() != runtime || receipt.OriginalCause() == nil || receipt.CleanupCause() == nil {

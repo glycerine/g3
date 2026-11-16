@@ -58,7 +58,4 @@ func TestDatalogBoundFinitePrecedenceAndMixedGuard(t *testing.T) {
 	if status != lbool.False {
 		t.Fatal("mixed original finite/arithmetic program: empty Int relation", status)
 	}
-	if e.boundDatalog != nil {
-		t.Fatal("mixed program installed whole-program bound store")
-	}
 }

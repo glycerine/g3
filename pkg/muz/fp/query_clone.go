@@ -95,18 +95,6 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 			return nil, errors.Join(err, e.discardQueryClone(clone))
 		}
 	}
-	if e.karrDatalog != nil {
-		clone.karrDatalog, err = e.karrDatalog.clone(clone.set)
-		if err != nil {
-			return nil, errors.Join(err, e.discardQueryClone(clone))
-		}
-	}
-	if e.boundDatalog != nil {
-		clone.boundDatalog, err = e.boundDatalog.clone(clone.set)
-		if err != nil {
-			return nil, errors.Join(err, e.discardQueryClone(clone))
-		}
-	}
 	if err = e.copyQueryBackground(clone); err != nil {
 		return nil, errors.Join(err, e.discardQueryClone(clone))
 	}

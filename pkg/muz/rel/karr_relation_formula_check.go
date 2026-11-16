@@ -66,37 +66,6 @@ func (c *KarrRelationFormulaChecker) verify(expected ast.ASTHandle, actual *Karr
 	return VerifyKarrRelationExpected(c.manager, sorts, c.config, expected, actual)
 }
 
-func (c *KarrRelationFormulaChecker) VerifyConstant(actual *KarrRelation, full bool) error {
-	if c == nil || actual == nil {
-		return ErrRelationVerification
-	}
-	sorts, err := c.sorts(actual.dimension)
-	if err != nil {
-		return err
-	}
-	return VerifyKarrRelationConstant(c.manager, sorts, c.config, actual, full)
-}
-
-func (c *KarrRelationFormulaChecker) VerifyFactAdd(values []ast.ASTHandle, actual *KarrRelation) (resultErr error) {
-	if c == nil || actual == nil || len(values) != int(actual.dimension) {
-		return ErrRelationVerification
-	}
-	sorts, err := c.sorts(actual.dimension)
-	if err != nil {
-		return err
-	}
-	before, err := c.manager.MkFalse()
-	if err != nil {
-		return err
-	}
-	beforeRef, err := c.manager.NewRef(before)
-	if err != nil {
-		return err
-	}
-	defer func() { resultErr = errors.Join(resultErr, c.manager.DelRef(&beforeRef)) }()
-	return VerifyKarrRelationFactAdd(c.manager, sorts, c.config, before, values, actual)
-}
-
 func (c *KarrRelationFormulaChecker) verifyProject(source *KarrRelation, removed []uint32, actual *KarrRelation) (resultErr error) {
 	formula, sorts, err := c.formula(source)
 	if err != nil {
@@ -240,26 +209,6 @@ func (c *KarrRelationFormulaChecker) equalityCondition(dimension, column uint32,
 		return ast.ASTRef{}, err
 	}
 	return c.manager.NewRef(equality)
-}
-
-func (c *KarrRelationFormulaChecker) VerifyFilterEqual(before *KarrRelation, column uint32, value ast.ASTHandle, actual *KarrRelation) error {
-	if before == nil || actual == nil {
-		return ErrRelationVerification
-	}
-	condition, err := c.equalityCondition(before.dimension, column, value)
-	if err != nil {
-		return err
-	}
-	defer c.manager.DelRef(&condition)
-	handle, err := c.manager.RefGet(condition)
-	if err != nil {
-		return err
-	}
-	return c.verifyFilter(before, handle, actual)
-}
-
-func (c *KarrRelationFormulaChecker) VerifyFilter(before *KarrRelation, condition ast.ASTHandle, actual *KarrRelation) error {
-	return c.verifyFilter(before, condition, actual)
 }
 
 func (c *KarrRelationFormulaChecker) identicalCondition(dimension uint32, columns []uint32) (ast.ASTRef, error) {

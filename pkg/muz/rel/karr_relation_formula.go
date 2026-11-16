@@ -208,29 +208,3 @@ func VerifyKarrRelationConstant(manager *ast.ASTManager, sorts []ast.ASTHandle, 
 	defer manager.DelRef(&ref)
 	return VerifyKarrRelationExpected(manager, sorts, config, expected, actual)
 }
-
-func VerifyKarrRelationFactAdd(manager *ast.ASTManager, sorts []ast.ASTHandle, config smtcore.SMTSolverConfig, before ast.ASTHandle, values []ast.ASTHandle, after *KarrRelation) (resultErr error) {
-	if manager == nil || before.IsNull() || len(sorts) != len(values) || after == nil {
-		return ErrRelationVerification
-	}
-	checker := relationFormulaChecker{manager: manager, sorts: append([]ast.ASTHandle(nil), sorts...), config: config}
-	fact, err := checker.factFormula(values)
-	if err != nil {
-		return err
-	}
-	defer func() { resultErr = errors.Join(resultErr, manager.DelRef(&fact)) }()
-	factFormula, err := manager.RefGet(fact)
-	if err != nil {
-		return err
-	}
-	expected, err := manager.MkOrArgs([]ast.ASTHandle{before, factFormula})
-	if err != nil {
-		return err
-	}
-	expectedRef, err := manager.NewRef(expected)
-	if err != nil {
-		return err
-	}
-	defer func() { resultErr = errors.Join(resultErr, manager.DelRef(&expectedRef)) }()
-	return VerifyKarrRelationExpected(manager, sorts, config, expected, after)
-}

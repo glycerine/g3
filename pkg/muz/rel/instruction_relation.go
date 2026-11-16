@@ -227,28 +227,6 @@ func relationFilterNegation(target, negative RelationBase, targetColumns, negati
 	return fn(target, negative)
 }
 
-func relationFilterInterpreted(r RelationBase, condition ast.ASTHandle) error {
-	fn, err := r.RelationPlugin().Manager().MkRelationFilterInterpretedFn(r, condition)
-	if err != nil {
-		return err
-	}
-	if fn == nil {
-		return unsupportedRelationOperationOne("filter_interpreted", r.RelationPlugin().Name())
-	}
-	return fn(r)
-}
-
-func relationFilterInterpretedAndProject(r RelationBase, condition ast.ASTHandle, removed []int) (FiniteTable, error) {
-	fn, err := r.RelationPlugin().Manager().MkRelationFilterInterpretedAndProjectFn(r, condition, removed)
-	if err != nil {
-		return nil, err
-	}
-	if fn == nil {
-		return nil, unsupportedRelationOperationOne("filter_interpreted_and_project", r.RelationPlugin().Name())
-	}
-	return unwrapResult(fn(r))
-}
-
 // relationRegisterEmpty is ctx.reg(r)->fast_empty() for a result about to
 // be placed into a register.
 func relationRegisterEmpty(table FiniteTable) (bool, bool) {

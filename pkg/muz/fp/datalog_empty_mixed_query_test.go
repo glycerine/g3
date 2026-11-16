@@ -38,9 +38,6 @@ func TestEmptyMixedDatalogQueryPreservesSourcePreludeAndZeroOutputs(t *testing.T
 	if saturated {
 		t.Fatal("empty mixed query skipped saturated-mark reset")
 	}
-	if e.boundDatalog != nil {
-		t.Fatal("canceled empty mixed query installed a bound runtime")
-	}
 
 	status, err = e.QueryPredicates(nil)
 	must(err)

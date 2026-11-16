@@ -35,7 +35,7 @@ func (e *PropositionalEngine) RelationsAnswer() (answer ast.ASTRef, resultErr er
 		}
 		return e.manager.NewRef(h)
 	}
-	if e.lastResult != lbool.True && !(e.lastResult == lbool.Undef && e.karrDatalog != nil && e.karrDatalog.results != nil) {
+	if e.lastResult != lbool.True {
 		return answer, ErrPropositionalEngine
 	}
 	if e.relAnswer != (ast.ASTRef{}) && e.lastResult == lbool.True {

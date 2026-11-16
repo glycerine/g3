@@ -123,9 +123,6 @@ func (e *PropositionalEngine) ensureDefaultExternalDatalog() (selected bool, res
 	if len(candidates) == 0 {
 		return false, nil
 	}
-	if e.boundDatalog != nil {
-		return true, ErrPropositionalHorn
-	}
 	staged := make([]externalDefaultRegistration, 0, len(candidates))
 	decoded := &externalDefaultDecodedOwner{manager: e.manager}
 	defer func() { resultErr = decoded.finish(resultErr) }()

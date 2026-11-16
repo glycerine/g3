@@ -93,13 +93,6 @@ func NewKarrFull(dimension uint32, checkpoint func() bool, formulaChecker ...*Ka
 func (r *KarrRelation) Dimension() uint32 { return r.dimension }
 func (r *KarrRelation) Empty() bool       { return r == nil || r.empty }
 
-func (r *KarrRelation) FormulaChecker() *KarrRelationFormulaChecker {
-	if r == nil {
-		return nil
-	}
-	return r.formulaChecker
-}
-
 func (r *KarrRelation) SetFormulaChecker(checker *KarrRelationFormulaChecker) {
 	if r != nil {
 		r.formulaChecker = checker

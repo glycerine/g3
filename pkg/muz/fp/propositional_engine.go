@@ -293,8 +293,6 @@ type PropositionalEngine struct {
 	lazyFinite               *rel.LazySparseFiniteFactory
 	externalIntervalDatalog  *externalIntervalDatalogActivation
 	udocDatalog              *datalogUDocContext
-	karrDatalog              *karrDatalogActivation
-	boundDatalog             *boundDatalogRuntime
 	arithmeticFactCleanup    []*arithmeticTableFactAttempt
 	datalogRelationFavourite string
 
@@ -514,9 +512,6 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 		e.revision++
 		return nil
 	}
-	if e.karrDatalog != nil && (len(kinds) != 1 || kinds[0] != "karr_relation") {
-		return ErrKarrDatalogFragment
-	}
 	for _, kind := range kinds {
 		// rel_context registers karr_relation_plugin only when xform.karr is
 		// set; get_ordinary_relation_plugin then reports the missing plugin.
@@ -529,7 +524,7 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 			return fmt.Errorf("relation plugin %s does not exist", kind)
 		}
 	}
-	if len(kinds) == 1 && kinds[0] == "karr_relation" && e.karrDatalog == nil && e.datalogRelationFavourite != "karr_relation" {
+	if len(kinds) == 1 && kinds[0] == "karr_relation" && e.datalogRelationFavourite != "karr_relation" {
 		// get_ordinary_relation_plugin("karr_relation").get_kind(): the
 		// compiled relation plugins evaluate it.
 		state.requestedRepresentations = append([]string(nil), kinds...)
@@ -538,7 +533,7 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 		return nil
 	}
 	if len(kinds) == 1 && kinds[0] == "karr_relation" {
-		if e.udocDatalog != nil || e.boundDatalog != nil || e.externalIntervalDatalog != nil {
+		if e.udocDatalog != nil || e.externalIntervalDatalog != nil {
 			return ErrKarrDatalogFragment
 		}
 		if state.external != nil || state.explicitFiniteRepresentation {
@@ -561,7 +556,7 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 		if e.external == nil || !rel.CanHandleIntervalSorts(e.manager, state.sorts) || state.external != nil || state.explicitFiniteRepresentation {
 			return ErrExternalIntervalDatalogFragment
 		}
-		if e.externalIntervalDatalog == nil && (e.udocDatalog != nil || e.boundDatalog != nil) {
+		if e.externalIntervalDatalog == nil && e.udocDatalog != nil {
 			return ErrExternalIntervalDatalogFragment
 		}
 		if state.table != nil {
@@ -820,16 +815,8 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 			}
 			return e.addDatalogFact(declaration, state, fact)
 		}
-		if selected, err := e.ensureKarrDatalog(); err != nil {
+		if _, err := e.ensureKarrDatalog(); err != nil {
 			return err
-		} else if selected {
-			if err = e.karrDatalog.addFact(declaration, values); err != nil {
-				return err
-			}
-			e.invalidateQueryForMutation()
-			e.advanceRuleRevision()
-			e.compiled = false
-			return nil
 		}
 		if selected, err := e.ensureExternalIntervalDatalog(); err != nil {
 			return err
@@ -862,16 +849,8 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 			return nil
 		}
 		if compiledFavourite {
-		} else if selected, err := e.ensureBoundDatalog(); err != nil {
+		} else if _, err := e.ensureBoundDatalog(); err != nil {
 			return err
-		} else if selected {
-			if err := e.boundDatalog.addFact(declaration, values); err != nil {
-				return err
-			}
-			e.invalidateQueryForMutation()
-			e.advanceRuleRevision()
-			e.compiled = false
-			return nil
 		}
 		state := e.predicates[declaration]
 		if state.external != nil {
@@ -933,10 +912,8 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 		} else if routed {
 			return e.addDatalogFact(declaration, state, fact)
 		}
-		if selected, err := e.ensureKarrDatalog(); err != nil {
+		if _, err := e.ensureKarrDatalog(); err != nil {
 			return err
-		} else if selected {
-			return e.addArithmeticTableFact(declaration, values)
 		}
 		if selected, err := e.ensureExternalIntervalDatalog(); err != nil {
 			return err
@@ -953,10 +930,8 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 			return err
 		} else if selected {
 			return e.addArithmeticTableFact(declaration, values)
-		} else if selected, err := e.ensureBoundDatalog(); err != nil {
+		} else if _, err := e.ensureBoundDatalog(); err != nil {
 			return err
-		} else if selected {
-			return e.addArithmeticTableFact(declaration, values)
 		}
 		if state.external != nil {
 			return e.addArithmeticTableFact(declaration, values)
@@ -1152,9 +1127,6 @@ func (e *PropositionalEngine) UpdateRuleWithSymbol(formula ast.ASTHandle, name s
 		}
 	}
 	if err = replacement.InheritPredicates(e.set); err != nil {
-		return err
-	}
-	if err = e.rebindArithmeticRules(replacement); err != nil {
 		return err
 	}
 	// Source updates operate on the normalized prefix only. Pending inputs
@@ -2720,9 +2692,9 @@ func (e *PropositionalEngine) SetSaturateOnly(on bool) { e.saturateOnly = on }
 func (e *PropositionalEngine) buildRelationAnswer(declarations []ast.ASTHandle) (result error) {
 	// Only the plain finite-table backend; the explanation, Karr, udoc and
 	// interval backends answer through their own relations.
-	if e.datalogExplanationAnswer != (ast.ASTRef{}) || e.karrDatalog != nil || e.udocDatalog != nil ||
+	if e.datalogExplanationAnswer != (ast.ASTRef{}) || e.udocDatalog != nil ||
 		e.externalIntervalDatalog != nil ||
-		e.boundDatalog != nil || e.queryClone != nil || e.expressionClone {
+		e.queryClone != nil || e.expressionClone {
 		return nil
 	}
 	for _, declaration := range declarations {
@@ -2824,10 +2796,8 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 		return lbool.Undef, err
 	}
 	if !routed {
-		if selected, err := e.ensureKarrDatalog(); err != nil {
+		if _, err := e.ensureKarrDatalog(); err != nil {
 			return lbool.Undef, err
-		} else if selected {
-			return e.queryKarrDatalog(declarations)
 		}
 		if selected, err := e.ensureExternalIntervalDatalog(); err != nil {
 			return lbool.Undef, err
@@ -2857,10 +2827,8 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 		}
 		if compiledFavourite {
 			// The relation plugins' relations run compiled.
-		} else if selected, err := e.ensureBoundDatalog(); err != nil {
+		} else if _, err := e.ensureBoundDatalog(); err != nil {
 			return lbool.Undef, err
-		} else if selected {
-			return e.queryBoundDatalog(declarations)
 		}
 	}
 
@@ -3248,17 +3216,11 @@ func (e *PropositionalEngine) computeAnswer(declaration ast.ASTHandle) (answer a
 	if kind == EngineDatalog && e.datalogExplanationAnswer != (ast.ASTRef{}) {
 		return e.manager.CopyRef(e.datalogExplanationAnswer)
 	}
-	if kind == EngineDatalog && (e.karrDatalog != nil || e.queryClone != nil && e.queryClone.karrDatalog != nil) {
-		return e.karrDatalogAnswer(declaration)
-	}
 	if kind == EngineDatalog && (e.udocDatalog != nil || e.queryClone != nil && e.queryClone.udocDatalog != nil) {
 		return e.udocAnswer(declaration)
 	}
 	if kind == EngineDatalog && e.externalIntervalDatalog != nil && e.externalIntervalDatalog.contains(declaration) {
 		return answer, ErrExternalIntervalDatalogFragment
-	}
-	if kind == EngineDatalog && e.boundDatalog != nil {
-		return e.boundDatalog.relationFormula(declaration)
 	}
 	if kind == EngineDatalog && e.relAnswer != (ast.ASTRef{}) && e.relAnswerDecl == declaration && !declaration.IsNull() && e.lastResult == lbool.True {
 		// rel_context::get_answer: the m_answer the query built (the
@@ -3669,15 +3631,6 @@ func (e *PropositionalEngine) Close() (result error) {
 	}
 	if err := e.closeUDocDatalog(); err != nil {
 		return fmt.Errorf("close UDoc Datalog context: %w", err)
-	}
-	if e.karrDatalog != nil {
-		if err := e.karrDatalog.close(); err != nil {
-			return errors.Join(result, err)
-		}
-		e.karrDatalog = nil
-	}
-	if err := e.closeBoundDatalog(); err != nil {
-		return errors.Join(result, err)
 	}
 	// ~context -> context::reset(): m_rule_set.reset() releases the rules
 	// front to back before m_rule_fmls.reset().

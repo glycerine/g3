@@ -351,7 +351,6 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		}
 		hoisted = ast.ASTRef{}
 	}
-	karrSelected := false
 	relationExplanationSelected := false
 	if clone.backend == "datalog" {
 		relationExplanationSelected, err = clone.relationLevelNumericExplanationSelected()
@@ -359,13 +358,13 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 			return lbool.Undef, err
 		}
 		if !relationExplanationSelected {
-			karrSelected, err = clone.ensureKarrDatalog()
+			_, err = clone.ensureKarrDatalog()
 		}
 		if err != nil {
 			return lbool.Undef, err
 		}
 	}
-	if clone.backend == "datalog" && !karrSelected && !relationExplanationSelected {
+	if clone.backend == "datalog" && !relationExplanationSelected {
 		routed, cause := clone.arithRelationsRoute()
 		if cause != nil {
 			return lbool.Undef, cause

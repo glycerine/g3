@@ -6,11 +6,19 @@ package fp
 
 import (
 	"errors"
+
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/rel"
-	"github.com/glycerine/g3/pkg/smtcore"
-	"github.com/glycerine/g3/pkg/util/lbool"
 )
+
+// ErrBoundDatalogFragment reports a configuration with arithmetic
+// predicates whose relation plugins are not ported.
+var ErrBoundDatalogFragment = errors.New("muz/fp: unsupported arithmetic bound Datalog fragment")
+
+type boundDatalogDeclaration struct {
+	declaration ast.ASTHandle
+	sorts       []ast.ASTHandle
+}
 
 func (e *PropositionalEngine) ensureBoundDatalog() (bool, error) {
 	if err := e.cacheDatalogRelationFavourite(); err != nil {
@@ -59,10 +67,6 @@ func (e *PropositionalEngine) ensureBoundDatalog() (bool, error) {
 	if err != nil || checkEnabled {
 		return true, errors.Join(err, ErrBoundDatalogFragment)
 	}
-	var formulaCheck *smtcore.SMTSolverConfig
-	if checkEnabled {
-		formulaCheck = &smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals}
-	}
 	if _, enabled, err := e.datalogDefaultTableCheck(); err != nil || enabled {
 		return true, errors.Join(err, ErrBoundDatalogFragment)
 	}
@@ -78,10 +82,6 @@ func (e *PropositionalEngine) ensureBoundDatalog() (bool, error) {
 			return true, errors.Join(err, ErrBoundDatalogFragment)
 		}
 	}
-	if e.boundDatalog != nil {
-		e.boundDatalog.formulaCheck = formulaCheck
-		return true, e.boundDatalog.syncPredicates(e.predicateOrder)
-	}
 	_, selected, err := boundDatalogDeclarations(e.manager, e.predicateOrder)
 	if err != nil {
 		return true, err
@@ -90,52 +90,72 @@ func (e *PropositionalEngine) ensureBoundDatalog() (bool, error) {
 		// The bound_relation favourite is used only for signatures it can
 		// handle (relation_manager::try_get_appropriate_plugin); the others
 		// get tables. Without an explicit request, continue on that path.
-		if !boundRepresentationRequested(e) && !checkEnabled {
+		if !boundRepresentationRequested(e) {
 			return false, nil
 		}
 		return true, ErrBoundDatalogFragment
 	}
 	// Programs of Int/Real predicates run on the relation plugins
-	// (arithRelationsRoute, rel_context's compiled rules); the bound
-	// evaluator is no longer installed. What reaches here is a
-	// configuration whose plugins are not ported yet: an external relation
-	// next to arithmetic predicates (fixedpoint_context's
+	// (arithRelationsRoute, rel_context's compiled rules). What reaches here
+	// is a configuration whose plugins are not ported yet: an external
+	// relation next to arithmetic predicates (fixedpoint_context's
 	// external_relation_plugin) or relation-level explanations.
 	return true, ErrBoundDatalogFragment
 }
 
-func (e *PropositionalEngine) queryBoundDatalog(declarations []ast.ASTHandle) (lbool.LBool, error) {
-	e.compiled = false
-	e.datalogStats.Reset()
-	enabled, threshold := true, uint32(11)
-	if e.params != nil && e.globals != nil {
-		view, err := e.fixedpointParamView()
+// boundDatalogDeclarations reports whether bound_relation_plugin can handle
+// every declaration's signature (vacuously the nullary one).
+func boundDatalogDeclarations(manager *ast.ASTManager, declarations []ast.ASTHandle) ([]boundDatalogDeclaration, bool, error) {
+	if manager == nil || len(declarations) == 0 {
+		return nil, false, nil
+	}
+	plugin, err := rel.NewBoundRelationPlugin(manager)
+	if err != nil {
+		return nil, false, err
+	}
+	boolean, err := manager.MkBoolSort()
+	if err != nil {
+		return nil, false, err
+	}
+	seen := make(map[ast.ASTHandle]bool, len(declarations))
+	validated := make([]boundDatalogDeclaration, 0, len(declarations))
+	for _, declaration := range declarations {
+		kind, err := manager.GetKind(declaration)
 		if err != nil {
-			return lbool.Undef, err
+			return nil, false, err
 		}
-		enabled, err = view.Bool("datalog.similarity_compressor", true)
-		if err == nil && enabled {
-			threshold, err = view.UInt("datalog.similarity_compressor_threshold", 11)
+		if kind != ast.ASTFuncDecl || seen[declaration] {
+			return nil, false, ErrBoundDatalogFragment
 		}
-		err = errors.Join(err, view.Close())
+		seen[declaration] = true
+		rangeSort, err := manager.GetRange(declaration)
 		if err != nil {
-			return lbool.Undef, err
+			return nil, false, err
 		}
+		if rangeSort != boolean {
+			return nil, false, nil
+		}
+		arity, err := manager.GetArity(declaration)
+		if err != nil {
+			return nil, false, err
+		}
+		sorts := make([]ast.ASTHandle, arity)
+		for i := uint32(0); i < arity; i++ {
+			sorts[i], err = manager.GetDomain(declaration, i)
+			if err != nil {
+				return nil, false, err
+			}
+		}
+		capable, err := plugin.CanHandleSignature(sorts)
+		if err != nil {
+			return nil, false, err
+		}
+		if !capable {
+			return nil, false, nil
+		}
+		validated = append(validated, boundDatalogDeclaration{declaration: declaration, sorts: sorts})
 	}
-	if enabled {
-		return e.boundDatalog.queryWithSimilarity(declarations, threshold)
-	}
-	return e.boundDatalog.query(declarations)
-}
-func (e *PropositionalEngine) closeBoundDatalog() error {
-	if e.boundDatalog == nil {
-		return nil
-	}
-	if err := e.boundDatalog.close(); err != nil {
-		return err
-	}
-	e.boundDatalog = nil
-	return nil
+	return validated, true, nil
 }
 
 // boundRepresentationRequested reports a set-predicate-representation request

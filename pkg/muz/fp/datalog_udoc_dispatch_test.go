@@ -211,9 +211,6 @@ func TestDatalogUDocSelectionAndNullary(t *testing.T) {
 			if docUsed != selected {
 				t.Fatal("wrong source doc capability/precedence", mode, docUsed)
 			}
-			if mode == "arithmetic-fallback" && e.boundDatalog == nil {
-				t.Fatal("doc capability failure skipped source bound fallback")
-			}
 		})
 	}
 }
