@@ -42,6 +42,7 @@
 #include "ast/rewriter/expr_safe_replace.h"
 #include "model/model_evaluator.h"
 #include "smt/smt_solver.h"
+#include "ast/ast_util.h"
 
 // template class symbol_table<family_id>;
 
@@ -135,6 +136,195 @@ namespace Duality {
     }
 #endif
 
+
+    // FORK FIX #99 (g3 audit, see FORK_BUGFIXES.md): validate a counterexample that relies on quantifiers (AUDIT duality_itp_sat)
+    //
+    // Duality's solvers use MBQI only for interpolant quantifiers
+    // (mbqi.id=itp), so an SMT sat on a formula with other quantifiers is
+    // trusted although they were never checked: (=> (and (= x 1) (forall
+    // ((z Int)) (> z x))) err) was answered sat. When a step of the
+    // counterexample or a background axiom has a quantifier, check the
+    // derivation against the original rules with a full solver: each step's
+    // rule, instantiated with fresh constants, must derive its fact from the
+    // facts of the steps before it (child-first order), every predicate
+    // atom of its body standing for the disjunction of those facts. A
+    // derivation that fails, or that has a predicate in a non-positive
+    // position, is reported as incompleteness.
+
+    // Child-first list of the steps used by a counterexample, as print_proof
+    // visits them.
+    static bool cex_steps(RPFP *tree, RPFP::Node *node, std::vector<RPFP::Node *> &steps) {
+        RPFP::Edge *edge = node->Outgoing;
+        if (!edge)
+            return false;
+        for (unsigned i = 0; i < edge->Children.size(); i++)
+            if (!tree->Empty(edge->Children[i]))
+                if (!cex_steps(tree, edge->Children[i], steps))
+                    return false;
+        steps.push_back(node);
+        return true;
+    }
+
+    static bool cex_contains_pred(obj_hashtable< ::func_decl> const &preds, ::expr *e, ast_mark &visited) {
+        if (visited.is_marked(e))
+            return false;
+        visited.mark(e, true);
+        if (is_app(e)) {
+            if (preds.contains(to_app(e)->get_decl()))
+                return true;
+            for (unsigned i = 0; i < to_app(e)->get_num_args(); i++)
+                if (cex_contains_pred(preds, to_app(e)->get_arg(i), visited))
+                    return true;
+            return false;
+        }
+        if (is_quantifier(e))
+            return cex_contains_pred(preds, to_quantifier(e)->get_expr(), visited);
+        return false;
+    }
+
+    // Replace each predicate atom in a positive position of a body by the
+    // disjunction of the derived facts of its predicate. Returns false if a
+    // predicate occurs in another position.
+    static bool cex_replace_atoms(ast_manager &m, obj_hashtable< ::func_decl> const &preds, expr_ref_vector const &facts,
+                                  ::expr *e, expr_ref &res) {
+        if (is_app(e)) {
+            app *a = to_app(e);
+            if (preds.contains(a->get_decl())) {
+                expr_ref_vector disjuncts(m);
+                for (unsigned i = 0; i < facts.size(); i++) {
+                    app *fact = to_app(facts.get(i));
+                    if (fact->get_decl() != a->get_decl())
+                        continue;
+                    expr_ref_vector eqs(m);
+                    for (unsigned j = 0; j < a->get_num_args(); j++)
+                        eqs.push_back(m.mk_eq(a->get_arg(j), fact->get_arg(j)));
+                    disjuncts.push_back(mk_and(m, eqs.size(), eqs.c_ptr()));
+                }
+                res = mk_or(m, disjuncts.size(), disjuncts.c_ptr());
+                return true;
+            }
+            if (m.is_and(a) || m.is_or(a) || m.is_implies(a)) {
+                expr_ref_vector args(m);
+                for (unsigned i = 0; i < a->get_num_args(); i++) {
+                    expr_ref arg(m);
+                    if (m.is_implies(a) && i == 0) {
+                        ast_mark visited;
+                        if (cex_contains_pred(preds, a->get_arg(i), visited))
+                            return false;
+                        arg = a->get_arg(i);
+                    }
+                    else if (!cex_replace_atoms(m, preds, facts, a->get_arg(i), arg))
+                        return false;
+                    args.push_back(arg);
+                }
+                res = m.mk_app(a->get_decl(), args.size(), args.c_ptr());
+                return true;
+            }
+            ast_mark visited;
+            if (cex_contains_pred(preds, e, visited))
+                return false;
+            res = e;
+            return true;
+        }
+        if (is_quantifier(e)) {
+            expr_ref body(m);
+            if (!cex_replace_atoms(m, preds, facts, to_quantifier(e)->get_expr(), body))
+                return false;
+            res = m.update_quantifier(to_quantifier(e), body);
+            return true;
+        }
+        res = e;
+        return true;
+    }
+
+    static bool validate_counterexample(dl_interface *d, RPFP *tree, RPFP::Node *root) {
+        duality_data *dd = d->dd();
+        ast_manager &m = dd->ctx.m();
+        std::vector<RPFP::Node *> steps;
+        if (!cex_steps(tree, root, steps))
+            return false;
+        // only a step rule or an axiom with a quantifier needs the check
+        bool quantified = false;
+        for (unsigned i = 0; i < dd->axioms.size(); i++)
+            if (has_quantifiers(to_expr(dd->axioms[i].raw())))
+                quantified = true;
+        for (unsigned i = 0; i < steps.size(); i++) {
+            ::expr *t = to_expr(dd->clauses[dd->map[steps[i]->Outgoing->map]].raw());
+            if (is_quantifier(t) && to_quantifier(t)->is_forall())
+                t = to_quantifier(t)->get_expr();
+            if (has_quantifiers(t))
+                quantified = true;
+        }
+        if (!quantified)
+            return true;
+        // the predicate symbols are the uninterpreted clause heads
+        obj_hashtable< ::func_decl> preds;
+        for (unsigned i = 0; i < dd->clauses.size(); i++) {
+            ::expr *c = to_expr(dd->clauses[i].raw());
+            if (is_quantifier(c))
+                c = to_quantifier(c)->get_expr();
+            if (m.is_implies(c))
+                c = to_app(c)->get_arg(1);
+            if (is_app(c) && to_app(c)->get_family_id() == null_family_id)
+                preds.insert(to_app(c)->get_decl());
+        }
+        expr_ref_vector facts(m), constraints(m);
+        for (unsigned i = 0; i < steps.size(); i++) {
+            ::expr *t = to_expr(dd->clauses[dd->map[steps[i]->Outgoing->map]].raw());
+            expr_ref inst(t, m);
+            if (is_quantifier(t) && to_quantifier(t)->is_forall()) {
+                quantifier *q = to_quantifier(t);
+                unsigned n = q->get_num_decls();
+                expr_ref_vector skolem(m);
+                skolem.resize(n);
+                for (unsigned j = 0; j < n; j++)
+                    skolem[n - 1 - j] = m.mk_fresh_const("@cex", q->get_decl_sort(j));
+                var_subst vs(m, false);
+                vs(q->get_expr(), n, skolem.c_ptr(), inst);
+            }
+            // the clause shape FromClauses gives it
+            expr_ref body(m), head(m);
+            if (is_app(inst) && to_app(inst)->get_family_id() == null_family_id) {
+                body = m.mk_true();
+                head = inst;
+            }
+            else if (m.is_implies(inst) && (m.is_false(to_app(inst)->get_arg(1)) ||
+                                             (is_app(to_app(inst)->get_arg(1)) &&
+                                              to_app(to_app(inst)->get_arg(1))->get_family_id() == null_family_id))) {
+                body = to_app(inst)->get_arg(0);
+                head = to_app(inst)->get_arg(1);
+            }
+            else {
+                body = m.mk_not(inst);
+                head = m.mk_false();
+            }
+            // the query step is the root; every other step derives a fact
+            if (m.is_false(head) != (i + 1 == steps.size()))
+                return false;
+            expr_ref condition(m);
+            if (!cex_replace_atoms(m, preds, facts, body, condition))
+                return false;
+            constraints.push_back(condition);
+            if (!m.is_false(head)) {
+                ::func_decl *f = to_app(head)->get_decl();
+                expr_ref_vector args(m);
+                for (unsigned j = 0; j < f->get_arity(); j++) {
+                    args.push_back(m.mk_fresh_const("@cex", f->get_domain(j)));
+                    constraints.push_back(m.mk_eq(to_app(head)->get_arg(j), args.get(j)));
+                }
+                facts.push_back(m.mk_app(f, args.size(), args.c_ptr()));
+            }
+        }
+        // query runs with proofs on; MBQI with proofs can loop on a valid
+        // forall-exists body, so check without them
+        scoped_no_proof _np(m);
+        ref< ::solver> s = mk_smt_solver(m, params_ref(), ::symbol::null);
+        for (unsigned i = 0; i < dd->axioms.size(); i++)
+            s->assert_expr(to_expr(dd->axioms[i].raw()));
+        for (unsigned i = 0; i < constraints.size(); i++)
+            s->assert_expr(constraints.get(i));
+        return s->check_sat(0, nullptr) == l_true;
+    }
 
     lbool dl_interface::query(::expr * query) {
 
@@ -343,6 +533,9 @@ namespace Duality {
         bool ans;
         try {
             ans = rs->Solve();
+            // FORK FIX #99 (g3 audit, see FORK_BUGFIXES.md): a counterexample that relies on quantifiers must pass validate_counterexample (AUDIT duality_itp_sat)
+            if(!ans && !validate_counterexample(this, rs->GetCounterexample().get_tree(), rs->GetCounterexample().get_root()))
+                throw Duality::Solver::Incompleteness();
         }
         catch (Duality::solver::cancel_exception &exn){
             throw default_exception(Z3_CANCELED_MSG);
