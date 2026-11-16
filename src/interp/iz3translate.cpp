@@ -1260,6 +1260,10 @@ public:
        theta(L), and move between L and theta(L) by congruence. */
 
     typedef std::pair<ast,ast> ConstEquiv; // the equation pre = image, its proof
+    hash_map<ast,ConstEquiv> global_theta; // FORK FIX #101: collect_global_equivs, computed when first needed
+    std::vector<ast> global_keys;
+    bool global_theta_done;
+    ast translate_root;
 
     bool is_rewrite_constant(const ast &t){
         return op(t) == Uninterpreted && num_args(t) == 0;
@@ -1341,14 +1345,8 @@ public:
     }
 
     // proves the mixed rewrite rew, L = R, from the local rewrite
-    // theta(L) = theta(R), with theta taken from the congruence proof congr
-    bool localize_rewrite(const ast &congr, const ast &rew, Iproof::node &res){
-        hash_set<ast> memo;
-        hash_map<ast,ConstEquiv> theta;
-        std::vector<ast> keys;
-        collect_rewrite_equivs(memo,congr,theta,keys);
-        if(keys.empty())
-            return false;
+    // theta(L) = theta(R)
+    bool localize_rewrite_with(hash_map<ast,ConstEquiv> &theta, const ast &rew, Iproof::node &res){
         ast con = conc(rew);
         ast lhs = arg(con,0), rhs = arg(con,1);
         hash_map<ast,ast> amemo;
@@ -1374,6 +1372,80 @@ public:
             res = iproof->make_transitivity(lhs,trhs,rhs,res1,rpf);
         }
         return true;
+    }
+
+    // FORK FIX #101 (g3 audit, see FORK_BUGFIXES.md): a rewrite mixed by two propagate_values rounds (AUDIT duality_iz3 round 2)
+    // the hypothesis-free equations between constants of the whole proof,
+    // in depth-first order, the first proof of an image winning
+    void collect_global_equivs(hash_set<ast> &memo, const ast &proof){
+        if(memo.find(proof) != memo.end())
+            return;
+        memo.insert(proof);
+        ast con = conc(proof);
+        if(op(con) == Equal || op(con) == Iff){
+            ast pre = arg(con,0), image = arg(con,1);
+            if(pre != image && is_rewrite_constant(pre) && is_rewrite_constant(image)
+               && global_theta.find(image) == global_theta.end() && get_hyps(proof).empty()){
+                global_theta[image] = ConstEquiv(con,proof);
+                global_keys.push_back(image);
+            }
+        }
+        unsigned nprems = num_prems(proof);
+        for(unsigned i = 0; i < nprems; i++)
+            collect_global_equivs(memo,prem(proof,i));
+    }
+
+    // whether translating proof could re-enter a translation in progress
+    // (translate_main's memo entry is made, still null, before the work)
+    bool proof_busy(hash_map<ast,bool> &memo, const ast &proof){
+        std::pair<ast,bool> foo(proof,false);
+        std::pair<hash_map<ast,bool>::iterator, bool> bar = memo.insert(foo);
+        bool &res = bar.first->second;
+        if(!bar.second) return res;
+        for(int k = 0; k < 2 && !res; k++){
+            hash_map<ast,Iproof::node> &trc = k == 0 ? translation.first : translation.second;
+            hash_map<ast,Iproof::node>::iterator it = trc.find(proof);
+            if(it != trc.end() && it->second.null())
+                res = true;
+        }
+        unsigned nprems = num_prems(proof);
+        for(unsigned i = 0; i < nprems && !res; i++)
+            if(proof_busy(memo,prem(proof,i)))
+                res = true;
+        return res;
+    }
+
+    // proves the mixed rewrite rew with theta taken from the congruence
+    // proof congr; when that leaves it mixed (the congruence's left side was
+    // already mixed by an earlier propagate_values round), adds the
+    // proof's other constant equations
+    bool localize_rewrite(const ast &congr, const ast &rew, Iproof::node &res){
+        hash_set<ast> memo;
+        hash_map<ast,ConstEquiv> theta;
+        std::vector<ast> keys;
+        collect_rewrite_equivs(memo,congr,theta,keys);
+        if(!keys.empty() && localize_rewrite_with(theta,rew,res))
+            return true;
+        if(!global_theta_done){
+            hash_set<ast> gmemo;
+            collect_global_equivs(gmemo,translate_root);
+            global_theta_done = true;
+        }
+        unsigned nkeys = keys.size();
+        hash_map<ast,bool> busy;
+        for(unsigned i = 0; i < global_keys.size(); i++){
+            ast image = global_keys[i];
+            if(theta.find(image) == theta.end()){
+                ConstEquiv &ce = global_theta[image];
+                if(!proof_busy(busy,ce.second)){
+                    theta[image] = ce;
+                    keys.push_back(image);
+                }
+            }
+        }
+        if(keys.size() == nkeys)
+            return false;
+        return localize_rewrite_with(theta,rew,res);
     }
 
     // an and-elim or not-or-elim from a mixed premise G, taken locally from
@@ -2261,6 +2333,11 @@ public:
     iz3proof::node translate(ast proof, iz3proof &dst) override {
         std::vector<ast> itps;
         scan_skolems(proof);
+        // FORK FIX #101 (g3 audit, see FORK_BUGFIXES.md): the root for collect_global_equivs (AUDIT duality_iz3 round 2)
+        translate_root = proof;
+        global_theta.clear();
+        global_keys.clear();
+        global_theta_done = false;
         for(int i = 0; i < frames -1; i++){
 #ifdef NEW_LOCALITY
             rng = range_downward(i);
@@ -2302,6 +2379,7 @@ public:
         type boolbooldom[2] = {bool_type(),bool_type()};
         commute = function("@commute",2,boolbooldom,bool_type());
         m().inc_ref(commute);
+        global_theta_done = false; // FORK FIX #101
     }
 
     ~iz3translation_full() override {
