@@ -1756,9 +1756,14 @@ func (r *UDocPluginRelation) applyGuard(g ast.ASTHandle, result *DocUnion, equal
 			return err
 		}
 		for i := 0; err == nil && !sub.Empty() && i < len(args); i++ {
+			// expr_ref arg = mk_not(m, g_i) dies at the end of the iteration.
 			var arg ast.ASTHandle
 			if arg, err = m.MkNotSimplified(args[i]); err == nil {
-				err = r.applyGuard(arg, sub, equalities, discardCols)
+				var held ast.ASTRef
+				if held, err = m.NewRef(arg); err == nil {
+					err = r.applyGuard(arg, sub, equalities, discardCols)
+					err = errors.Join(err, m.DelRef(&held))
+				}
 			}
 		}
 		if err == nil {
