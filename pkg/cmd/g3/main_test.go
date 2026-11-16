@@ -336,6 +336,14 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT duality_iz3 (fork fix): iZ3 proves a rewrite or and-elim on a
+	// formula that propagate_values mixed across frames by renaming the
+	// substituted constants back (rewrite singleton and, flattened and,
+	// => true; mixed conjunction elimination without localization).
+	"duality_iz3_mixed_rewrite.smt2":  "unsat\n(fixedpoint \n(define-fun err () Bool\n  false)\n(define-fun @Fail!0 () Bool\n  false)\n(define-fun q0 ((x!0 Int)) Bool\n  (or (= x!0 0) (= x!0 1)))\n(define-fun q1 ((x!0 Int)) Bool\n  false)\n)\n\n",
+	"duality_iz3_singleton_and.smt2":  "unsat\n(fixedpoint \n(define-fun err () Bool\n  false)\n(define-fun @Fail!1 () Bool\n  false)\n(define-fun q0 ((x!0 Int)) Bool\n  (= x!0 1))\n(define-fun q2 ((x!0 Int)) Bool\n  (= x!0 1))\n(define-fun q1 ((x!0 Int)) Bool\n  false)\n)\n\n",
+	"duality_iz3_mixed_and_elim.smt2": "unsat\n(fixedpoint \n(define-fun err () Bool\n  false)\n(define-fun @Fail!0 () Bool\n  false)\n(define-fun q0 ((x!0 Int)) Bool\n  (= x!0 2))\n(define-fun q2 ((x!0 Int)) Bool\n  false)\n)\n\n",
+	"duality_iz3_flattened_and.smt2":  "unsat\n(fixedpoint \n(define-fun err () Bool\n  false)\n(define-fun @Fail!0 () Bool\n  false)\n(define-fun inv ((x!0 Int) (x!1 Int)) Bool\n  (or (and (= x!1 5) (= x!0 0)) (not (>= x!0 11))))\n(define-fun aux ((x!0 Int)) Bool\n  true)\n)\n\n",
 	// plugins_doc: check_relation_plugin over udoc_plugin.
 	"datalog_doc_checked_negation_guard.smt2":   "sat\n(or (and (= (:var 0) #x3) (= (:var 1) #x3))\n    (and (= (:var 0) #x2) (= (:var 1) #x3)))\n",
 	"datalog_doc_checked_negation_partial.smt2": "sat\n(or (and (= (:var 0) #b001) (= (:var 1) #b010))\n    (and (= (:var 0) #b011) (= (:var 1) #b010))\n    (and (= (:var 0) #b010) (= (:var 1) #b001)))\n",
@@ -503,10 +511,10 @@ var scriptResults = map[string]string{
 	"z3_bug_pdr_proof_duplicate_leaf.smt2":              "sat\n(let ((a!1 (asserted (=> (and (q true) (r true)) goal)))\n      (a!2 (= (=> (and (q true) (r true)) goal)\n              (=> (and (r true) (q true)) goal)))\n      (a!4 (forall ((v Bool)) (=> (p v) (r v))))\n      (a!5 (forall ((A Bool)) (=> (p A) (r A))))\n      (a!7 (forall ((v Bool)) (=> (a v) (p v))))\n      (a!8 (forall ((A Bool)) (=> (a A) (p A))))\n      (a!10 (forall ((v Bool)) (=> (= v true) (a v))))\n      (a!11 (forall ((A Bool)) (=> (= A true) (a A))))\n      (a!14 (forall ((v Bool)) (=> (p v) (q v))))\n      (a!15 (forall ((A Bool)) (=> (p A) (q A)))))\n(let ((a!3 (mp a!1 (rewrite a!2) (=> (and (r true) (q true)) goal)))\n      (a!6 (mp (asserted a!4) (symm (der (= a!5 a!4)) (= a!4 a!5)) a!5))\n      (a!9 (mp (asserted a!7) (symm (der (= a!8 a!7)) (= a!7 a!8)) a!8))\n      (a!12 (mp (asserted a!10) (symm (der (= a!11 a!10)) (= a!10 a!11)) a!11))\n      (a!16 (mp (asserted a!14) (symm (der (= a!15 a!14)) (= a!14 a!15)) a!15)))\n(let ((a!13 (mp a!12 (rewrite (= a!11 (a true))) (a true))))\n(let ((a!17 ((_ hyper-res 1 0 2 0)\n              a!3\n              (hyper-res a!6 (hyper-res a!9 a!13 (p true)) (r true))\n              (hyper-res a!16 (hyper-res a!9 a!13 (p true)) (q true))\n              goal)))\n  ((_ hyper-res 1 0) (asserted (=> goal query!0)) a!17 query!0)))))\n", // muz_pdr_02-F2
 	"z3_bug_duality_unhoist_repeated_child.smt2":        "sat\n",
 	"z3_bug_duality_quantify_arrays_requery.smt2":       "sat\nunsat\nsat\n",
-	"z3_bug_duality_quantify_arrays_requery_scale.smt2": "sat\n(error \"query failed: theory not supported by interpolation or bad proof\")\nunknown\nsat\n",
+	"z3_bug_duality_quantify_arrays_requery_scale.smt2": "sat\n(error \"query failed: bad_ineq_inference\")\nunknown\nsat\n",
 	"z3_bug_duality_underapprox_stale_proof.smt2":       "sat\n",
 	"z3_bug_duality_underapprox_flag_literals.smt2":     "sat\n",
-	"z3_bug_duality_failed_query_requery.smt2":          "(error \"query failed: theory not supported by interpolation or bad proof\")\nunknown\nsat\n",
+	"z3_bug_duality_failed_query_requery.smt2":          "(error \"query failed: bad_ineq_inference\")\nunknown\nsat\n",
 	"z3_bug_lazy_sparse_nullary_union.smt2":             "sat\ntrue\n",
 	"z3_bug_check_table_nullary_empty.smt2":             "sat\n",
 	"z3_bug_qbmc_eval_level.smt2":                       "sat\n(let ((a!1 (forall ((A Int)) (=> (and (p A) (not (<= A 2))) q)))\n      (a!2 (forall ((A Int) (B Int)) (=> (and (p A) (= B (+ 1 A))) (p B)))))\n(let ((a!3 (hyper-res (hyper-res (asserted (=> q query!0))\n                                 (asserted a!1)\n                                 (=> (p 4) query!0))\n                      (asserted a!2)\n                      (=> (p 3) query!0))))\n(let ((a!4 (hyper-res (hyper-res a!3 (asserted a!2) (=> (p 2) query!0))\n                      (asserted a!2)\n                      (=> (p 1) query!0))))\n  ((_ hyper-res 1 0)\n    (hyper-res a!4 (asserted a!2) (=> (p 0) query!0))\n    (asserted (p 0))\n    query!0))))\n",
@@ -961,8 +969,9 @@ var scriptResults = map[string]string{
 	"subpaving_div_zero_den_mpfx.smt2": "(goals\n(goal\n  (>= y (- 2.0))\n  (<= y 2.0)\n  (>= a 1.0)\n  (<= a 2.0)\n  (<= (* a (^ y 2.0)) 10.0)\n  (>= (* a (^ y 2.0)) 1.0)\n  :precision precise :depth 2)\n)\n",
 	// AUDIT.md duality_01-F3 follow-up (TestDualityScaleRealQueries): with
 	// xform.scale, q2's body becomes p(v, s) with v = 2.0*s and, without
-	// eq2ineq, iZ3 cannot interpolate the arithmetic rewrite proof.
-	"duality_scale_interpolation_refusal.smt2": "(error \"query failed: theory not supported by interpolation or bad proof\")\nunknown\n",
+	// eq2ineq, iZ3 cannot interpolate the proof: since the duality_iz3 fork
+	// fix takes its mixed rewrite, chain_ineqs throws bad_ineq_inference.
+	"duality_scale_interpolation_refusal.smt2": "(error \"query failed: bad_ineq_inference\")\nunknown\n",
 	// AUDIT.md muz_fp_02-F5: rel_context keeps engine_base::get_model, an empty model.
 	"datalog_horn_empty_model.smt2": "sat\n(model \n)\n(P #b01)\n(Q #b01)\n",
 	// AUDIT.md muz_fp_01-F4: (query r) is rel_context::query(num_rels, rels), which ignores generate_explanations.

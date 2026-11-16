@@ -8,10 +8,10 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/proofs"
-	"github.com/glycerine/g3/pkg/interp"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 func TestDualityScaleRealQueries(t *testing.T) {
@@ -75,10 +75,11 @@ func TestDualityScaleRealQueries(t *testing.T) {
 					}
 				}()
 				// Scaling turns p(2.0) into p(v, s) with v = 2.0*s. Like the C++
-				// Duality::solver (no eq2ineq), iZ3 then gets an arithmetic
-				// rewrite proof it cannot interpolate, so z3 refuses that query
-				// with "theory not supported by interpolation or bad proof";
-				// the next query still answers.
+				// Duality::solver (no eq2ineq), iZ3 then gets a proof it cannot
+				// interpolate: since the duality_iz3 fork fix takes its mixed
+				// rewrite, chain_ineqs throws the iz3_exception
+				// bad_ineq_inference and the query fails with it; the next
+				// query still answers.
 				refused := arrays && scale
 				for index, query := range []struct {
 					term ast.ASTHandle
@@ -86,7 +87,8 @@ func TestDualityScaleRealQueries(t *testing.T) {
 				}{{fact, lbool.True}, {absent, lbool.False}, {fact, lbool.True}} {
 					status, err := e.QueryExpression(query.term)
 					if refused && query.want == lbool.False {
-						if !errors.As(err, new(interp.InterpolationError)) || status != lbool.Undef {
+						var refusal z3exception.DefaultException
+						if !errors.As(err, &refusal) || refusal.Message() != "bad_ineq_inference" || status != lbool.Undef {
 							t.Fatalf("scaled unreachable query = %v, %v; want the interpolation refusal", status, err)
 						}
 						continue

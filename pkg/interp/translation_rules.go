@@ -200,6 +200,12 @@ func (t *FullTranslation) translateMain(proof ast.ASTHandle, expectClause bool, 
 		cache[proof] = result
 		return result, nil
 	}
+	if result, handled, e := t.translateLocalizedStep(proof, rule, direct, memo); e != nil {
+		return ast.ASTHandle{}, e
+	} else if handled {
+		cache[proof] = result
+		return result, nil
+	}
 	count, err := t.base.manager.NumPremises(proof)
 	if err != nil {
 		return ast.ASTHandle{}, err
