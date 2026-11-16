@@ -310,6 +310,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_sieve_kinds);
     TST(z3_4_7_1_str_regex_pop);
     TST(z3_4_7_1_str_regex_unroll_tries);
+    TST(z3_4_7_1_check_relation_mixed_join);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);

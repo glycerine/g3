@@ -3729,3 +3729,38 @@ void tst_z3_4_7_1_str_regex_unroll_tries() {
         "(check-sat)\n";
     expect_script_output("str_regex_unroll_tries", script, "sat\n");
 }
+
+// With datalog.check_relation doc, the Bool predicate p (no udoc signature)
+// holds a table_relation and q a check_relation over udoc. The join of p and
+// q asks check_relation_plugin::mk_join_fn, whose get() dynamic_cast threw
+// std::bad_cast for the table: z3 4.7.1 aborts. The fixed plugin offers no
+// operation unless every argument is a check_relation, so relation_manager
+// joins through the product relation (which keeps no correlation of its
+// inner relations). pkg/AUDIT.md FUZZ-F5 (relation plugins).
+void tst_z3_4_7_1_check_relation_mixed_join() {
+    char const* script =
+        "(set-option :fixedpoint.engine datalog)\n"
+        "(set-option :fixedpoint.datalog.check_relation doc)\n"
+        "(set-option :fixedpoint.xform.inline_linear false)\n"
+        "(set-option :fixedpoint.xform.inline_eager false)\n"
+        "(declare-rel p (Bool))\n"
+        "(declare-rel q ((_ BitVec 3)))\n"
+        "(declare-rel r ((_ BitVec 3)))\n"
+        "(declare-var x Bool)\n"
+        "(declare-var y (_ BitVec 3))\n"
+        "(rule (p true))\n"
+        "(rule (q #b101))\n"
+        "(rule (=> (and (p x) (q y)) (r y)))\n"
+        "(query r :print-answer true)\n";
+    expect_script_output("check_relation_mixed_join", script,
+        "sat\n"
+        "(and (= (:var 0) #b101)\n"
+        "     (or (= (:var 0) #b000)\n"
+        "         (= (:var 0) #b001)\n"
+        "         (= (:var 0) #b010)\n"
+        "         (= (:var 0) #b011)\n"
+        "         (= (:var 0) #b100)\n"
+        "         (= (:var 0) #b101)\n"
+        "         (= (:var 0) #b110)\n"
+        "         (= (:var 0) #b111)))\n");
+}
