@@ -348,6 +348,12 @@ Abstract:
                                   never inserts: the first unroll of a
                                   regex membership segfaults (fork fix,
                                   AST-id fidelity audit 2026-11-16).
+    z3_4_7_1_inliner_linear_facts with xform.inline_eager=false,
+                                  mk_rule_inliner never collects the
+                                  predicates with facts, so inline_linear
+                                  inlines a predicate whose relation holds
+                                  API facts and the facts are lost
+                                  (pkg/AUDIT.md FUZZ-F5).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -3833,4 +3839,55 @@ void tst_z3_4_7_1_table_complement_columns() {
         "         (and (= (:var 0) #b11) (= (:var 1) #b01) (= (:var 2) true))\n"
         "         (and (= (:var 0) #b11) (= (:var 1) #b10) (= (:var 2) true))\n"
         "         (and (= (:var 0) #b11) (= (:var 1) #b11) (= (:var 2) true))))\n");
+}
+
+// xform.inline_eager=false with xform.inline_linear_branch: middle has an
+// API fact (Z3_fixedpoint_add_fact, a relation fact) and a rule from seed;
+// left and right read middle. mk_rule_inliner::count_pred_occurrences
+// (rel_context::collect_non_empty_predicates into m_preds_with_facts) runs
+// only in plan_inlining, i.e. with eager inlining, so inline_linear does not
+// know middle has facts, inlines it into left and right, and its fact
+// (true) is lost: z3 4.7.1 answers left = right = {false}.
+// pkg/AUDIT.md FUZZ-F5.
+void tst_z3_4_7_1_inliner_linear_facts() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context c = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_fixedpoint fp = Z3_mk_fixedpoint(c);
+    Z3_fixedpoint_inc_ref(c, fp);
+    Z3_params p = Z3_mk_params(c);
+    Z3_params_inc_ref(c, p);
+    Z3_params_set_symbol(c, p, Z3_mk_string_symbol(c, "engine"), Z3_mk_string_symbol(c, "datalog"));
+    Z3_params_set_bool(c, p, Z3_mk_string_symbol(c, "xform.inline_eager"), false);
+    Z3_params_set_bool(c, p, Z3_mk_string_symbol(c, "xform.inline_linear_branch"), true);
+    Z3_fixedpoint_set_params(c, fp, p);
+    Z3_sort B = Z3_mk_bool_sort(c);
+    char const* names[4] = { "seed", "middle", "left", "right" };
+    Z3_func_decl d[4];
+    for (unsigned i = 0; i < 4; ++i) {
+        d[i] = Z3_mk_func_decl(c, Z3_mk_string_symbol(c, names[i]), 1, &B, B);
+        Z3_fixedpoint_register_relation(c, fp, d[i]);
+    }
+    unsigned zero = 0, one = 1;
+    Z3_fixedpoint_add_fact(c, fp, d[0], 1, &zero);
+    Z3_fixedpoint_add_fact(c, fp, d[1], 1, &one);
+    Z3_ast x = Z3_mk_bound(c, 0, B);
+    Z3_symbol xs = Z3_mk_string_symbol(c, "x");
+    unsigned pairs[3][2] = { {0, 1}, {1, 2}, {1, 3} };
+    for (unsigned i = 0; i < 3; ++i) {
+        Z3_ast body = Z3_mk_implies(c, Z3_mk_app(c, d[pairs[i][0]], 1, &x), Z3_mk_app(c, d[pairs[i][1]], 1, &x));
+        Z3_fixedpoint_add_rule(c, fp, Z3_mk_forall(c, 0, 0, nullptr, 1, &B, &xs, body), Z3_mk_string_symbol(c, names[pairs[i][1]]));
+    }
+    Z3_func_decl q[2] = { d[2], d[3] };
+    Z3_lbool r = Z3_fixedpoint_query_relations(c, fp, 2, q);
+    std::string answer = Z3_ast_to_string(c, Z3_fixedpoint_get_answer(c, fp));
+    std::string expected =
+        "(and (or (= (:var 0) true) (= (:var 0) false))\n"
+        "     (or (= (:var 0) true) (= (:var 0) false)))";
+    std::cout << "inliner_linear_facts: " << r << "\nexpected\n" << expected << "\ngot\n" << answer << "\n";
+    Z3_params_dec_ref(c, p);
+    Z3_fixedpoint_dec_ref(c, fp);
+    Z3_del_context(c);
+    ENSURE(r == Z3_L_TRUE);
+    ENSURE(answer == expected);
 }

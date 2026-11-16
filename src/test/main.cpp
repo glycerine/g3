@@ -313,6 +313,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_check_relation_mixed_join);
     TST(z3_4_7_1_table_relation_unhandled_signature);
     TST(z3_4_7_1_table_complement_columns);
+    TST(z3_4_7_1_inliner_linear_facts);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);
