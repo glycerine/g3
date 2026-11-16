@@ -123,6 +123,11 @@ Abstract:
                                   infeasible candidate forever on a rule with
                                   a universally quantified body (pkg/AUDIT.md
                                   duality zbug round 3).
+    z3_4_7_1_duality_itp_unchecked_sat Duality trusts an SMT sat that
+                                  never checked a rule's quantifier (MBQI is
+                                  for interpolant quantifiers only) and
+                                  answers sat for an underivable query
+                                  (pkg/AUDIT.md duality_itp_sat).
     z3_4_7_1_implicant_nested_array_eq once a nested array index makes
                                   model_implicant::eval_array_eq mark the
                                   equality true, a later differing index
@@ -1899,6 +1904,38 @@ void tst_z3_4_7_1_duality_rejected_candidate_loop() {
         "(query err)\n";
     expect_script_output("duality_rejected_candidate_loop", script,
                          "(error \"query failed: incompleteness\")\nunknown\n");
+}
+
+// err <- p(x) & forall z. z > x, with p = {0..3}. No p value makes the
+// quantifier true, so err is not derivable (unsat). Duality's solvers use MBQI
+// only for interpolant quantifiers (mbqi.id=itp); the rule's quantifier is
+// never checked and z3 answered sat with a derivation. The fork validates such
+// a counterexample with a full solver and reports incompleteness. A valid
+// quantified counterexample keeps its sat. pkg/AUDIT.md duality_itp_sat.
+void tst_z3_4_7_1_duality_itp_unchecked_sat() {
+    char const* script =
+        "(set-option :fixedpoint.engine duality)\n"
+        "(declare-rel p (Int))\n"
+        "(declare-rel err ())\n"
+        "(declare-var x Int)\n"
+        "(declare-var y Int)\n"
+        "(rule (=> (= x 0) (p x)))\n"
+        "(rule (=> (and (p x) (= y (+ x 1)) (< x 3)) (p y)))\n"
+        "(rule (=> (and (p x) (forall ((z Int)) (> z x))) err))\n"
+        "(query err)\n";
+    expect_script_output("duality_itp_unchecked_sat", script,
+                         "(error \"query failed: incompleteness\")\nunknown\n");
+    char const* valid =
+        "(set-option :fixedpoint.engine duality)\n"
+        "(declare-rel p (Int))\n"
+        "(declare-rel err ())\n"
+        "(declare-var x Int)\n"
+        "(declare-var y Int)\n"
+        "(rule (=> (= x 0) (p x)))\n"
+        "(rule (=> (and (p x) (= y (+ x 1)) (< x 3)) (p y)))\n"
+        "(rule (=> (and (p x) (forall ((z Int)) (or (> z x) (<= z x)))) err))\n"
+        "(query err)\n";
+    expect_script_output("duality_itp_unchecked_sat_valid", valid, "sat\n");
 }
 
 // PDR proof trace for Goal :- P(x), with P(x) a fact. The query!0 root and
