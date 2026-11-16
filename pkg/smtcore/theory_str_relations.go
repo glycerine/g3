@@ -161,6 +161,15 @@ func (t *SMTStringTheory) instantiateContains(node *SMTEnode) error {
 	t.contains = append(t.contains, expression)
 	key := [2]ast.ASTHandle{haystack, needle}
 	t.containsByPair[key] = expression
+	// contain_pair_bool_map.insert(str, substr, ex)
+	if t.containsOrder == nil {
+		t.containsOrder = ast.NewObjMap(m)
+	}
+	hash, err := t.containsOrder.PairHash(haystack, needle)
+	if err != nil {
+		return err
+	}
+	t.containsOrder.InsertPairKeys(haystack, needle, hash)
 	for _, argument := range []ast.ASTHandle{haystack, needle} {
 		if t.containsIndex[argument] == nil {
 			t.containsIndex[argument] = make(map[[2]ast.ASTHandle]struct{})

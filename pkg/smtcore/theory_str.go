@@ -51,6 +51,7 @@ type SMTStringTheory struct {
 	contains            []ast.ASTHandle
 	containsRefs        []ast.ASTRef
 	containsByPair      map[[2]ast.ASTHandle]ast.ASTHandle
+	containsOrder       *ast.ObjMap // contain_pair_bool_map (obj_pair_map) in table order; Value[0] is the needle
 	containsIndex       map[ast.ASTHandle]map[[2]ast.ASTHandle]struct{}
 	regexVariables      map[ast.ASTHandle]struct{}
 	regexMemberships    map[ast.ASTHandle]map[string]ast.ASTHandle
@@ -460,7 +461,7 @@ func (t *SMTStringTheory) Close() (result error) {
 	t.concatCache, t.variableSet, t.internalVariables = nil, nil, nil
 	t.lengthTestVariables, t.valueTestVariables, t.unrollTestVariables = nil, nil, nil
 	t.variableScopes, t.axiomatized = nil, nil
-	t.containsByPair, t.containsIndex = nil, nil
+	t.containsByPair, t.containsIndex, t.containsOrder = nil, nil, nil
 	t.regexVariables, t.regexTerms, t.regexNFACache = nil, nil, nil
 	t.regexLastLower = nil
 	t.stringChars = nil

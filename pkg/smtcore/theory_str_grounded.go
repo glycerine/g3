@@ -381,13 +381,15 @@ func (g *smtStringGrounding) checkSubsequence(word, wordAlias, needle, needleAli
 	return nil
 }
 
+// computeContains walks contain_pair_bool_map in its hash-table order.
 func (g *smtStringGrounding) computeContains() error {
-	for _, expression := range g.theory.contains {
-		word, needle, matched, err := g.theory.state.manager.SequenceBinaryOperationArguments(expression, 5)
-		if err != nil {
-			return err
-		}
-		if !matched {
+	if g.theory.containsOrder == nil {
+		return nil
+	}
+	for _, entry := range g.theory.containsOrder.Entries() {
+		word, needle := entry.Key, entry.Value[0]
+		expression, found := g.theory.containsByPair[[2]ast.ASTHandle{word, needle}]
+		if !found {
 			return ast.ErrASTDomain
 		}
 		wordAlias, err := g.dealias(word)

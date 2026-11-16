@@ -166,6 +166,9 @@ var verboseProgressFiltered = map[string][]string{
 	// variable through the concat of lowest AST id (fork fix, owner decision
 	// 2026-11-15; z3 4.7.1 took the lowest heap address).
 	"str_concats_order": {"concats "},
+	// compute_contains walks contain_pair_bool_map, an obj_pair_map, in
+	// hash-table order.
+	"str_contains_order": {"concats "},
 }
 
 var verboseProgressFilteredCases = []verboseProgressCase{
@@ -193,6 +196,7 @@ var verboseProgressFilteredCases = []verboseProgressCase{
 	{"rel_bit_blast_v2_instructions", "rel_bit_blast", []string{"-v:2"}},
 	{"rel_query_sequence_v2_instructions", "query_sequence", []string{"-v:2"}},
 	{"str_concats_order", "str_concats_order", []string{"-v:100"}},
+	{"str_contains_order", "str_contains_order", []string{"-v:100"}},
 }
 
 func filterVerboseProgress(name, log string) string {
