@@ -1017,10 +1017,8 @@ func (p *DirectProofInterpolator) simplifyModusPonens(args []ast.ASTHandle) (ast
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	inequality, err := p.isInequality(third)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
+	// is_normal_ineq holds for every inequality (is_ineq), so the
+	// remaining case is contra_chain, as in simplify_modpon.
 	normalInequality, err := p.isNormalInequality(third)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -1048,9 +1046,6 @@ func (p *DirectProofInterpolator) simplifyModusPonens(args []ast.ASTHandle) (ast
 			return ast.ASTHandle{}, e
 		}
 		return p.base.manager.MkAnd(aProof, converted)
-	}
-	if inequality {
-		return ast.ASTHandle{}, ProofError{}
 	}
 	negative, err := p.isNegationChain(chain)
 	if err != nil {
