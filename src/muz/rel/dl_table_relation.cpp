@@ -50,6 +50,15 @@ namespace datalog {
         if (!get_manager().relation_signature_to_table(s, tsig)) {
             return nullptr;
         }
+        // FORK FIX #107 (g3 audit, see FORK_BUGFIXES.md): a relation plugin
+        // over this plugin (check_relation(tr_sparse) inside a sieve of a
+        // product relation) asked for a signature the table plugin cannot
+        // handle, and sparse_table's column layout of the empty signature
+        // segfaulted. Such a signature gets the table of the appropriate
+        // table plugin, as mk_from_table does for a table of another plugin.
+        if (!m_table_plugin.can_handle_signature(tsig)) {
+            return mk_from_table(s, get_manager().get_appropriate_plugin(tsig).mk_empty(tsig));
+        }
         table_base * t = m_table_plugin.mk_empty(tsig);
         return alloc(table_relation, *this, s, t);
     }
@@ -58,6 +67,9 @@ namespace datalog {
         table_signature tsig;
         if(!get_manager().relation_signature_to_table(s, tsig)) {
             return nullptr;
+        }
+        if (!m_table_plugin.can_handle_signature(tsig)) { // FORK FIX #107
+            return mk_from_table(s, get_manager().get_appropriate_plugin(tsig).mk_full(p, tsig, kind));
         }
         table_base * t = m_table_plugin.mk_full(p, tsig, kind);
         return alloc(table_relation, *this, s, t);
