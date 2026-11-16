@@ -21,9 +21,6 @@ func (p *datalogParser) parseArg(tok dtoken, s ast.ASTHandle, args []ast.ASTHand
 			return tok, args, err
 		}
 		p.numVars++
-		if v, err = p.pin(v); err != nil {
-			return tok, args, err
-		}
 		args = append(args, v)
 	case dtkID:
 		// All IDs are variables (dparser::is_var).
@@ -34,9 +31,6 @@ func (p *datalogParser) parseArg(tok dtoken, s ast.ASTHandle, args []ast.ASTHand
 			p.numVars++
 			var err error
 			if v, err = p.manager.MkVar(idx, s); err != nil {
-				return tok, args, err
-			}
-			if v, err = p.pin(v); err != nil {
 				return tok, args, err
 			}
 			p.vars[data] = v
@@ -93,72 +87,88 @@ func (p *datalogParser) sortName(s ast.ASTHandle) (string, error) {
 //
 //	infix: Sym REL Sym
 //	Sym ::= String | NUM | Var
-func (p *datalogParser) parseInfix(tok1 dtoken, td1 string) (dtoken, ast.ASTHandle, error) {
-	var v1, v2 ast.ASTHandle
+func (p *datalogParser) parseInfix(tok1 dtoken, td1 string) (_ dtoken, pred ast.ASTRef, err error) {
+	// expr_ref v1, v2: released v2 first, after pred is assigned.
+	var v1, v2 ast.ASTRef
+	defer func() { err = errors.Join(err, p.release(&v2), p.release(&v1)) }()
 	var have1, have2 bool
 	tok2 := p.lexer.nextToken()
 	if tok2 != dtkNEQ && tok2 != dtkGT && tok2 != dtkLT && tok2 != dtkEQ {
 		tok, err := p.unexpected(tok2, "built-in infix operator")
-		return tok, ast.ASTHandle{}, err
+		return tok, ast.ASTRef{}, err
 	}
 	tok3 := p.lexer.nextToken()
 	td2 := p.lexer.tokenData()
 	_, isVar := p.vars[td2]
 	if tok3 != dtkString && tok3 != dtkNum && !(tok3 == dtkID && isVar) {
 		tok, err := p.unexpected(tok3, "identifier")
-		return tok, ast.ASTHandle{}, err
+		return tok, ast.ASTRef{}, err
 	}
 
+	var h1, h2 ast.ASTHandle
 	if tok1 == dtkID {
-		v1, have1 = p.vars[td1]
+		if h1, have1 = p.vars[td1]; have1 {
+			if v1, err = p.hold(h1); err != nil {
+				return tok3, ast.ASTRef{}, err
+			}
+		}
 	}
 	if tok3 == dtkID {
-		v2, have2 = p.vars[td2]
+		if h2, have2 = p.vars[td2]; have2 {
+			if v2, err = p.hold(h2); err != nil {
+				return tok3, ast.ASTRef{}, err
+			}
+		}
 	}
 	if !have1 && !have2 {
 		tok, err := p.unexpected(tok3, "at least one argument should be a variable")
-		return tok, ast.ASTHandle{}, err
+		return tok, ast.ASTRef{}, err
 	}
 	var s ast.ASTHandle
-	var err error
 	if have1 {
-		s, err = p.manager.GetSort(v1)
+		s, err = p.manager.GetSort(h1)
 	} else {
-		s, err = p.manager.GetSort(v2)
+		s, err = p.manager.GetSort(h2)
 	}
 	if err != nil {
-		return tok3, ast.ASTHandle{}, err
+		return tok3, ast.ASTRef{}, err
 	}
 	if !have1 {
-		if v1, err = p.mkConst(td1, s); err != nil {
-			return tok3, ast.ASTHandle{}, err
+		if h1, err = p.mkConst(td1, s); err != nil {
+			return tok3, ast.ASTRef{}, err
+		}
+		if v1, err = p.hold(h1); err != nil {
+			return tok3, ast.ASTRef{}, err
 		}
 	}
 	if !have2 {
-		if v2, err = p.mkConst(td2, s); err != nil {
-			return tok3, ast.ASTHandle{}, err
+		if h2, err = p.mkConst(td2, s); err != nil {
+			return tok3, ast.ASTRef{}, err
+		}
+		if v2, err = p.hold(h2); err != nil {
+			return tok3, ast.ASTRef{}, err
 		}
 	}
 
-	var pred ast.ASTHandle
+	var app ast.ASTHandle
 	switch tok2 {
 	case dtkEQ:
-		pred, err = p.mkEq(v1, v2)
+		app, err = p.mkEq(h1, h2)
 	case dtkNEQ:
 		var eq ast.ASTHandle
-		if eq, err = p.mkEq(v1, v2); err == nil {
-			pred, err = p.manager.MkNot(eq)
+		if eq, err = p.mkEq(h1, h2); err == nil {
+			app, err = p.manager.MkNot(eq)
 		}
 	case dtkLT:
-		pred, err = p.mkDatalogLT(v1, v2)
+		app, err = p.mkDatalogLT(h1, h2)
 	case dtkGT:
-		pred, err = p.mkDatalogLT(v2, v1)
+		app, err = p.mkDatalogLT(h2, h1)
 	}
 	if err != nil {
-		return tok3, ast.ASTHandle{}, err
+		return tok3, ast.ASTRef{}, err
 	}
-	if pred, err = p.pin(pred); err != nil {
-		return tok3, ast.ASTHandle{}, err
+	if pred, err = p.hold(app); err != nil {
+		return tok3, ast.ASTRef{}, err
 	}
 	return p.lexer.nextToken(), pred, nil
 }
@@ -231,10 +241,7 @@ func (p *datalogParser) mkConst(name string, s ast.ASTHandle) (ast.ASTHandle, er
 		}
 		res, err = p.manager.MkDatalogNumeral(idx, s)
 	}
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	return p.pin(res)
+	return res, err
 }
 
 // mkSymbolConst makes a constant for an SK_SYMBOL sort out of an integer.
@@ -253,10 +260,7 @@ func (p *datalogParser) mkSymbolConst(el uint64, s ast.ASTHandle) (ast.ASTHandle
 		}
 		res, err = p.manager.MkDatalogNumeral(idx, s)
 	}
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	return p.pin(res)
+	return res, err
 }
 
 // getConstantNumber is context::get_constant_number(srt, symbol). Its

@@ -3,34 +3,55 @@ package cmd_context
 // Source: dparser::parse_pred and parse_args.
 
 import (
+	"errors"
+
 	"github.com/glycerine/g3/pkg/ast"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func (p *datalogParser) parsePred(tok dtoken, s string) (dtoken, ast.ASTHandle, bool, error) {
+// parsePred is dparser::parse_pred. The returned reference is the caller's
+// app_ref pred; the expr_ref_vector args is released on return, after pred
+// is assigned.
+func (p *datalogParser) parsePred(tok dtoken, s string) (_ dtoken, pred ast.ASTRef, _ bool, err error) {
 	var args []ast.ASTHandle
 	var argNames []usymbol.Symbol
 	f, found := p.predicates[s] // context::try_get_predicate_decl
-	tok, args, argNames, err := p.parseArgs(tok, f, found, args, argNames)
+	tok, args, argNames, err = p.parseArgs(tok, f, found, args, argNames)
+	argRefs := make([]ast.ASTRef, 0, len(args))
+	for _, a := range args {
+		r, e := p.hold(a)
+		if e != nil {
+			err = errors.Join(err, e)
+			break
+		}
+		argRefs = append(argRefs, r)
+	}
+	defer func() { err = errors.Join(err, p.releaseAll(argRefs)) }()
 	if err != nil {
-		return tok, ast.ASTHandle{}, false, err
+		return tok, ast.ASTRef{}, false, err
 	}
 	isPredicateDeclaration := !found
 	engine, err := p.context.fixedpointContext()
 	if err != nil {
-		return tok, ast.ASTHandle{}, false, err
+		return tok, ast.ASTRef{}, false, err
 	}
 	if !found {
 		// We are in a declaration.
 		domain := make([]ast.ASTHandle, len(args))
 		for i, arg := range args {
 			if domain[i], err = p.manager.GetSort(arg); err != nil {
-				return tok, ast.ASTHandle{}, false, err
+				return tok, ast.ASTRef{}, false, err
 			}
 		}
 		// mk_func_decl and register_predicate(f, true).
-		if f, err = p.context.DeclareRelation(s, domain); err != nil {
-			return tok, ast.ASTHandle{}, false, err
+		declare := p.context.DeclareRelation
+		if p.context.datalogFrontendManager {
+			// read_datalog has no cmd_context: the predicate is only
+			// registered with the datalog context.
+			declare = p.context.declareParsedRelation
+		}
+		if f, err = declare(s, domain); err != nil {
+			return tok, ast.ASTRef{}, false, err
 		}
 		p.predicates[s] = f
 
@@ -38,28 +59,28 @@ func (p *datalogParser) parsePred(tok dtoken, s string) (dtoken, ast.ASTHandle, 
 			predPragma := p.lexer.tokenData()
 			if predPragma == "printtuples" || predPragma == "outputtuples" {
 				if err = engine.SetOutputPredicate(f); err != nil {
-					return tok, ast.ASTHandle{}, false, err
+					return tok, ast.ASTRef{}, false, err
 				}
 			}
 			tok = p.lexer.nextToken()
 		}
 		if err = engine.SetArgumentNames(f, argNames); err != nil {
-			return tok, ast.ASTHandle{}, false, err
+			return tok, ast.ASTRef{}, false, err
 		}
 	}
 	arity, err := p.manager.GetArity(f)
 	if err != nil {
-		return tok, ast.ASTHandle{}, false, err
+		return tok, ast.ASTRef{}, false, err
 	}
 	if uint32(len(args)) < arity {
 		tok, err = p.unexpected(tok, "too few arguments passed to predicate")
-		return tok, ast.ASTHandle{}, false, err
+		return tok, ast.ASTRef{}, false, err
 	}
-	pred, err := p.manager.MkApp(f, args)
+	app, err := p.manager.MkApp(f, args)
 	if err != nil {
-		return tok, ast.ASTHandle{}, false, err
+		return tok, ast.ASTRef{}, false, err
 	}
-	pred, err = p.pin(pred)
+	pred, err = p.hold(app)
 	return tok, pred, isPredicateDeclaration, err
 }
 
@@ -114,9 +135,6 @@ func (p *datalogParser) parseArgs(tok dtoken, f ast.ASTHandle, found bool, args 
 			// Every declaration argument is the variable m_num_vars.
 			v, err := p.manager.MkVar(p.numVars, s)
 			if err != nil {
-				return tok, args, argNames, err
-			}
-			if v, err = p.pin(v); err != nil {
 				return tok, args, argNames, err
 			}
 			args = append(args, v)

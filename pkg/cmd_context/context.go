@@ -926,8 +926,11 @@ func (c *Context) Manager() (manager *ast.ASTManager, result error) {
 		}
 		c.recordBuiltinPSortDecls()
 	}
-	if err = c.mkSolver(m); err != nil {
-		return nil, err
+	// read_datalog has no cmd_context, so no solver is created for it.
+	if !c.datalogFrontendManager {
+		if err = c.mkSolver(m); err != nil {
+			return nil, err
+		}
 	}
 	if err = c.logicChecker.SetLogic(m, c.logic); err != nil {
 		return nil, err

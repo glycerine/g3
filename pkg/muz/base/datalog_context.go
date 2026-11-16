@@ -190,18 +190,19 @@ func (c *DatalogContext) Close() (result error) {
 			return err
 		}
 	}
-	if c.ruleManager != nil {
-		if err := c.ruleManager.Close(); err != nil {
+	// ~context destroys m_pinned (an ast_ref_vector, released front to
+	// back) before m_rule_manager, which is declared earlier.
+	for len(c.references) > 0 {
+		err := c.manager.DelRef(&c.references[0])
+		if c.references[0] == (ast.ASTRef{}) {
+			c.references = c.references[1:]
+		}
+		if err != nil {
 			return err
 		}
 	}
-	for len(c.references) > 0 {
-		last := len(c.references) - 1
-		err := c.manager.DelRef(&c.references[last])
-		if c.references[last] == (ast.ASTRef{}) {
-			c.references = c.references[:last]
-		}
-		if err != nil {
+	if c.ruleManager != nil {
+		if err := c.ruleManager.Close(); err != nil {
 			return err
 		}
 	}

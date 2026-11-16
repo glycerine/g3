@@ -84,6 +84,37 @@ func (c *Context) DeclareRelation(name string, domain []ast.ASTHandle) (ast.ASTH
 	return declaration, nil
 }
 
+// declareParsedRelation is dparser::parse_pred's declaration:
+// m_manager.mk_func_decl(s, domain, bool) and
+// m_context.register_predicate(f, true). The datalog parser has no
+// cmd_context, so the predicate is not a command-context declaration.
+func (c *Context) declareParsedRelation(name string, domain []ast.ASTHandle) (ast.ASTHandle, error) {
+	manager, err := c.Manager()
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	boolean, err := manager.MkBoolSort()
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	symbol, err := manager.Symbols.Intern(name)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	declaration, err := manager.MkFuncDecl(symbol, domain, boolean, ast.ASTFuncDeclInfo{})
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if err = engine.RegisterPredicate(declaration); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return declaration, nil
+}
+
 // SetFixedpointPredicateRepresentation selects native finite-table storage
 // names for a registered relation before its first query.
 func (c *Context) SetFixedpointPredicateRepresentation(declaration ast.ASTHandle, kinds []string) error {
@@ -433,6 +464,19 @@ func (c *Context) QueryFixedpointRelationsWithParams(declarations []ast.ASTHandl
 	}
 	defer func() { resultErr = errors.Join(resultErr, scope.Close()) }()
 	return engine.QueryPredicates(declarations)
+}
+
+// SaturateFixedpointRelations is the datalog frontend's saturation:
+// QueryFixedpointRelations without building the query answer formula
+// (read_datalog performs the compiled rules and never calls query).
+func (c *Context) SaturateFixedpointRelations(declarations []ast.ASTHandle) (lbool.LBool, error) {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	engine.SetSaturateOnly(true)
+	defer engine.SetSaturateOnly(false)
+	return c.QueryFixedpointRelations(declarations)
 }
 
 // QueryFixedpointFromLevel runs a Spacer query beginning at the requested

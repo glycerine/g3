@@ -3,6 +3,8 @@ package cmd_context
 // Source: dparser::parse_decls, parse_rule, parse_body and add_rule.
 
 import (
+	"errors"
+
 	"github.com/glycerine/g3/pkg/ast"
 )
 
@@ -31,7 +33,7 @@ func (p *datalogParser) parseDecls(tok dtoken) (dtoken, error) {
 	return tok, nil
 }
 
-func (p *datalogParser) parseRule(tok dtoken) (dtoken, error) {
+func (p *datalogParser) parseRule(tok dtoken) (_ dtoken, result error) {
 	p.numVars = 0
 	p.vars = make(map[string]ast.ASTHandle)
 
@@ -41,7 +43,13 @@ func (p *datalogParser) parseRule(tok dtoken) (dtoken, error) {
 	case dtkID:
 		s := p.lexer.tokenData()
 		tok = p.lexer.nextToken()
-		tok, pred, isPredicateDeclaration, err := p.parsePred(tok, s)
+		// app_ref pred: released when parse_rule returns.
+		tok, predRef, isPredicateDeclaration, err := p.parsePred(tok, s)
+		defer func() { result = errors.Join(result, p.release(&predRef)) }()
+		if err != nil {
+			return tok, err
+		}
+		pred, err := p.manager.RefGet(predRef)
 		if err != nil {
 			return tok, err
 		}
@@ -69,8 +77,11 @@ func (p *datalogParser) parseRule(tok dtoken) (dtoken, error) {
 	}
 }
 
-func (p *datalogParser) parseBody(head ast.ASTHandle) (dtoken, error) {
+func (p *datalogParser) parseBody(head ast.ASTHandle) (_ dtoken, result error) {
+	// app_ref_vector body: released front to back when parse_body returns.
 	var body []ast.ASTHandle
+	var bodyRefs []ast.ASTRef
+	defer func() { result = errors.Join(result, p.releaseAll(bodyRefs)) }()
 	var polarity []bool
 	tok := p.lexer.nextToken()
 	for tok != dtkError && tok != dtkEOS {
@@ -80,7 +91,7 @@ func (p *datalogParser) parseBody(head ast.ASTHandle) (dtoken, error) {
 			}
 			return p.lexer.nextToken(), nil
 		}
-		var pred ast.ASTHandle
+		var predRef ast.ASTRef
 		var err error
 		isNeg := false
 		if tok == dtkNeg {
@@ -93,16 +104,27 @@ func (p *datalogParser) parseBody(head ast.ASTHandle) (dtoken, error) {
 		td := p.lexer.tokenData()
 		_, isVar := p.vars[td]
 		if tok == dtkString || tok == dtkNum || (tok == dtkID && isVar) {
-			tok, pred, err = p.parseInfix(tok, td)
+			tok, predRef, err = p.parseInfix(tok, td)
 		} else if tok == dtkID {
 			tok = p.lexer.nextToken()
 			// SASSERT(!is_declaration) is debug only: a predicate first used
 			// in a body is declared there.
-			tok, pred, _, err = p.parsePred(tok, td)
+			tok, predRef, _, err = p.parsePred(tok, td)
 		} else {
 			return p.unexpected(tok, "expected predicate or relation")
 		}
 		if err != nil {
+			return tok, errors.Join(err, p.release(&predRef))
+		}
+		pred, err := p.manager.RefGet(predRef)
+		if err == nil {
+			var r ast.ASTRef
+			if r, err = p.hold(pred); err == nil {
+				bodyRefs = append(bodyRefs, r)
+			}
+		}
+		// The loop's app_ref pred ends with the iteration.
+		if err = errors.Join(err, p.release(&predRef)); err != nil {
 			return tok, err
 		}
 		body = append(body, pred)

@@ -18,7 +18,7 @@ func (f *DatalogFrontend) Saturate() error {
 	if err != nil {
 		return err
 	}
-	if _, err = f.context.QueryFixedpointRelations(predicates); err != nil {
+	if _, err = f.context.SaturateFixedpointRelations(predicates); err != nil {
 		return err
 	}
 	f.snapshots, err = f.context.FixedpointRelationSnapshots(predicates)

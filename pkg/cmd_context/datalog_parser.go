@@ -81,6 +81,27 @@ func (p *datalogParser) close() (err error) {
 	return err
 }
 
+// hold is an expr_ref/app_ref assignment (inc_ref); release its
+// destructor (dec_ref), which may delete the node.
+func (p *datalogParser) hold(h ast.ASTHandle) (ast.ASTRef, error) {
+	return p.manager.NewRef(h)
+}
+
+func (p *datalogParser) release(r *ast.ASTRef) error {
+	if *r == (ast.ASTRef{}) {
+		return nil
+	}
+	return p.manager.DelRef(r)
+}
+
+// releaseAll is ~ref_vector: dec_ref front to back.
+func (p *datalogParser) releaseAll(refs []ast.ASTRef) (err error) {
+	for i := range refs {
+		err = errors.Join(err, p.release(&refs[i]))
+	}
+	return err
+}
+
 func (p *datalogParser) pin(h ast.ASTHandle) (ast.ASTHandle, error) {
 	r, err := p.manager.NewRef(h)
 	if err == nil {

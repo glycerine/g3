@@ -222,6 +222,9 @@ type PropositionalEngine struct {
 	// relAnswer is rel_context::m_answer for the finite-table path: built
 	// when the query ends and replaced (old released) by the next one.
 	relAnswer ast.ASTRef
+	// saturateOnly is the datalog frontend's run (read_datalog): the
+	// compiled rules are performed, but no rel_context::query answer is built.
+	saturateOnly bool
 	// expressionClone marks a query clone; its answer is built on demand.
 	expressionClone bool
 	queryRevision   uint64
@@ -2687,11 +2690,15 @@ func (e *PropositionalEngine) QueryPredicates(declarations []ast.ASTHandle) (res
 		return lbool.Undef, err
 	}
 	status, err := e.queryDatalogPredicates(declarations)
-	if err == nil && status == lbool.True {
+	if err == nil && status == lbool.True && !e.saturateOnly {
 		err = e.buildRelationAnswer(declarations)
 	}
 	return status, err
 }
+
+// SetSaturateOnly makes QueryPredicates skip the relation answer, as the
+// datalog frontend runs the rules without rel_context::query.
+func (e *PropositionalEngine) SetSaturateOnly(on bool) { e.saturateOnly = on }
 
 // buildRelationAnswer is rel_context::query's l_true case: m_answer =
 // mk_and(rel.to_formula(e) for each queried relation), assigned after the
@@ -3623,12 +3630,6 @@ func (e *PropositionalEngine) Close() (result error) {
 			return err
 		}
 	}
-	if e.relAnswer != (ast.ASTRef{}) {
-		if err := e.manager.DelRef(&e.relAnswer); err != nil {
-			return err
-		}
-		e.relAnswer = ast.ASTRef{}
-	}
 	if err := e.releaseBitBlastAnswers(); err != nil {
 		return err
 	}
@@ -3692,6 +3693,14 @@ func (e *PropositionalEngine) Close() (result error) {
 	e.rawRuleScopes = nil
 	if err := e.cleanupRetiredRawRules(); err != nil {
 		return errors.Join(result, err)
+	}
+	// context::reset: m_engine = nullptr (rel_context::m_answer) comes
+	// after m_rule_set.reset() and m_rule_fmls.reset().
+	if e.relAnswer != (ast.ASTRef{}) {
+		if err := e.manager.DelRef(&e.relAnswer); err != nil {
+			return errors.Join(result, err)
+		}
+		e.relAnswer = ast.ASTRef{}
 	}
 	if err := e.clearQueryParameters(); err != nil {
 		return errors.Join(result, err)
