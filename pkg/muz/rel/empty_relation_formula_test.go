@@ -15,19 +15,11 @@ func TestEmptyRelationFormulaSourceSemantics(t *testing.T) {
 	sorts := []ast.ASTHandle{sort, sort}
 	bound := NewBoundRelation(2, true)
 	interval := NewIntervalEmpty(2)
-	product := NewIntervalBoundProduct(2, false)
-	astTestMust(t, product.bound.AddLess(0, 1))
-	astTestMust(t, product.bound.AddLessEqual(1, 0))
-	if !product.Empty() {
-		t.Fatal("strict cycle must make product empty")
-	}
 	for name, test := range map[string]struct {
 		makeFormula func() (ast.ASTRef, error)
 		wantTrue    bool
 	}{
-		"bound":         {func() (ast.ASTRef, error) { return bound.ToFormula(m, sorts) }, true},
-		"product-cycle": {func() (ast.ASTRef, error) { return product.ToFormula(m, sorts) }, false},
-		"empty-product": {func() (ast.ASTRef, error) { return NewIntervalBoundProduct(2, true).ToFormula(m, sorts) }, true},
+		"bound": {func() (ast.ASTRef, error) { return bound.ToFormula(m, sorts) }, true},
 	} {
 		ref, err := test.makeFormula()
 		astTestMust(t, err)

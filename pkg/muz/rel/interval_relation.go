@@ -213,3 +213,20 @@ func (r *IntervalRelation) Rename(cycle []uint32) (*IntervalRelation, error) {
 	}
 	return &IntervalRelation{values}, nil
 }
+
+// cloneIntervalRelation is interval_relation::clone (vector_relation copy).
+func cloneIntervalRelation(source *IntervalRelation) *IntervalRelation {
+	values := source.values
+	copy := newIntervalColumns(len(values.columns), values.empty)
+	if values.empty {
+		return &IntervalRelation{values: copy}
+	}
+	// vector_relation::copy reads each representative's value, but its merge
+	// loop uses the fresh destination's representatives, so classes split.
+	for i := range values.columns {
+		interval := values.columns[values.find(uint32(i))]
+		lo, loOpen, hi, hiOpen := interval.Bounds()
+		copy.columns[i] = smtcore.NewRelationInterval(lo, loOpen, hi, hiOpen)
+	}
+	return &IntervalRelation{values: copy}
+}

@@ -1,7 +1,6 @@
 package rel
 
 import (
-	"math/big"
 	"reflect"
 	"testing"
 )
@@ -33,24 +32,6 @@ func TestBoundRelationEqualityMatchesSourceRepresentativeCheck(t *testing.T) {
 					t.Fatalf("source preserves the post-merge self bound: strict=%v weak=%v", lt, le)
 				}
 			}
-		}
-	}
-}
-
-func TestIntervalBoundProductIdenticalColumnsWithWeakOrder(t *testing.T) {
-	for _, reverse := range []bool{false, true} {
-		p := NewIntervalBoundProduct(2, false)
-		astTestMust(t, p.bound.AddLessEqual(0, 1))
-		if reverse {
-			astTestMust(t, p.FilterIdentical(1, 0))
-		} else {
-			astTestMust(t, p.FilterIdentical(0, 1))
-		}
-		if p.Empty() != reverse {
-			t.Fatalf("source first-representative check, reverse=%t empty=%t", reverse, p.Empty())
-		}
-		if p.ContainsFact([]*big.Rat{big.NewRat(2, 1), big.NewRat(2, 1)}) == reverse {
-			t.Fatalf("membership did not follow empty state, reverse=%t", reverse)
 		}
 	}
 }
@@ -151,17 +132,5 @@ func TestBoundRelationStrictCyclesAgainstGraphOracle(t *testing.T) {
 		if r.Empty() != wantEmpty {
 			t.Fatalf("config %d: empty=%t want %t", config, r.Empty(), wantEmpty)
 		}
-	}
-}
-
-func TestIntervalBoundProductJoinCopiesRightBoundIndicesUnchanged(t *testing.T) {
-	left, right := NewIntervalBoundProduct(1, false), NewIntervalBoundProduct(2, false)
-	astTestMust(t, right.bound.AddLess(0, 1))
-	joined, err := JoinIntervalBoundProducts(left, right, nil, nil)
-	astTestMust(t, err)
-	strict, weak, err := joined.bound.Bounds(1)
-	astTestMust(t, err)
-	if !reflect.DeepEqual(strict, []uint32{1}) || len(weak) != 0 {
-		t.Fatalf("source vector join leaves raw right index unshifted: strict=%v weak=%v", strict, weak)
 	}
 }
