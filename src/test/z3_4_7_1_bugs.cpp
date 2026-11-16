@@ -123,6 +123,11 @@ Abstract:
                                   infeasible candidate forever on a rule with
                                   a universally quantified body (pkg/AUDIT.md
                                   duality zbug round 3).
+    z3_4_7_1_duality_mixed_rewrite iZ3 rejects a rewrite of a formula that
+                                  propagate_values mixed across frames, and
+                                  localizes an and-elim from one into a
+                                  quantified interpolant (pkg/AUDIT.md
+                                  duality_iz3).
     z3_4_7_1_duality_itp_unchecked_sat Duality trusts an SMT sat that
                                   never checked a rule's quantifier (MBQI is
                                   for interpolant quantifiers only) and
@@ -1936,6 +1941,72 @@ void tst_z3_4_7_1_duality_itp_unchecked_sat() {
         "(rule (=> (and (p x) (forall ((z Int)) (or (> z x) (<= z x)))) err))\n"
         "(query err)\n";
     expect_script_output("duality_itp_unchecked_sat_valid", valid, "sat\n");
+}
+
+// propagate_values substitutes @p_x_2 for x_3 in node 3's edge, giving
+// (and (= @p_x_2 1) (and @b_4 ...)), which mixes the frames; the rewrite
+// that flattens it is no assumption of any frame and translate_main refused
+// it ("theory not supported by interpolation or bad proof", unknown). err is
+// unreachable (q1 is empty, q0 = {0, 1}). In the second script the
+// conjunction (and @b_4 (= x_4 7) (= @p_x_2 9) ...) is split by and-elim,
+// which make_axiom localizes with a fresh variable: the interpolant is
+// quantified. The fork renames the substituted constants back, so both
+// certificates are quantifier free. pkg/AUDIT.md duality_iz3.
+void tst_z3_4_7_1_duality_mixed_rewrite() {
+    char const* script =
+        "(set-option :fixedpoint.engine duality)\n"
+        "(declare-rel q0 (Int))\n"
+        "(declare-rel q1 (Int))\n"
+        "(declare-rel err ())\n"
+        "(declare-var x Int)\n"
+        "(declare-var x1 Int)\n"
+        "(rule (=> (and (= x 0)) (q0 x)))\n"
+        "(rule (=> (and (q1 x) (>= x 2) (= x1 0)) (q1 x1)))\n"
+        "(rule (=> (and (q0 x) (<= x 0) (= x1 1)) (q0 x1)))\n"
+        "(rule (=> (and (q1 x) (= x 11) (= x1 x)) (q0 x1)))\n"
+        "(rule (=> (and (q0 x) (> x 2)) err))\n"
+        "(query err :print-certificate true)\n";
+    expect_script_output("duality_mixed_rewrite", script,
+                         "unsat\n"
+                         "(fixedpoint \n"
+                         "(define-fun err () Bool\n"
+                         "  false)\n"
+                         "(define-fun @Fail!0 () Bool\n"
+                         "  false)\n"
+                         "(define-fun q0 ((x!0 Int)) Bool\n"
+                         "  (or (= x!0 0) (= x!0 1)))\n"
+                         "(define-fun q1 ((x!0 Int)) Bool\n"
+                         "  false)\n"
+                         ")\n"
+                         "\n");
+    char const* elim =
+        "(set-option :fixedpoint.engine duality)\n"
+        "(declare-rel q0 (Int))\n"
+        "(declare-rel q1 (Int))\n"
+        "(declare-rel q2 (Int))\n"
+        "(declare-rel err ())\n"
+        "(declare-var x Int)\n"
+        "(declare-var x1 Int)\n"
+        "(rule (=> (and (= x 2)) (q0 x)))\n"
+        "(rule (=> (and (q0 x) (= x 7) (= x1 (+ x 2))) (q2 x1)))\n"
+        "(rule (=> (and (q0 x) (< x 5) (= x1 x)) (q1 x1)))\n"
+        "(rule (=> (and (q1 x) (>= x 1) (= x1 (+ x 3))) (q1 x1)))\n"
+        "(rule (=> (and (q1 x) (<= x (+ x 1)) (= x1 (- x 3)) (q0 x)) (q1 x1)))\n"
+        "(rule (=> (and (q2 x) (> x (- x 2))) err))\n"
+        "(query err :print-certificate true)\n";
+    expect_script_output("duality_mixed_and_elim", elim,
+                         "unsat\n"
+                         "(fixedpoint \n"
+                         "(define-fun err () Bool\n"
+                         "  false)\n"
+                         "(define-fun @Fail!0 () Bool\n"
+                         "  false)\n"
+                         "(define-fun q0 ((x!0 Int)) Bool\n"
+                         "  (= x!0 2))\n"
+                         "(define-fun q2 ((x!0 Int)) Bool\n"
+                         "  false)\n"
+                         ")\n"
+                         "\n");
 }
 
 // PDR proof trace for Goal :- P(x), with P(x) a fact. The query!0 root and
