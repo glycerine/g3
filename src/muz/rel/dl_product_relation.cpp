@@ -649,6 +649,17 @@ namespace datalog {
             product_relation* delta = get(_delta);
             SASSERT(tgt.size()==src.size()); //moreover, we want the subrelations of the two relations to be aligned
             unsigned num = tgt.size();
+            // FORK FIX #103 (g3 audit, see FORK_BUGFIXES.md): VERIFY(can_do_inner_union(i,i))
+            // below only reported a missing union and the release build then called
+            // a null union (crash); report the unsupported union before any work.
+            for (unsigned i = 0; i < num; ++i) {
+                if (!can_do_inner_union(i, i)) {
+                    std::stringstream sstm;
+                    sstm << "trying to perform unsupported union operation on relations of kinds "
+                         << tgt[i].get_plugin().get_name() << " and " << src[i].get_plugin().get_name();
+                    throw default_exception(sstm.str());
+                }
+            }
             ptr_vector<relation_base> side_results;
             ptr_vector<relation_base> side_deltas;
 

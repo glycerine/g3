@@ -96,6 +96,7 @@ namespace datalog {
         }
 
         bool can_handle_signature(const relation_signature & s) override;
+        bool can_handle_signature(const relation_signature & s, family_id kind) override;
         
         relation_base * mk_empty(const relation_signature & s) override;
         sieve_relation * mk_empty(const sieve_relation & original);
@@ -104,6 +105,7 @@ namespace datalog {
         sieve_relation * mk_empty(const relation_signature & s, relation_plugin & inner_plugin);
 
         relation_base * mk_full(func_decl* p, const relation_signature & s) override;
+        relation_base * mk_full(func_decl* p, const relation_signature & s, family_id kind) override;
         sieve_relation * full(func_decl* p, const relation_signature & s, relation_plugin & inner_plugin);
 
         sieve_relation * mk_from_inner(const relation_signature & s, const bool * inner_columns, 

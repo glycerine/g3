@@ -200,6 +200,15 @@ namespace datalog {
 #endif
     }
 
+    bool sieve_relation_plugin::can_handle_signature(const relation_signature & s, family_id kind) {
+        // FORK FIX #103 (g3 audit, see FORK_BUGFIXES.md): a sieve kind of a product
+        // relation's spec was refused (can_handle_signature(s) is false), so
+        // product_relation_plugin::mk_empty(original) and convert_spec made
+        // table or full relations in place of the sieves; aligned_union_fn then
+        // had no union for an inner pair and called a null union (crash).
+        return m_spec_store.contains_kind(s, kind);
+    }
+
     sieve_relation * sieve_relation_plugin::mk_from_inner(const relation_signature & s, const bool * inner_columns, 
             relation_base * inner_rel) {
         SASSERT(!inner_rel->get_plugin().is_sieve_relation()); //it does not make sense to make a sieve of a sieve
@@ -251,6 +260,20 @@ namespace datalog {
         svector<bool> inner_cols;
         inner_cols.resize(s.size(), false);
         return mk_from_inner(s, inner_cols, inner);
+    }
+
+    relation_base * sieve_relation_plugin::mk_full(func_decl* p, const relation_signature & s, family_id kind) {
+        // FORK FIX #103 (g3 audit, see FORK_BUGFIXES.md): the full relation of a sieve
+        // kind is the sieve of its spec over the inner kind's full relation.
+        if (kind == null_family_id || !m_spec_store.contains_kind(s, kind)) {
+            return mk_full(p, s);
+        }
+        rel_spec spec;
+        m_spec_store.get_relation_spec(s, kind, spec);
+        relation_signature inner_sig;
+        collect_inner_signature(s, spec.m_inner_cols, inner_sig);
+        relation_base * inner = get_manager().mk_full_relation(inner_sig, p, spec.m_inner_kind);
+        return mk_from_inner(s, spec.m_inner_cols.c_ptr(), inner);
     }
 
     sieve_relation * sieve_relation_plugin::full(func_decl* p, const relation_signature & s, relation_plugin & inner_plugin) {
