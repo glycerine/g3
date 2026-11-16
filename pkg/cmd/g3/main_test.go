@@ -336,6 +336,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// fork fix #B (a table_relation of a signature its table plugin cannot
+	// handle gets the appropriate plugin's table; z3 4.7.1 segfaults).
+	"plugins4_check_tr_sparse_mixed.smt2": "sat\n(or (= (:var 0) true) (= (:var 0) false))\n",
 	// fork fix #A (check_relation_plugin offers no operation unless every
 	// argument is a check_relation; z3 4.7.1 aborts with std::bad_cast):
 	// a Bool table joined with a check_relation over udoc, and p_E_chk_bound.

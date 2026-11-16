@@ -358,7 +358,18 @@ func (p *TableRelationPlugin) MkEmpty(sorts []ast.ASTHandle) (RelationBase, erro
 	if !ok {
 		return nil, ErrTable
 	}
-	table, err := p.newTable(signature)
+	creator := p
+	if !p.canHandle(signature) {
+		// A signature this table plugin cannot handle (check_relation over
+		// tr_sparse asked for a nullary inner relation of a sieve) gets the
+		// table of the appropriate table plugin, as mk_from_table does for a
+		// table of another plugin (fork fix #B in table_relation_plugin::
+		// mk_empty: sparse_table segfaulted on the empty signature).
+		if creator = p.manager.appropriateTableRelationPlugin(signature); creator == nil {
+			return nil, ErrRelationNoPlugin
+		}
+	}
+	table, err := creator.newTable(signature)
 	if err != nil {
 		return nil, err
 	}
