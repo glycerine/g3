@@ -43,18 +43,40 @@ func (k *SMTKernel) normalizePendingAssertions() (result error) {
 	}); err != nil {
 		return err
 	}
+	// The function locals push_todo and push_todo_prs are reset at the start
+	// of each row and die after swap_asserted_formulas, push_todo_prs first.
+	var todo nnfPushTodo
+	defer func() {
+		result = errors.Join(result, k.releaseNNFPushTodo(&todo.proofs), k.releaseNNFPushTodo(&todo.rows))
+	}()
 	for _, assertion := range k.assertions[k.assertedHead:] {
 		if err = k.traceAssertedExpression("nnf_bug", "nnf_cnf", 362, "processing:\n", assertion.Formula); err != nil {
 			return err
 		}
-		if canceled, err := k.appendNormalizedAssertion(proc, batch, assertion); canceled || err != nil {
+		if canceled, err := k.appendNormalizedAssertion(proc, batch, assertion, &todo); canceled || err != nil {
 			return err
 		}
 	}
 	return k.swapPendingFormulaBatch(batch)
 }
 
-func (k *SMTKernel) appendNormalizedAssertion(proc *normal_forms.NNF, batch *macros.FormulaBatch, assertion SMTKernelAssertion) (canceled bool, result error) {
+// nnfPushTodo is nnf_cnf's push_todo and push_todo_prs.
+type nnfPushTodo struct {
+	rows, proofs []ast.ASTRef
+}
+
+// releaseNNFPushTodo is ref_vector::reset: the elements are released front
+// to back.
+func (k *SMTKernel) releaseNNFPushTodo(refs *[]ast.ASTRef) (result error) {
+	for i := range *refs {
+		result = errors.Join(result, k.manager.DelRef(&(*refs)[i]))
+	}
+	*refs = nil
+	return result
+}
+
+func (k *SMTKernel) appendNormalizedAssertion(proc *normal_forms.NNF, batch *macros.FormulaBatch, assertion SMTKernelAssertion, todo *nnfPushTodo) (canceled bool, result error) {
+	// The loop body's r1 and pr1 die at the end of the row, pr1 first.
 	out, err := k.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return false, err
@@ -65,21 +87,14 @@ func (k *SMTKernel) appendNormalizedAssertion(proc *normal_forms.NNF, batch *mac
 		return false, err
 	}
 	defer func() { result = errors.Join(result, k.manager.DelRef(&proof)) }()
-	var definitions, definitionProofs []ast.ASTRef
-	defer func() {
-		for i := range definitionProofs {
-			result = errors.Join(result, k.manager.DelRef(&definitionProofs[i]))
-		}
-		for i := range definitions {
-			result = errors.Join(result, k.manager.DelRef(&definitions[i]))
-		}
-	}()
-	if err = proc.Transform(assertion.Formula, &definitions, &definitionProofs, out, proof); err != nil {
+	// push_todo.reset(); push_todo_prs.reset();
+	if err = errors.Join(k.releaseNNFPushTodo(&todo.rows), k.releaseNNFPushTodo(&todo.proofs)); err != nil {
 		return false, err
 	}
-	if canceled, err := k.manager.Canceled(); canceled || err != nil {
-		return canceled, err
+	if err = proc.Transform(assertion.Formula, &todo.rows, &todo.proofs, out, proof); err != nil {
+		return false, err
 	}
+	definitions, definitionProofs := todo.rows, todo.proofs
 	proofs, err := k.manager.ProofsEnabled()
 	if err != nil {
 		return false, err
@@ -95,7 +110,7 @@ func (k *SMTKernel) appendNormalizedAssertion(proc *normal_forms.NNF, batch *mac
 	if err != nil {
 		return false, err
 	}
-	defer func() { result = errors.Join(result, k.manager.DelRef(&main)) }()
+	todo.rows = append(todo.rows, main)
 	var p ast.ASTHandle
 	if proofs {
 		rewrite, err := k.manager.RefGet(proof)
@@ -110,7 +125,10 @@ func (k *SMTKernel) appendNormalizedAssertion(proc *normal_forms.NNF, batch *mac
 		if err != nil {
 			return false, err
 		}
-		defer func() { result = errors.Join(result, k.manager.DelRef(&held)) }()
+		todo.proofs = append(todo.proofs, held)
+	}
+	if canceled, err := k.manager.Canceled(); canceled || err != nil {
+		return canceled, err
 	}
 	for i, definition := range definitions {
 		value, err := k.manager.RefGet(definition)
