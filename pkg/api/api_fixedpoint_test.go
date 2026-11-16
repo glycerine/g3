@@ -276,9 +276,11 @@ func TestSMTContextFixedpointPredicateRepresentation(t *testing.T) {
 	astTestMust(t, context.SetFixedpointPredicateRepresentation(predicate, "tr_sparse", "tr_hashtable", "tr_bitvector", "tr_lazy_sparse"))
 	zero, err := context.DeclareRelation("api-fp-zero-representation", nil)
 	astTestMust(t, err)
-	if err = context.SetFixedpointPredicateRepresentation(zero, "tr_sparse"); err == nil {
-		t.Fatal("sparse representation accepted zero-arity relation")
-	}
+	// rel_context::set_predicate_representation accepts tr_sparse for a
+	// nullary predicate (get_ordinary_relation_plugin finds the plugin);
+	// mk_empty_relation passes over it as sparse cannot handle the empty
+	// signature, as Z3_fixedpoint_set_predicate_representation does.
+	astTestMust(t, context.SetFixedpointPredicateRepresentation(zero, "tr_sparse"))
 	if err = context.SetFixedpointPredicateRepresentation(zero, "missing"); err == nil {
 		t.Fatal("unknown predicate representation accepted")
 	}

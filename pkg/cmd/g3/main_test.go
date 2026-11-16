@@ -336,6 +336,13 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ-F5 (relation plugins): set_predicate_representation
+	// accepts a table plugin that cannot handle the predicate's signature
+	// (tr_sparse for a nullary predicate, tr_bitvector for 40-bit rows);
+	// mk_empty_relation passes over it, while the registers of the
+	// predicate's rules still get the requested plugin where it can.
+	"plugins5_nullary_tr_sparse.smt2": "sat\ntrue\nsat\n(and (= (:var 0) #x00001) (= (:var 1) #x00002))\n",
+	"plugins5_wide_tr_bitvector.smt2": "sat\ntrue\nsat\n(and (= (:var 0) #x00001) (= (:var 1) #x00002))\n",
 	// AUDIT.md FUZZ-F5 (relation plugins): datalog.default_relation
 	// tr_hashtable / tr_bitvector makes that table_relation plugin the
 	// favourite (relation_manager::register_plugin), so the predicates and

@@ -50,7 +50,10 @@ func TestPredicateRepresentationConfiguredEngineLifecycle(t *testing.T) {
 }
 
 func TestPredicateRepresentationDatalogGuardsInstantiateBeforeFailure(t *testing.T) {
-	for _, kind := range []string{"unknown-table-plugin", "tr_sparse", "tr_lazy_sparse"} {
+	// tr_sparse / tr_lazy_sparse on the nullary p are accepted, as by
+	// rel_context::set_predicate_representation (mk_empty_relation passes
+	// over a plugin that cannot handle the signature).
+	for _, kind := range []string{"unknown-table-plugin"} {
 		t.Run(kind, func(t *testing.T) {
 			f := newDirectFactFixture(t)
 			e := f.engine

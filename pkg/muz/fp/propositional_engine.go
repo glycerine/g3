@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/bits"
 	"slices"
 	"sort"
 	"time"
@@ -607,34 +606,25 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 		}
 		return ErrPropositionalHorn
 	}
-	signature, err := state.table.Signature()
-	if err != nil {
-		return err
-	}
 	for _, kind := range kinds {
+		// get_ordinary_relation_plugin(kind): the plugin must exist; whether
+		// it handles the signature is decided by mk_empty_relation.
 		switch kind {
-		case "tr_hashtable":
-		case "tr_sparse", "tr_lazy_sparse":
-			if signature.Len() == 0 {
-				return fmt.Errorf("muz/fp: relation plugin %s cannot represent a zero-arity predicate", kind)
-			}
-		case "tr_bitvector":
-			shift := 0
-			for _, domain := range signature.Domains() {
-				if domain > uint64(^uint32(0)) || domain&(domain-1) != 0 {
-					return fmt.Errorf("muz/fp: relation plugin bitvector cannot represent the predicate signature")
-				}
-				shift += bits.Len64(domain)
-				if shift >= 32 {
-					return fmt.Errorf("muz/fp: relation plugin bitvector cannot represent the predicate signature")
-				}
-			}
+		case "tr_hashtable", "tr_sparse", "tr_lazy_sparse", "tr_bitvector":
 		default:
 			return fmt.Errorf("relation plugin %s does not exist", kind)
 		}
 	}
-	if len(kinds) == 1 && (kinds[0] == "tr_sparse" || kinds[0] == "tr_hashtable" || kinds[0] == "tr_bitvector" || kinds[0] == "tr_lazy_sparse") {
-		if err := e.selectFiniteRepresentation(declaration, kinds[0]); err != nil {
+	if len(kinds) == 1 {
+		if e.relations.RequestedFiniteKindHandles(state.sorts, kinds[0]) {
+			if err := e.selectFiniteRepresentation(declaration, kinds[0]); err != nil {
+				return err
+			}
+		} else if err := e.relations.SetRequestedFiniteKind(declaration, kinds[0]); err != nil {
+			// mk_empty_relation(sig, kind) passes over a requested plugin
+			// that cannot handle the predicate's signature (the predicate
+			// keeps the favourite's table); the registers of its rules
+			// still get mk_empty_relation(sig, pred) of that kind.
 			return err
 		}
 	}

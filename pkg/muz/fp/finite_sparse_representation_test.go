@@ -102,8 +102,12 @@ func TestDatalogSparseRepresentationRoundTripAndEmptySignatureGuard(t *testing.T
 	e, m := f.engine, f.manager
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }
 	must(e.SelectEngine("datalog"))
-	if err := e.SetPredicateRepresentation(f.declarations["p"], []string{"tr_sparse"}); err == nil {
-		t.Fatal("nullary sparse guard removed")
+	// rel_context::set_predicate_representation accepts tr_sparse for a
+	// nullary predicate; mk_empty_relation passes over the plugin (sparse
+	// cannot handle the empty signature), so the predicate keeps its table.
+	must(e.SetPredicateRepresentation(f.declarations["p"], []string{"tr_sparse"}))
+	if _, ok := e.predicates[f.declarations["p"]].table.(*rel.HashTable); !ok {
+		t.Fatal("nullary predicate left the hash table")
 	}
 	b, err := m.MkBoolSort()
 	must(err)
