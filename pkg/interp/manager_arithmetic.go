@@ -15,7 +15,7 @@ func (m *Manager) SimplifyInequality(inequality ast.ASTHandle) (result ast.ASTHa
 		return ast.ASTHandle{}, err
 	}
 	if op != OperatorLE && op != OperatorLT && op != OperatorGE && op != OperatorGT {
-		return ast.ASTHandle{}, NewError("not an inequality")
+		return ast.ASTHandle{}, iz3Exception("not an inequality")
 	}
 	left, err := m.Arg(inequality, 0)
 	if err != nil {
@@ -53,7 +53,7 @@ func (m *Manager) LinearCombination(p, coefficient, q ast.ASTHandle, roundOff bo
 		return ast.ASTHandle{}, err
 	}
 	if qOp != OperatorLE && qOp != OperatorGE && qOp != OperatorLT && qOp != OperatorGT {
-		return ast.ASTHandle{}, NewError("not an inequality")
+		return ast.ASTHandle{}, iz3Exception("not an inequality")
 	}
 	qLeft, err := m.Arg(qBody, 0)
 	if err != nil {
@@ -78,7 +78,7 @@ func (m *Manager) LinearCombination(p, coefficient, q ast.ASTHandle, roundOff bo
 			qRHS, err = m.Make(OperatorSub, qLeft, qRight)
 			qStrict = true
 		default:
-			return ast.ASTHandle{}, NewError("not an inequality")
+			return ast.ASTHandle{}, iz3Exception("not an inequality")
 		}
 	} else {
 		switch qOp {
@@ -93,7 +93,7 @@ func (m *Manager) LinearCombination(p, coefficient, q ast.ASTHandle, roundOff bo
 			qRHS, err = m.Make(OperatorSub, qLeft, qRight)
 			qStrict = true
 		default:
-			return ast.ASTHandle{}, NewError("not an inequality")
+			return ast.ASTHandle{}, iz3Exception("not an inequality")
 		}
 	}
 	if err != nil {
@@ -104,7 +104,7 @@ func (m *Manager) LinearCombination(p, coefficient, q ast.ASTHandle, roundOff bo
 		return ast.ASTHandle{}, err
 	}
 	if pOp != OperatorLE && pOp != OperatorLT {
-		return ast.ASTHandle{}, NewError("not an inequality")
+		return ast.ASTHandle{}, iz3Exception("not an inequality")
 	}
 	pStrict := pOp == OperatorLT
 	if roundOff {

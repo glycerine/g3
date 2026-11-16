@@ -19,3 +19,7 @@ func (e Error) HasErrorCode() bool               { return false }
 // catches the char* of an interpolation_failure, handles, so the query
 // fails with its message.
 func iz3Exception(message string) error { return z3exception.NewDefaultException(message) }
+
+// errCannotSplit is iz3proof_itp.cpp's cannot_split, an iz3_exception
+// that simplify_modpon_fwd catches and that otherwise fails the query.
+var errCannotSplit = iz3Exception("cannot_split")

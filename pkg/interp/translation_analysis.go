@@ -135,7 +135,7 @@ func (t *FullTranslation) scanSkolemsRecursive(proof ast.ASTHandle, frame int, m
 			return 0, e
 		}
 		if scope.IsEmpty() {
-			return 0, NewError("can't skolemize")
+			return 0, iz3Exception("can't skolemize")
 		}
 		inside, e := t.base.scopes.InRange(frame, scope)
 		if e != nil {

@@ -155,9 +155,7 @@ func (p *DirectProofInterpolator) MakeCongruence(premiseConclusion, conclusion, 
 		}
 		return p.MakeResolution(premiseConclusion, []ast.ASTHandle{conclusion}, interpolation, premise)
 	}
-	if premiseSide == TermMixed || conclusionSide == TermMixed {
-		return ast.ASTHandle{}, ProofError{}
-	}
+	// make_congruence: a mixed premise is handled as the B case.
 	var interpolation ast.ASTHandle
 	if premiseSide == TermA {
 		if conclusionSide == TermA {

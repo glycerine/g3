@@ -60,7 +60,7 @@ func (p *DirectProofInterpolator) extractRewrites(chain, position ast.ASTHandle)
 			return ast.ASTHandle{}, e
 		}
 		if left != right {
-			return ast.ASTHandle{}, ProofError{}
+			return ast.ASTHandle{}, iz3Exception("bad rewrite chain")
 		}
 	}
 	return rest, nil
@@ -86,7 +86,7 @@ func (p *DirectProofInterpolator) subtermNormals(first, second, chain ast.ASTHan
 			return e
 		}
 		if secondOp != firstOp || len(secondArgs) != len(firstArgs) {
-			return ProofError{}
+			return iz3Exception("bad inequality rewriting")
 		}
 		for i := range firstArgs {
 			childPosition, e := p.positionAppend(position, int64(i))
@@ -117,7 +117,7 @@ func (p *DirectProofInterpolator) subtermNormals(first, second, chain ast.ASTHan
 			return e
 		}
 		if empty {
-			return ProofError{}
+			return iz3Exception("bad inequality rewriting")
 		}
 		subchain, e = p.reverseChain(subchain)
 		if e != nil {

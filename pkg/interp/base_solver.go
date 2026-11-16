@@ -75,7 +75,7 @@ func (b *Base) IsSAT(formulas, variables []ast.ASTHandle) (result *BaseSATResult
 	if canceled, e := b.manager.ast.Canceled(); e != nil {
 		return nil, e
 	} else if canceled {
-		return nil, NewError(messages.Canceled)
+		return nil, iz3Exception(messages.Canceled)
 	}
 	result = &BaseSATResult{manager: b.manager.ast, Status: status}
 	defer func() {
@@ -103,7 +103,7 @@ func (b *Base) IsSAT(formulas, variables []ast.ASTHandle) (result *BaseSATResult
 		return nil, err
 	}
 	if model == nil {
-		return nil, NewError("interpolation cannot proceed without a model")
+		return nil, iz3Exception("interpolation cannot proceed without a model")
 	}
 	defer func() { resultErr = errors.Join(resultErr, model.DecRef()) }()
 	if b.evaluator == nil {

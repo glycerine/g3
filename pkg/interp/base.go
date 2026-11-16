@@ -322,7 +322,7 @@ func (b *Base) FrameOfAssertion(assertion ast.ASTHandle) (int, error) {
 	}
 	frame, found := b.frames[assertion]
 	if !found {
-		return 0, NewError("unknown assertion")
+		return 0, iz3Exception("unknown assertion")
 	}
 	return frame, nil
 }

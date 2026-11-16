@@ -98,9 +98,16 @@ func (p *DirectProofInterpolator) simplifyProofTerm(expression ast.ASTHandle) (a
 			result, err = p.base.manager.Clone(current, args)
 		}
 		if err != nil {
+			// simplify_rec catches cannot_simplify (ProofError here: no
+			// proof_error is thrown while simplifying): a sum stays as it
+			// is; otherwise it throws the char* "interpolation failure".
 			var proofError ProofError
-			if declaration == p.sum && errors.As(err, &proofError) {
-				result, err = p.base.manager.Clone(current, args)
+			if errors.As(err, &proofError) {
+				if declaration == p.sum {
+					result, err = p.base.manager.Clone(current, args)
+				} else {
+					err = NewError("interpolation failure")
+				}
 			}
 		}
 		if err != nil {

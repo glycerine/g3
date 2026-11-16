@@ -812,7 +812,7 @@ func (t *FullTranslation) translateAssignBounds(proof, conclusion ast.ASTHandle,
 			inputs = append(inputs, input)
 		}
 	} else if len(coefficients) != len(premises)+1 {
-		return ast.ASTHandle{}, NewError("bad assign-bounds theory lemma")
+		return ast.ASTHandle{}, iz3Exception("bad assign-bounds theory lemma")
 	}
 	if len(inputs) != len(coefficients)-1 {
 		return ast.ASTHandle{}, UnsupportedProofError{Proof: proof}

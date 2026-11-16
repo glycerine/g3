@@ -254,7 +254,7 @@ func (p *DirectProofInterpolator) equalityEndpointsFromInequality(inequality ast
 	if op == OperatorLE || op == OperatorGE {
 		return left, right, nil
 	}
-	return ast.ASTHandle{}, ast.ASTHandle{}, ProofError{}
+	return ast.ASTHandle{}, ast.ASTHandle{}, iz3Exception("bad ineq")
 }
 
 func (p *DirectProofInterpolator) unmixedEqToInequality(left, right ast.ASTHandle, comparison Operator, chain ast.ASTHandle, condition *ast.ASTHandle) (ast.ASTHandle, error) {

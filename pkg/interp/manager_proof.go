@@ -184,7 +184,14 @@ func (m *Manager) TheoryLemmaKind(proof ast.ASTHandle) (result LemmaKind, err er
 	}
 }
 
-func (m *Manager) rationalParameter(parameter ast.ASTParameter) (result *big.Rat, err error) {
+// errBadFarkasCoefficient is iz3mgr's iz3_exception("Bad Farkas
+// coefficient"); get_broken_gcd_test_coeffs and get_gomory_cut_coeffs
+// throw the char* instead (badFarkasCoefficientFailure).
+func errBadFarkasCoefficient() error { return iz3Exception("Bad Farkas coefficient") }
+
+func badFarkasCoefficientFailure() error { return NewError("Bad Farkas coefficient") }
+
+func (m *Manager) rationalParameter(parameter ast.ASTParameter, failure func() error) (result *big.Rat, err error) {
 	service := m.ast.NumeralService()
 	value, err := service.NewValue()
 	if err != nil {
@@ -196,7 +203,7 @@ func (m *Manager) rationalParameter(parameter ast.ASTParameter) (result *big.Rat
 		return nil, err
 	}
 	if !matched {
-		return nil, NewError("Bad Farkas coefficient")
+		return nil, failure()
 	}
 	text, err := service.Display(&value)
 	if err != nil {
@@ -204,7 +211,7 @@ func (m *Manager) rationalParameter(parameter ast.ASTParameter) (result *big.Rat
 	}
 	result, ok := new(big.Rat).SetString(text)
 	if !ok {
-		return nil, NewError("Bad Farkas coefficient")
+		return nil, failure()
 	}
 	return result, nil
 }
@@ -223,18 +230,18 @@ func normalizeCoefficientDenominators(values []*big.Rat) {
 	}
 }
 
-func (m *Manager) theoryLemmaCoefficients(proof ast.ASTHandle, absolute bool) (result []*big.Rat, err error) {
+func (m *Manager) theoryLemmaCoefficients(proof ast.ASTHandle, absolute bool, failure func() error) (result []*big.Rat, err error) {
 	parameters, err := m.proofParameters(proof)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { err = errors.Join(err, m.releaseParameters(parameters)) }()
 	if len(parameters) < 2 {
-		return nil, NewError("Bad Farkas coefficient")
+		return nil, failure()
 	}
 	result = make([]*big.Rat, len(parameters)-2)
 	for i := range result {
-		result[i], err = m.rationalParameter(parameters[i+2])
+		result[i], err = m.rationalParameter(parameters[i+2], failure)
 		if err != nil {
 			return nil, err
 		}
@@ -247,15 +254,15 @@ func (m *Manager) theoryLemmaCoefficients(proof ast.ASTHandle, absolute bool) (r
 }
 
 func (m *Manager) FarkasCoefficients(proof ast.ASTHandle) ([]*big.Rat, error) {
-	return m.theoryLemmaCoefficients(proof, true)
+	return m.theoryLemmaCoefficients(proof, true, errBadFarkasCoefficient)
 }
 
 func (m *Manager) BrokenGCDTestCoefficients(proof ast.ASTHandle) ([]*big.Rat, error) {
-	return m.theoryLemmaCoefficients(proof, false)
+	return m.theoryLemmaCoefficients(proof, false, badFarkasCoefficientFailure)
 }
 
 func (m *Manager) GomoryCutCoefficients(proof ast.ASTHandle) ([]*big.Rat, error) {
-	return m.theoryLemmaCoefficients(proof, true)
+	return m.theoryLemmaCoefficients(proof, true, badFarkasCoefficientFailure)
 }
 
 func (m *Manager) inequalityHasNegativeOrientation(inequality ast.ASTHandle) (bool, error) {
@@ -284,7 +291,7 @@ func (m *Manager) assignBoundsCoefficients(proof ast.ASTHandle, rule bool) (resu
 	}
 	defer func() { err = errors.Join(err, m.releaseParameters(parameters)) }()
 	if len(parameters) < 2 {
-		return nil, NewError("Bad Farkas coefficient")
+		return nil, errBadFarkasCoefficient()
 	}
 	conclusion, err := m.Conclusion(proof)
 	if err != nil {
@@ -301,7 +308,7 @@ func (m *Manager) assignBoundsCoefficients(proof ast.ASTHandle, rule bool) (resu
 	result = make([]*big.Rat, len(parameters)-1)
 	result[0] = new(big.Rat).SetInt64(1)
 	for i := 2; i < len(parameters); i++ {
-		value, e := m.rationalParameter(parameters[i])
+		value, e := m.rationalParameter(parameters[i], errBadFarkasCoefficient)
 		if e != nil {
 			return nil, e
 		}
@@ -399,7 +406,7 @@ func (m *Manager) IsFarkasCoefficientNegative(proof ast.ASTHandle, index uint32)
 	if parameterIndex >= len(parameters) {
 		return false, ast.ErrASTDomain
 	}
-	value, err := m.rationalParameter(parameters[parameterIndex])
+	value, err := m.rationalParameter(parameters[parameterIndex], errBadFarkasCoefficient)
 	if err != nil {
 		return false, err
 	}

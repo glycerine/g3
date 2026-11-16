@@ -240,7 +240,7 @@ func (t *FullTranslation) reconstructFarkasFromProof(sourcePremises, translatedP
 	}
 	defer func() { _ = sat.Close() }()
 	if sat.Satisfiable() {
-		return ast.ASTHandle{}, false, ProofError{}
+		return ast.ASTHandle{}, false, iz3Exception("Proof error!")
 	}
 	newProof, err := t.base.manager.ast.RefGet(sat.Proof)
 	if err != nil {
@@ -549,7 +549,7 @@ func (t *FullTranslation) reconstructFarkasWithDual(sourcePremises, translatedPr
 	}
 	defer func() { resultErr = errors.Join(resultErr, model.Close()) }()
 	if !model.Satisfiable() || len(model.Values) != len(coefficients) {
-		return ast.ASTHandle{}, ProofError{}
+		return ast.ASTHandle{}, iz3Exception("Proof error!")
 	}
 	values := make([]*big.Rat, len(model.Values))
 	for i := range model.Values {
@@ -563,7 +563,7 @@ func (t *FullTranslation) reconstructFarkasWithDual(sourcePremises, translatedPr
 			if e != nil {
 				return ast.ASTHandle{}, e
 			}
-			return ast.ASTHandle{}, ProofError{}
+			return ast.ASTHandle{}, iz3Exception("Proof error!")
 		}
 	}
 	lcm := rationalDenominatorLCM(values)

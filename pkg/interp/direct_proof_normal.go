@@ -61,8 +61,11 @@ func (p *DirectProofInterpolator) normalStepParts(step ast.ASTHandle) (left, rig
 
 func (p *DirectProofInterpolator) makeNormal(inequality, chain ast.ASTHandle) (ast.ASTHandle, error) {
 	valid, err := p.isInequality(inequality)
-	if err != nil || !valid {
-		return ast.ASTHandle{}, ProofError{}
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if !valid {
+		return ast.ASTHandle{}, iz3Exception("what?")
 	}
 	return p.makeSymbol(p.normal, inequality, chain)
 }

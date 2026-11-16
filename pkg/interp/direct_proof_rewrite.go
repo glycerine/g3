@@ -20,16 +20,12 @@ func (p *DirectProofInterpolator) makeRewrite(side TermSide, position, condition
 		return ast.ASTHandle{}, err
 	}
 	if !equivalence {
-		return ast.ASTHandle{}, ProofError{}
+		return ast.ASTHandle{}, iz3Exception("bad rewrite")
 	}
-	var declaration ast.ASTHandle
-	switch side {
-	case TermA:
+	// make_rewrite: t == LitA ? rewrite_A : rewrite_B.
+	declaration := p.rewriteB
+	if side == TermA {
 		declaration = p.rewriteA
-	case TermB:
-		declaration = p.rewriteB
-	default:
-		return ast.ASTHandle{}, ProofError{}
 	}
 	return p.makeSymbol(declaration, position, condition, equality)
 }
@@ -163,8 +159,12 @@ func (p *DirectProofInterpolator) positionIndex(position ast.ASTHandle) (int64, 
 		return 0, ast.ASTHandle{}, err
 	}
 	index, matched, err := p.base.manager.Numeral(indexTerm)
-	if err != nil || !matched || !index.IsInt() || !index.Num().IsInt64() {
-		return 0, ast.ASTHandle{}, ProofError{}
+	if err != nil {
+		return 0, ast.ASTHandle{}, err
+	}
+	if !matched || !index.IsInt() || !index.Num().IsInt64() {
+		// pos_arg
+		return 0, ast.ASTHandle{}, iz3Exception("bad position!")
 	}
 	rest, err := p.base.manager.Arg(position, 1)
 	return index.Num().Int64(), rest, err
@@ -199,12 +199,15 @@ func (p *DirectProofInterpolator) substituteAtPosition(term, position, replaceme
 		return replacement, nil
 	}
 	index, rest, err := p.positionIndex(position)
-	if err != nil || index < 0 {
-		return ast.ASTHandle{}, ProofError{}
+	if err != nil {
+		return ast.ASTHandle{}, err
 	}
 	args, err := p.base.manager.Args(term)
-	if err != nil || index >= int64(len(args)) {
-		return ast.ASTHandle{}, ProofError{}
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if index < 0 || index >= int64(len(args)) {
+		return ast.ASTHandle{}, iz3Exception("bad term position!")
 	}
 	args[index], err = p.substituteAtPosition(args[index], rest, replacement)
 	if err != nil {
@@ -638,11 +641,14 @@ func (p *DirectProofInterpolator) splitRewriteChain(chain ast.ASTHandle) ([2]ast
 			if left == right {
 				return nil
 			}
-			return ProofError{}
+			return errCannotSplit
 		}
 		index, positionRest, e := p.positionIndex(position)
-		if e != nil || index < 0 || index > 1 {
-			return ProofError{}
+		if e != nil {
+			return e
+		}
+		if index < 0 || index > 1 {
+			return errCannotSplit
 		}
 		last, e = p.rewriteAtPosition(last, positionRest)
 		if e != nil {
@@ -677,8 +683,11 @@ func (p *DirectProofInterpolator) headRewriteChain(chain ast.ASTHandle, negation
 		return chain, tail, err
 	}
 	empty, err := p.base.manager.IsTrue(rest)
-	if err != nil || empty {
-		return ast.ASTHandle{}, ast.ASTHandle{}, ProofError{}
+	if err != nil {
+		return ast.ASTHandle{}, ast.ASTHandle{}, err
+	}
+	if empty {
+		return ast.ASTHandle{}, ast.ASTHandle{}, iz3Exception("bad rewrite chain")
 	}
 	head, tail, err = p.headRewriteChain(rest, negation)
 	if err != nil {
@@ -829,8 +838,11 @@ func (p *DirectProofInterpolator) simplifyExcludedMiddle(args []ast.ASTHandle) (
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
 	equivalence, err := p.isEquivalence(args[0])
-	if err != nil || !equivalence {
-		return ast.ASTHandle{}, ProofError{}
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if !equivalence {
+		return ast.ASTHandle{}, iz3Exception("bad exmid")
 	}
 	aProof, err := p.base.manager.Make(OperatorTrue)
 	if err != nil {
@@ -861,8 +873,11 @@ func (p *DirectProofInterpolator) simplifyCongruence(args []ast.ASTHandle) (ast.
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
 	position, matched, err := p.base.manager.Numeral(args[1])
-	if err != nil || !matched || !position.IsInt() || !position.Num().IsInt64() || position.Sign() < 0 {
-		return ast.ASTHandle{}, ProofError{}
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if !matched || !position.IsInt() || !position.Num().IsInt64() || position.Sign() < 0 {
+		return ast.ASTHandle{}, iz3Exception("bad cong")
 	}
 	aProof, err := p.base.manager.Make(OperatorTrue)
 	if err != nil {
@@ -940,7 +955,13 @@ func (p *DirectProofInterpolator) simplifyRotation(args []ast.ASTHandle) (ast.AS
 		return ast.ASTHandle{}, err
 	}
 	op, err := p.base.manager.Operator(args[1])
-	if err != nil || op != OperatorUninterpreted {
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if op == OperatorLE {
+		return ast.ASTHandle{}, iz3Exception("foo!")
+	}
+	if op != OperatorUninterpreted {
 		return ast.ASTHandle{}, ProofError{}
 	}
 	declaration, err := p.base.manager.Symbol(args[1])
@@ -1071,7 +1092,7 @@ func (p *DirectProofInterpolator) modusPonensForward(args []ast.ASTHandle, condi
 	if equivalence {
 		parts, e := p.splitRewriteChain(second)
 		if e != nil {
-			if _, proofError := e.(ProofError); !proofError {
+			if e != errCannotSplit {
 				return ast.ASTHandle{}, e
 			}
 			chain, e = p.simplifyUnsplitModusPonens(first, second)
@@ -1276,6 +1297,15 @@ func (p *DirectProofInterpolator) isNegationChain(chain ast.ASTHandle) (bool, er
 	}
 }
 
+// negationChainError is commute_negation_chain's "bad negative equality
+// chain" for an equation reverseBinary cannot reverse.
+func negationChainError(err error) error {
+	if _, ok := err.(ProofError); ok {
+		return iz3Exception("bad negative equality chain")
+	}
+	return err
+}
+
 func (p *DirectProofInterpolator) reverseBinary(term ast.ASTHandle) (ast.ASTHandle, error) {
 	op, err := p.base.manager.Operator(term)
 	if err != nil || (op != OperatorEqual && op != OperatorIff) {
@@ -1319,8 +1349,11 @@ func (p *DirectProofInterpolator) commuteNegationChain(chain ast.ASTHandle) (ast
 			return ast.ASTHandle{}, e
 		}
 		rightOp, e := p.base.manager.Operator(right)
-		if e != nil || rightOp != OperatorNot {
-			return ast.ASTHandle{}, ProofError{}
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		if rightOp != OperatorNot {
+			return ast.ASTHandle{}, iz3Exception("bad negative equality chain")
 		}
 		body, e := p.base.manager.Arg(right, 0)
 		if e != nil {
@@ -1328,7 +1361,7 @@ func (p *DirectProofInterpolator) commuteNegationChain(chain ast.ASTHandle) (ast
 		}
 		body, e = p.reverseBinary(body)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return ast.ASTHandle{}, negationChainError(e)
 		}
 		right, e = p.base.manager.Make(OperatorNot, body)
 		if e != nil {
@@ -1349,11 +1382,14 @@ func (p *DirectProofInterpolator) commuteNegationChain(chain ast.ASTHandle) (ast
 		return p.chainCons(rest, last)
 	}
 	if position == p.topPosition {
-		return ast.ASTHandle{}, ProofError{}
+		return ast.ASTHandle{}, iz3Exception("bad negative equality chain")
 	}
 	index, positionRest, err := p.positionIndex(position)
-	if err != nil || index != 0 {
-		return ast.ASTHandle{}, ProofError{}
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if index != 0 {
+		return ast.ASTHandle{}, iz3Exception("bad negative equality chain")
 	}
 	if positionRest == p.topPosition {
 		left, e := p.base.manager.Arg(equality, 0)
@@ -1366,11 +1402,11 @@ func (p *DirectProofInterpolator) commuteNegationChain(chain ast.ASTHandle) (ast
 		}
 		left, e = p.reverseBinary(left)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return ast.ASTHandle{}, negationChainError(e)
 		}
 		right, e = p.reverseBinary(right)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return ast.ASTHandle{}, negationChainError(e)
 		}
 		equality, e = p.base.manager.Make(OperatorIff, left, right)
 		if e != nil {
@@ -1382,8 +1418,11 @@ func (p *DirectProofInterpolator) commuteNegationChain(chain ast.ASTHandle) (ast
 		}
 	} else {
 		innerIndex, innerRest, e := p.positionIndex(positionRest)
-		if e != nil || (innerIndex != 0 && innerIndex != 1) {
-			return ast.ASTHandle{}, ProofError{}
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		if innerIndex != 0 && innerIndex != 1 {
+			return ast.ASTHandle{}, iz3Exception("bad negative equality chain")
 		}
 		innerIndex = 1 - innerIndex
 		positionRest, e = p.positionAdd(innerIndex, innerRest)
