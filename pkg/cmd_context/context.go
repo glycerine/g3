@@ -143,6 +143,13 @@ type Context struct {
 	// until m_dt_eh is reset.
 	dtUtilASTs   []ast.ASTRef
 	dtUtilCached map[ast.ASTHandle]uint8
+	// optLive is m_opt != nullptr (get_opt() created it for an objective
+	// or soft constraint); optScopedHard is its m_scoped_state.m_hard, the
+	// hard constraints set_hard_constraints installs at check-sat, with
+	// m_hard_lim in optScopedHardLim.
+	optLive          bool
+	optScopedHard    []ast.ASTRef
+	optScopedHardLim []int
 	// funcDecls and psortDecls are the m_func_decls and m_psort_decls
 	// dictionary layouts; psortStack is m_psort_decls_stack.
 	funcDecls, psortDecls          *symbolDictionary
@@ -1333,6 +1340,10 @@ func (c *Context) Push(count uint32) error {
 		if err := c.solver.Push(); err != nil {
 			return err
 		}
+		if c.optLive {
+			// m_opt->push(): scoped_state::push records m_hard's size.
+			c.optScopedHardLim = append(c.optScopedHardLim, len(c.optScopedHard))
+		}
 		c.scopes = append(c.scopes, scope{len(c.functionTrail), len(c.sortTrail), len(c.assertions), len(c.objectives), len(c.softObjectiveTrail), len(c.macroTrail), len(c.sortConstructorTrail), len(c.psortStack)})
 	}
 	c.checked = false
@@ -1356,6 +1367,20 @@ func (c *Context) Pop(count uint32) error {
 	if err := c.solver.Pop(count); err != nil {
 		return err
 	}
+	level := len(c.scopes) - int(count)
+	s := c.scopes[level]
+	if c.optLive {
+		// m_opt->pop(n): scoped_state::pop n times resizes m_hard to its
+		// limit and pops the objective term trail and the objectives.
+		limit := c.optScopedHardLim[len(c.optScopedHardLim)-int(count)]
+		c.optScopedHardLim = c.optScopedHardLim[:len(c.optScopedHardLim)-int(count)]
+		if err := c.shrinkOptScopedHard(limit); err != nil {
+			return err
+		}
+		if err := c.restoreObjectives(s.objectives, s.softTerms); err != nil {
+			return err
+		}
+	}
 	// m_opt->pop(n): clear_state (set_pareto(nullptr), m_model.reset()),
 	// reset_maxsmts, m_optsmt.reset() and m_hard_constraints.reset().
 	c.optsmtReset = true
@@ -1378,8 +1403,6 @@ func (c *Context) Pop(count uint32) error {
 	if err := c.invalidateOptimizationState(); err != nil {
 		return err
 	}
-	level := len(c.scopes) - int(count)
-	s := c.scopes[level]
 	if !c.GlobalDeclarations {
 		c.restorePSortDecls(s.psorts)
 		if err := c.restoreMacros(s.macros); err != nil {
@@ -1495,6 +1518,12 @@ func (c *Context) CheckSat(assumptions []ast.ASTHandle) (status lbool.LBool, err
 	}
 	// opt_frontend calls opt::context::optimize() whatever the objectives.
 	if len(c.objectives) != 0 || c.optimizationFrontend {
+		// if (!m_processing_pareto) get_opt()->set_hard_constraints(cnstr)
+		if c.optLive && !(c.optimizationParetoActive && c.optimizationParetoBackend != nil) {
+			if err := c.setOptHardConstraints(assumptions); err != nil {
+				return lbool.Undef, err
+			}
+		}
 		status, err = c.checkOptimize(assumptions, optimizationContinuation)
 		if err != nil {
 			return lbool.Undef, err
@@ -1762,7 +1791,7 @@ func (c *Context) ResetAssertions() error {
 	if err := c.restoreAssertions(0); err != nil {
 		return err
 	}
-	if err := c.restoreObjectives(0, 0); err != nil {
+	if err := c.releaseOptScopedState(); err != nil {
 		return err
 	}
 	// m_opt = nullptr (AUDIT.md FUZZ_A-F13).
@@ -1853,9 +1882,6 @@ func (c *Context) resetManagerState() error {
 		if err := c.restoreAssertions(0); err != nil {
 			return err
 		}
-		if err := c.restoreObjectives(0, 0); err != nil {
-			return err
-		}
 	}
 	if c.solver != nil {
 		if err := c.solver.Close(); err != nil {
@@ -1863,26 +1889,15 @@ func (c *Context) resetManagerState() error {
 		}
 		c.solver = nil
 	}
-	// m_opt = nullptr: the opt::context goes after m_solver.
-	if err := c.releaseParetoInitialModel(); err != nil {
+	// m_opt = nullptr: the opt::context goes after m_solver. ~context
+	// destroys its members in reverse declaration order: m_simplify,
+	// m_objective_refs, m_objectives, m_scoped_state, m_optsmt,
+	// m_box_models, m_pareto, m_sat_solver and then m_opt_solver.
+	// ~context's body runs reset_maxsmts() before the members die.
+	if err := c.retainedOptimizer.ResetMaxSMTs(); err != nil {
 		return err
 	}
-	if err := c.closeParetoBackend(); err != nil {
-		return err
-	}
-	if err := c.clearOptimizationBoxModels(); err != nil {
-		return err
-	}
-	if err := c.releaseRetiredOptimizationBoxModels(); err != nil {
-		return err
-	}
-	if err := c.optimizationOptsmtModels.Close(); err != nil {
-		return err
-	}
-	if err := c.releaseOptimizationTerms(); err != nil {
-		return err
-	}
-	if err := c.releaseRetainedOptimizer(); err != nil {
+	if err := c.releaseOptimizationSimplifier(); err != nil {
 		return err
 	}
 	for i := range c.optimizationObjectiveRefs {
@@ -1891,13 +1906,46 @@ func (c *Context) resetManagerState() error {
 		}
 	}
 	c.optimizationObjectiveRefs = nil
+	if err := c.releaseOptimizationObjectiveTerms(); err != nil {
+		return err
+	}
+	if c.manager != nil {
+		if err := c.releaseOptScopedState(); err != nil {
+			return err
+		}
+	}
+	for i := range c.optimizationOptsmt {
+		if err := c.manager.DelRef(&c.optimizationOptsmt[i]); err != nil {
+			return err
+		}
+	}
+	c.optimizationOptsmt = nil
+	if err := c.optimizationOptsmtModels.Close(); err != nil {
+		return err
+	}
+	if err := c.clearOptimizationBoxModels(); err != nil {
+		return err
+	}
+	if err := c.releaseRetiredOptimizationBoxModels(); err != nil {
+		return err
+	}
+	if err := c.releaseParetoInitialModel(); err != nil {
+		return err
+	}
+	if err := c.closeParetoBackend(); err != nil {
+		return err
+	}
 	if c.optimizationSAT != nil {
 		if err := c.optimizationSAT.Close(); err != nil {
 			return err
 		}
 		c.optimizationSAT = nil
 	}
-	if err := c.releaseOptimizationSimplifier(); err != nil {
+	if err := c.releaseRetainedOptimizer(); err != nil {
+		return err
+	}
+	// m_hard_constraints is declared first, so it is destroyed last.
+	if err := c.releaseOptimizationTerms(); err != nil {
 		return err
 	}
 	if c.manager != nil {
@@ -2015,6 +2063,20 @@ func (c *Context) releaseOptimizationHard() (result error) {
 }
 
 // releaseOptimizationTerms frees the previous from_fmls state front to back.
+// releaseOptimizationObjectiveTerms is the part of releaseOptimizationTerms
+// ~opt::context reaches first (m_objectives); m_optsmt follows
+// m_scoped_state, and the purifier's m_hard_constraints go last.
+func (c *Context) releaseOptimizationObjectiveTerms() (result error) {
+	for i := range c.optimizationTerms {
+		result = errors.Join(result, c.manager.DelRef(&c.optimizationTerms[i]))
+	}
+	c.optimizationTerms = nil
+	if c.optimizationPurifier != nil {
+		result = errors.Join(result, c.optimizationPurifier.ReleaseObjectives())
+	}
+	return result
+}
+
 func (c *Context) releaseOptimizationTerms() (result error) {
 	// import_scoped_state: m_optsmt.reset(), then m_objectives and
 	// m_hard_constraints.

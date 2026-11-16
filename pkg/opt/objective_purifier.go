@@ -112,6 +112,38 @@ func (p *ObjectivePurifier) Close() (result error) {
 	return result
 }
 
+// ReleaseObjectives is ~opt::context destroying m_objectives, which is
+// declared after m_hard_constraints and so dies first: each objective
+// releases m_terms front to back, then m_term.
+func (p *ObjectivePurifier) ReleaseObjectives() (result error) {
+	if p == nil || p.manager == nil {
+		return ast.ErrASTHandle
+	}
+	if p.closed {
+		return nil
+	}
+	for i := range p.objectiveRefs {
+		for j := range p.objectiveRefs[i].terms {
+			if p.objectiveRefs[i].terms[j] == (ast.ASTRef{}) {
+				continue
+			}
+			if result = p.manager.DelRef(&p.objectiveRefs[i].terms[j]); result != nil {
+				return result
+			}
+		}
+		for j := len(p.objectiveRefs[i].term) - 1; j >= 0; j-- {
+			if p.objectiveRefs[i].term[j] == (ast.ASTRef{}) {
+				continue
+			}
+			if result = p.manager.DelRef(&p.objectiveRefs[i].term[j]); result != nil {
+				return result
+			}
+		}
+	}
+	p.objectiveRefs = nil
+	return nil
+}
+
 // ReleaseHardConstraints is opt::context::pop's m_hard_constraints.reset():
 // from_fmls' hard constraints are released front to back while the
 // objectives (m_objectives) stay until import_scoped_state.

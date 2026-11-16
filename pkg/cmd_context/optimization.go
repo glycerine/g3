@@ -100,6 +100,7 @@ func (c *Context) AddObjective(expression ast.ASTHandle, maximize bool) error {
 	if err != nil {
 		return err
 	}
+	c.ensureOptLive()
 	kind, err := m.GetKind(expression)
 	if err != nil {
 		return err
@@ -161,6 +162,7 @@ func (c *Context) AddSoftConstraint(expression ast.ASTHandle, weight *big.Rat, i
 	if err != nil {
 		return err
 	}
+	c.ensureOptLive()
 	sort, err := m.GetSort(expression)
 	if err != nil {
 		return err
@@ -1319,5 +1321,72 @@ func (c *Context) setOptimizationFailureRawModel(md *model.ModelCore) error {
 	if previous != nil {
 		return previous.DecRef()
 	}
+	return nil
+}
+
+// ensureOptLive is cmd_context::set_opt for the first objective or soft
+// constraint: the new opt::context pushes once per open scope.
+func (c *Context) ensureOptLive() {
+	if c.optLive {
+		return
+	}
+	c.optLive = true
+	c.optScopedHardLim = c.optScopedHardLim[:0]
+	for range c.scopes {
+		c.optScopedHardLim = append(c.optScopedHardLim, len(c.optScopedHard))
+	}
+}
+
+// setOptHardConstraints is opt::context::set_hard_constraints(cnstr):
+// scoped_state::set resets m_hard (front to back) and appends cnstr.
+func (c *Context) setOptHardConstraints(assumptions []ast.ASTHandle) error {
+	if err := c.shrinkOptScopedHard(0); err != nil {
+		return err
+	}
+	hard := make([]ast.ASTHandle, 0, len(c.assertions)+len(assumptions))
+	for i := range c.assertions {
+		h, err := c.manager.RefGet(c.assertions[i].ref)
+		if err != nil {
+			return err
+		}
+		hard = append(hard, h)
+	}
+	hard = append(hard, assumptions...)
+	for _, h := range hard {
+		ref, err := c.manager.NewRef(h)
+		if err != nil {
+			return err
+		}
+		c.optScopedHard = append(c.optScopedHard, ref)
+	}
+	return nil
+}
+
+// shrinkOptScopedHard is m_hard.resize(n): the dropped suffix is released
+// front to back.
+func (c *Context) shrinkOptScopedHard(n int) error {
+	if n >= len(c.optScopedHard) {
+		return nil
+	}
+	for i := n; i < len(c.optScopedHard); i++ {
+		if err := c.manager.DelRef(&c.optScopedHard[i]); err != nil {
+			return err
+		}
+	}
+	c.optScopedHard = c.optScopedHard[:n]
+	return nil
+}
+
+// releaseOptScopedState is ~scoped_state as ~opt::context runs it: its
+// m_objectives (declared after m_hard) go first, then m_hard.
+func (c *Context) releaseOptScopedState() error {
+	if err := c.restoreObjectives(0, 0); err != nil {
+		return err
+	}
+	if err := c.shrinkOptScopedHard(0); err != nil {
+		return err
+	}
+	c.optLive = false
+	c.optScopedHardLim = nil
 	return nil
 }
