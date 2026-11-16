@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/glycerine/g3/pkg/math/simplex"
+	"github.com/glycerine/g3/pkg/tactic"
 	"io"
 	"math/big"
 
@@ -382,6 +383,16 @@ func (c *Context) createOptimizer() (optimizer *opt.ArithmeticSolver, resultErr 
 		return nil, err
 	}
 	optimizer.SetOptsmtModels(&c.optimizationOptsmtModels)
+	// opt::context::m_fm lives with the opt::context and collects the
+	// hidden declarations of every opt_solver it creates.
+	if c.optimizationFilter == nil {
+		if c.optimizationFilter, err = tactic.NewFilterModel(c.manager); err != nil {
+			return nil, errors.Join(err, optimizer.Close())
+		}
+	}
+	if err = optimizer.UseSharedFilter(c.optimizationFilter); err != nil {
+		return nil, errors.Join(err, optimizer.Close())
+	}
 	return optimizer, nil
 }
 
@@ -1380,9 +1391,33 @@ func (c *Context) shrinkOptScopedHard(n int) error {
 // releaseOptScopedState is ~scoped_state as ~opt::context runs it: its
 // m_objectives (declared after m_hard) go first, then m_hard.
 func (c *Context) releaseOptScopedState() error {
-	if err := c.restoreObjectives(0, 0); err != nil {
-		return err
+	// ~vector<objective> destroys the objectives front to back; each
+	// ~objective releases m_terms (front to back) before m_term.
+	for i := range c.objectives {
+		objective := &c.objectives[i]
+		for j := range objective.softTerms {
+			if objective.softTerms[j].ref == (ast.ASTRef{}) {
+				continue
+			}
+			if err := c.manager.DelRef(&objective.softTerms[j].ref); err != nil {
+				return err
+			}
+			objective.softTerms[j].ref = ast.ASTRef{}
+		}
+		if !objective.soft && objective.ref != (ast.ASTRef{}) {
+			if err := c.manager.DelRef(&objective.ref); err != nil {
+				return err
+			}
+			objective.ref = ast.ASTRef{}
+		}
 	}
+	for i := range c.objectives {
+		if c.objectives[i].soft {
+			delete(c.softObjectiveIndex, c.objectives[i].id)
+		}
+	}
+	c.objectives = nil
+	c.softObjectiveTrail = nil
 	if err := c.shrinkOptScopedHard(0); err != nil {
 		return err
 	}

@@ -121,12 +121,15 @@ type ArithmeticSolver struct {
 	internalized []internalizedObjective
 	// boxIndices maps a box copy's objectives to the parent's indices
 	// (m_lower, m_lower_fmls); nil for the identity.
-	boxIndices          []int
-	manager             *ast.ASTManager
-	config              smtcore.SMTSolverConfig
-	optsmtEngine        string
-	objectives          []arithmeticObjective
-	filter              *tactic.FilterModelConverter
+	boxIndices   []int
+	manager      *ast.ASTManager
+	config       smtcore.SMTSolverConfig
+	optsmtEngine string
+	objectives   []arithmeticObjective
+	filter       *tactic.FilterModelConverter
+	// filterShared marks filter as the cmd_context opt::context's m_fm,
+	// which every opt_solver of the context borrows and which outlives them.
+	filterShared        bool
 	preprocessor        tactic.ModelConverter
 	preprocessorCleanup bool
 	satCoreEnabled      bool
@@ -266,6 +269,22 @@ func NewArithmeticSolver(m *ast.ASTManager, params *uparams.ParamsRef, logic str
 		return nil, errors.Join(err, filter.Close(), backend.Close())
 	}
 	return &ArithmeticSolver{backend: backend, manager: m, config: config, filter: filter, optsmtEngine: engine}, nil
+}
+
+// UseSharedFilter makes the solver borrow filter, opt::context::m_fm, as
+// opt_solver does (alloc(opt_solver, m, m_params, m_fm)); the solver's own
+// empty filter is released.
+func (s *ArithmeticSolver) UseSharedFilter(filter *tactic.FilterModelConverter) error {
+	if s == nil || filter == nil {
+		return ast.ErrASTHandle
+	}
+	if s.filter != nil && !s.filterShared {
+		if err := s.filter.Close(); err != nil {
+			return err
+		}
+	}
+	s.filter, s.filterShared = filter, true
+	return nil
 }
 
 func (s *ArithmeticSolver) Assert(formula ast.ASTHandle) error {
@@ -1723,6 +1742,9 @@ func (s *ArithmeticSolver) Close() error {
 		s.objectives = s.objectives[:last]
 	}
 	err := s.closeVerifications()
+	if s.filter != nil && s.filterShared {
+		s.filter = nil
+	}
 	if s.filter != nil {
 		closeErr := s.filter.Close()
 		err = errors.Join(err, closeErr)
@@ -1730,28 +1752,36 @@ func (s *ArithmeticSolver) Close() error {
 			s.filter = nil
 		}
 	}
-	if s.preprocessor != nil {
-		var consumed bool
-		var closeErr error
-		if s.preprocessorCleanup {
-			closeErr = s.preprocessor.Close()
-		} else {
-			consumed, closeErr = s.preprocessor.DecRefConsumed()
-			if consumed && closeErr != nil {
-				s.preprocessorCleanup = true
-			}
-		}
-		err = errors.Join(err, closeErr)
-		if closeErr == nil && (consumed || s.preprocessorCleanup) {
-			s.preprocessor = nil
-			s.preprocessorCleanup = false
-		}
-	}
+	err = errors.Join(err, s.ReleaseModelConverter())
 	if !s.detached {
 		err = errors.Join(err, s.backend.Close())
 	}
 	if err == nil {
 		s.backend = nil
+	}
+	return err
+}
+
+// ReleaseModelConverter releases the preprocessing model converter, which
+// in z3 is opt::context::m_model_converter and dies with the opt::context's
+// members, before m_opt_solver.
+func (s *ArithmeticSolver) ReleaseModelConverter() error {
+	if s == nil || s.preprocessor == nil {
+		return nil
+	}
+	var consumed bool
+	var err error
+	if s.preprocessorCleanup {
+		err = s.preprocessor.Close()
+	} else {
+		consumed, err = s.preprocessor.DecRefConsumed()
+		if consumed && err != nil {
+			s.preprocessorCleanup = true
+		}
+	}
+	if err == nil && (consumed || s.preprocessorCleanup) {
+		s.preprocessor = nil
+		s.preprocessorCleanup = false
 	}
 	return err
 }

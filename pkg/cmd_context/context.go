@@ -263,7 +263,9 @@ type Context struct {
 	optimizationParetoInitialModel *model.ModelCore
 	// optimizationObjectiveRefs is opt::context::m_objective_refs: every
 	// objective function declaration, kept until the context is reset.
-	optimizationObjectiveRefs        []ast.ASTRef
+	optimizationObjectiveRefs []ast.ASTRef
+	// optimizationFilter is opt::context::m_fm, shared by its opt_solvers.
+	optimizationFilter               *tactic.FilterModelConverter
 	scopes                           []scope
 	PrintSuccess, GlobalDeclarations bool
 	InteractiveMode                  bool
@@ -1906,12 +1908,24 @@ func (c *Context) resetManagerState() error {
 		}
 	}
 	c.optimizationObjectiveRefs = nil
+	// m_fm is declared after m_model_converter and m_objectives.
+	if c.optimizationFilter != nil {
+		if err := c.optimizationFilter.Close(); err != nil {
+			return err
+		}
+		c.optimizationFilter = nil
+	}
 	// m_model_converter is declared after m_objectives, so it dies first.
 	if state := c.optimizationParetoPurification; state != nil && state.converter != nil {
 		if err := state.converter.DecRef(); err != nil {
 			return err
 		}
 		state.converter = nil
+	}
+	if c.retainedOptimizer != nil {
+		if err := c.retainedOptimizer.ReleaseModelConverter(); err != nil {
+			return err
+		}
 	}
 	if err := c.releaseOptimizationObjectiveTerms(); err != nil {
 		return err
