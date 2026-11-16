@@ -1247,6 +1247,174 @@ public:
     }
 
 
+    // FORK FIX #100 (g3 audit, see FORK_BUGFIXES.md): mixed rewrite and and-elim steps (AUDIT duality_iz3)
+    /* asserted_formulas::propagate_values substitutes a constant of one
+       frame by an equal constant of another, so a frame's assertion is
+       simplified into formulas that mix the frames' vocabularies. A
+       rewrite L = R of such a formula is no assumption of any frame and
+       was rejected as unsupported; an and-elim from such a conjunction
+       went through make_axiom's localization and gave quantified
+       interpolants. Both steps stay valid under any renaming of
+       constants, so we map the substituted constants back through the
+       equalities the proof used (theta), take the step locally on
+       theta(L), and move between L and theta(L) by congruence. */
+
+    typedef std::pair<ast,ast> ConstEquiv; // the equation pre = image, its proof
+
+    bool is_rewrite_constant(const ast &t){
+        return op(t) == Uninterpreted && num_args(t) == 0;
+    }
+
+    void collect_rewrite_equivs(hash_set<ast> &memo, const ast &proof, hash_map<ast,ConstEquiv> &theta, std::vector<ast> &keys){
+        if(memo.find(proof) != memo.end())
+            return;
+        memo.insert(proof);
+        ast con = conc(proof);
+        if(op(con) == Equal || op(con) == Iff){
+            ast pre = arg(con,0), image = arg(con,1);
+            if(pre != image && is_rewrite_constant(pre) && is_rewrite_constant(image)){
+                if(theta.find(image) == theta.end()){
+                    theta[image] = ConstEquiv(con,proof);
+                    keys.push_back(image);
+                }
+                return;
+            }
+        }
+        pfrule dk = pr(proof);
+        if(dk == PR_MONOTONICITY || dk == PR_TRANSITIVITY || dk == PR_MODUS_PONENS
+           || dk == PR_AND_ELIM || dk == PR_NOT_OR_ELIM){
+            unsigned nprems = num_prems(proof);
+            for(unsigned i = 0; i < nprems; i++)
+                collect_rewrite_equivs(memo,prem(proof,i),theta,keys);
+        }
+    }
+
+    ast apply_rewrite_equivs(hash_map<ast,ast> &memo, hash_map<ast,ConstEquiv> &theta, const ast &t){
+        std::pair<ast,ast> foo(t,ast());
+        std::pair<hash_map<ast,ast>::iterator, bool> bar = memo.insert(foo);
+        ast &res = bar.first->second;
+        if(!bar.second) return res;
+        hash_map<ast,ConstEquiv>::iterator it = theta.find(t);
+        if(it != theta.end())
+            res = arg(it->second.first,0);
+        else if(op(t) == Forall || op(t) == Exists)
+            res = t;
+        else {
+            int nargs = num_args(t);
+            std::vector<ast> args(nargs);
+            for(int i = 0; i < nargs; i++)
+                args[i] = apply_rewrite_equivs(memo,theta,arg(t,i));
+            res = clone(t,args);
+        }
+        return res;
+    }
+
+    ast make_rewrite_equiv(const ast &x, const ast &y){
+        return make(is_bool_type(get_type(x)) ? Iff : Equal,x,y);
+    }
+
+    // proves t = theta(t) if forward, else theta(t) = t
+    Iproof::node prove_rewrite_equivs(hash_map<ast,ast> &memo, hash_map<ast,ConstEquiv> &theta, const ast &t, bool forward){
+        ast tt = apply_rewrite_equivs(memo,theta,t);
+        hash_map<ast,ConstEquiv>::iterator it = theta.find(t);
+        if(it != theta.end()){
+            ast premcon = it->second.first; // theta(t) = t
+            Iproof::node pf = translate_main(it->second.second,false);
+            if(!forward)
+                return pf;
+            ast con = make_rewrite_equiv(t,tt);
+            return iproof->make_symmetry(con,premcon,pf);
+        }
+        int nargs = num_args(t);
+        std::vector<ast> eqs;
+        std::vector<Iproof::node> prems;
+        for(int i = 0; i < nargs; i++){
+            ast a = arg(t,i);
+            ast aa = apply_rewrite_equivs(memo,theta,a);
+            if(aa != a){
+                eqs.push_back(forward ? make_rewrite_equiv(a,aa) : make_rewrite_equiv(aa,a));
+                prems.push_back(prove_rewrite_equivs(memo,theta,a,forward));
+            }
+        }
+        ast con = forward ? make_rewrite_equiv(t,tt) : make_rewrite_equiv(tt,t);
+        return iproof->make_congruence(eqs,con,prems);
+    }
+
+    // proves the mixed rewrite rew, L = R, from the local rewrite
+    // theta(L) = theta(R), with theta taken from the congruence proof congr
+    bool localize_rewrite(const ast &congr, const ast &rew, Iproof::node &res){
+        hash_set<ast> memo;
+        hash_map<ast,ConstEquiv> theta;
+        std::vector<ast> keys;
+        collect_rewrite_equivs(memo,congr,theta,keys);
+        if(keys.empty())
+            return false;
+        ast con = conc(rew);
+        ast lhs = arg(con,0), rhs = arg(con,1);
+        hash_map<ast,ast> amemo;
+        ast tlhs = apply_rewrite_equivs(amemo,theta,lhs);
+        ast trhs = apply_rewrite_equivs(amemo,theta,rhs);
+        ast tcon = make(op(con),tlhs,trhs);
+        range rng = ast_scope(tcon);
+        if(range_is_empty(rng))
+            return false;
+        int frame = range_max(rng);
+        if(frame >= frames) frame = frames - 1;
+        std::vector<ast> foo;
+        foo.push_back(tcon);
+        Iproof::node trew = iproof->make_assumption(frame,foo);
+        Iproof::node res1 = trew;
+        if(tlhs != lhs){
+            Iproof::node lpf = prove_rewrite_equivs(amemo,theta,lhs,true);
+            res1 = iproof->make_transitivity(lhs,tlhs,trhs,lpf,trew);
+        }
+        res = res1;
+        if(trhs != rhs){
+            Iproof::node rpf = prove_rewrite_equivs(amemo,theta,rhs,false);
+            res = iproof->make_transitivity(lhs,trhs,rhs,res1,rpf);
+        }
+        return true;
+    }
+
+    // an and-elim or not-or-elim from a mixed premise G, taken locally from
+    // theta(G) after modus ponens with G = theta(G)
+    bool localize_elim(const ast &proof, Iproof::node &res){
+        ast pf0 = prem(proof,0);
+        hash_set<ast> memo;
+        hash_map<ast,ConstEquiv> theta;
+        std::vector<ast> keys;
+        collect_rewrite_equivs(memo,pf0,theta,keys);
+        if(keys.empty())
+            return false;
+        ast piv = conc(pf0);
+        ast con = conc(proof);
+        hash_map<ast,ast> amemo;
+        ast tpiv = apply_rewrite_equivs(amemo,theta,piv);
+        ast tcon = apply_rewrite_equivs(amemo,theta,con);
+        if(tpiv == piv)
+            return false;
+        std::vector<ast> rule_ax, res_conc;
+        rule_ax.push_back(make(Not,tpiv));
+        rule_ax.push_back(tcon);
+        if(range_is_empty(range_glb(ast_scope(rule_ax[0]),ast_scope(rule_ax[1]))))
+            return false;
+        Iproof::node ppf = translate_main(pf0,false);
+        if(sym(ppf) == commute)
+            return false;
+        Iproof::node cpf = prove_rewrite_equivs(amemo,theta,piv,true);
+        ast piv_eq = make_rewrite_equiv(piv,tpiv);
+        Iproof::node tppf = iproof->make_mp(piv_eq,ppf,cpf);
+        Iproof::node ax = iproof->make_axiom(rule_ax);
+        res_conc.push_back(tcon);
+        res = iproof->make_resolution(tpiv,res_conc,ax,tppf);
+        if(tcon != con){
+            Iproof::node ccpf = prove_rewrite_equivs(amemo,theta,con,false);
+            ast con_eq = make_rewrite_equiv(tcon,con);
+            res = iproof->make_mp(con_eq,res,ccpf);
+        }
+        return true;
+    }
+
     // Following code is for elimination of "commutativity" axiom
 
     Iproof::node make_commuted_modus_ponens(const ast &proof, const std::vector<Iproof::node> &args){
@@ -1834,6 +2002,28 @@ public:
                 }
             }
       
+
+            // FORK FIX #100 (g3 audit, see FORK_BUGFIXES.md): localize a mixed rewrite (AUDIT duality_iz3)
+            if(dk == PR_TRANSITIVITY && pr(prem(proof,1)) == PR_REWRITE && get_locality(prem(proof,1)) == -1){
+                Iproof::node first = translate_main(prem(proof,0),false);
+                Iproof::node rew;
+                if(sym(first) != commute && localize_rewrite(prem(proof,0),prem(proof,1),rew)){
+                    ast x = arg(conc(prem(proof,0)),0);
+                    ast y = arg(conc(prem(proof,0)),1);
+                    ast z = arg(conc(prem(proof,1)),1);
+                    res = iproof->make_transitivity(x,y,z,first,rew);
+                    return res;
+                }
+            }
+
+            // FORK FIX #100 (g3 audit, see FORK_BUGFIXES.md): localize an elimination from a mixed premise (AUDIT duality_iz3)
+            if((dk == PR_AND_ELIM || dk == PR_NOT_OR_ELIM) && range_is_empty(ast_scope(conc(prem(proof,0))))){
+                Iproof::node elim;
+                if(localize_elim(proof,elim)){
+                    res = elim;
+                    return res;
+                }
+            }
 
             // translate all the premises
             std::vector<Iproof::node> args(nprems);

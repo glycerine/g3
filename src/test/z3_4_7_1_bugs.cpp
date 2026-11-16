@@ -1682,10 +1682,11 @@ void tst_z3_4_7_1_duality_quantify_arrays_requery() {
     expect_script_output("duality_quantify_arrays_requery", script, "sat\nunsat\nsat\n");
 }
 
-// A Duality query that throws (here iZ3 refuses the arithmetic rewrite
-// proof of the err query) has already replaced the saved duality_data with
-// a fresh one whose old_rs is null. The next query dereferences that null
-// solver to swap back its counterexample and segfaults. ok is reachable
+// A Duality query that throws (here iZ3's chain_ineqs throws
+// bad_ineq_inference on the err query) has already replaced the saved
+// duality_data with a fresh one whose old_rs is null. The next query
+// dereferences that null solver to swap back its counterexample and
+// segfaults. ok is reachable
 // (s = 1 gives p(1, 1)), so the second query must answer sat.
 // pkg/AUDIT.md duality_01-F3 (follow-up: the Duality scale pipeline test).
 void tst_z3_4_7_1_duality_failed_query_requery() {
@@ -1704,7 +1705,7 @@ void tst_z3_4_7_1_duality_failed_query_requery() {
         "(query err)\n"
         "(query ok)\n";
     expect_script_output("duality_failed_query_requery", script,
-                         "(error \"query failed: theory not supported by interpolation or bad proof\")\nunknown\nsat\n");
+                         "(error \"query failed: bad_ineq_inference\")\nunknown\nsat\n");
 }
 
 // model_implicant::eval_array_eq on arrays of arrays: at index 1 the values
