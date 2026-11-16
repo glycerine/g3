@@ -215,20 +215,29 @@ type traceRecord struct {
 }
 
 var buildTraceG3 struct {
-	once sync.Once
+	once *sync.Once
 	dir  string
 	path string
 	err  error
 }
 
-// cleanupTraceG3 removes the traced g3 build; TestTraceGolden registers it.
+// cleanupTraceG3 removes the traced g3 build; TestTraceGolden and
+// TestASTEventOrder register it. It also resets the build state so a later
+// test rebuilds instead of reusing the path of the removed binary.
 func cleanupTraceG3() {
 	if buildTraceG3.dir != "" {
 		_ = os.RemoveAll(buildTraceG3.dir)
 	}
+	buildTraceG3.once = nil
+	buildTraceG3.dir = ""
+	buildTraceG3.path = ""
+	buildTraceG3.err = nil
 }
 
 func goldenTraceG3(t *testing.T) string {
+	if buildTraceG3.once == nil {
+		buildTraceG3.once = new(sync.Once)
+	}
 	buildTraceG3.once.Do(func() {
 		dir, err := os.MkdirTemp("", "g3trace")
 		if err != nil {
