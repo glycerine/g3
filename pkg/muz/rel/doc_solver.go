@@ -62,7 +62,7 @@ func (m *DocManager) IsEmptyComplete(manager *ast.ASTManager, document *Doc) (_ 
 	if err != nil {
 		return false, err
 	}
-	kernel, err := smtcore.NewSMTKernel(manager, nil)
+	kernel, err := smtcore.NewDefaultParamsKernel(manager)
 	if err != nil {
 		return false, err
 	}

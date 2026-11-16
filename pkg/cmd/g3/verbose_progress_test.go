@@ -35,6 +35,8 @@ var verboseProgressCases = []verboseProgressCase{
 	// plugins_doc: udoc_plugin join result/orig/union/delta, dst/neg,
 	// filter project result and filter_interpreted displays.
 	{"rel_doc_v3", "rel_doc", []string{"-v:3"}},
+	// check_relation over doc: the <objective> verified lines.
+	{"rel_doc_checked_v3", "rel_doc_checked", []string{"-v:3"}},
 	{"rel_filter_v2", "rel_filter", []string{"-v:2"}},
 	// Relations exist only once get_relation creates them.
 	{"horn_empty_model_v2", "horn_empty_model", []string{"-v:2"}},

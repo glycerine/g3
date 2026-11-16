@@ -21,7 +21,7 @@ import (
 
 // datalogRelationPlugins registers the relation plugins once
 // (rel_context::rel_context) and records the default relation.
-func (e *PropositionalEngine) datalogRelationPlugins() error {
+func (e *PropositionalEngine) datalogRelationPlugins(checkedDoc bool) error {
 	if e.relations.GetRelationPlugin("doc") == nil {
 		plugin, err := rel.NewUDocPlugin(e.relations)
 		if err != nil {
@@ -30,6 +30,18 @@ func (e *PropositionalEngine) datalogRelationPlugins() error {
 		if err = e.relations.RegisterRelationPlugin(plugin); err != nil {
 			return errors.Join(err, plugin.Close())
 		}
+		check, err := rel.NewCheckRelationPlugin(e.relations)
+		if err != nil {
+			return err
+		}
+		if err = e.relations.RegisterRelationPlugin(check); err != nil {
+			return err
+		}
+	}
+	if checkedDoc {
+		check := e.relations.GetRelationPlugin("check_relation").(*rel.CheckRelationPlugin)
+		check.SetPlugin(e.relations.GetRelationPlugin("doc"))
+		return e.relations.SetDefaultRelation("check_relation")
 	}
 	return e.relations.SetDefaultRelation(e.datalogRelationFavourite)
 }
@@ -44,11 +56,15 @@ func (e *PropositionalEngine) selectCompiledRelationFavourite() (bool, error) {
 	if err := e.cacheDatalogRelationFavourite(); err != nil {
 		return false, err
 	}
-	if e.datalogRelationFavourite != "doc" || e.udocDatalog != nil {
-		return false, nil
-	}
-	if _, enabled, err := e.datalogCheckRelationName(); err != nil || enabled {
+	checkName, checkEnabled, err := e.datalogCheckRelationName()
+	if err != nil {
 		return false, err
+	}
+	// rel_context::updt_params: a check_relation names the checked plugin
+	// and check_relation becomes the default relation.
+	checkedDoc := checkEnabled && checkName == "doc"
+	if checkEnabled && !checkedDoc || !checkedDoc && e.datalogRelationFavourite != "doc" || e.udocDatalog != nil {
+		return false, nil
 	}
 	if fav := e.relations.FavouriteRelationPlugin(); fav != nil {
 		// Already selected by an earlier query.
@@ -132,7 +148,7 @@ func (e *PropositionalEngine) selectCompiledRelationFavourite() (bool, error) {
 			}
 		}
 	}
-	if err = e.datalogRelationPlugins(); err != nil {
+	if err = e.datalogRelationPlugins(checkedDoc); err != nil {
 		return false, err
 	}
 	for _, d := range e.predicateOrder {

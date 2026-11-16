@@ -336,6 +336,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// plugins_doc: check_relation_plugin over udoc_plugin.
+	"datalog_doc_checked_negation_guard.smt2":   "sat\n(or (and (= (:var 0) #x3) (= (:var 1) #x3))\n    (and (= (:var 0) #x2) (= (:var 1) #x3)))\n",
+	"datalog_doc_checked_negation_partial.smt2": "sat\n(or (and (= (:var 0) #b001) (= (:var 1) #b010))\n    (and (= (:var 0) #b011) (= (:var 1) #b010))\n    (and (= (:var 0) #b010) (= (:var 1) #b001)))\n",
 	// plugins_doc: udoc_plugin relations run through the compiled
 	// instructions (relation_manager relation-level dispatch).
 	"datalog_doc_plugin_closure.smt2":           "sat\n(or (and (= (:var 0) #x1) (= (:var 1) #x2))\n    (and (= (:var 0) #x2) (= (:var 1) #x3))\n    (and (= (:var 0) #x3) (= (:var 1) #x4))\n    (and (= (:var 0) #x4) (= (:var 1) #x1))\n    (and (= (:var 0) #x5) (= (:var 1) #x5))\n    (and (= (:var 0) #x4) (= (:var 1) #x2))\n    (and (= (:var 0) #x1) (= (:var 1) #x3))\n    (and (= (:var 0) #x2) (= (:var 1) #x4))\n    (and (= (:var 0) #x3) (= (:var 1) #x1))\n    (and (= (:var 0) #x3) (= (:var 1) #x2))\n    (and (= (:var 0) #x4) (= (:var 1) #x3))\n    (and (= (:var 0) #x1) (= (:var 1) #x4))\n    (and (= (:var 0) #x2) (= (:var 1) #x1))\n    (and (= (:var 0) #x2) (= (:var 1) #x2))\n    (and (= (:var 0) #x3) (= (:var 1) #x3))\n    (and (= (:var 0) #x4) (= (:var 1) #x4))\n    (and (= (:var 0) #x1) (= (:var 1) #x1)))\n",

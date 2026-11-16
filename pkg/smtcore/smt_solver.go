@@ -190,13 +190,18 @@ func (s *SMTSolver) newAuxiliarySolver() (auxiliary *SMTSolver, resultErr error)
 	if err := s.open(); err != nil {
 		return nil, err
 	}
-	config := s.config
+	return newKernelAuxiliarySolver(s.manager, s.kernel, s.config)
+}
+
+// newKernelAuxiliarySolver is model_checker::init_aux_context's auxiliary
+// context for the context kernel.
+func newKernelAuxiliarySolver(m *ast.ASTManager, kernel *SMTKernel, config SMTSolverConfig) (auxiliary *SMTSolver, resultErr error) {
 	config.Quantifiers = nil
-	config.Globals = s.kernel.paramGlobals
-	config.ModelEvaluator = s.kernel.modelConfig
+	config.Globals = kernel.paramGlobals
+	config.ModelEvaluator = kernel.modelConfig
 	// model_checker::init_aux_context snapshots fparams once. Empty logic and
 	// these two overrides are independent of the parent context's setup.
-	snapshot, err := s.kernel.smtParams.Clone()
+	snapshot, err := kernel.smtParams.Clone()
 	if err != nil {
 		return nil, err
 	}
@@ -209,32 +214,32 @@ func (s *SMTSolver) newAuxiliarySolver() (auxiliary *SMTSolver, resultErr error)
 	}()
 	snapshot.state.RelevancyLvl = 0
 	snapshot.state.CaseSplitStrategy = 0 // CS_ACTIVITY
-	auxiliary, err = newSMTSolver(s.manager, nil, "", config, snapshot)
+	auxiliary, err = newSMTSolver(m, nil, "", config, snapshot)
 	if err != nil {
 		return nil, err
 	}
-	if err = auxiliary.kernel.copyArithmeticPlugin(s.kernel); err != nil {
+	if err = auxiliary.kernel.copyArithmeticPlugin(kernel); err != nil {
 		return auxiliary, err
 	}
-	if err = auxiliary.kernel.copyBitVectorPlugin(s.kernel); err != nil {
+	if err = auxiliary.kernel.copyBitVectorPlugin(kernel); err != nil {
 		return auxiliary, err
 	}
-	if err = auxiliary.kernel.copyFloatingPointPlugin(s.kernel); err != nil {
+	if err = auxiliary.kernel.copyFloatingPointPlugin(kernel); err != nil {
 		return auxiliary, err
 	}
-	if err = auxiliary.kernel.copyArrayPlugin(s.kernel); err != nil {
+	if err = auxiliary.kernel.copyArrayPlugin(kernel); err != nil {
 		return auxiliary, err
 	}
-	if err = auxiliary.kernel.copySequencePlugin(s.kernel); err != nil {
+	if err = auxiliary.kernel.copySequencePlugin(kernel); err != nil {
 		return auxiliary, err
 	}
-	if err = auxiliary.kernel.copyDatatypePlugin(s.kernel); err != nil {
+	if err = auxiliary.kernel.copyDatatypePlugin(kernel); err != nil {
 		return auxiliary, err
 	}
-	if err = auxiliary.kernel.copyPseudoBooleanPlugin(s.kernel); err != nil {
+	if err = auxiliary.kernel.copyPseudoBooleanPlugin(kernel); err != nil {
 		return auxiliary, err
 	}
-	if err = auxiliary.kernel.recordCopiedPlugins(s.kernel); err != nil {
+	if err = auxiliary.kernel.recordCopiedPlugins(kernel); err != nil {
 		return auxiliary, err
 	}
 	if err = auxiliary.SetProduceModels(true); err != nil {

@@ -1,0 +1,100 @@
+(transform N7datalog13mk_coi_filterE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...7 rules Ts)
+(transform N7datalog15mk_rule_inlinerE...5 rules Ts)
+(transform N7datalog25mk_separate_negated_tailsE...no-op Ts)
+(transform N7datalog24mk_similarity_compressorE...no-op Ts)
+(transform N7datalog15mk_filter_rulesE...no-op Ts)
+(transform N7datalog15mk_simple_joinsE...no-op Ts)
+load b into 0
+load q into 1
+mk_unary_singleton into 2 sort:(_ BitVec 4) val:2
+add_fact verified
+union 2 into 0
+orig:  {}
+union: {0010}
+union verified
+mk_unary_singleton into 3 sort:(_ BitVec 4) val:9
+add_fact verified
+union 3 into 0
+orig:  {0010}
+union: {0010, 1001}
+(smt.searching)
+union verified
+mark_saturated b
+mk_total into 4 sort:[] q
+mk_unary_singleton into 5 sort:(_ BitVec 4) val:3
+add_fact verified
+join 4() and 5() into 6
+join result:
+{0011}
+join verified
+filter_by_negation on 6(0) with 0(0) as the negated table
+dst:{0011}
+neg:{0010, 1001}
+(smt.searching)
+filter by negation verified
+project 6 into 6 deleting columns (0)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.restarting :propagations 0 :decisions 0 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+project verified
+join 6() and 5() into 6
+join result:
+{0011}
+join verified
+join 6() and 5() into 6
+join result:
+{00110011}
+join verified
+union 6 into 1
+orig:  {}
+union: {00110011}
+union verified
+join 4() and 5() into 7
+join result:
+{0011}
+join verified
+filter_by_negation on 7(0) with 0(0) as the negated table
+dst:{0011}
+neg:{0010, 1001}
+(smt.searching)
+filter by negation verified
+project 7 into 7 deleting columns (0)
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.restarting :propagations 0 :decisions 0 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+project verified
+join 7() and 2() into 7
+join result:
+{0010}
+join verified
+join 7() and 5() into 7
+join result:
+{00110010}
+join verified
+union 7 into 1
+orig:  {00110011}
+union: {00110011, 00110010}
+(smt.searching)
+union verified
+join 4() and 2() into 8
+join result:
+{0010}
+join verified
+filter_by_negation on 8(0) with 0(0) as the negated table
+dst:{0010}
+neg:{0010, 1001}
+(smt.searching)
+(smt.searching)
+(smt.searching)
+(smt.restarting :propagations 0 :decisions 0 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+filter by negation verified
+mk_unary_singleton into 9 sort:(_ BitVec 4) val:1
+add_fact verified
+join 8() and 9() into 8
+join 8() and 2() into 8
+mark_saturated q
+store 1 into q
+store 0 into b

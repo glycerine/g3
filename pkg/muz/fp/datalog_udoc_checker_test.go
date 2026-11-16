@@ -322,19 +322,19 @@ func TestDatalogDocFormulaCheckerParameterClearPreservesAdoptedFacts(t *testing.
 	must(e.params.Del(&local))
 	status, err := e.QueryPredicate(p)
 	must(err)
-	if status != lbool.True || e.udocDatalog == nil {
+	// rel_context::updt_params makes check_relation(doc) the favourite
+	// relation plugin; the predicate's relation is a check_relation.
+	relation, ok := e.predicates[p].table.(*rel.CheckRelation)
+	if status != lbool.True || !ok {
 		t.Fatal("initial checked doc query", status)
 	}
-	owner := e.udocDatalog
 	must(e.PrepareQueryParameters(nil))
 	status, err = e.QueryPredicate(p)
 	must(err)
-	if status != lbool.True || e.udocDatalog != owner {
+	if status != lbool.True || e.predicates[p].table != rel.FiniteTable(relation) {
 		t.Fatal("parameter clearing discarded adopted facts", status)
 	}
-	value, err := m.BitVectorNumeralUint64(5, 3)
-	must(err)
-	if present, err := owner.result[p].ContainsFact([]ast.ASTHandle{value}); err != nil || !present {
+	if present, err := relation.Contains(rel.Fact{5}); err != nil || !present {
 		t.Fatal("cached relation lost its original tuple", present, err)
 	}
 	must(e.AddTableFact(p, []uint32{6}))
@@ -343,10 +343,9 @@ func TestDatalogDocFormulaCheckerParameterClearPreservesAdoptedFacts(t *testing.
 	if status != lbool.True {
 		t.Fatal("query after parameter clearing/fact addition", status)
 	}
-	for _, number := range []uint64{5, 6} {
-		value, err := m.BitVectorNumeralUint64(number, 3)
-		must(err)
-		if present, err := owner.result[p].ContainsFact([]ast.ASTHandle{value}); err != nil || !present {
+	relation = e.predicates[p].table.(*rel.CheckRelation)
+	for _, number := range []rel.Element{5, 6} {
+		if present, err := relation.Contains(rel.Fact{number}); err != nil || !present {
 			t.Fatal("cached relation after addition", number, present, err)
 		}
 	}
