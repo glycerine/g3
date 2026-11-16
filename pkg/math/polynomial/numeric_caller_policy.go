@@ -3,6 +3,7 @@ package polynomial
 // Source: src/math/polynomial/upolynomial.cpp; caller-owned numeric lifetimes.
 
 import (
+	umemory "github.com/glycerine/g3/pkg/util/memory"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
@@ -150,7 +151,20 @@ func (r *polynomialNumericRoots) NumericNormalize(m *unumeral.IntegerModularMana
 	if m == nil || r.NumericRoots(m.Integers(), nil) == nil {
 		return out, unumeral.ErrNumericOwner
 	}
+	// Over Z, mpzzp_manager::p_normalize does nothing. Every branch of the
+	// owner dispatch below either fails an ownership validator (a caller bug;
+	// it then falls through to the next branch) or ends in
+	// pNormalizeWithFactorHistory, which over Z only runs m.check() (and the
+	// is_p_normalized source assertion of g3debug builds). Normal builds skip
+	// the dispatch; checked/debug builds run it and compare.
+	integerMode := r.caller.factorFrontendConstant == nil && m.IntegerMode() && !umemory.AnyFailureTransportActive()
+	if !polynomialValidateOwnership && integerMode {
+		return out, m.Check()
+	}
 	err := numericIntegerModularManager_normalizeWithSourceContext(m, &out, r.caller)
+	if polynomialValidateOwnership && integerMode && (err == nil) != (m.Check() == nil) {
+		panic("polynomial: integer-mode normalization differs from its release fast path")
+	}
 	return out, err
 }
 func (r *polynomialNumericRoots) NumericRecord(z *unumeral.IntegerManager, event string, receipt unumeral.NumericInvocationReceipt) {
