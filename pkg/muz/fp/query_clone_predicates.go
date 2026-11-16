@@ -36,7 +36,11 @@ func (e *PropositionalEngine) copyQueryPredicates(clone *PropositionalEngine) er
 			if err != nil {
 				return err
 			}
-			if err = clone.installDatalogTable(declaration, table); err != nil {
+			install := clone.installDatalogTable
+			if e.relations.IsPlaceholderRelation(declaration) {
+				install = clone.replaceDatalogTable
+			}
+			if err = install(declaration, table); err != nil {
 				return err
 			}
 		}

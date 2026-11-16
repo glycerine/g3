@@ -31,8 +31,11 @@ func (m *RelationManager) TryGetFiniteRelation(predicate ast.ASTHandle) (FiniteT
 
 func (m *RelationManager) GetFiniteRelation(predicate ast.ASTHandle) (FiniteTable, error) {
 	table, found, err := m.TryGetFiniteRelation(predicate)
-	if err != nil || found {
-		return table, err
+	if err != nil {
+		return nil, err
+	}
+	if found {
+		return table, m.MaterializeFiniteRelation(predicate)
 	}
 	_, signature, err := m.PredicateSignature(predicate)
 	if err != nil {
@@ -117,9 +120,15 @@ func (m *RelationManager) StoreFiniteRelation(predicate ast.ASTHandle, table Fin
 		}
 	}
 	if prior == table {
-		return nil
+		return m.MaterializeFiniteRelation(predicate)
 	}
-	if prior != nil {
+	if prior != nil && m.placeholders[predicate] {
+		// The source's store_relation creates the relation here.
+		if err = releasePlaceholderTable(prior); err != nil {
+			return err
+		}
+		delete(m.placeholders, predicate)
+	} else if prior != nil {
 		if err = prior.Close(); err != nil {
 			return err
 		}

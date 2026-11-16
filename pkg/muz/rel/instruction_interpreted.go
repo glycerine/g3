@@ -221,6 +221,7 @@ func (i *interpretedFilterInstruction) Perform(context *ExecutionContext) (bool,
 		return false, err
 	}
 	kept := make([]Fact, 0, len(facts))
+	removed := make([]Fact, 0)
 	for _, fact := range facts {
 		accepted, x := i.accepts(fact)
 		if x != nil {
@@ -228,7 +229,20 @@ func (i *interpretedFilterInstruction) Perform(context *ExecutionContext) (bool,
 		}
 		if accepted {
 			kept = append(kept, fact)
+		} else {
+			removed = append(removed, fact)
 		}
+	}
+	// relation_manager::auxiliary_table_filter_fn::operator() collects the
+	// rows should_remove reports and hands them to r.remove_facts, which
+	// for the default table plugins is table_base::remove_facts:
+	// remove_fact per row in iteration order.
+	handled, err := RemoveFiniteTableFacts(table, removed)
+	if err != nil {
+		return false, err
+	}
+	if handled {
+		return i.emptyAfterFilter(context, table)
 	}
 	if err = table.Reset(); err != nil {
 		return false, err
@@ -333,4 +347,21 @@ func (i *interpretedFilterInstruction) Close() (result error) {
 	i.conditions = nil
 	result = errors.Join(result, i.accounting.Close())
 	return result
+}
+
+// RemoveFiniteTableFacts is table_base::remove_facts on the default table
+// plugins (sparse, hashtable, bitvector), whose mk_filter_*_fn return
+// nullptr so the relation manager's auxiliary_table_filter_fn removes the
+// rejected rows in place. It reports false for tables without that path.
+func RemoveFiniteTableFacts(table FiniteTable, facts []Fact) (bool, error) {
+	switch concrete := table.(type) {
+	case *SparseTable:
+		_, err := concrete.RemoveFacts(facts)
+		return true, err
+	case *HashTable:
+		return true, concrete.RemoveFacts(facts)
+	case *BitvectorTable:
+		return true, concrete.RemoveFacts(facts)
+	}
+	return false, nil
 }

@@ -129,6 +129,17 @@ func (t *SparseTable) Reset() error {
 	t.data.reset()
 	return nil
 }
+
+// release drops the rows without sparse_table::deallocate: a table the
+// source never deallocates (it leaks) prints no recycle line.
+func (t *SparseTable) release() error {
+	if t == nil {
+		return ErrTable
+	}
+	t.data = nil
+	return nil
+}
+
 func (t *SparseTable) Close() error {
 	if t == nil {
 		return ErrTable

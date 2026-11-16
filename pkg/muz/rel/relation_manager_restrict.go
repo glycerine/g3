@@ -34,6 +34,7 @@ func (m *RelationManager) RestrictPredicates(keep map[ast.ASTHandle]bool) (resul
 			result = errors.Join(result, m.noteRelation(predicate))
 		}
 	}
+	result = errors.Join(result, m.retirePlaceholders(keep))
 	for predicate := range m.saturated {
 		if !keep[predicate] {
 			delete(m.saturated, predicate)

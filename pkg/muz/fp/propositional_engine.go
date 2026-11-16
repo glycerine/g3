@@ -73,7 +73,8 @@ func (e *PropositionalEngine) predicateState(declaration ast.ASTHandle) (*predic
 			return nil, err
 		}
 	}
-	table, tableErr := e.relations.GetFiniteRelation(declaration)
+	// The source creates the relation only when get_relation first asks.
+	table, tableErr := e.relations.ReserveFiniteRelation(declaration)
 	if tableErr != nil && !errors.Is(tableErr, rel.ErrTable) {
 		return nil, tableErr
 	}
@@ -870,7 +871,7 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 		if err != nil {
 			return err
 		}
-		return e.addDatalogFact(state, fact)
+		return e.addDatalogFact(declaration, state, fact)
 	}
 	fact, err := e.manager.MkApp(declaration, values)
 	if err != nil {
@@ -946,7 +947,7 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 		if state.external != nil {
 			return e.addArithmeticTableFact(declaration, values)
 		}
-		return e.addDatalogFact(state, fact)
+		return e.addDatalogFact(declaration, state, fact)
 	}
 	references, err := e.relations.DecodeFact(state.sorts, fact)
 	if err != nil {
@@ -2111,6 +2112,43 @@ func (e *PropositionalEngine) evaluateRule(rule *base.Rule) (changed bool, resul
 // only populated predicates that directly or transitively depend on negation
 // are cleared between saturations. Positive-only relation contents survive.
 func (e *PropositionalEngine) resetNegationDependentTables() error {
+	// get_relation(pred) for the predicates of strata 1.. until a stratum's
+	// first non-empty relation; nothing to reset when all are empty.
+	// (The explanations driver resets on a rule set it has not closed;
+	// it has no strata to walk.)
+	finalized, err := e.set.IsFinalized()
+	if err != nil {
+		return err
+	}
+	var strats [][]ast.ASTHandle
+	if finalized {
+		if strats, err = e.set.Strata(); err != nil {
+			return err
+		}
+	}
+	nonEmpty := !finalized
+	for i := 1; i < len(strats); i++ {
+		for _, pred := range strats[i] {
+			table, x := e.relations.GetFiniteRelation(pred)
+			if errors.Is(x, rel.ErrTable) || errors.Is(x, rel.ErrTableRelation) {
+				continue
+			}
+			if x != nil {
+				return x
+			}
+			rows, x := table.Len()
+			if x != nil {
+				return x
+			}
+			if rows != 0 {
+				nonEmpty = true
+				break
+			}
+		}
+	}
+	if !nonEmpty {
+		return nil
+	}
 	count, err := e.set.Len()
 	if err != nil {
 		return err
@@ -2150,6 +2188,9 @@ func (e *PropositionalEngine) resetNegationDependentTables() error {
 		if state == nil {
 			continue
 		}
+		if x := e.relations.MaterializeFiniteRelation(declaration); x != nil {
+			return x
+		}
 		rows, x := state.table.Len()
 		if x != nil {
 			return x
@@ -2164,12 +2205,13 @@ func (e *PropositionalEngine) resetNegationDependentTables() error {
 }
 
 // resetNegatedTable is relation_base::reset: mk_filter_interpreted_fn(rel,
-// false). Hash and sparse tables use the default table filter, whose
-// should_remove grounds the condition with var_subst and simplifies it with
-// the context rewriter for every row.
+// false). Hash, sparse and bitvector tables use the default table filter,
+// whose should_remove grounds the condition with var_subst and simplifies it
+// with the context rewriter for every row; auxiliary_table_filter_fn then
+// hands every row to table_base::remove_facts.
 func (e *PropositionalEngine) resetNegatedTable(table rel.FiniteTable, rows int) (resultErr error) {
 	switch table.(type) {
-	case *rel.HashTable, *rel.SparseTable:
+	case *rel.HashTable, *rel.SparseTable, *rel.BitvectorTable:
 		if e.guard == nil {
 			break
 		}
@@ -2188,11 +2230,17 @@ func (e *PropositionalEngine) resetNegatedTable(table rel.FiniteTable, rows int)
 			return err
 		}
 		defer func() { resultErr = errors.Join(resultErr, e.manager.DelRef(&out)) }()
+		facts, err := table.Facts()
+		if err != nil {
+			return err
+		}
 		for i := 0; i < rows; i++ {
 			if err = e.relations.GroundCondition(e.guard, bottom, bindings, out); err != nil {
 				return err
 			}
 		}
+		_, err = rel.RemoveFiniteTableFacts(table, facts)
+		return err
 	}
 	return table.Reset()
 }

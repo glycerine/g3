@@ -27,6 +27,14 @@ type verboseProgressCase struct {
 }
 
 var verboseProgressCases = []verboseProgressCase{
+	// muz_pipeline2: filter_interpreted removes rows (remove_fact) in place;
+	// a negated tail's unbound column is a total relation with no nullary
+	// join; mk_full's aux table recycles; filter_interpreted_and_project
+	// leaks its clone; reset_negated_tables removes rows.
+	{"rel_negation_v2", "rel_negation", []string{"-v:2"}},
+	{"rel_filter_v2", "rel_filter", []string{"-v:2"}},
+	// Relations exist only once get_relation creates them.
+	{"horn_empty_model_v2", "horn_empty_model", []string{"-v:2"}},
 	// (started "check-sat"), combined-solver, the three timeit lines,
 	// (smt.configuring), (smt.collecting-features), (smt.searching),
 	// (smt.final-check ...), the level-11 model dump.

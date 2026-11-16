@@ -31,7 +31,7 @@ func (e *PropositionalEngine) selectFiniteRepresentation(declaration ast.ASTHand
 		if err != nil {
 			return err
 		}
-		return e.installDatalogTable(declaration, replacement)
+		return e.replaceDatalogTable(declaration, replacement)
 	}
 	switch kind {
 	case "tr_sparse":
@@ -78,5 +78,5 @@ func (e *PropositionalEngine) selectFiniteRepresentation(declaration ast.ASTHand
 			return errors.Join(err, replacement.Close())
 		}
 	}
-	return e.installDatalogTable(declaration, replacement)
+	return e.replaceDatalogTable(declaration, replacement)
 }

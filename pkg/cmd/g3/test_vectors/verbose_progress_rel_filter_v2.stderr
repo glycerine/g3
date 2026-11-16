@@ -1,0 +1,55 @@
+(transform N7datalog13mk_coi_filterE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...5 rules Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog25mk_separate_negated_tailsE...no-op Ts)
+(transform N7datalog24mk_similarity_compressorE...no-op Ts)
+(transform N7datalog15mk_filter_rulesE...no-op Ts)
+(transform N7datalog15mk_simple_joinsE...no-op Ts)
+(transform N7datalog21mk_unbound_compressorE...no-op Ts)
+load e into 0
+load q into 1
+load r into 2
+mk_unary_singleton into 3 sort:(_ BitVec 3) val:0
+mk_unary_singleton into 4 sort:(_ BitVec 3) val:1
+join 3() and 4() into 5
+join_project...Ts
+union 5 into 0
+recycle...Ts
+mk_unary_singleton into 6 sort:(_ BitVec 3) val:2
+join 4() and 6() into 7
+join_project...Ts
+union 7 into 0
+recycle...Ts
+mk_unary_singleton into 8 sort:(_ BitVec 3) val:3
+join 6() and 8() into 9
+join_project...Ts
+union 9 into 0
+recycle...Ts
+mark_saturated e
+clone 0 into 10
+filter_interpreted 10 using (not (bvule (:var 0) (:var 1)))
+remove_fact...Ts
+remove_fact...Ts
+remove_fact...Ts
+recycle...Ts
+mark_saturated q
+clone 0 into 11
+filter_by_negation on 11(0,1) with 1(1,0) as the negated table
+project 11 into 11 deleting columns (1)
+recycle...Ts
+union 11 into 2
+recycle...Ts
+mark_saturated r
+store 0 into e
+recycle...Ts
+store 2 into r
+recycle...Ts
+store 1 into q
+recycle...Ts
+recycle...Ts
+recycle...Ts
+recycle...Ts
+recycle...Ts
+recycle...Ts
+recycle...Ts
+recycle...Ts

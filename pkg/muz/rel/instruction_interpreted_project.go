@@ -69,7 +69,9 @@ func (i *interpretedFilterProjectInstruction) projectSparse(table *SparseTable, 
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, clone.Close()) }()
+	// default_table_filter_interpreted_and_project_fn never deallocates its
+	// clone t2, so no sparse recycle line is printed for it.
+	defer func() { resultErr = errors.Join(resultErr, clone.release()) }()
 	if err = filterSparseInterpretedBoundCached(clone, i.relations, i.rewriter, conditions, i.variableColumns, i.variableSorts, i.numerals); err != nil {
 		return nil, err
 	}

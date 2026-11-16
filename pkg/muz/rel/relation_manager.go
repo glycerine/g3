@@ -39,6 +39,9 @@ type RelationManager struct {
 	// requestedFinite is get_requested_predicate_kind for finite table
 	// plugins (tr_sparse, tr_hashtable, tr_lazy_sparse).
 	requestedFinite map[ast.ASTHandle]string
+	// placeholders holds the predicates whose table the source has not
+	// created yet (relation_manager_placeholder.go).
+	placeholders map[ast.ASTHandle]bool
 }
 
 func NewRelationManager(manager *ast.ASTManager) (*RelationManager, error) {
@@ -202,6 +205,7 @@ func (m *RelationManager) ResetRelations() (result error) {
 	if result == nil {
 		m.layout.Reset()
 	}
+	result = errors.Join(result, m.retirePlaceholders(nil))
 	return result
 }
 

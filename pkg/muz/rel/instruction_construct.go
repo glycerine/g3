@@ -297,6 +297,18 @@ func (i *constructInstruction) Perform(context *ExecutionContext) (bool, error) 
 		if err := fillTotalTable(table, i.signature); err != nil {
 			return false, errors.Join(err, table.Close())
 		}
+		// table_plugin::mk_full builds the full table as the complement of an
+		// empty aux = mk_empty(s) and then calls aux->deallocate(); for the
+		// sparse plugin that is sparse_table_plugin::recycle.
+		if sparse, ok := table.(*SparseTable); ok {
+			aux, err := NewSparseTable(sparse.signature, sparse.functional)
+			if err == nil {
+				err = aux.Close()
+			}
+			if err != nil {
+				return false, errors.Join(err, table.Close())
+			}
+		}
 		if err := context.SetFiniteRegister(i.target, table); err != nil {
 			return false, i.disposeUninstalledFinite(table, err)
 		}

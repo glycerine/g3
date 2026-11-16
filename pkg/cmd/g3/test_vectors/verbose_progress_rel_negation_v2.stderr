@@ -1,0 +1,99 @@
+(transform N7datalog13mk_coi_filterE...5 rules Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...5 rules Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog25mk_separate_negated_tailsE...no-op Ts)
+(transform N7datalog24mk_similarity_compressorE...no-op Ts)
+(transform N7datalog15mk_filter_rulesE...no-op Ts)
+(transform N7datalog15mk_simple_joinsE...no-op Ts)
+(transform N7datalog21mk_unbound_compressorE...no-op Ts)
+load e into 0
+load q into 1
+load r into 2
+mk_unary_singleton into 3 sort:(_ BitVec 2) val:3
+union 3 into 1
+mark_saturated q
+mk_unary_singleton into 4 sort:(_ BitVec 2) val:0
+mk_unary_singleton into 5 sort:(_ BitVec 2) val:1
+join 4() and 5() into 6
+join_project...Ts
+union 6 into 0
+recycle...Ts
+mk_unary_singleton into 7 sort:(_ BitVec 2) val:2
+join 5() and 7() into 8
+join_project...Ts
+union 8 into 0
+recycle...Ts
+mark_saturated e
+mk_total into 9 sort:[(_ BitVec 2)] r
+recycle...Ts
+join 0() and 9() into 10
+join_project...Ts
+filter_by_negation on 10(2) with 1(0) as the negated table
+filter_interpreted_and_project 10 into 10 using (not (bvule (:var 2) (:var 0))) deleting columns (2)
+remove_fact...Ts
+remove_fact...Ts
+remove_fact...Ts
+recycle...Ts
+union 10 into 2
+recycle...Ts
+clone 0 into 11
+filter_by_negation on 11(0,1) with 0(1,0) as the negated table
+join 11() and 7() into 11
+join_project...Ts
+recycle...Ts
+filter_by_negation on 11(2) with 1(0) as the negated table
+project 11 into 11 deleting columns (2)
+recycle...Ts
+rename 11 into 11 with cycle (0,1)
+recycle...Ts
+union 11 into 2
+recycle...Ts
+mark_saturated r
+store 0 into e
+recycle...Ts
+store 2 into r
+recycle...Ts
+store 1 into q
+recycle...Ts
+remove_fact...Ts
+remove_fact...Ts
+remove_fact...Ts
+remove_fact...Ts
+recycle...Ts
+recycle...Ts
+recycle...Ts
+recycle...Ts
+recycle...Ts
+(transform N7datalog13mk_coi_filterE...2 rules Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog25mk_separate_negated_tailsE...3 rules Ts)
+(transform N7datalog24mk_similarity_compressorE...no-op Ts)
+(transform N7datalog15mk_filter_rulesE...no-op Ts)
+(transform N7datalog15mk_simple_joinsE...no-op Ts)
+(transform N7datalog21mk_unbound_compressorE...no-op Ts)
+load q into 0
+load q!N!0 into 1
+load t into 2
+mk_unary_singleton into 3 sort:(_ BitVec 2) val:3
+union 3 into 0
+mark_saturated q
+mk_total into 4 sort:[(_ BitVec 2)] q!N!0
+recycle...Ts
+clone 4 into 5
+filter_by_negation on 5(0) with 0(0) as the negated table
+project 5 into 5 deleting columns (0)
+recycle...Ts
+union 5 into 1
+mark_saturated q!N!0
+union 1 into 2
+mark_saturated t
+store 2 into t
+store 0 into q
+recycle...Ts
+store 1 into q!N!0
+recycle...Ts
+recycle...Ts
+recycle...Ts
+recycle...Ts
+recycle...Ts

@@ -19,11 +19,15 @@ func (e *PropositionalEngine) selectFactEngine() error {
 	return e.SelectConfiguredEngine()
 }
 
-func (e *PropositionalEngine) addDatalogFact(state *predicateState, fact rel.Fact) error {
+func (e *PropositionalEngine) addDatalogFact(declaration ast.ASTHandle, state *predicateState, fact rel.Fact) error {
 	if state.table == nil {
 		return ErrPropositionalHorn
 	}
 	if err := e.relations.ResetSaturatedMarks(); err != nil {
+		return err
+	}
+	// rel_context::add_fact: get_relation(pred).add_fact(fact).
+	if err := e.relations.MaterializeFiniteRelation(declaration); err != nil {
 		return err
 	}
 	if _, err := state.table.Add(fact); err != nil {
@@ -81,10 +85,28 @@ func (e *PropositionalEngine) publishDatalogQueryRelations(clone *PropositionalE
 		if err != nil {
 			return err
 		}
-		if err = e.installDatalogTable(d, table); err != nil {
+		install := e.installDatalogTable
+		if clone.relations.IsPlaceholderRelation(d) {
+			install = e.replaceDatalogTable
+		}
+		if err = install(d, table); err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+// replaceDatalogTable is installDatalogTable for a table the source has not
+// created yet: a placeholder stays a placeholder.
+func (e *PropositionalEngine) replaceDatalogTable(d ast.ASTHandle, table rel.FiniteTable) error {
+	state := e.predicates[d]
+	if state == nil {
+		return errors.Join(ErrPropositionalEngine, table.Close())
+	}
+	if err := e.relations.ReplaceFiniteRelation(d, table); err != nil {
+		return errors.Join(err, table.Close())
+	}
+	state.table = table
 	return nil
 }
 
