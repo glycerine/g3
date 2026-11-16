@@ -3,6 +3,8 @@ package polynomial
 // Source: src/math/polynomial/polynomial.cpp; src/math/polynomial/polynomial.h.
 
 import (
+	"fmt"
+
 	"github.com/glycerine/g3/pkg/arena"
 	umemory "github.com/glycerine/g3/pkg/util/memory"
 )
@@ -232,6 +234,80 @@ func (m *MonomialManager) GradedLex(a, b Monomial) (int, error) {
 		return m.lexReaders(a, b, &ra, &rb, n1, n2, false, 0)
 	}
 	if d1 < d2 {
+		return -1, nil
+	}
+	return 1, nil
+}
+
+// gradedLexMaxCursor is GradedLex for a scan that compares monomials
+// against a running maximum (gradedLexMaxPosition). The scan only reads
+// numerals and monomial vectors between comparisons, so neither the
+// manager state tested by check nor any monomial object can change during
+// it: the check and the maximum's reader and degree are computed once per
+// maximum instead of once per comparison. Any failure falls back to
+// GradedLex itself, which reports the same error in the same order.
+// Checked and debug builds also run GradedLex and panic if it differs.
+type gradedLexMaxCursor struct {
+	m  *MonomialManager
+	y  Monomial
+	ry umemory.SmallObjectReader
+	dy uint32
+	ok bool
+}
+
+func (c *gradedLexMaxCursor) compare(x, y Monomial) (int, error) {
+	r, e := c.fast(x, y)
+	if polynomialValidateOwnership {
+		if sr, se := c.m.GradedLex(x, y); sr != r || se != e {
+			panic(fmt.Sprintf("polynomial: graded-lex cursor (%d, %v) differs from GradedLex (%d, %v)", r, e, sr, se))
+		}
+	}
+	return r, e
+}
+func (c *gradedLexMaxCursor) fast(x, y Monomial) (int, error) {
+	m := c.m
+	if !c.ok || c.y != y {
+		c.ok = false
+		if m.check() != nil {
+			return m.GradedLex(x, y)
+		}
+		ry, e := m.orderReader(y)
+		if e != nil {
+			return m.GradedLex(x, y)
+		}
+		dy, e := ry.ReadUint32(8)
+		if e != nil {
+			return m.GradedLex(x, y)
+		}
+		c.y, c.ry, c.dy, c.ok = y, ry, dy, true
+	}
+	rx, e := m.orderReader(x)
+	if e != nil {
+		return m.GradedLex(x, y)
+	}
+	dx, e := rx.ReadUint32(8)
+	if e != nil {
+		return m.GradedLex(x, y)
+	}
+	if dx == c.dy {
+		if x == y {
+			return 0, nil
+		}
+		n1, e := rx.ReadUint32(12)
+		if e != nil {
+			return m.GradedLex(x, y)
+		}
+		n2, e := c.ry.ReadUint32(12)
+		if e != nil {
+			return m.GradedLex(x, y)
+		}
+		r, e := m.lexReaders(x, y, &rx, &c.ry, n1, n2, false, 0)
+		if e != nil {
+			return m.GradedLex(x, y)
+		}
+		return r, nil
+	}
+	if dx < c.dy {
 		return -1, nil
 	}
 	return 1, nil

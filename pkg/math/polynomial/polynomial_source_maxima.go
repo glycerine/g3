@@ -41,6 +41,7 @@ func (b *polynomialSOM) gradedLexMaxPosition() (uint32, error) {
 	if e != nil {
 		return 0, e
 	}
+	cursor := gradedLexMaxCursor{m: m.monomials}
 	for i := uint32(0); i < n; i++ {
 		a, e := b.as.coefficient(m, i)
 		if e != nil {
@@ -62,7 +63,7 @@ func (b *polynomialSOM) gradedLexMaxPosition() (uint32, error) {
 				if e != nil {
 					return 0, e
 				}
-				cmp, e := m.monomials.GradedLex(x, y)
+				cmp, e := cursor.compare(x, y)
 				if e != nil {
 					return 0, e
 				}
