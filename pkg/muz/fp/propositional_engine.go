@@ -91,6 +91,9 @@ func (e *PropositionalEngine) predicateState(declaration ast.ASTHandle) (*predic
 // PropositionalEngine owns the retained rule, finite-relation, and optional
 // ground-guard rewriting services.
 type PropositionalEngine struct {
+	// relationApprox: the last relation query was l_undef with status
+	// APPROX; rel_context::query still built m_answer.
+	relationApprox bool
 	// arithRelationPlugins: rel_context registered bound_relation and
 	// interval_relation with the relation manager.
 	arithRelationPlugins bool
@@ -525,8 +528,16 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 		if enabled, err := e.datalogKarrEnabled(); err != nil {
 			return err
 		} else if !enabled {
-			return fmt.Errorf("muz/fp: relation plugin %s does not exist", kind)
+			return fmt.Errorf("relation plugin %s does not exist", kind)
 		}
+	}
+	if len(kinds) == 1 && kinds[0] == "karr_relation" && e.karrDatalog == nil && e.datalogRelationFavourite != "karr_relation" {
+		// get_ordinary_relation_plugin("karr_relation").get_kind(): the
+		// compiled relation plugins evaluate it.
+		state.requestedRepresentations = append([]string(nil), kinds...)
+		state.explicitFiniteRepresentation = false
+		e.revision++
+		return nil
 	}
 	if len(kinds) == 1 && kinds[0] == "karr_relation" {
 		if e.udocDatalog != nil || e.sparseIntervalDatalog != nil || e.intervalDatalog != nil || e.boundDatalog != nil || e.boundIntervalDatalog != nil || e.externalIntervalDatalog != nil {
@@ -635,7 +646,7 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 				}
 			}
 		default:
-			return fmt.Errorf("muz/fp: relation plugin %s does not exist", kind)
+			return fmt.Errorf("relation plugin %s does not exist", kind)
 		}
 	}
 	if len(kinds) == 1 && (kinds[0] == "tr_sparse" || kinds[0] == "tr_hashtable" || kinds[0] == "tr_bitvector" || kinds[0] == "tr_lazy_sparse") {
@@ -2738,8 +2749,9 @@ func (e *PropositionalEngine) QueryPredicates(declarations []ast.ASTHandle) (res
 	if err := e.flushPendingRules(); err != nil {
 		return lbool.Undef, err
 	}
+	e.relationApprox = false
 	status, err := e.queryDatalogPredicates(declarations)
-	if err == nil && status == lbool.True && !e.saturateOnly {
+	if err == nil && (status == lbool.True || status == lbool.Undef && e.relationApprox) && !e.saturateOnly {
 		err = e.buildRelationAnswer(declarations)
 	}
 	return status, err
@@ -3147,6 +3159,8 @@ func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHand
 	}
 	if someNonEmpty {
 		if approx {
+			// rel_context::query keeps m_answer with status APPROX.
+			e.relationApprox = true
 			return lbool.Undef, nil
 		}
 		return lbool.True, nil

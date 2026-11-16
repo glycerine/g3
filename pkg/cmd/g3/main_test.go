@@ -336,6 +336,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ-F5 (relation plugins): karr_relation_plugin, registered
+	// with fixedpoint.xform.karr, in the compiled pipeline.
+	"plugins_arith_karr_favourite_empty_body.smt2":    "unsat\n",
+	"plugins_arith_karr_favourite_unbound_total.smt2": "unknown\napproximated relations\n",
 	// plugins_doc 06: doc next to Int/Real plugin and product relations.
 	"datalog_doc_int_unbound.smt2":         "unknown\napproximated relations\n",
 	"datalog_doc_checked_int_unbound.smt2": "unknown\napproximated relations\n",

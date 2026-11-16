@@ -28,6 +28,13 @@ func (e *PropositionalEngine) RelationsAnswer() (answer ast.ASTRef, resultErr er
 		}
 		return e.manager.NewRef(h)
 	}
+	if e.lastResult == lbool.Undef && e.relationApprox && e.relAnswer != (ast.ASTRef{}) {
+		h, err := e.manager.RefGet(e.relAnswer)
+		if err != nil {
+			return answer, err
+		}
+		return e.manager.NewRef(h)
+	}
 	if e.lastResult != lbool.True && !(e.lastResult == lbool.Undef && e.karrDatalog != nil && e.karrDatalog.results != nil) {
 		return answer, ErrPropositionalEngine
 	}

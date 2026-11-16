@@ -1,0 +1,8 @@
+(set-option :fixedpoint.engine datalog)
+(set-option :fixedpoint.datalog.default_relation karr_relation)
+(set-option :fixedpoint.xform.karr true)
+(declare-rel p (Real))
+(declare-rel q ())
+(declare-var x Real)
+(rule (=> (p x) q))
+(query q)

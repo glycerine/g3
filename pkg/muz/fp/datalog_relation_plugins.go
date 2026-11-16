@@ -33,6 +33,18 @@ func (e *PropositionalEngine) registerRelContextPlugins() error {
 	if err := e.relations.RegisterRelationPlugin(rel.NewIntervalRelationPlugin(e.relations)); err != nil {
 		return err
 	}
+	if karr, err := e.datalogKarrEnabled(); err != nil {
+		return err
+	} else if karr {
+		manager := e.manager
+		checkpoint := func() bool {
+			canceled, err := manager.Canceled()
+			return err == nil && !canceled
+		}
+		if err = e.relations.RegisterRelationPlugin(rel.NewKarrRelationPlugin(e.relations, checkpoint)); err != nil {
+			return err
+		}
+	}
 	plugin, err := rel.NewUDocPlugin(e.relations)
 	if err != nil {
 		return err

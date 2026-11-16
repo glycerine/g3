@@ -48,7 +48,7 @@ func (e *PropositionalEngine) arithRelationsRoute() (bool, error) {
 		return false, err
 	}
 	switch e.datalogRelationFavourite {
-	case "doc", "karr_relation", "check_relation":
+	case "doc", "check_relation":
 		return false, nil
 	}
 	if _, enabled, err := e.datalogCheckRelationName(); err != nil || enabled {
@@ -68,7 +68,7 @@ func (e *PropositionalEngine) arithRelationsRoute() (bool, error) {
 		}
 		switch {
 		case len(state.requestedRepresentations) == 0:
-		case len(state.requestedRepresentations) == 1 && (state.requestedRepresentations[0] == "bound_relation" || state.requestedRepresentations[0] == "interval_relation"):
+		case len(state.requestedRepresentations) == 1 && (state.requestedRepresentations[0] == "bound_relation" || state.requestedRepresentations[0] == "interval_relation" || state.requestedRepresentations[0] == "karr_relation"):
 		case isArithProductRepresentation(state.requestedRepresentations):
 		case state.table == nil && isTableRelationRepresentation(state.requestedRepresentations):
 		default:
@@ -81,7 +81,7 @@ func (e *PropositionalEngine) arithRelationsRoute() (bool, error) {
 		// check_relation) stays on that plugin's path.
 		if relation, ok := rel.AsRelation(state.table); ok {
 			switch relation.RelationPlugin().Name() {
-			case "bound_relation", "interval_relation":
+			case "bound_relation", "interval_relation", "karr_relation", "product_relation":
 			default:
 				return false, nil
 			}

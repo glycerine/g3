@@ -222,99 +222,10 @@ func TestDatalogKarrExplicitRepresentation(t *testing.T) {
 	must(e.AddTableFact(p, []uint32{3}))
 	status, err := e.QueryPredicate(p)
 	must(err)
-	if status != lbool.Undef || e.karrDatalog == nil {
+	// The requested karr_relation kind is the predicate's relation.
+	relation, isRelation := rel.AsRelation(e.predicates[p].table)
+	if status != lbool.Undef || !isRelation || relation.RelationPlugin().Name() != "karr_relation" {
 		t.Fatal("explicit kind not selected", status)
-	}
-}
-
-func TestDatalogKarrRefusesReplacingOwnedArithmeticFacts(t *testing.T) {
-	for _, favourite := range []string{"interval_relation", "bound_relation"} {
-		t.Run(favourite, func(t *testing.T) {
-			m, g := newPDRLifecycleServices(t)
-			e, err := NewPropositionalEngineWithServices(m, g.Context, g)
-			fragmentMust(t, err)
-			must := func(err error) { t.Helper(); fragmentMust(t, err) }
-			defer func() { must(e.Close()) }()
-			must(e.SelectEngine("datalog"))
-			must(g.SourceSetName("fixedpoint.datalog.default_relation", favourite))
-			must(g.SourceSetName("fixedpoint.xform.karr", "true"))
-			family, err := m.RegisterArithmeticPlugin()
-			must(err)
-			integer, err := m.MkFamilySort(family, 1, nil)
-			must(err)
-			boolean, err := m.MkBoolSort()
-			must(err)
-			name, err := m.Symbols.Intern("karr-owned-facts")
-			must(err)
-			p, err := m.MkFuncDecl(name, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
-			must(err)
-			must(e.RegisterPredicate(p))
-			must(e.AddTableFact(p, []uint32{7}))
-			if err := e.SetPredicateRepresentation(p, []string{"karr_relation"}); !errors.Is(err, ErrKarrDatalogFragment) {
-				t.Fatal("switched away from owned facts", err)
-			}
-			if e.karrDatalog != nil {
-				t.Fatal("installed conflicting owner")
-			}
-			status, err := e.QueryPredicate(p)
-			must(err)
-			if status != lbool.Undef {
-				t.Fatal("original fact lost", status)
-			}
-			answer, err := e.Answer(p)
-			must(err)
-			must(m.DelRef(&answer))
-		})
-	}
-}
-
-func TestDatalogKarrRefusesReplacingOwnedDocOrProductFacts(t *testing.T) {
-	for _, kind := range []string{"doc", "product"} {
-		t.Run(kind, func(t *testing.T) {
-			m, g := newPDRLifecycleServices(t)
-			e, err := NewPropositionalEngineWithServices(m, g.Context, g)
-			fragmentMust(t, err)
-			must := func(err error) { t.Helper(); fragmentMust(t, err) }
-			defer func() { must(e.Close()) }()
-			must(e.SelectEngine("datalog"))
-			must(g.SourceSetName("fixedpoint.xform.karr", "true"))
-			boolean, err := m.MkBoolSort()
-			must(err)
-			var sorts []ast.ASTHandle
-			var fact []uint32
-			if kind == "doc" {
-				must(g.SourceSetName("fixedpoint.datalog.default_relation", "doc"))
-				bv, err := m.BitVectorSort(2)
-				must(err)
-				sorts, fact = []ast.ASTHandle{bv}, []uint32{1}
-			} else {
-				family, err := m.RegisterArithmeticPlugin()
-				must(err)
-				integer, err := m.MkFamilySort(family, 1, nil)
-				must(err)
-				sorts, fact = []ast.ASTHandle{boolean, integer}, []uint32{1, 7}
-			}
-			name, err := m.Symbols.Intern("karr-owned-" + kind)
-			must(err)
-			p, err := m.MkFuncDecl(name, sorts, boolean, ast.ASTFuncDeclInfo{})
-			must(err)
-			must(e.RegisterPredicate(p))
-			if kind == "product" {
-				must(e.SetPredicateRepresentation(p, []string{"interval_relation", "tr_sparse"}))
-			}
-			must(e.AddTableFact(p, fact))
-			if err := e.SetPredicateRepresentation(p, []string{"karr_relation"}); !errors.Is(err, ErrKarrDatalogFragment) {
-				t.Fatal("switched away from owned facts", err)
-			}
-			status, err := e.QueryPredicate(p)
-			must(err)
-			if status == lbool.False {
-				t.Fatal("original fact lost", status)
-			}
-			answer, err := e.Answer(p)
-			must(err)
-			must(m.DelRef(&answer))
-		})
 	}
 }
 
