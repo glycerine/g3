@@ -2074,6 +2074,7 @@ func (c *Context) releaseOptimizationObjectiveTerms() (result error) {
 	if c.optimizationPurifier != nil {
 		result = errors.Join(result, c.optimizationPurifier.ReleaseObjectives())
 	}
+	result = errors.Join(result, c.retainedOptimizer.ReleaseObjectives())
 	return result
 }
 

@@ -1632,6 +1632,37 @@ func (s *ArithmeticSolver) ResetMaxSMTs() error {
 	return nil
 }
 
+// ReleaseObjectives is ~opt::context destroying m_objectives, which dies
+// long before m_opt_solver: vector<objective> destroys its elements front
+// to back, each releasing m_terms (front to back) and then m_term.
+func (s *ArithmeticSolver) ReleaseObjectives() error {
+	if s == nil || s.manager == nil {
+		return nil
+	}
+	for i := range s.objectives {
+		objective := &s.objectives[i]
+		for j := range objective.softTerms {
+			if objective.softTerms[j] == (ast.ASTRef{}) {
+				continue
+			}
+			if err := s.manager.DelRef(&objective.softTerms[j]); err != nil {
+				return err
+			}
+		}
+		objective.softTerms = nil
+		for _, ref := range []*ast.ASTRef{&objective.term, &objective.rewritten} {
+			if *ref == (ast.ASTRef{}) {
+				continue
+			}
+			if err := s.manager.DelRef(ref); err != nil {
+				return err
+			}
+		}
+	}
+	s.objectives = nil
+	return nil
+}
+
 func (s *ArithmeticSolver) Close() error {
 	if s == nil || s.backend == nil {
 		return nil
