@@ -336,6 +336,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AST-id fidelity (ast_ids batch 2): check_length_concat_concat builds
+	// n1 = n2 before its conflict test; see ast_event_digests.txt.
+	"str_concat_length_eq_atom_ids.smt2": "sat\n",
 	// AUDIT duality_iz3 (fork fix): iZ3 proves a rewrite or and-elim on a
 	// formula that propagate_values mixed across frames by renaming the
 	// substituted constants back (rewrite singleton and, flattened and,
