@@ -1,7 +1,6 @@
 package fp
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -149,25 +148,16 @@ func TestDatalogUDocFullColumnPreflightDoesNotPublishGroundPrefix(t *testing.T) 
 	}
 	add(app(prefix, one), nil, "full-preflight-ground-prefix")
 	add(app(output), []ast.ASTHandle{guard}, "full-preflight-infinite-column")
+	// rel_context: the unbound Int column is mk_full_relation's
+	// bound_relation total; the answer is approximate (l_undef, APPROX),
+	// as z3 reports "unknown / approximated relations".
 	for iteration := 0; iteration < 2; iteration++ {
 		status, cause := e.QueryPredicate(output)
-		if status != lbool.Undef || !errors.Is(cause, ErrUDocDatalogFragment) {
-			t.Fatal("unsupported full-column sort query", status, cause)
+		if status != lbool.Undef || cause != nil {
+			t.Fatal("full-column Int query", status, cause)
 		}
-		if e.udocDatalog == nil || e.udocDatalog.result[prefix] == nil {
-			t.Fatal("query did not reach concrete UDoc preflight")
-		}
-		if empty, getErr := e.udocDatalog.result[prefix].Empty(); getErr != nil || !empty {
-			t.Fatal("failed full-column preflight published earlier ground prefix", empty, getErr)
-		}
-		if empty, getErr := e.udocDatalog.seeds[prefix].Empty(); getErr != nil || !empty {
-			t.Fatal("failed full-column preflight changed seeds", empty, getErr)
-		}
-		if finalized, getErr := e.set.IsFinalized(); getErr != nil || finalized {
-			t.Fatal("failed query did not restore open rule set", finalized, getErr)
-		}
-		if _, getErr := e.Answer(prefix); getErr == nil {
-			t.Fatal("failed full-column preflight exposed a prefix answer")
+		if !e.compiledRelationPlugins || e.udocDatalog != nil {
+			t.Fatal("query did not run the relation plugins")
 		}
 	}
 }

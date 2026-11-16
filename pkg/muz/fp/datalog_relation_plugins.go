@@ -67,7 +67,16 @@ func (e *PropositionalEngine) datalogRelationPlugins(checkedDoc bool) error {
 // table_relation, "" when neither applies here (product relations,
 // other plugins, external relations).
 func (e *PropositionalEngine) datalogRelationKind(probe *rel.UDocPlugin, state *predicateState, docFavourite bool) (string, error) {
-	if state == nil || state.table == nil || state.external != nil || state.checked != nil || state.sparse != nil {
+	if state == nil || state.external != nil || state.checked != nil || state.sparse != nil {
+		return "", nil
+	}
+	if state.table == nil {
+		// get_relation: an Int/Real signature no table handles gets the
+		// first relation plugin that does (bound_relation, interval), or
+		// the empty product relation.
+		if len(state.requestedRepresentations) == 0 && rel.CanHandleIntervalSorts(e.manager, state.sorts) {
+			return "plugin", nil
+		}
 		return "", nil
 	}
 	udoc, err := probe.CanHandleSignature(state.sorts)
@@ -156,6 +165,9 @@ func (e *PropositionalEngine) selectCompiledRelationFavourite() (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	// A rule joining a table_relation with a udoc relation needs
+	// finite_product/sieve relations, not ported yet: such programs keep
+	// the previous evaluator.
 	for i := 0; i < count; i++ {
 		rule, err := e.set.Rule(i)
 		if err != nil {
@@ -210,7 +222,10 @@ func (e *PropositionalEngine) selectCompiledRelationFavourite() (bool, error) {
 				if err != nil {
 					return false, err
 				}
-				if _, table := e.relations.SortDomain(sort); !ok && !table {
+				// A total over an Int/Real sort is a plugin relation
+				// (mk_full_relation); the empty-signature join and the
+				// product fallbacks combine it with the udoc relations.
+				if _, table := e.relations.SortDomain(sort); !ok && !table && !rel.CanHandleIntervalSorts(e.manager, []ast.ASTHandle{sort}) {
 					return false, nil
 				}
 			}
@@ -225,6 +240,14 @@ func (e *PropositionalEngine) selectCompiledRelationFavourite() (bool, error) {
 			if err = e.relations.SetRequestedTableKind(d, e.predicates[d].requestedRepresentations[0]); err != nil {
 				return false, err
 			}
+		}
+		if kinds[d] == "plugin" {
+			table, err := e.relations.ReserveFiniteRelation(d)
+			if err != nil {
+				return false, err
+			}
+			e.predicates[d].table = table
+			continue
 		}
 		if kinds[d] != "doc" {
 			continue

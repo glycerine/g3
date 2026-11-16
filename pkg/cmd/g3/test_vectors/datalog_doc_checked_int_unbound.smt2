@@ -1,0 +1,6 @@
+(set-option :fixedpoint.engine datalog)
+(set-option :fixedpoint.datalog.check_relation doc)
+(declare-rel q ())
+(declare-var x Int)
+(rule (=> (> x 0) q))
+(query q)

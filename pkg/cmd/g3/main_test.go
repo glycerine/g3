@@ -336,6 +336,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// plugins_doc 06: doc next to Int/Real plugin and product relations.
+	"datalog_doc_int_unbound.smt2":         "unknown\napproximated relations\n",
+	"datalog_doc_checked_int_unbound.smt2": "unknown\napproximated relations\n",
+	"datalog_doc_unused_int_relation.smt2": "(error \"query failed: Guard expression is not handled(= (:var 1) (bvadd #b01 (:var 0)))\")\nunknown\n",
 	// AUDIT.md FUZZ-F5 (relation plugins): several relation kinds make a
 	// product_relation kind (rel_context::set_predicate_representation).
 	"plugins_arith_product_table_interval.smt2": "unsat\n",
