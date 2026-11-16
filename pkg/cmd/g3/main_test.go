@@ -336,6 +336,19 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// duality_itp_sat (fork fix): Duality's solvers check only itp quantifiers
+	// with MBQI, so z3 4.7.1 answered sat for err <- p(x) & forall z. z > x;
+	// validate_counterexample rejects the derivation: incompleteness.
+	"duality_itp_unchecked_sat.smt2": "(error \"query failed: incompleteness\")\nunknown\n",
+	// duality_itp_sat (fork fix): err <- forall y. y > 0 => p(y), p = {1}; the
+	// sat derivation does not derive p for every positive y: incompleteness.
+	"duality_itp_relation_under_forall.smt2": "(error \"query failed: incompleteness\")\nunknown\n",
+	// duality_itp_sat (fork fix): a quantified rule whose derivation holds keeps
+	// its sat and certificate after validate_counterexample.
+	"duality_itp_valid_quantified_sat.smt2": "sat\n(derivation\n(step s!3 (p 0)\n rule!1  (subst\n    (= x 0)\n  )\n  (labels  )\n  (ref   ))\n(step s!2 (err)\n rule!3  (subst\n    (= x 0)\n  )\n  (labels  )\n  (ref  s!3  ))\n(step s!1 (@Fail!0)\n rule!4  (subst\n  )\n  (labels  )\n  (ref  s!2  ))\n)\n(model \n\"@under2 -> false\n@b_2 -> true\n@b_3 -> true\n@b_1 -> true\n@under3 -> false\nz!3 -> 1\n\")\n\n",
+	// duality_itp_sat (fork fix): a quantified background axiom; the derivation
+	// is validated with the axiom and stays sat.
+	"duality_itp_quantified_axiom.smt2": "sat\n",
 	// propagate_length asserts m.mk_and(n, items) -> |concat| = k: one leaf
 	// gives the premise (and x), not x (z3str3 model choice followed it).
 	"str_z3str3_length_popup_and.smt2": "sat\n(model \n  (define-fun b () String\n    \"Dzzzz\")\n  (define-fun a () String\n    \"Dzz\")\n  (define-fun d () String\n    \"\")\n  (define-fun y () String\n    \"zzD\")\n)\n",

@@ -1,0 +1,7 @@
+(set-option :fixedpoint.engine duality)
+(declare-rel p (Int))
+(declare-rel err ())
+(declare-var x Int)
+(rule (=> (= x 1) (p x)))
+(rule (=> (forall ((y Int)) (=> (> y 0) (p y))) err))
+(query err)

@@ -10,6 +10,7 @@ import (
 	graph "github.com/glycerine/g3/pkg/duality"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 // QueryEngine owns the fixedpoint query's RPFP and Duality solver across
@@ -250,6 +251,18 @@ func (e *QueryEngine) Query(prepared *PreparedQuery) (status lbool.LBool, result
 	}
 	e.options.apply(next.engine)
 	solved, err := next.engine.Solve()
+	// A counterexample that relies on quantifiers must pass
+	// validate_counterexample (fork fix, AUDIT duality_itp_sat); otherwise
+	// dl_interface::query throws Solver::Incompleteness as SolveMain would.
+	if err == nil && !solved {
+		var valid bool
+		background := append([]*graph.Expr(nil), e.config.Theory...)
+		background = append(background, next.background...)
+		valid, err = next.engine.GetCounterexample().Validate(e.config.Factory, background...)
+		if err == nil && !valid {
+			err = z3exception.NewDefaultException("incompleteness")
+		}
+	}
 	if err != nil {
 		if e.active != nil {
 			err = errors.Join(err, next.engine.RollbackLearnFrom(e.active.engine))
