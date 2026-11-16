@@ -39,8 +39,9 @@ func (e *PropositionalEngine) ensureArithRelationPlugins() error {
 // pipeline with relation plugins: every predicate gets a relation from
 // get_relation (a table_relation or an arithmetic plugin relation), at least
 // one of them an arithmetic relation. Configurations that still need the
-// product, karr, udoc, explanation, external or check relations keep their
-// evaluators.
+// product relation, the karr_relation favourite, udoc, explanation,
+// external or check relations keep their evaluators. With
+// fixedpoint.xform.karr the mk_karr_invariants transform runs as before.
 func (e *PropositionalEngine) arithRelationsRoute() (bool, error) {
 	if err := e.cacheDatalogRelationFavourite(); err != nil {
 		return false, err
@@ -57,16 +58,6 @@ func (e *PropositionalEngine) arithRelationsRoute() (bool, error) {
 	}
 	if _, enabled, err := e.datalogDefaultTableCheck(); err != nil || enabled {
 		return false, err
-	}
-	if e.params != nil && e.globals != nil {
-		view, err := e.fixedpointParamView()
-		if err != nil {
-			return false, err
-		}
-		karr, err := view.Bool("xform.karr", false)
-		if err = errors.Join(err, view.Close()); err != nil || karr {
-			return false, err
-		}
 	}
 	var requested []rel.RelationPlugin
 	for _, d := range e.predicateOrder {

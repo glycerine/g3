@@ -336,6 +336,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ-F5 (relation plugins): with fixedpoint.xform.karr the
+	// Int/Real predicates still get bound/interval relations.
+	"plugins_arith_karr_xform_bound_empty_body.smt2": "unsat\n",
+	"plugins_arith_karr_xform_unbound_total.smt2":    "unknown\napproximated relations\n",
 	// AUDIT.md FUZZ-F5 (relation plugins): Int/Real predicates use the
 	// registered bound_relation/interval_relation plugins in the compiled
 	// rule pipeline (rel_context, relation_manager::mk_*_fn).
