@@ -5,30 +5,6 @@ package rel
 
 import "slices"
 
-// variablesByFirstColumn lists the variables of a variable -> columns map in
-// ascending order of their first column: the order in which a column scan
-// (variable_intersection::populate, or building int2ints var_indexes from
-// the tail arguments) first meets them.
-func variablesByFirstColumn(columns map[uint32][]int) []uint32 {
-	keys := make([]uint32, 0, len(columns))
-	for variable := range columns {
-		keys = append(keys, variable)
-	}
-	first := func(v uint32) int {
-		if c := columns[v]; len(c) != 0 {
-			return c[0]
-		}
-		return -1
-	}
-	slices.SortFunc(keys, func(a, b uint32) int {
-		if fa, fb := first(a), first(b); fa != fb {
-			return fa - fb
-		}
-		return int(a) - int(b)
-	})
-	return keys
-}
-
 // uMapOrder is the iteration order of a u_map<V> (core_hashtable with
 // u_hash(k) == k, initial capacity 8, linear probing, growth when
 // (size+deleted)*4 > capacity*3) after inserting keys, in the given order and

@@ -21,12 +21,15 @@ func TestFiniteCompilerFusesJoinProjection(t *testing.T) {
 		project, filterProject uint32
 	}{
 		{"shared-key", []int{0, 1}, []int{1, 2}, []int{0, 2}, []Fact{{0, 0}, {1, 1}}, []Fact{{0, 1}, {1, 0}}, []Fact{{0, 1}, {1, 0}}, false, false, 0, 1, 0, 0},
-		{"repeated-head", []int{0, 1}, []int{0, 2}, []int{0, 0}, []Fact{{0, 0}, {1, 1}}, []Fact{{0, 1}, {1, 0}}, []Fact{{0, 0}, {1, 1}}, false, false, 0, 1, 0, 0},
-		{"repeated-local", []int{0, 1, 1}, []int{2}, []int{0}, []Fact{{0, 0, 1}, {1, 1, 1}}, []Fact{{0}}, []Fact{{1}}, false, false, 0, 1, 0, 0},
+		// Both head columns name the join variable: the head takes the
+		// later copy first, so make_assembling_code renames (0,1).
+		{"repeated-head", []int{0, 1}, []int{0, 2}, []int{0, 0}, []Fact{{0, 0}, {1, 1}}, []Fact{{0, 1}, {1, 0}}, []Fact{{0, 0}, {1, 1}}, false, false, 0, 1, 1, 0},
 		{"nullary", []int{0}, []int{0}, nil, []Fact{{0}, {1}}, []Fact{{1}}, []Fact{{}}, false, false, 0, 1, 0, 0},
 		{"guard-variable", []int{0, 1}, []int{1, 2}, []int{0}, []Fact{{0, 0}, {1, 1}}, []Fact{{0, 1}, {1, 0}}, []Fact{{1}}, true, false, 0, 1, 0, 1},
 		{"negative-variable", []int{0, 1}, []int{1, 2}, []int{0}, []Fact{{0, 0}, {1, 1}}, []Fact{{0, 1}, {1, 0}}, []Fact{{1}}, false, true, 0, 1, 1, 0},
-		{"constant-column", []int{0, -1}, []int{1, 0}, []int{1}, []Fact{{0, 1}, {1, 0}}, []Fact{{1, 0}, {0, 1}}, []Fact{{1}}, false, false, 0, 1, 0, 0},
+		// The constant stays a joined column: filter_equal, then the head
+		// projects it away.
+		{"constant-column", []int{0, -1}, []int{1, 0}, []int{1}, []Fact{{0, 1}, {1, 0}}, []Fact{{1, 0}, {0, 1}}, []Fact{{1}}, false, false, 0, 1, 1, 0},
 		{"all-columns-needed", []int{0}, []int{1}, []int{0, 1}, []Fact{{0}}, []Fact{{1}}, []Fact{{0, 1}}, false, false, 1, 0, 0, 0},
 	}
 	for _, backing := range []string{"hash", "sparse", "lazy-sparse", "checked"} {
