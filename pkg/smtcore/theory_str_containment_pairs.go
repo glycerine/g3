@@ -198,8 +198,20 @@ func (t *SMTStringTheory) containmentReflexive(left, right, relation ast.ASTHand
 	return premises.imply(relation)
 }
 
+// Containment pair rules: none builds the premise vector only (the native
+// expr_ref_vector is filled before the relation test and released when no
+// relation holds); equivalent concludes b1 = b2; implication b1 -> b2.
+const (
+	containRuleNone = iota
+	containRuleEquivalent
+	containRuleImplication
+)
+
 // When haystacks coincide, containing the larger needle implies containing
 // the smaller one. When needles coincide, the implication direction reverses.
+// Native Case 1 (equal haystacks) and Case 2 (equal needles) build every
+// premise vector in the eqc loops before testing the pair map, so the
+// equalities they create are freed again when no pair is found.
 func (t *SMTStringTheory) checkContainPair(left, right ast.ASTHandle, first, second [2]ast.ASTHandle, equalHaystacks bool) (result error) {
 	m := t.state.manager
 	index := 0
@@ -207,6 +219,7 @@ func (t *SMTStringTheory) checkContainPair(left, right ast.ASTHandle, first, sec
 		index = 1
 	}
 	a, b := first[index], second[index]
+	firstBool, secondBool := t.containsByPair[first], t.containsByPair[second]
 	av, ak, err := t.eqcStringValue(a)
 	if err != nil {
 		return err
@@ -224,35 +237,57 @@ func (t *SMTStringTheory) checkContainPair(left, right ast.ASTHandle, first, sec
 		if err != nil {
 			return err
 		}
-		if at != bt && !strings.Contains(at, bt) && !strings.Contains(bt, at) {
-			return nil
+		rule, from, to := containRuleNone, firstBool, secondBool
+		switch {
+		case at == bt:
+			rule = containRuleEquivalent
+		case strings.Contains(at, bt):
+			rule = containRuleImplication
+			if !equalHaystacks {
+				from, to = secondBool, firstBool
+			}
+		case strings.Contains(bt, at):
+			rule = containRuleImplication
+			if equalHaystacks {
+				from, to = secondBool, firstBool
+			}
 		}
-		return t.containmentPairRule(left, right, a, av, b, bv, ast.ASTHandle{}, t.containsByPair[first], t.containsByPair[second], at == bt, equalHaystacks == strings.Contains(at, bt))
+		return t.containmentPairRule(left, right, a, av, b, bv, ast.ASTHandle{}, from, to, rule)
 	}
 	ac, bc := t.stringClass(a), t.stringClass(b)
 	for _, member := range ac {
 		if member == b {
-			return t.containmentPairRule(left, right, a, b, b, b, ast.ASTHandle{}, t.containsByPair[first], t.containsByPair[second], true, true)
+			return t.containmentPairRule(left, right, a, b, b, b, ast.ASTHandle{}, firstBool, secondBool, containRuleEquivalent)
 		}
 	}
 	for _, am := range ac {
 		for _, bm := range bc {
-			if condition, found := t.containsByPair[[2]ast.ASTHandle{am, bm}]; found {
-				if err := t.containmentPairRule(left, right, a, am, b, bm, condition, t.containsByPair[first], t.containsByPair[second], false, equalHaystacks); err != nil {
-					return err
-				}
+			from, to := firstBool, secondBool
+			if !equalHaystacks {
+				from, to = secondBool, firstBool
 			}
-			if condition, found := t.containsByPair[[2]ast.ASTHandle{bm, am}]; found {
-				if err := t.containmentPairRule(left, right, a, am, b, bm, condition, t.containsByPair[first], t.containsByPair[second], false, !equalHaystacks); err != nil {
-					return err
-				}
+			condition := t.containsByPair[[2]ast.ASTHandle{am, bm}]
+			rule := containRuleNone
+			if !condition.IsNull() {
+				rule = containRuleImplication
+			}
+			if err := t.containmentPairRule(left, right, a, am, b, bm, condition, from, to, rule); err != nil {
+				return err
+			}
+			condition = t.containsByPair[[2]ast.ASTHandle{bm, am}]
+			rule = containRuleNone
+			if !condition.IsNull() {
+				rule = containRuleImplication
+			}
+			if err := t.containmentPairRule(left, right, a, am, b, bm, condition, to, from, rule); err != nil {
+				return err
 			}
 		}
 	}
 	return nil
 }
 
-func (t *SMTStringTheory) containmentPairRule(left, right, a, av, b, bv, condition, first, second ast.ASTHandle, equivalent, forward bool) (result error) {
+func (t *SMTStringTheory) containmentPairRule(left, right, a, av, b, bv, condition, first, second ast.ASTHandle, rule int) (result error) {
 	m := t.state.manager
 	premises := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, premises.close()) }()
@@ -261,6 +296,9 @@ func (t *SMTStringTheory) containmentPairRule(left, right, a, av, b, bv, conditi
 			return err
 		}
 	}
+	if rule == containRuleNone {
+		return nil
+	}
 	if !condition.IsNull() {
 		if err := premises.add(condition); err != nil {
 			return err
@@ -268,12 +306,9 @@ func (t *SMTStringTheory) containmentPairRule(left, right, a, av, b, bv, conditi
 	}
 	var conclusion ast.ASTHandle
 	var err error
-	if equivalent {
+	if rule == containRuleEquivalent {
 		conclusion, err = t.state.MkEqAtom(first, second)
 	} else {
-		if !forward {
-			first, second = second, first
-		}
 		negative, e := m.MkNot(first)
 		if e != nil {
 			return e
