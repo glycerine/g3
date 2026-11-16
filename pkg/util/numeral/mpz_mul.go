@@ -17,6 +17,13 @@ func (m *IntegerManager) Mul(a, b, c *Int) error {
 	return m.mulWithAllocationContext(a, b, c, numeralContextRef(integerAllocationInvocationContext{}))
 }
 func (m *IntegerManager) mulWithAllocationContext(a, b, c *Int, context *integerAllocationInvocationContext) (err error) {
+	return m.mulPrechecked(a, b, c, context, 0)
+}
+
+// mulPrechecked is mulWithAllocationContext for a caller that has already
+// run check on the operands named by pre (bit i: operand i of a, b, c); see
+// skipPrechecked.
+func (m *IntegerManager) mulPrechecked(a, b, c *Int, context *integerAllocationInvocationContext, pre uint8) (err error) {
 	if smallIntegerOperands(a, b, c) {
 		if v := int64(a.Val) * int64(b.Val); v >= math.MinInt32 && v <= math.MaxInt32 {
 			if e := m.checkReady(); e != nil {
@@ -26,10 +33,8 @@ func (m *IntegerManager) mulWithAllocationContext(a, b, c *Int, context *integer
 			return nil
 		}
 	}
-	for _, n := range []*Int{a, b, c} {
-		if e := m.check(n); e != nil {
-			return e
-		}
+	if e := m.checkOperands(a, b, c, pre); e != nil {
+		return e
 	}
 	m.traceMPZBinary(a, b, c, "*", true)
 	// The after-record is only emitted by trace builds; others skip the

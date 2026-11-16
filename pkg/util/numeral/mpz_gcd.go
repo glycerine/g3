@@ -7,6 +7,7 @@ import (
 	"math"
 
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	umemory "github.com/glycerine/g3/pkg/util/memory"
 )
 
 // U32GCD and U64GCD are concrete translations of the source binary gcd_core.
@@ -97,11 +98,13 @@ func (m *IntegerManager) addSubMulWithAllocationContext(a, b, c, d *Int, subtrac
 			return e
 		}
 	}
+	// The operands were just checked and nothing runs in between, so the
+	// shortcut and the multiplication skip their repeat checks.
 	if b.IsSmall() && b.Val == 1 {
-		return m.addSubWithAllocationContext(a, c, d, subtract, &context)
+		return m.addSubPrechecked(a, c, d, subtract, &context, 7)
 	}
 	if b.IsSmall() && b.Val == -1 {
-		return m.addSubWithAllocationContext(a, c, d, !subtract, &context)
+		return m.addSubPrechecked(a, c, d, !subtract, &context, 7)
 	}
 	callerContext := context
 	frame := &m.AddMulInvocation
@@ -129,14 +132,24 @@ func (m *IntegerManager) addSubMulWithAllocationContext(a, b, c, d *Int, subtrac
 	return err
 }
 func (m *IntegerManager) addSubMulBody(a, b, c, d *Int, subtract bool, frame *integerAddMulScope, tmp *Int, context, callerContext *integerAllocationInvocationContext) error {
-	if e := m.mulWithAllocationContext(b, c, tmp, context); e != nil {
+	if e := m.mulPrechecked(b, c, tmp, context, 3); e != nil {
 		return e
 	}
 	frame.Stage = 2
 	if *callerContext != (integerAllocationInvocationContext{}) {
 		context = callerContext
 	}
-	if e := m.addSubWithAllocationContext(a, tmp, d, subtract, context); e != nil {
+	// a and d were checked on entry. The multiplication only writes tmp; a
+	// failure transport that ran inside it made it fail, and the check of
+	// tmp re-tests the manager state. Port-internal callbacks (allocation
+	// roots, normalize hooks) never release caller operands. So a and d skip
+	// their repeat checks unless a failure transport is running now, whose
+	// callbacks may probe and must be refused exactly.
+	pre := uint8(0)
+	if !umemory.AnyFailureTransportActive() {
+		pre = 5
+	}
+	if e := m.addSubPrechecked(a, tmp, d, subtract, context, pre); e != nil {
 		return e
 	}
 	frame.Stage = 3

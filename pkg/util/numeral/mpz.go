@@ -5,6 +5,7 @@ package numeral
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"reflect"
 	"runtime"
@@ -309,6 +310,23 @@ func (m *IntegerManager) checkReady() error {
 	return nil
 }
 func (m *IntegerManager) check(a *Int) error {
+	// Common case first: checkReady's tests all pass when no failure
+	// transport runs and the manager is open, and a live unreleased cell (or
+	// an inline value) passes the rest. Anything else takes checkFull, which
+	// returns the same result in the same order.
+	if m != nil && m.self == m && a != nil && !umemory.AnyFailureTransportActive() && !m.closed && !m.SourceFinalizing && !m.constructionFailed {
+		if a.Cell == 0 {
+			return nil
+		}
+		if !numericValidateCells {
+			if c := m.Cells.recordPtr(NumericSlot(a.Cell)); c != nil && !c.Released {
+				return nil
+			}
+		}
+	}
+	return m.checkFull(a)
+}
+func (m *IntegerManager) checkFull(a *Int) error {
 	if e := m.checkReady(); e != nil {
 		return e
 	}
@@ -327,6 +345,26 @@ func (m *IntegerManager) check(a *Int) error {
 	}
 	if !ValidNumericRef(m.Cells, a.Cell) || m.Cell(a.Cell).Released {
 		return arena.ErrInvalidSlot
+	}
+	return nil
+}
+
+// checkOperands runs check on a, b and c in order, except, in normal
+// builds, on the operands named by pre (bit i: operand i), which the caller
+// has already checked with nothing able to invalidate them in between (see
+// addSubMulWithAllocationContext). Checked and debug builds check every
+// operand and panic if a prechecked one fails: that is a port bug.
+func (m *IntegerManager) checkOperands(a, b, c *Int, pre uint8) error {
+	for i, n := range [3]*Int{a, b, c} {
+		if pre&(1<<i) != 0 && !numericValidateCells {
+			continue
+		}
+		if e := m.check(n); e != nil {
+			if pre&(1<<i) != 0 {
+				panic(fmt.Sprintf("numeral: prechecked operand %d failed check: %v", i, e))
+			}
+			return e
+		}
 	}
 	return nil
 }
@@ -1341,6 +1379,13 @@ func (m *IntegerManager) addSubWithPNReceipt(a, b, c *Int, subtract bool, pn *in
 	return m.addSubWithAllocationContext(a, b, c, subtract, numeralContextRef(pnAllocationContext(pn)))
 }
 func (m *IntegerManager) addSubWithAllocationContext(a, b, c *Int, subtract bool, context *integerAllocationInvocationContext) (err error) {
+	return m.addSubPrechecked(a, b, c, subtract, context, 0)
+}
+
+// addSubPrechecked is addSubWithAllocationContext for a caller that has
+// already run check on the operands named by pre (bit i: operand i of a, b,
+// c); see skipPrechecked.
+func (m *IntegerManager) addSubPrechecked(a, b, c *Int, subtract bool, context *integerAllocationInvocationContext, pre uint8) (err error) {
 	if smallIntegerOperands(a, b, c) {
 		v := int64(b.Val)
 		if subtract {
@@ -1354,10 +1399,8 @@ func (m *IntegerManager) addSubWithAllocationContext(a, b, c *Int, subtract bool
 			return nil
 		}
 	}
-	for _, n := range []*Int{a, b, c} {
-		if e := m.check(n); e != nil {
-			return e
-		}
+	if e := m.checkOperands(a, b, c, pre); e != nil {
+		return e
 	}
 	op := "+"
 	if subtract {

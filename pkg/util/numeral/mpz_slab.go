@@ -33,6 +33,7 @@ type numericCellSlab struct {
 	slots, Live, retired                           uint32
 	recordPageBytes, metaPageBytes, directoryBytes uint64
 	closed                                         bool
+	pageShift                                      uint32 // log2(config.PageSize); fits the padding after closed
 }
 
 func newNumericCellSlab(config arena.Config) (*numericCellSlab, error) {
@@ -61,14 +62,14 @@ func newNumericCellSlab(config arena.Config) (*numericCellSlab, error) {
 	if e := config.Budget.Reserve(uint64(reflect.TypeOf(numericCellSlab{}).Size())); e != nil {
 		return nil, e
 	}
-	return &numericCellSlab{config: config, recordPageBytes: uint64(config.PageSize) * uint64(t.Size()), metaPageBytes: uint64(config.PageSize) * metaSize}, nil
+	return &numericCellSlab{config: config, pageShift: uint32(bits.TrailingZeros32(config.PageSize)), recordPageBytes: uint64(config.PageSize) * uint64(t.Size()), metaPageBytes: uint64(config.PageSize) * metaSize}, nil
 }
 
 func (s *numericCellSlab) location(slot arena.Slot) (uint32, uint32) {
 	n := uint32(slot) - 1
 	// PageSize is a power of two (newNumericCellSlab), so the page index is
-	// a shift rather than a hardware division.
-	return n >> bits.TrailingZeros32(s.config.PageSize), n & (s.config.PageSize - 1)
+	// a shift rather than a hardware division; the shift is computed once.
+	return n >> s.pageShift, n & (s.config.PageSize - 1)
 }
 func (s *numericCellSlab) State(slot arena.Slot) *numericCellSlotState {
 	if slot == 0 || uint32(slot) > s.slots {

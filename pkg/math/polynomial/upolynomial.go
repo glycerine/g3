@@ -7,6 +7,7 @@ package polynomial
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"reflect"
 	"sync/atomic"
@@ -173,6 +174,40 @@ func newUPolynomialManager(c UPolynomialConfig, store *UPolynomialCoefficientSto
 	return m, nil
 }
 func (m *UPolynomialManager) check() error {
+	if m != nil && m.self == m && m.config.Integer != nil && m.checkQuiet() {
+		// No pending test of checkFull can hold, so only its final
+		// owner/closed tests remain (same order and results).
+		var e error
+		if m.closed || m.closing || m.sourceFinalizing || m.config.Integer.Closed() {
+			e = arena.ErrClosed
+		}
+		if polynomialValidateOwnership {
+			if full := m.checkFull(); full != e {
+				panic(fmt.Sprintf("polynomial: upolynomial quiet check %v differs from full check %v", e, full))
+			}
+		}
+		return e
+	}
+	return m.checkFull()
+}
+
+// checkQuiet reports that every field gating a pending test of checkFull is
+// clear: each of those tests requires one of these fields to be set (a
+// non-nil pointer, a true active/executing/running flag or a nonzero
+// count), so none can fail. It reads each gate once instead of re-testing
+// the receiver's identity per test.
+func (m *UPolynomialManager) checkQuiet() bool {
+	return m.sourceFactors == nil && !m.squareFreeCall.active && m.factorField == nil &&
+		!m.intervalBounds.active && !m.convertEntry.active && !m.refinable.active &&
+		!m.defaultNormalization.active && m.pendingFactorScalarTrace == nil &&
+		m.pendingFactorCoreTrace == nil && m.pendingEuclidTrace == nil &&
+		!m.modGCDScalars.executing && m.modGCDScalars.ownRemaining == 0 &&
+		m.pendingModGCDTrace == nil && m.pendingCRATrace == nil &&
+		m.pendingExactDivTrace == nil && m.pendingBerlekamp == nil && m.factorTrace == nil &&
+		m.pendingFactorsDisplay == nil && m.factorsDisplay == nil &&
+		m.pendingSexprArithmetic == nil && m.sexprArithmetic == nil && !m.rationalInput.running
+}
+func (m *UPolynomialManager) checkFull() error {
 	if m != nil && m.self == m && m.sourceFactors != nil && m.sourceFactors.NumericExecuting() {
 		return ErrUPolynomialCleanupPending
 	}
