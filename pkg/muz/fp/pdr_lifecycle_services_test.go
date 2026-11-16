@@ -47,7 +47,7 @@ func newPDRLifecycleServicesWithTrace(t *testing.T, tags *diagnostic.TraceTags) 
 		err = services.globals.InitializeSource()
 	}
 	if err == nil {
-		services.manager, err = ast.NewASTManager(ast.ASTManagerConfig{TraceTags: tags, Symbols: services.symbols, Numerals: services.numerals, Budget: budget})
+		services.manager, err = ast.NewASTManager(ast.ASTManagerConfig{TraceTags: tags, Symbols: services.symbols, Numerals: services.numerals, Budget: budget, Params: services.params, Globals: services.globals})
 	}
 	if err == nil {
 		err = services.manager.RegisterDeclarationPlugins()
