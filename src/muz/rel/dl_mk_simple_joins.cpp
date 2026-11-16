@@ -705,11 +705,12 @@ namespace datalog {
                 return nullptr;
             }
             rule_set * result = alloc(rule_set, m_context);
-            rule_pred_map::iterator rcit = m_rules_content.begin();
-            rule_pred_map::iterator rcend = m_rules_content.end();
-            for(; rcit!=rcend; ++rcit) {
-                rule * orig_r = rcit->m_key;
-                ptr_vector<app> content = rcit->m_value;
+            // FORK FIX #97 (g3 audit, see FORK_BUGFIXES.md): m_rules_content is keyed by
+            // rule pointers with an address hash, so walking it put the result rules in
+            // heap-address order. Walk the source rules (the keys) in source order.
+            for (unsigned ri = 0; ri < num_rules; ++ri) {
+                rule * orig_r = source.get_rule(ri);
+                ptr_vector<app> content = m_rules_content.find(orig_r);
                 SASSERT(content.size()<=2);
                 if (content.size()==orig_r->get_positive_tail_size()) {
                     //rule did not change
