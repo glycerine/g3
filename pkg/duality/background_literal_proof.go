@@ -11,6 +11,14 @@ func (g *RPFP) backgroundLiteralProofs(background []*Expr, refs *[]ast.ASTRef) (
 	var visit func(ast.ASTHandle, ast.ASTHandle) error
 	visit = func(formula, proof ast.ASTHandle) error {
 		result[formula] = proof
+		// only an and application is split; a quantified axiom is kept whole
+		kind, err := m.GetKind(formula)
+		if err != nil {
+			return err
+		}
+		if kind != ast.ASTApp {
+			return nil
+		}
 		family, err := m.GetFamilyID(formula)
 		if err != nil {
 			return err

@@ -336,6 +336,12 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// duality_itp_sat round 2: a quantified background axiom reached
+	// backgroundLiteralProofs, which asked a quantifier for its family id; the
+	// derivation printing failed with "AST source precondition".
+	"duality_quantified_axiom_certificate.smt2": "sat\n(derivation\n(step s!5 (p 0)\n rule!1  (subst\n    (= x 0)\n  )\n  (labels  )\n  (ref   ))\n(step s!4 (p 2)\n rule!2  (subst\n    (= x 0)\n    (= y 2)\n  )\n  (labels  )\n  (ref  s!5  ))\n(step s!3 (p 4)\n rule!2  (subst\n    (= x 2)\n    (= y 4)\n  )\n  (labels  )\n  (ref  s!4  ))\n(step s!2 (err)\n rule!3  (subst\n    (= x 4)\n  )\n  (labels  )\n  (ref  s!3  ))\n(step s!1 (@Fail!0)\n rule!4  (subst\n  )\n  (labels  )\n  (ref  s!2  ))\n)\n(model \n\"@under2 -> false\n@b_2 -> true\n@b_1 -> true\n@under4 -> false\n@b_3 -> true\n@b_5 -> true\n@under5 -> false\n@under3 -> false\n@b_4 -> true\nf -> {\n  0 -> 2\n  else -> 4\n}\n\")\n\n",
+	// duality_itp_sat round 2: an and axiom with a quantified conjunct.
+	"duality_quantified_axiom_conjunct_certificate.smt2": "sat\n(derivation\n(step s!5 (p 0)\n rule!1  (subst\n    (= x 0)\n  )\n  (labels  )\n  (ref   ))\n(step s!4 (p 2)\n rule!2  (subst\n    (= x 0)\n    (= y 2)\n  )\n  (labels  )\n  (ref  s!5  ))\n(step s!3 (p 4)\n rule!2  (subst\n    (= x 2)\n    (= y 4)\n  )\n  (labels  )\n  (ref  s!4  ))\n(step s!2 (err)\n rule!3  (subst\n    (= x 4)\n  )\n  (labels  )\n  (ref  s!3  ))\n(step s!1 (@Fail!0)\n rule!4  (subst\n  )\n  (labels  )\n  (ref  s!2  ))\n)\n(model \n\"@under2 -> false\n@b_2 -> true\n@b_1 -> true\n@under4 -> false\n@b_3 -> true\nc -> 1\n@b_5 -> true\n@under5 -> false\n@under3 -> false\n@b_4 -> true\nf -> {\n  0 -> 2\n  else -> 4\n}\n\")\n\n",
 	// duality_itp_sat (fork fix): Duality's solvers check only itp quantifiers
 	// with MBQI, so z3 4.7.1 answered sat for err <- p(x) & forall z. z > x;
 	// validate_counterexample rejects the derivation: incompleteness.
