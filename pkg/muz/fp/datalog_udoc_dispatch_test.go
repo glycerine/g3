@@ -203,8 +203,11 @@ func TestDatalogUDocSelectionAndNullary(t *testing.T) {
 				t.Fatal("doc selection result", result, want)
 			}
 			selected := mode == "favourite" || mode == "requested" || mode == "nullary" || mode == "ground-rule"
-			if (e.udocDatalog != nil) != selected {
-				t.Fatal("wrong source doc capability/precedence", mode, e.udocDatalog != nil)
+			// The doc favourite runs either through the compiled relation
+			// plugin (udoc_plugin) or the remaining Go UDoc evaluator.
+			docUsed := e.udocDatalog != nil || e.relations.FavouriteRelationPlugin() != nil
+			if docUsed != selected {
+				t.Fatal("wrong source doc capability/precedence", mode, docUsed)
 			}
 			if mode == "arithmetic-fallback" && e.boundDatalog == nil {
 				t.Fatal("doc capability failure skipped source bound fallback")

@@ -336,6 +336,14 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// plugins_doc: udoc_plugin relations run through the compiled
+	// instructions (relation_manager relation-level dispatch).
+	"datalog_doc_plugin_closure.smt2":           "sat\n(or (and (= (:var 0) #x1) (= (:var 1) #x2))\n    (and (= (:var 0) #x2) (= (:var 1) #x3))\n    (and (= (:var 0) #x3) (= (:var 1) #x4))\n    (and (= (:var 0) #x4) (= (:var 1) #x1))\n    (and (= (:var 0) #x5) (= (:var 1) #x5))\n    (and (= (:var 0) #x4) (= (:var 1) #x2))\n    (and (= (:var 0) #x1) (= (:var 1) #x3))\n    (and (= (:var 0) #x2) (= (:var 1) #x4))\n    (and (= (:var 0) #x3) (= (:var 1) #x1))\n    (and (= (:var 0) #x3) (= (:var 1) #x2))\n    (and (= (:var 0) #x4) (= (:var 1) #x3))\n    (and (= (:var 0) #x1) (= (:var 1) #x4))\n    (and (= (:var 0) #x2) (= (:var 1) #x1))\n    (and (= (:var 0) #x2) (= (:var 1) #x2))\n    (and (= (:var 0) #x3) (= (:var 1) #x3))\n    (and (= (:var 0) #x4) (= (:var 1) #x4))\n    (and (= (:var 0) #x1) (= (:var 1) #x1)))\n",
+	"datalog_doc_plugin_negation_guard.smt2":    "sat\n(or (and (= (:var 0) #x3) (= (:var 1) #x3))\n    (and (= (:var 0) #x2) (= (:var 1) #x3)))\n",
+	"datalog_doc_plugin_identical_extract.smt2": "sat\n(or (= (:var 0) #x5) (= (:var 0) #x3))\nsat\n(= (:var 0) #x2)\n",
+	"datalog_doc_plugin_negation_partial.smt2":  "sat\n(or (and (= (:var 0) #b001) (= (:var 1) #b010))\n    (and (= (:var 0) #b011) (= (:var 1) #b010))\n    (and (= (:var 0) #b010) (= (:var 1) #b001)))\n",
+	"datalog_doc_plugin_concat_range.smt2":      "sat\n(or (= (:var 0) #x34) (= (:var 0) #x12))\nsat\n(or (= (:var 0) #x1) (= (:var 0) #x3))\n",
+	"datalog_doc_plugin_nullary.smt2":           "sat\n(= (:var 0) #b10)\nsat\n",
 	// duality_itp_sat round 2: a quantified background axiom reached
 	// backgroundLiteralProofs, which asked a quantifier for its family id; the
 	// derivation printing failed with "AST source precondition".

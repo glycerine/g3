@@ -32,6 +32,9 @@ var verboseProgressCases = []verboseProgressCase{
 	// join; mk_full's aux table recycles; filter_interpreted_and_project
 	// leaks its clone; reset_negated_tables removes rows.
 	{"rel_negation_v2", "rel_negation", []string{"-v:2"}},
+	// plugins_doc: udoc_plugin join result/orig/union/delta, dst/neg,
+	// filter project result and filter_interpreted displays.
+	{"rel_doc_v3", "rel_doc", []string{"-v:3"}},
 	{"rel_filter_v2", "rel_filter", []string{"-v:2"}},
 	// Relations exist only once get_relation creates them.
 	{"horn_empty_model_v2", "horn_empty_model", []string{"-v:2"}},

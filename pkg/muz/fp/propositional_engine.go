@@ -2812,7 +2812,13 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	} else if handled {
 		return status, nil
 	}
-	if selected, err := e.ensureUDocDatalog(); err != nil {
+	compiledFavourite, err := e.selectCompiledRelationFavourite()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if compiledFavourite {
+		// The favourite relation plugin runs through the compiled rules.
+	} else if selected, err := e.ensureUDocDatalog(); err != nil {
 		return lbool.Undef, err
 	} else if selected {
 		if enabled, err := e.datalogExplanationsEnabled(); err != nil {

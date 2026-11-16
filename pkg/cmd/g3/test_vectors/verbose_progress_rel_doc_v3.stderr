@@ -1,0 +1,111 @@
+(transform N7datalog13mk_coi_filterE...no-op Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...11 rules Ts)
+(transform N7datalog15mk_rule_inlinerE...no-op Ts)
+(transform N7datalog25mk_separate_negated_tailsE...no-op Ts)
+(transform N7datalog24mk_similarity_compressorE...no-op Ts)
+(transform N7datalog15mk_filter_rulesE...12 rules Ts)
+(transform N7datalog15mk_simple_joinsE...no-op Ts)
+load e into 0
+load n into 1
+load s into 2
+load p into 3
+load q into 4
+load p!filter!0 into 5
+mk_unary_singleton into 6 sort:(_ BitVec 3) val:1
+mk_unary_singleton into 7 sort:(_ BitVec 3) val:2
+join 6() and 7() into 8
+join result:
+{010001}
+union 8 into 0
+orig:  {}
+union: {010001}
+mk_unary_singleton into 9 sort:(_ BitVec 3) val:3
+join 9() and 7() into 10
+join result:
+{010011}
+union 10 into 0
+orig:  {010001}
+union: {010001, 010011}
+mk_unary_singleton into 11 sort:(_ BitVec 3) val:4
+join 9() and 11() into 12
+join result:
+{100011}
+union 12 into 0
+orig:  {010001, 010011}
+union: {010001, 010011, 100011}
+join 11() and 6() into 13
+join result:
+{001100}
+union 13 into 0
+orig:  {010001, 010011, 100011}
+union: {010001, 010011, 100011, 001100}
+mark_saturated e
+union 0 into 3
+orig:  {}
+union: {010001, 010011, 100011, 001100}
+clone 3 into 14
+while(14)
+    join_project 0:2-4(0) and 14:2-4(1) into 16 removing columns (0,3)
+    rename 16 into 16 with cycle (0,1)
+    union 16 into 3 with delta 15
+    dealloc 16
+    move 15 into 14
+join_project 0:2-4(0) and 14:2-4(1) into 16 removing columns (0,3)
+rename 16 into 16 with cycle (0,1)
+union 16 into 3 with delta 15
+orig:  {010001, 010011, 100011, 001100}
+union: {
+   010001, 010011, 100011, 001100, 010100, 001011}
+delta: {010100, 001011}
+move 15 into 14
+join_project 0:2-4(0) and 14:2-2(1) into 16 removing columns (0,3)
+rename 16 into 16 with cycle (0,1)
+union 16 into 3 with delta 15
+orig:  {
+   010001, 010011, 100011, 001100, 010100, 001011}
+union: {
+   010001, 010011, 100011, 001100, 010100, 001011}
+delta: {}
+mark_saturated p
+clone 3 into 17
+filter_identical 17 (0,1)
+mark_saturated p!filter!0
+join 9() and 11() into 18
+join result:
+{100011}
+union 18 into 1
+orig:  {}
+union: {100011}
+mark_saturated n
+union 9 into 2
+orig:  {}
+union: {011}
+mark_saturated s
+clone 3 into 20
+filter_by_negation on 20(0,1) with 1(0,1) as the negated table
+dst:{
+   010001, 010011, 100011, 001100, 010100, 001011}
+neg:{100011}
+union 20 into 4
+orig:  {}
+union: {
+   010001, 010011, 001100, 010100, 001011}
+clone 0 into 21
+filter_by_negation on 21(0) with 2(0) as the negated table
+dst:{010001, 010011, 100011, 001100}
+neg:{011}
+filter_interpreted 21 using (and (or (= (:var 0) #b111) (= (:var 1) #b010)) (not (= (:var 0) (:var 1))))
+{010001}
+rename 21 into 21 with cycle (0,1)
+union 21 into 4
+orig:  {
+   010001, 010011, 001100, 010100, 001011}
+union: {
+   010001, 010011, 001100, 010100, 001011, 001010}
+mark_saturated q
+store 3 into p
+store 0 into e
+store 4 into q
+store 2 into s
+store 5 into p!filter!0
+store 1 into n
