@@ -76,9 +76,9 @@ func (m *FloatPrimalCoreSolver) ColumnIsBeneficialForEnteringBasis(j uint32) (bo
 			upper := (*m.UpperBounds)[j]
 			span := upper - low
 			if d > eps {
-				return x < upper-span/2, nil
+				return x < upper-float64(span/2), nil
 			}
-			return x > low+span/2, nil
+			return x > low+float64(span/2), nil
 		}
 		return false, nil
 	default:

@@ -211,7 +211,7 @@ func (m *FloatCoreSolverBase) BelowBound(x, bound float64) bool {
 	if bound > 0 {
 		relative = -eps
 	}
-	return x < bound*(1+relative)-eps
+	return x < float64(bound*(1+relative))-eps
 }
 func (m *FloatCoreSolverBase) AboveBound(x, bound float64) bool {
 	eps := m.Settings.PrimalFeasibilityTolerance
@@ -222,7 +222,7 @@ func (m *FloatCoreSolverBase) AboveBound(x, bound float64) bool {
 	if bound > 0 {
 		relative = eps
 	}
-	return x > bound*(1+relative)+eps
+	return x > float64(bound*(1+relative))+eps
 }
 func (m *FloatCoreSolverBase) AtBound(x, bound float64) bool {
 	return !m.BelowBound(x, bound) && !m.AboveBound(x, bound)

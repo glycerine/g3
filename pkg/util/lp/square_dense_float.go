@@ -178,7 +178,7 @@ func (m *FloatSquareDenseSubmatrix) PivotRowToRow(i, row uint32, s *Settings) er
 			if uint64(ro) >= uint64(len(m.Data)) || uint64(po) >= uint64(len(m.Data)) {
 				return ErrBounds
 			}
-			x := m.Data[ro] - m.Data[po]*multiplier
+			x := m.Data[ro] - float64(m.Data[po]*multiplier)
 			if s.FloatDropSmall(x) {
 				m.Data[ro] = 0
 			} else {

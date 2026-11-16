@@ -18,7 +18,7 @@ func (m *FloatSquareDenseSubmatrix) rowProduct(i uint32, w []float64) (float64, 
 		if uint64(offset+j) >= uint64(len(m.Data)) || uint64(col) >= uint64(len(w)) {
 			return sum, ErrBounds
 		}
-		sum += m.Data[offset+j] * w[col]
+		sum += float64(m.Data[offset+j] * w[col])
 	}
 	return sum, nil
 }
@@ -37,7 +37,7 @@ func (m *FloatSquareDenseSubmatrix) columnProduct(j uint32, w []float64) (float6
 		if uint64(offset) >= uint64(len(m.Data)) || uint64(row) >= uint64(len(w)) {
 			return sum, ErrBounds
 		}
-		sum += m.Data[offset] * w[row]
+		sum += float64(m.Data[offset] * w[row])
 		offset += m.Dim
 	}
 	return sum, nil
@@ -157,7 +157,7 @@ func (m *FloatSquareDenseSubmatrix) ApplyLeftToT(w *IndexedFloatVector, s *Setti
 				if uint64(row) >= uint64(len(t)) || uint64(offset) >= uint64(len(m.Data)) {
 					return ErrBounds
 				}
-				t[row] += m.Data[offset] * w.Data[k]
+				t[row] += float64(m.Data[offset] * w.Data[k])
 			}
 		}
 	}

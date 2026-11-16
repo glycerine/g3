@@ -112,10 +112,11 @@ func (s *BoundEquationStore) assertBound(x uint32, k *numeral.Rational, strict, 
 	if err = s.traceBoundApprox(lower, x, &working, approx, false); err != nil {
 		return false, err
 	}
+	// float64() rounds the product, blocking FMA contraction (match z3 bit for bit).
 	if lower {
-		approx = 0.000001 * math.Floor(approx*1000000+0.0000001)
+		approx = 0.000001 * math.Floor(float64(approx*1000000)+0.0000001)
 	} else {
-		approx = 0.000001 * math.Ceil(approx*1000000-0.0000001)
+		approx = 0.000001 * math.Ceil(float64(approx*1000000)-0.0000001)
 	}
 	if err = s.traceBoundApprox(lower, x, &working, approx, true); err != nil {
 		return false, err

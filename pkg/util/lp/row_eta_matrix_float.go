@@ -46,7 +46,7 @@ func (m *FloatRowEtaMatrix) ApplyLeft(w []float64) error {
 		if uint64(entry.Index) >= uint64(len(w)) {
 			return ErrBounds
 		}
-		w[m.row] += w[entry.Index] * entry.Value
+		w[m.row] += float64(w[entry.Index] * entry.Value)
 	}
 	return nil
 }
@@ -60,7 +60,7 @@ func (m *FloatRowEtaMatrix) ApplyLeftToT(w *IndexedFloatVector, s *Settings) err
 		if uint64(entry.Index) >= uint64(len(w.Data)) {
 			return ErrBounds
 		}
-		value += w.Data[entry.Index] * entry.Value
+		value += float64(w.Data[entry.Index] * entry.Value)
 	}
 	if !s.FloatDropSmall(value) {
 		if wasZero {
@@ -96,7 +96,7 @@ func (m *FloatRowEtaMatrix) ApplyRight(w []float64) error {
 		if uint64(entry.Index) >= uint64(len(w)) {
 			return ErrBounds
 		}
-		w[entry.Index] += w[m.row] * entry.Value
+		w[entry.Index] += float64(w[m.row] * entry.Value)
 	}
 	return nil
 }
@@ -113,7 +113,7 @@ func (m *FloatRowEtaMatrix) ApplyRightIndexed(w *IndexedFloatVector) error {
 			return ErrBounds
 		}
 		wasZero := w.Data[j] == 0
-		w.Data[j] += w.Data[m.row] * entry.Value
+		w.Data[j] += float64(w.Data[m.row] * entry.Value)
 		if wasZero {
 			if !FloatEpsilonSmall(w.Data[j], 1e-14) {
 				w.Index = append(w.Index, j)

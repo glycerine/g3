@@ -116,7 +116,7 @@ func (m *FloatDenseMatrix) ApplyLeft(w []float64) error {
 			if err != nil {
 				return err
 			}
-			value += w[j] * a
+			value += float64(w[j] * a)
 		}
 		tmp[i] = value
 	}

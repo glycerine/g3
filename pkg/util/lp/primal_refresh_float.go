@@ -37,7 +37,7 @@ func (m *FloatPrimalCoreSolver) UpdateReducedCostsFromPivotRow(entering, leaving
 			if uint64(j) >= uint64(len(m.D)) || uint64(j) >= uint64(len(m.PivotRow.Data)) {
 				return ErrBounds
 			}
-			m.D[j] -= dq * m.PivotRow.Data[j]
+			m.D[j] -= float64(dq * m.PivotRow.Data[j])
 		}
 	}
 	if uint64(leaving) >= uint64(len(m.D)) {
@@ -79,7 +79,7 @@ func (m *FloatPrimalCoreSolver) RefreshReducedCostAtEnteringAndCheckThatItIsOff(
 		if uint64(j) >= uint64(len(*m.Costs)) {
 			return 0, ErrBounds
 		}
-		refreshed -= (*m.Costs)[j] * m.Ed.Data[i]
+		refreshed -= float64((*m.Costs)[j] * m.Ed.Data[i])
 	}
 	m.D[entering] = refreshed
 	delta := math.Abs(old - refreshed)
@@ -113,7 +113,7 @@ func (m *FloatPrimalCoreSolver) CalculateNormOfEnteringExactly() (float64, error
 			return r, ErrBounds
 		}
 		t := m.Ed.Data[i]
-		r += t * t
+		r += float64(t * t)
 	}
 	return r, nil
 }
@@ -169,8 +169,8 @@ func (m *FloatPrimalCoreSolver) UpdateColumnNorms(entering, leaving uint32) erro
 			if uint64(j) >= uint64(len(m.ColumnNorms)) {
 				return ErrBounds
 			}
-			candidate := m.ColumnNorms[j] + t*(t*g+k*s)
-			lower := 1 + tp*tp
+			candidate := m.ColumnNorms[j] + float64(t*(float64(t*g)+float64(k*s)))
+			lower := 1 + float64(tp*tp)
 			// std::max retains its first operand on unordered comparisons.
 			if candidate < lower {
 				candidate = lower

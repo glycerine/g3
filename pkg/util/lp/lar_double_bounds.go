@@ -174,7 +174,7 @@ func (c *LARCoreSolver) pairBoundToDouble(p *RationalPair, delta float64) (value
 	if e != nil {
 		return 0, e
 	}
-	return x + delta*y, nil
+	return x + float64(delta*y), nil
 }
 
 func (c *LARCoreSolver) GetBoundsForDoubleSolver() (err error) {

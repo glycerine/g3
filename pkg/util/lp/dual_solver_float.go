@@ -199,7 +199,7 @@ func (m *FloatDualSimplex) GetCurrentCost() (float64, error) {
 		if err != nil {
 			return -ret, err
 		}
-		ret += ci.Cost * value
+		ret += float64(ci.Cost * value)
 	}
 	return -ret, nil
 }

@@ -60,7 +60,7 @@ func (m *FloatDualCoreSolver) UpdateDAndXB() error {
 		if uint64(j) >= uint64(len(m.D)) || uint64(j) >= uint64(len(m.PivotRow.Data)) {
 			return ErrBounds
 		}
-		m.D[j] -= m.ThetaD * m.PivotRow.Data[j]
+		m.D[j] -= float64(m.ThetaD * m.PivotRow.Data[j])
 	}
 	p := uint32(m.P)
 	if uint64(p) >= uint64(len(m.D)) {

@@ -67,7 +67,7 @@ func (m *FloatLU) findIndexedRowError(y *IndexedFloatVector, heading []int32, s 
 			if uint64(j) >= uint64(len(m.yCopy.Data)) {
 				return ErrBounds
 			}
-			m.yCopy.Data[j] -= c.Value * yk
+			m.yCopy.Data[j] -= float64(c.Value * yk)
 		}
 	}
 	for _, i := range m.yCopy.Index {

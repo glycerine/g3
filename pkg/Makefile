@@ -1,4 +1,4 @@
-.PHONY: fast tags slow
+.PHONY: fast tags slow fmacheck
 
 fast:
 	time go test -timeout=0 -count=1 ./...
@@ -8,6 +8,11 @@ tags:
 
 slow:
 	time go test -timeout=0 -count=1 -short -tags g3checked,g3debug,g3trace github.com/glycerine/g3/pkg/qe  github.com/glycerine/g3/pkg/math/polynomial   github.com/glycerine/g3/pkg/util/lp
+
+# Cross-build g3 for every FMA-capable target and fail on any fused
+# multiply-add in g3 code; wrap the reported product in float64().
+fmacheck:
+	G3_FMACHECK_TARGETS="linux/arm64 darwin/arm64 linux/ppc64le linux/s390x linux/riscv64 linux/amd64/v3" time go test -timeout=0 -count=1 -run '^TestNoFMAContraction$$' ./cmd/g3
 
 
 ## Q: which are the very slow tests under the 3 tags?

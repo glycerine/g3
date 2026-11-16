@@ -137,7 +137,7 @@ func (m *FloatCoreSolverBase) FillReducedCostsFromYByRows() error {
 				if uint64(j) >= uint64(len(m.D)) {
 					return ErrBounds
 				}
-				m.D[j] -= y * c.Value
+				m.D[j] -= float64(y * c.Value)
 			}
 		}
 	}

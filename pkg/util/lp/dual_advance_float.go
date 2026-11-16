@@ -22,7 +22,7 @@ func (m *FloatDualCoreSolver) CalculateBetaRPrecisely() error {
 			return ErrBounds
 		}
 		b := m.PivotRowB1.Data[i]
-		t += b * b
+		t += float64(b * b)
 	}
 	if m.R < 0 || uint64(m.R) >= uint64(len(m.Betas)) {
 		return ErrBounds
@@ -44,7 +44,7 @@ func (m *FloatDualCoreSolver) InitBetaPrecisely(i uint32) error {
 	}
 	beta := 0.0
 	for _, v := range vec {
-		beta += v * v
+		beta += float64(v * v)
 	}
 	if uint64(i) >= uint64(len(m.Betas)) {
 		return ErrBounds
@@ -90,7 +90,7 @@ func (m *FloatDualCoreSolver) UpdateBetas() error {
 		if uint64(i) >= uint64(len(m.Betas)) || uint64(i) >= uint64(len(m.PivotRowB1.Data)) {
 			return ErrBounds
 		}
-		m.Betas[i] += a * (a*betaR + k*m.PivotRowB1.Data[i])
+		m.Betas[i] += float64(a * (float64(a*betaR) + float64(k*m.PivotRowB1.Data[i])))
 		if m.Betas[i] < 0.0001 {
 			m.Betas[i] = 0.0001
 		}

@@ -753,7 +753,8 @@ func (s *SearchTracker) UnsatAssertion(roots []ast.ASTHandle) (ast.ASTHandle, bo
 			if err != nil {
 				return ast.ASTHandle{}, false, err
 			}
-			q := entry.score + s.base.ucbConstant*math.Sqrt(math.Log(float64(s.base.touched))/float64(entry.touched)) + s.base.ucbNoise*float64(noise)
+			// float64() rounds the product, blocking FMA contraction (match z3 bit for bit).
+			q := entry.score + float64(s.base.ucbConstant*math.Sqrt(math.Log(float64(s.base.touched))/float64(entry.touched))) + float64(s.base.ucbNoise*float64(noise))
 			if q > maxScore {
 				maxScore, position, found = q, uint32(i), true
 			}

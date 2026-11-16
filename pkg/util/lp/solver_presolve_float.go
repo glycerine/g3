@@ -50,12 +50,12 @@ func (m *FloatLPSolver) rowBound(row *StdUnorderedFloatRow, maximum bool) (float
 			if !c.LowSet {
 				return sum, false, nil
 			}
-			sum += c.Low * a
+			sum += float64(c.Low * a)
 		} else {
 			if !c.UpperSet {
 				return sum, false, nil
 			}
-			sum += c.Upper * a
+			sum += float64(c.Upper * a)
 		}
 	}
 	return sum, true, nil
@@ -166,7 +166,7 @@ func (m *FloatLPSolver) RemoveFixedOrZeroColumnsFromRow(index uint32, row *StdUn
 			if !initialized {
 				return ErrBounds
 			}
-			c.RightSide -= a * ci.FixedValue
+			c.RightSide -= float64(a * ci.FixedValue)
 			// Publish every subtraction before inspecting the next coefficient.
 			m.Constraints[index] = c
 		} else if a == 0 {

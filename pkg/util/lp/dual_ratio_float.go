@@ -442,7 +442,7 @@ func (m *FloatDualCoreSolver) RatioTest() (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		del := m.Delta - lost*float64(initial)
+		del := m.Delta - float64(lost*float64(initial))
 		if !m.DeltaKeepsTheSign(initial, del) {
 			break
 		}

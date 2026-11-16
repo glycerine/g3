@@ -92,7 +92,7 @@ func (m *FloatPrimalSimplex) GetCurrentCost() (float64, error) {
 		if err != nil {
 			return cost, err
 		}
-		cost += c.Cost * value
+		cost += float64(c.Cost * value)
 	}
 	return cost, nil
 }

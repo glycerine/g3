@@ -56,7 +56,8 @@ func (s *SMTInternalizerState) assignLiteralCore(literal SMTLiteral, justificati
 	data.SetJustification(justification)
 	data.ScopeLevel = s.scopeLevel
 	if s.searching && s.searchRestartAdaptive && data.PhaseAvailable {
-		s.searchAgility *= s.searchAgilityFactor
+		// float64() rounds the product, blocking FMA contraction (match z3 bit for bit).
+		s.searchAgility = float64(s.searchAgility * s.searchAgilityFactor)
 		if !decision && data.Phase == literal.Sign() {
 			s.searchAgility += 1 - s.searchAgilityFactor
 		}

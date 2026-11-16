@@ -30,7 +30,7 @@ func (m *FloatSparseMatrix) SolveYU(y []float64) error {
 			if uint64(col) >= uint64(len(y)) {
 				return ErrBounds
 			}
-			y[col] -= v.Value * y[i]
+			y[col] -= float64(v.Value * y[i])
 		}
 	}
 	return nil
@@ -65,7 +65,7 @@ func (m *FloatSparseMatrix) SolveUY(y []float64) error {
 			if uint64(i) >= uint64(len(y)) {
 				return ErrBounds
 			}
-			y[i] -= v.Value * y[j]
+			y[i] -= float64(v.Value * y[j])
 		}
 	}
 	return nil
@@ -87,7 +87,7 @@ func (m *FloatSparseMatrix) DotProductWithRow(row uint32, y []float64) (float64,
 		if uint64(col) >= uint64(len(y)) {
 			return sum, ErrBounds
 		}
-		sum += v.Value * y[col]
+		sum += float64(v.Value * y[col])
 	}
 	return sum, nil
 }

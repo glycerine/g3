@@ -174,7 +174,8 @@ func (t *Tracker) AdaptTopSum(expr ast.ASTHandle, add, sub float64) error {
 	if !ok {
 		return ErrTracker
 	}
-	t.topSum += float64(weight) * (add - sub)
+	// float64() rounds the product, blocking FMA contraction (match z3 bit for bit).
+	t.topSum += float64(float64(weight) * (add - sub))
 	return nil
 }
 
@@ -430,7 +431,7 @@ func (t *Tracker) ucbForgetExpressions(expressions []ast.ASTHandle) error {
 			return ErrTracker
 		}
 		old := score.touched
-		fresh := uint32(float64(old-1)*t.ucbForget + 1)
+		fresh := uint32(float64(float64(old-1)*t.ucbForget) + 1)
 		score.touched = fresh
 		t.touched += fresh - old
 	}

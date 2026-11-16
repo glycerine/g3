@@ -20,7 +20,7 @@ func (m *FloatCoreSolverBase) RsMinusAnX(rs []float64) error {
 				if uint64(c.Column) >= uint64(len(*m.X)) {
 					return ErrBounds
 				}
-				rs[row] -= (*m.X)[c.Column] * c.Value
+				rs[row] -= float64((*m.X)[c.Column] * c.Value)
 			}
 		}
 	}
@@ -56,7 +56,7 @@ func (m *FloatCoreSolverBase) FindErrorInBxB(rs []float64) error {
 				if uint64(c.Column) >= uint64(len(*m.X)) {
 					return ErrBounds
 				}
-				rs[row] -= (*m.X)[c.Column] * c.Value
+				rs[row] -= float64((*m.X)[c.Column] * c.Value)
 			}
 		}
 	}
@@ -112,7 +112,7 @@ func (m *FloatCoreSolverBase) rowResidualIsOff(i uint32) (bool, error) {
 		return false, err
 	}
 	b := (*m.B)[i]
-	return math.Abs(b-dot) > m.Settings.RefactorTolerance*(1+0.1*math.Abs(b)), nil
+	return math.Abs(b-dot) > m.Settings.RefactorTolerance*(1+float64(0.1*math.Abs(b))), nil
 }
 func (m *FloatCoreSolverBase) AMultXIsOff() (bool, error) {
 	if sourceDebugEnabled && len(*m.X) != int(m.A.ColumnCount()) {
@@ -164,7 +164,7 @@ func (m *FloatCoreSolverBase) UpdateX(entering uint32, delta float64) error {
 			if uint64(i) >= uint64(len(m.Ed.Data)) {
 				return ErrBounds
 			}
-			(*m.X)[j] -= delta * m.Ed.Data[i]
+			(*m.X)[j] -= float64(delta * m.Ed.Data[i])
 		}
 	} else {
 		if uint64(entering) >= uint64(len(m.A.Columns)) {
@@ -183,7 +183,7 @@ func (m *FloatCoreSolverBase) UpdateX(entering uint32, delta float64) error {
 			if err != nil {
 				return err
 			}
-			(*m.X)[j] -= delta * v
+			(*m.X)[j] -= float64(delta * v)
 		}
 	}
 	return nil

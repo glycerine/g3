@@ -267,7 +267,8 @@ func (s *predicateSelection) Select(c *Clause) (uint32, error) {
 						if e = tabVerboseDoubles(2, weight, v); e != nil {
 							return 0, e
 						}
-						score += weight * v
+						// float64() rounds the product, blocking FMA contraction (match z3 bit for bit).
+						score += float64(weight * v)
 					}
 				}
 			}

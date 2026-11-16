@@ -177,7 +177,7 @@ func (m *FloatSparseMatrix) PivotRowToRow(pivot uint32, alpha *float64, target u
 		if v.Index == column {
 			continue
 		}
-		product := *alpha * v.Value
+		product := float64(*alpha * v.Value)
 		if uint64(v.Index) >= uint64(len(m.WorkPivot)) {
 			return false, ErrBounds
 		}

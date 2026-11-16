@@ -33,7 +33,7 @@ func (m *FloatSparseMatrix) SolveYUIndexed(y *IndexedFloatVector, s *Settings) e
 			if uint64(i) >= uint64(len(y.Data)) {
 				return ErrBounds
 			}
-			y.Data[j] -= y.Data[i] * v.Value
+			y.Data[j] -= float64(y.Data[i] * v.Value)
 		}
 	}
 	y.Index = y.Index[:0]
@@ -84,7 +84,7 @@ func (m *FloatSparseMatrix) SolveUYIndexed(y *IndexedFloatVector, s *Settings, a
 			if uint64(i) >= uint64(len(y.Data)) {
 				return ErrBounds
 			}
-			y.Data[i] -= v.Value * y.Data[j]
+			y.Data[i] -= float64(v.Value * y.Data[j])
 		}
 	}
 	y.Index = y.Index[:0]

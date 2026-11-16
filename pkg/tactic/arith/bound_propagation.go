@@ -142,7 +142,8 @@ func (s *BoundEquationStore) propagateEquation(index uint32) (bool, error) {
 					llFailed = true
 				}
 			} else {
-				ll -= a * llBound.approx
+				// float64() rounds the product, blocking FMA contraction (match z3 bit for bit).
+				ll -= float64(a * llBound.approx)
 			}
 		}
 		if !uuFailed {
@@ -153,7 +154,7 @@ func (s *BoundEquationStore) propagateEquation(index uint32) (bool, error) {
 					uuFailed = true
 				}
 			} else {
-				uu -= a * uuBound.approx
+				uu -= float64(a * uuBound.approx)
 			}
 		}
 		if llFailed && uuFailed {
@@ -183,19 +184,19 @@ func (s *BoundEquationStore) propagateEquation(index uint32) (bool, error) {
 			lowerBound, upperBound := v.lower, v.upper
 			if llPosition == -1 {
 				if a > 0 {
-					if err := try(i, (ll+a*upperBound.approx)/a, true); err != nil {
+					if err := try(i, (ll+float64(a*upperBound.approx))/a, true); err != nil {
 						return propagated, err
 					}
-				} else if err := try(i, (ll+a*lowerBound.approx)/a, false); err != nil {
+				} else if err := try(i, (ll+float64(a*lowerBound.approx))/a, false); err != nil {
 					return propagated, err
 				}
 			}
 			if uuPosition == -1 {
 				if a > 0 {
-					if err := try(i, (uu+a*lowerBound.approx)/a, false); err != nil {
+					if err := try(i, (uu+float64(a*lowerBound.approx))/a, false); err != nil {
 						return propagated, err
 					}
-				} else if err := try(i, (uu+a*upperBound.approx)/a, true); err != nil {
+				} else if err := try(i, (uu+float64(a*upperBound.approx))/a, true); err != nil {
 					return propagated, err
 				}
 			}

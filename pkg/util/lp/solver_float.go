@@ -246,7 +246,7 @@ func (m *FloatLPSolver) LowBoundShiftForRow(row uint32) (float64, error) {
 		if c == nil {
 			return sum, ErrBounds
 		}
-		sum += v * c.Shift()
+		sum += float64(v * c.Shift())
 	}
 	return sum, nil
 }
@@ -397,7 +397,7 @@ func (m *FloatLPSolver) ColumnValueFromCore(column uint32, coreX []float64) (flo
 	if uint64(j) >= uint64(len(coreX)) || uint64(j) >= uint64(len(m.ColumnScale)) {
 		return 0, ErrBounds
 	}
-	v := coreX[j] * m.ColumnScale[j]
+	v := float64(coreX[j] * m.ColumnScale[j])
 	if c.IsFree() {
 		return v, nil
 	}

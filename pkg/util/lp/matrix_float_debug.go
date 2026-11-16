@@ -29,7 +29,7 @@ func MultiplyFloatDebugMatrices(a, b FloatDebugMatrix) (*FloatDenseMatrix, error
 				if err != nil {
 					return result, err
 				}
-				value += x * y
+				value += float64(x * y)
 			}
 			if err = result.SetElement(i, j, value); err != nil {
 				return result, err

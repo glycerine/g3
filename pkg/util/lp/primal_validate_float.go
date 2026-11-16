@@ -66,7 +66,7 @@ func (m *FloatPrimalSimplex) GetRowValue(i uint32, solution map[string]float64, 
 				return ret, err
 			}
 		}
-		ret += a * value
+		ret += float64(a * value)
 	}
 	if out != nil {
 		if err := writeDriverLine(out, " = "+floatLPNumberText(ret)); err != nil {

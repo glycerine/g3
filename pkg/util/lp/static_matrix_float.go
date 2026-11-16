@@ -202,7 +202,7 @@ func (m *FloatStaticMatrix) AddColumnToVector(alpha float64, column uint32, v []
 		if err != nil {
 			return err
 		}
-		v[c.Row] += alpha * value
+		v[c.Row] += float64(alpha * value)
 	}
 	return nil
 }
@@ -222,7 +222,7 @@ func (m *FloatStaticMatrix) DotColumn(v []float64, column uint32) (float64, erro
 		if err != nil {
 			return result, err
 		}
-		result += v[c.Row] * value
+		result += float64(v[c.Row] * value)
 	}
 	return result, nil
 }
@@ -238,7 +238,7 @@ func (m *FloatStaticMatrix) DotRow(row uint32, v []float64) (float64, error) {
 		if uint64(c.Column) >= uint64(len(v)) {
 			return result, ErrBounds
 		}
-		result += v[c.Column] * c.Value
+		result += float64(v[c.Column] * c.Value)
 	}
 	return result, nil
 }
@@ -501,7 +501,7 @@ func (m *FloatStaticMatrix) PivotRowToRow(pivot uint32, c ColumnCell, pivotColum
 		if r.Column == pivotColumn {
 			continue
 		}
-		v := alpha * r.Value
+		v := float64(alpha * r.Value)
 		if r.Value == 0 {
 			if err = sourceAssertionFailure(); err != nil {
 				return false, err

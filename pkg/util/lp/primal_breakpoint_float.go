@@ -150,13 +150,13 @@ func (m *FloatPrimalCoreSolver) ChangeSlopeOnBreakpoint(entering uint32, b Float
 	if d == 0 {
 		return nil
 	}
-	delta := float64(m.SignOfEnteringDelta) * math.Abs(d)
+	delta := float64(float64(m.SignOfEnteringDelta) * math.Abs(d))
 	switch b.Type {
 	case BreakpointFixed:
 		if b.Delta == 0 {
 			*slope += delta
 		} else {
-			*slope += 2 * delta
+			*slope += float64(2 * delta)
 		}
 	case BreakpointLow, BreakpointUpper:
 		*slope += delta

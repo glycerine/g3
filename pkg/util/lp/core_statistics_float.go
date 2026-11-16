@@ -26,7 +26,7 @@ func (m *FloatCoreSolverBase) GetCost() (float64, error) {
 		if i >= len(*m.X) {
 			return cost, ErrBounds
 		}
-		cost += v * (*m.X)[i]
+		cost += float64(v * (*m.X)[i])
 	}
 	return cost, nil
 }
