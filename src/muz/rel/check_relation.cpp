@@ -154,6 +154,17 @@ namespace datalog {
     }
     check_relation_plugin::~check_relation_plugin() {
     }
+    // FORK FIX #106 (g3 audit, see FORK_BUGFIXES.md): relation_manager asks
+    // the plugin of either argument of a binary operation; with a relation of
+    // another plugin (a table_relation or a product_relation next to a
+    // check_relation) get() threw std::bad_cast out of the query and z3
+    // aborted. A check_relation operation applies only when every argument is
+    // a check_relation; otherwise the plugin offers none (nullptr) and
+    // relation_manager tries the other plugin and its defaults.
+    static bool is_checked(relation_base const* r) {
+        return !r || dynamic_cast<check_relation const*>(r) != nullptr;
+    }
+
     check_relation& check_relation_plugin::get(relation_base& r) {
         return dynamic_cast<check_relation&>(r);
     }
@@ -206,6 +217,7 @@ namespace datalog {
     relation_join_fn * check_relation_plugin::mk_join_fn(
         const relation_base & t1, const relation_base & t2,
         unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) {        
+        if (!is_checked(&t1) || !is_checked(&t2)) return nullptr; // FORK FIX #106
         relation_join_fn* j = m_base->mk_join_fn(get(t1).rb(), get(t2).rb(), col_cnt, cols1, cols2);
         return j?alloc(join_fn, j, t1.get_signature(), t2.get_signature(), col_cnt, cols1, cols2):nullptr;
     }
@@ -236,6 +248,7 @@ namespace datalog {
         const relation_base & t1, const relation_base & t2,
         unsigned col_cnt, const unsigned * cols1, const unsigned * cols2,
         unsigned removed_col_cnt, const unsigned * removed_cols) {        
+        if (!is_checked(&t1) || !is_checked(&t2)) return nullptr; // FORK FIX #106
         relation_join_fn* j = m_base->mk_join_project_fn(get(t1).rb(), get(t2).rb(), col_cnt, cols1, cols2,
                                                         removed_col_cnt, removed_cols);
         return j?alloc(join_project_fn, j, t1.get_signature(), t2.get_signature(), col_cnt, cols1, cols2,
@@ -508,6 +521,7 @@ namespace datalog {
     relation_union_fn * check_relation_plugin::mk_union_fn(
         const relation_base & tgt, const relation_base & src, 
         const relation_base * delta) {
+        if (!is_checked(&tgt) || !is_checked(&src) || !is_checked(delta)) return nullptr; // FORK FIX #106
         relation_base const* d1 = delta?(&(get(*delta).rb())):nullptr;
         relation_union_fn* u = m_base->mk_union_fn(get(tgt).rb(), get(src).rb(), d1);
         return u?alloc(union_fn, u):nullptr;
@@ -515,6 +529,7 @@ namespace datalog {
     relation_union_fn * check_relation_plugin::mk_widen_fn(
         const relation_base & tgt, const relation_base & src, 
         const relation_base * delta) {
+        if (!is_checked(&tgt) || !is_checked(&src) || !is_checked(delta)) return nullptr; // FORK FIX #106
         relation_base const* d1 = delta?(&(get(*delta).rb())):nullptr;
         relation_union_fn* u = m_base->mk_widen_fn(get(tgt).rb(), get(src).rb(), d1);
         return u?alloc(union_fn, u):nullptr;
@@ -699,6 +714,7 @@ namespace datalog {
         const relation_base& t,
         const relation_base& neg, unsigned joined_col_cnt, const unsigned *t_cols,
         const unsigned *negated_cols) {
+        if (!is_checked(&t) || !is_checked(&neg)) return nullptr; // FORK FIX #106
         relation_intersection_filter_fn* f = m_base->mk_filter_by_negation_fn(get(t).rb(), get(neg).rb(), joined_col_cnt, t_cols, negated_cols);
         return f?alloc(negation_filter_fn, f, joined_col_cnt, t_cols, negated_cols):nullptr;
     }
