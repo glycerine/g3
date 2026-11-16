@@ -104,8 +104,8 @@ func (m *MultivariatePolynomialCore) coefficientFieldCore(p Polynomial, i uint32
 	}
 	o := uint64(12) + uint64(i)*12
 	// readWord then read64, through one reader of the unchanging object.
-	rd, e := m.monomials.allocator.Reader(l.raw)
-	if e != nil {
+	var rd umemory.SmallObjectReader
+	if e := m.monomials.allocator.ReaderInto(l.raw, &rd); e != nil {
 		return unumeral.Int{}, e
 	}
 	v, e := rd.ReadUint32(o)
@@ -146,8 +146,8 @@ func (m *MultivariatePolynomialCore) monomialFieldCore(p Polynomial, i uint32) (
 	if e != nil {
 		return Monomial{}, e
 	}
-	rd, e := m.monomials.allocator.Reader(l.raw)
-	if e != nil {
+	var rd umemory.SmallObjectReader
+	if e := m.monomials.allocator.ReaderInto(l.raw, &rd); e != nil {
 		return Monomial{}, e
 	}
 	n, e := rd.ReadUint32(8)

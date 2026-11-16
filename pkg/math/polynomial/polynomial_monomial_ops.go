@@ -69,7 +69,7 @@ func (r *monomialInputReader) read32(offset uint64) (uint32, error) {
 	if !r.ready {
 		l, e := m.location(r.in.value)
 		if e == nil {
-			r.rd, e = m.allocator.Reader(l.raw)
+			e = m.allocator.ReaderInto(l.raw, &r.rd)
 		}
 		r.err, r.ready = e, true
 	}

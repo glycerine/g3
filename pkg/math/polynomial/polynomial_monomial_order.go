@@ -40,12 +40,12 @@ func (m *MonomialManager) orderPowerDegree(l *monomialLocation, i uint32) (uint3
 
 // orderReader is orderField's object lookup, made once for a run of reads
 // of one monomial (umemory.SmallObjectReader).
-func (m *MonomialManager) orderReader(a Monomial) (umemory.SmallObjectReader, error) {
+func (m *MonomialManager) orderReader(a Monomial, rd *umemory.SmallObjectReader) error {
 	l, e := m.location(a)
 	if e != nil {
-		return umemory.SmallObjectReader{}, e
+		return e
 	}
-	return m.allocator.Reader(l.raw)
+	return m.allocator.ReaderInto(l.raw, rd)
 }
 func orderPowerVarAt(r *umemory.SmallObjectReader, i uint32) (uint32, error) {
 	return r.ReadUint32(20 + uint64(i)*8)
@@ -64,16 +64,16 @@ func (m *MonomialManager) lexCore(a, b Monomial, minimum bool, minVar uint32) (i
 	if a == b {
 		return 0, nil
 	}
-	ra, e := m.orderReader(a)
-	if e != nil {
+	var ra umemory.SmallObjectReader
+	if e := m.orderReader(a, &ra); e != nil {
 		return 0, e
 	}
 	n1, e := ra.ReadUint32(12)
 	if e != nil {
 		return 0, e
 	}
-	rb, e := m.orderReader(b)
-	if e != nil {
+	var rb umemory.SmallObjectReader
+	if e := m.orderReader(b, &rb); e != nil {
 		return 0, e
 	}
 	n2, e := rb.ReadUint32(12)
@@ -202,16 +202,16 @@ func (m *MonomialManager) GradedLex(a, b Monomial) (int, error) {
 	if e := m.check(); e != nil {
 		return 0, e
 	}
-	ra, e := m.orderReader(a)
-	if e != nil {
+	var ra umemory.SmallObjectReader
+	if e := m.orderReader(a, &ra); e != nil {
 		return 0, e
 	}
 	d1, e := ra.ReadUint32(8)
 	if e != nil {
 		return 0, e
 	}
-	rb, e := m.orderReader(b)
-	if e != nil {
+	var rb umemory.SmallObjectReader
+	if e := m.orderReader(b, &rb); e != nil {
 		return 0, e
 	}
 	d2, e := rb.ReadUint32(8)
@@ -271,8 +271,8 @@ func (c *gradedLexMaxCursor) fast(x, y Monomial) (int, error) {
 		if m.check() != nil {
 			return m.GradedLex(x, y)
 		}
-		ry, e := m.orderReader(y)
-		if e != nil {
+		var ry umemory.SmallObjectReader
+		if e := m.orderReader(y, &ry); e != nil {
 			return m.GradedLex(x, y)
 		}
 		dy, e := ry.ReadUint32(8)
@@ -281,8 +281,8 @@ func (c *gradedLexMaxCursor) fast(x, y Monomial) (int, error) {
 		}
 		c.y, c.ry, c.dy, c.ok = y, ry, dy, true
 	}
-	rx, e := m.orderReader(x)
-	if e != nil {
+	var rx umemory.SmallObjectReader
+	if e := m.orderReader(x, &rx); e != nil {
 		return m.GradedLex(x, y)
 	}
 	dx, e := rx.ReadUint32(8)

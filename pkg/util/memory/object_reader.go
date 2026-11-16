@@ -30,32 +30,44 @@ type SmallObjectReader struct {
 // header failure is reported by the reads, after their requested bound, as
 // ReadUint32 orders it.
 func (a *SmallAllocator) Reader(ref ObjectRef) (SmallObjectReader, error) {
+	var r SmallObjectReader
+	e := a.ReaderInto(ref, &r)
+	return r, e
+}
+
+// ReaderInto is Reader writing the reader into *dst, which it leaves
+// unchanged when it returns an error (Reader then returns a zero reader).
+// It saves the by-value copies of the reader that Reader's callers make.
+func (a *SmallAllocator) ReaderInto(ref ObjectRef, dst *SmallObjectReader) error {
 	if e := a.open(); e != nil {
-		return SmallObjectReader{}, e
+		return e
 	}
 	loc, e := a.object(ref)
 	if e != nil {
-		return SmallObjectReader{}, e
+		return e
 	}
 	if objectReaderValidate {
-		return SmallObjectReader{allocator: a, ref: ref}, nil
+		*dst = SmallObjectReader{allocator: a, ref: ref}
+		return nil
 	}
-	r := SmallObjectReader{requested: loc.requested, offset: uint64(loc.offset)}
 	m := a.config.Runtime
 	b, e := m.block(loc.raw)
 	if e != nil {
-		r.blockErr = e
-		return r, nil
+		*dst = SmallObjectReader{requested: loc.requested, offset: uint64(loc.offset), blockErr: e}
+		return nil
 	}
 	n, e := m.headerRead(b)
 	if e != nil {
-		r.blockErr = e
-		return r, nil
+		*dst = SmallObjectReader{requested: loc.requested, offset: uint64(loc.offset), blockErr: e}
+		return nil
 	}
-	r.header = uint64(m.config.SizeTBits / 8)
-	r.extent = n - r.header
-	r.data, r.initialized = b.data, b.initialized
-	return r, nil
+	header := uint64(m.config.SizeTBits / 8)
+	// Every field, as the composite literal of Reader set them.
+	dst.data, dst.initialized = b.data, b.initialized
+	dst.requested, dst.offset = loc.requested, uint64(loc.offset)
+	dst.extent, dst.header = n-header, header
+	dst.blockErr, dst.allocator, dst.ref = nil, nil, ObjectRef{}
+	return nil
 }
 
 // ReadUint32 is SmallAllocator.ReadUint32(ref, offset) for the reader's ref.

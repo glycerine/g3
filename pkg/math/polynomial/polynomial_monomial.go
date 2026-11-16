@@ -342,8 +342,8 @@ func (m *MonomialManager) powerCore(a Monomial, i uint32) (MonomialPower, error)
 	if e := m.powerSourceIndexAssert(a, i); e != nil {
 		return out, e
 	}
-	rd, e := m.allocator.Reader(l.raw)
-	if e != nil {
+	var rd umemory.SmallObjectReader
+	if e := m.allocator.ReaderInto(l.raw, &rd); e != nil {
 		return out, e
 	}
 	out.Var, e = rd.ReadUint32(20 + uint64(i)*8)

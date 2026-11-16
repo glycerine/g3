@@ -117,11 +117,10 @@ func (r *monomialKeyReader) word(m *MonomialManager, word uint32) (uint32, error
 		if !l.live {
 			return 0, ErrMonomialOwner
 		}
-		rd, e := m.allocator.Reader(l.raw)
-		if e != nil {
+		if e := m.allocator.ReaderInto(l.raw, &r.rd); e != nil {
 			return 0, e
 		}
-		r.rd, r.ready = rd, true
+		r.ready = true
 	}
 	return r.rd.ReadUint32(uint64(word) * 4)
 }
