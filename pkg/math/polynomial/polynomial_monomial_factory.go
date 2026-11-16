@@ -160,15 +160,12 @@ func (m *MonomialManager) internSourceTempCreated(t *monomialTemp, key monomialK
 	if _, e := m.tempHash(t); e != nil {
 		return Monomial{}, e
 	}
-	pos, inserted, e := m.table.insert(m, key)
+	pos, old, inserted, e := m.table.insertFound(m, key)
 	if e != nil {
 		return Monomial{}, e
 	}
 	if !inserted {
-		old, e := m.table.key(pos)
-		if e != nil {
-			return Monomial{}, e
-		}
+		// old is m.table.key(pos): the entry insertFound just found.
 		if old.kind != monomialObjectKey || old.slot == 0 || uint64(old.slot) > uint64(len(m.locations)) {
 			return Monomial{}, ErrMonomialPending
 		}

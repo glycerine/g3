@@ -79,3 +79,27 @@ func (r *SmallObjectReader) ReadUint32(offset uint64) (uint32, error) {
 	}
 	return binary.LittleEndian.Uint32(r.data[at : at+4]), nil
 }
+
+// Bytes returns the n bytes at offset when ReadUint32 would succeed for every
+// word in [offset, offset+n), so a caller can compare those words in place.
+// Otherwise ok is false (always in checked and debug builds, whose reads go
+// through SmallAllocator.ReadUint32), and the caller reads word by word to get
+// ReadUint32's exact results and error order. n must be a positive multiple
+// of 4.
+func (r *SmallObjectReader) Bytes(offset, n uint64) (b []byte, ok bool) {
+	if objectReaderValidate || n == 0 || n%4 != 0 {
+		return nil, false
+	}
+	if offset > r.requested || r.requested-offset < n || r.blockErr != nil {
+		return nil, false
+	}
+	o := r.offset + offset
+	if o > r.extent || r.extent-o < n {
+		return nil, false
+	}
+	at := r.header + o
+	if !initializedRangeSet(r.initialized, at, n) {
+		return nil, false
+	}
+	return r.data[at : at+n], true
+}

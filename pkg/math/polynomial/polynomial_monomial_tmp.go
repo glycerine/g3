@@ -178,13 +178,57 @@ func (m *MonomialManager) tempHash(t *monomialTemp) (uint32, error) {
 	if uint64(t.size) > uint64(len(t.powers)) {
 		return 0, arena.ErrBounds
 	}
-	t.hash = uhash.WordReader(t.size*8, 11, func(i uint32) uint32 {
-		p := t.powers[i/2]
-		if i%2 == 0 {
-			return p.Var
+	t.hash = monomialPowersHash(t.powers, t.size*8, 11)
+	if polynomialValidateOwnership {
+		if h := uhash.WordReader(t.size*8, 11, func(i uint32) uint32 {
+			p := t.powers[i/2]
+			if i%2 == 0 {
+				return p.Var
+			}
+			return p.Degree
+		}); h != t.hash {
+			panic("polynomial: monomialPowersHash differs from hash.WordReader")
 		}
-		return p.Degree
-	})
+	}
 	return t.hash, nil
+}
+
+// monomialPowerWord is word w of the sequence Var0, Degree0, Var1, ...
+func monomialPowerWord(p []MonomialPower, w uint32) uint32 {
+	if w%2 == 0 {
+		return p[w/2].Var
+	}
+	return p[w/2].Degree
+}
+
+// monomialPowersHash is uhash.WordReader(n, init, word) for word w =
+// monomialPowerWord(p, w): the same source string_hash steps over the
+// little-endian bytes of those words (signed-char tail included), without
+// two closure calls per word. Checked builds compare it with WordReader.
+func monomialPowersHash(p []MonomialPower, n, init uint32) uint32 {
+	a, b, c := uint32(0x9e3779b9), uint32(0x9e3779b9), init
+	i := uint32(0)
+	for n-i >= 12 {
+		w := i / 4
+		a += monomialPowerWord(p, w)
+		b += monomialPowerWord(p, w+1)
+		c += monomialPowerWord(p, w+2)
+		a, b, c = uhash.MixState(a, b, c)
+		i += 12
+	}
+	c += n
+	for j := uint32(0); j < n-i; j++ {
+		k := i + j
+		v := uint32(int32(int8(byte(monomialPowerWord(p, k/4) >> (8 * (k % 4))))))
+		switch {
+		case j < 4:
+			a += v << (j * 8)
+		case j < 8:
+			b += v << ((j - 4) * 8)
+		default:
+			c += v << ((j - 8 + 1) * 8)
+		}
+	}
+	return uhash.Mix(a, b, c)
 }
 func (m *MonomialManager) tempCleanup(t *monomialTemp) error { *t = monomialTemp{}; return nil }

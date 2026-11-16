@@ -3,6 +3,8 @@ package polynomial
 // Source: src/math/polynomial/polynomial.cpp; src/math/polynomial/polynomial.h.
 
 import (
+	"encoding/binary"
+
 	"github.com/glycerine/g3/pkg/arena"
 	umemory "github.com/glycerine/g3/pkg/util/memory"
 	"github.com/glycerine/insdict"
@@ -70,6 +72,11 @@ func (t *monomialTable) equal(m *MonomialManager, a, b monomialKey) (bool, error
 		return false, nil
 	}
 	// Source deliberately excludes total_degree: temporary values do not update it.
+	if !polynomialSourceDebug {
+		if same, ok := equalObjectTempPowers(m, &ra, &rb, na); ok {
+			return same, nil
+		}
+	}
 	for i := uint32(0); i < na; i++ {
 		pa, e := ra.power(m, i)
 		if e != nil {
@@ -143,20 +150,23 @@ func (t *monomialTable) find(m *MonomialManager, k monomialKey) (uint32, bool, e
 	if e != nil {
 		return 0, false, e
 	}
-	return t.findHashed(m, k, h)
+	id, _, found, e := t.findHashed(m, k, h)
+	return id, found, e
 }
-func (t *monomialTable) findHashed(m *MonomialManager, k monomialKey, h uint32) (uint32, bool, error) {
+
+// findHashed also returns the found entry's key (what key(id) returns).
+func (t *monomialTable) findHashed(m *MonomialManager, k monomialKey, h uint32) (uint32, monomialKey, bool, error) {
 	for _, id := range t.buckets[h] {
 		entry := t.entries.Get(id)
 		same, e := t.equal(m, entry.key, k)
 		if e != nil {
-			return 0, false, e
+			return 0, monomialKey{}, false, e
 		}
 		if same {
-			return id, true, nil
+			return id, entry.key, true, nil
 		}
 	}
-	return 0, false, nil
+	return 0, monomialKey{}, false, nil
 }
 
 // Source monomial_manager::rename uses chashtable::insert, which replaces an
@@ -170,16 +180,23 @@ func (t *monomialTable) insertRenamed(m *MonomialManager, k monomialKey) error {
 }
 
 func (t *monomialTable) insert(m *MonomialManager, k monomialKey) (uint32, bool, error) {
+	id, _, inserted, e := t.insertFound(m, k)
+	return id, inserted, e
+}
+
+// insertFound is insert that also returns, when k was already present, the
+// present entry's key, so the caller need not look it up again with key.
+func (t *monomialTable) insertFound(m *MonomialManager, k monomialKey) (uint32, monomialKey, bool, error) {
 	h, e := m.keyWord(k, 4)
 	if e != nil {
-		return 0, false, e
+		return 0, monomialKey{}, false, e
 	}
-	id, found, e := t.findHashed(m, k, h)
+	id, old, found, e := t.findHashed(m, k, h)
 	if e != nil || found {
-		return id, false, e
+		return id, old, false, e
 	}
 	if t.nextID == ^uint32(0) {
-		return 0, false, arena.ErrSlotLimit
+		return 0, monomialKey{}, false, arena.ErrSlotLimit
 	}
 	id = t.nextID
 	t.nextID++
@@ -188,7 +205,7 @@ func (t *monomialTable) insert(m *MonomialManager, k monomialKey) (uint32, bool,
 	}
 	t.entries.Set(id, monomialTableEntry{k, h})
 	t.buckets[h] = append(t.buckets[h], id)
-	return id, true, nil
+	return id, monomialKey{}, true, nil
 }
 func (t *monomialTable) removeID(id uint32) {
 	entry, ok := t.entries.Get2(id)
@@ -232,3 +249,48 @@ func (t *monomialTable) removeToken(k monomialKey) {
 	}
 }
 func (t *monomialTable) cleanup() { *t = monomialTable{} }
+
+// equalObjectTempPowers is equal's power loop for an object key against a
+// temporary key (interning's lookup), when it cannot fail: the object's
+// power words are all readable (SmallObjectReader.Bytes) and the temporary
+// holds na powers. The loop's object reads are then plain reads (their
+// index assertion is off without polynomialSourceDebug) and the
+// temporary's are slice reads, so comparing in place gives the loop's
+// result. ok is false otherwise, and equal runs its loop.
+func equalObjectTempPowers(m *MonomialManager, ra, rb *monomialKeyReader, na uint32) (same, ok bool) {
+	if ra.k.kind != monomialObjectKey {
+		ra, rb = rb, ra
+	}
+	if ra.k.kind != monomialObjectKey || !ra.ready || na == 0 {
+		return false, false
+	}
+	var t *monomialTemp
+	switch k := rb.k; k.kind {
+	case monomialTemporaryKey:
+		if k.slot >= uint32(len(m.temps)) {
+			return false, false
+		}
+		t = &m.temps[k.slot]
+	case monomialBorrowedTemporaryKey:
+		if m.borrowedTemp == nil || k.slot != 0 {
+			return false, false
+		}
+		t = m.borrowedTemp
+	default:
+		return false, false
+	}
+	if t.powers == nil || na > t.capacity || uint64(na) > uint64(len(t.powers)) {
+		return false, false
+	}
+	b, ok := ra.rd.Bytes(20, uint64(na)*8)
+	if !ok {
+		return false, false
+	}
+	for i, p := range t.powers[:na] {
+		w := b[8*i : 8*i+8]
+		if binary.LittleEndian.Uint32(w) != p.Var || binary.LittleEndian.Uint32(w[4:]) != p.Degree {
+			return false, true
+		}
+	}
+	return true, true
+}
