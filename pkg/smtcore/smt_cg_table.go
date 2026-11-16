@@ -128,8 +128,13 @@ type SMTCongruenceTable struct {
 	tables       map[ast.ASTHandle]*smtCongruenceBucket
 	buckets      []*smtCongruenceBucket // by enode functionDeclID, to skip the map
 	declarations []ast.ASTHandle
-	resetIndex   int
-	closed       bool
+	// declarationOrder is m_func_decl2id (obj_map<func_decl, unsigned>),
+	// whose table order reset() releases the declarations in;
+	// resetOrder and resetIndex resume a refused release.
+	declarationOrder *ast.ObjMap
+	resetOrder       []ast.ASTHandle
+	resetIndex       int
+	closed           bool
 }
 
 func NewSMTCongruenceTable(manager *ast.ASTManager) (*SMTCongruenceTable, error) {
@@ -184,6 +189,12 @@ func (t *SMTCongruenceTable) ensureTable(node *SMTEnode) (*smtCongruenceBucket, 
 	}
 	node.functionDeclID = uint32(len(t.declarations))
 	t.declarations = append(t.declarations, node.declaration)
+	if t.declarationOrder == nil {
+		t.declarationOrder = ast.NewObjMap(t.manager)
+	}
+	if err := t.declarationOrder.InsertNum(node.declaration, uint64(node.functionDeclID)); err != nil {
+		return nil, err
+	}
 	bucket := &smtCongruenceBucket{
 		id: node.functionDeclID, declaration: node.declaration,
 		small: make(map[[2]*SMTEnode]*SMTEnode), wide: make(map[smtCongruenceKey][]*SMTEnode),
@@ -262,20 +273,25 @@ func (t *SMTCongruenceTable) Reset() error {
 	if err := t.open(); err != nil {
 		return err
 	}
-	if t.resetIndex == 0 {
-		t.resetIndex = len(t.declarations)
+	// for (it2 : m_func_decl2id) m_manager.dec_ref(it2->m_key), in table order.
+	if t.resetOrder == nil && t.declarationOrder != nil {
+		for _, entry := range t.declarationOrder.Entries() {
+			t.resetOrder = append(t.resetOrder, entry.Key)
+		}
+		t.resetIndex = 0
 	}
-	for t.resetIndex > 0 {
-		i := t.resetIndex - 1
-		handle := t.declarations[i]
-		consumed, err := t.manager.DecRefConsumed(handle)
+	for t.resetIndex < len(t.resetOrder) {
+		consumed, err := t.manager.DecRefConsumed(t.resetOrder[t.resetIndex])
 		if consumed {
-			t.declarations[i] = ast.ASTHandle{}
-			t.resetIndex--
+			t.resetIndex++
 		}
 		if err != nil {
 			return err
 		}
+	}
+	t.resetOrder, t.resetIndex = nil, 0
+	if t.declarationOrder != nil {
+		t.declarationOrder.Reset()
 	}
 	t.declarations, t.buckets = nil, nil
 	t.tables = make(map[ast.ASTHandle]*smtCongruenceBucket)
