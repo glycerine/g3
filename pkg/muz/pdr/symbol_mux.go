@@ -883,16 +883,17 @@ func (m *SymbolMux) Close() error {
 		return ErrSymbolMuxOwner
 	}
 	m.closing = true
+	// ~sym_mux: m_ref_holder (an ast_ref_vector) releases front to back.
 	for len(m.references) != 0 {
-		index := len(m.references) - 1
-		err := m.manager.DelRef(&m.references[index])
-		if m.references[index] == (ast.ASTRef{}) {
-			m.references = m.references[:index]
+		before := len(m.references)
+		err := m.manager.DelRef(&m.references[0])
+		if m.references[0] == (ast.ASTRef{}) {
+			m.references = m.references[1:]
 		}
 		if err != nil {
 			return fmt.Errorf("%w: %w", ErrSymbolMuxOwner, err)
 		}
-		if len(m.references) != index {
+		if len(m.references) != before-1 {
 			return fmt.Errorf("%w: %w", ErrSymbolMuxOwner, ast.ErrASTPending)
 		}
 	}

@@ -752,7 +752,8 @@ func (m *SymMux) Close() (result error) {
 	if m.closed {
 		return nil
 	}
-	for index := len(m.references) - 1; index >= 0; index-- {
+	// ~sym_mux: m_ref_holder (an ast_ref_vector) releases front to back.
+	for index := range m.references {
 		result = errors.Join(result, m.manager.DelRef(&m.references[index]))
 	}
 	if result == nil {
