@@ -4,6 +4,7 @@ package polynomial
 
 import (
 	"github.com/glycerine/g3/pkg/arena"
+	umemory "github.com/glycerine/g3/pkg/util/memory"
 )
 
 // These scalar reads follow polynomial.cpp's comparator field order. They do
@@ -34,6 +35,22 @@ func (m *MonomialManager) orderPowerVar(l *monomialLocation, i uint32) (uint32, 
 func (m *MonomialManager) orderPowerDegree(l *monomialLocation, i uint32) (uint32, error) {
 	return m.allocator.ReadUint32(l.raw, 24+uint64(i)*8)
 }
+
+// orderReader is orderField's object lookup, made once for a run of reads
+// of one monomial (umemory.SmallObjectReader).
+func (m *MonomialManager) orderReader(a Monomial) (umemory.SmallObjectReader, error) {
+	l, e := m.location(a)
+	if e != nil {
+		return umemory.SmallObjectReader{}, e
+	}
+	return m.allocator.Reader(l.raw)
+}
+func orderPowerVarAt(r *umemory.SmallObjectReader, i uint32) (uint32, error) {
+	return r.ReadUint32(20 + uint64(i)*8)
+}
+func orderPowerDegreeAt(r *umemory.SmallObjectReader, i uint32) (uint32, error) {
+	return r.ReadUint32(24 + uint64(i)*8)
+}
 func orderSignedIndex(n uint32) (int32, error) {
 	s := int32(n)
 	if s == -2147483648 {
@@ -45,14 +62,28 @@ func (m *MonomialManager) lexCore(a, b Monomial, minimum bool, minVar uint32) (i
 	if a == b {
 		return 0, nil
 	}
-	n1, e := m.orderField(a, 12)
+	ra, e := m.orderReader(a)
 	if e != nil {
 		return 0, e
 	}
-	n2, e := m.orderField(b, 12)
+	n1, e := ra.ReadUint32(12)
 	if e != nil {
 		return 0, e
 	}
+	rb, e := m.orderReader(b)
+	if e != nil {
+		return 0, e
+	}
+	n2, e := rb.ReadUint32(12)
+	if e != nil {
+		return 0, e
+	}
+	return m.lexReaders(a, b, &ra, &rb, n1, n2, minimum, minVar)
+}
+
+// lexReaders is lexCore after its size reads, reading both monomials'
+// powers through the readers of their (unchanging) objects.
+func (m *MonomialManager) lexReaders(a, b Monomial, ra, rb *umemory.SmallObjectReader, n1, n2 uint32, minimum bool, minVar uint32) (int, error) {
 	i, e := orderSignedIndex(n1)
 	if e != nil {
 		return 0, e
@@ -63,30 +94,30 @@ func (m *MonomialManager) lexCore(a, b Monomial, minimum bool, minVar uint32) (i
 	}
 	var d1, d2 uint32
 	for i >= 0 && j >= 0 {
-		p, e := m.orderPowerLocation(a, uint32(i))
+		_, e := m.orderPowerLocation(a, uint32(i))
 		if e != nil {
 			return 0, e
 		}
-		q, e := m.orderPowerLocation(b, uint32(j))
+		_, e = m.orderPowerLocation(b, uint32(j))
 		if e != nil {
 			return 0, e
 		}
-		v1, e := m.orderPowerVar(p, uint32(i))
+		v1, e := orderPowerVarAt(ra, uint32(i))
 		if e != nil {
 			return 0, e
 		}
 		if minimum && v1 == minVar {
-			d1, e = m.orderPowerDegree(p, uint32(i))
+			d1, e = orderPowerDegreeAt(ra, uint32(i))
 			if e != nil {
 				return 0, e
 			}
 			i--
-			v2, e := m.orderPowerVar(q, uint32(j))
+			v2, e := orderPowerVarAt(rb, uint32(j))
 			if e != nil {
 				return 0, e
 			}
 			if v2 == minVar {
-				d2, e = m.orderPowerDegree(q, uint32(j))
+				d2, e = orderPowerDegreeAt(rb, uint32(j))
 				if e != nil {
 					return 0, e
 				}
@@ -94,12 +125,12 @@ func (m *MonomialManager) lexCore(a, b Monomial, minimum bool, minVar uint32) (i
 			}
 			continue
 		}
-		v2, e := m.orderPowerVar(q, uint32(j))
+		v2, e := orderPowerVarAt(rb, uint32(j))
 		if e != nil {
 			return 0, e
 		}
 		if minimum && v2 == minVar {
-			d2, e = m.orderPowerDegree(q, uint32(j))
+			d2, e = orderPowerDegreeAt(rb, uint32(j))
 			if e != nil {
 				return 0, e
 			}
@@ -107,11 +138,11 @@ func (m *MonomialManager) lexCore(a, b Monomial, minimum bool, minVar uint32) (i
 			continue
 		}
 		if v1 == v2 {
-			x, e := m.orderPowerDegree(p, uint32(i))
+			x, e := orderPowerDegreeAt(ra, uint32(i))
 			if e != nil {
 				return 0, e
 			}
-			y, e := m.orderPowerDegree(q, uint32(j))
+			y, e := orderPowerDegreeAt(rb, uint32(j))
 			if e != nil {
 				return 0, e
 			}
@@ -169,16 +200,36 @@ func (m *MonomialManager) GradedLex(a, b Monomial) (int, error) {
 	if e := m.check(); e != nil {
 		return 0, e
 	}
-	d1, e := m.orderField(a, 8)
+	ra, e := m.orderReader(a)
 	if e != nil {
 		return 0, e
 	}
-	d2, e := m.orderField(b, 8)
+	d1, e := ra.ReadUint32(8)
+	if e != nil {
+		return 0, e
+	}
+	rb, e := m.orderReader(b)
+	if e != nil {
+		return 0, e
+	}
+	d2, e := rb.ReadUint32(8)
 	if e != nil {
 		return 0, e
 	}
 	if d1 == d2 {
-		return m.lexCore(a, b, false, 0)
+		// lexCore, reusing the readers: nothing changes either object.
+		if a == b {
+			return 0, nil
+		}
+		n1, e := ra.ReadUint32(12)
+		if e != nil {
+			return 0, e
+		}
+		n2, e := rb.ReadUint32(12)
+		if e != nil {
+			return 0, e
+		}
+		return m.lexReaders(a, b, &ra, &rb, n1, n2, false, 0)
 	}
 	if d1 < d2 {
 		return -1, nil

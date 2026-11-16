@@ -4,6 +4,7 @@ package polynomial
 
 import (
 	"github.com/glycerine/g3/pkg/arena"
+	umemory "github.com/glycerine/g3/pkg/util/memory"
 	"github.com/glycerine/insdict"
 )
 
@@ -45,22 +46,23 @@ func (t *monomialTable) setKey(i uint32, k monomialKey) error {
 	return nil
 }
 func (t *monomialTable) equal(m *MonomialManager, a, b monomialKey) (bool, error) {
-	na, e := m.keyWord(a, 3)
+	ra, rb := monomialKeyReader{k: a}, monomialKeyReader{k: b}
+	na, e := ra.word(m, 3)
 	if e != nil {
 		return false, e
 	}
-	nb, e := m.keyWord(b, 3)
+	nb, e := rb.word(m, 3)
 	if e != nil {
 		return false, e
 	}
 	if na != nb {
 		return false, nil
 	}
-	ha, e := m.keyWord(a, 4)
+	ha, e := ra.word(m, 4)
 	if e != nil {
 		return false, e
 	}
-	hb, e := m.keyWord(b, 4)
+	hb, e := rb.word(m, 4)
 	if e != nil {
 		return false, e
 	}
@@ -69,11 +71,11 @@ func (t *monomialTable) equal(m *MonomialManager, a, b monomialKey) (bool, error
 	}
 	// Source deliberately excludes total_degree: temporary values do not update it.
 	for i := uint32(0); i < na; i++ {
-		pa, e := m.keyPower(a, i)
+		pa, e := ra.power(m, i)
 		if e != nil {
 			return false, e
 		}
-		pb, e := m.keyPower(b, i)
+		pb, e := rb.power(m, i)
 		if e != nil {
 			return false, e
 		}
@@ -82,6 +84,58 @@ func (t *monomialTable) equal(m *MonomialManager, a, b monomialKey) (bool, error
 		}
 	}
 	return true, nil
+}
+
+// monomialKeyReader is keyWord/keyPower for one key. An object key's
+// checks and allocator object lookup are made once, at its first read, and
+// later reads go through one reader of the object, which nothing changes
+// while equal runs (temporary keys never touch the allocator).
+type monomialKeyReader struct {
+	k     monomialKey
+	rd    umemory.SmallObjectReader
+	ready bool
+}
+
+func (r *monomialKeyReader) word(m *MonomialManager, word uint32) (uint32, error) {
+	k := r.k
+	if k.kind != monomialObjectKey {
+		return m.keyWord(k, word)
+	}
+	if !r.ready {
+		// keyWord's object-key tests, then ReadUint32's object lookup.
+		if k.slot == 0 || uint64(k.slot) > uint64(len(m.locations)) {
+			return 0, ErrMonomialOwner
+		}
+		l := &m.locations[k.slot-1]
+		if !l.live {
+			return 0, ErrMonomialOwner
+		}
+		rd, e := m.allocator.Reader(l.raw)
+		if e != nil {
+			return 0, e
+		}
+		r.rd, r.ready = rd, true
+	}
+	return r.rd.ReadUint32(uint64(word) * 4)
+}
+func (r *monomialKeyReader) power(m *MonomialManager, index uint32) (MonomialPower, error) {
+	k := r.k
+	if k.kind != monomialObjectKey || !r.ready {
+		return m.keyPower(k, index)
+	}
+	// keyPower -> powerCore: the key and location tests already passed at
+	// the first word read and nothing changed them since.
+	if e := m.powerSourceIndexAssert(Monomial{m.origin, k.slot, m.locations[k.slot-1].generation}, index); e != nil {
+		return MonomialPower{}, e
+	}
+	var out MonomialPower
+	var e error
+	out.Var, e = r.rd.ReadUint32(20 + uint64(index)*8)
+	if e != nil {
+		return out, e
+	}
+	out.Degree, e = r.rd.ReadUint32(24 + uint64(index)*8)
+	return out, e
 }
 
 func (t *monomialTable) find(m *MonomialManager, k monomialKey) (uint32, bool, error) {

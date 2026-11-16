@@ -342,11 +342,15 @@ func (m *MonomialManager) powerCore(a Monomial, i uint32) (MonomialPower, error)
 	if e := m.powerSourceIndexAssert(a, i); e != nil {
 		return out, e
 	}
-	out.Var, e = m.allocator.ReadUint32(l.raw, 20+uint64(i)*8)
+	rd, e := m.allocator.Reader(l.raw)
 	if e != nil {
 		return out, e
 	}
-	out.Degree, e = m.allocator.ReadUint32(l.raw, 24+uint64(i)*8)
+	out.Var, e = rd.ReadUint32(20 + uint64(i)*8)
+	if e != nil {
+		return out, e
+	}
+	out.Degree, e = rd.ReadUint32(24 + uint64(i)*8)
 	return out, e
 }
 func (m *MonomialManager) powerIndexGuard(n, i uint32) error {

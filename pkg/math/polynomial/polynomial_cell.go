@@ -103,12 +103,28 @@ func (m *MultivariatePolynomialCore) coefficientFieldCore(p Polynomial, i uint32
 		return unumeral.Int{}, ErrPolynomialPartial
 	}
 	o := uint64(12) + uint64(i)*12
-	v, e := m.readWord(p, o)
+	// readWord then read64, through one reader of the unchanging object.
+	rd, e := m.monomials.allocator.Reader(l.raw)
 	if e != nil {
 		return unumeral.Int{}, e
 	}
-	r, e := m.read64(p, o+4)
+	v, e := rd.ReadUint32(o)
+	if e != nil {
+		return unumeral.Int{}, e
+	}
+	r, e := readerWord64(&rd, o+4)
 	return unumeral.IntFromNativeWords([3]uint32{uint32(v), uint32(r), uint32(uint64(r) >> 32)}), e
+}
+
+// readerWord64 is read64 through a reader: the low word's error alone, or
+// both words with the high word's error.
+func readerWord64(rd *umemory.SmallObjectReader, o uint64) (uint64, error) {
+	lo, e := rd.ReadUint32(o)
+	if e != nil {
+		return 0, e
+	}
+	hi, e := rd.ReadUint32(o + 4)
+	return uint64(lo) | uint64(hi)<<32, e
 }
 func (m *MultivariatePolynomialCore) writeCoefficient(p Polynomial, i uint32, a unumeral.Int) error {
 	o := uint64(12) + uint64(i)*12
@@ -124,11 +140,17 @@ func (m *MultivariatePolynomialCore) monomialCore(p Polynomial, i uint32) (Monom
 	return m.monomialFieldCore(p, i)
 }
 func (m *MultivariatePolynomialCore) monomialFieldCore(p Polynomial, i uint32) (Monomial, error) {
-	n, e := m.readWord(p, 8)
+	// The readWord/read64 sequence below, through one reader of the
+	// unchanging object (the location lookup is repeated by each readWord).
+	l, e := m.polynomialLocation(p)
 	if e != nil {
 		return Monomial{}, e
 	}
-	l, e := m.polynomialLocation(p)
+	rd, e := m.monomials.allocator.Reader(l.raw)
+	if e != nil {
+		return Monomial{}, e
+	}
+	n, e := rd.ReadUint32(8)
 	if e != nil {
 		return Monomial{}, e
 	}
@@ -136,15 +158,15 @@ func (m *MultivariatePolynomialCore) monomialFieldCore(p Polynomial, i uint32) (
 		return Monomial{}, ErrPolynomialPartial
 	}
 	o := uint64(12) + uint64(n)*12 + uint64(i)*16
-	r, e := m.read64(p, o)
+	r, e := readerWord64(&rd, o)
 	if e != nil {
 		return Monomial{}, e
 	}
-	s, e := m.readWord(p, o+8)
+	s, e := rd.ReadUint32(o + 8)
 	if e != nil {
 		return Monomial{}, e
 	}
-	g, e := m.readWord(p, o+12)
+	g, e := rd.ReadUint32(o + 12)
 	return Monomial{owner: r, slot: s, generation: g}, e
 }
 func (m *MultivariatePolynomialCore) writeMonomial(p Polynomial, i uint32, a Monomial) error {
