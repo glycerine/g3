@@ -151,6 +151,12 @@ func (m *Runtime) CopyUint32s(dst Block, dstOffset uint64, src Block, srcOffset 
 // initialized, testing up to 64 bits per bitmap word instead of one bit per
 // byte. Same answer as the per-byte loop it replaces.
 func initializedRangeSet(bits []uint64, from, n uint64) bool {
+	// A range inside one bitmap word is one masked test (the loop below
+	// does the same test in its single iteration).
+	if off := from % 64; n > 0 && n < 64 && off+n <= 64 {
+		mask := (uint64(1)<<n - 1) << off
+		return bits[from/64]&mask == mask
+	}
 	for n > 0 {
 		w, off := from/64, from%64
 		k := 64 - off

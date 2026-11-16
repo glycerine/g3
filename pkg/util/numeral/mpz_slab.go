@@ -165,6 +165,9 @@ func (s *numericCellSlab) recordPtr(slot arena.Slot) *NumericCell {
 	return &s.pages[p].records[i]
 }
 func (s *numericCellSlab) Read(slot arena.Slot) (NumericCell, error) {
+	if r := s.recordPtr(slot); r != nil { // live: one lookup
+		return *r, nil
+	}
 	var zero NumericCell
 	if s.closed {
 		return zero, arena.ErrClosed
@@ -177,6 +180,10 @@ func (s *numericCellSlab) Read(slot arena.Slot) (NumericCell, error) {
 	return s.pages[p].records[i], nil
 }
 func (s *numericCellSlab) Write(slot arena.Slot, value NumericCell) error {
+	if r := s.recordPtr(slot); r != nil { // live: one lookup
+		*r = value
+		return nil
+	}
 	if s.closed {
 		return arena.ErrClosed
 	}

@@ -57,6 +57,11 @@ func allocateSourceCellWithOutcome(a *umemory.SmallAllocator, capacity uint32, o
 	if e = a.AttachWords(object, sourceCellDigitWords(c.extent)); e != nil {
 		return c, e
 	}
+	if !numericValidateCells && c.Offset <= ^uint64(0)-4 {
+		// c.Raw, c.Offset and c.extent were just read from the live object,
+		// so writeWord's location revalidation would return them unchanged.
+		return c, c.writeHeaderUnchecked(a, 4, capacity) // allocate() initializes capacity ONLY
+	}
 	return c, c.writeWord(a, 4, capacity) // allocate() initializes capacity ONLY
 }
 
