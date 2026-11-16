@@ -341,6 +341,13 @@ Abstract:
                                   no bool var (or a freed term) and
                                   segfaults (fork fix, AST-id fidelity
                                   audit 2026-11-16).
+    z3_4_7_1_str_regex_unroll_tries with smt.str.regex_automata=false,
+                                  gen_unroll_conditional_options reads
+                                  unroll_tries_map[var] through
+                                  obj_map::operator[], which is find() and
+                                  never inserts: the first unroll of a
+                                  regex membership segfaults (fork fix,
+                                  AST-id fidelity audit 2026-11-16).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -3705,4 +3712,20 @@ void tst_z3_4_7_1_str_regex_pop() {
         "(check-sat)\n"
         "(pop)\n";
     expect_script_output("str_regex_pop", script, "sat\nsat\nsat\n");
+}
+
+// z3str3's legacy (non-automata) regex solver keeps its unroll testers in
+// obj_map<expr, std::map<str_expr_set, ptr_vector<expr> > > unroll_tries_map
+// and reads it with unroll_tries_map[var][unrolls]. obj_map::operator[] is
+// find(): it never inserts, and nothing else adds var, so the release build
+// dereferences a null entry on the first unroll and z3 4.7.1 segfaults on
+// any satisfiable membership that needs an unroll.
+void tst_z3_4_7_1_str_regex_unroll_tries() {
+    char const* script =
+        "(set-option :smt.string_solver z3str3)\n"
+        "(set-option :smt.str.regex_automata false)\n"
+        "(declare-const x String)\n"
+        "(assert (str.in.re x (re.+ (str.to.re \"a\"))))\n"
+        "(check-sat)\n";
+    expect_script_output("str_regex_unroll_tries", script, "sat\n");
 }
