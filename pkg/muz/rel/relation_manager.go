@@ -49,6 +49,10 @@ type RelationManager struct {
 	// placeholders holds the predicates whose table the source has not
 	// created yet (relation_manager_placeholder.go).
 	placeholders map[ast.ASTHandle]bool
+	// deferRelationCreation: relations made for a placeholder defer the
+	// observable part of mk_empty (external_relation's OP_RA_EMPTY) until
+	// get_relation creates the relation (completeRelationCreation).
+	deferRelationCreation bool
 
 	// relationPlugins is m_relation_plugins past the table_relation
 	// plugins; favouriteRelation is m_favourite_relation_plugin when it is

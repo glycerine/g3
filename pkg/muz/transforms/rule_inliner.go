@@ -21,6 +21,7 @@ type RuleInlinerPlugin struct {
 	rules         *base.RuleManager
 	protected     map[ast.ASTHandle]bool
 	facts         map[ast.ASTHandle]bool
+	factCollector func() ([]ast.ASTHandle, error)
 	priority      uint32
 	eager         bool
 	linear        bool
@@ -106,6 +107,26 @@ func (p *RuleInlinerPlugin) Cancel()                     {}
 // SetLinearBranching enables source linear expansion at shared body uses.
 // The defining rule stays live until its last unifying use is consumed.
 func (p *RuleInlinerPlugin) SetLinearBranching(enabled bool) { p.branching = enabled }
+
+// collectFacts is rel_context::collect_non_empty_predicates into
+// m_preds_with_facts.
+func (p *RuleInlinerPlugin) collectFacts() error {
+	if p.factCollector == nil {
+		return nil
+	}
+	declarations, err := p.factCollector()
+	if err != nil {
+		return err
+	}
+	return p.PreserveFacts(declarations)
+}
+
+// SetFactCollector installs rel_context::collect_non_empty_predicates, which
+// count_pred_occurrences consults when planning; its predicates are
+// preserved as by PreserveFacts.
+func (p *RuleInlinerPlugin) SetFactCollector(collect func() ([]ast.ASTHandle, error)) {
+	p.factCollector = collect
+}
 
 // PreserveFacts supplies the relational context's nonempty predicates. They
 // cannot be removed or rewritten using rule definitions alone; output-only
@@ -705,6 +726,10 @@ func (p *RuleInlinerPlugin) accumulateDefinitions(order []ast.ASTHandle, allowed
 // plan returns the allowed predicates and the borrowed definitions; the
 // plugin owns the inlined rules (m_inlined_rules) until it is destroyed.
 func (p *RuleInlinerPlugin) plan(source *base.RuleSet) (map[ast.ASTHandle]bool, map[ast.ASTHandle][]*base.Rule, error) {
+	// count_pred_occurrences: rel_context::collect_non_empty_predicates.
+	if err := p.collectFacts(); err != nil {
+		return nil, nil, err
+	}
 	count, err := source.Len()
 	if err != nil {
 		return nil, nil, err
@@ -1084,6 +1109,14 @@ func (p *RuleInlinerPlugin) Transform(source *base.RuleSet) (transformed *base.R
 	if !p.eager {
 		if !p.linear {
 			return nil, nil
+		}
+		// FORK FIX (g3 audit, see FORK_BUGFIXES.md): without eager
+		// inlining, mk_rule_inliner never ran count_pred_occurrences, so
+		// inline_linear did not see the predicates with facts and inlined
+		// them away (their facts were lost). The fixed fork collects them
+		// before inline_linear.
+		if err := p.collectFacts(); err != nil {
+			return nil, err
 		}
 		return p.inlineLinear(source)
 	}

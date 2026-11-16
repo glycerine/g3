@@ -145,6 +145,22 @@ func (m *RelationManager) SetRequestedKind(predicate ast.ASTHandle, kind int) er
 	return nil
 }
 
+// InheritPredicateKind is the relation-plugin part of
+// rel_context::inherit_predicate_kind: a predicate made by
+// mk_fresh_head_predicate gets its origin's requested relation kind.
+func (m *RelationManager) InheritPredicateKind(newPredicate, origin ast.ASTHandle) error {
+	if err := m.open(); err != nil {
+		return err
+	}
+	if kind, found := m.requestedKinds[origin]; found && kind != nullRelationKind {
+		return m.SetRequestedKind(newPredicate, kind)
+	}
+	if p := m.requestedRelation[origin]; p != nil {
+		return m.SetRequestedRelationKind(newPredicate, p)
+	}
+	return nil
+}
+
 // requestedKind is get_requested_predicate_kind.
 func (m *RelationManager) requestedKind(predicate ast.ASTHandle) int {
 	if predicate.IsNull() {

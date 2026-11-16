@@ -136,6 +136,15 @@ func (e *PropositionalEngine) prepareDatalogUnbound(outputs []ast.ASTHandle) (_ 
 	if !valid {
 		return nil, fmt.Errorf("muz/fp: negation is not stratified")
 	}
+	// mk_unbound_compressor::operator(): collect_non_empty_predicates
+	// (m_non_empty_rels only gates can_remove_orig_rule, whose
+	// arg_indices.empty() conjunct is false inside its loop; the calls'
+	// fast_empty are observable for external relations).
+	if compress {
+		if _, err = e.relations.CollectNonEmptyPredicates(); err != nil {
+			return nil, err
+		}
+	}
 	plugin := transforms.NewUnboundCompressorPlugin(e.manager, e.rules, compress, 0)
 	transformer := base.NewRuleTransformer()
 	if err = transformer.Register(plugin); err != nil {

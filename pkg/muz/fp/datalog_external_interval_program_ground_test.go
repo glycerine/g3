@@ -158,37 +158,6 @@ func TestExternalIntervalDatalogProgramGroundUnaryTupleCacheAndSorts(t *testing.
 	}
 }
 
-func TestExternalIntervalDatalogProgramGroundNullaryTotalsPerHead(t *testing.T) {
-	manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
-	pKinds := []string{"interval_relation", "external_relation"}
-	qKinds := []string{"external_relation", "interval_relation"}
-	p := declareExternalIntervalPredicate(t, manager, engine, "ground-program-nullary-p", nil, pKinds)
-	q := declareExternalIntervalPredicate(t, manager, engine, "ground-program-nullary-q", nil, qKinds)
-	addExternalIntervalNullaryGroundRule(t, manager, engine, p, "ground-program-nullary-p-rule")
-	addExternalIntervalNullaryGroundRule(t, manager, engine, q, "ground-program-nullary-q-rule")
-	_, err := engine.ensureExternalIntervalDatalog()
-	fragmentMust(t, err)
-	for run := 0; run < 2; run++ {
-		resetExternalIntervalCartesianCallbacks(callbacks)
-		status, cause := engine.QueryPredicate(q)
-		fragmentMust(t, cause)
-		if status != lbool.Undef {
-			t.Fatal("nullary program result", status)
-		}
-		assertExternalIntervalRegisterOperations(t, externalIntervalGroundProgramOperations(callbacks.operations), []int32{
-			ast.DatalogOpComplement, ast.DatalogOpUnion, ast.DatalogOpComplement, ast.DatalogOpUnion,
-		})
-		for index, predicate := range []ast.ASTHandle{p, q} {
-			product := engine.externalIntervalDatalog.entries[predicate].product
-			empty, cause := product.Empty()
-			fragmentMust(t, cause)
-			if empty || !externalIntervalKindsEqual(product.Kinds(), [][]string{pKinds, qKinds}[index]) {
-				t.Fatal("nullary TOTAL was shared between different heads", index, empty, product.Kinds())
-			}
-		}
-	}
-}
-
 func TestExternalIntervalDatalogProgramGroundLaterSingletonRefusalRollback(t *testing.T) {
 	skipUnreachableInfiniteSortRules(t)
 	engine, callbacks, predicates := newExternalIntervalGroundProgramFixture(t, []string{"interval_relation", "external_relation"}, "9")

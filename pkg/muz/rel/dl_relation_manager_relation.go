@@ -173,6 +173,10 @@ func (m *RelationManager) mkEmptyRelation(sorts []ast.ASTHandle, predicate ast.A
 	if err := m.open(); err != nil {
 		return nil, err
 	}
+	if placeholder && !m.deferRelationCreation {
+		m.deferRelationCreation = true
+		defer func() { m.deferRelationCreation = false }()
+	}
 	if r, ok, err := m.requestedKindRelation(predicate, sorts, false); err != nil || ok {
 		return r, err
 	}

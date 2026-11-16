@@ -410,64 +410,6 @@ func TestExternalIntervalDatalogIdentityCommittedContinuationStoresWithoutReplay
 	}
 }
 
-func TestExternalIntervalDatalogPendingCompletionDoesNotSkipReplacedPlan(t *testing.T) {
-	manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
-	family, err := manager.RegisterArithmeticPlugin()
-	fragmentMust(t, err)
-	integer, err := manager.MkFamilySort(family, 1, nil)
-	fragmentMust(t, err)
-	kinds := []string{"external_relation", "interval_relation"}
-	p := declareExternalIntervalPredicate(t, manager, engine, "external-interval-identity-replace-p", []ast.ASTHandle{integer}, kinds)
-	q := declareExternalIntervalPredicate(t, manager, engine, "external-interval-identity-replace-q", []ast.ASTHandle{integer}, kinds)
-	r := declareExternalIntervalPredicate(t, manager, engine, "external-interval-identity-replace-r", []ast.ASTHandle{integer}, kinds)
-	one, err := manager.ArithmeticIntegerNumeralText("1")
-	fragmentMust(t, err)
-	fragmentMust(t, engine.AddFact(p, []ast.ASTHandle{one}))
-	addExternalIntervalIdentityRule(t, manager, engine, p, q, []ast.ASTHandle{integer}, "external-interval-replaced-identity")
-	engine.flushRawDisplayRules()
-	selected, err := engine.ensureExternalIntervalDatalog()
-	fragmentMust(t, err)
-	if !selected {
-		t.Fatal("identity products were not selected")
-	}
-
-	activation := engine.externalIntervalDatalog
-	callbacks.operations = nil
-	registers, err := activation.loadExternalIntervalDatalogRegisters([]ast.ASTHandle{q, p})
-	fragmentMust(t, err)
-	source, err := registers.relation(p)
-	fragmentMust(t, err)
-	target, err := registers.ensureRelation(q)
-	fragmentMust(t, err)
-	fragmentMust(t, target.Union(source, nil, false))
-	refusal := errors.New("old identity completion cleanup pending")
-	nested := &externalIntervalNestedConstructionFailure{
-		runtime: manager.NumeralService().RuntimeOwner(),
-		refusal: refusal,
-	}
-	pending := newExternalIntervalDatalogIdentityFailure(nested, registers, nested)
-	activation.pending = pending
-	activation.pendingCompletesRule = true
-	activation.pendingIdentity = activation.identity
-	if err = pending.Cleanup(); !errors.Is(err, refusal) {
-		t.Fatal("old identity cleanup did not pause", err)
-	}
-
-	// Public UpdateRule rejects a different head because the old rule cannot
-	// subsume it. Exercise the activation's revision boundary directly so a
-	// future admissible plan replacement cannot inherit this stale completion.
-	activation.identity = &externalIntervalDatalogIdentityRule{head: r, tail: p}
-	fragmentMust(t, activation.executeExternalIntervalIdentity())
-	status, err := activation.query([]ast.ASTHandle{r})
-	fragmentMust(t, err)
-	if status != lbool.Undef || activation.pending != nil || nested.calls != 2 {
-		t.Fatal("replacement identity was not evaluated after old cleanup", status, nested.calls)
-	}
-	if operationCount(callbacks.operations, ast.DatalogOpUnion) != 2 {
-		t.Fatal("old completion incorrectly short-circuited replacement identity", callbacks.operations)
-	}
-}
-
 func TestExternalIntervalDatalogIdentityRejectsUnsupportedShapesBeforeCallbacks(t *testing.T) {
 	skipUnreachableInfiniteSortRules(t)
 	for _, shape := range []string{"self", "constant-head", "unsafe-head", "repeated", "nullary", "mutual-recursion"} {

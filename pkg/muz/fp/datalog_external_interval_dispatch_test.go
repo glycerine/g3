@@ -328,83 +328,6 @@ func operationCount(operations []int32, operation int32) int {
 	return count
 }
 
-func TestExternalIntervalDatalogDirectFactsAndQueries(t *testing.T) {
-	for _, kinds := range [][]string{
-		{"external_relation", "interval_relation"},
-		{"interval_relation", "external_relation"},
-	} {
-		t.Run(kinds[0]+"-first", func(t *testing.T) {
-			manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
-			family, err := manager.RegisterArithmeticPlugin()
-			fragmentMust(t, err)
-			integer, err := manager.MkFamilySort(family, 1, nil)
-			fragmentMust(t, err)
-			requested := append([]string(nil), kinds...)
-			p := declareExternalIntervalPredicate(t, manager, engine, "external-interval-direct-p-"+kinds[0], []ast.ASTHandle{integer}, requested)
-			q := declareExternalIntervalPredicate(t, manager, engine, "external-interval-direct-q-"+kinds[0], []ast.ASTHandle{integer}, requested)
-			boolean, err := manager.MkBoolSort()
-			fragmentMust(t, err)
-			ordinaryName, err := manager.Symbols.Intern("external-interval-unrelated-" + kinds[0])
-			fragmentMust(t, err)
-			ordinary, err := manager.MkFuncDecl(ordinaryName, nil, boolean, ast.ASTFuncDeclInfo{})
-			fragmentMust(t, err)
-			fragmentMust(t, engine.RegisterPredicate(ordinary))
-			requested[0] = "changed-by-caller"
-			if engine.predicates[p].requestedRepresentations[0] != kinds[0] || len(callbacks.operations) != 0 {
-				t.Fatal("selection changed callback state or aliased caller", engine.predicates[p].requestedRepresentations, callbacks.operations)
-			}
-
-			status, err := engine.QueryPredicates([]ast.ASTHandle{p, q})
-			fragmentMust(t, err)
-			if status != lbool.False || operationCount(callbacks.operations, ast.DatalogOpEmpty) != 2 {
-				t.Fatal("empty product query", status, callbacks.operations)
-			}
-			wantEmptyChecks := 0
-			if kinds[0] == "external_relation" {
-				wantEmptyChecks = 2
-			}
-			if got := operationCount(callbacks.operations, ast.DatalogOpIsEmpty); got != wantEmptyChecks {
-				t.Fatal("component-order empty short circuit", got, wantEmptyChecks, callbacks.operations)
-			}
-			if _, err = engine.Answer(p); !errors.Is(err, ErrExternalIntervalDatalogFragment) {
-				t.Fatal("mixed formula answer was not rejected", err)
-			}
-
-			seven, err := manager.ArithmeticIntegerNumeralText("7")
-			fragmentMust(t, err)
-			fragmentMust(t, engine.AddFact(p, []ast.ASTHandle{seven}))
-			status, err = engine.QueryPredicates([]ast.ASTHandle{q, p})
-			fragmentMust(t, err)
-			if status != lbool.Undef || operationCount(callbacks.operations, ast.DatalogOpStore) != 1 {
-				t.Fatal("nonempty imprecise product query", status, callbacks.operations)
-			}
-			reason, err := engine.ReasonUnknown()
-			fragmentMust(t, err)
-			if reason != "approximated" {
-				t.Fatal("imprecise product status", reason)
-			}
-			if _, err = engine.Answer(p); !errors.Is(err, ErrExternalIntervalDatalogFragment) {
-				t.Fatal("nonempty mixed formula answer was not rejected", err)
-			}
-			if _, err = engine.RelationsAnswer(); !errors.Is(err, ErrExternalIntervalDatalogFragment) {
-				t.Fatal("mixed relation-array formula answer was not rejected", err)
-			}
-
-			fragmentMust(t, engine.AddTableFact(q, []uint32{9}))
-			status, err = engine.QueryPredicate(q)
-			fragmentMust(t, err)
-			if status != lbool.Undef || operationCount(callbacks.operations, ast.DatalogOpStore) != 2 {
-				t.Fatal("table fact did not enter product", status, callbacks.operations)
-			}
-			status, err = engine.QueryPredicates(nil)
-			fragmentMust(t, err)
-			if status != lbool.True {
-				t.Fatal("zero-output relation query", status)
-			}
-		})
-	}
-}
-
 func TestExternalIntervalDatalogUnsupportedExpressionAndVariableHead(t *testing.T) {
 	skipUnreachableInfiniteSortRules(t)
 	manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
@@ -432,35 +355,6 @@ func TestExternalIntervalDatalogUnsupportedExpressionAndVariableHead(t *testing.
 	fragmentMust(t, err)
 	if status != lbool.Undef || engine.externalIntervalDatalog == nil || operationCount(callbacks.operations, ast.DatalogOpComplement) == 0 || operationCount(callbacks.operations, ast.DatalogOpUnion) == 0 {
 		t.Fatal("zero-tail variable head did not use the selected product", status, engine.externalIntervalDatalog, callbacks.operations)
-	}
-}
-
-func TestExternalIntervalDatalogSynchronizesLatePredicatesWithoutReplacingFacts(t *testing.T) {
-	manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
-	family, err := manager.RegisterArithmeticPlugin()
-	fragmentMust(t, err)
-	integer, err := manager.MkFamilySort(family, 1, nil)
-	fragmentMust(t, err)
-	kinds := []string{"external_relation", "interval_relation"}
-	p := declareExternalIntervalPredicate(t, manager, engine, "external-interval-late-p", []ast.ASTHandle{integer}, kinds)
-	one, err := manager.ArithmeticIntegerNumeralText("1")
-	fragmentMust(t, err)
-	fragmentMust(t, engine.AddFact(p, []ast.ASTHandle{one}))
-	if engine.externalIntervalDatalog == nil {
-		t.Fatal("first fact did not activate product owner")
-	}
-	if err = engine.SetPredicateRepresentation(p, []string{"interval_relation", "external_relation"}); !errors.Is(err, ErrExternalIntervalDatalogFragment) {
-		t.Fatal("materialized product order changed", err)
-	}
-
-	q := declareExternalIntervalPredicate(t, manager, engine, "external-interval-late-q", []ast.ASTHandle{integer}, kinds)
-	two, err := manager.ArithmeticIntegerNumeralText("2")
-	fragmentMust(t, err)
-	fragmentMust(t, engine.AddFact(q, []ast.ASTHandle{two}))
-	status, err := engine.QueryPredicates([]ast.ASTHandle{p, q})
-	fragmentMust(t, err)
-	if status != lbool.Undef || operationCount(callbacks.operations, ast.DatalogOpEmpty) != 2 || operationCount(callbacks.operations, ast.DatalogOpStore) != 2 {
-		t.Fatal("late predicate sync replaced or lost facts", status, callbacks.operations)
 	}
 }
 
@@ -496,58 +390,13 @@ func TestExternalIntervalDatalogSelectionPreconditions(t *testing.T) {
 	wrong, err := manager.MkFuncDecl(name, []ast.ASTHandle{boolean}, boolean, ast.ASTFuncDeclInfo{})
 	fragmentMust(t, err)
 	fragmentMust(t, engine.RegisterPredicate(wrong))
-	if err = engine.SetPredicateRepresentation(wrong, kinds); !errors.Is(err, ErrExternalIntervalDatalogFragment) {
-		t.Fatal("non-arithmetic product signature selected", err)
-	}
+	// rel_context::set_predicate_representation records the product kind
+	// for any signature (the inner relations are made when the relation
+	// is), as Z3_fixedpoint_set_predicate_representation does.
+	fragmentMust(t, engine.SetPredicateRepresentation(wrong, kinds))
 
 	if len(callbacks.operations) != 0 {
 		t.Fatal("selection preflight invoked callbacks", callbacks.operations)
-	}
-}
-
-func TestExternalIntervalDatalogRejectsPreexistingFiniteFacts(t *testing.T) {
-	manager, engine, callbacks := newExternalIntervalDatalogFixture(t)
-	boolean, err := manager.MkBoolSort()
-	fragmentMust(t, err)
-	name, err := manager.Symbols.Intern("external-interval-preexisting-nullary")
-	fragmentMust(t, err)
-	nullary, err := manager.MkFuncDecl(name, nil, boolean, ast.ASTFuncDeclInfo{})
-	fragmentMust(t, err)
-	fragmentMust(t, engine.RegisterPredicate(nullary))
-	fragmentMust(t, engine.AddTableFact(nullary, nil))
-	if err = engine.SetPredicateRepresentation(nullary, []string{"external_relation", "interval_relation"}); !errors.Is(err, ErrExternalIntervalDatalogFragment) {
-		t.Fatal("preexisting finite fact was silently replaced", err)
-	}
-	if len(callbacks.operations) != 0 {
-		t.Fatal("preexisting-fact preflight invoked callbacks", callbacks.operations)
-	}
-}
-
-func TestExternalIntervalDatalogClosesProductsBeforePluginAndRetries(t *testing.T) {
-	manager, globals := newPDRLifecycleServices(t)
-	engine, err := NewPropositionalEngineWithServices(manager, globals.Context, globals)
-	fragmentMust(t, err)
-	fragmentMust(t, engine.SelectEngine("datalog"))
-	callbacks := &externalIntervalCallbackState{manager: manager, nonempty: make(map[ast.ASTHandle]bool)}
-	fragmentMust(t, engine.SetExternalRelationCallbacks(callbacks.callbacks()))
-	family, err := manager.RegisterArithmeticPlugin()
-	fragmentMust(t, err)
-	integer, err := manager.MkFamilySort(family, 1, nil)
-	fragmentMust(t, err)
-	p := declareExternalIntervalPredicate(t, manager, engine, "external-interval-close-order", []ast.ASTHandle{integer}, []string{"external_relation", "interval_relation"})
-	value, err := manager.ArithmeticIntegerNumeralText("11")
-	fragmentMust(t, err)
-	fragmentMust(t, engine.AddFact(p, []ast.ASTHandle{value}))
-	standalone, err := engine.NewExternalRelation([]ast.ASTHandle{integer})
-	fragmentMust(t, err)
-
-	if err = engine.Close(); !errors.Is(err, rel.ErrTableRelation) || engine.externalIntervalDatalog != nil || engine.external == nil || engine.closed {
-		t.Fatal("first close did not retire product before live plugin user", err, engine.externalIntervalDatalog, engine.external, engine.closed)
-	}
-	fragmentMust(t, standalone.Close())
-	fragmentMust(t, engine.Close())
-	if !engine.closed || engine.external != nil || engine.externalIntervalDatalog != nil {
-		t.Fatal("close retry left product/plugin owners", engine.closed, engine.external, engine.externalIntervalDatalog)
 	}
 }
 

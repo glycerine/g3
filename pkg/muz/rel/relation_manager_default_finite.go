@@ -187,6 +187,10 @@ func (m *RelationManager) relationForPredicate(predicate ast.ASTHandle) (FiniteT
 	if predicate.IsNull() || len(m.relationPlugins) == 0 {
 		return nil, false, nil
 	}
+	if !m.deferRelationCreation {
+		m.deferRelationCreation = true
+		defer func() { m.deferRelationCreation = false }()
+	}
 	sorts, err := m.predicateSorts(predicate)
 	if err != nil {
 		return nil, false, err

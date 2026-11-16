@@ -509,7 +509,7 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 		// fixedpoint_context::set_state (Z3_fixedpoint_init; here the
 		// external relation callbacks), which the SMT-LIB front end never
 		// calls.
-		if kind == "external_relation" && e.external == nil {
+		if kind == "external_relation" && !e.externalPluginRegistered() {
 			return fmt.Errorf("relation plugin %s does not exist", kind)
 		}
 		// rel_context registers karr_relation_plugin only when xform.karr is
@@ -522,6 +522,15 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 		} else if !enabled {
 			return fmt.Errorf("relation plugin %s does not exist", kind)
 		}
+	}
+	if hasExternalRepresentation(kinds) {
+		// rel_context::set_predicate_representation: the external relation
+		// kind, or a product_relation kind over it, applied when the
+		// relation plugins run (get_relation).
+		state.requestedRepresentations = append([]string(nil), kinds...)
+		state.explicitFiniteRepresentation = false
+		e.revision++
+		return nil
 	}
 	if isArithProductRepresentation(kinds) || isArithSingleRepresentation(kinds) || state.table == nil && isTableRelationRepresentation(kinds) {
 		// rel_context::set_predicate_representation: several kinds make a
@@ -796,9 +805,6 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 		if err := e.applyDatalogDefaultFiniteTable(); err != nil {
 			return err
 		}
-		if _, err := e.ensureDefaultExternalDatalog(); err != nil {
-			return err
-		}
 		e.engineInstantiated = true
 		if handled, err := e.addRoutedFact(declaration, values); err != nil || handled {
 			return err
@@ -815,18 +821,6 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 		}
 		if _, err := e.ensureKarrDatalog(); err != nil {
 			return err
-		}
-		if selected, err := e.ensureExternalIntervalDatalog(); err != nil {
-			return err
-		} else if selected {
-			e.invalidateQueryForMutation()
-			if err = e.externalIntervalDatalog.addFact(declaration, values); err != nil {
-				return err
-			}
-			e.invalidateQueryForMutation()
-			e.advanceRuleRevision()
-			e.compiled = false
-			return nil
 		}
 		compiledFavourite, err := e.selectCompiledRelationFavouriteForFacts()
 		if err != nil {
@@ -898,9 +892,6 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 		if err := e.applyDatalogDefaultFiniteTable(); err != nil {
 			return err
 		}
-		if _, err := e.ensureDefaultExternalDatalog(); err != nil {
-			return err
-		}
 		e.engineInstantiated = true
 		if handled, err := e.addRoutedTableFact(declaration, values); err != nil || handled {
 			return err
@@ -912,11 +903,6 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 		}
 		if _, err := e.ensureKarrDatalog(); err != nil {
 			return err
-		}
-		if selected, err := e.ensureExternalIntervalDatalog(); err != nil {
-			return err
-		} else if selected {
-			return e.addArithmeticTableFact(declaration, values)
 		}
 		compiledFavourite, err := e.selectCompiledRelationFavouriteForFacts()
 		if err != nil {
@@ -2786,9 +2772,6 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	if err := e.applyDatalogDefaultFiniteTable(); err != nil {
 		return lbool.Undef, err
 	}
-	if _, err := e.ensureDefaultExternalDatalog(); err != nil {
-		return lbool.Undef, err
-	}
 	if selected, err := e.relationLevelDocExplanationSelected(); err != nil {
 		return lbool.Undef, err
 	} else if selected {
@@ -2808,11 +2791,6 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	if !routed {
 		if _, err := e.ensureKarrDatalog(); err != nil {
 			return lbool.Undef, err
-		}
-		if selected, err := e.ensureExternalIntervalDatalog(); err != nil {
-			return lbool.Undef, err
-		} else if selected {
-			return e.queryExternalIntervalDatalog(declarations)
 		}
 		if status, handled, err := e.queryEmptyMixedDatalog(declarations); err != nil {
 			return lbool.Undef, err
@@ -3618,6 +3596,10 @@ func (e *PropositionalEngine) Close() (result error) {
 	if err := e.releaseBitBlastAnswers(); err != nil {
 		return err
 	}
+	if e.external.ForeignUsers() != 0 {
+		// A live user-owned external relation borrows the plugin.
+		return rel.ErrTableRelation
+	}
 	e.closing = true
 	e.queryReady = false
 	e.lastResult = lbool.Undef
@@ -3627,7 +3609,11 @@ func (e *PropositionalEngine) Close() (result error) {
 	if err := e.discardExternalSimilarity(); err != nil {
 		return err
 	}
-	if e.external != nil {
+	if e.externalPluginRegistered() {
+		// The relation manager closes its registered plugin after its
+		// relations.
+		e.external = nil
+	} else if e.external != nil {
 		if err := e.external.Close(); err != nil {
 			return err
 		}

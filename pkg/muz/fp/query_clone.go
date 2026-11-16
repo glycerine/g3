@@ -79,6 +79,12 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 		if err != nil {
 			return nil, errors.Join(err, e.discardQueryClone(clone))
 		}
+		if e.externalPluginRegistered() {
+			// The clone's relation manager has the context's plugins.
+			if err = clone.registerExternalRelationPlugin(); err != nil {
+				return nil, errors.Join(err, e.discardQueryClone(clone))
+			}
+		}
 	}
 	if err = e.copyQueryPredicates(clone); err != nil {
 		return nil, errors.Join(err, e.discardQueryClone(clone))

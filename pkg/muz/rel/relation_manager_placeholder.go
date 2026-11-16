@@ -74,6 +74,30 @@ func (m *RelationManager) MaterializeFiniteRelation(predicate ast.ASTHandle) err
 	if check, ok := table.(*CheckRelation); ok {
 		return check.completeCreation()
 	}
+	return completeRelationCreation(table)
+}
+
+// relationCreationCompleter is a relation made for a placeholder whose
+// mk_empty has observable steps left (deferRelationCreation).
+type relationCreationCompleter interface {
+	completeCreation() error
+}
+
+// completeRelationCreation runs the deferred mk_empty steps of a
+// placeholder's relation, inner relations of a product first to last.
+func completeRelationCreation(table FiniteTable) error {
+	switch r := table.(type) {
+	case relationCreationCompleter:
+		return r.completeCreation()
+	case *productRelation:
+		for _, inner := range r.relations {
+			if err := completeRelationCreation(inner); err != nil {
+				return err
+			}
+		}
+	case *sieveRelation:
+		return completeRelationCreation(r.inner)
+	}
 	return nil
 }
 

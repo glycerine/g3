@@ -87,17 +87,23 @@ func (e *PropositionalEngine) arithRelationsRoute() (bool, error) {
 		case len(state.requestedRepresentations) == 1 && (state.requestedRepresentations[0] == "bound_relation" || state.requestedRepresentations[0] == "interval_relation" || state.requestedRepresentations[0] == "karr_relation"):
 		case isArithProductRepresentation(state.requestedRepresentations):
 		case state.table == nil && isTableRelationRepresentation(state.requestedRepresentations):
+		case hasExternalRepresentation(state.requestedRepresentations):
+			// external_relation_plugin handles every signature.
+		case e.externalPluginRegistered() && isTableRelationRepresentation(state.requestedRepresentations):
+			// A requested table plugin that cannot handle the signature:
+			// mk_empty_relation passes over it (the favourite or a table).
 		default:
 			return false, nil
 		}
-		if state.table == nil && !e.relationColumnSorts(state.sorts) {
+		external := hasExternalRepresentation(state.requestedRepresentations) || e.datalogRelationFavourite == "external_relation" && e.externalPluginRegistered()
+		if state.table == nil && !external && !e.relationColumnSorts(state.sorts) {
 			return false, nil
 		}
 		// A relation another plugin's evaluation created (udoc,
 		// check_relation) stays on that plugin's path.
 		if relation, ok := rel.AsRelation(state.table); ok {
 			switch relation.RelationPlugin().Name() {
-			case "bound_relation", "interval_relation", "karr_relation", "product_relation":
+			case "bound_relation", "interval_relation", "karr_relation", "product_relation", "external_relation":
 			default:
 				return false, nil
 			}
@@ -120,15 +126,16 @@ func (e *PropositionalEngine) arithRelationsRoute() (bool, error) {
 				}
 				kinds = append(kinds, kind)
 			}
-			if err := e.relations.SetRequestedKind(d, e.relations.ProductRelationKind(state.sorts, kinds)); err != nil {
+			kind := e.relations.ProductRelationKind(state.sorts, kinds)
+			if err := e.relations.SetRequestedKind(d, kind); err != nil {
 				return false, err
 			}
-			if err := e.replaceWithRequestedRelation(d, state); err != nil {
+			if err := e.replaceWithRequestedRelation(d, state, kind); err != nil {
 				return false, err
 			}
 			continue
 		}
-		if len(state.requestedRepresentations) == 1 && !state.explicitFiniteRepresentation {
+		if len(state.requestedRepresentations) == 1 && !state.explicitFiniteRepresentation && !isTableRelationRepresentation(state.requestedRepresentations) {
 			plugin := e.relations.GetRelationPlugin(state.requestedRepresentations[0])
 			requested = append(requested, plugin)
 			if err := e.relations.SetRequestedRelationKind(d, plugin); err != nil {
@@ -137,7 +144,7 @@ func (e *PropositionalEngine) arithRelationsRoute() (bool, error) {
 			if state.table != nil {
 				if _, isRelation := rel.AsRelation(state.table); !isRelation {
 					// A table placeholder chosen before the kind was known.
-					relation, err := e.relations.MkEmptyRelation(state.sorts, d)
+					relation, err := e.mkEmptyRequestedRelation(d, state)
 					if err != nil {
 						return false, err
 					}
@@ -152,6 +159,11 @@ func (e *PropositionalEngine) arithRelationsRoute() (bool, error) {
 	_ = requested
 	for _, d := range e.predicateOrder {
 		state := e.predicates[d]
+		if state.table != nil && state.explicitFiniteRepresentation {
+			// mk_empty_relation(sig, pred): the requested table plugin that
+			// handles the signature comes before the favourite.
+			continue
+		}
 		if state.table != nil {
 			table, err := e.relations.ReplacePlaceholderWithRelation(d)
 			if err != nil {
@@ -252,14 +264,18 @@ func (e *PropositionalEngine) addRoutedTableFact(declaration ast.ASTHandle, valu
 // replaceWithRequestedRelation replaces a predicate's table or relation
 // created before its requested kind was known by mk_empty_relation(sig,
 // pred) of that kind.
-func (e *PropositionalEngine) replaceWithRequestedRelation(d ast.ASTHandle, state *predicateState) error {
+func (e *PropositionalEngine) replaceWithRequestedRelation(d ast.ASTHandle, state *predicateState, kind int) error {
 	if state.table == nil {
+		return nil
+	}
+	if _, ok := rel.AsRelation(state.table); ok && e.relations.RelationKindOf(state.table) == kind {
+		// Already the requested kind's relation.
 		return nil
 	}
 	if n, err := state.table.Len(); err != nil || n != 0 {
 		return err
 	}
-	relation, err := e.relations.MkEmptyRelation(state.sorts, d)
+	relation, err := e.mkEmptyRequestedRelation(d, state)
 	if err != nil {
 		return err
 	}
@@ -268,6 +284,28 @@ func (e *PropositionalEngine) replaceWithRequestedRelation(d ast.ASTHandle, stat
 	}
 	state.table = relation
 	return nil
+}
+
+// mkEmptyRequestedRelation is mk_empty_relation(sig, pred) for a predicate
+// whose table was made before its requested kind was known; a placeholder's
+// relation is created by get_relation (its external relation's OP_RA_EMPTY
+// runs then).
+func (e *PropositionalEngine) mkEmptyRequestedRelation(d ast.ASTHandle, state *predicateState) (rel.FiniteTable, error) {
+	if e.relations.IsPlaceholderRelation(d) {
+		return e.relations.MkEmptyPlaceholderRelation(state.sorts, d)
+	}
+	return e.relations.MkEmptyRelation(state.sorts, d)
+}
+
+// hasExternalRepresentation: set_predicate_representation names the
+// external relation plugin (alone or in a product_relation kind).
+func hasExternalRepresentation(kinds []string) bool {
+	for _, k := range kinds {
+		if k == "external_relation" {
+			return true
+		}
+	}
+	return false
 }
 
 // isArithProductRepresentation reports a set_predicate_representation of

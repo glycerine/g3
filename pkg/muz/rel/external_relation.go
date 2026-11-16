@@ -26,6 +26,7 @@ type ExternalRelationPlugin struct {
 	trail      []ast.ASTRef
 	predicates map[ast.ASTHandle]*ExternalRelation
 	users      int
+	foreign    int
 	autoClose  bool
 	closed     bool
 }
@@ -57,6 +58,10 @@ type ExternalRelation struct {
 	relation                         ast.ASTRef
 	selectDecl, storeDecl, emptyDecl ast.ASTRef
 	closed                           bool
+	// pending: a placeholder whose mk_empty has not run yet.
+	pending bool
+	// foreign: made for the API user (NewForeign), not the relation manager.
+	foreign bool
 }
 
 // NewExternalRelation creates a fresh external relation and invokes the empty
@@ -75,56 +80,66 @@ func (plugin *ExternalRelationPlugin) NewEmpty(sorts []ast.ASTHandle) (result *E
 	if plugin == nil || plugin.closed || plugin.manager == nil || plugin.manager.open() != nil {
 		return nil, ErrTableRelation
 	}
-	manager := plugin.manager
-	m := manager.manager
-	relationSort, err := m.MkDatalogRelationSort(sorts)
-	if err != nil {
-		return nil, err
-	}
-	sortRef, err := m.NewRef(relationSort)
-	if err != nil {
-		return nil, err
-	}
-	owner := &externalRelationConstructionOwner{manager: m, temps: []ast.ASTRef{sortRef}}
-	defer func() {
-		resultErr = owner.dispose(resultErr)
-		if resultErr != nil {
-			result = nil
-		}
-	}()
-	expression, err := m.MkFreshConst("T", relationSort)
-	if err != nil {
-		return nil, err
-	}
-	ref, err := m.NewRef(expression)
-	if err != nil {
-		return nil, err
-	}
-	r := &ExternalRelation{plugin: plugin, manager: manager, ast: m, sorts: append([]ast.ASTHandle(nil), sorts...), relation: ref}
+	r := &ExternalRelation{plugin: plugin, manager: plugin.manager, ast: plugin.manager.manager, sorts: append([]ast.ASTHandle(nil), sorts...), pending: true}
 	plugin.users++
-	owner.result = r
-	empty, err := m.MkDatalogEmpty(relationSort)
-	if err != nil {
-		return nil, err
+	if plugin.manager.deferRelationCreation {
+		// A placeholder: get_relation creates it (completeCreation).
+		return r, nil
 	}
-	emptyRef, err := m.NewRef(empty)
-	if err != nil {
-		return nil, err
-	}
-	owner.temps = append(owner.temps, emptyRef)
-	declaration, err := m.GetDecl(empty)
-	if err != nil {
-		return nil, err
-	}
-	if err = plugin.reduceAssign(declaration, nil, []ast.ASTHandle{expression}); err != nil {
-		return nil, err
+	if err := r.completeCreation(); err != nil {
+		return nil, errors.Join(err, r.Close())
 	}
 	return r, nil
 }
 
+// completeCreation is external_relation_plugin::mk_empty's body: a fresh
+// constant "T" of the relation sort, assigned by OP_RA_EMPTY.
+func (r *ExternalRelation) completeCreation() (resultErr error) {
+	if !r.pending {
+		return nil
+	}
+	r.pending = false
+	plugin := r.plugin
+	m := r.ast
+	relationSort, err := m.MkDatalogRelationSort(r.sorts)
+	if err != nil {
+		return err
+	}
+	sortRef, err := m.NewRef(relationSort)
+	if err != nil {
+		return err
+	}
+	owner := &externalRelationConstructionOwner{manager: m, temps: []ast.ASTRef{sortRef}}
+	defer func() { resultErr = owner.dispose(resultErr) }()
+	expression, err := m.MkFreshConst("T", relationSort)
+	if err != nil {
+		return err
+	}
+	if r.relation, err = m.NewRef(expression); err != nil {
+		return err
+	}
+	empty, err := m.MkDatalogEmpty(relationSort)
+	if err != nil {
+		return err
+	}
+	emptyRef, err := m.NewRef(empty)
+	if err != nil {
+		return err
+	}
+	owner.temps = append(owner.temps, emptyRef)
+	declaration, err := m.GetDecl(empty)
+	if err != nil {
+		return err
+	}
+	return plugin.reduceAssign(declaration, nil, []ast.ASTHandle{expression})
+}
+
 func (r *ExternalRelation) open() error {
-	if r == nil || r.closed || r.plugin == nil || r.plugin.closed || r.ast == nil || r.manager == nil || r.manager.open() != nil || r.relation == (ast.ASTRef{}) {
+	if r == nil || r.closed || r.plugin == nil || r.plugin.closed || r.ast == nil || r.manager == nil || r.manager.open() != nil || r.relation == (ast.ASTRef{}) && !r.pending {
 		return ErrTableRelation
+	}
+	if r.pending {
+		return r.completeCreation()
 	}
 	return nil
 }
@@ -365,6 +380,9 @@ func (r *ExternalRelation) Close() (result error) {
 		}
 		r.closed = true
 		r.plugin.users--
+		if r.foreign {
+			r.plugin.foreign--
+		}
 	}
 	if r.plugin.autoClose && r.plugin.users == 0 {
 		if err := r.plugin.Close(); err != nil {

@@ -1,7 +1,6 @@
 package fp
 
 import (
-	"errors"
 	"fmt"
 	"testing"
 
@@ -216,10 +215,16 @@ func TestDatalogExternalFavouriteHonorsFiniteQueryKind(t *testing.T) {
 				must(err)
 				groundRef, err := m.NewRef(ground)
 				must(err)
-				_, err = e.QueryExpression(ground)
+				result, err = e.QueryExpression(ground)
 				must(m.DelRef(&groundRef))
-				if !errors.Is(err, ErrPropositionalHorn) || emptyCalls == 0 {
-					t.Fatal("incompatible sparse nullary did not fall through external favourite before mixed-plugin guard", err, emptyCalls)
+				// The nullary query head inherits tr_sparse, which cannot
+				// handle it: mk_empty_relation gives it the external
+				// favourite's relation. The fixed fork's C API (default
+				// relation external_relation, Z3_fixedpoint_init,
+				// Z3_fixedpoint_query of (p true)) makes two external
+				// relations (OP_RA_EMPTY) and answers sat.
+				if err != nil || result != lbool.True || emptyCalls != 2 {
+					t.Fatal("incompatible sparse nullary did not fall through to the external favourite", err, result, emptyCalls)
 				}
 			}
 		})

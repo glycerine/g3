@@ -99,7 +99,21 @@ func (e *PropositionalEngine) applyQueryMagicSets(goal ast.ASTHandle) (resultErr
 // but relation construction falls back to a compatible Hash table just as the
 // source relation manager does when the requested plugin rejects a signature.
 func (e *PropositionalEngine) inheritDatalogFiniteRepresentation(declaration, origin ast.ASTHandle) error {
+	// The relation plugin kinds (set_predicate_kind) are the relation
+	// manager's.
+	if err := e.relations.InheritPredicateKind(declaration, origin); err != nil {
+		return err
+	}
 	target, source := e.predicates[declaration], e.predicates[origin]
+	if target != nil && target.table != nil && e.relations.IsPlaceholderRelation(declaration) {
+		// The placeholder made before the kind was known: get_relation
+		// creates the inherited kind's relation.
+		table, err := e.relations.ReplacePlaceholderWithRelation(declaration)
+		if err != nil {
+			return err
+		}
+		target.table = table
+	}
 	if target == nil || source == nil || len(source.requestedRepresentations) != 1 {
 		return nil
 	}

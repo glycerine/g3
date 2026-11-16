@@ -28,7 +28,36 @@ func (e *PropositionalEngine) SetExternalRelationCallbacks(callbacks rel.Externa
 	if err != nil {
 		return err
 	}
-	return plugin.SetCallbacks(callbacks)
+	if err = plugin.SetCallbacks(callbacks); err != nil {
+		return err
+	}
+	return e.registerExternalRelationPlugin()
+}
+
+// registerExternalRelationPlugin is fixedpoint_context::set_state
+// (Z3_fixedpoint_init): get_rel_context() instantiates the configured engine
+// and, when it is the datalog engine, its relation manager registers
+// external_relation_plugin after rel_context's own relation plugins.
+func (e *PropositionalEngine) registerExternalRelationPlugin() error {
+	if e.externalPluginRegistered() {
+		return nil
+	}
+	if err := e.selectFactEngine(); err != nil {
+		return err
+	}
+	if e.backend != "datalog" {
+		return nil
+	}
+	if err := e.registerRelContextPlugins(); err != nil {
+		return err
+	}
+	return e.relations.RegisterRelationPlugin(e.external)
+}
+
+// externalPluginRegistered reports that the relation manager has the
+// external relation plugin (get_relation_plugin("external_relation")).
+func (e *PropositionalEngine) externalPluginRegistered() bool {
+	return e.external != nil && e.relations != nil && e.relations.GetRelationPlugin("external_relation") != nil
 }
 
 // NewExternalRelation creates a callback-backed relation owned by this
@@ -38,7 +67,7 @@ func (e *PropositionalEngine) NewExternalRelation(sorts []ast.ASTHandle) (*rel.E
 	if err != nil {
 		return nil, err
 	}
-	return plugin.NewEmpty(sorts)
+	return plugin.NewForeign(sorts)
 }
 
 // ExternalPredicateRelation dispatches a registered predicate through the

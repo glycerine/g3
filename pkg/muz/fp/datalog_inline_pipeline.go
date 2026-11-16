@@ -43,22 +43,15 @@ func (e *PropositionalEngine) datalogInlinerWithFacts(context *uparams.ParamsCon
 		}
 	}
 	var protected []ast.ASTHandle
-	for _, declaration := range e.predicateOrder {
-		hasFacts := false
-		if factProbe != nil {
-			hasFacts, err = factProbe(declaration)
+	if factProbe != nil {
+		for _, declaration := range e.predicateOrder {
+			hasFacts, err := factProbe(declaration)
 			if err != nil {
 				return nil, err
 			}
-		}
-		if !hasFacts {
-			hasFacts, err = e.relations.HasFacts(declaration)
-			if err != nil {
-				return nil, err
+			if hasFacts {
+				protected = append(protected, declaration)
 			}
-		}
-		if hasFacts {
-			protected = append(protected, declaration)
 		}
 	}
 	plugin := transforms.NewRuleInlinerPluginWithServices(e.manager, e.rules, nil, eager, linear, context, globals, 0)
@@ -71,6 +64,9 @@ func (e *PropositionalEngine) datalogInlinerWithFacts(context *uparams.ParamsCon
 	// mk_rule_inliner::operator() allocates its horn_subsume_model_converter
 	// only when the context has a model converter; rel_query installs none.
 	plugin.SetModelConverter(e.contextModelConverter)
+	// mk_rule_inliner::count_pred_occurrences:
+	// rel_context::collect_non_empty_predicates (m_relations' table order).
+	plugin.SetFactCollector(e.relations.CollectNonEmptyPredicates)
 	if err := plugin.PreserveFacts(protected); err != nil {
 		return nil, errors.Join(err, plugin.Close())
 	}

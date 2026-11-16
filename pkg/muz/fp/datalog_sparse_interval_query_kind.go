@@ -40,6 +40,10 @@ func (e *PropositionalEngine) inheritDatalogQueryKind(query, head ast.ASTHandle)
 		if state == nil {
 			continue
 		}
+		// The relation plugin kinds are the relation manager's.
+		if err := e.relations.InheritPredicateKind(head, declaration); err != nil {
+			return err
+		}
 		target := e.predicates[head]
 		target.requestedRepresentations = append([]string(nil), state.requestedRepresentations...)
 		if len(target.requestedRepresentations) == 1 {
@@ -53,13 +57,6 @@ func (e *PropositionalEngine) inheritDatalogQueryKind(query, head ast.ASTHandle)
 					}
 					target.explicitFiniteRepresentation = true
 				}
-			case "external_relation":
-				relation, err := e.ExternalPredicateRelation(head)
-				if err != nil {
-					return err
-				}
-				target.external = relation
-				target.table = nil
 			}
 		}
 		return nil
