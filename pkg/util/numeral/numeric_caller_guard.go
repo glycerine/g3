@@ -10,6 +10,9 @@ type NumericCallerBinding struct {
 	self     *NumericCallerBinding
 	previous *NumericCallerBinding
 	guard    NumericCallerGuard
+	// callback is guard as a NumericCallbackGuard (nil when it is not one),
+	// resolved once at bind time for callerBindingsCallbackActive.
+	callback NumericCallbackGuard
 	kind     uint32
 	integer  *IntegerManager
 	natural  *NaturalManager
@@ -34,7 +37,7 @@ func (m *IntegerManager) BindCaller(b *NumericCallerBinding, g NumericCallerGuar
 	if !m.ValidOwner() || b == nil || g == nil || b.self != nil {
 		return ErrNumericOwner
 	}
-	*b = NumericCallerBinding{self: b, previous: m.callerBindings, guard: g, kind: kind, integer: m}
+	*b = NumericCallerBinding{self: b, previous: m.callerBindings, guard: g, callback: callbackGuard(g), kind: kind, integer: m}
 	m.callerBindings = b
 	return nil
 }
@@ -42,7 +45,7 @@ func (m *NaturalManager) BindCaller(b *NumericCallerBinding, g NumericCallerGuar
 	if !m.ValidOwner() || b == nil || g == nil || b.self != nil {
 		return ErrNumericOwner
 	}
-	*b = NumericCallerBinding{self: b, previous: m.callerBindings, guard: g, kind: kind, natural: m}
+	*b = NumericCallerBinding{self: b, previous: m.callerBindings, guard: g, callback: callbackGuard(g), kind: kind, natural: m}
 	m.callerBindings = b
 	return nil
 }
@@ -95,7 +98,7 @@ func (m *IntegerModularManager) BindCaller(b *NumericCallerBinding, g NumericCal
 	if b == nil || g == nil || b.self != nil {
 		return ErrNumericOwner
 	}
-	*b = NumericCallerBinding{self: b, previous: m.callerBindings, guard: g, kind: kind, modular: m}
+	*b = NumericCallerBinding{self: b, previous: m.callerBindings, guard: g, callback: callbackGuard(g), kind: kind, modular: m}
 	m.callerBindings = b
 	return nil
 }
@@ -104,12 +107,19 @@ func (m *IntegerModularManager) BindCaller(b *NumericCallerBinding, g NumericCal
 // execution, so literal numeral destructors remain available outside callbacks.
 type NumericCallbackGuard interface{ NumericCallbackActive() bool }
 
+func callbackGuard(g NumericCallerGuard) NumericCallbackGuard {
+	p, _ := g.(NumericCallbackGuard)
+	return p
+}
+
+// callerBindingsCallbackActive reports whether some executing binding's
+// guard reports an active callback. A guard that is not a
+// NumericCallbackGuard never does, so its (pure) NumericExecuting test is
+// skipped, and the interface conversion is the one made at bind time.
 func callerBindingsCallbackActive(b *NumericCallerBinding) bool {
 	for ; b != nil; b = b.previous {
-		if b.self == b && b.guard != nil && b.guard.NumericExecuting() {
-			if p, ok := b.guard.(NumericCallbackGuard); ok && p.NumericCallbackActive() {
-				return true
-			}
+		if b.self == b && b.callback != nil && b.guard.NumericExecuting() && b.callback.NumericCallbackActive() {
+			return true
 		}
 	}
 	return false

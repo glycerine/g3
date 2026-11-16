@@ -11,46 +11,69 @@ import (
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
+// Each frame validator returns nil for an absent owner; the explicit nil
+// tests skip the call (and the validators' owner lookups) for the owners a
+// context does not name, which are almost all of them.
 func (c *integerAllocationInvocationContext) prepareFactorHistory(z *unumeral.IntegerManager) error {
-	if q := c.oneHalfRootFrame(z); q != nil {
-		noteForeignCallerFrames(z, q.owner.config.Integer)
-		return q.prepareHistory()
+	if c.oneHalfRoot != nil {
+		if q := c.oneHalfRootFrame(z); q != nil {
+			noteForeignCallerFrames(z, q.owner.config.Integer)
+			return q.prepareHistory()
+		}
 	}
-	if q := c.knuthFrame(z); q != nil {
-		noteForeignCallerFrames(z, q.owner.config.Integer)
-		return q.prepareHistory()
+	if c.knuth != nil {
+		if q := c.knuthFrame(z); q != nil {
+			noteForeignCallerFrames(z, q.owner.config.Integer)
+			return q.prepareHistory()
+		}
 	}
-	if q := c.rootUpperBoundFrame(z); q != nil {
-		noteForeignCallerFrames(z, q.owner.config.Integer)
-		return q.prepareHistory()
+	if c.rootUpperBound != nil {
+		if q := c.rootUpperBoundFrame(z); q != nil {
+			noteForeignCallerFrames(z, q.owner.config.Integer)
+			return q.prepareHistory()
+		}
 	}
-	if q := c.removeOneHalfRootFrame(z); q != nil {
-		noteForeignCallerFrames(z, q.owner.config.Integer)
-		return q.prepareHistory()
+	if c.removeOneHalfRoot != nil {
+		if q := c.removeOneHalfRootFrame(z); q != nil {
+			noteForeignCallerFrames(z, q.owner.config.Integer)
+			return q.prepareHistory()
+		}
 	}
-	if q := c.integerEvaluationFrame(z); q != nil {
-		noteForeignCallerFrames(z, q.owner.config.Integer)
-		return q.prepareHistory()
+	if c.integerEvaluation != nil {
+		if q := c.integerEvaluationFrame(z); q != nil {
+			noteForeignCallerFrames(z, q.owner.config.Integer)
+			return q.prepareHistory()
+		}
 	}
-	if q := c.rationalEvaluationFrame(z); q != nil {
-		noteForeignCallerFrames(z, q.owner.config.Integer)
-		return q.prepareHistory()
+	if c.rationalEvaluation != nil {
+		if q := c.rationalEvaluationFrame(z); q != nil {
+			noteForeignCallerFrames(z, q.owner.config.Integer)
+			return q.prepareHistory()
+		}
 	}
-	if q := c.binaryEvaluationFrame(z); q != nil {
-		noteForeignCallerFrames(z, q.owner.config.Integer)
-		return q.prepareHistory()
+	if c.binaryEvaluation != nil {
+		if q := c.binaryEvaluationFrame(z); q != nil {
+			noteForeignCallerFrames(z, q.owner.config.Integer)
+			return q.prepareHistory()
+		}
 	}
-	if q := c.algebraicNegFrame(z); q != nil {
-		return q.prepareHistory()
+	if c.algebraicNeg != nil {
+		if q := c.algebraicNegFrame(z); q != nil {
+			return q.prepareHistory()
+		}
 	}
 	if r := c.factorNumeralVector; r != nil && numericIntegerManager_factorNumeralVectorRoots(z, c) != nil {
 		return r.manager.archiveFactorNumeralVector()
 	}
-	if r := c.normalizationReceipt(z); r != nil {
-		return prepareConverterParentHistory(z, &r.frame.converterHistoryParent)
+	if c.normalization != nil {
+		if r := c.normalizationReceipt(z); r != nil {
+			return prepareConverterParentHistory(z, &r.frame.converterHistoryParent)
+		}
 	}
-	if r := c.somNormalizeReceipt(z); r != nil {
-		return r.manager.prepareNormalizationConverterHistoryAtAllocation(nil, r)
+	if c.somNormalize != nil {
+		if r := c.somNormalizeReceipt(z); r != nil {
+			return r.manager.prepareNormalizationConverterHistoryAtAllocation(nil, r)
+		}
 	}
 	if r := c.factorConstant; r != nil && numericIntegerManager_factorConstantContextRoots(z, c) != nil {
 		return r.manager.archiveFactorConstantHistory()

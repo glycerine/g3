@@ -137,13 +137,18 @@ func (r *polynomialNumericRoots) NumericPrepareRoots(z *unumeral.IntegerManager,
 	return roots, nil
 }
 func (r *polynomialNumericRoots) prepareHistories(z *unumeral.IntegerManager) error {
-	if q := r.caller.upolyDisplayFrame(z); q != nil {
-		if e := q.prepareStorage(); e != nil {
-			return e
+	if r.caller.upolyDisplay != nil {
+		if q := r.caller.upolyDisplayFrame(z); q != nil {
+			if e := q.prepareStorage(); e != nil {
+				return e
+			}
 		}
 	}
 	if e := r.caller.prepareFactorHistory(z); e != nil {
 		return e
+	}
+	if r.caller.factorFrontendConstant == nil {
+		return nil
 	}
 	return r.caller.prepareFactorFrontendConstantHistory(z)
 }
