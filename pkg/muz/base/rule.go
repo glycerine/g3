@@ -787,19 +787,8 @@ func (m *RuleManager) Close() error {
 		return err
 	}
 	m.cleanupPending = true
-	// ~rule_manager destroys m_rwr, then m_hnf, then m_head, then m_body.
-	if m.labels != nil {
-		if err := m.labels.Close(); err != nil {
-			return err
-		}
-		m.labels = nil
-	}
-	if err := m.normalizer.Close(); err != nil {
-		return err
-	}
-	if err := m.releaseHornTemporaries(); err != nil {
-		return err
-	}
+	// The predicates stand for datalog::context's m_pinned, which is
+	// released before m_rule_manager (declared earlier) is destroyed.
 	for _, declaration := range m.predicateOrder {
 		reference, held := m.predicates[declaration]
 		if !held {
@@ -815,6 +804,19 @@ func (m *RuleManager) Close() error {
 		if err != nil {
 			return err
 		}
+	}
+	// ~rule_manager destroys m_rwr, then m_hnf, then m_head, then m_body.
+	if m.labels != nil {
+		if err := m.labels.Close(); err != nil {
+			return err
+		}
+		m.labels = nil
+	}
+	if err := m.normalizer.Close(); err != nil {
+		return err
+	}
+	if err := m.releaseHornTemporaries(); err != nil {
+		return err
 	}
 	m.cleanupPending = false
 	m.closed = true

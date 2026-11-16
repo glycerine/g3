@@ -3813,6 +3813,14 @@ func (e *PropositionalEngine) Close() (result error) {
 		result = errors.Join(result, e.unboundCooperation.Close())
 		e.unboundCooperation = nil
 	}
+	// context::reset drops m_rel (the relation manager) in ~context's
+	// body, before the members, among them m_rule_manager, are destroyed.
+	if e.relations != nil {
+		if err := e.relations.Close(); err != nil {
+			return errors.Join(result, fmt.Errorf("close relation manager: %w", err))
+		}
+		e.relations = nil
+	}
 	if e.rules != nil {
 		if err := e.rulesShare.release(); err != nil {
 			return errors.Join(result, err)
@@ -3822,12 +3830,6 @@ func (e *PropositionalEngine) Close() (result error) {
 	if e.guard != nil {
 		result = errors.Join(result, e.guard.Close())
 		e.guard = nil
-	}
-	if e.relations != nil {
-		if err := e.relations.Close(); err != nil {
-			return errors.Join(result, fmt.Errorf("close relation manager: %w", err))
-		}
-		e.relations = nil
 	}
 	if e.lazyFinite != nil {
 		if err := e.lazyFinite.Close(); err != nil {

@@ -133,15 +133,18 @@ func TestEngineClosePreservesRuleManagerAfterConsumedNativeRelease(t *testing.T)
 	if !errors.Is(err, arena.ErrBounds) || engine.closed || !engine.closing || engine.rules != rules {
 		t.Fatal("engine discarded its interrupted rule manager", err, engine.closed, engine.closing, engine.rules == rules)
 	}
-	if engine.relations != relations || engine.background != background {
-		t.Fatal("engine disposed later owners after its rule manager failed")
+	// context::reset drops m_rel (the relation manager) in ~context's
+	// body, before the members, among them m_rule_manager, are destroyed.
+	if engine.relations != nil || relations == nil || engine.background != background {
+		t.Fatal("engine kept its relation manager past its rule manager or disposed later owners", engine.relations == nil)
 	}
 	// ~context destroys m_bind_variables before m_rule_manager.
 	if engine.binder != nil {
 		t.Fatal("engine kept its binder past the rule manager's failure")
 	}
-	// The label rewriter's three scratch references go first (m_rwr is
-	// destroyed before the predicate table), then the consumed predicate.
+	// The relation manager's three var_subst scratch references go first,
+	// then the consumed predicate (context::m_pinned is destroyed before
+	// m_rule_manager and so before its label rewriter m_rwr).
 	if manager.Stats().LiveReferences+4 != before || runtime.Stats().LiveBlocks+1 != blocks {
 		t.Fatal("failure did not consume exactly one predicate reference and native allocation", before, manager.Stats().LiveReferences, blocks, runtime.Stats().LiveBlocks)
 	}
