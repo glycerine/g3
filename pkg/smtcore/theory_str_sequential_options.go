@@ -146,7 +146,7 @@ func (t *SMTStringTheory) generateStringSequentialOptions(variable, callback ast
 		for word := range t.regexMemberships {
 			words = append(words, word)
 		}
-		stringSortHandles(words)
+		stringSortHandles(t, words)
 		for _, word := range words {
 			var keys []string
 			for key := range t.regexMemberships[word] {

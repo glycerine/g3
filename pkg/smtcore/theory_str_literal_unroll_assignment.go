@@ -59,7 +59,7 @@ func (t *SMTStringTheory) stringClassSimpleUnrolls(word ast.ASTHandle) (constant
 
 func (t *SMTStringTheory) generateStringLiteralUnrollAssignment(word ast.ASTHandle, unrolls []ast.ASTHandle) (output ast.ASTRef, result error) {
 	ordered := append([]ast.ASTHandle(nil), unrolls...)
-	stringSortHandles(ordered)
+	stringSortHandles(t, ordered)
 	unique := ordered[:0]
 	for _, term := range ordered {
 		if len(unique) == 0 || term != unique[len(unique)-1] {

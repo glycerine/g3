@@ -10,7 +10,7 @@ import (
 
 func (t *SMTStringTheory) unassignedStringVariables(analysis *smtStringDependencyAnalysis) ([]ast.ASTHandle, error) {
 	var free []ast.ASTHandle
-	for _, variable := range stringOrderedCounts(analysis.variables) {
+	for _, variable := range stringOrderedCounts(t, analysis.variables) {
 		if _, internal := t.internalVariables[variable]; internal {
 			continue
 		}
@@ -67,7 +67,7 @@ func (t *SMTStringTheory) finalCheckAssignedStrings() (SMTFinalCheckStatus, erro
 		for member := range t.regexTerms {
 			terms = append(terms, member)
 		}
-		stringSortHandles(terms)
+		stringSortHandles(t, terms)
 		frame := smtStringRegexStage{theory: t}
 		for _, member := range terms {
 			// Native extracts these arguments before reading the assignment.

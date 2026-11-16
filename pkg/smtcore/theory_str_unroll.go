@@ -32,7 +32,7 @@ func (t *SMTStringTheory) stringClassUnrolls(expression ast.ASTHandle) (constant
 			}
 		}
 	}
-	stringSortHandles(unrolls)
+	stringSortHandles(t, unrolls)
 	return constant, unrolls, nil
 }
 

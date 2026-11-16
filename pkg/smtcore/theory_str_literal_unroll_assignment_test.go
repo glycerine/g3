@@ -114,7 +114,7 @@ func TestSMTStringSimpleUnrollCollectorPreservesToRegexClassification(t *testing
 	value, unrolls, err := theory.stringClassSimpleUnrolls(word)
 	astTestMust(t, err)
 	want := []ast.ASTHandle{u1, u2, u4}
-	stringSortHandles(want)
+	stringSortHandles(theory, want)
 	if value != constant || !reflect.DeepEqual(unrolls, want) {
 		t.Fatal("simple collection added a literal/nonempty filter or retained a star core", value, unrolls, want)
 	}

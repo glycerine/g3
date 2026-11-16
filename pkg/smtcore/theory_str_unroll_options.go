@@ -160,7 +160,7 @@ func (t *SMTStringTheory) generateStringUnrollAssignment(word ast.ASTHandle, cor
 func (t *SMTStringTheory) generateStringConditionalUnrollOptions(word ast.ASTHandle, unrolls []ast.ASTHandle, core string) (output ast.ASTRef, result error) {
 	// std::set keys use exact member identity, not private-class identity.
 	key := append([]ast.ASTHandle(nil), unrolls...)
-	stringSortHandles(key)
+	stringSortHandles(t, key)
 	unique := key[:0]
 	for _, term := range key {
 		if len(unique) == 0 || term != unique[len(unique)-1] {

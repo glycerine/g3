@@ -125,7 +125,7 @@ func TestSMTStringGroundingConstantShortcutFirstConcatAndUnrollRefusal(t *testin
 	astTestMust(t, err)
 	astTestMust(t, state.Internalize(second, false))
 	choices := []ast.ASTHandle{first, second}
-	stringSortHandles(choices)
+	stringSortHandles(theory, choices)
 	g.variableConcats[z] = map[ast.ASTHandle]int{second: 1, first: 1}
 	astTestMust(t, g.ground(z))
 	if len(g.grounded[z]) != 1 || len(g.grounded[z][0].conditions) != 1 {

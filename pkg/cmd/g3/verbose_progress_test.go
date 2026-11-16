@@ -162,6 +162,10 @@ var verboseProgressFiltered = map[string][]string{
 	// decision 2026-11-15; z3 4.7.1 walked a rule-pointer address map), so
 	// the relations are loaded and registered in that order.
 	"rel_query_sequence_v2_instructions": {"load ", "union ", "clone ", "move ", "while", "    ", "join ", "join_project ", "mk_unary_singleton", "mark_saturated"},
+	// get_grounded_concats' "concats N" lines (FUZZ-F5): z3str3 grounds a
+	// variable through the concat of lowest AST id (fork fix, owner decision
+	// 2026-11-15; z3 4.7.1 took the lowest heap address).
+	"str_concats_order": {"concats "},
 }
 
 var verboseProgressFilteredCases = []verboseProgressCase{
@@ -188,6 +192,7 @@ var verboseProgressFilteredCases = []verboseProgressCase{
 	{"dl_path_v10_instructions", "path", []string{"-v:10", "-dl"}},
 	{"rel_bit_blast_v2_instructions", "rel_bit_blast", []string{"-v:2"}},
 	{"rel_query_sequence_v2_instructions", "query_sequence", []string{"-v:2"}},
+	{"str_concats_order", "str_concats_order", []string{"-v:100"}},
 }
 
 func filterVerboseProgress(name, log string) string {

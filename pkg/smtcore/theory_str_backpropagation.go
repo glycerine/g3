@@ -14,8 +14,8 @@ func (t *SMTStringTheory) backpropagateStringConstants(analysis *smtStringDepend
 	m := t.state.manager
 	locals := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, locals.close()) }()
-	for _, variable := range stringOrderedRelations(analysis.variableConcats) {
-		for _, concat := range stringOrderedCounts(analysis.variableConcats[variable]) {
+	for _, variable := range stringOrderedRelations(t, analysis.variableConcats) {
+		for _, concat := range stringOrderedCounts(t, analysis.variableConcats[variable]) {
 			left, right, matched, err := m.SequenceConcatParts(concat)
 			if err != nil {
 				return added, err
@@ -142,7 +142,7 @@ func (t *SMTStringTheory) uniqueStringConcatLeaves(expression ast.ASTHandle) ([]
 			set[current] = 1
 		}
 	}
-	return stringOrderedCounts(set), nil
+	return stringOrderedCounts(t, set), nil
 }
 
 func (t *SMTStringTheory) propagateStringLengthWithinClass(variable ast.ASTHandle) (added bool, result error) {
@@ -225,7 +225,7 @@ func (t *SMTStringTheory) propagateStringLengths() (added bool, result error) {
 			}
 		}
 	}
-	for _, concat := range stringOrderedCounts(concats) {
+	for _, concat := range stringOrderedCounts(t, concats) {
 		err := func() (result error) {
 			locals := smtStringLengthPremises{theory: t}
 			defer func() { result = errors.Join(result, locals.close()) }()
@@ -280,7 +280,7 @@ func (t *SMTStringTheory) propagateStringLengths() (added bool, result error) {
 		}
 	}
 	if !added {
-		for _, variable := range stringOrderedCounts(variables) {
+		for _, variable := range stringOrderedCounts(t, variables) {
 			length, err := m.MkSequenceLength(variable)
 			if err != nil {
 				return added, err

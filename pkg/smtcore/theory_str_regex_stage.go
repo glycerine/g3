@@ -392,7 +392,7 @@ func (t *SMTStringTheory) runStringRegexAutomataStage() (added bool, result erro
 	for term := range t.regexTerms {
 		terms = append(terms, term)
 	}
-	stringSortHandles(terms)
+	stringSortHandles(t, terms)
 	for _, member := range terms {
 		word, regex, matched, err := m.SequenceBinaryOperationArguments(member, 12)
 		if err != nil {

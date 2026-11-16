@@ -9,7 +9,7 @@ import (
 
 func (t *SMTStringTheory) assignStringRegexUnrolls(unrolls []ast.ASTHandle) error {
 	ordered := append([]ast.ASTHandle(nil), unrolls...)
-	stringSortHandles(ordered)
+	stringSortHandles(t, ordered)
 	var previous ast.ASTHandle
 	for i, term := range ordered {
 		if i > 0 && term == previous {

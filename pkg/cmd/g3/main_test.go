@@ -336,6 +336,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// Fork fix (owner decision 2026-11-15): theory_str orders its expression-keyed
+	// std::map/std::set containers by AST id, not heap address.
+	"str_z3str3_id_order.smt2": "sat\n(model \n  (define-fun c () String\n    \"abcabcabcabcabc\")\n  (define-fun y () String\n    \"abcabc\")\n  (define-fun d () String\n    \"abcabcabcabcabc\")\n  (define-fun x () String\n    \"abcabcabc\")\n  (define-fun a () String\n    \"bc\")\n)\n",
 	// rlimit_agree2: the limit is reached in max_bv_sharing inside the
 	// inc_sat_solver's preprocessing; internalize_goal catches only tactic
 	// exceptions, so the rewriter exception escapes optimize() and

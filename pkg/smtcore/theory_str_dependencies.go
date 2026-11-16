@@ -19,30 +19,30 @@ func newStringExpressionKinds() smtStringExpressionKinds {
 	return smtStringExpressionKinds{make(map[ast.ASTHandle]int), make(map[ast.ASTHandle]int), make(map[ast.ASTHandle]int)}
 }
 
-func stringOrderedCounts(values map[ast.ASTHandle]int) []ast.ASTHandle {
+func stringOrderedCounts(t *SMTStringTheory, values map[ast.ASTHandle]int) []ast.ASTHandle {
 	var keys []ast.ASTHandle
 	for key := range values {
 		keys = append(keys, key)
 	}
-	stringSortHandles(keys)
+	stringSortHandles(t, keys)
 	return keys
 }
 
-func stringOrderedRelations(values map[ast.ASTHandle]map[ast.ASTHandle]int) []ast.ASTHandle {
+func stringOrderedRelations(t *SMTStringTheory, values map[ast.ASTHandle]map[ast.ASTHandle]int) []ast.ASTHandle {
 	var keys []ast.ASTHandle
 	for key := range values {
 		keys = append(keys, key)
 	}
-	stringSortHandles(keys)
+	stringSortHandles(t, keys)
 	return keys
 }
 
-func stringOrderedAliases(values map[ast.ASTHandle]ast.ASTHandle) []ast.ASTHandle {
+func stringOrderedAliases(t *SMTStringTheory, values map[ast.ASTHandle]ast.ASTHandle) []ast.ASTHandle {
 	var keys []ast.ASTHandle
 	for key := range values {
 		keys = append(keys, key)
 	}
-	stringSortHandles(keys)
+	stringSortHandles(t, keys)
 	return keys
 }
 
@@ -207,7 +207,7 @@ func (t *SMTStringTheory) analyzeStringDependencies() (analysis *smtStringDepend
 		concatGroups: make(map[ast.ASTHandle]map[ast.ASTHandle]int), dependencies: make(map[ast.ASTHandle]map[ast.ASTHandle]int),
 	}
 	unrollAliases := make(map[ast.ASTHandle]ast.ASTHandle)
-	for _, unroll := range stringOrderedCounts(kinds.unrolls) {
+	for _, unroll := range stringOrderedCounts(t, kinds.unrolls) {
 		if _, found := unrollAliases[unroll]; found {
 			continue
 		}
@@ -233,10 +233,10 @@ func (t *SMTStringTheory) analyzeStringDependencies() (analysis *smtStringDepend
 			}
 		}
 	}
-	for _, unroll := range stringOrderedCounts(kinds.unrolls) {
+	for _, unroll := range stringOrderedCounts(t, kinds.unrolls) {
 		stringPutRelation(a.unrollGroups, unrollAliases[unroll], unroll, 1)
 	}
-	for _, variable := range stringOrderedCounts(a.variables) {
+	for _, variable := range stringOrderedCounts(t, a.variables) {
 		if _, found := a.variableAliases[variable]; found {
 			continue
 		}
@@ -251,7 +251,7 @@ func (t *SMTStringTheory) analyzeStringDependencies() (analysis *smtStringDepend
 			}
 		}
 	}
-	for _, variable := range stringOrderedCounts(a.variables) {
+	for _, variable := range stringOrderedCounts(t, a.variables) {
 		root := stringDependencyAlias(a.variableAliases, variable)
 		if _, found := a.variableValues[root]; !found {
 			value, known, err := t.eqcStringValue(root)
@@ -294,7 +294,7 @@ func (t *SMTStringTheory) analyzeStringDependencies() (analysis *smtStringDepend
 			}
 		}
 	}
-	for _, concat := range stringOrderedCounts(kinds.concats) {
+	for _, concat := range stringOrderedCounts(t, kinds.concats) {
 		if _, found := a.concatAliases[concat]; found {
 			continue
 		}
@@ -313,7 +313,7 @@ func (t *SMTStringTheory) analyzeStringDependencies() (analysis *smtStringDepend
 			}
 		}
 	}
-	for _, concat := range stringOrderedCounts(kinds.concats) {
+	for _, concat := range stringOrderedCounts(t, kinds.concats) {
 		root := stringDependencyAlias(a.concatAliases, concat)
 		if _, found := a.concatValues[root]; !found {
 			value, known, err := t.eqcStringValue(root)
@@ -348,17 +348,17 @@ func (t *SMTStringTheory) analyzeStringDependencies() (analysis *smtStringDepend
 }
 
 func (a *smtStringDependencyAnalysis) buildDependencies(t *SMTStringTheory) error {
-	for _, variable := range stringOrderedAliases(a.variableValues) {
+	for _, variable := range stringOrderedAliases(t, a.variableValues) {
 		stringPutRelation(a.dependencies, stringDependencyAlias(a.variableAliases, variable), a.variableValues[variable], 1)
 	}
-	for _, variable := range stringOrderedRelations(a.variableConcats) {
+	for _, variable := range stringOrderedRelations(t, a.variableConcats) {
 		root := stringDependencyAlias(a.variableAliases, variable)
-		for _, concat := range stringOrderedCounts(a.variableConcats[variable]) {
+		for _, concat := range stringOrderedCounts(t, a.variableConcats[variable]) {
 			kinds := newStringExpressionKinds()
 			if err := t.classifyStringExpression(concat, kinds); err != nil {
 				return err
 			}
-			for _, child := range stringOrderedCounts(kinds.variables) {
+			for _, child := range stringOrderedCounts(t, kinds.variables) {
 				child = stringDependencyAlias(a.variableAliases, child)
 				if a.dependencies[root][child] != 1 {
 					stringPutRelation(a.dependencies, root, child, 2)
@@ -366,14 +366,14 @@ func (a *smtStringDependencyAnalysis) buildDependencies(t *SMTStringTheory) erro
 			}
 		}
 	}
-	for _, variable := range stringOrderedRelations(a.variableUnrolls) {
+	for _, variable := range stringOrderedRelations(t, a.variableUnrolls) {
 		root := stringDependencyAlias(a.variableAliases, variable)
-		for _, unroll := range stringOrderedCounts(a.variableUnrolls[variable]) {
+		for _, unroll := range stringOrderedCounts(t, a.variableUnrolls[variable]) {
 			kinds := newStringExpressionKinds()
 			if err := t.classifyStringExpression(unroll, kinds); err != nil {
 				return err
 			}
-			for _, child := range stringOrderedCounts(kinds.variables) {
+			for _, child := range stringOrderedCounts(t, kinds.variables) {
 				child = stringDependencyAlias(a.variableAliases, child)
 				_, known, err := t.eqcStringValue(child)
 				if err != nil {
@@ -385,12 +385,12 @@ func (a *smtStringDependencyAnalysis) buildDependencies(t *SMTStringTheory) erro
 			}
 		}
 	}
-	for _, concat := range stringOrderedAliases(a.concatValues) {
+	for _, concat := range stringOrderedAliases(t, a.concatValues) {
 		kinds := newStringExpressionKinds()
 		if err := t.classifyStringExpression(concat, kinds); err != nil {
 			return err
 		}
-		for _, child := range stringOrderedCounts(kinds.variables) {
+		for _, child := range stringOrderedCounts(t, kinds.variables) {
 			child = stringDependencyAlias(a.variableAliases, child)
 			if a.dependencies[child][a.concatValues[concat]] != 1 {
 				stringPutRelation(a.dependencies, child, a.concatValues[concat], 3)
@@ -398,10 +398,10 @@ func (a *smtStringDependencyAnalysis) buildDependencies(t *SMTStringTheory) erro
 		}
 	}
 	leftGroups, rightGroups := newStringBoundaryGroups(), newStringBoundaryGroups()
-	for _, root := range stringOrderedRelations(a.concatGroups) {
+	for _, root := range stringOrderedRelations(t, a.concatGroups) {
 		left, right := make(map[ast.ASTHandle]int), make(map[ast.ASTHandle]int)
 		var leftConstant, rightConstant ast.ASTHandle
-		for _, concat := range stringOrderedCounts(a.concatGroups[root]) {
+		for _, concat := range stringOrderedCounts(t, a.concatGroups[root]) {
 			for side := 0; side < 2; side++ {
 				boundary, err := t.stringConcatBoundary(concat, side == 1)
 				if err != nil {
@@ -428,7 +428,7 @@ func (a *smtStringDependencyAnalysis) buildDependencies(t *SMTStringTheory) erro
 				}
 			}
 		}
-		for _, boundary := range stringOrderedCounts(left) {
+		for _, boundary := range stringOrderedCounts(t, left) {
 			variable := stringDependencyAlias(a.variableAliases, boundary)
 			if !leftConstant.IsNull() && a.dependencies[variable][leftConstant] != 1 {
 				stringPutRelation(a.dependencies, variable, leftConstant, 4)
@@ -437,7 +437,7 @@ func (a *smtStringDependencyAnalysis) buildDependencies(t *SMTStringTheory) erro
 		if err := leftGroups.add(t, a.variableAliases, left, true); err != nil {
 			return err
 		}
-		for _, boundary := range stringOrderedCounts(right) {
+		for _, boundary := range stringOrderedCounts(t, right) {
 			variable := stringDependencyAlias(a.variableAliases, boundary)
 			if !rightConstant.IsNull() && a.dependencies[variable][rightConstant] != 1 {
 				stringPutRelation(a.dependencies, variable, rightConstant, 5)
@@ -450,7 +450,7 @@ func (a *smtStringDependencyAnalysis) buildDependencies(t *SMTStringTheory) erro
 	constrained := make(map[ast.ASTHandle]map[ast.ASTHandle]int)
 	for _, groups := range []smtStringBoundaryGroups{leftGroups, rightGroups} {
 		for _, members := range groups.groups {
-			keys := stringOrderedCounts(members)
+			keys := stringOrderedCounts(t, members)
 			for i, left := range keys {
 				for _, right := range keys[i+1:] {
 					stringPutRelation(constrained, left, right, 1)
@@ -487,7 +487,7 @@ func newStringBoundaryGroups() smtStringBoundaryGroups {
 
 func (g smtStringBoundaryGroups) add(t *SMTStringTheory, aliases map[ast.ASTHandle]ast.ASTHandle, nodes map[ast.ASTHandle]int, filterBeforeAlias bool) error {
 	members := make(map[ast.ASTHandle]int)
-	for _, node := range stringOrderedCounts(nodes) {
+	for _, node := range stringOrderedCounts(t, nodes) {
 		if filterBeforeAlias {
 			_, known, err := t.eqcStringValue(node)
 			if err != nil {
@@ -503,7 +503,7 @@ func (g smtStringBoundaryGroups) add(t *SMTStringTheory, aliases map[ast.ASTHand
 		return nil
 	}
 	group := -1
-	for _, member := range stringOrderedCounts(members) {
+	for _, member := range stringOrderedCounts(t, members) {
 		if previous, found := g.indices[member]; found {
 			group = previous
 			break
@@ -512,7 +512,7 @@ func (g smtStringBoundaryGroups) add(t *SMTStringTheory, aliases map[ast.ASTHand
 	if group == -1 {
 		group = len(g.groups)
 	}
-	for _, member := range stringOrderedCounts(members) {
+	for _, member := range stringOrderedCounts(t, members) {
 		_, known, err := t.eqcStringValue(member)
 		if err != nil {
 			return err
@@ -538,19 +538,19 @@ func (a *smtStringDependencyAnalysis) selectFreeVariables(t *SMTStringTheory, co
 		a.freeVariables[variable] = 1
 	}
 	if len(a.dependencies) == 0 {
-		for _, variable := range stringOrderedCounts(a.variables) {
+		for _, variable := range stringOrderedCounts(t, a.variables) {
 			selectVariable(stringDependencyAlias(a.variableAliases, variable))
 		}
 		return
 	}
-	for _, variable := range stringOrderedCounts(a.variables) {
+	for _, variable := range stringOrderedCounts(t, a.variables) {
 		root := stringDependencyAlias(a.variableAliases, variable)
 		if _, dependent := a.dependencies[root]; !dependent {
 			selectVariable(root)
 		}
 	}
-	for _, from := range stringOrderedRelations(a.dependencies) {
-		for _, target := range stringOrderedCounts(a.dependencies[from]) {
+	for _, from := range stringOrderedRelations(t, a.dependencies) {
+		for _, target := range stringOrderedCounts(t, a.dependencies[from]) {
 			if _, variable := t.variableSet[target]; !variable {
 				continue
 			}

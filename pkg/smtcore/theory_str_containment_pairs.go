@@ -11,8 +11,9 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-// Native pair indexes are sets of expression pointers. Use stable handle
-// order for their traversal rather than Go map iteration order.
+// Native pair indexes are sets of expression pairs, ordered by AST id in
+// the fork (str_expr_pair_set). Traverse them in that order rather than Go
+// map iteration order.
 func (t *SMTStringTheory) containmentPairs(expression ast.ASTHandle) [][2]ast.ASTHandle {
 	var pairs [][2]ast.ASTHandle
 	for pair := range t.containsIndex[expression] {
@@ -20,11 +21,9 @@ func (t *SMTStringTheory) containmentPairs(expression ast.ASTHandle) [][2]ast.AS
 	}
 	sort.Slice(pairs, func(i, j int) bool {
 		for k := 0; k < 2; k++ {
-			if pairs[i][k].Slot() != pairs[j][k].Slot() {
-				return pairs[i][k].Slot() < pairs[j][k].Slot()
-			}
-			if pairs[i][k].Generation() != pairs[j][k].Generation() {
-				return pairs[i][k].Generation() < pairs[j][k].Generation()
+			left, right := stringHandleID(t, pairs[i][k]), stringHandleID(t, pairs[j][k])
+			if left != right {
+				return left < right
 			}
 		}
 		return false

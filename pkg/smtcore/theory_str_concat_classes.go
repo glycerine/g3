@@ -5,17 +5,28 @@ package smtcore
 
 import (
 	"errors"
+	"math"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func stringSortHandles(values []ast.ASTHandle) {
+// stringHandleID is expr::get_id(). The fork orders theory_str's
+// expression-keyed std::map and std::set containers by AST id
+// (str_expr_id_lt; owner decision 2026-11-15: no heap-address orders), so
+// walks over the Go maps that port them sort their keys by it. The handles
+// are live, so the lookup cannot fail; a stale one would sort last.
+func stringHandleID(t *SMTStringTheory, h ast.ASTHandle) uint32 {
+	id, err := t.state.manager.GetASTID(h)
+	if err != nil {
+		return math.MaxUint32
+	}
+	return id
+}
+
+func stringSortHandles(t *SMTStringTheory, values []ast.ASTHandle) {
 	sort.Slice(values, func(i, j int) bool {
-		if values[i].Slot() != values[j].Slot() {
-			return values[i].Slot() < values[j].Slot()
-		}
-		return values[i].Generation() < values[j].Generation()
+		return stringHandleID(t, values[i]) < stringHandleID(t, values[j])
 	})
 }
 
@@ -92,7 +103,7 @@ func (t *SMTStringTheory) simplifyStringConcat(expression ast.ASTHandle) (out as
 	for key := range resolved {
 		keys = append(keys, key)
 	}
-	stringSortHandles(keys)
+	stringSortHandles(t, keys)
 	for _, key := range keys {
 		if _, err := items.push(t.state.MkEqAtom(key, resolved[key])); err != nil {
 			return out, err
@@ -148,9 +159,9 @@ func (t *SMTStringTheory) groupStringClass(expression ast.ASTHandle) (groups smt
 			groups.variables = append(groups.variables, member)
 		}
 	}
-	stringSortHandles(groups.concats)
-	stringSortHandles(groups.variables)
-	stringSortHandles(groups.constants)
+	stringSortHandles(t, groups.concats)
+	stringSortHandles(t, groups.variables)
+	stringSortHandles(t, groups.constants)
 	return groups, nil
 }
 

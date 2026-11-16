@@ -21,7 +21,7 @@ func (f *smtStringRegexStage) intersections(options SMTStrState) error {
 	for word := range t.regexTermsByString {
 		words = append(words, word)
 	}
-	stringSortHandles(words)
+	stringSortHandles(t, words)
 	for _, word := range words {
 		var constraints []smtStringRegexConstraint
 		for _, member := range t.regexTermsByString[word] {

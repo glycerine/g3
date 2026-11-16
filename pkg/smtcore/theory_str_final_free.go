@@ -8,7 +8,7 @@ import "github.com/glycerine/g3/pkg/ast"
 func (t *SMTStringTheory) assignStringFreeVariables(analysis *smtStringDependencyAnalysis) error {
 	free := analysis.freeVariables
 	boundedByUnroll := make(map[ast.ASTHandle][]ast.ASTHandle)
-	for _, word := range stringOrderedCounts(free) {
+	for _, word := range stringOrderedCounts(t, free) {
 		_, unrolls, err := t.stringClassUnrolls(word)
 		if err != nil {
 			return err
@@ -24,7 +24,7 @@ func (t *SMTStringTheory) assignStringFreeVariables(analysis *smtStringDependenc
 	// classes used above and by simple-unroll collection below.
 	concatUnrolls := make(map[ast.ASTHandle]map[ast.ASTHandle]int)
 	m := t.state.manager
-	for _, head := range stringOrderedRelations(analysis.unrollGroups) {
+	for _, head := range stringOrderedRelations(t, analysis.unrollGroups) {
 		start := t.state.context.enodes.get(head)
 		if start == nil {
 			return ast.ErrASTDomain
@@ -53,7 +53,7 @@ func (t *SMTStringTheory) assignStringFreeVariables(analysis *smtStringDependenc
 	}
 	selected := make(map[ast.ASTHandle]map[ast.ASTHandle]int)
 	unrollArguments := make(map[ast.ASTHandle]int)
-	for _, concat := range stringOrderedRelations(concatUnrolls) {
+	for _, concat := range stringOrderedRelations(t, concatUnrolls) {
 		left, right, _, err := m.SequenceConcatParts(concat)
 		if err != nil {
 			return err
@@ -87,8 +87,8 @@ func (t *SMTStringTheory) assignStringFreeVariables(analysis *smtStringDependenc
 	for word := range unrollArguments {
 		delete(free, word)
 	}
-	for _, concat := range stringOrderedRelations(selected) {
-		for _, unroll := range stringOrderedCounts(selected[concat]) {
+	for _, concat := range stringOrderedRelations(t, selected) {
+		for _, unroll := range stringOrderedCounts(t, selected[concat]) {
 			if err := t.processStringConcatUnroll(concat, unroll); err != nil {
 				return err
 			}
@@ -111,7 +111,7 @@ func (t *SMTStringTheory) assignStringFreeVariables(analysis *smtStringDependenc
 	for word := range boundedByUnroll {
 		removed = append(removed, word)
 	}
-	stringSortHandles(removed)
+	stringSortHandles(t, removed)
 	for _, word := range removed {
 		_, simple, err := t.stringClassSimpleUnrolls(word)
 		if err != nil {

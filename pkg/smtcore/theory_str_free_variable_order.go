@@ -12,7 +12,7 @@ func (t *SMTStringTheory) stringClassVariables(expression ast.ASTHandle) []ast.A
 			variables = append(variables, member)
 		}
 	}
-	stringSortHandles(variables)
+	stringSortHandles(t, variables)
 	return variables
 }
 
@@ -27,7 +27,7 @@ func (t *SMTStringTheory) stringFreeVariableOrder(candidates map[ast.ASTHandle]i
 	// obj_hashtable<expr> eqcRepSet, leafVarSet and aloneVars[-1]: iterated in
 	// core_hashtable table order.
 	representatives := ast.NewObjMap(m)
-	for _, candidate := range stringOrderedCounts(candidates) {
+	for _, candidate := range stringOrderedCounts(t, candidates) {
 		if _, regex := t.regexVariables[candidate]; regex {
 			continue
 		}

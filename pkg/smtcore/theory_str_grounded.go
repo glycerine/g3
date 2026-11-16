@@ -101,16 +101,15 @@ func (g *smtStringGrounding) insert(expression ast.ASTHandle, parts, conditions 
 			ordered = append(ordered, condition)
 		}
 	}
-	stringSortHandles(ordered)
+	stringSortHandles(g.theory, ordered)
 	g.grounded[expression] = append(g.grounded[expression], smtStringGroundedConcat{append([]ast.ASTHandle(nil), parts...), ordered})
+	// str_grounded_map: lexicographic by AST id (str_expr_vector_id_lt).
 	sort.Slice(g.grounded[expression], func(i, j int) bool {
 		left, right := g.grounded[expression][i].parts, g.grounded[expression][j].parts
 		for k := 0; k < len(left) && k < len(right); k++ {
-			if left[k].Slot() != right[k].Slot() {
-				return left[k].Slot() < right[k].Slot()
-			}
-			if left[k].Generation() != right[k].Generation() {
-				return left[k].Generation() < right[k].Generation()
+			leftID, rightID := stringHandleID(g.theory, left[k]), stringHandleID(g.theory, right[k])
+			if leftID != rightID {
+				return leftID < rightID
 			}
 		}
 		return len(left) < len(right)
@@ -238,7 +237,7 @@ func (g *smtStringGrounding) ground(expression ast.ASTHandle) error {
 		for choice := range concats {
 			choices = append(choices, choice)
 		}
-		stringSortHandles(choices)
+		stringSortHandles(t, choices)
 		if len(choices) == 0 {
 			return ast.ErrASTDomain // Source dereferences begin() here.
 		}
