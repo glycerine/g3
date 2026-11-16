@@ -1,0 +1,5 @@
+(set-option :smt.string_solver z3str3)
+(set-option :smt.str.regex_automata false)
+(declare-const x String)
+(assert (str.in.re x (re.+ (str.to.re "a"))))
+(check-sat)
