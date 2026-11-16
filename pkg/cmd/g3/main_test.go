@@ -336,6 +336,13 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ-F5 (relation plugins): datalog.default_relation
+	// tr_hashtable / tr_bitvector makes that table_relation plugin the
+	// favourite (relation_manager::register_plugin), so the predicates and
+	// registers mk_empty_relation creates are hash / bitvector tables (rows
+	// in that table's order); g3 used the default table (sparse).
+	"plugins5_tr_hashtable_favourite.smt2": "sat\n(or (and (= (:var 0) #b110) (= (:var 1) #b001))\n    (and (= (:var 0) #b110) (= (:var 1) #b010))\n    (and (= (:var 0) #b001) (= (:var 1) #b010))\n    (and (= (:var 0) #b110) (= (:var 1) #b100))\n    (and (= (:var 0) #b001) (= (:var 1) #b011))\n    (and (= (:var 0) #b010) (= (:var 1) #b100))\n    (and (= (:var 0) #b001) (= (:var 1) #b100))\n    (and (= (:var 0) #b110) (= (:var 1) #b011))\n    (and (= (:var 0) #b010) (= (:var 1) #b011))\n    (and (= (:var 0) #b011) (= (:var 1) #b100)))\n",
+	"plugins5_tr_bitvector_favourite.smt2": "sat\n(or (and (= (:var 0) #x00001) (= (:var 1) #x00002))\n    (and (= (:var 0) #x00002) (= (:var 1) #x00003))\n    (and (= (:var 0) #x00009) (= (:var 1) #x00001))\n    (and (= (:var 0) #x00009) (= (:var 1) #x00002))\n    (and (= (:var 0) #x00001) (= (:var 1) #x00003))\n    (and (= (:var 0) #x00009) (= (:var 1) #x00003)))\nsat\n(or (= (:var 0) #b010) (= (:var 0) #b111))\nsat\ntrue\n",
 	// AUDIT.md FUZZ-F5 (relation plugins): with the bound_relation
 	// favourite, a predicate with an explicit tr_sparse representation is a
 	// table_relation of the sparse plugin next to the bound relations

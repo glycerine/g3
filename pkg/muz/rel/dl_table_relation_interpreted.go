@@ -183,7 +183,7 @@ func (m *RelationManager) newFullTable(predicate ast.ASTHandle, signature Signat
 		if !predicate.IsNull() {
 			return m.newRequestedFiniteTable(predicate, signature)
 		}
-		return m.NewDefaultFiniteTable(signature)
+		return m.newFavouriteFiniteTable(signature)
 	}
 	m.initRelationKinds()
 	for _, p := range m.tableRelationPlugins {

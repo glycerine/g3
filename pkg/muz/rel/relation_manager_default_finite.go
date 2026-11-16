@@ -51,12 +51,44 @@ func (m *RelationManager) SetDefaultFiniteTable(name string) error {
 	}
 }
 
+// SetFavouriteTableRelation records a table_relation favourite relation
+// plugin (relation_manager::register_plugin(table_plugin*)): the plugin
+// named tr_<table> by datalog.default_relation becomes
+// m_favourite_relation_plugin unless the default table's plugin, registered
+// after it, takes its place. table is "" when the favourite is not a
+// table_relation plugin or is the default table's.
+func (m *RelationManager) SetFavouriteTableRelation(table string) error {
+	if err := m.open(); err != nil {
+		return err
+	}
+	m.favouriteTable = table
+	return nil
+}
+
+// newFavouriteFiniteTable is mk_empty_relation(s, null_family_id) for a
+// table signature when no relation plugin handles it: the table_relation
+// favourite's table when it handles the signature (table_relation_plugin::
+// can_handle_signature), otherwise mk_empty_table_relation's table of the
+// appropriate table plugin.
+func (m *RelationManager) newFavouriteFiniteTable(signature Signature) (FiniteTable, error) {
+	if m.checkedFinite == nil && m.favouriteTable != "" {
+		if p := m.tableRelationPluginNamed(m.favouriteTable); p != nil && p.canHandle(signature) {
+			return p.newTable(signature)
+		}
+	}
+	return m.NewDefaultFiniteTable(signature)
+}
+
 // SetRequestedFiniteKind records rel_context::set_predicate_representation's
 // requested table plugin for predicate (kind is tr_sparse, tr_hashtable,
-// tr_bitvector or tr_lazy_sparse).
+// tr_bitvector or tr_lazy_sparse); "" removes the request.
 func (m *RelationManager) SetRequestedFiniteKind(predicate ast.ASTHandle, kind string) error {
 	if err := m.open(); err != nil {
 		return err
+	}
+	if kind == "" {
+		delete(m.requestedFinite, predicate)
+		return nil
 	}
 	if m.requestedFinite == nil {
 		m.requestedFinite = make(map[ast.ASTHandle]string)
@@ -100,7 +132,7 @@ func (m *RelationManager) newRequestedFiniteTable(predicate ast.ASTHandle, signa
 			}
 		}
 	}
-	return m.NewDefaultFiniteTable(signature)
+	return m.newFavouriteFiniteTable(signature)
 }
 
 // NewDefaultFiniteTable mirrors get_appropriate_plugin: the configured sparse

@@ -256,7 +256,7 @@ func constructFiniteTable(context *ExecutionContext, signature Signature, predic
 		if !predicate.IsNull() {
 			return context.relations.newRequestedFiniteTable(predicate, signature)
 		}
-		return context.relations.NewDefaultFiniteTable(signature)
+		return context.relations.newFavouriteFiniteTable(signature)
 	}
 	return NewHashTable(signature), nil
 }

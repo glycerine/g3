@@ -193,7 +193,7 @@ func (m *RelationManager) mkEmptyRelationKind(sorts []ast.ASTHandle, kind int) (
 		}
 	}
 	if signature, ok := m.signatureIsTable(sorts); ok {
-		table, err := m.NewDefaultFiniteTable(signature)
+		table, err := m.newFavouriteFiniteTable(signature)
 		if err != nil {
 			return nil, err
 		}
@@ -244,8 +244,14 @@ func (m *RelationManager) appropriatePlugin(sorts []ast.ASTHandle) (RelationPlug
 		}
 	}
 	if signature, ok := m.signatureIsTable(sorts); ok {
-		// The favourite table's relation plugin (default_table) handles a
-		// table signature first.
+		// A table_relation favourite (datalog.default_relation tr_<table>)
+		// handles a table signature first, then the favourite table's
+		// relation plugin (default_table).
+		if name := m.favouriteTable; name != "" && m.checkedFinite == nil {
+			if p := m.tableRelationPluginNamed(name); p != nil && p.canHandle(signature) {
+				return p, nil
+			}
+		}
 		if name := m.defaultFinite; name != "" {
 			if p := m.tableRelationPluginNamed(name); p != nil && p.canHandle(signature) {
 				return p, nil

@@ -13,7 +13,9 @@ import (
 func TestPlugins5RouteRlimit(t *testing.T) {
 	rlimit := regexp.MustCompile(`:rlimit-count +([0-9]+)`)
 	for name, want := range map[string]string{
-		"plugins5_bound_tr_sparse.smt2": "60",
+		"plugins5_bound_tr_sparse.smt2":        "60",
+		"plugins5_tr_hashtable_favourite.smt2": "92",
+		"plugins5_tr_bitvector_favourite.smt2": "848",
 	} {
 		var out, diagnostics bytes.Buffer
 		args := []string{"-st", filepath.Join("test_vectors", name)}

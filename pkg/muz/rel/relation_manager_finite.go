@@ -49,7 +49,7 @@ func (m *RelationManager) GetFiniteRelation(predicate ast.ASTHandle) (FiniteTabl
 	if err != nil {
 		return nil, err
 	}
-	table, err = m.NewDefaultFiniteTable(signature)
+	table, err = m.newFavouriteFiniteTable(signature)
 	if err != nil {
 		return nil, err
 	}

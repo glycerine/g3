@@ -190,7 +190,7 @@ func (m *RelationManager) mkEmptyRelation(sorts []ast.ASTHandle, predicate ast.A
 		if !predicate.IsNull() {
 			return m.newRequestedFiniteTable(predicate, signature)
 		}
-		return m.NewDefaultFiniteTable(signature)
+		return m.newFavouriteFiniteTable(signature)
 	}
 	p, err := m.firstRelationPlugin(sorts)
 	if err != nil {

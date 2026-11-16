@@ -23,8 +23,12 @@ type RelationManager struct {
 	saturated     map[ast.ASTHandle]bool
 	// layout is m_relations' obj_map layout over every stored predicate;
 	// reset and restrict walk it in table order.
-	layout                  *ast.ObjMap
-	defaultFinite           string
+	layout        *ast.ObjMap
+	defaultFinite string
+	// favouriteTable is the table plugin of a table_relation favourite
+	// relation plugin other than the default table's (datalog.default_relation
+	// tr_<table>), "" when there is none.
+	favouriteTable          string
 	lazyFinite              *LazySparseFiniteFactory // borrowed; context closes it after this manager
 	checkedFinite           *FiniteCheckedFactory    // borrowed for one checked execution scope
 	explanationUDoc         *UDocRelationFactory     // owned by the relation manager for explanation products
