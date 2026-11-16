@@ -868,8 +868,15 @@ func (c *Context) Close() (result error) {
 	if c.manager == nil {
 		return ErrContextOwner
 	}
-	// ~context -> reset(): reset(m_rels) in obj_map order, then
-	// m_search.reset(), before the remaining members.
+	// ~context -> reset(): m_search.reset() (the fork drops the search
+	// nodes before the transformers they are keyed by, FORK FIX #13), then
+	// reset(m_rels) in obj_map order, before the remaining members.
+	if c.search != nil {
+		if err := c.search.Close(); err != nil {
+			return err
+		}
+		c.search = nil
+	}
 	for _, declaration := range c.order {
 		if transformer := c.transformers[declaration]; transformer != nil {
 			if err := transformer.Close(); err != nil {
@@ -877,12 +884,6 @@ func (c *Context) Close() (result error) {
 			}
 			c.transformers[declaration] = nil
 		}
-	}
-	if c.search != nil {
-		if err := c.search.Close(); err != nil {
-			return err
-		}
-		c.search = nil
 	}
 	if c.implicant != nil {
 		if err := c.implicant.Close(); err != nil {

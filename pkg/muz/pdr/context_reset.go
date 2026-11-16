@@ -15,11 +15,12 @@ func (c *Context) Reset() error {
 		return err
 	}
 	c.unknownResult = false
-	// reset(m_rels) precedes m_search.reset().
-	if err := closeTransformers(c.order, c.transformers); err != nil {
+	// m_search.reset() precedes reset(m_rels): the fork drops the search
+	// nodes before the transformers they are keyed by (FORK FIX #13).
+	if err := c.search.Reset(); err != nil {
 		return err
 	}
-	if err := c.search.Reset(); err != nil {
+	if err := closeTransformers(c.order, c.transformers); err != nil {
 		return err
 	}
 	if err := c.owner.contexts.resetSolvers(true); err != nil {

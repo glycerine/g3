@@ -783,20 +783,7 @@ func (p *PredicateTransformer) Close() (result error) {
 		return ErrPredicateTransformerOwner
 	}
 	p.closing = true
-	if p.reachable != nil {
-		result = errors.Join(result, p.reachable.Close())
-	}
-	if p.solver != nil {
-		result = errors.Join(result, p.solver.Close())
-	}
-	for index := len(p.rules) - 1; index >= 0; index-- {
-		if p.rules[index] != nil && p.rules[index].rule != nil {
-			result = errors.Join(result, p.rules[index].rule.Close())
-		}
-	}
-	for index := len(p.references) - 1; index >= 0; index-- {
-		result = errors.Join(result, p.manager.DelRef(&p.references[index]))
-	}
+	result = p.closeInSourceOrder()
 	if result == nil {
 		p.owner = nil
 		p.manager = nil
@@ -814,4 +801,118 @@ func (p *PredicateTransformer) Close() (result error) {
 		p.closed = true
 	}
 	return result
+}
+
+// closeInSourceOrder is ~pred_transformer. The body deallocates the
+// m_rule2inst vectors, then dec_refs the m_rule2transition values, each in
+// obj_map (rule hash) order; then the members die in reverse declaration
+// order: m_reachable, m_initial_state, m_transition, m_invariants,
+// m_levels, m_solver, m_rules, and m_head last. The port's other pins
+// (copies the source does not hold) are dropped first; they never hold the
+// last reference to a term the source still owns.
+func (p *PredicateTransformer) closeInSourceOrder() (result error) {
+	m := p.manager
+	slots := make(map[ast.ASTHandle][]int)
+	for i, ref := range p.references {
+		if ref == (ast.ASTRef{}) {
+			continue
+		}
+		h, err := m.RefGet(ref)
+		if err != nil {
+			return err
+		}
+		slots[h] = append(slots[h], i)
+	}
+	type step struct {
+		handle ast.ASTHandle
+		action func() error
+	}
+	var steps []step
+	reserved := make(map[int]bool)
+	reserve := func(h ast.ASTHandle) {
+		if h.IsNull() {
+			return
+		}
+		for _, i := range slots[h] {
+			if !reserved[i] {
+				reserved[i] = true
+				steps = append(steps, step{handle: h, action: func() error { return m.DelRef(&p.references[i]) }})
+				return
+			}
+		}
+	}
+	act := func(f func() error) { steps = append(steps, step{action: f}) }
+	instOrder, transOrder, err := p.ruleMapOrders()
+	if err != nil {
+		return err
+	}
+	for _, rule := range instOrder {
+		for _, v := range rule.instances {
+			reserve(v)
+		}
+	}
+	for _, rule := range transOrder {
+		reserve(rule.transition)
+	}
+	if p.reachable != nil {
+		act(p.reachable.Close)
+	}
+	reserve(p.initialState)
+	reserve(p.transition)
+	for _, lemma := range p.invariants {
+		reserve(lemma)
+	}
+	for _, level := range p.levels {
+		for _, lemma := range level {
+			reserve(lemma)
+		}
+	}
+	if p.solver != nil {
+		act(p.solver.Close)
+	}
+	for _, rule := range p.rules {
+		if rule != nil && rule.rule != nil {
+			r := rule.rule
+			act(r.Close)
+		}
+	}
+	reserve(p.head)
+	for index := len(p.references) - 1; index >= 0; index-- {
+		if !reserved[index] && p.references[index] != (ast.ASTRef{}) {
+			result = errors.Join(result, m.DelRef(&p.references[index]))
+		}
+	}
+	for _, s := range steps {
+		result = errors.Join(result, s.action())
+	}
+	return result
+}
+
+// ruleMapOrders lists the rules in m_rule2inst and m_rule2transition
+// iteration order: obj_map<rule const, V> hashes rule::hash(), every rule
+// enters m_rule2inst in m_rules order, and m_rule2transition only the rules
+// whose transition is not false.
+func (p *PredicateTransformer) ruleMapOrders() (inst, trans []*normalizedRule, err error) {
+	instMap := ast.NewObjMap(p.manager)
+	transMap := ast.NewObjMap(p.manager)
+	for index, rule := range p.rules {
+		if rule == nil || rule.rule == nil {
+			continue
+		}
+		hash, err := rule.rule.Hash()
+		if err != nil {
+			return nil, nil, err
+		}
+		instMap.InsertPairIfNotThere(ast.ASTHandle{}, uint64(index), hash)
+		if !rule.transition.IsNull() && !p.manager.IsFalse(rule.transition) {
+			transMap.InsertPairIfNotThere(ast.ASTHandle{}, uint64(index), hash)
+		}
+	}
+	for _, e := range instMap.Entries() {
+		inst = append(inst, p.rules[e.Num])
+	}
+	for _, e := range transMap.Entries() {
+		trans = append(trans, p.rules[e.Num])
+	}
+	return inst, trans, nil
 }

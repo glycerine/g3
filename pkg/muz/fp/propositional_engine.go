@@ -3732,11 +3732,6 @@ func (e *PropositionalEngine) Close() (result error) {
 		result = errors.Join(result, e.datalogTransformedRules.Close())
 		e.datalogTransformedRules = nil
 	}
-	if e.pdrRules != nil {
-		result = errors.Join(result, e.pdrRules.Close())
-		e.pdrRules = nil
-	}
-	e.pdrRuleRevision = 0
 	if e.spacerRules != nil {
 		result = errors.Join(result, e.spacerRules.Close())
 		e.spacerRules = nil
@@ -3746,6 +3741,13 @@ func (e *PropositionalEngine) Close() (result error) {
 	// ~context: reset() destroys the engine, then m_last_answer dies with
 	// the members.
 	result = errors.Join(result, e.releaseLastAnswer())
+	// m_last_answer is declared after m_transformed_rule_set, which holds
+	// the PDR transformed rules, so it dies first.
+	if e.pdrRules != nil {
+		result = errors.Join(result, e.pdrRules.Close())
+		e.pdrRules = nil
+	}
+	e.pdrRuleRevision = 0
 	for i := len(e.scopes) - 1; i >= 0; i-- {
 		result = errors.Join(result, e.scopes[i].Close())
 	}
