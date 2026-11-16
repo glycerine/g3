@@ -3789,3 +3789,48 @@ void tst_z3_4_7_1_table_relation_unhandled_signature() {
         "sat\n"
         "(or (= (:var 0) true) (= (:var 0) false))\n");
 }
+
+// The join of p (a udoc relation, the doc favourite) and t (a Bool table)
+// into h is a product_relation join that needs a full table_relation over
+// p's two-column signature (get_full_tableish_relation); table_base::
+// complement handled one column only and z3 4.7.1 stops on
+// VERIFY(sig.first_functional() == 1). The fixed complement enumerates every
+// row of several columns. The answer keeps no correlation of the product's
+// inner relations, as for the other product joins.
+// pkg/AUDIT.md FUZZ-F5 (relation plugins).
+void tst_z3_4_7_1_table_complement_columns() {
+    char const* script =
+        "(set-option :fixedpoint.engine datalog)\n"
+        "(set-option :fixedpoint.datalog.default_relation doc)\n"
+        "(define-sort V () (_ BitVec 2))\n"
+        "(declare-rel p (V V))\n"
+        "(declare-rel t (Bool))\n"
+        "(declare-rel h (V V Bool))\n"
+        "(declare-var x V)\n"
+        "(declare-var y V)\n"
+        "(declare-var b Bool)\n"
+        "(rule (p #b00 #b01))\n"
+        "(rule (t true))\n"
+        "(rule (=> (and (p x y) (t b)) (h x y b)))\n"
+        "(query h :print-answer true)\n";
+    expect_script_output("table_complement_columns", script,
+        "sat\n"
+        "(and (= (:var 0) #b00)\n"
+        "     (= (:var 1) #b01)\n"
+        "     (or (and (= (:var 0) #b00) (= (:var 1) #b00) (= (:var 2) true))\n"
+        "         (and (= (:var 0) #b00) (= (:var 1) #b01) (= (:var 2) true))\n"
+        "         (and (= (:var 0) #b00) (= (:var 1) #b10) (= (:var 2) true))\n"
+        "         (and (= (:var 0) #b00) (= (:var 1) #b11) (= (:var 2) true))\n"
+        "         (and (= (:var 0) #b01) (= (:var 1) #b00) (= (:var 2) true))\n"
+        "         (and (= (:var 0) #b01) (= (:var 1) #b01) (= (:var 2) true))\n"
+        "         (and (= (:var 0) #b01) (= (:var 1) #b10) (= (:var 2) true))\n"
+        "         (and (= (:var 0) #b01) (= (:var 1) #b11) (= (:var 2) true))\n"
+        "         (and (= (:var 0) #b10) (= (:var 1) #b00) (= (:var 2) true))\n"
+        "         (and (= (:var 0) #b10) (= (:var 1) #b01) (= (:var 2) true))\n"
+        "         (and (= (:var 0) #b10) (= (:var 1) #b10) (= (:var 2) true))\n"
+        "         (and (= (:var 0) #b10) (= (:var 1) #b11) (= (:var 2) true))\n"
+        "         (and (= (:var 0) #b11) (= (:var 1) #b00) (= (:var 2) true))\n"
+        "         (and (= (:var 0) #b11) (= (:var 1) #b01) (= (:var 2) true))\n"
+        "         (and (= (:var 0) #b11) (= (:var 1) #b10) (= (:var 2) true))\n"
+        "         (and (= (:var 0) #b11) (= (:var 1) #b11) (= (:var 2) true))))\n");
+}
