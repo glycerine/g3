@@ -306,6 +306,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_qe_sat_projection_canceled);
     TST(z3_4_7_1_simple_joins_rule_order);
     TST(z3_4_7_1_str_container_id_order);
+    TST(z3_4_7_1_product_kind_spec);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);
