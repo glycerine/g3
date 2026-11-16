@@ -295,6 +295,10 @@ Abstract:
                                   Datalog front end reads `X = ""` on an
                                   int domain as an uninitialized number
                                   (pkg/AUDIT.md cmd_context_01-F9 follow-up).
+    z3_4_7_1_simple_joins_rule_order join_planner::run emits the result
+                                  rules in rule-pointer address order
+                                  instead of source order (fork fix,
+                                  owner decision 2026-11-15).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -354,6 +358,7 @@ Abstract:
 #include "muz/base/dl_util.h"
 #include "muz/fp/datalog_parser.h"
 #include "util/warning.h"
+#include "muz/rel/dl_mk_simple_joins.h"
 void register_z3_replayer_cmds(z3_replayer & in);
 #include <iostream>
 #ifndef _WINDOWS
@@ -3374,4 +3379,51 @@ void tst_z3_4_7_1_qe_sat_projection_canceled() {
         "(get-info :reason-unknown)\n");
     std::cout << "qe_sat_projection_canceled:\n" << out;
     ENSURE(out == "unknown\n(:reason-unknown \"max. resource limit exceeded\")\n");
+}
+
+// join_planner::run built its result by walking m_rules_content, a map keyed
+// by rule pointers with an address hash (ptr_hash<rule>), so the order of the
+// result rules followed heap addresses: the relation load/register order and
+// the -v output changed from build to build. The fork walks the source rules
+// in source order (owner decision 2026-11-15: heap-address orders iterate by
+// a stable id). The source has twelve rules with at most two tails, which
+// the planner keeps, and one rule with three tails, which it rewrites; the
+// kept rules must come back in source order.
+void tst_z3_4_7_1_simple_joins_rule_order() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    smt_params fparams;
+    datalog::register_engine re;
+    datalog::context ctx(m, re, fparams);
+    datalog::parser* p = datalog::parser::create(ctx, m);
+    std::string prog = "V 16\n\nE(x:V,y:V)\nT(x:V,y:V)\n";
+    for (unsigned i = 0; i < 12; ++i) {
+        prog += "P" + std::to_string(i) + "(x:V)\n";
+    }
+    for (unsigned i = 0; i < 12; ++i) {
+        if (i == 5) {
+            prog += "T(X,Z) :- E(X,Y), E(Y,Z), E(Z,X).\n";
+        }
+        prog += "P" + std::to_string(i) + "(X) :- E(X,Y).\n";
+    }
+    ENSURE(p->parse_string(prog.c_str()));
+    dealloc(p);
+    datalog::rule_set& source = ctx.get_rules();
+    ENSURE(source.get_num_rules() == 13);
+    datalog::mk_simple_joins sj(ctx);
+    datalog::rule_set* result = sj(source);
+    ENSURE(result);
+    ENSURE(result->get_num_rules() > source.get_num_rules());
+    bool ok = true;
+    for (unsigned i = 0; i < source.get_num_rules(); ++i) {
+        datalog::rule* s = source.get_rule(i);
+        datalog::rule* r = result->get_rule(i);
+        std::cout << "simple_joins_rule_order " << i << ": source " << s->get_decl()->get_name()
+                  << ", result " << r->get_decl()->get_name() << "\n";
+        if (s->get_decl() != r->get_decl() || (i != 5 && s != r)) {
+            ok = false;
+        }
+    }
+    dealloc(result);
+    ENSURE(ok);
 }
