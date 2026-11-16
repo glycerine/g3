@@ -245,6 +245,13 @@ func (m *ASTManager) MkDatatypes(defs []DatatypeDefinition) (result []ASTHandle,
 		return nil, e
 	}
 	p.definitionRefs = append(p.definitionRefs, acquired...)
+	for _, definition := range built {
+		hash, e := m.Symbols.Hash(definition.name)
+		if e != nil {
+			return nil, e
+		}
+		p.insertDefinitionSlot(definition.name, hash)
+	}
 	rollback = false
 	return result, nil
 }
@@ -387,14 +394,54 @@ func (m *ASTManager) datatypeInstantiatedRanges(sort astNodeRef, definition *ast
 	return result, nil
 }
 
-func (m *ASTManager) datatypeConstructorDecl(sort astNodeRef, definition *astDatatypeDefinition, constructor *astDatatypeConstructorDefinition) (astNodeRef, error) {
-	ranges, err := m.datatypeInstantiatedRanges(sort, definition, constructor)
+// datatypeConstructorDecl is constructor::instantiate: the domain is
+// a->instantiate(ps)->get_range() of each accessor, so every accessor
+// declaration is built (a temporary func_decl_ref, released at once) while
+// the domain sort_ref_vector keeps its range until the constructor exists.
+func (m *ASTManager) datatypeConstructorDecl(sort astNodeRef, definition *astDatatypeDefinition, constructor *astDatatypeConstructorDefinition) (result astNodeRef, err error) {
+	arguments, err := m.datatypeSortArguments(sort, definition)
 	if err != nil {
 		return astNodeRef{}, err
 	}
-	domain := make([]ASTHandle, len(ranges))
-	for i, field := range ranges {
-		domain[i] = m.external(field)
+	domain := make([]ASTHandle, 0, len(constructor.ranges))
+	// The datatype itself is held by the caller (util::m_asts holds ty
+	// before its constructors are instantiated) while the temporary
+	// accessors come and go.
+	held := make([]astNodeRef, 0, len(constructor.ranges)+1)
+	defer func() {
+		for _, r := range held {
+			_, e := m.decNode(r)
+			err = errors.Join(err, e)
+		}
+	}()
+	if err = m.incNode(sort); err != nil {
+		return astNodeRef{}, err
+	}
+	sortHold := sort
+	defer func() {
+		_, e := m.decNode(sortHold)
+		err = errors.Join(err, e)
+	}()
+	for i, field := range constructor.ranges {
+		rng, e := m.datatypeSubstituteSort(field, definition.parameters, arguments)
+		if e != nil {
+			return astNodeRef{}, e
+		}
+		accessor, e := m.datatypeAccessorDecl(sort, constructor, i, rng)
+		if e != nil {
+			return astNodeRef{}, e
+		}
+		if e = m.incNode(rng); e != nil {
+			return astNodeRef{}, e
+		}
+		held = append(held, rng)
+		domain = append(domain, m.external(rng))
+		if e = m.incNode(accessor); e != nil {
+			return astNodeRef{}, e
+		}
+		if _, e = m.decNode(accessor); e != nil {
+			return astNodeRef{}, e
+		}
 	}
 	parameter, err := m.newParameterSymbol(constructor.name)
 	if err != nil {
@@ -402,6 +449,22 @@ func (m *ASTManager) datatypeConstructorDecl(sort astNodeRef, definition *astDat
 	}
 	defer m.dropParameter(parameter)
 	return m.datatypeDecl(ASTDatatypeConstructor, []ASTParameter{parameter}, domain, m.external(sort))
+}
+
+// datatypeAccessorDecl is accessor::instantiate's mk_func_decl(OP_DT_ACCESSOR)
+// with parameters (accessor name, constructor name) over the datatype.
+func (m *ASTManager) datatypeAccessorDecl(sort astNodeRef, constructor *astDatatypeConstructorDefinition, i int, rng astNodeRef) (astNodeRef, error) {
+	p0, e := m.newParameterSymbol(constructor.accessors[i])
+	if e != nil {
+		return astNodeRef{}, e
+	}
+	p1, e := m.newParameterSymbol(constructor.name)
+	if e != nil {
+		_ = m.dropParameter(p0)
+		return astNodeRef{}, e
+	}
+	decl, e := m.datatypeDecl(ASTDatatypeAccessor, []ASTParameter{p0, p1}, []ASTHandle{m.external(sort)}, m.external(rng))
+	return decl, errors.Join(e, m.dropParameter(p1), m.dropParameter(p0))
 }
 
 func (m *ASTManager) datatypeConstructors(sort astNodeRef) ([]ASTHandle, error) {
@@ -563,18 +626,8 @@ func (m *ASTManager) DatatypeConstructorAccessors(constructor ASTHandle) ([]ASTH
 			return nil, e
 		}
 		result := make([]ASTHandle, 0, len(candidate.accessors))
-		for i, accessorName := range candidate.accessors {
-			p0, e := m.newParameterSymbol(accessorName)
-			if e != nil {
-				return nil, e
-			}
-			p1, e := m.newParameterSymbol(candidate.name)
-			if e != nil {
-				_ = m.dropParameter(p0)
-				return nil, e
-			}
-			decl, e := m.datatypeDecl(ASTDatatypeAccessor, []ASTParameter{p0, p1}, []ASTHandle{m.external(m.declAt(c.slot).rangeSort)}, m.external(ranges[i]))
-			e = errors.Join(e, m.dropParameter(p1), m.dropParameter(p0))
+		for i := range candidate.accessors {
+			decl, e := m.datatypeAccessorDecl(m.declAt(c.slot).rangeSort, candidate, i, ranges[i])
 			if e != nil {
 				return nil, e
 			}

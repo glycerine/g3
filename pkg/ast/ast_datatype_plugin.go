@@ -30,15 +30,19 @@ type astDatatypeConstructorDefinition struct {
 }
 
 type astDatatypePluginOwner struct {
-	self                                  *astDatatypePluginOwner
-	owner                                 *ASTManager
-	next                                  *astDatatypePluginOwner
-	family                                FamilyID
-	header                                uint64
-	bodyCause                             error
-	definitions                           map[astNodeRef]*astDatatypeDefinition
-	definitionNames                       map[usymbol.Symbol]*astDatatypeDefinition
-	definitionRefs                        []astNodeRef
+	self            *astDatatypePluginOwner
+	owner           *ASTManager
+	next            *astDatatypePluginOwner
+	family          FamilyID
+	header          uint64
+	bodyCause       error
+	definitions     map[astNodeRef]*astDatatypeDefinition
+	definitionNames map[usymbol.Symbol]*astDatatypeDefinition
+	definitionRefs  []astNodeRef
+	// definitionTable is the m_defs core_hashtable layout (keyed by the
+	// symbol hash), whose order plugin::finalize deallocates in.
+	definitionTable                       []datatypeDefinitionSlot
+	definitionCount                       int
 	classID                               uint32
 	utility                               *DatatypeUtil
 	completed, published, memoryTraceLive bool
@@ -127,6 +131,39 @@ func (m *ASTManager) finalizeDatatypePlugin() error {
 	if p == nil || p.membersEnded {
 		return nil
 	}
+	// for (auto& kv : m_defs) dealloc(kv.m_value): ~def deallocates its
+	// constructors (each accessor's m_range), then m_sort, then m_params.
+	for _, slot := range p.definitionTable {
+		if !slot.used {
+			continue
+		}
+		d := p.definitionNames[slot.name]
+		if d == nil {
+			continue
+		}
+		var order []astNodeRef
+		for _, c := range d.constructors {
+			order = append(order, c.ranges...)
+		}
+		order = append(order, d.sort)
+		order = append(order, d.parameters...)
+		for _, ref := range order {
+			for i := len(p.definitionRefs) - 1; i >= 0; i-- {
+				if p.definitionRefs[i] != ref {
+					continue
+				}
+				consumed, err := m.decNode(ref)
+				if consumed {
+					p.definitionRefs = append(p.definitionRefs[:i], p.definitionRefs[i+1:]...)
+				}
+				if err != nil {
+					return err
+				}
+				break
+			}
+		}
+	}
+	p.definitionTable, p.definitionCount = nil, 0
 	for len(p.definitionRefs) != 0 {
 		last := len(p.definitionRefs) - 1
 		ref := p.definitionRefs[last]
@@ -152,4 +189,48 @@ func (m *ASTManager) finalizeDatatypePlugin() error {
 	}
 	p.membersEnded = true
 	return nil
+}
+
+type datatypeDefinitionSlot struct {
+	name usymbol.Symbol
+	hash uint32
+	used bool
+}
+
+// insertDefinitionSlot is m_defs.insert(name, d) (core_hashtable::insert;
+// an existing key keeps its slot). m_defs has no removal here.
+func (p *astDatatypePluginOwner) insertDefinitionSlot(name usymbol.Symbol, hash uint32) {
+	if p.definitionTable == nil {
+		p.definitionTable = make([]datatypeDefinitionSlot, 8) // DEFAULT_HASHTABLE_INITIAL_CAPACITY
+	}
+	place := func(table []datatypeDefinitionSlot, e datatypeDefinitionSlot) {
+		mask := uint32(len(table) - 1)
+		for i, n := int(e.hash&mask), 0; n < len(table); i, n = (i+1)%len(table), n+1 {
+			if !table[i].used {
+				table[i] = e
+				return
+			}
+		}
+	}
+	if p.definitionCount<<2 > len(p.definitionTable)*3 {
+		target := make([]datatypeDefinitionSlot, len(p.definitionTable)<<1)
+		for _, e := range p.definitionTable {
+			if e.used {
+				place(target, e)
+			}
+		}
+		p.definitionTable = target
+	}
+	mask := uint32(len(p.definitionTable) - 1)
+	for i, n := int(hash&mask), 0; n < len(p.definitionTable); i, n = (i+1)%len(p.definitionTable), n+1 {
+		e := &p.definitionTable[i]
+		if e.used && e.hash == hash && e.name == name {
+			return
+		}
+		if !e.used {
+			*e = datatypeDefinitionSlot{name: name, hash: hash, used: true}
+			p.definitionCount++
+			return
+		}
+	}
 }
