@@ -3764,3 +3764,28 @@ void tst_z3_4_7_1_check_relation_mixed_join() {
         "         (= (:var 0) #b110)\n"
         "         (= (:var 0) #b111)))\n");
 }
+
+// check_relation over tr_sparse: r (Bool) holds a check_relation, the
+// negated p (Int, Bool) a product relation. The product join of r with the
+// unbound Int column's full relation makes a sieve over check_relation whose
+// inner signature is empty (no Int column for tr_sparse), and
+// table_relation_plugin::mk_empty created a sparse_table of the empty
+// signature, which sparse_table_plugin cannot handle: z3 4.7.1 segfaults in
+// column_layout::make_byte_aligned_end. The fixed plugin gives a signature
+// its table plugin cannot handle the appropriate plugin's table (as
+// mk_from_table does). pkg/AUDIT.md FUZZ-F5 (relation plugins).
+void tst_z3_4_7_1_table_relation_unhandled_signature() {
+    char const* script =
+        "(set-option :fixedpoint.engine datalog)\n"
+        "(set-option :fixedpoint.datalog.check_relation tr_sparse)\n"
+        "(declare-rel p (Int Bool))\n"
+        "(declare-rel r (Bool))\n"
+        "(declare-var x Int)\n"
+        "(declare-var b Bool)\n"
+        "(rule (r true))\n"
+        "(rule (=> (and (r b) (not (p x b))) (r false)))\n"
+        "(query r :print-answer true)\n";
+    expect_script_output("table_relation_unhandled_signature", script,
+        "sat\n"
+        "(or (= (:var 0) true) (= (:var 0) false))\n");
+}
