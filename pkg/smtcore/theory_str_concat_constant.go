@@ -174,19 +174,21 @@ func (t *SMTStringTheory) solveConcatKnownLength(equality, a, b ast.ASTHandle, t
 		}
 		return value, locals.add(value)
 	}
-	term, err := pin(m.MkSequenceLength(variable))
-	if err != nil {
-		return err
-	}
-	bound := "0"
-	if length.Sign() >= 0 {
-		bound = new(big.Int).SetUint64(uint64(len(text))).String()
-	}
-	numeral, err := pin(m.ArithmeticIntegerNumeralText(bound))
-	if err != nil {
-		return err
+	// The length conflicts build m_autil.mk_ge/mk_le(mk_strlen(arg),
+	// mk_int(bound)) only in their own branches; the release build (GCC)
+	// evaluates the call arguments right to left, so mk_int comes first.
+	bounded := func(bound string) (term, numeral ast.ASTHandle, err error) {
+		if numeral, err = pin(m.ArithmeticIntegerNumeralText(bound)); err != nil {
+			return
+		}
+		term, err = pin(m.MkSequenceLength(variable))
+		return
 	}
 	if length.Sign() < 0 {
+		term, numeral, err := bounded("0")
+		if err != nil {
+			return err
+		}
 		axiom, err := pin(m.MkArithmeticGE(term, numeral))
 		if err != nil {
 			return err
@@ -199,6 +201,10 @@ func (t *SMTStringTheory) solveConcatKnownLength(equality, a, b ast.ASTHandle, t
 		return err
 	}
 	if length.Cmp(new(big.Int).SetUint64(uint64(len(text)))) > 0 {
+		term, numeral, err := bounded(new(big.Int).SetUint64(uint64(len(text))).String())
+		if err != nil {
+			return err
+		}
 		conclusion, err := pin(m.MkArithmeticLE(term, numeral))
 		if err != nil {
 			return err
@@ -270,11 +276,17 @@ func (t *SMTStringTheory) solveConcatKnownLength(equality, a, b ast.ASTHandle, t
 			}
 		}
 	}
+	// expr_ref lhs(m.mk_and(ax_l1, ax_l2)) is built before
+	// expr_ref rhs(mk_and(r_items)); then assert_implication(lhs, rhs).
+	premise, err := pin(m.MkAndArgs(guards.values))
+	if err != nil {
+		return err
+	}
 	conclusion, err := pin(m.MkAndArray(conclusions.values))
 	if err != nil {
 		return err
 	}
-	return guards.imply(conclusion)
+	return t.assertImplication(premise, conclusion)
 }
 
 func (t *SMTStringTheory) solveConcatArrangements(concat, constant, a, b ast.ASTHandle, text string) (result error) {
