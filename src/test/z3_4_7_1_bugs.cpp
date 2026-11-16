@@ -325,6 +325,15 @@ Abstract:
                                   a Bool predicate declared interval_relation
                                   + bound_relation segfaults (pkg/AUDIT.md
                                   FUZZ-F5, relation plugins).
+    z3_4_7_1_sieve_kinds          sieve_relation_plugin refuses its own
+                                  kinds in can_handle_signature(s, kind), so
+                                  the empty target product of a union and
+                                  convert_spec hold tables or full relations
+                                  in place of sieves; aligned_union_fn then
+                                  calls a missing inner union (segfault, or
+                                  "Failed to verify") on a negated mixed
+                                  Int/Bool predicate (pkg/AUDIT.md FUZZ-F5,
+                                  relation plugins).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -3635,4 +3644,27 @@ void tst_z3_4_7_1_product_kind_spec() {
         "sat\n"
         "(or (and (= (:var 0) true) (= (:var 1) true))\n"
         "    (and (= (:var 0) false) (= (:var 1) true)))\n");
+}
+
+// The unbound Int column of a negated (Int, Bool) predicate makes product
+// relations of sieves. sieve_relation_plugin::can_handle_signature(s, kind)
+// was the inherited can_handle_signature(s), which is false, so the empty
+// target of "union 5 into 1" (mk_empty(original)) and convert_spec held
+// tables or full relations in place of the sieves; aligned_union_fn then
+// found no union for an inner pair, VERIFY(can_do_inner_union(i,i)) only
+// reported it, and the null union was called: z3 4.7.1 segfaults.
+// pkg/AUDIT.md FUZZ-F5 (relation plugins).
+void tst_z3_4_7_1_sieve_kinds() {
+    char const* script =
+        "(set-option :fixedpoint.engine datalog)\n"
+        "(declare-rel p (Int Bool))\n"
+        "(declare-rel r (Bool))\n"
+        "(declare-var x Int)\n"
+        "(declare-var b Bool)\n"
+        "(rule (r true))\n"
+        "(rule (=> (and (r b) (not (p x b))) (r false)))\n"
+        "(query r :print-answer true)\n";
+    expect_script_output("sieve_kinds", script,
+        "sat\n"
+        "(or (= (:var 0) true) (= (:var 0) false))\n");
 }
