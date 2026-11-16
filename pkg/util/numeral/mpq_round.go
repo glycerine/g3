@@ -8,9 +8,9 @@ import umemory "github.com/glycerine/g3/pkg/util/memory"
 // negative-denominator raw values. It captures numerator sign before division
 // publishes into a caller that may alias either input component.
 func (m *RationalManager) roundCore(a *Rational, out *Int, ceil bool) error {
-	return m.roundCoreWithAllocationContext(a, out, ceil, integerAllocationInvocationContext{})
+	return m.roundCoreWithAllocationContext(a, out, ceil, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *RationalManager) roundCoreWithAllocationContext(a *Rational, out *Int, ceil bool, context integerAllocationInvocationContext) error {
+func (m *RationalManager) roundCoreWithAllocationContext(a *Rational, out *Int, ceil bool, context *integerAllocationInvocationContext) error {
 	if isIntegerRational(a) {
 		return m.Z.copyFromOwnerWithAllocationContext(out, m.Z, &a.Num, nil, context)
 	}
@@ -31,9 +31,9 @@ func (m *RationalManager) roundCoreWithAllocationContext(a *Rational, out *Int, 
 	return nil
 }
 func (m *RationalManager) roundToInt(a *Rational, out *Int, ceil bool) error {
-	return m.roundToIntWithAllocationContext(a, out, ceil, integerAllocationInvocationContext{})
+	return m.roundToIntWithAllocationContext(a, out, ceil, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *RationalManager) roundToIntWithAllocationContext(a *Rational, out *Int, ceil bool, context integerAllocationInvocationContext) error {
+func (m *RationalManager) roundToIntWithAllocationContext(a *Rational, out *Int, ceil bool, context *integerAllocationInvocationContext) error {
 	if e := m.check(a); e != nil {
 		return e
 	}

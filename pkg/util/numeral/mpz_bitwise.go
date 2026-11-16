@@ -80,7 +80,7 @@ func (m *IntegerManager) bitwiseBinaryWithAllocationContext(a, b, out *Int, op u
 			v = a.Val ^ b.Val
 		}
 		if op == 2 {
-			return m.setInt64WithAllocationContext(out, int64(v), context)
+			return m.setInt64WithAllocationContext(out, int64(v), &context)
 		}
 		if e := m.Del(out); e != nil {
 			return e
@@ -111,13 +111,13 @@ func (m *IntegerManager) bitwiseBinaryWithAllocationContext(a, b, out *Int, op u
 			err = m.finishRawSource(raw)
 		}
 	}()
-	if e := m.copyFromOwnerWithAllocationContext(a1, m, a, nil, context); e != nil {
+	if e := m.copyFromOwnerWithAllocationContext(a1, m, a, nil, &context); e != nil {
 		return e
 	}
-	if e := m.copyFromOwnerWithAllocationContext(b1, m, b, nil, context); e != nil {
+	if e := m.copyFromOwnerWithAllocationContext(b1, m, b, nil, &context); e != nil {
 		return e
 	}
-	if e := m.setInt64WithAllocationContext(mult, 1, context); e != nil {
+	if e := m.setInt64WithAllocationContext(mult, 1, &context); e != nil {
 		return e
 	}
 	if e := m.Reset(out); e != nil {
@@ -132,10 +132,10 @@ func (m *IntegerManager) bitwiseBinaryWithAllocationContext(a, b, out *Int, op u
 		if op == 0 {
 			m.traceBitwiseOrOperands(a1, b1)
 		}
-		if e := m.modWithAllocationContext(a1, &m.Two64, a2, context); e != nil {
+		if e := m.modWithAllocationContext(a1, &m.Two64, a2, &context); e != nil {
 			return e
 		}
-		if e := m.modWithAllocationContext(b1, &m.Two64, b2, context); e != nil {
+		if e := m.modWithAllocationContext(b1, &m.Two64, b2, &context); e != nil {
 			return e
 		}
 		if op == 0 {
@@ -161,16 +161,16 @@ func (m *IntegerManager) bitwiseBinaryWithAllocationContext(a, b, out *Int, op u
 		if op == 0 {
 			m.traceBitwiseOrUnsigned(u, bUnsigned)
 		}
-		if e = m.setUint64WithAllocationContext(tmp, v, context); e != nil {
+		if e = m.setUint64WithAllocationContext(tmp, v, &context); e != nil {
 			return e
 		}
-		if e = m.mulWithAllocationContext(tmp, mult, tmp, context); e != nil {
+		if e = m.mulWithAllocationContext(tmp, mult, tmp, &context); e != nil {
 			return e
 		}
-		if e = m.addSubWithAllocationContext(out, tmp, out, false, context); e != nil {
+		if e = m.addSubWithAllocationContext(out, tmp, out, false, &context); e != nil {
 			return e
 		}
-		if e = m.mulWithAllocationContext(mult, &m.Two64, mult, context); e != nil {
+		if e = m.mulWithAllocationContext(mult, &m.Two64, mult, &context); e != nil {
 			return e
 		}
 		if e = m.divWithAllocationContext(a1, &m.Two64, a1, context); e != nil {
@@ -182,18 +182,18 @@ func (m *IntegerManager) bitwiseBinaryWithAllocationContext(a, b, out *Int, op u
 	}
 	if op != 1 {
 		if a1.Val != 0 {
-			if e := m.mulWithAllocationContext(a1, mult, a1, context); e != nil {
+			if e := m.mulWithAllocationContext(a1, mult, a1, &context); e != nil {
 				return e
 			}
-			if e := m.addSubWithAllocationContext(out, a1, out, false, context); e != nil {
+			if e := m.addSubWithAllocationContext(out, a1, out, false, &context); e != nil {
 				return e
 			}
 		}
 		if b1.Val != 0 {
-			if e := m.mulWithAllocationContext(b1, mult, b1, context); e != nil {
+			if e := m.mulWithAllocationContext(b1, mult, b1, &context); e != nil {
 				return e
 			}
-			if e := m.addSubWithAllocationContext(out, b1, out, false, context); e != nil {
+			if e := m.addSubWithAllocationContext(out, b1, out, false, &context); e != nil {
 				return e
 			}
 		}
@@ -220,7 +220,7 @@ func (m *IntegerManager) bitwiseNotWithAllocationContext(width uint32, a, out *I
 	}
 	if a.IsSmall() && width <= 63 {
 		mask := (uint64(1) << width) - 1
-		return m.setInt64WithAllocationContext(out, int64(^uint64(a.Val)&mask), context)
+		return m.setInt64WithAllocationContext(out, int64(^uint64(a.Val)&mask), &context)
 	}
 	raw := &m.BitwiseNotRaw
 	receipt, e := m.beginRawInvocation(raw, 4)
@@ -242,17 +242,17 @@ func (m *IntegerManager) bitwiseNotWithAllocationContext(width uint32, a, out *I
 			}
 		}
 	}()
-	if e := m.copyFromOwnerWithAllocationContext(a1, m, a, nil, context); e != nil {
+	if e := m.copyFromOwnerWithAllocationContext(a1, m, a, nil, &context); e != nil {
 		return e
 	}
-	if e := m.setInt64WithAllocationContext(mult, 1, context); e != nil {
+	if e := m.setInt64WithAllocationContext(mult, 1, &context); e != nil {
 		return e
 	}
-	if e := m.setInt64WithAllocationContext(out, 0, context); e != nil {
+	if e := m.setInt64WithAllocationContext(out, 0, &context); e != nil {
 		return e
 	}
 	for width > 0 {
-		if e := m.modWithAllocationContext(a1, &m.Two64, a2, context); e != nil {
+		if e := m.modWithAllocationContext(a1, &m.Two64, a2, &context); e != nil {
 			return e
 		}
 		n, e := m.Uint64(a2)
@@ -276,7 +276,7 @@ func (m *IntegerManager) bitwiseNotWithAllocationContext(width uint32, a, out *I
 			v &= (uint64(1) << width) - 1
 		}
 		m.traceBitwiseNotChunk(width, v, n)
-		if e = m.setUint64WithAllocationContext(tmp, v, context); e != nil {
+		if e = m.setUint64WithAllocationContext(tmp, v, &context); e != nil {
 			return e
 		}
 		if modularSourceDebug {
@@ -297,13 +297,13 @@ func (m *IntegerManager) bitwiseNotWithAllocationContext(width uint32, a, out *I
 				}
 			}
 		}
-		if e = m.mulWithAllocationContext(tmp, mult, tmp, context); e != nil {
+		if e = m.mulWithAllocationContext(tmp, mult, tmp, &context); e != nil {
 			return e
 		}
-		if e = m.addSubWithAllocationContext(out, tmp, out, false, context); e != nil {
+		if e = m.addSubWithAllocationContext(out, tmp, out, false, &context); e != nil {
 			return e
 		}
-		if e = m.mulWithAllocationContext(mult, &m.Two64, mult, context); e != nil {
+		if e = m.mulWithAllocationContext(mult, &m.Two64, mult, &context); e != nil {
 			return e
 		}
 		if e = m.divWithAllocationContext(a1, &m.Two64, a1, context); e != nil {

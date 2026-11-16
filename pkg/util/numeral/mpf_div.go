@@ -100,16 +100,16 @@ func (m *ArbitraryFloatManager) Div(mode ArbitraryFloatRoundingMode, x, y, out *
 	}()
 	context := s.context()
 	z := m.integer
-	if e := m.copyWithValueReceiptAndContext(&s.a, x, &s.copyA, context); e != nil {
+	if e := m.copyWithValueReceiptAndContext(&s.a, x, &s.copyA, &context); e != nil {
 		return e
 	}
-	if e := m.copyWithValueReceiptAndContext(&s.b, y, &s.copyB, context); e != nil {
+	if e := m.copyWithValueReceiptAndContext(&s.b, y, &s.copyB, &context); e != nil {
 		return e
 	}
-	if e := m.unpackRationalNumeral(&s.a, true, context); e != nil {
+	if e := m.unpackRationalNumeral(&s.a, true, &context); e != nil {
 		return e
 	}
-	if e := m.unpackRationalNumeral(&s.b, true, context); e != nil {
+	if e := m.unpackRationalNumeral(&s.b, true, &context); e != nil {
 		return e
 	}
 	if e := m.traceFloatDebugValueChecked("div", "A = ", &s.a, 722); e != nil {
@@ -134,10 +134,10 @@ func (m *ArbitraryFloatManager) Div(mode ArbitraryFloatRoundingMode, x, y, out *
 	if e := z.check(&s.a.significand); e != nil {
 		return e
 	}
-	if e := z.mul2kCoreWithAllocationContext(&s.a.significand, x.SBits()+extraBits, context); e != nil {
+	if e := z.mul2kCoreWithAllocationContext(&s.a.significand, x.SBits()+extraBits, &context); e != nil {
 		return e
 	}
-	if e := z.machineDivWithAllocationContext(&s.a.significand, &s.b.significand, &out.significand, context); e != nil {
+	if e := z.machineDivWithAllocationContext(&s.a.significand, &s.b.significand, &out.significand, &context); e != nil {
 		return e
 	}
 	if e := m.traceFloatDebugValueChecked("div", "QUOTIENT = ", out, 734); e != nil {
@@ -148,7 +148,7 @@ func (m *ArbitraryFloatManager) Div(mode ArbitraryFloatRoundingMode, x, y, out *
 	if e != nil {
 		return e
 	}
-	if e := z.machineDivRemWithAllocationContext(&out.significand, &power, &out.significand, &s.sticky, context); e != nil {
+	if e := z.machineDivRemWithAllocationContext(&out.significand, &power, &out.significand, &s.sticky, &context); e != nil {
 		return e
 	}
 	empty, e := z.IsZero(&s.sticky)
@@ -162,7 +162,7 @@ func (m *ArbitraryFloatManager) Div(mode ArbitraryFloatRoundingMode, x, y, out *
 		}
 		if even {
 			one := NewInt(1)
-			if e := z.addSubWithAllocationContext(&out.significand, &one, &out.significand, false, context); e != nil {
+			if e := z.addSubWithAllocationContext(&out.significand, &one, &out.significand, false, &context); e != nil {
 				return e
 			}
 		}
@@ -170,5 +170,5 @@ func (m *ArbitraryFloatManager) Div(mode ArbitraryFloatRoundingMode, x, y, out *
 	if e := m.traceFloatDebugValueChecked("div", "QUOTIENT' = ", out, 742); e != nil {
 		return e
 	}
-	return m.roundWithParentContext(mode, out, &s.roundReceipt, context)
+	return m.roundWithParentContext(mode, out, &s.roundReceipt, &context)
 }

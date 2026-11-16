@@ -124,12 +124,12 @@ func (m *IntegerModularManager) Neg(a *Int) error { return m.negWithPNReceipt(a,
 // Source: src/util/mpzzp.h:131. Both concrete caller routes use this same
 // mutation engine; a PN receipt is acquired only at its real reached guard.
 func (m *IntegerModularManager) negWithPNReceipt(a *Int, receipt *integerPNormalizeInvocationReceipt) error {
-	return m.negWithOwners(a, receipt, integerAllocationInvocationContext{})
+	return m.negWithOwners(a, receipt, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerModularManager) negWithSourceContext(a *Int, context integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) negWithSourceContext(a *Int, context *integerAllocationInvocationContext) error {
 	return m.negWithOwners(a, nil, context)
 }
-func (m *IntegerModularManager) negWithOwners(a *Int, receipt *integerPNormalizeInvocationReceipt, context integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) negWithOwners(a *Int, receipt *integerPNormalizeInvocationReceipt, context *integerAllocationInvocationContext) error {
 	if e := m.check(); e != nil {
 		return e
 	}
@@ -143,9 +143,9 @@ func (m *IntegerModularManager) negWithOwners(a *Int, receipt *integerPNormalize
 }
 
 func (m *IntegerModularManager) Abs(a *Int) error {
-	return m.absWithSourceContext(a, integerAllocationInvocationContext{})
+	return m.absWithSourceContext(a, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerModularManager) absWithSourceContext(a *Int, context integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) absWithSourceContext(a *Int, context *integerAllocationInvocationContext) error {
 	if e := m.check(); e != nil {
 		return e
 	}
@@ -167,9 +167,9 @@ func (m *IntegerModularManager) Inc(a *Int) error {
 	return m.PNormalize(a)
 }
 func (m *IntegerModularManager) Dec(a *Int) error {
-	return m.decWithSourceContext(a, integerAllocationInvocationContext{})
+	return m.decWithSourceContext(a, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerModularManager) decWithSourceContext(a *Int, context integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) decWithSourceContext(a *Int, context *integerAllocationInvocationContext) error {
 	if e := m.check(); e != nil {
 		return e
 	}
@@ -185,10 +185,10 @@ func (m *IntegerModularManager) decWithSourceContext(a *Int, context integerAllo
 	return m.normalizeWithSourceContext(a, context)
 }
 func (m *IntegerModularManager) Add(a, b, c *Int) error {
-	return m.addWithSourceContext(a, b, c, integerAllocationInvocationContext{})
+	return m.addWithSourceContext(a, b, c, numeralContextRef(integerAllocationInvocationContext{}))
 }
 
-func (m *IntegerModularManager) addWithSourceContext(a, b, c *Int, context integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) addWithSourceContext(a, b, c *Int, context *integerAllocationInvocationContext) error {
 	if e := m.check(); e != nil {
 		return e
 	}
@@ -201,9 +201,9 @@ func (m *IntegerModularManager) addWithSourceContext(a, b, c *Int, context integ
 	return m.normalizeWithSourceContext(c, context)
 }
 func (m *IntegerModularManager) Sub(a, b, c *Int) error {
-	return m.subWithSourceContext(a, b, c, integerAllocationInvocationContext{})
+	return m.subWithSourceContext(a, b, c, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerModularManager) subWithSourceContext(a, b, c *Int, context integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) subWithSourceContext(a, b, c *Int, context *integerAllocationInvocationContext) error {
 	if e := m.check(); e != nil {
 		return e
 	}
@@ -216,10 +216,10 @@ func (m *IntegerModularManager) subWithSourceContext(a, b, c *Int, context integ
 	return m.normalizeWithSourceContext(c, context)
 }
 func (m *IntegerModularManager) Mul(a, b, c *Int) error {
-	return m.mulWithSourceContext(a, b, c, integerAllocationInvocationContext{})
+	return m.mulWithSourceContext(a, b, c, numeralContextRef(integerAllocationInvocationContext{}))
 }
 
-func (m *IntegerModularManager) mulWithSourceContext(a, b, c *Int, context integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) mulWithSourceContext(a, b, c *Int, context *integerAllocationInvocationContext) error {
 	if e := m.check(); e != nil {
 		return e
 	}
@@ -232,10 +232,10 @@ func (m *IntegerModularManager) mulWithSourceContext(a, b, c *Int, context integ
 	return m.normalizeWithSourceContext(c, context)
 }
 func (m *IntegerModularManager) AddMul(a, b, c, d *Int) error {
-	return m.addMulWithSourceContext(a, b, c, d, nil, integerAllocationInvocationContext{})
+	return m.addMulWithSourceContext(a, b, c, d, nil, numeralContextRef(integerAllocationInvocationContext{}))
 }
 
-func (m *IntegerModularManager) addMulWithSourceContext(a, b, c, d *Int, child *integerAddMulInvocationReceipt, context integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) addMulWithSourceContext(a, b, c, d *Int, child *integerAddMulInvocationReceipt, context *integerAllocationInvocationContext) error {
 	if e := m.check(); e != nil {
 		return e
 	}
@@ -248,9 +248,9 @@ func (m *IntegerModularManager) addMulWithSourceContext(a, b, c, d *Int, child *
 	return m.normalizeWithSourceContext(d, context)
 }
 func (m *IntegerModularManager) SubMul(a, b, c, d *Int) error {
-	return m.subMulWithSourceContext(a, b, c, d, nil, integerAllocationInvocationContext{})
+	return m.subMulWithSourceContext(a, b, c, d, nil, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerModularManager) subMulWithSourceContext(a, b, c, d *Int, child *integerAddMulInvocationReceipt, context integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) subMulWithSourceContext(a, b, c, d *Int, child *integerAddMulInvocationReceipt, context *integerAllocationInvocationContext) error {
 	if e := m.check(); e != nil {
 		return e
 	}
@@ -263,7 +263,7 @@ func (m *IntegerModularManager) subMulWithSourceContext(a, b, c, d *Int, child *
 	if e := m.sourceAssertNormalizedNamed(c, 162, "is_p_normalized(c)"); e != nil {
 		return e
 	}
-	if e := m.manager.addSubMulWithAllocationContext(a, b, c, d, true, child, context); e != nil {
+	if e := m.manager.addSubMulWithAllocationContext(a, b, c, d, true, child, *context); e != nil {
 		return e
 	}
 	return m.normalizeWithSourceContext(d, context)
@@ -386,9 +386,9 @@ func (m *IntegerModularManager) Swap(a, b *Int) error {
 	return m.manager.Swap(a, b)
 }
 func (m *IntegerModularManager) SetInt32(a *Int, v int32) error {
-	return m.setInt32WithSourceContext(a, v, integerAllocationInvocationContext{})
+	return m.setInt32WithSourceContext(a, v, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerModularManager) setInt32WithSourceContext(a *Int, v int32, context integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) setInt32WithSourceContext(a *Int, v int32, context *integerAllocationInvocationContext) error {
 	if e := m.check(); e != nil {
 		return e
 	}
@@ -398,9 +398,9 @@ func (m *IntegerModularManager) setInt32WithSourceContext(a *Int, v int32, conte
 	return m.normalizeWithSourceContext(a, context)
 }
 func (m *IntegerModularManager) SetUint32(a *Int, v uint32) error {
-	return m.setUint32WithSourceContext(a, v, integerAllocationInvocationContext{})
+	return m.setUint32WithSourceContext(a, v, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerModularManager) setUint32WithSourceContext(a *Int, v uint32, context integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) setUint32WithSourceContext(a *Int, v uint32, context *integerAllocationInvocationContext) error {
 	if e := m.check(); e != nil {
 		return e
 	}
@@ -410,10 +410,10 @@ func (m *IntegerModularManager) setUint32WithSourceContext(a *Int, v uint32, con
 	return m.normalizeWithSourceContext(a, context)
 }
 func (m *IntegerModularManager) SetInt64(a *Int, v int64) error {
-	return m.setInt64WithSourceContext(a, v, integerAllocationInvocationContext{})
+	return m.setInt64WithSourceContext(a, v, numeralContextRef(integerAllocationInvocationContext{}))
 }
 
-func (m *IntegerModularManager) setInt64WithSourceContext(a *Int, v int64, context integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) setInt64WithSourceContext(a *Int, v int64, context *integerAllocationInvocationContext) error {
 	if e := m.check(); e != nil {
 		return e
 	}
@@ -423,9 +423,9 @@ func (m *IntegerModularManager) setInt64WithSourceContext(a *Int, v int64, conte
 	return m.normalizeWithSourceContext(a, context)
 }
 func (m *IntegerModularManager) SetUint64(a *Int, v uint64) error {
-	return m.setUint64WithSourceContext(a, v, integerAllocationInvocationContext{})
+	return m.setUint64WithSourceContext(a, v, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerModularManager) setUint64WithSourceContext(a *Int, v uint64, context integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) setUint64WithSourceContext(a *Int, v uint64, context *integerAllocationInvocationContext) error {
 	if e := m.check(); e != nil {
 		return e
 	}
@@ -444,10 +444,10 @@ func (m *IntegerModularManager) SetString(a *Int, v string) error {
 	return m.PNormalize(a)
 }
 func (m *IntegerModularManager) Copy(a, b *Int) error {
-	return m.copyWithSourceContext(a, b, integerAllocationInvocationContext{})
+	return m.copyWithSourceContext(a, b, numeralContextRef(integerAllocationInvocationContext{}))
 }
 
-func (m *IntegerModularManager) copyWithSourceContext(a, b *Int, context integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) copyWithSourceContext(a, b *Int, context *integerAllocationInvocationContext) error {
 	if e := m.check(); e != nil {
 		return e
 	}
@@ -559,9 +559,9 @@ func (m *IntegerModularManager) MLog2(a *Int) (uint32, error) {
 	return m.manager.MLog2(a)
 }
 func (m *IntegerModularManager) Mul2k(a *Int, k uint32, out *Int) error {
-	return m.mul2kWithSourceContext(a, k, out, integerAllocationInvocationContext{})
+	return m.mul2kWithSourceContext(a, k, out, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerModularManager) mul2kWithSourceContext(a *Int, k uint32, out *Int, context integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) mul2kWithSourceContext(a *Int, k uint32, out *Int, context *integerAllocationInvocationContext) error {
 	if e := m.check(); e != nil {
 		return e
 	}

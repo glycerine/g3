@@ -40,7 +40,7 @@ func (s *RationalService) CopyWithAllocationReceipt(dst, src *OwnedRational, r *
 	if e := s.rationalScalarOwner(src); e != nil {
 		return e
 	}
-	return s.Manager.copyWithAllocationReceipt(&dst.Raw, &src.Raw, integerAllocationInvocationContext{}, &r.child)
+	return s.Manager.copyWithAllocationReceipt(&dst.Raw, &src.Raw, numeralContextRef(integerAllocationInvocationContext{}), &r.child)
 }
 
 func (s *RationalService) CleanupCopyAllocation(r *RationalCopyAllocationReceipt) error {

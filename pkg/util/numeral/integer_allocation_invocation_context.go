@@ -64,7 +64,7 @@ func (c integerAllocationInvocationContext) withRawInvocation(r *integerRawInvoc
 	}
 	return c
 }
-func (c integerAllocationInvocationContext) rawReceipt(m *IntegerManager) *integerRawInvocationReceipt {
+func (c *integerAllocationInvocationContext) rawReceipt(m *IntegerManager) *integerRawInvocationReceipt {
 	if c.raw != nil && c.rawInvocation != 0 && c.rawInvocation == c.raw.Invocation && m.RawAllocationRoots(c.raw) != nil {
 		return c.raw
 	}
@@ -78,7 +78,7 @@ func pnAllocationContext(pn *integerPNormalizeScope) integerAllocationInvocation
 	}
 	return c
 }
-func (c integerAllocationInvocationContext) localRoots(m *IntegerManager) *NumericAllocationRoots {
+func (c *integerAllocationInvocationContext) localRoots(m *IntegerManager) *NumericAllocationRoots {
 
 	if c.rationalService != nil && c.rationalServiceFrame(m) == nil {
 		return nil
@@ -169,4 +169,10 @@ func (c integerAllocationInvocationContext) localRoots(m *IntegerManager) *Numer
 		return &s.Numeric
 	}
 	return nil
+}
+
+// numeralContextRef lets a pointer-receiver validator run on a context
+// returned by value.
+func numeralContextRef(c integerAllocationInvocationContext) *integerAllocationInvocationContext {
+	return &c
 }

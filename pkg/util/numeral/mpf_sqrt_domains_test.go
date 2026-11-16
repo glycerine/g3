@@ -26,23 +26,23 @@ func TestArbitraryFloatSqrtGeneralPublicationAndCopiedScope(t *testing.T) {
 	}
 	copy := m.sqrt
 	copy.hooks.Policy = &copy
-	if copy.NumericBound(false) || copy.NumericRoots(m.integer, nil) != nil || copy.context().roots(m.integer) != nil {
+	if copy.NumericBound(false) || copy.NumericRoots(m.integer, nil) != nil || numeralContextRef(copy.context()).roots(m.integer) != nil {
 		t.Fatal("copied lexical scope acquired allocation authority")
 	}
 	zero, sentinel := NewInt(0), NewInt(7)
 	used, generation := b.Used(), m.integer.rootGeneration
-	if _, e := m.integer.rootWithAllocationContext(&zero, 2, &sentinel, nil, nil, copy.context()); e != ErrNumericOwner || sentinel != NewInt(7) || b.Used() != used || m.integer.rootGeneration != generation {
+	if _, e := m.integer.rootWithAllocationContext(&zero, 2, &sentinel, nil, nil, numeralContextRef(copy.context())); e != ErrNumericOwner || sentinel != NewInt(7) || b.Used() != used || m.integer.rootGeneration != generation {
 		t.Fatal("copied caller mutated scalar output or entered root", e, sentinel)
 	}
 	integerPhysicalAudit(t, m.integer, &x.significand, &out.significand, &m.sqrt.a.significand)
 	b.FailAfter(-1)
 	serviceMust(t, m.CleanupSqrt())
 	serviceMust(t, m.CleanupSqrt())
-	if m.sqrt.context().roots(m.integer) != nil {
+	if numeralContextRef(m.sqrt.context()).roots(m.integer) != nil {
 		t.Fatal("ended caller acquired roots")
 	}
 	used, generation = b.Used(), m.integer.rootGeneration
-	if _, e := m.integer.rootWithAllocationContext(&zero, 2, &sentinel, nil, nil, m.sqrt.context()); e != ErrNumericOwner || sentinel != NewInt(7) || b.Used() != used || m.integer.rootGeneration != generation {
+	if _, e := m.integer.rootWithAllocationContext(&zero, 2, &sentinel, nil, nil, numeralContextRef(m.sqrt.context())); e != ErrNumericOwner || sentinel != NewInt(7) || b.Used() != used || m.integer.rootGeneration != generation {
 		t.Fatal("ended caller mutated scalar output or entered root", e, sentinel)
 	}
 	serviceMust(t, m.CleanupValue(&out))

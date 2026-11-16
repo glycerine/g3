@@ -23,7 +23,7 @@ func TestMyMPZSqrtReturningTransportAndOwnerGuards(t *testing.T) {
 				t.Fatal("transport did not reach the real helper")
 			}
 			before, used := s.values, b.Used()
-			if s.context().roots(z) != nil {
+			if numeralContextRef(s.context()).roots(z) != nil {
 				t.Fatal("transport acquired allocating caller roots")
 			}
 			for index, err := range []error{MyMPZSqrt(z, 40000, false, &input, &out), z.CleanupMyMPZSqrt(), z.SourceFinalize(), z.CloseChecked(), z.SetInt32(&input, 9), z.Del(&input)} {

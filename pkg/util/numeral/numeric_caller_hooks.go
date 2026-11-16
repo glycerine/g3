@@ -47,7 +47,7 @@ func (c integerAllocationInvocationContext) WithCaller(h *NumericInvocationHooks
 	}
 	return c
 }
-func (c integerAllocationInvocationContext) roots(m *IntegerManager) *NumericAllocationRoots {
+func (c *integerAllocationInvocationContext) roots(m *IntegerManager) *NumericAllocationRoots {
 	if !c.callerCurrent() {
 		return nil
 	}
@@ -67,10 +67,10 @@ func (c integerAllocationInvocationContext) roots(m *IntegerManager) *NumericAll
 	}
 	return r
 }
-func (c integerAllocationInvocationContext) hasLocalInvocation() bool {
+func (c *integerAllocationInvocationContext) hasLocalInvocation() bool {
 	return c.rationalService != nil || c.mpfRationalSet != nil || c.mpfFormattedSet != nil || c.mpfInput != nil || c.mpfConversion != nil || c.mpfFormat != nil || c.mpfPower != nil || c.mpfRound != nil || c.mpfRoundSqrt != nil || c.BoolDivides != nil || c.raw != nil || c.pn != nil || c.addMul != nil || c.perfectSquare != nil
 }
-func (c integerAllocationInvocationContext) prepareCaller(m *IntegerManager, phase string) error {
+func (c *integerAllocationInvocationContext) prepareCaller(m *IntegerManager, phase string) error {
 	if !c.callerCurrent() {
 		return ErrNumericCallerOwner
 	}
@@ -79,7 +79,7 @@ func (c integerAllocationInvocationContext) prepareCaller(m *IntegerManager, pha
 	}
 	return nil
 }
-func (c integerAllocationInvocationContext) recordCaller(m *IntegerManager, event string, r NumericInvocationReceipt) {
+func (c *integerAllocationInvocationContext) recordCaller(m *IntegerManager, event string, r NumericInvocationReceipt) {
 	if !c.callerCurrent() {
 		return
 	}
@@ -176,6 +176,6 @@ func (c *NumericCharacterCaller) prepare() error {
 	return nil
 }
 
-func (c integerAllocationInvocationContext) callerCurrent() bool {
+func (c *integerAllocationInvocationContext) callerCurrent() bool {
 	return c.Caller == nil || c.callerGeneration == c.Caller.Generation
 }

@@ -43,10 +43,10 @@ func (m *ArbitraryFloatManager) displayFormatDecimal(s *ArbitraryFloatFormatInvo
 		}
 		err = JoinNumericErrors(err, m.finishFormatDecimal(d))
 	}()
-	if e := z.copyFromOwnerWithAllocationContext(n1, z, &a.Num, nil, context); e != nil {
+	if e := z.copyFromOwnerWithAllocationContext(n1, z, &a.Num, nil, &context); e != nil {
 		return e
 	}
-	if e := z.copyFromOwnerWithAllocationContext(d1, z, &a.Den, nil, context); e != nil {
+	if e := z.copyFromOwnerWithAllocationContext(d1, z, &a.Den, nil, &context); e != nil {
 		return e
 	}
 	if a.Num.Val < 0 {
@@ -65,7 +65,7 @@ func (m *ArbitraryFloatManager) displayFormatDecimal(s *ArbitraryFloatFormatInvo
 	if e := z.insertSourceIntegerTracked(out, v1, nil, &d.insertion); e != nil {
 		return e
 	}
-	if e := z.remWithAllocationContext(n1, d1, n1, context); e != nil {
+	if e := z.remWithAllocationContext(n1, d1, n1, &context); e != nil {
 		return e
 	}
 	if n1.Val == 0 {
@@ -75,7 +75,7 @@ func (m *ArbitraryFloatManager) displayFormatDecimal(s *ArbitraryFloatFormatInvo
 		return e
 	}
 	for i := uint32(0); i < prec; i++ {
-		if e := z.mulWithAllocationContext(n1, ten, n1, context); e != nil {
+		if e := z.mulWithAllocationContext(n1, ten, n1, &context); e != nil {
 			return e
 		}
 		if e := z.divWithAllocationContext(n1, d1, v1, context); e != nil {
@@ -93,7 +93,7 @@ func (m *ArbitraryFloatManager) displayFormatDecimal(s *ArbitraryFloatFormatInvo
 		if e := z.insertSourceIntegerTracked(out, v1, nil, &d.insertion); e != nil {
 			return e
 		}
-		if e := z.remWithAllocationContext(n1, d1, n1, context); e != nil {
+		if e := z.remWithAllocationContext(n1, d1, n1, &context); e != nil {
 			return e
 		}
 		if n1.Val == 0 {

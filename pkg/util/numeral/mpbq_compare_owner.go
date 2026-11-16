@@ -39,10 +39,10 @@ func (o NumericBinaryRationalOperations) LessFromOwnerTracked(source *BinaryRati
 	if receipt != nil {
 		copyContext = NumericAllocationContext{}
 	}
-	if e := m.Z.copyFromOwnerWithAllocationContext(&m.Tmp, source.Z, input, receipt, copyContext); e != nil {
+	if e := m.Z.copyFromOwnerWithAllocationContext(&m.Tmp, source.Z, input, receipt, &copyContext); e != nil {
 		return false, e
 	}
-	if e := m.Z.mul2kCoreWithAllocationContext(&m.Tmp, delta, o.context); e != nil {
+	if e := m.Z.mul2kCoreWithAllocationContext(&m.Tmp, delta, numeralContextRef(o.context)); e != nil {
 		return false, e
 	}
 	var order int

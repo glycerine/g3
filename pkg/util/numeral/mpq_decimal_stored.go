@@ -28,14 +28,14 @@ func (m *RationalManager) DisplayDecimalStoredIntoWithInvocation(out RationalSou
 	if e != nil {
 		return e
 	}
-	if e = z.copyFromOwnerWithAllocationContext(&s.values[1], z, &n, nil, c); e != nil {
+	if e = z.copyFromOwnerWithAllocationContext(&s.values[1], z, &n, nil, &c); e != nil {
 		return e
 	}
 	d, e := decimalStoredInteger(allocator, object, 12)
 	if e != nil {
 		return e
 	}
-	if e = z.copyFromOwnerWithAllocationContext(&s.values[2], z, &d, nil, c); e != nil {
+	if e = z.copyFromOwnerWithAllocationContext(&s.values[2], z, &d, nil, &c); e != nil {
 		return e
 	}
 	sign, e := allocator.ReadUint32(object, 0)

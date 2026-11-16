@@ -24,7 +24,7 @@ func (s *RationalService) CopyOneWithInvocation(dst *OwnedRational, c *RationalS
 		return e
 	}
 	defer s.endLexicalError(&e)
-	return s.Manager.copyWithAllocationContext(&dst.Raw, &s.OneField, c.allocationContext())
+	return s.Manager.copyWithAllocationContext(&dst.Raw, &s.OneField, numeralContextRef(c.allocationContext()))
 }
 
 // SubOneWithInvocation implements a - rational::one(): copy a, subtract the

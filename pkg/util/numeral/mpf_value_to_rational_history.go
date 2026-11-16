@@ -23,7 +23,7 @@ type arbitraryFloatRationalConversionHistory struct {
 	bodyCause, sourceCause, ownCause error
 }
 
-func (c integerAllocationInvocationContext) prepareConversionHistory(z *IntegerManager) error {
+func (c *integerAllocationInvocationContext) prepareConversionHistory(z *IntegerManager) error {
 	if c.mpfConversion == nil {
 		return nil
 	}

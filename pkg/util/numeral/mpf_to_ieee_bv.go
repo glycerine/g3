@@ -74,7 +74,7 @@ func (s *arbitraryFloatIEEEBVScope) run(x *ArbitraryFloat, out *Int) error {
 		if e := s.setSign(x, out); e != nil {
 			return e
 		}
-		if e := z.mul2kCoreWithAllocationContext(out, eb, c); e != nil {
+		if e := z.mul2kCoreWithAllocationContext(out, eb, &c); e != nil {
 			return e
 		}
 		w, e := m.powerTwoMinusOneWrapper(eb, false)
@@ -85,32 +85,32 @@ func (s *arbitraryFloatIEEEBVScope) run(x *ArbitraryFloat, out *Int) error {
 		if e != nil {
 			return e
 		}
-		if e := z.addSubWithAllocationContext(out, &exp, out, false, c); e != nil {
+		if e := z.addSubWithAllocationContext(out, &exp, out, false, &c); e != nil {
 			return e
 		}
-		return z.mul2kCoreWithAllocationContext(out, sb-1, c)
+		return z.mul2kCoreWithAllocationContext(out, sb-1, &c)
 	}
 	s.biasedExpLive = true
 	bias, e := m.BiasExp(eb, x.exponent)
 	if e != nil {
 		return e
 	}
-	if e := z.setInt64WithAllocationContext(&s.biasedExp, bias, c); e != nil {
+	if e := z.setInt64WithAllocationContext(&s.biasedExp, bias, &c); e != nil {
 		return e
 	}
 	if e := s.setSign(x, out); e != nil {
 		return e
 	}
-	if e := z.mul2kCoreWithAllocationContext(out, eb, c); e != nil {
+	if e := z.mul2kCoreWithAllocationContext(out, eb, &c); e != nil {
 		return e
 	}
-	if e := z.addSubWithAllocationContext(out, &s.biasedExp, out, false, c); e != nil {
+	if e := z.addSubWithAllocationContext(out, &s.biasedExp, out, false, &c); e != nil {
 		return e
 	}
-	if e := z.mul2kCoreWithAllocationContext(out, sb-1, c); e != nil {
+	if e := z.mul2kCoreWithAllocationContext(out, sb-1, &c); e != nil {
 		return e
 	}
-	return z.addSubWithAllocationContext(out, &x.significand, out, false, c)
+	return z.addSubWithAllocationContext(out, &x.significand, out, false, &c)
 }
 
 func (s *arbitraryFloatIEEEBVScope) setSign(x *ArbitraryFloat, out *Int) error {
@@ -118,5 +118,5 @@ func (s *arbitraryFloatIEEEBVScope) setSign(x *ArbitraryFloat, out *Int) error {
 	if x.Sign() {
 		v = 1
 	}
-	return s.manager.integer.setInt64WithAllocationContext(out, v, s.context())
+	return s.manager.integer.setInt64WithAllocationContext(out, v, numeralContextRef(s.context()))
 }

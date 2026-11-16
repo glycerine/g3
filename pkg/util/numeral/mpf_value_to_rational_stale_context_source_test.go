@@ -77,7 +77,7 @@ func TestArbitraryFloatToRationalActualReusedFrameRejectsSavedContext(t *testing
 		serviceMust(t, m.CleanupRationalConversion())
 		serviceMust(t, foreign.Del(&out))
 		used, state := b.Used(), rt.State()
-		if ref, e := m.integer.allocateWithSourceContext(6, 1, nil, old); ref != 0 || e != umemory.ErrRuntimeOwner {
+		if ref, e := m.integer.allocateWithSourceContext(6, 1, nil, &old); ref != 0 || e != umemory.ErrRuntimeOwner {
 			t.Fatal("invalid explicit saved context fell back to ordinary allocation", ref, e)
 		}
 		if b.Used() != used || rt.State() != state {

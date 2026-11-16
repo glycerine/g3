@@ -2,7 +2,7 @@ package numeral
 
 // Source: src/util/mpzzp.h.
 
-func (m *IntegerModularManager) dividesWithAllocationContext(a, b *Int, c integerAllocationInvocationContext) (bool, error) {
+func (m *IntegerModularManager) dividesWithAllocationContext(a, b *Int, c *integerAllocationInvocationContext) (bool, error) {
 	f, e := m.Field()
 	if e != nil {
 		return false, e
@@ -19,7 +19,7 @@ func (m *IntegerModularManager) dividesWithAllocationContext(a, b *Int, c intege
 	return m.manager.dividesWithAllocationContext(a, b, c)
 }
 
-func (m *IntegerModularManager) setPSquareWithAllocationContext(context integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) setPSquareWithAllocationContext(context *integerAllocationInvocationContext) error {
 	if m != nil && m.self == m && callerBindingsExecuting(m.callerBindings) {
 		return ErrNumericPending
 	}
@@ -37,9 +37,9 @@ func (m *IntegerModularManager) setPSquareWithAllocationContext(context integerA
 	return m.setupPWithAllocationContext(context)
 }
 
-func (m *IntegerModularManager) normalizeWithSourceContext(out *Int, c integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) normalizeWithSourceContext(out *Int, c *integerAllocationInvocationContext) error {
 	if c.Caller != nil && c.Caller.hasNormalize() {
 		return c.Caller.callNormalize(m, out)
 	}
-	return m.PNormalizeWithFactorHistory(out, nil, c)
+	return m.pNormalizeWithFactorHistory(out, nil, c)
 }

@@ -75,16 +75,16 @@ func (m *IntegerManager) extendedGCDWithAllocationContext(r1, r2, a, b, g *Int, 
 		}()
 	}
 	tmp1, tmp2, aux, quot, nexta, nextb := &values[0], &values[1], &values[2], &values[3], &values[4], &values[5]
-	if e := m.copyFromOwnerWithAllocationContext(tmp1, m, r1, nil, context); e != nil {
+	if e := m.copyFromOwnerWithAllocationContext(tmp1, m, r1, nil, &context); e != nil {
 		return e
 	}
-	if e := m.copyFromOwnerWithAllocationContext(tmp2, m, r2, nil, context); e != nil {
+	if e := m.copyFromOwnerWithAllocationContext(tmp2, m, r2, nil, &context); e != nil {
 		return e
 	}
-	if e := m.setInt64WithAllocationContext(a, 1, context); e != nil {
+	if e := m.setInt64WithAllocationContext(a, 1, &context); e != nil {
 		return e
 	}
-	if e := m.setInt64WithAllocationContext(b, 0, context); e != nil {
+	if e := m.setInt64WithAllocationContext(b, 0, &context); e != nil {
 		return e
 	}
 	if raw != nil {
@@ -92,16 +92,16 @@ func (m *IntegerManager) extendedGCDWithAllocationContext(r1, r2, a, b, g *Int, 
 	} else {
 		m.ExtendedRaw.Count = 6
 	}
-	if e := m.setInt64WithAllocationContext(nexta, 0, context); e != nil {
+	if e := m.setInt64WithAllocationContext(nexta, 0, &context); e != nil {
 		return e
 	}
-	if e := m.setInt64WithAllocationContext(nextb, 1, context); e != nil {
+	if e := m.setInt64WithAllocationContext(nextb, 1, &context); e != nil {
 		return e
 	}
-	if e := m.absWithAllocationContext(tmp1, context); e != nil {
+	if e := m.absWithAllocationContext(tmp1, &context); e != nil {
 		return e
 	}
-	if e := m.absWithAllocationContext(tmp2, context); e != nil {
+	if e := m.absWithAllocationContext(tmp2, &context); e != nil {
 		return e
 	}
 	cmp, e := m.Compare(tmp1, tmp2)
@@ -123,57 +123,57 @@ func (m *IntegerManager) extendedGCDWithAllocationContext(r1, r2, a, b, g *Int, 
 		if e = m.gcdSourceGreaterEqualAt(tmp1, tmp2, 937, "ge(tmp1, tmp2)"); e != nil {
 			return e
 		}
-		if e = m.copyFromOwnerWithAllocationContext(aux, m, tmp2, nil, context); e != nil {
+		if e = m.copyFromOwnerWithAllocationContext(aux, m, tmp2, nil, &context); e != nil {
 			return e
 		}
-		if e = m.machineDivWithAllocationContext(tmp1, tmp2, quot, context); e != nil {
+		if e = m.machineDivWithAllocationContext(tmp1, tmp2, quot, &context); e != nil {
 			return e
 		}
-		if e = m.remWithAllocationContext(tmp1, tmp2, tmp2, context); e != nil {
+		if e = m.remWithAllocationContext(tmp1, tmp2, tmp2, &context); e != nil {
 			return e
 		}
-		if e = m.copyFromOwnerWithAllocationContext(tmp1, m, aux, nil, context); e != nil {
+		if e = m.copyFromOwnerWithAllocationContext(tmp1, m, aux, nil, &context); e != nil {
 			return e
 		}
-		if e = m.copyFromOwnerWithAllocationContext(aux, m, nexta, nil, context); e != nil {
+		if e = m.copyFromOwnerWithAllocationContext(aux, m, nexta, nil, &context); e != nil {
 			return e
 		}
-		if e = m.mulWithAllocationContext(quot, nexta, nexta, context); e != nil {
+		if e = m.mulWithAllocationContext(quot, nexta, nexta, &context); e != nil {
 			return e
 		}
-		if e = m.addSubWithAllocationContext(a, nexta, nexta, true, context); e != nil {
+		if e = m.addSubWithAllocationContext(a, nexta, nexta, true, &context); e != nil {
 			return e
 		}
-		if e = m.copyFromOwnerWithAllocationContext(a, m, aux, nil, context); e != nil {
+		if e = m.copyFromOwnerWithAllocationContext(a, m, aux, nil, &context); e != nil {
 			return e
 		}
-		if e = m.copyFromOwnerWithAllocationContext(aux, m, nextb, nil, context); e != nil {
+		if e = m.copyFromOwnerWithAllocationContext(aux, m, nextb, nil, &context); e != nil {
 			return e
 		}
-		if e = m.mulWithAllocationContext(nextb, quot, nextb, context); e != nil {
+		if e = m.mulWithAllocationContext(nextb, quot, nextb, &context); e != nil {
 			return e
 		}
-		if e = m.addSubWithAllocationContext(b, nextb, nextb, true, context); e != nil {
+		if e = m.addSubWithAllocationContext(b, nextb, nextb, true, &context); e != nil {
 			return e
 		}
-		if e = m.copyFromOwnerWithAllocationContext(b, m, aux, nil, context); e != nil {
+		if e = m.copyFromOwnerWithAllocationContext(b, m, aux, nil, &context); e != nil {
 			return e
 		}
 	}
 	if r1.Val < 0 {
-		if e = m.negWithAllocationContext(a, context); e != nil {
+		if e = m.negWithAllocationContext(a, &context); e != nil {
 			return e
 		}
 	}
 	if r2.Val < 0 {
-		if e = m.negWithAllocationContext(b, context); e != nil {
+		if e = m.negWithAllocationContext(b, &context); e != nil {
 			return e
 		}
 	}
-	if e = m.extendedGCDDiagnosticWithAllocationContext(r1, r2, a, b, tmp1, nexta, nextb, context); e != nil {
+	if e = m.extendedGCDDiagnosticWithAllocationContext(r1, r2, a, b, tmp1, nexta, nextb, &context); e != nil {
 		return e
 	}
-	return m.copyFromOwnerWithAllocationContext(g, m, tmp1, nil, context)
+	return m.copyFromOwnerWithAllocationContext(g, m, tmp1, nil, &context)
 }
 
 // LCM follows the signed source shortcuts; it is not canonical abs(a*b)/gcd.
@@ -258,7 +258,7 @@ func (m *IntegerManager) LCM(a, b, c *Int) (err error) {
 	return nil
 }
 func (m *IntegerManager) Divides(a, b *Int) (bool, error) {
-	return m.dividesWithAllocationContext(a, b, integerAllocationInvocationContext{})
+	return m.dividesWithAllocationContext(a, b, numeralContextRef(integerAllocationInvocationContext{}))
 }
 
 // BindTrace borrows the process trace state for retained integer operations.
@@ -314,14 +314,14 @@ func (m *IntegerManager) traceDivides(a, b, tmp *Int, result bool) {
 	}
 }
 
-func (m *IntegerManager) dividesWithAllocationContext(a, b *Int, parent integerAllocationInvocationContext) (result bool, cause error) {
+func (m *IntegerManager) dividesWithAllocationContext(a, b *Int, parent *integerAllocationInvocationContext) (result bool, cause error) {
 	if e := m.check(a); e != nil {
 		return false, e
 	}
 	if e := m.check(b); e != nil {
 		return false, e
 	}
-	receipt, e := m.BeginDividesNumeralInvocation(parent)
+	receipt, e := m.beginDividesNumeralInvocation(parent)
 	if e != nil {
 		return false, e
 	}
@@ -331,7 +331,7 @@ func (m *IntegerManager) dividesWithAllocationContext(a, b *Int, parent integerA
 		result = b.Val == 0
 	} else {
 		context := integerAllocationInvocationContext{BoolDivides: &s.Receipt, BoolDividesInvocation: s.Invocation}
-		if e := m.remWithAllocationContext(b, a, &s.Numeral, context); e != nil {
+		if e := m.remWithAllocationContext(b, a, &s.Numeral, &context); e != nil {
 			return false, e
 		}
 		result = s.Numeral.Val == 0

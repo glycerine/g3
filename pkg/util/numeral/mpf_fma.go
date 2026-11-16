@@ -30,7 +30,7 @@ func (s *arbitraryFloatFMAScope) shiftInPlace(value *Int, n uint32) error {
 	if e := z.check(value); e != nil {
 		return e
 	}
-	return z.mul2kCoreWithAllocationContext(value, n, s.context())
+	return z.mul2kCoreWithAllocationContext(value, n, numeralContextRef(s.context()))
 }
 
 func (m *ArbitraryFloatManager) FMA(mode ArbitraryFloatRoundingMode, x, y, z, out *ArbitraryFloat) (cause error) {
@@ -152,12 +152,12 @@ func (m *ArbitraryFloatManager) FMA(mode ArbitraryFloatRoundingMode, x, y, z, ou
 		dst, src *ArbitraryFloat
 		receipt  *ArbitraryFloatValueCopyReceipt
 	}{{&s.a, x, &s.copyA}, {&s.b, y, &s.copyB}, {&s.c, z, &s.copyC}} {
-		if e := m.copyWithValueReceiptAndContext(copy.dst, copy.src, copy.receipt, context); e != nil {
+		if e := m.copyWithValueReceiptAndContext(copy.dst, copy.src, copy.receipt, &context); e != nil {
 			return e
 		}
 	}
 	for _, v := range [...]*ArbitraryFloat{&s.a, &s.b, &s.c} {
-		if e := m.unpackRationalNumeral(v, true, context); e != nil {
+		if e := m.unpackRationalNumeral(v, true, &context); e != nil {
 			return e
 		}
 	}
@@ -191,7 +191,7 @@ func (m *ArbitraryFloatManager) FMA(mode ArbitraryFloatRoundingMode, x, y, z, ou
 	if e := im.SetInt32(&s.mr.significand, 0); e != nil {
 		return e
 	}
-	if e := im.mulWithAllocationContext(&s.a.significand, &s.b.significand, &s.mr.significand, context); e != nil {
+	if e := im.mulWithAllocationContext(&s.a.significand, &s.b.significand, &s.mr.significand, &context); e != nil {
 		return e
 	}
 	if e := m.traceFMADecimalBinary("M = ", &s.mr, 830); e != nil {
@@ -255,7 +255,7 @@ func (m *ArbitraryFloatManager) FMA(mode ArbitraryFloatRoundingMode, x, y, z, ou
 	if e != nil {
 		return e
 	}
-	if e := im.machineDivRemWithAllocationContext(&s.c.significand, &power, &s.c.significand, &s.sticky, context); e != nil {
+	if e := im.machineDivRemWithAllocationContext(&s.c.significand, &power, &s.c.significand, &s.sticky, &context); e != nil {
 		return e
 	}
 	if e := m.traceFMAAlignment(uint32(delta), &s.c.significand, &s.sticky); e != nil {
@@ -275,7 +275,7 @@ func (m *ArbitraryFloatManager) FMA(mode ArbitraryFloatRoundingMode, x, y, z, ou
 	// Construction starts before the allocating copy; its source destructor is
 	// reached only after construction succeeds. Owning cleanup joins either case.
 	s.resLive = true
-	if e := m.copyWithValueReceiptAndContext(&s.res, &s.mr, &s.copyRes, context); e != nil {
+	if e := m.copyWithValueReceiptAndContext(&s.res, &s.mr, &s.copyRes, &context); e != nil {
 		return e
 	}
 	s.resSourceLive = true
@@ -285,7 +285,7 @@ func (m *ArbitraryFloatManager) FMA(mode ArbitraryFloatRoundingMode, x, y, z, ou
 	} else {
 		m.traceFloatDebugText("fma", "ADDING", 892)
 	}
-	if e := im.addSubWithAllocationContext(&s.mr.significand, &s.c.significand, &s.res.significand, subtract, context); e != nil {
+	if e := im.addSubWithAllocationContext(&s.mr.significand, &s.c.significand, &s.res.significand, subtract, &context); e != nil {
 		return e
 	}
 	if alignmentSticky {
@@ -295,7 +295,7 @@ func (m *ArbitraryFloatManager) FMA(mode ArbitraryFloatRoundingMode, x, y, z, ou
 		}
 		if even {
 			one := NewInt(1)
-			if e := im.addSubWithAllocationContext(&s.res.significand, &one, &s.res.significand, subtract, context); e != nil {
+			if e := im.addSubWithAllocationContext(&s.res.significand, &one, &s.res.significand, subtract, &context); e != nil {
 				return e
 			}
 		}
@@ -398,7 +398,7 @@ func (m *ArbitraryFloatManager) FMA(mode ArbitraryFloatRoundingMode, x, y, z, ou
 		if e != nil {
 			return e
 		}
-		if e := im.machineDivRemWithAllocationContext(&s.res.significand, &power, &out.significand, &s.sticky, context); e != nil {
+		if e := im.machineDivRemWithAllocationContext(&s.res.significand, &power, &out.significand, &s.sticky, &context); e != nil {
 			return e
 		}
 		empty, e := im.IsZero(&s.sticky)
@@ -407,7 +407,7 @@ func (m *ArbitraryFloatManager) FMA(mode ArbitraryFloatRoundingMode, x, y, z, ou
 		}
 		renormSticky = renormSticky || !empty
 	} else {
-		if e := im.shiftWithAllocationContext(&s.res.significand, 7-sb, &out.significand, true, context); e != nil {
+		if e := im.shiftWithAllocationContext(&s.res.significand, 7-sb, &out.significand, true, &context); e != nil {
 			return e
 		}
 	}
@@ -418,7 +418,7 @@ func (m *ArbitraryFloatManager) FMA(mode ArbitraryFloatRoundingMode, x, y, z, ou
 		}
 		if even {
 			one := NewInt(1)
-			if e := im.addSubWithAllocationContext(&out.significand, &one, &out.significand, false, context); e != nil {
+			if e := im.addSubWithAllocationContext(&out.significand, &one, &out.significand, false, &context); e != nil {
 				return e
 			}
 		}
@@ -433,5 +433,5 @@ func (m *ArbitraryFloatManager) FMA(mode ArbitraryFloatRoundingMode, x, y, z, ou
 	if empty {
 		return m.MkZero(eb, sb, mode == ArbitraryFloatTowardNegative, out)
 	}
-	return m.roundWithParentContext(mode, out, &s.roundReceipt, context)
+	return m.roundWithParentContext(mode, out, &s.roundReceipt, &context)
 }

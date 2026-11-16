@@ -28,7 +28,7 @@ type arbitraryFloatRoundHistory struct {
 	bodyCause, sourceCause, ownCause error
 }
 
-func (c integerAllocationInvocationContext) roundFrame(z *IntegerManager, executing bool) *ArbitraryFloatRoundScope {
+func (c *integerAllocationInvocationContext) roundFrame(z *IntegerManager, executing bool) *ArbitraryFloatRoundScope {
 	s := c.mpfRound
 	invocation := c.mpfRoundInvocation
 	if c.mpfRoundSqrt != nil {
@@ -53,7 +53,7 @@ func (c integerAllocationInvocationContext) roundFrame(z *IntegerManager, execut
 	}
 	return s
 }
-func (c integerAllocationInvocationContext) prepareRoundHistory(z *IntegerManager) error {
+func (c *integerAllocationInvocationContext) prepareRoundHistory(z *IntegerManager) error {
 	if c.mpfRound == nil && c.mpfRoundSqrt == nil {
 		return nil
 	}
@@ -85,7 +85,7 @@ func (c integerAllocationInvocationContext) prepareRoundHistory(z *IntegerManage
 	s.Manager.roundHistoryBytes += bytes
 	return nil
 }
-func (z *IntegerManager) captureRoundAllocationOutcome(c integerAllocationInvocationContext, backing SourceCellBacking, out *umemory.SmallAllocatorAllocationOutcome) error {
+func (z *IntegerManager) captureRoundAllocationOutcome(c *integerAllocationInvocationContext, backing SourceCellBacking, out *umemory.SmallAllocatorAllocationOutcome) error {
 	s := c.roundFrame(z, true)
 	if s == nil {
 		return nil

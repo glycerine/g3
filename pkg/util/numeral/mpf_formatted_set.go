@@ -37,7 +37,7 @@ func (m *ArbitraryFloatManager) SetFormatWithReceipt(out *ArbitraryFloat, ebits,
 		return e
 	}
 	if nan {
-		return m.mkNaNWithSourceContext(ebits, sbits, out, &s.copy, s.allocationContext())
+		return m.mkNaNWithSourceContext(ebits, sbits, out, &s.copy, numeralContextRef(s.allocationContext()))
 	}
 	inf, e := m.IsInf(x)
 	if e != nil {
@@ -55,13 +55,13 @@ func (m *ArbitraryFloatManager) SetFormatWithReceipt(out *ArbitraryFloat, ebits,
 	}
 	c := s.allocationContext()
 	same := x.EBits() == ebits && x.SBits() == sbits
-	if e = m.copyWithValueReceiptAndContext(out, x, &s.copy, c); e != nil {
+	if e = m.copyWithValueReceiptAndContext(out, x, &s.copy, &c); e != nil {
 		return e
 	}
 	if same {
 		return nil
 	}
-	if e = m.unpackRationalNumeral(out, true, c); e != nil {
+	if e = m.unpackRationalNumeral(out, true, &c); e != nil {
 		return e
 	}
 	out.assignEbits(ebits)
@@ -70,7 +70,7 @@ func (m *ArbitraryFloatManager) SetFormatWithReceipt(out *ArbitraryFloat, ebits,
 	// conversion. Read x.sbits here, including the literal self-alias behavior.
 	ds := int32(sbits - x.SBits() + 3)
 	if ds > 0 {
-		if e = m.integer.mul2kCoreWithAllocationContext(&out.significand, uint32(ds), c); e != nil {
+		if e = m.integer.mul2kCoreWithAllocationContext(&out.significand, uint32(ds), &c); e != nil {
 			return e
 		}
 		return m.roundWithFormattedSet(mode, out, s)
@@ -95,7 +95,7 @@ func (m *ArbitraryFloatManager) SetFormatWithReceipt(out *ArbitraryFloat, ebits,
 			}
 			if even {
 				one := NewInt(1)
-				if e = m.integer.addSubWithAllocationContext(&out.significand, &one, &out.significand, false, c); e != nil {
+				if e = m.integer.addSubWithAllocationContext(&out.significand, &one, &out.significand, false, &c); e != nil {
 					return e
 				}
 			}

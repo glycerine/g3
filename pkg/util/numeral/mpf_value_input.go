@@ -28,7 +28,7 @@ func (m *ArbitraryFloatManager) SetComponentsUint64WithReceipt(out *ArbitraryFlo
 	out.assignSbits(sbits)
 	out.assignSign(sign)
 	m.valueExecuting = true
-	if e := m.integer.setUint64WithAllocationContext(&out.significand, significand, context); e != nil {
+	if e := m.integer.setUint64WithAllocationContext(&out.significand, significand, &context); e != nil {
 		m.valueExecuting = false
 		return e
 	}
@@ -138,11 +138,11 @@ func (m *ArbitraryFloatManager) SetInt32WithReceipt(out *ArbitraryFloat, ebits, 
 	}
 	m.valueExecuting = true
 	defer func() { m.valueExecuting = false }()
-	if e := m.integer.setUint32WithAllocationContext(&out.significand, uval&0x7fffffff, context); e != nil {
+	if e := m.integer.setUint32WithAllocationContext(&out.significand, uval&0x7fffffff, &context); e != nil {
 		return e
 	}
 	if sbits > 31 {
-		if e := m.integer.mul2kCoreWithAllocationContext(&out.significand, sbits-32, context); e != nil {
+		if e := m.integer.mul2kCoreWithAllocationContext(&out.significand, sbits-32, &context); e != nil {
 			return e
 		}
 	} else if e := m.integer.MachineDiv2kInPlace(&out.significand, 32-sbits); e != nil {
@@ -183,7 +183,7 @@ func (m *ArbitraryFloatManager) SetDoubleWithReceipt(out *ArbitraryFloat, ebits,
 	}
 	m.valueExecuting = true
 	defer func() { m.valueExecuting = false }()
-	if e := m.integer.setUint64WithAllocationContext(&out.significand, sig, context); e != nil {
+	if e := m.integer.setUint64WithAllocationContext(&out.significand, sig, &context); e != nil {
 		return e
 	}
 	if sbits < 53 {
@@ -191,7 +191,7 @@ func (m *ArbitraryFloatManager) SetDoubleWithReceipt(out *ArbitraryFloat, ebits,
 			return e
 		}
 	} else if sbits > 53 {
-		if e := m.integer.mul2kCoreWithAllocationContext(&out.significand, sbits-53, context); e != nil {
+		if e := m.integer.mul2kCoreWithAllocationContext(&out.significand, sbits-53, &context); e != nil {
 			return e
 		}
 	}
@@ -228,7 +228,7 @@ func (m *ArbitraryFloatManager) SetFloatWithReceipt(out *ArbitraryFloat, ebits, 
 	}
 	m.valueExecuting = true
 	defer func() { m.valueExecuting = false }()
-	if e := m.integer.setUint32WithAllocationContext(&out.significand, sig, context); e != nil {
+	if e := m.integer.setUint32WithAllocationContext(&out.significand, sig, &context); e != nil {
 		return e
 	}
 	if sbits < 24 {
@@ -236,7 +236,7 @@ func (m *ArbitraryFloatManager) SetFloatWithReceipt(out *ArbitraryFloat, ebits, 
 			return e
 		}
 	} else if sbits > 24 {
-		if e := m.integer.mul2kCoreWithAllocationContext(&out.significand, sbits-24, context); e != nil {
+		if e := m.integer.mul2kCoreWithAllocationContext(&out.significand, sbits-24, &context); e != nil {
 			return e
 		}
 	}

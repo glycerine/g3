@@ -62,10 +62,10 @@ func (s *rationalDecimalStreamScope) finishCall(cause error) error {
 }
 func (s *rationalDecimalStreamScope) run(out RationalSourceStream, a *Rational, precision uint32, truncate bool) error {
 	z, c := s.manager.Z, integerAllocationInvocationContext{Caller: &s.hooks}
-	if e := z.copyFromOwnerWithAllocationContext(&s.values[1], z, &a.Num, nil, c); e != nil {
+	if e := z.copyFromOwnerWithAllocationContext(&s.values[1], z, &a.Num, nil, &c); e != nil {
 		return e
 	}
-	if e := z.copyFromOwnerWithAllocationContext(&s.values[2], z, &a.Den, nil, c); e != nil {
+	if e := z.copyFromOwnerWithAllocationContext(&s.values[2], z, &a.Den, nil, &c); e != nil {
 		return e
 	}
 	return s.runCopied(out, a.Num.Val < 0, precision, truncate)
@@ -77,7 +77,7 @@ func (s *rationalDecimalStreamScope) runCopied(out RationalSourceStream, negativ
 		if e := out.AppendCString("-"); e != nil {
 			return e
 		}
-		if e := z.negWithAllocationContext(n, c); e != nil {
+		if e := z.negWithAllocationContext(n, &c); e != nil {
 			return e
 		}
 	}
@@ -89,7 +89,7 @@ func (s *rationalDecimalStreamScope) runCopied(out RationalSourceStream, negativ
 	if e := z.insertSourceIntegerTracked(out, v, nil, &s.insertion); e != nil {
 		return e
 	}
-	if e := z.remWithAllocationContext(n, d, n, c); e != nil {
+	if e := z.remWithAllocationContext(n, d, n, &c); e != nil {
 		return e
 	}
 	if n.Val == 0 {
@@ -99,7 +99,7 @@ func (s *rationalDecimalStreamScope) runCopied(out RationalSourceStream, negativ
 		return e
 	}
 	for i := uint32(0); i < precision; i++ {
-		if e := z.mulWithAllocationContext(n, ten, n, c); e != nil {
+		if e := z.mulWithAllocationContext(n, ten, n, &c); e != nil {
 			return e
 		}
 		if e := z.divWithAllocationContext(n, d, v, c); e != nil {
@@ -126,7 +126,7 @@ func (s *rationalDecimalStreamScope) runCopied(out RationalSourceStream, negativ
 		if e := z.insertSourceIntegerTracked(out, v, nil, &s.insertion); e != nil {
 			return e
 		}
-		if e := z.remWithAllocationContext(n, d, n, c); e != nil {
+		if e := z.remWithAllocationContext(n, d, n, &c); e != nil {
 			return e
 		}
 		if n.Val == 0 {

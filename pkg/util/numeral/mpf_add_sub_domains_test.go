@@ -83,14 +83,14 @@ func TestArbitraryFloatAddSubGeneralPublicationAndCopiedScope(t *testing.T) {
 	}
 	copy := m.addSub
 	copy.hooks.Policy = &copy
-	if copy.NumericBound(false) || copy.NumericRoots(m.integer, nil) != nil || copy.context().roots(m.integer) != nil {
+	if copy.NumericBound(false) || copy.NumericRoots(m.integer, nil) != nil || numeralContextRef(copy.context()).roots(m.integer) != nil {
 		t.Fatal("copied lexical scope acquired allocation authority")
 	}
 	integerPhysicalAudit(t, m.integer, &x.significand, &out.significand, &m.addSub.a.significand, &m.addSub.b.significand, &y.significand)
 	b.FailAfter(-1)
 	serviceMust(t, m.CleanupAddSub())
 	serviceMust(t, m.CleanupAddSub())
-	if m.addSub.context().roots(m.integer) != nil {
+	if numeralContextRef(m.addSub.context()).roots(m.integer) != nil {
 		t.Fatal("ended caller acquired roots")
 	}
 	serviceMust(t, m.CleanupValue(&out))

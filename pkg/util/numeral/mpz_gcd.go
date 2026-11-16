@@ -82,11 +82,11 @@ func U64GCD(u, v uint64) uint64 {
 
 // AddMul stores a+b*c. Only inline +/-1 take the source shortcut paths.
 func (m *IntegerManager) AddMul(a, b, c, d *Int) error {
-	return m.addMulWithAllocationContext(a, b, c, d, nil, integerAllocationInvocationContext{})
+	return m.addMulWithAllocationContext(a, b, c, d, nil, numeralContextRef(integerAllocationInvocationContext{}))
 }
 
-func (m *IntegerManager) addMulWithAllocationContext(a, b, c, d *Int, receipt *integerAddMulInvocationReceipt, context integerAllocationInvocationContext) error {
-	return m.addSubMulWithAllocationContext(a, b, c, d, false, receipt, context)
+func (m *IntegerManager) addMulWithAllocationContext(a, b, c, d *Int, receipt *integerAddMulInvocationReceipt, context *integerAllocationInvocationContext) error {
+	return m.addSubMulWithAllocationContext(a, b, c, d, false, receipt, *context)
 }
 
 // Both literal bodies construct one RAW tmp, perform Mul then Add/Sub, and
@@ -98,10 +98,10 @@ func (m *IntegerManager) addSubMulWithAllocationContext(a, b, c, d *Int, subtrac
 		}
 	}
 	if b.IsSmall() && b.Val == 1 {
-		return m.addSubWithAllocationContext(a, c, d, subtract, context)
+		return m.addSubWithAllocationContext(a, c, d, subtract, &context)
 	}
 	if b.IsSmall() && b.Val == -1 {
-		return m.addSubWithAllocationContext(a, c, d, !subtract, context)
+		return m.addSubWithAllocationContext(a, c, d, !subtract, &context)
 	}
 	callerContext := context
 	frame := &m.AddMulInvocation
@@ -118,7 +118,7 @@ func (m *IntegerManager) addSubMulWithAllocationContext(a, b, c, d *Int, subtrac
 	context = (integerAllocationInvocationContext{}).withAddMulInvocation(receipt)
 	// Explicit epilogue (formerly a deferred closure; nothing recovers a
 	// panic on this path, so the order of effects is unchanged).
-	err = m.addSubMulBody(a, b, c, d, subtract, frame, tmp, context, callerContext)
+	err = m.addSubMulBody(a, b, c, d, subtract, frame, tmp, &context, &callerContext)
 	frame.executing = false
 	if frame.Stage < 3 {
 		frame.BodyCause = err
@@ -128,12 +128,12 @@ func (m *IntegerManager) addSubMulWithAllocationContext(a, b, c, d *Int, subtrac
 	}
 	return err
 }
-func (m *IntegerManager) addSubMulBody(a, b, c, d *Int, subtract bool, frame *integerAddMulScope, tmp *Int, context, callerContext integerAllocationInvocationContext) error {
+func (m *IntegerManager) addSubMulBody(a, b, c, d *Int, subtract bool, frame *integerAddMulScope, tmp *Int, context, callerContext *integerAllocationInvocationContext) error {
 	if e := m.mulWithAllocationContext(b, c, tmp, context); e != nil {
 		return e
 	}
 	frame.Stage = 2
-	if callerContext != (integerAllocationInvocationContext{}) {
+	if *callerContext != (integerAllocationInvocationContext{}) {
 		context = callerContext
 	}
 	if e := m.addSubWithAllocationContext(a, tmp, d, subtract, context); e != nil {
@@ -170,19 +170,19 @@ func (m *IntegerManager) gcdWithAllocationContext(a, b, c *Int, context integerA
 		if bv < 0 {
 			bv = -bv
 		}
-		return m.setInt64WithAllocationContext(c, int64(U32GCD(uint32(av), uint32(bv))), context)
+		return m.setInt64WithAllocationContext(c, int64(U32GCD(uint32(av), uint32(bv))), &context)
 	}
 	if a.Val == 0 {
-		if e := m.copyFromOwnerWithAllocationContext(c, m, b, nil, context); e != nil {
+		if e := m.copyFromOwnerWithAllocationContext(c, m, b, nil, &context); e != nil {
 			return e
 		}
-		return m.absWithAllocationContext(c, context)
+		return m.absWithAllocationContext(c, &context)
 	}
 	if b.Val == 0 {
-		if e := m.copyFromOwnerWithAllocationContext(c, m, a, nil, context); e != nil {
+		if e := m.copyFromOwnerWithAllocationContext(c, m, a, nil, &context); e != nil {
 			return e
 		}
-		return m.absWithAllocationContext(c, context)
+		return m.absWithAllocationContext(c, &context)
 	}
 	if av, bv, ok := m.gcdWordOperands(a, b); ok {
 		// Go-only shortcut: the Lehmer loop below returns the same normalized
@@ -190,9 +190,9 @@ func (m *IntegerManager) gcdWithAllocationContext(a, b, c *Int, context integerA
 		// while no bignum trace tag could observe the loop's steps.
 		g := U64GCD(av, bv)
 		if g <= math.MaxInt64 {
-			return m.setInt64WithAllocationContext(c, int64(g), context)
+			return m.setInt64WithAllocationContext(c, int64(g), &context)
 		}
-		return m.setUint64WithAllocationContext(c, g, context)
+		return m.setUint64WithAllocationContext(c, g, &context)
 	}
 	s := &m.GcdRaw
 	receipt, e := m.beginRawInvocation(s, 5)
@@ -218,16 +218,16 @@ func (m *IntegerManager) gcdWithAllocationContext(a, b, c *Int, context integerA
 			err = m.finishRawSource(s)
 		}
 	}()
-	if e := m.copyFromOwnerWithAllocationContext(a1, m, a, nil, context); e != nil {
+	if e := m.copyFromOwnerWithAllocationContext(a1, m, a, nil, &context); e != nil {
 		return e
 	}
-	if e := m.copyFromOwnerWithAllocationContext(b1, m, b, nil, context); e != nil {
+	if e := m.copyFromOwnerWithAllocationContext(b1, m, b, nil, &context); e != nil {
 		return e
 	}
-	if e := m.absWithAllocationContext(a1, context); e != nil {
+	if e := m.absWithAllocationContext(a1, &context); e != nil {
 		return e
 	}
-	if e := m.absWithAllocationContext(b1, context); e != nil {
+	if e := m.absWithAllocationContext(b1, &context); e != nil {
 		return e
 	}
 	cmp, e := m.Compare(a1, b1)
@@ -245,13 +245,13 @@ func (m *IntegerManager) gcdWithAllocationContext(a, b, c *Int, context integerA
 		}
 		if b1.IsSmall() {
 			if a1.IsSmall() {
-				return m.setInt64WithAllocationContext(c, int64(U32GCD(uint32(a1.Val), uint32(b1.Val))), context)
+				return m.setInt64WithAllocationContext(c, int64(U32GCD(uint32(a1.Val), uint32(b1.Val))), &context)
 			}
 			for b1.Val != 0 {
 				if e = m.gcdSourceGreaterEqualAt(a1, b1, 747, "ge(a1, b1)"); e != nil {
 					return e
 				}
-				if e = m.remWithAllocationContext(a1, b1, tmp, context); e != nil {
+				if e = m.remWithAllocationContext(a1, b1, tmp, &context); e != nil {
 					return e
 				}
 				if e = m.Swap(a1, b1); e != nil {
@@ -320,7 +320,7 @@ func (m *IntegerManager) gcdWithAllocationContext(a, b, c *Int, context integerA
 			return e
 		}
 		if B == 0 {
-			if e = m.remWithAllocationContext(a1, b1, t, context); e != nil {
+			if e = m.remWithAllocationContext(a1, b1, t, &context); e != nil {
 				return e
 			}
 			if e = m.Swap(a1, b1); e != nil {
@@ -333,28 +333,28 @@ func (m *IntegerManager) gcdWithAllocationContext(a, b, c *Int, context integerA
 				return e
 			}
 		} else {
-			if e = m.setInt64WithAllocationContext(tmp, A, context); e != nil {
+			if e = m.setInt64WithAllocationContext(tmp, A, &context); e != nil {
 				return e
 			}
-			if e = m.mulWithAllocationContext(a1, tmp, t, context); e != nil {
+			if e = m.mulWithAllocationContext(a1, tmp, t, &context); e != nil {
 				return e
 			}
-			if e = m.setInt64WithAllocationContext(tmp, B, context); e != nil {
+			if e = m.setInt64WithAllocationContext(tmp, B, &context); e != nil {
 				return e
 			}
-			if e = m.addMulWithAllocationContext(t, tmp, b1, t, &s.AddMul, context); e != nil {
+			if e = m.addMulWithAllocationContext(t, tmp, b1, t, &s.AddMul, &context); e != nil {
 				return e
 			}
-			if e = m.setInt64WithAllocationContext(tmp, C, context); e != nil {
+			if e = m.setInt64WithAllocationContext(tmp, C, &context); e != nil {
 				return e
 			}
-			if e = m.mulWithAllocationContext(a1, tmp, r, context); e != nil {
+			if e = m.mulWithAllocationContext(a1, tmp, r, &context); e != nil {
 				return e
 			}
-			if e = m.setInt64WithAllocationContext(tmp, D, context); e != nil {
+			if e = m.setInt64WithAllocationContext(tmp, D, &context); e != nil {
 				return e
 			}
-			if e = m.addMulWithAllocationContext(r, tmp, b1, r, &s.AddMul, context); e != nil {
+			if e = m.addMulWithAllocationContext(r, tmp, b1, r, &s.AddMul, &context); e != nil {
 				return e
 			}
 			if e = m.Swap(a1, t); e != nil {

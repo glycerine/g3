@@ -86,9 +86,9 @@ func (v IntegerArrayView) Reference(i uint32, local *Int) (*Int, error) {
 	return local, nil
 }
 func (m *IntegerManager) GCDManyIndexed(as IntegerArrayView, g *Int) error {
-	return m.gcdManyIndexedWithAllocationContext(as, g, integerAllocationInvocationContext{})
+	return m.gcdManyIndexedWithAllocationContext(as, g, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerManager) gcdManyIndexedWithAllocationContext(as IntegerArrayView, g *Int, context integerAllocationInvocationContext) error {
+func (m *IntegerManager) gcdManyIndexedWithAllocationContext(as IntegerArrayView, g *Int, context *integerAllocationInvocationContext) error {
 	if e := m.check(g); e != nil {
 		return e
 	}
@@ -114,7 +114,7 @@ func (m *IntegerManager) gcdManyIndexedWithAllocationContext(as IntegerArrayView
 	if e != nil {
 		return e
 	}
-	if e = m.gcdWithAllocationContext(pa, pb, g, context); e != nil {
+	if e = m.gcdWithAllocationContext(pa, pb, g, *context); e != nil {
 		return e
 	}
 	for i := uint32(2); i < as.Count; i++ {
@@ -125,7 +125,7 @@ func (m *IntegerManager) gcdManyIndexedWithAllocationContext(as IntegerArrayView
 		if e != nil {
 			return e
 		}
-		if e = m.gcdWithAllocationContext(g, pa, g, context); e != nil {
+		if e = m.gcdWithAllocationContext(g, pa, g, *context); e != nil {
 			return e
 		}
 	}

@@ -418,9 +418,9 @@ func (m *IntegerManager) allocateWithCopyReceipt(capacity, size uint32, s *integ
 	return m.allocateWithInvocationReceipts(capacity, size, s, nil)
 }
 func (m *IntegerManager) allocateWithInvocationReceipts(capacity, size uint32, s *integerCopyAllocationScope, pn *integerPNormalizeScope) (NumericCellRef, error) {
-	return m.allocateWithSourceContext(capacity, size, s, pnAllocationContext(pn))
+	return m.allocateWithSourceContext(capacity, size, s, numeralContextRef(pnAllocationContext(pn)))
 }
-func (m *IntegerManager) allocateWithSourceContext(capacity, size uint32, s *integerCopyAllocationScope, context integerAllocationInvocationContext) (NumericCellRef, error) {
+func (m *IntegerManager) allocateWithSourceContext(capacity, size uint32, s *integerCopyAllocationScope, context *integerAllocationInvocationContext) (NumericCellRef, error) {
 	if context.rationalService != nil && context.rationalServiceFrame(m) == nil {
 		return 0, arena.ErrInvalidSlot
 	}
@@ -507,7 +507,7 @@ func (m *IntegerManager) allocateWithSourceContext(capacity, size uint32, s *int
 		if transfer := m.captureConversionAllocationOutcome(context, backing, &outcome); transfer != nil {
 			return 0, JoinNumericErrors(e, transfer)
 		}
-		if transfer := m.captureFormatAllocationOutcome(context, backing, &outcome); transfer != nil {
+		if transfer := m.captureFormatAllocationOutcome(*context, backing, &outcome); transfer != nil {
 			return 0, JoinNumericErrors(e, transfer)
 		}
 		if context.mpfPower != nil && roots == context.mpfPowerRoots(m) {
@@ -547,7 +547,7 @@ func (m *IntegerManager) allocateWithSourceContext(capacity, size uint32, s *int
 		if transfer := m.captureConversionAllocationOutcome(context, backing, &outcome); transfer != nil {
 			return 0, JoinNumericErrors(e, transfer)
 		}
-		if transfer := m.captureFormatAllocationOutcome(context, backing, &outcome); transfer != nil {
+		if transfer := m.captureFormatAllocationOutcome(*context, backing, &outcome); transfer != nil {
 			return 0, JoinNumericErrors(e, transfer)
 		}
 		if context.mpfPower != nil && roots == context.mpfPowerRoots(m) {
@@ -767,12 +767,12 @@ func (m *IntegerManager) Reset(a *Int) error {
 // old limbs. A failed replacement leaves the already-published positive sign
 // and the owner's dead allocation token; only cleanup may consume that token.
 func (m *IntegerManager) allocateIfNeeded(a *Int, capacity uint32) error {
-	return m.allocateIfNeededWithAllocationContext(a, capacity, integerAllocationInvocationContext{})
+	return m.allocateIfNeededWithAllocationContext(a, capacity, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerManager) allocateIfNeededWithAllocationContext(a *Int, capacity uint32, context integerAllocationInvocationContext) error {
+func (m *IntegerManager) allocateIfNeededWithAllocationContext(a *Int, capacity uint32, context *integerAllocationInvocationContext) error {
 	return m.allocateIfNeededWithPhysicalAllocationContext(a, capacity, context, nil)
 }
-func (m *IntegerManager) allocateIfNeededWithPhysicalAllocationContext(a *Int, capacity uint32, context integerAllocationInvocationContext, receiver *integerRuntimeValueReceiver) error {
+func (m *IntegerManager) allocateIfNeededWithPhysicalAllocationContext(a *Int, capacity uint32, context *integerAllocationInvocationContext, receiver *integerRuntimeValueReceiver) error {
 	if e := m.check(a); e != nil {
 		return e
 	}
@@ -813,7 +813,7 @@ func (m *IntegerManager) allocateIfNeededWithPhysicalAllocationContext(a *Int, c
 	return nil
 }
 
-func (m *IntegerManager) setBig64WithAllocationContext(a *Int, v uint64, sign int32, line int32, context integerAllocationInvocationContext) error {
+func (m *IntegerManager) setBig64WithAllocationContext(a *Int, v uint64, sign int32, line int32, context *integerAllocationInvocationContext) error {
 	ref := a.Cell
 	if ref == 0 {
 		var e error
@@ -849,9 +849,9 @@ func (m *IntegerManager) setBig64WithAllocationContext(a *Int, v uint64, sign in
 	return nil
 }
 func (m *IntegerManager) SetInt64(a *Int, v int64) error {
-	return m.setInt64WithAllocationContext(a, v, integerAllocationInvocationContext{})
+	return m.setInt64WithAllocationContext(a, v, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerManager) setInt64WithAllocationContext(a *Int, v int64, context integerAllocationInvocationContext) error {
+func (m *IntegerManager) setInt64WithAllocationContext(a *Int, v int64, context *integerAllocationInvocationContext) error {
 	if e := m.check(a); e != nil {
 		return e
 	}
@@ -873,9 +873,9 @@ func (m *IntegerManager) setInt64WithAllocationContext(a *Int, v int64, context 
 
 // SetUint64 preserves the source's strict < INT_MAX inline threshold.
 func (m *IntegerManager) SetUint64(a *Int, v uint64) error {
-	return m.setUint64WithAllocationContext(a, v, integerAllocationInvocationContext{})
+	return m.setUint64WithAllocationContext(a, v, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerManager) setUint64WithAllocationContext(a *Int, v uint64, context integerAllocationInvocationContext) error {
+func (m *IntegerManager) setUint64WithAllocationContext(a *Int, v uint64, context *integerAllocationInvocationContext) error {
 	if e := m.check(a); e != nil {
 		return e
 	}
@@ -960,15 +960,15 @@ func (m *IntegerManager) CopyFromOwnerWithReceipt(dst *Int, sourceManager *Integ
 	return m.copyFromOwnerWithReceipts(dst, sourceManager, src, receipt, nil)
 }
 func (m *IntegerManager) copyFromOwnerWithReceipts(dst *Int, sourceManager *IntegerManager, src *Int, receipt *integerCopyAllocationReceipt, pn *integerPNormalizeScope) error {
-	return m.copyFromOwnerWithAllocationContext(dst, sourceManager, src, receipt, pnAllocationContext(pn))
+	return m.copyFromOwnerWithAllocationContext(dst, sourceManager, src, receipt, numeralContextRef(pnAllocationContext(pn)))
 }
-func (m *IntegerManager) copyFromOwnerWithAllocationContext(dst *Int, sourceManager *IntegerManager, src *Int, receipt *integerCopyAllocationReceipt, context integerAllocationInvocationContext) error {
+func (m *IntegerManager) copyFromOwnerWithAllocationContext(dst *Int, sourceManager *IntegerManager, src *Int, receipt *integerCopyAllocationReceipt, context *integerAllocationInvocationContext) error {
 	return m.copyFromOwnerWithPhysicalAllocationContext(dst, sourceManager, src, receipt, context, nil)
 }
-func (m *IntegerManager) copyFromOwnerWithPhysicalAllocationContext(dst *Int, sourceManager *IntegerManager, src *Int, receipt *integerCopyAllocationReceipt, context integerAllocationInvocationContext, receiver *integerRuntimeValueReceiver) error {
+func (m *IntegerManager) copyFromOwnerWithPhysicalAllocationContext(dst *Int, sourceManager *IntegerManager, src *Int, receipt *integerCopyAllocationReceipt, context *integerAllocationInvocationContext, receiver *integerRuntimeValueReceiver) error {
 	return m.copyFromOwnerWithPhysicalFloatCaller(dst, sourceManager, src, receipt, context, receiver, nil)
 }
-func (m *IntegerManager) copyFromOwnerWithPhysicalFloatCaller(dst *Int, sourceManager *IntegerManager, src *Int, receipt *integerCopyAllocationReceipt, context integerAllocationInvocationContext, receiver *integerRuntimeValueReceiver, caller *arbitraryFloatCopyBinding) error {
+func (m *IntegerManager) copyFromOwnerWithPhysicalFloatCaller(dst *Int, sourceManager *IntegerManager, src *Int, receipt *integerCopyAllocationReceipt, context *integerAllocationInvocationContext, receiver *integerRuntimeValueReceiver, caller *arbitraryFloatCopyBinding) error {
 	if e := m.check(dst); e != nil {
 		return e
 	}
@@ -1110,9 +1110,9 @@ func (m *IntegerManager) Swap(a, b *Int) error {
 	return nil
 }
 func (m *IntegerManager) Neg(a *Int) error {
-	return m.negWithAllocationContext(a, integerAllocationInvocationContext{})
+	return m.negWithAllocationContext(a, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerManager) negWithAllocationContext(a *Int, context integerAllocationInvocationContext) error {
+func (m *IntegerManager) negWithAllocationContext(a *Int, context *integerAllocationInvocationContext) error {
 	if e := m.check(a); e != nil {
 		return e
 	}
@@ -1125,9 +1125,9 @@ func (m *IntegerManager) negWithAllocationContext(a *Int, context integerAllocat
 	return nil
 }
 func (m *IntegerManager) Abs(a *Int) error {
-	return m.absWithAllocationContext(a, integerAllocationInvocationContext{})
+	return m.absWithAllocationContext(a, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerManager) absWithAllocationContext(a *Int, context integerAllocationInvocationContext) error {
+func (m *IntegerManager) absWithAllocationContext(a *Int, context *integerAllocationInvocationContext) error {
 	if e := m.check(a); e != nil {
 		return e
 	}
@@ -1206,9 +1206,9 @@ func (m *IntegerManager) EnsureTmp(idx int, size uint32) error {
 	return m.ensureTmpWithPNReceipt(idx, size, nil)
 }
 func (m *IntegerManager) ensureTmpWithPNReceipt(idx int, size uint32, pn *integerPNormalizeScope) error {
-	return m.ensureTmpWithAllocationContext(idx, size, pnAllocationContext(pn))
+	return m.ensureTmpWithAllocationContext(idx, size, numeralContextRef(pnAllocationContext(pn)))
 }
-func (m *IntegerManager) ensureTmpWithAllocationContext(idx int, size uint32, context integerAllocationInvocationContext) error {
+func (m *IntegerManager) ensureTmpWithAllocationContext(idx int, size uint32, context *integerAllocationInvocationContext) error {
 	if idx < 0 || idx >= len(m.Tmp) || m.Tmp[idx] == 0 {
 		return arena.ErrInvalidSlot
 	}
@@ -1257,9 +1257,9 @@ func (m *IntegerManager) publishTmpAt(idx int, dst *Int, sign int32, size uint32
 	return m.publishTmpAtWithPNReceipt(idx, dst, sign, size, nil)
 }
 func (m *IntegerManager) publishTmpAtWithPNReceipt(idx int, dst *Int, sign int32, size uint32, pn *integerPNormalizeScope) error {
-	return m.publishTmpAtWithAllocationContext(idx, dst, sign, size, pnAllocationContext(pn))
+	return m.publishTmpAtWithAllocationContext(idx, dst, sign, size, numeralContextRef(pnAllocationContext(pn)))
 }
-func (m *IntegerManager) publishTmpAtWithAllocationContext(idx int, dst *Int, sign int32, size uint32, context integerAllocationInvocationContext) error {
+func (m *IntegerManager) publishTmpAtWithAllocationContext(idx int, dst *Int, sign int32, size uint32, context *integerAllocationInvocationContext) error {
 	if idx < 0 || idx >= len(m.Tmp) || m.Tmp[idx] == 0 {
 		return arena.ErrInvalidSlot
 	}
@@ -1303,9 +1303,9 @@ func (m *IntegerManager) addSub(a, b, c *Int, subtract bool) error {
 	return m.addSubWithPNReceipt(a, b, c, subtract, nil)
 }
 func (m *IntegerManager) addSubWithPNReceipt(a, b, c *Int, subtract bool, pn *integerPNormalizeScope) error {
-	return m.addSubWithAllocationContext(a, b, c, subtract, pnAllocationContext(pn))
+	return m.addSubWithAllocationContext(a, b, c, subtract, numeralContextRef(pnAllocationContext(pn)))
 }
-func (m *IntegerManager) addSubWithAllocationContext(a, b, c *Int, subtract bool, context integerAllocationInvocationContext) (err error) {
+func (m *IntegerManager) addSubWithAllocationContext(a, b, c *Int, subtract bool, context *integerAllocationInvocationContext) (err error) {
 	if smallIntegerOperands(a, b, c) {
 		v := int64(b.Val)
 		if subtract {

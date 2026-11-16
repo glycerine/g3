@@ -45,30 +45,30 @@ func (m *ArbitraryFloatManager) ToRational(x *ArbitraryFloat, qm *RationalManage
 		}
 	}()
 	s.numericPhase = 1
-	if e := m.copyWithValueReceiptAndContext(a, x, &s.copy, s.allocationContext()); e != nil {
+	if e := m.copyWithValueReceiptAndContext(a, x, &s.copy, numeralContextRef(s.allocationContext())); e != nil {
 		return e
 	}
 	s.numericPhase = 2
-	if e := m.unpackRationalNumeral(a, true, s.allocationContext()); e != nil {
+	if e := m.unpackRationalNumeral(a, true, numeralContextRef(s.allocationContext())); e != nil {
 		return e
 	}
 	s.numericPhase = 3
-	if e := m.integer.copyFromOwnerWithAllocationContext(n, m.integer, &a.significand, nil, s.allocationContext()); e != nil {
+	if e := m.integer.copyFromOwnerWithAllocationContext(n, m.integer, &a.significand, nil, numeralContextRef(s.allocationContext())); e != nil {
 		return e
 	}
 	if a.Sign() {
-		if e := m.integer.negWithAllocationContext(n, s.allocationContext()); e != nil {
+		if e := m.integer.negWithAllocationContext(n, numeralContextRef(s.allocationContext())); e != nil {
 			return e
 		}
 	}
 	s.numericPhase = 4
 	two := NewInt(2)
-	if e := m.integer.powerWithAllocationContext(&two, a.SBits()-1, d, nil, s.allocationContext()); e != nil {
+	if e := m.integer.powerWithAllocationContext(&two, a.SBits()-1, d, nil, numeralContextRef(s.allocationContext())); e != nil {
 		return e
 	}
 	s.numericPhase = 5
 	if a.exponent >= 0 {
-		if e := m.integer.shiftWithAllocationContext(n, uint32(a.exponent), n, true, s.allocationContext()); e != nil {
+		if e := m.integer.shiftWithAllocationContext(n, uint32(a.exponent), n, true, numeralContextRef(s.allocationContext())); e != nil {
 			return e
 		}
 	} else {
@@ -77,17 +77,17 @@ func (m *ArbitraryFloatManager) ToRational(x *ArbitraryFloat, qm *RationalManage
 		if a.exponent == -1<<63 {
 			return arena.ErrBounds
 		}
-		if e := m.integer.shiftWithAllocationContext(d, uint32(-a.exponent), d, true, s.allocationContext()); e != nil {
+		if e := m.integer.shiftWithAllocationContext(d, uint32(-a.exponent), d, true, numeralContextRef(s.allocationContext())); e != nil {
 			return e
 		}
 	}
 	s.numericPhase = 6
-	return qm.setPartsFromIntegerOwnerWithAllocationContext(out, n, d, m.integer, s.outputAllocationContext())
+	return qm.setPartsFromIntegerOwnerWithAllocationContext(out, n, d, m.integer, numeralContextRef(s.outputAllocationContext()))
 }
 
 // This is the reached private unpack body, including its literal special and
 // zero behavior. The rewriter's finite-input check belongs to that caller.
-func (m *ArbitraryFloatManager) unpackRationalNumeral(a *ArbitraryFloat, normalize bool, context integerAllocationInvocationContext) error {
+func (m *ArbitraryFloatManager) unpackRationalNumeral(a *ArbitraryFloat, normalize bool, context *integerAllocationInvocationContext) error {
 	if e := m.traceUnpackEntry(a, normalize); e != nil {
 		return e
 	}

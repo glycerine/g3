@@ -27,7 +27,7 @@ func (m *RationalManager) RootWithInvocation(a *Rational, n uint32, out *Rationa
 		exact, e = m.Z.Root(&a.Num, n, &out.Num)
 	} else {
 		*receipt = RationalRootInvocation{manager: m}
-		exact, e = m.Z.rootWithAllocationContext(&a.Num, n, &out.Num, &receipt.copies[0], &receipt.roots[0], integerAllocationInvocationContext{})
+		exact, e = m.Z.rootWithAllocationContext(&a.Num, n, &out.Num, &receipt.copies[0], &receipt.roots[0], numeralContextRef(integerAllocationInvocationContext{}))
 	}
 	if e != nil {
 		return false, e
@@ -38,7 +38,7 @@ func (m *RationalManager) RootWithInvocation(a *Rational, n uint32, out *Rationa
 	if receipt == nil {
 		return m.Z.Root(&a.Den, n, &out.Den)
 	}
-	return m.Z.rootWithAllocationContext(&a.Den, n, &out.Den, &receipt.copies[1], &receipt.roots[1], integerAllocationInvocationContext{})
+	return m.Z.rootWithAllocationContext(&a.Den, n, &out.Den, &receipt.copies[1], &receipt.roots[1], numeralContextRef(integerAllocationInvocationContext{}))
 }
 
 // IsPerfectSquare writes directly to the caller's rational in source order.

@@ -86,7 +86,7 @@ func TestArbitraryFloatRenormalizeSignedExponentPublication(t *testing.T) {
 		serviceMust(t, m.CleanupRenormalize())
 	}
 	sig, exp := NewInt(0), int64(17)
-	if e := m.renormalizeWithContext(8, 2, &exp, &sig, m.renormalize.context()); !errors.Is(e, ErrNumericOwner) {
+	if e := m.renormalizeWithContext(8, 2, &exp, &sig, numeralContextRef(m.renormalize.context())); !errors.Is(e, ErrNumericOwner) {
 		t.Fatal("ended scope acquired inline authority", e)
 	}
 	if sig != NewInt(0) || exp != 17 {

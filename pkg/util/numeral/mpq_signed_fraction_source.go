@@ -11,9 +11,9 @@ import (
 // negations are checked at their actual reach instead of widening them. The
 // existing SetFractionSigned service retains its separate widened profile.
 func (m *RationalManager) SetFractionSignedSource(a *Rational, n, d int32) error {
-	return m.setFractionSignedSourceWithAllocationContext(a, n, d, integerAllocationInvocationContext{})
+	return m.setFractionSignedSourceWithAllocationContext(a, n, d, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *RationalManager) setFractionSignedSourceWithAllocationContext(a *Rational, n, d int32, c integerAllocationInvocationContext) error {
+func (m *RationalManager) setFractionSignedSourceWithAllocationContext(a *Rational, n, d int32, c *integerAllocationInvocationContext) error {
 	if e := m.checkSetter(a); e != nil {
 		return e
 	}

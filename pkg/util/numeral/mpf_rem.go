@@ -104,16 +104,16 @@ func (m *ArbitraryFloatManager) Rem(x, y, out *ArbitraryFloat) (cause error) {
 		cause = JoinNumericErrors(cause, s.unbind())
 	}()
 	c, z := s.context(), m.integer
-	if e := m.copyWithValueReceiptAndContext(&s.a, x, &s.copyA, c); e != nil {
+	if e := m.copyWithValueReceiptAndContext(&s.a, x, &s.copyA, &c); e != nil {
 		return e
 	}
-	if e := m.copyWithValueReceiptAndContext(&s.b, y, &s.copyB, c); e != nil {
+	if e := m.copyWithValueReceiptAndContext(&s.b, y, &s.copyB, &c); e != nil {
 		return e
 	}
-	if e := m.unpackRationalNumeral(&s.a, true, c); e != nil {
+	if e := m.unpackRationalNumeral(&s.a, true, &c); e != nil {
 		return e
 	}
-	if e := m.unpackRationalNumeral(&s.b, true, c); e != nil {
+	if e := m.unpackRationalNumeral(&s.b, true, &c); e != nil {
 		return e
 	}
 	b := int64(x.SBits())
@@ -152,7 +152,7 @@ func (m *ArbitraryFloatManager) Rem(x, y, out *ArbitraryFloat) (cause error) {
 	if e := z.check(&s.a.significand); e != nil {
 		return e
 	}
-	if e := z.mul2kCoreWithAllocationContext(&s.a.significand, 3, c); e != nil {
+	if e := z.mul2kCoreWithAllocationContext(&s.a.significand, 3, &c); e != nil {
 		return e
 	}
 	// Same-format SET remains the source COPY fast path. Its actual receipt
@@ -165,5 +165,5 @@ func (m *ArbitraryFloatManager) Rem(x, y, out *ArbitraryFloat) (cause error) {
 	if child != nil {
 		return child
 	}
-	return m.roundWithParentContext(ArbitraryFloatNearestEven, out, &s.roundReceipt, c)
+	return m.roundWithParentContext(ArbitraryFloatNearestEven, out, &s.roundReceipt, &c)
 }

@@ -67,10 +67,10 @@ func (m *ArbitraryFloatManager) Sqrt(mode ArbitraryFloatRoundingMode, x, out *Ar
 	}()
 	context := s.context()
 	z := m.integer
-	if e := m.copyWithValueReceiptAndContext(&s.a, x, &s.copyA, context); e != nil {
+	if e := m.copyWithValueReceiptAndContext(&s.a, x, &s.copyA, &context); e != nil {
 		return e
 	}
-	if e := m.unpackRationalNumeral(&s.a, true, context); e != nil {
+	if e := m.unpackRationalNumeral(&s.a, true, &context); e != nil {
 		return e
 	}
 	if e := m.traceFloatDebugValueChecked("sqrt", "A = ", &s.a, 1027); e != nil {
@@ -83,10 +83,10 @@ func (m *ArbitraryFloatManager) Sqrt(mode ArbitraryFloatRoundingMode, x, out *Ar
 	if e := z.check(&s.a.significand); e != nil {
 		return e
 	}
-	if e := z.mul2kCoreWithAllocationContext(&s.a.significand, x.SBits()+extra, context); e != nil {
+	if e := z.mul2kCoreWithAllocationContext(&s.a.significand, x.SBits()+extra, &context); e != nil {
 		return e
 	}
-	exact, e := z.rootWithAllocationContext(&s.a.significand, 2, &out.significand, &s.rootCopy, &s.root, context)
+	exact, e := z.rootWithAllocationContext(&s.a.significand, 2, &out.significand, &s.rootCopy, &s.root, &context)
 	if e != nil {
 		return e
 	}
@@ -97,7 +97,7 @@ func (m *ArbitraryFloatManager) Sqrt(mode ArbitraryFloatRoundingMode, x, out *Ar
 		}
 		if even {
 			one := NewInt(1)
-			if e := z.addSubWithAllocationContext(&out.significand, &one, &out.significand, true, context); e != nil {
+			if e := z.addSubWithAllocationContext(&out.significand, &one, &out.significand, true, &context); e != nil {
 				return e
 			}
 		}
@@ -109,5 +109,5 @@ func (m *ArbitraryFloatManager) Sqrt(mode ArbitraryFloatRoundingMode, x, out *Ar
 	if s.a.exponent%2 == 0 {
 		out.exponent--
 	}
-	return m.roundWithParentContext(mode, out, &s.roundReceipt, context)
+	return m.roundWithParentContext(mode, out, &s.roundReceipt, &context)
 }

@@ -42,10 +42,10 @@ func (m *IntegerManager) DisplaySMT2Into(out RationalSourceStream, a *Int, decim
 	input := a
 	if a.Val < 0 {
 		s.tmpLive = true // The DEFAULT scoped numeral precedes its SET.
-		if e := m.copyFromOwnerWithAllocationContext(&s.tmp, m, a, &s.copy, integerAllocationInvocationContext{}); e != nil {
+		if e := m.copyFromOwnerWithAllocationContext(&s.tmp, m, a, &s.copy, numeralContextRef(integerAllocationInvocationContext{})); e != nil {
 			return e
 		}
-		if e := m.negWithAllocationContext(&s.tmp, integerAllocationInvocationContext{Caller: &s.hooks}); e != nil {
+		if e := m.negWithAllocationContext(&s.tmp, numeralContextRef(integerAllocationInvocationContext{Caller: &s.hooks})); e != nil {
 			return e
 		}
 		input = &s.tmp

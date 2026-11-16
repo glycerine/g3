@@ -47,7 +47,7 @@ func (c *ArbitraryFloatValueCopyChain) CopyWithReceipt(out, source *ArbitraryFlo
 	}
 	c.executing = true
 	defer func() { c.executing = false }()
-	return c.manager.copyWithValueReceiptAndChain(out, source, receipt, integerAllocationInvocationContext{}, c)
+	return c.manager.copyWithValueReceiptAndChain(out, source, receipt, numeralContextRef(integerAllocationInvocationContext{}), c)
 }
 
 func (c *ArbitraryFloatValueCopyChain) Cleanup(abort bool) error {

@@ -24,5 +24,5 @@ func (s *RationalService) CopyZeroWithInvocation(dst *OwnedRational, c *Rational
 		return e
 	}
 	defer s.endLexicalError(&e)
-	return s.Manager.copyWithAllocationContext(&dst.Raw, &s.ZeroField, c.allocationContext())
+	return s.Manager.copyWithAllocationContext(&dst.Raw, &s.ZeroField, numeralContextRef(c.allocationContext()))
 }

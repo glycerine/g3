@@ -68,8 +68,8 @@ func (m *IntegerManager) rootInPlaceWithReceipt(a *Int, n uint32, receipt *integ
 func (m *IntegerManager) rootCore(a *Int, n uint32) (bool, error) {
 	return m.rootCoreWithReceipt(a, n, nil)
 }
-func (m *IntegerManager) rootWithAllocationContext(a *Int, n uint32, out *Int, copyReceipt *integerCopyAllocationReceipt, receipt *integerRootInvocationReceipt, context integerAllocationInvocationContext) (bool, error) {
-	if context != (integerAllocationInvocationContext{}) && context.roots(m) == nil {
+func (m *IntegerManager) rootWithAllocationContext(a *Int, n uint32, out *Int, copyReceipt *integerCopyAllocationReceipt, receipt *integerRootInvocationReceipt, context *integerAllocationInvocationContext) (bool, error) {
+	if *context != (integerAllocationInvocationContext{}) && context.roots(m) == nil {
 		return false, ErrNumericOwner
 	}
 	if e := m.copyFromOwnerWithAllocationContext(out, m, a, copyReceipt, context); e != nil {
@@ -85,10 +85,10 @@ func (m *IntegerManager) rootWithAllocationContext(a *Int, n uint32, out *Int, c
 }
 
 func (m *IntegerManager) rootCoreWithReceipt(a *Int, n uint32, receipt *integerRootInvocationReceipt) (bool, error) {
-	return m.rootCoreWithReceiptAndContext(a, n, receipt, integerAllocationInvocationContext{})
+	return m.rootCoreWithReceiptAndContext(a, n, receipt, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerManager) rootCoreWithReceiptAndContext(a *Int, n uint32, receipt *integerRootInvocationReceipt, context integerAllocationInvocationContext) (exact bool, cause error) {
-	if context != (integerAllocationInvocationContext{}) && context.roots(m) == nil {
+func (m *IntegerManager) rootCoreWithReceiptAndContext(a *Int, n uint32, receipt *integerRootInvocationReceipt, context *integerAllocationInvocationContext) (exact bool, cause error) {
+	if *context != (integerAllocationInvocationContext{}) && context.roots(m) == nil {
 		return false, ErrNumericOwner
 	}
 
@@ -247,12 +247,12 @@ func (m *IntegerManager) rootCoreWithReceiptAndContext(a *Int, n uint32, receipt
 // defect: resetting a nonnegative aliased output makes the input zero, so the
 // result is true with output zero. Negative inputs leave out unchanged.
 func (m *IntegerManager) IsPerfectSquare(a, out *Int) (bool, error) {
-	return m.isPerfectSquareWithAllocationContext(a, out, integerAllocationInvocationContext{})
+	return m.isPerfectSquareWithAllocationContext(a, out, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerManager) isPerfectSquareWithAllocationContext(a, out *Int, context integerAllocationInvocationContext) (bool, error) {
+func (m *IntegerManager) isPerfectSquareWithAllocationContext(a, out *Int, context *integerAllocationInvocationContext) (bool, error) {
 	return m.isPerfectSquareTracked(a, out, context, nil)
 }
-func (m *IntegerManager) isPerfectSquareTracked(a, out *Int, context integerAllocationInvocationContext, receipt *integerPerfectSquareInvocationReceipt) (bool, error) {
+func (m *IntegerManager) isPerfectSquareTracked(a, out *Int, context *integerAllocationInvocationContext, receipt *integerPerfectSquareInvocationReceipt) (bool, error) {
 	if e := m.check(a); e != nil {
 		return false, e
 	}
@@ -266,13 +266,13 @@ func (m *IntegerManager) isPerfectSquareTracked(a, out *Int, context integerAllo
 }
 
 func (m *IntegerManager) squareCore(a, out *Int) (bool, error) {
-	return m.squareCoreWithContext(a, out, integerAllocationInvocationContext{})
+	return m.squareCoreWithContext(a, out, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerManager) squareCoreWithContext(a, out *Int, context integerAllocationInvocationContext) (exact bool, cause error) {
+func (m *IntegerManager) squareCoreWithContext(a, out *Int, context *integerAllocationInvocationContext) (exact bool, cause error) {
 	return m.squareCoreTracked(a, out, context, nil)
 }
-func (m *IntegerManager) squareCoreTracked(a, out *Int, context integerAllocationInvocationContext, receipt *integerPerfectSquareInvocationReceipt) (exact bool, cause error) {
-	if context != (integerAllocationInvocationContext{}) && context.roots(m) == nil {
+func (m *IntegerManager) squareCoreTracked(a, out *Int, context *integerAllocationInvocationContext, receipt *integerPerfectSquareInvocationReceipt) (exact bool, cause error) {
+	if *context != (integerAllocationInvocationContext{}) && context.roots(m) == nil {
 		return false, ErrNumericPending
 	}
 	if e := m.Reset(out); e != nil {
@@ -297,12 +297,12 @@ func (m *IntegerManager) squareCoreTracked(a, out *Int, context integerAllocatio
 		s.directReceipt = integerPerfectSquareInvocationReceipt{m, s, s.Generation}
 		*receipt = s.directReceipt
 	}
-	if receipt != nil || context != (integerAllocationInvocationContext{}) {
+	if receipt != nil || *context != (integerAllocationInvocationContext{}) {
 		s.Executing = true
 		defer func() { s.Executing = false }()
 	}
 	childContext := context
-	if context != (integerAllocationInvocationContext{}) {
+	if *context != (integerAllocationInvocationContext{}) {
 		childContext.perfectSquare = &s.directReceipt
 		childContext.perfectSquareInvocation = s.Generation
 	}
@@ -315,13 +315,13 @@ func (m *IntegerManager) squareCoreTracked(a, out *Int, context integerAllocatio
 	if e = m.setInt64WithAllocationContext(lo, 1, childContext); e != nil {
 		return false, e
 	}
-	if e = m.perfectSquareCallWithContext(0, a, nil, hi, childContext); e != nil {
+	if e = m.perfectSquareCallWithContext(0, a, nil, hi, *childContext); e != nil {
 		return false, e
 	}
 	if e = m.setInt64WithAllocationContext(sqLo, 1, childContext); e != nil {
 		return false, e
 	}
-	if e = m.perfectSquareCallWithContext(2, hi, hi, sqHi, childContext); e != nil {
+	if e = m.perfectSquareCallWithContext(2, hi, hi, sqHi, *childContext); e != nil {
 		return false, e
 	}
 	two := NewInt(2)
@@ -378,7 +378,7 @@ func (m *IntegerManager) squareCoreTracked(a, out *Int, context integerAllocatio
 			exact = true
 			break
 		}
-		if e = m.perfectSquareCallWithContext(1, lo, &one, mid, childContext); e != nil {
+		if e = m.perfectSquareCallWithContext(1, lo, &one, mid, *childContext); e != nil {
 			return false, e
 		}
 		same, e = m.Equal(mid, hi)
@@ -394,10 +394,10 @@ func (m *IntegerManager) squareCoreTracked(a, out *Int, context integerAllocatio
 			exact = false
 			break
 		}
-		if e = m.perfectSquareCallWithContext(1, hi, lo, mid, childContext); e != nil {
+		if e = m.perfectSquareCallWithContext(1, hi, lo, mid, *childContext); e != nil {
 			return false, e
 		}
-		if e = m.perfectSquareCallWithContext(3, mid, &two, mid, childContext); e != nil {
+		if e = m.perfectSquareCallWithContext(3, mid, &two, mid, *childContext); e != nil {
 			return false, e
 		}
 		if modularSourceDebug {
@@ -424,7 +424,7 @@ func (m *IntegerManager) squareCoreTracked(a, out *Int, context integerAllocatio
 				}
 			}
 		}
-		if e = m.perfectSquareCallWithContext(2, mid, mid, sqMid, childContext); e != nil {
+		if e = m.perfectSquareCallWithContext(2, mid, mid, sqMid, *childContext); e != nil {
 			return false, e
 		}
 		cmp, x := m.Compare(sqMid, a)
@@ -432,17 +432,17 @@ func (m *IntegerManager) squareCoreTracked(a, out *Int, context integerAllocatio
 			return false, x
 		}
 		if cmp > 0 {
-			if e = m.perfectSquareCallWithContext(0, mid, nil, hi, childContext); e != nil {
+			if e = m.perfectSquareCallWithContext(0, mid, nil, hi, *childContext); e != nil {
 				return false, e
 			}
-			if e = m.perfectSquareCallWithContext(0, sqMid, nil, sqHi, childContext); e != nil {
+			if e = m.perfectSquareCallWithContext(0, sqMid, nil, sqHi, *childContext); e != nil {
 				return false, e
 			}
 		} else {
-			if e = m.perfectSquareCallWithContext(0, mid, nil, lo, childContext); e != nil {
+			if e = m.perfectSquareCallWithContext(0, mid, nil, lo, *childContext); e != nil {
 				return false, e
 			}
-			if e = m.perfectSquareCallWithContext(0, sqMid, nil, sqLo, childContext); e != nil {
+			if e = m.perfectSquareCallWithContext(0, sqMid, nil, sqLo, *childContext); e != nil {
 				return false, e
 			}
 		}

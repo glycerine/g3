@@ -71,16 +71,16 @@ func (s *arbitraryFloatSBVScope) run(mode ArbitraryFloatRoundingMode, x *Arbitra
 		return ErrNumericOwner
 	}
 	m, z, c := s.manager, s.manager.integer, s.context()
-	if e := m.copyWithValueReceiptAndContext(&s.a, x, &s.copyA, c); e != nil {
+	if e := m.copyWithValueReceiptAndContext(&s.a, x, &s.copyA, &c); e != nil {
 		return e
 	}
-	if e := m.unpackRationalNumeral(&s.a, true, c); e != nil {
+	if e := m.unpackRationalNumeral(&s.a, true, &c); e != nil {
 		return e
 	}
 	if e := mpfSourceAssertion(s.a.exponent < math.MaxInt32, 1192, "t.exponent() < INT_MAX"); e != nil {
 		return e
 	}
-	if e := z.copyFromOwnerWithAllocationContext(&s.z, z, &s.a.significand, &s.copyZ, c); e != nil {
+	if e := z.copyFromOwnerWithAllocationContext(&s.z, z, &s.a.significand, &s.copyZ, &c); e != nil {
 		return e
 	}
 	// Here sbits() returns unsigned32, promoted with the int64 exponent.
@@ -128,7 +128,7 @@ func (s *arbitraryFloatSBVScope) run(mode ArbitraryFloatRoundingMode, x *Arbitra
 		}
 		if increment {
 			one := NewInt(1)
-			if e := z.addSubWithAllocationContext(&s.z, &one, &s.z, false, c); e != nil {
+			if e := z.addSubWithAllocationContext(&s.z, &one, &s.z, false, &c); e != nil {
 				return e
 			}
 		}
@@ -139,15 +139,15 @@ func (s *arbitraryFloatSBVScope) run(mode ArbitraryFloatRoundingMode, x *Arbitra
 		if e := z.check(&s.z); e != nil {
 			return e
 		}
-		if e := z.mul2kCoreWithAllocationContext(&s.z, uint32(exponent), c); e != nil {
+		if e := z.mul2kCoreWithAllocationContext(&s.z, uint32(exponent), &c); e != nil {
 			return e
 		}
 	}
-	if e := m.rational.setIntegerFromOwnerWithReceiptAndAllocationContext(out, z, &s.z, &s.outputCopy, c); e != nil {
+	if e := m.rational.setIntegerFromOwnerWithReceiptAndAllocationContext(out, z, &s.z, &s.outputCopy, &c); e != nil {
 		return e
 	}
 	if x.Sign() {
-		return m.rational.negWithSourceContext(out, c)
+		return m.rational.negWithSourceContext(out, &c)
 	}
 	return nil
 }

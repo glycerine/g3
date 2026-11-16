@@ -74,14 +74,14 @@ func TestIntegerDividesScopedNUMExecutingOwnerRefusal(t *testing.T) {
 func TestIntegerDividesScopedNUMBeforeZeroBranch(t *testing.T) {
 	m, _ := integerManager(t)
 	zero, one := NewInt(0), NewInt(1)
-	result, e := m.dividesWithAllocationContext(&zero, &one, integerAllocationInvocationContext{})
+	result, e := m.dividesWithAllocationContext(&zero, &one, numeralContextRef(integerAllocationInvocationContext{}))
 	serviceMust(t, e)
 	s := &m.DividesNumeral
 	if result || s.Invocation == 0 || s.Receipt.Manager != m || s.Receipt.Frame != s || s.Receipt.Invocation != s.Invocation || !s.Constructed || !s.Ended || s.Active || s.Numeral != (Int{}) {
 		t.Fatal("literal scoped tmp must construct before zero branch and DT on exit", result, s)
 	}
 	previous := s.Invocation
-	result, e = m.dividesWithAllocationContext(&zero, &zero, integerAllocationInvocationContext{})
+	result, e = m.dividesWithAllocationContext(&zero, &zero, numeralContextRef(integerAllocationInvocationContext{}))
 	serviceMust(t, e)
 	if !result || s.Invocation <= previous || !s.Ended {
 		t.Fatal("literal zero divides zero/new actual scoped invocation", result, s.Invocation)
@@ -125,7 +125,7 @@ func TestIntegerDividesScopedNUMCopiedAndRetargetedContextsRefuse(t *testing.T) 
 	copyFrame := *r.Frame
 	copied := integerDividesNumeralInvocationReceipt{m, &copyFrame, r.Invocation}
 	before := r.Frame.Numeral
-	if m.dividesNumeralContextRoots(integerAllocationInvocationContext{BoolDivides: &copied, BoolDividesInvocation: copied.Invocation}) != nil {
+	if m.dividesNumeralContextRoots(&integerAllocationInvocationContext{BoolDivides: &copied, BoolDividesInvocation: copied.Invocation}) != nil {
 		t.Fatal("copied child accepted")
 	}
 	if !errors.Is(m.FinishDividesNumeralSource(&copyFrame), ErrNumericOwner) {
@@ -232,7 +232,7 @@ func TestIntegerDividesScopedNUMEveryActualRemPrefix(t *testing.T) {
 		serviceMust(t, m.SetLimbs(&a, modulus))
 		serviceMust(t, m.SetLimbs(&b, dividend))
 		budget.FailAfter(prefix)
-		result, body := m.dividesWithAllocationContext(&a, &b, integerAllocationInvocationContext{})
+		result, body := m.dividesWithAllocationContext(&a, &b, numeralContextRef(integerAllocationInvocationContext{}))
 		s := &m.DividesNumeral
 		integerPhysicalAudit(t, m, &a, &b, &s.Numeral)
 		if body != nil && !numericPhysicalReservationRefusal(body) {

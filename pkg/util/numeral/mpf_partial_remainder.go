@@ -73,15 +73,15 @@ func (s *arbitraryFloatPartialRemainderScope) shift(v *Int, n uint32) error {
 	if e := z.check(v); e != nil {
 		return e
 	}
-	return z.mul2kCoreWithAllocationContext(v, n, s.context())
+	return z.mul2kCoreWithAllocationContext(v, n, numeralContextRef(s.context()))
 }
 func (s *arbitraryFloatPartialRemainderScope) copyValue(dst, src *Int) error {
 	z := s.manager.integer
-	return z.copyFromOwnerWithAllocationContext(dst, z, src, &s.copy, s.context())
+	return z.copyFromOwnerWithAllocationContext(dst, z, src, &s.copy, numeralContextRef(s.context()))
 }
 func (s *arbitraryFloatPartialRemainderScope) inc(v *Int) error {
 	one := NewInt(1)
-	return s.manager.integer.addSubWithAllocationContext(v, &one, v, false, s.context())
+	return s.manager.integer.addSubWithAllocationContext(v, &one, v, false, numeralContextRef(s.context()))
 }
 func (s *arbitraryFloatPartialRemainderScope) endNumeral(index int) error {
 	if !s.live[index] {
@@ -124,10 +124,10 @@ func (s *arbitraryFloatPartialRemainderScope) run(x, y *ArbitraryFloat, expDiff 
 		s.live[i] = true
 	}
 	shifted, large, divRem := &s.values[0], &s.values[1], &s.values[2]
-	if e := z.shiftWithAllocationContext(&x.significand, 2*sb+2, shifted, true, c); e != nil {
+	if e := z.shiftWithAllocationContext(&x.significand, 2*sb+2, shifted, true, &c); e != nil {
 		return e
 	}
-	if e := z.machineDivRemWithAllocationContext(shifted, &y.significand, large, divRem, c); e != nil {
+	if e := z.machineDivRemWithAllocationContext(shifted, &y.significand, large, divRem, &c); e != nil {
 		return e
 	}
 	if e := m.tracePartialRemainderRatio(x.Sign() != y.Sign(), d, large, divRem, eb, sb); e != nil {
@@ -145,7 +145,7 @@ func (s *arbitraryFloatPartialRemainderScope) run(x, y *ArbitraryFloat, expDiff 
 		if e := mpfSourceAssertion(0 < n && n < qe && qe < 2147483647, 1313, "0 < N && N < Q_exp && Q_exp < INT_MAX"); e != nil {
 			return e
 		}
-		if e := z.shiftWithAllocationContext(large, qShift, q, false, c); e != nil {
+		if e := z.shiftWithAllocationContext(large, qShift, q, false, &c); e != nil {
 			return e
 		}
 	} else {
@@ -153,7 +153,7 @@ func (s *arbitraryFloatPartialRemainderScope) run(x, y *ArbitraryFloat, expDiff 
 		if e != nil {
 			return e
 		}
-		if e := z.machineDivRemWithAllocationContext(large, &p, q, qr, c); e != nil {
+		if e := z.machineDivRemWithAllocationContext(large, &p, q, qr, &c); e != nil {
 			return e
 		}
 		half, e := s.power(qShift - 1)
@@ -189,7 +189,7 @@ func (s *arbitraryFloatPartialRemainderScope) run(x, y *ArbitraryFloat, expDiff 
 	if e := z.MachineDiv2kInPlace(q, sb+3); e != nil {
 		return e
 	}
-	if e := m.renormalizeWithContext(eb, sb, &qe, q, c); e != nil {
+	if e := m.renormalizeWithContext(eb, sb, &qe, q, &c); e != nil {
 		return e
 	}
 	if e := m.tracePartialRemainderQ(x.Sign() != y.Sign(), qe, q, eb, sb); e != nil {
@@ -229,10 +229,10 @@ func (s *arbitraryFloatPartialRemainderScope) run(x, y *ArbitraryFloat, expDiff 
 		return arena.ErrBounds
 	}
 	pe := qe + y.exponent
-	if e := z.mulWithAllocationContext(&y.significand, q, product, c); e != nil {
+	if e := z.mulWithAllocationContext(&y.significand, q, product, &c); e != nil {
 		return e
 	}
-	if e := m.renormalizeWithContext(eb, 2*sb-1, &pe, product, c); e != nil {
+	if e := m.renormalizeWithContext(eb, 2*sb-1, &pe, product, &c); e != nil {
 		return e
 	}
 	if e := m.tracePartialRemainderProduct(x.Sign(), pe, product, eb, sb); e != nil {
@@ -279,7 +279,7 @@ func (s *arbitraryFloatPartialRemainderScope) run(x, y *ArbitraryFloat, expDiff 
 	}
 	s.live[8], s.live[9], s.live[10] = true, true, true
 	minuend, subtrahend, xLarge := &s.values[8], &s.values[9], &s.values[10]
-	if e := z.shiftWithAllocationContext(&x.significand, sb-1, xLarge, true, c); e != nil {
+	if e := z.shiftWithAllocationContext(&x.significand, sb-1, xLarge, true, &c); e != nil {
 		return e
 	}
 	if e := s.copyValue(minuend, xLarge); e != nil {
@@ -315,7 +315,7 @@ func (s *arbitraryFloatPartialRemainderScope) run(x, y *ArbitraryFloat, expDiff 
 			if e != nil {
 				return e
 			}
-			if e := z.machineDivRemWithAllocationContext(subtrahend, &p, subtrahend, sticky, c); e != nil {
+			if e := z.machineDivRemWithAllocationContext(subtrahend, &p, subtrahend, sticky, &c); e != nil {
 				return e
 			}
 		} else {
@@ -352,7 +352,7 @@ func (s *arbitraryFloatPartialRemainderScope) run(x, y *ArbitraryFloat, expDiff 
 			return e
 		}
 	}
-	if e := z.addSubWithAllocationContext(minuend, subtrahend, result, true, c); e != nil {
+	if e := z.addSubWithAllocationContext(minuend, subtrahend, result, true, &c); e != nil {
 		return e
 	}
 	if e := m.tracePartialRemainderInt(1398, "X_YQ_sig'=", result); e != nil {
@@ -378,7 +378,7 @@ func (s *arbitraryFloatPartialRemainderScope) run(x, y *ArbitraryFloat, expDiff 
 		}
 		return m.tracePartialRemainderObject(x)
 	}
-	if e := m.renormalizeWithContext(eb, 2*sb-1, &re, result, c); e != nil {
+	if e := m.renormalizeWithContext(eb, 2*sb-1, &re, result, &c); e != nil {
 		return e
 	}
 	if e := m.tracePartialRemainderDifference(minuend, subtrahend, sign, re, result, eb, sb); e != nil {
@@ -393,7 +393,7 @@ func (s *arbitraryFloatPartialRemainderScope) run(x, y *ArbitraryFloat, expDiff 
 	if e != nil {
 		return e
 	}
-	if e := z.machineDivRemWithAllocationContext(result, &p, result, rnd, c); e != nil {
+	if e := z.machineDivRemWithAllocationContext(result, &p, result, rnd, &c); e != nil {
 		return e
 	}
 	if e := m.tracePartialRemainderInt(1421, "final sticky=", rnd); e != nil {

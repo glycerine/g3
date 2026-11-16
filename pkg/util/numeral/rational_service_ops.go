@@ -102,15 +102,15 @@ func (s *RationalService) facadeValueRawOperandsLockedWithInvocation(a, b *Ratio
 	if op >= rationalFacadeAdd && op <= rationalFacadeDiv {
 		// return rational(a) op= b: copy before compound, then copy the returned
 		// lvalue into the value result. The second copy is intentionally observable.
-		if e := s.Manager.copyWithAllocationContext(&work, a, c.allocationContext()); e != nil {
+		if e := s.Manager.copyWithAllocationContext(&work, a, numeralContextRef(c.allocationContext())); e != nil {
 			return OwnedRational{}, e
 		}
 		workComplete = true
 		var body error
 		if c != nil && (op == rationalFacadeAdd || op == rationalFacadeSub) {
-			body = s.Manager.addSubWithAllocationContext(&work, b, &work, op == rationalFacadeSub, c.allocationContext())
+			body = s.Manager.addSubWithAllocationContext(&work, b, &work, op == rationalFacadeSub, numeralContextRef(c.allocationContext()))
 		} else if c != nil && op == rationalFacadeMul {
-			body = s.Manager.mulWithAllocationContext(&work, b, &work, c.allocationContext())
+			body = s.Manager.mulWithAllocationContext(&work, b, &work, numeralContextRef(c.allocationContext()))
 		} else if c != nil && op == rationalFacadeDiv {
 			body = s.Manager.divWithAllocationContext(&work, b, &work, c.allocationContext())
 		} else {
@@ -123,13 +123,13 @@ func (s *RationalService) facadeValueRawOperandsLockedWithInvocation(a, b *Ratio
 	}
 	var body error
 	if c != nil && op == rationalFacadeMod {
-		body = s.Manager.modWithAllocationContext(a, b, &work, c.allocationContext())
+		body = s.Manager.modWithAllocationContext(a, b, &work, numeralContextRef(c.allocationContext()))
 	} else if c != nil && op == rationalFacadeRem {
-		body = s.Manager.integerOpRationalWithAllocationContext(a, b, &work, qIntegerRem, c.allocationContext())
+		body = s.Manager.integerOpRationalWithAllocationContext(a, b, &work, qIntegerRem, numeralContextRef(c.allocationContext()))
 	} else if c != nil && op == rationalFacadeMachineDiv {
-		body = s.Manager.integerOpRationalWithAllocationContext(a, b, &work, qIntegerMachineDiv, c.allocationContext())
+		body = s.Manager.integerOpRationalWithAllocationContext(a, b, &work, qIntegerMachineDiv, numeralContextRef(c.allocationContext()))
 	} else if c != nil && op == rationalFacadeIDiv {
-		body = s.Manager.integerOpRationalWithAllocationContext(a, b, &work, qIntegerDiv, c.allocationContext())
+		body = s.Manager.integerOpRationalWithAllocationContext(a, b, &work, qIntegerDiv, numeralContextRef(c.allocationContext()))
 	} else {
 		body = s.facadeRawBinaryLocked(a, b, &work, op)
 	}
@@ -379,7 +379,7 @@ func (s *RationalService) facadePostfixLockedWithInvocation(a *OwnedRational, de
 	old := NewRational()
 	oldComplete := false
 	defer s.endLexicalLocal(&old, &oldComplete)
-	if e := s.Manager.copyWithAllocationContext(&old, &a.Raw, c.allocationContext()); e != nil {
+	if e := s.Manager.copyWithAllocationContext(&old, &a.Raw, numeralContextRef(c.allocationContext())); e != nil {
 		return OwnedRational{}, e
 	}
 	oldComplete = true
@@ -389,7 +389,7 @@ func (s *RationalService) facadePostfixLockedWithInvocation(a *OwnedRational, de
 	} else {
 		one := NewRational()
 		one.Num = NewInt(1)
-		e = s.Manager.addSubWithAllocationContext(&a.Raw, &one, &a.Raw, dec, c.allocationContext())
+		e = s.Manager.addSubWithAllocationContext(&a.Raw, &one, &a.Raw, dec, numeralContextRef(c.allocationContext()))
 	}
 	if e != nil {
 		return OwnedRational{}, e
@@ -454,11 +454,11 @@ func (s *RationalService) facadeUnaryLockedWithInvocation(a *OwnedRational, op r
 	var e error
 	switch op {
 	case facadeNeg, facadeAbs:
-		e = s.Manager.copyWithAllocationContext(&work, &a.Raw, c.allocationContext())
+		e = s.Manager.copyWithAllocationContext(&work, &a.Raw, numeralContextRef(c.allocationContext()))
 		if e == nil {
 			workComplete = true
 			if op == facadeNeg {
-				e = s.Manager.negWithSourceContext(&work, c.allocationContext())
+				e = s.Manager.negWithSourceContext(&work, numeralContextRef(c.allocationContext()))
 			} else {
 				e = s.Manager.Abs(&work)
 			}
@@ -472,7 +472,7 @@ func (s *RationalService) facadeUnaryLockedWithInvocation(a *OwnedRational, op r
 	case facadeDenominator:
 		e = s.Manager.DenominatorRational(&a.Raw, &work)
 	case facadePower:
-		e = s.Manager.powerWithAllocationContext(&a.Raw, p, &work, c.allocationContext())
+		e = s.Manager.powerWithAllocationContext(&a.Raw, p, &work, numeralContextRef(c.allocationContext()))
 		// A reached child source-end failure stops the older result's source
 		// destructor before the ordinary facade epilogue can attempt it.
 		if cause := c.childSource(); cause != nil {

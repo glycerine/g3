@@ -39,7 +39,7 @@ func (s *RationalService) lessWithInvocation(a, b *OwnedRational, c *RationalSer
 	}
 	defer s.endLexicalError(&result)
 	var comparison int
-	comparison, result = s.Manager.compareWithAllocationContext(&a.Raw, &b.Raw, c.allocationContext())
+	comparison, result = s.Manager.compareWithAllocationContext(&a.Raw, &b.Raw, numeralContextRef(c.allocationContext()))
 	if cause := c.childSource(); cause != nil {
 		if s.Lexical.Cause == nil {
 			s.Lexical.Cause = cause

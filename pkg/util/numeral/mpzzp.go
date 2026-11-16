@@ -167,9 +167,9 @@ func (m *IntegerModularManager) Modulus(out *Int) error {
 	return m.manager.Copy(out, &m.P)
 }
 func (m *IntegerModularManager) setupP() error {
-	return m.setupPWithAllocationContext(integerAllocationInvocationContext{})
+	return m.setupPWithAllocationContext(numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerModularManager) setupPWithAllocationContext(context integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) setupPWithAllocationContext(context *integerAllocationInvocationContext) error {
 	z := m.manager
 	if diagnostic.DebugBuild {
 		d := diagnostic.BorrowProcessDebugContext()
@@ -202,7 +202,7 @@ func (m *IntegerModularManager) setupPWithAllocationContext(context integerAlloc
 		return e
 	}
 	two := NewInt(2)
-	if e = z.divWithAllocationContext(&m.P, &two, &m.Upper, context); e != nil {
+	if e = z.divWithAllocationContext(&m.P, &two, &m.Upper, *context); e != nil {
 		return e
 	}
 	if e = z.copyFromOwnerWithAllocationContext(&m.Lower, z, &m.Upper, nil, context); e != nil {
@@ -220,9 +220,9 @@ func (m *IntegerModularManager) setupPWithAllocationContext(context integerAlloc
 	return m.traceSetupP()
 }
 func (m *IntegerModularManager) SetZ() error {
-	return m.setZWithAllocationContext(integerAllocationInvocationContext{})
+	return m.setZWithAllocationContext(numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerModularManager) setZWithAllocationContext(context integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) setZWithAllocationContext(context *integerAllocationInvocationContext) error {
 	if m != nil && m.self == m && callerBindingsExecuting(m.callerBindings) && !m.acceptedModeContext(context) {
 		return ErrNumericPending
 	}
@@ -233,9 +233,9 @@ func (m *IntegerModularManager) setZWithAllocationContext(context integerAllocat
 	return nil
 }
 func (m *IntegerModularManager) SetZP(p *Int) error {
-	return m.setZPWithAllocationContext(p, integerAllocationInvocationContext{})
+	return m.setZPWithAllocationContext(p, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerModularManager) setZPWithAllocationContext(p *Int, context integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) setZPWithAllocationContext(p *Int, context *integerAllocationInvocationContext) error {
 	if m != nil && m.self == m && callerBindingsExecuting(m.callerBindings) && !m.acceptedModeContext(context) {
 		return ErrNumericPending
 	}
@@ -266,7 +266,7 @@ func (m *IntegerModularManager) SetZPUint64(p uint64) error {
 	return m.setupP()
 }
 func (m *IntegerModularManager) SetPSquare() error {
-	return m.setPSquareWithAllocationContext(integerAllocationInvocationContext{})
+	return m.setPSquareWithAllocationContext(numeralContextRef(integerAllocationInvocationContext{}))
 }
 func (m *IntegerModularManager) SetZPSwap(p *Int) error {
 	if m != nil && m.self == m && callerBindingsExecuting(m.callerBindings) {
@@ -311,9 +311,12 @@ func (m *IntegerModularManager) AssertNormalized(a *Int) error {
 }
 func (m *IntegerModularManager) PNormalize(a *Int) error { return m.PNormalizeWithReceipt(a, nil) }
 func (m *IntegerModularManager) PNormalizeWithReceipt(a *Int, receipt *integerPNormalizeInvocationReceipt) error {
-	return m.PNormalizeWithFactorHistory(a, receipt, integerAllocationInvocationContext{})
+	return m.pNormalizeWithFactorHistory(a, receipt, numeralContextRef(integerAllocationInvocationContext{}))
 }
 func (m *IntegerModularManager) PNormalizeWithFactorHistory(a *Int, receipt *integerPNormalizeInvocationReceipt, history integerAllocationInvocationContext) error {
+	return m.pNormalizeWithFactorHistory(a, receipt, &history)
+}
+func (m *IntegerModularManager) pNormalizeWithFactorHistory(a *Int, receipt *integerPNormalizeInvocationReceipt, history *integerAllocationInvocationContext) error {
 	if e := m.check(); e != nil {
 		return e
 	}
@@ -333,7 +336,7 @@ func (m *IntegerModularManager) PNormalizeWithFactorHistory(a *Int, receipt *int
 		if scope.active || scope.invocation == ^uint64(0) {
 			return ErrNumericPending
 		}
-		*scope = integerPNormalizeScope{factorHistoryContext: history, owner: m, invocation: scope.invocation + 1, active: true, executing: true, Stage: 1}
+		*scope = integerPNormalizeScope{factorHistoryContext: *history, owner: m, invocation: scope.invocation + 1, active: true, executing: true, Stage: 1}
 		*receipt = integerPNormalizeInvocationReceipt{m, scope, scope.invocation}
 	}
 	// Explicit epilogue (formerly a deferred closure; nothing recovers a
@@ -394,9 +397,9 @@ func (m *IntegerModularManager) pNormalizeReduce(a *Int, scope *integerPNormaliz
 	return m.sourceAssertNormalizedNamed(a, 68, "is_p_normalized(x)") // core diagnostic
 }
 func (m *IntegerModularManager) Inv(a *Int) error {
-	return m.invWithAllocationContext(a, integerAllocationInvocationContext{})
+	return m.invWithAllocationContext(a, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerModularManager) invWithAllocationContext(a *Int, context integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) invWithAllocationContext(a *Int, context *integerAllocationInvocationContext) error {
 	if e := m.check(); e != nil {
 		return e
 	}
@@ -430,7 +433,7 @@ func (m *IntegerModularManager) invWithAllocationContext(a *Int, context integer
 	if e := m.traceInvNormalized(a); e != nil {
 		return e
 	}
-	if e := m.manager.extendedGCDWithAllocationContext(a, &m.P, &m.InvTmp1, &m.InvTmp2, &m.InvTmp3, context); e != nil {
+	if e := m.manager.extendedGCDWithAllocationContext(a, &m.P, &m.InvTmp1, &m.InvTmp2, &m.InvTmp3, *context); e != nil {
 		return e
 	}
 	if e := m.traceInvGCD(); e != nil {
@@ -493,31 +496,31 @@ func (m *IntegerModularManager) divWithAllocationContext(a, b, c *Int, context i
 	if e := m.sourceAssertNormalized(a, 201); e != nil {
 		return e
 	}
-	if e := m.manager.copyFromOwnerWithAllocationContext(&m.DivTmp, m.manager, b, nil, context); e != nil {
+	if e := m.manager.copyFromOwnerWithAllocationContext(&m.DivTmp, m.manager, b, nil, &context); e != nil {
 		return e
 	}
-	if e := m.invWithAllocationContext(&m.DivTmp, context); e != nil {
+	if e := m.invWithAllocationContext(&m.DivTmp, &context); e != nil {
 		return e
 	}
-	if e := m.mulWithSourceContext(a, &m.DivTmp, c, context); e != nil {
+	if e := m.mulWithSourceContext(a, &m.DivTmp, c, &context); e != nil {
 		return e
 	}
 	return m.sourceAssertNormalized(c, 205)
 }
 func (m *IntegerModularManager) Divides(a, b *Int) (bool, error) {
-	return m.dividesWithAllocationContext(a, b, integerAllocationInvocationContext{})
+	return m.dividesWithAllocationContext(a, b, numeralContextRef(integerAllocationInvocationContext{}))
 }
 func (m *IntegerModularManager) GCD(a, b, c *Int) error {
-	return m.gcdWithSourceContext(a, b, c, integerAllocationInvocationContext{})
+	return m.gcdWithSourceContext(a, b, c, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerModularManager) gcdWithSourceContext(a, b, c *Int, context integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) gcdWithSourceContext(a, b, c *Int, context *integerAllocationInvocationContext) error {
 	if e := m.check(); e != nil {
 		return e
 	}
 	if e := m.sourceAssertNormalizedPair(a, b, 212); e != nil {
 		return e
 	}
-	if e := m.manager.gcdWithAllocationContext(a, b, c, context); e != nil {
+	if e := m.manager.gcdWithAllocationContext(a, b, c, *context); e != nil {
 		return e
 	}
 	return m.sourceAssertNormalizedNamed(c, 214, "is_p_normalized(c)")
@@ -532,16 +535,16 @@ func (m *IntegerModularManager) GCDMany(as []Int, g *Int) error {
 	return m.sourceAssertNormalizedNamed(g, 219, "is_p_normalized(g)")
 }
 func (m *IntegerModularManager) ExtendedGCD(r1, r2, a, b, g *Int) error {
-	return m.extendedGCDWithSourceContext(r1, r2, a, b, g, integerAllocationInvocationContext{})
+	return m.extendedGCDWithSourceContext(r1, r2, a, b, g, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerModularManager) extendedGCDWithSourceContext(r1, r2, a, b, g *Int, context integerAllocationInvocationContext) error {
+func (m *IntegerModularManager) extendedGCDWithSourceContext(r1, r2, a, b, g *Int, context *integerAllocationInvocationContext) error {
 	if e := m.check(); e != nil {
 		return e
 	}
 	if e := m.sourceAssertNormalizedPairNamed(r1, r2, 223, "is_p_normalized(r1) && is_p_normalized(r2)"); e != nil {
 		return e
 	}
-	if e := m.manager.extendedGCDWithAllocationContext(r1, r2, a, b, g, context); e != nil {
+	if e := m.manager.extendedGCDWithAllocationContext(r1, r2, a, b, g, *context); e != nil {
 		return e
 	}
 	if e := m.normalizeWithSourceContext(a, context); e != nil {
@@ -550,11 +553,11 @@ func (m *IntegerModularManager) extendedGCDWithSourceContext(r1, r2, a, b, g *In
 	return m.normalizeWithSourceContext(b, context)
 }
 func (m *IntegerModularManager) Power(a *Int, k uint32, b *Int) error {
-	return m.powerWithSourceContext(a, k, b, integerAllocationInvocationContext{})
+	return m.powerWithSourceContext(a, k, b, numeralContextRef(integerAllocationInvocationContext{}))
 }
 
 // Source: src/util/mpzzp.h:242-254. The local power is RAW, with end-only DEL.
-func (m *IntegerModularManager) powerWithSourceContext(a *Int, k uint32, b *Int, context integerAllocationInvocationContext) (cause error) {
+func (m *IntegerModularManager) powerWithSourceContext(a *Int, k uint32, b *Int, context *integerAllocationInvocationContext) (cause error) {
 	if e := m.check(); e != nil {
 		return e
 	}
@@ -633,9 +636,9 @@ func (m *IntegerModularManager) powerWithSourceContext(a *Int, k uint32, b *Int,
 	return nil
 }
 func (m *IntegerModularManager) IsPerfectSquare(a, out *Int) (bool, error) {
-	return m.isPerfectSquareWithSourceContext(a, out, integerAllocationInvocationContext{})
+	return m.isPerfectSquareWithSourceContext(a, out, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerModularManager) isPerfectSquareWithSourceContext(a, out *Int, context integerAllocationInvocationContext) (bool, error) {
+func (m *IntegerModularManager) isPerfectSquareWithSourceContext(a, out *Int, context *integerAllocationInvocationContext) (bool, error) {
 	if e := m.check(); e != nil {
 		return false, e
 	}
@@ -694,12 +697,12 @@ func (m *IntegerModularManager) IsPerfectSquareWithReceipt(a, out *Int, receipt 
 	if !m.z {
 		return false, diagnostic.BorrowProcessDebugContext().NotImplementedYet("src/util/mpzzp.h", 261)
 	}
-	return m.manager.isPerfectSquareTracked(a, out, integerAllocationInvocationContext{}, receipt)
+	return m.manager.isPerfectSquareTracked(a, out, numeralContextRef(integerAllocationInvocationContext{}), receipt)
 }
 
 // An actual scoped_set_zp continuation may restore mode under its own borrow.
 // Ordinary calls, stale generations and callbacks retain the public refusal.
-func (m *IntegerModularManager) acceptedModeContext(c integerAllocationInvocationContext) bool {
+func (m *IntegerModularManager) acceptedModeContext(c *integerAllocationInvocationContext) bool {
 	if !c.callerCurrent() || c.Caller == nil {
 		return false
 	}

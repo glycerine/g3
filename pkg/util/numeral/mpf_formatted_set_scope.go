@@ -47,7 +47,7 @@ type arbitraryFloatFormattedSetHistory struct {
 func (s *arbitraryFloatFormattedSetScope) allocationContext() integerAllocationInvocationContext {
 	return integerAllocationInvocationContext{mpfFormattedSet: s, mpfFormattedSetInvocation: s.invocation}
 }
-func (c integerAllocationInvocationContext) formattedSetFrame(z *IntegerManager, executing bool) *arbitraryFloatFormattedSetScope {
+func (c *integerAllocationInvocationContext) formattedSetFrame(z *IntegerManager, executing bool) *arbitraryFloatFormattedSetScope {
 	s := c.mpfFormattedSet
 	if z == nil || z.self != z || s == nil || s.manager == nil || s.manager.self != s.manager || s.manager.integer != z || s != &s.manager.formattedSet || c.mpfFormattedSetInvocation == 0 || c.mpfFormattedSetInvocation != s.invocation {
 		return nil
@@ -57,7 +57,7 @@ func (c integerAllocationInvocationContext) formattedSetFrame(z *IntegerManager,
 	}
 	return s
 }
-func (c integerAllocationInvocationContext) prepareFormattedSetHistory(z *IntegerManager) error {
+func (c *integerAllocationInvocationContext) prepareFormattedSetHistory(z *IntegerManager) error {
 	if c.mpfFormattedSet == nil {
 		return nil
 	}
@@ -83,7 +83,7 @@ func (c integerAllocationInvocationContext) prepareFormattedSetHistory(z *Intege
 	}
 	return nil
 }
-func (z *IntegerManager) captureFormattedSetAllocation(c integerAllocationInvocationContext, b SourceCellBacking, o *umemory.SmallAllocatorAllocationOutcome) error {
+func (z *IntegerManager) captureFormattedSetAllocation(c *integerAllocationInvocationContext, b SourceCellBacking, o *umemory.SmallAllocatorAllocationOutcome) error {
 	s := c.formattedSetFrame(z, true)
 	if s == nil {
 		return nil
@@ -318,5 +318,5 @@ func (m *ArbitraryFloatManager) releaseFormattedSetHistories() {
 	m.formattedSet.receipt = nil
 }
 func (m *ArbitraryFloatManager) roundWithFormattedSet(mode ArbitraryFloatRoundingMode, out *ArbitraryFloat, s *arbitraryFloatFormattedSetScope) error {
-	return m.roundWithParentContext(mode, out, &s.roundChild, s.allocationContext())
+	return m.roundWithParentContext(mode, out, &s.roundChild, numeralContextRef(s.allocationContext()))
 }

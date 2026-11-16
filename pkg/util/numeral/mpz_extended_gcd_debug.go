@@ -12,9 +12,9 @@ const SourceExtendedGCDDebug = true
 // The caller owns nexta/nextb; the actual scalar RAW path reaches end-only DEL.
 // Failed scalar bodies retain these locals for explicit owning abort.
 func (m *IntegerManager) extendedGCDDiagnostic(r1, r2, a, b, expected, nexta, nextb *Int) error {
-	return m.extendedGCDDiagnosticWithAllocationContext(r1, r2, a, b, expected, nexta, nextb, integerAllocationInvocationContext{})
+	return m.extendedGCDDiagnosticWithAllocationContext(r1, r2, a, b, expected, nexta, nextb, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerManager) extendedGCDDiagnosticWithAllocationContext(r1, r2, a, b, expected, nexta, nextb *Int, context integerAllocationInvocationContext) error {
+func (m *IntegerManager) extendedGCDDiagnosticWithAllocationContext(r1, r2, a, b, expected, nexta, nextb *Int, context *integerAllocationInvocationContext) error {
 	if e := m.mulWithAllocationContext(a, r1, nexta, context); e != nil {
 		return e
 	}

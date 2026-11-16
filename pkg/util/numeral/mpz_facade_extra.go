@@ -118,9 +118,9 @@ func (m *IntegerManager) SetInt32(a *Int, n int32) error {
 // Unlike set(uint64), the source unsigned-int overload includes INT_MAX in
 // its inline range. Large unsigned-int values use signed int64 construction.
 func (m *IntegerManager) SetUint32(a *Int, n uint32) error {
-	return m.setUint32WithAllocationContext(a, n, integerAllocationInvocationContext{})
+	return m.setUint32WithAllocationContext(a, n, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerManager) setUint32WithAllocationContext(a *Int, n uint32, context integerAllocationInvocationContext) error {
+func (m *IntegerManager) setUint32WithAllocationContext(a *Int, n uint32, context *integerAllocationInvocationContext) error {
 	if n <= 2147483647 {
 		return m.SetInt32(a, int32(n))
 	}

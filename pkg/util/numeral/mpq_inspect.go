@@ -345,20 +345,20 @@ func (m *RationalManager) DenominatorRational(a, out *Rational) error {
 // SetIntegerWithCopyAllocationReceipt preserves NUM SET before DEN reset and
 // records only that actual numerator copy's allocation.
 func (m *RationalManager) SetIntegerWithCopyAllocationReceipt(a *Rational, n *Int, receipt *IntegerCopyAllocationReceipt) error {
-	return m.setIntegerFromOwnerWithReceiptAndAllocationContext(a, m.Z, n, receipt, integerAllocationInvocationContext{})
+	return m.setIntegerFromOwnerWithReceiptAndAllocationContext(a, m.Z, n, receipt, numeralContextRef(integerAllocationInvocationContext{}))
 }
 func (m *RationalManager) SetInteger(a *Rational, n *Int) error {
-	return m.setIntegerWithAllocationContext(a, n, integerAllocationInvocationContext{})
+	return m.setIntegerWithAllocationContext(a, n, numeralContextRef(integerAllocationInvocationContext{}))
 }
 
-func (m *RationalManager) setIntegerWithAllocationContext(a *Rational, n *Int, context integerAllocationInvocationContext) error {
+func (m *RationalManager) setIntegerWithAllocationContext(a *Rational, n *Int, context *integerAllocationInvocationContext) error {
 	return m.setIntegerFromOwnerWithAllocationContext(a, m.Z, n, context)
 }
-func (m *RationalManager) setIntegerFromOwnerWithAllocationContext(a *Rational, source *IntegerManager, n *Int, context integerAllocationInvocationContext) error {
+func (m *RationalManager) setIntegerFromOwnerWithAllocationContext(a *Rational, source *IntegerManager, n *Int, context *integerAllocationInvocationContext) error {
 	return m.setIntegerFromOwnerWithReceiptAndAllocationContext(a, source, n, nil, context)
 }
 
-func (m *RationalManager) setIntegerFromOwnerWithReceiptAndAllocationContext(a *Rational, source *IntegerManager, n *Int, receipt *integerCopyAllocationReceipt, context integerAllocationInvocationContext) error {
+func (m *RationalManager) setIntegerFromOwnerWithReceiptAndAllocationContext(a *Rational, source *IntegerManager, n *Int, receipt *integerCopyAllocationReceipt, context *integerAllocationInvocationContext) error {
 	if e := m.checkSetter(a); e != nil {
 		return e
 	}
@@ -370,9 +370,9 @@ func (m *RationalManager) setIntegerFromOwnerWithReceiptAndAllocationContext(a *
 
 // Source: src/util/mpq.h:712-715. NUM publication precedes DEN reset.
 func (m *RationalManager) SetUnsigned(a *Rational, n uint32) error {
-	return m.setUnsignedWithAllocationContext(a, n, integerAllocationInvocationContext{})
+	return m.setUnsignedWithAllocationContext(a, n, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *RationalManager) setUnsignedWithAllocationContext(a *Rational, n uint32, context integerAllocationInvocationContext) error {
+func (m *RationalManager) setUnsignedWithAllocationContext(a *Rational, n uint32, context *integerAllocationInvocationContext) error {
 	if e := m.checkSetter(a); e != nil {
 		return e
 	}
@@ -382,9 +382,9 @@ func (m *RationalManager) setUnsignedWithAllocationContext(a *Rational, n uint32
 	return m.resetDenominator(a)
 }
 func (m *RationalManager) SetUint64(a *Rational, n uint64) error {
-	return m.setUint64WithAllocationContext(a, n, integerAllocationInvocationContext{})
+	return m.setUint64WithAllocationContext(a, n, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *RationalManager) setUint64WithAllocationContext(a *Rational, n uint64, context integerAllocationInvocationContext) error {
+func (m *RationalManager) setUint64WithAllocationContext(a *Rational, n uint64, context *integerAllocationInvocationContext) error {
 	if e := m.checkSetter(a); e != nil {
 		return e
 	}

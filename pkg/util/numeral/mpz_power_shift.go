@@ -32,9 +32,9 @@ func (e *PowerDomainError) Unwrap() error { return ErrNonterminatingPower }
 // ensureOwnedCapacity translates ensure_capacity, including requested capacity
 // six and INT_MIN promotion. Old ownership is released after replacement exists.
 func (m *IntegerManager) EnsureOwnedCapacity(a *Int, capacity uint32) error {
-	return m.ensureOwnedCapacityWithAllocationContext(a, capacity, integerAllocationInvocationContext{})
+	return m.ensureOwnedCapacityWithAllocationContext(a, capacity, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerManager) ensureOwnedCapacityWithAllocationContext(a *Int, capacity uint32, context integerAllocationInvocationContext) error {
+func (m *IntegerManager) ensureOwnedCapacityWithAllocationContext(a *Int, capacity uint32, context *integerAllocationInvocationContext) error {
 	if capacity <= 1 {
 		return nil
 	}
@@ -142,15 +142,15 @@ func (m *IntegerManager) powerWithReceipt(a *Int, p uint32, out *Int, receipt *i
 	if e := m.check(out); e != nil {
 		return e
 	}
-	return m.powerCoreWithContext(a, p, out, receipt, integerAllocationInvocationContext{})
+	return m.powerCoreWithContext(a, p, out, receipt, numeralContextRef(integerAllocationInvocationContext{}))
 }
 func (m *IntegerManager) powerCore(a *Int, p uint32, out *Int) error {
 	return m.powerCoreWithReceipt(a, p, out, nil)
 }
 func (m *IntegerManager) powerCoreWithReceipt(a *Int, p uint32, out *Int, receipt *integerPowerInvocationReceipt) error {
-	return m.powerCoreWithContext(a, p, out, receipt, integerAllocationInvocationContext{})
+	return m.powerCoreWithContext(a, p, out, receipt, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerManager) powerWithAllocationContext(a *Int, p uint32, out *Int, receipt *integerPowerInvocationReceipt, context integerAllocationInvocationContext) error {
+func (m *IntegerManager) powerWithAllocationContext(a *Int, p uint32, out *Int, receipt *integerPowerInvocationReceipt, context *integerAllocationInvocationContext) error {
 	if e := m.check(a); e != nil {
 		return e
 	}
@@ -159,10 +159,10 @@ func (m *IntegerManager) powerWithAllocationContext(a *Int, p uint32, out *Int, 
 	}
 	return m.powerCoreWithContext(a, p, out, receipt, context)
 }
-func (m *IntegerManager) powerCoreWithContext(a *Int, p uint32, out *Int, receipt *integerPowerInvocationReceipt, context integerAllocationInvocationContext) (cause error) {
+func (m *IntegerManager) powerCoreWithContext(a *Int, p uint32, out *Int, receipt *integerPowerInvocationReceipt, context *integerAllocationInvocationContext) (cause error) {
 	return m.powerCoreWithPhysicalContext(a, p, out, receipt, context, nil)
 }
-func (m *IntegerManager) powerWithPhysicalAllocationContext(a *Int, p uint32, out *Int, receipt *integerPowerInvocationReceipt, context integerAllocationInvocationContext, receiver *integerRuntimeValueReceiver) error {
+func (m *IntegerManager) powerWithPhysicalAllocationContext(a *Int, p uint32, out *Int, receipt *integerPowerInvocationReceipt, context *integerAllocationInvocationContext, receiver *integerRuntimeValueReceiver) error {
 	if e := m.check(a); e != nil {
 		return e
 	}
@@ -178,11 +178,11 @@ func (m *IntegerManager) powerWithPhysicalAllocationContext(a *Int, p uint32, ou
 	}
 	return m.powerCoreWithPhysicalContext(a, p, out, receipt, context, receiver)
 }
-func (m *IntegerManager) powerCoreWithPhysicalContext(a *Int, p uint32, out *Int, receipt *integerPowerInvocationReceipt, context integerAllocationInvocationContext, receiver *integerRuntimeValueReceiver) (cause error) {
+func (m *IntegerManager) powerCoreWithPhysicalContext(a *Int, p uint32, out *Int, receipt *integerPowerInvocationReceipt, context *integerAllocationInvocationContext, receiver *integerRuntimeValueReceiver) (cause error) {
 	// A validated literal caller binding can precede its first allocating leaf.
 	// This grants no roots; the allocation leaf prepares its actual record.
-	rationalSetBinding := context.mpfRationalSet != nil && context.rationalSetFrame(m, true) != nil && context == context.mpfRationalSet.allocationContext()
-	if context != (integerAllocationInvocationContext{}) && context.roots(m) == nil && !rationalSetBinding {
+	rationalSetBinding := context.mpfRationalSet != nil && context.rationalSetFrame(m, true) != nil && *context == context.mpfRationalSet.allocationContext()
+	if *context != (integerAllocationInvocationContext{}) && context.roots(m) == nil && !rationalSetBinding {
 		return ErrNumericCallerOwner
 	}
 	if a.IsSmall() {
@@ -336,12 +336,12 @@ func (m *IntegerManager) Mul2kInPlace(a *Int, k uint32) error {
 	return m.mul2kCore(a, k)
 }
 func (m *IntegerManager) shift(a *Int, k uint32, out *Int, left bool) error {
-	return m.shiftWithAllocationContext(a, k, out, left, integerAllocationInvocationContext{})
+	return m.shiftWithAllocationContext(a, k, out, left, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerManager) shiftWithAllocationContext(a *Int, k uint32, out *Int, left bool, context integerAllocationInvocationContext) error {
+func (m *IntegerManager) shiftWithAllocationContext(a *Int, k uint32, out *Int, left bool, context *integerAllocationInvocationContext) error {
 	return m.shiftWithAllocationContextAndReceipt(a, k, out, left, context, nil)
 }
-func (m *IntegerManager) shiftWithAllocationContextAndReceipt(a *Int, k uint32, out *Int, left bool, context integerAllocationInvocationContext, receipt *IntegerCopyAllocationReceipt) error {
+func (m *IntegerManager) shiftWithAllocationContextAndReceipt(a *Int, k uint32, out *Int, left bool, context *integerAllocationInvocationContext, receipt *IntegerCopyAllocationReceipt) error {
 	if e := m.check(a); e != nil {
 		return e
 	}
@@ -352,7 +352,7 @@ func (m *IntegerManager) shiftWithAllocationContextAndReceipt(a *Int, k uint32, 
 	// shift growth belongs to the supplied numerical caller context.
 	copyContext := context
 	if receipt != nil {
-		copyContext = integerAllocationInvocationContext{}
+		copyContext = numeralContextRef(integerAllocationInvocationContext{})
 	}
 	if e := m.copyFromOwnerWithAllocationContext(out, m, a, receipt, copyContext); e != nil {
 		return e
@@ -442,9 +442,9 @@ func (m *IntegerManager) machineDiv2kCore(a *Int, k uint32) error {
 	return m.normalizeOwned(a)
 }
 func (m *IntegerManager) mul2kCore(a *Int, k uint32) error {
-	return m.mul2kCoreWithAllocationContext(a, k, integerAllocationInvocationContext{})
+	return m.mul2kCoreWithAllocationContext(a, k, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerManager) mul2kCoreWithAllocationContext(a *Int, k uint32, context integerAllocationInvocationContext) error {
+func (m *IntegerManager) mul2kCoreWithAllocationContext(a *Int, k uint32, context *integerAllocationInvocationContext) error {
 	if k == 0 || a.Val == 0 {
 		return nil
 	}

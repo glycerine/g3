@@ -134,8 +134,8 @@ func (m *IntegerManager) powerRawCall(op uint8, a, b, out *Int) (cause error) {
 // The passed concrete caller context stamps actual allocation leaves. Published
 // RAW value belongs to this actual Power frame; unpublished leaves remain in
 // the caller's direct roots until its later owning abort. No inventory capture.
-func (m *IntegerManager) powerRawCallWithContext(op uint8, a, b, out *Int, context integerAllocationInvocationContext) error {
-	if context == (integerAllocationInvocationContext{}) {
+func (m *IntegerManager) powerRawCallWithContext(op uint8, a, b, out *Int, context *integerAllocationInvocationContext) error {
+	if *context == (integerAllocationInvocationContext{}) {
 		return m.powerRawCall(op, a, b, out)
 	}
 	switch op {

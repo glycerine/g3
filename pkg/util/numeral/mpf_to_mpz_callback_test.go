@@ -29,12 +29,12 @@ func TestArbitraryFloatToMPZForeignTransportAndBothOwners(t *testing.T) {
 				t.Fatal("actual independent foreign transport missing")
 			}
 			xBefore, outBefore, otherBefore, used, sourceUsed := x, out, otherValue, b.Used(), sourceBudget.Used()
-			if s.context().roots(other.integer) != nil {
+			if numeralContextRef(s.context()).roots(other.integer) != nil {
 				t.Fatal("transport acquired roots")
 			}
 			copied := *s
 			copied.hooks.Policy = &copied
-			if copied.context().roots(other.integer) != nil {
+			if numeralContextRef(copied.context()).roots(other.integer) != nil {
 				t.Fatal("copied actual scope acquired roots")
 			}
 			for i, err := range []error{m.ToMPZ(&x, other.integer, &out), m.CleanupToMPZ(), m.SourceFinalize(), m.Close(), m.CleanupValue(&x), m.integer.SourceFinalize(), m.integer.CloseChecked(), m.integer.SetInt32(&x.significand, 9), other.integer.SourceFinalize(), other.integer.CloseChecked(), other.integer.SetInt32(&out, 9), other.integer.Del(&out), other.SourceFinalize(), other.Close(), other.MkOne(8, 3, false, &otherValue)} {

@@ -28,7 +28,7 @@ func TestArbitraryFloatRoundActualTransportOwnerGuards(t *testing.T) {
 				t.Fatal("callback acquired Round roots")
 			}
 			copied := m.RoundScope
-			if (integerAllocationInvocationContext{mpfRound: &copied, mpfRoundInvocation: copied.Invocation}).roundFrame(m.integer, false) != nil {
+			if numeralContextRef((integerAllocationInvocationContext{mpfRound: &copied, mpfRoundInvocation: copied.Invocation})).roundFrame(m.integer, false) != nil {
 				t.Fatal("copied scope acquired authority")
 			}
 			for _, err := range []error{m.SourceFinalize(), m.Close(), m.integer.SourceFinalize(), m.integer.CloseChecked(), m.rational.SourceFinalize(), m.rational.CloseChecked(), m.CleanupRound(), m.Round(ArbitraryFloatNearestEven, &x)} {

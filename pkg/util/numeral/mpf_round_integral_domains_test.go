@@ -78,14 +78,14 @@ func TestArbitraryFloatRoundToIntegralGeneralPublicationAndCopiedScope(t *testin
 	}
 	copy := m.integralRound
 	copy.hooks.Policy = &copy
-	if copy.NumericBound(false) || copy.NumericRoots(m.integer, nil) != nil || copy.context().roots(m.integer) != nil {
+	if copy.NumericBound(false) || copy.NumericRoots(m.integer, nil) != nil || numeralContextRef(copy.context()).roots(m.integer) != nil {
 		t.Fatal("copied lexical scope acquired allocation authority")
 	}
 	integerPhysicalAudit(t, m.integer, &x.significand, &out.significand, &m.integralRound.a.significand)
 	b.FailAfter(-1)
 	serviceMust(t, m.CleanupRoundToIntegral())
 	serviceMust(t, m.CleanupRoundToIntegral())
-	if m.integralRound.context().roots(m.integer) != nil {
+	if numeralContextRef(m.integralRound.context()).roots(m.integer) != nil {
 		t.Fatal("ended caller acquired roots")
 	}
 	serviceMust(t, m.CleanupValue(&out))

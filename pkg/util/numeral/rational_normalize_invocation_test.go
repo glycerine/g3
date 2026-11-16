@@ -15,7 +15,7 @@ func TestRationalNormalizeReceiptActualEntryAndRefusal(t *testing.T) {
 	serviceMust(t, m.Z.Copy(&a.Den, &a.Num))
 	rawArithmeticCorrupt(t, m.Z, &a.Num)
 	var receipt RationalNormalizeInvocationReceipt
-	e := m.normalizeWithAllocationContextAndReceipt(&a, NumericAllocationContext{}, &receipt)
+	e := m.normalizeWithAllocationContextAndReceipt(&a, numeralContextRef(NumericAllocationContext{}), &receipt)
 	if !errors.Is(e, arena.ErrBounds) || !m.MatchesRawNormalizeInvocation(&receipt) {
 		t.Fatal("missing actual normalization entry", e)
 	}
@@ -23,7 +23,7 @@ func TestRationalNormalizeReceiptActualEntryAndRefusal(t *testing.T) {
 		t.Fatal("normalization body failure became source END stop")
 	}
 	var refused RationalNormalizeInvocationReceipt
-	e = m.normalizeWithAllocationContextAndReceipt(&a, NumericAllocationContext{}, &refused)
+	e = m.normalizeWithAllocationContextAndReceipt(&a, numeralContextRef(NumericAllocationContext{}), &refused)
 	if !errors.Is(e, ErrRationalRawArithmeticPending) || m.MatchesRawNormalizeInvocation(&refused) {
 		t.Fatal("refused normalization stamped receipt", e)
 	}

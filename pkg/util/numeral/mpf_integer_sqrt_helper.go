@@ -42,14 +42,14 @@ func MyMPZSqrt(m *IntegerManager, sbits uint32, oddExp bool, input, out *Int) (c
 	if e := m.check(lower); e != nil {
 		return e
 	}
-	if e := m.mul2kCoreWithAllocationContext(lower, sbits+1, context); e != nil {
+	if e := m.mul2kCoreWithAllocationContext(lower, sbits+1, &context); e != nil {
 		return e
 	}
 	shift := uint32(3)
 	if oddExp {
 		shift = 4
 	}
-	if e := m.shiftWithAllocationContext(input, shift, upper, true, context); e != nil {
+	if e := m.shiftWithAllocationContext(input, shift, upper, true, &context); e != nil {
 		return e
 	}
 	equal, e := m.Equal(lower, upper)
@@ -70,7 +70,7 @@ func MyMPZSqrt(m *IntegerManager, sbits uint32, oddExp bool, input, out *Int) (c
 			return nil
 		}
 		m.traceMPFSqrtBounds(input, lower, upper)
-		if e := m.addSubWithAllocationContext(upper, lower, diff, true, context); e != nil {
+		if e := m.addSubWithAllocationContext(upper, lower, diff, true, &context); e != nil {
 			return e
 		}
 		one, e := m.IsOne(diff)
@@ -78,7 +78,7 @@ func MyMPZSqrt(m *IntegerManager, sbits uint32, oddExp bool, input, out *Int) (c
 			return e
 		}
 		if one {
-			if e := m.mulWithAllocationContext(lower, lower, product, context); e != nil {
+			if e := m.mulWithAllocationContext(lower, lower, product, &context); e != nil {
 				return e
 			}
 			exact, e := m.Equal(product, input)
@@ -92,13 +92,13 @@ func MyMPZSqrt(m *IntegerManager, sbits uint32, oddExp bool, input, out *Int) (c
 			m.traceMPFSqrtChoice(false)
 			return s.copyValue(out, upper)
 		}
-		if e := m.addSubWithAllocationContext(lower, upper, mid, false, context); e != nil {
+		if e := m.addSubWithAllocationContext(lower, upper, mid, false, &context); e != nil {
 			return e
 		}
 		if e := m.MachineDiv2kInPlace(mid, 1); e != nil {
 			return e
 		}
-		if e := m.mulWithAllocationContext(mid, mid, product, context); e != nil {
+		if e := m.mulWithAllocationContext(mid, mid, product, &context); e != nil {
 			return e
 		}
 		m.traceMPFSqrtMid(mid, product)
@@ -144,5 +144,5 @@ func (m *IntegerManager) myMPZSqrtTransportActive() bool {
 }
 
 func (s *integerMPFSqrtHelperScope) copyValue(dst, src *Int) error {
-	return s.manager.copyFromOwnerWithAllocationContext(dst, s.manager, src, &s.copy, s.context())
+	return s.manager.copyFromOwnerWithAllocationContext(dst, s.manager, src, &s.copy, numeralContextRef(s.context()))
 }

@@ -23,12 +23,12 @@ func TestArbitraryFloatRenormalizeReturningTransportAndOwnerGuards(t *testing.T)
 				t.Fatal("transport missed renormalize invocation")
 			}
 			used := b.Used()
-			if s.context().roots(m.integer) != nil {
+			if numeralContextRef(s.context()).roots(m.integer) != nil {
 				t.Fatal("transport acquired roots")
 			}
 			copied := *s
 			copied.hooks.Policy = &copied
-			if copied.context().roots(m.integer) != nil {
+			if numeralContextRef(copied.context()).roots(m.integer) != nil {
 				t.Fatal("copied actual scope acquired roots")
 			}
 			for i, err := range []error{m.Renormalize(8, 40000, &exp, &sig), m.CleanupRenormalize(), m.SourceFinalize(), m.Close(), m.integer.SourceFinalize(), m.integer.CloseChecked(), m.integer.SetInt32(&sig, 7), m.integer.Del(&sig)} {

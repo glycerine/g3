@@ -35,31 +35,31 @@ func (o NumericIntegerOperations) SetInt64(a *Int, v int64) error {
 	if e := o.valid(); e != nil {
 		return e
 	}
-	return o.manager.setInt64WithAllocationContext(a, v, o.context)
+	return o.manager.setInt64WithAllocationContext(a, v, numeralContextRef(o.context))
 }
 func (o NumericIntegerOperations) Copy(a, b *Int) error {
 	if e := o.valid(); e != nil {
 		return e
 	}
-	return o.manager.copyFromOwnerWithAllocationContext(a, o.manager, b, nil, o.context)
+	return o.manager.copyFromOwnerWithAllocationContext(a, o.manager, b, nil, numeralContextRef(o.context))
 }
 func (o NumericIntegerOperations) Add(a, b, out *Int) error {
 	if e := o.valid(); e != nil {
 		return e
 	}
-	return o.manager.addSubWithAllocationContext(a, b, out, false, o.context)
+	return o.manager.addSubWithAllocationContext(a, b, out, false, numeralContextRef(o.context))
 }
 func (o NumericIntegerOperations) Sub(a, b, out *Int) error {
 	if e := o.valid(); e != nil {
 		return e
 	}
-	return o.manager.addSubWithAllocationContext(a, b, out, true, o.context)
+	return o.manager.addSubWithAllocationContext(a, b, out, true, numeralContextRef(o.context))
 }
 func (o NumericIntegerOperations) Mul(a, b, out *Int) error {
 	if e := o.valid(); e != nil {
 		return e
 	}
-	return o.manager.mulWithAllocationContext(a, b, out, o.context)
+	return o.manager.mulWithAllocationContext(a, b, out, numeralContextRef(o.context))
 }
 func (o NumericIntegerOperations) Div(a, b, out *Int) error {
 	if e := o.valid(); e != nil {
@@ -71,7 +71,7 @@ func (o NumericIntegerOperations) Mod(a, b, out *Int) error {
 	if e := o.valid(); e != nil {
 		return e
 	}
-	return o.manager.modWithAllocationContext(a, b, out, o.context)
+	return o.manager.modWithAllocationContext(a, b, out, numeralContextRef(o.context))
 }
 func (o NumericIntegerOperations) GCD(a, b, out *Int) error {
 	if e := o.valid(); e != nil {
@@ -89,7 +89,7 @@ func (o NumericIntegerOperations) Divides(a, b *Int) (bool, error) {
 	if e := o.valid(); e != nil {
 		return false, e
 	}
-	return o.manager.dividesWithAllocationContext(a, b, o.context)
+	return o.manager.dividesWithAllocationContext(a, b, numeralContextRef(o.context))
 }
 func (r *integerRawInvocationReceipt) Cleanup(abort bool) error {
 	if r == nil {
@@ -150,89 +150,89 @@ func (o NumericModularOperations) SetInt64(a *Int, v int64) error {
 	if e := o.valid(); e != nil {
 		return e
 	}
-	return o.manager.setInt64WithSourceContext(a, v, o.context)
+	return o.manager.setInt64WithSourceContext(a, v, numeralContextRef(o.context))
 }
 func (o NumericModularOperations) Copy(a, b *Int) error {
 	if e := o.valid(); e != nil {
 		return e
 	}
-	return o.manager.copyWithSourceContext(a, b, o.context)
+	return o.manager.copyWithSourceContext(a, b, numeralContextRef(o.context))
 }
 func (o NumericModularOperations) Add(a, b, out *Int) error {
 	if e := o.valid(); e != nil {
 		return e
 	}
-	return o.manager.addWithSourceContext(a, b, out, o.context)
+	return o.manager.addWithSourceContext(a, b, out, numeralContextRef(o.context))
 }
 func (o NumericModularOperations) Sub(a, b, out *Int) error {
 	if e := o.valid(); e != nil {
 		return e
 	}
-	return o.manager.subWithSourceContext(a, b, out, o.context)
+	return o.manager.subWithSourceContext(a, b, out, numeralContextRef(o.context))
 }
 func (o NumericModularOperations) Mul(a, b, out *Int) error {
 	if e := o.valid(); e != nil {
 		return e
 	}
-	return o.manager.mulWithSourceContext(a, b, out, o.context)
+	return o.manager.mulWithSourceContext(a, b, out, numeralContextRef(o.context))
 }
 func (o NumericModularOperations) AddMul(a, b, c, out *Int) error {
 	if e := o.valid(); e != nil {
 		return e
 	}
-	return o.manager.addMulWithSourceContext(a, b, c, out, nil, o.context)
+	return o.manager.addMulWithSourceContext(a, b, c, out, nil, numeralContextRef(o.context))
 }
 func (o NumericModularOperations) GCD(a, b, out *Int) error {
 	if e := o.valid(); e != nil {
 		return e
 	}
-	return o.manager.gcdWithSourceContext(a, b, out, o.context)
+	return o.manager.gcdWithSourceContext(a, b, out, numeralContextRef(o.context))
 }
 func (o NumericModularOperations) ExtendedGCD(a, b, u, v, g *Int) error {
 	if e := o.valid(); e != nil {
 		return e
 	}
-	return o.manager.extendedGCDWithSourceContext(a, b, u, v, g, o.context)
+	return o.manager.extendedGCDWithSourceContext(a, b, u, v, g, numeralContextRef(o.context))
 }
 func (o NumericModularOperations) Power(a *Int, k uint32, out *Int) error {
 	if e := o.valid(); e != nil {
 		return e
 	}
-	return o.manager.powerWithSourceContext(a, k, out, o.context)
+	return o.manager.powerWithSourceContext(a, k, out, numeralContextRef(o.context))
 }
 func (o NumericModularOperations) IsPerfectSquare(a, out *Int) (bool, error) {
 	if e := o.valid(); e != nil {
 		return false, e
 	}
-	return o.manager.isPerfectSquareWithSourceContext(a, out, o.context)
+	return o.manager.isPerfectSquareWithSourceContext(a, out, numeralContextRef(o.context))
 }
 func (o NumericModularOperations) Divides(a, b *Int) (bool, error) {
 	if e := o.valid(); e != nil {
 		return false, e
 	}
-	return o.manager.dividesWithAllocationContext(a, b, o.context)
+	return o.manager.dividesWithAllocationContext(a, b, numeralContextRef(o.context))
 }
 func (o NumericModularOperations) SetPSquare() error {
 	if e := o.valid(); e != nil {
 		return e
 	}
-	return o.manager.setPSquareWithAllocationContext(o.context)
+	return o.manager.setPSquareWithAllocationContext(numeralContextRef(o.context))
 }
 func (o NumericModularOperations) Normalize(a *Int) error {
 	if e := o.valid(); e != nil {
 		return e
 	}
-	return o.manager.PNormalizeWithFactorHistory(a, nil, o.context)
+	return o.manager.pNormalizeWithFactorHistory(a, nil, numeralContextRef(o.context))
 }
 func (o NumericIntegerOperations) AddMul(a, b, c, out *Int) error {
 	if e := o.valid(); e != nil {
 		return e
 	}
-	return o.manager.addMulWithAllocationContext(a, b, c, out, nil, o.context)
+	return o.manager.addMulWithAllocationContext(a, b, c, out, nil, numeralContextRef(o.context))
 }
 func (o NumericIntegerOperations) IsPerfectSquare(a, out *Int) (bool, error) {
 	if e := o.valid(); e != nil {
 		return false, e
 	}
-	return o.manager.isPerfectSquareWithAllocationContext(a, out, o.context)
+	return o.manager.isPerfectSquareWithAllocationContext(a, out, numeralContextRef(o.context))
 }

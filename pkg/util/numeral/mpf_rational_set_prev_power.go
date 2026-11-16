@@ -9,7 +9,7 @@ import (
 
 // This route is the same floor/prev-power body with its real scoped NUM in
 // the reached caller frame. The source can invoke it once in either branch.
-func (q *RationalManager) prevPowerOfTwoWithRationalSetContext(c integerAllocationInvocationContext) (value uint32, cause error) {
+func (q *RationalManager) prevPowerOfTwoWithRationalSetContext(c *integerAllocationInvocationContext) (value uint32, cause error) {
 	if q == nil || q.self != q || q.Z == nil {
 		return 0, umemory.ErrRuntimeOwner
 	}

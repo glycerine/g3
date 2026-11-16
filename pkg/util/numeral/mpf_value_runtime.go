@@ -58,7 +58,7 @@ func (m *ArbitraryFloatManager) physicalCopySignificand(out, source *Int, receiv
 }
 func (m *ArbitraryFloatManager) physicalCopySignificandFromOwner(out *Int, sourceManager *IntegerManager, source *Int, receiver *integerRuntimeValueReceiver) error {
 	old := m.valueCopy
-	e := m.integer.copyFromOwnerWithPhysicalFloatCaller(out, sourceManager, source, &m.valueCopy, integerAllocationInvocationContext{}, receiver, &m.valueBinding)
+	e := m.integer.copyFromOwnerWithPhysicalFloatCaller(out, sourceManager, source, &m.valueCopy, numeralContextRef(integerAllocationInvocationContext{}), receiver, &m.valueBinding)
 	m.acknowledgeValueCopyReturn(old)
 	return e
 }

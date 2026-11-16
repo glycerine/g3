@@ -168,19 +168,19 @@ func (m *IntegerManager) perfectSquareCall(op uint8, a, b, out *Int) (cause erro
 }
 
 func (m *IntegerManager) beginPerfectSquareRawScope() error {
-	return m.beginPerfectSquareRawScopeWithContext(integerAllocationInvocationContext{})
+	return m.beginPerfectSquareRawScopeWithContext(numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerManager) beginPerfectSquareRawScopeWithContext(context integerAllocationInvocationContext) error {
+func (m *IntegerManager) beginPerfectSquareRawScopeWithContext(context *integerAllocationInvocationContext) error {
 	s := &m.PerfectSquare
 	if s.Active {
 		return ErrPerfectSquarePending
 	}
-	if m.PerfectSquareGeneration == ^uint64(0) || (context != (integerAllocationInvocationContext{}) && context.roots(m) == nil) {
+	if m.PerfectSquareGeneration == ^uint64(0) || (*context != (integerAllocationInvocationContext{}) && context.roots(m) == nil) {
 		return ErrNumericPending
 	}
 	m.PerfectSquareGeneration++
-	*s = integerPerfectSquareScope{owner: m, Active: true, Generation: m.PerfectSquareGeneration, parentContext: context}
-	if context != (integerAllocationInvocationContext{}) {
+	*s = integerPerfectSquareScope{owner: m, Active: true, Generation: m.PerfectSquareGeneration, parentContext: *context}
+	if *context != (integerAllocationInvocationContext{}) {
 		s.directReceipt = integerPerfectSquareInvocationReceipt{m, s, s.Generation}
 		context.recordCaller(m, "perfect-square", NumericInvocationReceipt{PerfectSquare: &s.directReceipt})
 	}
@@ -198,7 +198,7 @@ func (m *IntegerManager) MatchesPerfectSquareHistory(r *integerPerfectSquareInvo
 func (m *IntegerManager) MatchesPerfectSquareInvocation(r *integerPerfectSquareInvocationReceipt) bool {
 	return m.MatchesPerfectSquareHistory(r) && r.Frame.Active
 }
-func (m *IntegerManager) perfectSquareContextRoots(c integerAllocationInvocationContext) *NumericAllocationRoots {
+func (m *IntegerManager) perfectSquareContextRoots(c *integerAllocationInvocationContext) *NumericAllocationRoots {
 	r := c.perfectSquare
 	if !m.MatchesPerfectSquareInvocation(r) || c.perfectSquareInvocation != r.Invocation || !r.Frame.Executing || r.Frame.sourceExecuting || r.Frame.ownExecuting {
 		return nil
@@ -212,16 +212,16 @@ func (m *IntegerManager) perfectSquareCallWithContext(op uint8, a, b, out *Int, 
 	if context == (integerAllocationInvocationContext{}) {
 		return m.perfectSquareCall(op, a, b, out)
 	}
-	if m.perfectSquareContextRoots(context) == nil {
+	if m.perfectSquareContextRoots(&context) == nil {
 		return ErrNumericPending
 	}
 	switch op {
 	case 0:
-		cause = m.copyFromOwnerWithAllocationContext(out, m, a, nil, context)
+		cause = m.copyFromOwnerWithAllocationContext(out, m, a, nil, &context)
 	case 1:
-		cause = m.addSubWithAllocationContext(a, b, out, false, context)
+		cause = m.addSubWithAllocationContext(a, b, out, false, &context)
 	case 2:
-		cause = m.mulWithAllocationContext(a, b, out, context)
+		cause = m.mulWithAllocationContext(a, b, out, &context)
 	case 3:
 		cause = m.divWithAllocationContext(a, b, out, context)
 	}

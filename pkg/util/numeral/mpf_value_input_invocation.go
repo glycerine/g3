@@ -46,7 +46,7 @@ func (m *ArbitraryFloatManager) beginValueInput(receipt *ArbitraryFloatValueInpu
 	m.inputBinding = arbitraryFloatInputBinding{manager: m, invocation: m.inputInvocation, active: true, receipt: receipt}
 	return integerAllocationInvocationContext{mpfInput: &m.inputBinding, mpfInputInvocation: m.inputInvocation}, nil
 }
-func (c integerAllocationInvocationContext) inputBinding(z *IntegerManager) *arbitraryFloatInputBinding {
+func (c *integerAllocationInvocationContext) inputBinding(z *IntegerManager) *arbitraryFloatInputBinding {
 	a := c.mpfInput
 	if z == nil || z.self != z || a == nil || a.manager == nil || a.manager.self != a.manager {
 		return nil
@@ -57,7 +57,7 @@ func (c integerAllocationInvocationContext) inputBinding(z *IntegerManager) *arb
 	}
 	return a
 }
-func (c integerAllocationInvocationContext) prepareInputAllocation(z *IntegerManager) error {
+func (c *integerAllocationInvocationContext) prepareInputAllocation(z *IntegerManager) error {
 	if c.mpfInput == nil {
 		return nil
 	}
@@ -84,7 +84,7 @@ func (c integerAllocationInvocationContext) prepareInputAllocation(z *IntegerMan
 	}
 	return nil
 }
-func (c integerAllocationInvocationContext) inputRoots(z *IntegerManager) *NumericAllocationRoots {
+func (c *integerAllocationInvocationContext) inputRoots(z *IntegerManager) *NumericAllocationRoots {
 	a := c.inputBinding(z)
 	if a == nil || a.record == nil {
 		return nil
@@ -95,7 +95,7 @@ func (c integerAllocationInvocationContext) inputRoots(z *IntegerManager) *Numer
 	}
 	return &q.Numeric
 }
-func (z *IntegerManager) captureInputAllocationOutcome(c integerAllocationInvocationContext, backing SourceCellBacking, out *umemory.SmallAllocatorAllocationOutcome) error {
+func (z *IntegerManager) captureInputAllocationOutcome(c *integerAllocationInvocationContext, backing SourceCellBacking, out *umemory.SmallAllocatorAllocationOutcome) error {
 	a := c.inputBinding(z)
 	if a == nil || a.record == nil {
 		return nil

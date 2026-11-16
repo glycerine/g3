@@ -287,9 +287,9 @@ func (m *BinaryIntervalManager) Swap(a, b *BinaryInterval) error {
 	return m.bounds.Swap(&a.upper, &b.upper)
 }
 func (m *BinaryIntervalManager) Neg(a *BinaryInterval) error {
-	return m.negWithSourceContext(a, integerAllocationInvocationContext{})
+	return m.negWithSourceContext(a, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *BinaryIntervalManager) negWithSourceContext(a *BinaryInterval, context integerAllocationInvocationContext) error {
+func (m *BinaryIntervalManager) negWithSourceContext(a *BinaryInterval, context *integerAllocationInvocationContext) error {
 	if e := m.check(a); e != nil {
 		return e
 	}

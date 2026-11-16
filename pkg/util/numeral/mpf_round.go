@@ -78,16 +78,16 @@ func (m *ArbitraryFloatManager) roundOverflow(mode ArbitraryFloatRoundingMode, x
 	if e != nil {
 		return e
 	}
-	return m.integer.copyFromOwnerWithAllocationContext(&x.significand, m.integer, &p, nil, integerAllocationInvocationContext{mpfRound: &m.RoundScope, mpfRoundInvocation: m.RoundScope.Invocation})
+	return m.integer.copyFromOwnerWithAllocationContext(&x.significand, m.integer, &p, nil, numeralContextRef(integerAllocationInvocationContext{mpfRound: &m.RoundScope, mpfRoundInvocation: m.RoundScope.Invocation}))
 }
 
 func (m *ArbitraryFloatManager) Round(mode ArbitraryFloatRoundingMode, x *ArbitraryFloat) (err error) {
 	return m.RoundWithReceipt(mode, x, nil)
 }
 func (m *ArbitraryFloatManager) RoundWithReceipt(mode ArbitraryFloatRoundingMode, x *ArbitraryFloat, receipt *ArbitraryFloatRoundReceipt) error {
-	return m.roundWithParentContext(mode, x, receipt, integerAllocationInvocationContext{})
+	return m.roundWithParentContext(mode, x, receipt, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *ArbitraryFloatManager) roundWithParentContext(mode ArbitraryFloatRoundingMode, x *ArbitraryFloat, receipt *ArbitraryFloatRoundReceipt, parent integerAllocationInvocationContext) (err error) {
+func (m *ArbitraryFloatManager) roundWithParentContext(mode ArbitraryFloatRoundingMode, x *ArbitraryFloat, receipt *ArbitraryFloatRoundReceipt, parent *integerAllocationInvocationContext) (err error) {
 	if e := m.valueGuard(x); e != nil {
 		return e
 	}
@@ -105,7 +105,7 @@ func (m *ArbitraryFloatManager) roundWithParentContext(mode ArbitraryFloatRoundi
 		return e
 	}
 	invocation := s.Invocation + 1
-	*s = ArbitraryFloatRoundScope{Manager: m, Invocation: invocation, active: true, executing: true, receipt: receipt, parentFormattedSet: parent}
+	*s = ArbitraryFloatRoundScope{Manager: m, Invocation: invocation, active: true, executing: true, receipt: receipt, parentFormattedSet: *parent}
 	if parent.Caller != nil {
 		if caller, ok := parent.Caller.Policy.(interface {
 			enterArbitraryFloatRound(*ArbitraryFloatManager, *ArbitraryFloatRoundScope) error
@@ -190,18 +190,18 @@ func (m *ArbitraryFloatManager) roundWithParentContext(mode ArbitraryFloatRoundi
 		if e != nil {
 			return e
 		}
-		if e = z.setInt64WithAllocationContext(&s.sigma, delta, context); e != nil {
+		if e = z.setInt64WithAllocationContext(&s.sigma, delta, &context); e != nil {
 			return e
 		}
 		x.exponent = emin
 	} else {
-		if e = z.setInt64WithAllocationContext(&s.sigma, lz-1, context); e != nil {
+		if e = z.setInt64WithAllocationContext(&s.sigma, lz-1, &context); e != nil {
 			return e
 		}
 		x.exponent = beta
 	}
 	s.capConstructed = true
-	if e = z.setUint32WithAllocationContext(&s.cap, sb+2, context); e != nil {
+	if e = z.setUint32WithAllocationContext(&s.cap, sb+2, &context); e != nil {
 		return e
 	}
 	if e = z.Neg(&s.cap); e != nil {
@@ -212,7 +212,7 @@ func (m *ArbitraryFloatManager) roundWithParentContext(mode ArbitraryFloatRoundi
 		return e
 	}
 	if c < 0 {
-		if e = z.copyFromOwnerWithAllocationContext(&s.sigma, z, &s.cap, nil, context); e != nil {
+		if e = z.copyFromOwnerWithAllocationContext(&s.sigma, z, &s.cap, nil, &context); e != nil {
 			return e
 		}
 	}
@@ -235,7 +235,7 @@ func (m *ArbitraryFloatManager) roundWithParentContext(mode ArbitraryFloatRoundi
 		if e != nil {
 			return e
 		}
-		if e = z.machineDivRemWithAllocationContext(&x.significand, &p, &x.significand, &s.sticky, context); e != nil {
+		if e = z.machineDivRemWithAllocationContext(&x.significand, &p, &x.significand, &s.sticky, &context); e != nil {
 			return e
 		}
 		zero, e := z.IsZero(&s.sticky)
@@ -248,7 +248,7 @@ func (m *ArbitraryFloatManager) roundWithParentContext(mode ArbitraryFloatRoundi
 				return e
 			}
 			if even {
-				if e = z.addSubWithAllocationContext(&x.significand, &one, &x.significand, false, context); e != nil {
+				if e = z.addSubWithAllocationContext(&x.significand, &one, &x.significand, false, &context); e != nil {
 					return e
 				}
 			}
@@ -259,7 +259,7 @@ func (m *ArbitraryFloatManager) roundWithParentContext(mode ArbitraryFloatRoundi
 		}
 		s.stickyConstructed = false
 	} else {
-		if e = z.mul2kCoreWithAllocationContext(&x.significand, uint32(sigma), context); e != nil {
+		if e = z.mul2kCoreWithAllocationContext(&x.significand, uint32(sigma), &context); e != nil {
 			return e
 		}
 	}
@@ -319,7 +319,7 @@ func (m *ArbitraryFloatManager) roundWithParentContext(mode ArbitraryFloatRoundi
 	}
 	m.traceRoundFlag(2055, "Rounding increment -> significand +", inc)
 	if inc {
-		if e = z.addSubWithAllocationContext(&x.significand, &one, &x.significand, false, context); e != nil {
+		if e = z.addSubWithAllocationContext(&x.significand, &one, &x.significand, false, &context); e != nil {
 			return e
 		}
 	}
@@ -367,7 +367,7 @@ func (m *ArbitraryFloatManager) roundWithParentContext(mode ArbitraryFloatRoundi
 		if e := m.traceRoundSignificandBranch(&x.significand, true); e != nil {
 			return e
 		}
-		return z.addSubWithAllocationContext(&x.significand, &p, &x.significand, true, context)
+		return z.addSubWithAllocationContext(&x.significand, &p, &x.significand, true, &context)
 	}
 	if e := m.traceRoundSignificandBranch(&x.significand, false); e != nil {
 		return e

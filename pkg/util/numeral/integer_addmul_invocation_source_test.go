@@ -17,7 +17,7 @@ func TestIntegerAddMulSourceShortcutsLeaveReceiptUnchanged(t *testing.T) {
 	old := receipt
 	for _, value := range []int32{1, -1} {
 		b := NewInt(value)
-		serviceMust(t, m.addMulWithAllocationContext(&a, &b, &c, &d, &receipt, integerAllocationInvocationContext{}))
+		serviceMust(t, m.addMulWithAllocationContext(&a, &b, &c, &d, &receipt, numeralContextRef(integerAllocationInvocationContext{})))
 		if receipt != old || d != NewInt(3+value*4) {
 			t.Fatal("literal shortcut acquired RAW declaration", value, receipt, d)
 		}
@@ -40,7 +40,7 @@ func TestIntegerAddMulSourceRAWBodyFailureRetainsPublishedTemporary(t *testing.T
 		serviceMust(t, m.SetLimbs(&product, expected))
 		var receipt integerAddMulInvocationReceipt
 		budget.FailAfter(after)
-		e := m.addMulWithAllocationContext(&a, &b, &c, &d, &receipt, integerAllocationInvocationContext{})
+		e := m.addMulWithAllocationContext(&a, &b, &c, &d, &receipt, numeralContextRef(integerAllocationInvocationContext{}))
 		selected := e != nil && receipt.Frame != nil && receipt.Frame.Stage == 1 && !receipt.Frame.Tmp.IsSmall()
 		if selected {
 			found = true
@@ -125,7 +125,7 @@ func TestIntegerAddMulSourceEndDELStopsAfterCallerOutput(t *testing.T) {
 	if e == nil || external != (umemory.Block{}) {
 		t.Fatal("actual external signed-domain stop", e)
 	}
-	e = m.addMulWithAllocationContext(&a, &bval, &c, &d, &receipt, integerAllocationInvocationContext{})
+	e = m.addMulWithAllocationContext(&a, &bval, &c, &d, &receipt, numeralContextRef(integerAllocationInvocationContext{}))
 	if e == nil || receipt.Frame == nil || receipt.Frame.Stage != 3 || d != NewInt(0) {
 		t.Fatal("caller output must precede reached end DEL", e, d, receipt)
 	}
@@ -160,7 +160,7 @@ func TestIntegerAddMulSourceStaleAndForeignReceiptsPreserveLaterRAW(t *testing.T
 	serviceMust(t, m.SetLimbs(&c, digits))
 	serviceMust(t, m.SetLimbs(&product, digits))
 	var older integerAddMulInvocationReceipt
-	serviceMust(t, m.addMulWithAllocationContext(&a, &b, &c, &d, &older, integerAllocationInvocationContext{}))
+	serviceMust(t, m.addMulWithAllocationContext(&a, &b, &c, &d, &older, numeralContextRef(integerAllocationInvocationContext{})))
 	if !older.Frame.ended {
 		t.Fatal("real earlier source invocation did not reach end DEL")
 	}
@@ -172,7 +172,7 @@ func TestIntegerAddMulSourceStaleAndForeignReceiptsPreserveLaterRAW(t *testing.T
 	serviceMust(t, m.SetLimbs(&product, digits))
 	var later integerAddMulInvocationReceipt
 	budget.FailAfter(1)
-	if e := m.addMulWithAllocationContext(&a, &b, &c, &d, &later, integerAllocationInvocationContext{}); e == nil || later.Frame == nil || later.Frame.Tmp.IsSmall() || later.invocation == older.invocation {
+	if e := m.addMulWithAllocationContext(&a, &b, &c, &d, &later, numeralContextRef(integerAllocationInvocationContext{})); e == nil || later.Frame == nil || later.Frame.Tmp.IsSmall() || later.invocation == older.invocation {
 		t.Fatal("actual later larger MUL publication", e)
 	}
 	tmp := later.Frame.Tmp
@@ -194,7 +194,7 @@ func TestIntegerAddMulSourceStaleAndForeignReceiptsPreserveLaterRAW(t *testing.T
 	shortcut := NewInt(1)
 	quickOut := NewInt(0)
 	incoming := older
-	serviceMust(t, m.addMulWithAllocationContext(&a, &shortcut, &a, &quickOut, &older, integerAllocationInvocationContext{}))
+	serviceMust(t, m.addMulWithAllocationContext(&a, &shortcut, &a, &quickOut, &older, numeralContextRef(integerAllocationInvocationContext{})))
 	if older != incoming || quickOut != NewInt(18) || later.Frame.Tmp != tmp {
 		t.Fatal("shortcut changed incoming receipt")
 	}
@@ -227,7 +227,7 @@ func TestIntegerAddMulSourceEveryActualReservationPrefix(t *testing.T) {
 		serviceMust(t, m.SetLimbs(&expected, result))
 		var receipt integerAddMulInvocationReceipt
 		budget.FailAfter(prefix)
-		e := m.addMulWithAllocationContext(&a, &b, &c, &d, &receipt, integerAllocationInvocationContext{})
+		e := m.addMulWithAllocationContext(&a, &b, &c, &d, &receipt, numeralContextRef(integerAllocationInvocationContext{}))
 		if receipt.Frame == nil {
 			t.Fatal("guarded RAW body did not acquire actual frame")
 		}

@@ -71,30 +71,30 @@ func (m *ArbitraryFloatManager) setExponentRationalWithPlainCaller(out *Arbitrar
 	s.exp = Int{}
 	s.expLive = true
 	c := s.allocationContext()
-	if e := m.rational.copyWithAllocationContext(&s.sig, significand, c); e != nil {
+	if e := m.rational.copyWithAllocationContext(&s.sig, significand, &c); e != nil {
 		return e
 	}
-	if e := m.rational.absWithAllocationContext(&s.sig, c); e != nil {
+	if e := m.rational.absWithAllocationContext(&s.sig, &c); e != nil {
 		return e
 	}
-	if e := m.integer.copyFromOwnerWithAllocationContext(&s.exp, m.integer, exponent, nil, c); e != nil {
+	if e := m.integer.copyFromOwnerWithAllocationContext(&s.exp, m.integer, exponent, nil, &c); e != nil {
 		return e
 	}
 	one, two := NewRational(), NewRational()
 	one.Num = NewInt(1)
 	two.Num = NewInt(2)
-	lt, e := m.rational.compareWithAllocationContext(&s.sig, &one, c)
+	lt, e := m.rational.compareWithAllocationContext(&s.sig, &one, &c)
 	if e != nil {
 		return e
 	}
 	branch := uint8(0)
 	if lt < 0 {
 		branch = 1
-		if e = m.rational.invInPlaceWithAllocationContext(&s.sig, c); e != nil {
+		if e = m.rational.invInPlaceWithAllocationContext(&s.sig, &c); e != nil {
 			return e
 		}
 	} else {
-		ge, e := m.rational.compareWithAllocationContext(&s.sig, &two, c)
+		ge, e := m.rational.compareWithAllocationContext(&s.sig, &two, &c)
 		if e != nil {
 			return e
 		}
@@ -103,7 +103,7 @@ func (m *ArbitraryFloatManager) setExponentRationalWithPlainCaller(out *Arbitrar
 		}
 	}
 	if branch != 0 {
-		pp, e := m.rational.prevPowerOfTwoWithRationalSetContext(c)
+		pp, e := m.rational.prevPowerOfTwoWithRationalSetContext(&c)
 		if e != nil {
 			return e
 		}
@@ -119,18 +119,18 @@ func (m *ArbitraryFloatManager) setExponentRationalWithPlainCaller(out *Arbitrar
 		s.p2 = Int{}
 		s.p2Live = true
 		base := NewInt(2)
-		if e = m.integer.powerWithAllocationContext(&base, pp, &s.p2, nil, c); e != nil {
+		if e = m.integer.powerWithAllocationContext(&base, pp, &s.p2, nil, &c); e != nil {
 			return e
 		}
-		if e = m.rational.divIntWithAllocationContext(&s.sig, &s.p2, &s.sig, c); e != nil {
+		if e = m.rational.divIntWithAllocationContext(&s.sig, &s.p2, &s.sig, &c); e != nil {
 			return e
 		}
 		adjustment := NewInt(int32(pp))
-		if e = m.integer.addSubWithAllocationContext(&s.exp, &adjustment, &s.exp, branch == 1, c); e != nil {
+		if e = m.integer.addSubWithAllocationContext(&s.exp, &adjustment, &s.exp, branch == 1, &c); e != nil {
 			return e
 		}
 		if branch == 1 {
-			if e = m.rational.invInPlaceWithAllocationContext(&s.sig, c); e != nil {
+			if e = m.rational.invInPlaceWithAllocationContext(&s.sig, &c); e != nil {
 				return e
 			}
 		}
@@ -144,7 +144,7 @@ func (m *ArbitraryFloatManager) setExponentRationalWithPlainCaller(out *Arbitrar
 		return e
 	}
 	if modularSourceDebug {
-		if e := m.assertRationalSetNormalized(&s.sig, c); e != nil {
+		if e := m.assertRationalSetNormalized(&s.sig, &c); e != nil {
 			return e
 		}
 	}
@@ -156,22 +156,22 @@ func (m *ArbitraryFloatManager) setExponentRationalWithPlainCaller(out *Arbitrar
 	s.sq = NewRational()
 	s.sqLive = true
 	base := NewInt(2)
-	if e = m.integer.powerWithAllocationContext(&base, sbits+3-1, &s.p, nil, c); e != nil {
+	if e = m.integer.powerWithAllocationContext(&base, sbits+3-1, &s.p, nil, &c); e != nil {
 		return e
 	}
-	if e = m.rational.mulIntWithAllocationContext(&s.p, &s.sig, &s.t, c); e != nil {
+	if e = m.rational.mulIntWithAllocationContext(&s.p, &s.sig, &s.t, &c); e != nil {
 		return e
 	}
-	if e = m.rational.roundToIntWithAllocationContext(&s.t, &out.significand, false, c); e != nil {
+	if e = m.rational.roundToIntWithAllocationContext(&s.t, &out.significand, false, &c); e != nil {
 		return e
 	}
-	if e = m.rational.setIntegerWithAllocationContext(&s.sq, &out.significand, c); e != nil {
+	if e = m.rational.setIntegerWithAllocationContext(&s.sq, &out.significand, &c); e != nil {
 		return e
 	}
-	if e = m.rational.divIntWithAllocationContext(&s.sq, &s.p, &s.t, c); e != nil {
+	if e = m.rational.divIntWithAllocationContext(&s.sq, &s.p, &s.t, &c); e != nil {
 		return e
 	}
-	if e = m.rational.addSubWithAllocationContext(&s.sig, &s.t, &s.sig, true, c); e != nil {
+	if e = m.rational.addSubWithAllocationContext(&s.sig, &s.t, &s.sig, true, &c); e != nil {
 		return e
 	}
 	if s.sig.Num.Val != 0 {
@@ -181,7 +181,7 @@ func (m *ArbitraryFloatManager) setExponentRationalWithPlainCaller(out *Arbitrar
 		}
 		if even {
 			v := NewInt(1)
-			if e = m.integer.addSubWithAllocationContext(&out.significand, &v, &out.significand, false, c); e != nil {
+			if e = m.integer.addSubWithAllocationContext(&out.significand, &v, &out.significand, false, &c); e != nil {
 				return e
 			}
 		}
@@ -195,7 +195,7 @@ func (m *ArbitraryFloatManager) setExponentRationalWithPlainCaller(out *Arbitrar
 			return e
 		}
 		out.exponent = v
-		if e := m.roundWithParentContext(mode, out, &s.roundChild, s.allocationContext()); e != nil {
+		if e := m.roundWithParentContext(mode, out, &s.roundChild, numeralContextRef(s.allocationContext())); e != nil {
 			return e
 		}
 	} else if e := m.MkInf(ebits, sbits, out.Sign(), out); e != nil {
@@ -206,7 +206,7 @@ func (m *ArbitraryFloatManager) setExponentRationalWithPlainCaller(out *Arbitrar
 
 // Source: src/util/mpf.cpp:274. This helper retains the actual assertion
 // operands and short circuit; it adds no source construction or acquisition.
-func (m *ArbitraryFloatManager) assertRationalSetNormalized(sig *Rational, c integerAllocationInvocationContext) error {
+func (m *ArbitraryFloatManager) assertRationalSetNormalized(sig *Rational, c *integerAllocationInvocationContext) error {
 	if !modularSourceDebug {
 		return nil
 	}

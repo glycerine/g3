@@ -237,7 +237,7 @@ func (s *arbitraryFloatBinaryStringScope) run(x *ArbitraryFloat, upper, lower ui
 		return e
 	}
 	c := integerAllocationInvocationContext{Caller: &s.hooks}
-	if e := z.setInt64WithAllocationContext(&s.tmp, biased, c); e != nil {
+	if e := z.setInt64WithAllocationContext(&s.tmp, biased, &c); e != nil {
 		return e
 	}
 	if e := s.bits.Construct(m.budget, ""); e != nil {
@@ -262,7 +262,7 @@ func (s *arbitraryFloatBinaryStringScope) run(x *ArbitraryFloat, upper, lower ui
 	if e := s.bits.Assign(""); e != nil {
 		return e
 	}
-	if e := z.copyFromOwnerWithAllocationContext(&s.tmp, z, &x.significand, nil, c); e != nil {
+	if e := z.copyFromOwnerWithAllocationContext(&s.tmp, z, &x.significand, nil, &c); e != nil {
 		return e
 	}
 	numBits := upper + x.SBits() + lower

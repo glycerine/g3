@@ -84,9 +84,9 @@ func (m *ArbitraryFloatManager) MkMaxValue(ebits, sbits uint32, sign bool, out *
 	return m.copyValueSignificand(&out.significand, &source)
 }
 func (m *ArbitraryFloatManager) MkNaN(ebits, sbits uint32, out *ArbitraryFloat, receipt *ArbitraryFloatValueCopyReceipt) error {
-	return m.mkNaNWithSourceContext(ebits, sbits, out, receipt, integerAllocationInvocationContext{})
+	return m.mkNaNWithSourceContext(ebits, sbits, out, receipt, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *ArbitraryFloatManager) mkNaNWithSourceContext(ebits, sbits uint32, out *ArbitraryFloat, receipt *ArbitraryFloatValueCopyReceipt, c integerAllocationInvocationContext) (cause error) {
+func (m *ArbitraryFloatManager) mkNaNWithSourceContext(ebits, sbits uint32, out *ArbitraryFloat, receipt *ArbitraryFloatValueCopyReceipt, c *integerAllocationInvocationContext) (cause error) {
 	if e := m.valueGuard(out); e != nil {
 		return e
 	}
@@ -110,7 +110,7 @@ func (m *ArbitraryFloatManager) mkNaNWithSourceContext(ebits, sbits uint32, out 
 	if e = m.beginValueCopyBinding(receipt, m.integer); e != nil {
 		return e
 	}
-	m.valueBinding.conversionContext = c
+	m.valueBinding.conversionContext = *c
 	defer func() { m.finishValueCopyBinding(cause) }()
 	if e = m.copyValueSignificand(&out.significand, &source); e != nil {
 		return e

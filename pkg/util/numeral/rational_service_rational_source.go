@@ -47,10 +47,10 @@ func (s *RationalService) NewFromRationalOwnerWithInvocation(source *RationalMan
 	complete := false
 	defer s.endLexicalLocal(&result, &complete)
 	context := call.allocationContext()
-	if e = s.Manager.Z.copyFromOwnerWithAllocationContext(&result.Num, source.Z, &value.Num, nil, context); e != nil {
+	if e = s.Manager.Z.copyFromOwnerWithAllocationContext(&result.Num, source.Z, &value.Num, nil, &context); e != nil {
 		return
 	}
-	if e = s.Manager.Z.copyFromOwnerWithAllocationContext(&result.Den, source.Z, &value.Den, nil, context); e != nil {
+	if e = s.Manager.Z.copyFromOwnerWithAllocationContext(&result.Den, source.Z, &value.Den, nil, &context); e != nil {
 		return
 	}
 	complete = true

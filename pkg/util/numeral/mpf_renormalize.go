@@ -42,10 +42,10 @@ func (m *ArbitraryFloatManager) Renormalize(ebits, sbits uint32, exponent *int64
 		s.active = cause != nil || NumericAllocationPending(&s.numeric)
 		cause = JoinNumericErrors(cause, s.unbind())
 	}()
-	return m.renormalizeWithContext(ebits, sbits, exponent, sig, s.context())
+	return m.renormalizeWithContext(ebits, sbits, exponent, sig, numeralContextRef(s.context()))
 }
 
-func (m *ArbitraryFloatManager) renormalizeWithContext(ebits, sbits uint32, exponent *int64, sig *Int, context integerAllocationInvocationContext) error {
+func (m *ArbitraryFloatManager) renormalizeWithContext(ebits, sbits uint32, exponent *int64, sig *Int, context *integerAllocationInvocationContext) error {
 	z := m.integer
 	if context.Caller != nil && !context.Caller.callBound(true) {
 		return ErrNumericOwner

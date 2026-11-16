@@ -25,7 +25,9 @@ func TestArbitraryFloatRationalSetNormalizedSourceActions(t *testing.T) {
 			b := arena.NewBudget(1 << 25)
 			m, e := NewArbitraryFloatManager(serviceConfig(b).Integers)
 			serviceMust(t, e)
-			call := func() error { return m.assertRationalSetNormalized(&tc.sig, integerAllocationInvocationContext{}) }
+			call := func() error {
+				return m.assertRationalSetNormalized(&tc.sig, numeralContextRef(integerAllocationInvocationContext{}))
+			}
 			if e := call(); !isMPNVerificationThrow(e) {
 				t.Fatal("Throw at normalized significand assertion", e)
 			}
@@ -43,7 +45,7 @@ func TestArbitraryFloatRationalSetNormalizedSourceActions(t *testing.T) {
 			}
 			serviceMust(t, d.Close())
 			valid := Rational{Num: NewInt(3), Den: NewInt(2)}
-			if e := m.assertRationalSetNormalized(&valid, integerAllocationInvocationContext{}); !errors.Is(e, arena.ErrClosed) {
+			if e := m.assertRationalSetNormalized(&valid, numeralContextRef(integerAllocationInvocationContext{})); !errors.Is(e, arena.ErrClosed) {
 				t.Fatal("valid predicate reads closed assertion owner", e)
 			}
 			serviceMust(t, m.Close())

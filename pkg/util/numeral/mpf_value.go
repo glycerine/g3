@@ -93,7 +93,7 @@ func (m *ArbitraryFloatManager) EqCore(a, b *ArbitraryFloat) (bool, error) {
 
 func (m *ArbitraryFloatManager) copyValueSignificand(dst, src *Int) error {
 	old := m.valueCopy
-	e := m.integer.copyFromOwnerWithPhysicalFloatCaller(dst, m.integer, src, &m.valueCopy, integerAllocationInvocationContext{}, nil, &m.valueBinding)
+	e := m.integer.copyFromOwnerWithPhysicalFloatCaller(dst, m.integer, src, &m.valueCopy, numeralContextRef(integerAllocationInvocationContext{}), nil, &m.valueBinding)
 	m.acknowledgeValueCopyReturn(old)
 	return e
 }
@@ -147,12 +147,12 @@ func (m *ArbitraryFloatManager) CopyWithReceipt(out, source *ArbitraryFloat, rec
 	return m.copyWithValueReceipt(out, source, receipt)
 }
 func (m *ArbitraryFloatManager) copyWithValueReceipt(out, source *ArbitraryFloat, receipt *ArbitraryFloatValueCopyReceipt) error {
-	return m.copyWithValueReceiptAndContext(out, source, receipt, integerAllocationInvocationContext{})
+	return m.copyWithValueReceiptAndContext(out, source, receipt, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *ArbitraryFloatManager) copyWithValueReceiptAndContext(out, source *ArbitraryFloat, receipt *ArbitraryFloatValueCopyReceipt, context integerAllocationInvocationContext) error {
+func (m *ArbitraryFloatManager) copyWithValueReceiptAndContext(out, source *ArbitraryFloat, receipt *ArbitraryFloatValueCopyReceipt, context *integerAllocationInvocationContext) error {
 	return m.copyWithValueReceiptAndChain(out, source, receipt, context, nil)
 }
-func (m *ArbitraryFloatManager) copyWithValueReceiptAndChain(out, source *ArbitraryFloat, receipt *ArbitraryFloatValueCopyReceipt, context integerAllocationInvocationContext, chain *ArbitraryFloatValueCopyChain) (cause error) {
+func (m *ArbitraryFloatManager) copyWithValueReceiptAndChain(out, source *ArbitraryFloat, receipt *ArbitraryFloatValueCopyReceipt, context *integerAllocationInvocationContext, chain *ArbitraryFloatValueCopyChain) (cause error) {
 	if e := m.valueGuard(out); e != nil {
 		return e
 	}
@@ -164,7 +164,7 @@ func (m *ArbitraryFloatManager) copyWithValueReceiptAndChain(out, source *Arbitr
 	if e := m.beginValueCopyBinding(receipt, m.integer); e != nil {
 		return e
 	}
-	m.valueBinding.conversionContext = context
+	m.valueBinding.conversionContext = *context
 	m.valueBinding.chain = chain
 	defer func() { m.finishValueCopyBinding(cause) }()
 	out.format = source.format

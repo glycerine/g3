@@ -77,12 +77,12 @@ func (m *IntegerManager) setStringWithBeginCapture(out *Int, text string, frame 
 				}
 			}
 			s.stage = 1
-			if e := m.mulWithAllocationContext(out, &s.ten, &s.tmp, c); e != nil {
+			if e := m.mulWithAllocationContext(out, &s.ten, &s.tmp, &c); e != nil {
 				return e
 			}
 			digit := NewInt(int32(ch - '0'))
 			s.stage = 2
-			if e := m.addSubWithAllocationContext(&s.tmp, &digit, out, false, c); e != nil {
+			if e := m.addSubWithAllocationContext(&s.tmp, &digit, out, false, &c); e != nil {
 				return e
 			}
 		}
@@ -97,7 +97,7 @@ func (m *IntegerManager) setStringWithBeginCapture(out *Int, text string, frame 
 	s.tmpDelDone = true
 	s.stage = 4
 	if s.negative {
-		if e := m.negWithAllocationContext(out, c); e != nil {
+		if e := m.negWithAllocationContext(out, &c); e != nil {
 			return e
 		}
 	}

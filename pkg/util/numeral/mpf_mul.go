@@ -105,16 +105,16 @@ func (m *ArbitraryFloatManager) Mul(mode ArbitraryFloatRoundingMode, x, y, out *
 	}()
 	context := s.context()
 	z := m.integer
-	if e := m.copyWithValueReceiptAndContext(&s.a, x, &s.copyA, context); e != nil {
+	if e := m.copyWithValueReceiptAndContext(&s.a, x, &s.copyA, &context); e != nil {
 		return e
 	}
-	if e := m.copyWithValueReceiptAndContext(&s.b, y, &s.copyB, context); e != nil {
+	if e := m.copyWithValueReceiptAndContext(&s.b, y, &s.copyB, &context); e != nil {
 		return e
 	}
-	if e := m.unpackRationalNumeral(&s.a, true, context); e != nil {
+	if e := m.unpackRationalNumeral(&s.a, true, &context); e != nil {
 		return e
 	}
-	if e := m.unpackRationalNumeral(&s.b, true, context); e != nil {
+	if e := m.unpackRationalNumeral(&s.b, true, &context); e != nil {
 		return e
 	}
 	if e := m.traceFloatDebugValueChecked("mul", "A = ", &s.a, 640); e != nil {
@@ -134,7 +134,7 @@ func (m *ArbitraryFloatManager) Mul(mode ArbitraryFloatRoundingMode, x, y, out *
 	if e := m.traceFloatDebugIntChecked("mul", "B' = ", &s.b.significand, 646); e != nil {
 		return e
 	}
-	if e := z.mulWithAllocationContext(&s.a.significand, &s.b.significand, &out.significand, context); e != nil {
+	if e := z.mulWithAllocationContext(&s.a.significand, &s.b.significand, &out.significand, &context); e != nil {
 		return e
 	}
 	if e := m.traceFloatDebugValueChecked("mul", "PRODUCT = ", out, 650); e != nil {
@@ -146,11 +146,11 @@ func (m *ArbitraryFloatManager) Mul(mode ArbitraryFloatRoundingMode, x, y, out *
 		if e != nil {
 			return e
 		}
-		if e := z.machineDivRemWithAllocationContext(&out.significand, &p, &out.significand, &s.sticky, context); e != nil {
+		if e := z.machineDivRemWithAllocationContext(&out.significand, &p, &out.significand, &s.sticky, &context); e != nil {
 			return e
 		}
 	} else {
-		if e := z.shiftWithAllocationContext(&out.significand, 4-out.SBits(), &out.significand, true, context); e != nil {
+		if e := z.shiftWithAllocationContext(&out.significand, 4-out.SBits(), &out.significand, true, &context); e != nil {
 			return e
 		}
 	}
@@ -165,10 +165,10 @@ func (m *ArbitraryFloatManager) Mul(mode ArbitraryFloatRoundingMode, x, y, out *
 		}
 		if even {
 			one := NewInt(1)
-			if e := z.addSubWithAllocationContext(&out.significand, &one, &out.significand, false, context); e != nil {
+			if e := z.addSubWithAllocationContext(&out.significand, &one, &out.significand, false, &context); e != nil {
 				return e
 			}
 		}
 	}
-	return m.roundWithParentContext(mode, out, &s.roundReceipt, context)
+	return m.roundWithParentContext(mode, out, &s.roundReceipt, &context)
 }

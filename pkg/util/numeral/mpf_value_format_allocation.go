@@ -4,7 +4,7 @@ package numeral
 
 import umemory "github.com/glycerine/g3/pkg/util/memory"
 
-func (c integerAllocationInvocationContext) formatFrame(z *IntegerManager, executing bool) *ArbitraryFloatFormatInvocation {
+func (c *integerAllocationInvocationContext) formatFrame(z *IntegerManager, executing bool) *ArbitraryFloatFormatInvocation {
 	s := c.mpfFormat
 	if z == nil || z.self != z || s == nil || z.MpfParent == nil || !z.MpfParent.MatchesFormatFrame(s) || s.manager.integer != z || c.mpfFormatInvocation == 0 || c.mpfFormatInvocation != s.invocation {
 		return nil
@@ -20,9 +20,9 @@ func (c integerAllocationInvocationContext) formatFrame(z *IntegerManager, execu
 func (s *ArbitraryFloatFormatInvocation) allocationContext() integerAllocationInvocationContext {
 	return integerAllocationInvocationContext{mpfFormat: s, mpfFormatInvocation: s.invocation}
 }
-func (c integerAllocationInvocationContext) recordFormatRaw(z *IntegerManager, r *integerRawInvocationReceipt) {
+func (c *integerAllocationInvocationContext) recordFormatRaw(z *IntegerManager, r *integerRawInvocationReceipt) {
 	if s := c.formatFrame(z, true); s != nil {
-		r.Frame.formatContext = c
+		r.Frame.formatContext = *c
 		if c.formatDecimal != nil {
 			c.formatDecimal.division = *r
 			return

@@ -24,7 +24,7 @@ func TestArbitraryFloatExponentRationalSetAssertionHelperPrefix(t *testing.T) {
 	d := make([]uint32, 21)
 	d[0], d[20] = 3, 1
 	serviceMust(t, m.integer.SetLimbs(&q.Den, d))
-	if e = m.assertRationalSetNormalized(&q, integerAllocationInvocationContext{}); !isMPNVerificationThrow(e) {
+	if e = m.assertRationalSetNormalized(&q, numeralContextRef(integerAllocationInvocationContext{})); !isMPNVerificationThrow(e) {
 		t.Fatal(e)
 	}
 	cmp, e := m.integer.Compare(&m.rational.LtTmp1.Num, &q.Den)

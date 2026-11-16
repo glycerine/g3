@@ -39,7 +39,7 @@ func TestArbitraryFloatUnpackEntryTracePreMutationClasses(t *testing.T) {
 		var x ArbitraryFloat
 		tc.build(&x)
 		output.Reset()
-		serviceMust(t, m.unpackRationalNumeral(&x, tc.normalize, integerAllocationInvocationContext{}))
+		serviceMust(t, m.unpackRationalNumeral(&x, tc.normalize, numeralContextRef(integerAllocationInvocationContext{})))
 		got := output.String()
 		if !compiled {
 			if got != "" {
@@ -68,12 +68,12 @@ func TestArbitraryFloatUnpackTraceRefusalBeforeMutation(t *testing.T) {
 	serviceMust(t, m.MkOne(8, 24, false, &x))
 	before := x
 	budget.FailAfter(0)
-	e := m.unpackRationalNumeral(&x, true, integerAllocationInvocationContext{})
+	e := m.unpackRationalNumeral(&x, true, numeralContextRef(integerAllocationInvocationContext{}))
 	budget.FailAfter(-1)
 	if !errors.Is(e, arena.ErrInjectedFailure) || x != before || !strings.Contains(output.String(), "unpack src/util/mpf.cpp:1923 ---------\nunpack ") {
 		t.Fatalf("unpack entry formatter refusal changed input: %v, %#v, %q", e, x, output.String())
 	}
-	serviceMust(t, m.unpackRationalNumeral(&x, true, integerAllocationInvocationContext{}))
+	serviceMust(t, m.unpackRationalNumeral(&x, true, numeralContextRef(integerAllocationInvocationContext{})))
 	serviceMust(t, m.Del(&x))
 }
 
@@ -99,7 +99,7 @@ func TestArbitraryFloatUnpackSourceInsertionBoundaries(t *testing.T) {
 			tags := diagnostic.NewTraceTagsWithWriter(w)
 			tags.Enable("mpf_dbg")
 			serviceMust(t, m.BindTrace(tags))
-			serviceMust(t, m.unpackRationalNumeral(&x, tc.normalize == "1", integerAllocationInvocationContext{}))
+			serviceMust(t, m.unpackRationalNumeral(&x, tc.normalize == "1", numeralContextRef(integerAllocationInvocationContext{})))
 			if tags.ShouldTrace("mpf_dbg") {
 				foundValue := false
 				for i := 0; i+2 < len(w.parts); i++ {

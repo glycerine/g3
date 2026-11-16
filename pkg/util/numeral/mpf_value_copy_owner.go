@@ -27,7 +27,7 @@ func (m *ArbitraryFloatManager) CopyFromOwner(out *ArbitraryFloat, sourceManager
 	out.format = source.format
 	out.exponent = source.exponent
 	old := m.valueCopy
-	cause = m.integer.copyFromOwnerWithPhysicalFloatCaller(&out.significand, sourceManager.integer, &source.significand, &m.valueCopy, integerAllocationInvocationContext{}, nil, &m.valueBinding)
+	cause = m.integer.copyFromOwnerWithPhysicalFloatCaller(&out.significand, sourceManager.integer, &source.significand, &m.valueCopy, numeralContextRef(integerAllocationInvocationContext{}), nil, &m.valueBinding)
 	m.acknowledgeValueCopyReturn(old)
 	return cause
 }

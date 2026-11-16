@@ -32,7 +32,7 @@ func (m *ArbitraryFloatManager) SetFractionSigned(out *ArbitraryFloat, ebits, sb
 		}
 	}()
 	c := integerAllocationInvocationContext{Caller: &s.hooks}
-	if e := m.rational.setFractionSignedSourceWithAllocationContext(&s.q, n, d, c); e != nil {
+	if e := m.rational.setFractionSignedSourceWithAllocationContext(&s.q, n, d, &c); e != nil {
 		return e
 	}
 	// Completed normalization adapters must be joined before conversion reuses

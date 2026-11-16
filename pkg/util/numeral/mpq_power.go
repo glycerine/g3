@@ -6,12 +6,12 @@ package numeral
 // Unlike integer Power it has no 0/1/2 fast paths. Nonterminating source mask
 // inputs fail only at their actual mask wrap, retaining completed publications.
 func (m *RationalManager) Power(a *Rational, p uint32, out *Rational) error {
-	return m.powerWithAllocationContext(a, p, out, integerAllocationInvocationContext{})
+	return m.powerWithAllocationContext(a, p, out, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *RationalManager) powerWithAllocationContext(a *Rational, p uint32, out *Rational, context integerAllocationInvocationContext) (_rawErr error) {
+func (m *RationalManager) powerWithAllocationContext(a *Rational, p uint32, out *Rational, context *integerAllocationInvocationContext) (_rawErr error) {
 	return m.powerWithAllocationContextAndReceipt(a, p, out, context, nil)
 }
-func (m *RationalManager) powerWithAllocationContextAndReceipt(a *Rational, p uint32, out *Rational, context integerAllocationInvocationContext, receipt *RationalPowerInvocationReceipt) (_rawErr error) {
+func (m *RationalManager) powerWithAllocationContextAndReceipt(a *Rational, p uint32, out *Rational, context *integerAllocationInvocationContext, receipt *RationalPowerInvocationReceipt) (_rawErr error) {
 	if e := m.checkScalarValue(a); e != nil {
 		return e
 	}

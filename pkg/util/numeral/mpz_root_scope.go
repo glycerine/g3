@@ -202,8 +202,8 @@ func (m *IntegerManager) endRootRawScope() error {
 
 // Caller capture changes only ownership of unpublished allocation prefixes.
 // The actual Root/Power raw numerals and original algorithms remain unchanged.
-func (m *IntegerManager) rootRawCallWithContext(op uint8, a, b, out *Int, context integerAllocationInvocationContext) error {
-	if context == (integerAllocationInvocationContext{}) {
+func (m *IntegerManager) rootRawCallWithContext(op uint8, a, b, out *Int, context *integerAllocationInvocationContext) error {
+	if *context == (integerAllocationInvocationContext{}) {
 		return m.rootRawCall(op, a, b, out)
 	}
 	switch op {

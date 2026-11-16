@@ -220,7 +220,7 @@ func TestArbitraryFloatPowerContextRejectsIdleCopiedAndStaleReceipts(t *testing.
 	} {
 		out, e := w.Capture()
 		serviceMust(t, e)
-		call := m.integer.powerWithPhysicalAllocationContext(&two, 100, &out, nil, c, w.receiver())
+		call := m.integer.powerWithPhysicalAllocationContext(&two, 100, &out, nil, &c, w.receiver())
 		if call != ErrNumericCallerOwner {
 			t.Fatal("invalid source receipt accepted", call)
 		}

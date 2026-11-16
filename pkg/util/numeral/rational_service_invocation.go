@@ -353,7 +353,7 @@ func (s *RationalService) CopyWithInvocation(dst, src *OwnedRational, c *Rationa
 		return e
 	}
 	defer s.endLexicalError(&e)
-	return s.copyLockedWithContext(dst, src, c.allocationContext())
+	return s.copyLockedWithContext(dst, src, numeralContextRef(c.allocationContext()))
 }
 
 // Source: src/util/rational.h:242-244; src/util/mpq.h:201;
@@ -378,7 +378,7 @@ func (s *RationalService) NegAssignWithInvocation(a *OwnedRational, c *RationalS
 		return e
 	}
 	defer s.endLexicalError(&e)
-	return s.Manager.negWithSourceContext(&a.Raw, c.allocationContext())
+	return s.Manager.negWithSourceContext(&a.Raw, numeralContextRef(c.allocationContext()))
 }
 
 // Same source compound operator; the caller's NUM is the physical receiver.
@@ -417,9 +417,9 @@ func (s *RationalService) compoundWithInvocation(a, b *OwnedRational, c *Rationa
 		return
 	}
 	if op == rationalFacadeMul {
-		e = s.Manager.mulWithAllocationContext(&a.Raw, &b.Raw, &a.Raw, c.allocationContext())
+		e = s.Manager.mulWithAllocationContext(&a.Raw, &b.Raw, &a.Raw, numeralContextRef(c.allocationContext()))
 	} else {
-		e = s.Manager.addSubWithAllocationContext(&a.Raw, &b.Raw, &a.Raw, op == rationalFacadeSub, c.allocationContext())
+		e = s.Manager.addSubWithAllocationContext(&a.Raw, &b.Raw, &a.Raw, op == rationalFacadeSub, numeralContextRef(c.allocationContext()))
 	}
 	if cause := c.childSource(); cause != nil {
 		if s.Lexical.Cause == nil {
@@ -479,7 +479,7 @@ func (s *RationalService) SetIntegerFromOwnerWithInvocation(out *OwnedRational, 
 			source.rationalServiceRead = nil
 		}
 	}()
-	return s.Manager.setIntegerFromOwnerWithAllocationContext(&out.Raw, source, n, c.allocationContext())
+	return s.Manager.setIntegerFromOwnerWithAllocationContext(&out.Raw, source, n, numeralContextRef(c.allocationContext()))
 }
 
 // Lifetime exclusion only: this exact borrowed source is protected solely
@@ -511,7 +511,7 @@ func (s *RationalService) SetInt64WithInvocation(out *OwnedRational, n int64, c 
 		return e
 	}
 	defer s.endLexicalError(&e)
-	return s.Manager.setInt64WithAllocationContext(&out.Raw, n, c.allocationContext())
+	return s.Manager.setInt64WithAllocationContext(&out.Raw, n, numeralContextRef(c.allocationContext()))
 }
 
 // Source: src/util/rational.h:48; src/util/mpq.h:712-715.
@@ -533,7 +533,7 @@ func (s *RationalService) SetUnsignedWithInvocation(out *OwnedRational, n uint32
 		return e
 	}
 	defer s.endLexicalError(&e)
-	return s.Manager.setUnsignedWithAllocationContext(&out.Raw, n, c.allocationContext())
+	return s.Manager.setUnsignedWithAllocationContext(&out.Raw, n, numeralContextRef(c.allocationContext()))
 }
 
 // Source: src/util/rational.h:65; src/util/mpq.h:set.
@@ -555,7 +555,7 @@ func (s *RationalService) SetUint64WithInvocation(out *OwnedRational, n uint64, 
 		return e
 	}
 	defer s.endLexicalError(&e)
-	return s.Manager.setUint64WithAllocationContext(&out.Raw, n, c.allocationContext())
+	return s.Manager.setUint64WithAllocationContext(&out.Raw, n, numeralContextRef(c.allocationContext()))
 }
 
 // Source: src/util/rational.h:198-200; src/util/mpq.h:549-553.
@@ -581,7 +581,7 @@ func (s *RationalService) ModIntoWithInvocation(a, b, out *OwnedRational, c *Rat
 		return e
 	}
 	defer s.endLexicalError(&e)
-	e = s.Manager.modWithAllocationContext(&a.Raw, &b.Raw, &out.Raw, c.allocationContext())
+	e = s.Manager.modWithAllocationContext(&a.Raw, &b.Raw, &out.Raw, numeralContextRef(c.allocationContext()))
 	if cause := c.childSource(); cause != nil {
 		if s.Lexical.Cause == nil {
 			s.Lexical.Cause = cause
@@ -614,7 +614,7 @@ func (s *RationalService) IDivIntoWithInvocation(a, b, out *OwnedRational, c *Ra
 		return e
 	}
 	defer s.endLexicalError(&e)
-	e = s.Manager.integerOpRationalWithAllocationContext(&a.Raw, &b.Raw, &out.Raw, qIntegerDiv, c.allocationContext())
+	e = s.Manager.integerOpRationalWithAllocationContext(&a.Raw, &b.Raw, &out.Raw, qIntegerDiv, numeralContextRef(c.allocationContext()))
 	if cause := c.childSource(); cause != nil {
 		if s.Lexical.Cause == nil {
 			s.Lexical.Cause = cause
@@ -677,7 +677,7 @@ func (s *RationalService) RemAssignWithInvocation(a, b *OwnedRational, c *Ration
 		return e
 	}
 	defer s.endLexicalError(&e)
-	e = s.Manager.integerOpRationalWithAllocationContext(&a.Raw, &b.Raw, &a.Raw, qIntegerRem, c.allocationContext())
+	e = s.Manager.integerOpRationalWithAllocationContext(&a.Raw, &b.Raw, &a.Raw, qIntegerRem, numeralContextRef(c.allocationContext()))
 	if cause := c.childSource(); cause != nil {
 		if s.Lexical.Cause == nil {
 			s.Lexical.Cause = cause

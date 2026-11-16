@@ -23,17 +23,20 @@ type integerDividesNumeralInvocationReceipt struct {
 }
 
 func (m *IntegerManager) BeginDividesNumeralInvocation(parent integerAllocationInvocationContext) (*integerDividesNumeralInvocationReceipt, error) {
+	return m.beginDividesNumeralInvocation(&parent)
+}
+func (m *IntegerManager) beginDividesNumeralInvocation(parent *integerAllocationInvocationContext) (*integerDividesNumeralInvocationReceipt, error) {
 	if m == nil || m.self != m || m.closed || m.SourceFinalizing || m.constructionFailed {
 		return nil, ErrNumericOwner
 	}
-	if parent != (integerAllocationInvocationContext{}) && parent.roots(m) == nil {
+	if *parent != (integerAllocationInvocationContext{}) && parent.roots(m) == nil {
 		return nil, ErrNumericOwner
 	}
 	s := &m.DividesNumeral
 	if s.Active || s.Invocation == ^uint64(0) {
 		return nil, ErrNumericPending
 	}
-	*s = integerDividesNumeralScope{owner: m, Invocation: s.Invocation + 1, Active: true, Executing: true, Constructed: true, ParentContext: parent}
+	*s = integerDividesNumeralScope{owner: m, Invocation: s.Invocation + 1, Active: true, Executing: true, Constructed: true, ParentContext: *parent}
 	s.Receipt = integerDividesNumeralInvocationReceipt{Manager: m, Frame: s, Invocation: s.Invocation}
 	parent.recordCaller(m, "divides", NumericInvocationReceipt{Divides: &s.Receipt})
 	return &s.Receipt, nil
@@ -55,7 +58,7 @@ func (m *IntegerManager) matchesDividesNumeralHistory(r *integerDividesNumeralIn
 func (m *IntegerManager) MatchesDividesNumeralInvocation(r *integerDividesNumeralInvocationReceipt) bool {
 	return m.matchesDividesNumeralHistory(r) && r.Frame.Active
 }
-func (m *IntegerManager) dividesNumeralContextRoots(c integerAllocationInvocationContext) *NumericAllocationRoots {
+func (m *IntegerManager) dividesNumeralContextRoots(c *integerAllocationInvocationContext) *NumericAllocationRoots {
 	r := c.BoolDivides
 	if c.BoolDividesInvocation == 0 || r == nil || c.BoolDividesInvocation != r.Invocation || !m.MatchesDividesNumeralInvocation(r) || !r.Frame.Executing || m.closed || m.SourceFinalizing || m.constructionFailed {
 		return nil

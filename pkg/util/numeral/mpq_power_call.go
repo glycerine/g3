@@ -125,5 +125,5 @@ func (m *RationalManager) PowerWithInvocation(a *Rational, exponent uint32, out 
 	context := NumericAllocationContext{}.WithCaller(&r.hooks)
 	context.rationalPower = r
 	defer func() { r.executing = false }()
-	return m.powerWithAllocationContextAndReceipt(a, exponent, out, context, &r.power)
+	return m.powerWithAllocationContextAndReceipt(a, exponent, out, &context, &r.power)
 }

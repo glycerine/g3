@@ -171,9 +171,9 @@ func (s *RationalService) Copy(dst, src *OwnedRational) error {
 	defer s.mu.Unlock()
 	atomic.StoreUint32(&s.sourceRuntimeExecuting, 1)
 	defer atomic.StoreUint32(&s.sourceRuntimeExecuting, 0)
-	return s.copyLockedWithContext(dst, src, integerAllocationInvocationContext{})
+	return s.copyLockedWithContext(dst, src, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (s *RationalService) copyLockedWithContext(dst, src *OwnedRational, context integerAllocationInvocationContext) error {
+func (s *RationalService) copyLockedWithContext(dst, src *OwnedRational, context *integerAllocationInvocationContext) error {
 	if e := s.rationalScalarOwner(dst); e != nil {
 		return e
 	}
@@ -334,7 +334,7 @@ func (s *RationalService) copyOutputWithInvocation(raw *Rational, c *RationalSer
 	}
 	defer s.endLexicalRational(&_lexOut, &_lexErr)
 	v := OwnedRational{Raw: NewRational(), ownerID: s.ownerID}
-	if e := s.Manager.copyWithAllocationContext(&v.Raw, raw, c.allocationContext()); e != nil {
+	if e := s.Manager.copyWithAllocationContext(&v.Raw, raw, numeralContextRef(c.allocationContext())); e != nil {
 		s.abortLexicalRational(&v.Raw)
 		return OwnedRational{}, e
 	}
@@ -370,7 +370,7 @@ func (s *RationalService) pushCacheWithInvocation(v *Rational, c *RationalServic
 	}
 	defer s.endLexicalError(&_lexErr)
 	item := NewRational()
-	if e := s.Manager.copyWithAllocationContext(&item, v, c.allocationContext()); e != nil {
+	if e := s.Manager.copyWithAllocationContext(&item, v, numeralContextRef(c.allocationContext())); e != nil {
 		s.abortLexicalRational(&item)
 		return e
 	}
@@ -397,7 +397,7 @@ func (s *RationalService) fillPowerWithInvocation(n uint32, c *RationalServiceIn
 	defer s.endLexicalLocal(&curr, &currComplete)
 	twoComplete := false
 	defer s.endLexicalLocal(&two, &twoComplete)
-	if e := s.Manager.copyWithAllocationContext(&curr, &s.Cache[size-1], c.allocationContext()); e != nil {
+	if e := s.Manager.copyWithAllocationContext(&curr, &s.Cache[size-1], numeralContextRef(c.allocationContext())); e != nil {
 		return e
 	}
 	currComplete = true
@@ -406,7 +406,7 @@ func (s *RationalService) fillPowerWithInvocation(n uint32, c *RationalServiceIn
 	}
 	twoComplete = true
 	for i := size; i <= n; i++ {
-		if e := s.Manager.mulWithAllocationContext(&curr, &two, &curr, c.allocationContext()); e != nil {
+		if e := s.Manager.mulWithAllocationContext(&curr, &two, &curr, numeralContextRef(c.allocationContext())); e != nil {
 			return e
 		}
 		if e := s.pushCacheWithInvocation(&curr, c); e != nil {
@@ -445,7 +445,7 @@ func (s *RationalService) powerOfTwoLockedWithInvocation(k uint32, c *RationalSe
 			return OwnedRational{}, e
 		}
 	}
-	if e := s.Manager.copyWithAllocationContext(&result, &s.Cache[k], c.allocationContext()); e != nil {
+	if e := s.Manager.copyWithAllocationContext(&result, &s.Cache[k], numeralContextRef(c.allocationContext())); e != nil {
 		return OwnedRational{}, e
 	}
 	return s.facadeTakeLocked(&result)

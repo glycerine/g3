@@ -10,14 +10,14 @@ func (c *RationalServiceInvocation) allocationContext() integerAllocationInvocat
 	}
 	return integerAllocationInvocationContext{rationalService: c, rationalServiceInvocation: c.invocation}
 }
-func (c integerAllocationInvocationContext) rationalServiceFrame(z *IntegerManager) *RationalServiceInvocation {
+func (c *integerAllocationInvocationContext) rationalServiceFrame(z *IntegerManager) *RationalServiceInvocation {
 	s := c.rationalService
 	if z == nil || z.self != z || s == nil || !s.valid() || s.manager == nil || s.integer != z || s.manager.Z != z || s.service.Manager != s.manager || c.rationalServiceInvocation == 0 || c.rationalServiceInvocation != s.invocation || !s.executing || s.service.lexicalExecuting != s || z.Memory.FailureTransportActive() {
 		return nil
 	}
 	return s
 }
-func (z *IntegerManager) captureRationalServiceAllocationOutcome(c integerAllocationInvocationContext, backing SourceCellBacking, out *umemory.SmallAllocatorAllocationOutcome) error {
+func (z *IntegerManager) captureRationalServiceAllocationOutcome(c *integerAllocationInvocationContext, backing SourceCellBacking, out *umemory.SmallAllocatorAllocationOutcome) error {
 	s := c.rationalServiceFrame(z)
 	if s == nil || c.raw != nil {
 		return nil
@@ -64,9 +64,9 @@ func (c *RationalServiceInvocation) childSource() error {
 	}
 	return nil
 }
-func (c integerAllocationInvocationContext) recordRationalServiceRaw(z *IntegerManager, r *integerRawInvocationReceipt) {
+func (c *integerAllocationInvocationContext) recordRationalServiceRaw(z *IntegerManager, r *integerRawInvocationReceipt) {
 	if s := c.rationalServiceFrame(z); s != nil {
-		r.Frame.formatContext = c
+		r.Frame.formatContext = *c
 		switch r.Frame {
 		case &z.BitwiseNotRaw:
 			s.bitwiseNot = *r

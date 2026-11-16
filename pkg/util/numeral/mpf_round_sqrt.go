@@ -112,7 +112,7 @@ func (m *ArbitraryFloatManager) RoundSqrtWithReceipt(mode ArbitraryFloatRounding
 	m.traceRoundSqrtDecision(last, round, sticky, inc)
 	if inc {
 		one := NewInt(1)
-		if e = z.addSubWithAllocationContext(&x.significand, &one, &x.significand, false, c); e != nil {
+		if e = z.addSubWithAllocationContext(&x.significand, &one, &x.significand, false, &c); e != nil {
 			return e
 		}
 	}
@@ -120,5 +120,5 @@ func (m *ArbitraryFloatManager) RoundSqrtWithReceipt(mode ArbitraryFloatRounding
 	if e != nil {
 		return e
 	}
-	return z.addSubWithAllocationContext(&x.significand, &p, &x.significand, true, c)
+	return z.addSubWithAllocationContext(&x.significand, &p, &x.significand, true, &c)
 }

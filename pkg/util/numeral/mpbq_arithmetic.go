@@ -6,9 +6,9 @@ package numeral
 func (m *BinaryRationalManager) Add(a, b, r *BinaryRational) error { return m.addSub(a, b, r, false) }
 func (m *BinaryRationalManager) Sub(a, b, r *BinaryRational) error { return m.addSub(a, b, r, true) }
 func (m *BinaryRationalManager) addSub(a, b, r *BinaryRational, sub bool) (err error) {
-	return m.addSubWithAllocationContext(a, b, r, sub, integerAllocationInvocationContext{})
+	return m.addSubWithAllocationContext(a, b, r, sub, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *BinaryRationalManager) addSubWithAllocationContext(a, b, r *BinaryRational, sub bool, context integerAllocationInvocationContext) (err error) {
+func (m *BinaryRationalManager) addSubWithAllocationContext(a, b, r *BinaryRational, sub bool, context *integerAllocationInvocationContext) (err error) {
 	if e := m.triple(a, b, r); e != nil {
 		return e
 	}
@@ -166,9 +166,9 @@ func (m *BinaryRationalManager) Mul(a, b, r *BinaryRational) (err error) {
 	return m.debugArithmetic(&da, &db, r, 2, 0)
 }
 func (m *BinaryRationalManager) MulInteger(a *BinaryRational, b *Int, r *BinaryRational) (err error) {
-	return m.mulIntegerWithAllocationContext(a, b, r, integerAllocationInvocationContext{})
+	return m.mulIntegerWithAllocationContext(a, b, r, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *BinaryRationalManager) mulIntegerWithAllocationContext(a *BinaryRational, b *Int, r *BinaryRational, context integerAllocationInvocationContext) (err error) {
+func (m *BinaryRationalManager) mulIntegerWithAllocationContext(a *BinaryRational, b *Int, r *BinaryRational, context *integerAllocationInvocationContext) (err error) {
 	if e := m.pair(a, r); e != nil {
 		return e
 	}
@@ -193,7 +193,7 @@ func (m *BinaryRationalManager) mulIntegerWithAllocationContext(a *BinaryRationa
 			err = cleanup
 		}
 	}()
-	if e = m.Z.WithAllocationContext(context).Mul(&a.Num, b, &r.Num); e != nil {
+	if e = m.Z.WithAllocationContext(*context).Mul(&a.Num, b, &r.Num); e != nil {
 		return e
 	}
 	r.KField = a.KField
@@ -227,18 +227,18 @@ func (m *BinaryRationalManager) AddMulInteger(a *BinaryRational, b *Int, c, r *B
 	return m.Add(a, &m.AddMulTmp, r)
 }
 func (m *BinaryRationalManager) Neg(a *BinaryRational) error {
-	return m.negWithSourceContext(a, integerAllocationInvocationContext{})
+	return m.negWithSourceContext(a, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *BinaryRationalManager) negWithSourceContext(a *BinaryRational, context integerAllocationInvocationContext) error {
+func (m *BinaryRationalManager) negWithSourceContext(a *BinaryRational, context *integerAllocationInvocationContext) error {
 	if e := m.check(a); e != nil {
 		return e
 	}
 	return m.Z.negWithAllocationContext(&a.Num, context)
 }
 func (m *BinaryRationalManager) Div2(a *BinaryRational) error {
-	return m.div2WithAllocationContext(a, integerAllocationInvocationContext{})
+	return m.div2WithAllocationContext(a, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *BinaryRationalManager) div2WithAllocationContext(a *BinaryRational, context integerAllocationInvocationContext) error {
+func (m *BinaryRationalManager) div2WithAllocationContext(a *BinaryRational, context *integerAllocationInvocationContext) error {
 	if e := m.check(a); e != nil {
 		return e
 	}
@@ -363,9 +363,9 @@ func (m *BinaryRationalManager) NotEqualInteger(a *BinaryRational, b *Int) (bool
 	return !v, nil
 }
 func (m *BinaryRationalManager) compareInteger(a *BinaryRational, b *Int, le bool) (bool, error) {
-	return m.compareIntegerWithAllocationContext(a, b, le, integerAllocationInvocationContext{}, nil)
+	return m.compareIntegerWithAllocationContext(a, b, le, numeralContextRef(integerAllocationInvocationContext{}), nil)
 }
-func (m *BinaryRationalManager) compareIntegerWithAllocationContext(a *BinaryRational, b *Int, le bool, context integerAllocationInvocationContext, receipt *IntegerCopyAllocationReceipt) (bool, error) {
+func (m *BinaryRationalManager) compareIntegerWithAllocationContext(a *BinaryRational, b *Int, le bool, context *integerAllocationInvocationContext, receipt *IntegerCopyAllocationReceipt) (bool, error) {
 	if e := m.check(a); e != nil {
 		return false, e
 	}
@@ -405,9 +405,9 @@ func (m *BinaryRationalManager) GreaterEqualInteger(a *BinaryRational, b *Int) (
 	return !v, nil
 }
 func (m *BinaryRationalManager) compareRational(a *BinaryRational, qm *RationalManager, b *Rational, op uint8) (result bool, err error) {
-	return m.compareRationalWithAllocationContext(a, qm, b, op, integerAllocationInvocationContext{}, nil)
+	return m.compareRationalWithAllocationContext(a, qm, b, op, numeralContextRef(integerAllocationInvocationContext{}), nil)
 }
-func (m *BinaryRationalManager) compareRationalWithAllocationContext(a *BinaryRational, qm *RationalManager, b *Rational, op uint8, context integerAllocationInvocationContext, receipt *IntegerCopyAllocationReceipt) (result bool, err error) {
+func (m *BinaryRationalManager) compareRationalWithAllocationContext(a *BinaryRational, qm *RationalManager, b *Rational, op uint8, context *integerAllocationInvocationContext, receipt *IntegerCopyAllocationReceipt) (result bool, err error) {
 	if e := m.check(a); e != nil {
 		return false, e
 	}
@@ -434,12 +434,12 @@ func (m *BinaryRationalManager) compareRationalWithAllocationContext(a *BinaryRa
 			if e = m.Z.shiftWithAllocationContextAndReceipt(&q.Num, a.KField, &m.Tmp, true, context, receipt); e != nil {
 				return false, e
 			}
-			if e = m.Z.WithAllocationContext(context).Mul(&a.Num, &q.Den, &m.Tmp2); e != nil {
+			if e = m.Z.WithAllocationContext(*context).Mul(&a.Num, &q.Den, &m.Tmp2); e != nil {
 				return false, e
 			}
 			x, y = &m.Tmp, &m.Tmp2
 		} else {
-			if e = m.Z.WithAllocationContext(context).Mul(&a.Num, &q.Den, &m.Tmp); e != nil {
+			if e = m.Z.WithAllocationContext(*context).Mul(&a.Num, &q.Den, &m.Tmp); e != nil {
 				return false, e
 			}
 			if e = m.Z.shiftWithAllocationContextAndReceipt(&q.Num, a.KField, &m.Tmp2, true, context, receipt); e != nil {
@@ -546,9 +546,9 @@ func (m *BinaryRationalManager) magnitudeUpper(a *BinaryRational) (int32, error)
 	return int32(v - a.KField), e
 }
 func (m *BinaryRationalManager) LessOneDiv2k(a *BinaryRational, k uint32) (bool, error) {
-	return m.lessOneDiv2kWithAllocationContext(a, k, integerAllocationInvocationContext{})
+	return m.lessOneDiv2kWithAllocationContext(a, k, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *BinaryRationalManager) lessOneDiv2kWithAllocationContext(a *BinaryRational, k uint32, context integerAllocationInvocationContext) (bool, error) {
+func (m *BinaryRationalManager) lessOneDiv2kWithAllocationContext(a *BinaryRational, k uint32, context *integerAllocationInvocationContext) (bool, error) {
 	if e := m.check(a); e != nil {
 		return false, e
 	}

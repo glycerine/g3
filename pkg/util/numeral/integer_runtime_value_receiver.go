@@ -64,5 +64,5 @@ func (r *integerRuntimeValueReceiver) publishCell(a *Int) error {
 	return r.runtime.WriteUint32(r.block, r.offset+8, uint32(uint64(a.Cell)>>32))
 }
 func (m *IntegerManager) copyFromOwnerWithPhysicalReceipt(dst *Int, sourceManager *IntegerManager, src *Int, receipt *integerCopyAllocationReceipt, receiver *integerRuntimeValueReceiver) error {
-	return m.copyFromOwnerWithPhysicalAllocationContext(dst, sourceManager, src, receipt, integerAllocationInvocationContext{}, receiver)
+	return m.copyFromOwnerWithPhysicalAllocationContext(dst, sourceManager, src, receipt, numeralContextRef(integerAllocationInvocationContext{}), receiver)
 }

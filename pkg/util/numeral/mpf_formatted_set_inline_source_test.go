@@ -32,7 +32,7 @@ func TestArbitraryFloatFormattedSetInlineZeroAfterRetainedUnpackLeaf(t *testing.
 			}
 			oldContext := m.formattedSet.allocationContext()
 			copiedScope := m.formattedSet
-			if (integerAllocationInvocationContext{mpfFormattedSet: &copiedScope, mpfFormattedSetInvocation: copiedScope.invocation}).formattedSetFrame(m.integer, false) != nil || m.formattedRoundSourceCause(&copiedScope) != umemory.ErrRuntimeOwner || m.formattedRoundCleanup(&copiedScope, true) != umemory.ErrRuntimeOwner {
+			if numeralContextRef((integerAllocationInvocationContext{mpfFormattedSet: &copiedScope, mpfFormattedSetInvocation: copiedScope.invocation})).formattedSetFrame(m.integer, false) != nil || m.formattedRoundSourceCause(&copiedScope) != umemory.ErrRuntimeOwner || m.formattedRoundCleanup(&copiedScope, true) != umemory.ErrRuntimeOwner {
 				t.Fatal("copied actual scope authority")
 			}
 			copiedHistory := *old

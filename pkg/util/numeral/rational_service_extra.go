@@ -121,7 +121,7 @@ func (s *RationalService) extraBinaryLockedWithInvocation(a, b *OwnedRational, o
 	if op == 0 {
 		e = s.Manager.LCM(&a.Raw, &b.Raw, &result)
 	} else {
-		e = s.Manager.rationalBitwiseWithAllocationContext(&a.Raw, &b.Raw, &result, op-1, c.allocationContext())
+		e = s.Manager.rationalBitwiseWithAllocationContext(&a.Raw, &b.Raw, &result, op-1, numeralContextRef(c.allocationContext()))
 	}
 	if cause := c.childSource(); cause != nil {
 		if s.Lexical.Cause == nil {

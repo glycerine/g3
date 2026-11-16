@@ -23,9 +23,9 @@ const (
 // is retained: the general/small path ends in remainder, whereas the
 // shorter-numerator limb guard copies remainder then resets quotient to zero.
 func (m *IntegerManager) MachineDivRem(a, b, q, r *Int) error {
-	return m.machineDivRemWithAllocationContext(a, b, q, r, integerAllocationInvocationContext{})
+	return m.machineDivRemWithAllocationContext(a, b, q, r, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerManager) machineDivRemWithAllocationContext(a, b, q, r *Int, context integerAllocationInvocationContext) (err error) {
+func (m *IntegerManager) machineDivRemWithAllocationContext(a, b, q, r *Int, context *integerAllocationInvocationContext) (err error) {
 	for _, n := range []*Int{a, b, q, r} {
 		if e := m.check(n); e != nil {
 			return e
@@ -68,9 +68,9 @@ func (m *IntegerManager) machineDivRemWithAllocationContext(a, b, q, r *Int, con
 	return m.quotRemWithAllocationContext(a, b, q, r, quotientAndRemainder, context)
 }
 func (m *IntegerManager) MachineDiv(a, b, c *Int) error {
-	return m.machineDivWithAllocationContext(a, b, c, integerAllocationInvocationContext{})
+	return m.machineDivWithAllocationContext(a, b, c, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerManager) machineDivWithAllocationContext(a, b, c *Int, context integerAllocationInvocationContext) (err error) {
+func (m *IntegerManager) machineDivWithAllocationContext(a, b, c *Int, context *integerAllocationInvocationContext) (err error) {
 	for _, n := range []*Int{a, b, c} {
 		if e := m.check(n); e != nil {
 			return e
@@ -100,9 +100,9 @@ func (m *IntegerManager) machineDivWithAllocationContext(a, b, c *Int, context i
 }
 func (m *IntegerManager) Rem(a, b, c *Int) error { return m.remWithPNReceipt(a, b, c, nil) }
 func (m *IntegerManager) remWithPNReceipt(a, b, c *Int, pn *integerPNormalizeScope) error {
-	return m.remWithAllocationContext(a, b, c, pnAllocationContext(pn))
+	return m.remWithAllocationContext(a, b, c, numeralContextRef(pnAllocationContext(pn)))
 }
-func (m *IntegerManager) remWithAllocationContext(a, b, c *Int, context integerAllocationInvocationContext) (err error) {
+func (m *IntegerManager) remWithAllocationContext(a, b, c *Int, context *integerAllocationInvocationContext) (err error) {
 	for _, n := range []*Int{a, b, c} {
 		if e := m.check(n); e != nil {
 			return e
@@ -213,24 +213,24 @@ func (m *IntegerManager) divWithAllocationContext(a, b, c *Int, context integerA
 				}
 			}()
 		}
-		if e := m.machineDivRemWithAllocationContext(a, b, c, tmp, context); e != nil {
+		if e := m.machineDivRemWithAllocationContext(a, b, c, tmp, &context); e != nil {
 			return e
 		}
 		if tmp.Val != 0 {
 			one := NewInt(1)
-			return m.addSubWithAllocationContext(c, &one, c, b.Val >= 0, context)
+			return m.addSubWithAllocationContext(c, &one, c, b.Val >= 0, &context)
 		}
 		return nil
 	}
-	return m.machineDivWithAllocationContext(a, b, c, context)
+	return m.machineDivWithAllocationContext(a, b, c, &context)
 }
 
 // Mod implements source nonnegative modulus, including its reread of an
 // overwritten divisor when c==b (the source alias defect).
 func (m *IntegerManager) Mod(a, b, c *Int) error {
-	return m.modWithAllocationContext(a, b, c, integerAllocationInvocationContext{})
+	return m.modWithAllocationContext(a, b, c, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerManager) modWithAllocationContext(a, b, c *Int, context integerAllocationInvocationContext) (err error) {
+func (m *IntegerManager) modWithAllocationContext(a, b, c *Int, context *integerAllocationInvocationContext) (err error) {
 	for _, n := range []*Int{a, b, c} {
 		if e := m.check(n); e != nil {
 			return e
@@ -268,9 +268,9 @@ func (m *IntegerManager) quotRemCore(a, b, q, r *Int, mode int) error {
 	return m.quotRemWithPNReceipt(a, b, q, r, mode, nil)
 }
 func (m *IntegerManager) quotRemWithPNReceipt(a, b, q, r *Int, mode int, pn *integerPNormalizeScope) error {
-	return m.quotRemWithAllocationContext(a, b, q, r, mode, pnAllocationContext(pn))
+	return m.quotRemWithAllocationContext(a, b, q, r, mode, numeralContextRef(pnAllocationContext(pn)))
 }
-func (m *IntegerManager) quotRemWithAllocationContext(a, b, q, r *Int, mode int, context integerAllocationInvocationContext) error {
+func (m *IntegerManager) quotRemWithAllocationContext(a, b, q, r *Int, mode int, context *integerAllocationInvocationContext) error {
 	sa, ca, e := m.signCell(a, 0)
 	if e != nil {
 		return e
@@ -327,9 +327,9 @@ func (m *IntegerManager) divideCells(a, b NumericCellRef) error {
 	return m.divideCellsWithPNReceipt(a, b, nil)
 }
 func (m *IntegerManager) divideCellsWithPNReceipt(a, b NumericCellRef, pn *integerPNormalizeScope) error {
-	return m.divideCellsWithAllocationContext(a, b, pnAllocationContext(pn))
+	return m.divideCellsWithAllocationContext(a, b, numeralContextRef(pnAllocationContext(pn)))
 }
-func (m *IntegerManager) divideCellsWithAllocationContext(a, b NumericCellRef, context integerAllocationInvocationContext) error {
+func (m *IntegerManager) divideCellsWithAllocationContext(a, b NumericCellRef, context *integerAllocationInvocationContext) error {
 	ca, cb := m.Cell(a), m.Cell(b)
 	cq, cr := m.Cell(m.Tmp[0]), m.Cell(m.Tmp[1])
 	_, e := m.Natural.divide(limbView{allocator: m.Allocator, backing: ca.Backing, size: ca.Size}, limbView{allocator: m.Allocator, backing: cb.Backing, size: cb.Size}, limbView{allocator: m.Allocator, backing: cq.Backing, size: cq.span}, limbView{allocator: m.Allocator, backing: cr.Backing, size: cr.span})

@@ -99,14 +99,14 @@ func TestArbitraryFloatDivGeneralPublicationAndCopiedScope(t *testing.T) {
 	}
 	copy := m.div
 	copy.hooks.Policy = &copy
-	if copy.NumericBound(false) || copy.NumericRoots(m.integer, nil) != nil || copy.context().roots(m.integer) != nil {
+	if copy.NumericBound(false) || copy.NumericRoots(m.integer, nil) != nil || numeralContextRef(copy.context()).roots(m.integer) != nil {
 		t.Fatal("copied lexical scope acquired allocation authority")
 	}
 	integerPhysicalAudit(t, m.integer, &x.significand, &out.significand, &m.div.a.significand, &m.div.b.significand, &y.significand)
 	b.FailAfter(-1)
 	serviceMust(t, m.CleanupDiv())
 	serviceMust(t, m.CleanupDiv())
-	if m.div.context().roots(m.integer) != nil {
+	if numeralContextRef(m.div.context()).roots(m.integer) != nil {
 		t.Fatal("ended caller acquired roots")
 	}
 	serviceMust(t, m.CleanupValue(&out))

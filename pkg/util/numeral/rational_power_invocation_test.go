@@ -15,7 +15,7 @@ func TestRationalPowerReceiptActualGenerationAndRefusedEntry(t *testing.T) {
 	serviceMust(t, m.SetString(&out, "18446744073709551619"))
 	rawArithmeticCorrupt(t, m.Z, &out.Num)
 	var first RationalPowerInvocationReceipt
-	e := m.powerWithAllocationContextAndReceipt(&a, 0, &out, NumericAllocationContext{}, &first)
+	e := m.powerWithAllocationContextAndReceipt(&a, 0, &out, numeralContextRef(NumericAllocationContext{}), &first)
 	if !errors.Is(e, arena.ErrBounds) || !m.MatchesRawPowerInvocation(&first) {
 		t.Fatal("missing actual generation", e)
 	}
@@ -23,13 +23,13 @@ func TestRationalPowerReceiptActualGenerationAndRefusedEntry(t *testing.T) {
 		t.Fatal("body error became source END stop")
 	}
 	var refused RationalPowerInvocationReceipt
-	e = m.powerWithAllocationContextAndReceipt(&a, 0, &out, NumericAllocationContext{}, &refused)
+	e = m.powerWithAllocationContextAndReceipt(&a, 0, &out, numeralContextRef(NumericAllocationContext{}), &refused)
 	if !errors.Is(e, ErrRationalRawArithmeticPending) || m.MatchesRawPowerInvocation(&refused) {
 		t.Fatal("refused entry stamped receipt", e)
 	}
 	serviceMust(t, m.CleanupRawPowerInvocation(&first))
 	var second RationalPowerInvocationReceipt
-	e = m.powerWithAllocationContextAndReceipt(&a, 0, &out, NumericAllocationContext{}, &second)
+	e = m.powerWithAllocationContextAndReceipt(&a, 0, &out, numeralContextRef(NumericAllocationContext{}), &second)
 	if !errors.Is(e, arena.ErrBounds) || !m.MatchesRawPowerInvocation(&second) {
 		t.Fatal("missing second generation", e)
 	}

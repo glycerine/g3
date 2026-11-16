@@ -133,12 +133,12 @@ func (m *ArbitraryFloatManager) powerWrapper(n uint32, minusOne, negated bool) (
 	}
 	two := NewInt(2)
 	context := integerAllocationInvocationContext{mpfPower: w, mpfPowerInvocation: w.invocation}
-	if e = m.integer.powerWithPhysicalAllocationContext(&two, n, &out, nil, context, w.receiver()); e != nil {
+	if e = m.integer.powerWithPhysicalAllocationContext(&two, n, &out, nil, &context, w.receiver()); e != nil {
 		return fail(e)
 	}
 	if minusOne {
 		minus := NewInt(-1)
-		e = m.integer.addSubWithAllocationContext(&out, &minus, &out, false, context)
+		e = m.integer.addSubWithAllocationContext(&out, &minus, &out, false, &context)
 		// This actual positive-power decrement has no callback after output
 		// publication: BIG output swaps a nonnull old cell into scratch; small
 		// output performs no allocation. Scratch growth occurs before the swap.
@@ -171,7 +171,7 @@ func (m *ArbitraryFloatManager) powerWrapper(n uint32, minusOne, negated bool) (
 	}
 	return w, nil
 }
-func (c integerAllocationInvocationContext) mpfPowerRoots(m *IntegerManager) *NumericAllocationRoots {
+func (c *integerAllocationInvocationContext) mpfPowerRoots(m *IntegerManager) *NumericAllocationRoots {
 	w := c.mpfPower
 	if !w.Valid() || w.manager.powerWrapperByID(w.id) != w || w.manager.integer != m || !w.executing || !w.manager.valueExecuting || c.mpfPowerInvocation == 0 || c.mpfPowerInvocation != w.invocation || w.SourceDelDone || w.sourceFreeDone {
 		return nil
@@ -278,7 +278,7 @@ func (m *ArbitraryFloatManager) releasePowerWrapperHistory() {
 
 // Called only at the actual allocating leaf return. It transfers the exact
 // returned outcome; no before/after allocator census participates in authority.
-func (m *IntegerManager) capturePowerAllocationOutcome(c integerAllocationInvocationContext, backing SourceCellBacking, outcome *umemory.SmallAllocatorAllocationOutcome) error {
+func (m *IntegerManager) capturePowerAllocationOutcome(c *integerAllocationInvocationContext, backing SourceCellBacking, outcome *umemory.SmallAllocatorAllocationOutcome) error {
 	w := c.mpfPower
 	if c.mpfPowerRoots(m) == nil {
 		return ErrNumericCallerOwner

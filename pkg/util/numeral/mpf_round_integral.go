@@ -110,10 +110,10 @@ func (m *ArbitraryFloatManager) RoundToIntegral(mode ArbitraryFloatRoundingMode,
 		cause = JoinNumericErrors(cause, s.unbind())
 	}()
 	context := s.context()
-	if e := m.copyWithValueReceiptAndContext(&s.a, x, &s.copyA, context); e != nil {
+	if e := m.copyWithValueReceiptAndContext(&s.a, x, &s.copyA, &context); e != nil {
 		return e
 	}
-	if e := m.unpackRationalNumeral(&s.a, true, context); e != nil {
+	if e := m.unpackRationalNumeral(&s.a, true, &context); e != nil {
 		return e
 	}
 	if e := m.traceRoundIntegralRawOperand(&s.a); e != nil {
@@ -156,7 +156,7 @@ func (m *ArbitraryFloatManager) RoundToIntegral(mode ArbitraryFloatRoundingMode,
 		}
 	}
 	out.exponent = s.a.exponent
-	if e := m.integer.copyFromOwnerWithAllocationContext(&out.significand, m.integer, &s.a.significand, nil, context); e != nil {
+	if e := m.integer.copyFromOwnerWithAllocationContext(&out.significand, m.integer, &s.a.significand, nil, &context); e != nil {
 		return e
 	}
 	shift := out.SBits() - 1 - uint32(out.exponent)
@@ -173,7 +173,7 @@ func (m *ArbitraryFloatManager) RoundToIntegral(mode ArbitraryFloatRoundingMode,
 		return e
 	}
 	s.divLive, s.remLive = true, true
-	if e := m.integer.machineDivRemWithAllocationContext(&out.significand, &shiftP, &s.div, &s.rem, context); e != nil {
+	if e := m.integer.machineDivRemWithAllocationContext(&out.significand, &shiftP, &s.div, &s.rem, &context); e != nil {
 		return e
 	}
 	if e := m.traceRoundIntegralQuotient(&s.div, &s.rem); e != nil {
@@ -232,14 +232,14 @@ func (m *ArbitraryFloatManager) RoundToIntegral(mode ArbitraryFloatRoundingMode,
 			m.traceFloatDebugText("round_to_integral", "div++ (1)", 1129)
 		}
 		one := NewInt(1)
-		if e := m.integer.addSubWithAllocationContext(&s.div, &one, &s.div, false, context); e != nil {
+		if e := m.integer.addSubWithAllocationContext(&s.div, &one, &s.div, false, &context); e != nil {
 			return e
 		}
 		if incKind == 2 {
 			m.traceFloatDebugText("round_to_integral", "div++ (2)", 1137)
 		}
 	}
-	if e := m.integer.shiftWithAllocationContext(&s.div, shift, &out.significand, true, context); e != nil {
+	if e := m.integer.shiftWithAllocationContext(&s.div, shift, &out.significand, true, &context); e != nil {
 		return e
 	}
 	if modularSourceDebug {
@@ -282,5 +282,5 @@ func (m *ArbitraryFloatManager) RoundToIntegral(mode ArbitraryFloatRoundingMode,
 	if e != nil {
 		return e
 	}
-	return m.integer.addSubWithAllocationContext(&out.significand, &p, &out.significand, true, context)
+	return m.integer.addSubWithAllocationContext(&out.significand, &p, &out.significand, true, &context)
 }

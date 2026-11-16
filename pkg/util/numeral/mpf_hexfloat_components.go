@@ -43,7 +43,7 @@ func (m *ArbitraryFloatManager) ToStringHexfloatComponentsInto(sign bool, expone
 		}
 	}()
 	z, c := m.integer, integerAllocationInvocationContext{Caller: &s.hooks}
-	if e := z.copyFromOwnerWithAllocationContext(&s.sig, z, sig, nil, c); e != nil {
+	if e := z.copyFromOwnerWithAllocationContext(&s.sig, z, sig, nil, &c); e != nil {
 		return view, e
 	}
 	if rbits != 0 {
@@ -70,7 +70,7 @@ func (m *ArbitraryFloatManager) ToStringHexfloatComponentsInto(sign bool, expone
 		if e != nil {
 			return view, e
 		}
-		if e := z.addSubWithAllocationContext(&s.sig, &hidden, &s.sig, true, c); e != nil {
+		if e := z.addSubWithAllocationContext(&s.sig, &hidden, &s.sig, true, &c); e != nil {
 			return view, e
 		}
 	} else {
@@ -87,7 +87,7 @@ func (m *ArbitraryFloatManager) ToStringHexfloatComponentsInto(sign bool, expone
 	}
 	// Literal mpz-significand SET: publish format/sign, COPY, then exponent.
 	s.q.format = arbitraryFloatFormat(ebits, sbits, sign)
-	if e := z.copyFromOwnerWithAllocationContext(&s.q.significand, z, &s.sig, nil, c); e != nil {
+	if e := z.copyFromOwnerWithAllocationContext(&s.q.significand, z, &s.sig, nil, &c); e != nil {
 		return view, e
 	}
 	s.q.exponent = exponent

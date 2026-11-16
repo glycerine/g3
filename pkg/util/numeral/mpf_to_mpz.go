@@ -53,11 +53,11 @@ func (s *arbitraryFloatToMPZScope) run(x *ArbitraryFloat, out *Int) error {
 		return ErrNumericOwner
 	}
 	z, c := s.output, s.context()
-	if e := z.copyFromOwnerWithAllocationContext(out, s.manager.integer, &x.significand, &s.copy, c); e != nil {
+	if e := z.copyFromOwnerWithAllocationContext(out, s.manager.integer, &x.significand, &s.copy, &c); e != nil {
 		return e
 	}
 	if x.Sign() {
-		if e := z.negWithAllocationContext(out, c); e != nil {
+		if e := z.negWithAllocationContext(out, &c); e != nil {
 			return e
 		}
 	}
@@ -80,5 +80,5 @@ func (s *arbitraryFloatToMPZScope) run(x *ArbitraryFloat, out *Int) error {
 	if e := z.check(out); e != nil {
 		return e
 	}
-	return z.mul2kCoreWithAllocationContext(out, uint32(exponent), c)
+	return z.mul2kCoreWithAllocationContext(out, uint32(exponent), &c)
 }

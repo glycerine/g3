@@ -179,18 +179,18 @@ func (m *RationalManager) Reset(a *Rational) error {
 	return m.resetDenominator(a)
 }
 func (m *RationalManager) Neg(a *Rational) error {
-	return m.negWithSourceContext(a, integerAllocationInvocationContext{})
+	return m.negWithSourceContext(a, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *RationalManager) negWithSourceContext(a *Rational, context integerAllocationInvocationContext) error {
+func (m *RationalManager) negWithSourceContext(a *Rational, context *integerAllocationInvocationContext) error {
 	if e := m.checkScalarValue(a); e != nil {
 		return e
 	}
 	return m.Z.negWithAllocationContext(&a.Num, context)
 }
 func (m *RationalManager) Abs(a *Rational) error {
-	return m.absWithAllocationContext(a, integerAllocationInvocationContext{})
+	return m.absWithAllocationContext(a, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *RationalManager) absWithAllocationContext(a *Rational, context integerAllocationInvocationContext) error {
+func (m *RationalManager) absWithAllocationContext(a *Rational, context *integerAllocationInvocationContext) error {
 	if e := m.checkScalarValue(a); e != nil {
 		return e
 	}
@@ -224,12 +224,12 @@ func (m *RationalManager) Swap(a, b *Rational) error {
 	return m.Z.Swap(&a.Den, &b.Den)
 }
 func (m *RationalManager) Copy(dst, src *Rational) error {
-	return m.copyWithAllocationContext(dst, src, integerAllocationInvocationContext{})
+	return m.copyWithAllocationContext(dst, src, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *RationalManager) copyWithAllocationContext(dst, src *Rational, context integerAllocationInvocationContext) error {
+func (m *RationalManager) copyWithAllocationContext(dst, src *Rational, context *integerAllocationInvocationContext) error {
 	return m.copyWithAllocationReceipt(dst, src, context, nil)
 }
-func (m *RationalManager) copyWithAllocationReceipt(dst, src *Rational, context integerAllocationInvocationContext, receipt *integerCopyAllocationReceipt) error {
+func (m *RationalManager) copyWithAllocationReceipt(dst, src *Rational, context *integerAllocationInvocationContext, receipt *integerCopyAllocationReceipt) error {
 	if e := m.checkScalarValue(dst); e != nil {
 		return e
 	}
@@ -283,9 +283,9 @@ func (m *RationalManager) SetUint32(a *Rational, n uint32) error {
 	return m.resetDenominator(a)
 }
 func (m *RationalManager) SetInt64(a *Rational, n int64) error {
-	return m.setInt64WithAllocationContext(a, n, integerAllocationInvocationContext{})
+	return m.setInt64WithAllocationContext(a, n, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *RationalManager) setInt64WithAllocationContext(a *Rational, n int64, context integerAllocationInvocationContext) error {
+func (m *RationalManager) setInt64WithAllocationContext(a *Rational, n int64, context *integerAllocationInvocationContext) error {
 	if e := m.checkSetter(a); e != nil {
 		return e
 	}
@@ -337,9 +337,9 @@ func (m *RationalManager) SetParts(a *Rational, n, d *Int) error {
 	return m.setPartsFromIntegerOwner(a, n, d, m.Z)
 }
 func (m *RationalManager) setPartsFromIntegerOwner(a *Rational, n, d *Int, sourceOwner *IntegerManager) error {
-	return m.setPartsFromIntegerOwnerWithAllocationContext(a, n, d, sourceOwner, integerAllocationInvocationContext{})
+	return m.setPartsFromIntegerOwnerWithAllocationContext(a, n, d, sourceOwner, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *RationalManager) setPartsFromIntegerOwnerWithAllocationContext(a *Rational, n, d *Int, sourceOwner *IntegerManager, context integerAllocationInvocationContext) error {
+func (m *RationalManager) setPartsFromIntegerOwnerWithAllocationContext(a *Rational, n, d *Int, sourceOwner *IntegerManager, context *integerAllocationInvocationContext) error {
 	return m.setPartsWithInvocation(a, n, d, sourceOwner, context, nil)
 }
 
@@ -351,9 +351,9 @@ type RationalPartsInvocation struct {
 }
 
 func (m *RationalManager) SetPartsWithInvocation(a *Rational, n, d *Int, context NumericAllocationContext, receipt *RationalPartsInvocation) error {
-	return m.setPartsWithInvocation(a, n, d, m.Z, context, receipt)
+	return m.setPartsWithInvocation(a, n, d, m.Z, &context, receipt)
 }
-func (m *RationalManager) setPartsWithInvocation(a *Rational, n, d *Int, sourceOwner *IntegerManager, context integerAllocationInvocationContext, receipt *RationalPartsInvocation) error {
+func (m *RationalManager) setPartsWithInvocation(a *Rational, n, d *Int, sourceOwner *IntegerManager, context *integerAllocationInvocationContext, receipt *RationalPartsInvocation) error {
 	if e := m.checkSetter(a); e != nil {
 		return e
 	}
@@ -370,7 +370,7 @@ func (m *RationalManager) setPartsWithInvocation(a *Rational, n, d *Int, sourceO
 	if receipt != nil {
 		nr, dr, norm = &receipt.Numerator, &receipt.Denominator, &receipt.Normalize
 		// The copy receipt owns its exact physical allocation independently.
-		copyContext = integerAllocationInvocationContext{}
+		copyContext = numeralContextRef(integerAllocationInvocationContext{})
 	}
 	if e := m.Z.copyFromOwnerWithAllocationContext(&a.Num, sourceOwner, n, nr, copyContext); e != nil {
 		return e
@@ -389,12 +389,12 @@ func (m *RationalManager) setPartsWithInvocation(a *Rational, n, d *Int, sourceO
 	return m.normalizeWithAllocationContextAndReceipt(a, context, norm)
 }
 func (m *RationalManager) normalize(a *Rational) (_rawErr error) {
-	return m.normalizeWithAllocationContext(a, integerAllocationInvocationContext{})
+	return m.normalizeWithAllocationContext(a, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *RationalManager) normalizeWithAllocationContext(a *Rational, context integerAllocationInvocationContext) (_rawErr error) {
+func (m *RationalManager) normalizeWithAllocationContext(a *Rational, context *integerAllocationInvocationContext) (_rawErr error) {
 	return m.normalizeWithAllocationContextAndReceipt(a, context, nil)
 }
-func (m *RationalManager) normalizeWithAllocationContextAndReceipt(a *Rational, context integerAllocationInvocationContext, receipt *RationalNormalizeInvocationReceipt) (_rawErr error) {
+func (m *RationalManager) normalizeWithAllocationContextAndReceipt(a *Rational, context *integerAllocationInvocationContext, receipt *RationalNormalizeInvocationReceipt) (_rawErr error) {
 	if call := context.rationalPower; call != nil && call.valid() && call.executing && call.manager == m && call.power.executing {
 		receipt = &call.normalize
 	}
@@ -430,14 +430,14 @@ func (m *RationalManager) normalizeWithAllocationContextAndReceipt(a *Rational, 
 		}
 		defer m.finishRawNormalize(&_rawErr)
 	}
-	if e := m.Z.gcdWithAllocationContext(&a.Num, &a.Den, tmp, context); e != nil {
+	if e := m.Z.gcdWithAllocationContext(&a.Num, &a.Den, tmp, *context); e != nil {
 		return e
 	}
 	if !isOneInteger(tmp) {
-		if e := m.Z.divWithAllocationContext(&a.Num, tmp, &a.Num, context); e != nil {
+		if e := m.Z.divWithAllocationContext(&a.Num, tmp, &a.Num, *context); e != nil {
 			return e
 		}
-		if e := m.Z.divWithAllocationContext(&a.Den, tmp, &a.Den, context); e != nil {
+		if e := m.Z.divWithAllocationContext(&a.Den, tmp, &a.Den, *context); e != nil {
 			return e
 		}
 	}
@@ -459,9 +459,9 @@ func (m *RationalManager) Inv(a, out *Rational) error {
 // A resulting denominator0 is invalid for ordinary reads but remains owned and
 // can be destroyed or explicitly Reset using cleanup-only validation.
 func (m *RationalManager) InvInPlace(a *Rational) error {
-	return m.invInPlaceWithAllocationContext(a, integerAllocationInvocationContext{})
+	return m.invInPlaceWithAllocationContext(a, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *RationalManager) invInPlaceWithAllocationContext(a *Rational, context integerAllocationInvocationContext) error {
+func (m *RationalManager) invInPlaceWithAllocationContext(a *Rational, context *integerAllocationInvocationContext) error {
 	if e := m.check(a); e != nil {
 		return e
 	}
@@ -505,7 +505,7 @@ func (m *RationalManager) Equal(a, b *Rational) (bool, error) {
 
 // Compare preserves source rat_lt's sign shortcuts and exact cross-products.
 func (m *RationalManager) Compare(a, b *Rational) (int, error) {
-	return m.compareWithAllocationContext(a, b, integerAllocationInvocationContext{})
+	return m.compareWithAllocationContext(a, b, numeralContextRef(integerAllocationInvocationContext{}))
 }
 func rationalCompareSourceAssertion(predicate bool, line int32, expression string) error {
 	if !modularSourceDebug {
@@ -521,7 +521,7 @@ func rationalCompareSourceAssertion(predicate bool, line int32, expression strin
 	}
 	return nil
 }
-func (m *RationalManager) compareWithAllocationContext(a, b *Rational, context integerAllocationInvocationContext) (_rawValue int, _rawErr error) {
+func (m *RationalManager) compareWithAllocationContext(a, b *Rational, context *integerAllocationInvocationContext) (_rawValue int, _rawErr error) {
 	if e := m.checkScalarValue(a); e != nil {
 		return 0, e
 	}
@@ -611,9 +611,9 @@ func (m *RationalManager) compareWithAllocationContext(a, b *Rational, context i
 func (m *RationalManager) Add(a, b, out *Rational) error { return m.addSub(a, b, out, false) }
 func (m *RationalManager) Sub(a, b, out *Rational) error { return m.addSub(a, b, out, true) }
 func (m *RationalManager) addSub(a, b, out *Rational, subtract bool) error {
-	return m.addSubWithAllocationContext(a, b, out, subtract, integerAllocationInvocationContext{})
+	return m.addSubWithAllocationContext(a, b, out, subtract, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *RationalManager) addSubWithAllocationContext(a, b, out *Rational, subtract bool, context integerAllocationInvocationContext) (_rawErr error) {
+func (m *RationalManager) addSubWithAllocationContext(a, b, out *Rational, subtract bool, context *integerAllocationInvocationContext) (_rawErr error) {
 	for _, n := range []*Rational{a, b, out} {
 		if e := m.checkScalarValue(n); e != nil {
 			return e
@@ -701,9 +701,9 @@ func (m *RationalManager) addSubWithAllocationContext(a, b, out *Rational, subtr
 	return nil
 }
 func (m *RationalManager) Mul(a, b, out *Rational) error {
-	return m.mulWithAllocationContext(a, b, out, integerAllocationInvocationContext{})
+	return m.mulWithAllocationContext(a, b, out, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *RationalManager) mulWithAllocationContext(a, b, out *Rational, context integerAllocationInvocationContext) (err error) {
+func (m *RationalManager) mulWithAllocationContext(a, b, out *Rational, context *integerAllocationInvocationContext) (err error) {
 	for _, n := range []*Rational{a, b, out} {
 		if e := m.checkScalarValue(n); e != nil {
 			return e
@@ -777,33 +777,33 @@ func (m *RationalManager) divWithAllocationContext(a, b, out *Rational, context 
 		r.DivActive, r.divEnd, r.divGuard = true, false, false
 		r.divCursor, r.divCause = 0, nil
 		defer m.finishRawDiv(&_rawErr)
-		if e := m.Z.mulWithAllocationContext(&a.Num, &b.Den, &r.Div, context); e != nil {
+		if e := m.Z.mulWithAllocationContext(&a.Num, &b.Den, &r.Div, &context); e != nil {
 			return e
 		}
-		if e := m.Z.mulWithAllocationContext(&a.Den, &b.Num, &out.Den, context); e != nil {
+		if e := m.Z.mulWithAllocationContext(&a.Den, &b.Num, &out.Den, &context); e != nil {
 			return e
 		}
-		if e := m.Z.copyFromOwnerWithAllocationContext(&out.Num, m.Z, &r.Div, nil, context); e != nil {
+		if e := m.Z.copyFromOwnerWithAllocationContext(&out.Num, m.Z, &r.Div, nil, &context); e != nil {
 			return e
 		}
 		if e := m.rawDivEnd(); e != nil {
 			return e
 		}
 	} else {
-		if e := m.Z.mulWithAllocationContext(&a.Num, &b.Den, &out.Num, context); e != nil {
+		if e := m.Z.mulWithAllocationContext(&a.Num, &b.Den, &out.Num, &context); e != nil {
 			return e
 		}
-		if e := m.Z.mulWithAllocationContext(&a.Den, &b.Num, &out.Den, context); e != nil {
+		if e := m.Z.mulWithAllocationContext(&a.Den, &b.Num, &out.Den, &context); e != nil {
 			return e
 		}
 	}
 	if out.Den.Val < 0 {
-		if e := m.Z.negWithAllocationContext(&out.Num, context); e != nil {
+		if e := m.Z.negWithAllocationContext(&out.Num, &context); e != nil {
 			return e
 		}
-		if e := m.Z.negWithAllocationContext(&out.Den, context); e != nil {
+		if e := m.Z.negWithAllocationContext(&out.Den, &context); e != nil {
 			return e
 		}
 	}
-	return m.normalizeWithAllocationContext(out, context)
+	return m.normalizeWithAllocationContext(out, &context)
 }

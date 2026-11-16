@@ -13,9 +13,9 @@ import (
 // Mul translates the source small-int path and big multiplication. Exact
 // destination/input aliasing is supported through the manager's result scratch.
 func (m *IntegerManager) Mul(a, b, c *Int) error {
-	return m.mulWithAllocationContext(a, b, c, integerAllocationInvocationContext{})
+	return m.mulWithAllocationContext(a, b, c, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *IntegerManager) mulWithAllocationContext(a, b, c *Int, context integerAllocationInvocationContext) (err error) {
+func (m *IntegerManager) mulWithAllocationContext(a, b, c *Int, context *integerAllocationInvocationContext) (err error) {
 	if smallIntegerOperands(a, b, c) {
 		if v := int64(a.Val) * int64(b.Val); v >= math.MinInt32 && v <= math.MaxInt32 {
 			if e := m.checkReady(); e != nil {

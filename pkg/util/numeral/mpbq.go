@@ -601,9 +601,9 @@ func (m *BinaryRationalManager) IsNonNeg(a *BinaryRational) (bool, error) {
 	return m.Z.IsNonNeg(&a.Num)
 }
 func (m *BinaryRationalManager) normalize(a *BinaryRational) (err error) {
-	return m.normalizeWithAllocationContext(a, integerAllocationInvocationContext{})
+	return m.normalizeWithAllocationContext(a, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *BinaryRationalManager) normalizeWithAllocationContext(a *BinaryRational, context integerAllocationInvocationContext) (err error) {
+func (m *BinaryRationalManager) normalizeWithAllocationContext(a *BinaryRational, context *integerAllocationInvocationContext) (err error) {
 	if a.KField == 0 {
 		return nil
 	}

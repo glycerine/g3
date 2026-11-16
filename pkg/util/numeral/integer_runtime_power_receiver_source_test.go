@@ -21,7 +21,7 @@ func TestIntegerPhysicalPowerTwoSoleRuntimeReceiver(t *testing.T) {
 		if p < 31 {
 			b.FailAfter(0)
 		}
-		e = m.powerWithPhysicalAllocationContext(&base, p, &out, nil, integerAllocationInvocationContext{}, &receiver)
+		e = m.powerWithPhysicalAllocationContext(&base, p, &out, nil, numeralContextRef(integerAllocationInvocationContext{}), &receiver)
 		serviceMust(t, e)
 		val, err := m.Memory.ReadUint32(row, 0)
 		serviceMust(t, err)

@@ -40,7 +40,7 @@ type arbitraryFloatRationalSetHistory struct {
 func (s *arbitraryFloatRationalSetScope) allocationContext() integerAllocationInvocationContext {
 	return integerAllocationInvocationContext{mpfRationalSet: s, mpfRationalSetInvocation: s.invocation}
 }
-func (c integerAllocationInvocationContext) rationalSetFrame(z *IntegerManager, executing bool) *arbitraryFloatRationalSetScope {
+func (c *integerAllocationInvocationContext) rationalSetFrame(z *IntegerManager, executing bool) *arbitraryFloatRationalSetScope {
 	s := c.mpfRationalSet
 	if z == nil || z.self != z || s == nil || s.manager == nil || s.manager.self != s.manager || s.manager.integer != z || s != &s.manager.rationalSet || c.mpfRationalSetInvocation == 0 || c.mpfRationalSetInvocation != s.invocation {
 		return nil
@@ -50,7 +50,7 @@ func (c integerAllocationInvocationContext) rationalSetFrame(z *IntegerManager, 
 	}
 	return s
 }
-func (c integerAllocationInvocationContext) prepareRationalSetHistory(z *IntegerManager) error {
+func (c *integerAllocationInvocationContext) prepareRationalSetHistory(z *IntegerManager) error {
 	if c.mpfRationalSet == nil {
 		return nil
 	}
@@ -86,7 +86,7 @@ func (c integerAllocationInvocationContext) prepareRationalSetHistory(z *Integer
 	s.manager.rationalSetHistoryBytes += bytes
 	return nil
 }
-func (z *IntegerManager) captureRationalSetAllocation(c integerAllocationInvocationContext, b SourceCellBacking, o *umemory.SmallAllocatorAllocationOutcome) error {
+func (z *IntegerManager) captureRationalSetAllocation(c *integerAllocationInvocationContext, b SourceCellBacking, o *umemory.SmallAllocatorAllocationOutcome) error {
 	s := c.rationalSetFrame(z, true)
 	if s == nil || c.raw != nil {
 		return nil
@@ -123,12 +123,12 @@ func (s *arbitraryFloatRationalSetScope) recordHistory() {
 		h.ownCause = s.ownCause
 	}
 }
-func (c integerAllocationInvocationContext) recordRationalSetRaw(z *IntegerManager, r *integerRawInvocationReceipt) {
+func (c *integerAllocationInvocationContext) recordRationalSetRaw(z *IntegerManager, r *integerRawInvocationReceipt) {
 	s := c.rationalSetFrame(z, true)
 	if s == nil {
 		return
 	}
-	r.Frame.rationalSetContext = c
+	r.Frame.rationalSetContext = *c
 	switch r.Frame {
 	case &z.GcdRaw:
 		s.gcd = *r

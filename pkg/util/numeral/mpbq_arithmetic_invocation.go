@@ -71,7 +71,7 @@ func (o NumericBinaryRationalOperations) AddSubWithInvocation(a, b, out *BinaryR
 		return e
 	}
 	defer func() { r.finish(cause) }()
-	return o.manager.addSubWithAllocationContext(a, b, out, subtract, o.context)
+	return o.manager.addSubWithAllocationContext(a, b, out, subtract, numeralContextRef(o.context))
 }
 
 func (o NumericBinaryRationalOperations) Div2WithInvocation(a *BinaryRational, r *BinaryArithmeticInvocation) (cause error) {
@@ -82,5 +82,5 @@ func (o NumericBinaryRationalOperations) Div2WithInvocation(a *BinaryRational, r
 		return e
 	}
 	defer func() { r.finish(cause) }()
-	return o.manager.div2WithAllocationContext(a, o.context)
+	return o.manager.div2WithAllocationContext(a, numeralContextRef(o.context))
 }

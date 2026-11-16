@@ -23,12 +23,12 @@ func TestArbitraryFloatPartialRemainderReturningTransportAndOwnerGuards(t *testi
 				t.Fatal("transport missed partial remainder invocation")
 			}
 			xBefore, yBefore, valuesBefore, used := x, y, s.values, b.Used()
-			if s.context().roots(m.integer) != nil {
+			if numeralContextRef(s.context()).roots(m.integer) != nil {
 				t.Fatal("transport acquired roots")
 			}
 			copied := *s
 			copied.hooks.Policy = &copied
-			if copied.context().roots(m.integer) != nil {
+			if numeralContextRef(copied.context()).roots(m.integer) != nil {
 				t.Fatal("copied actual scope acquired roots")
 			}
 			for i, err := range []error{m.PartialRemainder(&x, &y, 0, false), m.CleanupPartialRemainder(), m.SourceFinalize(), m.Close(), m.integer.SourceFinalize(), m.integer.CloseChecked(), m.integer.SetInt32(&x.significand, 7), m.integer.Del(&x.significand)} {

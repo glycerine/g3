@@ -4,5 +4,5 @@ package numeral
 // copies as Copy and records only an actually accepted integer allocation.
 // CleanupCopyAllocationInvocation on Integers acknowledges that exact child.
 func (m *RationalManager) CopyWithAllocationReceipt(dst, src *Rational, receipt *IntegerCopyAllocationReceipt) error {
-	return m.copyWithAllocationReceipt(dst, src, integerAllocationInvocationContext{}, receipt)
+	return m.copyWithAllocationReceipt(dst, src, numeralContextRef(integerAllocationInvocationContext{}), receipt)
 }

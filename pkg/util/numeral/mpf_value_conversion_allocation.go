@@ -4,7 +4,7 @@ package numeral
 
 import umemory "github.com/glycerine/g3/pkg/util/memory"
 
-func (c integerAllocationInvocationContext) conversionFrame(z *IntegerManager, executing bool) *arbitraryFloatRationalConversionScope {
+func (c *integerAllocationInvocationContext) conversionFrame(z *IntegerManager, executing bool) *arbitraryFloatRationalConversionScope {
 	s := c.mpfConversion
 	if z == nil || z.self != z || s == nil || s.manager == nil || s.manager.self != s.manager || s != &s.manager.rationalConversion || c.mpfConversionInvocation == 0 || c.mpfConversionInvocation != s.invocation {
 		return nil
@@ -32,7 +32,7 @@ func (s *arbitraryFloatRationalConversionScope) outputAllocationContext() intege
 	return integerAllocationInvocationContext{mpfConversion: s, mpfConversionInvocation: s.invocation, mpfConversionOutput: true}
 }
 
-func (z *IntegerManager) captureConversionAllocationOutcome(c integerAllocationInvocationContext, backing SourceCellBacking, out *umemory.SmallAllocatorAllocationOutcome) error {
+func (z *IntegerManager) captureConversionAllocationOutcome(c *integerAllocationInvocationContext, backing SourceCellBacking, out *umemory.SmallAllocatorAllocationOutcome) error {
 	s := c.conversionFrame(z, true)
 	if s == nil || c.raw != nil {
 		return nil
@@ -63,12 +63,12 @@ func (z *IntegerManager) captureConversionAllocationOutcome(c integerAllocationI
 	return nil
 }
 
-func (c integerAllocationInvocationContext) recordConversionRaw(z *IntegerManager, r *integerRawInvocationReceipt) {
+func (c *integerAllocationInvocationContext) recordConversionRaw(z *IntegerManager, r *integerRawInvocationReceipt) {
 	s := c.conversionFrame(z, true)
 	if s == nil || !c.mpfConversionOutput {
 		return
 	}
-	r.Frame.conversionContext = c
+	r.Frame.conversionContext = *c
 	switch r.Frame {
 	case &z.GcdRaw:
 		s.outputGCD = *r

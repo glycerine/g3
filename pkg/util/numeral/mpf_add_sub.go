@@ -148,17 +148,17 @@ func (m *ArbitraryFloatManager) addSubtract(mode ArbitraryFloatRoundingMode, x, 
 	}()
 	context := s.context()
 	z := m.integer
-	if e := m.copyWithValueReceiptAndContext(&s.a, x, &s.copyA, context); e != nil {
+	if e := m.copyWithValueReceiptAndContext(&s.a, x, &s.copyA, &context); e != nil {
 		return e
 	}
-	if e := m.copyWithValueReceiptAndContext(&s.b, y, &s.copyB, context); e != nil {
+	if e := m.copyWithValueReceiptAndContext(&s.b, y, &s.copyB, &context); e != nil {
 		return e
 	}
 	s.b.assignSign(signY)
-	if e := m.unpackRationalNumeral(&s.a, false, context); e != nil {
+	if e := m.unpackRationalNumeral(&s.a, false, &context); e != nil {
 		return e
 	}
-	if e := m.unpackRationalNumeral(&s.b, false, context); e != nil {
+	if e := m.unpackRationalNumeral(&s.b, false, &context); e != nil {
 		return e
 	}
 	if s.b.exponent > s.a.exponent {
@@ -184,10 +184,10 @@ func (m *ArbitraryFloatManager) addSubtract(mode ArbitraryFloatRoundingMode, x, 
 		return e
 	}
 	m.traceFloatDebugSigned("add_sub", "d  = ", delta, 543)
-	if e := z.shiftWithAllocationContext(&s.a.significand, 3, &s.a.significand, true, context); e != nil {
+	if e := z.shiftWithAllocationContext(&s.a.significand, 3, &s.a.significand, true, &context); e != nil {
 		return e
 	}
-	if e := z.shiftWithAllocationContext(&s.b.significand, 3, &s.b.significand, true, context); e != nil {
+	if e := z.shiftWithAllocationContext(&s.b.significand, 3, &s.b.significand, true, &context); e != nil {
 		return e
 	}
 	if e := mpfSourceAssertion(delta <= 1<<31-1, 550, "exp_delta <= INT_MAX"); e != nil {
@@ -198,7 +198,7 @@ func (m *ArbitraryFloatManager) addSubtract(mode ArbitraryFloatRoundingMode, x, 
 	if e != nil {
 		return e
 	}
-	if e := z.machineDivRemWithAllocationContext(&s.b.significand, &p, &s.b.significand, &s.sticky, context); e != nil {
+	if e := z.machineDivRemWithAllocationContext(&s.b.significand, &p, &s.b.significand, &s.sticky, &context); e != nil {
 		return e
 	}
 	if e := m.traceFloatDebugIntChecked("add_sub", "A' = ", &s.a.significand, 554); e != nil {
@@ -213,7 +213,7 @@ func (m *ArbitraryFloatManager) addSubtract(mode ArbitraryFloatRoundingMode, x, 
 	} else {
 		m.traceFloatDebugText("add_sub", "ADDING", 565)
 	}
-	if e := z.addSubWithAllocationContext(&s.a.significand, &s.b.significand, &out.significand, subtract, context); e != nil {
+	if e := z.addSubWithAllocationContext(&s.a.significand, &s.b.significand, &out.significand, subtract, &context); e != nil {
 		return e
 	}
 	stickyZero, e := z.IsZero(&s.sticky)
@@ -227,7 +227,7 @@ func (m *ArbitraryFloatManager) addSubtract(mode ArbitraryFloatRoundingMode, x, 
 		}
 		if even {
 			one := NewInt(1)
-			if e := z.addSubWithAllocationContext(&out.significand, &one, &out.significand, subtract, context); e != nil {
+			if e := z.addSubWithAllocationContext(&out.significand, &one, &out.significand, subtract, &context); e != nil {
 				return e
 			}
 		}
@@ -259,5 +259,5 @@ func (m *ArbitraryFloatManager) addSubtract(mode ArbitraryFloatRoundingMode, x, 
 	}
 	out.assignSign(!s.a.Sign() && s.b.Sign() && negative || s.a.Sign() && !s.b.Sign() && !negative || s.a.Sign() && s.b.Sign())
 	out.exponent = s.a.exponent
-	return m.roundWithParentContext(mode, out, &s.roundReceipt, context)
+	return m.roundWithParentContext(mode, out, &s.roundReceipt, &context)
 }

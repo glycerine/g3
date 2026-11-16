@@ -23,7 +23,7 @@ func TestArbitraryFloatFMAUnpackTransportAndOwnerGuards(t *testing.T) {
 				t.Fatal("transport did not reach the unpack arithmetic boundary")
 			}
 			xBefore, outBefore, localBefore, used := x, out, s.a, b.Used()
-			if s.context().roots(m.integer) != nil {
+			if numeralContextRef(s.context()).roots(m.integer) != nil {
 				t.Fatal("transport acquired allocating caller roots")
 			}
 			for index, err := range []error{m.FMA(ArbitraryFloatNearestEven, &x, &y, &z, &out), m.CleanupFMA(), m.SourceFinalize(), m.Close(), m.CleanupValue(&x), m.integer.SourceFinalize(), m.integer.CloseChecked(), m.integer.SetInt32(&x.significand, 7)} {

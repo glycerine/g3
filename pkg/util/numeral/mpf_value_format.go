@@ -80,10 +80,10 @@ func (m *ArbitraryFloatManager) toStringIntoWithReceipt(a *ArbitraryFloat, text 
 	s.Constructed = 2
 	context := s.allocationContext()
 	z := m.integer
-	if e := z.setInt64WithAllocationContext(&s.Num, 0, context); e != nil {
+	if e := z.setInt64WithAllocationContext(&s.Num, 0, &context); e != nil {
 		return view, e
 	}
-	if e := z.setInt64WithAllocationContext(&s.Denom, 1, context); e != nil {
+	if e := z.setInt64WithAllocationContext(&s.Denom, 1, &context); e != nil {
 		return view, e
 	}
 	denormal, e := m.IsDenormal(a)
@@ -97,25 +97,25 @@ func (m *ArbitraryFloatManager) toStringIntoWithReceipt(a *ArbitraryFloat, text 
 			return view, e
 		}
 	} else {
-		if e := z.setInt64WithAllocationContext(&s.Num, 1, context); e != nil {
+		if e := z.setInt64WithAllocationContext(&s.Num, 1, &context); e != nil {
 			return view, e
 		}
-		if e := z.shiftWithAllocationContext(&s.Num, a.SBits()-1, &s.Num, true, context); e != nil {
+		if e := z.shiftWithAllocationContext(&s.Num, a.SBits()-1, &s.Num, true, &context); e != nil {
 			return view, e
 		}
 	}
-	if e := z.addSubWithAllocationContext(&s.Num, &a.significand, &s.Num, false, context); e != nil {
+	if e := z.addSubWithAllocationContext(&s.Num, &a.significand, &s.Num, false, &context); e != nil {
 		return view, e
 	}
-	if e := z.shiftWithAllocationContext(&s.Denom, a.SBits()-1, &s.Denom, true, context); e != nil {
+	if e := z.shiftWithAllocationContext(&s.Denom, a.SBits()-1, &s.Denom, true, &context); e != nil {
 		return view, e
 	}
 	s.Q = NewRational()
 	s.Constructed = 3
-	if e := m.rational.setIntegerWithAllocationContext(&s.Q, &s.Num, context); e != nil {
+	if e := m.rational.setIntegerWithAllocationContext(&s.Q, &s.Num, &context); e != nil {
 		return view, e
 	}
-	if e := m.rational.divIntWithAllocationContext(&s.Q, &s.Denom, &s.Q, context); e != nil {
+	if e := m.rational.divIntWithAllocationContext(&s.Q, &s.Denom, &s.Q, &context); e != nil {
 		return view, e
 	}
 	s.stream, e = text.NewArbitraryFloatFormatStream()

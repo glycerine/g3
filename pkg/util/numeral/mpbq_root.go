@@ -75,9 +75,9 @@ func (m *BinaryRationalManager) round(a *BinaryRational, z *IntegerManager, out 
 	return m.roundWithCopyAllocationReceipt(a, z, out, ceil, nil)
 }
 func (m *BinaryRationalManager) roundWithCopyAllocationReceipt(a *BinaryRational, z *IntegerManager, out *Int, ceil bool, receipt *IntegerCopyAllocationReceipt) (err error) {
-	return m.roundWithAllocationContext(a, z, out, ceil, receipt, integerAllocationInvocationContext{})
+	return m.roundWithAllocationContext(a, z, out, ceil, receipt, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *BinaryRationalManager) roundWithAllocationContext(a *BinaryRational, z *IntegerManager, out *Int, ceil bool, receipt *IntegerCopyAllocationReceipt, context integerAllocationInvocationContext) (err error) {
+func (m *BinaryRationalManager) roundWithAllocationContext(a *BinaryRational, z *IntegerManager, out *Int, ceil bool, receipt *IntegerCopyAllocationReceipt, context *integerAllocationInvocationContext) (err error) {
 	if e := m.check(a); e != nil {
 		return e
 	}
@@ -108,7 +108,7 @@ func (m *BinaryRationalManager) roundWithAllocationContext(a *BinaryRational, z 
 		return z.CopyFromOwnerWithReceipt(out, z, input, receipt)
 	}
 	neg, pos := a.Num.Val < 0, a.Num.Val > 0
-	if e := z.shiftWithAllocationContextAndReceipt(input, a.KField, out, false, integerAllocationInvocationContext{}, receipt); e != nil {
+	if e := z.shiftWithAllocationContextAndReceipt(input, a.KField, out, false, numeralContextRef(integerAllocationInvocationContext{}), receipt); e != nil {
 		return e
 	}
 	one := NewInt(1)
@@ -242,7 +242,7 @@ func (m *BinaryRationalManager) CleanupConvertImported() error {
 	return m.cleanupConvertImported()
 }
 func (m *BinaryRationalManager) ToRational(qm *RationalManager, a *BinaryRational, out *Rational) (err error) {
-	return m.toRationalWithInvocation(qm, a, out, integerAllocationInvocationContext{}, nil)
+	return m.toRationalWithInvocation(qm, a, out, numeralContextRef(integerAllocationInvocationContext{}), nil)
 }
 
 // BinaryToRationalInvocation records actual RAW entries reached by to_mpq.
@@ -253,9 +253,9 @@ type BinaryToRationalInvocation struct {
 }
 
 func (m *BinaryRationalManager) ToRationalWithInvocation(qm *RationalManager, a *BinaryRational, out *Rational, context NumericAllocationContext, receipt *BinaryToRationalInvocation) error {
-	return m.toRationalWithInvocation(qm, a, out, context, receipt)
+	return m.toRationalWithInvocation(qm, a, out, &context, receipt)
 }
-func (m *BinaryRationalManager) toRationalWithInvocation(qm *RationalManager, a *BinaryRational, out *Rational, context integerAllocationInvocationContext, receipt *BinaryToRationalInvocation) (err error) {
+func (m *BinaryRationalManager) toRationalWithInvocation(qm *RationalManager, a *BinaryRational, out *Rational, context *integerAllocationInvocationContext, receipt *BinaryToRationalInvocation) (err error) {
 	if e := m.check(a); e != nil {
 		return e
 	}

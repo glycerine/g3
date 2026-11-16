@@ -100,12 +100,12 @@ func (m *RationalManager) MulInts(a, b *Int, out *Rational) error {
 	return m.resetDenominator(out)
 }
 func (m *RationalManager) MulInt(a *Int, b, out *Rational) error {
-	return m.mulIntWithAllocationContext(a, b, out, integerAllocationInvocationContext{})
+	return m.mulIntWithAllocationContext(a, b, out, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *RationalManager) mulIntWithAllocationContext(a *Int, b, out *Rational, context integerAllocationInvocationContext) (err error) {
+func (m *RationalManager) mulIntWithAllocationContext(a *Int, b, out *Rational, context *integerAllocationInvocationContext) (err error) {
 	return m.mulIntWithAllocationContextAndReceipt(a, b, out, context, nil)
 }
-func (m *RationalManager) mulIntWithAllocationContextAndReceipt(a *Int, b, out *Rational, context integerAllocationInvocationContext, receipt *RationalNormalizeInvocationReceipt) (err error) {
+func (m *RationalManager) mulIntWithAllocationContextAndReceipt(a *Int, b, out *Rational, context *integerAllocationInvocationContext, receipt *RationalNormalizeInvocationReceipt) (err error) {
 	if e := m.Z.check(a); e != nil {
 		return e
 	}
@@ -142,9 +142,9 @@ func (m *RationalManager) mulIntWithAllocationContextAndReceipt(a *Int, b, out *
 	return m.normalizeWithAllocationContextAndReceipt(out, context, receipt)
 }
 func (m *RationalManager) DivInt(a *Rational, b *Int, out *Rational) error {
-	return m.divIntWithAllocationContext(a, b, out, integerAllocationInvocationContext{})
+	return m.divIntWithAllocationContext(a, b, out, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *RationalManager) divIntWithAllocationContext(a *Rational, b *Int, out *Rational, context integerAllocationInvocationContext) (err error) {
+func (m *RationalManager) divIntWithAllocationContext(a *Rational, b *Int, out *Rational, context *integerAllocationInvocationContext) (err error) {
 	if e := m.check(a); e != nil {
 		return e
 	}
@@ -199,9 +199,9 @@ func (m *RationalManager) RatDiv(a, b *Int, out *Rational) error {
 func (m *RationalManager) AddMul(a, b, c, out *Rational) error { return m.fused(a, b, c, out, false) }
 func (m *RationalManager) SubMul(a, b, c, out *Rational) error { return m.fused(a, b, c, out, true) }
 func (m *RationalManager) fused(a, b, c, out *Rational, subtract bool) error {
-	return m.fusedWithAllocationContext(a, b, c, out, subtract, integerAllocationInvocationContext{})
+	return m.fusedWithAllocationContext(a, b, c, out, subtract, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *RationalManager) fusedWithAllocationContext(a, b, c, out *Rational, subtract bool, context integerAllocationInvocationContext) error {
+func (m *RationalManager) fusedWithAllocationContext(a, b, c, out *Rational, subtract bool, context *integerAllocationInvocationContext) error {
 	for _, q := range []*Rational{a, b, c, out} {
 		if e := m.check(q); e != nil {
 			return e
@@ -355,7 +355,7 @@ func (m *RationalManager) integerOperandsAt(a, b *Rational, line int32) error {
 	}
 	return nil
 }
-func (m *RationalManager) integerOpWithAllocationContext(a, b *Rational, out *Int, operation uint8, context integerAllocationInvocationContext) error {
+func (m *RationalManager) integerOpWithAllocationContext(a, b *Rational, out *Int, operation uint8, context *integerAllocationInvocationContext) error {
 	line := int32(524)
 	switch operation {
 	case qIntegerMachineDiv:
@@ -370,7 +370,7 @@ func (m *RationalManager) integerOpWithAllocationContext(a, b *Rational, out *In
 	// alias quirks for Euclidean division and remainder.
 	switch operation {
 	case qIntegerDiv:
-		return m.Z.divWithAllocationContext(&a.Num, &b.Num, out, context)
+		return m.Z.divWithAllocationContext(&a.Num, &b.Num, out, *context)
 	case qIntegerMachineDiv:
 		return m.Z.machineDivWithAllocationContext(&a.Num, &b.Num, out, context)
 	default:
@@ -378,9 +378,9 @@ func (m *RationalManager) integerOpWithAllocationContext(a, b *Rational, out *In
 	}
 }
 func (m *RationalManager) integerOpRational(a, b, out *Rational, operation uint8) error {
-	return m.integerOpRationalWithAllocationContext(a, b, out, operation, integerAllocationInvocationContext{})
+	return m.integerOpRationalWithAllocationContext(a, b, out, operation, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *RationalManager) integerOpRationalWithAllocationContext(a, b, out *Rational, operation uint8, context integerAllocationInvocationContext) error {
+func (m *RationalManager) integerOpRationalWithAllocationContext(a, b, out *Rational, operation uint8, context *integerAllocationInvocationContext) error {
 	if e := m.check(out); e != nil {
 		return e
 	}
@@ -399,9 +399,9 @@ func (m *RationalManager) Rem(a, b, out *Rational) error {
 	return m.integerOpRational(a, b, out, qIntegerRem)
 }
 func (m *RationalManager) Mod(a, b, out *Rational) error {
-	return m.modWithAllocationContext(a, b, out, integerAllocationInvocationContext{})
+	return m.modWithAllocationContext(a, b, out, numeralContextRef(integerAllocationInvocationContext{}))
 }
-func (m *RationalManager) modWithAllocationContext(a, b, out *Rational, context integerAllocationInvocationContext) error {
+func (m *RationalManager) modWithAllocationContext(a, b, out *Rational, context *integerAllocationInvocationContext) error {
 	if e := m.check(out); e != nil {
 		return e
 	}
