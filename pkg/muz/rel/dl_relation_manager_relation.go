@@ -38,6 +38,11 @@ func (m *RelationManager) RegisterRelationPlugin(plugin RelationPlugin) error {
 		return ErrTable
 	}
 	m.relationPlugins = append(m.relationPlugins, plugin)
+	m.initRelationKinds()
+	fid := m.claimRelationKind(plugin)
+	if init, ok := plugin.(relationPluginInitializer); ok {
+		init.initializeKind(fid)
+	}
 	if plugin.Name() == m.defaultRelation {
 		m.favouriteRelation = plugin
 	}
@@ -157,6 +162,9 @@ func (m *RelationManager) MkEmptyRelation(sorts []ast.ASTHandle, predicate ast.A
 	if err := m.open(); err != nil {
 		return nil, err
 	}
+	if r, ok, err := m.requestedKindRelation(predicate, sorts, false); err != nil || ok {
+		return r, err
+	}
 	plugin, err := m.relationPluginFor(predicate, sorts)
 	if err != nil {
 		return nil, err
@@ -166,7 +174,7 @@ func (m *RelationManager) MkEmptyRelation(sorts []ast.ASTHandle, predicate ast.A
 	}
 	if signature, ok := m.signatureIsTable(sorts); ok {
 		if !predicate.IsNull() {
-			return m.NewFiniteTableForPredicate(predicate, signature)
+			return m.newRequestedFiniteTable(predicate, signature)
 		}
 		return m.NewDefaultFiniteTable(signature)
 	}
@@ -177,8 +185,9 @@ func (m *RelationManager) MkEmptyRelation(sorts []ast.ASTHandle, predicate ast.A
 	if p != nil {
 		return p.MkEmpty(sorts)
 	}
-	// product_relation_plugin::mk_empty(s): the empty product relation.
-	return nil, ErrRelationNoPlugin
+	// product_relation_plugin::mk_empty(s): the empty product relation;
+	// later operations add inner relations to it.
+	return m.productPlugin().MkEmpty(sorts)
 }
 
 // firstRelationPlugin is the m_relation_plugins loop past the
@@ -203,6 +212,13 @@ func (m *RelationManager) firstRelationPlugin(sorts []ast.ASTHandle) (RelationPl
 func (m *RelationManager) MkFullRelation(sorts []ast.ASTHandle, predicate ast.ASTHandle) (RelationBase, bool, error) {
 	if err := m.open(); err != nil {
 		return nil, false, err
+	}
+	if r, ok, err := m.requestedKindRelation(predicate, sorts, true); err != nil || ok {
+		if rb, isRelation := AsRelation(r); isRelation || err != nil {
+			return rb, ok && err == nil, err
+		}
+		// A table_relation full relation: the table construction applies.
+		return nil, false, r.Close()
 	}
 	plugin, err := m.relationPluginFor(predicate, sorts)
 	if err != nil {
@@ -274,8 +290,10 @@ func (m *RelationManager) MkRelationJoinFn(t1, t2 RelationBase, cols1, cols2 []i
 	if res == nil && (len(t1.RelationSignature()) == 0 || len(t2.RelationSignature()) == 0) {
 		res = m.emptySignatureRelationJoinFn()
 	}
-	// finite_product_relation and product_relation fallbacks: not ported
-	// with this foundation (the product relation plugins' port).
+	// finite_product_relation fallback: not ported yet.
+	if res == nil && allowProduct {
+		return m.productPlugin().MkJoinFn(t1, t2, cols1, cols2)
+	}
 	return res, nil
 }
 

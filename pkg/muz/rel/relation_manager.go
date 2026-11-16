@@ -60,6 +60,17 @@ type RelationManager struct {
 	arithElements []ast.ASTRef
 	arithIndex    map[ast.ASTHandle]Element
 	fnRoots       []ast.ASTRef
+	// Relation kinds (family ids): nextRelationKind is
+	// m_next_relation_fid, kindPlugins m_kind2plugin; the table_relation
+	// plugins hold the first kinds. requestedKinds is m_pred_kinds.
+	nextRelationKind     int
+	kindPlugins          map[int]RelationPlugin
+	pluginKinds          map[RelationPlugin]int
+	tableRelationPlugins []*TableRelationPlugin
+	requestedKinds       map[ast.ASTHandle]int
+	// fnOwners holds the relations relation functors own (the full
+	// relations of product_relation's join_fn).
+	fnOwners []RelationBase
 }
 
 func NewRelationManager(manager *ast.ASTManager) (*RelationManager, error) {
@@ -241,6 +252,8 @@ func (m *RelationManager) Close() (result error) {
 		result = errors.Join(result, m.manager.DelRef(&m.fnRoots[i]))
 	}
 	m.fnRoots = nil
+	result = errors.Join(result, closeRelationBases(m.fnOwners))
+	m.fnOwners = nil
 	if len(m.relations) != 0 || len(m.finite) != 0 || len(m.explanations) != 0 || len(m.relationLevel) != 0 {
 		return errors.Join(result, ErrTable)
 	}

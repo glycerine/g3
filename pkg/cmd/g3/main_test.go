@@ -336,6 +336,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ-F5 (relation plugins): several relation kinds make a
+	// product_relation kind (rel_context::set_predicate_representation).
+	"plugins_arith_product_table_interval.smt2": "unsat\n",
+	"plugins_arith_product_interval_bound.smt2": "sat\n",
 	// plugins_doc 04: bit-blast, Bool table relations next to udoc,
 	// requested doc/table kinds, check_relation(doc) with another favourite.
 	"datalog_doc_bit_blast.smt2":                  "sat\n(and (= (:var 0) true) (= (:var 1) false))\n",

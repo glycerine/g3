@@ -10,6 +10,7 @@ package fp
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
 
@@ -68,6 +69,8 @@ func (e *PropositionalEngine) arithRelationsRoute() (bool, error) {
 		switch {
 		case len(state.requestedRepresentations) == 0:
 		case len(state.requestedRepresentations) == 1 && (state.requestedRepresentations[0] == "bound_relation" || state.requestedRepresentations[0] == "interval_relation"):
+		case isArithProductRepresentation(state.requestedRepresentations):
+		case state.table == nil && isTableRelationRepresentation(state.requestedRepresentations):
 		default:
 			return false, nil
 		}
@@ -91,6 +94,24 @@ func (e *PropositionalEngine) arithRelationsRoute() (bool, error) {
 	// is the predicate's requested relation kind.
 	for _, d := range e.predicateOrder {
 		state := e.predicates[d]
+		if len(state.requestedRepresentations) > 1 {
+			// product_relation_plugin::get_relation_kind(sig, rel_kinds)
+			kinds := make([]int, 0, len(state.requestedRepresentations))
+			for _, name := range state.requestedRepresentations {
+				kind, ok := e.relations.RelationPluginKind(name)
+				if !ok {
+					return false, fmt.Errorf("relation plugin %s does not exist", name)
+				}
+				kinds = append(kinds, kind)
+			}
+			if err := e.relations.SetRequestedKind(d, e.relations.ProductRelationKind(state.sorts, kinds)); err != nil {
+				return false, err
+			}
+			if err := e.replaceWithRequestedRelation(d, state); err != nil {
+				return false, err
+			}
+			continue
+		}
 		if len(state.requestedRepresentations) == 1 {
 			plugin := e.relations.GetRelationPlugin(state.requestedRepresentations[0])
 			requested = append(requested, plugin)
@@ -197,4 +218,66 @@ func (e *PropositionalEngine) addRoutedTableFact(declaration ast.ASTHandle, valu
 		handles[i] = h
 	}
 	return e.addRoutedFact(declaration, handles)
+}
+
+// replaceWithRequestedRelation replaces a predicate's table or relation
+// created before its requested kind was known by mk_empty_relation(sig,
+// pred) of that kind.
+func (e *PropositionalEngine) replaceWithRequestedRelation(d ast.ASTHandle, state *predicateState) error {
+	if state.table == nil {
+		return nil
+	}
+	if n, err := state.table.Len(); err != nil || n != 0 {
+		return err
+	}
+	relation, err := e.relations.MkEmptyRelation(state.sorts, d)
+	if err != nil {
+		return err
+	}
+	if err = e.relations.ReplaceFiniteRelation(d, relation); err != nil {
+		return errors.Join(err, relation.Close())
+	}
+	state.table = relation
+	return nil
+}
+
+// isArithProductRepresentation reports a set_predicate_representation of
+// several kinds among the table_relation, bound_relation and
+// interval_relation plugins, at least one of them arithmetic: a
+// product_relation kind.
+func isArithProductRepresentation(kinds []string) bool {
+	if len(kinds) < 2 {
+		return false
+	}
+	arith := false
+	for _, k := range kinds {
+		switch k {
+		case "bound_relation", "interval_relation":
+			arith = true
+		case "tr_sparse", "tr_hashtable", "tr_bitvector", "tr_lazy_sparse":
+		default:
+			return false
+		}
+	}
+	return arith
+}
+
+// isArithSingleRepresentation: one arithmetic relation plugin kind.
+func isArithSingleRepresentation(kinds []string) bool {
+	return len(kinds) == 1 && (kinds[0] == "bound_relation" || kinds[0] == "interval_relation")
+}
+
+// isTableRelationRepresentation: table_relation plugin kinds only.
+func isTableRelationRepresentation(kinds []string) bool {
+	if len(kinds) == 0 {
+		return false
+	}
+	for _, k := range kinds {
+		switch k {
+		case "tr_sparse", "tr_hashtable", "tr_bitvector", "tr_lazy_sparse":
+		default:
+			return false
+		}
+	}
+	return true
 }

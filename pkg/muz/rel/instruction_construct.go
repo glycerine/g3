@@ -254,7 +254,7 @@ func fillTotalTable(table FiniteTable, signature Signature) error {
 func constructFiniteTable(context *ExecutionContext, signature Signature, predicate ast.ASTHandle) (FiniteTable, error) {
 	if context != nil && context.relations != nil {
 		if !predicate.IsNull() {
-			return context.relations.NewFiniteTableForPredicate(predicate, signature)
+			return context.relations.newRequestedFiniteTable(predicate, signature)
 		}
 		return context.relations.NewDefaultFiniteTable(signature)
 	}

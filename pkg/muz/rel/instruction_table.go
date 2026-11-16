@@ -28,6 +28,18 @@ type tableInstruction struct {
 	astValue   ast.ASTHandle
 	column     int
 	closed     bool
+	// sorts1/sorts2 are the relation signatures of the first and second
+	// registers (the compiler's m_reg_signatures), used to see a table
+	// register as its table_relation next to another plugin's relation.
+	sorts1, sorts2 []ast.ASTHandle
+}
+
+// setOperandSorts records the compiler's register signatures of an
+// instruction's operands.
+func setOperandSorts(instruction Instruction, first, second []ast.ASTHandle) {
+	if i, ok := instruction.(*tableInstruction); ok {
+		i.sorts1, i.sorts2 = first, second
+	}
 }
 
 func newTableInstruction(kind string) *tableInstruction {
@@ -185,7 +197,13 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 		}
 		var value FiniteTable
 		var x error
-		if i.kind == "join_project" {
+		if r, ok, y := relationOperandsSorted([][]ast.ASTHandle{i.sorts1, i.sorts2}, first, second); y != nil {
+			return false, y
+		} else if ok && i.kind == "join_project" {
+			value, x = relationJoinProject(r[0], r[1], i.left, i.right, i.removed)
+		} else if ok {
+			value, x = relationJoin(r[0], r[1], i.left, i.right)
+		} else if i.kind == "join_project" {
 			value, x = finiteTableJoinProject(first, second, i.left, i.right, i.removed)
 		} else {
 			value, x = finiteTableJoin(first, second, i.left, i.right)
@@ -260,7 +278,7 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 				}
 			}
 		}
-		if r, ok, x := relationOperands(target, first, delta); x != nil {
+		if r, ok, x := relationOperandsSorted([][]ast.ASTHandle{i.sorts2, i.sorts1, i.sorts2}, target, first, delta); x != nil {
 			return false, x
 		} else if ok {
 			if err = relationUnion(r[0], r[1], r[2], i.kind == "widen"); err != nil {
@@ -309,7 +327,13 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 			return true, nil
 		}
 		context.stats.FilterByNegation++
-		if err = finiteTableFilterNegation(first, second, i.left, i.right); err != nil {
+		if r, ok, x := relationOperandsSorted([][]ast.ASTHandle{i.sorts1, i.sorts2}, first, second); x != nil {
+			return false, x
+		} else if ok {
+			if err = relationFilterNegation(r[0], r[1], i.left, i.right); err != nil {
+				return false, err
+			}
+		} else if err = finiteTableFilterNegation(first, second, i.left, i.right); err != nil {
 			return false, err
 		}
 		empty, x := finiteFastEmpty(first)

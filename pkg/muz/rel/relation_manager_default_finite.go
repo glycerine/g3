@@ -75,6 +75,13 @@ func (m *RelationManager) NewFiniteTableForPredicate(predicate ast.ASTHandle, si
 	if relation, ok, err := m.relationForPredicate(predicate); err != nil || ok {
 		return relation, err
 	}
+	return m.newRequestedFiniteTable(predicate, signature)
+}
+
+// newRequestedFiniteTable is mk_empty_table_relation for a signature that
+// is not necessarily the predicate's (a register of the predicate's rule):
+// the predicate's requested table plugin, else the appropriate default.
+func (m *RelationManager) newRequestedFiniteTable(predicate ast.ASTHandle, signature Signature) (FiniteTable, error) {
 	if m.checkedFinite == nil {
 		switch m.requestedFinite[predicate] {
 		case "tr_hashtable":
@@ -151,6 +158,9 @@ func (m *RelationManager) relationForPredicate(predicate ast.ASTHandle) (FiniteT
 	sorts, err := m.predicateSorts(predicate)
 	if err != nil {
 		return nil, false, err
+	}
+	if r, ok, err := m.requestedKindRelation(predicate, sorts, false); err != nil || ok {
+		return r, ok, err
 	}
 	plugin, err := m.relationPluginFor(predicate, sorts)
 	if err != nil {

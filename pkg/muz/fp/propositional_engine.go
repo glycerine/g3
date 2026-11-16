@@ -500,6 +500,14 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 	if e.queried {
 		return fmt.Errorf("muz/fp: predicate representation must be selected before querying")
 	}
+	if e.boundIntervalDatalog == nil && (isArithProductRepresentation(kinds) || isArithSingleRepresentation(kinds) || state.table == nil && isTableRelationRepresentation(kinds)) {
+		// rel_context::set_predicate_representation: several kinds make a
+		// product_relation kind (applied when the relation plugins run).
+		state.requestedRepresentations = append([]string(nil), kinds...)
+		state.explicitFiniteRepresentation = false
+		e.revision++
+		return nil
+	}
 	if e.boundIntervalDatalog != nil {
 		if entry := e.boundIntervalDatalog.entries[declaration]; entry != nil && !boundIntervalKindsEqual(entry.kinds, kinds) {
 			return ErrBoundIntervalDatalogFragment
@@ -596,6 +604,12 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 		}
 	}
 	if state.table == nil {
+		// get_ordinary_relation_plugin(name) for an Int/Real signature.
+		for _, kind := range kinds {
+			if !isTableRelationRepresentation([]string{kind}) {
+				return fmt.Errorf("relation plugin %s does not exist", kind)
+			}
+		}
 		return ErrPropositionalHorn
 	}
 	signature, err := state.table.Signature()

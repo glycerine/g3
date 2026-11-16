@@ -82,6 +82,8 @@ type finiteCompiler struct {
 	options       FiniteCompilerOptions
 	predicateRegs map[ast.ASTHandle]uint32
 	signatures    []Signature
+	// regSorts is m_reg_signatures' relation sorts (nil when unknown).
+	regSorts [][]ast.ASTHandle
 	// predicateLayout is m_pred_regs' obj_map layout: the termination
 	// stores follow its table order.
 	predicateLayout *ast.ObjMap
@@ -111,6 +113,7 @@ func (c *finiteCompiler) closeBlocks() error {
 func (c *finiteCompiler) fresh(signature Signature) uint32 {
 	register := uint32(len(c.signatures))
 	c.signatures = append(c.signatures, Signature{domains: signature.Domains()})
+	c.regSorts = append(c.regSorts, nil)
 	return register
 }
 
@@ -141,11 +144,12 @@ func (c *finiteCompiler) ensureLoaded(predicate ast.ASTHandle) error {
 	if _, found := c.predicateRegs[predicate]; found {
 		return nil
 	}
-	_, signature, err := c.relations.RelationPredicateSignature(predicate)
+	sorts, signature, err := c.relations.RelationPredicateSignature(predicate)
 	if err != nil {
 		return err
 	}
 	register := c.fresh(signature)
+	c.regSorts[register] = sorts
 	instruction, err := NewLoadInstruction(c.relations, predicate, register)
 	if err != nil {
 		return err
@@ -441,6 +445,7 @@ func (c *finiteCompiler) constantRegister(rule *base.Rule, predicate, sort ast.A
 		return register, nil
 	}
 	register := c.fresh(Signature{domains: []uint64{domain}})
+	c.regSorts[register] = []ast.ASTHandle{sort}
 	instruction, err := NewUnarySingletonInstructionForPredicate(domain, value, register, predicate)
 	if err != nil {
 		return 0, err
@@ -461,6 +466,7 @@ func (c *finiteCompiler) totalRegister(rule *base.Rule, predicate, sort ast.ASTH
 	}
 	signature := Signature{domains: []uint64{domain}}
 	register := c.fresh(signature)
+	c.regSorts[register] = []ast.ASTHandle{sort}
 	name, err := c.predicateNameText(predicate)
 	if err != nil {
 		return 0, err
@@ -491,6 +497,7 @@ func (c *finiteCompiler) emptyTotalRegister(rule *base.Rule, predicate ast.ASTHa
 	}
 	signature := Signature{}
 	register := c.fresh(signature)
+	c.regSorts[register] = []ast.ASTHandle{}
 	name, err := c.predicateNameText(predicate)
 	if err != nil {
 		return 0, err
@@ -628,6 +635,8 @@ func (c *finiteCompiler) compileRecursive(set *base.RuleSet, rules []finiteCompi
 		signature := c.signatures[c.predicateRegs[head]]
 		currentDeltas[head] = c.fresh(signature)
 		nextDeltas[head] = c.fresh(signature)
+		c.regSorts[currentDeltas[head]] = c.regSorts[c.predicateRegs[head]]
+		c.regSorts[nextDeltas[head]] = c.regSorts[c.predicateRegs[head]]
 	}
 	// compile_preds_init evaluates only lower-stratum inputs before entering
 	// the recursive loop. Every existing head row, including preloaded facts,

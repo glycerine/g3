@@ -53,6 +53,38 @@ func relationOperands(tables ...FiniteTable) ([]RelationBase, bool, error) {
 	return result, true, nil
 }
 
+// relationOperandsSorted is relationOperands where a table operand next to
+// another plugin's relation is seen as its table_relation (sorts are the
+// operands' relation signatures; a table without one keeps the
+// unsupported mixed operation).
+func relationOperandsSorted(sorts [][]ast.ASTHandle, tables ...FiniteTable) ([]RelationBase, bool, error) {
+	var manager *RelationManager
+	for _, table := range tables {
+		if r, ok := AsRelation(table); ok {
+			manager = r.RelationPlugin().Manager()
+			break
+		}
+	}
+	if manager == nil {
+		return nil, false, nil
+	}
+	result := make([]RelationBase, len(tables))
+	for i, table := range tables {
+		if table == nil {
+			continue
+		}
+		if r, ok := AsRelation(table); ok {
+			result[i] = r
+			continue
+		}
+		if i >= len(sorts) || sorts[i] == nil {
+			return relationOperands(tables...)
+		}
+		result[i] = manager.tableView(table, sorts[i], true)
+	}
+	return result, true, nil
+}
+
 func relationJoin(r1, r2 RelationBase, left, right []int) (FiniteTable, error) {
 	fn, err := r1.RelationPlugin().Manager().MkRelationJoinFn(r1, r2, left, right, true)
 	if err != nil {
@@ -61,7 +93,7 @@ func relationJoin(r1, r2 RelationBase, left, right []int) (FiniteTable, error) {
 	if fn == nil {
 		return nil, unsupportedRelationOperation("join", r1.RelationPlugin().Name(), r2.RelationPlugin().Name())
 	}
-	return fn(r1, r2)
+	return unwrapResult(fn(r1, r2))
 }
 
 func relationJoinProject(r1, r2 RelationBase, left, right, removed []int) (FiniteTable, error) {
@@ -72,7 +104,7 @@ func relationJoinProject(r1, r2 RelationBase, left, right, removed []int) (Finit
 	if fn == nil {
 		return nil, unsupportedRelationOperation("join-project", r1.RelationPlugin().Name(), r2.RelationPlugin().Name())
 	}
-	return fn(r1, r2)
+	return unwrapResult(fn(r1, r2))
 }
 
 func relationProject(r RelationBase, removed []int) (FiniteTable, error) {
@@ -83,7 +115,7 @@ func relationProject(r RelationBase, removed []int) (FiniteTable, error) {
 	if fn == nil {
 		return nil, unsupportedRelationOperationOne("project", r.RelationPlugin().Name())
 	}
-	return fn(r)
+	return unwrapResult(fn(r))
 }
 
 func relationRename(r RelationBase, cycle []int) (FiniteTable, error) {
@@ -94,7 +126,7 @@ func relationRename(r RelationBase, cycle []int) (FiniteTable, error) {
 	if fn == nil {
 		return nil, unsupportedRelationOperationOne("rename", r.RelationPlugin().Name())
 	}
-	return fn(r)
+	return unwrapResult(fn(r))
 }
 
 // relationElement is the relation_element of a table element in the
@@ -157,7 +189,7 @@ func relationSelectEqualProject(r RelationBase, value Element, column int) (_ Fi
 	if fn == nil {
 		return nil, unsupportedRelationOperationOne("select_equal_and_project", r.RelationPlugin().Name())
 	}
-	return fn(r)
+	return unwrapResult(fn(r))
 }
 
 func relationUnion(target, source, delta RelationBase, widen bool) error {
@@ -214,7 +246,7 @@ func relationFilterInterpretedAndProject(r RelationBase, condition ast.ASTHandle
 	if fn == nil {
 		return nil, unsupportedRelationOperationOne("filter_interpreted_and_project", r.RelationPlugin().Name())
 	}
-	return fn(r)
+	return unwrapResult(fn(r))
 }
 
 // relationRegisterEmpty is ctx.reg(r)->fast_empty() for a result about to
@@ -280,4 +312,12 @@ func mixedEmptySignatureJoin(first, second FiniteTable) (_ FiniteTable, ok bool,
 	}
 	result, err := other.CloneFinite()
 	return result, true, err
+}
+
+// unwrapResult returns a table_relation result as its table.
+func unwrapResult(r RelationBase, err error) (FiniteTable, error) {
+	if err != nil || r == nil {
+		return nil, err
+	}
+	return unwrapTableView(r), nil
 }

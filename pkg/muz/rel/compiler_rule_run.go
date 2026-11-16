@@ -166,8 +166,12 @@ func (c *finiteCompiler) makeJoin(t1, t2 uint32, cols1, cols2 []int, reuseT1 boo
 	if err != nil {
 		return 0, err
 	}
+	s1, s2 := c.regSorts[t1], c.regSorts[t2]
 	result := c.getRegister(signature, reuseT1, t1)
-	return result, c.emit(NewJoinInstruction(t1, t2, cols1, cols2, result), rule)
+	c.regSorts[result] = joinedSorts(s1, s2)
+	instruction := NewJoinInstruction(t1, t2, cols1, cols2, result)
+	setOperandSorts(instruction, s1, s2)
+	return result, c.emit(instruction, rule)
 }
 
 // makeJoinProject is compiler::make_join_project.
@@ -180,8 +184,16 @@ func (c *finiteCompiler) makeJoinProject(t1, t2 uint32, cols1, cols2, removed []
 	if err != nil {
 		return 0, err
 	}
+	s1, s2 := c.regSorts[t1], c.regSorts[t2]
 	result := c.getRegister(signature, reuseT1, t1)
-	return result, c.emit(NewJoinProjectInstruction(t1, t2, cols1, cols2, removed, result), rule)
+	if joined := joinedSorts(s1, s2); joined != nil {
+		c.regSorts[result] = projectSorts(joined, removed)
+	} else {
+		c.regSorts[result] = nil
+	}
+	instruction := NewJoinProjectInstruction(t1, t2, cols1, cols2, removed, result)
+	setOperandSorts(instruction, s1, s2)
+	return result, c.emit(instruction, rule)
 }
 
 // makeSelectEqualAndProject is compiler::make_select_equal_and_project.
@@ -190,13 +202,16 @@ func (c *finiteCompiler) makeSelectEqualAndProject(source uint32, value Element,
 	if err != nil {
 		return 0, err
 	}
+	s1 := c.regSorts[source]
 	result := c.getRegister(signature, reuse, source)
+	c.regSorts[result] = projectedSorts(s1, []int{column})
 	return result, c.emit(NewSelectEqualProjectInstruction(source, value, column, result), rule)
 }
 
 // makeClone is compiler::make_clone.
 func (c *finiteCompiler) makeClone(source uint32, rule *base.Rule) (uint32, error) {
 	result := c.fresh(c.signatures[source])
+	c.regSorts[result] = c.regSorts[source]
 	return result, c.emit(NewCloneInstruction(source, result), rule)
 }
 
@@ -206,7 +221,9 @@ func (c *finiteCompiler) makeProjection(source uint32, removed []int, reuse bool
 	if err != nil {
 		return 0, err
 	}
+	s1 := c.regSorts[source]
 	result := c.getRegister(signature, reuse, source)
+	c.regSorts[result] = projectedSorts(s1, removed)
 	return result, c.emit(NewProjectionInstruction(source, removed, result), rule)
 }
 
@@ -216,7 +233,13 @@ func (c *finiteCompiler) makeRename(source uint32, cycle []int, reuse bool, rule
 	if err != nil {
 		return 0, err
 	}
+	s1 := c.regSorts[source]
 	result := c.getRegister(signature, reuse, source)
+	if s1 != nil {
+		c.regSorts[result] = renameSorts(s1, cycle)
+	} else {
+		c.regSorts[result] = nil
+	}
 	return result, c.emit(NewRenameInstruction(source, cycle, result), rule)
 }
 
@@ -981,7 +1004,9 @@ func (c *finiteCompiler) compileRuleEvaluationRun(rule finiteCompiledRule, headR
 				return err
 			}
 		}
-		if err = c.emit(NewFilterByNegationInstruction(filteredRes, negReg, tCols, negCols), r); err != nil {
+		negation := NewFilterByNegationInstruction(filteredRes, negReg, tCols, negCols)
+		setOperandSorts(negation, c.regSorts[filteredRes], c.regSorts[negReg])
+		if err = c.emit(negation, r); err != nil {
 			return err
 		}
 		dealloc = true
@@ -1076,7 +1101,9 @@ func (c *finiteCompiler) compileRuleEvaluationRun(rule finiteCompiledRule, headR
 			if err != nil {
 				return err
 			}
+			s1 := c.regSorts[filteredRes]
 			result := c.getRegister(projected, dealloc, filteredRes)
+			c.regSorts[result] = projectedSorts(s1, removeColumns)
 			instruction, err := NewFilterInterpretedAndProjectInstruction(m, c.relations, c.guard, filteredRes, []ast.ASTHandle{renamed}, columns, sorts, relationSorts, removeColumns, result)
 			if err != nil {
 				return err
@@ -1136,7 +1163,9 @@ func (c *finiteCompiler) compileRuleEvaluationRun(rule finiteCompiledRule, headR
 			return ErrCompilerUnsupported
 		}
 		//update the head relation
-		if err = c.emit(NewUnionInstruction(newHeadReg, headReg, deltaReg), r); err != nil {
+		union := NewUnionInstruction(newHeadReg, headReg, deltaReg)
+		setOperandSorts(union, c.regSorts[newHeadReg], c.regSorts[headReg])
+		if err = c.emit(union, r); err != nil {
 			return err
 		}
 		if dealloc {
@@ -1146,4 +1175,20 @@ func (c *finiteCompiler) compileRuleEvaluationRun(rule finiteCompiledRule, headR
 		}
 	}
 	return nil
+}
+
+// joinedSorts is relation_signature::from_join (nil when unknown).
+func joinedSorts(s1, s2 []ast.ASTHandle) []ast.ASTHandle {
+	if s1 == nil || s2 == nil {
+		return nil
+	}
+	return joinSorts(s1, s2)
+}
+
+// projectedSorts is relation_signature::from_project (nil when unknown).
+func projectedSorts(s []ast.ASTHandle, removed []int) []ast.ASTHandle {
+	if s == nil {
+		return nil
+	}
+	return projectSorts(s, removed)
 }
