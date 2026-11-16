@@ -1862,6 +1862,11 @@ namespace smt {
             }
             regex_in_var_reg_str_map[ex->get_arg(0)].insert(regexStr);
         }
+        // FORK FIX #104 (g3 audit, see FORK_BUGFIXES.md): regex_in_bool_map,
+        // regex_in_var_reg_str_map, regex_terms, regex_terms_by_string and
+        // axiomatized_terms keep ex past the pop that frees it; keep ex alive,
+        // and the final-check readers skip it while it is not internalized.
+        m_trail.push_back(ex);
 
         expr_ref str(ex->get_arg(0), m);
         app * regex = to_app(ex->get_arg(1));
@@ -9930,6 +9935,10 @@ namespace smt {
             bool regex_axiom_add = false;
             for (obj_hashtable<expr>::iterator it = regex_terms.begin(); it != regex_terms.end(); ++it) {
                 expr * str_in_re = *it;
+                // FORK FIX #104: a term popped out of the context has no bool var.
+                if (!ctx.b_internalized(str_in_re)) {
+                    continue;
+                }
                 expr * str = nullptr;
                 expr * re = nullptr;
                 u.str.is_in_re(str_in_re, str, re);
@@ -10486,6 +10495,11 @@ namespace smt {
                     bool has_lower_bound = lower_bound(mk_strlen(str), lb);
                     bool has_upper_bound = upper_bound(mk_strlen(str), ub);
 
+                    // FORK FIX #104: no automaton for a term popped out of the context.
+                    if (!ctx.b_internalized(*term_it)) {
+                        continue;
+                    }
+
                     if (regex_automaton_assumptions.contains(re) &&
                                                     !regex_automaton_assumptions[re].empty()){
                         for (svector<regex_automaton_under_assumptions>::iterator aut_it = regex_automaton_assumptions[re].begin();
@@ -10711,6 +10725,10 @@ namespace smt {
             if (m_params.m_RegexAutomata && !regex_terms.empty()) {
                 for (obj_hashtable<expr>::iterator it = regex_terms.begin(); it != regex_terms.end(); ++it) {
                     expr * str_in_re = *it;
+                    // FORK FIX #104: a term popped out of the context has no bool var.
+                    if (!ctx.b_internalized(str_in_re)) {
+                        continue;
+                    }
                     expr * str;
                     expr * re;
                     u.str.is_in_re(str_in_re, str, re);
@@ -12174,6 +12192,10 @@ namespace smt {
                         std::map<std::pair<expr*, zstring>, expr*>::iterator it = regex_in_bool_map.begin();
                         for (; it != regex_in_bool_map.end(); ++it) {
                             expr * re = it->second;
+                            // FORK FIX #104: skip a term popped out of the context.
+                            if (!get_context().b_internalized(re)) {
+                                continue;
+                            }
                             expr * re_str = to_app(re)->get_arg(0);
                             // recursive descent through all subterms of re_str to see if any of them are
                             // - the same as freeVar
