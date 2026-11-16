@@ -1,0 +1,8 @@
+(set-option :fixedpoint.engine datalog)
+(declare-rel p (Int Bool))
+(declare-rel r (Bool))
+(declare-var x Int)
+(declare-var b Bool)
+(rule (r true))
+(rule (=> (and (r b) (not (p x b))) (r false)))
+(query r :print-answer true)

@@ -649,19 +649,38 @@ func finiteTableUnion(target, source, delta FiniteTable) error {
 		}
 		return a.UnionFrom(b, d)
 	}
+	// relation_manager::default_table_union_fn: with a delta, a row the
+	// target does not contain (contains_fact, timed by a sparse table's
+	// verbose_action) is added to the target and the delta.
 	facts, err := source.Facts()
 	if err != nil {
 		return err
 	}
 	for _, fact := range facts {
-		inserted, x := target.Add(fact)
+		if delta == nil {
+			if _, x := target.Add(fact); x != nil {
+				return x
+			}
+			continue
+		}
+		var found bool
+		var x error
+		if sparse, ok := target.(*SparseTable); ok {
+			found, x = sparse.ContainsFact(fact)
+		} else {
+			found, x = target.Contains(fact)
+		}
 		if x != nil {
 			return x
 		}
-		if inserted && delta != nil {
-			if _, x = delta.Add(fact); x != nil {
-				return x
-			}
+		if found {
+			continue
+		}
+		if _, x = target.Add(fact); x != nil {
+			return x
+		}
+		if _, x = delta.Add(fact); x != nil {
+			return x
 		}
 	}
 	return nil

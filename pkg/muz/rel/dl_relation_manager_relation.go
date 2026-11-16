@@ -270,7 +270,15 @@ func relationPluginName(r FiniteTable) string {
 }
 
 // mkEmptyLike is relation_plugin::mk_empty(const relation_base& original).
+// Plugins with several kinds (product_relation, sieve_relation) create the
+// relation of original's kind: mk_empty(original.get_signature(),
+// original.get_kind()).
 func mkEmptyLike(r RelationBase) (RelationBase, error) {
+	if k, ok := r.RelationPlugin().(kindedRelationPlugin); ok {
+		if m := r.RelationPlugin().Manager(); m != nil {
+			return k.MkEmptyKind(r.RelationSignature(), m.RelationKindOf(r))
+		}
+	}
 	return r.RelationPlugin().MkEmpty(r.RelationSignature())
 }
 

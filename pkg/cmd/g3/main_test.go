@@ -336,6 +336,15 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ-F5 (relation plugins): sieve_relation in product
+	// relations; product and sieve kinds (fork fixes: z3 4.7.1 segfaults on
+	// the mixed Int/Bool programs).
+	"plugins2_product_kind_spec.smt2":     "sat\n(or (and (= (:var 0) true) (= (:var 1) true))\n    (and (= (:var 0) false) (= (:var 1) true)))\n",
+	"plugins2_sieve_negated_mixed.smt2":   "sat\n(or (= (:var 0) true) (= (:var 0) false))\n",
+	"plugins2_sieve_join_answer.smt2":     "sat\n(or (and (= (:var 0) true) (= (:var 1) true))\n    (and (= (:var 0) true) (= (:var 1) false))\n    (and (= (:var 0) false) (= (:var 1) true))\n    (and (= (:var 0) false) (= (:var 1) false)))\n",
+	"plugins2_sieve_interval_filter.smt2": "sat\n(or (= (:var 0) true) (= (:var 0) false))\n",
+	"plugins2_sieve_product_kinds.smt2":   "sat\n(or (and (= (:var 0) true) (= (:var 1) false))\n    (and (= (:var 0) false) (= (:var 1) true)))\n",
+	"plugins2_sieve_two_negations.smt2":   "sat\n(or (= (:var 0) true) (= (:var 0) false))\n",
 	// AUDIT.md FUZZ-F5 (relation plugins): karr_relation_plugin, registered
 	// with fixedpoint.xform.karr, in the compiled pipeline.
 	"plugins_arith_karr_favourite_empty_body.smt2":    "unsat\n",

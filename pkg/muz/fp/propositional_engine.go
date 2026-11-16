@@ -234,6 +234,9 @@ type PropositionalEngine struct {
 	// relAnswer is rel_context::m_answer for the finite-table path: built
 	// when the query ends and replaced (old released) by the next one.
 	relAnswer ast.ASTRef
+	// relAnswerDecl is the predicate of a single-predicate query whose
+	// m_answer relAnswer holds; rel_context::get_answer returns m_answer.
+	relAnswerDecl ast.ASTHandle
 	// saturateOnly is the datalog frontend's run (read_datalog): the
 	// compiled rules are performed, but no rel_context::query answer is built.
 	saturateOnly bool
@@ -2762,6 +2765,10 @@ func (e *PropositionalEngine) buildRelationAnswer(declarations []ast.ASTHandle) 
 	}
 	old := e.relAnswer
 	e.relAnswer = held
+	e.relAnswerDecl = ast.ASTHandle{}
+	if len(declarations) == 1 {
+		e.relAnswerDecl = declarations[0]
+	}
 	if old != (ast.ASTRef{}) {
 		return e.manager.DelRef(&old)
 	}
@@ -3238,6 +3245,11 @@ func (e *PropositionalEngine) computeAnswer(declaration ast.ASTHandle) (answer a
 	if kind == EngineDatalog && e.boundDatalog != nil {
 		return e.boundDatalog.relationFormula(declaration)
 	}
+	if kind == EngineDatalog && e.relAnswer != (ast.ASTRef{}) && e.relAnswerDecl == declaration && !declaration.IsNull() && e.lastResult == lbool.True {
+		// rel_context::get_answer: the m_answer the query built (the
+		// relation's to_formula is not evaluated again).
+		return e.manager.CopyRef(e.relAnswer)
+	}
 	if kind == EngineCLP {
 		value, err := e.manager.MkTrue()
 		if err != nil {
@@ -3678,6 +3690,7 @@ func (e *PropositionalEngine) Close() (result error) {
 			return errors.Join(result, err)
 		}
 		e.relAnswer = ast.ASTRef{}
+		e.relAnswerDecl = ast.ASTHandle{}
 	}
 	if err := e.clearQueryParameters(); err != nil {
 		return errors.Join(result, err)

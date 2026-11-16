@@ -171,8 +171,14 @@ func (m *RelationManager) relationForPredicate(predicate ast.ASTHandle) (FiniteT
 		if _, ok := m.signatureIsTable(sorts); ok {
 			return nil, false, nil
 		}
-		if plugin, err = m.firstRelationPlugin(sorts); err != nil || plugin == nil {
+		if plugin, err = m.firstRelationPlugin(sorts); err != nil {
 			return nil, false, err
+		}
+		if plugin == nil {
+			// If there is no plugin to handle the signature, we just
+			// create an empty product relation and stuff will be added to
+			// it by later operations.
+			plugin = m.productPlugin()
 		}
 	}
 	relation, err := plugin.MkEmpty(sorts)

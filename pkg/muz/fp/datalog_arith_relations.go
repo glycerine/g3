@@ -75,7 +75,7 @@ func (e *PropositionalEngine) arithRelationsRoute() (bool, error) {
 		default:
 			return false, nil
 		}
-		if state.table == nil && !rel.CanHandleIntervalSorts(e.manager, state.sorts) {
+		if state.table == nil && !e.relationColumnSorts(state.sorts) {
 			return false, nil
 		}
 		// A relation another plugin's evaluation created (udoc,
@@ -152,6 +152,19 @@ func (e *PropositionalEngine) arithRelationsRoute() (bool, error) {
 		state.table = table
 	}
 	return true, nil
+}
+
+// relationColumnSorts reports that every column is a table column or an
+// Int/Real column: get_relation's mk_empty_relation gives a predicate of
+// such a signature a table_relation, an arithmetic plugin relation, or
+// the empty product relation (a mixed signature).
+func (e *PropositionalEngine) relationColumnSorts(sorts []ast.ASTHandle) bool {
+	for _, sort := range sorts {
+		if _, table := e.relations.SortDomain(sort); !table && !rel.CanHandleIntervalSorts(e.manager, []ast.ASTHandle{sort}) {
+			return false
+		}
+	}
+	return true
 }
 
 // addRoutedFact is rel_context::add_fact on the compiled path:

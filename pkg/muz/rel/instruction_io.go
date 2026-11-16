@@ -37,7 +37,7 @@ func newRelationIOInstruction(relations *RelationManager, predicate ast.ASTHandl
 		if _, _, err = relations.explanationPredicateSignature(predicate); err != nil {
 			return nil, err
 		}
-	} else if _, _, err = relations.PredicateSignature(predicate); err != nil {
+	} else if _, _, err = relations.RelationPredicateSignature(predicate); err != nil {
 		return nil, err
 	}
 	if err := relations.manager.IncRef(predicate); err != nil {

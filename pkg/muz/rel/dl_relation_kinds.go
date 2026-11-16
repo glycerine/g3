@@ -597,10 +597,18 @@ func (v *tableRelationView) RelationPlugin() RelationPlugin     { return v.plugi
 func (v *tableRelationView) Signature() (Signature, error)      { return v.table.Signature() }
 func (v *tableRelationView) Facts() ([]Fact, error)             { return v.table.Facts() }
 func (v *tableRelationView) Add(f Fact) (bool, error)           { return v.table.Add(f) }
-func (v *tableRelationView) Contains(f Fact) (bool, error)      { return v.table.Contains(f) }
 func (v *tableRelationView) Len() (int, error)                  { return v.table.Len() }
-func (v *tableRelationView) Reset() error                       { return v.table.Reset() }
-func (v *tableRelationView) IsPrecise() bool                    { return true }
+
+// Contains is table_relation::contains_fact: the table's contains_fact,
+// which for a sparse table is timed by verbose_action("contains_fact", 2).
+func (v *tableRelationView) Contains(f Fact) (bool, error) {
+	if sparse, ok := v.table.(*SparseTable); ok {
+		return sparse.ContainsFact(f)
+	}
+	return v.table.Contains(f)
+}
+func (v *tableRelationView) Reset() error    { return v.table.Reset() }
+func (v *tableRelationView) IsPrecise() bool { return true }
 func (v *tableRelationView) Empty() (bool, error) {
 	n, err := v.table.Len()
 	return n == 0, err

@@ -104,7 +104,7 @@ func (m *RelationManager) MarkSaturated(predicate ast.ASTHandle) error {
 		return err
 	}
 	if m.explanations[predicate] == nil && m.relationLevel[predicate] == nil {
-		if _, _, err := m.PredicateSignature(predicate); err != nil {
+		if _, _, err := m.RelationPredicateSignature(predicate); err != nil {
 			return err
 		}
 	}

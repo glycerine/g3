@@ -2,12 +2,6 @@ package rel
 
 // Source: src/muz/rel/dl_product_relation.cpp product_relation_plugin and
 // product_relation, and dl_relation_manager.h rel_spec_store.
-//
-// The sieve_relation branches of join_fn::init (a non-table inner relation
-// whose plugin cannot handle the other operand's signature, and a full
-// tableish relation over a signature that is not a table) need
-// sieve_relation_plugin and fail with ErrRelationNoPlugin until it is
-// ported.
 
 import (
 	"errors"
@@ -244,10 +238,25 @@ const (
 	productFull
 )
 
-// isTableish is join_fn::is_tableish_relation (sieve relations are not
-// ported, so only table_relations).
+// nonsieveRelation is join_fn::get_nonsieve_relation.
+func nonsieveRelation(r RelationBase) RelationBase {
+	return sieveInner(r)
+}
+
+// nonsievePlugin is join_fn::get_nonsieve_plugin.
+func nonsievePlugin(r RelationBase) RelationPlugin {
+	return nonsieveRelation(r).RelationPlugin()
+}
+
+// nonsieveKind is join_fn::get_nonsieve_kind.
+func (p *ProductRelationPlugin) nonsieveKind(r RelationBase) int {
+	return p.kindOf(nonsieveRelation(r))
+}
+
+// isTableish is join_fn::is_tableish_relation: a table_relation or a
+// sieve_relation with a table_relation inside.
 func isTableish(r RelationBase) bool {
-	_, ok := r.(*tableRelationView)
+	_, ok := nonsievePlugin(r).(*TableRelationPlugin)
 	return ok
 }
 
@@ -297,8 +306,7 @@ func (p *ProductRelationPlugin) newJoinFn(sig1 []ast.ASTHandle, r1 []RelationBas
 			return nil, err
 		}
 		if !ok {
-			// sieve_relation_plugin::get_plugin(rmgr).full(p, sig, plugin)
-			return nil, ErrRelationNoPlugin
+			return p.manager.sievePlugin().full(ast.ASTHandle{}, sig, plugin)
 		}
 		if k, isKinded := plugin.(kindedRelationPlugin); isKinded {
 			return k.MkFullKind(ast.ASTHandle{}, sig, kind)
@@ -310,10 +318,10 @@ func (p *ProductRelationPlugin) newJoinFn(sig1 []ast.ASTHandle, r1 []RelationBas
 			r1Tables = append(r1Tables, i)
 			continue
 		}
-		kind := p.kindOf(a)
+		kind := p.nonsieveKind(a)
 		found := false
 		for k := 0; !found && k < len(r2); k++ {
-			if kind == p.kindOf(r2[k]) {
+			if kind == p.nonsieveKind(r2[k]) {
 				bv[k] = true
 				if err := push(i, productInput, k, productInput, a, r2[k]); err != nil {
 					return nil, j.close(err)
@@ -322,7 +330,7 @@ func (p *ProductRelationPlugin) newJoinFn(sig1 []ast.ASTHandle, r1 []RelationBas
 			}
 		}
 		if !found {
-			rel2, err := fullOf(a.RelationPlugin(), kind, sig2)
+			rel2, err := fullOf(nonsievePlugin(a), kind, sig2)
 			if err != nil {
 				return nil, j.close(err)
 			}
@@ -339,7 +347,7 @@ func (p *ProductRelationPlugin) newJoinFn(sig1 []ast.ASTHandle, r1 []RelationBas
 			continue
 		}
 		if !bv[i] {
-			rel1, err := fullOf(b.RelationPlugin(), p.kindOf(b), sig1)
+			rel1, err := fullOf(nonsievePlugin(b), p.nonsieveKind(b), sig1)
 			if err != nil {
 				return nil, j.close(err)
 			}
@@ -375,7 +383,7 @@ func (p *ProductRelationPlugin) newJoinFn(sig1 []ast.ASTHandle, r1 []RelationBas
 	case len(r2Tables) != 0:
 		for len(r2Tables) != 0 {
 			i2 := pop(&r2Tables)
-			full, err := p.fullTableishRelation(sig1, p.kindOf(r2[i2]))
+			full, err := p.fullTableishRelation(sig1, p.nonsieveKind(r2[i2]))
 			if err != nil {
 				return nil, j.close(err)
 			}
@@ -388,7 +396,7 @@ func (p *ProductRelationPlugin) newJoinFn(sig1 []ast.ASTHandle, r1 []RelationBas
 	case len(r1Tables) != 0:
 		for len(r1Tables) != 0 {
 			i1 := pop(&r1Tables)
-			full, err := p.fullTableishRelation(sig2, p.kindOf(r1[i1]))
+			full, err := p.fullTableishRelation(sig2, p.nonsieveKind(r1[i1]))
 			if err != nil {
 				return nil, j.close(err)
 			}
@@ -440,21 +448,43 @@ func (p *ProductRelationPlugin) fullTableishRelation(sig []ast.ASTHandle, kind i
 	m := p.manager
 	if signature, ok := m.signatureIsTable(sig); ok {
 		// rmgr.get_appropriate_plugin(tsig).mk_full(p, tsig, kind)
-		var plugin *TableRelationPlugin
-		if name := m.defaultFinite; name != "" {
-			if c := m.tableRelationPluginNamed(name); c != nil && c.canHandle(signature) {
-				plugin = c
-			}
-		}
-		for _, c := range m.tableRelationPlugins {
-			if plugin == nil && c.canHandle(signature) {
-				plugin = c
-			}
+		plugin := m.appropriateTableRelationPlugin(signature)
+		if plugin == nil {
+			return nil, ErrRelationNoPlugin
 		}
 		return plugin.MkFull(ast.ASTHandle{}, sig)
 	}
-	// sieve_relation_plugin::get_plugin(rmgr).full(p, sig, inner_plugin)
-	return nil, ErrRelationNoPlugin
+	var domains []uint64
+	for _, sort := range sig {
+		if domain, err := m.sortDomain(sort); err == nil {
+			domains = append(domains, domain)
+		}
+	}
+	// table_plugin & tplugin = rmgr.get_appropriate_plugin(tsig);
+	// relation_plugin & inner_plugin = rmgr.get_table_relation_plugin(tplugin);
+	innerPlugin := m.appropriateTableRelationPlugin(Signature{domains: domains})
+	if innerPlugin == nil {
+		return nil, ErrRelationNoPlugin
+	}
+	return m.sievePlugin().full(ast.ASTHandle{}, sig, innerPlugin)
+}
+
+// appropriateTableRelationPlugin is get_table_relation_plugin of
+// get_appropriate_plugin(table_signature): the favourite table plugin
+// (default_table), then the table plugins in registration order.
+func (m *RelationManager) appropriateTableRelationPlugin(signature Signature) *TableRelationPlugin {
+	m.initRelationKinds()
+	if name := m.defaultFinite; name != "" {
+		if c := m.tableRelationPluginNamed(name); c != nil && c.canHandle(signature) {
+			return c
+		}
+	}
+	for _, c := range m.tableRelationPlugins {
+		if c.canHandle(signature) {
+			return c
+		}
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------
@@ -591,6 +621,14 @@ func (u *alignedUnion) apply(tgtR, srcR, deltaR RelationBase) (resultErr error) 
 		return ErrInstruction
 	}
 	num := len(tgt.relations)
+	// The fork reports a missing inner union i,i before any work (FORK
+	// FIX, see FORK_BUGFIXES.md): z3 4.7.1's VERIFY(can_do_inner_union(i,i))
+	// only printed "Failed to verify" and called the null union.
+	for i := 0; i < num; i++ {
+		if !u.can(i, i) {
+			return unsupportedRelationOperation("union", tgt.relations[i].RelationPlugin().Name(), src.relations[i].RelationPlugin().Name())
+		}
+	}
 	sideResults := make([]RelationBase, num)
 	sideDeltas := make([]RelationBase, num)
 	defer func() {
@@ -658,9 +696,6 @@ func (u *alignedUnion) apply(tgtR, srcR, deltaR RelationBase) (resultErr error) 
 		fd, err := freshDelta(i)
 		if err != nil {
 			return err
-		}
-		if !u.can(i, i) {
-			return errors.Join(unsupportedRelationOperation("union", itgt.RelationPlugin().Name(), src.relations[i].RelationPlugin().Name()), closeRelationBases([]RelationBase{fd}))
 		}
 		if err = u.unions[i][i](itgt, src.relations[i], fd); err != nil {
 			return errors.Join(err, closeRelationBases([]RelationBase{fd}))
@@ -960,13 +995,22 @@ func (r *productRelation) convertSpec(spec []int) error {
 	return nil
 }
 
-// singleNonTransparent is try_get_single_non_transparent (without sieve
-// relations every inner relation is non-transparent).
+// singleNonTransparent is try_get_single_non_transparent: a sieve with no
+// inner columns is transparent.
 func (r *productRelation) singleNonTransparent() (int, bool) {
-	if len(r.relations) == 1 {
-		return 0, true
+	found := false
+	candidate := 0
+	for i, inner := range r.relations {
+		if sr, ok := isSieveRelation(inner); ok && sr.noInnerColumns() {
+			continue
+		}
+		if found {
+			return 0, false // we have more than one non-transparent
+		}
+		found = true
+		candidate = i
 	}
-	return 0, false
+	return candidate, found
 }
 
 func (r *productRelation) RelationKind() int                  { return r.kind }
