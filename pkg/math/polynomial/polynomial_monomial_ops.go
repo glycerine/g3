@@ -3,7 +3,10 @@ package polynomial
 // Source: src/math/polynomial/polynomial.cpp; src/math/polynomial/polynomial.h.
 
 import (
+	"fmt"
+
 	"github.com/glycerine/g3/pkg/arena"
+	umemory "github.com/glycerine/g3/pkg/util/memory"
 )
 
 // A source raw array or actual monomial pointer is a borrowed, ephemeral input;
@@ -41,6 +44,88 @@ func (in monomialInput) degree(i uint32) (uint32, error) {
 		return 0, arena.ErrBounds
 	}
 	return in.powers[i].Degree, nil
+}
+
+// monomialInputReader reads one monomialInput through a single
+// SmallObjectReader of its object: the location and object lookups of
+// powerFieldCore are made at the first read and their result (or error) is
+// reused, which is exact while nothing changes the object or the memory
+// runtime between reads. Raw-array inputs read their slice as before.
+// Checked and debug builds also read through powerFieldCore and panic if
+// the results differ.
+type monomialInputReader struct {
+	in    monomialInput
+	rd    umemory.SmallObjectReader
+	err   error
+	ready bool
+}
+
+func (in monomialInput) reader() monomialInputReader { return monomialInputReader{in: in} }
+
+// read32 is m.allocator.ReadUint32(m.location(r.in.value).raw, offset),
+// with the location error first, for an object input.
+func (r *monomialInputReader) read32(offset uint64) (uint32, error) {
+	m := r.in.manager
+	if !r.ready {
+		l, e := m.location(r.in.value)
+		if e == nil {
+			r.rd, e = m.allocator.Reader(l.raw)
+		}
+		r.err, r.ready = e, true
+	}
+	if r.err != nil {
+		return 0, r.err
+	}
+	return r.rd.ReadUint32(offset)
+}
+func (r *monomialInputReader) field(i uint32, field uint64) (uint32, error) {
+	v, e := r.read32(20 + uint64(i)*8 + field)
+	if polynomialValidateOwnership {
+		if sv, se := r.in.manager.powerFieldCore(r.in.value, i, field); sv != v || se != e {
+			panic(fmt.Sprintf("polynomial: monomial input reader (%d, %v) differs from powerFieldCore (%d, %v)", v, e, sv, se))
+		}
+	}
+	return v, e
+}
+
+// word is sizeCore/degreeCore-style header word access (offset in bytes).
+func (r *monomialInputReader) word(offset uint64) (uint32, error) {
+	v, e := r.read32(offset)
+	if polynomialValidateOwnership {
+		m := r.in.manager
+		var sv uint32
+		l, se := m.location(r.in.value)
+		if se == nil {
+			sv, se = m.allocator.ReadUint32(l.raw, offset)
+		}
+		if sv != v || se != e {
+			panic(fmt.Sprintf("polynomial: monomial input reader word (%d, %v) differs from ReadUint32 (%d, %v)", v, e, sv, se))
+		}
+	}
+	return v, e
+}
+func (r *monomialInputReader) variable(i uint32) (uint32, error) {
+	if r.in.manager == nil {
+		return r.in.variable(i)
+	}
+	return r.field(i, 0)
+}
+func (r *monomialInputReader) degree(i uint32) (uint32, error) {
+	if r.in.manager == nil {
+		return r.in.degree(i)
+	}
+	return r.field(i, 4)
+}
+func (r *monomialInputReader) read(i uint32) (MonomialPower, error) {
+	if r.in.manager == nil {
+		return r.in.read(i)
+	}
+	v, e := r.field(i, 0)
+	if e != nil {
+		return MonomialPower{}, e
+	}
+	d, e := r.field(i, 4)
+	return MonomialPower{v, d}, e
 }
 
 // Whole raw-array copies fetch both members only when the source copy is reached.
@@ -97,15 +182,18 @@ func (m *MonomialManager) mulCreated(a, b Monomial, outcome *monomialFactoryOutc
 	if b == m.unit {
 		return a, nil
 	}
-	n, e := m.sizeCore(a)
+	// sizeCore(a), sizeCore(b) through the readers the merge reuses.
+	ra, rb := monomialInput{manager: m, value: a}.reader(), monomialInput{manager: m, value: b}.reader()
+	n, e := ra.word(12)
 	if e != nil {
 		return Monomial{}, e
 	}
-	k, e := m.sizeCore(b)
+	k, e := rb.word(12)
 	if e != nil {
 		return Monomial{}, e
 	}
-	return m.mulInputsCreated(monomialInput{manager: m, value: a, count: n}, monomialInput{manager: m, value: b, count: k}, outcome)
+	ra.in.count, rb.in.count = n, k
+	return m.mulReadersCreated(&ra, &rb, outcome)
 }
 func (m *MonomialManager) MulPowers(a, b []MonomialPower) (Monomial, error) {
 	if e := m.check(); e != nil {
@@ -123,11 +211,37 @@ func (m *MonomialManager) mulInputsCreated(left, right monomialInput, outcome *m
 	if outcome != nil {
 		*outcome = monomialFactoryOutcome{}
 	}
+	// One return keeps this defer open-coded (no runtime defer record); it
+	// runs as before on every return and during a panic.
 	defer func() {
 		if cause == nil {
 			m.creation = monomialCreation{}
 		}
 	}()
+	lin, rin := left.reader(), right.reader()
+	return m.mulInputsCreatedBody(&lin, &rin, outcome)
+}
+
+// mulReadersCreated is mulInputsCreated for inputs whose readers the caller
+// already used (mulCreated's size reads).
+func (m *MonomialManager) mulReadersCreated(lin, rin *monomialInputReader, outcome *monomialFactoryOutcome) (result Monomial, cause error) {
+	if outcome != nil {
+		*outcome = monomialFactoryOutcome{}
+	}
+	defer func() {
+		if cause == nil {
+			m.creation = monomialCreation{}
+		}
+	}()
+	return m.mulInputsCreatedBody(lin, rin, outcome)
+}
+
+// mulInputsCreatedBody merges through the input readers: it only writes the
+// Go-side temporary (tempReserve may allocate a new block, which leaves the
+// input objects' storage in place), so the inputs and their readers stay
+// valid while it reads them.
+func (m *MonomialManager) mulInputsCreatedBody(lin, rin *monomialInputReader, outcome *monomialFactoryOutcome) (Monomial, error) {
+	left, right := lin.in, rin.in
 	x, y := MonomialInfo{Size: left.count}, MonomialInfo{Size: right.count}
 	var e error
 	if e := m.inputValidAssert(left, 920, "is_valid_power_product(sz1, pws1)"); e != nil {
@@ -147,7 +261,7 @@ func (m *MonomialManager) mulInputsCreated(left, right monomialInput, outcome *m
 	for {
 		if i == x.Size {
 			for ; j < y.Size; j++ {
-				p, e := right.read(j)
+				p, e := rin.read(j)
 				if e != nil {
 					return Monomial{}, e
 				}
@@ -160,7 +274,7 @@ func (m *MonomialManager) mulInputsCreated(left, right monomialInput, outcome *m
 		}
 		if j == y.Size {
 			for ; i < x.Size; i++ {
-				p, e := left.read(i)
+				p, e := lin.read(i)
 				if e != nil {
 					return Monomial{}, e
 				}
@@ -171,21 +285,21 @@ func (m *MonomialManager) mulInputsCreated(left, right monomialInput, outcome *m
 			}
 			break
 		}
-		v1, e := left.variable(i)
+		v1, e := lin.variable(i)
 		if e != nil {
 			return Monomial{}, e
 		}
-		v2, e := right.variable(j)
+		v2, e := rin.variable(j)
 		if e != nil {
 			return Monomial{}, e
 		}
 		var p MonomialPower
 		if v1 == v2 {
-			d1, e := left.degree(i)
+			d1, e := lin.degree(i)
 			if e != nil {
 				return Monomial{}, e
 			}
-			d2, e := right.degree(j)
+			d2, e := rin.degree(j)
 			if e != nil {
 				return Monomial{}, e
 			}
@@ -193,7 +307,7 @@ func (m *MonomialManager) mulInputsCreated(left, right monomialInput, outcome *m
 			i++
 			j++
 		} else if v1 < v2 {
-			p, e = left.read(i)
+			p, e = lin.read(i)
 			if e != nil {
 				return Monomial{}, e
 			}
@@ -202,7 +316,7 @@ func (m *MonomialManager) mulInputsCreated(left, right monomialInput, outcome *m
 			if e := m.sourceScalarAssert(953, "v1 > v2", v1 > v2); e != nil {
 				return Monomial{}, e
 			}
-			p, e = right.read(j)
+			p, e = rin.read(j)
 			if e != nil {
 				return Monomial{}, e
 			}

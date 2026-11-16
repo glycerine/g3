@@ -372,8 +372,15 @@ func (a *SmallAllocator) allocateWithOutcome(n uint64, outcome *SmallAllocatorAl
 		if started != nil {
 			*started = true
 		}
+		// The body has many returns; calling it from here keeps this defer
+		// open-coded (no runtime defer record). It still runs on every
+		// return and during a panic.
 		defer func() { frame.executing = false }()
+		return a.allocateBody(n, outcome)
 	}
+	return a.allocateBody(n, outcome)
+}
+func (a *SmallAllocator) allocateBody(n uint64, outcome *SmallAllocatorAllocationOutcome) (ObjectRef, error) {
 	if !a.bypass() {
 		a.allocSize = a.counter(a.allocSize + n)
 	}
