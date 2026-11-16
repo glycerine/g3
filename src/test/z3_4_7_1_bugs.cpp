@@ -334,6 +334,13 @@ Abstract:
                                   "Failed to verify") on a negated mixed
                                   Int/Bool predicate (pkg/AUDIT.md FUZZ-F5,
                                   relation plugins).
+    z3_4_7_1_str_regex_pop        theory_str keeps str.in.re terms in its
+                                  regex maps after the pop that removes
+                                  them from the context; the next final
+                                  check reads the assignment of a term with
+                                  no bool var (or a freed term) and
+                                  segfaults (fork fix, AST-id fidelity
+                                  audit 2026-11-16).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -3667,4 +3674,35 @@ void tst_z3_4_7_1_sieve_kinds() {
     expect_script_output("sieve_kinds", script,
         "sat\n"
         "(or (= (:var 0) true) (= (:var 0) false))\n");
+}
+
+// z3str3 records each str.in.re term in regex_in_bool_map,
+// regex_in_var_reg_str_map, regex_terms and regex_terms_by_string by raw
+// pointer, and neither pop_scope_eh nor the trail removes the entries. After
+// the first pop the membership term has no bool var (and, in automata mode,
+// nothing keeps it alive): the next final check reads its assignment through
+// m_expr2bool_var and z3 4.7.1 segfaults. Fixed by pinning the term in m_trail
+// and skipping terms that are not internalized; the third check also needs
+// the value-testing gate to skip the popped term, or x is never assigned and
+// final check loops (hence the timeout).
+void tst_z3_4_7_1_str_regex_pop() {
+    char const* script =
+        "(set-option :timeout 20000)\n"
+        "(set-option :smt.string_solver z3str3)\n"
+        "(declare-const x String)\n"
+        "(declare-const y String)\n"
+        "(push)\n"
+        "(assert (str.in.re x (re.+ (str.to.re \"a\"))))\n"
+        "(check-sat)\n"
+        "(pop)\n"
+        "(push)\n"
+        "(assert (= x \"b\"))\n"
+        "(check-sat)\n"
+        "(pop)\n"
+        "(push)\n"
+        "(assert (= y (str.++ x \"b\")))\n"
+        "(assert (= (str.len y) 3))\n"
+        "(check-sat)\n"
+        "(pop)\n";
+    expect_script_output("str_regex_pop", script, "sat\nsat\nsat\n");
 }

@@ -308,6 +308,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_str_container_id_order);
     TST(z3_4_7_1_product_kind_spec);
     TST(z3_4_7_1_sieve_kinds);
+    TST(z3_4_7_1_str_regex_pop);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);
