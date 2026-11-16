@@ -11515,6 +11515,13 @@ namespace smt {
 
         ptr_vector<expr> outOfScopeTesters;
 
+        // FORK FIX #105 (g3 audit, see FORK_BUGFIXES.md): obj_map::operator[] is
+        // find() and never inserts; nothing else adds var, so the release build
+        // dereferenced a null entry here. Insert the empty tries map first.
+        if (!unroll_tries_map.contains(var)) {
+            unroll_tries_map.insert(var, std::map<str_expr_set, ptr_vector<expr> >());
+        }
+
         for (expr * tester : unroll_tries_map[var][unrolls]) {
             bool inScope = internal_unrollTest_vars.contains(tester);
             TRACE("str", tout << "unroll test var " << mk_pp(tester, mgr)
