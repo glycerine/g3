@@ -9,11 +9,14 @@ import (
 
 func (c *integerAllocationInvocationContext) henselPairReceipt(z *unumeral.IntegerManager) *upolyHenselPairInvocationReceipt {
 	r := c.henselPair
-	if z == nil || !z.ValidOwner() || r == nil || r.service == nil || !r.service.matchesHenselPairInvocation(r) || r.service.manager.config.Integer != z || c.henselPairInvocation == 0 || c.henselPairInvocation != r.invocation || !r.frame.executing || r.frame.constructed == 0 || r.service.manager.callbackDepth != 0 {
+	if z == nil || r == nil || r.service == nil || !r.service.matchesHenselPairInvocation(r) || c.henselPairInvocation == 0 || c.henselPairInvocation != r.invocation || !r.frame.executing || r.frame.constructed == 0 || r.service.manager.callbackDepth != 0 {
 		return nil
 	}
 	m := c.henselManager
-	if m == nil || m.self != m || m.config.Integer != z || m.callbackDepth != 0 || !r.frame.ownsNumericManager(m) {
+	if m == nil || m.callbackDepth != 0 {
+		return nil
+	}
+	if polynomialValidateOwnership && (!z.ValidOwner() || r.service.manager.config.Integer != z || m.self != m || m.config.Integer != z || !r.frame.ownsNumericManager(m)) {
 		return nil
 	}
 	if r.frame.rm != nil && r.frame.rm.callbackDepth != 0 {

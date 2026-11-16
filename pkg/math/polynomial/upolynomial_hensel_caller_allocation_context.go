@@ -23,11 +23,14 @@ func (q *upolyHenselCallerScope) ownsNumericManager(m *UPolynomialManager) bool 
 }
 func (c *integerAllocationInvocationContext) henselCallerFrame(z *unumeral.IntegerManager) *upolyHenselCallerScope {
 	q := c.henselCaller
-	if z == nil || !z.ValidOwner() || q == nil || !q.matches() || q.invocation == 0 || c.henselCallerInvocation != q.invocation || !q.executing || q.owner.manager.config.Integer != z {
+	if z == nil || q == nil || !q.matches() || q.invocation == 0 || c.henselCallerInvocation != q.invocation || !q.executing {
 		return nil
 	}
 	m := c.henselCallerManager
-	if m == nil || m.self != m || !q.ownsNumericManager(m) || m.config.Integer != z {
+	if m == nil {
+		return nil
+	}
+	if polynomialValidateOwnership && (!z.ValidOwner() || q.owner.manager.config.Integer != z || m.self != m || !q.ownsNumericManager(m) || m.config.Integer != z) {
 		return nil
 	}
 	for _, o := range q.numericOwners() {

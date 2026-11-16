@@ -57,7 +57,10 @@ func (m *MultivariatePolynomialCore) ownsArithmeticFrame(s *polynomialArithmetic
 // Direct numeric engines validate the concrete passed invocation. An executing
 // high-level operation alone cannot acquire roots produced by an external hook.
 func numericIntegerManager_arithmeticAllocationRoots(m *unumeral.IntegerManager, r *polynomialArithmeticInvocationReceipt) *polynomialNumericRoots {
-	if r == nil || r.manager == nil || r.manager.integer != m || !r.manager.matchesArithmeticInvocation(r) || !r.frame.executing || r.manager.callbackDepth != 0 {
+	if r == nil || r.manager == nil || !r.manager.matchesArithmeticInvocation(r) || !r.frame.executing || r.manager.callbackDepth != 0 {
+		return nil
+	}
+	if polynomialValidateOwnership && r.manager.integer != m {
 		return nil
 	}
 	return &r.frame.numeric

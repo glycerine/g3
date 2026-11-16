@@ -54,7 +54,10 @@ func numericNaturalManager_knuthCallerExecuting(n *unumeral.NaturalManager) bool
 }
 func (c *integerAllocationInvocationContext) knuthFrame(z *unumeral.IntegerManager) *upolyKnuthScope {
 	q := c.knuth
-	if z == nil || !z.ValidOwner() || q == nil || q.owner == nil || q.owner.self != q.owner || q != &q.owner.knuth || q.owner.config.Integer != z || knuthCaller(z) != q.owner || q.owner.callbackDepth != 0 || !q.active || !q.executing || c.knuthInvocation == 0 || c.knuthInvocation != q.invocation {
+	if z == nil || q == nil || q.owner == nil || q.owner.self != q.owner || q != &q.owner.knuth || knuthCaller(z) != q.owner || q.owner.callbackDepth != 0 || !q.active || !q.executing || c.knuthInvocation == 0 || c.knuthInvocation != q.invocation {
+		return nil
+	}
+	if polynomialValidateOwnership && (!z.ValidOwner() || q.owner.config.Integer != z) {
 		return nil
 	}
 	return q

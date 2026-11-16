@@ -10,16 +10,22 @@ import (
 
 func (c *integerAllocationInvocationContext) trialFrame(z *unumeral.IntegerManager) *upolyRecombinationTrialScope {
 	q := c.trial
-	if z == nil || !z.ValidOwner() || q == nil || !q.matches() || !q.active || !q.executing || !q.constructed || c.trialInvocation == 0 || c.trialInvocation != q.invocation || q.owner.service.scope != q.owner || q.owner.manager.config.Integer != z {
+	if z == nil || q == nil || !q.matches() || !q.active || !q.executing || !q.constructed || c.trialInvocation == 0 || c.trialInvocation != q.invocation || q.owner.service.scope != q.owner {
+		return nil
+	}
+	if polynomialValidateOwnership && (!z.ValidOwner() || q.owner.manager.config.Integer != z) {
 		return nil
 	}
 	for _, m := range q.managers() {
-		if m == nil || m.self != m || m.config.Integer != z || m.callbackDepth != 0 {
+		if m == nil || m.callbackDepth != 0 {
+			return nil
+		}
+		if polynomialValidateOwnership && (m.self != m || m.config.Integer != z) {
 			return nil
 		}
 	}
 	m := c.trialManager
-	if m != q.owner.manager && m != q.factors.manager {
+	if polynomialValidateOwnership && m != q.owner.manager && m != q.factors.manager {
 		return nil
 	}
 	return q

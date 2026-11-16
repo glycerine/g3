@@ -118,6 +118,12 @@ type integerAllocationInvocationContext struct {
 // large and the validators take it by value, so calling every validator for
 // every numeric operation needlessly copies it many times.
 func (c *integerAllocationInvocationContext) roots(m *unumeral.IntegerManager) *polynomialNumericRoots {
+	// A context that carries only a polynomial arithmetic invocation (the
+	// common case in SOM arithmetic) fails every test below until the final
+	// arithmetic branch, so that branch is taken directly.
+	if c.arithmetic != nil && c.arithmeticOnly() {
+		return c.arithmeticRoots(m)
+	}
 	if c.squareRoot != nil {
 		r := c.squareRoot
 		if c.squareRootInvocation == 0 || c.squareRootInvocation != r.invocation || r.manager == nil || !r.manager.matchesSqrtInvocation(r) || r.manager.core.integer != m || !r.frame.executing || r.manager.core.callbackDepth != 0 {
@@ -374,9 +380,27 @@ func (c *integerAllocationInvocationContext) roots(m *unumeral.IntegerManager) *
 		}
 	}
 	if c.arithmetic != nil {
-		return numericIntegerManager_arithmeticAllocationRoots(m, c.arithmeticReceipt(m))
+		return c.arithmeticRoots(m)
 	}
 	return nil
+}
+
+// arithmeticRoots is numericIntegerManager_arithmeticAllocationRoots(m,
+// c.arithmeticReceipt(m)) without validating the receipt twice: the receipt
+// is c.arithmetic exactly when its roots are non-nil, and nil otherwise.
+func (c *integerAllocationInvocationContext) arithmeticRoots(m *unumeral.IntegerManager) *polynomialNumericRoots {
+	if c.arithmetic != nil && c.arithmeticInvocation != 0 && c.arithmeticInvocation == c.arithmetic.invocation {
+		return numericIntegerManager_arithmeticAllocationRoots(m, c.arithmetic)
+	}
+	return nil
+}
+
+// arithmeticOnly reports a context whose only set fields are the arithmetic
+// receipt and its invocation.
+func (c *integerAllocationInvocationContext) arithmeticOnly() bool {
+	t := *c
+	t.arithmetic, t.arithmeticInvocation = nil, 0
+	return t == integerAllocationInvocationContext{}
 }
 
 func numericIntegerManager_copyFromOwnerWithArithmeticReceipt(m *unumeral.IntegerManager, out *unumeral.Int, owner *unumeral.IntegerManager, value *unumeral.Int, receipt *polynomialArithmeticInvocationReceipt) error {
