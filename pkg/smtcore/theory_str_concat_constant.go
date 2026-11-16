@@ -29,13 +29,14 @@ func (t *SMTStringTheory) solveConcatConstant(concat, constant ast.ASTHandle) (r
 		}
 		return value, locals.add(value)
 	}
-	equality, err := pin(t.state.MkEqAtom(concat, constant))
-	if err != nil {
-		return err
-	}
+	// ctx.mk_eq_atom(concat, str) is built where each case first needs it.
 	guards := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, guards.close()) }()
 	if text == "" {
+		equality, err := pin(t.state.MkEqAtom(concat, constant))
+		if err != nil {
+			return err
+		}
 		left, err := pin(t.state.MkEqAtom(first, constant))
 		if err != nil {
 			return err
@@ -148,9 +149,15 @@ func (t *SMTStringTheory) solveConcatConstant(concat, constant ast.ASTHandle) (r
 		return err
 	}
 	if alk || blk {
+		// expr_ref ax_l1(ctx.mk_eq_atom(concat, str)) opens Case 4's
+		// known-length branch.
+		equality, err := pin(t.state.MkEqAtom(concat, constant))
+		if err != nil {
+			return err
+		}
 		return t.solveConcatKnownLength(equality, a, b, text, al, alk, bl, blk)
 	}
-	return t.solveConcatArrangements(equality, a, b, text)
+	return t.solveConcatArrangements(concat, constant, a, b, text)
 }
 
 func (t *SMTStringTheory) solveConcatKnownLength(equality, a, b ast.ASTHandle, text string, al *big.Int, alk bool, bl *big.Int, blk bool) (result error) {
@@ -270,7 +277,7 @@ func (t *SMTStringTheory) solveConcatKnownLength(equality, a, b ast.ASTHandle, t
 	return guards.imply(conclusion)
 }
 
-func (t *SMTStringTheory) solveConcatArrangements(equality, a, b ast.ASTHandle, text string) (result error) {
+func (t *SMTStringTheory) solveConcatArrangements(concat, constant, a, b ast.ASTHandle, text string) (result error) {
 	m := t.state.manager
 	key, reverse := [2]ast.ASTHandle{a, b}, [2]ast.ASTHandle{b, a}
 	if _, first := t.concatBreakFlags[key]; !first {
@@ -337,6 +344,11 @@ func (t *SMTStringTheory) solveConcatArrangements(equality, a, b ast.ASTHandle, 
 			return err
 		}
 		arrangements = append(arrangements, arrangement)
+	}
+	// expr_ref implyL(ctx.mk_eq_atom(concat, str)) follows the options.
+	equality, err := pin(t.state.MkEqAtom(concat, constant))
+	if err != nil {
+		return err
 	}
 	if len(arrangements) == 0 {
 		negative, err := pin(m.MkNot(equality))
