@@ -74,14 +74,14 @@ func (p *modelPrinter) renderSort(h ast.ASTHandle, indent uint32) (text string, 
 	}
 	defer func() { result = errors.Join(result, formats.DelRef(&ref)) }()
 	if indent > 0 {
+		// f = mk_indent(m(), indent, f): the one format_ref is reassigned,
+		// so the sort format is released when the indent node is.
 		if format, err = p.model.manager.FormatIndent(indent, format); err != nil {
 			return "", err
 		}
-		indented, err := formats.NewRef(format)
-		if err != nil {
+		if err = formats.SetRef(ref, format); err != nil {
 			return "", err
 		}
-		defer func() { result = errors.Join(result, formats.DelRef(&indented)) }()
 	}
 	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: p.model.manager.Budget()})
 	if err != nil {
