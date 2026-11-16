@@ -34,11 +34,36 @@
 #include<stack>
 #include<vector>
 #include<map>
+#include<algorithm>
 
 namespace smt {
 
 typedef hashtable<symbol, symbol_hash_proc, symbol_eq_proc> symbol_set;
 typedef int_hashtable<int_hash, default_eq<int> > integer_set;
+
+// FORK FIX #98 (g3 audit, see FORK_BUGFIXES.md): theory_str's std::map and
+// std::set containers were keyed by expr pointers, so every walk over them
+// (dependence analysis, grounded concats, free-variable and unroll
+// handling) followed heap addresses and could change from build to build.
+// They are ordered by AST id instead (owner decision 2026-11-15).
+struct str_expr_id_lt {
+    bool operator()(expr const * a, expr const * b) const { return a->get_id() < b->get_id(); }
+};
+struct str_expr_vector_id_lt {
+    bool operator()(std::vector<expr*> const & a, std::vector<expr*> const & b) const {
+        return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end(), str_expr_id_lt());
+    }
+};
+struct str_expr_pair_id_lt {
+    bool operator()(std::pair<expr*, expr*> const & a, std::pair<expr*, expr*> const & b) const {
+        if (a.first != b.first) return a.first->get_id() < b.first->get_id();
+        return a.second->get_id() < b.second->get_id();
+    }
+};
+template<typename V> using str_expr_map = std::map<expr*, V, str_expr_id_lt>;
+typedef std::set<expr*, str_expr_id_lt> str_expr_set;
+typedef std::set<std::pair<expr*, expr*>, str_expr_pair_id_lt> str_expr_pair_set;
+typedef std::map<std::vector<expr*>, str_expr_set, str_expr_vector_id_lt> str_grounded_map;
 
 class str_value_factory : public value_factory {
     seq_util u;
@@ -381,14 +406,14 @@ protected:
 
     // This can't be an expr_ref_vector because the constructor is wrong,
     // we would need to modify the allocator so we pass in ast_manager
-    obj_map<expr, std::map<std::set<expr*>, ptr_vector<expr> > > unroll_tries_map;
+    obj_map<expr, std::map<str_expr_set, ptr_vector<expr> > > unroll_tries_map;
     obj_map<expr, expr*> unroll_var_map;
     obj_pair_map<expr, expr, expr*> concat_eq_unroll_ast_map;
 
     expr_ref_vector contains_map;
 
     theory_str_contain_pair_bool_map_t contain_pair_bool_map;
-    obj_map<expr, std::set<std::pair<expr*, expr*> > > contain_pair_idx_map;
+    obj_map<expr, str_expr_pair_set > contain_pair_idx_map;
 
     // TBD: do a curried map for determinism.
     std::map<std::pair<expr*, zstring>, expr*> regex_in_bool_map;
@@ -591,18 +616,18 @@ protected:
     void check_contain_by_substr(expr * varNode, expr_ref_vector & willEqClass);
     void check_contain_by_eq_nodes(expr * n1, expr * n2);
     bool in_contain_idx_map(expr * n);
-    void compute_contains(std::map<expr*, expr*> & varAliasMap,
-            std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr *> & varConstMap,
-            std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap);
-    expr * dealias_node(expr * node, std::map<expr*, expr*> & varAliasMap, std::map<expr*, expr*> & concatAliasMap);
+    void compute_contains(str_expr_map<expr*> & varAliasMap,
+            str_expr_map<expr*> & concatAliasMap, str_expr_map<expr *> & varConstMap,
+            str_expr_map<expr*> & concatConstMap, str_expr_map<str_expr_map<int> > & varEqConcatMap);
+    expr * dealias_node(expr * node, str_expr_map<expr*> & varAliasMap, str_expr_map<expr*> & concatAliasMap);
     void get_grounded_concats(unsigned depth,
-                              expr* node, std::map<expr*, expr*> & varAliasMap,
-                              std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr*> & varConstMap,
-                              std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap,
-                              std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
-    void print_grounded_concat(expr * node, std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
+                              expr* node, str_expr_map<expr*> & varAliasMap,
+                              str_expr_map<expr*> & concatAliasMap, str_expr_map<expr*> & varConstMap,
+                              str_expr_map<expr*> & concatConstMap, str_expr_map<str_expr_map<int> > & varEqConcatMap,
+                              str_expr_map<str_grounded_map > & groundedMap);
+    void print_grounded_concat(expr * node, str_expr_map<str_grounded_map > & groundedMap);
     void check_subsequence(expr* str, expr* strDeAlias, expr* subStr, expr* subStrDeAlias, expr* boolVar,
-            std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
+            str_expr_map<str_grounded_map > & groundedMap);
     bool is_partial_in_grounded_concat(const std::vector<expr*> & strVec, const std::vector<expr*> & subStrVec);
 
     void get_nodes_in_concat(expr * node, ptr_vector<expr> & nodeList);
@@ -637,28 +662,28 @@ protected:
     void add_theory_aware_branching_info(expr * term, double priority, lbool phase);
 
     bool new_eq_check(expr * lhs, expr * rhs);
-    void group_terms_by_eqc(expr * n, std::set<expr*> & concats, std::set<expr*> & vars, std::set<expr*> & consts);
+    void group_terms_by_eqc(expr * n, str_expr_set & concats, str_expr_set & vars, str_expr_set & consts);
 
-    int ctx_dep_analysis(std::map<expr*, int> & strVarMap, std::map<expr*, int> & freeVarMap,
-            std::map<expr*, std::set<expr*> > & unrollGroupMap, std::map<expr*, std::map<expr*, int> > & var_eq_concat_map);
+    int ctx_dep_analysis(str_expr_map<int> & strVarMap, str_expr_map<int> & freeVarMap,
+            str_expr_map<str_expr_set > & unrollGroupMap, str_expr_map<str_expr_map<int> > & var_eq_concat_map);
     void trace_ctx_dep(std::ofstream & tout,
-            std::map<expr*, expr*> & aliasIndexMap,
-            std::map<expr*, expr*> & var_eq_constStr_map,
-            std::map<expr*, std::map<expr*, int> > & var_eq_concat_map,
-            std::map<expr*, std::map<expr*, int> > & var_eq_unroll_map,
-            std::map<expr*, expr*> & concat_eq_constStr_map,
-            std::map<expr*, std::map<expr*, int> > & concat_eq_concat_map,
-            std::map<expr*, std::set<expr*> > & unrollGroupMap);
+            str_expr_map<expr*> & aliasIndexMap,
+            str_expr_map<expr*> & var_eq_constStr_map,
+            str_expr_map<str_expr_map<int> > & var_eq_concat_map,
+            str_expr_map<str_expr_map<int> > & var_eq_unroll_map,
+            str_expr_map<expr*> & concat_eq_constStr_map,
+            str_expr_map<str_expr_map<int> > & concat_eq_concat_map,
+            str_expr_map<str_expr_set > & unrollGroupMap);
 
     bool term_appears_as_subterm(expr * needle, expr * haystack);
-    void classify_ast_by_type(expr * node, std::map<expr*, int> & varMap,
-            std::map<expr*, int> & concatMap, std::map<expr*, int> & unrollMap);
-    void classify_ast_by_type_in_positive_context(std::map<expr*, int> & varMap,
-            std::map<expr*, int> & concatMap, std::map<expr*, int> & unrollMap);
+    void classify_ast_by_type(expr * node, str_expr_map<int> & varMap,
+            str_expr_map<int> & concatMap, str_expr_map<int> & unrollMap);
+    void classify_ast_by_type_in_positive_context(str_expr_map<int> & varMap,
+            str_expr_map<int> & concatMap, str_expr_map<int> & unrollMap);
 
     expr * mk_internal_lenTest_var(expr * node, int lTries);
     expr * gen_len_val_options_for_free_var(expr * freeVar, expr * lenTesterInCbEq, zstring lenTesterValue);
-    void process_free_var(std::map<expr*, int> & freeVar_map);
+    void process_free_var(str_expr_map<int> & freeVar_map);
     expr * gen_len_test_options(expr * freeVar, expr * indicator, int tries);
     expr * gen_free_var_options(expr * freeVar, expr * len_indicator,
             zstring len_valueStr, expr * valTesterInCbEq, zstring valTesterValueStr);
@@ -676,11 +701,11 @@ protected:
     void more_len_tests(expr * lenTester, zstring lenTesterValue);
     void more_value_tests(expr * valTester, zstring valTesterValue);
 
-    expr * get_alias_index_ast(std::map<expr*, expr*> & aliasIndexMap, expr * node);
+    expr * get_alias_index_ast(str_expr_map<expr*> & aliasIndexMap, expr * node);
     expr * getMostLeftNodeInConcat(expr * node);
     expr * getMostRightNodeInConcat(expr * node);
-    void get_var_in_eqc(expr * n, std::set<expr*> & varSet);
-    void get_concats_in_eqc(expr * n, std::set<expr*> & concats);
+    void get_var_in_eqc(expr * n, str_expr_set & varSet);
+    void get_concats_in_eqc(expr * n, str_expr_set & concats);
     void get_const_str_asts_in_node(expr * node, expr_ref_vector & constList);
     expr * eval_concat(expr * n1, expr * n2);
 
@@ -689,11 +714,11 @@ protected:
 
     // strRegex
 
-    void get_eqc_allUnroll(expr * n, expr * &constStr, std::set<expr*> & unrollFuncSet);
-    void get_eqc_simpleUnroll(expr * n, expr * &constStr, std::set<expr*> & unrollFuncSet);
-    void gen_assign_unroll_reg(std::set<expr*> & unrolls);
-    expr * gen_assign_unroll_Str2Reg(expr * n, std::set<expr*> & unrolls);
-    expr * gen_unroll_conditional_options(expr * var, std::set<expr*> & unrolls, zstring lcmStr);
+    void get_eqc_allUnroll(expr * n, expr * &constStr, str_expr_set & unrollFuncSet);
+    void get_eqc_simpleUnroll(expr * n, expr * &constStr, str_expr_set & unrollFuncSet);
+    void gen_assign_unroll_reg(str_expr_set & unrolls);
+    expr * gen_assign_unroll_Str2Reg(expr * n, str_expr_set & unrolls);
+    expr * gen_unroll_conditional_options(expr * var, str_expr_set & unrolls, zstring lcmStr);
     expr * gen_unroll_assign(expr * var, zstring lcmStr, expr * testerVar, int l, int h);
     void reduce_virtual_regex_in(expr * var, expr * regex, expr_ref_vector & items);
     void check_regex_in(expr * nn1, expr * nn2);
@@ -705,9 +730,9 @@ protected:
     void check_variable_scope();
     void recursive_check_variable_scope(expr * ex);
 
-    void collect_var_concat(expr * node, std::set<expr*> & varSet, std::set<expr*> & concatSet);
-    bool propagate_length(std::set<expr*> & varSet, std::set<expr*> & concatSet, std::map<expr*, int> & exprLenMap);
-    void get_unique_non_concat_nodes(expr * node, std::set<expr*> & argSet);
+    void collect_var_concat(expr * node, str_expr_set & varSet, str_expr_set & concatSet);
+    bool propagate_length(str_expr_set & varSet, str_expr_set & concatSet, str_expr_map<int> & exprLenMap);
+    void get_unique_non_concat_nodes(expr * node, str_expr_set & argSet);
     bool propagate_length_within_eqc(expr * var);
 
     // TESTING
