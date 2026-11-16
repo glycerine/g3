@@ -382,6 +382,36 @@ namespace datalog {
             return res;
         }
 
+        if (sig.first_functional() > 1) {
+            // FORK FIX #108 (g3 audit, see FORK_BUGFIXES.md): the full table of
+            // a signature of several columns (a product_relation join that
+            // needs a full table_relation over the other side's signature,
+            // get_full_tableish_relation) stopped z3 on
+            // VERIFY(sig.first_functional() == 1). Enumerate every row, the
+            // last column fastest, as the one-column loop below does.
+            unsigned n = sig.first_functional();
+            bool empty_table = empty();
+            for (unsigned c = 0; c < n; ++c) {
+                fact[c] = 0;
+            }
+            while (true) {
+                if (empty_table || !contains_fact(fact)) {
+                    res->add_fact(fact);
+                }
+                unsigned c = n;
+                while (c > 0) {
+                    --c;
+                    if (++fact[c] < sig[c]) {
+                        break;
+                    }
+                    fact[c] = 0;
+                    if (c == 0) {
+                        return res;
+                    }
+                }
+            }
+        }
+
         VERIFY(sig.first_functional() == 1);
 
         uint64_t upper_bound = get_signature()[0];
