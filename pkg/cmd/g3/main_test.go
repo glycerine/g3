@@ -336,6 +336,12 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ-F5 (relation plugins): with the bound_relation
+	// favourite, a predicate with an explicit tr_sparse representation is a
+	// table_relation of the sparse plugin next to the bound relations
+	// (rel_context::set_predicate_representation); the program runs on the
+	// relation plugins (g3 reported an unsupported bound fragment).
+	"plugins5_bound_tr_sparse.smt2": "sat\n(or (= (:var 0) #b10) (= (:var 0) #b01))\nsat\n(or (= (:var 0) #b01) (= (:var 0) #b10))\n",
 	// fork fix #C (table_base::complement of several columns; z3 4.7.1 stops
 	// on VERIFY(sig.first_functional() == 1)).
 	"plugins4_doc_table_full_columns.smt2": "sat\n(and (= (:var 0) #b00)\n     (= (:var 1) #b01)\n     (or (and (= (:var 0) #b00) (= (:var 1) #b00) (= (:var 2) true))\n         (and (= (:var 0) #b00) (= (:var 1) #b01) (= (:var 2) true))\n         (and (= (:var 0) #b00) (= (:var 1) #b10) (= (:var 2) true))\n         (and (= (:var 0) #b00) (= (:var 1) #b11) (= (:var 2) true))\n         (and (= (:var 0) #b01) (= (:var 1) #b00) (= (:var 2) true))\n         (and (= (:var 0) #b01) (= (:var 1) #b01) (= (:var 2) true))\n         (and (= (:var 0) #b01) (= (:var 1) #b10) (= (:var 2) true))\n         (and (= (:var 0) #b01) (= (:var 1) #b11) (= (:var 2) true))\n         (and (= (:var 0) #b10) (= (:var 1) #b00) (= (:var 2) true))\n         (and (= (:var 0) #b10) (= (:var 1) #b01) (= (:var 2) true))\n         (and (= (:var 0) #b10) (= (:var 1) #b10) (= (:var 2) true))\n         (and (= (:var 0) #b10) (= (:var 1) #b11) (= (:var 2) true))\n         (and (= (:var 0) #b11) (= (:var 1) #b00) (= (:var 2) true))\n         (and (= (:var 0) #b11) (= (:var 1) #b01) (= (:var 2) true))\n         (and (= (:var 0) #b11) (= (:var 1) #b10) (= (:var 2) true))\n         (and (= (:var 0) #b11) (= (:var 1) #b11) (= (:var 2) true))))\n",

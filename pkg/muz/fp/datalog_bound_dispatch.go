@@ -82,7 +82,7 @@ func (e *PropositionalEngine) ensureBoundDatalog() (bool, error) {
 		e.boundDatalog.formulaCheck = formulaCheck
 		return true, e.boundDatalog.syncPredicates(e.predicateOrder)
 	}
-	owner, selected, err := newBoundDatalogActivation(e.manager, e.set, e.predicateOrder)
+	_, selected, err := boundDatalogDeclarations(e.manager, e.predicateOrder)
 	if err != nil {
 		return true, err
 	}
@@ -95,26 +95,13 @@ func (e *PropositionalEngine) ensureBoundDatalog() (bool, error) {
 		}
 		return true, ErrBoundDatalogFragment
 	}
-	owner.formulaCheck = formulaCheck
-	if err = owner.verifySeedRelations(); err != nil {
-		return true, errors.Join(err, owner.close())
-	}
-	e.boundDatalog = owner
-	for _, d := range e.predicateOrder {
-		state := e.predicates[d]
-		if state.table != nil && len(state.sorts) == 0 {
-			count, err := state.table.Len()
-			if err != nil {
-				return true, err
-			}
-			if count != 0 {
-				if err = owner.addFact(d, nil); err != nil {
-					return true, err
-				}
-			}
-		}
-	}
-	return true, nil
+	// Programs of Int/Real predicates run on the relation plugins
+	// (arithRelationsRoute, rel_context's compiled rules); the bound
+	// evaluator is no longer installed. What reaches here is a
+	// configuration whose plugins are not ported yet: an external relation
+	// next to arithmetic predicates (fixedpoint_context's
+	// external_relation_plugin) or relation-level explanations.
+	return true, ErrBoundDatalogFragment
 }
 
 func (e *PropositionalEngine) queryBoundDatalog(declarations []ast.ASTHandle) (lbool.LBool, error) {

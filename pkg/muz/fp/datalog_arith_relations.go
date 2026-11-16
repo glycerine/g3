@@ -76,11 +76,14 @@ func (e *PropositionalEngine) arithRelationsRoute() (bool, error) {
 	var requested []rel.RelationPlugin
 	for _, d := range e.predicateOrder {
 		state := e.predicates[d]
-		if state == nil || state.external != nil || state.explicitFiniteRepresentation {
+		if state == nil || state.external != nil {
 			return false, nil
 		}
 		switch {
 		case len(state.requestedRepresentations) == 0:
+		case state.explicitFiniteRepresentation && len(state.requestedRepresentations) == 1 && isTableRelationRepresentation(state.requestedRepresentations):
+			// rel_context::set_predicate_representation of one table
+			// plugin: the predicate's table_relation of that plugin.
 		case len(state.requestedRepresentations) == 1 && (state.requestedRepresentations[0] == "bound_relation" || state.requestedRepresentations[0] == "interval_relation" || state.requestedRepresentations[0] == "karr_relation"):
 		case isArithProductRepresentation(state.requestedRepresentations):
 		case state.table == nil && isTableRelationRepresentation(state.requestedRepresentations):
@@ -125,7 +128,7 @@ func (e *PropositionalEngine) arithRelationsRoute() (bool, error) {
 			}
 			continue
 		}
-		if len(state.requestedRepresentations) == 1 {
+		if len(state.requestedRepresentations) == 1 && !state.explicitFiniteRepresentation {
 			plugin := e.relations.GetRelationPlugin(state.requestedRepresentations[0])
 			requested = append(requested, plugin)
 			if err := e.relations.SetRequestedRelationKind(d, plugin); err != nil {

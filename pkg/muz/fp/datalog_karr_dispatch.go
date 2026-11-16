@@ -82,12 +82,10 @@ func (e *PropositionalEngine) ensureKarrDatalog() (bool, error) {
 		}
 		return true, e.karrDatalog.syncPredicates(e.predicateOrder)
 	}
-	owner, err := newKarrDatalogActivation(e.manager, e.set, e.predicateOrder, formulaCheck)
-	if err != nil {
-		return true, err
-	}
-	e.karrDatalog = owner
-	return true, nil
+	_ = formulaCheck
+	// karr_relation predicates run on the relation plugins
+	// (arithRelationsRoute); the karr evaluator is no longer installed.
+	return true, ErrKarrDatalogFragment
 }
 
 func (e *PropositionalEngine) queryKarrDatalog(declarations []ast.ASTHandle) (lbool.LBool, error) {
