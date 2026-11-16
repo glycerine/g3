@@ -192,7 +192,7 @@ func (e *PropositionalEngine) queryUDocDatalog(declarations []ast.ASTHandle) (st
 	// rel_context::query: scoped_query protects the source rules and
 	// predicates, and rel_context::saturate runs transform_rules before
 	// compiling, whichever relation plugin is the favourite.
-	queryScope, err := e.beginDatalogQueryScope(declarations)
+	queryScope, err := e.beginDatalogQueryScope(e.datalogQueryOutputs(declarations))
 	if err != nil {
 		return lbool.Undef, err
 	}

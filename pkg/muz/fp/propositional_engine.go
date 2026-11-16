@@ -2906,7 +2906,7 @@ func (e *PropositionalEngine) recordDatalogTransformedRules() error {
 }
 
 func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHandle, round *datalogRestartRound) (status lbool.LBool, resultErr error) {
-	queryScope, err := e.beginDatalogQueryScope(declarations)
+	queryScope, err := e.beginDatalogQueryScope(e.datalogQueryOutputs(declarations))
 	if err != nil {
 		return lbool.Undef, err
 	}
@@ -2942,7 +2942,8 @@ func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHand
 	// rel_context::query calls reset_negated_tables on the closed,
 	// untransformed rule set before saturate (and its transform_rules), once
 	// per query, not per restart round.
-	if !round.restarting {
+	// read_datalog saturates without rel_context::query, so no reset.
+	if !round.restarting && !e.datalogFrontend {
 		if err = e.resetNegationDependentTables(); err != nil {
 			return lbool.Undef, err
 		}
@@ -2955,7 +2956,7 @@ func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHand
 	if err = e.normalizeSimpleJoins(bitBlast); err != nil {
 		return lbool.Undef, err
 	}
-	scoped, err := e.prepareDatalogUnbound(declarations)
+	scoped, err := e.prepareDatalogUnbound(e.datalogQueryOutputs(declarations))
 	if err != nil {
 		return lbool.Undef, err
 	}

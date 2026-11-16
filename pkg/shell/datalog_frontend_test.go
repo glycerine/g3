@@ -26,7 +26,10 @@ func datalogFrontendContext(t *testing.T) *cmd_context.Context {
 	return context
 }
 
-func TestDatalogFrontendFileDispatchSaturatesEveryPredicate(t *testing.T) {
+// read_datalog saturates the parsed program with the parser's outputs
+// (printtuples/outputtuples) alone: Q is no output, so mk_coi_filter drops
+// its rule and Q stays empty, as in z3 4.7.1.
+func TestDatalogFrontendFileDispatchSaturatesOutputPredicates(t *testing.T) {
 	directory := t.TempDir()
 	path := filepath.Join(directory, "reach.dl")
 	program := "D 2\n\nP(x:D)\nQ(x:D)\nP(\"a\").\nQ(X) :- P(X).\n"
@@ -45,7 +48,7 @@ func TestDatalogFrontendFileDispatchSaturatesEveryPredicate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(results) != 2 || results[0].Name != "P" || results[1].Name != "Q" || results[0].Status != lbool.True || results[1].Status != lbool.True {
+	if len(results) != 2 || results[0].Name != "P" || results[1].Name != "Q" || results[0].Status != lbool.True || results[1].Status != lbool.False {
 		t.Fatal("frontend results", results)
 	}
 	if text := output.String(); !strings.HasPrefix(text, "Time: ") || !strings.Contains(text, "\nParsing: ") {

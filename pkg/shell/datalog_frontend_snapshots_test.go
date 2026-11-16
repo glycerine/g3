@@ -9,7 +9,8 @@ import (
 
 func TestDatalogFrontendSaturatesOnceAndCopiesAllRelationTables(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "snapshot.dl")
-	program := "D 2\n\nP(x:D)\nQ(x:D)\nP(\"a\").\nQ(X) :- P(X).\n"
+	// Q is an output, so read_datalog saturates it.
+	program := "D 2\n\nP(x:D)\nQ(x:D) outputtuples\nP(\"a\").\nQ(X) :- P(X).\n"
 	if err := os.WriteFile(path, []byte(program), 0o600); err != nil {
 		t.Fatal(err)
 	}

@@ -43,8 +43,12 @@ func (s *datalogUnboundScope) Close() error {
 	if err := s.set.Close(); err != nil {
 		return err
 	}
-	if err := s.engine.relations.RestrictPredicates(s.predicates); err != nil {
-		return err
+	// scoped_query's destructor restricts the relations to the original
+	// predicates; read_datalog runs no query, so its auxiliary relations stay.
+	if !s.engine.datalogFrontend {
+		if err := s.engine.relations.RestrictPredicates(s.predicates); err != nil {
+			return err
+		}
 	}
 	for decl := range s.engine.predicates {
 		if !s.predicates[decl] {

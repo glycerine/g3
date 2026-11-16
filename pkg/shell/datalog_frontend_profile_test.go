@@ -10,7 +10,7 @@ import (
 
 func TestDatalogFrontendProfileRendersRelationSizes(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "profile.dl")
-	if err := os.WriteFile(path, []byte("\nP\nQ\nP.\nQ :- P.\n"), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte("\nP\nQ outputtuples\nP.\nQ :- P.\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	frontend, err := NewDatalogFrontend(datalogFrontendContext(t), &bytes.Buffer{})

@@ -9,6 +9,18 @@ import (
 	"github.com/glycerine/g3/pkg/muz/base"
 )
 
+// datalogQueryOutputs is the output predicates a relation query adds:
+// rel_context::query(num_rels, rels) calls set_output_predicate on each
+// queried relation, but read_datalog never queries; it saturates the parsed
+// program, whose outputs are the parser's printtuples/outputtuples
+// declarations alone.
+func (e *PropositionalEngine) datalogQueryOutputs(declarations []ast.ASTHandle) []ast.ASTHandle {
+	if e.datalogFrontend {
+		return nil
+	}
+	return declarations
+}
+
 // beginDatalogQueryScope protects the source program before any relational
 // transformation, including filter/simple-join and similarity normalization.
 func (e *PropositionalEngine) beginDatalogQueryScope(outputs []ast.ASTHandle) (_ *datalogUnboundScope, resultErr error) {

@@ -9,6 +9,7 @@ Tuples in path:
 original rules
 ; rule count: 2
 ; predicate count: 1
+; output: path
 <null>:
 path(#0,#1) :- 
  edge(#0,#1).
@@ -20,6 +21,7 @@ path(#0,#1) :-
 generated rules
 ; rule count: 2
 ; predicate count: 1
+; output: path
 <null>:
 path(#0,#1) :- 
  edge(#0,#1).

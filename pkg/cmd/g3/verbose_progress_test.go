@@ -295,24 +295,18 @@ func TestVerboseProgressMessages(t *testing.T) {
 
 // verboseStatisticsCases check read_datalog's display_statistics sections,
 // which IF_VERBOSE(2) writes to std::cout. The Time/Parsing lines are
-// dropped. The Go front end saturates every predicate, so its generated
-// rules also list the non-output predicates as outputs; the path case drops
-// the "; output:" lines.
+// dropped. The generated rules list only the parser's output predicates.
 var verboseStatisticsCases = []struct {
 	name, vector string
-	dropOutputs  bool
 }{
-	{"dl_family_stats_v2", "family", false},
-	{"dl_path_stats_v2", "path", true},
+	{"dl_family_stats_v2", "family"},
+	{"dl_path_stats_v2", "path"},
 }
 
-func filterVerboseStatistics(text string, dropOutputs bool) string {
+func filterVerboseStatistics(text string) string {
 	var out strings.Builder
 	for _, line := range strings.SplitAfter(text, "\n") {
 		if strings.HasPrefix(line, "Time: ") || strings.HasPrefix(line, "Parsing: ") {
-			continue
-		}
-		if dropOutputs && strings.HasPrefix(line, "; output: ") {
 			continue
 		}
 		out.WriteString(line)
@@ -344,7 +338,7 @@ func TestVerboseProgressDatalogStatistics(t *testing.T) {
 			if err = cmd.Run(); err != nil {
 				t.Fatal(err, stdout.String(), stderr.String())
 			}
-			got := filterVerboseStatistics(stdout.String(), tc.dropOutputs)
+			got := filterVerboseStatistics(stdout.String())
 			// The child test binary reports PASS on its own stdout.
 			got = strings.TrimSuffix(got, "PASS\n")
 			if got != string(expected) {
@@ -359,7 +353,7 @@ func TestVerboseProgressDatalogStatistics(t *testing.T) {
 			if err = z3.Run(); err != nil {
 				t.Fatal(err, native.String())
 			}
-			if cpp := filterVerboseStatistics(native.String(), tc.dropOutputs); got != cpp {
+			if cpp := filterVerboseStatistics(native.String()); got != cpp {
 				t.Fatalf("Go/C++ standard output differ\nGo:\n%s\nC++:\n%s", got, cpp)
 			}
 		})
