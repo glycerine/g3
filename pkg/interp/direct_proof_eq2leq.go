@@ -150,7 +150,7 @@ func (p *DirectProofInterpolator) chainInequalities(comparison Operator, side Te
 	}
 	if empty {
 		if left != right {
-			return ast.ASTHandle{}, ProofError{}
+			return ast.ASTHandle{}, iz3Exception("bad_ineq_inference")
 		}
 		return p.base.manager.Make(OperatorLE, zero, zero)
 	}
@@ -296,7 +296,7 @@ func (p *DirectProofInterpolator) unmixedEqToInequality(left, right ast.ASTHandl
 	if ineqOp != OperatorAnd {
 		return p.base.manager.MkAnd(bConditions, combined)
 	}
-	return ast.ASTHandle{}, ProofError{}
+	return ast.ASTHandle{}, iz3Exception("help!")
 }
 
 func (p *DirectProofInterpolator) fixNormal(left, right, proof ast.ASTHandle) (ast.ASTHandle, error) {
@@ -326,7 +326,7 @@ func (p *DirectProofInterpolator) fixNormal(left, right, proof ast.ASTHandle) (a
 		}
 		return p.makeNormalStep(right, left, proof)
 	}
-	return ast.ASTHandle{}, ProofError{}
+	return ast.ASTHandle{}, iz3Exception("help!")
 }
 
 func (p *DirectProofInterpolator) addMixedEqToInequality(left, right, chain, interpolation ast.ASTHandle) (ast.ASTHandle, error) {
@@ -367,8 +367,11 @@ func (p *DirectProofInterpolator) addMixedEqToInequality(left, right, chain, int
 
 func (p *DirectProofInterpolator) simplifyRotatedEqToLeq(placeholder, negativeInequality, proof ast.ASTHandle) (ast.ASTHandle, error) {
 	second, err := p.base.manager.Arg(proof, 1)
-	if err != nil || second != placeholder {
-		return ast.ASTHandle{}, ProofError{}
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if second != placeholder {
+		return ast.ASTHandle{}, iz3Exception("help!")
 	}
 	truth, err := p.base.manager.Make(OperatorTrue)
 	if err != nil {
@@ -384,8 +387,11 @@ func (p *DirectProofInterpolator) simplifyRotatedEqToLeq(placeholder, negativeIn
 		return ast.ASTHandle{}, err
 	}
 	equivalence, err := p.isEquivalenceChain(chain)
-	if err != nil || !equivalence {
-		return ast.ASTHandle{}, ProofError{}
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if !equivalence {
+		return ast.ASTHandle{}, iz3Exception("help!")
 	}
 	inequality, err := p.base.manager.Arg(negativeInequality, 0)
 	if err != nil {
