@@ -384,7 +384,8 @@ func (t *FullTranslation) translateMain(proof ast.ASTHandle, expectClause bool, 
 		if len(premises) != 1 {
 			return ast.ASTHandle{}, ProofError{}
 		}
-		negatedPivot, e := t.base.manager.MkNot(premiseConclusions[0])
+		// rule_ax.push_back(make(Not,piv)): raw Not, not mk_not.
+		negatedPivot, e := t.base.manager.Make(OperatorNot, premiseConclusions[0])
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
