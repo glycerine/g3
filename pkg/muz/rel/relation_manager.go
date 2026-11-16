@@ -52,6 +52,12 @@ type RelationManager struct {
 	// requestedRelation is get_requested_predicate_kind for relation
 	// plugins.
 	requestedRelation map[ast.ASTHandle]RelationPlugin
+	// arithElements interns the Int/Real relation elements the compiler
+	// encodes (EncodeRelationElement); fnRoots holds the conditions the
+	// relation plugins' filter functors keep (app_ref m_cond).
+	arithElements []ast.ASTRef
+	arithIndex    map[ast.ASTHandle]Element
+	fnRoots       []ast.ASTRef
 }
 
 func NewRelationManager(manager *ast.ASTManager) (*RelationManager, error) {
@@ -228,6 +234,11 @@ func (m *RelationManager) Close() (result error) {
 	}
 	result = m.ResetRelations()
 	result = errors.Join(result, m.closeRelationPlugins())
+	result = errors.Join(result, m.closeRelationElements())
+	for i := len(m.fnRoots) - 1; i >= 0; i-- {
+		result = errors.Join(result, m.manager.DelRef(&m.fnRoots[i]))
+	}
+	m.fnRoots = nil
 	if len(m.relations) != 0 || len(m.finite) != 0 || len(m.explanations) != 0 || len(m.relationLevel) != 0 {
 		return errors.Join(result, ErrTable)
 	}

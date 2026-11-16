@@ -141,7 +141,7 @@ func (c *finiteCompiler) ensureLoaded(predicate ast.ASTHandle) error {
 	if _, found := c.predicateRegs[predicate]; found {
 		return nil
 	}
-	_, signature, err := c.relations.PredicateSignature(predicate)
+	_, signature, err := c.relations.RelationPredicateSignature(predicate)
 	if err != nil {
 		return err
 	}

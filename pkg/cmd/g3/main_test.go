@@ -336,6 +336,13 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ-F5 (relation plugins): Int/Real predicates use the
+	// registered bound_relation/interval_relation plugins in the compiled
+	// rule pipeline (rel_context, relation_manager::mk_*_fn).
+	"plugins_arith_interval_empty_body.smt2":           "unsat\n",
+	"plugins_arith_bound_empty_body.smt2":              "unsat\n",
+	"plugins_arith_pentagon_unbound_total.smt2":        "unknown\napproximated relations\n",
+	"plugins_arith_interval_negation_unsupported.smt2": "(error \"query failed: trying to perform unsupported filter_by_negation on relations of kinds interval_relation and interval_relation\")\nunknown\n",
 	// AUDIT duality_iz3 round 2 (fork fix): a rewrite that two
 	// propagate_values rounds mixed is renamed through the proof's other
 	// hypothesis-free constant equations; err is reachable.

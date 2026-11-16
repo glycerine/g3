@@ -19,24 +19,39 @@ import (
 	"github.com/glycerine/g3/pkg/muz/rel"
 )
 
+// registerRelContextPlugins is rel_context::rel_context's relation plugin
+// registration, once per relation manager, in its order: bound_relation,
+// interval_relation (karr_relation when context::karr()), udoc, then
+// check_relation.
+func (e *PropositionalEngine) registerRelContextPlugins() error {
+	if e.relations.GetRelationPlugin("bound_relation") != nil {
+		return nil
+	}
+	if err := e.relations.RegisterRelationPlugin(rel.NewBoundRelationPluginRel(e.relations)); err != nil {
+		return err
+	}
+	if err := e.relations.RegisterRelationPlugin(rel.NewIntervalRelationPlugin(e.relations)); err != nil {
+		return err
+	}
+	plugin, err := rel.NewUDocPlugin(e.relations)
+	if err != nil {
+		return err
+	}
+	if err = e.relations.RegisterRelationPlugin(plugin); err != nil {
+		return errors.Join(err, plugin.Close())
+	}
+	check, err := rel.NewCheckRelationPlugin(e.relations)
+	if err != nil {
+		return err
+	}
+	return e.relations.RegisterRelationPlugin(check)
+}
+
 // datalogRelationPlugins registers the relation plugins once
 // (rel_context::rel_context) and records the default relation.
 func (e *PropositionalEngine) datalogRelationPlugins(checkedDoc bool) error {
-	if e.relations.GetRelationPlugin("doc") == nil {
-		plugin, err := rel.NewUDocPlugin(e.relations)
-		if err != nil {
-			return err
-		}
-		if err = e.relations.RegisterRelationPlugin(plugin); err != nil {
-			return errors.Join(err, plugin.Close())
-		}
-		check, err := rel.NewCheckRelationPlugin(e.relations)
-		if err != nil {
-			return err
-		}
-		if err = e.relations.RegisterRelationPlugin(check); err != nil {
-			return err
-		}
+	if err := e.registerRelContextPlugins(); err != nil {
+		return err
 	}
 	if checkedDoc {
 		check := e.relations.GetRelationPlugin("check_relation").(*rel.CheckRelationPlugin)

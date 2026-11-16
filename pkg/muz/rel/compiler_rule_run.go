@@ -230,11 +230,11 @@ func (c *finiteCompiler) makeDeallocNonVoid(r uint32, rule *base.Rule) error {
 
 // makeAddConstantColumn is compiler::make_add_constant_column.
 func (c *finiteCompiler) makeAddConstantColumn(rule *base.Rule, headPred ast.ASTHandle, source uint32, sort, constant ast.ASTHandle, dealloc *bool) (uint32, error) {
-	domain, err := c.relations.sortDomain(sort)
+	domain, err := c.relations.relationSortDomain(sort)
 	if err != nil {
 		return 0, err
 	}
-	value, err := c.relations.EncodeValue(sort, constant)
+	value, err := c.relations.EncodeRelationElement(sort, constant)
 	if err != nil {
 		return 0, err
 	}
@@ -255,7 +255,7 @@ func (c *finiteCompiler) makeAddUnboundColumn(rule *base.Rule, column int, pred 
 	if err := unsafeRuleColumnVerbose(c.manager, rule, column); err != nil {
 		return 0, err
 	}
-	domain, err := c.relations.sortDomain(sort)
+	domain, err := c.relations.relationSortDomain(sort)
 	if err != nil {
 		return 0, err
 	}
@@ -770,7 +770,7 @@ func (c *finiteCompiler) compileRuleEvaluationRun(rule finiteCompiledRule, headR
 		if err != nil {
 			return err
 		}
-		sorts, _, err := c.relations.PredicateSignature(tailPred)
+		sorts, _, err := c.relations.RelationPredicateSignature(tailPred)
 		if err != nil {
 			return err
 		}
@@ -783,7 +783,7 @@ func (c *finiteCompiler) compileRuleEvaluationRun(rule finiteCompiledRule, headR
 			}
 			if kind != ast.ASTVar {
 				//argument is a constant
-				value, err := c.relations.EncodeValue(sorts[i], arg)
+				value, err := c.relations.EncodeRelationElement(sorts[i], arg)
 				if err != nil {
 					return err
 				}
@@ -819,7 +819,7 @@ func (c *finiteCompiler) compileRuleEvaluationRun(rule finiteCompiledRule, headR
 			if err != nil {
 				return err
 			}
-			value, err := c.relations.EncodeValue(sort, e)
+			value, err := c.relations.EncodeRelationElement(sort, e)
 			if err != nil {
 				return err
 			}
@@ -956,7 +956,7 @@ func (c *finiteCompiler) compileRuleEvaluationRun(rule finiteCompiledRule, headR
 		if err != nil {
 			return err
 		}
-		negSorts, _, err := c.relations.PredicateSignature(negPred)
+		negSorts, _, err := c.relations.RelationPredicateSignature(negPred)
 		if err != nil {
 			return err
 		}
@@ -1091,7 +1091,7 @@ func (c *finiteCompiler) compileRuleEvaluationRun(rule finiteCompiledRule, headR
 
 	{
 		//put together the columns of head relation
-		headSorts, _, err := c.relations.PredicateSignature(headPred)
+		headSorts, _, err := c.relations.RelationPredicateSignature(headPred)
 		if err != nil {
 			return err
 		}

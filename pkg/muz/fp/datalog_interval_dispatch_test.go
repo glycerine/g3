@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"strings"
 	"testing"
 )
 
@@ -126,8 +127,9 @@ func TestDatalogConfiguredIntervalNullaryAndUnsupportedFragment(t *testing.T) {
 	must(err)
 	must(e.addRuleEager(rule, "unsupported-negative"))
 	_, err = e.QueryPredicate(f.declarations["q"])
-	if !errors.Is(err, ErrIntervalDatalogFragment) {
-		t.Fatal("selected unsupported rule silently fell back", err)
+	// instr_filter_by_negation: interval_relation has no negation filter.
+	if err == nil || !strings.Contains(err.Error(), "trying to perform unsupported filter_by_negation on relations of kinds interval_relation and interval_relation") {
+		t.Fatal("unsupported negation did not raise the C++ exception", err)
 	}
 	if _, err = e.Answer(f.declarations["q"]); !errors.Is(err, ErrPropositionalEngine) {
 		t.Fatal("failed interval query exposed stale answer", err)

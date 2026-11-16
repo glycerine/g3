@@ -1,0 +1,7 @@
+(set-option :fixedpoint.engine datalog)
+(set-option :fixedpoint.datalog.default_relation interval_relation)
+(declare-rel p (Int))
+(declare-rel q ())
+(declare-var x Int)
+(rule (=> (p x) q))
+(query q)

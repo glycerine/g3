@@ -166,17 +166,30 @@ func (m *RelationManager) MkEmptyRelation(sorts []ast.ASTHandle, predicate ast.A
 		}
 		return m.NewDefaultFiniteTable(signature)
 	}
+	p, err := m.firstRelationPlugin(sorts)
+	if err != nil {
+		return nil, err
+	}
+	if p != nil {
+		return p.MkEmpty(sorts)
+	}
+	// product_relation_plugin::mk_empty(s): the empty product relation.
+	return nil, ErrRelationNoPlugin
+}
+
+// firstRelationPlugin is the m_relation_plugins loop past the
+// table_relation plugins: the first relation plugin handling sorts.
+func (m *RelationManager) firstRelationPlugin(sorts []ast.ASTHandle) (RelationPlugin, error) {
 	for _, p := range m.relationPlugins {
 		ok, err := p.CanHandleSignature(sorts)
 		if err != nil {
 			return nil, err
 		}
 		if ok {
-			return p.MkEmpty(sorts)
+			return p, nil
 		}
 	}
-	// product_relation_plugin::mk_empty(s): the empty product relation.
-	return nil, ErrRelationNoPlugin
+	return nil, nil
 }
 
 // MkFullRelation is relation_manager::mk_full_relation(s, pred): the
@@ -188,8 +201,21 @@ func (m *RelationManager) MkFullRelation(sorts []ast.ASTHandle, predicate ast.AS
 		return nil, false, err
 	}
 	plugin, err := m.relationPluginFor(predicate, sorts)
-	if err != nil || plugin == nil {
+	if err != nil {
 		return nil, false, err
+	}
+	if plugin == nil {
+		// get_appropriate_plugin(s): the table_relation plugins come first
+		// in m_relation_plugins, then the relation plugins.
+		if _, ok := m.signatureIsTable(sorts); ok {
+			return nil, false, nil
+		}
+		if plugin, err = m.firstRelationPlugin(sorts); err != nil {
+			return nil, false, err
+		}
+		if plugin == nil {
+			return nil, false, z3exception.NewDefaultException("no suitable plugin found for given relation signature")
+		}
 	}
 	r, err := plugin.MkFull(predicate, sorts)
 	return r, err == nil, err

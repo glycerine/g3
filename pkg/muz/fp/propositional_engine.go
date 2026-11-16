@@ -91,6 +91,9 @@ func (e *PropositionalEngine) predicateState(declaration ast.ASTHandle) (*predic
 // PropositionalEngine owns the retained rule, finite-relation, and optional
 // ground-guard rewriting services.
 type PropositionalEngine struct {
+	// arithRelationPlugins: rel_context registered bound_relation and
+	// interval_relation with the relation manager.
+	arithRelationPlugins bool
 	// relationQueryEmpty is rel_context::query's rel.empty() of each queried
 	// relation_base, which the answer (m_answer) reuses.
 	relationQueryEmpty map[ast.ASTHandle]bool
@@ -784,6 +787,19 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 			return err
 		}
 		e.engineInstantiated = true
+		if handled, err := e.addRoutedFact(declaration, values); err != nil || handled {
+			return err
+		}
+		if routed, err := e.arithRelationsRoute(); err != nil {
+			return err
+		} else if routed {
+			state := e.predicates[declaration]
+			fact, err := e.relations.EncodeFact(state.sorts, values)
+			if err != nil {
+				return err
+			}
+			return e.addDatalogFact(declaration, state, fact)
+		}
 		if selected, err := e.ensureKarrDatalog(); err != nil {
 			return err
 		} else if selected {
@@ -915,6 +931,14 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 			return err
 		}
 		e.engineInstantiated = true
+		if handled, err := e.addRoutedTableFact(declaration, values); err != nil || handled {
+			return err
+		}
+		if routed, err := e.arithRelationsRoute(); err != nil {
+			return err
+		} else if routed {
+			return e.addDatalogFact(declaration, state, fact)
+		}
 		if selected, err := e.ensureKarrDatalog(); err != nil {
 			return err
 		} else if selected {
@@ -2799,56 +2823,64 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	} else if selected {
 		return e.queryDatalogExplanation(declarations)
 	}
-	if selected, err := e.ensureKarrDatalog(); err != nil {
-		return lbool.Undef, err
-	} else if selected {
-		return e.queryKarrDatalog(declarations)
-	}
-	if selected, err := e.ensureBoundIntervalDatalog(); err != nil {
-		return lbool.Undef, err
-	} else if selected {
-		return e.queryBoundIntervalDatalog(declarations)
-	}
-	if selected, err := e.ensureExternalIntervalDatalog(); err != nil {
-		return lbool.Undef, err
-	} else if selected {
-		return e.queryExternalIntervalDatalog(declarations)
-	}
-	if status, handled, err := e.queryEmptyMixedDatalog(declarations); err != nil {
-		return lbool.Undef, err
-	} else if handled {
-		return status, nil
-	}
-	compiledFavourite, err := e.selectCompiledRelationFavourite()
+	// rel_context: Int/Real predicates get the registered arithmetic
+	// relation plugins' relations and run the compiled rules.
+	routed, err := e.arithRelationsRoute()
 	if err != nil {
 		return lbool.Undef, err
 	}
-	if compiledFavourite {
-		// The favourite relation plugin runs through the compiled rules.
-	} else if selected, err := e.ensureUDocDatalog(); err != nil {
-		return lbool.Undef, err
-	} else if selected {
-		if enabled, err := e.datalogExplanationsEnabled(); err != nil {
+	if !routed {
+		if selected, err := e.ensureKarrDatalog(); err != nil {
 			return lbool.Undef, err
-		} else if enabled {
-			return e.queryDatalogExplanation(declarations)
+		} else if selected {
+			return e.queryKarrDatalog(declarations)
 		}
-		return e.queryUDocDatalog(declarations)
-	}
-	if selected, err := e.ensureSparseIntervalDatalog(); err != nil {
-		return lbool.Undef, err
-	} else if selected {
-		return e.querySparseIntervalDatalog(declarations)
-	}
-	if selected, err := e.ensureIntervalDatalog(); err != nil {
-		return lbool.Undef, err
-	} else if selected {
-		return e.queryIntervalDatalog(declarations)
-	}
-	if selected, err := e.ensureBoundDatalog(); err != nil {
-		return lbool.Undef, err
-	} else if selected {
-		return e.queryBoundDatalog(declarations)
+		if selected, err := e.ensureBoundIntervalDatalog(); err != nil {
+			return lbool.Undef, err
+		} else if selected {
+			return e.queryBoundIntervalDatalog(declarations)
+		}
+		if selected, err := e.ensureExternalIntervalDatalog(); err != nil {
+			return lbool.Undef, err
+		} else if selected {
+			return e.queryExternalIntervalDatalog(declarations)
+		}
+		if status, handled, err := e.queryEmptyMixedDatalog(declarations); err != nil {
+			return lbool.Undef, err
+		} else if handled {
+			return status, nil
+		}
+		compiledFavourite, err := e.selectCompiledRelationFavourite()
+		if err != nil {
+			return lbool.Undef, err
+		}
+		if compiledFavourite {
+			// The favourite relation plugin runs through the compiled rules.
+		} else if selected, err := e.ensureUDocDatalog(); err != nil {
+			return lbool.Undef, err
+		} else if selected {
+			if enabled, err := e.datalogExplanationsEnabled(); err != nil {
+				return lbool.Undef, err
+			} else if enabled {
+				return e.queryDatalogExplanation(declarations)
+			}
+			return e.queryUDocDatalog(declarations)
+		}
+		if selected, err := e.ensureSparseIntervalDatalog(); err != nil {
+			return lbool.Undef, err
+		} else if selected {
+			return e.querySparseIntervalDatalog(declarations)
+		}
+		if selected, err := e.ensureIntervalDatalog(); err != nil {
+			return lbool.Undef, err
+		} else if selected {
+			return e.queryIntervalDatalog(declarations)
+		}
+		if selected, err := e.ensureBoundDatalog(); err != nil {
+			return lbool.Undef, err
+		} else if selected {
+			return e.queryBoundDatalog(declarations)
+		}
 	}
 
 	count, err := e.set.Len()

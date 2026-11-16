@@ -25,13 +25,18 @@ func (m *RelationManager) ReserveFiniteRelation(predicate ast.ASTHandle) (Finite
 	if err != nil || found {
 		return table, err
 	}
-	_, signature, err := m.PredicateSignature(predicate)
-	if err != nil {
-		return nil, err
-	}
-	table, err = m.NewFiniteTableForPredicate(predicate, signature)
-	if err != nil {
-		return nil, err
+	if relation, ok, cause := m.relationForPredicate(predicate); cause != nil {
+		return nil, cause
+	} else if ok {
+		table = relation
+	} else {
+		_, signature, err := m.PredicateSignature(predicate)
+		if err != nil {
+			return nil, err
+		}
+		if table, err = m.NewFiniteTableForPredicate(predicate, signature); err != nil {
+			return nil, err
+		}
 	}
 	if err = m.manager.IncRef(predicate); err != nil {
 		return nil, errors.Join(err, table.Close())

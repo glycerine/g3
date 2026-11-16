@@ -1,0 +1,7 @@
+(set-option :fixedpoint.engine datalog)
+(set-option :fixedpoint.datalog.default_relation bound_relation)
+(declare-rel p (Real))
+(declare-rel q ())
+(declare-var x Real)
+(rule (=> (p x) q))
+(query q)

@@ -145,7 +145,7 @@ func (m *RelationManager) NewDefaultFiniteTable(signature Signature) (FiniteTabl
 // branch: the requested or favourite relation plugin when it handles the
 // predicate's signature. ok is false when the table_relation path applies.
 func (m *RelationManager) relationForPredicate(predicate ast.ASTHandle) (FiniteTable, bool, error) {
-	if predicate.IsNull() || m.favouriteRelation == nil && m.requestedRelation[predicate] == nil {
+	if predicate.IsNull() || len(m.relationPlugins) == 0 {
 		return nil, false, nil
 	}
 	sorts, err := m.predicateSorts(predicate)
@@ -153,8 +153,17 @@ func (m *RelationManager) relationForPredicate(predicate ast.ASTHandle) (FiniteT
 		return nil, false, err
 	}
 	plugin, err := m.relationPluginFor(predicate, sorts)
-	if err != nil || plugin == nil {
+	if err != nil {
 		return nil, false, err
+	}
+	if plugin == nil {
+		// mk_empty_table_relation, then the relation plugin list.
+		if _, ok := m.signatureIsTable(sorts); ok {
+			return nil, false, nil
+		}
+		if plugin, err = m.firstRelationPlugin(sorts); err != nil || plugin == nil {
+			return nil, false, err
+		}
 	}
 	relation, err := plugin.MkEmpty(sorts)
 	if err != nil {

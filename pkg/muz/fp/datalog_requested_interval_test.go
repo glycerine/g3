@@ -2,6 +2,7 @@ package fp
 
 import (
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/rel"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"testing"
 )
@@ -33,7 +34,8 @@ func TestDatalogRequestedIntervalOverridesFavourite(t *testing.T) {
 	must(e.AddTableFact(p, []uint32{7}))
 	result, err := e.QueryPredicate(p)
 	must(err)
-	if result != lbool.Undef || e.intervalDatalog == nil || e.boundDatalog != nil {
+	relation, isRelation := rel.AsRelation(e.predicates[p].table)
+	if result != lbool.Undef || !isRelation || relation.RelationPlugin().Name() != "interval_relation" {
 		t.Fatal("requested interval did not override bound favourite", result)
 	}
 	answer, err := e.Answer(p)

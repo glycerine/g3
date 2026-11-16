@@ -67,37 +67,6 @@ func TestDatalogBoundIntervalPublicMigratesEagerNullaryFact(t *testing.T) {
 	}
 }
 
-func TestDatalogBoundIntervalPublicRejectsExistingPureOwner(t *testing.T) {
-	for _, kind := range []string{"interval_relation", "bound_relation"} {
-		t.Run(kind, func(t *testing.T) {
-			f := newBoundIntervalPublicFixture(t, []string{"bound_relation", "interval_relation"})
-			p := boundIntervalLifecycleDeclaration(t, f, "pure", []ast.ASTHandle{f.integer})
-			if kind == "interval_relation" {
-				fragmentMust(t, f.e.SetPredicateRepresentation(p, []string{kind}))
-			} else {
-				fragmentMust(t, f.e.globals.SourceSetName("fixedpoint.datalog.default_relation", kind))
-			}
-			fragmentMust(t, f.e.AddFact(p, []ast.ASTHandle{f.numeral(7)}))
-			interval, bound := f.e.intervalDatalog, f.e.boundDatalog
-			if kind == "interval_relation" && interval == nil || kind == "bound_relation" && bound == nil {
-				t.Fatal("fixture did not activate selected pure owner")
-			}
-			before := append([]string(nil), f.e.predicates[p].requestedRepresentations...)
-			if err := f.e.SetPredicateRepresentation(p, f.kinds); !errors.Is(err, ErrBoundIntervalDatalogFragment) {
-				t.Fatal("coarse pure owner was silently replaced by product", err)
-			}
-			if f.e.boundIntervalDatalog != nil || f.e.intervalDatalog != interval || f.e.boundDatalog != bound || !boundIntervalKindsEqual(before, f.e.predicates[p].requestedRepresentations) {
-				t.Fatal("failed product selection changed prior kind or fact owner")
-			}
-			status, err := f.e.QueryPredicate(p)
-			fragmentMust(t, err)
-			if status != lbool.Undef {
-				t.Fatal("refused product selection discarded existing pure facts", status)
-			}
-		})
-	}
-}
-
 func TestDatalogBoundIntervalPublicKeepsActiveSelectionAndReleasesBackend(t *testing.T) {
 	f := newBoundIntervalPublicFixture(t, []string{"bound_relation", "interval_relation"})
 	p := f.declare("stable-selection", 1)

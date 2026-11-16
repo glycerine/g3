@@ -83,13 +83,15 @@ func TestDatalogQueriesRestoreFilterAndJoinScopes(t *testing.T) {
 			infinite, err := m.MkFuncDecl(name, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
 			must(err)
 			must(e.RegisterPredicate(infinite))
-			if _, err = e.QueryPredicates([]ast.ASTHandle{goal, infinite}); err == nil {
-				t.Fatal("unsupported infinite output accepted")
+			// rel_context: the Int output gets a bound_relation; an empty
+			// relation does not change the answer.
+			if _, err = e.QueryPredicates([]ast.ASTHandle{goal, infinite}); err != nil {
+				t.Fatal("infinite output query", err)
 			}
 			got, err := e.set.Len()
 			must(err)
 			if e.set != original || got != count || len(e.predicates) != predicates+1 || len(e.auxiliary) != 0 {
-				t.Fatal("failed query did not restore source program")
+				t.Fatal("query did not restore source program")
 			}
 			outputs, err := e.set.OutputPredicates()
 			must(err)

@@ -13,6 +13,8 @@ package rel
 import (
 	"errors"
 
+	"github.com/glycerine/g3/pkg/util/z3exception"
+
 	"github.com/glycerine/g3/pkg/ast"
 )
 
@@ -79,7 +81,7 @@ func relationProject(r RelationBase, removed []int) (FiniteTable, error) {
 		return nil, err
 	}
 	if fn == nil {
-		return nil, unsupportedRelationOperation("project", r.RelationPlugin().Name())
+		return nil, unsupportedRelationOperationOne("project", r.RelationPlugin().Name())
 	}
 	return fn(r)
 }
@@ -90,7 +92,7 @@ func relationRename(r RelationBase, cycle []int) (FiniteTable, error) {
 		return nil, err
 	}
 	if fn == nil {
-		return nil, unsupportedRelationOperation("rename", r.RelationPlugin().Name())
+		return nil, unsupportedRelationOperationOne("rename", r.RelationPlugin().Name())
 	}
 	return fn(r)
 }
@@ -102,7 +104,7 @@ func relationElement(r RelationBase, value Element, column int) (ast.ASTRef, err
 	if column < 0 || column >= len(sorts) {
 		return ast.ASTRef{}, ErrInstruction
 	}
-	return r.RelationPlugin().Manager().DecodeValue(sorts[column], value)
+	return r.RelationPlugin().Manager().DecodeRelationElement(sorts[column], value)
 }
 
 func relationFilterEqual(r RelationBase, value Element, column int) (result error) {
@@ -121,7 +123,7 @@ func relationFilterEqual(r RelationBase, value Element, column int) (result erro
 		return err
 	}
 	if fn == nil {
-		return unsupportedRelationOperation("filter_equal", r.RelationPlugin().Name())
+		return unsupportedRelationOperationOne("filter_equal", r.RelationPlugin().Name())
 	}
 	return fn(r)
 }
@@ -132,7 +134,7 @@ func relationFilterIdentical(r RelationBase, columns []int) error {
 		return err
 	}
 	if fn == nil {
-		return unsupportedRelationOperation("filter_identical", r.RelationPlugin().Name())
+		return unsupportedRelationOperationOne("filter_identical", r.RelationPlugin().Name())
 	}
 	return fn(r)
 }
@@ -153,7 +155,7 @@ func relationSelectEqualProject(r RelationBase, value Element, column int) (_ Fi
 		return nil, err
 	}
 	if fn == nil {
-		return nil, unsupportedRelationOperation("select_equal_and_project", r.RelationPlugin().Name())
+		return nil, unsupportedRelationOperationOne("select_equal_and_project", r.RelationPlugin().Name())
 	}
 	return fn(r)
 }
@@ -171,9 +173,11 @@ func relationUnion(target, source, delta RelationBase, widen bool) error {
 		return err
 	}
 	if fn == nil {
+		// instr_union reports widening as a union too.
 		op := "union"
-		if widen {
-			op = "widen"
+		if delta != nil {
+			// "<tgt>, <src> and <delta>"
+			return unsupportedRelationOperation(op, target.RelationPlugin().Name()+", "+source.RelationPlugin().Name(), delta.RelationPlugin().Name())
 		}
 		return unsupportedRelationOperation(op, target.RelationPlugin().Name(), source.RelationPlugin().Name())
 	}
@@ -186,7 +190,7 @@ func relationFilterNegation(target, negative RelationBase, targetColumns, negati
 		return err
 	}
 	if fn == nil {
-		return unsupportedRelationOperation("negated filter", target.RelationPlugin().Name(), negative.RelationPlugin().Name())
+		return z3exception.NewDefaultException("trying to perform unsupported filter_by_negation on relations of kinds " + target.RelationPlugin().Name() + " and " + negative.RelationPlugin().Name())
 	}
 	return fn(target, negative)
 }
@@ -197,7 +201,7 @@ func relationFilterInterpreted(r RelationBase, condition ast.ASTHandle) error {
 		return err
 	}
 	if fn == nil {
-		return unsupportedRelationOperation("filter", r.RelationPlugin().Name())
+		return unsupportedRelationOperationOne("filter_interpreted", r.RelationPlugin().Name())
 	}
 	return fn(r)
 }
@@ -208,7 +212,7 @@ func relationFilterInterpretedAndProject(r RelationBase, condition ast.ASTHandle
 		return nil, err
 	}
 	if fn == nil {
-		return nil, unsupportedRelationOperation("filter_interpreted_and_project", r.RelationPlugin().Name())
+		return nil, unsupportedRelationOperationOne("filter_interpreted_and_project", r.RelationPlugin().Name())
 	}
 	return fn(r)
 }
@@ -220,4 +224,10 @@ func relationRegisterEmpty(table FiniteTable) (bool, bool) {
 		return r.FastEmpty(), true
 	}
 	return false, false
+}
+
+// unsupportedRelationOperationOne is dl_instruction.cpp's "trying to
+// perform unsupported <op> operation on a relation of kind <k>".
+func unsupportedRelationOperationOne(op, kind string) error {
+	return z3exception.NewDefaultException("trying to perform unsupported " + op + " operation on a relation of kind " + kind)
 }

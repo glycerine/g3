@@ -273,13 +273,7 @@ func (i *constructInstruction) relationSorts() ([]ast.ASTHandle, bool) {
 func (i *constructInstruction) constructRelation(context *ExecutionContext, _ bool) (FiniteTable, error) {
 	if context != nil && context.relations != nil {
 		if sorts, ok := i.relationSorts(); ok {
-			plugin, err := context.relations.relationPluginFor(i.predicate, sorts)
-			if err != nil {
-				return nil, err
-			}
-			if plugin != nil {
-				return plugin.MkEmpty(sorts)
-			}
+			return context.relations.MkEmptyRelation(sorts, i.predicate)
 		}
 	}
 	return constructFiniteTable(context, i.signature, i.predicate)
