@@ -299,6 +299,11 @@ Abstract:
                                   rules in rule-pointer address order
                                   instead of source order (fork fix,
                                   owner decision 2026-11-15).
+    z3_4_7_1_str_container_id_order theory_str walks std::map/std::set
+                                  containers keyed by expr pointers, so
+                                  z3str3's axioms and models follow heap
+                                  addresses (fork fix, owner decision
+                                  2026-11-15).
 
     Run: ./test-z3 z3_4_7_1_dom_simplify_root   (etc.)
 --*/
@@ -3426,4 +3431,42 @@ void tst_z3_4_7_1_simple_joins_rule_order() {
     }
     dealloc(result);
     ENSURE(ok);
+}
+
+// theory_str (z3str3) kept its dependence-analysis and grounding state in
+// std::map/std::set containers keyed by expr pointers, so the walks over
+// them, and with them the order of the axioms and the model, followed heap
+// addresses (for example get_grounded_concats grounds a variable through
+// varEqConcatMap[node].begin(), the concat at the lowest address). The fork
+// orders those containers by AST id (owner decision 2026-11-15). With id
+// order this problem gets the model below; with address order z3 4.7.1
+// printed c = "abcabcabcabcabcabcabc" (release build and test-z3, 2026-11).
+void tst_z3_4_7_1_str_container_id_order() {
+    char const* script =
+        "(set-option :smt.string_solver z3str3)\n"
+        "(declare-const a String)\n"
+        "(declare-const b String)\n"
+        "(declare-const c String)\n"
+        "(declare-const d String)\n"
+        "(declare-const x String)\n"
+        "(declare-const y String)\n"
+        "(assert (= c d))\n"
+        "(assert (str.contains (str.++ d (str.++ c (str.++ y x))) (str.++ (str.++ a c) (str.++ x c))))\n"
+        "(assert (= d (str.++ (str.++ \"abc\" y) y)))\n"
+        "(check-sat)\n"
+        "(get-model)\n";
+    expect_script_output("str_container_id_order", script,
+        "sat\n"
+        "(model \n"
+        "  (define-fun c () String\n"
+        "    \"abcabcabcabcabc\")\n"
+        "  (define-fun y () String\n"
+        "    \"abcabc\")\n"
+        "  (define-fun d () String\n"
+        "    \"abcabcabcabcabc\")\n"
+        "  (define-fun x () String\n"
+        "    \"abcabcabc\")\n"
+        "  (define-fun a () String\n"
+        "    \"bc\")\n"
+        ")\n");
 }
