@@ -362,11 +362,14 @@ func (t *SMTStringTheory) arrangeVariableConcats(left, right ast.ASTHandle) (res
 		}
 		return value, locals.add(value)
 	}
-	parentEq, err := pin(t.state.MkEqAtom(left, right))
-	if err != nil {
-		return err
-	}
+	// ctx.mk_eq_atom(concatAst1, concatAst2) is built where each split
+	// branch first needs it: first in types 0 and 1, after the two concats
+	// in type 2, and as the premise after all options in type -1.
 	if split == 1 {
+		parentEq, err := pin(t.state.MkEqAtom(left, right))
+		if err != nil {
+			return err
+		}
 		var lengths []ast.ASTHandle
 		for _, pair := range [][2]ast.ASTHandle{{x, a}, {y, b}} {
 			l, err := pin(m.MkSequenceLength(pair[0]))
@@ -410,6 +413,12 @@ func (t *SMTStringTheory) arrangeVariableConcats(left, right ast.ASTHandle) (res
 		if split == 2 {
 			witness, cutter, cut, prefix, tail = variables[1], x, b, a, y
 		}
+		var parentEq ast.ASTHandle
+		if split == 0 {
+			if parentEq, err = pin(t.state.MkEqAtom(left, right)); err != nil {
+				return err
+			}
+		}
 		first, err := pin(t.concatTerm(prefix, witness))
 		if err != nil {
 			return err
@@ -417,6 +426,11 @@ func (t *SMTStringTheory) arrangeVariableConcats(left, right ast.ASTHandle) (res
 		second, err := pin(t.concatTerm(witness, tail))
 		if err != nil {
 			return err
+		}
+		if split == 2 {
+			if parentEq, err = pin(t.state.MkEqAtom(left, right)); err != nil {
+				return err
+			}
 		}
 		guards := smtStringLengthPremises{theory: t}
 		defer func() { result = errors.Join(result, guards.close()) }()
@@ -559,6 +573,10 @@ func (t *SMTStringTheory) arrangeVariableConcats(left, right ast.ASTHandle) (res
 	}
 	if len(options) == 0 {
 		return nil
+	}
+	parentEq, err := pin(t.state.MkEqAtom(left, right))
+	if err != nil {
+		return err
 	}
 	conclusion, err := pin(m.MkOrArray(options))
 	if err != nil {
