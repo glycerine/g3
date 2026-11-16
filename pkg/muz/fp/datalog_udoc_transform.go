@@ -75,6 +75,11 @@ func (e *PropositionalEngine) transformUDocRules(owner *datalogUDocContext) (fre
 	negative := transforms.NewSeparateNegatedTailsPlugin(e.manager, e.rules, 0)
 	filter := transforms.NewFilterRulesPlugin(e.manager, e.rules, 0)
 	joins := transforms.NewSimpleJoinsPlugin(e.manager, e.rules, 0, e.relations)
+	proofTrace, err := e.sourceRuleProofTrace()
+	if err != nil {
+		return nil, errors.Join(err, cone.Close(), simplifier.Close(), inliner.Close(), negative.Close(), filter.Close(), joins.Close())
+	}
+	joins.SetGenerateProofTrace(proofTrace)
 	if err := transformer.Register(cone); err != nil {
 		return nil, errors.Join(err, cone.Close(), simplifier.Close(), inliner.Close(), negative.Close(), filter.Close(), joins.Close())
 	}

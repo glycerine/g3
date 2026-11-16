@@ -250,6 +250,9 @@ func testSimpleJoinsSelectsLowestEstimatedPair(t *testing.T, sparse bool) {
 	coneMust(t, rule3.Close())
 	coneMust(t, rule2.Close())
 	plugin := transforms.NewSimpleJoinsPlugin(manager, rules, 0, relations)
+	// mk_rule_asserted_proof attaches the helper's proof only when the
+	// context generates proof traces.
+	plugin.SetGenerateProofTrace(true)
 	transformed, err := plugin.Transform(set)
 	coneMust(t, err)
 	if transformed == nil {

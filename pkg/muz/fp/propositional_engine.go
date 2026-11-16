@@ -1383,6 +1383,11 @@ func (e *PropositionalEngine) normalizeSimpleJoins(bitBlast *datalogBitBlastQuer
 	negative := transforms.NewSeparateNegatedTailsPlugin(e.manager, e.rules, 0)
 	filter := transforms.NewFilterRulesPlugin(e.manager, e.rules, 0)
 	plugin := transforms.NewSimpleJoinsPlugin(e.manager, e.rules, 0, e.relations)
+	proofTrace, err := e.sourceRuleProofTrace()
+	if err != nil {
+		return errors.Join(err, cone.Close(), simplifier.Close(), inliner.Close(), negative.Close(), filter.Close(), plugin.Close())
+	}
+	plugin.SetGenerateProofTrace(proofTrace)
 	if err := transformer.Register(cone); err != nil {
 		return errors.Join(err, cone.Close(), simplifier.Close(), inliner.Close(), negative.Close(), filter.Close(), plugin.Close())
 	}

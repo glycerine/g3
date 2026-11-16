@@ -28,8 +28,17 @@ type SimpleJoinsPlugin struct {
 	// mk_simple_joins::operator(), so they are released (front to back)
 	// when Transform returns.
 	keyPins []ast.ASTRef
-	closed  bool
-	closing bool
+	// proofTrace is m_context.generate_proof_trace(), which gates
+	// rule_manager::mk_rule_asserted_proof for the introduced rules.
+	proofTrace bool
+	closed     bool
+	closing    bool
+}
+
+// SetGenerateProofTrace makes the introduced rules carry asserted proofs,
+// as mk_rule_asserted_proof does when the context generates proof traces.
+func (p *SimpleJoinsPlugin) SetGenerateProofTrace(enabled bool) {
+	p.proofTrace = enabled
 }
 
 func NewSimpleJoinsPlugin(manager *ast.ASTManager, rules *base.RuleManager, priority uint32, relations ...*rel.RelationManager) *SimpleJoinsPlugin {
@@ -1214,7 +1223,7 @@ func (pl *joinPlanner) run(source *base.RuleSet) (_ *base.RuleSet, resultErr err
 	for len(pl.introduced) != 0 {
 		last := pl.introduced[len(pl.introduced)-1]
 		x := result.Add(last)
-		if x == nil {
+		if x == nil && pl.p.proofTrace {
 			x = pl.p.rules.MkRuleAssertedProof(last)
 		}
 		x = errors.Join(x, last.Close())
