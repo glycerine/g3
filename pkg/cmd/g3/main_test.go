@@ -336,6 +336,11 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ-F5: without Z3_fixedpoint_init the external relation
+	// plugin is not registered, so declare-rel ... external_relation reports
+	// rel_context::get_ordinary_relation_plugin's error and the relation
+	// keeps the default representation.
+	"plugins6_external_relation_missing.smt2": "(error \"line 2 column 38: relation plugin external_relation does not exist\")\n(error \"line 3 column 39: relation plugin external_relation does not exist\")\n(error \"line 4 column 57: relation plugin external_relation does not exist\")\nunsat\nsat\n(or (= (:var 0) true) (= (:var 0) false))\nsat\n(or (= (:var 0) true) (= (:var 0) false))\n",
 	// AUDIT.md FUZZ-F5: mk_rule_inliner keeps the source rule set when
 	// dropping the rules of inlinable predicates is all it would do
 	// (transform_rules' something_done; rlimit and -v:2 in
@@ -2352,6 +2357,8 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	// AUDIT.md FUZZ-F5: get_ordinary_relation_plugin's missing plugin.
+	"plugins6_external_relation_missing.smt2": true,
 	// rlimit_agree2: the escaped optimize() exception is a command error.
 	"opt_rlimit_sat_preprocess_escape.smt2": true,
 

@@ -482,7 +482,9 @@ func TestExternalIntervalDatalogSelectionPreconditions(t *testing.T) {
 	fragmentMust(t, err)
 	fragmentMust(t, engine.RegisterPredicate(p))
 	kinds := []string{"external_relation", "interval_relation"}
-	if err = engine.SetPredicateRepresentation(p, kinds); !errors.Is(err, ErrExternalIntervalDatalogFragment) || len(engine.predicates[p].requestedRepresentations) != 0 {
+	// rel_context::get_ordinary_relation_plugin: without Z3_fixedpoint_init
+	// (the callbacks) external_relation_plugin is not registered.
+	if err = engine.SetPredicateRepresentation(p, kinds); err == nil || err.Error() != "relation plugin external_relation does not exist" || len(engine.predicates[p].requestedRepresentations) != 0 {
 		t.Fatal("uninstalled external plugin selected", err, engine.predicates[p].requestedRepresentations)
 	}
 	callbacks := &externalIntervalCallbackState{manager: manager, nonempty: make(map[ast.ASTHandle]bool)}

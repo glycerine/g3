@@ -503,15 +503,15 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 	if e.queried {
 		return fmt.Errorf("muz/fp: predicate representation must be selected before querying")
 	}
-	if isArithProductRepresentation(kinds) || isArithSingleRepresentation(kinds) || state.table == nil && isTableRelationRepresentation(kinds) {
-		// rel_context::set_predicate_representation: several kinds make a
-		// product_relation kind (applied when the relation plugins run).
-		state.requestedRepresentations = append([]string(nil), kinds...)
-		state.explicitFiniteRepresentation = false
-		e.revision++
-		return nil
-	}
 	for _, kind := range kinds {
+		// rel_context::get_ordinary_relation_plugin, in the order of the
+		// requested kinds. external_relation_plugin is registered only by
+		// fixedpoint_context::set_state (Z3_fixedpoint_init; here the
+		// external relation callbacks), which the SMT-LIB front end never
+		// calls.
+		if kind == "external_relation" && e.external == nil {
+			return fmt.Errorf("relation plugin %s does not exist", kind)
+		}
 		// rel_context registers karr_relation_plugin only when xform.karr is
 		// set; get_ordinary_relation_plugin then reports the missing plugin.
 		if kind != "karr_relation" {
@@ -522,6 +522,14 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 		} else if !enabled {
 			return fmt.Errorf("relation plugin %s does not exist", kind)
 		}
+	}
+	if isArithProductRepresentation(kinds) || isArithSingleRepresentation(kinds) || state.table == nil && isTableRelationRepresentation(kinds) {
+		// rel_context::set_predicate_representation: several kinds make a
+		// product_relation kind (applied when the relation plugins run).
+		state.requestedRepresentations = append([]string(nil), kinds...)
+		state.explicitFiniteRepresentation = false
+		e.revision++
+		return nil
 	}
 	if len(kinds) == 1 && kinds[0] == "karr_relation" && e.datalogRelationFavourite != "karr_relation" {
 		// get_ordinary_relation_plugin("karr_relation").get_kind(): the

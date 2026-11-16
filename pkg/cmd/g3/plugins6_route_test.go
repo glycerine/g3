@@ -12,11 +12,12 @@ import (
 func TestPlugins6Rlimit(t *testing.T) {
 	rlimit := regexp.MustCompile(`:rlimit-count +([0-9]+)`)
 	for name, want := range map[string]string{
-		"plugins6_inliner_noop.smt2": "61",
+		"plugins6_inliner_noop.smt2":              "61",
+		"plugins6_external_relation_missing.smt2": "182",
 	} {
 		var out, diagnostics bytes.Buffer
 		args := []string{"-st", filepath.Join("test_vectors", name)}
-		if err := runArgumentsWithDiagnostics(args, bytes.NewReader(nil), &out, &diagnostics); err != nil {
+		if err := runArgumentsWithDiagnostics(args, bytes.NewReader(nil), &out, &diagnostics); err != nil && !expectedParseError(name, err) {
 			t.Fatal(name, err, out.String())
 		}
 		got := rlimit.FindStringSubmatch(out.String())
