@@ -140,6 +140,7 @@ func (s *numericCellSlab) Allocate() (arena.Slot, arena.Generation, error) {
 	m.Next = 0
 	m.Generation++
 	m.live = true
+	s.pages[p].records[i].slabLive = true
 	s.pages[p].live++
 	s.Live++
 	return slot, m.Generation, nil
@@ -160,14 +161,27 @@ func (s *numericCellSlab) recordPtr(slot arena.Slot) *NumericCell {
 		return nil
 	}
 	p, i := s.location(slot)
-	if !s.pages[p].meta[i].live {
+	// The record's slabLive copy of the live bit (a dead slot's record is
+	// zero, and a trimmed dead page has no records) keeps the test on the
+	// record's own cache line. Checked builds also read the metadata bit
+	// and panic if the two ever differ, which only a slab bug can cause.
+	records := s.pages[p].records
+	if uint64(i) >= uint64(len(records)) || !records[i].slabLive {
+		if numericValidateCells && s.pages[p].meta[i].live {
+			panic("numeral: numeric cell slab live bit lost from a live record")
+		}
 		return nil
 	}
-	return &s.pages[p].records[i]
+	if numericValidateCells && !s.pages[p].meta[i].live {
+		panic("numeral: numeric cell slab dead slot has a live record")
+	}
+	return &records[i]
 }
 func (s *numericCellSlab) Read(slot arena.Slot) (NumericCell, error) {
 	if r := s.recordPtr(slot); r != nil { // live: one lookup
-		return *r, nil
+		c := *r
+		c.slabLive = false
+		return c, nil
 	}
 	var zero NumericCell
 	if s.closed {
@@ -178,11 +192,14 @@ func (s *numericCellSlab) Read(slot arena.Slot) (NumericCell, error) {
 		return zero, arena.ErrInvalidSlot
 	}
 	p, i := s.location(slot)
-	return s.pages[p].records[i], nil
+	c := s.pages[p].records[i]
+	c.slabLive = false
+	return c, nil
 }
 func (s *numericCellSlab) Write(slot arena.Slot, value NumericCell) error {
 	if r := s.recordPtr(slot); r != nil { // live: one lookup
 		*r = value
+		r.slabLive = true
 		return nil
 	}
 	if s.closed {
@@ -194,6 +211,7 @@ func (s *numericCellSlab) Write(slot arena.Slot, value NumericCell) error {
 	}
 	p, i := s.location(slot)
 	s.pages[p].records[i] = value
+	s.pages[p].records[i].slabLive = true
 	return nil
 }
 func (s *numericCellSlab) Recycle(slot arena.Slot) error {

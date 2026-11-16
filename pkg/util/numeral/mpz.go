@@ -35,6 +35,12 @@ type NumericCell struct {
 	Backing                               SourceCellBacking
 	Size, Capacity, span                  uint32
 	Released, Unpublished, CleanupPending bool
+	// slabLive mirrors the slab's per-slot live bit inside the record, in
+	// the struct's tail padding (the record size, and so every charged
+	// page size, is unchanged), so the hot live test reads the cache line
+	// the caller reads next instead of a separate metadata line. Only
+	// numericCellSlab writes it; Read strips it from returned copies.
+	slabLive bool
 }
 type IntegerConfig struct {
 	Cells   arena.Config

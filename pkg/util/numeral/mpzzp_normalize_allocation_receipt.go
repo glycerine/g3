@@ -5,6 +5,8 @@ package numeral
 // Direct transport of actual integer-cell acquisition leaves.
 // Whole-parent and exhaustive prefix validation remain open.
 type integerPNormalizeScope struct {
+	// factorHistoryContext is never read; it is kept so the charged size of
+	// IntegerModularManager (which embeds this frame) is unchanged.
 	factorHistoryContext integerAllocationInvocationContext
 	owner                *IntegerModularManager
 	invocation           uint64

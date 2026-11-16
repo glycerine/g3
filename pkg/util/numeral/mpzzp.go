@@ -336,7 +336,13 @@ func (m *IntegerModularManager) pNormalizeWithFactorHistory(a *Int, receipt *int
 		if scope.active || scope.invocation == ^uint64(0) {
 			return ErrNumericPending
 		}
-		*scope = integerPNormalizeScope{factorHistoryContext: *history, owner: m, invocation: scope.invocation + 1, active: true, executing: true, Stage: 1}
+		// Field-wise reset of the frame; factorHistoryContext is never read
+		// (see its declaration), so the large caller context is not copied.
+		scope.owner = m
+		scope.invocation++
+		scope.Stage = 1
+		scope.active, scope.executing = true, true
+		scope.Roots = NumericAllocationRoots{}
 		*receipt = integerPNormalizeInvocationReceipt{m, scope, scope.invocation}
 	}
 	// Explicit epilogue (formerly a deferred closure; nothing recovers a
