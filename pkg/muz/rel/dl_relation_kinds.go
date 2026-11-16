@@ -376,14 +376,41 @@ func (p *TableRelationPlugin) MkEmpty(sorts []ast.ASTHandle) (RelationBase, erro
 	return p.manager.tableView(table, sorts, false), nil
 }
 
-func (p *TableRelationPlugin) MkFull(_ ast.ASTHandle, sorts []ast.ASTHandle) (RelationBase, error) {
-	r, err := p.MkEmpty(sorts)
+// MkFull is plugin_object::mk_full(p, s): aux = mk_empty(s), the result is
+// aux->complement(p) (table_base::complement: a new table of the plugin
+// holding every row, the last column fastest; fork fix #C extends the
+// one-column loop to several columns, where z3 4.7.1 stopped on
+// VERIFY(sig.first_functional() == 1)), then aux->deallocate(), which for a
+// sparse table is sparse_table_plugin::recycle.
+func (p *TableRelationPlugin) MkFull(predicate ast.ASTHandle, sorts []ast.ASTHandle) (RelationBase, error) {
+	aux, err := p.MkEmpty(sorts)
 	if err != nil {
 		return nil, err
 	}
+	r, err := p.MkEmpty(sorts)
+	if err != nil {
+		return nil, errors.Join(err, aux.Close())
+	}
 	v := r.(*tableRelationView)
 	signature, _ := v.table.Signature()
+	name, hasName := "", false
+	if !predicate.IsNull() {
+		symbol, err := p.manager.manager.GetASTName(predicate)
+		if err == nil {
+			name, err = p.manager.manager.Symbols.Display(symbol)
+		}
+		if err != nil {
+			return nil, errors.Join(err, v.Close(), aux.Close())
+		}
+		hasName = true
+	}
+	if err = warnLargeTotalTable(signature, name, hasName); err != nil {
+		return nil, errors.Join(err, v.Close(), aux.Close())
+	}
 	if err = fillTotalTable(v.table, signature); err != nil {
+		return nil, errors.Join(err, v.Close(), aux.Close())
+	}
+	if err = aux.Close(); err != nil {
 		return nil, errors.Join(err, v.Close())
 	}
 	return v, nil

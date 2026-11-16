@@ -336,6 +336,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// fork fix #C (table_base::complement of several columns; z3 4.7.1 stops
+	// on VERIFY(sig.first_functional() == 1)).
+	"plugins4_doc_table_full_columns.smt2": "sat\n(and (= (:var 0) #b00)\n     (= (:var 1) #b01)\n     (or (and (= (:var 0) #b00) (= (:var 1) #b00) (= (:var 2) true))\n         (and (= (:var 0) #b00) (= (:var 1) #b01) (= (:var 2) true))\n         (and (= (:var 0) #b00) (= (:var 1) #b10) (= (:var 2) true))\n         (and (= (:var 0) #b00) (= (:var 1) #b11) (= (:var 2) true))\n         (and (= (:var 0) #b01) (= (:var 1) #b00) (= (:var 2) true))\n         (and (= (:var 0) #b01) (= (:var 1) #b01) (= (:var 2) true))\n         (and (= (:var 0) #b01) (= (:var 1) #b10) (= (:var 2) true))\n         (and (= (:var 0) #b01) (= (:var 1) #b11) (= (:var 2) true))\n         (and (= (:var 0) #b10) (= (:var 1) #b00) (= (:var 2) true))\n         (and (= (:var 0) #b10) (= (:var 1) #b01) (= (:var 2) true))\n         (and (= (:var 0) #b10) (= (:var 1) #b10) (= (:var 2) true))\n         (and (= (:var 0) #b10) (= (:var 1) #b11) (= (:var 2) true))\n         (and (= (:var 0) #b11) (= (:var 1) #b00) (= (:var 2) true))\n         (and (= (:var 0) #b11) (= (:var 1) #b01) (= (:var 2) true))\n         (and (= (:var 0) #b11) (= (:var 1) #b10) (= (:var 2) true))\n         (and (= (:var 0) #b11) (= (:var 1) #b11) (= (:var 2) true))))\n",
 	// fork fix #B (a table_relation of a signature its table plugin cannot
 	// handle gets the appropriate plugin's table; z3 4.7.1 segfaults).
 	"plugins4_check_tr_sparse_mixed.smt2": "sat\n(or (= (:var 0) true) (= (:var 0) false))\n",

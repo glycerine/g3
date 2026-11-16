@@ -27,6 +27,7 @@ func TestCheckRelationRouteRlimit(t *testing.T) {
 		"plugins4_check_doc_mixed_join.smt2":   "114",
 		"plugins4_check_bound_mixed.smt2":      "83",
 		"plugins4_check_tr_sparse_mixed.smt2":  "1209",
+		"plugins4_doc_table_full_columns.smt2": "47",
 	} {
 		var out, diagnostics bytes.Buffer
 		args := []string{"-st", filepath.Join("test_vectors", name)}
