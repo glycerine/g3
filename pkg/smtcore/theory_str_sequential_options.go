@@ -154,6 +154,11 @@ func (t *SMTStringTheory) generateStringSequentialOptions(variable, callback ast
 			}
 			sort.Strings(keys)
 			for _, key := range keys {
+				// Fork fix: a membership popped out of the context does not
+				// block value testing.
+				if _, internalized := t.state.BoolVar(t.regexMemberships[word][key]); !internalized {
+					continue
+				}
 				term, err := m.GetArg(t.regexMemberships[word][key], 0)
 				if err != nil {
 					return ast.ASTRef{}, err

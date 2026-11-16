@@ -45,6 +45,11 @@ func (f *smtStringRegexStage) intersections(options SMTStrState) error {
 			if _, _, err = t.stringArithmeticBound(length, false); err != nil {
 				return err
 			}
+			// Fork fix: a membership popped out of the context has no
+			// bool var and contributes no automaton.
+			if _, internalized := t.state.BoolVar(member); !internalized {
+				continue
+			}
 			if owner := t.regexStage.automata[regex]; owner != nil {
 				// The source comment says "assigned", but the actual loop
 				// has no assignment filter. Keep its actual selection.

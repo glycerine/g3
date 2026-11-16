@@ -124,8 +124,10 @@ func (t *SMTStringTheory) instantiateRegexMembership(node *SMTEnode) error {
 	if err != nil {
 		return err
 	}
-	// Registry handles survive scope pops. Keep their Go raw handles owned
-	// even in automata mode, where this call emits no retaining axiom.
+	// The registries below survive scope pops. Native 4.7.1 keeps raw
+	// pointers there and reads popped (or freed) terms in final check; the
+	// fork pins ex in m_trail here (FORK FIX: theory_str regex maps after
+	// pop), also in automata mode, where this call emits no axiom.
 	if err := t.retain(expression); err != nil {
 		return err
 	}
