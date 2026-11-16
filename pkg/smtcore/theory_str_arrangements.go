@@ -27,7 +27,7 @@ func (t *SMTStringTheory) addNonemptyStringConstraint(variable ast.ASTHandle) (r
 	m := t.state.manager
 	locals := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, locals.close()) }()
-	empty, err := t.stringLiteral("")
+	empty, err := t.stringLiteralChars("")
 	if err != nil {
 		return err
 	}
@@ -82,11 +82,16 @@ func (t *SMTStringTheory) addPositiveStringLengthConstraint(variable ast.ASTHand
 func (t *SMTStringTheory) freshNonemptyString() (ast.ASTHandle, error) {
 	name := "$$_str" + strconv.FormatUint(uint64(t.nonemptyID), 10)
 	t.nonemptyID++
-	variable, err := t.createStringVariable(name, false)
+	// mk_nonempty_str_var pushes the variable onto m_trail after its
+	// length axiom is asserted.
+	variable, err := t.createStringVariableTrail(name, false, false)
 	if err != nil {
 		return variable, err
 	}
-	return variable, t.addPositiveStringLengthConstraint(variable)
+	if err = t.addPositiveStringLengthConstraint(variable); err != nil {
+		return variable, err
+	}
+	return variable, t.retain(variable)
 }
 
 func (t *SMTStringTheory) refreshStringVariable(variable ast.ASTHandle) error {
@@ -154,11 +159,11 @@ func (t *SMTStringTheory) finiteStringOverlapTest() (out ast.ASTHandle, result e
 	}
 	locals := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, locals.close()) }()
-	empty, err := t.stringLiteral("")
+	empty, err := t.stringLiteralChars("")
 	if err != nil {
 		return out, err
 	}
-	yes, err := t.stringLiteral("yes")
+	yes, err := t.stringLiteralChars("yes")
 	if err != nil {
 		return out, err
 	}

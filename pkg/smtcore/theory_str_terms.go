@@ -15,6 +15,12 @@ func (t *SMTStringTheory) freshStringVariable(name string) (ast.ASTHandle, error
 }
 
 func (t *SMTStringTheory) createStringVariable(name string, basicAxioms bool) (ast.ASTHandle, error) {
+	return t.createStringVariableTrail(name, basicAxioms, true)
+}
+
+// createStringVariableTrail makes a fresh string variable; trail pushes it
+// onto m_trail before it is internalized, as mk_str_var does.
+func (t *SMTStringTheory) createStringVariableTrail(name string, basicAxioms, trail bool) (ast.ASTHandle, error) {
 	m := t.state.manager
 	// Native seq_util::str.mk_string_sort uses the internal _STRING_SORT.
 	sort, err := m.MkFamilySort(t.FamilyID(), 2, nil)
@@ -31,8 +37,10 @@ func (t *SMTStringTheory) createStringVariable(name string, basicAxioms bool) (a
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if err = t.retain(variable); err != nil {
-		return ast.ASTHandle{}, err
+	if trail {
+		if err = t.retain(variable); err != nil {
+			return ast.ASTHandle{}, err
+		}
 	}
 	if err = t.state.Internalize(variable, false); err != nil {
 		return ast.ASTHandle{}, err

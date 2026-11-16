@@ -55,12 +55,9 @@ func (t *SMTStringTheory) modelStringValue(expression ast.ASTHandle) (ast.ASTHan
 			if err != nil {
 				return ast.ASTHandle{}, false, err
 			}
+			// mk_string(result): only the constant cache keeps the literal
+			// in m_trail; the model generator's m_asts holds the value.
 			value, err := t.stringLiteral(leftText + rightText)
-			if err == nil {
-				// The Go model-value procedure returns a raw handle. Retain
-				// uncached results through the procedure's eventual consumer.
-				err = t.retain(value)
-			}
 			return value, err == nil, err
 		}
 	}
