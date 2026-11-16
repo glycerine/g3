@@ -139,7 +139,6 @@ func (p *smtStringLengthPremises) length(expression ast.ASTHandle, value *big.In
 }
 
 func (p *smtStringLengthPremises) refuse(left, right ast.ASTHandle) error {
-	m := p.theory.state.manager
 	equality, err := p.theory.state.MkEqAtom(left, right)
 	if err != nil {
 		return err
@@ -147,6 +146,12 @@ func (p *smtStringLengthPremises) refuse(left, right ast.ASTHandle) error {
 	if err = p.add(equality); err != nil {
 		return err
 	}
+	return p.assertNegation()
+}
+
+// assertNegation is assert_axiom(mgr.mk_not(mk_and(items))).
+func (p *smtStringLengthPremises) assertNegation() error {
+	m := p.theory.state.manager
 	conjunction, err := m.MkAndArray(p.values)
 	if err != nil {
 		return err
@@ -255,10 +260,18 @@ func (t *SMTStringTheory) checkLengthConcats(left, right ast.ASTHandle) (consist
 			}
 		}
 	}
+	// items.push_back(ctx.mk_eq_atom(n1, n2)) precedes the conflict test.
+	equality, err := t.state.MkEqAtom(left, right)
+	if err != nil {
+		return false, err
+	}
+	if err = premises.add(equality); err != nil {
+		return false, err
+	}
 	comparison := sums[0].Cmp(sums[1])
 	conflict := fixed[0] && fixed[1] && comparison != 0 || !fixed[0] && fixed[1] && comparison > 0 || fixed[0] && !fixed[1] && comparison < 0
 	if conflict {
-		return false, premises.refuse(left, right)
+		return false, premises.assertNegation()
 	}
 	return true, nil
 }
