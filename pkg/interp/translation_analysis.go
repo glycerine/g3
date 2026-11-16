@@ -31,7 +31,13 @@ type FullTranslation struct {
 	// direct is the source member iproof: the current frame's interpolator
 	// while Translate runs, nil otherwise.
 	direct *DirectProofInterpolator
-	closed bool
+	// translateRoot, globalTheta, globalKeys and globalDone are the
+	// fork's global_theta of localize_rewrite, collected when first needed.
+	translateRoot ast.ASTHandle
+	globalTheta   map[ast.ASTHandle]rewriteEquivalence
+	globalKeys    []ast.ASTHandle
+	globalDone    bool
+	closed        bool
 }
 
 func NewFullTranslation(base *Base) (result *FullTranslation, resultErr error) {

@@ -274,20 +274,15 @@ func (l *rewriteLocalizer) prove(term ast.ASTHandle, forward bool, direct *Direc
 	return direct.MakeCongruences(equivalences, conclusion, premises)
 }
 
-// localizeRewrite is localize_rewrite: prove the mixed rewrite rew,
-// L = R, from the local rewrite theta(L) = theta(R) assumed in its
-// frame, with theta taken from the congruence proof congruence.
-func (t *FullTranslation) localizeRewrite(congruence, rewrite ast.ASTHandle, direct *DirectProofInterpolator, memo *translationMemo) (result ast.ASTHandle, ok bool, resultErr error) {
-	l := t.newRewriteLocalizer()
+// localizeRewriteWith is localize_rewrite_with: prove the mixed rewrite
+// L = R from the local rewrite theta(L) = theta(R) assumed in its frame.
+// Like the source's amemo, the applied memo and its references last for
+// this call only.
+func (t *FullTranslation) localizeRewriteWith(l *rewriteLocalizer, rewrite ast.ASTHandle, direct *DirectProofInterpolator, memo *translationMemo) (result ast.ASTHandle, ok bool, resultErr error) {
+	l.applied = make(map[ast.ASTHandle]ast.ASTHandle)
 	defer func() {
 		resultErr = errors.Join(resultErr, l.release())
 	}()
-	if err := l.collect(congruence); err != nil {
-		return ast.ASTHandle{}, false, err
-	}
-	if len(l.keys) == 0 {
-		return ast.ASTHandle{}, false, nil
-	}
 	m := t.base.manager
 	conclusion, err := m.Conclusion(rewrite)
 	if err != nil {
@@ -362,6 +357,144 @@ func (t *FullTranslation) localizeRewrite(congruence, rewrite ast.ASTHandle, dir
 		}
 	}
 	return result, true, nil
+}
+
+// collectGlobal is collect_global_equivs: the hypothesis-free equations
+// between constants of the whole proof, depth first, the first proof of
+// an image winning.
+func (t *FullTranslation) collectGlobal(proof ast.ASTHandle, visited map[ast.ASTHandle]bool) error {
+	if visited[proof] {
+		return nil
+	}
+	visited[proof] = true
+	m := t.base.manager
+	conclusion, err := m.Conclusion(proof)
+	if err != nil {
+		return err
+	}
+	op, err := m.Operator(conclusion)
+	if err != nil {
+		return err
+	}
+	if op == OperatorEqual || op == OperatorIff {
+		pre, e := m.Arg(conclusion, 0)
+		if e != nil {
+			return e
+		}
+		image, e := m.Arg(conclusion, 1)
+		if e != nil {
+			return e
+		}
+		if pre != image {
+			l := rewriteLocalizer{t: t}
+			preConstant, e := l.isRewriteConstant(pre)
+			if e != nil {
+				return e
+			}
+			imageConstant, e := l.isRewriteConstant(image)
+			if e != nil {
+				return e
+			}
+			if preConstant && imageConstant {
+				if _, found := t.globalTheta[image]; !found {
+					hypotheses, e := t.proofHypotheses(proof)
+					if e != nil {
+						return e
+					}
+					if len(hypotheses) == 0 {
+						t.globalTheta[image] = rewriteEquivalence{equation: conclusion, proof: proof}
+						t.globalKeys = append(t.globalKeys, image)
+					}
+				}
+			}
+		}
+	}
+	count, err := m.NumPremises(proof)
+	if err != nil {
+		return err
+	}
+	for i := uint32(0); i < count; i++ {
+		premise, e := m.Premise(proof, i)
+		if e != nil {
+			return e
+		}
+		if e = t.collectGlobal(premise, visited); e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
+// proofBusy is proof_busy: whether translating proof could re-enter a
+// translation in progress (one whose memo entry is still unset).
+func (t *FullTranslation) proofBusy(proof ast.ASTHandle, memo *translationMemo, seen map[ast.ASTHandle]bool) (bool, error) {
+	if result, found := seen[proof]; found {
+		return result, nil
+	}
+	seen[proof] = false
+	result := memo.clauseBusy[proof] || memo.termBusy[proof]
+	if !result {
+		count, err := t.base.manager.NumPremises(proof)
+		if err != nil {
+			return false, err
+		}
+		for i := uint32(0); i < count && !result; i++ {
+			premise, e := t.base.manager.Premise(proof, i)
+			if e != nil {
+				return false, e
+			}
+			busy, e := t.proofBusy(premise, memo, seen)
+			if e != nil {
+				return false, e
+			}
+			result = busy
+		}
+	}
+	seen[proof] = result
+	return result, nil
+}
+
+// localizeRewrite is localize_rewrite: theta from the congruence proof
+// congruence; when that leaves the rewrite mixed (the congruence's left
+// side was already mixed by an earlier propagate_values round), the
+// proof's other hypothesis-free constant equations are added.
+func (t *FullTranslation) localizeRewrite(congruence, rewrite ast.ASTHandle, direct *DirectProofInterpolator, memo *translationMemo) (ast.ASTHandle, bool, error) {
+	l := t.newRewriteLocalizer()
+	if err := l.collect(congruence); err != nil {
+		return ast.ASTHandle{}, false, err
+	}
+	if len(l.keys) != 0 {
+		result, ok, err := t.localizeRewriteWith(l, rewrite, direct, memo)
+		if err != nil || ok {
+			return result, ok, err
+		}
+	}
+	if !t.globalDone {
+		if err := t.collectGlobal(t.translateRoot, make(map[ast.ASTHandle]bool)); err != nil {
+			return ast.ASTHandle{}, false, err
+		}
+		t.globalDone = true
+	}
+	count := len(l.keys)
+	busy := make(map[ast.ASTHandle]bool)
+	for _, image := range t.globalKeys {
+		if _, found := l.theta[image]; found {
+			continue
+		}
+		equivalence := t.globalTheta[image]
+		taken, err := t.proofBusy(equivalence.proof, memo, busy)
+		if err != nil {
+			return ast.ASTHandle{}, false, err
+		}
+		if !taken {
+			l.theta[image] = equivalence
+			l.keys = append(l.keys, image)
+		}
+	}
+	if len(l.keys) == count {
+		return ast.ASTHandle{}, false, nil
+	}
+	return t.localizeRewriteWith(l, rewrite, direct, memo)
 }
 
 // localizeElim is localize_elim: an and-elim or not-or-elim from a

@@ -18,10 +18,16 @@ func (UnsupportedProofError) Error() string { return "unsupported interpolation 
 type translationMemo struct {
 	clause map[ast.ASTHandle]ast.ASTHandle
 	term   map[ast.ASTHandle]ast.ASTHandle
+	// clauseBusy and termBusy are the source memo entries made, still
+	// null, when translate_main starts: they stay set while the
+	// translation runs, and after one an exception unwound.
+	clauseBusy map[ast.ASTHandle]bool
+	termBusy   map[ast.ASTHandle]bool
 }
 
 func newTranslationMemo() *translationMemo {
-	return &translationMemo{clause: make(map[ast.ASTHandle]ast.ASTHandle), term: make(map[ast.ASTHandle]ast.ASTHandle)}
+	return &translationMemo{clause: make(map[ast.ASTHandle]ast.ASTHandle), term: make(map[ast.ASTHandle]ast.ASTHandle),
+		clauseBusy: make(map[ast.ASTHandle]bool), termBusy: make(map[ast.ASTHandle]bool)}
 }
 
 func (t *FullTranslation) translateUnitResolution(proof ast.ASTHandle, direct *DirectProofInterpolator, memo *translationMemo) (ast.ASTHandle, error) {
@@ -110,12 +116,25 @@ func (t *FullTranslation) translateUnitResolution(proof ast.ASTHandle, direct *D
 }
 
 func (t *FullTranslation) translateMain(proof ast.ASTHandle, expectClause bool, direct *DirectProofInterpolator, memo *translationMemo) (ast.ASTHandle, error) {
-	cache := memo.term
+	cache, busy := memo.term, memo.termBusy
 	if expectClause {
-		cache = memo.clause
+		cache, busy = memo.clause, memo.clauseBusy
 	}
 	if result, found := cache[proof]; found {
 		return result, nil
+	}
+	busy[proof] = true
+	result, err := t.translateMainUncached(proof, expectClause, direct, memo)
+	if err == nil {
+		delete(busy, proof)
+	}
+	return result, err
+}
+
+func (t *FullTranslation) translateMainUncached(proof ast.ASTHandle, expectClause bool, direct *DirectProofInterpolator, memo *translationMemo) (ast.ASTHandle, error) {
+	cache := memo.term
+	if expectClause {
+		cache = memo.clause
 	}
 	frame, err := t.Locality(proof)
 	if err != nil {
@@ -947,6 +966,11 @@ func (t *FullTranslation) Translate(proof ast.ASTHandle, destination *Interpolat
 	if err := t.ScanSkolems(proof); err != nil {
 		return NullProofNode, err
 	}
+	// The root for collect_global_equivs (localize_rewrite).
+	t.translateRoot = proof
+	t.globalTheta = make(map[ast.ASTHandle]rewriteEquivalence)
+	t.globalKeys = nil
+	t.globalDone = false
 	var resultRefs []ast.ASTRef
 	defer func() {
 		for i := len(resultRefs) - 1; i >= 0; i-- {

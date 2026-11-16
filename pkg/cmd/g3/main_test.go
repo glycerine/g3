@@ -336,6 +336,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT duality_iz3 round 2 (fork fix): a rewrite that two
+	// propagate_values rounds mixed is renamed through the proof's other
+	// hypothesis-free constant equations; err is reachable.
+	"duality_iz3_second_round_rewrite.smt2": "sat\n",
 	// AST-id fidelity (ast_ids batch 2): check_length_concat_concat builds
 	// n1 = n2 before its conflict test; see ast_event_digests.txt.
 	"str_concat_length_eq_atom_ids.smt2": "sat\n",
