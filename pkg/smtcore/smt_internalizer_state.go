@@ -1768,14 +1768,14 @@ func (s *SMTInternalizerState) Close() error {
 	if err := s.congruence.Close(); err != nil {
 		return err
 	}
+	// ~plugin_manager deletes the theories in registration order.
 	for len(s.theoryOrder) != 0 {
-		i := len(s.theoryOrder) - 1
-		if closer, ok := s.theoryOrder[i].(interface{ Close() error }); ok {
+		if closer, ok := s.theoryOrder[0].(interface{ Close() error }); ok {
 			if err := closer.Close(); err != nil {
-				return fmt.Errorf("close SMT theory %T: %w", s.theoryOrder[i], err)
+				return fmt.Errorf("close SMT theory %T: %w", s.theoryOrder[0], err)
 			}
 		}
-		s.theoryOrder = s.theoryOrder[:i]
+		s.theoryOrder = s.theoryOrder[1:]
 	}
 	if s.relevancy != nil && s.relevancy.internalizer == s {
 		s.relevancy.internalizer = nil
