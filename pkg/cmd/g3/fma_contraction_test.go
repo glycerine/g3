@@ -24,8 +24,8 @@ var fmaMnemonic = regexp.MustCompile(`^(V?F(N)?M(ADD|SUB)[0-9A-Z.]*|W?FN?M[AS][D
 // G3_FMACHECK_TARGETS overrides the default linux/arm64 target list, for
 // example "linux/arm64 linux/ppc64le linux/s390x linux/riscv64 linux/amd64/v3".
 func TestNoFMAContraction(t *testing.T) {
-	if testing.Short() {
-		t.Skip("cross-builds g3; skipped under -short")
+	if !testing.Short() {
+		t.Skip("cross-builds g3, a long test; runs only under -short")
 	}
 	goBin := filepath.Join(runtime.GOROOT(), "bin", "go")
 	if _, err := os.Stat(goBin); err != nil {
