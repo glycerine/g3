@@ -59,7 +59,7 @@ func (t *SMTStringTheory) instantiateStringToInt(node *SMTEnode) (result error) 
 	if err != nil {
 		return err
 	}
-	zeroString, err := pin(t.stringLiteral("0"))
+	zeroString, err := pin(t.stringLiteralChars("0"))
 	if err != nil {
 		return err
 	}
@@ -85,7 +85,7 @@ func (t *SMTStringTheory) instantiateStringToInt(node *SMTEnode) (result error) 
 	// u.re.mk_concat(mk_range("1", "9"), mk_star(mk_range("0", "9"))):
 	// GCC evaluates call arguments right to left, so the star (and "9")
 	// is built before "1" and the first-digit range.
-	nineString, err := pin(t.stringLiteral("9"))
+	nineString, err := pin(t.stringLiteralChars("9"))
 	if err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func (t *SMTStringTheory) instantiateStringToInt(node *SMTEnode) (result error) 
 	if err != nil {
 		return err
 	}
-	oneString, err := pin(t.stringLiteral("1"))
+	oneString, err := pin(t.stringLiteralChars("1"))
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func (t *SMTStringTheory) instantiateIntToString(node *SMTEnode) (result error) 
 	if err != nil {
 		return err
 	}
-	empty, err := pin(t.stringLiteral(""))
+	empty, err := pin(t.stringLiteralChars(""))
 	if err != nil {
 		return err
 	}

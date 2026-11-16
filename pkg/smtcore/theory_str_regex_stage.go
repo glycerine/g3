@@ -222,7 +222,7 @@ func (f *smtStringRegexStage) exactPath(member, word ast.ASTHandle, assignment l
 			}
 			return f.publish(conflict)
 		}
-		empty, err := f.pin(t.stringLiteral(""))
+		empty, err := f.pin(t.stringLiteralChars(""))
 		if err != nil {
 			return err
 		}

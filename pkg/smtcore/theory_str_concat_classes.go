@@ -67,7 +67,7 @@ func (t *SMTStringTheory) simplifyStringConcat(expression ast.ASTHandle) (out as
 	}
 	premises := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, premises.close()) }()
-	out, err = t.stringLiteral("")
+	out, err = t.stringLiteralChars("")
 	if err != nil {
 		return out, err
 	}
@@ -213,7 +213,7 @@ func (t *SMTStringTheory) stringZeroLengthCoherence(left, right ast.ASTHandle) (
 	if err != nil {
 		return err
 	}
-	empty, err := t.stringLiteral("")
+	empty, err := t.stringLiteralChars("")
 	if err != nil {
 		return err
 	}

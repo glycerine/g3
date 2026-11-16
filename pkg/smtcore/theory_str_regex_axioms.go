@@ -168,7 +168,7 @@ func (t *SMTStringTheory) instantiateLegacyRegexAxiom(expression, word, regex as
 		if err != nil {
 			return err
 		}
-		empty, err := pin(t.stringLiteral(""))
+		empty, err := pin(t.stringLiteralChars(""))
 		if err != nil {
 			return err
 		}
@@ -205,7 +205,7 @@ func (t *SMTStringTheory) instantiateLegacyRegexAxiom(expression, word, regex as
 		}
 		// instantiate_axiom_RegexIn requests the empty literal again after
 		// mk_unroll returns. Preserve that observable string-cache access.
-		emptyAgain, err := pin(t.stringLiteral(""))
+		emptyAgain, err := pin(t.stringLiteralChars(""))
 		if err != nil {
 			return err
 		}

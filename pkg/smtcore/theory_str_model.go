@@ -100,11 +100,10 @@ func (t *SMTStringTheory) ModelValue(node *SMTEnode, generator *SMTModelGenerato
 	if !concrete {
 		text := "**UNUSED**" + strconv.FormatUint(uint64(t.unusedID), 10)
 		t.unusedID++
-		value, err = t.stringLiteral(text)
+		// mk_string(unused.str().c_str()) is not kept in m_trail; the
+		// model generator's m_asts holds the value.
+		value, err = t.stringLiteralChars(text)
 		if err != nil {
-			return nil, err
-		}
-		if err = t.retain(value); err != nil {
 			return nil, err
 		}
 	}

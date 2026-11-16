@@ -89,7 +89,7 @@ func (t *SMTStringTheory) generateStringLengthOptions(variable, indicator ast.AS
 		return output, err
 	}
 	if known {
-		label, err := pin(t.stringLiteral(value.String()))
+		label, err := pin(t.stringLiteralChars(value.String()))
 		if err != nil {
 			return output, err
 		}
@@ -191,7 +191,7 @@ func (t *SMTStringTheory) generateStringLengthOptions(variable, indicator ast.AS
 		}
 		equivalences = append(equivalences, equivalence)
 	}
-	more, err := pin(t.stringLiteral("more"))
+	more, err := pin(t.stringLiteralChars("more"))
 	if err != nil {
 		return output, err
 	}

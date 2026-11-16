@@ -154,7 +154,7 @@ func (f *smtStringRegexStage) intersections(options SMTStrState) error {
 			return err
 		}
 		if len(used) > 1 && len(graph.FinalStates()) == 1 && graph.IsFinal(graph.Initial()) && len(graph.MovesFrom(graph.Initial())) == 0 {
-			empty, err := f.pin(t.stringLiteral(""))
+			empty, err := f.pin(t.stringLiteralChars(""))
 			if err != nil {
 				return err
 			}

@@ -189,7 +189,7 @@ func (t *SMTStringTheory) assignStringRegexUnroll(unroll ast.ASTHandle) (result 
 		if err != nil {
 			return err
 		}
-		empty, err := pin(t.stringLiteral(""))
+		empty, err := pin(t.stringLiteralChars(""))
 		if err != nil {
 			return err
 		}

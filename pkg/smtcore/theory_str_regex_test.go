@@ -339,8 +339,10 @@ func TestSMTStringLegacyRegexStarUnrollDefinition(t *testing.T) {
 	astTestMust(t, err)
 	accesses := theory.cacheAccesses
 	member := stringRegexRegister(t, theory, x, star)
-	if theory.cacheAccesses != accesses+2 {
-		t.Fatal("star setup lost the separate inner/outer empty-literal cache accesses")
+	// mk_unroll and the star axiom build "" with mk_string(const char*),
+	// which bypasses the string constant cache and its access count.
+	if theory.cacheAccesses != accesses {
+		t.Fatal("star setup counted cache accesses for its char-string empty literals", theory.cacheAccesses-accesses)
 	}
 	zero, err := m.ArithmeticIntegerNumeralText("0")
 	astTestMust(t, err)

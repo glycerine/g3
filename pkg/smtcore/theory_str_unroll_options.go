@@ -99,7 +99,7 @@ func (t *SMTStringTheory) generateStringUnrollAssignment(word ast.ASTHandle, cor
 		}
 		conjuncts = append(conjuncts, equivalence)
 	}
-	more, err := pin(t.stringLiteral("more"))
+	more, err := pin(t.stringLiteralChars("more"))
 	if err != nil {
 		return output, err
 	}
@@ -178,7 +178,7 @@ func (t *SMTStringTheory) generateStringConditionalUnrollOptions(word ast.ASTHan
 		return value, locals.add(value)
 	}
 	var premises []ast.ASTHandle
-	more, err := pin(t.stringLiteral("more"))
+	more, err := pin(t.stringLiteralChars("more"))
 	if err != nil {
 		return output, err
 	}

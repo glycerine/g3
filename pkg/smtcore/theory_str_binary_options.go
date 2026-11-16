@@ -66,7 +66,7 @@ func (t *SMTStringTheory) generateStringBinaryCaseSplit(word, tester ast.ASTHand
 	}
 	var choices, conjuncts []ast.ASTHandle
 	for _, label := range []string{"less", "more", bounds.midpoint.String()} {
-		text, err := pin(t.stringLiteral(label))
+		text, err := pin(t.stringLiteralChars(label))
 		if err != nil {
 			return output, err
 		}

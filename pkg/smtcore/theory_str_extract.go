@@ -150,7 +150,7 @@ func (t *SMTStringTheory) instantiateCharAt(node *SMTEnode) (result error) {
 	if err != nil {
 		return err
 	}
-	empty, err := t.stringLiteral("")
+	empty, err := t.stringLiteralChars("")
 	if err != nil {
 		return err
 	}
@@ -271,7 +271,7 @@ func (t *SMTStringTheory) instantiateSubstring(node *SMTEnode) (result error) {
 	if err != nil {
 		return err
 	}
-	empty, err := t.stringLiteral("")
+	empty, err := t.stringLiteralChars("")
 	if err != nil {
 		return err
 	}

@@ -145,7 +145,7 @@ func (t *SMTStringTheory) instantiateBasicStringAxioms(node *SMTEnode) (result e
 		return err
 	}
 	defer func() { result = errors.Join(result, m.DelRef(&zeroRef)) }()
-	empty, err := t.stringLiteral("")
+	empty, err := t.stringLiteralChars("")
 	if err != nil {
 		return err
 	}

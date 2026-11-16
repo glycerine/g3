@@ -63,7 +63,7 @@ func (t *SMTStringTheory) generateStringValueOptions(variable, lengthIndicator, 
 	var choices, conjuncts []ast.ASTHandle
 	for index, encoding := range encodings {
 		ordinal := int64(tries)*32 + int64(index)
-		label, err := pin(t.stringLiteral(strconv.FormatInt(ordinal, 10)))
+		label, err := pin(t.stringLiteralChars(strconv.FormatInt(ordinal, 10)))
 		if err != nil {
 			return output, err
 		}
@@ -114,7 +114,7 @@ func (t *SMTStringTheory) generateStringValueOptions(variable, lengthIndicator, 
 		conjuncts = append(conjuncts, equivalence)
 	}
 	if !covered {
-		more, err := pin(t.stringLiteral("more"))
+		more, err := pin(t.stringLiteralChars("more"))
 		if err != nil {
 			return output, err
 		}
@@ -152,7 +152,7 @@ func (t *SMTStringTheory) generateStringValueOptions(variable, lengthIndicator, 
 		if prior == valueIndicator {
 			continue
 		}
-		more, err := pin(t.stringLiteral("more"))
+		more, err := pin(t.stringLiteralChars("more"))
 		if err != nil {
 			return output, err
 		}

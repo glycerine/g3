@@ -146,6 +146,21 @@ func (t *SMTStringTheory) retain(expression ast.ASTHandle) error {
 	return nil
 }
 
+// stringLiteralChars is theory_str::mk_string(const char*): every C++ call
+// with a character-string argument (a literal, or a std::string's
+// c_str()) builds the literal without the constant cache or m_trail.
+func (t *SMTStringTheory) stringLiteralChars(text string) (ast.ASTHandle, error) {
+	state, err := t.State()
+	if err != nil || t.closed {
+		if err == nil {
+			err = ast.ErrASTHandle
+		}
+		return ast.ASTHandle{}, err
+	}
+	return state.manager.MkString(text)
+}
+
+// stringLiteral is theory_str::mk_string(zstring const&).
 func (t *SMTStringTheory) stringLiteral(text string) (ast.ASTHandle, error) {
 	state, err := t.State()
 	if err != nil || t.closed {
