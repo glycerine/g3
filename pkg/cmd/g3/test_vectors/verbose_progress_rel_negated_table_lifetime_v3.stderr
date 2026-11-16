@@ -1,0 +1,50 @@
+(transform N7datalog13mk_coi_filterE...4 rules Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op Ts)
+(transform N7datalog15mk_rule_inlinerE...3 rules Ts)
+(transform N7datalog25mk_separate_negated_tailsE...no-op Ts)
+(transform N7datalog24mk_similarity_compressorE...no-op Ts)
+(transform N7datalog15mk_filter_rulesE...no-op Ts)
+(transform N7datalog15mk_simple_joinsE...no-op Ts)
+(transform N7datalog21mk_unbound_compressorE...no-op Ts)
+load Blocked into 0
+load Allowed into 1
+mk_unary_singleton into 2 sort:Bool val:1
+union 2 into 0
+mark_saturated Blocked
+mk_total into 3 sort:[] Allowed
+mk_unary_singleton into 4 sort:Bool val:0
+join 3() and 4() into 5
+filter_by_negation on 5(0) with 0(0) as the negated table
+contains_fact...Ts
+project 5 into 5 deleting columns (0)
+join 5() and 4() into 5
+union 5 into 1
+join 3() and 2() into 6
+filter_by_negation on 6(0) with 0(0) as the negated table
+contains_fact...Ts
+join 6() and 2() into 6
+mark_saturated Allowed
+store 0 into Blocked
+recycle...Ts
+store 1 into Allowed
+recycle...Ts
+recycle...Ts
+recycle...Ts
+(transform N7datalog13mk_coi_filterE...3 rules Ts)
+(transform N7datalog25mk_interp_tail_simplifierE...3 rules Ts)
+(transform N7datalog15mk_rule_inlinerE...1 rules Ts)
+(transform N7datalog25mk_separate_negated_tailsE...no-op Ts)
+(transform N7datalog24mk_similarity_compressorE...no-op Ts)
+(transform N7datalog15mk_filter_rulesE...no-op Ts)
+(transform N7datalog15mk_simple_joinsE...no-op Ts)
+(transform N7datalog21mk_unbound_compressorE...no-op Ts)
+load Small into 0
+mk_unary_singleton into 1 sort:(_ BitVec 2) val:0
+union 1 into 0
+mark_saturated Small
+store 0 into Small
+recycle...Ts
+recycle...Ts
+recycle...Ts
+recycle...Ts
+recycle...Ts

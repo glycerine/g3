@@ -720,33 +720,80 @@ func finiteTableFilterNegation(target, negative FiniteTable, targetColumns, nega
 	if err = validateColumns(targetSignature, negativeSignature, targetColumns, negativeColumns); err != nil {
 		return err
 	}
+	return defaultTableNegationFilter(target, negative, negativeSignature.Len(), targetColumns, negativeColumns)
+}
+
+// defaultTableNegationFilter is relation_manager::
+// default_table_negation_filter_fn: auxiliary_table_filter_fn's removal of
+// the rows should_remove reports. A row is removed when the negated table
+// contains its bound projection (contains_fact) if every negated column is
+// bound exactly once, otherwise when some negated row matches the bindings.
+func defaultTableNegationFilter(target, negative FiniteTable, negSize int, targetColumns, negativeColumns []int) error {
+	// convenient_negation_filter_fn's m_overlap and m_all_neg_bound.
+	overlap := false
+	bound := make([]bool, negSize)
+	for _, c := range negativeColumns {
+		if bound[c] {
+			overlap = true
+		}
+		bound[c] = true
+	}
+	allNegBound := negSize <= len(targetColumns)
+	for _, b := range bound {
+		allNegBound = allNegBound && b
+	}
 	targetFacts, err := target.Facts()
 	if err != nil {
 		return err
 	}
-	negativeFacts, err := negative.Facts()
-	if err != nil {
-		return err
+	var negativeFacts []Fact
+	if !allNegBound || overlap {
+		if negativeFacts, err = negative.Facts(); err != nil {
+			return err
+		}
 	}
+	aux := make(Fact, negSize)
+	removed := make([]Fact, 0)
 	kept := make([]Fact, 0, len(targetFacts))
 	for _, fact := range targetFacts {
 		remove := false
-		for _, other := range negativeFacts {
-			match := true
-			for index := range targetColumns {
-				if fact[targetColumns[index]] != other[negativeColumns[index]] {
-					match = false
+		if !allNegBound || overlap {
+			for _, other := range negativeFacts {
+				match := true
+				for index := range targetColumns {
+					if fact[targetColumns[index]] != other[negativeColumns[index]] {
+						match = false
+						break
+					}
+				}
+				if match {
+					remove = true
 					break
 				}
 			}
-			if match {
-				remove = true
-				break
+		} else {
+			// make_neg_bindings
+			for index := range targetColumns {
+				aux[negativeColumns[index]] = fact[targetColumns[index]]
+			}
+			if sparse, ok := negative.(*SparseTable); ok {
+				remove, err = sparse.ContainsFact(aux)
+			} else {
+				remove, err = negative.Contains(aux)
+			}
+			if err != nil {
+				return err
 			}
 		}
-		if !remove {
+		if remove {
+			removed = append(removed, fact)
+		} else {
 			kept = append(kept, fact)
 		}
+	}
+	handled, err := RemoveFiniteTableFacts(target, removed)
+	if err != nil || handled {
+		return err
 	}
 	if err = target.Reset(); err != nil {
 		return err

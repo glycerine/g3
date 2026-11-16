@@ -1,6 +1,10 @@
 package rel
 
-import "github.com/glycerine/g3/pkg/muz/base"
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/muz/base"
+)
 
 type SparseTable struct {
 	signature  Signature
@@ -166,4 +170,17 @@ func sparseGetKeyIndexerVerbose() error {
 		return err
 	}
 	return action.End()
+}
+
+// ContainsFact is sparse_table::contains_fact with its verbose_action
+// _va("contains_fact", 2), for the source call sites of contains_fact
+// (default_table_negation_filter_fn::should_remove). Contains is the
+// lookup g3's own bookkeeping uses.
+func (t *SparseTable) ContainsFact(f Fact) (_ bool, result error) {
+	action, err := base.StartVerboseAction("contains_fact", 2)
+	if err != nil {
+		return false, err
+	}
+	defer func() { result = errors.Join(result, action.End()) }()
+	return t.Contains(f)
 }

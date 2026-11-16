@@ -47,6 +47,8 @@ func (e *PropositionalEngine) applyDatalogDefaultFiniteTable() (resultErr error)
 	if err := e.configureDatalogFiniteDefault(name); err != nil {
 		return err
 	}
+	favouriteChanged := e.appliedDefaultTable != name
+	e.appliedDefaultTable = name
 	for _, decl := range e.predicateOrder {
 		state := e.predicates[decl]
 		if state == nil || state.table == nil || state.external != nil || state.explicitFiniteRepresentation {
@@ -54,6 +56,14 @@ func (e *PropositionalEngine) applyDatalogDefaultFiniteTable() (resultErr error)
 		}
 		if _, ok := rel.AsRelation(state.table); ok {
 			// The favourite relation plugin's relation.
+			continue
+		}
+		if !favouriteChanged && !e.relations.IsPlaceholderRelation(decl) {
+			// relation_manager::get_relation created this relation with
+			// the plugin chosen then (e.g. a union into an empty register
+			// stores mk_empty of its source's plugin); the favourite only
+			// selects the plugin of relations created later. A new
+			// favourite (a recreated rel_context) applies to all.
 			continue
 		}
 		kind := "tr_" + name

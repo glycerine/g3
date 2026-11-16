@@ -100,6 +100,9 @@ type PropositionalEngine struct {
 	// compiledRelationPlugins: the relation plugins' relations have
 	// replaced the eager tables and queries run them compiled.
 	compiledRelationPlugins bool
+	// appliedDefaultTable is the favourite table plugin the eager tables
+	// were last migrated to.
+	appliedDefaultTable string
 	// constantNames is the datalog front end's context, whose sort
 	// domains name constants in instruction displays (borrowed).
 	constantNames *base.DatalogContext

@@ -40,6 +40,10 @@ var verboseProgressCases = []verboseProgressCase{
 	// Explicit table kinds next to udoc relations; xform.bit_blast.
 	{"rel_doc_explicit_table_v3", "rel_doc_explicit_table", []string{"-v:3"}},
 	{"rel_doc_bit_blast_v3", "rel_doc_bit_blast", []string{"-v:3"}},
+	// default_table_negation_filter_fn's contains_fact; reset_negated_tables
+	// on the relation get_relation created (no favourite migration).
+	{"rel_negated_table_lifetime_v3", "rel_negated_table_lifetime", []string{"-v:3"}},
+	{"rel_doc_bool_tables_v3", "rel_doc_bool_tables", []string{"-v:3"}},
 	{"rel_filter_v2", "rel_filter", []string{"-v:2"}},
 	// Relations exist only once get_relation creates them.
 	{"horn_empty_model_v2", "horn_empty_model", []string{"-v:2"}},
