@@ -76,6 +76,48 @@ func NewClause(m *ast.ASTManager, rw *rewriter.TheoryRewriter, head ast.ASTHandl
 	return c, nil
 }
 
+// reinit is tb::clause::init(head, predicates, constraint) on an existing
+// clause: m_head, then m_predicates (reset, front to back, then append),
+// then m_constraint are assigned before the equalities are reduced.
+func (c *Clause) reinit(rw *rewriter.TheoryRewriter, head ast.ASTHandle, predicates []ast.ASTHandle, constraint ast.ASTHandle) error {
+	if c == nil || c.closed || rw == nil || rw.Manager() != c.manager {
+		return ast.ErrASTHandle
+	}
+	m := c.manager
+	c.index, c.predicateIndex, c.nextRule = 0, 0, ^uint32(0)
+	if err := m.SetRef(c.head, head); err != nil {
+		return err
+	}
+	for len(c.predicates) != 0 {
+		if err := m.DelRef(&c.predicates[0]); err != nil {
+			return err
+		}
+		c.predicates = c.predicates[1:]
+	}
+	c.predicates = nil
+	for _, h := range predicates {
+		r, err := m.NewRef(h)
+		if err != nil {
+			return err
+		}
+		c.predicates = append(c.predicates, r)
+	}
+	if err := m.SetRef(c.constraint, constraint); err != nil {
+		return err
+	}
+	fv, err := rewriter.NewExprFreeVars(m)
+	if err != nil {
+		return err
+	}
+	for _, h := range append(append([]ast.ASTHandle{head}, predicates...), constraint) {
+		if err = fv.Accumulate(h); err != nil {
+			return err
+		}
+	}
+	c.numVars = fv.Size()
+	return c.reduceEqualities(rw)
+}
+
 func (c *Clause) Head() (ast.ASTHandle, error) {
 	if c == nil || c.closed {
 		return ast.ASTHandle{}, ast.ErrASTHandle

@@ -138,24 +138,38 @@ func finalizeUnfoldedClause(u *unfoldedClause, rw *rewriter.TheoryRewriter, lite
 		}
 		attempt.subst = subst
 	}
+	// m_S2 rewrites the constraint into unify's constraint (releasing the
+	// value qe left there), then each predicate and the head into the
+	// shared tmp; predicates[i] and head keep their values.
+	condition, err = work.Constraint()
+	if err != nil {
+		return nil, false, err
+	}
+	if err = subst.Substitute(condition, renaming, constraint); err != nil {
+		return nil, false, err
+	}
+	if condition, err = m.RefGet(constraint); err != nil {
+		return nil, false, err
+	}
+	tmp, err := m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return nil, false, err
+	}
+	attempt.temps = append(attempt.temps, tmp)
 	apply := func(h ast.ASTHandle) (ast.ASTHandle, error) {
-		ref, e := m.NewRef(ast.ASTHandle{})
+		if e := subst.Substitute(h, renaming, tmp); e != nil {
+			return ast.ASTHandle{}, e
+		}
+		value, e := m.RefGet(tmp)
 		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		attempt.temps = append(attempt.temps, ref)
-		if e = subst.Substitute(h, renaming, ref); e != nil {
+		held, e := m.NewRef(value)
+		if e != nil {
 			return ast.ASTHandle{}, e
 		}
-		return m.RefGet(ref)
-	}
-	head, err = work.Head()
-	if err != nil {
-		return nil, false, err
-	}
-	head, err = apply(head)
-	if err != nil {
-		return nil, false, err
+		attempt.temps = append(attempt.temps, held)
+		return value, nil
 	}
 	predicates, err = work.Predicates()
 	if err != nil {
@@ -167,18 +181,19 @@ func finalizeUnfoldedClause(u *unfoldedClause, rw *rewriter.TheoryRewriter, lite
 			return nil, false, err
 		}
 	}
-	condition, err = work.Constraint()
+	head, err = work.Head()
 	if err != nil {
 		return nil, false, err
 	}
-	condition, err = apply(condition)
+	head, err = apply(head)
 	if err != nil {
 		return nil, false, err
 	}
-	result, err = NewClause(m, rw, head, predicates, condition)
-	if err != nil {
+	// result->init(head, predicates, constraint) on the same clause.
+	if err = work.reinit(rw, head, predicates, condition); err != nil {
 		return nil, false, err
 	}
+	result, attempt.work = work, nil
 	attempt.result = result
 	return result, true, nil
 }
