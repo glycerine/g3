@@ -158,6 +158,10 @@ var verboseProgressFiltered = map[string][]string{
 	"dl_path_v2_instructions":       {"store ", "load ", "union ", "clone ", "move ", "while", "    ", "join ", "join_project ", "mk_unary_singleton", "mark_saturated"},
 	"dl_path_v10_instructions":      {"load ", "union ", "clone ", "move ", "while", "    ", "join ", "join_project ", "mk_unary_singleton", "mark_saturated", "looping ... "},
 	"rel_bit_blast_v2_instructions": {"load ", "union ", "clone ", "move ", "while", "    ", "join ", "join_project ", "mk_unary_singleton", "mark_saturated"},
+	// join_planner::run emits the rules in source order (fork fix, owner
+	// decision 2026-11-15; z3 4.7.1 walked a rule-pointer address map), so
+	// the relations are loaded and registered in that order.
+	"rel_query_sequence_v2_instructions": {"load ", "union ", "clone ", "move ", "while", "    ", "join ", "join_project ", "mk_unary_singleton", "mark_saturated"},
 }
 
 var verboseProgressFilteredCases = []verboseProgressCase{
@@ -183,6 +187,7 @@ var verboseProgressFilteredCases = []verboseProgressCase{
 	{"dl_path_v2_instructions", "path", []string{"-v:2", "-dl"}},
 	{"dl_path_v10_instructions", "path", []string{"-v:10", "-dl"}},
 	{"rel_bit_blast_v2_instructions", "rel_bit_blast", []string{"-v:2"}},
+	{"rel_query_sequence_v2_instructions", "query_sequence", []string{"-v:2"}},
 }
 
 func filterVerboseProgress(name, log string) string {

@@ -1,0 +1,142 @@
+load edge into 0
+load path into 1
+load q1 into 2
+load q1!split!1 into 3
+load q1!split!0 into 4
+mk_unary_singleton into 5 sort:(_ BitVec 4) val:1
+mk_unary_singleton into 6 sort:(_ BitVec 4) val:2
+join 5() and 6() into 7
+union 7 into 0
+mk_unary_singleton into 8 sort:(_ BitVec 4) val:3
+join 6() and 8() into 9
+union 9 into 0
+join 8() and 5() into 10
+union 10 into 0
+mk_unary_singleton into 11 sort:(_ BitVec 4) val:4
+join 8() and 11() into 12
+union 12 into 0
+mk_unary_singleton into 13 sort:(_ BitVec 4) val:5
+join 11() and 13() into 14
+union 14 into 0
+join 13() and 13() into 15
+union 15 into 0
+mk_unary_singleton into 16 sort:(_ BitVec 4) val:6
+mk_unary_singleton into 17 sort:(_ BitVec 4) val:7
+join 16() and 17() into 18
+union 18 into 0
+mark_saturated edge
+union 0 into 1
+clone 1 into 19
+while(19)
+    join_project 0:2-7(0) and 19:2-7(1) into 21 removing columns (0,3)
+    rename 21 into 21 with cycle (0,1)
+    union 21 into 1 with delta 20
+    dealloc 21
+    move 20 into 19
+join_project 0:2-7(0) and 19:2-7(1) into 21 removing columns (0,3)
+union 21 into 1 with delta 20
+move 20 into 19
+join_project 0:2-7(0) and 19:2-5(1) into 21 removing columns (0,3)
+union 21 into 1 with delta 20
+move 20 into 19
+join_project 0:2-7(0) and 19:2-5(1) into 21 removing columns (0,3)
+union 21 into 1 with delta 20
+move 20 into 19
+join_project 0:2-7(0) and 19:2-1(1) into 21 removing columns (0,3)
+union 21 into 1 with delta 20
+mark_saturated path
+join_project 1:2-18(0,1) and 1:2-18(1,0) into 22 removing columns (0,1)
+union 22 into 4
+mark_saturated q1!split!0
+join_project 1:2-18(1) and 4:2-10(0) into 23 removing columns (1)
+union 23 into 3
+mark_saturated q1!split!1
+join_project 3:3-32(1,2) and 1:2-18(0,1) into 24 removing columns (1,2)
+union 24 into 2
+mark_saturated q1
+load edge into 0
+load path into 1
+load same into 2
+load path!filter!2 into 3
+load q2 into 4
+mk_unary_singleton into 5 sort:(_ BitVec 4) val:1
+mk_unary_singleton into 6 sort:(_ BitVec 4) val:2
+join 5() and 6() into 7
+union 7 into 0
+mk_unary_singleton into 8 sort:(_ BitVec 4) val:3
+join 6() and 8() into 9
+union 9 into 0
+join 8() and 5() into 10
+union 10 into 0
+mk_unary_singleton into 11 sort:(_ BitVec 4) val:4
+join 8() and 11() into 12
+union 12 into 0
+mk_unary_singleton into 13 sort:(_ BitVec 4) val:5
+join 11() and 13() into 14
+union 14 into 0
+join 13() and 13() into 15
+union 15 into 0
+mk_unary_singleton into 16 sort:(_ BitVec 4) val:6
+mk_unary_singleton into 17 sort:(_ BitVec 4) val:7
+join 16() and 17() into 18
+union 18 into 0
+mark_saturated edge
+union 0 into 1
+clone 1 into 19
+while(19)
+    join_project 0:2-7(0) and 19:2-18(1) into 21 removing columns (0,3)
+    rename 21 into 21 with cycle (0,1)
+    union 21 into 1 with delta 20
+    dealloc 21
+    move 20 into 19
+join_project 0:2-7(0) and 19:2-18(1) into 21 removing columns (0,3)
+union 21 into 1 with delta 20
+mark_saturated path
+join_project 1:2-18(0,1) and 1:2-18(1,0) into 22 removing columns (0,1)
+union 22 into 2
+mark_saturated same
+clone 1 into 23
+union 23 into 3
+mark_saturated path!filter!2
+join 3() and 5() into 24
+union 24 into 4
+mark_saturated q2
+load edge into 0
+load path into 1
+load nopath into 2
+mk_unary_singleton into 3 sort:(_ BitVec 4) val:1
+mk_unary_singleton into 4 sort:(_ BitVec 4) val:2
+join 3() and 4() into 5
+union 5 into 0
+mk_unary_singleton into 6 sort:(_ BitVec 4) val:3
+join 4() and 6() into 7
+union 7 into 0
+join 6() and 3() into 8
+union 8 into 0
+mk_unary_singleton into 9 sort:(_ BitVec 4) val:4
+join 6() and 9() into 10
+union 10 into 0
+mk_unary_singleton into 11 sort:(_ BitVec 4) val:5
+join 9() and 11() into 12
+union 12 into 0
+join 11() and 11() into 13
+union 13 into 0
+mk_unary_singleton into 14 sort:(_ BitVec 4) val:6
+mk_unary_singleton into 15 sort:(_ BitVec 4) val:7
+join 14() and 15() into 16
+union 16 into 0
+mark_saturated edge
+union 0 into 1
+clone 1 into 17
+while(17)
+    join_project 0:2-7(0) and 17:2-18(1) into 19 removing columns (0,3)
+    rename 19 into 19 with cycle (0,1)
+    union 19 into 1 with delta 18
+    dealloc 19
+    move 18 into 17
+join_project 0:2-7(0) and 17:2-18(1) into 19 removing columns (0,3)
+union 19 into 1 with delta 18
+mark_saturated path
+join_project 0:2-7(0) and 0:2-7(0) into 20 removing columns (0,2)
+union 20 into 2
+mark_saturated nopath
