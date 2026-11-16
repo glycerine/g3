@@ -692,6 +692,14 @@ namespace datalog {
             return m_allocated_kinds[res_idx];
         }
 
+        // FORK FIX #102 (g3 audit, see FORK_BUGFIXES.md): plugins with several kinds
+        // (product_relation, sieve_relation) handle a signature for a kind only when
+        // the kind was allocated for a specification of that signature.
+        bool contains_kind(const relation_signature & sig, family_id kind) const {
+            family_id2spec * idspecs = nullptr;
+            return m_kind_specs.find(sig, idspecs) && idspecs->contains(kind);
+        }
+
         void get_relation_spec(const relation_signature & sig, family_id kind, Spec & spec) {
             family_id2spec * idspecs = m_kind_specs.find(sig);
             spec = idspecs->find(kind);
