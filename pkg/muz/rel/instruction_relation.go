@@ -222,9 +222,13 @@ func relationFilterNegation(target, negative RelationBase, targetColumns, negati
 		return err
 	}
 	if fn == nil {
-		return z3exception.NewDefaultException("trying to perform unsupported filter_by_negation on relations of kinds " + target.RelationPlugin().Name() + " and " + negative.RelationPlugin().Name())
+		return unsupportedRelationNegation(target, negative)
 	}
 	return fn(target, negative)
+}
+
+func unsupportedRelationNegation(target, negative RelationBase) error {
+	return z3exception.NewDefaultException("trying to perform unsupported filter_by_negation on relations of kinds " + target.RelationPlugin().Name() + " and " + negative.RelationPlugin().Name())
 }
 
 // relationRegisterEmpty is ctx.reg(r)->fast_empty() for a result about to

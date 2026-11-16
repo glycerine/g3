@@ -32,6 +32,8 @@ type tableInstruction struct {
 	// registers (the compiler's m_reg_signatures), used to see a table
 	// register as its table_relation next to another plugin's relation.
 	sorts1, sorts2 []ast.ASTHandle
+	// fns is m_fn_cache for the relation path.
+	fns relationFnCache
 }
 
 // setOperandSorts records the compiler's register signatures of an
@@ -200,9 +202,9 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 		if r, ok, y := relationOperandsSorted([][]ast.ASTHandle{i.sorts1, i.sorts2}, first, second); y != nil {
 			return false, y
 		} else if ok && i.kind == "join_project" {
-			value, x = relationJoinProject(r[0], r[1], i.left, i.right, i.removed)
+			value, x = i.fns.join2(r[0], r[1], i.left, i.right, i.removed, true)
 		} else if ok {
-			value, x = relationJoin(r[0], r[1], i.left, i.right)
+			value, x = i.fns.join2(r[0], r[1], i.left, i.right, nil, false)
 		} else if i.kind == "join_project" {
 			value, x = finiteTableJoinProject(first, second, i.left, i.right, i.removed)
 		} else {
@@ -220,7 +222,12 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 		if first == nil {
 			return true, nil
 		}
-		if err = finiteTableFilterEqual(first, i.value, i.column); err != nil {
+		if r, ok := AsRelation(first); ok {
+			err = i.fns.filterEqual(r, i.value, i.column)
+		} else {
+			err = finiteTableFilterEqual(first, i.value, i.column)
+		}
+		if err != nil {
 			return false, err
 		}
 		empty, x := finiteFastEmpty(first)
@@ -236,7 +243,14 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 		if first == nil {
 			return true, nil
 		}
-		if err = finiteTableFilterIdentical(first, i.left); err != nil {
+		if r, ok := AsRelation(first); ok {
+			err = i.fns.mutate(r, "filter_identical", func() (RelationMutatorFn, error) {
+				return r.RelationPlugin().Manager().MkRelationFilterIdenticalFn(r, i.left)
+			})
+		} else {
+			err = finiteTableFilterIdentical(first, i.left)
+		}
+		if err != nil {
 			return false, err
 		}
 		empty, x := finiteFastEmpty(first)
@@ -281,7 +295,7 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 		if r, ok, x := relationOperandsSorted([][]ast.ASTHandle{i.sorts2, i.sorts1, i.sorts2}, target, first, delta); x != nil {
 			return false, x
 		} else if ok {
-			if err = relationUnion(r[0], r[1], r[2], i.kind == "widen"); err != nil {
+			if err = i.fns.union(r[0], r[1], r[2], i.kind == "widen"); err != nil {
 				return false, err
 			}
 		} else if err = finiteTableUnion(target, first, delta); err != nil {
@@ -303,7 +317,15 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 		}
 		context.stats.ProjectRename++
 		var value FiniteTable
-		if i.kind == "project" {
+		if r, ok := AsRelation(first); ok && i.kind == "project" {
+			value, err = i.fns.transform(r, "project", func() (RelationTransformerFn, error) {
+				return r.RelationPlugin().Manager().MkRelationProjectFn(r, i.removed)
+			})
+		} else if ok {
+			value, err = i.fns.transform(r, "rename", func() (RelationTransformerFn, error) {
+				return r.RelationPlugin().Manager().MkRelationRenameFn(r, i.left)
+			})
+		} else if i.kind == "project" {
 			value, err = finiteTableProject(first, i.removed)
 		} else {
 			value, err = finiteTableRename(first, i.left)
@@ -317,7 +339,13 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 			return true, context.MakeEmpty(i.result)
 		}
 		context.stats.SelectEqualProject++
-		value, x := finiteTableSelectProject(first, i.value, i.column)
+		var value FiniteTable
+		var x error
+		if r, ok := AsRelation(first); ok {
+			value, x = i.fns.selectEqualProject(r, i.value, i.column)
+		} else {
+			value, x = finiteTableSelectProject(first, i.value, i.column)
+		}
 		if x != nil {
 			return false, x
 		}
@@ -330,7 +358,7 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 		if r, ok, x := relationOperandsSorted([][]ast.ASTHandle{i.sorts1, i.sorts2}, first, second); x != nil {
 			return false, x
 		} else if ok {
-			if err = relationFilterNegation(r[0], r[1], i.left, i.right); err != nil {
+			if err = i.fns.filterNegation(r[0], r[1], i.left, i.right); err != nil {
 				return false, err
 			}
 		} else if err = finiteTableFilterNegation(first, second, i.left, i.right); err != nil {
@@ -516,5 +544,5 @@ func (i *tableInstruction) Close() error {
 		return nil
 	}
 	i.closed = true
-	return i.accounting.Close()
+	return errors.Join(i.fns.close(), i.accounting.Close())
 }
