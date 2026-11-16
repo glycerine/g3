@@ -148,6 +148,10 @@ func (c *Context) ensureDatatypeFunctions(sort ast.ASTHandle) error {
 	if err != nil {
 		return err
 	}
+	// m_dt_util.get_datatype_constructors(dt) caches dt and its constructors.
+	if err = c.dtUtilSave(sort, dtUtilConstructors, constructors...); err != nil {
+		return err
+	}
 	for _, constructor := range constructors {
 		if err = c.ensureDatatypeFunction(constructor); err != nil {
 			return err
@@ -156,6 +160,9 @@ func (c *Context) ensureDatatypeFunctions(sort ast.ASTHandle) error {
 		if e != nil {
 			return e
 		}
+		if err = c.dtUtilSave(constructor, dtUtilRecognizer, recognizer); err != nil {
+			return err
+		}
 		if err = c.ensureDatatypeFunction(recognizer); err != nil {
 			return err
 		}
@@ -163,12 +170,54 @@ func (c *Context) ensureDatatypeFunctions(sort ast.ASTHandle) error {
 		if e != nil {
 			return e
 		}
+		if err = c.dtUtilSave(constructor, dtUtilAccessors, accessors...); err != nil {
+			return err
+		}
 		for _, accessor := range accessors {
 			if err = c.ensureDatatypeFunction(accessor); err != nil {
 				return err
 			}
 		}
 	}
+	return nil
+}
+
+const (
+	dtUtilConstructors uint8 = 1 << iota
+	dtUtilRecognizer
+	dtUtilAccessors
+)
+
+// dtUtilSave is the m_asts.push_back sequence of a datatype::util cache
+// miss: the key, then the cached declarations. A hit holds nothing new.
+func (c *Context) dtUtilSave(key ast.ASTHandle, cache uint8, values ...ast.ASTHandle) error {
+	if c.dtUtilCached[key]&cache != 0 {
+		return nil
+	}
+	if c.dtUtilCached == nil {
+		c.dtUtilCached = map[ast.ASTHandle]uint8{}
+	}
+	c.dtUtilCached[key] |= cache
+	for _, h := range append([]ast.ASTHandle{key}, values...) {
+		ref, err := c.manager.NewRef(h)
+		if err != nil {
+			return err
+		}
+		c.dtUtilASTs = append(c.dtUtilASTs, ref)
+	}
+	return nil
+}
+
+// releaseDatatypeUtil is m_dt_eh = nullptr: ~ref_vector releases m_asts
+// in order.
+func (c *Context) releaseDatatypeUtil() error {
+	for i := range c.dtUtilASTs {
+		if err := c.manager.DelRef(&c.dtUtilASTs[i]); err != nil {
+			return err
+		}
+	}
+	c.dtUtilASTs = nil
+	c.dtUtilCached = nil
 	return nil
 }
 

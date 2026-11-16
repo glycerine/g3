@@ -138,6 +138,11 @@ type Context struct {
 	sortConstructorTrail     []string
 	builtins                 map[string][]builtin
 	functionTrail, sortTrail []declaration
+	// dtUtilASTs is dt_eh's datatype::util m_asts, the references its
+	// constructor, recognizer and accessor caches (dtUtilCached) hold
+	// until m_dt_eh is reset.
+	dtUtilASTs   []ast.ASTRef
+	dtUtilCached map[ast.ASTHandle]uint8
 	// funcDecls and psortDecls are the m_func_decls and m_psort_decls
 	// dictionary layouts; psortStack is m_psort_decls_stack.
 	funcDecls, psortDecls          *symbolDictionary
@@ -1415,8 +1420,10 @@ func (c *Context) restoreDeclarations(functions, sorts int) error {
 		} else {
 			c.functions[row.name] = values[:len(values)-1]
 		}
-		if err := c.manager.DelRef(&row.ref); err != nil {
-			return err
+		if row.ref != (ast.ASTRef{}) {
+			if err := c.manager.DelRef(&row.ref); err != nil {
+				return err
+			}
 		}
 		c.functionTrail = c.functionTrail[:i]
 	}
@@ -1428,8 +1435,10 @@ func (c *Context) restoreDeclarations(functions, sorts int) error {
 		if err := c.releaseSortDefinitionInfos(row.name); err != nil {
 			return err
 		}
-		if err := c.manager.DelRef(&row.ref); err != nil {
-			return err
+		if row.ref != (ast.ASTRef{}) {
+			if err := c.manager.DelRef(&row.ref); err != nil {
+				return err
+			}
 		}
 		c.sortTrail = c.sortTrail[:i]
 	}
@@ -1798,6 +1807,60 @@ func (c *Context) resetManagerState() error {
 	if errors.As(c.initializationError, &construction) && construction.CleanupPending() {
 		return construction
 	}
+	if err := c.clearCheckSatResult(); err != nil {
+		return err
+	}
+	if c.fixedpoint != nil {
+		if err := c.fixedpoint.Close(); err != nil {
+			return err
+		}
+		c.fixedpoint = nil
+	}
+	if c.fixedpointContextParams.Slot != 0 {
+		if err := c.config.Globals.Context.Del(&c.fixedpointContextParams); err != nil {
+			return err
+		}
+	}
+	if c.datalogDisplay != nil {
+		if _, err := c.manager.ProofMode(); err != nil {
+			return err
+		}
+		if err := c.datalogDisplay.Close(); err != nil {
+			return err
+		}
+		c.datalogDisplay = nil
+	}
+	if c.manager != nil {
+		// cmd_context::reset order: reset_object_refs, reset_psort_decls,
+		// reset_macros, reset_func_decls, restore_assertions(0), and only
+		// then m_solver = nullptr; the pdecl_manager (sort infos) goes last.
+		if err := c.clearDebugExpressions(); err != nil {
+			return err
+		}
+		c.logicChecker.Reset()
+		if err := c.resetPSortDecls(); err != nil {
+			return err
+		}
+		if err := c.resetMacros(); err != nil {
+			return err
+		}
+		if err := c.resetFuncDecls(); err != nil {
+			return err
+		}
+		if err := c.restoreAssertions(0); err != nil {
+			return err
+		}
+		if err := c.restoreObjectives(0, 0); err != nil {
+			return err
+		}
+	}
+	if c.solver != nil {
+		if err := c.solver.Close(); err != nil {
+			return err
+		}
+		c.solver = nil
+	}
+	// m_opt = nullptr: the opt::context goes after m_solver.
 	if err := c.releaseParetoInitialModel(); err != nil {
 		return err
 	}
@@ -1834,52 +1897,13 @@ func (c *Context) resetManagerState() error {
 	if err := c.releaseOptimizationSimplifier(); err != nil {
 		return err
 	}
-	if err := c.clearCheckSatResult(); err != nil {
-		return err
-	}
-	if c.fixedpoint != nil {
-		if err := c.fixedpoint.Close(); err != nil {
-			return err
-		}
-		c.fixedpoint = nil
-	}
-	if c.fixedpointContextParams.Slot != 0 {
-		if err := c.config.Globals.Context.Del(&c.fixedpointContextParams); err != nil {
-			return err
-		}
-	}
-	if c.datalogDisplay != nil {
-		if _, err := c.manager.ProofMode(); err != nil {
-			return err
-		}
-		if err := c.datalogDisplay.Close(); err != nil {
-			return err
-		}
-		c.datalogDisplay = nil
-	}
-	if c.solver != nil {
-		if err := c.solver.Close(); err != nil {
-			return err
-		}
-		c.solver = nil
-	}
 	if c.manager != nil {
-		if err := c.clearDebugExpressions(); err != nil {
-			return err
-		}
-		c.logicChecker.Reset()
-		if err := c.resetMacros(); err != nil {
-			return err
-		}
-		if err := c.restoreAssertions(0); err != nil {
-			return err
-		}
-		if err := c.restoreObjectives(0, 0); err != nil {
-			return err
-		}
 		// m_opt = nullptr (AUDIT.md FUZZ_A-F13).
 		c.optimizedObjectives, c.optsmtReset = 0, false
 		c.optimizationClausal = false
+		if err := c.releaseDatatypeUtil(); err != nil {
+			return err
+		}
 		c.resetDeclarationDictionaries()
 		if err := c.restoreDeclarations(0, 0); err != nil {
 			return err

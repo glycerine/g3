@@ -168,6 +168,9 @@ func (c *Context) restoreSortConstructors(size int) (result error) {
 		delete(c.sortConstructors, name)
 		result = errors.Join(result, c.releaseSortDefinitionInfos(name))
 		for j := len(declaration.refs) - 1; j >= 0; j-- {
+			if declaration.refs[j] == (ast.ASTRef{}) {
+				continue
+			}
 			result = errors.Join(result, c.manager.DelRef(&declaration.refs[j]))
 		}
 		c.sortConstructorTrail = c.sortConstructorTrail[:i]

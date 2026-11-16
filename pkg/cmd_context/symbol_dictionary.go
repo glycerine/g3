@@ -384,3 +384,62 @@ func (c *Context) recordBuiltinPSortDecls() {
 		c.recordPSortDecl(name, false)
 	}
 }
+
+// resetFuncDecls is cmd_context::reset_func_decls: each m_func_decls entry,
+// in table order, finalizes its declarations (func_decls::finalize). The
+// trail rows keep their (released) slots until restoreDeclarations.
+func (c *Context) resetFuncDecls() error {
+	if c.funcDecls == nil {
+		return nil
+	}
+	for _, e := range c.funcDictionary().entries() {
+		if e.funcs == nil {
+			continue
+		}
+		for _, d := range e.funcs.entries() {
+			for i := range c.functionTrail {
+				row := &c.functionTrail[i]
+				if row.name == e.name && row.handle == d && row.ref != (ast.ASTRef{}) {
+					if err := c.manager.DelRef(&row.ref); err != nil {
+						return err
+					}
+					break
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// resetPSortDecls is cmd_context::reset_psort_decls: each m_psort_decls
+// entry, in table order, drops its psort_decl, whose instance cache holds
+// the declared sorts. The sort infos stay until reset_sort_info.
+func (c *Context) resetPSortDecls() error {
+	if c.psortDecls == nil {
+		return nil
+	}
+	for _, e := range c.psortDictionary().entries() {
+		if e.psort == nil {
+			continue
+		}
+		if declaration, found := c.sortConstructors[e.name]; found {
+			for j := len(declaration.refs) - 1; j >= 0; j-- {
+				if declaration.refs[j] == (ast.ASTRef{}) {
+					continue
+				}
+				if err := c.manager.DelRef(&declaration.refs[j]); err != nil {
+					return err
+				}
+			}
+		}
+		for i := len(c.sortTrail) - 1; i >= 0; i-- {
+			row := &c.sortTrail[i]
+			if row.name == e.name && row.ref != (ast.ASTRef{}) {
+				if err := c.manager.DelRef(&row.ref); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
