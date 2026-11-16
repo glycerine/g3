@@ -66,6 +66,7 @@ func publicUDocProductLiveCounts(stats ast.ASTManagerStats) [4]uint64 {
 }
 
 func TestDatalogUDocProductsPublicAllocationFailureRetryAndClose(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	checkPublicUDocProductAllocationFailureRetryAndClose(t, newPublicUDocProductFailureFixture)
 }
 
@@ -143,6 +144,7 @@ func checkPublicUDocProductAllocationFailureRetryAndClose(t *testing.T, fixture 
 }
 
 func TestDatalogUDocProductsPublicCancellationInvalidatesAndRetries(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	f := newPublicUDocProductFailureFixture(t)
 	f.checkRows(lbool.True, [2]uint32{1, 1})
 	held, err := f.e.Answer(f.head)

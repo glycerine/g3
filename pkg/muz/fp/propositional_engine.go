@@ -843,7 +843,13 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 			e.compiled = false
 			return nil
 		}
-		if selected, err := e.ensureUDocDatalog(); err != nil {
+		compiledFavourite, err := e.selectCompiledRelationFavouriteForFacts()
+		if err != nil {
+			return err
+		}
+		if compiledFavourite {
+			// The favourite relation plugin's relations hold the facts.
+		} else if selected, err := e.ensureUDocDatalog(); err != nil {
 			return err
 		} else if selected {
 			e.invalidateQueryForMutation()
@@ -855,7 +861,8 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 			e.compiled = false
 			return nil
 		}
-		if selected, err := e.ensureBoundDatalog(); err != nil {
+		if compiledFavourite {
+		} else if selected, err := e.ensureBoundDatalog(); err != nil {
 			return err
 		} else if selected {
 			if err := e.boundDatalog.addFact(declaration, values); err != nil {
@@ -936,12 +943,17 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 		} else if selected {
 			return e.addArithmeticTableFact(declaration, values)
 		}
-		if selected, err := e.ensureUDocDatalog(); err != nil {
+		compiledFavourite, err := e.selectCompiledRelationFavouriteForFacts()
+		if err != nil {
+			return err
+		}
+		if compiledFavourite {
+			// The favourite relation plugin's relations hold the facts.
+		} else if selected, err := e.ensureUDocDatalog(); err != nil {
 			return err
 		} else if selected {
 			return e.addArithmeticTableFact(declaration, values)
-		}
-		if selected, err := e.ensureBoundDatalog(); err != nil {
+		} else if selected, err := e.ensureBoundDatalog(); err != nil {
 			return err
 		} else if selected {
 			return e.addArithmeticTableFact(declaration, values)

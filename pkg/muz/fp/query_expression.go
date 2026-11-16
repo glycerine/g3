@@ -366,11 +366,24 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		}
 	}
 	if clone.backend == "datalog" && !karrSelected && !relationExplanationSelected {
-		if _, cause := clone.ensureUDocDatalog(); cause != nil {
+		routed, cause := clone.arithRelationsRoute()
+		if cause != nil {
 			return lbool.Undef, cause
 		}
-		if _, err = clone.ensureBoundDatalog(); err != nil {
-			return lbool.Undef, err
+		compiledFavourite := routed
+		if !routed {
+			compiledFavourite, cause = clone.selectCompiledRelationFavourite()
+			if cause != nil {
+				return lbool.Undef, cause
+			}
+		}
+		if !compiledFavourite {
+			if _, cause := clone.ensureUDocDatalog(); cause != nil {
+				return lbool.Undef, cause
+			}
+			if _, err = clone.ensureBoundDatalog(); err != nil {
+				return lbool.Undef, err
+			}
 		}
 	}
 	clone.datalogExplanationQuery, err = clone.datalogExplanationsEnabled()

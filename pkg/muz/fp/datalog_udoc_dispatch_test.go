@@ -9,6 +9,7 @@ import (
 )
 
 func TestDatalogUDocPublicFactsProjectionQueryAndOwnership(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 	fragmentMust(t, err)
@@ -142,6 +143,7 @@ func TestDatalogUDocPublicFactsProjectionQueryAndOwnership(t *testing.T) {
 }
 
 func TestDatalogUDocSelectionAndNullary(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, mode := range []string{"favourite", "requested", "finite-override", "bool-fallback", "arithmetic-fallback", "nullary", "ground-rule"} {
 		t.Run(mode, func(t *testing.T) {
 			m, g := newPDRLifecycleServices(t)

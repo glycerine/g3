@@ -336,6 +336,18 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ-F5 (relation plugins): doc and check_relation programs
+	// with Int/Bool predicates and doc/table joins run the compiled route.
+	// plugins3_doc_table_join: the product_relation union of the
+	// udoc/table join results keeps no correlation between the columns, as
+	// in z3 and the fork.
+	"plugins3_check_doc_int.smt2":            "unsat\n",
+	"plugins3_check_doc_mixed_int_bool.smt2": "sat\n",
+	"plugins3_check_relation_favourite.smt2": "unknown\napproximated relations\n",
+	"plugins3_doc_mixed_int_bool.smt2":       "sat\n",
+	"plugins3_doc_table_join.smt2":           "sat\n(and (or (= (:var 0) #b11) (= (:var 0) #b01))\n     (or (and (= (:var 0) #b00) (= (:var 1) false))\n         (and (= (:var 0) #b11) (= (:var 1) true))\n         (and (= (:var 0) #b01) (= (:var 1) false))\n         (and (= (:var 0) #b11) (= (:var 1) false))\n         (and (= (:var 0) #b10) (= (:var 1) true))\n         (and (= (:var 0) #b10) (= (:var 1) false))\n         (and (= (:var 0) #b00) (= (:var 1) true))\n         (and (= (:var 0) #b01) (= (:var 1) true))))\n",
+	"plugins3_doc_table_union_error.smt2":    "(error \"query failed: trying to perform unsupported union operation on relations of kinds doc, product_relation and doc\")\nunknown\n",
+	"plugins3_requested_doc_int.smt2":        "unsat\n",
 	// AUDIT.md FUZZ-F5 (relation plugins): sieve_relation in product
 	// relations; product and sieve kinds (fork fixes: z3 4.7.1 segfaults on
 	// the mixed Int/Bool programs).

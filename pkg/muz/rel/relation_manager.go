@@ -34,7 +34,10 @@ type RelationManager struct {
 	// varSubst is the context var_subst used to ground interpreted
 	// conditions (GroundCondition).
 	varSubst *astrewriter.VarSubstitution
-	closed   bool
+	// contextRewriter is context::get_rewriter() (borrowed), the
+	// simplifier of default_table_filter_interpreted_fn.
+	contextRewriter *astrewriter.TheoryRewriter
+	closed          bool
 
 	// requestedFinite is get_requested_predicate_kind for finite table
 	// plugins (tr_sparse, tr_hashtable, tr_lazy_sparse).

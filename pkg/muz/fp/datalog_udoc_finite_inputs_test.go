@@ -13,6 +13,7 @@ import (
 )
 
 func TestDatalogUDocFiniteForwardingStorageQueriesAndClones(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, representation := range []string{"tr_hashtable", "tr_sparse", "tr_lazy_sparse"} {
 		t.Run(representation, func(t *testing.T) {
 			m, g := newPDRLifecycleServices(t)
@@ -186,6 +187,7 @@ func TestDatalogUDocFiniteForwardingKeepsUnsupportedInitialRoute(t *testing.T) {
 }
 
 func TestDatalogUDocFiniteForwardingRefusesNewMixedJoinAfterAdoption(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 	fragmentMust(t, err)

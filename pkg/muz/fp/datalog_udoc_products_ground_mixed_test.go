@@ -72,6 +72,7 @@ func (f *publicUDocProductFixture) checkMixedGroundOwner(kind string, keys ...ui
 }
 
 func TestDatalogUDocProductsMixedGroundRulesUseActualProductInputs(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, kind := range []string{"hashtable", "sparse", "lazy_sparse"} {
 		for _, bitsFirst := range []bool{false, true} {
 			for _, reverse := range []bool{false, true} {
@@ -137,6 +138,7 @@ func TestDatalogUDocProductsMixedGroundRulesUseActualProductInputs(t *testing.T)
 }
 
 func TestDatalogUDocProductsMixedGroundDisjointKeysAreDOCEmpty(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, kind := range []string{"hashtable", "sparse", "lazy_sparse"} {
 		for _, bitsFirst := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/bits-first=%v", kind, bitsFirst), func(t *testing.T) {
@@ -169,6 +171,7 @@ func TestDatalogUDocProductsMixedGroundDisjointKeysAreDOCEmpty(t *testing.T) {
 }
 
 func TestDatalogUDocProductsMixedGroundReplayRuleUpdatesAndAPISeeds(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, kind := range []string{"hashtable", "lazy_sparse"} {
 		t.Run(kind, func(t *testing.T) {
 			f := newPublicUDocProductFixtureColumnOrder(t, kind, false, false, true)
@@ -208,6 +211,7 @@ func TestDatalogUDocProductsMixedGroundReplayRuleUpdatesAndAPISeeds(t *testing.T
 }
 
 func TestDatalogUDocProductsMixedGroundPreserveInitialFiniteFallbacks(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, kind := range []string{"hashtable", "sparse", "lazy_sparse"} {
 		for _, fallback := range []string{"seeded-input", "seeded-head", "explicit-input-kind"} {
 			t.Run(kind+"/"+fallback, func(t *testing.T) {

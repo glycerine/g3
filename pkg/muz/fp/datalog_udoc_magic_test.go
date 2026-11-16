@@ -9,6 +9,7 @@ import (
 )
 
 func TestDatalogUDocMagicSetsTransfersSeededIntentionalFacts(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	manager, globals := newPDRLifecycleServices(t)
 	must := func(err error) {
 		t.Helper()

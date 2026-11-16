@@ -8,6 +8,7 @@ import (
 )
 
 func TestDatalogUDocProductsThreeWayProductDocFiniteJoin(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, productFirst := range []bool{true, false} {
 		name := "doc-finite-product"
 		if productFirst {

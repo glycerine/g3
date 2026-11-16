@@ -49,7 +49,7 @@ func (e *PropositionalEngine) arithRelationsRoute() (bool, error) {
 		return false, err
 	}
 	switch e.datalogRelationFavourite {
-	case "doc", "check_relation":
+	case "doc":
 		return false, nil
 	}
 	if _, enabled, err := e.datalogCheckRelationName(); err != nil || enabled {

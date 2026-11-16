@@ -1,7 +1,6 @@
 package fp
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -130,8 +129,9 @@ func TestDatalogUDocInterpretedJoinColumnsAndContradiction(t *testing.T) {
 	if result != lbool.False {
 		t.Fatal("conjunctive UDoc guard contradiction", result)
 	}
-	// Unsupported infinite-domain condition variables still reject explicitly;
-	// supported finite witnesses are covered by the condition-column tests.
+	// A condition over Int variables bound by no relation: the compiled
+	// rule filters a total relation of the Int columns (bound_relation),
+	// and the answer is p's rows, as z3 and the fork answer.
 	family, err := m.RegisterArithmeticPlugin()
 	must(err)
 	integer, err := m.MkFamilySort(family, 1, nil)
@@ -149,14 +149,9 @@ func TestDatalogUDocInterpretedJoinColumnsAndContradiction(t *testing.T) {
 	must(e.addRuleEager(rule, "doc-guard-unbound"))
 	// mk_coi_filter removes the rule from a query of q (muz_fp_03-F2), so
 	// query its own head.
-	_, err = e.QueryPredicate(bad)
-	if !errors.Is(err, ErrUDocDatalogFragment) {
-		t.Fatal("unbound interpreted guard not rejected", err)
-	}
-	if _, err = e.Answer(bad); err == nil {
-		t.Fatal("failed interpreted query exposed stale result")
-	}
-	if len(e.udocDatalog.guardCleanup) != 0 {
-		t.Fatal("ordinary interpreted failure left temporary roots")
+	result, err = e.QueryPredicate(bad)
+	must(err)
+	if result != lbool.True {
+		t.Fatal("unbound Int guard", result)
 	}
 }

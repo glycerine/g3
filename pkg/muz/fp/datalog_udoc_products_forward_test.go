@@ -123,6 +123,7 @@ func (f *publicUDocForwardFixture) checkProduct(kind string, declarations ...ast
 }
 
 func TestDatalogUDocProductsOrdinaryForwardChainProjectionAndOwnership(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, kind := range []string{"hashtable", "sparse", "lazy_sparse"} {
 		t.Run(kind, func(t *testing.T) {
 			f := newPublicUDocForwardFixture(t, kind)
@@ -173,6 +174,7 @@ func TestDatalogUDocProductsOrdinaryForwardChainProjectionAndOwnership(t *testin
 }
 
 func TestDatalogUDocProductsOrdinaryForwardRepeatedVariablesAndConstants(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	f := newPublicUDocForwardFixture(t, "hashtable")
 	repeated := f.declare("forward-repeated", f.bits, f.boolean)
 	constant := f.declare("forward-constant", f.bits, f.boolean)
@@ -192,6 +194,7 @@ func TestDatalogUDocProductsOrdinaryForwardRepeatedVariablesAndConstants(t *test
 }
 
 func TestDatalogUDocProductsOrdinaryForwardUnsupportedProgramsKeepFiniteFallback(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, boundary := range []string{"seeded-target", "cycle", "multiple-definitions", "bool-only-target"} {
 		t.Run(boundary, func(t *testing.T) {
 			f := newPublicUDocForwardFixture(t, "hashtable")

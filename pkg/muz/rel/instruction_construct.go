@@ -330,7 +330,13 @@ func (i *constructInstruction) Perform(context *ExecutionContext) (bool, error) 
 			}
 			return true, nil
 		}
-		table, err := constructFiniteTable(context, i.signature, i.predicate)
+		var table FiniteTable
+		var err error
+		if context != nil && context.relations != nil {
+			table, err = context.relations.newFullTable(i.predicate, i.signature)
+		} else {
+			table, err = constructFiniteTable(context, i.signature, i.predicate)
+		}
 		if err != nil {
 			return false, err
 		}

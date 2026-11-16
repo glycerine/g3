@@ -47,6 +47,7 @@ func (f *publicUDocPairFixture) seed(firstDoc, firstKey, secondDoc, secondKey ui
 }
 
 func TestDatalogUDocProductsPairPublicComponentsAndDependencyOrder(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, kind := range []string{"hashtable", "sparse", "lazy_sparse"} {
 		for _, reverse := range []bool{false, true} {
 			for _, tc := range []struct {
@@ -86,6 +87,7 @@ func TestDatalogUDocProductsPairPublicComponentsAndDependencyOrder(t *testing.T)
 }
 
 func TestDatalogUDocProductsPairPublicBoolCartesianAndSelfJoins(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, kind := range []string{"hashtable", "lazy_sparse"} {
 		t.Run(kind, func(t *testing.T) {
 			f := newPublicUDocPairFixture(t, kind, false)
@@ -110,6 +112,7 @@ func TestDatalogUDocProductsPairPublicBoolCartesianAndSelfJoins(t *testing.T) {
 }
 
 func TestDatalogUDocProductsPairPublicHeadAssemblyAndQueryClone(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, kind := range []string{"hashtable", "lazy_sparse"} {
 		t.Run(kind, func(t *testing.T) {
 			f := newPublicUDocPairFixture(t, kind, true)
@@ -157,6 +160,7 @@ func TestDatalogUDocProductsPairPublicHeadAssemblyAndQueryClone(t *testing.T) {
 }
 
 func TestDatalogUDocProductsPairPublicOrdinarySeedIsNotSilentlyEmpty(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	f := newPublicUDocPairFixture(t, "hashtable", false)
 	f.check(f.pair, lbool.False)
 	if f.e.udocDatalog == nil || f.e.udocDatalog.products == nil {
@@ -185,6 +189,7 @@ func TestDatalogUDocProductsPairPublicOrdinarySeedIsNotSilentlyEmpty(t *testing.
 }
 
 func TestDatalogUDocProductsPairPublicInitialSeedsKeepFiniteFallback(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, seedProducer := range []bool{false, true} {
 		t.Run(fmt.Sprintf("seed-producer=%v", seedProducer), func(t *testing.T) {
 			f := newPublicUDocPairFixture(t, "hashtable", false)

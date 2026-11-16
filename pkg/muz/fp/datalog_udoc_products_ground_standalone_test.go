@@ -86,6 +86,7 @@ func (f *publicUDocStandaloneFixture) checkStandalone(kind string, declarations 
 }
 
 func TestDatalogUDocStandaloneGroundDirectCorrelationLoss(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, kind := range []string{"hashtable", "sparse", "lazy_sparse"} {
 		for _, bitsFirst := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/bits-first=%v", kind, bitsFirst), func(t *testing.T) {
@@ -113,6 +114,7 @@ func TestDatalogUDocStandaloneGroundDirectCorrelationLoss(t *testing.T) {
 }
 
 func TestDatalogUDocStandaloneGroundPairAndForwarding(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, kind := range []string{"hashtable", "sparse", "lazy_sparse"} {
 		for _, bitsFirst := range []bool{false, true} {
 			for _, reverse := range []bool{false, true} {
@@ -158,6 +160,7 @@ func TestDatalogUDocStandaloneGroundPairAndForwarding(t *testing.T) {
 }
 
 func TestDatalogUDocStandaloneGroundQueryClonesAndMutations(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, kind := range []string{"hashtable", "lazy_sparse"} {
 		for _, bitsFirst := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/bits-first=%v", kind, bitsFirst), func(t *testing.T) {
@@ -219,6 +222,7 @@ func TestDatalogUDocStandaloneGroundQueryClonesAndMutations(t *testing.T) {
 }
 
 func TestDatalogUDocStandaloneGroundFiniteFallbackGuards(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, kind := range []string{"hashtable", "sparse", "lazy_sparse"} {
 		for _, reason := range []string{"seed-input", "seed-head", "explicit-input", "conflicting-kind"} {
 			t.Run(kind+"/"+reason, func(t *testing.T) {

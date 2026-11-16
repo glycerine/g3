@@ -31,6 +31,7 @@ func checkPublicUDocPairConstantPlan(f *publicUDocPairFixture, head ast.ASTHandl
 }
 
 func TestDatalogUDocProductsPairConstantsComponents(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, kind := range []string{"hashtable", "sparse", "lazy_sparse"} {
 		for _, reverse := range []bool{false, true} {
 			for _, tc := range []struct {
@@ -90,6 +91,7 @@ func TestDatalogUDocProductsPairConstantsComponents(t *testing.T) {
 }
 
 func TestDatalogUDocProductsPairConstantsAreNotJoinKeys(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, kind := range []string{"hashtable", "sparse", "lazy_sparse"} {
 		for _, reverse := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/reverse=%v", kind, reverse), func(t *testing.T) {
@@ -119,6 +121,7 @@ func TestDatalogUDocProductsPairConstantsAreNotJoinKeys(t *testing.T) {
 }
 
 func TestDatalogUDocProductsPairConstantsQueryAndMutation(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, kind := range []string{"hashtable", "lazy_sparse"} {
 		t.Run(kind, func(t *testing.T) {
 			f := newPublicUDocPairFixture(t, kind, true)

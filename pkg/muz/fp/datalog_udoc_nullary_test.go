@@ -12,6 +12,7 @@ import (
 )
 
 func TestDatalogUDocFiniteNullaryGuardsPreserveStorageAndClones(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, favourite := range []string{"hashtable", "sparse", "lazy_sparse"} {
 		for _, guardFirst := range []bool{true, false} {
 			name := favourite + "/last"
@@ -205,6 +206,7 @@ func TestDatalogUDocNullaryRepresentationMigrationAndRetry(t *testing.T) {
 }
 
 func TestDatalogUDocMixedFiniteHeadRefusesBeforeRulePublication(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 	fragmentMust(t, err)

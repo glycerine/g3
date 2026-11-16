@@ -96,6 +96,10 @@ func newFiniteCompiler(relations *RelationManager, guard *astrewriter.TheoryRewr
 	if err := relations.open(); err != nil {
 		return nil, err
 	}
+	if guard != nil {
+		// The compiling context's rewriter (context::get_rewriter).
+		relations.SetContextRewriter(guard)
+	}
 	return &finiteCompiler{
 		manager: relations.manager, relations: relations, guard: guard,
 		execution: NewInstructionBlock(), termination: NewInstructionBlock(),

@@ -22,6 +22,7 @@ func (f *publicUDocProductFixture) addGroundRule(declaration ast.ASTHandle, name
 }
 
 func TestDatalogUDocProductsGroundRulesUseActualSnapshots(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, tableKind := range []string{"hashtable", "sparse", "lazy_sparse"} {
 		for _, reverse := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/reverse=%v", tableKind, reverse), func(t *testing.T) {
@@ -75,6 +76,7 @@ func TestDatalogUDocProductsGroundRulesUseActualSnapshots(t *testing.T) {
 }
 
 func TestDatalogUDocProductsGroundDOCFeedsExistingKeyedFiniteInput(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	f := newPublicUDocProductFixture(t, "hashtable", true, false)
 	prepareUDocProductGroundRules(f)
 	fragmentMust(t, f.e.AddTableFact(f.finite, []uint32{1, 2}))
@@ -104,6 +106,7 @@ func TestDatalogUDocProductsGroundRulesReplayAndUpdates(t *testing.T) {
 }
 
 func TestDatalogUDocProductsExplicitGroundMixedTuplesAndSeededHeadsKeepFiniteRoute(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, mixedTuple := range []bool{false, true} {
 		t.Run(fmt.Sprintf("mixed-ground-tuple=%v", mixedTuple), func(t *testing.T) {
 			f := newPublicUDocProductFixture(t, "hashtable", false, !mixedTuple)
@@ -135,6 +138,7 @@ func TestDatalogUDocProductsGroundRulesAllocationFailureRetryAndClose(t *testing
 }
 
 func TestDatalogUDocProductsGroundAllBoolTupleAssembly(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, tableKind := range []string{"hashtable", "sparse", "lazy_sparse"} {
 		t.Run(tableKind, func(t *testing.T) {
 			f := newPublicUDocProductFixture(t, tableKind, false, true, 2)

@@ -69,6 +69,17 @@ func (e *PropositionalEngine) selectFiniteRepresentation(declaration ast.ASTHand
 	if err != nil {
 		return err
 	}
+	if r, ok := rel.AsRelation(state.table); ok {
+		// The favourite relation plugin's empty relation of a predicate
+		// registered after the plugins were selected stands for one
+		// get_relation has not created yet: set_predicate_kind decides
+		// the kind it is created with.
+		empty, err := r.Empty()
+		if err != nil || !empty {
+			return errors.Join(err, rel.ErrRelationNotTable, replacement.Close())
+		}
+		return e.replaceDatalogTable(declaration, replacement)
+	}
 	facts, err := state.table.Facts()
 	if err != nil {
 		return errors.Join(err, replacement.Close())

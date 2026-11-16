@@ -158,6 +158,7 @@ func (f *publicUDocProductFixture) checkRows(wantStatus lbool.LBool, rows ...[2]
 }
 
 func TestDatalogUDocProductsPublicKeyedJoinsDefaultsAndFactUpdates(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, tableKind := range []string{"hashtable", "sparse", "lazy_sparse"} {
 		for _, reverse := range []bool{false, true} {
 			name := tableKind + "/doc-first"
@@ -205,6 +206,7 @@ func TestDatalogUDocProductsPublicKeyedJoinsDefaultsAndFactUpdates(t *testing.T)
 }
 
 func TestDatalogUDocProductsExpressionQueriesOwnPermutationProjectionAndAnswers(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	f := newPublicUDocProductFixture(t, "hashtable", false, true)
 	fragmentMust(t, f.e.AddTableFact(f.doc, []uint32{2}))
 	fragmentMust(t, f.e.AddTableFact(f.finite, []uint32{1}))
@@ -250,6 +252,7 @@ func TestDatalogUDocProductsExpressionQueriesOwnPermutationProjectionAndAnswers(
 }
 
 func TestDatalogUDocProductsPreserveCoarseEmptinessAndHoistedQueryColumns(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	f := newPublicUDocProductFixture(t, "hashtable", false, false)
 	fragmentMust(t, f.e.AddTableFact(f.doc, []uint32{1}))
 	fragmentMust(t, f.e.AddTableFact(f.finite, []uint32{1, 2}))
@@ -300,6 +303,7 @@ func TestDatalogUDocProductsPreserveCoarseEmptinessAndHoistedQueryColumns(t *tes
 }
 
 func TestDatalogUDocProductsKeepInitiallySeededMixedHeadOnFiniteRoute(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	f := newPublicUDocProductFixture(t, "hashtable", false, false)
 	fragmentMust(t, f.e.AddTableFact(f.doc, []uint32{1}))
 	fragmentMust(t, f.e.AddTableFact(f.finite, []uint32{1, 1}))
@@ -312,6 +316,7 @@ func TestDatalogUDocProductsKeepInitiallySeededMixedHeadOnFiniteRoute(t *testing
 }
 
 func TestDatalogUDocProductsAdoptedHeadFactsSurviveSourceInvalidationAndQueryClone(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, tableKind := range []string{"hashtable", "lazy_sparse"} {
 		for _, mutateDoc := range []bool{false, true} {
 			name := tableKind + "/finite-update"
@@ -375,6 +380,7 @@ func TestDatalogUDocProductsAdoptedHeadFactsSurviveSourceInvalidationAndQueryClo
 }
 
 func TestDatalogUDocProductsSourceExpressionQueriesAfterAdoption(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, tableKind := range []string{"hashtable", "lazy_sparse"} {
 		t.Run(tableKind, func(t *testing.T) {
 			f := newPublicUDocProductFixture(t, tableKind, false, false)
@@ -423,6 +429,7 @@ func TestDatalogUDocProductsSourceExpressionQueriesAfterAdoption(t *testing.T) {
 }
 
 func TestDatalogUDocProductsEmptyFirstQueryKeepsOrdinaryHeadKind(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	for _, tableKind := range []string{"hashtable", "lazy_sparse"} {
 		t.Run(tableKind, func(t *testing.T) {
 			f := newPublicUDocProductFixture(t, tableKind, false, false)

@@ -84,10 +84,14 @@ func (e *PropositionalEngine) datalogRelationKind(probe *rel.UDocPlugin, state *
 		return "", nil
 	}
 	if state.table == nil {
-		// get_relation: an Int/Real signature no table handles gets the
-		// first relation plugin that does (bound_relation, interval), or
+		// get_relation: a signature no table handles (Int/Real columns,
+		// possibly next to table columns) gets the favourite, the first
+		// relation plugin that handles it (bound_relation, interval), or
 		// the empty product relation.
-		if len(state.requestedRepresentations) == 0 && rel.CanHandleIntervalSorts(e.manager, state.sorts) {
+		// A requested relation plugin kind is tried first; one that
+		// cannot handle the signature leaves the choice to the favourite
+		// and the relation plugin list.
+		if (len(state.requestedRepresentations) == 0 || requestedRelationPluginKind(state.requestedRepresentations) != "") && e.relationColumnSorts(state.sorts) {
 			return "plugin", nil
 		}
 		return "", nil
@@ -122,12 +126,11 @@ func (e *PropositionalEngine) datalogRelationKind(probe *rel.UDocPlugin, state *
 }
 
 // selectCompiledRelationFavourite reports whether the query runs on the
-// relation plugins' relations through the compiled pipeline. Every
-// predicate's relation must be udoc's or a table's, every rule must use
-// relations of one kind (relation_manager joins a table_relation with a
-// udoc relation only through product relations), and a doc rule's
-// variables must be udoc columns. Checkers other than check_relation(doc),
-// explanations and default_table_checked keep their evaluators.
+// relation plugins' relations through the compiled pipeline: every
+// predicate's relation is udoc's, a table's, or what get_relation gives a
+// signature with Int/Real columns (another relation plugin's relation or a
+// product relation). Checkers other than check_relation(doc), explanations
+// and default_table_checked keep their evaluators.
 func (e *PropositionalEngine) selectCompiledRelationFavourite() (_ bool, resultErr error) {
 	if err := e.cacheDatalogRelationFavourite(); err != nil {
 		return false, err
@@ -169,18 +172,20 @@ func (e *PropositionalEngine) selectCompiledRelationFavourite() (_ bool, resultE
 			return false, err
 		}
 		kinds[d] = kind
-		anyDoc = anyDoc || kind == "doc"
+		state := e.predicates[d]
+		anyDoc = anyDoc || kind == "doc" || len(state.requestedRepresentations) == 1 && state.requestedRepresentations[0] == "doc"
 	}
-	if !anyDoc {
+	if !docFavourite && !anyDoc {
 		return false, nil
 	}
 	count, err := e.set.Len()
 	if err != nil {
 		return false, err
 	}
-	// A rule joining a table_relation with a udoc relation needs
-	// finite_product/sieve relations, not ported yet: such programs keep
-	// the previous evaluator.
+	// relation_manager combines relations of different plugins (a
+	// table_relation, a udoc relation, an arithmetic relation) through the
+	// product and sieve relations. A rule variable of a sort no relation
+	// handles has no total relation (mk_full_relation).
 	// rules.get_rule(i) is a borrowed pointer: the owning copies RuleSet.Rule
 	// returns are dropped again (the set still holds every rule).
 	var borrowed []*base.Rule
@@ -203,37 +208,14 @@ func (e *PropositionalEngine) selectCompiledRelationFavourite() (_ bool, resultE
 		if err != nil {
 			return false, err
 		}
-		headDecl, err := rule.HeadDeclaration()
-		if err != nil {
-			return false, err
-		}
-		kind := kinds[headDecl]
 		roots := []ast.ASTHandle{head}
-		uninterpreted, err := rule.UninterpretedTailSize()
-		if err != nil {
-			return false, err
-		}
 		for j := 0; j < n; j++ {
 			tail, _, err := rule.Tail(j)
 			if err != nil {
 				return false, err
 			}
 			roots = append(roots, tail)
-			if j < uninterpreted {
-				decl, err := rule.TailDeclaration(j)
-				if err != nil {
-					return false, err
-				}
-				if kinds[decl] != kind {
-					return false, nil
-				}
-			}
 		}
-		if kind != "doc" {
-			continue
-		}
-		// An unbound variable of another sort makes a total relation of
-		// that sort next to the udoc relations.
 		for _, root := range roots {
 			sorts, err := e.expressionVariableSorts(root)
 			if err != nil {
@@ -244,10 +226,7 @@ func (e *PropositionalEngine) selectCompiledRelationFavourite() (_ bool, resultE
 				if err != nil {
 					return false, err
 				}
-				// A total over an Int/Real sort is a plugin relation
-				// (mk_full_relation); the empty-signature join and the
-				// product fallbacks combine it with the udoc relations.
-				if _, table := e.relations.SortDomain(sort); !ok && !table && !rel.CanHandleIntervalSorts(e.manager, []ast.ASTHandle{sort}) {
+				if !ok && !e.relationColumnSorts([]ast.ASTHandle{sort}) {
 					return false, nil
 				}
 			}
@@ -264,6 +243,12 @@ func (e *PropositionalEngine) selectCompiledRelationFavourite() (_ bool, resultE
 			}
 		}
 		if kinds[d] == "plugin" {
+			if name := requestedRelationPluginKind(e.predicates[d].requestedRepresentations); name != "" {
+				// rel_context::set_predicate_representation: set_predicate_kind.
+				if err = e.relations.SetRequestedRelationKind(d, e.relations.GetRelationPlugin(name)); err != nil {
+					return false, err
+				}
+			}
 			table, err := e.relations.ReserveFiniteRelation(d)
 			if err != nil {
 				return false, err
@@ -314,4 +299,42 @@ func (e *PropositionalEngine) migrateToFavouriteRelation(d ast.ASTHandle) error 
 		}
 	}
 	return e.replaceDatalogTable(d, replacement)
+}
+
+// requestedRelationPluginKind is the relation plugin named by a single
+// set_predicate_representation kind among the plugins rel_context always
+// registers (doc, bound_relation, interval_relation), or "".
+func requestedRelationPluginKind(kinds []string) string {
+	if len(kinds) != 1 {
+		return ""
+	}
+	switch kinds[0] {
+	case "doc", "bound_relation", "interval_relation":
+		return kinds[0]
+	}
+	return ""
+}
+
+// selectCompiledRelationFavouriteForFacts is selectCompiledRelationFavourite
+// for a fact added before the query. With datalog.generate_explanations the
+// explanation evaluators of the later expression queries take the facts.
+func (e *PropositionalEngine) selectCompiledRelationFavouriteForFacts() (bool, error) {
+	if enabled, err := e.datalogExplanationsRequested(); err != nil || enabled {
+		return false, err
+	}
+	return e.selectCompiledRelationFavourite()
+}
+
+// datalogExplanationsRequested reports datalog.generate_explanations for the
+// engine itself as well as its query clones.
+func (e *PropositionalEngine) datalogExplanationsRequested() (bool, error) {
+	if e.backend != "datalog" || e.params == nil || e.globals == nil {
+		return false, nil
+	}
+	view, err := e.fixedpointParamView()
+	if err != nil {
+		return false, err
+	}
+	enabled, err := view.Bool("datalog.generate_explanations", false)
+	return enabled, errors.Join(err, view.Close())
 }

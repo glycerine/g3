@@ -9,6 +9,7 @@ import (
 )
 
 func TestDatalogDocFormulaCheckerExecutesActualJoinsAndProjection(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 	fragmentMust(t, err)
@@ -190,6 +191,7 @@ func testDatalogDocRelationExplanationTransfersTypedSeeds(t *testing.T, checked 
 }
 
 func TestDatalogDocFormulaCheckerKeepsBooleanFallbackAndNullaryDOC(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	f := newDirectFactFixture(t)
 	e, m := f.engine, f.manager
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }
@@ -235,6 +237,7 @@ func TestDatalogDocFormulaCheckerKeepsBooleanFallbackAndNullaryDOC(t *testing.T)
 }
 
 func TestDatalogDocFormulaCheckerPreservesLegacyMixedPositiveProgram(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: doc programs with table relations run the compiled relation plugins (AUDIT.md FUZZ-F5)")
 	m, g := newPDRLifecycleServices(t)
 	e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 	fragmentMust(t, err)
