@@ -13,7 +13,9 @@ func TestAPIRunDatalogPathReturnsCopiedRelationTables(t *testing.T) {
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, context.Close()) })
 	path := filepath.Join(t.TempDir(), "reach.dl")
-	program := "D 2\n\nP(x:D)\nQ(x:D)\nP(\"a\").\nQ(X) :- P(X).\n"
+	// Q is an output: read_datalog saturates only the parser's output
+	// predicates (as C++ does).
+	program := "D 2\n\nP(x:D)\nQ(x:D) outputtuples\nP(\"a\").\nQ(X) :- P(X).\n"
 	astTestMust(t, os.WriteFile(path, []byte(program), 0o600))
 	result, err := context.RunDatalogPath(path)
 	astTestMust(t, err)
