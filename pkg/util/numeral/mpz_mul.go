@@ -5,6 +5,7 @@ package numeral
 
 import (
 	"math"
+	"math/bits"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -154,6 +155,10 @@ func multiplyDigits(da []uint32, la, na uint32, db []uint32, lb, nb uint32, dc [
 		return
 	}
 	a, b, c := da[:na], db[:nb], dc[:na+nb]
+	if na >= mulWideMinDigits && nb >= mulWideMinDigits {
+		multiplyDigitsWide(a, b, c)
+		return
+	}
 	for i := range a {
 		c[i] = 0
 	}
@@ -170,5 +175,57 @@ func multiplyDigits(da []uint32, la, na uint32, db []uint32, lb, nb uint32, dc [
 			k = uint32(t >> 32)
 		}
 		c[j+len(a)] = k
+	}
+}
+
+// mulWideMinDigits is the smallest operand length (in 32-bit digits) for
+// which multiplyDigitsWide's packing pays for itself.
+const mulWideMinDigits = 4
+
+// multiplyDigitsWide stores a*b into c (len(c) == len(a)+len(b), c aliasing
+// neither input). It is the schoolbook product of multiplyDigits computed
+// on 64-bit limbs, two source digits at a time: the product, and so every
+// digit written to c, is the same integer.
+func multiplyDigitsWide(a, b, c []uint32) {
+	la, lb := (len(a)+1)/2, (len(b)+1)/2
+	var bufA, bufB [32]uint64
+	var bufC [64]uint64
+	var x, y, z []uint64
+	if la <= len(bufA) && lb <= len(bufB) {
+		x, y, z = bufA[:la], bufB[:lb], bufC[:la+lb]
+	} else {
+		x, y, z = make([]uint64, la), make([]uint64, lb), make([]uint64, la+lb)
+	}
+	packDigitsWide(x, a)
+	packDigitsWide(y, b)
+	for j, v := range y {
+		if v == 0 {
+			continue // z[j+la] is still zero
+		}
+		var k uint64
+		zj := z[j : j+la]
+		for i, u := range x {
+			hi, lo := bits.Mul64(u, v)
+			var carry uint64
+			lo, carry = bits.Add64(lo, zj[i], 0)
+			hi += carry
+			lo, carry = bits.Add64(lo, k, 0)
+			hi += carry
+			zj[i] = lo
+			k = hi
+		}
+		z[j+la] = k
+	}
+	for i := range c {
+		c[i] = uint32(z[i>>1] >> (32 * uint(i&1)))
+	}
+}
+func packDigitsWide(dst []uint64, src []uint32) {
+	for i := range dst {
+		v := uint64(src[2*i])
+		if 2*i+1 < len(src) {
+			v |= uint64(src[2*i+1]) << 32
+		}
+		dst[i] = v
 	}
 }
