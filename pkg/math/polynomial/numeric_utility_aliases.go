@@ -1,6 +1,7 @@
 package polynomial
 
 import (
+	umemory "github.com/glycerine/g3/pkg/util/memory"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
@@ -33,7 +34,23 @@ func (r *polynomialNumericRoots) NumericRoots(z *unumeral.IntegerManager, local 
 	if r == nil || r.integer != z {
 		return nil
 	}
+	// utilityWithRoots bound r as r.caller.roots(z) and stored that context
+	// in r.caller; outside a failure transport (whose callbacks probe paused
+	// frames and must be refused exactly) the frames it names stay live while
+	// the hooks are reachable, so the re-derivation returns r again unless a
+	// caller bug used a context after its frame ended. Normal builds trust
+	// the binding; checked/debug builds re-derive and panic if it moved.
+	trusted := r.caller.factorFrontendConstant == nil && !umemory.AnyFailureTransportActive()
+	if !polynomialValidateOwnership && trusted {
+		if local != nil {
+			return local
+		}
+		return &r.NumericAllocationRoots
+	}
 	current := r.caller.roots(z)
+	if polynomialValidateOwnership && trusted && current != r {
+		panic("polynomial: numeric caller roots no longer derive from their bound context")
+	}
 	if current != r {
 		// The early constant SET starts with its embedded binding. A reached
 		// allocation creates its stable call record during Prepare; the same

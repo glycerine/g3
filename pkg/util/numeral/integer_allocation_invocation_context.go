@@ -2,6 +2,8 @@ package numeral
 
 // Source: src/util/mpz.h:allocate; src/util/mpz.cpp scratch/publication callers.
 
+import umemory "github.com/glycerine/g3/pkg/util/memory"
+
 // Explicit passed invocation identity. It carries no allocation snapshot and
 // creates no source numeral or reservation.
 type integerAllocationInvocationContext struct {
@@ -162,7 +164,15 @@ func (c *integerAllocationInvocationContext) localRoots(m *IntegerManager) *Nume
 
 	if c.addMul != nil && c.addMulInvocation != 0 && c.addMulInvocation == c.addMul.invocation && m.MatchesAddMulInvocation(c.addMul) && c.addMul.Frame.executing {
 		s := c.addMul.Frame
-		if s.parentContext != (integerAllocationInvocationContext{}) && s.parentContext.roots(m) == nil {
+		// The parent context was validated by the caller that entered this
+		// AddMul and stays valid during its body. Normal builds trust it
+		// outside a failure transport (whose callbacks probe paused frames);
+		// checked/debug builds re-derive it and panic if trusting it would
+		// have differed.
+		if s.parentContext != (integerAllocationInvocationContext{}) && (numericValidateCells || umemory.AnyFailureTransportActive()) && s.parentContext.roots(m) == nil {
+			if numericValidateCells && !umemory.AnyFailureTransportActive() {
+				panic("numeral: AddMul parent context lost its roots during the body")
+			}
 			return nil
 		}
 
