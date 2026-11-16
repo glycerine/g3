@@ -128,6 +128,10 @@ Abstract:
                                   localizes an and-elim from one into a
                                   quantified interpolant (pkg/AUDIT.md
                                   duality_iz3).
+    z3_4_7_1_duality_second_round_rewrite iZ3 rejects a rewrite of a
+                                  formula that two propagate_values rounds
+                                  mixed across frames (pkg/AUDIT.md
+                                  duality_iz3 round 2).
     z3_4_7_1_duality_itp_unchecked_sat Duality trusts an SMT sat that
                                   never checked a rule's quantifier (MBQI is
                                   for interpolant quantifiers only) and
@@ -2008,6 +2012,33 @@ void tst_z3_4_7_1_duality_mixed_rewrite() {
                          "  false)\n"
                          ")\n"
                          "\n");
+}
+
+// In an err query, propagate_values substitutes across frames in two
+// rounds, so the congruence before a rewrite already starts from a mixed
+// formula and the rewrite stays mixed after renaming back the constants of
+// that congruence; translate_main refused it ("theory not supported by
+// interpolation or bad proof"). The fork also renames through the proof's
+// other hypothesis-free constant equations. err is reachable: q0(2, 1),
+// q0(2, 2), q0(4, 2), q0(4, 4), q0(8, 2), q0(8, 8) and 8 >= 5.
+// pkg/AUDIT.md duality_iz3 round 2.
+void tst_z3_4_7_1_duality_second_round_rewrite() {
+    char const* script =
+        "(set-option :fixedpoint.engine duality)\n"
+        "(declare-rel q0 (Int Int))\n"
+        "(declare-rel err ())\n"
+        "(declare-var x Int)\n"
+        "(declare-var y Int)\n"
+        "(declare-var x1 Int)\n"
+        "(declare-var y1 Int)\n"
+        "(rule (=> (and (= x 2) (= y 1)) (q0 x y)))\n"
+        "(rule (=> (and (q0 x y) (= y 9) (= x1 (+ y 1)) (= y1 (+ x 2))) (q0 x1 y1)))\n"
+        "(rule (=> (and (q0 x y) (= x1 (+ y y)) (= y1 2)) (q0 x1 y1)))\n"
+        "(rule (=> (and (q0 x y) (= x1 x) (= y1 x)) (q0 x1 y1)))\n"
+        "(rule (=> (and (q0 x y) (= y 12) (= x1 (+ y 1)) (= y1 (- y 3))) (q0 x1 y1)))\n"
+        "(rule (=> (and (q0 x y) (>= y 5)) err))\n"
+        "(query err)\n";
+    expect_script_output("duality_second_round_rewrite", script, "sat\n");
 }
 
 // PDR proof trace for Goal :- P(x), with P(x) a fact. The query!0 root and
