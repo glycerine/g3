@@ -80,6 +80,17 @@ func pnAllocationContext(pn *integerPNormalizeScope) integerAllocationInvocation
 	}
 	return c
 }
+
+// pnContextRef is numeralContextRef(pnAllocationContext(pn)), built in
+// place rather than through two by-value copies of the context.
+func pnContextRef(pn *integerPNormalizeScope) *integerAllocationInvocationContext {
+	c := new(integerAllocationInvocationContext)
+	if pn != nil {
+		c.pn = pn
+		c.pnInvocation = pn.invocation
+	}
+	return c
+}
 func (c *integerAllocationInvocationContext) localRoots(m *IntegerManager) *NumericAllocationRoots {
 
 	if c.rationalService != nil && c.rationalServiceFrame(m) == nil {

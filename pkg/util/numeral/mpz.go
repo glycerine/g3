@@ -492,7 +492,7 @@ func (m *IntegerManager) allocateWithCopyReceipt(capacity, size uint32, s *integ
 	return m.allocateWithInvocationReceipts(capacity, size, s, nil)
 }
 func (m *IntegerManager) allocateWithInvocationReceipts(capacity, size uint32, s *integerCopyAllocationScope, pn *integerPNormalizeScope) (NumericCellRef, error) {
-	return m.allocateWithSourceContext(capacity, size, s, numeralContextRef(pnAllocationContext(pn)))
+	return m.allocateWithSourceContext(capacity, size, s, pnContextRef(pn))
 }
 func (m *IntegerManager) allocateWithSourceContext(capacity, size uint32, s *integerCopyAllocationScope, context *integerAllocationInvocationContext) (NumericCellRef, error) {
 	if context.rationalService != nil && context.rationalServiceFrame(m) == nil {
@@ -1039,7 +1039,7 @@ func (m *IntegerManager) CopyFromOwnerWithReceipt(dst *Int, sourceManager *Integ
 	return m.copyFromOwnerWithReceipts(dst, sourceManager, src, receipt, nil)
 }
 func (m *IntegerManager) copyFromOwnerWithReceipts(dst *Int, sourceManager *IntegerManager, src *Int, receipt *integerCopyAllocationReceipt, pn *integerPNormalizeScope) error {
-	return m.copyFromOwnerWithAllocationContext(dst, sourceManager, src, receipt, numeralContextRef(pnAllocationContext(pn)))
+	return m.copyFromOwnerWithAllocationContext(dst, sourceManager, src, receipt, pnContextRef(pn))
 }
 func (m *IntegerManager) copyFromOwnerWithAllocationContext(dst *Int, sourceManager *IntegerManager, src *Int, receipt *integerCopyAllocationReceipt, context *integerAllocationInvocationContext) error {
 	return m.copyFromOwnerWithPhysicalAllocationContext(dst, sourceManager, src, receipt, context, nil)
@@ -1285,7 +1285,7 @@ func (m *IntegerManager) EnsureTmp(idx int, size uint32) error {
 	return m.ensureTmpWithPNReceipt(idx, size, nil)
 }
 func (m *IntegerManager) ensureTmpWithPNReceipt(idx int, size uint32, pn *integerPNormalizeScope) error {
-	return m.ensureTmpWithAllocationContext(idx, size, numeralContextRef(pnAllocationContext(pn)))
+	return m.ensureTmpWithAllocationContext(idx, size, pnContextRef(pn))
 }
 func (m *IntegerManager) ensureTmpWithAllocationContext(idx int, size uint32, context *integerAllocationInvocationContext) error {
 	if idx < 0 || idx >= len(m.Tmp) || m.Tmp[idx] == 0 {
@@ -1336,7 +1336,7 @@ func (m *IntegerManager) publishTmpAt(idx int, dst *Int, sign int32, size uint32
 	return m.publishTmpAtWithPNReceipt(idx, dst, sign, size, nil)
 }
 func (m *IntegerManager) publishTmpAtWithPNReceipt(idx int, dst *Int, sign int32, size uint32, pn *integerPNormalizeScope) error {
-	return m.publishTmpAtWithAllocationContext(idx, dst, sign, size, numeralContextRef(pnAllocationContext(pn)))
+	return m.publishTmpAtWithAllocationContext(idx, dst, sign, size, pnContextRef(pn))
 }
 func (m *IntegerManager) publishTmpAtWithAllocationContext(idx int, dst *Int, sign int32, size uint32, context *integerAllocationInvocationContext) error {
 	if idx < 0 || idx >= len(m.Tmp) || m.Tmp[idx] == 0 {
@@ -1382,7 +1382,7 @@ func (m *IntegerManager) addSub(a, b, c *Int, subtract bool) error {
 	return m.addSubWithPNReceipt(a, b, c, subtract, nil)
 }
 func (m *IntegerManager) addSubWithPNReceipt(a, b, c *Int, subtract bool, pn *integerPNormalizeScope) error {
-	return m.addSubWithAllocationContext(a, b, c, subtract, numeralContextRef(pnAllocationContext(pn)))
+	return m.addSubWithAllocationContext(a, b, c, subtract, pnContextRef(pn))
 }
 func (m *IntegerManager) addSubWithAllocationContext(a, b, c *Int, subtract bool, context *integerAllocationInvocationContext) (err error) {
 	return m.addSubPrechecked(a, b, c, subtract, context, 0)

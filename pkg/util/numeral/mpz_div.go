@@ -100,7 +100,7 @@ func (m *IntegerManager) machineDivWithAllocationContext(a, b, c *Int, context *
 }
 func (m *IntegerManager) Rem(a, b, c *Int) error { return m.remWithPNReceipt(a, b, c, nil) }
 func (m *IntegerManager) remWithPNReceipt(a, b, c *Int, pn *integerPNormalizeScope) error {
-	return m.remWithAllocationContext(a, b, c, numeralContextRef(pnAllocationContext(pn)))
+	return m.remWithAllocationContext(a, b, c, pnContextRef(pn))
 }
 func (m *IntegerManager) remWithAllocationContext(a, b, c *Int, context *integerAllocationInvocationContext) (err error) {
 	for _, n := range []*Int{a, b, c} {
@@ -268,7 +268,7 @@ func (m *IntegerManager) quotRemCore(a, b, q, r *Int, mode int) error {
 	return m.quotRemWithPNReceipt(a, b, q, r, mode, nil)
 }
 func (m *IntegerManager) quotRemWithPNReceipt(a, b, q, r *Int, mode int, pn *integerPNormalizeScope) error {
-	return m.quotRemWithAllocationContext(a, b, q, r, mode, numeralContextRef(pnAllocationContext(pn)))
+	return m.quotRemWithAllocationContext(a, b, q, r, mode, pnContextRef(pn))
 }
 func (m *IntegerManager) quotRemWithAllocationContext(a, b, q, r *Int, mode int, context *integerAllocationInvocationContext) error {
 	sa, ca, e := m.signCell(a, 0)
@@ -327,7 +327,7 @@ func (m *IntegerManager) divideCells(a, b NumericCellRef) error {
 	return m.divideCellsWithPNReceipt(a, b, nil)
 }
 func (m *IntegerManager) divideCellsWithPNReceipt(a, b NumericCellRef, pn *integerPNormalizeScope) error {
-	return m.divideCellsWithAllocationContext(a, b, numeralContextRef(pnAllocationContext(pn)))
+	return m.divideCellsWithAllocationContext(a, b, pnContextRef(pn))
 }
 func (m *IntegerManager) divideCellsWithAllocationContext(a, b NumericCellRef, context *integerAllocationInvocationContext) error {
 	ca, cb := m.Cell(a), m.Cell(b)

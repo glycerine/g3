@@ -106,7 +106,8 @@ func (m *IntegerManager) addSubMulWithAllocationContext(a, b, c, d *Int, subtrac
 	if b.IsSmall() && b.Val == -1 {
 		return m.addSubPrechecked(a, c, d, !subtract, &context, 7)
 	}
-	callerContext := context
+	// context (this call's own copy, never reassigned below) is the
+	// caller's context for the body; inner is the add-mul context.
 	frame := &m.AddMulInvocation
 	if frame.Active || frame.invocation == ^uint64(0) {
 		return ErrNumericPending
@@ -114,14 +115,30 @@ func (m *IntegerManager) addSubMulWithAllocationContext(a, b, c, d *Int, subtrac
 	if receipt == nil {
 		receipt = &frame.Receipt
 	}
-	*frame = integerAddMulScope{Active: true, executing: true, invocation: frame.invocation + 1, Stage: 1, parentContext: callerContext}
+	// Field-wise reset of every integerAddMulScope field (the composite
+	// literal assignment built the frame in a temporary and copied it).
+	frame.Receipt = integerAddMulInvocationReceipt{}
+	frame.parentContext = context
+	frame.invocation++
+	frame.Active, frame.executing, frame.ended, frame.owned = true, true, false, false
+	frame.Stage = 1
+	frame.Tmp = Int{}
+	frame.Numeric = NumericAllocationRoots{}
+	frame.BodyCause, frame.SourceCause = nil, nil
+	if numericValidateCells && *frame != (integerAddMulScope{Active: true, executing: true, invocation: frame.invocation, Stage: 1, parentContext: context}) {
+		panic("numeral: add-mul frame reset missed a field")
+	}
 	frame.Receipt = integerAddMulInvocationReceipt{m, frame, frame.invocation}
 	*receipt = frame.Receipt
 	tmp := &frame.Tmp
-	context = (integerAllocationInvocationContext{}).withAddMulInvocation(receipt)
+	// (integerAllocationInvocationContext{}).withAddMulInvocation(receipt),
+	// receipt being non-nil here.
+	var inner integerAllocationInvocationContext
+	inner.addMul = receipt
+	inner.addMulInvocation = receipt.invocation
 	// Explicit epilogue (formerly a deferred closure; nothing recovers a
 	// panic on this path, so the order of effects is unchanged).
-	err = m.addSubMulBody(a, b, c, d, subtract, frame, tmp, &context, &callerContext)
+	err = m.addSubMulBody(a, b, c, d, subtract, frame, tmp, &inner, &context)
 	frame.executing = false
 	if frame.Stage < 3 {
 		frame.BodyCause = err
