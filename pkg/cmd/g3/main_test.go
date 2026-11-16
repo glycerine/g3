@@ -336,6 +336,11 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// fork fix #A (check_relation_plugin offers no operation unless every
+	// argument is a check_relation; z3 4.7.1 aborts with std::bad_cast):
+	// a Bool table joined with a check_relation over udoc, and p_E_chk_bound.
+	"plugins4_check_doc_mixed_join.smt2": "sat\n(and (= (:var 0) #b101)\n     (or (= (:var 0) #b000)\n         (= (:var 0) #b001)\n         (= (:var 0) #b010)\n         (= (:var 0) #b011)\n         (= (:var 0) #b100)\n         (= (:var 0) #b101)\n         (= (:var 0) #b110)\n         (= (:var 0) #b111)))\n",
+	"plugins4_check_bound_mixed.smt2":    "(error \"query failed: operation was not verified\")\nunknown\n",
 	// AUDIT.md FUZZ-F5 (relation plugins): check_relation over any relation
 	// plugin, chosen by name (rel_context::updt_params): bound_relation and
 	// interval_relation fail mk_empty's check (their empty relation's
