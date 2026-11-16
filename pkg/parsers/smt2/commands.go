@@ -767,11 +767,25 @@ func (p *commandParser) command() (bool, error) {
 			return false, errors.New("invalid function declaration, ')' expected")
 		}
 	case "declare-rel":
+		// dl_declare_rel_cmd through parse_ext_cmd: CPK_SYMBOL, CPK_SORT_LIST,
+		// then CPK_SYMBOL representations; execute needs the first two.
+		if p.token == RightParenToken {
+			return false, errors.New("at least 2 arguments expected")
+		}
+		if p.token != SymbolToken {
+			return false, errors.New("invalid command argument, symbol expected")
+		}
 		relation, err := p.symbol()
 		if err != nil {
 			return false, err
 		}
-		if err = p.expect(LeftParenToken); err != nil {
+		if p.token == RightParenToken {
+			return false, errors.New("at least 2 arguments expected")
+		}
+		if p.token != LeftParenToken {
+			return false, errors.New("expecting sort list starting with '('")
+		}
+		if err = p.advance(); err != nil {
 			return false, err
 		}
 		var domain []ast.ASTHandle
@@ -787,6 +801,9 @@ func (p *commandParser) command() (bool, error) {
 		}
 		var representations []string
 		for p.token != RightParenToken {
+			if p.token != SymbolToken {
+				return false, errors.New("invalid command argument, symbol expected")
+			}
 			representation, x := p.symbol()
 			if x != nil {
 				return false, x

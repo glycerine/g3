@@ -336,6 +336,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ-F5: declare-rel argument errors are parse_ext_cmd's
+	// (CPK_SYMBOL, CPK_SORT_LIST, CPK_SYMBOL...) and dl_declare_rel_cmd's.
+	"plugins6_declare_rel_arguments.smt2": "(error \"line 1 column 14: invalid command argument, symbol expected\")\n(error \"line 2 column 15: expecting sort list starting with '('\")\n(error \"line 3 column 21: invalid command argument, symbol expected\")\n(error \"line 4 column 31: invalid command argument, symbol expected\")\n(error \"line 5 column 25: invalid sort, symbol, '_' or '(' expected\")\n(error \"line 6 column 21: invalid command argument, symbol expected\")\n(error \"line 7 column 12: at least 2 arguments expected\")\n(error \"line 8 column 14: at least 2 arguments expected\")\n(error \"line 9 column 22: invalid command argument, symbol expected\")\nunsat\n",
 	// AUDIT.md FUZZ-F5: without Z3_fixedpoint_init the external relation
 	// plugin is not registered, so declare-rel ... external_relation reports
 	// rel_context::get_ordinary_relation_plugin's error and the relation
@@ -2357,6 +2360,7 @@ var scriptResults = map[string]string{
 // parser errors: run returns the first reported error, and the C++ reference
 // exits with a nonzero status.
 var parseErrorScripts = map[string]bool{
+	"plugins6_declare_rel_arguments.smt2": true,
 	// AUDIT.md FUZZ-F5: get_ordinary_relation_plugin's missing plugin.
 	"plugins6_external_relation_missing.smt2": true,
 	// rlimit_agree2: the escaped optimize() exception is a command error.
