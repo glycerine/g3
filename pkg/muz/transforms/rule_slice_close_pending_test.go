@@ -126,8 +126,26 @@ func TestSliceProofClosePreservesRootsWhileManagerExecutes(t *testing.T) {
 	}
 	must(filtered.Close())
 	defer func() { must(cone.Close()) }()
+	// mk_rule_inliner does something only when a kept rule uses the
+	// inlined predicate (transform_rules' something_done): the consumer
+	// rule sliced :- original(x).
+	tail, err := m.MkApp(predicate, []ast.ASTHandle{variable})
+	must(err)
+	consumer, err := rules.NewRule(head, []ast.ASTHandle{tail}, []bool{false}, "consumer")
+	must(err)
+	defer func() { must(consumer.Close()) }()
+	must(rules.MkRuleAssertedProof(consumer))
+	inlineSet, e := base.NewRuleSet(rules)
+	must(e)
+	defer func() { must(inlineSet.Close()) }()
+	must(inlineSet.Add(original))
+	must(inlineSet.Add(consumer))
+	must(inlineSet.SetOutputPredicate(slicedPredicate))
+	if valid, e = inlineSet.Finalize(); e != nil || !valid {
+		t.Fatal("invalid inliner cleanup fixture", e)
+	}
 	inliner = NewRuleInlinerPlugin(m, rules, []ast.ASTHandle{slicedPredicate}, 1)
-	inlined, e := inliner.Transform(set)
+	inlined, e := inliner.Transform(inlineSet)
 	must(e)
 	if inlined == nil || len(inliner.modelRules) == 0 {
 		t.Fatal("missing inline model owners")

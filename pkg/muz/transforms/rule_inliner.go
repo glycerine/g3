@@ -1117,8 +1117,9 @@ func (p *RuleInlinerPlugin) Transform(source *base.RuleSet) (transformed *base.R
 		if getErr != nil {
 			return nil, errors.Join(getErr, rule.Close())
 		}
+		// transform_rules: the rules of an inlined predicate are not added
+		// to the result; dropping them alone is not something_done.
 		if allowed[head] {
-			changed = true
 			if getErr = rule.Close(); getErr != nil {
 				return nil, getErr
 			}

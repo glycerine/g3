@@ -336,6 +336,11 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ-F5: mk_rule_inliner keeps the source rule set when
+	// dropping the rules of inlinable predicates is all it would do
+	// (transform_rules' something_done; rlimit and -v:2 in
+	// TestPlugins6InlinerNoop*).
+	"plugins6_inliner_noop.smt2": "unsat\n",
 	// AUDIT.md FUZZ-F5: check_relation over tr_sparse queried twice; the
 	// second query resets the negation-dependent relations
 	// (check_relation::reset through the table filter).
