@@ -857,6 +857,17 @@ namespace datalog {
             res = alloc(rule_set, source);
         }
 
+        // FORK FIX #109 (g3 audit, see FORK_BUGFIXES.md): count_pred_occurrences
+        // (collect_non_empty_predicates into m_preds_with_facts) runs only in
+        // plan_inlining, i.e. with xform.inline_eager. Without it inline_linear
+        // did not know which predicates have facts in their relations, inlined
+        // them away, and their facts were lost. Collect them here as well.
+        if (m_context.get_params().xform_inline_linear() && !m_context.get_params().xform_inline_eager()) {
+            rel_context_base* rel = m_context.get_rel_context();
+            if (rel) {
+                rel->collect_non_empty_predicates(m_preds_with_facts);
+            }
+        }
         if (m_context.get_params().xform_inline_linear() && inline_linear(res)) {
             something_done = true;
         }
