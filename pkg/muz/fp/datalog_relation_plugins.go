@@ -16,6 +16,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/rel"
 )
 
@@ -127,7 +128,7 @@ func (e *PropositionalEngine) datalogRelationKind(probe *rel.UDocPlugin, state *
 // udoc relation only through product relations), and a doc rule's
 // variables must be udoc columns. Checkers other than check_relation(doc),
 // explanations and default_table_checked keep their evaluators.
-func (e *PropositionalEngine) selectCompiledRelationFavourite() (bool, error) {
+func (e *PropositionalEngine) selectCompiledRelationFavourite() (_ bool, resultErr error) {
 	if err := e.cacheDatalogRelationFavourite(); err != nil {
 		return false, err
 	}
@@ -180,11 +181,20 @@ func (e *PropositionalEngine) selectCompiledRelationFavourite() (bool, error) {
 	// A rule joining a table_relation with a udoc relation needs
 	// finite_product/sieve relations, not ported yet: such programs keep
 	// the previous evaluator.
+	// rules.get_rule(i) is a borrowed pointer: the owning copies RuleSet.Rule
+	// returns are dropped again (the set still holds every rule).
+	var borrowed []*base.Rule
+	defer func() {
+		for _, rule := range borrowed {
+			resultErr = errors.Join(resultErr, rule.Close())
+		}
+	}()
 	for i := 0; i < count; i++ {
 		rule, err := e.set.Rule(i)
 		if err != nil {
 			return false, err
 		}
+		borrowed = append(borrowed, rule)
 		n, err := rule.TailSize()
 		if err != nil {
 			return false, err
