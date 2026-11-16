@@ -61,11 +61,15 @@ func (m *IntegerManager) mulWithAllocationContext(a, b, c *Int, context *integer
 	if e := m.prepareTmpSpan(0, uint32(size)); e != nil {
 		return e
 	}
-	m.Natural.traceMPNBinaryView(
-		limbView{allocator: m.Allocator, backing: m.Cell(ca).Backing, size: m.Cell(ca).Size},
-		limbView{allocator: m.Allocator, backing: m.Cell(cb).Backing, size: m.Cell(cb).Size}, "*")
+	if SourceExtendedGCDDebug { // the mpn views are built only for the debug trace
+		m.Natural.traceMPNBinaryView(
+			limbView{allocator: m.Allocator, backing: m.Cell(ca).Backing, size: m.Cell(ca).Size},
+			limbView{allocator: m.Allocator, backing: m.Cell(cb).Backing, size: m.Cell(cb).Size}, "*")
+	}
 	m.multiplyCells(ca, cb, m.Tmp[0])
-	m.Natural.traceMPNUnaryView(limbView{allocator: m.Allocator, backing: m.Cell(m.Tmp[0]).Backing, size: uint32(size)}, 427, true)
+	if SourceExtendedGCDDebug { // the mpn views are built only for the debug trace
+		m.Natural.traceMPNUnaryView(limbView{allocator: m.Allocator, backing: m.Cell(m.Tmp[0]).Backing, size: uint32(size)}, 427, true)
+	}
 	sign := int32(1)
 	if sa != sb {
 		sign = -1

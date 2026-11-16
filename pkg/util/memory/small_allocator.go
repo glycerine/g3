@@ -3,6 +3,7 @@ package memory
 // Source: src/util/small_object_allocator.h; src/util/small_object_allocator.cpp; explicit scalar pointer codec.
 
 import (
+	"encoding/binary"
 	"errors"
 	"math"
 	"reflect"
@@ -250,22 +251,76 @@ func (a *SmallAllocator) nextAddress() (uint64, error) {
 	a.sequence++
 	return a.sequence * 8192, nil
 }
+
+// smallObjectReadWord is width byte Reads of h, least significant first.
+// Reads change nothing, so the block and its header are validated once and
+// each byte keeps Read's bounds and initialization checks, in order.
 func smallObjectReadWord(rt *Runtime, h Block, offset, width uint64) (uint64, error) {
+	if width == 0 {
+		return 0, nil
+	}
+	b, e := rt.block(h)
+	if e != nil {
+		return 0, e
+	}
+	n, e := rt.headerRead(b)
+	if e != nil {
+		return 0, e
+	}
+	base := uint64(rt.config.SizeTBits / 8)
+	if width == 8 && offset < n-base && n-base-offset >= 8 {
+		if j := offset + base; initializedRangeSet(b.initialized, j, 8) {
+			return binary.LittleEndian.Uint64(b.data[j : j+8]), nil
+		}
+	}
 	var word uint64
 	for i := uint64(0); i < width; i++ {
-		v, e := rt.Read(h, offset+i)
-		if e != nil {
-			return 0, e
+		j := offset + i
+		if j >= n-base {
+			return 0, arena.ErrBounds
 		}
-		word |= uint64(v) << (8 * i)
+		j += base
+		if b.initialized[j/64]&(uint64(1)<<(j%64)) == 0 {
+			return 0, ErrRuntimeUninitialized
+		}
+		word |= uint64(b.data[j]) << (8 * i)
 	}
 	return word, nil
 }
+
+// smallObjectWriteWord is width byte Writes of h, least significant first.
+// The bytes written lie past the SIZE_T header, so the block and header seen
+// by each Write are those validated once here; a bounds failure leaves the
+// earlier bytes written, as the byte loop did.
 func smallObjectWriteWord(rt *Runtime, h Block, offset, width, v uint64) error {
-	for i := uint64(0); i < width; i++ {
-		if e := rt.Write(h, offset+i, byte(v>>(8*i))); e != nil {
-			return e
+	if width == 0 {
+		return nil
+	}
+	b, e := rt.block(h)
+	if e != nil {
+		return e
+	}
+	n, e := rt.headerRead(b)
+	if e != nil {
+		return e
+	}
+	base := uint64(rt.config.SizeTBits / 8)
+	if width == 8 && offset < n-base && n-base-offset >= 8 {
+		j := offset + base
+		binary.LittleEndian.PutUint64(b.data[j:j+8], v)
+		for i := j; i < j+8; i++ {
+			b.initialized[i/64] |= uint64(1) << (i % 64)
 		}
+		return nil
+	}
+	for i := uint64(0); i < width; i++ {
+		j := offset + i
+		if j >= n-base {
+			return arena.ErrBounds
+		}
+		j += base
+		b.data[j] = byte(v >> (8 * i))
+		b.initialized[j/64] |= uint64(1) << (j % 64)
 	}
 	return nil
 }

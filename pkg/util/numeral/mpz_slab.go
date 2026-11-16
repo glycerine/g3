@@ -5,6 +5,7 @@ package numeral
 
 import (
 	"math"
+	"math/bits"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -65,7 +66,9 @@ func newNumericCellSlab(config arena.Config) (*numericCellSlab, error) {
 
 func (s *numericCellSlab) location(slot arena.Slot) (uint32, uint32) {
 	n := uint32(slot) - 1
-	return n / s.config.PageSize, n & (s.config.PageSize - 1)
+	// PageSize is a power of two (newNumericCellSlab), so the page index is
+	// a shift rather than a hardware division.
+	return n >> bits.TrailingZeros32(s.config.PageSize), n & (s.config.PageSize - 1)
 }
 func (s *numericCellSlab) State(slot arena.Slot) *numericCellSlotState {
 	if slot == 0 || uint32(slot) > s.slots {

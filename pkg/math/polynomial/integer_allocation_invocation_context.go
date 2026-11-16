@@ -118,12 +118,6 @@ type integerAllocationInvocationContext struct {
 // large and the validators take it by value, so calling every validator for
 // every numeric operation needlessly copies it many times.
 func (c *integerAllocationInvocationContext) roots(m *unumeral.IntegerManager) *polynomialNumericRoots {
-	// A context that carries only a polynomial arithmetic invocation (the
-	// common case in SOM arithmetic) fails every test below until the final
-	// arithmetic branch, so that branch is taken directly.
-	if c.arithmetic != nil && c.arithmeticOnly() {
-		return c.arithmeticRoots(m)
-	}
 	if c.squareRoot != nil {
 		r := c.squareRoot
 		if c.squareRootInvocation == 0 || c.squareRootInvocation != r.invocation || r.manager == nil || !r.manager.matchesSqrtInvocation(r) || r.manager.core.integer != m || !r.frame.executing || r.manager.core.callbackDepth != 0 {
@@ -132,127 +126,210 @@ func (c *integerAllocationInvocationContext) roots(m *unumeral.IntegerManager) *
 		return &r.frame.numeric
 	}
 
-	if c.knuth != nil && c.knuthFrame(m) == nil {
-		return nil
-	}
+	// Every present owner's validator must accept, then the first present
+	// owner in priority order supplies the roots. The validators are pure,
+	// so each runs once and its result serves both passes.
 	if c.knuth != nil {
 		if q := c.knuthFrame(m); q != nil {
 			return &q.numeric
 		}
-	}
-
-	if c.rootUpperBound != nil && c.rootUpperBoundFrame(m) == nil {
-		return nil
-	}
-	if c.removeOneHalfRoot != nil && c.removeOneHalfRootFrame(m) == nil {
-		return nil
-	}
-	if c.oneHalfRoot != nil && c.oneHalfRootFrame(m) == nil {
-		return nil
-	}
-	if c.integerEvaluation != nil && c.integerEvaluationFrame(m) == nil {
 		return nil
 	}
 
-	if c.rationalEvaluation != nil && c.rationalEvaluationFrame(m) == nil {
-		return nil
-	}
-	if c.binaryEvaluation != nil && c.binaryEvaluationFrame(m) == nil {
-		return nil
-	}
-	if c.algebraicNeg != nil && c.algebraicNegFrame(m) == nil {
-		return nil
-	}
-	if c.upolyDisplay != nil && c.upolyDisplayFrame(m) == nil {
-		return nil
-	}
-
-	if c.factorNumeralVector != nil && numericIntegerManager_factorNumeralVectorRoots(m, c) == nil {
-		return nil
-	}
-	if c.toPolynomial != nil && numericIntegerManager_toPolynomialAllocationRoots(m, c) == nil {
-		return nil
-	}
-	if c.factorMemberSet != nil && numericIntegerManager_factorMemberSetRoots(m, c) == nil {
-		return nil
-	}
-	if c.factorConstant != nil && numericIntegerManager_factorConstantContextRoots(m, c) == nil {
-		return nil
-	}
-	if c.factorFrontendConstant != nil && c.factorFrontendConstantFrame(m) == nil {
-		return nil
-	}
-
-	if c.factorFrontend != nil && c.factorFrontendFrame(m) == nil {
-		return nil
-	}
-
-	if c.primePreparation != nil && c.primePreparationFrame(m) == nil {
-		return nil
-	}
-	if c.preparation != nil && c.preparationFrame(m) == nil {
-		return nil
-	}
-	if c.recombination != nil && c.recombinationFrame(m) == nil {
-		return nil
-	}
-	if c.trial != nil && c.trialFrame(m) == nil {
-		return nil
-	}
-	if c.henselCaller != nil && c.henselCallerFrame(m) == nil {
-		return nil
-	}
-	if c.henselPair != nil && c.henselPairReceipt(m) == nil {
-		return nil
-	}
-	if c.iccpConstant != nil && numericIntegerManager_iccpConstantContextRoots(m, c) == nil {
-		return nil
-	}
-	if c.primeTrial != nil && c.primeTrialReceipt(m) == nil {
-		return nil
-	}
-	if (c.pseudo != nil && numericIntegerManager_pseudoContextRoots(m, c) == nil) || (c.mignotte != nil && c.mignotteReceipt(m) == nil) {
-		return nil
-	}
-
-	if c.neg != nil {
-		if c.negInvocation == 0 || c.negInvocation != c.neg.invocation || numericIntegerManager_negAllocationRoots(m, c.neg) == nil {
+	var rootUpper *upolyRootUpperBoundScope
+	if c.rootUpperBound != nil {
+		if rootUpper = c.rootUpperBoundFrame(m); rootUpper == nil {
 			return nil
 		}
 	}
-	if c.somNormalize != nil && c.somNormalizeReceipt(m) == nil {
-		return nil
+	var removeOneHalf *upolyRemoveOneHalfRootScope
+	if c.removeOneHalfRoot != nil {
+		if removeOneHalf = c.removeOneHalfRootFrame(m); removeOneHalf == nil {
+			return nil
+		}
 	}
-	if c.normalization != nil && c.normalizationReceipt(m) == nil {
-		return nil
+	var oneHalf *upolyOneHalfRootScope
+	if c.oneHalfRoot != nil {
+		if oneHalf = c.oneHalfRootFrame(m); oneHalf == nil {
+			return nil
+		}
 	}
-	if c.content != nil && c.contentReceipt(m) == nil {
-		return nil
+	var integerEval *upolyIntegerEvaluationScope
+	if c.integerEvaluation != nil {
+		if integerEval = c.integerEvaluationFrame(m); integerEval == nil {
+			return nil
+		}
+	}
+	var rationalEval *upolyRationalEvaluationScope
+	if c.rationalEvaluation != nil {
+		if rationalEval = c.rationalEvaluationFrame(m); rationalEval == nil {
+			return nil
+		}
+	}
+	var binaryEval *upolyBinaryEvaluationScope
+	if c.binaryEvaluation != nil {
+		if binaryEval = c.binaryEvaluationFrame(m); binaryEval == nil {
+			return nil
+		}
+	}
+	var neg *algebraicNegScope
+	if c.algebraicNeg != nil {
+		if neg = c.algebraicNegFrame(m); neg == nil {
+			return nil
+		}
+	}
+	var display *upolyDisplayScope
+	if c.upolyDisplay != nil {
+		if display = c.upolyDisplayFrame(m); display == nil {
+			return nil
+		}
+	}
+
+	var numeralVector, toPolynomial, memberSet, factorConstant *polynomialNumericRoots
+	if c.factorNumeralVector != nil {
+		if numeralVector = numericIntegerManager_factorNumeralVectorRoots(m, c); numeralVector == nil {
+			return nil
+		}
+	}
+	if c.toPolynomial != nil {
+		if toPolynomial = numericIntegerManager_toPolynomialAllocationRoots(m, c); toPolynomial == nil {
+			return nil
+		}
 	}
 	if c.factorMemberSet != nil {
-		return numericIntegerManager_factorMemberSetRoots(m, c)
+		if memberSet = numericIntegerManager_factorMemberSetRoots(m, c); memberSet == nil {
+			return nil
+		}
 	}
 	if c.factorConstant != nil {
-		return numericIntegerManager_factorConstantContextRoots(m, c)
+		if factorConstant = numericIntegerManager_factorConstantContextRoots(m, c); factorConstant == nil {
+			return nil
+		}
+	}
+	var frontendConstant *upolyFactorConstantBinding
+	if c.factorFrontendConstant != nil {
+		if frontendConstant = c.factorFrontendConstantFrame(m); frontendConstant == nil {
+			return nil
+		}
+	}
+
+	var frontend *upolyFactorFrontendScope
+	if c.factorFrontend != nil {
+		if frontend = c.factorFrontendFrame(m); frontend == nil {
+			return nil
+		}
+	}
+
+	var primePreparation *upolyFactorPrimePreparationScope
+	if c.primePreparation != nil {
+		if primePreparation = c.primePreparationFrame(m); primePreparation == nil {
+			return nil
+		}
+	}
+	var preparation *upolyFactorPreparationScope
+	if c.preparation != nil {
+		if preparation = c.preparationFrame(m); preparation == nil {
+			return nil
+		}
+	}
+	var recombination *upolyRecombinationStepScope
+	if c.recombination != nil {
+		if recombination = c.recombinationFrame(m); recombination == nil {
+			return nil
+		}
+	}
+	var trial *upolyRecombinationTrialScope
+	if c.trial != nil {
+		if trial = c.trialFrame(m); trial == nil {
+			return nil
+		}
+	}
+	var henselCaller *upolyHenselCallerScope
+	if c.henselCaller != nil {
+		if henselCaller = c.henselCallerFrame(m); henselCaller == nil {
+			return nil
+		}
+	}
+	var henselPair *upolyHenselPairInvocationReceipt
+	if c.henselPair != nil {
+		if henselPair = c.henselPairReceipt(m); henselPair == nil {
+			return nil
+		}
+	}
+	var iccp *polynomialNumericRoots
+	if c.iccpConstant != nil {
+		if iccp = numericIntegerManager_iccpConstantContextRoots(m, c); iccp == nil {
+			return nil
+		}
+	}
+	var primeTrial *upolyPrimeTrialInvocationReceipt
+	if c.primeTrial != nil {
+		if primeTrial = c.primeTrialReceipt(m); primeTrial == nil {
+			return nil
+		}
+	}
+	var pseudo *polynomialNumericRoots
+	if c.pseudo != nil {
+		if pseudo = numericIntegerManager_pseudoContextRoots(m, c); pseudo == nil {
+			return nil
+		}
+	}
+	var mignotte *upolyMignotteInvocationReceipt
+	if c.mignotte != nil {
+		if mignotte = c.mignotteReceipt(m); mignotte == nil {
+			return nil
+		}
+	}
+
+	var negRoots *polynomialNumericRoots
+	if c.neg != nil {
+		if c.negInvocation == 0 || c.negInvocation != c.neg.invocation {
+			return nil
+		}
+		if negRoots = numericIntegerManager_negAllocationRoots(m, c.neg); negRoots == nil {
+			return nil
+		}
+	}
+	var som *polynomialSOMNormalizeInvocationReceipt
+	if c.somNormalize != nil {
+		if som = c.somNormalizeReceipt(m); som == nil {
+			return nil
+		}
+	}
+	var normalization *polynomialNormalizeInvocationReceipt
+	if c.normalization != nil {
+		if normalization = c.normalizationReceipt(m); normalization == nil {
+			return nil
+		}
+	}
+	var content *polynomialContentInvocationReceipt
+	if c.content != nil {
+		if content = c.contentReceipt(m); content == nil {
+			return nil
+		}
+	}
+	if c.factorMemberSet != nil {
+		return memberSet
+	}
+	if c.factorConstant != nil {
+		return factorConstant
 	}
 
 	if c.factorNumeralVector != nil {
-		return numericIntegerManager_factorNumeralVectorRoots(m, c)
+		return numeralVector
 	}
 	if c.toPolynomial != nil {
-		return numericIntegerManager_toPolynomialAllocationRoots(m, c)
+		return toPolynomial
 	}
 
 	if c.upolyDisplay != nil {
-		if q := c.upolyDisplayFrame(m); q != nil {
-			return &q.numeric
-		}
+		return &display.numeric
 	}
 	if c.iccpConstant != nil {
-		return numericIntegerManager_iccpConstantContextRoots(m, c)
+		return iccp
 	}
 	if c.pseudo != nil {
-		return numericIntegerManager_pseudoContextRoots(m, c)
+		return pseudo
 	}
 	if c.divides != nil {
 		return numericIntegerManager_dividesContextRoots(m, c)
@@ -264,22 +341,16 @@ func (c *integerAllocationInvocationContext) roots(m *unumeral.IntegerManager) *
 		return numericIntegerManager_exactDivContextRoots(m, c)
 	}
 	if c.somNormalize != nil {
-		if r := c.somNormalizeReceipt(m); r != nil {
-			return numericIntegerManager_somNormalizeAllocationRoots(m, r)
-		}
+		return numericIntegerManager_somNormalizeAllocationRoots(m, som)
 	}
 	if c.normalization != nil {
-		if p := c.normalizationReceipt(m); p != nil {
-			return numericIntegerManager_normalizationAllocationRoots(m, p)
-		}
+		return numericIntegerManager_normalizationAllocationRoots(m, normalization)
 	}
 	if c.content != nil {
-		if p := c.contentReceipt(m); p != nil {
-			return numericIntegerManager_contentAllocationRoots(m, p)
-		}
+		return numericIntegerManager_contentAllocationRoots(m, content)
 	}
 	if c.neg != nil {
-		return numericIntegerManager_negAllocationRoots(m, c.neg)
+		return negRoots
 	}
 	if c.scalarDiv != nil {
 		return numericIntegerManager_scalarDivAllocationRoots(m, c.scalarDiv)
@@ -289,95 +360,61 @@ func (c *integerAllocationInvocationContext) roots(m *unumeral.IntegerManager) *
 	}
 
 	if c.rootUpperBound != nil {
-		if q := c.rootUpperBoundFrame(m); q != nil {
-			return &q.numeric
-		}
+		return &rootUpper.numeric
 	}
 	if c.removeOneHalfRoot != nil {
-		if q := c.removeOneHalfRootFrame(m); q != nil {
-			return &q.numeric
-		}
+		return &removeOneHalf.numeric
 	}
 	if c.oneHalfRoot != nil {
-		if q := c.oneHalfRootFrame(m); q != nil {
-			return &q.numeric
-		}
+		return &oneHalf.numeric
 	}
 	if c.integerEvaluation != nil {
-		if q := c.integerEvaluationFrame(m); q != nil {
-			return &q.numeric
-		}
+		return &integerEval.numeric
 	}
 	if c.rationalEvaluation != nil {
-		if q := c.rationalEvaluationFrame(m); q != nil {
-			return &q.numeric
-		}
+		return &rationalEval.numeric
 	}
 	if c.binaryEvaluation != nil {
-		if q := c.binaryEvaluationFrame(m); q != nil {
-			return &q.numeric
-		}
+		return &binaryEval.numeric
 	}
 	if c.algebraicNeg != nil {
-		if q := c.algebraicNegFrame(m); q != nil {
-			if c.algebraicNegEval {
-				return &q.eval.numeric
-			}
-			return &q.numeric
+		if c.algebraicNegEval {
+			return &neg.eval.numeric
 		}
+		return &neg.numeric
 	}
 	if c.primePreparation != nil {
-		if r := c.primePreparationFrame(m); r != nil {
-			return &r.numeric
-		}
+		return &primePreparation.numeric
 	}
 	if c.factorFrontendConstant != nil {
-		if b := c.factorFrontendConstantFrame(m); b != nil {
-			if b.record != nil {
-				return &b.record.numeric
-			}
-			return &b.numeric
+		if frontendConstant.record != nil {
+			return &frontendConstant.record.numeric
 		}
+		return &frontendConstant.numeric
 	}
 	if c.factorFrontend != nil {
-		if r := c.factorFrontendFrame(m); r != nil {
-			return &r.numeric
-		}
+		return &frontend.numeric
 	}
 	if c.preparation != nil {
-		if r := c.preparationFrame(m); r != nil {
-			return &r.numeric
-		}
+		return &preparation.numeric
 	}
 	if c.recombination != nil {
-		if r := c.recombinationFrame(m); r != nil {
-			return &r.numeric
-		}
+		return &recombination.numeric
 	}
 	if c.trial != nil {
-		if q := c.trialFrame(m); q != nil {
-			return &q.numeric
-		}
+		return &trial.numeric
 	}
 	if c.primeTrial != nil {
-		if r := c.primeTrialReceipt(m); r != nil {
-			return &r.frame.numeric
-		}
+		return &primeTrial.frame.numeric
 	}
 	if c.henselPair != nil {
-		if r := c.henselPairReceipt(m); r != nil {
-			return &r.frame.numeric
-		}
+		return &henselPair.frame.numeric
 	}
 	if c.henselCaller != nil {
-		if r := c.henselCallerFrame(m); r != nil {
-			return &r.numeric
-		}
+		return &henselCaller.numeric
 	}
 	if c.mignotte != nil {
-		if r := c.mignotteReceipt(m); r != nil {
-			return &r.frame.numeric
-		}
+		return &mignotte.frame.numeric
 	}
 	if c.arithmetic != nil {
 		return c.arithmeticRoots(m)
@@ -393,14 +430,6 @@ func (c *integerAllocationInvocationContext) arithmeticRoots(m *unumeral.Integer
 		return numericIntegerManager_arithmeticAllocationRoots(m, c.arithmetic)
 	}
 	return nil
-}
-
-// arithmeticOnly reports a context whose only set fields are the arithmetic
-// receipt and its invocation.
-func (c *integerAllocationInvocationContext) arithmeticOnly() bool {
-	t := *c
-	t.arithmetic, t.arithmeticInvocation = nil, 0
-	return t == integerAllocationInvocationContext{}
 }
 
 func numericIntegerManager_copyFromOwnerWithArithmeticReceipt(m *unumeral.IntegerManager, out *unumeral.Int, owner *unumeral.IntegerManager, value *unumeral.Int, receipt *polynomialArithmeticInvocationReceipt) error {

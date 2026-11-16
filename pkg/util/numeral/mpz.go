@@ -387,6 +387,15 @@ func (m *IntegerManager) prepareTmpSpan(idx int, size uint32) error {
 	if idx < 0 || idx >= len(m.Tmp) || m.Tmp[idx] == 0 {
 		return arena.ErrInvalidSlot
 	}
+	// The live record is updated in place (Cell then Store of the same
+	// record otherwise); a dead ref takes Cell's panic as before.
+	if p := m.Cells.recordPtr(NumericSlot(m.Tmp[idx])); p != nil {
+		if size > p.Capacity || uint64(size)*4+8 > p.Backing.extent {
+			return arena.ErrBounds
+		}
+		p.span = size
+		return nil
+	}
 	c := m.Cell(m.Tmp[idx])
 	if size > c.Capacity || uint64(size)*4+8 > c.Backing.extent {
 		return arena.ErrBounds
@@ -396,6 +405,22 @@ func (m *IntegerManager) prepareTmpSpan(idx int, size uint32) error {
 	return nil
 }
 func (m *IntegerManager) ResizeCell(ref NumericCellRef, size uint32) {
+	if p := m.Cells.recordPtr(NumericSlot(ref)); p != nil {
+		// In place: the same tests and header write as below.
+		if size > p.Capacity {
+			panic(arena.ErrBounds)
+		}
+		if !numericValidateCells {
+			if e := p.Backing.writeHeaderUnchecked(m.Allocator, 0, size); e != nil {
+				panic(e)
+			}
+		} else if e := p.Backing.writeWord(m.Allocator, 0, size); e != nil {
+			panic(e)
+		}
+		p.Size = size
+		p.span = 0
+		return
+	}
 	c := m.Cell(ref)
 	if size > c.Capacity {
 		panic(arena.ErrBounds)
@@ -571,6 +596,10 @@ func (m *IntegerManager) allocateWithSourceContext(capacity, size uint32, s *int
 
 // Publication is scalar ownership metadata, not a source allocation or write.
 func (m *IntegerManager) PublishCell(ref NumericCellRef) {
+	if p := m.Cells.recordPtr(NumericSlot(ref)); p != nil {
+		p.Unpublished = false
+		return
+	}
 	c := m.Cell(ref)
 	c.Unpublished = false
 	m.Store(ref, c)
@@ -1369,9 +1398,11 @@ func (m *IntegerManager) addSubWithAllocationContext(a, b, c *Int, subtract bool
 		if e := m.prepareTmpSpan(0, n+1); e != nil {
 			return e
 		}
-		m.Natural.traceMPNBinaryView(
-			limbView{allocator: m.Allocator, backing: m.Cell(ca).Backing, size: na},
-			limbView{allocator: m.Allocator, backing: m.Cell(cb).Backing, size: nb}, "+")
+		if SourceExtendedGCDDebug { // the mpn views are built only for the debug trace
+			m.Natural.traceMPNBinaryView(
+				limbView{allocator: m.Allocator, backing: m.Cell(ca).Backing, size: na},
+				limbView{allocator: m.Allocator, backing: m.Cell(cb).Backing, size: nb}, "+")
+		}
 		if diagnostic.DebugBuild {
 			d := diagnostic.BorrowProcessDebugContext()
 			enabled, e := diagnostic.SourceAssertionsEnabled(d)
@@ -1415,7 +1446,9 @@ func (m *IntegerManager) addSubWithAllocationContext(a, b, c *Int, subtract bool
 					return e
 				}
 			}
-			m.Natural.traceMPNUnaryView(limbView{allocator: m.Allocator, backing: m.Cell(m.Tmp[0]).Backing, size: realSize}, 427, true)
+			if SourceExtendedGCDDebug { // the mpn views are built only for the debug trace
+				m.Natural.traceMPNUnaryView(limbView{allocator: m.Allocator, backing: m.Cell(m.Tmp[0]).Backing, size: realSize}, 427, true)
+			}
 			enabled, e = diagnostic.SourceAssertionsEnabled(d)
 			if e != nil {
 				return e
@@ -1428,10 +1461,14 @@ func (m *IntegerManager) addSubWithAllocationContext(a, b, c *Int, subtract bool
 		}
 		return m.publishTmpAtWithAllocationContext(0, c, sign, realSize, context)
 	}
-	m.Natural.traceMPNUnaryView(limbView{allocator: m.Allocator, backing: m.Cell(ca).Backing, size: na}, 420, false)
+	if SourceExtendedGCDDebug { // the mpn views are built only for the debug trace
+		m.Natural.traceMPNUnaryView(limbView{allocator: m.Allocator, backing: m.Cell(ca).Backing, size: na}, 420, false)
+	}
 	cmp := m.compareCells(ca, cb)
 	m.Natural.traceMPNCompareResult(cmp)
-	m.Natural.traceMPNUnaryView(limbView{allocator: m.Allocator, backing: m.Cell(cb).Backing, size: nb}, 427, true)
+	if SourceExtendedGCDDebug { // the mpn views are built only for the debug trace
+		m.Natural.traceMPNUnaryView(limbView{allocator: m.Allocator, backing: m.Cell(cb).Backing, size: nb}, 427, true)
+	}
 	if cmp == 0 {
 		return m.Reset(c)
 	}
@@ -1448,9 +1485,11 @@ func (m *IntegerManager) addSubWithAllocationContext(a, b, c *Int, subtract bool
 	if e := m.prepareTmpSpan(0, n); e != nil {
 		return e
 	}
-	m.Natural.traceMPNBinaryView(
-		limbView{allocator: m.Allocator, backing: m.Cell(ca).Backing, size: n},
-		limbView{allocator: m.Allocator, backing: m.Cell(cb).Backing, size: m.Cell(cb).Size}, "-")
+	if SourceExtendedGCDDebug { // the mpn views are built only for the debug trace
+		m.Natural.traceMPNBinaryView(
+			limbView{allocator: m.Allocator, backing: m.Cell(ca).Backing, size: n},
+			limbView{allocator: m.Allocator, backing: m.Cell(cb).Backing, size: m.Cell(cb).Size}, "-")
+	}
 	var k uint32
 	if !m.subDigitsDirect(ca, cb, m.Tmp[0], n, &k) {
 		for j := uint32(0); j < n; j++ {
@@ -1466,7 +1505,9 @@ func (m *IntegerManager) addSubWithAllocationContext(a, b, c *Int, subtract bool
 			}
 		}
 	}
-	m.Natural.traceMPNUnaryView(limbView{allocator: m.Allocator, backing: m.Cell(m.Tmp[0]).Backing, size: n}, 427, true)
+	if SourceExtendedGCDDebug { // the mpn views are built only for the debug trace
+		m.Natural.traceMPNUnaryView(limbView{allocator: m.Allocator, backing: m.Cell(m.Tmp[0]).Backing, size: n}, 427, true)
+	}
 	if diagnostic.DebugBuild {
 		d := diagnostic.BorrowProcessDebugContext()
 		enabled, e := diagnostic.SourceAssertionsEnabled(d)
