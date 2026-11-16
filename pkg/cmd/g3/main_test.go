@@ -336,6 +336,9 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// propagate_length asserts m.mk_and(n, items) -> |concat| = k: one leaf
+	// gives the premise (and x), not x (z3str3 model choice followed it).
+	"str_z3str3_length_popup_and.smt2": "sat\n(model \n  (define-fun b () String\n    \"Dzzzz\")\n  (define-fun a () String\n    \"Dzz\")\n  (define-fun d () String\n    \"\")\n  (define-fun y () String\n    \"zzD\")\n)\n",
 	// Fork fix (owner decision 2026-11-15): theory_str orders its expression-keyed
 	// std::map/std::set containers by AST id, not heap address.
 	"str_z3str3_id_order.smt2": "sat\n(model \n  (define-fun c () String\n    \"abcabcabcabcabc\")\n  (define-fun y () String\n    \"abcabc\")\n  (define-fun d () String\n    \"abcabcabcabcabc\")\n  (define-fun x () String\n    \"abcabcabc\")\n  (define-fun a () String\n    \"bc\")\n)\n",

@@ -269,7 +269,8 @@ func (t *SMTStringTheory) propagateStringLengths() (added bool, result error) {
 			if err != nil {
 				return err
 			}
-			if err := premises.imply(conclusion); err != nil {
+			// expr_ref axl(m.mk_and(l_items.size(), l_items.c_ptr()), m)
+			if err := premises.implyAndApp(conclusion); err != nil {
 				return err
 			}
 			added = true

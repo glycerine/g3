@@ -46,16 +46,33 @@ func (p *smtStringLengthPremises) equate(left, right ast.ASTHandle) error {
 // Publish without changing the premise list: check_contain_by_substr keeps
 // its vector across index entries, including earlier equalities.
 func (p *smtStringLengthPremises) imply(conclusion ast.ASTHandle) (result error) {
+	return p.implyGuard(conclusion, false)
+}
+
+// implyAndApp is assert_implication(m.mk_and(n, items), conclusion): the
+// ast_manager overload always builds an and application, so one premise
+// gives (and x) (propagate_length's concat length pop-up).
+func (p *smtStringLengthPremises) implyAndApp(conclusion ast.ASTHandle) (result error) {
+	return p.implyGuard(conclusion, true)
+}
+
+func (p *smtStringLengthPremises) implyGuard(conclusion ast.ASTHandle, andApp bool) (result error) {
 	m := p.theory.state.manager
 	locals := smtStringLengthPremises{theory: p.theory}
 	defer func() { result = errors.Join(result, locals.close()) }()
 	if err := locals.add(conclusion); err != nil {
 		return err
 	}
-	if len(p.values) == 0 {
+	if len(p.values) == 0 && !andApp {
 		return p.theory.assertAxiom(conclusion)
 	}
-	guard, err := m.MkAndArray(p.values)
+	var guard ast.ASTHandle
+	var err error
+	if andApp {
+		guard, err = m.MkAndArgs(p.values)
+	} else {
+		guard, err = m.MkAndArray(p.values)
+	}
 	if err != nil {
 		return err
 	}
