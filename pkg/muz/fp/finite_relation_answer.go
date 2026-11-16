@@ -7,9 +7,13 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/rel"
 )
 
 func (e *PropositionalEngine) finiteRelationAnswer(state *predicateState) (answer ast.ASTRef, result error) {
+	if relation, ok := rel.AsRelation(state.table); ok {
+		return e.relationAnswer(state, relation)
+	}
 	attempt := &storedFactFormulaAttempt{manager: e.manager}
 	defer func() {
 		if result != nil {
@@ -98,4 +102,23 @@ func (e *PropositionalEngine) finiteRelationAnswer(state *predicateState) (answe
 		return answer, err
 	}
 	return answer, attempt.close()
+}
+
+// relationAnswer is rel_context::query's m_answer for one queried
+// relation_base: rel.to_formula(e) when some queried relation is
+// non-empty, false otherwise.
+func (e *PropositionalEngine) relationAnswer(state *predicateState, relation rel.RelationBase) (ast.ASTRef, error) {
+	for d, s := range e.predicates {
+		if s == state {
+			if empty, found := e.relationQueryEmpty[d]; found && empty {
+				value, err := e.manager.MkFalse()
+				if err != nil {
+					return ast.ASTRef{}, err
+				}
+				return e.manager.NewRef(value)
+			}
+			break
+		}
+	}
+	return relation.ToFormula()
 }

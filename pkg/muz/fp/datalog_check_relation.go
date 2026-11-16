@@ -240,6 +240,11 @@ func (e *PropositionalEngine) datalogDefaultTableCheck() (checker string, enable
 }
 
 func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelationScope, resultErr error) {
+	if e.relations.FavouriteRelationPlugin() != nil {
+		// check_relation_plugin is the favourite relation plugin: its
+		// relations check every operation themselves.
+		return nil, nil
+	}
 	name, enabled, err := e.datalogCheckRelationName()
 	if err != nil {
 		return nil, err

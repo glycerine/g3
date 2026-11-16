@@ -42,6 +42,16 @@ type RelationManager struct {
 	// placeholders holds the predicates whose table the source has not
 	// created yet (relation_manager_placeholder.go).
 	placeholders map[ast.ASTHandle]bool
+
+	// relationPlugins is m_relation_plugins past the table_relation
+	// plugins; favouriteRelation is m_favourite_relation_plugin when it is
+	// one of them; defaultRelation is context::default_relation().
+	relationPlugins   []RelationPlugin
+	favouriteRelation RelationPlugin
+	defaultRelation   string
+	// requestedRelation is get_requested_predicate_kind for relation
+	// plugins.
+	requestedRelation map[ast.ASTHandle]RelationPlugin
 }
 
 func NewRelationManager(manager *ast.ASTManager) (*RelationManager, error) {
@@ -217,6 +227,7 @@ func (m *RelationManager) Close() (result error) {
 		return nil
 	}
 	result = m.ResetRelations()
+	result = errors.Join(result, m.closeRelationPlugins())
 	if len(m.relations) != 0 || len(m.finite) != 0 || len(m.explanations) != 0 || len(m.relationLevel) != 0 {
 		return errors.Join(result, ErrTable)
 	}

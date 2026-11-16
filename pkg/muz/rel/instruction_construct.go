@@ -261,6 +261,47 @@ func constructFiniteTable(context *ExecutionContext, signature Signature, predic
 	return NewHashTable(signature), nil
 }
 
+// relationSorts is m_sig of the instruction when the compiler supplied it.
+func (i *constructInstruction) relationSorts() ([]ast.ASTHandle, bool) {
+	if len(i.displaySorts) != i.signature.Len() {
+		return nil, false
+	}
+	return i.displaySorts, true
+}
+
+// constructRelation is rmanager.mk_empty_relation(m_sig, m_pred).
+func (i *constructInstruction) constructRelation(context *ExecutionContext, _ bool) (FiniteTable, error) {
+	if context != nil && context.relations != nil {
+		if sorts, ok := i.relationSorts(); ok {
+			plugin, err := context.relations.relationPluginFor(i.predicate, sorts)
+			if err != nil {
+				return nil, err
+			}
+			if plugin != nil {
+				return plugin.MkEmpty(sorts)
+			}
+		}
+	}
+	return constructFiniteTable(context, i.signature, i.predicate)
+}
+
+// fullRelation is rmanager.mk_full_relation(m_sig, m_pred) when a
+// relation (not table_relation) plugin is selected for the signature.
+func (i *constructInstruction) fullRelation(context *ExecutionContext) (FiniteTable, bool, error) {
+	if context == nil || context.relations == nil {
+		return nil, false, nil
+	}
+	sorts, ok := i.relationSorts()
+	if !ok {
+		return nil, false, nil
+	}
+	r, ok, err := context.relations.MkFullRelation(sorts, i.predicate)
+	if err != nil || !ok {
+		return nil, false, err
+	}
+	return r, true, nil
+}
+
 func (i *constructInstruction) Perform(context *ExecutionContext) (bool, error) {
 	if err := i.open(); err != nil {
 		return false, err
@@ -274,7 +315,7 @@ func (i *constructInstruction) Perform(context *ExecutionContext) (bool, error) 
 	switch i.kind {
 	case "mk_unary_singleton":
 		context.stats.UnarySingleton++
-		table, err := constructFiniteTable(context, i.signature, i.predicate)
+		table, err := i.constructRelation(context, false)
 		if err != nil {
 			return false, err
 		}
@@ -287,6 +328,14 @@ func (i *constructInstruction) Perform(context *ExecutionContext) (bool, error) 
 		return true, nil
 	case "mk_total":
 		context.stats.Total++
+		if full, ok, err := i.fullRelation(context); err != nil {
+			return false, err
+		} else if ok {
+			if err := context.SetFiniteRegister(i.target, full); err != nil {
+				return false, i.disposeUninstalledFinite(full, err)
+			}
+			return true, nil
+		}
 		table, err := constructFiniteTable(context, i.signature, i.predicate)
 		if err != nil {
 			return false, err

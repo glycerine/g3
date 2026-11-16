@@ -52,6 +52,10 @@ func (e *PropositionalEngine) applyDatalogDefaultFiniteTable() (resultErr error)
 		if state == nil || state.table == nil || state.external != nil || state.explicitFiniteRepresentation {
 			continue
 		}
+		if _, ok := rel.AsRelation(state.table); ok {
+			// The favourite relation plugin's relation.
+			continue
+		}
 		kind := "tr_" + name
 		if len(state.sorts) == 0 && name != "bitvector" {
 			// Sparse and lazy_sparse reject the empty signature and

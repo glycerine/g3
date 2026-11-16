@@ -76,16 +76,9 @@ func (m *RelationManager) ReplaceFiniteRelation(predicate ast.ASTHandle, table F
 	if table == nil {
 		return ErrTable
 	}
-	_, expected, err := m.PredicateSignature(predicate)
+	err := m.checkStoredSignature(predicate, table)
 	if err != nil {
 		return err
-	}
-	actual, err := table.Signature()
-	if err != nil {
-		return err
-	}
-	if !expected.equal(actual) {
-		return ErrTable
 	}
 	var prior FiniteTable = m.finite[predicate]
 	if prior == nil {

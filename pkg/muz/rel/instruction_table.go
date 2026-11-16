@@ -205,11 +205,11 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 		if err = finiteTableFilterEqual(first, i.value, i.column); err != nil {
 			return false, err
 		}
-		count, x := first.Len()
+		empty, x := finiteFastEmpty(first)
 		if x != nil {
 			return false, x
 		}
-		if count == 0 {
+		if empty {
 			return true, context.MakeEmpty(i.first)
 		}
 		return true, nil
@@ -221,11 +221,11 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 		if err = finiteTableFilterIdentical(first, i.left); err != nil {
 			return false, err
 		}
-		count, x := first.Len()
+		empty, x := finiteFastEmpty(first)
 		if x != nil {
 			return false, x
 		}
-		if count == 0 {
+		if empty {
 			return true, context.MakeEmpty(i.first)
 		}
 		return true, nil
@@ -260,15 +260,21 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 				}
 			}
 		}
-		if err = finiteTableUnion(target, first, delta); err != nil {
+		if r, ok, x := relationOperands(target, first, delta); x != nil {
+			return false, x
+		} else if ok {
+			if err = relationUnion(r[0], r[1], r[2], i.kind == "widen"); err != nil {
+				return false, err
+			}
+		} else if err = finiteTableUnion(target, first, delta); err != nil {
 			return false, err
 		}
 		if delta != nil {
-			count, x := delta.Len()
+			empty, x := finiteFastEmpty(delta)
 			if x != nil {
 				return false, x
 			}
-			if count == 0 {
+			if empty {
 				return true, context.MakeEmpty(i.result)
 			}
 		}
@@ -306,11 +312,11 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 		if err = finiteTableFilterNegation(first, second, i.left, i.right); err != nil {
 			return false, err
 		}
-		count, x := first.Len()
+		empty, x := finiteFastEmpty(first)
 		if x != nil {
 			return false, x
 		}
-		if count == 0 {
+		if empty {
 			return true, context.MakeEmpty(i.first)
 		}
 		return true, nil

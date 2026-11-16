@@ -117,6 +117,12 @@ func (i *interpretedFilterProjectInstruction) projectBitvector(table *BitvectorT
 }
 
 func (i *interpretedFilterProjectInstruction) project(table FiniteTable, conditions []ast.ASTHandle) (FiniteTable, error) {
+	if r, ok := AsRelation(table); ok {
+		if len(conditions) != 1 {
+			return nil, ErrInstruction
+		}
+		return relationFilterInterpretedAndProject(r, conditions[0], i.removed)
+	}
 	switch concrete := table.(type) {
 	case *HashTable:
 		return i.projectHash(concrete, conditions)

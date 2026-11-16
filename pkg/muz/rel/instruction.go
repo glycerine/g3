@@ -430,6 +430,14 @@ func (c *ExecutionContext) closeRegisters() error {
 }
 
 func finiteTableSizeEstimates(table FiniteTable) (uint32, uint32, error) {
+	if r, ok := AsRelation(table); ok {
+		rows, err := r.SizeEstimateRows()
+		if err != nil {
+			return 0, 0, err
+		}
+		bytes, err := r.SizeEstimateBytes()
+		return rows, bytes, err
+	}
 	switch value := table.(type) {
 	case *HashTable:
 		rows, err := value.SizeEstimateRows()

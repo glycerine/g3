@@ -72,6 +72,9 @@ func (m *RelationManager) NewFiniteTableForPredicate(predicate ast.ASTHandle, si
 	if err := m.open(); err != nil {
 		return nil, err
 	}
+	if relation, ok, err := m.relationForPredicate(predicate); err != nil || ok {
+		return relation, err
+	}
 	if m.checkedFinite == nil {
 		switch m.requestedFinite[predicate] {
 		case "tr_hashtable":
@@ -136,4 +139,41 @@ func (m *RelationManager) NewDefaultFiniteTable(signature Signature) (FiniteTabl
 		// fork falls back to the manager's plugin choice, Hash, as here.
 	}
 	return NewHashTable(signature), nil
+}
+
+// relationForPredicate is mk_empty_relation(sig, pred)'s relation-plugin
+// branch: the requested or favourite relation plugin when it handles the
+// predicate's signature. ok is false when the table_relation path applies.
+func (m *RelationManager) relationForPredicate(predicate ast.ASTHandle) (FiniteTable, bool, error) {
+	if predicate.IsNull() || m.favouriteRelation == nil && m.requestedRelation[predicate] == nil {
+		return nil, false, nil
+	}
+	sorts, err := m.predicateSorts(predicate)
+	if err != nil {
+		return nil, false, err
+	}
+	plugin, err := m.relationPluginFor(predicate, sorts)
+	if err != nil || plugin == nil {
+		return nil, false, err
+	}
+	relation, err := plugin.MkEmpty(sorts)
+	if err != nil {
+		return nil, false, err
+	}
+	return relation, true, nil
+}
+
+// predicateSorts is relation_manager::from_predicate(pred, sig).
+func (m *RelationManager) predicateSorts(declaration ast.ASTHandle) ([]ast.ASTHandle, error) {
+	arity, err := m.manager.GetArity(declaration)
+	if err != nil {
+		return nil, err
+	}
+	sorts := make([]ast.ASTHandle, arity)
+	for i := uint32(0); i < arity; i++ {
+		if sorts[i], err = m.manager.GetDomain(declaration, i); err != nil {
+			return nil, err
+		}
+	}
+	return sorts, nil
 }

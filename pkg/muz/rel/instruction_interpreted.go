@@ -200,6 +200,15 @@ func (i *interpretedFilterInstruction) Perform(context *ExecutionContext) (bool,
 	if err != nil {
 		return false, err
 	}
+	if r, ok := AsRelation(table); ok {
+		if len(conditions) != 1 {
+			return false, ErrInstruction
+		}
+		if err = relationFilterInterpreted(r, conditions[0]); err != nil {
+			return false, err
+		}
+		return i.emptyAfterFilter(context, table)
+	}
 	switch concrete := table.(type) {
 	case *LazySparseTable:
 		if err = concrete.filterInterpretedCompiled(i.relations, i.rewriter, conditions, i.variableColumns, i.variableSorts); err != nil {
@@ -262,11 +271,11 @@ func (i *interpretedFilterInstruction) Perform(context *ExecutionContext) (bool,
 // if (r.fast_empty()) ctx.make_empty(m_reg); table_relation::fast_empty is
 // the table's exact emptiness and check_relation forwards it.
 func (i *interpretedFilterInstruction) emptyAfterFilter(context *ExecutionContext, table FiniteTable) (bool, error) {
-	count, err := table.Len()
+	empty, err := finiteFastEmpty(table)
 	if err != nil {
 		return false, err
 	}
-	if count == 0 {
+	if empty {
 		return true, context.MakeEmpty(i.register)
 	}
 	return true, nil

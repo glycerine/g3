@@ -37,6 +37,14 @@ func (m *RelationManager) GetFiniteRelation(predicate ast.ASTHandle) (FiniteTabl
 	if found {
 		return table, m.MaterializeFiniteRelation(predicate)
 	}
+	if relation, ok, cause := m.relationForPredicate(predicate); cause != nil {
+		return nil, cause
+	} else if ok {
+		if err = m.StoreFiniteRelation(predicate, relation); err != nil {
+			return nil, errors.Join(err, relation.Close())
+		}
+		return relation, nil
+	}
 	_, signature, err := m.PredicateSignature(predicate)
 	if err != nil {
 		return nil, err
@@ -102,16 +110,9 @@ func (m *RelationManager) StoreFiniteRelation(predicate ast.ASTHandle, table Fin
 	if m.explanations[predicate] != nil || m.relationLevel[predicate] != nil {
 		return ErrTableRelation
 	}
-	_, expected, err := m.PredicateSignature(predicate)
+	err := m.checkStoredSignature(predicate, table)
 	if err != nil {
 		return err
-	}
-	actual, err := table.Signature()
-	if err != nil {
-		return err
-	}
-	if !expected.equal(actual) {
-		return ErrTable
 	}
 	var prior FiniteTable = m.finite[predicate]
 	if prior == nil {
@@ -143,4 +144,38 @@ func (m *RelationManager) StoreFiniteRelation(predicate ast.ASTHandle, table Fin
 		m.finite[predicate] = table
 	}
 	return m.noteRelation(predicate)
+}
+
+// checkStoredSignature is store_relation's SASSERT that the relation has
+// the predicate's signature: the column sorts of a relation_base, the
+// table signature of a table_relation's table.
+func (m *RelationManager) checkStoredSignature(predicate ast.ASTHandle, table FiniteTable) error {
+	if relation, ok := AsRelation(table); ok {
+		sorts, err := m.predicateSorts(predicate)
+		if err != nil {
+			return err
+		}
+		actual := relation.RelationSignature()
+		if len(actual) != len(sorts) {
+			return ErrTable
+		}
+		for i := range sorts {
+			if sorts[i] != actual[i] {
+				return ErrTable
+			}
+		}
+		return nil
+	}
+	_, expected, err := m.PredicateSignature(predicate)
+	if err != nil {
+		return err
+	}
+	actual, err := table.Signature()
+	if err != nil {
+		return err
+	}
+	if !expected.equal(actual) {
+		return ErrTable
+	}
+	return nil
 }

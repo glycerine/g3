@@ -91,6 +91,9 @@ func (e *PropositionalEngine) predicateState(declaration ast.ASTHandle) (*predic
 // PropositionalEngine owns the retained rule, finite-relation, and optional
 // ground-guard rewriting services.
 type PropositionalEngine struct {
+	// relationQueryEmpty is rel_context::query's rel.empty() of each queried
+	// relation_base, which the answer (m_answer) reuses.
+	relationQueryEmpty map[ast.ASTHandle]bool
 	// constantNames is the datalog front end's context, whose sort
 	// domains name constants in instruction displays (borrowed).
 	constantNames *base.DatalogContext
@@ -3035,14 +3038,37 @@ func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHand
 			return lbool.Undef, err
 		}
 	}
+	// rel_context::query: some_non_empty is !rel.empty() of a queried
+	// relation; an imprecise non-empty answer is l_undef (APPROX).
+	someNonEmpty, approx := false, false
 	for _, declaration := range declarations {
-		count, x := e.predicates[declaration].table.Len()
+		table := e.predicates[declaration].table
+		if relation, ok := rel.AsRelation(table); ok {
+			empty, x := relation.Empty()
+			if x != nil {
+				return lbool.Undef, x
+			}
+			if e.relationQueryEmpty == nil {
+				e.relationQueryEmpty = make(map[ast.ASTHandle]bool)
+			}
+			e.relationQueryEmpty[declaration] = empty
+			someNonEmpty = someNonEmpty || !empty
+			approx = approx || !relation.IsPrecise()
+			continue
+		}
+		count, x := table.Len()
 		if x != nil {
 			return lbool.Undef, x
 		}
 		if count != 0 {
 			return lbool.True, nil
 		}
+	}
+	if someNonEmpty {
+		if approx {
+			return lbool.Undef, nil
+		}
+		return lbool.True, nil
 	}
 	return lbool.FromBool(len(declarations) == 0), nil
 }

@@ -13,6 +13,11 @@ func (m *RelationManager) SupportsCompiledFiniteTables() error {
 		case *SparseTable, *LazySparseTable, *BitvectorTable, *FiniteCheckedPair:
 			// Supported alongside the HashTable owners stored in m.relations.
 		default:
+			if _, ok := AsRelation(table); ok {
+				// relation_base registers dispatch through the relation
+				// manager's relation-level operations.
+				continue
+			}
 			return ErrCompilerUnsupported
 		}
 	}

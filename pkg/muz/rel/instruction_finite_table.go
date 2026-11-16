@@ -18,7 +18,7 @@ func setNonemptyFiniteRegister(context *ExecutionContext, index uint32, table Fi
 	if table == nil {
 		return context.MakeEmpty(index)
 	}
-	count, err := table.Len()
+	empty, err := finiteFastEmpty(table)
 	if err != nil {
 		return err
 	}
@@ -26,7 +26,7 @@ func setNonemptyFiniteRegister(context *ExecutionContext, index uint32, table Fi
 	// if (reg->fast_empty()) make_empty(reg): sparse tables report emptiness
 	// exactly, and check_relation/check_table forward fast_empty to the
 	// wrapped relation, so every empty result leaves the register null.
-	if count == 0 {
+	if empty {
 		if err = table.Close(); err != nil {
 			return err
 		}
@@ -36,6 +36,9 @@ func setNonemptyFiniteRegister(context *ExecutionContext, index uint32, table Fi
 }
 
 func emptyFiniteLike(table FiniteTable) (FiniteTable, error) {
+	if r, ok := AsRelation(table); ok {
+		return mkEmptyLike(r)
+	}
 	signature, err := table.Signature()
 	if err != nil {
 		return nil, err
@@ -100,6 +103,12 @@ func newFiniteJoinResult(signature Signature, functional int, first, second Fini
 }
 
 func finiteTableJoin(first, second FiniteTable, left, right []int) (FiniteTable, error) {
+	if r, ok, err := relationOperands(first, second); ok || err != nil {
+		if err != nil {
+			return nil, err
+		}
+		return relationJoin(r[0], r[1], left, right)
+	}
 	if a, ok := first.(*FormulaCheckedFinitePair); ok {
 		b, err := liftFormulaCheckedFinitePairLike(a, second)
 		if err != nil {
@@ -237,6 +246,9 @@ func finiteTableJoin(first, second FiniteTable, left, right []int) (FiniteTable,
 }
 
 func finiteTableProject(source FiniteTable, removed []int) (FiniteTable, error) {
+	if r, ok := AsRelation(source); ok {
+		return relationProject(r, removed)
+	}
 	if len(removed) == 0 {
 		return source.CloneFinite()
 	}
@@ -296,6 +308,12 @@ func finiteTableProject(source FiniteTable, removed []int) (FiniteTable, error) 
 }
 
 func finiteTableJoinProject(first, second FiniteTable, left, right, removed []int) (FiniteTable, error) {
+	if r, ok, err := relationOperands(first, second); ok || err != nil {
+		if err != nil {
+			return nil, err
+		}
+		return relationJoinProject(r[0], r[1], left, right, removed)
+	}
 	if a, ok := first.(*FormulaCheckedFinitePair); ok {
 		b, err := liftFormulaCheckedFinitePairLike(a, second)
 		if err != nil {
@@ -392,6 +410,9 @@ func finiteTableJoinProject(first, second FiniteTable, left, right, removed []in
 }
 
 func finiteTableRename(source FiniteTable, cycle []int) (FiniteTable, error) {
+	if r, ok := AsRelation(source); ok {
+		return relationRename(r, cycle)
+	}
 	switch table := source.(type) {
 	case *HashTable:
 		return table.RenameCycle(cycle)
@@ -413,6 +434,9 @@ func finiteTableRename(source FiniteTable, cycle []int) (FiniteTable, error) {
 }
 
 func finiteTableFilterEqual(table FiniteTable, value Element, column int) error {
+	if r, ok := AsRelation(table); ok {
+		return relationFilterEqual(r, value, column)
+	}
 	switch concrete := table.(type) {
 	case *HashTable:
 		return concrete.FilterEqual(value, column)
@@ -434,6 +458,9 @@ func finiteTableFilterEqual(table FiniteTable, value Element, column int) error 
 }
 
 func finiteTableFilterIdentical(table FiniteTable, columns []int) error {
+	if r, ok := AsRelation(table); ok {
+		return relationFilterIdentical(r, columns)
+	}
 	switch concrete := table.(type) {
 	case *HashTable:
 		return concrete.FilterIdentical(columns)
@@ -455,6 +482,9 @@ func finiteTableFilterIdentical(table FiniteTable, columns []int) error {
 }
 
 func finiteTableSelectProject(table FiniteTable, value Element, column int) (FiniteTable, error) {
+	if r, ok := AsRelation(table); ok {
+		return relationSelectEqualProject(r, value, column)
+	}
 	signature, err := table.Signature()
 	if err != nil || column < 0 || column >= signature.Len() {
 		return nil, ErrTable
@@ -512,6 +542,12 @@ func finiteTableSelectProject(table FiniteTable, value Element, column int) (Fin
 }
 
 func finiteTableUnion(target, source, delta FiniteTable) error {
+	if r, ok, err := relationOperands(target, source, delta); ok || err != nil {
+		if err != nil {
+			return err
+		}
+		return relationUnion(r[0], r[1], r[2], false)
+	}
 	targetSignature, err := target.Signature()
 	if err != nil {
 		return err
@@ -619,6 +655,12 @@ func finiteTableUnion(target, source, delta FiniteTable) error {
 }
 
 func finiteTableFilterNegation(target, negative FiniteTable, targetColumns, negativeColumns []int) error {
+	if r, ok, err := relationOperands(target, negative); ok || err != nil {
+		if err != nil {
+			return err
+		}
+		return relationFilterNegation(r[0], r[1], targetColumns, negativeColumns)
+	}
 	if a, ok := target.(*HashTable); ok {
 		if b, same := negative.(*HashTable); same {
 			return a.FilterByNegation(b, targetColumns, negativeColumns)
@@ -702,4 +744,14 @@ func finiteTableFilterNegation(target, negative FiniteTable, targetColumns, nega
 		}
 	}
 	return nil
+}
+
+// finiteFastEmpty is relation_base::fast_empty() of a register value: a
+// table's exact emptiness, a relation_base's own fast_empty.
+func finiteFastEmpty(table FiniteTable) (bool, error) {
+	if empty, ok := relationRegisterEmpty(table); ok {
+		return empty, nil
+	}
+	count, err := table.Len()
+	return count == 0, err
 }
