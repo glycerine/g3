@@ -27,6 +27,15 @@ func (e *PropositionalEngine) applyQueryMagicSets(goal ast.ASTHandle) (resultErr
 		return err
 	}
 
+	// context::query runs flush_add_rules before rel_context::query builds
+	// the query rule and transforms the rules; the query clone queues the
+	// source rules and the query rule as pending formulas, flushed here so
+	// that mk_magic_sets sees (and replaces) the flushed rule set. A later
+	// flush would remove the pending rules' positions from the transformed
+	// set.
+	if err = e.flushPendingRules(); err != nil {
+		return err
+	}
 	finalized, err := e.set.IsFinalized()
 	if err != nil {
 		return err
