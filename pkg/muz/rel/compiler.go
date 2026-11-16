@@ -636,10 +636,16 @@ func (c *finiteCompiler) compileRecursive(set *base.RuleSet, rules []finiteCompi
 		}
 		seen[head] = true
 		headOrder = append(headOrder, head)
-		signature := c.signatures[c.predicateRegs[head]]
-		currentDeltas[head] = c.fresh(signature)
-		nextDeltas[head] = c.fresh(signature)
+	}
+	// get_fresh_registers(global_deltas, d_global_src), then
+	// get_fresh_registers(global_deltas, d_global_tgt): every source delta
+	// register precedes the target ones.
+	for _, head := range headOrder {
+		currentDeltas[head] = c.fresh(c.signatures[c.predicateRegs[head]])
 		c.regSorts[currentDeltas[head]] = c.regSorts[c.predicateRegs[head]]
+	}
+	for _, head := range headOrder {
+		nextDeltas[head] = c.fresh(c.signatures[c.predicateRegs[head]])
 		c.regSorts[nextDeltas[head]] = c.regSorts[c.predicateRegs[head]]
 	}
 	// compile_preds_init evaluates only lower-stratum inputs before entering
