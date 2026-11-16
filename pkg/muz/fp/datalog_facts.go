@@ -45,9 +45,6 @@ func (e *PropositionalEngine) publishDatalogQueryRelations(clone *PropositionalE
 	if clone.udocDatalog != nil {
 		return nil
 	}
-	if clone.sparseIntervalDatalog != nil {
-		return e.publishSparseIntervalFiniteRelations(clone)
-	}
 	for _, d := range e.predicateOrder {
 		if e.auxiliary[d] {
 			continue

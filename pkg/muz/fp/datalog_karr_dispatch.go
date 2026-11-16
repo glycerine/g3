@@ -35,7 +35,7 @@ func (e *PropositionalEngine) ensureKarrDatalog() (bool, error) {
 	if !enabled && e.karrDatalog == nil {
 		return false, nil
 	}
-	if e.udocDatalog != nil || e.sparseIntervalDatalog != nil || e.intervalDatalog != nil || e.boundDatalog != nil || e.boundIntervalDatalog != nil || e.externalIntervalDatalog != nil {
+	if e.udocDatalog != nil || e.boundDatalog != nil || e.externalIntervalDatalog != nil {
 		return true, ErrKarrDatalogFragment
 	}
 	if !enabled {

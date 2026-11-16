@@ -13,6 +13,7 @@ import (
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/symbol"
 
 	"github.com/glycerine/g3/pkg/muz/rel"
 )
@@ -280,4 +281,28 @@ func isTableRelationRepresentation(kinds []string) bool {
 		}
 	}
 	return true
+}
+
+// cacheDatalogRelationFavourite records context::default_relation()
+// (datalog.default_relation, "pentagon" by default).
+func (e *PropositionalEngine) cacheDatalogRelationFavourite() error {
+	if e.datalogRelationFavourite != "" {
+		return nil
+	}
+	name := "pentagon"
+	if e.params != nil && e.globals != nil {
+		view, err := e.fixedpointParamView()
+		if err != nil {
+			return err
+		}
+		selected, err := view.Symbol("datalog.default_relation", symbol.Symbol{})
+		if err == nil && selected.Value != 0 {
+			name, _, err = e.manager.Symbols.BareString(selected)
+		}
+		if err = errors.Join(err, view.Close()); err != nil {
+			return err
+		}
+	}
+	e.datalogRelationFavourite = name
+	return nil
 }

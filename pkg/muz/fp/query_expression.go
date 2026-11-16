@@ -365,26 +365,12 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 			return lbool.Undef, err
 		}
 	}
-	boundIntervalSelected := false
 	if clone.backend == "datalog" && !karrSelected && !relationExplanationSelected {
-		boundIntervalSelected, err = clone.ensureBoundIntervalDatalog()
-		if err != nil {
-			return lbool.Undef, err
-		}
-	}
-	if clone.backend == "datalog" && !karrSelected && !boundIntervalSelected && !relationExplanationSelected {
 		if _, cause := clone.ensureUDocDatalog(); cause != nil {
 			return lbool.Undef, cause
 		}
-		if selected, cause := clone.ensureSparseIntervalDatalog(); cause != nil {
-			return lbool.Undef, cause
-		} else if !selected {
-			if _, err = clone.ensureIntervalDatalog(); err != nil {
-				return lbool.Undef, err
-			}
-			if _, err = clone.ensureBoundDatalog(); err != nil {
-				return lbool.Undef, err
-			}
+		if _, err = clone.ensureBoundDatalog(); err != nil {
+			return lbool.Undef, err
 		}
 	}
 	clone.datalogExplanationQuery, err = clone.datalogExplanationsEnabled()

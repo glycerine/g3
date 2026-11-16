@@ -107,7 +107,7 @@ func (e *PropositionalEngine) ensureExternalIntervalDatalog() (_ bool, resultErr
 			resultErr = errors.Join(resultErr, ground.close(e.manager))
 		}
 	}()
-	if e.udocDatalog != nil || e.sparseIntervalDatalog != nil || e.intervalDatalog != nil || e.boundDatalog != nil || e.boundIntervalDatalog != nil {
+	if e.udocDatalog != nil || e.boundDatalog != nil {
 		return true, fmt.Errorf("%w: another Datalog representation is active", ErrExternalIntervalDatalogFragment)
 	}
 	if enabled, cause := e.datalogExplanationsEnabled(); cause != nil || enabled {
