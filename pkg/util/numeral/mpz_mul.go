@@ -193,14 +193,28 @@ const mulWideMinDigits = 4
 // digit written to c, is the same integer.
 func multiplyDigitsWide(a, b, c []uint32) {
 	la, lb := (len(a)+1)/2, (len(b)+1)/2
-	var bufA, bufB [32]uint64
-	var bufC [64]uint64
-	var x, y, z []uint64
-	if la <= len(bufA) && lb <= len(bufB) {
-		x, y, z = bufA[:la], bufB[:lb], bufC[:la+lb]
-	} else {
-		x, y, z = make([]uint64, la), make([]uint64, lb), make([]uint64, la+lb)
+	// Small operands use small stack buffers: Go zeroes a whole buffer
+	// array at its declaration, so the 32/32/64-limb buffers cost more to
+	// clear than a few-limb product does to compute.
+	if la <= 4 && lb <= 4 {
+		var bufA, bufB [4]uint64
+		var bufC [8]uint64
+		multiplyWideLimbs(bufA[:la], bufB[:lb], bufC[:la+lb], a, b, c)
+		return
 	}
+	if la <= 32 && lb <= 32 {
+		var bufA, bufB [32]uint64
+		var bufC [64]uint64
+		multiplyWideLimbs(bufA[:la], bufB[:lb], bufC[:la+lb], a, b, c)
+		return
+	}
+	multiplyWideLimbs(make([]uint64, la), make([]uint64, lb), make([]uint64, la+lb), a, b, c)
+}
+
+// multiplyWideLimbs is multiplyDigitsWide's product with x, y and z the
+// operand and (zeroed) result limb buffers.
+func multiplyWideLimbs(x, y, z []uint64, a, b, c []uint32) {
+	la := len(x)
 	packDigitsWide(x, a)
 	packDigitsWide(y, b)
 	for j, v := range y {

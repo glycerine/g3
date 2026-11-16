@@ -308,9 +308,7 @@ func smallObjectWriteWord(rt *Runtime, h Block, offset, width, v uint64) error {
 	if width == 8 && offset < n-base && n-base-offset >= 8 {
 		j := offset + base
 		binary.LittleEndian.PutUint64(b.data[j:j+8], v)
-		for i := j; i < j+8; i++ {
-			b.initialized[i/64] |= uint64(1) << (i % 64)
-		}
+		markInitializedRange(b.initialized, j, 8)
 		return nil
 	}
 	for i := uint64(0); i < width; i++ {
