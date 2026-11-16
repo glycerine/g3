@@ -336,6 +336,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ-F5: check_relation over tr_sparse queried twice; the
+	// second query resets the negation-dependent relations
+	// (check_relation::reset through the table filter).
+	"plugins5_check_tr_sparse_requery.smt2": "sat\n(= (:var 0) #b00)\nsat\n(= (:var 0) #b00)\n",
 	// AUDIT.md FUZZ-F5: recursive stratum delta registers (-v:2 in
 	// TestPlugins5FavouriteTableVerbose).
 	"plugins5_delta_registers.smt2": "sat\n(or (and (= (:var 0) true) (= (:var 1) true))\n    (and (= (:var 0) false) (= (:var 1) true)))\n",

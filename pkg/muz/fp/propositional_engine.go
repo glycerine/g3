@@ -2191,6 +2191,18 @@ func (e *PropositionalEngine) resetNegationDependentTables() error {
 // with the context rewriter for every row; auxiliary_table_filter_fn then
 // hands every row to table_base::remove_facts.
 func (e *PropositionalEngine) resetNegatedTable(table rel.FiniteTable, rows int) (resultErr error) {
+	if check, ok := table.(*rel.CheckRelation); ok {
+		// check_relation::reset: m_relation->reset() (relation_base::reset
+		// of its table_relation: the table filter as above, so a sparse
+		// table's rows go through sparse_table::remove_fact), m_fml = false.
+		return check.ResetWith(func(inner rel.FiniteTable) error {
+			n, err := inner.Len()
+			if err != nil {
+				return err
+			}
+			return e.resetNegatedTable(inner, n)
+		})
+	}
 	switch table.(type) {
 	case *rel.HashTable, *rel.SparseTable, *rel.BitvectorTable:
 		if e.guard == nil {

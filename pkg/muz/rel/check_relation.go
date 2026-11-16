@@ -482,6 +482,20 @@ func (r *CheckRelation) Reset() error {
 	return r.setFml(f)
 }
 
+// ResetWith is check_relation::reset with m_relation->reset() done by
+// reset (the caller's relation_base::reset of the inner relation, given
+// as its table when it is a table_relation), then m_fml = false.
+func (r *CheckRelation) ResetWith(reset func(FiniteTable) error) error {
+	if err := reset(unwrapTableView(r.relation)); err != nil {
+		return err
+	}
+	f, err := r.plugin.m.MkFalse()
+	if err != nil {
+		return err
+	}
+	return r.setFml(f)
+}
+
 // Contains is check_relation::contains_fact.
 func (r *CheckRelation) Contains(f Fact) (_ bool, resultErr error) {
 	p := r.plugin
