@@ -136,10 +136,12 @@ func (u *Unwinding) expandInductionEdge(node *Node, edge *Edge, native solver.So
 	if err = checker.BindModelEvaluator(evaluator); err != nil {
 		return err
 	}
-	if err = checker.Push(); err != nil {
+	// slvr.push() and slvr.pop(1) act on the solver alone: the checker's
+	// duals and constraints stay in its base scope until delete checker.
+	if err = native.Push(); err != nil {
 		return err
 	}
-	defer func() { result = errors.Join(result, checker.Pop(1)) }()
+	defer func() { result = errors.Join(result, native.Pop(1)) }()
 	root, err := u.CheckerJustForEdge(edge, checker, true, simplifier)
 	if err != nil || root == nil {
 		return err

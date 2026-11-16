@@ -6,24 +6,6 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func (e *Edge) closeConstraints() error {
-	m := e.Owner.context.manager
-	for len(e.constraints) > 0 {
-		n := len(e.constraints) - 1
-		err := m.DelRef(&e.constraints[n])
-		if e.constraints[n] == (ast.ASTRef{}) {
-			e.constraints = e.constraints[:n]
-		}
-		if err != nil {
-			return err
-		}
-	}
-	if e.dual != (ast.ASTRef{}) {
-		return m.DelRef(&e.dual)
-	}
-	return nil
-}
-
 // ToTermTree copies currently asserted dual formulas and additional constraints.
 // Unasserted edges, open leaves and the skipped subtree contribute true.
 func (g *RPFP) ToTermTree(root, skip *Node) (out *TermTree, result error) {

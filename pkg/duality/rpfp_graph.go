@@ -35,6 +35,7 @@ type RPFP struct {
 	nodes                 []*Node
 	edges                 []*Edge
 	nodeCount, edgeCount  int
+	resolveIteMemo        *iz3Table
 	closed                bool
 }
 
@@ -193,20 +194,23 @@ func (g *RPFP) CloneNode(old *Node) (_ *Node, result error) {
 	g.nodes = append(g.nodes, node)
 	return node, nil
 }
+
+// close is ~Node: members die in reverse declaration order (dual, then
+// Underapprox, Bound, Annotation, then Name).
 func (n *Node) close() error {
 	if n.closed {
 		return nil
 	}
-	for _, t := range []*Transformer{n.Annotation, n.Bound, n.Underapprox} {
+	if n.dual != (ast.ASTRef{}) {
+		if err := n.Owner.context.manager.DelRef(&n.dual); err != nil {
+			return err
+		}
+	}
+	for _, t := range []*Transformer{n.Underapprox, n.Bound, n.Annotation} {
 		if t != nil {
 			if err := t.Close(); err != nil {
 				return err
 			}
-		}
-	}
-	if n.dual != (ast.ASTRef{}) {
-		if err := n.Owner.context.manager.DelRef(&n.dual); err != nil {
-			return err
 		}
 	}
 	if n.Name != (ast.ASTRef{}) {
@@ -282,18 +286,7 @@ func (g *RPFP) DeleteEdge(edge *Edge) error {
 	if edge == nil || edge.Owner != g || edge.closed {
 		return ErrWrapperOwner
 	}
-	if edge.labeled != (ast.ASTRef{}) {
-		if err := g.context.manager.DelRef(&edge.labeled); err != nil {
-			return err
-		}
-	}
-	if err := edge.closeConstraints(); err != nil {
-		return err
-	}
-	if err := edge.clearMaps(); err != nil {
-		return err
-	}
-	if err := edge.F.Close(); err != nil {
+	if err := edge.close(); err != nil {
 		return err
 	}
 	if edge.Parent != nil {
@@ -313,21 +306,74 @@ func (g *RPFP) DeleteEdge(edge *Edge) error {
 			break
 		}
 	}
-	edge.closed = true
 	delete(g.clauseIndices, edge)
 	return nil
 }
+
+// close is ~Edge: members die in reverse declaration order (constraints,
+// labeled, varMap, relMap, dual, then F).
+func (edge *Edge) close() error {
+	if edge.closed {
+		return nil
+	}
+	m := edge.Owner.context.manager
+	for i := range edge.constraints {
+		if edge.constraints[i] != (ast.ASTRef{}) {
+			if err := m.DelRef(&edge.constraints[i]); err != nil {
+				return err
+			}
+		}
+	}
+	edge.constraints = nil
+	if edge.labeled != (ast.ASTRef{}) {
+		if err := m.DelRef(&edge.labeled); err != nil {
+			return err
+		}
+	}
+	if err := edge.clearMaps(); err != nil {
+		return err
+	}
+	if edge.dual != (ast.ASTRef{}) {
+		if err := m.DelRef(&edge.dual); err != nil {
+			return err
+		}
+	}
+	if err := edge.F.Close(); err != nil {
+		return err
+	}
+	edge.closed = true
+	return nil
+}
+
+// Close is ~RPFP: ClearProofCore, then every node and every edge deleted in
+// vector order, then the remaining members.
 func (g *RPFP) Close() error {
 	if g == nil || g.closed {
 		return nil
 	}
-	for len(g.edges) > 0 {
-		if err := g.DeleteEdge(g.edges[len(g.edges)-1]); err != nil {
-			return err
-		}
+	if err := g.ClearProofCore(); err != nil {
+		return err
 	}
 	for len(g.nodes) > 0 {
-		if err := g.DeleteNode(g.nodes[len(g.nodes)-1]); err != nil {
+		node := g.nodes[0]
+		if err := node.close(); err != nil {
+			return err
+		}
+		node.Outgoing, node.Incoming = nil, nil
+		g.nodes[0] = nil
+		g.nodes = g.nodes[1:]
+	}
+	for len(g.edges) > 0 {
+		edge := g.edges[0]
+		if err := edge.close(); err != nil {
+			return err
+		}
+		delete(g.clauseIndices, edge)
+		g.edges[0] = nil
+		g.edges = g.edges[1:]
+	}
+	if g.resolveIteMemo != nil {
+		if err := g.resolveIteMemo.clear(g.context.manager); err != nil {
 			return err
 		}
 	}
@@ -362,9 +408,6 @@ func (g *RPFP) Close() error {
 			return err
 		}
 		g.pendingEvaluators = g.pendingEvaluators[1:]
-	}
-	if err := g.ClearProofCore(); err != nil {
-		return err
 	}
 	if err := g.replaceDualModel(nil, false); err != nil {
 		return err

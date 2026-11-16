@@ -472,7 +472,11 @@ func (s *SMTSolver) Proof() (ast.ASTHandle, error) {
 	if s.result == nil {
 		return ast.ASTHandle{}, nil
 	}
-	return s.result.Proof()
+	// smt_solver::get_proof is m_context.get_proof(): the context's
+	// m_unsat_proof, which the solver does not hold a reference of its own
+	// to. A base-scope pop drops it before asserted_formulas pops, so the
+	// asserted proofs die in m_formulas order.
+	return s.kernel.Proof()
 }
 
 func (s *SMTSolver) ReasonUnknown() (string, error) {
@@ -844,13 +848,6 @@ func (s *SMTSolver) checkSatCore(assumptions []ast.ASTHandle, setup bool) (lbool
 			return lbool.Undef, coreErr
 		}
 		if err = result.SetUnsatCore(core); err != nil {
-			return lbool.Undef, err
-		}
-		proof, proofErr := s.kernel.Proof()
-		if proofErr != nil {
-			return lbool.Undef, proofErr
-		}
-		if err = result.SetProof(proof); err != nil {
 			return lbool.Undef, err
 		}
 	}

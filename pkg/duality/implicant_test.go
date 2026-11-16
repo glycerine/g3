@@ -194,6 +194,9 @@ func TestRPFPImplicantAllocationFailureCleanup(t *testing.T) {
 	profile := NewProfiler(nil)
 	ctx.activeProfiler = profile
 	defer func() { ctx.activeProfiler = nil }()
+	// resolve_ite_memo is a graph member that outlives each call; measure
+	// with it cleared.
+	must(g.clearResolveIteMemo())
 	baseline := m.Stats().LiveReferences
 	complete := false
 	for allowance := int64(0); allowance < 128; allowance++ {
@@ -214,6 +217,7 @@ func TestRPFPImplicantAllocationFailureCleanup(t *testing.T) {
 		if profile.current != profile.top {
 			t.Fatal("implicant left a profile scope active", allowance)
 		}
+		must(g.clearResolveIteMemo())
 		if got := m.Stats().LiveReferences; got != baseline {
 			t.Fatal("implicant leaked temporary references", allowance, got, baseline)
 		}

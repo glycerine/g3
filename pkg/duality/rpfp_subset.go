@@ -3,6 +3,7 @@ package duality
 // Source: duality.h:442-451 (Transformer::SubsetEq).
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
@@ -41,7 +42,13 @@ func (t *Transformer) SubsetEq(other *Transformer, aux solver.Solver) (_ bool, r
 	if err != nil {
 		return false, err
 	}
-	defer func() { result = errors.Join(result, m.DelRef(&negative)) }()
+	// The temporary !t of expr test = Formula && !t dies at the end of that
+	// statement, before the solver sees test.
+	defer func() {
+		if negative != (ast.ASTRef{}) {
+			result = errors.Join(result, m.DelRef(&negative))
+		}
+	}()
 	left, err := m.RefGet(t.formula)
 	if err != nil {
 		return false, err
@@ -55,6 +62,9 @@ func (t *Transformer) SubsetEq(other *Transformer, aux solver.Solver) (_ bool, r
 		return false, err
 	}
 	defer func() { result = errors.Join(result, m.DelRef(&owned)) }()
+	if err = m.DelRef(&negative); err != nil {
+		return false, err
+	}
 	if err = aux.Push(); err != nil {
 		return false, err
 	}

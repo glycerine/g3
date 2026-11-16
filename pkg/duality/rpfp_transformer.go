@@ -182,26 +182,23 @@ func (t *Transformer) Close() error {
 			return err
 		}
 	}
-	for len(t.individualParams) > 0 {
-		i := len(t.individualParams) - 1
-		err := m.DelRef(&t.individualParams[i])
-		if t.individualParams[i] == (ast.ASTRef{}) {
-			t.individualParams = t.individualParams[:i]
-		}
-		if err != nil {
-			return err
+	// std::vector destroys its elements first to last.
+	for i := range t.individualParams {
+		if t.individualParams[i] != (ast.ASTRef{}) {
+			if err := m.DelRef(&t.individualParams[i]); err != nil {
+				return err
+			}
 		}
 	}
-	for len(t.relationParams) > 0 {
-		i := len(t.relationParams) - 1
-		err := m.DelRef(&t.relationParams[i])
-		if t.relationParams[i] == (ast.ASTRef{}) {
-			t.relationParams = t.relationParams[:i]
-		}
-		if err != nil {
-			return err
+	t.individualParams = nil
+	for i := range t.relationParams {
+		if t.relationParams[i] != (ast.ASTRef{}) {
+			if err := m.DelRef(&t.relationParams[i]); err != nil {
+				return err
+			}
 		}
 	}
+	t.relationParams = nil
 	t.closed = true
 	return nil
 }

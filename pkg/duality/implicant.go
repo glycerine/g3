@@ -9,16 +9,19 @@ import (
 var ErrUnresolvedITE = errors.New("unresolved ite in model")
 var ErrUnresolvedIff = errors.New("disaster in SubtermTruth processing equivalence")
 
-// implicantState owns generated expressions until its returned conjunction has
-// acquired an independent reference. Input handles borrow the live root.
+// implicantState holds the locals of UnderapproxFormula and Implicant. The
+// done sets (Implicant's hash_set<ast> done[2]) own their members and die
+// before the conjunction is built; lits owns the negated literals until the
+// conjunction exists; the memo owns the temporaries SubtermTruth recorded.
+// ResolveIte results live in the graph's resolve_ite_memo.
 type implicantState struct {
-	graph    *RPFP
-	truth    map[ast.ASTHandle]int
-	done     [2]map[ast.ASTHandle]bool
-	resolved map[ast.ASTHandle]ast.ASTHandle
-	ignore   map[ast.ASTHandle]bool
-	pins     []*Expr
-	literals []ast.ASTHandle
+	graph     *RPFP
+	truth     map[ast.ASTHandle]int
+	done      [2]*iz3Table
+	ignore    map[ast.ASTHandle]bool
+	pins      []*Expr
+	memoTemps []*Expr
+	literals  []ast.ASTHandle
 }
 
 func (s *implicantState) keep(h ast.ASTHandle, err error) (ast.ASTHandle, error) {
@@ -33,10 +36,49 @@ func (s *implicantState) keep(h ast.ASTHandle, err error) (ast.ASTHandle, error)
 	return h, nil
 }
 func (s *implicantState) close() (result error) {
+	result = s.closeDone()
 	for _, pin := range s.pins {
 		result = errors.Join(result, pin.Close())
 	}
+	s.pins = nil
+	for _, pin := range s.memoTemps {
+		result = errors.Join(result, pin.Close())
+	}
+	s.memoTemps = nil
 	return
+}
+
+// closeDone is ~hash_set<ast> done[2] at Implicant's return: done[1] first.
+func (s *implicantState) closeDone() (result error) {
+	m := s.graph.context.manager
+	for i := 1; i >= 0; i-- {
+		if s.done[i] != nil {
+			result = errors.Join(result, s.done[i].clear(m))
+		}
+	}
+	return
+}
+
+func (s *implicantState) isDone(polarity int, h ast.ASTHandle) (bool, error) {
+	id, err := s.graph.context.manager.GetASTID(h)
+	if err != nil {
+		return false, err
+	}
+	return s.done[polarity].find(uint64(id)) != nil, nil
+}
+
+func (s *implicantState) markDone(polarity int, h ast.ASTHandle) error {
+	m := s.graph.context.manager
+	id, err := m.GetASTID(h)
+	if err != nil {
+		return err
+	}
+	e, inserted := s.done[polarity].lookup(uint64(id))
+	if !inserted {
+		return nil
+	}
+	e.key, err = m.NewRef(h)
+	return err
 }
 
 // UnderapproxFormula follows ImplicantRed, including the source equivalence
@@ -52,9 +94,13 @@ func (g *RPFP) UnderapproxFormula(formula *Expr, dontCares []*Expr) (out *Expr, 
 	if formula.value.object.context != g.context {
 		return nil, ErrContextMismatch
 	}
-	state := &implicantState{graph: g, truth: make(map[ast.ASTHandle]int), resolved: make(map[ast.ASTHandle]ast.ASTHandle), ignore: make(map[ast.ASTHandle]bool)}
-	state.done[0] = make(map[ast.ASTHandle]bool)
-	state.done[1] = make(map[ast.ASTHandle]bool)
+	// Both source callers clear resolve_ite_memo just before this call.
+	if err := g.clearResolveIteMemo(); err != nil {
+		return nil, err
+	}
+	state := &implicantState{graph: g, truth: make(map[ast.ASTHandle]int), ignore: make(map[ast.ASTHandle]bool)}
+	state.done[0] = newIZ3Table()
+	state.done[1] = newIZ3Table()
 	defer func() {
 		result = errors.Join(result, state.close())
 		if result != nil && out != nil {
@@ -82,6 +128,9 @@ func (g *RPFP) UnderapproxFormula(formula *Expr, dontCares []*Expr) (out *Expr, 
 	if err = state.reduce(h, true); err != nil {
 		return nil, err
 	}
+	if err = state.closeDone(); err != nil {
+		return nil, err
+	}
 	m := g.context.manager
 	var combined ast.ASTHandle
 	// Z3User::conjoin is ctx.make(And,args): (and) and (and x) included.
@@ -96,12 +145,12 @@ func (s *implicantState) reduce(h ast.ASTHandle, positive bool) (result error) {
 	if positive {
 		polarity = 1
 	}
-	if s.done[polarity][h] {
-		return nil
+	if done, err := s.isDone(polarity, h); err != nil || done {
+		return err
 	}
 	defer func() {
 		if result == nil {
-			s.done[polarity][h] = true
+			result = s.markDone(polarity, h)
 		}
 	}()
 	m := s.graph.context.manager
@@ -129,15 +178,10 @@ func (s *implicantState) reduce(h ast.ASTHandle, positive bool) (result error) {
 				if err != nil {
 					return err
 				}
-				neg, err := s.keep(m.MkNot(a))
-				if err != nil {
-					return err
-				}
-				rewritten, err := s.keep(m.MkOr(b, neg))
-				if err != nil {
-					return err
-				}
-				return s.reduce(rewritten, positive)
+				// ImplicantRed(memo, f.arg(1) || !f.arg(0), ...): both
+				// temporaries die after the call; the done set (and the
+				// memo, if SubtermTruth saw them) keep them alive.
+				return s.reduceImpliesTemp(a, b, positive)
 			case ast.ASTOpIff:
 				a, err := m.GetArg(h, 0)
 				if err != nil {
@@ -213,9 +257,51 @@ func (s *implicantState) reduce(h ast.ASTHandle, positive bool) (result error) {
 	s.literals = append(s.literals, resolved)
 	return nil
 }
+func (s *implicantState) reduceImpliesTemp(a, b ast.ASTHandle, positive bool) (result error) {
+	m := s.graph.context.manager
+	notA, err := m.MkNot(a)
+	if err != nil {
+		return err
+	}
+	neg, err := NewExpr(s.graph.context, notA)
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, s.releaseTemp(neg)) }()
+	or, err := m.MkOr(b, notA)
+	if err != nil {
+		return err
+	}
+	rewritten, err := NewExpr(s.graph.context, or)
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, s.releaseTemp(rewritten)) }()
+	return s.reduce(or, positive)
+}
+
+// releaseTemp ends a temporary; a SubtermTruth memo entry keeps it until the
+// memo dies with UnderapproxFormula's locals.
+func (s *implicantState) releaseTemp(temp *Expr) error {
+	h, err := temp.Raw()
+	if err != nil {
+		return err
+	}
+	if _, ok := s.truth[h]; ok {
+		s.memoTemps = append(s.memoTemps, temp)
+		return nil
+	}
+	return temp.Close()
+}
+
 func (s *implicantState) resolve(h ast.ASTHandle) (ast.ASTHandle, error) {
-	if found, ok := s.resolved[h]; ok {
-		return found, nil
+	m0 := s.graph.context.manager
+	id, err := m0.GetASTID(h)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if e := s.graph.resolveIteMemo.find(uint64(id)); e != nil {
+		return m0.RefGet(e.value)
 	}
 	m := s.graph.context.manager
 	kind, err := m.GetKind(h)
@@ -279,14 +365,37 @@ func (s *implicantState) resolve(h ast.ASTHandle) (ast.ASTHandle, error) {
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
-			result, err = s.keep(m.MkApp(decl, args))
+			result, err = m.MkApp(decl, args)
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
 		}
 	}
-	s.resolved[h] = result
+	// resolve_ite_memo[t] = res: the memo owns both, past this call.
+	e, inserted := s.graph.resolveIteMemo.lookup(uint64(id))
+	if inserted {
+		if e.key, err = m.NewRef(h); err != nil {
+			return ast.ASTHandle{}, err
+		}
+	}
+	if e.value != (ast.ASTRef{}) {
+		if err = m.DelRef(&e.value); err != nil {
+			return ast.ASTHandle{}, err
+		}
+	}
+	if e.value, err = m.NewRef(result); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	return result, nil
+}
+
+// clearResolveIteMemo is resolve_ite_memo.clear().
+func (g *RPFP) clearResolveIteMemo() error {
+	if g.resolveIteMemo == nil {
+		g.resolveIteMemo = newIZ3Table()
+		return nil
+	}
+	return g.resolveIteMemo.clear(g.context.manager)
 }
 
 // FixCurrentState records model-selected edge decisions in the current graph
