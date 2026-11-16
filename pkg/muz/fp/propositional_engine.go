@@ -3744,9 +3744,11 @@ func (e *PropositionalEngine) Close() (result error) {
 		e.spacerMagic = nil
 		e.spacerKarr = nil
 	}
-	if e.spacerTransformedRules != nil {
-		result = errors.Join(result, e.spacerTransformedRules.Close())
-		e.spacerTransformedRules = nil
+	// ~dl_interface: dealloc(m_context), then m_old_rules; the rules of m_spacer_rules
+	// rules are shared with the context's m_transformed_rule_set.
+	if e.spacerRules != nil {
+		result = errors.Join(result, e.spacerRules.Close())
+		e.spacerRules = nil
 	}
 	// context::reset drops m_engine and m_rel (the relation manager, whose
 	// relations hold formulas over the transformed rules) in ~context's
@@ -3761,19 +3763,20 @@ func (e *PropositionalEngine) Close() (result error) {
 		}
 		e.relations = nil
 	}
+	// ~context members, newest first: m_last_answer, m_mc (the model
+	// conversions), then m_transformed_rule_set (the Datalog, Spacer and
+	// PDR transformed rules).
+	result = errors.Join(result, e.releaseLastAnswer())
+	result = errors.Join(result, closeHornModelConversions(e.spacerConversions))
+	e.spacerConversions = nil
 	if e.datalogTransformedRules != nil {
 		result = errors.Join(result, e.datalogTransformedRules.Close())
 		e.datalogTransformedRules = nil
 	}
-	if e.spacerRules != nil {
-		result = errors.Join(result, e.spacerRules.Close())
-		e.spacerRules = nil
+	if e.spacerTransformedRules != nil {
+		result = errors.Join(result, e.spacerTransformedRules.Close())
+		e.spacerTransformedRules = nil
 	}
-	result = errors.Join(result, closeHornModelConversions(e.spacerConversions))
-	e.spacerConversions = nil
-	// ~context: reset() destroys the engine, then m_last_answer dies with
-	// the members.
-	result = errors.Join(result, e.releaseLastAnswer())
 	// m_last_answer is declared after m_transformed_rule_set, which holds
 	// the PDR transformed rules, so it dies first.
 	if e.pdrRules != nil {
