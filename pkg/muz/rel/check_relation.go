@@ -19,15 +19,57 @@ import (
 	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
-// astScope holds references to the expressions an operation builds
-// (the expr_refs of the C++), released by close.
+// astScope holds the C++ locals of one function or full-expression: the
+// expr_refs, expr_ref_vectors and var_substs it declares, destroyed in
+// reverse declaration order by close, as the C++ destructors run.
 type astScope struct {
-	m    *ast.ASTManager
-	refs []ast.ASTRef
-	err  error
+	m     *ast.ASTManager
+	items []astScopeItem
+	err   error
 }
 
-func (s *astScope) hold(h ast.ASTHandle, err error) ast.ASTHandle {
+type astScopeItem struct {
+	ref    ast.ASTRef
+	vec    *astVec
+	closer io.Closer
+}
+
+// astVec is an expr_ref_vector local.
+type astVec struct {
+	hs []ast.ASTHandle
+}
+
+// child opens the scope of a callee's locals or of a full-expression's
+// temporaries; a failure already recorded in s carries over.
+func (s *astScope) child() *astScope {
+	return &astScope{m: s.m, err: s.err}
+}
+
+// end closes the child scope c (the end of a C++ function body or
+// full-expression) and folds its failure into s.
+func (s *astScope) end(c *astScope) {
+	s.fail(c.close(nil))
+}
+
+func (s *astScope) fail(err error) {
+	if err != nil && s.err == nil {
+		s.err = err
+	}
+}
+
+// local declares an expr_ref local (null).
+func (s *astScope) local() ast.ASTRef {
+	ref, err := s.m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		s.fail(err)
+		return ast.ASTRef{}
+	}
+	s.items = append(s.items, astScopeItem{ref: ref})
+	return ref
+}
+
+// set is the expr_ref assignment r = h.
+func (s *astScope) setRef(r ast.ASTRef, h ast.ASTHandle, err error) ast.ASTHandle {
 	if s.err != nil {
 		return ast.ASTHandle{}
 	}
@@ -35,15 +77,50 @@ func (s *astScope) hold(h ast.ASTHandle, err error) ast.ASTHandle {
 		s.err = err
 		return ast.ASTHandle{}
 	}
-	ref, err := s.m.NewRef(h)
+	if err = s.m.SetRef(r, h); err != nil {
+		s.err = err
+		return ast.ASTHandle{}
+	}
+	return h
+}
+
+// get is the expr* of r.
+func (s *astScope) get(r ast.ASTRef) ast.ASTHandle {
+	if s.err != nil {
+		return ast.ASTHandle{}
+	}
+	h, err := s.m.RefGet(r)
 	if err != nil {
 		s.err = err
 		return ast.ASTHandle{}
 	}
-	s.refs = append(s.refs, ref)
 	return h
 }
 
+// take assigns the formula ref (an out-parameter's value) to r and
+// releases ref: to_formula(r).
+func (s *astScope) takeRef(r ast.ASTRef, ref ast.ASTRef, err error) ast.ASTHandle {
+	if err != nil {
+		s.fail(err)
+		return ast.ASTHandle{}
+	}
+	if s.err != nil {
+		_ = s.m.DelRef(&ref)
+		return ast.ASTHandle{}
+	}
+	h, err := s.m.RefGet(ref)
+	if err == nil {
+		err = s.m.SetRef(r, h)
+	}
+	err = errors.Join(err, s.m.DelRef(&ref))
+	if err != nil {
+		s.fail(err)
+		return ast.ASTHandle{}
+	}
+	return h
+}
+
+// holdRef declares an expr_ref local that owns ref.
 func (s *astScope) holdRef(ref ast.ASTRef, err error) ast.ASTHandle {
 	if s.err != nil {
 		if err == nil {
@@ -55,19 +132,105 @@ func (s *astScope) holdRef(ref ast.ASTRef, err error) ast.ASTHandle {
 		s.err = err
 		return ast.ASTHandle{}
 	}
-	s.refs = append(s.refs, ref)
-	h, err := s.m.RefGet(ref)
+	s.items = append(s.items, astScopeItem{ref: ref})
+	return s.get(ref)
+}
+
+// vector declares an expr_ref_vector local.
+func (s *astScope) vector() *astVec {
+	v := &astVec{}
+	s.items = append(s.items, astScopeItem{vec: v})
+	return v
+}
+
+// push is v.push_back(h).
+func (s *astScope) pushVec(v *astVec, h ast.ASTHandle, err error) ast.ASTHandle {
+	if s.err != nil {
+		return ast.ASTHandle{}
+	}
 	if err != nil {
 		s.err = err
+		return ast.ASTHandle{}
 	}
+	if err = s.m.IncRef(h); err != nil {
+		s.err = err
+		return ast.ASTHandle{}
+	}
+	v.hs = append(v.hs, h)
 	return h
 }
 
-func (s *astScope) close(result error) error {
-	for i := len(s.refs) - 1; i >= 0; i-- {
-		result = errors.Join(result, s.m.DelRef(&s.refs[i]))
+// varSubst declares a var_subst sub(m, false) local.
+func (s *astScope) varSubst() *astrewriter.VarSubstitution {
+	if s.err != nil {
+		return nil
 	}
-	s.refs = nil
+	sub, err := astrewriter.NewVarSubstitution(s.m, false)
+	if err != nil {
+		s.err = err
+		return nil
+	}
+	s.items = append(s.items, astScopeItem{closer: sub})
+	return sub
+}
+
+// subst is sub(fml, vars.size(), vars.c_ptr(), out).
+func (s *astScope) subst(sub *astrewriter.VarSubstitution, fml ast.ASTHandle, vars *astVec, out ast.ASTRef) ast.ASTHandle {
+	if s.err != nil {
+		return ast.ASTHandle{}
+	}
+	if err := sub.Substitute(fml, vars.hs, out); err != nil {
+		s.err = err
+		return ast.ASTHandle{}
+	}
+	return s.get(out)
+}
+
+// astSlot is an expr_ref of a scope, the target of an assignment.
+type astSlot struct {
+	s *astScope
+	r ast.ASTRef
+}
+
+func (s *astScope) at(r ast.ASTRef) astSlot { return astSlot{s, r} }
+
+// set is the expr_ref assignment r = h.
+func (x astSlot) set(h ast.ASTHandle, err error) ast.ASTHandle { return x.s.setRef(x.r, h, err) }
+
+// take is to_formula(r): the formula ref is assigned to r and released.
+func (x astSlot) take(ref ast.ASTRef, err error) ast.ASTHandle { return x.s.takeRef(x.r, ref, err) }
+
+// astPushTarget is an expr_ref_vector of a scope.
+type astPushTarget struct {
+	s *astScope
+	v *astVec
+}
+
+func (s *astScope) to(v *astVec) astPushTarget { return astPushTarget{s, v} }
+
+// push is v.push_back(h).
+func (x astPushTarget) push(h ast.ASTHandle, err error) ast.ASTHandle {
+	return x.s.pushVec(x.v, h, err)
+}
+
+func (s *astScope) close(result error) error {
+	for i := len(s.items) - 1; i >= 0; i-- {
+		it := &s.items[i]
+		switch {
+		case it.vec != nil:
+			n, err := s.m.DecRefEach(it.vec.hs)
+			if err != nil {
+				n++
+			}
+			it.vec.hs = it.vec.hs[n:]
+			result = errors.Join(result, err)
+		case it.closer != nil:
+			result = errors.Join(result, it.closer.Close())
+		default:
+			result = errors.Join(result, s.m.DelRef(&it.ref))
+		}
+	}
+	s.items = nil
 	return errors.Join(result, s.err)
 }
 
@@ -166,18 +329,29 @@ func (r *CheckRelation) Close() error {
 	return errors.Join(r.relation.Close(), r.plugin.m.DelRef(&r.fml))
 }
 
-// mkEq is check_relation::mk_eq(f).
-func (r *CheckRelation) mkEq(s *astScope, values []ast.ASTHandle) ast.ASTHandle {
+// mkEq is check_relation::mk_eq(f): its expr_ref result is built into out
+// before the local conjs vector dies.
+func (r *CheckRelation) mkEq(s *astScope, values []ast.ASTHandle, out ast.ASTRef) ast.ASTHandle {
 	m := r.plugin.m
-	conjs := make([]ast.ASTHandle, 0, len(r.sorts))
+	c := s.child()
+	conjs := c.vector()
 	for i, sort := range r.sorts {
-		v := s.hold(m.MkVar(uint32(i), sort))
-		conjs = append(conjs, s.hold(m.MkEq(v, values[i])))
+		if c.err != nil {
+			break
+		}
+		v, err := m.MkVar(uint32(i), sort)
+		if err != nil {
+			c.fail(err)
+			break
+		}
+		c.to(conjs).push(m.MkEq(v, values[i]))
 	}
-	if s.err != nil {
-		return ast.ASTHandle{}
+	var h ast.ASTHandle
+	if c.err == nil {
+		h = c.at(out).set(udocMakeAnd(m, conjs.hs))
 	}
-	return s.hold(udocMakeAnd(m, conjs))
+	s.end(c)
+	return h
 }
 
 // factValues decodes the table elements of f to relation elements.
@@ -199,32 +373,30 @@ func (r *CheckRelation) Add(f Fact) (_ bool, result error) {
 	if s.err != nil {
 		return false, nil
 	}
+	fml1 := s.local()
 	inserted, err := r.relation.Add(f)
 	if err != nil {
 		return false, err
 	}
-	fml1 := s.holdRef(r.relation.ToFormula())
-	old, err := r.fmlHandle()
-	if err != nil {
-		return false, err
+	s.at(fml1).take(r.relation.ToFormula())
+	// m_fml = m.mk_or(m_fml, mk_eq(f)): the mk_eq temporary dies after
+	// the assignment.
+	t := s.child()
+	eq := r.mkEq(t, values, t.local())
+	if t.err == nil {
+		t.at(r.fml).set(m.MkOr(t.get(r.fml), eq))
 	}
-	eq := r.mkEq(s, values)
-	or := s.hold(m.MkOr(old, eq))
-	if s.err != nil {
-		return false, nil
+	s.end(t)
+	// check_equiv("add_fact", ground(m_fml), ground(fml1)).
+	t = s.child()
+	g1 := p.ground(t, r, t.get(r.fml), t.local())
+	g2 := p.ground(t, r, t.get(fml1), t.local())
+	if t.err == nil {
+		t.fail(p.checkEquiv("add_fact", g1, g2))
 	}
-	if err = r.setFml(or); err != nil {
-		return false, err
-	}
-	g1 := p.ground(s, r, or)
-	g2 := p.ground(s, r, fml1)
-	if s.err != nil {
-		return false, nil
-	}
-	if err = p.checkEquiv("add_fact", g1, g2); err != nil {
-		return false, err
-	}
-	return inserted, r.setFml(fml1)
+	s.end(t)
+	s.at(r.fml).set(s.get(fml1), nil)
+	return inserted, nil
 }
 
 // Empty is check_relation::empty.
@@ -236,7 +408,9 @@ func (r *CheckRelation) Empty() (bool, error) {
 	return result, r.checkEmpty(result, "empty")
 }
 
-func (r *CheckRelation) checkEmpty(result bool, objective string) (resultErr error) {
+// checkEmpty is "if (result && !m.is_false(m_fml))
+// check_equiv(objective, m.mk_false(), ground(m_fml))".
+func (r *CheckRelation) checkEmpty(result bool, objective string) error {
 	m := r.plugin.m
 	fml, err := r.fmlHandle()
 	if err != nil {
@@ -245,14 +419,16 @@ func (r *CheckRelation) checkEmpty(result bool, objective string) (resultErr err
 	if !result || m.IsFalse(fml) {
 		return nil
 	}
-	s := &astScope{m: m}
-	defer func() { resultErr = s.close(resultErr) }()
-	f := s.hold(m.MkFalse())
-	g := r.plugin.ground(s, r, fml)
-	if s.err != nil {
-		return nil
+	f, err := m.MkFalse()
+	if err != nil {
+		return err
 	}
-	return r.plugin.checkEquiv(objective, f, g)
+	s := &astScope{m: m}
+	g := r.plugin.ground(s, r, fml, s.local())
+	if s.err == nil {
+		s.fail(r.plugin.checkEquiv(objective, f, g))
+	}
+	return s.close(nil)
 }
 
 // FastEmpty is check_relation::fast_empty. Its check_equiv cannot fail
@@ -281,38 +457,45 @@ func (r *CheckRelation) Reset() error {
 func (r *CheckRelation) Contains(f Fact) (_ bool, resultErr error) {
 	p := r.plugin
 	m := p.m
-	s := &astScope{m: m}
-	defer func() { resultErr = s.close(resultErr) }()
 	result, err := r.relation.Contains(f)
 	if err != nil {
 		return false, err
 	}
+	s := &astScope{m: m}
+	defer func() { resultErr = s.close(resultErr) }()
 	values := r.factValues(s, f)
+	fml1, fml2 := s.local(), s.local()
+	t := s.child()
+	t.at(fml1).set(r.mkEq(t, values, t.local()), nil)
+	s.end(t)
 	if s.err != nil {
 		return false, nil
 	}
-	fml, err := r.fmlHandle()
-	if err != nil {
-		return false, err
-	}
-	fml1 := r.mkEq(s, values)
-	fml2 := s.hold(m.MkAnd(fml, fml1))
+	s.at(fml2).set(m.MkAnd(s.get(r.fml), s.get(fml1)))
 	if s.err != nil {
 		return false, nil
 	}
 	if result {
-		g1, g2 := p.ground(s, r, fml1), p.ground(s, r, fml2)
-		if s.err == nil {
-			err = p.checkEquiv("contains fact", g1, g2)
+		t = s.child()
+		g1 := p.ground(t, r, t.get(fml1), t.local())
+		g2 := p.ground(t, r, t.get(fml2), t.local())
+		if t.err == nil {
+			t.fail(p.checkEquiv("contains fact", g1, g2))
 		}
-	} else if !m.IsFalse(fml) {
-		g2 := p.ground(s, r, fml2)
-		f := s.hold(m.MkFalse())
-		if s.err == nil {
-			err = p.checkEquiv("contains fact", g2, f)
+		s.end(t)
+	} else if !m.IsFalse(s.get(r.fml)) {
+		t = s.child()
+		g2 := p.ground(t, r, t.get(fml2), t.local())
+		if t.err == nil {
+			f, err := m.MkFalse()
+			if err == nil {
+				err = p.checkEquiv("contains fact", g2, f)
+			}
+			t.fail(err)
 		}
+		s.end(t)
 	}
-	return result, err
+	return result, nil
 }
 
 // CloneRelation is check_relation::clone.
@@ -322,18 +505,20 @@ func (r *CheckRelation) CloneRelation() (RelationBase, error) {
 
 func (r *CheckRelation) clone() (_ *CheckRelation, resultErr error) {
 	p := r.plugin
-	inner, err := r.relation.CloneRelation()
+	// mk_empty(get_signature()), then its relation is replaced by a clone.
+	empty, err := p.MkEmpty(r.sorts)
 	if err != nil {
 		return nil, err
 	}
-	// mk_empty(get_signature()) followed by replacing its relation.
-	empty, err := p.MkEmpty(r.sorts)
-	if err != nil {
-		return nil, errors.Join(err, inner.Close())
-	}
 	result, _ := checkGet(empty)
 	if err = result.relation.Close(); err != nil {
-		return nil, errors.Join(err, inner.Close())
+		result.closed = true
+		return nil, errors.Join(err, p.m.DelRef(&result.fml))
+	}
+	inner, err := r.relation.CloneRelation()
+	if err != nil {
+		result.closed = true
+		return nil, errors.Join(err, p.m.DelRef(&result.fml))
 	}
 	result.relation = inner
 	if err = result.refreshFml(); err != nil {
@@ -341,19 +526,20 @@ func (r *CheckRelation) clone() (_ *CheckRelation, resultErr error) {
 	}
 	a, err := r.fmlHandle()
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, result.Close())
 	}
 	b, err := result.fmlHandle()
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, result.Close())
 	}
 	if a != b {
 		s := &astScope{m: p.m}
-		g1, g2 := p.ground(s, r, a), p.ground(s, r, b)
+		g1 := p.ground(s, r, a, s.local())
+		g2 := p.ground(s, r, b, s.local())
 		if s.err == nil {
-			err = p.checkEquiv("clone", g1, g2)
+			s.fail(p.checkEquiv("clone", g1, g2))
 		}
-		if err = s.close(err); err != nil {
+		if err = s.close(nil); err != nil {
 			return nil, errors.Join(err, result.Close())
 		}
 	}
@@ -424,94 +610,70 @@ func (p *CheckRelationPlugin) MkFull(predicate ast.ASTHandle, sorts []ast.ASTHan
 // check_equiv(objective, result->ground(result->m_fml), constant)".
 func (p *CheckRelationPlugin) checkConstant(r *CheckRelation, value bool, objective string) (resultErr error) {
 	m := p.m
-	s := &astScope{m: m}
 	defer func() {
-		resultErr = s.close(resultErr)
 		if resultErr != nil {
 			resultErr = errors.Join(resultErr, r.Close())
 		}
 	}()
 	var c ast.ASTHandle
+	var err error
 	if value {
-		c = s.hold(m.MkTrue())
+		c, err = m.MkTrue()
 	} else {
-		c = s.hold(m.MkFalse())
+		c, err = m.MkFalse()
+	}
+	if err != nil {
+		return err
 	}
 	fml, err := r.fmlHandle()
-	if err != nil || s.err != nil {
+	if err != nil {
 		return err
 	}
 	if fml == c {
 		return nil
 	}
-	g := p.ground(s, r, fml)
-	if s.err != nil {
-		return nil
+	s := &astScope{m: m}
+	g := p.ground(s, r, fml, s.local())
+	if s.err == nil {
+		s.fail(p.checkEquiv(objective, g, c))
 	}
-	return p.checkEquiv(objective, g, c)
+	return s.close(nil)
 }
 
-// varSubst is var_subst sub(m, false) applied to fml.
-func (p *CheckRelationPlugin) varSubst(s *astScope, fml ast.ASTHandle, vars []ast.ASTHandle) ast.ASTHandle {
-	if s.err != nil {
-		return ast.ASTHandle{}
-	}
-	sub, err := astrewriter.NewVarSubstitution(p.m, false)
-	if err != nil {
-		s.err = err
-		return ast.ASTHandle{}
-	}
-	out, err := p.m.NewRef(ast.ASTHandle{})
-	if err == nil {
-		err = sub.Substitute(fml, vars, out)
-	}
-	err = errors.Join(err, sub.Close())
-	return s.holdRef(out, err)
-}
-
-// groundConstants is the vector of m.mk_const(symbol(i), sig[i]).
-func (p *CheckRelationPlugin) groundConstants(s *astScope, sorts []ast.ASTHandle) []ast.ASTHandle {
-	vars := make([]ast.ASTHandle, len(sorts))
-	for i, sort := range sorts {
-		vars[i] = s.hold(p.m.MkConst(symbol.Numerical(uint32(i)), sort))
-	}
-	return vars
-}
-
-// namedConstants is the vector of m.mk_const(symbol("x<i>"), sig[i]).
-func (p *CheckRelationPlugin) namedConstants(s *astScope, sorts []ast.ASTHandle) []ast.ASTHandle {
-	vars := make([]ast.ASTHandle, len(sorts))
-	for i, sort := range sorts {
-		name, err := p.m.Symbols.Intern("x" + utoa(uint64(i)))
-		if err != nil {
-			s.err = err
-			return vars
+// ground is check_relation_plugin::ground(dst, fml): its result is
+// built into out before the locals vars and sub die.
+func (p *CheckRelationPlugin) ground(s *astScope, dst RelationBase, fml ast.ASTHandle, out ast.ASTRef) ast.ASTHandle {
+	g := s.child()
+	sub := g.varSubst()
+	vars := g.vector()
+	for i, sort := range dst.RelationSignature() {
+		if g.err != nil {
+			break
 		}
-		vars[i] = s.hold(p.m.MkConst(name, sort))
+		g.to(vars).push(p.m.MkConst(symbol.Numerical(uint32(i)), sort))
 	}
-	return vars
-}
-
-// ground is check_relation_plugin::ground(dst, fml).
-func (p *CheckRelationPlugin) ground(s *astScope, dst RelationBase, fml ast.ASTHandle) ast.ASTHandle {
-	vars := p.groundConstants(s, dst.RelationSignature())
-	return p.varSubst(s, fml, vars)
+	h := g.subst(sub, fml, vars, out)
+	s.end(g)
+	return h
 }
 
 // groundRelation is check_relation_plugin::ground(dst).
-func (p *CheckRelationPlugin) groundRelation(s *astScope, dst RelationBase) ast.ASTHandle {
-	fml := s.holdRef(dst.ToFormula())
-	if s.err != nil {
-		return ast.ASTHandle{}
+func (p *CheckRelationPlugin) groundRelation(s *astScope, dst RelationBase, out ast.ASTRef) ast.ASTHandle {
+	g := s.child()
+	fml := g.local()
+	f := g.at(fml).take(dst.ToFormula())
+	h := ast.ASTHandle{}
+	if g.err == nil {
+		h = p.ground(g, dst, f, out)
 	}
-	return p.ground(s, dst, fml)
+	s.end(g)
+	return h
 }
 
-// checkEquiv is check_relation_plugin::check_equiv.
-func (p *CheckRelationPlugin) checkEquiv(objective string, fml1, fml2 ast.ASTHandle) (resultErr error) {
+// checkEquiv is check_relation_plugin::check_equiv: the local tmp dies
+// before the smt::kernel.
+func (p *CheckRelationPlugin) checkEquiv(objective string, fml1, fml2 ast.ASTHandle) error {
 	m := p.m
-	s := &astScope{m: m}
-	defer func() { resultErr = s.close(resultErr) }()
 	if err := m.EmitTrace("doc", "check_equiv", "../src/muz/rel/check_relation.cpp", 420, func(out io.Writer) error {
 		t1, err := relMkPP(m, fml1)
 		if err != nil {
@@ -530,13 +692,25 @@ func (p *CheckRelationPlugin) checkEquiv(objective string, fml1, fml2 ast.ASTHan
 	if err != nil {
 		return err
 	}
-	defer func() { resultErr = errors.Join(resultErr, kernel.Close()) }()
-	eq := s.hold(m.MkEq(fml1, fml2))
-	tmp := s.hold(m.MkNot(eq))
-	if s.err != nil {
-		return nil
+	s := &astScope{m: m}
+	tmp := s.local()
+	if s.err == nil {
+		eq, err := m.MkEq(fml1, fml2)
+		if err != nil {
+			s.fail(err)
+		} else {
+			s.at(tmp).set(m.MkNot(eq))
+		}
 	}
-	if err = kernel.Assert(tmp, ast.ASTHandle{}); err != nil {
+	if s.err == nil {
+		s.fail(p.checkEquivSolve(kernel, objective, s.get(tmp), fml1, fml2))
+	}
+	return errors.Join(s.close(nil), kernel.Close())
+}
+
+func (p *CheckRelationPlugin) checkEquivSolve(kernel *smtcore.DefaultParamsKernel, objective string, tmp, fml1, fml2 ast.ASTHandle) error {
+	m := p.m
+	if err := kernel.Assert(tmp, ast.ASTHandle{}); err != nil {
 		return err
 	}
 	res, err := kernel.Check()
@@ -567,151 +741,201 @@ func (p *CheckRelationPlugin) checkEquiv(objective string, fml1, fml2 ast.ASTHan
 }
 
 // checkContains is check_relation_plugin::check_contains.
-func (p *CheckRelationPlugin) checkContains(objective string, fml1, fml2 ast.ASTHandle) (resultErr error) {
+func (p *CheckRelationPlugin) checkContains(objective string, fml1, fml2 ast.ASTHandle) error {
 	s := &astScope{m: p.m}
-	defer func() { resultErr = s.close(resultErr) }()
-	fml0 := s.hold(p.m.MkAnd(fml1, fml2))
-	if s.err != nil {
-		return nil
+	fml0 := s.local()
+	s.at(fml0).set(p.m.MkAnd(fml1, fml2))
+	if s.err == nil {
+		s.fail(p.checkEquiv(objective, s.get(fml0), fml2))
 	}
-	return p.checkEquiv(objective, fml0, fml2)
+	return s.close(nil)
 }
 
-// mkProject is check_relation_plugin::mk_project.
-func (p *CheckRelationPlugin) mkProject(s *astScope, sorts []ast.ASTHandle, fml ast.ASTHandle, removed []int) ast.ASTHandle {
+// mkProject is check_relation_plugin::mk_project; out is its named
+// result fml1.
+func (p *CheckRelationPlugin) mkProject(s *astScope, sorts []ast.ASTHandle, fml ast.ASTHandle, removed []int, out ast.ASTRef) ast.ASTHandle {
 	m := p.m
+	g := s.child()
 	var bound []ast.ASTHandle
 	var names []symbol.Symbol
-	vars := make([]ast.ASTHandle, 0, len(sorts))
+	vars := g.vector()
 	rmCnt := len(removed)
-	for i, j, k := 0, 0, 0; i < len(sorts); i++ {
+	for i, j, k := 0, 0, 0; i < len(sorts) && g.err == nil; i++ {
 		if j < rmCnt && removed[j] == i {
 			name, err := m.Symbols.Intern("x" + utoa(uint64(j)))
 			if err != nil {
-				s.err = err
-				return ast.ASTHandle{}
+				g.fail(err)
+				break
 			}
 			bound = append(bound, sorts[i])
 			names = append(names, name)
-			vars = append(vars, s.hold(m.MkVar(uint32(j), sorts[i])))
+			g.to(vars).push(m.MkVar(uint32(j), sorts[i]))
 			j++
 		} else {
-			vars = append(vars, s.hold(m.MkVar(uint32(k+rmCnt), sorts[i])))
+			g.to(vars).push(m.MkVar(uint32(k+rmCnt), sorts[i]))
 			k++
 		}
 	}
-	fml1 := p.varSubst(s, fml, vars)
-	if s.err != nil {
-		return ast.ASTHandle{}
-	}
+	sub := g.varSubst()
+	h := g.subst(sub, fml, vars, out)
 	for i, j := 0, len(bound)-1; i < j; i, j = i+1, j-1 {
 		bound[i], bound[j] = bound[j], bound[i]
 	}
-	if len(bound) == 0 {
-		// mk_quantifier with no bound variables returns the body.
-		return fml1
+	if len(bound) != 0 && g.err == nil {
+		h = g.at(out).set(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: bound, Names: names, Body: h}))
 	}
-	return s.hold(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: bound, Names: names, Body: fml1}))
+	// mk_quantifier with no bound variables returns the body.
+	s.end(g)
+	return h
 }
 
-// mkJoin is check_relation_plugin::mk_join.
-func (p *CheckRelationPlugin) mkJoin(s *astScope, t1, t2 RelationBase, cols1, cols2 []int) ast.ASTHandle {
+// mkJoin is check_relation_plugin::mk_join; out is its named result fml1.
+func (p *CheckRelationPlugin) mkJoin(s *astScope, t1, t2 RelationBase, cols1, cols2 []int, out ast.ASTRef) ast.ASTHandle {
 	m := p.m
+	g := s.child()
 	sig1, sig2 := t1.RelationSignature(), t2.RelationSignature()
-	fml1 := s.holdRef(t1.ToFormula())
-	fml2 := s.holdRef(t2.ToFormula())
-	vars := make([]ast.ASTHandle, len(sig2))
+	fml2 := g.local()
+	var1, var2 := g.local(), g.local()
+	g.at(out).take(t1.ToFormula())
+	g.at(fml2).take(t2.ToFormula())
+	sub := g.varSubst()
+	vars := g.vector()
 	for i, sort := range sig2 {
-		vars[i] = s.hold(m.MkVar(uint32(i+len(sig1)), sort))
-	}
-	fml2 = p.varSubst(s, fml2, vars)
-	if s.err != nil {
-		return ast.ASTHandle{}
-	}
-	fml1 = s.hold(m.MkAnd(fml1, fml2))
-	for i := range cols1 {
-		v1, v2 := cols1[i], cols2[i]
-		var1 := s.hold(m.MkVar(uint32(v1), sig1[v1]))
-		var2 := s.hold(m.MkVar(uint32(v2+len(sig1)), sig2[v2]))
-		eq := s.hold(m.MkEq(var1, var2))
-		if s.err != nil {
-			return ast.ASTHandle{}
+		if g.err != nil {
+			break
 		}
-		fml1 = s.hold(m.MkAnd(eq, fml1))
+		g.to(vars).push(m.MkVar(uint32(i+len(sig1)), sort))
 	}
-	return fml1
+	f2 := g.subst(sub, g.get(fml2), vars, fml2)
+	var f1 ast.ASTHandle
+	if g.err == nil {
+		f1 = g.at(out).set(m.MkAnd(g.get(out), f2))
+	}
+	for i := 0; i < len(cols1) && g.err == nil; i++ {
+		v1, v2 := cols1[i], cols2[i]
+		a := g.at(var1).set(m.MkVar(uint32(v1), sig1[v1]))
+		b := g.at(var2).set(m.MkVar(uint32(v2+len(sig1)), sig2[v2]))
+		if g.err != nil {
+			break
+		}
+		eq, err := m.MkEq(a, b)
+		if err != nil {
+			g.fail(err)
+			break
+		}
+		f1 = g.at(out).set(m.MkAnd(eq, f1))
+	}
+	s.end(g)
+	return f1
+}
+
+// assign is "r = f(...)" for a callee f returning expr_ref: the callee's
+// result temporary dies at the end of the statement, after the assignment.
+func (s *astScope) assign(r ast.ASTRef, f func(t *astScope, tmp ast.ASTRef) ast.ASTHandle) ast.ASTHandle {
+	t := s.child()
+	h := f(t, t.local())
+	t.setRef(r, h, nil)
+	s.end(t)
+	return h
 }
 
 // verifyJoin is check_relation_plugin::verify_join.
-func (p *CheckRelationPlugin) verifyJoin(t1, t2, t RelationBase, cols1, cols2 []int) (resultErr error) {
+func (p *CheckRelationPlugin) verifyJoin(t1, t2, t RelationBase, cols1, cols2 []int) error {
 	s := &astScope{m: p.m}
-	defer func() { resultErr = s.close(resultErr) }()
-	fml1 := p.ground(s, t, p.mkJoin(s, t1, t2, cols1, cols2))
-	fml2 := p.groundRelation(s, t)
-	if s.err != nil {
-		return nil
+	// expr_ref fml1 = ground(t, mk_join(...)): the mk_join temporary dies
+	// once ground has built fml1.
+	fml1 := s.local()
+	j := s.child()
+	joined := p.mkJoin(j, t1, t2, cols1, cols2, j.local())
+	if j.err == nil {
+		p.ground(j, t, joined, fml1)
 	}
-	return p.checkEquiv("join", fml1, fml2)
+	s.end(j)
+	fml2 := s.local()
+	if s.err == nil {
+		p.groundRelation(s, t, fml2)
+	}
+	if s.err == nil {
+		s.fail(p.checkEquiv("join", s.get(fml1), s.get(fml2)))
+	}
+	return s.close(nil)
 }
 
 // verifyJoinProject is check_relation_plugin::verify_join_project.
-func (p *CheckRelationPlugin) verifyJoinProject(t1, t2, t RelationBase, cols1, cols2, removed []int) (resultErr error) {
+func (p *CheckRelationPlugin) verifyJoinProject(t1, t2, t RelationBase, cols1, cols2, removed []int) error {
 	s := &astScope{m: p.m}
-	defer func() { resultErr = s.close(resultErr) }()
 	sig1 := joinSorts(t1.RelationSignature(), t2.RelationSignature())
-	fml1 := p.mkJoin(s, t1, t2, cols1, cols2)
-	fml1 = p.mkProject(s, sig1, fml1, removed)
-	fml1 = p.ground(s, t, fml1)
-	fml2 := p.groundRelation(s, t)
-	if s.err != nil {
-		return nil
+	fml1 := s.local()
+	p.mkJoin(s, t1, t2, cols1, cols2, fml1)
+	s.assign(fml1, func(x *astScope, tmp ast.ASTRef) ast.ASTHandle {
+		return p.mkProject(x, sig1, x.get(fml1), removed, tmp)
+	})
+	s.assign(fml1, func(x *astScope, tmp ast.ASTRef) ast.ASTHandle {
+		return p.ground(x, t, x.get(fml1), tmp)
+	})
+	fml2 := s.local()
+	s.at(fml2).take(t.ToFormula())
+	s.assign(fml2, func(x *astScope, tmp ast.ASTRef) ast.ASTHandle {
+		return p.ground(x, t, x.get(fml2), tmp)
+	})
+	if s.err == nil {
+		s.fail(p.checkEquiv("join_project", s.get(fml1), s.get(fml2)))
 	}
-	return p.checkEquiv("join_project", fml1, fml2)
+	return s.close(nil)
 }
 
 // verifyProjectFormulas is verify_project(src, f1, dst, f2, removed).
-func (p *CheckRelationPlugin) verifyProjectFormulas(s *astScope, src RelationBase, f1 ast.ASTHandle, dst RelationBase, f2 ast.ASTHandle, removed []int) error {
-	fml1 := p.ground(s, dst, p.mkProject(s, src.RelationSignature(), f1, removed))
-	fml2 := p.ground(s, dst, f2)
-	if s.err != nil {
-		return nil
+func (p *CheckRelationPlugin) verifyProjectFormulas(src RelationBase, f1 ast.ASTHandle, dst RelationBase, f2 ast.ASTHandle, removed []int) error {
+	s := &astScope{m: p.m}
+	// expr_ref fml1 = ground(dst, mk_project(...)): the mk_project
+	// temporary dies once ground has built fml1.
+	fml1 := s.local()
+	j := s.child()
+	projected := p.mkProject(j, src.RelationSignature(), f1, removed, j.local())
+	if j.err == nil {
+		p.ground(j, dst, projected, fml1)
 	}
-	return p.checkEquiv("project", fml1, fml2)
+	s.end(j)
+	fml2 := s.local()
+	if s.err == nil {
+		p.ground(s, dst, f2, fml2)
+	}
+	if s.err == nil {
+		s.fail(p.checkEquiv("project", s.get(fml1), s.get(fml2)))
+	}
+	return s.close(nil)
 }
 
 // verifyProject is verify_project(src, dst, removed).
-func (p *CheckRelationPlugin) verifyProject(src, dst RelationBase, removed []int) (resultErr error) {
+func (p *CheckRelationPlugin) verifyProject(src, dst RelationBase, removed []int) error {
 	s := &astScope{m: p.m}
-	defer func() { resultErr = s.close(resultErr) }()
-	fml1 := s.holdRef(src.ToFormula())
-	fml2 := s.holdRef(dst.ToFormula())
-	if s.err != nil {
-		return nil
+	fml1, fml2 := s.local(), s.local()
+	f1 := s.at(fml1).take(src.ToFormula())
+	f2 := s.at(fml2).take(dst.ToFormula())
+	if s.err == nil {
+		s.fail(p.verifyProjectFormulas(src, f1, dst, f2, removed))
 	}
-	return p.verifyProjectFormulas(s, src, fml1, dst, fml2, removed)
+	return s.close(nil)
 }
 
 // verifyFilterProject is check_relation_plugin::verify_filter_project.
-func (p *CheckRelationPlugin) verifyFilterProject(src, dst RelationBase, cond ast.ASTHandle, removed []int) (resultErr error) {
+func (p *CheckRelationPlugin) verifyFilterProject(src, dst RelationBase, cond ast.ASTHandle, removed []int) error {
 	s := &astScope{m: p.m}
-	defer func() { resultErr = s.close(resultErr) }()
-	fml1 := s.holdRef(src.ToFormula())
-	fml2 := s.holdRef(dst.ToFormula())
-	if s.err != nil {
-		return nil
+	fml1, fml2 := s.local(), s.local()
+	f1 := s.at(fml1).take(src.ToFormula())
+	f2 := s.at(fml2).take(dst.ToFormula())
+	if s.err == nil {
+		f1 = s.at(fml1).set(p.m.MkAnd(cond, f1))
 	}
-	fml1 = s.hold(p.m.MkAnd(cond, fml1))
-	if s.err != nil {
-		return nil
+	if s.err == nil {
+		s.fail(p.verifyProjectFormulas(src, f1, dst, f2, removed))
 	}
-	return p.verifyProjectFormulas(s, src, fml1, dst, fml2, removed)
+	return s.close(nil)
 }
 
 // verifyPermutation is check_relation_plugin::verify_permutation.
-func (p *CheckRelationPlugin) verifyPermutation(src, dst RelationBase, cycle []int) (resultErr error) {
+func (p *CheckRelationPlugin) verifyPermutation(src, dst RelationBase, cycle []int) error {
 	m := p.m
-	s := &astScope{m: m}
-	defer func() { resultErr = s.close(resultErr) }()
 	sig1, sig2 := src.RelationSignature(), dst.RelationSignature()
 	perm := make([]int, len(sig1))
 	for i := range perm {
@@ -721,121 +945,167 @@ func (p *CheckRelationPlugin) verifyPermutation(src, dst RelationBase, cycle []i
 		j := (i + 1) % len(cycle)
 		perm[cycle[j]] = cycle[i]
 	}
-	sub := make([]ast.ASTHandle, len(perm))
-	for i := range perm {
-		sub[i] = s.hold(m.MkVar(uint32(perm[i]), sig1[i]))
+	s := &astScope{m: m}
+	sub := s.vector()
+	for i := 0; i < len(perm) && s.err == nil; i++ {
+		s.to(sub).push(m.MkVar(uint32(perm[i]), sig1[i]))
 	}
-	fml1 := s.holdRef(src.ToFormula())
-	fml2 := s.holdRef(dst.ToFormula())
-	fml1 = p.varSubst(s, fml1, sub)
-	vars := p.groundConstants(s, sig2)
-	fml1 = p.varSubst(s, fml1, vars)
-	fml2 = p.varSubst(s, fml2, vars)
-	if s.err != nil {
-		return nil
+	subst := s.varSubst()
+	fml1, fml2 := s.local(), s.local()
+	s.at(fml1).take(src.ToFormula())
+	s.at(fml2).take(dst.ToFormula())
+	s.subst(subst, s.get(fml1), sub, fml1)
+	vars := s.vector()
+	for i := 0; i < len(sig2) && s.err == nil; i++ {
+		s.to(vars).push(m.MkConst(symbol.Numerical(uint32(i)), sig2[i]))
 	}
-	return p.checkEquiv("permutation", fml1, fml2)
+	s.subst(subst, s.get(fml1), vars, fml1)
+	s.subst(subst, s.get(fml2), vars, fml2)
+	if s.err == nil {
+		s.fail(p.checkEquiv("permutation", s.get(fml1), s.get(fml2)))
+	}
+	return s.close(nil)
+}
+
+// namedConstants pushes m.mk_const(symbol("x<i>"), sig[i]) onto vars.
+func (p *CheckRelationPlugin) namedConstants(s *astScope, vars *astVec, sorts []ast.ASTHandle) {
+	for i, sort := range sorts {
+		if s.err != nil {
+			return
+		}
+		name, err := p.m.Symbols.Intern("x" + utoa(uint64(i)))
+		if err != nil {
+			s.fail(err)
+			return
+		}
+		s.to(vars).push(p.m.MkConst(name, sort))
+	}
 }
 
 // verifyFilter is check_relation_plugin::verify_filter.
-func (p *CheckRelationPlugin) verifyFilter(fml0 ast.ASTHandle, t RelationBase, cond ast.ASTHandle) (resultErr error) {
+func (p *CheckRelationPlugin) verifyFilter(fml0 ast.ASTHandle, t RelationBase, cond ast.ASTHandle) error {
 	m := p.m
 	s := &astScope{m: m}
-	defer func() { resultErr = s.close(resultErr) }()
-	fml1 := s.hold(m.MkAnd(fml0, cond))
-	fml2 := s.holdRef(t.ToFormula())
-	vars := p.namedConstants(s, t.RelationSignature())
-	fml1 = p.varSubst(s, fml1, vars)
-	fml2 = p.varSubst(s, fml2, vars)
-	if s.err != nil {
-		return nil
+	fml1, fml2 := s.local(), s.local()
+	s.at(fml1).set(m.MkAnd(fml0, cond))
+	s.at(fml2).take(t.ToFormula())
+	vars := s.vector()
+	sub := s.varSubst()
+	p.namedConstants(s, vars, t.RelationSignature())
+	s.subst(sub, s.get(fml1), vars, fml1)
+	s.subst(sub, s.get(fml2), vars, fml2)
+	if s.err == nil {
+		s.fail(p.checkEquiv("filter", s.get(fml1), s.get(fml2)))
 	}
-	return p.checkEquiv("filter", fml1, fml2)
+	return s.close(nil)
 }
 
 // verifyUnion is check_relation_plugin::verify_union.
-func (p *CheckRelationPlugin) verifyUnion(dst0 ast.ASTHandle, src, dst RelationBase, delta0 ast.ASTHandle, delta RelationBase) (resultErr error) {
+func (p *CheckRelationPlugin) verifyUnion(dst0 ast.ASTHandle, src, dst RelationBase, delta0 ast.ASTHandle, delta RelationBase) error {
 	m := p.m
 	s := &astScope{m: m}
-	defer func() { resultErr = s.close(resultErr) }()
-	fml1 := s.holdRef(src.ToFormula())
-	fml2 := s.holdRef(dst.ToFormula())
-	fml1 = s.hold(m.MkOr(fml1, dst0))
-	vars := p.namedConstants(s, dst.RelationSignature())
-	fml1 = p.varSubst(s, fml1, vars)
-	fml2 = p.varSubst(s, fml2, vars)
-	if s.err != nil {
-		return nil
+	fml1, fml2 := s.local(), s.local()
+	s.at(fml1).take(src.ToFormula())
+	s.at(fml2).take(dst.ToFormula())
+	if s.err == nil {
+		s.at(fml1).set(m.MkOr(s.get(fml1), dst0))
 	}
-	if err := p.checkEquiv("union", fml1, fml2); err != nil {
-		return err
+	vars := s.vector()
+	sub := s.varSubst()
+	p.namedConstants(s, vars, dst.RelationSignature())
+	s.subst(sub, s.get(fml1), vars, fml1)
+	s.subst(sub, s.get(fml2), vars, fml2)
+	if s.err == nil {
+		s.fail(p.checkEquiv("union", s.get(fml1), s.get(fml2)))
 	}
-	if delta == nil {
-		return nil
+	if delta != nil && s.err == nil {
+		b := s.child()
+		p.verifyUnionDelta(b, sub, vars, dst0, s.get(fml2), delta0, delta)
+		s.end(b)
 	}
-	d := s.holdRef(delta.ToFormula())
-	if s.err != nil {
-		return nil
+	return s.close(nil)
+}
+
+// verifyUnionDelta is the "if (delta)" block of verify_union, with its
+// locals d0, d, fml4 and fml5 in b.
+func (p *CheckRelationPlugin) verifyUnionDelta(b *astScope, sub *astrewriter.VarSubstitution, vars *astVec, dst0, fml2, delta0 ast.ASTHandle, delta RelationBase) {
+	m := p.m
+	d0, d := b.local(), b.local()
+	dh := b.at(d).take(delta.ToFormula())
+	if b.err != nil {
+		return
 	}
 	if diagnostic.VerboseProgress {
 		if enabled, err := diagnostic.ProcessVerboseEnabled(3); err != nil {
-			return err
+			b.fail(err)
+			return
 		} else if enabled {
-			text, err := relMkPP(m, d)
-			if err != nil {
-				return err
+			text, err := relMkPP(m, dh)
+			if err == nil {
+				err = diagnostic.ProgressVerbose(3, "verify delta "+text+"\n")
 			}
-			if err = diagnostic.ProgressVerbose(3, "verify delta "+text+"\n"); err != nil {
-				return err
+			if err != nil {
+				b.fail(err)
+				return
 			}
 		}
 	}
-	notDst0 := s.hold(m.MkNot(dst0))
-	fml4 := s.hold(m.MkAnd(fml2, notDst0))
-	fml4 = p.varSubst(s, fml4, vars)
-	d = p.varSubst(s, d, vars)
-	if s.err != nil {
-		return nil
+	fml4, fml5 := b.local(), b.local()
+	notDst0, err := m.MkNot(dst0)
+	if err != nil {
+		b.fail(err)
+		return
 	}
-	if err := p.checkContains("union_delta low", d, fml4); err != nil {
-		return err
+	b.at(fml4).set(m.MkAnd(fml2, notDst0))
+	b.subst(sub, b.get(fml4), vars, fml4)
+	b.subst(sub, b.get(d), vars, d)
+	if b.err == nil {
+		b.fail(p.checkContains("union_delta low", b.get(d), b.get(fml4)))
 	}
-	d0 := p.varSubst(s, delta0, vars)
-	if s.err != nil {
-		return nil
+	b.subst(sub, delta0, vars, d0)
+	if b.err == nil {
+		b.fail(p.checkContains("union delta0", b.get(d), b.get(d0)))
 	}
-	if err := p.checkContains("union delta0", d, d0); err != nil {
-		return err
+	if b.err == nil {
+		b.at(fml4).set(m.MkOr(fml2, delta0))
 	}
-	fml4 = s.hold(m.MkOr(fml2, delta0))
-	fml5 := s.hold(m.MkOr(d, dst0))
-	fml4 = p.varSubst(s, fml4, vars)
-	fml5 = p.varSubst(s, fml5, vars)
-	if s.err != nil {
-		return nil
+	if b.err == nil {
+		b.at(fml5).set(m.MkOr(b.get(d), dst0))
 	}
-	return p.checkEquiv("union no overflow", fml4, fml5)
+	b.subst(sub, b.get(fml4), vars, fml4)
+	b.subst(sub, b.get(fml5), vars, fml5)
+	if b.err == nil {
+		b.fail(p.checkEquiv("union no overflow", b.get(fml4), b.get(fml5)))
+	}
 }
 
 // verifyFilterByNegation is check_relation_plugin::verify_filter_by_negation.
-func (p *CheckRelationPlugin) verifyFilterByNegation(dst0 ast.ASTHandle, dst, neg RelationBase, cols1, cols2 []int) (resultErr error) {
+func (p *CheckRelationPlugin) verifyFilterByNegation(dst0 ast.ASTHandle, dst, neg RelationBase, cols1, cols2 []int) error {
 	m := p.m
 	s := &astScope{m: m}
-	defer func() { resultErr = s.close(resultErr) }()
 	sig1, sig2 := dst.RelationSignature(), neg.RelationSignature()
-	dstf := s.holdRef(dst.ToFormula())
-	negf := s.holdRef(neg.ToFormula())
-	eqs := []ast.ASTHandle{negf}
-	for i := range cols1 {
+	dstf, negf := s.local(), s.local()
+	eqs := s.vector()
+	s.at(dstf).take(dst.ToFormula())
+	s.at(negf).take(neg.ToFormula())
+	if s.err == nil {
+		s.to(eqs).push(s.get(negf), nil)
+	}
+	for i := 0; i < len(cols1) && s.err == nil; i++ {
+		// var_ref v1, v2 live for one iteration.
+		it := s.child()
+		v1, v2 := it.local(), it.local()
 		c1, c2 := cols1[i], cols2[i]
-		v1 := s.hold(m.MkVar(uint32(len(sig2)+c1), sig1[c1]))
-		v2 := s.hold(m.MkVar(uint32(c2), sig2[c2]))
-		eqs = append(eqs, s.hold(m.MkEq(v1, v2)))
+		a := it.at(v1).set(m.MkVar(uint32(len(sig2)+c1), sig1[c1]))
+		b := it.at(v2).set(m.MkVar(uint32(c2), sig2[c2]))
+		if it.err == nil {
+			s.to(eqs).push(m.MkEq(a, b))
+		}
+		s.end(it)
 	}
-	if s.err != nil {
-		return nil
+	if s.err == nil {
+		s.at(negf).set(udocMakeAnd(m, eqs.hs))
 	}
-	negf = s.hold(udocMakeAnd(m, eqs))
 	rev := make([]ast.ASTHandle, len(sig2))
 	for i := range sig2 {
 		rev[i] = sig2[len(sig2)-1-i]
@@ -845,16 +1115,26 @@ func (p *CheckRelationPlugin) verifyFilterByNegation(dst0 ast.ASTHandle, dst, ne
 		names[i] = symbol.Numerical(uint32(i))
 	}
 	if len(rev) != 0 && s.err == nil {
-		negf = s.hold(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: rev, Names: names, Body: negf}))
+		s.at(negf).set(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: rev, Names: names, Body: s.get(negf)}))
 	}
-	notNeg := s.hold(m.MkNot(negf))
-	negf = s.hold(m.MkAnd(dst0, notNeg))
-	negf = p.ground(s, dst, negf)
-	dstf = p.ground(s, dst, dstf)
-	if s.err != nil {
-		return nil
+	if s.err == nil {
+		notNeg, err := m.MkNot(s.get(negf))
+		if err != nil {
+			s.fail(err)
+		} else {
+			s.at(negf).set(m.MkAnd(dst0, notNeg))
+		}
 	}
-	return p.checkEquiv("filter by negation", dstf, negf)
+	s.assign(negf, func(x *astScope, tmp ast.ASTRef) ast.ASTHandle {
+		return p.ground(x, dst, x.get(negf), tmp)
+	})
+	s.assign(dstf, func(x *astScope, tmp ast.ASTRef) ast.ASTHandle {
+		return p.ground(x, dst, x.get(dstf), tmp)
+	})
+	if s.err == nil {
+		s.fail(p.checkEquiv("filter by negation", s.get(dstf), s.get(negf)))
+	}
+	return s.close(nil)
 }
 
 // --------------------------------------------------------------------
@@ -1006,18 +1286,24 @@ func (p *CheckRelationPlugin) MkFilterIdenticalFn(t RelationBase, cols []int) (R
 		defer func() { resultErr = s.close(resultErr) }()
 		r, _ := checkGet(rb)
 		sig := r.sorts
-		conds := make([]ast.ASTHandle, 0, len(mCols))
+		cond := s.local()
+		conds := s.vector()
 		c1 := mCols[0]
-		for i := 1; i < len(mCols); i++ {
+		for i := 1; i < len(mCols) && s.err == nil; i++ {
 			c2 := mCols[i]
-			v1 := s.hold(m.MkVar(uint32(c1), sig[c1]))
-			v2 := s.hold(m.MkVar(uint32(c2), sig[c2]))
-			conds = append(conds, s.hold(m.MkEq(v1, v2)))
+			v1, err1 := m.MkVar(uint32(c1), sig[c1])
+			v2, err2 := m.MkVar(uint32(c2), sig[c2])
+			if err := errors.Join(err1, err2); err != nil {
+				return err
+			}
+			s.to(conds).push(m.MkEq(v1, v2))
+		}
+		if s.err == nil {
+			s.at(cond).set(udocMakeAnd(m, conds.hs))
 		}
 		if s.err != nil {
 			return nil
 		}
-		cond := s.hold(udocMakeAnd(m, conds))
 		if err := r.consistentFormula(); err != nil {
 			return err
 		}
@@ -1028,7 +1314,7 @@ func (p *CheckRelationPlugin) MkFilterIdenticalFn(t RelationBase, cols []int) (R
 		if err != nil {
 			return err
 		}
-		if err = p.verifyFilter(fml, r.relation, cond); err != nil {
+		if err = p.verifyFilter(fml, r.relation, s.get(cond)); err != nil {
 			return err
 		}
 		return r.refreshFml()
@@ -1156,22 +1442,32 @@ func (p *CheckRelationPlugin) MkFilterEqualFn(t RelationBase, value ast.ASTHandl
 		if err := f(t.relation); err != nil {
 			return err
 		}
-		fml := s.holdRef(m.CopyRef(t.fml))
-		if err := t.refreshFml(); err != nil {
-			return err
-		}
-		v := s.hold(m.MkVar(uint32(col), t.sorts[col]))
-		eq := s.hold(m.MkEq(v, value))
-		fml = s.hold(m.MkAnd(fml, eq))
-		tf, err := t.fmlHandle()
-		if err != nil {
-			return err
-		}
-		g1, g2 := p.ground(s, t, fml), p.ground(s, t, tf)
+		// expr_ref fml = t.m_fml;
+		fml := s.local()
+		s.at(fml).set(s.get(t.fml), nil)
 		if s.err != nil {
 			return nil
 		}
-		return p.checkEquiv("filter_equal", g1, g2)
+		if err := t.refreshFml(); err != nil {
+			return err
+		}
+		v, err := m.MkVar(uint32(col), t.sorts[col])
+		if err != nil {
+			return err
+		}
+		eq, err := m.MkEq(v, value)
+		if err != nil {
+			return err
+		}
+		s.at(fml).set(m.MkAnd(s.get(fml), eq))
+		x := s.child()
+		g1 := p.ground(x, t, x.get(fml), x.local())
+		g2 := p.ground(x, t, x.get(t.fml), x.local())
+		if x.err == nil {
+			x.fail(p.checkEquiv("filter_equal", g1, g2))
+		}
+		s.end(x)
+		return nil
 	}, nil
 }
 
