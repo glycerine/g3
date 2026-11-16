@@ -65,6 +65,7 @@ func (q *upolyRootUpperBoundScope) prepareHistory() error {
 	if q.history != nil {
 		return nil
 	}
+	q.owner.config.Integer.NoteCallerFrameChange()
 	n := uint64(reflect.TypeOf(upolyRootUpperBoundHistory{}).Size())
 	if e := q.owner.config.Integer.Budget().Reserve(n); e != nil {
 		return e

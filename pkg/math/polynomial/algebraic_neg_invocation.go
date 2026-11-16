@@ -333,6 +333,7 @@ func (q *algebraicNegScope) prepareHistory() error {
 		return nil
 	}
 	m := q.owner
+	m.config.Rationals.Integers().NoteCallerFrameChange()
 	q.historyIndex = len(m.negationHistory)
 	q.historyRecorded = true
 	m.negationHistory = append(m.negationHistory, q.diagnostic())

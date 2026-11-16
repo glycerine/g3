@@ -297,6 +297,7 @@ func (m *MultivariatePolynomialManager) archiveFactorNumeralVector() error {
 	if !s.active || !s.executing || m.core.callbackDepth != 0 {
 		return ErrPolynomialPending
 	}
+	m.core.integer.NoteCallerFrameChange()
 	s.historyIndex, s.historyRecorded = len(m.factorNumeralVectorHistory), true
 	m.factorNumeralVectorHistory = append(m.factorNumeralVectorHistory, m.factorNumeralVectorSnapshot())
 	return nil

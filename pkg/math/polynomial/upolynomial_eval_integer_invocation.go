@@ -63,6 +63,7 @@ func (q *upolyIntegerEvaluationScope) prepareHistory() error {
 	if q.history != nil {
 		return nil
 	}
+	q.owner.config.Integer.NoteCallerFrameChange()
 	n := uint64(reflect.TypeOf(upolyIntegerEvaluationHistory{}).Size())
 	if e := q.owner.config.Integer.Budget().Reserve(n); e != nil {
 		return e

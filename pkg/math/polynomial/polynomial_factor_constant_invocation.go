@@ -56,6 +56,7 @@ func (f *PolynomialFactors) archiveFactorConstantHistory() error {
 	if s.historyRecorded {
 		return nil
 	}
+	f.manager.core.integer.NoteCallerFrameChange()
 	s.historyIndex = len(f.constantHistory)
 	s.historyRecorded = true
 	f.constantHistory = append(f.constantHistory, polynomialFactorConstantHistory{s.invocation, s.kind, s.normalize, s.traceNumeral, s.bodyCause, s.sourceCause, s.cleanupCause})

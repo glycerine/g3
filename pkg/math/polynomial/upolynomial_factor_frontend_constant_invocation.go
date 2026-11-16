@@ -60,6 +60,7 @@ func (c *integerAllocationInvocationContext) prepareFactorFrontendConstantHistor
 	if b == nil || b.record != nil {
 		return nil
 	}
+	z.NoteCallerFrameChange()
 	bytes := uint64(reflect.TypeOf(upolyFactorConstantCall{}).Size())
 	if e := z.Budget().Reserve(bytes); e != nil {
 		return e

@@ -86,6 +86,7 @@ func (q *upolyDisplayScope) prepareStorage() error {
 	if q == &q.owner.display || q.header != 0 {
 		return nil
 	}
+	q.owner.config.Integer.NoteCallerFrameChange()
 	bytes := uint64(reflect.TypeOf(upolyDisplayScope{}).Size())
 	if e := q.owner.config.Integer.Budget().Reserve(bytes); e != nil {
 		return e

@@ -20,6 +20,24 @@ type NumericCallerModularPolicy interface {
 type NumericCallerPreparePolicy interface {
 	NumericPrepare(*IntegerManager, string) error
 }
+
+// NumericCallerPrepareRootsPolicy is a NumericCallerPreparePolicy that also
+// returns the roots NumericRoots(m, nil) validated when the prepare began,
+// or nil when the prepare changed a caller frame or history afterwards
+// (m.CallerFrameChanges moved). A non-nil result equals what NumericRoots
+// would return immediately after the prepare.
+type NumericCallerPrepareRootsPolicy interface {
+	NumericPrepareRoots(*IntegerManager, string) (*NumericAllocationRoots, error)
+}
+
+// NoteCallerFrameChange records that a caller changed one of its frames or
+// histories reachable from its roots/prepare policy.
+func (m *IntegerManager) NoteCallerFrameChange() { m.callerFrameChanges++ }
+
+// CallerFrameChanges reports the frame-change counter (see
+// NumericCallerPrepareRootsPolicy).
+func (m *IntegerManager) CallerFrameChanges() uint32 { return m.callerFrameChanges }
+
 type NumericCallerRecordPolicy interface {
 	NumericRecord(*IntegerManager, string, NumericInvocationReceipt)
 }

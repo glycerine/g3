@@ -13,24 +13,31 @@ import (
 
 func (c *integerAllocationInvocationContext) prepareFactorHistory(z *unumeral.IntegerManager) error {
 	if q := c.oneHalfRootFrame(z); q != nil {
+		noteForeignCallerFrames(z, q.owner.config.Integer)
 		return q.prepareHistory()
 	}
 	if q := c.knuthFrame(z); q != nil {
+		noteForeignCallerFrames(z, q.owner.config.Integer)
 		return q.prepareHistory()
 	}
 	if q := c.rootUpperBoundFrame(z); q != nil {
+		noteForeignCallerFrames(z, q.owner.config.Integer)
 		return q.prepareHistory()
 	}
 	if q := c.removeOneHalfRootFrame(z); q != nil {
+		noteForeignCallerFrames(z, q.owner.config.Integer)
 		return q.prepareHistory()
 	}
 	if q := c.integerEvaluationFrame(z); q != nil {
+		noteForeignCallerFrames(z, q.owner.config.Integer)
 		return q.prepareHistory()
 	}
 	if q := c.rationalEvaluationFrame(z); q != nil {
+		noteForeignCallerFrames(z, q.owner.config.Integer)
 		return q.prepareHistory()
 	}
 	if q := c.binaryEvaluationFrame(z); q != nil {
+		noteForeignCallerFrames(z, q.owner.config.Integer)
 		return q.prepareHistory()
 	}
 	if q := c.algebraicNegFrame(z); q != nil {
@@ -53,10 +60,21 @@ func (c *integerAllocationInvocationContext) prepareFactorHistory(z *unumeral.In
 		if s.historyRecorded {
 			return nil
 		}
+		z.NoteCallerFrameChange()
 		s.historyIndex, s.historyRecorded = len(f.memberSetHistory), true
 		f.memberSetHistory = append(f.memberSetHistory, polynomialFactorMemberSetHistory{s.invocation, s.normalize, s.bodyCause, s.sourceCause, s.cleanupCause})
 	}
 	return nil
+}
+
+// noteForeignCallerFrames: a frame's prepareHistory notes its changes on its
+// owner's integer manager, which release builds do not compare with z (see
+// polynomialValidateOwnership); a different owner disables the prepared
+// roots reuse for this allocation.
+func noteForeignCallerFrames(z, owner *unumeral.IntegerManager) {
+	if owner != z {
+		z.NoteCallerFrameChange()
+	}
 }
 func (f *PolynomialFactors) updateFactorConstantHistory() {
 	s := &f.constantInvocation

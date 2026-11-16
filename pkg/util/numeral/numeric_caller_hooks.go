@@ -70,14 +70,56 @@ func (c *integerAllocationInvocationContext) roots(m *IntegerManager) *NumericAl
 func (c *integerAllocationInvocationContext) hasLocalInvocation() bool {
 	return c.rationalService != nil || c.mpfRationalSet != nil || c.mpfFormattedSet != nil || c.mpfInput != nil || c.mpfConversion != nil || c.mpfFormat != nil || c.mpfPower != nil || c.mpfRound != nil || c.mpfRoundSqrt != nil || c.BoolDivides != nil || c.raw != nil || c.pn != nil || c.addMul != nil || c.perfectSquare != nil
 }
-func (c *integerAllocationInvocationContext) prepareCaller(m *IntegerManager, phase string) error {
+
+// prepareCallerRoots runs the caller's prepare once per allocation (the
+// policy is idempotent while its frames do not change) and also returns the
+// caller roots that prepare validated, when the caller supports it and
+// changed nothing after validating them.
+func (c *integerAllocationInvocationContext) prepareCallerRoots(m *IntegerManager, phase string) (*NumericAllocationRoots, error) {
 	if !c.callerCurrent() {
-		return ErrNumericCallerOwner
+		return nil, ErrNumericCallerOwner
 	}
-	if c.Caller != nil {
-		return c.Caller.callPrepare(m, phase)
+	if c.Caller == nil {
+		return nil, nil
 	}
-	return nil
+	if p, ok := c.Caller.Policy.(NumericCallerPrepareRootsPolicy); ok {
+		return p.NumericPrepareRoots(m, phase)
+	}
+	return nil, c.Caller.callPrepare(m, phase)
+}
+
+// rootsAfterPrepare is roots(m), given the caller roots prepareCallerRoots
+// returned. Between the two calls allocateWithSourceContext only runs the
+// arbitrary-float history prepares, which are no-ops unless one of their
+// frames is present, so without those frames callRoots would return the
+// same validated record. Local roots are computed and take precedence
+// exactly as in roots.
+func (c *integerAllocationInvocationContext) rootsAfterPrepare(m *IntegerManager, prepared *NumericAllocationRoots) *NumericAllocationRoots {
+	if prepared == nil || c.mpfRationalSet != nil || c.mpfFormattedSet != nil || c.mpfRound != nil || c.mpfRoundSqrt != nil || c.mpfInput != nil {
+		return c.roots(m)
+	}
+	if numericValidateCells {
+		// Checked builds revalidate fully and check the reuse against it.
+		full := c.roots(m)
+		if reused := c.reusePreparedRoots(m, prepared); reused != full {
+			panic("numeral: prepared caller roots differ from revalidated roots")
+		}
+		return full
+	}
+	return c.reusePreparedRoots(m, prepared)
+}
+func (c *integerAllocationInvocationContext) reusePreparedRoots(m *IntegerManager, prepared *NumericAllocationRoots) *NumericAllocationRoots {
+	if !c.callerCurrent() {
+		return nil
+	}
+	r := c.localRoots(m)
+	if r == nil {
+		if c.hasLocalInvocation() {
+			return nil
+		}
+		return prepared
+	}
+	return r
 }
 func (c *integerAllocationInvocationContext) recordCaller(m *IntegerManager, event string, r NumericInvocationReceipt) {
 	if !c.callerCurrent() {

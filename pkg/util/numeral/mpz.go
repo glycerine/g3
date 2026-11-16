@@ -68,6 +68,11 @@ type IntegerManager struct {
 	AddMulInvocation                                integerAddMulScope
 	CopyAllocation                                  integerCopyAllocationScope
 	NormalizationExecuting                          bool
+	// callerFrameChanges counts caller frame/history mutations made while
+	// preparing an allocation (NoteCallerFrameChange). It sits in the
+	// padding after NormalizationExecuting, so the charged header size
+	// (reflect Size of IntegerManager) is unchanged.
+	callerFrameChanges uint32
 
 	self                                   *IntegerManager
 	mpfValueRead                           *arbitraryFloatCopyBinding
@@ -457,7 +462,8 @@ func (m *IntegerManager) allocateWithSourceContext(capacity, size uint32, s *int
 	// "constant-history", "display-storage" and "factor-history" calls
 	// changes the caller's frames, so the later two always repeated the
 	// first call's result.
-	if e := context.prepareCaller(m, "constant-history"); e != nil {
+	prepared, e := context.prepareCallerRoots(m, "constant-history")
+	if e != nil {
 		return 0, e
 	}
 	if e := context.prepareRationalSetHistory(m); e != nil {
@@ -478,7 +484,7 @@ func (m *IntegerManager) allocateWithSourceContext(capacity, size uint32, s *int
 	if s != nil && m.executingCopyAllocationScope(s) {
 		roots = &s.Roots
 	}
-	if r := context.roots(m); r != nil {
+	if r := context.rootsAfterPrepare(m, prepared); r != nil {
 		roots = r
 	}
 	if roots != nil {

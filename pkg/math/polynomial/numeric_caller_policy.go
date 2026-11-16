@@ -115,6 +115,27 @@ func (r *polynomialNumericRoots) NumericPrepare(z *unumeral.IntegerManager, phas
 	if r.NumericRoots(z, nil) == nil {
 		return unumeral.ErrNumericOwner
 	}
+	return r.prepareHistories(z)
+}
+
+// NumericPrepareRoots is NumericPrepare returning the roots it validated
+// first, unless a history it then created or a frame it changed (every such
+// site calls z.NoteCallerFrameChange) could change what NumericRoots returns.
+func (r *polynomialNumericRoots) NumericPrepareRoots(z *unumeral.IntegerManager, phase string) (*unumeral.NumericAllocationRoots, error) {
+	roots := r.NumericRoots(z, nil)
+	if roots == nil {
+		return nil, unumeral.ErrNumericOwner
+	}
+	changes := z.CallerFrameChanges()
+	if e := r.prepareHistories(z); e != nil {
+		return nil, e
+	}
+	if z.CallerFrameChanges() != changes {
+		return nil, nil
+	}
+	return roots, nil
+}
+func (r *polynomialNumericRoots) prepareHistories(z *unumeral.IntegerManager) error {
 	if q := r.caller.upolyDisplayFrame(z); q != nil {
 		if e := q.prepareStorage(); e != nil {
 			return e
