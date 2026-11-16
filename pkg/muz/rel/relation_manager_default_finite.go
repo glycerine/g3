@@ -181,6 +181,14 @@ func (m *RelationManager) relationForPredicate(predicate ast.ASTHandle) (FiniteT
 			plugin = m.productPlugin()
 		}
 	}
+	if check, ok := plugin.(*CheckRelationPlugin); ok {
+		// A placeholder until get_relation creates it.
+		relation, err := check.mkEmptyPlaceholder(sorts)
+		if err != nil {
+			return nil, false, err
+		}
+		return relation, true, nil
+	}
 	relation, err := plugin.MkEmpty(sorts)
 	if err != nil {
 		return nil, false, err

@@ -54,8 +54,9 @@ func (e *PropositionalEngine) ensureBoundDatalog() (bool, error) {
 	if enabled, err := e.datalogExplanationsEnabled(); err != nil || enabled {
 		return true, errors.Join(err, ErrBoundDatalogFragment)
 	}
-	checkName, checkEnabled, err := e.datalogCheckRelationName()
-	if err != nil || checkEnabled && checkName != "bound_relation" {
+	// check_relation over bound_relation runs on the relation plugins.
+	_, checkEnabled, err := e.datalogCheckRelationName()
+	if err != nil || checkEnabled {
 		return true, errors.Join(err, ErrBoundDatalogFragment)
 	}
 	var formulaCheck *smtcore.SMTSolverConfig

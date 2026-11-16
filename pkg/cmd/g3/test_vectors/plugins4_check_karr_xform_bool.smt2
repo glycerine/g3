@@ -1,0 +1,8 @@
+(set-option :fixedpoint.engine datalog)
+(set-option :fixedpoint.xform.karr true)
+(set-option :fixedpoint.datalog.check_relation karr_relation)
+(declare-rel r (Bool))
+(declare-var b Bool)
+(rule (r true))
+(rule (=> (r b) (r (not b))))
+(query r)

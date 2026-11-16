@@ -163,9 +163,32 @@ func (e *PropositionalEngine) datalogCheckRelationName() (name string, enabled b
 	case "tr_lazy_sparse":
 		name = "lazy_sparse"
 	}
-	// doc selects the actual UDoc checking factory before finite execution.
-	if name != "hashtable" && name != "sparse" && name != "bitvector" && name != "lazy_sparse" && name != "bound_relation" && name != "interval_relation" && name != "karr_relation" && name != "doc" && name != "check" {
-		return "", false, fmt.Errorf("muz/fp: relation plugin %s is not available for datalog.check_relation", name)
+	// rel_context::updt_params accepts any name: one no relation plugin
+	// has leaves check_relation without a base.
+	return name, true, nil
+}
+
+// datalogCheckRelationBase is context::check_relation() as
+// rel_context::updt_params reads it: enabled unless null or "null"; name is
+// the relation plugin name it looks up (tr_hashtable for the hashtable
+// table's table_relation plugin; a name no relation plugin has gives
+// check_relation no base).
+func (e *PropositionalEngine) datalogCheckRelationBase() (name string, enabled bool, resultErr error) {
+	if e.params == nil || e.globals == nil {
+		return "", false, nil
+	}
+	view, err := e.fixedpointParamView()
+	if err != nil {
+		return "", false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, view.Close()) }()
+	selection, err := view.Symbol("datalog.check_relation", symbol.Symbol{})
+	if err != nil || selection.Value == 0 {
+		return "", false, err
+	}
+	name, _, err = e.manager.Symbols.BareString(selection)
+	if err != nil || name == "" || name == "null" {
+		return "", false, err
 	}
 	return name, true, nil
 }

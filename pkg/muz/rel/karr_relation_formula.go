@@ -11,8 +11,11 @@ import (
 	"github.com/glycerine/g3/pkg/smtcore"
 )
 
-// ToFormula returns the integer linear formula represented by the Karr
-// inequalities. The returned AST reference is owned by the caller.
+// ToFormula is karr_relation::to_formula: false when empty, otherwise the
+// conjunction (bool_rewriter::mk_and) of one linear (in)equality per row of
+// get_ineqs(), built by to_formula(row, b, is_eq, conj) over Int variables
+// (m.mk_var(i, a.mk_int()) whatever the column's sort). The returned AST
+// reference is owned by the caller.
 func (r *KarrRelation) ToFormula(manager *ast.ASTManager, sorts []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	if r == nil || manager == nil || len(sorts) != int(r.dimension) {
 		return result, ErrKarrDimension
@@ -28,118 +31,144 @@ func (r *KarrRelation) ToFormula(manager *ast.ASTManager, sorts []ast.ASTHandle)
 	if err != nil {
 		return result, err
 	}
-	var roots []ast.ASTRef
+	matrix, err := r.Inequalities()
+	if err != nil {
+		return result, err
+	}
+	// conj: the expr_ref_vector of the row formulas.
+	var conj []ast.ASTRef
 	owned := false
 	defer func() {
-		for i := len(roots) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, manager.DelRef(&roots[i]))
+		for i := len(conj) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, manager.DelRef(&conj[i]))
 		}
 		if resultErr != nil && owned {
 			resultErr = errors.Join(resultErr, manager.DelRef(&result))
 			result = ast.ASTRef{}
 		}
 	}()
-	hold := func(value ast.ASTHandle, err error) (ast.ASTHandle, error) {
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		ref, err := manager.NewRef(value)
-		if err == nil {
-			roots = append(roots, ref)
-		}
-		return value, err
-	}
-	variables := make([]ast.ASTHandle, len(sorts))
-	for i, sort := range sorts {
-		sortFamily, e := manager.GetFamilyID(sort)
-		if e != nil {
-			return result, e
-		}
-		kind, e := manager.GetDeclKind(sort)
-		if e != nil {
-			return result, e
-		}
-		if sortFamily != family || kind != 1 {
-			return result, ErrKarrDimension
-		}
-		variables[i], e = hold(manager.MkVar(uint32(i), sort))
-		if e != nil {
-			return result, e
-		}
-	}
-	matrix, err := r.Inequalities()
-	if err != nil {
-		return result, err
-	}
-	zero, err := hold(manager.ArithmeticIntegerNumeralText("0"))
-	if err != nil {
-		return result, err
-	}
-	conjuncts := make([]ast.ASTHandle, 0, len(matrix.A))
+	handles := make([]ast.ASTHandle, 0, len(matrix.A))
 	for rowIndex, row := range matrix.A {
-		if len(row) != len(variables) {
+		if len(row) != int(r.dimension) {
 			return result, ErrKarrDimension
 		}
-		terms := make([]ast.ASTHandle, 0, len(row)+1)
-		for column := range row {
-			coefficient := &row[column]
-			if coefficient.Sign() == 0 {
-				continue
-			}
-			if coefficient.Cmp(big.NewRat(1, 1)) == 0 {
-				terms = append(terms, variables[column])
-				continue
-			}
-			numeral, e := hold(manager.ArithmeticNumeralRat(coefficient, true))
-			if e != nil {
-				return result, e
-			}
-			product, e := hold(manager.MkArithmeticMul(numeral, variables[column]))
-			if e != nil {
-				return result, e
-			}
-			terms = append(terms, product)
-		}
-		if matrix.B[rowIndex].Sign() != 0 {
-			constant, e := hold(manager.ArithmeticNumeralRat(&matrix.B[rowIndex], true))
-			if e != nil {
-				return result, e
-			}
-			terms = append(terms, constant)
-		}
-		var lhs ast.ASTHandle
-		if len(terms) == 0 {
-			lhs = zero
-		} else {
-			lhs = terms[0]
-			for _, term := range terms[1:] {
-				lhs, err = hold(manager.MkArithmeticAdd(lhs, term))
-				if err != nil {
-					return result, err
-				}
-			}
-		}
-		var formula ast.ASTHandle
-		if matrix.Eq[rowIndex] {
-			formula, err = manager.MkEq(lhs, zero)
-		} else {
-			formula, err = manager.MkArithmeticGE(lhs, zero)
-		}
-		formula, err = hold(formula, err)
+		formula, err := karrRowFormula(manager, family, row, &matrix.B[rowIndex], matrix.Eq[rowIndex])
 		if err != nil {
 			return result, err
 		}
-		conjuncts = append(conjuncts, formula)
+		conj = append(conj, formula)
+		h, err := manager.RefGet(formula)
+		if err != nil {
+			return result, err
+		}
+		handles = append(handles, h)
 	}
 	result, err = manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return result, err
 	}
 	owned = true
-	if err = rewriter.SimplifyBooleanGateDefault(manager, ast.ASTOpAnd, conjuncts, result); err != nil {
+	if err = rewriter.SimplifyBooleanGateDefault(manager, ast.ASTOpAnd, handles, result); err != nil {
 		return result, err
 	}
 	return result, nil
+}
+
+// karrRowFormula is karr_relation::to_formula(row, b, is_eq, conj): the
+// pushed formula as an owned reference. Its locals sum, zero and lhs die at
+// the return (lhs, zero, then sum).
+func karrRowFormula(manager *ast.ASTManager, family ast.FamilyID, row []big.Rat, b *big.Rat, isEq bool) (result ast.ASTRef, resultErr error) {
+	var sum []ast.ASTRef
+	var zero, lhs ast.ASTRef
+	defer func() {
+		resultErr = errors.Join(resultErr, manager.DelRef(&lhs), manager.DelRef(&zero))
+		for i := len(sum) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, manager.DelRef(&sum[i]))
+		}
+		if resultErr != nil {
+			_ = manager.DelRef(&result)
+			result = ast.ASTRef{}
+		}
+	}()
+	hold := func(value ast.ASTHandle, err error) (ast.ASTRef, ast.ASTHandle, error) {
+		if err != nil {
+			return ast.ASTRef{}, ast.ASTHandle{}, err
+		}
+		ref, err := manager.NewRef(value)
+		return ref, value, err
+	}
+	zeroValue := ast.ASTHandle{}
+	var err error
+	if zero, zeroValue, err = hold(manager.ArithmeticIntegerNumeralText("0")); err != nil {
+		return result, err
+	}
+	intSort, err := manager.MkFamilySort(family, 1, nil)
+	if err != nil {
+		return result, err
+	}
+	one := big.NewRat(1, 1)
+	terms := make([]ast.ASTHandle, 0, len(row)+1)
+	for i := range row {
+		coefficient := &row[i]
+		if coefficient.Sign() == 0 {
+			continue
+		}
+		variable, err := manager.MkVar(uint32(i), intSort)
+		if err != nil {
+			return result, err
+		}
+		term := variable
+		if coefficient.Cmp(one) != 0 {
+			numeral, err := manager.ArithmeticNumeralRat(coefficient, true)
+			if err != nil {
+				return result, err
+			}
+			if term, err = manager.MkArithmeticMul(numeral, variable); err != nil {
+				return result, err
+			}
+		}
+		ref, h, err := hold(term, nil)
+		if err != nil {
+			return result, err
+		}
+		sum = append(sum, ref)
+		terms = append(terms, h)
+	}
+	if b.Sign() != 0 {
+		ref, h, err := hold(manager.ArithmeticNumeralRat(b, true))
+		if err != nil {
+			return result, err
+		}
+		sum = append(sum, ref)
+		terms = append(terms, h)
+	}
+	// arith_util::mk_add(n, args): args[0] for one argument, the n-ary
+	// addition otherwise.
+	var lhsValue ast.ASTHandle
+	switch len(terms) {
+	case 0:
+		// A zero row with a zero constant (Karr matrices have none).
+		lhsValue = zeroValue
+	case 1:
+		lhsValue = terms[0]
+	default:
+		if lhsValue, err = manager.MkFamilyApp(family, 6, nil, terms); err != nil {
+			return result, err
+		}
+	}
+	if lhs, lhsValue, err = hold(lhsValue, nil); err != nil {
+		return result, err
+	}
+	var formula ast.ASTHandle
+	if isEq {
+		formula, err = manager.MkEq(lhsValue, zeroValue)
+	} else {
+		formula, err = manager.MkArithmeticGE(lhsValue, zeroValue)
+	}
+	if err != nil {
+		return result, err
+	}
+	return manager.NewRef(formula)
 }
 
 func VerifyKarrRelationExpected(manager *ast.ASTManager, sorts []ast.ASTHandle, config smtcore.SMTSolverConfig, expected ast.ASTHandle, actual *KarrRelation) (resultErr error) {

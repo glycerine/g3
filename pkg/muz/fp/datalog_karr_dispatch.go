@@ -12,11 +12,12 @@ func (e *PropositionalEngine) ensureKarrDatalog() (bool, error) {
 	if err := e.cacheDatalogRelationFavourite(); err != nil {
 		return false, err
 	}
-	checkName, checkOn, checkErr := e.datalogCheckRelationName()
+	_, checkOn, checkErr := e.datalogCheckRelationName()
 	if checkErr != nil {
 		return false, checkErr
 	}
-	selected := e.datalogRelationFavourite == "karr_relation" || (checkOn && checkName == "karr_relation") || e.karrDatalog != nil
+	// check_relation over karr_relation runs on the relation plugins.
+	selected := e.datalogRelationFavourite == "karr_relation" && !checkOn || e.karrDatalog != nil
 	for _, state := range e.predicates {
 		for _, name := range state.requestedRepresentations {
 			selected = selected || name == "karr_relation"
@@ -42,8 +43,7 @@ func (e *PropositionalEngine) ensureKarrDatalog() (bool, error) {
 		return true, ErrKarrDatalogFragment
 	}
 	for declaration, state := range e.predicates {
-		karrSelectedByChecker := checkOn && checkName == "karr_relation"
-		if e.datalogRelationFavourite != "karr_relation" && !karrSelectedByChecker && !e.auxiliary[declaration] && (len(state.requestedRepresentations) != 1 || state.requestedRepresentations[0] != "karr_relation") {
+		if e.datalogRelationFavourite != "karr_relation" && !e.auxiliary[declaration] && (len(state.requestedRepresentations) != 1 || state.requestedRepresentations[0] != "karr_relation") {
 			return true, ErrKarrDatalogFragment
 		}
 		if state.external != nil || state.explicitFiniteRepresentation {
@@ -65,7 +65,7 @@ func (e *PropositionalEngine) ensureKarrDatalog() (bool, error) {
 	if on, err := e.datalogExplanationsEnabled(); err != nil || on {
 		return true, errors.Join(err, ErrKarrDatalogFragment)
 	}
-	if checkOn && checkName != "karr_relation" {
+	if checkOn {
 		return true, ErrKarrDatalogFragment
 	}
 	if _, on, err := e.datalogDefaultTableCheck(); err != nil || on {

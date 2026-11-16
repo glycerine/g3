@@ -159,6 +159,17 @@ func (m *RelationManager) signatureIsTable(sorts []ast.ASTHandle) (Signature, bo
 // appropriate table plugin, then the first registered relation plugin
 // that handles the signature.
 func (m *RelationManager) MkEmptyRelation(sorts []ast.ASTHandle, predicate ast.ASTHandle) (FiniteTable, error) {
+	return m.mkEmptyRelation(sorts, predicate, false)
+}
+
+// MkEmptyPlaceholderRelation is MkEmptyRelation for a predicate's
+// placeholder (a relation get_relation has not created yet): a
+// check_relation's mk_empty check runs when it is materialized.
+func (m *RelationManager) MkEmptyPlaceholderRelation(sorts []ast.ASTHandle, predicate ast.ASTHandle) (FiniteTable, error) {
+	return m.mkEmptyRelation(sorts, predicate, true)
+}
+
+func (m *RelationManager) mkEmptyRelation(sorts []ast.ASTHandle, predicate ast.ASTHandle, placeholder bool) (FiniteTable, error) {
 	if err := m.open(); err != nil {
 		return nil, err
 	}
@@ -168,6 +179,9 @@ func (m *RelationManager) MkEmptyRelation(sorts []ast.ASTHandle, predicate ast.A
 	plugin, err := m.relationPluginFor(predicate, sorts)
 	if err != nil {
 		return nil, err
+	}
+	if check, ok := plugin.(*CheckRelationPlugin); ok && placeholder {
+		return check.mkEmptyPlaceholder(sorts)
 	}
 	if plugin != nil {
 		return plugin.MkEmpty(sorts)

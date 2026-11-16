@@ -15,6 +15,9 @@ func TestExplanationFormulaScopeFiniteSortsExplicitBypassAndLifetime(t *testing.
 			f := newDirectFactFixture(t)
 			e, m := f.engine, f.manager
 			fragmentMust(t, e.globals.SourceSetName("fixedpoint.datalog.check_relation", "tr_hashtable"))
+			// The formula scope belongs to explanation queries: with
+			// generate_explanations the facts stay on the explanation path.
+			fragmentMust(t, e.globals.SourceSetName("fixedpoint.datalog.generate_explanations", "true"))
 			boolean, err := m.MkBoolSort()
 			fragmentMust(t, err)
 			bv, err := m.BitVectorSort(2)

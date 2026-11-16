@@ -40,9 +40,10 @@ func (e *PropositionalEngine) ensureArithRelationPlugins() error {
 // arithRelationsRoute decides whether the query runs through the compiled
 // pipeline with relation plugins: every predicate gets a relation from
 // get_relation (a table_relation or an arithmetic plugin relation), at least
-// one of them an arithmetic relation. Configurations that still need the
-// product relation, the karr_relation favourite, udoc, explanation,
-// external or check relations keep their evaluators. With
+// one of them an arithmetic relation. With datalog.check_relation the
+// favourite relation plugin's route (selectCompiledRelationFavourite) takes
+// the program. Configurations that still need the karr_relation favourite,
+// udoc, explanation or external relations keep their evaluators. With
 // fixedpoint.xform.karr the mk_karr_invariants transform runs as before.
 func (e *PropositionalEngine) arithRelationsRoute() (bool, error) {
 	if err := e.cacheDatalogRelationFavourite(); err != nil {
@@ -52,8 +53,19 @@ func (e *PropositionalEngine) arithRelationsRoute() (bool, error) {
 	case "doc":
 		return false, nil
 	}
-	if _, enabled, err := e.datalogCheckRelationName(); err != nil || enabled {
-		return false, err
+	// rel_context::updt_params: with datalog.check_relation the favourite
+	// is check_relation over the named plugin; the compiled route of the
+	// favourite relation plugin takes every predicate.
+	if _, enabled, err := e.datalogCheckRelationBase(); err != nil || enabled {
+		if err != nil {
+			return false, err
+		}
+		// With datalog.generate_explanations the explanation evaluators
+		// take the facts and queries.
+		if requested, err := e.datalogExplanationsRequested(); err != nil || requested {
+			return false, err
+		}
+		return e.selectCompiledRelationFavourite()
 	}
 	if enabled, err := e.datalogExplanationsEnabled(); err != nil || enabled {
 		return false, err

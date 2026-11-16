@@ -64,7 +64,17 @@ func (m *RelationManager) MaterializeFiniteRelation(predicate ast.ASTHandle) err
 		return nil
 	}
 	delete(m.placeholders, predicate)
-	return m.noteRelation(predicate)
+	if err := m.noteRelation(predicate); err != nil {
+		return err
+	}
+	table, found, err := m.TryGetFiniteRelation(predicate)
+	if err != nil || !found {
+		return err
+	}
+	if check, ok := table.(*CheckRelation); ok {
+		return check.completeCreation()
+	}
+	return nil
 }
 
 // ReplaceFiniteRelation installs table for predicate. Replacing a placeholder

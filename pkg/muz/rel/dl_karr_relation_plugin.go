@@ -28,30 +28,10 @@ func NewKarrRelationPlugin(m *RelationManager, cancel func() bool) *KarrRelation
 func (p *KarrRelationPlugin) Name() string              { return "karr_relation" }
 func (p *KarrRelationPlugin) Manager() *RelationManager { return p.manager }
 
-// CanHandleSignature: every column is Int.
+// CanHandleSignature is karr_relation_plugin::can_handle_signature:
+// context::karr(), any signature (the plugin is registered only when
+// fixedpoint.xform.karr is set).
 func (p *KarrRelationPlugin) CanHandleSignature(sorts []ast.ASTHandle) (bool, error) {
-	m := p.manager.manager
-	arith, err := m.RegisterArithmeticPlugin()
-	if err != nil {
-		return false, err
-	}
-	for _, sort := range sorts {
-		kind, err := m.GetKind(sort)
-		if err != nil || kind != ast.ASTSort {
-			return false, err
-		}
-		family, err := m.GetFamilyID(sort)
-		if err != nil {
-			return false, err
-		}
-		decl, err := m.GetDeclKind(sort)
-		if err != nil {
-			return false, err
-		}
-		if family != arith || decl != 1 {
-			return false, nil
-		}
-	}
 	return true, nil
 }
 

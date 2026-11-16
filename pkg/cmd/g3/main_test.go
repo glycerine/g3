@@ -336,6 +336,20 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// AUDIT.md FUZZ-F5 (relation plugins): check_relation over any relation
+	// plugin, chosen by name (rel_context::updt_params): bound_relation and
+	// interval_relation fail mk_empty's check (their empty relation's
+	// formula is true); karr_relation without xform.karr and the bare table
+	// name hashtable name no relation plugin (no base); tr_* is the table's
+	// table_relation plugin.
+	"plugins4_check_bound_empty.smt2":      "(error \"query failed: operation was not verified\")\nunknown\n",
+	"plugins4_check_interval_rule.smt2":    "(error \"query failed: operation was not verified\")\nunknown\n",
+	"plugins4_check_karr_no_xform.smt2":    "unknown\napproximated relations\n",
+	"plugins4_check_karr_xform_bool.smt2":  "(error \"query failed: operation was not verified\")\nunknown\n",
+	"plugins4_check_tr_sparse.smt2":        "sat\n(= (:var 0) #b00)\n",
+	"plugins4_check_tr_hashtable.smt2":     "sat\n(or (= (:var 0) #b10) (= (:var 0) #b01))\n",
+	"plugins4_check_hashtable_nobase.smt2": "sat\n(or (= (:var 0) #b01) (= (:var 0) #b10))\n",
+
 	"plugins3_interval_filter_gt.smt2": "sat\n",
 	"plugins3_interval_filter_ge.smt2": "sat\n",
 	"plugins3_bound_filter_gt.smt2":    "sat\n",

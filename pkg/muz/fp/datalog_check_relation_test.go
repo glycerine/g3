@@ -72,27 +72,26 @@ func TestDatalogCheckRelationParameterRunsCheckedSaturation(t *testing.T) {
 	must(err)
 	must(e.addRuleEager(step, "checked-goal"))
 
-	before := e.predicates[f.declarations["u"]].table
+	// rel_context::updt_params: no relation plugin is named hashtable (the
+	// table's relation plugin is tr_hashtable), so check_relation has no
+	// base, handles no signature, and the predicates get tables.
 	status, err := e.QueryPredicate(f.declarations["u"])
 	must(err)
-	if status != lbool.True || e.compiled {
-		t.Fatal("checked saturation result/compiler", status, e.compiled)
+	if status != lbool.True || !e.compiledRelationPlugins {
+		t.Fatal("check_relation without a base: result/route", status, e.compiledRelationPlugins)
 	}
-	if e.predicates[f.declarations["u"]].checked != nil {
-		t.Fatal("checked query owner escaped its scope")
-	}
-	if e.predicates[f.declarations["u"]].table == before {
-		t.Fatal("checked result was not published into persistent storage")
+	if _, isRelation := rel.AsRelation(e.predicates[f.declarations["u"]].table); isRelation {
+		t.Fatal("check_relation without a base made a checked relation")
 	}
 	rows, err := e.predicates[f.declarations["u"]].table.Len()
 	must(err)
 	if rows != 1 {
-		t.Fatal("checked recursive result rows", rows)
+		t.Fatal("recursive result rows", rows)
 	}
 	status, err = e.QueryPredicate(f.declarations["u"])
 	must(err)
 	if status != lbool.True {
-		t.Fatal("repeated checked query", status)
+		t.Fatal("repeated query", status)
 	}
 }
 
@@ -179,24 +178,26 @@ func TestDatalogCheckRelationSparseBackend(t *testing.T) {
 	must(err)
 	must(e.addRuleEager(rule, "checked-sparse-step"))
 
+	// No relation plugin is named sparse: check_relation has no base and
+	// the predicates get the default (sparse) tables.
 	status, err := e.QueryPredicate(q)
 	must(err)
-	if status != lbool.True || e.compiled {
-		t.Fatal("sparse checked result/compiler", status, e.compiled)
+	if status != lbool.True || !e.compiledRelationPlugins {
+		t.Fatal("check_relation without a base: result/route", status, e.compiledRelationPlugins)
 	}
 	state := e.predicates[q]
-	if state.checked != nil || state.sparse != nil {
-		t.Fatal("sparse checked owner escaped query scope")
+	if _, isRelation := rel.AsRelation(state.table); isRelation {
+		t.Fatal("check_relation without a base made a checked relation")
 	}
 	facts, err := state.table.Facts()
 	must(err)
 	if len(facts) != 1 || len(facts[0]) != 1 || facts[0][0] != 1 {
-		t.Fatal("sparse checked facts", facts)
+		t.Fatal("sparse facts", facts)
 	}
 	status, err = e.QueryPredicate(q)
 	must(err)
 	if status != lbool.True {
-		t.Fatal("repeated sparse checked query", status)
+		t.Fatal("repeated query", status)
 	}
 }
 

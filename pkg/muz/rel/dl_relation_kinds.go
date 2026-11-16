@@ -113,6 +113,15 @@ func (m *RelationManager) relationPluginByName(name string) RelationPlugin {
 	return m.GetRelationPlugin(name)
 }
 
+// RelationPluginByName is get_relation_plugin(symbol): the table_relation
+// plugins (tr_<table>) and the relation plugins; nil when absent.
+func (m *RelationManager) RelationPluginByName(name string) RelationPlugin {
+	if p := m.relationPluginByName(name); p != nil {
+		return p
+	}
+	return nil
+}
+
 // RelationPluginKind returns the kind of the plugin named name
 // (get_ordinary_relation_plugin(name).get_kind()); ok is false when no
 // such plugin exists.

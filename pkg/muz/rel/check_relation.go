@@ -257,6 +257,9 @@ func (p *CheckRelationPlugin) Manager() *RelationManager { return p.rm }
 // SetPlugin is set_plugin(p).
 func (p *CheckRelationPlugin) SetPlugin(base RelationPlugin) { p.base = base }
 
+// BasePlugin is m_base (nil when unset).
+func (p *CheckRelationPlugin) BasePlugin() RelationPlugin { return p.base }
+
 // CheckRelation is check_relation.
 type CheckRelation struct {
 	plugin   *CheckRelationPlugin
@@ -264,6 +267,9 @@ type CheckRelation struct {
 	relation RelationBase // m_relation
 	fml      ast.ASTRef   // m_fml
 	closed   bool
+	// pendingEmpty: a placeholder made before get_relation would create
+	// the relation; mk_empty's check runs when it does (completeCreation).
+	pendingEmpty bool
 }
 
 var _ RelationBase = (*CheckRelation)(nil)
@@ -365,16 +371,39 @@ func (r *CheckRelation) factValues(s *astScope, f Fact) []ast.ASTHandle {
 
 // Add is check_relation::add_fact.
 func (r *CheckRelation) Add(f Fact) (_ bool, result error) {
-	p := r.plugin
-	m := p.m
-	s := &astScope{m: m}
+	s := &astScope{m: r.plugin.m}
 	defer func() { result = s.close(result) }()
 	values := r.factValues(s, f)
 	if s.err != nil {
 		return false, nil
 	}
+	return r.addFact(s, values, func() (bool, error) { return r.relation.Add(f) })
+}
+
+// AddFactAST is check_relation::add_fact(relation_fact) for a fact of
+// expressions (rel_context::add_fact on an Int/Real relation).
+func (r *CheckRelation) AddFactAST(values []ast.ASTHandle) (result error) {
+	adder, ok := r.relation.(RelationAddFactAST)
+	if !ok {
+		// A table_relation base: the fact's table encoding.
+		fact, err := r.plugin.rm.EncodeFact(r.sorts, values)
+		if err != nil {
+			return err
+		}
+		_, err = r.Add(fact)
+		return err
+	}
+	s := &astScope{m: r.plugin.m}
+	defer func() { result = s.close(result) }()
+	_, err := r.addFact(s, values, func() (bool, error) { return true, adder.AddFactAST(values) })
+	return err
+}
+
+func (r *CheckRelation) addFact(s *astScope, values []ast.ASTHandle, add func() (bool, error)) (bool, error) {
+	p := r.plugin
+	m := p.m
 	fml1 := s.local()
-	inserted, err := r.relation.Add(f)
+	inserted, err := add()
 	if err != nil {
 		return false, err
 	}
@@ -593,6 +622,31 @@ func (p *CheckRelationPlugin) MkEmpty(sorts []ast.ASTHandle) (RelationBase, erro
 	return result, p.checkConstant(result, false, "mk_empty")
 }
 
+// mkEmptyPlaceholder is mk_empty for a predicate's placeholder relation
+// (relation_manager::get_relation creates the relation lazily): mk_empty's
+// check_constant runs at completeCreation.
+func (p *CheckRelationPlugin) mkEmptyPlaceholder(sorts []ast.ASTHandle) (RelationBase, error) {
+	r, err := p.base.MkEmpty(sorts)
+	if err != nil {
+		return nil, err
+	}
+	result, err := p.newCheckRelation(sorts, r)
+	if err != nil {
+		return nil, err
+	}
+	result.pendingEmpty = true
+	return result, nil
+}
+
+// completeCreation runs a placeholder's deferred mk_empty check.
+func (r *CheckRelation) completeCreation() error {
+	if !r.pendingEmpty {
+		return nil
+	}
+	r.pendingEmpty = false
+	return r.plugin.checkConstant(r, false, "mk_empty")
+}
+
 // MkFull is check_relation_plugin::mk_full.
 func (p *CheckRelationPlugin) MkFull(predicate ast.ASTHandle, sorts []ast.ASTHandle) (RelationBase, error) {
 	r, err := p.base.MkFull(predicate, sorts)
@@ -731,7 +785,7 @@ func (p *CheckRelationPlugin) checkEquivSolve(kernel *smtcore.DefaultParamsKerne
 			if err = errors.Join(err1, err2); err != nil {
 				return err
 			}
-			if err = diagnostic.ProgressVerbose(0, "NOT verified true\n"+t1+"\n"+t2+"\n"); err != nil {
+			if err = diagnostic.ProgressVerbose(0, "NOT verified l_true\n"+t1+"\n"+t2+"\n"); err != nil {
 				return err
 			}
 		}
