@@ -3698,19 +3698,17 @@ func (e *PropositionalEngine) Close() (result error) {
 	if err := e.clearPDRPreprocessing(); err != nil {
 		return errors.Join(result, err)
 	}
-	if e.pdrRules != nil {
-		result = errors.Join(result, e.pdrRules.Close())
-		e.pdrRules = nil
+	// ~dl_interface destroys m_old_rules before m_pdr_rules. The transformed
+	// rules m_pdr_rules shares with the context's m_transformed_rule_set
+	// (record_transformed_rules) die with that member, below.
+	if e.pdrSourceRules != nil {
+		result = errors.Join(result, e.pdrSourceRules.Close())
+		e.pdrSourceRules = nil
 	}
 	if e.pdrRetiredRules != nil {
 		result = errors.Join(result, e.pdrRetiredRules.Close())
 		e.pdrRetiredRules = nil
 	}
-	if e.pdrSourceRules != nil {
-		result = errors.Join(result, e.pdrSourceRules.Close())
-		e.pdrSourceRules = nil
-	}
-	e.pdrRuleRevision = 0
 	if e.spacer != nil {
 		if err := e.spacer.Close(); err != nil {
 			return errors.Join(result, err)
@@ -3734,6 +3732,11 @@ func (e *PropositionalEngine) Close() (result error) {
 		result = errors.Join(result, e.datalogTransformedRules.Close())
 		e.datalogTransformedRules = nil
 	}
+	if e.pdrRules != nil {
+		result = errors.Join(result, e.pdrRules.Close())
+		e.pdrRules = nil
+	}
+	e.pdrRuleRevision = 0
 	if e.spacerRules != nil {
 		result = errors.Join(result, e.spacerRules.Close())
 		e.spacerRules = nil
