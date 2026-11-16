@@ -1959,6 +1959,11 @@ func (k *SMTKernel) Close() error {
 	// order: m_unsat_proof and m_conflict_resolution go first, long before
 	// the theories, the model generator and the asserted formulas.
 	releaseConflictState := func() error {
+		// m_model and m_proto_model are declared after m_unsat_proof and
+		// m_conflict_resolution, so they are destroyed first.
+		if err := k.releaseContextModels(); err != nil {
+			return err
+		}
 		if k.unsatProof != (ast.ASTRef{}) {
 			if err := k.manager.DelRef(&k.unsatProof); err != nil {
 				return err

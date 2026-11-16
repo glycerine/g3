@@ -97,7 +97,7 @@ func (g *smtModelFinderAUFGraph) sortedProjectionValues(node *smtModelFinderAUFN
 	return values, nil
 }
 
-func (g *smtModelFinderAUFGraph) makeMonotoneProjection(node *smtModelFinderAUFNode) error {
+func (g *smtModelFinderAUFGraph) makeMonotoneProjection(node *smtModelFinderAUFNode) (result error) {
 	if node == nil || node.parent != nil || !node.mono || node.set == nil || g.model == nil {
 		return ast.ErrASTDomain
 	}
@@ -113,10 +113,20 @@ func (g *smtModelFinderAUFGraph) makeMonotoneProjection(node *smtModelFinderAUFN
 	if err != nil {
 		return err
 	}
+	// func_decl * p = m.mk_fresh_func_decl(1, &s, s) precedes var.
+	function, err := m.MkFreshFuncDecl(symbol.Symbol{}, symbol.Symbol{}, []ast.ASTHandle{node.sort}, node.sort)
+	if err != nil {
+		return err
+	}
+	// expr_ref var: released when mk_mono_proj returns.
 	variable, err := m.MkVar(0, node.sort)
 	if err != nil {
 		return err
 	}
+	if err = m.IncRef(variable); err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, m.DecRef(variable)) }()
 	definition := values[len(values)-1]
 	for i := len(values) - 1; i >= 1; i-- {
 		var condition ast.ASTHandle
@@ -143,10 +153,6 @@ func (g *smtModelFinderAUFGraph) makeMonotoneProjection(node *smtModelFinderAUFN
 		if err != nil {
 			return err
 		}
-	}
-	function, err := m.MkFreshFuncDecl(symbol.Symbol{}, symbol.Symbol{}, []ast.ASTHandle{node.sort}, node.sort)
-	if err != nil {
-		return err
 	}
 	interpretation, err := model.NewFunctionInterpretation(m, 1)
 	if err != nil {
