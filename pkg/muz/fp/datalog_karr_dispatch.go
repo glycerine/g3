@@ -36,14 +36,14 @@ func (e *PropositionalEngine) ensureKarrDatalog() (bool, error) {
 	if !enabled {
 		return false, nil
 	}
-	if e.udocDatalog != nil || e.externalIntervalDatalog != nil {
+	if e.udocDatalog != nil {
 		return true, ErrKarrDatalogFragment
 	}
 	for declaration, state := range e.predicates {
 		if e.datalogRelationFavourite != "karr_relation" && !e.auxiliary[declaration] && (len(state.requestedRepresentations) != 1 || state.requestedRepresentations[0] != "karr_relation") {
 			return true, ErrKarrDatalogFragment
 		}
-		if state.external != nil || state.explicitFiniteRepresentation {
+		if state.explicitFiniteRepresentation {
 			return true, ErrKarrDatalogFragment
 		}
 		if len(state.requestedRepresentations) > 0 && (len(state.requestedRepresentations) != 1 || state.requestedRepresentations[0] != "karr_relation") {

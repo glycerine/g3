@@ -64,24 +64,6 @@ func (p *ExternalRelationPlugin) Close() error {
 	if p.ast == nil {
 		return ErrTableRelation
 	}
-	// Deterministic release (AST id order); Go map order would be random.
-	predicates := make([]ast.ASTHandle, 0, len(p.predicates))
-	for predicate := range p.predicates {
-		predicates = append(predicates, predicate)
-	}
-	for _, predicate := range handlesByID(p.ast, predicates) {
-		relation := p.predicates[predicate]
-		if err := relation.Close(); err != nil {
-			return err
-		}
-		consumed, err := p.ast.DecRefConsumed(predicate)
-		if consumed {
-			delete(p.predicates, predicate)
-		}
-		if err != nil {
-			return err
-		}
-	}
 	if p.users != 0 {
 		return ErrTableRelation
 	}
@@ -95,7 +77,7 @@ func (p *ExternalRelationPlugin) Close() error {
 			return err
 		}
 	}
-	p.closed, p.manager, p.ast, p.predicates = true, nil, nil, nil
+	p.closed, p.manager, p.ast = true, nil, nil
 	p.callbacks = ExternalRelationCallbacks{}
 	return nil
 }

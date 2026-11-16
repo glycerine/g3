@@ -311,7 +311,7 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 			return factory.CanHandleSignature(sorts)
 		}
 		state := e.predicates[d]
-		if state == nil || state.external != nil || state.explicitFiniteRepresentation || len(state.sorts) != 1 || !e.relations.CanHandleTableSorts(state.sorts) {
+		if state == nil || state.explicitFiniteRepresentation || len(state.sorts) != 1 || !e.relations.CanHandleTableSorts(state.sorts) {
 			return false, nil
 		}
 		selected := len(state.requestedRepresentations) == 1 && state.requestedRepresentations[0] == "doc" || docFavourite && len(state.requestedRepresentations) == 0
@@ -332,7 +332,7 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 			continue
 		}
 		state := e.predicates[head]
-		if definitions[head] != 1 || groundHeads[head] || state == nil || state.external != nil || len(state.requestedRepresentations) != 0 || !e.relations.CanHandleTableSorts(state.sorts) {
+		if definitions[head] != 1 || groundHeads[head] || state == nil || len(state.requestedRepresentations) != 0 || !e.relations.CanHandleTableSorts(state.sorts) {
 			return nil, ErrUDocDatalogFragment
 		}
 		hasBool, hasOther := false, false
@@ -427,7 +427,7 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 					continue
 				}
 				input := e.predicates[declaration]
-				if input == nil || input.external != nil || !e.relations.CanHandleTableSorts(input.sorts) {
+				if input == nil || !e.relations.CanHandleTableSorts(input.sorts) {
 					return nil, ErrUDocDatalogFragment
 				}
 				if input.table == nil && known[declaration] == nil || input.table != nil && udocProductFiniteKind(input.table) != e.datalogDefaultTable {
@@ -515,7 +515,7 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 		doc, finite := decls[di], decls[ti]
 		productInput := e.predicates[finite]
 		productCandidate := definitions[finite] != 0 || p.productHead(finite)
-		if productCandidate && productInput != nil && productInput.external == nil && !productInput.explicitFiniteRepresentation && len(productInput.requestedRepresentations) == 0 && e.relations.CanHandleTableSorts(productInput.sorts) {
+		if productCandidate && productInput != nil && !productInput.explicitFiniteRepresentation && len(productInput.requestedRepresentations) == 0 && e.relations.CanHandleTableSorts(productInput.sorts) {
 			hasBoolean, hasOtherSort := false, false
 			for _, sort := range productInput.sorts {
 				hasBoolean = hasBoolean || sort == boolean
@@ -541,7 +541,7 @@ func (e *PropositionalEngine) planUDocProductsForSet(factory *rel.UDocRelationFa
 			}
 		}
 		input := e.predicates[finite]
-		if definitions[doc] != 0 || definitions[finite] != 0 || input == nil || input.external != nil || !e.relations.CanHandleTableSorts(input.sorts) {
+		if definitions[doc] != 0 || definitions[finite] != 0 || input == nil || !e.relations.CanHandleTableSorts(input.sorts) {
 			return nil, ErrUDocDatalogFragment
 		}
 		if input.table == nil && known[finite] == nil || input.table != nil && udocProductFiniteKind(input.table) != e.datalogDefaultTable {

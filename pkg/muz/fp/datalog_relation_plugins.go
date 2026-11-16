@@ -87,7 +87,7 @@ func (e *PropositionalEngine) datalogRelationPlugins(checkBase string, checkEnab
 // favouriteHandles is the favourite's can_handle_signature; requested is
 // the plugin a single set_predicate_representation kind names.
 func (e *PropositionalEngine) datalogRelationKind(state *predicateState, favouriteHandles func([]ast.ASTHandle) (bool, error), requestedHandles func(string, []ast.ASTHandle) (bool, error)) (string, error) {
-	if state == nil || state.external != nil || state.checked != nil || state.sparse != nil {
+	if state == nil || state.checked != nil || state.sparse != nil {
 		return "", nil
 	}
 	if state.table == nil {

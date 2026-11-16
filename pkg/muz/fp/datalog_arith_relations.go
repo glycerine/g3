@@ -76,7 +76,7 @@ func (e *PropositionalEngine) arithRelationsRoute() (bool, error) {
 	var requested []rel.RelationPlugin
 	for _, d := range e.predicateOrder {
 		state := e.predicates[d]
-		if state == nil || state.external != nil {
+		if state == nil {
 			return false, nil
 		}
 		switch {

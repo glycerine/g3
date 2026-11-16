@@ -52,7 +52,7 @@ func (c *datalogUDocContext) clearFiniteUnionCleanup() error {
 }
 
 func udocFiniteForwardingInput(state *predicateState) bool {
-	return state != nil && len(state.sorts) != 0 && state.explicitFiniteRepresentation && state.table != nil && state.external == nil
+	return state != nil && len(state.sorts) != 0 && state.explicitFiniteRepresentation && state.table != nil
 }
 
 // classifyUDocFiniteForwarding admits one extensional input, distinct variables

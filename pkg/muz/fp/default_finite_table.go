@@ -60,7 +60,7 @@ func (e *PropositionalEngine) applyDatalogDefaultFiniteTable() (resultErr error)
 	e.appliedDefaultTable = applied
 	for _, decl := range e.predicateOrder {
 		state := e.predicates[decl]
-		if state == nil || state.table == nil || state.external != nil || state.explicitFiniteRepresentation {
+		if state == nil || state.table == nil || state.explicitFiniteRepresentation {
 			continue
 		}
 		if _, ok := rel.AsRelation(state.table); ok {

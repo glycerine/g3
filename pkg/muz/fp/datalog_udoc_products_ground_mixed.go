@@ -21,7 +21,7 @@ func (e *PropositionalEngine) planUDocMixedGround(p *udocProductProgram, head, b
 	// A uniform favourite makes cached BV singletons choose raw DOC and
 	// Bool singletons choose the default concrete finite kind. Predicate
 	// overrides and initial ordinary facts keep their prior finite route.
-	if !docFavourite || e.datalogRelationFavourite != "doc" || state.external != nil || !e.relations.CanHandleTableSorts(state.sorts) || len(state.requestedRepresentations) != 0 || state.explicitFiniteRepresentation {
+	if !docFavourite || e.datalogRelationFavourite != "doc" || !e.relations.CanHandleTableSorts(state.sorts) || len(state.requestedRepresentations) != 0 || state.explicitFiniteRepresentation {
 		return false, ErrUDocDatalogFragment
 	}
 	if state.table == nil && known[head] == nil || state.table != nil && udocProductFiniteKind(state.table) != e.datalogDefaultTable {

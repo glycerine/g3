@@ -55,7 +55,7 @@ func (e *PropositionalEngine) ensureBoundDatalog() (bool, error) {
 		}
 	}
 	for _, state := range e.predicates {
-		if state.explicitFiniteRepresentation || state.external != nil {
+		if state.explicitFiniteRepresentation {
 			return true, ErrBoundDatalogFragment
 		}
 	}

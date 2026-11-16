@@ -57,7 +57,7 @@ func (e *PropositionalEngine) ensureUDocDatalog() (selected bool, resultErr erro
 			return false, err
 		}
 		hasDoc := len(state.requestedRepresentations) == 1 && state.requestedRepresentations[0] == "doc"
-		candidate := supported && !state.explicitFiniteRepresentation && state.external == nil && (hasDoc || docFavourite && len(state.requestedRepresentations) == 0 || e.auxiliary[d])
+		candidate := supported && !state.explicitFiniteRepresentation && (hasDoc || docFavourite && len(state.requestedRepresentations) == 0 || e.auxiliary[d])
 		any = any || candidate
 		guard := udocFiniteNullary(state) && owner.seeds[d] == nil
 		forward := !checkedDoc && supported && udocFiniteForwardingInput(state) && owner.seeds[d] == nil

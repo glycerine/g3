@@ -48,7 +48,6 @@ type predicateState struct {
 	explicitFiniteRepresentation bool
 	sorts                        []ast.ASTHandle
 	table                        rel.FiniteTable
-	external                     *rel.ExternalRelation
 	checked                      *rel.FormulaCheckedTable
 	sparse                       *rel.CheckedRelation
 }
@@ -154,7 +153,6 @@ type PropositionalEngine struct {
 	// which owns it while the engine lives, is gone (see Close).
 	contextVarSubst     *astrewriter.VarSubstitution
 	external            *rel.ExternalRelationPlugin
-	externalSimilarity  *externalSimilarityQueryScope
 	guard               *astrewriter.TheoryRewriter
 	pdrTheory           *astrewriter.TheoryRewriter // borrowed original fixedpoint rewriter in query clones
 	unboundCooperation  *cooperate.Cooperation
@@ -290,7 +288,6 @@ type PropositionalEngine struct {
 	datalogTransformCleanup *datalogTransformOwners
 
 	lazyFinite               *rel.LazySparseFiniteFactory
-	externalIntervalDatalog  *externalIntervalDatalogActivation
 	udocDatalog              *datalogUDocContext
 	arithmeticFactCleanup    []*arithmeticTableFactAttempt
 	datalogRelationFavourite string
@@ -549,10 +546,10 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 		return nil
 	}
 	if len(kinds) == 1 && kinds[0] == "karr_relation" {
-		if e.udocDatalog != nil || e.externalIntervalDatalog != nil {
+		if e.udocDatalog != nil {
 			return ErrKarrDatalogFragment
 		}
-		if state.external != nil || state.explicitFiniteRepresentation {
+		if state.explicitFiniteRepresentation {
 			return ErrKarrDatalogFragment
 		}
 		if state.table != nil {
@@ -568,51 +565,11 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 		e.revision++
 		return nil
 	}
-	if isExternalIntervalRepresentation(kinds) {
-		if e.external == nil || !rel.CanHandleIntervalSorts(e.manager, state.sorts) || state.external != nil || state.explicitFiniteRepresentation {
-			return ErrExternalIntervalDatalogFragment
-		}
-		if e.externalIntervalDatalog == nil && e.udocDatalog != nil {
-			return ErrExternalIntervalDatalogFragment
-		}
-		if state.table != nil {
-			count, err := state.table.Len()
-			if err != nil {
-				return err
-			}
-			if count != 0 {
-				return ErrExternalIntervalDatalogFragment
-			}
-		}
-		if e.externalIntervalDatalog != nil && !e.externalIntervalDatalog.allowsSelection(declaration, kinds) {
-			return ErrExternalIntervalDatalogFragment
-		}
-		state.requestedRepresentations = append([]string(nil), kinds...)
-		state.explicitFiniteRepresentation = false
-		e.revision++
-		return nil
-	}
 	if len(kinds) == 1 && kinds[0] == "doc" {
 		state.requestedRepresentations = append([]string(nil), kinds...)
 		state.explicitFiniteRepresentation = false
 		e.revision++
 		return nil
-	}
-	if len(kinds) == 1 && kinds[0] == "external_relation" {
-		external, err := e.ExternalPredicateRelation(declaration)
-		if err != nil {
-			return err
-		}
-		state.external = external
-		state.table = nil
-		state.requestedRepresentations = append([]string(nil), kinds...)
-		e.revision++
-		return nil
-	}
-	for _, kind := range kinds {
-		if kind == "external_relation" {
-			return fmt.Errorf("muz/fp: external_relation cannot be combined with finite table representations")
-		}
 	}
 	if state.table == nil {
 		// get_ordinary_relation_plugin(name) for an Int/Real signature.
@@ -845,15 +802,6 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 			return err
 		}
 		state := e.predicates[declaration]
-		if state.external != nil {
-			if err := state.external.AddFact(values); err != nil {
-				return err
-			}
-			e.invalidateQueryForMutation()
-			e.advanceRuleRevision()
-			e.compiled = false
-			return nil
-		}
 		fact, err := e.relations.EncodeFact(state.sorts, values)
 		if err != nil {
 			return err
@@ -916,9 +864,6 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 			return e.addArithmeticTableFact(declaration, values)
 		} else if _, err := e.ensureBoundDatalog(); err != nil {
 			return err
-		}
-		if state.external != nil {
-			return e.addArithmeticTableFact(declaration, values)
 		}
 		return e.addDatalogFact(declaration, state, fact)
 	}
@@ -2689,7 +2634,6 @@ func (e *PropositionalEngine) buildRelationAnswer(declarations []ast.ASTHandle) 
 	// Only the plain finite-table backend; the explanation, Karr, udoc and
 	// interval backends answer through their own relations.
 	if e.datalogExplanationAnswer != (ast.ASTRef{}) || e.udocDatalog != nil ||
-		e.externalIntervalDatalog != nil ||
 		e.queryClone != nil || e.expressionClone {
 		return nil
 	}
@@ -2823,13 +2767,6 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	count, err := e.set.Len()
 	if err != nil {
 		return lbool.Undef, err
-	}
-	hasExternal := false
-	for _, declaration := range declarations {
-		hasExternal = hasExternal || e.predicates[declaration].external != nil
-	}
-	if hasExternal {
-		return e.queryExternalDatalogPredicates(declarations, count)
 	}
 	if count == 0 && len(declarations) > 0 {
 		hasInfinite, nonempty := false, false
@@ -3207,9 +3144,6 @@ func (e *PropositionalEngine) computeAnswer(declaration ast.ASTHandle) (answer a
 	if kind == EngineDatalog && (e.udocDatalog != nil || e.queryClone != nil && e.queryClone.udocDatalog != nil) {
 		return e.udocAnswer(declaration)
 	}
-	if kind == EngineDatalog && e.externalIntervalDatalog != nil && e.externalIntervalDatalog.contains(declaration) {
-		return answer, ErrExternalIntervalDatalogFragment
-	}
 	if kind == EngineDatalog && e.relAnswer != (ast.ASTRef{}) && e.relAnswerDecl == declaration && !declaration.IsNull() && e.lastResult == lbool.True {
 		// rel_context::get_answer: the m_answer the query built (the
 		// relation's to_formula is not evaluated again).
@@ -3293,9 +3227,6 @@ func (e *PropositionalEngine) computeAnswer(declaration ast.ASTHandle) (answer a
 		return answer, ErrPropositionalEngine
 	}
 	if state.table == nil {
-		if state.external != nil {
-			return state.external.ToFormula()
-		}
 		count, cause := e.set.Len()
 		if cause != nil {
 			return answer, cause
@@ -3603,12 +3534,6 @@ func (e *PropositionalEngine) Close() (result error) {
 	e.closing = true
 	e.queryReady = false
 	e.lastResult = lbool.Undef
-	if err := e.closeExternalIntervalDatalog(); err != nil {
-		return err
-	}
-	if err := e.discardExternalSimilarity(); err != nil {
-		return err
-	}
 	if e.externalPluginRegistered() {
 		// The relation manager closes its registered plugin after its
 		// relations.

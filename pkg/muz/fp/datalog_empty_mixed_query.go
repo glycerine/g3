@@ -12,7 +12,7 @@ import (
 )
 
 func (e *PropositionalEngine) queryEmptyMixedDatalog(declarations []ast.ASTHandle) (lbool.LBool, bool, error) {
-	if e.udocDatalog != nil || e.externalIntervalDatalog != nil {
+	if e.udocDatalog != nil {
 		return lbool.Undef, false, nil
 	}
 	count, err := e.set.Len()
@@ -22,7 +22,7 @@ func (e *PropositionalEngine) queryEmptyMixedDatalog(declarations []ast.ASTHandl
 	hasFinite, hasInfinite, nonempty := false, false, false
 	for _, declaration := range declarations {
 		state := e.predicates[declaration]
-		if state == nil || state.external != nil {
+		if state == nil {
 			return lbool.Undef, false, nil
 		}
 		if state.table == nil {
