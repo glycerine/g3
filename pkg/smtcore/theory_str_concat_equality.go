@@ -24,24 +24,30 @@ func (t *SMTStringTheory) inferStringConcatArgument(concat ast.ASTHandle, total 
 		return err
 	}
 	right, rk, err := t.lengthValue(second)
-	if err != nil || lk == rk {
+	if err != nil {
 		return err
 	}
-	missing, known, value := first, second, right
-	if lk {
-		missing, known, value = second, first, left
-	}
-	difference := new(big.Int).Sub(total, value)
-	if difference.Sign() < 0 {
-		return nil
-	}
+	// infer_len_concat_arg always builds len(n) = len into l_items, and
+	// the known argument's length premise before it tests the difference;
+	// without a conclusion they are freed again.
 	premises := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, premises.close()) }()
 	if err := premises.length(concat, total); err != nil {
 		return err
 	}
+	if lk == rk {
+		return nil
+	}
+	missing, known, value := first, second, right
+	if lk {
+		missing, known, value = second, first, left
+	}
 	if err := premises.length(known, value); err != nil {
 		return err
+	}
+	difference := new(big.Int).Sub(total, value)
+	if difference.Sign() < 0 {
+		return nil
 	}
 	conclusion := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, conclusion.close()) }()
@@ -64,6 +70,22 @@ func (t *SMTStringTheory) inferStringConcatEquality(left, right ast.ASTHandle) e
 	}
 	// Native infer_len_concat's assertion branch is unreachable with the
 	// recursive get_len_value: known children imply a known concat sum.
+	// Its three get_len_value reads (arg0, arg1, the concat) still run for
+	// each concat side, and each may build and free a temporary str.len.
+	for _, side := range []ast.ASTHandle{left, right} {
+		first, second, concat, err := t.state.manager.SequenceConcatParts(side)
+		if err != nil {
+			return err
+		}
+		if !concat {
+			continue
+		}
+		for _, term := range []ast.ASTHandle{first, second, side} {
+			if _, _, err := t.lengthValue(term); err != nil {
+				return err
+			}
+		}
+	}
 	if !known {
 		return nil
 	}
