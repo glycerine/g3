@@ -5,6 +5,7 @@ package smtcore
 
 import (
 	"errors"
+	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -127,6 +128,11 @@ func (t *SMTStringTheory) simplifyStringParent(member, constant ast.ASTHandle, p
 		}
 		return expression, locals.add(expression)
 	}
+	// bool parentLen_exists = get_len_value(a_parent, parentLen)
+	parentLength, parentKnown, err := t.lengthValue(parent.Owner())
+	if err != nil {
+		return err
+	}
 	// Both direct argument positions are independent, including x ++ x.
 	for i, argument := range []ast.ASTHandle{first, second} {
 		if argument != member {
@@ -137,6 +143,9 @@ func (t *SMTStringTheory) simplifyStringParent(member, constant ast.ASTHandle, p
 		if i == 1 {
 			other, left, right = first, first, constant
 		}
+		if err := t.makeUpParentArgumentLength(parent.Owner(), member, constant, other, i == 0, parentLength, parentKnown); err != nil {
+			return err
+		}
 		evaluated, err := pin(t.evalStringConcat(left, right))
 		if err != nil {
 			return err
@@ -146,7 +155,8 @@ func (t *SMTStringTheory) simplifyStringParent(member, constant ast.ASTHandle, p
 			if err != nil {
 				return err
 			}
-			if err := t.publishParentSimplification(member, constant, other, otherValue, parent.Owner(), evaluated); err != nil {
+			// simplify_parent #1/#2 build implyL before in_same_eqc.
+			if err := t.publishParentSimplificationAfterPremises(member, constant, other, otherValue, parent.Owner(), evaluated); err != nil {
 				return err
 			}
 		} else {
@@ -248,6 +258,12 @@ func (t *SMTStringTheory) foldParentBoundary(member, constant, literal, rest, pa
 	if err := locals.add(combined); err != nil {
 		return err
 	}
+	// simplify_parent #3-#6 build implyL before mk_concat and in_same_eqc.
+	premises := smtStringLengthPremises{theory: t}
+	defer func() { result = errors.Join(result, premises.close()) }()
+	if err := t.parentSimplificationPremises(&premises, member, constant, member, member); err != nil {
+		return err
+	}
 	left, right = combined, rest
 	if !combinedFirst {
 		left, right = rest, combined
@@ -259,7 +275,11 @@ func (t *SMTStringTheory) foldParentBoundary(member, constant, literal, rest, pa
 	if err := locals.add(simplified); err != nil {
 		return err
 	}
-	return t.publishParentSimplification(member, constant, member, member, parent, simplified)
+	same, err := t.sameStringClass(parent, simplified)
+	if err != nil || same {
+		return err
+	}
+	return t.parentSimplificationConclusion(&premises, parent, simplified)
 }
 
 func (t *SMTStringTheory) publishParentSimplification(member, constant, other, otherValue, parent, simplified ast.ASTHandle) (result error) {
@@ -269,6 +289,27 @@ func (t *SMTStringTheory) publishParentSimplification(member, constant, other, o
 	}
 	premises := smtStringLengthPremises{theory: t}
 	defer func() { result = errors.Join(result, premises.close()) }()
+	if err := t.parentSimplificationPremises(&premises, member, constant, other, otherValue); err != nil {
+		return err
+	}
+	return t.parentSimplificationConclusion(&premises, parent, simplified)
+}
+
+func (t *SMTStringTheory) publishParentSimplificationAfterPremises(member, constant, other, otherValue, parent, simplified ast.ASTHandle) (result error) {
+	premises := smtStringLengthPremises{theory: t}
+	defer func() { result = errors.Join(result, premises.close()) }()
+	if err := t.parentSimplificationPremises(&premises, member, constant, other, otherValue); err != nil {
+		return err
+	}
+	same, err := t.sameStringClass(parent, simplified)
+	if err != nil || same {
+		return err
+	}
+	return t.parentSimplificationConclusion(&premises, parent, simplified)
+}
+
+// parentSimplificationPremises builds simplify_parent's implyL.
+func (t *SMTStringTheory) parentSimplificationPremises(premises *smtStringLengthPremises, member, constant, other, otherValue ast.ASTHandle) error {
 	// Native guards the pending member equality even if it is reflexive.
 	// simplify_parent builds every equality with ctx.mk_eq_atom.
 	equality, err := t.state.MkEqAtom(member, constant)
@@ -291,7 +332,102 @@ func (t *SMTStringTheory) publishParentSimplification(member, constant, other, o
 			return err
 		}
 	}
+	return nil
+}
+
+func (t *SMTStringTheory) parentSimplificationConclusion(premises *smtStringLengthPremises, parent, simplified ast.ASTHandle) error {
 	conclusion, err := t.state.MkEqAtom(parent, simplified)
+	if err != nil {
+		return err
+	}
+	return premises.imply(conclusion)
+}
+
+// makeUpParentArgumentLength is simplify_parent's "make up len for arg1"
+// (#1) and "make up len for arg0" (#2) step. Each reads the two argument
+// lengths (the class constant's for member) and, when the parent length is
+// known but the other argument's is not, asserts
+// |parent| = p && |member| = c  ->  |other| = p - c   (or its premise's
+// negation when p - c < 0). m.mk_and(eq1, eq2) evaluates eq2 first and each
+// ctx.mk_eq_atom(mk_strlen(e), mk_int(v)) builds the numeral first.
+func (t *SMTStringTheory) makeUpParentArgumentLength(parent, member, constant, other ast.ASTHandle, memberFirst bool, parentLength *big.Int, parentKnown bool) (result error) {
+	var memberLength, otherLength *big.Int
+	var otherKnown bool
+	var err error
+	if memberFirst {
+		if memberLength, _, err = t.lengthValue(constant); err != nil {
+			return err
+		}
+		if otherLength, otherKnown, err = t.lengthValue(other); err != nil {
+			return err
+		}
+	} else {
+		if otherLength, otherKnown, err = t.lengthValue(other); err != nil {
+			return err
+		}
+		if memberLength, _, err = t.lengthValue(constant); err != nil {
+			return err
+		}
+	}
+	_ = otherLength
+	if !parentKnown || otherKnown {
+		return nil
+	}
+	if memberLength == nil {
+		memberLength = new(big.Int)
+	}
+	m := t.state.manager
+	locals := smtStringLengthPremises{theory: t}
+	defer func() { result = errors.Join(result, locals.close()) }()
+	lengthEquality := func(expression ast.ASTHandle, value *big.Int) (ast.ASTHandle, error) {
+		numeral, err := m.ArithmeticIntegerNumeralText(value.String())
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if err := locals.hold(numeral); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		length, err := m.MkSequenceLength(expression)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if err := locals.hold(length); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		equality, err := t.state.MkEqAtom(length, numeral)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		return equality, locals.hold(equality)
+	}
+	memberEquality, err := lengthEquality(member, memberLength)
+	if err != nil {
+		return err
+	}
+	parentEquality, err := lengthEquality(parent, parentLength)
+	if err != nil {
+		return err
+	}
+	premises := smtStringLengthPremises{theory: t}
+	defer func() { result = errors.Join(result, premises.close()) }()
+	if err := premises.add(parentEquality); err != nil {
+		return err
+	}
+	if err := premises.add(memberEquality); err != nil {
+		return err
+	}
+	guard, err := m.MkAndArray(premises.values)
+	if err != nil {
+		return err
+	}
+	if err := locals.hold(guard); err != nil {
+		return err
+	}
+	difference := new(big.Int).Sub(parentLength, memberLength)
+	if difference.Sign() < 0 {
+		return premises.assertNegation()
+	}
+	conclusion, err := lengthEquality(other, difference)
 	if err != nil {
 		return err
 	}
