@@ -1906,6 +1906,13 @@ func (c *Context) resetManagerState() error {
 		}
 	}
 	c.optimizationObjectiveRefs = nil
+	// m_model_converter is declared after m_objectives, so it dies first.
+	if state := c.optimizationParetoPurification; state != nil && state.converter != nil {
+		if err := state.converter.DecRef(); err != nil {
+			return err
+		}
+		state.converter = nil
+	}
 	if err := c.releaseOptimizationObjectiveTerms(); err != nil {
 		return err
 	}
@@ -2075,6 +2082,9 @@ func (c *Context) releaseOptimizationObjectiveTerms() (result error) {
 		result = errors.Join(result, c.optimizationPurifier.ReleaseObjectives())
 	}
 	result = errors.Join(result, c.retainedOptimizer.ReleaseObjectives())
+	if state := c.optimizationParetoPurification; state != nil && state.purifier != nil {
+		result = errors.Join(result, state.purifier.ReleaseObjectives())
+	}
 	return result
 }
 
