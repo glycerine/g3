@@ -165,7 +165,15 @@ func (t *SMTStringTheory) propagateStringLengthWithinClass(variable ast.ASTHandl
 		if err := premises.equate(variable, member); err != nil {
 			return false, err
 		}
-		if err := premises.length(member, value); err != nil {
+		if err := premises.lengthLenFirst(member, value); err != nil {
+			return false, err
+		}
+		// expr_ref axl(m.mk_and(l_items...)) comes before mk_strlen(var).
+		guard, err := m.MkAndArray(premises.values)
+		if err != nil {
+			return false, err
+		}
+		if err := locals.add(guard); err != nil {
 			return false, err
 		}
 		length, err := m.MkSequenceLength(variable)
@@ -254,9 +262,17 @@ func (t *SMTStringTheory) propagateStringLengths() (added bool, result error) {
 				if err != nil || !known {
 					return err
 				}
-				if err := premises.length(leaf, leafValue); err != nil {
+				if err := premises.lengthLenFirst(leaf, leafValue); err != nil {
 					return err
 				}
+			}
+			// expr_ref axl(m.mk_and(...)) comes before mk_int(lenValue).
+			guard, err := m.MkAndArgs(premises.values)
+			if err != nil {
+				return err
+			}
+			if err := locals.add(guard); err != nil {
+				return err
 			}
 			numeral, err := m.ArithmeticIntegerNumeralText(value.String())
 			if err != nil {

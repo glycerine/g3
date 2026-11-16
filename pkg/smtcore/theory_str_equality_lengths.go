@@ -123,6 +123,28 @@ func (p *smtStringLengthPremises) hold(expression ast.ASTHandle) error {
 
 func (p *smtStringLengthPremises) length(expression ast.ASTHandle, value *big.Int) error {
 	m := p.theory.state.manager
+	// ctx.mk_eq_atom(mk_strlen(e), mk_int(v)): the release build (GCC)
+	// evaluates the call arguments right to left, so mk_int comes first.
+	numeral, err := m.ArithmeticIntegerNumeralText(value.String())
+	if err != nil {
+		return err
+	}
+	length, err := m.MkSequenceLength(expression)
+	if err != nil {
+		return err
+	}
+	equality, err := p.theory.state.MkEqAtom(length, numeral)
+	if err != nil {
+		return err
+	}
+	return p.add(equality)
+}
+
+// lengthLenFirst is the statement-by-statement form
+// expr_ref l(mk_strlen(e)); expr_ref v(mk_int(value)); ctx.mk_eq_atom(l, v),
+// which builds the length before the numeral.
+func (p *smtStringLengthPremises) lengthLenFirst(expression ast.ASTHandle, value *big.Int) error {
+	m := p.theory.state.manager
 	length, err := m.MkSequenceLength(expression)
 	if err != nil {
 		return err
