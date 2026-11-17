@@ -16,6 +16,11 @@ import (
 type rewriterFrame struct {
 	curr        ast.ASTHandle
 	flags, spos uint32
+	// kind and numArgs copy curr's kind and argument count, read when the
+	// frame is pushed (Go-only: saves re-reading them on each resumption;
+	// curr is held by its parent, so they do not change).
+	numArgs uint32
+	kind    ast.ASTKind
 }
 
 func (f *rewriterFrame) cacheResult() bool { return f.flags&1 != 0 }
@@ -291,13 +296,22 @@ func (c *rewriterCore) mustCache(t ast.ASTHandle) (bool, error) {
 	if e := c.open(); e != nil {
 		return false, e
 	}
-	header, e := c.manager.NodeHeader(t)
-	if e != nil || header.RefCount <= 1 || t == c.root {
+	kind, rc, n, e := c.manager.NodeShape(t)
+	if e != nil {
 		return false, e
 	}
-	return header.Kind == ast.ASTQuantifier || header.Kind == ast.ASTApp && header.NumArgs > 0, nil
+	return c.mustCacheShape(t, kind, rc, n), nil
 }
-func (c *rewriterCore) pushFrameCore(t ast.ASTHandle, cache bool, state, depth uint32) error {
+
+// mustCacheShape is mustCache for t, of the given kind, reference count and
+// argument count, after open().
+func (c *rewriterCore) mustCacheShape(t ast.ASTHandle, kind ast.ASTKind, rc, n uint32) bool {
+	if rc <= 1 || t == c.root {
+		return false
+	}
+	return kind == ast.ASTQuantifier || kind == ast.ASTApp && n > 0
+}
+func (c *rewriterCore) pushFrameCore(t ast.ASTHandle, cache bool, state, depth uint32, kind ast.ASTKind, numArgs uint32) error {
 	if e := c.open(); e != nil {
 		return e
 	}
@@ -305,7 +319,7 @@ func (c *rewriterCore) pushFrameCore(t ast.ASTHandle, cache bool, state, depth u
 	if ast.ASTSourceDebug && c.proofGen && len(c.results) != len(c.proofResults) {
 		return ast.ErrASTDomain
 	}
-	fr := rewriterFrame{curr: t, spos: n}
+	fr := rewriterFrame{curr: t, spos: n, kind: kind, numArgs: numArgs}
 	fr.setState(state)
 	fr.setDepth(depth)
 	if cache {
@@ -315,11 +329,14 @@ func (c *rewriterCore) pushFrameCore(t ast.ASTHandle, cache bool, state, depth u
 	return nil
 }
 func (c *rewriterCore) pushFrame(t ast.ASTHandle, state uint32) error {
-	cache, e := c.mustCache(t)
+	if e := c.open(); e != nil {
+		return e
+	}
+	kind, rc, n, e := c.manager.NodeShape(t)
 	if e != nil {
 		return e
 	}
-	return c.pushFrameCore(t, cache, state, 3)
+	return c.pushFrameCore(t, c.mustCacheShape(t, kind, rc, n), state, 3, kind, n)
 }
 func (c *rewriterCore) isChildOfTopFrame(t ast.ASTHandle) (bool, error) {
 	if e := c.open(); e != nil {

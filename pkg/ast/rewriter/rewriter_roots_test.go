@@ -115,7 +115,7 @@ func TestRewriterNativeFrameAndScopeGrowth(t *testing.T) {
 	m.Budget().FailAfter(0)
 	defer m.Budget().FailAfter(-1)
 	for i := 0; i < 4097; i++ {
-		satOK(t, c.pushFrameCore(p, false, uint32(i), 3))
+		satOK(t, c.pushFrameCore(p, false, uint32(i), 3, ast.ASTApp, 0))
 	}
 	for i := 0; i < 65; i++ {
 		c.root = p

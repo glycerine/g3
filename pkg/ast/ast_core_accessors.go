@@ -122,6 +122,34 @@ func (m *ASTManager) NodeHeader(h ASTHandle) (ASTNodeHeader, error) {
 	return header, e
 }
 
+// NodeShape is NodeHeader's Kind, RefCount and NumArgs alone, in one read:
+// what traversals need per visited node, without the declaration identity.
+func (m *ASTManager) NodeShape(h ASTHandle) (kind ASTKind, refCount, numArgs uint32, err error) {
+	r, e := m.readNode(h)
+	if e != nil {
+		return 0, 0, 0, e
+	}
+	n := m.nodeAt(r.slot)
+	if n.kind == ASTApp {
+		return n.kind, n.rc, m.appAt(r.slot).count, nil
+	}
+	return n.kind, n.rc, 0, nil
+}
+
+// AppIdentity is GetFamilyID and GetDeclKind of an application in one read;
+// for any other node it reports isApp false and (-1, -1).
+func (m *ASTManager) AppIdentity(h ASTHandle) (isApp bool, family FamilyID, declKind int32, err error) {
+	r, e := m.readNode(h)
+	if e != nil {
+		return false, -1, -1, e
+	}
+	if m.nodeAt(r.slot).kind != ASTApp {
+		return false, -1, -1, nil
+	}
+	family, declKind, err = m.appIdentity(m.appAt(r.slot))
+	return true, family, declKind, err
+}
+
 func (m *ASTManager) GetKind(h ASTHandle) (ASTKind, error) {
 	r, e := m.readNode(h)
 	if e != nil {

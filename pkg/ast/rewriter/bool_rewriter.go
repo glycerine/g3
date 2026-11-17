@@ -30,16 +30,11 @@ type boolRewriter struct {
 }
 
 func (rw *boolRewriter) isOperator(h ast.ASTHandle, op int32) (bool, error) {
-	k, e := rw.manager.GetKind(h)
-	if e != nil || k != ast.ASTApp {
+	app, fid, kind, e := rw.manager.AppIdentity(h)
+	if e != nil || !app || fid != 0 {
 		return false, e
 	}
-	fid, e := rw.manager.GetFamilyID(h)
-	if e != nil || fid != 0 {
-		return false, e
-	}
-	kind, e := rw.manager.GetDeclKind(h)
-	return kind == op, e
+	return kind == op, nil
 }
 
 func (rw *boolRewriter) mkNFlatAndCore(args []ast.ASTHandle, out ast.ASTRef) (brStatus, error) {

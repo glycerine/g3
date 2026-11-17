@@ -199,11 +199,11 @@ func (r *rewriterEngine) Close() error {
 	r.closed = true
 	return nil
 }
-func (r *rewriterEngine) pushFrame(t ast.ASTHandle, cache bool, depth uint32) error {
+func (r *rewriterEngine) pushFrame(t ast.ASTHandle, cache bool, depth uint32, kind ast.ASTKind, numArgs uint32) error {
 	if r.cfg.maxFramesExceeded(uint32(len(r.core.frames))) {
 		return newRewriterException(messages.MaxFrames)
 	}
-	return r.core.pushFrameCore(t, cache, 0, depth)
+	return r.core.pushFrameCore(t, cache, 0, depth, kind, numArgs)
 }
 func (r *rewriterEngine) beginScope() error {
 	if r.cfg.maxScopesExceeded(uint32(len(r.core.scopes))) {
@@ -217,14 +217,32 @@ func (r *rewriterEngine) mustCache(t ast.ASTHandle) (bool, error) {
 		if t == c.root {
 			return false, nil
 		}
-		header, e := c.manager.NodeHeader(t)
+		kind, _, n, e := c.manager.NodeShape(t)
 		if e != nil {
 			return false, e
 		}
-		return header.Kind == ast.ASTQuantifier || header.Kind == ast.ASTApp && header.NumArgs > 0, nil
+		return kind == ast.ASTQuantifier || kind == ast.ASTApp && n > 0, nil
 	}
 	if r.cfg.cacheResults() {
 		return c.mustCache(t)
+	}
+	return false, nil
+}
+
+// mustCacheShape is mustCache(t) given t's NodeShape.
+func (r *rewriterEngine) mustCacheShape(t ast.ASTHandle, kind ast.ASTKind, rc, n uint32) (bool, error) {
+	c := &r.core
+	if r.cfg.cacheAllResults() {
+		if t == c.root {
+			return false, nil
+		}
+		return kind == ast.ASTQuantifier || kind == ast.ASTApp && n > 0, nil
+	}
+	if r.cfg.cacheResults() {
+		if e := c.open(); e != nil {
+			return false, e
+		}
+		return c.mustCacheShape(t, kind, rc, n), nil
 	}
 	return false, nil
 }
@@ -304,7 +322,11 @@ func (r *rewriterEngine) visit(t ast.ASTHandle, depth uint32) (bool, error) {
 		}
 		return true, e
 	}
-	cache, e := r.mustCache(t)
+	kind, rc, n, e := m.NodeShape(t)
+	if e != nil {
+		return false, e
+	}
+	cache, e := r.mustCacheShape(t, kind, rc, n)
 	if e != nil {
 		return false, e
 	}
@@ -345,18 +367,10 @@ func (r *rewriterEngine) visit(t ast.ASTHandle, depth uint32) (bool, error) {
 		}
 		return true, e
 	}
-	kind, e := m.GetKind(t)
-	if e != nil {
-		return false, e
-	}
 	switch kind {
 	case ast.ASTVar:
 		return true, r.processVar(t)
 	case ast.ASTApp:
-		n, e := m.GetNumArgs(t)
-		if e != nil {
-			return false, e
-		}
 		if n == 0 {
 			return true, r.processConst(t)
 		}
@@ -367,7 +381,7 @@ func (r *rewriterEngine) visit(t ast.ASTHandle, depth uint32) (bool, error) {
 	if depth != 3 {
 		depth--
 	}
-	return false, r.pushFrame(t, cache, depth)
+	return false, r.pushFrame(t, cache, depth, kind, n)
 }
 func (r *rewriterEngine) processVar(t ast.ASTHandle) (err error) {
 	c := &r.core
@@ -660,9 +674,15 @@ func (r *rewriterEngine) processApp() (err error) {
 	fi := len(c.frames) - 1
 	fr := c.frames[fi]
 	t := fr.curr
-	n, e := m.GetNumArgs(t)
-	if e != nil {
-		return e
+	n := fr.numArgs
+	if ast.ASTValidateHandles {
+		k, e := m.GetNumArgs(t)
+		if e != nil {
+			return e
+		}
+		if k != n {
+			return ast.ErrASTDomain
+		}
 	}
 	switch fr.state() {
 	case 0:
@@ -805,7 +825,11 @@ func (r *rewriterEngine) processApp() (err error) {
 				}
 				c.numQVars += n
 				c.root = def
-				return r.pushFrame(def, false, 3)
+				defKind, _, defArgs, e := m.NodeShape(def)
+				if e != nil {
+					return e
+				}
+				return r.pushFrame(def, false, 3, defKind, defArgs)
 			}
 		} else {
 			h := t
@@ -1151,10 +1175,17 @@ func (r *rewriterEngine) resume(out, proof ast.ASTRef) error {
 				continue
 			}
 		}
-		kind, e := m.GetKind(t)
-		if e != nil {
-			return e
+		kind := fr.kind
+		if ast.ASTValidateHandles {
+			k, e := m.GetKind(t)
+			if e != nil {
+				return e
+			}
+			if k != kind {
+				return ast.ErrASTDomain
+			}
 		}
+		var e error
 		switch kind {
 		case ast.ASTApp:
 			e = r.processApp()

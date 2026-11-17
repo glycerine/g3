@@ -146,7 +146,7 @@ func TestRewriterCoreSharedFramesQuantifierChildrenAndPackedFields(t *testing.T)
 		t.Fatal("constant cached")
 	}
 	satOK(t, appendRewriterRoot(m, &c.results, q))
-	satOK(t, c.pushFrameCore(app, true, 6, 7))
+	satOK(t, c.pushFrameCore(app, true, 6, 7, ast.ASTApp, 0))
 	fr := &c.frames[0]
 	if fr.state() != 2 || fr.maxDepth() != 3 || fr.index() != 0 || fr.spos != 1 || !fr.cacheResult() || fr.newChild() {
 		t.Fatal("source frame bitfield construction")
@@ -185,7 +185,7 @@ func TestRewriterCoreSharedFramesQuantifierChildrenAndPackedFields(t *testing.T)
 	satOK(t, e)
 	astTestPin(t, m, quant)
 	c.frames = c.frames[:0]
-	satOK(t, c.pushFrameCore(quant, false, 0, 3))
+	satOK(t, c.pushFrameCore(quant, false, 0, 3, ast.ASTQuantifier, 0))
 	for _, child := range []ast.ASTHandle{app, pat} {
 		yes, e = c.isChildOfTopFrame(child)
 		satOK(t, e)
@@ -202,7 +202,7 @@ func TestRewriterCoreSharedFramesQuantifierChildrenAndPackedFields(t *testing.T)
 	noPat, e := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{b}, Names: []usymbol.Symbol{usymbol.Numerical(0)}, Body: app, NoPatterns: []ast.ASTHandle{q}})
 	satOK(t, e)
 	astTestPin(t, m, noPat)
-	satOK(t, c.pushFrameCore(noPat, false, 0, 3))
+	satOK(t, c.pushFrameCore(noPat, false, 0, 3, ast.ASTQuantifier, 0))
 	yes, e = c.isChildOfTopFrame(q)
 	satOK(t, e)
 	if !yes {
@@ -216,7 +216,7 @@ func TestRewriterCoreSharedFramesQuantifierChildrenAndPackedFields(t *testing.T)
 	}
 	c.frames = c.frames[:0]
 	for i := 0; i < 40; i++ {
-		satOK(t, c.pushFrameCore(app, i%2 == 0, uint32(i), uint32(i)))
+		satOK(t, c.pushFrameCore(app, i%2 == 0, uint32(i), uint32(i), ast.ASTApp, 0))
 	}
 	capacity := cap(c.frames)
 	satOK(t, c.Reset())
@@ -318,7 +318,7 @@ func TestRewriterCoreNativeAndDebugAssertionBoundaries(t *testing.T) {
 	if n != want {
 		t.Fatal("no-proof reset leaves source proof stack alone", n, want)
 	}
-	satOK(t, c.pushFrameCore(app, false, 0, 3))
+	satOK(t, c.pushFrameCore(app, false, 0, 3, ast.ASTApp, 0))
 	e = c.setNewChild(r)
 	if ast.ASTSourceDebug {
 		if e != ast.ErrASTDomain || c.frames[0].newChild() {
