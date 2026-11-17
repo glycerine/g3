@@ -177,7 +177,26 @@ func (p *UnboundCompressorPlugin) compressedApplication(application ast.ASTHandl
 	return p.manager.MkApp(declaration, arguments)
 }
 
-func (p *UnboundCompressorPlugin) rewriteRule(source *base.RuleSet, rule *base.Rule, inProgress map[compressionKey]bool) ([]*base.Rule, bool, error) {
+func (p *UnboundCompressorPlugin) rewriteRule(source *base.RuleSet, rule *base.Rule, inProgress map[compressionKey]bool) (_ []*base.Rule, _ bool, resultErr error) {
+	// The compressed applications are held until the rules own them.
+	var pins []ast.ASTRef
+	defer func() {
+		for i := len(pins) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, p.manager.DelRef(&pins[i]))
+		}
+	}()
+	compress := func(application ast.ASTHandle, key compressionKey) (ast.ASTHandle, error) {
+		h, err := p.compressedApplication(application, key)
+		if err != nil {
+			return h, err
+		}
+		pin, err := p.manager.NewRef(h)
+		if err != nil {
+			return h, err
+		}
+		pins = append(pins, pin)
+		return h, nil
+	}
 	head, err := rule.Head()
 	if err != nil {
 		return nil, false, err
@@ -192,7 +211,7 @@ func (p *UnboundCompressorPlugin) rewriteRule(source *base.RuleSet, rule *base.R
 		return nil, false, err
 	}
 	if found && inProgress[key] && !p.mapping[key].IsNull() && key.predicate == headDeclaration {
-		head, err = p.compressedApplication(head, key)
+		head, err = compress(head, key)
 		if err != nil {
 			return nil, false, err
 		}
@@ -236,7 +255,7 @@ func (p *UnboundCompressorPlugin) rewriteRule(source *base.RuleSet, rule *base.R
 		}
 		changedByTail = true
 		if negative {
-			compressed, x := p.compressedApplication(tail, keys[0])
+			compressed, x := compress(tail, keys[0])
 			if x != nil {
 				return nil, false, x
 			}
@@ -253,7 +272,7 @@ func (p *UnboundCompressorPlugin) rewriteRule(source *base.RuleSet, rule *base.R
 			original := alternative{tails: append(append([]ast.ASTHandle(nil), existing.tails...), tail), neg: append(append([]bool(nil), existing.neg...), false), extra: append([]ast.ASTHandle(nil), existing.extra...), decompressed: existing.decompressed, negativeChange: existing.negativeChange}
 			branched = append(branched, original)
 			for _, key := range keys {
-				compressed, x := p.compressedApplication(tail, key)
+				compressed, x := compress(tail, key)
 				if x != nil {
 					return nil, false, x
 				}
