@@ -630,10 +630,13 @@ func (s *SMTInternalizerState) Internalize(expression ast.ASTHandle, gateContext
 	if err := s.open(); err != nil {
 		return err
 	}
-	kind, err := s.manager.GetKind(expression)
+	// One header read serves the kind, basic-operation and family tests
+	// of the formula path below.
+	header, err := s.manager.NodeHeader(expression)
 	if err != nil {
 		return err
 	}
+	kind := header.Kind
 	if kind == ast.ASTVar {
 		return ast.ErrASTDomain
 	}
@@ -642,7 +645,7 @@ func (s *SMTInternalizerState) Internalize(expression ast.ASTHandle, gateContext
 		return err
 	}
 	if boolean {
-		return s.internalizeFormula(expression, gateContext)
+		return s.internalizeFormula(expression, gateContext, &header)
 	}
 	if kind != ast.ASTApp || gateContext {
 		return ast.ErrASTDomain
@@ -650,7 +653,15 @@ func (s *SMTInternalizerState) Internalize(expression ast.ASTHandle, gateContext
 	return s.internalizeTerm(expression)
 }
 
-func (s *SMTInternalizerState) internalizeFormula(expression ast.ASTHandle, gateContext bool) error {
+// smtHeaderBasicOperation is basicOperation on an already read header.
+func (s *SMTInternalizerState) smtHeaderBasicOperation(header *ast.ASTNodeHeader) (int32, bool) {
+	if header.Kind != ast.ASTApp || header.Family != s.manager.BasicFamilyID() {
+		return 0, false
+	}
+	return header.DeclKind, true
+}
+
+func (s *SMTInternalizerState) internalizeFormula(expression ast.ASTHandle, gateContext bool, header *ast.ASTNodeHeader) error {
 	if s.manager.IsTrue(expression) || s.manager.IsFalse(expression) {
 		if !gateContext {
 			_, err := s.booleanValueEnode(s.manager.IsTrue(expression))
@@ -658,10 +669,8 @@ func (s *SMTInternalizerState) internalizeFormula(expression ast.ASTHandle, gate
 		}
 		return nil
 	}
-	op, basic, err := s.basicOperation(expression)
-	if err != nil {
-		return err
-	}
+	op, basic := s.smtHeaderBasicOperation(header)
+	var err error
 	if basic && op == ast.ASTOpNot && gateContext {
 		child, err := s.manager.GetArg(expression, 0)
 		if err != nil {
@@ -680,20 +689,15 @@ func (s *SMTInternalizerState) internalizeFormula(expression ast.ASTHandle, gate
 		}
 		return nil
 	}
-	if kind, err := s.manager.GetKind(expression); err != nil {
-		return err
-	} else if kind == ast.ASTQuantifier {
+	if header.Kind == ast.ASTQuantifier {
 		return s.internalizeQuantifier(expression, gateContext)
 	}
 	if basic && op == ast.ASTOpDistinct {
 		return s.internalizeDistinct(expression, gateContext)
 	}
 	if !basic {
-		theory, err := s.expressionTheory(expression)
-		if err != nil {
-			return err
-		}
-		if theory != nil {
+		// expressionTheory: an application's family is its declaration's.
+		if theory := s.theories[header.Family]; theory != nil {
 			handled, err := theory.InternalizeAtom(expression, gateContext)
 			if err != nil {
 				return err
@@ -703,7 +707,7 @@ func (s *SMTInternalizerState) internalizeFormula(expression ast.ASTHandle, gate
 			}
 		}
 	}
-	if err = s.internalizeFormulaCore(expression, gateContext); err != nil {
+	if err = s.internalizeFormulaCoreOp(expression, gateContext, op, basic, header.NumArgs); err != nil {
 		return err
 	}
 	if basic && op == ast.ASTOpEq {
@@ -868,11 +872,18 @@ func (s *SMTInternalizerState) internalizeFormulaCore(expression ast.ASTHandle, 
 	if err != nil {
 		return err
 	}
-	isGate := basic && (smtInternalizerGateOperation(op) || op == ast.ASTOpNot)
 	count, err := s.manager.GetNumArgs(expression)
 	if err != nil {
 		return err
 	}
+	return s.internalizeFormulaCoreOp(expression, gateContext, op, basic, count)
+}
+
+// internalizeFormulaCoreOp is internalizeFormulaCore with the expression's
+// basic operation and argument count already read.
+func (s *SMTInternalizerState) internalizeFormulaCoreOp(expression ast.ASTHandle, gateContext bool, op int32, basic bool, count uint32) error {
+	var err error
+	isGate := basic && (smtInternalizerGateOperation(op) || op == ast.ASTOpNot)
 	for index := uint32(0); index < count; index++ {
 		argument, err := s.manager.GetArg(expression, index)
 		if err != nil {
