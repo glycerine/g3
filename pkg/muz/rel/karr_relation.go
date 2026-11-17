@@ -1,13 +1,12 @@
 package rel
 
-// Source: src/muz/rel/karr_relation.cpp/.h. This is the concrete Karr abstract
-// relation reached by dl_mk_karr_invariants; it deliberately does not recreate
-// the unused C++ relation-plugin template hierarchy.
+// Source: src/muz/rel/karr_relation.cpp karr_relation (the matrix
+// payload and its operations) and karr_relation_plugin::dualizeI and
+// dualizeH; dl_karr_relation_plugin.go holds the plugin's functors.
 
 import (
 	"errors"
 	"math/big"
-	"sort"
 
 	"github.com/glycerine/g3/pkg/math/hilbert"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -18,7 +17,7 @@ var (
 	ErrKarrColumn    = errors.New("muz/rel: Karr relation column out of range")
 )
 
-// KarrMatrix represents rows A*x+b = 0 or A*x+b >= 0.
+// KarrMatrix is datalog::matrix: rows A*x+b = 0 (eq) or A*x+b >= 0.
 type KarrMatrix struct {
 	A  [][]big.Rat
 	B  []big.Rat
@@ -61,6 +60,10 @@ func (m *KarrMatrix) append(row []big.Rat, constant *big.Rat, equal bool) {
 	m.Eq = append(m.Eq, equal)
 }
 
+// KarrRelation is karr_relation's state: m_empty, m_ineqs (valid when
+// m_ineqs_valid) and m_basis (valid when m_basis_valid). The relation's
+// signature size is dimension; checkpoint is the plugin's hilbert_basis
+// m_limit.inc().
 type KarrRelation struct {
 	dimension         uint32
 	empty             bool
@@ -71,10 +74,13 @@ type KarrRelation struct {
 	checkpoint        func() bool
 }
 
+// NewKarrEmpty is karr_relation_plugin::mk_empty: m_empty, and neither
+// matrix valid.
 func NewKarrEmpty(dimension uint32, checkpoint func() bool) *KarrRelation {
-	return &KarrRelation{dimension: dimension, empty: true, inequalitiesValid: true, checkpoint: checkpoint}
+	return &KarrRelation{dimension: dimension, empty: true, checkpoint: checkpoint}
 }
 
+// NewKarrFull is mk_full: no rows, the inequalities valid.
 func NewKarrFull(dimension uint32, checkpoint func() bool) *KarrRelation {
 	return &KarrRelation{dimension: dimension, inequalitiesValid: true, checkpoint: checkpoint}
 }
@@ -82,27 +88,33 @@ func NewKarrFull(dimension uint32, checkpoint func() bool) *KarrRelation {
 func (r *KarrRelation) Dimension() uint32 { return r.dimension }
 func (r *KarrRelation) Empty() bool       { return r == nil || r.empty }
 
+// Clone is karr_relation::clone: a relation with r's emptiness, then
+// copy(*this).
 func (r *KarrRelation) Clone() *KarrRelation {
 	if r == nil {
 		return nil
 	}
-	return &KarrRelation{
-		dimension:         r.dimension,
-		empty:             r.empty,
-		inequalities:      cloneKarrMatrix(r.inequalities),
-		inequalitiesValid: r.inequalitiesValid,
-		basis:             cloneKarrMatrix(r.basis),
-		basisValid:        r.basisValid,
-		checkpoint:        r.checkpoint,
-	}
+	result := &KarrRelation{dimension: r.dimension, checkpoint: r.checkpoint}
+	result.copyFrom(r)
+	return result
 }
 
-// AddFact appends the source Karr fact equalities. C++ asserts that the
-// relation is empty in debug builds, but release builds append another fact's
-// coordinate equalities conjunctively; preserve that behavior here.
-// A nil coordinate denotes a non-integer/non-numeral source value and is skipped.
+// copyFrom is karr_relation::copy: both matrices, their validity and
+// m_empty.
+func (r *KarrRelation) copyFrom(other *KarrRelation) {
+	r.inequalities = cloneKarrMatrix(other.inequalities)
+	r.basis = cloneKarrMatrix(other.basis)
+	r.basisValid = other.basisValid
+	r.inequalitiesValid = other.inequalitiesValid
+	r.empty = other.empty
+}
+
+// AddFact is karr_relation::add_fact: x_i - n = 0 for every integer
+// numeral n among the values (nil stands for any other value). The source
+// asserts an empty relation only in debug builds; release builds append the
+// rows to the current inequalities.
 func (r *KarrRelation) AddFact(values []*big.Rat) error {
-	if r == nil || uint32(len(values)) != r.dimension {
+	if r == nil {
 		return ErrKarrDimension
 	}
 	r.empty = false
@@ -111,353 +123,350 @@ func (r *KarrRelation) AddFact(values []*big.Rat) error {
 		if value == nil || !value.IsInt() {
 			continue
 		}
-		row := make([]big.Rat, r.dimension)
+		row := make([]big.Rat, len(values))
 		row[i].SetInt64(1)
-		constant := new(big.Rat).Neg(value)
-		r.inequalities.append(row, constant, true)
+		r.inequalities.append(row, new(big.Rat).Neg(value), true)
 	}
 	return nil
 }
 
-func (r *KarrRelation) ensureInequalities() error {
-	if r == nil {
-		return ErrKarrDimension
-	}
+// getIneqs is get_ineqs (init_ineqs): dualizeH of the basis when the
+// inequalities are not valid.
+func (r *KarrRelation) getIneqs() error {
 	if r.inequalitiesValid {
 		return nil
 	}
-	if !r.basisValid {
-		return ErrKarrDimension
-	}
-	inequalities, err := r.dualizeHomogeneous(r.basis)
-	if err != nil {
+	if err := dualizeH(&r.inequalities, r.basis, r.checkpoint); err != nil {
 		return err
 	}
-	r.inequalities = inequalities
 	r.inequalitiesValid = true
 	return nil
 }
 
-func (r *KarrRelation) ensureBasis() error {
-	if r == nil {
-		return ErrKarrDimension
-	}
+// getBasis is get_basis (init_basis): dualizeI of the inequalities when
+// the basis is not valid; an infeasible system makes the relation empty.
+func (r *KarrRelation) getBasis() error {
 	if r.basisValid {
 		return nil
 	}
-	if !r.inequalitiesValid {
-		return ErrKarrDimension
-	}
-	if r.inequalities.Len() == 0 {
-		// The affine generator for true consists of one origin and signed
-		// unit directions for every integer coordinate. The native path only
-		// reaches Hilbert with a non-empty matrix; make the same mathematical
-		// boundary explicit for the direct typed Horn interpreter.
-		r.basis = KarrMatrix{}
-		r.basis.append(make([]big.Rat, r.dimension), big.NewRat(1, 1), true)
-		for column := uint32(0); column < r.dimension; column++ {
-			positive := make([]big.Rat, r.dimension)
-			positive[column].SetInt64(1)
-			r.basis.append(positive, nil, true)
-			negative := make([]big.Rat, r.dimension)
-			negative[column].SetInt64(-1)
-			r.basis.append(negative, nil, true)
-		}
-		r.basisValid = true
-		return nil
-	}
-	basis, satisfiable, err := r.dualizeInequalities(r.inequalities)
+	feasible, err := dualizeI(&r.basis, r.inequalities, r.checkpoint)
 	if err != nil {
 		return err
 	}
-	if !satisfiable {
+	if feasible {
+		r.basisValid = true
+	} else {
 		r.empty = true
-		r.basis = KarrMatrix{}
-		return nil
 	}
-	r.basis = basis
-	r.basisValid = true
 	return nil
 }
 
-func (r *KarrRelation) dualizeInequalities(source KarrMatrix) (KarrMatrix, bool, error) {
-	basis := hilbert.New(r.checkpoint)
-	for i := range source.A {
-		bound := new(big.Rat).Neg(&source.B[i])
-		var err error
-		if source.Eq[i] {
-			err = basis.AddEQ(source.A[i], bound)
-		} else {
-			err = basis.AddGE(source.A[i], bound)
-		}
-		if err != nil {
-			return KarrMatrix{}, true, err
-		}
-	}
-	for i := uint32(0); i < r.dimension; i++ {
-		basis.SetIsInt(i)
-	}
+// saturate is m_hb.saturate() inside dualizeI's and dualizeH's try: any
+// exception (checked_int64 overflow) is l_undef.
+func saturateKarr(basis *hilbert.Basis) lbool.LBool {
 	result, err := basis.Saturate()
 	if err != nil {
-		return KarrMatrix{}, true, err
+		return lbool.Undef
 	}
-	if result == lbool.Undef {
-		return KarrMatrix{}, true, nil
+	return result
+}
+
+// dualizeI is karr_relation_plugin::dualizeI: the generators of
+// {x | A x + b (=, >=) 0}. It reports false when the system has no
+// solution. A coefficient that is not an int64 makes add_eq/add_ge throw
+// (outside the try): the error is returned.
+func dualizeI(dst *KarrMatrix, src KarrMatrix, checkpoint func() bool) (bool, error) {
+	*dst = KarrMatrix{}
+	hb := hilbert.New(checkpoint)
+	for i := range src.A {
+		bound := new(big.Rat).Neg(&src.B[i])
+		var err error
+		if src.Eq[i] {
+			err = hb.AddEQ(src.A[i], bound)
+		} else {
+			err = hb.AddGE(src.A[i], bound)
+		}
+		if err != nil {
+			return true, err
+		}
 	}
-	if result == lbool.False {
-		return KarrMatrix{}, false, nil
+	for i := 0; len(src.A) != 0 && i < len(src.A[0]); i++ {
+		hb.SetIsInt(uint32(i))
 	}
-	var destination KarrMatrix
+	switch saturateKarr(hb) {
+	case lbool.False:
+		return false, nil
+	case lbool.Undef:
+		return true, nil
+	}
 	firstInitial := true
-	for i := uint32(0); i < basis.BasisSize(); i++ {
-		solution, initial, solutionErr := basis.BasisSolution(i)
-		if solutionErr != nil {
-			return KarrMatrix{}, true, solutionErr
+	for i := uint32(0); i < hb.BasisSize(); i++ {
+		solution, initial, err := hb.BasisSolution(i)
+		if err != nil {
+			return true, err
 		}
 		if initial && firstInitial {
-			destination.append(solution, big.NewRat(1, 1), true)
+			dst.append(solution, big.NewRat(1, 1), true)
 			firstInitial = false
 		} else if !initial {
-			destination.append(solution, nil, true)
+			dst.append(solution, nil, true)
 		}
 	}
-	return destination, true, nil
+	return true, nil
 }
 
-func (r *KarrRelation) dualizeHomogeneous(source KarrMatrix) (KarrMatrix, error) {
-	if source.Len() == 0 {
-		return KarrMatrix{}, nil
+// dualizeH is karr_relation_plugin::dualizeH: the inequalities whose
+// solutions are generated by the basis rows (a homogeneous system over the
+// rows extended by their constants).
+func dualizeH(dst *KarrMatrix, src KarrMatrix, checkpoint func() bool) error {
+	*dst = KarrMatrix{}
+	if src.Len() == 0 {
+		return nil
 	}
-	basis := hilbert.New(r.checkpoint)
-	for i := range source.A {
-		row := cloneRationals(source.A[i])
-		row = append(row, source.B[i])
+	hb := hilbert.New(checkpoint)
+	for i := range src.A {
+		v := append(cloneRationals(src.A[i]), src.B[i])
 		var err error
-		if source.Eq[i] {
-			err = basis.AddEQ(row, nil)
+		if src.Eq[i] {
+			err = hb.AddEQ(v, nil)
 		} else {
-			err = basis.AddGE(row, nil)
+			err = hb.AddGE(v, nil)
 		}
 		if err != nil {
-			return KarrMatrix{}, err
+			return err
 		}
 	}
-	for i := uint32(0); i <= r.dimension; i++ {
-		basis.SetIsInt(i)
+	for i := 0; i < 1+len(src.A[0]); i++ {
+		hb.SetIsInt(uint32(i))
 	}
-	result, err := basis.Saturate()
-	if err != nil {
-		return KarrMatrix{}, err
+	if saturateKarr(hb) != lbool.True {
+		return nil
 	}
-	if result != lbool.True {
-		return KarrMatrix{}, nil
-	}
-	var destination KarrMatrix
-	for i := uint32(0); i < basis.BasisSize(); i++ {
-		solution, initial, solutionErr := basis.BasisSolution(i)
-		if solutionErr != nil {
-			return KarrMatrix{}, solutionErr
+	for i := uint32(0); i < hb.BasisSize(); i++ {
+		solution, initial, err := hb.BasisSolution(i)
+		if err != nil {
+			return err
 		}
-		if initial || len(solution) == 0 {
-			continue
+		if !initial {
+			last := len(solution) - 1
+			dst.append(solution[:last], &solution[last], true)
 		}
-		constant := solution[len(solution)-1]
-		destination.append(solution[:len(solution)-1], &constant, true)
 	}
-	return destination, nil
+	return nil
 }
 
+// Inequalities is get_ineqs: a copy of the (computed) inequalities.
 func (r *KarrRelation) Inequalities() (KarrMatrix, error) {
-	if err := r.ensureInequalities(); err != nil {
+	if err := r.getIneqs(); err != nil {
 		return KarrMatrix{}, err
 	}
 	return cloneKarrMatrix(r.inequalities), nil
 }
 
+// Basis is get_basis: a copy of the (computed) basis.
 func (r *KarrRelation) Basis() (KarrMatrix, error) {
-	if err := r.ensureBasis(); err != nil {
+	if err := r.getBasis(); err != nil {
 		return KarrMatrix{}, err
 	}
 	return cloneKarrMatrix(r.basis), nil
 }
 
-func validateKarrColumns(dimension uint32, columns []uint32) error {
-	for _, column := range columns {
-		if column >= dimension {
-			return ErrKarrColumn
-		}
-	}
-	return nil
-}
-
+// KarrJoin is join_fn: mk_full(nullptr, sig) then mk_join(r1, r2, ...):
+// both inequality systems side by side plus x_c1 - y_c2 = 0 per joined
+// column pair.
 func KarrJoin(left, right *KarrRelation, leftColumns, rightColumns []uint32) (*KarrRelation, error) {
 	if left == nil || right == nil || len(leftColumns) != len(rightColumns) {
 		return nil, ErrKarrDimension
-	}
-	if err := validateKarrColumns(left.dimension, leftColumns); err != nil {
-		return nil, err
-	}
-	if err := validateKarrColumns(right.dimension, rightColumns); err != nil {
-		return nil, err
 	}
 	result := NewKarrFull(left.dimension+right.dimension, left.checkpoint)
 	if left.empty || right.empty {
 		result.empty = true
 		return result, nil
 	}
-	leftMatrix, err := left.Inequalities()
-	if err != nil {
+	if err := left.getIneqs(); err != nil {
 		return nil, err
 	}
-	rightMatrix, err := right.Inequalities()
-	if err != nil {
+	if err := right.getIneqs(); err != nil {
 		return nil, err
 	}
-	for i := range leftMatrix.A {
+	m1, m2 := left.inequalities, right.inequalities
+	for i := range m1.A {
 		row := make([]big.Rat, result.dimension)
-		copy(row, leftMatrix.A[i])
-		result.inequalities.append(row, &leftMatrix.B[i], leftMatrix.Eq[i])
+		copy(row, m1.A[i])
+		result.inequalities.append(row, &m1.B[i], m1.Eq[i])
 	}
-	for i := range rightMatrix.A {
+	for i := range m2.A {
 		row := make([]big.Rat, result.dimension)
-		copy(row[left.dimension:], rightMatrix.A[i])
-		result.inequalities.append(row, &rightMatrix.B[i], rightMatrix.Eq[i])
+		for j := range m2.A[i] {
+			row[left.dimension+uint32(j)].Set(&m2.A[i][j])
+		}
+		result.inequalities.append(row, &m2.B[i], m2.Eq[i])
 	}
 	for i := range leftColumns {
+		if leftColumns[i] >= left.dimension || rightColumns[i] >= right.dimension {
+			return nil, ErrKarrColumn
+		}
 		row := make([]big.Rat, result.dimension)
 		row[leftColumns[i]].SetInt64(1)
 		row[left.dimension+rightColumns[i]].SetInt64(-1)
 		result.inequalities.append(row, nil, true)
 	}
+	result.inequalitiesValid = true
+	result.basisValid = false
+	result.empty = false
 	return result, nil
 }
 
+// Project is project_fn: mk_full then mk_project(r, cnt, cols): the basis
+// rows without the removed columns (cols ascending, as the compiler's
+// removed columns are).
 func (r *KarrRelation) Project(removed []uint32) (*KarrRelation, error) {
-	if r == nil {
+	if r == nil || uint32(len(removed)) > r.dimension {
 		return nil, ErrKarrDimension
-	}
-	if err := validateKarrColumns(r.dimension, removed); err != nil {
-		return nil, err
-	}
-	removed = append([]uint32(nil), removed...)
-	sort.Slice(removed, func(i, j int) bool { return removed[i] < removed[j] })
-	for i := 1; i < len(removed); i++ {
-		if removed[i] == removed[i-1] {
-			return nil, ErrKarrColumn
-		}
 	}
 	result := NewKarrFull(r.dimension-uint32(len(removed)), r.checkpoint)
 	if r.empty {
 		result.empty = true
 		return result, nil
 	}
-	matrix, err := r.Basis()
-	if err != nil {
+	if err := r.getBasis(); err != nil {
 		return nil, err
 	}
-	for i := range matrix.A {
-		row := make([]big.Rat, 0, result.dimension)
-		removedIndex := 0
-		for column := uint32(0); column < r.dimension; column++ {
-			if removedIndex < len(removed) && column == removed[removedIndex] {
-				removedIndex++
-				continue
+	m := r.basis
+	result.basis = KarrMatrix{}
+	for i := range m.A {
+		row := make([]big.Rat, 0, len(m.A[i]))
+		k := 0
+		for j := range m.A[i] {
+			if k < len(removed) && uint32(j) == removed[k] {
+				k++
+			} else {
+				row = append(row, m.A[i][j])
 			}
-			row = append(row, matrix.A[i][column])
 		}
-		result.basis.append(row, &matrix.B[i], true)
+		result.basis.append(row, &m.B[i], true)
 	}
 	result.basisValid = true
 	result.inequalitiesValid = false
+	result.empty = false
 	return result, nil
 }
 
+// renameKarrMatrix is karr_relation::mk_rename(matrix&, col_cnt, cols).
+func renameKarrMatrix(m *KarrMatrix, cycle []uint32) {
+	for j := range m.A {
+		row := m.A[j]
+		var temporary big.Rat
+		temporary.Set(&row[cycle[0]])
+		for i := 0; i+1 < len(cycle); i++ {
+			row[cycle[i]].Set(&row[cycle[i+1]])
+		}
+		row[cycle[len(cycle)-1]].Set(&temporary)
+	}
+}
+
+// Rename is rename_fn: mk_full then mk_rename(r, col_cnt, cols).
 func (r *KarrRelation) Rename(cycle []uint32) (*KarrRelation, error) {
 	if r == nil || len(cycle) == 0 {
 		return nil, ErrKarrDimension
 	}
-	if err := validateKarrColumns(r.dimension, cycle); err != nil {
-		return nil, err
-	}
-	result := r.Clone()
-	rename := func(matrix *KarrMatrix) {
-		for i := range matrix.A {
-			var temporary big.Rat
-			temporary.Set(&matrix.A[i][cycle[0]])
-			for j := 0; j+1 < len(cycle); j++ {
-				matrix.A[i][cycle[j]].Set(&matrix.A[i][cycle[j+1]])
-			}
-			matrix.A[i][cycle[len(cycle)-1]].Set(&temporary)
+	for _, column := range cycle {
+		if column >= r.dimension {
+			return nil, ErrKarrColumn
 		}
 	}
+	result := NewKarrFull(r.dimension, r.checkpoint)
+	if r.empty {
+		result.empty = true
+		return result, nil
+	}
+	result.inequalities, result.basis = KarrMatrix{}, KarrMatrix{}
+	result.inequalitiesValid = r.inequalitiesValid
+	result.basisValid = r.basisValid
 	if result.inequalitiesValid {
-		rename(&result.inequalities)
+		result.inequalities = cloneKarrMatrix(r.inequalities)
+		renameKarrMatrix(&result.inequalities, cycle)
 	}
 	if result.basisValid {
-		rename(&result.basis)
+		result.basis = cloneKarrMatrix(r.basis)
+		renameKarrMatrix(&result.basis, cycle)
 	}
 	return result, nil
 }
 
-func sameKarrRow(left []big.Rat, leftConstant *big.Rat, leftEqual bool, right []big.Rat, rightConstant *big.Rat, rightEqual bool) bool {
-	if len(left) != len(right) || leftEqual != rightEqual || leftConstant.Cmp(rightConstant) != 0 {
-		return false
-	}
+func sameKarrRow(left, right []big.Rat) bool {
 	for i := range left {
-		if left[i].Cmp(&right[i]) != 0 {
+		if i >= len(right) || left[i].Cmp(&right[i]) != 0 {
 			return false
 		}
 	}
 	return true
 }
 
-// Union widens the receiver with source and reports whether its basis changed.
-func (r *KarrRelation) Union(source *KarrRelation) (bool, error) {
-	if r == nil || source == nil || r.dimension != source.dimension {
+// Union is union_fn's mk_union(src, delta): the source's basis rows that
+// r lacks are appended to r's basis, and r's inequalities are invalidated.
+// delta (nil when absent) becomes a copy of r when r grows, or empty when
+// src is. It reports whether r grew.
+func (r *KarrRelation) Union(source, delta *KarrRelation) (bool, error) {
+	if r == nil || source == nil {
 		return false, ErrKarrDimension
 	}
 	if source.empty {
+		if delta != nil {
+			delta.empty = true
+		}
 		return false, nil
 	}
-	sourceBasis, err := source.Basis()
-	if err != nil {
+	if err := source.getBasis(); err != nil {
 		return false, err
 	}
+	m := source.basis
 	if r.empty {
-		r.empty = false
-		r.basis = sourceBasis
+		r.basis = cloneKarrMatrix(m)
 		r.basisValid = true
+		r.empty = false
 		r.inequalitiesValid = false
+		if delta != nil {
+			delta.copyFrom(r)
+		}
 		return true, nil
 	}
-	if err = r.ensureBasis(); err != nil {
+	if err := r.getBasis(); err != nil {
 		return false, err
 	}
-	oldSize := r.basis.Len()
-	for i := range sourceBasis.A {
+	n := &r.basis
+	size := n.Len()
+	for i := range m.A {
 		found := false
-		for j := 0; !found && j < oldSize; j++ {
-			found = sameKarrRow(sourceBasis.A[i], &sourceBasis.B[i], sourceBasis.Eq[i], r.basis.A[j], &r.basis.B[j], r.basis.Eq[j])
+		for j := 0; !found && j < size; j++ {
+			found = sameKarrRow(m.A[i], n.A[j]) && m.B[i].Cmp(&n.B[j]) == 0 && m.Eq[i] == n.Eq[j]
 		}
 		if !found {
-			r.basis.append(sourceBasis.A[i], &sourceBasis.B[i], sourceBasis.Eq[i])
+			n.append(m.A[i], &m.B[i], m.Eq[i])
 		}
 	}
-	changed := oldSize != r.basis.Len()
-	if changed {
-		r.inequalitiesValid = false
+	r.inequalitiesValid = false
+	if size != n.Len() {
+		if delta != nil {
+			delta.copyFrom(r)
+		}
+		return true, nil
 	}
-	return changed, nil
+	return false, nil
 }
 
+// FilterIdentical is filter_identical_fn: get_ineqs, then
+// x_c0 - x_ci = 0 for each further column (each invalidating the basis).
 func (r *KarrRelation) FilterIdentical(columns []uint32) error {
 	if r == nil || len(columns) == 0 {
 		return ErrKarrDimension
 	}
-	if err := validateKarrColumns(r.dimension, columns); err != nil {
-		return err
+	for _, column := range columns {
+		if column >= r.dimension {
+			return ErrKarrColumn
+		}
 	}
-	if err := r.ensureInequalities(); err != nil {
+	if err := r.getIneqs(); err != nil {
 		return err
 	}
 	for i := 1; i < len(columns); i++ {
@@ -465,13 +474,13 @@ func (r *KarrRelation) FilterIdentical(columns []uint32) error {
 		row[columns[0]].SetInt64(1)
 		row[columns[i]].SetInt64(-1)
 		r.inequalities.append(row, nil, true)
+		r.basisValid = false
 	}
-	r.basisValid = false
 	return nil
 }
 
-// FilterEqual retains the native source behavior, including its fixed -1
-// constant (the parsed value is only used as a validity guard upstream).
+// FilterEqual is filter_equal_fn: for an integer numeral, get_ineqs and
+// the row x_col - 1 = 0 (the source pushes -1, not the value).
 func (r *KarrRelation) FilterEqual(column uint32, integerValue bool) error {
 	if r == nil || column >= r.dimension {
 		return ErrKarrColumn
@@ -479,25 +488,12 @@ func (r *KarrRelation) FilterEqual(column uint32, integerValue bool) error {
 	if !integerValue {
 		return nil
 	}
-	if err := r.ensureInequalities(); err != nil {
+	if err := r.getIneqs(); err != nil {
 		return err
 	}
 	row := make([]big.Rat, r.dimension)
 	row[column].SetInt64(1)
 	r.inequalities.append(row, big.NewRat(-1, 1), true)
-	r.basisValid = false
-	return nil
-}
-
-func (r *KarrRelation) AddConstraint(row []big.Rat, constant *big.Rat, equal bool) error {
-	if r == nil || uint32(len(row)) != r.dimension {
-		return ErrKarrDimension
-	}
-	if err := r.ensureInequalities(); err != nil {
-		return err
-	}
-	r.empty = false
-	r.inequalities.append(row, constant, equal)
 	r.basisValid = false
 	return nil
 }

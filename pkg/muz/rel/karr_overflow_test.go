@@ -27,7 +27,7 @@ func TestKarrDualizationOverflowPreservesOwners(t *testing.T) {
 		if _, err := source.Basis(); !errors.Is(err, hilbert.ErrOverflow) {
 			t.Fatal("large fact basis", err)
 		}
-		if changed, err := target.Union(source); changed || !errors.Is(err, hilbert.ErrOverflow) {
+		if changed, err := target.Union(source, nil); changed || !errors.Is(err, hilbert.ErrOverflow) {
 			t.Fatal("union", changed, err)
 		}
 		after, err := target.Inequalities()
@@ -42,7 +42,7 @@ func TestKarrDualizationOverflowPreservesOwners(t *testing.T) {
 	if err := small.AddFact([]*big.Rat{big.NewRat(5, 1)}); err != nil {
 		t.Fatal(err)
 	}
-	if changed, err := target.Union(small); err != nil || !changed {
+	if changed, err := target.Union(small, nil); err != nil || !changed {
 		t.Fatal("valid union after refusal", changed, err)
 	}
 

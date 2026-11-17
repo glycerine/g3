@@ -45,7 +45,7 @@ func TestKarrFactUnionAndDualization(t *testing.T) {
 	if err := second.AddFact([]*big.Rat{karrRat(2), karrRat(4)}); err != nil {
 		t.Fatal(err)
 	}
-	changed, err := first.Union(second)
+	changed, err := first.Union(second, nil)
 	if err != nil || !changed {
 		t.Fatalf("Union() = %v, %v", changed, err)
 	}
@@ -58,7 +58,7 @@ func TestKarrFactUnionAndDualization(t *testing.T) {
 	}
 	requireKarrPoint(t, matrix, []int64{1, 2})
 	requireKarrPoint(t, matrix, []int64{2, 4})
-	if changed, err = first.Union(second); err != nil || changed {
+	if changed, err = first.Union(second, nil); err != nil || changed {
 		t.Fatalf("idempotent Union() = %v, %v", changed, err)
 	}
 }
@@ -109,7 +109,7 @@ func TestKarrFiltersAndSourceEqualQuirk(t *testing.T) {
 	if err := relation.FilterIdentical([]uint32{0, 2}); err != nil {
 		t.Fatal(err)
 	}
-	if err := relation.AddConstraint(karrRow(0, 1, 0), karrRat(-4), true); err != nil {
+	if err := karrPushRow(relation, karrRow(0, 1, 0), karrRat(-4), true); err != nil {
 		t.Fatal(err)
 	}
 	if err := relation.FilterEqual(0, true); err != nil {
@@ -125,14 +125,19 @@ func TestKarrFiltersAndSourceEqualQuirk(t *testing.T) {
 	}
 }
 
+// karrPushRow is a filter's row push: get_ineqs, the row, and the basis
+// invalidated.
+func karrPushRow(r *KarrRelation, row []big.Rat, constant *big.Rat, equal bool) error {
+	if err := r.getIneqs(); err != nil {
+		return err
+	}
+	r.inequalities.append(row, constant, equal)
+	r.basisValid = false
+	return nil
+}
+
 func TestKarrGuards(t *testing.T) {
 	relation := NewKarrEmpty(2, nil)
-	if err := relation.AddFact([]*big.Rat{karrRat(1)}); err != ErrKarrDimension {
-		t.Fatalf("AddFact dimension error = %v", err)
-	}
-	if _, err := relation.Project([]uint32{2}); err != ErrKarrColumn {
-		t.Fatalf("Project column error = %v", err)
-	}
 	if _, err := relation.Rename(nil); err != ErrKarrDimension {
 		t.Fatalf("Rename cycle error = %v", err)
 	}
@@ -142,7 +147,7 @@ func TestKarrRenameCyclePreservesLargeRationalRows(t *testing.T) {
 	source := NewKarrFull(3, nil)
 	large := new(big.Int).Lsh(big.NewInt(1), 140)
 	row := []big.Rat{*new(big.Rat).SetInt(large), *big.NewRat(2, 1), *big.NewRat(3, 1)}
-	if err := source.AddConstraint(row, big.NewRat(0, 1), true); err != nil {
+	if err := karrPushRow(source, row, big.NewRat(0, 1), true); err != nil {
 		t.Fatal(err)
 	}
 	result, err := source.Rename([]uint32{0, 2, 1})

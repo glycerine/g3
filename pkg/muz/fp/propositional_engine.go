@@ -2562,8 +2562,11 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 		}
 		return e.queryTabPredicate(declaration)
 	}
+	e.relationApprox = false
 	status, err := e.queryDatalogPredicates([]ast.ASTHandle{declaration})
-	if err == nil && status == lbool.True {
+	// rel_context::query: an imprecise non-empty relation's formula is
+	// computed too (status APPROX, l_undef).
+	if err == nil && (status == lbool.True || status == lbool.Undef && e.relationApprox) {
 		err = e.buildRelationAnswer([]ast.ASTHandle{declaration})
 	}
 	return status, err

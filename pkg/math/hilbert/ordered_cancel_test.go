@@ -16,7 +16,9 @@ func TestOrderedSaturationCancellationStopsBeforeResolution(t *testing.T) {
 	if err != nil || result != lbool.Undef {
 		t.Fatalf("Saturate = %v, %v", result, err)
 	}
-	if calls != 2 {
-		t.Fatalf("checkpoint calls = %d, want 2", calls)
+	// saturate(): checkpoint 1 passes; saturate(ineq): the while test's
+	// checkpoint 2 fails and the following if (!checkpoint()) is call 3.
+	if calls != 3 {
+		t.Fatalf("checkpoint calls = %d, want 3", calls)
 	}
 }

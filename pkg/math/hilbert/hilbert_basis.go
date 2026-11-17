@@ -435,10 +435,10 @@ func acceptedWithout(values []*vector, excluded *vector) []*vector {
 func (b *Basis) Saturate() (lbool.LBool, error) {
 	b.initBasis()
 	b.current = 0
-	for b.current < len(b.inequalities) {
-		if !b.proceed() {
-			return lbool.Undef, nil
-		}
+	// while (checkpoint() && m_current_ineq < m_ineqs.size()): the
+	// checkpoint (m_limit.inc()) runs before the bound test, so the loop's
+	// last test spends one more step.
+	for b.proceed() && b.current < len(b.inequalities) {
 		if err := b.selectInequality(); err != nil {
 			return lbool.Undef, err
 		}

@@ -43,10 +43,9 @@ func (b *Basis) saturateOrdered(row []int64, equal bool) (lbool.LBool, error) {
 			}
 		}
 	}
-	for !passive.empty() {
-		if !b.proceed() {
-			return lbool.Undef, nil
-		}
+	// while (checkpoint() && !m_passive2->empty()), then
+	// if (!checkpoint()) return l_undef.
+	for b.proceed() && !passive.empty() {
 		sos, pas, offset, err := passive.pop()
 		if err != nil {
 			return lbool.Undef, err
@@ -72,6 +71,9 @@ func (b *Basis) saturateOrdered(row []int64, equal bool) (lbool.LBool, error) {
 		if resolved.weight > 0 {
 			positive = append(positive, resolved)
 		}
+	}
+	if !b.proceed() {
+		return lbool.Undef, nil
 	}
 	if equal {
 		positive = positive[:0]

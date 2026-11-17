@@ -136,24 +136,16 @@ func (p *KarrRelationPlugin) MkUnionFn(target, source, delta RelationBase) (Rela
 		if x == nil || y == nil {
 			return ErrInstruction
 		}
-		changed, err := x.value.Union(y.value)
-		if err != nil || d == nil {
-			return err
+		var delta *KarrRelation
+		if d != nil {
+			z, _ := p.get(d)
+			if z == nil {
+				return ErrInstruction
+			}
+			delta = z.value
 		}
-		z, _ := p.get(d)
-		if z == nil {
-			return ErrInstruction
-		}
-		if y.value.Empty() {
-			// delta->m_empty = true
-			z.value.empty = true
-			return nil
-		}
-		if changed {
-			// delta->copy(*this)
-			z.value = x.value.Clone()
-		}
-		return nil
+		_, err := x.value.Union(y.value, delta)
+		return err
 	}, nil
 }
 
@@ -256,9 +248,9 @@ func (r *karrRelationValue) ToFormula() (ast.ASTRef, error) {
 	return r.value.ToFormula(r.plugin.manager.manager, r.sorts)
 }
 
-// Reset is relation_base::reset: filter_interpreted(false) adds no row
-// (false is not linear), so the relation is unchanged.
-func (r *karrRelationValue) Reset() error { return nil }
+// Reset is relation_base::reset: filter_interpreted(false), whose
+// get_ineqs() runs and which adds no row (false is not linear).
+func (r *karrRelationValue) Reset() error { return r.value.getIneqs() }
 
 func (r *karrRelationValue) CloneRelation() (RelationBase, error) {
 	return r.plugin.wrap(r.sorts, r.value.Clone(), r.fn), nil
@@ -324,6 +316,11 @@ func (r *karrRelationValue) filterInterpreted(cond ast.ASTHandle) (resultErr err
 			return err
 		}
 	}
+	// matrix& M = get_ineqs(): computed once, before the conjuncts; the
+	// rows go onto m_ineqs and m_basis_valid is left as it was.
+	if err := r.value.getIneqs(); err != nil {
+		return err
+	}
 	n := len(r.sorts)
 	one, mone := big.NewRat(1, 1), big.NewRat(-1, 1)
 	arith, err := m.RegisterArithmeticPlugin()
@@ -348,7 +345,8 @@ func (r *karrRelationValue) filterInterpreted(cond ast.ASTHandle) (resultErr err
 			return r.isLinear(e2, row, b, m2, arith)
 		}
 		add := func(constant *big.Rat, eq bool) error {
-			return KarrSourceFilterConstraint(r.value, row, constant, eq)
+			r.value.inequalities.append(row, constant, eq)
+			return nil
 		}
 		if l, rr, ok, err := isEqParts(m, e); err != nil {
 			return err
