@@ -336,6 +336,10 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	// xform.karr: mk_karr_invariants' inner datalog context rejects the
+	// loop-counter rules (fork fix #A frees the transformer's rule set; see
+	// ast_event_digests.txt).
+	"fixedpoint_spacer_karr_infinite_sorts.smt2": "(error \"query failed: Rule contains infinite sorts in rule <null>:\np(0,0).\n\")\nunknown\n",
 	// AUDIT.md FUZZ-F5: declare-rel argument errors are parse_ext_cmd's
 	// (CPK_SYMBOL, CPK_SORT_LIST, CPK_SYMBOL...) and dl_declare_rel_cmd's.
 	"plugins6_declare_rel_arguments.smt2": "(error \"line 1 column 14: invalid command argument, symbol expected\")\n(error \"line 2 column 15: expecting sort list starting with '('\")\n(error \"line 3 column 21: invalid command argument, symbol expected\")\n(error \"line 4 column 31: invalid command argument, symbol expected\")\n(error \"line 5 column 25: invalid sort, symbol, '_' or '(' expected\")\n(error \"line 6 column 21: invalid command argument, symbol expected\")\n(error \"line 7 column 12: at least 2 arguments expected\")\n(error \"line 8 column 14: at least 2 arguments expected\")\n(error \"line 9 column 22: invalid command argument, symbol expected\")\nunsat\n",
