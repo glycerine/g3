@@ -176,7 +176,7 @@ func (e *PropositionalEngine) selectCompiledRelationFavourite() (_ bool, resultE
 		return false, err
 	}
 	docFavourite := !checkEnabled && e.datalogRelationFavourite == "doc"
-	if _, enabled, err := e.datalogDefaultTableCheck(); err != nil || enabled {
+	if _, enabled, err := e.datalogDefaultTableCheck(); err != nil || enabled && !checkEnabled {
 		return false, err
 	}
 	probe, err := rel.NewUDocPlugin(e.relations)

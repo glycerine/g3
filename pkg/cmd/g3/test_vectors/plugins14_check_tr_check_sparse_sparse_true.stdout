@@ -1,0 +1,14 @@
+sat
+sat
+(or (and (= (:var 0) #b001) (= (:var 1) #b010))
+    (and (= (:var 0) #b010) (= (:var 1) #b011))
+    (and (= (:var 0) #b011) (= (:var 1) #b001))
+    (and (= (:var 0) #b100) (= (:var 1) #b101))
+    (and (= (:var 0) #b011) (= (:var 1) #b010))
+    (and (= (:var 0) #b001) (= (:var 1) #b011))
+    (and (= (:var 0) #b010) (= (:var 1) #b001))
+    (and (= (:var 0) #b011) (= (:var 1) #b011))
+    (and (= (:var 0) #b001) (= (:var 1) #b001))
+    (and (= (:var 0) #b010) (= (:var 1) #b010)))
+sat
+(or (= (:var 0) #b011) (= (:var 0) #b010) (= (:var 0) #b100) (= (:var 0) #b001))

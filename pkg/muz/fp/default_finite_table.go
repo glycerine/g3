@@ -139,9 +139,18 @@ func (e *PropositionalEngine) configureDatalogFiniteDefault(name string) error {
 	}
 	// rel_context::updt_params: a datalog.check_relation other than null
 	// makes check_relation the favourite relation plugin.
-	_, checkRelation, err := e.datalogCheckRelationBase()
+	checkBase, checkRelation, err := e.datalogCheckRelationBase()
 	if err != nil {
 		return err
+	}
+	if checkRelation && checkBase == "tr_lazy_sparse" && e.lazyFinite == nil {
+		// rel_context registers lazy_table_plugin::mk_sparse with the other
+		// table plugins: tr_lazy_sparse is check_relation's base whatever
+		// the default table is.
+		e.lazyFinite = e.relations.NewLazySparseFiniteFactory()
+		if err = e.relations.SetLazySparseFiniteFactory(e.lazyFinite); err != nil {
+			return err
+		}
 	}
 	if err = e.relations.SetDefaultCheckedFactory(factory, !checkRelation); err != nil {
 		return err
