@@ -24,23 +24,6 @@ func (r *IntervalRelation) AddFactExpressions(manager *ast.ASTManager, sorts, va
 	if r == nil || r.values == nil || manager == nil || len(sorts) != len(values) || len(values) != len(r.values.columns) || !CanHandleIntervalSorts(manager, sorts) {
 		return ast.ErrASTDomain
 	}
-	var roots []ast.ASTRef
-	defer func() {
-		for i := len(roots) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, manager.DelRef(&roots[i]))
-		}
-	}()
-	hold := func(handle ast.ASTHandle, err error) (ast.ASTHandle, error) {
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		root, err := manager.NewRef(handle)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		roots = append(roots, root)
-		return handle, nil
-	}
 	fact := NewIntervalFull(uint32(len(values)))
 	for i, value := range values {
 		sort, err := manager.GetSort(value)
@@ -50,15 +33,23 @@ func (r *IntervalRelation) AddFactExpressions(manager *ast.ASTManager, sorts, va
 			}
 			return err
 		}
-		variable, err := hold(manager.MkVar(uint32(i), sorts[i]))
+		// app_ref eq(m); eq = m.mk_eq(m.mk_var(i, m.get_sort(e)), e): the
+		// variable is held only by the equality, which is released at the
+		// end of each iteration.
+		variable, err := manager.MkVar(uint32(i), sorts[i])
 		if err != nil {
 			return err
 		}
-		equality, err := hold(manager.MkEq(variable, value))
+		equality, err := manager.MkEq(variable, value)
 		if err != nil {
 			return err
 		}
-		if err = fact.FilterInterpreted(manager, equality); err != nil {
+		eq, err := manager.NewRef(equality)
+		if err != nil {
+			return err
+		}
+		err = fact.FilterInterpreted(manager, equality)
+		if err = errors.Join(err, manager.DelRef(&eq)); err != nil {
 			return err
 		}
 	}

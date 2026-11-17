@@ -73,10 +73,13 @@ func (e *PropositionalEngine) selectFiniteRepresentation(declaration ast.ASTHand
 		// The favourite relation plugin's empty relation of a predicate
 		// registered after the plugins were selected stands for one
 		// get_relation has not created yet: set_predicate_kind decides
-		// the kind it is created with.
-		empty, err := r.Empty()
-		if err != nil || !empty {
-			return errors.Join(err, rel.ErrRelationNotTable, replacement.Close())
+		// the kind it is created with. A placeholder is such a relation
+		// whatever its plugin reports.
+		if !e.relations.IsPlaceholderRelation(declaration) {
+			empty, err := r.Empty()
+			if err != nil || !empty {
+				return errors.Join(err, rel.ErrRelationNotTable, replacement.Close())
+			}
 		}
 		return e.replaceDatalogTable(declaration, replacement)
 	}

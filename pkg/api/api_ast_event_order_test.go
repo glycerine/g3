@@ -37,29 +37,6 @@ import (
 
 const apiASTEventCaseEnv = "G3_API_AST_EVENT_CASE"
 
-// apiASTEventKnownDifferences are the cases whose events still differ
-// from z3's, with the first difference's cause; they are skipped.
-var apiASTEventKnownDifferences = map[string]string{
-	"expl_0":  "event 777: the second query releases the first query's clone (g3's expression queries run on a clone); z3 keeps one datalog::context",
-	"expl_2":  "event 254: qe_lite's der and th_rewriter inside rule_manager::reduce_unbound_vars (mk_rule_inliner) delete their temporaries in another order",
-	"expl_4":  "event 283: mk_simple_joins' join planner (var_subst of the pair keys) creates a term z3 does not",
-	"expl_12": "event 254: qe_lite in reduce_unbound_vars, as expl_2",
-	"expl_13": "event 232: mk_simple_joins' join planner, as expl_4",
-	"scen_4":  "event 211: mk_rule_inliner captures the deleted rules' model conversion term earlier than z3",
-	"scen_5":  "event 343: the second query releases the first query's clone, as expl_0",
-	"scen_6":  "event 217: mk_rule_inliner's model conversion capture, as scen_4",
-	"scen_8":  "event 226: mk_rule_inliner's model conversion capture, as scen_4",
-	"scen_9":  "event 245: mk_rule_inliner's model conversion capture, as scen_4",
-	"scen_12": "event 232: qe_lite in reduce_unbound_vars, as expl_2",
-	"scen_22": "event 221: z3 releases the explanation fact relation when rel_context::query(expr*) ends; g3 when the query clone is closed",
-	"ext_0":   "event 349: mk_unbound_compressor (is_empty callbacks) runs inside z3's transform_rules after mk_simple_joins; g3 runs it before the transformation pipeline",
-	"ext_1":   "event 296: interval_relation::add_fact makes its bound terms in another order",
-	"ext_2":   "event 413: mk_unbound_compressor's position, as ext_0",
-	"ext_3":   "event 349: mk_unbound_compressor's position, as ext_0",
-	"ext_4":   "event 296: interval_relation::add_fact, as ext_1",
-	"ext_5":   "event 432: mk_unbound_compressor's position, as ext_0",
-}
-
 type apiASTEventCase struct {
 	program string // test_vectors/<program>
 	args    []string
@@ -162,9 +139,6 @@ func TestAPIASTEventOrder(t *testing.T) {
 	built := map[string]string{}
 	for _, c := range apiASTEventCases() {
 		t.Run(c.name(), func(t *testing.T) {
-			if reason := apiASTEventKnownDifferences[c.name()]; reason != "" {
-				t.Skip("known difference: " + reason)
-			}
 			exe := built[c.program]
 			if exe == "" {
 				src, err := filepath.Abs(filepath.Join("test_vectors", c.program))

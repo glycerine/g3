@@ -127,8 +127,11 @@ func (i *interpretedFilterProjectInstruction) project(table FiniteTable, conditi
 		kind := m.RelationKindOf(r)
 		fn := i.projectFnCache[kind]
 		if fn == nil {
+			mark := m.fnMark()
 			var err error
-			if fn, err = m.MkRelationFilterInterpretedAndProjectFn(r, conditions[0], i.removed); err != nil {
+			fn, err = m.MkRelationFilterInterpretedAndProjectFn(r, conditions[0], i.removed)
+			i.fnResources = append(i.fnResources, m.takeFnResources(mark))
+			if err != nil {
 				return nil, err
 			}
 			if fn == nil {

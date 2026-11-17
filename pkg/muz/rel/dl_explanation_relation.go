@@ -625,8 +625,9 @@ type explanationRelation struct {
 	closed bool
 }
 
+// resetData is m_data.reset() (ref_vector: released front to back).
 func (r *explanationRelation) resetData() (result error) {
-	for i := len(r.data) - 1; i >= 0; i-- {
+	for i := range r.data {
 		if r.data[i] != (ast.ASTRef{}) {
 			result = errors.Join(result, r.plugin.ast.DelRef(&r.data[i]))
 		}
@@ -904,6 +905,23 @@ func (r *explanationRelation) Close() error {
 	}
 	r.plugin.recycle(r)
 	return nil
+}
+
+// DeleteExplanationRelation is dealloc(r) for an explanation_relation
+// (universal_delete of a scoped_rel<explanation_relation>, such as
+// mk_explanations::m_e_fact_relation): the destructor frees m_data and the
+// relation is not recycled into the plugin's pool. Other relations are
+// deallocated.
+func DeleteExplanationRelation(r RelationBase) error {
+	e, ok := r.(*explanationRelation)
+	if !ok {
+		return r.Close()
+	}
+	if e.closed {
+		return nil
+	}
+	e.closed = true
+	return e.resetData()
 }
 
 // release frees a pooled relation's terms (plugin destruction).

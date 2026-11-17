@@ -26,6 +26,8 @@ type UnboundCompressorPlugin struct {
 	// order lists mapping keys in insertion order (deterministic).
 	order  []compressionKey
 	closed bool
+	// nonEmpty is rel_context::collect_non_empty_predicates.
+	nonEmpty func() error
 }
 
 func NewUnboundCompressorPlugin(manager *ast.ASTManager, rules *base.RuleManager, enabled bool, priority uint32) *UnboundCompressorPlugin {
@@ -33,6 +35,12 @@ func NewUnboundCompressorPlugin(manager *ast.ASTManager, rules *base.RuleManager
 		priority = 500
 	}
 	return &UnboundCompressorPlugin{manager: manager, rules: rules, enabled: enabled, priority: priority, mapping: make(map[compressionKey]ast.ASTHandle)}
+}
+
+// SetNonEmptyCollector installs rel_context::collect_non_empty_predicates,
+// which operator() calls once compress_unbound is on.
+func (p *UnboundCompressorPlugin) SetNonEmptyCollector(collect func() error) {
+	p.nonEmpty = collect
 }
 
 func (p *UnboundCompressorPlugin) Priority() uint32            { return p.priority }
@@ -313,6 +321,11 @@ func (p *UnboundCompressorPlugin) Transform(source *base.RuleSet) (_ *base.RuleS
 	}
 	if !p.enabled {
 		return nil, nil
+	}
+	if p.nonEmpty != nil {
+		if err := p.nonEmpty(); err != nil {
+			return nil, err
+		}
 	}
 	p.mapping = make(map[compressionKey]ast.ASTHandle)
 	current := source

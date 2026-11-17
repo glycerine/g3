@@ -110,8 +110,9 @@ func TestExpressionAnswerAllocationFailureKeepsPublishedQuery(t *testing.T) {
 			absentQuery := f.own(f.m.MkApp(predicate, []ast.ASTHandle{absentValue}))
 			status, err = f.e.QueryExpression(absentQuery)
 			fragmentMust(t, err)
-			if status != lbool.False || f.e.queryClone == clone {
-				t.Fatal("absent tuple query did not replace the previous clone", status)
+			// The datalog context of the previous query runs the next one.
+			if status != lbool.False || f.e.queryClone != clone || f.e.datalogContext != clone {
+				t.Fatal("absent tuple query did not reuse the datalog context", status)
 			}
 			if held, err := f.m.RefGet(answer); err != nil || held != formula {
 				t.Fatal("held answer changed after disposing its query clone", held, err)

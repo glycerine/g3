@@ -98,6 +98,21 @@ type PropositionalEngine struct {
 	// relationQueryEmpty is rel_context::query's rel.empty() of each queried
 	// relation_base, which the answer (m_answer) reuses.
 	relationQueryEmpty map[ast.ASTHandle]bool
+	// datalogLastResult is rel_context::m_last_result_relation, the clone of
+	// the expression query's relation (rel_context::query(expr*)).
+	datalogLastResult rel.RelationBase
+	// datalogRetiredResults are the earlier queries' m_last_result_relation:
+	// rel_context::query(expr*) assigns the new clone without deallocating
+	// the previous one, which stays allocated until the context dies.
+	datalogRetiredResults []rel.RelationBase
+	// datalogContext is the datalog::context of the expression queries: the
+	// query clone of the first datalog expression query, kept and reused by
+	// the later ones (its relation manager, plugins, caches and compiled
+	// code persist across queries, as the source context's do).
+	datalogContext *PropositionalEngine
+	// datalogQueryPreds is scoped_query's m_preds on the datalog context:
+	// the predicates before the expression query's mk_query.
+	datalogQueryPreds map[ast.ASTHandle]bool
 	// compiledRelationPlugins: the relation plugins' relations have
 	// replaced the eager tables and queries run them compiled.
 	compiledRelationPlugins bool
@@ -1285,6 +1300,15 @@ func (e *PropositionalEngine) normalizeSimpleJoins(bitBlast *datalogBitBlastQuer
 			return errors.Join(err, similarity.Close())
 		}
 	}
+	unbound, err := e.datalogUnboundCompressor()
+	if err != nil {
+		return err
+	}
+	if unbound != nil {
+		if err = transformer.Register(unbound); err != nil {
+			return errors.Join(err, unbound.Close())
+		}
+	}
 	if err = bitBlast.register(transformer, context, globals); err != nil {
 		return err
 	}
@@ -1336,6 +1360,11 @@ func (e *PropositionalEngine) normalizeSimpleJoins(bitBlast *datalogBitBlastQuer
 			if err = e.inheritDatalogFiniteRepresentation(declaration, origin); err != nil {
 				return err
 			}
+		}
+	}
+	if unbound != nil && len(unbound.CompressedPredicates()) != 0 {
+		if err = e.registerDatalogUnboundPredicates(); err != nil {
+			return err
 		}
 	}
 	for _, step := range coneSteps {
@@ -2692,7 +2721,8 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	if !e.expressionClone {
 		// rel_context::query(num_rels, rels)'s scoped_query restores
 		// get_predicates() when the query ends.
-		saved, err := e.rules.ContextPredicates()
+		// scoped_query: m_preds(ctx.get_predicates()), a copy.
+		saved, err := e.rules.ContextPredicatesCopy()
 		if err != nil {
 			return lbool.Undef, err
 		}
@@ -2862,18 +2892,6 @@ func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHand
 	bitBlast := &datalogBitBlastQuery{engine: e}
 	if err = e.normalizeSimpleJoins(bitBlast); err != nil {
 		return lbool.Undef, err
-	}
-	scoped, err := e.prepareDatalogUnbound(e.datalogQueryOutputs(declarations))
-	if err != nil {
-		return lbool.Undef, err
-	}
-	if scoped != nil {
-		original := e.set
-		e.set = scoped.set
-		defer func() {
-			e.set = original
-			resultErr = errors.Join(resultErr, scoped.dispose())
-		}()
 	}
 	// Source rel_context::saturate checks cancellation after transform_rules:
 	// a canceled plugin may return a deliberately partial transformed set.
@@ -3521,6 +3539,12 @@ func (e *PropositionalEngine) Close() (result error) {
 	if err := e.clearQueryResources(); err != nil {
 		return err
 	}
+	if e.datalogContext != nil {
+		if err := e.datalogContext.Close(); err != nil {
+			return err
+		}
+		e.datalogContext = nil
+	}
 	if err := e.closeDuality(); err != nil {
 		return errors.Join(result, err)
 	}
@@ -3541,8 +3565,21 @@ func (e *PropositionalEngine) Close() (result error) {
 		return errors.Join(result, err)
 	}
 	// context::reset: m_engine = nullptr comes after m_rule_set.reset() and
-	// m_rule_fmls.reset(). ~rel_context destroys m_code, then m_ectx (the
-	// registers), then m_answer.
+	// m_rule_fmls.reset(). ~rel_context deallocates m_last_result_relation,
+	// then destroys m_code, then m_ectx (the registers), then m_answer.
+	for len(e.datalogRetiredResults) != 0 {
+		if err := e.datalogRetiredResults[0].Close(); err != nil {
+			return errors.Join(result, err)
+		}
+		e.datalogRetiredResults = e.datalogRetiredResults[1:]
+	}
+	e.datalogRetiredResults = nil
+	if e.datalogLastResult != nil {
+		if err := e.datalogLastResult.Close(); err != nil {
+			return errors.Join(result, err)
+		}
+		e.datalogLastResult = nil
+	}
 	if err := e.releaseDatalogCode(); err != nil {
 		return errors.Join(result, err)
 	}

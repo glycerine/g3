@@ -876,6 +876,21 @@ func (m *RuleManager) ContextPredicates() ([]ast.ASTHandle, error) {
 	return res, nil
 }
 
+// ContextPredicatesCopy lists the keys of a copy of context::m_preds
+// (func_decl_set preds(m_context.get_predicates())) in the copy's
+// iteration order.
+func (m *RuleManager) ContextPredicatesCopy() ([]ast.ASTHandle, error) {
+	if err := m.open(); err != nil {
+		return nil, err
+	}
+	entries := m.contextPreds.Copy().Entries()
+	res := make([]ast.ASTHandle, 0, len(entries))
+	for _, entry := range entries {
+		res = append(res, entry.Key)
+	}
+	return res, nil
+}
+
 // RestrictContextPredicates is context::restrict_predicates(preds): reset
 // m_preds and insert preds in their (saved set's) order.
 func (m *RuleManager) RestrictContextPredicates(preds []ast.ASTHandle) error {

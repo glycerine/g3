@@ -29,7 +29,10 @@ type interpretedFilterInstruction struct {
 	// (find_fn / store_fn keyed by get_kind()).
 	fnCache        map[int]RelationMutatorFn
 	projectFnCache map[int]RelationTransformerFn
-	closed         bool
+	// fnResources are the cached functors' terms and owners, destroyed with
+	// the instruction (~instruction deallocates m_fn_cache's functors).
+	fnResources []*fnResources
+	closed      bool
 }
 
 // NewFilterInterpretedInstruction retains conditions and copies the concrete
@@ -210,7 +213,10 @@ func (i *interpretedFilterInstruction) Perform(context *ExecutionContext) (bool,
 		kind := m.RelationKindOf(r)
 		fn := i.fnCache[kind]
 		if fn == nil {
-			if fn, err = m.MkRelationFilterInterpretedFn(r, conditions[0]); err != nil {
+			mark := m.fnMark()
+			fn, err = m.MkRelationFilterInterpretedFn(r, conditions[0])
+			i.fnResources = append(i.fnResources, m.takeFnResources(mark))
+			if err != nil {
 				return false, err
 			}
 			if fn == nil {
@@ -371,6 +377,11 @@ func (i *interpretedFilterInstruction) Close() (result error) {
 		result = errors.Join(result, i.manager.DelRef(&i.conditions[index]))
 	}
 	i.conditions = nil
+	// ~instruction: the cached functors.
+	for _, resources := range i.fnResources {
+		result = errors.Join(result, resources.release())
+	}
+	i.fnResources = nil
 	result = errors.Join(result, i.accounting.Close())
 	return result
 }

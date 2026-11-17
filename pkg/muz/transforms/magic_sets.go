@@ -495,7 +495,8 @@ func (p *MagicSetsPlugin) transformRule(task magicTask, rule *base.Rule, result 
 		if e != nil {
 			return e
 		}
-		if e = p.addRule(result, mh, prefixTails[:i+1], prefixNeg[:i+1], usymbol.Symbol{}, rule); e != nil {
+		// create_magic_rules: the magic rules get no accounting parent.
+		if e = p.addRule(result, mh, prefixTails[:i+1], prefixNeg[:i+1], usymbol.Symbol{}, nil); e != nil {
 			return e
 		}
 	}

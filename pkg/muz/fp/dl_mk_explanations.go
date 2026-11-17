@@ -109,7 +109,9 @@ func (x *mkExplanations) Close() (result error) {
 	}
 	x.closed = true
 	if x.eFact != nil {
-		result = x.eFact.Close()
+		// scoped_rel<explanation_relation>: universal_delete is the
+		// template's dealloc, so the relation is destroyed, not recycled.
+		result = rel.DeleteExplanationRelation(x.eFact)
 		x.eFact = nil
 	}
 	for i := len(x.pinned) - 1; i >= 0; i-- {
@@ -452,7 +454,7 @@ func (x *mkExplanations) transformFacts(src, dst *base.RuleSet) error {
 		x.eFact = f
 	}
 	// func_decl_set predicates(m_context.get_predicates())
-	predicates, err := e.rules.ContextPredicates()
+	predicates, err := e.rules.ContextPredicatesCopy()
 	if err != nil {
 		return err
 	}

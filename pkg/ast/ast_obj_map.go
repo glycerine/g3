@@ -106,6 +106,16 @@ func (o *ObjMap) removeDeletedEntries() {
 	o.table, o.numDeleted = target, 0
 }
 
+// Copy is core_hashtable's copy constructor: a table of the same capacity
+// filled by copy_table, which places each used entry at its first free slot
+// from hash & mask (wrapping around), so the copy's iteration order can
+// differ from the source's.
+func (o *ObjMap) Copy() *ObjMap {
+	target := make([]ObjMapEntry, len(o.table))
+	objMapMoveTable(o.table, target)
+	return &ObjMap{manager: o.manager, held: o.held, table: target, size: o.size}
+}
+
 // Len is the number of keys.
 func (o *ObjMap) Len() int { return o.size }
 

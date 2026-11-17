@@ -135,9 +135,9 @@ func TestDatalogCheckRelationLocalPrecedenceAndDocCompression(t *testing.T) {
 	implication, err := m.MkImplies(px, f.applications["q"])
 	must(err)
 	must(e.addRuleEager(implication, "checked-doc-goal"))
-	scope, err := e.prepareDatalogUnbound([]ast.ASTHandle{f.declarations["q"]})
+	enabled, _, err := e.datalogUnboundCompression()
 	must(err)
-	if scope != nil {
+	if enabled {
 		t.Fatal("doc check relation did not disable unbound compression")
 	}
 	status, err := e.QueryPredicate(f.declarations["q"])

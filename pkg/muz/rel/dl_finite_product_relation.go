@@ -1388,8 +1388,10 @@ func (p *FiniteProductRelationPlugin) MkFilterInterpretedFn(rb RelationBase, con
 	if err != nil {
 		return nil, err
 	}
-	p.manager.fnRoots = append(p.manager.fnRoots, cond)
-	f := &fprFilterInterpretedFn{plugin: p, cond: condition}
+	f := &fprFilterInterpretedFn{plugin: p, cond: condition, condRef: cond}
+	// The functor owns its members; it is destroyed with its owner (the
+	// instruction that cached it, else the relation manager).
+	p.manager.fnClosers = append(p.manager.fnClosers, f.close)
 	condColumns, err := collectVarIndexes(m, condition)
 	if err != nil {
 		return nil, err
@@ -1416,20 +1418,18 @@ func (p *FiniteProductRelationPlugin) MkFilterInterpretedFn(rb RelationBase, con
 		if err != nil {
 			return nil, err
 		}
-		p.manager.fnRoots = append(p.manager.fnRoots, tableCond)
+		// m_table_filter keeps the renamed condition.
+		f.tableCondRef = tableCond
 		if f.tableCond, err = m.RefGet(tableCond); err != nil {
 			return nil, err
 		}
 		f.tableSorts = r.tableSorts()
 	} else {
-		if f.renamingForInner, err = p.renamingArgs(r.sig2other, r.sorts); err != nil {
-			return nil, errors.Join(err, releaseNullableRefs(m, f.renamingForInner))
-		}
 		// m_renaming_for_inner_rel is the functor's; operator() replaces
 		// its table entries.
-		p.manager.fnClosers = append(p.manager.fnClosers, func() error {
-			return releaseNullableRefs(m, f.renamingForInner)
-		})
+		if f.renamingForInner, err = p.renamingArgs(r.sig2other, r.sorts); err != nil {
+			return nil, err
+		}
 		if len(f.tableCondColumns) != 0 {
 			tableDataColCnt := len(r.tableSig) - 1
 			var removed []int
@@ -1484,6 +1484,40 @@ type fprFilterInterpretedFn struct {
 	globalOrigins         []int
 	renamingForInner      []ast.ASTRef
 	assembling            bool
+	condRef               ast.ASTRef
+	tableCondRef          ast.ASTRef
+	// relFilterResources are m_rel_filter's state, made at the first
+	// operator() call.
+	relFilterResources *fnResources
+	closed             bool
+}
+
+// close is ~filter_interpreted_fn: the members in reverse declaration
+// order: m_renaming_for_inner_rel (released front to back), m_cond,
+// m_rel_filter, then m_table_filter (which keeps the table condition).
+func (f *fprFilterInterpretedFn) close() (result error) {
+	if f.closed {
+		return nil
+	}
+	f.closed = true
+	m := f.plugin.manager.manager
+	for i := range f.renamingForInner {
+		if f.renamingForInner[i] != (ast.ASTRef{}) {
+			result = errors.Join(result, m.DelRef(&f.renamingForInner[i]))
+		}
+	}
+	f.renamingForInner = nil
+	if f.condRef != (ast.ASTRef{}) {
+		result = errors.Join(result, m.DelRef(&f.condRef))
+	}
+	if f.relFilterResources != nil {
+		result = errors.Join(result, f.relFilterResources.release())
+		f.relFilterResources = nil
+	}
+	if f.tableCondRef != (ast.ASTRef{}) {
+		result = errors.Join(result, m.DelRef(&f.tableCondRef))
+	}
+	return result
 }
 
 func (f *fprFilterInterpretedFn) apply(rb RelationBase) (resultErr error) {
@@ -1510,7 +1544,9 @@ func (f *fprFilterInterpretedFn) apply(rb RelationBase) (resultErr error) {
 				h, err := m.RefGet(innerCond)
 				if err == nil {
 					var fn RelationMutatorFn
+					mark := rmgr.fnMark()
 					fn, err = rmgr.MkRelationFilterInterpretedFn(inner, h)
+					f.relFilterResources = rmgr.takeFnResources(mark)
 					if err == nil && fn == nil {
 						// The fixed fork's throw (FORK FIX, see
 						// FORK_BUGFIXES.md); 4.7.1 called the null functor.

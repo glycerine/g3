@@ -222,6 +222,27 @@ func (r *ExternalRelation) accessor(cache *ast.ASTRef, op int32, args []ast.ASTH
 	return declaration, nil
 }
 
+// relationOpDecl is m.mk_func_decl(fid, op, 0, nullptr, 1, &rel): the
+// relation operation's decl over the relation's sort.
+func (r *ExternalRelation) relationOpDecl(op int32, relation ast.ASTHandle) (ast.ASTHandle, error) {
+	fid, err := r.ast.RegisterDatalogPlugin()
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	sort, err := r.ast.GetSort(relation)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	declaration, err := r.ast.MkFamilyFuncDecl(fid, op, nil, []ast.ASTHandle{sort}, ast.ASTHandle{})
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if declaration == (ast.ASTHandle{}) {
+		return ast.ASTHandle{}, ast.ErrASTDomain
+	}
+	return declaration, nil
+}
+
 func (r *ExternalRelation) reduce(declaration ast.ASTHandle, args []ast.ASTHandle) (ast.ASTHandle, error) {
 	return r.plugin.reduce(declaration, args)
 }
@@ -316,19 +337,17 @@ func (r *ExternalRelation) Clone() (result *ExternalRelation, resultErr error) {
 			result = nil
 		}
 	}()
-	app, err := r.ast.MkDatalogClone(expression)
+	// func_decl_ref fn(m.mk_func_decl(fid, OP_RA_CLONE, 0, nullptr, 1, &rel), m):
+	// the decl, without an application, released at return.
+	declaration, err := r.relationOpDecl(ast.DatalogOpClone, expression)
 	if err != nil {
 		return nil, err
 	}
-	appRef, err := r.ast.NewRef(app)
+	declRef, err := r.ast.NewRef(declaration)
 	if err != nil {
 		return nil, err
 	}
-	owner.temps = append(owner.temps, appRef)
-	declaration, err := r.ast.GetDecl(app)
-	if err != nil {
-		return nil, err
-	}
+	owner.temps = append(owner.temps, declRef)
 	if err = r.plugin.reduceAssign(declaration, []ast.ASTHandle{expression}, []ast.ASTHandle{fresh}); err != nil {
 		return nil, err
 	}
@@ -341,25 +360,22 @@ func (r *ExternalRelation) Complement() (result *ExternalRelation, resultErr err
 	if err != nil {
 		return nil, err
 	}
-	app, err := r.ast.MkDatalogComplement(expression)
+	// func_decl_ref fn(m.mk_func_decl(fid, OP_RA_COMPLEMENT, 0, nullptr, 1, &rel), m).
+	declaration, err := r.relationOpDecl(ast.DatalogOpComplement, expression)
 	if err != nil {
 		return nil, err
 	}
-	appRef, err := r.ast.NewRef(app)
+	declRef, err := r.ast.NewRef(declaration)
 	if err != nil {
 		return nil, err
 	}
-	owner := &externalRelationConstructionOwner{manager: r.ast, temps: []ast.ASTRef{appRef}}
+	owner := &externalRelationConstructionOwner{manager: r.ast, temps: []ast.ASTRef{declRef}}
 	defer func() {
 		resultErr = owner.dispose(resultErr)
 		if resultErr != nil {
 			result = nil
 		}
 	}()
-	declaration, err := r.ast.GetDecl(app)
-	if err != nil {
-		return nil, err
-	}
 	value, err := r.reduce(declaration, []ast.ASTHandle{expression})
 	if err != nil {
 		return nil, err

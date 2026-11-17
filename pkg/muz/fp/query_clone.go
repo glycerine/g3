@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/rel"
 )
 
@@ -105,4 +106,74 @@ func (e *PropositionalEngine) contextRewriter() *astrewriter.TheoryRewriter {
 		return e.pdrTheory
 	}
 	return e.guard
+}
+
+// expressionQueryContext is the engine an expression query runs on: for
+// datalog, the datalog context of the earlier expression queries when
+// there is one (resynced with the owner), otherwise a new query clone.
+func (e *PropositionalEngine) expressionQueryContext() (*PropositionalEngine, error) {
+	if e.datalogContext != nil {
+		if e.backend == "datalog" && e.datalogContext.backend == "datalog" {
+			if err := e.clearQueryCleanup(); err != nil {
+				return nil, err
+			}
+			clone := e.datalogContext
+			if err := e.resyncDatalogContext(clone); err != nil {
+				return clone, errors.Join(err, e.discardQueryClone(clone))
+			}
+			return clone, nil
+		}
+		previous := e.datalogContext
+		e.datalogContext = nil
+		if err := previous.Close(); err != nil {
+			return nil, err
+		}
+	}
+	return e.newQueryClone()
+}
+
+// retireDatalogQuery is ~scoped_query at the end of the previous
+// rel_context::query(expr*) on the datalog context: restrict_predicates
+// (m_preds) drops the query's auxiliary predicates and their relations,
+// and replace_rules(m_rules) gives the context back the rules it had
+// before mk_query (they are copied from the owner again by the next query).
+// The compiled code and the execution registers stay until the next
+// saturate resets them.
+func (c *PropositionalEngine) retireDatalogQuery() error {
+	if c.datalogQueryPreds != nil {
+		set, err := base.NewRuleSet(c.rules)
+		if err != nil {
+			return err
+		}
+		scope := &datalogUnboundScope{engine: c, set: set, predicates: c.datalogQueryPreds}
+		if err = scope.Close(); err != nil {
+			return err
+		}
+		c.datalogQueryPreds = nil
+	}
+	if err := c.set.Reset(); err != nil {
+		return err
+	}
+	c.queryReady = false
+	return nil
+}
+
+// resyncDatalogContext brings the reused datalog context up to its owner:
+// the facts, predicates and rules added since the previous query, and the
+// current query parameters.
+func (e *PropositionalEngine) resyncDatalogContext(clone *PropositionalEngine) error {
+	clone.datalogRelationFavourite = e.datalogRelationFavourite
+	clone.datalogDefaultTable = e.datalogDefaultTable
+	clone.softTimeout = e.softTimeout
+	clone.forceProofTrace = e.forceProofTrace
+	clone.contextModelConverter = e.contextModelConverter
+	if e.queryParamsReady {
+		if err := clone.SetQueryParameters(&e.queryParams); err != nil {
+			return err
+		}
+	}
+	if err := e.copyQueryPredicates(clone); err != nil {
+		return err
+	}
+	return e.copyQueryRules(clone)
 }

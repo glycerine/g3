@@ -33,6 +33,9 @@ func (c *queryCloneCleanup) captureStatistics() error {
 }
 
 func (e *PropositionalEngine) discardQueryClone(clone *PropositionalEngine) error {
+	if clone == e.datalogContext {
+		e.datalogContext = nil
+	}
 	e.queryCleanup = append(e.queryCleanup, &queryCloneCleanup{clone: clone})
 	return e.clearQueryCleanup()
 }

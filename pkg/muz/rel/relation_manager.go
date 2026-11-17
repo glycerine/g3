@@ -466,3 +466,55 @@ func (m *RelationManager) DecodeFact(sorts []ast.ASTHandle, fact Fact) (_ []ast.
 	}
 	return result, nil
 }
+
+// fnMark is a position in the relation manager's functor lists.
+type fnMark struct{ roots, closers, owners int }
+
+func (m *RelationManager) fnMark() fnMark {
+	return fnMark{len(m.fnRoots), len(m.fnClosers), len(m.fnOwners)}
+}
+
+// fnResources are the terms, cleanups and relations of the functors made
+// since a mark: an instruction that caches a functor (m_fn_cache) owns them
+// and releases them when it is destroyed, as ~instruction deallocates its
+// functors.
+type fnResources struct {
+	manager *RelationManager
+	roots   []ast.ASTRef
+	closers []func() error
+	owners  []RelationBase
+}
+
+// takeFnResources moves the functor state added since mark out of the
+// manager.
+func (m *RelationManager) takeFnResources(mark fnMark) *fnResources {
+	r := &fnResources{manager: m}
+	if mark.roots <= len(m.fnRoots) {
+		r.roots = append(r.roots, m.fnRoots[mark.roots:]...)
+		m.fnRoots = m.fnRoots[:mark.roots]
+	}
+	if mark.closers <= len(m.fnClosers) {
+		r.closers = append(r.closers, m.fnClosers[mark.closers:]...)
+		m.fnClosers = m.fnClosers[:mark.closers]
+	}
+	if mark.owners <= len(m.fnOwners) {
+		r.owners = append(r.owners, m.fnOwners[mark.owners:]...)
+		m.fnOwners = m.fnOwners[:mark.owners]
+	}
+	return r
+}
+
+// release destroys the functors' state in the manager's order.
+func (r *fnResources) release() (result error) {
+	for i := len(r.roots) - 1; i >= 0; i-- {
+		result = errors.Join(result, r.manager.manager.DelRef(&r.roots[i]))
+	}
+	r.roots = nil
+	for i := len(r.closers) - 1; i >= 0; i-- {
+		result = errors.Join(result, r.closers[i]())
+	}
+	r.closers = nil
+	result = errors.Join(result, closeRelationBases(r.owners))
+	r.owners = nil
+	return result
+}

@@ -4,7 +4,6 @@ package fp
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
@@ -66,16 +65,16 @@ func (s *datalogUnboundScope) Close() error {
 	return nil
 }
 
-// prepareDatalogUnbound returns a query-owned transformed set, or nil when no
-// compression is needed. Keeping the original set is essential: a later query
-// may request a predicate whose unbound columns this query can project away.
-func (e *PropositionalEngine) prepareDatalogUnbound(outputs []ast.ASTHandle) (_ *datalogUnboundScope, resultErr error) {
-	enabled := true
-	compress := true
+// datalogUnboundCompression reads the unbound compressor's switches:
+// enabled is context::unbound_compressor (datalog.unbound_compressor,
+// cleared by rel_context for doc relations), compress is
+// context::compress_unbound (xform.compress_unbound), the plugin's own gate.
+func (e *PropositionalEngine) datalogUnboundCompression() (enabled, compress bool, resultErr error) {
+	enabled, compress = true, true
 	if e.params != nil && e.globals != nil {
 		view, err := e.fixedpointParamView()
 		if err != nil {
-			return nil, err
+			return false, false, err
 		}
 		enabled, err = view.Bool("datalog.unbound_compressor", true)
 		if err == nil && enabled {
@@ -94,77 +93,55 @@ func (e *PropositionalEngine) prepareDatalogUnbound(outputs []ast.ASTHandle) (_ 
 		}
 		err = errors.Join(err, view.Close())
 		if err != nil {
-			return nil, err
+			return false, false, err
 		}
 	}
 	if !enabled {
-		return nil, nil
+		return false, compress, nil
 	}
 	checkRelation, checking, err := e.datalogCheckRelationName()
 	if err != nil {
-		return nil, err
+		return false, false, err
 	}
 	if checking && checkRelation == "doc" {
-		return nil, nil
+		return false, compress, nil
 	}
-	scoped, err := base.NewRuleSet(e.rules)
-	if err != nil {
+	return true, compress, nil
+}
+
+// datalogUnboundCompressor is rel_context::transform_rules'
+// register_plugin(alloc(mk_unbound_compressor, m_context)) when
+// m_context.unbound_compressor(); nil otherwise.
+func (e *PropositionalEngine) datalogUnboundCompressor() (*transforms.UnboundCompressorPlugin, error) {
+	enabled, compress, err := e.datalogUnboundCompression()
+	if err != nil || !enabled {
 		return nil, err
 	}
-	scope := &datalogUnboundScope{engine: e, set: scoped, predicates: make(map[ast.ASTHandle]bool, len(e.predicates))}
-	for decl := range e.predicates {
-		scope.predicates[decl] = true
-	}
-	published := false
-	defer func() {
-		if !published {
-			resultErr = errors.Join(resultErr, scope.dispose())
-		}
-	}()
-	if err = scoped.AddRules(e.set); err != nil {
-		return nil, err
-	}
-	for _, decl := range outputs {
-		if err = scoped.SetOutputPredicate(decl); err != nil {
-			return nil, err
-		}
-	}
-	valid, err := scoped.Finalize()
-	if err != nil {
-		return nil, err
-	}
-	if !valid {
-		return nil, fmt.Errorf("muz/fp: negation is not stratified")
-	}
+	plugin := transforms.NewUnboundCompressorPlugin(e.manager, e.rules, compress, 0)
 	// mk_unbound_compressor::operator(): collect_non_empty_predicates
 	// (m_non_empty_rels only gates can_remove_orig_rule, whose
 	// arg_indices.empty() conjunct is false inside its loop; the calls'
 	// fast_empty are observable for external relations).
-	if compress {
-		if _, err = e.relations.CollectNonEmptyPredicates(); err != nil {
-			return nil, err
-		}
-	}
-	plugin := transforms.NewUnboundCompressorPlugin(e.manager, e.rules, compress, 0)
-	transformer := base.NewRuleTransformer()
-	if err = transformer.Register(plugin); err != nil {
-		return nil, errors.Join(err, plugin.Close(), transformer.Close())
-	}
-	defer func() { resultErr = errors.Join(resultErr, transformer.Close()) }()
-	modified, err := transformer.Apply(scoped)
-	if err != nil || !modified {
-		return nil, err
-	}
-	// Scan the resulting program rather than the plugin's one-value-per-source
-	// summary: different rules can compress different columns of one predicate.
-	count, err := scoped.Len()
+	plugin.SetNonEmptyCollector(func() error {
+		_, err := e.relations.CollectNonEmptyPredicates()
+		return err
+	})
+	return plugin, nil
+}
+
+// registerDatalogUnboundPredicates gives the compressed predicates of the
+// transformed rules their predicate states (mk_fresh_head_predicate). It
+// scans the resulting program rather than the plugin's one-value-per-source
+// summary: different rules can compress different columns of one predicate.
+func (e *PropositionalEngine) registerDatalogUnboundPredicates() error {
+	count, err := e.set.Len()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for i := 0; i < count; i++ {
-		rule, cause := scoped.Rule(i)
+		rule, cause := e.set.Rule(i)
 		if cause != nil {
-			return nil, cause
+			return cause
 		}
 		head, cause := rule.HeadDeclaration()
 		declarations := []ast.ASTHandle{head}
@@ -179,7 +156,7 @@ func (e *PropositionalEngine) prepareDatalogUnbound(outputs []ast.ASTHandle) (_ 
 		}
 		cause = errors.Join(cause, rule.Close())
 		if cause != nil {
-			return nil, cause
+			return cause
 		}
 		for _, decl := range declarations {
 			if e.predicates[decl] != nil {
@@ -187,13 +164,12 @@ func (e *PropositionalEngine) prepareDatalogUnbound(outputs []ast.ASTHandle) (_ 
 			}
 			state, cause := e.predicateState(decl)
 			if cause != nil {
-				return nil, cause
+				return cause
 			}
 			e.predicates[decl] = state
 			e.predicateOrder = append(e.predicateOrder, decl)
 			e.auxiliary[decl] = true
 		}
 	}
-	published = true
-	return scope, nil
+	return nil
 }

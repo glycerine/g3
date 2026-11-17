@@ -6,6 +6,7 @@ package fp
 import (
 	"errors"
 	"fmt"
+	"github.com/glycerine/g3/pkg/muz/rel"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/pdr"
@@ -160,7 +161,7 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		return lbool.Undef, err
 	}
 	e.queried = true
-	clone, err := e.newQueryClone()
+	clone, err := e.expressionQueryContext()
 	if clone != nil {
 		clone.expressionClone = true
 		if clone.backend == EngineCLP.String() {
@@ -268,11 +269,19 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if clone.backend == "datalog" {
 		// rel_context::query's scoped_query: get_predicates() is restored
 		// when the query ends.
-		saved, cause := e.rules.ContextPredicates()
+		// scoped_query: m_preds(ctx.get_predicates()), a copy.
+		saved, cause := e.rules.ContextPredicatesCopy()
 		if cause != nil {
 			return lbool.Undef, cause
 		}
 		defer func() { resultErr = errors.Join(resultErr, e.rules.RestrictContextPredicates(saved)) }()
+	}
+	if clone.backend == "datalog" {
+		// scoped_query: m_preds(ctx.get_predicates()) before mk_query.
+		clone.datalogQueryPreds = make(map[ast.ASTHandle]bool, len(clone.predicates))
+		for d := range clone.predicates {
+			clone.datalogQueryPreds[d] = true
+		}
 	}
 	declaration, headRef, err := clone.makeQueryHead(query)
 	if err != nil {
@@ -451,6 +460,14 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		result, err = clone.queryDDNF()
 	} else {
 		result, err = clone.QueryPredicate(declaration)
+		if err == nil && result != lbool.Undef && clone.backend == "datalog" {
+			// rel_context::query(expr*): m_last_result_relation =
+			// get_relation(query_pred).clone().
+			err = clone.cloneDatalogLastResult(declaration)
+		}
+	}
+	if err == nil && clone.backend == "datalog" {
+		e.datalogContext = clone
 	}
 	if err == nil && e.backend == "datalog" {
 		err = e.publishDatalogQueryRelations(clone)
@@ -493,6 +510,20 @@ func (e *PropositionalEngine) clearQueryResources() error {
 	e.queryRelationsSet = false
 	if e.queryClone == nil {
 		return nil
+	}
+	if e.queryClone == e.datalogContext && !e.closing {
+		// The datalog context outlives its queries: the previous query's
+		// scoped_query restores it, and the next query reuses it.
+		if err := e.queryClone.retireDatalogQuery(); err != nil {
+			return err
+		}
+		e.queryClone = nil
+		e.queryCloneRevision = 0
+		e.queryClonePredicate = ast.ASTHandle{}
+		return nil
+	}
+	if e.queryClone == e.datalogContext {
+		e.datalogContext = nil
 	}
 	// Destruction can close the solver before a later reference release fails.
 	// Save its complete source counters once, while keeping the active clone
@@ -557,4 +588,29 @@ func (e *PropositionalEngine) ExpressionGroundSatAnswer() (ast.ASTRef, error) {
 		return ast.ASTRef{}, ErrPropositionalEngine
 	}
 	return clone.GroundSatAnswer(e.queryClonePredicate)
+}
+
+// cloneDatalogLastResult is m_last_result_relation =
+// get_relation(query_pred).clone(); a table predicate's clone touches no
+// AST and is not kept.
+func (e *PropositionalEngine) cloneDatalogLastResult(declaration ast.ASTHandle) error {
+	state := e.predicates[declaration]
+	if state == nil {
+		return nil
+	}
+	relation, ok := rel.AsRelation(state.table)
+	if !ok {
+		return nil
+	}
+	clone, err := relation.CloneRelation()
+	if err != nil {
+		return err
+	}
+	if e.datalogLastResult != nil {
+		// m_last_result_relation = ...clone(): the previous relation is not
+		// deallocated.
+		e.datalogRetiredResults = append(e.datalogRetiredResults, e.datalogLastResult)
+	}
+	e.datalogLastResult = clone
+	return nil
 }

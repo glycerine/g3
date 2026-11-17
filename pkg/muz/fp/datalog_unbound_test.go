@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
-	"github.com/glycerine/g3/pkg/muz/rel"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -65,7 +64,25 @@ func TestDatalogUnboundCompressorLiveParametersAndScopedRules(t *testing.T) {
 			must(err)
 			px, err := m.MkApp(p, []ast.ASTHandle{x})
 			must(err)
-			must(e.addRuleEager(px, "all"))
+			// r(true). p(x) :- r(true). p(x) :- p(x). q :- p(x): the inliner
+			// (which runs before the compressor) keeps p, whose head
+			// argument x is unbound.
+			rname, err := m.Symbols.Intern("unbound-seed")
+			must(err)
+			r, err := m.MkFuncDecl(rname, []ast.ASTHandle{b}, b, ast.ASTFuncDeclInfo{})
+			must(err)
+			must(e.RegisterPredicate(r))
+			yes, err := m.MkTrue()
+			must(err)
+			must(e.AddFact(r, []ast.ASTHandle{yes}))
+			rtrue, err := m.MkApp(r, []ast.ASTHandle{yes})
+			must(err)
+			seed, err := m.MkImplies(rtrue, px)
+			must(err)
+			must(e.addRuleEager(seed, "all"))
+			loop, err := m.MkImplies(px, px)
+			must(err)
+			must(e.addRuleEager(loop, "loop"))
 			implication, err := m.MkImplies(px, f.applications["q"])
 			must(err)
 			must(e.addRuleEager(implication, "goal"))
@@ -76,23 +93,10 @@ func TestDatalogUnboundCompressorLiveParametersAndScopedRules(t *testing.T) {
 			if !valid {
 				t.Fatal("fixture not stratified")
 			}
-			scope, err := e.prepareDatalogUnbound([]ast.ASTHandle{f.declarations["q"]})
+			enabled, compress, err := e.datalogUnboundCompression()
 			must(err)
-			if (scope != nil) != tc.compressed {
-				t.Fatalf("compressed=%v, want %v", scope != nil, tc.compressed)
-			}
-			if scope != nil {
-				var temporary rel.FiniteTable
-				for decl := range e.auxiliary {
-					temporary = e.predicates[decl].table
-				}
-				if temporary == nil {
-					t.Fatal("compression did not instantiate finite auxiliary table")
-				}
-				must(scope.Close())
-				if _, err := temporary.Len(); err == nil {
-					t.Fatal("scoped table remained live")
-				}
+			if (enabled && compress) != tc.compressed {
+				t.Fatalf("compressed=%v, want %v", enabled && compress, tc.compressed)
 			}
 			status, err := e.QueryPredicate(f.declarations["q"])
 			must(err)
@@ -101,6 +105,26 @@ func TestDatalogUnboundCompressorLiveParametersAndScopedRules(t *testing.T) {
 			}
 			if len(e.auxiliary) != 0 {
 				t.Fatal("scoped compression leaked auxiliary predicates")
+			}
+			// The transformed rules (record_transformed_rules) use a
+			// compressed predicate exactly when the compressor ran.
+			compressedRule := false
+			count, err := e.datalogTransformedRules.Len()
+			must(err)
+			for i := 0; i < count; i++ {
+				rule, err := e.datalogTransformedRules.Rule(i)
+				must(err)
+				head, err := rule.HeadDeclaration()
+				must(err)
+				must(rule.Close())
+				name, err := m.GetASTName(head)
+				must(err)
+				text, _, err := m.Symbols.BareString(name)
+				must(err)
+				compressedRule = compressedRule || strings.Contains(text, "compr_arg_")
+			}
+			if compressedRule != tc.compressed {
+				t.Fatalf("transformed rules compressed=%v, want %v", compressedRule, tc.compressed)
 			}
 			after, err := e.set.Len()
 			must(err)
@@ -112,7 +136,7 @@ func TestDatalogUnboundCompressorLiveParametersAndScopedRules(t *testing.T) {
 			if status != lbool.True {
 				t.Fatal("later original-predicate query lost universal rule", status)
 			}
-			count, err := e.predicates[p].table.Len()
+			count, err = e.predicates[p].table.Len()
 			must(err)
 			if count != 2 {
 				t.Fatal("original Boolean relation lost tuples", count)
@@ -130,13 +154,10 @@ func TestDatalogUnboundCompressorLiveParametersAndScopedRules(t *testing.T) {
 					must(e.params.SetBoolName(&updated, &setting.key, setting.enabled))
 					must(e.SetQueryParameters(&updated))
 					must(e.params.Del(&updated))
-					scope, err := e.prepareDatalogUnbound([]ast.ASTHandle{f.declarations["q"]})
+					enabled, compress, err := e.datalogUnboundCompression()
 					must(err)
-					if (scope != nil) != setting.enabled {
+					if (enabled && compress) != setting.enabled {
 						t.Fatal("parameter update did not change compression", setting.key, setting.enabled)
-					}
-					if scope != nil {
-						must(scope.Close())
 					}
 				}
 			}

@@ -37,8 +37,14 @@ type InterpTailSimplifierPlugin struct {
 	ruleNeg     []bool
 	// normalizer is m_cfg and m_rw.
 	normalizer *booleanNormalizer
-	closed     bool
-	closing    bool
+	// m_tail, m_itail_members and m_conj: data members that transform_rule
+	// resets and refills, so they hold the last simplified rule's terms
+	// until the next one (or the plugin's destruction).
+	memberTail  []ast.ASTRef
+	memberItail []ast.ASTRef
+	memberConj  []ast.ASTRef
+	closed      bool
+	closing     bool
 }
 
 func NewInterpTailSimplifierPlugin(manager *ast.ASTManager, rules *base.RuleManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, priority uint32) (*InterpTailSimplifierPlugin, error) {
@@ -137,6 +143,29 @@ func (p *InterpTailSimplifierPlugin) closeRuleSubstitution() (result error) {
 	return result
 }
 
+// resetMember is ref_vector::reset: the references are released front to
+// back.
+func (p *InterpTailSimplifierPlugin) resetMember(member *[]ast.ASTRef) error {
+	for len(*member) != 0 {
+		if err := p.manager.DelRef(&(*member)[0]); err != nil {
+			return err
+		}
+		*member = (*member)[1:]
+	}
+	*member = nil
+	return nil
+}
+
+// pushMember is ref_vector::push_back.
+func (p *InterpTailSimplifierPlugin) pushMember(member *[]ast.ASTRef, value ast.ASTHandle) error {
+	ref, err := p.manager.NewRef(value)
+	if err != nil {
+		return err
+	}
+	*member = append(*member, ref)
+	return nil
+}
+
 func (p *InterpTailSimplifierPlugin) simplifyRule(rule *base.Rule) (_ *base.Rule, dropped, changed bool, resultErr error) {
 	uninterpreted, err := rule.UninterpretedTailSize()
 	if err != nil {
@@ -146,10 +175,17 @@ func (p *InterpTailSimplifierPlugin) simplifyRule(rule *base.Rule) (_ *base.Rule
 	if err != nil || uninterpreted == total {
 		return nil, false, false, err
 	}
+	// m_tail.reset(); m_tail_neg.reset(), then the uninterpreted tails.
+	if err = p.resetMember(&p.memberTail); err != nil {
+		return nil, false, false, err
+	}
 	tails := make([]ast.ASTHandle, 0, total)
 	negated := make([]bool, 0, total)
 	for index := 0; index < uninterpreted; index++ {
 		tail, negative, getErr := rule.Tail(index)
+		if getErr == nil {
+			getErr = p.pushMember(&p.memberTail, tail)
+		}
 		if getErr != nil {
 			return nil, false, false, getErr
 		}
@@ -169,6 +205,15 @@ func (p *InterpTailSimplifierPlugin) simplifyRule(rule *base.Rule) (_ *base.Rule
 	}
 	combined := interpreted[0]
 	if len(interpreted) != 1 {
+		// m_itail_members.reset(), refilled with the interpreted tails.
+		if err = p.resetMember(&p.memberItail); err != nil {
+			return nil, false, false, err
+		}
+		for _, tail := range interpreted {
+			if err = p.pushMember(&p.memberItail, tail); err != nil {
+				return nil, false, false, err
+			}
+		}
 		combined, err = p.manager.MkAndArgs(interpreted)
 		if err != nil {
 			return nil, false, false, err
@@ -236,9 +281,21 @@ func (p *InterpTailSimplifierPlugin) simplifyRule(rule *base.Rule) (_ *base.Rule
 	if !changed {
 		return nil, false, false, nil
 	}
+	// m_conj.reset(); flatten_and(simp_res, m_conj).
+	if err = p.resetMember(&p.memberConj); err != nil {
+		return nil, false, false, err
+	}
 	conjuncts, err := p.manager.FlattenAnd([]ast.ASTHandle{simplified})
 	if err != nil {
 		return nil, false, false, err
+	}
+	for _, conjunct := range conjuncts {
+		if p.manager.IsTrue(conjunct) {
+			continue
+		}
+		if err = p.pushMember(&p.memberConj, conjunct); err != nil {
+			return nil, false, false, err
+		}
 	}
 	for _, conjunct := range conjuncts {
 		if p.manager.IsTrue(conjunct) {
@@ -257,6 +314,9 @@ func (p *InterpTailSimplifierPlugin) simplifyRule(rule *base.Rule) (_ *base.Rule
 			if getErr != nil {
 				return nil, false, false, getErr
 			}
+		}
+		if err = p.pushMember(&p.memberTail, conjunct); err != nil {
+			return nil, false, false, err
 		}
 		tails = append(tails, conjunct)
 		negated = append(negated, false)
@@ -771,6 +831,13 @@ func (p *InterpTailSimplifierPlugin) Close() error {
 		}
 	}
 	p.rewriter = nil
+	// Then the data members in reverse declaration order: m_conj,
+	// m_itail_members, m_tail, ..., m_rule_subst.
+	for _, member := range []*[]ast.ASTRef{&p.memberConj, &p.memberItail, &p.memberTail} {
+		if err := p.resetMember(member); err != nil {
+			return err
+		}
+	}
 	// m_rule_subst is the first data member, so it is destroyed last.
 	if err := p.closeRuleSubstitution(); err != nil {
 		return err

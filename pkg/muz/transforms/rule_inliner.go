@@ -641,10 +641,12 @@ func (p *RuleInlinerPlugin) forbidMultipleMultipliers(source *base.RuleSet, orde
 	return nil
 }
 
-func (p *RuleInlinerPlugin) expandDefinition(rule *base.Rule, allowed, processed map[ast.ASTHandle]bool, definitions map[ast.ASTHandle][]*base.Rule) (_ []*base.Rule, resultErr error) {
+// expandDefinition is transform_rule(orig, r0, m_inlined_rules); modified
+// reports that some tail was inlined.
+func (p *RuleInlinerPlugin) expandDefinition(rule *base.Rule, allowed, processed map[ast.ASTHandle]bool, definitions map[ast.ASTHandle][]*base.Rule) (_ []*base.Rule, modified bool, resultErr error) {
 	initial, err := rule.Retain()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	queue := []*base.Rule{initial}
 	var result []*base.Rule
@@ -667,7 +669,7 @@ func (p *RuleInlinerPlugin) expandDefinition(rule *base.Rule, allowed, processed
 			}
 		}
 		if currentErr != nil {
-			return nil, errors.Join(currentErr, current.Close())
+			return nil, false, errors.Join(currentErr, current.Close())
 		}
 		if inlineIndex < 0 {
 			result = append(result, current)
@@ -676,17 +678,18 @@ func (p *RuleInlinerPlugin) expandDefinition(rule *base.Rule, allowed, processed
 		for _, definition := range definitions[declaration] {
 			resolved, resolveErr := p.resolve(current, inlineIndex, definition)
 			if resolveErr != nil {
-				return nil, errors.Join(resolveErr, current.Close())
+				return nil, false, errors.Join(resolveErr, current.Close())
 			}
 			if resolved != nil {
 				queue = append(queue, resolved)
 			}
 		}
+		modified = true
 		if currentErr = current.Close(); currentErr != nil {
-			return nil, currentErr
+			return nil, false, currentErr
 		}
 	}
-	return result, nil
+	return result, modified, nil
 }
 
 // accumulateDefinitions builds m_inlined_rules. The map borrows the rules;
@@ -706,19 +709,27 @@ func (p *RuleInlinerPlugin) accumulateDefinitions(order []ast.ASTHandle, allowed
 			continue
 		}
 		for _, rule := range original[declaration] {
-			expanded, err := p.expandDefinition(rule, allowed, processed, result)
+			expanded, modified, err := p.expandDefinition(rule, allowed, processed, result)
 			if err != nil {
 				return nil, ordered, err
 			}
-			for _, definition := range expanded {
-				if err = p.captureModelRule(definition); err != nil {
-					return nil, ordered, errors.Join(err, closeRules(expanded))
-				}
-			}
 			result[declaration] = append(result[declaration], expanded...)
 			ordered = append(ordered, expanded...)
+			// transform_rule: if (modified) datalog::del_rule(m_mc, *r0, true).
+			if modified {
+				if err = p.captureDeletedModelRule(rule, true); err != nil {
+					return nil, ordered, err
+				}
+			}
 		}
 		processed[declaration] = true
+	}
+	// for (rule * r : m_inlined_rules) datalog::del_rule(m_mc, *r, false),
+	// after the mutual inlining of every stratum.
+	for _, definition := range ordered {
+		if err := p.captureModelRule(definition); err != nil {
+			return nil, ordered, err
+		}
 	}
 	return result, ordered, nil
 }
