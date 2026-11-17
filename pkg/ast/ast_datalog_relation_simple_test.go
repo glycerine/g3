@@ -31,8 +31,8 @@ func TestASTDatalogOriginalSimpleRelationDeclarations(t *testing.T) {
 		{DatalogOpIsEmpty, func() (ASTHandle, error) { return m.MkDatalogIsEmpty(empty) }},
 		{DatalogOpUnion, func() (ASTHandle, error) { return m.MkDatalogUnion(empty, stored) }},
 		{DatalogOpWiden, func() (ASTHandle, error) { return m.MkDatalogWiden(empty, stored) }},
-		{DatalogOpComplement, func() (ASTHandle, error) { return m.MkDatalogComplement(empty) }},
-		{DatalogOpClone, func() (ASTHandle, error) { return m.MkDatalogClone(empty) }},
+		{DatalogOpComplement, func() (ASTHandle, error) { return m.mkDatalogRelationApp(DatalogOpComplement, []ASTHandle{empty}) }},
+		{DatalogOpClone, func() (ASTHandle, error) { return m.mkDatalogRelationApp(DatalogOpClone, []ASTHandle{empty}) }},
 	} {
 		h, e := tc.mk()
 		astTestMust(t, e)

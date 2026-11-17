@@ -185,11 +185,3 @@ func (m *ASTManager) MkDatalogUnion(left, right ASTHandle) (ASTHandle, error) {
 func (m *ASTManager) MkDatalogWiden(left, right ASTHandle) (ASTHandle, error) {
 	return m.mkDatalogRelationApp(DatalogOpWiden, []ASTHandle{left, right})
 }
-
-func (m *ASTManager) MkDatalogComplement(relation ASTHandle) (ASTHandle, error) {
-	return m.mkDatalogRelationApp(DatalogOpComplement, []ASTHandle{relation})
-}
-
-func (m *ASTManager) MkDatalogClone(relation ASTHandle) (ASTHandle, error) {
-	return m.mkDatalogRelationApp(DatalogOpClone, []ASTHandle{relation})
-}

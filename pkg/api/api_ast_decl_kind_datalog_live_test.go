@@ -25,7 +25,11 @@ func TestAPIDatalogDeclarationKindLiveRelation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	clone, err := f.manager.MkDatalogClone(empty)
+	family, err := f.manager.RegisterDatalogPlugin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	clone, err := f.manager.MkFamilyApp(family, ast.DatalogOpClone, nil, []ast.ASTHandle{empty})
 	if err != nil {
 		t.Fatal(err)
 	}
