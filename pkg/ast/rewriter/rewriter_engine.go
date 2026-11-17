@@ -713,13 +713,18 @@ func (r *rewriterEngine) processApp() (err error) {
 		if e != nil {
 			return e
 		}
-		assoc, e := m.RewriterAssociative(d)
-		if e != nil {
-			return e
-		}
+		// f->is_associative() && t->get_ref_count() <= 1 &&
+		// frame_stack().size() > 1: pure reads, the declaration's flags
+		// read only when the cheaper tests pass.
 		rc, e := m.GetRefCount(t)
 		if e != nil {
 			return e
+		}
+		assoc := false
+		if rc <= 1 && fi > 0 {
+			if assoc, e = m.RewriterAssociative(d); e != nil {
+				return e
+			}
 		}
 		if assoc && rc <= 1 && fi > 0 {
 			prev := c.frames[fi-1]

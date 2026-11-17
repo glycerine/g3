@@ -30,7 +30,9 @@ func collectSingleOccurrenceVariables(goal *tactic.Goal) ([]ast.ASTHandle, error
 		}
 		return &marks[slot]
 	}
-	const markVisited, markRepeated = 1, 2
+	// markConstant records, at the first visit, that the node is an
+	// uninterpreted constant, so a revisit needs no node read.
+	const markVisited, markRepeated, markConstant = 1, 2, 4
 	var variables []ast.ASTHandle
 	type frame struct {
 		term        ast.ASTHandle
@@ -39,24 +41,29 @@ func collectSingleOccurrenceVariables(goal *tactic.Goal) ([]ast.ASTHandle, error
 	}
 	var stack []frame
 	visit := func(term ast.ASTHandle) (bool, error) {
-		header, err := m.NodeHeader(term)
-		if err != nil {
-			return false, err
-		}
-		kind, count := header.Kind, header.NumArgs
-		constant := kind == ast.ASTApp && count == 0 && header.Family == ast.NullFamilyID
 		bits := mark(term)
 		if *bits&markVisited != 0 {
-			if constant {
+			if *bits&markConstant != 0 {
 				*bits |= markRepeated
 			}
 			return true, nil
 		}
-		*bits |= markVisited
-		if constant {
-			variables = append(variables, term)
-			return true, nil
+		kind, _, count, err := m.NodeShape(term)
+		if err != nil {
+			return false, err
 		}
+		if kind == ast.ASTApp && count == 0 {
+			_, family, _, err := m.AppIdentity(term)
+			if err != nil {
+				return false, err
+			}
+			if family == ast.NullFamilyID {
+				*bits |= markVisited | markConstant
+				variables = append(variables, term)
+				return true, nil
+			}
+		}
+		*bits |= markVisited
 		if kind == ast.ASTVar || kind == ast.ASTApp && count == 0 {
 			return true, nil
 		}

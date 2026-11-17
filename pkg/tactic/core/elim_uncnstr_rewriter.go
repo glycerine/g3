@@ -162,7 +162,13 @@ func (c *elimUnconstrainedRewriteConfig) ReduceApp(d ast.ASTHandle, arguments as
 	if err != nil || fid == ast.NullFamilyID {
 		return status, err
 	}
-	args := make([]ast.ASTHandle, arguments.Count())
+	var argsBuf [8]ast.ASTHandle // num args on the stack, as the source's pointer array
+	args := argsBuf[:0]
+	if n := arguments.Count(); n <= uint32(len(argsBuf)) {
+		args = argsBuf[:n]
+	} else {
+		args = make([]ast.ASTHandle, n)
+	}
 	for i := range args {
 		args[i], err = arguments.At(uint32(i))
 		if err != nil {
