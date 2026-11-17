@@ -11,20 +11,16 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
-type skolemCacheEntry struct {
-	handle            ast.ASTHandle
-	key, value, proof ast.ASTRef
-}
-
 // Skolemizer eliminates one quantifier using fresh functions over its free
-// variables. Results and optional proofs remain cached until Reset or Close.
+// variables. Results and optional proofs remain in its act_caches m_cache
+// and m_cache_pr until Close.
 type Skolemizer struct {
 	self          *Skolemizer
 	manager       *ast.ASTManager
 	skHackName    usymbol.Symbol
 	skHackEnabled bool
-	cache         map[ast.ASTHandle]int
-	entries       []skolemCacheEntry
+	cache         *ast.ActivityCache // m_cache
+	cachePr       *ast.ActivityCache // m_cache_pr
 	closed        bool
 }
 
@@ -36,7 +32,15 @@ func NewSkolemizer(m *ast.ASTManager) (*Skolemizer, error) {
 	if e != nil {
 		return nil, e
 	}
-	s := &Skolemizer{manager: m, skHackName: name, cache: make(map[ast.ASTHandle]int)}
+	cache, e := ast.NewActivityCache(m, nil)
+	if e != nil {
+		return nil, e
+	}
+	cachePr, e := ast.NewActivityCache(m, nil)
+	if e != nil {
+		return nil, errors.Join(e, cache.Close())
+	}
+	s := &Skolemizer{manager: m, skHackName: name, cache: cache, cachePr: cachePr}
 	s.self = s
 	return s, nil
 }
@@ -113,22 +117,22 @@ func (s *Skolemizer) Apply(q ast.ASTHandle, out, proofOut ast.ASTRef) (result er
 		return e
 	}
 	m := s.manager
-	if i, found := s.cache[q]; found {
-		value, e := m.RefGet(s.entries[i].value)
-		if e != nil {
-			return e
-		}
+	// r = m_cache.find(q)
+	if value, e := s.cache.Find(q); e != nil {
+		return e
+	} else if !value.IsNull() {
 		if e = m.SetRef(out, value); e != nil {
 			return e
 		}
-		if s.entries[i].proof != (ast.ASTRef{}) {
-			proof, e := m.RefGet(s.entries[i].proof)
-			if e != nil {
-				return e
-			}
-			return m.SetRef(proofOut, proof)
+		proofs, e := m.ProofsEnabled()
+		if e != nil || !proofs {
+			return e
 		}
-		return nil
+		proof, e := s.cachePr.Find(q)
+		if e != nil {
+			return e
+		}
+		return m.SetRef(proofOut, proof)
 	}
 	if kind, e := m.GetKind(q); e != nil || kind != ast.ASTQuantifier {
 		if e != nil {
@@ -340,21 +344,14 @@ func (s *Skolemizer) Apply(q ast.ASTHandle, out, proofOut ast.ASTRef) (result er
 			return e
 		}
 	}
-	entry := skolemCacheEntry{handle: q}
-	if entry.key, e = m.NewRef(q); e != nil {
+	if e = s.cache.Insert(q, value); e != nil {
 		return e
 	}
-	if entry.value, e = m.NewRef(value); e != nil {
-		return errors.Join(e, m.DelRef(&entry.key))
-	}
 	if proofs {
-		if entry.proof, e = m.NewRef(proof); e != nil {
-			return errors.Join(e, m.DelRef(&entry.value), m.DelRef(&entry.key))
+		if e = s.cachePr.Insert(q, proof); e != nil {
+			return e
 		}
 	}
-	index := len(s.entries)
-	s.entries = append(s.entries, entry)
-	s.cache[q] = index
 	if e = m.SetRef(out, value); e != nil {
 		return e
 	}
@@ -364,34 +361,15 @@ func (s *Skolemizer) Apply(q ast.ASTHandle, out, proofOut ast.ASTRef) (result er
 	return nil
 }
 
+// Reset is act_cache::reset of m_cache and m_cache_pr.
 func (s *Skolemizer) Reset() error {
 	if e := s.open(); e != nil {
 		return e
 	}
-	for len(s.entries) != 0 {
-		i := len(s.entries) - 1
-		entry := &s.entries[i]
-		if entry.proof != (ast.ASTRef{}) {
-			if e := s.manager.DelRef(&entry.proof); e != nil {
-				return e
-			}
-		}
-		if entry.value != (ast.ASTRef{}) {
-			if e := s.manager.DelRef(&entry.value); e != nil {
-				return e
-			}
-		}
-		if entry.key != (ast.ASTRef{}) {
-			if e := s.manager.DelRef(&entry.key); e != nil {
-				return e
-			}
-		}
-		delete(s.cache, entry.handle)
-		s.entries = s.entries[:i]
-	}
-	return nil
+	return errors.Join(s.cache.Reset(), s.cachePr.Reset())
 }
 
+// Close is ~skolemizer: m_cache_pr, then m_cache.
 func (s *Skolemizer) Close() error {
 	if s == nil || s.self != s {
 		return ast.ErrASTHandle
@@ -399,7 +377,10 @@ func (s *Skolemizer) Close() error {
 	if s.closed {
 		return nil
 	}
-	if e := s.Reset(); e != nil {
+	if e := s.cachePr.Close(); e != nil {
+		return e
+	}
+	if e := s.cache.Close(); e != nil {
 		return e
 	}
 	s.closed = true
