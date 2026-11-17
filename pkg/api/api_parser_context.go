@@ -16,6 +16,8 @@ func (c *SMTContext) newSMT2ParserContext(bindings SMT2Bindings) (result *cmd_co
 	if err != nil {
 		return result, err
 	}
+	// parse_smtlib2_stream / solver_from_stream: no solver factory.
+	result.WithoutSolverFactory()
 	defer func() {
 		if resultErr != nil && result != nil {
 			resultErr = errors.Join(resultErr, result.Close())

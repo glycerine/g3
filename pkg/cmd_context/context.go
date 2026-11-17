@@ -297,6 +297,10 @@ type Context struct {
 	// apiSolver: see UseAPISolverInitialization; solverPending: the
 	// manager exists and the solver is not made yet.
 	apiSolver, solverPending bool
+	// noSolverFactory: m_solver_factory is null (the cmd_context of the C
+	// API parsers and fixedpoint readers); it never makes a solver, and
+	// assert/push/pop only update the context (if (m_solver) ...).
+	noSolverFactory bool
 	// interpolatingSMTSolver is set_interpolating_solver_factory(
 	// mk_smt_solver_factory()), installed by the SMT-LIB front end.
 	interpolatingSMTSolver bool
@@ -1021,7 +1025,7 @@ func (c *Context) ensureSolver() error {
 	if _, err := c.Manager(); err != nil {
 		return err
 	}
-	if !c.solverPending {
+	if !c.solverPending || c.noSolverFactory {
 		return nil
 	}
 	c.solverPending = false
@@ -1339,7 +1343,7 @@ func (c *Context) AssertWithText(formula ast.ASTHandle, name, displayText string
 			row.tagRef, err = m.NewRef(row.tag)
 		}
 	}
-	if err == nil {
+	if err == nil && c.solver != nil {
 		if row.tag.IsNull() {
 			err = c.solver.Assert(formula)
 		} else {
@@ -1377,8 +1381,10 @@ func (c *Context) Push(count uint32) error {
 		if err := c.manager.ResourceLimit().Push(state.RLimit); err != nil {
 			return err
 		}
-		if err := c.solver.Push(); err != nil {
-			return err
+		if c.solver != nil {
+			if err := c.solver.Push(); err != nil {
+				return err
+			}
 		}
 		if c.optLive {
 			// m_opt->push(): scoped_state::push records m_hard's size.
@@ -1407,8 +1413,10 @@ func (c *Context) Pop(count uint32) error {
 	if err := c.ensureSolver(); err != nil {
 		return err
 	}
-	if err := c.solver.Pop(count); err != nil {
-		return err
+	if c.solver != nil {
+		if err := c.solver.Pop(count); err != nil {
+			return err
+		}
 	}
 	level := len(c.scopes) - int(count)
 	s := c.scopes[level]

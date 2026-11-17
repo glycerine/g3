@@ -43,6 +43,10 @@ func (s *APISimpleSolver) loadSMT2(input io.Reader, out io.Writer) (resultErr er
 	if err != nil {
 		return err
 	}
+	// solver_from_stream parses first, then init_solver.
+	if err = s.ensure(); err != nil {
+		return err
+	}
 	for _, assertion := range assertions {
 		if err = s.solver.Assert(assertion); err != nil {
 			return err

@@ -5,7 +5,7 @@ package api
 import "strings"
 
 func (s *APISimpleSolver) String() (string, error) {
-	if err := s.open(); err != nil {
+	if err := s.use(); err != nil {
 		return "", err
 	}
 	var output strings.Builder

@@ -17,7 +17,7 @@ import (
 // same-context translation supports solvers with a tactic translation. Close the returned solver
 // before closing target.
 func (s *APISimpleSolver) Translate(target *SMTContext) (result *APISimpleSolver, resultErr error) {
-	if err := s.open(); err != nil {
+	if err := s.use(); err != nil {
 		return nil, err
 	}
 	if err := target.open(); err != nil {

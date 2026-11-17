@@ -10,7 +10,7 @@ import (
 )
 
 func (s *APISimpleSolver) Model() (*APIModel, error) {
-	if err := s.open(); err != nil {
+	if err := s.use(); err != nil {
 		return nil, err
 	}
 	core, err := s.solver.AcquireModel()
@@ -28,7 +28,7 @@ func (s *APISimpleSolver) Model() (*APIModel, error) {
 }
 
 func (s *APISimpleSolver) Proof() (ast.ASTRef, error) {
-	if err := s.open(); err != nil {
+	if err := s.use(); err != nil {
 		return ast.ASTRef{}, err
 	}
 	value, err := s.solver.Proof()
@@ -46,7 +46,7 @@ func (s *APISimpleSolver) Proof() (ast.ASTRef, error) {
 }
 
 func (s *APISimpleSolver) UnsatCore() (result []ast.ASTRef, resultErr error) {
-	if err := s.open(); err != nil {
+	if err := s.use(); err != nil {
 		return nil, err
 	}
 	values, err := s.solver.UnsatCore()
@@ -71,7 +71,7 @@ func (s *APISimpleSolver) UnsatCore() (result []ast.ASTRef, resultErr error) {
 }
 
 func (s *APISimpleSolver) Statistics() (*APIStatistics, error) {
-	if err := s.open(); err != nil {
+	if err := s.use(); err != nil {
 		return nil, err
 	}
 	var value statistics.Statistics

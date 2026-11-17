@@ -38,42 +38,13 @@ func (s *replaySolver) setParameters(p *ParameterSet) (err error) {
 	return nil
 }
 
-func replaySolverReset(r *Z3Replayer) (err error) {
+// replaySolverReset is Z3_solver_reset: m_solver = nullptr; the handle
+// keeps its factory and parameters and init_solver rebuilds on next use
+// (a translated handle has none: FORK FIX #122).
+func replaySolverReset(r *Z3Replayer) error {
 	s, err := replayGetSolver(r)
 	if err != nil {
 		return err
 	}
-	var next *APISimpleSolver
-	switch s.kind {
-	case 0:
-		next, err = s.owner.context.NewSolver()
-	case 1:
-		next, err = s.owner.context.NewSimpleSolver()
-	case 2:
-		next, err = s.owner.context.NewSolverForLogic(s.logic)
-	case 3:
-		next, err = s.owner.context.NewSolverFromTactic(s.tactic)
-	default:
-		return ErrZ3ReplayState
-	}
-	if err != nil {
-		return err
-	}
-	published := false
-	defer func() {
-		if !published {
-			err = errors.Join(err, next.Close())
-		}
-	}()
-	if s.params != nil {
-		if err = next.SetParameters(s.params); err != nil {
-			return err
-		}
-	}
-	if err = s.value.Close(); err != nil {
-		return err
-	}
-	s.value = next
-	published = true
-	return nil
+	return s.value.Reset()
 }

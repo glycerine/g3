@@ -10,7 +10,7 @@ import (
 )
 
 func (s *APISimpleSolver) ScopeLevel() (uint32, error) {
-	if err := s.open(); err != nil {
+	if err := s.use(); err != nil {
 		return 0, err
 	}
 	return s.solver.ScopeLevel()
@@ -19,7 +19,7 @@ func (s *APISimpleSolver) ScopeLevel() (uint32, error) {
 // Assertions returns independently owning references, matching the native AST
 // vector returned by Z3_solver_get_assertions.
 func (s *APISimpleSolver) Assertions() (result []ast.ASTRef, resultErr error) {
-	if err := s.open(); err != nil {
+	if err := s.use(); err != nil {
 		return nil, err
 	}
 	values, err := solver.Assertions(s.solver)

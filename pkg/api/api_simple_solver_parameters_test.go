@@ -28,6 +28,12 @@ func TestAPISimpleSolverParameterDescriptionsAndApplication(t *testing.T) {
 	astTestMust(t, overlay.SetBool("model", false))
 	astTestMust(t, overlay.SetUInt("random_seed", 17))
 	astTestMust(t, s.SetParameters(overlay))
+	if s.solver != nil {
+		t.Fatal("Z3_solver_set_params built the solver")
+	}
+	// Z3_solver_get_num_scopes runs init_solver, which applies m_params.
+	_, err = s.ScopeLevel()
+	astTestMust(t, err)
 	current, err := s.solver.Params()
 	astTestMust(t, err)
 	name := "random_seed"

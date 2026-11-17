@@ -1000,6 +1000,7 @@ func TestAPISolverTranslationUsesExplicitParameterSnapshot(t *testing.T) {
 	astTestMust(t, p.SetUInt("random_seed", 17))
 	astTestMust(t, s.SetParameters(p))
 	astTestMust(t, p.SetUInt("random_seed", 99))
+	astTestMust(t, s.ensure()) // init_solver, as the C test's first solver call
 	astTestMust(t, s.solver.UpdateParams(&p.value))
 	astTestMust(t, p.Close())
 	translated, err := s.Translate(target)

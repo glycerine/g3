@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -53,26 +54,18 @@ func TestGeneratedDirectSolverTranslationAcrossContexts(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err = r.RegisterCommand(901, "check-translated-reset-parameters", func(r *Z3Replayer) error {
+	if err = r.RegisterCommand(901, "check-translated-reset-has-no-factory", func(r *Z3Replayer) error {
 		s, e := replayGetSolver(r)
 		if e != nil {
 			return e
 		}
-		p, e := s.value.solver.Params()
-		if e != nil {
-			return e
+		// Z3_solver_reset dropped the translated solver; it has no factory,
+		// so the next init_solver is FORK FIX #122's error, not a rebuild.
+		if s.value.solver != nil {
+			t.Fatal("Z3_solver_reset kept the translated solver")
 		}
-		globals, e := s.owner.context.command.GlobalParameters()
-		if e != nil {
-			return e
-		}
-		key := "random_seed"
-		seed, e := globals.Context.GetUIntName(p, &key, 0)
-		if e != nil {
-			return e
-		}
-		if seed != 17 {
-			t.Fatal("reset seed", seed)
+		if _, e = s.value.Check(); !errors.Is(e, ErrSolverNoFactory) {
+			t.Fatal("check after reset of a translated solver", e)
 		}
 		checks++
 		return nil
@@ -258,6 +251,15 @@ func TestGeneratedSMTTacticSolverTranslationAcrossContexts(t *testing.T) {
 			t.Fatal("lost target tactic")
 		}
 		status, e := s.value.Check()
+		if checks == 1 {
+			// After Z3_solver_reset the translated solver has no factory:
+			// FORK FIX #122's error (z3 4.7.1 called a null factory).
+			if !errors.Is(e, ErrSolverNoFactory) {
+				t.Fatal("check after reset of a translated solver", status, e)
+			}
+			checks++
+			return nil
+		}
 		if e != nil {
 			return e
 		}

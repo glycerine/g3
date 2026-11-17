@@ -9,7 +9,7 @@ import (
 )
 
 func (s *APISimpleSolver) ImpliedEqualities(terms []ast.ASTHandle) (lbool.LBool, []uint32, error) {
-	if err := s.open(); err != nil {
+	if err := s.use(); err != nil {
 		return lbool.Undef, nil, err
 	}
 	services, err := s.owner.command.ModelEvaluatorConfig()

@@ -8,14 +8,14 @@ import (
 )
 
 func (s *APISimpleSolver) Check(assumptions ...ast.ASTHandle) (lbool.LBool, error) {
-	if err := s.open(); err != nil {
+	if err := s.use(); err != nil {
 		return lbool.Undef, err
 	}
 	return s.solver.CheckSat(assumptions)
 }
 
 func (s *APISimpleSolver) ReasonUnknown() (string, error) {
-	if err := s.open(); err != nil {
+	if err := s.use(); err != nil {
 		return "", err
 	}
 	return s.solver.ReasonUnknown()

@@ -10,7 +10,7 @@ import (
 )
 
 func (s *APISimpleSolver) Consequences(assumptions, variables []ast.ASTHandle) (status lbool.LBool, result []ast.ASTRef, resultErr error) {
-	if err := s.open(); err != nil {
+	if err := s.use(); err != nil {
 		return lbool.Undef, nil, err
 	}
 	status, values, err := s.solver.GetConsequences(assumptions, variables)

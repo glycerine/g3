@@ -65,3 +65,11 @@ func (c *Context) SetOptimizationTarget(target *Context) error {
 	c.optimizationTarget = target
 	return nil
 }
+
+// WithoutSolverFactory marks a parser view as the C API parsers'
+// alloc(cmd_context, false, &m) (parse_smtlib2_stream, solver_from_stream):
+// m_solver_factory is null, so it never makes a solver and assert, push and
+// pop only update the context.
+func (c *Context) WithoutSolverFactory() {
+	c.noSolverFactory = true
+}

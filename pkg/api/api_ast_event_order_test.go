@@ -6,7 +6,8 @@ package api
 // (explanations, magic sets, wide udoc relations, external relations):
 // TestASTEventOrder (cmd/g3) compares the mk_var_bug trace's mk_ast/del_ast
 // events of the smt2 vectors with z3's; this test does the same for the C
-// API reference programs in test_vectors (expl.c, scen.c, wide.c, ext.c)
+// API reference programs in test_vectors (expl.c, scen.c, wide.c, ext.c,
+// lazy.c)
 // and the g3 API calls that mirror them (runExplanationsMode,
 // runExplanationScenario, runUDocWide, runExternalPluginMode).
 //
@@ -79,6 +80,10 @@ func apiASTEventCases() []apiASTEventCase {
 		cases = append(cases, apiASTEventCase{program: "fixedpoint_seq/seq.c", args: []string{abs},
 			label: "seq_" + strings.TrimSuffix(filepath.Base(path), ".seq"),
 			run:   func(t *testing.T) { runFixedpointSequence(t, abs) }})
+	}
+	for mode := 0; mode < 3; mode++ {
+		cases = append(cases, apiASTEventCase{program: "solver_lazy/lazy.c", args: []string{strconv.Itoa(mode)},
+			run: func(t *testing.T) { runSolverLazyMode(t, mode) }})
 	}
 	for mode := 0; mode < len(externalPluginExpected); mode++ {
 		cases = append(cases, apiASTEventCase{program: "external_relation/ext.c", args: []string{strconv.Itoa(mode)},
