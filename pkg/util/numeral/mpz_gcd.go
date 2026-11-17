@@ -267,7 +267,10 @@ func (m *IntegerManager) gcdWithAllocationContext(a, b, c *Int, context integerA
 	if e != nil {
 		return e
 	}
-	if cmp < 0 {
+	// FORK FIX #114 (g3 audit, see FORK_BUGFIXES.md): SetUint64 stores INT_MAX
+	// in a cell, so an inline a1 can equal a cell b1. The loop below needs a1
+	// in a cell whenever b1 is, so swap then too.
+	if cmp < 0 || (a1.IsSmall() && !b1.IsSmall()) {
 		if e = m.Swap(a1, b1); e != nil {
 			return e
 		}
