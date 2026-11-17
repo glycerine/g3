@@ -97,6 +97,12 @@ func similarityMergeFiniteCoreWithTemplate(rm *base.RuleManager, relations *Rela
 		return aux, nil, e
 	}
 	for _, fact := range facts {
+		// m_context.add_fact(aux_pred, val_fact) is rel_context::add_fact:
+		// reset_saturated_marks, then the relation's add_fact. An earlier
+		// class's auxiliary predicate loses its saturation mark.
+		if e = relations.ResetSaturatedMarks(); e != nil {
+			return aux, nil, e
+		}
 		if _, e = table.Add(fact); e != nil {
 			return aux, nil, e
 		}
