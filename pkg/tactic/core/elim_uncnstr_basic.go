@@ -39,16 +39,16 @@ func (c *elimUnconstrainedRewriteConfig) basic(d ast.ASTHandle, kind int32, args
 	case ast.ASTOpIte:
 		first, second := -1, -1
 		var identity ast.ASTHandle
-		if c.owner.variables[args[1]] && c.owner.variables[args[2]] {
+		if c.owner.variables.has(args[1]) && c.owner.variables.has(args[2]) {
 			first, second = 1, 2
-		} else if c.owner.variables[args[0]] && c.owner.variables[args[1]] {
+		} else if c.owner.variables.has(args[0]) && c.owner.variables.has(args[1]) {
 			first, second = 0, 1
 			var err error
 			identity, err = c.keep(m.MkTrue())
 			if err != nil {
 				return identity, err
 			}
-		} else if c.owner.variables[args[0]] && c.owner.variables[args[2]] {
+		} else if c.owner.variables.has(args[0]) && c.owner.variables.has(args[2]) {
 			first, second = 0, 2
 			var err error
 			identity, err = c.keep(m.MkFalse())
@@ -71,7 +71,7 @@ func (c *elimUnconstrainedRewriteConfig) basic(d ast.ASTHandle, kind int32, args
 		}
 		return u, c.addDef(args[second], u)
 	case ast.ASTOpNot:
-		if !c.owner.variables[args[0]] {
+		if !c.owner.variables.has(args[0]) {
 			return ast.ASTHandle{}, nil
 		}
 		u, fresh, err := c.freshFor(d, args)
@@ -112,9 +112,9 @@ func (c *elimUnconstrainedRewriteConfig) basic(d ast.ASTHandle, kind int32, args
 
 func (c *elimUnconstrainedRewriteConfig) equality(d ast.ASTHandle, args []ast.ASTHandle) (ast.ASTHandle, error) {
 	v, t := args[0], args[1]
-	if !c.owner.variables[v] {
+	if !c.owner.variables.has(v) {
 		v, t = t, v
-		if !c.owner.variables[v] {
+		if !c.owner.variables.has(v) {
 			return ast.ASTHandle{}, nil
 		}
 	}
@@ -287,7 +287,7 @@ func (c *elimUnconstrainedRewriteConfig) different(t ast.ASTHandle) (ast.ASTHand
 func (c *elimUnconstrainedRewriteConfig) addition(d ast.ASTHandle, fid ast.FamilyID, add, sub int32, args []ast.ASTHandle) (ast.ASTHandle, error) {
 	selected := -1
 	for i, a := range args {
-		if c.owner.variables[a] {
+		if c.owner.variables.has(a) {
 			selected = i
 			break
 		}
@@ -339,7 +339,7 @@ func (c *elimUnconstrainedRewriteConfig) arith(d ast.ASTHandle, kind int32, args
 			}
 			return u, c.addDefs(args, u, one)
 		}
-		if len(args) != 2 || !c.owner.variables[args[1]] {
+		if len(args) != 2 || !c.owner.variables.has(args[1]) {
 			return ast.ASTHandle{}, nil
 		}
 		text, integer, numeral, err := m.ArithmeticNumeralText(args[0])
@@ -385,10 +385,10 @@ func (c *elimUnconstrainedRewriteConfig) arith(d ast.ASTHandle, kind int32, args
 	case 2, 3: // OP_LE, OP_GE
 		le := kind == 2
 		v, t := args[0], args[1]
-		if !c.owner.variables[v] {
+		if !c.owner.variables.has(v) {
 			v, t = t, v
 			le = !le
-			if !c.owner.variables[v] {
+			if !c.owner.variables.has(v) {
 				return ast.ASTHandle{}, nil
 			}
 		}

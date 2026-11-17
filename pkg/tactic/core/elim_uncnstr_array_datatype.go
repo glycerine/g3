@@ -8,7 +8,7 @@ func (c *elimUnconstrainedRewriteConfig) arrayApp(d ast.ASTHandle, kind int32, a
 	m := c.owner.manager
 	switch kind {
 	case 1: // OP_SELECT
-		if !c.owner.variables[args[0]] {
+		if !c.owner.variables.has(args[0]) {
 			return ast.ASTHandle{}, nil
 		}
 		u, fresh, err := c.freshFor(d, args)
@@ -26,7 +26,7 @@ func (c *elimUnconstrainedRewriteConfig) arrayApp(d ast.ASTHandle, kind int32, a
 		return u, c.addDef(args[0], definition)
 	case 0: // OP_STORE
 		last := len(args) - 1
-		if !c.owner.variables[args[0]] || !c.owner.variables[args[last]] {
+		if !c.owner.variables.has(args[0]) || !c.owner.variables.has(args[last]) {
 			return ast.ASTHandle{}, nil
 		}
 		u, fresh, err := c.freshFor(d, args)
@@ -51,14 +51,14 @@ func (c *elimUnconstrainedRewriteConfig) datatypeApp(d ast.ASTHandle, kind int32
 	m := c.owner.manager
 	switch kind {
 	case ast.ASTDatatypeRecognizer, ast.ASTDatatypeIs:
-		if c.owner.variables[args[0]] && c.converter == nil {
+		if c.owner.variables.has(args[0]) && c.converter == nil {
 			u, _, err := c.freshFor(d, args)
 			return u, err
 		}
 		// Source deliberately does not eliminate recognizers when a model is
 		// required: its model-generation branch is still a TODO.
 	case ast.ASTDatatypeAccessor:
-		if !c.owner.variables[args[0]] {
+		if !c.owner.variables.has(args[0]) {
 			return ast.ASTHandle{}, nil
 		}
 		if c.converter == nil {

@@ -21,6 +21,10 @@ type elimUnconstrainedRewriteConfig struct {
 	freshVars   elimUnconstrainedRefVector
 	cacheDomain elimUnconstrainedRefVector
 	frame       *solveEquationFrame
+	// frameStore is the storage ReduceApp's frame points to; reused across
+	// calls (Go-only: one heap frame per call was most of lia_big_parse's
+	// allocations). ReduceApp is not re-entered while a frame is open.
+	frameStore solveEquationFrame
 }
 
 // elimUnconstrainedRefVector releases like ref_vector's destructor: forward.
@@ -66,7 +70,7 @@ func (c *elimUnconstrainedRewriteConfig) MaxStepsExceeded(n uint32) (bool, error
 
 func (c *elimUnconstrainedRewriteConfig) all(args []ast.ASTHandle) bool {
 	for _, a := range args {
-		if !c.owner.variables[a] {
+		if !c.owner.variables.has(a) {
 			return false
 		}
 	}
@@ -118,7 +122,7 @@ func (c *elimUnconstrainedRewriteConfig) freshFor(d ast.ASTHandle, args []ast.AS
 	return v, true, nil
 }
 func (c *elimUnconstrainedRewriteConfig) addDef(v, def ast.ASTHandle) error {
-	if !c.owner.variables[v] {
+	if !c.owner.variables.has(v) {
 		return ast.ErrASTDomain
 	}
 	if c.converter == nil {
@@ -169,9 +173,10 @@ func (c *elimUnconstrainedRewriteConfig) ReduceApp(d ast.ASTHandle, arguments as
 			return status, e
 		}
 	}
-	frame := solveEquationFrame{manager: m}
-	c.frame = &frame
-	defer func() { c.frame = nil; err = errors.Join(err, frame.Close()) }()
+	frame := &c.frameStore
+	frame.manager, frame.refs = m, frame.refs[:0]
+	c.frame = frame
+	defer func() { c.frame = nil; err = errors.Join(err, frame.closeKeep()) }()
 	kind, err := m.GetDeclKind(d)
 	if err != nil {
 		return status, err

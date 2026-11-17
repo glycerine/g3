@@ -33,8 +33,9 @@ func collectSingleOccurrenceVariables(goal *tactic.Goal) ([]ast.ASTHandle, error
 	const markVisited, markRepeated = 1, 2
 	var variables []ast.ASTHandle
 	type frame struct {
-		term ast.ASTHandle
-		next uint32
+		term        ast.ASTHandle
+		next, count uint32 // count: the app's argument count (read at push)
+		quantifier  bool
 	}
 	var stack []frame
 	visit := func(term ast.ASTHandle) (bool, error) {
@@ -62,7 +63,7 @@ func collectSingleOccurrenceVariables(goal *tactic.Goal) ([]ast.ASTHandle, error
 		if kind != ast.ASTApp && kind != ast.ASTQuantifier {
 			return false, ast.ErrASTDomain
 		}
-		stack = append(stack, frame{term: term})
+		stack = append(stack, frame{term: term, count: count, quantifier: kind == ast.ASTQuantifier})
 		return false, nil
 	}
 	size, err := goal.Size()
@@ -80,11 +81,7 @@ func collectSingleOccurrenceVariables(goal *tactic.Goal) ([]ast.ASTHandle, error
 		for len(stack) != 0 {
 			top := len(stack) - 1
 			term = stack[top].term
-			kind, err := m.GetKind(term)
-			if err != nil {
-				return nil, err
-			}
-			if kind == ast.ASTQuantifier {
+			if stack[top].quantifier {
 				// Source intentionally revisits the body after returning from
 				// a compound child. visit sees its mark and retires this frame.
 				body, err := m.GetQuantifierBody(term)
@@ -101,11 +98,7 @@ func collectSingleOccurrenceVariables(goal *tactic.Goal) ([]ast.ASTHandle, error
 				}
 				continue
 			}
-			count, err := m.GetNumArgs(term)
-			if err != nil {
-				return nil, err
-			}
-			if stack[top].next == count {
+			if stack[top].next == stack[top].count {
 				stack = stack[:top]
 				continue
 			}

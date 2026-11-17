@@ -31,6 +31,16 @@ func (f *solveEquationFrame) Close() (err error) {
 	f.refs = nil
 	return err
 }
+
+// closeKeep is Close keeping the refs slice's capacity for reuse.
+func (f *solveEquationFrame) closeKeep() (err error) {
+	for i := len(f.refs) - 1; i >= 0; i-- {
+		err = errors.Join(err, f.manager.DelRef(&f.refs[i]))
+	}
+	clear(f.refs)
+	f.refs = f.refs[:0]
+	return err
+}
 func (t *SolveEquationsTactic) children(term ast.ASTHandle) ([]ast.ASTHandle, error) {
 	m := t.manager
 	kind, err := m.GetKind(term)

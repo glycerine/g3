@@ -26,7 +26,7 @@ type EliminateUnconstrainedTactic struct {
 	services                                  model.ModelEvaluatorConfig
 	params                                    uparams.ParamsRef
 	arithmetic, bitVector, array, datatype    ast.FamilyID
-	variables                                 map[ast.ASTHandle]bool
+	variables                                 elimVariableSet
 	orderedVariables                          []ast.ASTHandle
 	trace                                     *diagnostic.TraceTags
 	configuration                             *elimUnconstrainedRewriteConfig
@@ -57,7 +57,7 @@ func NewEliminateUnconstrainedTactic(m *ast.ASTManager, context *uparams.ParamsC
 	if err = m.Budget().Reserve(amount); err != nil {
 		return nil, errors.Join(err, context.Del(&params))
 	}
-	t := &EliminateUnconstrainedTactic{manager: m, context: context, globals: globals, services: services, params: params, ownerBytes: amount, variables: make(map[ast.ASTHandle]bool)}
+	t := &EliminateUnconstrainedTactic{manager: m, context: context, globals: globals, services: services, params: params, ownerBytes: amount}
 	t.self = t
 	if p != nil {
 		err = context.Assign(&t.params, p)
@@ -189,7 +189,7 @@ func (t *EliminateUnconstrainedTactic) releaseImplementation() error {
 		}
 		t.converter = nil
 	}
-	clear(t.variables)
+	t.variables.reset()
 	t.orderedVariables = nil
 	return nil
 }
@@ -236,10 +236,10 @@ func (t *EliminateUnconstrainedTactic) collect(goal *tactic.Goal) error {
 	if err != nil {
 		return err
 	}
-	clear(t.variables)
+	t.variables.reset()
 	t.orderedVariables = variables
 	for _, v := range variables {
-		t.variables[v] = true
+		t.variables.add(v)
 	}
 	return nil
 }
@@ -278,7 +278,7 @@ func (t *EliminateUnconstrainedTactic) run(goal *tactic.Goal, result *tactic.Tac
 	if err = t.collect(goal); err != nil {
 		return err
 	}
-	if len(t.variables) == 0 {
+	if t.variables.empty() {
 		return result.AddGoal(goal)
 	}
 	if err = t.traceVariables(); err != nil {
@@ -407,7 +407,7 @@ func (t *EliminateUnconstrainedTactic) run(goal *tactic.Goal, result *tactic.Tac
 		if err = t.collect(goal); err != nil {
 			return err
 		}
-		if len(t.variables) == 0 {
+		if t.variables.empty() {
 			index = size
 		} else {
 			index = 0
@@ -443,4 +443,42 @@ func (t *EliminateUnconstrainedTactic) publishConverter(result *tactic.TacticRes
 		return errors.Join(err, combined.Close())
 	}
 	return nil
+}
+
+// elimVariableSet is the source's m_vars (obj_hashtable<expr>) as membership
+// marks indexed by node slot, holding generation+1 (Go-only layout: a Go map
+// keyed by handle was about 5% of lia_big_parse). Members are live constants
+// of one manager held by the goal while the set is in use.
+type elimVariableSet struct {
+	origin  uint64
+	marks   []uint64
+	members []ast.ASTHandle
+}
+
+func (s *elimVariableSet) reset() {
+	for _, v := range s.members {
+		s.marks[v.Slot()] = 0
+	}
+	s.members = s.members[:0]
+}
+func (s *elimVariableSet) empty() bool { return len(s.members) == 0 }
+func (s *elimVariableSet) add(v ast.ASTHandle) {
+	if s.has(v) {
+		return
+	}
+	if len(s.members) == 0 {
+		s.origin = v.Origin()
+	}
+	slot := int(v.Slot())
+	if slot >= len(s.marks) {
+		grown := make([]uint64, slot+1+slot/2)
+		copy(grown, s.marks)
+		s.marks = grown
+	}
+	s.marks[slot] = uint64(v.Generation()) + 1
+	s.members = append(s.members, v)
+}
+func (s *elimVariableSet) has(v ast.ASTHandle) bool {
+	slot := int(v.Slot())
+	return slot < len(s.marks) && s.marks[slot] == uint64(v.Generation())+1 && s.marks[slot] != 0 && v.Origin() == s.origin
 }

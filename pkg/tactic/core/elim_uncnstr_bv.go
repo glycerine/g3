@@ -62,7 +62,7 @@ func (c *elimUnconstrainedRewriteConfig) bv(d ast.ASTHandle, kind int32, args []
 		}
 		return u, nil
 	case 40: // OP_EXTRACT
-		if !c.owner.variables[args[0]] {
+		if !c.owner.variables.has(args[0]) {
 			return ast.ASTHandle{}, nil
 		}
 		u, fresh, err := c.freshFor(d, args)
@@ -110,7 +110,7 @@ func (c *elimUnconstrainedRewriteConfig) bv(d ast.ASTHandle, kind int32, args []
 		}
 		return u, c.addDef(args[0], definition)
 	case 32: // OP_BNOT
-		if !c.owner.variables[args[0]] {
+		if !c.owner.variables.has(args[0]) {
 			return ast.ASTHandle{}, nil
 		}
 		u, fresh, err := c.freshFor(d, args)
@@ -161,7 +161,7 @@ func (c *elimUnconstrainedRewriteConfig) bvMultiply(d ast.ASTHandle, args []ast.
 		}
 		return u, c.addDefs(args, u, one)
 	}
-	if len(args) != 2 || !c.owner.variables[args[1]] {
+	if len(args) != 2 || !c.owner.variables.has(args[1]) {
 		return u, nil
 	}
 	numbers := m.NumeralService()
@@ -203,11 +203,11 @@ func (c *elimUnconstrainedRewriteConfig) bvLessEqual(d ast.ASTHandle, args []ast
 	if c.proofs {
 		return u, nil
 	} // Source has no proof rule for the side condition.
-	first := c.owner.variables[args[0]]
+	first := c.owner.variables.has(args[0])
 	v, t := args[0], args[1]
 	if !first {
 		v, t = t, v
-		if !c.owner.variables[v] {
+		if !c.owner.variables.has(v) {
 			return u, nil
 		}
 	}
