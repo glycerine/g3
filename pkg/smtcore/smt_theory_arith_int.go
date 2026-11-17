@@ -4,7 +4,6 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
@@ -472,14 +471,7 @@ func (t *SMTTheoryArith) mkPolynomialGe(x *smtArithExprs, args []smtArithLinearM
 		return m.MkFamilyApp(t.FamilyID(), op, nil, a)
 	}
 	mkNum := func(q *numeral.Rational, isInt bool) (ast.ASTHandle, error) {
-		r, err := smtQBig(t.q, q)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		if isInt {
-			return m.ArithmeticIntegerNumeralText(r.RatString())
-		}
-		return m.ArithmeticRealNumeralText(r.RatString())
+		return m.ArithmeticNumeralFromRational(q, isInt)
 	}
 	terms := make([]ast.ASTHandle, 0, len(args))
 	push := func(e ast.ASTHandle) error {
@@ -1284,17 +1276,22 @@ func (b *smtArithEuclideanSolverBridge) mkVarFor(v SMTTheoryVar) (uint32, error)
 	return b.tv2v[v], nil
 }
 
-// getMonomial splits mon = a * pp.
-func (b *smtArithEuclideanSolverBridge) getMonomial(mon ast.ASTHandle) (*big.Rat, ast.ASTHandle) {
+// getMonomial splits mon = a * pp; a is a rational of t.q that the caller
+// frees.
+func (b *smtArithEuclideanSolverBridge) getMonomial(mon ast.ASTHandle, a *numeral.Rational) (ast.ASTHandle, error) {
 	t := b.t
 	if t.isOp(mon, smtArithOpMul) {
 		if args, err := t.args(mon); err == nil && len(args) == 2 {
-			if a, ok := t.isNumeral(args[0]); ok {
-				return a, args[1]
+			ok, err := t.isNumeralQ(args[0], a)
+			if err != nil {
+				return ast.ASTHandle{}, err
+			}
+			if ok {
+				return args[1], nil
 			}
 		}
 	}
-	return big.NewRat(1, 1), mon
+	return mon, t.q.SetInt64(a, 1)
 }
 
 // getTheoryVar is the theory var associated with the power product.
@@ -1321,28 +1318,37 @@ func (b *smtArithEuclideanSolverBridge) getVar(pp ast.ASTHandle) uint32 {
 	return b.tv2v[v]
 }
 
-func (b *smtArithEuclideanSolverBridge) setInt(out *numeral.Int, value *big.Int) error {
-	return b.integers.SetString(out, value.String())
+// setNumerator is m.set(out, r.to_mpq().numerator()): out is an mpz of the
+// euclidean solver's manager, r a rational of t.q.
+func (b *smtArithEuclideanSolverBridge) setNumerator(out *numeral.Int, r *numeral.Rational) error {
+	z := b.t.q.Integers()
+	n := numeral.NewInt(0)
+	err := b.t.q.Numerator(r, &n)
+	if err == nil {
+		err = b.integers.CopyFrom(out, z, &n)
+	}
+	return errors.Join(err, z.Del(&n))
 }
 
-func (b *smtArithEuclideanSolverBridge) pushA(value *big.Int) (result error) {
+// rationalOf is rational(a) for an mpz a of the euclidean solver's
+// manager, into out, a rational of t.q.
+func (b *smtArithEuclideanSolverBridge) rationalOf(a *numeral.Int, out *numeral.Rational) error {
+	z := b.t.q.Integers()
+	n := numeral.NewInt(0)
+	err := z.CopyFrom(&n, b.integers, a)
+	if err == nil {
+		err = b.t.q.SetInteger(out, &n)
+	}
+	return errors.Join(err, z.Del(&n))
+}
+
+// pushA is m.set(a, a_val.to_mpq().numerator()); as.push_back(a).
+func (b *smtArithEuclideanSolverBridge) pushA(value *numeral.Rational) (result error) {
 	tmp := numeral.NewInt(0)
-	if err := b.setInt(&tmp, value); err != nil {
+	if err := b.setNumerator(&tmp, value); err != nil {
 		return errors.Join(err, b.integers.Del(&tmp))
 	}
 	return errors.Join(b.as.Push(&tmp), b.integers.Del(&tmp))
-}
-
-func (b *smtArithEuclideanSolverBridge) bigInt(value *numeral.Int) (*big.Int, error) {
-	text, err := b.integers.String(value)
-	if err != nil {
-		return nil, err
-	}
-	r, ok := new(big.Int).SetString(text, 10)
-	if !ok {
-		return nil, ast.ErrASTDomain
-	}
-	return r, nil
 }
 
 func (b *smtArithEuclideanSolverBridge) monomials(n ast.ASTHandle) ([]ast.ASTHandle, error) {
@@ -1356,22 +1362,28 @@ func (b *smtArithEuclideanSolverBridge) monomials(n ast.ASTHandle) ([]ast.ASTHan
 // for equalities.
 func (b *smtArithEuclideanSolverBridge) assertEqs() (result error) {
 	t := b.t
+	val, aVal := smtQZero(), smtQZero()
+	defer func() { result = errors.Join(result, smtQDel(t.q, &val), smtQDel(t.q, &aVal)) }()
 	num := SMTTheoryVar(t.getNumVars())
 	for v := SMTTheoryVar(0); v < num; v++ {
 		if !t.isFixed(v) || !t.isInt(v) {
 			continue // only fixed integer variables
 		}
 		n := t.var2expr(v)
-		if _, ok := t.isNumeral(n); ok {
+		if ok, err := t.isNumeralQ(n, &aVal); err != nil || ok {
+			if err != nil {
+				return err
+			}
 			continue // skip stupid equality c - c = 0
 		}
-		num, err := smtQBig(t.q, &t.getValue(v).rational)
-		if err != nil {
+		if err := t.q.Copy(&val, &t.getValue(v).rational); err != nil {
 			return err
 		}
-		num.Neg(num)
+		if err := t.q.Neg(&val); err != nil {
+			return err
+		}
 		c := numeral.NewInt(0)
-		if err := b.setInt(&c, num.Num()); err != nil {
+		if err := b.setNumerator(&c, &val); err != nil {
 			return errors.Join(err, b.integers.Del(&c))
 		}
 		j, err := b.solver.MkJustification()
@@ -1392,8 +1404,15 @@ func (b *smtArithEuclideanSolverBridge) assertEqs() (result error) {
 			return errors.Join(err, b.integers.Del(&c))
 		}
 		for _, arg := range args {
-			aVal, pp := b.getMonomial(arg)
-			if !aVal.IsInt() {
+			pp, err := b.getMonomial(arg, &aVal)
+			if err != nil {
+				return errors.Join(err, b.integers.Del(&c))
+			}
+			isInt, err := t.q.IsInt(&aVal)
+			if err != nil {
+				return errors.Join(err, b.integers.Del(&c))
+			}
+			if !isInt {
 				failed = true
 				break
 			}
@@ -1405,7 +1424,7 @@ func (b *smtArithEuclideanSolverBridge) assertEqs() (result error) {
 				failed = true
 				break
 			}
-			if err = b.pushA(aVal.Num()); err != nil {
+			if err = b.pushA(&aVal); err != nil {
 				return errors.Join(err, b.integers.Del(&c))
 			}
 			b.xs = append(b.xs, x)
@@ -1426,7 +1445,7 @@ func (b *smtArithEuclideanSolverBridge) assertEqs() (result error) {
 	return nil
 }
 
-func (b *smtArithEuclideanSolverBridge) mkBound(v SMTTheoryVar, k *big.Rat, lower bool, oldBound smtArithBound, js []uint32) error {
+func (b *smtArithEuclideanSolverBridge) mkBound(v SMTTheoryVar, k *numeral.Rational, lower bool, oldBound smtArithBound, js []uint32) error {
 	t := b.t
 	kind := smtArithmeticUpperBound
 	if lower {
@@ -1435,7 +1454,7 @@ func (b *smtArithEuclideanSolverBridge) mkBound(v SMTTheoryVar, k *big.Rat, lowe
 	newBound := &smtArithmeticDerivedBound{}
 	newBound.variable, newBound.kind = v, kind
 	newBound.value.init()
-	if err := t.q.SetBigRat(&newBound.value.rational, k); err != nil {
+	if err := t.q.Copy(&newBound.value.rational, k); err != nil {
 		return err
 	}
 	clear(t.tmpLitSet)
@@ -1462,8 +1481,16 @@ func (b *smtArithEuclideanSolverBridge) mkBound(v SMTTheoryVar, k *big.Rat, lowe
 
 func (b *smtArithEuclideanSolverBridge) tightBoundsFor(v SMTTheoryVar) (propagated bool, result error) {
 	t := b.t
+	q := t.q
 	n := t.var2expr(v)
-	g := new(big.Int) // gcd of the coefficients of the variables that are not in the solver
+	// g is the gcd of the coefficients of the variables that are not in the
+	// solver.
+	g, c2, aVal, bound, tmp := smtQZero(), smtQZero(), smtQZero(), smtQZero(), smtQZero()
+	defer func() {
+		for _, r := range []*numeral.Rational{&g, &c2, &aVal, &bound, &tmp} {
+			result = errors.Join(result, smtQDel(q, r))
+		}
+	}()
 	initG := false
 	if err := b.as.Reset(); err != nil {
 		return false, err
@@ -1474,24 +1501,33 @@ func (b *smtArithEuclideanSolverBridge) tightBoundsFor(v SMTTheoryVar) (propagat
 		return false, err
 	}
 	for _, arg := range args {
-		aVal, pp := b.getMonomial(arg)
-		if !aVal.IsInt() {
-			return false, nil
+		pp, err := b.getMonomial(arg, &aVal)
+		if err != nil {
+			return false, err
+		}
+		isInt, err := q.IsInt(&aVal)
+		if err != nil || !isInt {
+			return false, err
 		}
 		x := b.getVar(pp)
 		if x == smtArithUintMax {
-			absA := new(big.Int).Abs(aVal.Num())
+			if err = q.Abs(&aVal); err != nil {
+				return false, err
+			}
 			if initG {
-				g.GCD(nil, nil, g, absA)
+				err = q.GCD(&g, &aVal, &g)
 			} else {
-				g.Set(absA)
+				err = q.Copy(&g, &aVal)
+			}
+			if err != nil {
+				return false, err
 			}
 			initG = true
-			if g.Cmp(big.NewInt(1)) == 0 {
-				return false, nil // gcd of the coeffs is one.
+			if one, err := q.IsOne(&g); err != nil || one {
+				return false, err // gcd of the coeffs is one.
 			}
 		} else {
-			if err = b.pushA(aVal.Num()); err != nil {
+			if err = b.pushA(&aVal); err != nil {
 				return false, err
 			}
 			b.xs = append(b.xs, x)
@@ -1511,68 +1547,88 @@ func (b *smtArithEuclideanSolverBridge) tightBoundsFor(v SMTTheoryVar) (propagat
 	if err = b.solver.Normalize(as, b.xs, &cIn, &a, &c, &b.js); err != nil {
 		return false, err
 	}
-	aBig, err := b.bigInt(&a)
-	if err != nil {
-		return false, err
-	}
 	if initG {
-		if aBig.Sign() != 0 {
-			g.GCD(nil, nil, g, new(big.Int).Abs(aBig))
-		}
-	} else {
-		g.Set(aBig)
-	}
-	if g.Cmp(big.NewInt(1)) == 0 {
-		return false, nil
-	}
-	cBig, err := b.bigInt(&c)
-	if err != nil {
-		return false, err
-	}
-	c2 := new(big.Rat).SetInt(cBig)
-	if g.Sign() == 0 {
-		// The definition of v is 0 + c: v is fixed at c, justified by m_js
-		// alone.
-		if err = b.mkBound(v, c2, true, nil, b.js); err != nil {
-			return false, err
-		}
-		return true, b.mkBound(v, c2, false, nil, b.js)
-	}
-	// l' := g*ceil((l - c)/g) + c and u' := g*floor((u - c)/g) + c
-	gr := new(big.Rat).SetInt(g)
-	if l := t.lower(v); l != nil {
-		lOld, err := smtQBig(t.q, &l.base().value.rational)
+		zero, err := b.integers.IsZero(&a)
 		if err != nil {
 			return false, err
 		}
-		q := new(big.Rat).Sub(lOld, c2)
-		q.Quo(q, gr)
-		ceil := new(big.Rat).SetInt(floorSMTRational(q))
-		if !q.IsInt() {
-			ceil.Add(ceil, big.NewRat(1, 1))
+		if !zero {
+			if err = b.rationalOf(&a, &tmp); err != nil {
+				return false, err
+			}
+			if err = q.GCD(&g, &tmp, &g); err != nil {
+				return false, err
+			}
 		}
-		lNew := ceil.Mul(ceil, gr)
-		lNew.Add(lNew, c2)
-		if lNew.Cmp(lOld) > 0 {
+	} else if err = b.rationalOf(&a, &g); err != nil {
+		return false, err
+	}
+	if one, err := q.IsOne(&g); err != nil || one {
+		return false, err
+	}
+	if err = b.rationalOf(&c, &c2); err != nil {
+		return false, err
+	}
+	if zero, err := q.IsZero(&g); err != nil {
+		return false, err
+	} else if zero {
+		// The definition of v is 0 + c: v is fixed at c, justified by m_js
+		// alone.
+		if err = b.mkBound(v, &c2, true, nil, b.js); err != nil {
+			return false, err
+		}
+		return true, b.mkBound(v, &c2, false, nil, b.js)
+	}
+	// l' := g*ceil((l - c)/g) + c and u' := g*floor((u - c)/g) + c
+	newBound := func(old *numeral.Rational, ceil bool) error {
+		if err := q.Sub(old, &c2, &bound); err != nil {
+			return err
+		}
+		if err := q.Div(&bound, &g, &bound); err != nil {
+			return err
+		}
+		var err error
+		if ceil {
+			err = q.Ceil(&bound, &bound)
+		} else {
+			err = q.Floor(&bound, &bound)
+		}
+		if err != nil {
+			return err
+		}
+		if err = q.Mul(&g, &bound, &bound); err != nil {
+			return err
+		}
+		return q.Add(&bound, &c2, &bound)
+	}
+	if l := t.lower(v); l != nil {
+		lOld := &l.base().value.rational
+		if err = newBound(lOld, true); err != nil {
+			return false, err
+		}
+		cmp, err := q.Compare(&bound, lOld)
+		if err != nil {
+			return false, err
+		}
+		if cmp > 0 {
 			propagated = true
-			if err = b.mkBound(v, lNew, true, l, b.js); err != nil {
+			if err = b.mkBound(v, &bound, true, l, b.js); err != nil {
 				return false, err
 			}
 		}
 	}
 	if u := t.upper(v); u != nil {
-		uOld, err := smtQBig(t.q, &u.base().value.rational)
+		uOld := &u.base().value.rational
+		if err = newBound(uOld, false); err != nil {
+			return false, err
+		}
+		cmp, err := q.Compare(&bound, uOld)
 		if err != nil {
 			return false, err
 		}
-		q := new(big.Rat).Sub(uOld, c2)
-		q.Quo(q, gr)
-		uNew := new(big.Rat).SetInt(floorSMTRational(q))
-		uNew.Mul(uNew, gr)
-		uNew.Add(uNew, c2)
-		if uNew.Cmp(uOld) < 0 {
+		if cmp < 0 {
 			propagated = true
-			if err = b.mkBound(v, uNew, false, u, b.js); err != nil {
+			if err = b.mkBound(v, &bound, false, u, b.js); err != nil {
 				return false, err
 			}
 		}
