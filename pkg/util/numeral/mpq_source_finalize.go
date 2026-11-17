@@ -78,6 +78,7 @@ func (m *RationalManager) SourceFinalize() error {
 		return ErrRationalLexicalPending
 	}
 	m.SourceFinalizing = true
+	m.refreshFastGate()
 	if m.sourceGuard {
 		return m.sourceCause
 	}
@@ -101,6 +102,7 @@ func (m *RationalManager) SourceFinalize() error {
 		return fail(e)
 	}
 	m.SourceFinalized = true
+	m.refreshFastGate()
 	m.sourceCause = nil
 	m.CleanupCauseField = nil
 	return nil

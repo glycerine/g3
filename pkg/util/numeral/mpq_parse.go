@@ -118,6 +118,7 @@ func (m *RationalManager) SetString(out *Rational, text string) (err error) {
 		if _, cleanupErr := sourceNumeralDel(m.Z, &tmp); cleanupErr != nil {
 			m.parseOuterTemporary = tmp
 			m.parseOuterPending = true
+			m.refreshFastGate()
 			if err == nil {
 				err = cleanupErr
 			}
@@ -182,6 +183,7 @@ func (m *RationalManager) parseRationalSuffix(work *Rational, text string, i int
 		if _, cleanupErr := sourceNumeralDel(m.Z, &tmp2); cleanupErr != nil {
 			m.parseSuffixTemporary = tmp2
 			m.parseSuffixPending = true
+			m.refreshFastGate()
 			if err == nil {
 				err = cleanupErr
 			}
@@ -301,10 +303,12 @@ func (m *RationalManager) parseRationalSuffix(work *Rational, text string, i int
 func (m *RationalManager) finishParserRationalSource(value *Rational, slot *rationalParserScopedValue) error {
 	if _, e := sourceNumeralDel(m.Z, &value.Num); e != nil {
 		*slot = rationalParserScopedValue{value: *value, pending: true}
+		m.refreshFastGate()
 		return e
 	}
 	if _, e := sourceNumeralDel(m.Z, &value.Den); e != nil {
 		*slot = rationalParserScopedValue{value: *value, stage: 1, pending: true}
+		m.refreshFastGate()
 		return e
 	}
 	return nil
@@ -324,6 +328,7 @@ func (m *RationalManager) cleanupParserRational(slot *rationalParserScopedValue)
 		return e
 	}
 	*slot = rationalParserScopedValue{}
+	m.refreshFastGate()
 	return nil
 }
 
@@ -344,6 +349,7 @@ func (m *RationalManager) CleanupParserTemporaries() error {
 		}
 		m.parseSuffixTemporary = Int{}
 		m.parseSuffixPending = false
+		m.refreshFastGate()
 	}
 	if m.parseOuterPending {
 		if e := m.Z.Del(&m.parseOuterTemporary); e != nil {
@@ -351,6 +357,7 @@ func (m *RationalManager) CleanupParserTemporaries() error {
 		}
 		m.parseOuterTemporary = Int{}
 		m.parseOuterPending = false
+		m.refreshFastGate()
 	}
 	return nil
 }

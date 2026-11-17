@@ -14,7 +14,11 @@ package numeral
 // manager's raw scopes, the unsynchronized manager's scratch members) is
 // left exactly as that path leaves it after success.
 
-import "math"
+import (
+	"math"
+
+	umemory "github.com/glycerine/g3/pkg/util/memory"
+)
 
 // smallRat reports inline components and a positive denominator.
 func smallRat(a *Rational) bool {
@@ -28,7 +32,62 @@ func smallOut(a *Rational) bool { return a != nil && a.Num.Cell == 0 && a.Den.Ce
 // smallFastReady is checkScalarValue/check's common case plus the inline
 // del admission and idle scratch: a fast operation can neither fail nor
 // find a temporary that z3 would have to free.
+//
+// fastGate summarizes this owner's own lifecycle flags and pending scopes
+// (fastGateOwner, fastGateFused: kept exact by refreshFastGate) and its raw
+// local scopes (fastGateRaw: set where a raw local becomes active, cleared
+// by smallFastReadySlow once none is). Admission then reads one word for
+// them; the integer manager's state and the process-wide transport and
+// trace-output state are read directly, since they change outside this
+// owner. Checked builds compare the result with smallFastReadyFull.
 func (m *RationalManager) smallFastReady() bool {
+	if !smallFastBuild() || m == nil {
+		return false
+	}
+	if m.fastGate != 0 || numericValidateCells {
+		return m.smallFastReadySlow()
+	}
+	z := m.Z
+	return m.self == m && z != nil && z.self == z && !z.closed && !z.SourceFinalizing && !z.constructionFailed &&
+		!umemory.AnyFailureTransportActive() && m.RawGeneration < ^uint64(0)-4 &&
+		(m.Synchronized || m.scratchInline()) && z.smallDelReady()
+}
+
+const (
+	fastGateOwner uint32 = 1 << iota
+	fastGateFused
+	fastGateRaw
+)
+
+// smallFastReadySlow clears a stale raw-scope mark and answers from every
+// flag.
+func (m *RationalManager) smallFastReadySlow() bool {
+	if m.fastGate&fastGateRaw != 0 && !m.RawArithmetic.Pending() {
+		m.fastGate &^= fastGateRaw
+	}
+	full := m.smallFastReadyFull()
+	if numericValidateCells && m.fastGate == 0 {
+		z := m.Z
+		gated := m.self == m && z != nil && z.self == z && !z.closed && !z.SourceFinalizing && !z.constructionFailed &&
+			!umemory.AnyFailureTransportActive() && m.RawGeneration < ^uint64(0)-4 &&
+			(m.Synchronized || m.scratchInline()) && z.smallDelReady()
+		if gated != full || m.RawArithmetic.Pending() {
+			panic("numeral: RationalManager fastGate out of date")
+		}
+	}
+	return full
+}
+
+// scratchInline reports that the unsynchronized manager's scratch members
+// hold no cell.
+func (m *RationalManager) scratchInline() bool {
+	return (m.AddTmp1.Cell | m.AddTmp2.Cell | m.NTmp.Cell | m.LtTmp1.Num.Cell | m.LtTmp1.Den.Cell |
+		m.LtTmp2.Num.Cell | m.LtTmp2.Den.Cell | m.AddMulTmp.Num.Cell | m.AddMulTmp.Den.Cell) == 0
+}
+
+// smallFastReadyFull is smallFastReady computed from every flag; checked
+// builds use it to verify fastGate.
+func (m *RationalManager) smallFastReadyFull() bool {
 	if !smallFastBuild() || !m.ownerIdle() || !m.Z.smallFastReady() || !m.Z.smallDelReady() {
 		return false
 	}
@@ -38,16 +97,36 @@ func (m *RationalManager) smallFastReady() bool {
 	if m.Synchronized {
 		return !m.fusedPending && !m.fusedExecuting
 	}
-	return (m.AddTmp1.Cell | m.AddTmp2.Cell | m.NTmp.Cell | m.LtTmp1.Num.Cell | m.LtTmp1.Den.Cell |
-		m.LtTmp2.Num.Cell | m.LtTmp2.Den.Cell | m.AddMulTmp.Num.Cell | m.AddMulTmp.Den.Cell) == 0
+	return m.scratchInline()
 }
 
 // ownerIdle is checkOwnerReady() == nil.
 func (m *RationalManager) ownerIdle() bool {
 	return m != nil && m.self == m && m.Z != nil && m.Z.self == m.Z &&
 		!(m.closed || m.Closing || m.SourceFinalizing || m.SourceFinalized || m.Z.closed || m.Z.SourceFinalizing || m.Z.constructionFailed) &&
-		!(m.parseOuterPending || m.parseSuffixPending || m.parseB.pending || m.parseExp.pending || m.parseTen.pending || m.prevPowerPending || m.addIntPending || (m.fusedPending && !m.fusedExecuting)) &&
-		!(m.hwfPending && !m.hwfExecuting)
+		!m.ownerFlagsBusy()
+}
+
+// ownerFlagsBusy is the part of checkOwnerReady that reads this owner's
+// pending scopes.
+func (m *RationalManager) ownerFlagsBusy() bool {
+	return m.parseOuterPending || m.parseSuffixPending || m.parseB.pending || m.parseExp.pending || m.parseTen.pending || m.prevPowerPending || m.addIntPending || (m.fusedPending && !m.fusedExecuting) ||
+		(m.hwfPending && !m.hwfExecuting)
+}
+
+// refreshFastGate recomputes fastGate after a write to one of the owner
+// flags it summarizes: the lifecycle flags and pending scopes that
+// checkOwnerReady reads, and, for the synchronized manager, the fused
+// scope. It is Go-only bookkeeping and changes no observable state.
+func (m *RationalManager) refreshFastGate() {
+	g := m.fastGate & fastGateRaw
+	if m.closed || m.Closing || m.SourceFinalizing || m.SourceFinalized || m.ownerFlagsBusy() {
+		g |= fastGateOwner
+	}
+	if m.Synchronized && (m.fusedPending || m.fusedExecuting) {
+		g |= fastGateFused
+	}
+	m.fastGate = g
 }
 
 // smallRatResult is one inline rational result: the value n/d, and for a

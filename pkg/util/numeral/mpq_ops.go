@@ -43,6 +43,7 @@ func (m *RationalManager) AddInt(a *Rational, b *Int, out *Rational) (err error)
 		tmp := &m.AddTmp1
 		if m.Synchronized {
 			m.addIntPending = true
+			m.refreshFastGate()
 			tmp = &m.addIntTemporary
 		}
 		if e := m.Z.Mul(b, &a.Den, tmp); e != nil {
@@ -62,6 +63,7 @@ func (m *RationalManager) AddInt(a *Rational, b *Int, out *Rational) (err error)
 				return e
 			}
 			m.addIntPending = false
+			m.refreshFastGate()
 		}
 	}
 	return nil
@@ -80,6 +82,7 @@ func (m *RationalManager) CleanupAddIntTemporary() error {
 		return e
 	}
 	m.addIntPending = false
+	m.refreshFastGate()
 	return nil
 }
 
@@ -227,7 +230,7 @@ func (m *RationalManager) fusedWithAllocationContext(a, b, c, out *Rational, sub
 	if m.Synchronized {
 		m.beginFusedTemporary()
 		tmp = &m.fusedTemporary
-		defer func() { m.fusedExecuting = false }()
+		defer func() { m.fusedExecuting = false; m.refreshFastGate() }()
 	}
 	if e := m.mulWithAllocationContext(b, c, tmp, context); e != nil {
 		return e
@@ -269,7 +272,7 @@ func (m *RationalManager) fusedInt(a *Rational, b *Int, c, out *Rational, subtra
 	if m.Synchronized {
 		m.beginFusedTemporary()
 		tmp = &m.fusedTemporary
-		defer func() { m.fusedExecuting = false }()
+		defer func() { m.fusedExecuting = false; m.refreshFastGate() }()
 	}
 	if e := m.MulInt(b, c, tmp); e != nil {
 		return e
@@ -292,6 +295,7 @@ func (m *RationalManager) beginFusedTemporary() {
 	m.fusedPending = true
 	m.fusedExecuting = true
 	m.fusedCursor = 0
+	m.refreshFastGate()
 }
 
 func (m *RationalManager) finishFusedTemporarySource() error {
@@ -307,6 +311,7 @@ func (m *RationalManager) finishFusedTemporarySource() error {
 	}
 	m.fusedTemporary = Rational{}
 	m.fusedPending = false
+	m.refreshFastGate()
 	return nil
 }
 
@@ -332,6 +337,7 @@ func (m *RationalManager) CleanupFusedTemporary() error {
 	}
 	m.fusedTemporary = Rational{}
 	m.fusedPending = false
+	m.refreshFastGate()
 	return nil
 }
 

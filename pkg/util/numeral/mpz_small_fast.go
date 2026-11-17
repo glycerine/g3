@@ -28,6 +28,15 @@ func (m *IntegerManager) smallFastReady() bool {
 // checkCleanupWithModularOwner) once smallFastReady holds: no numeric
 // caller callback and no trace output callback is executing.
 func (m *IntegerManager) smallDelReady() bool {
+	if m.callerBindings != nil || m.trace != nil {
+		return m.smallDelReadyBound()
+	}
+	return diagnostic.ProcessTraceOutputIdle()
+}
+
+// smallDelReadyBound is smallDelReady with caller bindings or a borrowed
+// trace stream.
+func (m *IntegerManager) smallDelReadyBound() bool {
 	return (m.callerBindings == nil || !callerBindingsCallbackActive(m.callerBindings)) && !m.sourceTraceTags().OutputCallbackActive()
 }
 

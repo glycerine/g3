@@ -70,6 +70,7 @@ func (m *RationalManager) CloseChecked() error {
 		return m
 	}
 	m.Closing = true
+	m.refreshFastGate()
 	if e := m.cleanupRawArithmetic(); e != nil {
 		m.CleanupCauseField = e
 		return m
@@ -100,6 +101,7 @@ func (m *RationalManager) CloseChecked() error {
 	m.BudgetField.Release(m.HeaderBytes)
 	m.HeaderBytes = 0
 	m.closed = true
+	m.refreshFastGate()
 	m.CleanupCauseField = nil
 	return nil
 }

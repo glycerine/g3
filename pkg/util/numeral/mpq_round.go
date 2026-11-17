@@ -83,6 +83,7 @@ func (m *RationalManager) PrevPowerOfTwo(a *Rational) (uint32, error) {
 	if _, cleanupErr := sourceNumeralDel(m.Z, &tmp); cleanupErr != nil {
 		m.prevPowerTemporary = tmp
 		m.prevPowerPending = true
+		m.refreshFastGate()
 		if bodyErr == nil {
 			return value, cleanupErr
 		}
@@ -104,5 +105,6 @@ func (m *RationalManager) CleanupPrevPowerOfTwo() error {
 	}
 	m.prevPowerTemporary = Int{}
 	m.prevPowerPending = false
+	m.refreshFastGate()
 	return nil
 }

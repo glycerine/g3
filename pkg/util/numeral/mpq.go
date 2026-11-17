@@ -65,6 +65,7 @@ type RationalManager struct {
 	NTmp, AddTmp1, AddTmp2                         Int
 	AddMulTmp, LtTmp1, LtTmp2                      Rational
 	Synchronized, closed                           bool
+	fastGate                                       uint32
 	BudgetField                                    *arena.Budget
 	HeaderBytes                                    uint64
 }
@@ -424,6 +425,7 @@ func (m *RationalManager) normalizeWithAllocationContextAndReceipt(a *Rational, 
 		}
 		r.Norm = Int{}
 		r.NormActive = true
+		m.fastGate |= fastGateRaw
 		r.normEnd = false
 		r.normGuard = false
 		r.normCause = nil
@@ -592,6 +594,7 @@ func (m *RationalManager) compareWithAllocationContext(a, b *Rational, context *
 		}
 		r.CompareOne, r.CompareTwo = NewRational(), NewRational()
 		r.CompareActive = true
+		m.fastGate |= fastGateRaw
 		r.compareEnd = false
 		r.compareGuard = false
 		r.compareCursor = 0
@@ -692,6 +695,7 @@ func (m *RationalManager) addSubWithAllocationContext(a, b, out *Rational, subtr
 		r.AddOne = Int{}
 		r.AddTwo = Int{}
 		r.AddActive = true
+		m.fastGate |= fastGateRaw
 		r.addEnd = false
 		r.addGuard = false
 		r.addCursor = 0
@@ -806,6 +810,7 @@ func (m *RationalManager) divWithAllocationContext(a, b, out *Rational, context 
 		r.divGeneration = generation
 		r.Div = Int{}
 		r.DivActive, r.divEnd, r.divGuard = true, false, false
+		m.fastGate |= fastGateRaw
 		r.divCursor, r.divCause = 0, nil
 		defer m.finishRawDiv(&_rawErr)
 		if e := m.Z.mulWithAllocationContext(&a.Num, &b.Den, &r.Div, &context); e != nil {

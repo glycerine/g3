@@ -23,6 +23,7 @@ func (qm *RationalManager) cleanupHWFConversion(source bool) error {
 	}
 	qm.hwfN, qm.hwfD = Int{}, Int{}
 	qm.hwfPending = false
+	qm.refreshFastGate()
 	qm.hwfCursor = 0
 	return nil
 }
@@ -55,11 +56,13 @@ func (m *HardwareFloatManager) ToRational(x *HardwareFloat, qm *RationalManager,
 	qm.hwfPending = true
 	qm.hwfCursor = 0
 	qm.hwfExecuting = true
+	qm.refreshFastGate()
 	defer func() {
 		if cleanup := qm.cleanupHWFConversion(true); err == nil {
 			err = cleanup
 		}
 		qm.hwfExecuting = false
+		qm.refreshFastGate()
 	}()
 	sig := m.Significand(x)
 	if m.IsNormal(x) {

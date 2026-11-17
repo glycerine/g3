@@ -40,6 +40,12 @@ var processTraceTags = newProcessTraceTags()
 
 func BorrowProcessTraceTags() *TraceTags { return processTraceTags }
 
+// ProcessTraceOutputIdle is BorrowProcessTraceTags().OutputCallbackActive()
+// == false, for hot admission tests (the process stream is never nil).
+func ProcessTraceOutputIdle() bool {
+	return atomic.LoadUint32(&processTraceTags.outputDepth) == 0
+}
+
 func NewTraceTagsWithWriter(w io.Writer) *TraceTags { return &TraceTags{writer: w} }
 
 func traceTagCString(tag string) string {

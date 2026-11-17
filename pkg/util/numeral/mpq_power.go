@@ -32,6 +32,7 @@ func (m *RationalManager) powerWithAllocationContextAndReceipt(a *Rational, p ui
 	}
 	r.Power = NewRational()
 	r.PowerActive = true
+	m.fastGate |= fastGateRaw
 	r.powerEnd = false
 	r.powerGuard = false
 	r.powerCursor = 0
