@@ -1,0 +1,6 @@
+== scenario 28
+mode checked-lazy_sparse-lazy_sparse
+result 1
+(and (= (:var 0) (|<null>:
+query!0() :- 
+ R(true).| (forward fact))))

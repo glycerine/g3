@@ -431,11 +431,10 @@ func explanationQueryOutput(t *testing.T, f *apiFixedpointFixture, out *strings.
 // tables, explicit and inherited table representations, magic sets,
 // negation, doc relations) against the fixed fork
 // (test_vectors/explanations/scen.c, scenario_N.txt). Scenarios 26-28
-// (a lazy_sparse table of a check table of a finite product relation) are
-// not covered: g3's lazy join-project of functional tables (open
-// limitation).
+// make lazy_sparse tables of the check tables of a finite product
+// relation, whose join-project keeps functional columns.
 func TestAPIFixedpointExplanationScenarios(t *testing.T) {
-	for s := 1; s <= 25; s++ {
+	for s := 1; s <= 28; s++ {
 		t.Run(strconv.Itoa(s), func(t *testing.T) {
 			want, err := os.ReadFile(filepath.Join("test_vectors", "explanations", "scenario_"+strconv.Itoa(s)+".txt"))
 			astTestMust(t, err)

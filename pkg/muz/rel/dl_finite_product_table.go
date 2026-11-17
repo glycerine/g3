@@ -232,9 +232,12 @@ func fprFunctionalColumns(t FiniteTable) int {
 // fprProjectWithReduceDefault is default_table_project_with_reduce_fn on
 // a table of another plugin than sparse: res = t.get_plugin().mk_empty;
 // for each projected row, suggest_fact, else reduce and ensure_fact.
+// Its SASSERT(removed_col_cnt>0) is a debug check: the release build
+// projects no column when default_table_join_project_fn removes none
+// (a lazy join-project of functional tables keeping every column).
 func fprProjectWithReduceDefault(t FiniteTable, removed []int, reducer SparseFunctionalRowReducer) (_ FiniteTable, resultErr error) {
 	functionalCount := fprFunctionalColumns(t)
-	if functionalCount == 0 || len(removed) == 0 || reducer == nil {
+	if functionalCount == 0 || reducer == nil {
 		return nil, ErrTable
 	}
 	sourceSignature, err := t.Signature()
