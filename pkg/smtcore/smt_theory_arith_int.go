@@ -181,7 +181,7 @@ func (t *SMTTheoryArith) branchInfeasibleIntVar(v SMTTheoryVar) (err error) {
 // branchInfeasibleIntEquality creates a "cut from proof" lemma from the rows
 // whose base variable is tight.
 func (t *SMTTheoryArith) branchInfeasibleIntEquality() (result bool, err error) {
-	var rows [][]*big.Rat
+	var rows [][]numeral.Rational
 	maxRow := 1 // all rows contain a constant in the first position.
 	var2index := make(map[SMTTheoryVar]int)
 	index2var := make(map[int]SMTTheoryVar)
@@ -190,13 +190,23 @@ func (t *SMTTheoryArith) branchInfeasibleIntEquality() (result bool, err error) 
 	one.rational = smtQInt(1)
 	tmp := newSMTArithmeticValue()
 	defer tmp.del(q)
-	// big reads a theory numeral for the equation solver, which takes
-	// math/big rows (a boundary).
-	toBig := func(r *numeral.Rational) *big.Rat {
-		b, e := smtQBig(q, r)
-		t.keep(e)
-		return b
-	}
+	constCoeff, denom, d, prod := smtQZero(), smtQZero(), smtQZero(), smtQZero()
+	var unsatRow []numeral.Rational
+	defer func() {
+		for _, r := range []*numeral.Rational{&constCoeff, &denom, &d, &prod} {
+			if e := smtQDel(q, r); e != nil && err == nil {
+				err = e
+			}
+		}
+		for i := range rows {
+			if _, e := smtQDelAll(q, rows[i]); e != nil && err == nil {
+				err = e
+			}
+		}
+		if _, e := smtQDelAll(q, unsatRow); e != nil && err == nil {
+			err = e
+		}
+	}()
 	for ri := range t.rows {
 		it := &t.rows[ri]
 		b := it.base
@@ -204,28 +214,28 @@ func (t *SMTTheoryArith) branchInfeasibleIntEquality() (result bool, err error) 
 			continue
 		}
 		isTight := false
-		constCoeff := new(big.Rat)
+		t.keep(q.SetInt64(&constCoeff, 0))
 		l, u := t.lower(b), t.upper(b)
 		t.keep(t.vsub(&tmp, t.getValue(b), &one))
 		if l != nil && t.vcmp(&tmp, &l.base().value) < 0 {
 			isTight = true
-			constCoeff.Set(toBig(&l.base().value.rational))
+			t.keep(q.Copy(&constCoeff, &l.base().value.rational))
 		} else {
 			t.keep(tmp.set(q, t.getValue(b)))
 			t.keep(tmp.add(q, &one))
 			if u != nil && t.vcmp(&tmp, &u.base().value) > 0 {
 				isTight = true
-				constCoeff.Set(toBig(&u.base().value.rational))
+				t.keep(q.Copy(&constCoeff, &u.base().value.rational))
 			}
 		}
 		if !isTight {
 			continue
 		}
-		row := make([]*big.Rat, maxRow)
+		row := make([]numeral.Rational, maxRow)
 		for i := range row {
-			row[i] = new(big.Rat)
+			row[i] = smtQZero()
 		}
-		denom := big.NewInt(1)
+		t.keep(q.SetInt64(&denom, 1))
 		for ei := range it.entries {
 			if !isTight {
 				break
@@ -238,9 +248,10 @@ func (t *SMTTheoryArith) branchInfeasibleIntEquality() (result bool, err error) 
 			if x == b {
 				continue
 			}
-			coeff := toBig(&e.coefficient)
+			coeff := &e.coefficient
 			if t.isFixed(x) {
-				constCoeff.Add(constCoeff, new(big.Rat).Mul(coeff, toBig(&t.lower(x).base().value.rational)))
+				t.keep(q.Mul(coeff, &t.lower(x).base().value.rational, &prod))
+				t.keep(q.Add(&constCoeff, &prod, &constCoeff))
 				continue
 			}
 			if !t.isInt(x) {
@@ -248,24 +259,30 @@ func (t *SMTTheoryArith) branchInfeasibleIntEquality() (result bool, err error) 
 				continue
 			}
 			if index, found := var2index[x]; found {
-				row[index] = new(big.Rat).Set(coeff)
+				t.keep(q.Copy(&row[index], coeff))
 			} else {
-				row = append(row, new(big.Rat).Set(coeff))
+				c, e := smtQNew(q, coeff)
+				t.keep(e)
+				row = append(row, c)
 				var2index[x] = maxRow
 				index2var[maxRow] = x
 				maxRow++
 			}
-			denom = smtRatLCM(coeff.Denom(), denom)
+			t.keep(q.DenominatorRational(coeff, &d))
+			t.keep(q.LCM(&d, &denom, &denom))
 		}
 		if !isTight {
+			_, e := smtQDelAll(q, row)
+			t.keep(e)
 			continue
 		}
-		row[0].Set(constCoeff)
-		denom = smtRatLCM(constCoeff.Denom(), denom)
-		if denom.Cmp(big.NewInt(1)) != 0 {
-			d := new(big.Rat).SetInt(denom)
+		t.keep(q.Copy(&row[0], &constCoeff))
+		t.keep(q.DenominatorRational(&constCoeff, &d))
+		t.keep(q.LCM(&d, &denom, &denom))
+		if one, e := q.IsOne(&denom); e != nil || !one {
+			t.keep(e)
 			for i := 0; i < maxRow && i < len(row); i++ {
-				row[i].Mul(row[i], d)
+				t.keep(q.Mul(&row[i], &denom, &row[i]))
 			}
 		}
 		rows = append(rows, row)
@@ -276,24 +293,14 @@ func (t *SMTTheoryArith) branchInfeasibleIntEquality() (result bool, err error) 
 			break
 		}
 		for len(rows[i]) < maxRow {
-			rows[i] = append(rows[i], new(big.Rat))
-		}
-	}
-	intRows := make([][]*big.Int, len(rows))
-	for i, row := range rows {
-		intRows[i] = make([]*big.Int, len(row))
-		for j, q := range row {
-			if !q.IsInt() {
-				return false, ast.ErrASTDomain
-			}
-			intRows[i][j] = new(big.Int).Set(q.Num())
+			rows[i] = append(rows[i], smtQZero())
 		}
 	}
 	if err := t.takeQErr(nil); err != nil {
 		return false, err
 	}
-	solver := smtArithmeticEquationSolver{}
-	feasible, unsatRow, err := solver.SolveEquations(intRows)
+	solver := smtArithmeticEquationSolver{q: q}
+	feasible, unsatRow, err := solver.SolveEquations(rows)
 	if err != nil || feasible {
 		// The equalities were integer feasible.
 		return false, err
@@ -307,17 +314,22 @@ func (t *SMTTheoryArith) branchInfeasibleIntEquality() (result bool, err error) 
 		}
 	}()
 	for i := 1; i < len(unsatRow); i++ {
-		if unsatRow[i].Sign() == 0 {
+		zero, err := q.IsZero(&unsatRow[i])
+		if err != nil {
+			return false, err
+		}
+		if zero {
 			continue
 		}
 		v, found := index2var[i]
 		if !found {
 			return false, ast.ErrASTDomain // UNREACHABLE
 		}
-		pol = append(pol, smtArithLinearMonomial{coeff: smtQZero(), v: v})
-		if err := q.SetBigRat(&pol[len(pol)-1].coeff, new(big.Rat).SetInt(unsatRow[i])); err != nil {
+		c, err := smtQNew(q, &unsatRow[i])
+		if err != nil {
 			return false, err
 		}
+		pol = append(pol, smtArithLinearMonomial{coeff: c, v: v})
 	}
 	if len(pol) == 0 {
 		return false, nil // the witness is trivial
@@ -333,7 +345,7 @@ func (t *SMTTheoryArith) branchInfeasibleIntEquality() (result bool, err error) 
 			}
 		}
 	}()
-	if err := q.SetBigRat(&k0, new(big.Rat).SetInt(unsatRow[0])); err != nil {
+	if err := q.Copy(&k0, &unsatRow[0]); err != nil {
 		return false, err
 	}
 	if err := q.Copy(&k1, &k0); err != nil {
@@ -1629,16 +1641,4 @@ func (t *SMTTheoryArith) applyEuclideanSolver() (result bool, err error) {
 	}
 	_, err = t.propagateCore()
 	return true, err
-}
-
-// smtRatLCM is lcm(left, right) (rational's lcm: |left*right| / gcd), or
-// 0 when either is 0.
-func smtRatLCM(left, right *big.Int) *big.Int {
-	if left.Sign() == 0 || right.Sign() == 0 {
-		return new(big.Int)
-	}
-	z := new(big.Int).GCD(nil, nil, left, right)
-	z.Quo(left, z)
-	z.Mul(z, right)
-	return z.Abs(z)
 }

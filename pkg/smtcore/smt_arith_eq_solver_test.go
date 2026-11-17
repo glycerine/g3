@@ -1,25 +1,33 @@
 package smtcore
 
 import (
-	"math/big"
 	"math/rand"
 	"testing"
+
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func smtEquationRow(values ...int64) []*big.Int {
-	row := make([]*big.Int, len(values))
+func smtEquationRow(values ...int64) []numeral.Rational {
+	row := make([]numeral.Rational, len(values))
 	for index, value := range values {
-		row[index] = big.NewInt(value)
+		row[index] = smtQZero()
+		if err := testQ().SetInt64(&row[index], value); err != nil {
+			panic(err)
+		}
 	}
 	return row
 }
 
+func smtEquationSolver() *smtArithmeticEquationSolver {
+	return &smtArithmeticEquationSolver{q: testQ()}
+}
+
 func TestSMTArithmeticEquationSolverRetainsKnownSolutions(t *testing.T) {
 	random := rand.New(rand.NewSource(17))
-	solver := &smtArithmeticEquationSolver{}
+	solver := smtEquationSolver()
 	for trial := 0; trial < 200; trial++ {
 		variables := []int64{int64(random.Intn(9) - 4), int64(random.Intn(9) - 4), int64(random.Intn(9) - 4)}
-		rows := make([][]*big.Int, 1+random.Intn(5))
+		rows := make([][]numeral.Rational, 1+random.Intn(5))
 		for rowIndex := range rows {
 			coefficients := []int64{0, int64(random.Intn(11) - 5), int64(random.Intn(11) - 5), int64(random.Intn(11) - 5)}
 			for index, variable := range variables {
@@ -35,12 +43,13 @@ func TestSMTArithmeticEquationSolverRetainsKnownSolutions(t *testing.T) {
 	}
 }
 
-func smtEquationRowEqual(row []*big.Int, values ...int64) bool {
+func smtEquationRowEqual(row []numeral.Rational, values ...int64) bool {
 	if len(row) != len(values) {
 		return false
 	}
 	for index, value := range values {
-		if row[index].Cmp(big.NewInt(value)) != 0 {
+		got, err := testQ().Int64(&row[index])
+		if err != nil || got != value {
 			return false
 		}
 	}
@@ -48,7 +57,7 @@ func smtEquationRowEqual(row []*big.Int, values ...int64) bool {
 }
 
 func TestSMTArithmeticEquationSolverSingleEquation(t *testing.T) {
-	solver := &smtArithmeticEquationSolver{}
+	solver := smtEquationSolver()
 	unsat := smtEquationRow(3, 2, 4)
 	_, _, satisfiable, err := solver.SolveEquation(unsat)
 	astTestMust(t, err)
@@ -79,12 +88,12 @@ func TestSMTArithmeticEquationSolverSingleEquation(t *testing.T) {
 }
 
 func TestSMTArithmeticEquationSolverSubstitution(t *testing.T) {
-	unit, err := smtIntegerRowSubstitute(smtEquationRow(1, 3, 4), smtEquationRow(2, -1, 5), 1)
+	unit, err := smtEquationSolver().substitute(smtEquationRow(1, 3, 4), smtEquationRow(2, -1, 5), 1)
 	astTestMust(t, err)
 	if !smtEquationRowEqual(unit, 7, 0, 19) {
 		t.Fatal("unit substitution", unit)
 	}
-	nonunit, err := smtIntegerRowSubstitute(smtEquationRow(1, 2), smtEquationRow(3, 4, 5), 1)
+	nonunit, err := smtEquationSolver().substitute(smtEquationRow(1, 2), smtEquationRow(3, 4, 5), 1)
 	astTestMust(t, err)
 	if !smtEquationRowEqual(nonunit, 7, 8, 10) {
 		t.Fatal("auxiliary substitution", nonunit)
@@ -92,20 +101,20 @@ func TestSMTArithmeticEquationSolverSubstitution(t *testing.T) {
 }
 
 func TestSMTArithmeticEquationSolverMatrixGCDElimination(t *testing.T) {
-	solver := &smtArithmeticEquationSolver{}
-	unsatRows := [][]*big.Int{smtEquationRow(0, 1, 1), smtEquationRow(1, 1, -1)}
+	solver := smtEquationSolver()
+	unsatRows := [][]numeral.Rational{smtEquationRow(0, 1, 1), smtEquationRow(1, 1, -1)}
 	satisfiable, witness, err := solver.SolveEquations(unsatRows)
 	astTestMust(t, err)
 	if satisfiable || len(witness) == 0 {
 		t.Fatal("matrix GCD contradiction was missed", satisfiable, witness, unsatRows)
 	}
-	valid, err := smtIntegerRowGCDTest(witness)
+	valid, err := solver.gcdTest(witness)
 	astTestMust(t, err)
 	if valid {
 		t.Fatal("reported contradiction row passes divisibility", witness)
 	}
 
-	satRows := [][]*big.Int{smtEquationRow(0, 1, 1), smtEquationRow(2, 1, -1)}
+	satRows := [][]numeral.Rational{smtEquationRow(0, 1, 1), smtEquationRow(2, 1, -1)}
 	satisfiable, witness, err = solver.SolveEquations(satRows)
 	astTestMust(t, err)
 	if !satisfiable || witness != nil {
@@ -123,8 +132,8 @@ func TestSMTArithmeticEquationSolverMatrixGCDElimination(t *testing.T) {
 // rational gcd(r1, r2, u, v) follows mpz_manager::gcd (gcd(0,0) gives u=1,
 // v=0). Expected rows are those of the C++ arith_eq_solver.
 func TestSMTArithmeticEquationSolverMatchesSourceUsefulAccumulation(t *testing.T) {
-	solver := &smtArithmeticEquationSolver{}
-	rows := [][]*big.Int{smtEquationRow(1, 4, 1, 3), smtEquationRow(0, 3, 0, 4), smtEquationRow(-2, 2, 0, -1)}
+	solver := smtEquationSolver()
+	rows := [][]numeral.Rational{smtEquationRow(1, 4, 1, 3), smtEquationRow(0, 3, 0, 4), smtEquationRow(-2, 2, 0, -1)}
 	satisfiable, witness, err := solver.SolveEquations(rows)
 	astTestMust(t, err)
 	if !satisfiable || witness != nil {
@@ -136,7 +145,7 @@ func TestSMTArithmeticEquationSolverMatchesSourceUsefulAccumulation(t *testing.T
 			t.Fatal("row", i, rows[i], want[i])
 		}
 	}
-	rows = [][]*big.Int{smtEquationRow(0, 1, 1), smtEquationRow(2, 1, -1)}
+	rows = [][]numeral.Rational{smtEquationRow(0, 1, 1), smtEquationRow(2, 1, -1)}
 	satisfiable, witness, err = solver.SolveEquations(rows)
 	astTestMust(t, err)
 	if !satisfiable || witness != nil {

@@ -4,313 +4,605 @@ package smtcore
 // integer-row operations used by the full arithmetic theory.
 
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-// smtArithmeticEquationSolver mutates integer coefficient rows in source
-// order. Column zero is the constant and columns one onward are variables.
-type smtArithmeticEquationSolver struct{}
-
-func smtIntegerRowValid(row []*big.Int) bool {
-	if len(row) < 2 {
-		return false
-	}
-	for _, value := range row {
-		if value == nil {
-			return false
-		}
-	}
-	return true
+// smtArithmeticEquationSolver mutates integer coefficient rows (row, a
+// vector<rational>) in source order. Column zero is the constant and columns
+// one onward are variables. Rows are rationals of q; the caller owns them.
+type smtArithmeticEquationSolver struct {
+	q *numeral.RationalManager
 }
 
-func smtIntegerAbs(value *big.Int) *big.Int { return new(big.Int).Abs(value) }
+// smtEqSolverScratch holds the solver's local rationals; del frees them.
+type smtEqSolverScratch struct {
+	q    *numeral.RationalManager
+	vals []numeral.Rational
+	err  error
+}
 
-func smtIntegerRowGCDNormalize(row []*big.Int) error {
-	if !smtIntegerRowValid(row) {
-		return ast.ErrASTDomain
+func (s *smtEqSolverScratch) keep(err error) {
+	if err != nil && s.err == nil {
+		s.err = err
 	}
-	gcd := new(big.Int)
-	for _, value := range row {
-		if value.Sign() == 0 {
+}
+
+func (s *smtEqSolverScratch) del(rs ...*numeral.Rational) {
+	for _, r := range rs {
+		s.keep(smtQDel(s.q, r))
+	}
+}
+
+func smtIntegerRowValid(row []numeral.Rational) bool { return len(row) >= 2 }
+
+// gcdNormalize is gcd_normalize.
+func (s *smtArithmeticEquationSolver) gcdNormalize(row []numeral.Rational) (err error) {
+	q := s.q
+	g, a := smtQZero(), smtQZero()
+	defer func() {
+		for _, r := range []*numeral.Rational{&g, &a} {
+			if e := smtQDel(q, r); e != nil && err == nil {
+				err = e
+			}
+		}
+	}()
+	for i := 0; i < len(row); i++ {
+		if one, e := q.IsOne(&g); e != nil || one {
+			if e != nil {
+				return e
+			}
+			break
+		}
+		zero, e := q.IsZero(&row[i])
+		if e != nil {
+			return e
+		}
+		if zero {
 			continue
 		}
-		if gcd.Sign() == 0 {
-			gcd.Abs(value)
+		if e = q.Copy(&a, &row[i]); e != nil {
+			return e
+		}
+		if e = q.Abs(&a); e != nil {
+			return e
+		}
+		gz, e := q.IsZero(&g)
+		if e != nil {
+			return e
+		}
+		if gz {
+			e = q.Copy(&g, &a)
 		} else {
-			gcd.GCD(nil, nil, gcd, smtIntegerAbs(value))
+			e = q.GCD(&a, &g, &g)
 		}
-		if gcd.Cmp(big.NewInt(1)) == 0 {
-			return nil
+		if e != nil {
+			return e
 		}
 	}
-	if gcd.Sign() == 0 || gcd.Cmp(big.NewInt(1)) == 0 {
-		return nil
+	gz, e := q.IsZero(&g)
+	if e != nil {
+		return e
 	}
-	for _, value := range row {
-		value.Quo(value, gcd)
+	gOne, e := q.IsOne(&g)
+	if e != nil || gz || gOne {
+		return e
+	}
+	for i := range row {
+		if e = q.Div(&row[i], &g, &row[i]); e != nil {
+			return e
+		}
 	}
 	return nil
 }
 
-func smtIntegerRowGCDTest(row []*big.Int) (bool, error) {
-	if !smtIntegerRowValid(row) {
+// gcdTest is gcd_test: the constant is divisible by the gcd of the
+// variable coefficients.
+func (s *smtArithmeticEquationSolver) gcdTest(row []numeral.Rational) (result bool, err error) {
+	if len(row) == 0 {
 		return false, ast.ErrASTDomain
 	}
-	gcd := new(big.Int)
-	for index := 1; index < len(row) && gcd.Cmp(big.NewInt(1)) != 0; index++ {
-		if row[index].Sign() == 0 {
+	q := s.q
+	g, a := smtQZero(), smtQZero()
+	defer func() {
+		for _, r := range []*numeral.Rational{&g, &a} {
+			if e := smtQDel(q, r); e != nil && err == nil {
+				err = e
+			}
+		}
+	}()
+	for i := 1; i < len(row); i++ {
+		if one, e := q.IsOne(&g); e != nil || one {
+			if e != nil {
+				return false, e
+			}
+			break
+		}
+		zero, e := q.IsZero(&row[i])
+		if e != nil {
+			return false, e
+		}
+		if zero {
 			continue
 		}
-		if gcd.Sign() == 0 {
-			gcd.Abs(row[index])
+		if e = q.Copy(&a, &row[i]); e != nil {
+			return false, e
+		}
+		if e = q.Abs(&a); e != nil {
+			return false, e
+		}
+		gz, e := q.IsZero(&g)
+		if e != nil {
+			return false, e
+		}
+		if gz {
+			e = q.Copy(&g, &a)
 		} else {
-			gcd.GCD(nil, nil, gcd, smtIntegerAbs(row[index]))
+			e = q.GCD(&a, &g, &g)
+		}
+		if e != nil {
+			return false, e
 		}
 	}
-	if gcd.Cmp(big.NewInt(1)) == 0 {
-		return true, nil
+	if one, e := q.IsOne(&g); e != nil || one {
+		return one, e
 	}
-	if gcd.Sign() == 0 {
-		return row[0].Sign() == 0, nil
+	if gz, e := q.IsZero(&g); e != nil || gz {
+		if e != nil {
+			return false, e
+		}
+		return q.IsZero(&row[0])
 	}
-	return new(big.Int).Rem(row[0], gcd).Sign() == 0, nil
+	if e := q.Div(&row[0], &g, &a); e != nil {
+		return false, e
+	}
+	return q.IsInt(&a)
 }
 
-func smtIntegerRowAbsMin(row []*big.Int) (int, error) {
-	if !smtIntegerRowValid(row) {
-		return 0, ast.ErrASTDomain
-	}
-	index := 1
-	minimum := smtIntegerAbs(row[index])
-	for current := 2; current < len(row); current++ {
-		value := smtIntegerAbs(row[current])
-		if minimum.Sign() == 0 || value.Sign() != 0 && value.Cmp(minimum) < 0 {
-			index, minimum = current, value
+// findAbsMin is find_abs_min.
+func (s *smtArithmeticEquationSolver) findAbsMin(row []numeral.Rational) (index int, err error) {
+	q := s.q
+	v, w := smtQZero(), smtQZero()
+	defer func() {
+		for _, r := range []*numeral.Rational{&v, &w} {
+			if e := smtQDel(q, r); e != nil && err == nil {
+				err = e
+			}
+		}
+	}()
+	for i := 1; i < len(row); i++ {
+		if err = q.Copy(&w, &row[i]); err != nil {
+			return 0, err
+		}
+		if err = q.Abs(&w); err != nil {
+			return 0, err
+		}
+		vz, e := q.IsZero(&v)
+		if e != nil {
+			return 0, e
+		}
+		take := vz
+		if !take {
+			wz, e := q.IsZero(&w)
+			if e != nil {
+				return 0, e
+			}
+			c, e := q.Compare(&w, &v)
+			if e != nil {
+				return 0, e
+			}
+			take = !wz && c < 0
+		}
+		if take {
+			index = i
+			if err = q.Copy(&v, &w); err != nil {
+				return 0, err
+			}
 		}
 	}
 	return index, nil
 }
 
-func smtIntegerModHat(value, modulus *big.Int) *big.Int {
-	remainder := new(big.Int).Mod(value, modulus)
-	if new(big.Int).Lsh(new(big.Int).Set(remainder), 1).Cmp(modulus) > 0 {
-		remainder.Sub(remainder, modulus)
+func (s *smtArithmeticEquationSolver) negRow(row []numeral.Rational) error {
+	for i := range row {
+		if e := s.q.Neg(&row[i]); e != nil {
+			return e
+		}
 	}
-	return remainder
+	return nil
 }
 
-// SolveEquation performs one source Omega equality-elimination step. On
-// success, index identifies the solved variable; fresh reports whether its
-// replacement uses a new auxiliary integer variable.
-func (*smtArithmeticEquationSolver) SolveEquation(row []*big.Int) (index int, fresh bool, satisfiable bool, err error) {
-	if err = smtIntegerRowGCDNormalize(row); err != nil {
+// modHat is mod_hat(a, b): mod(a, b), less b when twice it exceeds b.
+func (s *smtArithmeticEquationSolver) modHat(a, b *numeral.Rational) (err error) {
+	q := s.q
+	r2 := smtQZero()
+	defer func() {
+		if e := smtQDel(q, &r2); e != nil && err == nil {
+			err = e
+		}
+	}()
+	if err = q.Mod(a, b, a); err != nil {
+		return err
+	}
+	if err = q.Add(a, a, &r2); err != nil {
+		return err
+	}
+	c, err := q.Compare(b, &r2)
+	if err != nil || c >= 0 {
+		return err
+	}
+	return q.Sub(a, b, a)
+}
+
+// SolveEquation is solve_integer_equation, one Omega equality-elimination
+// step. On success, index identifies the solved variable; fresh reports
+// whether its replacement uses a new auxiliary integer variable.
+func (s *smtArithmeticEquationSolver) SolveEquation(row []numeral.Rational) (index int, fresh bool, satisfiable bool, err error) {
+	if !smtIntegerRowValid(row) {
+		return 0, false, false, ast.ErrASTDomain
+	}
+	q := s.q
+	if err = s.gcdNormalize(row); err != nil {
 		return 0, false, false, err
 	}
-	if satisfiable, err = smtIntegerRowGCDTest(row); err != nil || !satisfiable {
+	if satisfiable, err = s.gcdTest(row); err != nil || !satisfiable {
 		return 0, false, satisfiable, err
 	}
-	index, err = smtIntegerRowAbsMin(row)
+	if index, err = s.findAbsMin(row); err != nil {
+		return 0, false, false, err
+	}
+	absA := smtQZero()
+	defer func() {
+		if e := smtQDel(q, &absA); e != nil && err == nil {
+			err = e
+		}
+	}()
+	if err = q.Copy(&absA, &row[index]); err != nil {
+		return 0, false, false, err
+	}
+	aOne, err := q.IsOne(&absA)
 	if err != nil {
 		return 0, false, false, err
 	}
-	coefficient := new(big.Int).Set(row[index])
-	absolute := smtIntegerAbs(coefficient)
-	if absolute.Sign() == 0 {
-		return index, false, true, nil
+	if err = q.Abs(&absA); err != nil {
+		return 0, false, false, err
 	}
-	if coefficient.Cmp(big.NewInt(1)) == 0 {
-		for _, value := range row {
-			value.Neg(value)
+	if zero, e := q.IsZero(&absA); e != nil || zero {
+		return index, false, e == nil, e
+	}
+	if aOne {
+		if err = s.negRow(row); err != nil {
+			return 0, false, false, err
 		}
 	}
-	fresh = absolute.Cmp(big.NewInt(1)) != 0
+	absOne, err := q.IsOne(&absA)
+	if err != nil {
+		return 0, false, false, err
+	}
+	fresh = !absOne
 	if !fresh {
 		return index, false, true, nil
 	}
-	modulus := new(big.Int).Add(absolute, big.NewInt(1))
-	for position := range row {
-		row[position].Set(smtIntegerModHat(row[position], modulus))
+	// m = abs_a + 1, held in absA.
+	if err = q.Inc(&absA); err != nil {
+		return 0, false, false, err
 	}
-	if row[index].Cmp(big.NewInt(1)) == 0 {
-		for _, value := range row {
-			value.Neg(value)
+	for i := range row {
+		if err = s.modHat(&row[i], &absA); err != nil {
+			return 0, false, false, err
 		}
 	}
-	if row[index].Cmp(big.NewInt(-1)) != 0 {
-		return 0, false, false, ast.ErrASTDomain
+	if one, e := q.IsOne(&row[index]); e != nil || one {
+		if e != nil {
+			return 0, false, false, e
+		}
+		if err = s.negRow(row); err != nil {
+			return 0, false, false, err
+		}
 	}
-	row[index].Set(modulus)
+	if minusOne, e := q.IsMinusOne(&row[index]); e != nil || !minusOne {
+		if e == nil {
+			e = ast.ErrASTDomain
+		}
+		return 0, false, false, e
+	}
+	if err = q.Copy(&row[index], &absA); err != nil {
+		return 0, false, false, err
+	}
 	return index, true, true, nil
 }
 
-func smtIntegerRowSubstitute(row, solved []*big.Int, index int) ([]*big.Int, error) {
-	if !smtIntegerRowValid(row) || !smtIntegerRowValid(solved) || index < 1 || index >= len(solved) {
+// substitute is substitute(r, s, index): r may grow to the size of solved.
+func (s *smtArithmeticEquationSolver) substitute(row, solved []numeral.Rational, index int) (_ []numeral.Rational, err error) {
+	if !smtIntegerRowValid(solved) || index < 1 || index >= len(solved) {
 		return nil, ast.ErrASTDomain
 	}
-	if index >= len(row) || row[index].Sign() == 0 {
+	if index >= len(row) {
 		return row, nil
 	}
-	coefficient := new(big.Int).Set(row[index])
-	unit := smtIntegerAbs(solved[index]).Cmp(big.NewInt(1)) == 0
-	if len(row) < len(solved) {
-		for len(row) < len(solved) {
-			row = append(row, new(big.Int))
+	q := s.q
+	c, t := smtQZero(), smtQZero()
+	defer func() {
+		for _, r := range []*numeral.Rational{&c, &t} {
+			if e := smtQDel(q, r); e != nil && err == nil {
+				err = e
+			}
 		}
+	}()
+	if err = q.Copy(&c, &row[index]); err != nil {
+		return nil, err
 	}
+	if zero, e := q.IsZero(&c); e != nil || zero {
+		return row, e
+	}
+	if err = q.Copy(&t, &solved[index]); err != nil {
+		return nil, err
+	}
+	if err = q.Abs(&t); err != nil {
+		return nil, err
+	}
+	unit, err := q.IsOne(&t)
+	if err != nil {
+		return nil, err
+	}
+	n := len(row)
 	if unit {
-		sign := int64(-1)
-		if solved[index].Sign() > 0 {
-			sign = 1
+		// c*sign_s, with sign_s the sign of s[index].
+		pos, e := q.IsPos(&solved[index])
+		if e != nil {
+			return nil, e
 		}
-		factor := new(big.Int).Mul(coefficient, big.NewInt(sign))
-		for position := range solved {
-			row[position].Sub(row[position], new(big.Int).Mul(factor, solved[position]))
+		if !pos {
+			if err = q.Neg(&c); err != nil {
+				return nil, err
+			}
+		}
+		for i := 0; i < n; i++ {
+			if err = q.Mul(&c, &solved[i], &t); err != nil {
+				return nil, err
+			}
+			if err = q.Sub(&row[i], &t, &row[i]); err != nil {
+				return nil, err
+			}
+		}
+		for i := n; i < len(solved); i++ {
+			v := smtQZero()
+			if err = q.Mul(&c, &solved[i], &v); err == nil {
+				err = q.Neg(&v)
+			}
+			row = append(row, v)
+			if err != nil {
+				return nil, err
+			}
 		}
 		return row, nil
 	}
-	row[index].SetInt64(0)
-	for position := range solved {
-		row[position].Add(row[position], new(big.Int).Mul(coefficient, solved[position]))
+	if err = q.SetInt64(&row[index], 0); err != nil {
+		return nil, err
+	}
+	for i := 0; i < n; i++ {
+		if err = q.Mul(&c, &solved[i], &t); err != nil {
+			return nil, err
+		}
+		if err = q.Add(&row[i], &t, &row[i]); err != nil {
+			return nil, err
+		}
+	}
+	for i := n; i < len(solved); i++ {
+		v := smtQZero()
+		err = q.Mul(&c, &solved[i], &v)
+		row = append(row, v)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return row, nil
 }
 
-// SolveEquations applies the source GCD combination/elimination algorithm.
-// A false result returns an integer row whose constant violates the variable
-// coefficient GCD divisibility test.
-func (*smtArithmeticEquationSolver) SolveEquations(rows [][]*big.Int) (bool, []*big.Int, error) {
+// copyRow is unsat_row = r: a copy the caller owns.
+func (s *smtArithmeticEquationSolver) copyRow(row []numeral.Rational) ([]numeral.Rational, error) {
+	out := make([]numeral.Rational, len(row))
+	for i := range row {
+		out[i] = smtQZero()
+		if e := s.q.Copy(&out[i], &row[i]); e != nil {
+			_, d := smtQDelAll(s.q, out)
+			if d != nil {
+				return nil, d
+			}
+			return nil, e
+		}
+	}
+	return out, nil
+}
+
+// SolveEquations is solve_integer_equations (solve_integer_equations_gcd).
+// A false result with a row returns unsat_row, a row whose constant
+// violates the variable coefficient GCD divisibility test; the caller owns
+// it. A false result without a row is the source's pivot that is not a
+// unit (unsat_row left empty).
+func (s *smtArithmeticEquationSolver) SolveEquations(rows [][]numeral.Rational) (_ bool, _ []numeral.Rational, err error) {
 	if len(rows) == 0 {
 		return true, nil, nil
 	}
+	q := s.q
 	columns := len(rows[0])
 	live := make([]int, len(rows))
-	for index, row := range rows {
-		if !smtIntegerRowValid(row) || len(row) != columns {
+	for i := range rows {
+		if !smtIntegerRowValid(rows[i]) || len(rows[i]) != columns {
 			return false, nil, ast.ErrASTDomain
 		}
-		live[index] = index
-		if err := smtIntegerRowGCDNormalize(row); err != nil {
+		live[i] = i
+		if err = s.gcdNormalize(rows[i]); err != nil {
 			return false, nil, err
 		}
-		valid, err := smtIntegerRowGCDTest(row)
-		if err != nil {
-			return false, nil, err
+		valid, e := s.gcdTest(rows[i])
+		if e != nil {
+			return false, nil, e
 		}
 		if !valid {
-			return false, smtIntegerRowCopy(row), nil
+			row, e := s.copyRow(rows[i])
+			return false, row, e
 		}
 	}
+	sc := &smtEqSolverScratch{q: q}
+	g, k, u, v, t1, t2 := smtQZero(), smtQZero(), smtQZero(), smtQZero(), smtQZero(), smtQZero()
+	var gcds []numeral.Rational
+	defer func() {
+		sc.del(&g, &k, &u, &v, &t1, &t2)
+		_, e := smtQDelAll(q, gcds)
+		sc.keep(e)
+		if err == nil {
+			err = sc.err
+		}
+	}()
 	// unsigned_vector useful is declared once per call and never reset:
 	// from the second pivot on r0 is the first pivot row ever chosen,
 	// recombined with every earlier useful row.
-	var useful []int
-	for changed := true; changed && len(live) != 0; {
-		changed = false
-		for column := 1; column < columns; column++ {
-			gcd := new(big.Int)
-			var prefixGCD []*big.Int
-			var prefixRows []int
-			position := 0
-			for ; position < len(live); position++ {
-				coefficient := rows[live[position]][column]
-				if coefficient.Sign() == 0 {
+	var useful, gcdPos []int
+	for change := true; change && len(live) != 0; {
+		change = false
+		for i := 1; i < columns; i++ {
+			if err = q.SetInt64(&g, 0); err != nil {
+				return false, nil, err
+			}
+			if gcds, err = smtQDelAll(q, gcds); err != nil {
+				return false, nil, err
+			}
+			gcdPos = gcdPos[:0]
+			j := 0
+			for ; j < len(live); j++ {
+				kz, e := q.IsZero(&rows[live[j]][i])
+				if e != nil {
+					return false, nil, e
+				}
+				if kz {
 					continue
 				}
-				if gcd.Sign() == 0 {
-					gcd.Abs(coefficient)
-				} else {
-					gcd.GCD(nil, nil, gcd, smtIntegerAbs(coefficient))
+				if err = q.Copy(&k, &rows[live[j]][i]); err != nil {
+					return false, nil, err
 				}
-				if gcd.Cmp(big.NewInt(1)) == 0 {
+				if err = q.Abs(&k); err != nil {
+					return false, nil, err
+				}
+				gz, e := q.IsZero(&g)
+				if e != nil {
+					return false, nil, e
+				}
+				if gz {
+					err = q.Copy(&g, &k)
+				} else {
+					err = q.GCD(&g, &k, &g)
+				}
+				if err != nil {
+					return false, nil, err
+				}
+				if one, e := q.IsOne(&g); e != nil || one {
+					if e != nil {
+						return false, nil, e
+					}
 					break
 				}
-				prefixGCD = append(prefixGCD, new(big.Int).Set(gcd))
-				prefixRows = append(prefixRows, live[position])
+				saved, e := smtQNew(q, &g)
+				if e != nil {
+					return false, nil, e
+				}
+				gcds = append(gcds, saved)
+				gcdPos = append(gcdPos, live[j])
 			}
-			if position == len(live) {
+			if j == len(live) {
 				continue
 			}
-			changed = true
-			useful = append(useful, live[position])
-			gcd.Abs(rows[live[position]][column])
-			for cursor := len(prefixGCD); gcd.Cmp(big.NewInt(1)) != 0 && cursor > 0; {
-				cursor--
-				priorMakesUnit := cursor > 0 && new(big.Int).GCD(nil, nil, gcd, prefixGCD[cursor-1]).Cmp(big.NewInt(1)) == 0
-				if cursor == 0 || !priorMakesUnit {
-					useful = append(useful, prefixRows[cursor])
-					gcd.GCD(nil, nil, gcd, prefixGCD[cursor])
+			change = true
+			// found gcd, now identify reduced set of rows with GCD = 1.
+			if err = q.Copy(&g, &rows[live[j]][i]); err != nil {
+				return false, nil, err
+			}
+			if err = q.Abs(&g); err != nil {
+				return false, nil, err
+			}
+			useful = append(useful, live[j])
+			livePos := j
+			for j = len(gcds); j > 0; {
+				one, e := q.IsOne(&g)
+				if e != nil {
+					return false, nil, e
+				}
+				if one {
+					break
+				}
+				j--
+				prior := false
+				if j > 0 {
+					if err = q.GCD(&g, &gcds[j-1], &t1); err != nil {
+						return false, nil, err
+					}
+					if prior, err = q.IsOne(&t1); err != nil {
+						return false, nil, err
+					}
+				}
+				if j == 0 || !prior {
+					useful = append(useful, gcdPos[j])
+					if err = q.GCD(&g, &gcds[j], &g); err != nil {
+						return false, nil, err
+					}
 				}
 			}
-			pivot := rows[useful[0]]
-			for _, rowIndex := range useful[1:] {
-				other := rows[rowIndex]
-				u, v := smtMpzGCDCoefficients(pivot[column], other[column])
-				for index := 0; index < columns; index++ {
-					pivot[index].Set(new(big.Int).Add(new(big.Int).Mul(u, pivot[index]), new(big.Int).Mul(v, other[index])))
+			// we now have a set "useful" of rows whose combined GCD = 1.
+			// pivot the remaining with the first row.
+			r0 := rows[useful[0]]
+			for j = 1; j < len(useful); j++ {
+				r1 := rows[useful[j]]
+				if err = q.ExtendedGCD(&r0[i], &r1[i], &u, &v, &g); err != nil {
+					return false, nil, err
+				}
+				for c := 0; c < columns; c++ {
+					if err = q.Mul(&u, &r0[c], &t1); err != nil {
+						return false, nil, err
+					}
+					if err = q.Mul(&v, &r1[c], &t2); err != nil {
+						return false, nil, err
+					}
+					if err = q.Add(&t1, &t2, &r0[c]); err != nil {
+						return false, nil, err
+					}
 				}
 			}
-			if smtIntegerAbs(pivot[column]).Cmp(big.NewInt(1)) != 0 {
-				return false, nil, nil
+			if err = q.Copy(&t1, &r0[i]); err != nil {
+				return false, nil, err
 			}
-			live = append(live[:position], live[position+1:]...)
+			if err = q.Abs(&t1); err != nil {
+				return false, nil, err
+			}
+			if one, e := q.IsOne(&t1); e != nil || !one {
+				return false, nil, e
+			}
+			live = append(live[:livePos], live[livePos+1:]...)
 			for _, rowIndex := range live {
-				if rows[rowIndex][column].Sign() == 0 {
+				rz, e := q.IsZero(&rows[rowIndex][i])
+				if e != nil {
+					return false, nil, e
+				}
+				if rz {
 					continue
 				}
-				row, err := smtIntegerRowSubstitute(rows[rowIndex], pivot, column)
-				if err != nil {
-					return false, nil, err
+				row, e := s.substitute(rows[rowIndex], r0, i)
+				if e != nil {
+					return false, nil, e
 				}
 				rows[rowIndex] = row
-				if err = smtIntegerRowGCDNormalize(row); err != nil {
+				if err = s.gcdNormalize(row); err != nil {
 					return false, nil, err
 				}
-				valid, err := smtIntegerRowGCDTest(row)
-				if err != nil {
-					return false, nil, err
+				valid, e := s.gcdTest(row)
+				if e != nil {
+					return false, nil, e
 				}
 				if !valid {
-					return false, smtIntegerRowCopy(row), nil
+					out, e := s.copyRow(row)
+					return false, out, e
 				}
 			}
 		}
 	}
 	return true, nil, nil
-}
-
-func smtIntegerRowCopy(row []*big.Int) []*big.Int {
-	copyRow := make([]*big.Int, len(row))
-	for index, value := range row {
-		copyRow[index] = new(big.Int).Set(value)
-	}
-	return copyRow
-}
-
-// smtMpzGCDCoefficients is mpz_manager::gcd(r1, r2, a, b, r): the extended
-// Euclid loop on absolute values with truncating quotients, the coefficient
-// signs fixed afterwards. gcd(0, 0) gives a = 1, b = 0.
-func smtMpzGCDCoefficients(r1, r2 *big.Int) (*big.Int, *big.Int) {
-	tmp1, tmp2 := new(big.Int).Abs(r1), new(big.Int).Abs(r2)
-	a, b := big.NewInt(1), big.NewInt(0)
-	nexta, nextb := big.NewInt(0), big.NewInt(1)
-	if tmp1.Cmp(tmp2) < 0 {
-		tmp1, tmp2 = tmp2, tmp1
-		nexta, nextb = nextb, nexta
-		a, b = b, a
-	}
-	for tmp2.Sign() > 0 {
-		quot, rem := new(big.Int).QuoRem(tmp1, tmp2, new(big.Int))
-		tmp1, tmp2 = tmp2, rem
-		a, nexta = nexta, new(big.Int).Sub(a, new(big.Int).Mul(quot, nexta))
-		b, nextb = nextb, new(big.Int).Sub(b, new(big.Int).Mul(nextb, quot))
-	}
-	if r1.Sign() < 0 {
-		a.Neg(a)
-	}
-	if r2.Sign() < 0 {
-		b.Neg(b)
-	}
-	return a, b
 }
