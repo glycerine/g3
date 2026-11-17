@@ -1514,7 +1514,10 @@ func (t *SMTTheoryArith) mkBoundAxiom(a1, a2 *smtArithmeticAtom) (err error) {
 	k1, k2 := &a1.threshold, &a2.threshold
 	kind1, kind2 := a1.atomKind, a2.atomKind
 	vIsInt := t.isInt(v)
-	if k1.cmp(k2) == 0 && kind1 == kind2 {
+	// c12 is k1.cmp(k2), which never changes below (thresholdCmp reads the
+	// cached machine-word thresholds when both have them).
+	c12 := a1.thresholdCmp(a2)
+	if c12 == 0 && kind1 == kind2 {
 		return nil
 	}
 	coeffs, err := t.farkasOneParameters(2)
@@ -1522,16 +1525,14 @@ func (t *SMTTheoryArith) mkBoundAxiom(a1, a2 *smtArithmeticAtom) (err error) {
 		return err
 	}
 	defer func() { err = errors.Join(err, smtArithmeticReleaseParameters(t.state.manager, coeffs)) }()
-	var one smtArithmeticValue
-	one.rational.SetInt64(1)
 	if kind1 == smtArithmeticLowerAtom {
 		if kind2 == smtArithmeticLowerAtom {
-			if k2.cmp(k1) <= 0 {
+			if c12 >= 0 {
 				return t.mkClause2(l1.Negated(), l2, coeffs)
 			}
 			return t.mkClause2(l1, l2.Negated(), coeffs)
 		}
-		if k1.cmp(k2) <= 0 {
+		if c12 <= 0 {
 			// k1 <= k2, k1 <= x or x <= k2
 			return t.mkClause2(l1, l2, coeffs)
 		}
@@ -1539,17 +1540,14 @@ func (t *SMTTheoryArith) mkBoundAxiom(a1, a2 *smtArithmeticAtom) (err error) {
 		if err = t.mkClause2(l1.Negated(), l2.Negated(), coeffs); err != nil {
 			return err
 		}
-		var k2p1 smtArithmeticValue
-		k2p1.set(k2)
-		k2p1.add(&one)
-		if vIsInt && k1.cmp(&k2p1) == 0 {
+		if vIsInt && smtBoundAxiomOffsetEq(a1, a2, k1, k2, 1) {
 			// k1 <= x or x <= k1-1
 			return t.mkClause2(l1, l2, coeffs)
 		}
 		return nil
 	}
 	if kind2 == smtArithmeticLowerAtom {
-		if k1.cmp(k2) >= 0 {
+		if c12 >= 0 {
 			// k1 >= lo_inf, k1 >= x or lo_inf <= x
 			return t.mkClause2(l1, l2, coeffs)
 		}
@@ -1557,22 +1555,37 @@ func (t *SMTTheoryArith) mkBoundAxiom(a1, a2 *smtArithmeticAtom) (err error) {
 		if err = t.mkClause2(l1.Negated(), l2.Negated(), coeffs); err != nil {
 			return err
 		}
-		var k2m1 smtArithmeticValue
-		k2m1.set(k2)
-		k2m1.sub(&one)
-		if vIsInt && k1.cmp(&k2m1) == 0 {
+		if vIsInt && smtBoundAxiomOffsetEq(a1, a2, k1, k2, -1) {
 			// x <= k1 or k1+l <= x
 			return t.mkClause2(l1, l2, coeffs)
 		}
 		return nil
 	}
 	// kind1 == A_UPPER, kind2 == A_UPPER
-	if k1.cmp(k2) >= 0 {
+	if c12 >= 0 {
 		// k1 >= k2, x <= k2 => x <= k1
 		return t.mkClause2(l1, l2.Negated(), coeffs)
 	}
 	// k1 <= hi_sup , x <= k1 =>  x <= hi_sup
 	return t.mkClause2(l1.Negated(), l2, coeffs)
+}
+
+// smtBoundAxiomOffsetEq reports k1 == k2 + d (d is 1 or -1) for the
+// thresholds k1, k2 of atoms a1, a2: with machine-word thresholds it compares
+// words, otherwise it computes k2 + d exactly as mk_bound_axiom does.
+func smtBoundAxiomOffsetEq(a1, a2 *smtArithmeticAtom, k1, k2 *smtArithmeticValue, d int64) bool {
+	if a1.smallK && a2.smallK && (d > 0 && a2.kRational < math.MaxInt64 || d < 0 && a2.kRational > math.MinInt64) {
+		return a1.kRational == a2.kRational+d && a1.kEp == a2.kEp
+	}
+	var one, k smtArithmeticValue
+	one.rational.SetInt64(1)
+	k.set(k2)
+	if d > 0 {
+		k.add(&one)
+	} else {
+		k.sub(&one)
+	}
+	return k1.cmp(&k) == 0
 }
 
 // smtCompareAtomsLess is theory_arith::compare_atoms (theory_arith.h): it
