@@ -51,7 +51,7 @@ func TestFiniteCheckedPairDetectsConcreteMismatch(t *testing.T) {
 	defer func() { must(t, pair.Close()) }()
 	_, err = pair.primary.Add(Fact{1})
 	must(t, err)
-	if _, err = pair.Facts(); !errors.Is(err, ErrCheckTable) {
+	if err = pair.wellFormed(); !errors.Is(err, ErrCheckTable) {
 		t.Fatal("concrete mismatch was not detected", err)
 	}
 }

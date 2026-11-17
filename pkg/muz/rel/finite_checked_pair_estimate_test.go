@@ -85,8 +85,9 @@ func TestFiniteCheckedPairEstimatesLeaveDataMismatchGuardsActive(t *testing.T) {
 	if rows != 1 || bytes != 1 {
 		t.Fatal("lazy primary metadata", rows, bytes)
 	}
-	if _, err = pair.Facts(); !errors.Is(err, ErrCheckTable) {
-		t.Fatal("data observation lost mismatch guard", err)
+	// check_table::well_formed, run after each check-table operation.
+	if err = pair.wellFormed(); !errors.Is(err, ErrCheckTable) {
+		t.Fatal("well_formed lost mismatch guard", err)
 	}
 	if _, err = pair.Contains(Fact{2}); !errors.Is(err, ErrCheckTable) {
 		t.Fatal("membership lost mismatch guard", err)

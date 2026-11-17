@@ -21,7 +21,7 @@ func (table *SparseTable) FetchFunctionalKey(key Fact) (Fact, bool, error) {
 		}
 		probe[column] = value
 	}
-	if found, err := table.FetchFact(probe); err != nil || !found {
+	if found, err := table.fetchFunctional(probe); err != nil || !found {
 		return nil, false, err
 	}
 	return append(Fact(nil), probe[firstFunctional:]...), true, nil

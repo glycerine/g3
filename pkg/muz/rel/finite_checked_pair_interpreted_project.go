@@ -23,7 +23,7 @@ func checkedFiniteInterpretedProject(table FiniteTable, manager *RelationManager
 // transformer: checker first, selected primary second, followed by an
 // extensional comparison of the independently owned projected results.
 func (p *FiniteCheckedPair) FilterInterpretedAndProject(manager *RelationManager, relationSorts []ast.ASTHandle, theory *astrewriter.TheoryRewriter, conditions []ast.ASTHandle, columns map[uint32]int, sorts map[uint32]ast.ASTHandle, removed []int) (*FiniteCheckedPair, error) {
-	if err := p.verify("filter interpreted project input"); err != nil {
+	if err := p.open(); err != nil {
 		return nil, err
 	}
 	checker, err := checkedFiniteInterpretedProject(p.checker, manager, relationSorts, theory, conditions, columns, sorts, removed)

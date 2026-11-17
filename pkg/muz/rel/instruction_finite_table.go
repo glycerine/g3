@@ -669,13 +669,7 @@ func finiteTableUnion(target, source, delta FiniteTable) error {
 			}
 			continue
 		}
-		var found bool
-		var x error
-		if sparse, ok := target.(*SparseTable); ok {
-			found, x = sparse.ContainsFact(fact)
-		} else {
-			found, x = target.Contains(fact)
-		}
+		found, x := tableContainsFact(target, fact)
 		if x != nil {
 			return x
 		}
@@ -800,11 +794,7 @@ func defaultTableNegationFilter(target, negative FiniteTable, negSize int, targe
 			for index := range targetColumns {
 				aux[negativeColumns[index]] = fact[targetColumns[index]]
 			}
-			if sparse, ok := negative.(*SparseTable); ok {
-				remove, err = sparse.ContainsFact(aux)
-			} else {
-				remove, err = negative.Contains(aux)
-			}
+			remove, err = tableContainsFact(negative, aux)
 			if err != nil {
 				return err
 			}

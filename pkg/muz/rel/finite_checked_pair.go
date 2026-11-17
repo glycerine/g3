@@ -216,7 +216,7 @@ func (p *FiniteCheckedPair) RemoveFact(fact Fact) error {
 	if err := checkTableRemoveFact(p.checker, fact); err != nil {
 		return err
 	}
-	return p.verify("remove")
+	return p.wellFormed()
 }
 
 // adopt is alloc(check_table, get(t).get_plugin(), ..., tocheck, checker)
@@ -248,7 +248,7 @@ func adoptFiniteCheckedPair(primary, checker FiniteTable) (_ *FiniteCheckedPair,
 	if err != nil || !primarySignature.equal(checkerSignature) {
 		return nil, errors.Join(err, ErrCheckTable)
 	}
-	if err = result.verify("construction"); err != nil {
+	if err = result.wellFormed(); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -412,14 +412,86 @@ func (p *FiniteCheckedPair) verify(objective string) error {
 	return nil
 }
 
+// wellFormed is check_table::well_formed: every row of the checked table
+// is contained in the checker (contains_fact, timed by sparse_table's
+// verbose_action("contains_fact", 2)), then every row of the checker in
+// the checked table.
+func (p *FiniteCheckedPair) wellFormed() error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	a, err := p.primary.Facts()
+	if err != nil {
+		return err
+	}
+	for _, fact := range a {
+		found, err := checkTableContainsFact(p.checker, fact)
+		if err != nil {
+			return err
+		}
+		if !found {
+			return fmt.Errorf("%w: checker misses %v", ErrCheckTable, fact)
+		}
+	}
+	b, err := p.checker.Facts()
+	if err != nil {
+		return err
+	}
+	for _, fact := range b {
+		found, err := checkTableContainsFact(p.primary, fact)
+		if err != nil {
+			return err
+		}
+		if !found {
+			return fmt.Errorf("%w: checked table misses %v", ErrCheckTable, fact)
+		}
+	}
+	return nil
+}
+
+// checkTableContainsFact is table_base::contains_fact of a check table's
+// component: sparse_table's (verbose), a lazy table's evaluated table's,
+// or the table's own.
+func checkTableContainsFact(t FiniteTable, fact Fact) (bool, error) {
+	return tableContainsFact(t, fact)
+}
+
+// tableContainsFact is the virtual table_base::contains_fact: sparse_table's
+// (timed by verbose_action("contains_fact", 2)), lazy_table's (its
+// evaluated table's), check_table's (the checker's), else the table's own.
+func tableContainsFact(t FiniteTable, fact Fact) (bool, error) {
+	switch concrete := t.(type) {
+	case *FiniteCheckedPair:
+		if concrete.plugin != nil {
+			if err := concrete.open(); err != nil {
+				return false, err
+			}
+			return tableContainsFact(concrete.checker, fact)
+		}
+	case *SparseTable:
+		return concrete.ContainsFact(fact)
+	case *LazySparseTable:
+		if concrete.root != nil && concrete.root.signature.Len() != 0 {
+			table, err := concrete.eval()
+			if err != nil {
+				return false, err
+			}
+			return table.ContainsFact(fact)
+		}
+	}
+	return t.Contains(fact)
+}
+
 func (p *FiniteCheckedPair) Signature() (Signature, error) {
 	if err := p.open(); err != nil {
 		return Signature{}, err
 	}
 	return p.primary.Signature()
 }
+
+// Facts iterates check_table::begin, the checked table's rows.
 func (p *FiniteCheckedPair) Facts() ([]Fact, error) {
-	if err := p.verify("facts"); err != nil {
+	if err := p.open(); err != nil {
 		return nil, err
 	}
 	return p.primary.Facts()
@@ -442,7 +514,7 @@ func (p *FiniteCheckedPair) Add(fact Fact) (bool, error) {
 	if a != b {
 		return false, fmt.Errorf("%w: insertion results differ", ErrCheckTable)
 	}
-	return a, p.verify("add")
+	return a, p.wellFormed()
 }
 func (p *FiniteCheckedPair) Contains(fact Fact) (bool, error) {
 	if err := p.open(); err != nil {
@@ -461,11 +533,26 @@ func (p *FiniteCheckedPair) Contains(fact Fact) (bool, error) {
 	}
 	return a, nil
 }
+
+// Len counts the checked table's rows; like check_table::empty it
+// evaluates the checked table, then the checker, and fails when one is
+// empty and the other is not.
 func (p *FiniteCheckedPair) Len() (int, error) {
-	if err := p.verify("size"); err != nil {
+	if err := p.open(); err != nil {
 		return 0, err
 	}
-	return p.primary.Len()
+	a, err := p.primary.Len()
+	if err != nil {
+		return 0, err
+	}
+	b, err := p.checker.Len()
+	if err != nil {
+		return 0, err
+	}
+	if (a == 0) != (b == 0) {
+		return 0, fmt.Errorf("%w: emptiness differs", ErrCheckTable)
+	}
+	return a, nil
 }
 func (p *FiniteCheckedPair) SizeEstimateRows() (uint32, error) {
 	if err := p.open(); err != nil {
@@ -653,13 +740,13 @@ func (p *FiniteCheckedPair) Project(removed []int) (*FiniteCheckedPair, error) {
 	if err := p.open(); err != nil {
 		return nil, err
 	}
-	primary, err := finiteTableProject(p.primary, removed)
+	checker, err := finiteTableProject(p.checker, removed)
 	if err != nil {
 		return nil, err
 	}
-	checker, err := finiteTableProject(p.checker, removed)
+	primary, err := finiteTableProject(p.primary, removed)
 	if err != nil {
-		return nil, errors.Join(err, primary.Close())
+		return nil, errors.Join(err, checker.Close())
 	}
 	return p.adopt(primary, checker)
 }
@@ -671,13 +758,13 @@ func (p *FiniteCheckedPair) RenameCycle(cycle []int) (*FiniteCheckedPair, error)
 	if err := checkTableVerbose("operator()"); err != nil {
 		return nil, err
 	}
-	primary, err := finiteTableRename(p.primary, cycle)
+	checker, err := finiteTableRename(p.checker, cycle)
 	if err != nil {
 		return nil, err
 	}
-	checker, err := finiteTableRename(p.checker, cycle)
+	primary, err := finiteTableRename(p.primary, cycle)
 	if err != nil {
-		return nil, errors.Join(err, primary.Close())
+		return nil, errors.Join(err, checker.Close())
 	}
 	return p.adopt(primary, checker)
 }
@@ -686,13 +773,13 @@ func (p *FiniteCheckedPair) SelectEqualAndProject(value Element, column int) (*F
 	if err := p.open(); err != nil {
 		return nil, err
 	}
-	primary, err := finiteTableSelectProject(p.primary, value, column)
+	checker, err := finiteTableSelectProject(p.checker, value, column)
 	if err != nil {
 		return nil, err
 	}
-	checker, err := finiteTableSelectProject(p.checker, value, column)
+	primary, err := finiteTableSelectProject(p.primary, value, column)
 	if err != nil {
-		return nil, errors.Join(err, primary.Close())
+		return nil, errors.Join(err, checker.Close())
 	}
 	return p.adopt(primary, checker)
 }
@@ -701,26 +788,26 @@ func (p *FiniteCheckedPair) FilterEqual(value Element, column int) error {
 	if err := p.open(); err != nil {
 		return err
 	}
-	if err := finiteTableFilterEqual(p.primary, value, column); err != nil {
-		return err
-	}
 	if err := finiteTableFilterEqual(p.checker, value, column); err != nil {
 		return err
 	}
-	return p.verify("filter equal")
+	if err := finiteTableFilterEqual(p.primary, value, column); err != nil {
+		return err
+	}
+	return p.wellFormed()
 }
 
 func (p *FiniteCheckedPair) FilterIdentical(columns []int) error {
 	if err := p.open(); err != nil {
 		return err
 	}
-	if err := finiteTableFilterIdentical(p.primary, columns); err != nil {
-		return err
-	}
 	if err := finiteTableFilterIdentical(p.checker, columns); err != nil {
 		return err
 	}
-	return p.verify("filter identical")
+	if err := finiteTableFilterIdentical(p.primary, columns); err != nil {
+		return err
+	}
+	return p.wellFormed()
 }
 
 func (p *FiniteCheckedPair) FilterByNegation(negative *FiniteCheckedPair, targetColumns, negativeColumns []int) error {
@@ -730,13 +817,13 @@ func (p *FiniteCheckedPair) FilterByNegation(negative *FiniteCheckedPair, target
 	if err := checkTableVerbose("operator()"); err != nil {
 		return err
 	}
-	if err := finiteTableFilterNegation(p.primary, negative.primary, targetColumns, negativeColumns); err != nil {
-		return err
-	}
 	if err := finiteTableFilterNegation(p.checker, negative.checker, targetColumns, negativeColumns); err != nil {
 		return err
 	}
-	return p.verify("filter negation")
+	if err := finiteTableFilterNegation(p.primary, negative.primary, targetColumns, negativeColumns); err != nil {
+		return err
+	}
+	return p.wellFormed()
 }
 
 func filterCheckedPairInterpreted(table FiniteTable, manager *RelationManager, relationSorts []ast.ASTHandle, theory *astrewriter.TheoryRewriter, conditions []ast.ASTHandle, columns map[uint32]int, sorts map[uint32]ast.ASTHandle) error {
@@ -767,7 +854,7 @@ func (p *FiniteCheckedPair) FilterInterpreted(manager *RelationManager, relation
 	if err := filterCheckedPairInterpreted(p.primary, manager, relationSorts, theory, conditions, columns, sorts); err != nil {
 		return err
 	}
-	return p.verify("filter interpreted")
+	return p.wellFormed()
 }
 
 // UnionFrom executes the reached check_table union semantics and accumulates
@@ -777,10 +864,10 @@ func (p *FiniteCheckedPair) UnionFrom(source, delta *FiniteCheckedPair) error {
 }
 
 func (p *FiniteCheckedPair) CloneFinite() (FiniteTable, error) {
-	if err := checkTableVerbose("clone"); err != nil {
+	if err := p.open(); err != nil {
 		return nil, err
 	}
-	if err := p.verify("clone"); err != nil {
+	if err := checkTableVerbose("clone"); err != nil {
 		return nil, err
 	}
 	primary, err := p.primary.CloneFinite()
@@ -791,7 +878,11 @@ func (p *FiniteCheckedPair) CloneFinite() (FiniteTable, error) {
 	if err != nil {
 		return nil, errors.Join(err, primary.Close())
 	}
-	return &FiniteCheckedPair{primary: primary, checker: checker, plugin: p.plugin}, nil
+	result := &FiniteCheckedPair{primary: primary, checker: checker, plugin: p.plugin}
+	if err = result.wellFormed(); err != nil {
+		return nil, errors.Join(err, result.Close())
+	}
+	return result, nil
 }
 func (p *FiniteCheckedPair) Close() error {
 	if p == nil {

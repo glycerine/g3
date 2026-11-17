@@ -47,35 +47,11 @@ func (t *SparseTable) FilterNegation(negative *SparseTable, tCols, nCols []int) 
 		return err
 	}
 	if sparseJoinInvolvesFunctional(t, negative, tCols, nCols) {
-		// The sparse plugin refuses indexes on functional columns, so the
-		// relation manager falls back to its generic row filter, which removes
-		// the collected rows in table iteration order.
-		facts, err := t.Facts()
-		if err != nil {
-			return err
-		}
-		negated, err := negative.Facts()
-		if err != nil {
-			return err
-		}
-		remove := make([]Fact, 0)
-		for _, fact := range facts {
-			for _, excluded := range negated {
-				match := true
-				for i := range tCols {
-					if fact[tCols[i]] != excluded[nCols[i]] {
-						match = false
-						break
-					}
-				}
-				if match {
-					remove = append(remove, fact)
-					break
-				}
-			}
-		}
-		_, err = t.RemoveFacts(remove)
-		return err
+		// The sparse plugin refuses a join on functional columns, so the
+		// relation manager falls back to default_table_negation_filter_fn
+		// (contains_fact of the bound projection when every negated column
+		// is bound once).
+		return defaultTableNegationFilter(t, negative, negative.signature.Len(), tCols, nCols)
 	}
 	plan, err := NewSparseIndexedNegationPlan(t, negative, tCols, nCols)
 	if err != nil {

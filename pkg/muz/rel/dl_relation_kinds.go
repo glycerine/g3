@@ -870,7 +870,7 @@ func (v *tableRelationView) Reset() error {
 		if err := m.tableFilterInterpreted(pair.primary, v.sorts, bottom); err != nil {
 			return err
 		}
-		return pair.verify("filter interpreted")
+		return pair.wellFormed()
 	}
 	return m.tableFilterInterpreted(v.table, v.sorts, bottom)
 }

@@ -43,23 +43,36 @@ func (t *LazySparseTable) Len() (int, error) {
 	return table.Len()
 }
 
-// FetchFact forces this lazy root and reads the functional suffix from its
-// actual packed sparse owner.
+// FetchFact is table_base::fetch_fact of a lazy table (lazy_table does
+// not override it): without functional columns lazy_table::contains_fact
+// (the evaluated table's contains_fact), else the functional suffix of the
+// evaluated table's row with fact's key.
 func (t *LazySparseTable) FetchFact(fact Fact) (bool, error) {
 	table, err := t.eval()
 	if err != nil {
 		return false, err
 	}
-	return table.FetchFact(fact)
+	if table.functional == 0 {
+		return table.ContainsFact(fact)
+	}
+	return table.fetchFunctional(fact)
 }
 
-// EnsureFact forces this lazy root and mutates its actual packed sparse owner.
+// EnsureFact is table_base::ensure_fact of a lazy table: without
+// functional columns add_fact, else remove_fact then add_fact, each on the
+// evaluated table (lazy_table::remove_fact, lazy_table::add_fact).
 func (t *LazySparseTable) EnsureFact(fact Fact) error {
 	table, err := t.eval()
 	if err != nil {
 		return err
 	}
-	return table.EnsureFact(fact)
+	if table.functional != 0 {
+		if _, err = table.RemoveFacts([]Fact{fact}); err != nil {
+			return err
+		}
+	}
+	_, err = table.Add(fact)
+	return err
 }
 
 // Remove forces this lazy root and removes the fact from its actual packed

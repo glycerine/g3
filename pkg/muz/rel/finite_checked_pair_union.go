@@ -7,18 +7,15 @@ func (p *FiniteCheckedPair) unionFromConcrete(source, delta *FiniteCheckedPair) 
 	if err := checkTableVerbose("operator()"); err != nil {
 		return err
 	}
-	if err := p.verify("union target input"); err != nil {
+	if err := p.open(); err != nil {
 		return err
 	}
-	if source == nil {
+	if source == nil || source.open() != nil {
 		return ErrCheckTable
-	}
-	if err := source.verify("union source input"); err != nil {
-		return err
 	}
 	var primaryDelta, checkerDelta FiniteTable
 	if delta != nil {
-		if err := delta.verify("union delta input"); err != nil {
+		if err := delta.open(); err != nil {
 			return err
 		}
 		primaryDelta, checkerDelta = delta.primary, delta.checker
@@ -29,11 +26,11 @@ func (p *FiniteCheckedPair) unionFromConcrete(source, delta *FiniteCheckedPair) 
 	if err := finiteTableUnion(p.checker, source.checker, checkerDelta); err != nil {
 		return err
 	}
-	if err := p.verify("union target"); err != nil {
+	if err := p.wellFormed(); err != nil {
 		return err
 	}
 	if delta != nil {
-		return delta.verify("union delta")
+		return delta.wellFormed()
 	}
 	return nil
 }

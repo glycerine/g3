@@ -611,7 +611,9 @@ func fprTableUnion(tgt, src, delta FiniteTable) error {
 						return err
 					}
 				}
-				return fprTableUnion(targetTable, sourceTable, deltaTable)
+				// union_fn's verbose_action("union") around the manager's
+				// union of the evaluated tables.
+				return lazyVerbose("union", func() error { return fprTableUnion(targetTable, sourceTable, deltaTable) })
 			}
 		}
 	}
@@ -634,11 +636,11 @@ func fprTableUnion(tgt, src, delta FiniteTable) error {
 			if err := fprTableUnion(a.checker, b.checker, checkerDelta); err != nil {
 				return err
 			}
-			if err := a.verify("union target"); err != nil {
+			if err := a.wellFormed(); err != nil {
 				return err
 			}
 			if d != nil {
-				return d.verify("union delta")
+				return d.wellFormed()
 			}
 			return nil
 		}
@@ -665,7 +667,7 @@ func fprTableUnion(tgt, src, delta FiniteTable) error {
 			}
 			continue
 		}
-		found, err := tgt.Contains(row)
+		found, err := tableContainsFact(tgt, row)
 		if err != nil {
 			return err
 		}
