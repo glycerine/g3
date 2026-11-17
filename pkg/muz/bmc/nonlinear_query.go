@@ -10,7 +10,13 @@ import (
 )
 
 // Compiler borrows the AST manager and constructs BMC level encodings.
-type Compiler struct{ manager *ast.ASTManager }
+type Compiler struct {
+	manager *ast.ASTManager
+	// levelFormulas is nonlinear::check's expr_ref_vector fmls of the level
+	// whose check succeeded: it dies after get_model, when the query's
+	// compiler is closed.
+	levelFormulas []ast.ASTRef
+}
 
 func NewCompiler(m *ast.ASTManager) (*Compiler, error) {
 	if m == nil {
@@ -135,8 +141,15 @@ func (c *Compiler) CompileQuery(predicate ast.ASTHandle, level uint32) (result a
 }
 
 func (c *Compiler) Close() error {
-	if c != nil {
-		c.manager = nil
+	if c == nil {
+		return nil
 	}
+	if len(c.levelFormulas) != 0 && c.manager != nil {
+		if err := releaseForward(c.manager, c.levelFormulas, nil); err != nil {
+			return err
+		}
+		c.levelFormulas = nil
+	}
+	c.manager = nil
 	return nil
 }

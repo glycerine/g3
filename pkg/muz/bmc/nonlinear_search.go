@@ -46,11 +46,18 @@ func (c *Compiler) SearchNonlinear(rules *base.RuleSet, query ast.ASTHandle, sol
 				break
 			}
 		}
-		err = disposeASTRefs(m, formulas, err)
 		if err != nil {
-			return lbool.Undef, level, err
+			return lbool.Undef, level, releaseForward(m, formulas, err)
 		}
 		status, err = c.checkNonlinearLevel(solver, query, level)
+		if err == nil && status == lbool.True {
+			// get_model(i) runs before fmls dies.
+			c.levelFormulas = formulas
+			return status, level, nil
+		}
+		// expr_ref_vector fmls dies at the end of the level's iteration,
+		// after check(i), first to last.
+		err = releaseForward(m, formulas, err)
 		if err != nil || status != lbool.False {
 			return status, level, err
 		}

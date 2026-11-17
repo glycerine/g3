@@ -215,17 +215,50 @@ func (c *Compiler) applyVariables(decl ast.ASTHandle) (result ast.ASTRef, result
 	return m.NewRef(value)
 }
 
-func (c *Compiler) compileRule(manager *base.RuleManager, predicate ast.ASTHandle, rule *base.Rule, index, level uint32) (result ast.ASTRef, resultErr error) {
+// assignRef is expr_ref assignment: target takes value (the new term is
+// retained before the old one is released).
+func assignRef(m *ast.ASTManager, target ast.ASTRef, value ast.ASTHandle) error {
+	return m.SetRef(target, value)
+}
+
+// assignFrom is target = <temporary expr_ref>: the assignment, then the
+// temporary's destruction.
+func assignFrom(m *ast.ASTManager, target ast.ASTRef, temporary *ast.ASTRef) error {
+	value, err := m.RefGet(*temporary)
+	if err == nil {
+		err = m.SetRef(target, value)
+	}
+	return errors.Join(err, m.DelRef(temporary))
+}
+
+// releaseForward is ~expr_ref_vector: its elements are released first to
+// last.
+func releaseForward(m *ast.ASTManager, refs []ast.ASTRef, cause error) error {
+	reversed := make([]ast.ASTRef, len(refs))
+	for i, ref := range refs {
+		reversed[len(refs)-1-i] = ref
+	}
+	return disposeASTRefs(m, reversed, cause)
+}
+
+// compileRule is one iteration of nonlinear::compile's rule loop. head and
+// body are the loop's expr_refs (declared outside it): each assignment
+// releases their previous terms. rule_i (ruleRef, owned) and the
+// iteration's args and conjs vectors die at the iteration's end, conjs
+// first. The result is the formula result.push_back(body) retains.
+func (c *Compiler) compileRule(manager *base.RuleManager, predicate ast.ASTHandle, rule *base.Rule, ruleRef ast.ASTRef, level uint32, head, body ast.ASTRef) (result ast.ASTRef, resultErr error) {
 	m := c.manager
-	var refs []ast.ASTRef
+	var args, conjs []ast.ASTRef
 	defer func() {
-		resultErr = disposeASTRefs(m, refs, resultErr)
+		resultErr = releaseForward(m, conjs, resultErr)
+		resultErr = releaseForward(m, args, resultErr)
+		resultErr = disposeASTRefs(m, []ast.ASTRef{ruleRef}, resultErr)
 		if resultErr != nil && result != (ast.ASTRef{}) {
 			resultErr = disposeASTRefs(m, []ast.ASTRef{result}, resultErr)
 			result = ast.ASTRef{}
 		}
 	}()
-	hold := func(value ast.ASTHandle, err error) (ast.ASTHandle, error) {
+	push := func(vector *[]ast.ASTRef, value ast.ASTHandle, err error) (ast.ASTHandle, error) {
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
@@ -233,19 +266,14 @@ func (c *Compiler) compileRule(manager *base.RuleManager, predicate ast.ASTHandl
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		refs = append(refs, ref)
+		*vector = append(*vector, ref)
 		return value, nil
 	}
-	ruleRef, err := c.levelDeclaration(predicate, level, &index)
-	if err != nil {
-		return result, err
-	}
-	refs = append(refs, ruleRef)
 	ruleDecl, err := m.RefGet(ruleRef)
 	if err != nil {
 		return result, err
 	}
-	head, err := rule.Head()
+	ruleHead, err := rule.Head()
 	if err != nil {
 		return result, err
 	}
@@ -257,12 +285,12 @@ func (c *Compiler) compileRule(manager *base.RuleManager, predicate ast.ASTHandl
 	if err != nil {
 		return result, err
 	}
-	args := make([]ast.ASTHandle, arity)
+	argValues := make([]ast.ASTHandle, arity)
 	seen := make(map[ast.ASTHandle]struct{})
-	var conditions []ast.ASTHandle
+	var conjValues []ast.ASTHandle
 	var fresh uint32
-	for i := range args {
-		arg, err := m.GetArg(head, uint32(i))
+	for i := range argValues {
+		arg, err := m.GetArg(ruleHead, uint32(i))
 		if err != nil {
 			return result, err
 		}
@@ -273,7 +301,9 @@ func (c *Compiler) compileRule(manager *base.RuleManager, predicate ast.ASTHandl
 		_, duplicate := seen[arg]
 		if kind == ast.ASTVar && !duplicate {
 			seen[arg] = struct{}{}
-			args[i] = arg
+			if argValues[i], err = push(&args, arg, nil); err != nil {
+				return result, err
+			}
 			position, err := m.GetVarIndex(arg)
 			if err != nil || int(position) >= len(variableSorts) {
 				return result, errors.Join(ast.ErrASTDomain, err)
@@ -284,19 +314,24 @@ func (c *Compiler) compileRule(manager *base.RuleManager, predicate ast.ASTHandl
 			if err != nil {
 				return result, err
 			}
-			args[i], err = hold(m.MkVar(uint32(len(variableSorts))+fresh, sort))
-			if err != nil {
+			variable, err := m.MkVar(uint32(len(variableSorts))+fresh, sort)
+			if argValues[i], err = push(&args, variable, err); err != nil {
 				return result, err
 			}
 			fresh++
-			eq, err := hold(m.MkEq(args[i], arg))
+			eq, err := m.MkEq(argValues[i], arg)
+			eq, err = push(&conjs, eq, err)
 			if err != nil {
 				return result, err
 			}
-			conditions = append(conditions, eq)
+			conjValues = append(conjValues, eq)
 		}
 	}
-	ruleHead, err := hold(m.MkApp(ruleDecl, args))
+	// head = m.mk_app(rule_i, args)
+	application, err := m.MkApp(ruleDecl, argValues)
+	if err == nil {
+		err = assignRef(m, head, application)
+	}
 	if err != nil {
 		return result, err
 	}
@@ -309,26 +344,79 @@ func (c *Compiler) compileRule(manager *base.RuleManager, predicate ast.ASTHandl
 		if err != nil {
 			return result, err
 		}
-		conditions = append(conditions, item)
+		if _, err = push(&conjs, item, nil); err != nil {
+			return result, err
+		}
+		conjValues = append(conjValues, item)
 	}
-	bodyRef, err := c.simplifyBoolean(true, conditions)
+	// br.mk_and(conjs.size(), conjs.c_ptr(), body)
+	temporary, err := c.simplifyBoolean(true, conjValues)
 	if err != nil {
 		return result, err
 	}
-	refs = append(refs, bodyRef)
-	body, err := m.RefGet(bodyRef)
+	if err = assignFrom(m, body, &temporary); err != nil {
+		return result, err
+	}
+	// replace_by_level_predicates(level, body): fml = tmp.
+	value, err := m.RefGet(body)
 	if err != nil {
 		return result, err
 	}
-	levelBody, err := c.ReplacePredicates(manager, body, level)
+	if temporary, err = c.ReplacePredicates(manager, value, level); err != nil {
+		return result, err
+	}
+	if err = assignFrom(m, body, &temporary); err != nil {
+		return result, err
+	}
+	// body = skolemize_vars(r, args, rule_vars, body)
+	if value, err = m.RefGet(body); err != nil {
+		return result, err
+	}
+	if temporary, err = c.skolemizeVariables(predicate, argValues, variableSorts, value); err != nil {
+		return result, err
+	}
+	if err = assignFrom(m, body, &temporary); err != nil {
+		return result, err
+	}
+	// body = m.mk_implies(head, body)
+	headValue, err := m.RefGet(head)
 	if err != nil {
 		return result, err
 	}
-	refs = append(refs, levelBody)
-	body, err = m.RefGet(levelBody)
+	if value, err = m.RefGet(body); err != nil {
+		return result, err
+	}
+	implication, err := m.MkImplies(headValue, value)
+	if err == nil {
+		err = assignRef(m, body, implication)
+	}
 	if err != nil {
 		return result, err
 	}
+	// body = bind_vars(body, head)
+	if temporary, err = c.BindVariables(implication, headValue); err != nil {
+		return result, err
+	}
+	if err = assignFrom(m, body, &temporary); err != nil {
+		return result, err
+	}
+	// result.push_back(body)
+	return m.CopyRef(body)
+}
+
+// skolemizeVariables is skolemize_vars: mk_skolem_binding makes the
+// binding vector (each body function's application), var_subst applies it,
+// then the var_subst and the binding vector die, in that order.
+func (c *Compiler) skolemizeVariables(predicate ast.ASTHandle, args []ast.ASTHandle, variableSorts []ast.ASTHandle, expression ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+	m := c.manager
+	var binding []ast.ASTRef
+	defer func() {
+		resultErr = releaseForward(m, binding, resultErr)
+		if resultErr != nil && result != (ast.ASTRef{}) {
+			resultErr = disposeASTRefs(m, []ast.ASTRef{result}, resultErr)
+			result = ast.ASTRef{}
+		}
+	}()
 	predicateName, err := m.GetASTName(predicate)
 	if err != nil {
 		return result, err
@@ -339,8 +427,7 @@ func (c *Compiler) compileRule(manager *base.RuleManager, predicate ast.ASTHandl
 	}
 	argSorts := make([]ast.ASTHandle, len(args))
 	for i, arg := range args {
-		argSorts[i], err = m.GetSort(arg)
-		if err != nil {
+		if argSorts[i], err = m.GetSort(arg); err != nil {
 			return result, err
 		}
 	}
@@ -357,10 +444,16 @@ func (c *Compiler) compileRule(manager *base.RuleManager, predicate ast.ASTHandl
 		if err != nil {
 			return result, err
 		}
-		bindings[i], err = hold(m.MkApp(decl, args))
+		application, err := m.MkApp(decl, args)
 		if err != nil {
 			return result, err
 		}
+		ref, err := m.NewRef(application)
+		if err != nil {
+			return result, err
+		}
+		binding = append(binding, ref)
+		bindings[i] = application
 	}
 	sub, err := rewriter.NewVarSubstitution(m, false)
 	if err != nil {
@@ -369,24 +462,11 @@ func (c *Compiler) compileRule(manager *base.RuleManager, predicate ast.ASTHandl
 		}
 		return result, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, sub.Close()) }()
-	subRef, err := m.NewRef(ast.ASTHandle{})
-	if err != nil {
-		return result, err
+	if result, err = m.NewRef(ast.ASTHandle{}); err != nil {
+		return result, errors.Join(err, sub.Close())
 	}
-	refs = append(refs, subRef)
-	if err = sub.Substitute(body, bindings, subRef); err != nil {
-		return result, err
-	}
-	body, err = m.RefGet(subRef)
-	if err != nil {
-		return result, err
-	}
-	implication, err := hold(m.MkImplies(ruleHead, body))
-	if err != nil {
-		return result, err
-	}
-	return c.BindVariables(implication, ruleHead)
+	err = sub.Substitute(expression, bindings, result)
+	return result, errors.Join(err, sub.Close())
 }
 
 // Compile builds the source nonlinear implications for one unfolding level.
@@ -429,17 +509,26 @@ func (c *Compiler) compileGroup(rules *base.RuleSet, manager *base.RuleManager, 
 	defer func() {
 		resultErr = errors.Join(resultErr, closeRuleOwners(m, group))
 	}()
-	var refs []ast.ASTRef
+	// level_pred, then expr_ref_vector rules and expr_ref body, head; they
+	// die in reverse order: head, body, rules, level_pred.
+	var levelRef, body, head ast.ASTRef
+	var alternativeRefs []ast.ASTRef
 	defer func() {
-		resultErr = disposeASTRefs(m, refs, resultErr)
+		resultErr = disposeASTRefs(m, []ast.ASTRef{head, body}, resultErr)
+		resultErr = releaseForward(m, alternativeRefs, resultErr)
+		resultErr = disposeASTRefs(m, []ast.ASTRef{levelRef}, resultErr)
 	}()
-	levelRef, err := c.levelDeclaration(predicate, level, nil)
+	if levelRef, err = c.levelDeclaration(predicate, level, nil); err != nil {
+		return err
+	}
+	levelDecl, err := m.RefGet(levelRef)
 	if err != nil {
 		return err
 	}
-	refs = append(refs, levelRef)
-	levelDecl, err := m.RefGet(levelRef)
-	if err != nil {
+	if body, err = m.NewRef(ast.ASTHandle{}); err != nil {
+		return err
+	}
+	if head, err = m.NewRef(ast.ASTHandle{}); err != nil {
 		return err
 	}
 	var alternatives []ast.ASTHandle
@@ -449,55 +538,66 @@ func (c *Compiler) compileGroup(rules *base.RuleSet, manager *base.RuleManager, 
 		if err != nil {
 			return err
 		}
-		refs = append(refs, ruleRef)
 		ruleDecl, err := m.RefGet(ruleRef)
 		if err != nil {
-			return err
+			return disposeASTRefs(m, []ast.ASTRef{ruleRef}, err)
 		}
+		// rules.push_back(apply_vars(rule_i))
 		application, err := c.applyVariables(ruleDecl)
 		if err != nil {
-			return err
+			return disposeASTRefs(m, []ast.ASTRef{ruleRef}, err)
 		}
-		refs = append(refs, application)
+		alternativeRefs = append(alternativeRefs, application)
 		value, err := m.RefGet(application)
 		if err != nil {
-			return err
+			return disposeASTRefs(m, []ast.ASTRef{ruleRef}, err)
 		}
 		alternatives = append(alternatives, value)
-		formula, err := c.compileRule(manager, predicate, rule, index, level)
+		formula, err := c.compileRule(manager, predicate, rule, ruleRef, level, head, body)
 		if err != nil {
 			return err
 		}
 		*result = append(*result, formula)
 	}
-	bodyRef, err := c.simplifyBoolean(false, alternatives)
+	// br.mk_or(rules.size(), rules.c_ptr(), body)
+	temporary, err := c.simplifyBoolean(false, alternatives)
 	if err != nil {
 		return err
 	}
-	refs = append(refs, bodyRef)
-	body, err := m.RefGet(bodyRef)
+	if err = assignFrom(m, body, &temporary); err != nil {
+		return err
+	}
+	// head = apply_vars(level_pred)
+	if temporary, err = c.applyVariables(levelDecl); err != nil {
+		return err
+	}
+	if err = assignFrom(m, head, &temporary); err != nil {
+		return err
+	}
+	headValue, err := m.RefGet(head)
 	if err != nil {
 		return err
 	}
-	headRef, err := c.applyVariables(levelDecl)
+	bodyValue, err := m.RefGet(body)
 	if err != nil {
 		return err
 	}
-	refs = append(refs, headRef)
-	head, err := m.RefGet(headRef)
+	// body = m.mk_implies(head, body)
+	implication, err := m.MkImplies(headValue, bodyValue)
+	if err == nil {
+		err = assignRef(m, body, implication)
+	}
 	if err != nil {
 		return err
 	}
-	implication, err := m.MkImplies(head, body)
-	if err != nil {
+	// body = bind_vars(body, head)
+	if temporary, err = c.BindVariables(implication, headValue); err != nil {
 		return err
 	}
-	impRef, err := m.NewRef(implication)
-	if err != nil {
+	if err = assignFrom(m, body, &temporary); err != nil {
 		return err
 	}
-	refs = append(refs, impRef)
-	formula, err := c.BindVariables(implication, head)
+	formula, err := m.CopyRef(body)
 	if err != nil {
 		return err
 	}
