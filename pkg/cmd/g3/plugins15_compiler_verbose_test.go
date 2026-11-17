@@ -14,13 +14,16 @@ import (
 // "(transform ...)" lines, times as 0s). lz_sel_64: mk_similarity_compressor's
 // add_fact resets the saturation marks, so only the last merged class's
 // auxiliary predicate stays saturated and the others' strata are compiled
-// (mark_saturated b!sc_1!0).
+// (mark_saturated b!sc_1!0). lz_sel_16: compile_dependent_rules' register
+// numbering and order (detect_chains' preds_vector, get_fresh_registers over
+// the stratum's copy, the delta maps' table order for the loop controls and
+// make_inloop_delta_transition's moves).
 func TestPlugins15CompilerVerbose(t *testing.T) {
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"lz_sel_64"} {
+	for _, name := range []string{"lz_sel_64", "lz_sel_16"} {
 		want, err := os.ReadFile(filepath.Join(wd, "test_vectors", "plugins15_"+name+".v12.txt"))
 		if err != nil {
 			t.Fatal(err)

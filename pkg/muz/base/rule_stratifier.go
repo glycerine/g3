@@ -121,6 +121,8 @@ type sourceStratifier struct {
 	stackS        []ast.ASTHandle
 	stackP        []ast.ASTHandle
 	components    []*ast.ObjMap
+	// capacities are the returned strata's item_set capacities.
+	capacities    []int
 	nextPreorder  uint32
 	firstPreorder uint32
 }
@@ -224,6 +226,7 @@ func (t *sourceStratifier) process() ([][]ast.ASTHandle, error) {
 	result := make([][]ast.ASTHandle, 0, len(strats))
 	for i := len(strats) - 1; i >= 0; i-- {
 		entries := strats[i].Entries()
+		t.capacities = append(t.capacities, strats[i].Capacity())
 		stratum := make([]ast.ASTHandle, len(entries))
 		for j := range entries {
 			stratum[j] = entries[j].Key

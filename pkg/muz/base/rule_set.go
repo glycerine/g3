@@ -25,12 +25,15 @@ type RuleSet struct {
 	// headTable is m_head2rules' key layout (obj_map<func_decl, rule_vector*>):
 	// display walks it in table order, and del_rule never removes a key, so
 	// an emptied head still counts as a predicate until the set is reset.
-	headTable           *ast.ObjMap
-	groupBuckets        []ruleGroupBucket
-	groupCount          int
-	dependencies        map[ast.ASTHandle][]ast.ASTHandle
+	headTable    *ast.ObjMap
+	groupBuckets []ruleGroupBucket
+	groupCount   int
+	dependencies map[ast.ASTHandle][]ast.ASTHandle
+	// sourceDeps is m_deps, the rule_dependencies close populated.
+	sourceDeps          *sourceDependencies
 	strata              map[ast.ASTHandle]uint32
 	strats              [][]ast.ASTHandle
+	stratCapacities     []int
 	outputs             map[ast.ASTHandle]ast.ASTRef
 	outputOrder         []ast.ASTHandle
 	originalToPredicate map[ast.ASTHandle]ast.ASTHandle
@@ -428,6 +431,7 @@ func (s *RuleSet) Finalize() (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	stratCapacities := stratifier.capacities
 	// m_pred_strat_nums; a predicate absent from the program has stratum 0.
 	strata := make(map[ast.ASTHandle]uint32)
 	for index, stratum := range strats {
@@ -466,8 +470,10 @@ func (s *RuleSet) Finalize() (bool, error) {
 		dependencies[key.Key] = list
 	}
 	s.dependencies = dependencies
+	s.sourceDeps = deps
 	s.strata = strata
 	s.strats = strats
+	s.stratCapacities = stratCapacities
 	s.finalized = true
 	return true, nil
 }
@@ -477,8 +483,10 @@ func (s *RuleSet) Reopen() error {
 		return err
 	}
 	s.dependencies = nil
+	s.sourceDeps = nil
 	s.strata = nil
 	s.strats = nil
+	s.stratCapacities = nil
 	s.finalized = false
 	return nil
 }
@@ -618,8 +626,10 @@ func (s *RuleSet) resetContentsUnchecked() error {
 	s.headTable = nil
 	s.resetGroups()
 	s.dependencies = nil
+	s.sourceDeps = nil
 	s.strata = nil
 	s.strats = nil
+	s.stratCapacities = nil
 	s.outputs = make(map[ast.ASTHandle]ast.ASTRef)
 	s.outputOrder = nil
 	s.originalToPredicate = make(map[ast.ASTHandle]ast.ASTHandle)

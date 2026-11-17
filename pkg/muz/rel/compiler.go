@@ -613,45 +613,47 @@ func (c *finiteCompiler) compileRule(rule finiteCompiledRule, delta uint32, tail
 // compileRecursive emits a finite fixpoint loop. By default each rule run
 // substitutes one changed tail and reads accumulated relations for its other
 // tails; all-or-nothing mode reads full relations. Both record new delta rows.
-func (c *finiteCompiler) compileRecursive(set *base.RuleSet, rules []finiteCompiledRule) (resultErr error) {
-	orderedRules, err := c.orderRecursiveRules(rules)
+// compileRecursive is compile_dependent_rules' code for the stratum
+// head_preds (in its func_decl_set table order) with no input deltas:
+// detect_chains orders the predicates (preds_vector); every predicate is a
+// global delta, whose source and target registers get_fresh_registers
+// allocates in the order of global_deltas (head_preds' copy) into pred2idx
+// maps; compile_preds_init,
+// then compile_loop: compile_preds over preds_vector, the loop controlled by
+// the source deltas in their map's order, and make_inloop_delta_transition
+// moving each target delta, in its map's order, into its source.
+func (c *finiteCompiler) compileRecursive(set *base.RuleSet, headPreds, globalDeltas []ast.ASTHandle, rulesByHead map[ast.ASTHandle][]finiteCompiledRule) (resultErr error) {
+	predsVector, err := set.DetectChains(headPreds)
 	if err != nil {
 		return err
 	}
-	rules = orderedRules
 	fullSources := [2]uint32{VoidRegister, VoidRegister}
-	headOrder := make([]ast.ASTHandle, 0)
-	seen := make(map[ast.ASTHandle]bool)
-	rulesByHead := make(map[ast.ASTHandle][]finiteCompiledRule)
-	currentDeltas := make(map[ast.ASTHandle]uint32)
-	nextDeltas := make(map[ast.ASTHandle]uint32)
-	for _, rule := range rules {
-		head, err := c.manager.GetDecl(rule.head)
-		if err != nil {
-			return err
-		}
-		rulesByHead[head] = append(rulesByHead[head], rule)
-		if seen[head] {
-			continue
-		}
-		seen[head] = true
-		headOrder = append(headOrder, head)
-	}
 	// get_fresh_registers(global_deltas, d_global_src), then
-	// get_fresh_registers(global_deltas, d_global_tgt): every source delta
-	// register precedes the target ones.
-	for _, head := range headOrder {
-		currentDeltas[head] = c.fresh(c.signatures[c.predicateRegs[head]])
-		c.regSorts[currentDeltas[head]] = c.regSorts[c.predicateRegs[head]]
+	// get_fresh_registers(global_deltas, d_global_tgt).
+	freshDeltas := func() (*ast.ObjMap, map[ast.ASTHandle]uint32, error) {
+		layout := ast.NewObjMap(c.manager)
+		regs := make(map[ast.ASTHandle]uint32, len(globalDeltas))
+		for _, pred := range globalDeltas {
+			reg := c.fresh(c.signatures[c.predicateRegs[pred]])
+			c.regSorts[reg] = c.regSorts[c.predicateRegs[pred]]
+			if err := layout.InsertNum(pred, uint64(reg)); err != nil {
+				return nil, nil, err
+			}
+			regs[pred] = reg
+		}
+		return layout, regs, nil
 	}
-	for _, head := range headOrder {
-		nextDeltas[head] = c.fresh(c.signatures[c.predicateRegs[head]])
-		c.regSorts[nextDeltas[head]] = c.regSorts[c.predicateRegs[head]]
+	srcLayout, currentDeltas, err := freshDeltas()
+	if err != nil {
+		return err
 	}
-	// compile_preds_init evaluates only lower-stratum inputs before entering
-	// the recursive loop. Every existing head row, including preloaded facts,
-	// then participates in the first iteration through a full relation clone.
-	for _, head := range headOrder {
+	tgtLayout, nextDeltas, err := freshDeltas()
+	if err != nil {
+		return err
+	}
+	// compile_preds_init: the rules whose tails are all of lower strata,
+	// then a clone of the head into its source delta.
+	for _, head := range predsVector {
 		stratum, err := set.PredicateStratum(head)
 		if err != nil {
 			return err
@@ -686,8 +688,10 @@ func (c *finiteCompiler) compileRecursive(set *base.RuleSet, rules []finiteCompi
 				}
 			}
 		}
-		if err = c.emit(NewCloneInstruction(c.predicateRegs[head], currentDeltas[head]), nil); err != nil {
-			return err
+		if delta, found := currentDeltas[head]; found {
+			if err = c.emit(NewCloneInstruction(c.predicateRegs[head], delta), nil); err != nil {
+				return err
+			}
 		}
 	}
 	body := NewInstructionBlock()
@@ -699,45 +703,48 @@ func (c *finiteCompiler) compileRecursive(set *base.RuleSet, rules []finiteCompi
 	}()
 	c.current = body
 	defer func() { c.current = nil }()
-	for _, rule := range rules {
-		head, err := c.manager.GetDecl(rule.head)
-		if err != nil {
-			return err
-		}
-		if c.options.AllOrNothingDeltas {
-			if err = c.compileRule(rule, nextDeltas[head], fullSources); err != nil {
-				return err
-			}
-			continue
-		}
-		tails := []ast.ASTHandle{rule.tail}
-		if rule.kind == finiteTwoTailRule {
-			tails = append(tails, rule.tail2)
-		}
-		if rule.kind == finiteGroundRule {
-			continue
-		}
-		for index, application := range tails {
-			predicate, x := c.manager.GetDecl(application)
-			if x != nil {
-				return x
-			}
-			delta, found := currentDeltas[predicate]
-			if !found {
+	// compile_preds(preds_vector, ..., &all_tail_deltas, all_head_deltas).
+	for _, head := range predsVector {
+		for _, rule := range rulesByHead[head] {
+			if c.options.AllOrNothingDeltas {
+				if err = c.compileRule(rule, nextDeltas[head], fullSources); err != nil {
+					return err
+				}
 				continue
 			}
-			sources := fullSources
-			sources[index] = delta
-			if err = c.compileRule(rule, nextDeltas[head], sources); err != nil {
-				return err
+			if rule.kind == finiteGroundRule {
+				continue
+			}
+			tails := []ast.ASTHandle{rule.tail}
+			if rule.kind == finiteTwoTailRule {
+				tails = append(tails, rule.tail2)
+			}
+			for index, application := range tails {
+				predicate, x := c.manager.GetDecl(application)
+				if x != nil {
+					return x
+				}
+				delta, found := currentDeltas[predicate]
+				if !found {
+					continue
+				}
+				sources := fullSources
+				sources[index] = delta
+				if err = c.compileRule(rule, nextDeltas[head], sources); err != nil {
+					return err
+				}
 			}
 		}
 	}
-	controls := make([]uint32, 0, len(headOrder))
-	for _, head := range headOrder {
-		current := currentDeltas[head]
-		controls = append(controls, current)
-		if err := c.emit(NewMoveInstruction(nextDeltas[head], current), nil); err != nil {
+	// collect_map_range(loop_control_regs, global_tail_deltas).
+	controls := make([]uint32, 0, len(headPreds))
+	for _, entry := range srcLayout.Entries() {
+		controls = append(controls, uint32(entry.Num))
+	}
+	// make_inloop_delta_transition: the global head deltas move into the
+	// tail ones (there are no local deltas).
+	for _, entry := range tgtLayout.Entries() {
+		if err := c.emit(NewMoveInstruction(uint32(entry.Num), currentDeltas[entry.Key]), nil); err != nil {
 			return err
 		}
 	}
@@ -813,7 +820,7 @@ func (c *finiteCompiler) compileStrats(set *base.RuleSet, rules []finiteCompiled
 	if err != nil {
 		return err
 	}
-	for _, stratPreds := range strats {
+	for stratIndex, stratPreds := range strats {
 		allSaturated, x := c.allSaturated(stratPreds)
 		if x != nil {
 			return x
@@ -850,7 +857,7 @@ func (c *finiteCompiler) compileStrats(set *base.RuleSet, rules []finiteCompiled
 			//this stratum contains just a single non-recursive rule
 			x = c.compileNonrecursiveStratum(stratPreds[0], rulesByHead[stratPreds[0]])
 		} else {
-			x = c.compileDependentRules(set, stratPreds, rulesByHead)
+			x = c.compileDependentRules(set, stratIndex, stratPreds, rulesByHead)
 		}
 		if x != nil {
 			return x
@@ -911,15 +918,14 @@ func (c *finiteCompiler) compileNonrecursiveStratum(headPred ast.ASTHandle, rule
 
 // compileDependentRules is compiler::compile_dependent_rules with saturation
 // marks: the recursive loop, then a mark for every predicate of the stratum.
-func (c *finiteCompiler) compileDependentRules(set *base.RuleSet, headPreds []ast.ASTHandle, rulesByHead map[ast.ASTHandle][]finiteCompiledRule) error {
-	var group []finiteCompiledRule
-	for _, pred := range headPreds {
-		group = append(group, rulesByHead[pred]...)
+func (c *finiteCompiler) compileDependentRules(set *base.RuleSet, stratIndex int, headPreds []ast.ASTHandle, rulesByHead map[ast.ASTHandle][]finiteCompiledRule) error {
+	// func_decl_set global_deltas(head_preds)
+	globalDeltas, err := set.CopiedStratum(stratIndex)
+	if err != nil {
+		return err
 	}
-	if len(group) != 0 {
-		if err := c.compileRecursive(set, group); err != nil {
-			return err
-		}
+	if err := c.compileRecursive(set, headPreds, globalDeltas, rulesByHead); err != nil {
+		return err
 	}
 	//after the loop finishes, all predicates in the group are saturated,
 	//so we may mark them as such

@@ -119,6 +119,9 @@ func (o *ObjMap) Copy() *ObjMap {
 // Len is the number of keys.
 func (o *ObjMap) Len() int { return o.size }
 
+// Capacity is m_capacity, the table's size.
+func (o *ObjMap) Capacity() int { return len(o.table) }
+
 // Insert is obj_map::insert(k, v): it adds k, or replaces its value.
 func (o *ObjMap) Insert(key ASTHandle, value [2]ASTHandle) error {
 	return o.insert(ObjMapEntry{Key: key, Value: value})
