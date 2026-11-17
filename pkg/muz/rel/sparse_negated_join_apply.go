@@ -65,10 +65,9 @@ func (plan *SparseNegatedJoinPlan) Apply(target, first, second *SparseTable) (_ 
 }
 
 // sparseNegatedJoinRemove is negated_join_fn's removal: remove_offset of
-// each collected row, then reset_indexes. The source removes the offsets
-// in ascending order, which moves the last row into a removed place before
-// a later offset is removed (it can then drop the wrong row); g3 removes
-// the largest offsets first, as negation_filter_fn does.
+// each collected row, largest offset first, then reset_indexes (fixed
+// fork: FORK FIX #115; 4.7.1 removed them in increasing order, and
+// remove_offset's move of the last row then made it drop the wrong row).
 func sparseNegatedJoinRemove(target *SparseTable, targetFacts, remove []Fact) (int, error) {
 	marked := make(map[string]bool, len(remove))
 	for _, f := range remove {

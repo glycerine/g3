@@ -32,12 +32,15 @@ func (plan *SparseNegatedJoinPlan) collectIndexedRemovals(targetFacts []Fact, fi
 			firstColumns = append(firstColumns, sourceColumn)
 		} else {
 			secondTargetColumns = append(secondTargetColumns, plan.targetColumns[i])
+			// src2's column: the joined column less src1's size (fixed
+			// fork: FORK FIX #117).
 			secondColumns = append(secondColumns, sourceColumn-plan.firstSignature.Len())
 		}
 	}
 	secondColumns = append(secondColumns, plan.secondJoinColumns...)
 	// collect_to_remove: s1's and s2's get_key_indexer. Their lookups run
-	// when update_key changes a key, which starts as zeros.
+	// for the first keys and when update_key changes a key (fixed fork:
+	// FORK FIX #119; 4.7.1 skipped a first key of zeros).
 	firstIndexer, err := first.getKeyIndexer(firstColumns)
 	if err != nil {
 		return err
@@ -46,8 +49,8 @@ func (plan *SparseNegatedJoinPlan) collectIndexedRemovals(targetFacts []Fact, fi
 	if err != nil {
 		return err
 	}
-	firstTracker := &sparseKeyTracker{key: make(Fact, len(firstColumns))}
-	secondTracker := &sparseKeyTracker{key: make(Fact, len(secondColumns))}
+	firstTracker := newSparseKeyTracker(len(firstColumns))
+	secondTracker := newSparseKeyTracker(len(secondColumns))
 	firstPlan, err := NewSparseKeyLookupPlan(first, firstColumns)
 	if err != nil {
 		return err

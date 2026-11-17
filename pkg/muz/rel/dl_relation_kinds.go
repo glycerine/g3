@@ -963,7 +963,10 @@ var _ RelationPlugin = (*TableRelationPlugin)(nil)
 
 // MkRelationFilterByIntersectionFn is relation_manager::
 // mk_filter_by_intersection_fn(t, src, cols...): the plugins', then
-// try_mk_default_filter_by_intersection_fn.
+// try_mk_default_filter_by_intersection_fn. table_relation_plugin's is the
+// table plugins' intersection filter, which none has (fixed fork: FORK FIX
+// #D; 4.7.1 took their negation filter), so two table relations get the
+// default join and union.
 func (m *RelationManager) MkRelationFilterByIntersectionFn(t, src RelationBase, tCols, srcCols []int) (RelationIntersectionFilterFn, error) {
 	res, err := t.RelationPlugin().MkFilterByIntersectionFn(t, src, tCols, srcCols)
 	if err != nil || res != nil {

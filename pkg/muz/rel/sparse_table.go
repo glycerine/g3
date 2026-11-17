@@ -100,6 +100,8 @@ func (t *SparseTable) Contains(f Fact) (bool, error) {
 	if !found {
 		return false, nil
 	}
+	// The functional columns, from first_functional() on (fixed fork:
+	// FORK FIX #116; 4.7.1 started at functional_columns()).
 	for i := t.firstFunctional(); i < t.signature.Len(); i++ {
 		if t.getCell(ofs, i) != f[i] {
 			return false, nil
