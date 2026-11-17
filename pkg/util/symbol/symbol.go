@@ -95,7 +95,9 @@ type Manager struct {
 	Budget  *arena.Budget
 	debug   *diagnostic.DebugContext
 	owner   uint64
-	closed  bool
+	// closed is set once, under mu, by Close; CheckOpen reads it without
+	// taking mu.
+	closed atomic.Bool
 }
 type symbolEntry struct {
 	text string
@@ -142,7 +144,7 @@ func (m *Manager) BindDebug(d *diagnostic.DebugContext) error {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.closed {
+	if m.closed.Load() {
 		return arena.ErrClosed
 	}
 	m.debug = d
@@ -168,7 +170,7 @@ func cSymbolLength(text string) int {
 	return len(text)
 }
 func (m *Manager) check(s Symbol) error {
-	if m.closed {
+	if m.closed.Load() {
 		return arena.ErrClosed
 	}
 	if s.Tag > 3 {
@@ -216,7 +218,7 @@ func (m *Manager) Intern(text string) (Symbol, error) {
 }
 
 func (m *Manager) intern(text string) (Symbol, error) {
-	if m.closed {
+	if m.closed.Load() {
 		return Symbol{}, arena.ErrClosed
 	}
 	length := cSymbolLength(text)
@@ -445,9 +447,12 @@ func (m *Manager) FirstEqualString(text *string, n uint32, key func(uint32) Symb
 // CheckOpen returns the error any query on the null symbol returns: only
 // a closed manager refuses it.
 func (m *Manager) CheckOpen() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.checkPlain(Symbol{})
+	// checkPlain(Symbol{}) refuses only a closed manager; it reads no other
+	// state, so it needs no lock.
+	if m.closed.Load() {
+		return arena.ErrClosed
+	}
+	return nil
 }
 
 func (m *Manager) equalString(s Symbol, text *string) (bool, error) {
@@ -564,7 +569,7 @@ func (m *Manager) Stats() Stats {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	s := Stats{}
-	if !m.closed {
+	if !m.closed.Load() {
 		s.OwnerBytes = uint64(reflect.TypeOf(Manager{}).Size())
 		s.Symbols = uint32(len(m.byText))
 		s.Table.Size = s.Symbols
@@ -574,13 +579,13 @@ func (m *Manager) Stats() Stats {
 func (m *Manager) Close() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.closed {
+	if m.closed.Load() {
 		return nil
 	}
 	m.Budget.Release(uint64(reflect.TypeOf(Manager{}).Size()))
 	m.byText = nil
 	m.entries = nil
-	m.closed = true
+	m.closed.Store(true)
 	return nil
 }
 
