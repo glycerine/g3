@@ -19,13 +19,15 @@ import (
 func (t *SMTTheoryArith) mkNaryMul(x *smtArithExprs, args []ast.ASTHandle, isInt bool) (ast.ASTHandle, error) {
 	switch len(args) {
 	case 0:
-		return t.mkNumeral(x, big.NewRat(1, 1), isInt)
+		return t.mkNumeralInt(x, 1, isInt)
 	case 1:
 		return args[0], nil
 	case 2:
 		return t.mkApp(x, smtArithOpMul, args[0], args[1])
 	}
-	if _, ok := t.isNumeral(args[0]); ok {
+	if ok, err := t.isNumeralExpr(args[0]); err != nil {
+		return ast.ASTHandle{}, err
+	} else if ok {
 		rest, err := t.mkApp(x, smtArithOpMul, args[1:]...)
 		if err != nil {
 			return ast.ASTHandle{}, err
@@ -38,7 +40,7 @@ func (t *SMTTheoryArith) mkNaryMul(x *smtArithExprs, args []ast.ASTHandle, isInt
 func (t *SMTTheoryArith) mkNaryAdd(x *smtArithExprs, args []ast.ASTHandle, isInt bool) (ast.ASTHandle, error) {
 	switch len(args) {
 	case 0:
-		return t.mkNumeral(x, new(big.Rat), isInt)
+		return t.mkNumeralInt(x, 0, isInt)
 	case 1:
 		return args[0], nil
 	}
@@ -163,10 +165,20 @@ func (t *SMTTheoryArith) getMonomialBody(m ast.ASTHandle) (ast.ASTHandle, error)
 	if err != nil {
 		return m, err
 	}
-	if _, ok := t.isNumeral(args[0]); ok {
-		return args[1], nil
+	if ok, err := t.isNumeralExpr(args[0]); err != nil || ok {
+		return args[1], err
 	}
 	return m, nil
+}
+
+// isNumeralExpr is m_util.is_numeral(n).
+func (t *SMTTheoryArith) isNumeralExpr(n ast.ASTHandle) (bool, error) {
+	r := smtQZero()
+	ok, err := t.isNumeralQ(n, &r)
+	if e := smtQDel(t.q, &r); err == nil {
+		err = e
+	}
+	return ok, err
 }
 
 // getMonomialCoeff: given a monomial c*M, return c.
@@ -179,6 +191,18 @@ func (t *SMTTheoryArith) getMonomialCoeff(m ast.ASTHandle) (*big.Rat, error) {
 		return r, nil
 	}
 	return big.NewRat(1, 1), nil
+}
+
+// getMonomialCoeffQ is get_monomial_coeff(m) into a rational.
+func (t *SMTTheoryArith) getMonomialCoeffQ(m ast.ASTHandle, out *numeral.Rational) error {
+	arg0, err := t.state.manager.GetArg(m, 0)
+	if err != nil {
+		return err
+	}
+	if ok, err := t.isNumeralQ(arg0, out); err != nil || ok {
+		return err
+	}
+	return t.q.SetInt64(out, 1)
 }
 
 // getNumVarsInMonomial returns the number of distinct variables of m.
@@ -644,19 +668,25 @@ func (t *SMTTheoryArith) propagateNlBounds() (bool, error) {
 	return propagated, nil
 }
 
-// getRationalValue is get_value(v, computed_epsilon): the value of v as a
-// rational, computing epsilon on first use when v has an infinitesimal.
-// The NL model checks compute in math/big from this value.
-func (t *SMTTheoryArith) getRationalValue(v SMTTheoryVar, computedEpsilon *bool) *big.Rat {
+// getValueNL is get_value(v, computed_epsilon): the value of v as a
+// rational, rational + epsilon * infinitesimal, computing epsilon on first
+// use when v has an infinitesimal.
+func (t *SMTTheoryArith) getValueNL(v SMTTheoryVar, computedEpsilon *bool, out *numeral.Rational) error {
 	val := t.getValue(v)
 	if !val.infinitesimal.IsZero() && !*computedEpsilon {
 		t.keep(t.computeEpsilon())
 		*computedEpsilon = true
 		t.modelDependsOnComputedEpsilon = true
 	}
-	r, err := t.modelRational(val)
-	t.keep(err)
-	return r
+	tmp := smtQZero()
+	err := t.q.Mul(&t.epsilon, &val.infinitesimal, &tmp)
+	if err == nil {
+		err = t.q.Add(&val.rational, &tmp, out)
+	}
+	if e := smtQDel(t.q, &tmp); err == nil {
+		err = e
+	}
+	return err
 }
 
 // checkMonomialAssignment: for the monomial x_1*...*x_n of v,
@@ -667,12 +697,21 @@ func (t *SMTTheoryArith) checkMonomialAssignment(v SMTTheoryVar, computedEpsilon
 	if err != nil {
 		return false, err
 	}
-	val := big.NewRat(1, 1)
+	val, vVal := smtQInt(1), smtQZero()
+	defer smtQDel(t.q, &val)
+	defer smtQDel(t.q, &vVal)
 	for _, arg := range args {
-		curr := t.expr2var(arg)
-		val.Mul(val, t.getRationalValue(curr, computedEpsilon))
+		if err := t.getValueNL(t.expr2var(arg), computedEpsilon, &vVal); err != nil {
+			return false, err
+		}
+		if err := t.q.Mul(&val, &vVal, &val); err != nil {
+			return false, err
+		}
 	}
-	return t.getRationalValue(v, computedEpsilon).Cmp(val) == 0, nil
+	if err := t.getValueNL(v, computedEpsilon, &vVal); err != nil {
+		return false, err
+	}
+	return t.q.Equal(&vVal, &val)
 }
 
 // checkMonomialAssignments: every relevant monomial agrees with its factors.
@@ -775,7 +814,7 @@ func (t *SMTTheoryArith) branchNlIntVar(v SMTTheoryVar) (result bool, err error)
 			return false, err
 		}
 	default:
-		zero, err := t.mkNumeral(&x, new(big.Rat), true)
+		zero, err := t.mkNumeralInt(&x, 0, true)
 		if err != nil {
 			return false, err
 		}
@@ -823,20 +862,18 @@ func (t *SMTTheoryArith) isMonomialLinear(m ast.ASTHandle) (bool, error) {
 
 // getMonomialFixedVarProduct is the product of the values of the fixed
 // variables of m.
-func (t *SMTTheoryArith) getMonomialFixedVarProduct(m ast.ASTHandle) (*big.Rat, error) {
+func (t *SMTTheoryArith) getMonomialFixedVarProduct(m ast.ASTHandle) (numeral.Rational, error) {
+	r := smtQInt(1)
 	args, err := t.args(m)
 	if err != nil {
-		return nil, err
+		return r, err
 	}
-	r := big.NewRat(1, 1)
 	for _, arg := range args {
 		v := t.expr2var(arg)
 		if t.isFixed(v) {
-			b, err := smtQBig(t.q, &t.lowerBound(v).rational)
-			if err != nil {
-				return nil, err
+			if err := t.q.Mul(&r, &t.lowerBound(v).rational, &r); err != nil {
+				return r, err
 			}
-			r.Mul(r, b)
 		}
 	}
 	return r, nil
@@ -871,12 +908,13 @@ func (t *SMTTheoryArith) propagateLinearMonomial(v SMTTheoryVar) (result bool, e
 	t.data[v].nonlinearPropagated = true
 	t.nlPropagated = append(t.nlPropagated, v)
 	k, err := t.getMonomialFixedVarProduct(m)
+	defer smtQDel(t.q, &k)
 	if err != nil {
 		return false, err
 	}
 	var xn ast.ASTHandle
 	hasXn := false
-	if k.Sign() != 0 {
+	if !k.IsZero() {
 		if xn, hasXn, err = t.getMonomialNonFixedVar(m); err != nil {
 			return false, err
 		}
@@ -888,10 +926,12 @@ func (t *SMTTheoryArith) propagateLinearMonomial(v SMTTheoryVar) (result bool, e
 		// (= (+ (* x_1 ... x_n) (* -k x_n)) 0).
 		ex := smtArithExprs{m: t.state.manager}
 		defer func() { err = errors.Join(err, ex.release()) }()
-		k.Neg(k)
+		if err = t.q.Neg(&k); err != nil {
+			return false, err
+		}
 		kxn := xn
-		if !smtRatIsOne(k) {
-			kn, err := t.mkNumeral(&ex, k, t.isInt(v))
+		if !k.IsOne() {
+			kn, err := t.mkNumeralQ(&ex, &k, t.isInt(v))
 			if err != nil {
 				return false, err
 			}
@@ -929,10 +969,10 @@ func (t *SMTTheoryArith) propagateLinearMonomial(v SMTTheoryVar) (result bool, e
 		newUpper = &smtArithmeticDerivedBound{}
 		newUpper.variable, newUpper.kind = v, smtArithmeticUpperBound
 		newUpper.value.init()
-		if err := t.q.SetBigRat(&newLower.value.rational, k); err != nil {
+		if err := t.q.Copy(&newLower.value.rational, &k); err != nil {
 			return false, err
 		}
-		if err := t.q.SetBigRat(&newUpper.value.rational, k); err != nil {
+		if err := t.q.Copy(&newUpper.value.rational, &k); err != nil {
 			return false, err
 		}
 	}
@@ -1067,8 +1107,11 @@ func (t *SMTTheoryArith) isIntegerRow(r *smtArithmeticRow) bool {
 }
 
 // smtArithCoeffExpr is coeff_expr; smtArithVarNumOccs is var_num_occs.
+// The row's polynomial (isCrossNestedConsistentRow) owns each coefficient;
+// the sub-polynomials of horner and cross_nested refer to the same values
+// and never free them.
 type smtArithCoeffExpr struct {
-	coeff *big.Rat
+	coeff numeral.Rational
 	e     ast.ASTHandle
 }
 type smtArithVarNumOccs struct {
@@ -1112,7 +1155,9 @@ func (t *SMTTheoryArith) getPolynomialInfo(p []smtArithCoeffExpr) ([]smtArithVar
 					return nil, err
 				}
 			}
-		} else if _, ok := t.isNumeral(m); ok {
+		} else if ok, err := t.isNumeralExpr(m); err != nil {
+			return nil, err
+		} else if ok {
 			continue
 		} else if t.state.context.enodes.get(m) != nil {
 			if err := addOcc(m); err != nil {
@@ -1135,9 +1180,9 @@ func (t *SMTTheoryArith) getPolynomialInfo(p []smtArithCoeffExpr) ([]smtArithVar
 func (t *SMTTheoryArith) p2expr(p []smtArithCoeffExpr) (ast.ASTHandle, error) {
 	x := &t.nlNewExprs
 	args := make([]ast.ASTHandle, 0, len(p))
-	for _, ce := range p {
-		c, v := ce.coeff, ce.e
-		if smtRatIsOne(c) {
+	for i := range p {
+		c, v := &p[i].coeff, p[i].e
+		if c.IsOne() {
 			args = append(args, v)
 			continue
 		}
@@ -1146,13 +1191,24 @@ func (t *SMTTheoryArith) p2expr(p []smtArithCoeffExpr) (ast.ASTHandle, error) {
 			return ast.ASTHandle{}, err
 		}
 		var m ast.ASTHandle
-		if c2, ok := t.isNumeral(v); ok {
-			m, err = t.mkNumeral(x, new(big.Rat).Mul(c, c2), isIntV && c.IsInt() && c2.IsInt())
-		} else {
+		c2 := smtQZero()
+		isNum, err := t.isNumeralQ(v, &c2)
+		if err == nil && isNum {
+			cc2 := smtQZero()
+			if err = t.q.Mul(c, &c2, &cc2); err == nil {
+				m, err = t.mkNumeralQ(x, &cc2, isIntV && c.IsInt() && c2.IsInt())
+			}
+			if e := smtQDel(t.q, &cc2); err == nil {
+				err = e
+			}
+		} else if err == nil {
 			var cn ast.ASTHandle
-			if cn, err = t.mkNumeral(x, c, c.IsInt() && isIntV); err == nil {
+			if cn, err = t.mkNumeralQ(x, c, c.IsInt() && isIntV); err == nil {
 				m, err = t.mkApp(x, smtArithOpMul, cn, v)
 			}
+		}
+		if e := smtQDel(t.q, &c2); err == nil {
+			err = e
 		}
 		if err != nil {
 			return ast.ASTHandle{}, err
@@ -1176,9 +1232,9 @@ func (t *SMTTheoryArith) power(v ast.ASTHandle, power uint32) (ast.ASTHandle, er
 
 // inMonovariateMonomials reports whether v occurs only in two monovariate
 // monomials, returning their positions, coefficients and powers.
-func (t *SMTTheoryArith) inMonovariateMonomials(p []smtArithCoeffExpr, v ast.ASTHandle) (i1 int, c1 *big.Rat, n1 uint32, i2 int, c2 *big.Rat, n2 uint32, ok bool, err error) {
+func (t *SMTTheoryArith) inMonovariateMonomials(p []smtArithCoeffExpr, v ast.ASTHandle) (i1 int, c1 *numeral.Rational, n1 uint32, i2 int, c2 *numeral.Rational, n2 uint32, ok bool, err error) {
 	idx := 0
-	set := func(i int, c *big.Rat, power uint32) bool {
+	set := func(i int, c *numeral.Rational, power uint32) bool {
 		switch idx {
 		case 0:
 			c1, n1, i1, idx = c, power, i, 1
@@ -1189,7 +1245,8 @@ func (t *SMTTheoryArith) inMonovariateMonomials(p []smtArithCoeffExpr, v ast.AST
 		}
 		return true
 	}
-	for i, ce := range p {
+	for i := range p {
+		ce := &p[i]
 		m := ce.e
 		if t.isPureMonomial(m) {
 			numVars, err := t.getNumVarsInMonomial(m)
@@ -1205,13 +1262,13 @@ func (t *SMTTheoryArith) inMonovariateMonomials(p []smtArithCoeffExpr, v ast.AST
 					if numVars > 1 {
 						return 0, nil, 0, 0, nil, 0, false, nil
 					}
-					if !set(i, ce.coeff, pw) {
+					if !set(i, &ce.coeff, pw) {
 						return 0, nil, 0, 0, nil, 0, false, nil
 					}
 				}
 			}
 		} else if m == v {
-			if !set(i, ce.coeff, 1) {
+			if !set(i, &ce.coeff, 1) {
 				return 0, nil, 0, 0, nil, 0, false, nil
 			}
 		}
@@ -1270,7 +1327,7 @@ func (t *SMTTheoryArith) factor(m, v ast.ASTHandle, d uint32) (ast.ASTHandle, er
 		return ast.ASTHandle{}, err
 	}
 	if m == v {
-		return t.mkNumeral(&t.nlNewExprs, big.NewRat(1, 1), isIntV)
+		return t.mkNumeralInt(&t.nlNewExprs, 1, isIntV)
 	}
 	args, err := t.args(m)
 	if err != nil {
@@ -1370,20 +1427,37 @@ func (t *SMTTheoryArith) crossNested(p []smtArithCoeffExpr, v ast.ASTHandle) (as
 		if n%2 == m%2 && n >= m {
 			// b*x^{n-m}*[(x^{m} + a/(2b))^2 - (a/2b)^2]
 			// b*[(x^{m} + a/(2b))^2 - (a/2b)^2]  for n == m
+			a2b, b2, ma2b2 := smtQZero(), smtQZero(), smtQZero()
+			defer smtQDel(t.q, &a2b)
+			defer smtQDel(t.q, &b2)
+			defer smtQDel(t.q, &ma2b2)
+			if err := t.q.Copy(&a2b, a); err != nil {
+				return ast.ASTHandle{}, err
+			}
 			xm, err := t.power(v, m)
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
-			a2b := new(big.Rat).Quo(a, new(big.Rat).Mul(big.NewRat(2, 1), b))
+			// a2b /= (rational(2) * b)
+			if err := t.q.Mul(smtQIntPtr(2), b, &b2); err != nil {
+				return ast.ASTHandle{}, err
+			}
+			if err := t.q.Div(&a2b, &b2, &a2b); err != nil {
+				return ast.ASTHandle{}, err
+			}
 			isIntV, err := t.isIntSort(v)
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
 			// a numeral of sort int cannot be a non-integer rational.
 			if !isIntV || a2b.IsInt() {
-				ma2b2 := new(big.Rat).Mul(a2b, a2b)
-				ma2b2.Neg(ma2b2)
-				a2bn, err := t.mkNumeral(x, a2b, isIntV)
+				if err := t.q.Mul(&a2b, &a2b, &ma2b2); err != nil {
+					return ast.ASTHandle{}, err
+				}
+				if err := t.q.Neg(&ma2b2); err != nil {
+					return ast.ASTHandle{}, err
+				}
+				a2bn, err := t.mkNumeralQ(x, &a2b, isIntV)
 				if err != nil {
 					return ast.ASTHandle{}, err
 				}
@@ -1395,7 +1469,7 @@ func (t *SMTTheoryArith) crossNested(p []smtArithCoeffExpr, v ast.ASTHandle) (as
 				if err != nil {
 					return ast.ASTHandle{}, err
 				}
-				ma2b2n, err := t.mkNumeral(x, ma2b2, isIntV)
+				ma2b2n, err := t.mkNumeralQ(x, &ma2b2, isIntV)
 				if err != nil {
 					return ast.ASTHandle{}, err
 				}
@@ -1414,8 +1488,8 @@ func (t *SMTTheoryArith) crossNested(p []smtArithCoeffExpr, v ast.ASTHandle) (as
 					}
 				}
 				newExpr := rhs2
-				if !smtRatIsOne(b) {
-					bn, err := t.mkNumeral(x, b, isIntV)
+				if !b.IsOne() {
+					bn, err := t.mkNumeralQ(x, b, isIntV)
 					if err != nil {
 						return ast.ASTHandle{}, err
 					}
@@ -1493,30 +1567,26 @@ func (t *SMTTheoryArith) isCrossNestedConsistentRow(r *smtArithmeticRow) (bool, 
 	if !coercions && t.isMixedRealInteger(r) {
 		return true, nil // giving up: sort-incorrect expressions (see the source comment)
 	}
-	// The cross nested check computes in math/big (a boundary).
-	c := big.NewRat(1, 1)
+	c := smtQInt(1)
+	defer smtQDel(t.q, &c)
 	if t.isIntegerRow(r) {
-		lcm := smtQZero()
-		err := r.denominatorLCM(t.q, &lcm)
-		if err == nil {
-			c, err = smtQBig(t.q, &lcm)
-		}
-		if e := smtQDel(t.q, &lcm); err == nil {
-			err = e
-		}
-		if err != nil {
+		if err := r.denominatorLCM(t.q, &c); err != nil {
 			return false, err
 		}
 	}
 	var p []smtArithCoeffExpr
+	defer func() {
+		for i := range p {
+			smtQDel(t.q, &p[i].coeff)
+		}
+	}()
 	for i := range r.entries {
 		it := &r.entries[i]
 		if !it.dead() {
-			coeff, err := smtQBig(t.q, &it.coefficient)
-			if err != nil {
+			p = append(p, smtArithCoeffExpr{smtQZero(), t.var2expr(it.variable)})
+			if err := t.q.Mul(&it.coefficient, &c, &p[len(p)-1].coeff); err != nil {
 				return false, err
 			}
-			p = append(p, smtArithCoeffExpr{coeff.Mul(coeff, c), t.var2expr(it.variable)})
 		}
 	}
 	return t.isCrossNestedConsistentPoly(p)
@@ -1644,13 +1714,19 @@ func (t *SMTTheoryArith) initGrobnerVarOrder(nlCluster []SMTTheoryVar, gb *grobn
 // mkGbMonomial creates coeff*m with fixed variables replaced by their
 // values; dep and alreadyFound collect the fixed variables used. It returns
 // nil when the monomial simplifies to 0.
-func (t *SMTTheoryArith) mkGbMonomial(c *big.Rat, m ast.ASTHandle, gb *grobner.Solver, deps *smtArithGbDeps, dep **grobner.Dependency, alreadyFound map[SMTTheoryVar]bool) (*grobner.Monomial, error) {
+func (t *SMTTheoryArith) mkGbMonomial(c *numeral.Rational, m ast.ASTHandle, gb *grobner.Solver, deps *smtArithGbDeps, dep **grobner.Dependency, alreadyFound map[SMTTheoryVar]bool) (*grobner.Monomial, error) {
 	var vars []ast.ASTHandle
-	coeff := new(big.Rat).Set(c)
+	coeff, r := smtQZero(), smtQZero()
+	defer smtQDel(t.q, &coeff)
+	defer smtQDel(t.q, &r)
+	if err := t.q.Copy(&coeff, c); err != nil {
+		return nil, err
+	}
 	procVar := func(v ast.ASTHandle) error {
-		if r, ok := t.isNumeral(v); ok {
-			coeff.Mul(coeff, r)
-			return nil
+		if ok, err := t.isNumeralQ(v, &r); err != nil {
+			return err
+		} else if ok {
+			return t.q.Mul(&coeff, &r, &coeff)
 		}
 		w := t.expr2var(v)
 		if !t.isFixed(w) {
@@ -1675,19 +1751,20 @@ func (t *SMTTheoryArith) mkGbMonomial(c *big.Rat, m ast.ASTHandle, gb *grobner.S
 				return err
 			}
 		}
-		b, err := smtQBig(t.q, &t.lowerBound(w).rational)
-		if err != nil {
-			return err
-		}
-		coeff.Mul(coeff, b)
-		return nil
+		return t.q.Mul(&coeff, &t.lowerBound(w).rational, &coeff)
 	}
 	if t.isOp(m, smtArithOpMul) {
-		mc, err := t.getMonomialCoeff(m)
+		mc := smtQZero()
+		err := t.getMonomialCoeffQ(m, &mc)
+		if err == nil {
+			err = t.q.Mul(&coeff, &mc, &coeff)
+		}
+		if e := smtQDel(t.q, &mc); err == nil {
+			err = e
+		}
 		if err != nil {
 			return nil, err
 		}
-		coeff.Mul(coeff, mc)
 		if m, err = t.getMonomialBody(m); err != nil {
 			return nil, err
 		}
@@ -1707,10 +1784,20 @@ func (t *SMTTheoryArith) mkGbMonomial(c *big.Rat, m ast.ASTHandle, gb *grobner.S
 	} else if err := procVar(m); err != nil {
 		return nil, err
 	}
-	if coeff.Sign() == 0 {
+	if coeff.IsZero() {
 		return nil, nil
 	}
-	return gb.NewMonomial(coeff, vars)
+	return t.newGbMonomial(gb, &coeff, vars)
+}
+
+// newGbMonomial is gb.mk_monomial(coeff, vars); grobner holds math/big
+// values (a boundary).
+func (t *SMTTheoryArith) newGbMonomial(gb *grobner.Solver, coeff *numeral.Rational, vars []ast.ASTHandle) (*grobner.Monomial, error) {
+	b, err := smtQBig(t.q, coeff)
+	if err != nil {
+		return nil, err
+	}
+	return gb.NewMonomial(b, vars)
 }
 
 // addRowToGb sends the row to the grobner object with fixed variables
@@ -1724,11 +1811,7 @@ func (t *SMTTheoryArith) addRowToGb(r *smtArithmeticRow, gb *grobner.Solver, dep
 		if it.dead() {
 			continue
 		}
-		coeff, err := smtQBig(t.q, &it.coefficient) // grobner holds math/big values
-		if err != nil {
-			return err
-		}
-		newM, err := t.mkGbMonomial(coeff, t.var2expr(it.variable), gb, deps, &dep, alreadyFound)
+		newM, err := t.mkGbMonomial(&it.coefficient, t.var2expr(it.variable), gb, deps, &dep, alreadyFound)
 		if err != nil {
 			return err
 		}
@@ -1746,14 +1829,15 @@ func (t *SMTTheoryArith) addMonomialDefToGb(v SMTTheoryVar, gb *grobner.Solver, 
 	var dep *grobner.Dependency
 	alreadyFound := make(map[SMTTheoryVar]bool)
 	m := t.var2expr(v)
-	newM, err := t.mkGbMonomial(big.NewRat(1, 1), m, gb, deps, &dep, alreadyFound)
+	newM, err := t.mkGbMonomial(smtQIntPtr(1), m, gb, deps, &dep, alreadyFound)
 	if err != nil {
 		return err
 	}
 	if newM != nil {
 		monomials = append(monomials, newM)
 	}
-	coeff := big.NewRat(-1, 1)
+	coeff := smtQInt(-1)
+	defer smtQDel(t.q, &coeff)
 	if t.isFixed(v) {
 		l, err := deps.leaf(t.lower(v))
 		if err != nil {
@@ -1770,20 +1854,18 @@ func (t *SMTTheoryArith) addMonomialDefToGb(v SMTTheoryVar, gb *grobner.Solver, 
 		if dep, err = deps.join(dep, lu); err != nil {
 			return err
 		}
-		b, err := smtQBig(t.q, &t.lowerBound(v).rational)
-		if err != nil {
+		if err := t.q.Mul(&coeff, &t.lowerBound(v).rational, &coeff); err != nil {
 			return err
 		}
-		coeff.Mul(coeff, b)
-		if coeff.Sign() != 0 {
-			c, err := gb.NewMonomial(coeff, nil)
+		if !coeff.IsZero() {
+			c, err := t.newGbMonomial(gb, &coeff, nil)
 			if err != nil {
 				return err
 			}
 			monomials = append(monomials, c)
 		}
 	} else {
-		c, err := gb.NewMonomial(coeff, []ast.ASTHandle{m})
+		c, err := t.newGbMonomial(gb, &coeff, []ast.ASTHandle{m})
 		if err != nil {
 			return err
 		}
