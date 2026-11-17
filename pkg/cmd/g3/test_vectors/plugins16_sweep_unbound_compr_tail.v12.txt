@@ -1,0 +1,139 @@
+(query)
+mk_empty
+mk_empty
+mk_empty
+mk_empty
+mk_empty
+mk_empty
+mk_empty
+mk_empty
+(transform N7datalog13mk_coi_filterE...10 rules 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...no-op 0s)
+(transform N7datalog25mk_separate_negated_tailsE...no-op 0s)
+(transform N7datalog24mk_similarity_compressorE...no-op 0s)
+(transform N7datalog15mk_filter_rulesE...11 rules 0s)
+(transform N7datalog15mk_simple_joinsE...12 rules 0s)
+(transform N7datalog21mk_unbound_compressorE...16 rules 0s)
+load p0 into 0
+load p2 into 1
+load p1 into 2
+load p2!filter!0 into 3
+mk_empty
+load p2!compr_arg_0!2!compr_arg_1!3 into 4
+mk_empty
+load p2!split!1 into 5
+mk_empty
+load p2!compr_arg_0!2 into 6
+mk_empty
+load p2!filter!0!compr_arg_0!4 into 7
+mk_empty
+load p2!split!1!compr_arg_0!5 into 8
+mk_empty
+mk_unary_singleton into 9 sort:(_ BitVec 3) val:5
+mk_empty
+add_fact
+mk_unary_singleton into 10 sort:(_ BitVec 3) val:6
+mk_empty
+add_fact
+join 9() and 10() into 11
+operator()
+mk_unary_singleton into 12 sort:(_ BitVec 3) val:4
+mk_empty
+add_fact
+join 11() and 12() into 11
+operator()
+union 11 into 1
+mk_empty
+operator()
+mk_unary_singleton into 13 sort:(_ BitVec 3) val:7
+mk_empty
+add_fact
+join 13() and 12() into 14
+operator()
+mk_unary_singleton into 15 sort:(_ BitVec 3) val:3
+mk_empty
+add_fact
+join 14() and 15() into 14
+operator()
+union 14 into 1
+operator()
+mark_saturated p2
+mark_saturated p2!compr_arg_0!2
+clone 1 into 16
+clone
+filter_identical 16 (0,2)
+mark_saturated p2!filter!0
+mk_unary_singleton into 18 sort:(_ BitVec 3) val:2
+mk_empty
+add_fact
+union 18 into 2
+mk_empty
+operator()
+mark_saturated p1
+join_project 3(1) and 2:1-1(0) into 19 removing columns (1,2)
+mark_saturated p2!split!1
+join 13() and 10() into 20
+operator()
+union 20 into 0
+mk_empty
+operator()
+mk_unary_singleton into 21 sort:(_ BitVec 3) val:0
+mk_empty
+add_fact
+join 9() and 21() into 22
+operator()
+union 22 into 0
+operator()
+join 12() and 18() into 23
+operator()
+union 23 into 0
+operator()
+join 12() and 15() into 24
+operator()
+union 24 into 0
+operator()
+join 15() and 15() into 25
+operator()
+union 25 into 0
+operator()
+join 21() and 10() into 26
+operator()
+union 26 into 0
+operator()
+mark_saturated p0
+join_project 5(0) and 0:2-6(0) into 33 removing columns (0,1)
+while(27,28,29)
+    join_project 7(0) and 2:1-1(0) into 34 removing columns (0,1)
+    union 34 into 8 with delta 32
+    dealloc 34
+    join_project 5(0) and 0:2-6(0) into 35 removing columns (0,1)
+    union 35 into 4 with delta 31
+    dealloc 35
+    join_project 8() and 0:2-6() into 36 removing columns (0)
+    union 36 into 4 with delta 31
+    dealloc 36
+    union 4 into 7 with delta 30
+    move 30 into 27
+    move 31 into 28
+    move 32 into 29
+mark_saturated p2!filter!0!compr_arg_0!4
+mark_saturated p2!compr_arg_0!2!compr_arg_1!3
+mark_saturated p2!split!1!compr_arg_0!5
+store 1 into p2
+store 0 into p0
+store 4 into p2!compr_arg_0!2!compr_arg_1!3
+mk_empty
+store 2 into p1
+store 8 into p2!split!1!compr_arg_0!5
+mk_empty
+store 5 into p2!split!1
+mk_empty
+store 7 into p2!filter!0!compr_arg_0!4
+mk_empty
+store 6 into p2!compr_arg_0!2
+mk_empty
+store 3 into p2!filter!0
+mk_empty
+bytes 56
+bytes	rows	annotation

@@ -1,0 +1,124 @@
+(query)
+(transform N7datalog13mk_coi_filterE...no-op 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...no-op 0s)
+(transform N7datalog25mk_separate_negated_tailsE...no-op 0s)
+(transform N7datalog24mk_similarity_compressorE...no-op 0s)
+(transform N7datalog15mk_filter_rulesE...8 rules 0s)
+(transform N7datalog15mk_simple_joinsE...no-op 0s)
+(transform N7datalog21mk_unbound_compressorE...7 rules 0s)
+load e into 0
+load q into 1
+load t!filter!0 into 2
+load t into 3
+load p into 4
+load p!compr_arg_1!1 into 5
+mark_saturated p
+mark_saturated p!compr_arg_1!1
+mk_unary_singleton into 6 sort:(_ BitVec 3) val:1
+mk_unary_singleton into 7 sort:(_ BitVec 3) val:2
+join 6() and 7() into 8
+join_project...0s
+union 8 into 0
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+mk_unary_singleton into 9 sort:(_ BitVec 3) val:3
+join 7() and 9() into 10
+join_project...0s
+union 10 into 0
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+mark_saturated e
+join_project 0:2-2(0) and 4(0) into 13 removing columns (0,3)
+join_project 0:2-2(0) and 5:1-2(0) into 14 removing columns (0)
+join_project...get_key_indexer...0s
+0s
+rename 14 into 14 with cycle (0,1)
+rename...0s
+recycle...Recycle: 204
+0s
+union 14 into 3
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+clone 3 into 11
+while(11)
+    join_project 0:2-2(0) and 11:2-1(1) into 15 removing columns (0,3)
+    rename 15 into 15 with cycle (0,1)
+    union 15 into 3 with delta 12
+    dealloc 15
+    move 12 into 11
+looping ... 0
+join_project 0:2-2(0) and 11:2-1(1) into 15 removing columns (0,3)
+join_project...get_key_indexer...0s
+0s
+rename 15 into 15 with cycle (0,1)
+rename...0s
+recycle...Recycle: 204
+0s
+union 15 into 3 with delta 12
+union...add_fact...0s
+add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+move 12 into 11
+recycle...Recycle: 204
+0s
+looping ... 1
+join_project 0:2-2(0) and 11:2-1(1) into 15 removing columns (0,3)
+join_project...get_key_indexer...0s
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+mark_saturated t
+select_equal_and_project 3 into 16 col: 0 val: 1
+select_equal_and_project...get_key_indexer...0s
+0s
+select_equal_and_project 16 into 16 col: 0 val: 3
+remove_fact...0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+union 16 into 2
+mark_saturated t!filter!0
+union 2 into 1
+mark_saturated q
+store 3 into t
+recycle...Recycle: 200
+0s
+store 0 into e
+recycle...Recycle: 200
+0s
+store 1 into q
+store 4 into p
+recycle...Recycle: 200
+0s
+store 5 into p!compr_arg_1!1
+recycle...Recycle: 204
+0s
+store 2 into t!filter!0
+bytes 612
+bytes	rows	annotation
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 204
+0s

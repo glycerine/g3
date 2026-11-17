@@ -137,7 +137,46 @@ func (e *PropositionalEngine) datalogUnboundCompressor() (*transforms.UnboundCom
 		_, err := e.relations.CollectNonEmptyPredicates()
 		return err
 	})
+	normalization, err := e.ruleNormalizationParams()
+	if err != nil {
+		return nil, errors.Join(err, plugin.Close())
+	}
+	plugin.SetFixUnboundServices(e.ruleManagerLite, normalization.FixUnboundVariables)
+	plugin.SetFactAdder(e.unboundCompressorFact)
 	return plugin, nil
+}
+
+// unboundCompressorFact is m_context.add_fact(chead) of a compressed head
+// that became a fact: the compressed predicate's relation gets the fact.
+func (e *PropositionalEngine) unboundCompressorFact(head ast.ASTHandle) error {
+	declaration, err := e.manager.GetDecl(head)
+	if err != nil {
+		return err
+	}
+	state := e.predicates[declaration]
+	if state == nil {
+		if state, err = e.predicateState(declaration); err != nil {
+			return err
+		}
+		e.predicates[declaration] = state
+		e.predicateOrder = append(e.predicateOrder, declaration)
+		e.auxiliary[declaration] = true
+	}
+	count, err := e.manager.GetNumArgs(head)
+	if err != nil {
+		return err
+	}
+	values := make([]ast.ASTHandle, count)
+	for i := range values {
+		if values[i], err = e.manager.GetArg(head, uint32(i)); err != nil {
+			return err
+		}
+	}
+	fact, err := e.relations.EncodeFact(state.sorts, values)
+	if err != nil {
+		return err
+	}
+	return e.addDatalogFact(declaration, state, fact)
 }
 
 // registerDatalogUnboundPredicates gives the compressed predicates of the

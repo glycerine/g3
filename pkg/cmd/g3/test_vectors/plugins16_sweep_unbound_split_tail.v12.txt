@@ -1,0 +1,738 @@
+(query)
+(transform N7datalog13mk_coi_filterE...26 rules 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...24 rules 0s)
+(transform N7datalog12mk_bit_blastE...24 rules 0s)
+(transform N7datalog25mk_separate_negated_tailsE...25 rules 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog24mk_similarity_compressorE...23 rules 0s)
+(transform N7datalog15mk_filter_rulesE...25 rules 0s)
+(transform N7datalog15mk_simple_joinsE...27 rules 0s)
+(transform N7datalog21mk_unbound_compressorE...57 rules 0s)
+Compiling unsafe rule column 0
+(forall ((A Bool) (B Bool) (C Bool)) (=> (not (p2!bv!0 C B A)) p2!bv!0!N!4))
+Compiling unsafe rule column 1
+(forall ((A Bool) (B Bool) (C Bool)) (=> (not (p2!bv!0 C B A)) p2!bv!0!N!4))
+Compiling unsafe rule column 2
+(forall ((A Bool) (B Bool) (C Bool)) (=> (not (p2!bv!0 C B A)) p2!bv!0!N!4))
+Compiling unsafe rule column 0
+(forall ((A Bool)
+         (B Bool)
+         (C Bool)
+         (D Bool)
+         (E Bool)
+         (F Bool)
+         (G Bool)
+         (H Bool)
+         (I Bool))
+  (=> (p1!bv!1 C B A F E D) (p1!bv!1 I H G I H G)))
+Compiling unsafe rule column 1
+(forall ((A Bool)
+         (B Bool)
+         (C Bool)
+         (D Bool)
+         (E Bool)
+         (F Bool)
+         (G Bool)
+         (H Bool)
+         (I Bool))
+  (=> (p1!bv!1 C B A F E D) (p1!bv!1 I H G I H G)))
+Compiling unsafe rule column 2
+(forall ((A Bool)
+         (B Bool)
+         (C Bool)
+         (D Bool)
+         (E Bool)
+         (F Bool)
+         (G Bool)
+         (H Bool)
+         (I Bool))
+  (=> (p1!bv!1 C B A F E D) (p1!bv!1 I H G I H G)))
+load p1!bv!1 into 0
+load p0!bv!2 into 1
+load p1!bv!1!split!8 into 2
+load p6!bv!3!filter!5 into 3
+load p6!bv!3 into 4
+load goal into 5
+load p2!bv!0 into 6
+load goal!split!7 into 7
+load p1!bv!1!filter!6 into 8
+load p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13!compr_arg_0!14!compr_arg_3!15!compr_arg_3!17!compr_arg_3!21 into 9
+load p2!bv!0!N!4 into 10
+load p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13!compr_arg_0!14!compr_arg_0!16!compr_arg_0!18!compr_arg_0!22 into 11
+load p6!bv!3!compr_arg_0!9 into 12
+load p6!bv!3!compr_arg_0!9!compr_arg_0!10 into 13
+load p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11 into 14
+load p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12 into 15
+load p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13 into 16
+load p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13!compr_arg_0!14 into 17
+load p6!bv!3!filter!5!compr_arg_0!19 into 18
+load p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13!compr_arg_0!14!compr_arg_0!16 into 19
+load p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13!compr_arg_0!14!compr_arg_3!15 into 20
+load p1!bv!1!split!8!compr_arg_3!20 into 21
+load p6!bv!3!filter!5!compr_arg_0!19!compr_arg_0!23 into 22
+load p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13!compr_arg_0!14!compr_arg_0!16!compr_arg_0!18 into 23
+load p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13!compr_arg_0!14!compr_arg_3!15!compr_arg_3!17 into 24
+load p1!bv!1!split!8!compr_arg_3!20!compr_arg_3!24 into 25
+load p6!bv!3!filter!5!compr_arg_0!19!compr_arg_0!23!compr_arg_0!25 into 26
+load p1!bv!1!split!8!compr_arg_3!20!compr_arg_3!24!compr_arg_3!26 into 27
+mk_unary_singleton into 28 sort:Bool val:0
+join 28() and 28() into 29
+join 29() and 28() into 29
+union 29 into 6
+mk_unary_singleton into 30 sort:Bool val:1
+join 30() and 30() into 31
+join 31() and 28() into 31
+union 31 into 6
+join 28() and 30() into 32
+join 32() and 28() into 32
+union 32 into 6
+mark_saturated p2!bv!0
+join 28() and 30() into 33
+join 33() and 30() into 33
+join 33() and 28() into 33
+join 33() and 30() into 33
+join 33() and 28() into 33
+union 33 into 1
+join 28() and 30() into 34
+join 34() and 30() into 34
+join 34() and 30() into 34
+join 34() and 28() into 34
+join 34() and 30() into 34
+union 34 into 1
+join 30() and 30() into 35
+join 35() and 28() into 35
+join 35() and 30() into 35
+join 35() and 28() into 35
+join 35() and 28() into 35
+union 35 into 1
+join 30() and 28() into 36
+join 36() and 28() into 36
+join 36() and 28() into 36
+join 36() and 30() into 36
+join 36() and 30() into 36
+union 36 into 1
+join 30() and 28() into 37
+join 37() and 28() into 37
+join 37() and 30() into 37
+join 37() and 30() into 37
+join 37() and 28() into 37
+union 37 into 1
+join 30() and 28() into 38
+join 38() and 30() into 38
+join 38() and 30() into 38
+join 38() and 28() into 38
+join 38() and 30() into 38
+union 38 into 1
+join 30() and 28() into 39
+join 39() and 30() into 39
+join 39() and 30() into 39
+join 39() and 30() into 39
+join 39() and 28() into 39
+union 39 into 1
+mark_saturated p0!bv!2
+mark_saturated p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13!compr_arg_0!14!compr_arg_0!16
+mark_saturated p6!bv!3!compr_arg_0!9!compr_arg_0!10
+mark_saturated p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12
+mark_saturated p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13!compr_arg_0!14
+mark_saturated p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13!compr_arg_0!14!compr_arg_3!15!compr_arg_3!17
+mark_saturated p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13
+mark_saturated p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11
+mark_saturated p6!bv!3!compr_arg_0!9
+mark_saturated p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13!compr_arg_0!14!compr_arg_3!15
+mark_saturated p6!bv!3
+union 6 into 11
+mark_saturated p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13!compr_arg_0!14!compr_arg_0!16!compr_arg_0!18!compr_arg_0!22
+mark_saturated p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13!compr_arg_0!14!compr_arg_0!16!compr_arg_0!18
+mk_total into 40 sort:[Bool] p2!bv!0!N!4
+join 40() and 40() into 41
+join 41() and 40() into 41
+filter_by_negation on 41(0,1,2) with 6(0,1,2) as the negated table
+project 41 into 41 deleting columns (0,1,2)
+union 41 into 10
+mark_saturated p2!bv!0!N!4
+join 28() and 30() into 56
+join 56() and 28() into 56
+join 56() and 28() into 56
+join 56() and 28() into 56
+join 56() and 28() into 56
+union 56 into 0
+join 28() and 30() into 57
+join 57() and 28() into 57
+join 57() and 28() into 57
+join 57() and 28() into 57
+join 57() and 30() into 57
+union 57 into 0
+join 30() and 28() into 58
+join 58() and 28() into 58
+join 58() and 28() into 58
+join 58() and 28() into 58
+join 58() and 28() into 58
+union 58 into 0
+join 30() and 28() into 59
+join 59() and 30() into 59
+join 59() and 28() into 59
+join 59() and 30() into 59
+join 59() and 28() into 59
+union 59 into 0
+join 30() and 30() into 60
+join 60() and 30() into 60
+join 60() and 28() into 60
+join 60() and 28() into 60
+join 60() and 30() into 60
+union 60 into 0
+join 30() and 30() into 61
+join 61() and 30() into 61
+join 61() and 30() into 61
+join 61() and 28() into 61
+join 61() and 28() into 61
+union 61 into 0
+join 30() and 30() into 62
+join 62() and 30() into 62
+join 62() and 30() into 62
+join 62() and 28() into 62
+join 62() and 30() into 62
+union 62 into 0
+clone 0 into 43
+mk_total into 66 sort:[Bool] p1!bv!1
+while(42,48,44,45,46,43,47)
+    clone 0 into 63
+    filter_identical 63 (0,3)
+    filter_identical 63 (1,4)
+    filter_identical 63 (2,5)
+    project 63 into 63 deleting columns (0,1,2)
+    union 63 into 8 with delta 49
+    dealloc 63
+    join_project 1:6-7(0,1,2) and 2(3,4,5) into 64 removing columns (0,1,2,9,10,11)
+    union 64 into 0 with delta 50
+    dealloc 64
+    project 0 into 65 deleting columns (0,1,2,3,4,5)
+    join 65() and 66() into 65
+    join 65() and 66() into 65
+    join 65() and 66() into 65
+    project 65 into 67 deleting columns (1,2)
+    join 65(0) and 67(0) into 65
+    dealloc 67
+    project 65 into 68 deleting columns (0,2,3)
+    join 65(1) and 68(0) into 65
+    dealloc 68
+    project 65 into 69 deleting columns (0,1,3,4)
+    join 65(2) and 69(0) into 65
+    dealloc 69
+    union 65 into 0 with delta 50
+    dealloc 65
+    join 28() and 30() into 70
+    join 70() and 28() into 70
+    join 70() and 28() into 70
+    join 70() and 28() into 70
+    join 70() and 28() into 70
+    union 70 into 0 with delta 50
+    dealloc 70
+    join 28() and 30() into 71
+    join 71() and 28() into 71
+    join 71() and 28() into 71
+    join 71() and 28() into 71
+    join 71() and 30() into 71
+    union 71 into 0 with delta 50
+    dealloc 71
+    join 30() and 28() into 72
+    join 72() and 28() into 72
+    join 72() and 28() into 72
+    join 72() and 28() into 72
+    join 72() and 28() into 72
+    union 72 into 0 with delta 50
+    dealloc 72
+    join 30() and 28() into 73
+    join 73() and 30() into 73
+    join 73() and 28() into 73
+    join 73() and 30() into 73
+    join 73() and 28() into 73
+    union 73 into 0 with delta 50
+    dealloc 73
+    join 30() and 30() into 74
+    join 74() and 30() into 74
+    join 74() and 28() into 74
+    join 74() and 28() into 74
+    join 74() and 30() into 74
+    union 74 into 0 with delta 50
+    dealloc 74
+    join 30() and 30() into 75
+    join 75() and 30() into 75
+    join 75() and 30() into 75
+    join 75() and 28() into 75
+    join 75() and 28() into 75
+    union 75 into 0 with delta 50
+    dealloc 75
+    join 30() and 30() into 76
+    join 76() and 30() into 76
+    join 76() and 30() into 76
+    join 76() and 28() into 76
+    join 76() and 30() into 76
+    union 76 into 0 with delta 50
+    dealloc 76
+    join_project 1:6-7(1,2) and 21(3,4) into 77 removing columns (0,1,2,9,10)
+    union 77 into 0 with delta 50
+    dealloc 77
+    join_project 1:6-7(2) and 25(3) into 78 removing columns (0,1,2,9)
+    union 78 into 0 with delta 50
+    dealloc 78
+    join_project 1:6-7() and 27() into 79 removing columns (0,1,2)
+    union 79 into 0 with delta 50
+    dealloc 79
+    join_project 0:6-7(0,1,2) and 23(1,2,3) into 80 removing columns (0,1,2,7,8,9)
+    union 80 into 25 with delta 51
+    dealloc 80
+    join_project 0:6-7(0,1,2) and 11:3-3(0,1,2) into 81 removing columns (0,1,2,6,7,8)
+    union 81 into 27 with delta 53
+    dealloc 81
+    join 8() and 10() into 82
+    union 82 into 9 with delta 52
+    dealloc 82
+    join_project 0:6-7(0,1,2,3,4,5) and 4(9,10,11,3,4,5) into 83 removing columns (0,1,2,3,4,5,6,7,8,15,16,17)
+    union 83 into 2 with delta 54
+    dealloc 83
+    join_project 0:6-7(0,1,2,3,4,5) and 12(8,9,10,2,3,4) into 84 removing columns (0,1,2,3,4,5,6,7,14,15,16)
+    union 84 into 2 with delta 54
+    dealloc 84
+    join_project 0:6-7(0,1,2,3,4,5) and 13(7,8,9,1,2,3) into 85 removing columns (0,1,2,3,4,5,6,13,14,15)
+    union 85 into 2 with delta 54
+    dealloc 85
+    join_project 0:6-7(0,1,2,3,4,5) and 14(6,7,8,0,1,2) into 86 removing columns (0,1,2,3,4,5,12,13,14)
+    union 86 into 2 with delta 54
+    dealloc 86
+    join_project 0:6-7(0,1,2,4,5) and 15(5,6,7,0,1) into 87 removing columns (0,1,2,4,5,11,12,13)
+    union 87 into 2 with delta 54
+    dealloc 87
+    join_project 0:6-7(0,1,2,5) and 16(4,5,6,0) into 88 removing columns (0,1,2,5,10,11,12)
+    union 88 into 2 with delta 54
+    dealloc 88
+    join_project 0:6-7(0,1,2) and 17(3,4,5) into 89 removing columns (0,1,2,9,10,11)
+    union 89 into 2 with delta 54
+    dealloc 89
+    join_project 0:6-7(1,2) and 20(3,4) into 90 removing columns (0,1,2,9,10)
+    union 90 into 2 with delta 54
+    dealloc 90
+    join_project 0:6-7(2) and 24(3) into 91 removing columns (0,1,2,9)
+    union 91 into 2 with delta 54
+    dealloc 91
+    join_project 0:6-7() and 9() into 92 removing columns (0,1,2)
+    union 92 into 2 with delta 54
+    dealloc 92
+    join_project 0:6-7(0,1,2) and 19(2,3,4) into 93 removing columns (0,1,2,8,9,10)
+    union 93 into 21 with delta 55
+    dealloc 93
+    move 49 into 42
+    move 55 into 48
+    move 51 into 44
+    move 52 into 45
+    move 53 into 46
+    move 50 into 43
+    move 54 into 47
+looping ... 0
+clone 0 into 63
+filter_identical 63 (0,3)
+filter_identical 63 (1,4)
+filter_identical 63 (2,5)
+join_project 1:6-7(0,1,2) and 2(3,4,5) into 64 removing columns (0,1,2,9,10,11)
+project 0 into 65 deleting columns (0,1,2,3,4,5)
+join 65() and 66() into 65
+join 65() and 66() into 65
+join 65() and 66() into 65
+project 65 into 67 deleting columns (1,2)
+join 65(0) and 67(0) into 65
+project 65 into 68 deleting columns (0,2,3)
+join 65(1) and 68(0) into 65
+project 65 into 69 deleting columns (0,1,3,4)
+join 65(2) and 69(0) into 65
+union 65 into 0 with delta 50
+join 28() and 30() into 70
+join 70() and 28() into 70
+join 70() and 28() into 70
+join 70() and 28() into 70
+join 70() and 28() into 70
+union 70 into 0 with delta 50
+join 28() and 30() into 71
+join 71() and 28() into 71
+join 71() and 28() into 71
+join 71() and 28() into 71
+join 71() and 30() into 71
+union 71 into 0 with delta 50
+join 30() and 28() into 72
+join 72() and 28() into 72
+join 72() and 28() into 72
+join 72() and 28() into 72
+join 72() and 28() into 72
+union 72 into 0 with delta 50
+join 30() and 28() into 73
+join 73() and 30() into 73
+join 73() and 28() into 73
+join 73() and 30() into 73
+join 73() and 28() into 73
+union 73 into 0 with delta 50
+join 30() and 30() into 74
+join 74() and 30() into 74
+join 74() and 28() into 74
+join 74() and 28() into 74
+join 74() and 30() into 74
+union 74 into 0 with delta 50
+join 30() and 30() into 75
+join 75() and 30() into 75
+join 75() and 30() into 75
+join 75() and 28() into 75
+join 75() and 28() into 75
+union 75 into 0 with delta 50
+join 30() and 30() into 76
+join 76() and 30() into 76
+join 76() and 30() into 76
+join 76() and 28() into 76
+join 76() and 30() into 76
+union 76 into 0 with delta 50
+join_project 1:6-7(1,2) and 21(3,4) into 77 removing columns (0,1,2,9,10)
+join_project 1:6-7(2) and 25(3) into 78 removing columns (0,1,2,9)
+join_project 1:6-7() and 27() into 79 removing columns (0,1,2)
+join_project 0:6-15(0,1,2) and 23(1,2,3) into 80 removing columns (0,1,2,7,8,9)
+join_project 0:6-15(0,1,2) and 11:3-3(0,1,2) into 81 removing columns (0,1,2,6,7,8)
+union 81 into 27 with delta 53
+join 8() and 10() into 82
+join_project 0:6-15(0,1,2,3,4,5) and 4(9,10,11,3,4,5) into 83 removing columns (0,1,2,3,4,5,6,7,8,15,16,17)
+join_project 0:6-15(0,1,2,3,4,5) and 12(8,9,10,2,3,4) into 84 removing columns (0,1,2,3,4,5,6,7,14,15,16)
+join_project 0:6-15(0,1,2,3,4,5) and 13(7,8,9,1,2,3) into 85 removing columns (0,1,2,3,4,5,6,13,14,15)
+join_project 0:6-15(0,1,2,3,4,5) and 14(6,7,8,0,1,2) into 86 removing columns (0,1,2,3,4,5,12,13,14)
+join_project 0:6-15(0,1,2,4,5) and 15(5,6,7,0,1) into 87 removing columns (0,1,2,4,5,11,12,13)
+join_project 0:6-15(0,1,2,5) and 16(4,5,6,0) into 88 removing columns (0,1,2,5,10,11,12)
+join_project 0:6-15(0,1,2) and 17(3,4,5) into 89 removing columns (0,1,2,9,10,11)
+join_project 0:6-15(1,2) and 20(3,4) into 90 removing columns (0,1,2,9,10)
+join_project 0:6-15(2) and 24(3) into 91 removing columns (0,1,2,9)
+join_project 0:6-15() and 9() into 92 removing columns (0,1,2)
+join_project 0:6-15(0,1,2) and 19(2,3,4) into 93 removing columns (0,1,2,8,9,10)
+move 53 into 46
+move 50 into 43
+looping ... 1
+clone 0 into 63
+filter_identical 63 (0,3)
+filter_identical 63 (1,4)
+filter_identical 63 (2,5)
+project 63 into 63 deleting columns (0,1,2)
+union 63 into 8 with delta 49
+join_project 1:6-7(0,1,2) and 2(3,4,5) into 64 removing columns (0,1,2,9,10,11)
+project 0 into 65 deleting columns (0,1,2,3,4,5)
+join 65() and 66() into 65
+join 65() and 66() into 65
+join 65() and 66() into 65
+project 65 into 67 deleting columns (1,2)
+join 65(0) and 67(0) into 65
+project 65 into 68 deleting columns (0,2,3)
+join 65(1) and 68(0) into 65
+project 65 into 69 deleting columns (0,1,3,4)
+join 65(2) and 69(0) into 65
+union 65 into 0 with delta 50
+join 28() and 30() into 70
+join 70() and 28() into 70
+join 70() and 28() into 70
+join 70() and 28() into 70
+join 70() and 28() into 70
+union 70 into 0 with delta 50
+join 28() and 30() into 71
+join 71() and 28() into 71
+join 71() and 28() into 71
+join 71() and 28() into 71
+join 71() and 30() into 71
+union 71 into 0 with delta 50
+join 30() and 28() into 72
+join 72() and 28() into 72
+join 72() and 28() into 72
+join 72() and 28() into 72
+join 72() and 28() into 72
+union 72 into 0 with delta 50
+join 30() and 28() into 73
+join 73() and 30() into 73
+join 73() and 28() into 73
+join 73() and 30() into 73
+join 73() and 28() into 73
+union 73 into 0 with delta 50
+join 30() and 30() into 74
+join 74() and 30() into 74
+join 74() and 28() into 74
+join 74() and 28() into 74
+join 74() and 30() into 74
+union 74 into 0 with delta 50
+join 30() and 30() into 75
+join 75() and 30() into 75
+join 75() and 30() into 75
+join 75() and 28() into 75
+join 75() and 28() into 75
+union 75 into 0 with delta 50
+join 30() and 30() into 76
+join 76() and 30() into 76
+join 76() and 30() into 76
+join 76() and 28() into 76
+join 76() and 30() into 76
+union 76 into 0 with delta 50
+join_project 1:6-7(1,2) and 21(3,4) into 77 removing columns (0,1,2,9,10)
+join_project 1:6-7(2) and 25(3) into 78 removing columns (0,1,2,9)
+join_project 1:6-7() and 27:3-4() into 79 removing columns (0,1,2)
+union 79 into 0 with delta 50
+join_project 0:6-29(0,1,2) and 23(1,2,3) into 80 removing columns (0,1,2,7,8,9)
+join_project 0:6-29(0,1,2) and 11:3-3(0,1,2) into 81 removing columns (0,1,2,6,7,8)
+union 81 into 27 with delta 53
+join 8() and 10() into 82
+union 82 into 9 with delta 52
+join_project 0:6-29(0,1,2,3,4,5) and 4(9,10,11,3,4,5) into 83 removing columns (0,1,2,3,4,5,6,7,8,15,16,17)
+join_project 0:6-29(0,1,2,3,4,5) and 12(8,9,10,2,3,4) into 84 removing columns (0,1,2,3,4,5,6,7,14,15,16)
+join_project 0:6-29(0,1,2,3,4,5) and 13(7,8,9,1,2,3) into 85 removing columns (0,1,2,3,4,5,6,13,14,15)
+join_project 0:6-29(0,1,2,3,4,5) and 14(6,7,8,0,1,2) into 86 removing columns (0,1,2,3,4,5,12,13,14)
+join_project 0:6-29(0,1,2,4,5) and 15(5,6,7,0,1) into 87 removing columns (0,1,2,4,5,11,12,13)
+join_project 0:6-29(0,1,2,5) and 16(4,5,6,0) into 88 removing columns (0,1,2,5,10,11,12)
+join_project 0:6-29(0,1,2) and 17(3,4,5) into 89 removing columns (0,1,2,9,10,11)
+join_project 0:6-29(1,2) and 20(3,4) into 90 removing columns (0,1,2,9,10)
+join_project 0:6-29(2) and 24(3) into 91 removing columns (0,1,2,9)
+join_project 0:6-29() and 9:3-8() into 92 removing columns (0,1,2)
+union 92 into 2 with delta 54
+join_project 0:6-29(0,1,2) and 19(2,3,4) into 93 removing columns (0,1,2,8,9,10)
+move 49 into 42
+move 52 into 45
+move 50 into 43
+move 54 into 47
+looping ... 2
+clone 0 into 63
+filter_identical 63 (0,3)
+filter_identical 63 (1,4)
+filter_identical 63 (2,5)
+project 63 into 63 deleting columns (0,1,2)
+union 63 into 8 with delta 49
+join_project 1:6-7(0,1,2) and 2:6-64(3,4,5) into 64 removing columns (0,1,2,9,10,11)
+union 64 into 0 with delta 50
+project 0 into 65 deleting columns (0,1,2,3,4,5)
+join 65() and 66() into 65
+join 65() and 66() into 65
+join 65() and 66() into 65
+project 65 into 67 deleting columns (1,2)
+join 65(0) and 67(0) into 65
+project 65 into 68 deleting columns (0,2,3)
+join 65(1) and 68(0) into 65
+project 65 into 69 deleting columns (0,1,3,4)
+join 65(2) and 69(0) into 65
+union 65 into 0 with delta 50
+join 28() and 30() into 70
+join 70() and 28() into 70
+join 70() and 28() into 70
+join 70() and 28() into 70
+join 70() and 28() into 70
+union 70 into 0 with delta 50
+join 28() and 30() into 71
+join 71() and 28() into 71
+join 71() and 28() into 71
+join 71() and 28() into 71
+join 71() and 30() into 71
+union 71 into 0 with delta 50
+join 30() and 28() into 72
+join 72() and 28() into 72
+join 72() and 28() into 72
+join 72() and 28() into 72
+join 72() and 28() into 72
+union 72 into 0 with delta 50
+join 30() and 28() into 73
+join 73() and 30() into 73
+join 73() and 28() into 73
+join 73() and 30() into 73
+join 73() and 28() into 73
+union 73 into 0 with delta 50
+join 30() and 30() into 74
+join 74() and 30() into 74
+join 74() and 28() into 74
+join 74() and 28() into 74
+join 74() and 30() into 74
+union 74 into 0 with delta 50
+join 30() and 30() into 75
+join 75() and 30() into 75
+join 75() and 30() into 75
+join 75() and 28() into 75
+join 75() and 28() into 75
+union 75 into 0 with delta 50
+join 30() and 30() into 76
+join 76() and 30() into 76
+join 76() and 30() into 76
+join 76() and 28() into 76
+join 76() and 30() into 76
+union 76 into 0 with delta 50
+join_project 1:6-7(1,2) and 21(3,4) into 77 removing columns (0,1,2,9,10)
+join_project 1:6-7(2) and 25(3) into 78 removing columns (0,1,2,9)
+join_project 1:6-7() and 27:3-4() into 79 removing columns (0,1,2)
+union 79 into 0 with delta 50
+join_project 0:6-46(0,1,2) and 23(1,2,3) into 80 removing columns (0,1,2,7,8,9)
+join_project 0:6-46(0,1,2) and 11:3-3(0,1,2) into 81 removing columns (0,1,2,6,7,8)
+union 81 into 27 with delta 53
+join 8() and 10() into 82
+union 82 into 9 with delta 52
+join_project 0:6-46(0,1,2,3,4,5) and 4(9,10,11,3,4,5) into 83 removing columns (0,1,2,3,4,5,6,7,8,15,16,17)
+join_project 0:6-46(0,1,2,3,4,5) and 12(8,9,10,2,3,4) into 84 removing columns (0,1,2,3,4,5,6,7,14,15,16)
+join_project 0:6-46(0,1,2,3,4,5) and 13(7,8,9,1,2,3) into 85 removing columns (0,1,2,3,4,5,6,13,14,15)
+join_project 0:6-46(0,1,2,3,4,5) and 14(6,7,8,0,1,2) into 86 removing columns (0,1,2,3,4,5,12,13,14)
+join_project 0:6-46(0,1,2,4,5) and 15(5,6,7,0,1) into 87 removing columns (0,1,2,4,5,11,12,13)
+join_project 0:6-46(0,1,2,5) and 16(4,5,6,0) into 88 removing columns (0,1,2,5,10,11,12)
+join_project 0:6-46(0,1,2) and 17(3,4,5) into 89 removing columns (0,1,2,9,10,11)
+join_project 0:6-46(1,2) and 20(3,4) into 90 removing columns (0,1,2,9,10)
+join_project 0:6-46(2) and 24(3) into 91 removing columns (0,1,2,9)
+join_project 0:6-46() and 9:3-8() into 92 removing columns (0,1,2)
+union 92 into 2 with delta 54
+join_project 0:6-46(0,1,2) and 19(2,3,4) into 93 removing columns (0,1,2,8,9,10)
+move 53 into 46
+move 50 into 43
+looping ... 3
+clone 0 into 63
+filter_identical 63 (0,3)
+filter_identical 63 (1,4)
+filter_identical 63 (2,5)
+project 63 into 63 deleting columns (0,1,2)
+union 63 into 8 with delta 49
+join_project 1:6-7(0,1,2) and 2:6-64(3,4,5) into 64 removing columns (0,1,2,9,10,11)
+union 64 into 0 with delta 50
+project 0 into 65 deleting columns (0,1,2,3,4,5)
+join 65() and 66() into 65
+join 65() and 66() into 65
+join 65() and 66() into 65
+project 65 into 67 deleting columns (1,2)
+join 65(0) and 67(0) into 65
+project 65 into 68 deleting columns (0,2,3)
+join 65(1) and 68(0) into 65
+project 65 into 69 deleting columns (0,1,3,4)
+join 65(2) and 69(0) into 65
+union 65 into 0 with delta 50
+join 28() and 30() into 70
+join 70() and 28() into 70
+join 70() and 28() into 70
+join 70() and 28() into 70
+join 70() and 28() into 70
+union 70 into 0 with delta 50
+join 28() and 30() into 71
+join 71() and 28() into 71
+join 71() and 28() into 71
+join 71() and 28() into 71
+join 71() and 30() into 71
+union 71 into 0 with delta 50
+join 30() and 28() into 72
+join 72() and 28() into 72
+join 72() and 28() into 72
+join 72() and 28() into 72
+join 72() and 28() into 72
+union 72 into 0 with delta 50
+join 30() and 28() into 73
+join 73() and 30() into 73
+join 73() and 28() into 73
+join 73() and 30() into 73
+join 73() and 28() into 73
+union 73 into 0 with delta 50
+join 30() and 30() into 74
+join 74() and 30() into 74
+join 74() and 28() into 74
+join 74() and 28() into 74
+join 74() and 30() into 74
+union 74 into 0 with delta 50
+join 30() and 30() into 75
+join 75() and 30() into 75
+join 75() and 30() into 75
+join 75() and 28() into 75
+join 75() and 28() into 75
+union 75 into 0 with delta 50
+join 30() and 30() into 76
+join 76() and 30() into 76
+join 76() and 30() into 76
+join 76() and 28() into 76
+join 76() and 30() into 76
+union 76 into 0 with delta 50
+join_project 1:6-7(1,2) and 21(3,4) into 77 removing columns (0,1,2,9,10)
+join_project 1:6-7(2) and 25(3) into 78 removing columns (0,1,2,9)
+join_project 1:6-7() and 27:3-8() into 79 removing columns (0,1,2)
+union 79 into 0 with delta 50
+join_project 0:6-46(0,1,2) and 23(1,2,3) into 80 removing columns (0,1,2,7,8,9)
+join_project 0:6-46(0,1,2) and 11:3-3(0,1,2) into 81 removing columns (0,1,2,6,7,8)
+union 81 into 27 with delta 53
+join 8() and 10() into 82
+union 82 into 9 with delta 52
+join_project 0:6-46(0,1,2,3,4,5) and 4(9,10,11,3,4,5) into 83 removing columns (0,1,2,3,4,5,6,7,8,15,16,17)
+join_project 0:6-46(0,1,2,3,4,5) and 12(8,9,10,2,3,4) into 84 removing columns (0,1,2,3,4,5,6,7,14,15,16)
+join_project 0:6-46(0,1,2,3,4,5) and 13(7,8,9,1,2,3) into 85 removing columns (0,1,2,3,4,5,6,13,14,15)
+join_project 0:6-46(0,1,2,3,4,5) and 14(6,7,8,0,1,2) into 86 removing columns (0,1,2,3,4,5,12,13,14)
+join_project 0:6-46(0,1,2,4,5) and 15(5,6,7,0,1) into 87 removing columns (0,1,2,4,5,11,12,13)
+join_project 0:6-46(0,1,2,5) and 16(4,5,6,0) into 88 removing columns (0,1,2,5,10,11,12)
+join_project 0:6-46(0,1,2) and 17(3,4,5) into 89 removing columns (0,1,2,9,10,11)
+join_project 0:6-46(1,2) and 20(3,4) into 90 removing columns (0,1,2,9,10)
+join_project 0:6-46(2) and 24(3) into 91 removing columns (0,1,2,9)
+join_project 0:6-46() and 9:3-8() into 92 removing columns (0,1,2)
+union 92 into 2 with delta 54
+join_project 0:6-46(0,1,2) and 19(2,3,4) into 93 removing columns (0,1,2,8,9,10)
+mark_saturated p1!bv!1!filter!6
+mark_saturated p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13!compr_arg_0!14!compr_arg_3!15!compr_arg_3!17!compr_arg_3!21
+mark_saturated p1!bv!1!split!8!compr_arg_3!20!compr_arg_3!24
+mark_saturated p1!bv!1!split!8!compr_arg_3!20!compr_arg_3!24!compr_arg_3!26
+mark_saturated p1!bv!1!split!8
+mark_saturated p1!bv!1!split!8!compr_arg_3!20
+mark_saturated p1!bv!1
+project 11 into 94 deleting columns (0,1,2)
+union 94 into 26
+mark_saturated p6!bv!3!filter!5!compr_arg_0!19!compr_arg_0!23!compr_arg_0!25
+mark_saturated p6!bv!3!filter!5!compr_arg_0!19!compr_arg_0!23
+filter_identical 96 (0,9)
+filter_identical 96 (1,10)
+filter_identical 96 (2,11)
+filter_identical 96 (3,6)
+filter_identical 96 (4,7)
+filter_identical 96 (5,8)
+filter_identical 97 (0,9)
+filter_identical 97 (1,10)
+filter_identical 97 (2,5)
+filter_identical 97 (3,6)
+filter_identical 97 (4,7)
+filter_identical 98 (0,9)
+filter_identical 98 (1,4)
+filter_identical 98 (2,5)
+filter_identical 98 (3,6)
+filter_identical 99 (0,3)
+filter_identical 99 (1,4)
+filter_identical 99 (2,5)
+filter_identical 100 (0,3)
+filter_identical 100 (1,4)
+filter_identical 101 (0,3)
+union 9 into 3
+mark_saturated p6!bv!3!filter!5
+mark_saturated p6!bv!3!filter!5!compr_arg_0!19
+join_project 3:3-8(0,1,2) and 1:6-7(0,1,2) into 106 removing columns (0,1,2,3,4,5)
+union 106 into 7
+join_project 18(0,1) and 1:6-7(1,2) into 107 removing columns (0,1,2,3,4)
+join_project 22(0) and 1:6-7(2) into 108 removing columns (0,1,2,3)
+join_project 26:0-1() and 1:6-7() into 109 removing columns (0,1,2)
+union 109 into 7
+mark_saturated goal!split!7
+join_project 6:3-3(0,1,2) and 7:3-5(0,1,2) into 110 removing columns (0,1,2,3,4,5)
+union 110 into 5
+mark_saturated goal
+store 10 into p2!bv!0!N!4
+store 20 into p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13!compr_arg_0!14!compr_arg_3!15
+store 22 into p6!bv!3!filter!5!compr_arg_0!19!compr_arg_0!23
+store 18 into p6!bv!3!filter!5!compr_arg_0!19
+store 11 into p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13!compr_arg_0!14!compr_arg_0!16!compr_arg_0!18!compr_arg_0!22
+store 13 into p6!bv!3!compr_arg_0!9!compr_arg_0!10
+store 4 into p6!bv!3
+store 6 into p2!bv!0
+store 7 into goal!split!7
+store 19 into p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13!compr_arg_0!14!compr_arg_0!16
+store 8 into p1!bv!1!filter!6
+store 12 into p6!bv!3!compr_arg_0!9
+store 25 into p1!bv!1!split!8!compr_arg_3!20!compr_arg_3!24
+store 2 into p1!bv!1!split!8
+store 14 into p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11
+store 1 into p0!bv!2
+store 16 into p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13
+store 27 into p1!bv!1!split!8!compr_arg_3!20!compr_arg_3!24!compr_arg_3!26
+store 3 into p6!bv!3!filter!5
+store 9 into p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13!compr_arg_0!14!compr_arg_3!15!compr_arg_3!17!compr_arg_3!21
+store 15 into p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12
+store 5 into goal
+store 23 into p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13!compr_arg_0!14!compr_arg_0!16!compr_arg_0!18
+store 26 into p6!bv!3!filter!5!compr_arg_0!19!compr_arg_0!23!compr_arg_0!25
+store 24 into p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13!compr_arg_0!14!compr_arg_3!15!compr_arg_3!17
+store 17 into p6!bv!3!compr_arg_0!9!compr_arg_0!10!compr_arg_0!11!compr_arg_0!12!compr_arg_0!13!compr_arg_0!14
+store 0 into p1!bv!1
+store 21 into p1!bv!1!split!8!compr_arg_3!20
+bytes 48
+bytes	rows	annotation

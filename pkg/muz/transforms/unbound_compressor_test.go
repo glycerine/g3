@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
-	"github.com/glycerine/g3/pkg/muz/transforms"
 )
 
 func TestUnboundCompressorProjectsHeadAndTailArgument(t *testing.T) {
@@ -27,7 +26,7 @@ func TestUnboundCompressorProjectsHeadAndTailArgument(t *testing.T) {
 	if !valid {
 		t.Fatal("compressor fixture rejected")
 	}
-	plugin := transforms.NewUnboundCompressorPlugin(f.manager, f.rules, true, 0)
+	plugin := newTestUnboundCompressor(t, f, true)
 	defer func() { coneMust(t, plugin.Close()) }()
 	result, err := plugin.Transform(f.set)
 	coneMust(t, err)
@@ -83,7 +82,7 @@ func TestUnboundCompressorSkipsOutputsDisabledAndBoundHeads(t *testing.T) {
 		t.Fatal("skip fixture rejected")
 	}
 	for _, enabled := range []bool{false, true} {
-		plugin := transforms.NewUnboundCompressorPlugin(f.manager, f.rules, enabled, 0)
+		plugin := newTestUnboundCompressor(t, f, enabled)
 		result, transformErr := plugin.Transform(f.set)
 		coneMust(t, transformErr)
 		if result != nil {
@@ -115,7 +114,7 @@ func TestUnboundCompressorRepeatsForNewlyProjectedUnboundArguments(t *testing.T)
 	if !valid {
 		t.Fatal("repeat-compression fixture rejected")
 	}
-	plugin := transforms.NewUnboundCompressorPlugin(f.manager, f.rules, true, 0)
+	plugin := newTestUnboundCompressor(t, f, true)
 	defer func() { coneMust(t, plugin.Close()) }()
 	result, err := plugin.Transform(f.set)
 	coneMust(t, err)
@@ -181,7 +180,7 @@ func TestUnboundCompressorUsesRuleSpecificHeadArguments(t *testing.T) {
 	if !valid {
 		t.Fatal("rule-specific compression fixture rejected")
 	}
-	plugin := transforms.NewUnboundCompressorPlugin(f.manager, f.rules, true, 0)
+	plugin := newTestUnboundCompressor(t, f, true)
 	defer func() { coneMust(t, plugin.Close()) }()
 	result, err := plugin.Transform(f.set)
 	coneMust(t, err)
@@ -251,7 +250,7 @@ func TestUnboundCompressorAddsCompressedNegatedTail(t *testing.T) {
 	if !valid {
 		t.Fatal("negative-tail fixture rejected")
 	}
-	plugin := transforms.NewUnboundCompressorPlugin(f.manager, f.rules, true, 0)
+	plugin := newTestUnboundCompressor(t, f, true)
 	defer func() { coneMust(t, plugin.Close()) }()
 	result, err := plugin.Transform(f.set)
 	coneMust(t, err)
@@ -321,7 +320,7 @@ func TestUnboundCompressorTransfersProofToDecompressionAlternative(t *testing.T)
 	if !valid {
 		t.Fatal("proof-compression fixture rejected")
 	}
-	plugin := transforms.NewUnboundCompressorPlugin(f.manager, f.rules, true, 0)
+	plugin := newTestUnboundCompressor(t, f, true)
 	defer func() { coneMust(t, plugin.Close()) }()
 	result, err := plugin.Transform(f.set)
 	coneMust(t, err)
@@ -362,7 +361,10 @@ func TestUnboundCompressorTransfersProofToDecompressionAlternative(t *testing.T)
 	}
 }
 
-func TestUnboundCompressorKeepsZeroArityCompressedFact(t *testing.T) {
+// TestUnboundCompressorAddsZeroArityCompressedFact: try_compress of a rule
+// without a tail whose compressed head is a fact gives the fact to the
+// context (m_context.add_fact) and removes the rule.
+func TestUnboundCompressorAddsZeroArityCompressedFact(t *testing.T) {
 	f := newConeFixture(t)
 	boolean, err := f.manager.MkBoolSort()
 	coneMust(t, err)
@@ -378,12 +380,19 @@ func TestUnboundCompressorKeepsZeroArityCompressedFact(t *testing.T) {
 	if !valid {
 		t.Fatal("zero-arity fact fixture rejected")
 	}
-	plugin := transforms.NewUnboundCompressorPlugin(f.manager, f.rules, true, 0)
+	plugin := newTestUnboundCompressor(t, f, true)
+	// The head is borrowed for the call: record its declaration.
+	var facts []ast.ASTHandle
+	plugin.SetFactAdder(func(head ast.ASTHandle) error {
+		declaration, err := f.manager.GetDecl(head)
+		facts = append(facts, declaration)
+		return err
+	})
 	defer func() { coneMust(t, plugin.Close()) }()
 	result, err := plugin.Transform(f.set)
 	coneMust(t, err)
 	if result == nil {
-		t.Fatal("zero-arity compressed fact was not retained")
+		t.Fatal("compression did not modify the rules")
 	}
 	defer func() { coneMust(t, result.Close()) }()
 	compressed := plugin.CompressedPredicates()[p.declaration]
@@ -393,15 +402,15 @@ func TestUnboundCompressorKeepsZeroArityCompressedFact(t *testing.T) {
 	if arity, getErr := f.manager.GetArity(compressed); getErr != nil || arity != 0 {
 		t.Fatalf("compressed fact arity %d, want 0: %v", arity, getErr)
 	}
-	facts, err := result.PredicateRules(compressed)
-	coneMust(t, err)
 	if len(facts) != 1 {
-		t.Fatalf("compressed fact rules %d, want 1", len(facts))
+		t.Fatalf("context facts %d, want 1", len(facts))
 	}
-	tailCount, err := facts[0].TailSize()
+	if facts[0] != compressed {
+		t.Fatal("fact of another predicate", facts[0])
+	}
+	rules, err := result.PredicateRules(compressed)
 	coneMust(t, err)
-	if tailCount != 0 {
-		t.Fatalf("compressed fact tails %d, want zero", tailCount)
+	if len(rules) != 0 {
+		t.Fatalf("compressed fact rules %d, want the rule removed", len(rules))
 	}
-	coneMust(t, facts[0].Close())
 }

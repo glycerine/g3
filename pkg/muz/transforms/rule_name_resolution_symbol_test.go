@@ -130,7 +130,7 @@ func TestUnboundCompressorSymbolNamesSeparateHeadAndTailRewrites(t *testing.T) {
 				if !valid {
 					t.Fatal("compression fixture is not stratified")
 				}
-				plugin := transforms.NewUnboundCompressorPlugin(f.manager, f.rules, true, 0)
+				plugin := newTestUnboundCompressor(t, f, true)
 				defer func() { coneMust(t, plugin.Close()) }()
 				result, err := plugin.Transform(f.set)
 				coneMust(t, err)
