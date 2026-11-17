@@ -8,15 +8,11 @@ import (
 
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/muz/base"
-	"github.com/glycerine/g3/pkg/muz/rel"
 )
 
 func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 	if err := e.open(); err != nil {
 		return nil, err
-	}
-	if e.backend == "datalog" && e.hasExternalIntervalRepresentation() {
-		return nil, ErrExternalIntervalDatalogFragment
 	}
 	if err := e.clearQueryCleanup(); err != nil {
 		return nil, err
@@ -45,12 +41,6 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 		clone.tabSession = e.tabSession
 		clone.tabSessionBorrowed = true
 	}
-	if e.backend == "datalog" {
-		if e.datalogExecTotals == nil {
-			e.datalogExecTotals = &rel.ExecutionStats{}
-		}
-		clone.datalogExecTotals = e.datalogExecTotals
-	}
 	if e.bmcSlot != nil {
 		clone.bmcSlot = e.bmcSlot
 		clone.bmcSlotBorrowed = true
@@ -78,18 +68,6 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 		clone.ddnf.registryBorrowed = true
 	}
 	clone.forceProofTrace = e.forceProofTrace
-	if e.backend == "datalog" && e.external != nil {
-		clone.external, err = e.external.CloneForManager(clone.relations)
-		if err != nil {
-			return nil, errors.Join(err, e.discardQueryClone(clone))
-		}
-		if e.externalPluginRegistered() {
-			// The clone's relation manager has the context's plugins.
-			if err = clone.registerExternalRelationPlugin(); err != nil {
-				return nil, errors.Join(err, e.discardQueryClone(clone))
-			}
-		}
-	}
 	if err = e.copyQueryPredicates(clone); err != nil {
 		return nil, errors.Join(err, e.discardQueryClone(clone))
 	}

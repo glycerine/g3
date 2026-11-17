@@ -483,35 +483,6 @@ func (r *UDocPluginRelation) clone() (*UDocPluginRelation, error) {
 
 func (r *UDocPluginRelation) CloneFinite() (FiniteTable, error) { return r.clone() }
 
-// CopyIntoPlugin copies r into the udoc plugin of another relation manager:
-// g3's query context has its own relation manager (the source's
-// rel_context has one), and the relations it copies from its owner must
-// belong to its plugins.
-func (r *UDocPluginRelation) CopyIntoPlugin(p *UDocPlugin) (*UDocPluginRelation, error) {
-	if err := r.open(); err != nil {
-		return nil, err
-	}
-	result, err := p.newRelation(r.sorts)
-	if err != nil {
-		return nil, err
-	}
-	for _, d := range r.elems.values {
-		c, err := result.dm.AllocateTBVCopy(d.positive)
-		if err != nil {
-			return nil, errors.Join(err, result.Close())
-		}
-		result.elems.values = append(result.elems.values, c)
-		for _, negative := range d.negative.values {
-			n, err := result.dm.vectors.AllocateCopy(negative)
-			if err != nil {
-				return nil, errors.Join(err, result.Close())
-			}
-			c.negative.values = append(c.negative.values, n)
-		}
-	}
-	return result, nil
-}
-
 // Display is udoc_relation::display.
 func (r *UDocPluginRelation) Display(out io.Writer) error {
 	text, err := r.displayText()

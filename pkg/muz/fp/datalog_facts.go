@@ -39,47 +39,6 @@ func (e *PropositionalEngine) addDatalogFact(declaration ast.ASTHandle, state *p
 	return nil
 }
 
-// Expression queries use private rule sets in Go. Publish only original
-// relation tables back to the persistent Datalog store after successful search.
-func (e *PropositionalEngine) publishDatalogQueryRelations(clone *PropositionalEngine) error {
-	for _, d := range e.predicateOrder {
-		if e.auxiliary[d] {
-			continue
-		}
-		state := clone.predicates[d]
-		if state == nil || state.table == nil {
-			continue
-		}
-		table, err := e.cloneFiniteForContext(state.table)
-		if err != nil {
-			return err
-		}
-		install := e.publishDatalogTable
-		if clone.relations.IsPlaceholderRelation(d) {
-			install = e.replaceDatalogTable
-		}
-		if err = install(d, table); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// publishDatalogTable is installDatalogTable of the one source relation
-// that a query context and its owner both hold: the former table is no
-// source relation.
-func (e *PropositionalEngine) publishDatalogTable(d ast.ASTHandle, table rel.FiniteTable) error {
-	state := e.predicates[d]
-	if state == nil {
-		return errors.Join(ErrPropositionalEngine, table.Close())
-	}
-	if err := e.relations.PublishFiniteRelation(d, table); err != nil {
-		return errors.Join(err, table.Close())
-	}
-	state.table = table
-	return nil
-}
-
 // replaceDatalogTable is installDatalogTable for a table the source has not
 // created yet: a placeholder stays a placeholder.
 func (e *PropositionalEngine) replaceDatalogTable(d ast.ASTHandle, table rel.FiniteTable) error {

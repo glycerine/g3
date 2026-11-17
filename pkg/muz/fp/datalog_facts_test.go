@@ -208,21 +208,4 @@ func TestDatalogDirectFiniteFactValidationAndCloneOwnership(t *testing.T) {
 	if rows != 1 {
 		t.Fatal("invalid/duplicate tuple mutated table", rows)
 	}
-	clone, err := e.newQueryClone()
-	must(err)
-	if clone.predicates[d].table == e.predicates[d].table {
-		t.Fatal("clone borrowed source table")
-	}
-	must(clone.predicates[d].table.Reset())
-	rows, err = e.predicates[d].table.Len()
-	must(err)
-	if rows != 1 {
-		t.Fatal("clone mutation escaped")
-	}
-	must(clone.Close())
-	rows, err = e.predicates[d].table.Len()
-	must(err)
-	if rows != 1 {
-		t.Fatal("clone cleanup retired parent table")
-	}
 }

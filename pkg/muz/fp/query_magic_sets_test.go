@@ -111,6 +111,9 @@ func testQueryMagicSets(t *testing.T, global bool, local *bool) {
 			t.Error(err)
 		}
 	}()
+	// A query clone for the phase-by-phase check; datalog clones copy no
+	// relations (expression queries run on the context), so the clone
+	// gets the fact itself.
 	clone, err := engine.newQueryClone()
 	if err != nil {
 		t.Fatal(err)
@@ -120,6 +123,9 @@ func testQueryMagicSets(t *testing.T, global bool, local *bool) {
 			t.Error(err)
 		}
 	}()
+	if err = clone.AddFact(extensional, []ast.ASTHandle{truth}); err != nil {
+		t.Fatal(err)
+	}
 	declaration, headRef, err := clone.makeQueryHead(query)
 	if err != nil {
 		t.Fatal(err)

@@ -14,14 +14,10 @@ import (
 // RelationManager borrows an AST manager, owns stored finite predicate tables,
 // and converts between finite-domain relation values and table elements.
 type RelationManager struct {
-	// unallocated: the manager stands for no source relation_manager any
-	// more (a failed query's context, discarded); its relations and
-	// registers are released without recycle lines.
-	unallocated bool
-	manager     *ast.ASTManager
-	relations   map[ast.ASTHandle]*HashTable
-	finite      map[ast.ASTHandle]FiniteTable
-	saturated   map[ast.ASTHandle]bool
+	manager   *ast.ASTManager
+	relations map[ast.ASTHandle]*HashTable
+	finite    map[ast.ASTHandle]FiniteTable
+	saturated map[ast.ASTHandle]bool
 	// layout is m_relations' obj_map layout over every stored predicate;
 	// reset and restrict walk it in table order.
 	layout        *ast.ObjMap
@@ -546,25 +542,13 @@ func (r *fnResources) release() (result error) {
 	return result
 }
 
-// MarkUnallocated makes the manager's later releases silent
-// (releaseUnallocated).
-func (m *RelationManager) MarkUnallocated() {
-	if m != nil {
-		m.unallocated = true
-	}
-}
-
-// tableCloser is the release of a table of the manager: Close, or the
-// silent release of an unallocated manager's.
+// tableCloser is the release of a table of the manager: Close.
 func (m *RelationManager) tableCloser(table interface{ Close() error }) func() error {
-	if m != nil && m.unallocated {
-		return func() error { return releaseUnallocated(table) }
-	}
 	return table.Close
 }
 
 // ReleaseRelation deallocates a relation held outside the manager's map
-// (m_last_result_relation): Close, silent for an unallocated manager.
+// (m_last_result_relation): Close.
 func (m *RelationManager) ReleaseRelation(r RelationBase) error {
 	return m.tableCloser(r)()
 }

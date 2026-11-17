@@ -27,21 +27,6 @@ func (e *PropositionalEngine) copyQueryPredicates(clone *PropositionalEngine) er
 		if err = clone.requestTableRelationKind(declaration); err != nil {
 			return err
 		}
-		if e.backend == "datalog" && e.predicates[declaration].table != nil {
-			table, err := clone.cloneFiniteForContext(e.predicates[declaration].table)
-			if err != nil {
-				return err
-			}
-			// The context's relation (resync): its former copy is no
-			// source relation.
-			install := clone.publishDatalogTable
-			if e.relations.IsPlaceholderRelation(declaration) {
-				install = clone.replaceDatalogTable
-			}
-			if err = install(declaration, table); err != nil {
-				return err
-			}
-		}
 		if e.auxiliary[declaration] {
 			clone.auxiliary[declaration] = true
 		}

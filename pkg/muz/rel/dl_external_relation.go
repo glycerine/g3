@@ -570,26 +570,6 @@ func (r *ExternalRelation) Contains(fact Fact) (bool, error) {
 	return found, errors.Join(err, releaseRefs(r.ast, refs))
 }
 
-// ShareRelation gives this plugin's relation manager source's relation
-// term without a callback. g3 runs an expression query on a clone of the
-// fixedpoint context's relations; z3 runs it on the one datalog::context,
-// whose relation manager holds a single external relation per predicate.
-// Sharing the term keeps the callbacks those of the one context.
-func (p *ExternalRelationPlugin) ShareRelation(source *ExternalRelation) (*ExternalRelation, error) {
-	if p == nil || p.closed || source == nil || source.closed {
-		return nil, ErrTableRelation
-	}
-	if source.pending {
-		p.users++
-		return &ExternalRelation{plugin: p, manager: p.manager, ast: p.ast, sorts: append([]ast.ASTHandle(nil), source.sorts...), pending: true}, nil
-	}
-	term, err := source.Relation()
-	if err != nil {
-		return nil, err
-	}
-	return p.wrapResult(source.sorts, term)
-}
-
 // NewForeign is NewEmpty for a relation the API user owns (g3's
 // NewFixedpointExternalRelation): the fixedpoint context does not close
 // while one is live.

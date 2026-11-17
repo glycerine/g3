@@ -157,33 +157,6 @@ func (m *RelationManager) NewLazySparseFiniteFactory() *LazySparseFiniteFactory 
 	return f
 }
 
-// twinIn is t copied for plugin p with every capacity kept: the source's
-// one table, which g3 keeps in two contexts (a query context and its
-// owner). The copy takes no table from p's pool.
-func (t *SparseTable) twinIn(p *SparseTablePlugin) *SparseTable {
-	o := t.data
-	d := &entryStorage{entrySize: o.entrySize, uniquePartSize: o.uniquePartSize, dataSize: o.dataSize, reserve: o.reserve}
-	d.data.assign(&o.data)
-	d.indexer = offsetIndexer{table: append(make([]offsetHashEntry, 0, len(o.indexer.table)), o.indexer.table...), size: o.indexer.size, numDeleted: o.indexer.numDeleted, storage: d}
-	k := &sparseKeyIndexMap{capacity: t.keyIndexes.capacity}
-	if t.keyIndexes.specs != nil {
-		k.specs = make(map[string]struct{}, len(t.keyIndexes.specs))
-		for spec := range t.keyIndexes.specs {
-			k.specs[spec] = struct{}{}
-		}
-	}
-	return &SparseTable{plugin: p, signature: t.signature, layout: t.layout, factSize: t.factSize, data: d, keyIndexes: k, functional: t.functional}
-}
-
-// TwinSparseTable is the source table t in this manager's context: a copy
-// owned by its sparse_table_plugin with t's capacities (twinIn).
-func (m *RelationManager) TwinSparseTable(t *SparseTable) (*SparseTable, error) {
-	if err := t.open(); err != nil {
-		return nil, err
-	}
-	return t.twinIn(m.sparsePlugin()), nil
-}
-
 // adoptPooled is the source's mk_empty of a placeholder's table at the
 // relation's creation: an empty table takes the pooled table of its
 // signature when there is one.

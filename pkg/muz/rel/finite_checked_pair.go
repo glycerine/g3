@@ -852,34 +852,6 @@ func (p *FiniteCheckedPair) ConcreteKinds() (primary, checker string, err error)
 
 var _ FiniteTable = (*FiniteCheckedPair)(nil)
 
-// CloneCheckTableForContext copies a check table into g3's query clone of a
-// datalog context. The source's query runs on the same rel_context, so the
-// copy is not a check_table::clone and prints nothing: its tables are
-// copied by cloneTable (into the copy's own lazy engine), and it belongs to
-// the corresponding check_table plugin of the copy's relation manager.
-func CloneCheckTableForContext(p *FiniteCheckedPair, target *RelationManager, cloneTable func(FiniteTable) (FiniteTable, error)) (FiniteTable, error) {
-	if err := p.open(); err != nil {
-		return nil, err
-	}
-	plugin := p.plugin
-	if plugin != nil && target != nil && target.defaultChecked != nil {
-		if plugin.relationFavourite {
-			plugin = target.defaultCheckedRelation
-		} else {
-			plugin = target.defaultChecked
-		}
-	}
-	primary, err := cloneTable(p.primary)
-	if err != nil {
-		return nil, err
-	}
-	checker, err := cloneTable(p.checker)
-	if err != nil {
-		return nil, errors.Join(err, primary.Close())
-	}
-	return &FiniteCheckedPair{primary: primary, checker: checker, plugin: plugin, deferredMkEmpty: p.deferredMkEmpty}, nil
-}
-
 // checkTableRemoveFact is remove_fact of a check table's table
 // (lazy_table::remove_fact: eval()->remove_fact).
 func checkTableRemoveFact(t FiniteTable, fact Fact) error {
