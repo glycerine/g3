@@ -153,15 +153,13 @@ func (m *RelationManager) translateRelLevelRelation(er *ExplanationRelationPlugi
 		return err
 	}
 	if origUnion == nil {
-		// The context's doc relation, of the context's udoc plugin
-		// instance (see udocRelationForPlugin).
-		target, ok1 := newOrig.(*UDocPluginRelation)
-		source, ok2 := orig.(*UDocPluginRelation)
-		if ok1 && ok2 && target.plugin != source.plugin {
-			copied, err := udocRelationForPlugin(target.plugin, source)
-			if err != nil {
-				return err
-			}
+		// The context's relation, of the context's plugin instance (see
+		// udocRelationForPlugin).
+		copied, err := relationForPluginInstance(newOrig, orig)
+		if err != nil {
+			return err
+		}
+		if copied != nil {
 			defer copied.Close()
 			orig = copied
 			if origUnion, err = m.MkRelationUnionFn(newOrig, orig, nil); err != nil {
@@ -224,6 +222,41 @@ func copyTBVAcross(dst *TBVManager, src *TBVManager, v *TBV) (*TBV, error) {
 		}
 	}
 	return res, nil
+}
+
+// relationForPluginInstance copies src, a relation of another instance of
+// target's plugin, into a relation of target's plugin instance: a doc
+// relation (udocRelationForPlugin) or a check_relation over one (its
+// m_relation copied, m_fml its formula). nil when src is not such a
+// relation.
+func relationForPluginInstance(target, src RelationBase) (RelationBase, error) {
+	switch t := target.(type) {
+	case *UDocPluginRelation:
+		s, ok := src.(*UDocPluginRelation)
+		if !ok || s.plugin == t.plugin {
+			return nil, nil
+		}
+		copied, err := udocRelationForPlugin(t.plugin, s)
+		if err != nil {
+			return nil, err
+		}
+		return copied, nil
+	case *CheckRelation:
+		s, ok := src.(*CheckRelation)
+		if !ok || s.plugin == t.plugin {
+			return nil, nil
+		}
+		inner, err := relationForPluginInstance(t.relation, s.relation)
+		if err != nil || inner == nil {
+			return nil, err
+		}
+		copied, err := t.plugin.newCheckRelation(s.sorts, inner)
+		if err != nil {
+			return nil, err
+		}
+		return copied, nil
+	}
+	return nil, nil
 }
 
 // udocRelationForPlugin copies a doc relation of another udoc plugin

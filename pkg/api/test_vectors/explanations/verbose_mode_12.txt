@@ -1,0 +1,14 @@
+(transform N7datalog15mk_explanationsE...4 rules 0s)
+(transform N7datalog13mk_magic_setsE...10 rules 0s)
+(transform N7datalog13mk_coi_filterE...no-op 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...6 rules 0s)
+(transform N7datalog25mk_separate_negated_tailsE...no-op 0s)
+(transform N7datalog24mk_similarity_compressorE...no-op 0s)
+(transform N7datalog15mk_filter_rulesE...no-op 0s)
+(transform N7datalog15mk_simple_joinsE...7 rules 0s)
+(transform N7datalog21mk_unbound_compressorE...no-op 0s)
+join_project...0s
+join_project...0s
+join_project...0s
+join_project...0s

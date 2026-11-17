@@ -270,6 +270,32 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 	if err != nil {
 		return nil, err
 	}
+	if enabled {
+		// rel_context::updt_params: p1->set_plugin(get_relation_plugin(
+		// check_relation())). The relation plugins are named tr_<table>
+		// (table_relation_plugin::create_plugin_name), so a bare table
+		// name leaves check_relation without a base: it handles no
+		// signature and the relations are the favourite table plugin's
+		// (check_table with default_table_checked). tr_check is the
+		// check_table plugin's table_relation, registered only with a
+		// default table checker.
+		raw, _, err := e.datalogCheckRelationBase()
+		if err != nil {
+			return nil, err
+		}
+		switch raw {
+		case "hashtable", "sparse", "bitvector", "lazy_sparse", "check":
+			enabled = false
+		case "tr_check":
+			if _, checked, err := e.datalogDefaultTableCheck(); err != nil || !checked {
+				if err != nil {
+					return nil, err
+				}
+				enabled = false
+			}
+			name = "check"
+		}
+	}
 	if enabled && name == "bound_relation" {
 		// bound_relation can handle only arithmetic signatures. Those programs
 		// are dispatched to the bound runtime, which performs operation checks;

@@ -1,5 +1,5 @@
 // generate_explanations scenarios (configurations of the g3 fp tests),
-// through Z3_fixedpoint_query. usage: scen <scenario>
+// through Z3_fixedpoint_query. usage: scen <scenario> [verbose]
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,6 +38,7 @@ static void query(Z3_ast q) {
 
 int main(int argc, char** argv) {
   int s = argc > 1 ? atoi(argv[1]) : 0;
+  if (argc > 2) Z3_global_param_set("verbose", argv[2]);
   c = Z3_mk_context(Z3_mk_config());
   Z3_set_error_handler(c, err_handler);
   fp = Z3_mk_fixedpoint(c); Z3_fixedpoint_inc_ref(c, fp);

@@ -292,6 +292,11 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		if err = clone.inheritDatalogQueryKind(query, declaration); err != nil {
 			return lbool.Undef, err
 		}
+		// rule_manager::mk_query: rules.set_output_predicate(qpred) on
+		// m_context.get_rules() (scoped_query restores them afterwards).
+		if err = clone.set.SetOutputPredicate(declaration); err != nil {
+			return lbool.Undef, err
+		}
 	}
 	implicationRef, err := e.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
@@ -361,6 +366,11 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		hoisted = ast.ASTRef{}
 	}
 	if clone.backend == "datalog" {
+		// The relations mk_explanations' transform_facts reads are
+		// get_relation's: made with the favourite table plugin.
+		if err = clone.applyDatalogDefaultFiniteTable(); err != nil {
+			return lbool.Undef, err
+		}
 		if _, err = clone.ensureKarrDatalog(); err != nil {
 			return lbool.Undef, err
 		}

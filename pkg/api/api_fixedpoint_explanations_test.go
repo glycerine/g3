@@ -382,18 +382,9 @@ func explanationQueryOutput(t *testing.T, f *apiFixedpointFixture, out *strings.
 // explanation queries (relation level, check_relation, checked default
 // tables, explicit and inherited table representations, magic sets,
 // negation, doc relations) against the fixed fork
-// (test_vectors/explanations/scen.c, scenario_N.txt). Not covered (open
-// limitations): scenario 9 (check_relation=check with
-// default_table_checked: g3's formula-checked tables evaluate the rules
-// with an interpreter that has no explanation relations) and scenario 24
-// (relation-level explanations with check_relation=doc: the expression
-// query's clone holds the context's check relations of another plugin
-// instance).
+// (test_vectors/explanations/scen.c, scenario_N.txt).
 func TestAPIFixedpointExplanationScenarios(t *testing.T) {
 	for s := 1; s <= 24; s++ {
-		if s == 9 || s == 24 {
-			continue
-		}
 		t.Run(strconv.Itoa(s), func(t *testing.T) {
 			want, err := os.ReadFile(filepath.Join("test_vectors", "explanations", "scenario_"+strconv.Itoa(s)+".txt"))
 			astTestMust(t, err)
