@@ -536,7 +536,11 @@ namespace datalog {
                 return false;
             }
             unsigned sz = get_signature().size();
-            for (unsigned i=func_col_cnt; i<sz; i++) {
+            // FORK FIX #116 (g3 audit, see FORK_BUGFIXES.md): the functional
+            // columns are the last func_col_cnt ones; 4.7.1 started at
+            // func_col_cnt, skipping functional columns when
+            // func_col_cnt > sz/2 (all of them when func_col_cnt == sz).
+            for (unsigned i=sz-func_col_cnt; i<sz; i++) {
                 if (t.get_cell(ofs, i)!=f[i]) {
                     return false;
                 }
@@ -1304,7 +1308,11 @@ namespace datalog {
                 }
                 else {
                     m_t2_cols.push_back(t_cols[i]);
-                    m_s2_cols.push_back(src_cols[i]);                    
+                    // FORK FIX #117 (g3 audit, see FORK_BUGFIXES.md): src_cols
+                    // number the columns of the join of src1 and src2; src2's
+                    // column is src_cols[i] - src1_size (4.7.1 kept the joined
+                    // number and read another column of src2).
+                    m_s2_cols.push_back(src_cols[i] - src1_size);
                 }
             }
             m_s2_cols.append(src2_cols);
@@ -1316,8 +1324,15 @@ namespace datalog {
             sparse_table& t = get(_t);
             svector<store_offset> to_remove;
             collect_to_remove(t, get(_s1), get(_s2), to_remove);
-            for (unsigned i = 0; i < to_remove.size(); ++i) {
-                t.m_data.remove_offset(to_remove[i]);
+            // FORK FIX #115 (g3 audit, see FORK_BUGFIXES.md): remove_offset
+            // moves the last row into the removed one's place, so the
+            // offsets (collected in increasing order) are removed largest
+            // first, as negation_filter_fn does; 4.7.1 removed them in
+            // increasing order and could drop a kept row instead.
+            while (!to_remove.empty()) {
+                store_offset removed_ofs = to_remove.back();
+                to_remove.pop_back();
+                t.m_data.remove_offset(removed_ofs);
             }
             t.reset_indexes();
         }
@@ -1336,10 +1351,15 @@ namespace datalog {
             store_offset t_after_last = t.m_data.after_last_offset();
             key_indexer::query_result s1_offsets, s2_offsets;
             unsigned t_entry_size = t.m_data.entry_size();
+            // FORK FIX #119 (g3 audit, see FORK_BUGFIXES.md): the keys start as
+            // zeros, so the first lookups must not depend on update_key
+            // reporting a change (a first key of zeros was never looked up).
+            bool s1_first = true, s2_first = true;
             for (store_offset t_ofs = 0; t_ofs < t_after_last; t_ofs += t_entry_size) {
 
-                if (update_key(s1_key, 0, t, t_ofs, m_t1_cols)) {
+                if (update_key(s1_key, 0, t, t_ofs, m_t1_cols) || s1_first) {
                     s1_offsets = s1_indexer.get_matching_offsets(s1_key);
+                    s1_first = false;
                 }
                 key_indexer::offset_iterator it  = s1_offsets.begin();
                 key_indexer::offset_iterator end = s1_offsets.end();
@@ -1347,8 +1367,9 @@ namespace datalog {
                     store_offset s1_ofs = *it;
                     bool upd1 = update_key(s2_key, 0, t, t_ofs, m_t2_cols);
                     bool upd2 = update_key(s2_key, m_t2_cols.size(), s1, s1_ofs, m_src1_cols);
-                    if (upd1 || upd2) {
+                    if (upd1 || upd2 || s2_first) {
                         s2_offsets = s2_indexer.get_matching_offsets(s2_key);
+                        s2_first = false;
                     }
                     if (!s2_offsets.empty()) {
                         to_remove.push_back(t_ofs);

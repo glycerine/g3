@@ -1484,10 +1484,13 @@ namespace datalog {
 
     table_intersection_filter_fn * relation_manager::mk_filter_by_intersection_fn(const table_base & t, 
         const table_base & src, unsigned joined_col_cnt, const unsigned * t_cols, const unsigned * src_cols) {
-        table_intersection_filter_fn * res = t.get_plugin().mk_filter_by_negation_fn(t, src, joined_col_cnt, 
+        // FORK FIX #118 (g3 audit, see FORK_BUGFIXES.md): the intersection
+        // filter of tables; 4.7.1 asked for mk_filter_by_negation_fn and
+        // removed the rows src has instead of keeping them.
+        table_intersection_filter_fn * res = t.get_plugin().mk_filter_by_intersection_fn(t, src, joined_col_cnt, 
             t_cols, src_cols);
         if(!res && &t.get_plugin()!=&src.get_plugin()) {
-            res = src.get_plugin().mk_filter_by_negation_fn(t, src, joined_col_cnt, t_cols, src_cols);
+            res = src.get_plugin().mk_filter_by_intersection_fn(t, src, joined_col_cnt, t_cols, src_cols);
         }
         return res;
     }
