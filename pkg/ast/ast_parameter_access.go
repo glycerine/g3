@@ -74,6 +74,26 @@ func (m *ASTManager) ParameterExternal(p ASTParameter) (uint32, error) {
 // ParameterRationalCopy is the source is_rational(rational&) overload:
 // a kind mismatch leaves the caller's owner-confined numeral untouched.
 // The C++ const-reference getter is not exposed as a second owning Go token.
+// ParameterRational is parameter::get_rational() copied into a rational of
+// this manager's rational manager (NumeralService().Manager).
+func (m *ASTManager) ParameterRational(p ASTParameter, out *unumeral.Rational) (bool, error) {
+	if e := m.lock(); e != nil {
+		return false, e
+	}
+	defer m.mu.Unlock()
+	r, e := m.parameter(p)
+	if e != nil {
+		return false, e
+	}
+	if r.Kind != ASTParameterRational {
+		return false, nil
+	}
+	if e = m.numerals.Manager.Copy(out, &r.Rational.Raw); e != nil {
+		return false, e
+	}
+	return true, nil
+}
+
 func (m *ASTManager) ParameterRationalCopy(p ASTParameter, out *unumeral.OwnedRational) (bool, error) {
 	if e := m.lock(); e != nil {
 		return false, e

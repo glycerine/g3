@@ -5,13 +5,13 @@ package pdr
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/proofs"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
@@ -133,35 +133,40 @@ func (f *FarkasLearner) IsFarkasLemma(proof ast.ASTHandle) (_ bool, resultErr er
 	return farkas, err
 }
 
-func (f *FarkasLearner) rationalParameter(parameter ast.ASTParameter) (_ *big.Rat, resultErr error) {
-	service := f.manager.NumeralService()
-	value, err := service.NewValue()
+// absRationalParameter is abs(params[i].get_rational()): a rational of the
+// AST manager's rational manager, owned by the caller.
+func (f *FarkasLearner) absRationalParameter(parameter ast.ASTParameter) (numeral.Rational, error) {
+	q := f.manager.NumeralService().Manager
+	coefficient := numeral.NewRational()
+	matched, err := f.manager.ParameterRational(parameter, &coefficient)
+	if err == nil && !matched {
+		err = ast.ErrASTDomain
+	}
+	if err == nil {
+		err = q.Abs(&coefficient)
+	}
 	if err != nil {
-		return nil, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, service.Del(&value)) }()
-	matched, err := f.manager.ParameterRationalCopy(parameter, &value)
-	if err != nil {
-		return nil, err
-	}
-	if !matched {
-		return nil, ast.ErrASTDomain
-	}
-	text, err := service.String(&value)
-	if err != nil {
-		return nil, err
-	}
-	coefficient, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return nil, ast.ErrASTDomain
+		return coefficient, errors.Join(err, q.Del(&coefficient))
 	}
 	return coefficient, nil
 }
 
+// DelCoefficients frees Farkas coefficients returned by FarkasPremises,
+// FarkasLemmaLiterals or a caller's copies of them.
+func (f *FarkasLearner) DelCoefficients(coefficients []numeral.Rational) (err error) {
+	q := f.manager.NumeralService().Manager
+	for i := range coefficients {
+		err = errors.Join(err, q.Del(&coefficients[i]))
+	}
+	return err
+}
+
 // FarkasPremises returns the borrowed fact of each proof parent and its
 // coefficient. Coefficients are made nonnegative, matching the source
-// learner's workaround before it combines constraints.
-func (f *FarkasLearner) FarkasPremises(proof ast.ASTHandle) (_ []ast.ASTHandle, _ []*big.Rat, _ bool, resultErr error) {
+// learner's workaround before it combines constraints. The coefficients are
+// rationals of the AST manager's rational manager owned by the caller
+// (DelCoefficients); none are returned with an error.
+func (f *FarkasLearner) FarkasPremises(proof ast.ASTHandle) (_ []ast.ASTHandle, coefficients []numeral.Rational, _ bool, resultErr error) {
 	matched, err := f.IsFarkasLemma(proof)
 	if err != nil || !matched {
 		return nil, nil, matched, err
@@ -184,7 +189,12 @@ func (f *FarkasLearner) FarkasPremises(proof ast.ASTHandle) (_ []ast.ASTHandle, 
 		return nil, nil, false, err
 	}
 	facts := make([]ast.ASTHandle, 0, count)
-	coefficients := make([]*big.Rat, 0, count)
+	coefficients = make([]numeral.Rational, 0, count)
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, f.DelCoefficients(coefficients))
+		}
+	}()
 	for i := uint32(0); i < count; i++ {
 		parent, err := f.manager.GetProofParent(proof, i)
 		if err != nil {
@@ -194,11 +204,10 @@ func (f *FarkasLearner) FarkasPremises(proof ast.ASTHandle) (_ []ast.ASTHandle, 
 		if err != nil {
 			return nil, nil, false, err
 		}
-		coefficient, err := f.rationalParameter(parameters[i+2])
+		coefficient, err := f.absRationalParameter(parameters[i+2])
 		if err != nil {
 			return nil, nil, false, err
 		}
-		coefficient.Abs(coefficient)
 		facts = append(facts, fact)
 		coefficients = append(coefficients, coefficient)
 	}
@@ -220,6 +229,7 @@ func (f *FarkasLearner) CombineFarkasLemma(proof ast.ASTHandle, bPure []bool) (_
 		return ast.ASTRef{}, false, err
 	}
 	combined, err := f.CombineConstraints(literals, coefficients)
+	err = errors.Join(err, f.DelCoefficients(coefficients))
 	return combined, err == nil, err
 }
 
@@ -227,17 +237,27 @@ func (f *FarkasLearner) CombineFarkasLemma(proof ast.ASTHandle, bPure []bool) (_
 // premises whose bPure entry is false, then the simplified negations of the
 // conclusion literals, each with its absolute Farkas coefficient. The
 // caller releases the returned negation references (which own the negated
-// literals) after combining, including on error.
-func (f *FarkasLearner) FarkasLemmaLiterals(proof ast.ASTHandle, bPure []bool) (_ []ast.ASTHandle, _ []*big.Rat, negationReferences []ast.ASTRef, _ bool, resultErr error) {
+// literals) after combining, including on error, and the returned
+// coefficients (DelCoefficients) when produced is true.
+func (f *FarkasLearner) FarkasLemmaLiterals(proof ast.ASTHandle, bPure []bool) (_ []ast.ASTHandle, selectedCoefficients []numeral.Rational, negationReferences []ast.ASTRef, produced bool, resultErr error) {
 	facts, coefficients, matched, err := f.FarkasPremises(proof)
 	if err != nil || !matched {
 		return nil, nil, nil, false, err
 	}
+	// The selected coefficients move out of coefficients; the rest are
+	// freed here, and the selected ones too unless they are returned.
+	defer func() {
+		resultErr = errors.Join(resultErr, f.DelCoefficients(coefficients))
+		if !produced || resultErr != nil {
+			resultErr = errors.Join(resultErr, f.DelCoefficients(selectedCoefficients))
+			selectedCoefficients, produced = nil, false
+		}
+	}()
 	if len(bPure) != len(facts) {
 		return nil, nil, negationReferences, false, ast.ErrASTDomain
 	}
 	literals := make([]ast.ASTHandle, 0, len(facts))
-	selectedCoefficients := make([]*big.Rat, 0, len(coefficients))
+	selectedCoefficients = make([]numeral.Rational, 0, len(coefficients))
 	bPureCount := 0
 	for i := range facts {
 		if bPure[i] {
@@ -246,6 +266,7 @@ func (f *FarkasLearner) FarkasLemmaLiterals(proof ast.ASTHandle, bPure []bool) (
 		}
 		literals = append(literals, facts[i])
 		selectedCoefficients = append(selectedCoefficients, coefficients[i])
+		coefficients[i] = numeral.NewRational()
 	}
 	if bPureCount == 0 {
 		return nil, nil, negationReferences, false, nil
@@ -306,11 +327,10 @@ func (f *FarkasLearner) FarkasLemmaLiterals(proof ast.ASTHandle, bPure []bool) (
 				return nil, nil, negationReferences, false, err
 			}
 			negationReferences = append(negationReferences, negationReference)
-			coefficient, err := f.rationalParameter(parameters[parentParameterEnd+i])
+			coefficient, err := f.absRationalParameter(parameters[parentParameterEnd+i])
 			if err != nil {
 				return nil, nil, negationReferences, false, err
 			}
-			coefficient.Abs(coefficient)
 			literals = append(literals, negation)
 			selectedCoefficients = append(selectedCoefficients, coefficient)
 		}
@@ -749,7 +769,9 @@ func (f *FarkasLearner) GetConsequences(root ast.ASTHandle, bAssertions []ast.AS
 }
 
 // CombineConstraints applies the source learner's two combination modes.
-func (f *FarkasLearner) CombineConstraints(literals []ast.ASTHandle, coefficients []*big.Rat) (_ ast.ASTRef, resultErr error) {
+// coefficients are rationals of the AST manager's rational manager; the
+// utility copies them.
+func (f *FarkasLearner) CombineConstraints(literals []ast.ASTHandle, coefficients []numeral.Rational) (_ ast.ASTRef, resultErr error) {
 	if err := f.open(); err != nil {
 		return ast.ASTRef{}, err
 	}
@@ -761,10 +783,7 @@ func (f *FarkasLearner) CombineConstraints(literals []ast.ASTHandle, coefficient
 			return ast.ASTRef{}, err
 		}
 		for i := range literals {
-			if coefficients[i] == nil {
-				return ast.ASTRef{}, ast.ErrASTDomain
-			}
-			if err := f.utility.AddBigRat(coefficients[i], literals[i]); err != nil {
+			if err := f.utility.Add(&coefficients[i], literals[i]); err != nil {
 				return ast.ASTRef{}, err
 			}
 		}

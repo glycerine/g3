@@ -2,7 +2,6 @@ package spacer
 
 import (
 	"bytes"
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -63,9 +62,12 @@ func TestOptimizedFarkasMultirowCoreSourceOracle(t *testing.T) {
 	plugin, err := NewUnsatCoreOptimizedFarkasPlugin(learner, globals.Context, globals)
 	must(err)
 	must(learner.RegisterPlugin(plugin))
+	k := func(v int32) unumeral.Rational {
+		return unumeral.Rational{Num: unumeral.NewInt(v), Den: unumeral.NewInt(1)}
+	}
 	plugin.combinations = [][]farkasTerm{
-		{{literals[0], big.NewRat(2, 1)}, {literals[1], big.NewRat(2, 1)}},
-		{{literals[0], big.NewRat(1, 1)}, {literals[1], big.NewRat(2, 1)}, {literals[2], big.NewRat(1, 1)}},
+		{{literals[0], k(2)}, {literals[1], k(2)}},
+		{{literals[0], k(1)}, {literals[1], k(2)}, {literals[2], k(1)}},
 	}
 	must(plugin.Finalize())
 	if len(learner.core) != 2 {

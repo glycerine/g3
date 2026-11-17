@@ -5,17 +5,19 @@ package spacer
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/pdr"
 	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
+// farkasTerm's coefficient is a rational of the AST manager's rational
+// manager; a term in m_linear_combinations owns it.
 type farkasTerm struct {
 	literal     ast.ASTHandle
-	coefficient *big.Rat
+	coefficient numeral.Rational
 }
 
 type UnsatCoreOptimizedFarkasPlugin struct {
@@ -45,15 +47,17 @@ func (p *UnsatCoreOptimizedFarkasPlugin) open() error {
 	return p.learner.open()
 }
 
-func (p *UnsatCoreOptimizedFarkasPlugin) ComputePartialCore(step ast.ASTHandle) error {
+func (p *UnsatCoreOptimizedFarkasPlugin) ComputePartialCore(step ast.ASTHandle) (resultErr error) {
 	if err := p.open(); err != nil {
 		return err
 	}
 	facts, coefficients, matched, err := p.farkas.FarkasPremises(step)
+	defer func() { resultErr = errors.Join(resultErr, p.farkas.DelCoefficients(coefficients)) }()
 	if err != nil || !matched || p.learner.IsClosed(step) {
 		return err
 	}
 	combination := make([]farkasTerm, 0, len(facts))
+	defer func() { resultErr = errors.Join(resultErr, p.delTerms(combination)) }()
 	canClose := true
 	for i := range facts {
 		parent, err := p.learner.manager.GetProofParent(step, uint32(i))
@@ -68,7 +72,8 @@ func (p *UnsatCoreOptimizedFarkasPlugin) ComputePartialCore(step ast.ASTHandle) 
 			return err
 		}
 		if pure && !p.learner.IsHMarked(parent) {
-			combination = append(combination, farkasTerm{literal: facts[i], coefficient: new(big.Rat).Set(coefficients[i])})
+			combination = append(combination, farkasTerm{literal: facts[i], coefficient: coefficients[i]})
+			coefficients[i] = numeral.NewRational()
 		} else {
 			canClose = false
 		}
@@ -81,16 +86,35 @@ func (p *UnsatCoreOptimizedFarkasPlugin) ComputePartialCore(step ast.ASTHandle) 
 	}
 	if len(combination) != 0 {
 		p.combinations = append(p.combinations, combination)
+		combination = nil
 	}
 	return nil
 }
 
+// delTerms frees the terms' coefficients.
+func (p *UnsatCoreOptimizedFarkasPlugin) delTerms(terms []farkasTerm) (err error) {
+	q := p.learner.manager.NumeralService().Manager
+	for i := range terms {
+		err = errors.Join(err, q.Del(&terms[i].coefficient))
+	}
+	return err
+}
+
+// delCombinations frees m_linear_combinations.
+func (p *UnsatCoreOptimizedFarkasPlugin) delCombinations() (err error) {
+	for _, combination := range p.combinations {
+		err = errors.Join(err, p.delTerms(combination))
+	}
+	p.combinations = nil
+	return err
+}
+
 func (p *UnsatCoreOptimizedFarkasPlugin) combine(terms []farkasTerm) (resultErr error) {
 	literals := make([]ast.ASTHandle, len(terms))
-	coefficients := make([]*big.Rat, len(terms))
+	coefficients := make([]*numeral.Rational, len(terms))
 	for i := range terms {
 		literals[i] = terms[i].literal
-		coefficients[i] = terms[i].coefficient
+		coefficients[i] = &terms[i].coefficient
 	}
 	// compute_linear_combination: a local smt::farkas_util, no split literals.
 	util, err := smtcore.NewSMTFarkasUtil(p.learner.manager, p.context, p.globals)
@@ -99,7 +123,7 @@ func (p *UnsatCoreOptimizedFarkasPlugin) combine(terms []farkasTerm) (resultErr 
 	}
 	defer func() { resultErr = errors.Join(resultErr, util.Close()) }()
 	for i := range literals {
-		if err = util.AddBigRat(coefficients[i], literals[i]); err != nil {
+		if err = util.Add(coefficients[i], literals[i]); err != nil {
 			return err
 		}
 	}
@@ -122,7 +146,7 @@ func (p *UnsatCoreOptimizedFarkasPlugin) combine(terms []farkasTerm) (resultErr 
 	return p.learner.AddLemmaToCore(negated)
 }
 
-func (p *UnsatCoreOptimizedFarkasPlugin) Finalize() error {
+func (p *UnsatCoreOptimizedFarkasPlugin) Finalize() (resultErr error) {
 	if err := p.open(); err != nil {
 		return err
 	}
@@ -139,10 +163,11 @@ func (p *UnsatCoreOptimizedFarkasPlugin) Finalize() error {
 			}
 		}
 	}
-	matrix := newSpacerMatrix(uint32(len(p.combinations)), uint32(len(basis)))
+	matrix := newSpacerMatrix(p.learner.manager.NumeralService().Manager, uint32(len(p.combinations)), uint32(len(basis)))
+	defer func() { resultErr = errors.Join(resultErr, matrix.del()) }()
 	for row, combination := range p.combinations {
-		for _, term := range combination {
-			if err := matrix.set(uint32(row), indices[term.literal], term.coefficient); err != nil {
+		for i := range combination {
+			if err := matrix.set(uint32(row), indices[combination[i].literal], &combination[i].coefficient); err != nil {
 				return err
 			}
 		}
@@ -152,14 +177,15 @@ func (p *UnsatCoreOptimizedFarkasPlugin) Finalize() error {
 		return err
 	}
 	for row := uint32(0); row < rank; row++ {
+		// The terms borrow the matrix's rationals.
 		terms := make([]farkasTerm, 0, len(basis))
 		for column, literal := range basis {
 			coefficient, err := matrix.get(row, uint32(column))
 			if err != nil {
 				return err
 			}
-			if coefficient.Sign() != 0 {
-				terms = append(terms, farkasTerm{literal: literal, coefficient: coefficient})
+			if !coefficient.IsZero() {
+				terms = append(terms, farkasTerm{literal: literal, coefficient: *coefficient})
 			}
 		}
 		if len(terms) == 0 {
@@ -169,8 +195,7 @@ func (p *UnsatCoreOptimizedFarkasPlugin) Finalize() error {
 			return err
 		}
 	}
-	p.combinations = nil
-	return nil
+	return p.delCombinations()
 }
 
 func (p *UnsatCoreOptimizedFarkasPlugin) Close() error {
@@ -180,9 +205,9 @@ func (p *UnsatCoreOptimizedFarkasPlugin) Close() error {
 	if p.closed {
 		return nil
 	}
+	err := p.delCombinations()
 	p.closed = true
-	p.combinations = nil
-	err := p.farkas.Close()
+	err = errors.Join(err, p.farkas.Close())
 	p.farkas = nil
 	p.learner = nil
 	return err

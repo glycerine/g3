@@ -3,81 +3,133 @@ package spacer
 // Source: src/muz/spacer/spacer_matrix.h and spacer_matrix.cpp.
 
 import (
-	"math/big"
+	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
+// spacerMatrix is spacer_matrix: vector<vector<rational>>, rationals of the
+// AST manager's rational manager q. del frees them.
 type spacerMatrix struct {
-	rows [][]big.Rat
+	q    *numeral.RationalManager
+	rows [][]numeral.Rational
 	cols uint32
 }
 
-func newSpacerMatrix(rows, columns uint32) *spacerMatrix {
-	result := &spacerMatrix{rows: make([][]big.Rat, rows), cols: columns}
+func newSpacerMatrix(q *numeral.RationalManager, rows, columns uint32) *spacerMatrix {
+	result := &spacerMatrix{q: q, rows: make([][]numeral.Rational, rows), cols: columns}
 	for i := range result.rows {
-		result.rows[i] = make([]big.Rat, columns)
+		result.rows[i] = make([]numeral.Rational, columns)
+		for j := range result.rows[i] {
+			result.rows[i][j] = numeral.NewRational()
+		}
 	}
 	return result
+}
+
+// del frees the matrix's rationals.
+func (m *spacerMatrix) del() (err error) {
+	if m == nil {
+		return nil
+	}
+	for i := range m.rows {
+		for j := range m.rows[i] {
+			err = errors.Join(err, m.q.Del(&m.rows[i][j]))
+		}
+	}
+	m.rows = nil
+	return err
 }
 
 func (m *spacerMatrix) numRows() uint32 { return uint32(len(m.rows)) }
 func (m *spacerMatrix) numCols() uint32 { return m.cols }
 
-func (m *spacerMatrix) get(row, column uint32) (*big.Rat, error) {
+// get is get(i, j): the matrix's own rational, borrowed until the matrix
+// changes or is deleted.
+func (m *spacerMatrix) get(row, column uint32) (*numeral.Rational, error) {
 	if m == nil || row >= uint32(len(m.rows)) || column >= m.cols {
 		return nil, ast.ErrASTDomain
 	}
-	return new(big.Rat).Set(&m.rows[row][column]), nil
+	return &m.rows[row][column], nil
 }
 
-func (m *spacerMatrix) set(row, column uint32, value *big.Rat) error {
+// set is set(i, j, v): the matrix keeps a copy of value.
+func (m *spacerMatrix) set(row, column uint32, value *numeral.Rational) error {
 	if m == nil || row >= uint32(len(m.rows)) || column >= m.cols || value == nil {
 		return ast.ErrASTDomain
 	}
-	m.rows[row][column].Set(value)
-	return nil
+	return m.q.Copy(&m.rows[row][column], value)
 }
 
-// gaussianElimination preserves the source row-selection and subtraction
-// order, including its non-absolute maximal-pivot comparison.
-func (m *spacerMatrix) gaussianElimination() (uint32, error) {
+// gaussianElimination is perform_gaussian_elimination. It preserves the
+// source row-selection and subtraction order, including its non-absolute
+// maximal-pivot comparison, its row "swap" (m_matrix[i] =
+// m_matrix[max_index]; m_matrix[max_index] = m_matrix[i], which leaves
+// both rows equal to the maximal row) and its subtraction loop from row 1.
+func (m *spacerMatrix) gaussianElimination() (_ uint32, err error) {
 	if m == nil || len(m.rows) == 0 || m.cols == 0 {
 		return 0, nil
 	}
+	q := m.q
+	// rational max, pivot, factor and the product temporary.
+	maxValue, pivot, factor, product := numeral.NewRational(), numeral.NewRational(), numeral.NewRational(), numeral.NewRational()
+	defer func() {
+		err = errors.Join(err, q.Del(&product), q.Del(&factor), q.Del(&pivot), q.Del(&maxValue))
+	}()
 	row, column := uint32(0), uint32(0)
 	for row < uint32(len(m.rows)) && column < m.cols {
-		maxValue := new(big.Rat).Set(&m.rows[row][column])
+		if err = q.Copy(&maxValue, &m.rows[row][column]); err != nil {
+			return row, err
+		}
 		maxIndex := row
 		for candidate := row + 1; candidate < uint32(len(m.rows)); candidate++ {
-			if maxValue.Cmp(&m.rows[candidate][column]) < 0 {
-				maxValue.Set(&m.rows[candidate][column])
+			c, e := q.Compare(&maxValue, &m.rows[candidate][column])
+			if e != nil {
+				return row, e
+			}
+			if c < 0 {
+				if err = q.Copy(&maxValue, &m.rows[candidate][column]); err != nil {
+					return row, err
+				}
 				maxIndex = candidate
 			}
 		}
-		if maxValue.Sign() == 0 {
+		if maxValue.IsZero() {
 			column++
 			continue
 		}
 		if maxIndex != row {
-			// This intentionally mirrors the reached source assignment order.
-			copy(m.rows[row], m.rows[maxIndex])
-			copy(m.rows[maxIndex], m.rows[row])
-		}
-		pivot := new(big.Rat).Set(&m.rows[row][column])
-		if pivot.Cmp(big.NewRat(1, 1)) != 0 {
 			for k := range m.rows[row] {
-				m.rows[row][k].Quo(&m.rows[row][k], pivot)
+				if err = q.Copy(&m.rows[row][k], &m.rows[maxIndex][k]); err != nil {
+					return row, err
+				}
+			}
+		}
+		if err = q.Copy(&pivot, &m.rows[row][column]); err != nil {
+			return row, err
+		}
+		if !pivot.IsOne() {
+			for k := range m.rows[row] {
+				if err = q.Div(&m.rows[row][k], &pivot, &m.rows[row][k]); err != nil {
+					return row, err
+				}
 			}
 		}
 		for candidate := uint32(1); candidate < uint32(len(m.rows)); candidate++ {
 			if candidate == row {
 				continue
 			}
-			factor := new(big.Rat).Set(&m.rows[candidate][column])
+			if err = q.Copy(&factor, &m.rows[candidate][column]); err != nil {
+				return row, err
+			}
 			for k := range m.rows[candidate] {
-				product := new(big.Rat).Mul(factor, &m.rows[row][k])
-				m.rows[candidate][k].Sub(&m.rows[candidate][k], product)
+				if err = q.Mul(&factor, &m.rows[row][k], &product); err != nil {
+					return row, err
+				}
+				if err = q.Sub(&m.rows[candidate][k], &product, &m.rows[candidate][k]); err != nil {
+					return row, err
+				}
 			}
 		}
 		row++
@@ -86,31 +138,35 @@ func (m *spacerMatrix) gaussianElimination() (uint32, error) {
 	return row, nil
 }
 
-func (m *spacerMatrix) normalize() error {
+// normalize is spacer_matrix::normalize: every entry is multiplied by the
+// lcm of all denominators.
+func (m *spacerMatrix) normalize() (err error) {
 	if m == nil {
 		return ast.ErrASTDomain
 	}
-	denominator := big.NewInt(1)
+	q := m.q
+	den, d := smtOneRational(), numeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&d), q.Del(&den)) }()
 	for i := range m.rows {
 		for j := range m.rows[i] {
-			denominator = lcmBigInt(denominator, m.rows[i][j].Denom())
+			if err = q.DenominatorRational(&m.rows[i][j], &d); err != nil {
+				return err
+			}
+			if err = q.LCM(&den, &d, &den); err != nil {
+				return err
+			}
 		}
 	}
-	factor := new(big.Rat).SetInt(denominator)
 	for i := range m.rows {
 		for j := range m.rows[i] {
-			m.rows[i][j].Mul(&m.rows[i][j], factor)
+			if err = q.Mul(&den, &m.rows[i][j], &m.rows[i][j]); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
 }
 
-func lcmBigInt(left, right *big.Int) *big.Int {
-	if left.Sign() == 0 || right.Sign() == 0 {
-		return new(big.Int)
-	}
-	gcd := new(big.Int).GCD(nil, nil, left, right)
-	result := new(big.Int).Quo(new(big.Int).Set(left), gcd)
-	result.Mul(result, right)
-	return result.Abs(result)
+func smtOneRational() numeral.Rational {
+	return numeral.Rational{Num: numeral.NewInt(1), Den: numeral.NewInt(1)}
 }

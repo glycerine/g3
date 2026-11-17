@@ -5,11 +5,11 @@ package spacer
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/pdr"
 	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
@@ -76,7 +76,8 @@ func (p *UnsatCoreFarkasPlugin) ComputePartialCore(step ast.ASTHandle) (resultEr
 		return err
 	}
 	var literals []ast.ASTHandle
-	var coefficients []*big.Rat
+	var coefficients []numeral.Rational
+	defer func() { resultErr = errors.Join(resultErr, p.farkas.DelCoefficients(coefficients)) }()
 	if p.useConstantFromA {
 		var negations []ast.ASTRef
 		var produced bool
@@ -95,12 +96,16 @@ func (p *UnsatCoreFarkasPlugin) ComputePartialCore(step ast.ASTHandle) (resultEr
 			return err
 		}
 		literals = make([]ast.ASTHandle, 0, openCount)
-		coefficients = make([]*big.Rat, 0, openCount)
+		coefficients = make([]numeral.Rational, 0, openCount)
 		for i := range facts {
 			if bOpen[i] {
 				literals = append(literals, facts[i])
 				coefficients = append(coefficients, factCoefficients[i])
+				factCoefficients[i] = numeral.NewRational()
 			}
+		}
+		if err = p.farkas.DelCoefficients(factCoefficients); err != nil {
+			return err
 		}
 	}
 	if err = p.learner.SetClosed(step, true); err != nil {
@@ -119,7 +124,7 @@ func (p *UnsatCoreFarkasPlugin) ComputePartialCore(step ast.ASTHandle) (resultEr
 // computeLinearCombination is unsat_core_plugin_farkas_lemma::
 // compute_linear_combination. The returned reference owns util.get()'s
 // result; the caller releases it after using the lemma.
-func (p *UnsatCoreFarkasPlugin) computeLinearCombination(coefficients []*big.Rat, literals []ast.ASTHandle) (_ ast.ASTHandle, combined ast.ASTRef, resultErr error) {
+func (p *UnsatCoreFarkasPlugin) computeLinearCombination(coefficients []numeral.Rational, literals []ast.ASTHandle) (_ ast.ASTHandle, combined ast.ASTRef, resultErr error) {
 	manager := p.learner.manager
 	util, err := smtcore.NewSMTFarkasUtil(manager, p.context, p.globals)
 	if err != nil {
@@ -132,7 +137,7 @@ func (p *UnsatCoreFarkasPlugin) computeLinearCombination(coefficients []*big.Rat
 		}
 	}
 	for i := range literals {
-		if err = util.AddBigRat(coefficients[i], literals[i]); err != nil {
+		if err = util.Add(&coefficients[i], literals[i]); err != nil {
 			return ast.ASTHandle{}, combined, err
 		}
 	}

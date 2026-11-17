@@ -4,13 +4,13 @@ package pdr_test
 // combine_constraints coefficient and literal modes.
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/cmd_context"
 	_ "github.com/glycerine/g3/pkg/engine"
 	"github.com/glycerine/g3/pkg/muz/pdr"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func farkasFixture(t *testing.T) (*cmd_context.Context, *ast.ASTManager, *pdr.FarkasLearner) {
@@ -86,9 +86,16 @@ func TestFarkasLearnerRecognizesArithmeticTheoryLemma(t *testing.T) {
 	if !matched || len(facts) != 2 || facts[0] != le || facts[1] != ge {
 		t.Fatal("Farkas parent facts were not extracted in proof order", matched, facts)
 	}
-	if coefficients[0].Cmp(big.NewRat(3, 2)) != 0 || coefficients[1].Cmp(big.NewRat(5, 1)) != 0 {
+	q := manager.NumeralService().Manager
+	threeHalves := numeral.Rational{Num: numeral.NewInt(3), Den: numeral.NewInt(2)}
+	five := numeral.Rational{Num: numeral.NewInt(5), Den: numeral.NewInt(1)}
+	if c0, e0 := q.Compare(&coefficients[0], &threeHalves); e0 != nil || c0 != 0 {
 		t.Fatal("Farkas coefficients were not extracted and normalized", coefficients)
 	}
+	if c1, e1 := q.Compare(&coefficients[1], &five); e1 != nil || c1 != 0 {
+		t.Fatal("Farkas coefficients were not extracted and normalized", coefficients)
+	}
+	pdrMust(t, learner.DelCoefficients(coefficients))
 	combined, produced, err := learner.CombineFarkasLemma(lemma, []bool{true, false})
 	pdrMust(t, err)
 	if !produced {
@@ -166,7 +173,7 @@ func TestFarkasLearnerCombinesCoefficientsAndNegatedLiterals(t *testing.T) {
 	pdrMust(t, err)
 	ge, err := manager.MkFamilyApp(arithmetic, 3, nil, []ast.ASTHandle{x, one})
 	pdrMust(t, err)
-	combined, err := learner.CombineConstraints([]ast.ASTHandle{le, ge}, []*big.Rat{big.NewRat(1, 1), big.NewRat(1, 1)})
+	combined, err := learner.CombineConstraints([]ast.ASTHandle{le, ge}, pdrOnes(2))
 	pdrMust(t, err)
 	combinedHandle, err := manager.RefGet(combined)
 	pdrMust(t, err)
@@ -190,7 +197,7 @@ func TestFarkasLearnerCombinesCoefficientsAndNegatedLiterals(t *testing.T) {
 	xLE, err := manager.MkFamilyApp(arithmetic, 2, nil, []ast.ASTHandle{xSplit, splitZero})
 	pdrMust(t, err)
 	pdrMust(t, learner.SetSplitLiterals(true))
-	split, err := learner.CombineConstraints([]ast.ASTHandle{xLE, yLE}, []*big.Rat{big.NewRat(1, 1), big.NewRat(1, 1)})
+	split, err := learner.CombineConstraints([]ast.ASTHandle{xLE, yLE}, pdrOnes(2))
 	pdrMust(t, err)
 	splitHandle, err := manager.RefGet(split)
 	pdrMust(t, err)
@@ -216,7 +223,7 @@ func TestFarkasLearnerCombinesCoefficientsAndNegatedLiterals(t *testing.T) {
 	pdrMust(t, err)
 	q, err := manager.MkConst(qName, boolean)
 	pdrMust(t, err)
-	negated, err := learner.CombineConstraints([]ast.ASTHandle{p, q}, []*big.Rat{big.NewRat(1, 1), big.NewRat(1, 1)})
+	negated, err := learner.CombineConstraints([]ast.ASTHandle{p, q}, pdrOnes(2))
 	pdrMust(t, err)
 	negatedHandle, err := manager.RefGet(negated)
 	pdrMust(t, err)
@@ -260,4 +267,13 @@ func TestFarkasLearnerRecoversGeneralBPureUnits(t *testing.T) {
 	pdrMust(t, manager.DelRef(&lemmas[0]))
 	pdrMust(t, learner.Close())
 	pdrMust(t, command.Close())
+}
+
+// pdrOnes is n coefficients rational(1).
+func pdrOnes(n int) []numeral.Rational {
+	ones := make([]numeral.Rational, n)
+	for i := range ones {
+		ones[i] = numeral.Rational{Num: numeral.NewInt(1), Den: numeral.NewInt(1)}
+	}
+	return ones
 }
