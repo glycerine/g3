@@ -5,7 +5,8 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
+
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 var errSMTDiffGraphDomain = errors.New("smt: invalid difference-logic graph operation")
@@ -20,7 +21,7 @@ const (
 
 type smtRationalDiffEdge struct {
 	source, target int32
-	weight         big.Rat
+	weight         numeral.Rational
 	timestamp      uint32
 	explanation    SMTLiteral
 	enabled        bool
@@ -28,7 +29,7 @@ type smtRationalDiffEdge struct {
 
 type smtRationalDiffAssignmentTrail struct {
 	variable int32
-	oldValue big.Rat
+	oldValue numeral.Rational
 }
 
 type smtRationalDiffScope struct {
@@ -37,15 +38,21 @@ type smtRationalDiffScope struct {
 }
 
 // SMTRationalDiffGraph is the concrete rational dl_graph instantiation used
-// by integer difference logic. Rational values are copied into graph-owned
-// big.Rat values; explanations are borrowed SMT literals.
+// by integer difference logic (idl_ext::numeral is rational). Rational
+// values are graph-owned numeral.Rationals on q, the AST manager's mpq
+// manager (rational's g_mpq_manager), freed where dl_graph's vectors drop
+// them; explanations are borrowed SMT literals. A manager failure inside an
+// operation that returns no error is kept in qErr and returned by the next
+// entry point that does.
 type SMTRationalDiffGraph struct {
-	assignment        []big.Rat
+	q                 *numeral.RationalManager
+	qErr              error
+	assignment        []numeral.Rational
 	assignmentTrail   []smtRationalDiffAssignmentTrail
 	edges             []smtRationalDiffEdge
 	outEdges, inEdges [][]int32
 	scopes            []smtRationalDiffScope
-	gamma             []big.Rat
+	gamma             []numeral.Rational
 	mark              []smtDiffSearchMark
 	parent            []int32
 	visited           []int32
@@ -58,10 +65,55 @@ type SMTRationalDiffGraph struct {
 	numRelax          uint32
 }
 
-func NewSMTRationalDiffGraph() *SMTRationalDiffGraph {
-	g := &SMTRationalDiffGraph{lastEnabledEdge: -1}
+func NewSMTRationalDiffGraph(q *numeral.RationalManager) *SMTRationalDiffGraph {
+	g := &SMTRationalDiffGraph{q: q, lastEnabledEdge: -1}
 	g.heap.graph = g
 	return g
+}
+
+// keep records the first manager failure; takeErr returns and clears it.
+func (g *SMTRationalDiffGraph) keep(err error) {
+	if err != nil && g.qErr == nil {
+		g.qErr = err
+	}
+}
+
+func (g *SMTRationalDiffGraph) takeErr(err error) error {
+	if g.qErr != nil {
+		err = errors.Join(err, g.qErr)
+		g.qErr = nil
+	}
+	return err
+}
+
+// cmp is a three-way rational comparison; sign is is_neg/is_pos.
+func (g *SMTRationalDiffGraph) cmp(a, b *numeral.Rational) int {
+	c, err := g.q.Compare(a, b)
+	g.keep(err)
+	return c
+}
+
+func (g *SMTRationalDiffGraph) set(dst, src *numeral.Rational) { g.keep(g.q.Copy(dst, src)) }
+func (g *SMTRationalDiffGraph) add(a, b, out *numeral.Rational) {
+	g.keep(g.q.Add(a, b, out))
+}
+func (g *SMTRationalDiffGraph) sub(a, b, out *numeral.Rational) {
+	g.keep(g.q.Sub(a, b, out))
+}
+func (g *SMTRationalDiffGraph) del(a *numeral.Rational) { g.keep(smtQDel(g.q, a)) }
+
+// release frees every value the graph owns (dl_graph's destructor).
+func (g *SMTRationalDiffGraph) release() {
+	for i := range g.assignment {
+		g.del(&g.assignment[i])
+		g.del(&g.gamma[i])
+	}
+	for i := range g.assignmentTrail {
+		g.del(&g.assignmentTrail[i].oldValue)
+	}
+	for i := range g.edges {
+		g.del(&g.edges[i].weight)
+	}
 }
 
 func (g *SMTRationalDiffGraph) validVariable(v int32) bool {
@@ -80,27 +132,29 @@ func (g *SMTRationalDiffGraph) InitVariable(v int32) error {
 		return errSMTDiffGraphDomain
 	}
 	for int(v) >= len(g.assignment) {
-		g.assignment = append(g.assignment, big.Rat{})
+		g.assignment = append(g.assignment, smtQZero())
 		g.outEdges = append(g.outEdges, nil)
 		g.inEdges = append(g.inEdges, nil)
-		g.gamma = append(g.gamma, big.Rat{})
+		g.gamma = append(g.gamma, smtQZero())
 		g.mark = append(g.mark, smtDiffUnmarked)
 		g.parent = append(g.parent, -1)
 	}
 	if len(g.outEdges[v]) != 0 || len(g.inEdges[v]) != 0 || g.mark[v] != smtDiffUnmarked {
 		return errSMTDiffGraphDomain
 	}
-	g.assignment[v].SetInt64(0)
-	return nil
+	g.keep(g.q.Reset(&g.assignment[v]))
+	return g.takeErr(nil)
 }
 
-func (g *SMTRationalDiffGraph) AddEdge(source, target int32, weight *big.Rat, explanation SMTLiteral) (int32, error) {
+func (g *SMTRationalDiffGraph) AddEdge(source, target int32, weight *numeral.Rational, explanation SMTLiteral) (int32, error) {
 	if !g.validVariable(source) || !g.validVariable(target) || weight == nil {
 		return -1, errSMTDiffGraphDomain
 	}
 	id := int32(len(g.edges))
-	edge := smtRationalDiffEdge{source: source, target: target, timestamp: g.timestamp, explanation: explanation}
-	edge.weight.Set(weight)
+	edge := smtRationalDiffEdge{source: source, target: target, weight: smtQZero(), timestamp: g.timestamp, explanation: explanation}
+	if err := g.q.Copy(&edge.weight, weight); err != nil {
+		return -1, err
+	}
 	g.edges = append(g.edges, edge)
 	g.activity = append(g.activity, 0)
 	g.outEdges[source] = append(g.outEdges[source], id)
@@ -112,9 +166,11 @@ func (g *SMTRationalDiffGraph) edgeFeasible(edge *smtRationalDiffEdge) bool {
 	if !edge.enabled {
 		return true
 	}
-	var difference big.Rat
-	difference.Sub(&g.assignment[edge.target], &g.assignment[edge.source])
-	return difference.Cmp(&edge.weight) <= 0
+	difference := smtQZero()
+	g.sub(&g.assignment[edge.target], &g.assignment[edge.source], &difference)
+	feasible := g.cmp(&difference, &edge.weight) <= 0
+	g.del(&difference)
+	return feasible
 }
 
 func (g *SMTRationalDiffGraph) IsFeasible() bool {
@@ -129,24 +185,32 @@ func (g *SMTRationalDiffGraph) IsFeasible() bool {
 	return true
 }
 
-func (g *SMTRationalDiffGraph) setGamma(edge *smtRationalDiffEdge, result *big.Rat) {
-	result.Sub(&g.assignment[edge.source], &g.assignment[edge.target])
-	result.Add(result, &edge.weight)
+func (g *SMTRationalDiffGraph) setGamma(edge *smtRationalDiffEdge, result *numeral.Rational) {
+	g.sub(&g.assignment[edge.source], &g.assignment[edge.target], result)
+	g.add(result, &edge.weight, result)
 }
 
-func (g *SMTRationalDiffGraph) accumulateAssignment(variable int32, increment *big.Rat) {
-	trail := smtRationalDiffAssignmentTrail{variable: variable}
-	trail.oldValue.Set(&g.assignment[variable])
+func (g *SMTRationalDiffGraph) accumulateAssignment(variable int32, increment *numeral.Rational) {
+	trail := smtRationalDiffAssignmentTrail{variable: variable, oldValue: smtQZero()}
+	g.set(&trail.oldValue, &g.assignment[variable])
 	g.assignmentTrail = append(g.assignmentTrail, trail)
-	g.assignment[variable].Add(&g.assignment[variable], increment)
+	g.add(&g.assignment[variable], increment, &g.assignment[variable])
+}
+
+// clearAssignmentTrail is m_assignment_stack.reset().
+func (g *SMTRationalDiffGraph) clearAssignmentTrail() {
+	for index := range g.assignmentTrail {
+		g.del(&g.assignmentTrail[index].oldValue)
+	}
+	g.assignmentTrail = g.assignmentTrail[:0]
 }
 
 func (g *SMTRationalDiffGraph) undoAssignments() {
 	for index := len(g.assignmentTrail); index > 0; index-- {
 		trail := &g.assignmentTrail[index-1]
-		g.assignment[trail.variable].Set(&trail.oldValue)
+		g.set(&g.assignment[trail.variable], &trail.oldValue)
 	}
-	g.assignmentTrail = g.assignmentTrail[:0]
+	g.clearAssignmentTrail()
 }
 
 func (g *SMTRationalDiffGraph) resetMarks() {
@@ -159,13 +223,15 @@ func (g *SMTRationalDiffGraph) resetMarks() {
 func (g *SMTRationalDiffGraph) makeFeasible(id int32) bool {
 	edge := &g.edges[id]
 	root, target := edge.source, edge.target
-	g.gamma[root].SetInt64(0)
+	g.keep(g.q.Reset(&g.gamma[root]))
 	g.setGamma(edge, &g.gamma[target])
 	g.mark[target] = smtDiffProcessed
 	g.parent[target] = id
 	g.visited = append(g.visited, target)
 	g.accumulateAssignment(target, &g.gamma[target])
 
+	gamma := smtQZero()
+	defer g.del(&gamma)
 	source := target
 	for {
 		g.propagationCost++
@@ -180,22 +246,21 @@ func (g *SMTRationalDiffGraph) makeFeasible(id int32) bool {
 			if !candidate.enabled {
 				continue
 			}
-			var gamma big.Rat
 			g.setGamma(candidate, &gamma)
-			if gamma.Sign() >= 0 {
+			if !gamma.IsNeg() {
 				continue
 			}
 			next := candidate.target
 			switch g.mark[next] {
 			case smtDiffUnmarked:
-				g.gamma[next].Set(&gamma)
+				g.set(&g.gamma[next], &gamma)
 				g.mark[next] = smtDiffFound
 				g.parent[next] = edgeID
 				g.visited = append(g.visited, next)
 				g.heap.insert(next)
 			case smtDiffFound:
-				if gamma.Cmp(&g.gamma[next]) < 0 {
-					g.gamma[next].Set(&gamma)
+				if g.cmp(&gamma, &g.gamma[next]) < 0 {
+					g.set(&g.gamma[next], &gamma)
 					g.parent[next] = edgeID
 					g.heap.decreased(next)
 				}
@@ -203,7 +268,7 @@ func (g *SMTRationalDiffGraph) makeFeasible(id int32) bool {
 		}
 		if g.heap.empty() {
 			g.resetMarks()
-			g.assignmentTrail = g.assignmentTrail[:0]
+			g.clearAssignmentTrail()
 			return true
 		}
 		source = g.heap.eraseMin()
@@ -231,25 +296,28 @@ func (g *SMTRationalDiffGraph) EnableEdge(id int32) (bool, error) {
 		feasible = g.makeFeasible(id)
 	}
 	g.enabledEdges = append(g.enabledEdges, id)
-	return feasible, nil
+	return feasible, g.takeErr(nil)
 }
 
-func (g *SMTRationalDiffGraph) findRelaxedEdge(id int32, gamma *big.Rat) int32 {
+func (g *SMTRationalDiffGraph) findRelaxedEdge(id int32, gamma *numeral.Rational) int32 {
 	edge := &g.edges[id]
-	weight := new(big.Rat).Set(&edge.weight)
+	weight, delta, adjusted := smtQZero(), smtQZero(), smtQZero()
+	defer g.del(&weight)
+	defer g.del(&delta)
+	defer g.del(&adjusted)
+	g.set(&weight, &edge.weight)
 	selected := id
 	for _, candidateID := range g.outEdges[edge.source] {
 		candidate := &g.edges[candidateID]
-		if candidate.target != edge.target || !candidate.enabled || candidate.weight.Cmp(weight) <= 0 {
+		if candidate.target != edge.target || !candidate.enabled || g.cmp(&candidate.weight, &weight) <= 0 {
 			continue
 		}
-		var delta, adjusted big.Rat
-		delta.Sub(&candidate.weight, weight)
-		adjusted.Add(gamma, &delta)
-		if adjusted.Sign() < 0 {
+		g.sub(&candidate.weight, &weight, &delta)
+		g.add(gamma, &delta, &adjusted)
+		if adjusted.IsNeg() {
 			selected = candidateID
-			gamma.Set(&adjusted)
-			weight.Set(&candidate.weight)
+			g.set(gamma, &adjusted)
+			g.set(&weight, &candidate.weight)
 			g.numRelax++
 		}
 	}
@@ -262,8 +330,9 @@ func (g *SMTRationalDiffGraph) NegativeCycleExplanations(tryRelax bool) ([]SMTLi
 	}
 	last := g.lastEnabledEdge
 	edge := &g.edges[last]
-	var gamma big.Rat
-	gamma.Set(&g.gamma[edge.source])
+	gamma := smtQZero()
+	defer g.del(&gamma)
+	g.set(&gamma, &g.gamma[edge.source])
 	result := make([]SMTLiteral, 0, 4)
 	id := last
 	for steps := 0; ; steps++ {
@@ -281,7 +350,7 @@ func (g *SMTRationalDiffGraph) NegativeCycleExplanations(tryRelax bool) ([]SMTLi
 			break
 		}
 	}
-	return result, nil
+	return result, g.takeErr(nil)
 }
 
 func (g *SMTRationalDiffGraph) Push() error {
@@ -308,18 +377,20 @@ func (g *SMTRationalDiffGraph) Pop(count uint32) error {
 		edge := &g.edges[id]
 		g.outEdges[edge.source] = g.outEdges[edge.source][:len(g.outEdges[edge.source])-1]
 		g.inEdges[edge.target] = g.inEdges[edge.target][:len(g.inEdges[edge.target])-1]
+		g.del(&edge.weight)
 		g.edges = g.edges[:id]
 		g.activity = g.activity[:id]
 	}
 	g.scopes = g.scopes[:level]
-	return nil
+	return g.takeErr(nil)
 }
 
-func (g *SMTRationalDiffGraph) Assignment(variable int32) (*big.Rat, error) {
-	if !g.validVariable(variable) {
-		return nil, errSMTDiffGraphDomain
+// Assignment copies the value of variable into out.
+func (g *SMTRationalDiffGraph) Assignment(variable int32, out *numeral.Rational) error {
+	if !g.validVariable(variable) || out == nil {
+		return errSMTDiffGraphDomain
 	}
-	return new(big.Rat).Set(&g.assignment[variable]), nil
+	return g.q.Copy(out, &g.assignment[variable])
 }
 
 func (g *SMTRationalDiffGraph) EdgeSource(id int32) (int32, error) {
@@ -336,11 +407,12 @@ func (g *SMTRationalDiffGraph) EdgeTarget(id int32) (int32, error) {
 	return g.edges[id].target, nil
 }
 
-func (g *SMTRationalDiffGraph) EdgeWeight(id int32) (*big.Rat, error) {
-	if !g.validEdge(id) {
-		return nil, errSMTDiffGraphDomain
+// EdgeWeight copies the weight of edge id into out.
+func (g *SMTRationalDiffGraph) EdgeWeight(id int32, out *numeral.Rational) error {
+	if !g.validEdge(id) || out == nil {
+		return errSMTDiffGraphDomain
 	}
-	return new(big.Rat).Set(&g.edges[id].weight), nil
+	return g.q.Copy(out, &g.edges[id].weight)
 }
 
 func (g *SMTRationalDiffGraph) EdgeExplanation(id int32) (SMTLiteral, error) {
@@ -357,25 +429,23 @@ func (g *SMTRationalDiffGraph) EdgeEnabled(id int32) (bool, error) {
 	return g.edges[id].enabled, nil
 }
 
-func (g *SMTRationalDiffGraph) MinimumEnabledEdge(source, target int32) (*big.Rat, SMTLiteral, bool, error) {
-	if !g.validVariable(source) || !g.validVariable(target) {
-		return nil, SMTNullLiteral, false, errSMTDiffGraphDomain
+// MinimumEnabledEdge copies the least weight of an enabled source->target
+// edge into weight and returns its explanation.
+func (g *SMTRationalDiffGraph) MinimumEnabledEdge(source, target int32, weight *numeral.Rational) (SMTLiteral, bool, error) {
+	if !g.validVariable(source) || !g.validVariable(target) || weight == nil {
+		return SMTNullLiteral, false, errSMTDiffGraphDomain
 	}
-	var weight big.Rat
 	explanation := SMTNullLiteral
 	found := false
 	for _, edgeID := range g.outEdges[source] {
 		edge := &g.edges[edgeID]
-		if edge.enabled && edge.target == target && (!found || edge.weight.Cmp(&weight) < 0) {
-			weight.Set(&edge.weight)
+		if edge.enabled && edge.target == target && (!found || g.cmp(&edge.weight, weight) < 0) {
+			g.set(weight, &edge.weight)
 			explanation = edge.explanation
 			found = true
 		}
 	}
-	if !found {
-		return nil, SMTNullLiteral, false, nil
-	}
-	return &weight, explanation, true, nil
+	return explanation, found, g.takeErr(nil)
 }
 
 func (g *SMTRationalDiffGraph) FindEdge(source, target int32) (int32, bool, error) {
@@ -486,6 +556,8 @@ func (g *SMTRationalDiffGraph) ComputeZeroEdgeSCC() ([]int32, error) {
 	roots := make([]int32, 0, count)
 	unfinished := make([]int32, 0, count)
 	nextTime, nextComponent := int32(0), int32(0)
+	gamma := smtQZero()
+	defer g.del(&gamma)
 	var visit func(int32)
 	visit = func(variable int32) {
 		dfsTime[variable] = nextTime
@@ -498,9 +570,8 @@ func (g *SMTRationalDiffGraph) ComputeZeroEdgeSCC() ([]int32, error) {
 			if !edge.enabled {
 				continue
 			}
-			var gamma big.Rat
 			g.setGamma(edge, &gamma)
-			if gamma.Sign() != 0 {
+			if !gamma.IsZero() {
 				continue
 			}
 			target := edge.target
@@ -535,7 +606,7 @@ func (g *SMTRationalDiffGraph) ComputeZeroEdgeSCC() ([]int32, error) {
 			visit(variable)
 		}
 	}
-	return component, nil
+	return component, g.takeErr(nil)
 }
 
 func (g *SMTRationalDiffGraph) ComputeZeroSuccessors(variable int32) ([]int32, error) {
@@ -545,6 +616,8 @@ func (g *SMTRationalDiffGraph) ComputeZeroSuccessors(variable int32) ([]int32, e
 	seen := make([]bool, len(g.assignment))
 	seen[variable] = true
 	result := []int32{variable}
+	gamma := smtQZero()
+	defer g.del(&gamma)
 	for index := 0; index < len(result); index++ {
 		current := result[index]
 		for _, edgeID := range g.outEdges[current] {
@@ -552,15 +625,14 @@ func (g *SMTRationalDiffGraph) ComputeZeroSuccessors(variable int32) ([]int32, e
 			if !edge.enabled {
 				continue
 			}
-			var gamma big.Rat
 			g.setGamma(edge, &gamma)
-			if gamma.Sign() == 0 && !seen[edge.target] {
+			if gamma.IsZero() && !seen[edge.target] {
 				seen[edge.target] = true
 				result = append(result, edge.target)
 			}
 		}
 	}
-	return result, nil
+	return result, g.takeErr(nil)
 }
 
 type smtRationalDiffBFSElement struct {
@@ -579,6 +651,8 @@ func (g *SMTRationalDiffGraph) FindShortestZeroEdgePath(source, target int32, ti
 	queue := []smtRationalDiffBFSElement{{variable: source, parentIndex: -1, edgeID: -1}}
 	marked := make([]bool, len(g.assignment))
 	marked[source] = true
+	gamma := smtQZero()
+	defer g.del(&gamma)
 	for head := 0; head < len(queue); head++ {
 		current := queue[head]
 		for _, edgeID := range g.outEdges[current.variable] {
@@ -586,9 +660,8 @@ func (g *SMTRationalDiffGraph) FindShortestZeroEdgePath(source, target int32, ti
 			if !edge.enabled || edge.timestamp >= timestamp {
 				continue
 			}
-			var gamma big.Rat
 			g.setGamma(edge, &gamma)
-			if gamma.Sign() != 0 {
+			if !gamma.IsZero() {
 				continue
 			}
 			if edge.target == target {
@@ -598,7 +671,7 @@ func (g *SMTRationalDiffGraph) FindShortestZeroEdgePath(source, target int32, ti
 					result = append(result, g.edges[queue[parent].edgeID].explanation)
 					parent = queue[parent].parentIndex
 				}
-				return result, true, nil
+				return result, true, g.takeErr(nil)
 			}
 			if !marked[edge.target] {
 				marked[edge.target] = true
@@ -606,23 +679,21 @@ func (g *SMTRationalDiffGraph) FindShortestZeroEdgePath(source, target int32, ti
 			}
 		}
 	}
-	return nil, false, nil
+	return nil, false, g.takeErr(nil)
 }
 
-func (g *SMTRationalDiffGraph) IncrementAssignment(variable int32, increment *big.Rat) error {
+func (g *SMTRationalDiffGraph) IncrementAssignment(variable int32, increment *numeral.Rational) error {
 	if !g.validVariable(variable) || increment == nil {
 		return errSMTDiffGraphDomain
 	}
-	g.assignment[variable].Add(&g.assignment[variable], increment)
-	return nil
+	return g.q.Add(&g.assignment[variable], increment, &g.assignment[variable])
 }
 
-func (g *SMTRationalDiffGraph) SetAssignment(variable int32, value *big.Rat) error {
+func (g *SMTRationalDiffGraph) SetAssignment(variable int32, value *numeral.Rational) error {
 	if !g.validVariable(variable) || value == nil {
 		return errSMTDiffGraphDomain
 	}
-	g.assignment[variable].Set(value)
-	return nil
+	return g.q.Copy(&g.assignment[variable], value)
 }
 
 func (g *SMTRationalDiffGraph) Timestamp() uint32 {
@@ -636,7 +707,8 @@ func (g *SMTRationalDiffGraph) Reset() {
 	if g == nil {
 		return
 	}
-	*g = SMTRationalDiffGraph{lastEnabledEdge: -1}
+	g.release()
+	*g = SMTRationalDiffGraph{q: g.q, qErr: g.qErr, lastEnabledEdge: -1}
 	g.heap.graph = g
 }
 
@@ -646,15 +718,16 @@ func (g *SMTRationalDiffGraph) SetToZero(variable int32) error {
 	if !g.validVariable(variable) || !g.IsFeasible() {
 		return errSMTDiffGraphDomain
 	}
-	if g.assignment[variable].Sign() == 0 {
+	if g.assignment[variable].IsZero() {
 		return nil
 	}
-	var offset big.Rat
-	offset.Set(&g.assignment[variable])
+	offset := smtQZero()
+	g.set(&offset, &g.assignment[variable])
 	for index := range g.assignment {
-		g.assignment[index].Sub(&g.assignment[index], &offset)
+		g.sub(&g.assignment[index], &offset, &g.assignment[index])
 	}
-	return nil
+	g.del(&offset)
+	return g.takeErr(nil)
 }
 
 // SetPairToZero implements the source helper for disconnected variables. If
@@ -664,16 +737,16 @@ func (g *SMTRationalDiffGraph) SetPairToZero(first, second int32) error {
 		return errSMTDiffGraphDomain
 	}
 	selected := second
-	if g.assignment[first].Sign() != 0 {
+	if !g.assignment[first].IsZero() {
 		selected = first
 	}
 	if err := g.SetToZero(selected); err != nil {
 		return err
 	}
-	if g.assignment[first].Sign() == 0 && g.assignment[second].Sign() == 0 {
+	if g.assignment[first].IsZero() && g.assignment[second].IsZero() {
 		return nil
 	}
-	zero := new(big.Rat)
+	zero := smtQIntPtr(0)
 	forward, err := g.AddEdge(first, second, zero, SMTNullLiteral)
 	if err != nil {
 		return err
@@ -717,11 +790,11 @@ func (g *SMTRationalDiffGraph) FindDirectlySubsumed(id int32) ([]int32, error) {
 		if !useOutgoing {
 			matches = candidate.source == edge.source
 		}
-		if candidateID != id && !candidate.enabled && matches && candidate.weight.Cmp(&edge.weight) >= 0 {
+		if candidateID != id && !candidate.enabled && matches && g.cmp(&candidate.weight, &edge.weight) >= 0 {
 			result = append(result, candidateID)
 		}
 	}
-	return result, nil
+	return result, g.takeErr(nil)
 }
 
 // FindTwoHopSubsumed extends direct subsumption through one enabled incoming
@@ -735,17 +808,18 @@ func (g *SMTRationalDiffGraph) FindTwoHopSubsumed(id int32) ([]int32, error) {
 		return nil, err
 	}
 	edge := &g.edges[id]
-	var combined big.Rat
+	combined := smtQZero()
+	defer g.del(&combined)
 	for _, prefixID := range g.inEdges[edge.source] {
 		prefix := &g.edges[prefixID]
 		if !prefix.enabled || prefix.source == edge.target {
 			continue
 		}
-		combined.Add(&prefix.weight, &edge.weight)
+		g.add(&prefix.weight, &edge.weight, &combined)
 		for _, candidateID := range g.outEdges[prefix.source] {
 			g.propagationCost++
 			candidate := &g.edges[candidateID]
-			if !candidate.enabled && candidate.target == edge.target && candidate.weight.Cmp(&combined) >= 0 {
+			if !candidate.enabled && candidate.target == edge.target && g.cmp(&candidate.weight, &combined) >= 0 {
 				result = append(result, candidateID)
 			}
 		}
@@ -755,16 +829,16 @@ func (g *SMTRationalDiffGraph) FindTwoHopSubsumed(id int32) ([]int32, error) {
 		if !suffix.enabled || suffix.target == edge.source {
 			continue
 		}
-		combined.Add(&suffix.weight, &edge.weight)
+		g.add(&suffix.weight, &edge.weight, &combined)
 		for _, candidateID := range g.inEdges[suffix.target] {
 			g.propagationCost++
 			candidate := &g.edges[candidateID]
-			if !candidate.enabled && candidate.source == edge.source && candidate.weight.Cmp(&combined) >= 0 {
+			if !candidate.enabled && candidate.source == edge.source && g.cmp(&candidate.weight, &combined) >= 0 {
 				result = append(result, candidateID)
 			}
 		}
 	}
-	return result, nil
+	return result, g.takeErr(nil)
 }
 
 // ExplainSubsumedLazy finds an enabled path, no newer than bridge, whose
@@ -777,10 +851,12 @@ func (g *SMTRationalDiffGraph) ExplainSubsumedLazy(bridgeID, subsumedID int32) (
 	bridge := &g.edges[bridgeID]
 	subsumed := &g.edges[subsumedID]
 	source, destination := subsumed.source, subsumed.target
-	g.gamma[source].SetInt64(0)
-	g.gamma[destination].Set(&subsumed.weight)
+	g.keep(g.q.Reset(&g.gamma[source]))
+	g.set(&g.gamma[destination], &subsumed.weight)
 	g.heap.insert(source)
 	g.visited = append(g.visited, source)
+	distance := smtQZero()
+	defer g.del(&distance)
 
 	for !g.heap.empty() {
 		variable := g.heap.eraseMin()
@@ -791,14 +867,13 @@ func (g *SMTRationalDiffGraph) ExplainSubsumedLazy(bridgeID, subsumedID int32) (
 				continue
 			}
 			next := edge.target
-			var distance big.Rat
-			distance.Add(&g.gamma[variable], &edge.weight)
-			if g.mark[next] != smtDiffUnmarked && g.gamma[next].Cmp(&distance) <= 0 {
+			g.add(&g.gamma[variable], &edge.weight, &distance)
+			if g.mark[next] != smtDiffUnmarked && g.cmp(&g.gamma[next], &distance) <= 0 {
 				continue
 			}
-			g.gamma[next].Set(&distance)
+			g.set(&g.gamma[next], &distance)
 			g.parent[next] = edgeID
-			if next == destination && distance.Cmp(&subsumed.weight) <= 0 {
+			if next == destination && g.cmp(&distance, &subsumed.weight) <= 0 {
 				g.resetMarks()
 				g.heap.reset()
 				result := make([]SMTLiteral, 0, 4)
@@ -812,7 +887,7 @@ func (g *SMTRationalDiffGraph) ExplainSubsumedLazy(bridgeID, subsumedID int32) (
 					result = append(result, g.edges[parentID].explanation)
 					current = g.edges[parentID].source
 				}
-				return result, nil
+				return result, g.takeErr(nil)
 			}
 			switch g.mark[next] {
 			case smtDiffUnmarked:
@@ -828,7 +903,7 @@ func (g *SMTRationalDiffGraph) ExplainSubsumedLazy(bridgeID, subsumedID int32) (
 		}
 	}
 	g.resetMarks()
-	return nil, errSMTDiffGraphDomain
+	return nil, g.takeErr(errSMTDiffGraphDomain)
 }
 
 func (g *SMTRationalDiffGraph) NumNodes() int {
@@ -858,7 +933,7 @@ func (h *smtRationalDiffHeap) ensure(v int32) {
 	}
 }
 func (h *smtRationalDiffHeap) less(i, j int) bool {
-	return h.graph.gamma[h.variables[i]].Cmp(&h.graph.gamma[h.variables[j]]) < 0
+	return h.graph.cmp(&h.graph.gamma[h.variables[i]], &h.graph.gamma[h.variables[j]]) < 0
 }
 func (h *smtRationalDiffHeap) swap(i, j int) {
 	h.variables[i], h.variables[j] = h.variables[j], h.variables[i]

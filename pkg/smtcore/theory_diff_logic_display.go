@@ -9,7 +9,22 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
+
+// text is numeral::to_string; a failure is kept in qErr.
+func (g *SMTRationalDiffGraph) text(r *numeral.Rational) string {
+	s, err := g.q.String(r)
+	g.keep(err)
+	return s
+}
+
+// text is inf_int_rational::to_string; a failure is kept in qErr.
+func (g *SMTInfRationalDiffGraph) text(v *smtInfIntRational) string {
+	s, err := smtInfIntText(g.q, v)
+	g.keep(err)
+	return s
+}
 
 func (g *SMTRationalDiffGraph) display(out io.Writer) error {
 	if g == nil || out == nil {
@@ -20,22 +35,22 @@ func (g *SMTRationalDiffGraph) display(out io.Writer) error {
 		if !edge.enabled {
 			continue
 		}
-		if err := smtWriteTheoryText(out, fmt.Sprintf("%s (<= (- $%d $%d) %s) %d\n", smtUTVPILiteralText(edge.explanation), edge.target, edge.source, edge.weight.RatString(), edge.timestamp)); err != nil {
-			return err
+		if err := smtWriteTheoryText(out, fmt.Sprintf("%s (<= (- $%d $%d) %s) %d\n", smtUTVPILiteralText(edge.explanation), edge.target, edge.source, g.text(&edge.weight), edge.timestamp)); err != nil {
+			return g.takeErr(err)
 		}
 	}
 	for variable := range g.assignment {
-		if err := smtWriteTheoryText(out, fmt.Sprintf("$%d := %s\n", variable, g.assignment[variable].RatString())); err != nil {
-			return err
+		if err := smtWriteTheoryText(out, fmt.Sprintf("$%d := %s\n", variable, g.text(&g.assignment[variable]))); err != nil {
+			return g.takeErr(err)
 		}
 	}
-	return nil
+	return g.takeErr(nil)
 }
 
 // displayEdgeText is dl_graph::display_edge.
 func (g *SMTInfRationalDiffGraph) displayEdgeText(id int32) string {
 	edge := &g.edges[id]
-	return fmt.Sprintf("%s (<= (- $%d $%d) %s) %d\n", smtUTVPILiteralText(edge.explanation), edge.target, edge.source, smtDenseInfText(&edge.weight), edge.timestamp)
+	return fmt.Sprintf("%s (<= (- $%d $%d) %s) %d\n", smtUTVPILiteralText(edge.explanation), edge.target, edge.source, g.text(&edge.weight), edge.timestamp)
 }
 
 func (g *SMTInfRationalDiffGraph) display(out io.Writer) error {
@@ -47,16 +62,16 @@ func (g *SMTInfRationalDiffGraph) display(out io.Writer) error {
 		if !edge.enabled {
 			continue
 		}
-		if err := smtWriteTheoryText(out, fmt.Sprintf("%s (<= (- $%d $%d) %s) %d\n", smtUTVPILiteralText(edge.explanation), edge.target, edge.source, smtDenseInfText(&edge.weight), edge.timestamp)); err != nil {
-			return err
+		if err := smtWriteTheoryText(out, fmt.Sprintf("%s (<= (- $%d $%d) %s) %d\n", smtUTVPILiteralText(edge.explanation), edge.target, edge.source, g.text(&edge.weight), edge.timestamp)); err != nil {
+			return g.takeErr(err)
 		}
 	}
 	for variable := range g.assignment {
-		if err := smtWriteTheoryText(out, fmt.Sprintf("$%d := %s\n", variable, smtDenseInfText(&g.assignment[variable]))); err != nil {
-			return err
+		if err := smtWriteTheoryText(out, fmt.Sprintf("$%d := %s\n", variable, g.text(&g.assignment[variable]))); err != nil {
+			return g.takeErr(err)
 		}
 	}
-	return nil
+	return g.takeErr(nil)
 }
 
 func displaySMTDiffAtom(out io.Writer, state *SMTInternalizerState, printer *ast.SimpleASTPrinterContext, atom *smtIntegerDiffAtom) error {

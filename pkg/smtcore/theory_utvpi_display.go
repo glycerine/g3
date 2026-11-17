@@ -32,16 +32,16 @@ func (g *smtUTVPIGraph) display(out io.Writer) error {
 		if !edge.enabled {
 			continue
 		}
-		if err := smtWriteTheoryText(out, fmt.Sprintf("%s (<= (- $%d $%d) %s) %d\n", smtUTVPILiteralText(edge.explanation), edge.target, edge.source, smtDenseInfText(&edge.weight), edge.timestamp)); err != nil {
-			return err
+		if err := smtWriteTheoryText(out, fmt.Sprintf("%s (<= (- $%d $%d) %s) %d\n", smtUTVPILiteralText(edge.explanation), edge.target, edge.source, g.graph.text(&edge.weight), edge.timestamp)); err != nil {
+			return g.graph.takeErr(err)
 		}
 	}
 	for variable := range g.graph.assignment {
-		if err := smtWriteTheoryText(out, fmt.Sprintf("$%d := %s\n", variable, smtDenseInfText(&g.graph.assignment[variable]))); err != nil {
-			return err
+		if err := smtWriteTheoryText(out, fmt.Sprintf("$%d := %s\n", variable, g.graph.text(&g.graph.assignment[variable]))); err != nil {
+			return g.graph.takeErr(err)
 		}
 	}
-	return nil
+	return g.graph.takeErr(nil)
 }
 
 // Display retains theory_utvpi::display. The source atom printer returns

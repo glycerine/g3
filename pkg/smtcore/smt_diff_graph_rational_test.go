@@ -10,7 +10,7 @@ import (
 func diffRat(value int64) *big.Rat { return new(big.Rat).SetInt64(value) }
 
 func TestSMTRationalDiffGraphFeasibleActivationAndAssignment(t *testing.T) {
-	g := NewSMTRationalDiffGraph()
+	g := NewSMTRationalDiffGraph(testQ())
 	for variable := int32(0); variable < 4; variable++ {
 		if err := g.InitVariable(variable); err != nil {
 			t.Fatal(err)
@@ -18,7 +18,7 @@ func TestSMTRationalDiffGraphFeasibleActivationAndAssignment(t *testing.T) {
 	}
 	edges := [][3]int64{{0, 1, 2}, {1, 2, -5}, {2, 3, 1}}
 	for index, item := range edges {
-		id, err := g.AddEdge(int32(item[0]), int32(item[1]), diffRat(item[2]), NewSMTLiteral(int32(index+1), false))
+		id, err := g.testAddEdge(int32(item[0]), int32(item[1]), diffRat(item[2]), NewSMTLiteral(int32(index+1), false))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -32,7 +32,7 @@ func TestSMTRationalDiffGraphFeasibleActivationAndAssignment(t *testing.T) {
 	}
 	want := []*big.Rat{diffRat(0), diffRat(0), diffRat(-5), diffRat(-4)}
 	for variable := int32(0); variable < 4; variable++ {
-		got, err := g.Assignment(variable)
+		got, err := g.testAssignment(variable)
 		if err != nil || got.Cmp(want[variable]) != 0 {
 			t.Fatal("assignment", variable, got, err)
 		}
@@ -40,7 +40,7 @@ func TestSMTRationalDiffGraphFeasibleActivationAndAssignment(t *testing.T) {
 }
 
 func TestSMTRationalDiffGraphNegativeCycleExplanationAndRollback(t *testing.T) {
-	g := NewSMTRationalDiffGraph()
+	g := NewSMTRationalDiffGraph(testQ())
 	for variable := int32(0); variable < 3; variable++ {
 		if err := g.InitVariable(variable); err != nil {
 			t.Fatal(err)
@@ -49,7 +49,7 @@ func TestSMTRationalDiffGraphNegativeCycleExplanationAndRollback(t *testing.T) {
 	literals := []SMTLiteral{NewSMTLiteral(7, false), NewSMTLiteral(8, true), NewSMTLiteral(9, false)}
 	input := [][3]int64{{0, 1, 1}, {1, 2, 1}, {2, 0, -3}}
 	for index, item := range input {
-		id, err := g.AddEdge(int32(item[0]), int32(item[1]), diffRat(item[2]), literals[index])
+		id, err := g.testAddEdge(int32(item[0]), int32(item[1]), diffRat(item[2]), literals[index])
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -73,7 +73,7 @@ func TestSMTRationalDiffGraphNegativeCycleExplanationAndRollback(t *testing.T) {
 		t.Fatal("cycle order", got, want)
 	}
 	for variable := int32(0); variable < 3; variable++ {
-		value, err := g.Assignment(variable)
+		value, err := g.testAssignment(variable)
 		if err != nil || value.Sign() != 0 {
 			t.Fatal("failed activation did not restore assignment", variable, value, err)
 		}
@@ -81,11 +81,11 @@ func TestSMTRationalDiffGraphNegativeCycleExplanationAndRollback(t *testing.T) {
 }
 
 func TestSMTRationalDiffGraphScopesAndDomainGuards(t *testing.T) {
-	g := NewSMTRationalDiffGraph()
+	g := NewSMTRationalDiffGraph(testQ())
 	if err := g.InitVariable(1); err != nil {
 		t.Fatal(err)
 	}
-	base, err := g.AddEdge(0, 1, diffRat(4), SMTTrueLiteral)
+	base, err := g.testAddEdge(0, 1, diffRat(4), SMTTrueLiteral)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +95,7 @@ func TestSMTRationalDiffGraphScopesAndDomainGuards(t *testing.T) {
 	if err = g.Push(); err != nil {
 		t.Fatal(err)
 	}
-	temporary, err := g.AddEdge(1, 0, diffRat(-4), SMTFalseLiteral)
+	temporary, err := g.testAddEdge(1, 0, diffRat(-4), SMTFalseLiteral)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,17 +117,17 @@ func TestSMTRationalDiffGraphScopesAndDomainGuards(t *testing.T) {
 }
 
 func TestSMTRationalDiffGraphZeroNormalizationAndEdgeAccessors(t *testing.T) {
-	g := NewSMTRationalDiffGraph()
+	g := NewSMTRationalDiffGraph(testQ())
 	for variable := int32(0); variable < 4; variable++ {
 		if err := g.InitVariable(variable); err != nil {
 			t.Fatal(err)
 		}
 	}
-	first, err := g.AddEdge(0, 1, diffRat(-2), NewSMTLiteral(11, false))
+	first, err := g.testAddEdge(0, 1, diffRat(-2), NewSMTLiteral(11, false))
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := g.AddEdge(2, 3, diffRat(-5), NewSMTLiteral(12, true))
+	second, err := g.testAddEdge(2, 3, diffRat(-5), NewSMTLiteral(12, true))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,11 +139,11 @@ func TestSMTRationalDiffGraphZeroNormalizationAndEdgeAccessors(t *testing.T) {
 	if err = g.SetPairToZero(1, 3); err != nil {
 		t.Fatal(err)
 	}
-	firstValue, err := g.Assignment(1)
+	firstValue, err := g.testAssignment(1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	secondValue, err := g.Assignment(3)
+	secondValue, err := g.testAssignment(3)
 	if err != nil || firstValue.Cmp(secondValue) != 0 {
 		t.Fatal("pair normalization", firstValue, secondValue, err)
 	}
@@ -158,12 +158,12 @@ func TestSMTRationalDiffGraphZeroNormalizationAndEdgeAccessors(t *testing.T) {
 	if err != nil || target != 1 {
 		t.Fatal(target, err)
 	}
-	weight, err := g.EdgeWeight(first)
+	weight, err := g.testEdgeWeight(first)
 	if err != nil || weight.Cmp(diffRat(-2)) != 0 {
 		t.Fatal(weight, err)
 	}
 	weight.SetInt64(99)
-	weight, _ = g.EdgeWeight(first)
+	weight, _ = g.testEdgeWeight(first)
 	if weight.Cmp(diffRat(-2)) != 0 {
 		t.Fatal("edge weight escaped graph ownership", weight)
 	}
@@ -174,7 +174,7 @@ func TestSMTRationalDiffGraphZeroNormalizationAndEdgeAccessors(t *testing.T) {
 }
 
 func TestSMTRationalDiffGraphDirectAndTwoHopSubsumption(t *testing.T) {
-	g := NewSMTRationalDiffGraph()
+	g := NewSMTRationalDiffGraph(testQ())
 	for variable := int32(0); variable < 4; variable++ {
 		if err := g.InitVariable(variable); err != nil {
 			t.Fatal(err)
@@ -182,7 +182,7 @@ func TestSMTRationalDiffGraphDirectAndTwoHopSubsumption(t *testing.T) {
 	}
 	add := func(source, target int32, weight int64, enabled bool) int32 {
 		t.Helper()
-		id, err := g.AddEdge(source, target, diffRat(weight), SMTNullLiteral)
+		id, err := g.testAddEdge(source, target, diffRat(weight), SMTNullLiteral)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -213,7 +213,7 @@ func TestSMTRationalDiffGraphDirectAndTwoHopSubsumption(t *testing.T) {
 }
 
 func TestSMTRationalDiffGraphLazySubsumptionExplanationTimestamp(t *testing.T) {
-	g := NewSMTRationalDiffGraph()
+	g := NewSMTRationalDiffGraph(testQ())
 	for variable := int32(0); variable < 3; variable++ {
 		if err := g.InitVariable(variable); err != nil {
 			t.Fatal(err)
@@ -221,7 +221,7 @@ func TestSMTRationalDiffGraphLazySubsumptionExplanationTimestamp(t *testing.T) {
 	}
 	add := func(source, target int32, weight int64, literal SMTLiteral, enabled bool) int32 {
 		t.Helper()
-		id, err := g.AddEdge(source, target, diffRat(weight), literal)
+		id, err := g.testAddEdge(source, target, diffRat(weight), literal)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -250,7 +250,7 @@ func TestSMTRationalDiffGraphLazySubsumptionExplanationTimestamp(t *testing.T) {
 }
 
 func TestSMTRationalDiffGraphZeroSCCReachabilityAndTraversal(t *testing.T) {
-	g := NewSMTRationalDiffGraph()
+	g := NewSMTRationalDiffGraph(testQ())
 	for variable := int32(0); variable < 4; variable++ {
 		if err := g.InitVariable(variable); err != nil {
 			t.Fatal(err)
@@ -258,7 +258,7 @@ func TestSMTRationalDiffGraphZeroSCCReachabilityAndTraversal(t *testing.T) {
 	}
 	add := func(source, target int32, weight int64, literal SMTLiteral, enabled bool) int32 {
 		t.Helper()
-		id, err := g.AddEdge(source, target, diffRat(weight), literal)
+		id, err := g.testAddEdge(source, target, diffRat(weight), literal)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -284,7 +284,7 @@ func TestSMTRationalDiffGraphZeroSCCReachabilityAndTraversal(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(successors, []int32{0, 1}) {
 		t.Fatal("zero successors", successors, err)
 	}
-	weight, explanation, found, err := g.MinimumEnabledEdge(0, 1)
+	weight, explanation, found, err := g.testMinimumEnabledEdge(0, 1)
 	if err != nil || !found || weight.Sign() != 0 || explanation != firstLiteral {
 		t.Fatal("minimum edge", weight, explanation, found, err)
 	}
@@ -307,21 +307,21 @@ func TestSMTRationalDiffGraphZeroSCCReachabilityAndTraversal(t *testing.T) {
 }
 
 func TestSMTRationalDiffGraphAssignmentMutationTimestampAndReset(t *testing.T) {
-	g := NewSMTRationalDiffGraph()
+	g := NewSMTRationalDiffGraph(testQ())
 	if err := g.InitVariable(0); err != nil {
 		t.Fatal(err)
 	}
-	if err := g.SetAssignment(0, diffRat(4)); err != nil {
+	if err := g.testSetAssignment(0, diffRat(4)); err != nil {
 		t.Fatal(err)
 	}
-	if err := g.IncrementAssignment(0, diffRat(-3)); err != nil {
+	if err := g.testIncrementAssignment(0, diffRat(-3)); err != nil {
 		t.Fatal(err)
 	}
-	value, err := g.Assignment(0)
+	value, err := g.testAssignment(0)
 	if err != nil || value.Cmp(diffRat(1)) != 0 {
 		t.Fatal(value, err)
 	}
-	id, err := g.AddEdge(0, 0, diffRat(0), SMTNullLiteral)
+	id, err := g.testAddEdge(0, 0, diffRat(0), SMTNullLiteral)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -335,7 +335,7 @@ func TestSMTRationalDiffGraphAssignmentMutationTimestampAndReset(t *testing.T) {
 }
 
 func TestSMTRationalDiffGraphShortestZeroPathStrictTimestamp(t *testing.T) {
-	g := NewSMTRationalDiffGraph()
+	g := NewSMTRationalDiffGraph(testQ())
 	for variable := int32(0); variable < 3; variable++ {
 		if err := g.InitVariable(variable); err != nil {
 			t.Fatal(err)
@@ -347,7 +347,7 @@ func TestSMTRationalDiffGraphShortestZeroPathStrictTimestamp(t *testing.T) {
 		source, target int32
 		literal        SMTLiteral
 	}{{0, 1, firstLiteral}, {1, 2, secondLiteral}} {
-		id, err := g.AddEdge(edge.source, edge.target, diffRat(0), edge.literal)
+		id, err := g.testAddEdge(edge.source, edge.target, diffRat(0), edge.literal)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -6,11 +6,11 @@ import (
 )
 
 func TestSMTInfRationalTightEdgeComponentsPathsAndUpdates(t *testing.T) {
-	g := NewSMTInfRationalDiffGraph()
+	g := NewSMTInfRationalDiffGraph(testQ())
 	for v := int32(0); v < 5; v++ {
 		astTestMust(t, g.InitVariable(v))
 	}
-	edge := func(source, target int32, weight *smtInfRational) int32 {
+	edge := func(source, target int32, weight *smtInfIntRational) int32 {
 		id, err := g.AddEdge(source, target, weight, NewSMTLiteral(int32(len(g.edges)+2), false))
 		astTestMust(t, err)
 		ok, err := g.EnableEdge(id)
@@ -66,15 +66,15 @@ func TestSMTInfRationalTightEdgeComponentsPathsAndUpdates(t *testing.T) {
 }
 
 func TestSMTInfRationalPairedZeroAndCycleEdgeIdentity(t *testing.T) {
-	g := NewSMTInfRationalDiffGraph()
+	g := NewSMTInfRationalDiffGraph(testQ())
 	astTestMust(t, g.InitVariable(0))
 	astTestMust(t, g.InitVariable(1))
 	astTestMust(t, g.SetAssignment(0, diffInf(5, 2)))
 	astTestMust(t, g.SetAssignment(1, diffInf(-3, -1)))
 	astTestMust(t, g.SetPairToZero(0, 1))
-	first, err := g.Assignment(0)
+	first, err := g.testAssignment(0)
 	astTestMust(t, err)
-	second, err := g.Assignment(1)
+	second, err := g.testAssignment(1)
 	astTestMust(t, err)
 	// The signed-pair model is (first-second)/2; source normalization
 	// can join disconnected components at a common nonzero potential.

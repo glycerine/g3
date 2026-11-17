@@ -1,20 +1,20 @@
 package smtcore
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 )
 
 func TestSMTRationalDiffHeapDecreaseAndReset(t *testing.T) {
-	g := &SMTRationalDiffGraph{gamma: make([]big.Rat, 5)}
+	g := &SMTRationalDiffGraph{q: testQ(), gamma: make([]numeral.Rational, 5)}
 	g.heap.graph = g
 	for variable, value := range []int64{9, 4, 0, 6, 7} {
-		g.gamma[variable].SetInt64(value)
+		g.gamma[variable] = smtQInt(int32(value))
 	}
 	for _, variable := range []int32{4, 1, 3, 0} {
 		g.heap.insert(variable)
 	}
-	g.gamma[0].SetInt64(-1)
+	g.gamma[0] = smtQInt(-1)
 	g.heap.decreased(0)
 	for _, want := range []int32{0, 1, 3, 4} {
 		if got := g.heap.eraseMin(); got != want {
@@ -37,15 +37,15 @@ func TestSMTRationalDiffHeapDecreaseAndReset(t *testing.T) {
 }
 
 func TestSMTInfRationalDiffHeapDecreaseAndReset(t *testing.T) {
-	g := &SMTInfRationalDiffGraph{gamma: make([]smtInfRational, 5)}
+	g := &SMTInfRationalDiffGraph{q: testQ(), gamma: make([]smtInfIntRational, 5)}
 	g.heap.graph = g
 	for variable, value := range []int64{9, 4, 0, 6, 7} {
-		g.gamma[variable].rational.SetInt64(value)
+		g.gamma[variable].rational = smtQInt(int32(value))
 	}
 	for _, variable := range []int32{4, 1, 3, 0} {
 		g.heap.insert(variable)
 	}
-	g.gamma[0].rational.SetInt64(-1)
+	g.gamma[0].rational = smtQInt(-1)
 	g.heap.decreased(0)
 	for _, want := range []int32{0, 1, 3, 4} {
 		if got := g.heap.eraseMin(); got != want {

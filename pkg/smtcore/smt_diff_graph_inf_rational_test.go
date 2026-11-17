@@ -1,15 +1,9 @@
 package smtcore
 
 import (
-	"math/big"
 	"reflect"
 	"testing"
 )
-
-func diffInf(rational, infinitesimal int64) *smtInfRational {
-	value := newSMTInfRational(big.NewRat(rational, 1), big.NewRat(infinitesimal, 1))
-	return &value
-}
 
 func TestSMTInfRationalLexicographicOrder(t *testing.T) {
 	zero := diffInf(0, 0)
@@ -19,15 +13,15 @@ func TestSMTInfRationalLexicographicOrder(t *testing.T) {
 	if negativeRational.Cmp(negativeEpsilon) >= 0 || negativeEpsilon.Cmp(zero) >= 0 || zero.Cmp(positiveEpsilon) >= 0 {
 		t.Fatal("infinitesimal rational order is not lexicographic")
 	}
-	copy := new(smtInfRational).Set(positiveEpsilon)
-	positiveEpsilon.infinitesimal.SetInt64(9)
-	if copy.infinitesimal.Cmp(big.NewRat(1, 1)) != 0 {
+	copy := new(smtInfIntRational).Set(positiveEpsilon)
+	positiveEpsilon.infinitesimal = 9
+	if copy.infinitesimal != 1 {
 		t.Fatal("infinitesimal rational copy aliases its source")
 	}
 }
 
 func TestSMTInfRationalDiffGraphStrictNegativeCycle(t *testing.T) {
-	g := NewSMTInfRationalDiffGraph()
+	g := NewSMTInfRationalDiffGraph(testQ())
 	for variable := int32(0); variable < 2; variable++ {
 		if err := g.InitVariable(variable); err != nil {
 			t.Fatal(err)
@@ -54,7 +48,7 @@ func TestSMTInfRationalDiffGraphStrictNegativeCycle(t *testing.T) {
 		t.Fatal("cycle explanation", explanation, err)
 	}
 	for variable := int32(0); variable < 2; variable++ {
-		value, assignmentErr := g.Assignment(variable)
+		value, assignmentErr := g.testAssignment(variable)
 		if assignmentErr != nil || value.Sign() != 0 {
 			t.Fatal("failed activation changed assignment", variable, value, assignmentErr)
 		}
@@ -62,7 +56,7 @@ func TestSMTInfRationalDiffGraphStrictNegativeCycle(t *testing.T) {
 }
 
 func TestSMTInfRationalDiffGraphAssignmentScopeAndNormalization(t *testing.T) {
-	g := NewSMTInfRationalDiffGraph()
+	g := NewSMTInfRationalDiffGraph(testQ())
 	for variable := int32(0); variable < 3; variable++ {
 		if err := g.InitVariable(variable); err != nil {
 			t.Fatal(err)
@@ -78,7 +72,7 @@ func TestSMTInfRationalDiffGraphAssignmentScopeAndNormalization(t *testing.T) {
 	if g.edges[base].timestamp != 0 || g.timestamp != 1 {
 		t.Fatal("base enable timestamp", g.edges[base].timestamp, g.timestamp)
 	}
-	value, err := g.Assignment(1)
+	value, err := g.testAssignment(1)
 	if err != nil || value.Cmp(diffInf(-2, -1)) != 0 {
 		t.Fatal("assignment", value, err)
 	}
@@ -104,7 +98,7 @@ func TestSMTInfRationalDiffGraphAssignmentScopeAndNormalization(t *testing.T) {
 	if err = g.SetToZero(1); err != nil {
 		t.Fatal(err)
 	}
-	value, err = g.Assignment(1)
+	value, err = g.testAssignment(1)
 	if err != nil || value.Sign() != 0 || !g.IsFeasible() {
 		t.Fatal("zero normalization", value, err)
 	}

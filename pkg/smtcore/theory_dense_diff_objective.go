@@ -35,15 +35,23 @@ func (t *SMTDenseDiffTheory) ObjectiveValue(v SMTTheoryVar) (SMTArithmeticObject
 	if err != nil {
 		return SMTArithmeticObjectiveValue{}, err
 	}
-	value := simplex.RationalInfinitesimal(&objective.constant)
-	for _, term := range objective.terms {
+	constant, err := smtQBig(t.syntax.q, &objective.constant)
+	if err != nil {
+		return SMTArithmeticObjectiveValue{}, err
+	}
+	value := simplex.RationalInfinitesimal(constant)
+	for i := range objective.terms {
+		coefficient, err := smtQBig(t.syntax.q, &objective.terms[i].coefficient)
+		if err != nil {
+			return SMTArithmeticObjectiveValue{}, err
+		}
 		// This source revision indexes the assignment by objective index v.
 		if v < 0 || int(v) >= len(t.values) {
 			return SMTArithmeticObjectiveValue{}, ast.ErrASTDomain
 		}
 		point := &t.values[v]
-		value.Main.Add(&value.Main, new(big.Rat).Mul(&term.coefficient, &point.rational))
-		value.Epsilon.Add(&value.Epsilon, new(big.Rat).Mul(&term.coefficient, &point.infinitesimal))
+		value.Main.Add(&value.Main, new(big.Rat).Mul(coefficient, &point.rational))
+		value.Epsilon.Add(&value.Epsilon, new(big.Rat).Mul(coefficient, &point.infinitesimal))
 	}
 	return SMTArithmeticObjectiveValue{Finite: value}, nil
 }
@@ -74,7 +82,7 @@ func (t *SMTDenseDiffTheory) MaximizeObjective(v SMTTheoryVar) (SMTArithmeticObj
 		solver.SetValue(uint32(i), simplex.NewInfinitesimal(&point.rational, &point.infinitesimal))
 	}
 	for _, node := range t.variables {
-		value, numeral, err := t.syntax.numeral(node.owner)
+		value, numeral, err := t.syntax.numeralBig(node.owner)
 		if err != nil {
 			return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
 		}
@@ -106,9 +114,14 @@ func (t *SMTDenseDiffTheory) MaximizeObjective(v SMTTheoryVar) (SMTArithmeticObj
 	base := uint32(nodes+edges) + uint32(v)
 	var variables []uint32
 	var coefficients []big.Rat
-	for _, term := range objective.terms {
+	for i := range objective.terms {
+		term := &objective.terms[i]
 		variables = append(variables, uint32(term.variable))
-		coefficients = append(coefficients, *new(big.Rat).Set(&term.coefficient))
+		c, err := smtQBig(t.syntax.q, &term.coefficient)
+		if err != nil {
+			return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
+		}
+		coefficients = append(coefficients, *c)
 	}
 	variables = append(variables, base)
 	coefficients = append(coefficients, *big.NewRat(1, 1))
@@ -166,6 +179,12 @@ func (t *SMTDenseDiffTheory) MaximizeObjective(v SMTTheoryVar) (SMTArithmeticObj
 		t.values[i].infinitesimal.SetInt64(0)
 	}
 	blocker, err := t.syntax.diffObjectiveInequality(v, value, true)
-	value.Main.Add(&value.Main, &objective.constant)
+	constant, e := smtQBig(t.syntax.q, &objective.constant)
+	if e != nil && err == nil {
+		err = e
+	}
+	if constant != nil {
+		value.Main.Add(&value.Main, constant)
+	}
 	return SMTArithmeticObjectiveValue{Finite: value}, blocker, false, err
 }

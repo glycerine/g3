@@ -7,14 +7,14 @@ import (
 
 func TestSMTDifferenceGraphShortcutsPreserveStrictConflict(t *testing.T) {
 	for _, strict := range []bool{false, true} {
-		g := NewSMTInfRationalDiffGraph()
+		g := NewSMTInfRationalDiffGraph(testQ())
 		for i := int32(0); i < 5; i++ {
 			astTestMust(t, g.InitVariable(i))
 		}
 		if _, err := g.NegativeCycleExplanations(); err == nil {
 			t.Fatal("feasible graph accepted")
 		}
-		add := func(source, target int32, weight *smtInfRational, enable bool) int32 {
+		add := func(source, target int32, weight *smtInfIntRational, enable bool) int32 {
 			id, err := g.AddEdge(source, target, weight, NewSMTLiteral(int32(len(g.edges)+2), false))
 			astTestMust(t, err)
 			if enable {

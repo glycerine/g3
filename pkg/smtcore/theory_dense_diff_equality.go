@@ -38,7 +38,7 @@ func (t *SMTDenseDiffTheory) InternalizeEquality(expression ast.ASTHandle, varia
 			if err != nil {
 				return err
 			}
-			_, isNumeral, err := t.syntax.numeral(rhs)
+			_, isNumeral, err := t.syntax.numeralBig(rhs)
 			if err != nil {
 				return err
 			}

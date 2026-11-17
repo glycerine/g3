@@ -19,6 +19,8 @@ func (g *SMTInfRationalDiffGraph) ComputeZeroEdgeSCC() ([]int32, error) {
 	roots := make([]int32, 0, count)
 	unfinished := make([]int32, 0, count)
 	nextTime, nextComponent := int32(0), int32(0)
+	gamma := newSMTInfIntRational()
+	defer g.del(&gamma)
 	var visit func(int32)
 	visit = func(variable int32) {
 		dfsTime[variable] = nextTime
@@ -31,9 +33,8 @@ func (g *SMTInfRationalDiffGraph) ComputeZeroEdgeSCC() ([]int32, error) {
 			if !edge.enabled {
 				continue
 			}
-			var gamma smtInfRational
 			g.setGamma(edge, &gamma)
-			if gamma.Sign() != 0 {
+			if !gamma.isZero() {
 				continue
 			}
 			target := edge.target
@@ -68,7 +69,7 @@ func (g *SMTInfRationalDiffGraph) ComputeZeroEdgeSCC() ([]int32, error) {
 			visit(variable)
 		}
 	}
-	return component, nil
+	return component, g.takeErr(nil)
 }
 
 func (g *SMTInfRationalDiffGraph) ComputeZeroSuccessors(variable int32) ([]int32, error) {
@@ -78,6 +79,8 @@ func (g *SMTInfRationalDiffGraph) ComputeZeroSuccessors(variable int32) ([]int32
 	seen := make([]bool, len(g.assignment))
 	seen[variable] = true
 	result := []int32{variable}
+	gamma := newSMTInfIntRational()
+	defer g.del(&gamma)
 	for index := 0; index < len(result); index++ {
 		current := result[index]
 		for _, edgeID := range g.outEdges[current] {
@@ -85,15 +88,14 @@ func (g *SMTInfRationalDiffGraph) ComputeZeroSuccessors(variable int32) ([]int32
 			if !edge.enabled {
 				continue
 			}
-			var gamma smtInfRational
 			g.setGamma(edge, &gamma)
-			if gamma.Sign() == 0 && !seen[edge.target] {
+			if gamma.isZero() && !seen[edge.target] {
 				seen[edge.target] = true
 				result = append(result, edge.target)
 			}
 		}
 	}
-	return result, nil
+	return result, g.takeErr(nil)
 }
 
 type smtInfRationalDiffBFSElement struct {
@@ -113,6 +115,8 @@ func (g *SMTInfRationalDiffGraph) FindShortestZeroEdgePath(source, target int32)
 	queue := []smtInfRationalDiffBFSElement{{variable: source, parentIndex: -1, edgeID: -1}}
 	marked := make([]bool, len(g.assignment))
 	marked[source] = true
+	gamma := newSMTInfIntRational()
+	defer g.del(&gamma)
 	for head := 0; head < len(queue); head++ {
 		current := queue[head]
 		for _, edgeID := range g.outEdges[current.variable] {
@@ -120,9 +124,8 @@ func (g *SMTInfRationalDiffGraph) FindShortestZeroEdgePath(source, target int32)
 			if !edge.enabled {
 				continue
 			}
-			var gamma smtInfRational
 			g.setGamma(edge, &gamma)
-			if gamma.Sign() != 0 {
+			if !gamma.isZero() {
 				continue
 			}
 			if edge.target == target {
@@ -132,7 +135,7 @@ func (g *SMTInfRationalDiffGraph) FindShortestZeroEdgePath(source, target int32)
 					result = append(result, queue[parent].edgeID)
 					parent = queue[parent].parentIndex
 				}
-				return result, true, nil
+				return result, true, g.takeErr(nil)
 			}
 			if !marked[edge.target] {
 				marked[edge.target] = true
@@ -140,23 +143,21 @@ func (g *SMTInfRationalDiffGraph) FindShortestZeroEdgePath(source, target int32)
 			}
 		}
 	}
-	return nil, false, nil
+	return nil, false, g.takeErr(nil)
 }
 
-func (g *SMTInfRationalDiffGraph) IncrementAssignment(variable int32, increment *smtInfRational) error {
+func (g *SMTInfRationalDiffGraph) IncrementAssignment(variable int32, increment *smtInfIntRational) error {
 	if !g.validVariable(variable) || increment == nil {
 		return errSMTDiffGraphDomain
 	}
-	g.assignment[variable].Add(&g.assignment[variable], increment)
-	return nil
+	return smtInfIntAdd(g.q, &g.assignment[variable], increment, &g.assignment[variable])
 }
 
-func (g *SMTInfRationalDiffGraph) SetAssignment(variable int32, value *smtInfRational) error {
+func (g *SMTInfRationalDiffGraph) SetAssignment(variable int32, value *smtInfIntRational) error {
 	if !g.validVariable(variable) || value == nil {
 		return errSMTDiffGraphDomain
 	}
-	g.assignment[variable].Set(value)
-	return nil
+	return smtInfIntSet(g.q, &g.assignment[variable], value)
 }
 
 // SetPairToZero implements the source helper for disconnected variables. If
@@ -166,16 +167,16 @@ func (g *SMTInfRationalDiffGraph) SetPairToZero(first, second int32) error {
 		return errSMTDiffGraphDomain
 	}
 	selected := second
-	if g.assignment[first].Sign() != 0 {
+	if !g.assignment[first].isZero() {
 		selected = first
 	}
 	if err := g.SetToZero(selected); err != nil {
 		return err
 	}
-	if g.assignment[first].Sign() == 0 && g.assignment[second].Sign() == 0 {
+	if g.assignment[first].isZero() && g.assignment[second].isZero() {
 		return nil
 	}
-	zero := new(smtInfRational)
+	zero := &smtInfIntRational{rational: smtQZero()}
 	forward, err := g.AddEdge(first, second, zero, SMTNullLiteral)
 	if err != nil {
 		return err

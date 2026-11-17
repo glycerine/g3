@@ -8,7 +8,7 @@ import (
 func TestSMTUTVPIGraphEncodingWeightsAndCyclePremises(t *testing.T) {
 	for _, negativeFirst := range []bool{false, true} {
 		for _, negativeSecond := range []bool{false, true} {
-			g := newSMTUTVPIGraph()
+			g := testUTVPIGraph()
 			_, err := g.addVariable(false)
 			astTestMust(t, err)
 			_, err = g.addVariable(false)
@@ -33,7 +33,7 @@ func TestSMTUTVPIGraphEncodingWeightsAndCyclePremises(t *testing.T) {
 			}
 		}
 	}
-	g := newSMTUTVPIGraph()
+	g := testUTVPIGraph()
 	_, err := g.addVariable(false)
 	astTestMust(t, err)
 	upper, err := g.addInequality([]smtUTVPIGraphTerm{{0, false}}, diffInf(-1, 0), NewSMTLiteral(3, false))
@@ -81,7 +81,7 @@ func TestSMTUTVPIGraphEncodingWeightsAndCyclePremises(t *testing.T) {
 
 func TestSMTUTVPIGraphIntegerParityConflictAndRealRelaxation(t *testing.T) {
 	for _, integer := range []bool{false, true} {
-		g := newSMTUTVPIGraph()
+		g := testUTVPIGraph()
 		for i := 0; i < 2; i++ {
 			_, err := g.addVariable(integer)
 			astTestMust(t, err)
@@ -110,7 +110,7 @@ func TestSMTUTVPIGraphIntegerParityConflictAndRealRelaxation(t *testing.T) {
 			t.Fatal("parity conflict ignored variable sort", integer, cycle)
 		}
 		if integer {
-			var weight smtInfRational
+			var weight smtInfIntRational
 			seen := map[SMTLiteral]bool{}
 			for _, id := range cycle {
 				weight.Add(&weight, &g.graph.edges[id].weight)
@@ -129,7 +129,7 @@ func TestSMTUTVPIGraphBoundedIntegerEnumerationAndParityRepair(t *testing.T) {
 	// every accepted graph must also yield an actual satisfying integer model.
 	for a := 0; a < 28; a++ {
 		for b := 0; b < 28; b++ {
-			g := newSMTUTVPIGraph()
+			g := testUTVPIGraph()
 			for i := 0; i < 2; i++ {
 				_, err := g.addVariable(true)
 				astTestMust(t, err)
@@ -188,7 +188,7 @@ func TestSMTUTVPIGraphBoundedIntegerEnumerationAndParityRepair(t *testing.T) {
 			astTestMust(t, g.enforceParity())
 			values := [2]big.Rat{}
 			for v := range values {
-				values[v].Sub(&g.graph.assignment[2*v].rational, &g.graph.assignment[2*v+1].rational)
+				values[v].Sub(testBig(&g.graph.assignment[2*v].rational), testBig(&g.graph.assignment[2*v+1].rational))
 				values[v].Quo(&values[v], big.NewRat(2, 1))
 				if !values[v].IsInt() {
 					t.Fatal("parity repair produced fractional model", &values[v])
@@ -207,14 +207,14 @@ func TestSMTUTVPIGraphBoundedIntegerEnumerationAndParityRepair(t *testing.T) {
 }
 
 func TestSMTUTVPIGraphStrictMixedModelsAndScopedVariableReuse(t *testing.T) {
-	g := newSMTUTVPIGraph()
+	g := testUTVPIGraph()
 	zero, err := g.addVariable(true)
 	astTestMust(t, err)
 	integer, err := g.addVariable(true)
 	astTestMust(t, err)
 	real, err := g.addVariable(false)
 	astTestMust(t, err)
-	bound := func(variable int32, negative bool, weight *smtInfRational) {
+	bound := func(variable int32, negative bool, weight *smtInfIntRational) {
 		id, err := g.addInequality([]smtUTVPIGraphTerm{{variable, negative}}, weight, NewSMTLiteral(int32(len(g.graph.edges)+2), false))
 		astTestMust(t, err)
 		ok, err := g.enablePair(id)
@@ -228,8 +228,7 @@ func TestSMTUTVPIGraphStrictMixedModelsAndScopedVariableReuse(t *testing.T) {
 	// 0<r<1/3. Infinitesimal substitution must respect the rational slack;
 	// substituting a fixed epsilon such as 1 would violate this interval.
 	bound(real, true, diffInf(0, 1))
-	upper := newSMTInfRational(big.NewRat(-1, 3), big.NewRat(1, 1))
-	bound(real, false, &upper)
+	bound(real, false, testInfRat(big.NewRat(-1, 3), 1))
 	check := func(values []big.Rat, count int) {
 		if len(values) != count || values[zero].Sign() != 0 || values[integer].Cmp(big.NewRat(3, 1)) != 0 || values[real].Sign() <= 0 || values[real].Cmp(big.NewRat(1, 3)) >= 0 {
 			t.Fatal("typed mixed model violated a source constraint", values)
@@ -237,7 +236,7 @@ func TestSMTUTVPIGraphStrictMixedModelsAndScopedVariableReuse(t *testing.T) {
 	}
 	values, err := g.modelValues(zero)
 	astTestMust(t, err)
-	check(values, 3)
+	check(testQBigs(values), 3)
 	astTestMust(t, g.push())
 	child, err := g.addVariable(true)
 	astTestMust(t, err)
@@ -245,14 +244,14 @@ func TestSMTUTVPIGraphStrictMixedModelsAndScopedVariableReuse(t *testing.T) {
 	bound(child, true, diffInf(7, 0))
 	childValues, err := g.modelValues(zero)
 	astTestMust(t, err)
-	check(childValues, 4)
-	if childValues[child].Cmp(big.NewRat(7, 1)) != 0 {
+	check(testQBigs(childValues), 4)
+	if testQCmp(&childValues[child], big.NewRat(7, 1)) != 0 {
 		t.Fatal("child integer value", &childValues[child])
 	}
 	astTestMust(t, g.pop(1))
 	values, err = g.modelValues(zero)
 	astTestMust(t, err)
-	check(values, 3)
+	check(testQBigs(values), 3)
 	astTestMust(t, g.push())
 	reused, err := g.addVariable(true)
 	astTestMust(t, err)
@@ -263,8 +262,8 @@ func TestSMTUTVPIGraphStrictMixedModelsAndScopedVariableReuse(t *testing.T) {
 	bound(reused, true, diffInf(-4, 0))
 	values, err = g.modelValues(zero)
 	astTestMust(t, err)
-	check(values, 4)
-	if values[reused].Cmp(big.NewRat(-4, 1)) != 0 {
+	check(testQBigs(values), 4)
+	if testQCmp(&values[reused], big.NewRat(-4, 1)) != 0 {
 		t.Fatal("reused variable retained popped model state", &values[reused])
 	}
 	astTestMust(t, g.pop(1))
@@ -277,22 +276,22 @@ func TestSMTUTVPIGraphStrictMixedModelsAndScopedVariableReuse(t *testing.T) {
 }
 
 func TestSMTUTVPIGraphRealParityPredicateAndFractionalIntegerCandidate(t *testing.T) {
-	g := newSMTUTVPIGraph()
+	g := testUTVPIGraph()
 	zero, err := g.addVariable(true)
 	astTestMust(t, err)
 	real, err := g.addVariable(false)
 	astTestMust(t, err)
-	first := newSMTInfRational(big.NewRat(1, 2), nil)
-	second := newSMTInfRational(big.NewRat(3, 2), nil)
-	astTestMust(t, g.graph.SetAssignment(2*real, &first))
-	astTestMust(t, g.graph.SetAssignment(2*real+1, &second))
+	first := testInfRat(big.NewRat(1, 2), 0)
+	second := testInfRat(big.NewRat(3, 2), 0)
+	astTestMust(t, g.graph.SetAssignment(2*real, first))
+	astTestMust(t, g.graph.SetAssignment(2*real+1, second))
 	ok, err := g.parityOK(real)
 	astTestMust(t, err)
 	if !ok {
 		t.Fatal("source is_even must be false for both nonintegral rational parts")
 	}
-	first.rational.SetInt64(2)
-	astTestMust(t, g.graph.SetAssignment(2*real, &first))
+	first.rational = *testQR(big.NewRat(2, 1))
+	astTestMust(t, g.graph.SetAssignment(2*real, first))
 	ok, err = g.parityOK(real)
 	astTestMust(t, err)
 	if ok {
@@ -308,7 +307,7 @@ func TestSMTUTVPIGraphRealParityPredicateAndFractionalIntegerCandidate(t *testin
 	}
 	values, err := g.modelValues(zero)
 	astTestMust(t, err)
-	if values[integer].Cmp(big.NewRat(1, 2)) != 0 {
+	if testQCmp(&values[integer], big.NewRat(1, 2)) != 0 {
 		t.Fatal("source fractional Int candidate was rounded before the arithmetic factory", &values[integer])
 	}
 }

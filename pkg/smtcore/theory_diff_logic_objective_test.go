@@ -176,9 +176,9 @@ func TestSMTDiffObjectiveStrictRealAndUnbounded(t *testing.T) {
 	if len(f.i.optimization.objectives[v].core) != 1 {
 		t.Fatal("missing strict bound core")
 	}
-	assignment, err := f.r.realGraph.Assignment(int32(f.s.context.enodes.get(x).TheoryVar(f.family)))
+	assignment, err := f.r.realGraph.testAssignment(int32(f.s.context.enodes.get(x).TheoryVar(f.family)))
 	astTestMust(t, err)
-	if assignment.rational.Cmp(big.NewRat(5, 1)) >= 0 || assignment.infinitesimal.Sign() != 0 {
+	if testQCmp(&assignment.rational, big.NewRat(5, 1)) >= 0 || assignment.infinitesimal != 0 {
 		t.Fatal("optimized graph has no concrete strict witness", assignment)
 	}
 	value, blocker = f.maximize(w)
@@ -193,7 +193,7 @@ func TestSMTDiffObjectiveCompilerSourceDomainAndValueCopies(t *testing.T) {
 	v, err := f.r.AddObjective(product)
 	astTestMust(t, err)
 	o := &f.i.optimization.objectives[v]
-	if len(o.terms) != 1 || o.terms[0].coefficient.Cmp(big.NewRat(2, 1)) != 0 || o.constant.Cmp(big.NewRat(3, 1)) != 0 {
+	if len(o.terms) != 1 || testQCmp(&o.terms[0].coefficient, big.NewRat(2, 1)) != 0 || testQCmp(&o.constant, big.NewRat(3, 1)) != 0 {
 		t.Fatal("source objective compilation changed")
 	}
 	// Subtraction/unary minus/casts pass is_linear but the native objective
@@ -428,9 +428,9 @@ func TestSMTDiffObjectiveIncrementalEdgesReuseCanonicalRows(t *testing.T) {
 			}
 			variable := f.s.context.enodes.get(x).TheoryVar(f.family)
 			var point *big.Rat
-			a, err := f.r.realGraph.Assignment(int32(variable))
+			a, err := f.r.realGraph.testAssignment(int32(variable))
 			astTestMust(t, err)
-			point = &a.rational
+			point = testBig(&a.rational)
 			if point.Cmp(big.NewRat(3, 1)) != 0 {
 				t.Fatal("incremental optimized assignment does not match its value", point)
 			}

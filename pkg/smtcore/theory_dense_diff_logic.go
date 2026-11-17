@@ -99,11 +99,11 @@ func (t *SMTDenseDiffTheory) term(expression ast.ASTHandle) (SMTTheoryVar, error
 	if node := t.state.context.enodes.get(expression); node != nil && t.IsAttachedToVariable(node) {
 		return node.TheoryVar(t.FamilyID()), nil
 	}
-	value, numeral, err := t.syntax.numeral(expression)
+	value, numeral, err := t.syntax.numeralBig(expression)
 	if err != nil {
 		return SMTNullTheoryVar, err
 	}
-	base, offset, shifted, err := t.syntax.offset(expression)
+	base, offset, shifted, err := t.syntax.offsetBig(expression)
 	if err != nil {
 		return SMTNullTheoryVar, err
 	}
@@ -115,7 +115,7 @@ func (t *SMTDenseDiffTheory) term(expression ast.ASTHandle) (SMTTheoryVar, error
 				if err != nil {
 					return SMTNullTheoryVar, err
 				}
-				if _, numeral, err := t.syntax.numeral(argument); err != nil {
+				if _, numeral, err := t.syntax.numeralBig(argument); err != nil {
 					return SMTNullTheoryVar, err
 				} else if numeral {
 					if _, err := t.term(argument); err != nil {
@@ -301,7 +301,7 @@ func (t *SMTDenseDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (
 	if err != nil {
 		return false, err
 	}
-	bound, numeral, err := t.syntax.numeral(rhs)
+	bound, numeral, err := t.syntax.numeralBig(rhs)
 	if err != nil {
 		return false, err
 	}
@@ -331,7 +331,7 @@ func (t *SMTDenseDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (
 			return false, err
 		} else if ok {
 			// (* -1 s): t = mk_zero_for(s)
-			value, numeral, err := t.syntax.numeral(arg1)
+			value, numeral, err := t.syntax.numeralBig(arg1)
 			if err != nil {
 				return false, err
 			}
@@ -638,7 +638,7 @@ func (t *SMTDenseDiffTheory) InitializeModel(generator *SMTModelGenerator) error
 		return err
 	}
 	for v, node := range t.variables {
-		if value, numeral, err := t.syntax.numeral(node.owner); err != nil {
+		if value, numeral, err := t.syntax.numeralBig(node.owner); err != nil {
 			return err
 		} else if numeral && value.Sign() == 0 {
 			var shift smtInfRational
@@ -731,7 +731,7 @@ func (t *SMTDenseDiffTheory) denseTimesMinusOne(expression ast.ASTHandle) (ast.A
 	if err != nil || !ok {
 		return ast.ASTHandle{}, false, err
 	}
-	value, numeral, err := t.syntax.numeral(coefficient)
+	value, numeral, err := t.syntax.numeralBig(coefficient)
 	if err != nil || !numeral || value.Cmp(big.NewRat(-1, 1)) != 0 {
 		return ast.ASTHandle{}, false, err
 	}

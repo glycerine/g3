@@ -87,9 +87,9 @@ func TestSMTIntegerDiffTheoryAtomEdgesAndIntegerNegation(t *testing.T) {
 		t.Fatal("difference atom theory notification", data)
 	}
 	atom := f.theory.atoms[0]
-	positiveWeight, err := f.theory.graph.EdgeWeight(atom.positive)
+	positiveWeight, err := f.theory.graph.testEdgeWeight(atom.positive)
 	astTestMust(t, err)
-	negativeWeight, err := f.theory.graph.EdgeWeight(atom.negative)
+	negativeWeight, err := f.theory.graph.testEdgeWeight(atom.negative)
 	astTestMust(t, err)
 	if positiveWeight.Cmp(big.NewRat(5, 1)) != 0 || negativeWeight.Cmp(big.NewRat(-6, 1)) != 0 {
 		t.Fatal("integer bound polarity", positiveWeight, negativeWeight)
@@ -186,12 +186,12 @@ func TestSMTIntegerDiffTheoryOffsetTerm(t *testing.T) {
 	}
 	source := sourceNode.TheoryVar(f.family)
 	target := targetNode.TheoryVar(f.family)
-	forward, _, found, err := f.theory.graph.MinimumEnabledEdge(int32(source), int32(target))
+	forward, _, found, err := f.theory.graph.testMinimumEnabledEdge(int32(source), int32(target))
 	astTestMust(t, err)
 	if !found || forward.Cmp(big.NewRat(3, 1)) != 0 {
 		t.Fatal("offset forward edge", forward, found)
 	}
-	backward, _, found, err := f.theory.graph.MinimumEnabledEdge(int32(target), int32(source))
+	backward, _, found, err := f.theory.graph.testMinimumEnabledEdge(int32(target), int32(source))
 	astTestMust(t, err)
 	if !found || backward.Cmp(big.NewRat(-3, 1)) != 0 {
 		t.Fatal("offset backward edge", backward, found)

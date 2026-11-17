@@ -5,11 +5,12 @@ package smtcore
 
 import (
 	"fmt"
-	"math/big"
+	"strconv"
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // SMTRealDiffTheory reuses the arithmetic syntax decomposition from the
@@ -24,7 +25,7 @@ type SMTRealDiffTheory struct {
 	realAssertions    []smtIntegerDiffAssertion
 	realAssertionHead int
 	realScopes        []smtIntegerDiffScope
-	delta             big.Rat
+	delta             numeral.Rational // m_delta
 	realStatistics    smtDiffStatistics
 	isLIA             bool // m_is_lia
 }
@@ -36,8 +37,9 @@ func NewSMTRealDiffTheory(family ast.FamilyID) (*SMTRealDiffTheory, error) {
 	}
 	theory := &SMTRealDiffTheory{
 		SMTIntegerDiffTheory: syntax,
-		realGraph:            NewSMTInfRationalDiffGraph(),
+		realGraph:            NewSMTInfRationalDiffGraph(nil),
 		realAtomByBool:       make(map[int32]int),
+		delta:                smtQZero(),
 		isLIA:                true,
 	}
 	syntax.graphExt = theory
@@ -62,6 +64,10 @@ func (t *SMTRealDiffTheory) Initialize(state *SMTInternalizerState) error {
 	if t == nil || t.SMTTheoryBase == nil || t.realGraph == nil {
 		return ast.ErrASTHandle
 	}
+	if numerals := state.manager.NumeralService(); numerals != nil {
+		// init's mk_var reaches m_graph.init_var.
+		t.realGraph.q = numerals.Manager
+	}
 	return t.initDiffLogic(state)
 }
 
@@ -71,17 +77,23 @@ func (t *SMTRealDiffTheory) diffGraphInitVar(v SMTTheoryVar) error {
 
 // diffGraphEnableFixedEdges is the inf_int_rational form of the integer
 // graph's pair of enabled edges; enable_edge's result is ignored.
-func (t *SMTRealDiffTheory) diffGraphEnableFixedEdges(source, target SMTTheoryVar, k *big.Rat) error {
-	forwardWeight := finiteSMTInfRational(k)
-	forward, err := t.realGraph.AddEdge(int32(source), int32(target), &forwardWeight, SMTNullLiteral)
+func (t *SMTRealDiffTheory) diffGraphEnableFixedEdges(source, target SMTTheoryVar, k *numeral.Rational) error {
+	weight := newSMTInfIntRational()
+	defer weight.del(t.q)
+	if err := t.q.Copy(&weight.rational, k); err != nil {
+		return err
+	}
+	forward, err := t.realGraph.AddEdge(int32(source), int32(target), &weight, SMTNullLiteral)
 	if err != nil {
 		return err
 	}
 	if _, err = t.realGraph.EnableEdge(forward); err != nil {
 		return err
 	}
-	backwardWeight := finiteSMTInfRational(new(big.Rat).Neg(k))
-	backward, err := t.realGraph.AddEdge(int32(target), int32(source), &backwardWeight, SMTNullLiteral)
+	if err = t.q.Neg(&weight.rational); err != nil {
+		return err
+	}
+	backward, err := t.realGraph.AddEdge(int32(target), int32(source), &weight, SMTNullLiteral)
 	if err != nil {
 		return err
 	}
@@ -89,32 +101,42 @@ func (t *SMTRealDiffTheory) diffGraphEnableFixedEdges(source, target SMTTheoryVa
 	return err
 }
 
-func finiteSMTInfRational(value *big.Rat) smtInfRational {
-	return newSMTInfRational(value, nil)
-}
-
-func (t *SMTRealDiffTheory) addRealBoundAxioms(source, target SMTTheoryVar, weight *smtInfRational, literal SMTLiteral) error {
+func (t *SMTRealDiffTheory) addRealBoundAxioms(source, target SMTTheoryVar, weight *smtInfIntRational, literal SMTLiteral) error {
 	state, err := t.State()
 	if err != nil {
 		return err
 	}
 	equal, lower, upper := SMTNullLiteral, SMTNullLiteral, SMTNullLiteral
-	var lowerWeight, upperWeight smtInfRational
+	var lowerWeight, upperWeight *smtInfIntRational
 	for _, edgeID := range t.realGraph.outEdges[source] {
 		edge := &t.realGraph.edges[edgeID]
 		if edge.target != int32(target) || edge.explanation == SMTNullLiteral {
 			continue
 		}
-		switch edge.weight.Cmp(weight) {
+		c, err := smtInfIntCmp(t.q, &edge.weight, weight)
+		if err != nil {
+			return err
+		}
+		switch c {
 		case 0:
 			equal = edge.explanation
 		case -1:
-			if lower == SMTNullLiteral || edge.weight.Cmp(&lowerWeight) > 0 {
-				lower, lowerWeight = edge.explanation, edge.weight
+			if lower != SMTNullLiteral {
+				if c, err = smtInfIntCmp(t.q, &edge.weight, lowerWeight); err != nil {
+					return err
+				}
+			}
+			if lower == SMTNullLiteral || c > 0 {
+				lower, lowerWeight = edge.explanation, &edge.weight
 			}
 		case 1:
-			if upper == SMTNullLiteral || edge.weight.Cmp(&upperWeight) < 0 {
-				upper, upperWeight = edge.explanation, edge.weight
+			if upper != SMTNullLiteral {
+				if c, err = smtInfIntCmp(t.q, &edge.weight, upperWeight); err != nil {
+					return err
+				}
+			}
+			if upper == SMTNullLiteral || c < 0 {
+				upper, upperWeight = edge.explanation, &edge.weight
 			}
 		}
 	}
@@ -142,11 +164,16 @@ func (t *SMTRealDiffTheory) InternalizeTerm(expression ast.ASTHandle) (bool, err
 // InternalizeAtom is theory_diff_logic<rdl_ext>::internalize_atom.
 func (t *SMTRealDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (bool, error) {
 	atom, ok, err := t.internalizeDiffAtom(expression)
+	defer atom.del(t.q)
 	if err != nil || !ok {
 		return false, err
 	}
 	source, target, literal := atom.source, atom.target, atom.literal
-	weight := finiteSMTInfRational(&atom.k)
+	weight := newSMTInfIntRational()
+	defer weight.del(t.q)
+	if err = t.q.Copy(&weight.rational, &atom.k); err != nil {
+		return false, err
+	}
 	// internalize_atom: "x - y <= 5 => x - y <= 7" axioms only under
 	// m_arith_add_binary_bounds.
 	if t.addBinaryBounds {
@@ -160,15 +187,22 @@ func (t *SMTRealDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (b
 	}
 	// k.neg(); then k -= 1 for an Int lhs, else k -= m_epsilon, the
 	// infinitesimal (0, 1) of rdl_ext.
-	var negativeWeight smtInfRational
-	negativeWeight.Neg(&weight)
+	// weight is k: k.neg(); then k -= 1 or k -= m_epsilon in place.
+	if err = smtInfIntNeg(t.q, &weight); err != nil {
+		return false, err
+	}
 	if atom.integer {
-		negativeWeight.rational.Sub(&negativeWeight.rational, big.NewRat(1, 1))
+		if err = t.q.Sub(&weight.rational, smtQIntPtr(1), &weight.rational); err != nil {
+			return false, err
+		}
 	} else {
 		t.isLIA = false
-		negativeWeight.infinitesimal.Sub(&negativeWeight.infinitesimal, big.NewRat(1, 1))
+		// inf_int_rational -= epsilon (0, 1): m_second -= 1 (C++ int; see
+		// smtInfIntRational).
+		weight.infinitesimal--
 	}
-	negative, err := t.realGraph.AddEdge(int32(target), int32(source), &negativeWeight, literal.Negated())
+	negativeWeight := &weight
+	negative, err := t.realGraph.AddEdge(int32(target), int32(source), negativeWeight, literal.Negated())
 	if err != nil {
 		return false, err
 	}
@@ -308,7 +342,11 @@ func (t *SMTRealDiffTheory) FinalCheck() (SMTFinalCheckStatus, error) {
 		return SMTFinalCheckGiveUp, nil
 	}
 	if t.mixed {
-		t.computeModelDelta(false)
+		if err := t.computeModelDelta(false); err != nil {
+			return SMTFinalCheckGiveUp, err
+		}
+		value := smtQZero()
+		defer smtQDel(t.q, &value)
 		for v, node := range t.variables {
 			sort, err := t.state.manager.GetSort(node.owner)
 			if err != nil {
@@ -319,9 +357,9 @@ func (t *SMTRealDiffTheory) FinalCheck() (SMTFinalCheckStatus, error) {
 				return SMTFinalCheckGiveUp, err
 			}
 			if integer {
-				var scaled, value big.Rat
-				scaled.Mul(&t.delta, &t.realGraph.assignment[v].infinitesimal)
-				value.Add(&t.realGraph.assignment[v].rational, &scaled)
+				if err := t.modelNum(&t.realGraph.assignment[v], &value); err != nil {
+					return SMTFinalCheckGiveUp, err
+				}
 				// The source rejects a fractional arithmetic-factory Int value.
 				// Detect that model failure before publication.
 				if !value.IsInt() {
@@ -375,7 +413,9 @@ func (t *SMTRealDiffTheory) InitializeModel(generator *SMTModelGenerator) error 
 	if generator.manager != state.manager {
 		return ast.ErrASTDomain
 	}
-	t.computeModelDelta(true)
+	if err = t.computeModelDelta(true); err != nil {
+		return err
+	}
 	factory, err := protomodel.NewArithmeticFactory(state.manager)
 	if err != nil {
 		return err
@@ -395,13 +435,20 @@ func (t *SMTRealDiffTheory) ModelValue(node *SMTEnode, generator *SMTModelGenera
 		return nil, ast.ErrASTDomain
 	}
 	variable := node.TheoryVar(t.FamilyID())
-	assignment, err := t.realGraph.Assignment(int32(variable))
+	assignment, num := newSMTInfIntRational(), smtQZero()
+	defer assignment.del(t.q)
+	defer smtQDel(t.q, &num)
+	if err := t.realGraph.Assignment(int32(variable), &assignment); err != nil {
+		return nil, err
+	}
+	if err := t.modelNum(&assignment, &num); err != nil {
+		return nil, err
+	}
+	// mk_num_value takes the AST's math/big value (a boundary).
+	value, err := smtQBig(t.q, &num)
 	if err != nil {
 		return nil, err
 	}
-	var scaled, value big.Rat
-	scaled.Mul(&t.delta, &assignment.infinitesimal)
-	value.Add(&assignment.rational, &scaled)
 	// mk_num_value(num, m_util.is_int(n->get_owner())), for every Ext.
 	sort, err := state.manager.GetSort(node.owner)
 	if err != nil {
@@ -412,17 +459,44 @@ func (t *SMTRealDiffTheory) ModelValue(node *SMTEnode, generator *SMTModelGenera
 		return nil, err
 	}
 	t.traceDL("arith", "mk_value", 908, func() string { return t.dlPP(node.owner) + " |-> " + value.RatString() + "\n" })
-	numeral, err := state.manager.ArithmeticNumeralRat(&value, integer)
+	expression, err := state.manager.ArithmeticNumeralRat(value, integer)
 	if err != nil {
 		return nil, err
 	}
-	return NewSMTExpressionValueProcedure(numeral)
+	return NewSMTExpressionValueProcedure(expression)
+}
+
+// modelNum is val.get_rational() + m_delta * val.get_infinitesimal().
+func (t *SMTRealDiffTheory) modelNum(val *smtInfIntRational, out *numeral.Rational) error {
+	scaled := smtQZero()
+	defer smtQDel(t.q, &scaled)
+	if err := t.q.SetInt64(&scaled, int64(val.infinitesimal)); err != nil {
+		return err
+	}
+	if err := t.q.Mul(&t.delta, &scaled, &scaled); err != nil {
+		return err
+	}
+	return t.q.Add(&val.rational, &scaled, out)
 }
 
 // computeModelDelta is compute_delta. The fractional-Int guard of FinalCheck
 // is not a source call, so it passes trace false.
-func (t *SMTRealDiffTheory) computeModelDelta(trace bool) {
-	t.delta.SetInt64(1)
+func (t *SMTRealDiffTheory) computeModelDelta(trace bool) error {
+	q := t.q
+	if err := q.SetInt64(&t.delta, 1); err != nil {
+		return err
+	}
+	limit, numerator, denominator, candidate := smtQZero(), smtQZero(), smtQZero(), smtQZero()
+	defer func() {
+		for _, r := range []*numeral.Rational{&limit, &numerator, &denominator, &candidate} {
+			smtQDel(q, r)
+		}
+	}()
+	text := func(r *numeral.Rational) string {
+		s, err := q.String(r)
+		t.realGraph.keep(err)
+		return s
+	}
 	for index := range t.realGraph.edges {
 		edge := &t.realGraph.edges[index]
 		if !edge.enabled {
@@ -433,25 +507,43 @@ func (t *SMTRealDiffTheory) computeModelDelta(trace bool) {
 		if trace {
 			t.traceDL("epsilon", "compute_delta", 881, func() string {
 				return fmt.Sprintf("(n_x,k_x): %s, %s, (n_y,k_y): %s, %s, (n_c,k_c): %s, %s\n",
-					target.rational.RatString(), target.infinitesimal.RatString(), source.rational.RatString(), source.infinitesimal.RatString(),
-					edge.weight.rational.RatString(), edge.weight.infinitesimal.RatString())
+					text(&target.rational), strconv.Itoa(target.infinitesimal), text(&source.rational), strconv.Itoa(source.infinitesimal),
+					text(&edge.weight.rational), strconv.Itoa(edge.weight.infinitesimal))
 			})
 		}
-		var rationalLimit, infinitesimalLimit big.Rat
-		rationalLimit.Add(&source.rational, &edge.weight.rational)
-		infinitesimalLimit.Add(&source.infinitesimal, &edge.weight.infinitesimal)
-		if target.rational.Cmp(&rationalLimit) >= 0 || target.infinitesimal.Cmp(&infinitesimalLimit) <= 0 {
+		// n_x < n_y + n_c && k_x > k_y + k_c
+		if err := q.Add(&source.rational, &edge.weight.rational, &limit); err != nil {
+			return err
+		}
+		c, err := q.Compare(&target.rational, &limit)
+		if err != nil {
+			return err
+		}
+		infinitesimalLimit := source.infinitesimal + edge.weight.infinitesimal
+		if c >= 0 || target.infinitesimal <= infinitesimalLimit {
 			continue
 		}
-		var numerator, denominator, candidate big.Rat
-		numerator.Sub(&rationalLimit, &target.rational)
-		denominator.Sub(&target.infinitesimal, &infinitesimalLimit)
-		candidate.Quo(&numerator, &denominator)
-		if candidate.Cmp(&t.delta) < 0 {
+		// new_delta = (n_y + n_c - n_x) / (k_x - k_y - k_c)
+		if err := q.Sub(&limit, &target.rational, &numerator); err != nil {
+			return err
+		}
+		if err := q.SetInt64(&denominator, int64(target.infinitesimal-infinitesimalLimit)); err != nil {
+			return err
+		}
+		if err := q.Div(&numerator, &denominator, &candidate); err != nil {
+			return err
+		}
+		if c, err = q.Compare(&candidate, &t.delta); err != nil {
+			return err
+		}
+		if c < 0 {
 			if trace {
-				t.traceDL("epsilon", "compute_delta", 886, func() string { return "new delta: " + candidate.RatString() + "\n" })
+				t.traceDL("epsilon", "compute_delta", 886, func() string { return "new delta: " + text(&candidate) + "\n" })
 			}
-			t.delta.Set(&candidate)
+			if err := q.Copy(&t.delta, &candidate); err != nil {
+				return err
+			}
 		}
 	}
+	return t.realGraph.takeErr(nil)
 }

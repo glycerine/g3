@@ -69,8 +69,8 @@ func TestSMTRealDiffTheoryAtomUsesInfinitesimalComplement(t *testing.T) {
 	atom := f.theory.realAtoms[0]
 	positive := &f.theory.realGraph.edges[atom.positive].weight
 	negative := &f.theory.realGraph.edges[atom.negative].weight
-	if positive.rational.Cmp(big.NewRat(1, 2)) != 0 || positive.infinitesimal.Sign() != 0 ||
-		negative.rational.Cmp(big.NewRat(-1, 2)) != 0 || negative.infinitesimal.Cmp(big.NewRat(-1, 1)) != 0 {
+	if testQCmp(&positive.rational, big.NewRat(1, 2)) != 0 || positive.infinitesimal != 0 ||
+		testQCmp(&negative.rational, big.NewRat(-1, 2)) != 0 || negative.infinitesimal != -1 {
 		t.Fatal("real bound polarity", positive, negative)
 	}
 }
@@ -141,7 +141,7 @@ func TestSMTRealDiffTheoryBuildsFiniteModelValues(t *testing.T) {
 	xRat, xOK := new(big.Rat).SetString(xText)
 	yRat, yOK := new(big.Rat).SetString(yText)
 	if !xMatched || !yMatched || !xOK || !yOK || new(big.Rat).Sub(xRat, yRat).Cmp(big.NewRat(1, 2)) <= 0 {
-		t.Fatal("strict real model values", xText, yText, theory.delta.String())
+		t.Fatal("strict real model values", xText, yText, testBig(&theory.delta).String())
 	}
 }
 

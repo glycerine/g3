@@ -9,11 +9,13 @@ package smtcore
 // mk_var(app*):814-836.
 
 import (
+	"errors"
 	"math/big"
 	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // smtDiffLogicGraph is the Ext::numeral dependent part of the shared
@@ -21,7 +23,7 @@ import (
 // edges that mk_num (v = k) and mk_term (n = a + k) add.
 type smtDiffLogicGraph interface {
 	diffGraphInitVar(v SMTTheoryVar) error
-	diffGraphEnableFixedEdges(source, target SMTTheoryVar, k *big.Rat) error
+	diffGraphEnableFixedEdges(source, target SMTTheoryVar, k *numeral.Rational) error
 }
 
 func (t *SMTIntegerDiffTheory) diffGraphInitVar(v SMTTheoryVar) error {
@@ -34,7 +36,7 @@ func (t *SMTIntegerDiffTheory) diffGraphInitVar(v SMTTheoryVar) error {
 //	m_graph.enable_edge(m_graph.add_edge(target, source, -k, null_literal));
 //
 // The source ignores enable_edge's feasibility result.
-func (t *SMTIntegerDiffTheory) diffGraphEnableFixedEdges(source, target SMTTheoryVar, k *big.Rat) error {
+func (t *SMTIntegerDiffTheory) diffGraphEnableFixedEdges(source, target SMTTheoryVar, k *numeral.Rational) error {
 	forward, err := t.graph.AddEdge(int32(source), int32(target), k, SMTNullLiteral)
 	if err != nil {
 		return err
@@ -42,8 +44,15 @@ func (t *SMTIntegerDiffTheory) diffGraphEnableFixedEdges(source, target SMTTheor
 	if _, err = t.graph.EnableEdge(forward); err != nil {
 		return err
 	}
-	negative := new(big.Rat).Neg(k)
-	backward, err := t.graph.AddEdge(int32(target), int32(source), negative, SMTNullLiteral)
+	negative := smtQZero()
+	defer smtQDel(t.q, &negative)
+	if err = t.q.Copy(&negative, k); err != nil {
+		return err
+	}
+	if err = t.q.Neg(&negative); err != nil {
+		return err
+	}
+	backward, err := t.graph.AddEdge(int32(target), int32(source), &negative, SMTNullLiteral)
 	if err != nil {
 		return err
 	}
@@ -66,6 +75,13 @@ func (t *SMTIntegerDiffTheory) initDiffLogic(state *SMTInternalizerState) error 
 	if err := t.SMTTheoryBase.Initialize(state); err != nil {
 		return err
 	}
+	if numerals := state.manager.NumeralService(); numerals != nil {
+		t.q = numerals.Manager
+	}
+	if t.q == nil {
+		return errors.New("smt: theory_diff_logic needs the AST manager's rational manager")
+	}
+	t.graph.q = t.q
 	zero, err := state.manager.ArithmeticNumeralRat(new(big.Rat), true)
 	if err != nil {
 		return err
@@ -268,14 +284,16 @@ func (t *SMTIntegerDiffTheory) mkTerm(n ast.ASTHandle) (SMTTheoryVar, error) {
 		return SMTNullTheoryVar, err
 	}
 	t.traceDL("arith", "mk_term", 727, func() string { return t.dlPP(n) + "\n" })
-	r, numeral, err := t.numeral(n)
+	r := smtQZero()
+	defer smtQDel(t.q, &r)
+	isNumeral, err := t.numeral(n, &r)
 	if err != nil {
 		return SMTNullTheoryVar, err
 	}
-	if numeral {
-		return t.mkNum(n, r)
+	if isNumeral {
+		return t.mkNum(n, &r)
 	}
-	a, r, offset, err := t.offset(n)
+	a, offset, err := t.offset(n, &r)
 	if err != nil {
 		return SMTNullTheoryVar, err
 	}
@@ -315,7 +333,7 @@ func (t *SMTIntegerDiffTheory) mkTerm(n ast.ASTHandle) (SMTTheoryVar, error) {
 			return SMTNullTheoryVar, err
 		}
 		// target - source <= k, source - target <= -k
-		if err = graph.diffGraphEnableFixedEdges(source, target, r); err != nil {
+		if err = graph.diffGraphEnableFixedEdges(source, target, &r); err != nil {
 			return SMTNullTheoryVar, err
 		}
 		return target, nil
@@ -334,12 +352,12 @@ func (t *SMTIntegerDiffTheory) mkTerm(n ast.ASTHandle) (SMTTheoryVar, error) {
 }
 
 // mkNum is theory_diff_logic<Ext>::mk_num.
-func (t *SMTIntegerDiffTheory) mkNum(n ast.ASTHandle, r *big.Rat) (SMTTheoryVar, error) {
+func (t *SMTIntegerDiffTheory) mkNum(n ast.ASTHandle, r *numeral.Rational) (SMTTheoryVar, error) {
 	state, err := t.State()
 	if err != nil {
 		return SMTNullTheoryVar, err
 	}
-	if r.Sign() == 0 && !t.mkNumZeroEnode {
+	if r.IsZero() && !t.mkNumZeroEnode {
 		return t.zero, nil
 	}
 	if e := state.context.enodes.get(n); e != nil {
@@ -366,20 +384,23 @@ func (t *SMTIntegerDiffTheory) mkNum(n ast.ASTHandle, r *big.Rat) (SMTTheoryVar,
 }
 
 // smtDiffAtomBound is the Ext-independent part of internalize_atom: the bound
-// target - source <= k and its fresh Boolean variable.
+// target - source <= k and its fresh Boolean variable. k is the source's
+// local numeral: the caller frees it (smtDiffAtomBound.del).
 type smtDiffAtomBound struct {
 	source, target SMTTheoryVar
-	k              big.Rat
+	k              numeral.Rational
 	variable       int32
 	literal        SMTLiteral
 	integer        bool // m_util.is_int(lhs)
 }
 
+func (a *smtDiffAtomBound) del(q *numeral.RationalManager) error { return smtQDel(q, &a.k) }
+
 // internalizeDiffAtom is theory_diff_logic<Ext>::internalize_atom up to the
 // m_arith_add_binary_bounds axioms. It reports false where the source
 // returns false.
 func (t *SMTIntegerDiffTheory) internalizeDiffAtom(n ast.ASTHandle) (smtDiffAtomBound, bool, error) {
-	var atom smtDiffAtomBound
+	atom := smtDiffAtomBound{k: smtQZero()}
 	state, err := t.State()
 	if err != nil {
 		return atom, false, err
@@ -400,20 +421,19 @@ func (t *SMTIntegerDiffTheory) internalizeDiffAtom(n ast.ASTHandle) (smtDiffAtom
 	if err != nil {
 		return atom, false, err
 	}
-	if _, numeral, err := t.numeral(rhs); err != nil {
+	if isNumeral, err := t.isNumeral(rhs); err != nil {
 		return atom, false, err
-	} else if !numeral {
+	} else if !isNumeral {
 		lhs, rhs = rhs, lhs
 		isGE = !isGE
 	}
-	kr, numeral, err := t.numeral(rhs)
+	isNumeral, err := t.numeral(rhs, &atom.k)
 	if err != nil {
 		return atom, false, err
 	}
-	if !numeral {
+	if !isNumeral {
 		return atom, false, t.foundNonDiffLogicExpr(n)
 	}
-	atom.k.Set(kr)
 	terms, signs, err := t.decompose(lhs)
 	if err != nil {
 		return atom, false, err
@@ -436,7 +456,9 @@ func (t *SMTIntegerDiffTheory) internalizeDiffAtom(n ast.ASTHandle) (smtDiffAtom
 	}
 	if isGE {
 		atom.target, atom.source = atom.source, atom.target
-		atom.k.Neg(&atom.k)
+		if err = t.q.Neg(&atom.k); err != nil {
+			return atom, false, err
+		}
 	}
 	if atom.variable, err = state.MkBoolVar(n); err != nil {
 		return atom, false, err

@@ -63,12 +63,12 @@ func TestSMTUTVPILinearizationNormalizationAndRefusals(t *testing.T) {
 				return
 			}
 			weight, ok := new(big.Rat).SetString(tc.weight)
-			if !ok || l.weight.Cmp(weight) != 0 || len(l.terms) != len(tc.want) {
+			if !ok || testQCmp(&l.weight, weight) != 0 || len(l.terms) != len(tc.want) {
 				t.Fatal("UTVPI normalization changed the polynomial")
 			}
 			for _, term := range l.terms {
 				coefficient, ok := tc.want[term.expression]
-				if !ok || term.coefficient.Cmp(big.NewRat(coefficient, 1)) != 0 {
+				if !ok || testQCmp(&term.coefficient, big.NewRat(coefficient, 1)) != 0 {
 					t.Fatal("UTVPI coefficient", term)
 				}
 			}
@@ -81,7 +81,7 @@ func TestSMTUTVPILinearizationNormalizationAndRefusals(t *testing.T) {
 	cast := app(smtArithOpToReal, i)
 	accepted, err := l.linearize(cast, numeral("1/2"))
 	astTestMust(t, err)
-	if !accepted || len(l.terms) != 1 || l.terms[0].expression != i || l.weight.Cmp(big.NewRat(-1, 2)) != 0 {
+	if !accepted || len(l.terms) != 1 || l.terms[0].expression != i || testQCmp(&l.weight, big.NewRat(-1, 2)) != 0 {
 		t.Fatal("UTVPI to_real traversal lost the original integer variable")
 	}
 }

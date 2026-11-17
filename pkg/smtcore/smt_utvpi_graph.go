@@ -3,7 +3,7 @@ package smtcore
 // Source: src/smt/theory_utvpi_def.h add_ineq, enable_edge,
 // check_z_consistency, is_parity_ok and enforce_parity (rdl_ext).
 
-import "math/big"
+import "github.com/glycerine/g3/pkg/util/numeral"
 
 // A source UTVPI variable has two graph vertices: positive 2*v and negative
 // 2*v+1. Its value is half their potential difference. Edge coefficients are
@@ -25,7 +25,7 @@ type smtUTVPIGraphTerm struct {
 }
 
 func newSMTUTVPIGraph() *smtUTVPIGraph {
-	return &smtUTVPIGraph{graph: NewSMTInfRationalDiffGraph()}
+	return &smtUTVPIGraph{graph: NewSMTInfRationalDiffGraph(nil)}
 }
 
 func (g *smtUTVPIGraph) addVariable(integer bool) (int32, error) {
@@ -42,7 +42,7 @@ func (g *smtUTVPIGraph) addVariable(integer bool) (int32, error) {
 
 // addInequality encodes sum(terms)+weight <= 0 as two adjacent edges.
 // Terms have already been combined and checked by the UTVPI linearizer.
-func (g *smtUTVPIGraph) addInequality(terms []smtUTVPIGraphTerm, weight *smtInfRational, literal SMTLiteral) (int32, error) {
+func (g *smtUTVPIGraph) addInequality(terms []smtUTVPIGraphTerm, weight *smtInfIntRational, literal SMTLiteral) (int32, error) {
 	if weight == nil || len(terms) < 1 || len(terms) > 2 {
 		return -1, errSMTDiffGraphDomain
 	}
@@ -58,13 +58,22 @@ func (g *smtUTVPIGraph) addInequality(terms []smtUTVPIGraphTerm, weight *smtInfR
 	if terms[0].negative {
 		first++
 	}
-	var edgeWeight smtInfRational
-	edgeWeight.Neg(weight)
+	q := g.graph.q
+	edgeWeight := newSMTInfIntRational()
+	defer edgeWeight.del(q)
+	if err := smtInfIntSet(q, &edgeWeight, weight); err != nil {
+		return -1, err
+	}
+	if err := smtInfIntNeg(q, &edgeWeight); err != nil {
+		return -1, err
+	}
 	source, target := first^1, first
 	otherSource, otherTarget := source, target
 	coefficient := uint32(2)
 	if len(terms) == 1 {
-		edgeWeight.Add(&edgeWeight, &edgeWeight)
+		if err := smtInfIntAdd(q, &edgeWeight, &edgeWeight, &edgeWeight); err != nil {
+			return -1, err
+		}
 	} else {
 		second := 2 * terms[1].variable
 		if terms[1].negative {
@@ -112,13 +121,15 @@ func (g *smtUTVPIGraph) parityOK(variable int32) (bool, error) {
 	if variable < 0 || int(variable) >= len(g.integer) {
 		return false, errSMTDiffGraphDomain
 	}
-	first := &g.graph.assignment[2*variable].rational
-	second := &g.graph.assignment[2*variable+1].rational
+	q := g.graph.q
 	// rational::is_even is false for non-integral rationals. Real vertices
 	// can be visited while repairing a neighboring integer's parity.
-	firstEven := first.IsInt() && first.Num().Bit(0) == 0
-	secondEven := second.IsInt() && second.Num().Bit(0) == 0
-	return firstEven == secondEven, nil
+	firstEven, err := q.IsEven(&g.graph.assignment[2*variable].rational)
+	if err != nil {
+		return false, err
+	}
+	secondEven, err := q.IsEven(&g.graph.assignment[2*variable+1].rational)
+	return firstEven == secondEven, err
 }
 
 // parityConflict returns the two shortest tight paths witnessing an odd
@@ -173,8 +184,7 @@ func (g *smtUTVPIGraph) enforceParity() error {
 			todo = append(todo, int32(variable))
 		}
 	}
-	var decrement smtInfRational
-	decrement.rational.SetInt64(-1)
+	decrement := smtInfIntRational{rational: smtQInt(-1)}
 	for len(todo) > 0 {
 		variable := todo[len(todo)-1]
 		todo = todo[:len(todo)-1]
@@ -244,7 +254,7 @@ func (g *smtUTVPIGraph) pop(count uint32) error {
 // mk_value. The distinguished zero variable is created by the theory owner.
 // Values own their rationals. Source only debug-asserts integer-valued Int
 // assignments here; its arithmetic factory performs the release rejection.
-func (g *smtUTVPIGraph) modelValues(zeroVariable int32) ([]big.Rat, error) {
+func (g *smtUTVPIGraph) modelValues(zeroVariable int32) ([]numeral.Rational, error) {
 	if zeroVariable < 0 || int(zeroVariable) >= len(g.integer) {
 		return nil, errSMTDiffGraphDomain
 	}
@@ -261,33 +271,84 @@ func (g *smtUTVPIGraph) modelValues(zeroVariable int32) ([]big.Rat, error) {
 	if err := g.graph.SetPairToZero(2*zeroVariable, 2*zeroVariable+1); err != nil {
 		return nil, err
 	}
-	delta := big.NewRat(1, 1)
+	// compute_delta and mk_value. The caller frees the returned values.
+	q := g.graph.q
+	delta := smtQInt(1)
+	bound, limit, scaled := newSMTInfIntRational(), smtQZero(), smtQZero()
+	defer func() {
+		smtQDel(q, &delta)
+		bound.del(q)
+		smtQDel(q, &limit)
+		smtQDel(q, &scaled)
+	}()
 	for i := range g.graph.edges {
 		edge := &g.graph.edges[i]
 		if !edge.enabled {
 			continue
 		}
-		var bound smtInfRational
-		bound.Sub(&g.graph.assignment[edge.target], &g.graph.assignment[edge.source])
-		bound.Sub(&bound, &edge.weight)
-		if bound.Sign() > 0 {
+		// b = tgt - src - w
+		if err := smtInfIntSub(q, &g.graph.assignment[edge.target], &g.graph.assignment[edge.source], &bound); err != nil {
+			return nil, err
+		}
+		if err := smtInfIntSub(q, &bound, &edge.weight, &bound); err != nil {
+			return nil, err
+		}
+		if bound.sign() > 0 {
 			return nil, errSMTDiffGraphDomain
 		}
-		if bound.infinitesimal.Sign() > 0 {
-			limit := new(big.Rat).Neg(&bound.rational)
-			limit.Quo(limit, &bound.infinitesimal)
-			if limit.Cmp(delta) < 0 {
-				delta.Set(limit)
+		if bound.infinitesimal > 0 {
+			// new_delta = -b.num / eps_r
+			if err := q.Copy(&limit, &bound.rational); err != nil {
+				return nil, err
+			}
+			if err := q.Neg(&limit); err != nil {
+				return nil, err
+			}
+			eps := smtQInt(0)
+			if err := q.SetInt64(&eps, int64(bound.infinitesimal)); err != nil {
+				return nil, err
+			}
+			err := q.Div(&limit, &eps, &limit)
+			if e := smtQDel(q, &eps); err == nil {
+				err = e
+			}
+			if err != nil {
+				return nil, err
+			}
+			c, err := q.Compare(&limit, &delta)
+			if err != nil {
+				return nil, err
+			}
+			if c < 0 {
+				if err := q.Copy(&delta, &limit); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
-	values := make([]big.Rat, len(g.integer))
+	values := make([]numeral.Rational, len(g.integer))
+	for i := range values {
+		values[i] = smtQZero()
+	}
+	difference := newSMTInfIntRational()
+	defer difference.del(q)
 	for variable := range g.integer {
-		var difference smtInfRational
-		difference.Sub(&g.graph.assignment[2*variable], &g.graph.assignment[2*variable+1])
-		values[variable].Mul(delta, &difference.infinitesimal)
-		values[variable].Add(&values[variable], &difference.rational)
-		values[variable].Quo(&values[variable], big.NewRat(2, 1))
+		// num = (val.rational + delta*val.infinitesimal) / 2, val = val1 - val2
+		if err := smtInfIntSub(q, &g.graph.assignment[2*variable], &g.graph.assignment[2*variable+1], &difference); err != nil {
+			return values, err
+		}
+		if err := q.SetInt64(&scaled, int64(difference.infinitesimal)); err != nil {
+			return values, err
+		}
+		if err := q.Mul(&delta, &scaled, &scaled); err != nil {
+			return values, err
+		}
+		if err := q.Add(&difference.rational, &scaled, &values[variable]); err != nil {
+			return values, err
+		}
+		if err := q.Div(&values[variable], smtQIntPtr(2), &values[variable]); err != nil {
+			return values, err
+		}
 	}
 	return values, nil
 }

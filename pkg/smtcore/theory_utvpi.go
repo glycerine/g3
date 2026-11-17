@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
@@ -37,7 +38,7 @@ type SMTUTVPITheory struct {
 	head        int
 	scopes      []smtUTVPIScope
 	unsupported bool
-	values      []big.Rat
+	values      []numeral.Rational // mk_value results of init_model
 	factory     *protomodel.ArithmeticFactory
 	statistics  smtUTVPIStatistics
 }
@@ -69,6 +70,8 @@ func (t *SMTUTVPITheory) Initialize(state *SMTInternalizerState) error {
 	if err != nil {
 		return err
 	}
+	t.graph.graph.q = t.linearizer.q
+	t.syntax.q = t.linearizer.q
 	zero, err := state.manager.ArithmeticNumeralRat(new(big.Rat), true)
 	if err != nil {
 		return err
@@ -155,16 +158,27 @@ func (t *SMTUTVPITheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (bool
 		t.unsupported = true
 		return false, err
 	}
-	var weight big.Rat
-	weight.Set(&t.linearizer.weight)
-	terms := append([]smtUTVPITerm(nil), t.linearizer.terms...)
-	coefficients := make([]smtUTVPIGraphTerm, len(terms))
-	for i, term := range terms {
-		variable, err := t.variable(term.expression)
+	q := t.linearizer.q
+	// Copies of the linearizer's weight and terms: mk_coeffs below may
+	// linearize again.
+	positiveWeight, negativeWeight := newSMTInfIntRational(), newSMTInfIntRational()
+	defer positiveWeight.del(q)
+	defer negativeWeight.del(q)
+	if err := q.Copy(&positiveWeight.rational, &t.linearizer.weight); err != nil {
+		return false, err
+	}
+	coefficients := make([]smtUTVPIGraphTerm, len(t.linearizer.terms))
+	expressions := make([]ast.ASTHandle, len(t.linearizer.terms))
+	for i := range t.linearizer.terms {
+		expressions[i] = t.linearizer.terms[i].expression
+		coefficients[i].negative = t.linearizer.terms[i].coefficient.IsNeg()
+	}
+	for i, expression := range expressions {
+		variable, err := t.variable(expression)
 		if err != nil {
 			return false, err
 		}
-		coefficients[i] = smtUTVPIGraphTerm{int32(variable), term.coefficient.Sign() < 0}
+		coefficients[i].variable = int32(variable)
 	}
 	sort, err := m.GetSort(left)
 	if err != nil {
@@ -175,16 +189,22 @@ func (t *SMTUTVPITheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (bool
 		return false, err
 	}
 	strict := op == smtArithOpLT || op == smtArithOpGT
-	positiveWeight := newSMTInfRational(&weight, nil)
-	negativeWeight := newSMTInfRational(new(big.Rat).Neg(&weight), nil)
+	if err := q.Copy(&negativeWeight.rational, &positiveWeight.rational); err != nil {
+		return false, err
+	}
+	if err := q.Neg(&negativeWeight.rational); err != nil {
+		return false, err
+	}
 	step := &negativeWeight
 	if strict {
 		step = &positiveWeight
 	}
 	if integer {
-		step.rational.Add(&step.rational, big.NewRat(1, 1))
+		if err := q.Add(&step.rational, smtQIntPtr(1), &step.rational); err != nil {
+			return false, err
+		}
 	} else {
-		step.infinitesimal.SetInt64(1)
+		step.infinitesimal = 1
 	}
 	v, err := t.state.MkBoolVar(expression)
 	if err != nil {
@@ -196,7 +216,7 @@ func (t *SMTUTVPITheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (bool
 	literal := NewSMTLiteral(v, false)
 	if len(coefficients) == 0 {
 		// Rewriting usually folds this case before theory internalization.
-		if positiveWeight.Sign() > 0 {
+		if positiveWeight.sign() > 0 {
 			literal = literal.Negated()
 		}
 		return true, t.state.addTheoryAxiom(t.FamilyID(), []SMTLiteral{literal})
@@ -226,18 +246,26 @@ func (t *SMTUTVPITheory) InternalizeTerm(expression ast.ASTHandle) (bool, error)
 		t.unsupported = true
 		return false, err
 	}
-	var weight big.Rat
-	weight.Set(&t.linearizer.weight)
-	terms := append([]smtUTVPITerm(nil), t.linearizer.terms...)
-	graphTerms := []smtUTVPIGraphTerm{}
-	for _, term := range terms {
-		v, err := t.variable(term.expression)
+	q := t.linearizer.q
+	w := newSMTInfIntRational()
+	defer w.del(q)
+	if err := q.Copy(&w.rational, &t.linearizer.weight); err != nil {
+		return false, err
+	}
+	graphTerms := make([]smtUTVPIGraphTerm, len(t.linearizer.terms))
+	expressions := make([]ast.ASTHandle, len(t.linearizer.terms))
+	for i := range t.linearizer.terms {
+		expressions[i] = t.linearizer.terms[i].expression
+		graphTerms[i].negative = t.linearizer.terms[i].coefficient.IsNeg()
+	}
+	for i, expression := range expressions {
+		v, err := t.variable(expression)
 		if err != nil {
 			return false, err
 		}
-		graphTerms = append(graphTerms, smtUTVPIGraphTerm{int32(v), term.coefficient.Sign() < 0})
+		graphTerms[i].variable = int32(v)
 	}
-	if len(terms) == 2 {
+	if len(graphTerms) == 2 {
 		// mk_term: mk_coeffs has created both variables; do not create an alias.
 		return false, nil
 	}
@@ -268,7 +296,6 @@ func (t *SMTUTVPITheory) InternalizeTerm(expression ast.ASTHandle) (bool, error)
 	}
 	graphTerms = append(graphTerms, smtUTVPIGraphTerm{int32(v), true})
 	for i := 0; i < 2; i++ {
-		w := newSMTInfRational(&weight, nil)
 		id, err := t.graph.addInequality(graphTerms, &w, SMTNullLiteral)
 		if err != nil {
 			return false, err
@@ -280,7 +307,9 @@ func (t *SMTUTVPITheory) InternalizeTerm(expression ast.ASTHandle) (bool, error)
 		for j := range graphTerms {
 			graphTerms[j].negative = !graphTerms[j].negative
 		}
-		weight.Neg(&weight)
+		if err := q.Neg(&w.rational); err != nil {
+			return false, err
+		}
 	}
 	return true, nil
 }
@@ -406,12 +435,12 @@ func (t *SMTUTVPITheory) InternalizeEquality(expression ast.ASTHandle, variable 
 	if err != nil {
 		return err
 	}
-	if _, numeral, err := t.syntax.numeral(rhs); err != nil {
+	if isNumeral, err := t.syntax.isNumeral(rhs); err != nil {
 		return err
-	} else if numeral {
+	} else if isNumeral {
 		lhs, rhs = rhs, lhs
 	}
-	if _, numeral, err := t.syntax.numeral(rhs); err != nil || !numeral {
+	if isNumeral, err := t.syntax.isNumeral(rhs); err != nil || !isNumeral {
 		return err
 	}
 	op, arithmetic, err := t.syntax.operation(lhs)
@@ -475,6 +504,9 @@ func (t *SMTUTVPITheory) InitializeModel(generator *SMTModelGenerator) error {
 		return ast.ErrASTDomain
 	}
 	var err error
+	if t.values, err = smtQDelAll(t.linearizer.q, t.values); err != nil {
+		return err
+	}
 	t.values, err = t.graph.modelValues(int32(t.zero))
 	if err != nil {
 		return err
@@ -495,12 +527,39 @@ func (t *SMTUTVPITheory) ModelValue(node *SMTEnode, generator *SMTModelGenerator
 	if !t.HasVariable(v) || int(v) >= len(t.values) {
 		return nil, ast.ErrASTDomain
 	}
-	// mk_value: m_factory->mk_num_value(num, is_int).
-	expression, err := t.factory.MkNumValue(&t.values[v], t.graph.integer[v])
+	// mk_value: m_factory->mk_num_value(num, is_int); the factory takes
+	// math/big values (a boundary).
+	value, err := smtQBig(t.linearizer.q, &t.values[v])
+	if err != nil {
+		return nil, err
+	}
+	expression, err := t.factory.MkNumValue(value, t.graph.integer[v])
 	if err != nil {
 		return nil, err
 	}
 	return NewSMTExpressionValueProcedure(expression)
+}
+
+// Close frees the graph's numerals and the model values, as ~theory_utvpi
+// does.
+func (t *SMTUTVPITheory) Close() error {
+	if t == nil || t.linearizer == nil {
+		return nil
+	}
+	q := t.linearizer.q
+	values, err := smtQDelAll(q, t.values)
+	t.values = values
+	g := t.graph.graph
+	g.release()
+	*g = SMTInfRationalDiffGraph{q: q, lastEnabledEdge: -1}
+	g.heap.graph = g
+	err = errors.Join(err, g.takeErr(nil))
+	t.linearizer.terms = t.linearizer.delTerms(t.linearizer.terms)
+	for i := range t.linearizer.coefficients {
+		err = errors.Join(err, smtQDel(q, &t.linearizer.coefficients[i]))
+	}
+	t.linearizer.coefficients = t.linearizer.coefficients[:0]
+	return err
 }
 
 func (t *SMTUTVPITheory) CollectStatistics(target *statistics.Statistics) error {

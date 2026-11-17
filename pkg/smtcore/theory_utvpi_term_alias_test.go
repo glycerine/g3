@@ -82,7 +82,7 @@ func TestSMTUTVPINumeralsAndConcreteTermAliases(t *testing.T) {
 			astTestMust(t, err)
 			for _, expression := range []ast.ASTHandle{seven, plus, minus} {
 				variable := state.context.enodes.get(expression).TheoryVar(family)
-				if variable < 0 || int(variable) >= len(values) || values[variable].Cmp(big.NewRat(7, 1)) != 0 {
+				if variable < 0 || int(variable) >= len(values) || testQCmp(&values[variable], big.NewRat(7, 1)) != 0 {
 					t.Fatal("numeral/alias model value", expression, variable, values)
 				}
 			}

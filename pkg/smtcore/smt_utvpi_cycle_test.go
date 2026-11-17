@@ -7,7 +7,7 @@ import (
 
 func TestSMTUTVPINegativeCycleShortcutsAndStrictness(t *testing.T) {
 	for _, strict := range []bool{false, true} {
-		g := newSMTUTVPIGraph()
+		g := testUTVPIGraph()
 		for i := 0; i < 3; i++ {
 			_, err := g.addVariable(false)
 			astTestMust(t, err)
@@ -15,7 +15,7 @@ func TestSMTUTVPINegativeCycleShortcutsAndStrictness(t *testing.T) {
 		if _, err := g.negativeCycleEdges(); err == nil {
 			t.Fatal("feasible graph accepted as a negative-cycle witness")
 		}
-		add := func(source, target int32, weight *smtInfRational, enable bool) int32 {
+		add := func(source, target int32, weight *smtInfIntRational, enable bool) int32 {
 			id, err := g.graph.AddEdge(source, target, weight, NewSMTLiteral(int32(len(g.graph.edges)+2), false))
 			astTestMust(t, err)
 			if enable {
@@ -59,7 +59,7 @@ func TestSMTUTVPINegativeCycleShortcutsAndStrictness(t *testing.T) {
 		if !reflect.DeepEqual(shortened, want) {
 			t.Fatal("source shortcut selection/order", shortened, "want", want)
 		}
-		var weight smtInfRational
+		var weight smtInfIntRational
 		for _, id := range shortened {
 			weight.Add(&weight, &g.graph.edges[id].weight)
 		}

@@ -4,10 +4,9 @@ package smtcore
 // src/smt/theory_diff_logic_def.h.
 
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/ast"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type smtIntegerDiffAtom struct {
@@ -36,6 +35,9 @@ type smtDiffStatistics struct {
 // is an integer numeral. Unsupported arithmetic is recorded for final check.
 type SMTIntegerDiffTheory struct {
 	*SMTTheoryBase
+	// q is the AST manager's mpq manager (rational's g_mpq_manager), set
+	// by init; the graph's numerals and the theory's rationals use it.
+	q               *numeral.RationalManager
 	graph           *SMTRationalDiffGraph
 	zero            SMTTheoryVar
 	atoms           []smtIntegerDiffAtom
@@ -78,7 +80,7 @@ func NewSMTIntegerDiffTheory(family ast.FamilyID) (*SMTIntegerDiffTheory, error)
 	}
 	theory := &SMTIntegerDiffTheory{
 		SMTTheoryBase: base,
-		graph:         NewSMTRationalDiffGraph(),
+		graph:         NewSMTRationalDiffGraph(nil),
 		zero:          SMTNullTheoryVar,
 		atomByBool:    make(map[int32]int),
 	}
@@ -119,19 +121,50 @@ func (t *SMTIntegerDiffTheory) ApplySortConstraint(*SMTEnode, ast.ASTHandle) err
 	return nil
 }
 
-func (t *SMTIntegerDiffTheory) numeral(expression ast.ASTHandle) (*big.Rat, bool, error) {
+// numeral is m_util.is_numeral(expression, out): it copies the numeral's
+// rational into out.
+func (t *SMTIntegerDiffTheory) numeral(expression ast.ASTHandle, out *numeral.Rational) (bool, error) {
 	state, err := t.State()
 	if err != nil {
-		return nil, false, err
+		return false, err
 	}
-	value, _, matched, err := state.manager.ArithmeticNumeralBigRat(expression)
+	t.bindQ(state)
+	_, matched, err := state.manager.ArithmeticNumeralRational(expression, out)
 	if err != nil || !matched {
-		if matched {
-			return nil, false, ast.ErrASTDomain
-		}
-		return nil, false, err
+		return false, err
 	}
-	return value, true, nil
+	return true, nil
+}
+
+// bindQ sets q from the AST manager: the dense and UTVPI theories use these
+// helpers without running init.
+func (t *SMTIntegerDiffTheory) bindQ(state *SMTInternalizerState) {
+	if t.q == nil {
+		if numerals := state.manager.NumeralService(); numerals != nil {
+			t.q = numerals.Manager
+		}
+	}
+}
+
+// isNumeral is m_util.is_numeral(expression).
+func (t *SMTIntegerDiffTheory) isNumeral(expression ast.ASTHandle) (bool, error) {
+	r := smtQZero()
+	ok, err := t.numeral(expression, &r)
+	if e := smtQDel(t.q, &r); err == nil {
+		err = e
+	}
+	return ok, err
+}
+
+// numeralIs is m_util.is_numeral(expression, r) && r == v for v = 1 or -1.
+func (t *SMTIntegerDiffTheory) numeralIs(expression ast.ASTHandle, v int) (bool, error) {
+	r := smtQZero()
+	ok, err := t.numeral(expression, &r)
+	ok = ok && (v == 1 && r.IsOne() || v == -1 && r.IsMinusOne())
+	if e := smtQDel(t.q, &r); err == nil {
+		err = e
+	}
+	return ok, err
 }
 
 func (t *SMTIntegerDiffTheory) operation(expression ast.ASTHandle) (int32, bool, error) {
@@ -151,62 +184,78 @@ func (t *SMTIntegerDiffTheory) operation(expression ast.ASTHandle) (int32, bool,
 	return op, err == nil, err
 }
 
-func (t *SMTIntegerDiffTheory) offset(expression ast.ASTHandle) (ast.ASTHandle, *big.Rat, bool, error) {
+// offset is is_offset(n, a, k): n = a + k with a numeral k (copied into
+// k).
+func (t *SMTIntegerDiffTheory) offset(expression ast.ASTHandle, k *numeral.Rational) (ast.ASTHandle, bool, error) {
 	state, err := t.State()
 	if err != nil {
-		return ast.ASTHandle{}, nil, false, err
+		return ast.ASTHandle{}, false, err
 	}
 	op, arithmetic, err := t.operation(expression)
 	if err != nil || !arithmetic || op != smtArithOpAdd {
-		return ast.ASTHandle{}, nil, false, err
+		return ast.ASTHandle{}, false, err
 	}
 	count, err := state.manager.GetNumArgs(expression)
 	if err != nil || count != 2 {
-		return ast.ASTHandle{}, nil, false, err
+		return ast.ASTHandle{}, false, err
 	}
 	left, err := state.manager.GetArg(expression, 0)
 	if err != nil {
-		return ast.ASTHandle{}, nil, false, err
+		return ast.ASTHandle{}, false, err
 	}
 	right, err := state.manager.GetArg(expression, 1)
 	if err != nil {
-		return ast.ASTHandle{}, nil, false, err
+		return ast.ASTHandle{}, false, err
 	}
-	if value, numeral, numeralErr := t.numeral(left); numeralErr != nil {
-		return ast.ASTHandle{}, nil, false, numeralErr
+	if numeral, numeralErr := t.numeral(left, k); numeralErr != nil {
+		return ast.ASTHandle{}, false, numeralErr
 	} else if numeral {
-		return right, value, true, nil
+		return right, true, nil
 	}
-	if value, numeral, numeralErr := t.numeral(right); numeralErr != nil {
-		return ast.ASTHandle{}, nil, false, numeralErr
+	if numeral, numeralErr := t.numeral(right, k); numeralErr != nil {
+		return ast.ASTHandle{}, false, numeralErr
 	} else if numeral {
-		return left, value, true, nil
+		return left, true, nil
 	}
-	return ast.ASTHandle{}, nil, false, nil
+	return ast.ASTHandle{}, false, nil
 }
 
-func (t *SMTIntegerDiffTheory) addBoundAxioms(source, target SMTTheoryVar, weight *big.Rat, literal SMTLiteral) error {
+func (t *SMTIntegerDiffTheory) addBoundAxioms(source, target SMTTheoryVar, weight *numeral.Rational, literal SMTLiteral) error {
 	state, err := t.State()
 	if err != nil {
 		return err
 	}
 	equal, lower, upper := SMTNullLiteral, SMTNullLiteral, SMTNullLiteral
-	var lowerWeight, upperWeight big.Rat
+	var lowerWeight, upperWeight *numeral.Rational
 	for _, edgeID := range t.graph.outEdges[source] {
 		edge := &t.graph.edges[edgeID]
 		if edge.target != int32(target) || edge.explanation == SMTNullLiteral {
 			continue
 		}
-		switch edge.weight.Cmp(weight) {
+		c, err := t.q.Compare(&edge.weight, weight)
+		if err != nil {
+			return err
+		}
+		switch c {
 		case 0:
 			equal = edge.explanation
 		case -1:
-			if lower == SMTNullLiteral || edge.weight.Cmp(&lowerWeight) > 0 {
-				lower, lowerWeight = edge.explanation, edge.weight
+			if lower != SMTNullLiteral {
+				if c, err = t.q.Compare(&edge.weight, lowerWeight); err != nil {
+					return err
+				}
+			}
+			if lower == SMTNullLiteral || c > 0 {
+				lower, lowerWeight = edge.explanation, &edge.weight
 			}
 		case 1:
-			if upper == SMTNullLiteral || edge.weight.Cmp(&upperWeight) < 0 {
-				upper, upperWeight = edge.explanation, edge.weight
+			if upper != SMTNullLiteral {
+				if c, err = t.q.Compare(&edge.weight, upperWeight); err != nil {
+					return err
+				}
+			}
+			if upper == SMTNullLiteral || c < 0 {
+				upper, upperWeight = edge.explanation, &edge.weight
 			}
 		}
 	}
@@ -232,13 +281,19 @@ func (t *SMTIntegerDiffTheory) InternalizeTerm(expression ast.ASTHandle) (bool, 
 }
 
 func (t *SMTIntegerDiffTheory) sign(expression ast.ASTHandle) (bool, bool, error) {
-	if value, numeral, err := t.numeral(expression); err != nil {
+	value := smtQZero()
+	isNumeral, err := t.numeral(expression, &value)
+	one, minusOne := value.IsOne(), value.IsMinusOne()
+	if e := smtQDel(t.q, &value); err == nil {
+		err = e
+	}
+	if err != nil {
 		return false, false, err
-	} else if numeral {
-		if value.Cmp(big.NewRat(1, 1)) == 0 {
+	} else if isNumeral {
+		if one {
 			return true, true, nil
 		}
-		if value.Cmp(big.NewRat(-1, 1)) == 0 {
+		if minusOne {
 			return false, true, nil
 		}
 	}
@@ -340,6 +395,7 @@ func (t *SMTIntegerDiffTheory) decompose(expression ast.ASTHandle) ([]ast.ASTHan
 // InternalizeAtom is theory_diff_logic<idl_ext>::internalize_atom.
 func (t *SMTIntegerDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (bool, error) {
 	atom, ok, err := t.internalizeDiffAtom(expression)
+	defer atom.del(t.q)
 	if err != nil || !ok {
 		return false, err
 	}
@@ -357,9 +413,13 @@ func (t *SMTIntegerDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool)
 	}
 	// k.neg(); k -= 1 for an Int lhs, else k -= m_epsilon, which is 1 for
 	// idl_ext.
-	negativeWeight := new(big.Rat).Neg(&atom.k)
-	negativeWeight.Sub(negativeWeight, big.NewRat(1, 1))
-	negative, err := t.graph.AddEdge(int32(target), int32(source), negativeWeight, literal.Negated())
+	if err = t.q.Neg(&atom.k); err != nil {
+		return false, err
+	}
+	if err = t.q.Sub(&atom.k, smtQIntPtr(1), &atom.k); err != nil {
+		return false, err
+	}
+	negative, err := t.graph.AddEdge(int32(target), int32(source), &atom.k, literal.Negated())
 	if err != nil {
 		return false, err
 	}
@@ -524,7 +584,7 @@ func (t *SMTIntegerDiffTheory) InternalizeEquality(expression ast.ASTHandle, var
 			if err != nil {
 				return err
 			}
-			_, isNumeral, err := t.numeral(rhs)
+			isNumeral, err := t.isNumeral(rhs)
 			if err != nil {
 				return err
 			}
@@ -571,14 +631,14 @@ func (t *SMTIntegerDiffTheory) isNegative(expression ast.ASTHandle) (bool, error
 		kind, err := state.manager.GetKind(h)
 		return kind == ast.ASTApp, err
 	}
-	if _, numeral, err := t.numeral(a1); err != nil {
+	if numeral, err := t.isNumeral(a1); err != nil {
 		return false, err
 	} else if numeral {
 		a0, a1 = a1, a0
 	}
-	if value, numeral, err := t.numeral(a0); err != nil {
+	if minusOne, err := t.numeralIs(a0, -1); err != nil {
 		return false, err
-	} else if numeral && value.Cmp(big.NewRat(-1, 1)) == 0 {
+	} else if minusOne {
 		return isApp(a1)
 	}
 	if op, arithmetic, err := t.operation(a1); err != nil {
@@ -597,7 +657,7 @@ func (t *SMTIntegerDiffTheory) isNegative(expression ast.ASTHandle) (bool, error
 	if err != nil {
 		return false, err
 	}
-	if value, numeral, err := t.numeral(a2); err != nil || !numeral || value.Cmp(big.NewRat(1, 1)) != 0 {
+	if one, err := t.numeralIs(a2, 1); err != nil || !one {
 		return false, err
 	}
 	return isApp(a1)
@@ -649,7 +709,13 @@ func (t *SMTIntegerDiffTheory) ModelValue(node *SMTEnode, generator *SMTModelGen
 		return nil, ast.ErrASTDomain
 	}
 	variable := node.TheoryVar(t.FamilyID())
-	value, err := t.graph.Assignment(int32(variable))
+	q := smtQZero()
+	defer smtQDel(t.q, &q)
+	if err := t.graph.Assignment(int32(variable), &q); err != nil {
+		return nil, err
+	}
+	// mk_numeral takes the AST's text numeral (a boundary).
+	value, err := smtQBig(t.q, &q)
 	if err != nil {
 		return nil, err
 	}

@@ -7,7 +7,84 @@ package smtcore
 // in int64 while both parts are integers that fit, otherwise in a shared,
 // never-mutated smtInfRational. Results equal smtInfRational arithmetic.
 
-import "math"
+import (
+	"math"
+	"math/big"
+)
+
+// smtInfRational is the dense matrix exact fallback value (moved from the
+// diff-logic graph, which now uses smtInfIntRational).
+// smtInfRational represents a + b*epsilon, ordered lexicographically with a
+// positive infinitesimal epsilon. Values own their big.Rat components.
+type smtInfRational struct {
+	rational, infinitesimal big.Rat
+}
+
+func newSMTInfRational(rational, infinitesimal *big.Rat) smtInfRational {
+	var result smtInfRational
+	if rational != nil {
+		result.rational.Set(rational)
+	}
+	if infinitesimal != nil {
+		result.infinitesimal.Set(infinitesimal)
+	}
+	return result
+}
+
+func (v *smtInfRational) Set(other *smtInfRational) *smtInfRational {
+	v.rational.Set(&other.rational)
+	v.infinitesimal.Set(&other.infinitesimal)
+	return v
+}
+
+func (v *smtInfRational) Add(left, right *smtInfRational) *smtInfRational {
+	smtRatAddSub(&v.rational, &left.rational, &right.rational, false)
+	smtRatAddSub(&v.infinitesimal, &left.infinitesimal, &right.infinitesimal, false)
+	return v
+}
+
+func (v *smtInfRational) Sub(left, right *smtInfRational) *smtInfRational {
+	smtRatAddSub(&v.rational, &left.rational, &right.rational, true)
+	smtRatAddSub(&v.infinitesimal, &left.infinitesimal, &right.infinitesimal, true)
+	return v
+}
+
+// smtRatAddSub is big.Rat.Add (or Sub). When the destination and both
+// operands are integral, it adds the numerators in place: the denominator
+// stays 1, and Rat's scaling, normalization and temporaries are skipped.
+func smtRatAddSub(z, x, y *big.Rat, subtract bool) {
+	if z.IsInt() && x.IsInt() && y.IsInt() {
+		if subtract {
+			z.Num().Sub(x.Num(), y.Num())
+		} else {
+			z.Num().Add(x.Num(), y.Num())
+		}
+		return
+	}
+	if subtract {
+		z.Sub(x, y)
+	} else {
+		z.Add(x, y)
+	}
+}
+
+func (v *smtInfRational) Neg(other *smtInfRational) *smtInfRational {
+	v.rational.Neg(&other.rational)
+	v.infinitesimal.Neg(&other.infinitesimal)
+	return v
+}
+
+func (v *smtInfRational) Cmp(other *smtInfRational) int {
+	if result := smtRatCmp(&v.rational, &other.rational); result != 0 {
+		return result
+	}
+	return smtRatCmp(&v.infinitesimal, &other.infinitesimal)
+}
+
+func (v *smtInfRational) Sign() int {
+	var zero smtInfRational
+	return v.Cmp(&zero)
+}
 
 type smtDenseNum struct {
 	r, e int64           // r + e*epsilon, when x is nil

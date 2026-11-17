@@ -1,88 +1,96 @@
 package smtcore
 
 // Source: src/smt/diff_logic.h concrete inf_int_rational graph fragment used
-// by real difference logic.
+// by real difference logic (rdl_ext, srdl_ext) and UTVPI (rdl_ext).
 
 import (
-	"math/big"
+	"errors"
 	"strconv"
+
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-// smtInfRational represents a + b*epsilon, ordered lexicographically with a
-// positive infinitesimal epsilon. Values own their big.Rat components.
-type smtInfRational struct {
-	rational, infinitesimal big.Rat
+// smtInfIntRational is inf_int_rational: rational + infinitesimal*epsilon,
+// ordered lexicographically with a positive infinitesimal epsilon. The
+// rational is a numeral.Rational on the graph's mpq manager (owned: free
+// it with del); the infinitesimal is inf_int_rational::m_second, a C++
+// int. z3's += and -= on m_second overflow (undefined behaviour) only after
+// 2^31 accumulated epsilon steps, which no difference-logic input reaches
+// (each strict bound contributes one step); Go's int does not wrap there.
+type smtInfIntRational struct {
+	rational      numeral.Rational
+	infinitesimal int
 }
 
-func newSMTInfRational(rational, infinitesimal *big.Rat) smtInfRational {
-	var result smtInfRational
-	if rational != nil {
-		result.rational.Set(rational)
+func newSMTInfIntRational() smtInfIntRational { return smtInfIntRational{rational: smtQZero()} }
+
+func (v *smtInfIntRational) del(q *numeral.RationalManager) error { return smtQDel(q, &v.rational) }
+
+func (v *smtInfIntRational) isZero() bool { return v.rational.IsZero() && v.infinitesimal == 0 }
+
+// sign is the sign of the lexicographically leading nonzero component.
+func (v *smtInfIntRational) sign() int {
+	if s := v.rational.Sign(); s != 0 {
+		return s
 	}
-	if infinitesimal != nil {
-		result.infinitesimal.Set(infinitesimal)
+	switch {
+	case v.infinitesimal < 0:
+		return -1
+	case v.infinitesimal > 0:
+		return 1
 	}
-	return result
+	return 0
 }
 
-func (v *smtInfRational) Set(other *smtInfRational) *smtInfRational {
-	v.rational.Set(&other.rational)
-	v.infinitesimal.Set(&other.infinitesimal)
-	return v
+func smtInfIntSet(q *numeral.RationalManager, dst, src *smtInfIntRational) error {
+	dst.infinitesimal = src.infinitesimal
+	return q.Copy(&dst.rational, &src.rational)
 }
 
-func (v *smtInfRational) Add(left, right *smtInfRational) *smtInfRational {
-	smtRatAddSub(&v.rational, &left.rational, &right.rational, false)
-	smtRatAddSub(&v.infinitesimal, &left.infinitesimal, &right.infinitesimal, false)
-	return v
+func smtInfIntAdd(q *numeral.RationalManager, a, b, out *smtInfIntRational) error {
+	out.infinitesimal = a.infinitesimal + b.infinitesimal
+	return q.Add(&a.rational, &b.rational, &out.rational)
 }
 
-func (v *smtInfRational) Sub(left, right *smtInfRational) *smtInfRational {
-	smtRatAddSub(&v.rational, &left.rational, &right.rational, true)
-	smtRatAddSub(&v.infinitesimal, &left.infinitesimal, &right.infinitesimal, true)
-	return v
+func smtInfIntSub(q *numeral.RationalManager, a, b, out *smtInfIntRational) error {
+	out.infinitesimal = a.infinitesimal - b.infinitesimal
+	return q.Sub(&a.rational, &b.rational, &out.rational)
 }
 
-// smtRatAddSub is big.Rat.Add (or Sub). When the destination and both
-// operands are integral, it adds the numerators in place: the denominator
-// stays 1, and Rat's scaling, normalization and temporaries are skipped.
-func smtRatAddSub(z, x, y *big.Rat, subtract bool) {
-	if z.IsInt() && x.IsInt() && y.IsInt() {
-		if subtract {
-			z.Num().Sub(x.Num(), y.Num())
-		} else {
-			z.Num().Add(x.Num(), y.Num())
-		}
-		return
+func smtInfIntNeg(q *numeral.RationalManager, v *smtInfIntRational) error {
+	v.infinitesimal = -v.infinitesimal
+	return q.Neg(&v.rational)
+}
+
+func smtInfIntCmp(q *numeral.RationalManager, a, b *smtInfIntRational) (int, error) {
+	c, err := q.Compare(&a.rational, &b.rational)
+	if err != nil || c != 0 {
+		return c, err
 	}
-	if subtract {
-		z.Sub(x, y)
-	} else {
-		z.Add(x, y)
+	switch {
+	case a.infinitesimal < b.infinitesimal:
+		return -1, nil
+	case a.infinitesimal > b.infinitesimal:
+		return 1, nil
 	}
+	return 0, nil
 }
 
-func (v *smtInfRational) Neg(other *smtInfRational) *smtInfRational {
-	v.rational.Neg(&other.rational)
-	v.infinitesimal.Neg(&other.infinitesimal)
-	return v
-}
-
-func (v *smtInfRational) Cmp(other *smtInfRational) int {
-	if result := smtRatCmp(&v.rational, &other.rational); result != 0 {
-		return result
+// smtInfIntText is inf_int_rational::to_string.
+func smtInfIntText(q *numeral.RationalManager, v *smtInfIntRational) (string, error) {
+	main, err := q.String(&v.rational)
+	if err != nil || v.infinitesimal == 0 {
+		return main, err
 	}
-	return smtRatCmp(&v.infinitesimal, &other.infinitesimal)
-}
-
-func (v *smtInfRational) Sign() int {
-	var zero smtInfRational
-	return v.Cmp(&zero)
+	if v.infinitesimal < 0 {
+		return "(" + main + " -e*" + strconv.Itoa(-v.infinitesimal) + ")", nil
+	}
+	return "(" + main + " +e*" + strconv.Itoa(v.infinitesimal) + ")", nil
 }
 
 type smtInfRationalDiffEdge struct {
 	source, target int32
-	weight         smtInfRational
+	weight         smtInfIntRational
 	explanation    SMTLiteral
 	timestamp      uint32
 	enabled        bool
@@ -90,7 +98,7 @@ type smtInfRationalDiffEdge struct {
 
 type smtInfRationalDiffAssignmentTrail struct {
 	variable int32
-	oldValue smtInfRational
+	oldValue smtInfIntRational
 }
 
 type smtInfRationalDiffScope struct {
@@ -98,15 +106,20 @@ type smtInfRationalDiffScope struct {
 	timestamp      uint32
 }
 
-// SMTInfRationalDiffGraph is the retained infinitesimal-rational dl_graph
-// instantiation. It contains only operations used by real difference logic.
+// SMTInfRationalDiffGraph is the retained inf_int_rational dl_graph
+// instantiation. It contains only operations used by real difference logic
+// and UTVPI. Values are graph-owned and freed where dl_graph's vectors drop
+// them; a manager failure in an operation that returns no error is kept in
+// qErr and returned by the next entry point that does.
 type SMTInfRationalDiffGraph struct {
-	assignment      []smtInfRational
+	q               *numeral.RationalManager
+	qErr            error
+	assignment      []smtInfIntRational
 	assignmentTrail []smtInfRationalDiffAssignmentTrail
 	edges           []smtInfRationalDiffEdge
 	outEdges        [][]int32
 	scopes          []smtInfRationalDiffScope
-	gamma           []smtInfRational
+	gamma           []smtInfIntRational
 	mark            []smtDiffSearchMark
 	parent          []int32
 	visited         []int32
@@ -117,10 +130,60 @@ type SMTInfRationalDiffGraph struct {
 	timestamp       uint32
 }
 
-func NewSMTInfRationalDiffGraph() *SMTInfRationalDiffGraph {
-	g := &SMTInfRationalDiffGraph{lastEnabledEdge: -1}
+func NewSMTInfRationalDiffGraph(q *numeral.RationalManager) *SMTInfRationalDiffGraph {
+	g := &SMTInfRationalDiffGraph{q: q, lastEnabledEdge: -1}
 	g.heap.graph = g
 	return g
+}
+
+func (g *SMTInfRationalDiffGraph) keep(err error) {
+	if err != nil && g.qErr == nil {
+		g.qErr = err
+	}
+}
+
+func (g *SMTInfRationalDiffGraph) takeErr(err error) error {
+	if g.qErr != nil {
+		err = errors.Join(err, g.qErr)
+		g.qErr = nil
+	}
+	return err
+}
+
+func (g *SMTInfRationalDiffGraph) cmp(a, b *smtInfIntRational) int {
+	c, err := smtInfIntCmp(g.q, a, b)
+	g.keep(err)
+	return c
+}
+func (g *SMTInfRationalDiffGraph) set(dst, src *smtInfIntRational) {
+	g.keep(smtInfIntSet(g.q, dst, src))
+}
+func (g *SMTInfRationalDiffGraph) add(a, b, out *smtInfIntRational) {
+	g.keep(smtInfIntAdd(g.q, a, b, out))
+}
+func (g *SMTInfRationalDiffGraph) sub(a, b, out *smtInfIntRational) {
+	g.keep(smtInfIntSub(g.q, a, b, out))
+}
+func (g *SMTInfRationalDiffGraph) del(v *smtInfIntRational) { g.keep(v.del(g.q)) }
+
+// reset makes v zero.
+func (g *SMTInfRationalDiffGraph) reset(v *smtInfIntRational) {
+	v.infinitesimal = 0
+	g.keep(g.q.Reset(&v.rational))
+}
+
+// release frees every value the graph owns (dl_graph's destructor).
+func (g *SMTInfRationalDiffGraph) release() {
+	for i := range g.assignment {
+		g.del(&g.assignment[i])
+		g.del(&g.gamma[i])
+	}
+	for i := range g.assignmentTrail {
+		g.del(&g.assignmentTrail[i].oldValue)
+	}
+	for i := range g.edges {
+		g.del(&g.edges[i].weight)
+	}
 }
 
 func (g *SMTInfRationalDiffGraph) validVariable(v int32) bool {
@@ -136,26 +199,28 @@ func (g *SMTInfRationalDiffGraph) InitVariable(v int32) error {
 		return errSMTDiffGraphDomain
 	}
 	for int(v) >= len(g.assignment) {
-		g.assignment = append(g.assignment, smtInfRational{})
+		g.assignment = append(g.assignment, newSMTInfIntRational())
 		g.outEdges = append(g.outEdges, nil)
-		g.gamma = append(g.gamma, smtInfRational{})
+		g.gamma = append(g.gamma, newSMTInfIntRational())
 		g.mark = append(g.mark, smtDiffUnmarked)
 		g.parent = append(g.parent, -1)
 	}
 	if len(g.outEdges[v]) != 0 || g.mark[v] != smtDiffUnmarked {
 		return errSMTDiffGraphDomain
 	}
-	g.assignment[v] = smtInfRational{}
-	return nil
+	g.reset(&g.assignment[v])
+	return g.takeErr(nil)
 }
 
-func (g *SMTInfRationalDiffGraph) AddEdge(source, target int32, weight *smtInfRational, explanation SMTLiteral) (int32, error) {
+func (g *SMTInfRationalDiffGraph) AddEdge(source, target int32, weight *smtInfIntRational, explanation SMTLiteral) (int32, error) {
 	if !g.validVariable(source) || !g.validVariable(target) || weight == nil {
 		return -1, errSMTDiffGraphDomain
 	}
 	id := int32(len(g.edges))
-	edge := smtInfRationalDiffEdge{source: source, target: target, explanation: explanation, timestamp: g.timestamp}
-	edge.weight.Set(weight)
+	edge := smtInfRationalDiffEdge{source: source, target: target, weight: newSMTInfIntRational(), explanation: explanation, timestamp: g.timestamp}
+	if err := smtInfIntSet(g.q, &edge.weight, weight); err != nil {
+		return -1, err
+	}
 	g.edges = append(g.edges, edge)
 	g.outEdges[source] = append(g.outEdges[source], id)
 	return id, nil
@@ -165,9 +230,11 @@ func (g *SMTInfRationalDiffGraph) edgeFeasible(edge *smtInfRationalDiffEdge) boo
 	if !edge.enabled {
 		return true
 	}
-	var difference smtInfRational
-	difference.Sub(&g.assignment[edge.target], &g.assignment[edge.source])
-	return difference.Cmp(&edge.weight) <= 0
+	difference := newSMTInfIntRational()
+	g.sub(&g.assignment[edge.target], &g.assignment[edge.source], &difference)
+	feasible := g.cmp(&difference, &edge.weight) <= 0
+	g.del(&difference)
+	return feasible
 }
 
 func (g *SMTInfRationalDiffGraph) IsFeasible() bool {
@@ -182,24 +249,32 @@ func (g *SMTInfRationalDiffGraph) IsFeasible() bool {
 	return true
 }
 
-func (g *SMTInfRationalDiffGraph) setGamma(edge *smtInfRationalDiffEdge, result *smtInfRational) {
-	result.Sub(&g.assignment[edge.source], &g.assignment[edge.target])
-	result.Add(result, &edge.weight)
+func (g *SMTInfRationalDiffGraph) setGamma(edge *smtInfRationalDiffEdge, result *smtInfIntRational) {
+	g.sub(&g.assignment[edge.source], &g.assignment[edge.target], result)
+	g.add(result, &edge.weight, result)
 }
 
-func (g *SMTInfRationalDiffGraph) accumulateAssignment(variable int32, increment *smtInfRational) {
-	trail := smtInfRationalDiffAssignmentTrail{variable: variable}
-	trail.oldValue.Set(&g.assignment[variable])
+func (g *SMTInfRationalDiffGraph) accumulateAssignment(variable int32, increment *smtInfIntRational) {
+	trail := smtInfRationalDiffAssignmentTrail{variable: variable, oldValue: newSMTInfIntRational()}
+	g.set(&trail.oldValue, &g.assignment[variable])
 	g.assignmentTrail = append(g.assignmentTrail, trail)
-	g.assignment[variable].Add(&g.assignment[variable], increment)
+	g.add(&g.assignment[variable], increment, &g.assignment[variable])
+}
+
+// clearAssignmentTrail is m_assignment_stack.reset().
+func (g *SMTInfRationalDiffGraph) clearAssignmentTrail() {
+	for index := range g.assignmentTrail {
+		g.del(&g.assignmentTrail[index].oldValue)
+	}
+	g.assignmentTrail = g.assignmentTrail[:0]
 }
 
 func (g *SMTInfRationalDiffGraph) undoAssignments() {
 	for index := len(g.assignmentTrail); index > 0; index-- {
 		trail := &g.assignmentTrail[index-1]
-		g.assignment[trail.variable].Set(&trail.oldValue)
+		g.set(&g.assignment[trail.variable], &trail.oldValue)
 	}
-	g.assignmentTrail = g.assignmentTrail[:0]
+	g.clearAssignmentTrail()
 }
 
 func (g *SMTInfRationalDiffGraph) resetMarks() {
@@ -212,7 +287,7 @@ func (g *SMTInfRationalDiffGraph) resetMarks() {
 func (g *SMTInfRationalDiffGraph) makeFeasible(id int32) bool {
 	edge := &g.edges[id]
 	root, target := edge.source, edge.target
-	g.gamma[root] = smtInfRational{}
+	g.reset(&g.gamma[root])
 	g.setGamma(edge, &g.gamma[target])
 	g.mark[target] = smtDiffProcessed
 	g.parent[target] = id
@@ -222,6 +297,8 @@ func (g *SMTInfRationalDiffGraph) makeFeasible(id int32) bool {
 		emitSMTTrace("arith", "make_feasible", "src/smt/diff_logic.h", 378, strconv.Itoa(int(id))+"\n")
 	}
 
+	gamma := newSMTInfIntRational()
+	defer g.del(&gamma)
 	source := target
 	for {
 		g.propagationCost++
@@ -236,22 +313,21 @@ func (g *SMTInfRationalDiffGraph) makeFeasible(id int32) bool {
 			if !candidate.enabled {
 				continue
 			}
-			var gamma smtInfRational
 			g.setGamma(candidate, &gamma)
-			if gamma.Sign() >= 0 {
+			if gamma.sign() >= 0 {
 				continue
 			}
 			next := candidate.target
 			switch g.mark[next] {
 			case smtDiffUnmarked:
-				g.gamma[next].Set(&gamma)
+				g.set(&g.gamma[next], &gamma)
 				g.mark[next] = smtDiffFound
 				g.parent[next] = edgeID
 				g.visited = append(g.visited, next)
 				g.heap.insert(next)
 			case smtDiffFound:
-				if gamma.Cmp(&g.gamma[next]) < 0 {
-					g.gamma[next].Set(&gamma)
+				if g.cmp(&gamma, &g.gamma[next]) < 0 {
+					g.set(&g.gamma[next], &gamma)
 					g.parent[next] = edgeID
 					g.heap.decreased(next)
 				}
@@ -259,7 +335,7 @@ func (g *SMTInfRationalDiffGraph) makeFeasible(id int32) bool {
 		}
 		if g.heap.empty() {
 			g.resetMarks()
-			g.assignmentTrail = g.assignmentTrail[:0]
+			g.clearAssignmentTrail()
 			return true
 		}
 		source = g.heap.eraseMin()
@@ -285,7 +361,7 @@ func (g *SMTInfRationalDiffGraph) EnableEdge(id int32) (bool, error) {
 		feasible = g.makeFeasible(id)
 	}
 	g.enabledEdges = append(g.enabledEdges, id)
-	return feasible, nil
+	return feasible, g.takeErr(nil)
 }
 
 func (g *SMTInfRationalDiffGraph) NegativeCycleEdges() ([]int32, error) {
@@ -343,32 +419,35 @@ func (g *SMTInfRationalDiffGraph) Pop(count uint32) error {
 		id := int32(len(g.edges) - 1)
 		edge := &g.edges[id]
 		g.outEdges[edge.source] = g.outEdges[edge.source][:len(g.outEdges[edge.source])-1]
+		g.del(&edge.weight)
 		g.edges = g.edges[:id]
 	}
 	g.scopes = g.scopes[:level]
-	return nil
+	return g.takeErr(nil)
 }
 
-func (g *SMTInfRationalDiffGraph) Assignment(variable int32) (*smtInfRational, error) {
-	if !g.validVariable(variable) {
-		return nil, errSMTDiffGraphDomain
+// Assignment copies the value of variable into out.
+func (g *SMTInfRationalDiffGraph) Assignment(variable int32, out *smtInfIntRational) error {
+	if !g.validVariable(variable) || out == nil {
+		return errSMTDiffGraphDomain
 	}
-	return new(smtInfRational).Set(&g.assignment[variable]), nil
+	return smtInfIntSet(g.q, out, &g.assignment[variable])
 }
 
 func (g *SMTInfRationalDiffGraph) SetToZero(variable int32) error {
 	if !g.validVariable(variable) || !g.IsFeasible() {
 		return errSMTDiffGraphDomain
 	}
-	if g.assignment[variable].Sign() == 0 {
+	if g.assignment[variable].isZero() {
 		return nil
 	}
-	var offset smtInfRational
-	offset.Set(&g.assignment[variable])
+	offset := newSMTInfIntRational()
+	g.set(&offset, &g.assignment[variable])
 	for index := range g.assignment {
-		g.assignment[index].Sub(&g.assignment[index], &offset)
+		g.sub(&g.assignment[index], &offset, &g.assignment[index])
 	}
-	return nil
+	g.del(&offset)
+	return g.takeErr(nil)
 }
 
 func (g *SMTInfRationalDiffGraph) NumNodes() int {
@@ -398,7 +477,7 @@ func (h *smtInfRationalDiffHeap) ensure(v int32) {
 	}
 }
 func (h *smtInfRationalDiffHeap) less(i, j int) bool {
-	return h.graph.gamma[h.variables[i]].Cmp(&h.graph.gamma[h.variables[j]]) < 0
+	return h.graph.cmp(&h.graph.gamma[h.variables[i]], &h.graph.gamma[h.variables[j]]) < 0
 }
 func (h *smtInfRationalDiffHeap) swap(i, j int) {
 	h.variables[i], h.variables[j] = h.variables[j], h.variables[i]
