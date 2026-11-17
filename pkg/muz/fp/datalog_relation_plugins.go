@@ -176,7 +176,11 @@ func (e *PropositionalEngine) selectCompiledRelationFavourite() (_ bool, resultE
 		return false, err
 	}
 	docFavourite := !checkEnabled && e.datalogRelationFavourite == "doc"
-	if _, enabled, err := e.datalogDefaultTableCheck(); err != nil || enabled && !checkEnabled {
+	// default_table_checked makes check tables the favourite table
+	// plugin's; a favourite relation plugin registered later by name
+	// (udoc's doc, relation_manager::register_relation_plugin_impl) or
+	// check_relation still takes the relations.
+	if _, enabled, err := e.datalogDefaultTableCheck(); err != nil || enabled && !checkEnabled && !docFavourite {
 		return false, err
 	}
 	probe, err := rel.NewUDocPlugin(e.relations)

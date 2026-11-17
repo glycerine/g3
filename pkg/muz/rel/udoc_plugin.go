@@ -414,8 +414,8 @@ func (r *UDocPluginRelation) SizeEstimateRows() (uint32, error) {
 
 // udocRelationObjectSize is sizeof(udoc_relation) in the reference build
 // (relation_base with its signature, the doc_manager reference, m_elems and
-// m_column_info).
-const udocRelationObjectSize = 88
+// m_column_info), 128 with the fork's release build (g++ -O3, x86-64).
+const udocRelationObjectSize = 128
 
 // SizeEstimateBytes is udoc_relation::get_size_estimate_bytes.
 func (r *UDocPluginRelation) SizeEstimateBytes() (uint32, error) {
@@ -1005,10 +1005,19 @@ func (p *UDocPlugin) MkFilterEqualFn(t RelationBase, value ast.ASTHandle, col in
 	if err = dm.vectors.SetBigInt(filter.positive, r, hi-1, lo); err != nil {
 		return nil, errors.Join(err, dm.Deallocate(filter))
 	}
+	// ~filter_equal_fn deallocates m_filter: the functor is destroyed with
+	// its owner (the instruction that cached it, else the relation
+	// manager), after any number of applications. A doc manager already
+	// destroyed (with the plugin) has released it.
+	p.rm.fnClosers = append(p.rm.fnClosers, func() error {
+		if err := dm.Deallocate(filter); err != nil && !errors.Is(err, arena.ErrClosed) {
+			return err
+		}
+		return nil
+	})
 	return func(tb RelationBase) error {
 		t, _ := udocGet(tb)
-		// ~filter_equal_fn deallocates m_filter.
-		return errors.Join(t.elems.IntersectDoc(filter), dm.Deallocate(filter))
+		return t.elems.IntersectDoc(filter)
 	}, nil
 }
 

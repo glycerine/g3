@@ -1,0 +1,265 @@
+(query)
+(transform N7datalog13mk_coi_filterE...19 rules 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...no-op 0s)
+(transform N7datalog25mk_separate_negated_tailsE...no-op 0s)
+(transform N7datalog15mk_filter_rulesE...21 rules 0s)
+(transform N7datalog15mk_simple_joinsE...no-op 0s)
+load e into 0
+load b into 1
+load t into 2
+load t!filter!0 into 3
+load t!filter!1 into 4
+load q into 5
+mk_unary_singleton into 6 sort:(_ BitVec 4) val:0
+join 6() and 6() into 7
+join result:
+{00000000}
+union 7 into 0
+orig:  {}
+union: {00000000}
+mk_unary_singleton into 8 sort:(_ BitVec 4) val:15
+mk_unary_singleton into 9 sort:(_ BitVec 4) val:10
+join 8() and 9() into 10
+join result:
+{10101111}
+union 10 into 0
+orig:  {00000000}
+union: {00000000, 10101111}
+mk_unary_singleton into 11 sort:(_ BitVec 4) val:12
+mk_unary_singleton into 12 sort:(_ BitVec 4) val:9
+join 11() and 12() into 13
+join result:
+{10011100}
+union 13 into 0
+orig:  {00000000, 10101111}
+union: {
+   00000000, 10101111, 10011100}
+mk_unary_singleton into 14 sort:(_ BitVec 4) val:6
+join 14() and 11() into 15
+join result:
+{11000110}
+union 15 into 0
+orig:  {
+   00000000, 10101111, 10011100}
+union: {
+   00000000, 10101111, 10011100, 11000110}
+mk_unary_singleton into 16 sort:(_ BitVec 4) val:5
+mk_unary_singleton into 17 sort:(_ BitVec 4) val:4
+join 16() and 17() into 18
+join result:
+{01000101}
+union 18 into 0
+orig:  {
+   00000000, 10101111, 10011100, 11000110}
+union: {
+   00000000, 10101111, 10011100, 11000110, 01000101}
+join 6() and 6() into 19
+join result:
+{00000000}
+union 19 into 0
+orig:  {
+   00000000, 10101111, 10011100, 11000110, 01000101}
+union: {
+   00000000, 10101111, 10011100, 11000110, 01000101}
+join 11() and 17() into 20
+join result:
+{01001100}
+union 20 into 0
+orig:  {
+   00000000, 10101111, 10011100, 11000110, 01000101}
+union: {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100}
+mk_unary_singleton into 21 sort:(_ BitVec 4) val:1
+join 21() and 11() into 22
+join result:
+{11000001}
+union 22 into 0
+orig:  {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100}
+union: {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100, 11000001}
+mk_unary_singleton into 23 sort:(_ BitVec 4) val:8
+join 23() and 17() into 24
+join result:
+{01001000}
+union 24 into 0
+orig:  {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100, 11000001}
+union: {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100, 11000001, 01001000}
+mk_unary_singleton into 25 sort:(_ BitVec 4) val:2
+mk_unary_singleton into 26 sort:(_ BitVec 4) val:14
+join 25() and 26() into 27
+join result:
+{11100010}
+union 27 into 0
+orig:  {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100, 11000001, 01001000}
+union: {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100, 11000001, 01001000, 11100010}
+join 12() and 6() into 28
+join result:
+{00001001}
+union 28 into 0
+orig:  {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100, 11000001, 01001000, 11100010}
+union: {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100, 11000001, 01001000, 11100010, 00001001}
+join 21() and 21() into 29
+join result:
+{00010001}
+union 29 into 0
+orig:  {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100, 11000001, 01001000, 11100010, 00001001}
+union: {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100, 11000001, 01001000, 11100010, 00001001, 00010001}
+mark_saturated e
+union 17 into 1
+orig:  {}
+union: {0100}
+union 23 into 1
+orig:  {0100}
+union: {0100, 1000}
+mk_unary_singleton into 30 sort:(_ BitVec 4) val:13
+union 30 into 1
+orig:  {0100, 1000}
+union: {0100, 1000, 1101}
+mark_saturated b
+union 0 into 2
+orig:  {}
+union: {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100, 11000001, 01001000, 11100010, 00001001, 00010001}
+clone 2 into 32
+while(31,32)
+    select_equal_and_project 32 into 35 col: 0 val: 6
+    union 35 into 3 with delta 33
+    dealloc 35
+    join_project 0:2-11(0) and 31(0) into 36 removing columns (0,2)
+    join 36() and 14() into 36
+    rename 36 into 36 with cycle (0,1)
+    union 36 into 2 with delta 34
+    dealloc 36
+    join_project 1:1-3(0) and 32:2-11(1) into 37 removing columns (0)
+    rename 37 into 37 with cycle (0,1)
+    union 37 into 2 with delta 34
+    dealloc 37
+    move 33 into 31
+    move 34 into 32
+looping ... 0
+select_equal_and_project 32 into 35 col: 0 val: 6
+union 35 into 3 with delta 33
+orig:  {}
+union: {1100}
+delta: {1100}
+join_project 0:2-11(0) and 31(0) into 36 removing columns (0,2)
+join 36() and 14() into 36
+join_project 1:1-3(0) and 32:2-11(1) into 37 removing columns (0)
+rename 37 into 37 with cycle (0,1)
+union 37 into 2 with delta 34
+orig:  {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100, 11000001, 01001000, 11100010, 00001001, 00010001}
+union: {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100, 11000001, 01001000, 11100010, 00001001, 00010001, 01010100, 11000100, 10000100}
+delta: {
+   01010100, 11000100, 10000100}
+move 33 into 31
+move 34 into 32
+looping ... 1
+select_equal_and_project 32 into 35 col: 0 val: 6
+join_project 0:2-11(0) and 31:1-1(0) into 36 removing columns (0,2)
+join 36() and 14() into 36
+join result:
+{01101001, 01100100}
+rename 36 into 36 with cycle (0,1)
+union 36 into 2 with delta 34
+orig:  {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100, 11000001, 01001000, 11100010, 00001001, 00010001, 01010100, 11000100, 10000100}
+union: {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100, 11000001, 01001000, 11100010, 00001001, 00010001, 01010100, 11000100, 10000100, 10010110, 01000110}
+delta: {10010110, 01000110}
+join_project 1:1-3(0) and 32:2-3(1) into 37 removing columns (0)
+rename 37 into 37 with cycle (0,1)
+union 37 into 2 with delta 34
+orig:  {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100, 11000001, 01001000, 11100010, 00001001, 00010001, 01010100, 11000100, 10000100, 10010110, 01000110}
+union: {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100, 11000001, 01001000, 11100010, 00001001, 00010001, 01010100, 11000100, 10000100, 10010110, 01000110}
+delta: {10010110, 01000110}
+move 34 into 32
+looping ... 2
+select_equal_and_project 32 into 35 col: 0 val: 6
+union 35 into 3 with delta 33
+orig:  {1100}
+union: {1100, 1001, 0100}
+delta: {1001, 0100}
+join_project 0:2-11(0) and 31(0) into 36 removing columns (0,2)
+join 36() and 14() into 36
+join_project 1:1-3(0) and 32:2-2(1) into 37 removing columns (0)
+rename 37 into 37 with cycle (0,1)
+union 37 into 2 with delta 34
+orig:  {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100, 11000001, 01001000, 11100010, 00001001, 00010001, 01010100, 11000100, 10000100, 10010110, 01000110}
+union: {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100, 11000001, 01001000, 11100010, 00001001, 00010001, 01010100, 11000100, 10000100, 10010110, 01000110, 01100100}
+delta: {01100100}
+move 33 into 31
+move 34 into 32
+looping ... 3
+select_equal_and_project 32 into 35 col: 0 val: 6
+join_project 0:2-11(0) and 31:1-2(0) into 36 removing columns (0,2)
+join 36() and 14() into 36
+join result:
+{01100000}
+rename 36 into 36 with cycle (0,1)
+union 36 into 2 with delta 34
+orig:  {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100, 11000001, 01001000, 11100010, 00001001, 00010001, 01010100, 11000100, 10000100, 10010110, 01000110, 01100100}
+union: {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100, 11000001, 01001000, 11100010, 00001001, 00010001, 01010100, 11000100, 10000100, 10010110, 01000110, 01100100, 00000110}
+delta: {00000110}
+join_project 1:1-3(0) and 32:2-1(1) into 37 removing columns (0)
+move 34 into 32
+looping ... 4
+select_equal_and_project 32 into 35 col: 0 val: 6
+union 35 into 3 with delta 33
+orig:  {1100, 1001, 0100}
+union: {1100, 1001, 0100, 0000}
+delta: {0000}
+join_project 0:2-11(0) and 31(0) into 36 removing columns (0,2)
+join 36() and 14() into 36
+join_project 1:1-3(0) and 32:2-1(1) into 37 removing columns (0)
+move 33 into 31
+looping ... 5
+join_project 0:2-11(0) and 31:1-1(0) into 36 removing columns (0,2)
+join 36() and 14() into 36
+join result:
+{01100000}
+rename 36 into 36 with cycle (0,1)
+union 36 into 2 with delta 34
+orig:  {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100, 11000001, 01001000, 11100010, 00001001, 00010001, 01010100, 11000100, 10000100, 10010110, 01000110, 01100100, 00000110}
+union: {
+   00000000, 10101111, 10011100, 11000110, 01000101, 01001100, 11000001, 01001000, 11100010, 00001001, 00010001, 01010100, 11000100, 10000100, 10010110, 01000110, 01100100, 00000110}
+delta: {}
+join_project 1:1-3(0) and 32(1) into 37 removing columns (0)
+mark_saturated t!filter!0
+mark_saturated t
+select_equal_and_project 2 into 38 col: 0 val: 6
+select_equal_and_project 38 into 38 col: 0 val: 0
+union 38 into 4
+orig:  []
+union: []
+mark_saturated t!filter!1
+union 4 into 5
+orig:  []
+union: []
+mark_saturated q
+store 2 into t
+store 0 into e
+store 3 into t!filter!0
+store 4 into t!filter!1
+store 5 into q
+store 1 into b
+bytes 2964
+bytes	rows	annotation

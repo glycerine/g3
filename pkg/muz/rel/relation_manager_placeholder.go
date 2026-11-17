@@ -219,6 +219,12 @@ func releaseUnallocated(x interface{ Close() error }) error {
 			return nil
 		}
 		return releaseUnallocated(t.table)
+	case *CheckRelation:
+		if t == nil || t.closed {
+			return nil
+		}
+		t.closed = true
+		return errors.Join(releaseUnallocated(t.relation), t.plugin.m.DelRef(&t.fml))
 	}
 	return x.Close()
 }

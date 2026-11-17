@@ -6,9 +6,9 @@ package fp
 // coordinates (rel_context::query reads get_relation(rules.get_pred(q))), so
 // publish records it from the derived relation. Go stores ground rules as
 // table rows, so install imports them into the derived tables (the C++
-// transforms those rules); the completed Boolean results are also
-// materialized back into the original tables before the query scope releases
-// the transformed predicates.
+// transforms those rules). The query's emptiness and answer are read from
+// the derived relations before the query scope releases them; the original
+// relations keep their own tuples, as in the source.
 
 import (
 	"errors"
@@ -178,6 +178,26 @@ func (q *datalogBitBlastQuery) publish() (resultErr error) {
 		if derived == nil || derived.table == nil {
 			return ErrPropositionalEngine
 		}
+		// rel_context::query: rel = get_relation(rules.get_pred(q)),
+		// rel.empty() and is_precise(), then rel.to_formula.
+		empty, precise := false, true
+		if relation, ok := rel.AsRelation(derived.table); ok {
+			var err error
+			if empty, err = relation.Empty(); err != nil {
+				return err
+			}
+			precise = relation.IsPrecise()
+		} else {
+			count, err := derived.table.Len()
+			if err != nil {
+				return err
+			}
+			empty = count == 0
+		}
+		if e.bitBlastEmpty == nil {
+			e.bitBlastEmpty = make(map[ast.ASTHandle][2]bool)
+		}
+		e.bitBlastEmpty[columns.original] = [2]bool{empty, precise}
 		answer, err := e.finiteRelationAnswer(derived)
 		if err != nil {
 			return err
@@ -190,40 +210,6 @@ func (q *datalogBitBlastQuery) publish() (resultErr error) {
 		}
 		e.bitBlastAnswers[columns.original] = answer
 		if err != nil {
-			return err
-		}
-	}
-	for index, columns := range q.columns {
-		original, derived := e.predicates[columns.original], e.predicates[columns.derived]
-		if original == nil || original.table == nil || derived == nil || derived.table == nil {
-			return ErrPropositionalEngine
-		}
-		table, err := e.cloneFiniteForContext(original.table)
-		if err != nil {
-			return err
-		}
-		tables[index] = table
-		if err = table.Reset(); err != nil {
-			return err
-		}
-		facts, err := derived.table.Facts()
-		if err != nil {
-			return err
-		}
-		for _, fact := range facts {
-			decoded, err := decodeDatalogBitBlastFact(columns.widths, fact)
-			if err != nil {
-				return err
-			}
-			if _, err = table.Add(decoded); err != nil {
-				return err
-			}
-		}
-	}
-	for index, columns := range q.columns {
-		table := tables[index]
-		tables[index] = nil // installDatalogTable consumes on success and failure.
-		if err := e.installDatalogTable(columns.original, table); err != nil {
 			return err
 		}
 	}
@@ -240,5 +226,6 @@ func (e *PropositionalEngine) releaseBitBlastAnswers() error {
 		}
 		delete(e.bitBlastAnswers, declaration)
 	}
+	e.bitBlastEmpty = nil
 	return err
 }

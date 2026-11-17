@@ -286,8 +286,11 @@ func TestDatalogBitBlastFiniteQueriesPreserveOriginalDomain(t *testing.T) {
 				rows, err := e.predicates[q].table.Facts()
 				must(err)
 				checkKind(e.predicates[q])
-				if len(rows) != 1+attempt {
-					t.Fatal("original-domain rows", rows)
+				// A bit-blasted query reads the derived relation
+				// (get_pred(q)); the original relation keeps its own (no)
+				// tuples.
+				if want := 1 + attempt; tc.enabled && len(rows) != 0 || !tc.enabled && len(rows) != want {
+					t.Fatal("original-domain rows", rows, tc.enabled)
 				}
 				answer, err := e.Answer(q)
 				must(err)

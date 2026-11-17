@@ -1,0 +1,203 @@
+(query)
+(transform N7datalog13mk_coi_filterE...14 rules 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...12 rules 0s)
+(transform N7datalog25mk_separate_negated_tailsE...no-op 0s)
+(transform N7datalog24mk_similarity_compressorE...no-op 0s)
+(transform N7datalog15mk_filter_rulesE...13 rules 0s)
+(transform N7datalog15mk_simple_joinsE...no-op 0s)
+(transform N7datalog21mk_unbound_compressorE...no-op 0s)
+load e into 0
+load b into 1
+load t into 2
+load a into 3
+load a!filter!0 into 4
+load q into 5
+mk_unary_singleton into 6 sort:(_ BitVec 3) val:6
+mk_unary_singleton into 7 sort:(_ BitVec 3) val:5
+join 6() and 7() into 8
+join_project...0s
+union 8 into 0
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+mk_unary_singleton into 9 sort:(_ BitVec 3) val:2
+mk_unary_singleton into 10 sort:(_ BitVec 3) val:1
+join 9() and 10() into 11
+join_project...0s
+union 11 into 0
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+mk_unary_singleton into 12 sort:(_ BitVec 3) val:0
+join 9() and 12() into 13
+join_project...0s
+union 13 into 0
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+mk_unary_singleton into 14 sort:(_ BitVec 3) val:3
+mk_unary_singleton into 15 sort:(_ BitVec 3) val:7
+join 14() and 15() into 16
+join_project...0s
+union 16 into 0
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+mk_unary_singleton into 17 sort:(_ BitVec 3) val:4
+join 17() and 17() into 18
+join_project...0s
+union 18 into 0
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+join 15() and 9() into 19
+join_project...0s
+union 19 into 0
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+mark_saturated e
+union 0 into 2
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+clone 2 into 20
+while(20)
+    join_project 0:2-6(0) and 20:2-6(1) into 22 removing columns (0,3)
+    rename 22 into 22 with cycle (0,1)
+    union 22 into 2 with delta 21
+    dealloc 22
+    move 21 into 20
+looping ... 0
+join_project 0:2-6(0) and 20:2-6(1) into 22 removing columns (0,3)
+join_project...get_key_indexer...0s
+0s
+rename 22 into 22 with cycle (0,1)
+rename...0s
+recycle...Recycle: 204
+0s
+union 22 into 2 with delta 21
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+move 21 into 20
+recycle...Recycle: 210
+0s
+looping ... 1
+join_project 0:2-6(0) and 20:2-3(1) into 22 removing columns (0,3)
+join_project...get_key_indexer...0s
+0s
+rename 22 into 22 with cycle (0,1)
+rename...0s
+recycle...Recycle: 210
+0s
+union 22 into 2 with delta 21
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+move 21 into 20
+recycle...Recycle: 204
+0s
+looping ... 2
+join_project 0:2-6(0) and 20:2-2(1) into 22 removing columns (0,3)
+join_project...get_key_indexer...0s
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 210
+0s
+mark_saturated t
+union 12 into 1
+union...add_fact...0s
+0s
+mark_saturated b
+join_project 0:2-6(0) and 1:1-1(0) into 25 removing columns (0)
+join_project...get_key_indexer...0s
+0s
+recycle...Recycle: 210
+0s
+join 25() and 6() into 25
+filter_by_negation on 25(1,2) with 2(0,1) as the negated table
+while(23)
+    join_project 23(0) and 3(1) into 26 removing columns (0,3)
+    rename 26 into 26 with cycle (0,1)
+    union 26 into 3 with delta 24
+    dealloc 26
+    join_project 3(0) and 23(1) into 27 removing columns (0,3)
+    rename 27 into 27 with cycle (0,1)
+    union 27 into 3 with delta 24
+    dealloc 27
+    move 24 into 23
+mark_saturated a
+mark_saturated a!filter!0
+join 4() and 7() into 29
+filter_by_negation on 29(0) with 1(0) as the negated table
+mark_saturated q
+store 2 into t
+recycle...Recycle: 200
+0s
+store 0 into e
+recycle...Recycle: 200
+0s
+store 5 into q
+store 3 into a
+recycle...Recycle: 200
+0s
+store 4 into a!filter!0
+store 1 into b
+recycle...Recycle: 200
+0s
+bytes 1632
+bytes	rows	annotation
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 347
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 204
+0s

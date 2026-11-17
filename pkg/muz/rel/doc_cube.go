@@ -387,11 +387,17 @@ func (m *DocManager) Fill0(document *Doc) error { return m.Fill(document, TBit0)
 func (m *DocManager) Fill1(document *Doc) error { return m.Fill(document, TBit1) }
 func (m *DocManager) FillX(document *Doc) error { return m.Fill(document, TBitX) }
 
+// docObjectSize is sizeof(doc) in the reference build (the positive tbv_ref
+// and the negative union_bvec), 88 with the fork's release build.
+const docObjectSize = 88
+
+// SizeEstimateBytes is doc_manager::get_size_estimate_bytes: pos's bytes,
+// neg's (a pointer and the bytes per tbv), sizeof(doc).
 func (m *DocManager) SizeEstimateBytes(document *Doc) (uint32, error) {
 	if err := m.check(document); err != nil {
 		return 0, err
 	}
-	size := uint64(document.headerSize) + uint64(m.vectors.SizeEstimateBytes())*uint64(1+len(document.negative.values)) + uint64(reflect.TypeOf((*TBV)(nil)).Size())*uint64(len(document.negative.values))
+	size := docObjectSize + uint64(m.vectors.SizeEstimateBytes())*uint64(1+len(document.negative.values)) + uint64(reflect.TypeOf((*TBV)(nil)).Size())*uint64(len(document.negative.values))
 	if size > uint64(^uint32(0)) {
 		return 0, arena.ErrBounds
 	}

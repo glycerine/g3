@@ -321,6 +321,9 @@ type PropositionalEngine struct {
 	// latest query's answer over the derived Boolean relation
 	// (rules.get_pred(q) after mk_bit_blast).
 	bitBlastAnswers map[ast.ASTHandle]ast.ASTRef
+	// bitBlastEmpty is the derived relation's empty() and is_precise() of
+	// each bit-blasted original predicate, read with its answer.
+	bitBlastEmpty map[ast.ASTHandle][2]bool
 
 	// datalogTimedOut is rel_context::saturate's TIMEOUT status for the
 	// latest finite query.
@@ -2975,6 +2978,16 @@ func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHand
 		e.datalogLastResultDecl = ast.ASTHandle{}
 	}
 	for _, declaration := range declarations {
+		if state, found := e.bitBlastEmpty[declaration]; found {
+			// get_relation(rules.get_pred(q)): the derived relation's.
+			if e.relationQueryEmpty == nil {
+				e.relationQueryEmpty = make(map[ast.ASTHandle]bool)
+			}
+			e.relationQueryEmpty[declaration] = state[0]
+			someNonEmpty = someNonEmpty || !state[0]
+			approx = approx || !state[1]
+			continue
+		}
 		table := e.predicates[declaration].table
 		if relation, ok := rel.AsRelation(table); ok {
 			if e.datalogExpressionQuery {

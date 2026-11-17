@@ -74,6 +74,7 @@ func (s *datalogUnboundScope) Close() error {
 // context::compress_unbound (xform.compress_unbound), the plugin's own gate.
 func (e *PropositionalEngine) datalogUnboundCompression() (enabled, compress bool, resultErr error) {
 	enabled, compress = true, true
+	defaultDoc := false
 	if e.params != nil && e.globals != nil {
 		view, err := e.fixedpointParamView()
 		if err != nil {
@@ -91,7 +92,8 @@ func (e *PropositionalEngine) datalogUnboundCompression() (enabled, compress boo
 			if err == nil && relation.Value != 0 {
 				name, _, cause := e.manager.Symbols.BareString(relation)
 				err = cause
-				enabled = name != "doc"
+				defaultDoc = name == "doc"
+				enabled = !defaultDoc
 			}
 		}
 		err = errors.Join(err, view.Close())
@@ -99,14 +101,20 @@ func (e *PropositionalEngine) datalogUnboundCompression() (enabled, compress boo
 			return false, false, err
 		}
 	}
-	if !enabled {
-		return false, compress, nil
-	}
 	checkRelation, checking, err := e.datalogCheckRelationName()
 	if err != nil {
 		return false, false, err
 	}
-	if checking && checkRelation == "doc" {
+	if checking {
+		// rel_context::updt_params made check_relation the default
+		// relation, so setup_default_relation's doc test does not apply;
+		// a doc check_relation clears the compressor there.
+		enabled = enabled || defaultDoc
+		if checkRelation == "doc" {
+			return false, compress, nil
+		}
+	}
+	if !enabled {
 		return false, compress, nil
 	}
 	return true, compress, nil

@@ -1,0 +1,67 @@
+(query)
+(transform N7datalog13mk_coi_filterE...6 rules 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...no-op 0s)
+(transform N7datalog25mk_separate_negated_tailsE...no-op 0s)
+(transform N7datalog24mk_similarity_compressorE...no-op 0s)
+(transform N7datalog15mk_filter_rulesE...7 rules 0s)
+(transform N7datalog15mk_simple_joinsE...no-op 0s)
+load e into 0
+load t into 1
+load t!filter!0 into 2
+load q into 3
+mk_unary_singleton into 4 sort:(_ BitVec 2) val:1
+mk_unary_singleton into 5 sort:(_ BitVec 2) val:3
+join 4() and 5() into 6
+join result:
+{1101}
+union 6 into 0
+orig:  {}
+union: {1101}
+join 5() and 5() into 7
+join result:
+{1111}
+union 7 into 0
+orig:  {1101}
+union: {1101, 1111}
+mk_unary_singleton into 8 sort:(_ BitVec 2) val:2
+mk_unary_singleton into 9 sort:(_ BitVec 2) val:0
+join 8() and 9() into 10
+join result:
+{0010}
+union 10 into 0
+orig:  {1101, 1111}
+union: {1101, 1111, 0010}
+mark_saturated e
+union 0 into 1
+orig:  {}
+union: {1101, 1111, 0010}
+clone 1 into 11
+while(11)
+    union 0 into 1 with delta 12
+    join_project 1:2-3(0) and 1:2-3(1) into 13 removing columns (0,3)
+    rename 13 into 13 with cycle (0,1)
+    union 13 into 1 with delta 12
+    dealloc 13
+    move 12 into 11
+looping ... 0
+union 0 into 1 with delta 12
+orig:  {1101, 1111, 0010}
+union: {1101, 1111, 0010}
+delta: {}
+join_project 1:2-3(0) and 1:2-3(1) into 13 removing columns (0,3)
+rename 13 into 13 with cycle (0,1)
+union 13 into 1 with delta 12
+orig:  {1101, 1111, 0010}
+union: {1101, 1111, 0010}
+delta: {}
+mark_saturated t
+select_equal_and_project 1 into 14 col: 0 val: 0
+mark_saturated t!filter!0
+mark_saturated q
+store 2 into t!filter!0
+store 0 into e
+store 3 into q
+store 1 into t
+bytes 912
+bytes	rows	annotation
