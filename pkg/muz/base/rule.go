@@ -806,19 +806,14 @@ func (r *Rule) Close() error {
 	return nil
 }
 
-func (m *RuleManager) Close() error {
+// ReleasePredicates releases the registered predicates, which stand for
+// datalog::context's m_pinned: ~context destroys it after m_bind_variables
+// and before m_rule_properties and m_rule_manager (declared earlier).
+// Close releases what is still held.
+func (m *RuleManager) ReleasePredicates() error {
 	if m == nil || m.manager == nil {
 		return ErrRuleOwner
 	}
-	if m.closed {
-		return nil
-	}
-	if _, err := m.manager.ProofMode(); err != nil {
-		return err
-	}
-	m.cleanupPending = true
-	// The predicates stand for datalog::context's m_pinned, which is
-	// released before m_rule_manager (declared earlier) is destroyed.
 	for _, declaration := range m.predicateOrder {
 		reference, held := m.predicates[declaration]
 		if !held {
@@ -834,6 +829,23 @@ func (m *RuleManager) Close() error {
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (m *RuleManager) Close() error {
+	if m == nil || m.manager == nil {
+		return ErrRuleOwner
+	}
+	if m.closed {
+		return nil
+	}
+	if _, err := m.manager.ProofMode(); err != nil {
+		return err
+	}
+	m.cleanupPending = true
+	if err := m.ReleasePredicates(); err != nil {
+		return err
 	}
 	// ~rule_manager destroys m_rwr, then m_hnf, then m_head, then m_body.
 	if m.labels != nil {

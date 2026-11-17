@@ -3726,7 +3726,7 @@ func (e *PropositionalEngine) Close() (result error) {
 		e.ddnf = ddnfEngineState{}
 	}
 	// ~context destroys its members in reverse declaration order:
-	// m_rule_set, m_bind_variables, m_rule_properties, m_rule_manager (whose
+	// m_rule_set, m_bind_variables, m_pinned, m_rule_properties, m_rule_manager (whose
 	// m_qe precedes its rule temporaries), and finally m_rewriter.
 	if e.set != nil {
 		result = errors.Join(result, e.set.Close())
@@ -3737,6 +3737,13 @@ func (e *PropositionalEngine) Close() (result error) {
 			return errors.Join(result, err)
 		}
 		e.binder = nil
+	}
+	// m_pinned (the registered predicates) follows m_bind_variables; a
+	// shared rule manager's last owner releases them.
+	if e.rules != nil && e.rulesShare.owners <= 1 {
+		if err := e.rules.ReleasePredicates(); err != nil {
+			return errors.Join(result, err)
+		}
 	}
 	if e.ruleProperties != nil {
 		if err := e.ruleProperties.Close(); err != nil {
