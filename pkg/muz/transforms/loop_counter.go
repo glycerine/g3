@@ -32,6 +32,25 @@ func (p *LoopCounterPlugin) addArgument(source, destination *base.RuleSet, appli
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	// add_arg: args (with the counter m.mk_var(idx, a.mk_int())) exist
+	// before the fresh predicate is declared.
+	arguments, err := p.manager.AppArgumentView(application)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	values := make([]ast.ASTHandle, 0, arguments.Count()+1)
+	for i := uint32(0); i < arguments.Count(); i++ {
+		argument, getErr := arguments.At(i)
+		if getErr != nil {
+			return ast.ASTHandle{}, getErr
+		}
+		values = append(values, argument)
+	}
+	counter, err := p.manager.MkVar(index, integerSort)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	values = append(values, counter)
 	fresh := p.oldToNew[old]
 	if fresh.IsNull() {
 		arity, getErr := p.manager.GetArity(old)
@@ -66,23 +85,6 @@ func (p *LoopCounterPlugin) addArgument(source, destination *base.RuleSet, appli
 		}
 		p.oldToNew[old], p.newToOld[fresh] = fresh, old
 	}
-	arguments, err := p.manager.AppArgumentView(application)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	values := make([]ast.ASTHandle, 0, arguments.Count()+1)
-	for i := uint32(0); i < arguments.Count(); i++ {
-		argument, getErr := arguments.At(i)
-		if getErr != nil {
-			return ast.ASTHandle{}, getErr
-		}
-		values = append(values, argument)
-	}
-	counter, err := p.manager.MkVar(index, integerSort)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	values = append(values, counter)
 	return p.manager.MkApp(fresh, values)
 }
 

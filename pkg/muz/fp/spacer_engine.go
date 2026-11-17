@@ -361,7 +361,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 		}
 	}
 	if karr {
-		karrTransformer = transforms.NewKarrInvariantsPlugin(e.manager, e.rules, 36010)
+		karrTransformer = transforms.NewKarrInvariantsPlugin(e.manager, e.rules, e.newKarrInnerContext(), 36010)
 		if err = transformer.Register(karrTransformer); err != nil {
 			return nil, errors.Join(err, karrTransformer.Close(), transformer.Close())
 		}

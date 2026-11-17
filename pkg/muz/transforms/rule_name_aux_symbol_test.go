@@ -148,7 +148,7 @@ func TestAuxiliaryTransformRuleNameSymbols(t *testing.T) {
 						}
 					case "karr":
 						predicate := auxiliaryNamedKarrProgram(t, f, name)
-						plugin := transforms.NewKarrInvariantsPlugin(m, f.rules, 1)
+						plugin := transforms.NewKarrInvariantsPlugin(m, f.rules, karrCheckRulesContext{f.rules}, 1)
 						t.Cleanup(func() { coneMust(t, plugin.Close()) })
 						_ = predicate
 						// The inner datalog context's check_rules rejects the

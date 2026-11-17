@@ -78,12 +78,36 @@ func TestKarrInvariantsAnnotatesAffineRecurrence(t *testing.T) {
 	// get_invariants queries an inner datalog context, whose check_rules
 	// rejects the loop counter's Int column before any Karr analysis.
 	transformer := base.NewRuleTransformer()
-	plugin := transforms.NewKarrInvariantsPlugin(manager, rules, 36010)
+	plugin := transforms.NewKarrInvariantsPlugin(manager, rules, karrCheckRulesContext{rules}, 36010)
 	coneMust(t, transformer.Register(plugin))
 	t.Cleanup(func() { coneMust(t, transformer.Close()) })
 	_, err = transformer.Apply(set)
 	requireKarrInfiniteSort(t, err, "Rule contains infinite sorts in rule base:\nkarr-affine-p(0,2,0).\n")
 }
+
+// karrCheckRulesContext stands in for package fp's inner datalog context:
+// its rel_query runs context::check_rules for DATALOG_ENGINE on the rules.
+type karrCheckRulesContext struct{ rules *base.RuleManager }
+
+func (c karrCheckRulesContext) Query(source *base.RuleSet, heads []ast.ASTHandle) (resultErr error) {
+	properties, err := base.NewRuleProperties(c.rules)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, properties.Close()) }()
+	if err = properties.Collect(source); err != nil {
+		return err
+	}
+	for _, check := range []func() error{properties.CheckQuantifierFree, properties.CheckUninterpretedFree, properties.CheckNestedFree, properties.CheckInfiniteSorts} {
+		if err = check(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (karrCheckRulesContext) Formula(ast.ASTHandle) (ast.ASTRef, error) { return ast.ASTRef{}, nil }
+func (karrCheckRulesContext) Close() error                              { return nil }
 
 func requireKarrInfiniteSort(t *testing.T, err error, message string) {
 	t.Helper()
@@ -112,7 +136,7 @@ func TestKarrInvariantsStopsAfterCanceledForwardAnalysis(t *testing.T) {
 	if !valid {
 		t.Fatal("Karr cancellation fixture is unstratified")
 	}
-	plugin := transforms.NewKarrInvariantsPlugin(manager, rules, 36010)
+	plugin := transforms.NewKarrInvariantsPlugin(manager, rules, karrCheckRulesContext{rules}, 36010)
 	t.Cleanup(func() { coneMust(t, plugin.Close()) })
 	manager.Limit.Cancel()
 	// mk_loop_counter starts the counter at get_max_rule_var(r)+1 = var(1)
@@ -134,7 +158,7 @@ func TestKarrInvariantsSkipsNegatedPrograms(t *testing.T) {
 	coneMust(t, set.Add(rule))
 	coneMust(t, rule.Close())
 	coneMust(t, set.SetOutputPredicate(declaration))
-	plugin := transforms.NewKarrInvariantsPlugin(manager, rules, 36010)
+	plugin := transforms.NewKarrInvariantsPlugin(manager, rules, karrCheckRulesContext{rules}, 36010)
 	result, err := plugin.Transform(set)
 	coneMust(t, err)
 	t.Cleanup(func() { coneMust(t, plugin.Close()) })
