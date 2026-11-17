@@ -318,6 +318,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_explanations_doc_union);
     TST(z3_4_7_1_transformer_throw_leak);
     TST(z3_4_7_1_tbv_wide_uint64);
+    TST(z3_4_7_1_gcd_int_max_cell);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);
