@@ -20,7 +20,7 @@ type smtCongruenceKey struct {
 type smtCongruenceBucket struct {
 	id          uint32
 	declaration ast.ASTHandle
-	small       map[[2]*SMTEnode]*SMTEnode // arity one and two, without a string key
+	small       smtCgSmallTable // arity one and two, without a string key
 	wide        map[smtCongruenceKey][]*SMTEnode
 	// flatAssociative is mk_table_for's choice of the positional n-ary
 	// table, not comm_table, for a flat-associative binary declaration.
@@ -68,14 +68,14 @@ func (b *smtCongruenceBucket) find(node *SMTEnode) (*SMTEnode, bool, error) {
 		return nil, false, nil
 	}
 	key := smtCongruenceSmallKey(node)
-	if candidate := b.small[key]; candidate != nil {
+	if candidate := b.small.get(key[0], key[1]); candidate != nil {
 		congruent, commuted, err := SMTEnodesCongruent(candidate, node)
 		if err != nil || congruent {
 			return candidate, commuted, err
 		}
 	}
 	if node.commutative && !b.flatAssociative && len(node.arguments) == 2 && key[0] != key[1] {
-		if candidate := b.small[[2]*SMTEnode{key[1], key[0]}]; candidate != nil {
+		if candidate := b.small.get(key[1], key[0]); candidate != nil {
 			congruent, commuted, err := SMTEnodesCongruent(candidate, node)
 			if err != nil || congruent {
 				return candidate, commuted, err
@@ -87,7 +87,8 @@ func (b *smtCongruenceBucket) find(node *SMTEnode) (*SMTEnode, bool, error) {
 
 func (b *smtCongruenceBucket) store(node *SMTEnode) {
 	if len(node.arguments) <= 2 {
-		b.small[smtCongruenceSmallKey(node)] = node
+		key := smtCongruenceSmallKey(node)
+		b.small.set(key[0], key[1], node)
 		return
 	}
 	key := smtCongruenceSignature(node)
@@ -97,7 +98,8 @@ func (b *smtCongruenceBucket) store(node *SMTEnode) {
 // remove deletes the stored node itself, under its own current signature.
 func (b *smtCongruenceBucket) remove(node *SMTEnode) {
 	if len(node.arguments) <= 2 {
-		delete(b.small, smtCongruenceSmallKey(node))
+		key := smtCongruenceSmallKey(node)
+		b.small.del(key[0], key[1])
 		return
 	}
 	key := smtCongruenceSignature(node)
@@ -197,7 +199,7 @@ func (t *SMTCongruenceTable) ensureTable(node *SMTEnode) (*smtCongruenceBucket, 
 	}
 	bucket := &smtCongruenceBucket{
 		id: node.functionDeclID, declaration: node.declaration,
-		small: make(map[[2]*SMTEnode]*SMTEnode), wide: make(map[smtCongruenceKey][]*SMTEnode),
+		wide:            make(map[smtCongruenceKey][]*SMTEnode),
 		flatAssociative: flags.FlatAssociative,
 	}
 	t.buckets = append(t.buckets, bucket)
@@ -258,9 +260,9 @@ func (t *SMTCongruenceTable) Erase(node *SMTEnode) (bool, error) {
 // current signature.
 func (t *SMTCongruenceTable) forEachEntry(visit func(node *SMTEnode, current bool)) {
 	for _, bucket := range t.buckets {
-		for key, node := range bucket.small {
-			visit(node, key == smtCongruenceSmallKey(node))
-		}
+		bucket.small.forEach(func(k0, k1, node *SMTEnode) {
+			visit(node, [2]*SMTEnode{k0, k1} == smtCongruenceSmallKey(node))
+		})
 		for key, chain := range bucket.wide {
 			for _, node := range chain {
 				visit(node, key == smtCongruenceSignature(node))

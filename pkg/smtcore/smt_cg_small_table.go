@@ -1,0 +1,125 @@
+package smtcore
+
+// smtCgSmallTable is the arity one and two congruence table of one
+// declaration: an open-addressing hash table from a pair of class roots to
+// the stored enode, with the semantics of map[[2]*SMTEnode]*SMTEnode (keys
+// are captured at insertion and compared by pointer). It replaces the Go
+// map, whose generic hashing dominated congruence-table operations; the
+// source chashtable is likewise a custom open table. Hashes use the root
+// owners' AST slots, unique among live ASTs, so the table never depends on
+// pointer addresses.
+type smtCgSmallTable struct {
+	entries []smtCgSmallEntry // len is zero or a power of two; node == nil is empty
+	count   int
+	shift   uint8 // 64 - log2(len(entries))
+}
+
+type smtCgSmallEntry struct {
+	k0, k1, node *SMTEnode
+}
+
+func smtCgSmallSlot(k0, k1 *SMTEnode, shift uint8) int {
+	x := uint64(k0.owner.Slot()) << 32
+	if k1 != nil {
+		x |= uint64(k1.owner.Slot())
+	}
+	x ^= x >> 29
+	return int((x * 0x9E3779B97F4A7C15) >> shift)
+}
+
+func (t *smtCgSmallTable) get(k0, k1 *SMTEnode) *SMTEnode {
+	if t.count == 0 {
+		return nil
+	}
+	mask := len(t.entries) - 1
+	for i := smtCgSmallSlot(k0, k1, t.shift); ; i = (i + 1) & mask {
+		e := &t.entries[i]
+		if e.node == nil {
+			return nil
+		}
+		if e.k0 == k0 && e.k1 == k1 {
+			return e.node
+		}
+	}
+}
+
+// set is m[key] = node.
+func (t *smtCgSmallTable) set(k0, k1, node *SMTEnode) {
+	if 2*(t.count+1) > len(t.entries) {
+		t.grow()
+	}
+	mask := len(t.entries) - 1
+	for i := smtCgSmallSlot(k0, k1, t.shift); ; i = (i + 1) & mask {
+		e := &t.entries[i]
+		if e.node == nil {
+			*e = smtCgSmallEntry{k0, k1, node}
+			t.count++
+			return
+		}
+		if e.k0 == k0 && e.k1 == k1 {
+			e.node = node
+			return
+		}
+	}
+}
+
+// del is delete(m, key), with backward-shift deletion (no tombstones).
+func (t *smtCgSmallTable) del(k0, k1 *SMTEnode) {
+	if t.count == 0 {
+		return
+	}
+	mask := len(t.entries) - 1
+	i := smtCgSmallSlot(k0, k1, t.shift)
+	for {
+		e := &t.entries[i]
+		if e.node == nil {
+			return
+		}
+		if e.k0 == k0 && e.k1 == k1 {
+			break
+		}
+		i = (i + 1) & mask
+	}
+	t.count--
+	for j := (i + 1) & mask; ; j = (j + 1) & mask {
+		e := &t.entries[j]
+		if e.node == nil {
+			break
+		}
+		home := smtCgSmallSlot(e.k0, e.k1, t.shift)
+		// Move e back to the hole at i unless its home lies cyclically in
+		// (i, j].
+		if (j-home)&mask >= (j-i)&mask {
+			t.entries[i] = *e
+			i = j
+		}
+	}
+	t.entries[i] = smtCgSmallEntry{}
+}
+
+func (t *smtCgSmallTable) grow() {
+	old := t.entries
+	size := 8
+	if len(old) != 0 {
+		size = 2 * len(old)
+	}
+	shift := uint8(64)
+	for n := size; n > 1; n >>= 1 {
+		shift--
+	}
+	t.entries, t.shift, t.count = make([]smtCgSmallEntry, size), shift, 0
+	for i := range old {
+		if e := &old[i]; e.node != nil {
+			t.set(e.k0, e.k1, e.node)
+		}
+	}
+}
+
+// forEach visits the stored entries (in table order).
+func (t *smtCgSmallTable) forEach(visit func(k0, k1, node *SMTEnode)) {
+	for i := range t.entries {
+		if e := &t.entries[i]; e.node != nil {
+			visit(e.k0, e.k1, e.node)
+		}
+	}
+}
