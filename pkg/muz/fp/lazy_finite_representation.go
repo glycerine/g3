@@ -15,6 +15,11 @@ func (e *PropositionalEngine) cloneFiniteForContext(source rel.FiniteTable) (rel
 		}
 		return e.lazyFinite.Migrate(source)
 	}
+	if sparse, ok := source.(*rel.SparseTable); ok {
+		// The source's one table: the copy belongs to this context's
+		// sparse_table_plugin and keeps its capacities.
+		return e.relations.TwinSparseTable(sparse)
+	}
 	if pair, ok := source.(*rel.FiniteCheckedPair); ok {
 		return rel.CloneCheckTableForContext(pair, e.relations, e.cloneFiniteForContext)
 	}

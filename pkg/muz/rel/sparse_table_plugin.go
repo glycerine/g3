@@ -17,6 +17,9 @@ import (
 // included), reused last first by mk_empty.
 type SparseTablePlugin struct {
 	pool map[string][]*SparseTable
+	// deferPool: a placeholder relation is being made; its tables leave
+	// the pool alone until the source creates the relation.
+	deferPool int
 }
 
 func newSparseTablePlugin() *SparseTablePlugin {
@@ -61,6 +64,13 @@ func sparsePoolKey(signature Signature, functional int) string {
 func (p *SparseTablePlugin) MkEmpty(signature Signature, functional int) (*SparseTable, error) {
 	if p == nil {
 		return NewSparseTable(signature, functional)
+	}
+	if p.deferPool > 0 {
+		t, err := newSparseTable(p, signature, functional)
+		if t != nil {
+			t.deferredPool = true
+		}
+		return t, err
 	}
 	key := sparsePoolKey(signature, functional)
 	vect := p.pool[key]
@@ -145,4 +155,103 @@ func (m *RelationManager) NewLazySparseFiniteFactory() *LazySparseFiniteFactory 
 	f := NewLazySparseFiniteFactory()
 	f.engine.sparse = m.sparsePlugin()
 	return f
+}
+
+// twinIn is t copied for plugin p with every capacity kept: the source's
+// one table, which g3 keeps in two contexts (a query context and its
+// owner). The copy takes no table from p's pool.
+func (t *SparseTable) twinIn(p *SparseTablePlugin) *SparseTable {
+	o := t.data
+	d := &entryStorage{entrySize: o.entrySize, uniquePartSize: o.uniquePartSize, dataSize: o.dataSize, reserve: o.reserve}
+	d.data.assign(&o.data)
+	d.indexer = offsetIndexer{table: append(make([]offsetHashEntry, 0, len(o.indexer.table)), o.indexer.table...), size: o.indexer.size, numDeleted: o.indexer.numDeleted, storage: d}
+	k := &sparseKeyIndexMap{capacity: t.keyIndexes.capacity}
+	if t.keyIndexes.specs != nil {
+		k.specs = make(map[string]struct{}, len(t.keyIndexes.specs))
+		for spec := range t.keyIndexes.specs {
+			k.specs[spec] = struct{}{}
+		}
+	}
+	return &SparseTable{plugin: p, signature: t.signature, layout: t.layout, factSize: t.factSize, data: d, keyIndexes: k, functional: t.functional}
+}
+
+// TwinSparseTable is the source table t in this manager's context: a copy
+// owned by its sparse_table_plugin with t's capacities (twinIn).
+func (m *RelationManager) TwinSparseTable(t *SparseTable) (*SparseTable, error) {
+	if err := t.open(); err != nil {
+		return nil, err
+	}
+	return t.twinIn(m.sparsePlugin()), nil
+}
+
+// adoptPooled is the source's mk_empty of a placeholder's table at the
+// relation's creation: an empty table takes the pooled table of its
+// signature when there is one.
+func (p *SparseTablePlugin) adoptPooled(t *SparseTable) {
+	if !t.deferredPool {
+		return
+	}
+	t.deferredPool = false
+	if p == nil || t.data == nil {
+		return
+	}
+	if n, err := t.Len(); err != nil || n != 0 {
+		return
+	}
+	key := sparsePoolKey(t.signature, t.functional)
+	vect := p.pool[key]
+	if len(vect) == 0 {
+		return
+	}
+	res := vect[len(vect)-1]
+	vect[len(vect)-1] = nil
+	p.pool[key] = vect[:len(vect)-1]
+	t.data, t.keyIndexes = res.data, res.keyIndexes
+	t.factSize = res.factSize
+	res.data = nil
+}
+
+// beginPlaceholder and endPlaceholder bracket the making of a placeholder
+// relation (deferPool).
+func (m *RelationManager) beginPlaceholder() {
+	if m != nil && m.sparse != nil {
+		m.sparse.deferPool++
+	}
+}
+
+func (m *RelationManager) endPlaceholder() {
+	if m != nil && m.sparse != nil {
+		m.sparse.deferPool--
+	}
+}
+
+// adoptPooledTables runs adoptPooled over a created relation's tables in
+// their construction order.
+func adoptPooledTables(x interface{}) {
+	switch t := x.(type) {
+	case *SparseTable:
+		t.plugin.adoptPooled(t)
+	case *FiniteCheckedPair:
+		adoptPooledTables(t.checker)
+		adoptPooledTables(t.primary)
+	case *finiteProductRelation:
+		adoptPooledTables(t.table)
+		for _, o := range t.others {
+			adoptPooledTables(o)
+		}
+	case *tableRelationView:
+		adoptPooledTables(t.table)
+	case *productRelation:
+		for _, r := range t.relations {
+			adoptPooledTables(r)
+		}
+	case *sieveRelation:
+		adoptPooledTables(t.inner)
+	case *CheckRelation:
+		adoptPooledTables(t.relation)
+	case *LazySparseTable:
+		if t.root != nil && t.root.evaluated != nil {
+			adoptPooledTables(t.root.evaluated)
+		}
+	}
 }

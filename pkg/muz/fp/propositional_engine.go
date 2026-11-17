@@ -99,6 +99,9 @@ type PropositionalEngine struct {
 	// datalogLastResult is rel_context::m_last_result_relation, the clone of
 	// the expression query's relation (rel_context::query(expr*)).
 	datalogLastResult rel.RelationBase
+	// datalogQueryObserver, when set (tests), sees the datalog context and
+	// the query predicate before ~scoped_query restricts the predicates.
+	datalogQueryObserver func(context *PropositionalEngine, query ast.ASTHandle)
 	// datalogExpressionQuery is set while rel_context::query(expr*) runs on
 	// this (expression clone) engine: the queried relation's clone is made
 	// before its emptiness test, and the answer is the clone's formula.
@@ -2583,8 +2586,30 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 	// computed too (status APPROX, l_undef).
 	if err == nil && (status == lbool.True || status == lbool.Undef && e.relationApprox) {
 		err = e.buildRelationAnswer([]ast.ASTHandle{declaration})
+	} else if err == nil && status == lbool.False && e.datalogExpressionQuery {
+		// rel_context::query(expr*): m_answer = m.mk_false().
+		err = e.setFalseRelationAnswer(declaration)
 	}
 	return status, err
+}
+
+// setFalseRelationAnswer is m_answer = m.mk_false() of an empty query
+// relation.
+func (e *PropositionalEngine) setFalseRelationAnswer(declaration ast.ASTHandle) error {
+	value, err := e.manager.MkFalse()
+	if err != nil {
+		return err
+	}
+	held, err := e.manager.NewRef(value)
+	if err != nil {
+		return err
+	}
+	old := e.relAnswer
+	e.relAnswer, e.relAnswerDecl = held, declaration
+	if old != (ast.ASTRef{}) {
+		return e.manager.DelRef(&old)
+	}
+	return nil
 }
 
 // QueryPredicates returns true when at least one requested relation is
@@ -2645,7 +2670,7 @@ func (e *PropositionalEngine) SetSaturateOnly(on bool) { e.saturateOnly = on }
 func (e *PropositionalEngine) buildRelationAnswer(declarations []ast.ASTHandle) (result error) {
 	// Only the plain finite-table backend; the Karr, udoc and interval
 	// backends answer through their own relations.
-	if e.queryClone != nil || e.expressionClone {
+	if e.queryClone != nil || e.expressionClone && !e.datalogExpressionQuery {
 		return nil
 	}
 	for _, declaration := range declarations {
@@ -2840,6 +2865,10 @@ func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHand
 	e.set = queryScope.set
 	defer func() {
 		e.set = originalRules
+		// rel_context::query(expr*): the relations go at ~scoped_query, with
+		// the query's own (restrictDatalogQueryPredicates), unless a restart
+		// follows (scoped_query::reset).
+		queryScope.keepRelations = e.datalogQueryPreds != nil && !round.interrupted
 		resultErr = errors.Join(resultErr, queryScope.dispose())
 	}()
 	if e.expressionClone && round.final {
@@ -3126,7 +3155,7 @@ func (e *PropositionalEngine) computeAnswer(declaration ast.ASTHandle) (answer a
 	if err = e.requireResultSnapshot(kind); err != nil {
 		return answer, err
 	}
-	if kind == EngineDatalog && e.relAnswer != (ast.ASTRef{}) && e.relAnswerDecl == declaration && !declaration.IsNull() && e.lastResult == lbool.True {
+	if kind == EngineDatalog && e.relAnswer != (ast.ASTRef{}) && e.relAnswerDecl == declaration && !declaration.IsNull() && (e.lastResult == lbool.True || e.expressionClone) {
 		// rel_context::get_answer: the m_answer the query built (the
 		// relation's to_formula is not evaluated again).
 		return e.manager.CopyRef(e.relAnswer)
@@ -3558,14 +3587,14 @@ func (e *PropositionalEngine) Close() (result error) {
 	// m_rule_fmls.reset(). ~rel_context deallocates m_last_result_relation,
 	// then destroys m_code, then m_ectx (the registers), then m_answer.
 	for len(e.datalogRetiredResults) != 0 {
-		if err := e.datalogRetiredResults[0].Close(); err != nil {
+		if err := e.relations.ReleaseRelation(e.datalogRetiredResults[0]); err != nil {
 			return errors.Join(result, err)
 		}
 		e.datalogRetiredResults = e.datalogRetiredResults[1:]
 	}
 	e.datalogRetiredResults = nil
 	if e.datalogLastResult != nil {
-		if err := e.datalogLastResult.Close(); err != nil {
+		if err := e.relations.ReleaseRelation(e.datalogLastResult); err != nil {
 			return errors.Join(result, err)
 		}
 		e.datalogLastResult = nil

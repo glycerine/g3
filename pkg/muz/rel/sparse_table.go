@@ -20,6 +20,10 @@ type SparseTable struct {
 	data       *entryStorage
 	keyIndexes *sparseKeyIndexMap
 	functional int
+	// deferredPool: made for a placeholder without the plugin's pool; the
+	// source's mk_empty pops the pool when the relation is created
+	// (adoptPooledTables).
+	deferredPool bool
 }
 
 // newSparseTable is sparse_table(p, sig, init_capacity = 0).

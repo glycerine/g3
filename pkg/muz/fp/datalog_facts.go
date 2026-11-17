@@ -54,7 +54,7 @@ func (e *PropositionalEngine) publishDatalogQueryRelations(clone *PropositionalE
 		if err != nil {
 			return err
 		}
-		install := e.installDatalogTable
+		install := e.publishDatalogTable
 		if clone.relations.IsPlaceholderRelation(d) {
 			install = e.replaceDatalogTable
 		}
@@ -62,6 +62,21 @@ func (e *PropositionalEngine) publishDatalogQueryRelations(clone *PropositionalE
 			return err
 		}
 	}
+	return nil
+}
+
+// publishDatalogTable is installDatalogTable of the one source relation
+// that a query context and its owner both hold: the former table is no
+// source relation.
+func (e *PropositionalEngine) publishDatalogTable(d ast.ASTHandle, table rel.FiniteTable) error {
+	state := e.predicates[d]
+	if state == nil {
+		return errors.Join(ErrPropositionalEngine, table.Close())
+	}
+	if err := e.relations.PublishFiniteRelation(d, table); err != nil {
+		return errors.Join(err, table.Close())
+	}
+	state.table = table
 	return nil
 }
 

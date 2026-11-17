@@ -1,0 +1,51 @@
+(transform N7datalog15mk_explanationsE...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+union...0s
+union...0s
+union...0s
+union...add_fact...0s
+0s
+5 rules 0s)
+(transform N7datalog13mk_coi_filterE...2 rules 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...1 rules 0s)
+(transform N7datalog25mk_separate_negated_tailsE...no-op 0s)
+(transform N7datalog24mk_similarity_compressorE...no-op 0s)
+(transform N7datalog15mk_filter_rulesE...no-op 0s)
+(transform N7datalog15mk_simple_joinsE...no-op 0s)
+(transform N7datalog21mk_unbound_compressorE...no-op 0s)
+Compiling unsafe rule column 0
+(forall ((A R) (B S) (C S) (D R))
+  (let ((a!1 (and (e!expl!1 C B A)
+                  (not (bad C))
+                  (= D
+                     (|<null>:
+query!0(#0) :- 
+ node(#0).|
+                       (|<null>:
+node(#0) :- 
+ e(#0,#1),
+ not bad(#0).| A))))))
+    (=> a!1 (query!0!expl!3 C D))))
+load query!0!expl!3 into 0
+load e!expl!1 into 1
+load bad into 2
+mark_saturated bad
+mark_saturated e!expl!1
+mk_total into 3 sort:[R] query!0!expl!3
+join 1() and 3() into 4
+filter_by_negation on 4(0) with 2(0) as the negated table
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 200
+0s

@@ -55,13 +55,21 @@ func TestDatalogExternalFavouriteHonorsFiniteQueryKind(t *testing.T) {
 			must(err)
 			queryRef, err := m.NewRef(query)
 			must(err)
+			// The query predicate's state, read before the query's
+			// scoped_query restricts the context's predicates.
+			var observed predicateState
+			e.datalogQueryObserver = func(c *PropositionalEngine, d ast.ASTHandle) {
+				if state := c.predicates[d]; state != nil {
+					observed = *state
+				}
+			}
 			result, err := e.QueryExpression(query)
 			must(err)
 			must(m.DelRef(&queryRef))
 			if result != lbool.True || emptyCalls != 0 {
 				t.Fatal("external favourite replaced valid finite query kind", result, emptyCalls)
 			}
-			inherited := e.queryClone.predicates[e.queryClonePredicate]
+			inherited := &observed
 			if !inherited.explicitFiniteRepresentation || len(inherited.requestedRepresentations) != 1 || inherited.requestedRepresentations[0] != kind {
 				t.Fatal("finite query kind not inherited")
 			}
@@ -82,7 +90,7 @@ func TestDatalogExternalFavouriteHonorsFiniteQueryKind(t *testing.T) {
 			if result != lbool.True {
 				t.Fatal("mixed finite query", result)
 			}
-			names := e.queryClone.predicates[e.queryClonePredicate].requestedRepresentations
+			names := observed.requestedRepresentations
 			if len(names) != 1 || names[0] != otherKind {
 				t.Fatal("query did not use source swap-last conjunction order", names, otherKind)
 			}

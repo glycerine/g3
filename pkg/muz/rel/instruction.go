@@ -377,7 +377,7 @@ func (c *ExecutionContext) closeRegisters() error {
 	var result error
 	for i, table := range c.registers {
 		if table != nil {
-			result = errors.Join(result, table.Close())
+			result = errors.Join(result, c.relations.tableCloser(table)())
 			c.registers[i] = nil
 		}
 	}

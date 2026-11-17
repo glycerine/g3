@@ -763,7 +763,9 @@ func (m *RelationManager) ReplacePlaceholderWithRelation(predicate ast.ASTHandle
 	// Still a placeholder: a check table's mk_empty line comes when
 	// get_relation creates the relation (MaterializeFiniteRelation).
 	m.reservingPlaceholder = true
+	m.beginPlaceholder()
 	relation, ok, err := m.relationForPredicate(predicate)
+	m.endPlaceholder()
 	m.reservingPlaceholder = false
 	if err != nil || !ok {
 		return table, err

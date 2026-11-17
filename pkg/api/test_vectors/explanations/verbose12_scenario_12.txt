@@ -1,0 +1,526 @@
+(transform N7datalog15mk_explanationsE...join_project...0s
+union...0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 204
+0s
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+join_project...0s
+union...0s
+recycle...Recycle: 200
+0s
+project...0s
+union...0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 200
+0s
+join_project...get_key_indexer...0s
+0s
+union...0s
+recycle...Recycle: 200
+0s
+project...0s
+filter_by_negation...get_key_indexer...0s
+0s
+union...0s
+filter_by_negation...get_key_indexer...0s
+0s
+union...0s
+recycle...Recycle: 200
+0s
+union...0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 200
+0s
+join_project...0s
+union...add_fact...0s
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 204
+0s
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+join_project...0s
+union...add_fact...0s
+0s
+recycle...Recycle: 210
+0s
+project...0s
+union...add_fact...0s
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 210
+0s
+join_project...get_key_indexer...0s
+0s
+union...0s
+recycle...Recycle: 210
+0s
+project...0s
+filter_by_negation...get_key_indexer...0s
+0s
+union...0s
+filter_by_negation...get_key_indexer...0s
+0s
+union...add_fact...0s
+0s
+recycle...Recycle: 210
+0s
+union...add_fact...0s
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+4 rules 0s)
+(transform N7datalog13mk_magic_setsE...recycle...Recycle: 204
+0s
+fetch_fact...0s
+recycle...Recycle: 204
+0s
+9 rules 0s)
+(transform N7datalog13mk_coi_filterE...fetch_fact...0s
+recycle...Recycle: 204
+0s
+no-op 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...fetch_fact...0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+5 rules 0s)
+(transform N7datalog25mk_separate_negated_tailsE...no-op 0s)
+(transform N7datalog24mk_similarity_compressorE...no-op 0s)
+(transform N7datalog15mk_filter_rulesE...7 rules 0s)
+(transform N7datalog15mk_simple_joinsE...no-op 0s)
+(transform N7datalog21mk_unbound_compressorE...fetch_fact...0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+no-op 0s)
+Compiling unsafe rule column 0
+(forall ((A Bool) (B R) (C R))
+  (let ((a!1 (and (P!expl!3!ad_bf!8 A B)
+                  (R!expl!1!ad_bf!5!ms!7 A)
+                  (= C (backward (forward B))))))
+    (=> a!1 (P!expl!3!ad_bf!8 A C))))
+Compiling unsafe rule column 0
+(forall ((A R) (B R))
+  (let ((a!1 (and (P!expl!3!ad_bf!8!filter!10 A)
+                  R!expl!1!ad_bf!5!ms!7!filter!11
+                  (= B (|<null>:
+query!0() :- 
+ R(true).| (forward A))))))
+    (=> a!1 (query!0!expl!2 B))))
+load R!expl!1!ad_bf!5!ms!7 into 0
+load P!expl!3!ad_bf!8 into 1
+recycle...Recycle: 204
+0s
+load P!expl!3 into 2
+fetch_fact...0s
+recycle...Recycle: 204
+0s
+load P!expl!3!ad_bf!8!filter!10 into 3
+load R!expl!1!ad_bf!5!ms!7!filter!11 into 4
+load query!0!expl!2 into 5
+mark_saturated P!expl!3
+mk_unary_singleton into 8 sort:Bool val:1
+union 8 into 0
+union...add_fact...0s
+0s
+clone 0 into 6
+while(6)
+    union 6 into 0 with delta 7
+    move 7 into 6
+looping ... 0
+union 6 into 0 with delta 7
+union...add_fact...0s
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 204
+0s
+mark_saturated R!expl!1!ad_bf!5!ms!7
+join_project 2:2-1(0) and 0:1-1(0) into 11 removing columns (0)
+join_project...0s
+union...add_fact...0s
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 204
+0s
+join_project...get_key_indexer...0s
+0s
+union...add_fact...0s
+0s
+recycle...Recycle: 210
+0s
+project...0s
+union...add_fact...0s
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+fetch_fact...0s
+recycle...Recycle: 204
+0s
+fetch_fact...0s
+union...add_fact...0s
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+fetch_fact...0s
+recycle...Recycle: 204
+0s
+rename 11 into 11 with cycle (0,1)
+fetch_fact...0s
+recycle...Recycle: 204
+0s
+union...add_fact...0s
+0s
+recycle...Recycle: 210
+0s
+union 11 into 1
+join_project...get_key_indexer...0s
+0s
+union...0s
+recycle...Recycle: 210
+0s
+project...0s
+filter_by_negation...get_key_indexer...0s
+0s
+union...0s
+filter_by_negation...get_key_indexer...0s
+0s
+union...add_fact...0s
+0s
+recycle...Recycle: 210
+0s
+union...add_fact...0s
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+clone 1 into 9
+mk_total into 13 sort:[R] P!expl!3!ad_bf!8
+while(9)
+    join_project 9:2-1(0) and 0:1-1(0) into 12 removing columns (0)
+    join 12() and 13() into 12
+    filter_interpreted_and_project 12 into 12 using (= (:var 2) (backward (forward (:var 0)))) deleting columns (0)
+    union 12 into 1 with delta 10
+    dealloc 12
+    move 10 into 9
+fetch_fact...0s
+recycle...Recycle: 204
+0s
+looping ... 0
+join_project 9:2-1(0) and 0:1-1(0) into 12 removing columns (0)
+join_project...0s
+union...add_fact...0s
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 204
+0s
+join_project...get_key_indexer...0s
+0s
+union...add_fact...0s
+0s
+recycle...Recycle: 210
+0s
+project...0s
+union...add_fact...0s
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+fetch_fact...0s
+recycle...Recycle: 204
+0s
+fetch_fact...0s
+union...add_fact...0s
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+fetch_fact...0s
+recycle...Recycle: 204
+0s
+join 12() and 13() into 12
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+join_project...0s
+union...add_fact...0s
+0s
+recycle...Recycle: 210
+0s
+project...0s
+union...add_fact...0s
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 210
+0s
+fetch_fact...0s
+recycle...Recycle: 204
+0s
+filter_interpreted_and_project 12 into 12 using (= (:var 2) (backward (forward (:var 0)))) deleting columns (0)
+fetch_fact...0s
+recycle...Recycle: 204
+0s
+fetch_fact...0s
+recycle...Recycle: 204
+0s
+union...add_fact...0s
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+fetch_fact...0s
+recycle...Recycle: 204
+0s
+union 12 into 1 with delta 10
+join_project...get_key_indexer...0s
+0s
+union...add_fact...0s
+0s
+recycle...Recycle: 210
+0s
+project...0s
+filter_by_negation...get_key_indexer...0s
+0s
+union...add_fact...0s
+0s
+filter_by_negation...get_key_indexer...0s
+0s
+union...0s
+recycle...Recycle: 200
+0s
+union...0s
+recycle...Recycle: 204
+0s
+project...0s
+recycle...Recycle: 219
+0s
+union...0s
+recycle...Recycle: 200
+0s
+union...0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+fetch_fact...0s
+recycle...Recycle: 204
+0s
+contains_fact...0s
+remove_fact...0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+mark_saturated P!expl!3!ad_bf!8
+select_equal_and_project 0 into 14 col: 0 val: 1
+recycle...Recycle: 204
+0s
+union 14 into 4
+mark_saturated R!expl!1!ad_bf!5!ms!7!filter!11
+select_equal_and_project 1 into 15 col: 0 val: 1
+fetch_fact...0s
+recycle...Recycle: 204
+0s
+fetch_fact...0s
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 210
+0s
+union 15 into 3
+join_project...0s
+union...0s
+recycle...Recycle: 200
+0s
+project...0s
+filter_by_negation...0s
+union...0s
+filter_by_negation...0s
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 204
+0s
+mark_saturated P!expl!3!ad_bf!8!filter!10
+join 3() and 4() into 16
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+join_project...0s
+union...add_fact...0s
+0s
+recycle...Recycle: 210
+0s
+project...0s
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 204
+0s
+mk_total into 17 sort:[R] query!0!expl!2
+join 16() and 17() into 16
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+join_project...0s
+union...add_fact...0s
+0s
+recycle...Recycle: 210
+0s
+project...0s
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+filter_interpreted_and_project 16 into 16 using (= (:var 1) (|<null>:
+query!0() :- 
+ R(true).| (forward (:var 0)))) deleting columns (0)
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+union 16 into 5
+join_project...0s
+union...0s
+recycle...Recycle: 210
+0s
+project...0s
+filter_by_negation...0s
+union...0s
+filter_by_negation...0s
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 204
+0s
+mark_saturated query!0!expl!2
+store 0 into R!expl!1!ad_bf!5!ms!7
+recycle...Recycle: 200
+0s
+store 1 into P!expl!3!ad_bf!8
+recycle...Recycle: 210
+0s
+store 2 into P!expl!3
+recycle...Recycle: 210
+0s
+store 3 into P!expl!3!ad_bf!8!filter!10
+store 4 into R!expl!1!ad_bf!5!ms!7!filter!11
+store 5 into query!0!expl!2
+bytes 8589934794
+bytes	rows	annotation
+4294967295	4294967295	
+4294967295	4294967295	
+recycle...Recycle: 210
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s

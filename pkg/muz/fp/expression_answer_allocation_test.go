@@ -10,8 +10,11 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-// Source dl_base.cpp table_base::to_formula owns each tuple's equalities and
-// the final disjunction while constructing the answer to the published query.
+// Source rel_context::query builds m_answer (dl_base.cpp
+// table_base::to_formula: each tuple's equalities and the final
+// disjunction) at the query's end, and get_answer returns it: reading the
+// published answer under any allocation budget keeps the query snapshot and
+// the AST ownership, the held answer's equalities included.
 func TestExpressionAnswerAllocationFailureKeepsPublishedQuery(t *testing.T) {
 	failures, completed := 0, false
 	successfulAllowance := int64(-1)
@@ -36,9 +39,8 @@ func TestExpressionAnswerAllocationFailureKeepsPublishedQuery(t *testing.T) {
 			}
 			clone, head, revision := f.e.queryClone, f.e.queryClonePredicate, f.e.queryCloneRevision
 
-			// Source ast.cpp cachedEquality keeps one declaration reference per
-			// sort. Warm that legitimate cache without warming answer nodes: the
-			// original query uses #2, whereas its answer uses compacted #0.
+			// The equality declaration's references: ast.cpp's cached
+			// equality and the held answer's equalities.
 			zero, err := f.m.BitVectorNumeralUint64(0, 10)
 			fragmentMust(t, err)
 			warm, err := f.m.MkEq(x, zero)
@@ -57,15 +59,17 @@ func TestExpressionAnswerAllocationFailureKeepsPublishedQuery(t *testing.T) {
 				f.roots = append(f.roots, ref)
 			}
 			before := contextDisplayLiveCounts(f.m.Stats())
+			declRefs, err := f.m.GetRefCount(equalityDecl)
+			fragmentMust(t, err)
 			checkUnchanged := func() {
 				t.Helper()
 				if after := contextDisplayLiveCounts(f.m.Stats()); after != before {
-					t.Fatal("answer construction leaked AST ownership", before, after)
+					t.Fatal("answer access leaked AST ownership", before, after)
 				}
 				cacheRefs, err := f.m.GetRefCount(equalityDecl)
 				fragmentMust(t, err)
-				if cacheRefs != 1 {
-					t.Fatal("equality declaration lost its sole cache owner", cacheRefs)
+				if cacheRefs != declRefs {
+					t.Fatal("equality declaration references changed", cacheRefs, declRefs)
 				}
 				if f.e.queryClone != clone || f.e.queryClonePredicate != head || f.e.queryCloneRevision != revision || !f.e.queryReady {
 					t.Fatal("answer construction changed the published query snapshot")
@@ -137,8 +141,8 @@ func TestExpressionAnswerAllocationFailureKeepsPublishedQuery(t *testing.T) {
 			break
 		}
 	}
-	if failures == 0 || !completed {
-		t.Fatal("missing answer allocation failure/completion frontier", failures, completed)
+	if !completed {
+		t.Fatal("missing answer allocation completion frontier", failures, completed)
 	}
 	t.Log("successful tested allocation allowance", successfulAllowance, "injected failures", failures)
 }

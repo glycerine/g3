@@ -258,6 +258,13 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 				e.queryCloneRevision = e.revision
 				return
 			}
+			if clone.backend == "datalog" {
+				// ~scoped_query runs while the exception unwinds; the
+				// context itself is not deallocated: the discarded clone's
+				// relations go silently.
+				resultErr = errors.Join(resultErr, clone.restrictDatalogQueryPredicates())
+				clone.relations.MarkUnallocated()
+			}
 			resultErr = errors.Join(resultErr, e.discardQueryClone(clone))
 		}
 	}()
@@ -468,6 +475,10 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	}
 	if err == nil && clone.backend == "datalog" {
 		e.datalogContext = clone
+		if e.datalogQueryObserver != nil {
+			e.datalogQueryObserver(clone, declaration)
+		}
+		err = clone.restrictDatalogQueryPredicates()
 	}
 	if err == nil && e.backend == "datalog" {
 		err = e.publishDatalogQueryRelations(clone)

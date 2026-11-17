@@ -143,16 +143,8 @@ func (e *PropositionalEngine) expressionQueryContext() (*PropositionalEngine, er
 // The compiled code and the execution registers stay until the next
 // saturate resets them.
 func (c *PropositionalEngine) retireDatalogQuery() error {
-	if c.datalogQueryPreds != nil {
-		set, err := base.NewRuleSet(c.rules)
-		if err != nil {
-			return err
-		}
-		scope := &datalogUnboundScope{engine: c, set: set, predicates: c.datalogQueryPreds}
-		if err = scope.Close(); err != nil {
-			return err
-		}
-		c.datalogQueryPreds = nil
+	if err := c.restrictDatalogQueryPredicates(); err != nil {
+		return err
 	}
 	if err := c.set.Reset(); err != nil {
 		return err
@@ -179,4 +171,23 @@ func (e *PropositionalEngine) resyncDatalogContext(clone *PropositionalEngine) e
 		return err
 	}
 	return e.copyQueryRules(clone)
+}
+
+// restrictDatalogQueryPredicates is ~scoped_query's
+// restrict_predicates(m_preds) at the end of rel_context::query(expr*):
+// the query's auxiliary predicates and their relations go.
+func (c *PropositionalEngine) restrictDatalogQueryPredicates() error {
+	if c.datalogQueryPreds == nil {
+		return nil
+	}
+	set, err := base.NewRuleSet(c.rules)
+	if err != nil {
+		return err
+	}
+	scope := &datalogUnboundScope{engine: c, set: set, predicates: c.datalogQueryPreds}
+	if err = scope.Close(); err != nil {
+		return err
+	}
+	c.datalogQueryPreds = nil
+	return nil
 }

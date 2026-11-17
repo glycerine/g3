@@ -727,9 +727,16 @@ func (u *alignedUnion) apply(tgtR, srcR, deltaR RelationBase) (resultErr error) 
 			if err == nil && fn != nil {
 				err = fn(idelta, fd, nil)
 			}
-			if err = errors.Join(err, fd.Close()); err != nil {
-				return err
+			if err != nil {
+				return errors.Join(err, fd.Close())
 			}
+		}
+		// The iteration's scoped_rels die in reverse order: side_delta,
+		// side_result, fresh_delta.
+		err = closeRelationBases([]RelationBase{sideDeltas[i], sideResults[i], fd})
+		sideDeltas[i], sideResults[i] = nil, nil
+		if err != nil {
+			return err
 		}
 	}
 	if num == 0 {

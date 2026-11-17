@@ -25,7 +25,10 @@ func (m *RelationManager) ReserveFiniteRelation(predicate ast.ASTHandle) (Finite
 	if err != nil || found {
 		return table, err
 	}
-	if relation, ok, cause := m.relationForPredicate(predicate); cause != nil {
+	m.beginPlaceholder()
+	relation, ok, cause := m.relationForPredicate(predicate)
+	m.endPlaceholder()
+	if cause != nil {
 		return nil, cause
 	} else if ok {
 		table = relation
@@ -37,7 +40,9 @@ func (m *RelationManager) ReserveFiniteRelation(predicate ast.ASTHandle) (Finite
 		// The placeholder is not yet the source's relation: a check
 		// table's mk_empty line comes at its creation (completeCreation).
 		m.reservingPlaceholder = true
+		m.beginPlaceholder()
 		table, err = m.NewFiniteTableForPredicate(predicate, signature)
+		m.endPlaceholder()
 		m.reservingPlaceholder = false
 		if err != nil {
 			return nil, err
@@ -76,6 +81,7 @@ func (m *RelationManager) MaterializeFiniteRelation(predicate ast.ASTHandle) err
 	if err != nil || !found {
 		return err
 	}
+	adoptPooledTables(table)
 	if check, ok := table.(*CheckRelation); ok {
 		return check.completeCreation()
 	}
@@ -152,15 +158,75 @@ func (m *RelationManager) ReplaceFiniteRelation(predicate ast.ASTHandle, table F
 
 // releasePlaceholderTable frees a table the source never allocated.
 func releasePlaceholderTable(table FiniteTable) error {
-	if sparse, ok := table.(*SparseTable); ok {
-		return sparse.release()
-	}
-	if pair, ok := table.(*FiniteCheckedPair); ok && pair.deferredMkEmpty {
-		err := errors.Join(releasePlaceholderTable(pair.primary), releasePlaceholderTable(pair.checker))
-		pair.closed = true
+	return releaseUnallocated(table)
+}
+
+// releaseUnallocated frees a table or relation the source never allocated:
+// its sparse tables are dropped without sparse_table_plugin::recycle (no
+// verbose line, no pooled table).
+func releaseUnallocated(x interface{ Close() error }) error {
+	switch t := x.(type) {
+	case *SparseTable:
+		return t.release()
+	case *LazySparseTable:
+		return t.closeAs(true)
+	case *FiniteCheckedPair:
+		if t.closed {
+			return nil
+		}
+		var err error
+		if t.primary != nil {
+			err = releaseUnallocated(t.primary)
+		}
+		if t.checker != nil {
+			err = errors.Join(err, releaseUnallocated(t.checker))
+		}
+		t.closed = true
 		return err
+	case *finiteProductRelation:
+		if t.closed {
+			return nil
+		}
+		t.closed = true
+		err := releaseUnallocated(t.table)
+		for _, o := range t.others {
+			if o != nil {
+				err = errors.Join(err, releaseUnallocated(o))
+			}
+		}
+		t.others = nil
+		return err
+	case *productRelation:
+		if t.closed {
+			return ErrTable
+		}
+		t.closed = true
+		var err error
+		for _, r := range t.relations {
+			if r != nil {
+				err = errors.Join(err, releaseUnallocated(r))
+			}
+		}
+		return err
+	case *sieveRelation:
+		if t.closed {
+			return ErrTable
+		}
+		t.closed = true
+		return releaseUnallocated(t.inner)
+	case *tableRelationView:
+		if t.borrowed {
+			return nil
+		}
+		return releaseUnallocated(t.table)
 	}
-	return table.Close()
+	return x.Close()
+}
+
+// ReleaseUnallocatedTable frees a table that stands for no source
+// relation (a query context's copy kept by its owner) silently.
+func ReleaseUnallocatedTable(table FiniteTable) error {
+	return releaseUnallocated(table)
 }
 
 // retirePlaceholder releases a placeholder table and the manager's predicate

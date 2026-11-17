@@ -1,0 +1,92 @@
+(transform N7datalog15mk_explanationsE...orig:  {}
+union: {}
+orig:  {}
+union: {101}
+orig:  []
+union: []
+union...add_fact...0s
+0s
+orig:  {}
+union: {101}
+3 rules 0s)
+(transform N7datalog13mk_coi_filterE...2 rules 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...2 rules 0s)
+(transform N7datalog15mk_rule_inlinerE...1 rules 0s)
+(transform N7datalog25mk_separate_negated_tailsE...no-op 0s)
+(transform N7datalog24mk_similarity_compressorE...no-op 0s)
+(transform N7datalog15mk_filter_rulesE...4 rules 0s)
+(transform N7datalog15mk_simple_joinsE...5 rules 0s)
+Compiling unsafe rule column 0
+(forall ((A R) (B R) (C R) (D R))
+  (let ((a!1 (and (query!0!expl!3!split!9 B C)
+                  (bs!expl!4!filter!8 A)
+                  (= D
+                     (|<null>:
+query!0() :- 
+ qd(#b101).| (joinproject C B A))))))
+    (=> a!1 (query!0!expl!3 D))))
+load pl!expl!5!filter!6 into 0
+load pl!expl!5 into 1
+load rr!expl!2!filter!7 into 2
+load rr!expl!2 into 3
+load bs!expl!4!filter!8 into 4
+load bs!expl!4 into 5
+load query!0!expl!3 into 6
+load query!0!expl!3!split!9 into 7
+mark_saturated pl!expl!5
+mark_saturated rr!expl!2
+select_equal_and_project 1 into 8 col: 0 val: 5
+union 8 into 0
+orig:  []
+union: []
+mark_saturated pl!expl!5!filter!6
+select_equal_and_project 3 into 9 col: 0 val: 5
+union 9 into 2
+orig:  []
+union: []
+mark_saturated rr!expl!2!filter!7
+mark_saturated bs!expl!4
+join 0() and 2() into 10
+join result:
+[]
+rename 10 into 10 with cycle (0,1)
+union 10 into 7
+orig:  []
+union: []
+mark_saturated query!0!expl!3!split!9
+select_equal_and_project 5 into 11 col: 0 val: 1
+recycle...Recycle: 204
+0s
+union 11 into 4
+mark_saturated bs!expl!4!filter!8
+join 7() and 4() into 12
+join result:
+[]
+mk_total into 13 sort:[R] query!0!expl!3
+join 12() and 13() into 12
+join result:
+[]
+filter_interpreted_and_project 12 into 12 using (= (:var 3)
+   (|<null>:
+query!0() :- 
+ qd(#b101).|
+     (joinproject (:var 1) (:var 0) (:var 2)))) deleting columns (0,1,2)
+union 12 into 6
+orig:  []
+union: []
+mark_saturated query!0!expl!3
+store 4 into bs!expl!4!filter!8
+store 6 into query!0!expl!3
+store 0 into pl!expl!5!filter!6
+store 3 into rr!expl!2
+store 7 into query!0!expl!3!split!9
+store 5 into bs!expl!4
+recycle...Recycle: 204
+0s
+store 1 into pl!expl!5
+store 2 into rr!expl!2!filter!7
+bytes 4294967295
+bytes	rows	annotation
+4294967295	4294967295	
+recycle...Recycle: 204
+0s

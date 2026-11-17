@@ -32,7 +32,9 @@ func (e *PropositionalEngine) copyQueryPredicates(clone *PropositionalEngine) er
 			if err != nil {
 				return err
 			}
-			install := clone.installDatalogTable
+			// The context's relation (resync): its former copy is no
+			// source relation.
+			install := clone.publishDatalogTable
 			if e.relations.IsPlaceholderRelation(declaration) {
 				install = clone.replaceDatalogTable
 			}

@@ -15,6 +15,9 @@ type datalogUnboundScope struct {
 	engine     *PropositionalEngine
 	set        *base.RuleSet
 	predicates map[ast.ASTHandle]bool
+	// keepRelations leaves the relation manager to an enclosing query
+	// scope.
+	keepRelations bool
 }
 
 // A refused native cleanup keeps its concrete owner reachable through the
@@ -44,7 +47,7 @@ func (s *datalogUnboundScope) Close() error {
 	}
 	// scoped_query's destructor restricts the relations to the original
 	// predicates; read_datalog runs no query, so its auxiliary relations stay.
-	if !s.engine.datalogFrontend {
+	if !s.engine.datalogFrontend && !s.keepRelations {
 		if err := s.engine.relations.RestrictPredicates(s.predicates); err != nil {
 			return err
 		}

@@ -88,6 +88,12 @@ func (e *LazySparseEngine) New(signature Signature, functional int) (*LazySparse
 }
 
 func releaseLazySparseNode(node *lazySparseNode) error {
+	return releaseLazySparseNodeAs(node, false)
+}
+
+// releaseLazySparseNodeAs is releaseLazySparseNode; silent drops the
+// evaluated tables without recycling them (releaseUnallocated).
+func releaseLazySparseNodeAs(node *lazySparseNode, silent bool) error {
 	if node == nil || node.references == 0 {
 		return ErrLazySparse
 	}
@@ -96,13 +102,13 @@ func releaseLazySparseNode(node *lazySparseNode) error {
 		return nil
 	}
 	if node.right != nil {
-		if err := releaseLazySparseNode(node.right); err != nil {
+		if err := releaseLazySparseNodeAs(node.right, silent); err != nil {
 			return err
 		}
 		node.right = nil
 	}
 	if node.left != nil {
-		if err := releaseLazySparseNode(node.left); err != nil {
+		if err := releaseLazySparseNodeAs(node.left, silent); err != nil {
 			return err
 		}
 		node.left = nil
@@ -114,14 +120,20 @@ func releaseLazySparseNode(node *lazySparseNode) error {
 		}
 		node.interpreted.owner = nil
 	}
+	closeTable := func(t interface{ Close() error }) error {
+		if silent {
+			return releaseUnallocated(t)
+		}
+		return t.Close()
+	}
 	if node.evaluated != nil {
-		if err := node.evaluated.Close(); err != nil {
+		if err := closeTable(node.evaluated); err != nil {
 			return err
 		}
 		node.evaluated = nil
 	}
 	if node.nullary != nil {
-		if err := node.nullary.Close(); err != nil {
+		if err := closeTable(node.nullary); err != nil {
 			return err
 		}
 		node.nullary = nil
@@ -138,10 +150,14 @@ func (t *LazySparseTable) open() error {
 }
 
 func (t *LazySparseTable) Close() error {
+	return t.closeAs(false)
+}
+
+func (t *LazySparseTable) closeAs(silent bool) error {
 	if t == nil || t.closed {
 		return nil
 	}
-	if err := releaseLazySparseNode(t.root); err != nil {
+	if err := releaseLazySparseNodeAs(t.root, silent); err != nil {
 		return err
 	}
 	for index, handle := range t.engine.handles {

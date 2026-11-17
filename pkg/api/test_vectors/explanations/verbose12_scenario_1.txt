@@ -1,0 +1,41 @@
+(transform N7datalog15mk_explanationsE...union...add_fact...0s
+add_fact...0s
+0s
+union...0s
+3 rules 0s)
+(transform N7datalog13mk_coi_filterE...2 rules 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...1 rules 0s)
+(transform N7datalog25mk_separate_negated_tailsE...no-op 0s)
+(transform N7datalog24mk_similarity_compressorE...no-op 0s)
+(transform N7datalog15mk_filter_rulesE...2 rules 0s)
+(transform N7datalog15mk_simple_joinsE...no-op 0s)
+Compiling unsafe rule column 0
+(forall ((A R) (B R))
+  (let ((a!1 (and (p!expl!1!filter!5 A)
+                  (not (n false))
+                  (= B (|<null>:
+query!0() :- 
+ q(false).| (negproof A))))))
+    (=> a!1 (query!0!expl!4 B))))
+load p!expl!1!filter!5 into 0
+load p!expl!1 into 1
+load query!0!expl!4 into 2
+load n into 3
+mark_saturated p!expl!1
+select_equal_and_project 1 into 4 col: 0 val: 0
+remove_fact...0s
+recycle...Recycle: 204
+0s
+union 4 into 0
+mark_saturated p!expl!1!filter!5
+mark_saturated n
+mk_total into 5 sort:[R] query!0!expl!4
+join 0() and 5() into 6
+mk_unary_singleton into 7 sort:Bool val:0
+join 6() and 7() into 6
+filter_by_negation on 6(2) with 3(0) as the negated table
+recycle...Recycle: 200
+0s
+recycle...Recycle: 204
+0s

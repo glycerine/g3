@@ -63,6 +63,17 @@ func (m *RelationManager) GetFiniteRelation(predicate ast.ASTHandle) (FiniteTabl
 // StoreFiniteRelation consumes table only on success. Replacement closes the
 // former concrete owner while preserving the manager's predicate reference.
 func (m *RelationManager) StoreFiniteRelation(predicate ast.ASTHandle, table FiniteTable) error {
+	return m.storeFiniteRelation(predicate, table, false)
+}
+
+// PublishFiniteRelation is StoreFiniteRelation of a query context's
+// relation into its owner: the owner's former table stands for no source
+// relation and goes silently (releaseUnallocated).
+func (m *RelationManager) PublishFiniteRelation(predicate ast.ASTHandle, table FiniteTable) error {
+	return m.storeFiniteRelation(predicate, table, true)
+}
+
+func (m *RelationManager) storeFiniteRelation(predicate ast.ASTHandle, table FiniteTable, silent bool) error {
 	if err := m.open(); err != nil {
 		return err
 	}
@@ -88,6 +99,10 @@ func (m *RelationManager) StoreFiniteRelation(predicate ast.ASTHandle, table Fin
 			return err
 		}
 		delete(m.placeholders, predicate)
+	} else if prior != nil && silent {
+		if err = releaseUnallocated(prior); err != nil {
+			return err
+		}
 	} else if prior != nil {
 		if err = prior.Close(); err != nil {
 			return err

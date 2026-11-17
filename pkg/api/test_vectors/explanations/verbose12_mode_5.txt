@@ -1,0 +1,184 @@
+(transform N7datalog15mk_explanationsE...union...0s
+union...add_fact...0s
+0s
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+4 rules 0s)
+(transform N7datalog13mk_coi_filterE...3 rules 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...no-op 0s)
+(transform N7datalog25mk_separate_negated_tailsE...no-op 0s)
+(transform N7datalog24mk_similarity_compressorE...no-op 0s)
+(transform N7datalog15mk_filter_rulesE...4 rules 0s)
+(transform N7datalog15mk_simple_joinsE...no-op 0s)
+(transform N7datalog21mk_unbound_compressorE...no-op 0s)
+Compiling unsafe rule column 0
+(forall ((A R) (B R) (C S) (D S))
+  (=> (and (e!expl!5 D C A) (= B (base A))) (path!expl!1 D C B)))
+Compiling unsafe rule column 0
+(forall ((A R) (B R) (C R) (D S) (E S) (F S))
+  (=> (and (e!expl!5 E D B) (path!expl!1 F E A) (= C (step B A)))
+      (path!expl!1 F D C)))
+Compiling unsafe rule column 0
+(forall ((A R) (B R))
+  (=> (and (path!expl!1!filter!6 A)
+           (= B (|<null>:
+query!0() :- 
+ path(0,3).| A)))
+      (query!0!expl!2 B)))
+load path!expl!1 into 0
+load e!expl!5 into 1
+load path!expl!1!filter!6 into 2
+load query!0!expl!2 into 3
+mark_saturated e!expl!5
+mk_total into 6 sort:[R] path!expl!1
+join 1() and 6() into 7
+filter_interpreted_and_project 7 into 7 using (= (:var 3) (base (:var 2))) deleting columns (2)
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+union 7 into 0
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+clone 0 into 4
+while(4)
+    join_project 1:3-4294967295(0) and 4:3-4294967295(1) into 8 removing columns (0,4)
+    join 8() and 6() into 8
+    filter_interpreted_and_project 8 into 8 using (= (:var 4) (step (:var 1) (:var 3))) deleting columns (1,3)
+    rename 8 into 8 with cycle (0,1)
+    union 8 into 0 with delta 5
+    dealloc 8
+    move 5 into 4
+looping ... 0
+join_project 1:3-4294967295(0) and 4:3-4294967295(1) into 8 removing columns (0,4)
+join_project...get_key_indexer...0s
+0s
+project...0s
+recycle...Recycle: 204
+0s
+join 8() and 6() into 8
+recycle...Recycle: 204
+0s
+filter_interpreted_and_project 8 into 8 using (= (:var 4) (step (:var 1) (:var 3))) deleting columns (1,3)
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+rename 8 into 8 with cycle (0,1)
+rename...0s
+recycle...Recycle: 204
+0s
+union 8 into 0 with delta 5
+recycle...Recycle: 204
+0s
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+union...add_fact...0s
+add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+move 5 into 4
+recycle...Recycle: 204
+0s
+looping ... 1
+join_project 1:3-4294967295(0) and 4:3-4294967295(1) into 8 removing columns (0,4)
+join_project...get_key_indexer...0s
+0s
+project...0s
+recycle...Recycle: 204
+0s
+join 8() and 6() into 8
+recycle...Recycle: 204
+0s
+filter_interpreted_and_project 8 into 8 using (= (:var 4) (step (:var 1) (:var 3))) deleting columns (1,3)
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+rename 8 into 8 with cycle (0,1)
+rename...0s
+recycle...Recycle: 204
+0s
+union 8 into 0 with delta 5
+recycle...Recycle: 204
+0s
+union...add_fact...0s
+add_fact...0s
+0s
+union...add_fact...0s
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+move 5 into 4
+recycle...Recycle: 204
+0s
+looping ... 2
+join_project 1:3-4294967295(0) and 4:3-4294967295(1) into 8 removing columns (0,4)
+join_project...get_key_indexer...0s
+0s
+project...0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+join 8() and 6() into 8
+filter_interpreted_and_project 8 into 8 using (= (:var 4) (step (:var 1) (:var 3))) deleting columns (1,3)
+recycle...Recycle: 204
+0s
+mark_saturated path!expl!1
+select_equal_and_project 0 into 9 col: 0 val: 0
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+project...0s
+recycle...Recycle: 210
+0s
+select_equal_and_project 9 into 9 col: 0 val: 3
+remove_fact...0s
+remove_fact...0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+union 9 into 2
+mark_saturated path!expl!1!filter!6
+mk_total into 10 sort:[R] query!0!expl!2
+join 2() and 10() into 11
+filter_interpreted_and_project 11 into 11 using (= (:var 1) (|<null>:
+query!0() :- 
+ path(0,3).| (:var 0))) deleting columns (0)
+union 11 into 3
+mark_saturated query!0!expl!2
+store 2 into path!expl!1!filter!6
+store 0 into path!expl!1
+recycle...Recycle: 200
+0s
+store 1 into e!expl!5
+recycle...Recycle: 204
+0s
+store 3 into query!0!expl!2
+bytes 8589934590
+bytes	rows	annotation
+4294967295	4294967295	
+4294967295	4294967295	
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 210
+0s

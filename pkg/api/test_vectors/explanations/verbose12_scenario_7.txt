@@ -1,0 +1,36 @@
+(transform N7datalog15mk_explanationsE...4 rules 0s)
+(transform N7datalog13mk_coi_filterE...2 rules 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...1 rules 0s)
+(transform N7datalog25mk_separate_negated_tailsE...no-op 0s)
+(transform N7datalog24mk_similarity_compressorE...no-op 0s)
+(transform N7datalog15mk_filter_rulesE...no-op 0s)
+(transform N7datalog15mk_simple_joinsE...no-op 0s)
+(transform N7datalog21mk_unbound_compressorE...no-op 0s)
+Compiling unsafe rule column 0
+(forall ((A R) (B R))
+  (let ((a!1 (and (p!expl!1 A)
+                  (not u)
+                  (= B (|<null>:
+query!0() :- 
+ q().| (consumer A))))))
+    (=> a!1 (query!0!expl!4 B))))
+load query!0!expl!4 into 0
+load p!expl!1 into 1
+load u into 2
+mark_saturated p!expl!1
+mark_saturated u
+mk_total into 3 sort:[R] query!0!expl!4
+join 1() and 3() into 4
+filter_by_negation on 4() with 2() as the negated table
+filter_interpreted_and_project 4 into 4 using (= (:var 1) (|<null>:
+query!0() :- 
+ q().| (consumer (:var 0)))) deleting columns (0)
+union 4 into 0
+mark_saturated query!0!expl!4
+store 2 into u
+store 1 into p!expl!1
+store 0 into query!0!expl!4
+bytes 4294967295
+bytes	rows	annotation
+4294967295	4294967295	

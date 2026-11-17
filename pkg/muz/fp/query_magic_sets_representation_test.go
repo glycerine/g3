@@ -63,6 +63,51 @@ func TestQueryMagicSetsInheritsRequestedFiniteRepresentations(t *testing.T) {
 				originals[declaration] = true
 			}
 			originalCount := len(engine.predicateOrder)
+			// The query-local predicates, seen before the query's
+			// scoped_query restricts the context's predicates.
+			fresh, concrete, fallback := 0, 0, 0
+			engine.datalogQueryObserver = func(clone *PropositionalEngine, _ ast.ASTHandle) {
+				for _, declaration := range clone.predicateOrder {
+					if originals[declaration] {
+						continue
+					}
+					fresh++
+					state := clone.predicates[declaration]
+					if state == nil || len(state.requestedRepresentations) != 1 || state.requestedRepresentations[0] != kind {
+						t.Fatal("fresh predicate lost requested representation", declaration, state)
+					}
+					arity, arityErr := manager.GetArity(declaration)
+					must(arityErr)
+					if arity == 0 && kind != "tr_hashtable" {
+						fallback++
+						if state.explicitFiniteRepresentation {
+							t.Fatal("unsupported nullary Sparse request became concrete")
+						}
+						if _, ok := state.table.(*rel.HashTable); !ok {
+							t.Fatalf("nullary fallback = %T, want Hash", state.table)
+						}
+						continue
+					}
+					concrete++
+					if !state.explicitFiniteRepresentation {
+						t.Fatal("supported fresh predicate lost explicit representation")
+					}
+					switch kind {
+					case "tr_hashtable":
+						if _, ok := state.table.(*rel.HashTable); !ok {
+							t.Fatalf("inherited Hash predicate = %T", state.table)
+						}
+					case "tr_sparse":
+						if _, ok := state.table.(*rel.SparseTable); !ok {
+							t.Fatalf("inherited Sparse predicate = %T", state.table)
+						}
+					case "tr_lazy_sparse":
+						if _, ok := state.table.(*rel.LazySparseTable); !ok || clone.lazyFinite == nil || !clone.lazyFinite.Owns(state.table) {
+							t.Fatalf("inherited LazySparse predicate = %T", state.table)
+						}
+					}
+				}
+			}
 			status, err := engine.QueryExpression(query)
 			must(err)
 			if status != lbool.True {
@@ -71,50 +116,8 @@ func TestQueryMagicSetsInheritsRequestedFiniteRepresentations(t *testing.T) {
 			if len(engine.predicateOrder) != originalCount {
 				t.Fatal("query-local MagicSets changed persistent predicates")
 			}
-			clone := engine.queryClone
-			if clone == nil {
+			if engine.queryClone == nil {
 				t.Fatal("successful expression query did not preserve its clone")
-			}
-			fresh, concrete, fallback := 0, 0, 0
-			for _, declaration := range clone.predicateOrder {
-				if originals[declaration] {
-					continue
-				}
-				fresh++
-				state := clone.predicates[declaration]
-				if state == nil || len(state.requestedRepresentations) != 1 || state.requestedRepresentations[0] != kind {
-					t.Fatal("fresh predicate lost requested representation", declaration, state)
-				}
-				arity, arityErr := manager.GetArity(declaration)
-				must(arityErr)
-				if arity == 0 && kind != "tr_hashtable" {
-					fallback++
-					if state.explicitFiniteRepresentation {
-						t.Fatal("unsupported nullary Sparse request became concrete")
-					}
-					if _, ok := state.table.(*rel.HashTable); !ok {
-						t.Fatalf("nullary fallback = %T, want Hash", state.table)
-					}
-					continue
-				}
-				concrete++
-				if !state.explicitFiniteRepresentation {
-					t.Fatal("supported fresh predicate lost explicit representation")
-				}
-				switch kind {
-				case "tr_hashtable":
-					if _, ok := state.table.(*rel.HashTable); !ok {
-						t.Fatalf("inherited Hash predicate = %T", state.table)
-					}
-				case "tr_sparse":
-					if _, ok := state.table.(*rel.SparseTable); !ok {
-						t.Fatalf("inherited Sparse predicate = %T", state.table)
-					}
-				case "tr_lazy_sparse":
-					if _, ok := state.table.(*rel.LazySparseTable); !ok || clone.lazyFinite == nil || !clone.lazyFinite.Owns(state.table) {
-						t.Fatalf("inherited LazySparse predicate = %T", state.table)
-					}
-				}
 			}
 			if fresh == 0 || concrete == 0 {
 				t.Fatal("missing query-local inherited predicates", fresh, concrete)
