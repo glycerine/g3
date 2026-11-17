@@ -41,13 +41,21 @@ func (e *PropositionalEngine) finiteRelationAnswer(state *predicateState) (answe
 	}
 	rows := make([]ast.ASTHandle, 0, len(facts))
 	for _, fact := range facts {
-		values, err := e.relations.DecodeFact(state.sorts, fact)
-		attempt.current = values
-		if err != nil {
-			return answer, err
-		}
 		equalities := make([]ast.ASTHandle, len(fact))
 		for i := range fact {
+			// m.mk_eq(m.mk_var(i, sig[i]), util.mk_numeral(fact[i], sig[i])):
+			// g++ evaluates the arguments right to left, the numeral first.
+			decoded, err := e.relations.DecodeValue(state.sorts[i], fact[i])
+			if decoded != (ast.ASTRef{}) {
+				attempt.current = append(attempt.current, decoded)
+			}
+			if err != nil {
+				return answer, err
+			}
+			value, err := e.manager.RefGet(decoded)
+			if err != nil {
+				return answer, err
+			}
 			root, err := reserveCurrent()
 			if err != nil {
 				return answer, err
@@ -56,10 +64,6 @@ func (e *PropositionalEngine) finiteRelationAnswer(state *predicateState) (answe
 			if !variable.IsNull() {
 				err = errors.Join(err, e.manager.SetRef(root, variable))
 			}
-			if err != nil {
-				return answer, err
-			}
-			value, err := e.manager.RefGet(values[i])
 			if err != nil {
 				return answer, err
 			}
