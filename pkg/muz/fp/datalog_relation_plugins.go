@@ -140,7 +140,7 @@ func (e *PropositionalEngine) datalogRelationKind(state *predicateState, favouri
 // predicate's relation is the favourite's (udoc, check_relation over any
 // base plugin), a table's, or what get_relation gives a signature with
 // Int/Real columns (another relation plugin's relation or a product
-// relation). Explanations and default_table_checked keep their evaluators.
+// relation). default_table_checked keeps its evaluator.
 func (e *PropositionalEngine) selectCompiledRelationFavourite() (_ bool, resultErr error) {
 	if err := e.cacheDatalogRelationFavourite(); err != nil {
 		return false, err
@@ -352,22 +352,7 @@ func requestedRelationPluginKind(kinds []string) string {
 }
 
 // selectCompiledRelationFavouriteForFacts is selectCompiledRelationFavourite
-// for a fact added before the query. With datalog.generate_explanations the
-// explanation evaluators of the later expression queries take the facts.
+// for a fact added before the query.
 func (e *PropositionalEngine) selectCompiledRelationFavouriteForFacts() (bool, error) {
 	return e.selectCompiledRelationFavourite()
-}
-
-// datalogExplanationsRequested reports datalog.generate_explanations for the
-// engine itself as well as its query clones.
-func (e *PropositionalEngine) datalogExplanationsRequested() (bool, error) {
-	if e.backend != "datalog" || e.params == nil || e.globals == nil {
-		return false, nil
-	}
-	view, err := e.fixedpointParamView()
-	if err != nil {
-		return false, err
-	}
-	enabled, err := view.Bool("datalog.generate_explanations", false)
-	return enabled, errors.Join(err, view.Close())
 }

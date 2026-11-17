@@ -2,7 +2,7 @@ package rel
 
 // Source: src/muz/rel/rel_context.cpp rel_context::has_facts. The source
 // queries the predicate's actual relation_base regardless of its concrete
-// table or explanation-product representation.
+// table or relation representation.
 
 import "github.com/glycerine/g3/pkg/ast"
 
@@ -11,14 +11,6 @@ import "github.com/glycerine/g3/pkg/ast"
 func (m *RelationManager) HasFacts(predicate ast.ASTHandle) (bool, error) {
 	if err := m.open(); err != nil {
 		return false, err
-	}
-	if product := m.explanations[predicate]; product != nil {
-		rows, err := product.Len()
-		return rows != 0, err
-	}
-	if product := m.relationLevel[predicate]; product != nil {
-		rows, err := product.Len()
-		return rows != 0, err
 	}
 	if m.placeholders[predicate] {
 		// try_get_relation: get_relation has not created it.
@@ -56,19 +48,7 @@ func (m *RelationManager) CollectNonEmptyPredicates() ([]ast.ASTHandle, error) {
 			continue
 		}
 		nonEmpty := false
-		if product := m.explanations[predicate]; product != nil {
-			rows, err := product.Len()
-			if err != nil {
-				return nil, err
-			}
-			nonEmpty = rows != 0
-		} else if product := m.relationLevel[predicate]; product != nil {
-			rows, err := product.Len()
-			if err != nil {
-				return nil, err
-			}
-			nonEmpty = rows != 0
-		} else {
+		{
 			var table FiniteTable = m.finite[predicate]
 			if table == nil {
 				if hash := m.relations[predicate]; hash != nil {

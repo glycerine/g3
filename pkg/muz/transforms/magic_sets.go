@@ -537,22 +537,6 @@ func (p *MagicSetsPlugin) hasTransferFacts(predicate ast.ASTHandle) (bool, error
 	if p.relations == nil {
 		return false, nil
 	}
-	whole, found, err := p.relations.TryGetRelationExplanation(predicate)
-	if err != nil {
-		return false, err
-	}
-	if found {
-		empty, err := whole.Empty()
-		return !empty, err
-	}
-	product, found, err := p.relations.TryGetExplanationRelation(predicate)
-	if err != nil {
-		return false, err
-	}
-	if found {
-		rows, err := product.Len()
-		return rows != 0, err
-	}
 	table, found, err := p.relations.TryGetFiniteRelation(predicate)
 	if err != nil || !found {
 		return false, err

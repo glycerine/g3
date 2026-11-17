@@ -25,15 +25,7 @@ func NewMarkSaturatedInstruction(relations *RelationManager, predicate ast.ASTHa
 	if err := relations.open(); err != nil {
 		return nil, err
 	}
-	explanation, err := relations.predicateUsesExplanationColumns(predicate)
-	if err != nil {
-		return nil, err
-	}
-	if explanation {
-		if _, _, err := relations.explanationPredicateSignature(predicate); err != nil {
-			return nil, err
-		}
-	} else if _, _, err := relations.RelationPredicateSignature(predicate); err != nil {
+	if _, _, err := relations.RelationPredicateSignature(predicate); err != nil {
 		return nil, err
 	}
 	if err := relations.manager.IncRef(predicate); err != nil {

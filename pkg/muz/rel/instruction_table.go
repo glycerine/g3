@@ -61,12 +61,6 @@ func NewFilterEqualInstruction(register uint32, value Element, column int) Instr
 	return i
 }
 
-func NewFilterEqualASTInstruction(register uint32, value ast.ASTHandle, column int) Instruction {
-	i := newTableInstruction("filter_equal")
-	i.first, i.astValue, i.column = register, value, column
-	return i
-}
-
 func NewFilterIdenticalInstruction(register uint32, columns []int) Instruction {
 	i := newTableInstruction("filter_identical")
 	i.first, i.left = register, append([]int(nil), columns...)
@@ -173,10 +167,6 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 		if err := logVerbose(context, i); err != nil {
 			return false, err
 		}
-	}
-	if (i.kind == "project" || i.kind == "union" || i.kind == "widen" || i.kind == "join" || i.kind == "rename" || i.kind == "filter_equal" || i.kind == "filter_identical") &&
-		(hasExplanationInstructionRegister(context, i.first) || hasExplanationInstructionRegister(context, i.second) || hasExplanationInstructionRegister(context, i.result)) {
-		return i.performExplanation(context)
 	}
 	first, err := finiteInstructionRegister(context, i.first)
 	if err != nil {

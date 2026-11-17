@@ -9,18 +9,15 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
-	"github.com/glycerine/g3/pkg/smtcore"
 )
 
 // RelationManager borrows an AST manager, owns stored finite predicate tables,
 // and converts between finite-domain relation values and table elements.
 type RelationManager struct {
-	manager       *ast.ASTManager
-	relations     map[ast.ASTHandle]*HashTable
-	finite        map[ast.ASTHandle]FiniteTable
-	explanations  map[ast.ASTHandle]*FiniteExplanationProduct
-	relationLevel map[ast.ASTHandle]*RelationExplanationProduct
-	saturated     map[ast.ASTHandle]bool
+	manager   *ast.ASTManager
+	relations map[ast.ASTHandle]*HashTable
+	finite    map[ast.ASTHandle]FiniteTable
+	saturated map[ast.ASTHandle]bool
 	// layout is m_relations' obj_map layout over every stored predicate;
 	// reset and restrict walk it in table order.
 	layout        *ast.ObjMap
@@ -28,13 +25,9 @@ type RelationManager struct {
 	// favouriteTable is the table plugin of a table_relation favourite
 	// relation plugin other than the default table's (datalog.default_relation
 	// tr_<table>), "" when there is none.
-	favouriteTable          string
-	lazyFinite              *LazySparseFiniteFactory // borrowed; context closes it after this manager
-	checkedFinite           *FiniteCheckedFactory    // borrowed for one checked execution scope
-	explanationUDoc         *UDocRelationFactory     // owned by the relation manager for explanation products
-	explanationUDocOwned    bool
-	explanationNumericKind  string
-	explanationNumericCheck *smtcore.SMTSolverConfig
+	favouriteTable string
+	lazyFinite     *LazySparseFiniteFactory // borrowed; context closes it after this manager
+	checkedFinite  *FiniteCheckedFactory    // borrowed for one checked execution scope
 	// varSubst is the context var_subst used to ground interpreted
 	// conditions (GroundCondition).
 	varSubst *astrewriter.VarSubstitution
@@ -106,11 +99,11 @@ func NewRelationManager(manager *ast.ASTManager) (*RelationManager, error) {
 		}
 		return nil, err
 	}
-	return &RelationManager{manager: manager, relations: make(map[ast.ASTHandle]*HashTable), finite: make(map[ast.ASTHandle]FiniteTable), explanations: make(map[ast.ASTHandle]*FiniteExplanationProduct), relationLevel: make(map[ast.ASTHandle]*RelationExplanationProduct), saturated: make(map[ast.ASTHandle]bool), layout: ast.NewObjMap(manager), defaultFinite: "hashtable", varSubst: varSubst}, nil
+	return &RelationManager{manager: manager, relations: make(map[ast.ASTHandle]*HashTable), finite: make(map[ast.ASTHandle]FiniteTable), saturated: make(map[ast.ASTHandle]bool), layout: ast.NewObjMap(manager), defaultFinite: "hashtable", varSubst: varSubst}, nil
 }
 
 func (m *RelationManager) open() error {
-	if m == nil || m.closed || m.manager == nil || m.relations == nil || m.finite == nil || m.explanations == nil || m.relationLevel == nil || m.saturated == nil {
+	if m == nil || m.closed || m.manager == nil || m.relations == nil || m.finite == nil || m.saturated == nil {
 		return ErrTable
 	}
 	return nil
@@ -120,10 +113,8 @@ func (m *RelationManager) MarkSaturated(predicate ast.ASTHandle) error {
 	if err := m.open(); err != nil {
 		return err
 	}
-	if m.explanations[predicate] == nil && m.relationLevel[predicate] == nil {
-		if _, _, err := m.RelationPredicateSignature(predicate); err != nil {
-			return err
-		}
+	if _, _, err := m.RelationPredicateSignature(predicate); err != nil {
+		return err
 	}
 	m.saturated[predicate] = true
 	return nil
@@ -151,7 +142,7 @@ func (m *RelationManager) TryGetRelation(predicate ast.ASTHandle) (*HashTable, b
 	if err := m.open(); err != nil {
 		return nil, false, err
 	}
-	if m.finite[predicate] != nil || m.explanations[predicate] != nil || m.relationLevel[predicate] != nil {
+	if m.finite[predicate] != nil {
 		return nil, false, ErrTable
 	}
 	table, found := m.relations[predicate]
@@ -169,7 +160,7 @@ func (m *RelationManager) GetRelation(predicate ast.ASTHandle) (*HashTable, erro
 	if err := m.open(); err != nil {
 		return nil, err
 	}
-	if m.finite[predicate] != nil || m.explanations[predicate] != nil || m.relationLevel[predicate] != nil {
+	if m.finite[predicate] != nil {
 		return nil, ErrTable
 	}
 	if table := m.relations[predicate]; table != nil {
@@ -201,11 +192,9 @@ func (m *RelationManager) noteRelation(predicate ast.ASTHandle) error {
 }
 
 func (m *RelationManager) holdsRelation(predicate ast.ASTHandle) bool {
-	_, a := m.explanations[predicate]
-	_, b := m.relationLevel[predicate]
 	_, c := m.finite[predicate]
 	_, d := m.relations[predicate]
-	return a || b || c || d
+	return c || d
 }
 
 // retireRelation releases predicate's stored relations: deallocate, then
@@ -221,12 +210,6 @@ func (m *RelationManager) retireRelation(predicate ast.ASTHandle) (result error)
 		consumed, err := m.manager.DecRefConsumed(predicate)
 		result = errors.Join(result, err)
 		return consumed
-	}
-	if product, ok := m.explanations[predicate]; ok && release(product.Close) {
-		delete(m.explanations, predicate)
-	}
-	if product, ok := m.relationLevel[predicate]; ok && release(product.Close) {
-		delete(m.relationLevel, predicate)
 	}
 	if table, ok := m.finite[predicate]; ok && release(table.Close) {
 		delete(m.finite, predicate)
@@ -287,14 +270,9 @@ func (m *RelationManager) Close() (result error) {
 	m.fnClosers = nil
 	result = errors.Join(result, closeRelationBases(m.fnOwners))
 	m.fnOwners = nil
-	if len(m.relations) != 0 || len(m.finite) != 0 || len(m.explanations) != 0 || len(m.relationLevel) != 0 {
+	if len(m.relations) != 0 || len(m.finite) != 0 {
 		return errors.Join(result, ErrTable)
 	}
-	if m.explanationUDoc != nil && m.explanationUDocOwned {
-		m.explanationUDoc.Close()
-	}
-	m.explanationUDoc = nil
-	m.explanationUDocOwned = false
 	if m.varSubst != nil {
 		result = errors.Join(result, m.varSubst.Close())
 		m.varSubst = nil
@@ -303,8 +281,6 @@ func (m *RelationManager) Close() (result error) {
 	m.manager = nil
 	m.relations = nil
 	m.finite = nil
-	m.explanations = nil
-	m.relationLevel = nil
 	m.saturated = nil
 	m.lazyFinite = nil
 	m.checkedFinite = nil

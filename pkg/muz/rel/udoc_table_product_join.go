@@ -151,7 +151,7 @@ func (a *udocTableProductAttempt) fullUnaryFinite(signature Signature, like Fini
 	default:
 		return nil, ErrUDocTableProduct
 	}
-	empty, err := newRelationExplanationFiniteBackingSelected(a.manager, signature, kind)
+	empty, err := newUDocProductFiniteBacking(a.manager, signature, kind)
 	if empty != nil {
 		a.tables = append(a.tables, empty)
 	}
@@ -176,4 +176,30 @@ func (a *udocTableProductAttempt) fullUnaryFinite(signature Signature, like Fini
 		}
 	}
 	return empty, nil
+}
+
+// newUDocProductFiniteBacking is an empty table of the selected table
+// plugin kind for a raw udoc table product.
+func newUDocProductFiniteBacking(manager *RelationManager, signature Signature, kind string) (FiniteTable, error) {
+	switch kind {
+	case "":
+		return manager.NewDefaultFiniteTable(signature)
+	case "hashtable":
+		return NewHashTable(signature), nil
+	case "sparse":
+		if signature.Len() == 0 {
+			return NewHashTable(signature), nil
+		}
+		return NewSparseTable(signature, 0)
+	case "lazy_sparse":
+		if signature.Len() == 0 {
+			return NewHashTable(signature), nil
+		}
+		if manager.lazyFinite == nil || !manager.lazyFinite.CanHandleSignature(signature) {
+			return nil, ErrTable
+		}
+		return manager.lazyFinite.New(signature)
+	default:
+		return nil, ErrTable
+	}
 }

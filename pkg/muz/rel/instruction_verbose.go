@@ -93,25 +93,12 @@ func registerPresent(context *ExecutionContext, index uint32) bool {
 	if context == nil || index == VoidRegister {
 		return false
 	}
-	if hasExplanationInstructionRegister(context, index) || hasRelationExplanationRegister(context, index) {
-		return true
-	}
 	return uint64(index) < uint64(len(context.registers)) && context.registers[index] != nil
 }
 
 // registerShape is r->num_columns() and r->get_size_estimate_rows() of a
 // live register.
 func registerShape(context *ExecutionContext, index uint32) (columns, rows uint32, err error) {
-	if hasExplanationInstructionRegister(context, index) {
-		product := context.explanationRegisters[index]
-		rows, err = product.SizeEstimateRows()
-		return uint32(len(product.finiteSorts) + product.explanationColumns), rows, err
-	}
-	if hasRelationExplanationRegister(context, index) {
-		// product_relation keeps relation_base's UINT_MAX estimate.
-		product := context.relationExplanationRegisters[index]
-		return uint32(len(product.finiteSorts)), ^uint32(0), nil
-	}
 	table := context.registers[index]
 	signature, err := table.Signature()
 	if err != nil {

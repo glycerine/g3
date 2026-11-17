@@ -27,13 +27,7 @@ func (m *RelationManager) WriteRelationSizes(out io.Writer) error {
 			return err
 		}
 		var rows uint32
-		if product, found := m.explanations[predicate]; found && product != nil {
-			if rows, err = product.SizeEstimateRows(); err != nil {
-				return err
-			}
-		} else if product, found := m.relationLevel[predicate]; found && product != nil {
-			rows = ^uint32(0)
-		} else if table, found := m.finite[predicate]; found && table != nil {
+		if table, found := m.finite[predicate]; found && table != nil {
 			if rows, _, err = finiteTableSizeEstimates(table); err != nil {
 				return err
 			}

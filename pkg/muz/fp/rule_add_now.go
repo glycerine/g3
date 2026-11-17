@@ -19,13 +19,6 @@ func (e *PropositionalEngine) addRuleNow(formula ast.ASTHandle, name string) err
 	return e.materializePendingRules()
 }
 
-func (e *PropositionalEngine) addRuleWithSymbolNow(formula ast.ASTHandle, name symbol.Symbol) error {
-	if err := e.AddRuleWithSymbol(formula, name); err != nil {
-		return err
-	}
-	return e.materializePendingRules()
-}
-
 // materializePendingRules builds the Go-only eager clauses of queued rules
 // for readers outside the query flush (rule enumeration, display, facts,
 // covers). The query path instead runs flush_add_rules from the raw formulas.

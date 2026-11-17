@@ -2,6 +2,7 @@ package rel
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/muz/base"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -9,7 +10,7 @@ import (
 )
 
 func TestSimilarityRewriteConstructionCleanupKeepsNestedOwnersForRetry(t *testing.T) {
-	f := newExplanationNegativeFixture(t, "hashtable")
+	f := newSimilarityRuleFixture(t, "hashtable")
 	p, q, auxiliary := f.declare("rewrite-cleanup-P", 2), f.declare("rewrite-cleanup-Q", 2), f.declare("rewrite-cleanup-aux", 1)
 	x := f.own(f.ast.MkVar(7, f.boolean))
 	head := f.own(f.ast.MkApp(p, []ast.ASTHandle{x, f.truth}))
@@ -99,4 +100,47 @@ func TestSimilarityRewriteConstructionCleanupKeepsNestedOwnersForRetry(t *testin
 	if constant != f.truth {
 		t.Fatal("cleanup/retry changed the original source rule")
 	}
+}
+
+// similarityRuleFixture is a table relation fixture with a rule manager and
+// rule set over Boolean predicates.
+type similarityRuleFixture struct {
+	*tableRelationFixture
+	rules *base.RuleManager
+	set   *base.RuleSet
+}
+
+func newSimilarityRuleFixture(t *testing.T, representation string) *similarityRuleFixture {
+	t.Helper()
+	f := &similarityRuleFixture{tableRelationFixture: newTableRelationFixture(t)}
+	astTestMust(t, f.relations.SetDefaultFiniteTable(representation))
+	var err error
+	f.rules, err = base.NewRuleManager(f.ast)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, f.rules.Close()) })
+	f.set, err = base.NewRuleSet(f.rules)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, f.set.Close()) })
+	return f
+}
+
+func (f *similarityRuleFixture) own(h ast.ASTHandle, err error) ast.ASTHandle {
+	f.t.Helper()
+	astTestMust(f.t, err)
+	astTestPin(f.t, f.ast, h)
+	return h
+}
+
+func (f *similarityRuleFixture) declare(name string, arity int) ast.ASTHandle {
+	f.t.Helper()
+	symbol, err := f.ast.Symbols.Intern(name)
+	astTestMust(f.t, err)
+	domain := make([]ast.ASTHandle, arity)
+	for i := range domain {
+		domain[i] = f.boolean
+	}
+	declaration, err := f.ast.MkFuncDecl(symbol, domain, f.boolean, ast.ASTFuncDeclInfo{})
+	astTestMust(f.t, err)
+	astTestMust(f.t, f.rules.RegisterPredicate(declaration))
+	return declaration
 }

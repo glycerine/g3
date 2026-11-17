@@ -193,9 +193,6 @@ func (i *interpretedFilterInstruction) Perform(context *ExecutionContext) (bool,
 			return false, err
 		}
 	}
-	if hasExplanationInstructionRegister(context, i.register) {
-		return i.performExplanationFilter(context)
-	}
 	table, err := context.FiniteRegister(i.register)
 	if err != nil || table == nil {
 		return true, err

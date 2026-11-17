@@ -17,13 +17,6 @@ type KarrRelationFormulaChecker struct {
 	config  smtcore.SMTSolverConfig
 }
 
-func NewKarrRelationFormulaChecker(manager *ast.ASTManager, config smtcore.SMTSolverConfig) (*KarrRelationFormulaChecker, error) {
-	if manager == nil {
-		return nil, ErrRelationVerification
-	}
-	return &KarrRelationFormulaChecker{manager: manager, config: config}, nil
-}
-
 func (c *KarrRelationFormulaChecker) sorts(dimension uint32) ([]ast.ASTHandle, error) {
 	if c == nil || c.manager == nil {
 		return nil, ErrRelationVerification

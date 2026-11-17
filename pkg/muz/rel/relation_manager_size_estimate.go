@@ -19,18 +19,6 @@ func (m *RelationManager) RelationSizeEstimateRows(predicate ast.ASTHandle) (uin
 	if err := m.open(); err != nil {
 		return 0, false, err
 	}
-	if product := m.explanations[predicate]; product != nil {
-		rows, err := product.SizeEstimateRows()
-		return rows, true, err
-	}
-	if product := m.relationLevel[predicate]; product != nil {
-		if err := product.open(); err != nil {
-			return 0, false, err
-		}
-		// The source whole-relation explanation is a product_relation. It
-		// inherits relation_base's conservative estimate.
-		return math.MaxUint32, true, nil
-	}
 	var table FiniteTable = m.finite[predicate]
 	if table == nil {
 		table = m.relations[predicate]

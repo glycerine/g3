@@ -482,14 +482,6 @@ func (e *PropositionalEngine) clearQueryResources() error {
 	if err := e.clearArithmeticTableFactCleanup(); err != nil {
 		return err
 	}
-	if err := e.clearDatalogExplanationCleanup(); err != nil {
-		return err
-	}
-	if e.datalogExplanationAnswer != (ast.ASTRef{}) {
-		if err := e.manager.DelRef(&e.datalogExplanationAnswer); err != nil {
-			return err
-		}
-	}
 	if err := e.clearQueryCleanup(); err != nil {
 		return err
 	}

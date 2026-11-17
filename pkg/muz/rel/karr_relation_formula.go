@@ -186,25 +186,3 @@ func VerifyKarrRelationExpected(manager *ast.ASTManager, sorts []ast.ASTHandle, 
 	}
 	return verifyRelationFormulaPair(manager, sorts, config, expected, actualFormula, false)
 }
-
-func VerifyKarrRelationConstant(manager *ast.ASTManager, sorts []ast.ASTHandle, config smtcore.SMTSolverConfig, actual *KarrRelation, full bool) error {
-	if manager == nil || actual == nil {
-		return ErrRelationVerification
-	}
-	var expected ast.ASTHandle
-	var err error
-	if full {
-		expected, err = manager.MkTrue()
-	} else {
-		expected, err = manager.MkFalse()
-	}
-	if err != nil {
-		return err
-	}
-	ref, err := manager.NewRef(expected)
-	if err != nil {
-		return err
-	}
-	defer manager.DelRef(&ref)
-	return VerifyKarrRelationExpected(manager, sorts, config, expected, actual)
-}

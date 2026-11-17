@@ -109,37 +109,17 @@ func (e *PropositionalEngine) ensureUDocDatalog() (selected bool, resultErr erro
 		}
 		return false, nil
 	}
+	// generate_explanations: mk_explanations' explained predicates run on
+	// the compiled relation pipeline, never on this evaluator.
 	explanations, err := e.datalogExplanationsEnabled()
-	if err != nil {
-		return true, err
-	}
-	if explanations {
-		view, err := e.fixedpointParamView()
-		if err != nil {
-			return true, err
-		}
-		relationLevel, err := view.Bool("datalog.explanations_on_relation_level", false)
-		err = errors.Join(err, view.Close())
-		if err != nil || !relationLevel {
-			return true, errors.Join(err, ErrUDocDatalogFragment)
-		}
+	if err != nil || explanations {
+		return false, err
 	}
 	if checkerEnabled && !checkedDoc {
 		return true, ErrUDocDatalogFragment
 	}
 	if _, enabled, err := e.datalogDefaultTableCheck(); err != nil || enabled {
 		return true, errors.Join(err, ErrUDocDatalogFragment)
-	}
-	if explanations || checkerEnabled {
-		if owner.borrowed {
-			err = e.relations.BorrowRelationExplanationUDocFactory(owner.factory)
-		} else {
-			err = e.relations.SetRelationExplanationUDocFactory(owner.factory)
-		}
-		if err != nil {
-			return true, err
-		}
-		owner.borrowed = true
 	}
 	e.udocDatalog = owner
 	return true, owner.sync(e)

@@ -74,43 +74,6 @@ func liftFormulaCheckedLike(template *FormulaCheckedTable, source FiniteTable) (
 	return result, nil
 }
 
-func liftFormulaCheckedWithSorts(template *FormulaCheckedTable, source FiniteTable, sorts []ast.ASTHandle) (_ *FormulaCheckedTable, resultErr error) {
-	if concrete, ok := source.(*FormulaCheckedTable); ok {
-		return concrete, nil
-	}
-	if len(sorts) == 0 {
-		return liftFormulaCheckedLike(template, source)
-	}
-	if err := template.open(); err != nil {
-		return nil, ErrCompilerUnsupported
-	}
-	relation, err := NewTableRelation(template.table.manager, sorts)
-	if err != nil {
-		return nil, err
-	}
-	result, err := NewFormulaCheckedTable(relation, template.config)
-	if err != nil {
-		return nil, errors.Join(err, relation.Close())
-	}
-	owned := true
-	defer func() {
-		if resultErr != nil && owned {
-			resultErr = errors.Join(resultErr, result.Close())
-		}
-	}()
-	facts, err := source.Facts()
-	if err != nil {
-		return nil, err
-	}
-	for _, fact := range facts {
-		if _, err = result.Add(fact); err != nil {
-			return nil, err
-		}
-	}
-	owned = false
-	return result, nil
-}
-
 func formulaCheckedFilterEqual(table *FormulaCheckedTable, value Element, column int) (resultErr error) {
 	if err := table.open(); err != nil || column < 0 || column >= len(table.table.sorts) {
 		return ErrTable
@@ -125,95 +88,6 @@ func formulaCheckedFilterEqual(table *FormulaCheckedTable, value Element, column
 		return err
 	}
 	return table.FilterEqual(handle, column)
-}
-
-func relationExplanationFiniteUnion(target, source, delta FiniteTable, sorts []ast.ASTHandle) (resultErr error) {
-	if nested, ok := target.(*FormulaCheckedFinitePair); ok {
-		nestedSource, err := liftFormulaCheckedFinitePairWithSorts(nested, source, sorts)
-		if err != nil {
-			return err
-		}
-		sourceOwned := nestedSource != source
-		if sourceOwned {
-			defer func() { resultErr = errors.Join(resultErr, nestedSource.Close()) }()
-		}
-		var nestedDelta *FormulaCheckedFinitePair
-		deltaOwned := false
-		if delta != nil {
-			if concrete, same := delta.(*FormulaCheckedFinitePair); same {
-				nestedDelta = concrete
-			} else {
-				nestedDelta, err = liftFormulaCheckedFinitePairWithSorts(nested, delta, sorts)
-				if err != nil {
-					return err
-				}
-				deltaOwned = true
-				defer func() { resultErr = errors.Join(resultErr, nestedDelta.Close()) }()
-			}
-		}
-		if err = nested.UnionFrom(nestedSource, nestedDelta); err != nil {
-			return err
-		}
-		if deltaOwned {
-			facts, err := nestedDelta.Facts()
-			if err != nil {
-				return err
-			}
-			if err = delta.Reset(); err != nil {
-				return err
-			}
-			for _, fact := range facts {
-				if _, err = delta.Add(fact); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	}
-	checked, ok := target.(*FormulaCheckedTable)
-	if !ok {
-		return finiteTableUnion(target, source, delta)
-	}
-	checkedSource, err := liftFormulaCheckedWithSorts(checked, source, sorts)
-	if err != nil {
-		return err
-	}
-	sourceOwned := checkedSource != source
-	if sourceOwned {
-		defer func() { resultErr = errors.Join(resultErr, checkedSource.Close()) }()
-	}
-	var checkedDelta *FormulaCheckedTable
-	deltaOwned := false
-	if delta != nil {
-		if concrete, same := delta.(*FormulaCheckedTable); same {
-			checkedDelta = concrete
-		} else {
-			checkedDelta, err = liftFormulaCheckedWithSorts(checked, delta, sorts)
-			if err != nil {
-				return err
-			}
-			deltaOwned = true
-			defer func() { resultErr = errors.Join(resultErr, checkedDelta.Close()) }()
-		}
-	}
-	if err = checked.UnionFrom(checkedSource, checkedDelta); err != nil {
-		return err
-	}
-	if deltaOwned {
-		facts, err := checkedDelta.Facts()
-		if err != nil {
-			return err
-		}
-		if err = delta.Reset(); err != nil {
-			return err
-		}
-		for _, fact := range facts {
-			if _, err = delta.Add(fact); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 func formulaCheckedFilterInterpretedBound(table *FormulaCheckedTable, theory *rewriter.TheoryRewriter, conditions []ast.ASTHandle, columns map[uint32]int, sorts map[uint32]ast.ASTHandle) (resultErr error) {

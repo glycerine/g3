@@ -292,10 +292,6 @@ type PropositionalEngine struct {
 	arithmeticFactCleanup    []*arithmeticTableFactAttempt
 	datalogRelationFavourite string
 
-	datalogExplanationQuery   bool
-	datalogExplanationAnswer  ast.ASTRef
-	datalogExplanationCleanup []*datalogExplanationOwners
-
 	// bitBlastAnswers holds, per bit-blasted original predicate, the
 	// latest query's answer over the derived Boolean relation
 	// (rules.get_pred(q) after mk_bit_blast).
@@ -2631,9 +2627,9 @@ func (e *PropositionalEngine) SetSaturateOnly(on bool) { e.saturateOnly = on }
 // mk_and(rel.to_formula(e) for each queried relation), assigned after the
 // new formula exists. Only plain finite tables take this path.
 func (e *PropositionalEngine) buildRelationAnswer(declarations []ast.ASTHandle) (result error) {
-	// Only the plain finite-table backend; the explanation, Karr, udoc and
-	// interval backends answer through their own relations.
-	if e.datalogExplanationAnswer != (ast.ASTRef{}) || e.udocDatalog != nil ||
+	// Only the plain finite-table backend; the Karr, udoc and interval
+	// backends answer through their own relations.
+	if e.udocDatalog != nil ||
 		e.queryClone != nil || e.expressionClone {
 		return nil
 	}
@@ -3128,9 +3124,6 @@ func (e *PropositionalEngine) computeAnswer(declaration ast.ASTHandle) (answer a
 	}
 	if err = e.requireResultSnapshot(kind); err != nil {
 		return answer, err
-	}
-	if kind == EngineDatalog && e.datalogExplanationAnswer != (ast.ASTRef{}) {
-		return e.manager.CopyRef(e.datalogExplanationAnswer)
 	}
 	if kind == EngineDatalog && (e.udocDatalog != nil || e.queryClone != nil && e.queryClone.udocDatalog != nil) {
 		return e.udocAnswer(declaration)

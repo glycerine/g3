@@ -23,6 +23,22 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
+// datalogExplanationsEnabled is context::generate_explanations() as read by
+// rel_context::query(expr*). The relation query rel_context::query(num_rels,
+// rels), which serves (query r), never applies mk_explanations, so only the
+// expression-query clone sees the option.
+func (e *PropositionalEngine) datalogExplanationsEnabled() (bool, error) {
+	if e.backend != "datalog" || e.params == nil || e.globals == nil || !e.expressionClone {
+		return false, nil
+	}
+	view, err := e.fixedpointParamView()
+	if err != nil {
+		return false, err
+	}
+	enabled, err := view.Bool("datalog.generate_explanations", false)
+	return enabled, errors.Join(err, view.Close())
+}
+
 // mkExplanations is mk_explanations.
 type mkExplanations struct {
 	engine        *PropositionalEngine
