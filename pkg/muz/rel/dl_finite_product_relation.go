@@ -1512,7 +1512,9 @@ func (f *fprFilterInterpretedFn) apply(rb RelationBase) (resultErr error) {
 					var fn RelationMutatorFn
 					fn, err = rmgr.MkRelationFilterInterpretedFn(inner, h)
 					if err == nil && fn == nil {
-						err = ErrInstruction
+						// The fixed fork's throw (FORK FIX, see
+						// FORK_BUGFIXES.md); 4.7.1 called the null functor.
+						err = unsupportedRelationOperationOne("filter_interpreted", inner.RelationPlugin().Name())
 					}
 					f.relFilter = fn
 				}
@@ -1595,7 +1597,11 @@ func (f *fprFilterInterpretedFn) apply(rb RelationBase) (resultErr error) {
 			var filter RelationMutatorFn
 			filter, err = rmgr.MkRelationFilterInterpretedFn(newRel, h)
 			if err == nil && filter == nil {
-				err = ErrInstruction
+				// The condition with the table values substituted in may
+				// have no filter in the inner plugin (explanation_relation
+				// filters (= var app) only): the fixed fork's throw (FORK
+				// FIX, see FORK_BUGFIXES.md); 4.7.1 called the null functor.
+				err = unsupportedRelationOperationOne("filter_interpreted", newRel.RelationPlugin().Name())
 			}
 			if err == nil {
 				err = filter(newRel)

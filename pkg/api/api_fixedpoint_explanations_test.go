@@ -134,9 +134,11 @@ func runExplanationsMode(t *testing.T, mode int) string {
 // datalog.generate_explanations runs mk_explanations with the explanation
 // relation plugin and finite_product_relation through the compiled
 // relation pipeline. The expected outputs are the fixed fork's
-// (test_vectors/explanations/expl.c, mode_N.txt).
+// (test_vectors/explanations/expl.c, mode_N.txt); mode 4 is the error of
+// FORK_BUGFIXES.md's fix (tst_z3_4_7_1_fpr_filter_interpreted), where z3
+// 4.7.1 crashed.
 func TestAPIFixedpointExplanations(t *testing.T) {
-	for _, mode := range []int{0, 1, 2, 3, 5, 6, 7, 9, 11, 12, 13, 14, 15, 16} {
+	for _, mode := range []int{0, 1, 2, 3, 4, 5, 6, 7, 9, 11, 12, 13, 14, 15, 16} {
 		t.Run(strconv.Itoa(mode), func(t *testing.T) {
 			want, err := os.ReadFile(filepath.Join("test_vectors", "explanations", "mode_"+strconv.Itoa(mode)+".txt"))
 			astTestMust(t, err)

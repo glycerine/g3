@@ -1,0 +1,3 @@
+error 12: trying to perform unsupported filter_interpreted operation on a relation of kind fact_explanation
+result 0
+reason ok
