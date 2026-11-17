@@ -1365,6 +1365,13 @@ namespace datalog {
                         m_subst(m_cond, m_renaming_for_inner_rel.size(), m_renaming_for_inner_rel.c_ptr(), 
                             inner_cond);
                         m_rel_filter = rmgr.mk_filter_interpreted_fn(*inner, to_app(inner_cond));
+                        // FORK FIX #110 (g3 audit, see FORK_BUGFIXES.md): the inner plugin may
+                        // have no filter for the renamed condition; 4.7.1 called the null functor.
+                        if (!m_rel_filter) {
+                            throw default_exception(default_exception::fmt(),
+                                "trying to perform unsupported filter_interpreted operation on a relation of kind %s",
+                                inner->get_plugin().get_name().bare_str());
+                        }
                     }
                     (*m_rel_filter)(*inner);
                 }
@@ -1417,6 +1424,17 @@ namespace datalog {
                 relation_base * new_rel = old_rel.clone();
 
                 scoped_ptr<relation_mutator_fn> filter = rmgr.mk_filter_interpreted_fn(*new_rel, to_app(inner_cond));
+                // FORK FIX #110 (g3 audit, see FORK_BUGFIXES.md): the condition with the
+                // table values substituted in may have no filter in the inner plugin
+                // (explanation_relation filters only (= var app)); 4.7.1 called the
+                // null functor and crashed.
+                if (!filter) {
+                    symbol kind = new_rel->get_plugin().get_name();
+                    new_rel->deallocate();
+                    throw default_exception(default_exception::fmt(),
+                        "trying to perform unsupported filter_interpreted operation on a relation of kind %s",
+                        kind.bare_str());
+                }
                 (*filter)(*new_rel);
  
                 if(new_rel->empty()) {
