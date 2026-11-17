@@ -232,6 +232,7 @@ type SMTInternalizerState struct {
 	coreTrail           []smtCoreTrailEntry
 	scopes              []smtInternalizerScope
 	pendingPop          *smtInternalizerPendingPop
+	popSlot             smtInternalizerPendingPop
 	popActive           bool
 	closing             bool
 	retiringEnode       *SMTEnode
@@ -241,6 +242,9 @@ type SMTInternalizerState struct {
 	cachedGeneration    map[ast.ASTHandle]uint32
 	// cacheGenerationVisited is m_cache_generation_visited.
 	cacheGenerationVisited map[ast.ASTHandle]struct{}
+	// Go scratch storage reused across pops (no source counterpart).
+	cacheGenerationTodo []ast.ASTHandle
+	preservedScratch    []smtPreservedLearnedClause
 	// keepCachedGeneration makes PopScopes act as pop_scope_core (no
 	// reset_cache_generation): resolve_conflict resets after rebuilding
 	// the lemma's literals.
@@ -694,7 +698,12 @@ func (s *SMTInternalizerState) MkBoolVar(expression ast.ASTHandle) (int32, error
 	s.traceMkBoolVar(variable, expression)
 	s.activity = append(s.activity, initialActivity)
 	s.assignment = append(s.assignment, lbool.Undef, lbool.Undef)
-	s.watches = append(s.watches, SMTWatchList{}, SMTWatchList{})
+	if n := len(s.watches); cap(s.watches)-n >= 2 {
+		// The slots past len were recycled when their variable retired.
+		s.watches = s.watches[:n+2]
+	} else {
+		s.watches = append(s.watches, SMTWatchList{}, SMTWatchList{})
+	}
 	s.booleanStack = append(s.booleanStack, expression)
 	s.pushCoreTrail(smtCoreTrailBoolVar)
 	s.statistics.NumMkBoolVar++
@@ -1368,6 +1377,8 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 			s.booleanCreation = s.booleanCreation[:variable]
 			s.activity = s.activity[:variable]
 			s.assignment = s.assignment[:2*variable]
+			s.watches[2*variable].recycle()
+			s.watches[2*variable+1].recycle()
 			s.watches = s.watches[:2*variable]
 			s.retiringBoolean, s.retiringBooleanRoot = true, expression
 		}
@@ -1487,8 +1498,10 @@ func (s *SMTInternalizerState) PopScopes(count uint32) error {
 		}
 		s.tracePopStream(count)
 		level := len(s.scopes) - int(count)
-		s.pendingPop = &smtInternalizerPendingPop{count: count, level: level, theory: 0,
+		// popSlot is reused storage: one pop is pending at a time.
+		s.popSlot = smtInternalizerPendingPop{count: count, level: level, theory: 0,
 			preserve: uint32(level) >= s.baseLevel}
+		s.pendingPop = &s.popSlot
 	}
 	pop := s.pendingPop
 	active := s.popActive
@@ -1609,6 +1622,7 @@ func (s *SMTInternalizerState) PopScopes(count uint32) error {
 			if err := s.restoreLearnedClauses(pop.learned); err != nil {
 				return err
 			}
+			clear(pop.learned)
 			pop.learned = nil
 		}
 		pop.stage++

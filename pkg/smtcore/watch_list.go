@@ -31,6 +31,14 @@ func (w *SMTWatchList) Reset() {
 	w.begin = len(w.literals)
 }
 
+// recycle empties a retired variable's list but keeps its storage for the
+// next variable created in the same slot (Go-only; the source frees it).
+func (w *SMTWatchList) recycle() {
+	clear(w.clauses)
+	w.clauses = w.clauses[:0]
+	w.begin = len(w.literals)
+}
+
 func (w *SMTWatchList) ResetAndReleaseMemory() {
 	if w == nil {
 		return

@@ -36,8 +36,11 @@ type SMTClause struct {
 	reinternalizeAtoms bool
 	// reinitLevel and reinitSeq place the clause in
 	// m_clauses_to_reinit[reinitLevel], in push order.
-	reinitLevel   uint32
-	reinitSeq     uint64
+	reinitLevel uint32
+	reinitSeq   uint64
+	// reinitPos is a Go scratch mark (1-based result position) used only
+	// inside reinitCandidates; it is zero otherwise.
+	reinitPos     int
 	atoms         []smtClauseAtom
 	deleteHandler SMTClauseDeleteHandler
 	justification SMTJustification

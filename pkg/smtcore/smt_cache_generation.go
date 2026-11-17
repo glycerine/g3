@@ -30,7 +30,8 @@ func (s *SMTInternalizerState) cacheGenerationExpr(root ast.ASTHandle, newLevel 
 	if s.cacheGenerationVisited == nil {
 		s.cacheGenerationVisited = make(map[ast.ASTHandle]struct{})
 	}
-	todo := []ast.ASTHandle{root}
+	todo := append(s.cacheGenerationTodo[:0], root)
+	defer func() { s.cacheGenerationTodo = todo[:0] }()
 	for len(todo) != 0 {
 		n := todo[len(todo)-1]
 		todo = todo[:len(todo)-1]
@@ -111,11 +112,21 @@ func (s *SMTInternalizerState) cacheGenerationForPop(learned []smtPreservedLearn
 }
 
 // resetCacheGeneration is reset_cache_generation.
+// Like the source obj_map/obj_hashtable reset, it keeps the table storage;
+// a table that grew large is dropped so later clears stay cheap.
 func (s *SMTInternalizerState) resetCacheGeneration() {
-	if len(s.cacheGenerationVisited) != 0 {
+	if n := len(s.cacheGenerationVisited); n > smtCacheGenerationKeep {
 		s.cacheGenerationVisited = nil
+	} else if n != 0 {
+		clear(s.cacheGenerationVisited)
 	}
-	if len(s.cachedGeneration) != 0 {
+	if n := len(s.cachedGeneration); n > smtCacheGenerationKeep {
 		s.cachedGeneration = make(map[ast.ASTHandle]uint32)
+	} else if n != 0 {
+		clear(s.cachedGeneration)
 	}
 }
+
+// smtCacheGenerationKeep bounds the cache-generation tables whose storage
+// resetCacheGeneration keeps for reuse.
+const smtCacheGenerationKeep = 4096
