@@ -674,7 +674,13 @@ func (c *evaluatorConfiguration) ReduceApp(d ast.ASTHandle, args ast.AppArgument
 					return status, e
 				}
 			} else if sortFamily > 4 {
-				return rewriter.RewriteFailed, ErrModelEvaluatorTheory
+				// The datalog family has no equality reducer: = goes to the
+				// Boolean rewriter. Unported theories are refused.
+				if datalog, e := isDatalogFamily(m, sortFamily); e != nil {
+					return rewriter.RewriteFailed, e
+				} else if !datalog {
+					return rewriter.RewriteFailed, ErrModelEvaluatorTheory
+				}
 			}
 		}
 		status, e := c.boolean.MkAppCore(d, args, out)
@@ -782,8 +788,16 @@ func (c *evaluatorConfiguration) ReduceApp(d ast.ASTHandle, args ast.AppArgument
 	if numeral {
 		return c.evaluatePartialTheoryWithTrace(d, args, out, proof)
 	}
+	datalog := false
 	if fid > 4 {
-		return rewriter.RewriteFailed, ErrModelEvaluatorTheory
+		// The datalog family (dl_decl_plugin) has no reducer: evaluate,
+		// then evaluate_partial_theory_func (it is not a built-in family).
+		// Unported theories are refused.
+		if datalog, e = isDatalogFamily(m, fid); e != nil {
+			return rewriter.RewriteFailed, e
+		} else if !datalog {
+			return rewriter.RewriteFailed, ErrModelEvaluatorTheory
+		}
 	}
 	found, e := c.evaluate(d, args, out)
 	if e != nil {
@@ -795,7 +809,23 @@ func (c *evaluatorConfiguration) ReduceApp(d ast.ASTHandle, args ast.AppArgument
 		}
 		return rewriter.Rewrite1, nil
 	}
+	if datalog {
+		return c.evaluatePartialTheoryWithTrace(d, args, out, proof)
+	}
 	return rewriter.RewriteFailed, nil
+}
+
+// isDatalogFamily reports whether fid is dl_decl_plugin's family.
+func isDatalogFamily(m *ast.ASTManager, fid ast.FamilyID) (bool, error) {
+	name, err := m.FamilyName(fid)
+	if err != nil {
+		return false, err
+	}
+	text, err := m.Symbols.String(name)
+	if err != nil {
+		return false, err
+	}
+	return text == "datalog_relation", nil
 }
 
 func (c *evaluatorConfiguration) finishTheoryReduction(status rewriter.RewriteStatus, err error, d ast.ASTHandle, args ast.AppArguments, out, proof ast.ASTRef) (rewriter.RewriteStatus, error) {

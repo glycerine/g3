@@ -1,0 +1,22 @@
+sort S fin 8
+param engine datalog
+param datalog.explanations_on_relation_level true
+param xform.unfold_rules 1
+param datalog.check_relation doc
+param datalog.unbound_compressor false
+setparams
+vars x S y S z S
+rel r0 S S
+rel r1 S S
+rel r2 
+fact r0 7 2
+fact r2
+fact r2
+fact r0 7 2
+rule n0 (=> (and (r1 z x) (r1 z y) (r1 y z)) (r1 y z))
+rule n1 (=> r2 r2)
+query (r1 x y)
+query (r0 z 2:S)
+rule n0 (=> (and r2 r2) (r1 x 6:S))
+query (r1 y z)
+query r2
