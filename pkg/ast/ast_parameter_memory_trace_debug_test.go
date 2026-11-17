@@ -25,19 +25,20 @@ func TestASTParameterRationalMemoryWrapperCopyMoveAssignAndDestroy(t *testing.T)
 	astTestMust(t, q.SetString(&v, "7/3"))
 	a, err := m.NewParameterRational(&v)
 	astTestMust(t, err)
-	first := m.parameterAt(a.slot).rationalTraceID
+	first := m.rationalTraceName(m.parameterAt(a.slot).rationalTraceID)
 	copy, err := m.CopyParameter(a)
 	astTestMust(t, err)
-	second := m.parameterAt(copy.slot).rationalTraceID
+	secondID := m.parameterAt(copy.slot).rationalTraceID
+	second := m.rationalTraceName(secondID)
 	beforeMove := output.String()
 	moved, err := m.MoveParameter(copy)
 	astTestMust(t, err)
-	if m.parameterAt(moved.slot).rationalTraceID != second || m.parameterAt(copy.slot).rationalTraceID != "" || output.String() != beforeMove {
+	if m.parameterAt(moved.slot).rationalTraceID != secondID || m.parameterAt(copy.slot).rationalTraceID != 0 || output.String() != beforeMove {
 		t.Fatal("move changed source rational* allocation identity")
 	}
 	astTestMust(t, m.DelParameter(&copy))
 	astTestMust(t, m.AssignParameter(a, moved))
-	third := m.parameterAt(a.slot).rationalTraceID
+	third := m.rationalTraceName(m.parameterAt(a.slot).rationalTraceID)
 	astTestMust(t, m.DelParameter(&moved))
 	astTestMust(t, m.DelParameter(&a))
 	astTestMust(t, q.Del(&v))

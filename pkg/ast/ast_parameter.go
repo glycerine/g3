@@ -295,7 +295,7 @@ func (m *ASTManager) MoveParameter(src ASTParameter) (ASTParameter, error) {
 	dst.nextFree = 0
 	if saved.Kind == ASTParameterRational {
 		m.parameterAt(src.slot).Rational = unumeral.OwnedRational{}
-		m.parameterAt(src.slot).rationalTraceID = ""
+		m.parameterAt(src.slot).rationalTraceID = 0
 	}
 	return p, nil
 }

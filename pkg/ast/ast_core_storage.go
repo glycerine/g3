@@ -180,7 +180,7 @@ type astParameterRecord struct {
 	ast                  astNodeRef
 	symbol               usymbol.Symbol
 	Rational             unumeral.OwnedRational
-	rationalTraceID      string
+	rationalTraceID      uint64 // allocation serial for the memory trace; 0: none
 	double               float64
 	external             uint32
 }
