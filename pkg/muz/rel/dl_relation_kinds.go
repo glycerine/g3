@@ -842,11 +842,43 @@ func (v *tableRelationView) Contains(f Fact) (bool, error) {
 	}
 	return v.table.Contains(f)
 }
+
+// Reset is relation_base::reset: mk_filter_interpreted_fn(*this,
+// m.mk_false()), table_relation_plugin's filter of the table
+// (relation_manager::mk_filter_interpreted_fn of the table): a check
+// table's filter_interpreted_fn over the checker's table, then the
+// checked table's; a sparse or other default table's
+// default_table_filter_interpreted_fn, whose should_remove grounds and
+// simplifies false for each row (beta_reducer and th_rewriter, one
+// resource step each).
 func (v *tableRelationView) Reset() error {
+	m := v.plugin.manager
+	if m.contextRewriter == nil {
+		return v.resetTable()
+	}
+	bottom, err := m.manager.MkFalse()
+	if err != nil {
+		return err
+	}
 	if pair, ok := v.table.(*FiniteCheckedPair); ok && pair.plugin != nil {
-		// relation_base::reset: filter_interpreted(false), check_table's
-		// filter_interpreted_fn over the checker's table, then the
-		// checked table's.
+		if err := pair.open(); err != nil {
+			return err
+		}
+		if err := m.tableFilterInterpreted(pair.checker, v.sorts, bottom); err != nil {
+			return err
+		}
+		if err := m.tableFilterInterpreted(pair.primary, v.sorts, bottom); err != nil {
+			return err
+		}
+		return pair.verify("filter interpreted")
+	}
+	return m.tableFilterInterpreted(v.table, v.sorts, bottom)
+}
+
+// resetTable empties the table without the filter, for a manager
+// without the context rewriter (muz/rel unit tests).
+func (v *tableRelationView) resetTable() error {
+	if pair, ok := v.table.(*FiniteCheckedPair); ok && pair.plugin != nil {
 		if err := pair.open(); err != nil {
 			return err
 		}
