@@ -7,10 +7,17 @@ package ast
 // builds it only checks for a null handle and pending node deletions (both
 // take the checked path, which reports exactly what it did before).
 func (m *ASTManager) readNode(h ASTHandle) (astNodeRef, error) {
-	if astValidateHandles || h.slot == 0 || len(m.pendingDeletions) != 0 {
+	if !m.fastHandle(h) {
 		return m.readNodeChecked(h)
 	}
 	return astNodeRef{h.slot, h.generation}, nil
+}
+
+// fastHandle reports readNode's unchecked case: a normal build, a non-null
+// handle and no pending node deletions. The hottest accessors test it
+// themselves and read the records directly, without the readNode call.
+func (m *ASTManager) fastHandle(h ASTHandle) bool {
+	return !astValidateHandles && h.slot != 0 && len(m.pendingDeletions) == 0
 }
 func (m *ASTManager) readNodeChecked(h ASTHandle) (astNodeRef, error) {
 	if e := m.lock(); e != nil {

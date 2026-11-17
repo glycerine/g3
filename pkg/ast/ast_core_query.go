@@ -7,6 +7,12 @@ import (
 )
 
 func (m *ASTManager) GetDecl(h ASTHandle) (ASTHandle, error) {
+	if m.fastHandle(h) { // readKind's unchecked case
+		if m.nodeAt(h.slot).kind != ASTApp {
+			return ASTHandle{}, ErrASTDomain
+		}
+		return m.external(m.appAt(h.slot).decl), nil
+	}
 	r, e := m.readKind(h, ASTApp)
 	if e != nil {
 		return ASTHandle{}, e
@@ -40,6 +46,12 @@ func (m *ASTManager) GetRange(h ASTHandle) (ASTHandle, error) {
 	return m.external(m.declAt(r.slot).rangeSort), nil
 }
 func (m *ASTManager) GetNumArgs(h ASTHandle) (uint32, error) {
+	if m.fastHandle(h) { // readKind's unchecked case
+		if m.nodeAt(h.slot).kind != ASTApp {
+			return 0, ErrASTDomain
+		}
+		return m.appAt(h.slot).count, nil
+	}
 	r, e := m.readKind(h, ASTApp)
 	if e != nil {
 		return 0, e
@@ -47,6 +59,13 @@ func (m *ASTManager) GetNumArgs(h ASTHandle) (uint32, error) {
 	return m.appAt(r.slot).count, nil
 }
 func (m *ASTManager) IsGround(h ASTHandle) (bool, error) {
+	if m.fastHandle(h) { // readExpr's unchecked case
+		kind := m.nodeAt(h.slot).kind
+		if kind > ASTQuantifier {
+			return false, ErrASTDomain
+		}
+		return kind == ASTApp && m.appAt(h.slot).ground, nil
+	}
 	r, e := m.readExpr(h)
 	if e != nil {
 		return false, e

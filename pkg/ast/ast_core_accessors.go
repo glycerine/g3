@@ -107,27 +107,34 @@ type ASTNodeHeader struct {
 }
 
 func (m *ASTManager) NodeHeader(h ASTHandle) (ASTNodeHeader, error) {
-	header := ASTNodeHeader{Family: -1, DeclKind: -1}
-	r, e := m.readNode(h)
-	if e != nil {
-		return header, e
+	r := astNodeRef{h.slot, h.generation}
+	if !m.fastHandle(h) {
+		var e error
+		if r, e = m.readNodeChecked(h); e != nil {
+			return ASTNodeHeader{Family: -1, DeclKind: -1}, e
+		}
 	}
 	n := m.nodeAt(r.slot)
-	header.Kind, header.RefCount = n.kind, n.rc
-	if n.kind == ASTApp {
-		v := m.appAt(r.slot)
-		header.NumArgs, header.Decl = v.count, m.external(v.decl)
-		header.Family, header.DeclKind, e = m.appIdentity(v)
+	if n.kind != ASTApp {
+		return ASTNodeHeader{Kind: n.kind, RefCount: n.rc, Family: -1, DeclKind: -1}, nil
 	}
-	return header, e
+	v := m.appAt(r.slot)
+	if v.declCached && !ASTSourceDebug {
+		return ASTNodeHeader{Kind: ASTApp, RefCount: n.rc, NumArgs: v.count, Family: v.declFamily, DeclKind: v.declKind, Decl: m.external(v.decl)}, nil
+	}
+	family, declKind, e := m.declIdentity(v.decl)
+	return ASTNodeHeader{Kind: ASTApp, RefCount: n.rc, NumArgs: v.count, Family: family, DeclKind: declKind, Decl: m.external(v.decl)}, e
 }
 
 // NodeShape is NodeHeader's Kind, RefCount and NumArgs alone, in one read:
 // what traversals need per visited node, without the declaration identity.
 func (m *ASTManager) NodeShape(h ASTHandle) (kind ASTKind, refCount, numArgs uint32, err error) {
-	r, e := m.readNode(h)
-	if e != nil {
-		return 0, 0, 0, e
+	r := astNodeRef{h.slot, h.generation}
+	if !m.fastHandle(h) {
+		var e error
+		if r, e = m.readNodeChecked(h); e != nil {
+			return 0, 0, 0, e
+		}
 	}
 	n := m.nodeAt(r.slot)
 	if n.kind == ASTApp {
@@ -139,19 +146,28 @@ func (m *ASTManager) NodeShape(h ASTHandle) (kind ASTKind, refCount, numArgs uin
 // AppIdentity is GetFamilyID and GetDeclKind of an application in one read;
 // for any other node it reports isApp false and (-1, -1).
 func (m *ASTManager) AppIdentity(h ASTHandle) (isApp bool, family FamilyID, declKind int32, err error) {
-	r, e := m.readNode(h)
-	if e != nil {
-		return false, -1, -1, e
+	r := astNodeRef{h.slot, h.generation}
+	if !m.fastHandle(h) {
+		var e error
+		if r, e = m.readNodeChecked(h); e != nil {
+			return false, -1, -1, e
+		}
 	}
 	if m.nodeAt(r.slot).kind != ASTApp {
 		return false, -1, -1, nil
 	}
-	family, declKind, err = m.appIdentity(m.appAt(r.slot))
+	if a := m.appAt(r.slot); a.declCached && !ASTSourceDebug {
+		return true, a.declFamily, a.declKind, nil
+	}
+	family, declKind, err = m.declIdentity(m.appAt(r.slot).decl)
 	return true, family, declKind, err
 }
 
 func (m *ASTManager) GetKind(h ASTHandle) (ASTKind, error) {
-	r, e := m.readNode(h)
+	if m.fastHandle(h) {
+		return m.nodeAt(h.slot).kind, nil
+	}
+	r, e := m.readNodeChecked(h)
 	if e != nil {
 		return 0, e
 	}
@@ -172,7 +188,10 @@ func (m *ASTManager) GetHash(h ASTHandle) (uint32, error) {
 	return m.nodeAt(r.slot).hash, nil
 }
 func (m *ASTManager) GetRefCount(h ASTHandle) (uint32, error) {
-	r, e := m.readNode(h)
+	if m.fastHandle(h) {
+		return m.nodeAt(h.slot).rc, nil
+	}
+	r, e := m.readNodeChecked(h)
 	if e != nil {
 		return 0, e
 	}
@@ -197,9 +216,12 @@ func (m *ASTManager) GetVarIndex(h ASTHandle) (uint32, error) {
 	return m.varAt(r.slot).index, nil
 }
 func (m *ASTManager) GetArg(h ASTHandle, index uint32) (ASTHandle, error) {
-	r, e := m.readNode(h)
-	if e != nil {
-		return ASTHandle{}, e
+	r := astNodeRef{h.slot, h.generation}
+	if !m.fastHandle(h) {
+		var e error
+		if r, e = m.readNodeChecked(h); e != nil {
+			return ASTHandle{}, e
+		}
 	}
 	if m.nodeAt(r.slot).kind != ASTApp {
 		return ASTHandle{}, ErrASTDomain
@@ -208,27 +230,44 @@ func (m *ASTManager) GetArg(h ASTHandle, index uint32) (ASTHandle, error) {
 	if index >= v.count {
 		return ASTHandle{}, ErrASTDomain
 	}
+	if index < 2 && !ASTSourceDebug { // appArg's inline arguments
+		return m.external(v.inlineArgs[index]), nil
+	}
 	child, e := m.appArg(v, index)
 	return m.external(child), e
 }
 func (m *ASTManager) GetFamilyID(h ASTHandle) (FamilyID, error) {
-	r, e := m.readNode(h)
-	if e != nil {
-		return -1, e
+	r := astNodeRef{h.slot, h.generation}
+	if !m.fastHandle(h) {
+		var e error
+		if r, e = m.readNodeChecked(h); e != nil {
+			return -1, e
+		}
 	}
 	if m.nodeAt(r.slot).kind == ASTApp {
-		r = m.appAt(r.slot).decl
+		a := m.appAt(r.slot)
+		if a.declCached && !ASTSourceDebug { // appIdentity's cache of declIdentity(decl)
+			return a.declFamily, nil
+		}
+		r = a.decl
 	}
 	fid, _, e := m.declIdentity(r)
 	return fid, e
 }
 func (m *ASTManager) GetDeclKind(h ASTHandle) (int32, error) {
-	r, e := m.readNode(h)
-	if e != nil {
-		return -1, e
+	r := astNodeRef{h.slot, h.generation}
+	if !m.fastHandle(h) {
+		var e error
+		if r, e = m.readNodeChecked(h); e != nil {
+			return -1, e
+		}
 	}
 	if m.nodeAt(r.slot).kind == ASTApp {
-		r = m.appAt(r.slot).decl
+		a := m.appAt(r.slot)
+		if a.declCached && !ASTSourceDebug { // appIdentity's cache of declIdentity(decl)
+			return a.declKind, nil
+		}
+		r = a.decl
 	}
 	_, kind, e := m.declIdentity(r)
 	return kind, e
