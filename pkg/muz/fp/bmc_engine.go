@@ -239,7 +239,13 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 	if err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, preprocessed.Close()) }()
+	defer func() {
+		// apply_default_transformation's model converters join the
+		// context's m_mc (context::add_model_converter), which the next
+		// context::query releases.
+		e.datalogConversions = append(e.datalogConversions, preprocessed.takeModelConversions()...)
+		resultErr = errors.Join(resultErr, preprocessed.Close())
+	}()
 	rules := preprocessed.rules
 	declaration, err = rules.DerivedPredicate(declaration)
 	if err != nil {
