@@ -29,7 +29,6 @@ type smtClauseAtom struct {
 type SMTClause struct {
 	self               *SMTClause
 	manager            *ast.ASTManager
-	literals           []SMTLiteral
 	capacity           uint32
 	kind               SMTClauseKind
 	reinit             bool
@@ -48,6 +47,65 @@ type SMTClause struct {
 	deleted       bool
 	closePhase    uint8
 	closed        bool
+	// literals is last: smtNewClauseStorage places a short clause's
+	// literal array right after it, in the same cache line or the next.
+	literals []SMTLiteral
+}
+
+// Clause storage. The source allocates a clause and its literals as one
+// object (clause::mk). Go places the literal array of a clause of up to 64
+// literals in the same allocation, right after the header's literals field,
+// so BCP's clause visit reads its literals from the same or the adjacent
+// cache line rather than from a separate object. Longer clauses keep a separate literal array.
+type smtClauseStorage4 struct {
+	clause SMTClause
+	lits   [4]SMTLiteral
+}
+type smtClauseStorage8 struct {
+	clause SMTClause
+	lits   [8]SMTLiteral
+}
+type smtClauseStorage16 struct {
+	clause SMTClause
+	lits   [16]SMTLiteral
+}
+type smtClauseStorage32 struct {
+	clause SMTClause
+	lits   [32]SMTLiteral
+}
+type smtClauseStorage64 struct {
+	clause SMTClause
+	lits   [64]SMTLiteral
+}
+
+// smtNewClauseStorage returns a zero clause whose literals field holds a
+// copy of literals (length and capacity len(literals)).
+func smtNewClauseStorage(literals []SMTLiteral) *SMTClause {
+	n := len(literals)
+	var clause *SMTClause
+	var storage []SMTLiteral
+	switch {
+	case n <= 4:
+		x := &smtClauseStorage4{}
+		clause, storage = &x.clause, x.lits[:n:n]
+	case n <= 8:
+		x := &smtClauseStorage8{}
+		clause, storage = &x.clause, x.lits[:n:n]
+	case n <= 16:
+		x := &smtClauseStorage16{}
+		clause, storage = &x.clause, x.lits[:n:n]
+	case n <= 32:
+		x := &smtClauseStorage32{}
+		clause, storage = &x.clause, x.lits[:n:n]
+	case n <= 64:
+		x := &smtClauseStorage64{}
+		clause, storage = &x.clause, x.lits[:n:n]
+	default:
+		clause, storage = &SMTClause{}, make([]SMTLiteral, n)
+	}
+	copy(storage, literals)
+	clause.literals = storage
+	return clause
 }
 
 func NewSMTClause(manager *ast.ASTManager, literals []SMTLiteral, kind SMTClauseKind, justification SMTJustification, deleteHandler SMTClauseDeleteHandler, saveAtoms bool, expressions []ast.ASTHandle) (*SMTClause, error) {
@@ -64,9 +122,10 @@ func NewSMTClause(manager *ast.ASTManager, literals []SMTLiteral, kind SMTClause
 	if proofs && justification == nil {
 		return nil, ast.ErrASTDomain
 	}
-	clause := &SMTClause{
+	clause := smtNewClauseStorage(literals)
+	*clause = SMTClause{
 		manager:            manager,
-		literals:           append([]SMTLiteral(nil), literals...),
+		literals:           clause.literals,
 		capacity:           uint32(len(literals)),
 		kind:               kind,
 		reinit:             saveAtoms,
