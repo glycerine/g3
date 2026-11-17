@@ -5,7 +5,7 @@ package rewriter
 import "github.com/glycerine/g3/pkg/ast"
 
 func appendRewriterRoot(m *ast.ASTManager, roots *[]ast.ASTHandle, h ast.ASTHandle) error {
-	if e := m.IncRef(h); e != nil {
+	if e := m.IncRefHeld(h); e != nil {
 		return e
 	}
 	*roots = append(*roots, h)
@@ -17,7 +17,7 @@ func shrinkRewriterRoots(m *ast.ASTManager, roots *[]ast.ASTHandle, n uint32) er
 	}
 	values := *roots
 	for i := int(n); i < len(values); i++ {
-		consumed, e := m.DecRefConsumed(values[i])
+		consumed, e := m.DecRefHeldConsumed(values[i])
 		next := i
 		if consumed {
 			values[i] = ast.ASTHandle{}

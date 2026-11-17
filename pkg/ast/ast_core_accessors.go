@@ -282,6 +282,43 @@ func (m *ASTManager) HasLabels(h ASTHandle) (bool, error) {
 	}
 	return m.hasLabels(r), nil
 }
+
+// lockFree reports that lock() would succeed without work: a usable,
+// constructed, open manager with no trace or format callback running and no
+// pending node deletions.
+func (m *ASTManager) lockFree() bool {
+	return m.Self == m && !m.traceExecuting && !m.formatExecuting && !m.Closed &&
+		!m.sourceDTStarted && m.constructorComplete && len(m.pendingDeletions) == 0
+}
+
+// IncRefHeld is IncRef for a handle read from a live AST or held by the
+// caller (rewriter result stacks). Like the read accessors, normal builds
+// skip the handle validation; g3checked/g3debug builds run IncRef.
+func (m *ASTManager) IncRefHeld(h ASTHandle) error {
+	if astValidateHandles || h.slot == 0 || !m.lockFree() {
+		return m.IncRef(h)
+	}
+	n := m.nodeAt(h.slot)
+	if ASTSourceDebug && n.rc == math.MaxUint32 {
+		return ErrASTDomain
+	}
+	n.rc++
+	return nil
+}
+
+// DecRefHeldConsumed is DecRefConsumed for a handle the caller holds a
+// reference to. Normal builds skip the handle validation when the node
+// survives; the last reference takes DecRefConsumed's deletion path.
+func (m *ASTManager) DecRefHeldConsumed(h ASTHandle) (bool, error) {
+	if !astValidateHandles && h.slot != 0 && m.lockFree() {
+		if n := m.nodeAt(h.slot); n.rc > 1 {
+			n.rc--
+			return true, nil
+		}
+	}
+	return m.DecRefConsumed(h)
+}
+
 func (m *ASTManager) IncRef(h ASTHandle) error {
 	if e := m.lock(); e != nil {
 		return e
