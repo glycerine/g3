@@ -25,6 +25,9 @@ type pdrSubstitutionNativeFailureWriter struct {
 	cleanup                  ruleUpdateDERCleanupWriter
 	operator, site, operand  bool
 	transferred, initialized bool
+	// warm re-runs the 600-digit parse before arming the boundary, so the
+	// shared mpz scratch has the capacity the evaluator's parse needs.
+	warm func()
 }
 
 func (w *pdrSubstitutionNativeFailureWriter) Write(p []byte) (int, error) {
@@ -47,6 +50,9 @@ func (w *pdrSubstitutionNativeFailureWriter) Write(p []byte) (int, error) {
 		initialized, err := w.context.Initialized()
 		if err == nil && initialized && w.engine.pdr == nil {
 			w.transferred, w.initialized = true, true
+			if w.warm != nil {
+				w.warm()
+			}
 			w.cleanup.boundary.seen = true
 			return w.cleanup.boundary.Write(p)
 		}
@@ -129,6 +135,12 @@ func TestPDRExpressionSubstitutionRecoversAfterNativeFailure(t *testing.T) {
 			writer := &pdrSubstitutionNativeFailureWriter{
 				engine: f.e, context: prequery, variable: secondName + "_0_1",
 				cleanup: ruleUpdateDERCleanupWriter{boundary: ruleUpdateNumeralParserWriter{t: t, runtime: f.runtime}},
+				warm: func() {
+					v, err := f.numbers.NewValue()
+					fragmentMust(t, err)
+					fragmentMust(t, f.numbers.SetString(&v, strings.Repeat("9", 600)))
+					fragmentMust(t, f.numbers.Del(&v))
+				},
 			}
 			tags := diagnostic.NewTraceTagsWithWriter(writer)
 			tags.Enable("model_evaluator")
