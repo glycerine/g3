@@ -1,5 +1,7 @@
 package fp
 
+import "github.com/glycerine/g3/pkg/ast"
+
 // Source: local rule-set query copies preserve registered predicates.
 
 func (e *PropositionalEngine) copyQueryPredicates(clone *PropositionalEngine) error {
@@ -20,6 +22,11 @@ func (e *PropositionalEngine) copyQueryPredicates(clone *PropositionalEngine) er
 		clone.predicates[declaration].argumentNamesSet = e.predicates[declaration].argumentNamesSet
 		clone.predicates[declaration].requestedRepresentations = append([]string(nil), e.predicates[declaration].requestedRepresentations...)
 		clone.predicates[declaration].explicitFiniteRepresentation = e.predicates[declaration].explicitFiniteRepresentation
+		// The query runs on the context's relation manager: its requested
+		// predicate kinds (set_predicate_kind) are the context's.
+		if err = clone.requestTableRelationKind(declaration); err != nil {
+			return err
+		}
 		if e.backend == "datalog" && e.predicates[declaration].table != nil {
 			table, err := clone.cloneFiniteForContext(e.predicates[declaration].table)
 			if err != nil {
@@ -36,6 +43,20 @@ func (e *PropositionalEngine) copyQueryPredicates(clone *PropositionalEngine) er
 		if e.auxiliary[declaration] {
 			clone.auxiliary[declaration] = true
 		}
+	}
+	return nil
+}
+
+// requestTableRelationKind is set_predicate_representation's
+// set_predicate_kind of a requested table_relation plugin.
+func (e *PropositionalEngine) requestTableRelationKind(declaration ast.ASTHandle) error {
+	state := e.predicates[declaration]
+	if state == nil || len(state.requestedRepresentations) != 1 {
+		return nil
+	}
+	switch kind := state.requestedRepresentations[0]; kind {
+	case "tr_hashtable", "tr_sparse", "tr_lazy_sparse", "tr_bitvector":
+		return e.relations.SetRequestedTableRelation(declaration, kind[3:])
 	}
 	return nil
 }

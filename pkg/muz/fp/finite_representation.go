@@ -34,6 +34,10 @@ func (e *PropositionalEngine) selectFiniteRepresentation(declaration ast.ASTHand
 		return e.replaceDatalogTable(declaration, replacement)
 	}
 	switch kind {
+	case "tr_check":
+		if _, ok := state.table.(*rel.FiniteCheckedPair); ok {
+			return nil
+		}
 	case "tr_sparse":
 		if _, ok := state.table.(*rel.SparseTable); ok {
 			return nil
@@ -55,6 +59,10 @@ func (e *PropositionalEngine) selectFiniteRepresentation(declaration ast.ASTHand
 	}
 	var replacement rel.FiniteTable
 	switch {
+	case kind == "tr_check" && e.relations.IsPlaceholderRelation(declaration):
+		replacement, err = e.relations.NewDefaultCheckedPlaceholder(signature)
+	case kind == "tr_check":
+		replacement, err = e.relations.NewDefaultCheckedPredicateTable(signature)
 	case kind == "tr_sparse":
 		replacement, err = e.relations.MkEmptySparseTable(signature, 0)
 	case kind == "tr_bitvector" && rel.BitvectorCanHandleSignature(signature, 0):

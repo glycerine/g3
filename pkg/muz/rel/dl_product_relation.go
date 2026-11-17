@@ -474,6 +474,19 @@ func (p *ProductRelationPlugin) fullTableishRelation(sig []ast.ASTHandle, kind i
 // (default_table), then the table plugins in registration order.
 func (m *RelationManager) appropriateTableRelationPlugin(signature Signature) *TableRelationPlugin {
 	m.initRelationKinds()
+	if m.defaultChecked != nil && m.checkedFinite == nil {
+		// get_appropriate_plugin(table_sig): the favourite check_table
+		// plugin, else the first registered plugin that handles it.
+		if m.defaultChecked.CanHandleSignature(signature) {
+			return m.tableRelationPluginOf(&FiniteCheckedPair{plugin: m.defaultChecked})
+		}
+		for _, c := range m.tableRelationPlugins {
+			if c.canHandle(signature) {
+				return c
+			}
+		}
+		return nil
+	}
 	if name := m.defaultFinite; name != "" {
 		if c := m.tableRelationPluginNamed(name); c != nil && c.canHandle(signature) {
 			return c

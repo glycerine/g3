@@ -45,7 +45,12 @@ func TestDatalogBitBlastFiniteQueriesPreserveOriginalDomain(t *testing.T) {
 				t.Helper()
 				switch tc.kind {
 				case "":
-					if _, ok := state.table.(*rel.HashTable); !ok {
+					if tc.checked {
+						// The favourite table plugin is check_table.
+						if _, ok := state.table.(*rel.FiniteCheckedPair); !ok {
+							t.Fatalf("bit-blast checked default table %T", state.table)
+						}
+					} else if _, ok := state.table.(*rel.HashTable); !ok {
 						t.Fatalf("bit-blast default table %T", state.table)
 					}
 				case "tr_sparse":

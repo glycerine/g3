@@ -341,6 +341,11 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 		tableCheck = true
 	}
 	if !tableCheck && !enabled {
+		if e.defaultCheckedTables {
+			// check_table_plugin is the favourite table plugin: the
+			// predicates' tables are check tables from their creation on.
+			return nil, nil
+		}
 		name, enabled, err = e.datalogDefaultTableCheck()
 		if err != nil || !enabled {
 			return nil, err
@@ -377,6 +382,10 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 			// The checked tables are table plugins' (check_table, the
 			// check_relation of a table plugin): another relation plugin's
 			// relation (an explanation relation) keeps its plugin.
+			continue
+		}
+		if _, already := state.table.(*rel.FiniteCheckedPair); already && tableCheck {
+			// The default check_table favourite made it a check table.
 			continue
 		}
 		if tableCheck {

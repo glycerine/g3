@@ -55,11 +55,77 @@ func (m *RelationManager) initRelationKinds() {
 	}
 	m.kindPlugins = make(map[int]RelationPlugin)
 	m.pluginKinds = make(map[RelationPlugin]int)
-	for _, name := range tableRelationPluginNames {
+	for i, name := range tableRelationPluginNames {
 		p := &TableRelationPlugin{manager: m, table: name}
 		m.tableRelationPlugins = append(m.tableRelationPlugins, p)
 		m.claimRelationKind(p)
+		if m.defaultChecked != nil && i == m.checkTablePluginsAfter() {
+			m.registerCheckTableRelationPlugins()
+		}
 	}
+}
+
+// checkTablePluginsAfter is the index in tableRelationPluginNames of the
+// table plugin whose registration creates the check_table plugins: the
+// later of the default table and the checker (register_plugin).
+func (m *RelationManager) checkTablePluginsAfter() int {
+	index := func(name string) int {
+		for i, n := range tableRelationPluginNames {
+			if n == name {
+				return i
+			}
+		}
+		return -1
+	}
+	a, b := index(m.defaultChecked.primaryKind), index(m.defaultChecked.checkerKind)
+	if b > a {
+		return b
+	}
+	return a
+}
+
+// registerCheckTableRelationPlugins is register_plugin's check_table
+// plugins: the favourite table plugin's table_relation plugin, then the
+// second check_table plugin's two table_relation plugins (the one
+// register_plugin makes and the favourite relation plugin, which
+// get_table_relation_plugin returns).
+func (m *RelationManager) registerCheckTableRelationPlugins() {
+	factories := []*FiniteCheckedFactory{m.defaultChecked, m.defaultCheckedRelation, m.defaultCheckedRelation}
+	var existing []*TableRelationPlugin
+	for _, p := range m.tableRelationPlugins {
+		if p.table == "check" {
+			existing = append(existing, p)
+		}
+	}
+	if len(existing) == len(factories) {
+		// A context reconfigured with the same plugins.
+		for i, p := range existing {
+			p.checked = factories[i]
+		}
+		return
+	}
+	for _, f := range factories {
+		p := &TableRelationPlugin{manager: m, table: "check", checked: f}
+		m.tableRelationPlugins = append(m.tableRelationPlugins, p)
+		m.claimRelationKind(p)
+	}
+}
+
+// tableRelationPluginOf is get_table_relation_plugin(t.get_plugin()).
+func (m *RelationManager) tableRelationPluginOf(t FiniteTable) *TableRelationPlugin {
+	m.initRelationKinds()
+	if pair, ok := t.(*FiniteCheckedPair); ok && pair.plugin != nil {
+		var found *TableRelationPlugin
+		for _, p := range m.tableRelationPlugins {
+			if p.checked == pair.plugin {
+				found = p
+			}
+		}
+		if found != nil {
+			return found
+		}
+	}
+	return m.tableRelationPluginNamed(finiteTablePlugin(t))
 }
 
 // claimRelationKind is get_next_relation_fid(claimer).
@@ -92,11 +158,8 @@ func (m *RelationManager) RelationKindOf(t FiniteTable) int {
 	if r, ok := AsRelation(t); ok {
 		return m.PluginKind(r.RelationPlugin())
 	}
-	name := finiteTablePlugin(t)
-	for i, p := range m.tableRelationPlugins {
-		if p.table == name {
-			return i
-		}
+	if p := m.tableRelationPluginOf(t); p != nil {
+		return m.PluginKind(p)
 	}
 	return nullRelationKind
 }
@@ -172,7 +235,31 @@ func (m *RelationManager) requestedKind(predicate ast.ASTHandle) int {
 	if p := m.requestedRelation[predicate]; p != nil {
 		return m.PluginKind(p)
 	}
+	if name := m.requestedTableRelation[predicate]; name != "" {
+		// set_predicate_representation of a table_relation plugin.
+		if p := m.tableRelationPluginNamed(name); p != nil {
+			return m.PluginKind(p)
+		}
+	}
 	return nullRelationKind
+}
+
+// SetRequestedTableRelation records rel_context::set_predicate_representation's
+// set_predicate_kind for the table_relation plugin tr_<table> ("" removes
+// it): get_requested_predicate_kind's kind.
+func (m *RelationManager) SetRequestedTableRelation(predicate ast.ASTHandle, table string) error {
+	if err := m.open(); err != nil {
+		return err
+	}
+	if table == "" {
+		delete(m.requestedTableRelation, predicate)
+		return nil
+	}
+	if m.requestedTableRelation == nil {
+		m.requestedTableRelation = make(map[ast.ASTHandle]string)
+	}
+	m.requestedTableRelation[predicate] = table
+	return nil
 }
 
 func canHandleKind(p RelationPlugin, sorts []ast.ASTHandle, kind int) (bool, error) {
@@ -263,7 +350,22 @@ func (m *RelationManager) appropriatePlugin(sorts []ast.ASTHandle) (RelationPlug
 		// A table_relation favourite (datalog.default_relation tr_<table>)
 		// handles a table signature first, then the favourite table's
 		// relation plugin (default_table).
-		if name := m.favouriteTable; name != "" && m.checkedFinite == nil {
+		if m.defaultChecked != nil && m.checkedFinite == nil {
+			// The favourite relation plugin is the second check_table
+			// plugin's table_relation plugin; the relation plugins follow
+			// in registration order.
+			if m.checkedRelationFavourite {
+				if p := m.tableRelationPluginOf(&FiniteCheckedPair{plugin: m.defaultCheckedRelation}); p != nil && p.canHandle(signature) {
+					return p, nil
+				}
+			}
+			for _, p := range m.tableRelationPlugins {
+				if p.canHandle(signature) {
+					return p, nil
+				}
+			}
+		}
+		if name := m.favouriteTable; name != "" && m.checkedFactory() == nil {
 			if p := m.tableRelationPluginNamed(name); p != nil && p.canHandle(signature) {
 				return p, nil
 			}
@@ -341,6 +443,8 @@ type TableRelationPlugin struct {
 	RelationPluginDefaults
 	manager *RelationManager
 	table   string
+	// checked is the check_table plugin of a tr_check plugin.
+	checked *FiniteCheckedFactory
 }
 
 func (p *TableRelationPlugin) Name() string              { return "tr_" + p.table }
@@ -348,6 +452,8 @@ func (p *TableRelationPlugin) Manager() *RelationManager { return p.manager }
 
 func (p *TableRelationPlugin) canHandle(signature Signature) bool {
 	switch p.table {
+	case "check":
+		return p.checked.CanHandleSignature(signature)
 	case "sparse":
 		return signature.Len() != 0
 	case "bitvector":
@@ -365,6 +471,8 @@ func (p *TableRelationPlugin) CanHandleSignature(sorts []ast.ASTHandle) (bool, e
 
 func (p *TableRelationPlugin) newTable(signature Signature) (FiniteTable, error) {
 	switch p.table {
+	case "check":
+		return p.checked.New(signature)
 	case "sparse":
 		return p.manager.sparse.MkEmpty(signature, 0)
 	case "bitvector":
@@ -409,6 +517,13 @@ func (p *TableRelationPlugin) MkFull(predicate ast.ASTHandle, sorts []ast.ASTHan
 	if err != nil {
 		return nil, err
 	}
+	if auxView, ok := aux.(*tableRelationView); ok {
+		if pair, isPair := auxView.table.(*FiniteCheckedPair); isPair && pair.plugin != nil {
+			// check_table::complement: a check table of the tables'
+			// complements, without verbose output.
+			return p.checkTableComplement(predicate, sorts, pair, aux)
+		}
+	}
 	r, err := p.MkEmpty(sorts)
 	if err != nil {
 		return nil, errors.Join(err, aux.Close())
@@ -436,6 +551,57 @@ func (p *TableRelationPlugin) MkFull(predicate ast.ASTHandle, sorts []ast.ASTHan
 		return nil, errors.Join(err, v.Close())
 	}
 	return v, nil
+}
+
+// checkTableComplement is aux->complement(p) of an empty check table:
+// alloc(check_table, ..., m_tocheck->complement(p), m_checker->complement(p))
+// (table_base::complement of each table: its plugin's mk_empty holding
+// every row).
+func (p *TableRelationPlugin) checkTableComplement(predicate ast.ASTHandle, sorts []ast.ASTHandle, aux *FiniteCheckedPair, auxRelation RelationBase) (RelationBase, error) {
+	signature, err := aux.Signature()
+	if err != nil {
+		return nil, errors.Join(err, auxRelation.Close())
+	}
+	name, hasName := "", false
+	if !predicate.IsNull() {
+		symbol, err := p.manager.manager.GetASTName(predicate)
+		if err == nil {
+			name, err = p.manager.manager.Symbols.Display(symbol)
+		}
+		if err != nil {
+			return nil, errors.Join(err, auxRelation.Close())
+		}
+		hasName = true
+	}
+	complement := func(t FiniteTable) (FiniteTable, error) {
+		if err := warnLargeTotalTable(signature, name, hasName); err != nil {
+			return nil, err
+		}
+		c, err := emptyFiniteLike(t)
+		if err != nil {
+			return nil, err
+		}
+		if err = fillTotalTable(c, signature); err != nil {
+			return nil, errors.Join(err, c.Close())
+		}
+		return c, nil
+	}
+	checker, err := complement(aux.checker)
+	if err != nil {
+		return nil, errors.Join(err, auxRelation.Close())
+	}
+	primary, err := complement(aux.primary)
+	if err != nil {
+		return nil, errors.Join(err, checker.Close(), auxRelation.Close())
+	}
+	pair, err := aux.adopt(primary, checker)
+	if err != nil {
+		return nil, errors.Join(err, auxRelation.Close())
+	}
+	if err = auxRelation.Close(); err != nil {
+		return nil, errors.Join(err, pair.Close())
+	}
+	return p.manager.tableView(pair, sorts, false), nil
 }
 
 func (p *TableRelationPlugin) view(r RelationBase) (*tableRelationView, bool) {
@@ -645,7 +811,7 @@ type tableRelationView struct {
 // tableView wraps table as its table plugin's table_relation.
 func (m *RelationManager) tableView(table FiniteTable, sorts []ast.ASTHandle, borrowed bool) *tableRelationView {
 	m.initRelationKinds()
-	p := m.tableRelationPluginNamed(finiteTablePlugin(table))
+	p := m.tableRelationPluginOf(table)
 	if p == nil {
 		p = m.tableRelationPluginNamed("hashtable")
 	}
@@ -676,7 +842,18 @@ func (v *tableRelationView) Contains(f Fact) (bool, error) {
 	}
 	return v.table.Contains(f)
 }
-func (v *tableRelationView) Reset() error    { return v.table.Reset() }
+func (v *tableRelationView) Reset() error {
+	if pair, ok := v.table.(*FiniteCheckedPair); ok && pair.plugin != nil {
+		// relation_base::reset: filter_interpreted(false), check_table's
+		// filter_interpreted_fn over the checker's table, then the
+		// checked table's.
+		if err := pair.open(); err != nil {
+			return err
+		}
+		return errors.Join(pair.checker.Reset(), pair.primary.Reset())
+	}
+	return v.table.Reset()
+}
 func (v *tableRelationView) IsPrecise() bool { return true }
 func (v *tableRelationView) Empty() (bool, error) {
 	n, err := v.table.Len()

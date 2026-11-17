@@ -192,7 +192,11 @@ func (m *RelationManager) RecreatePlaceholderRelation(predicate ast.ASTHandle) (
 	if err != nil || !found || !m.placeholders[predicate] {
 		return table, err
 	}
+	// Still a placeholder: a check table's mk_empty line comes when
+	// get_relation creates the relation (MaterializeFiniteRelation).
+	m.reservingPlaceholder = true
 	relation, ok, err := m.relationForPredicate(predicate)
+	m.reservingPlaceholder = false
 	if err != nil || !ok {
 		return table, err
 	}

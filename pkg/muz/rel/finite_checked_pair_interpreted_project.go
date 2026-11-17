@@ -34,5 +34,5 @@ func (p *FiniteCheckedPair) FilterInterpretedAndProject(manager *RelationManager
 	if err != nil {
 		return nil, errors.Join(err, checker.Close())
 	}
-	return adoptFiniteCheckedPair(primary, checker)
+	return p.adopt(primary, checker)
 }

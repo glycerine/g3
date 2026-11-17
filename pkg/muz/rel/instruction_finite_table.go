@@ -50,6 +50,12 @@ func emptyFiniteLike(table FiniteTable) (FiniteTable, error) {
 		return lazySparseInstructionResult(lazy, signature, lazy.root.functional)
 	}
 	if checked, ok := table.(*FiniteCheckedPair); ok {
+		if checked.plugin != nil {
+			// table_relation_plugin::mk_empty of tr_check: the check_table
+			// plugin's table, or the appropriate plugin's for a signature
+			// it cannot handle (FORK FIX #107).
+			return checkedPairAppropriateTable(checked, signature, finiteTableFunctionalColumns(checked))
+		}
 		return checked.EmptyLike()
 	}
 	if checked, ok := table.(*FormulaCheckedTable); ok {
@@ -68,6 +74,27 @@ func newFiniteJoinResult(signature Signature, functional int, first, second Fini
 	// Source default_table_join_fn asks each actual plugin whether it can
 	// handle the result. Lazy Sparse inherits Sparse's nonnullary capability;
 	// its same-kind direct join above this fallback can still return Lazy.
+	if pair, ok := first.(*FiniteCheckedPair); ok && pair.plugin.CanHandleSignatureFunctional(signature, functional) {
+		return pair.plugin.NewFunctional(signature, functional)
+	}
+	if _, ok := first.(*FiniteCheckedPair); ok {
+		if pair, ok := second.(*FiniteCheckedPair); ok && pair.plugin.CanHandleSignatureFunctional(signature, functional) {
+			return pair.plugin.NewFunctional(signature, functional)
+		}
+		if result, handled, err := checkedPairOperandResult(second, signature, functional); handled {
+			return result, err
+		}
+		return checkedPairAppropriateTable(first.(*FiniteCheckedPair), signature, functional)
+	}
+	if pair, ok := second.(*FiniteCheckedPair); ok {
+		if result, handled, err := checkedPairOperandResult(first, signature, functional); handled {
+			return result, err
+		}
+		if pair.plugin.CanHandleSignatureFunctional(signature, functional) {
+			return pair.plugin.NewFunctional(signature, functional)
+		}
+		return checkedPairAppropriateTable(pair, signature, functional)
+	}
 	if bv, ok := first.(*BitvectorTable); ok && BitvectorCanHandleSignature(signature, functional) {
 		return bv.emptyLike(signature)
 	}
@@ -152,7 +179,7 @@ func finiteTableJoin(first, second FiniteTable, left, right []int) (FiniteTable,
 			return a.Join(b, left, right)
 		}
 	case *FiniteCheckedPair:
-		if b, ok := second.(*FiniteCheckedPair); ok {
+		if b, ok := second.(*FiniteCheckedPair); ok && a.sameKind(b) {
 			return a.Join(b, left, right)
 		}
 	case *FormulaCheckedTable:
@@ -177,10 +204,7 @@ func finiteTableJoin(first, second FiniteTable, left, right []int) (FiniteTable,
 		}
 		return result, joinErr
 	}
-	if _, firstChecked := first.(*FiniteCheckedPair); firstChecked {
-		return checkedPairMixedJoin(first, second, left, right)
-	}
-	if _, secondChecked := second.(*FiniteCheckedPair); secondChecked {
+	if scopePairOperand(first, second) {
 		return checkedPairMixedJoin(first, second, left, right)
 	}
 	firstSignature, err := first.Signature()
@@ -194,17 +218,7 @@ func finiteTableJoin(first, second FiniteTable, left, right []int) (FiniteTable,
 	if err = validateColumns(firstSignature, secondSignature, left, right); err != nil {
 		return nil, err
 	}
-	firstFunctional, secondFunctional := 0, 0
-	if sparse, ok := first.(*SparseTable); ok {
-		firstFunctional = sparse.functional
-	} else if lazy, ok := first.(*LazySparseTable); ok {
-		firstFunctional = lazy.root.functional
-	}
-	if sparse, ok := second.(*SparseTable); ok {
-		secondFunctional = sparse.functional
-	} else if lazy, ok := second.(*LazySparseTable); ok {
-		secondFunctional = lazy.root.functional
-	}
+	firstFunctional, secondFunctional := finiteTableFunctionalColumns(first), finiteTableFunctionalColumns(second)
 	firstDomains, secondDomains := firstSignature.Domains(), secondSignature.Domains()
 	firstBoundary := len(firstDomains) - firstFunctional
 	secondBoundary := len(secondDomains) - secondFunctional
@@ -377,7 +391,7 @@ func finiteTableJoinProject(first, second FiniteTable, left, right, removed []in
 			return lazySparseInstructionJoinProject(a, b, left, right, removed)
 		}
 	case *FiniteCheckedPair:
-		if b, ok := second.(*FiniteCheckedPair); ok {
+		if b, ok := second.(*FiniteCheckedPair); ok && a.sameKind(b) {
 			return a.JoinProject(b, left, right, removed)
 		}
 	case *FormulaCheckedTable:
@@ -402,10 +416,7 @@ func finiteTableJoinProject(first, second FiniteTable, left, right, removed []in
 		}
 		return result, joinErr
 	}
-	if _, firstChecked := first.(*FiniteCheckedPair); firstChecked {
-		return checkedPairMixedJoinProject(first, second, left, right, removed)
-	}
-	if _, secondChecked := second.(*FiniteCheckedPair); secondChecked {
+	if scopePairOperand(first, second) {
 		return checkedPairMixedJoinProject(first, second, left, right, removed)
 	}
 	joined, err := finiteTableJoin(first, second, left, right)
@@ -610,19 +621,21 @@ func finiteTableUnion(target, source, delta FiniteTable) error {
 		}
 	}
 	if a, ok := target.(*FiniteCheckedPair); ok {
-		if b, same := source.(*FiniteCheckedPair); same {
+		if b, same := source.(*FiniteCheckedPair); same && a.sameKind(b) {
 			if delta == nil {
 				return a.UnionFrom(b, nil)
 			}
-			if d, sameDelta := delta.(*FiniteCheckedPair); sameDelta {
+			if d, sameDelta := delta.(*FiniteCheckedPair); sameDelta && a.sameKind(d) {
 				return a.UnionFrom(b, d)
 			}
 		}
-		if delta == nil {
-			return checkedPairMixedUnion(a, source, nil)
-		}
-		if d, sameDelta := delta.(*FiniteCheckedPair); sameDelta {
-			return checkedPairMixedUnion(a, source, d)
+		if a.plugin == nil {
+			if delta == nil {
+				return checkedPairMixedUnion(a, source, nil)
+			}
+			if d, sameDelta := delta.(*FiniteCheckedPair); sameDelta {
+				return checkedPairMixedUnion(a, source, d)
+			}
 		}
 	}
 	if a, ok := target.(*FormulaCheckedTable); ok {
@@ -713,10 +726,12 @@ func finiteTableFilterNegation(target, negative FiniteTable, targetColumns, nega
 		}
 	}
 	if a, ok := target.(*FiniteCheckedPair); ok {
-		if b, same := negative.(*FiniteCheckedPair); same {
+		if b, same := negative.(*FiniteCheckedPair); same && a.sameKind(b) {
 			return a.FilterByNegation(b, targetColumns, negativeColumns)
 		}
-		return checkedPairMixedNegation(a, negative, targetColumns, negativeColumns)
+		if a.plugin == nil {
+			return checkedPairMixedNegation(a, negative, targetColumns, negativeColumns)
+		}
 	}
 	if a, ok := target.(*FormulaCheckedTable); ok {
 		b, same := negative.(*FormulaCheckedTable)

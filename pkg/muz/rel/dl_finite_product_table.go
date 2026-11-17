@@ -17,10 +17,10 @@ import (
 
 // SetDefaultTableChecked records datalog.default_table_checked: the
 // favourite table plugin is then check_table_plugin, whose
-// can_handle_signature needs both the checked and the checker plugin. g3
-// makes check tables only for the evaluation (open limitation), so a
-// finite product table under default_table_checked is the sparse plugin's,
-// the first registered plugin that handles the signature.
+// can_handle_signature needs both the checked and the checker plugin. A
+// finite product table is the check_table plugin's when both plugins
+// handle functional columns (sparse, lazy_sparse), else the sparse
+// plugin's, the first registered plugin that handles the signature.
 func (m *RelationManager) SetDefaultTableChecked(checked bool) error {
 	if err := m.open(); err != nil {
 		return err
@@ -32,7 +32,12 @@ func (m *RelationManager) SetDefaultTableChecked(checked bool) error {
 // fprAppropriateTable is get_appropriate_plugin(sig).mk_empty(sig) (and
 // relation_manager::mk_empty_table) for a finite product table signature.
 func (m *RelationManager) fprAppropriateTable(signature Signature, functional int) (FiniteTable, error) {
-	if m != nil && m.checkedFinite == nil && !m.defaultTableChecked && m.defaultFinite == "lazy_sparse" && m.lazyFinite != nil && m.lazyFinite.open() == nil && signature.Len() != 0 {
+	if m != nil && m.checkedFinite == nil && m.defaultChecked.CanHandleSignatureFunctional(signature, functional) {
+		// The favourite check_table plugin handles the signature when both
+		// of its plugins are sparse or lazy_sparse.
+		return m.defaultChecked.NewFunctional(signature, functional)
+	}
+	if m != nil && m.checkedFactory() == nil && !m.defaultTableChecked && m.defaultFinite == "lazy_sparse" && m.lazyFinite != nil && m.lazyFinite.open() == nil && signature.Len() != 0 {
 		return m.lazyFinite.engine.New(signature, functional)
 	}
 	return m.sparsePlugin().MkEmpty(signature, functional)
@@ -41,6 +46,9 @@ func (m *RelationManager) fprAppropriateTable(signature Signature, functional in
 // fprTableLike is t.get_plugin().mk_empty(sig): a lazy table's plugin
 // makes lazy tables.
 func fprTableLike(t FiniteTable, signature Signature, functional int) (FiniteTable, error) {
+	if pair, ok := t.(*FiniteCheckedPair); ok && pair.plugin != nil {
+		return pair.plugin.NewFunctional(signature, functional)
+	}
 	if lazy, ok := t.(*LazySparseTable); ok && signature.Len() != 0 {
 		if err := lazy.open(); err != nil {
 			return nil, err
@@ -53,9 +61,12 @@ func fprTableLike(t FiniteTable, signature Signature, functional int) (FiniteTab
 // fprTableHandles is t.get_plugin().can_handle_signature(sig) for a
 // signature with functional columns.
 func fprTableHandles(t FiniteTable, signature Signature) bool {
-	switch t.(type) {
+	switch concrete := t.(type) {
 	case *SparseTable, *LazySparseTable:
 		return signature.Len() != 0
+	case *FiniteCheckedPair:
+		// The signature has functional columns.
+		return concrete.plugin.CanHandleSignatureFunctional(signature, 1)
 	}
 	return false
 }
@@ -73,6 +84,15 @@ func fprSuggestFact(t FiniteTable, f Fact) (bool, error) {
 		// add_new_fact: lazy_table::add_fact.
 		_, err = concrete.Add(f)
 		return err == nil, err
+	case *FiniteCheckedPair:
+		// table_base::suggest_fact: fetch_fact, else add_new_fact
+		// (check_table::add_fact).
+		found, err := fprFetchFact(concrete, f)
+		if err != nil || found {
+			return false, err
+		}
+		_, err = concrete.Add(f)
+		return err == nil, err
 	}
 	return false, ErrTable
 }
@@ -84,6 +104,17 @@ func fprEnsureFact(t FiniteTable, f Fact) error {
 		return concrete.EnsureFact(f)
 	case *LazySparseTable:
 		return concrete.EnsureFact(f)
+	case *FiniteCheckedPair:
+		// table_base::ensure_fact: remove_fact, then add_fact.
+		if finiteTableFunctionalColumns(concrete) == 0 {
+			_, err := concrete.Add(f)
+			return err
+		}
+		if err := concrete.RemoveFact(f); err != nil {
+			return err
+		}
+		_, err := concrete.Add(f)
+		return err
 	}
 	return ErrTable
 }
@@ -95,6 +126,27 @@ func fprFetchFact(t FiniteTable, f Fact) (bool, error) {
 		return concrete.FetchFact(f)
 	case *LazySparseTable:
 		return concrete.FetchFact(f)
+	case *FiniteCheckedPair:
+		// table_base::fetch_fact over the checked table's rows.
+		facts, err := concrete.primary.Facts()
+		if err != nil {
+			return false, err
+		}
+		first := len(f) - finiteTableFunctionalColumns(concrete)
+		for _, row := range facts {
+			match := true
+			for i := 0; i < first; i++ {
+				if row[i] != f[i] {
+					match = false
+					break
+				}
+			}
+			if match {
+				copy(f[first:], row[first:])
+				return true, nil
+			}
+		}
+		return false, nil
 	}
 	return false, ErrTable
 }
@@ -106,11 +158,26 @@ func fprComplementFunctional(t FiniteTable, functional Fact) (FiniteTable, error
 		return concrete.ComplementFunctional(functional)
 	case *LazySparseTable:
 		return concrete.ComplementFunctional(functional)
+	case *FiniteCheckedPair:
+		// check_table::complement: the tables' complements.
+		checker, err := fprComplementFunctional(concrete.checker, functional)
+		if err != nil {
+			return nil, err
+		}
+		primary, err := fprComplementFunctional(concrete.primary, functional)
+		if err != nil {
+			return nil, errors.Join(err, checker.Close())
+		}
+		return concrete.adopt(primary, checker)
 	}
 	return nil, ErrTable
 }
 
 func fprSizeEstimateRows(t FiniteTable) (uint32, error) {
+	if pair, ok := t.(*FiniteCheckedPair); ok {
+		// check_table forwards to the checked table.
+		return fprSizeEstimateRows(pair.primary)
+	}
 	switch concrete := t.(type) {
 	case *SparseTable:
 		return concrete.SizeEstimateRows()
@@ -121,6 +188,9 @@ func fprSizeEstimateRows(t FiniteTable) (uint32, error) {
 }
 
 func fprSizeEstimateBytes(t FiniteTable) (uint32, error) {
+	if pair, ok := t.(*FiniteCheckedPair); ok {
+		return fprSizeEstimateBytes(pair.primary)
+	}
 	switch concrete := t.(type) {
 	case *SparseTable:
 		return concrete.SizeEstimateBytes()
@@ -131,6 +201,10 @@ func fprSizeEstimateBytes(t FiniteTable) (uint32, error) {
 }
 
 func fprTableDisplay(t FiniteTable, out io.Writer) error {
+	if pair, ok := t.(*FiniteCheckedPair); ok {
+		// table_base::display of the checked table's rows.
+		return fprTableDisplay(pair.primary, out)
+	}
 	switch concrete := t.(type) {
 	case *SparseTable:
 		return concrete.Display(out)
@@ -149,6 +223,8 @@ func fprFunctionalColumns(t FiniteTable) int {
 		if concrete.root != nil {
 			return concrete.root.functional
 		}
+	case *FiniteCheckedPair:
+		return finiteTableFunctionalColumns(concrete)
 	}
 	return 0
 }

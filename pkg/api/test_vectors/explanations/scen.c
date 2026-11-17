@@ -131,6 +131,21 @@ int main(int argc, char** argv) {
     rule(forall1(B, Z3_mk_implies(c, app1(P, x), app1(R, x))), "forward");
     rule(forall1(B, Z3_mk_implies(c, app1(R, x), app1(P, x))), "backward");
     query(app1(R, T));
+  } else if (s >= 25 && s <= 28) {
+    // checked default table whose plugins both handle functional columns (sparse, lazy_sparse):
+    // the finite product relation's tables are check tables
+    const char* def[4] = {"sparse", "lazy_sparse", "sparse", "lazy_sparse"};
+    const char* chk[4] = {"sparse", "sparse", "lazy_sparse", "lazy_sparse"};
+    printf("mode checked-%s-%s\n", def[s - 25], chk[s - 25]);
+    sets("datalog.default_table", def[s - 25]);
+    setb("datalog.default_table_checked", 1);
+    sets("datalog.default_table_checker", chk[s - 25]);
+    Z3_fixedpoint_set_params(c, fp, prm);
+    Z3_func_decl P = decl("P", 1, &B), R = decl("R", 1, &B);
+    fact1(P, 1);
+    rule(forall1(B, Z3_mk_implies(c, app1(P, x), app1(R, x))), "forward");
+    rule(forall1(B, Z3_mk_implies(c, app1(R, x), app1(P, x))), "backward");
+    query(app1(R, T));
   } else if (s == 23 || s == 24) {
     // relation level with doc: check_relation doc (24) or default_relation doc (23); bit-vector columns
     setb("datalog.explanations_on_relation_level", 1);

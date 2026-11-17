@@ -76,7 +76,9 @@ func (e *PropositionalEngine) applyDatalogDefaultFiniteTable() (resultErr error)
 			continue
 		}
 		kind := "tr_" + name
-		if len(state.sorts) == 0 && name != "bitvector" {
+		if e.defaultCheckedTables && e.relations.DefaultCheckedHandles(state.sorts) {
+			kind = "tr_check"
+		} else if len(state.sorts) == 0 && name != "bitvector" {
 			// Sparse and lazy_sparse reject the empty signature and
 			// registration order reaches hashtable; bitvector handles it.
 			kind = "tr_hashtable"
@@ -113,13 +115,38 @@ func (e *PropositionalEngine) configureDatalogFiniteDefault(name string) error {
 	}
 	// datalog.default_table_checked: the favourite table plugin is the
 	// check_table plugin (relation_manager::register_plugin).
-	_, checked, err := e.datalogDefaultTableCheck()
+	checker, checked, err := e.datalogDefaultTableCheck()
 	if err != nil {
 		return err
 	}
 	if err = e.relations.SetDefaultTableChecked(checked); err != nil {
 		return err
 	}
+	var factory *rel.FiniteCheckedFactory
+	if checked {
+		// check_table_plugin(checker, default_table) is the favourite table
+		// plugin: the predicates' tables are check tables from their
+		// creation on.
+		if checker == "lazy_sparse" && e.lazyFinite == nil {
+			e.lazyFinite = e.relations.NewLazySparseFiniteFactory()
+			if err = e.relations.SetLazySparseFiniteFactory(e.lazyFinite); err != nil {
+				return err
+			}
+		}
+		if factory, err = rel.NewFiniteCheckedFactoryWithLazy(name, checker, e.lazyFinite); err != nil {
+			return err
+		}
+	}
+	// rel_context::updt_params: a datalog.check_relation other than null
+	// makes check_relation the favourite relation plugin.
+	_, checkRelation, err := e.datalogCheckRelationBase()
+	if err != nil {
+		return err
+	}
+	if err = e.relations.SetDefaultCheckedFactory(factory, !checkRelation); err != nil {
+		return err
+	}
+	e.defaultCheckedTables = factory != nil
 	return e.relations.SetDefaultFiniteTable(name)
 }
 

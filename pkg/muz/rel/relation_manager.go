@@ -31,6 +31,23 @@ type RelationManager struct {
 	favouriteTable string
 	lazyFinite     *LazySparseFiniteFactory // borrowed; context closes it after this manager
 	checkedFinite  *FiniteCheckedFactory    // borrowed for one checked execution scope
+	// defaultChecked is the check_table_plugin that
+	// datalog.default_table_checked makes the favourite table plugin
+	// (relation_manager::register_plugin), borrowed from the context.
+	defaultChecked *FiniteCheckedFactory
+	// defaultCheckedRelation is the second check_table_plugin
+	// register_plugin makes for the favourite table_relation plugin: its
+	// table_relation plugin is m_favourite_relation_plugin.
+	defaultCheckedRelation *FiniteCheckedFactory
+	// checkedRelationFavourite: m_favourite_relation_plugin is that
+	// table_relation plugin (no check_relation favourite replaced it).
+	checkedRelationFavourite bool
+	// reservingPlaceholder: ReserveFiniteRelation is making a predicate's
+	// placeholder table.
+	reservingPlaceholder bool
+	// requestedTableRelation: the table_relation plugin (its table name)
+	// set_predicate_representation requested for a predicate.
+	requestedTableRelation map[ast.ASTHandle]string
 	// varSubst is the context var_subst used to ground interpreted
 	// conditions (GroundCondition).
 	varSubst *astrewriter.VarSubstitution
@@ -289,6 +306,8 @@ func (m *RelationManager) Close() (result error) {
 	m.saturated = nil
 	m.lazyFinite = nil
 	m.checkedFinite = nil
+	m.defaultChecked = nil
+	m.defaultCheckedRelation = nil
 	m.sparse.reset()
 	return result
 }

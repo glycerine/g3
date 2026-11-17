@@ -106,7 +106,13 @@ type PropositionalEngine struct {
 	// before its emptiness test, and the answer is the clone's formula.
 	// datalogLastResultDecl is the predicate datalogLastResult cloned.
 	datalogExpressionQuery bool
-	datalogLastResultDecl  ast.ASTHandle
+	// defaultCheckedTables: datalog.default_table_checked made the
+	// check_table plugin the favourite table plugin.
+	defaultCheckedTables bool
+	// negatedTablesReset: applyQueryExplanations ran reset_negated_tables
+	// for this query before its transformation.
+	negatedTablesReset    bool
+	datalogLastResultDecl ast.ASTHandle
 	// datalogRetiredResults are the earlier queries' m_last_result_relation:
 	// rel_context::query(expr*) assigns the new clone without deallocating
 	// the previous one, which stays allocated until the context dies.
@@ -615,6 +621,9 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 	}
 	state.explicitFiniteRepresentation = true
 	state.requestedRepresentations = append([]string(nil), kinds...)
+	if err := e.requestTableRelationKind(declaration); err != nil {
+		return err
+	}
 	e.revision++
 	return nil
 }
@@ -2886,11 +2895,12 @@ func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHand
 	// untransformed rule set before saturate (and its transform_rules), once
 	// per query, not per restart round.
 	// read_datalog saturates without rel_context::query, so no reset.
-	if !round.restarting && !e.datalogFrontend {
+	if !round.restarting && !e.datalogFrontend && !e.negatedTablesReset {
 		if err = e.resetNegationDependentTables(); err != nil {
 			return lbool.Undef, err
 		}
 	}
+	e.negatedTablesReset = false
 	// rel_context::saturate resets m_ectx and m_code before transform_rules.
 	if err = errors.Join(e.releaseDatalogExecution(), e.releaseDatalogCode()); err != nil {
 		return lbool.Undef, err

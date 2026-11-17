@@ -12,6 +12,57 @@ func (m *RelationManager) SetCheckedFiniteFactory(factory *FiniteCheckedFactory)
 	return nil
 }
 
+// checkedFactory is the check_table plugin of table creation: the checked
+// scope's, else the default check_table favourite.
+func (m *RelationManager) checkedFactory() *FiniteCheckedFactory {
+	if m.checkedFinite != nil {
+		return m.checkedFinite
+	}
+	return m.defaultChecked
+}
+
+// SetDefaultCheckedFactory makes factory (nil for none) the favourite
+// check_table plugin of datalog.default_table_checked. register_plugin
+// makes a second check_table_plugin of the same tables for the favourite
+// table_relation plugin, whose table_relation plugin becomes
+// m_favourite_relation_plugin; relationFavourite is false when
+// rel_context::updt_params makes check_relation the favourite instead.
+func (m *RelationManager) SetDefaultCheckedFactory(factory *FiniteCheckedFactory, relationFavourite bool) error {
+	if err := m.open(); err != nil {
+		return err
+	}
+	if old := m.defaultChecked; factory != nil && old != nil && old.primaryKind == factory.primaryKind && old.checkerKind == factory.checkerKind && old.lazy == factory.lazy {
+		// The plugins rel_context registered stay: the tables of earlier
+		// queries are theirs.
+		m.checkedRelationFavourite = relationFavourite
+		return nil
+	}
+	m.defaultChecked, m.defaultCheckedRelation, m.checkedRelationFavourite = nil, nil, false
+	if factory == nil {
+		return nil
+	}
+	factory.manager = m
+	second := *factory
+	second.relationFavourite = true
+	m.defaultChecked = factory
+	m.defaultCheckedRelation = &second
+	m.checkedRelationFavourite = relationFavourite
+	if m.kindPlugins != nil {
+		m.registerCheckTableRelationPlugins()
+	}
+	return nil
+}
+
+// predicateCheckedFactory is the check_table plugin of a predicate's
+// relation (mk_empty_relation): the favourite table_relation plugin's
+// when it is the favourite relation plugin, else mk_empty_table's.
+func (m *RelationManager) predicateCheckedFactory() *FiniteCheckedFactory {
+	if m.checkedRelationFavourite {
+		return m.defaultCheckedRelation
+	}
+	return m.defaultChecked
+}
+
 // SetLazySparseFiniteFactory borrows the context-owned factory used when
 // lazy_sparse is the favourite table. The manager closes its table owners
 // first; the context closes the factory afterwards.
@@ -74,7 +125,10 @@ func (m *RelationManager) SetFavouriteTableRelation(table string) error {
 // can_handle_signature), otherwise mk_empty_table_relation's table of the
 // appropriate table plugin.
 func (m *RelationManager) newFavouriteFiniteTable(signature Signature) (FiniteTable, error) {
-	if m.checkedFinite == nil && m.favouriteTable != "" {
+	if m.checkedFinite == nil && m.checkedRelationFavourite && m.defaultCheckedRelation.CanHandleSignature(signature) {
+		return m.defaultCheckedRelation.New(signature)
+	}
+	if m.checkedFactory() == nil && m.favouriteTable != "" {
 		if p := m.tableRelationPluginNamed(m.favouriteTable); p != nil && p.canHandle(signature) {
 			return p.newTable(signature)
 		}
@@ -117,7 +171,7 @@ func (m *RelationManager) NewFiniteTableForPredicate(predicate ast.ASTHandle, si
 // is not necessarily the predicate's (a register of the predicate's rule):
 // the predicate's requested table plugin, else the appropriate default.
 func (m *RelationManager) newRequestedFiniteTable(predicate ast.ASTHandle, signature Signature) (FiniteTable, error) {
-	if m.checkedFinite == nil {
+	if m.checkedFactory() == nil {
 		switch m.requestedFinite[predicate] {
 		case "tr_hashtable":
 			return NewHashTable(signature), nil
@@ -145,9 +199,9 @@ func (m *RelationManager) NewDefaultFiniteTable(signature Signature) (FiniteTabl
 	if err := m.open(); err != nil {
 		return nil, err
 	}
-	if m.checkedFinite != nil {
-		if m.checkedFinite.CanHandleSignature(signature) {
-			return m.checkedFinite.New(signature)
+	if m.checkedFactory() != nil {
+		if m.checkedFactory().CanHandleSignature(signature) {
+			return m.checkedFactory().New(signature)
 		}
 		// The source checked favourite rejects a signature if either wrapped
 		// plugin rejects it, then registered-plugin selection falls through to
@@ -248,4 +302,44 @@ func (m *RelationManager) predicateSorts(declaration ast.ASTHandle) ([]ast.ASTHa
 		}
 	}
 	return sorts, nil
+}
+
+// DefaultCheckedHandles reports whether the default check_table favourite
+// handles the signature of sorts.
+func (m *RelationManager) DefaultCheckedHandles(sorts []ast.ASTHandle) bool {
+	if m.defaultChecked == nil {
+		return false
+	}
+	signature, ok := m.signatureIsTable(sorts)
+	return ok && m.predicateCheckedFactory().CanHandleSignature(signature)
+}
+
+// NewDefaultCheckedPredicateTable is mk_empty_relation's check table of a
+// predicate (predicateCheckedFactory's mk_empty).
+func (m *RelationManager) NewDefaultCheckedPredicateTable(signature Signature) (FiniteTable, error) {
+	if err := m.open(); err != nil {
+		return nil, err
+	}
+	if m.defaultChecked == nil {
+		return nil, ErrCheckTable
+	}
+	return m.predicateCheckedFactory().New(signature)
+}
+
+// NewDefaultCheckedPlaceholder is the default check_table favourite's table
+// for a predicate whose relation the source creates later: its mk_empty
+// line is printed at that creation (MaterializeFiniteRelation).
+func (m *RelationManager) NewDefaultCheckedPlaceholder(signature Signature) (FiniteTable, error) {
+	if err := m.open(); err != nil {
+		return nil, err
+	}
+	if m.defaultChecked == nil {
+		return nil, ErrCheckTable
+	}
+	pair, err := m.predicateCheckedFactory().newPair(signature, 0)
+	if err != nil {
+		return nil, err
+	}
+	pair.deferredMkEmpty = true
+	return pair, nil
 }

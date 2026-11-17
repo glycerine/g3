@@ -16,6 +16,22 @@ type FiniteCheckedPair struct {
 	primary FiniteTable
 	checker FiniteTable
 	closed  bool
+	// plugin is the check_table_plugin the table belongs to (nil for the
+	// checked scope's pairs).
+	plugin *FiniteCheckedFactory
+	// deferredMkEmpty: made for a predicate whose relation the source has
+	// not created yet; check_table_plugin::mk_empty's verbose line comes
+	// when get_relation creates it (completeCreation).
+	deferredMkEmpty bool
+}
+
+// completeCreation prints the deferred mk_empty line.
+func (p *FiniteCheckedPair) completeCreation() error {
+	if !p.deferredMkEmpty {
+		return nil
+	}
+	p.deferredMkEmpty = false
+	return checkTableVerbose("mk_empty")
 }
 
 // FiniteCheckedFactory is the concrete check_table plugin selection used for
@@ -24,6 +40,13 @@ type FiniteCheckedFactory struct {
 	primaryKind string
 	checkerKind string
 	lazy        *LazySparseFiniteFactory
+	// relationFavourite: the second check_table plugin, whose
+	// table_relation plugin is the favourite relation plugin.
+	relationFavourite bool
+	// manager is the relation manager the plugin is registered with: its
+	// sparse_table_plugin makes the sparse sides, its appropriate plugin
+	// the sides a wrapped plugin cannot handle.
+	manager *RelationManager
 }
 
 func NewFiniteCheckedFactory(primaryKind, checkerKind string) (*FiniteCheckedFactory, error) {
@@ -50,16 +73,30 @@ func NewFiniteCheckedFactoryWithLazy(primaryKind, checkerKind string, lazy *Lazy
 }
 
 func checkedKindHandles(kind string, signature Signature) bool {
+	return checkedKindHandlesFunctional(kind, signature, 0)
+}
+
+// checkedKindHandlesFunctional is the wrapped table plugin's
+// can_handle_signature of a signature with functional columns: hashtable
+// and bitvector (table_plugin's default) reject functional columns, sparse
+// and lazy_sparse the empty signature.
+func checkedKindHandlesFunctional(kind string, signature Signature, functional int) bool {
 	switch kind {
 	case "hashtable", "tr_hashtable":
-		return true
+		return functional == 0
 	case "sparse", "tr_sparse", "lazy_sparse", "tr_lazy_sparse":
 		return signature.Len() != 0
 	case "bitvector", "tr_bitvector":
-		return BitvectorCanHandleSignature(signature, 0)
+		return BitvectorCanHandleSignature(signature, functional)
 	default:
 		return false
 	}
+}
+
+// CanHandleSignatureFunctional is check_table_plugin::can_handle_signature
+// of a signature with functional columns.
+func (f *FiniteCheckedFactory) CanHandleSignatureFunctional(signature Signature, functional int) bool {
+	return f != nil && checkedKindHandlesFunctional(f.primaryKind, signature, functional) && checkedKindHandlesFunctional(f.checkerKind, signature, functional)
 }
 
 // CanHandleSignature mirrors check_table_plugin::can_handle_signature: both
@@ -86,6 +123,9 @@ func (f *FiniteCheckedFactory) table(kind string, signature Signature, functiona
 	case "hashtable", "tr_hashtable":
 		return NewHashTable(signature), nil
 	case "sparse", "tr_sparse":
+		if f.manager != nil {
+			return f.manager.sparsePlugin().MkEmpty(signature, functional)
+		}
 		return NewSparseTable(signature, functional)
 	case "bitvector", "tr_bitvector":
 		if functional != 0 {
@@ -106,21 +146,80 @@ func (f *FiniteCheckedFactory) table(kind string, signature Signature, functiona
 }
 
 func (f *FiniteCheckedFactory) New(signature Signature) (*FiniteCheckedPair, error) {
-	if !f.CanHandleSignature(signature) {
-		return nil, ErrCheckTable
+	return f.NewFunctional(signature, 0)
+}
+
+// NewFunctional is check_table_plugin::mk_empty(s) of a signature with
+// functional columns.
+func (f *FiniteCheckedFactory) NewFunctional(signature Signature, functional int) (*FiniteCheckedPair, error) {
+	if f.manager != nil && f.manager.reservingPlaceholder {
+		pair, err := f.newPair(signature, functional)
+		if err != nil {
+			return nil, err
+		}
+		pair.deferredMkEmpty = true
+		return pair, nil
 	}
 	if err := checkTableVerbose("mk_empty"); err != nil {
 		return nil, err
 	}
-	primary, err := f.table(f.primaryKind, signature, 0)
+	return f.newPair(signature, functional)
+}
+
+// newPair is check_table_plugin::mk_empty without its verbose line: the
+// checker's table, then the checked plugin's.
+func (f *FiniteCheckedFactory) newPair(signature Signature, functional int) (*FiniteCheckedPair, error) {
+	if !f.CanHandleSignatureFunctional(signature, functional) {
+		return nil, ErrCheckTable
+	}
+	checker, err := f.table(f.checkerKind, signature, functional)
 	if err != nil {
 		return nil, err
 	}
-	checker, err := f.table(f.checkerKind, signature, 0)
+	primary, err := f.table(f.primaryKind, signature, functional)
 	if err != nil {
-		return nil, errors.Join(err, primary.Close())
+		return nil, errors.Join(err, checker.Close())
 	}
-	return adoptFiniteCheckedPair(primary, checker)
+	pair, err := adoptFiniteCheckedPair(primary, checker)
+	if err != nil {
+		return nil, err
+	}
+	pair.plugin = f
+	return pair, nil
+}
+
+// sameKind is check_kind of two check tables: tables of the same
+// check_table plugin (the checked scope's pairs have none).
+func (p *FiniteCheckedPair) sameKind(o *FiniteCheckedPair) bool {
+	return p.plugin == o.plugin
+}
+
+// RemoveFact is check_table::remove_fact.
+func (p *FiniteCheckedPair) RemoveFact(fact Fact) error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	if err := checkTableVerbose("remove_fact"); err != nil {
+		return err
+	}
+	if err := checkTableRemoveFact(p.primary, fact); err != nil {
+		return err
+	}
+	if err := checkTableRemoveFact(p.checker, fact); err != nil {
+		return err
+	}
+	return p.verify("remove")
+}
+
+// adopt is alloc(check_table, get(t).get_plugin(), ..., tocheck, checker)
+// of an operation on p.
+func (p *FiniteCheckedPair) adopt(primary, checker FiniteTable) (*FiniteCheckedPair, error) {
+	result, err := adoptFiniteCheckedPair(primary, checker)
+	if err != nil {
+		return nil, err
+	}
+	result.plugin = p.plugin
+	return result, nil
 }
 
 func adoptFiniteCheckedPair(primary, checker FiniteTable) (_ *FiniteCheckedPair, resultErr error) {
@@ -451,6 +550,20 @@ func (p *FiniteCheckedPair) Reset() error {
 	if err := p.open(); err != nil {
 		return err
 	}
+	if p.plugin != nil {
+		// table_base::reset: remove_facts of the rows, check_table::
+		// remove_fact of each.
+		facts, err := p.primary.Facts()
+		if err != nil {
+			return err
+		}
+		for _, fact := range facts {
+			if err = p.RemoveFact(fact); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	return errors.Join(p.primary.Reset(), p.checker.Reset())
 }
 
@@ -471,7 +584,7 @@ func (p *FiniteCheckedPair) EmptyLike() (*FiniteCheckedPair, error) {
 	if err != nil {
 		return nil, errors.Join(err, primary.Close())
 	}
-	return adoptFiniteCheckedPair(primary, checker)
+	return p.adopt(primary, checker)
 }
 
 // Complement implements the live finite complement boundary used by checked
@@ -561,7 +674,7 @@ func (p *FiniteCheckedPair) Join(other *FiniteCheckedPair, left, right []int) (*
 	if err != nil {
 		return nil, errors.Join(err, primary.Close())
 	}
-	return adoptFiniteCheckedPair(primary, checker)
+	return p.adopt(primary, checker)
 }
 
 func (p *FiniteCheckedPair) JoinProject(other *FiniteCheckedPair, left, right, removed []int) (*FiniteCheckedPair, error) {
@@ -576,7 +689,7 @@ func (p *FiniteCheckedPair) JoinProject(other *FiniteCheckedPair, left, right, r
 	if err != nil {
 		return nil, errors.Join(err, primary.Close())
 	}
-	return adoptFiniteCheckedPair(primary, checker)
+	return p.adopt(primary, checker)
 }
 
 func (p *FiniteCheckedPair) Project(removed []int) (*FiniteCheckedPair, error) {
@@ -591,7 +704,7 @@ func (p *FiniteCheckedPair) Project(removed []int) (*FiniteCheckedPair, error) {
 	if err != nil {
 		return nil, errors.Join(err, primary.Close())
 	}
-	return adoptFiniteCheckedPair(primary, checker)
+	return p.adopt(primary, checker)
 }
 
 func (p *FiniteCheckedPair) RenameCycle(cycle []int) (*FiniteCheckedPair, error) {
@@ -609,7 +722,7 @@ func (p *FiniteCheckedPair) RenameCycle(cycle []int) (*FiniteCheckedPair, error)
 	if err != nil {
 		return nil, errors.Join(err, primary.Close())
 	}
-	return adoptFiniteCheckedPair(primary, checker)
+	return p.adopt(primary, checker)
 }
 
 func (p *FiniteCheckedPair) SelectEqualAndProject(value Element, column int) (*FiniteCheckedPair, error) {
@@ -624,7 +737,7 @@ func (p *FiniteCheckedPair) SelectEqualAndProject(value Element, column int) (*F
 	if err != nil {
 		return nil, errors.Join(err, primary.Close())
 	}
-	return adoptFiniteCheckedPair(primary, checker)
+	return p.adopt(primary, checker)
 }
 
 func (p *FiniteCheckedPair) FilterEqual(value Element, column int) error {
@@ -721,7 +834,7 @@ func (p *FiniteCheckedPair) CloneFinite() (FiniteTable, error) {
 	if err != nil {
 		return nil, errors.Join(err, primary.Close())
 	}
-	return &FiniteCheckedPair{primary: primary, checker: checker}, nil
+	return &FiniteCheckedPair{primary: primary, checker: checker, plugin: p.plugin}, nil
 }
 func (p *FiniteCheckedPair) Close() error {
 	if p == nil {
@@ -770,3 +883,44 @@ func (p *FiniteCheckedPair) ConcreteKinds() (primary, checker string, err error)
 }
 
 var _ FiniteTable = (*FiniteCheckedPair)(nil)
+
+// CloneCheckTableForContext copies a check table into g3's query clone of a
+// datalog context. The source's query runs on the same rel_context, so the
+// copy is not a check_table::clone and prints nothing: its tables are
+// copied by cloneTable (into the copy's own lazy engine), and it belongs to
+// the corresponding check_table plugin of the copy's relation manager.
+func CloneCheckTableForContext(p *FiniteCheckedPair, target *RelationManager, cloneTable func(FiniteTable) (FiniteTable, error)) (FiniteTable, error) {
+	if err := p.open(); err != nil {
+		return nil, err
+	}
+	plugin := p.plugin
+	if plugin != nil && target != nil && target.defaultChecked != nil {
+		if plugin.relationFavourite {
+			plugin = target.defaultCheckedRelation
+		} else {
+			plugin = target.defaultChecked
+		}
+	}
+	primary, err := cloneTable(p.primary)
+	if err != nil {
+		return nil, err
+	}
+	checker, err := cloneTable(p.checker)
+	if err != nil {
+		return nil, errors.Join(err, primary.Close())
+	}
+	return &FiniteCheckedPair{primary: primary, checker: checker, plugin: plugin, deferredMkEmpty: p.deferredMkEmpty}, nil
+}
+
+// checkTableRemoveFact is remove_fact of a check table's table
+// (lazy_table::remove_fact: eval()->remove_fact).
+func checkTableRemoveFact(t FiniteTable, fact Fact) error {
+	if lazy, ok := t.(*LazySparseTable); ok {
+		return lazy.RemoveFacts([]Fact{fact})
+	}
+	handled, err := RemoveFiniteTableFacts(t, []Fact{fact})
+	if err == nil && !handled {
+		err = ErrCheckTable
+	}
+	return err
+}

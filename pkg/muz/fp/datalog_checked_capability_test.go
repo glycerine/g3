@@ -46,35 +46,21 @@ func TestDatalogCheckedFavouriteHonorsBothNullaryCapabilities(t *testing.T) {
 			must(err)
 			must(e.AddFact(unary, []ast.ASTHandle{truth}))
 
+			// check_table_plugin is the favourite table plugin: the unary
+			// predicate's table is a check table from its creation on.
 			check, err := e.beginDatalogCheckRelation()
 			must(err)
-			if check == nil || check.factory == nil {
-				t.Fatal("checked favourite did not create its concrete factory")
+			if check != nil {
+				t.Fatal("default_table_checked made a checked scope")
 			}
-			unaryChecked := false
-			for i := range check.entries {
-				entry := &check.entries[i]
-				if entry.declaration == nullary {
-					t.Fatal("checked favourite wrapped a nullary signature rejected by one component")
-				}
-				if entry.declaration != unary {
-					continue
-				}
-				unaryChecked = true
-				primary, checker, pairErr := entry.pair.ConcreteKinds()
-				must(pairErr)
-				if primary != tc.primary || checker != tc.checker {
-					t.Fatal("unary checked concrete kinds", primary, checker)
-				}
+			unaryPair, ok := e.predicates[unary].table.(*rel.FiniteCheckedPair)
+			if !ok {
+				t.Fatalf("unary predicate table = %T", e.predicates[unary].table)
 			}
-			if !unaryChecked {
-				t.Fatal("checked favourite did not wrap supported unary signature")
-			}
-
-			compiled, supported, err := check.beginCompiled()
+			primary, checker, err := unaryPair.ConcreteKinds()
 			must(err)
-			if !supported || compiled == nil {
-				t.Fatal("checked favourite did not enable compiled construction")
+			if primary != tc.primary || checker != tc.checker {
+				t.Fatal("unary checked concrete kinds", primary, checker)
 			}
 			unarySignature, err := e.predicates[unary].table.Signature()
 			must(err)
@@ -84,7 +70,7 @@ func TestDatalogCheckedFavouriteHonorsBothNullaryCapabilities(t *testing.T) {
 			if !ok {
 				t.Fatalf("supported compiler temporary type = %T", unaryTemporary)
 			}
-			primary, checker, err := pair.ConcreteKinds()
+			primary, checker, err = pair.ConcreteKinds()
 			must(err)
 			if primary != tc.primary || checker != tc.checker {
 				t.Fatal("compiler temporary concrete kinds", primary, checker)
@@ -102,8 +88,6 @@ func TestDatalogCheckedFavouriteHonorsBothNullaryCapabilities(t *testing.T) {
 				t.Fatalf("nullary compiler fallback type = %T", nullaryTemporary)
 			}
 			must(nullaryTemporary.Close())
-			must(compiled.Close())
-			must(check.complete(false))
 
 			variable, err := m.MkVar(0, boolean)
 			must(err)
@@ -120,24 +104,8 @@ func TestDatalogCheckedFavouriteHonorsBothNullaryCapabilities(t *testing.T) {
 				if status != lbool.True || !e.compiled {
 					t.Fatal("checked unary-to-nullary query", iteration, status, e.compiled)
 				}
-				if _, checked := e.predicates[unary].table.(*rel.FiniteCheckedPair); checked {
-					t.Fatal("checked unary owner escaped query scope")
-				}
-				switch table := e.predicates[unary].table.(type) {
-				case *rel.HashTable:
-					if tc.primary != "hashtable" {
-						t.Fatalf("published unary type = %T for %s", table, tc.primary)
-					}
-				case *rel.SparseTable:
-					if tc.primary != "sparse" {
-						t.Fatalf("published unary type = %T for %s", table, tc.primary)
-					}
-				case *rel.LazySparseTable:
-					if tc.primary != "lazy_sparse" {
-						t.Fatalf("published unary type = %T for %s", table, tc.primary)
-					}
-				default:
-					t.Fatalf("published unary type = %T", table)
+				if _, checked := e.predicates[unary].table.(*rel.FiniteCheckedPair); !checked {
+					t.Fatalf("unary check table type = %T", e.predicates[unary].table)
 				}
 				if _, hash := e.predicates[nullary].table.(*rel.HashTable); !hash {
 					t.Fatalf("published nullary fallback type = %T", e.predicates[nullary].table)
@@ -146,8 +114,8 @@ func TestDatalogCheckedFavouriteHonorsBothNullaryCapabilities(t *testing.T) {
 				must(signatureErr)
 				postTemporary, temporaryErr := e.relations.NewDefaultFiniteTable(postSignature)
 				must(temporaryErr)
-				if _, checked := postTemporary.(*rel.FiniteCheckedPair); checked {
-					t.Fatal("checked compiler factory escaped query cleanup")
+				if _, checked := postTemporary.(*rel.FiniteCheckedPair); !checked {
+					t.Fatalf("compiler temporary after the query = %T", postTemporary)
 				}
 				must(postTemporary.Close())
 			}

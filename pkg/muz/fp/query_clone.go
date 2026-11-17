@@ -58,13 +58,16 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 	clone.datalogRelationFavourite = e.datalogRelationFavourite
 	clone.datalogDefaultTable = e.datalogDefaultTable
 	clone.softTimeout = e.softTimeout
-	if clone.datalogDefaultTable != "" {
-		if err = clone.configureDatalogFiniteDefault(clone.datalogDefaultTable); err != nil {
+	if e.queryParamsReady {
+		if err = clone.SetQueryParameters(&e.queryParams); err != nil {
 			return nil, errors.Join(err, e.discardQueryClone(clone))
 		}
 	}
-	if e.queryParamsReady {
-		if err = clone.SetQueryParameters(&e.queryParams); err != nil {
+	// The clone's relation manager registers its plugins with the
+	// context's parameters (datalog.default_table_checked's check_table
+	// plugins) before the predicates' tables are copied.
+	if clone.datalogDefaultTable != "" {
+		if err = clone.configureDatalogFiniteDefault(clone.datalogDefaultTable); err != nil {
 			return nil, errors.Join(err, e.discardQueryClone(clone))
 		}
 	}

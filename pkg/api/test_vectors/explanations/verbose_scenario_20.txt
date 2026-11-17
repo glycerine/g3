@@ -1,0 +1,31 @@
+mk_empty
+add_fact
+(transform N7datalog15mk_explanationsE...mk_empty
+mk_empty
+operator()
+mk_empty
+operator()
+4 rules 0s)
+(transform N7datalog13mk_coi_filterE...3 rules 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...2 rules 0s)
+(transform N7datalog25mk_separate_negated_tailsE...no-op 0s)
+(transform N7datalog24mk_similarity_compressorE...no-op 0s)
+(transform N7datalog15mk_filter_rulesE...3 rules 0s)
+(transform N7datalog15mk_simple_joinsE...no-op 0s)
+(transform N7datalog21mk_unbound_compressorE...no-op 0s)
+clone
+clone
+mk_empty
+add_fact
+clone
+clone
+mk_empty
+clone
+mk_empty
+mk_empty
+operator()
+operator()
+clone
+clone
+clone

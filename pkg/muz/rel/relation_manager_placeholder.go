@@ -34,7 +34,12 @@ func (m *RelationManager) ReserveFiniteRelation(predicate ast.ASTHandle) (Finite
 		if err != nil {
 			return nil, err
 		}
-		if table, err = m.NewFiniteTableForPredicate(predicate, signature); err != nil {
+		// The placeholder is not yet the source's relation: a check
+		// table's mk_empty line comes at its creation (completeCreation).
+		m.reservingPlaceholder = true
+		table, err = m.NewFiniteTableForPredicate(predicate, signature)
+		m.reservingPlaceholder = false
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -97,6 +102,8 @@ func completeRelationCreation(table FiniteTable) error {
 		}
 	case *sieveRelation:
 		return completeRelationCreation(r.inner)
+	case *tableRelationView:
+		return completeRelationCreation(r.table)
 	}
 	return nil
 }
@@ -147,6 +154,11 @@ func (m *RelationManager) ReplaceFiniteRelation(predicate ast.ASTHandle, table F
 func releasePlaceholderTable(table FiniteTable) error {
 	if sparse, ok := table.(*SparseTable); ok {
 		return sparse.release()
+	}
+	if pair, ok := table.(*FiniteCheckedPair); ok && pair.deferredMkEmpty {
+		err := errors.Join(releasePlaceholderTable(pair.primary), releasePlaceholderTable(pair.checker))
+		pair.closed = true
+		return err
 	}
 	return table.Close()
 }

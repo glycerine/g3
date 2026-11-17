@@ -749,10 +749,22 @@ func (m *RelationManager) ReplacePlaceholderWithRelation(predicate ast.ASTHandle
 	if err != nil || !found {
 		return table, err
 	}
-	if _, ok := AsRelation(table); ok || !m.placeholders[predicate] {
+	if !m.placeholders[predicate] {
 		return table, nil
 	}
+	if _, ok := AsRelation(table); ok {
+		// A relation placeholder is replaced only when it is the empty
+		// product relation mk_empty_relation made without a kind: the
+		// inherited kind's relation takes its place.
+		if pr, isProduct := table.(*productRelation); !isProduct || len(pr.relations) != 0 {
+			return table, nil
+		}
+	}
+	// Still a placeholder: a check table's mk_empty line comes when
+	// get_relation creates the relation (MaterializeFiniteRelation).
+	m.reservingPlaceholder = true
 	relation, ok, err := m.relationForPredicate(predicate)
+	m.reservingPlaceholder = false
 	if err != nil || !ok {
 		return table, err
 	}

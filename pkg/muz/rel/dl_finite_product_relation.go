@@ -615,6 +615,34 @@ func fprTableUnion(tgt, src, delta FiniteTable) error {
 			}
 		}
 	}
+	if a, ok := tgt.(*FiniteCheckedPair); ok && a.plugin != nil {
+		// check_table_plugin::union_fn: the manager's union of the
+		// checked tables, then of the checker tables.
+		b, same := src.(*FiniteCheckedPair)
+		d, sameDelta := delta.(*FiniteCheckedPair)
+		if same && a.sameKind(b) && (delta == nil || sameDelta && a.sameKind(d)) {
+			if err := checkTableVerbose("operator()"); err != nil {
+				return err
+			}
+			var primaryDelta, checkerDelta FiniteTable
+			if d != nil {
+				primaryDelta, checkerDelta = d.primary, d.checker
+			}
+			if err := fprTableUnion(a.primary, b.primary, primaryDelta); err != nil {
+				return err
+			}
+			if err := fprTableUnion(a.checker, b.checker, checkerDelta); err != nil {
+				return err
+			}
+			if err := a.verify("union target"); err != nil {
+				return err
+			}
+			if d != nil {
+				return d.verify("union delta")
+			}
+			return nil
+		}
+	}
 	a, ok1 := tgt.(*SparseTable)
 	b, ok2 := src.(*SparseTable)
 	if ok1 && ok2 && sparseSameFunctionalSignature(a, b) {

@@ -399,6 +399,16 @@ func RemoveFiniteTableFacts(table FiniteTable, facts []Fact) (bool, error) {
 		return true, concrete.RemoveFacts(facts)
 	case *BitvectorTable:
 		return true, concrete.RemoveFacts(facts)
+	case *FiniteCheckedPair:
+		// table_base::remove_facts: check_table::remove_fact of each.
+		if concrete.plugin != nil {
+			for _, fact := range facts {
+				if err := concrete.RemoveFact(fact); err != nil {
+					return true, err
+				}
+			}
+			return true, nil
+		}
 	}
 	return false, nil
 }

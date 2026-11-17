@@ -226,7 +226,20 @@ func newTableTypeVerbose(first, result FiniteTable) error {
 		return nil
 	}
 	before, after := finiteTablePlugin(first), finiteTablePlugin(result)
-	if before == "" || after == "" || before == after {
+	a, aPair := first.(*FiniteCheckedPair)
+	b, bPair := result.(*FiniteCheckedPair)
+	if aPair && a.plugin != nil {
+		before = "check"
+	}
+	if bPair && b.plugin != nil {
+		after = "check"
+	}
+	if before == "" || after == "" {
+		return nil
+	}
+	// The plugins are compared by identity: two check_table plugins are
+	// different plugins.
+	if before == after && (before != "check" || a.plugin == b.plugin) {
 		return nil
 	}
 	return diagnostic.ProgressVerbose(1, "new type returned\n")

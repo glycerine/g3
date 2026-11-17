@@ -8,6 +8,12 @@ func finiteTableFunctionalColumns(table FiniteTable) int {
 		return concrete.functional
 	case *LazySparseTable:
 		return concrete.root.functional
+	case *FiniteCheckedPair:
+		// check_table's signature is its tables'.
+		if concrete.primary != nil {
+			return finiteTableFunctionalColumns(concrete.primary)
+		}
+		return 0
 	default:
 		return 0
 	}

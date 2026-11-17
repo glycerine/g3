@@ -592,6 +592,14 @@ func (e *PropositionalEngine) applyQueryExplanations(goal ast.ASTHandle) (_ ast.
 			return goal, ErrUnstratifiedNegation
 		}
 	}
+	// rel_context::query: reset_negated_tables on the closed rule set,
+	// then transform_rules(mk_explanations).
+	if !e.datalogFrontend {
+		if err = e.resetNegationDependentTables(); err != nil {
+			return goal, err
+		}
+		e.negatedTablesReset = true
+	}
 	plugin, err := e.newMkExplanations()
 	if err != nil {
 		return goal, err

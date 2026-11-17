@@ -15,5 +15,8 @@ func (e *PropositionalEngine) cloneFiniteForContext(source rel.FiniteTable) (rel
 		}
 		return e.lazyFinite.Migrate(source)
 	}
+	if pair, ok := source.(*rel.FiniteCheckedPair); ok {
+		return rel.CloneCheckTableForContext(pair, e.relations, e.cloneFiniteForContext)
+	}
 	return source.CloneFinite()
 }

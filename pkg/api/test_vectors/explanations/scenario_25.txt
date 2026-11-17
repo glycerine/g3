@@ -1,0 +1,6 @@
+== scenario 25
+mode checked-sparse-sparse
+result 1
+(and (= (:var 0) (|<null>:
+query!0() :- 
+ R(true).| (forward fact))))

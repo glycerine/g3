@@ -63,20 +63,22 @@ func TestDatalogCheckedCompiledConstructorsAndMixedTargets(t *testing.T) {
 			t.Fatal("checked constructor fixture did not execute its join")
 		}
 		for _, spec := range []struct {
-			d     ast.ASTHandle
-			count int
-		}{{p, 2}, {q, 1}, {r, 1}, {f.declarations["u"], 1}} {
+			d       ast.ASTHandle
+			count   int
+			checked bool
+		}{{p, 2, true}, {q, 1, true}, {r, 1, true}, {f.declarations["u"], 1, false}} {
 			rows, err := e.predicates[spec.d].table.Len()
 			must(err)
 			if rows != spec.count {
 				t.Fatal("checked constructor/join tuple count", rows, spec.count)
 			}
-			if _, checked := e.predicates[spec.d].table.(*rel.FiniteCheckedPair); checked {
-				t.Fatal("checked owner escaped query scope")
+			// The favourite check_table plugin's tables. r's relation is
+			// empty when loaded (a null register), so instr_union makes its
+			// target with the check table source's plugin; the nullary
+			// predicate's table is the hashtable plugin's.
+			if _, checked := e.predicates[spec.d].table.(*rel.FiniteCheckedPair); checked != spec.checked {
+				t.Fatalf("predicate table %T", e.predicates[spec.d].table)
 			}
-		}
-		if _, sparse := e.predicates[r].table.(*rel.SparseTable); !sparse {
-			t.Fatal("mixed target lost explicit sparse representation")
 		}
 		found, err := e.predicates[r].table.Contains(rel.Fact{0})
 		must(err)
@@ -87,8 +89,8 @@ func TestDatalogCheckedCompiledConstructorsAndMixedTargets(t *testing.T) {
 		must(err)
 		temporary, err := e.relations.NewDefaultFiniteTable(signature)
 		must(err)
-		if _, hash := temporary.(*rel.HashTable); !hash {
-			t.Fatal("query left checked temporary factory installed")
+		if _, checked := temporary.(*rel.FiniteCheckedPair); !checked {
+			t.Fatalf("compiler temporary %T", temporary)
 		}
 		must(temporary.Close())
 	}
