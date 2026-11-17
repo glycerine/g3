@@ -84,6 +84,20 @@ func runSolverLazyMode(t *testing.T, mode int) string {
 		astTestMust(t, s.Assert(parse(solverLazyGoal)))
 		fmt.Fprintf(&out, "%d\n", check(s))
 		astTestMust(t, s.Close())
+	case 3:
+		const text = "(declare-fun f (Int) Int) (declare-fun a () Int) (assert (forall ((x Int)) (= (f x) (+ x 1))))"
+		for range 2 {
+			ref, err := f.c.ParseSMT2String(text, SMT2Bindings{})
+			astTestMust(t, err)
+			*f.trail = append(*f.trail, ref)
+		}
+		out.WriteString("ok\n")
+	case 4:
+		s, err := f.c.NewSolverForLogic("UFLIA")
+		astTestMust(t, err)
+		astTestMust(t, s.Assert(parse(solverLazyBase)))
+		fmt.Fprintf(&out, "%d\n", check(s))
+		astTestMust(t, s.Close())
 	default:
 		s, err := f.c.NewSolverForLogic("UFLIA")
 		astTestMust(t, err)
@@ -103,7 +117,7 @@ func runSolverLazyMode(t *testing.T, mode int) string {
 }
 
 func TestAPISolverLazyModesAnswer(t *testing.T) {
-	for mode, want := range []string{"-1\n1\n", "1\n1\n", "0 0\n"} {
+	for mode, want := range []string{"-1\n1\n", "1\n1\n", "0 0\n", "ok\n", "1\n"} {
 		if got := runSolverLazyMode(t, mode); got != want {
 			t.Fatalf("mode %d: %q, want %q (lazy.c against build/libz3)", mode, got, want)
 		}

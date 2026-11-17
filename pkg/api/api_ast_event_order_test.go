@@ -81,7 +81,7 @@ func apiASTEventCases() []apiASTEventCase {
 			label: "seq_" + strings.TrimSuffix(filepath.Base(path), ".seq"),
 			run:   func(t *testing.T) { runFixedpointSequence(t, abs) }})
 	}
-	for mode := 0; mode < 3; mode++ {
+	for mode := 0; mode < 5; mode++ {
 		cases = append(cases, apiASTEventCase{program: "solver_lazy/lazy.c", args: []string{strconv.Itoa(mode)},
 			run: func(t *testing.T) { runSolverLazyMode(t, mode) }})
 	}

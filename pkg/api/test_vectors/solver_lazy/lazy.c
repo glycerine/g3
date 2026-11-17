@@ -5,6 +5,10 @@
 //   1: mk_solver, get_param_descrs (built and dropped), parse, assert,
 //      check, reset, assert, check
 //   2: mk_solver_for_logic and mk_simple_solver, each parse/assert/num_scopes
+//   3: parse a text with an unused declaration twice (the parse's
+//      cmd_context frees it each time)
+//   4: mk_solver_for_logic(UFLIA), parse/assert, check (the tactic
+//      solver's simplify/arith rewriter path)
 #include <stdio.h>
 #include <stdlib.h>
 #include "z3.h"
@@ -54,6 +58,17 @@ int main(int argc, char** argv) {
     printf("%d\n", Z3_solver_check(c, s));
     Z3_solver_reset(c, s);
     Z3_solver_assert(c, s, parse(goal));
+    printf("%d\n", Z3_solver_check(c, s));
+    Z3_solver_dec_ref(c, s);
+  } else if (mode == 3) {
+    const char* text = "(declare-fun f (Int) Int) (declare-fun a () Int) (assert (forall ((x Int)) (= (f x) (+ x 1))))";
+    Z3_parse_smtlib2_string(c, text, 0, 0, 0, 0, 0, 0);
+    Z3_parse_smtlib2_string(c, text, 0, 0, 0, 0, 0, 0);
+    printf("ok\n");
+  } else if (mode == 4) {
+    Z3_solver s = Z3_mk_solver_for_logic(c, Z3_mk_string_symbol(c, "UFLIA"));
+    Z3_solver_inc_ref(c, s);
+    Z3_solver_assert(c, s, parse(base));
     printf("%d\n", Z3_solver_check(c, s));
     Z3_solver_dec_ref(c, s);
   } else {
