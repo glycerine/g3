@@ -37,6 +37,23 @@ func (p *BVPolynomialRewriter) RewriteMultiplicationEquality(lhs, rhs ast.ASTHan
 		}
 	}()
 	m := p.manager
+	binary, c, x, e := bvBinaryMultiplication(m, lhs)
+	if e != nil {
+		return st, e
+	}
+	// mk_mul_eq handles a binary product on the left, or a numeral
+	// on the left and a sum of constant multiples on the right.
+	// Symbolic equalities reach this rule in both directions.
+	if !binary {
+		numeral, e := m.IsBitVectorNumeral(lhs)
+		if e != nil || !numeral {
+			return st, e
+		}
+		sum, e := m.IsBitVectorOperation(rhs, 4) // OP_BADD
+		if e != nil || !sum {
+			return st, e
+		}
+	}
 	n, e := ast.NewBitVectorMulEqualityNumerals(m)
 	p.mulEquality = n
 	if e != nil {
@@ -66,10 +83,6 @@ func (p *BVPolynomialRewriter) RewriteMultiplicationEquality(lhs, rhs ast.ASTHan
 		return m.MkBitVectorPolynomialMul(ast.ASTHandle{}, ast.SliceArguments(p.pair[:]))
 	}
 	width := uint32(0)
-	binary, c, x, e := bvBinaryMultiplication(m, lhs)
-	if e != nil {
-		return st, e
-	}
 	invertible := false
 	if binary {
 		matched, e := n.Read(0, c, &width)

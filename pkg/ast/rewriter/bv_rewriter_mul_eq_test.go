@@ -177,3 +177,33 @@ func TestBVRewriterMultiplicationEqualityEveryColdReservation(t *testing.T) {
 		}
 	}
 }
+
+// Raft compares symbolic bit-vector terms frequently. Neither branch of
+// mk_mul_eq can apply to x = y or 1 = y when x and y are variables.
+func TestBVRewriterSymbolicMulEqualityAllocations(t *testing.T) {
+	c, g, _ := bvPolynomialParamsFixture(t)
+	m, _ := bvAddFixture(t)
+	p, err := NewBVPolynomialRewriter(m, c, g, nil)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, p.Close()) }()
+	x := bvMergeVars(t, m, 2)
+	out, err := m.NewRef(x[0])
+	astTestMust(t, err)
+	defer func() { astTestMust(t, m.DelRef(&out)) }()
+	for _, lhs := range []ast.ASTHandle{x[0], bvAddNum(t, m, 1, 8)} {
+		allocs := testing.AllocsPerRun(100, func() {
+			status, err := p.RewriteMultiplicationEquality(lhs, x[1], out)
+			if err != nil || status != RewriteFailed {
+				t.Fatalf("symbolic equality: %v, %v", status, err)
+			}
+		})
+		if allocs != 0 {
+			t.Errorf("inapplicable equality rule allocated %.0f times per attempt", allocs)
+		}
+	}
+	got, err := m.RefGet(out)
+	astTestMust(t, err)
+	if got != x[0] {
+		t.Fatal("failed rewrite changed the output")
+	}
+}
