@@ -8,7 +8,9 @@ package fp
 // table rows, so install imports them into the derived tables (the C++
 // transforms those rules). The query's emptiness and answer are read from
 // the derived relations before the query scope releases them; the original
-// relations keep their own tuples, as in the source.
+// relations keep their own tuples, as in the source. The original relations'
+// facts are copied into the derived ones (FORK FIX #120 for tables, #121 for
+// every other relation kind).
 
 import (
 	"errors"
@@ -64,6 +66,7 @@ func (q *datalogBitBlastQuery) register(transformer *base.RuleTransformer, conte
 	}
 	planner.SetNormalizationParams(normalization)
 	planner.SetRuleMaker(e.addFormulaWithProof)
+	planner.SetBlastedFacts(q.addBitBlastedFacts)
 	if err = transformer.Register(planner); err != nil {
 		return errors.Join(err, planner.Close())
 	}
@@ -79,78 +82,99 @@ func (q *datalogBitBlastQuery) register(transformer *base.RuleTransformer, conte
 	return nil
 }
 
+// addBitBlastedFacts is rel_context::add_bit_blasted_facts(old, fresh),
+// called by mk_bit_blast at the end of its transformation: the derived
+// predicate gets its finite owner and the original relation's facts.
+func (q *datalogBitBlastQuery) addBitBlastedFacts(original, derived ast.ASTHandle) error {
+	e := q.engine
+	source := e.predicates[original]
+	if source == nil || source.table == nil {
+		return fmt.Errorf("%w: bit-blast result requires an original finite table", ErrPropositionalHorn)
+	}
+	columns := datalogBitBlastPredicate{original: original, derived: derived, widths: make([]uint32, len(source.sorts))}
+	var bits uint64
+	for i, sort := range source.sorts {
+		width, err := e.manager.BitVectorSize(sort)
+		if err != nil {
+			return err
+		}
+		if width == 0 || width > 63 {
+			return fmt.Errorf("%w: bit-blast finite column width %d", ErrPropositionalHorn, width)
+		}
+		columns.widths[i] = width
+		bits += uint64(width)
+	}
+	arity, err := e.manager.GetArity(derived)
+	if err != nil {
+		return err
+	}
+	if bits != uint64(arity) {
+		return ast.ErrASTDomain
+	}
+	target, err := e.predicateState(derived)
+	if err != nil {
+		return err
+	}
+	if target.table == nil {
+		return ErrPropositionalHorn
+	}
+	if e.predicates[derived] == nil {
+		e.predicateOrder = append(e.predicateOrder, derived)
+	}
+	e.predicates[derived] = target
+	e.auxiliary[derived] = true
+	if err = e.inheritDatalogFiniteRepresentation(derived, original); err != nil {
+		return err
+	}
+	q.columns = append(q.columns, columns)
+	// FORK FIX #120/#121: the facts of the original relation, of any
+	// kind, go to the derived predicate. try_get_relation skips a relation
+	// the source has not created yet (a placeholder); a table's rows are
+	// read; a relation that is not a table is asked contains_fact of every
+	// tuple of its domains.
+	var facts []rel.Fact
+	placeholder := e.relations.IsPlaceholderRelation(original)
+	if relation, ok := rel.AsRelation(source.table); ok && !placeholder {
+		empty, err := relation.Empty()
+		if err != nil {
+			return err
+		}
+		if !empty {
+			if facts, err = datalogBitBlastRelationTuples(e.manager, relation, source.sorts, columns.widths); err != nil {
+				return err
+			}
+		}
+	} else if !ok && !placeholder {
+		if facts, err = source.table.Facts(); err != nil {
+			return err
+		}
+	}
+	for _, fact := range facts {
+		encoded, err := encodeDatalogBitBlastFact(columns.widths, fact)
+		if err != nil {
+			return err
+		}
+		// rel_context::add_fact(new_pred, g): reset_saturated_marks,
+		// then get_relation(pred) (made on first use) and add_fact.
+		if err = e.relations.ResetSaturatedMarks(); err != nil {
+			return err
+		}
+		if err = e.relations.MaterializeFiniteRelation(derived); err != nil {
+			return err
+		}
+		if _, err = target.table.Add(encoded); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// install checks that every blasted predicate got its finite owner.
 func (q *datalogBitBlastQuery) install() error {
 	if q == nil || q.planner == nil {
 		return nil
 	}
-	e := q.engine
-	mapping := q.planner.FreshPredicates()
-	for _, original := range e.predicateOrder {
-		derived, found := mapping[original]
-		if !found {
-			continue
-		}
-		source := e.predicates[original]
-		if source == nil || source.table == nil {
-			return fmt.Errorf("%w: bit-blast result requires an original finite table", ErrPropositionalHorn)
-		}
-		columns := datalogBitBlastPredicate{original: original, derived: derived, widths: make([]uint32, len(source.sorts))}
-		var bits uint64
-		for i, sort := range source.sorts {
-			width, err := e.manager.BitVectorSize(sort)
-			if err != nil {
-				return err
-			}
-			if width == 0 || width > 63 {
-				return fmt.Errorf("%w: bit-blast finite column width %d", ErrPropositionalHorn, width)
-			}
-			columns.widths[i] = width
-			bits += uint64(width)
-		}
-		arity, err := e.manager.GetArity(derived)
-		if err != nil {
-			return err
-		}
-		if bits != uint64(arity) {
-			return ast.ErrASTDomain
-		}
-		target, err := e.predicateState(derived)
-		if err != nil {
-			return err
-		}
-		if target.table == nil {
-			return ErrPropositionalHorn
-		}
-		if e.predicates[derived] == nil {
-			e.predicateOrder = append(e.predicateOrder, derived)
-		}
-		e.predicates[derived] = target
-		e.auxiliary[derived] = true
-		if err = e.inheritDatalogFiniteRepresentation(derived, original); err != nil {
-			return err
-		}
-		var facts []rel.Fact
-		if relation, ok := rel.AsRelation(source.table); ok {
-			// A relation plugin's relation has no rows to copy; an empty
-			// one (facts arrive as rules the transformer blasts) has none.
-			if !relation.FastEmpty() {
-				return fmt.Errorf("%w: bit-blast of a non-empty %s relation", ErrPropositionalHorn, relation.RelationPlugin().Name())
-			}
-		} else if facts, err = source.table.Facts(); err != nil {
-			return err
-		}
-		for _, fact := range facts {
-			encoded, err := encodeDatalogBitBlastFact(columns.widths, fact)
-			if err != nil {
-				return err
-			}
-			if _, err = target.table.Add(encoded); err != nil {
-				return err
-			}
-		}
-		q.columns = append(q.columns, columns)
-	}
-	if len(q.columns) != len(mapping) {
+	if len(q.columns) != len(q.planner.FreshPredicates()) {
 		return fmt.Errorf("%w: bit-blasted predicate has no finite owner", ErrPropositionalHorn)
 	}
 	return nil

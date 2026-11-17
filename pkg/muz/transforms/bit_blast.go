@@ -178,6 +178,7 @@ type BitBlastPlugin struct {
 	// expansionTraversal is m_rewriter's rewriter (its cache).
 	expansionTraversal *astrewriter.Traversal
 	mkRule             func(destination *base.RuleSet, formula, proof ast.ASTHandle, name usymbol.Symbol) error
+	addBlastedFacts    func(old, fresh ast.ASTHandle) error
 	priority           uint32
 	closed             bool
 	closing            bool
@@ -310,8 +311,25 @@ func (p *BitBlastPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resul
 			return nil, containsErr
 		}
 	}
+	// FORK FIX #120/#121 (g3 audit, see FORK_BUGFIXES.md): the facts of
+	// the blasted predicates' relations go to the fresh predicates
+	// (rel_context::add_bit_blasted_facts(old_funcs[i], new_funcs[i])),
+	// while operator()'s fml is still alive.
+	if p.addBlastedFacts != nil {
+		for _, old := range p.expansion.order {
+			if err = p.addBlastedFacts(old, p.expansion.oldToNew[old]); err != nil {
+				return nil, err
+			}
+		}
+	}
 	keep = true
 	return result, nil
+}
+
+// SetBlastedFacts supplies m_context.get_rel_context()'s
+// add_bit_blasted_facts (FORK FIX #120/#121).
+func (p *BitBlastPlugin) SetBlastedFacts(add func(old, fresh ast.ASTHandle) error) {
+	p.addBlastedFacts = add
 }
 
 // SetRuleMaker supplies rule_manager::mk_rule(fml, pr, rules, name).
