@@ -1,0 +1,31 @@
+sort S fin 3
+param engine datalog
+param datalog.default_relation doc
+param datalog.magic_sets_for_queries true
+setparams
+vars x S y S z S
+rel r0 S S
+rel r1 S S
+rel r2 S
+rel r3 
+repr r3 tr_sparse
+fact r1 2 0
+fact r0 1 2
+fact r0 2 1
+fact r0 2 0
+fact r0 2 2
+rule n0 (=> (and (r0 1:S 1:S) r3) (r1 1:S y))
+rule n1 (=> (and (r2 y) (= x 1:S)) r3)
+rule n2 (=> (and (r0 x x) (r2 1:S)) (r1 z y))
+rule n3 (=> (r0 x x) r3)
+rule n4 (=> (and r3 r3 (r0 1:S x)) (r2 z))
+query (r2 x)
+param xform.slice false
+setparams
+query r3
+push
+rule n0 (=> (and r3 r3 (r2 y)) (r1 z x))
+fact r0 0 2
+qrel r2 r3
+pop
+qrel r3
