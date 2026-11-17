@@ -18,6 +18,7 @@ type smtMAMBacktrackPoint struct {
 	oldUsedEnodesSize int
 	curr              *SMTEnode
 	candidates        []*SMTEnode
+	ownsCandidates    bool
 	it                int
 }
 
@@ -30,8 +31,10 @@ type smtMAMInterpreter struct {
 	bindings   []*SMTEnode
 	args       []*SMTEnode
 	backtrack  []smtMAMBacktrackPoint
-	top        int
-	pc         *smtMAMInstr
+	// Native interpreter::m_pool recycles the temporary parent vectors.
+	candidatePool [][]*SMTEnode
+	top           int
+	pc            *smtMAMInstr
 
 	maxGeneration     uint32
 	usedEnodes        []*SMTEnode
@@ -120,9 +123,52 @@ func (it *smtMAMInterpreter) execIsCgr(pc *smtMAMInstr) bool {
 	}
 }
 
+// takeCandidates/recycleCandidates mirror the native enode-vector pool.
+// Clear pointers before pooling: unlike C++ raw pointers, Go pointers in an
+// unused backing array keep entire popped enode graphs reachable to the GC.
+func (it *smtMAMInterpreter) takeCandidates() []*SMTEnode {
+	n := len(it.candidatePool)
+	if n == 0 {
+		return nil
+	}
+	v := it.candidatePool[n-1]
+	it.candidatePool[n-1] = nil
+	it.candidatePool = it.candidatePool[:n-1]
+	return v
+}
+
+func (it *smtMAMInterpreter) recycleCandidates(v []*SMTEnode) {
+	clear(v)
+	it.candidatePool = append(it.candidatePool, v[:0])
+}
+
+func (it *smtMAMInterpreter) releaseBacktrack(bp *smtMAMBacktrackPoint) {
+	if bp.ownsCandidates {
+		it.recycleCandidates(bp.candidates)
+	}
+	*bp = smtMAMBacktrackPoint{}
+}
+
+// Matching scratch borrows enodes only for the current execution. Release on
+// normal completion, callback failure and cancellation, including frames whose
+// top was reset by the native cancellation path.
+func (it *smtMAMInterpreter) releaseScratch() {
+	for i := range it.backtrack {
+		it.releaseBacktrack(&it.backtrack[i])
+	}
+	clear(it.registers)
+	clear(it.bindings)
+	clear(it.args)
+	clear(it.usedEnodes)
+	clear(it.patternInstances)
+	it.usedEnodes = it.usedEnodes[:0]
+	it.patternInstances = it.patternInstances[:0]
+	it.top = 0
+}
+
 // mkDepth1Vector: the relevant f-parents of n whose i-th argument is n.
 func (it *smtMAMInterpreter) mkDepth1Vector(n *SMTEnode, f ast.ASTHandle, i uint32) []*SMTEnode {
-	var v []*SMTEnode
+	v := it.takeCandidates()
 	n = n.root
 	for _, p := range n.sourceParents {
 		if p.declaration == f && i < uint32(len(p.arguments)) && it.relevant(p) && mamIsCgr(p) && p.arguments[i].root == n {
@@ -139,7 +185,7 @@ func (it *smtMAMInterpreter) mkDepth2Vector(j2 *smtMAMJoint2, f ast.ASTHandle, i
 		return nil, false
 	}
 	numArgs := len(n.arguments)
-	v := []*SMTEnode{}
+	v := it.takeCandidates()
 	for _, p := range n.sourceParents {
 		if p.declaration == j2.decl && it.relevant(p) && mamIsCgr(p) && p.arguments[j2.argPos].root == n {
 			p = p.root
@@ -200,10 +246,16 @@ func (it *smtMAMInterpreter) initContinue(c *smtMAMInstr, expectedNumArgs uint32
 			continue
 		}
 		if len(curr) < minSz && (!haveBest || len(curr) < len(best)) {
+			if haveBest {
+				it.recycleCandidates(best)
+			}
 			best, haveBest = curr, true
 			if len(best) == 0 {
+				it.recycleCandidates(best)
 				return nil
 			}
+		} else {
+			it.recycleCandidates(curr)
 		}
 	}
 	for len(it.backtrack) <= it.top {
@@ -213,6 +265,7 @@ func (it *smtMAMInterpreter) initContinue(c *smtMAMInstr, expectedNumArgs uint32
 	bp.instr = c
 	bp.oldMaxGeneration = it.maxGeneration
 	bp.oldUsedEnodesSize = len(it.usedEnodes)
+	bp.ownsCandidates = haveBest
 	if haveBest {
 		bp.candidates = best
 	} else {
@@ -226,6 +279,7 @@ func (it *smtMAMInterpreter) initContinue(c *smtMAMInstr, expectedNumArgs uint32
 		}
 	}
 	if bp.it == len(bp.candidates) {
+		it.releaseBacktrack(bp)
 		return nil
 	}
 	it.top++
@@ -320,6 +374,7 @@ func (it *smtMAMInterpreter) executeCore(t *smtMAMCodeTree, n *SMTEnode) {
 	if it.err != nil {
 		return
 	}
+	defer it.releaseScratch()
 	sinceLastCheck := 0
 	it.patternInstances = append(it.patternInstances[:0], n)
 	it.minTopGeneration = it.minTopGeneration[:0]
@@ -399,7 +454,7 @@ func (it *smtMAMInterpreter) executeCore(t *smtMAMCodeTree, n *SMTEnode) {
 					}
 				}
 				if !resumed {
-					bp.candidates = nil
+					it.releaseBacktrack(bp)
 					it.top--
 					continue
 				}
@@ -477,7 +532,9 @@ func (it *smtMAMInterpreter) step() bool {
 		for len(it.bindings) < k {
 			it.bindings = append(it.bindings, nil)
 		}
-		// m_bindings is filled in reverse register order.
+		// m_bindings is filled in reverse register order. onMatch consumes
+		// this borrowed slice synchronously; the registry copies accepted
+		// fingerprints. Duplicate matches need no temporary binding copy.
 		for i := 0; i < k; i++ {
 			it.bindings[i] = it.registers[pc.binding[k-i-1]]
 		}
@@ -488,7 +545,7 @@ func (it *smtMAMInterpreter) step() bool {
 			it.top = 0
 			return false
 		}
-		if err := it.onMatch(pc.qa, pc.pat, append([]*SMTEnode(nil), it.bindings[:k]...), it.maxGeneration, it.usedEnodes); err != nil {
+		if err := it.onMatch(pc.qa, pc.pat, it.bindings[:k], it.maxGeneration, it.usedEnodes); err != nil {
 			it.err = err
 		}
 		return false

@@ -210,6 +210,8 @@ func (q *SMTQIQueueSchedule) PopScopes(count uint32) error {
 		q.delayedEntries[index].Instantiated = false
 	}
 	q.instantiatedTrail = q.instantiatedTrail[:scope.instantiatedLimit]
+	// Release fingerprints (and their binding enodes) in popped slots.
+	clear(q.delayedEntries[scope.delayedLimit:])
 	q.delayedEntries = q.delayedEntries[:scope.delayedLimit]
 	q.newEntries = nil
 	q.scopes = q.scopes[:newLevel]
