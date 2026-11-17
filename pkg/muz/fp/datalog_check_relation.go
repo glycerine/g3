@@ -473,7 +473,7 @@ func (s *datalogCheckRelationScope) restoreStates() {
 	for i := range s.entries {
 		entry := &s.entries[i]
 		if entry.state != nil && (entry.state.checked == entry.checked && entry.checked != nil || entry.pair != nil && entry.state.table == entry.pair || entry.nested != nil && entry.state.table == entry.nested) {
-			entry.state.table, entry.state.checked, entry.state.sparse = entry.original, nil, nil
+			entry.state.table, entry.state.checked = entry.original, nil
 		}
 	}
 }

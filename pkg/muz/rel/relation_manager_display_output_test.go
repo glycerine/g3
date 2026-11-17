@@ -87,3 +87,7 @@ func TestRelationManagerDisplaysSparseAndLazyFiniteOutputs(t *testing.T) {
 		t.Fatal("finite tuple display ignored writer refusal", err)
 	}
 }
+
+type productDisplayRefusingWriter struct{ err error }
+
+func (w productDisplayRefusingWriter) Write([]byte) (int, error) { return 0, w.err }

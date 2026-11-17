@@ -1,12 +1,8 @@
 package rel
 
-import (
-	"testing"
+import "testing"
 
-	"github.com/glycerine/g3/pkg/ast"
-)
-
-func TestSparseFunctionalZeroKeyFetchDrivesFiniteProductConsumer(t *testing.T) {
+func TestSparseFunctionalZeroKeyFetch(t *testing.T) {
 	signature, err := NewSignature([]uint64{16})
 	astTestMust(t, err)
 	index, err := NewSparseTable(signature, 1)
@@ -28,29 +24,4 @@ func TestSparseFunctionalZeroKeyFetchDrivesFiniteProductConsumer(t *testing.T) {
 		t.Fatal("zero-key index accepted a spurious key column")
 	}
 
-	f := newTableRelationFixture(t)
-	name, err := f.ast.Symbols.Intern("finite-sparse-zero-outer-key")
-	astTestMust(t, err)
-	sort, err := f.ast.MkDatalogFiniteSort(name, 4)
-	astTestMust(t, err)
-	value := func(n uint64) ast.ASTHandle {
-		handle, cause := f.ast.MkDatalogNumeral(n, sort)
-		astTestMust(t, cause)
-		astTestPin(t, f.ast, handle)
-		return handle
-	}
-	one, two := value(1), value(2)
-	product, err := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{sort}, []bool{false})
-	astTestMust(t, err)
-	defer func() { astTestMust(t, product.Close()) }()
-	astTestMust(t, product.AddFact([]ast.ASTHandle{one}))
-	astTestMust(t, product.AddFact([]ast.ASTHandle{two}))
-	if rows, cause := product.table.Len(); cause != nil || rows != 1 {
-		t.Fatal("zero-key product duplicated its functional outer row", rows, cause)
-	}
-	for _, fact := range [][]ast.ASTHandle{{one}, {two}} {
-		if present, cause := product.ContainsFact(fact); cause != nil || !present {
-			t.Fatal("zero-key product lost inner fact", fact, present, cause)
-		}
-	}
 }

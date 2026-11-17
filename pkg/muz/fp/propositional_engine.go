@@ -49,7 +49,6 @@ type predicateState struct {
 	sorts                        []ast.ASTHandle
 	table                        rel.FiniteTable
 	checked                      *rel.FormulaCheckedTable
-	sparse                       *rel.CheckedRelation
 }
 
 type ddnfEngineState struct {
@@ -1923,8 +1922,6 @@ func (e *PropositionalEngine) evaluateRule(rule *base.Rule) (changed bool, resul
 		facts, x := state.table.Facts()
 		if state.checked != nil {
 			facts, x = state.checked.Facts()
-		} else if state.sparse != nil {
-			facts, x = state.sparse.Facts()
 		}
 		if x != nil {
 			return false, x
@@ -1966,8 +1963,6 @@ func (e *PropositionalEngine) evaluateRule(rule *base.Rule) (changed bool, resul
 		facts, x := state.table.Facts()
 		if state.checked != nil {
 			facts, x = state.checked.Facts()
-		} else if state.sparse != nil {
-			facts, x = state.sparse.Facts()
 		}
 		if x != nil {
 			return false, x
@@ -2043,8 +2038,6 @@ func (e *PropositionalEngine) evaluateRule(rule *base.Rule) (changed bool, resul
 		var added bool
 		if state.checked != nil {
 			added, x = state.checked.AddTableFact(fact)
-		} else if state.sparse != nil {
-			added, x = state.sparse.Add(fact)
 		} else {
 			added, x = state.table.Add(fact)
 		}
