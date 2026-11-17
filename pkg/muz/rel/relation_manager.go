@@ -67,6 +67,8 @@ type RelationManager struct {
 	arithElements []ast.ASTRef
 	arithIndex    map[ast.ASTHandle]Element
 	fnRoots       []ast.ASTRef
+	// defaultTableChecked is datalog.default_table_checked.
+	defaultTableChecked bool
 	// fnClosers release functor state other than fnRoots' fixed terms
 	// (the functors are destroyed with the manager).
 	fnClosers []func() error

@@ -17,13 +17,44 @@ func lazySparseInstructionResult(source *LazySparseTable, signature Signature, f
 	}), nil
 }
 
+// lazySparseInstructionJoinProject is relation_manager::mk_join_project_fn
+// on lazy tables: the lazy plugin has no join_project, so it is
+// default_table_join_project_fn: the lazy join, then mk_project_fn, or
+// mk_project_with_reduce_fn (default_table_project_with_reduce_fn, whose
+// reducer is unreachable) when table_signature::from_join_project keeps
+// functional columns.
 func lazySparseInstructionJoinProject(first, second *LazySparseTable, left, right, removed []int) (_ *LazySparseTable, resultErr error) {
+	if err := first.open(); err != nil {
+		return nil, err
+	}
+	if err := second.open(); err != nil {
+		return nil, err
+	}
+	functional := 0
+	if first.root.functional != 0 || second.root.functional != 0 {
+		var err error
+		functional, err = sparseJoinProjectFunctionalCountSignatures(first.root.signature, first.root.functional, second.root.signature, second.root.functional, left, right, removed)
+		if err != nil {
+			return nil, err
+		}
+	}
 	joined, err := first.Join(second, left, right)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, joined.Close()) }()
-	return joined.Project(removed)
+	if functional == 0 {
+		return joined.Project(removed)
+	}
+	projected, err := fprProjectWithReduceDefault(joined, removed, func(_, _ []Element) {})
+	if err != nil {
+		return nil, err
+	}
+	lazy, ok := projected.(*LazySparseTable)
+	if !ok {
+		return nil, errors.Join(ErrLazySparse, projected.Close())
+	}
+	return lazy, nil
 }
 
 func lazySparseInstructionSelectProject(source *LazySparseTable, value Element, column int) (_ *LazySparseTable, resultErr error) {

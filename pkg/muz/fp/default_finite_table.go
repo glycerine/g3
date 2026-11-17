@@ -111,6 +111,15 @@ func (e *PropositionalEngine) configureDatalogFiniteDefault(name string) error {
 			return err
 		}
 	}
+	// datalog.default_table_checked: the favourite table plugin is the
+	// check_table plugin (relation_manager::register_plugin).
+	_, checked, err := e.datalogDefaultTableCheck()
+	if err != nil {
+		return err
+	}
+	if err = e.relations.SetDefaultTableChecked(checked); err != nil {
+		return err
+	}
 	return e.relations.SetDefaultFiniteTable(name)
 }
 

@@ -261,9 +261,18 @@ func (p *FiniteProductRelationPlugin) canBeConverted(r RelationBase) (bool, erro
 }
 
 // newIdxSingleton is the idx_singleton table: signature (s_rel_idx_sort)
-// with one functional column, holding the fact (0).
-func newIdxSingleton() (*SparseTable, error) {
-	t, err := NewSparseTable(Signature{domains: []uint64{fprRelIdxSort}}, 1)
+// with one functional column, holding the fact (0). It is the source
+// table's plugin's when it handles the signature (mk_from_table_relation),
+// else relation_manager::mk_empty_table's.
+func (p *FiniteProductRelationPlugin) newIdxSingleton(source FiniteTable) (FiniteTable, error) {
+	signature := Signature{domains: []uint64{fprRelIdxSort}}
+	var t FiniteTable
+	var err error
+	if source != nil && fprTableHandles(source, signature) {
+		t, err = fprTableLike(source, signature, 1)
+	} else {
+		t, err = p.manager.fprAppropriateTable(signature, 1)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +289,7 @@ func (p *FiniteProductRelationPlugin) mkFromTableRelation(r *tableRelationView) 
 	if err != nil || !ok {
 		return nil, err
 	}
-	idx, err := newIdxSingleton()
+	idx, err := p.newIdxSingleton(r.table)
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +320,7 @@ func (p *FiniteProductRelationPlugin) mkFromTableRelation(r *tableRelationView) 
 // mkFromInnerRelation is mk_from_inner_relation.
 func (p *FiniteProductRelationPlugin) mkFromInnerRelation(r RelationBase) (_ *finiteProductRelation, resultErr error) {
 	sorts := r.RelationSignature()
-	idx, err := newIdxSingleton()
+	idx, err := p.newIdxSingleton(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -537,17 +546,21 @@ func (j *fprJoinFn) apply(rb1, rb2 RelationBase) (_ RelationBase, resultErr erro
 // fprMap is relation_manager::mk_map_fn: default_table_map_fn. The mapper
 // gets the row's functional columns; a false result drops the row.
 func fprMap(t FiniteTable, mapper func(fn []Element) (bool, error)) (resultErr error) {
-	sparse, ok := t.(*SparseTable)
-	if !ok || sparse.functional == 0 {
+	functional := fprFunctionalColumns(t)
+	if functional == 0 {
 		return ErrTable
 	}
-	first := sparse.signature.Len() - sparse.functional
-	aux, err := NewSparseTable(sparse.signature, sparse.functional)
+	signature, err := t.Signature()
+	if err != nil {
+		return err
+	}
+	first := signature.Len() - functional
+	aux, err := fprTableLike(t, signature, functional)
 	if err != nil {
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, aux.Close()) }()
-	facts, err := sparse.Facts()
+	facts, err := t.Facts()
 	if err != nil {
 		return err
 	}
@@ -563,16 +576,45 @@ func fprMap(t FiniteTable, mapper func(fn []Element) (bool, error)) (resultErr e
 			}
 		}
 	}
-	if err = sparse.Reset(); err != nil {
+	if err = t.Reset(); err != nil {
 		return err
 	}
-	return sparse.Union(aux, nil)
+	return fprTableUnion(t, aux, nil)
 }
 
 // fprTableUnion is relation_manager::mk_union_fn(tgt, src, delta) on
 // tables: the sparse plugin's union_fn when the signatures (functional
 // marks included) agree, else default_table_union_fn.
 func fprTableUnion(tgt, src, delta FiniteTable) error {
+	if a, ok := tgt.(*LazySparseTable); ok {
+		// lazy_table_plugin::union_fn: eval src, tgt, then delta, and the
+		// manager's union of the evaluated tables (the sparse union_fn when
+		// the signatures, functional columns included, agree).
+		if b, ok := src.(*LazySparseTable); ok && a.engine == b.engine {
+			d, deltaLazy := delta.(*LazySparseTable)
+			if delta == nil || deltaLazy && a.engine == d.engine {
+				if a.root.signature.equal(b.root.signature) && a.root.functional == b.root.functional &&
+					(d == nil || a.root.signature.equal(d.root.signature) && a.root.functional == d.root.functional) {
+					return a.UnionFrom(b, d)
+				}
+				sourceTable, err := b.finiteEval()
+				if err != nil {
+					return err
+				}
+				targetTable, err := a.finiteEval()
+				if err != nil {
+					return err
+				}
+				var deltaTable FiniteTable
+				if d != nil {
+					if deltaTable, err = d.finiteEval(); err != nil {
+						return err
+					}
+				}
+				return fprTableUnion(targetTable, sourceTable, deltaTable)
+			}
+		}
+	}
 	a, ok1 := tgt.(*SparseTable)
 	b, ok2 := src.(*SparseTable)
 	if ok1 && ok2 && sparseSameFunctionalSignature(a, b) {
@@ -614,10 +656,10 @@ func fprTableUnion(tgt, src, delta FiniteTable) error {
 
 // fprProjectWithReduce is relation_manager::mk_project_with_reduce_fn
 // (default_table_project_with_reduce_fn).
-func fprProjectWithReduce(t FiniteTable, removed []int, reducer SparseFunctionalRowReducer) (*SparseTable, error) {
+func fprProjectWithReduce(t FiniteTable, removed []int, reducer SparseFunctionalRowReducer) (FiniteTable, error) {
 	sparse, ok := t.(*SparseTable)
 	if !ok {
-		return nil, ErrTable
+		return fprProjectWithReduceDefault(t, removed, reducer)
 	}
 	return sparse.ProjectWithReduce(removed, reducer)
 }
@@ -1057,7 +1099,7 @@ func (u *fprUnionFn) apply(tgtb, srcb, deltab RelationBase) (resultErr error) {
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, tableOverlap.Close()) }()
-	var deltaIndexes *SparseTable
+	var deltaIndexes FiniteTable
 	var deltaRels []RelationBase
 	keepDeltaRels := false
 	defer func() {
@@ -1066,7 +1108,8 @@ func (u *fprUnionFn) apply(tgtb, srcb, deltab RelationBase) (resultErr error) {
 		}
 	}()
 	if u.useDelta {
-		deltaIndexes, err = NewSparseTable(Signature{domains: []uint64{fprRelIdxSort, fprRelIdxSort}}, 1)
+		// delta_indexes = tplugin.mk_empty(di_sig), tgt's table plugin.
+		deltaIndexes, err = fprTableLike(tgt.table, Signature{domains: []uint64{fprRelIdxSort, fprRelIdxSort}}, 1)
 		if err != nil {
 			return err
 		}
@@ -1582,7 +1625,7 @@ func (f *fprFilterInterpretedFn) apply(rb RelationBase) (resultErr error) {
 	}
 	projectedDataCols := tprojSig.Len() - 1
 	filteredDomains := append(append([]uint64(nil), tprojSig.domains...), fprRelIdxSort)
-	filtered, err := NewSparseTable(Signature{domains: filteredDomains}, 1)
+	filtered, err := fprTableLike(r.table, Signature{domains: filteredDomains}, 1)
 	if err != nil {
 		return err
 	}
@@ -1790,7 +1833,7 @@ func (nf *fprNegationFilterFn) apply(rb, negb RelationBase) (resultErr error) {
 	if err != nil {
 		return err
 	}
-	tableOverlap, err := NewSparseTable(overlapSig, 2)
+	tableOverlap, err := fprTableLike(r.table, overlapSig, 2)
 	if err != nil {
 		return err
 	}
@@ -1886,7 +1929,7 @@ func (p *FiniteProductRelationPlugin) mkFilterIdenticalPairs(r *finiteProductRel
 		if err != nil {
 			return err
 		}
-		filtered, err := NewSparseTable(Signature{domains: append(append([]uint64(nil), tprojSig.domains...), fprRelIdxSort)}, 1)
+		filtered, err := fprTableLike(r.table, Signature{domains: append(append([]uint64(nil), tprojSig.domains...), fprRelIdxSort)}, 1)
 		if err != nil {
 			return err
 		}
@@ -1981,7 +2024,7 @@ type finiteProductRelation struct {
 	// otherPlugin and otherKind are m_other_plugin and m_other_kind.
 	otherPlugin RelationPlugin
 	otherKind   int
-	table       *SparseTable
+	table       FiniteTable
 	others      []RelationBase
 	available   []int
 	fullRelIdx  int
@@ -2011,7 +2054,8 @@ func newFiniteProductRelation(p *FiniteProductRelationPlugin, sorts []ast.ASTHan
 		}
 	}
 	r.tableSig = append(r.tableSig, fprRelIdxSort)
-	t, err := NewSparseTable(Signature{domains: append([]uint64(nil), r.tableSig...)}, 1)
+	// tplugin = get_appropriate_plugin(table_sig); m_table = tplugin.mk_empty.
+	t, err := p.manager.fprAppropriateTable(Signature{domains: append([]uint64(nil), r.tableSig...)}, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -2152,7 +2196,7 @@ func (r *finiteProductRelation) AddFactAST(values []ast.ASTHandle) error {
 	of := r.extractOtherFact(values)
 	newIdx := r.getNextRelIdx()
 	tf[len(tf)-1] = Element(newIdx)
-	added, err := r.table.SuggestFact(tf)
+	added, err := fprSuggestFact(r.table, tf)
 	if err != nil {
 		return err
 	}
@@ -2170,7 +2214,7 @@ func (r *finiteProductRelation) AddFactAST(values []ast.ASTHandle) error {
 			return err
 		}
 		tf[len(tf)-1] = Element(newIdx)
-		if err = r.table.EnsureFact(tf); err != nil {
+		if err = fprEnsureFact(r.table, tf); err != nil {
 			return errors.Join(err, newRel.Close())
 		}
 	}
@@ -2191,7 +2235,7 @@ func (r *finiteProductRelation) ContainsFactAST(values []ast.ASTHandle) (bool, e
 	if err != nil {
 		return false, err
 	}
-	found, err := r.table.FetchFact(tf)
+	found, err := fprFetchFact(r.table, tf)
 	if err != nil || !found {
 		return false, err
 	}
@@ -2240,7 +2284,7 @@ func (r *finiteProductRelation) Reset() error {
 
 // clone is the copy constructor.
 func (r *finiteProductRelation) clone() (*finiteProductRelation, error) {
-	t, err := r.table.Clone()
+	t, err := r.table.CloneFinite()
 	if err != nil {
 		return nil, err
 	}
@@ -2295,7 +2339,7 @@ func (r *finiteProductRelation) complementSelf(p ast.ASTHandle) (resultErr error
 	if err != nil {
 		return err
 	}
-	complement, err := r.table.ComplementFunctional(Fact{Element(full)})
+	complement, err := fprComplementFunctional(r.table, Fact{Element(full)})
 	if err != nil {
 		return err
 	}
@@ -2338,7 +2382,7 @@ func (r *finiteProductRelation) collectLiveRelationIndexes() (map[int]bool, erro
 	for i := range removed {
 		removed[i] = i
 	}
-	live, err := r.table.ProjectWithReduce(removed, func(_, merged []Element) {
+	live, err := fprProjectWithReduce(r.table, removed, func(_, merged []Element) {
 		res[int(merged[0])] = true
 	})
 	if err != nil {
@@ -2361,7 +2405,7 @@ func (r *finiteProductRelation) garbageCollect(removeEmpty bool) (resultErr erro
 	if err != nil {
 		return err
 	}
-	var emptyRelIndexes *SparseTable
+	var emptyRelIndexes FiniteTable
 	defer func() {
 		if emptyRelIndexes != nil {
 			resultErr = errors.Join(resultErr, emptyRelIndexes.Close())
@@ -2384,7 +2428,7 @@ func (r *finiteProductRelation) garbageCollect(removeEmpty bool) (resultErr erro
 				continue
 			}
 			if emptyRelIndexes == nil {
-				if emptyRelIndexes, err = NewSparseTable(Signature{domains: []uint64{fprRelIdxSort}}, 0); err != nil {
+				if emptyRelIndexes, err = fprTableLike(r.table, Signature{domains: []uint64{fprRelIdxSort}}, 0); err != nil {
 					return err
 				}
 			}
@@ -2590,10 +2634,10 @@ func (r *finiteProductRelation) RelationSignature() []ast.ASTHandle { return r.s
 func (r *finiteProductRelation) RelationPlugin() RelationPlugin     { return r.plugin }
 
 func (r *finiteProductRelation) SizeEstimateRows() (uint32, error) {
-	return r.table.SizeEstimateRows()
+	return fprSizeEstimateRows(r.table)
 }
 func (r *finiteProductRelation) SizeEstimateBytes() (uint32, error) {
-	return r.table.SizeEstimateBytes()
+	return fprSizeEstimateBytes(r.table)
 }
 
 // Display is display(out).
@@ -2604,7 +2648,7 @@ func (r *finiteProductRelation) Display(out io.Writer) error {
 	if _, err := io.WriteString(out, "finite_product_relation:\n table:\n"); err != nil {
 		return err
 	}
-	if err := r.table.Display(out); err != nil {
+	if err := fprTableDisplay(r.table, out); err != nil {
 		return err
 	}
 	for i, o := range r.others {

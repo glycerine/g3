@@ -47,9 +47,7 @@ func explanationVerbose(t *testing.T, run func() string) string {
 }
 
 func TestAPIFixedpointExplanationsVerbose(t *testing.T) {
-	// Not covered (open limitations): mode 15 (lazy_sparse: the fpr
-	// tables are sparse, not lazy).
-	for _, mode := range []int{0, 1, 2, 5, 6, 8, 9, 11, 12, 14, 16} {
+	for _, mode := range []int{0, 1, 2, 5, 6, 8, 9, 11, 12, 14, 15, 16} {
 		t.Run("mode"+strconv.Itoa(mode), func(t *testing.T) {
 			want, err := os.ReadFile(filepath.Join("test_vectors", "explanations", "verbose_mode_"+strconv.Itoa(mode)+".txt"))
 			astTestMust(t, err)
