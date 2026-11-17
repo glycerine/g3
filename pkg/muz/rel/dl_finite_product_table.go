@@ -32,12 +32,12 @@ func (m *RelationManager) SetDefaultTableChecked(checked bool) error {
 // fprAppropriateTable is get_appropriate_plugin(sig).mk_empty(sig) (and
 // relation_manager::mk_empty_table) for a finite product table signature.
 func (m *RelationManager) fprAppropriateTable(signature Signature, functional int) (FiniteTable, error) {
-	if m != nil && m.checkedFinite == nil && m.defaultChecked.CanHandleSignatureFunctional(signature, functional) {
+	if m != nil && m.defaultChecked.CanHandleSignatureFunctional(signature, functional) {
 		// The favourite check_table plugin handles the signature when both
 		// of its plugins are sparse or lazy_sparse.
 		return m.defaultChecked.NewFunctional(signature, functional)
 	}
-	if m != nil && m.checkedFactory() == nil && !m.defaultTableChecked && m.defaultFinite == "lazy_sparse" && m.lazyFinite != nil && m.lazyFinite.open() == nil && signature.Len() != 0 {
+	if m != nil && m.defaultChecked == nil && !m.defaultTableChecked && m.defaultFinite == "lazy_sparse" && m.lazyFinite != nil && m.lazyFinite.open() == nil && signature.Len() != 0 {
 		return m.lazyFinite.engine.New(signature, functional)
 	}
 	return m.sparsePlugin().MkEmpty(signature, functional)

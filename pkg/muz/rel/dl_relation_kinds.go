@@ -350,7 +350,7 @@ func (m *RelationManager) appropriatePlugin(sorts []ast.ASTHandle) (RelationPlug
 		// A table_relation favourite (datalog.default_relation tr_<table>)
 		// handles a table signature first, then the favourite table's
 		// relation plugin (default_table).
-		if m.defaultChecked != nil && m.checkedFinite == nil {
+		if m.defaultChecked != nil {
 			// The favourite relation plugin is the second check_table
 			// plugin's table_relation plugin; the relation plugins follow
 			// in registration order.
@@ -365,7 +365,7 @@ func (m *RelationManager) appropriatePlugin(sorts []ast.ASTHandle) (RelationPlug
 				}
 			}
 		}
-		if name := m.favouriteTable; name != "" && m.checkedFactory() == nil {
+		if name := m.favouriteTable; name != "" && m.defaultChecked == nil {
 			if p := m.tableRelationPluginNamed(name); p != nil && p.canHandle(signature) {
 				return p, nil
 			}

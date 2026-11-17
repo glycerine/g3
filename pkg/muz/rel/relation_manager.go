@@ -30,7 +30,6 @@ type RelationManager struct {
 	// tr_<table>), "" when there is none.
 	favouriteTable string
 	lazyFinite     *LazySparseFiniteFactory // borrowed; context closes it after this manager
-	checkedFinite  *FiniteCheckedFactory    // borrowed for one checked execution scope
 	// defaultChecked is the check_table_plugin that
 	// datalog.default_table_checked makes the favourite table plugin
 	// (relation_manager::register_plugin), borrowed from the context.
@@ -305,7 +304,6 @@ func (m *RelationManager) Close() (result error) {
 	m.finite = nil
 	m.saturated = nil
 	m.lazyFinite = nil
-	m.checkedFinite = nil
 	m.defaultChecked = nil
 	m.defaultCheckedRelation = nil
 	m.sparse.reset()

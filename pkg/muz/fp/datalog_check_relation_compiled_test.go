@@ -7,19 +7,6 @@ import (
 	"github.com/glycerine/g3/pkg/muz/rel"
 )
 
-func TestDatalogFormulaCheckScopeDoesNotEnableCompiledExchange(t *testing.T) {
-	f := newDirectFactFixture(t)
-	e := f.engine
-	fragmentMust(t, e.globals.SourceSetName("fixedpoint.datalog.check_relation", "hashtable"))
-	check, err := e.beginDatalogCheckRelation()
-	fragmentMust(t, err)
-	compiled, supported, err := check.beginCompiled()
-	if err != nil || supported || compiled != nil {
-		t.Fatal("formula checker enabled compiled pair scope", compiled, supported, err)
-	}
-	fragmentMust(t, check.complete(false))
-}
-
 // datalog.default_table_checked makes check_table_plugin the favourite table
 // plugin (relation_manager::register_plugin): a predicate's table is a check
 // table from its creation on, the compiler's temporaries are check tables,

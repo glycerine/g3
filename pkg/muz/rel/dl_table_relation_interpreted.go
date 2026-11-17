@@ -179,7 +179,7 @@ func (m *RelationManager) groundConditionFalse(freeVars *astrewriter.ExprFreeVar
 // relation plugin cannot handle s, the first table_relation plugin in
 // registration order that can (sparse, hashtable, bitvector, lazy_sparse).
 func (m *RelationManager) newFullTable(predicate ast.ASTHandle, signature Signature) (FiniteTable, error) {
-	if m.favouriteRelation == nil || m.checkedFactory() != nil || (!predicate.IsNull() && m.requestedTable[predicate] != "") {
+	if m.favouriteRelation == nil || m.defaultChecked != nil || (!predicate.IsNull() && m.requestedTable[predicate] != "") {
 		if !predicate.IsNull() {
 			return m.newRequestedFiniteTable(predicate, signature)
 		}

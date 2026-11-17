@@ -2,25 +2,6 @@ package rel
 
 import "github.com/glycerine/g3/pkg/ast"
 
-// SetCheckedFiniteFactory borrows a factory for compiler temporaries created
-// during one checked query scope. Nil restores ordinary favourite selection.
-func (m *RelationManager) SetCheckedFiniteFactory(factory *FiniteCheckedFactory) error {
-	if err := m.open(); err != nil {
-		return err
-	}
-	m.checkedFinite = factory
-	return nil
-}
-
-// checkedFactory is the check_table plugin of table creation: the checked
-// scope's, else the default check_table favourite.
-func (m *RelationManager) checkedFactory() *FiniteCheckedFactory {
-	if m.checkedFinite != nil {
-		return m.checkedFinite
-	}
-	return m.defaultChecked
-}
-
 // SetDefaultCheckedFactory makes factory (nil for none) the favourite
 // check_table plugin of datalog.default_table_checked. register_plugin
 // makes a second check_table_plugin of the same tables for the favourite
@@ -125,10 +106,10 @@ func (m *RelationManager) SetFavouriteTableRelation(table string) error {
 // can_handle_signature), otherwise mk_empty_table_relation's table of the
 // appropriate table plugin.
 func (m *RelationManager) newFavouriteFiniteTable(signature Signature) (FiniteTable, error) {
-	if m.checkedFinite == nil && m.checkedRelationFavourite && m.defaultCheckedRelation.CanHandleSignature(signature) {
+	if m.checkedRelationFavourite && m.defaultCheckedRelation.CanHandleSignature(signature) {
 		return m.defaultCheckedRelation.New(signature)
 	}
-	if m.checkedFactory() == nil && m.favouriteTable != "" {
+	if m.defaultChecked == nil && m.favouriteTable != "" {
 		if p := m.tableRelationPluginNamed(m.favouriteTable); p != nil && p.canHandle(signature) {
 			return p.newTable(signature)
 		}
@@ -171,7 +152,7 @@ func (m *RelationManager) NewFiniteTableForPredicate(predicate ast.ASTHandle, si
 // is not necessarily the predicate's (a register of the predicate's rule):
 // the predicate's requested table plugin, else the appropriate default.
 func (m *RelationManager) newRequestedFiniteTable(predicate ast.ASTHandle, signature Signature) (FiniteTable, error) {
-	if m.checkedFactory() == nil {
+	if m.defaultChecked == nil {
 		switch m.requestedFinite[predicate] {
 		case "tr_hashtable":
 			return NewHashTable(signature), nil
@@ -199,9 +180,9 @@ func (m *RelationManager) NewDefaultFiniteTable(signature Signature) (FiniteTabl
 	if err := m.open(); err != nil {
 		return nil, err
 	}
-	if m.checkedFactory() != nil {
-		if m.checkedFactory().CanHandleSignature(signature) {
-			return m.checkedFactory().New(signature)
+	if m.defaultChecked != nil {
+		if m.defaultChecked.CanHandleSignature(signature) {
+			return m.defaultChecked.New(signature)
 		}
 		// The source checked favourite rejects a signature if either wrapped
 		// plugin rejects it, then registered-plugin selection falls through to

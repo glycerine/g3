@@ -2,60 +2,9 @@ package rel
 
 import "testing"
 
-func TestFiniteCheckedPairMixedInstructionDispatchPreservesChecking(t *testing.T) {
-	signature := lazySignature(t, 2)
-	pair := checkedPairForInstruction(t, signature, Fact{1})
-	defer pair.Close()
-	plain := NewHashTable(signature)
-	defer plain.Close()
-	_, _ = plain.Add(Fact{1})
-
-	for _, pairFirst := range []bool{true, false} {
-		first, second := FiniteTable(pair), FiniteTable(plain)
-		if !pairFirst {
-			first, second = second, first
-		}
-		joined, err := finiteTableJoin(first, second, []int{0}, []int{0})
-		if err != nil {
-			t.Fatal(err)
-		}
-		checked, ok := joined.(*FiniteCheckedPair)
-		if !ok {
-			t.Fatalf("mixed join lost checking: %T", joined)
-		}
-		facts, err := checked.Facts()
-		if err != nil {
-			t.Fatal(err)
-		}
-		instructionWantFacts(t, facts, Fact{1, 1})
-		if err = checked.Close(); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	nullary, err := finiteTableJoinProject(pair, plain, []int{0}, []int{0}, []int{0, 1})
-	if err != nil {
-		t.Fatal(err)
-	}
-	checkedNullary, ok := nullary.(*FiniteCheckedPair)
-	if !ok {
-		t.Fatalf("mixed nullary join-project lost checking: %T", nullary)
-	}
-	facts, err := checkedNullary.Facts()
-	if err != nil {
-		t.Fatal(err)
-	}
-	instructionWantFacts(t, facts, Fact{})
-	primary, checker, err := checkedNullary.ConcreteKinds()
-	if err != nil || primary != "hashtable" || checker != "hashtable" {
-		t.Fatal("nullary Sparse fallback", primary, checker, err)
-	}
-	if err = checkedNullary.Close(); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestFiniteCheckedPairMixedUnionAndNegationLiftPlainTables(t *testing.T) {
+// The relation manager's default union and negation filter of a check
+// table and a table of another plugin.
+func TestFiniteCheckedPairMixedDefaultUnionAndNegation(t *testing.T) {
 	signature := lazySignature(t, 2)
 	template := checkedPairForInstruction(t, signature)
 	defer template.Close()

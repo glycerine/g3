@@ -31,7 +31,6 @@ type datalogCheckedPredicate struct {
 type datalogCheckRelationScope struct {
 	engine    *PropositionalEngine
 	entries   []datalogCheckedPredicate
-	compiled  *datalogCompiledCheckScope
 	factory   *rel.FiniteCheckedFactory
 	docNested memory.ConstructionFailure
 }
@@ -341,30 +340,10 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 		tableCheck = true
 	}
 	if !tableCheck && !enabled {
-		if e.defaultCheckedTables {
-			// check_table_plugin is the favourite table plugin: the
-			// predicates' tables are check tables from their creation on.
-			return nil, nil
-		}
-		name, enabled, err = e.datalogDefaultTableCheck()
-		if err != nil || !enabled {
-			return nil, err
-		}
-		tableCheck = true
-		primary, err := e.datalogDefaultCheckedPrimary()
-		if err != nil {
-			return nil, err
-		}
-		if (primary == "lazy_sparse" || name == "lazy_sparse") && e.lazyFinite == nil {
-			e.lazyFinite = e.relations.NewLazySparseFiniteFactory()
-			if err = e.relations.SetLazySparseFiniteFactory(e.lazyFinite); err != nil {
-				return nil, err
-			}
-		}
-		checkedFactory, err = rel.NewFiniteCheckedFactoryWithLazy(primary, name, e.lazyFinite)
-		if err != nil {
-			return nil, err
-		}
+		// datalog.default_table_checked alone: check_table_plugin is the
+		// favourite table plugin, so the predicates' tables are check
+		// tables from their creation on and no scope is needed.
+		return nil, nil
 	}
 	scope := &datalogCheckRelationScope{engine: e, factory: checkedFactory}
 	published := false
@@ -503,11 +482,6 @@ func (s *datalogCheckRelationScope) complete(publish bool) (result error) {
 	if s == nil {
 		return nil
 	}
-	if s.compiled != nil {
-		if err := s.compiled.Close(); err != nil {
-			return &datalogCheckRelationCleanupFailure{cause: err, scope: s}
-		}
-	}
 	if publish {
 		for i := range s.entries {
 			entry := &s.entries[i]
@@ -570,11 +544,6 @@ func (s *datalogCheckRelationScope) dispose() (result error) {
 			return err
 		}
 		s.docNested = nil
-	}
-	if s.compiled != nil {
-		if err := s.compiled.Close(); err != nil {
-			return err
-		}
 	}
 	s.restoreStates()
 	for i := range s.entries {
