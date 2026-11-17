@@ -9,25 +9,14 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func (e *PropositionalEngine) copyQueryRules(clone *PropositionalEngine) (resultErr error) {
-	if e.backend != "datalog" {
-		return e.copyQueryRuleObjects(clone)
-	}
-	formulas, names, err := e.NamedRulesWithSymbols()
-	if err != nil {
-		return err
-	}
-	defer func() { resultErr = errors.Join(resultErr, closeASTRefs(e.manager, formulas)) }()
-	for i := range formulas {
-		formula, x := e.manager.RefGet(formulas[i])
-		if x != nil {
-			return x
-		}
-		if x = clone.addRuleWithSymbolNow(formula, names[i]); x != nil {
-			return x
-		}
-	}
-	return nil
+// copyQueryRules gives a query clone the context's rule set: the source
+// rule_set copy (rel_context::query's scoped_query keeps m_rules; the
+// engines copy into private rule sets), sharing the flushed rule objects.
+// Rebuilding the rules from their formulas would flatten their bodies again
+// (extract_horn's flatten_and reverses a body's first two conjuncts) and
+// change the tail order the transformations and the compiler see.
+func (e *PropositionalEngine) copyQueryRules(clone *PropositionalEngine) error {
+	return e.copyQueryRuleObjects(clone)
 }
 
 // copyQueryRuleObjects is the source rule_set copy (old_rules(rules0) and the
