@@ -3891,3 +3891,81 @@ void tst_z3_4_7_1_inliner_linear_facts() {
     ENSURE(r == Z3_L_TRUE);
     ENSURE(answer == expected);
 }
+
+static std::string g_z3_4_7_1_expl_error;
+static void z3_4_7_1_expl_error_handler(Z3_context c, Z3_error_code e) {
+    g_z3_4_7_1_expl_error = Z3_get_error_msg(c, e);
+}
+
+// Shared by the generate_explanations tests below: e(S,S) facts 0->1,
+// 1->2, path its transitive closure (rules "base" and "step"), queried
+// through Z3_fixedpoint_query (rel_context::query(expr*) applies
+// mk_explanations).
+static Z3_lbool z3_4_7_1_explanations_query(bool doc_favourite) {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context c = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(c, z3_4_7_1_expl_error_handler);
+    g_z3_4_7_1_expl_error.clear();
+    Z3_fixedpoint fp = Z3_mk_fixedpoint(c);
+    Z3_fixedpoint_inc_ref(c, fp);
+    Z3_params p = Z3_mk_params(c);
+    Z3_params_inc_ref(c, p);
+    Z3_params_set_symbol(c, p, Z3_mk_string_symbol(c, "engine"), Z3_mk_string_symbol(c, "datalog"));
+    Z3_params_set_bool(c, p, Z3_mk_string_symbol(c, "datalog.generate_explanations"), true);
+    if (doc_favourite) {
+        Z3_params_set_symbol(c, p, Z3_mk_string_symbol(c, "datalog.default_relation"), Z3_mk_string_symbol(c, "doc"));
+    }
+    Z3_fixedpoint_set_params(c, fp, p);
+    Z3_sort S = Z3_mk_finite_domain_sort(c, Z3_mk_string_symbol(c, "S"), 4);
+    Z3_sort B = Z3_mk_bool_sort(c);
+    Z3_sort SS[3] = { S, S, S };
+    Z3_func_decl e = Z3_mk_func_decl(c, Z3_mk_string_symbol(c, "e"), 2, SS, B);
+    Z3_func_decl path = Z3_mk_func_decl(c, Z3_mk_string_symbol(c, "path"), 2, SS, B);
+    Z3_func_decl node = Z3_mk_func_decl(c, Z3_mk_string_symbol(c, "node"), 1, SS, B);
+    Z3_fixedpoint_register_relation(c, fp, e);
+    Z3_fixedpoint_register_relation(c, fp, path);
+    Z3_fixedpoint_register_relation(c, fp, node);
+    unsigned f01[2] = { 0, 1 }, f12[2] = { 1, 2 };
+    Z3_fixedpoint_add_fact(c, fp, e, 2, f01);
+    Z3_fixedpoint_add_fact(c, fp, e, 2, f12);
+    Z3_ast x = Z3_mk_bound(c, 0, S), y = Z3_mk_bound(c, 1, S), z = Z3_mk_bound(c, 2, S);
+    Z3_symbol names[3] = { Z3_mk_string_symbol(c, "v0"), Z3_mk_string_symbol(c, "v1"), Z3_mk_string_symbol(c, "v2") };
+    Z3_ast xy[2] = { x, y }, yz[2] = { y, z }, xz[2] = { x, z };
+    Z3_ast base = Z3_mk_implies(c, Z3_mk_app(c, e, 2, xy), Z3_mk_app(c, path, 2, xy));
+    Z3_fixedpoint_add_rule(c, fp, Z3_mk_forall(c, 0, 0, nullptr, 2, SS, names, base), Z3_mk_string_symbol(c, "base"));
+    Z3_ast t2[2] = { Z3_mk_app(c, path, 2, xy), Z3_mk_app(c, e, 2, yz) };
+    Z3_ast step = Z3_mk_implies(c, Z3_mk_and(c, 2, t2), Z3_mk_app(c, path, 2, xz));
+    Z3_fixedpoint_add_rule(c, fp, Z3_mk_forall(c, 0, 0, nullptr, 3, SS, names, step), Z3_mk_string_symbol(c, "step"));
+    Z3_ast q;
+    if (doc_favourite) {
+        q = Z3_mk_exists(c, 0, 0, nullptr, 2, SS, names, Z3_mk_app(c, path, 2, xy));
+    }
+    else {
+        // node(y) :- path(x, y), x != y: the condition mixes the table
+        // columns x, y with the explanation columns.
+        Z3_ast t4[2] = { Z3_mk_app(c, path, 2, xy), Z3_mk_not(c, Z3_mk_eq(c, x, y)) };
+        Z3_ast diff = Z3_mk_implies(c, Z3_mk_and(c, 2, t4), Z3_mk_app(c, node, 1, &y));
+        Z3_fixedpoint_add_rule(c, fp, Z3_mk_forall(c, 0, 0, nullptr, 2, SS, names, diff), Z3_mk_string_symbol(c, "diff"));
+        q = Z3_mk_exists(c, 0, 0, nullptr, 1, SS, names, Z3_mk_app(c, node, 1, &x));
+    }
+    Z3_lbool r = Z3_fixedpoint_query(c, fp, q);
+    Z3_params_dec_ref(c, p);
+    Z3_fixedpoint_dec_ref(c, fp);
+    Z3_del_context(c);
+    return r;
+}
+
+// generate_explanations with an interpreted tail over both the table and
+// the explanation columns (x != y next to e = diff(e1)):
+// finite_product_relation's filter_interpreted_fn substitutes the table
+// values into the condition and asks the inner (explanation) plugin for a
+// filter; explanation_relation_plugin has none for a conjunction, and 4.7.1
+// called the null functor (SIGSEGV). The fixed fork throws the
+// instructions' unsupported-operation exception. pkg/AUDIT.md FUZZ-F5.
+void tst_z3_4_7_1_fpr_filter_interpreted() {
+    Z3_lbool r = z3_4_7_1_explanations_query(false);
+    std::cout << "fpr_filter_interpreted: " << r << " " << g_z3_4_7_1_expl_error << "\n";
+    ENSURE(r == Z3_L_UNDEF);
+    ENSURE(g_z3_4_7_1_expl_error == "trying to perform unsupported filter_interpreted operation on a relation of kind fact_explanation");
+}
