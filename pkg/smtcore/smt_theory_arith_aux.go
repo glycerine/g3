@@ -647,15 +647,19 @@ func (t *SMTTheoryArith) recordConflict(lits []SMTLiteral, eqs []SMTEnodePair, b
 	defer func() { result = errors.Join(result, farkas.Close()) }()
 	x := smtArithExprs{m: m}
 	defer func() { result = errors.Join(result, x.release()) }()
-	var q *big.Rat
+	q, pa := smtQZero(), smtQZero()
+	defer func() { result = errors.Join(result, smtQDel(t.q, &q), smtQDel(t.q, &pa)) }()
 	for i, l := range lits {
-		pa, err := smtQBig(t.q, &bounds.literalCoefficients[i])
-		if err != nil {
+		if err := t.q.Copy(&pa, &bounds.literalCoefficients[i]); err != nil {
 			return err
 		}
-		pa.Abs(pa)
+		if err := t.q.Abs(&pa); err != nil {
+			return err
+		}
 		if idx == i {
-			q = pa
+			if err := t.q.Copy(&q, &pa); err != nil {
+				return err
+			}
 			continue
 		}
 		tmp, err := s.literalExpression(l)
@@ -665,7 +669,7 @@ func (t *SMTTheoryArith) recordConflict(lits []SMTLiteral, eqs []SMTEnodePair, b
 		if _, err = x.hold(tmp, nil); err != nil {
 			return err
 		}
-		if err = farkas.Add(pa, tmp); err != nil {
+		if err = farkas.Add(&pa, tmp); err != nil {
 			return err
 		}
 	}
@@ -674,12 +678,13 @@ func (t *SMTTheoryArith) recordConflict(lits []SMTLiteral, eqs []SMTEnodePair, b
 		if err != nil {
 			return err
 		}
-		pa, err := smtQBig(t.q, &bounds.equalityCoefficients[i])
-		if err != nil {
+		if err := t.q.Copy(&pa, &bounds.equalityCoefficients[i]); err != nil {
 			return err
 		}
-		pa.Abs(pa)
-		if err = farkas.Add(pa, tmp); err != nil {
+		if err := t.q.Abs(&pa); err != nil {
+			return err
+		}
+		if err = farkas.Add(&pa, tmp); err != nil {
 			return err
 		}
 	}
@@ -729,12 +734,22 @@ func (t *SMTTheoryArith) recordConflict(lits []SMTLiteral, eqs []SMTEnodePair, b
 	if err != nil {
 		return err
 	}
-	q.Mul(q, factor)
+	if err := t.q.Mul(&q, factor, &q); err != nil {
+		return err
+	}
+	qOne, err := t.q.IsOne(&q)
+	if err != nil {
+		return err
+	}
+	qInt, err := t.q.IsInt(&q)
+	if err != nil {
+		return err
+	}
 	var vq ast.ASTHandle
-	if smtRatIsOne(q) {
+	if qOne {
 		vq = e
 	} else {
-		qn, err := t.mkNumeral(&x, q, q.IsInt())
+		qn, err := t.mkNumeralQ(&x, &q, qInt)
 		if err != nil {
 			return err
 		}
@@ -749,8 +764,8 @@ func (t *SMTTheoryArith) recordConflict(lits []SMTLiteral, eqs []SMTEnodePair, b
 	if vq, err = t.mkApp(&x, smtArithOpAdd, diff, vq); err != nil {
 		return err
 	}
-	if !smtRatIsOne(q) {
-		qn, err := t.mkNumeral(&x, q, q.IsInt())
+	if !qOne {
+		qn, err := t.mkNumeralQ(&x, &q, qInt)
 		if err != nil {
 			return err
 		}

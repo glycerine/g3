@@ -68,7 +68,7 @@ func TestFarkasLearnerClosePreservesPremisesDuringNativeRefusal(t *testing.T) {
 	must(err)
 	bound, err := manager.MkArithmeticLE(x, zero)
 	must(err)
-	must(learner.utility.Add(big.NewRat(1, 1), bound))
+	must(learner.utility.AddBigRat(big.NewRat(1, 1), bound))
 	retainedUtility = learner.utility
 
 	value, err := numbers.NewValue()

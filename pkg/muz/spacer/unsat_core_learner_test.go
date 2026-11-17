@@ -273,7 +273,7 @@ func TestUnsatCoreFarkasPluginCombinesDisjointPremisesWithoutSplitting(t *testin
 		util, err := smtcore.NewSMTFarkasUtil(manager, globals.Context, globals)
 		spacerMust(t, err)
 		for _, literal := range literals {
-			spacerMust(t, util.Add(big.NewRat(1, 1), literal))
+			spacerMust(t, util.AddBigRat(big.NewRat(1, 1), literal))
 		}
 		out, err := manager.NewRef(ast.ASTHandle{})
 		spacerMust(t, err)

@@ -99,7 +99,7 @@ func (p *UnsatCoreOptimizedFarkasPlugin) combine(terms []farkasTerm) (resultErr 
 	}
 	defer func() { resultErr = errors.Join(resultErr, util.Close()) }()
 	for i := range literals {
-		if err = util.Add(coefficients[i], literals[i]); err != nil {
+		if err = util.AddBigRat(coefficients[i], literals[i]); err != nil {
 			return err
 		}
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
@@ -17,13 +18,17 @@ import (
 // th_rewriter from them); the utility owns each premise retained by Add until
 // Reset or Close.
 type SMTFarkasUtil struct {
-	manager         *ast.ASTManager
-	family          ast.FamilyID
-	context         *uparams.ParamsContext
-	globals         *uparams.GlobalParamsService
+	manager *ast.ASTManager
+	family  ast.FamilyID
+	context *uparams.ParamsContext
+	globals *uparams.GlobalParamsService
+	// q is the AST manager's rational manager; coefficients and
+	// normalizeFactor are its rationals (vector<rational> m_coeffs,
+	// rational m_normalize_factor).
+	q               *numeral.RationalManager
 	inequalities    []ast.ASTHandle
-	coefficients    []*big.Rat
-	normalizeFactor big.Rat
+	coefficients    []numeral.Rational
+	normalizeFactor numeral.Rational
 	splitLiterals   bool
 	closed          bool
 }
@@ -36,8 +41,11 @@ func NewSMTFarkasUtil(m *ast.ASTManager, context *uparams.ParamsContext, globals
 	if err != nil {
 		return nil, err
 	}
-	result = &SMTFarkasUtil{manager: m, family: family, context: context, globals: globals}
-	result.normalizeFactor.SetInt64(1)
+	numerals := m.NumeralService()
+	if numerals == nil {
+		return nil, ast.ErrASTHandle
+	}
+	result = &SMTFarkasUtil{manager: m, family: family, context: context, globals: globals, q: numerals.Manager, normalizeFactor: smtQInt(1)}
 	return result, nil
 }
 
@@ -80,6 +88,9 @@ func (f *SMTFarkasUtil) Close() (result error) {
 	if result = f.Reset(); result != nil {
 		return result
 	}
+	if result = smtQDel(f.q, &f.normalizeFactor); result != nil {
+		return result
+	}
 	f.closed = true
 	return nil
 }
@@ -93,6 +104,9 @@ func (f *SMTFarkasUtil) Reset() (result error) {
 		consumed, err := f.manager.DecRefConsumed(f.inequalities[index])
 		if consumed {
 			f.inequalities = f.inequalities[:index]
+			if e := smtQDel(f.q, &f.coefficients[index]); e != nil && err == nil {
+				err = e
+			}
 			f.coefficients = f.coefficients[:index]
 		}
 		if err != nil {
@@ -113,11 +127,13 @@ func (f *SMTFarkasUtil) SetSplitLiterals(enabled bool) error {
 	return nil
 }
 
-func (f *SMTFarkasUtil) NormalizeFactor() (*big.Rat, error) {
+// NormalizeFactor is get_normalize_factor(): the factor, owned by the
+// utility, stays valid until the next Get or Close.
+func (f *SMTFarkasUtil) NormalizeFactor() (*numeral.Rational, error) {
 	if err := f.open(); err != nil {
 		return nil, err
 	}
-	return new(big.Rat).Set(&f.normalizeFactor), nil
+	return &f.normalizeFactor, nil
 }
 
 func (f *SMTFarkasUtil) operation(expression ast.ASTHandle) (int32, ast.ASTHandle, ast.ASTHandle, bool, error) {
@@ -184,7 +200,8 @@ func (f *SMTFarkasUtil) app(op int32, args ...ast.ASTHandle) (ast.ASTHandle, err
 }
 
 func (f *SMTFarkasUtil) one() (ast.ASTHandle, error) {
-	return f.manager.ArithmeticNumeralRat(big.NewRat(1, 1), true)
+	one := smtQInt(1)
+	return f.manager.ArithmeticNumeralFromRational(&one, true)
 }
 
 func (f *SMTFarkasUtil) fixSign(positive bool, constraint ast.ASTHandle) (ast.ASTHandle, error) {
@@ -248,7 +265,27 @@ func (f *SMTFarkasUtil) fixSign(positive bool, constraint ast.ASTHandle) (ast.AS
 	return f.app(result, left, right)
 }
 
-func (f *SMTFarkasUtil) Add(coefficient *big.Rat, constraint ast.ASTHandle) error {
+// AddBigRat is Add for a coefficient held as a big.Rat (the muz learners'
+// boundary until they hold rationals).
+func (f *SMTFarkasUtil) AddBigRat(coefficient *big.Rat, constraint ast.ASTHandle) (err error) {
+	if err := f.open(); err != nil || coefficient == nil {
+		if err != nil {
+			return err
+		}
+		return ast.ErrASTDomain
+	}
+	c := smtQZero()
+	if err = f.q.SetBigRat(&c, coefficient); err == nil {
+		err = f.Add(&c, constraint)
+	}
+	if e := smtQDel(f.q, &c); e != nil {
+		return errors.Join(err, e)
+	}
+	return err
+}
+
+// Add is add(coef, c); the utility keeps a copy of coefficient.
+func (f *SMTFarkasUtil) Add(coefficient *numeral.Rational, constraint ast.ASTHandle) error {
 	if err := f.open(); err != nil || coefficient == nil {
 		if err != nil {
 			return err
@@ -267,56 +304,75 @@ func (f *SMTFarkasUtil) Add(coefficient *big.Rat, constraint ast.ASTHandle) erro
 		positive = !positive
 		constraint = child
 	}
-	if coefficient.Sign() == 0 || f.manager.IsTrue(constraint) {
+	zero, err := f.q.IsZero(coefficient)
+	if err != nil {
+		return err
+	}
+	if zero || f.manager.IsTrue(constraint) {
 		return nil
 	}
-	constraint, err := f.fixSign(positive, constraint)
+	constraint, err = f.fixSign(positive, constraint)
+	if err != nil {
+		return err
+	}
+	c, err := smtQNew(f.q, coefficient)
 	if err != nil {
 		return err
 	}
 	if err = f.manager.IncRef(constraint); err != nil {
-		return err
+		return errors.Join(err, smtQDel(f.q, &c))
 	}
 	f.inequalities = append(f.inequalities, constraint)
-	f.coefficients = append(f.coefficients, new(big.Rat).Set(coefficient))
+	f.coefficients = append(f.coefficients, c)
 	return nil
 }
 
-// smtRatLCM is lcm(left, right) (rational's lcm: |left*right| / gcd), or
-// 0 when either is 0.
-func smtRatLCM(left, right *big.Int) *big.Int {
-	if left.Sign() == 0 || right.Sign() == 0 {
-		return new(big.Int)
+// normalizeCoefficients is normalize_coeffs: l is the lcm of the
+// coefficients' denominators; each coefficient is multiplied by l unless l
+// is one.
+func (f *SMTFarkasUtil) normalizeCoefficients() (err error) {
+	q := f.q
+	l, d := smtQInt(1), smtQZero()
+	defer func() { err = errors.Join(err, smtQDel(q, &l), smtQDel(q, &d)) }()
+	for i := range f.coefficients {
+		if err = q.DenominatorRational(&f.coefficients[i], &d); err != nil {
+			return err
+		}
+		if err = q.LCM(&l, &d, &l); err != nil {
+			return err
+		}
 	}
-	z := new(big.Int).GCD(nil, nil, left, right)
-	z.Quo(left, z)
-	z.Mul(z, right)
-	return z.Abs(z)
+	if err = q.Copy(&f.normalizeFactor, &l); err != nil {
+		return err
+	}
+	one, err := q.IsOne(&l)
+	if err != nil || one {
+		return err
+	}
+	for i := range f.coefficients {
+		if err = q.Mul(&f.coefficients[i], &l, &f.coefficients[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func (f *SMTFarkasUtil) normalizeCoefficients() {
-	lcm := big.NewInt(1)
-	for _, coefficient := range f.coefficients {
-		lcm = smtRatLCM(lcm, coefficient.Denom())
-	}
-	f.normalizeFactor.SetInt(lcm)
-	if lcm.Cmp(big.NewInt(1)) == 0 {
-		return
-	}
-	factor := new(big.Rat).SetInt(lcm)
-	for index := range f.coefficients {
-		f.coefficients[index].Mul(f.coefficients[index], factor)
-	}
-}
-
-func (f *SMTFarkasUtil) addMultiple(sum ast.ASTHandle, coefficient *big.Rat, term ast.ASTHandle) (ast.ASTHandle, error) {
+func (f *SMTFarkasUtil) addMultiple(sum ast.ASTHandle, coefficient *numeral.Rational, term ast.ASTHandle) (ast.ASTHandle, error) {
 	part := term
-	if coefficient.Cmp(big.NewRat(1, 1)) != 0 {
+	one, err := f.q.IsOne(coefficient)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if !one {
 		integer, err := f.termIsInteger(term)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		numeral, err := f.manager.ArithmeticNumeralRat(coefficient, coefficient.IsInt() && integer)
+		isInt, err := f.q.IsInt(coefficient)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		numeral, err := f.manager.ArithmeticNumeralFromRational(coefficient, isInt && integer)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
@@ -346,7 +402,9 @@ func (f *SMTFarkasUtil) extractConsequence(low, high int, out ast.ASTRef) (err e
 	if err != nil {
 		return err
 	}
-	zero, err := f.manager.ArithmeticNumeralRat(new(big.Rat), integer)
+	zeroValue, negated := smtQZero(), smtQZero()
+	defer func() { err = errors.Join(err, smtQDel(f.q, &negated)) }()
+	zero, err := f.manager.ArithmeticNumeralFromRational(&zeroValue, integer)
 	if err != nil {
 		return err
 	}
@@ -363,12 +421,18 @@ func (f *SMTFarkasUtil) extractConsequence(low, high int, out ast.ASTRef) (err e
 		if op == smtArithOpGE || op == smtArithOpGT {
 			left, right = right, left
 		}
-		coefficient := f.coefficients[index]
+		coefficient := &f.coefficients[index]
 		sum, err = f.addMultiple(sum, coefficient, left)
 		if err != nil {
 			return err
 		}
-		sum, err = f.addMultiple(sum, new(big.Rat).Neg(coefficient), right)
+		if err = f.q.Copy(&negated, coefficient); err != nil {
+			return err
+		}
+		if err = f.q.Neg(&negated); err != nil {
+			return err
+		}
+		sum, err = f.addMultiple(sum, &negated, right)
 		if err != nil {
 			return err
 		}
@@ -387,7 +451,7 @@ func (f *SMTFarkasUtil) extractConsequence(low, high int, out ast.ASTRef) (err e
 	if err != nil {
 		return err
 	}
-	zero, err = f.manager.ArithmeticNumeralRat(new(big.Rat), integer)
+	zero, err = f.manager.ArithmeticNumeralFromRational(&zeroValue, integer)
 	if err != nil {
 		return err
 	}
@@ -616,7 +680,9 @@ func (f *SMTFarkasUtil) GetPDRConstraint(out ast.ASTRef) (err error) {
 	if err := f.open(); err != nil {
 		return err
 	}
-	f.normalizeFactor.SetInt64(1)
+	if err := f.q.SetInt64(&f.normalizeFactor, 1); err != nil {
+		return err
+	}
 	if len(f.coefficients) == 0 {
 		value, err := f.manager.MkBoolVal(false)
 		if err != nil {
@@ -629,7 +695,9 @@ func (f *SMTFarkasUtil) GetPDRConstraint(out ast.ASTRef) (err error) {
 		return err
 	}
 	if integer {
-		f.normalizeCoefficients()
+		if err = f.normalizeCoefficients(); err != nil {
+			return err
+		}
 	}
 	if err = f.extractConsequence(0, len(f.coefficients), out); err != nil {
 		return err
@@ -681,7 +749,9 @@ func (f *SMTFarkasUtil) Get(out ast.ASTRef) (err error) {
 	if err := f.open(); err != nil {
 		return err
 	}
-	f.normalizeFactor.SetInt64(1)
+	if err := f.q.SetInt64(&f.normalizeFactor, 1); err != nil {
+		return err
+	}
 	if len(f.coefficients) == 0 {
 		value, err := f.manager.MkBoolVal(false)
 		if err != nil {
@@ -694,7 +764,9 @@ func (f *SMTFarkasUtil) Get(out ast.ASTRef) (err error) {
 		return err
 	}
 	if integer {
-		f.normalizeCoefficients()
+		if err = f.normalizeCoefficients(); err != nil {
+			return err
+		}
 	}
 	if !f.splitLiterals {
 		return f.extractConsequence(0, len(f.coefficients), out)

@@ -1,6 +1,7 @@
 package smtcore
 
 import (
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"math/big"
 	"testing"
 
@@ -67,7 +68,7 @@ func TestSMTFarkasEmptyIgnoredAndOwnedPremises(t *testing.T) {
 	}
 	truth, err := m.MkBoolVal(true)
 	astTestMust(t, err)
-	astTestMust(t, utility.Add(big.NewRat(1, 1), truth))
+	astTestMust(t, utility.AddBigRat(big.NewRat(1, 1), truth))
 	x := smtFarkasConst(t, m, "farkas-owned-x", integer)
 	zero := smtFarkasInt(t, m, 0)
 	constraint := smtFarkasOp(t, m, family, smtArithOpLE, x, zero)
@@ -75,11 +76,11 @@ func TestSMTFarkasEmptyIgnoredAndOwnedPremises(t *testing.T) {
 	defer m.DecRef(constraint)
 	before, err := m.GetRefCount(constraint)
 	astTestMust(t, err)
-	astTestMust(t, utility.Add(new(big.Rat), constraint))
+	astTestMust(t, utility.AddBigRat(new(big.Rat), constraint))
 	if len(utility.inequalities) != 0 {
 		t.Fatal("zero coefficient or true premise was retained")
 	}
-	astTestMust(t, utility.Add(big.NewRat(1, 1), constraint))
+	astTestMust(t, utility.AddBigRat(big.NewRat(1, 1), constraint))
 	after, err := m.GetRefCount(constraint)
 	astTestMust(t, err)
 	if after != before+1 {
@@ -98,7 +99,7 @@ func TestSMTFarkasIntegerSignCorrection(t *testing.T) {
 	x := smtFarkasConst(t, m, "farkas-sign-x", integer)
 	y := smtFarkasConst(t, m, "farkas-sign-y", integer)
 	strict := smtFarkasOp(t, m, family, smtArithOpLT, x, y)
-	astTestMust(t, utility.Add(big.NewRat(1, 1), strict))
+	astTestMust(t, utility.AddBigRat(big.NewRat(1, 1), strict))
 	if op, err := m.GetDeclKind(utility.inequalities[0]); err != nil || op != smtArithOpLE {
 		t.Fatalf("positive integer strict bound op = %d, err %v", op, err)
 	}
@@ -111,7 +112,7 @@ func TestSMTFarkasIntegerSignCorrection(t *testing.T) {
 	nonstrict := smtFarkasOp(t, m, family, smtArithOpLE, x, y)
 	negated, err := m.MkNot(nonstrict)
 	astTestMust(t, err)
-	astTestMust(t, utility.Add(big.NewRat(1, 1), negated))
+	astTestMust(t, utility.AddBigRat(big.NewRat(1, 1), negated))
 	if op, err := m.GetDeclKind(utility.inequalities[0]); err != nil || op != smtArithOpGE {
 		t.Fatalf("negative integer non-strict bound op = %d, err %v", op, err)
 	}
@@ -127,19 +128,24 @@ func TestSMTFarkasIntegerNormalizationAndConsequence(t *testing.T) {
 	x := smtFarkasConst(t, m, "farkas-normal-x", integer)
 	y := smtFarkasConst(t, m, "farkas-normal-y", integer)
 	zero := smtFarkasInt(t, m, 0)
-	astTestMust(t, utility.Add(big.NewRat(1, 2), smtFarkasOp(t, m, family, smtArithOpLE, x, zero)))
-	astTestMust(t, utility.Add(big.NewRat(1, 3), smtFarkasOp(t, m, family, smtArithOpLE, y, zero)))
+	astTestMust(t, utility.AddBigRat(big.NewRat(1, 2), smtFarkasOp(t, m, family, smtArithOpLE, x, zero)))
+	astTestMust(t, utility.AddBigRat(big.NewRat(1, 3), smtFarkasOp(t, m, family, smtArithOpLE, y, zero)))
 	out, err := m.NewRef(ast.ASTHandle{})
 	astTestMust(t, err)
 	defer m.DelRef(&out)
 	astTestMust(t, utility.Get(out))
 	factor, err := utility.NormalizeFactor()
 	astTestMust(t, err)
-	if factor.Cmp(big.NewRat(6, 1)) != 0 {
-		t.Fatalf("normalize factor = %s, want 6", factor)
+	asBig := func(r *numeral.Rational) *big.Rat {
+		out := new(big.Rat)
+		astTestMust(t, utility.q.BigRatOf(r, out))
+		return out
 	}
-	if utility.coefficients[0].Cmp(big.NewRat(3, 1)) != 0 || utility.coefficients[1].Cmp(big.NewRat(2, 1)) != 0 {
-		t.Fatalf("normalized coefficients = %s, %s", utility.coefficients[0], utility.coefficients[1])
+	if asBig(factor).Cmp(big.NewRat(6, 1)) != 0 {
+		t.Fatalf("normalize factor = %s, want 6", asBig(factor))
+	}
+	if asBig(&utility.coefficients[0]).Cmp(big.NewRat(3, 1)) != 0 || asBig(&utility.coefficients[1]).Cmp(big.NewRat(2, 1)) != 0 {
+		t.Fatalf("normalized coefficients = %s, %s", asBig(&utility.coefficients[0]), asBig(&utility.coefficients[1]))
 	}
 	result, err := m.RefGet(out)
 	astTestMust(t, err)
@@ -153,8 +159,8 @@ func TestSMTFarkasSplitDisconnectedLiterals(t *testing.T) {
 	x := smtFarkasConst(t, m, "farkas-split-x", integer)
 	y := smtFarkasConst(t, m, "farkas-split-y", integer)
 	zero := smtFarkasInt(t, m, 0)
-	astTestMust(t, utility.Add(big.NewRat(1, 1), smtFarkasOp(t, m, family, smtArithOpLE, x, zero)))
-	astTestMust(t, utility.Add(big.NewRat(1, 1), smtFarkasOp(t, m, family, smtArithOpLE, y, zero)))
+	astTestMust(t, utility.AddBigRat(big.NewRat(1, 1), smtFarkasOp(t, m, family, smtArithOpLE, x, zero)))
+	astTestMust(t, utility.AddBigRat(big.NewRat(1, 1), smtFarkasOp(t, m, family, smtArithOpLE, y, zero)))
 	astTestMust(t, utility.SetSplitLiterals(true))
 	out, err := m.NewRef(ast.ASTHandle{})
 	astTestMust(t, err)

@@ -27,7 +27,7 @@ func TestSMTFarkasDistinguishesEqualityAndInequality(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			astTestMust(t, utility.Reset())
-			astTestMust(t, utility.Add(big.NewRat(1, 1), tc.input))
+			astTestMust(t, utility.AddBigRat(big.NewRat(1, 1), tc.input))
 			out, err := m.NewRef(ast.ASTHandle{})
 			astTestMust(t, err)
 			defer m.DelRef(&out)

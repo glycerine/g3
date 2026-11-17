@@ -132,7 +132,7 @@ func (p *UnsatCoreFarkasPlugin) computeLinearCombination(coefficients []*big.Rat
 		}
 	}
 	for i := range literals {
-		if err = util.Add(coefficients[i], literals[i]); err != nil {
+		if err = util.AddBigRat(coefficients[i], literals[i]); err != nil {
 			return ast.ASTHandle{}, combined, err
 		}
 	}

@@ -764,7 +764,7 @@ func (f *FarkasLearner) CombineConstraints(literals []ast.ASTHandle, coefficient
 			if coefficients[i] == nil {
 				return ast.ASTRef{}, ast.ErrASTDomain
 			}
-			if err := f.utility.Add(coefficients[i], literals[i]); err != nil {
+			if err := f.utility.AddBigRat(coefficients[i], literals[i]); err != nil {
 				return ast.ASTRef{}, err
 			}
 		}
