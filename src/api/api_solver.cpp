@@ -45,6 +45,11 @@ extern "C" {
 
     static void init_solver_core(Z3_context c, Z3_solver _s) {
         Z3_solver_ref * s = to_solver(_s);
+        // FORK FIX #122 (g3 audit, see FORK_BUGFIXES.md): Z3_solver_translate
+        // stores a null factory; after Z3_solver_reset the next init_solver
+        // called through it. Report it instead of crashing.
+        if (!s->m_solver_factory)
+            throw default_exception("solver was created by Z3_solver_translate and has no factory: it cannot be rebuilt after Z3_solver_reset");
         bool proofs_enabled, models_enabled, unsat_core_enabled;
         params_ref p = s->m_params;
         mk_c(c)->params().get_solver_params(mk_c(c)->m(), p, proofs_enabled, models_enabled, unsat_core_enabled);

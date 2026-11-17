@@ -4420,3 +4420,37 @@ void tst_z3_4_7_1_bit_blast_relation_fact() {
     ENSURE(doc == Z3_L_TRUE);
     ENSURE(chk == Z3_L_TRUE);
 }
+
+// FORK FIX #122: Z3_solver_translate stores a Z3_solver_ref with a null
+// solver factory. After Z3_solver_reset (m_solver = nullptr) the next call
+// that runs init_solver (assert, check, push, ...) called through the null
+// factory and crashed. With the fix init_solver reports a default_exception
+// (Z3_EXCEPTION) and the solver stays usable for reset/dec_ref.
+static void z3_4_7_1_no_factory_error_handler(Z3_context, Z3_error_code) {}
+
+void tst_z3_4_7_1_solver_translate_reset() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context c = Z3_mk_context(cfg);
+    Z3_context d = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_set_error_handler(d, z3_4_7_1_no_factory_error_handler);
+    Z3_solver s = Z3_mk_solver(c);
+    Z3_solver_inc_ref(c, s);
+    Z3_solver_assert(c, s, Z3_mk_false(c));
+    Z3_solver t = Z3_solver_translate(c, s, d);
+    Z3_solver_inc_ref(d, t);
+    ENSURE(Z3_solver_check(d, t) == Z3_L_FALSE);
+    Z3_solver_reset(d, t);
+    ENSURE(Z3_get_error_code(d) == Z3_OK);
+    Z3_solver_assert(d, t, Z3_mk_true(d));
+    Z3_error_code e1 = Z3_get_error_code(d);
+    Z3_lbool r = Z3_solver_check(d, t);
+    Z3_error_code e2 = Z3_get_error_code(d);
+    std::cout << "solver_translate_reset: assert error " << e1 << " check " << r << " error " << e2 << "\n";
+    ENSURE(e1 == Z3_EXCEPTION);
+    ENSURE(r == Z3_L_UNDEF && e2 == Z3_EXCEPTION);
+    Z3_solver_dec_ref(d, t);
+    Z3_solver_dec_ref(c, s);
+    Z3_del_context(d);
+    Z3_del_context(c);
+}

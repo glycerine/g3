@@ -326,6 +326,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_sparse_negated_join_zero_key);
     TST(z3_4_7_1_bit_blast_add_fact);
     TST(z3_4_7_1_bit_blast_relation_fact);
+    TST(z3_4_7_1_solver_translate_reset);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);
