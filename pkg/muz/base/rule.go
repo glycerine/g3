@@ -70,6 +70,10 @@ type RuleManager struct {
 	// until the next rule or destruction.
 	hornBody []ast.ASTRef
 	hornHead ast.ASTRef
+	// hornArgs is rule_manager::m_args: extract_horn's flattened
+	// conjuncts and hoist_compound's rebuilt arguments, kept until the
+	// next reset or destruction.
+	hornArgs []ast.ASTRef
 	// labels is rule_manager::m_rwr: one label_rewriter for the manager's
 	// life, whose rewriter cache keeps every app it rewrote (identity
 	// results included) until destruction.
