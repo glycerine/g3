@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 	"strings"
 	"testing"
 
@@ -21,7 +20,7 @@ func lraTraceEvidenceFixture(t *testing.T, truth bool) (*lraFrontendFixture, []s
 	lit := tStateLiteralAt(t, f, 0)
 	// The printer must consult the source constraint directory rather than the
 	// copied literal field, which is not the authoritative source tag.
-	ev := []smtLRAEvidence{{constraint: 0, literal: SMTNullLiteral, coefficient: *big.NewRat(2, 1)}, {constraint: 0, literal: SMTNullLiteral, coefficient: *big.NewRat(-3, 2)}}
+	ev := []smtLRAEvidence{{constraint: 0, literal: SMTNullLiteral, coefficient: lraQ(2, 1)}, {constraint: 0, literal: SMTNullLiteral, coefficient: lraQ(-3, 2)}}
 	expr := "(<= evidence-x 3.0)"
 	kind := "<="
 	if !truth {
@@ -60,7 +59,7 @@ func TestSMTLRAEvidenceDisplayZeroSecondPassAndWriterPrefixes(t *testing.T) {
 	astTestMust(t, d.EnableAssertions(false))
 	defer func() { astTestMust(t, d.EnableAssertions(enabled)) }()
 	f, ev, _ := lraTraceEvidenceFixture(t, true)
-	ev = []smtLRAEvidence{{constraint: 0, literal: SMTNullLiteral, coefficient: *big.NewRat(0, 1)}, ev[0]}
+	ev = []smtLRAEvidence{{constraint: 0, literal: SMTNullLiteral, coefficient: lraQ(0, 1)}, ev[0]}
 	var out bytes.Buffer
 	astTestMust(t, f.a.displayEvidence(&out, ev))
 	if out.String() != "(<= evidence-x 3.0) l_true\n0: v0 <= 3\n2: v0 <= 3\n" {

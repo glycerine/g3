@@ -4,16 +4,18 @@ package smtcore
 
 import (
 	"fmt"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lp"
 )
 
+// smtLRAConstraintBound is constraint_bound (constraint index, rational);
+// value is owned by its vector or trail entry.
 type smtLRAConstraintBound struct {
 	constraint uint32
-	value      big.Rat
+	value      numeral.Rational
 }
 type smtLRATermBoundChange struct {
 	index    uint32
@@ -25,7 +27,7 @@ type smtLRAFixedKey struct {
 	integer bool
 }
 
-func (t *SMTLRATheory) fixedKey(v SMTTheoryVar, value *big.Rat) (smtLRAFixedKey, error) {
+func (t *SMTLRATheory) fixedKey(v SMTTheoryVar, value *numeral.Rational) (smtLRAFixedKey, error) {
 	n, err := t.Enode(v)
 	if err != nil {
 		return smtLRAFixedKey{}, err
@@ -35,12 +37,16 @@ func (t *SMTLRATheory) fixedKey(v SMTTheoryVar, value *big.Rat) (smtLRAFixedKey,
 		return smtLRAFixedKey{}, err
 	}
 	kind, err := t.state.manager.GetDeclKind(sort)
-	return smtLRAFixedKey{value.RatString(), kind == 1}, err
+	if err != nil {
+		return smtLRAFixedKey{}, err
+	}
+	text := t.lraText(value)
+	return smtLRAFixedKey{text, kind == 1}, t.takeQErr(nil)
 }
 
-func (t *SMTLRATheory) setTermBound(index, witness uint32, value *big.Rat, lower bool) {
+func (t *SMTLRATheory) setTermBound(index, witness uint32, value *numeral.Rational, lower bool) error {
 	if !t.numeric.solver.IsTerm(index) {
-		return
+		return nil
 	}
 	index -= lp.LARTermStartIndex
 	vec := &t.upperTerms
@@ -48,23 +54,27 @@ func (t *SMTLRATheory) setTermBound(index, witness uint32, value *big.Rat, lower
 		vec = &t.lowerTerms
 	}
 	for len(*vec) <= int(index) {
-		*vec = append(*vec, smtLRAConstraintBound{constraint: smtLRANoIndex})
+		*vec = append(*vec, smtLRAConstraintBound{constraint: smtLRANoIndex, value: smtQZero()})
 	}
 	previous := &(*vec)[index]
-	cmp := previous.value.Cmp(value)
-	if previous.constraint != smtLRANoIndex && (lower && cmp >= 0 || !lower && cmp <= 0) {
-		return
+	cmp := t.lraCmp(&previous.value, value)
+	if err := t.takeQErr(nil); err != nil {
+		return err
 	}
+	if previous.constraint != smtLRANoIndex && (lower && cmp >= 0 || !lower && cmp <= 0) {
+		return nil
+	}
+	// The trail takes the previous value; the vector entry gets a copy of
+	// value.
 	change := smtLRATermBoundChange{index: index, lower: lower}
-	change.previous.constraint = previous.constraint
-	change.previous.value.Set(&previous.value)
+	change.previous = *previous
 	t.termBoundTrail = append(t.termBoundTrail, change)
-	next := smtLRAConstraintBound{constraint: witness}
-	next.value.Set(value)
+	next := smtLRAConstraintBound{constraint: witness, value: smtQZero()}
 	(*vec)[index] = next
+	return t.numerals.Copy(&(*vec)[index].value, value)
 }
 
-func (t *SMTLRATheory) hasFixedBound(index uint32, value *big.Rat, lower bool) (uint32, bool, error) {
+func (t *SMTLRATheory) hasFixedBound(index uint32, value *numeral.Rational, lower bool) (uint32, bool, error) {
 	if !t.numeric.solver.IsTerm(index) {
 		return t.numeric.hasRationalBound(index, lower, value)
 	}
@@ -77,11 +87,16 @@ func (t *SMTLRATheory) hasFixedBound(index uint32, value *big.Rat, lower bool) (
 		if err != nil {
 			return smtLRANoIndex, false, err
 		}
-		actual, number, err := t.numeral(n.owner)
-		if err != nil {
+		actual := smtQZero()
+		number, err := t.numeral(n.owner, &actual)
+		equal := number && err == nil && t.lraCmp(&actual, value) == 0
+		if e := smtQDel(t.numerals, &actual); err == nil {
+			err = e
+		}
+		if err = t.takeQErr(err); err != nil {
 			return smtLRANoIndex, false, err
 		}
-		if number && actual.Cmp(value) == 0 {
+		if equal {
 			return smtLRANoIndex, true, nil
 		}
 	}
@@ -94,7 +109,8 @@ func (t *SMTLRATheory) hasFixedBound(index uint32, value *big.Rat, lower bool) (
 		return smtLRANoIndex, false, nil
 	}
 	b := &vec[index]
-	return b.constraint, b.constraint != smtLRANoIndex && b.value.Cmp(value) == 0, nil
+	found := b.constraint != smtLRANoIndex && t.lraCmp(&b.value, value) == 0
+	return b.constraint, found, t.takeQErr(nil)
 }
 
 func (t *SMTLRATheory) propagateFixedBounds(b *smtLRABound, witness uint32, truth bool) error {
@@ -106,7 +122,9 @@ func (t *SMTLRATheory) propagateFixedBounds(b *smtLRABound, witness uint32, trut
 		return ast.ErrASTDomain
 	}
 	lower := !b.upper
-	t.setTermBound(index, witness, &b.value, lower)
+	if err := t.setTermBound(index, witness, &b.value, lower); err != nil {
+		return err
+	}
 	_, fixed, err := t.hasFixedBound(index, &b.value, !lower)
 	if err != nil || !fixed {
 		return err
@@ -114,7 +132,7 @@ func (t *SMTLRATheory) propagateFixedBounds(b *smtLRABound, witness uint32, trut
 	return t.fixedVariable(b.variable, &b.value)
 }
 
-func (t *SMTLRATheory) fixedVariable(v SMTTheoryVar, value *big.Rat) error {
+func (t *SMTLRATheory) fixedVariable(v SMTTheoryVar, value *numeral.Rational) error {
 	key, err := t.fixedKey(v, value)
 	if err != nil {
 		return err
@@ -157,7 +175,7 @@ func (t *SMTLRATheory) fixedVariable(v SMTTheoryVar, value *big.Rat) error {
 		if err := t.displayLRAExpression(out, right.owner); err != nil {
 			return err
 		}
-		if err := smtWriteTheoryText(out, " "+value.RatString()+" "); err != nil {
+		if err := smtWriteTheoryText(out, " "+t.lraText(value)+" "); err != nil {
 			return err
 		}
 		_, found, err := t.hasFixedBound(wi, value, true)

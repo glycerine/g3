@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -20,6 +19,7 @@ func (t *SMTLRATheory) setLRAConflict() error {
 	if err != nil {
 		return err
 	}
+	defer smtLRAEvidenceDel(t.numerals, evidence)
 	t.conflictCount++ // Search-wide count: restored by init_search, not by pop.
 	t.statistics.conflicts++
 	if err = t.emitLRA("set_conflict", 2222, func(out io.Writer) error {
@@ -66,8 +66,8 @@ func (t *SMTLRATheory) setLRAConflict() error {
 	return nil
 }
 
-func (t *SMTLRATheory) impliedBoundLiteral(kind lp.LConstraintKind, value *big.Rat, b *smtLRABound) SMTLiteral {
-	cmp := value.Cmp(&b.value)
+func (t *SMTLRATheory) impliedBoundLiteral(kind lp.LConstraintKind, value *numeral.Rational, b *smtLRABound) SMTLiteral {
+	cmp := t.lraCmp(value, &b.value)
 	if (kind == lp.LConstraintLE || kind == lp.LConstraintLT) && b.upper && cmp <= 0 ||
 		(kind == lp.LConstraintGE || kind == lp.LConstraintGT) && !b.upper && cmp >= 0 {
 		return NewSMTLiteral(b.boolean, false)
@@ -109,20 +109,16 @@ func (p *smtLRABoundPropagation) BoundIsInteresting(index uint32, kind lp.LConst
 		})
 		return false, err
 	}
-	r, err := t.numeric.rational(value)
-	if err != nil {
-		return false, err
-	}
 	for _, bound := range t.bounds[v] {
 		assignment, err := t.state.Assignment(NewSMTLiteral(bound.boolean, false))
 		if err != nil {
 			return false, err
 		}
-		if assignment == lbool.Undef && t.impliedBoundLiteral(kind, r, bound) != SMTNullLiteral {
-			return true, nil
+		if assignment == lbool.Undef && t.impliedBoundLiteral(kind, value, bound) != SMTNullLiteral {
+			return true, t.takeQErr(nil)
 		}
 	}
-	return false, nil
+	return false, t.takeQErr(nil)
 }
 
 func (p *smtLRABoundPropagation) Consume(_ *numeral.Rational, witness uint32) error {
@@ -206,11 +202,7 @@ func (t *SMTLRATheory) propagateLPBounds() (err error) {
 					if err != nil {
 						return err
 					}
-					r, err := t.numeric.rational(&implied.Bound)
-					if err != nil {
-						return err
-					}
-					return smtWriteTheoryText(out, fmt.Sprintf("v%d %s %s\n", v, kind, r.RatString()))
+					return smtWriteTheoryText(out, fmt.Sprintf("v%d %s %s\n", v, kind, t.lraText(&implied.Bound)))
 				}); err != nil {
 					return err
 				}
@@ -220,10 +212,7 @@ func (t *SMTLRATheory) propagateLPBounds() (err error) {
 					}
 					continue
 				}
-				r, err := t.numeric.rational(&implied.Bound)
-				if err != nil {
-					return err
-				}
+				r := &implied.Bound
 				first := true
 				for _, bound := range t.bounds[v] {
 					assignment, err := t.state.Assignment(NewSMTLiteral(bound.boolean, false))
@@ -327,7 +316,7 @@ func (t *SMTLRATheory) propagateBasicBound(b *smtLRABound, truth bool) (result e
 		if other == b {
 			continue
 		}
-		cmp := other.value.Cmp(&b.value)
+		cmp := t.lraCmp(&other.value, &b.value)
 		// False bounds have +/-epsilon; comparing a rational against that
 		// infinitesimal reproduces these strict/equal threshold cases.
 		eligible := cmp < 0 || !truth && cmp == 0
@@ -337,7 +326,7 @@ func (t *SMTLRATheory) propagateBasicBound(b *smtLRABound, truth bool) (result e
 		if !eligible {
 			continue
 		}
-		if nearest == nil || findLower && other.value.Cmp(&nearest.value) > 0 || !findLower && other.value.Cmp(&nearest.value) < 0 {
+		if nearest == nil || findLower && t.lraCmp(&other.value, &nearest.value) > 0 || !findLower && t.lraCmp(&other.value, &nearest.value) < 0 {
 			nearest = other
 		}
 	}

@@ -1,6 +1,7 @@
 package smtcore
 
 import (
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"math/big"
 	"testing"
 
@@ -17,7 +18,7 @@ func lraDirectValue(t *testing.T, f *lraFrontendFixture, h ast.ASTHandle, want *
 		t.Fatal("missing direct theory value")
 	}
 	got = f.pin(got, nil)
-	value, matched, err := f.a.numeral(got)
+	value, matched, err := f.a.numeralBig(got)
 	astTestMust(t, err)
 	if !matched || value.Cmp(want) != 0 {
 		t.Fatal("direct theory value", value, want)
@@ -84,11 +85,11 @@ func TestSMTLRADirectValueIntegerAndStoppedOwnerGuards(t *testing.T) {
 	astTestMust(t, err)
 	index, err := f.a.numeric.getVarIndex(v)
 	astTestMust(t, err)
-	f.a.modelValues = map[uint32]*big.Rat{index: big.NewRat(3, 2)}
+	f.a.modelValues = map[uint32]*numeral.Rational{index: f.a.testQ(big.NewRat(3, 2))}
 	if _, present, err := f.s.GetTheoryValue(f.s.context.enodes.get(x)); err == nil || present {
 		t.Fatal("fractional Int value was rounded", present, err)
 	}
-	f.a.modelValues[index] = big.NewRat(3, 1)
+	f.a.modelValues[index] = f.a.testQ(big.NewRat(3, 1))
 	lraDirectValue(t, f, x, big.NewRat(3, 1))
 	f.a.numeric.stopped = true
 	if _, present, err := f.s.GetTheoryValue(f.s.context.enodes.get(x)); err != lp.ErrExactVectorPending || present {
@@ -151,7 +152,7 @@ func TestSMTLRADirectValueQuickCheckerRootsEveryArgument(t *testing.T) {
 	q.canonCache = make(map[ast.ASTHandle]ast.ASTHandle)
 	result, err := q.canonize(sum)
 	astTestMust(t, err)
-	value, matched, err := f.a.numeral(result)
+	value, matched, err := f.a.numeralBig(result)
 	astTestMust(t, err)
 	if !matched || value.Cmp(big.NewRat(7, 1)) != 0 || len(q.newExprs) != 3 {
 		t.Fatal("argument value refs were not retained", value, len(q.newExprs))

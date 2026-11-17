@@ -75,7 +75,7 @@ func TestSMTLRAPublicSetupLogicAutoAndFirstPush(t *testing.T) {
 							astTestMust(t, err)
 							rhs, err := m.GetArg(expr, 1)
 							astTestMust(t, err)
-							_, matched, err := a.numeral(rhs)
+							_, matched, err := a.numeralBig(rhs)
 							astTestMust(t, err)
 							if (op != smtArithOpLE && op != smtArithOpGE) || !matched {
 								t.Fatal("asserted arithmetic was not normalized for LRA", op, matched)

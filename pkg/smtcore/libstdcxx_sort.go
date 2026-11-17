@@ -25,14 +25,19 @@ func libstdcxxSortAtoms(a []*smtArithmeticAtom, less func(x, y *smtArithmeticAto
 
 // libstdcxxLRABoundsByValue adapts []*smtLRABound with theory_lra's
 // compare_bounds: a1->get_value() < a2->get_value() (value only).
-type libstdcxxLRABoundsByValue []*smtLRABound
+type libstdcxxLRABoundsByValue struct {
+	b []*smtLRABound
+	t *SMTLRATheory
+}
 
-func (s libstdcxxLRABoundsByValue) Len() int           { return len(s) }
-func (s libstdcxxLRABoundsByValue) Less(i, j int) bool { return s[i].value.Cmp(&s[j].value) < 0 }
-func (s libstdcxxLRABoundsByValue) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s libstdcxxLRABoundsByValue) Len() int { return len(s.b) }
+func (s libstdcxxLRABoundsByValue) Less(i, j int) bool {
+	return s.t.lraCmp(&s.b[i].value, &s.b[j].value) < 0
+}
+func (s libstdcxxLRABoundsByValue) Swap(i, j int) { s.b[i], s.b[j] = s.b[j], s.b[i] }
 
 // libstdcxxSortLRABounds is std::sort(a.begin(), a.end(), compare_bounds())
 // for theory_lra's flush_bound_axioms. See the WARNING above.
-func libstdcxxSortLRABounds(a []*smtLRABound) {
-	sorting.LibstdcxxSort(libstdcxxLRABoundsByValue(a))
+func libstdcxxSortLRABounds(t *SMTLRATheory, a []*smtLRABound) {
+	sorting.LibstdcxxSort(libstdcxxLRABoundsByValue{b: a, t: t})
 }

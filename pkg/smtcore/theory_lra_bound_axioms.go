@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -24,7 +23,7 @@ func (t *SMTLRATheory) mkBoundAxioms(bound *smtLRABound) error {
 		if other == bound || other.boolean == bound.boolean {
 			continue
 		}
-		cmp := other.value.Cmp(&bound.value)
+		cmp := t.lraCmp(&other.value, &bound.value)
 		if cmp == 0 && other.upper == bound.upper {
 			continue
 		}
@@ -41,7 +40,7 @@ func (t *SMTLRATheory) mkBoundAxioms(bound *smtLRABound) error {
 			slot++
 		}
 		old := neighbors[slot]
-		if old == nil || cmp < 0 && other.value.Cmp(&old.value) > 0 || cmp >= 0 && other.value.Cmp(&old.value) < 0 {
+		if old == nil || cmp < 0 && t.lraCmp(&other.value, &old.value) > 0 || cmp >= 0 && t.lraCmp(&other.value, &old.value) < 0 {
 			neighbors[slot] = other
 		}
 	}
@@ -64,7 +63,7 @@ func (t *SMTLRATheory) mkBoundAxiom(a, b *smtLRABound) error {
 	if a.variable != b.variable {
 		return ast.ErrASTDomain
 	}
-	cmp := a.value.Cmp(&b.value)
+	cmp := t.lraCmp(&a.value, &b.value)
 	if cmp == 0 && a.upper == b.upper {
 		return nil
 	}
@@ -104,11 +103,21 @@ func (t *SMTLRATheory) mkBoundAxiom(a, b *smtLRABound) error {
 		if a.upper {
 			lower, upper = b, a
 		}
-		if lower.value.Cmp(&upper.value) <= 0 {
+		if t.lraCmp(&lower.value, &upper.value) <= 0 {
 			clauses = append(clauses, [2]SMTLiteral{l1, l2})
 		} else {
 			clauses = append(clauses, [2]SMTLiteral{l1.Negated(), l2.Negated()})
-			if kind == 1 && new(big.Rat).Sub(&lower.value, &upper.value).Cmp(big.NewRat(1, 1)) == 0 {
+			// k1 - k2 == rational(1) for Int
+			difference := smtQZero()
+			err := t.numerals.Sub(&lower.value, &upper.value, &difference)
+			one := difference.IsOne()
+			if e := smtQDel(t.numerals, &difference); err == nil {
+				err = e
+			}
+			if err != nil {
+				return err
+			}
+			if kind == 1 && one {
 				clauses = append(clauses, [2]SMTLiteral{l1, l2})
 			}
 		}
@@ -173,7 +182,7 @@ func (t *SMTLRATheory) flushBoundAxioms() error {
 				if b.upper {
 					kind = ">="
 				}
-				if err := smtWriteTheoryText(out, fmt.Sprintf("v%d  %s %s\n", b.variable, kind, b.value.RatString())); err != nil {
+				if err := smtWriteTheoryText(out, fmt.Sprintf("v%d  %s %s\n", b.variable, kind, t.lraText(&b.value))); err != nil {
 					return err
 				}
 			}
@@ -196,8 +205,8 @@ func (t *SMTLRATheory) flushBoundAxioms() error {
 		// replace libstdcxxSortLRABounds with sort.Slice/sort.SliceStable.
 		// Keep TestLibstdcxxSortLRABoundsMatchesControl and the cmd/g3
 		// lra_flush_bound_axioms_introsort*.smt2 vectors green.
-		libstdcxxSortLRABounds(batch)
-		libstdcxxSortLRABounds(occurrences)
+		libstdcxxSortLRABounds(t, batch)
+		libstdcxxSortLRABounds(t, occurrences)
 		end := len(occurrences)
 		first := func(upper bool) int {
 			for i, b := range occurrences {
@@ -220,7 +229,7 @@ func (t *SMTLRATheory) flushBoundAxioms() error {
 						continue
 					}
 					compatible = true
-					cmp := b.value.Cmp(&a.value)
+					cmp := t.lraCmp(&b.value, &a.value)
 					if slot%2 == 0 {
 						if cmp <= 0 {
 							result = i

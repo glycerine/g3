@@ -232,12 +232,12 @@ func (a *smtLRAEqualityAdapter) MkAxiomsNodes(n1, n2 *SMTEnode) (result error) {
 		return err
 	}
 	lhs, rhs := n1.owner, n2.owner
-	if _, number, err := t.numeral(lhs); err != nil {
+	if number, err := t.isNumeral(lhs); err != nil {
 		return err
 	} else if number {
 		lhs, rhs = rhs, lhs
 	}
-	_, number, err := t.numeral(rhs)
+	number, err := t.isNumeral(rhs)
 	if err != nil {
 		return err
 	}

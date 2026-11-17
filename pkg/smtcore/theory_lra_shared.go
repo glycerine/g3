@@ -192,7 +192,15 @@ func (t *SMTLRATheory) assumeSharedEqualities() (progress bool, err error) {
 		if err != nil {
 			return false, err
 		}
-		sort, err := t.fixedKey(v, &value.Main)
+		main := smtQZero()
+		err = t.numerals.SetBigRat(&main, &value.Main)
+		var sort smtLRAFixedKey
+		if err == nil {
+			sort, err = t.fixedKey(v, &main)
+		}
+		if e := smtQDel(t.numerals, &main); err == nil {
+			err = e
+		}
 		if err != nil {
 			return false, err
 		}

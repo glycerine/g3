@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
 	"github.com/glycerine/g3/pkg/util/lp"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // The generator's proto model owns the factory. The theory only borrows it.
@@ -57,6 +58,8 @@ func (t *SMTLRATheory) canGetModelValue(v SMTTheoryVar) bool {
 	return ok && (t.numeric.solver.IsTerm(index) || t.modelValues[index] != nil)
 }
 
+// cachedModelValue is get_value(v). The value is computed and cached as a
+// rational; the caller gets it as math/big for the AST numeral (a boundary).
 func (t *SMTLRATheory) cachedModelValue(v SMTTheoryVar) (value *big.Rat, err error) {
 	if err = t.numeric.ready(); err != nil {
 		return nil, err
@@ -64,9 +67,10 @@ func (t *SMTLRATheory) cachedModelValue(v SMTTheoryVar) (value *big.Rat, err err
 	if !t.canGetModelValue(v) {
 		return new(big.Rat), nil
 	}
+	q := t.numerals
 	index, _ := t.numeric.index(v)
-	if value := t.modelValues[index]; value != nil {
-		return new(big.Rat).Set(value), nil
+	if cached := t.modelValues[index]; cached != nil {
+		return smtQBig(q, cached)
 	}
 	defer func() {
 		if err != nil {
@@ -74,27 +78,29 @@ func (t *SMTLRATheory) cachedModelValue(v SMTTheoryVar) (value *big.Rat, err err
 		}
 	}()
 	term := t.numeric.solver.Terms[index-lp.LARTermStartIndex]
-	value, err = t.numeric.rational(&term.Value)
-	if err != nil {
+	result := smtQZero()
+	if err = q.Copy(&result, &term.Value); err != nil {
+		smtQDel(q, &result)
 		return nil, err
 	}
 	if t.modelValues == nil {
-		t.modelValues = make(map[uint32]*big.Rat)
+		t.modelValues = make(map[uint32]*numeral.Rational)
 	}
 	for column, coefficient := range term.Coefficients().All() {
-		c, err := t.numeric.rational(coefficient)
-		if err != nil {
-			return nil, err
-		}
 		x := t.modelValues[column]
 		if x == nil {
-			x = new(big.Rat)
+			zero := smtQZero()
+			x = &zero
 			t.modelValues[column] = x
 		}
-		value.Add(value, new(big.Rat).Mul(c, x))
+		// result += coeff * m_variable_values[column]
+		if err = q.AddMul(&result, coefficient, x, &result); err != nil {
+			smtQDel(q, &result)
+			return nil, err
+		}
 	}
-	t.modelValues[index] = new(big.Rat).Set(value)
-	return value, nil
+	t.modelValues[index] = &result
+	return smtQBig(q, &result)
 }
 
 func (t *SMTLRATheory) initializeVariableValues() error {
@@ -109,10 +115,16 @@ func (t *SMTLRATheory) initializeVariableValues() error {
 		return err
 	}
 	if t.modelValues == nil {
-		t.modelValues = make(map[uint32]*big.Rat)
+		t.modelValues = make(map[uint32]*numeral.Rational)
 	}
-	// Native GetModel updates the current extent without erasing older entries.
+	// Native GetModel updates the current extent without erasing older
+	// entries; an overwritten value is freed.
 	for column, value := range columns {
+		if old := t.modelValues[column]; old != nil {
+			if err = smtQDel(t.numerals, old); err != nil {
+				return err
+			}
+		}
 		t.modelValues[column] = value
 	}
 	return nil

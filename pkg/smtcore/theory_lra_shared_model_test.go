@@ -229,7 +229,7 @@ func TestSMTLRAModelStrictValuesTermFactoryAndOwnership(t *testing.T) {
 		handles[i], err = procedure.MakeValue(g, nil)
 		astTestMust(t, err)
 		var matched bool
-		values[i], matched, err = f.a.numeral(handles[i])
+		values[i], matched, err = f.a.numeralBig(handles[i])
 		astTestMust(t, err)
 		if !matched {
 			t.Fatal("model factory did not produce a rational numeral")
@@ -312,7 +312,7 @@ func TestSMTLRAModelRejectsFractionalIntAndUninitializedGenerator(t *testing.T) 
 		t.Fatal("model value accepted without init_model")
 	}
 	astTestMust(t, f.a.InitializeModel(g))
-	f.a.modelValues[index] = big.NewRat(3, 2)
+	f.a.modelValues[index] = f.a.testQ(big.NewRat(3, 2))
 	if _, err = f.a.ModelValue(f.s.context.enodes.get(x), g); err == nil {
 		t.Fatal("native fractional Int rejection was replaced with rounding")
 	}
@@ -340,6 +340,7 @@ func TestSMTLRAModelAllocationRefusalOwnership(t *testing.T) {
 				for i := range padding {
 					astTestMust(t, m.Del(&padding[i]))
 				}
+				astTestMust(t, f.a.delNumerals())
 				lraNumericManagerCensus(t, m)
 				astTestMust(t, f.a.Close())
 				if budget.Used() != 0 {
@@ -351,7 +352,7 @@ func TestSMTLRAModelAllocationRefusalOwnership(t *testing.T) {
 			astTestMust(t, err)
 			ten := new(big.Int).Exp(big.NewInt(10), big.NewInt(300), nil)
 			value := new(big.Rat).SetFrac(new(big.Int).Add(ten, big.NewInt(13)), new(big.Int).Add(new(big.Int).Quo(ten, big.NewInt(10)), big.NewInt(7)))
-			_, err = f.a.numeric.assertBound(v, 101, value, false, true)
+			_, err = f.a.numeric.testAssertBound(v, 101, value, false, true)
 			astTestMust(t, err)
 			status, err := f.a.numeric.makeFeasible()
 			astTestMust(t, err)
@@ -393,7 +394,7 @@ func TestSMTLRAModelAllocationRefusalOwnership(t *testing.T) {
 			} else {
 				successes++
 				index, _ := f.a.numeric.index(v)
-				if f.a.modelValues[index].Cmp(value) != 0 {
+				if f.a.testBigOf(f.a.modelValues[index]).Cmp(value) != 0 {
 					t.Fatal("model lost large exact rational")
 				}
 			}

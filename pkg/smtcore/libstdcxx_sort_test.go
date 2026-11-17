@@ -64,9 +64,9 @@ func TestLibstdcxxSortLRABoundsMatchesControl(t *testing.T) {
 		bounds := make([]*smtLRABound, len(keys))
 		for i, k := range keys {
 			bounds[i] = &smtLRABound{boolean: int32(i), upper: i%2 == 1}
-			bounds[i].value.SetInt64(int64(k))
+			bounds[i].value = lraQ(int64(k), 1)
 		}
-		libstdcxxSortLRABounds(bounds)
+		libstdcxxSortLRABounds(&SMTLRATheory{numerals: testQ()}, bounds)
 		order := make([]int, len(bounds))
 		for i, b := range bounds {
 			order[i] = int(b.boolean)

@@ -217,11 +217,16 @@ func (t *SMTLRATheory) Relevant(term ast.ASTHandle) (result error) {
 	if err != nil {
 		return err
 	}
-	value, number, err := t.numeral(y)
+	value := smtQZero()
+	number, err := t.numeral(y, &value)
+	isZero := value.IsZero()
+	if e := smtQDel(t.numerals, &value); err == nil {
+		err = e
+	}
 	if err != nil {
 		return err
 	}
-	if op != smtArithOpRem && number && value.Sign() == 0 {
+	if op != smtArithOpRem && number && isZero {
 		return nil
 	}
 	zero, err := c.number(0, op != smtArithOpDiv)

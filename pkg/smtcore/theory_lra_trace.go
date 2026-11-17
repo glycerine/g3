@@ -107,7 +107,11 @@ func (t *SMTLRATheory) displayEvidence(out io.Writer, evidence []smtLRAEvidence)
 		}
 	}
 	for _, e := range evidence {
-		if err := smtWriteTheoryText(out, fmt.Sprintf("%s: ", e.coefficient.RatString())); err != nil {
+		text := t.lraText(&e.coefficient)
+		if err := t.takeQErr(nil); err != nil {
+			return err
+		}
+		if err := smtWriteTheoryText(out, fmt.Sprintf("%s: ", text)); err != nil {
 			return err
 		}
 		if err := t.numeric.solver.PrintConstraint(e.constraint, out); err != nil {
@@ -120,7 +124,9 @@ func (t *SMTLRATheory) displayEvidence(out io.Writer, evidence []smtLRAEvidence)
 // Source make_feasible clears values and publishes counters before the verbose
 // display. Its term getter may populate zero cache entries before LP search.
 func (t *SMTLRATheory) makeFeasible() (lbool.LBool, error) {
-	t.modelValues = nil
+	if err := t.clearModelValues(); err != nil {
+		return lbool.Undef, err
+	}
 	if err := t.numeric.startFeasibility(); err != nil {
 		return lbool.Undef, err
 	}

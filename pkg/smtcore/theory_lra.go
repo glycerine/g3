@@ -16,10 +16,12 @@ import (
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
+// smtLRABound is lp_api::bound; value is owned (freed when the bound is
+// deleted) and lives on the theory's rational manager.
 type smtLRABound struct {
 	boolean  int32
 	variable SMTTheoryVar
-	value    big.Rat
+	value    numeral.Rational
 	upper    bool
 }
 
@@ -59,6 +61,7 @@ type SMTLRATheory struct {
 	numeric                           *smtLRANumeric
 	initParams                        *lp.LPParams
 	numerals                          *numeral.RationalManager
+	qErr                              error
 	constructorInteger                *numeral.IntegerManager
 	config                            SMTArithState
 	equalityAdapter                   *smtLRAEqualityAdapter
@@ -77,7 +80,7 @@ type SMTLRATheory struct {
 	fixedEqualities                   uint64
 	assumeCandidates                  []smtArithmeticEqualityCandidate
 	assumeHead                        int
-	modelValues                       map[uint32]*big.Rat
+	modelValues                       map[uint32]*numeral.Rational // m_variable_values (owned)
 	modelOwner                        *smtLRAModelOwner
 	axiomManager                      *ast.ASTManager
 	axiomRefs, pendingAxiomRoots      []ast.ASTRef
@@ -198,7 +201,92 @@ func (t *SMTLRATheory) operation(h ast.ASTHandle) (int32, bool, error) {
 	return op, err == nil, err
 }
 
-func (t *SMTLRATheory) numeral(h ast.ASTHandle) (*big.Rat, bool, error) {
+// numeral is a.is_numeral(h, out). The AST's rational lives on the AST
+// manager's mpq manager and the theory's on its own: the value crosses
+// managers through math/big (a boundary).
+func (t *SMTLRATheory) numeral(h ast.ASTHandle, out *numeral.Rational) (bool, error) {
+	value, matched, err := t.numeralBig(h)
+	if err != nil || !matched {
+		return false, err
+	}
+	return true, t.numerals.SetBigRat(out, value)
+}
+
+// isNumeral is a.is_numeral(h).
+func (t *SMTLRATheory) isNumeral(h ast.ASTHandle) (bool, error) {
+	_, matched, err := t.numeralBig(h)
+	return matched, err
+}
+
+// delNumerals frees the bounds' values (~bound) and the term bound vectors
+// before their manager closes. Freed values are left inline, so a repeated
+// call frees nothing.
+func (t *SMTLRATheory) delNumerals() error {
+	if err := t.clearModelValues(); err != nil {
+		return err
+	}
+	for _, vec := range [][]smtLRAConstraintBound{t.lowerTerms, t.upperTerms} {
+		for i := range vec {
+			if err := smtQDel(t.numerals, &vec[i].value); err != nil {
+				return err
+			}
+		}
+	}
+	for i := range t.termBoundTrail {
+		if err := smtQDel(t.numerals, &t.termBoundTrail[i].previous.value); err != nil {
+			return err
+		}
+	}
+	for _, bs := range t.bounds {
+		for _, b := range bs {
+			if err := smtQDel(t.numerals, &b.value); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// clearModelValues is m_variable_values.clear().
+func (t *SMTLRATheory) clearModelValues() error {
+	var err error
+	for _, v := range t.modelValues {
+		if e := smtQDel(t.numerals, v); err == nil {
+			err = e
+		}
+	}
+	t.modelValues = nil
+	return err
+}
+
+// lraCmp compares two of the theory's rationals; a manager failure (never
+// for live values) is kept in qErr and returned by takeQErr.
+func (t *SMTLRATheory) lraCmp(a, b *numeral.Rational) int {
+	c, err := t.numerals.Compare(a, b)
+	if err != nil && t.qErr == nil {
+		t.qErr = err
+	}
+	return c
+}
+
+// lraText is rational::to_string.
+func (t *SMTLRATheory) lraText(r *numeral.Rational) string {
+	s, err := t.numerals.String(r)
+	if err != nil && t.qErr == nil {
+		t.qErr = err
+	}
+	return s
+}
+
+func (t *SMTLRATheory) takeQErr(err error) error {
+	if t.qErr != nil && err == nil {
+		err = t.qErr
+	}
+	t.qErr = nil
+	return err
+}
+
+func (t *SMTLRATheory) numeralBig(h ast.ASTHandle) (*big.Rat, bool, error) {
 	value, _, matched, err := t.state.manager.ArithmeticNumeralBigRat(h)
 	if err != nil || !matched {
 		if matched {
@@ -310,35 +398,60 @@ func (t *SMTLRATheory) mkVar(h ast.ASTHandle) (SMTTheoryVar, error) {
 	return v, nil
 }
 
+// smtLRALinearization is scoped_internalize_state: its rationals (owned)
+// are on q; del frees them.
 type smtLRALinearization struct {
+	q             *numeral.RationalManager
 	terms         []ast.ASTHandle
-	coefficients  []big.Rat
+	coefficients  []numeral.Rational
 	variables     []SMTTheoryVar
-	constant      big.Rat
+	constant      numeral.Rational
 	toInternalize []ast.ASTHandle
 }
 
-func (s *smtLRALinearization) push(h ast.ASTHandle, coefficient *big.Rat) {
-	s.terms = append(s.terms, h)
-	s.coefficients = append(s.coefficients, *new(big.Rat).Set(coefficient))
+func (s *smtLRALinearization) del() error {
+	err := smtQDel(s.q, &s.constant)
+	for i := range s.coefficients {
+		if e := smtQDel(s.q, &s.coefficients[i]); err == nil {
+			err = e
+		}
+	}
+	s.coefficients = nil
+	return err
 }
 
-func (s *smtLRALinearization) setBack(index int) {
+func (s *smtLRALinearization) push(h ast.ASTHandle, coefficient *numeral.Rational) error {
+	s.terms = append(s.terms, h)
+	s.coefficients = append(s.coefficients, smtQZero())
+	return s.q.Copy(&s.coefficients[len(s.coefficients)-1], coefficient)
+}
+
+func (s *smtLRALinearization) setBack(index int) error {
 	last := len(s.terms) - 1
 	if index == last {
-		return
+		return nil
 	}
 	s.terms[index] = s.terms[last]
-	s.coefficients[index].Set(&s.coefficients[last])
+	if err := s.q.Copy(&s.coefficients[index], &s.coefficients[last]); err != nil {
+		return err
+	}
+	err := smtQDel(s.q, &s.coefficients[last])
 	s.terms = s.terms[:last]
 	s.coefficients = s.coefficients[:last]
+	return err
 }
 
 // Source linearize's producer-order work stack, including swap-with-last
 // removal. Constant compaction precedes variable coefficient compaction.
+// The caller frees the result (del), also after an error.
 func (t *SMTLRATheory) linearize(term ast.ASTHandle) (smtLRALinearization, error) {
-	var st smtLRALinearization
-	st.push(term, big.NewRat(1, 1))
+	q := t.numerals
+	st := smtLRALinearization{q: q, constant: smtQZero()}
+	if err := st.push(term, smtQIntPtr(1)); err != nil {
+		return st, err
+	}
+	r := smtQZero()
+	defer smtQDel(q, &r)
 	for index := 0; index < len(st.terms); {
 		if d, enabled, err := lraAssertionContext(); err != nil {
 			return st, err
@@ -358,15 +471,21 @@ func (t *SMTLRATheory) linearize(term ast.ASTHandle) (smtLRALinearization, error
 		arg := func(i uint32) (ast.ASTHandle, error) { return t.state.manager.GetArg(h, i) }
 		switch {
 		case own && op == smtArithOpAdd:
-			coefficient := new(big.Rat).Set(&st.coefficients[index])
+			if err = q.Copy(&r, &st.coefficients[index]); err != nil {
+				return st, err
+			}
 			for i := uint32(0); i < count; i++ {
 				a, e := arg(i)
 				if e != nil {
 					return st, e
 				}
-				st.push(a, coefficient)
+				if e = st.push(a, &r); e != nil {
+					return st, e
+				}
 			}
-			st.setBack(index)
+			if err = st.setBack(index); err != nil {
+				return st, err
+			}
 		case own && op == smtArithOpSub:
 			if count == 0 {
 				return st, ast.ErrASTDomain
@@ -376,13 +495,20 @@ func (t *SMTLRATheory) linearize(term ast.ASTHandle) (smtLRALinearization, error
 				return st, e
 			}
 			st.terms[index] = first
-			negative := new(big.Rat).Neg(&st.coefficients[index])
+			if err = q.Copy(&r, &st.coefficients[index]); err == nil {
+				err = q.Neg(&r)
+			}
+			if err != nil {
+				return st, err
+			}
 			for i := uint32(1); i < count; i++ {
 				a, e := arg(i)
 				if e != nil {
 					return st, e
 				}
-				st.push(a, negative)
+				if e = st.push(a, &r); e != nil {
+					return st, e
+				}
 			}
 		case own && op == smtArithOpUMinus:
 			if count != 1 {
@@ -393,16 +519,21 @@ func (t *SMTLRATheory) linearize(term ast.ASTHandle) (smtLRALinearization, error
 				return st, e
 			}
 			st.terms[index] = first
-			st.coefficients[index].Neg(&st.coefficients[index])
+			if err = q.Neg(&st.coefficients[index]); err != nil {
+				return st, err
+			}
 		case own && op == smtArithOpNum:
-			r, matched, e := t.numeral(h)
+			matched, e := t.numeral(h, &r)
 			if e != nil {
 				return st, e
 			}
 			if !matched {
 				return st, ast.ErrASTDomain
 			}
-			st.constant.Add(&st.constant, new(big.Rat).Mul(&st.coefficients[index], r))
+			// st.coeffs()[index] * r added to the offset
+			if e = q.AddMul(&st.constant, &st.coefficients[index], &r, &st.constant); e != nil {
+				return st, e
+			}
 			index++
 		default:
 			if own && op == smtArithOpMul && count == 2 {
@@ -417,22 +548,24 @@ func (t *SMTLRATheory) linearize(term ast.ASTHandle) (smtLRALinearization, error
 				// Native is_numeral has a single do/while(false) pass. Its
 				// unary-minus/to_real branches continue out of the loop and
 				// return false; only an actual numeral scales a product here.
-				coefficient, matched, e := t.numeral(first)
+				matched, e := t.numeral(first, &r)
 				if e != nil {
 					return st, e
 				}
-				factor, numeral := second, first
+				factor, numeralTerm := second, first
 				if !matched {
-					coefficient, matched, e = t.numeral(second)
-					factor, numeral = first, second
+					matched, e = t.numeral(second, &r)
+					factor, numeralTerm = first, second
 					if e != nil {
 						return st, e
 					}
 				}
 				if matched {
-					st.coefficients[index].Mul(&st.coefficients[index], coefficient)
+					if e = q.Mul(&st.coefficients[index], &r, &st.coefficients[index]); e != nil {
+						return st, e
+					}
 					st.terms[index] = factor
-					st.toInternalize = append(st.toInternalize, numeral)
+					st.toInternalize = append(st.toInternalize, numeralTerm)
 					continue
 				}
 			}
@@ -443,7 +576,7 @@ func (t *SMTLRATheory) linearize(term ast.ASTHandle) (smtLRALinearization, error
 					if e != nil {
 						return st, e
 					}
-					_, division, err = t.numeral(denominator)
+					division, err = t.isNumeral(denominator)
 					if err != nil {
 						return st, err
 					}
@@ -487,7 +620,9 @@ func (t *SMTLRATheory) linearize(term ast.ASTHandle) (smtLRALinearization, error
 			if e != nil {
 				return st, e
 			}
-			st.coefficients[len(st.variables)].Set(&st.coefficients[index])
+			if e = q.Copy(&st.coefficients[len(st.variables)], &st.coefficients[index]); e != nil {
+				return st, e
+			}
 			st.variables = append(st.variables, v)
 			index++
 		}
@@ -502,20 +637,22 @@ func (t *SMTLRATheory) linearize(term ast.ASTHandle) (smtLRALinearization, error
 
 func (t *SMTLRATheory) internalizeDef(term ast.ASTHandle) (SMTTheoryVar, error) {
 	st, err := t.linearize(term)
+	defer st.del()
 	if err != nil {
 		return SMTNullTheoryVar, err
 	}
-	if st.constant.Sign() == 0 && len(st.variables) == 1 && st.coefficients[0].Cmp(big.NewRat(1, 1)) == 0 {
+	if st.constant.IsZero() && len(st.variables) == 1 && st.coefficients[0].IsOne() {
 		return st.variables[0], nil
 	}
 	v, err := t.mkVar(term)
 	if err != nil {
 		return SMTNullTheoryVar, err
 	}
+	// The vars/coeffs pairs borrow the linearization's coefficients.
 	coefficients := make([]smtLRACoefficient, len(st.variables))
 	for i, w := range st.variables {
 		coefficients[i].variable = w
-		coefficients[i].value.Set(&st.coefficients[i])
+		coefficients[i].value = &st.coefficients[i]
 	}
 	_, wasMapped := t.numeric.index(v)
 	index, err := t.numeric.addTerm(v, coefficients, &st.constant)
@@ -540,10 +677,12 @@ func (t *SMTLRATheory) internalizeDef(term ast.ASTHandle) (SMTTheoryVar, error) 
 		})
 	}
 	if err == nil {
-		if value, number, e := t.numeral(term); e != nil {
+		value := smtQZero()
+		defer smtQDel(t.numerals, &value)
+		if number, e := t.numeral(term, &value); e != nil {
 			return v, e
 		} else if number {
-			key, e := t.fixedKey(v, value)
+			key, e := t.fixedKey(v, &value)
 			if e != nil {
 				return v, e
 			}
@@ -597,7 +736,9 @@ func (t *SMTLRATheory) InternalizeAtom(atom ast.ASTHandle, _ bool) (bool, error)
 	if err != nil {
 		return false, err
 	}
-	r, matched, err := t.numeral(rhs)
+	r := smtQZero()
+	defer smtQDel(t.numerals, &r)
+	matched, err := t.numeral(rhs, &r)
 	if err != nil {
 		return false, err
 	}
@@ -612,8 +753,10 @@ func (t *SMTLRATheory) InternalizeAtom(atom ast.ASTHandle, _ bool) (bool, error)
 	if err != nil {
 		return false, err
 	}
-	b := &smtLRABound{boolean: bv, variable: v, upper: op == smtArithOpLE}
-	b.value.Set(r)
+	b := &smtLRABound{boolean: bv, variable: v, upper: op == smtArithOpLE, value: smtQZero()}
+	if err = t.numerals.Copy(&b.value, &r); err != nil {
+		return false, err
+	}
 	t.bounds[v] = append(t.bounds[v], b)
 	if err = t.updateUnassignedBounds(v, 1); err != nil {
 		return false, err
@@ -862,6 +1005,9 @@ func (t *SMTLRATheory) PopScopes(n uint32) error {
 		last := len(t.bounds[v]) - 1
 		b := t.bounds[v][last]
 		delete(t.boundByBoolean, b.boolean)
+		if err := smtQDel(t.numerals, &b.value); err != nil {
+			return err
+		}
 		t.bounds[v][last] = nil
 		t.bounds[v] = t.bounds[v][:last]
 	}
@@ -888,6 +1034,10 @@ func (t *SMTLRATheory) PopScopes(n uint32) error {
 		bounds := t.upperTerms
 		if entry.lower {
 			bounds = t.lowerTerms
+		}
+		// The replaced bound's value is freed; the saved one is restored.
+		if err := smtQDel(t.numerals, &bounds[entry.index].value); err != nil {
+			return err
 		}
 		bounds[entry.index] = entry.previous
 		t.termBoundTrail = t.termBoundTrail[:i]
@@ -948,6 +1098,9 @@ func (t *SMTLRATheory) Close() error {
 		t.numeric = nil
 	}
 	if t.numerals != nil {
+		if err := t.delNumerals(); err != nil {
+			return err
+		}
 		if err := t.numerals.CloseChecked(); err != nil {
 			return err
 		}
@@ -971,7 +1124,7 @@ func (t *SMTLRATheory) Close() error {
 	t.termBoundTrail = nil
 	t.fixedVariables = nil
 	t.assumeCandidates = nil
-	t.modelValues = nil
+	t.modelValues = nil // freed by delNumerals
 	t.modelOwner = nil
 	t.unassigned = nil
 	t.unassignedTrail = nil

@@ -2,6 +2,7 @@ package smtcore
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"math/big"
 	"testing"
 
@@ -33,7 +34,7 @@ func TestSMTLRAFinalCheckFeasibilityCacheAndUnsupportedScope(t *testing.T) {
 	x := f.variable("lra-final-x")
 	f.assert(f.app(smtArithOpGE, x, f.number(3)), true)
 	lraFinalCheckAssignments(t, f)
-	f.a.modelValues = map[uint32]*big.Rat{0: big.NewRat(-17, 1)}
+	f.a.modelValues = map[uint32]*numeral.Rational{0: f.a.testQ(big.NewRat(-17, 1))}
 	status, err := f.a.FinalCheck()
 	astTestMust(t, err)
 	if status != SMTFinalCheckDone || f.a.numeric.solver.Bounds.Status.Value != lp.StatusOptimal || f.a.modelValues != nil {
@@ -46,8 +47,8 @@ func TestSMTLRAFinalCheckFeasibilityCacheAndUnsupportedScope(t *testing.T) {
 		t.Fatal("infeasible final value", value)
 	}
 	// An optimal solver skips make_feasible and preserves cached model values.
-	cached := big.NewRat(19, 1)
-	f.a.modelValues = map[uint32]*big.Rat{0: cached}
+	cached := f.a.testQ(big.NewRat(19, 1))
+	f.a.modelValues = map[uint32]*numeral.Rational{0: cached}
 	// The source does not add an eager cancellation check to an already
 	// optimal state without shared variables.
 	f.m.Limit.Cancel()
@@ -247,7 +248,7 @@ func TestSMTLRAFinalCheckKernelModelConflictAndRecovery(t *testing.T) {
 				t.Fatal("missing arithmetic interpretation", i)
 			}
 			var matched bool
-			values[i], matched, err = a.numeral(h)
+			values[i], matched, err = a.numeralBig(h)
 			astTestMust(t, err)
 			if !matched {
 				t.Fatal("model value is not a numeral")

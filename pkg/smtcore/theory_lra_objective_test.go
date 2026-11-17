@@ -20,7 +20,7 @@ func lraObjectiveBlockerShape(t *testing.T, f *lraFrontendFixture, h ast.ASTHand
 	astTestMust(t, err)
 	rhs, err := f.m.GetArg(h, 1)
 	astTestMust(t, err)
-	value, matched, err := f.a.numeral(rhs)
+	value, matched, err := f.a.numeralBig(rhs)
 	astTestMust(t, err)
 	node, err := f.a.Enode(v)
 	astTestMust(t, err)
@@ -193,7 +193,7 @@ func TestSMTLRAObjectiveLowerBoundReconstructionAndBooleanReuse(t *testing.T) {
 	}
 	constant, err := f.m.GetArg(lhs, 2)
 	astTestMust(t, err)
-	cv, matched, err := f.a.numeral(constant)
+	cv, matched, err := f.a.numeralBig(constant)
 	astTestMust(t, err)
 	if !matched || cv.Cmp(big.NewRat(5, 1)) != 0 {
 		t.Fatal("objective constant reconstruction", cv)
@@ -211,7 +211,7 @@ func TestSMTLRAObjectiveLowerBoundReconstructionAndBooleanReuse(t *testing.T) {
 		astTestMust(t, err)
 		owner, err := f.m.GetArg(product, 1)
 		astTestMust(t, err)
-		r, matched, err := f.a.numeral(coefficient)
+		r, matched, err := f.a.numeralBig(coefficient)
 		astTestMust(t, err)
 		if !matched {
 			t.Fatal("coefficient is not a numeral")
@@ -223,7 +223,7 @@ func TestSMTLRAObjectiveLowerBoundReconstructionAndBooleanReuse(t *testing.T) {
 	}
 	bv, found := f.s.BoolVar(base)
 	b := f.a.boundByBoolean[bv]
-	if !found || b == nil || b.variable != v || !b.upper || b.value.Cmp(big.NewRat(7, 1)) != 0 {
+	if !found || b == nil || b.variable != v || !b.upper || testQCmp(&b.value, big.NewRat(7, 1)) != 0 {
 		t.Fatal("native bound not attached to original objective", found, b)
 	}
 	decl, err := f.m.GetDecl(base)

@@ -178,7 +178,7 @@ func TestSMTLRAFixedEqualityTraceNestedQueryAndEvidence(t *testing.T) {
 		} else {
 			checkLRAFrontendOutput(t, w, tags, "")
 		}
-		_, found, err := f.a.hasFixedBound(index, big.NewRat(7, 1), true)
+		_, found, err := f.a.testHasFixedBound(index, big.NewRat(7, 1), true)
 		astTestMust(t, err)
 		if !found {
 			t.Fatal("trace damaged implicit numeral bound")

@@ -39,7 +39,7 @@ func TestSMTLRANumericFixedBoundQueryRefusalCleanup(t *testing.T) {
 			})
 			ten := new(big.Int).Exp(big.NewInt(10), big.NewInt(300), nil)
 			value := new(big.Rat).SetFrac(new(big.Int).Add(ten, big.NewInt(13)), new(big.Int).Add(new(big.Int).Quo(ten, big.NewInt(10)), big.NewInt(7)))
-			ci, err := s.assertBound(0, 101, value, false, true)
+			ci, err := s.testAssertBound(0, 101, value, false, true)
 			astTestMust(t, err)
 			index, _ := s.index(0)
 			for i := 0; i < 64; i++ {
@@ -55,8 +55,10 @@ func TestSMTLRANumericFixedBoundQueryRefusalCleanup(t *testing.T) {
 			if stats.Slots-stats.Live-stats.Retired > 1 {
 				t.Fatal("failed to reach cold numeric copy frontier", stats)
 			}
+			expected := s.testQ(value)
+			padding = append(padding, *expected)
 			budget.FailAfter(allowance)
-			witness, found, err := s.hasRationalBound(index, true, value)
+			witness, found, err := s.hasRationalBound(index, true, &padding[len(padding)-1])
 			budget.FailAfter(-1)
 			if err != nil {
 				var failure umemory.Failure
@@ -68,7 +70,7 @@ func TestSMTLRANumericFixedBoundQueryRefusalCleanup(t *testing.T) {
 				if len(s.pending) == 0 {
 					t.Fatal("refused bound output lost its owner")
 				}
-				if _, _, next := s.hasRationalBound(index, true, value); next != lp.ErrExactVectorPending {
+				if _, _, next := s.hasRationalBound(index, true, &padding[len(padding)-1]); next != lp.ErrExactVectorPending {
 					t.Fatal("stopped bound query was reused", next)
 				}
 			} else {
@@ -99,12 +101,13 @@ func lraNumericFixture(t *testing.T, strategy lp.SimplexStrategy) *smtLRANumeric
 }
 
 func lraCoefficient(v SMTTheoryVar, n, d int64) smtLRACoefficient {
-	return smtLRACoefficient{v, *big.NewRat(n, d)}
+	q := lraQ(n, d)
+	return smtLRACoefficient{v, &q}
 }
 
 func lraBound(t *testing.T, s *smtLRANumeric, v SMTTheoryVar, bv int32, n, d int64, upper, truth bool) uint32 {
 	t.Helper()
-	ci, err := s.assertBound(v, bv, big.NewRat(n, d), upper, truth)
+	ci, err := s.testAssertBound(v, bv, big.NewRat(n, d), upper, truth)
 	astTestMust(t, err)
 	return ci
 }
@@ -121,7 +124,7 @@ func lraFeasible(t *testing.T, s *smtLRANumeric, want lbool.LBool) {
 func TestSMTLRANumericOrderedCancellationAndRegistration(t *testing.T) {
 	s := lraNumericFixture(t, lp.StrategyTableauRows)
 	coefficients := []smtLRACoefficient{lraCoefficient(17, 1, 1), lraCoefficient(22, 3, 1), lraCoefficient(17, -1, 1), lraCoefficient(30, 2, 1), lraCoefficient(22, -2, 1)}
-	index, err := s.addTerm(42, coefficients, big.NewRat(7, 3))
+	index, err := s.testAddTerm(42, coefficients, big.NewRat(7, 3))
 	astTestMust(t, err)
 	if index != lp.LARTermStartIndex || len(s.variables) != 2 || s.variables[0] != 22 || s.variables[1] != 30 || s.terms[0] != 42 {
 		t.Fatal("first surviving variable order", index, s.variables, s.terms)
@@ -129,7 +132,7 @@ func TestSMTLRANumericOrderedCancellationAndRegistration(t *testing.T) {
 	if _, found := s.index(17); found {
 		t.Fatal("cancelled variable registered")
 	}
-	coefficients[1].value.SetInt64(999)
+	*coefficients[1].value = lraQ(999, 1)
 	term := s.solver.Terms[0]
 	var columns []uint32
 	for j, c := range term.Coefficients().All() {
@@ -158,7 +161,7 @@ func TestSMTLRANumericStrictOptimizationModelsAndScopeRecovery(t *testing.T) {
 	for _, strategy := range []lp.SimplexStrategy{lp.StrategyTableauRows, lp.StrategyTableauCosts} {
 		t.Run(fmt.Sprint(strategy), func(t *testing.T) {
 			s := lraNumericFixture(t, strategy)
-			_, err := s.addTerm(12, []smtLRACoefficient{lraCoefficient(5, 2, 1), lraCoefficient(9, -1, 1)}, big.NewRat(3, 1))
+			_, err := s.testAddTerm(12, []smtLRACoefficient{lraCoefficient(5, 2, 1), lraCoefficient(9, -1, 1)}, big.NewRat(3, 1))
 			astTestMust(t, err)
 			lraBound(t, s, 5, 101, 0, 1, false, true)
 			lraBound(t, s, 5, 102, 3, 1, false, false) // x<3
@@ -185,7 +188,7 @@ func TestSMTLRANumericStrictOptimizationModelsAndScopeRecovery(t *testing.T) {
 			oldValue := new(big.Rat).Set(old[12])
 			astTestMust(t, s.push())
 			lraBound(t, s, 5, 105, 2, 1, true, true)
-			_, err = s.addTerm(44, []smtLRACoefficient{lraCoefficient(31, 1, 1)}, big.NewRat(1, 1))
+			_, err = s.testAddTerm(44, []smtLRACoefficient{lraCoefficient(31, 1, 1)}, big.NewRat(1, 1))
 			astTestMust(t, err)
 			lraFeasible(t, s, lbool.True)
 			maximum, err = s.maximize(12)
@@ -258,7 +261,7 @@ func TestSMTLRANumericUnboundedAndConstantTerm(t *testing.T) {
 	if !value.Unbounded {
 		t.Fatal("free objective")
 	}
-	_, err = s.addTerm(6, nil, big.NewRat(7, 3))
+	_, err = s.testAddTerm(6, nil, big.NewRat(7, 3))
 	astTestMust(t, err)
 	lraFeasible(t, s, lbool.True)
 	value, err = s.maximize(6)
@@ -294,9 +297,12 @@ func TestSMTLRANumericInterruptedRegistrationCleanup(t *testing.T) {
 			})
 			large := new(big.Int).Exp(big.NewInt(10), big.NewInt(300), nil)
 			c := new(big.Rat).SetFrac(large, big.NewInt(7))
+			coefficient, constant := s.testQ(c), s.testQ(c)
 			budget.FailAfter(allowance)
-			_, err = s.addTerm(9, []smtLRACoefficient{{5, *c}}, c)
+			_, err = s.addTerm(9, []smtLRACoefficient{{5, coefficient}}, constant)
 			budget.FailAfter(-1)
+			astTestMust(t, manager.Del(coefficient))
+			astTestMust(t, manager.Del(constant))
 			if allowance == 0 && err == nil {
 				t.Fatal("allocation refusal was not exercised")
 			}
@@ -350,9 +356,9 @@ func lraNumericManagerCensus(t *testing.T, m *numeral.RationalManager) {
 
 func TestSMTLRANumericCoupledRowsStrictOptimumAndConflict(t *testing.T) {
 	s := lraNumericFixture(t, lp.StrategyTableauRows)
-	_, err := s.addTerm(12, []smtLRACoefficient{lraCoefficient(5, 1, 1), lraCoefficient(9, 1, 1)}, new(big.Rat))
+	_, err := s.testAddTerm(12, []smtLRACoefficient{lraCoefficient(5, 1, 1), lraCoefficient(9, 1, 1)}, new(big.Rat))
 	astTestMust(t, err)
-	_, err = s.addTerm(13, []smtLRACoefficient{lraCoefficient(5, 5, 1), lraCoefficient(9, 3, 1)}, big.NewRat(2, 1))
+	_, err = s.testAddTerm(13, []smtLRACoefficient{lraCoefficient(5, 5, 1), lraCoefficient(9, 3, 1)}, big.NewRat(2, 1))
 	astTestMust(t, err)
 	lraBound(t, s, 5, 101, 0, 1, false, true)
 	lraBound(t, s, 5, 102, 3, 1, true, true)

@@ -122,8 +122,8 @@ func TestSMTLRAImpliedBoundTruthTable(t *testing.T) {
 	for _, kind := range []lp.LConstraintKind{lp.LConstraintLE, lp.LConstraintLT, lp.LConstraintGE, lp.LConstraintGT} {
 		for _, upper := range []bool{false, true} {
 			for _, threshold := range []int64{-1, 0, 1} {
-				b := &smtLRABound{boolean: 17, upper: upper, value: *big.NewRat(threshold, 1)}
-				got := f.a.impliedBoundLiteral(kind, new(big.Rat), b)
+				b := &smtLRABound{boolean: 17, upper: upper, value: lraQ(threshold, 1)}
+				got := f.a.impliedBoundLiteral(kind, f.a.testQ(new(big.Rat)), b)
 				// Enumerate rational/epsilon witnesses on both sides of zero.
 				// The target is constant on this set exactly when it is implied.
 				seenTrue, seenFalse := false, false
@@ -383,6 +383,7 @@ func TestSMTLRALPPropagationAllocationCleanup(t *testing.T) {
 				for i := range padding {
 					astTestMust(t, m.Del(&padding[i]))
 				}
+				astTestMust(t, f.a.delNumerals())
 				lraNumericManagerCensus(t, m)
 				astTestMust(t, f.a.Close())
 				if budget.Used() != 0 {

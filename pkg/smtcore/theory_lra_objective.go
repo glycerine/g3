@@ -251,8 +251,11 @@ func (t *SMTLRATheory) MakeObjectiveLowerBound(filter *tactic.FilterModelConvert
 		if err = t.state.SetVariableTheory(bv, t.FamilyID()); err != nil {
 			return result, err
 		}
-		b := &smtLRABound{boolean: bv, variable: v, upper: strict}
-		b.value.Set(&value.Main)
+		b := &smtLRABound{boolean: bv, variable: v, upper: strict, value: smtQZero()}
+		// The optimization value is a math/big simplex value (a boundary).
+		if err = t.numerals.SetBigRat(&b.value, &value.Main); err != nil {
+			return result, err
+		}
 		// Publish ownership before the fallible axiom work, as InternalizeAtom
 		// does, so an allocation refusal leaves a registered, retryable bound.
 		t.bounds[v] = append(t.bounds[v], b)

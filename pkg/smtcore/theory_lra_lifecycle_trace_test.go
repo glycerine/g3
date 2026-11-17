@@ -63,7 +63,7 @@ func TestSMTLRALifecycleTraceFeasibilityCacheAndFactoryOrdering(t *testing.T) {
 		}
 		if tags.ShouldTrace("arith_verbose") {
 			cached := f.a.modelValues[index]
-			if !writer.seen || writer.firstCount != expectedCount || writer.factorySeen || cached == nil || cached.Cmp(big.NewRat(1, 1)) != 0 {
+			if !writer.seen || writer.firstCount != expectedCount || writer.factorySeen || cached == nil || f.a.testBigOf(cached).Cmp(big.NewRat(1, 1)) != 0 {
 				t.Fatal("counter/reset/term cache order", writer.firstCount, expectedCount, writer.factorySeen, cached)
 			}
 			if !refuse && !strings.Contains(writer.output.String(), "make_feasible src/smt/theory_lra.cpp:2150") {

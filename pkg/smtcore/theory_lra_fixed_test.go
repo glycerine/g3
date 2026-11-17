@@ -99,7 +99,7 @@ func TestSMTLRAFixedNumeralImplicitWitnesses(t *testing.T) {
 		t.Fatal("missing numeral term")
 	}
 	for _, lower := range []bool{false, true} {
-		witness, found, err := f.a.hasFixedBound(index, big.NewRat(7, 1), lower)
+		witness, found, err := f.a.testHasFixedBound(index, big.NewRat(7, 1), lower)
 		astTestMust(t, err)
 		if !found || witness != smtLRANoIndex {
 			t.Fatal("numeral did not supply an implicit hard bound", witness, found)
@@ -138,7 +138,7 @@ func TestSMTLRAFixedTermBoundsTrailAndEquality(t *testing.T) {
 	f.assert(f.app(smtArithOpGE, u, f.number(7)), true)
 	f.assert(f.app(smtArithOpGE, u, f.number(3)), true) // later weaker bound must not replace7
 	f.propagate(true)
-	witness, found, err := f.a.hasFixedBound(ui, big.NewRat(7, 1), true)
+	witness, found, err := f.a.testHasFixedBound(ui, big.NewRat(7, 1), true)
 	astTestMust(t, err)
 	if !found || witness == smtLRANoIndex {
 		t.Fatal("missing parent term-bound metadata")
@@ -155,13 +155,13 @@ func TestSMTLRAFixedTermBoundsTrailAndEquality(t *testing.T) {
 	if f.s.context.enodes.get(u).Root() == f.s.context.enodes.get(v).Root() {
 		t.Fatal("compound equality survived child scope")
 	}
-	actual, found, err := f.a.hasFixedBound(ui, big.NewRat(7, 1), true)
+	actual, found, err := f.a.testHasFixedBound(ui, big.NewRat(7, 1), true)
 	astTestMust(t, err)
 	if !found || actual != witness {
 		t.Fatal("parent term witness changed after pop", actual, witness)
 	}
 	for _, index := range []uint32{ui, vi} {
-		_, found, err = f.a.hasFixedBound(index, big.NewRat(7, 1), false)
+		_, found, err = f.a.testHasFixedBound(index, big.NewRat(7, 1), false)
 		astTestMust(t, err)
 		if found {
 			t.Fatal("child term upper bound survived pop")
@@ -188,7 +188,7 @@ func TestSMTLRAFixedCacheRevalidatesPoppedColumn(t *testing.T) {
 	}
 	// Source does not replace a still-live cached variable just because its
 	// old bounds disappeared; the later model-combination phase handles this.
-	key, err := f.a.fixedKey(f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID()), big.NewRat(5, 1))
+	key, err := f.a.testFixedKey(f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID()), big.NewRat(5, 1))
 	astTestMust(t, err)
 	if f.a.fixedVariables[key] != f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID()) {
 		t.Fatal("source stale-cache retention changed")
@@ -227,9 +227,9 @@ func TestSMTLRAFixedSortKeysAndIndependentBoundMode(t *testing.T) {
 	yv, err := f.a.internalizeDef(y)
 	astTestMust(t, err)
 	f.sort = old
-	key1, err := f.a.fixedKey(xv, big.NewRat(5, 1))
+	key1, err := f.a.testFixedKey(xv, big.NewRat(5, 1))
 	astTestMust(t, err)
-	key2, err := f.a.fixedKey(yv, big.NewRat(5, 1))
+	key2, err := f.a.testFixedKey(yv, big.NewRat(5, 1))
 	astTestMust(t, err)
 	if key1 == key2 || key1.integer || !key2.integer {
 		t.Fatal("Int and Real fixed-value keys were conflated")
@@ -272,7 +272,7 @@ func TestSMTLRAFixedEqualityConfigurationAndStrictness(t *testing.T) {
 	f.propagate(true)
 	v := f.s.context.enodes.get(x).TheoryVar(f.a.FamilyID())
 	index, _ := f.a.numeric.index(v)
-	_, found, err := f.a.hasFixedBound(index, big.NewRat(1, 1), true)
+	_, found, err := f.a.testHasFixedBound(index, big.NewRat(1, 1), true)
 	astTestMust(t, err)
 	if found {
 		t.Fatal("strict infinitesimal lower bound was treated as exact")
