@@ -316,6 +316,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_inliner_linear_facts);
     TST(z3_4_7_1_fpr_filter_interpreted);
     TST(z3_4_7_1_explanations_doc_union);
+    TST(z3_4_7_1_transformer_throw_leak);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);

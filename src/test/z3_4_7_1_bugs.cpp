@@ -3981,3 +3981,60 @@ void tst_z3_4_7_1_explanations_doc_union() {
     ENSURE(r == Z3_L_UNDEF);
     ENSURE(g_z3_4_7_1_expl_error == "trying to perform unsupported union operation on relations of kinds fpr_fact_explanation and product_relation");
 }
+
+// A rule_transformer plugin that throws: z3 4.7.1's
+// rule_transformer::operator() held the current rule set in a raw pointer
+// (new_rules) and never freed it when the plugin threw, so its rules and
+// their ASTs lived until the ast_manager died. mk_karr_invariants throws
+// this way on every rule set (its inner datalog context rejects the
+// loop-counter rules' Int columns), e.g. with fixedpoint.engine=spacer and
+// xform.karr=true. The fixed fork frees the set while unwinding.
+namespace {
+    class z3_4_7_1_throwing_transform : public datalog::rule_transformer::plugin {
+        bool m_throw;
+    public:
+        z3_4_7_1_throwing_transform(bool t): plugin(1), m_throw(t) {}
+        datalog::rule_set * operator()(datalog::rule_set const & source) override {
+            if (m_throw) {
+                throw default_exception("transform failed");
+            }
+            return nullptr;
+        }
+    };
+}
+
+static bool z3_4_7_1_run_throwing_transform(ast_manager& m, bool do_throw) {
+    datalog::register_engine re;
+    smt_params fp;
+    datalog::context ctx(m, re, fp);
+    sort* b = m.mk_bool_sort();
+    func_decl_ref pd(m.mk_func_decl(symbol("leak_p"), 1, &b, b), m);
+    ctx.register_predicate(pd, false);
+    expr* t = m.mk_true();
+    app_ref head(m.mk_app(pd, 1, &t), m);
+    ctx.add_rule(head, symbol::null);
+    datalog::rule_set& rules = ctx.get_rules();
+    datalog::rule_transformer tr(ctx);
+    tr.register_plugin(alloc(z3_4_7_1_throwing_transform, do_throw));
+    bool thrown = false;
+    try {
+        tr(rules);
+    }
+    catch (default_exception&) {
+        thrown = true;
+    }
+    return thrown;
+}
+
+void tst_z3_4_7_1_transformer_throw_leak() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    // A plugin that declines (returns no rule set) frees everything.
+    bool warm = z3_4_7_1_run_throwing_transform(m, false);
+    unsigned before = m.get_num_asts();
+    bool thrown = z3_4_7_1_run_throwing_transform(m, true);
+    unsigned after = m.get_num_asts();
+    std::cout << "transformer_throw_leak: thrown " << thrown << " ASTs before " << before << " after " << after << "\n";
+    ENSURE(!warm && thrown);
+    ENSURE(after == before);
+}
