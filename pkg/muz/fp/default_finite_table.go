@@ -133,7 +133,7 @@ func (e *PropositionalEngine) configureDatalogFiniteDefault(name string) error {
 				return err
 			}
 		}
-		if factory, err = rel.NewFiniteCheckedFactoryWithLazy(name, checker, e.lazyFinite); err != nil {
+		if factory, err = e.relations.NewFiniteCheckedFactory(name, checker, e.lazyFinite); err != nil {
 			return err
 		}
 	}

@@ -49,6 +49,17 @@ type FiniteCheckedFactory struct {
 	manager *RelationManager
 }
 
+// NewFiniteCheckedFactory is a check_table plugin of the manager m: its
+// sparse tables are m's sparse_table_plugin's.
+func (m *RelationManager) NewFiniteCheckedFactory(primaryKind, checkerKind string, lazy *LazySparseFiniteFactory) (*FiniteCheckedFactory, error) {
+	f, err := NewFiniteCheckedFactoryWithLazy(primaryKind, checkerKind, lazy)
+	if err != nil {
+		return nil, err
+	}
+	f.manager = m
+	return f, nil
+}
+
 func NewFiniteCheckedFactory(primaryKind, checkerKind string) (*FiniteCheckedFactory, error) {
 	return NewFiniteCheckedFactoryWithLazy(primaryKind, checkerKind, nil)
 }
@@ -123,10 +134,7 @@ func (f *FiniteCheckedFactory) table(kind string, signature Signature, functiona
 	case "hashtable", "tr_hashtable":
 		return NewHashTable(signature), nil
 	case "sparse", "tr_sparse":
-		if f.manager != nil {
-			return f.manager.sparsePlugin().MkEmpty(signature, functional)
-		}
-		return NewSparseTable(signature, functional)
+		return f.manager.sparsePlugin().MkEmpty(signature, functional)
 	case "bitvector", "tr_bitvector":
 		if functional != 0 {
 			return nil, ErrCheckTable
@@ -254,7 +262,8 @@ func newFiniteTableLike(template FiniteTable, signature Signature) (FiniteTable,
 		if signature.Len() == 0 {
 			return NewHashTable(signature), nil
 		}
-		return NewSparseTable(signature, 0)
+		// The template's plugin's mk_empty.
+		return concrete.plugin.MkEmpty(signature, 0)
 	case *LazySparseTable:
 		return lazySparseInstructionResult(concrete, signature, 0)
 	case *BitvectorTable:
@@ -262,7 +271,7 @@ func newFiniteTableLike(template FiniteTable, signature Signature) (FiniteTable,
 			return NewBitvectorTable(signature)
 		}
 		// get_appropriate_plugin: sparse for every nonnullary signature.
-		return NewSparseTable(signature, 0)
+		return concrete.sparse.MkEmpty(signature, 0)
 	default:
 		return nil, fmt.Errorf("%w: unsupported checked component %T", ErrCheckTable, template)
 	}

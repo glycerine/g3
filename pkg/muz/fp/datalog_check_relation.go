@@ -333,7 +333,7 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 				return nil, err
 			}
 		}
-		checkedFactory, err = rel.NewFiniteCheckedFactoryWithLazy(primary, checker, e.lazyFinite)
+		checkedFactory, err = e.relations.NewFiniteCheckedFactory(primary, checker, e.lazyFinite)
 		if err != nil {
 			return nil, err
 		}
