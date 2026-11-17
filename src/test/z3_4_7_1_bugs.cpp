@@ -3969,3 +3969,15 @@ void tst_z3_4_7_1_fpr_filter_interpreted() {
     ENSURE(r == Z3_L_UNDEF);
     ENSURE(g_z3_4_7_1_expl_error == "trying to perform unsupported filter_interpreted operation on a relation of kind fact_explanation");
 }
+
+// generate_explanations with datalog.default_relation=doc: mk_explanations'
+// transform_facts unites the product of a doc relation and the fact
+// explanation (a product_relation) into the explained relation (a
+// finite_product_relation), which has no such union; 4.7.1 called the null
+// union functor (SIGSEGV). The fixed fork throws. pkg/AUDIT.md FUZZ-F5.
+void tst_z3_4_7_1_explanations_doc_union() {
+    Z3_lbool r = z3_4_7_1_explanations_query(true);
+    std::cout << "explanations_doc_union: " << r << " " << g_z3_4_7_1_expl_error << "\n";
+    ENSURE(r == Z3_L_UNDEF);
+    ENSURE(g_z3_4_7_1_expl_error == "trying to perform unsupported union operation on relations of kinds fpr_fact_explanation and product_relation");
+}

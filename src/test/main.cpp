@@ -315,6 +315,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_table_complement_columns);
     TST(z3_4_7_1_inliner_linear_facts);
     TST(z3_4_7_1_fpr_filter_interpreted);
+    TST(z3_4_7_1_explanations_doc_union);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);
