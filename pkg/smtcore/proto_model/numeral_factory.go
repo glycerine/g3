@@ -9,6 +9,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type numeralValueSet struct {
@@ -17,7 +18,9 @@ type numeralValueSet struct {
 	// table is obj_hashtable<expr> m_values: begin() and its successors,
 	// read by get_some_value(s), follow its table order.
 	table *ast.ObjMap
-	next  big.Rat
+	// next is the rational m_next, a value of the AST manager's numeral
+	// service; it is created with the set (rational 0).
+	next numeral.OwnedRational
 }
 
 func (s *numeralValueSet) add(value ast.ASTHandle) error {
@@ -83,6 +86,11 @@ func (f *numeralFactory) valueSet(sort ast.ASTHandle) (*numeralValueSet, error) 
 		// Preserve simple_factory::get_value_set publication order: the set and
 		// map entry precede the owning sort-vector push.
 		set = &numeralValueSet{seen: make(map[ast.ASTHandle]struct{}), table: ast.NewObjMap(f.manager)}
+		next, err := f.manager.NumeralService().NewValue()
+		if err != nil {
+			return nil, err
+		}
+		set.next = next
 		f.sets[sort] = set
 		ref, err := f.manager.NewRef(sort)
 		if err != nil {
@@ -114,6 +122,24 @@ func (f *numeralFactory) insert(value *big.Rat, sort ast.ASTHandle) (ast.ASTHand
 	if err != nil {
 		return ast.ASTHandle{}, false, err
 	}
+	return f.insertValue(set, numeral)
+}
+
+// insertOwned is insert for a value of the AST manager's numeral service.
+func (f *numeralFactory) insertOwned(value *numeral.OwnedRational, sort ast.ASTHandle) (ast.ASTHandle, bool, error) {
+	set, err := f.valueSet(sort)
+	if err != nil {
+		return ast.ASTHandle{}, false, err
+	}
+	created, err := f.makeOwnedValue(value, sort)
+	if err != nil {
+		return ast.ASTHandle{}, false, err
+	}
+	return f.insertValue(set, created)
+}
+
+// insertValue is mk_value's set insertion for the numeral mk_value_core made.
+func (f *numeralFactory) insertValue(set *numeralValueSet, numeral ast.ASTHandle) (ast.ASTHandle, bool, error) {
 	fresh := false
 	if _, found := set.seen[numeral]; !found {
 		ref, err := f.manager.NewRef(numeral)
@@ -216,7 +242,7 @@ func (f *numeralFactory) SomeValues(sort ast.ASTHandle, first, second ast.ASTRef
 	return true, nil
 }
 
-func (f *numeralFactory) FreshValue(sort ast.ASTHandle) (ast.ASTHandle, error) {
+func (f *numeralFactory) FreshValue(sort ast.ASTHandle) (result ast.ASTHandle, err error) {
 	set, err := f.valueSet(sort)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -225,7 +251,15 @@ func (f *numeralFactory) FreshValue(sort ast.ASTHandle) (ast.ASTHandle, error) {
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	var maxSize big.Rat
+	q := f.manager.NumeralService().Manager
+	maxSize, start, limit := numeral.NewRational(), numeral.NewRational(), numeral.NewRational()
+	defer func() {
+		for _, r := range []*numeral.Rational{&maxSize, &start, &limit} {
+			if !r.IsSmall() {
+				err = errors.Join(err, q.Del(r))
+			}
+		}
+	}()
 	hasMax := false
 	if size.IsFinite() {
 		n, e := size.Size()
@@ -233,24 +267,38 @@ func (f *numeralFactory) FreshValue(sort ast.ASTHandle) (ast.ASTHandle, error) {
 			return ast.ASTHandle{}, e
 		}
 		if n < uint64(^uint32(0)) {
-			maxSize.SetInt(new(big.Int).SetUint64(n))
+			if e = q.SetUint64(&maxSize, n); e != nil {
+				return ast.ASTHandle{}, e
+			}
 			hasMax = true
 		}
 	}
-	start := new(big.Rat).Set(&set.next)
-	limit := new(big.Rat).Add(&maxSize, start)
+	if err = q.Copy(&start, &set.next.Raw); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if err = q.Add(&maxSize, &start, &limit); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	for {
-		value, fresh, err := f.insert(&set.next, sort)
-		if err != nil {
-			return ast.ASTHandle{}, err
+		value, fresh, e := f.insertOwned(&set.next, sort)
+		if e != nil {
+			return ast.ASTHandle{}, e
 		}
-		set.next.Add(&set.next, big.NewRat(1, 1))
-		if hasMax && set.next.Cmp(limit) > 0 {
-			return ast.ASTHandle{}, nil
+		if e = q.Inc(&set.next.Raw); e != nil {
+			return ast.ASTHandle{}, e
+		}
+		if hasMax {
+			c, e := q.Compare(&set.next.Raw, &limit)
+			if e != nil {
+				return ast.ASTHandle{}, e
+			}
+			if c > 0 {
+				return ast.ASTHandle{}, nil
+			}
 		}
 		if fresh {
-			if err := simpleFactoryAssert(201, "result != 0", func() bool { return value != (ast.ASTHandle{}) }); err != nil {
-				return ast.ASTHandle{}, err
+			if e := simpleFactoryAssert(201, "result != 0", func() bool { return value != (ast.ASTHandle{}) }); e != nil {
+				return ast.ASTHandle{}, e
 			}
 			return value, nil
 		}
@@ -287,6 +335,18 @@ func (f *numeralFactory) RegisterValue(value ast.ASTHandle) error {
 func (f *numeralFactory) Close() (err error) {
 	if f == nil || f.manager == nil {
 		return nil
+	}
+	// The value sets' m_next rationals die with the sets, in sort order.
+	if numerals := f.manager.NumeralService(); numerals != nil {
+		for i := range f.sorts {
+			sort, e := f.manager.RefGet(f.sorts[i])
+			if e != nil {
+				continue
+			}
+			if set := f.sets[sort]; set != nil && set.next != (numeral.OwnedRational{}) && !set.next.Raw.IsSmall() {
+				err = errors.Join(err, numerals.Del(&set.next))
+			}
+		}
 	}
 	f.sets = nil
 	for i := range f.sorts {
@@ -334,6 +394,60 @@ func (f *numeralFactory) makeValue(value *big.Rat, sort ast.ASTHandle) (ast.ASTH
 	}
 	return f.manager.ArithmeticNumeralRat(value, kind == 1)
 }
+
+// makeOwnedValue is makeValue for a value of the AST manager's numeral service.
+func (f *numeralFactory) makeOwnedValue(value *numeral.OwnedRational, sort ast.ASTHandle) (ast.ASTHandle, error) {
+	if f.bitVector {
+		bits, err := f.manager.BitVectorSize(sort)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		return f.manager.BitVectorNumeral(value, bits)
+	}
+	family, err := f.manager.GetFamilyID(sort)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if family != f.family {
+		return ast.ASTHandle{}, ast.ErrASTDomain
+	}
+	kind, err := f.manager.GetDeclKind(sort)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return f.manager.ArithmeticNumeral(value, kind == 1)
+}
+
+// MkNumValueRational is mk_num_value for a rational of the AST manager's
+// numeral service manager (NumeralService().Manager).
+func (f *ArithmeticFactory) MkNumValueRational(value *numeral.Rational, integer bool) (result ast.ASTHandle, err error) {
+	if f == nil || f.numeralFactory == nil {
+		return ast.ASTHandle{}, ast.ErrASTHandle
+	}
+	if err := f.open(); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	kind := int32(0)
+	if integer {
+		kind = 1
+	}
+	sort, err := f.manager.MkFamilySort(f.family, kind, nil)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	numerals := f.manager.NumeralService()
+	owned, err := numerals.NewValue()
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	defer func() { err = errors.Join(err, numerals.CleanupValue(&owned)) }()
+	if err = numerals.Manager.Copy(&owned.Raw, value); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	result, _, err = f.insertOwned(&owned, sort)
+	return result, err
+}
+
 func (f *ArithmeticFactory) MkNumValue(value *big.Rat, integer bool) (ast.ASTHandle, error) {
 	if f == nil || f.numeralFactory == nil {
 		return ast.ASTHandle{}, ast.ErrASTHandle

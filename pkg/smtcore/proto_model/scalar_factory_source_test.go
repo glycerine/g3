@@ -206,8 +206,8 @@ func TestScalarFactorySourceNumeralExplicitValuesAndEnumeration(t *testing.T) {
 	protoMust(t, err)
 	text, integer, matched, err := m.ArithmeticNumeralText(fresh)
 	protoMust(t, err)
-	if !matched || integer || text != "1" || arith.sets[sort].next.Cmp(big.NewRat(2, 1)) != 0 {
-		t.Fatal("concrete rational cursor", text, arith.sets[sort].next.String())
+	if !matched || integer || text != "1" || protoNextRat(t, m, arith.sets[sort]).Cmp(big.NewRat(2, 1)) != 0 {
+		t.Fatal("concrete rational cursor", text, protoNextRat(t, m, arith.sets[sort]).String())
 	}
 	bv, err := NewBitVectorFactory(m)
 	protoMust(t, err)
@@ -245,15 +245,15 @@ func TestScalarFactorySourceBVExhaustionAndCursor(t *testing.T) {
 	}
 	fresh, err := p.FreshValue(sort)
 	protoMust(t, err)
-	if !fresh.IsNull() || f.sets[sort].next.Cmp(big.NewRat(3, 1)) != 0 {
-		t.Fatal("source finite collision limit", fresh, f.sets[sort].next.String())
+	if !fresh.IsNull() || protoNextRat(t, m, f.sets[sort]).Cmp(big.NewRat(3, 1)) != 0 {
+		t.Fatal("source finite collision limit", fresh, protoNextRat(t, m, f.sets[sort]).String())
 	}
 	// Each retry starts a new relative scan instead of treating next as an
 	// absolute domain bound. One-bit numeral construction wraps each candidate.
 	fresh, err = p.FreshValue(sort)
 	protoMust(t, err)
-	if !fresh.IsNull() || f.sets[sort].next.Cmp(big.NewRat(6, 1)) != 0 {
-		t.Fatal("source relative scan limit", fresh, f.sets[sort].next.String())
+	if !fresh.IsNull() || protoNextRat(t, m, f.sets[sort]).Cmp(big.NewRat(6, 1)) != 0 {
+		t.Fatal("source relative scan limit", fresh, protoNextRat(t, m, f.sets[sort]).String())
 	}
 }
 
@@ -317,11 +317,11 @@ func TestScalarFactorySourceAllocationFailureCursorRetry(t *testing.T) {
 							t.Fatal("failed unsigned constructor advanced cursor")
 						}
 					case *ArithmeticFactory:
-						if f.sets[sort].next.Sign() != 0 {
+						if protoNextRat(t, m, f.sets[sort]).Sign() != 0 {
 							t.Fatal("failed rational constructor advanced cursor")
 						}
 					case *BitVectorFactory:
-						if f.sets[sort].next.Sign() != 0 {
+						if protoNextRat(t, m, f.sets[sort]).Sign() != 0 {
 							t.Fatal("failed rational BV constructor advanced cursor")
 						}
 					}
@@ -568,4 +568,12 @@ func TestSimpleFactoriesPublishSetBeforeSortReference(t *testing.T) {
 			t.Fatal("datalog warm lookup retried sort acquisition")
 		}
 	})
+}
+
+// protoNextRat reads a numeral value set's m_next cursor.
+func protoNextRat(t *testing.T, m *ast.ASTManager, set *numeralValueSet) *big.Rat {
+	t.Helper()
+	out := new(big.Rat)
+	protoMust(t, m.NumeralService().Manager.BigRatOf(&set.next.Raw, out))
+	return out
 }

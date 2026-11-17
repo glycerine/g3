@@ -3812,11 +3812,7 @@ func (t *SMTTheoryArith) ModelValue(n *SMTEnode, mg *SMTModelGenerator) (SMTMode
 	if err != nil {
 		return nil, err
 	}
-	b, err := smtQBig(q, &num)
-	if err != nil {
-		return nil, err
-	}
-	value, err := t.factory.MkNumValue(b, isIntSrc)
+	value, err := t.factory.MkNumValueRational(&num, isIntSrc)
 	if err != nil {
 		return nil, err
 	}
