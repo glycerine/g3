@@ -136,7 +136,7 @@ func (a *smtArithmeticEqualityAdapter) mkAxiomsSource(n1, n2 *SMTEnode) (result 
 		return x.hold(m.MkFamilyApp(family, op, nil, args))
 	}
 	isNumeral := func(h ast.ASTHandle) bool {
-		_, _, matched, err := m.ArithmeticNumeralText(h)
+		matched, err := m.IsArithmeticNumeral(h)
 		return err == nil && matched
 	}
 	var le, ge ast.ASTHandle

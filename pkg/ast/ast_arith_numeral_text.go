@@ -27,6 +27,28 @@ func (m *ASTManager) ArithmeticNumeralText(h ASTHandle) (value string, integer, 
 	return value, integer, true, nil
 }
 
+// IsArithmeticNumeral is ArithmeticNumeralText's matched result for callers
+// that only test for a numeral. A small rational is not formatted (its text
+// never goes through mpn); a large one still is, so the mpn_to_string trace
+// and String's errors are unchanged.
+func (m *ASTManager) IsArithmeticNumeral(h ASTHandle) (bool, error) {
+	if err := m.lock(); err != nil {
+		return false, err
+	}
+	defer m.mu.Unlock()
+	rational, _, matched, err := m.arithmeticNumeralParameter(h)
+	if err != nil || !matched {
+		return false, err
+	}
+	if raw := &rational.Raw; raw.Num.Cell == 0 && raw.Den.Cell == 0 && raw.Den.Val > 0 {
+		return true, nil
+	}
+	if _, err = m.numerals.String(rational); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // ArithmeticNumeralBigRat is ArithmeticNumeralText followed by
 // big.Rat.SetString of the text, without the text when the numeral is small.
 // A text that does not parse reports ErrASTDomain with matched set.

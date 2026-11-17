@@ -42,12 +42,13 @@ func (t *SMTTheoryArith) isOp(n ast.ASTHandle, op int32) bool {
 
 // isNumeral is m_util.is_numeral(n, r).
 func (t *SMTTheoryArith) isNumeral(n ast.ASTHandle) (*big.Rat, bool) {
-	text, _, matched, err := t.state.manager.ArithmeticNumeralText(n)
+	// ArithmeticNumeralBigRat is ArithmeticNumeralText + SetString without
+	// the decimal round trip; a text that does not parse is an error.
+	r, _, matched, err := t.state.manager.ArithmeticNumeralBigRat(n)
 	if err != nil || !matched {
 		return nil, false
 	}
-	r, ok := new(big.Rat).SetString(text)
-	return r, ok
+	return r, true
 }
 
 // isIntSort is m_util.is_int(e): e has sort Int.

@@ -45,8 +45,7 @@ func (s *SMTInternalizerState) MkEqAtom(lhs, rhs ast.ASTHandle) (ast.ASTHandle, 
 // smaller id goes left; identical sides give true, two numerals false.
 func smtArithUtilMkEq(m *ast.ASTManager, lhs, rhs ast.ASTHandle) (ast.ASTHandle, error) {
 	numeral := func(h ast.ASTHandle) (bool, error) {
-		_, _, yes, err := m.ArithmeticNumeralText(h)
-		return yes, err
+		return m.IsArithmeticNumeral(h)
 	}
 	ln, err := numeral(lhs)
 	if err != nil {
