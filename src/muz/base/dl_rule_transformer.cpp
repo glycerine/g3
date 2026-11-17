@@ -91,7 +91,18 @@ namespace datalog {
             IF_VERBOSE(1, verbose_stream() << "(transform " << typeid(p).name() << "...";);
             stopwatch sw;
             sw.start();
-            rule_set * new_rules1 = p(*new_rules);
+            // FORK FIX #112 (g3 audit, see FORK_BUGFIXES.md): a plugin that
+            // throws (mk_karr_invariants' inner rel_query rejects the
+            // loop-counter rules' Int columns) left new_rules, and the
+            // ASTs of its rules, allocated until the ast_manager died.
+            rule_set * new_rules1 = nullptr;
+            try {
+                new_rules1 = p(*new_rules);
+            }
+            catch (...) {
+                dealloc(new_rules);
+                throw;
+            }
             sw.stop();
             double sec = sw.get_seconds();
             if (sec < 0.001) sec = 0.0;
