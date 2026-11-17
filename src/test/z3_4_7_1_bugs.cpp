@@ -4376,3 +4376,47 @@ void tst_z3_4_7_1_bit_blast_add_fact() {
     Z3_del_context(c);
     ENSURE(r == Z3_L_TRUE);
 }
+
+// FORK FIX #121: FORK FIX #120 copied only a table relation's rows into the
+// bit-blasted predicate. With a relation that is not a table (a doc
+// relation, or a check_relation over a sparse table) the fact p(1) stayed
+// behind and q(x) :- p(x) answered unsat again.
+static Z3_lbool bit_blast_relation_fact_query(char const* key, char const* kind) {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context c = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_fixedpoint fp = Z3_mk_fixedpoint(c);
+    Z3_fixedpoint_inc_ref(c, fp);
+    Z3_params p = Z3_mk_params(c);
+    Z3_params_inc_ref(c, p);
+    Z3_params_set_symbol(c, p, Z3_mk_string_symbol(c, "engine"), Z3_mk_string_symbol(c, "datalog"));
+    Z3_params_set_symbol(c, p, Z3_mk_string_symbol(c, key), Z3_mk_string_symbol(c, kind));
+    Z3_params_set_bool(c, p, Z3_mk_string_symbol(c, "xform.bit_blast"), true);
+    Z3_fixedpoint_set_params(c, fp, p);
+    Z3_sort S = Z3_mk_bv_sort(c, 2);
+    Z3_sort B = Z3_mk_bool_sort(c);
+    Z3_func_decl pd = Z3_mk_func_decl(c, Z3_mk_string_symbol(c, "p"), 1, &S, B);
+    Z3_func_decl qd = Z3_mk_func_decl(c, Z3_mk_string_symbol(c, "q"), 1, &S, B);
+    Z3_fixedpoint_register_relation(c, fp, pd);
+    Z3_fixedpoint_register_relation(c, fp, qd);
+    unsigned one = 1;
+    Z3_fixedpoint_add_fact(c, fp, pd, 1, &one);
+    Z3_ast x = Z3_mk_bound(c, 0, S);
+    Z3_symbol name = Z3_mk_string_symbol(c, "x");
+    Z3_ast rule = Z3_mk_implies(c, Z3_mk_app(c, pd, 1, &x), Z3_mk_app(c, qd, 1, &x));
+    Z3_fixedpoint_add_rule(c, fp, Z3_mk_forall(c, 0, 0, nullptr, 1, &S, &name, rule), Z3_mk_string_symbol(c, "r"));
+    Z3_ast q = Z3_mk_exists(c, 0, 0, nullptr, 1, &S, &name, Z3_mk_app(c, qd, 1, &x));
+    Z3_lbool r = Z3_fixedpoint_query(c, fp, q);
+    Z3_params_dec_ref(c, p);
+    Z3_fixedpoint_dec_ref(c, fp);
+    Z3_del_context(c);
+    return r;
+}
+
+void tst_z3_4_7_1_bit_blast_relation_fact() {
+    Z3_lbool doc = bit_blast_relation_fact_query("datalog.default_relation", "doc");
+    Z3_lbool chk = bit_blast_relation_fact_query("datalog.check_relation", "tr_sparse");
+    std::cout << "bit_blast_relation_fact: doc " << doc << " check_relation " << chk << "\n";
+    ENSURE(doc == Z3_L_TRUE);
+    ENSURE(chk == Z3_L_TRUE);
+}

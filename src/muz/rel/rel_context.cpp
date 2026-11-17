@@ -581,30 +581,67 @@ namespace datalog {
     // bit first (the order of the blasted predicate's arguments).
     void rel_context::add_bit_blasted_facts(func_decl* old_pred, func_decl* new_pred) {
         relation_base* r = try_get_relation(old_pred);
-        if (!r || r->empty() || !r->from_table()) {
+        // FORK FIX #121 (g3 audit, see FORK_BUGFIXES.md): relations of
+        // every kind keep their facts, not only table relations.
+        if (!r || r->empty()) {
             return;
         }
         bv_util bv(m);
         unsigned_vector widths;
+        unsigned bits = 0;
         for (unsigned i = 0; i < old_pred->get_arity(); ++i) {
             sort* s = old_pred->get_domain(i);
             if (!bv.is_bv_sort(s)) {
                 return;
             }
             widths.push_back(bv.get_bv_size(s));
+            bits += widths.back();
         }
-        table_base const& t = static_cast<table_relation*>(r)->get_table();
         vector<table_fact> facts;
         table_fact f;
-        for (table_base::iterator it = t.begin(), end = t.end(); it != end; ++it) {
-            it->get_fact(f);
+        if (r->from_table()) {
+            table_base const& t = static_cast<table_relation*>(r)->get_table();
+            for (table_base::iterator it = t.begin(), end = t.end(); it != end; ++it) {
+                it->get_fact(f);
+                facts.push_back(f);
+            }
+        }
+        else {
+            // FORK FIX #121 (g3 audit, see FORK_BUGFIXES.md): a relation
+            // that is not a table (check_relation, doc, product, ...) has
+            // no row iterator: ask contains_fact of every tuple of the
+            // columns' domains, first column slowest.
+            if (bits > 24) {
+                throw default_exception("bit-blast: relation of more than 24 bits cannot be enumerated");
+            }
+            f.resize(widths.size(), 0);
+            for (uint64_t n = 0; n < (1ull << bits); ++n) {
+                uint64_t v = n;
+                for (unsigned i = widths.size(); i-- > 0; ) {
+                    f[i] = v & ((1ull << widths[i]) - 1);
+                    v >>= widths[i];
+                }
+                bool found;
+                {
+                    relation_fact rf(m);
+                    for (unsigned i = 0; i < f.size(); ++i) {
+                        rf.push_back(m_context.get_decl_util().mk_numeral(f[i], old_pred->get_domain(i)));
+                    }
+                    found = r->contains_fact(rf);
+                }
+                if (found) {
+                    facts.push_back(f);
+                }
+            }
+        }
+        for (unsigned j = 0; j < facts.size(); ++j) {
             table_fact g;
             for (unsigned i = 0; i < widths.size(); ++i) {
                 for (unsigned k = 0; k < widths[i]; ++k) {
-                    g.push_back((f[i] >> k) & 1);
+                    g.push_back((facts[j][i] >> k) & 1);
                 }
             }
-            facts.push_back(g);
+            facts[j] = g;
         }
         for (table_fact const& g : facts) {
             add_fact(new_pred, g);
