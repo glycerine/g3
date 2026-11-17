@@ -1,0 +1,12 @@
+sort S bv 3
+param engine datalog
+param datalog.explanations_on_relation_level true
+param datalog.default_relation doc
+param xform.bit_blast true
+setparams
+vars x S y S z S
+rel r4 S S
+rel r5 S S
+fact r5 7 4
+rule n2 (=> (r5 x y) (r4 y x))
+query (r4 y x)

@@ -1,0 +1,98 @@
+> sort S bv 4
+> param engine datalog
+> param xform.bit_blast true
+> param xform.fix_unbound_vars true
+> param datalog.check_relation doc
+> setparams
+> vars x S y S z S
+> rel r0 S S
+> rel r1 
+> rel r2 S S
+> rel r3 S
+> repr r3 tr_bitvector
+> fact r0 4 10
+> fact r0 11 14
+> fact r0 5 9
+> fact r2 15 0
+> fact r0 10 6
+> rule n0 (=> (and (r2 10:S y) (r2 x x) (not r1)) (r2 7:S 15:S))
+> rule n1 (=> (and (r3 x) (r3 z) r1) (r2 9:S y))
+> rule n2 (=> r1 (r3 7:S))
+> rule n3 (=> r1 r1)
+> rule n4 (=> (and (r2 x y) r1 (r0 z z)) (r3 y))
+> qrel r0 r3
+result 1
+(and (or (and (= (:var 0) false)
+              (= (:var 1) false)
+              (= (:var 2) true)
+              (= (:var 3) false)
+              (= (:var 4) false)
+              (= (:var 5) true)
+              (= (:var 6) false)
+              (= (:var 7) true))
+         (and (= (:var 0) true)
+              (= (:var 1) false)
+              (= (:var 2) true)
+              (= (:var 3) false)
+              (= (:var 4) true)
+              (= (:var 5) false)
+              (= (:var 6) false)
+              (= (:var 7) true))
+         (and (= (:var 0) false)
+              (= (:var 1) true)
+              (= (:var 2) false)
+              (= (:var 3) true)
+              (= (:var 4) false)
+              (= (:var 5) true)
+              (= (:var 6) true)
+              (= (:var 7) false))
+         (and (= (:var 0) true)
+              (= (:var 1) true)
+              (= (:var 2) false)
+              (= (:var 3) true)
+              (= (:var 4) false)
+              (= (:var 5) true)
+              (= (:var 6) true)
+              (= (:var 7) true)))
+     false)
+> param datalog.default_relation pentagon
+> setparams
+> query r1
+result -1
+false
+> rule n0 (=> (and (r2 y x) (r2 14:S x) (r2 5:S y)) (r2 y y))
+> qrel r0 r3
+result 1
+(and (or (and (= (:var 0) false)
+              (= (:var 1) false)
+              (= (:var 2) true)
+              (= (:var 3) false)
+              (= (:var 4) false)
+              (= (:var 5) true)
+              (= (:var 6) false)
+              (= (:var 7) true))
+         (and (= (:var 0) true)
+              (= (:var 1) false)
+              (= (:var 2) true)
+              (= (:var 3) false)
+              (= (:var 4) true)
+              (= (:var 5) false)
+              (= (:var 6) false)
+              (= (:var 7) true))
+         (and (= (:var 0) false)
+              (= (:var 1) true)
+              (= (:var 2) false)
+              (= (:var 3) true)
+              (= (:var 4) false)
+              (= (:var 5) true)
+              (= (:var 6) true)
+              (= (:var 7) false))
+         (and (= (:var 0) true)
+              (= (:var 1) true)
+              (= (:var 2) false)
+              (= (:var 3) true)
+              (= (:var 4) false)
+              (= (:var 5) true)
+              (= (:var 6) true)
+              (= (:var 7) true)))
+     false)
