@@ -1,63 +1,323 @@
 package smtcore
 
-// Source: src/util/inf_rational.h operations used by src/smt/theory_arith*.h.
-// An smtArithmeticValue is inf_numeral: infinity + rational + infinitesimal
-// in lexicographic order. mi_ext keeps infinity zero; i_ext keeps both
-// infinity and infinitesimal zero. Never assign these structs by value:
-// big.Rat shares backing storage, so use set.
+// Source: src/util/inf_rational.h, src/util/inf_eps_rational.h and
+// src/util/rational.h operations used by src/smt/theory_arith*.h.
+//
+// numeral is z3's rational: a numeral.Rational whose operations run on the
+// AST manager's synchronized mpq manager (rational's g_mpq_manager). An
+// smtArithmeticValue is inf_numeral: infinity + rational + infinitesimal in
+// lexicographic order. mi_ext keeps infinity zero (inf_rational); i_ext
+// keeps infinity and infinitesimal zero (rational). A zero infinity takes
+// no mpq operation, as inf_rational has no such component.
+//
+// A numeral.Rational may own a cell: never copy one by value (use set /
+// Copy), and free it with del where the source's destructor or scoped
+// numeral frees it. The zero Go value is not a number (its denominator is
+// 0): initialize with smtQZero / init before use.
 
 import (
 	"math"
 	"math/big"
+
+	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (v *smtArithmeticValue) reset() {
-	v.infinity.SetInt64(0)
-	v.rational.SetInt64(0)
-	v.infinitesimal.SetInt64(0)
+// smtQZero is rational(0); smtQInt is rational(int).
+func smtQZero() numeral.Rational { return numeral.NewRational() }
+func smtQInt(v int32) numeral.Rational {
+	return numeral.Rational{Num: numeral.NewInt(v), Den: numeral.NewInt(1)}
 }
 
-func (v *smtArithmeticValue) setRational(q *big.Rat) {
-	v.infinity.SetInt64(0)
-	v.rational.Set(q)
-	v.infinitesimal.SetInt64(0)
+// smtQSetInt sets r = v.
+func smtQSetInt(q *numeral.RationalManager, r *numeral.Rational, v int64) error {
+	return q.SetInt64(r, v)
 }
 
-func (v *smtArithmeticValue) neg() {
-	v.infinity.Neg(&v.infinity)
-	v.rational.Neg(&v.rational)
-	v.infinitesimal.Neg(&v.infinitesimal)
+// smtQFromBig sets r to a math/big value (a boundary conversion).
+func smtQFromBig(q *numeral.RationalManager, r *numeral.Rational, x *big.Rat) error {
+	return q.SetBigRat(r, x)
 }
 
-func (v *smtArithmeticValue) mulRat(q *big.Rat) {
-	smtRatMul(&v.infinity, &v.infinity, q)
-	smtRatMul(&v.rational, &v.rational, q)
-	smtRatMul(&v.infinitesimal, &v.infinitesimal, q)
+// smtQBig returns r as a new math/big value (a boundary conversion).
+func smtQBig(q *numeral.RationalManager, r *numeral.Rational) (*big.Rat, error) {
+	out := new(big.Rat)
+	return out, q.BigRatOf(r, out)
 }
 
-func (v *smtArithmeticValue) quoRat(q *big.Rat) {
-	smtRatQuo(&v.infinity, &v.infinity, q)
-	smtRatQuo(&v.rational, &v.rational, q)
-	smtRatQuo(&v.infinitesimal, &v.infinitesimal, q)
+// smtQNew returns a fresh copy of r (rational's copy constructor).
+func smtQNew(q *numeral.RationalManager, r *numeral.Rational) (numeral.Rational, error) {
+	out := smtQZero()
+	return out, q.Copy(&out, r)
 }
 
-// addMul sets v += q*x; subMul sets v -= q*x.
-func (v *smtArithmeticValue) addMul(q *big.Rat, x *smtArithmeticValue) {
-	var t big.Rat
-	smtRatAdd(&v.infinity, &v.infinity, smtRatMul(&t, q, &x.infinity))
-	smtRatAdd(&v.rational, &v.rational, smtRatMul(&t, q, &x.rational))
-	smtRatAdd(&v.infinitesimal, &v.infinitesimal, smtRatMul(&t, q, &x.infinitesimal))
+// smtQDel is rational's destructor: mpz's del frees only a cell, so an
+// inline value takes no manager call.
+func smtQDel(q *numeral.RationalManager, r *numeral.Rational) error {
+	if r.IsSmall() {
+		return nil
+	}
+	return q.Del(r)
 }
 
-func (v *smtArithmeticValue) subMul(q *big.Rat, x *smtArithmeticValue) {
-	var t big.Rat
-	smtRatSub(&v.infinity, &v.infinity, smtRatMul(&t, q, &x.infinity))
-	smtRatSub(&v.rational, &v.rational, smtRatMul(&t, q, &x.rational))
-	smtRatSub(&v.infinitesimal, &v.infinitesimal, smtRatMul(&t, q, &x.infinitesimal))
+// smtQDelAll frees a vector of rationals and empties it.
+func smtQDelAll(q *numeral.RationalManager, rs []numeral.Rational) ([]numeral.Rational, error) {
+	var err error
+	for i := range rs {
+		if e := smtQDel(q, &rs[i]); e != nil && err == nil {
+			err = e
+		}
+	}
+	return rs[:0], err
+}
+
+// smtQFloor is floor(r); smtQCeil is ceil(r).
+func smtQFloor(q *numeral.RationalManager, r, out *numeral.Rational) error { return q.Floor(r, out) }
+func smtQCeil(q *numeral.RationalManager, r, out *numeral.Rational) error  { return q.Ceil(r, out) }
+
+// smtQIsBig is rational::is_big.
+func smtQIsBig(r *numeral.Rational) bool { return !r.IsSmall() }
+
+// smtQStorageSize is rational::storage_size: mpz_manager::size_info of the
+// numerator plus that of the denominator (1 for an inline mpz, m_size + 1
+// for a cell).
+func smtQStorageSize(q *numeral.RationalManager, r *numeral.Rational) (uint, error) {
+	if r.IsSmall() {
+		return 2, nil
+	}
+	n, err := q.StorageSize(r)
+	return uint(n), err
+}
+
+// smtQZeroShortcut: in a release build an infinitesimal operation whose
+// result is its unchanged zero or nonzero operand (0 + x, x * 0, 0 = 0 ...)
+// takes no mpq call. The value and its representation are those the call
+// leaves; g3trace and g3debug builds make every call, so each mpq trace and
+// assertion is kept.
+var smtQZeroShortcut = !diagnostic.TraceCompiled() && !diagnostic.DebugBuild
+
+func newSMTArithmeticValue() smtArithmeticValue {
+	return smtArithmeticValue{infinity: smtQZero(), rational: smtQZero(), infinitesimal: smtQZero()}
+}
+
+// init makes a value that owns no cell zero.
+func (v *smtArithmeticValue) init() { *v = newSMTArithmeticValue() }
+
+func (v *smtArithmeticValue) del(q *numeral.RationalManager) error {
+	err := smtQDel(q, &v.infinity)
+	if e := smtQDel(q, &v.rational); e != nil && err == nil {
+		err = e
+	}
+	if e := smtQDel(q, &v.infinitesimal); e != nil && err == nil {
+		err = e
+	}
+	return err
+}
+
+// smtArithValuesDel frees a vector of values and empties it.
+func smtArithValuesDel(q *numeral.RationalManager, vs []smtArithmeticValue) ([]smtArithmeticValue, error) {
+	var err error
+	for i := range vs {
+		if e := vs[i].del(q); e != nil && err == nil {
+			err = e
+		}
+	}
+	return vs[:0], err
+}
+
+func (v *smtArithmeticValue) reset(q *numeral.RationalManager) error {
+	if !v.infinity.IsZero() {
+		if err := q.Reset(&v.infinity); err != nil {
+			return err
+		}
+	}
+	if err := q.Reset(&v.rational); err != nil {
+		return err
+	}
+	if smtQZeroShortcut && v.infinitesimal.IsZero() && v.infinitesimal.IsSmall() && v.infinitesimal.Den.Val == 1 {
+		return nil
+	}
+	return q.Reset(&v.infinitesimal)
+}
+
+func (v *smtArithmeticValue) set(q *numeral.RationalManager, other *smtArithmeticValue) error {
+	if v == other {
+		return nil
+	}
+	if !v.infinity.IsZero() || !other.infinity.IsZero() {
+		if err := q.Copy(&v.infinity, &other.infinity); err != nil {
+			return err
+		}
+	}
+	if err := q.Copy(&v.rational, &other.rational); err != nil {
+		return err
+	}
+	if smtQZeroShortcut && v.infinitesimal.IsZero() && other.infinitesimal.IsZero() && v.infinitesimal.IsSmall() && v.infinitesimal.Den.Val == 1 {
+		return nil
+	}
+	return q.Copy(&v.infinitesimal, &other.infinitesimal)
+}
+
+// setRational is inf_numeral = rational.
+func (v *smtArithmeticValue) setRational(q *numeral.RationalManager, r *numeral.Rational) error {
+	if !v.infinity.IsZero() {
+		if err := q.Reset(&v.infinity); err != nil {
+			return err
+		}
+	}
+	if err := q.Copy(&v.rational, r); err != nil {
+		return err
+	}
+	return q.Reset(&v.infinitesimal)
+}
+
+// setInt is inf_numeral = rational(k).
+func (v *smtArithmeticValue) setInt(q *numeral.RationalManager, k int64) error {
+	if !v.infinity.IsZero() {
+		if err := q.Reset(&v.infinity); err != nil {
+			return err
+		}
+	}
+	if err := q.SetInt64(&v.rational, k); err != nil {
+		return err
+	}
+	return q.Reset(&v.infinitesimal)
+}
+
+func (v *smtArithmeticValue) neg(q *numeral.RationalManager) error {
+	if !v.infinity.IsZero() {
+		if err := q.Neg(&v.infinity); err != nil {
+			return err
+		}
+	}
+	if err := q.Neg(&v.rational); err != nil {
+		return err
+	}
+	if smtQZeroShortcut && v.infinitesimal.IsZero() {
+		return nil
+	}
+	return q.Neg(&v.infinitesimal)
+}
+
+func (v *smtArithmeticValue) add(q *numeral.RationalManager, other *smtArithmeticValue) error {
+	if !other.infinity.IsZero() {
+		if err := q.Add(&v.infinity, &other.infinity, &v.infinity); err != nil {
+			return err
+		}
+	}
+	if err := q.Add(&v.rational, &other.rational, &v.rational); err != nil {
+		return err
+	}
+	if smtQZeroShortcut && other.infinitesimal.IsZero() {
+		return nil
+	}
+	return q.Add(&v.infinitesimal, &other.infinitesimal, &v.infinitesimal)
+}
+
+func (v *smtArithmeticValue) sub(q *numeral.RationalManager, other *smtArithmeticValue) error {
+	if !other.infinity.IsZero() {
+		if err := q.Sub(&v.infinity, &other.infinity, &v.infinity); err != nil {
+			return err
+		}
+	}
+	if err := q.Sub(&v.rational, &other.rational, &v.rational); err != nil {
+		return err
+	}
+	if smtQZeroShortcut && other.infinitesimal.IsZero() {
+		return nil
+	}
+	return q.Sub(&v.infinitesimal, &other.infinitesimal, &v.infinitesimal)
+}
+
+// mulRat is inf_numeral *= rational; quoRat is inf_numeral /= rational.
+func (v *smtArithmeticValue) mulRat(q *numeral.RationalManager, r *numeral.Rational) error {
+	if !v.infinity.IsZero() {
+		if err := q.Mul(&v.infinity, r, &v.infinity); err != nil {
+			return err
+		}
+	}
+	if err := q.Mul(&v.rational, r, &v.rational); err != nil {
+		return err
+	}
+	if smtQZeroShortcut && v.infinitesimal.IsZero() {
+		return nil
+	}
+	return q.Mul(&v.infinitesimal, r, &v.infinitesimal)
+}
+
+func (v *smtArithmeticValue) quoRat(q *numeral.RationalManager, r *numeral.Rational) error {
+	if !v.infinity.IsZero() {
+		if err := q.Div(&v.infinity, r, &v.infinity); err != nil {
+			return err
+		}
+	}
+	if err := q.Div(&v.rational, r, &v.rational); err != nil {
+		return err
+	}
+	if smtQZeroShortcut && v.infinitesimal.IsZero() {
+		return nil // the rational division already rejected r = 0
+	}
+	return q.Div(&v.infinitesimal, r, &v.infinitesimal)
+}
+
+// addMul sets v += r*x; subMul sets v -= r*x.
+func (v *smtArithmeticValue) addMul(q *numeral.RationalManager, r *numeral.Rational, x *smtArithmeticValue) error {
+	if !x.infinity.IsZero() {
+		if err := q.AddMul(&v.infinity, r, &x.infinity, &v.infinity); err != nil {
+			return err
+		}
+	}
+	if err := q.AddMul(&v.rational, r, &x.rational, &v.rational); err != nil {
+		return err
+	}
+	if smtQZeroShortcut && x.infinitesimal.IsZero() {
+		return nil
+	}
+	return q.AddMul(&v.infinitesimal, r, &x.infinitesimal, &v.infinitesimal)
+}
+
+func (v *smtArithmeticValue) subMul(q *numeral.RationalManager, r *numeral.Rational, x *smtArithmeticValue) error {
+	if !x.infinity.IsZero() {
+		if err := q.SubMul(&v.infinity, r, &x.infinity, &v.infinity); err != nil {
+			return err
+		}
+	}
+	if err := q.SubMul(&v.rational, r, &x.rational, &v.rational); err != nil {
+		return err
+	}
+	if smtQZeroShortcut && x.infinitesimal.IsZero() {
+		return nil
+	}
+	return q.SubMul(&v.infinitesimal, r, &x.infinitesimal, &v.infinitesimal)
+}
+
+func (v *smtArithmeticValue) cmp(q *numeral.RationalManager, other *smtArithmeticValue) (int, error) {
+	if !v.infinity.IsZero() || !other.infinity.IsZero() {
+		if c, err := q.Compare(&v.infinity, &other.infinity); err != nil || c != 0 {
+			return c, err
+		}
+	}
+	if c, err := q.Compare(&v.rational, &other.rational); err != nil || c != 0 {
+		return c, err
+	}
+	if smtQZeroShortcut && v.infinitesimal.IsZero() && other.infinitesimal.IsZero() {
+		return 0, nil
+	}
+	return q.Compare(&v.infinitesimal, &other.infinitesimal)
+}
+
+func (v *smtArithmeticValue) lt(q *numeral.RationalManager, other *smtArithmeticValue) (bool, error) {
+	c, err := v.cmp(q, other)
+	return c < 0, err
+}
+
+func (v *smtArithmeticValue) equal(q *numeral.RationalManager, other *smtArithmeticValue) (bool, error) {
+	c, err := v.cmp(q, other)
+	return c == 0, err
 }
 
 func (v *smtArithmeticValue) isZero() bool {
-	return v.infinity.Sign() == 0 && v.rational.Sign() == 0 && v.infinitesimal.Sign() == 0
+	return v.infinity.IsZero() && v.rational.IsZero() && v.infinitesimal.IsZero()
 }
 
 // sign is the sign of the lexicographically leading nonzero component.
@@ -72,7 +332,7 @@ func (v *smtArithmeticValue) sign() int {
 }
 
 func (v *smtArithmeticValue) isRational() bool {
-	return v.infinity.Sign() == 0 && v.infinitesimal.Sign() == 0
+	return v.infinity.IsZero() && v.infinitesimal.IsZero()
 }
 
 // isInt is inf_rational::is_int.
@@ -80,70 +340,80 @@ func (v *smtArithmeticValue) isInt() bool {
 	return v.isRational() && v.rational.IsInt()
 }
 
-func (v *smtArithmeticValue) equal(other *smtArithmeticValue) bool { return v.cmp(other) == 0 }
-
 // isOne / isMinusOne compare the whole inf_numeral with 1 / -1.
-func (v *smtArithmeticValue) isOne() bool {
-	return v.isRational() && smtRatIsOne(&v.rational)
-}
-func (v *smtArithmeticValue) isMinusOne() bool {
-	return v.isRational() && smtRatIsMinusOne(&v.rational)
-}
-func (v *smtArithmeticValue) abs() {
+func (v *smtArithmeticValue) isOne() bool      { return v.isRational() && v.rational.IsOne() }
+func (v *smtArithmeticValue) isMinusOne() bool { return v.isRational() && v.rational.IsMinusOne() }
+
+func (v *smtArithmeticValue) abs(q *numeral.RationalManager) error {
 	if v.sign() < 0 {
-		v.neg()
+		return v.neg(q)
 	}
+	return nil
 }
 
 // smtInfFloor is floor(inf_rational): the largest integer not above the
 // value, with the infinitesimal deciding at integral rational parts.
-func smtInfFloor(v *smtArithmeticValue) *big.Rat {
+func smtInfFloor(q *numeral.RationalManager, v *smtArithmeticValue, out *numeral.Rational) error {
 	if v.rational.IsInt() {
-		r := new(big.Rat).Set(&v.rational)
-		if v.infinitesimal.Sign() < 0 {
-			r.Sub(r, big.NewRat(1, 1))
+		if err := q.Copy(out, &v.rational); err != nil {
+			return err
 		}
-		return r
+		if v.infinitesimal.IsNeg() {
+			return q.Dec(out)
+		}
+		return nil
 	}
-	return new(big.Rat).SetInt(smtRatFloor(&v.rational))
+	return q.Floor(&v.rational, out)
 }
 
 // smtInfCeil is ceil(inf_rational).
-func smtInfCeil(v *smtArithmeticValue) *big.Rat {
+func smtInfCeil(q *numeral.RationalManager, v *smtArithmeticValue, out *numeral.Rational) error {
 	if v.rational.IsInt() {
-		r := new(big.Rat).Set(&v.rational)
-		if v.infinitesimal.Sign() > 0 {
-			r.Add(r, big.NewRat(1, 1))
+		if err := q.Copy(out, &v.rational); err != nil {
+			return err
 		}
-		return r
-	}
-	r := new(big.Rat).SetInt(smtRatFloor(&v.rational))
-	return r.Add(r, big.NewRat(1, 1))
-}
-
-func smtRatIsOne(q *big.Rat) bool { return q.IsInt() && q.Num().IsInt64() && q.Num().Int64() == 1 }
-func smtRatIsMinusOne(q *big.Rat) bool {
-	return q.IsInt() && q.Num().IsInt64() && q.Num().Int64() == -1
-}
-
-// smtRatIsBig is rational::is_big: the numerator or denominator does not fit
-// the small (machine int) representation.
-func smtRatIsBig(q *big.Rat) bool {
-	small := func(x *big.Int) bool {
-		return x.IsInt64() && x.Int64() >= math.MinInt32 && x.Int64() <= math.MaxInt32
-	}
-	return !small(q.Num()) || !small(q.Denom())
-}
-
-// smtRatStorageSize is rational::storage_size(): mpz_manager::size_info of
-// the numerator plus that of the denominator, where size_info is 1 for a
-// small (int) mpz and m_size + 1 (32-bit digits plus one) otherwise.
-func smtRatStorageSize(q *big.Rat) uint {
-	sizeInfo := func(x *big.Int) uint {
-		if x.IsInt64() && x.Int64() >= math.MinInt32 && x.Int64() <= math.MaxInt32 {
-			return 1
+		if v.infinitesimal.IsPos() {
+			return q.Inc(out)
 		}
-		return uint((x.BitLen()+31)/32) + 1
+		return nil
 	}
-	return sizeInfo(q.Num()) + sizeInfo(q.Denom())
+	return q.Ceil(&v.rational, out)
+}
+
+// smtQIntPtr is a fresh rational(v), for a constant argument.
+func smtQIntPtr(v int32) *numeral.Rational {
+	r := smtQInt(v)
+	return &r
+}
+
+// smtQMapKey is a Go map key for the source's hash tables keyed by
+// rational: equal values have equal keys. A value whose numerator and
+// denominator fit an int is kept in n/d (big empty), any other value as
+// big.Rat.RatString text. It is read without a trace.
+type smtQMapKey struct {
+	n, d int32
+	big  string
+}
+
+func smtQKey(q *numeral.RationalManager, r *numeral.Rational) (smtQMapKey, error) {
+	if r.IsSmall() {
+		return smtQMapKey{n: r.Num.Val, d: r.Den.Val}, nil
+	}
+	b, err := smtQBig(q, r)
+	if err != nil {
+		return smtQMapKey{}, err
+	}
+	if n, d := b.Num(), b.Denom(); n.IsInt64() && d.IsInt64() {
+		if nv, dv := n.Int64(), d.Int64(); nv >= math.MinInt32 && nv <= math.MaxInt32 && dv <= math.MaxInt32 {
+			return smtQMapKey{n: int32(nv), d: int32(dv)}, nil
+		}
+	}
+	return smtQMapKey{big: b.RatString()}, nil
+}
+
+// qkey is smtQKey with failures kept in qErr.
+func (t *SMTTheoryArith) qkey(r *numeral.Rational) smtQMapKey {
+	k, err := smtQKey(t.q, r)
+	t.keep(err)
+	return k
 }

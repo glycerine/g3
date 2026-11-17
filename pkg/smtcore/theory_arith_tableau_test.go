@@ -13,13 +13,13 @@ func TestSMTArithmeticRowHolesPositionsAndLCM(t *testing.T) {
 			t.Fatal("append index", index, variable)
 		}
 		entry.variable = SMTTheoryVar(variable)
-		entry.coefficient.Set(coefficient)
+		entry.coefficient = *testQR(coefficient)
 		entry.columnIndex = 0
 	}
-	if row.size != 3 || row.denominatorLCM().Cmp(big.NewInt(30)) != 0 || row.indexOf(1) != 1 {
+	if row.size != 3 || !testDenLCM(&row, 30) || row.indexOf(1) != 1 {
 		t.Fatal("row metadata")
 	}
-	if err := row.deleteEntry(1); err != nil {
+	if err := row.deleteEntry(testQ(), 1); err != nil {
 		t.Fatal(err)
 	}
 	// Source row::del_row_entry never makes the hole the free-list head,
@@ -29,7 +29,7 @@ func TestSMTArithmeticRowHolesPositionsAndLCM(t *testing.T) {
 		t.Fatal("row reused a hole before compress", index)
 	}
 	entry.variable = 3
-	entry.coefficient.SetInt64(7)
+	entry.coefficient = smtQInt(7)
 	entry.columnIndex = 0
 	positions := []int{-1, -1, -1, -1}
 	if err := row.saveVariablePositions(positions); err != nil {
@@ -46,7 +46,7 @@ func TestSMTArithmeticRowHolesPositionsAndLCM(t *testing.T) {
 			t.Fatal("position reset", variable)
 		}
 	}
-	row.reset()
+	row.reset(testQ())
 	if row.size != 0 || row.base != SMTNullTheoryVar || row.firstFree != -1 || len(row.entries) != 0 {
 		t.Fatal("row reset")
 	}
@@ -59,14 +59,14 @@ func TestSMTArithmeticRowAndColumnCompressionRepairCrossIndices(t *testing.T) {
 		ri, re := rows[rowID].addEntry()
 		ci, ce := columns[variable].addEntry()
 		re.variable, re.columnIndex = variable, ci
-		re.coefficient.SetInt64(1)
+		re.coefficient = smtQInt(1)
 		ce.rowID, ce.rowIndex = rowID, ri
 		return ri, ci
 	}
 	_, firstColumn := add(0, 0)
 	rowHole, columnHole := add(0, 1)
 	movedRow, movedColumn := add(1, 1)
-	if err := rows[0].deleteEntry(rowHole); err != nil {
+	if err := rows[0].deleteEntry(testQ(), rowHole); err != nil {
 		t.Fatal(err)
 	}
 	if err := columns[1].deleteEntry(columnHole); err != nil {
@@ -127,20 +127,20 @@ func TestSMTArithmeticTableauAddRowEntryAndDuplicateMerge(t *testing.T) {
 	var tableau smtArithmeticTableau
 	first, second := tableau.addVariable(), tableau.addVariable()
 	row := tableau.makeRow()
-	if err := tableau.addRowEntry(row, big.NewRat(1, 1), first, false); err == nil {
+	if err := tableau.addRowEntry(testQ(), row, testQR(big.NewRat(1, 1)), first, false); err == nil {
 		t.Fatal("entry accepted without row scope")
 	}
 	tableau.pushRowScope()
-	if err := tableau.addRowEntry(row, big.NewRat(2, 1), first, false); err != nil {
+	if err := tableau.addRowEntry(testQ(), row, testQR(big.NewRat(2, 1)), first, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := tableau.addRowEntry(row, big.NewRat(3, 1), first, true); err != nil {
+	if err := tableau.addRowEntry(testQ(), row, testQR(big.NewRat(3, 1)), first, true); err != nil {
 		t.Fatal(err)
 	}
-	if err := tableau.addRowEntry(row, big.NewRat(5, 2), second, false); err != nil {
+	if err := tableau.addRowEntry(testQ(), row, testQR(big.NewRat(5, 2)), second, false); err != nil {
 		t.Fatal(err)
 	}
-	if tableau.rows[row].size != 2 || tableau.rows[row].entries[tableau.rows[row].indexOf(first)].coefficient.Cmp(big.NewRat(-1, 1)) != 0 {
+	if tableau.rows[row].size != 2 || tableau.rows[row].entries[tableau.rows[row].indexOf(first)].coefficient.IsMinusOne() == false {
 		t.Fatal("duplicate coefficient merge")
 	}
 	for variable := range tableau.columns {
@@ -155,4 +155,13 @@ func TestSMTArithmeticTableauAddRowEntryAndDuplicateMerge(t *testing.T) {
 	if !tableau.popRowScope() || tableau.popRowScope() {
 		t.Fatal("row scope stack")
 	}
+}
+
+// testDenLCM reports row.get_denominators_lcm() == want.
+func testDenLCM(row *smtArithmeticRow, want int64) bool {
+	lcm := smtQZero()
+	if err := row.denominatorLCM(testQ(), &lcm); err != nil {
+		return false
+	}
+	return testBig(&lcm).Cmp(big.NewRat(want, 1)) == 0
 }

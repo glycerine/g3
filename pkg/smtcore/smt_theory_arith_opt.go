@@ -13,10 +13,29 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func smtArithValueToInfinitesimal(v *smtArithmeticValue) simplex.Infinitesimal {
-	return simplex.NewInfiniteInfinitesimal(&v.infinity, &v.rational, &v.infinitesimal)
+// smtArithValueToInfinitesimal converts an inf_numeral to the simplex
+// objective value (a boundary to math/big).
+func smtArithValueToInfinitesimal(q *numeral.RationalManager, v *smtArithmeticValue) (simplex.Infinitesimal, error) {
+	var infinity, rational, infinitesimal big.Rat
+	if err := q.BigRatOf(&v.infinity, &infinity); err != nil {
+		return simplex.Infinitesimal{}, err
+	}
+	if err := q.BigRatOf(&v.rational, &rational); err != nil {
+		return simplex.Infinitesimal{}, err
+	}
+	if err := q.BigRatOf(&v.infinitesimal, &infinitesimal); err != nil {
+		return simplex.Infinitesimal{}, err
+	}
+	return simplex.NewInfiniteInfinitesimal(&infinity, &rational, &infinitesimal), nil
+}
+
+// objectiveValue is a finite SMTArithmeticObjectiveValue of v.
+func (t *SMTTheoryArith) objectiveValue(v *smtArithmeticValue) (SMTArithmeticObjectiveValue, error) {
+	finite, err := smtArithValueToInfinitesimal(t.q, v)
+	return SMTArithmeticObjectiveValue{Finite: finite}, err
 }
 
 // AddObjective is add_objective: internalize the term and return its
@@ -39,7 +58,7 @@ func (t *SMTTheoryArith) AddObjective(term ast.ASTHandle) (SMTTheoryVar, error) 
 
 // ObjectiveValue is value(v): inf_eps_rational(get_value(v)).
 func (t *SMTTheoryArith) ObjectiveValue(v SMTTheoryVar) (SMTArithmeticObjectiveValue, error) {
-	return SMTArithmeticObjectiveValue{Finite: smtArithValueToInfinitesimal(t.getValue(v))}, nil
+	return t.objectiveValue(t.getValue(v))
 }
 
 // MaximizeObjective is maximize(v, blocker, has_shared).
@@ -47,7 +66,11 @@ func (t *SMTTheoryArith) MaximizeObjective(v SMTTheoryVar) (SMTArithmeticObjecti
 	hasShared := false
 	if len(t.nlMonomials) != 0 {
 		blocker, err := t.mkGt(v)
-		return SMTArithmeticObjectiveValue{Finite: smtArithValueToInfinitesimal(t.getValue(v))}, blocker, true, err
+		if err != nil {
+			return SMTArithmeticObjectiveValue{}, blocker, true, err
+		}
+		value, err := t.objectiveValue(t.getValue(v))
+		return value, blocker, true, err
 	}
 	r, err := t.maxMin(v, true, true, &hasShared)
 	if err != nil {
@@ -58,7 +81,11 @@ func (t *SMTTheoryArith) MaximizeObjective(v SMTTheoryVar) (SMTArithmeticObjecti
 		return SMTArithmeticObjectiveValue{Unbounded: true}, blocker, false, err
 	}
 	blocker, err := t.mkGt(v)
-	return SMTArithmeticObjectiveValue{Finite: smtArithValueToInfinitesimal(t.getValue(v))}, blocker, hasShared, err
+	if err != nil {
+		return SMTArithmeticObjectiveValue{}, blocker, hasShared, err
+	}
+	value, err := t.objectiveValue(t.getValue(v))
+	return value, blocker, hasShared, err
 }
 
 // mkGt creates an atom enforcing v > val, as an arithmetic expression.
@@ -66,7 +93,11 @@ func (t *SMTTheoryArith) mkGt(v SMTTheoryVar) (result ast.ASTHandle, err error) 
 	m := t.state.manager
 	val := t.getValue(v)
 	obj := t.var2expr(v)
-	r := new(big.Rat).Set(&val.rational)
+	r := smtQZero()
+	defer smtQDel(t.q, &r)
+	if err := t.q.Copy(&r, &val.rational); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	isIntObj, err := t.isIntSort(obj)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -76,19 +107,21 @@ func (t *SMTTheoryArith) mkGt(v SMTTheoryVar) (result ast.ASTHandle, err error) 
 	defer func() { err = errors.Join(err, x.release()) }()
 	if isIntObj {
 		if r.IsInt() {
-			r.Add(r, big.NewRat(1, 1))
+			err = t.q.Inc(&r)
 		} else {
-			r.SetInt(smtRatFloor(r))
-			r.Add(r, big.NewRat(1, 1))
+			err = t.q.Ceil(&r, &r)
 		}
-		e, err := t.mkNumeral(&x, r, true)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		e, err := t.mkNumeralQ(&x, &r, true)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
 		return m.MkFamilyApp(t.FamilyID(), smtArithOpGE, nil, []ast.ASTHandle{obj, e})
 	}
 	// obj is over the reals.
-	e, err := t.mkNumeral(&x, r, false)
+	e, err := t.mkNumeralQ(&x, &r, false)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -160,11 +193,18 @@ func (t *SMTTheoryArith) MakeObjectiveLowerBound(fm *tactic.FilterModelConverter
 	if err = s.SetVariableTheory(bv, t.FamilyID()); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	var k smtArithmeticValue
-	k.rational.Set(&value.Main)
-	k.infinitesimal.Set(&value.Epsilon)
-	k.infinity.Set(&value.Infinity)
-	a, err := newSMTArithmeticAtom(bv, v, &k, smtArithmeticLowerAtom)
+	k := newSMTArithmeticValue()
+	defer k.del(t.q)
+	if err = t.q.SetBigRat(&k.rational, &value.Main); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if err = t.q.SetBigRat(&k.infinitesimal, &value.Epsilon); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if err = t.q.SetBigRat(&k.infinity, &value.Infinity); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	a, err := newSMTArithmeticAtom(t.q, bv, v, &k, smtArithmeticLowerAtom)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -180,8 +220,12 @@ func (t *SMTTheoryArith) MakeObjectiveLowerBound(fm *tactic.FilterModelConverter
 
 // ConflictMinimize is conflict_minimize: the least recorded upper bound.
 func (t *SMTTheoryArith) ConflictMinimize() (simplex.Infinitesimal, bool) {
-	v := t.conflictMinimize()
-	return smtArithValueToInfinitesimal(&v), v.infinity.Sign() == 0
+	v := newSMTArithmeticValue()
+	defer v.del(t.q)
+	t.keep(t.conflictMinimize(&v))
+	finite, err := smtArithValueToInfinitesimal(t.q, &v)
+	t.keep(err)
+	return finite, v.infinity.IsZero()
 }
 
 // EnableRecordConflict is enable_record_conflict(bound).

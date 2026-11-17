@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type smtTheoryArithFixture struct {
@@ -84,8 +85,8 @@ func TestSMTTheoryArithTermRowValue(t *testing.T) {
 		t.Fatal("propagate", ok, err)
 	}
 	v := f.state.context.enodes.get(sum).TheoryVar(f.family)
-	if got := f.theory.getValue(v); got.rational.Cmp(big.NewRat(3, 1)) != 0 || got.infinitesimal.Sign() != 0 {
-		t.Fatalf("x + 1 with x >= 2: got %s + %s eps", got.rational.RatString(), got.infinitesimal.RatString())
+	if got := f.theory.getValue(v); f.big(&got.rational).Cmp(big.NewRat(3, 1)) != 0 || got.infinitesimal.Sign() != 0 {
+		t.Fatalf("x + 1 with x >= 2: got %s + %s eps", f.big(&got.rational).RatString(), f.big(&got.infinitesimal).RatString())
 	}
 	if f.theory.stats.addRows != 0 || f.theory.stats.assertLower != 1 {
 		t.Fatalf("statistics: add rows %d, assert lower %d", f.theory.stats.addRows, f.theory.stats.assertLower)
@@ -169,7 +170,7 @@ func TestSMTTheoryArithEliminateChargesStorageSize(t *testing.T) {
 		{big.NewRat(1<<32, 1), 4},
 		{big.NewRat(-(1 << 31), 1), 2},
 	} {
-		if got := smtRatStorageSize(test.q); got != test.want {
+		if got, err := smtQStorageSize(testQ(), testQR(test.q)); err != nil || got != test.want {
 			t.Fatal("storage size", test.q.RatString(), got, "want", test.want)
 		}
 	}
@@ -187,8 +188,8 @@ func TestSMTTheoryArithEliminateChargesStorageSize(t *testing.T) {
 	if index < 0 {
 		t.Fatal("x missing from the row of x + y")
 	}
-	var coefficient big.Rat
-	coefficient.Set(&row.entries[index].coefficient)
+	coefficient, err := smtQNew(f.theory.q, &row.entries[index].coefficient)
+	astTestMust(t, err)
 	before := f.m.Limit.Count()
 	astTestMust(t, f.theory.pivot(true, vs1, vx, &coefficient, false))
 	// pivot's limit().inc(r.size()) = 3, then eliminate's (3 + 3) * 2.
@@ -229,4 +230,13 @@ func TestSMTTheoryArithDumpLemmasOnConflict(t *testing.T) {
 			t.Fatalf("conflict lemma dump %d:\n%s", smtLemmaID, text)
 		}
 	}
+}
+
+// big reads a theory numeral as math/big.
+func (f *smtTheoryArithFixture) big(r *numeral.Rational) *big.Rat {
+	b, err := smtQBig(f.theory.q, r)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }

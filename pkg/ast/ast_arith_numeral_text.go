@@ -84,6 +84,22 @@ func (m *ASTManager) ArithmeticNumeralBigRat(h ASTHandle) (value *big.Rat, integ
 	return value, integer, true, nil
 }
 
+// ArithmeticNumeralRational is arith_util::is_numeral(n, r) for a caller
+// that holds rationals of this manager's rational manager
+// (NumeralService().Manager): it copies the numeral's rational parameter
+// into out, as the source's rational copy constructor does.
+func (m *ASTManager) ArithmeticNumeralRational(h ASTHandle, out *unumeral.Rational) (integer, matched bool, err error) {
+	if err = m.lock(); err != nil {
+		return
+	}
+	defer m.mu.Unlock()
+	rational, integer, matched, err := m.arithmeticNumeralParameter(h)
+	if err != nil || !matched {
+		return integer, false, err
+	}
+	return integer, true, m.numerals.Manager.Copy(out, &rational.Raw)
+}
+
 func (m *ASTManager) arithmeticNumeralParameter(h ASTHandle) (rational *unumeral.OwnedRational, integer, matched bool, err error) {
 	r, err := m.requireExpr(h)
 	if err != nil {

@@ -365,7 +365,7 @@ func (t *SMTLRATheory) propagateBasicBound(b *smtLRABound, truth bool) (result e
 	t.basicPropagations++
 	// Source m_params is populated independently of proof production. The
 	// external-justification branch owns its copy even when proofs are off.
-	antecedents := smtArithmeticAntecedents{literalCoefficients: []*big.Rat{big.NewRat(1, 1), big.NewRat(1, 1)}}
+	antecedents := smtArithmeticAntecedents{literalCoefficients: []numeral.Rational{smtQInt(1), smtQInt(1)}}
 	parameters, err := antecedents.parameters(t.state.manager, "farkas")
 	if err != nil {
 		return err

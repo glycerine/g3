@@ -43,7 +43,7 @@ func (t *SMTRealDiffTheory) setNegativeCycleConflict(literals []SMTLiteral) (res
 		// coefficient for the resulting contradiction.
 		var antecedents smtArithmeticAntecedents
 		for range literals {
-			antecedents.literalCoefficients = append(antecedents.literalCoefficients, big.NewRat(1, 1))
+			antecedents.literalCoefficients = append(antecedents.literalCoefficients, smtQInt(1))
 		}
 		parameters, err = antecedents.parameters(state.manager, "farkas")
 		if err != nil {

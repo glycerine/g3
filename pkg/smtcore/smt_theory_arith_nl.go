@@ -13,6 +13,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/grobner"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (t *SMTTheoryArith) mkNaryMul(x *smtArithExprs, args []ast.ASTHandle, isInt bool) (ast.ASTHandle, error) {
@@ -248,17 +249,35 @@ func (t *SMTTheoryArith) mkLeaf(b smtArithBound) *smtArithmeticBoundDependency {
 // mkIntervalForVar returns an interval using the bounds of v.
 func (t *SMTTheoryArith) mkIntervalForVar(v SMTTheoryVar) (*smtOldInterval, error) {
 	l, u := t.lower(v), t.upper(v)
+	// old_interval holds math/big values (a boundary).
+	toBig := func(r *numeral.Rational) *big.Rat {
+		b, err := smtQBig(t.q, r)
+		t.keep(err)
+		return b
+	}
 	switch {
 	case l != nil && u != nil:
 		lv, uv := &l.base().value, &u.base().value
-		return newSMTOldIntervalBounds(&t.depManager, &lv.rational, lv.infinitesimal.Sign() != 0, t.mkLeaf(l),
-			&uv.rational, uv.infinitesimal.Sign() != 0, t.mkLeaf(u))
+		lr, ur := toBig(&lv.rational), toBig(&uv.rational)
+		if err := t.takeQErr(nil); err != nil {
+			return nil, err
+		}
+		return newSMTOldIntervalBounds(&t.depManager, lr, !lv.infinitesimal.IsZero(), t.mkLeaf(l),
+			ur, !uv.infinitesimal.IsZero(), t.mkLeaf(u))
 	case l != nil:
 		lv := &l.base().value
-		return newSMTOldIntervalHalfBound(&t.depManager, &lv.rational, lv.infinitesimal.Sign() != 0, true, t.mkLeaf(l))
+		lr := toBig(&lv.rational)
+		if err := t.takeQErr(nil); err != nil {
+			return nil, err
+		}
+		return newSMTOldIntervalHalfBound(&t.depManager, lr, !lv.infinitesimal.IsZero(), true, t.mkLeaf(l))
 	case u != nil:
 		uv := &u.base().value
-		return newSMTOldIntervalHalfBound(&t.depManager, &uv.rational, uv.infinitesimal.Sign() != 0, false, t.mkLeaf(u))
+		ur := toBig(&uv.rational)
+		if err := t.takeQErr(nil); err != nil {
+			return nil, err
+		}
+		return newSMTOldIntervalHalfBound(&t.depManager, ur, !uv.infinitesimal.IsZero(), false, t.mkLeaf(u))
 	}
 	return newSMTOldInterval(&t.depManager)
 }
@@ -383,13 +402,13 @@ func (t *SMTTheoryArith) dependency2NewBound(dep *smtArithmeticBoundDependency, 
 	bounds := t.depManager.Linearize(dep, nil)
 	clear(t.tmpLitSet)
 	clear(t.tmpEqSet)
-	zero := new(big.Rat)
+	zero := smtQZero()
 	for _, b := range bounds {
 		owner, found := t.depBounds[b]
 		if !found {
 			return ast.ErrASTDomain
 		}
-		if err := t.accumulateJustification(owner, newBound, zero, t.tmpLitSet, t.tmpEqSet); err != nil {
+		if err := t.accumulateJustification(owner, newBound, &zero, t.tmpLitSet, t.tmpEqSet); err != nil {
 			return err
 		}
 	}
@@ -398,13 +417,12 @@ func (t *SMTTheoryArith) dependency2NewBound(dep *smtArithmeticBoundDependency, 
 
 // mkDerivedNlBound creates a new derived bound justified by dep.
 func (t *SMTTheoryArith) mkDerivedNlBound(v SMTTheoryVar, coeff *smtArithmeticValue, k smtArithmeticBoundKind, dep *smtArithmeticBoundDependency) error {
-	coeffNorm, err := t.normalizeBound(v, coeff, k)
-	if err != nil {
-		return err
-	}
 	newBound := &smtArithmeticDerivedBound{}
 	newBound.variable, newBound.kind = v, k
-	newBound.value.set(&coeffNorm)
+	newBound.value.init()
+	if err := t.normalizeBound(v, coeff, k, &newBound.value); err != nil {
+		return err
+	}
 	t.boundsToDelete = append(t.boundsToDelete, newBound)
 	t.assertedBounds = append(t.assertedBounds, newBound)
 	// copy justification to new bound
@@ -420,21 +438,27 @@ func (t *SMTTheoryArith) updateBoundsUsingInterval(v SMTTheoryVar, i *smtOldInte
 		if err != nil {
 			return false, err
 		}
-		var newLower smtArithmeticValue
-		newLower.setRational(lv)
+		newLower := newSMTArithmeticValue()
+		defer newLower.del(t.q)
+		if err := t.q.SetBigRat(&newLower.rational, lv); err != nil {
+			return false, err
+		}
 		if i.lowerOpen {
 			if t.isInt(v) {
 				if newLower.isInt() {
-					newLower.rational.Add(&newLower.rational, big.NewRat(1, 1))
+					err = t.q.Inc(&newLower.rational)
 				} else {
-					newLower.setRational(smtInfCeil(&newLower))
+					err = t.q.Ceil(&newLower.rational, &newLower.rational)
 				}
 			} else {
-				newLower.add(t.getEpsilon(v))
+				err = newLower.add(t.q, t.getEpsilon(v))
+			}
+			if err != nil {
+				return false, err
 			}
 		}
 		oldLower := t.lower(v)
-		if oldLower == nil || newLower.cmp(&oldLower.base().value) > 0 {
+		if oldLower == nil || t.vcmp(&newLower, &oldLower.base().value) > 0 {
 			if err = t.mkDerivedNlBound(v, &newLower, smtArithmeticLowerBound, i.lowerDep); err != nil {
 				return false, err
 			}
@@ -446,21 +470,27 @@ func (t *SMTTheoryArith) updateBoundsUsingInterval(v SMTTheoryVar, i *smtOldInte
 		if err != nil {
 			return false, err
 		}
-		var newUpper smtArithmeticValue
-		newUpper.setRational(uv)
+		newUpper := newSMTArithmeticValue()
+		defer newUpper.del(t.q)
+		if err := t.q.SetBigRat(&newUpper.rational, uv); err != nil {
+			return false, err
+		}
 		if i.upperOpen {
 			if t.isInt(v) {
 				if newUpper.isInt() {
-					newUpper.rational.Sub(&newUpper.rational, big.NewRat(1, 1))
+					err = t.q.Dec(&newUpper.rational)
 				} else {
-					newUpper.setRational(smtInfFloor(&newUpper))
+					err = t.q.Floor(&newUpper.rational, &newUpper.rational)
 				}
 			} else {
-				newUpper.sub(t.getEpsilon(v))
+				err = newUpper.sub(t.q, t.getEpsilon(v))
+			}
+			if err != nil {
+				return false, err
 			}
 		}
 		oldUpper := t.upper(v)
-		if oldUpper == nil || newUpper.cmp(&oldUpper.base().value) < 0 {
+		if oldUpper == nil || t.vcmp(&newUpper, &oldUpper.base().value) < 0 {
 			if err = t.mkDerivedNlBound(v, &newUpper, smtArithmeticUpperBound, i.upperDep); err != nil {
 				return false, err
 			}
@@ -616,15 +646,17 @@ func (t *SMTTheoryArith) propagateNlBounds() (bool, error) {
 
 // getRationalValue is get_value(v, computed_epsilon): the value of v as a
 // rational, computing epsilon on first use when v has an infinitesimal.
+// The NL model checks compute in math/big from this value.
 func (t *SMTTheoryArith) getRationalValue(v SMTTheoryVar, computedEpsilon *bool) *big.Rat {
 	val := t.getValue(v)
-	if val.infinitesimal.Sign() != 0 && !*computedEpsilon {
-		t.computeEpsilon()
+	if !val.infinitesimal.IsZero() && !*computedEpsilon {
+		t.keep(t.computeEpsilon())
 		*computedEpsilon = true
 		t.modelDependsOnComputedEpsilon = true
 	}
-	r := new(big.Rat).Mul(&t.epsilon, &val.infinitesimal)
-	return r.Add(r, &val.rational)
+	r, err := t.modelRational(val)
+	t.keep(err)
+	return r
 }
 
 // checkMonomialAssignment: for the monomial x_1*...*x_n of v,
@@ -669,7 +701,9 @@ func (t *SMTTheoryArith) findNlVarForBranching() (SMTTheoryVar, error) {
 	target := SMTNullTheoryVar
 	bounded := false
 	n := uint32(0)
-	var rng big.Rat
+	rng, newRange := smtQZero(), smtQZero()
+	defer smtQDel(t.q, &rng)
+	defer smtQDel(t.q, &newRange)
 	for _, v := range t.nlMonomials {
 		if t.isReal(v) {
 			continue
@@ -692,11 +726,14 @@ func (t *SMTTheoryArith) findNlVarForBranching() (SMTTheoryVar, error) {
 				continue
 			}
 			if t.isBounded(curr) {
-				var newRange big.Rat
-				newRange.Sub(&t.upperBound(curr).rational, &t.lowerBound(curr).rational)
-				if !bounded || newRange.Cmp(&rng) < 0 {
+				if err := t.q.Sub(&t.upperBound(curr).rational, &t.lowerBound(curr).rational, &newRange); err != nil {
+					return SMTNullTheoryVar, err
+				}
+				if !bounded || t.rcmp(&newRange, &rng) < 0 {
 					target = curr
-					rng.Set(&newRange)
+					if err := t.q.Copy(&rng, &newRange); err != nil {
+						return SMTNullTheoryVar, err
+					}
 					bounded = true
 				}
 			} else if !bounded {
@@ -720,7 +757,7 @@ func (t *SMTTheoryArith) branchNlIntVar(v SMTTheoryVar) (result bool, err error)
 	var bound ast.ASTHandle
 	switch {
 	case t.lower(v) != nil:
-		k, err := t.mkNumeral(&x, &t.lowerBound(v).rational, true)
+		k, err := t.mkNumeralQ(&x, &t.lowerBound(v).rational, true)
 		if err != nil {
 			return false, err
 		}
@@ -729,7 +766,7 @@ func (t *SMTTheoryArith) branchNlIntVar(v SMTTheoryVar) (result bool, err error)
 			return false, err
 		}
 	case t.upper(v) != nil:
-		k, err := t.mkNumeral(&x, &t.upperBound(v).rational, true)
+		k, err := t.mkNumeralQ(&x, &t.upperBound(v).rational, true)
 		if err != nil {
 			return false, err
 		}
@@ -795,7 +832,11 @@ func (t *SMTTheoryArith) getMonomialFixedVarProduct(m ast.ASTHandle) (*big.Rat, 
 	for _, arg := range args {
 		v := t.expr2var(arg)
 		if t.isFixed(v) {
-			r.Mul(r, &t.lowerBound(v).rational)
+			b, err := smtQBig(t.q, &t.lowerBound(v).rational)
+			if err != nil {
+				return nil, err
+			}
+			r.Mul(r, b)
 		}
 	}
 	return r, nil
@@ -876,16 +917,24 @@ func (t *SMTTheoryArith) propagateLinearMonomial(v SMTTheoryVar) (result bool, e
 		}
 		newLower = &smtArithmeticDerivedBound{}
 		newLower.variable, newLower.kind = newV, smtArithmeticLowerBound
+		newLower.value.init()
 		newUpper = &smtArithmeticDerivedBound{}
 		newUpper.variable, newUpper.kind = newV, smtArithmeticUpperBound
+		newUpper.value.init()
 	} else {
 		// One of the x_i is zero, or all of them are fixed: (= (* x_1 ... x_n) k).
 		newLower = &smtArithmeticDerivedBound{}
 		newLower.variable, newLower.kind = v, smtArithmeticLowerBound
-		newLower.value.setRational(k)
+		newLower.value.init()
 		newUpper = &smtArithmeticDerivedBound{}
 		newUpper.variable, newUpper.kind = v, smtArithmeticUpperBound
-		newUpper.value.setRational(k)
+		newUpper.value.init()
+		if err := t.q.SetBigRat(&newLower.value.rational, k); err != nil {
+			return false, err
+		}
+		if err := t.q.SetBigRat(&newUpper.value.rational, k); err != nil {
+			return false, err
+		}
 	}
 	t.boundsToDelete = append(t.boundsToDelete, newLower)
 	t.assertedBounds = append(t.assertedBounds, newLower)
@@ -898,7 +947,7 @@ func (t *SMTTheoryArith) propagateLinearMonomial(v SMTTheoryVar) (result bool, e
 	if err != nil {
 		return false, err
 	}
-	zero := new(big.Rat)
+	zero := smtQZero()
 	foundZero := false
 	for _, arg := range args {
 		if foundZero {
@@ -917,10 +966,10 @@ func (t *SMTTheoryArith) propagateLinearMonomial(v SMTTheoryVar) (result bool, e
 			newLower.literals = newLower.literals[:0]
 			newLower.equalities = newLower.equalities[:0]
 		}
-		if err = t.accumulateJustification(l, newLower, zero, t.tmpLitSet, t.tmpEqSet); err != nil {
+		if err = t.accumulateJustification(l, newLower, &zero, t.tmpLitSet, t.tmpEqSet); err != nil {
 			return false, err
 		}
-		if err = t.accumulateJustification(u, newLower, zero, t.tmpLitSet, t.tmpEqSet); err != nil {
+		if err = t.accumulateJustification(u, newLower, &zero, t.tmpLitSet, t.tmpEqSet); err != nil {
 			return false, err
 		}
 	}
@@ -1444,15 +1493,30 @@ func (t *SMTTheoryArith) isCrossNestedConsistentRow(r *smtArithmeticRow) (bool, 
 	if !coercions && t.isMixedRealInteger(r) {
 		return true, nil // giving up: sort-incorrect expressions (see the source comment)
 	}
+	// The cross nested check computes in math/big (a boundary).
 	c := big.NewRat(1, 1)
 	if t.isIntegerRow(r) {
-		c.SetInt(r.denominatorLCM())
+		lcm := smtQZero()
+		err := r.denominatorLCM(t.q, &lcm)
+		if err == nil {
+			c, err = smtQBig(t.q, &lcm)
+		}
+		if e := smtQDel(t.q, &lcm); err == nil {
+			err = e
+		}
+		if err != nil {
+			return false, err
+		}
 	}
 	var p []smtArithCoeffExpr
 	for i := range r.entries {
 		it := &r.entries[i]
 		if !it.dead() {
-			p = append(p, smtArithCoeffExpr{new(big.Rat).Mul(&it.coefficient, c), t.var2expr(it.variable)})
+			coeff, err := smtQBig(t.q, &it.coefficient)
+			if err != nil {
+				return false, err
+			}
+			p = append(p, smtArithCoeffExpr{coeff.Mul(coeff, c), t.var2expr(it.variable)})
 		}
 	}
 	return t.isCrossNestedConsistentPoly(p)
@@ -1611,7 +1675,11 @@ func (t *SMTTheoryArith) mkGbMonomial(c *big.Rat, m ast.ASTHandle, gb *grobner.S
 				return err
 			}
 		}
-		coeff.Mul(coeff, &t.lowerBound(w).rational)
+		b, err := smtQBig(t.q, &t.lowerBound(w).rational)
+		if err != nil {
+			return err
+		}
+		coeff.Mul(coeff, b)
 		return nil
 	}
 	if t.isOp(m, smtArithOpMul) {
@@ -1656,7 +1724,11 @@ func (t *SMTTheoryArith) addRowToGb(r *smtArithmeticRow, gb *grobner.Solver, dep
 		if it.dead() {
 			continue
 		}
-		newM, err := t.mkGbMonomial(&it.coefficient, t.var2expr(it.variable), gb, deps, &dep, alreadyFound)
+		coeff, err := smtQBig(t.q, &it.coefficient) // grobner holds math/big values
+		if err != nil {
+			return err
+		}
+		newM, err := t.mkGbMonomial(coeff, t.var2expr(it.variable), gb, deps, &dep, alreadyFound)
 		if err != nil {
 			return err
 		}
@@ -1698,7 +1770,11 @@ func (t *SMTTheoryArith) addMonomialDefToGb(v SMTTheoryVar, gb *grobner.Solver, 
 		if dep, err = deps.join(dep, lu); err != nil {
 			return err
 		}
-		coeff.Mul(coeff, &t.lowerBound(v).rational)
+		b, err := smtQBig(t.q, &t.lowerBound(v).rational)
+		if err != nil {
+			return err
+		}
+		coeff.Mul(coeff, b)
 		if coeff.Sign() != 0 {
 			c, err := gb.NewMonomial(coeff, nil)
 			if err != nil {
@@ -1775,6 +1851,7 @@ func (t *SMTTheoryArith) setConflictDependency(d *smtArithmeticBoundDependency) 
 	defer t.releaseAntecedentsScope()
 	b := &smtArithmeticDerivedBound{}
 	b.variable, b.kind = SMTNullTheoryVar, smtArithmeticLowerBound
+	b.value.init()
 	if err := t.dependency2NewBound(d, b); err != nil {
 		return err
 	}
@@ -2069,8 +2146,11 @@ func (t *SMTTheoryArith) internalizeGbEq(eq *grobner.Equation, deps *smtArithGbD
 	if err != nil {
 		return false, err
 	}
-	var kv smtArithmeticValue
-	kv.setRational(k)
+	kv := newSMTArithmeticValue()
+	defer kv.del(t.q)
+	if err = t.q.SetBigRat(&kv.rational, k); err != nil {
+		return false, err
+	}
 	if err = t.mkDerivedNlBound(v, &kv, smtArithmeticLowerBound, dep); err != nil {
 		return false, err
 	}

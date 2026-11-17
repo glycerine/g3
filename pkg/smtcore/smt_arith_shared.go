@@ -10,6 +10,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // SMTArithmeticObjectiveValue is the concrete result of the arithmetic
@@ -31,6 +32,7 @@ const (
 // literal coefficients and then equality coefficients. Callers release them
 // after their justification has taken its own copies.
 func (a *smtArithmeticAntecedents) parameters(m *ast.ASTManager, rule string) (result []ast.ASTParameter, err error) {
+	q := m.NumeralService().Manager
 	if a.numParameters() == 0 {
 		return nil, nil
 	}
@@ -49,8 +51,12 @@ func (a *smtArithmeticAntecedents) parameters(m *ast.ASTManager, rule string) (r
 		return nil, err
 	}
 	result = append(result, p)
-	for _, coefficients := range [][]*big.Rat{a.literalCoefficients, a.equalityCoefficients} {
-		for _, coefficient := range coefficients {
+	for _, coefficients := range [][]numeral.Rational{a.literalCoefficients, a.equalityCoefficients} {
+		for i := range coefficients {
+			coefficient, e := smtQBig(q, &coefficients[i])
+			if e != nil {
+				return result, e
+			}
 			p, err = m.NewParameterRat(coefficient)
 			if err != nil {
 				return result, err

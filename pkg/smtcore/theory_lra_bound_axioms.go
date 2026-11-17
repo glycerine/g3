@@ -10,6 +10,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (t *SMTLRATheory) mkBoundAxioms(bound *smtLRABound) error {
@@ -127,7 +128,7 @@ func (t *SMTLRATheory) publishBoundAxiom(literals []SMTLiteral) (result error) {
 	}
 	var parameters []ast.ASTParameter
 	if proofs {
-		antecedents := smtArithmeticAntecedents{literalCoefficients: []*big.Rat{big.NewRat(1, 1), big.NewRat(1, 1)}}
+		antecedents := smtArithmeticAntecedents{literalCoefficients: []numeral.Rational{smtQInt(1), smtQInt(1)}}
 		parameters, err = antecedents.parameters(t.state.manager, "farkas")
 		if err != nil {
 			return err

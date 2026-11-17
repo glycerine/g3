@@ -14,6 +14,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -49,6 +50,24 @@ func (t *SMTTheoryArith) isNumeral(n ast.ASTHandle) (*big.Rat, bool) {
 		return nil, false
 	}
 	return r, true
+}
+
+// isNumeralQ is m_util.is_numeral(n, r) with a rational r.
+func (t *SMTTheoryArith) isNumeralQ(n ast.ASTHandle, r *numeral.Rational) (bool, error) {
+	_, matched, err := t.state.manager.ArithmeticNumeralRational(n, r)
+	if err != nil && !matched {
+		// is_numeral is a predicate: a handle that is not a numeral app
+		// is not a numeral.
+		return false, nil
+	}
+	return matched, err
+}
+
+// newBound is alloc(bound, v, k, kind).
+func (t *SMTTheoryArith) newBound(v SMTTheoryVar, k *smtArithmeticValue, kind smtArithmeticBoundKind) (*smtArithmeticBound, error) {
+	b := &smtArithmeticBound{variable: v, kind: kind}
+	b.value.init()
+	return b, b.value.set(t.q, k)
 }
 
 // isIntSort is m_util.is_int(e): e has sort Int.
@@ -141,6 +160,20 @@ func (x *smtArithExprs) reset() (result error) {
 
 func (t *SMTTheoryArith) mkApp(x *smtArithExprs, op int32, args ...ast.ASTHandle) (ast.ASTHandle, error) {
 	return x.hold(t.state.manager.MkFamilyApp(t.FamilyID(), op, nil, args))
+}
+
+// mkNumeralQ is m_util.mk_numeral(r, is_int) for a rational r.
+func (t *SMTTheoryArith) mkNumeralQ(x *smtArithExprs, r *numeral.Rational, isInt bool) (ast.ASTHandle, error) {
+	b, err := smtQBig(t.q, r)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return t.mkNumeral(x, b, isInt)
+}
+
+// mkNumeralInt is m_util.mk_numeral(rational(v), is_int).
+func (t *SMTTheoryArith) mkNumeralInt(x *smtArithExprs, v int64, isInt bool) (ast.ASTHandle, error) {
+	return t.mkNumeral(x, big.NewRat(v, 1), isInt)
 }
 
 // mkNumeral is m_util.mk_numeral(r, is_int).
@@ -236,23 +269,25 @@ func (t *SMTTheoryArith) mkVar(n *SMTEnode) (SMTTheoryVar, error) {
 	}
 	t.columns = append(t.columns, newSMTArithmeticColumn())
 	t.data = append(t.data, smtArithmeticVariableData{integer: isInt})
-	var value smtArithmeticValue
+	value := newSMTArithmeticValue()
 	if t.randomInitialValue() {
 		// unsigned arithmetic, as in the source
 		val := t.random.Next()%uint32(t.randomUpper()-t.randomLower()) + uint32(t.randomLower())
 		if t.integerExt {
 			// i_ext: inf_numeral is rational; explicit rational(unsigned)
 			// keeps the wrapped unsigned value.
-			value.rational.SetInt64(int64(val))
+			if err := t.q.SetInt64(&value.rational, int64(val)); err != nil {
+				return SMTNullTheoryVar, err
+			}
 		} else {
 			// inf_rational, inf_eps_rational, s_integer, inf_s_integer:
 			// inf_numeral(val) selects the explicit (int) constructor,
 			// so val converts back to a signed int.
-			value.rational.SetInt64(int64(int32(val)))
+			value.rational = smtQInt(int32(val))
 		}
 	}
 	t.value = append(t.value, value)
-	t.oldValue = append(t.oldValue, smtArithmeticValue{})
+	t.oldValue = append(t.oldValue, newSMTArithmeticValue())
 	t.varOccs = append(t.varOccs, nil)
 	t.unassignedAtoms = append(t.unassignedAtoms, 0)
 	t.varPos = append(t.varPos, -1)
@@ -332,7 +367,7 @@ func (t *SMTTheoryArith) rowVarsCurrent() map[SMTTheoryVar]bool {
 
 // addRowEntry adds coeff * v (or -coeff * v when invert) to row rID and
 // updates the column.
-func (t *SMTTheoryArith) addRowEntry(invert bool, rID int, coeff *big.Rat, v SMTTheoryVar) error {
+func (t *SMTTheoryArith) addRowEntry(invert bool, rID int, coeff *numeral.Rational, v SMTTheoryVar) error {
 	r := &t.rows[rID]
 	c := &t.columns[v]
 	if t.rowVarsCurrent()[v] {
@@ -340,11 +375,9 @@ func (t *SMTTheoryArith) addRowEntry(invert bool, rID int, coeff *big.Rat, v SMT
 			it := &r.entries[i]
 			if it.variable == v {
 				if invert {
-					it.coefficient.Sub(&it.coefficient, coeff)
-				} else {
-					it.coefficient.Add(&it.coefficient, coeff)
+					return t.q.Sub(&it.coefficient, coeff, &it.coefficient)
 				}
-				return nil
+				return t.q.Add(&it.coefficient, coeff, &it.coefficient)
 			}
 		}
 		return ast.ErrASTDomain
@@ -353,13 +386,15 @@ func (t *SMTTheoryArith) addRowEntry(invert bool, rID int, coeff *big.Rat, v SMT
 	rIdx, rEntry := r.addEntry()
 	cIdx, cEntry := c.addEntry()
 	rEntry.variable = v
-	rEntry.coefficient.Set(coeff)
-	if invert {
-		rEntry.coefficient.Neg(&rEntry.coefficient)
-	}
 	rEntry.columnIndex = cIdx
 	cEntry.rowID = rID
 	cEntry.rowIndex = rIdx
+	if err := t.q.Copy(&rEntry.coefficient, coeff); err != nil {
+		return err
+	}
+	if invert {
+		return t.q.Neg(&rEntry.coefficient)
+	}
 	return nil
 }
 
@@ -376,7 +411,7 @@ func (t *SMTTheoryArith) popRowVars() { t.rowVarsTop-- }
 // ---- core.h:253-324 ----
 
 func (t *SMTTheoryArith) internalizeInternalMonomial(m ast.ASTHandle, rID int) error {
-	minusOne := big.NewRat(-1, 1)
+	minusOne := smtQIntPtr(-1)
 	if e := t.state.context.enodes.get(m); e != nil && t.IsAttachedToVariable(e) {
 		// there is already a theory variable (i.e., name) for m.
 		return t.addRowEntry(false, rID, minusOne, e.TheoryVar(t.FamilyID()))
@@ -387,7 +422,11 @@ func (t *SMTTheoryArith) internalizeInternalMonomial(m ast.ASTHandle, rID int) e
 			return err
 		}
 		if len(args) == 2 {
-			if val, ok := t.isNumeral(args[0]); ok && t.isApp(args[0]) && t.isApp(args[1]) {
+			val := smtQZero()
+			defer smtQDel(t.q, &val)
+			if ok, err := t.isNumeralQ(args[0], &val); err != nil {
+				return err
+			} else if ok && t.isApp(args[0]) && t.isApp(args[1]) {
 				v, err := t.internalizeTermCore(args[1])
 				if err != nil {
 					return err
@@ -400,7 +439,7 @@ func (t *SMTTheoryArith) internalizeInternalMonomial(m ast.ASTHandle, rID int) e
 						return err
 					}
 				}
-				return t.addRowEntry(true, rID, val, v)
+				return t.addRowEntry(true, rID, &val, v)
 			}
 		}
 	}
@@ -450,7 +489,7 @@ func (t *SMTTheoryArith) internalizeAdd(n ast.ASTHandle) (SMTTheoryVar, error) {
 		if v, err = t.mkVar(e); err != nil {
 			return SMTNullTheoryVar, err
 		}
-		if err = t.addRowEntry(false, rID, big.NewRat(1, 1), v); err != nil {
+		if err = t.addRowEntry(false, rID, smtQIntPtr(1), v); err != nil {
 			return SMTNullTheoryVar, err
 		}
 		built = true
@@ -504,7 +543,11 @@ func (t *SMTTheoryArith) internalizeMul(m ast.ASTHandle) (SMTTheoryVar, error) {
 	if err != nil {
 		return SMTNullTheoryVar, err
 	}
-	if val, ok := t.isNumeral(args[0]); ok {
+	val := smtQZero()
+	defer smtQDel(t.q, &val)
+	if ok, err := t.isNumeralQ(args[0], &val); err != nil {
+		return SMTNullTheoryVar, err
+	} else if ok {
 		rID := t.mkRow()
 		built := false
 		defer func() { t.abandonRow(rID, built) }()
@@ -522,7 +565,7 @@ func (t *SMTTheoryArith) internalizeMul(m ast.ASTHandle) (SMTTheoryVar, error) {
 		if err != nil {
 			return SMTNullTheoryVar, err
 		}
-		if err = t.addRowEntry(true, rID, val, v); err != nil {
+		if err = t.addRowEntry(true, rID, &val, v); err != nil {
 			return SMTNullTheoryVar, err
 		}
 		e, err := t.mkEnode(m)
@@ -533,7 +576,7 @@ func (t *SMTTheoryArith) internalizeMul(m ast.ASTHandle) (SMTTheoryVar, error) {
 		if err != nil {
 			return SMTNullTheoryVar, err
 		}
-		if err = t.addRowEntry(false, rID, big.NewRat(1, 1), s); err != nil {
+		if err = t.addRowEntry(false, rID, smtQIntPtr(1), s); err != nil {
 			return SMTNullTheoryVar, err
 		}
 		built = true
@@ -1238,11 +1281,11 @@ func (t *SMTTheoryArith) internalizeToReal(n ast.ASTHandle) (SMTTheoryVar, error
 	defer func() { t.abandonRow(rID, built) }()
 	t.pushRowVars()
 	defer t.popRowVars()
-	one := big.NewRat(1, 1)
-	if err = t.addRowEntry(true, rID, one, arg); err != nil {
+	one := smtQInt(1)
+	if err = t.addRowEntry(true, rID, &one, arg); err != nil {
 		return SMTNullTheoryVar, err
 	}
-	if err = t.addRowEntry(false, rID, one, r); err != nil {
+	if err = t.addRowEntry(false, rID, &one, r); err != nil {
 		return SMTNullTheoryVar, err
 	}
 	built = true
@@ -1250,8 +1293,11 @@ func (t *SMTTheoryArith) internalizeToReal(n ast.ASTHandle) (SMTTheoryVar, error
 }
 
 func (t *SMTTheoryArith) internalizeNumeral(n ast.ASTHandle) (SMTTheoryVar, error) {
-	val, ok := t.isNumeral(n)
-	if !ok {
+	val := smtQZero()
+	defer smtQDel(t.q, &val)
+	if ok, err := t.isNumeralQ(n, &val); err != nil {
+		return SMTNullTheoryVar, err
+	} else if !ok {
 		return SMTNullTheoryVar, ast.ErrASTDomain
 	}
 	e, err := t.mkEnode(n)
@@ -1262,12 +1308,19 @@ func (t *SMTTheoryArith) internalizeNumeral(n ast.ASTHandle) (SMTTheoryVar, erro
 	if err != nil {
 		return SMTNullTheoryVar, err
 	}
-	var ival smtArithmeticValue
-	ival.setRational(val)
-	l := &smtArithmeticBound{variable: v, kind: smtArithmeticLowerBound}
-	l.value.set(&ival)
-	u := &smtArithmeticBound{variable: v, kind: smtArithmeticUpperBound}
-	u.value.set(&ival)
+	ival := newSMTArithmeticValue()
+	defer ival.del(t.q)
+	if err = ival.setRational(t.q, &val); err != nil {
+		return SMTNullTheoryVar, err
+	}
+	l, err := t.newBound(v, &ival, smtArithmeticLowerBound)
+	if err != nil {
+		return SMTNullTheoryVar, err
+	}
+	u, err := t.newBound(v, &ival, smtArithmeticUpperBound)
+	if err != nil {
+		return SMTNullTheoryVar, err
+	}
 	if err = t.setBound(l, false); err != nil {
 		return SMTNullTheoryVar, err
 	}
@@ -1275,8 +1328,7 @@ func (t *SMTTheoryArith) internalizeNumeral(n ast.ASTHandle) (SMTTheoryVar, erro
 		return SMTNullTheoryVar, err
 	}
 	t.boundsToDelete = append(t.boundsToDelete, l, u)
-	t.value[v].set(&ival)
-	return v, nil
+	return v, t.value[v].set(t.q, &ival)
 }
 
 // ---- core.h:725-790 ----
@@ -1373,7 +1425,7 @@ func (t *SMTTheoryArith) mkRow() int {
 // owns the row.
 func (t *SMTTheoryArith) initRow(rID int) error {
 	r := &t.rows[rID]
-	if r.firstFree != -1 || r.size == 0 || r.size != len(r.entries) || !smtRatIsOne(&r.entries[r.size-1].coefficient) {
+	if r.firstFree != -1 || r.size == 0 || r.size != len(r.entries) || !r.entries[r.size-1].coefficient.IsOne() {
 		return ast.ErrASTDomain
 	}
 	s := r.entries[r.size-1].variable
@@ -1395,41 +1447,70 @@ func (t *SMTTheoryArith) initRow(rID int) error {
 
 // collectVars collects the variables of kind k in the row, other than the
 // row owner, with negated coefficients.
-func (t *SMTTheoryArith) collectVars(rID int, k smtArithmeticVariableKind) []smtArithLinearMonomial {
+func (t *SMTTheoryArith) collectVars(rID int, k smtArithmeticVariableKind) ([]smtArithLinearMonomial, error) {
 	r := &t.rows[rID]
 	base := r.base
 	var result []smtArithLinearMonomial
 	for i := range r.entries {
 		it := &r.entries[i]
 		if !it.dead() && t.getVarKind(it.variable) == k && it.variable != base {
-			var m smtArithLinearMonomial
-			m.coeff.Neg(&it.coefficient)
-			m.v = it.variable
-			result = append(result, m)
+			result = append(result, smtArithLinearMonomial{coeff: smtQZero(), v: it.variable})
+			m := &result[len(result)-1]
+			if err := t.q.Copy(&m.coeff, &it.coefficient); err != nil {
+				return result, err
+			}
+			if err := t.q.Neg(&m.coeff); err != nil {
+				return result, err
+			}
 		}
 	}
-	return result
+	return result, nil
+}
+
+// addCollectedRows is add_rows(r_id, to_add) on collect_vars(r_id, k);
+// the monomial vector frees its coefficients.
+func (t *SMTTheoryArith) addCollectedRows(rID int, k smtArithmeticVariableKind) error {
+	toAdd, err := t.collectVars(rID, k)
+	if err == nil {
+		err = t.addRows(rID, toAdd)
+	}
+	for i := range toAdd {
+		if e := smtQDel(t.q, &toAdd[i].coeff); e != nil && err == nil {
+			err = e
+		}
+	}
+	return err
 }
 
 func (t *SMTTheoryArith) normalizeQuasiBaseRow(rID int) error {
-	return t.addRows(rID, t.collectVars(rID, smtArithmeticQuasiBase))
+	return t.addCollectedRows(rID, smtArithmeticQuasiBase)
 }
 
 func (t *SMTTheoryArith) quasiBaseRow2BaseRow(rID int) error {
-	if err := t.addRows(rID, t.collectVars(rID, smtArithmeticBase)); err != nil {
+	if err := t.addCollectedRows(rID, smtArithmeticBase); err != nil {
 		return err
 	}
 	s := t.rows[rID].base
 	t.setVarKind(s, smtArithmeticBase)
-	var tmp smtArithmeticValue
-	if t.getImpliedOldValue(s, &tmp) {
+	tmp := newSMTArithmeticValue()
+	defer tmp.del(t.q)
+	if ok, err := t.getImpliedOldValue(s, &tmp); err != nil {
+		return err
+	} else if ok {
 		// restore_assignment restores the old values of the variables the
 		// row depends on; s must stay compatible with them.
-		t.value[s].set(&tmp)
-		t.saveValue(s)
+		if err := t.value[s].set(t.q, &tmp); err != nil {
+			return err
+		}
+		if err := t.saveValue(s); err != nil {
+			return err
+		}
 	}
-	t.value[s].set(t.getImpliedValue(s))
-	return nil
+	implied, err := t.impliedValue(s)
+	if err != nil {
+		return err
+	}
+	return t.value[s].set(t.q, implied)
 }
 
 func (t *SMTTheoryArith) normalizeBaseRow(rID int) error {
@@ -1451,7 +1532,7 @@ func (t *SMTTheoryArith) farkasOneParameters(n int) ([]ast.ASTParameter, error) 
 	}
 	ante := smtArithmeticAntecedents{}
 	for i := 0; i < n; i++ {
-		ante.literalCoefficients = append(ante.literalCoefficients, big.NewRat(1, 1))
+		ante.literalCoefficients = append(ante.literalCoefficients, smtQInt(1))
 	}
 	return ante.parameters(t.state.manager, "farkas")
 }
@@ -1478,23 +1559,23 @@ func (t *SMTTheoryArith) mkBoundAxioms(a1 *smtArithmeticAtom) error {
 	loInf, loSup, hiInf, hiSup := end, end, end, end
 	for i, a2 := range occs {
 		kind2 := a2.atomKind
-		c21 := a2.thresholdCmp(a1)
+		c21 := t.acmp(a2, a1)
 		if c21 == 0 && kind1 == kind2 {
 			continue
 		}
 		if kind2 == smtArithmeticLowerAtom {
 			if c21 < 0 {
-				if loInf == end || a2.thresholdCmp(occs[loInf]) > 0 {
+				if loInf == end || t.acmp(a2, occs[loInf]) > 0 {
 					loInf = i
 				}
-			} else if loSup == end || a2.thresholdCmp(occs[loSup]) < 0 {
+			} else if loSup == end || t.acmp(a2, occs[loSup]) < 0 {
 				loSup = i
 			}
 		} else if c21 < 0 {
-			if hiInf == end || a2.thresholdCmp(occs[hiInf]) > 0 {
+			if hiInf == end || t.acmp(a2, occs[hiInf]) > 0 {
 				hiInf = i
 			}
-		} else if hiSup == end || a2.thresholdCmp(occs[hiSup]) < 0 {
+		} else if hiSup == end || t.acmp(a2, occs[hiSup]) < 0 {
 			hiSup = i
 		}
 	}
@@ -1514,9 +1595,8 @@ func (t *SMTTheoryArith) mkBoundAxiom(a1, a2 *smtArithmeticAtom) (err error) {
 	k1, k2 := &a1.threshold, &a2.threshold
 	kind1, kind2 := a1.atomKind, a2.atomKind
 	vIsInt := t.isInt(v)
-	// c12 is k1.cmp(k2), which never changes below (thresholdCmp reads the
-	// cached machine-word thresholds when both have them).
-	c12 := a1.thresholdCmp(a2)
+	// c12 is k1.cmp(k2), which never changes below.
+	c12 := t.acmp(a1, a2)
 	if c12 == 0 && kind1 == kind2 {
 		return nil
 	}
@@ -1540,7 +1620,7 @@ func (t *SMTTheoryArith) mkBoundAxiom(a1, a2 *smtArithmeticAtom) (err error) {
 		if err = t.mkClause2(l1.Negated(), l2.Negated(), coeffs); err != nil {
 			return err
 		}
-		if vIsInt && smtBoundAxiomOffsetEq(a1, a2, k1, k2, 1) {
+		if vIsInt && t.boundAxiomOffsetEq(a1, a2, k1, k2, 1) {
 			// k1 <= x or x <= k1-1
 			return t.mkClause2(l1, l2, coeffs)
 		}
@@ -1555,7 +1635,7 @@ func (t *SMTTheoryArith) mkBoundAxiom(a1, a2 *smtArithmeticAtom) (err error) {
 		if err = t.mkClause2(l1.Negated(), l2.Negated(), coeffs); err != nil {
 			return err
 		}
-		if vIsInt && smtBoundAxiomOffsetEq(a1, a2, k1, k2, -1) {
+		if vIsInt && t.boundAxiomOffsetEq(a1, a2, k1, k2, -1) {
 			// x <= k1 or k1+l <= x
 			return t.mkClause2(l1, l2, coeffs)
 		}
@@ -1570,28 +1650,54 @@ func (t *SMTTheoryArith) mkBoundAxiom(a1, a2 *smtArithmeticAtom) (err error) {
 	return t.mkClause2(l1.Negated(), l2, coeffs)
 }
 
-// smtBoundAxiomOffsetEq reports k1 == k2 + d (d is 1 or -1) for the
-// thresholds k1, k2 of atoms a1, a2: with machine-word thresholds it compares
-// words, otherwise it computes k2 + d exactly as mk_bound_axiom does.
-func smtBoundAxiomOffsetEq(a1, a2 *smtArithmeticAtom, k1, k2 *smtArithmeticValue, d int64) bool {
-	if a1.smallK && a2.smallK && (d > 0 && a2.kRational < math.MaxInt64 || d < 0 && a2.kRational > math.MinInt64) {
-		return a1.kRational == a2.kRational+d && a1.kEp == a2.kEp
+// boundAxiomOffsetEq is mk_bound_axiom's k1 == k2 + inf_numeral(d), d 1 or
+// -1. inf_numeral(d) has a zero infinitesimal, so only k2's rational part
+// changes.
+func (t *SMTTheoryArith) boundAxiomOffsetEq(a1, a2 *smtArithmeticAtom, k1, k2 *smtArithmeticValue, d int32) bool {
+	if a1.smallK && a2.smallK {
+		return a1.kRational == a2.kRational+int64(d) && a1.kEp == a2.kEp
 	}
-	var one, k smtArithmeticValue
-	one.rational.SetInt64(1)
-	k.set(k2)
-	if d > 0 {
-		k.add(&one)
-	} else {
-		k.sub(&one)
+	k := newSMTArithmeticValue()
+	defer k.del(t.q)
+	one := smtQInt(d)
+	err := k.set(t.q, k2)
+	if err == nil {
+		err = t.q.Add(&k.rational, &one, &k.rational)
 	}
-	return k1.cmp(&k) == 0
+	if err != nil {
+		if t.qErr == nil {
+			t.qErr = err
+		}
+		return false
+	}
+	return t.vcmp(k1, &k) == 0
 }
 
-// smtCompareAtomsLess is theory_arith::compare_atoms (theory_arith.h): it
+// acmp is a1.threshold.cmp(a2.threshold), with vcmp's error handling.
+func (t *SMTTheoryArith) acmp(a1, a2 *smtArithmeticAtom) int {
+	if a1.smallK && a2.smallK {
+		switch {
+		case a1.kRational != a2.kRational:
+			if a1.kRational < a2.kRational {
+				return -1
+			}
+			return 1
+		case a1.kEp < a2.kEp:
+			return -1
+		case a1.kEp > a2.kEp:
+			return 1
+		}
+		return 0
+	}
+	c, err := a1.threshold.cmp(t.q, &a2.threshold)
+	t.keep(err)
+	return c
+}
+
+// compareAtomsLess is theory_arith::compare_atoms (theory_arith.h): it
 // compares only the bound value k.
-func smtCompareAtomsLess(a1, a2 *smtArithmeticAtom) bool {
-	return a1.threshold.cmp(&a2.threshold) < 0
+func (t *SMTTheoryArith) compareAtomsLess(a1, a2 *smtArithmeticAtom) bool {
+	return t.acmp(a1, a2) < 0
 }
 
 // flushBoundAxioms.
@@ -1626,8 +1732,8 @@ func (t *SMTTheoryArith) flushBoundAxioms() error {
 		}
 		occs := append([]*smtArithmeticAtom(nil), t.varOccs[v]...)
 		// std::sort(..., compare_atoms()): libstdc++ introsort, NOT a stable sort.
-		libstdcxxSortAtoms(atoms, smtCompareAtomsLess)
-		libstdcxxSortAtoms(occs, smtCompareAtomsLess)
+		libstdcxxSortAtoms(atoms, t.compareAtomsLess)
+		libstdcxxSortAtoms(occs, t.compareAtomsLess)
 		end := len(occs)
 		begin1 := t.first(smtArithmeticLowerAtom, occs, 0)
 		begin2 := t.first(smtArithmeticUpperAtom, occs, 0)
@@ -1699,7 +1805,6 @@ func (t *SMTTheoryArith) first(kind smtArithmeticAtomKind, occs []*smtArithmetic
 }
 
 func (t *SMTTheoryArith) nextInf(a1 *smtArithmeticAtom, kind smtArithmeticAtomKind, occs []*smtArithmeticAtom, it int) (int, bool) {
-	k1 := &a1.threshold
 	result := len(occs)
 	foundCompatible := false
 	for ; it < len(occs); it++ {
@@ -1708,7 +1813,7 @@ func (t *SMTTheoryArith) nextInf(a1 *smtArithmeticAtom, kind smtArithmeticAtomKi
 			continue
 		}
 		foundCompatible = true
-		if a2.threshold.cmp(k1) <= 0 {
+		if t.acmp(a2, a1) <= 0 {
 			result = it
 		} else {
 			break
@@ -1718,7 +1823,6 @@ func (t *SMTTheoryArith) nextInf(a1 *smtArithmeticAtom, kind smtArithmeticAtomKi
 }
 
 func (t *SMTTheoryArith) nextSup(a1 *smtArithmeticAtom, kind smtArithmeticAtomKind, occs []*smtArithmeticAtom, it int) (int, bool) {
-	k1 := &a1.threshold
 	foundCompatible := false
 	for ; it < len(occs); it++ {
 		a2 := occs[it]
@@ -1726,7 +1830,7 @@ func (t *SMTTheoryArith) nextSup(a1 *smtArithmeticAtom, kind smtArithmeticAtomKi
 			continue
 		}
 		foundCompatible = true
-		if k1.cmp(&a2.threshold) < 0 {
+		if t.acmp(a1, a2) < 0 {
 			return it, true
 		}
 	}
@@ -1793,8 +1897,11 @@ func (t *SMTTheoryArith) InternalizeAtom(n ast.ASTHandle, gateCtx bool) (bool, e
 			rhs = rhs2
 		}
 	}
-	k0, ok := t.isNumeral(rhs)
-	if !ok {
+	k0 := smtQZero()
+	defer smtQDel(t.q, &k0)
+	if ok, err := t.isNumeralQ(rhs, &k0); err != nil {
+		return false, err
+	} else if !ok {
 		return false, errSMTArithMalformedAtom
 	}
 	v, err := t.internalizeTermCore(lhs)
@@ -1816,15 +1923,20 @@ func (t *SMTTheoryArith) InternalizeAtom(n ast.ASTHandle, gateCtx bool) (bool, e
 	}
 	if t.isInt(v) && !k0.IsInt() {
 		if kind == smtArithmeticUpperAtom {
-			k0.SetInt(smtRatFloor(k0))
+			err = t.q.Floor(&k0, &k0)
 		} else {
-			k0.SetInt(smtRatFloor(k0))
-			k0.Add(k0, big.NewRat(1, 1)) // ceil of a non-integer
+			err = t.q.Ceil(&k0, &k0)
+		}
+		if err != nil {
+			return false, err
 		}
 	}
-	var k smtArithmeticValue
-	k.setRational(k0)
-	a, err := newSMTArithmeticAtom(bv, v, &k, kind)
+	k := newSMTArithmeticValue()
+	defer k.del(t.q)
+	if err = k.setRational(t.q, &k0); err != nil {
+		return false, err
+	}
+	a, err := newSMTArithmeticAtom(t.q, bv, v, &k, kind)
 	if err != nil {
 		return false, err
 	}
@@ -1868,11 +1980,11 @@ func (t *SMTTheoryArith) Assign(v int32, isTrue bool) error {
 	if a == nil {
 		return nil
 	}
-	if err := a.assign(isTrue, t.getEpsilon(a.variable)); err != nil {
+	if err := a.assign(t.q, isTrue, t.getEpsilon(a.variable)); err != nil {
 		return err
 	}
 	t.assertedBounds = append(t.assertedBounds, a)
-	return nil
+	return t.takeQErr(nil)
 }
 
 // ---- core.h:1320-1418 ----
@@ -1921,18 +2033,27 @@ func (t *SMTTheoryArith) NewEquality(v1, v2 SMTTheoryVar) (err error) {
 	if err != nil {
 		return err
 	}
-	if _, ok := t.isNumeral(n1.owner); ok {
+	k := smtQZero()
+	defer smtQDel(t.q, &k)
+	if ok, err := t.isNumeralQ(n1.owner, &k); err != nil {
+		return err
+	} else if ok {
 		v1, v2 = v2, v1
 		n1, n2 = n2, n1
 	}
 	var b1, b2 *smtArithmeticEqualityBound
-	if k, ok := t.isNumeral(n2.owner); ok {
-		var val smtArithmeticValue
-		val.setRational(k)
-		if b1, err = newSMTArithmeticEqualityBound(v1, &val, smtArithmeticLowerBound, n1, n2); err != nil {
+	if ok, err := t.isNumeralQ(n2.owner, &k); err != nil {
+		return err
+	} else if ok {
+		val := newSMTArithmeticValue()
+		defer val.del(t.q)
+		if err = val.setRational(t.q, &k); err != nil {
 			return err
 		}
-		if b2, err = newSMTArithmeticEqualityBound(v1, &val, smtArithmeticUpperBound, n1, n2); err != nil {
+		if b1, err = newSMTArithmeticEqualityBound(t.q, v1, &val, smtArithmeticLowerBound, n1, n2); err != nil {
+			return err
+		}
+		if b2, err = newSMTArithmeticEqualityBound(t.q, v1, &val, smtArithmeticUpperBound, n1, n2); err != nil {
 			return err
 		}
 	} else {
@@ -1954,7 +2075,7 @@ func (t *SMTTheoryArith) NewEquality(v1, v2 SMTTheoryVar) (err error) {
 		if err != nil {
 			return err
 		}
-		minusOne, err := t.mkNumeral(&x, big.NewRat(-1, 1), isIntN1)
+		minusOne, err := t.mkNumeralInt(&x, -1, isIntN1)
 		if err != nil {
 			return err
 		}
@@ -1974,11 +2095,11 @@ func (t *SMTTheoryArith) NewEquality(v1, v2 SMTTheoryVar) (err error) {
 			return err
 		}
 		vS := eS.TheoryVar(t.FamilyID())
-		var zero smtArithmeticValue
-		if b1, err = newSMTArithmeticEqualityBound(vS, &zero, smtArithmeticLowerBound, n1, n2); err != nil {
+		zero := newSMTArithmeticValue()
+		if b1, err = newSMTArithmeticEqualityBound(t.q, vS, &zero, smtArithmeticLowerBound, n1, n2); err != nil {
 			return err
 		}
-		if b2, err = newSMTArithmeticEqualityBound(vS, &zero, smtArithmeticUpperBound, n1, n2); err != nil {
+		if b2, err = newSMTArithmeticEqualityBound(t.q, vS, &zero, smtArithmeticUpperBound, n1, n2); err != nil {
 			return err
 		}
 	}
@@ -2147,7 +2268,9 @@ func (t *SMTTheoryArith) propagateCore() (bool, error) {
 }
 
 func (t *SMTTheoryArith) failed() error {
-	t.restoreAssignment()
+	if err := t.restoreAssignment(); err != nil {
+		return err
+	}
 	if err := t.toPatch.Reset(); err != nil {
 		return err
 	}
@@ -2160,24 +2283,38 @@ func (t *SMTTheoryArith) validateEqInModel(v1, v2 SMTTheoryVar, isTrue bool) boo
 
 // impliedValue is get_implied_value: the value of a base or quasi-base
 // variable computed from its row. The result aliases t.tmp, as in the source.
+// A manager failure is kept in qErr (see vcmp); impliedValue returns it.
 func (t *SMTTheoryArith) getImpliedValue(v SMTTheoryVar) *smtArithmeticValue {
+	sum, err := t.impliedValue(v)
+	if err != nil && t.qErr == nil {
+		t.qErr = err
+	}
+	return sum
+}
+
+func (t *SMTTheoryArith) impliedValue(v SMTTheoryVar) (*smtArithmeticValue, error) {
 	sum := &t.tmp
-	sum.reset()
+	if err := sum.reset(t.q); err != nil {
+		return sum, err
+	}
 	row := &t.rows[t.getVarRow(v)]
 	for i := range row.entries {
 		entry := &row.entries[i]
 		if !entry.dead() && entry.variable != v {
-			sum.addMul(&entry.coefficient, &t.value[entry.variable])
+			if err := sum.addMul(t.q, &entry.coefficient, &t.value[entry.variable]); err != nil {
+				return sum, err
+			}
 		}
 	}
-	sum.neg()
-	return sum
+	return sum, sum.neg(t.q)
 }
 
 // impliedOldValue is get_implied_old_value.
-func (t *SMTTheoryArith) getImpliedOldValue(v SMTTheoryVar, result *smtArithmeticValue) bool {
+func (t *SMTTheoryArith) getImpliedOldValue(v SMTTheoryVar, result *smtArithmeticValue) (bool, error) {
 	diff := false
-	result.reset()
+	if err := result.reset(t.q); err != nil {
+		return false, err
+	}
 	row := &t.rows[t.getVarRow(v)]
 	for i := range row.entries {
 		entry := &row.entries[i]
@@ -2185,19 +2322,20 @@ func (t *SMTTheoryArith) getImpliedOldValue(v SMTTheoryVar, result *smtArithmeti
 			continue
 		}
 		v2 := entry.variable
+		value := &t.value[v2]
 		if t.inUpdateTrailStack.Contains(uint32(v2)) {
-			result.addMul(&entry.coefficient, &t.oldValue[v2])
+			value = &t.oldValue[v2]
 			diff = true
-		} else {
-			result.addMul(&entry.coefficient, &t.value[v2])
+		}
+		if err := result.addMul(t.q, &entry.coefficient, value); err != nil {
+			return diff, err
 		}
 	}
-	result.neg()
-	return diff
+	return diff, result.neg(t.q)
 }
 
 // addRow sets rows[rid1] <- rows[rid1] + coeff * rows[rid2].
-func (t *SMTTheoryArith) addRow(rid1 int, coeff *big.Rat, rid2 int, applyGCDTest bool) error {
+func (t *SMTTheoryArith) addRow(rid1 int, coeff *numeral.Rational, rid2 int, applyGCDTest bool) error {
 	t.stats.addRows++
 	if t.propagationMode() != smtArithBPNone {
 		t.markRowForBoundProp(rid1)
@@ -2212,9 +2350,11 @@ func (t *SMTTheoryArith) addRow(rid1 int, coeff *big.Rat, rid2 int, applyGCDTest
 	if err := r1.saveVariablePositions(t.varPos); err != nil {
 		return err
 	}
-	isOne := coeff.IsInt() && coeff.Num().IsInt64() && coeff.Num().Int64() == 1
-	isMinusOne := coeff.IsInt() && coeff.Num().IsInt64() && coeff.Num().Int64() == -1
-	var scaled big.Rat
+	q := t.q
+	isOne := coeff.IsOne()
+	isMinusOne := coeff.IsMinusOne()
+	scaled := smtQZero()
+	defer smtQDel(q, &scaled)
 	for i := range r2.entries {
 		it := &r2.entries[i]
 		if it.dead() {
@@ -2226,13 +2366,19 @@ func (t *SMTTheoryArith) addRow(rid1 int, coeff *big.Rat, rid2 int, applyGCDTest
 			// variable v is not in row1
 			rowIdx, rEntry := r1.addEntry()
 			rEntry.variable = v
+			if err := q.Copy(&rEntry.coefficient, &it.coefficient); err != nil {
+				return err
+			}
 			switch {
 			case isOne:
-				rEntry.coefficient.Set(&it.coefficient)
 			case isMinusOne:
-				rEntry.coefficient.Neg(&it.coefficient)
+				if err := q.Neg(&rEntry.coefficient); err != nil {
+					return err
+				}
 			default:
-				smtRatMul(&rEntry.coefficient, &it.coefficient, coeff)
+				if err := q.Mul(&rEntry.coefficient, coeff, &rEntry.coefficient); err != nil {
+					return err
+				}
 			}
 			colIdx, cEntry := t.columns[v].addEntry()
 			rEntry.columnIndex = colIdx
@@ -2241,17 +2387,23 @@ func (t *SMTTheoryArith) addRow(rid1 int, coeff *big.Rat, rid2 int, applyGCDTest
 		} else {
 			// variable v is in row1
 			rEntry := &r1.entries[pos]
+			var err error
 			switch {
 			case isOne:
-				smtRatAdd(&rEntry.coefficient, &rEntry.coefficient, &it.coefficient)
+				err = q.Add(&rEntry.coefficient, &it.coefficient, &rEntry.coefficient)
 			case isMinusOne:
-				smtRatSub(&rEntry.coefficient, &rEntry.coefficient, &it.coefficient)
+				err = q.Sub(&rEntry.coefficient, &it.coefficient, &rEntry.coefficient)
 			default:
-				smtRatAdd(&rEntry.coefficient, &rEntry.coefficient, smtRatMul(&scaled, &it.coefficient, coeff))
+				if err = q.Mul(&it.coefficient, coeff, &scaled); err == nil {
+					err = q.Add(&rEntry.coefficient, &scaled, &rEntry.coefficient)
+				}
 			}
-			if rEntry.coefficient.Sign() == 0 {
+			if err != nil {
+				return err
+			}
+			if rEntry.coefficient.IsZero() {
 				colIdx := rEntry.columnIndex
-				if err := r1.deleteEntry(pos); err != nil {
+				if err := r1.deleteEntry(q, pos); err != nil {
 					return err
 				}
 				if err := t.columns[v].deleteEntry(colIdx); err != nil {
@@ -2287,13 +2439,16 @@ func (t *SMTTheoryArith) addRows(r1 int, monomials []smtArithLinearMonomial) err
 	return nil
 }
 
-func (t *SMTTheoryArith) saveValue(v SMTTheoryVar) {
+func (t *SMTTheoryArith) saveValue(v SMTTheoryVar) error {
 	if !t.inUpdateTrailStack.Contains(uint32(v)) {
 		t.inUpdateTrailStack.Insert(uint32(v))
-		t.oldValue[v].set(&t.value[v])
+		if err := t.oldValue[v].set(t.q, &t.value[v]); err != nil {
+			return err
+		}
 		t.updateTrailStack = append(t.updateTrailStack, uint32(v))
 	}
 	t.changedAssignment = true
+	return nil
 }
 
 func (t *SMTTheoryArith) discardUpdateTrail() {
@@ -2301,18 +2456,25 @@ func (t *SMTTheoryArith) discardUpdateTrail() {
 	t.updateTrailStack = t.updateTrailStack[:0]
 }
 
-func (t *SMTTheoryArith) restoreAssignment() {
+func (t *SMTTheoryArith) restoreAssignment() error {
 	for _, v := range t.updateTrailStack {
-		t.value[v].set(&t.oldValue[v])
+		if err := t.value[v].set(t.q, &t.oldValue[v]); err != nil {
+			return err
+		}
 	}
 	t.updateTrailStack = t.updateTrailStack[:0]
 	t.inUpdateTrailStack.Reset()
+	return nil
 }
 
 // updateValueCore is m_value[v] += delta.
 func (t *SMTTheoryArith) updateValueCore(v SMTTheoryVar, delta *smtArithmeticValue) error {
-	t.saveValue(v)
-	t.value[v].add(delta)
+	if err := t.saveValue(v); err != nil {
+		return err
+	}
+	if err := t.value[v].add(t.q, delta); err != nil {
+		return err
+	}
 	if t.isBase(v) && !t.toPatch.Contains(int32(v)) && (t.belowLower(v) || t.aboveUpper(v)) {
 		if err := t.toPatch.Insert(int32(v)); err != nil {
 			return err
@@ -2332,7 +2494,8 @@ func (t *SMTTheoryArith) updateValue(v SMTTheoryVar, delta *smtArithmeticValue) 
 	if err := column.compressIfNeeded(t.rows); err != nil {
 		return err
 	}
-	var delta2 smtArithmeticValue
+	delta2 := newSMTArithmeticValue()
+	defer delta2.del(t.q)
 	for i := range column.entries {
 		entry := column.entries[i]
 		if entry.dead() {
@@ -2341,9 +2504,15 @@ func (t *SMTTheoryArith) updateValue(v SMTTheoryVar, delta *smtArithmeticValue) 
 		row := &t.rows[entry.rowID]
 		s := row.base
 		if s != SMTNullTheoryVar && !t.isQuasiBase(s) {
-			delta2.set(delta)
-			delta2.mulRat(&row.entries[entry.rowIndex].coefficient)
-			delta2.neg()
+			if err := delta2.set(t.q, delta); err != nil {
+				return err
+			}
+			if err := delta2.mulRat(t.q, &row.entries[entry.rowIndex].coefficient); err != nil {
+				return err
+			}
+			if err := delta2.neg(t.q); err != nil {
+				return err
+			}
 			if err := t.updateValueCore(s, &delta2); err != nil {
 				return err
 			}
@@ -2354,24 +2523,37 @@ func (t *SMTTheoryArith) updateValue(v SMTTheoryVar, delta *smtArithmeticValue) 
 
 // pivot makes x_j the base variable of the row owned by x_i; a_ij is the
 // coefficient of x_j in that row. lazy eliminates x_j only from base rows.
-func (t *SMTTheoryArith) pivot(lazy bool, xi, xj SMTTheoryVar, aij *big.Rat, applyGCDTest bool) error {
+func (t *SMTTheoryArith) pivot(lazy bool, xi, xj SMTTheoryVar, aij *numeral.Rational, applyGCDTest bool) error {
 	t.stats.pivots++
 	rowID := t.getVarRow(xi)
 	row := &t.rows[rowID]
-	isMinusOne := aij.IsInt() && aij.Num().IsInt64() && aij.Num().Int64() == -1
-	isOne := aij.IsInt() && aij.Num().IsInt64() && aij.Num().Int64() == 1
-	if isMinusOne {
+	q := t.q
+	if aij.IsMinusOne() {
 		for i := range row.entries {
 			if !row.entries[i].dead() {
-				row.entries[i].coefficient.Neg(&row.entries[i].coefficient)
+				if err := q.Neg(&row.entries[i].coefficient); err != nil {
+					return err
+				}
 			}
 		}
-	} else if !isOne {
-		divisor := new(big.Rat).Set(aij) // aij may alias an entry of this row
+	} else if !aij.IsOne() {
+		divisor, err := smtQNew(q, aij) // aij may alias an entry of this row
+		if err != nil {
+			return err
+		}
 		for i := range row.entries {
 			if !row.entries[i].dead() {
-				smtRatQuo(&row.entries[i].coefficient, &row.entries[i].coefficient, divisor)
+				c := &row.entries[i].coefficient
+				if err = q.Div(c, &divisor, c); err != nil {
+					break
+				}
 			}
+		}
+		if e := smtQDel(q, &divisor); err == nil {
+			err = e
+		}
+		if err != nil {
+			return err
 		}
 	}
 	t.limitInc(uint(row.size))
@@ -2386,13 +2568,28 @@ func (t *SMTTheoryArith) pivot(lazy bool, xi, xj SMTTheoryVar, aij *big.Rat, app
 	return t.eliminate(lazy, xj, applyGCDTest)
 }
 
+// pivotCopy is pivot with a copy of a_ij (a numeral argument the source
+// copies from row storage the pivot rewrites).
+func (t *SMTTheoryArith) pivotCopy(lazy bool, xi, xj SMTTheoryVar, aij *numeral.Rational, applyGCDTest bool) error {
+	a, err := smtQNew(t.q, aij)
+	if err != nil {
+		return err
+	}
+	err = t.pivot(lazy, xi, xj, &a, applyGCDTest)
+	if e := smtQDel(t.q, &a); err == nil {
+		err = e
+	}
+	return err
+}
+
 // eliminate removes x_i from every row other than the one it owns. When
 // lazy, only base rows are touched.
 func (t *SMTTheoryArith) eliminate(lazy bool, xi SMTTheoryVar, applyGCDTest bool) error {
 	rowID := t.getVarRow(xi)
 	column := &t.columns[xi]
 	sPos := -1
-	var akj big.Rat
+	akj := smtQZero()
+	defer smtQDel(t.q, &akj)
 	for i := 0; i < len(column.entries); i++ {
 		entry := column.entries[i]
 		if entry.dead() {
@@ -2402,11 +2599,20 @@ func (t *SMTTheoryArith) eliminate(lazy bool, xi SMTTheoryVar, applyGCDTest bool
 			r2 := &t.rows[entry.rowID]
 			s2 := r2.base
 			if s2 != SMTNullTheoryVar && (!lazy || t.isBase(s2)) {
-				akj.Neg(&r2.entries[entry.rowIndex].coefficient)
+				if err := t.q.Copy(&akj, &r2.entries[entry.rowIndex].coefficient); err != nil {
+					return err
+				}
+				if err := t.q.Neg(&akj); err != nil {
+					return err
+				}
 				if err := t.addRow(entry.rowID, &akj, rowID, applyGCDTest); err != nil {
 					return err
 				}
-				t.limitInc(uint(t.rows[rowID].size+r2.size) * smtRatStorageSize(&akj))
+				size, err := smtQStorageSize(t.q, &akj)
+				if err != nil {
+					return err
+				}
+				t.limitInc(uint(t.rows[rowID].size+r2.size) * size)
 			}
 		} else {
 			sPos = i
@@ -2425,11 +2631,18 @@ func (t *SMTTheoryArith) eliminate(lazy bool, xi SMTTheoryVar, applyGCDTest bool
 
 // updateAndPivot sets x_j to be the new base variable of the row owned by x_i,
 // moving x_i to x_iNewVal.
-func (t *SMTTheoryArith) updateAndPivot(xi, xj SMTTheoryVar, aij *big.Rat, xiNewVal *smtArithmeticValue) error {
-	var theta smtArithmeticValue
-	theta.set(&t.value[xi])
-	theta.sub(xiNewVal)
-	theta.quoRat(aij)
+func (t *SMTTheoryArith) updateAndPivot(xi, xj SMTTheoryVar, aij *numeral.Rational, xiNewVal *smtArithmeticValue) error {
+	theta := newSMTArithmeticValue()
+	defer theta.del(t.q)
+	if err := theta.set(t.q, &t.value[xi]); err != nil {
+		return err
+	}
+	if err := theta.sub(t.q, xiNewVal); err != nil {
+		return err
+	}
+	if err := theta.quoRat(t.q, aij); err != nil {
+		return err
+	}
 	if err := t.updateValue(xj, &theta); err != nil {
 		return err
 	}
@@ -2467,10 +2680,10 @@ func (t *SMTTheoryArith) getNumNonFreeDepVars(v SMTTheoryVar, bestSoFar int) int
 }
 
 // selectBlandsPivotCore selects the smallest eligible variable.
-func (t *SMTTheoryArith) selectBlandsPivotCore(xi SMTTheoryVar, isBelow bool) (SMTTheoryVar, *big.Rat) {
+func (t *SMTTheoryArith) selectBlandsPivotCore(xi SMTTheoryVar, isBelow bool) (SMTTheoryVar, *numeral.Rational) {
 	max := SMTTheoryVar(t.getNumVars())
 	result := max
-	var out *big.Rat
+	var out *numeral.Rational
 	row := &t.rows[t.getVarRow(xi)]
 	for i := range row.entries {
 		it := &row.entries[i]
@@ -2498,10 +2711,10 @@ func (t *SMTTheoryArith) selectBlandsPivotCore(xi SMTTheoryVar, isBelow bool) (S
 
 // selectPivotCore selects the variable with the fewest non-free dependents,
 // breaking ties by column size and then at random.
-func (t *SMTTheoryArith) selectPivotCore(isBelow bool, xi SMTTheoryVar) (SMTTheoryVar, *big.Rat) {
+func (t *SMTTheoryArith) selectPivotCore(isBelow bool, xi SMTTheoryVar) (SMTTheoryVar, *numeral.Rational) {
 	max := SMTTheoryVar(t.getNumVars())
 	result := max
-	var out *big.Rat
+	var out *numeral.Rational
 	row := &t.rows[t.getVarRow(xi)]
 	bestColSize := math.MaxInt32
 	bestSoFar := math.MaxInt32
@@ -2538,7 +2751,7 @@ func (t *SMTTheoryArith) selectPivotCore(isBelow bool, xi SMTTheoryVar) (SMTTheo
 	return SMTNullTheoryVar, nil
 }
 
-func (t *SMTTheoryArith) selectPivot(xi SMTTheoryVar, isBelow bool) (SMTTheoryVar, *big.Rat) {
+func (t *SMTTheoryArith) selectPivot(xi SMTTheoryVar, isBelow bool) (SMTTheoryVar, *numeral.Rational) {
 	if t.blandsRule {
 		return t.selectBlandsPivotCore(xi, isBelow)
 	}
@@ -2559,12 +2772,17 @@ func (t *SMTTheoryArith) makeVarFeasible(xi SMTTheoryVar) (bool, error) {
 	}
 	xj, aij := t.selectPivot(xi, isBelow)
 	if xj != SMTNullTheoryVar {
-		// aij points into row storage that the pivot rewrites.
-		a := new(big.Rat).Set(aij)
-		target := &t.getBound(xi, !isBelow).base().value
-		var newValue smtArithmeticValue
-		newValue.set(target)
-		return true, t.updateAndPivot(xi, xj, a, &newValue)
+		// select_pivot's a_ij is a copy: aij points into row storage that
+		// the pivot rewrites.
+		a, err := smtQNew(t.q, aij)
+		if err != nil {
+			return false, err
+		}
+		err = t.updateAndPivot(xi, xj, &a, &t.getBound(xi, !isBelow).base().value)
+		if e := smtQDel(t.q, &a); err == nil {
+			err = e
+		}
+		return true, err
 	}
 	return false, t.signRowConflict(xi, isBelow)
 }
@@ -2573,7 +2791,9 @@ func (t *SMTTheoryArith) makeVarFeasible(xi SMTTheoryVar) (bool, error) {
 // the least (greatest) error, removed from the heap.
 func (t *SMTTheoryArith) selectLgErrorVar(least bool) (SMTTheoryVar, error) {
 	best := SMTNullTheoryVar
-	var bestError, currError smtArithmeticValue
+	bestError, currError := newSMTArithmeticValue(), newSMTArithmeticValue()
+	defer bestError.del(t.q)
+	defer currError.del(t.q)
 	values, err := t.toPatch.AppendValues(nil)
 	if err != nil {
 		return SMTNullTheoryVar, err
@@ -2582,22 +2802,30 @@ func (t *SMTTheoryArith) selectLgErrorVar(least bool) (SMTTheoryVar, error) {
 		v := SMTTheoryVar(raw)
 		switch {
 		case t.belowLower(v):
-			currError.set(&t.lower(v).base().value)
-			currError.sub(t.getValue(v))
+			err = currError.set(t.q, &t.lower(v).base().value)
+			if err == nil {
+				err = currError.sub(t.q, t.getValue(v))
+			}
 		case t.aboveUpper(v):
-			currError.set(t.getValue(v))
-			currError.sub(&t.upper(v).base().value)
+			err = currError.set(t.q, t.getValue(v))
+			if err == nil {
+				err = currError.sub(t.q, &t.upper(v).base().value)
+			}
 		default:
 			continue
 		}
-		var zero smtArithmeticValue
-		if currError.cmp(&zero) <= 0 {
+		if err != nil {
+			return SMTNullTheoryVar, err
+		}
+		if currError.sign() <= 0 {
 			return SMTNullTheoryVar, ast.ErrASTDomain
 		}
-		c := currError.cmp(&bestError)
+		c := t.vcmp(&currError, &bestError)
 		if best == SMTNullTheoryVar || (!least && c > 0) || (least && c < 0) {
 			best = v
-			bestError.set(&currError)
+			if err = bestError.set(t.q, &currError); err != nil {
+				return SMTNullTheoryVar, err
+			}
 		}
 	}
 	if best == SMTNullTheoryVar {
@@ -2659,10 +2887,29 @@ func (t *SMTTheoryArith) makeFeasible() (bool, error) {
 	return true, nil
 }
 
+// relaxDelta is sign_row_conflict's delta = a; delta -= b; delta -= eps;
+// if (delta.is_neg()) delta.reset().
+func (t *SMTTheoryArith) relaxDelta(delta, a, b, eps *smtArithmeticValue) error {
+	if err := delta.set(t.q, a); err != nil {
+		return err
+	}
+	if err := delta.sub(t.q, b); err != nil {
+		return err
+	}
+	if err := delta.sub(t.q, eps); err != nil {
+		return err
+	}
+	if delta.sign() < 0 {
+		return delta.reset(t.q)
+	}
+	return nil
+}
+
 // signRowConflict: the row of x_i implies a bound on x_i that contradicts
 // the bound it already has.
 func (t *SMTTheoryArith) signRowConflict(xi SMTTheoryVar, isBelow bool) error {
-	var delta smtArithmeticValue
+	delta := newSMTArithmeticValue()
+	defer delta.del(t.q)
 	row := &t.rows[t.getVarRow(xi)]
 	idx := row.indexOf(xi)
 	if idx < 0 {
@@ -2672,21 +2919,15 @@ func (t *SMTTheoryArith) signRowConflict(xi SMTTheoryVar, isBelow bool) error {
 	if isBelow {
 		b = t.lower(xi)
 		if t.relaxBounds() {
-			delta.set(&b.base().value)
-			delta.sub(t.getValue(xi))
-			delta.sub(t.getEpsilon(xi))
-			if delta.sign() < 0 {
-				delta.reset()
+			if err := t.relaxDelta(&delta, &b.base().value, t.getValue(xi), t.getEpsilon(xi)); err != nil {
+				return err
 			}
 		}
 	} else {
 		b = t.upper(xi)
 		if t.relaxBounds() {
-			delta.set(t.getValue(xi))
-			delta.sub(&b.base().value)
-			delta.sub(t.getEpsilon(xi))
-			if delta.sign() < 0 {
-				delta.reset()
+			if err := t.relaxDelta(&delta, t.getValue(xi), &b.base().value, t.getEpsilon(xi)); err != nil {
+				return err
 			}
 		}
 	}
@@ -2695,8 +2936,8 @@ func (t *SMTTheoryArith) signRowConflict(xi SMTTheoryVar, isBelow bool) error {
 	if err := t.explainBound(row, idx, !isBelow, &delta, ante); err != nil {
 		return err
 	}
-	one := big.NewRat(1, 1)
-	if err := b.pushJustification(ante, one, t.coeffsEnabled()); err != nil {
+	one := smtQInt(1)
+	if err := b.pushJustification(t.q, ante, &one, t.coeffsEnabled()); err != nil {
 		return err
 	}
 	return t.setConflict(ante, "farkas")
@@ -2707,10 +2948,10 @@ func (t *SMTTheoryArith) assertLower(b smtArithBound) (bool, error) {
 	v := c.variable
 	k := &c.value
 	u, l := t.upper(v), t.lower(v)
-	if u != nil && k.cmp(&u.base().value) > 0 {
+	if u != nil && t.vcmp(k, &u.base().value) > 0 {
 		return false, t.signBoundConflict(u, b)
 	}
-	if l != nil && k.cmp(&l.base().value) <= 0 {
+	if l != nil && t.vcmp(k, &l.base().value) <= 0 {
 		return true, nil // redundant
 	}
 	switch t.getVarKind(v) {
@@ -2720,13 +2961,13 @@ func (t *SMTTheoryArith) assertLower(b smtArithBound) (bool, error) {
 		}
 		fallthrough
 	case smtArithmeticBase:
-		if !t.toPatch.Contains(int32(v)) && t.getValue(v).cmp(k) < 0 {
+		if !t.toPatch.Contains(int32(v)) && t.vcmp(t.getValue(v), k) < 0 {
 			if err := t.toPatch.Insert(int32(v)); err != nil {
 				return false, err
 			}
 		}
 	case smtArithmeticNonBase:
-		if t.getValue(v).cmp(k) < 0 {
+		if t.vcmp(t.getValue(v), k) < 0 {
 			if err := t.setValue(v, k); err != nil {
 				return false, err
 			}
@@ -2747,10 +2988,10 @@ func (t *SMTTheoryArith) assertUpper(b smtArithBound) (bool, error) {
 	v := c.variable
 	k := &c.value
 	u, l := t.upper(v), t.lower(v)
-	if l != nil && k.cmp(&l.base().value) < 0 {
+	if l != nil && t.vcmp(k, &l.base().value) < 0 {
 		return false, t.signBoundConflict(l, b)
 	}
-	if u != nil && k.cmp(&u.base().value) >= 0 {
+	if u != nil && t.vcmp(k, &u.base().value) >= 0 {
 		return true, nil // redundant
 	}
 	switch t.getVarKind(v) {
@@ -2760,13 +3001,13 @@ func (t *SMTTheoryArith) assertUpper(b smtArithBound) (bool, error) {
 		}
 		fallthrough
 	case smtArithmeticBase:
-		if !t.toPatch.Contains(int32(v)) && t.getValue(v).cmp(k) > 0 {
+		if !t.toPatch.Contains(int32(v)) && t.vcmp(t.getValue(v), k) > 0 {
 			if err := t.toPatch.Insert(int32(v)); err != nil {
 				return false, err
 			}
 		}
 	case smtArithmeticNonBase:
-		if t.getValue(v).cmp(k) > 0 {
+		if t.vcmp(t.getValue(v), k) > 0 {
 			if err := t.setValue(v, k); err != nil {
 				return false, err
 			}
@@ -2809,11 +3050,11 @@ func (t *SMTTheoryArith) signBoundConflict(b1, b2 smtArithBound) error {
 	}
 	ante := t.acquireAntecedents()
 	defer t.releaseAntecedentsScope()
-	one := big.NewRat(1, 1)
-	if err := b1.pushJustification(ante, one, t.coeffsEnabled()); err != nil {
+	one := smtQInt(1)
+	if err := b1.pushJustification(t.q, ante, &one, t.coeffsEnabled()); err != nil {
 		return err
 	}
-	if err := b2.pushJustification(ante, one, t.coeffsEnabled()); err != nil {
+	if err := b2.pushJustification(t.q, ante, &one, t.coeffsEnabled()); err != nil {
 		return err
 	}
 	return t.setConflict(ante, "farkas")
@@ -2853,7 +3094,7 @@ func (t *SMTTheoryArith) isRowUsefulForBoundProp(r *smtArithmeticRow) (lowerIdx,
 		if it.dead() {
 			continue
 		}
-		if t.skipBigCoeffs() && smtRatIsBig(&it.coefficient) {
+		if t.skipBigCoeffs() && smtQIsBig(&it.coefficient) {
 			return -2, -2
 		}
 		isPos := it.coefficient.Sign() > 0
@@ -2885,7 +3126,8 @@ func (t *SMTTheoryArith) implyBoundForMonomial(r *smtArithmeticRow, idx int, isL
 	if t.unassignedAtoms[entry.variable] == 0 {
 		return nil
 	}
-	var impliedK smtArithmeticValue
+	impliedK := newSMTArithmeticValue()
+	defer impliedK.del(t.q)
 	for idx2 := range r.entries {
 		it := &r.entries[idx2]
 		if it.dead() || idx == idx2 {
@@ -2895,19 +3137,23 @@ func (t *SMTTheoryArith) implyBoundForMonomial(r *smtArithmeticRow, idx int, isL
 		if b == nil {
 			return ast.ErrASTDomain
 		}
-		impliedK.subMul(&it.coefficient, &b.base().value)
+		if err := impliedK.subMul(t.q, &it.coefficient, &b.base().value); err != nil {
+			return err
+		}
 	}
-	impliedK.quoRat(&entry.coefficient)
+	if err := impliedK.quoRat(t.q, &entry.coefficient); err != nil {
+		return err
+	}
 	if (entry.coefficient.Sign() > 0) == isLower {
 		// impliedK is a lower bound for entry.variable
 		curr := t.lower(entry.variable)
-		if curr == nil || impliedK.cmp(&curr.base().value) > 0 {
+		if curr == nil || t.vcmp(&impliedK, &curr.base().value) > 0 {
 			return t.mkImpliedBound(r, idx, isLower, entry.variable, smtArithmeticLowerBound, &impliedK)
 		}
 		return nil
 	}
 	curr := t.upper(entry.variable)
-	if curr == nil || impliedK.cmp(&curr.base().value) < 0 {
+	if curr == nil || t.vcmp(&impliedK, &curr.base().value) < 0 {
 		return t.mkImpliedBound(r, idx, isLower, entry.variable, smtArithmeticUpperBound, &impliedK)
 	}
 	return nil
@@ -2916,34 +3162,44 @@ func (t *SMTTheoryArith) implyBoundForMonomial(r *smtArithmeticRow, idx int, isL
 // implyBoundForAllMonomials implies a lower (upper) bound for every
 // monomial in the row, using one pass to compute the common sum.
 func (t *SMTTheoryArith) implyBoundForAllMonomials(r *smtArithmeticRow, isLower bool) error {
-	var bb smtArithmeticValue
+	bb := newSMTArithmeticValue()
+	defer bb.del(t.q)
 	for i := range r.entries {
 		it := &r.entries[i]
 		if !it.dead() {
 			b := t.getBound(it.variable, smtArithUseUpper(&it.coefficient, isLower))
-			bb.subMul(&it.coefficient, &b.base().value)
+			if err := bb.subMul(t.q, &it.coefficient, &b.base().value); err != nil {
+				return err
+			}
 		}
 	}
-	var impliedK smtArithmeticValue
+	impliedK := newSMTArithmeticValue()
+	defer impliedK.del(t.q)
 	for idx := range r.entries {
 		it := &r.entries[idx]
 		if it.dead() || t.unassignedAtoms[it.variable] == 0 {
 			continue
 		}
 		b := t.getBound(it.variable, smtArithUseUpper(&it.coefficient, isLower))
-		impliedK.set(&bb)
-		impliedK.addMul(&it.coefficient, &b.base().value)
-		impliedK.quoRat(&it.coefficient)
+		if err := impliedK.set(t.q, &bb); err != nil {
+			return err
+		}
+		if err := impliedK.addMul(t.q, &it.coefficient, &b.base().value); err != nil {
+			return err
+		}
+		if err := impliedK.quoRat(t.q, &it.coefficient); err != nil {
+			return err
+		}
 		if (it.coefficient.Sign() > 0) == isLower {
 			curr := t.lower(it.variable)
-			if curr == nil || impliedK.cmp(&curr.base().value) > 0 {
+			if curr == nil || t.vcmp(&impliedK, &curr.base().value) > 0 {
 				if err := t.mkImpliedBound(r, idx, isLower, it.variable, smtArithmeticLowerBound, &impliedK); err != nil {
 					return err
 				}
 			}
 		} else {
 			curr := t.upper(it.variable)
-			if curr == nil || impliedK.cmp(&curr.base().value) < 0 {
+			if curr == nil || t.vcmp(&impliedK, &curr.base().value) < 0 {
 				if err := t.mkImpliedBound(r, idx, isLower, it.variable, smtArithmeticUpperBound, &impliedK); err != nil {
 					return err
 				}
@@ -2956,7 +3212,7 @@ func (t *SMTTheoryArith) implyBoundForAllMonomials(r *smtArithmeticRow, isLower 
 // explainBound creates the explanation for the bound of the monomial at idx.
 // delta relaxes the explanation: the implied bound may be delta weaker.
 // isLower says whether the other monomials imply a lower (upper) bound.
-func (t *SMTTheoryArith) explainBound(r *smtArithmeticRow, idx int, isLower bool, delta *smtArithmeticValue, ante *smtArithmeticAntecedents) error {
+func (t *SMTTheoryArith) explainBound(r *smtArithmeticRow, idx int, isLower bool, delta *smtArithmeticValue, ante *smtArithmeticAntecedents) (err error) {
 	if delta.sign() < 0 {
 		return ast.ErrASTDomain
 	}
@@ -2964,11 +3220,33 @@ func (t *SMTTheoryArith) explainBound(r *smtArithmeticRow, idx int, isLower bool
 		return nil
 	}
 	proofs := t.coeffsEnabled()
+	q := t.q
+	coeff, invCoeff := smtQZero(), smtQZero()
+	k1, limitK1, k2, diff := newSMTArithmeticValue(), newSMTArithmeticValue(), newSMTArithmeticValue(), newSMTArithmeticValue()
+	defer func() {
+		for _, r := range []*numeral.Rational{&coeff, &invCoeff} {
+			if e := smtQDel(q, r); e != nil && err == nil {
+				err = e
+			}
+		}
+		for _, v := range []*smtArithmeticValue{&k1, &limitK1, &k2, &diff} {
+			if e := v.del(q); e != nil && err == nil {
+				err = e
+			}
+		}
+	}()
 	if t.relaxBounds() {
 		// a delta change of the variable at idx is a |coeff|*delta change of
 		// its monomial.
-		coeff := new(big.Rat).Abs(&r.entries[idx].coefficient)
-		delta.mulRat(coeff)
+		if err := q.Copy(&coeff, &r.entries[idx].coefficient); err != nil {
+			return err
+		}
+		if err := q.Abs(&coeff); err != nil {
+			return err
+		}
+		if err := delta.mulRat(q, &coeff); err != nil {
+			return err
+		}
 	}
 	for idx2 := range r.entries {
 		it := &r.entries[idx2]
@@ -2980,26 +3258,45 @@ func (t *SMTTheoryArith) explainBound(r *smtArithmeticRow, idx int, isLower bool
 			return ast.ErrASTDomain
 		}
 		if !t.relaxBounds() || delta.isZero() {
-			if err := b.pushJustification(ante, &it.coefficient, proofs); err != nil {
+			if err := b.pushJustification(t.q, ante, &it.coefficient, proofs); err != nil {
 				return err
 			}
 			continue
 		}
-		coeff := new(big.Rat).Abs(&it.coefficient)
-		invCoeff := new(big.Rat).Inv(coeff)
+		if err := q.Copy(&coeff, &it.coefficient); err != nil {
+			return err
+		}
+		if err := q.Abs(&coeff); err != nil {
+			return err
+		}
+		if err := q.SetInt64(&invCoeff, 1); err != nil {
+			return err
+		}
+		if err := q.Div(&invCoeff, &coeff, &invCoeff); err != nil {
+			return err
+		}
 		bc := b.base()
 		isBLower := bc.kind == smtArithmeticLowerBound
-		var k1, limitK1, k2 smtArithmeticValue
-		k1.set(&bc.value)
-		limitK1.set(&k1)
+		if err := k1.set(q, &bc.value); err != nil {
+			return err
+		}
+		if err := limitK1.set(q, &k1); err != nil {
+			return err
+		}
 		// if the max decrease (increase) of the current monomial is delta,
 		// the maximal decrease (increase) of the variable is delta/|coeff|.
+		var err error
 		if isBLower {
-			limitK1.subMul(invCoeff, delta)
+			err = limitK1.subMul(q, &invCoeff, delta)
 		} else {
-			limitK1.addMul(invCoeff, delta)
+			err = limitK1.addMul(q, &invCoeff, delta)
 		}
-		k2.set(&k1)
+		if err != nil {
+			return err
+		}
+		if err := k2.set(q, &k1); err != nil {
+			return err
+		}
 		var newAtom *smtArithmeticAtom
 		for _, a := range t.varOccs[it.variable] {
 			if smtArithBound(a) == b {
@@ -3009,37 +3306,43 @@ func (t *SMTTheoryArith) explainBound(r *smtArithmeticRow, idx int, isLower bool
 			if val == lbool.Undef {
 				continue
 			}
-			if err := a.assign(val == lbool.True, t.getEpsilon(a.variable)); err != nil {
+			if err := a.assign(q, val == lbool.True, t.getEpsilon(a.variable)); err != nil {
 				return err
 			}
 			if a.kind == bc.kind {
 				if isBLower {
-					if a.value.cmp(&limitK1) >= 0 && a.value.cmp(&k2) < 0 {
-						k2.set(&a.value)
+					if t.vcmp(&a.value, &limitK1) >= 0 && t.vcmp(&a.value, &k2) < 0 {
+						if err := k2.set(q, &a.value); err != nil {
+							return err
+						}
 						newAtom = a
 					}
-				} else if a.value.cmp(&limitK1) <= 0 && a.value.cmp(&k2) > 0 {
-					k2.set(&a.value)
+				} else if t.vcmp(&a.value, &limitK1) <= 0 && t.vcmp(&a.value, &k2) > 0 {
+					if err := k2.set(q, &a.value); err != nil {
+						return err
+					}
 					newAtom = a
 				}
 			}
 		}
 		if newAtom == nil {
-			if err := b.pushJustification(ante, coeff, proofs); err != nil {
+			if err := b.pushJustification(q, ante, &coeff, proofs); err != nil {
 				return err
 			}
 			continue
 		}
-		var diff smtArithmeticValue
 		if isBLower {
-			diff.set(&k1)
-			diff.sub(&k2)
+			err = t.vsub(&diff, &k1, &k2)
 		} else {
-			diff.set(&k2)
-			diff.sub(&k1)
+			err = t.vsub(&diff, &k2, &k1)
 		}
-		delta.subMul(coeff, &diff)
-		if err := newAtom.pushJustification(ante, coeff, proofs); err != nil {
+		if err != nil {
+			return err
+		}
+		if err := delta.subMul(q, &coeff, &diff); err != nil {
+			return err
+		}
+		if err := newAtom.pushJustification(q, ante, &coeff, proofs); err != nil {
 			return err
 		}
 	}
@@ -3049,7 +3352,8 @@ func (t *SMTTheoryArith) explainBound(r *smtArithmeticRow, idx int, isLower bool
 // mkImpliedBound assigns the atoms of v that the implied bound k decides.
 func (t *SMTTheoryArith) mkImpliedBound(r *smtArithmeticRow, idx int, isLower bool, v SMTTheoryVar, kind smtArithmeticBoundKind, k *smtArithmeticValue) error {
 	epsilon := t.getEpsilon(v)
-	var delta smtArithmeticValue
+	delta := newSMTArithmeticValue()
+	defer delta.del(t.q)
 	for i := 0; i < len(t.varOccs[v]); i++ {
 		a := t.varOccs[v][i]
 		bv := a.boolean
@@ -3058,25 +3362,31 @@ func (t *SMTTheoryArith) mkImpliedBound(r *smtArithmeticRow, idx int, isLower bo
 			continue
 		}
 		k2 := &a.threshold
-		delta.reset()
+		if err := delta.reset(t.q); err != nil {
+			return err
+		}
 		if a.atomKind == smtArithmeticLowerAtom {
 			// v >= k, k >= k2 |- v >= k2
-			if kind == smtArithmeticLowerBound && k.cmp(k2) >= 0 {
+			if kind == smtArithmeticLowerBound && t.vcmp(k, k2) >= 0 {
 				if t.relaxBounds() {
-					delta.set(k)
-					delta.sub(k2)
+					if err := t.vsub(&delta, k, k2); err != nil {
+						return err
+					}
 				}
 				if err := t.assignBoundLiteral(l, r, idx, isLower, &delta); err != nil {
 					return err
 				}
 			}
 			// v <= k, k < k2 |- v < k2 |- not v >= k2
-			if kind == smtArithmeticUpperBound && k.cmp(k2) < 0 {
+			if kind == smtArithmeticUpperBound && t.vcmp(k, k2) < 0 {
 				// k < k2 is not enough: with k = -1/5*eps and k2 = 0,
 				// v <= -1/5*eps means not v >= 0, i.t. v <= -eps.
-				delta.set(k2)
-				delta.sub(k)
-				delta.sub(epsilon)
+				if err := t.vsub(&delta, k2, k); err != nil {
+					return err
+				}
+				if err := delta.sub(t.q, epsilon); err != nil {
+					return err
+				}
 				if delta.sign() >= 0 {
 					if err := t.assignBoundLiteral(l.Negated(), r, idx, isLower, &delta); err != nil {
 						return err
@@ -3085,10 +3395,13 @@ func (t *SMTTheoryArith) mkImpliedBound(r *smtArithmeticRow, idx int, isLower bo
 			}
 		} else {
 			// v >= k, k > k2 |- v > k2 |- not v <= k2
-			if kind == smtArithmeticLowerBound && k.cmp(k2) > 0 {
-				delta.set(k)
-				delta.sub(k2)
-				delta.sub(epsilon)
+			if kind == smtArithmeticLowerBound && t.vcmp(k, k2) > 0 {
+				if err := t.vsub(&delta, k, k2); err != nil {
+					return err
+				}
+				if err := delta.sub(t.q, epsilon); err != nil {
+					return err
+				}
 				if delta.sign() >= 0 {
 					if err := t.assignBoundLiteral(l.Negated(), r, idx, isLower, &delta); err != nil {
 						return err
@@ -3096,10 +3409,11 @@ func (t *SMTTheoryArith) mkImpliedBound(r *smtArithmeticRow, idx int, isLower bo
 				}
 			}
 			// v <= k, k <= k2 |- v <= k2
-			if kind == smtArithmeticUpperBound && k.cmp(k2) <= 0 {
+			if kind == smtArithmeticUpperBound && t.vcmp(k, k2) <= 0 {
 				if t.relaxBounds() {
-					delta.set(k2)
-					delta.sub(k)
+					if err := t.vsub(&delta, k2, k); err != nil {
+						return err
+					}
 				}
 				if err := t.assignBoundLiteral(l, r, idx, isLower, &delta); err != nil {
 					return err
@@ -3310,10 +3624,10 @@ func (t *SMTTheoryArith) collectFixedVarJustifications(r *smtArithmeticRow, ante
 		if it.dead() || !t.isFixed(it.variable) {
 			continue
 		}
-		if err := t.lower(it.variable).pushJustification(ante, &it.coefficient, t.coeffsEnabled()); err != nil {
+		if err := t.lower(it.variable).pushJustification(t.q, ante, &it.coefficient, t.coeffsEnabled()); err != nil {
 			return err
 		}
-		if err := t.upper(it.variable).pushJustification(ante, &it.coefficient, t.coeffsEnabled()); err != nil {
+		if err := t.upper(it.variable).pushJustification(t.q, ante, &it.coefficient, t.coeffsEnabled()); err != nil {
 			return err
 		}
 	}
@@ -3323,30 +3637,62 @@ func (t *SMTTheoryArith) collectFixedVarJustifications(r *smtArithmeticRow, ante
 // ---- core.h:3155-3313 (model generation and model checker support) ----
 
 // updateEpsilon updates m_epsilon using the inequality l <= u.
-func (t *SMTTheoryArith) updateEpsilon(l, u *smtArithmeticValue) {
-	if l.rational.Cmp(&u.rational) < 0 && l.infinitesimal.Cmp(&u.infinitesimal) > 0 {
-		var num, den, newEpsilon big.Rat
-		num.Sub(&u.rational, &l.rational)
-		den.Sub(&l.infinitesimal, &u.infinitesimal)
-		newEpsilon.Quo(&num, &den)
-		if newEpsilon.Cmp(&t.epsilon) < 0 {
-			t.epsilon.Set(&newEpsilon)
+func (t *SMTTheoryArith) updateEpsilon(l, u *smtArithmeticValue) error {
+	if t.rcmp(&l.rational, &u.rational) < 0 && t.rcmp(&l.infinitesimal, &u.infinitesimal) > 0 {
+		q := t.q
+		num, den, newEpsilon := smtQZero(), smtQZero(), smtQZero()
+		defer smtQDel(q, &num)
+		defer smtQDel(q, &den)
+		defer smtQDel(q, &newEpsilon)
+		if err := q.Sub(&u.rational, &l.rational, &num); err != nil {
+			return err
+		}
+		if err := q.Sub(&l.infinitesimal, &u.infinitesimal, &den); err != nil {
+			return err
+		}
+		if err := q.Div(&num, &den, &newEpsilon); err != nil {
+			return err
+		}
+		if t.rcmp(&newEpsilon, &t.epsilon) < 0 {
+			return q.Copy(&t.epsilon, &newEpsilon)
 		}
 	}
+	return t.takeQErr(nil)
 }
 
-func (t *SMTTheoryArith) computeEpsilon() {
-	t.epsilon.SetInt64(1)
+func (t *SMTTheoryArith) computeEpsilon() error {
+	if err := t.q.SetInt64(&t.epsilon, 1); err != nil {
+		return err
+	}
 	num := SMTTheoryVar(t.getNumVars())
 	for v := SMTTheoryVar(0); v < num; v++ {
 		l, u := t.lower(v), t.upper(v)
 		if l != nil {
-			t.updateEpsilon(&l.base().value, t.getValue(v))
+			if err := t.updateEpsilon(&l.base().value, t.getValue(v)); err != nil {
+				return err
+			}
 		}
 		if u != nil {
-			t.updateEpsilon(t.getValue(v), &u.base().value)
+			if err := t.updateEpsilon(t.getValue(v), &u.base().value); err != nil {
+				return err
+			}
 		}
 	}
+	return t.takeQErr(nil)
+}
+
+// modelRational is val.get_rational() + m_epsilon * val.get_infinitesimal(),
+// as a math/big key.
+func (t *SMTTheoryArith) modelRational(val *smtArithmeticValue) (*big.Rat, error) {
+	num := smtQZero()
+	defer smtQDel(t.q, &num)
+	if err := t.q.Mul(&t.epsilon, &val.infinitesimal, &num); err != nil {
+		return nil, err
+	}
+	if err := t.q.Add(&val.rational, &num, &num); err != nil {
+		return nil, err
+	}
+	return smtQBig(t.q, &num)
 }
 
 // refineEpsilon halves epsilon until no two shared real variables with
@@ -3375,12 +3721,13 @@ func (t *SMTTheoryArith) refineEpsilon() error {
 			if t.isInfinite(val) {
 				continue
 			}
-			var value big.Rat
-			value.Mul(&t.epsilon, &val.infinitesimal)
-			value.Add(&value, &val.rational)
+			value, err := t.modelRational(val)
+			if err != nil {
+				return err
+			}
 			key := value.RatString()
 			if v2, found := mapping[key]; found {
-				if t.getValue(v).cmp(t.getValue(v2)) != 0 {
+				if t.vcmp(t.getValue(v), t.getValue(v2)) != 0 {
 					// v and v2 are not known to be equal; epsilon makes them so.
 					refine = true
 					break
@@ -3392,7 +3739,10 @@ func (t *SMTTheoryArith) refineEpsilon() error {
 		if !refine {
 			return nil
 		}
-		t.epsilon.Quo(&t.epsilon, big.NewRat(2, 1))
+		two := smtQInt(2)
+		if err := t.q.Div(&t.epsilon, &two, &t.epsilon); err != nil {
+			return err
+		}
 	}
 }
 
@@ -3414,7 +3764,9 @@ func (t *SMTTheoryArith) InitializeModel(mg *SMTModelGenerator) error {
 	if err = mg.RegisterFactory(factory); err != nil {
 		return err
 	}
-	t.computeEpsilon()
+	if err = t.computeEpsilon(); err != nil {
+		return err
+	}
 	if !t.modelDependsOnComputedEpsilon {
 		return t.refineEpsilon()
 	}
@@ -3427,18 +3779,30 @@ func (t *SMTTheoryArith) ModelValue(n *SMTEnode, mg *SMTModelGenerator) (SMTMode
 		return nil, ast.ErrASTDomain
 	}
 	val := t.getValue(v)
-	var num big.Rat
-	smtRatMul(&num, &t.epsilon, &val.infinitesimal)
-	smtRatAdd(&num, &num, &val.rational)
+	q := t.q
+	num := smtQZero()
+	defer smtQDel(q, &num)
+	if err := q.Mul(&t.epsilon, &val.infinitesimal, &num); err != nil {
+		return nil, err
+	}
+	if err := q.Add(&val.rational, &num, &num); err != nil {
+		return nil, err
+	}
 	if t.isInt(v) && !num.IsInt() {
 		// Truncating non-integer value; possible for non-linear constraints.
-		num.SetInt(smtRatFloor(&num))
+		if err := q.Floor(&num, &num); err != nil {
+			return nil, err
+		}
 	}
 	isIntSrc, err := t.isIntSort(t.var2expr(v))
 	if err != nil {
 		return nil, err
 	}
-	value, err := t.factory.MkNumValue(&num, isIntSrc)
+	b, err := smtQBig(q, &num)
+	if err != nil {
+		return nil, err
+	}
+	value, err := t.factory.MkNumValue(b, isIntSrc)
 	if err != nil {
 		return nil, err
 	}
@@ -3450,7 +3814,11 @@ func (t *SMTTheoryArith) toExpr(val *smtArithmeticValue, isInt bool) (ast.ASTHan
 	if val.infinitesimal.Sign() != 0 {
 		return ast.ASTHandle{}, false, nil
 	}
-	h, err := t.state.manager.ArithmeticNumeralRat(&val.rational, isInt)
+	b, err := smtQBig(t.q, &val.rational)
+	if err != nil {
+		return ast.ASTHandle{}, false, err
+	}
+	h, err := t.state.manager.ArithmeticNumeralRat(b, isInt)
 	return h, err == nil, err
 }
 
@@ -3515,7 +3883,9 @@ func (t *SMTTheoryArith) PushScope() error {
 func (t *SMTTheoryArith) PopScopes(numScopes uint32) error {
 	// The update trail may not be empty: quasi_base_row2base_row also
 	// pushes to it, so restore_assignment must run.
-	t.restoreAssignment()
+	if err := t.restoreAssignment(); err != nil {
+		return err
+	}
 	if err := t.toPatch.Reset(); err != nil {
 		return err
 	}
@@ -3534,8 +3904,12 @@ func (t *SMTTheoryArith) PopScopes(numScopes uint32) error {
 	t.assertedQhead = s.assertedQheadOld
 	t.restoreNLPropagatedFlag(int(s.nlPropagatedLim))
 	t.nlMonomials = t.nlMonomials[:s.nlMonomialsLim]
-	t.delAtoms(int(s.atomsLim))
-	t.delBounds(int(s.boundsToDeleteLim))
+	if err := t.delAtoms(int(s.atomsLim)); err != nil {
+		return err
+	}
+	if err := t.delBounds(int(s.boundsToDeleteLim)); err != nil {
+		return err
+	}
 	oldNumVars, err := t.OldNumVariables(numScopes)
 	if err != nil {
 		return err
@@ -3605,20 +3979,41 @@ func (t *SMTTheoryArith) restoreUnassignedAtoms(oldTrailSize int) {
 	t.unassignedAtomsTrail = t.unassignedAtomsTrail[:oldTrailSize]
 }
 
-func (t *SMTTheoryArith) delAtoms(oldSize int) {
+func (t *SMTTheoryArith) delAtoms(oldSize int) (err error) {
 	for i := len(t.atoms) - 1; i >= oldSize; i-- {
 		a := t.atoms[i]
 		t.eraseBv2a(a.boolean)
 		occs := t.varOccs[a.variable]
 		t.varOccs[a.variable] = occs[:len(occs)-1]
 		t.atoms[i] = nil
+		if e := a.del(t.q); e != nil && err == nil {
+			err = e
+		}
 	}
 	t.atoms = t.atoms[:oldSize]
+	return err
 }
 
-func (t *SMTTheoryArith) delBounds(oldSize int) {
+func (t *SMTTheoryArith) delBounds(oldSize int) (err error) {
+	for _, b := range t.boundsToDelete[oldSize:] {
+		if e := smtArithBoundDel(t.q, b); e != nil && err == nil {
+			err = e
+		}
+	}
 	clear(t.boundsToDelete[oldSize:])
 	t.boundsToDelete = t.boundsToDelete[:oldSize]
+	return err
+}
+
+// smtArithBoundDel frees a bound's numerals (dealloc).
+func smtArithBoundDel(q *numeral.RationalManager, b smtArithBound) error {
+	if jd, ok := b.(*smtArithmeticJustifiedDerivedBound); ok {
+		return jd.del(q)
+	}
+	if a, ok := b.(*smtArithmeticAtom); ok {
+		return a.del(q)
+	}
+	return b.base().value.del(q)
 }
 
 // delVars removes the variables created since the scope with oldNumVars
@@ -3646,8 +4041,15 @@ func (t *SMTTheoryArith) delVars(oldNumVars int) error {
 			}
 			if entry != nil {
 				r := &t.rows[entry.rowID]
-				coefficient := new(big.Rat).Set(&r.entries[entry.rowIndex].coefficient)
-				if err := t.pivot(false, r.base, v, coefficient, false); err != nil {
+				coefficient, err := smtQNew(t.q, &r.entries[entry.rowIndex].coefficient)
+				if err != nil {
+					return err
+				}
+				err = t.pivot(false, r.base, v, &coefficient, false)
+				if e := smtQDel(t.q, &coefficient); err == nil {
+					err = e
+				}
+				if err != nil {
 					return err
 				}
 				t.delRow(t.getVarRow(v))
@@ -3662,6 +4064,12 @@ func (t *SMTTheoryArith) delVars(oldNumVars int) error {
 	}
 	t.columns = t.columns[:oldNumVars]
 	t.data = t.data[:oldNumVars]
+	if _, err := smtArithValuesDel(t.q, t.value[oldNumVars:]); err != nil {
+		return err
+	}
+	if _, err := smtArithValuesDel(t.q, t.oldValue[oldNumVars:]); err != nil {
+		return err
+	}
 	t.value = t.value[:oldNumVars]
 	t.oldValue = t.oldValue[:oldNumVars]
 	t.varOccs = t.varOccs[:oldNumVars]
@@ -3690,7 +4098,7 @@ func (t *SMTTheoryArith) delRow(rowID int) {
 		}
 	}
 	r.base = SMTNullTheoryVar
-	r.reset()
+	_ = r.reset(t.q)
 	t.deadRows = append(t.deadRows, rowID)
 }
 
@@ -3701,7 +4109,9 @@ func (t *SMTTheoryArith) delRow(rowID int) {
 // destructor.
 func (t *SMTTheoryArith) acquireAntecedents() *smtArithmeticAntecedents {
 	a := &t.antecedents[t.antecedentsIndex]
-	a.reset()
+	if err := a.reset(t.q); err != nil && t.qErr == nil {
+		t.qErr = err
+	}
 	t.antecedentsIndex++
 	return a
 }
@@ -3709,7 +4119,7 @@ func (t *SMTTheoryArith) releaseAntecedentsScope() { t.antecedentsIndex-- }
 
 // smtArithUseUpper is the bound selector of the bound propagation code:
 // is_lower ? coeff.is_pos() : coeff.is_neg().
-func smtArithUseUpper(c *big.Rat, isLower bool) bool {
+func smtArithUseUpper(c *numeral.Rational, isLower bool) bool {
 	if isLower {
 		return c.Sign() > 0
 	}

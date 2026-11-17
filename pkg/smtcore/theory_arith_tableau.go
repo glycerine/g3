@@ -4,15 +4,14 @@ package smtcore
 // src/smt/theory_arith_aux.h:29-330.
 
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 const smtArithmeticDeadRow = -1
 
 type smtArithmeticRowEntry struct {
-	coefficient big.Rat
+	coefficient numeral.Rational
 	variable    SMTTheoryVar
 	columnIndex int
 	freeNext    int
@@ -39,16 +38,25 @@ func newSMTArithmeticRow() smtArithmeticRow {
 	return smtArithmeticRow{base: SMTNullTheoryVar, firstFree: -1}
 }
 
-func (r *smtArithmeticRow) reset() {
+// reset frees the live coefficients (a dead entry's was freed by
+// deleteEntry) and empties the row.
+func (r *smtArithmeticRow) reset(q *numeral.RationalManager) error {
+	var err error
+	for index := range r.entries {
+		if e := smtQDel(q, &r.entries[index].coefficient); e != nil && err == nil {
+			err = e
+		}
+	}
 	r.entries = r.entries[:0]
 	r.size, r.base, r.firstFree = 0, SMTNullTheoryVar, -1
+	return err
 }
 
 func (r *smtArithmeticRow) addEntry() (int, *smtArithmeticRowEntry) {
 	r.size++
 	if r.firstFree < 0 {
 		index := len(r.entries)
-		r.entries = append(r.entries, smtArithmeticRowEntry{variable: SMTNullTheoryVar, freeNext: -1})
+		r.entries = append(r.entries, smtArithmeticRowEntry{coefficient: smtQZero(), variable: SMTNullTheoryVar, freeNext: -1})
 		return index, &r.entries[index]
 	}
 	index := r.firstFree
@@ -58,7 +66,7 @@ func (r *smtArithmeticRow) addEntry() (int, *smtArithmeticRowEntry) {
 	return index, entry
 }
 
-func (r *smtArithmeticRow) deleteEntry(index int) error {
+func (r *smtArithmeticRow) deleteEntry(q *numeral.RationalManager, index int) error {
 	if index < 0 || index >= len(r.entries) || r.entries[index].dead() {
 		return ast.ErrASTDomain
 	}
@@ -67,9 +75,8 @@ func (r *smtArithmeticRow) deleteEntry(index int) error {
 	// is not reused before compress, and later entries are appended.
 	entry := &r.entries[index]
 	entry.variable, entry.freeNext = SMTNullTheoryVar, r.firstFree
-	entry.coefficient.SetInt64(0)
 	r.size--
-	return nil
+	return q.Reset(&entry.coefficient)
 }
 
 func (r *smtArithmeticRow) compress(columns []smtArithmeticColumn) error {
@@ -83,8 +90,8 @@ func (r *smtArithmeticRow) compress(columns []smtArithmeticColumn) error {
 			return ast.ErrASTDomain
 		}
 		if source != target {
+			// A move: the source slot's coefficient now belongs to target.
 			r.entries[target] = *entry
-			r.entries[target].coefficient.Set(&entry.coefficient)
 			columns[entry.variable].entries[entry.columnIndex].rowIndex = target
 		}
 		target++
@@ -134,23 +141,27 @@ func (r *smtArithmeticRow) resetVariablePositions(positions []int) error {
 	return nil
 }
 
-func (r *smtArithmeticRow) denominatorLCM() *big.Int {
-	var scratch big.Int
-	return r.denominatorLCMInto(big.NewInt(1), &scratch)
-}
-
-// denominatorLCMInto sets result to the lcm of the denominators of the
-// live coefficients. Integer coefficients have denominator 1, which
-// leaves the positive lcm unchanged. scratch must not alias result.
-func (r *smtArithmeticRow) denominatorLCMInto(result, scratch *big.Int) *big.Int {
-	result.SetInt64(1)
+// denominatorLCM is row::get_denominators_lcm: out = lcm of the
+// denominators of the live coefficients. An integer coefficient's
+// denominator 1 leaves the positive lcm unchanged, so it is skipped.
+func (r *smtArithmeticRow) denominatorLCM(q *numeral.RationalManager, out *numeral.Rational) error {
+	if err := q.SetInt64(out, 1); err != nil {
+		return err
+	}
+	den := smtQZero()
+	defer smtQDel(q, &den)
 	for index := range r.entries {
 		entry := &r.entries[index]
 		if !entry.dead() && !entry.coefficient.IsInt() {
-			smtIntLCM(result, result, entry.coefficient.Denom(), scratch)
+			if err := q.DenominatorRational(&entry.coefficient, &den); err != nil {
+				return err
+			}
+			if err := q.LCM(out, &den, out); err != nil {
+				return err
+			}
 		}
 	}
-	return result
+	return nil
 }
 
 func (r *smtArithmeticRow) indexOf(variable SMTTheoryVar) int {
@@ -198,7 +209,7 @@ func (t *smtArithmeticTableau) popRowScope() bool {
 	return true
 }
 
-func (t *smtArithmeticTableau) addRowEntry(rowID int, coefficient *big.Rat, variable SMTTheoryVar, invert bool) error {
+func (t *smtArithmeticTableau) addRowEntry(q *numeral.RationalManager, rowID int, coefficient *numeral.Rational, variable SMTTheoryVar, invert bool) error {
 	if rowID < 0 || rowID >= len(t.rows) || coefficient == nil || variable < 0 || int(variable) >= len(t.columns) || len(t.rowScopes) == 0 {
 		return ast.ErrASTDomain
 	}
@@ -209,22 +220,23 @@ func (t *smtArithmeticTableau) addRowEntry(rowID int, coefficient *big.Rat, vari
 		if index < 0 {
 			return ast.ErrASTDomain
 		}
+		c := &row.entries[index].coefficient
 		if invert {
-			row.entries[index].coefficient.Sub(&row.entries[index].coefficient, coefficient)
-		} else {
-			row.entries[index].coefficient.Add(&row.entries[index].coefficient, coefficient)
+			return q.Sub(c, coefficient, c)
 		}
-		return nil
+		return q.Add(c, coefficient, c)
 	}
 	variables[variable] = true
 	rowIndex, rowEntry := row.addEntry()
 	columnIndex, columnEntry := column.addEntry()
 	rowEntry.variable, rowEntry.columnIndex = variable, columnIndex
-	rowEntry.coefficient.Set(coefficient)
-	if invert {
-		rowEntry.coefficient.Neg(&rowEntry.coefficient)
-	}
 	columnEntry.rowID, columnEntry.rowIndex = rowID, rowIndex
+	if err := q.Copy(&rowEntry.coefficient, coefficient); err != nil {
+		return err
+	}
+	if invert {
+		return q.Neg(&rowEntry.coefficient)
+	}
 	return nil
 }
 

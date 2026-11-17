@@ -6,32 +6,35 @@ import (
 )
 
 func TestSMTArithmeticValueLexicographicAndAtomComplements(t *testing.T) {
-	finite := newSMTArithmeticValue(big.NewRat(4, 1), nil)
-	strict := newSMTArithmeticValue(big.NewRat(4, 1), big.NewRat(1, 1))
-	infinite := newSMTArithmeticValue(nil, nil)
-	infinite.infinity.SetInt64(1)
-	if finite.cmp(&strict) >= 0 || strict.cmp(&infinite) >= 0 {
+	finite := testArithValue(big.NewRat(4, 1), nil)
+	strict := testArithValue(big.NewRat(4, 1), big.NewRat(1, 1))
+	infinite := testArithValue(nil, nil)
+	infinite.infinity = smtQInt(1)
+	if c1, _ := finite.cmp(testQ(), &strict); c1 >= 0 {
 		t.Fatal("arithmetic value lexicographic order")
 	}
-	epsilon := newSMTArithmeticValue(nil, big.NewRat(1, 1))
-	lower, err := newSMTArithmeticAtom(3, 7, &finite, smtArithmeticLowerAtom)
+	if c2, _ := strict.cmp(testQ(), &infinite); c2 >= 0 {
+		t.Fatal("arithmetic value lexicographic order")
+	}
+	epsilon := testArithValue(nil, big.NewRat(1, 1))
+	lower, err := newSMTArithmeticAtom(testQ(), 3, 7, &finite, smtArithmeticLowerAtom)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = lower.assign(false, &epsilon); err != nil {
+	if err = lower.assign(testQ(), false, &epsilon); err != nil {
 		t.Fatal(err)
 	}
-	if lower.kind != smtArithmeticUpperBound || lower.value.rational.Cmp(big.NewRat(4, 1)) != 0 || lower.value.infinitesimal.Cmp(big.NewRat(-1, 1)) != 0 {
+	if lower.kind != smtArithmeticUpperBound || testBig(&lower.value.rational).Cmp(big.NewRat(4, 1)) != 0 || testBig(&lower.value.infinitesimal).Cmp(big.NewRat(-1, 1)) != 0 {
 		t.Fatal("false lower atom complement")
 	}
-	upper, err := newSMTArithmeticAtom(4, 8, &finite, smtArithmeticUpperAtom)
+	upper, err := newSMTArithmeticAtom(testQ(), 4, 8, &finite, smtArithmeticUpperAtom)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = upper.assign(false, &epsilon); err != nil {
+	if err = upper.assign(testQ(), false, &epsilon); err != nil {
 		t.Fatal(err)
 	}
-	if upper.kind != smtArithmeticLowerBound || upper.value.infinitesimal.Cmp(big.NewRat(1, 1)) != 0 {
+	if upper.kind != smtArithmeticLowerBound || testBig(&upper.value.infinitesimal).Cmp(big.NewRat(1, 1)) != 0 {
 		t.Fatal("false upper atom complement")
 	}
 }
@@ -39,31 +42,31 @@ func TestSMTArithmeticValueLexicographicAndAtomComplements(t *testing.T) {
 func TestSMTArithmeticAntecedentAndDerivedCoefficients(t *testing.T) {
 	derived := &smtArithmeticJustifiedDerivedBound{}
 	literal := NewSMTLiteral(5, false)
-	if err := derived.pushLiteral(literal, big.NewRat(2, 1)); err != nil {
+	if err := derived.pushLiteral(testQ(), literal, testQR(big.NewRat(2, 1))); err != nil {
 		t.Fatal(err)
 	}
-	if err := derived.pushLiteral(literal, big.NewRat(3, 1)); err != nil {
+	if err := derived.pushLiteral(testQ(), literal, testQR(big.NewRat(3, 1))); err != nil {
 		t.Fatal(err)
 	}
 	var out smtArithmeticAntecedents
-	if err := derived.pushJustification(&out, big.NewRat(-2, 1), true); err != nil {
+	if err := derived.pushJustification(testQ(), &out, testQR(big.NewRat(-2, 1)), true); err != nil {
 		t.Fatal(err)
 	}
-	if len(out.literals) != 1 || out.literals[0] != literal || out.literalCoefficients[0].Cmp(big.NewRat(-10, 1)) != 0 || out.numParameters() != 2 {
+	if len(out.literals) != 1 || out.literals[0] != literal || testBig(&out.literalCoefficients[0]).Cmp(big.NewRat(-10, 1)) != 0 || out.numParameters() != 2 {
 		t.Fatal("scaled derived antecedent")
 	}
-	out.reset()
+	out.reset(testQ())
 	if len(out.literals) != 0 || out.numParameters() != 0 {
 		t.Fatal("antecedent reset")
 	}
-	atom, err := newSMTArithmeticAtom(6, 1, newSMTArithmeticValuePtr(0, 0), smtArithmeticLowerAtom)
+	atom, err := newSMTArithmeticAtom(testQ(), 6, 1, newSMTArithmeticValuePtr(0, 0), smtArithmeticLowerAtom)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = atom.assign(true, newSMTArithmeticValuePtr(0, 1)); err != nil {
+	if err = atom.assign(testQ(), true, newSMTArithmeticValuePtr(0, 1)); err != nil {
 		t.Fatal(err)
 	}
-	if err = atom.pushJustification(&out, big.NewRat(7, 1), false); err != nil {
+	if err = atom.pushJustification(testQ(), &out, testQR(big.NewRat(7, 1)), false); err != nil {
 		t.Fatal(err)
 	}
 	if len(out.literals) != 1 || out.literals[0] != NewSMTLiteral(6, false) || out.numParameters() != 0 {
@@ -72,7 +75,7 @@ func TestSMTArithmeticAntecedentAndDerivedCoefficients(t *testing.T) {
 }
 
 func newSMTArithmeticValuePtr(rational, infinitesimal int64) *smtArithmeticValue {
-	value := newSMTArithmeticValue(big.NewRat(rational, 1), big.NewRat(infinitesimal, 1))
+	value := testArithValue(big.NewRat(rational, 1), big.NewRat(infinitesimal, 1))
 	return &value
 }
 
@@ -97,37 +100,37 @@ func TestSMTArithmeticBoundTrailEncoding(t *testing.T) {
 func TestSMTArithmeticEqualityBoundAndAccumulation(t *testing.T) {
 	root := &SMTEnode{}
 	left, right := &SMTEnode{root: root}, &SMTEnode{root: root}
-	value := newSMTArithmeticValue(big.NewRat(3, 1), nil)
-	equality, err := newSMTArithmeticEqualityBound(2, &value, smtArithmeticLowerBound, left, right)
+	value := testArithValue(big.NewRat(3, 1), nil)
+	equality, err := newSMTArithmeticEqualityBound(testQ(), 2, &value, smtArithmeticLowerBound, left, right)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var out smtArithmeticAntecedents
-	if err = equality.pushJustification(&out, big.NewRat(4, 1), true); err != nil {
+	if err = equality.pushJustification(testQ(), &out, testQR(big.NewRat(4, 1)), true); err != nil {
 		t.Fatal(err)
 	}
-	if len(out.equalities) != 1 || out.equalityCoefficients[0].Cmp(big.NewRat(4, 1)) != 0 {
+	if len(out.equalities) != 1 || testBig(&out.equalityCoefficients[0]).Cmp(big.NewRat(4, 1)) != 0 {
 		t.Fatal("equality antecedent")
 	}
 	wrong := &SMTEnode{}
 	wrong.root = wrong
-	if _, err = newSMTArithmeticEqualityBound(2, &value, smtArithmeticLowerBound, left, wrong); err == nil {
+	if _, err = newSMTArithmeticEqualityBound(testQ(), 2, &value, smtArithmeticLowerBound, left, wrong); err == nil {
 		t.Fatal("different equality roots accepted")
 	}
-	atom, err := newSMTArithmeticAtom(8, 2, &value, smtArithmeticLowerAtom)
+	atom, err := newSMTArithmeticAtom(testQ(), 8, 2, &value, smtArithmeticLowerAtom)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = atom.assign(true, newSMTArithmeticValuePtr(0, 1)); err != nil {
+	if err = atom.assign(testQ(), true, newSMTArithmeticValuePtr(0, 1)); err != nil {
 		t.Fatal(err)
 	}
 	target := &smtArithmeticDerivedBound{}
 	seenLiterals := make(map[int32]bool)
 	seenEqualities := make(map[SMTEnodePair]bool)
-	if err = smtAccumulateArithmeticJustification(atom, target, big.NewRat(2, 1), false, seenLiterals, seenEqualities); err != nil {
+	if err = smtAccumulateArithmeticJustification(testQ(), atom, target, testQR(big.NewRat(2, 1)), false, seenLiterals, seenEqualities); err != nil {
 		t.Fatal(err)
 	}
-	if err = smtAccumulateArithmeticJustification(atom, target, big.NewRat(3, 1), false, seenLiterals, seenEqualities); err != nil {
+	if err = smtAccumulateArithmeticJustification(testQ(), atom, target, testQR(big.NewRat(3, 1)), false, seenLiterals, seenEqualities); err != nil {
 		t.Fatal(err)
 	}
 	if len(target.literals) != 1 {
@@ -149,13 +152,14 @@ func TestSMTNormalizeArithmeticIntegerBound(t *testing.T) {
 		{big.NewRat(2, 1), 1, smtArithmeticLowerBound, 3},
 		{big.NewRat(2, 1), -1, smtArithmeticUpperBound, 1},
 	} {
-		value := newSMTArithmeticValue(row.rational, big.NewRat(row.epsilon, 1))
-		got, err := smtNormalizeArithmeticIntegerBound(&value, row.kind)
+		value := testArithValue(row.rational, big.NewRat(row.epsilon, 1))
+		got := newSMTArithmeticValue()
+		err := smtNormalizeArithmeticIntegerBound(testQ(), &value, row.kind, &got)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got.rational.Cmp(big.NewRat(row.want, 1)) != 0 || got.infinitesimal.Sign() != 0 {
-			t.Fatalf("normalize %s eps %d kind %d = %s", row.rational, row.epsilon, row.kind, &got.rational)
+		if testBig(&got.rational).Cmp(big.NewRat(row.want, 1)) != 0 || got.infinitesimal.Sign() != 0 {
+			t.Fatalf("normalize %s eps %d kind %d = %s", row.rational, row.epsilon, row.kind, testBig(&got.rational))
 		}
 	}
 }

@@ -249,9 +249,15 @@ func (t *optimizationValueChangeTheory) FinalCheck() (SMTFinalCheckStatus, error
 	if t.enabled {
 		t.enabled = false
 		t.fired++
-		var next smtArithmeticValue
-		next.rational.Set(&t.next.Main)
-		next.infinitesimal.Set(&t.next.Epsilon)
+		q := t.arithmetic.q
+		next := newSMTArithmeticValue()
+		defer next.del(q)
+		if err := q.SetBigRat(&next.rational, &t.next.Main); err != nil {
+			return SMTFinalCheckGiveUp, err
+		}
+		if err := q.SetBigRat(&next.infinitesimal, &t.next.Epsilon); err != nil {
+			return SMTFinalCheckGiveUp, err
+		}
 		if err := t.arithmetic.setValue(SMTTheoryVar(t.column), &next); err != nil {
 			return SMTFinalCheckGiveUp, err
 		}

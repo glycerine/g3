@@ -202,3 +202,20 @@ func smtIntLCM(z, a, b, scratch *big.Int) *big.Int {
 	}
 	return z.Abs(z)
 }
+
+// smtRatCmp is a.Cmp(b) without big.Rat.Cmp's cross multiplication when
+// the denominators are equal (in particular both 1).
+func smtRatCmp(a, b *big.Rat) int {
+	if a.IsInt() && b.IsInt() {
+		return a.Num().Cmp(b.Num())
+	}
+	if a.Denom().Cmp(b.Denom()) == 0 {
+		return a.Num().Cmp(b.Num())
+	}
+	return a.Cmp(b)
+}
+
+func smtRatIsOne(q *big.Rat) bool { return q.IsInt() && q.Num().IsInt64() && q.Num().Int64() == 1 }
+func smtRatIsMinusOne(q *big.Rat) bool {
+	return q.IsInt() && q.Num().IsInt64() && q.Num().Int64() == -1
+}

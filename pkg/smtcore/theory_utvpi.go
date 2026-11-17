@@ -304,7 +304,7 @@ func (t *SMTUTVPITheory) setConflict(edges []int32) (result error) {
 			continue
 		}
 		antecedents.literals = append(antecedents.literals, edge.explanation)
-		antecedents.literalCoefficients = append(antecedents.literalCoefficients, big.NewRat(int64(t.graph.coefficients[id]), 1))
+		antecedents.literalCoefficients = append(antecedents.literalCoefficients, smtQInt(int32(t.graph.coefficients[id])))
 	}
 	if diagnostic.VerboseProgress {
 		if err := t.utvpiConflictVerbose(antecedents.literals); err != nil {

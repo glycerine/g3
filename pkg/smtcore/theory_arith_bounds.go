@@ -4,65 +4,15 @@ package smtcore
 // src/smt/theory_arith_aux.h:330-420,732-800.
 
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // smtArithmeticValue represents infinity + rational + epsilon in
 // lexicographic order. Zero infinity covers mi_ext; zero epsilon covers i_ext.
+// Its operations are smt_theory_arith_numerals.go.
 type smtArithmeticValue struct {
-	infinity, rational, infinitesimal big.Rat
-}
-
-func newSMTArithmeticValue(rational, infinitesimal *big.Rat) smtArithmeticValue {
-	var result smtArithmeticValue
-	if rational != nil {
-		result.rational.Set(rational)
-	}
-	if infinitesimal != nil {
-		result.infinitesimal.Set(infinitesimal)
-	}
-	return result
-}
-func (v *smtArithmeticValue) set(other *smtArithmeticValue) {
-	v.infinity.Set(&other.infinity)
-	v.rational.Set(&other.rational)
-	v.infinitesimal.Set(&other.infinitesimal)
-}
-func (v *smtArithmeticValue) add(other *smtArithmeticValue) {
-	smtRatAdd(&v.infinity, &v.infinity, &other.infinity)
-	smtRatAdd(&v.rational, &v.rational, &other.rational)
-	smtRatAdd(&v.infinitesimal, &v.infinitesimal, &other.infinitesimal)
-}
-func (v *smtArithmeticValue) sub(other *smtArithmeticValue) {
-	smtRatSub(&v.infinity, &v.infinity, &other.infinity)
-	smtRatSub(&v.rational, &v.rational, &other.rational)
-	smtRatSub(&v.infinitesimal, &v.infinitesimal, &other.infinitesimal)
-}
-func (v *smtArithmeticValue) cmp(other *smtArithmeticValue) int {
-	if c := smtRatCmp(&v.infinity, &other.infinity); c != 0 {
-		return c
-	}
-	if c := smtRatCmp(&v.rational, &other.rational); c != 0 {
-		return c
-	}
-	return smtRatCmp(&v.infinitesimal, &other.infinitesimal)
-}
-
-// smtRatCmp is a.Cmp(b) without big.Rat.Cmp's cross multiplication when
-// the denominators are equal (in particular both 1), the common case for
-// bound values; mpq's comparison likewise avoids allocating for small
-// values. mk_bound_axioms compares every new atom with all atoms of its
-// variable, so this comparison dominated q_7028's profile.
-func smtRatCmp(a, b *big.Rat) int {
-	if a.IsInt() && b.IsInt() {
-		return a.Num().Cmp(b.Num())
-	}
-	if a.Denom().Cmp(b.Denom()) == 0 {
-		return a.Num().Cmp(b.Num())
-	}
-	return a.Cmp(b)
+	infinity, rational, infinitesimal numeral.Rational
 }
 
 type smtArithmeticBoundKind uint8
@@ -82,34 +32,48 @@ const (
 type smtArithmeticAntecedents struct {
 	literals                                  []SMTLiteral
 	equalities                                []SMTEnodePair
-	literalCoefficients, equalityCoefficients []*big.Rat
+	literalCoefficients, equalityCoefficients []numeral.Rational
 }
 
-func (a *smtArithmeticAntecedents) reset() {
+// reset is antecedents_t::reset: the coefficient vectors free their
+// numerals.
+func (a *smtArithmeticAntecedents) reset(q *numeral.RationalManager) error {
 	a.literals = a.literals[:0]
 	a.equalities = a.equalities[:0]
-	a.literalCoefficients = a.literalCoefficients[:0]
-	a.equalityCoefficients = a.equalityCoefficients[:0]
+	var err, e error
+	a.literalCoefficients, err = smtQDelAll(q, a.literalCoefficients)
+	a.equalityCoefficients, e = smtQDelAll(q, a.equalityCoefficients)
+	if err == nil {
+		err = e
+	}
+	return err
 }
-func (a *smtArithmeticAntecedents) pushLiteral(literal SMTLiteral, coefficient *big.Rat, proofs bool) error {
+
+// smtQPush appends a copy of coefficient.
+func smtQPush(q *numeral.RationalManager, rs []numeral.Rational, coefficient *numeral.Rational) ([]numeral.Rational, error) {
+	rs = append(rs, smtQZero())
+	return rs, q.Copy(&rs[len(rs)-1], coefficient)
+}
+
+func (a *smtArithmeticAntecedents) pushLiteral(q *numeral.RationalManager, literal SMTLiteral, coefficient *numeral.Rational, proofs bool) (err error) {
 	if coefficient == nil {
 		return ast.ErrASTDomain
 	}
 	a.literals = append(a.literals, literal)
 	if proofs {
-		a.literalCoefficients = append(a.literalCoefficients, new(big.Rat).Set(coefficient))
+		a.literalCoefficients, err = smtQPush(q, a.literalCoefficients, coefficient)
 	}
-	return nil
+	return err
 }
-func (a *smtArithmeticAntecedents) pushEquality(pair SMTEnodePair, coefficient *big.Rat, proofs bool) error {
+func (a *smtArithmeticAntecedents) pushEquality(q *numeral.RationalManager, pair SMTEnodePair, coefficient *numeral.Rational, proofs bool) (err error) {
 	if coefficient == nil || pair.First == nil || pair.Second == nil {
 		return ast.ErrASTDomain
 	}
 	a.equalities = append(a.equalities, pair)
 	if proofs {
-		a.equalityCoefficients = append(a.equalityCoefficients, new(big.Rat).Set(coefficient))
+		a.equalityCoefficients, err = smtQPush(q, a.equalityCoefficients, coefficient)
 	}
-	return nil
+	return err
 }
 func (a *smtArithmeticAntecedents) numParameters() int {
 	if len(a.literalCoefficients) == 0 && len(a.equalityCoefficients) == 0 {
@@ -119,7 +83,7 @@ func (a *smtArithmeticAntecedents) numParameters() int {
 }
 
 type smtArithmeticBoundJustification interface {
-	pushJustification(*smtArithmeticAntecedents, *big.Rat, bool) error
+	pushJustification(*numeral.RationalManager, *smtArithmeticAntecedents, *numeral.Rational, bool) error
 }
 
 type smtArithmeticEqualityBound struct {
@@ -127,20 +91,20 @@ type smtArithmeticEqualityBound struct {
 	left, right *SMTEnode
 }
 
-func newSMTArithmeticEqualityBound(variable SMTTheoryVar, value *smtArithmeticValue, kind smtArithmeticBoundKind, left, right *SMTEnode) (*smtArithmeticEqualityBound, error) {
+func newSMTArithmeticEqualityBound(q *numeral.RationalManager, variable SMTTheoryVar, value *smtArithmeticValue, kind smtArithmeticBoundKind, left, right *SMTEnode) (*smtArithmeticEqualityBound, error) {
 	if variable < 0 || value == nil || kind > smtArithmeticUpperBound || left == nil || right == nil || left.Root() != right.Root() {
 		return nil, ast.ErrASTDomain
 	}
 	result := &smtArithmeticEqualityBound{left: left, right: right}
 	result.variable, result.kind = variable, kind
-	result.value.set(value)
-	return result, nil
+	result.value.init()
+	return result, result.value.set(q, value)
 }
-func (b *smtArithmeticEqualityBound) pushJustification(out *smtArithmeticAntecedents, coefficient *big.Rat, proofs bool) error {
+func (b *smtArithmeticEqualityBound) pushJustification(q *numeral.RationalManager, out *smtArithmeticAntecedents, coefficient *numeral.Rational, proofs bool) error {
 	if b == nil || out == nil || b.left == nil || b.right == nil || b.left.Root() != b.right.Root() {
 		return ast.ErrASTDomain
 	}
-	return out.pushEquality(SMTEnodePair{First: b.left, Second: b.right}, coefficient, proofs)
+	return out.pushEquality(q, SMTEnodePair{First: b.left, Second: b.right}, coefficient, proofs)
 }
 
 type smtArithmeticAtom struct {
@@ -151,77 +115,88 @@ type smtArithmeticAtom struct {
 	truth     bool
 	// smallK caches threshold (which never changes after construction) as
 	// machine words when its infinite part is 0 and its rational and
-	// infinitesimal parts are integers that fit in int64. mk_bound_axioms
-	// compares a new atom with every atom of its variable; C++ mpq compares
-	// such values inline, big.Rat does not.
+	// infinitesimal parts are inline integers. mk_bound_axioms compares a
+	// new atom with every atom of its variable; mpq compares such values
+	// inline, without a manager call.
 	smallK         bool
 	kRational, kEp int64
 }
 
 // thresholdCmp is a.threshold.cmp(&b.threshold).
-func (a *smtArithmeticAtom) thresholdCmp(b *smtArithmeticAtom) int {
+func (a *smtArithmeticAtom) thresholdCmp(q *numeral.RationalManager, b *smtArithmeticAtom) (int, error) {
 	if a.smallK && b.smallK {
 		switch {
 		case a.kRational < b.kRational:
-			return -1
+			return -1, nil
 		case a.kRational > b.kRational:
-			return 1
+			return 1, nil
 		case a.kEp < b.kEp:
-			return -1
+			return -1, nil
 		case a.kEp > b.kEp:
-			return 1
+			return 1, nil
 		}
-		return 0
+		return 0, nil
 	}
-	return a.threshold.cmp(&b.threshold)
+	return a.threshold.cmp(q, &b.threshold)
 }
 
 func (a *smtArithmeticAtom) cacheSmallThreshold() {
 	k := &a.threshold
-	if k.infinity.Sign() != 0 || !k.rational.IsInt() || !k.infinitesimal.IsInt() {
+	r, ok1 := k.rational.SmallInt32()
+	e, ok2 := k.infinitesimal.SmallInt32()
+	if !k.infinity.IsZero() || !ok1 || !ok2 {
 		return
 	}
-	r, e := k.rational.Num(), k.infinitesimal.Num()
-	if !r.IsInt64() || !e.IsInt64() {
-		return
-	}
-	a.smallK, a.kRational, a.kEp = true, r.Int64(), e.Int64()
+	a.smallK, a.kRational, a.kEp = true, int64(r), int64(e)
 }
 
-func newSMTArithmeticAtom(boolean SMTBoolVar, variable SMTTheoryVar, threshold *smtArithmeticValue, kind smtArithmeticAtomKind) (*smtArithmeticAtom, error) {
+func newSMTArithmeticAtom(q *numeral.RationalManager, boolean SMTBoolVar, variable SMTTheoryVar, threshold *smtArithmeticValue, kind smtArithmeticAtomKind) (*smtArithmeticAtom, error) {
 	if boolean < SMTFirstBoolVar || variable < 0 || threshold == nil || kind > smtArithmeticUpperAtom {
 		return nil, ast.ErrASTDomain
 	}
 	result := &smtArithmeticAtom{boolean: boolean, atomKind: kind}
 	result.variable, result.atom = variable, true
-	result.threshold.set(threshold)
+	result.value.init()
+	result.threshold.init()
+	if err := result.threshold.set(q, threshold); err != nil {
+		return result, err
+	}
 	result.cacheSmallThreshold()
 	return result, nil
 }
-func (a *smtArithmeticAtom) assign(truth bool, epsilon *smtArithmeticValue) error {
+
+// del frees the atom's numerals (its destructor).
+func (a *smtArithmeticAtom) del(q *numeral.RationalManager) error {
+	err := a.value.del(q)
+	if e := a.threshold.del(q); e != nil && err == nil {
+		err = e
+	}
+	return err
+}
+func (a *smtArithmeticAtom) assign(q *numeral.RationalManager, truth bool, epsilon *smtArithmeticValue) error {
 	if a == nil || epsilon == nil {
 		return ast.ErrASTDomain
 	}
 	a.truth = truth
-	a.value.set(&a.threshold)
+	if err := a.value.set(q, &a.threshold); err != nil {
+		return err
+	}
 	if truth {
 		a.kind = smtArithmeticBoundKind(a.atomKind)
 		return nil
 	}
 	if a.atomKind == smtArithmeticLowerAtom {
-		a.value.sub(epsilon)
 		a.kind = smtArithmeticUpperBound
-	} else {
-		a.value.add(epsilon)
-		a.kind = smtArithmeticLowerBound
+		return a.value.sub(q, epsilon)
 	}
-	return nil
+	a.kind = smtArithmeticLowerBound
+	return a.value.add(q, epsilon)
 }
-func (a *smtArithmeticAtom) pushJustification(out *smtArithmeticAntecedents, coefficient *big.Rat, proofs bool) error {
+func (a *smtArithmeticAtom) pushJustification(q *numeral.RationalManager, out *smtArithmeticAntecedents, coefficient *numeral.Rational, proofs bool) error {
 	if a == nil || out == nil {
 		return ast.ErrASTDomain
 	}
-	return out.pushLiteral(NewSMTLiteral(a.boolean, !a.truth), coefficient, proofs)
+	return out.pushLiteral(q, NewSMTLiteral(a.boolean, !a.truth), coefficient, proofs)
 }
 
 type smtArithmeticDerivedBound struct {
@@ -230,11 +205,11 @@ type smtArithmeticDerivedBound struct {
 	equalities []SMTEnodePair
 }
 
-func (b *smtArithmeticDerivedBound) pushLiteral(literal SMTLiteral, _ *big.Rat) error {
+func (b *smtArithmeticDerivedBound) pushLiteral(_ *numeral.RationalManager, literal SMTLiteral, _ *numeral.Rational) error {
 	b.literals = append(b.literals, literal)
 	return nil
 }
-func (b *smtArithmeticDerivedBound) pushEquality(pair SMTEnodePair, _ *big.Rat) error {
+func (b *smtArithmeticDerivedBound) pushEquality(_ *numeral.RationalManager, pair SMTEnodePair, _ *numeral.Rational) error {
 	if pair.First == nil || pair.Second == nil {
 		return ast.ErrASTDomain
 	}
@@ -242,17 +217,17 @@ func (b *smtArithmeticDerivedBound) pushEquality(pair SMTEnodePair, _ *big.Rat) 
 	return nil
 }
 
-func (b *smtArithmeticDerivedBound) pushJustification(out *smtArithmeticAntecedents, coefficient *big.Rat, proofs bool) error {
+func (b *smtArithmeticDerivedBound) pushJustification(q *numeral.RationalManager, out *smtArithmeticAntecedents, coefficient *numeral.Rational, proofs bool) error {
 	if b == nil || out == nil || coefficient == nil {
 		return ast.ErrASTDomain
 	}
 	for _, literal := range b.literals {
-		if err := out.pushLiteral(literal, coefficient, proofs); err != nil {
+		if err := out.pushLiteral(q, literal, coefficient, proofs); err != nil {
 			return err
 		}
 	}
 	for _, equality := range b.equalities {
-		if err := out.pushEquality(equality, coefficient, proofs); err != nil {
+		if err := out.pushEquality(q, equality, coefficient, proofs); err != nil {
 			return err
 		}
 	}
@@ -261,53 +236,72 @@ func (b *smtArithmeticDerivedBound) pushJustification(out *smtArithmeticAntecede
 
 type smtArithmeticJustifiedDerivedBound struct {
 	smtArithmeticDerivedBound
-	literalCoefficients, equalityCoefficients []*big.Rat
+	literalCoefficients, equalityCoefficients []numeral.Rational
 }
 
-func (b *smtArithmeticJustifiedDerivedBound) pushLiteral(literal SMTLiteral, coefficient *big.Rat) error {
+// del frees the bound's numerals (its destructor).
+func (b *smtArithmeticJustifiedDerivedBound) del(q *numeral.RationalManager) error {
+	err := b.value.del(q)
+	var e error
+	if b.literalCoefficients, e = smtQDelAll(q, b.literalCoefficients); e != nil && err == nil {
+		err = e
+	}
+	if b.equalityCoefficients, e = smtQDelAll(q, b.equalityCoefficients); e != nil && err == nil {
+		err = e
+	}
+	return err
+}
+
+func (b *smtArithmeticJustifiedDerivedBound) pushLiteral(q *numeral.RationalManager, literal SMTLiteral, coefficient *numeral.Rational) (err error) {
 	if coefficient == nil {
 		return ast.ErrASTDomain
 	}
 	for index, old := range b.literals {
 		if old == literal {
-			b.literalCoefficients[index].Add(b.literalCoefficients[index], coefficient)
-			return nil
+			c := &b.literalCoefficients[index]
+			return q.Add(c, coefficient, c)
 		}
 	}
 	b.literals = append(b.literals, literal)
-	b.literalCoefficients = append(b.literalCoefficients, new(big.Rat).Set(coefficient))
-	return nil
+	b.literalCoefficients, err = smtQPush(q, b.literalCoefficients, coefficient)
+	return err
 }
 func sameSMTEnodePair(left, right SMTEnodePair) bool {
 	return left.First == right.First && left.Second == right.Second
 }
-func (b *smtArithmeticJustifiedDerivedBound) pushEquality(pair SMTEnodePair, coefficient *big.Rat) error {
+func (b *smtArithmeticJustifiedDerivedBound) pushEquality(q *numeral.RationalManager, pair SMTEnodePair, coefficient *numeral.Rational) (err error) {
 	if coefficient == nil || pair.First == nil || pair.Second == nil {
 		return ast.ErrASTDomain
 	}
 	for index, old := range b.equalities {
 		if sameSMTEnodePair(old, pair) {
-			b.equalityCoefficients[index].Add(b.equalityCoefficients[index], coefficient)
-			return nil
+			c := &b.equalityCoefficients[index]
+			return q.Add(c, coefficient, c)
 		}
 	}
 	b.equalities = append(b.equalities, pair)
-	b.equalityCoefficients = append(b.equalityCoefficients, new(big.Rat).Set(coefficient))
-	return nil
+	b.equalityCoefficients, err = smtQPush(q, b.equalityCoefficients, coefficient)
+	return err
 }
-func (b *smtArithmeticJustifiedDerivedBound) pushJustification(out *smtArithmeticAntecedents, coefficient *big.Rat, proofs bool) error {
+func (b *smtArithmeticJustifiedDerivedBound) pushJustification(q *numeral.RationalManager, out *smtArithmeticAntecedents, coefficient *numeral.Rational, proofs bool) error {
 	if b == nil || out == nil || coefficient == nil {
 		return ast.ErrASTDomain
 	}
+	scaled := smtQZero()
+	defer smtQDel(q, &scaled)
 	for index, literal := range b.literals {
-		scaled := new(big.Rat).Mul(coefficient, b.literalCoefficients[index])
-		if err := out.pushLiteral(literal, scaled, proofs); err != nil {
+		if err := q.Mul(coefficient, &b.literalCoefficients[index], &scaled); err != nil {
+			return err
+		}
+		if err := out.pushLiteral(q, literal, &scaled, proofs); err != nil {
 			return err
 		}
 	}
 	for index, equality := range b.equalities {
-		scaled := new(big.Rat).Mul(coefficient, b.equalityCoefficients[index])
-		if err := out.pushEquality(equality, scaled, proofs); err != nil {
+		if err := q.Mul(coefficient, &b.equalityCoefficients[index], &scaled); err != nil {
+			return err
+		}
+		if err := out.pushEquality(q, equality, &scaled, proofs); err != nil {
 			return err
 		}
 	}
@@ -315,29 +309,35 @@ func (b *smtArithmeticJustifiedDerivedBound) pushJustification(out *smtArithmeti
 }
 
 type smtArithmeticDerivedTarget interface {
-	pushLiteral(SMTLiteral, *big.Rat) error
-	pushEquality(SMTEnodePair, *big.Rat) error
+	pushLiteral(*numeral.RationalManager, SMTLiteral, *numeral.Rational) error
+	pushEquality(*numeral.RationalManager, SMTEnodePair, *numeral.Rational) error
 }
 
-func smtAccumulateArithmeticJustification(source smtArithmeticBoundJustification, target smtArithmeticDerivedTarget, coefficient *big.Rat, proofs bool, literals map[int32]bool, equalities map[SMTEnodePair]bool) error {
+func smtAccumulateArithmeticJustification(q *numeral.RationalManager, source smtArithmeticBoundJustification, target smtArithmeticDerivedTarget, coefficient *numeral.Rational, proofs bool, literals map[int32]bool, equalities map[SMTEnodePair]bool) (err error) {
 	if source == nil || target == nil || coefficient == nil || literals == nil || equalities == nil {
 		return ast.ErrASTDomain
 	}
 	var antecedents smtArithmeticAntecedents
-	if err := source.pushJustification(&antecedents, coefficient, proofs); err != nil {
+	defer func() {
+		if e := antecedents.reset(q); e != nil && err == nil {
+			err = e
+		}
+	}()
+	if err := source.pushJustification(q, &antecedents, coefficient, proofs); err != nil {
 		return err
 	}
+	zero := smtQZero()
 	for index, literal := range antecedents.literals {
 		if literals[literal.Index()] {
 			continue
 		}
-		value := new(big.Rat)
+		value := &zero
 		if proofs {
-			value.Set(antecedents.literalCoefficients[index])
+			value = &antecedents.literalCoefficients[index]
 		} else {
 			literals[literal.Index()] = true
 		}
-		if err := target.pushLiteral(literal, value); err != nil {
+		if err := target.pushLiteral(q, literal, value); err != nil {
 			return err
 		}
 	}
@@ -345,45 +345,37 @@ func smtAccumulateArithmeticJustification(source smtArithmeticBoundJustification
 		if equalities[equality] {
 			continue
 		}
-		value := new(big.Rat)
+		value := &zero
 		if proofs {
-			value.Set(antecedents.equalityCoefficients[index])
+			value = &antecedents.equalityCoefficients[index]
 		} else {
 			equalities[equality] = true
 		}
-		if err := target.pushEquality(equality, value); err != nil {
+		if err := target.pushEquality(q, equality, value); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func smtRatFloor(value *big.Rat) *big.Int {
-	quotient, remainder := new(big.Int).QuoRem(value.Num(), value.Denom(), new(big.Int))
-	if value.Sign() < 0 && remainder.Sign() != 0 {
-		quotient.Sub(quotient, big.NewInt(1))
+// smtNormalizeArithmeticIntegerBound sets out to inf_numeral(ceil(k)) for a
+// lower bound and inf_numeral(floor(k)) for an upper bound.
+func smtNormalizeArithmeticIntegerBound(q *numeral.RationalManager, value *smtArithmeticValue, kind smtArithmeticBoundKind, out *smtArithmeticValue) error {
+	if value == nil || !value.infinity.IsZero() || kind > smtArithmeticUpperBound {
+		return ast.ErrASTDomain
 	}
-	return quotient
-}
-func smtNormalizeArithmeticIntegerBound(value *smtArithmeticValue, kind smtArithmeticBoundKind) (smtArithmeticValue, error) {
-	if value == nil || value.infinity.Sign() != 0 || kind > smtArithmeticUpperBound {
-		return smtArithmeticValue{}, ast.ErrASTDomain
-	}
-	floor := smtRatFloor(&value.rational)
-	integral := value.rational.IsInt()
-	result := newSMTArithmeticValue(nil, nil)
+	r := smtQZero()
+	defer smtQDel(q, &r)
+	var err error
 	if kind == smtArithmeticLowerBound {
-		result.rational.SetInt(floor)
-		if !integral || value.infinitesimal.Sign() > 0 {
-			result.rational.Add(&result.rational, big.NewRat(1, 1))
-		}
+		err = smtInfCeil(q, value, &r)
 	} else {
-		result.rational.SetInt(floor)
-		if integral && value.infinitesimal.Sign() < 0 {
-			result.rational.Sub(&result.rational, big.NewRat(1, 1))
-		}
+		err = smtInfFloor(q, value, &r)
 	}
-	return result, nil
+	if err != nil {
+		return err
+	}
+	return out.setRational(q, &r)
 }
 
 type smtArithmeticVariableKind uint8

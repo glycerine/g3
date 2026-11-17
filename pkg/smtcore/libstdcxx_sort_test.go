@@ -44,9 +44,10 @@ func TestLibstdcxxSortMatchesControl(t *testing.T) {
 		atoms := make([]*smtArithmeticAtom, len(keys))
 		for i, k := range keys {
 			atoms[i] = &smtArithmeticAtom{boolean: SMTBoolVar(i)}
-			atoms[i].threshold = newSMTArithmeticValue(new(big.Rat).SetInt64(int64(k)), nil)
+			atoms[i].threshold = testArithValue(new(big.Rat).SetInt64(int64(k)), nil)
 		}
-		libstdcxxSortAtoms(atoms, smtCompareAtomsLess)
+		theory := &SMTTheoryArith{q: testQ()}
+		libstdcxxSortAtoms(atoms, theory.compareAtomsLess)
 		order := make([]int, len(atoms))
 		for i, a := range atoms {
 			order[i] = int(a.boolean)

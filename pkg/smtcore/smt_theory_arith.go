@@ -13,7 +13,6 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
@@ -47,7 +46,7 @@ func (b *smtArithmeticBound) base() *smtArithmeticBound { return b }
 // bound::has_justification and bound::push_justification: a plain bound
 // has no justification.
 func (b *smtArithmeticBound) hasJustification() bool { return false }
-func (b *smtArithmeticBound) pushJustification(*smtArithmeticAntecedents, *big.Rat, bool) error {
+func (b *smtArithmeticBound) pushJustification(*numeral.RationalManager, *smtArithmeticAntecedents, *numeral.Rational, bool) error {
 	return nil
 }
 func (a *smtArithmeticAtom) hasJustification() bool                  { return true }
@@ -59,8 +58,8 @@ func (b *smtArithmeticJustifiedDerivedBound) hasJustification() bool { return tr
 // justified_derived_bound.
 type smtArithDerivedBound interface {
 	smtArithBound
-	pushLiteral(SMTLiteral, *big.Rat) error
-	pushEquality(SMTEnodePair, *big.Rat) error
+	pushLiteral(*numeral.RationalManager, SMTLiteral, *numeral.Rational) error
+	pushEquality(*numeral.RationalManager, SMTEnodePair, *numeral.Rational) error
 	derived() *smtArithmeticDerivedBound
 }
 
@@ -68,7 +67,7 @@ func (b *smtArithmeticDerivedBound) derived() *smtArithmeticDerivedBound { retur
 
 // linear_monomial (theory_arith.h:97).
 type smtArithLinearMonomial struct {
-	coeff big.Rat
+	coeff numeral.Rational
 	v     SMTTheoryVar
 }
 
@@ -100,12 +99,12 @@ type smtArithScope struct {
 // value_sort_pair and var_offset keys of m_fixed_var_table and
 // m_var_offset2row_id (theory_arith.h:855-863).
 type smtArithValueSortPair struct {
-	value string
+	value smtQMapKey
 	isInt bool
 }
 type smtArithVarOffset struct {
 	v      SMTTheoryVar
-	offset string
+	offset smtQMapKey
 }
 
 const smtArithDeadRowID = -1 // dead_row_id
@@ -114,6 +113,12 @@ type SMTTheoryArith struct {
 	*SMTTheoryBase
 	integerExt bool // Ext == i_ext
 	infExt     bool // Ext == inf_ext (theory_inf_arith)
+
+	// q is rational's manager (g_mpq_manager): the AST manager's
+	// synchronized mpq manager. qErr keeps a failure of an operation the
+	// source runs inline without a result (see vcmp).
+	q    *numeral.RationalManager
+	qErr error
 
 	stats                 smtTheoryArithStats
 	params                SMTArithState
@@ -185,17 +190,12 @@ type SMTTheoryArith struct {
 	// Scratch numerals of hot loops (Go temporaries, no C++ counterpart).
 	// They are never stored: a value that is kept is copied into an owned
 	// value with set/Set.
-	scratchInt             big.Int
-	scratchRat             big.Rat
-	scratchXjVal           smtArithmeticValue
-	scratchBound           smtArithmeticValue
-	gcdLcmDen, gcdConsts   big.Rat // gcd_test numerals
-	gcdGcds, gcdLeastCoeff big.Rat
-	gcdAux                 big.Rat
+	scratchXjVal smtArithmeticValue
+	scratchBound smtArithmeticValue
 
 	// model generation
 	factory                       *protomodel.ArithmeticFactory
-	epsilon                       big.Rat
+	epsilon                       numeral.Rational
 	modelDependsOnComputedEpsilon bool
 
 	// non linear
@@ -298,27 +298,27 @@ func (t *SMTTheoryArith) upperBound(v SMTTheoryVar) *smtArithmeticValue {
 }
 func (t *SMTTheoryArith) belowLower(v SMTTheoryVar) bool {
 	l := t.lower(v)
-	return l != nil && t.getValue(v).cmp(&l.base().value) < 0
+	return l != nil && t.vcmp(t.getValue(v), &l.base().value) < 0
 }
 func (t *SMTTheoryArith) aboveUpper(v SMTTheoryVar) bool {
 	u := t.upper(v)
-	return u != nil && t.getValue(v).cmp(&u.base().value) > 0
+	return u != nil && t.vcmp(t.getValue(v), &u.base().value) > 0
 }
 func (t *SMTTheoryArith) belowUpper(v SMTTheoryVar) bool {
 	u := t.upper(v)
-	return u == nil || t.getValue(v).cmp(&u.base().value) < 0
+	return u == nil || t.vcmp(t.getValue(v), &u.base().value) < 0
 }
 func (t *SMTTheoryArith) aboveLower(v SMTTheoryVar) bool {
 	l := t.lower(v)
-	return l == nil || t.getValue(v).cmp(&l.base().value) > 0
+	return l == nil || t.vcmp(t.getValue(v), &l.base().value) > 0
 }
 func (t *SMTTheoryArith) atLower(v SMTTheoryVar) bool {
 	l := t.lower(v)
-	return l != nil && t.getValue(v).cmp(&l.base().value) == 0
+	return l != nil && t.vcmp(t.getValue(v), &l.base().value) == 0
 }
 func (t *SMTTheoryArith) atUpper(v SMTTheoryVar) bool {
 	u := t.upper(v)
-	return u != nil && t.getValue(v).cmp(&u.base().value) == 0
+	return u != nil && t.vcmp(t.getValue(v), &u.base().value) == 0
 }
 func (t *SMTTheoryArith) isFree(v SMTTheoryVar) bool { return t.lower(v) == nil && t.upper(v) == nil }
 func (t *SMTTheoryArith) isNonFree(v SMTTheoryVar) bool {
@@ -360,10 +360,75 @@ func (t *SMTTheoryArith) getBv2a(bv SMTBoolVar) *smtArithmeticAtom {
 }
 
 func (t *SMTTheoryArith) setValue(v SMTTheoryVar, newVal *smtArithmeticValue) error {
-	var delta smtArithmeticValue
-	delta.set(newVal)
-	delta.sub(&t.value[v])
+	delta := newSMTArithmeticValue()
+	defer delta.del(t.q)
+	if err := delta.set(t.q, newVal); err != nil {
+		return err
+	}
+	if err := delta.sub(t.q, &t.value[v]); err != nil {
+		return err
+	}
 	return t.updateValue(v, &delta)
+}
+
+// setValueFloor is set_value(v, inf_numeral(floor(val))).
+func (t *SMTTheoryArith) setValueFloor(v SMTTheoryVar, val *smtArithmeticValue) error {
+	f := smtQZero()
+	newVal := newSMTArithmeticValue()
+	defer smtQDel(t.q, &f)
+	defer newVal.del(t.q)
+	if err := smtInfFloor(t.q, val, &f); err != nil {
+		return err
+	}
+	if err := newVal.setRational(t.q, &f); err != nil {
+		return err
+	}
+	return t.setValue(v, &newVal)
+}
+
+// vsub sets dst = a; dst -= b.
+func (t *SMTTheoryArith) vsub(dst, a, b *smtArithmeticValue) error {
+	if err := dst.set(t.q, a); err != nil {
+		return err
+	}
+	return dst.sub(t.q, b)
+}
+
+// vcmp is inf_numeral comparison (an inline operator in the source). A
+// manager failure, which only a closed manager or an out-of-memory
+// temporary can cause, is kept in qErr and returned by the next entry point.
+func (t *SMTTheoryArith) vcmp(a, b *smtArithmeticValue) int {
+	c, err := a.cmp(t.q, b)
+	if err != nil && t.qErr == nil {
+		t.qErr = err
+	}
+	return c
+}
+
+// rcmp is rational comparison, with vcmp's error handling.
+func (t *SMTTheoryArith) rcmp(a, b *numeral.Rational) int {
+	c, err := t.q.Compare(a, b)
+	if err != nil && t.qErr == nil {
+		t.qErr = err
+	}
+	return c
+}
+
+// keep records a failure of an operation in a function without an error
+// result; takeQErr returns it.
+func (t *SMTTheoryArith) keep(err error) {
+	if err != nil && t.qErr == nil {
+		t.qErr = err
+	}
+}
+
+// takeQErr returns and clears a failure kept by vcmp or rcmp.
+func (t *SMTTheoryArith) takeQErr(err error) error {
+	if t.qErr != nil {
+		err = errors.Join(err, t.qErr)
+		t.qErr = nil
+	}
+	return err
 }
 
 func (t *SMTTheoryArith) selectGreatestErrorVar() (SMTTheoryVar, error) {
@@ -387,13 +452,13 @@ func (t *SMTTheoryArith) pushDecUnassignedAtomsTrail(v SMTTheoryVar) {
 // ---- Ext (theory_arith.h:1155-1191) ----
 
 func (t *SMTTheoryArith) initExt() {
-	t.intEpsilon.reset()
-	t.realEpsilon.reset()
-	t.intEpsilon.rational.SetInt64(1)
+	t.intEpsilon.init()
+	t.realEpsilon.init()
+	t.intEpsilon.rational = smtQInt(1)
 	if t.integerExt {
-		t.realEpsilon.rational.SetInt64(1) // i_ext: m_real_epsilon(1)
+		t.realEpsilon.rational = smtQInt(1) // i_ext: m_real_epsilon(1)
 	} else {
-		t.realEpsilon.infinitesimal.SetInt64(1) // mi_ext: inf_rational(0, true)
+		t.realEpsilon.infinitesimal = smtQInt(1) // mi_ext: inf_rational(0, true)
 	}
 }
 
@@ -418,6 +483,11 @@ func NewSMTTheoryArith(family ast.FamilyID, integerExt bool) (*SMTTheoryArith, e
 	t := &SMTTheoryArith{
 		SMTTheoryBase:      base,
 		integerExt:         integerExt,
+		epsilon:            smtQZero(),
+		tmp:                newSMTArithmeticValue(),
+		upperBoundRecorded: newSMTArithmeticValue(),
+		scratchXjVal:       newSMTArithmeticValue(),
+		scratchBound:       newSMTArithmeticValue(),
 		boundWatch:         SMTNullBoolVar,
 		leftBasis:          natset.New(0),
 		inUpdateTrailStack: natset.New(0),
@@ -460,6 +530,12 @@ func (t *SMTTheoryArith) Initialize(state *SMTInternalizerState) error {
 		return err
 	}
 	t.nlNewExprs = smtArithExprs{m: state.manager}
+	if numerals := state.manager.NumeralService(); numerals != nil {
+		t.q = numerals.Manager
+	}
+	if t.q == nil {
+		return errors.New("smt: theory_arith needs the AST manager's rational manager")
+	}
 	return nil
 }
 
@@ -479,11 +555,45 @@ func (t *SMTTheoryArith) Close() (result error) {
 		t.toPatch = nil
 	}
 	result = errors.Join(result, t.nlNewExprs.reset())
+	result = errors.Join(result, t.delNumerals())
 	if t.esNumerals != nil {
 		result = errors.Join(result, t.esNumerals.CloseChecked())
 		t.esNumerals = nil
 	}
 	return result
+}
+
+// delNumerals frees the theory's numerals, as ~theory_arith's member
+// destructors do (del_atoms, del_bounds, the row, value and scratch
+// vectors).
+func (t *SMTTheoryArith) delNumerals() (err error) {
+	q := t.q
+	if q == nil {
+		return nil
+	}
+	keep := func(e error) {
+		if e != nil && err == nil {
+			err = e
+		}
+	}
+	keep(t.delAtoms(0))
+	keep(t.delBounds(0))
+	for i := range t.rows {
+		keep(t.rows[i].reset(q))
+	}
+	keep(t.tmpRow.reset(q))
+	_, e := smtArithValuesDel(q, t.value)
+	keep(e)
+	_, e = smtArithValuesDel(q, t.oldValue)
+	keep(e)
+	for i := range t.antecedents {
+		keep(t.antecedents[i].reset(q))
+	}
+	for _, v := range []*smtArithmeticValue{&t.tmp, &t.upperBoundRecorded, &t.scratchXjVal, &t.scratchBound, &t.intEpsilon, &t.realEpsilon} {
+		keep(v.del(q))
+	}
+	keep(smtQDel(q, &t.epsilon))
+	return err
 }
 
 // useMixedExt turns an unused theory_i_arith into theory_mi_arith, as setup

@@ -7,6 +7,7 @@ package smtcore
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"math/big"
 	"strings"
 
@@ -309,26 +310,30 @@ func (k *SMTKernel) tickVerbose(counter *uint32, conflictBase uint32) error {
 }
 
 // smtInfEpsText is inf_eps_rational<inf_rational>::to_string.
-func smtInfEpsText(v *smtArithmeticValue) string {
-	r := v.rational.RatString()
+func smtInfEpsText(q *numeral.RationalManager, v *smtArithmeticValue) string {
+	var rational, infinitesimal, infinity big.Rat
+	_ = q.BigRatOf(&v.rational, &rational)
+	_ = q.BigRatOf(&v.infinitesimal, &infinitesimal)
+	_ = q.BigRatOf(&v.infinity, &infinity)
+	r := rational.RatString()
 	if v.infinitesimal.Sign() != 0 {
 		sign := " +e*"
 		if v.infinitesimal.Sign() < 0 {
 			sign = " -e*"
 		}
-		r = "(" + r + sign + new(big.Rat).Abs(&v.infinitesimal).RatString() + ")"
+		r = "(" + r + sign + new(big.Rat).Abs(&infinitesimal).RatString() + ")"
 	}
 	if v.infinity.Sign() == 0 {
 		return r
 	}
 	var si string
 	switch {
-	case v.infinity.Cmp(big.NewRat(1, 1)) == 0:
+	case v.infinity.IsOne():
 		si = "oo"
-	case v.infinity.Cmp(big.NewRat(-1, 1)) == 0:
+	case v.infinity.IsMinusOne():
 		si = "-oo"
 	default:
-		si = v.infinity.RatString() + "*oo"
+		si = infinity.RatString() + "*oo"
 	}
 	if v.rational.Sign() == 0 && v.infinitesimal.Sign() == 0 {
 		return si

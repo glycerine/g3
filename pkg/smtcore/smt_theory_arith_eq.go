@@ -4,17 +4,17 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func smtArithValueSortPairOf(value *big.Rat, isInt bool) smtArithValueSortPair {
-	return smtArithValueSortPair{value: value.RatString(), isInt: isInt}
+func (t *SMTTheoryArith) valueSortPairOf(value *numeral.Rational, isInt bool) smtArithValueSortPair {
+	return smtArithValueSortPair{value: t.qkey(value), isInt: isInt}
 }
 
 // lowerRational returns the rational part of the lower bound of v.
-func (t *SMTTheoryArith) lowerRational(v SMTTheoryVar) *big.Rat {
+func (t *SMTTheoryArith) lowerRational(v SMTTheoryVar) *numeral.Rational {
 	return &t.lower(v).base().value.rational
 }
 
@@ -30,30 +30,30 @@ func (t *SMTTheoryArith) fixedVarEh(v SMTTheoryVar) error {
 		return ast.ErrASTDomain
 	}
 	val := t.lowerRational(v)
-	key := smtArithValueSortPairOf(val, t.isIntSrc(v))
+	key := t.valueSortPairOf(val, t.isIntSrc(v))
 	v2, found := t.fixedVarTable[key]
 	if !found {
 		t.fixedVarTable[key] = v
 		return nil
 	}
-	if int(v2) < t.getNumVars() && t.isFixed(v2) && t.lowerRational(v2).Cmp(val) == 0 {
+	if int(v2) < t.getNumVars() && t.isFixed(v2) && t.rcmp(t.lowerRational(v2), val) == 0 {
 		// Only equate variables of the same sort. The table is not restored
 		// on backtracking, so it may hold stale pairs: the checks above
 		// confirm v2 really has this value.
 		if !t.isEqual(v, v2) && t.isIntSrc(v) == t.isIntSrc(v2) {
 			ante := t.acquireAntecedents()
 			defer t.releaseAntecedentsScope()
-			zero := new(big.Rat)
+			zero := smtQZero()
 			// v <= k <= v2 => v <= v2 and v >= k >= v2 => v >= v2
 			for _, b := range []smtArithBound{t.lower(v), t.upper(v2), t.lower(v2), t.upper(v)} {
-				if err := b.pushJustification(ante, zero, t.proofsEnabled()); err != nil {
+				if err := b.pushJustification(t.q, ante, &zero, t.proofsEnabled()); err != nil {
 					return err
 				}
 			}
 			t.stats.fixedEqs++
 			return t.propagateEqToCore(v, v2, ante)
 		}
-		return nil
+		return t.takeQErr(nil)
 	}
 	// the original fixed variable v2 was deleted or its bounds were removed
 	// during backtracking.
@@ -65,7 +65,7 @@ func (t *SMTTheoryArith) fixedVarEh(v SMTTheoryVar) error {
 // fixed and M a linear polynomial over fixed variables evaluating to k.
 // It returns x, y and k. The base variable is x if it is not fixed,
 // otherwise x is the smallest variable.
-func (t *SMTTheoryArith) isOffsetRow(r *smtArithmeticRow) (x, y SMTTheoryVar, k big.Rat, ok bool) {
+func (t *SMTTheoryArith) isOffsetRow(r *smtArithmeticRow, k *numeral.Rational) (x, y SMTTheoryVar, ok bool, err error) {
 	// Quick check without big numbers: more than 2 unbounded variables.
 	bad := 0
 	for i := range r.entries {
@@ -78,7 +78,7 @@ func (t *SMTTheoryArith) isOffsetRow(r *smtArithmeticRow) (x, y SMTTheoryVar, k 
 		}
 		bad++
 		if bad > 2 {
-			return SMTNullTheoryVar, SMTNullTheoryVar, k, false
+			return SMTNullTheoryVar, SMTNullTheoryVar, false, nil
 		}
 	}
 	x, y = SMTNullTheoryVar, SMTNullTheoryVar
@@ -91,20 +91,23 @@ func (t *SMTTheoryArith) isOffsetRow(r *smtArithmeticRow) (x, y SMTTheoryVar, k 
 		if t.isFixed(v) {
 			continue
 		}
-		if smtRatIsOne(&it.coefficient) && x == SMTNullTheoryVar {
+		if it.coefficient.IsOne() && x == SMTNullTheoryVar {
 			x = v
 			continue
 		}
-		if smtRatIsMinusOne(&it.coefficient) && y == SMTNullTheoryVar {
+		if it.coefficient.IsMinusOne() && y == SMTNullTheoryVar {
 			y = v
 			continue
 		}
-		return SMTNullTheoryVar, SMTNullTheoryVar, k, false
+		return SMTNullTheoryVar, SMTNullTheoryVar, false, nil
 	}
 	if x == SMTNullTheoryVar && y == SMTNullTheoryVar {
-		return x, y, k, false
+		return x, y, false, nil
 	}
-	var term big.Rat
+	q := t.q
+	if err := q.Reset(k); err != nil {
+		return x, y, false, err
+	}
 	for i := range r.entries {
 		it := &r.entries[i]
 		if it.dead() {
@@ -114,21 +117,22 @@ func (t *SMTTheoryArith) isOffsetRow(r *smtArithmeticRow) (x, y SMTTheoryVar, k 
 		if v == x || v == y {
 			continue
 		}
-		k.Sub(&k, term.Mul(&it.coefficient, t.lowerRational(v)))
+		if err := q.SubMul(k, &it.coefficient, t.lowerRational(v), k); err != nil {
+			return x, y, false, err
+		}
 	}
 	if y == SMTNullTheoryVar {
-		return x, y, k, true
+		return x, y, true, nil
 	}
 	if x == SMTNullTheoryVar {
 		x, y = y, x
-		k.Neg(&k)
-		return x, y, k, true
+		return x, y, true, q.Neg(k)
 	}
 	if r.base != x && x > y {
 		x, y = y, x
-		k.Neg(&k)
+		return x, y, true, q.Neg(k)
 	}
-	return x, y, k, true
+	return x, y, true, nil
 }
 
 // propagateCheapEq propagates x_i = x_j when x_i = y + k and x_j = y + k,
@@ -138,26 +142,30 @@ func (t *SMTTheoryArith) propagateCheapEq(rid int) error {
 		return nil
 	}
 	r := &t.rows[rid]
-	x, y, k, ok := t.isOffsetRow(r)
-	if !ok {
-		return nil
+	q := t.q
+	k, k2 := smtQZero(), smtQZero()
+	defer smtQDel(q, &k)
+	defer smtQDel(q, &k2)
+	x, y, ok, err := t.isOffsetRow(r, &k)
+	if err != nil || !ok {
+		return err
 	}
 	if y == SMTNullTheoryVar {
 		// x is an implied fixed variable at k.
-		key := smtArithValueSortPairOf(&k, t.isIntSrc(x))
+		key := t.valueSortPairOf(&k, t.isIntSrc(x))
 		if x2, found := t.fixedVarTable[key]; found &&
 			int(x2) < t.getNumVars() &&
 			t.isFixed(x2) &&
-			t.lowerRational(x2).Cmp(&k) == 0 &&
+			t.rcmp(t.lowerRational(x2), &k) == 0 &&
 			t.isIntSrc(x) == t.isIntSrc(x2) &&
 			!t.isEqual(x, x2) {
 			ante := t.acquireAntecedents()
 			err := t.collectFixedVarJustifications(r, ante)
 			if err == nil {
-				zero := new(big.Rat)
-				err = t.lower(x2).pushJustification(ante, zero, t.proofsEnabled())
+				zero := smtQZero()
+				err = t.lower(x2).pushJustification(t.q, ante, &zero, t.proofsEnabled())
 				if err == nil {
-					err = t.upper(x2).pushJustification(ante, zero, t.proofsEnabled())
+					err = t.upper(x2).pushJustification(t.q, ante, &zero, t.proofsEnabled())
 				}
 			}
 			if err == nil {
@@ -171,7 +179,7 @@ func (t *SMTTheoryArith) propagateCheapEq(rid int) error {
 			r = &t.rows[rid]
 		}
 	}
-	if k.Sign() == 0 && y != SMTNullTheoryVar && !t.isEqual(x, y) && t.isIntSrc(x) == t.isIntSrc(y) {
+	if k.IsZero() && y != SMTNullTheoryVar && !t.isEqual(x, y) && t.isIntSrc(x) == t.isIntSrc(y) {
 		// found equality x = y
 		ante := t.acquireAntecedents()
 		err := t.collectFixedVarJustifications(r, ante)
@@ -185,21 +193,27 @@ func (t *SMTTheoryArith) propagateCheapEq(rid int) error {
 		}
 		r = &t.rows[rid]
 	}
-	key := smtArithVarOffset{v: y, offset: k.RatString()}
+	key := smtArithVarOffset{v: y, offset: t.qkey(&k)}
 	if rowID, found := t.varOffset2RowID[key]; found {
 		r2 := &t.rows[rowID]
 		if r.base == r2.base {
 			return nil // it is the same row
 		}
 		if r2.base != SMTNullTheoryVar {
-			if x2, y2, k2, isOffset := t.isOffsetRow(r2); isOffset {
+			x2, y2, isOffset, err := t.isOffsetRow(r2, &k2)
+			if err != nil {
+				return err
+			}
+			if isOffset {
 				newEq := false
-				if y == y2 && k.Cmp(&k2) == 0 {
+				if y == y2 && t.rcmp(&k, &k2) == 0 {
 					newEq = true
 				} else if y2 != SMTNullTheoryVar {
 					x2, y2 = y2, x2
-					k2.Neg(&k2)
-					if y == y2 && k.Cmp(&k2) == 0 {
+					if err := q.Neg(&k2); err != nil {
+						return err
+					}
+					if y == y2 && t.rcmp(&k, &k2) == 0 {
 						newEq = true
 					}
 				}
@@ -227,7 +241,7 @@ func (t *SMTTheoryArith) propagateCheapEq(rid int) error {
 		delete(t.varOffset2RowID, key)
 	}
 	t.varOffset2RowID[key] = rid
-	return nil
+	return t.takeQErr(nil)
 }
 
 // propagateEqToCore assigns x = y, justified by the antecedents.

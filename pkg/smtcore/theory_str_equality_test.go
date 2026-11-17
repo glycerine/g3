@@ -111,7 +111,7 @@ func TestSMTStringLengthReaderRequiresMixedAndCoreRoots(t *testing.T) {
 		t.Fatal(err)
 	}
 	variable := state.context.enodes.get(length).TheoryVar(arithmetic.FamilyID())
-	arithmetic.value[variable].rational.SetInt64(7) // a candidate value, not a bound
+	arithmetic.value[variable].rational = smtQInt(7) // a candidate value, not a bound
 	if _, known, err := theory.lengthValue(x); err != nil || known {
 		t.Fatal("candidate arithmetic value became a length premise", known, err)
 	}

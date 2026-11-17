@@ -82,7 +82,7 @@ func TestSMTStringArithmeticBoundsAssignmentAndScope(t *testing.T) {
 	// The length is attached to an arithmetic variable once an arithmetic
 	// atom mentions it.
 	variable := state.context.enodes.get(length).TheoryVar(arithmetic.FamilyID())
-	arithmetic.value[variable].rational.SetInt64(6) // a candidate value, not a bound
+	arithmetic.value[variable].rational = smtQInt(6) // a candidate value, not a bound
 	stringCheckArithmeticBound(t, theory, length, true, "2")
 	stringCheckArithmeticBound(t, theory, length, false, "")
 	stringAssertArithmeticBound(t, m, state, length, smtArithOpLE, "9", false)
