@@ -23,7 +23,7 @@ func (m *ASTManager) ensureNodePage(slot uint32) error {
 		m.nodes = m.nodes[:index+1]
 	}
 	if m.nodes[index] == nil {
-		if e := m.reservePage(uint64(reflect.TypeOf(astNodePage{}).Size())); e != nil {
+		if e := m.reservePage(astNodePageBytes); e != nil {
 			return e
 		}
 		m.nodes[index] = new(astNodePage)

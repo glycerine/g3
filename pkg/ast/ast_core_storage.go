@@ -9,6 +9,7 @@ import (
 	"math"
 	"reflect"
 	"sync/atomic"
+	"unsafe"
 
 	"github.com/glycerine/g3/pkg/arena"
 
@@ -141,9 +142,9 @@ type astFuncDeclRecord struct {
 	identityCached bool
 }
 type astAppRecord struct {
-	decl                        astNodeRef
-	args                        arena.SmallBytesRef
-	count, depth                uint32
+	// count, the flags and the cached declaration identity come first: in
+	// an astNodeSlot they share the node record's cache line.
+	count                       uint32
 	ground, quantifiers, labels bool
 	// declCached says declFamily and declKind copy declIdentity(decl),
 	// taken when the app was registered. A live app holds its declaration,
@@ -151,6 +152,9 @@ type astAppRecord struct {
 	declCached bool
 	declFamily FamilyID
 	declKind   int32
+	decl       astNodeRef
+	args       arena.SmallBytesRef
+	depth      uint32
 	// rangeSort copies the declaration's range sort, set at registration
 	// (null before), and is likewise unchanged while the app is live.
 	rangeSort astNodeRef
@@ -213,9 +217,25 @@ const astPageSize = 64
 // second page. app[i] is meaningful only while slot i holds a live
 // application; allocateNode clears it when an application takes the slot.
 type astNodePage struct {
-	node [astPageSize]astNodeRecord
-	app  [astPageSize]astAppRecord
+	slots [astPageSize]astNodeSlot
 }
+
+// astNodeSlot is one slot's node record and application record, padded to
+// two cache lines: the node record and the application record's leading
+// fields fill the first line, and a page (8192 bytes, so 8192-aligned)
+// keeps every slot on a 128-byte boundary.
+type astNodeSlot struct {
+	node astNodeRecord
+	app  astAppRecord
+	_    [astNodeSlotPad]byte
+}
+
+const astNodeSlotPad = 128 - unsafe.Sizeof(astNodeRecord{}) - unsafe.Sizeof(astAppRecord{})
+
+// astNodePageBytes is the budget charge of a node page: its node and
+// application records, as before slots were padded.
+const astNodePageBytes = uint64(astPageSize) * uint64(unsafe.Sizeof(astNodeRecord{})+unsafe.Sizeof(astAppRecord{}))
+
 type astSortPage [astPageSize]astSortRecord
 type astFuncDeclPage [astPageSize]astFuncDeclRecord
 type astVarPage [astPageSize]astVarRecord
@@ -414,7 +434,7 @@ func astDirectoryGrowth(old, needed uint32, width uint64) (uint32, error) {
 	return uint32(n), nil
 }
 func (m *ASTManager) nodeAt(slot uint32) *astNodeRecord {
-	return &m.nodes[(slot-1)/astPageSize].node[(slot-1)%astPageSize]
+	return &m.nodes[(slot-1)/astPageSize].slots[(slot-1)%astPageSize].node
 }
 func (m *ASTManager) sortAt(slot uint32) *astSortRecord {
 	index := m.nodeAt(slot).kindIndex
@@ -425,7 +445,7 @@ func (m *ASTManager) declAt(slot uint32) *astFuncDeclRecord {
 	return &m.decls[(index-1)/astPageSize][(index-1)%astPageSize]
 }
 func (m *ASTManager) appAt(slot uint32) *astAppRecord {
-	return &m.nodes[(slot-1)/astPageSize].app[(slot-1)%astPageSize]
+	return &m.nodes[(slot-1)/astPageSize].slots[(slot-1)%astPageSize].app
 }
 func (m *ASTManager) varAt(slot uint32) *astVarRecord {
 	index := m.nodeAt(slot).kindIndex
