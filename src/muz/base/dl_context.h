@@ -130,6 +130,10 @@ namespace datalog {
                                                   symbol const * relation_names) = 0;
         virtual bool output_profile() const = 0;
         virtual void collect_non_empty_predicates(func_decl_set& preds) = 0;
+        // FORK FIX #120 (g3 audit, see FORK_BUGFIXES.md): the facts of
+        // old_pred (bit-vector columns) as facts of its bit-blasted
+        // predicate new_pred (one Boolean column per bit, low bits first).
+        virtual void add_bit_blasted_facts(func_decl* old_pred, func_decl* new_pred) {}
         virtual void transform_rules() = 0;
         virtual bool try_get_size(func_decl* pred, unsigned& rel_sz) const = 0;
         virtual lbool saturate() = 0;

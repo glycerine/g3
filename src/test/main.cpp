@@ -324,6 +324,7 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_sparse_negated_join_second_columns);
     TST(z3_4_7_1_table_intersection_filter);
     TST(z3_4_7_1_sparse_negated_join_zero_key);
+    TST(z3_4_7_1_bit_blast_add_fact);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);

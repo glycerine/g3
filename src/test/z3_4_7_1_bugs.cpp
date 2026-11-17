@@ -4341,3 +4341,38 @@ void tst_z3_4_7_1_sparse_negated_join_zero_key() {
     std::cout << "sparse_negated_join_zero_key: kept 0 " << kept << "\n";
     ENSURE(!kept);
 }
+
+// FORK FIX #120: xform.bit_blast replaced p (a bit-vector predicate) by a
+// fresh predicate over its bits, and the fact p(1) added with
+// Z3_fixedpoint_add_fact stayed in p's relation: q(x) :- p(x) answered
+// unsat. With the facts copied into the blasted predicate it is sat.
+void tst_z3_4_7_1_bit_blast_add_fact() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context c = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+    Z3_fixedpoint fp = Z3_mk_fixedpoint(c);
+    Z3_fixedpoint_inc_ref(c, fp);
+    Z3_params p = Z3_mk_params(c);
+    Z3_params_inc_ref(c, p);
+    Z3_params_set_symbol(c, p, Z3_mk_string_symbol(c, "engine"), Z3_mk_string_symbol(c, "datalog"));
+    Z3_params_set_bool(c, p, Z3_mk_string_symbol(c, "xform.bit_blast"), true);
+    Z3_fixedpoint_set_params(c, fp, p);
+    Z3_sort S = Z3_mk_bv_sort(c, 2);
+    Z3_sort B = Z3_mk_bool_sort(c);
+    Z3_func_decl pd = Z3_mk_func_decl(c, Z3_mk_string_symbol(c, "p"), 1, &S, B);
+    Z3_func_decl qd = Z3_mk_func_decl(c, Z3_mk_string_symbol(c, "q"), 1, &S, B);
+    Z3_fixedpoint_register_relation(c, fp, pd);
+    Z3_fixedpoint_register_relation(c, fp, qd);
+    unsigned one = 1;
+    Z3_fixedpoint_add_fact(c, fp, pd, 1, &one);
+    Z3_ast x = Z3_mk_bound(c, 0, S);
+    Z3_symbol name = Z3_mk_string_symbol(c, "x");
+    Z3_ast rule = Z3_mk_implies(c, Z3_mk_app(c, pd, 1, &x), Z3_mk_app(c, qd, 1, &x));
+    Z3_fixedpoint_add_rule(c, fp, Z3_mk_forall(c, 0, 0, nullptr, 1, &S, &name, rule), Z3_mk_string_symbol(c, "r"));
+    Z3_ast q = Z3_mk_exists(c, 0, 0, nullptr, 1, &S, &name, Z3_mk_app(c, qd, 1, &x));
+    Z3_lbool r = Z3_fixedpoint_query(c, fp, q);
+    Z3_params_dec_ref(c, p);
+    Z3_fixedpoint_dec_ref(c, fp);
+    Z3_del_context(c);
+    ENSURE(r == Z3_L_TRUE);
+}

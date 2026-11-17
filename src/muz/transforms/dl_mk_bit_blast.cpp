@@ -307,6 +307,16 @@ namespace datalog {
                 }
                 m_context.add_model_converter(concat(bvmc, fmc));
             }
+
+            // FORK FIX #120 (g3 audit, see FORK_BUGFIXES.md): the facts of
+            // the blasted predicates' relations go to the fresh predicates.
+            if (rel_context_base* rel = m_context.get_rel_context()) {
+                func_decl_ref_vector const& old_funcs = m_rewriter.m_cfg.old_funcs();
+                func_decl_ref_vector const& new_funcs = m_rewriter.m_cfg.new_funcs();
+                for (unsigned i = 0; i < old_funcs.size(); ++i) {
+                    rel->add_bit_blasted_facts(old_funcs[i], new_funcs[i]);
+                }
+            }
             
             return result;
         }

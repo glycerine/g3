@@ -101,6 +101,9 @@ namespace datalog {
             return get_rmanager().collect_non_empty_predicates(ps);
         }
 
+        // FORK FIX #120 (g3 audit, see FORK_BUGFIXES.md)
+        void add_bit_blasted_facts(func_decl* old_pred, func_decl* new_pred) override;
+
         /** \brief add facts to relation
         */
         void add_fact(func_decl* pred, relation_fact const& fact) override;

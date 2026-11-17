@@ -50,6 +50,7 @@ Revision History:
 #include "muz/transforms/dl_mk_bit_blast.h"
 #include "muz/transforms/dl_mk_separate_negated_tails.h"
 #include "ast/ast_util.h"
+#include "ast/bv_decl_plugin.h"
 
 
 namespace datalog {
@@ -568,6 +569,45 @@ namespace datalog {
                 rfact.push_back(m_context.get_decl_util().mk_numeral(fact[i], pred->get_domain()[i]));
             }
             add_fact(pred, rfact);
+        }
+    }
+
+    // FORK FIX #120 (g3 audit, see FORK_BUGFIXES.md): mk_bit_blast replaces
+    // every bit-vector predicate by a fresh predicate over its bits, but
+    // the facts in the original predicate's relation (Z3_fixedpoint_add_fact
+    // and earlier saturations) stayed there: the blasted rules never saw
+    // them and a satisfiable query answered unsat. Copy the rows of a
+    // table relation, each bit-vector column expanded into its bits, low
+    // bit first (the order of the blasted predicate's arguments).
+    void rel_context::add_bit_blasted_facts(func_decl* old_pred, func_decl* new_pred) {
+        relation_base* r = try_get_relation(old_pred);
+        if (!r || r->empty() || !r->from_table()) {
+            return;
+        }
+        bv_util bv(m);
+        unsigned_vector widths;
+        for (unsigned i = 0; i < old_pred->get_arity(); ++i) {
+            sort* s = old_pred->get_domain(i);
+            if (!bv.is_bv_sort(s)) {
+                return;
+            }
+            widths.push_back(bv.get_bv_size(s));
+        }
+        table_base const& t = static_cast<table_relation*>(r)->get_table();
+        vector<table_fact> facts;
+        table_fact f;
+        for (table_base::iterator it = t.begin(), end = t.end(); it != end; ++it) {
+            it->get_fact(f);
+            table_fact g;
+            for (unsigned i = 0; i < widths.size(); ++i) {
+                for (unsigned k = 0; k < widths[i]; ++k) {
+                    g.push_back((f[i] >> k) & 1);
+                }
+            }
+            facts.push_back(g);
+        }
+        for (table_fact const& g : facts) {
+            add_fact(new_pred, g);
         }
     }
 
