@@ -84,7 +84,7 @@ func TestSMTArithmeticRowAndColumnCompressionRepairCrossIndices(t *testing.T) {
 	if len(columns[1].entries) != 1 || rows[1].entries[movedRow].columnIndex != 0 || movedColumn != 1 {
 		t.Fatal("column compression cross index")
 	}
-	if first := columns[1].firstEntry(); first == nil || first.rowID != 1 {
+	if first := &columns[1].entries[0]; first.dead() || first.rowID != 1 {
 		t.Fatal("first column entry")
 	}
 }
@@ -116,44 +116,6 @@ func TestSMTArithmeticColumnHoleReuseAndSingletonCompression(t *testing.T) {
 	index, entry := column.addEntry()
 	if index != 0 || !entry.dead() {
 		t.Fatal("column hole reuse", index)
-	}
-	column.reset()
-	if column.size != 0 || column.firstFree != -1 || len(column.entries) != 0 {
-		t.Fatal("column reset")
-	}
-}
-
-func TestSMTArithmeticTableauAddRowEntryAndDuplicateMerge(t *testing.T) {
-	var tableau smtArithmeticTableau
-	first, second := tableau.addVariable(), tableau.addVariable()
-	row := tableau.makeRow()
-	if err := tableau.addRowEntry(testQ(), row, testQR(big.NewRat(1, 1)), first, false); err == nil {
-		t.Fatal("entry accepted without row scope")
-	}
-	tableau.pushRowScope()
-	if err := tableau.addRowEntry(testQ(), row, testQR(big.NewRat(2, 1)), first, false); err != nil {
-		t.Fatal(err)
-	}
-	if err := tableau.addRowEntry(testQ(), row, testQR(big.NewRat(3, 1)), first, true); err != nil {
-		t.Fatal(err)
-	}
-	if err := tableau.addRowEntry(testQ(), row, testQR(big.NewRat(5, 2)), second, false); err != nil {
-		t.Fatal(err)
-	}
-	if tableau.rows[row].size != 2 || tableau.rows[row].entries[tableau.rows[row].indexOf(first)].coefficient.IsMinusOne() == false {
-		t.Fatal("duplicate coefficient merge")
-	}
-	for variable := range tableau.columns {
-		if tableau.columns[variable].size != 1 {
-			t.Fatal("duplicate allocated extra column entry", variable)
-		}
-		entry := tableau.columns[variable].firstEntry()
-		if entry == nil || tableau.rows[entry.rowID].entries[entry.rowIndex].variable != SMTTheoryVar(variable) {
-			t.Fatal("tableau cross index", variable)
-		}
-	}
-	if !tableau.popRowScope() || tableau.popRowScope() {
-		t.Fatal("row scope stack")
 	}
 }
 

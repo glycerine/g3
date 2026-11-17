@@ -179,73 +179,7 @@ type smtArithmeticColumn struct {
 	firstFree int
 }
 
-type smtArithmeticTableau struct {
-	rows      []smtArithmeticRow
-	columns   []smtArithmeticColumn
-	rowScopes []map[SMTTheoryVar]bool
-}
-
-func (t *smtArithmeticTableau) addVariable() SMTTheoryVar {
-	variable := SMTTheoryVar(len(t.columns))
-	t.columns = append(t.columns, newSMTArithmeticColumn())
-	return variable
-}
-
-func (t *smtArithmeticTableau) makeRow() int {
-	row := len(t.rows)
-	t.rows = append(t.rows, newSMTArithmeticRow())
-	return row
-}
-
-func (t *smtArithmeticTableau) pushRowScope() {
-	t.rowScopes = append(t.rowScopes, make(map[SMTTheoryVar]bool))
-}
-func (t *smtArithmeticTableau) popRowScope() bool {
-	if len(t.rowScopes) == 0 {
-		return false
-	}
-	clear(t.rowScopes[len(t.rowScopes)-1])
-	t.rowScopes = t.rowScopes[:len(t.rowScopes)-1]
-	return true
-}
-
-func (t *smtArithmeticTableau) addRowEntry(q *numeral.RationalManager, rowID int, coefficient *numeral.Rational, variable SMTTheoryVar, invert bool) error {
-	if rowID < 0 || rowID >= len(t.rows) || coefficient == nil || variable < 0 || int(variable) >= len(t.columns) || len(t.rowScopes) == 0 {
-		return ast.ErrASTDomain
-	}
-	row, column := &t.rows[rowID], &t.columns[variable]
-	variables := t.rowScopes[len(t.rowScopes)-1]
-	if variables[variable] {
-		index := row.indexOf(variable)
-		if index < 0 {
-			return ast.ErrASTDomain
-		}
-		c := &row.entries[index].coefficient
-		if invert {
-			return q.Sub(c, coefficient, c)
-		}
-		return q.Add(c, coefficient, c)
-	}
-	variables[variable] = true
-	rowIndex, rowEntry := row.addEntry()
-	columnIndex, columnEntry := column.addEntry()
-	rowEntry.variable, rowEntry.columnIndex = variable, columnIndex
-	columnEntry.rowID, columnEntry.rowIndex = rowID, rowIndex
-	if err := q.Copy(&rowEntry.coefficient, coefficient); err != nil {
-		return err
-	}
-	if invert {
-		return q.Neg(&rowEntry.coefficient)
-	}
-	return nil
-}
-
 func newSMTArithmeticColumn() smtArithmeticColumn { return smtArithmeticColumn{firstFree: -1} }
-
-func (c *smtArithmeticColumn) reset() {
-	c.entries = c.entries[:0]
-	c.size, c.firstFree = 0, -1
-}
 
 func (c *smtArithmeticColumn) addEntry() (int, *smtArithmeticColumnEntry) {
 	c.size++
@@ -316,14 +250,5 @@ func (c *smtArithmeticColumn) compressSingleton(rows []smtArithmeticRow, singlet
 	}
 	clear(c.entries[1:])
 	c.entries, c.firstFree = c.entries[:1], -1
-	return nil
-}
-
-func (c *smtArithmeticColumn) firstEntry() *smtArithmeticColumnEntry {
-	for index := range c.entries {
-		if !c.entries[index].dead() {
-			return &c.entries[index]
-		}
-	}
 	return nil
 }
