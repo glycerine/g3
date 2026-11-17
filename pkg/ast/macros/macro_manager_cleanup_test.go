@@ -157,17 +157,26 @@ func TestMacroManagerCleanupResumesConsumedDependencyAndScope(t *testing.T) {
 			if !errors.Is(stopped, arena.ErrBounds) || runtime.Stats().LiveBlocks >= blocks {
 				t.Fatal("did not stop after physical deallocation", stopped, runtime.State())
 			}
-			if len(macros.entries) != 2 || len(macros.scopes) != 2 || macros.dependencies == nil || macros.closed || len(macros.forbidden) != 3 {
+			// Pop and reset shrink m_forbidden after m_decls, m_macros,
+			// m_macro_prs and m_macro_deps; ~macro_manager destroys
+			// m_forbidden first and the entry vectors in reverse.
+			destroying := operation == "close"
+			forbidden := 3
+			if destroying {
+				forbidden = 0
+			}
+			if len(macros.entries) != 3 || len(macros.scopes) != 2 || macros.dependencies == nil || macros.closed || len(macros.forbidden) != forbidden {
 				t.Fatal("cleanup lost remaining entry, dependency or scope", len(macros.entries), len(macros.scopes), len(macros.forbidden))
 			}
 			entry := macros.entries[1]
-			if field == "dependency" && (!entry.dependencyPending || entry.dependency != dependency || entry.quantifier.IsNull()) {
+			if field == "dependency" && (!entry.dependencyPending || entry.dependency != dependency || entry.quantifier.IsNull() != !destroying) {
 				t.Fatal("consumed dependency lost its continuation or next AST owner", entry)
 			}
-			if field == "quantifier" && (!entry.quantifier.IsNull() || entry.declaration.IsNull()) {
+			if field == "quantifier" && (!entry.quantifier.IsNull() || entry.declaration.IsNull() != !destroying) {
 				t.Fatal("consumed AST reference was not retired before refusal", entry)
 			}
-			if refs, err := manager.GetRefCount(declarations[0]); err != nil || refs != beforeRefs {
+			// Reset and close release vectors front to back over every entry.
+			if refs, err := manager.GetRefCount(declarations[0]); operation == "pop" && (err != nil || refs != beforeRefs) {
 				t.Fatal("cleanup changed untouched macro", refs, beforeRefs, err)
 			}
 			if err := macros.PushScope(); !errors.Is(err, ast.ErrASTPending) {

@@ -14,6 +14,7 @@ type managerEntry struct {
 	declaration, quantifier, proof ast.ASTHandle
 	dependency                     ast.ASTDependency
 	dependencyPending              bool
+	erased                         bool // dropped from the maps by a partial restore
 }
 type managerScope struct{ declarations, forbidden int }
 
@@ -123,8 +124,26 @@ func (m *Manager) PushScope() error {
 	return nil
 }
 
-func (m *Manager) releaseEntry(e *managerEntry) error {
-	if !e.dependency.IsNull() {
+// The ref vectors of macro_manager an entry's references live in.
+const (
+	entryDecls  = iota // m_decls
+	entryMacros        // m_macros
+	entryProofs        // m_macro_prs
+	entryDeps          // m_macro_deps
+)
+
+// restore_decls and reset() shrink m_decls, m_macros, m_macro_prs and
+// m_macro_deps in that order; ~macro_manager destroys them in reverse.
+var (
+	entryShrinkOrder  = [...]int{entryDecls, entryMacros, entryProofs, entryDeps}
+	entryDestroyOrder = [...]int{entryDeps, entryProofs, entryMacros, entryDecls}
+)
+
+func (m *Manager) releaseEntryField(e *managerEntry, field int) error {
+	if field == entryDeps {
+		if e.dependency.IsNull() {
+			return nil
+		}
 		if e.dependencyPending {
 			// The root DEC already happened. Resume its stopped child deletion
 			// before releasing another root owned by this macro.
@@ -132,67 +151,82 @@ func (m *Manager) releaseEntry(e *managerEntry) error {
 				return err
 			}
 			e.dependency, e.dependencyPending = ast.ASTDependency{}, false
-		} else {
-			consumed, err := m.manager.DependencyDecConsumed(e.dependency)
-			if consumed {
-				if err != nil {
-					e.dependencyPending = true
-				} else {
-					e.dependency = ast.ASTDependency{}
-				}
-			}
+			return nil
+		}
+		consumed, err := m.manager.DependencyDecConsumed(e.dependency)
+		if consumed {
 			if err != nil {
+				e.dependencyPending = true
+			} else {
+				e.dependency = ast.ASTDependency{}
+			}
+		}
+		return err
+	}
+	h := [...]*ast.ASTHandle{entryDecls: &e.declaration, entryMacros: &e.quantifier, entryProofs: &e.proof}[field]
+	if h.IsNull() {
+		return nil
+	}
+	consumed, err := m.manager.DecRefConsumed(*h)
+	if consumed {
+		*h = ast.ASTHandle{}
+	}
+	return err
+}
+
+// restoreDeclarations drops entries[limit:]: their map entries first, then
+// each ref vector's tail front to back (ref_vector::shrink), vector by
+// vector in order.
+func (m *Manager) restoreDeclarations(limit int, order [4]int) error {
+	if len(m.entries) <= limit {
+		return nil
+	}
+	tail := m.entries[limit:]
+	for i := range tail {
+		e := &tail[i]
+		if e.declaration.IsNull() || e.erased {
+			continue
+		}
+		if err := m.dependencies.Erase(e.declaration); err != nil {
+			return err
+		}
+		delete(m.byDeclaration, e.declaration)
+		e.erased = true
+	}
+	for _, field := range order {
+		for i := range tail {
+			if err := m.releaseEntryField(&tail[i], field); err != nil {
 				return err
 			}
 		}
 	}
-	for _, h := range [...]*ast.ASTHandle{&e.proof, &e.quantifier, &e.declaration} {
-		if !h.IsNull() {
-			consumed, err := m.manager.DecRefConsumed(*h)
-			if consumed {
-				*h = ast.ASTHandle{}
-			}
-			if err != nil {
-				return err
-			}
-		}
-	}
+	m.entries = m.entries[:limit]
 	return nil
 }
 
-func (m *Manager) restoreDeclarations(limit int) (result error) {
-	for len(m.entries) > limit {
-		i := len(m.entries) - 1
-		e := &m.entries[i]
-		if !e.declaration.IsNull() {
-			if err := m.dependencies.Erase(e.declaration); err != nil {
-				return err
-			}
-			delete(m.byDeclaration, e.declaration)
-		}
-		if err := m.releaseEntry(e); err != nil {
-			return err
-		}
-		m.entries = m.entries[:i]
-	}
-	return result
-}
-func (m *Manager) restoreForbidden(limit int) (result error) {
-	for len(m.forbidden) > limit {
-		i := len(m.forbidden) - 1
+// restoreForbidden is restore_forbidden: m_forbidden's tail is released
+// front to back.
+func (m *Manager) restoreForbidden(limit int) error {
+	for i := limit; i < len(m.forbidden); i++ {
 		d := m.forbidden[i]
+		if d.IsNull() {
+			continue
+		}
 		consumed, err := m.manager.DecRefConsumed(d)
 		if consumed {
 			delete(m.forbiddenSet, d)
-			m.forbidden = m.forbidden[:i]
-			m.publishForbidden()
+			m.forbidden[i] = ast.ASTHandle{}
 		}
 		if err != nil {
+			m.publishForbidden()
 			return err
 		}
 	}
+	if len(m.forbidden) > limit {
+		m.forbidden = m.forbidden[:limit]
+	}
 	m.publishForbidden()
-	return result
+	return nil
 }
 func (m *Manager) publishForbidden() {
 	values := make([]ast.ASTHandle, 0, len(m.forbiddenSet))
@@ -221,7 +255,7 @@ func (m *Manager) PopScope(count uint32) error {
 	// Keep the scope vector intact until the entire request finishes so the
 	// kernel can retry the same count after a partially consumed destructor.
 	m.cleanup, m.popCount = managerCleanupPop, count
-	if err := m.restoreDeclarations(s.declarations); err != nil {
+	if err := m.restoreDeclarations(s.declarations, entryShrinkOrder); err != nil {
 		return err
 	}
 	if err := m.restoreForbidden(s.forbidden); err != nil {
@@ -457,7 +491,7 @@ func (m *Manager) Reset() error {
 		return ast.ErrASTPending
 	}
 	m.cleanup = managerCleanupReset
-	if err := m.restoreDeclarations(0); err != nil {
+	if err := m.restoreDeclarations(0, entryShrinkOrder); err != nil {
 		return err
 	}
 	if err := m.restoreForbidden(0); err != nil {
@@ -479,10 +513,12 @@ func (m *Manager) Close() error {
 	}
 	m.cleanup = managerCleanupClose
 	if m.dependencies != nil {
-		if err := m.restoreDeclarations(0); err != nil {
+		// ~macro_manager: m_forbidden, then m_macro_deps, m_macro_prs,
+		// m_macros and m_decls (members in reverse).
+		if err := m.restoreForbidden(0); err != nil {
 			return err
 		}
-		if err := m.restoreForbidden(0); err != nil {
+		if err := m.restoreDeclarations(0, entryDestroyOrder); err != nil {
 			return err
 		}
 		if err := m.dependencies.Close(); err != nil {

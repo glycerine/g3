@@ -336,6 +336,7 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	"macro_manager_destroy_order.smt2":    "sat\n",
 	"macro_expand_rewriter_lifetime.smt2": "sat\n",
 	"idl_dense_big_constants.smt2":        "sat\n(((- x y) 4000000001)\n ((- y z) 0)\n ((- x z) 4000000001))\nsat\n",
 	// xform.karr: mk_karr_invariants' inner datalog context rejects the
