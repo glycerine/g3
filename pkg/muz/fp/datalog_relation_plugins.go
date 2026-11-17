@@ -104,13 +104,22 @@ func (e *PropositionalEngine) datalogRelationKind(state *predicateState, favouri
 			// relation_manager::mk_empty_relation: the requested kind's
 			// plugin, then the favourite, when it handles the signature
 			// (udoc takes bit-vectors of any width).
+			// mk_empty_relation: the requested kind's plugin, the
+			// favourite, then the first relation plugin that handles the
+			// signature (bound and interval take no bit-vector; udoc
+			// takes bit-vectors of any width).
+			candidates := []func() (bool, error){func() (bool, error) { return favouriteHandles(state.sorts) }, func() (bool, error) { return requestedHandles("doc", state.sorts) }}
 			if name := requestedRelationPluginKind(state.requestedRepresentations); name != "" {
-				if ok, err := requestedHandles(name, state.sorts); err != nil || ok {
-					return map[bool]string{true: "plugin"}[ok], err
-				}
+				candidates = append([]func() (bool, error){func() (bool, error) { return requestedHandles(name, state.sorts) }}, candidates...)
 			}
-			if ok, err := favouriteHandles(state.sorts); err != nil || ok {
-				return map[bool]string{true: "plugin"}[ok], err
+			for _, handles := range candidates {
+				ok, err := handles()
+				if err != nil {
+					return "", err
+				}
+				if ok {
+					return "plugin", nil
+				}
 			}
 		}
 		return "", nil
@@ -217,7 +226,8 @@ func (e *PropositionalEngine) selectCompiledRelationFavourite() (_ bool, resultE
 		}
 		kinds[d] = kind
 		state := e.predicates[d]
-		anyDoc = anyDoc || kind == "favourite" && docFavourite || len(state.requestedRepresentations) == 1 && state.requestedRepresentations[0] == "doc"
+		anyDoc = anyDoc || kind == "favourite" && docFavourite || len(state.requestedRepresentations) == 1 && state.requestedRepresentations[0] == "doc" ||
+			kind == "plugin" && state.table == nil && !e.relationColumnSorts(state.sorts)
 	}
 	if !checkEnabled && !docFavourite && !anyDoc {
 		return false, nil

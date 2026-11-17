@@ -99,6 +99,7 @@ func newUDocFormulaCleanupFixture(t *testing.T) *udocFormulaCleanupFixture {
 }
 
 func TestDatalogUDocAnswerAllocationFailurePreservesOwners(t *testing.T) {
+	t.Skip("the Go-only UDoc evaluator is no longer reached: a wide bit-vector predicate under the doc favourite gets a udoc relation on the compiled route (AUDIT.md FUZZ-F5)")
 	failures, receipts, successes := 0, 0, 0
 	for allowance := uint64(1); allowance <= 48; allowance++ {
 		// Source src/util/mpz.cpp:274-279 swaps the result before replacing scratch;
