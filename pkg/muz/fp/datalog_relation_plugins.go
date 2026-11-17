@@ -171,9 +171,6 @@ func (e *PropositionalEngine) selectCompiledRelationFavourite() (_ bool, resultE
 		// Already selected by an earlier query.
 		return true, nil
 	}
-	if e.udocDatalog != nil {
-		return false, nil
-	}
 	checkBase, checkEnabled, err := e.datalogCheckRelationBase()
 	if err != nil {
 		return false, err

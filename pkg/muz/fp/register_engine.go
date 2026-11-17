@@ -13,9 +13,6 @@ func (e *PropositionalEngine) selectBackend(kind EngineKind) error {
 		if err := e.clearQueryResources(); err != nil {
 			return err
 		}
-		if err := e.closeUDocDatalog(); err != nil {
-			return err
-		}
 		if e.backend == EngineBMC.String() || e.backend == EngineQBMC.String() {
 			if err := e.clearBMCTrace(); err != nil {
 				return err

@@ -92,15 +92,6 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 	if err = e.copyQueryRules(clone); err != nil {
 		return nil, errors.Join(err, e.discardQueryClone(clone))
 	}
-	if e.udocDatalog != nil {
-		clone.udocDatalog, err = e.udocDatalog.clone()
-		if err != nil {
-			return nil, errors.Join(err, e.discardQueryClone(clone))
-		}
-		if err = clone.udocDatalog.sync(clone); err != nil {
-			return nil, errors.Join(err, e.discardQueryClone(clone))
-		}
-	}
 	if err = e.copyQueryBackground(clone); err != nil {
 		return nil, errors.Join(err, e.discardQueryClone(clone))
 	}

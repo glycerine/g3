@@ -12,9 +12,6 @@ import (
 )
 
 func (e *PropositionalEngine) queryEmptyMixedDatalog(declarations []ast.ASTHandle) (lbool.LBool, bool, error) {
-	if e.udocDatalog != nil {
-		return lbool.Undef, false, nil
-	}
 	count, err := e.set.Len()
 	if err != nil || count != 0 {
 		return lbool.Undef, false, err

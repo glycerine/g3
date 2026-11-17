@@ -378,9 +378,6 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 			}
 		}
 		if !compiledFavourite {
-			if _, cause := clone.ensureUDocDatalog(); cause != nil {
-				return lbool.Undef, cause
-			}
 			if _, err = clone.ensureBoundDatalog(); err != nil {
 				return lbool.Undef, err
 			}

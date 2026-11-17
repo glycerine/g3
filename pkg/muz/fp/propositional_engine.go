@@ -286,7 +286,6 @@ type PropositionalEngine struct {
 	datalogTransformCleanup *datalogTransformOwners
 
 	lazyFinite               *rel.LazySparseFiniteFactory
-	udocDatalog              *datalogUDocContext
 	arithmeticFactCleanup    []*arithmeticTableFactAttempt
 	datalogRelationFavourite string
 
@@ -540,9 +539,6 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 		return nil
 	}
 	if len(kinds) == 1 && kinds[0] == "karr_relation" {
-		if e.udocDatalog != nil {
-			return ErrKarrDatalogFragment
-		}
 		if state.explicitFiniteRepresentation {
 			return ErrKarrDatalogFragment
 		}
@@ -784,19 +780,6 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 			if _, ok := e.predicates[declaration].table.(*rel.UDocPluginRelation); ok {
 				return e.addRelationFactAST(declaration, values)
 			}
-		} else if selected, err := e.ensureUDocDatalog(); err != nil {
-			return err
-		} else if selected {
-			e.invalidateQueryForMutation()
-			if err = e.udocDatalog.addFact(declaration, values); err != nil {
-				return err
-			}
-			e.invalidateQueryForMutation()
-			e.advanceRuleRevision()
-			e.compiled = false
-			return nil
-		}
-		if compiledFavourite {
 		} else if _, err := e.ensureBoundDatalog(); err != nil {
 			return err
 		}
@@ -857,10 +840,6 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 		}
 		if compiledFavourite {
 			// The favourite relation plugin's relations hold the facts.
-		} else if selected, err := e.ensureUDocDatalog(); err != nil {
-			return err
-		} else if selected {
-			return e.addArithmeticTableFact(declaration, values)
 		} else if _, err := e.ensureBoundDatalog(); err != nil {
 			return err
 		}
@@ -2635,8 +2614,7 @@ func (e *PropositionalEngine) SetSaturateOnly(on bool) { e.saturateOnly = on }
 func (e *PropositionalEngine) buildRelationAnswer(declarations []ast.ASTHandle) (result error) {
 	// Only the plain finite-table backend; the Karr, udoc and interval
 	// backends answer through their own relations.
-	if e.udocDatalog != nil ||
-		e.queryClone != nil || e.expressionClone {
+	if e.queryClone != nil || e.expressionClone {
 		return nil
 	}
 	for _, declaration := range declarations {
@@ -2745,13 +2723,6 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 		compiledFavourite, err := e.selectCompiledRelationFavourite()
 		if err != nil {
 			return lbool.Undef, err
-		}
-		if compiledFavourite {
-			// The favourite relation plugin runs through the compiled rules.
-		} else if selected, err := e.ensureUDocDatalog(); err != nil {
-			return lbool.Undef, err
-		} else if selected {
-			return e.queryUDocDatalog(declarations)
 		}
 		if compiledFavourite {
 			// The relation plugins' relations run compiled.
@@ -3130,9 +3101,6 @@ func (e *PropositionalEngine) computeAnswer(declaration ast.ASTHandle) (answer a
 	}
 	if err = e.requireResultSnapshot(kind); err != nil {
 		return answer, err
-	}
-	if kind == EngineDatalog && (e.udocDatalog != nil || e.queryClone != nil && e.queryClone.udocDatalog != nil) {
-		return e.udocAnswer(declaration)
 	}
 	if kind == EngineDatalog && e.relAnswer != (ast.ASTRef{}) && e.relAnswerDecl == declaration && !declaration.IsNull() && e.lastResult == lbool.True {
 		// rel_context::get_answer: the m_answer the query built (the
@@ -3539,9 +3507,6 @@ func (e *PropositionalEngine) Close() (result error) {
 	}
 	if err := e.closeDuality(); err != nil {
 		return errors.Join(result, err)
-	}
-	if err := e.closeUDocDatalog(); err != nil {
-		return fmt.Errorf("close UDoc Datalog context: %w", err)
 	}
 	// ~context -> context::reset(): m_rule_set.reset() releases the rules
 	// front to back before m_rule_fmls.reset().
