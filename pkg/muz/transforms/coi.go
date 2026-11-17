@@ -25,9 +25,12 @@ type ConeModelDefinition struct {
 // Entries and steps are replayed in reverse order by the consuming backend.
 type ConeModelStep []ConeModelDefinition
 
+// The steps are the m_mc chain's extension_model_converters, released
+// last first (concat_model_converter destroys m_c2 before m_c1); each one's
+// m_defs (an expr_ref_vector) releases its formulas front to back.
 func closeConeModelSteps(steps []ConeModelStep) (result error) {
 	for i := len(steps) - 1; i >= 0; i-- {
-		for j := len(steps[i]) - 1; j >= 0; j-- {
+		for j := 0; j < len(steps[i]); j++ {
 			if steps[i][j].Formula != (ast.ASTRef{}) {
 				result = errors.Join(result, steps[i][j].manager.DelRef(&steps[i][j].Formula))
 			}

@@ -35,8 +35,19 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if err := e.releaseLastAnswer(); err != nil {
 		return lbool.Undef, err
 	}
-	// context::query: m_mc = mk_skip_model_converter().
+	// context::query: m_mc = mk_skip_model_converter(), which releases the
+	// previous query's model converters (its query clone's conversions)
+	// before the queued rules are flushed.
 	e.contextModelConverter = true
+	for _, clone := range []*PropositionalEngine{e.queryClone, e.datalogContext} {
+		if clone == nil {
+			continue
+		}
+		if err := closeHornModelConversions(clone.datalogConversions); err != nil {
+			return lbool.Undef, err
+		}
+		clone.datalogConversions = nil
+	}
 	// Source context::query resolves the configured engine before choosing
 	// raw-rule flushing or query_from_lvl dispatch.
 	if err := e.selectFactEngine(); err != nil {

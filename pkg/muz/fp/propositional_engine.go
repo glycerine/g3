@@ -771,10 +771,7 @@ func (e *PropositionalEngine) AddRuleWithSymbolAndBound(formula ast.ASTHandle, n
 
 // AddFact stores a Datalog tuple directly; other engines receive a raw rule.
 func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.ASTHandle) error {
-	// Readers outside the query flush see the eager copies of queued rules.
-	if err := e.materializePendingRules(); err != nil {
-		return err
-	}
+	// context::add_fact leaves the queued rules to the query's flush.
 	if err := e.open(); err != nil {
 		return err
 	}
@@ -836,10 +833,7 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 // AddTableFact inserts native finite-table elements directly for Datalog.
 // Other engines receive the corresponding decoded ground predicate rule.
 func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []uint32) (resultErr error) {
-	// Readers outside the query flush see the eager copies of queued rules.
-	if err := e.materializePendingRules(); err != nil {
-		return err
-	}
+	// context::add_fact leaves the queued rules to the query's flush.
 	if err := e.open(); err != nil {
 		return err
 	}
