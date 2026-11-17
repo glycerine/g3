@@ -18,25 +18,14 @@ func (t *LazySparseTable) Empty() (bool, error) {
 // derived root is forced before mutation, so a shared deferred source remains
 // independently owned.
 func (t *LazySparseTable) RemoveFacts(facts []Fact) error {
-	if err := t.open(); err != nil {
-		return err
-	}
-	if t.root.signature.Len() == 0 {
-		table, err := t.finiteEval()
-		if err != nil {
-			return err
-		}
-		hash, ok := table.(*HashTable)
-		if !ok {
-			return ErrLazySparse
-		}
-		return hash.RemoveFacts(facts)
-	}
 	table, err := t.eval()
 	if err != nil {
 		return err
 	}
-	_, err = table.RemoveFacts(facts)
+	handled, err := RemoveFiniteTableFacts(table, facts)
+	if err == nil && !handled {
+		err = ErrLazySparse
+	}
 	return err
 }
 

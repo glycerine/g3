@@ -446,6 +446,13 @@ func finiteTableFilterIdentical(table FiniteTable, columns []int) error {
 }
 
 func finiteTableSelectProject(table FiniteTable, value Element, column int) (FiniteTable, error) {
+	return finiteTableSelectProjectIn(nil, table, value, column)
+}
+
+// finiteTableSelectProjectIn is relation_manager::
+// mk_select_equal_and_project_fn of m: a one-column table's projection is
+// m's mk_project_fn (null_signature_table_project_fn).
+func finiteTableSelectProjectIn(m *RelationManager, table FiniteTable, value Element, column int) (FiniteTable, error) {
 	if r, ok := AsRelation(table); ok {
 		return relationSelectEqualProject(r, value, column)
 	}
@@ -468,7 +475,7 @@ func finiteTableSelectProject(table FiniteTable, value Element, column int) (Fin
 			_ = clone.Close()
 			return nil, err
 		}
-		result, err := finiteTableProject(clone, []int{column})
+		result, err := finiteTableProjectIn(m, clone, []int{column})
 		closeErr := clone.Close()
 		if err != nil || closeErr != nil {
 			if result != nil {

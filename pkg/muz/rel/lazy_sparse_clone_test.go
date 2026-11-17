@@ -54,7 +54,7 @@ func TestLazySparseClonePreservesNullaryFallbackOwner(t *testing.T) {
 	if _, err = concrete.Add(Fact{}); err != nil {
 		t.Fatal(err)
 	}
-	source := engine.adopt(&lazySparseNode{kind: LazyTableBase, signature: signature, nullary: concrete})
+	source := engine.adopt(&lazySparseNode{kind: LazyTableBase, signature: signature, table: concrete})
 	clone, err := source.Clone()
 	if err != nil {
 		t.Fatal(err)

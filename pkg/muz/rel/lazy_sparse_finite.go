@@ -17,7 +17,7 @@ func (e *LazySparseEngine) adoptSparse(table *SparseTable) (*LazySparseTable, er
 	if err != nil {
 		return nil, err
 	}
-	return e.adopt(&lazySparseNode{kind: LazyTableBase, signature: signature, functional: functional, evaluated: table}), nil
+	return e.adopt(&lazySparseNode{kind: LazyTableBase, signature: signature, functional: functional, table: table}), nil
 }
 
 func (t *LazySparseTable) Signature() (Signature, error) {
@@ -52,10 +52,13 @@ func (t *LazySparseTable) FetchFact(fact Fact) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if table.functional == 0 {
-		return table.ContainsFact(fact)
+	if sparse, ok := table.(*SparseTable); ok {
+		if sparse.functional == 0 {
+			return sparse.ContainsFact(fact)
+		}
+		return sparse.fetchFunctional(fact)
 	}
-	return table.fetchFunctional(fact)
+	return tableContainsFact(table, fact)
 }
 
 // EnsureFact is table_base::ensure_fact of a lazy table: without
@@ -66,8 +69,8 @@ func (t *LazySparseTable) EnsureFact(fact Fact) error {
 	if err != nil {
 		return err
 	}
-	if table.functional != 0 {
-		if _, err = table.RemoveFacts([]Fact{fact}); err != nil {
+	if sparse, ok := table.(*SparseTable); ok && sparse.functional != 0 {
+		if _, err = sparse.RemoveFacts([]Fact{fact}); err != nil {
 			return err
 		}
 	}
@@ -88,7 +91,15 @@ func (t *LazySparseTable) Remove(fact Fact) (bool, error) {
 	case *HashTable:
 		return concrete.Remove(fact)
 	default:
-		return false, ErrLazySparse
+		found, err := tableContainsFact(table, fact)
+		if err != nil || !found {
+			return false, err
+		}
+		handled, err := RemoveFiniteTableFacts(table, []Fact{fact})
+		if err == nil && !handled {
+			err = ErrLazySparse
+		}
+		return err == nil, err
 	}
 }
 
@@ -114,24 +125,16 @@ func (t *LazySparseTable) Display(out io.Writer) error {
 	return displayLazySparseFinite(table, out)
 }
 
+// Reset is lazy_table::reset: a base node of the plugin's mk_empty.
 func (t *LazySparseTable) Reset() error {
 	if err := t.open(); err != nil {
 		return err
 	}
-	if t.root.signature.Len() == 0 {
-		signature, _ := NewSignature(nil)
-		next := &lazySparseNode{kind: LazyTableBase, references: 1, signature: signature, nullary: NewHashTable(signature)}
-		if err := releaseLazySparseNode(t.root); err != nil {
-			return errors.Join(err, next.nullary.Close())
-		}
-		t.root = next
-		return nil
-	}
-	table, err := t.engine.sparse.MkEmpty(t.root.signature, t.root.functional)
+	table, err := t.engine.emptyTable(t.root.signature, t.root.functional)
 	if err != nil {
 		return err
 	}
-	next := &lazySparseNode{kind: LazyTableBase, references: 1, signature: Signature{domains: t.root.signature.Domains()}, functional: t.root.functional, evaluated: table}
+	next := &lazySparseNode{kind: LazyTableBase, references: 1, signature: Signature{domains: t.root.signature.Domains()}, functional: t.root.functional, table: table}
 	if err = releaseLazySparseNode(t.root); err != nil {
 		return errors.Join(err, table.Close())
 	}

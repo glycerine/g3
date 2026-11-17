@@ -12,8 +12,14 @@ func lazySparseInstructionResult(source *LazySparseTable, signature Signature, f
 	if signature.Len() != 0 {
 		return source.engine.New(signature, functional)
 	}
+	// lazy_table_plugin::mk_empty of the empty signature: the manager's
+	// mk_empty_table (FORK FIX #15).
+	table, err := source.engine.emptyTable(signature, 0)
+	if err != nil {
+		return nil, err
+	}
 	return source.engine.adopt(&lazySparseNode{
-		kind: LazyTableBase, signature: Signature{domains: signature.Domains()}, nullary: NewHashTable(signature),
+		kind: LazyTableBase, signature: Signature{domains: signature.Domains()}, table: table,
 	}), nil
 }
 

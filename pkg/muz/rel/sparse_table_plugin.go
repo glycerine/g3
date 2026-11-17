@@ -250,8 +250,8 @@ func adoptPooledTables(x interface{}) {
 	case *CheckRelation:
 		adoptPooledTables(t.relation)
 	case *LazySparseTable:
-		if t.root != nil && t.root.evaluated != nil {
-			adoptPooledTables(t.root.evaluated)
+		if t.root != nil && t.root.table != nil {
+			adoptPooledTables(t.root.table)
 		}
 	}
 }

@@ -47,7 +47,7 @@ func TestLazySparseJoinProjectUsesConcreteSparseFusion(t *testing.T) {
 	if stats.JoinProjects != 1 || stats.Joins != 0 || stats.Projects != 0 || joined.Forced() {
 		t.Fatal("sparse join/project did not use deferred fusion", stats, joined.Forced())
 	}
-	if projected.root.evaluated == nil || projected.root.evaluated.layout.entryBytes == 0 {
+	if projected.root.table == nil || projected.root.table.(*SparseTable).layout.entryBytes == 0 {
 		t.Fatal("fused result is not concrete sparse storage")
 	}
 	if err = projected.Close(); err != nil {
@@ -75,7 +75,7 @@ func TestLazySparseCapabilityAndFunctionalMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 	functional, err := table.FunctionalColumns()
-	if err != nil || functional != 1 || table.root.evaluated == nil {
+	if err != nil || functional != 1 || table.root.table == nil {
 		t.Fatal("functional sparse base metadata", functional, err)
 	}
 }

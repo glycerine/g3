@@ -53,7 +53,7 @@ func TestLazySparseKindCoversFunctionalAndNullaryBaseOwners(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	nullary := factory.engine.adopt(&lazySparseNode{kind: LazyTableBase, signature: signature, nullary: NewHashTable(signature)})
+	nullary := factory.engine.adopt(&lazySparseNode{kind: LazyTableBase, signature: signature, table: NewHashTable(signature)})
 	if nullary.Kind() != LazyTableBase {
 		t.Fatal("nullary base kind", nullary.Kind())
 	}

@@ -75,7 +75,7 @@ func TestLazySparseComplementPreservesFunctionalSuffixAndNullaryFallback(t *test
 		t.Fatal(err)
 	}
 	empty := NewHashTable(nullarySignature)
-	nullary := engine.adopt(&lazySparseNode{kind: LazyTableBase, signature: nullarySignature, nullary: empty})
+	nullary := engine.adopt(&lazySparseNode{kind: LazyTableBase, signature: nullarySignature, table: empty})
 	truth, err := nullary.ComplementFunctional(nil)
 	if err != nil {
 		t.Fatal(err)

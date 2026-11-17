@@ -47,6 +47,59 @@ func (p *TableRelationPlugin) MkFilterInterpretedFn(t RelationBase, condition as
 	}, nil
 }
 
+// MkFilterInterpretedAndProjectFn is
+// table_relation_plugin::mk_filter_interpreted_and_project_fn: the table
+// function of mk_filter_interpreted_and_project_fn(tr.get_table(), ...).
+// A check table keeps the manager's default relation function.
+func (p *TableRelationPlugin) MkFilterInterpretedAndProjectFn(t RelationBase, condition ast.ASTHandle, removed []int) (RelationTransformerFn, error) {
+	v, ok := p.view(t)
+	if !ok {
+		return nil, nil
+	}
+	if _, checked := v.table.(*FiniteCheckedPair); checked || p.manager.contextRewriter == nil {
+		return nil, nil
+	}
+	// default_table_filter_interpreted_and_project_fn keeps app_ref
+	// m_condition (and its filter's).
+	ref, err := p.manager.manager.NewRef(condition)
+	if err != nil {
+		return nil, err
+	}
+	p.manager.fnRoots = append(p.manager.fnRoots, ref)
+	cols := append([]int(nil), removed...)
+	sorts := projectSorts(t.RelationSignature(), removed)
+	return func(a RelationBase) (RelationBase, error) {
+		x, ok := p.view(a)
+		if !ok {
+			return nil, ErrInstruction
+		}
+		r, err := p.manager.tableFilterInterpretedAndProject(x.table, x.sorts, condition, cols)
+		if err != nil {
+			return nil, err
+		}
+		return p.manager.tableView(r, sorts, false), nil
+	}, nil
+}
+
+// tableFilterInterpretedAndProject is
+// default_table_filter_interpreted_and_project_fn (the sparse, hashtable
+// and lazy plugins have none): t2 = tb.clone(), the filter of t2, then
+// mk_project_fn(t2); t2 is never deallocated.
+func (m *RelationManager) tableFilterInterpretedAndProject(table FiniteTable, sorts []ast.ASTHandle, condition ast.ASTHandle, removed []int) (FiniteTable, error) {
+	clone, err := table.CloneFinite()
+	if err != nil {
+		return nil, err
+	}
+	if err = m.tableFilterInterpreted(clone, sorts, condition); err != nil {
+		return nil, errors.Join(err, releaseUnallocated(clone))
+	}
+	result, err := finiteTableProjectIn(m, clone, removed)
+	if err != nil {
+		return nil, errors.Join(err, releaseUnallocated(clone))
+	}
+	return result, releaseUnallocated(clone)
+}
+
 // MkSelectEqualAndProjectFn is
 // table_relation_plugin::mk_select_equal_and_project_fn.
 func (p *TableRelationPlugin) MkSelectEqualAndProjectFn(t RelationBase, value ast.ASTHandle, col int) (RelationTransformerFn, error) {

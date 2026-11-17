@@ -84,7 +84,7 @@ func TestLazySparseInterpretedForceRetriesTransferredPackedSource(t *testing.T) 
 	if _, err = table.Facts(); !errors.Is(err, ErrLazySparse) {
 		t.Fatal("closed rewriter did not refuse deferred force", err)
 	}
-	if table.root.evaluated == nil || !table.root.retryForce || table.root.left != nil || table.Forced() {
+	if table.root.table == nil || !table.root.retryForce || table.root.left != nil || table.Forced() {
 		t.Fatal("failed force lost transferred owner or published incomplete result")
 	}
 	table.root.interpreted.rewriter = tableRelationTheoryRewriter(t, f.ast)

@@ -4,8 +4,8 @@ package rel
 // force nodes. The result node owns the concrete table before releasing its
 // child edge, so a refused release or mutator can be retried without losing the
 // packed storage.
-func (e *LazySparseEngine) transferLazySparseSource(node *lazySparseNode, child **lazySparseNode) (*SparseTable, error) {
-	result := node.evaluated
+func (e *LazySparseEngine) transferLazySparseSource(node *lazySparseNode, child **lazySparseNode) (FiniteTable, error) {
+	result := node.table
 	if result == nil {
 		if child == nil || *child == nil {
 			return nil, ErrLazySparse
@@ -18,14 +18,14 @@ func (e *LazySparseEngine) transferLazySparseSource(node *lazySparseNode, child 
 		if (*child).references > 1 {
 			// Transformer nodes may share a loaded predicate root. Preserve that
 			// source owner and give the mutator an independent packed table.
-			result, err = result.Clone()
+			result, err = result.CloneFinite()
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			(*child).evaluated = nil
+			(*child).table = nil
 		}
-		node.evaluated = result
+		node.table = result
 	}
 	node.retryForce = true
 	if child != nil && *child != nil {

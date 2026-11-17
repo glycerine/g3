@@ -60,7 +60,7 @@ func TestLazySparseNullaryBulkRemovalUsesConcreteFallback(t *testing.T) {
 	if _, err = truth.Add(Fact{}); err != nil {
 		t.Fatal(err)
 	}
-	table := engine.adopt(&lazySparseNode{kind: LazyTableBase, signature: signature, nullary: truth})
+	table := engine.adopt(&lazySparseNode{kind: LazyTableBase, signature: signature, table: truth})
 	if err = table.RemoveFacts([]Fact{{}}); err != nil {
 		t.Fatal(err)
 	}

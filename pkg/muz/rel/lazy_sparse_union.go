@@ -27,37 +27,8 @@ func (t *LazySparseTable) UnionFrom(source, delta *LazySparseTable) error {
 			return err
 		}
 	}
-	if t.root.signature.Len() == 0 {
-		// A nullary table is not the lazy plugin's in the source (sparse
-		// cannot hold it): its union is default_table_union_fn, which has
-		// no verbose_action.
-		return lazyUnionForced(t, targetTable, sourceTable, deltaTable)
-	}
-	return lazyVerbose("union", func() error { return lazyUnionForced(t, targetTable, sourceTable, deltaTable) })
-}
-
-// lazyUnionForced is the union of union_fn on the forced tables.
-func lazyUnionForced(t *LazySparseTable, targetTable, sourceTable, deltaTable FiniteTable) error {
-	if t.root.signature.Len() == 0 {
-		targetHash, targetOK := targetTable.(*HashTable)
-		sourceHash, sourceOK := sourceTable.(*HashTable)
-		var deltaHash *HashTable
-		if deltaTable != nil {
-			deltaHash, targetOK = deltaTable.(*HashTable)
-		}
-		if !targetOK || !sourceOK {
-			return ErrLazySparse
-		}
-		return targetHash.Union(sourceHash, deltaHash)
-	}
-	targetSparse, targetOK := targetTable.(*SparseTable)
-	sourceSparse, sourceOK := sourceTable.(*SparseTable)
-	var deltaSparse *SparseTable
-	if deltaTable != nil {
-		deltaSparse, targetOK = deltaTable.(*SparseTable)
-	}
-	if !targetOK || !sourceOK {
-		return ErrLazySparse
-	}
-	return targetSparse.Union(sourceSparse, deltaSparse)
+	// union_fn: verbose_action("union"), then rm().mk_union_fn on the
+	// forced tables (the sparse plugin's union, or default_table_union_fn
+	// when they are of different plugins).
+	return lazyVerbose("union", func() error { return finiteTableUnion(targetTable, sourceTable, deltaTable) })
 }

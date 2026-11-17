@@ -17,18 +17,18 @@ func (t *LazySparseTable) FilterEqual(value Element, column int) error {
 	})
 }
 
-func evalLazySparseEqual(engine *LazySparseEngine, node *lazySparseNode) (*SparseTable, error) {
+func evalLazySparseEqual(engine *LazySparseEngine, node *lazySparseNode) (FiniteTable, error) {
 	result, err := engine.transferLazySparseSource(node, &node.left)
 	if err != nil {
 		return nil, err
 	}
-	if err = lazyVerbose("filter_equal", func() error { return result.FilterEqual(node.value, node.column) }); err != nil {
+	if err = lazyVerbose("filter_equal", func() error { return finiteTableFilterEqual(result, node.value, node.column) }); err != nil {
 		return nil, err
 	}
 	return result, nil
 }
 
-func evalLazySparseEqualProject(engine *LazySparseEngine, filter *lazySparseNode) (*SparseTable, error) {
+func evalLazySparseEqualProject(engine *LazySparseEngine, filter *lazySparseNode) (FiniteTable, error) {
 	// Source lazy_table_project::force evaluates the filter node, not its
 	// source. A prior mutating force may already have transferred the source
 	// table and cleared filter.left.
@@ -36,9 +36,9 @@ func evalLazySparseEqualProject(engine *LazySparseEngine, filter *lazySparseNode
 	if err != nil {
 		return nil, err
 	}
-	var result *SparseTable
+	var result FiniteTable
 	err = lazyVerbose("select_equal_project", func() (x error) {
-		result, x = source.SelectEqualAndProject(filter.value, filter.column)
+		result, x = finiteTableSelectProjectIn(engine.manager, source, filter.value, filter.column)
 		return x
 	})
 	return result, err

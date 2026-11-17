@@ -33,7 +33,7 @@ func TestLazySparseEqualProjectAndIdenticalStayDeferred(t *testing.T) {
 		t.Fatal(err)
 	}
 	instructionWantFacts(t, facts, Fact{2}, Fact{1})
-	if projected.root.evaluated == nil || projected.root.evaluated.layout.entryBytes == 0 {
+	if projected.root.table == nil || projected.root.table.(*SparseTable).layout.entryBytes == 0 {
 		t.Fatal("equal/project did not produce packed sparse rows")
 	}
 	stats := engine.Statistics()
@@ -58,7 +58,7 @@ func TestLazySparseEqualProjectAndIdenticalStayDeferred(t *testing.T) {
 		t.Fatal(err)
 	}
 	instructionWantFacts(t, facts, Fact{0, 0, 1}, Fact{1, 1, 0})
-	if identical.root.evaluated == nil || identical.root.evaluated.layout.entryBytes == 0 {
+	if identical.root.table == nil || identical.root.table.(*SparseTable).layout.entryBytes == 0 {
 		t.Fatal("identical filter did not produce packed sparse rows")
 	}
 }

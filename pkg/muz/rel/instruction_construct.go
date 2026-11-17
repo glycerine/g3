@@ -263,7 +263,14 @@ func (i *constructInstruction) Perform(context *ExecutionContext) (bool, error) 
 		// before the complement's table: the two empty tables trade their
 		// pooled storage.
 		var aux *SparseTable
-		if sparse, ok := table.(*SparseTable); ok {
+		sparse, ok := table.(*SparseTable)
+		if lazy, isLazy := table.(*LazySparseTable); isLazy && lazy.root != nil && lazy.root.kind == LazyTableBase {
+			// The lazy plugin's aux is a lazy table over a sparse table:
+			// lazy_table::complement complements that table, and aux's
+			// deallocation recycles it.
+			sparse, ok = lazy.root.table.(*SparseTable)
+		}
+		if ok {
 			aux, err = sparse.plugin.MkEmpty(sparse.signature, sparse.functional)
 			if err != nil {
 				return false, errors.Join(err, table.Close())

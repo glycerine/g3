@@ -17,7 +17,7 @@ func TestLazySparseRemoveFactSupportsNullaryConcreteFallback(t *testing.T) {
 	if _, err = concrete.Add(Fact{}); err != nil {
 		t.Fatal(err)
 	}
-	table := engine.adopt(&lazySparseNode{kind: LazyTableBase, signature: signature, nullary: concrete})
+	table := engine.adopt(&lazySparseNode{kind: LazyTableBase, signature: signature, table: concrete})
 	if removed, err := table.Remove(Fact{}); err != nil || !removed {
 		t.Fatal("remove nullary truth", removed, err)
 	}

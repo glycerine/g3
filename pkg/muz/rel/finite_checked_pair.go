@@ -386,7 +386,7 @@ func tableContainsFact(t FiniteTable, fact Fact) (bool, error) {
 			if err != nil {
 				return false, err
 			}
-			return table.ContainsFact(fact)
+			return tableContainsFact(table, fact)
 		}
 	}
 	return t.Contains(fact)

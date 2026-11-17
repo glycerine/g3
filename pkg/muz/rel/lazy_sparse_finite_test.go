@@ -26,7 +26,7 @@ func TestLazySparseFiniteTableBoundaryPreservesConcreteOwner(t *testing.T) {
 		t.Fatal(err)
 	}
 	lazyClone, ok := clone.(*LazySparseTable)
-	if !ok || lazyClone.root.evaluated == nil || lazyClone.root.evaluated.functional != 0 {
+	if !ok || lazyClone.root.table == nil || lazyClone.root.table.(*SparseTable).functional != 0 {
 		t.Fatal("finite clone changed concrete lazy-sparse representation")
 	}
 	if err = table.Reset(); err != nil {

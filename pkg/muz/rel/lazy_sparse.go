@@ -19,12 +19,11 @@ type lazySparseNode struct {
 	references uint32
 	signature  Signature
 	functional int
-	evaluated  *SparseTable
-	nullary    *HashTable
-	// favourite is the source's m_table of a nullary project: the
-	// manager's mk_empty_table of the empty signature (its rows are also
-	// in nullary).
-	favourite   FiniteTable
+	// table is lazy_table_ref::m_table: the forced (or base) table, of
+	// whatever plugin the operation that made it chose (a sparse table,
+	// the favourite plugin's table of a nullary signature, a default
+	// join's result, a check table, ...).
+	table       FiniteTable
 	left        *lazySparseNode
 	right       *lazySparseNode
 	columns1    []int
@@ -33,6 +32,9 @@ type lazySparseNode struct {
 	column      int
 	interpreted *lazySparseInterpretedFilter
 	retryForce  bool
+	// leaked: a released owner of the node is never deallocated in the
+	// source (releaseUnallocated).
+	leaked bool
 }
 
 type LazySparseEngine struct {
@@ -90,7 +92,7 @@ func (e *LazySparseEngine) New(signature Signature, functional int) (*LazySparse
 	if err != nil {
 		return nil, err
 	}
-	return e.adopt(&lazySparseNode{kind: LazyTableBase, signature: Signature{domains: signature.Domains()}, functional: functional, evaluated: table}), nil
+	return e.adopt(&lazySparseNode{kind: LazyTableBase, signature: Signature{domains: signature.Domains()}, functional: functional, table: table}), nil
 }
 
 func releaseLazySparseNode(node *lazySparseNode) error {
@@ -105,8 +107,15 @@ func releaseLazySparseNodeAs(node *lazySparseNode, silent bool) error {
 	}
 	if node.references > 1 {
 		node.references--
+		if silent {
+			// A handle the source never deallocates (a leaked table)
+			// keeps its reference: the node is never deallocated there,
+			// so its release here makes no recycle line.
+			node.leaked = true
+		}
 		return nil
 	}
+	silent = silent || node.leaked
 	if node.right != nil {
 		if err := releaseLazySparseNodeAs(node.right, silent); err != nil {
 			return err
@@ -132,23 +141,11 @@ func releaseLazySparseNodeAs(node *lazySparseNode, silent bool) error {
 		}
 		return t.Close()
 	}
-	if node.evaluated != nil {
-		if err := closeTable(node.evaluated); err != nil {
+	if node.table != nil {
+		if err := closeTable(node.table); err != nil {
 			return err
 		}
-		node.evaluated = nil
-	}
-	if node.nullary != nil {
-		if err := closeTable(node.nullary); err != nil {
-			return err
-		}
-		node.nullary = nil
-	}
-	if node.favourite != nil {
-		if err := closeTable(node.favourite); err != nil {
-			return err
-		}
-		node.favourite = nil
+		node.table = nil
 	}
 	node.references = 0
 	return nil
@@ -206,7 +203,7 @@ func (e *LazySparseEngine) Close() (result error) {
 }
 
 func (t *LazySparseTable) Forced() bool {
-	return t.open() == nil && ((t.root.evaluated != nil && !t.root.retryForce) || t.root.nullary != nil)
+	return t.open() == nil && t.root.table != nil && !t.root.retryForce
 }
 
 func (t *LazySparseTable) Add(fact Fact) (bool, error) {

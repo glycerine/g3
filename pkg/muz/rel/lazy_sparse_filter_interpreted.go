@@ -125,24 +125,13 @@ func (t *LazySparseTable) FilterInterpreted(manager *RelationManager, relationSo
 	return nil
 }
 
-func evalLazySparseInterpreted(engine *LazySparseEngine, node *lazySparseNode) (*SparseTable, error) {
+func evalLazySparseInterpreted(engine *LazySparseEngine, node *lazySparseNode) (FiniteTable, error) {
 	result, err := engine.transferLazySparseSource(node, &node.left)
 	if err != nil {
 		return nil, err
 	}
 	err = lazyVerbose("filter_interpreted", func() error {
-		if node.interpreted.columns != nil || node.interpreted.sorts != nil {
-			conditions, conditionErr := node.interpreted.conditions()
-			if conditionErr != nil {
-				return conditionErr
-			}
-			return filterSparseInterpretedBound(result, node.interpreted.manager, node.interpreted.rewriter, conditions, node.interpreted.columns, node.interpreted.sorts)
-		}
-		condition, conditionErr := node.interpreted.condition()
-		if conditionErr != nil {
-			return conditionErr
-		}
-		return result.FilterInterpreted(node.interpreted.manager, node.interpreted.relationSorts, node.interpreted.rewriter, condition)
+		return filterInterpretedForced(result, node.interpreted)
 	})
 	if err != nil {
 		return nil, err
@@ -150,98 +139,94 @@ func evalLazySparseInterpreted(engine *LazySparseEngine, node *lazySparseNode) (
 	return result, nil
 }
 
-func evalLazySparseInterpretedProject(engine *LazySparseEngine, filter *lazySparseNode, removed []int) (*SparseTable, error) {
+// filterInterpretedForced is rm().mk_filter_interpreted_fn of the forced
+// table: the sparse plugin's filter, or the table relation's row filter of
+// a hash table (the favourite table of a nullary signature or a default
+// join's result).
+func filterInterpretedForced(table FiniteTable, f *lazySparseInterpretedFilter) error {
+	switch concrete := table.(type) {
+	case *SparseTable:
+		if f.columns != nil || f.sorts != nil {
+			conditions, err := f.conditions()
+			if err != nil {
+				return err
+			}
+			return filterSparseInterpretedBound(concrete, f.manager, f.rewriter, conditions, f.columns, f.sorts)
+		}
+		condition, err := f.condition()
+		if err != nil {
+			return err
+		}
+		return concrete.FilterInterpreted(f.manager, f.relationSorts, f.rewriter, condition)
+	case *HashTable:
+		sorts := f.relationSorts
+		if concrete.signature.Len() == 0 {
+			sorts = nil
+		}
+		relation := &TableRelation{manager: f.manager, sorts: sorts, table: concrete}
+		conditions, err := f.conditions()
+		if err != nil {
+			return err
+		}
+		columns, varSorts := f.columns, f.sorts
+		if columns == nil && varSorts == nil {
+			columns, varSorts = map[uint32]int{}, map[uint32]ast.ASTHandle{}
+		}
+		return relation.FilterInterpreted(f.rewriter, conditions, columns, varSorts)
+	}
+	return ErrLazySparse
+}
+
+func evalLazySparseInterpretedProject(engine *LazySparseEngine, filter *lazySparseNode, removed []int) (FiniteTable, error) {
 	// Evaluate the filter node itself: mutating force transfers the table and
 	// clears its child, while retryForce keeps an incomplete result retryable.
 	source, err := engine.eval(filter)
 	if err != nil {
 		return nil, err
 	}
-	var result *SparseTable
+	var result FiniteTable
 	err = lazyVerbose("filter_interpreted_project", func() (x error) {
-		result, x = filterInterpretedProjectForced(source, filter, removed)
+		result, x = filterInterpretedProjectForced(engine.manager, source, filter, removed)
 		return x
 	})
 	return result, err
 }
 
 // filterInterpretedProjectForced is the filter_interpreted_and_project of
-// lazy_table_project::force on the forced filter node's table.
-func filterInterpretedProjectForced(source *SparseTable, filter *lazySparseNode, removed []int) (*SparseTable, error) {
-	if filter.interpreted.columns != nil || filter.interpreted.sorts != nil {
-		conditions, conditionErr := filter.interpreted.conditions()
-		if conditionErr != nil {
-			return nil, conditionErr
+// lazy_table_project::force on the forced filter node's table: the sparse
+// plugin's, else default_table_filter_interpreted_and_project_fn (a clone,
+// its filter, then mk_project_fn).
+func filterInterpretedProjectForced(m *RelationManager, table FiniteTable, filter *lazySparseNode, removed []int) (FiniteTable, error) {
+	source, sparse := table.(*SparseTable)
+	if sparse && filter.interpreted.columns == nil && filter.interpreted.sorts == nil {
+		signature, err := source.Signature()
+		if err != nil {
+			return nil, err
 		}
-		clone, cloneErr := source.Clone()
-		if cloneErr != nil {
-			return nil, cloneErr
-		}
-		if conditionErr = filterSparseInterpretedBound(clone, filter.interpreted.manager, filter.interpreted.rewriter, conditions, filter.interpreted.columns, filter.interpreted.sorts); conditionErr != nil {
-			return nil, errors.Join(conditionErr, clone.Close())
-		}
-		projected, projectErr := clone.Project(removed)
-		closeErr := clone.Close()
-		if projectErr != nil || closeErr != nil {
-			if projected != nil {
-				closeErr = errors.Join(closeErr, projected.Close())
+		if projected, err := projectedSignature(signature, removed); err == nil && projected.Len() != 0 {
+			condition, conditionErr := filter.interpreted.condition()
+			if conditionErr != nil {
+				return nil, conditionErr
 			}
-			return nil, errors.Join(projectErr, closeErr)
+			return source.FilterInterpretedAndProject(filter.interpreted.manager, filter.interpreted.relationSorts, filter.interpreted.rewriter, condition, removed)
 		}
-		return projected, nil
 	}
-	condition, conditionErr := filter.interpreted.condition()
-	if conditionErr != nil {
-		return nil, conditionErr
-	}
-	return source.FilterInterpretedAndProject(filter.interpreted.manager, filter.interpreted.relationSorts, filter.interpreted.rewriter, condition, removed)
-}
-
-func evalLazySparseNullaryFilter(engine *LazySparseEngine, node *lazySparseNode) (*HashTable, error) {
-	source, err := engine.evalFiniteNode(node.left)
+	clone, err := table.CloneFinite()
 	if err != nil {
 		return nil, err
 	}
-	cloneValue, err := source.CloneFinite()
-	if err != nil {
-		return nil, err
+	if err = filterInterpretedForced(clone, filter.interpreted); err != nil {
+		return nil, errors.Join(err, releaseUnallocated(clone))
 	}
-	result, ok := cloneValue.(*HashTable)
-	if !ok {
-		return nil, errors.Join(ErrLazySparse, cloneValue.Close())
+	projected, projectErr := finiteTableProjectIn(m, clone, removed)
+	// default_table_filter_interpreted_and_project_fn never deallocates
+	// its clone t2 (no recycle line).
+	closeErr := releaseUnallocated(clone)
+	if projectErr != nil || closeErr != nil {
+		if projected != nil {
+			closeErr = errors.Join(closeErr, projected.Close())
+		}
+		return nil, errors.Join(projectErr, closeErr)
 	}
-	switch node.kind {
-	case LazyTableFilterIdentical:
-		return result, nil
-	case LazyTableFilterInterpreted:
-		relation := &TableRelation{manager: node.interpreted.manager, sorts: nil, table: result}
-		conditions, conditionErr := node.interpreted.conditions()
-		if conditionErr != nil {
-			return nil, errors.Join(conditionErr, result.Close())
-		}
-		columns, sorts := node.interpreted.columns, node.interpreted.sorts
-		if columns == nil && sorts == nil {
-			columns, sorts = map[uint32]int{}, map[uint32]ast.ASTHandle{}
-		}
-		conditionErr = relation.FilterInterpreted(node.interpreted.rewriter, conditions, columns, sorts)
-		if conditionErr != nil {
-			return nil, errors.Join(conditionErr, result.Close())
-		}
-		return result, nil
-	case LazyTableFilterByNegation:
-		negative, negativeErr := engine.evalFiniteNode(node.right)
-		if negativeErr != nil {
-			return nil, errors.Join(negativeErr, result.Close())
-		}
-		negativeTable, ok := negative.(*HashTable)
-		if !ok {
-			return nil, errors.Join(ErrLazySparse, result.Close())
-		}
-		if negativeErr = result.FilterByNegation(negativeTable, node.columns1, node.columns2); negativeErr != nil {
-			return nil, errors.Join(negativeErr, result.Close())
-		}
-		return result, nil
-	default:
-		return nil, errors.Join(ErrLazySparse, result.Close())
-	}
+	return projected, nil
 }

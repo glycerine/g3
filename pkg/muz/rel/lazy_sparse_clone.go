@@ -16,20 +16,14 @@ func (t *LazySparseTable) Clone() (*LazySparseTable, error) {
 	}); err != nil {
 		return nil, err
 	}
-	switch concrete := clone.(type) {
-	case *SparseTable:
-		result, adoptErr := t.engine.adoptSparse(concrete)
-		if adoptErr != nil {
-			return nil, errors.Join(adoptErr, concrete.Close())
-		}
-		return result, nil
-	case *HashTable:
-		signature, signatureErr := concrete.Signature()
-		if signatureErr != nil {
-			return nil, errors.Join(signatureErr, concrete.Close())
-		}
-		return t.engine.adopt(&lazySparseNode{kind: LazyTableBase, signature: signature, nullary: concrete}), nil
-	default:
-		return nil, errors.Join(ErrLazySparse, clone.Close())
+	return t.engine.adoptTable(t.root, clone)
+}
+
+// adoptTable is alloc(lazy_table, alloc(lazy_table_base, plugin, table)) of
+// a table with like's signature.
+func (e *LazySparseEngine) adoptTable(like *lazySparseNode, table FiniteTable) (*LazySparseTable, error) {
+	if err := e.open(); err != nil {
+		return nil, errors.Join(err, table.Close())
 	}
+	return e.adopt(&lazySparseNode{kind: LazyTableBase, signature: Signature{domains: like.signature.Domains()}, functional: like.functional, table: table}), nil
 }

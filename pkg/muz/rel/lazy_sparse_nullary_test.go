@@ -30,7 +30,7 @@ func TestLazySparseProjectAllUsesNullSignatureFallback(t *testing.T) {
 			if len(facts) != map[bool]int{false: 0, true: 1}[nonempty] || len(facts) == 1 && len(facts[0]) != 0 {
 				t.Fatal("null-signature projection", facts)
 			}
-			if projected.root.nullary == nil || projected.root.evaluated != nil {
+			if _, hash := projected.root.table.(*HashTable); !hash {
 				t.Fatal("projection did not use concrete null-signature fallback")
 			}
 		})
@@ -105,7 +105,9 @@ func TestLazySparseNullaryProjectionAndProductRemainComposable(t *testing.T) {
 	}
 }
 
-func TestLazySparseProjectionAfterNullaryProductUsesConcreteFallback(t *testing.T) {
+// lazy_table_project::force of a join source is rm().mk_join_project_fn
+// of the forced operands, also when one of them is nullary.
+func TestLazySparseProjectionAfterNullaryProductJoinProjects(t *testing.T) {
 	engine := NewLazySparseEngine()
 	defer engine.Close()
 	seed, _ := engine.New(lazySignature(t, 2), 0)
@@ -133,7 +135,7 @@ func TestLazySparseProjectionAfterNullaryProductUsesConcreteFallback(t *testing.
 	}
 	instructionWantFacts(t, facts, Fact{2})
 	stats := engine.Statistics()
-	if stats.JoinProjects != 0 || stats.Joins != 1 || stats.Projects != 2 {
-		t.Fatal("mixed nullary product used invalid direct fusion", stats)
+	if stats.JoinProjects != 1 || stats.Joins != 0 || stats.Projects != 1 {
+		t.Fatal("mixed nullary product was not join-projected", stats)
 	}
 }
