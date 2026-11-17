@@ -642,17 +642,20 @@ func (p *RuleInlinerPlugin) forbidMultipleMultipliers(source *base.RuleSet, orde
 }
 
 // expandDefinition is transform_rule(orig, r0, m_inlined_rules); modified
-// reports that some tail was inlined.
-func (p *RuleInlinerPlugin) expandDefinition(rule *base.Rule, allowed, processed map[ast.ASTHandle]bool, definitions map[ast.ASTHandle][]*base.Rule) (_ []*base.Rule, modified bool, resultErr error) {
+// reports that some tail was inlined. A rule with no inlinable positive
+// tail is added to m_inlined_rules at once (tgt.add_rule), so a later step
+// of the same expansion already sees it among its predicate's rules; an
+// allowed predicate whose rules are not there yet (its own stratum, or a
+// self-recursive one) contributes none, and the rule is dropped.
+func (p *RuleInlinerPlugin) expandDefinition(rule *base.Rule, head ast.ASTHandle, allowed map[ast.ASTHandle]bool, definitions map[ast.ASTHandle][]*base.Rule, ordered *[]*base.Rule) (modified bool, resultErr error) {
 	initial, err := rule.Retain()
 	if err != nil {
-		return nil, false, err
+		return false, err
 	}
 	queue := []*base.Rule{initial}
-	var result []*base.Rule
 	defer func() {
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, closeRules(queue), closeRules(result))
+			resultErr = errors.Join(resultErr, closeRules(queue))
 		}
 	}()
 	for len(queue) != 0 {
@@ -663,22 +666,23 @@ func (p *RuleInlinerPlugin) expandDefinition(rule *base.Rule, allowed, processed
 		var declaration ast.ASTHandle
 		for tailIndex := 0; currentErr == nil && tailIndex < positive; tailIndex++ {
 			declaration, currentErr = current.TailDeclaration(tailIndex)
-			if currentErr == nil && allowed[declaration] && processed[declaration] {
+			if currentErr == nil && allowed[declaration] {
 				inlineIndex = tailIndex
 				break
 			}
 		}
 		if currentErr != nil {
-			return nil, false, errors.Join(currentErr, current.Close())
+			return false, errors.Join(currentErr, current.Close())
 		}
 		if inlineIndex < 0 {
-			result = append(result, current)
+			definitions[head] = append(definitions[head], current)
+			*ordered = append(*ordered, current)
 			continue
 		}
 		for _, definition := range definitions[declaration] {
 			resolved, resolveErr := p.resolve(current, inlineIndex, definition)
 			if resolveErr != nil {
-				return nil, false, errors.Join(resolveErr, current.Close())
+				return false, errors.Join(resolveErr, current.Close())
 			}
 			if resolved != nil {
 				queue = append(queue, resolved)
@@ -686,17 +690,16 @@ func (p *RuleInlinerPlugin) expandDefinition(rule *base.Rule, allowed, processed
 		}
 		modified = true
 		if currentErr = current.Close(); currentErr != nil {
-			return nil, false, currentErr
+			return false, currentErr
 		}
 	}
-	return result, modified, nil
+	return modified, nil
 }
 
 // accumulateDefinitions builds m_inlined_rules. The map borrows the rules;
 // ordered owns them in the rule set's insertion order.
 func (p *RuleInlinerPlugin) accumulateDefinitions(order []ast.ASTHandle, allowed map[ast.ASTHandle]bool, original map[ast.ASTHandle][]*base.Rule) (_ map[ast.ASTHandle][]*base.Rule, ordered []*base.Rule, resultErr error) {
 	result := make(map[ast.ASTHandle][]*base.Rule)
-	processed := make(map[ast.ASTHandle]bool)
 	defer func() {
 		if resultErr != nil {
 			resultErr = errors.Join(resultErr, closeRules(ordered))
@@ -709,12 +712,10 @@ func (p *RuleInlinerPlugin) accumulateDefinitions(order []ast.ASTHandle, allowed
 			continue
 		}
 		for _, rule := range original[declaration] {
-			expanded, modified, err := p.expandDefinition(rule, allowed, processed, result)
+			modified, err := p.expandDefinition(rule, declaration, allowed, result, &ordered)
 			if err != nil {
 				return nil, ordered, err
 			}
-			result[declaration] = append(result[declaration], expanded...)
-			ordered = append(ordered, expanded...)
 			// transform_rule: if (modified) datalog::del_rule(m_mc, *r0, true).
 			if modified {
 				if err = p.captureDeletedModelRule(rule, true); err != nil {
@@ -722,7 +723,6 @@ func (p *RuleInlinerPlugin) accumulateDefinitions(order []ast.ASTHandle, allowed
 				}
 			}
 		}
-		processed[declaration] = true
 	}
 	// for (rule * r : m_inlined_rules) datalog::del_rule(m_mc, *r, false),
 	// after the mutual inlining of every stratum.
@@ -791,14 +791,10 @@ func (p *RuleInlinerPlugin) plan(source *base.RuleSet) (map[ast.ASTHandle]bool, 
 	for declaration, heads := range headCount {
 		candidate[declaration] = !p.protected[declaration] && !negative[declaration] && (heads <= 1 || tailCount[declaration] <= 1 && heads <= 4)
 	}
+	// forbid_preds_from_cycles skips strata of size one: a self-recursive
+	// candidate stays allowed, and its recursive rules inline to nothing
+	// (m_inlined_rules has none of its rules when they are expanded).
 	forbidden := make(map[ast.ASTHandle]bool)
-	// A singleton self-cycle remains unchanged by resolution, so attempting to
-	// eliminate it would keep re-enqueuing the same rule indefinitely.
-	for _, declaration := range declarationOrder {
-		if candidate[declaration] && edges[declaration][declaration] {
-			forbidden[declaration] = true
-		}
-	}
 	// create_allowed_rule_set(orig): the rules whose head may be inlined, in
 	// source order, closed for its stratifier.
 	candidateStrata := func() ([][]ast.ASTHandle, error) {
