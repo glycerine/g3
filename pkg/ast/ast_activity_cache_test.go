@@ -13,8 +13,8 @@ func TestASTActivityCacheSourceOwnershipReplacementAndReset(t *testing.T) {
 	c, e := NewActivityCache(m, &limit)
 	astTestMust(t, e)
 	t.Cleanup(func() { astTestMust(t, c.Close()) })
-	if c.maxUnused != 1024 || c.entries.Len() != 0 || len(c.queue) != 0 {
-		t.Fatal("source cache constructor", c.maxUnused, c.entries.Len())
+	if c.maxUnused != 1024 || c.table.size != 0 || len(c.queue) != 0 {
+		t.Fatal("source cache constructor", c.maxUnused, c.table.size)
 	}
 	size, e := c.Size()
 	astTestMust(t, e)
@@ -27,7 +27,7 @@ func TestASTActivityCacheSourceOwnershipReplacementAndReset(t *testing.T) {
 	refs := func(h ASTHandle) uint32 { n, e := m.GetRefCount(h); astTestMust(t, e); return n }
 	bp, bq, br := refs(p), refs(q), refs(r)
 	astTestMust(t, c.Insert(p, q))
-	if c.entries.Len() != 1 || c.unused != 1 || refs(p) != bp+1 || refs(q) != bq+1 {
+	if c.table.size != 1 || c.unused != 1 || refs(p) != bp+1 || refs(q) != bq+1 {
 		t.Fatal("source new entry ownership")
 	}
 	astTestMust(t, c.Insert(p, q))
@@ -49,18 +49,18 @@ func TestASTActivityCacheSourceOwnershipReplacementAndReset(t *testing.T) {
 		t.Fatal("repeat find")
 	}
 	astTestMust(t, c.Reset())
-	if c.entries.Len() != 0 || c.unused != 0 || c.qhead != 0 || len(c.queue) != 0 || refs(p) != bp || refs(q) != bq || refs(r) != br {
+	if c.table.size != 0 || c.unused != 0 || c.qhead != 0 || len(c.queue) != 0 || refs(p) != bp || refs(q) != bq || refs(r) != br {
 		t.Fatal("source reset ownership/state")
 	}
 	// Null values are used by the original proof cache, but still have an entry.
 	astTestMust(t, c.Insert(p, ASTHandle{}))
 	found, e = c.Find(p)
 	astTestMust(t, e)
-	if !found.IsNull() || c.entries.Len() != 1 || c.unused != 0 {
-		t.Fatal("null tagged value", found, c.entries.Len(), c.unused)
+	if !found.IsNull() || c.table.size != 1 || c.unused != 0 {
+		t.Fatal("null tagged value", found, c.table.size, c.unused)
 	}
 	astTestMust(t, c.Cleanup())
-	if c.entries.Len() != 0 || c.queue != nil {
+	if c.table.size != 0 || c.queue != nil {
 		t.Fatal("cleanup reinitializes map and finalizes queue")
 	}
 	copyOwner := *c
@@ -86,7 +86,7 @@ func TestASTActivityCacheOldestUnusedEvictionAndQueueCompression(t *testing.T) {
 		keys = append(keys, k)
 		astTestMust(t, c.Insert(k, value))
 	}
-	if c.unused != 1024 || c.entries.Len() != 1024 {
+	if c.unused != 1024 || c.table.size != 1024 {
 		t.Fatal("source unused bound")
 	}
 	// The default overload captures the current canonical AST-table size.
@@ -111,8 +111,8 @@ func TestASTActivityCacheOldestUnusedEvictionAndQueueCompression(t *testing.T) {
 	}
 	fresh := activityCacheTestAtom(t, m, "cache-trigger")
 	astTestMust(t, c.Insert(fresh, value))
-	if c.unused != 1024 || c.entries.Len() != 1924 || c.qhead != 901 {
-		t.Fatal("skip used keys then evict oldest unused", c.unused, c.entries.Len(), c.qhead)
+	if c.unused != 1024 || c.table.size != 1924 || c.qhead != 901 {
+		t.Fatal("skip used keys then evict oldest unused", c.unused, c.table.size, c.qhead)
 	}
 	missing, e := c.Find(keys[900])
 	astTestMust(t, e)
@@ -184,8 +184,11 @@ func TestASTActivityCacheNativeGrowthOrderAndOwnership(t *testing.T) {
 		astTestMust(t, c.Insert(key, value))
 	}
 	index := 0
-	for key, entry := range c.entries.All() {
-		if key != keys[index] || entry.key != key || entry.value != value || !entry.keyHeld || !entry.valueHeld {
+	for _, key := range c.queue {
+		hash, err := m.GetHash(key)
+		astTestMust(t, err)
+		entry := c.table.find(key, hash)
+		if key != keys[index] || entry == nil || entry.key != key || entry.value != value || !entry.keyHeld || !entry.valueHeld {
 			t.Fatal("native growth changed ordered owning entry", index, key, entry)
 		}
 		index++
@@ -200,7 +203,11 @@ func TestASTActivityCacheNativeGrowthOrderAndOwnership(t *testing.T) {
 		t.Fatal("native lookup", got)
 	}
 	astTestMust(t, c.deleteUnused())
-	if c.entries.Get(keys[0]) == nil || c.entries.Get(keys[1]) != nil || c.qhead != 2 || c.unused != count-2 {
+	firstHash, e := m.GetHash(keys[0])
+	astTestMust(t, e)
+	secondHash, e := m.GetHash(keys[1])
+	astTestMust(t, e)
+	if c.table.find(keys[0], firstHash) == nil || c.table.find(keys[1], secondHash) != nil || c.qhead != 2 || c.unused != count-2 {
 		t.Fatal("oldest unused eviction changed", c.qhead, c.unused)
 	}
 	refs, e := m.GetRefCount(value)
@@ -211,7 +218,7 @@ func TestASTActivityCacheNativeGrowthOrderAndOwnership(t *testing.T) {
 	astTestMust(t, c.Reset())
 	refs, e = m.GetRefCount(value)
 	astTestMust(t, e)
-	if refs != valueRefs || c.entries.Len() != 0 || len(c.queue) != 0 || m.BudgetField.Used() != used {
+	if refs != valueRefs || c.table.size != 0 || len(c.queue) != 0 || m.BudgetField.Used() != used {
 		t.Fatal("matched reset retained references", refs, valueRefs)
 	}
 	for _, key := range keys {
@@ -229,4 +236,30 @@ func activityCacheTestAtom(t *testing.T, m *ASTManager, name string) ASTHandle {
 	h := proofTestBool(t, m, name)
 	astTestPin(t, m, h)
 	return h
+}
+
+// A rewriter cache owns a table cell for each substitution. Growing a batch
+// should allocate table and queue storage in batches as native act_cache does.
+func TestASTActivityCacheBatchAllocations(t *testing.T) {
+	m := astTestManager(t)
+	cache, err := NewActivityCache(m, nil)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, cache.Close()) }()
+	var keys [512]ASTHandle
+	for i := range keys {
+		keys[i] = activityCacheTestAtom(t, m, fmt.Sprintf("cache-batch-%d", i))
+	}
+	allocs := testing.AllocsPerRun(10, func() {
+		for _, key := range keys {
+			if err := cache.Insert(key, keys[0]); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := cache.Reset(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if allocs > 40 {
+		t.Fatalf("512 cache entries required %.0f heap allocations", allocs)
+	}
 }
