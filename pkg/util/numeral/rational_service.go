@@ -171,6 +171,9 @@ func (s *RationalService) Copy(dst, src *OwnedRational) error {
 	defer s.mu.Unlock()
 	atomic.StoreUint32(&s.sourceRuntimeExecuting, 1)
 	defer atomic.StoreUint32(&s.sourceRuntimeExecuting, 0)
+	if dst != nil && src != nil && s.rationalScalarOwner(dst) == nil && s.rationalScalarOwner(src) == nil && s.Manager.copySmall(&dst.Raw, &src.Raw) {
+		return nil
+	}
 	return s.copyLockedWithContext(dst, src, numeralContextRef(integerAllocationInvocationContext{}))
 }
 func (s *RationalService) copyLockedWithContext(dst, src *OwnedRational, context *integerAllocationInvocationContext) error {

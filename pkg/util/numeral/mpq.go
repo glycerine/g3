@@ -170,6 +170,9 @@ func (m *RationalManager) Del(a *Rational) error {
 	return m.Z.Del(&a.Den)
 }
 func (m *RationalManager) Reset(a *Rational) error {
+	if m.resetSmall(a) {
+		return nil
+	}
 	if e := m.checkScalarValue(a); e != nil {
 		return e
 	}
@@ -179,6 +182,9 @@ func (m *RationalManager) Reset(a *Rational) error {
 	return m.resetDenominator(a)
 }
 func (m *RationalManager) Neg(a *Rational) error {
+	if m.negSmall(a) {
+		return nil
+	}
 	return m.negWithSourceContext(a, numeralContextRef(integerAllocationInvocationContext{}))
 }
 func (m *RationalManager) negWithSourceContext(a *Rational, context *integerAllocationInvocationContext) error {
@@ -224,6 +230,9 @@ func (m *RationalManager) Swap(a, b *Rational) error {
 	return m.Z.Swap(&a.Den, &b.Den)
 }
 func (m *RationalManager) Copy(dst, src *Rational) error {
+	if m.copySmall(dst, src) {
+		return nil
+	}
 	return m.copyWithAllocationContext(dst, src, numeralContextRef(integerAllocationInvocationContext{}))
 }
 func (m *RationalManager) copyWithAllocationContext(dst, src *Rational, context *integerAllocationInvocationContext) error {
@@ -489,6 +498,9 @@ func (m *RationalManager) invInPlaceWithAllocationContext(a *Rational, context *
 }
 
 func (m *RationalManager) Equal(a, b *Rational) (bool, error) {
+	if v, ok := m.equalSmall(a, b); ok {
+		return v, nil
+	}
 	if e := m.checkScalarValue(a); e != nil {
 		return false, e
 	}
@@ -505,6 +517,9 @@ func (m *RationalManager) Equal(a, b *Rational) (bool, error) {
 
 // Compare preserves source rat_lt's sign shortcuts and exact cross-products.
 func (m *RationalManager) Compare(a, b *Rational) (int, error) {
+	if c, ok := m.compareSmall(a, b); ok {
+		return c, nil
+	}
 	return m.compareWithAllocationContext(a, b, numeralContextRef(integerAllocationInvocationContext{}))
 }
 func rationalCompareSourceAssertion(predicate bool, line int32, expression string) error {
@@ -608,8 +623,18 @@ func (m *RationalManager) compareWithAllocationContext(a, b *Rational, context *
 	return value, nil
 }
 
-func (m *RationalManager) Add(a, b, out *Rational) error { return m.addSub(a, b, out, false) }
-func (m *RationalManager) Sub(a, b, out *Rational) error { return m.addSub(a, b, out, true) }
+func (m *RationalManager) Add(a, b, out *Rational) error {
+	if m.addSubSmall(a, b, out, false) {
+		return nil
+	}
+	return m.addSub(a, b, out, false)
+}
+func (m *RationalManager) Sub(a, b, out *Rational) error {
+	if m.addSubSmall(a, b, out, true) {
+		return nil
+	}
+	return m.addSub(a, b, out, true)
+}
 func (m *RationalManager) addSub(a, b, out *Rational, subtract bool) error {
 	return m.addSubWithAllocationContext(a, b, out, subtract, numeralContextRef(integerAllocationInvocationContext{}))
 }
@@ -701,6 +726,9 @@ func (m *RationalManager) addSubWithAllocationContext(a, b, out *Rational, subtr
 	return nil
 }
 func (m *RationalManager) Mul(a, b, out *Rational) error {
+	if m.mulSmall(a, b, out) {
+		return nil
+	}
 	return m.mulWithAllocationContext(a, b, out, numeralContextRef(integerAllocationInvocationContext{}))
 }
 func (m *RationalManager) mulWithAllocationContext(a, b, out *Rational, context *integerAllocationInvocationContext) (err error) {
@@ -749,6 +777,9 @@ func (m *RationalManager) mulWithAllocationContext(a, b, out *Rational, context 
 // Div preserves the actual divisor/destination branch and component order.
 // Errors retain completed caller fields; no staged pair masks normalization.
 func (m *RationalManager) Div(a, b, out *Rational) error {
+	if m.divSmall(a, b, out) {
+		return nil
+	}
 	return m.divWithAllocationContext(a, b, out, integerAllocationInvocationContext{})
 }
 func (m *RationalManager) divWithAllocationContext(a, b, out *Rational, context integerAllocationInvocationContext) (_rawErr error) {

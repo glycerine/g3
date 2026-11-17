@@ -196,8 +196,18 @@ func (m *RationalManager) RatDiv(a, b *Int, out *Rational) error {
 	}
 	return m.normalize(out)
 }
-func (m *RationalManager) AddMul(a, b, c, out *Rational) error { return m.fused(a, b, c, out, false) }
-func (m *RationalManager) SubMul(a, b, c, out *Rational) error { return m.fused(a, b, c, out, true) }
+func (m *RationalManager) AddMul(a, b, c, out *Rational) error {
+	if m.fusedSmall(a, b, c, out, false) {
+		return nil
+	}
+	return m.fused(a, b, c, out, false)
+}
+func (m *RationalManager) SubMul(a, b, c, out *Rational) error {
+	if m.fusedSmall(a, b, c, out, true) {
+		return nil
+	}
+	return m.fused(a, b, c, out, true)
+}
 func (m *RationalManager) fused(a, b, c, out *Rational, subtract bool) error {
 	return m.fusedWithAllocationContext(a, b, c, out, subtract, numeralContextRef(integerAllocationInvocationContext{}))
 }

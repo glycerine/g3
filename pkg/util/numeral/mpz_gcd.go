@@ -184,6 +184,9 @@ func (m *IntegerManager) SubMul(a, b, c, d *Int) error {
 // owner-local source copies. The zero fastpath Copies and Abs directly into the
 // caller; errors preserve completed actions rather than a staged destination.
 func (m *IntegerManager) GCD(a, b, c *Int) error {
+	if m.gcdSmall(a, b, c) {
+		return nil
+	}
 	return m.gcdWithAllocationContext(a, b, c, integerAllocationInvocationContext{})
 }
 func (m *IntegerManager) gcdWithAllocationContext(a, b, c *Int, context integerAllocationInvocationContext) (err error) {

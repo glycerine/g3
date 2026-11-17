@@ -150,6 +150,9 @@ func (m *IntegerManager) assertDivisionDummyZero(dummy *Int, line int32) error {
 // numerator. The source rereads b after output publication; when c==b this
 // preserves a known source alias defect (documented in ../PORT_PROGRESS.md#audit-mpnum-port-status-md).
 func (m *IntegerManager) Div(a, b, c *Int) error {
+	if m.divSmall(a, b, c) {
+		return nil
+	}
 	return m.divWithAllocationContext(a, b, c, integerAllocationInvocationContext{})
 }
 func (m *IntegerManager) divWithAllocationContext(a, b, c *Int, context integerAllocationInvocationContext) (err error) {

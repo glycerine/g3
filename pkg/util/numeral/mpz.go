@@ -835,6 +835,10 @@ func (m *IntegerManager) delWithModularOwner(a *Int, owner *IntegerModularManage
 	return nil
 }
 func (m *IntegerManager) Reset(a *Int) error {
+	if smallFastBuild() && a != nil && a.Cell == 0 && m.smallFastReady() && m.smallDelReady() {
+		a.Val = 0
+		return nil
+	}
 	if e := m.Del(a); e != nil {
 		return e
 	}
@@ -1027,7 +1031,12 @@ func (m *IntegerManager) SetLimbs(a *Int, digits []uint32) error {
 	a.Val = 1
 	return nil
 }
-func (m *IntegerManager) Copy(dst, src *Int) error { return m.CopyFromOwner(dst, m, src) }
+func (m *IntegerManager) Copy(dst, src *Int) error {
+	if m.copySmall(dst, src) {
+		return nil
+	}
+	return m.CopyFromOwner(dst, m, src)
+}
 
 // CopyFromOwner is the same literal SET engine with the actual borrowed source
 // cell owner. It differs from the staged ergonomic CopyFrom adapter: growth
