@@ -60,7 +60,7 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	valid, err := prepared.Finalize()
 	if err != nil || !valid {
 		if err == nil {
-			err = fmt.Errorf("muz/fp: negation is not stratified")
+			err = ErrUnstratifiedNegation
 		}
 		return nil, err
 	}

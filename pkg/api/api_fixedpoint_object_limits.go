@@ -50,7 +50,7 @@ func (f *APIFixedpoint) executeQuery(limited bool, run func(*uparams.ParamsRef) 
 	// Z3_fixedpoint_query, _query_relations and _query_from_lvl end with
 	// ctx().cleanup() whether or not the query threw: m_last_status = OK,
 	// so get_reason_unknown answers "ok" afterwards.
-	return status, errors.Join(resultErr, f.command.ResetFixedpointCommandStatus())
+	return status, fixedpointException(errors.Join(resultErr, f.command.ResetFixedpointCommandStatus()))
 }
 
 func (c *SMTContext) beginFixedpointResourceLimit() (control.LimitScope, error) {

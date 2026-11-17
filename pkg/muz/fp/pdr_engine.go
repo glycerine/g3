@@ -13,6 +13,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/statistics"
 	"github.com/glycerine/g3/pkg/util/symbol"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 type pdrContextDisposal struct {
@@ -575,6 +576,12 @@ func (e *PropositionalEngine) CoverDelta(level int, declaration ast.ASTHandle) (
 // AddCover installs a bound-variable property in a retained PDR or Spacer
 // frame.
 func (e *PropositionalEngine) AddCover(level int, declaration, property ast.ASTHandle) error {
+	return e.addCover(level, declaration, property, false)
+}
+
+// addCover is context::add_cover; invariant is spacer's add_invariant,
+// whose slicing check its caller made.
+func (e *PropositionalEngine) addCover(level int, declaration, property ast.ASTHandle, invariant bool) error {
 	// Readers outside the query flush see the eager copies of queued rules.
 	if err := e.materializePendingRules(); err != nil {
 		return err
@@ -595,14 +602,19 @@ func (e *PropositionalEngine) AddCover(level int, declaration, property ast.ASTH
 		if err != nil {
 			return err
 		}
-		return clone.AddCover(level, declaration, property)
+		return clone.addCover(level, declaration, property, invariant)
 	}
 	if e.backend == "spacer" {
 		context, err := e.spacerContext()
 		if err != nil {
 			return err
 		}
-
+		// spacer::dl_interface::add_cover refuses slicing as pdr's does.
+		if !invariant {
+			if err = rejectSlicing(e, "Covers are incompatible with slicing. Disable slicing before using covers"); err != nil {
+				return err
+			}
+		}
 		if err := e.rejectSlicedProperty(declaration); err != nil {
 			return err
 		}
@@ -614,17 +626,8 @@ func (e *PropositionalEngine) AddCover(level int, declaration, property ast.ASTH
 	if err != nil {
 		return err
 	}
-	parameters, err := e.fixedpointParamView()
-	if err != nil {
+	if err = rejectSlicing(e, "Covers are incompatible with slicing. Disable slicing before using covers"); err != nil {
 		return err
-	}
-	slicing, err := parameters.Bool("xform.slice", true)
-	err = errors.Join(err, parameters.Close())
-	if err != nil {
-		return err
-	}
-	if slicing {
-		return fmt.Errorf("Covers are incompatible with slicing. Disable slicing before using covers")
 	}
 	if slicedPredicateHasRemovedColumns(e.pdrSlices, declaration) {
 		return fmt.Errorf("muz/fp: covers and invariants are incompatible with sliced predicate columns")
@@ -640,7 +643,20 @@ func (e *PropositionalEngine) AddInvariant(declaration, property ast.ASTHandle) 
 	if err := e.materializePendingRules(); err != nil {
 		return err
 	}
-	return e.AddCover(-1, declaration, property)
+	if err := e.open(); err != nil {
+		return err
+	}
+	if err := e.selectFactEngine(); err != nil {
+		return err
+	}
+	// spacer::dl_interface::add_invariant refuses slicing, then
+	// context::add_invariant is add_cover(infty_level(), ...).
+	if e.backend == "spacer" {
+		if err := rejectSlicing(e, "Invariants are incompatible with slicing. Disable slicing before using invariants"); err != nil {
+			return err
+		}
+	}
+	return e.addCover(-1, declaration, property, true)
 }
 
 // Reachable returns the accumulated Spacer reach summary for a predicate.
@@ -943,6 +959,24 @@ func (e *PropositionalEngine) assertTransformedRuleProofs(rules *base.RuleSet) e
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// rejectSlicing is dl_interface's
+// if (m_ctx.get_params().xform_slice()) throw default_exception(message).
+func rejectSlicing(e *PropositionalEngine, message string) error {
+	parameters, err := e.fixedpointParamView()
+	if err != nil {
+		return err
+	}
+	slicing, err := parameters.Bool("xform.slice", true)
+	err = errors.Join(err, parameters.Close())
+	if err != nil {
+		return err
+	}
+	if slicing {
+		return z3exception.NewDefaultException(message)
 	}
 	return nil
 }

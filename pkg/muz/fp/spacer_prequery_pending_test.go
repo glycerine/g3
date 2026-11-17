@@ -72,6 +72,8 @@ func testSpacerPrequeryNativePending(t *testing.T, local bool) {
 	globals, err := uparams.NewGlobalParamsService(symbols, params, uparams.GlobalParamsConfig{Budget: budget, Catalog: catalog})
 	must(err)
 	must(globals.InitializeSource())
+	// Spacer's add_cover refuses slicing.
+	must(globals.SourceSetName("fixedpoint.xform.slice", "false"))
 	manager, err := ast.NewASTManager(ast.ASTManagerConfig{Symbols: symbols, Numerals: numbers, Budget: budget})
 	must(err)
 	must(manager.RegisterDeclarationPlugins())

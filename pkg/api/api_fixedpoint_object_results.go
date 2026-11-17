@@ -22,7 +22,8 @@ func (f *APIFixedpoint) CoverDelta(level int, declaration ast.ASTHandle) (ast.AS
 	if err := f.open(); err != nil {
 		return ast.ASTRef{}, err
 	}
-	return f.command.FixedpointCoverDelta(level, declaration)
+	delta, err := f.command.FixedpointCoverDelta(level, declaration)
+	return delta, fixedpointException(err)
 }
 
 // AddCover adds a property to a PDR or Spacer frame.
@@ -30,7 +31,7 @@ func (f *APIFixedpoint) AddCover(level int, declaration, property ast.ASTHandle)
 	if err := f.open(); err != nil {
 		return err
 	}
-	return f.command.AddFixedpointCover(level, declaration, property)
+	return fixedpointException(f.command.AddFixedpointCover(level, declaration, property))
 }
 
 // AddInvariant adds a property to the invariant frame.

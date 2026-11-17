@@ -6,12 +6,12 @@ func (f *APIFixedpoint) Push() error {
 	if err := f.open(); err != nil {
 		return err
 	}
-	return f.command.PushFixedpoint()
+	return fixedpointException(f.command.PushFixedpoint())
 }
 
 func (f *APIFixedpoint) Pop() error {
 	if err := f.open(); err != nil {
 		return err
 	}
-	return f.command.PopFixedpoint()
+	return fixedpointException(f.command.PopFixedpoint())
 }

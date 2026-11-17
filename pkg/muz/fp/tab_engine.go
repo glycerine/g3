@@ -4,7 +4,6 @@ package fp
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -97,7 +96,7 @@ func (e *PropositionalEngine) queryTab(target ast.ASTHandle, expression bool) (s
 			return lbool.Undef, err
 		}
 		if !valid {
-			return lbool.Undef, fmt.Errorf("muz/fp: negation is not stratified")
+			return lbool.Undef, ErrUnstratifiedNegation
 		}
 	}
 	if err = e.validateFragment(); err != nil {

@@ -2,7 +2,6 @@ package fp
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
@@ -46,7 +45,7 @@ func (e *PropositionalEngine) applyQueryMagicSets(goal ast.ASTHandle) (resultErr
 			return err
 		}
 		if !valid {
-			return fmt.Errorf("muz/fp: negation is not stratified")
+			return ErrUnstratifiedNegation
 		}
 	}
 

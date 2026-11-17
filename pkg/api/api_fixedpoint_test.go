@@ -540,15 +540,10 @@ func TestSMTContextFixedpointSpacerInductiveExports(t *testing.T) {
 	astTestMust(t, manager.DelRef(&value))
 	falsity, err := manager.MkFalse()
 	astTestMust(t, err)
-	astTestMust(t, context.AddFixedpointInvariant(u, falsity))
-	cover, err := context.FixedpointCoverDelta(-1, u)
-	astTestMust(t, err)
-	coverHandle, err := manager.RefGet(cover)
-	astTestMust(t, err)
-	if !manager.IsFalse(coverHandle) {
-		t.Fatal("Spacer public invariant cover", coverHandle)
+	// spacer::dl_interface::add_invariant refuses slicing, on by default.
+	if err := context.AddFixedpointInvariant(u, falsity); err == nil || !strings.Contains(err.Error(), "Invariants are incompatible with slicing") {
+		t.Fatal("Spacer invariant did not refuse slicing", err)
 	}
-	astTestMust(t, manager.DelRef(&cover))
 	status, err = context.QueryFixedpoint(p)
 	astTestMust(t, err)
 	if status != lbool.True {

@@ -84,6 +84,8 @@ func testSpacerPrequeryParameterStoppedDecrement(t *testing.T, disposal bool) {
 	globals, err := uparams.NewGlobalParamsService(symbols, context, uparams.GlobalParamsConfig{Budget: paramsBudget, Catalog: catalog})
 	fragmentMust(t, err)
 	fragmentMust(t, globals.InitializeSource())
+	// Spacer's add_cover refuses slicing.
+	fragmentMust(t, globals.SourceSetName("fixedpoint.xform.slice", "false"))
 	engine, err := NewPropositionalEngineWithServices(manager, context, globals)
 	fragmentMust(t, err)
 	defer func() {

@@ -314,7 +314,9 @@ func (c *Context) groundSatAnswer() (result ast.ASTRef, resultErr error) {
 	if err != nil {
 		return result, err
 	}
-	answer, err := c.manager.MkAndArray(handles)
+	// m.mk_and(cex.size(), cex.c_ptr()): ast_manager's application, an
+	// empty conjunction included.
+	answer, err := c.manager.MkAndArgs(handles)
 	if err != nil {
 		return result, err
 	}
