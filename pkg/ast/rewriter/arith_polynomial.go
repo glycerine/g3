@@ -1002,8 +1002,11 @@ func (r *ArithRewriter) rewriteBound(left, right ast.ASTHandle, kind int32, out 
 }
 
 func (r *ArithRewriter) zero(h ast.ASTHandle) (bool, error) {
-	value, _, numeral, err := r.numeral(h)
-	return err == nil && numeral && value.Sign() == 0, err
+	kind, err := r.manager.GetKind(h)
+	if err != nil || kind != ast.ASTApp {
+		return false, err
+	}
+	return r.manager.ArithmeticNumeralIsZero(h)
 }
 
 func (r *ArithRewriter) reducePowerFactors(h ast.ASTHandle, equality bool) (ast.ASTHandle, bool, error) {

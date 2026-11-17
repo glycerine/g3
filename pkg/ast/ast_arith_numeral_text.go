@@ -49,6 +49,24 @@ func (m *ASTManager) IsArithmeticNumeral(h ASTHandle) (bool, error) {
 	return true, nil
 }
 
+// ArithmeticNumeralIsZero is arith_util::is_zero: h is an arithmetic
+// numeral whose value is 0. It reads the numeral's rational parameter in
+// place.
+func (m *ASTManager) ArithmeticNumeralIsZero(h ASTHandle) (bool, error) {
+	if err := m.lock(); err != nil {
+		return false, err
+	}
+	defer m.mu.Unlock()
+	rational, _, matched, err := m.arithmeticNumeralParameter(h)
+	if err != nil || !matched {
+		return false, err
+	}
+	if raw := &rational.Raw; raw.Num.Cell == 0 && raw.Den.Cell == 0 && raw.Den.Val > 0 {
+		return raw.Num.Val == 0, nil
+	}
+	return m.numerals.IsZero(rational)
+}
+
 // ArithmeticNumeralBigRat is ArithmeticNumeralText followed by
 // big.Rat.SetString of the text, without the text when the numeral is small.
 // A text that does not parse reports ErrASTDomain with matched set.
