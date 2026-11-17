@@ -573,6 +573,22 @@ func (p *TableRelationPlugin) checkTableComplement(predicate ast.ASTHandle, sort
 		}
 		hasName = true
 	}
+	pair, err := checkTableComplement(aux, signature, name, hasName)
+	if err != nil {
+		return nil, errors.Join(err, auxRelation.Close())
+	}
+	if err = auxRelation.Close(); err != nil {
+		return nil, errors.Join(err, pair.Close())
+	}
+	return p.manager.tableView(pair, sorts, false), nil
+}
+
+// checkTableComplement is check_table::complement of the empty check table
+// aux: alloc(check_table, ..., m_tocheck->complement(p),
+// m_checker->complement(p)) (table_base::complement of each table: its
+// plugin's mk_empty holding every row; the arguments are evaluated right
+// to left), whose constructor runs well_formed.
+func checkTableComplement(aux *FiniteCheckedPair, signature Signature, name string, hasName bool) (*FiniteCheckedPair, error) {
 	complement := func(t FiniteTable) (FiniteTable, error) {
 		if err := warnLargeTotalTable(signature, name, hasName); err != nil {
 			return nil, err
@@ -588,20 +604,13 @@ func (p *TableRelationPlugin) checkTableComplement(predicate ast.ASTHandle, sort
 	}
 	checker, err := complement(aux.checker)
 	if err != nil {
-		return nil, errors.Join(err, auxRelation.Close())
+		return nil, err
 	}
 	primary, err := complement(aux.primary)
 	if err != nil {
-		return nil, errors.Join(err, checker.Close(), auxRelation.Close())
+		return nil, errors.Join(err, checker.Close())
 	}
-	pair, err := aux.adopt(primary, checker)
-	if err != nil {
-		return nil, errors.Join(err, auxRelation.Close())
-	}
-	if err = auxRelation.Close(); err != nil {
-		return nil, errors.Join(err, pair.Close())
-	}
-	return p.manager.tableView(pair, sorts, false), nil
+	return aux.adopt(primary, checker)
 }
 
 func (p *TableRelationPlugin) view(r RelationBase) (*tableRelationView, bool) {

@@ -257,6 +257,21 @@ func (i *constructInstruction) Perform(context *ExecutionContext) (bool, error) 
 		if err != nil {
 			return false, err
 		}
+		if pair, isPair := table.(*FiniteCheckedPair); isPair && pair.plugin != nil {
+			// table_relation_plugin::mk_full of a check table: aux =
+			// mk_empty(s), check_table::complement, aux->deallocate().
+			full, err := checkTableComplement(pair, i.signature, i.predicateName, i.hasPredicate)
+			if err != nil {
+				return false, errors.Join(err, table.Close())
+			}
+			if err = table.Close(); err != nil {
+				return false, errors.Join(err, full.Close())
+			}
+			if err := context.SetFiniteRegister(i.target, full); err != nil {
+				return false, i.disposeUninstalledFinite(full, err)
+			}
+			return true, nil
+		}
 		// table_plugin::mk_full builds the full table as the complement of an
 		// empty aux = mk_empty(s) and then calls aux->deallocate(); for the
 		// sparse plugin that is sparse_table_plugin::recycle. aux is made
