@@ -6,9 +6,10 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/solver"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
-func (c *Context) newSolverFromFactory(factory solver.Factory, logic string) (result solver.Solver, resultErr error) {
+func (c *Context) newSolverFromFactory(factory solver.Factory, logic string, explicit *uparams.ParamsRef) (result solver.Solver, resultErr error) {
 	if err := c.valid(); err != nil {
 		return nil, err
 	}
@@ -16,21 +17,35 @@ func (c *Context) newSolverFromFactory(factory solver.Factory, logic string) (re
 		return nil, errors.New("command context: nil solver factory")
 	}
 	defer func() {
-		if closeErr := factory.Close(); closeErr != nil {
-			resultErr = errors.Join(resultErr, closeErr)
-			if result != nil {
-				resultErr = errors.Join(resultErr, result.Close())
-				result = nil
-			}
+		resultErr = errors.Join(resultErr, factory.Close())
+		if resultErr != nil && result != nil {
+			resultErr = errors.Join(resultErr, result.Close())
+			result = nil
 		}
 	}()
 	manager, err := c.Manager()
 	if err != nil {
 		return nil, err
 	}
+	params := &c.params
+	if explicit != nil {
+		local, err := c.config.Params.NewValue()
+		if err != nil {
+			return nil, err
+		}
+		defer func() { resultErr = errors.Join(resultErr, c.config.Params.Del(&local)) }()
+		// Solver parameters override the context defaults for this backend.
+		if err = c.config.Params.Assign(&local, &c.params); err != nil {
+			return nil, err
+		}
+		if err = c.config.Params.Append(&local, explicit); err != nil {
+			return nil, err
+		}
+		params = &local
+	}
 	var proofs, models, cores bool
-	if err = c.parameters.GetSolverParams(manager, &c.params, &proofs, &models, &cores); err != nil {
+	if err = c.parameters.GetSolverParams(manager, params, &proofs, &models, &cores); err != nil {
 		return nil, err
 	}
-	return factory.New(manager, &c.params, proofs, models, cores, logic)
+	return factory.New(manager, params, proofs, models, cores, logic)
 }

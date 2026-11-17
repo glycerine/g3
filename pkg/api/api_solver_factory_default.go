@@ -6,9 +6,7 @@ func (c *SMTContext) NewSolver() (*APISimpleSolver, error) {
 	if err := c.open(); err != nil {
 		return nil, err
 	}
-	value, err := c.command.NewStrategicSolver("", false)
-	if err != nil {
-		return nil, err
-	}
-	return &APISimpleSolver{owner: c.smtContextState, solver: value}, nil
+	// Z3_mk_solver creates only the API reference. Building the strategy
+	// here consumes expression IDs before the client's first assertion.
+	return &APISimpleSolver{owner: c.smtContextState, pendingStrategic: true}, nil
 }

@@ -10,9 +10,28 @@ import (
 )
 
 func (s *APISimpleSolver) ParameterDescriptions() (*ParameterDescriptions, error) {
+	if s != nil && s.pendingStrategic {
+		// Native get_param_descrs constructs a temporary backend.
+		temp := *s
+		if err := temp.open(); err != nil {
+			return nil, err
+		}
+		desc, err := temp.parameterDescriptions()
+		if closeErr := temp.solver.Close(); closeErr != nil {
+			if desc != nil {
+				closeErr = errors.Join(closeErr, desc.Close())
+			}
+			return nil, errors.Join(err, closeErr)
+		}
+		return desc, err
+	}
 	if err := s.open(); err != nil {
 		return nil, err
 	}
+	return s.parameterDescriptions()
+}
+
+func (s *APISimpleSolver) parameterDescriptions() (*ParameterDescriptions, error) {
 	globals, err := s.owner.command.GlobalParameters()
 	if err != nil {
 		return nil, err
@@ -30,8 +49,8 @@ func (s *APISimpleSolver) ParameterDescriptions() (*ParameterDescriptions, error
 	return &ParameterDescriptions{owner: s.owner, value: value, symbols: globals.Context.Symbols()}, nil
 }
 
-func (s *APISimpleSolver) SetParameters(parameters *ParameterSet) (resultErr error) {
-	if err := s.open(); err != nil {
+func (s *APISimpleSolver) SetParameters(parameters *ParameterSet) error {
+	if err := s.validOwner(); err != nil {
 		return err
 	}
 	if err := parameters.open(); err != nil {
@@ -40,7 +59,25 @@ func (s *APISimpleSolver) SetParameters(parameters *ParameterSet) (resultErr err
 	if parameters.owner != s.owner {
 		return ErrSMTContextOwner
 	}
-	descriptions, err := s.ParameterDescriptions()
+	if !s.pendingStrategic {
+		if err := s.applyParameters(parameters); err != nil {
+			return err
+		}
+	}
+	if !s.explicitReady {
+		var err error
+		s.explicitParams, err = parameters.params.NewValue()
+		if err != nil {
+			return err
+		}
+		s.explicitContext = parameters.params
+		s.explicitReady = true
+	}
+	return parameters.params.Append(&s.explicitParams, &parameters.value)
+}
+
+func (s *APISimpleSolver) applyParameters(parameters *ParameterSet) (resultErr error) {
+	descriptions, err := s.parameterDescriptions()
 	if err != nil {
 		return err
 	}
@@ -86,13 +123,5 @@ func (s *APISimpleSolver) SetParameters(parameters *ParameterSet) (resultErr err
 	if err = s.solver.UpdateParams(&merged); err != nil {
 		return err
 	}
-	if !s.explicitReady {
-		s.explicitParams, err = parameters.params.NewValue()
-		if err != nil {
-			return err
-		}
-		s.explicitContext = parameters.params
-		s.explicitReady = true
-	}
-	return parameters.params.Append(&s.explicitParams, &parameters.value)
+	return nil
 }

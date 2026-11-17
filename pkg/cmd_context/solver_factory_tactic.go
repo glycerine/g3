@@ -22,5 +22,5 @@ func (c *Context) NewSolverFromTactic(value tactic.Tactic) (solver.Solver, error
 	if err != nil {
 		return nil, err
 	}
-	return c.newSolverFromFactory(factory, c.logic)
+	return c.newSolverFromFactory(factory, c.logic, nil)
 }
