@@ -2,96 +2,91 @@ package smtcore
 
 import "github.com/glycerine/g3/pkg/ast"
 
-// smtRelevancyTable maps an expression to its handler list, as the
-// relevancy propagator's obj_map handler/watch tables do. Lists of one
-// manager's expressions are indexed by node slot; every non-empty list is
-// referenced by the trail, so its expression (and slot generation) stays
-// live while the list is in use. Other handles use the overflow map.
+const smtRelevancyPageSize = 64
+
+// Source: src/smt/smt_relevancy.cpp, relevancy_ehs and its region.
+// Each registration prepends one link. Trail undo restores the previous head.
 type smtRelevancyTable struct {
-	origin  uint64
-	entries []smtRelevancyTableEntry
-	// nonEmpty has bit s set while entries[s] may hold a non-empty list,
-	// so get answers most absent expressions from this compact bitmap
-	// without loading the entry.
-	nonEmpty []uint64
-	other    map[ast.ASTHandle][]smtRelevancyHandler
+	origin uint64
+	heads  []int
+	other  map[ast.ASTHandle]int
+
+	pages       []*[smtRelevancyPageSize]smtRelevancyLink
+	count, free int
 }
 
-type smtRelevancyTableEntry struct {
-	key ast.ASTHandle
-	hs  []smtRelevancyHandler
+type smtRelevancyLink struct {
+	handler    smtRelevancyHandler
+	previous   int
+	generation uint32
 }
 
-func (t *smtRelevancyTable) dense(h ast.ASTHandle) bool {
-	if h.IsNull() {
-		return false
+// Index zero is an empty list. The page directory can grow while a
+// propagation callback is iterating an earlier list.
+func (t *smtRelevancyTable) link(index int) *smtRelevancyLink {
+	if index == 0 {
+		return nil
 	}
-	if t.origin == 0 {
-		t.origin = h.Origin()
-	}
-	return h.Origin() == t.origin
+	i := index - 1
+	return &t.pages[i/smtRelevancyPageSize][i%smtRelevancyPageSize]
 }
 
-func (t *smtRelevancyTable) get(h ast.ASTHandle) []smtRelevancyHandler {
-	if !t.dense(h) {
+func (t *smtRelevancyTable) head(h ast.ASTHandle) int {
+	if h.Origin() != t.origin || h.IsNull() {
 		return t.other[h]
 	}
 	s := h.Slot()
-	if w := s >> 6; uint64(w) >= uint64(len(t.nonEmpty)) || t.nonEmpty[w]&(1<<(s&63)) == 0 {
-		return nil
+	if uint64(s) >= uint64(len(t.heads)) {
+		return 0
 	}
-	if uint64(s) < uint64(len(t.entries)) && t.entries[s].key == h {
-		return t.entries[s].hs
+	head := t.heads[s]
+	if head != 0 && t.link(head).generation != h.Generation() {
+		return 0
 	}
-	return nil
+	return head
 }
 
 func (t *smtRelevancyTable) push(h ast.ASTHandle, handler smtRelevancyHandler) {
-	if !t.dense(h) {
-		if t.other == nil {
-			t.other = make(map[ast.ASTHandle][]smtRelevancyHandler)
+	if t.origin == 0 && !h.IsNull() {
+		t.origin = h.Origin()
+	}
+	previous := t.head(h)
+	index := t.free
+	if index == 0 {
+		if t.count%smtRelevancyPageSize == 0 {
+			t.pages = append(t.pages, new([smtRelevancyPageSize]smtRelevancyLink))
 		}
-		t.other[h] = append(t.other[h], handler)
+		t.count++
+		index = t.count
+	} else {
+		t.free = t.link(index).previous
+	}
+	*t.link(index) = smtRelevancyLink{handler: handler, previous: previous, generation: h.Generation()}
+	if h.Origin() != t.origin || h.IsNull() {
+		if t.other == nil {
+			t.other = make(map[ast.ASTHandle]int)
+		}
+		t.other[h] = index
 		return
 	}
-	s := h.Slot()
-	if uint64(s) >= uint64(len(t.entries)) {
-		n := 2 * len(t.entries)
-		if n <= int(s) {
-			n = int(s) + 256
-		}
-		grown := make([]smtRelevancyTableEntry, n)
-		copy(grown, t.entries)
-		t.entries = grown
-		bits := make([]uint64, (n+63)>>6)
-		copy(bits, t.nonEmpty)
-		t.nonEmpty = bits
+	s := int(h.Slot())
+	if s >= len(t.heads) {
+		t.heads = append(t.heads, make([]int, s+1-len(t.heads))...)
 	}
-	e := &t.entries[s]
-	if e.key != h {
-		// The slot's previous expression is dead, so its list is empty.
-		e.key = h
-		e.hs = e.hs[:0]
-	}
-	e.hs = append(e.hs, handler)
-	t.nonEmpty[s>>6] |= 1 << (s & 63)
+	t.heads[s] = index
 }
 
-// pop drops the newest handler of h's list.
 func (t *smtRelevancyTable) pop(h ast.ASTHandle) {
-	if !t.dense(h) {
-		hs := t.other[h]
-		t.other[h] = hs[:len(hs)-1]
-		return
+	index := t.head(h)
+	link := t.link(index)
+	if h.Origin() == t.origin && !h.IsNull() {
+		t.heads[h.Slot()] = link.previous
+	} else if link.previous == 0 {
+		delete(t.other, h)
+	} else {
+		t.other[h] = link.previous
 	}
-	var hs []smtRelevancyHandler
-	if s := h.Slot(); uint64(s) < uint64(len(t.entries)) && t.entries[s].key == h {
-		hs = t.entries[s].hs
-		t.entries[s].hs = hs[:len(hs)-1]
-		if len(hs) == 1 {
-			t.nonEmpty[s>>6] &^= 1 << (s & 63)
-		}
-		return
-	}
-	_ = hs[:len(hs)-1] // an absent list panics, as slicing the map's nil list does
+	// Clear any slice of target expressions when its scope is popped.
+	*link = smtRelevancyLink{previous: t.free}
+	t.free = index
 }

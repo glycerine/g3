@@ -20,10 +20,17 @@ const (
 )
 
 type smtRelevancyHandler struct {
-	kind                  smtRelevancyHandlerKind
-	first, second, target ast.ASTHandle
-	thenEquality          ast.ASTHandle
-	elseEquality          ast.ASTHandle
+	kind   smtRelevancyHandlerKind
+	target ast.ASTHandle
+	args   *smtRelevancyHandlerArgs
+}
+
+// Pair and term-ITE handlers share their immutable operands among all
+// registered watches. Simple dependencies and Boolean gates only use target.
+type smtRelevancyHandlerArgs struct {
+	first, second ast.ASTHandle
+	thenEquality  ast.ASTHandle
+	elseEquality  ast.ASTHandle
 	// targets is the target list of one arith_eq_relevancy_eh.
 	targets []ast.ASTHandle
 }
@@ -186,13 +193,13 @@ func (p *SMTRelevancyPropagator) invoke(handler smtRelevancyHandler) error {
 	case smtRelevancySimple:
 		return p.MarkRelevant(handler.target)
 	case smtRelevancyPair:
-		if p.IsRelevant(handler.first) && p.IsRelevant(handler.second) {
+		if p.IsRelevant(handler.args.first) && p.IsRelevant(handler.args.second) {
 			return p.MarkRelevant(handler.target)
 		}
 		return nil
 	case smtRelevancyPairTargets:
-		if p.IsRelevant(handler.first) && p.IsRelevant(handler.second) {
-			for _, target := range handler.targets {
+		if p.IsRelevant(handler.args.first) && p.IsRelevant(handler.args.second) {
+			for _, target := range handler.args.targets {
 				if err := p.MarkRelevant(target); err != nil {
 					return err
 				}
@@ -227,9 +234,9 @@ func (p *SMTRelevancyPropagator) invoke(handler smtRelevancyHandler) error {
 		}
 		switch p.assignment(condition) {
 		case lbool.False:
-			return p.MarkRelevant(handler.elseEquality)
+			return p.MarkRelevant(handler.args.elseEquality)
 		case lbool.True:
-			return p.MarkRelevant(handler.thenEquality)
+			return p.MarkRelevant(handler.args.thenEquality)
 		}
 		return nil
 	default:
@@ -265,7 +272,10 @@ func (p *SMTRelevancyPropagator) AddPairDependency(first, second, target ast.AST
 	if p == nil || p.context == nil {
 		return ast.ErrASTHandle
 	}
-	handler := smtRelevancyHandler{kind: smtRelevancyPair, first: first, second: second, target: target}
+	handler := smtRelevancyHandler{
+		kind: smtRelevancyPair, target: target,
+		args: &smtRelevancyHandlerArgs{first: first, second: second},
+	}
 	if err := p.addHandler(first, handler); err != nil {
 		return err
 	}
@@ -279,7 +289,12 @@ func (p *SMTRelevancyPropagator) AddPairTargetsDependency(first, second ast.ASTH
 	if p == nil || p.context == nil {
 		return ast.ErrASTHandle
 	}
-	handler := smtRelevancyHandler{kind: smtRelevancyPairTargets, first: first, second: second, targets: append([]ast.ASTHandle(nil), targets...)}
+	handler := smtRelevancyHandler{
+		kind: smtRelevancyPairTargets,
+		args: &smtRelevancyHandlerArgs{
+			first: first, second: second, targets: append([]ast.ASTHandle(nil), targets...),
+		},
+	}
 	if err := p.addHandler(first, handler); err != nil {
 		return err
 	}
@@ -295,8 +310,15 @@ func (p *SMTRelevancyPropagator) AddOrHandler(parent ast.ASTHandle) error {
 func (p *SMTRelevancyPropagator) AddITEHandler(parent ast.ASTHandle) error {
 	return p.addHandler(parent, smtRelevancyHandler{kind: smtRelevancyITE, target: parent})
 }
+func smtTermITEHandler(parent, thenEquality, elseEquality ast.ASTHandle) smtRelevancyHandler {
+	return smtRelevancyHandler{
+		kind: smtRelevancyTermITE, target: parent,
+		args: &smtRelevancyHandlerArgs{thenEquality: thenEquality, elseEquality: elseEquality},
+	}
+}
+
 func (p *SMTRelevancyPropagator) AddTermITEHandler(parent, thenEquality, elseEquality ast.ASTHandle) error {
-	return p.addHandler(parent, smtRelevancyHandler{kind: smtRelevancyTermITE, target: parent, thenEquality: thenEquality, elseEquality: elseEquality})
+	return p.addHandler(parent, smtTermITEHandler(parent, thenEquality, elseEquality))
 }
 
 func (p *SMTRelevancyPropagator) addWatch(expression ast.ASTHandle, value bool, handler smtRelevancyHandler) error {
@@ -427,7 +449,7 @@ func (p *SMTRelevancyPropagator) AddTermITEWatches(parent, thenEquality, elseEqu
 	if err != nil {
 		return err
 	}
-	handler := smtRelevancyHandler{kind: smtRelevancyTermITE, target: parent, thenEquality: thenEquality, elseEquality: elseEquality}
+	handler := smtTermITEHandler(parent, thenEquality, elseEquality)
 	if err = p.addLiteralWatch(condition, true, handler); err != nil {
 		return err
 	}
@@ -638,11 +660,8 @@ func (p *SMTRelevancyPropagator) Propagate() error {
 				return err
 			}
 		}
-		handlers := p.handlers.get(expression)
-		for index := len(handlers); index > 0; index-- {
-			if err := p.invoke(handlers[index-1]); err != nil {
-				return err
-			}
+		if err := p.invokeList(&p.handlers, expression); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -879,14 +898,17 @@ func (p *SMTRelevancyPropagator) assignmentEvent(expression ast.ASTHandle, value
 			}
 		}
 	}
-	var watches []smtRelevancyHandler
 	if value {
-		watches = p.positiveWatch.get(expression)
-	} else {
-		watches = p.negativeWatch.get(expression)
+		return p.invokeList(&p.positiveWatch, expression)
 	}
-	for index := len(watches); index > 0; index-- {
-		if err := p.invoke(watches[index-1]); err != nil {
+	return p.invokeList(&p.negativeWatch, expression)
+}
+
+func (p *SMTRelevancyPropagator) invokeList(table *smtRelevancyTable, expression ast.ASTHandle) error {
+	for index := table.head(expression); index != 0; {
+		link := table.link(index)
+		index = link.previous
+		if err := p.invoke(link.handler); err != nil {
 			return err
 		}
 	}

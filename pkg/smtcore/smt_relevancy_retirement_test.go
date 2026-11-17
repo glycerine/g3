@@ -2,6 +2,7 @@ package smtcore
 
 import (
 	"fmt"
+	"github.com/glycerine/g3/pkg/ast"
 	"testing"
 )
 
@@ -44,5 +45,27 @@ func TestSMTRelevancyBaseMarksSurviveScopedInternalization(t *testing.T) {
 				t.Fatal("recreated owner lost base relevance")
 			}
 		})
+	}
+}
+
+// A scoped batch installs one simple watch on each of many distinct terms.
+// The native region allocates their list nodes together.
+func TestSMTRelevancyScopedWatchAllocations(t *testing.T) {
+	m := astTestManager(t)
+	var owners [512]ast.ASTHandle
+	for i := range owners {
+		owners[i] = smtRelevancyPinnedBool(t, m, fmt.Sprint("batch-watch-", i))
+	}
+	allocs := testing.AllocsPerRun(10, func() {
+		var table smtRelevancyTable
+		for _, h := range owners {
+			table.push(h, smtRelevancyHandler{kind: smtRelevancySimple, target: h})
+		}
+		for i := len(owners) - 1; i >= 0; i-- {
+			table.pop(owners[i])
+		}
+	})
+	if allocs > 32 {
+		t.Fatalf("512 scoped watches required %.0f allocations", allocs)
 	}
 }
