@@ -164,16 +164,17 @@ func (t *SMTTheoryArith) mkApp(x *smtArithExprs, op int32, args ...ast.ASTHandle
 
 // mkNumeralQ is m_util.mk_numeral(r, is_int) for a rational r.
 func (t *SMTTheoryArith) mkNumeralQ(x *smtArithExprs, r *numeral.Rational, isInt bool) (ast.ASTHandle, error) {
-	b, err := smtQBig(t.q, r)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	return t.mkNumeral(x, b, isInt)
+	return x.hold(t.state.manager.ArithmeticNumeralFromRational(r, isInt))
 }
 
 // mkNumeralInt is m_util.mk_numeral(rational(v), is_int).
 func (t *SMTTheoryArith) mkNumeralInt(x *smtArithExprs, v int64, isInt bool) (ast.ASTHandle, error) {
-	return t.mkNumeral(x, big.NewRat(v, 1), isInt)
+	r := smtQZero()
+	if err := t.q.SetInt64(&r, v); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	h, err := t.mkNumeralQ(x, &r, isInt)
+	return h, errors.Join(err, smtQDel(t.q, &r))
 }
 
 // mkNumeral is m_util.mk_numeral(r, is_int).
@@ -867,7 +868,7 @@ func (t *SMTTheoryArith) mkDivAxiom(p, q ast.ASTHandle) (err error) {
 	if err != nil {
 		return err
 	}
-	zero, err := t.mkNumeral(&x, new(big.Rat), false)
+	zero, err := t.mkNumeralInt(&x, 0, false)
 	if err != nil {
 		return err
 	}
@@ -1128,7 +1129,7 @@ func (t *SMTTheoryArith) mkToIntAxiom(n ast.ASTHandle) (err error) {
 	if err != nil {
 		return err
 	}
-	minusOne, err := t.mkNumeral(&x, big.NewRat(-1, 1), false)
+	minusOne, err := t.mkNumeralInt(&x, -1, false)
 	if err != nil {
 		return err
 	}
@@ -1140,11 +1141,11 @@ func (t *SMTTheoryArith) mkToIntAxiom(n ast.ASTHandle) (err error) {
 	if err != nil {
 		return err
 	}
-	zero, err := t.mkNumeral(&x, new(big.Rat), false)
+	zero, err := t.mkNumeralInt(&x, 0, false)
 	if err != nil {
 		return err
 	}
-	one, err := t.mkNumeral(&x, big.NewRat(1, 1), false)
+	one, err := t.mkNumeralInt(&x, 1, false)
 	if err != nil {
 		return err
 	}

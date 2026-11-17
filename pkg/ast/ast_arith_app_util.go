@@ -2,7 +2,11 @@ package ast
 
 // Source: src/ast/arith_decl_plugin.h:81-145.
 
-import "errors"
+import (
+	"errors"
+
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
+)
 
 func (m *ASTManager) arithmeticApp(kind int32, args ...ASTHandle) (ASTHandle, error) {
 	family, err := m.RegisterArithmeticPlugin()
@@ -65,6 +69,27 @@ func (m *ASTManager) arithmeticNumeralFromText(text string, integer bool) (resul
 	}
 	defer func() { resultErr = errors.Join(resultErr, service.Del(&value)) }()
 	if err = service.SetString(&value, text); err != nil {
+		return ASTHandle{}, err
+	}
+	return m.ArithmeticNumeral(&value, integer)
+}
+
+// ArithmeticNumeralFromRational is arith_util::mk_numeral(r, is_int) for a
+// rational of this manager's rational manager (NumeralService().Manager).
+func (m *ASTManager) ArithmeticNumeralFromRational(r *unumeral.Rational, integer bool) (result ASTHandle, resultErr error) {
+	if r == nil {
+		return ASTHandle{}, ErrASTDomain
+	}
+	if _, err := m.RegisterArithmeticPlugin(); err != nil {
+		return ASTHandle{}, err
+	}
+	service := m.NumeralService()
+	value, err := service.NewValue()
+	if err != nil {
+		return ASTHandle{}, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, service.Del(&value)) }()
+	if err = service.Manager.Copy(&value.Raw, r); err != nil {
 		return ASTHandle{}, err
 	}
 	return m.ArithmeticNumeral(&value, integer)
