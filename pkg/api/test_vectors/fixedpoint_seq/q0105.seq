@@ -1,0 +1,18 @@
+sort S fin 8
+param engine datalog
+setparams
+vars x S y S z S
+rel r0 S S
+rel r1 S S
+rel r2 S S S
+rel r3 S S
+rel r4 S S S
+fact r2 3 5 1
+fact r0 2 6
+rule n0 (=> (and (r4 x z z) (r4 1:S y 3:S)) (r4 z x y))
+rule n1 (=> (and (r1 y 1:S) (r3 z 7:S)) (r2 y z y))
+rule n2 (=> (and (r1 z y) (r0 y x) (r3 1:S 4:S)) (r4 z x y))
+query (r3 1:S z)
+param datalog.similarity_compressor false
+setparams
+query (r3 z z)

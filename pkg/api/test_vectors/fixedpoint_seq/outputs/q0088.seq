@@ -1,0 +1,32 @@
+sort S int
+param engine pdr
+setparams
+vars x S y S z S
+rel r0 S S
+rel r1 S S
+rel r2 S
+rule f332 (r0 3:S 4:S)
+rule f557 (r0 0:S 3:S)
+rule f75 (r0 5:S 4:S)
+rule f263 (r1 1:S 3:S)
+rule n0 (=> (and (r2 y) (r1 y z) (r0 y z)) (r1 y y))
+rule n1 (=> (and (r2 x) (r0 z y)) (r2 z))
+rule n2 (=> (and (r0 x z) (r0 x x) (r2 x)) (r1 x y))
+rule n3 (=> (r0 x y) (r1 x 3:S))
+query (and (r0 0:S x) (r2 y))
+query (and (r0 y z) (r1 x y))
+levels r0
+delta -1 r0
+delta 0 r0
+cover 1 r0 (= x 3:S)
+query (and (r1 z z) (r0 4:S z))
+levels r2
+delta -1 r2
+delta 0 r2
+cover 1 r2 (= x 1:S)
+query (r0 x x)
+levels r0
+delta -1 r0
+delta 0 r0
+cover 1 r0 (= x 1:S)
+query (r1 x z)

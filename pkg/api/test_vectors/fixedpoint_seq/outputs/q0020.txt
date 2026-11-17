@@ -1,0 +1,61 @@
+> sort S bool
+> param engine pdr
+> setparams
+> vars x S y S z S
+> rel r0 S S
+> rel r1 
+> rel r2 S S S
+> rel r3 S S
+> rel r4 
+> rel r5 S S
+> rule f465 r1
+> rule f93 (r0 true false)
+> rule f603 (r0 true false)
+> rule f440 (r0 true true)
+> rule f767 (r3 true false)
+> rule f123 (r2 true true false)
+> rule n0 (=> (and r4 (r5 y x) (r3 z true)) (r3 z x))
+> rule n1 (=> (and r4 (r0 false y) (= x true)) (r5 y z))
+> query (r3 false false)
+result -1
+(and (= r4 false)
+     (= r1 true)
+     (forall ((A Bool) (B Bool)) (= (r3 A B) (and A (not B))))
+     (forall ((A Bool) (B Bool)) (= (r0 A B) (or (and A B) (and A (not B)))))
+     (forall ((A Bool) (B Bool)) (= (r5 A B) false))
+     (forall ((A Bool) (B Bool) (C Bool)) (= (r2 A B C) (and A B (not C)))))
+> rule n0 (=> (r3 y x) r1)
+> query r1
+result 1
+true
+> levels r3
+levels 0
+> delta -1 r3
+true
+> delta 0 r3
+true
+> cover 1 r3 (= x false)
+error: Covers are incompatible with slicing. Disable slicing before using covers
+> query (r3 y y)
+result -1
+(and (= r4 false)
+     (= r1 true)
+     (forall ((A Bool) (B Bool)) (= (r3 A B) (and A (not B))))
+     (forall ((A Bool) (B Bool)) (= (r0 A B) (or (and A B) (and A (not B)))))
+     (forall ((A Bool) (B Bool)) (= (r5 A B) false))
+     (forall ((A Bool) (B Bool) (C Bool)) (= (r2 A B C) (and A B (not C)))))
+> push
+> rule n0 (=> (and (r5 y y) (r3 x z) (r5 y z)) r1)
+> rule f176 r4
+> rule f422 (r0 true true)
+> rule f467 (r5 true true)
+> rule f367 (r0 false true)
+> rule f673 (r0 false true)
+> query (and (r3 z x) r1)
+result 1
+(r3 true false)
+> pop
+error: pop operation is only supported by duality engine
+> query (and (r0 x x) (r0 z y))
+result 1
+true

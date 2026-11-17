@@ -1,0 +1,22 @@
+> sort S bv 2
+> param engine datalog
+> setparams
+> vars x S y S z S
+> rel r0 S S
+> rel r1 S S
+> rel r2 S S
+> fact r2 1 3
+> fact r1 0 2
+> fact r0 0 3
+> fact r0 2 1
+> fact r0 2 3
+> rule n0 (=> (and (r0 3:S z) (r2 z y)) (r2 1:S y))
+> rule n1 (=> (and (r2 x z) (not (r2 x z))) (r2 x z))
+> query (r0 z 3:S)
+error: Negation is not stratified!
+result 0
+reason ok
+> query (r2 0:S z)
+error: Negation is not stratified!
+result 0
+reason ok

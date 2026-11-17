@@ -1,0 +1,28 @@
+sort S bv 2
+param engine pdr
+setparams
+vars x S y S z S
+rel r0 S S
+rel r1 S S S
+rel r2 S S
+rel r3 
+rule f976 r3
+rule f963 (r2 2:S 1:S)
+rule f234 (r1 0:S 2:S 0:S)
+rule f833 (r2 1:S 1:S)
+rule f707 (r0 3:S 0:S)
+rule f749 (r0 0:S 3:S)
+rule n0 (=> (and (r2 1:S z) r3 (r0 y x) (= x 3:S)) (r2 y y))
+rule n1 (=> (and (r2 x x) (r1 z z z) r3) (r1 0:S x x))
+rule n2 (=> (and r3 (r0 y y)) (r2 0:S x))
+rule n3 (=> (and (r2 0:S z) (r0 y x) (r2 x y) (= x 1:S)) r3)
+query (and r3 r3)
+levels r3
+delta -1 r3
+delta 0 r3
+query (and r3 (r0 x 0:S))
+levels r0
+delta -1 r0
+delta 0 r0
+cover 1 r0 (= x 2:S)
+query (and (r0 x y) (r2 y y))

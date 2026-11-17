@@ -1,0 +1,27 @@
+sort S bool
+param engine datalog
+setparams
+vars x S y S z S
+rel r0 S S
+rel r1 S S
+rel r2 S S
+rule f898 (r1 false true)
+rule f20 (r0 true true)
+rule f368 (r0 true true)
+rule f92 (r2 true false)
+rule f756 (r0 false true)
+rule f635 (r0 false false)
+rule n0 (=> (and (r2 z x) (r1 z z) (r0 x y)) (r2 x z))
+rule n1 (=> (and (r0 z y) (not (r1 false z))) (r1 y z))
+query (and (r2 z y) (r0 z z))
+push
+rule n0 (=> (and (r0 z x) (r2 false z)) (r2 z false))
+rule f202 (r0 true true)
+rule f402 (r0 false false)
+rule f813 (r0 true false)
+rule f723 (r0 false true)
+query (r0 x y)
+pop
+query (and (r0 x z) (r2 y true))
+rule n0 (=> (r2 x false) (r2 x x))
+query (r0 false y)

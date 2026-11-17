@@ -1,0 +1,34 @@
+> sort S bool
+> param engine datalog
+> setparams
+> vars x S y S z S
+> rel r0 S S
+> rel r1 S S
+> rel r2 
+> rel r3 S S
+> repr r3 tr_hashtable
+> rule f546 (r0 true true)
+> rule n0 (=> (and (r0 z y) (not (r3 x z)) (= x true)) (r3 y y))
+> rule n1 (=> (and r2 (= x false)) (r3 y x))
+> query r2
+error: Negation is not stratified!
+result 0
+reason ok
+> query (and (r1 y z) (r0 x true))
+error: Negation is not stratified!
+result 0
+reason ok
+> rule n0 (=> (r1 x y) (r1 x y))
+> qrel r2 r0
+error: Negation is not stratified!
+result 0
+reason ok
+> qrel r2 r3
+error: Negation is not stratified!
+result 0
+reason ok
+> rule n0 (=> (and (r3 z false) r2) (r3 x z))
+> query (r3 z x)
+error: Negation is not stratified!
+result 0
+reason ok

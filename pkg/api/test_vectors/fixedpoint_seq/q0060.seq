@@ -1,0 +1,25 @@
+sort S bool
+param engine datalog
+setparams
+vars x S y S z S
+rel r0 S S
+rel r1 
+rel r2 S
+rel r3 S S
+repr r1 tr_hashtable
+rule f172 (r0 false false)
+rule f546 r1
+rule f255 r1
+rule f931 (r2 true)
+rule f737 (r0 false true)
+rule f693 (r0 false false)
+rule n0 (=> (and r1 (r0 x z) r1) (r2 false))
+rule n1 (=> (and (r3 z y) (not (r0 x x))) (r2 x))
+rule n2 (=> (and (r3 false y) r1) r1)
+rule n3 (=> (r0 x z) (r3 z z))
+rule n4 (=> (and (r2 x) (r3 z y) (not (r0 true z))) r1)
+query (and r1 (r0 true x))
+rule n0 (=> (and (r2 z) (= x true)) (r3 y x))
+query (r3 y x)
+rule n0 (=> (and (r3 x x) (= x false)) (r2 z))
+query (r3 true x)

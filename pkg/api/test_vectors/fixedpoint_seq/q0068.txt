@@ -1,0 +1,39 @@
+> sort S fin 5
+> param engine datalog
+> setparams
+> vars x S y S z S
+> rel r0 S S
+> rel r1 S
+> rel r2 S S
+> rel r3 
+> rel r4 
+> rel r5 S S S
+> fact r3
+> fact r2 2 1
+> rule n0 (=> (and (r5 y x y) r4 (r5 y y x) (not (r2 x y))) r3)
+> rule n1 (=> (and (r1 y) (r5 x x x) r3 (not (r1 0:S))) r4)
+> rule n2 (=> (and (r5 x 1:S 1:S) (= x 1:S)) (r5 y 3:S z))
+> qrel r1
+result -1
+false
+> param datalog.explanations_on_relation_level true
+> setparams
+> query (and r4 r3)
+result -1
+false
+> push
+> rule n0 (=> (r1 x) (r2 z z))
+> fact r0 1 3
+> fact r0 2 3
+> query (and (r0 z z) (r2 z y))
+result -1
+false
+> pop
+error: pop operation is only supported by duality engine
+> query (r1 z)
+result -1
+false
+> rule n0 (=> (and (r1 y) (r1 2:S) r3 (= x 4:S)) (r5 x 3:S x))
+> query (and (r1 y) (r1 z))
+result -1
+false

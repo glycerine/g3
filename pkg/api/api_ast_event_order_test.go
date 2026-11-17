@@ -30,6 +30,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -42,9 +43,13 @@ type apiASTEventCase struct {
 	args    []string
 	whole   bool // the program deletes its context
 	run     func(t *testing.T)
+	label   string // the case name, when the arguments do not make one
 }
 
 func (c apiASTEventCase) name() string {
+	if c.label != "" {
+		return c.label
+	}
 	return strings.TrimSuffix(filepath.Base(c.program), ".c") + "_" + strings.Join(c.args, "_")
 }
 
@@ -64,6 +69,16 @@ func apiASTEventCases() []apiASTEventCase {
 	}{{160, "doc"}, {65, "doc"}, {64, "doc"}, {8, "doc"}, {160, "hashtable"}, {200, "doc"}} {
 		cases = append(cases, apiASTEventCase{program: "udoc_wide/wide.c", args: []string{strconv.Itoa(int(spec.bits)), spec.relation}, whole: true,
 			run: func(t *testing.T) { runUDocWide(t, spec.bits, spec.relation) }})
+	}
+	// The case's child process runs in a scratch directory: the sequences
+	// are found from this file's directory.
+	_, self, _, _ := runtime.Caller(0)
+	sequences, _ := filepath.Glob(filepath.Join(filepath.Dir(self), "test_vectors", "fixedpoint_seq", "*.seq"))
+	for _, abs := range sequences {
+		path := abs
+		cases = append(cases, apiASTEventCase{program: "fixedpoint_seq/seq.c", args: []string{abs},
+			label: "seq_" + strings.TrimSuffix(filepath.Base(path), ".seq"),
+			run:   func(t *testing.T) { runFixedpointSequence(t, abs) }})
 	}
 	for mode := 0; mode < len(externalPluginExpected); mode++ {
 		cases = append(cases, apiASTEventCase{program: "external_relation/ext.c", args: []string{strconv.Itoa(mode)},
@@ -182,4 +197,16 @@ func TestAPIASTEventOrder(t *testing.T) {
 			t.Log(fmt.Sprintf("%d events", len(want)))
 		})
 	}
+}
+
+// TestAPIFixedpointSequenceTraced runs the sequence named by
+// G3_API_FIXEDPOINT_SEQUENCE with the mk_var_bug trace (the sequence
+// sweep's g3 side of the AST event comparison).
+func TestAPIFixedpointSequenceTraced(t *testing.T) {
+	path := os.Getenv(fixedpointSequenceEnv)
+	if path == "" {
+		t.Skip("set " + fixedpointSequenceEnv)
+	}
+	astTestMust(t, EnableTrace("mk_var_bug"))
+	runFixedpointSequenceTo(t, path, os.Stdout)
 }

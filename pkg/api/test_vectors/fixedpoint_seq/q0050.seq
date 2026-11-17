@@ -1,0 +1,35 @@
+sort S bv 3
+param engine datalog
+param datalog.magic_sets_for_queries true
+param datalog.all_or_nothing_deltas true
+setparams
+vars x S y S z S
+rel r0 S S
+rel r1 S S
+rel r2 S S
+repr r2 tr_hashtable
+fact r1 0 7
+fact r0 2 0
+fact r0 6 0
+rule n0 (=> (and (r1 z z) (r1 0:S z) (r2 z x)) (r1 z x))
+rule n1 (=> (and (r2 x 1:S) (r1 x z) (r1 z x) (not (r2 x 7:S))) (r1 y y))
+rule n2 (=> (and (r0 z x) (r0 x z) (not (r2 z y)) (= x 1:S)) (r2 y z))
+query (r2 y y)
+push
+rule n0 (=> (and (r2 x 7:S) (r1 1:S z) (r2 x 0:S) (= x 2:S)) (r2 z z))
+fact r0 6 5
+fact r0 6 6
+fact r0 1 2
+fact r2 2 4
+fact r0 2 5
+fact r2 1 2
+qrel r0 r1
+pop
+query (r2 y x)
+param xform.inline_linear false
+setparams
+query (r1 z 1:S)
+rule n0 (=> (r0 z z) (r2 z 7:S))
+qrel r2
+rule n0 (=> (r1 x z) (r1 x x))
+query (and (r2 x 6:S) (r2 z x))

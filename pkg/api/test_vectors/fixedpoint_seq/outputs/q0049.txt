@@ -1,0 +1,68 @@
+> sort S bool
+> param engine spacer
+> setparams
+> vars x S y S z S
+> rel r0 S S
+> rel r1 S S
+> rel r2 S S
+> rel r3 S S
+> rel r4 S S
+> rule f890 (r0 false true)
+> rule n0 (=> (and (r2 z z) (r4 z z)) (r4 y y))
+> rule n1 (=> (r0 false z) (r2 y y))
+> rule n2 (=> (r1 z z) (r4 z x))
+> rule n3 (=> (and (r1 y false) (r1 false y) (r2 z false)) (r1 z false))
+> rule n4 (=> (r1 true z) (r2 x z))
+> query (r1 false z)
+result -1
+(and (forall ((A Bool) (B Bool)) (= (r2 A B) true))
+     (forall ((A Bool) (B Bool)) (= (r0 A B) (and (not A) B)))
+     (forall ((A Bool) (B Bool)) (= (r1 A B) false))
+     (forall ((A Bool) (B Bool)) (= (r4 A B) true)))
+> levels r1
+levels 0
+> delta -1 r1
+true
+> delta 0 r1
+true
+> cover 1 r1 (= x true)
+error: Covers are incompatible with slicing. Disable slicing before using covers
+> query (and (r4 x false) (r1 true x))
+result -1
+(and (forall ((A Bool) (B Bool)) (= (r2 A B) true))
+     (forall ((A Bool) (B Bool)) (= (r0 A B) (and (not A) B)))
+     (forall ((A Bool) (B Bool)) (= (r1 A B) false))
+     (forall ((A Bool) (B Bool)) (= (r4 A B) false)))
+> push
+> rule n0 (=> (r2 true true) (r4 z x))
+> rule f268 (r0 true true)
+> rule f530 (r0 true false)
+> rule f492 (r4 false true)
+> rule f627 (r3 false false)
+> rule f786 (r0 false false)
+> rule f220 (r0 true false)
+> query (and (r0 x false) (r4 x false))
+result 1
+true
+> pop
+error: pop operation is only supported by duality engine
+> query (r1 z x)
+result -1
+(and (forall ((A Bool) (B Bool)) (= (r2 A B) true))
+     (forall ((A Bool) (B Bool))
+       (= (r0 A B)
+          (or (and (not A) B) (and A B) (and A (not B)) (and (not A) (not B)))))
+     (forall ((A Bool) (B Bool)) (= (r1 A B) false))
+     (forall ((A Bool) (B Bool)) (= (r3 A B) (and (not A) (not B))))
+     (forall ((A Bool) (B Bool)) (= (r4 A B) true)))
+> levels r4
+levels 0
+> delta -1 r4
+true
+> delta 0 r4
+true
+> cover 1 r4 (= x true)
+error: Covers are incompatible with slicing. Disable slicing before using covers
+> query (and (r3 y y) (r2 y x))
+result 1
+true

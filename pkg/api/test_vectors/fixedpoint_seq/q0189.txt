@@ -1,0 +1,20 @@
+> sort S bv 2
+> param engine bmc
+> setparams
+> vars x S y S z S
+> rel r0 S S
+> rel r1 
+> rel r2 S
+> rule f192 (r0 0:S 1:S)
+> rule n0 (=> (and (r0 z x) (r0 z 0:S) (r0 z y)) (r2 x))
+> rule n1 (=> (and (r0 2:S y) (r0 z x) (r2 z)) (r2 z))
+> rule n2 (=> (and r1 r1 (r2 x)) (r2 z))
+> rule n3 (=> (and (r2 x) (r2 y) (r0 y z)) (r2 y))
+> rule n4 (=> (and (r0 x z) (r2 y) (= x 1:S)) r1)
+> query r1
+result -1
+null
+> rule n0 (=> (and (r0 y 2:S) (r2 y)) r1)
+> query (and (r0 y z) (r0 x x))
+result -1
+null

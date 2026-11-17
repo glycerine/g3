@@ -1,0 +1,32 @@
+> sort S fin 3
+> param engine datalog
+> setparams
+> vars x S y S z S
+> rel r0 S S
+> rel r1 S S
+> rel r2 S
+> rel r3 S S
+> rel r4 
+> repr r3 tr_bitvector
+> fact r0 2 1
+> fact r0 0 0
+> fact r0 2 0
+> rule n0 (=> (and (r2 z) (r2 0:S) (not r4)) r4)
+> rule n1 (=> (and (r2 1:S) (r1 1:S z) (r2 x)) r4)
+> rule n2 (=> (and (r0 x x) (r1 z z) (r0 y 1:S)) (r1 x y))
+> rule n3 (=> (and r4 r4 (= x 2:S)) r4)
+> qrel r0
+error: Negation is not stratified!
+result 0
+reason ok
+> rule n0 (=> (and (r0 z z) (r0 y z) (r1 1:S z) (not (r1 0:S 2:S))) (r2 0:S))
+> query (r0 x z)
+error: Negation is not stratified!
+result 0
+reason ok
+> param datalog.output_profile true
+> setparams
+> query (r0 y z)
+error: Negation is not stratified!
+result 0
+reason ok
