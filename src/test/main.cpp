@@ -319,6 +319,11 @@ int main(int argc, char ** argv) {
     TST(z3_4_7_1_transformer_throw_leak);
     TST(z3_4_7_1_tbv_wide_uint64);
     TST(z3_4_7_1_gcd_int_max_cell);
+    TST(z3_4_7_1_sparse_negated_join_order);
+    TST(z3_4_7_1_sparse_contains_fact_functional);
+    TST(z3_4_7_1_sparse_negated_join_second_columns);
+    TST(z3_4_7_1_table_intersection_filter);
+    TST(z3_4_7_1_sparse_negated_join_zero_key);
     TST(ext_numeral);
     TST(interval);
     TST(f2n);

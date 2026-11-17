@@ -4095,3 +4095,249 @@ void tst_z3_4_7_1_gcd_int_max_cell() {
     std::cout << "gcd_int_max_cell: fraction " << qm.to_string(q) << "\n";
     ENSURE(qm.is_one(q));
 }
+
+#include "muz/rel/dl_sparse_table.h"
+
+// sparse_table_plugin::negated_join_fn removes the rows collect_to_remove
+// found in increasing offset order with entry_storage::remove_offset, which
+// moves the last row into the removed row's place: a later offset then
+// names another row, or none. Here t = {1, 2, 3, 4} loses the rows 1 and 4
+// (s1 and s2 hold 1 and 4): the first removal moved row 4 to row 1's place,
+// and the second, at row 4's old offset, moved row 3 out of the table:
+// the table iterated {4, 2}.
+// The fixed fork removes the largest offsets first, as negation_filter_fn
+// does. pkg/AUDIT.md (plugins13 negated_join).
+void tst_z3_4_7_1_sparse_negated_join_order() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    datalog::register_engine re;
+    smt_params fp;
+    datalog::context ctx(m, re, fp);
+    datalog::relation_manager & rmgr = ctx.get_rel_context()->get_rmanager();
+    datalog::table_plugin * sp = rmgr.get_table_plugin(symbol("sparse"));
+    ENSURE(sp);
+    datalog::table_signature sig;
+    sig.push_back(4);
+    auto mk = [&](unsigned n, unsigned const* vals) {
+        datalog::table_base * t = sp->mk_empty(sig);
+        for (unsigned i = 0; i < n; ++i) {
+            datalog::table_fact f;
+            f.push_back(vals[i]);
+            t->add_fact(f);
+        }
+        return t;
+    };
+    unsigned t_vals[4] = { 1, 2, 3, 4 };
+    unsigned s_vals[2] = { 1, 4 };
+    datalog::scoped_rel<datalog::table_base> t = mk(4, t_vals);
+    datalog::scoped_rel<datalog::table_base> s1 = mk(2, s_vals);
+    datalog::scoped_rel<datalog::table_base> s2 = mk(2, s_vals);
+    unsigned_vector t_cols, src_cols, src1_cols, src2_cols;
+    t_cols.push_back(0);
+    src_cols.push_back(0);
+    src1_cols.push_back(0);
+    src2_cols.push_back(0);
+    scoped_ptr<datalog::table_intersection_join_filter_fn> fn =
+        rmgr.mk_filter_by_negated_join_fn(*t, *s1, *s2, t_cols, src_cols, src1_cols, src2_cols);
+    ENSURE(fn);
+    (*fn)(*t, *s1, *s2);
+    // The rows the table iterates (contains_fact asks the indexer, which
+    // the misplaced removal also left inconsistent).
+    bool has[5] = { false, false, false, false, false };
+    unsigned rows = 0;
+    datalog::table_base::iterator it = t->begin(), end = t->end();
+    for (; it != end; ++it) {
+        datalog::table_fact f;
+        it->get_fact(f);
+        if (f[0] < 5) has[f[0]] = true;
+        ++rows;
+    }
+    std::cout << "sparse_negated_join_order: rows " << rows << " 1 " << has[1] << " 2 " << has[2] << " 3 " << has[3] << " 4 " << has[4] << "\n";
+    ENSURE(rows == 2 && !has[1] && has[2] && has[3] && !has[4]);
+}
+
+// sparse_table::contains_fact of a signature with functional columns finds
+// the row of f's key and compares the cells from functional_columns() on:
+// the functional columns are the last ones (first_functional() on), so for
+// a signature of n columns with k > n/2 functional columns the first
+// functional columns were never compared, and with n == k none was. A
+// table of the finite product relation index signature (one functional
+// column) holding (0) then contained (1). The fixed fork compares the
+// functional columns.
+void tst_z3_4_7_1_sparse_contains_fact_functional() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    datalog::register_engine re;
+    smt_params fp;
+    datalog::context ctx(m, re, fp);
+    datalog::relation_manager & rmgr = ctx.get_rel_context()->get_rmanager();
+    datalog::table_plugin * sp = rmgr.get_table_plugin(symbol("sparse"));
+    ENSURE(sp);
+    datalog::table_signature idx;
+    idx.push_back(4);
+    idx.set_functional_columns(1);
+    datalog::scoped_rel<datalog::table_base> t = sp->mk_empty(idx);
+    datalog::table_fact f0, f1;
+    f0.push_back(0);
+    f1.push_back(1);
+    t->add_fact(f0);
+    bool idx_has0 = t->contains_fact(f0), idx_has1 = t->contains_fact(f1);
+    datalog::table_signature wide;
+    wide.push_back(4);
+    wide.push_back(4);
+    wide.push_back(4);
+    wide.set_functional_columns(2);
+    datalog::scoped_rel<datalog::table_base> w = sp->mk_empty(wide);
+    datalog::table_fact g, h;
+    g.push_back(1); g.push_back(2); g.push_back(3);
+    h.push_back(1); h.push_back(0); h.push_back(3);
+    w->add_fact(g);
+    bool wide_g = w->contains_fact(g), wide_h = w->contains_fact(h);
+    std::cout << "sparse_contains_fact_functional: idx (0) " << idx_has0 << " (1) " << idx_has1
+              << " wide (1,2,3) " << wide_g << " (1,0,3) " << wide_h << "\n";
+    ENSURE(idx_has0 && !idx_has1 && wide_g && !wide_h);
+}
+
+// sparse_table_plugin::negated_join_fn splits t_cols/src_cols by whether a
+// source column (a column of the join of src1 and src2) is src1's or src2's,
+// but keeps the joined column number for src2 instead of subtracting src1's
+// size: the key of src2 then read another column of src2 (or past its
+// last one). With src1 = {(1)}, src2 = {(1, 5)} joined on their column 0,
+// t = {(1, 1), (1, 5)} filtered by not exists (t.0 = j.0, t.1 = j.1) must
+// lose (1, 1) (j.1 is src2's column 0); 4.7.1 removed (1, 5). The fixed
+// fork subtracts src1's size. lazy_table_filter_by_negation::force reaches
+// it with the columns of a lazy join.
+void tst_z3_4_7_1_sparse_negated_join_second_columns() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    datalog::register_engine re;
+    smt_params fp;
+    datalog::context ctx(m, re, fp);
+    datalog::relation_manager & rmgr = ctx.get_rel_context()->get_rmanager();
+    datalog::table_plugin * sp = rmgr.get_table_plugin(symbol("sparse"));
+    ENSURE(sp);
+    auto mk = [&](unsigned cols, unsigned n, unsigned const* vals) {
+        datalog::table_signature sig;
+        for (unsigned c = 0; c < cols; ++c) sig.push_back(8);
+        datalog::table_base * t = sp->mk_empty(sig);
+        for (unsigned i = 0; i < n; ++i) {
+            datalog::table_fact f;
+            for (unsigned c = 0; c < cols; ++c) f.push_back(vals[i * cols + c]);
+            t->add_fact(f);
+        }
+        return t;
+    };
+    unsigned t_vals[4] = { 1, 1, 1, 5 };
+    unsigned s1_vals[1] = { 1 };
+    unsigned s2_vals[2] = { 1, 5 };
+    datalog::scoped_rel<datalog::table_base> t = mk(2, 2, t_vals);
+    datalog::scoped_rel<datalog::table_base> s1 = mk(1, 1, s1_vals);
+    datalog::scoped_rel<datalog::table_base> s2 = mk(2, 1, s2_vals);
+    unsigned_vector t_cols, src_cols, src1_cols, src2_cols;
+    t_cols.push_back(0); t_cols.push_back(1);
+    src_cols.push_back(0); src_cols.push_back(1);
+    src1_cols.push_back(0);
+    src2_cols.push_back(0);
+    scoped_ptr<datalog::table_intersection_join_filter_fn> fn =
+        rmgr.mk_filter_by_negated_join_fn(*t, *s1, *s2, t_cols, src_cols, src1_cols, src2_cols);
+    ENSURE(fn);
+    (*fn)(*t, *s1, *s2);
+    datalog::table_fact a, b;
+    a.push_back(1); a.push_back(1);
+    b.push_back(1); b.push_back(5);
+    bool has_a = t->contains_fact(a), has_b = t->contains_fact(b);
+    std::cout << "sparse_negated_join_second_columns: kept (1,1) " << has_a << " (1,5) " << has_b << "\n";
+    ENSURE(!has_a && has_b);
+}
+
+// relation_manager::mk_filter_by_intersection_fn of two tables asked the
+// table plugins for mk_filter_by_negation_fn: the "intersection" of t with
+// src removed the rows of t that src has. product_relation_plugin's
+// aligned_union_fn intersects its inner relations with it (through
+// table_relation_plugin::mk_filter_by_intersection_fn). t = {0, 1}
+// intersected with src = {1} must be {1}; 4.7.1 left {0}. The fixed fork
+// asks the table plugins for mk_filter_by_intersection_fn (none has one,
+// so a table_relation's intersection is the manager's default join and
+// union).
+void tst_z3_4_7_1_table_intersection_filter() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    datalog::register_engine re;
+    smt_params fp;
+    datalog::context ctx(m, re, fp);
+    datalog::relation_manager & rmgr = ctx.get_rel_context()->get_rmanager();
+    datalog::table_plugin * sp = rmgr.get_table_plugin(symbol("sparse"));
+    ENSURE(sp);
+    datalog::table_signature sig;
+    sig.push_back(4);
+    auto mk = [&](unsigned n, unsigned const* vals) {
+        datalog::table_base * t = sp->mk_empty(sig);
+        for (unsigned i = 0; i < n; ++i) {
+            datalog::table_fact f;
+            f.push_back(vals[i]);
+            t->add_fact(f);
+        }
+        return t;
+    };
+    unsigned t_vals[2] = { 0, 1 };
+    unsigned s_vals[1] = { 1 };
+    datalog::scoped_rel<datalog::table_base> t = mk(2, t_vals);
+    datalog::scoped_rel<datalog::table_base> src = mk(1, s_vals);
+    unsigned cols[1] = { 0 };
+    scoped_ptr<datalog::table_intersection_filter_fn> fn =
+        rmgr.mk_filter_by_intersection_fn(*t, *src, 1, cols, cols);
+    bool has0 = true, has1 = false;
+    if (fn) {
+        (*fn)(*t, *src);
+        datalog::table_fact f0, f1;
+        f0.push_back(0);
+        f1.push_back(1);
+        has0 = t->contains_fact(f0);
+        has1 = t->contains_fact(f1);
+    }
+    std::cout << "table_intersection_filter: fn " << (fn.get() != nullptr) << " kept 0 " << has0 << " 1 " << has1 << "\n";
+    ENSURE(!fn || (!has0 && has1));
+}
+
+// sparse_table_plugin::negated_join_fn::collect_to_remove looks the keys of
+// t's rows up in src1's and src2's key indexers only when update_key
+// changed the key, and the keys start as zeros: a first row whose key
+// columns are 0 was never looked up (nor were the following rows with the
+// same key). t = {0} with src1 = src2 = {0} kept its row. The fixed fork
+// looks the first keys up, as join_project's key_modified does.
+void tst_z3_4_7_1_sparse_negated_join_zero_key() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    datalog::register_engine re;
+    smt_params fp;
+    datalog::context ctx(m, re, fp);
+    datalog::relation_manager & rmgr = ctx.get_rel_context()->get_rmanager();
+    datalog::table_plugin * sp = rmgr.get_table_plugin(symbol("sparse"));
+    ENSURE(sp);
+    datalog::table_signature sig;
+    sig.push_back(4);
+    auto mk = [&]() {
+        datalog::table_base * t = sp->mk_empty(sig);
+        datalog::table_fact f;
+        f.push_back(0);
+        t->add_fact(f);
+        return t;
+    };
+    datalog::scoped_rel<datalog::table_base> t = mk();
+    datalog::scoped_rel<datalog::table_base> s1 = mk();
+    datalog::scoped_rel<datalog::table_base> s2 = mk();
+    unsigned_vector t_cols, src_cols, src1_cols, src2_cols;
+    t_cols.push_back(0);
+    src_cols.push_back(0);
+    src1_cols.push_back(0);
+    src2_cols.push_back(0);
+    scoped_ptr<datalog::table_intersection_join_filter_fn> fn =
+        rmgr.mk_filter_by_negated_join_fn(*t, *s1, *s2, t_cols, src_cols, src1_cols, src2_cols);
+    ENSURE(fn);
+    (*fn)(*t, *s1, *s2);
+    datalog::table_fact f;
+    f.push_back(0);
+    bool kept = t->contains_fact(f);
+    std::cout << "sparse_negated_join_zero_key: kept 0 " << kept << "\n";
+    ENSURE(!kept);
+}
