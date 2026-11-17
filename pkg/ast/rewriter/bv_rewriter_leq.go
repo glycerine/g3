@@ -37,8 +37,36 @@ func (p *BVRewriter) RewriteLE(signed bool, a, b ast.ASTHandle, out ast.ASTRef) 
 	defer func() { p.running = false; p.fail(err) }()
 	return p.rewriteLE(signed, a, b, out)
 }
+
+// Distinct nonnumerals can only reduce via the optional LE rules or
+// the unsigned rule for a concatenation with leading zeros.
+func (p *BVRewriter) canRewriteLE(signed bool, a, b ast.ASTHandle) (bool, error) {
+	if a == b || p.polynomial.config.bitVector.LEExtra {
+		return true, nil
+	}
+	m := p.manager
+	if yes, err := m.IsBitVectorNumeral(a); err != nil || yes {
+		return yes, err
+	}
+	if yes, err := m.IsBitVectorNumeral(b); err != nil || yes {
+		return yes, err
+	}
+	if signed {
+		return false, nil
+	}
+	if concat, err := m.IsBitVectorOperation(b, 37); err != nil || concat {
+		return concat, err
+	}
+	width, err := m.BitVectorSize(b)
+	return width == 0, err
+}
+
 func (p *BVRewriter) rewriteLE(signed bool, a, b ast.ASTHandle, out ast.ASTRef) (RewriteStatus, error) {
 	m := p.manager
+	possible, err := p.canRewriteLE(signed, a, b)
+	if err != nil || !possible {
+		return RewriteFailed, err
+	}
 	bytes := uint64(reflect.TypeOf(bvLEInvocation{}).Size())
 	if e := m.Budget().Reserve(bytes); e != nil {
 		return RewriteFailed, e

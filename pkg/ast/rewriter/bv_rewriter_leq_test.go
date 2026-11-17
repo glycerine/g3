@@ -270,3 +270,29 @@ func TestBVRewriterLEEveryColdReservationAndPublication(t *testing.T) {
 		}
 	}
 }
+
+// Quantifier instances repeatedly compare symbolic bit-vector terms.
+func TestBVRewriterSymbolicLEAllocations(t *testing.T) {
+	m, _ := bvAddFixture(t)
+	p := bvNotTestOwner(t, m, false, false)
+	x := bvMergeVars(t, m, 2)
+	out, err := m.NewRef(x[0])
+	astTestMust(t, err)
+	defer func() { astTestMust(t, m.DelRef(&out)) }()
+	for _, signed := range []bool{false, true} {
+		allocs := testing.AllocsPerRun(100, func() {
+			status, err := p.RewriteLE(signed, x[0], x[1], out)
+			if err != nil || status != RewriteFailed {
+				t.Fatalf("symbolic comparison returned %v, %v", status, err)
+			}
+		})
+		if allocs != 0 {
+			t.Errorf("signed=%v: inapplicable comparison allocated %.0f times", signed, allocs)
+		}
+	}
+	got, err := m.RefGet(out)
+	astTestMust(t, err)
+	if got != x[0] {
+		t.Fatal("failed rewrite changed the output")
+	}
+}
