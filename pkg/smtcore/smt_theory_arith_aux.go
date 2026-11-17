@@ -1790,3 +1790,7 @@ func (t *SMTTheoryArith) delayedAssumeEqs() (bool, error) {
 	}
 	return false, nil
 }
+
+// smtRatIsOne is rational::is_one of a math/big boundary value (the farkas
+// normalization factor, a grobner coefficient).
+func smtRatIsOne(q *big.Rat) bool { return q.IsInt() && q.Num().IsInt64() && q.Num().Int64() == 1 }

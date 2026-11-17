@@ -282,11 +282,16 @@ func (f *SMTFarkasUtil) Add(coefficient *big.Rat, constraint ast.ASTHandle) erro
 	return nil
 }
 
+// smtRatLCM is lcm(left, right) (rational's lcm: |left*right| / gcd), or
+// 0 when either is 0.
 func smtRatLCM(left, right *big.Int) *big.Int {
 	if left.Sign() == 0 || right.Sign() == 0 {
 		return new(big.Int)
 	}
-	return smtIntLCM(new(big.Int), left, right, nil)
+	z := new(big.Int).GCD(nil, nil, left, right)
+	z.Quo(left, z)
+	z.Mul(z, right)
+	return z.Abs(z)
 }
 
 func (f *SMTFarkasUtil) normalizeCoefficients() {

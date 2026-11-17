@@ -215,7 +215,6 @@ func smtRatCmp(a, b *big.Rat) int {
 	return a.Cmp(b)
 }
 
-func smtRatIsOne(q *big.Rat) bool { return q.IsInt() && q.Num().IsInt64() && q.Num().Int64() == 1 }
 func smtRatIsMinusOne(q *big.Rat) bool {
 	return q.IsInt() && q.Num().IsInt64() && q.Num().Int64() == -1
 }
