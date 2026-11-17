@@ -408,6 +408,7 @@ Abstract:
 #include "ast/dl_decl_plugin.h"
 #include "muz/rel/dl_sieve_relation.h"
 #include "muz/rel/rel_context.h"
+#include "muz/rel/tbv.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "muz/base/dl_util.h"
@@ -4037,4 +4038,28 @@ void tst_z3_4_7_1_transformer_throw_leak() {
     std::cout << "transformer_throw_leak: thrown " << thrown << " ASTs before " << before << " after " << after << "\n";
     ENSURE(!warm && thrown);
     ENSURE(after == before);
+}
+
+// tbv_manager::set(tbv&, uint64_t val, hi, lo) tests bit i of val with
+// (1ULL << i) for every i < hi - lo + 1: for a column wider than 64 bits
+// (a udoc relation of a wide bit-vector, whose fact numerals that fit in
+// 64 bits take this overload) the shift is undefined; x86 masks the count,
+// so 5 in a 160-bit column became 5 * (1 + 2^64 + 2^128). The fixed fork
+// sets the bits above 63 to 0. pkg/AUDIT.md FUZZ-F5.
+void tst_z3_4_7_1_tbv_wide_uint64() {
+    tbv_manager tm(160);
+    tbv* v = tm.allocate0();
+    volatile unsigned hi = 159;
+    tm.set(*v, rational(5), hi, 0);
+    unsigned ones = 0;
+    bool high = false;
+    for (unsigned i = 0; i < 160; ++i) {
+        if ((*v)[i] == BIT_1) {
+            ++ones;
+            high = high || i >= 64;
+        }
+    }
+    tm.deallocate(v);
+    std::cout << "tbv_wide_uint64: ones " << ones << " above bit 63 " << high << "\n";
+    ENSURE(ones == 2 && !high);
 }

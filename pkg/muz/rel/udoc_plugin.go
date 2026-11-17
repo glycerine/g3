@@ -340,6 +340,38 @@ func (r *UDocPluginRelation) factToDoc(f Fact) (*Doc, error) {
 	return d, nil
 }
 
+// AddFactAST is udoc_relation::add_fact of a relation_fact: fact2doc
+// reads each value as a numeral (VERIFY(is_numeral)) of the column's
+// width, which may exceed a table element (bit-vectors of any width).
+func (r *UDocPluginRelation) AddFactAST(values []ast.ASTHandle) error {
+	if err := r.open(); err != nil {
+		return err
+	}
+	if len(values) != len(r.sorts) {
+		return ErrDOC
+	}
+	d, err := r.dm.Allocate0()
+	if err != nil {
+		return err
+	}
+	for i, value := range values {
+		number, _, ok, err := r.plugin.isNumeral(value)
+		if err == nil && !ok {
+			err = ErrDOC
+		}
+		if err == nil {
+			lo := r.columnIdx(uint32(i))
+			hi := r.columnIdx(uint32(i) + 1)
+			err = r.dm.vectors.SetBigInt(d.positive, number, hi-1, lo)
+		}
+		if err != nil {
+			return errors.Join(err, r.dm.Deallocate(d))
+		}
+	}
+	_, err = r.elems.InsertOwned(d)
+	return err
+}
+
 // Add is udoc_relation::add_fact.
 func (r *UDocPluginRelation) Add(f Fact) (bool, error) {
 	if err := r.open(); err != nil {

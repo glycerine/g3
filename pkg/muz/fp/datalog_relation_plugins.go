@@ -97,8 +97,21 @@ func (e *PropositionalEngine) datalogRelationKind(state *predicateState, favouri
 		// empty product relation. A requested relation plugin kind that
 		// cannot handle the signature leaves the choice to the favourite
 		// and the relation plugin list.
-		if (len(state.requestedRepresentations) == 0 || requestedRelationPluginKind(state.requestedRepresentations) != "") && e.relationColumnSorts(state.sorts) {
-			return "plugin", nil
+		if len(state.requestedRepresentations) == 0 || requestedRelationPluginKind(state.requestedRepresentations) != "" {
+			if e.relationColumnSorts(state.sorts) {
+				return "plugin", nil
+			}
+			// relation_manager::mk_empty_relation: the requested kind's
+			// plugin, then the favourite, when it handles the signature
+			// (udoc takes bit-vectors of any width).
+			if name := requestedRelationPluginKind(state.requestedRepresentations); name != "" {
+				if ok, err := requestedHandles(name, state.sorts); err != nil || ok {
+					return map[bool]string{true: "plugin"}[ok], err
+				}
+			}
+			if ok, err := favouriteHandles(state.sorts); err != nil || ok {
+				return map[bool]string{true: "plugin"}[ok], err
+			}
 		}
 		return "", nil
 	}

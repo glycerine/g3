@@ -778,7 +778,12 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 			return err
 		}
 		if compiledFavourite {
-			// The favourite relation plugin's relations hold the facts.
+			// The favourite relation plugin's relations hold the facts:
+			// a udoc relation takes get_relation(pred).add_fact(fact) of
+			// the numerals (a bit-vector wider than a table element too).
+			if _, ok := e.predicates[declaration].table.(*rel.UDocPluginRelation); ok {
+				return e.addRelationFactAST(declaration, values)
+			}
 		} else if selected, err := e.ensureUDocDatalog(); err != nil {
 			return err
 		} else if selected {

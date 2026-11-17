@@ -200,11 +200,27 @@ func (e *PropositionalEngine) addRoutedFact(declaration ast.ASTHandle, values []
 	if err != nil || !routed {
 		return false, err
 	}
+	return e.addRelationFactASTRouted(declaration, values)
+}
+
+// addRelationFactAST is rel_context::add_fact(pred, relation_fact) on the
+// favourite relation plugins' route: reset_saturated_marks, then
+// get_relation(pred).add_fact(fact).
+func (e *PropositionalEngine) addRelationFactAST(declaration ast.ASTHandle, values []ast.ASTHandle) error {
+	handled, err := e.addRelationFactASTRouted(declaration, values)
+	if err == nil && !handled {
+		err = rel.ErrRelationNotTable
+	}
+	return err
+}
+
+func (e *PropositionalEngine) addRelationFactASTRouted(declaration ast.ASTHandle, values []ast.ASTHandle) (bool, error) {
 	state := e.predicates[declaration]
 	relation, ok := rel.AsRelation(state.table)
 	if !ok {
 		return false, nil
 	}
+	var err error
 	adder, ok := relation.(rel.RelationAddFactAST)
 	if !ok {
 		return true, rel.ErrRelationNotTable

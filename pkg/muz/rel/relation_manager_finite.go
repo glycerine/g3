@@ -21,7 +21,11 @@ func (m *RelationManager) TryGetFiniteRelation(predicate ast.ASTHandle) (FiniteT
 		return nil, false, nil
 	}
 	if _, err := table.Signature(); err != nil {
-		return nil, false, err
+		// A relation whose signature no table encodes (a udoc relation
+		// of a wide bit-vector) is still the predicate's relation.
+		if _, relation := AsRelation(table); !relation || !errors.Is(err, ErrRelationNotTable) {
+			return nil, false, err
+		}
 	}
 	return table, true, nil
 }
