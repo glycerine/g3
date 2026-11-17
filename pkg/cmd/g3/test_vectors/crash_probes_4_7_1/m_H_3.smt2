@@ -1,0 +1,6 @@
+(set-option :fixedpoint.engine datalog)
+(declare-rel r (Bool Bool) interval_relation tr_sparse)
+(declare-var b Bool)
+(rule (r true true))
+(rule (=> (r b b) (r (not b) b)))
+(query r)

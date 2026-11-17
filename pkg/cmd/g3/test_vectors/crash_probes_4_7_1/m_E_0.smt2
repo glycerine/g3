@@ -1,0 +1,8 @@
+(set-option :fixedpoint.engine datalog)
+(declare-rel p (Int Bool) interval_relation bound_relation)
+(declare-rel r (Bool) interval_relation bound_relation)
+(declare-var x Int)
+(declare-var b Bool)
+(rule (r true))
+(rule (=> (and (r b) (not (p x b))) (r false)))
+(query r)

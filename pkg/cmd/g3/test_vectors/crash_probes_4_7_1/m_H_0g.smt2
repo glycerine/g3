@@ -1,0 +1,7 @@
+(set-option :fixedpoint.engine datalog)
+(set-option :fixedpoint.datalog.generate_explanations true)
+(declare-rel r (Bool Bool) interval_relation bound_relation)
+(declare-var b Bool)
+(rule (r true true))
+(rule (=> (r b b) (r (not b) b)))
+(query r)
