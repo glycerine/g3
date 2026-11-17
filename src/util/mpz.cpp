@@ -732,7 +732,10 @@ void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
         set(b1, b);
         abs(a1);
         abs(b1);
-        if (lt(a1, b1))
+        // FORK FIX #114 (g3 audit, see FORK_BUGFIXES.md): set(mpz&, uint64_t)
+        // stores INT_MAX in a cell, so an inline a1 can equal a cell b1.
+        // The loop below needs a1 in a cell whenever b1 is, so swap then too.
+        if (lt(a1, b1) || (is_small(a1) && !is_small(b1)))
             swap(a1, b1);
         while (true) {
             SASSERT(ge(a1, b1));
