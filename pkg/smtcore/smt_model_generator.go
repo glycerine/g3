@@ -922,14 +922,30 @@ func (g *SMTModelGenerator) topSortSources(roots []*SMTEnode, procedures map[*SM
 		gray
 		black
 	)
-	colors := make(map[smtModelSourceKey]uint8)
+	// source2color is one obj_map keyed by source; a source is an enode or
+	// a fresh value, so it is kept as two pointer-keyed maps.
+	nodeColors := make(map[*SMTEnode]uint8, len(roots))
+	freshColors := make(map[*SMTExtraFreshValue]uint8, len(g.extraFresh))
+	color := func(key smtModelSourceKey) uint8 {
+		if key.fresh != nil {
+			return freshColors[key.fresh]
+		}
+		return nodeColors[key.node]
+	}
+	setColor := func(key smtModelSourceKey, c uint8) {
+		if key.fresh != nil {
+			freshColors[key.fresh] = c
+		} else {
+			nodeColors[key.node] = c
+		}
+	}
 	traversedSorts := make(map[ast.ASTHandle]struct{})
 	var todo []smtModelSourceKey
 	result := make([]SMTModelValueDependency, 0, len(roots)+len(g.extraFresh))
 	// Push all white dependencies in producer order. The work stack consumes
 	// the last one first, matching native visit_child/process_source.
 	pushChild := func(key smtModelSourceKey) (bool, error) {
-		switch colors[key] {
+		switch color(key) {
 		case white:
 			todo = append(todo, key)
 			return false, nil
@@ -1041,16 +1057,17 @@ func (g *SMTModelGenerator) topSortSources(roots []*SMTEnode, procedures map[*SM
 		return visited, nil
 	}
 	process := func(key smtModelSourceKey) error {
-		if err := g.sourceAssertion(229, colors[key] != gray, "color != Grey"); err != nil {
+		keyColor := color(key)
+		if err := g.sourceAssertion(229, keyColor != gray, "color != Grey"); err != nil {
 			return err
 		}
-		if colors[key] == gray {
+		if keyColor == gray {
 			return ast.ErrASTDomain
 		}
-		if colors[key] == black {
+		if keyColor == black {
 			return nil
 		}
-		if err := g.sourceAssertion(232, colors[key] == white, "color == White"); err != nil {
+		if err := g.sourceAssertion(232, keyColor == white, "color == White"); err != nil {
 			return err
 		}
 		if err := g.traceProcessSource(224, "process source", key, len(todo)); err != nil {
@@ -1062,9 +1079,9 @@ func (g *SMTModelGenerator) topSortSources(roots []*SMTEnode, procedures map[*SM
 			if err := g.traceProcessSource(236, "current source", current, len(todo)); err != nil {
 				return err
 			}
-			switch colors[current] {
+			switch color(current) {
 			case white:
-				colors[current] = gray
+				setColor(current, gray)
 				if _, err := visitChildren(current); err != nil {
 					return err
 				}
@@ -1079,7 +1096,7 @@ func (g *SMTModelGenerator) topSortSources(roots []*SMTEnode, procedures map[*SM
 						return err
 					}
 				}
-				colors[current] = black
+				setColor(current, black)
 				dependency, err := smtModelKeyDependency(current)
 				if err != nil {
 					return err
