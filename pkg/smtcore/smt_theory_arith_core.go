@@ -41,15 +41,10 @@ func (t *SMTTheoryArith) isOp(n ast.ASTHandle, op int32) bool {
 	return own && k == op
 }
 
-// isNumeral is m_util.is_numeral(n, r).
-func (t *SMTTheoryArith) isNumeral(n ast.ASTHandle) (*big.Rat, bool) {
-	// ArithmeticNumeralBigRat is ArithmeticNumeralText + SetString without
-	// the decimal round trip; a text that does not parse is an error.
-	r, _, matched, err := t.state.manager.ArithmeticNumeralBigRat(n)
-	if err != nil || !matched {
-		return nil, false
-	}
-	return r, true
+// isNumeral is m_util.is_numeral(n).
+func (t *SMTTheoryArith) isNumeral(n ast.ASTHandle) bool {
+	ok, err := t.state.manager.IsArithmeticNumeral(n)
+	return ok && err == nil
 }
 
 // isNumeralQ is m_util.is_numeral(n, r) with a rational r.
@@ -229,7 +224,7 @@ func (t *SMTTheoryArith) isIntExpr(e ast.ASTHandle) (bool, error) {
 		todo = todo[:len(todo)-1]
 		if t.isOp(e, smtArithOpToReal) {
 			// pass
-		} else if r, ok := t.isNumeral(e); ok && r.IsInt() {
+		} else if t.isIntNumeral(e) {
 			// pass
 		} else if t.isOp(e, smtArithOpAdd) || t.isOp(e, smtArithOpMul) {
 			args, err := t.args(e)
@@ -317,8 +312,7 @@ func (t *SMTTheoryArith) isPureMonomial(m ast.ASTHandle) bool {
 	if err != nil {
 		return false
 	}
-	_, numeral := t.isNumeral(arg0)
-	return !numeral
+	return !t.isNumeral(arg0)
 }
 
 // ---- core.h:144-198 ----
@@ -615,8 +609,27 @@ func (t *SMTTheoryArith) divisorUnderspecified(n ast.ASTHandle) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	r, ok := t.isNumeral(q)
-	return !ok || r.Sign() == 0, nil
+	r := smtQZero()
+	ok, err := t.isNumeralQ(q, &r)
+	under := !ok || r.IsZero()
+	return under, errors.Join(err, smtQDel(t.q, &r))
+}
+
+// isNumeralSet is m_util.is_numeral(n, r) as a predicate; a failure is
+// kept in qErr.
+func (t *SMTTheoryArith) isNumeralSet(n ast.ASTHandle, r *numeral.Rational) bool {
+	ok, err := t.isNumeralQ(n, r)
+	t.keep(err)
+	return ok && err == nil
+}
+
+// isIntNumeral is m_util.is_numeral(e, r) && r.is_int().
+func (t *SMTTheoryArith) isIntNumeral(e ast.ASTHandle) bool {
+	r := smtQZero()
+	ok, err := t.isNumeralQ(e, &r)
+	isInt := ok && err == nil && r.IsInt()
+	t.keep(smtQDel(t.q, &r))
+	return isInt
 }
 
 // relevancy is ctx.relevancy(): m_relevancy_lvl > 0.
@@ -852,9 +865,10 @@ func (t *SMTTheoryArith) addRelWatch(l SMTLiteral, n ast.ASTHandle) error {
 
 // ---- core.h:494-616 ----
 
+// isZero is m_util.is_zero(n).
 func (t *SMTTheoryArith) isZero(n ast.ASTHandle) bool {
-	r, ok := t.isNumeral(n)
-	return ok && r.Sign() == 0
+	zero, err := t.state.manager.ArithmeticNumeralIsZero(n)
+	return zero && err == nil
 }
 
 func (t *SMTTheoryArith) mkDivAxiom(p, q ast.ASTHandle) (err error) {
@@ -893,7 +907,7 @@ func (t *SMTTheoryArith) mkIdivModAxioms(dividend, divisor ast.ASTHandle) (err e
 	}
 	m := t.state.manager
 	fid := t.FamilyID()
-	_, isNumeral := t.isNumeral(divisor)
+	isNumeral := t.isNumeral(divisor)
 	// expr_ref div, mod, zero, abs_divisor, one, eqz, eq, lower, upper; they
 	// die in reverse declaration order. Nested terms are raw.
 	const (
@@ -1006,7 +1020,10 @@ func (t *SMTTheoryArith) mkIdivModAxioms(dividend, divisor ast.ASTHandle) (err e
 			return err
 		}
 	}
-	if k, ok := t.isNumeral(divisor); t.params.EnumConstMod && ok && k.Sign() > 0 && k.Cmp(big.NewRat(8, 1)) < 0 {
+	// rational k; rational j(0): both live to the end of the function.
+	k, j := smtQZero(), smtQZero()
+	defer func() { err = errors.Join(err, smtQDel(t.q, &j), smtQDel(t.q, &k)) }()
+	if t.params.EnumConstMod && t.isNumeralSet(divisor, &k) && k.IsPos() && t.rcmp(&k, smtQIntPtr(8)) < 0 {
 		// expr_ref mod_j lives for the block.
 		modJ, err := m.NewRef(ast.ASTHandle{})
 		if err != nil {
@@ -1014,8 +1031,8 @@ func (t *SMTTheoryArith) mkIdivModAxioms(dividend, divisor ast.ASTHandle) (err e
 		}
 		defer func() { err = errors.Join(err, m.DelRef(&modJ)) }()
 		var lits []SMTLiteral
-		for j := new(big.Rat); j.Cmp(k) < 0; j.Add(j, big.NewRat(1, 1)) {
-			num, err := m.ArithmeticIntegerNumeralText(j.RatString())
+		for ; t.rcmp(&j, &k) < 0; t.keep(t.q.Inc(&j)) {
+			num, err := m.ArithmeticNumeralFromRational(&j, true)
 			if err != nil {
 				return err
 			}
@@ -3696,25 +3713,23 @@ func (t *SMTTheoryArith) computeEpsilon() error {
 	return t.takeQErr(nil)
 }
 
-// modelRational is val.get_rational() + m_epsilon * val.get_infinitesimal(),
-// as a math/big key.
-func (t *SMTTheoryArith) modelRational(val *smtArithmeticValue) (*big.Rat, error) {
-	num := smtQZero()
-	defer smtQDel(t.q, &num)
-	if err := t.q.Mul(&t.epsilon, &val.infinitesimal, &num); err != nil {
-		return nil, err
+// modelRational sets value to val.get_rational() + m_epsilon *
+// val.get_infinitesimal().
+func (t *SMTTheoryArith) modelRational(val *smtArithmeticValue, value *numeral.Rational) error {
+	if err := t.q.Mul(&t.epsilon, &val.infinitesimal, value); err != nil {
+		return err
 	}
-	if err := t.q.Add(&val.rational, &num, &num); err != nil {
-		return nil, err
-	}
-	return smtQBig(t.q, &num)
+	return t.q.Add(&val.rational, value, value)
 }
 
 // refineEpsilon halves epsilon until no two shared real variables with
 // distinct values receive the same model value.
-func (t *SMTTheoryArith) refineEpsilon() error {
+func (t *SMTTheoryArith) refineEpsilon() (err error) {
+	value := smtQZero()
+	defer func() { err = errors.Join(err, smtQDel(t.q, &value)) }()
 	for {
-		mapping := make(map[string]SMTTheoryVar)
+		// rational2var mapping
+		mapping := make(map[smtQMapKey]SMTTheoryVar)
 		num := SMTTheoryVar(t.getNumVars())
 		refine := false
 		for v := SMTTheoryVar(0); v < num; v++ {
@@ -3736,11 +3751,13 @@ func (t *SMTTheoryArith) refineEpsilon() error {
 			if t.isInfinite(val) {
 				continue
 			}
-			value, err := t.modelRational(val)
+			if err := t.modelRational(val, &value); err != nil {
+				return err
+			}
+			key, err := smtQKey(t.q, &value)
 			if err != nil {
 				return err
 			}
-			key := value.RatString()
 			if v2, found := mapping[key]; found {
 				if t.vcmp(t.getValue(v), t.getValue(v2)) != 0 {
 					// v and v2 are not known to be equal; epsilon makes them so.

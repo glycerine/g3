@@ -27,26 +27,15 @@ func (m *ASTManager) ArithmeticNumeralText(h ASTHandle) (value string, integer, 
 	return value, integer, true, nil
 }
 
-// IsArithmeticNumeral is ArithmeticNumeralText's matched result for callers
-// that only test for a numeral. A small rational is not formatted (its text
-// never goes through mpn); a large one still is, so the mpn_to_string trace
-// and String's errors are unchanged.
+// IsArithmeticNumeral is arith_util::is_numeral(n): h is an arithmetic
+// numeral application. The value is neither copied nor formatted.
 func (m *ASTManager) IsArithmeticNumeral(h ASTHandle) (bool, error) {
 	if err := m.lock(); err != nil {
 		return false, err
 	}
 	defer m.mu.Unlock()
-	rational, _, matched, err := m.arithmeticNumeralParameter(h)
-	if err != nil || !matched {
-		return false, err
-	}
-	if raw := &rational.Raw; raw.Num.Cell == 0 && raw.Den.Cell == 0 && raw.Den.Val > 0 {
-		return true, nil
-	}
-	if _, err = m.numerals.String(rational); err != nil {
-		return false, err
-	}
-	return true, nil
+	_, _, matched, err := m.arithmeticNumeralParameter(h)
+	return matched && err == nil, err
 }
 
 // ArithmeticNumeralIsZero is arith_util::is_zero: h is an arithmetic

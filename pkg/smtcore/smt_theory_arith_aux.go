@@ -540,7 +540,7 @@ func (t *SMTTheoryArith) isSafeToLeave(x SMTTheoryVar, inc bool, hasInt, shared 
 }
 
 func (t *SMTTheoryArith) getTheoryVars(n ast.ASTHandle, vars map[SMTTheoryVar]bool) (bool, error) {
-	if _, ok := t.isNumeral(n); ok {
+	if t.isNumeral(n) {
 		return true, nil
 	}
 	op, own := t.arithOp(n)
@@ -569,10 +569,10 @@ func (t *SMTTheoryArith) getTheoryVars(n ast.ASTHandle, vars map[SMTTheoryVar]bo
 			return false, err
 		}
 		if len(args) == 2 {
-			if _, ok := t.isNumeral(args[0]); ok {
+			if t.isNumeral(args[0]) {
 				return t.getTheoryVars(args[1], vars)
 			}
-			if _, ok := t.isNumeral(args[1]); ok {
+			if t.isNumeral(args[1]) {
 				return t.getTheoryVars(args[0], vars)
 			}
 		}

@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -159,17 +158,15 @@ func (a *smtArithmeticEqualityAdapter) mkAxiomsSource(n1, n2 *SMTEnode) (result 
 		if err != nil {
 			return err
 		}
-		numeral := func(r *big.Rat) (ast.ASTHandle, error) {
-			if kind == smtArithIntSort {
-				return x.hold(m.ArithmeticIntegerNumeralText(r.RatString()))
-			}
-			return x.hold(m.ArithmeticRealNumeralText(r.RatString()))
+		// m_util.mk_numeral(rational::minus_one() / rational::zero(), is_int)
+		numeral := func(v int32) (ast.ASTHandle, error) {
+			return x.hold(m.ArithmeticNumeralFromRational(smtQIntPtr(v), kind == smtArithIntSort))
 		}
-		minusOne, err := numeral(big.NewRat(-1, 1))
+		minusOne, err := numeral(-1)
 		if err != nil {
 			return err
 		}
-		zero, err := numeral(new(big.Rat))
+		zero, err := numeral(0)
 		if err != nil {
 			return err
 		}

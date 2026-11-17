@@ -181,13 +181,23 @@ func (t *SMTTheoryArith) isNumeralExpr(n ast.ASTHandle) (bool, error) {
 	return ok, err
 }
 
+// isNumeralBig is m_util.is_numeral(n, r) for the nonlinear interval
+// code, whose old_interval endpoints are math/big values.
+func (t *SMTTheoryArith) isNumeralBig(n ast.ASTHandle) (*big.Rat, bool) {
+	r, _, matched, err := t.state.manager.ArithmeticNumeralBigRat(n)
+	if err != nil || !matched {
+		return nil, false
+	}
+	return r, true
+}
+
 // getMonomialCoeff: given a monomial c*M, return c.
 func (t *SMTTheoryArith) getMonomialCoeff(m ast.ASTHandle) (*big.Rat, error) {
 	arg0, err := t.state.manager.GetArg(m, 0)
 	if err != nil {
 		return nil, err
 	}
-	if r, ok := t.isNumeral(arg0); ok {
+	if r, ok := t.isNumeralBig(arg0); ok {
 		return r, nil
 	}
 	return big.NewRat(1, 1), nil
@@ -415,7 +425,7 @@ func (t *SMTTheoryArith) evaluateAsInterval(n ast.ASTHandle) (*smtOldInterval, e
 		}
 		return t.evaluateAsInterval(arg)
 	}
-	if val, ok := t.isNumeral(n); ok {
+	if val, ok := t.isNumeralBig(n); ok {
 		return newSMTOldIntervalPoint(&t.depManager, val, nil, nil)
 	}
 	return newSMTOldInterval(&t.depManager)
