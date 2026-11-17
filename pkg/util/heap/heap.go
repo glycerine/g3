@@ -22,6 +22,12 @@ type Config struct {
 	Budget *arena.Budget
 	Less   func(int32, int32) bool
 	Debug  *diagnostic.DebugContext
+	// Activity, when non-nil, is the source's bool_var_act_lt functor
+	// (smt_case_split_queue.cpp): less_than(v1, v2) is
+	// (*Activity)[v1] > (*Activity)[v2]. It is read through the pointer
+	// at every comparison, as the functor reads its svector<double>
+	// reference, and replaces Less.
+	Activity *[]float64
 }
 
 // Int stores source integer values and inverse positions in pointer-free
@@ -32,6 +38,7 @@ type Int struct {
 	values, indices []int32
 	budget          *arena.Budget
 	less            func(int32, int32) bool
+	activity        *[]float64
 	debug           *diagnostic.DebugContext
 	epoch           uint64
 	closed          bool
@@ -50,7 +57,10 @@ func New(bounds int32, c Config) (*Int, error) {
 	if e := c.Budget.Reserve(ownerBytes); e != nil {
 		return nil, e
 	}
-	h := &Int{budget: c.Budget, less: c.Less, debug: c.Debug, epoch: 1}
+	h := &Int{budget: c.Budget, less: c.Less, activity: c.Activity, debug: c.Debug, epoch: 1}
+	if c.Activity != nil {
+		h.less = nil
+	}
 	h.self = h
 	h.values = append(h.values, -1)
 	if e := h.SetBounds(bounds); e != nil {
@@ -179,6 +189,10 @@ func (h *Int) canChange() error {
 	return nil
 }
 func (h *Int) lt(a, b int32) bool {
+	if h.activity != nil {
+		act := *h.activity
+		return act[a] > act[b]
+	}
 	if h.less == nil {
 		return a < b
 	}
@@ -220,6 +234,9 @@ func (h *Int) CheckInvariant() bool {
 	return true
 }
 func (h *Int) up(i int32) error {
+	if h.activity != nil {
+		return h.upActivity(i)
+	}
 	v := h.values[i]
 	for p := i / 2; p != 0 && h.lt(v, h.values[p]); p = i / 2 {
 		h.values[i] = h.values[p]
@@ -230,7 +247,58 @@ func (h *Int) up(i int32) error {
 	h.indices[v] = i
 	return h.cassertInvariant()
 }
+
+// upActivity and downActivity are up and down for an Activity heap: the
+// same moves, with the comparison inlined.
+func (h *Int) upActivity(i int32) error {
+	act := *h.activity
+	values, indices := h.values, h.indices
+	v := values[i]
+	av := act[v]
+	for p := i / 2; p != 0 && av > act[values[p]]; p = i / 2 {
+		values[i] = values[p]
+		indices[values[i]] = i
+		i = p
+	}
+	values[i] = v
+	indices[v] = i
+	return h.cassertInvariant()
+}
+func (h *Int) downActivity(i int32) error {
+	act := *h.activity
+	values, indices := h.values, h.indices
+	n := uint64(len(values))
+	v := values[i]
+	av := act[v]
+	for {
+		left := uint64(i) * 2
+		if left >= n {
+			break
+		}
+		child := int32(left)
+		cv := values[child]
+		ca := act[cv]
+		if left+1 < n {
+			if rv := values[child+1]; act[rv] > ca {
+				child++
+				cv, ca = rv, act[rv]
+			}
+		}
+		if !(ca > av) {
+			break
+		}
+		values[i] = cv
+		indices[cv] = i
+		i = child
+	}
+	values[i] = v
+	indices[v] = i
+	return h.cassertInvariant()
+}
 func (h *Int) down(i int32) error {
+	if h.activity != nil {
+		return h.downActivity(i)
+	}
 	v := h.values[i]
 	for {
 		left := uint64(i) * 2
@@ -507,7 +575,7 @@ func (h *Int) Clone(budget *arena.Budget) (*Int, error) {
 	if e := budget.Reserve(ownerBytes); e != nil {
 		return nil, e
 	}
-	c := &Int{budget: budget, less: h.less, debug: h.debug, epoch: 1}
+	c := &Int{budget: budget, less: h.less, activity: h.activity, debug: h.debug, epoch: 1}
 	c.self = c
 	c.values = append([]int32(nil), h.values...)
 	c.indices = append([]int32(nil), h.indices...)
@@ -529,6 +597,7 @@ func (h *Int) Assign(other *Int) error {
 		return e
 	}
 	h.less = other.less
+	h.activity = other.activity
 	h.values = append(h.values[:0], other.values...)
 	h.indices = append(h.indices[:0], other.indices...)
 	h.epoch++
@@ -553,6 +622,7 @@ func (h *Int) Close() error {
 	h.values = nil
 	h.indices = nil
 	h.less = nil
+	h.activity = nil
 	h.debug = nil
 	h.closed = true
 	return nil

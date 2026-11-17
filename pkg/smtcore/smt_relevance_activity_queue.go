@@ -24,7 +24,7 @@ func (s *SMTInternalizerState) ensureRelevanceActivityQueue() error {
 	if s.relevanceActivity.delayed != nil {
 		return nil
 	}
-	h, err := uheap.New(1024, uheap.Config{Budget: s.manager.Budget(), Less: func(a, b int32) bool { return s.activity[a] > s.activity[b] }})
+	h, err := uheap.New(1024, uheap.Config{Budget: s.manager.Budget(), Activity: &s.activity})
 	if err != nil {
 		return err
 	}
