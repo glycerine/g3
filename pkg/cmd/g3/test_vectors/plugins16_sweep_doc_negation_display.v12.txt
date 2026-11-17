@@ -1,0 +1,857 @@
+(query)
+(transform N7datalog13mk_coi_filterE...no-op 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...32 rules 0s)
+(transform N7datalog15mk_rule_inlinerE...19 rules 0s)
+(transform N7datalog25mk_separate_negated_tailsE...no-op 0s)
+(transform N7datalog24mk_similarity_compressorE...no-op 0s)
+(transform N7datalog15mk_filter_rulesE...20 rules 0s)
+(transform N7datalog15mk_simple_joinsE...22 rules 0s)
+Compiling unsafe rule column 0
+(forall ((A (_ BitVec 6)) (B (_ BitVec 6)) (C (_ BitVec 6)) (D (_ BitVec 6)))
+  (=> (p0 A B) (p1 C D)))
+Compiling unsafe rule column 1
+(forall ((A (_ BitVec 6)) (B (_ BitVec 6)) (C (_ BitVec 6)) (D (_ BitVec 6)))
+  (=> (p0 A B) (p1 C D)))
+Compiling unsafe rule column 0
+(forall ((A (_ BitVec 6)) (B (_ BitVec 6)))
+  (=> (and (p1!split!2 B) (p3 B)) (p1 A B)))
+Compiling unsafe rule column 0
+(forall ((A (_ BitVec 6)) (B (_ BitVec 6)) (C (_ BitVec 6)) (D (_ BitVec 6)))
+  (=> (p0 A B) (p1 C D)))
+Compiling unsafe rule column 1
+(forall ((A (_ BitVec 6)) (B (_ BitVec 6)) (C (_ BitVec 6)) (D (_ BitVec 6)))
+  (=> (p0 A B) (p1 C D)))
+Compiling unsafe rule column 2
+(forall ((A (_ BitVec 6)) (B (_ BitVec 6)) (C (_ BitVec 6)))
+  (=> (p1 A C) (p6 C C B C)))
+Compiling unsafe rule column 1
+(forall ((A (_ BitVec 6)) (B (_ BitVec 6)))
+  (=> (and (p5!split!1 A) (p5!filter!0 A)) (p5 A B)))
+load p0 into 0
+load p2 into 1
+load p1 into 2
+load p6 into 3
+load p1!split!2 into 4
+load p3 into 5
+load p5!filter!0 into 6
+load p5 into 7
+load p5!split!1 into 8
+mark_saturated p3
+mk_unary_singleton into 9 sort:(_ BitVec 6) val:21
+add_fact verified
+mk_unary_singleton into 10 sort:(_ BitVec 6) val:7
+add_fact verified
+join 9() and 10() into 11
+join result:
+{
+   000111010101}
+join verified
+union 11 into 0
+orig:  {
+   }
+union: {
+   000111010101}
+union verified
+mk_unary_singleton into 12 sort:(_ BitVec 6) val:52
+add_fact verified
+mk_unary_singleton into 13 sort:(_ BitVec 6) val:23
+add_fact verified
+join 12() and 13() into 14
+join result:
+{
+   010111110100}
+join verified
+union 14 into 0
+orig:  {
+   000111010101}
+union: {
+   000111010101, 
+   010111110100}
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+mk_unary_singleton into 15 sort:(_ BitVec 6) val:27
+add_fact verified
+mk_unary_singleton into 16 sort:(_ BitVec 6) val:58
+add_fact verified
+join 15() and 16() into 17
+join result:
+{
+   111010011011}
+join verified
+union 17 into 0
+orig:  {
+   000111010101, 
+   010111110100}
+union: {
+   000111010101, 
+   010111110100, 
+   111010011011}
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+mark_saturated p0
+mk_unary_singleton into 22 sort:(_ BitVec 6) val:56
+add_fact verified
+join 22() and 12() into 23
+join result:
+{
+   110100111000}
+join verified
+union 23 into 2
+orig:  {
+   }
+union: {
+   110100111000}
+union verified
+mk_unary_singleton into 24 sort:(_ BitVec 6) val:9
+add_fact verified
+join 24() and 22() into 25
+join result:
+{
+   111000001001}
+join verified
+union 25 into 2
+orig:  {
+   110100111000}
+union: {
+   110100111000, 
+   111000001001}
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+mk_unary_singleton into 26 sort:(_ BitVec 6) val:39
+add_fact verified
+mk_unary_singleton into 27 sort:(_ BitVec 6) val:25
+add_fact verified
+join 26() and 27() into 28
+join result:
+{
+   011001100111}
+join verified
+union 28 into 2
+orig:  {
+   110100111000, 
+   111000001001}
+union: {
+   110100111000, 
+   111000001001, 
+   011001100111}
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+mk_unary_singleton into 29 sort:(_ BitVec 6) val:6
+add_fact verified
+join 29() and 10() into 30
+join result:
+{
+   000111000110}
+join verified
+union 30 into 2
+orig:  {
+   110100111000, 
+   111000001001, 
+   011001100111}
+union: {
+   110100111000, 
+   111000001001, 
+   011001100111, 
+   000111000110}
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+project 0 into 31 deleting columns (0,1)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!5 #b110100)
+(define k!6 #b010111)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!5 #b110100)
+(define k!6 #b010111)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 0 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+project verified
+mk_total into 32 sort:[(_ BitVec 6)] p1
+join 31() and 32() into 31
+join result:
+{xxxxxx}
+join verified
+join 31() and 32() into 31
+join result:
+{
+   xxxxxxxxxxxx}
+join verified
+union 31 into 2
+orig:  {
+   110100111000, 
+   111000001001, 
+   011001100111, 
+   000111000110}
+union: {
+   xxxxxxxxxxxx}
+union verified
+clone 2 into 18
+while(18,19)
+    join 22() and 12() into 33
+    union 33 into 2 with delta 20
+    dealloc 33
+    join 24() and 22() into 34
+    union 34 into 2 with delta 20
+    dealloc 34
+    join 26() and 27() into 35
+    union 35 into 2 with delta 20
+    dealloc 35
+    join 29() and 10() into 36
+    union 36 into 2 with delta 20
+    dealloc 36
+    join_project 4(0) and 5(0) into 37 removing columns (0)
+    join 37() and 32() into 37
+    rename 37 into 37 with cycle (0,1)
+    union 37 into 2 with delta 20
+    dealloc 37
+    project 0 into 38 deleting columns (0,1)
+    join 38() and 32() into 38
+    join 38() and 32() into 38
+    union 38 into 2 with delta 20
+    dealloc 38
+    join_project 5(0) and 2:2-1(0) into 39 removing columns (0,1)
+    union 39 into 4 with delta 21
+    dealloc 39
+    move 20 into 18
+    move 21 into 19
+looping ... 0
+join 22() and 12() into 33
+join result:
+{
+   110100111000}
+join verified
+union 33 into 2 with delta 20
+orig:  {
+   xxxxxxxxxxxx}
+union: {
+   xxxxxxxxxxxx}
+delta: {
+   }
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+join 24() and 22() into 34
+join result:
+{
+   111000001001}
+join verified
+union 34 into 2 with delta 20
+orig:  {
+   xxxxxxxxxxxx}
+union: {
+   xxxxxxxxxxxx}
+delta: {
+   }
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+join 26() and 27() into 35
+join result:
+{
+   011001100111}
+join verified
+union 35 into 2 with delta 20
+orig:  {
+   xxxxxxxxxxxx}
+union: {
+   xxxxxxxxxxxx}
+delta: {
+   }
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+join 29() and 10() into 36
+join result:
+{
+   000111000110}
+join verified
+union 36 into 2 with delta 20
+orig:  {
+   xxxxxxxxxxxx}
+union: {
+   xxxxxxxxxxxx}
+delta: {
+   }
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+join_project 4(0) and 5(0) into 37 removing columns (0)
+join 37() and 32() into 37
+project 0 into 38 deleting columns (0,1)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!9 #b110100)
+(define k!10 #b010111)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!9 #b110100)
+(define k!10 #b010111)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 0 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+project verified
+join 38() and 32() into 38
+join result:
+{xxxxxx}
+join verified
+join 38() and 32() into 38
+join result:
+{
+   xxxxxxxxxxxx}
+join verified
+union 38 into 2 with delta 20
+orig:  {
+   xxxxxxxxxxxx}
+union: {
+   xxxxxxxxxxxx}
+delta: {
+   }
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+join_project 5(0) and 2:2-1(0) into 39 removing columns (0,1)
+mark_saturated p1
+mark_saturated p1!split!2
+join_project 5() and 2:2-1() into 40 removing columns (0,1)
+mark_saturated p5!split!1
+project 2 into 41 deleting columns (0)
+project verified
+mk_total into 42 sort:[(_ BitVec 6)] p6
+join 41() and 42() into 41
+join result:
+{
+   xxxxxxxxxxxx}
+join verified
+project 41 into 43 deleting columns (1)
+project verified
+join 41(0) and 43(0) into 41
+join result:
+{
+   xxxxxxxxxxxxxxxxxx \ {
+   xxxxx1xxxxxxxxxxx0, 
+   xxxxx0xxxxxxxxxxx1, 
+   xxxx1xxxxxxxxxxx0x, 
+   xxxx0xxxxxxxxxxx1x, 
+   xxx1xxxxxxxxxxx0xx, 
+   xxx0xxxxxxxxxxx1xx, 
+   xx1xxxxxxxxxxx0xxx, 
+   xx0xxxxxxxxxxx1xxx, 
+   x1xxxxxxxxxxx0xxxx, 
+   x0xxxxxxxxxxx1xxxx, 
+   1xxxxxxxxxxx0xxxxx, 
+   0xxxxxxxxxxx1xxxxx}}
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 3)
+join verified
+project 41 into 44 deleting columns (1,2)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 16)
+(define k!12 #b000000)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!12 #b000000)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 0 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+project verified
+join 41(0) and 44(0) into 41
+join result:
+{
+   xxxxxxxxxxxxxxxxxxxxxxxx \ {
+   xxxxx1xxxxxxxxxxxxxxxxx0, 
+   xxxxx0xxxxxxxxxxxxxxxxx1, 
+   xxxx1xxxxxxxxxxxxxxxxx0x, 
+   xxxx0xxxxxxxxxxxxxxxxx1x, 
+   xxx1xxxxxxxxxxxxxxxxx0xx, 
+   xxx0xxxxxxxxxxxxxxxxx1xx, 
+   xx1xxxxxxxxxxxxxxxxx0xxx, 
+   xx0xxxxxxxxxxxxxxxxx1xxx, 
+   x1xxxxxxxxxxxxxxxxx0xxxx, 
+   x0xxxxxxxxxxxxxxxxx1xxxx, 
+   1xxxxxxxxxxxxxxxxx0xxxxx, 
+   0xxxxxxxxxxxxxxxxx1xxxxx, 
+   xxxxxxxxxxx1xxxxxxxxxxx0, 
+   xxxxxxxxxxx0xxxxxxxxxxx1, 
+   xxxxxxxxxx1xxxxxxxxxxx0x, 
+   xxxxxxxxxx0xxxxxxxxxxx1x, 
+   xxxxxxxxx1xxxxxxxxxxx0xx, 
+   xxxxxxxxx0xxxxxxxxxxx1xx, 
+   xxxxxxxx1xxxxxxxxxxx0xxx, 
+   xxxxxxxx0xxxxxxxxxxx1xxx, 
+   xxxxxxx1xxxxxxxxxxx0xxxx, 
+   xxxxxxx0xxxxxxxxxxx1xxxx, 
+   xxxxxx1xxxxxxxxxxx0xxxxx, 
+   xxxxxx0xxxxxxxxxxx1xxxxx}}
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 7)
+(smt.simplifying-clause-set :num-deleted-clauses 38)
+join verified
+rename 41 into 41 with cycle (1,2)
+permutation verified
+union 41 into 3
+orig:  {
+   }
+union: {
+   xxxxxxxxxxxxxxxxxxxxxxxx \ {
+   xxxxx1xxxxxxxxxxxxxxxxx0, 
+   xxxxx0xxxxxxxxxxxxxxxxx1, 
+   xxxx1xxxxxxxxxxxxxxxxx0x, 
+   xxxx0xxxxxxxxxxxxxxxxx1x, 
+   xxx1xxxxxxxxxxxxxxxxx0xx, 
+   xxx0xxxxxxxxxxxxxxxxx1xx, 
+   xx1xxxxxxxxxxxxxxxxx0xxx, 
+   xx0xxxxxxxxxxxxxxxxx1xxx, 
+   x1xxxxxxxxxxxxxxxxx0xxxx, 
+   x0xxxxxxxxxxxxxxxxx1xxxx, 
+   1xxxxxxxxxxxxxxxxx0xxxxx, 
+   0xxxxxxxxxxxxxxxxx1xxxxx, 
+   xxxxxxxxxxxxxxxxx1xxxxx0, 
+   xxxxxxxxxxxxxxxxx0xxxxx1, 
+   xxxxxxxxxxxxxxxx1xxxxx0x, 
+   xxxxxxxxxxxxxxxx0xxxxx1x, 
+   xxxxxxxxxxxxxxx1xxxxx0xx, 
+   xxxxxxxxxxxxxxx0xxxxx1xx, 
+   xxxxxxxxxxxxxx1xxxxx0xxx, 
+   xxxxxxxxxxxxxx0xxxxx1xxx, 
+   xxxxxxxxxxxxx1xxxxx0xxxx, 
+   xxxxxxxxxxxxx0xxxxx1xxxx, 
+   xxxxxxxxxxxx1xxxxx0xxxxx, 
+   xxxxxxxxxxxx0xxxxx1xxxxx}}
+union verified
+mark_saturated p6
+mk_total into 51 sort:[(_ BitVec 6)] p5
+while(45,46)
+    clone 7 into 49
+    filter_identical 49 (0,1)
+    project 49 into 49 deleting columns (0)
+    union 49 into 6 with delta 48
+    dealloc 49
+    join_project 8(0) and 6(0) into 50 removing columns (0)
+    join 50() and 51() into 50
+    union 50 into 7 with delta 47
+    dealloc 50
+    move 47 into 45
+    move 48 into 46
+mark_saturated p5
+mark_saturated p5!filter!0
+mk_unary_singleton into 52 sort:(_ BitVec 6) val:49
+add_fact verified
+mk_unary_singleton into 53 sort:(_ BitVec 6) val:11
+add_fact verified
+join 52() and 53() into 54
+join result:
+{
+   001011110001}
+join verified
+mk_unary_singleton into 55 sort:(_ BitVec 6) val:20
+add_fact verified
+join 54() and 55() into 54
+join result:
+{
+   010100001011110001}
+join verified
+union 54 into 1
+orig:  {
+   }
+union: {
+   010100001011110001}
+union verified
+mk_unary_singleton into 56 sort:(_ BitVec 6) val:62
+add_fact verified
+join 56() and 16() into 57
+join result:
+{
+   111010111110}
+join verified
+mk_unary_singleton into 58 sort:(_ BitVec 6) val:63
+add_fact verified
+join 57() and 58() into 57
+join result:
+{
+   111111111010111110}
+join verified
+union 57 into 1
+orig:  {
+   010100001011110001}
+union: {
+   010100001011110001, 
+   111111111010111110}
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+mk_unary_singleton into 59 sort:(_ BitVec 6) val:35
+add_fact verified
+join 59() and 27() into 60
+join result:
+{
+   011001100011}
+join verified
+mk_unary_singleton into 61 sort:(_ BitVec 6) val:61
+add_fact verified
+join 60() and 61() into 60
+join result:
+{
+   111101011001100011}
+join verified
+union 60 into 1
+orig:  {
+   010100001011110001, 
+   111111111010111110}
+union: {
+   010100001011110001, 
+   111111111010111110, 
+   111101011001100011}
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+mk_unary_singleton into 62 sort:(_ BitVec 6) val:32
+add_fact verified
+mk_unary_singleton into 63 sort:(_ BitVec 6) val:24
+add_fact verified
+join 62() and 63() into 64
+join result:
+{
+   011000100000}
+join verified
+mk_unary_singleton into 65 sort:(_ BitVec 6) val:10
+add_fact verified
+join 64() and 65() into 64
+join result:
+{
+   001010011000100000}
+join verified
+union 64 into 1
+orig:  {
+   010100001011110001, 
+   111111111010111110, 
+   111101011001100011}
+union: {
+   010100001011110001, 
+   111111111010111110, 
+   111101011001100011, 
+   001010011000100000}
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+mk_unary_singleton into 66 sort:(_ BitVec 6) val:15
+add_fact verified
+join 66() and 59() into 67
+join result:
+{
+   100011001111}
+join verified
+mk_unary_singleton into 68 sort:(_ BitVec 6) val:33
+add_fact verified
+join 67() and 68() into 67
+join result:
+{
+   100001100011001111}
+join verified
+union 67 into 1
+orig:  {
+   010100001011110001, 
+   111111111010111110, 
+   111101011001100011, 
+   001010011000100000}
+union: {
+   010100001011110001, 
+   111111111010111110, 
+   111101011001100011, 
+   001010011000100000, 
+   100001100011001111}
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+mk_unary_singleton into 69 sort:(_ BitVec 6) val:46
+add_fact verified
+join 69() and 62() into 70
+join result:
+{
+   100000101110}
+join verified
+mk_unary_singleton into 71 sort:(_ BitVec 6) val:12
+add_fact verified
+join 70() and 71() into 70
+join result:
+{
+   001100100000101110}
+join verified
+union 70 into 1
+orig:  {
+   010100001011110001, 
+   111111111010111110, 
+   111101011001100011, 
+   001010011000100000, 
+   100001100011001111}
+union: {
+   010100001011110001, 
+   111111111010111110, 
+   111101011001100011, 
+   001010011000100000, 
+   100001100011001111, 
+   001100100000101110}
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+mk_unary_singleton into 72 sort:(_ BitVec 6) val:13
+add_fact verified
+join 72() and 53() into 73
+join result:
+{
+   001011001101}
+join verified
+mk_unary_singleton into 74 sort:(_ BitVec 6) val:51
+add_fact verified
+join 73() and 74() into 73
+join result:
+{
+   110011001011001101}
+join verified
+union 73 into 1
+orig:  {
+   010100001011110001, 
+   111111111010111110, 
+   111101011001100011, 
+   001010011000100000, 
+   100001100011001111, 
+   001100100000101110}
+union: {
+   010100001011110001, 
+   111111111010111110, 
+   111101011001100011, 
+   001010011000100000, 
+   100001100011001111, 
+   001100100000101110, 
+   110011001011001101}
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+mk_unary_singleton into 75 sort:(_ BitVec 6) val:47
+add_fact verified
+join 13() and 75() into 76
+join result:
+{
+   101111010111}
+join verified
+join 76() and 15() into 76
+join result:
+{
+   011011101111010111}
+join verified
+union 76 into 1
+orig:  {
+   010100001011110001, 
+   111111111010111110, 
+   111101011001100011, 
+   001010011000100000, 
+   100001100011001111, 
+   001100100000101110, 
+   110011001011001101}
+union: {
+   010100001011110001, 
+   111111111010111110, 
+   111101011001100011, 
+   001010011000100000, 
+   100001100011001111, 
+   001100100000101110, 
+   110011001011001101, 
+   011011101111010111}
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+mark_saturated p2
+store 4 into p1!split!2
+store 1 into p2
+store 0 into p0
+store 6 into p5!filter!0
+store 8 into p5!split!1
+store 7 into p5
+store 5 into p3
+store 2 into p1
+store 3 into p6
+bytes 133143986145
+bytes	rows	annotation
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	

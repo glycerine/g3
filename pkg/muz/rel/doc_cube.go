@@ -693,16 +693,26 @@ func (m *DocManager) DisplayRange(document *Doc, high, low uint32) (string, erro
 	}
 	var output strings.Builder
 	output.WriteString(positive)
+	// union_bvec<tbv_manager, tbv>::display(m, out, hi, lo): a line per
+	// element once the tbv manager has more than 10 bits.
+	bits := int(m.NumTBits())
+	negatives := document.negative.values
 	output.WriteString(" \\ {")
-	for i, negative := range document.negative.values {
-		if i != 0 {
-			output.WriteString(", ")
-		}
+	if len(negatives)+bits > 10 {
+		output.WriteString("\n   ")
+	}
+	for i, negative := range negatives {
 		text, displayErr := m.vectors.DisplayRange(negative, high, low)
 		if displayErr != nil {
 			return "", displayErr
 		}
 		output.WriteString(text)
+		if i+1 < len(negatives) {
+			output.WriteString(", ")
+			if bits > 10 {
+				output.WriteString("\n   ")
+			}
+		}
 	}
 	output.WriteByte('}')
 	return output.String(), nil

@@ -1050,9 +1050,16 @@ func (p *UDocPlugin) MkFilterInterpretedFn(t RelationBase, condition ast.ASTHand
 	if err != nil {
 		return nil, errors.Join(err, mUDoc.Reset())
 	}
+	// ~filter_interpreted_fn resets m_udoc when the functor is destroyed (with the
+	// instruction that cached it, else the relation manager), after any
+	// number of applications.
+	p.rm.fnClosers = append(p.rm.fnClosers, func() error {
+		if err := mUDoc.Reset(); err != nil && !errors.Is(err, arena.ErrClosed) {
+			return err
+		}
+		return nil
+	})
 	return func(tb RelationBase) (result error) {
-		// ~filter_interpreted_fn: m_udoc.reset(dm).
-		defer func() { result = errors.Join(result, mUDoc.Reset()) }()
 		t, _ := udocGet(tb)
 		uu := t.elems
 		if err := uu.Intersect(mUDoc); err != nil {
@@ -1243,9 +1250,16 @@ func (p *UDocPlugin) MkFilterInterpretedAndProjectFn(t RelationBase, condition a
 	if err = u.compileGuard(guard, mUDoc, mToDelete); err != nil {
 		return nil, errors.Join(err, mUDoc.Reset())
 	}
+	// ~filter_proj_fn resets m_udoc when the functor is destroyed (with the
+	// instruction that cached it, else the relation manager), after any
+	// number of applications.
+	p.rm.fnClosers = append(p.rm.fnClosers, func() error {
+		if err := mUDoc.Reset(); err != nil && !errors.Is(err, arena.ErrClosed) {
+			return err
+		}
+		return nil
+	})
 	return func(tb RelationBase) (_ RelationBase, result error) {
-		// ~filter_proj_fn: m_udoc.reset(dm).
-		defer func() { result = errors.Join(result, mUDoc.Reset()) }()
 		t, _ := udocGet(tb)
 		dm := t.dm
 		mUDoc2, err := NewDocUnion(dm)
