@@ -1,0 +1,3 @@
+error 12: trying to perform unsupported union operation on relations of kinds fpr_fact_explanation and product_relation
+result 0
+reason ok

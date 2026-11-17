@@ -112,7 +112,9 @@ func (m *RelationManager) ExplainRelation(er *ExplanationRelationPlugin, origRel
 		return err
 	}
 	if product == nil {
-		return ErrInstruction
+		// The fixed fork's throw (FORK FIX, see FORK_BUGFIXES.md); 4.7.1
+		// called the null functor.
+		return unsupportedRelationOperation("join", origRel.RelationPlugin().Name(), eFact.RelationPlugin().Name())
 	}
 	aux, err := product(origRel, eFact)
 	if err != nil {
@@ -124,7 +126,8 @@ func (m *RelationManager) ExplainRelation(er *ExplanationRelationPlugin, origRel
 		return err
 	}
 	if union == nil {
-		return ErrInstruction
+		// The fixed fork's throw (FORK FIX, see FORK_BUGFIXES.md).
+		return unsupportedRelationOperation("union", eRel.RelationPlugin().Name(), aux.RelationPlugin().Name())
 	}
 	return union(eRel, aux, nil)
 }
