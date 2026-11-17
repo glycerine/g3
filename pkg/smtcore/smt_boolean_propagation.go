@@ -32,10 +32,8 @@ func (s *SMTInternalizerState) assignLiteralCore(literal SMTLiteral, justificati
 		}
 		return ast.ErrASTDomain
 	}
-	value, err := s.Assignment(literal)
-	if err != nil {
-		return err
-	}
+	// The variable is in range, so both of its literals index s.assignment.
+	value := s.assignment[literal.Index()]
 	if value == lbool.True {
 		return nil
 	}
@@ -49,7 +47,7 @@ func (s *SMTInternalizerState) assignLiteralCore(literal SMTLiteral, justificati
 	if literal.Sign() {
 		want = lbool.False
 	}
-	if err = s.SetAssignment(literal.Var(), want); err != nil {
+	if err := s.setAssignmentCore(literal.Var(), want); err != nil {
 		return err
 	}
 	data := &s.booleanData[literal.Var()]

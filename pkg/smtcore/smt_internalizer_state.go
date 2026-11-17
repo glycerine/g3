@@ -767,6 +767,12 @@ func (s *SMTInternalizerState) SetAssignment(variable int32, value lbool.LBool) 
 	if variable < SMTFirstBoolVar || int(variable) >= len(s.boolExpr) || value < lbool.False || value > lbool.True {
 		return ast.ErrASTDomain
 	}
+	return s.setAssignmentCore(variable, value)
+}
+
+// setAssignmentCore is SetAssignment for a caller that already checked the
+// owner and the variable's range.
+func (s *SMTInternalizerState) setAssignmentCore(variable int32, value lbool.LBool) error {
 	positive := NewSMTLiteral(variable, false)
 	old := s.assignment[positive.Index()]
 	if old == value {
