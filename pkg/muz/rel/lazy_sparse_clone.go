@@ -9,8 +9,11 @@ func (t *LazySparseTable) Clone() (*LazySparseTable, error) {
 	if err != nil {
 		return nil, err
 	}
-	clone, err := table.CloneFinite()
-	if err != nil {
+	var clone FiniteTable
+	if err = lazyVerbose("clone", func() (x error) {
+		clone, x = table.CloneFinite()
+		return x
+	}); err != nil {
 		return nil, err
 	}
 	switch concrete := clone.(type) {

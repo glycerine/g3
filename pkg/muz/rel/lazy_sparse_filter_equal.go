@@ -22,7 +22,7 @@ func evalLazySparseEqual(engine *LazySparseEngine, node *lazySparseNode) (*Spars
 	if err != nil {
 		return nil, err
 	}
-	if err = result.FilterEqual(node.value, node.column); err != nil {
+	if err = lazyVerbose("filter_equal", func() error { return result.FilterEqual(node.value, node.column) }); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -36,5 +36,10 @@ func evalLazySparseEqualProject(engine *LazySparseEngine, filter *lazySparseNode
 	if err != nil {
 		return nil, err
 	}
-	return source.SelectEqualAndProject(filter.value, filter.column)
+	var result *SparseTable
+	err = lazyVerbose("select_equal_project", func() (x error) {
+		result, x = source.SelectEqualAndProject(filter.value, filter.column)
+		return x
+	})
+	return result, err
 }

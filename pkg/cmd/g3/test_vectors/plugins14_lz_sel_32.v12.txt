@@ -1,0 +1,807 @@
+(query)
+load t into 0
+load b into 1
+load t!filter!1 into 2
+load e into 3
+load t!filter!2 into 4
+load q into 5
+load e!sc_2!0 into 6
+clone...0s
+union 6 into 3
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+mark_saturated e
+mk_unary_singleton into 7 sort:(_ BitVec 5) val:12
+union 7 into 1
+union...union...add_fact...0s
+0s
+0s
+mk_unary_singleton into 8 sort:(_ BitVec 5) val:9
+union 8 into 1
+union...union...add_fact...0s
+0s
+0s
+mk_unary_singleton into 9 sort:(_ BitVec 5) val:0
+union 9 into 1
+union...union...add_fact...0s
+0s
+0s
+mk_unary_singleton into 10 sort:(_ BitVec 5) val:31
+union 10 into 1
+union...union...add_fact...0s
+0s
+0s
+mk_unary_singleton into 11 sort:(_ BitVec 5) val:17
+union 11 into 1
+union...union...add_fact...0s
+0s
+0s
+mk_unary_singleton into 12 sort:(_ BitVec 5) val:6
+union 12 into 1
+union...union...add_fact...0s
+0s
+0s
+mark_saturated b
+union 3 into 0
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+clone 0 into 14
+clone...0s
+while(13,14)
+    select_equal_and_project 14 into 17 col: 0 val: 0
+    union 17 into 2 with delta 15
+    dealloc 17
+    join_project 1:1-1(0) and 14:2-1(1) into 18 removing columns (0)
+    rename 18 into 18 with cycle (0,1)
+    union 18 into 0 with delta 16
+    dealloc 18
+    join_project 3:2-1(0) and 13(0) into 19 removing columns (0,2)
+    join 19() and 9() into 19
+    rename 19 into 19 with cycle (0,1)
+    union 19 into 0 with delta 16
+    dealloc 19
+    move 15 into 13
+    move 16 into 14
+looping ... 0
+select_equal_and_project 14 into 17 col: 0 val: 0
+clone...0s
+filter_equal...remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+0s
+select_equal_project...select_equal_and_project...get_key_indexer...0s
+0s
+0s
+union 17 into 2 with delta 15
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+recycle...Recycle: 1228
+0s
+recycle...Recycle: 204
+0s
+join_project 1:1-1(0) and 14:2-1(1) into 18 removing columns (0)
+join_project...join_project...get_key_indexer...0s
+0s
+0s
+rename 18 into 18 with cycle (0,1)
+union 18 into 0 with delta 16
+rename...rename...0s
+0s
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+recycle...Recycle: 716
+0s
+recycle...Recycle: 361
+0s
+join_project 3:2-1(0) and 13(0) into 19 removing columns (0,2)
+join 19() and 9() into 19
+move 15 into 13
+move 16 into 14
+recycle...Recycle: 1228
+0s
+looping ... 1
+select_equal_and_project 14 into 17 col: 0 val: 0
+clone...0s
+filter_equal...remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+0s
+select_equal_project...select_equal_and_project...get_key_indexer...0s
+0s
+0s
+union 17 into 2 with delta 15
+union...union...add_fact...0s
+add_fact...0s
+0s
+0s
+recycle...Recycle: 617
+0s
+recycle...Recycle: 204
+0s
+join_project 1:1-1(0) and 14:2-1(1) into 18 removing columns (0)
+join_project...join_project...get_key_indexer...0s
+0s
+0s
+rename 18 into 18 with cycle (0,1)
+union 18 into 0 with delta 16
+rename...rename...0s
+0s
+union...union...add_fact...0s
+add_fact...0s
+0s
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 460
+0s
+join_project 3:2-1(0) and 13:1-1(0) into 19 removing columns (0,2)
+join_project...join_project...get_key_indexer...0s
+0s
+0s
+join 19() and 9() into 19
+join...join_project...0s
+0s
+rename 19 into 19 with cycle (0,1)
+union 19 into 0 with delta 16
+rename...rename...0s
+0s
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 460
+0s
+recycle...Recycle: 361
+0s
+move 15 into 13
+recycle...Recycle: 204
+0s
+move 16 into 14
+recycle...Recycle: 347
+0s
+looping ... 2
+select_equal_and_project 14 into 17 col: 0 val: 0
+clone...0s
+filter_equal...0s
+select_equal_project...select_equal_and_project...get_key_indexer...0s
+0s
+0s
+union 17 into 2 with delta 15
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 204
+0s
+join_project 1:1-1(0) and 14:2-1(1) into 18 removing columns (0)
+join_project...join_project...get_key_indexer...0s
+0s
+0s
+rename 18 into 18 with cycle (0,1)
+union 18 into 0 with delta 16
+rename...rename...0s
+0s
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 460
+0s
+join_project 3:2-1(0) and 13:1-1(0) into 19 removing columns (0,2)
+join_project...join_project...get_key_indexer...0s
+0s
+0s
+join 19() and 9() into 19
+join...join_project...0s
+0s
+rename 19 into 19 with cycle (0,1)
+union 19 into 0 with delta 16
+rename...rename...0s
+0s
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 460
+0s
+recycle...Recycle: 361
+0s
+move 15 into 13
+recycle...Recycle: 204
+0s
+move 16 into 14
+recycle...Recycle: 361
+0s
+looping ... 3
+select_equal_and_project 14 into 17 col: 0 val: 0
+clone...0s
+filter_equal...remove_fact...0s
+0s
+select_equal_project...select_equal_and_project...get_key_indexer...0s
+0s
+0s
+union 17 into 2 with delta 15
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 204
+0s
+join_project 1:1-1(0) and 14:2-1(1) into 18 removing columns (0)
+join_project...join_project...get_key_indexer...0s
+0s
+0s
+rename 18 into 18 with cycle (0,1)
+union 18 into 0 with delta 16
+rename...rename...0s
+0s
+union...union...add_fact...0s
+0s
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 460
+0s
+join_project 3:2-1(0) and 13:1-1(0) into 19 removing columns (0,2)
+join_project...join_project...get_key_indexer...0s
+0s
+0s
+join 19() and 9() into 19
+join...join_project...0s
+0s
+rename 19 into 19 with cycle (0,1)
+union 19 into 0 with delta 16
+rename...rename...0s
+0s
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 460
+0s
+recycle...Recycle: 361
+0s
+move 15 into 13
+recycle...Recycle: 204
+0s
+recycle...Recycle: 361
+0s
+looping ... 4
+join_project 1:1-1(0) and 14(1) into 18 removing columns (0)
+join_project 3:2-1(0) and 13:1-1(0) into 19 removing columns (0,2)
+join_project...join_project...get_key_indexer...0s
+0s
+0s
+join 19() and 9() into 19
+join...join_project...0s
+0s
+rename 19 into 19 with cycle (0,1)
+union 19 into 0 with delta 16
+rename...rename...0s
+0s
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 460
+0s
+recycle...Recycle: 204
+0s
+move 16 into 14
+looping ... 5
+select_equal_and_project 14 into 17 col: 0 val: 0
+clone...0s
+filter_equal...0s
+select_equal_project...select_equal_and_project...get_key_indexer...0s
+0s
+0s
+union 17 into 2 with delta 15
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 204
+0s
+join_project 1:1-1(0) and 14:2-1(1) into 18 removing columns (0)
+join_project...join_project...get_key_indexer...0s
+0s
+0s
+recycle...Recycle: 361
+0s
+join_project 3:2-1(0) and 13(0) into 19 removing columns (0,2)
+join 19() and 9() into 19
+move 15 into 13
+recycle...Recycle: 361
+0s
+looping ... 6
+join_project 1:1-1(0) and 14(1) into 18 removing columns (0)
+join_project 3:2-1(0) and 13:1-1(0) into 19 removing columns (0,2)
+join_project...join_project...get_key_indexer...0s
+0s
+0s
+join 19() and 9() into 19
+join...join_project...0s
+0s
+rename 19 into 19 with cycle (0,1)
+union 19 into 0 with delta 16
+rename...rename...0s
+0s
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 210
+0s
+move 16 into 14
+looping ... 7
+select_equal_and_project 14 into 17 col: 0 val: 0
+clone...0s
+filter_equal...0s
+select_equal_project...select_equal_and_project...get_key_indexer...0s
+0s
+0s
+union 17 into 2 with delta 15
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 210
+0s
+join_project 1:1-1(0) and 14:2-1(1) into 18 removing columns (0)
+join_project...join_project...get_key_indexer...0s
+0s
+0s
+recycle...Recycle: 361
+0s
+join_project 3:2-1(0) and 13(0) into 19 removing columns (0,2)
+join 19() and 9() into 19
+move 15 into 13
+recycle...Recycle: 361
+0s
+looping ... 8
+join_project 1:1-1(0) and 14(1) into 18 removing columns (0)
+join_project 3:2-1(0) and 13:1-1(0) into 19 removing columns (0,2)
+join_project...join_project...get_key_indexer...0s
+0s
+0s
+join 19() and 9() into 19
+join...join_project...0s
+0s
+rename 19 into 19 with cycle (0,1)
+union 19 into 0 with delta 16
+rename...rename...0s
+0s
+union...union...add_fact...0s
+add_fact...0s
+0s
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 204
+0s
+move 16 into 14
+looping ... 9
+select_equal_and_project 14 into 17 col: 0 val: 0
+clone...0s
+filter_equal...0s
+select_equal_project...select_equal_and_project...get_key_indexer...0s
+0s
+0s
+union 17 into 2 with delta 15
+union...union...add_fact...0s
+add_fact...0s
+0s
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 204
+0s
+join_project 1:1-1(0) and 14:2-1(1) into 18 removing columns (0)
+join_project...join_project...get_key_indexer...0s
+0s
+0s
+recycle...Recycle: 361
+0s
+join_project 3:2-1(0) and 13(0) into 19 removing columns (0,2)
+join 19() and 9() into 19
+move 15 into 13
+recycle...Recycle: 361
+0s
+looping ... 10
+join_project 1:1-1(0) and 14(1) into 18 removing columns (0)
+join_project 3:2-1(0) and 13:1-1(0) into 19 removing columns (0,2)
+join_project...join_project...get_key_indexer...0s
+0s
+0s
+join 19() and 9() into 19
+join...join_project...0s
+0s
+rename 19 into 19 with cycle (0,1)
+union 19 into 0 with delta 16
+rename...rename...0s
+0s
+union...union...add_fact...0s
+add_fact...0s
+0s
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 210
+0s
+mark_saturated t!filter!1
+mark_saturated t
+select_equal_and_project 0 into 20 col: 0 val: 0
+clone...0s
+filter_equal...remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+0s
+select_equal_project...select_equal_and_project...get_key_indexer...0s
+0s
+0s
+select_equal_and_project 20 into 20 col: 0 val: 31
+clone...0s
+recycle...Recycle: 2322
+0s
+recycle...Recycle: 603
+0s
+filter_equal...remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+0s
+select_equal_project...recycle...Recycle: 603
+0s
+0s
+recycle...Recycle: 603
+0s
+mark_saturated t!filter!2
+mark_saturated q
+store 2 into t!filter!1
+recycle...Recycle: 200
+0s
+store 5 into q
+store 0 into t
+recycle...Recycle: 200
+0s
+store 1 into b
+recycle...Recycle: 200
+0s
+store 3 into e
+recycle...Recycle: 200
+0s
+store 4 into t!filter!2
+store 6 into e!sc_2!0
+recycle...Recycle: 1228
+0s
+bytes 6
+bytes	rows	annotation
+recycle...Recycle: 1228
+0s
+recycle...Recycle: 603
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 2322
+0s
+recycle...Recycle: 1228
+0s

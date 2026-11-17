@@ -28,6 +28,17 @@ func (t *LazySparseTable) UnionFrom(source, delta *LazySparseTable) error {
 		}
 	}
 	if t.root.signature.Len() == 0 {
+		// A nullary table is not the lazy plugin's in the source (sparse
+		// cannot hold it): its union is default_table_union_fn, which has
+		// no verbose_action.
+		return lazyUnionForced(t, targetTable, sourceTable, deltaTable)
+	}
+	return lazyVerbose("union", func() error { return lazyUnionForced(t, targetTable, sourceTable, deltaTable) })
+}
+
+// lazyUnionForced is the union of union_fn on the forced tables.
+func lazyUnionForced(t *LazySparseTable, targetTable, sourceTable, deltaTable FiniteTable) error {
+	if t.root.signature.Len() == 0 {
 		targetHash, targetOK := targetTable.(*HashTable)
 		sourceHash, sourceOK := sourceTable.(*HashTable)
 		var deltaHash *HashTable

@@ -27,8 +27,10 @@ func evalLazySparseNegation(engine *LazySparseEngine, node *lazySparseNode) (*Sp
 	// functional joins reorder those columns to [left-data, right-data,
 	// left-functional, right-functional], so use the plan only when no remap is
 	// required and fall back through the materialized lazy join otherwise.
-	if node.right.kind == LazyTableJoin && node.right.left.signature.Len() != 0 && node.right.right.signature.Len() != 0 &&
-		node.right.left.functional == 0 && node.right.right.functional == 0 {
+	// lazy_table_filter_by_negation::force evaluates a join source's
+	// operands and runs verbose_action("filter_by_negation_join") whether
+	// or not the negated join applies.
+	if node.right.kind == LazyTableJoin && node.right.left.signature.Len() != 0 && node.right.right.signature.Len() != 0 {
 		first, firstErr := engine.eval(node.right.left)
 		if firstErr != nil {
 			return nil, firstErr
@@ -37,12 +39,25 @@ func evalLazySparseNegation(engine *LazySparseEngine, node *lazySparseNode) (*Sp
 		if secondErr != nil {
 			return nil, secondErr
 		}
-		plan, planErr := NewSparseNegatedJoinPlan(target, first, second, node.columns1, node.columns2, node.right.columns1, node.right.columns2)
-		if planErr == nil {
-			_, planErr = plan.Apply(target, first, second)
-			if planErr != nil {
-				return nil, planErr
+		applied := false
+		err = lazyVerbose("filter_by_negation_join", func() error {
+			if node.right.left.functional != 0 || node.right.right.functional != 0 {
+				return nil
 			}
+			plan, planErr := NewSparseNegatedJoinPlan(target, first, second, node.columns1, node.columns2, node.right.columns1, node.right.columns2)
+			if planErr != nil {
+				return nil
+			}
+			if _, planErr = plan.Apply(target, first, second); planErr != nil {
+				return planErr
+			}
+			applied = true
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		if applied {
 			return target, nil
 		}
 	}
@@ -50,7 +65,7 @@ func evalLazySparseNegation(engine *LazySparseEngine, node *lazySparseNode) (*Sp
 	if err != nil {
 		return nil, err
 	}
-	if err = target.FilterNegation(negative, node.columns1, node.columns2); err != nil {
+	if err = lazyVerbose("filter_by_negation", func() error { return target.FilterNegation(negative, node.columns1, node.columns2) }); err != nil {
 		return nil, err
 	}
 	return target, nil

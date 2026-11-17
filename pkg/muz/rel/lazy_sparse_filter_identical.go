@@ -24,7 +24,7 @@ func evalLazySparseIdentical(engine *LazySparseEngine, node *lazySparseNode) (*S
 	if err != nil {
 		return nil, err
 	}
-	if err = result.FilterIdentical(node.columns1); err != nil {
+	if err = lazyVerbose("filter_identical", func() error { return result.FilterIdentical(node.columns1) }); err != nil {
 		return nil, err
 	}
 	return result, nil

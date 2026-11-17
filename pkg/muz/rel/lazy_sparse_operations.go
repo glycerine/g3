@@ -78,7 +78,10 @@ func (e *LazySparseEngine) eval(node *lazySparseNode) (*SparseTable, error) {
 			return nil, rightErr
 		}
 		e.stats.Joins++
-		result, err = left.Join(right, node.columns1, node.columns2)
+		err = lazyVerbose("join", func() (x error) {
+			result, x = left.Join(right, node.columns1, node.columns2)
+			return x
+		})
 	case LazyTableProject:
 		if node.left != nil && node.left.kind == LazyTableJoin && node.left.left.signature.Len() != 0 && node.left.right.signature.Len() != 0 {
 			join := node.left
@@ -91,7 +94,10 @@ func (e *LazySparseEngine) eval(node *lazySparseNode) (*SparseTable, error) {
 				return nil, rightErr
 			}
 			e.stats.JoinProjects++
-			result, err = left.JoinProject(right, join.columns1, join.columns2, node.columns1)
+			err = lazyVerbose("join_project", func() (x error) {
+				result, x = left.JoinProject(right, join.columns1, join.columns2, node.columns1)
+				return x
+			})
 		} else if node.left != nil && node.left.kind == LazyTableFilterEqual && len(node.columns1) == 1 && node.columns1[0] == node.left.column {
 			result, err = evalLazySparseEqualProject(e, node.left)
 			if err == nil {
@@ -108,14 +114,20 @@ func (e *LazySparseEngine) eval(node *lazySparseNode) (*SparseTable, error) {
 				return nil, sourceErr
 			}
 			e.stats.Projects++
-			result, err = source.Project(node.columns1)
+			err = lazyVerbose("project", func() (x error) {
+				result, x = source.Project(node.columns1)
+				return x
+			})
 		}
 	case LazyTableRename:
 		source, sourceErr := e.eval(node.left)
 		if sourceErr != nil {
 			return nil, sourceErr
 		}
-		result, err = source.Rename(node.columns1)
+		err = lazyVerbose("rename", func() (x error) {
+			result, x = source.Rename(node.columns1)
+			return x
+		})
 	case LazyTableFilterEqual:
 		result, err = evalLazySparseEqual(e, node)
 		if err == nil {
@@ -238,7 +250,11 @@ func (e *LazySparseEngine) evalFiniteNode(node *lazySparseNode) (FiniteTable, er
 			if err != nil {
 				return nil, err
 			}
-			length, err := source.Len()
+			length := 0
+			err = lazyVerbose(lazyProjectAction(node.left), func() (x error) {
+				length, x = source.Len()
+				return x
+			})
 			if err != nil {
 				return nil, err
 			}
@@ -254,23 +270,58 @@ func (e *LazySparseEngine) evalFiniteNode(node *lazySparseNode) (FiniteTable, er
 			if err != nil {
 				return nil, err
 			}
-			joined, err := left.JoinProject(right, join.columns1, join.columns2, node.columns1)
+			length := 0
+			err = lazyVerbose("join_project", func() error {
+				joined, x := left.JoinProject(right, join.columns1, join.columns2, node.columns1)
+				if x != nil {
+					return x
+				}
+				length, x = joined.Len()
+				return errors.Join(x, joined.Close())
+			})
 			if err != nil {
 				return nil, err
 			}
-			length, lenErr := joined.Len()
-			closeErr := joined.Close()
-			if lenErr != nil || closeErr != nil {
-				return nil, errors.Join(lenErr, closeErr)
-			}
 			nonempty = length != 0
 			e.stats.JoinProjects++
+		} else if node.left.kind == LazyTableFilterEqual && len(node.columns1) == 1 && node.columns1[0] == node.left.column {
+			// lazy_table_project::force of a filter_equal: the forced
+			// one-column table's mk_select_equal_and_project_fn, which
+			// sparse_table_plugin refuses (signature size 1), so
+			// default_table_select_equal_and_project_fn: aux = t.clone(),
+			// filter_equal of aux, its project (the nullary result), then
+			// aux is deallocated.
+			source, err := e.eval(node.left)
+			if err != nil {
+				return nil, err
+			}
+			length := 0
+			err = lazyVerbose("select_equal_project", func() error {
+				aux, x := source.Clone()
+				if x != nil {
+					return x
+				}
+				x = aux.FilterEqual(node.left.value, node.left.column)
+				if x == nil {
+					length, x = aux.Len()
+				}
+				return errors.Join(x, aux.Close())
+			})
+			if err != nil {
+				return nil, err
+			}
+			nonempty = length != 0
+			e.stats.SelectEqualProject++
 		} else {
 			source, err := e.evalFiniteNode(node.left)
 			if err != nil {
 				return nil, err
 			}
-			length, err := source.Len()
+			length := 0
+			err = lazyVerbose(lazyProjectAction(node.left), func() (x error) {
+				length, x = source.Len()
+				return x
+			})
 			if err != nil {
 				return nil, err
 			}
@@ -282,7 +333,11 @@ func (e *LazySparseEngine) evalFiniteNode(node *lazySparseNode) (FiniteTable, er
 		if err != nil {
 			return nil, err
 		}
-		length, err := source.Len()
+		length := 0
+		err = lazyVerbose("rename", func() (x error) {
+			length, x = source.Len()
+			return x
+		})
 		if err != nil {
 			return nil, err
 		}

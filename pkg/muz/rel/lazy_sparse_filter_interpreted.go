@@ -130,19 +130,20 @@ func evalLazySparseInterpreted(engine *LazySparseEngine, node *lazySparseNode) (
 	if err != nil {
 		return nil, err
 	}
-	if node.interpreted.columns != nil || node.interpreted.sorts != nil {
-		conditions, conditionErr := node.interpreted.conditions()
-		if conditionErr != nil {
-			return nil, conditionErr
+	err = lazyVerbose("filter_interpreted", func() error {
+		if node.interpreted.columns != nil || node.interpreted.sorts != nil {
+			conditions, conditionErr := node.interpreted.conditions()
+			if conditionErr != nil {
+				return conditionErr
+			}
+			return filterSparseInterpretedBound(result, node.interpreted.manager, node.interpreted.rewriter, conditions, node.interpreted.columns, node.interpreted.sorts)
 		}
-		err = filterSparseInterpretedBound(result, node.interpreted.manager, node.interpreted.rewriter, conditions, node.interpreted.columns, node.interpreted.sorts)
-	} else {
 		condition, conditionErr := node.interpreted.condition()
 		if conditionErr != nil {
-			return nil, conditionErr
+			return conditionErr
 		}
-		err = result.FilterInterpreted(node.interpreted.manager, node.interpreted.relationSorts, node.interpreted.rewriter, condition)
-	}
+		return result.FilterInterpreted(node.interpreted.manager, node.interpreted.relationSorts, node.interpreted.rewriter, condition)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -156,6 +157,17 @@ func evalLazySparseInterpretedProject(engine *LazySparseEngine, filter *lazySpar
 	if err != nil {
 		return nil, err
 	}
+	var result *SparseTable
+	err = lazyVerbose("filter_interpreted_project", func() (x error) {
+		result, x = filterInterpretedProjectForced(source, filter, removed)
+		return x
+	})
+	return result, err
+}
+
+// filterInterpretedProjectForced is the filter_interpreted_and_project of
+// lazy_table_project::force on the forced filter node's table.
+func filterInterpretedProjectForced(source *SparseTable, filter *lazySparseNode, removed []int) (*SparseTable, error) {
 	if filter.interpreted.columns != nil || filter.interpreted.sorts != nil {
 		conditions, conditionErr := filter.interpreted.conditions()
 		if conditionErr != nil {

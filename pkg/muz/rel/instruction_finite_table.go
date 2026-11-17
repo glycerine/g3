@@ -18,21 +18,24 @@ func setNonemptyFiniteRegister(context *ExecutionContext, index uint32, table Fi
 	if table == nil {
 		return context.MakeEmpty(index)
 	}
+	// Source instructions follow every result with
+	// ctx.set_reg(reg, result); if (ctx.reg(reg)->fast_empty())
+	// ctx.make_empty(reg): set_reg deletes the register's former relation
+	// before fast_empty (which forces a lazy table) runs. Sparse tables
+	// report emptiness exactly, and check_relation/check_table forward
+	// fast_empty to the wrapped relation, so every empty result leaves
+	// the register null.
+	if err := context.SetFiniteRegister(index, table); err != nil {
+		return err
+	}
 	empty, err := finiteFastEmpty(table)
 	if err != nil {
 		return err
 	}
-	// Source instructions follow every result with
-	// if (reg->fast_empty()) make_empty(reg): sparse tables report emptiness
-	// exactly, and check_relation/check_table forward fast_empty to the
-	// wrapped relation, so every empty result leaves the register null.
 	if empty {
-		if err = table.Close(); err != nil {
-			return err
-		}
 		return context.MakeEmpty(index)
 	}
-	return context.SetFiniteRegister(index, table)
+	return nil
 }
 
 func emptyFiniteLike(table FiniteTable) (FiniteTable, error) {
