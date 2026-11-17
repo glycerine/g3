@@ -17,7 +17,9 @@ type SMTConflictResolution struct {
 	ConflictLevel      uint32
 	NewScopeLevel      uint32
 	InternalScopeLevel uint32
-	Lemma              []SMTLiteral
+	// Lemma is the resolver's reused buffer (the source's m_lemma): it is
+	// valid until the next resolution.
+	Lemma []SMTLiteral
 }
 
 type SMTConflictResolver struct {
@@ -28,6 +30,7 @@ type SMTConflictResolver struct {
 	levelsBuf  []uint32
 	temporary  []int32
 	stack      []int32
+	lemmaBuf   []SMTLiteral // m_lemma storage, reused across conflicts
 	closePhase uint8
 	closed     bool
 }
@@ -440,7 +443,8 @@ func (r *SMTConflictResolver) resolve(conflict SMTBooleanJustification, notLiter
 			resolveErr = errors.Join(resolveErr, r.expander.endSession())
 		}
 	}()
-	lemma := []SMTLiteral{SMTNullLiteral}
+	lemma := append(r.lemmaBuf[:0], SMTNullLiteral)
+	defer func() { r.lemmaBuf = lemma[:0] }()
 	numMarks := 0
 	processAntecedent := func(literal SMTLiteral) error {
 		if literal == SMTTrueLiteral {
