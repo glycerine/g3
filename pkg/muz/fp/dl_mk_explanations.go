@@ -215,8 +215,9 @@ func (x *mkExplanations) getRuleSymbol(r *base.Rule) (usymbol.Symbol, error) {
 	if !name.IsNull() {
 		return name, nil
 	}
+	// r->display(m_context, sstm): with the context's output_profile.
 	var b bytes.Buffer
-	if err = x.engine.rules.WriteRuleDisplay(&b, r); err != nil {
+	if err = x.engine.writeRuleDisplay(&b, r); err != nil {
 		return usymbol.Symbol{}, err
 	}
 	return x.m.Symbols.Intern(strings.TrimRight(b.String(), "\n"))
