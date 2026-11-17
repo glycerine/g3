@@ -853,13 +853,28 @@ namespace datalog {
             }
             else {
                 scoped_ptr<relation_join_fn> product_fun = rmgr.mk_join_fn(orig_rel, *m_e_fact_relation, 0, nullptr, nullptr);
-                SASSERT(product_fun);
+                // FORK FIX #111 (g3 audit, see FORK_BUGFIXES.md): the relations of other
+                // plugins (a doc relation) may have no product with the explanation
+                // relation, or no union into the explained relation; 4.7.1 called
+                // the null functors and crashed.
+                if (!product_fun) {
+                    throw default_exception(default_exception::fmt(),
+                        "trying to perform unsupported join operation on relations of kinds %s and %s",
+                        orig_rel.get_plugin().get_name().bare_str(),
+                        m_e_fact_relation->relation_base::get_plugin().get_name().bare_str());
+                }
                 scoped_rel<relation_base> aux_extended_rel = (*product_fun)(orig_rel, *m_e_fact_relation);
                 TRACE("dl", tout << aux_extended_rel << " " << aux_extended_rel->get_plugin().get_name() << "\n";
                       tout << e_rel.get_plugin().get_name() << "\n";);
                 scoped_ptr<relation_union_fn> union_fun = rmgr.mk_union_fn(e_rel, *aux_extended_rel);
                 TRACE("dl", tout << union_fun << "\n";);
-                SASSERT(union_fun);
+                // FORK FIX #111 (g3 audit, see FORK_BUGFIXES.md)
+                if (!union_fun) {
+                    throw default_exception(default_exception::fmt(),
+                        "trying to perform unsupported union operation on relations of kinds %s and %s",
+                        e_rel.get_plugin().get_name().bare_str(),
+                        aux_extended_rel->get_plugin().get_name().bare_str());
+                }
                 (*union_fun)(e_rel, *aux_extended_rel);
             }
         }
