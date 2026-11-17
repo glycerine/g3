@@ -1069,8 +1069,10 @@ func (c *finiteCompiler) compileRuleEvaluationRun(rule finiteCompiledRule, headR
 		if c.relations.varSubst == nil {
 			return ErrCompilerUnsupported
 		}
+		// m_context.get_var_subst()(filter_cond, ...): var_subst resets its
+		// rewriter before a call, so the cache keeps this call's terms
+		// until the next one or the context's destruction.
 		err = c.relations.varSubst.Substitute(filterCond, binding, renamedRef)
-		err = errors.Join(err, c.relations.varSubst.Reset())
 		if err != nil {
 			return err
 		}
