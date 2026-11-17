@@ -1014,6 +1014,11 @@ func (s *SMTInternalizerState) unregisterEnode(node *SMTEnode) error {
 	if len(bucket) == 0 || bucket[len(bucket)-1] != node {
 		return fmt.Errorf("enode declaration %d is not bucket tail (size %d): %w", node.declaration.Slot(), len(bucket), ast.ErrASTDomain)
 	}
+	matching := s.context.matchingByDeclaration[node.declaration]
+	indexed := len(node.arguments) != 0 && !node.IsEquality()
+	if indexed && (len(matching) == 0 || matching[len(matching)-1] != node) {
+		return fmt.Errorf("enode declaration %d is not matching bucket tail: %w", node.declaration.Slot(), ast.ErrASTDomain)
+	}
 	// undo_mk_enode: erase e if e->is_cgr() && !e->is_true_eq() &&
 	// e->is_cgc_enabled(). A leaf has no m_cg.
 	if node.IsCongruenceRoot() && node.NumArgs() != 0 && node.congruenceEnabled && !node.IsTrueEquality() {
@@ -1026,7 +1031,12 @@ func (s *SMTInternalizerState) unregisterEnode(node *SMTEnode) error {
 		}
 	}
 	s.context.enodes.del(node.owner)
+	bucket[len(bucket)-1] = nil
 	s.context.byDeclaration[node.declaration] = bucket[:len(bucket)-1]
+	if indexed {
+		matching[len(matching)-1] = nil
+		s.context.matchingByDeclaration[node.declaration] = matching[:len(matching)-1]
+	}
 	// Source relevancy marks belong to the expression's relevancy scope.
 	// A base mark can precede an enode created only in this retiring scope.
 	if s.relevancy == nil {

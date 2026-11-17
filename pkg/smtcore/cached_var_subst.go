@@ -12,8 +12,10 @@ import (
 type smtCachedSubstitutionEntry struct {
 	quantifier ast.ASTHandle
 	bindings   []ast.ASTHandle
-	owned      []ast.ASTRef
-	result     ast.ASTRef
+	result     ast.ASTHandle
+	// The source expr_ref_vector increments AST ownership directly. Do not
+	// manufacture a manager ASTRef slot for each retained handle.
+	owned, released int
 }
 
 type SMTCachedVarSubstitution struct {
@@ -108,11 +110,7 @@ func (c *SMTCachedVarSubstitution) Instantiate(quantifier ast.ASTHandle, binding
 	}
 	hash := smtSubstitutionKeyHash(quantifier, owners)
 	if entry := c.find(hash, quantifier, owners); entry != nil {
-		value, err := c.manager.RefGet(entry.result)
-		if err != nil {
-			return false, err
-		}
-		return true, c.manager.SetRef(out, value)
+		return true, c.manager.SetRef(out, entry.result)
 	}
 	body, err := c.manager.GetQuantifierBody(quantifier)
 	if err != nil {
@@ -125,22 +123,20 @@ func (c *SMTCachedVarSubstitution) Instantiate(quantifier ast.ASTHandle, binding
 	if err != nil {
 		return false, err
 	}
-	entry := &smtCachedSubstitutionEntry{quantifier: quantifier, bindings: append([]ast.ASTHandle(nil), owners...)}
-	handles := make([]ast.ASTHandle, 0, len(owners)+2)
-	handles = append(handles, quantifier)
-	handles = append(handles, owners...)
-	handles = append(handles, value)
-	for _, handle := range handles {
-		ref, err := c.manager.NewRef(handle)
-		if err != nil {
-			for i := len(entry.owned) - 1; i >= 0; i-- {
-				err = errors.Join(err, c.manager.DelRef(&entry.owned[i]))
+	// owners was created for this call and is not borrowed from the caller.
+	// Keep that tuple as the cache key and retain qa, bindings, result in the
+	// exact m_refs.push_back order, with no extra API-reference objects.
+	entry := &smtCachedSubstitutionEntry{quantifier: quantifier, bindings: owners, result: value}
+	for entry.owned < len(owners)+2 {
+		if err := c.manager.IncRef(entry.ownedHandle(entry.owned)); err != nil {
+			for entry.owned > 0 {
+				entry.owned--
+				err = errors.Join(err, c.manager.DecRef(entry.ownedHandle(entry.owned)))
 			}
 			return false, err
 		}
-		entry.owned = append(entry.owned, ref)
+		entry.owned++
 	}
-	entry.result = entry.owned[len(entry.owned)-1]
 	c.entries[hash] = append(c.entries[hash], entry)
 	c.ordered = append(c.ordered, entry)
 	return false, nil
@@ -162,19 +158,38 @@ func (c *SMTCachedVarSubstitution) Reset() error {
 	return c.clearEntries()
 }
 
+func (e *smtCachedSubstitutionEntry) ownedHandle(index int) ast.ASTHandle {
+	if index == 0 {
+		return e.quantifier
+	}
+	if index <= len(e.bindings) {
+		return e.bindings[index-1]
+	}
+	return e.result
+}
+
 func (c *SMTCachedVarSubstitution) clearEntries() error {
-	// m_refs (qa, bindings, result per entry) is an expr_ref_vector:
-	// released front to back.
+	// m_refs releases qa, bindings, result front to back. Record consumed
+	// references before returning a later destructor error so Reset/Close
+	// can resume without decrementing any expression twice.
 	for len(c.ordered) != 0 {
 		entry := c.ordered[0]
-		for len(entry.owned) != 0 {
-			if err := c.manager.DelRef(&entry.owned[0]); err != nil {
+		for entry.released < entry.owned {
+			consumed, err := c.manager.DecRefConsumed(entry.ownedHandle(entry.released))
+			if consumed {
+				entry.released++
+			}
+			if err != nil {
 				return err
 			}
-			entry.owned = entry.owned[1:]
+			if !consumed {
+				return ast.ErrASTPending
+			}
 		}
+		c.ordered[0] = nil
 		c.ordered = c.ordered[1:]
 	}
+	c.ordered = nil
 	c.entries = make(map[uint64][]*smtCachedSubstitutionEntry)
 	return nil
 }
