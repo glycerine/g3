@@ -13,6 +13,7 @@ type SMTFingerprint struct {
 	data     ast.ASTHandle
 	dataHash uint32
 	args     []*SMTEnode
+	hash     uint64 // fingerprint_hash_proc of data and args, for removal
 }
 
 func (f *SMTFingerprint) Data() ast.ASTHandle { return f.data }
@@ -29,13 +30,15 @@ func (f *SMTFingerprint) Arg(index uint32) (*SMTEnode, error) {
 // SMTFingerprintSet uses concrete quantifier handles for the only retained
 // instantiation of fingerprint::m_data. Entries preserve insertion order.
 type SMTFingerprintSet struct {
-	byData       map[ast.ASTHandle]map[int][]*SMTFingerprint
+	// byHash is fingerprint_set::m_set, hashed like fingerprint_hash_proc
+	// over the data and every argument; buckets hold only collisions.
+	byHash       map[uint64][]*SMTFingerprint
 	fingerprints []*SMTFingerprint
 	scopes       []int
 }
 
 func NewSMTFingerprintSet() *SMTFingerprintSet {
-	return &SMTFingerprintSet{byData: make(map[ast.ASTHandle]map[int][]*SMTFingerprint)}
+	return &SMTFingerprintSet{byHash: make(map[uint64][]*SMTFingerprint)}
 }
 
 func (s *SMTFingerprintSet) Size() uint32 {
@@ -57,13 +60,23 @@ func smtFingerprintArgsEqual(left, right []*SMTEnode) bool {
 	return true
 }
 
-func (s *SMTFingerprintSet) find(data ast.ASTHandle, args []*SMTEnode) *SMTFingerprint {
-	byArity := s.byData[data]
-	if byArity == nil {
-		return nil
+// smtFingerprintHash is fingerprint_hash_proc: the data and each
+// argument's enode (identified by its owner) feed the hash.
+func smtFingerprintHash(data ast.ASTHandle, args []*SMTEnode) uint64 {
+	h := smtHandleMix(0xcbf29ce484222325^uint64(len(args)), data)
+	for _, a := range args {
+		if a == nil {
+			h = smtHandleMix(h, ast.ASTHandle{})
+			continue
+		}
+		h = smtHandleMix(h, a.owner)
 	}
-	for _, fingerprint := range byArity[len(args)] {
-		if smtFingerprintArgsEqual(fingerprint.args, args) {
+	return h
+}
+
+func (s *SMTFingerprintSet) find(hash uint64, data ast.ASTHandle, args []*SMTEnode) *SMTFingerprint {
+	for _, fingerprint := range s.byHash[hash] {
+		if fingerprint.data == data && smtFingerprintArgsEqual(fingerprint.args, args) {
 			return fingerprint
 		}
 	}
@@ -85,23 +98,19 @@ func (s *SMTFingerprintSet) Insert(data ast.ASTHandle, dataHash uint32, args []*
 	if s == nil || data.IsNull() {
 		return nil, ast.ErrASTDomain
 	}
-	if s.find(data, args) != nil {
+	if s.find(smtFingerprintHash(data, args), data, args) != nil {
 		return nil, nil
 	}
 	roots, err := smtFingerprintRoots(args)
 	if err != nil {
 		return nil, err
 	}
-	if s.find(data, roots) != nil {
+	hash := smtFingerprintHash(data, roots)
+	if s.find(hash, data, roots) != nil {
 		return nil, nil
 	}
-	fingerprint := &SMTFingerprint{data: data, dataHash: dataHash, args: roots}
-	byArity := s.byData[data]
-	if byArity == nil {
-		byArity = make(map[int][]*SMTFingerprint)
-		s.byData[data] = byArity
-	}
-	byArity[len(roots)] = append(byArity[len(roots)], fingerprint)
+	fingerprint := &SMTFingerprint{data: data, dataHash: dataHash, args: roots, hash: hash}
+	s.byHash[hash] = append(s.byHash[hash], fingerprint)
 	s.fingerprints = append(s.fingerprints, fingerprint)
 	return fingerprint, nil
 }
@@ -111,14 +120,14 @@ func (s *SMTFingerprintSet) Contains(data ast.ASTHandle, dataHash uint32, args [
 		return false, ast.ErrASTDomain
 	}
 	_ = dataHash // Source equality does not compare its cached hash.
-	if s.find(data, args) != nil {
+	if s.find(smtFingerprintHash(data, args), data, args) != nil {
 		return true, nil
 	}
 	roots, err := smtFingerprintRoots(args)
 	if err != nil {
 		return false, err
 	}
-	return s.find(data, roots) != nil, nil
+	return s.find(smtFingerprintHash(data, roots), data, roots) != nil, nil
 }
 
 func (s *SMTFingerprintSet) SlowContains(data ast.ASTHandle, dataHash uint32, args []*SMTEnode) (bool, error) {
@@ -129,7 +138,7 @@ func (s *SMTFingerprintSet) Reset() {
 	if s == nil {
 		return
 	}
-	s.byData = make(map[ast.ASTHandle]map[int][]*SMTFingerprint)
+	s.byHash = make(map[uint64][]*SMTFingerprint)
 	s.fingerprints = nil
 }
 
@@ -149,8 +158,7 @@ func (s *SMTFingerprintSet) PopScopes(count uint32) error {
 	oldSize := s.scopes[newLevel]
 	for i := len(s.fingerprints) - 1; i >= oldSize; i-- {
 		fingerprint := s.fingerprints[i]
-		byArity := s.byData[fingerprint.data]
-		bucket := byArity[len(fingerprint.args)]
+		bucket := s.byHash[fingerprint.hash]
 		for j := len(bucket) - 1; j >= 0; j-- {
 			if bucket[j] == fingerprint {
 				bucket = append(bucket[:j], bucket[j+1:]...)
@@ -158,12 +166,9 @@ func (s *SMTFingerprintSet) PopScopes(count uint32) error {
 			}
 		}
 		if len(bucket) == 0 {
-			delete(byArity, len(fingerprint.args))
+			delete(s.byHash, fingerprint.hash)
 		} else {
-			byArity[len(fingerprint.args)] = bucket
-		}
-		if len(byArity) == 0 {
-			delete(s.byData, fingerprint.data)
+			s.byHash[fingerprint.hash] = bucket
 		}
 	}
 	s.fingerprints = s.fingerprints[:oldSize]

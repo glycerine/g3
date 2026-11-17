@@ -20,16 +20,19 @@ type SMTCachedVarSubstitution struct {
 	self         *SMTCachedVarSubstitution
 	manager      *ast.ASTManager
 	substitution *rewriter.VarSubstitution
-	entries      map[ast.ASTHandle]map[int][]*smtCachedSubstitutionEntry
-	ordered      []*smtCachedSubstitutionEntry
-	closed       bool
+	// entries is cached_var_subst::m_instances, a map keyed by (qa,
+	// bindings) under key_hash_proc (a hash of the whole binding tuple and
+	// qa's id). Buckets hold only hash collisions.
+	entries map[uint64][]*smtCachedSubstitutionEntry
+	ordered []*smtCachedSubstitutionEntry
+	closed  bool
 }
 
 func NewSMTCachedVarSubstitution(m *ast.ASTManager) (*SMTCachedVarSubstitution, error) {
 	if m == nil {
 		return nil, ast.ErrASTDomain
 	}
-	c := &SMTCachedVarSubstitution{manager: m, entries: make(map[ast.ASTHandle]map[int][]*smtCachedSubstitutionEntry)}
+	c := &SMTCachedVarSubstitution{manager: m, entries: make(map[uint64][]*smtCachedSubstitutionEntry)}
 	c.self = c
 	var err error
 	c.substitution, err = rewriter.NewVarSubstitution(m, true)
@@ -46,13 +49,29 @@ func (c *SMTCachedVarSubstitution) open() error {
 	return nil
 }
 
-func (c *SMTCachedVarSubstitution) find(quantifier ast.ASTHandle, bindings []ast.ASTHandle) *smtCachedSubstitutionEntry {
-	byArity := c.entries[quantifier]
-	if byArity == nil {
-		return nil
+// smtHandleMix folds one AST handle into a tuple hash.
+func smtHandleMix(h uint64, x ast.ASTHandle) uint64 {
+	for _, v := range [3]uint64{uint64(x.Slot()), uint64(x.Generation()), x.Origin()} {
+		h ^= v
+		h *= 0x100000001b3
+		h ^= h >> 29
 	}
-	for _, entry := range byArity[len(bindings)] {
-		if len(entry.bindings) != len(bindings) {
+	return h
+}
+
+// smtSubstitutionKeyHash is key_hash_proc: the hash of the quantifier and
+// every binding.
+func smtSubstitutionKeyHash(quantifier ast.ASTHandle, bindings []ast.ASTHandle) uint64 {
+	h := smtHandleMix(0xcbf29ce484222325^uint64(len(bindings)), quantifier)
+	for _, b := range bindings {
+		h = smtHandleMix(h, b)
+	}
+	return h
+}
+
+func (c *SMTCachedVarSubstitution) find(hash uint64, quantifier ast.ASTHandle, bindings []ast.ASTHandle) *smtCachedSubstitutionEntry {
+	for _, entry := range c.entries[hash] {
+		if entry.quantifier != quantifier || len(entry.bindings) != len(bindings) {
 			continue
 		}
 		equal := true
@@ -87,7 +106,8 @@ func (c *SMTCachedVarSubstitution) Instantiate(quantifier ast.ASTHandle, binding
 		}
 		owners[i] = binding.owner
 	}
-	if entry := c.find(quantifier, owners); entry != nil {
+	hash := smtSubstitutionKeyHash(quantifier, owners)
+	if entry := c.find(hash, quantifier, owners); entry != nil {
 		value, err := c.manager.RefGet(entry.result)
 		if err != nil {
 			return false, err
@@ -121,12 +141,7 @@ func (c *SMTCachedVarSubstitution) Instantiate(quantifier ast.ASTHandle, binding
 		entry.owned = append(entry.owned, ref)
 	}
 	entry.result = entry.owned[len(entry.owned)-1]
-	byArity := c.entries[quantifier]
-	if byArity == nil {
-		byArity = make(map[int][]*smtCachedSubstitutionEntry)
-		c.entries[quantifier] = byArity
-	}
-	byArity[len(owners)] = append(byArity[len(owners)], entry)
+	c.entries[hash] = append(c.entries[hash], entry)
 	c.ordered = append(c.ordered, entry)
 	return false, nil
 }
@@ -160,7 +175,7 @@ func (c *SMTCachedVarSubstitution) clearEntries() error {
 		}
 		c.ordered = c.ordered[1:]
 	}
-	c.entries = make(map[ast.ASTHandle]map[int][]*smtCachedSubstitutionEntry)
+	c.entries = make(map[uint64][]*smtCachedSubstitutionEntry)
 	return nil
 }
 
