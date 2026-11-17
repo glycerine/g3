@@ -357,7 +357,25 @@ func (p *MagicSetsPlugin) popBound(indices *[]int, rule *base.Rule, bound map[ui
 	*indices = (*indices)[:last]
 	return result, nil
 }
-func (p *MagicSetsPlugin) transformRule(task magicTask, rule *base.Rule, result *base.RuleSet) error {
+func (p *MagicSetsPlugin) transformRule(task magicTask, rule *base.Rule, result *base.RuleSet) (resultErr error) {
+	// The adorned and magic literals of the new rules are unowned apps
+	// (ptr_vector<app> new_tail): rule_manager::mk's norm_vars releases
+	// the tails it renames, so a literal one new rule replaced could die
+	// before the next rule reuses it (a use after free in the C++; release
+	// build, no UB: g3 keeps them for the rule's transformation).
+	var pinned []ast.ASTRef
+	defer func() {
+		for i := len(pinned) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, p.manager.DelRef(&pinned[i]))
+		}
+	}()
+	pin := func(h ast.ASTHandle) error {
+		ref, err := p.manager.NewRef(h)
+		if err == nil {
+			pinned = append(pinned, ref)
+		}
+		return err
+	}
 	head, err := rule.Head()
 	if err != nil {
 		return err
@@ -431,6 +449,9 @@ func (p *MagicSetsPlugin) transformRule(task magicTask, rule *base.Rule, result 
 			if e != nil {
 				return e
 			}
+			if e = pin(lit); e != nil {
+				return e
+			}
 		}
 		tails, neg = append(tails, lit), append(neg, negative)
 		if e = collectLiteralVars(p.manager, lit, bound); e != nil {
@@ -453,8 +474,14 @@ func (p *MagicSetsPlugin) transformRule(task magicTask, rule *base.Rule, result 
 	if err != nil {
 		return err
 	}
+	if err = pin(newHead); err != nil {
+		return err
+	}
 	headMagic, err := p.magicLiteral(newHead)
 	if err != nil {
+		return err
+	}
+	if err = pin(headMagic); err != nil {
 		return err
 	}
 	prefixTails := append([]ast.ASTHandle{headMagic}, tails...)
@@ -485,6 +512,10 @@ func (p *MagicSetsPlugin) transformRule(task magicTask, rule *base.Rule, result 
 			return e
 		}
 		tails, neg = append(tails, lit), append(neg, n)
+	}
+	// new_tail.push_back(create_magic_literal(new_head))
+	if headMagic, err = p.magicLiteral(newHead); err != nil {
+		return err
 	}
 	tails, neg = append(tails, headMagic), append(neg, false)
 	name, err := rule.NameSymbol()
