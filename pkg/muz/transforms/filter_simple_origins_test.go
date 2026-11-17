@@ -101,15 +101,18 @@ func TestFilterRulesOriginsFollowTailsAndCacheReplacement(t *testing.T) {
 					t.Fatal("filter was not created")
 				}
 				defer func() { coneMust(t, result.Close()) }()
+				// The filter cache never hits: one filter per tail.
 				fresh := plugin.FreshPredicates()
-				if len(fresh) != 1 {
-					t.Fatal("equivalent tails did not share filter", len(fresh))
+				if len(fresh) != 2 || fresh[0] == fresh[1] {
+					t.Fatal("each tail gets its own filter", fresh)
 				}
-				if count, cause := result.Len(); cause != nil || count != 3 {
-					t.Fatal("expected two parents and one filter definition", count, cause)
+				if count, cause := result.Len(); cause != nil || count != 4 {
+					t.Fatal("expected two parents and two filter definitions", count, cause)
 				}
-				if origin, found := plugin.FreshPredicateOrigin(fresh[0]); !found || origin != source {
-					t.Fatal("filter origin is not its tail declaration", origin, found)
+				for _, filter := range fresh {
+					if origin, found := plugin.FreshPredicateOrigin(filter); !found || origin != source {
+						t.Fatal("filter origin is not its tail declaration", origin, found)
+					}
 				}
 				if _, found := plugin.FreshPredicateOrigin(source); found {
 					t.Fatal("source predicate reported as fresh")

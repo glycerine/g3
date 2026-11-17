@@ -24,8 +24,12 @@ type FilterRulesPlugin struct {
 	rules    *base.RuleManager
 	priority uint32
 	cache    []filterRuleCacheEntry
-	closed   bool
-	closing  bool
+	// layout is m_tail2filter's table: an obj_map keyed by filter_key
+	// pointers, whose entries are found equal only to themselves (Num is
+	// the cache index), so every candidate tail gets its own filter.
+	layout  *ast.ObjMap
+	closed  bool
+	closing bool
 }
 
 func NewFilterRulesPlugin(manager *ast.ASTManager, rules *base.RuleManager, priority uint32) *FilterRulesPlugin {
@@ -66,18 +70,17 @@ func (p *FilterRulesPlugin) FreshPredicateOrigin(predicate ast.ASTHandle) (ast.A
 	return ast.ASTHandle{}, false
 }
 
+// resetCache is ~mk_filter_rules: the keys are deallocated in
+// m_tail2filter's table order.
 func (p *FilterRulesPlugin) resetCache() error {
-	for len(p.cache) != 0 {
-		last := len(p.cache) - 1
-		err := p.manager.DelRef(&p.cache[last].pin)
-		if p.cache[last].pin == (ast.ASTRef{}) {
-			p.cache[last] = filterRuleCacheEntry{}
-			p.cache = p.cache[:last]
-		}
-		if err != nil {
-			return err
+	if p.layout != nil {
+		for _, entry := range p.layout.Entries() {
+			if err := p.manager.DelRef(&p.cache[entry.Num].pin); err != nil {
+				return err
+			}
 		}
 	}
+	p.layout = nil
 	p.cache = nil
 	return nil
 }
@@ -234,11 +237,18 @@ func (p *FilterRulesPlugin) makeFilter(application ast.ASTHandle, nonLocal map[u
 			resultErr = errors.Join(resultErr, p.manager.DelRef(&normalizedPin))
 		}
 	}()
-	for index := range p.cache {
-		entry := &p.cache[index]
-		if entry.predicate == normalized && sameFilterArguments(entry.arguments, filterArguments) {
-			return entry.declaration, nil
+	// m_tail2filter.insert_if_not_there2(key, 0): filter_key::hash, a new
+	// key pointer equal to no entry.
+	hash, err := p.manager.GetHash(normalized)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	for _, argument := range filterArguments {
+		h, hashErr := p.manager.GetHash(argument)
+		if hashErr != nil {
+			return ast.ASTHandle{}, hashErr
 		}
+		hash ^= h
 	}
 	prefix, err := p.manager.GetASTName(originalDeclaration)
 	if err != nil {
@@ -279,6 +289,10 @@ func (p *FilterRulesPlugin) makeFilter(application ast.ASTHandle, nonLocal map[u
 	if err = result.Add(definition); err != nil {
 		return ast.ASTHandle{}, err
 	}
+	if p.layout == nil {
+		p.layout = ast.NewObjMap(p.manager)
+	}
+	p.layout.InsertPairIfNotThere(normalized, uint64(len(p.cache)), hash)
 	p.cache = append(p.cache, filterRuleCacheEntry{
 		predicate: normalized, arguments: append([]ast.ASTHandle(nil), filterArguments...),
 		declaration: filterDeclaration, origin: originalDeclaration, pin: normalizedPin,

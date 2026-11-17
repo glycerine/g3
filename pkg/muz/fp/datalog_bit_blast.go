@@ -160,20 +160,22 @@ func (q *datalogBitBlastQuery) install() error {
 // conversion failure cannot publish a partially decoded relation. Bit-blast
 // conversion precedes the earlier inliner/COI model ledger: those converters
 // read original-domain interpretations built from these completed tables.
-func (q *datalogBitBlastQuery) publish() (resultErr error) {
+//
+// Only the queried predicates' relations are read (rel_context::query reads
+// get_relation(rules.get_pred(q)) of its query predicates alone).
+func (q *datalogBitBlastQuery) publish(queried []ast.ASTHandle) error {
 	if q == nil || len(q.columns) == 0 {
 		return nil
 	}
 	e := q.engine
-	tables := make([]rel.FiniteTable, len(q.columns))
-	defer func() {
-		for _, table := range tables {
-			if table != nil {
-				resultErr = errors.Join(resultErr, table.Close())
-			}
-		}
-	}()
+	read := make(map[ast.ASTHandle]bool, len(queried))
+	for _, declaration := range queried {
+		read[declaration] = true
+	}
 	for _, columns := range q.columns {
+		if !read[columns.original] {
+			continue
+		}
 		derived := e.predicates[columns.derived]
 		if derived == nil || derived.table == nil {
 			return ErrPropositionalEngine
@@ -207,6 +209,8 @@ func (q *datalogBitBlastQuery) publish() (resultErr error) {
 		}
 		if old, found := e.bitBlastAnswers[columns.original]; found {
 			err = e.manager.DelRef(&old)
+		} else {
+			e.bitBlastAnswerOrder = append(e.bitBlastAnswerOrder, columns.original)
 		}
 		e.bitBlastAnswers[columns.original] = answer
 		if err != nil {
@@ -219,13 +223,20 @@ func (q *datalogBitBlastQuery) publish() (resultErr error) {
 // releaseBitBlastAnswers drops the previous query's Boolean-relation answers.
 func (e *PropositionalEngine) releaseBitBlastAnswers() error {
 	var err error
-	for declaration, answer := range e.bitBlastAnswers {
+	kept := e.bitBlastAnswerOrder[:0]
+	for _, declaration := range e.bitBlastAnswerOrder {
+		answer, found := e.bitBlastAnswers[declaration]
+		if !found {
+			continue
+		}
 		if cause := e.manager.DelRef(&answer); cause != nil {
 			err = errors.Join(err, cause)
+			kept = append(kept, declaration)
 			continue
 		}
 		delete(e.bitBlastAnswers, declaration)
 	}
+	e.bitBlastAnswerOrder = kept
 	e.bitBlastEmpty = nil
 	return err
 }

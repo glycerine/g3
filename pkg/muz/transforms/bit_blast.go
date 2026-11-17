@@ -175,7 +175,7 @@ type BitBlastPlugin struct {
 	simplifier *InterpTailSimplifierPlugin
 	blaster    *bitblaster.BitBlasterRewriter
 	expansion  bitBlastExpansion
-	// expansionTraversal is m_rewriter during Transform.
+	// expansionTraversal is m_rewriter's rewriter (its cache).
 	expansionTraversal *astrewriter.Traversal
 	mkRule             func(destination *base.RuleSet, formula, proof ast.ASTHandle, name usymbol.Symbol) error
 	priority           uint32
@@ -249,13 +249,14 @@ func (p *BitBlastPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resul
 		}
 	}()
 	p.expansion.source, p.expansion.target = source, result
-	traversal, err := astrewriter.NewTraversal(p.manager, &p.expansion)
-	if err != nil {
-		return nil, err
+	// m_rewriter is impl's member: its cache lives until the plugin dies.
+	if p.expansionTraversal == nil {
+		traversal, err := astrewriter.NewTraversal(p.manager, &p.expansion)
+		if err != nil {
+			return nil, err
+		}
+		p.expansionTraversal = traversal
 	}
-	defer func() { resultErr = errors.Join(resultErr, traversal.Close()) }()
-	p.expansionTraversal = traversal
-	defer func() { p.expansionTraversal = nil }()
 	count, err := source.Len()
 	if err != nil {
 		return nil, err
@@ -334,7 +335,8 @@ func (p *BitBlastPlugin) assignFormula(slot *ast.ASTRef, h ast.ASTHandle) error 
 
 // blastRule is to_formula(*r, fml) followed by blast(r, fml).
 func (p *BitBlastPlugin) blastRule(rule *base.Rule, fml *ast.ASTRef) (changed bool, resultErr error) {
-	original, err := rule.ToFormula()
+	// to_formula's fml = r.get_head() releases the previous rule's formula.
+	original, err := rule.ToFormulaReplacing(fml)
 	if err != nil {
 		return false, err
 	}
@@ -442,6 +444,13 @@ func (p *BitBlastPlugin) Close() error {
 	// expansion), m_blaster, then m_simplifier.
 	if err := p.expansion.release(); err != nil {
 		return err
+	}
+	// rewriter_core's cache, after expand_mkbv's own m_cfg.
+	if p.expansionTraversal != nil {
+		if err := p.expansionTraversal.Close(); err != nil {
+			return err
+		}
+		p.expansionTraversal = nil
 	}
 	if p.blaster != nil {
 		if err := p.blaster.Close(); err != nil {

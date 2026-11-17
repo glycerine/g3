@@ -321,6 +321,8 @@ type PropositionalEngine struct {
 	// latest query's answer over the derived Boolean relation
 	// (rules.get_pred(q) after mk_bit_blast).
 	bitBlastAnswers map[ast.ASTHandle]ast.ASTRef
+	// bitBlastAnswerOrder lists bitBlastAnswers' keys in insertion order.
+	bitBlastAnswerOrder []ast.ASTHandle
 	// bitBlastEmpty is the derived relation's empty() and is_precise() of
 	// each bit-blasted original predicate, read with its answer.
 	bitBlastEmpty map[ast.ASTHandle][2]bool
@@ -2966,7 +2968,7 @@ func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHand
 		return lbool.Undef, err
 	}
 	if len(bitBlast.columns) != 0 {
-		if err = bitBlast.publish(); err != nil {
+		if err = bitBlast.publish(declarations); err != nil {
 			return lbool.Undef, err
 		}
 	}

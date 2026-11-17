@@ -12,7 +12,10 @@ import (
 	"github.com/glycerine/g3/pkg/muz/transforms"
 )
 
-func TestFilterRulesCachesNormalizedRepeatedArgumentFilters(t *testing.T) {
+// TestFilterRulesNeverShareFilters: m_tail2filter is an obj_map keyed by
+// filter_key pointers (pointer equality), so equivalent normalized tails
+// get a filter predicate and definition each.
+func TestFilterRulesNeverShareFilters(t *testing.T) {
 	f := newConeFixture(t)
 	boolean, err := f.manager.MkBoolSort()
 	coneMust(t, err)
@@ -63,9 +66,10 @@ func TestFilterRulesCachesNormalizedRepeatedArgumentFilters(t *testing.T) {
 	}
 	count, err := f.set.Len()
 	coneMust(t, err)
-	if count != 3 {
-		t.Fatalf("filter cache produced %d rules, want two parents and one definition", count)
+	if count != 4 {
+		t.Fatalf("filter rules produced %d rules, want two parents and two definitions", count)
 	}
+	filters := make(map[ast.ASTHandle]bool)
 	var filter ast.ASTHandle
 	parents := 0
 	definitions := 0
@@ -79,14 +83,18 @@ func TestFilterRulesCachesNormalizedRepeatedArgumentFilters(t *testing.T) {
 			var tailDeclaration ast.ASTHandle
 			tailDeclaration, getErr = rule.TailDeclaration(0)
 			if getErr == nil {
-				if filter.IsNull() {
-					filter = tailDeclaration
-				} else if filter != tailDeclaration {
-					t.Fatalf("equivalent normalized tails used different filters %v and %v", filter, tailDeclaration)
+				if filters[tailDeclaration] {
+					t.Fatalf("equivalent normalized tails shared filter %v", tailDeclaration)
 				}
+				filters[tailDeclaration] = true
 			}
 		} else if getErr == nil {
-			checkTransformAccounting(t, rule, originals[pDecl], base.Costs{Milliseconds: 7, Instructions: 3})
+			// mk_filter_decl adds the definition just before its parent.
+			next, nextErr := f.set.Rule(index + 1)
+			coneMust(t, nextErr)
+			parent, nextErr := next.HeadDeclaration()
+			coneMust(t, errors.Join(nextErr, next.Close()))
+			checkTransformAccounting(t, rule, originals[parent], base.Costs{Milliseconds: 7, Instructions: 3})
 			definitions++
 			filter = headDeclaration
 			var tailDeclaration ast.ASTHandle
@@ -98,7 +106,7 @@ func TestFilterRulesCachesNormalizedRepeatedArgumentFilters(t *testing.T) {
 		getErr = errors.Join(getErr, rule.Close())
 		coneMust(t, getErr)
 	}
-	if parents != 2 || definitions != 1 {
+	if parents != 2 || definitions != 2 {
 		t.Fatal("filter rule classes", parents, definitions)
 	}
 	if arity, arityErr := f.manager.GetArity(filter); arityErr != nil || arity != 1 {
@@ -215,8 +223,9 @@ func TestFilterRulesRemoveDuplicateRewrittenTails(t *testing.T) {
 	tailCount, err := parents[0].TailSize()
 	err = errors.Join(err, parents[0].Close())
 	coneMust(t, err)
-	if tailCount != 1 {
-		t.Fatalf("duplicate rewritten tails retained: %d", tailCount)
+	// Each tail has its own filter: remove_duplicate_tails keeps both.
+	if tailCount != 2 {
+		t.Fatalf("rewritten tails: %d", tailCount)
 	}
 }
 

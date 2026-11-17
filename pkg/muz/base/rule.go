@@ -620,6 +620,17 @@ func (r *Rule) IsInTail(declaration ast.ASTHandle, onlyPositive bool) (bool, err
 // ToFormula converts the rule to its universally quantified Horn formula and
 // returns one owning AST reference.
 func (r *Rule) ToFormula() (result ast.ASTRef, resultErr error) {
+	return r.toFormula(nil)
+}
+
+// ToFormulaReplacing is rule_manager::to_formula(r, fml) into a formula
+// variable that holds an earlier value: fml = r.get_head() releases prev
+// once the negated tails exist, before the implication is built.
+func (r *Rule) ToFormulaReplacing(prev *ast.ASTRef) (ast.ASTRef, error) {
+	return r.toFormula(prev)
+}
+
+func (r *Rule) toFormula(prev *ast.ASTRef) (result ast.ASTRef, resultErr error) {
 	state, err := r.open()
 	if err != nil {
 		return result, err
@@ -654,6 +665,12 @@ func (r *Rule) ToFormula() (result ast.ASTRef, resultErr error) {
 			if err = errors.Join(err, state.manager.SetRef(pin, body[i])); err != nil {
 				return result, err
 			}
+		}
+	}
+	// fml = r.get_head()
+	if prev != nil && *prev != (ast.ASTRef{}) {
+		if err = state.manager.DelRef(prev); err != nil {
+			return result, err
 		}
 	}
 	formula := state.head

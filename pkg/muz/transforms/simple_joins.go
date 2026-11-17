@@ -483,19 +483,38 @@ func (pl *joinPlanner) substitute(t ast.ASTHandle, subst []ast.ASTHandle) (ast.A
 }
 
 // getKey is join_planner::get_key.
-func (pl *joinPlanner) getKey(t1, t2 ast.ASTHandle) (appPair, error) {
+// The normalized terms are pinned (m_pinned) after the swap, smaller id
+// first.
+func (pl *joinPlanner) getKey(t1, t2 ast.ASTHandle) (_ appPair, resultErr error) {
 	normSubst, err := pl.getNormalizer(t1, t2)
 	if err != nil {
 		return appPair{}, err
 	}
-	t1n, err := pl.substitute(t1, normSubst)
-	if err != nil {
-		return appPair{}, err
+	refs := make([]ast.ASTRef, 0, 2)
+	defer func() {
+		for i := range refs {
+			if refs[i] != (ast.ASTRef{}) {
+				resultErr = errors.Join(resultErr, pl.m.DelRef(&refs[i]))
+			}
+		}
+	}()
+	handles := make([]ast.ASTHandle, 0, 2)
+	for _, t := range []ast.ASTHandle{t1, t2} {
+		out, err := pl.m.NewRef(ast.ASTHandle{})
+		if err != nil {
+			return appPair{}, err
+		}
+		refs = append(refs, out)
+		if err = pl.varSubst.Substitute(t, normSubst, out); err != nil {
+			return appPair{}, err
+		}
+		h, err := pl.m.RefGet(out)
+		if err != nil {
+			return appPair{}, err
+		}
+		handles = append(handles, h)
 	}
-	t2n, err := pl.substitute(t2, normSubst)
-	if err != nil {
-		return appPair{}, err
-	}
+	t1n, t2n := handles[0], handles[1]
 	id1, err := pl.m.GetASTID(t1n)
 	if err != nil {
 		return appPair{}, err
@@ -506,7 +525,12 @@ func (pl *joinPlanner) getKey(t1, t2 ast.ASTHandle) (appPair, error) {
 	}
 	if id1 > id2 {
 		t1n, t2n = t2n, t1n
+		refs[0], refs[1] = refs[1], refs[0]
 	}
+	// m_pinned.push_back(t1n); m_pinned.push_back(t2n): the pins take over
+	// the substitution results' references.
+	pl.p.keyPins = append(pl.p.keyPins, refs...)
+	refs = nil
 	return appPair{first: t1n, second: t2n}, nil
 }
 
