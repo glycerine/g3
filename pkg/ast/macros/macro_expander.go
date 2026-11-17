@@ -17,7 +17,6 @@ import (
 type macroExpanderConfig struct {
 	rewriter.DefaultConfiguration
 	owner          *Manager
-	substitution   *rewriter.VarSubstitution
 	trail          []ast.ASTRef
 	usedDependency ast.ASTDependency
 }
@@ -112,7 +111,21 @@ func (c *macroExpanderConfig) GetSubst(term ast.ASTHandle) (ast.ASTHandle, ast.A
 	if !found {
 		return ast.ASTHandle{}, ast.ASTHandle{}, false, nil
 	}
-	entry := c.owner.entries[i]
+	// get_subst's var_subst s(m) is local to the expansion: its reducer's
+	// cache dies when the expansion returns, after the dependency join.
+	substitution, err := rewriter.NewVarSubstitution(m, true)
+	if err != nil {
+		return ast.ASTHandle{}, ast.ASTHandle{}, false, err
+	}
+	result, proof, ok, err := c.expand(substitution, term, declaration, c.owner.entries[i])
+	if e := substitution.Close(); e != nil {
+		return ast.ASTHandle{}, ast.ASTHandle{}, false, errors.Join(err, e)
+	}
+	return result, proof, ok, err
+}
+
+func (c *macroExpanderConfig) expand(substitution *rewriter.VarSubstitution, term, declaration ast.ASTHandle, entry managerEntry) (ast.ASTHandle, ast.ASTHandle, bool, error) {
+	m := c.owner.manager
 	head, definition, err := c.owner.GetHeadDefinition(entry.quantifier, declaration)
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, false, err
@@ -148,7 +161,7 @@ func (c *macroExpanderConfig) GetSubst(term ast.ASTHandle) (ast.ASTHandle, ast.A
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, false, err
 	}
-	if err = c.substitution.Substitute(definition, arguments, replacement); err != nil {
+	if err = substitution.Substitute(definition, arguments, replacement); err != nil {
 		_ = m.DelRef(&replacement)
 		return ast.ASTHandle{}, ast.ASTHandle{}, false, err
 	}
@@ -172,7 +185,7 @@ func (c *macroExpanderConfig) GetSubst(term ast.ASTHandle) (ast.ASTHandle, ast.A
 			return ast.ASTHandle{}, ast.ASTHandle{}, false, e
 		}
 		defer m.DelRef(&instanceRef)
-		if e = c.substitution.Substitute(body, arguments, instanceRef); e != nil {
+		if e = substitution.Substitute(body, arguments, instanceRef); e != nil {
 			return ast.ASTHandle{}, ast.ASTHandle{}, false, e
 		}
 		instance, e := m.RefGet(instanceRef)
@@ -205,15 +218,13 @@ func (c *macroExpanderConfig) GetSubst(term ast.ASTHandle) (ast.ASTHandle, ast.A
 	return result, proof, true, nil
 }
 
+// close is ~macro_expander_cfg: m_trail (an expr_ref_vector, released
+// front to back), then m_used_macro_dependencies.
 func (c *macroExpanderConfig) close() (result error) {
-	for i := len(c.trail) - 1; i >= 0; i-- {
+	for i := range c.trail {
 		result = errors.Join(result, c.owner.manager.DelRef(&c.trail[i]))
 	}
 	c.trail = nil
-	if c.substitution != nil {
-		result = errors.Join(result, c.substitution.Close())
-		c.substitution = nil
-	}
 	if !c.usedDependency.IsNull() {
 		result = errors.Join(result, c.owner.manager.DependencyDec(c.usedDependency))
 		c.usedDependency = ast.ASTDependency{}
@@ -350,11 +361,10 @@ func (m *Manager) ExpandMacros(term, proof ast.ASTHandle, dependency ast.ASTDepe
 	}
 	changed := false
 	for {
+		// One iteration is a scope holding macro_expander_rw proc: proc
+		// (~macro_expander_cfg, then the rewriter's cache) dies after
+		// old_n = r, or after the break.
 		cfg := &macroExpanderConfig{owner: m}
-		cfg.substitution, err = rewriter.NewVarSubstitution(m.manager, true)
-		if err != nil {
-			return resultDependency, errors.Join(err, cfg.close())
-		}
 		var traversal *rewriter.Traversal
 		if proofs {
 			traversal, err = rewriter.NewProofTraversal(m.manager, cfg)
@@ -364,55 +374,14 @@ func (m *Manager) ExpandMacros(term, proof ast.ASTHandle, dependency ast.ASTDepe
 		if err != nil {
 			return resultDependency, errors.Join(err, cfg.close())
 		}
-		old, e := m.manager.RefGet(oldTerm)
-		if e == nil {
-			if proofs {
-				e = traversal.RewriteWithProof(old, out, outProof)
-			} else {
-				e = traversal.Rewrite(old, out)
-			}
-		}
-		used := cfg.usedDependency
-		if !used.IsNull() && e == nil {
-			e = replaceOwnedDependency(m.manager, &resultDependency, used)
-		}
-		e = errors.Join(e, traversal.Close(), cfg.close())
-		if e != nil {
+		done, e := m.expandMacrosStep(cfg, traversal, proofs, oldTerm, oldProof, out, outProof, &resultDependency)
+		if e = errors.Join(e, cfg.close(), traversal.Close()); e != nil {
 			return resultDependency, e
 		}
-		if proofs {
-			previous, x := m.manager.RefGet(oldProof)
-			if x != nil {
-				return resultDependency, x
-			}
-			equalityProof, x := m.manager.RefGet(outProof)
-			if x != nil {
-				return resultDependency, x
-			}
-			combined, x := m.manager.MkProofModusPonens(previous, equalityProof)
-			if x != nil {
-				return resultDependency, x
-			}
-			if x = m.manager.SetRef(outProof, combined); x != nil {
-				return resultDependency, x
-			}
-		}
-		current, e := m.manager.RefGet(out)
-		if e != nil {
-			return resultDependency, e
-		}
-		if current == old {
+		if done {
 			break
 		}
 		changed = true
-		if e = m.manager.AssignRef(oldTerm, out); e != nil {
-			return resultDependency, e
-		}
-		if proofs {
-			if x := m.manager.AssignRef(oldProof, outProof); x != nil {
-				return resultDependency, x
-			}
-		}
 	}
 	if !changed {
 		return resultDependency, nil
@@ -454,4 +423,57 @@ func (m *Manager) ExpandMacros(term, proof ast.ASTHandle, dependency ast.ASTDepe
 		return resultDependency, err
 	}
 	return resultDependency, nil
+}
+
+// expandMacrosStep is one expand_macros iteration while proc lives: it
+// reports whether r == old_n, and otherwise sets old_n = r (and old_pr).
+func (m *Manager) expandMacrosStep(cfg *macroExpanderConfig, traversal *rewriter.Traversal, proofs bool, oldTerm, oldProof, out, outProof ast.ASTRef, resultDependency *ast.ASTDependency) (bool, error) {
+	old, err := m.manager.RefGet(oldTerm)
+	if err != nil {
+		return false, err
+	}
+	if proofs {
+		err = traversal.RewriteWithProof(old, out, outProof)
+	} else {
+		err = traversal.Rewrite(old, out)
+	}
+	if err != nil {
+		return false, err
+	}
+	if used := cfg.usedDependency; !used.IsNull() {
+		if err = replaceOwnedDependency(m.manager, resultDependency, used); err != nil {
+			return false, err
+		}
+	}
+	if proofs {
+		previous, err := m.manager.RefGet(oldProof)
+		if err != nil {
+			return false, err
+		}
+		equalityProof, err := m.manager.RefGet(outProof)
+		if err != nil {
+			return false, err
+		}
+		combined, err := m.manager.MkProofModusPonens(previous, equalityProof)
+		if err != nil {
+			return false, err
+		}
+		if err = m.manager.SetRef(outProof, combined); err != nil {
+			return false, err
+		}
+	}
+	current, err := m.manager.RefGet(out)
+	if err != nil {
+		return false, err
+	}
+	if current == old {
+		return true, nil
+	}
+	if err = m.manager.AssignRef(oldTerm, out); err != nil {
+		return false, err
+	}
+	if proofs {
+		return false, m.manager.AssignRef(oldProof, outProof)
+	}
+	return false, nil
 }
