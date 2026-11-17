@@ -1800,14 +1800,9 @@ func (t *SMTTheoryArith) mkGbMonomial(c *numeral.Rational, m ast.ASTHandle, gb *
 	return t.newGbMonomial(gb, &coeff, vars)
 }
 
-// newGbMonomial is gb.mk_monomial(coeff, vars); grobner holds math/big
-// values (a boundary).
+// newGbMonomial is gb.mk_monomial(coeff, vars).
 func (t *SMTTheoryArith) newGbMonomial(gb *grobner.Solver, coeff *numeral.Rational, vars []ast.ASTHandle) (*grobner.Monomial, error) {
-	b, err := smtQBig(t.q, coeff)
-	if err != nil {
-		return nil, err
-	}
-	return gb.NewMonomial(b, vars)
+	return gb.NewMonomial(coeff, vars)
 }
 
 // addRowToGb sends the row to the grobner object with fixed variables
@@ -1907,7 +1902,12 @@ func (t *SMTTheoryArith) initGrobner(nlCluster []SMTTheoryVar, gb *grobner.Solve
 
 // mkIntervalForMonomial returns the interval of a grobner monomial.
 func (t *SMTTheoryArith) mkIntervalForMonomial(m *grobner.Monomial) (*smtOldInterval, error) {
-	r, err := newSMTOldIntervalPoint(&t.depManager, m.Coefficient(), nil, nil)
+	// The old_interval endpoints are math/big values (a boundary).
+	c, err := smtQBig(t.q, m.Coefficient())
+	if err != nil {
+		return nil, err
+	}
+	r, err := newSMTOldIntervalPoint(&t.depManager, c, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -2016,15 +2016,17 @@ func smtRatIsPerfectSquare(q *big.Rat) (*big.Rat, bool) {
 	return new(big.Rat).SetFrac(n, d), true
 }
 
-// smtArithIsPerfectSquareMonomial: c*M is a square; r is the root of c.
-func smtArithIsPerfectSquareMonomial(m *grobner.Monomial) (*big.Rat, bool) {
+// isPerfectSquareMonomial is is_perfect_square(m, r): c*M is a square and
+// r is set to the root of c.
+func (t *SMTTheoryArith) isPerfectSquareMonomial(m *grobner.Monomial, r *numeral.Rational) bool {
 	numVars := m.Degree()
 	if numVars%2 == 1 {
-		return nil, false
+		return false
 	}
-	r, ok := smtRatIsPerfectSquare(m.Coefficient())
-	if !ok {
-		return nil, false
+	ok, err := t.q.IsPerfectSquare(m.Coefficient(), r)
+	t.keep(err)
+	if !ok || err != nil {
+		return false
 	}
 	var v ast.ASTHandle
 	hasVar := false
@@ -2038,25 +2040,30 @@ func smtArithIsPerfectSquareMonomial(m *grobner.Monomial) (*big.Rat, bool) {
 			power++
 		default:
 			if power%2 == 1 {
-				return nil, false
+				return false
 			}
 			v, power = curr, 1
 		}
 	}
-	return r, power%2 == 0
+	return power%2 == 0
 }
 
-// smtArithIsPerfectSquareTriple: m1m2 is (-2ab)*M1*M2 for m1Sq = a^2*M1*M1
-// and m2Sq = b^2*M2*M2.
-func smtArithIsPerfectSquareTriple(m1Sq *grobner.Monomial, a *big.Rat, m2Sq *grobner.Monomial, b *big.Rat, m1m2 *grobner.Monomial) bool {
+// isPerfectSquareTriple is is_perfect_square(m1_sq, a, m2_sq, b, m1m2):
+// m1m2 is (-2ab)*M1*M2 for m1Sq = a^2*M1*M1 and m2Sq = b^2*M2*M2.
+func (t *SMTTheoryArith) isPerfectSquareTriple(m1Sq *grobner.Monomial, a *numeral.Rational, m2Sq *grobner.Monomial, b *numeral.Rational, m1m2 *grobner.Monomial) bool {
 	coeff := m1m2.Coefficient()
 	if coeff.Sign() >= 0 {
 		return false
 	}
-	c := big.NewRat(-2, 1)
-	c.Mul(c, a)
-	c.Mul(c, b)
-	if coeff.Cmp(c) != 0 {
+	// rational c(-2); c *= a; c *= b;
+	c := smtQInt(-2)
+	err := t.q.Mul(&c, a, &c)
+	if err == nil {
+		err = t.q.Mul(&c, b, &c)
+	}
+	equal := err == nil && t.rcmp(coeff, &c) == 0
+	t.keep(errors.Join(err, smtQDel(t.q, &c)))
+	if !equal {
 		return false
 	}
 	num1, num2, num12 := m1Sq.Degree(), m2Sq.Degree(), m1m2.Degree()
@@ -2095,7 +2102,7 @@ func smtArithIsPerfectSquareTriple(m1Sq *grobner.Monomial, a *big.Rat, m2Sq *gro
 
 // isInconsistent2 eliminates perfect squares (M1 - M2)^2, replacing them
 // with [0, oo) when that is more precise, and checks the equation.
-func (t *SMTTheoryArith) isInconsistent2(eq *grobner.Equation, deps *smtArithGbDeps) (bool, error) {
+func (t *SMTTheoryArith) isInconsistent2(eq *grobner.Equation, deps *smtArithGbDeps) (_ bool, err error) {
 	ms := eq.Monomials()
 	num := len(ms)
 	intervals := make([]*smtOldInterval, num)
@@ -2110,11 +2117,13 @@ func (t *SMTTheoryArith) isInconsistent2(eq *grobner.Equation, deps *smtArithGbD
 	var monomials []*grobner.Monomial
 	for i := 0; i < num; i++ {
 		m1 := ms[i]
+		// rational a
+		a := smtQZero()
+		defer func() { err = errors.Join(err, smtQDel(t.q, &a)) }()
 		if deleted[i] {
 			continue
 		}
-		a, ok := smtArithIsPerfectSquareMonomial(m1)
-		if !ok {
+		if !t.isPerfectSquareMonomial(m1, &a) {
 			monomials = append(monomials, m1)
 			continue
 		}
@@ -2124,14 +2133,16 @@ func (t *SMTTheoryArith) isInconsistent2(eq *grobner.Equation, deps *smtArithGbD
 				continue
 			}
 			m2 := ms[j]
-			b, ok := smtArithIsPerfectSquareMonomial(m2)
-			if !ok {
+			// rational b
+			b := smtQZero()
+			defer func() { err = errors.Join(err, smtQDel(t.q, &b)) }()
+			if !t.isPerfectSquareMonomial(m2, &b) {
 				continue
 			}
 			// -2*root(m1)*root(m2) is smaller than m1.
 			k := i + 1
 			for ; k < num; k++ {
-				if deleted[k] || !smtArithIsPerfectSquareTriple(m1, a, m2, b, ms[k]) {
+				if deleted[k] || !t.isPerfectSquareTriple(m1, &a, m2, &b, ms[k]) {
 					continue
 				}
 				I := intervals[i].clone()
@@ -2172,8 +2183,8 @@ func (t *SMTTheoryArith) isInconsistent2(eq *grobner.Equation, deps *smtArithGbD
 
 func (t *SMTTheoryArith) monomial2expr(x *smtArithExprs, m *grobner.Monomial, isInt bool) (ast.ASTHandle, error) {
 	var args []ast.ASTHandle
-	if c := m.Coefficient(); !smtRatIsOne(c) {
-		cn, err := t.mkNumeral(x, c, isInt)
+	if c := m.Coefficient(); !c.IsOne() {
+		cn, err := t.mkNumeralQ(x, c, isInt)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
@@ -2200,11 +2211,16 @@ func (t *SMTTheoryArith) internalizeGbEq(eq *grobner.Equation, deps *smtArithGbD
 	}
 	x := smtArithExprs{m: t.state.manager}
 	defer func() { err = errors.Join(err, x.release()) }()
-	k := new(big.Rat)
+	// rational k, kept as inf_numeral _k(k)'s rational.
+	kv := newSMTArithmeticValue()
+	defer func() { err = errors.Join(err, kv.del(t.q)) }()
+	k := &kv.rational
 	var args []ast.ASTHandle
 	for _, m := range ms {
 		if m.Degree() == 0 {
-			k.Sub(k, m.Coefficient())
+			if err = t.q.Sub(k, m.Coefficient(), k); err != nil {
+				return false, err
+			}
 			continue
 		}
 		e, err := t.monomial2expr(&x, m, isInt)
@@ -2236,11 +2252,6 @@ func (t *SMTTheoryArith) internalizeGbEq(eq *grobner.Equation, deps *smtArithGbD
 	}
 	dep, err := deps.toBoundDependency(eq.Dependency())
 	if err != nil {
-		return false, err
-	}
-	kv := newSMTArithmeticValue()
-	defer kv.del(t.q)
-	if err = t.q.SetBigRat(&kv.rational, k); err != nil {
 		return false, err
 	}
 	if err = t.mkDerivedNlBound(v, &kv, smtArithmeticLowerBound, dep); err != nil {

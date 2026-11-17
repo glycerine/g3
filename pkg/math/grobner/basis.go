@@ -1,9 +1,10 @@
 package grobner
 
 import (
-	"math/big"
+	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (s *Solver) subset(a, b *Monomial) (bool, []ast.ASTHandle, error) {
@@ -37,17 +38,20 @@ func (s *Solver) subset(a, b *Monomial) (bool, []ast.ASTHandle, error) {
 	}
 }
 
-func (s *Solver) mulAppend(start int, source *Equation, coeff *big.Rat, vars []ast.ASTHandle, out *[]*Monomial) error {
+func (s *Solver) mulAppend(start int, source *Equation, coeff *numeral.Rational, vars []ast.ASTHandle, out *[]*Monomial) error {
+	c := numeral.NewRational()
 	for _, m := range source.monomials[start:] {
-		c := new(big.Rat).Mul(&m.coeff, coeff)
+		if err := s.q.Mul(&m.coeff, coeff, &c); err != nil {
+			return errors.Join(err, s.q.Del(&c))
+		}
 		v := append(append([]ast.ASTHandle(nil), m.vars...), vars...)
-		n, err := s.NewMonomial(c, v)
+		n, err := s.NewMonomial(&c, v)
 		if err != nil {
-			return err
+			return errors.Join(err, s.q.Del(&c))
 		}
 		*out = append(*out, n)
 	}
-	return nil
+	return s.q.Del(&c)
 }
 
 func (s *Solver) copyEquation(e *Equation) (*Equation, error) {
@@ -120,12 +124,18 @@ func (s *Solver) reduce(source, target *Equation) (*Equation, bool, error) {
 				}
 			}
 			result, simplified = true, true
-			coeff := new(big.Rat).Quo(&current.coeff, &lead.coeff)
-			coeff.Neg(coeff)
+			coeff := numeral.NewRational()
+			err = s.q.Div(&current.coeff, &lead.coeff, &coeff)
+			if err == nil {
+				err = s.q.Neg(&coeff)
+			}
 			if len(rest) != 0 {
 				target.linear = false
 			}
-			if err := s.mulAppend(1, source, coeff, rest, &added); err != nil {
+			if err == nil {
+				err = s.mulAppend(1, source, &coeff, rest, &added)
+			}
+			if err = errors.Join(err, s.q.Del(&coeff)); err != nil {
 				return target, result, err
 			}
 			if err := s.delMonomial(current); err != nil {
@@ -334,8 +344,15 @@ func (s *Solver) superpose(a, b *Equation) error {
 	if err = s.mulAppend(1, a, &b.monomials[0].coeff, rb, &ms); err != nil {
 		return err
 	}
-	c := new(big.Rat).Neg(&a.monomials[0].coeff)
-	if err = s.mulAppend(1, b, c, ra, &ms); err != nil {
+	c := numeral.NewRational()
+	err = s.q.Copy(&c, &a.monomials[0].coeff)
+	if err == nil {
+		err = s.q.Neg(&c)
+	}
+	if err == nil {
+		err = s.mulAppend(1, b, &c, ra, &ms)
+	}
+	if err = errors.Join(err, s.q.Del(&c)); err != nil {
 		return err
 	}
 	ms, err = s.simplifyMonomials(ms)

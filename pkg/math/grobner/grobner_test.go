@@ -2,7 +2,6 @@ package grobner
 
 import (
 	"bytes"
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -68,7 +67,8 @@ func (f *fixture) variable(t *testing.T, name string) ast.ASTHandle {
 
 func monomial(t *testing.T, s *Solver, n int64, vars ...ast.ASTHandle) *Monomial {
 	t.Helper()
-	m, err := s.NewMonomial(big.NewRat(n, 1), vars)
+	c := numeral.Rational{Num: numeral.NewInt(int32(n)), Den: numeral.NewInt(1)}
+	m, err := s.NewMonomial(&c, vars)
 	must(t, err)
 	return m
 }
@@ -91,7 +91,7 @@ func TestBasisReducesNonlinearEquation(t *testing.T) {
 			continue
 		}
 		lead, constant := eq.Monomial(0), eq.Monomial(1)
-		if lead.Degree() != 1 || constant.Degree() != 0 || lead.Coefficient().Cmp(big.NewRat(1, 1)) != 0 || constant.Coefficient().Cmp(big.NewRat(-1, 1)) != 0 {
+		if lead.Degree() != 1 || constant.Degree() != 0 || !lead.Coefficient().IsOne() || !constant.Coefficient().IsMinusOne() {
 			continue
 		}
 		if lead.Variable(0) == x {
@@ -187,7 +187,7 @@ func TestExpressionAssertionAndInconsistency(t *testing.T) {
 		t.Fatal("expression equality was not asserted")
 	}
 	got := f.s.Equations()[0]
-	if got.Monomial(0).Coefficient().Cmp(big.NewRat(1, 1)) != 0 || got.Monomial(1).Coefficient().Cmp(big.NewRat(-2, 1)) != 0 {
+	if v, small := got.Monomial(1).Coefficient().SmallInt32(); !got.Monomial(0).Coefficient().IsOne() || !small || v != -2 {
 		t.Fatal("equality was not normalized")
 	}
 

@@ -7,10 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 const (
@@ -28,21 +28,22 @@ func (s *Stats) Reset() { *s = Stats{} }
 
 // Monomial owns references to its sorted variables until it is consumed by an
 // assertion or released with DelMonomial.
+//
+// coeff is a rational of the AST manager's rational manager
+// (NumeralService().Manager); the monomial owns it and frees it with its
+// variables.
 type Monomial struct {
-	coeff big.Rat
+	coeff numeral.Rational
 	vars  []ast.ASTHandle
 	owner *Solver
 	live  bool
 }
 
-func (m *Monomial) Coefficient() *big.Rat {
-	if m == nil {
-		return new(big.Rat)
-	}
-	return new(big.Rat).Set(&m.coeff)
-}
-func (m *Monomial) Degree() uint32 { return uint32(len(m.vars)) }
-func (m *Monomial) Size() uint32   { return uint32(len(m.vars)) }
+// Coefficient is get_coeff(): the monomial's own rational, borrowed until
+// the monomial is deleted.
+func (m *Monomial) Coefficient() *numeral.Rational { return &m.coeff }
+func (m *Monomial) Degree() uint32                 { return uint32(len(m.vars)) }
+func (m *Monomial) Size() uint32                   { return uint32(len(m.vars)) }
 func (m *Monomial) Variable(i uint32) ast.ASTHandle {
 	if m == nil || i >= uint32(len(m.vars)) {
 		return ast.ASTHandle{}
@@ -273,6 +274,7 @@ type scope struct{ unfreeze, delete int }
 // one AST manager.
 type Solver struct {
 	manager *ast.ASTManager
+	q       *numeral.RationalManager
 	family  ast.FamilyID
 	weights map[ast.ASTHandle]int
 	// weightLayout is m_var2weight's obj_map layout (its iteration order).
@@ -298,7 +300,7 @@ func New(manager *ast.ASTManager) (*Solver, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Solver{manager: manager, family: family, weights: make(map[ast.ASTHandle]int), weightLayout: ast.NewObjMap(manager), ids: make(map[ast.ASTHandle]uint32)}, nil
+	return &Solver{manager: manager, q: manager.NumeralService().Manager, family: family, weights: make(map[ast.ASTHandle]int), weightLayout: ast.NewObjMap(manager), ids: make(map[ast.ASTHandle]uint32)}, nil
 }
 
 func (s *Solver) check() error {
@@ -399,20 +401,24 @@ func (s *Solver) sortMonomials(ms []*Monomial) error {
 	return cause
 }
 
-func (s *Solver) NewMonomial(coeff *big.Rat, vars []ast.ASTHandle) (*Monomial, error) {
+// NewMonomial copies coeff, a rational of the AST manager's rational
+// manager.
+func (s *Solver) NewMonomial(coeff *numeral.Rational, vars []ast.ASTHandle) (*Monomial, error) {
 	if err := s.check(); err != nil {
 		return nil, err
 	}
 	if coeff == nil {
 		return nil, ast.ErrASTHandle
 	}
-	m := &Monomial{owner: s, live: true}
-	m.coeff.Set(coeff)
+	m := &Monomial{coeff: numeral.NewRational(), owner: s, live: true}
+	if err := s.q.Copy(&m.coeff, coeff); err != nil {
+		return nil, err
+	}
 	for _, v := range vars {
-		if _, _, numeral, err := s.manager.ArithmeticNumeralText(v); err != nil {
+		if isNumeral, err := s.manager.IsArithmeticNumeral(v); err != nil {
 			s.delMonomial(m)
 			return nil, err
-		} else if numeral {
+		} else if isNumeral {
 			s.delMonomial(m)
 			return nil, ast.ErrASTDomain
 		}
@@ -440,6 +446,7 @@ func (s *Solver) delMonomial(m *Monomial) error {
 	for _, v := range m.vars {
 		result = errors.Join(result, s.manager.DecRef(v))
 	}
+	result = errors.Join(result, s.q.Del(&m.coeff))
 	m.vars = nil
 	m.live = false
 	return result
@@ -455,18 +462,20 @@ func (s *Solver) cloneMonomial(m *Monomial) (*Monomial, error) {
 	return s.NewMonomial(&m.coeff, m.vars)
 }
 
-func (s *Solver) monomialFromExpr(coeff *big.Rat, h ast.ASTHandle) (*Monomial, error) {
-	text, _, numeral, err := s.manager.ArithmeticNumeralText(h)
+// monomialFromExpr is grobner::mk_monomial(coeff, e). rational r and the
+// scaled coefficient are freed on return.
+func (s *Solver) monomialFromExpr(coeff *numeral.Rational, h ast.ASTHandle) (_ *Monomial, err error) {
+	r, value := numeral.NewRational(), numeral.NewRational()
+	defer func() { err = errors.Join(err, s.q.Del(&value), s.q.Del(&r)) }()
+	_, isNumeral, err := s.manager.ArithmeticNumeralRational(h, &r)
 	if err != nil {
 		return nil, err
 	}
-	if numeral {
-		value, ok := new(big.Rat).SetString(text)
-		if !ok {
-			return nil, ast.ErrASTDomain
+	if isNumeral {
+		if err = s.q.Mul(&r, coeff, &value); err != nil {
+			return nil, err
 		}
-		value.Mul(value, coeff)
-		return s.NewMonomial(value, nil)
+		return s.NewMonomial(&value, nil)
 	}
 	isMul, err := s.isArith(h, arithMul)
 	if err != nil {
@@ -477,19 +486,19 @@ func (s *Solver) monomialFromExpr(coeff *big.Rat, h ast.ASTHandle) (*Monomial, e
 	}
 
 	body := h
-	value := new(big.Rat).Set(coeff)
+	if err = s.q.Copy(&value, coeff); err != nil {
+		return nil, err
+	}
 	first, err := s.manager.GetArg(body, 0)
 	if err != nil {
 		return nil, err
 	}
-	if text, _, yes, e := s.manager.ArithmeticNumeralText(first); e != nil {
+	if _, yes, e := s.manager.ArithmeticNumeralRational(first, &r); e != nil {
 		return nil, e
 	} else if yes {
-		q, ok := new(big.Rat).SetString(text)
-		if !ok {
-			return nil, ast.ErrASTDomain
+		if err = s.q.Mul(&value, &r, &value); err != nil {
+			return nil, err
 		}
-		value.Mul(value, q)
 		body, err = s.manager.GetArg(body, 1)
 		if err != nil {
 			return nil, err
@@ -515,7 +524,7 @@ func (s *Solver) monomialFromExpr(coeff *big.Rat, h ast.ASTHandle) (*Monomial, e
 		}
 	}
 	vars = append(vars, body)
-	return s.NewMonomial(value, vars)
+	return s.NewMonomial(&value, vars)
 }
 
 func (s *Solver) isArith(h ast.ASTHandle, op int32) (bool, error) {
@@ -562,7 +571,10 @@ func (s *Solver) simplifyMonomials(ms []*Monomial) ([]*Monomial, error) {
 	out := ms[:0]
 	for _, m := range ms {
 		if len(out) != 0 && sameBody(out[len(out)-1], m) {
-			out[len(out)-1].coeff.Add(&out[len(out)-1].coeff, &m.coeff)
+			last := &out[len(out)-1].coeff
+			if err := s.q.Add(last, &m.coeff, last); err != nil {
+				return out, err
+			}
 			if err := s.delMonomial(m); err != nil {
 				return out, err
 			}
@@ -572,7 +584,7 @@ func (s *Solver) simplifyMonomials(ms []*Monomial) ([]*Monomial, error) {
 	}
 	keep := out[:0]
 	for _, m := range out {
-		if m.coeff.Sign() == 0 {
+		if m.coeff.IsZero() {
 			if err := s.delMonomial(m); err != nil {
 				return keep, err
 			}
@@ -580,10 +592,20 @@ func (s *Solver) simplifyMonomials(ms []*Monomial) ([]*Monomial, error) {
 			keep = append(keep, m)
 		}
 	}
-	if len(keep) != 0 && keep[0].coeff.Cmp(big.NewRat(1, 1)) != 0 {
-		lead := new(big.Rat).Set(&keep[0].coeff)
+	if len(keep) != 0 && !keep[0].coeff.IsOne() {
+		// normalize_coeff: rational c = m_monomials[0]->m_coeff, then
+		// m_coeff /= c for every monomial.
+		lead := numeral.NewRational()
+		if err := s.q.Copy(&lead, &keep[0].coeff); err != nil {
+			return keep, err
+		}
 		for _, m := range keep {
-			m.coeff.Quo(&m.coeff, lead)
+			if err := s.q.Div(&m.coeff, &lead, &m.coeff); err != nil {
+				return keep, errors.Join(err, s.q.Del(&lead))
+			}
+		}
+		if err := s.q.Del(&lead); err != nil {
+			return keep, err
 		}
 	}
 	return keep, nil
@@ -621,14 +643,16 @@ func (s *Solver) AssertMonomialsZero(ms []*Monomial, dep *Dependency) error {
 }
 
 func (s *Solver) AssertExpressionsZero(expressions []ast.ASTHandle, dep *Dependency) error {
-	coeffs := make([]big.Rat, len(expressions))
+	coeffs := make([]numeral.Rational, len(expressions))
 	for i := range coeffs {
-		coeffs[i].SetInt64(1)
+		coeffs[i] = numeral.Rational{Num: numeral.NewInt(1), Den: numeral.NewInt(1)}
 	}
 	return s.AssertWeightedExpressionsZero(coeffs, expressions, dep)
 }
 
-func (s *Solver) AssertWeightedExpressionsZero(coeffs []big.Rat, expressions []ast.ASTHandle, dep *Dependency) error {
+// AssertWeightedExpressionsZero reads coeffs, rationals of the AST
+// manager's rational manager.
+func (s *Solver) AssertWeightedExpressionsZero(coeffs []numeral.Rational, expressions []ast.ASTHandle, dep *Dependency) error {
 	if err := s.check(); err != nil {
 		return err
 	}
@@ -671,7 +695,7 @@ func (s *Solver) extractAdd(h ast.ASTHandle) ([]ast.ASTHandle, error) {
 	}
 }
 
-func (s *Solver) AssertEquality(eq ast.ASTHandle, dep *Dependency) error {
+func (s *Solver) AssertEquality(eq ast.ASTHandle, dep *Dependency) (err error) {
 	if err := s.check(); err != nil {
 		return err
 	}
@@ -689,7 +713,10 @@ func (s *Solver) AssertEquality(eq ast.ASTHandle, dep *Dependency) error {
 	if err != nil {
 		return err
 	}
-	text, integer, yes, err := s.manager.ArithmeticNumeralText(rhs)
+	// rational val
+	val := numeral.NewRational()
+	defer func() { err = errors.Join(err, s.q.Del(&val)) }()
+	integer, yes, err := s.manager.ArithmeticNumeralRational(rhs, &val)
 	if err != nil {
 		return err
 	}
@@ -700,18 +727,11 @@ func (s *Solver) AssertEquality(eq ast.ASTHandle, dep *Dependency) error {
 	if err != nil {
 		return err
 	}
-	q, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return ast.ErrASTDomain
-	}
-	if q.Sign() != 0 {
-		q.Neg(q)
-		var c ast.ASTHandle
-		if integer {
-			c, err = s.manager.ArithmeticIntegerNumeralText(q.RatString())
-		} else {
-			c, err = s.manager.ArithmeticRealNumeralText(q.RatString())
+	if !val.IsZero() {
+		if err = s.q.Neg(&val); err != nil {
+			return err
 		}
+		c, err := s.manager.ArithmeticNumeralFromRational(&val, integer)
 		if err != nil {
 			return err
 		}
@@ -721,12 +741,13 @@ func (s *Solver) AssertEquality(eq ast.ASTHandle, dep *Dependency) error {
 }
 
 func (s *Solver) AssertMonomialTautology(h ast.ASTHandle) error {
-	one, minus := big.NewRat(1, 1), big.NewRat(-1, 1)
-	a, err := s.monomialFromExpr(one, h)
+	one := numeral.Rational{Num: numeral.NewInt(1), Den: numeral.NewInt(1)}
+	minus := numeral.Rational{Num: numeral.NewInt(-1), Den: numeral.NewInt(1)}
+	a, err := s.monomialFromExpr(&one, h)
 	if err != nil {
 		return err
 	}
-	b, err := s.NewMonomial(minus, []ast.ASTHandle{h})
+	b, err := s.NewMonomial(&minus, []ast.ASTHandle{h})
 	if err != nil {
 		_ = s.delMonomial(a)
 		return err
@@ -895,11 +916,13 @@ func (s *Solver) DisplayMonomial(w io.Writer, m *Monomial) error {
 		return ast.ErrASTHandle
 	}
 	if len(m.vars) == 0 {
-		_, err := io.WriteString(w, m.coeff.RatString())
-		return err
+		return s.q.DisplayTo(w, &m.coeff)
 	}
-	if m.coeff.Cmp(big.NewRat(1, 1)) != 0 {
-		if _, err := fmt.Fprintf(w, "%s*", m.coeff.RatString()); err != nil {
+	if !m.coeff.IsOne() {
+		if err := s.q.DisplayTo(w, &m.coeff); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, "*"); err != nil {
 			return err
 		}
 	}
