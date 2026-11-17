@@ -61,9 +61,18 @@ func lazySparseInstructionSelectProject(source *LazySparseTable, value Element, 
 	if err := source.open(); err != nil || column < 0 || column >= source.root.signature.Len() || uint64(value) >= source.root.signature.domains[column] {
 		return nil, ErrLazySparse
 	}
-	filtered := source.engine.adopt(&lazySparseNode{
-		kind: LazyTableFilterEqual, signature: Signature{domains: source.root.signature.Domains()}, functional: source.root.functional,
-		left: source.root, value: value, column: column,
+	// relation_manager::default_table_select_equal_and_project_fn (the lazy
+	// plugin has no select_equal_and_project_fn): aux = t.clone()
+	// (lazy_table::clone evaluates t and clones its table), the lazy
+	// filter_equal of aux, then the lazy project.
+	aux, err := source.Clone()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, aux.Close()) }()
+	filtered := aux.engine.adopt(&lazySparseNode{
+		kind: LazyTableFilterEqual, signature: Signature{domains: aux.root.signature.Domains()}, functional: aux.root.functional,
+		left: aux.root, value: value, column: column,
 	})
 	defer func() { resultErr = errors.Join(resultErr, filtered.Close()) }()
 	return filtered.Project([]int{column})

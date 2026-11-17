@@ -429,6 +429,15 @@ func finiteTableSizeEstimates(table FiniteTable) (uint32, uint32, error) {
 		}
 		bytes, err := value.SizeEstimateBytes()
 		return rows, bytes, err
+	case *LazySparseTable:
+		// lazy_table's estimates (1, 1): the instruction log of a register
+		// holding a lazy table (while's body at -v 2 and up).
+		rows, err := value.SizeEstimateRows()
+		if err != nil {
+			return 0, 0, err
+		}
+		bytes, err := value.SizeEstimateBytes()
+		return rows, bytes, err
 	default:
 		return 0, 0, ErrInstruction
 	}
