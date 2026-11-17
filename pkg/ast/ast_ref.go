@@ -311,3 +311,56 @@ func (m *ASTManager) StealRef(source ASTRef) (ASTHandle, error) {
 	src.owned = false
 	return m.external(node), nil
 }
+
+// RefGetHeld, SetRefHeld and ResetRefHeld are RefGet, SetRef and ResetRef
+// for a reference the caller owns and keeps live (the rewriter's result
+// registers). Like IncRefHeld, normal builds skip the reference and handle
+// validation and the manager lock when the manager is lock-free; an
+// assignment that would delete the old node, or a reference in an
+// unusual ownership state, takes the checked call. g3checked/g3debug
+// builds always take the checked calls.
+func (m *ASTManager) RefGetHeld(ref ASTRef) (ASTHandle, error) {
+	if astValidateHandles || ref.slot == 0 || !m.lockFree() {
+		return m.RefGet(ref)
+	}
+	return m.external(m.referenceAt(ref.slot).node), nil
+}
+
+func (m *ASTManager) SetRefHeld(dst ASTRef, h ASTHandle) error {
+	if astValidateHandles || dst.slot == 0 || h.slot == 0 || !m.lockFree() {
+		return m.SetRef(dst, h)
+	}
+	r := m.referenceAt(dst.slot)
+	old := r.node
+	if old.slot != 0 && (!r.owned || (old.slot != h.slot && m.nodeAt(old.slot).rc <= 1)) {
+		return m.SetRef(dst, h)
+	}
+	n := m.nodeAt(h.slot)
+	if ASTSourceDebug && n.rc == math.MaxUint32 {
+		return m.SetRef(dst, h)
+	}
+	n.rc++
+	if old.slot != 0 {
+		m.nodeAt(old.slot).rc--
+	}
+	r.node = astNodeRef{h.slot, h.generation}
+	r.owned = true
+	return nil
+}
+
+func (m *ASTManager) ResetRefHeld(ref ASTRef) error {
+	if astValidateHandles || ref.slot == 0 || !m.lockFree() {
+		return m.ResetRef(ref)
+	}
+	r := m.referenceAt(ref.slot)
+	if r.node.slot == 0 {
+		return nil
+	}
+	if !r.owned || m.nodeAt(r.node.slot).rc <= 1 {
+		return m.ResetRef(ref)
+	}
+	m.nodeAt(r.node.slot).rc--
+	r.node = astNodeRef{}
+	r.owned = false
+	return nil
+}

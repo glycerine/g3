@@ -391,7 +391,7 @@ func (r *rewriterEngine) processVar(t ast.ASTHandle) (err error) {
 		return e
 	}
 	if done {
-		h, e := m.RefGet(r.r)
+		h, e := m.RefGetHeld(r.r)
 		if e != nil {
 			return e
 		}
@@ -399,14 +399,14 @@ func (r *rewriterEngine) processVar(t ast.ASTHandle) (err error) {
 			return e
 		}
 		if c.proofGen {
-			proof, e := m.RefGet(r.pr)
+			proof, e := m.RefGetHeld(r.pr)
 			if e != nil {
 				return e
 			}
 			if e = r.appendProof(proof); e != nil {
 				return e
 			}
-			if e = m.ResetRef(r.pr); e != nil {
+			if e = m.ResetRefHeld(r.pr); e != nil {
 				return e
 			}
 		}
@@ -416,7 +416,7 @@ func (r *rewriterEngine) processVar(t ast.ASTHandle) (err error) {
 		if e = r.setNewChild(t); e != nil {
 			return e
 		}
-		return m.ResetRef(r.r)
+		return m.ResetRefHeld(r.r)
 	}
 	if c.proofGen {
 		if e = appendRewriterRoot(m, &c.results, t); e != nil {
@@ -480,7 +480,7 @@ func (r *rewriterEngine) processConst(t ast.ASTHandle) error {
 		return e
 	}
 	if st == brDone {
-		h, e := m.RefGet(r.r)
+		h, e := m.RefGetHeld(r.r)
 		if e != nil {
 			return e
 		}
@@ -491,7 +491,7 @@ func (r *rewriterEngine) processConst(t ast.ASTHandle) error {
 			return e
 		}
 		if c.proofGen {
-			proof, e := m.RefGet(r.pr)
+			proof, e := m.RefGetHeld(r.pr)
 			if e != nil {
 				return e
 			}
@@ -504,11 +504,11 @@ func (r *rewriterEngine) processConst(t ast.ASTHandle) error {
 			if e = r.appendProof(proof); e != nil {
 				return e
 			}
-			if e = m.ResetRef(r.pr); e != nil {
+			if e = m.ResetRefHeld(r.pr); e != nil {
 				return e
 			}
 		}
-		if e = m.ResetRef(r.r); e != nil {
+		if e = m.ResetRefHeld(r.r); e != nil {
 			return e
 		}
 		return r.setNewChild(t)
@@ -530,7 +530,7 @@ func (r *rewriterEngine) processConst(t ast.ASTHandle) error {
 func (r *rewriterEngine) finish(fr rewriterFrame, unconditional, clear bool) error {
 	c := &r.core
 	m := c.manager
-	h, e := m.RefGet(r.r)
+	h, e := m.RefGetHeld(r.r)
 	if e != nil {
 		return e
 	}
@@ -553,7 +553,7 @@ func (r *rewriterEngine) finish(fr rewriterFrame, unconditional, clear bool) err
 		return e
 	}
 	if clear {
-		return m.ResetRef(r.r)
+		return m.ResetRefHeld(r.r)
 	}
 	return nil
 }
@@ -563,7 +563,7 @@ func (r *rewriterEngine) rewritten(fr rewriterFrame, clear bool) error {
 	if e != nil {
 		return e
 	}
-	if e = m.SetRef(r.r, h); e != nil {
+	if e = m.SetRefHeld(r.r, h); e != nil {
 		return e
 	}
 	if e = c.popResult(); e != nil {
@@ -583,7 +583,7 @@ func (r *rewriterEngine) rewritten(fr rewriterFrame, clear bool) error {
 		return e
 	}
 	if clear {
-		return m.ResetRef(r.r)
+		return m.ResetRefHeld(r.r)
 	}
 	return nil
 }
@@ -608,7 +608,7 @@ func (r *rewriterEngine) constantFold(frameIndex int) (bool, error) {
 			}
 			decisive := and && m.IsFalse(value) || or && m.IsTrue(value)
 			if decisive {
-				if err := m.SetRef(r.r, value); err != nil {
+				if err := m.SetRefHeld(r.r, value); err != nil {
 					return false, err
 				}
 				return true, r.finish(fr, false, true)
@@ -662,7 +662,7 @@ func (r *rewriterEngine) constantFold(frameIndex int) (bool, error) {
 			return false, e
 		}
 	}
-	return true, m.ResetRef(r.r)
+	return true, m.ResetRefHeld(r.r)
 }
 
 func (r *rewriterEngine) processApp() (err error) {
@@ -754,7 +754,7 @@ func (r *rewriterEngine) processApp() (err error) {
 			return e
 		}
 		if st != brFailed {
-			h, e := m.RefGet(r.r)
+			h, e := m.RefGetHeld(r.r)
 			if e != nil {
 				return e
 			}
@@ -785,7 +785,7 @@ func (r *rewriterEngine) processApp() (err error) {
 			if done {
 				return r.rewritten(fr, true)
 			}
-			return m.ResetRef(r.r)
+			return m.ResetRefHeld(r.r)
 		}
 		def, _, _, macro, e := r.cfg.getMacro(d)
 		if e != nil {
@@ -800,7 +800,7 @@ func (r *rewriterEngine) processApp() (err error) {
 				return e
 			}
 			if ground {
-				if e = m.SetRef(r.r, def); e != nil {
+				if e = m.SetRefHeld(r.r, def); e != nil {
 					return e
 				}
 			} else {
@@ -839,7 +839,7 @@ func (r *rewriterEngine) processApp() (err error) {
 					return e
 				}
 			}
-			if e = m.SetRef(r.r, h); e != nil {
+			if e = m.SetRefHeld(r.r, h); e != nil {
 				return e
 			}
 		}
@@ -865,7 +865,7 @@ func (r *rewriterEngine) processApp() (err error) {
 		if e != nil {
 			return e
 		}
-		if e = m.SetRef(r.r, h); e != nil {
+		if e = m.SetRefHeld(r.r, h); e != nil {
 			return e
 		}
 		ground, e := m.IsGround(h)
@@ -880,7 +880,7 @@ func (r *rewriterEngine) processApp() (err error) {
 			if e != nil {
 				return e
 			}
-			if e = m.SetRef(r.r, h); e != nil {
+			if e = m.SetRefHeld(r.r, h); e != nil {
 				return e
 			}
 		}
@@ -1014,11 +1014,11 @@ func (r *rewriterEngine) processQuantifier() (err error) {
 				return e
 			}
 		}
-		if e = m.SetRef(r.r, h); e != nil {
+		if e = m.SetRefHeld(r.r, h); e != nil {
 			return e
 		}
 	}
-	h, e := m.RefGet(r.r)
+	h, e := m.RefGetHeld(r.r)
 	if e != nil {
 		return e
 	}
@@ -1039,7 +1039,7 @@ func (r *rewriterEngine) processQuantifier() (err error) {
 	if e = r.cache(fr, h); e != nil {
 		return e
 	}
-	if e = m.ResetRef(r.r); e != nil {
+	if e = m.ResetRefHeld(r.r); e != nil {
 		return e
 	}
 	c.frames = c.frames[:fi]
