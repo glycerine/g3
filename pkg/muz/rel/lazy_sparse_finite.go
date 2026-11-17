@@ -5,21 +5,6 @@ import (
 	"io"
 )
 
-func (e *LazySparseEngine) adoptSparse(table *SparseTable) (*LazySparseTable, error) {
-	if err := e.open(); err != nil || table == nil || table.open() != nil {
-		return nil, ErrLazySparse
-	}
-	signature, err := table.Signature()
-	if err != nil {
-		return nil, err
-	}
-	functional, err := table.FunctionalColumns()
-	if err != nil {
-		return nil, err
-	}
-	return e.adopt(&lazySparseNode{kind: LazyTableBase, signature: signature, functional: functional, table: table}), nil
-}
-
 func (t *LazySparseTable) Signature() (Signature, error) {
 	if err := t.open(); err != nil {
 		return Signature{}, err

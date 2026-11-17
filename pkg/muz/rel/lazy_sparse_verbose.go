@@ -20,13 +20,3 @@ func lazyVerbose(msg string, op func() error) error {
 	err = op()
 	return errors.Join(err, action.End())
 }
-
-// lazyProjectAction names lazy_table_project::force's action for a
-// projection to no column of src: filter_interpreted_project when src is a
-// filter_interpreted node, else project.
-func lazyProjectAction(src *lazySparseNode) string {
-	if src.kind == LazyTableFilterInterpreted {
-		return "filter_interpreted_project"
-	}
-	return "project"
-}
