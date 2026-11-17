@@ -49,9 +49,4 @@ func TestDatalogDefaultTableCheckedTablesFromCreation(t *testing.T) {
 		t.Fatalf("compiler temporary is not a check table: %T", temporary)
 	}
 	must(temporary.Close())
-	check, err := e.beginDatalogCheckRelation()
-	must(err)
-	if check != nil {
-		t.Fatal("default_table_checked made a checked scope")
-	}
 }

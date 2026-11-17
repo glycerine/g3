@@ -215,53 +215,6 @@ func TestFiniteCheckedPairEmptyFullAndComplement(t *testing.T) {
 	}
 }
 
-func TestFiniteCheckedPairLiftPlainAndNullaryOperands(t *testing.T) {
-	signature, err := NewSignature([]uint64{2})
-	must(t, err)
-	plain := NewHashTable(signature)
-	_, err = plain.Add(Fact{1})
-	must(t, err)
-	defer func() { must(t, plain.Close()) }()
-	for _, tc := range []struct{ primary, checker string }{
-		{"hashtable", "hashtable"}, {"hashtable", "sparse"},
-		{"sparse", "hashtable"}, {"sparse", "sparse"},
-	} {
-		t.Run(tc.primary+"-"+tc.checker, func(t *testing.T) {
-			templateSource, err := newFiniteTableKind(tc.primary, signature)
-			must(t, err)
-			template, err := NewFiniteCheckedPair(templateSource, tc.checker)
-			must(t, err)
-			must(t, templateSource.Close())
-			defer func() { must(t, template.Close()) }()
-			lifted, err := template.Lift(plain)
-			must(t, err)
-			defer func() { must(t, lifted.Close()) }()
-			primary, checker, err := lifted.ConcreteKinds()
-			if err != nil || primary != tc.primary || checker != tc.checker {
-				t.Fatal("lifted concrete kinds", primary, checker, err)
-			}
-
-			nullarySignature, err := NewSignature(nil)
-			must(t, err)
-			nullary := NewHashTable(nullarySignature)
-			_, err = nullary.Add(Fact{})
-			must(t, err)
-			liftedNullary, err := template.Lift(nullary)
-			must(t, err)
-			must(t, nullary.Close())
-			defer func() { must(t, liftedNullary.Close()) }()
-			primary, checker, err = liftedNullary.ConcreteKinds()
-			if err != nil || primary != "hashtable" || checker != "hashtable" {
-				t.Fatal("nullary fallback kinds", primary, checker, err)
-			}
-			found, err := liftedNullary.Contains(Fact{})
-			if err != nil || !found {
-				t.Fatal("lifted nullary", found, err)
-			}
-		})
-	}
-}
-
 func TestFiniteCheckedFactoryCreatesCheckedCompilerTemporaries(t *testing.T) {
 	for _, tc := range []struct{ primary, checker string }{
 		{"hashtable", "hashtable"}, {"hashtable", "sparse"},

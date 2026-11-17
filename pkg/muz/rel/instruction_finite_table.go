@@ -61,12 +61,6 @@ func emptyFiniteLike(table FiniteTable) (FiniteTable, error) {
 		}
 		return checked.EmptyLike()
 	}
-	if checked, ok := table.(*FormulaCheckedTable); ok {
-		return emptyFormulaCheckedLike(checked)
-	}
-	if checked, ok := table.(*FormulaCheckedFinitePair); ok {
-		return checked.EmptyLike()
-	}
 	if bv, ok := table.(*BitvectorTable); ok {
 		return bv.emptyLike(signature)
 	}
@@ -146,28 +140,6 @@ func finiteTableJoin(first, second FiniteTable, left, right []int) (FiniteTable,
 		}
 		return relationJoin(r[0], r[1], left, right)
 	}
-	if a, ok := first.(*FormulaCheckedFinitePair); ok {
-		b, err := liftFormulaCheckedFinitePairLike(a, second)
-		if err != nil {
-			return nil, err
-		}
-		result, joinErr := a.Join(b, left, right)
-		if b != second {
-			joinErr = errors.Join(joinErr, b.Close())
-		}
-		return result, joinErr
-	}
-	if b, ok := second.(*FormulaCheckedFinitePair); ok {
-		a, err := liftFormulaCheckedFinitePairLike(b, first)
-		if err != nil {
-			return nil, err
-		}
-		result, joinErr := a.Join(b, left, right)
-		if a != first {
-			joinErr = errors.Join(joinErr, a.Close())
-		}
-		return result, joinErr
-	}
 	switch a := first.(type) {
 	case *HashTable:
 		if b, ok := second.(*HashTable); ok {
@@ -185,27 +157,6 @@ func finiteTableJoin(first, second FiniteTable, left, right []int) (FiniteTable,
 		if b, ok := second.(*FiniteCheckedPair); ok && a.sameKind(b) {
 			return a.Join(b, left, right)
 		}
-	case *FormulaCheckedTable:
-		b, err := liftFormulaCheckedLike(a, second)
-		if err != nil {
-			return nil, err
-		}
-		result, joinErr := a.Join(b, left, right)
-		if b != second {
-			joinErr = errors.Join(joinErr, b.Close())
-		}
-		return result, joinErr
-	}
-	if b, ok := second.(*FormulaCheckedTable); ok {
-		a, err := liftFormulaCheckedLike(b, first)
-		if err != nil {
-			return nil, err
-		}
-		result, joinErr := a.Join(b, left, right)
-		if a != first {
-			joinErr = errors.Join(joinErr, a.Close())
-		}
-		return result, joinErr
 	}
 	firstSignature, err := first.Signature()
 	if err != nil {
@@ -279,12 +230,6 @@ func finiteTableProject(source FiniteTable, removed []int) (FiniteTable, error) 
 	if checked, ok := source.(*FiniteCheckedPair); ok {
 		return checked.Project(removed)
 	}
-	if checked, ok := source.(*FormulaCheckedTable); ok {
-		return checked.Project(removed)
-	}
-	if checked, ok := source.(*FormulaCheckedFinitePair); ok {
-		return checked.Project(removed)
-	}
 	signature, err := source.Signature()
 	if err != nil {
 		return nil, err
@@ -345,28 +290,6 @@ func finiteTableJoinProject(first, second FiniteTable, left, right, removed []in
 		}
 		return relationJoinProject(r[0], r[1], left, right, removed)
 	}
-	if a, ok := first.(*FormulaCheckedFinitePair); ok {
-		b, err := liftFormulaCheckedFinitePairLike(a, second)
-		if err != nil {
-			return nil, err
-		}
-		result, joinErr := a.JoinProject(b, left, right, removed)
-		if b != second {
-			joinErr = errors.Join(joinErr, b.Close())
-		}
-		return result, joinErr
-	}
-	if b, ok := second.(*FormulaCheckedFinitePair); ok {
-		a, err := liftFormulaCheckedFinitePairLike(b, first)
-		if err != nil {
-			return nil, err
-		}
-		result, joinErr := a.JoinProject(b, left, right, removed)
-		if a != first {
-			joinErr = errors.Join(joinErr, a.Close())
-		}
-		return result, joinErr
-	}
 	switch a := first.(type) {
 	case *HashTable:
 		if b, ok := second.(*HashTable); ok {
@@ -394,27 +317,6 @@ func finiteTableJoinProject(first, second FiniteTable, left, right, removed []in
 		if b, ok := second.(*FiniteCheckedPair); ok && a.sameKind(b) {
 			return a.JoinProject(b, left, right, removed)
 		}
-	case *FormulaCheckedTable:
-		b, err := liftFormulaCheckedLike(a, second)
-		if err != nil {
-			return nil, err
-		}
-		result, joinErr := a.JoinProject(b, left, right, removed)
-		if b != second {
-			joinErr = errors.Join(joinErr, b.Close())
-		}
-		return result, joinErr
-	}
-	if b, ok := second.(*FormulaCheckedTable); ok {
-		a, err := liftFormulaCheckedLike(b, first)
-		if err != nil {
-			return nil, err
-		}
-		result, joinErr := a.JoinProject(b, left, right, removed)
-		if a != first {
-			joinErr = errors.Join(joinErr, a.Close())
-		}
-		return result, joinErr
 	}
 	joined, err := finiteTableJoin(first, second, left, right)
 	if err != nil {
@@ -449,10 +351,6 @@ func finiteTableRename(source FiniteTable, cycle []int) (FiniteTable, error) {
 		return table.RenameCycle(cycle)
 	case *FiniteCheckedPair:
 		return table.RenameCycle(cycle)
-	case *FormulaCheckedTable:
-		return table.RenameCycle(cycle)
-	case *FormulaCheckedFinitePair:
-		return table.RenameCycle(cycle)
 	default:
 		return nil, ErrCompilerUnsupported
 	}
@@ -472,10 +370,6 @@ func finiteTableFilterEqual(table FiniteTable, value Element, column int) error 
 	case *LazySparseTable:
 		return concrete.FilterEqual(value, column)
 	case *FiniteCheckedPair:
-		return concrete.FilterEqual(value, column)
-	case *FormulaCheckedTable:
-		return formulaCheckedFilterEqual(concrete, value, column)
-	case *FormulaCheckedFinitePair:
 		return concrete.FilterEqual(value, column)
 	default:
 		return ErrCompilerUnsupported
@@ -497,10 +391,6 @@ func finiteTableFilterIdentical(table FiniteTable, columns []int) error {
 		return concrete.FilterIdentical(columns)
 	case *FiniteCheckedPair:
 		return concrete.FilterIdentical(columns)
-	case *FormulaCheckedTable:
-		return concrete.FilterIdentical(columns)
-	case *FormulaCheckedFinitePair:
-		return concrete.FilterIdentical(columns)
 	default:
 		return ErrCompilerUnsupported
 	}
@@ -518,21 +408,6 @@ func finiteTableSelectProject(table FiniteTable, value Element, column int) (Fin
 		return lazySparseInstructionSelectProject(concrete, value, column)
 	}
 	if concrete, ok := table.(*FiniteCheckedPair); ok {
-		return concrete.SelectEqualAndProject(value, column)
-	}
-	if _, ok := table.(*FormulaCheckedTable); ok {
-		clone, err := table.CloneFinite()
-		if err != nil {
-			return nil, err
-		}
-		if err = finiteTableFilterEqual(clone, value, column); err != nil {
-			_ = clone.Close()
-			return nil, err
-		}
-		result, projectErr := finiteTableProject(clone, []int{column})
-		return result, errors.Join(projectErr, clone.Close())
-	}
-	if concrete, ok := table.(*FormulaCheckedFinitePair); ok {
 		return concrete.SelectEqualAndProject(value, column)
 	}
 	if signature.Len() == 1 {
@@ -627,34 +502,6 @@ func finiteTableUnion(target, source, delta FiniteTable) error {
 			}
 		}
 	}
-	if a, ok := target.(*FormulaCheckedTable); ok {
-		b, same := source.(*FormulaCheckedTable)
-		if !same {
-			return ErrCompilerUnsupported
-		}
-		if delta == nil {
-			return a.UnionFrom(b, nil)
-		}
-		d, same := delta.(*FormulaCheckedTable)
-		if !same {
-			return ErrCompilerUnsupported
-		}
-		return a.UnionFrom(b, d)
-	}
-	if a, ok := target.(*FormulaCheckedFinitePair); ok {
-		b, same := source.(*FormulaCheckedFinitePair)
-		if !same {
-			return ErrCompilerUnsupported
-		}
-		if delta == nil {
-			return a.UnionFrom(b, nil)
-		}
-		d, same := delta.(*FormulaCheckedFinitePair)
-		if !same {
-			return ErrCompilerUnsupported
-		}
-		return a.UnionFrom(b, d)
-	}
 	// relation_manager::default_table_union_fn: with a delta, a row the
 	// target does not contain (contains_fact, timed by a sparse table's
 	// verbose_action) is added to the target and the delta.
@@ -712,20 +559,6 @@ func finiteTableFilterNegation(target, negative FiniteTable, targetColumns, nega
 		if b, same := negative.(*FiniteCheckedPair); same && a.sameKind(b) {
 			return a.FilterByNegation(b, targetColumns, negativeColumns)
 		}
-	}
-	if a, ok := target.(*FormulaCheckedTable); ok {
-		b, same := negative.(*FormulaCheckedTable)
-		if !same {
-			return ErrCompilerUnsupported
-		}
-		return a.FilterByNegation(b, targetColumns, negativeColumns)
-	}
-	if a, ok := target.(*FormulaCheckedFinitePair); ok {
-		b, same := negative.(*FormulaCheckedFinitePair)
-		if !same {
-			return ErrCompilerUnsupported
-		}
-		return a.FilterByNegation(b, targetColumns, negativeColumns)
 	}
 	targetSignature, err := target.Signature()
 	if err != nil {

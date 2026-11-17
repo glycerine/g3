@@ -48,11 +48,6 @@ func TestDatalogCheckedFavouriteHonorsBothNullaryCapabilities(t *testing.T) {
 
 			// check_table_plugin is the favourite table plugin: the unary
 			// predicate's table is a check table from its creation on.
-			check, err := e.beginDatalogCheckRelation()
-			must(err)
-			if check != nil {
-				t.Fatal("default_table_checked made a checked scope")
-			}
 			unaryPair, ok := e.predicates[unary].table.(*rel.FiniteCheckedPair)
 			if !ok {
 				t.Fatalf("unary predicate table = %T", e.predicates[unary].table)

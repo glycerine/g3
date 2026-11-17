@@ -48,7 +48,6 @@ type predicateState struct {
 	explicitFiniteRepresentation bool
 	sorts                        []ast.ASTHandle
 	table                        rel.FiniteTable
-	checked                      *rel.FormulaCheckedTable
 }
 
 type ddnfEngineState struct {
@@ -1920,9 +1919,6 @@ func (e *PropositionalEngine) evaluateRule(rule *base.Rule) (changed bool, resul
 			return false, ErrPropositionalHorn
 		}
 		facts, x := state.table.Facts()
-		if state.checked != nil {
-			facts, x = state.checked.Facts()
-		}
 		if x != nil {
 			return false, x
 		}
@@ -1961,9 +1957,6 @@ func (e *PropositionalEngine) evaluateRule(rule *base.Rule) (changed bool, resul
 			return false, x
 		}
 		facts, x := state.table.Facts()
-		if state.checked != nil {
-			facts, x = state.checked.Facts()
-		}
 		if x != nil {
 			return false, x
 		}
@@ -2035,12 +2028,7 @@ func (e *PropositionalEngine) evaluateRule(rule *base.Rule) (changed bool, resul
 		if x != nil {
 			return false, x
 		}
-		var added bool
-		if state.checked != nil {
-			added, x = state.checked.AddTableFact(fact)
-		} else {
-			added, x = state.table.Add(fact)
-		}
+		added, x := state.table.Add(fact)
 		if x != nil {
 			return false, x
 		}
@@ -2923,19 +2911,8 @@ func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHand
 		}
 	}
 	e.datalogStats.Reset()
-	checkScope, err := e.beginDatalogCheckRelation()
-	if err != nil {
-		return lbool.Undef, err
-	}
-	if checkScope != nil {
-		defer func() {
-			if checkScope != nil {
-				resultErr = errors.Join(resultErr, checkScope.complete(resultErr == nil))
-			}
-		}()
-	}
 	started := time.Now()
-	err = e.saturateDatalogQuery(checkScope, round)
+	err = e.saturateDatalogQuery(round)
 	e.datalogElapsed += time.Since(started).Seconds()
 	if err != nil {
 		return lbool.Undef, err
@@ -2957,14 +2934,6 @@ func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHand
 		return lbool.Undef, err
 	}
 	if len(bitBlast.columns) != 0 {
-		// Publish checker shadows before rebuilding original BV tables; a
-		// later scope restore must not overwrite the inverse conversion.
-		if checkScope != nil {
-			if err = checkScope.complete(true); err != nil {
-				return lbool.Undef, err
-			}
-			checkScope = nil
-		}
 		if err = bitBlast.publish(); err != nil {
 			return lbool.Undef, err
 		}

@@ -8,55 +8,6 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func TestDatalogCheckedPublicationPreservesFiniteRepresentation(t *testing.T) {
-	signature, err := rel.NewSignature([]uint64{3})
-	if err != nil {
-		t.Fatal(err)
-	}
-	sparse, err := rel.NewSparseTable(signature, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if sparse != nil {
-			if err := sparse.Close(); err != nil {
-				t.Error(err)
-			}
-		}
-	}()
-	if _, err = sparse.Add(rel.Fact{0}); err != nil {
-		t.Fatal(err)
-	}
-	snapshot, err := finiteHashSnapshot(sparse)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := snapshot.Close(); err != nil {
-			t.Error(err)
-		}
-	}()
-	if found, err := snapshot.Contains(rel.Fact{0}); err != nil || !found {
-		t.Fatal("hash snapshot", found, err)
-	}
-	published, err := publishCheckedFactsLike(sparse, []rel.Fact{{2}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := published.(*rel.SparseTable); !ok {
-		t.Fatalf("publication changed representation: %T", published)
-	}
-	if found, err := published.Contains(rel.Fact{0}); err != nil || found {
-		t.Fatal("publication retained stale row", found, err)
-	}
-	if found, err := published.Contains(rel.Fact{2}); err != nil || !found {
-		t.Fatal("publication missing checked row", found, err)
-	}
-	if err = published.Close(); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestDatalogCheckRelationParameterRunsCheckedSaturation(t *testing.T) {
 	f := newDirectFactFixture(t)
 	e, m := f.engine, f.manager
@@ -224,11 +175,6 @@ func TestDatalogDefaultTableCheckedParametersRunConcretePair(t *testing.T) {
 	// set_predicate_representation's tr_sparse kind: mk_empty_relation makes
 	// the requested plugin's table, not a check table, and the query runs
 	// without a checked scope.
-	scope, err := e.beginDatalogCheckRelation()
-	must(err)
-	if scope != nil {
-		t.Fatal("default_table_checked made a checked scope")
-	}
 
 	status, err := e.QueryPredicate(predicate)
 	must(err)
