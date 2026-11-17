@@ -1,0 +1,7 @@
+result 1
+(= (:var 0)
+   (|<null>:
+query!0() :- 
+ path(0,3).|
+     (e_union (e_union (base fact) (step fact (base fact)))
+              (step fact (step fact (base fact))))))

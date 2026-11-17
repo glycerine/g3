@@ -112,9 +112,10 @@ func (e *PropositionalEngine) datalogRelationKind(state *predicateState, favouri
 		if ok {
 			return "favourite", nil
 		}
-	} else if state.explicitFiniteRepresentation && len(state.requestedRepresentations) == 1 {
-		// A requested table plugin (tr_*) that rejects the signature
-		// leaves the choice to the favourite.
+	} else if len(state.requestedRepresentations) == 1 && (state.explicitFiniteRepresentation || isTableRelationRepresentation(state.requestedRepresentations)) {
+		// A requested table plugin (tr_*), set or inherited
+		// (inherit_predicate_kind), that rejects the signature leaves the
+		// choice to the favourite.
 		if table && e.relations.RequestedFiniteKindHandles(state.sorts, state.requestedRepresentations[0]) {
 			return "table", nil
 		}
@@ -156,9 +157,6 @@ func (e *PropositionalEngine) selectCompiledRelationFavourite() (_ bool, resultE
 		return false, err
 	}
 	docFavourite := !checkEnabled && e.datalogRelationFavourite == "doc"
-	if enabled, err := e.datalogExplanationsEnabled(); err != nil || enabled {
-		return false, err
-	}
 	if _, enabled, err := e.datalogDefaultTableCheck(); err != nil || enabled {
 		return false, err
 	}
@@ -357,9 +355,6 @@ func requestedRelationPluginKind(kinds []string) string {
 // for a fact added before the query. With datalog.generate_explanations the
 // explanation evaluators of the later expression queries take the facts.
 func (e *PropositionalEngine) selectCompiledRelationFavouriteForFacts() (bool, error) {
-	if enabled, err := e.datalogExplanationsRequested(); err != nil || enabled {
-		return false, err
-	}
 	return e.selectCompiledRelationFavourite()
 }
 

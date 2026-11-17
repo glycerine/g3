@@ -1,0 +1,8 @@
+== scenario 5
+result 1
+(= (:var 0) (|<null>:
+query!0() :- 
+ q().| (consumer fact)))
+error 12: trying to perform unsupported filter_by_negation on relations of kinds fact_explanation and tr_hashtable
+result 0
+reason ok

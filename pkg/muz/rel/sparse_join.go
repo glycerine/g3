@@ -87,12 +87,24 @@ func (a *SparseTable) Join(b *SparseTable, left, right []int) (*SparseTable, err
 		_ = out.Close()
 		return nil, err
 	}
-	if err = sparseJoinTraversal(af, bf, left, right, func(x, y Fact) error {
-		_, addErr := out.Add(sparseFunctionalJoinFact(x, y, a.signature.Len()-a.functional, b.signature.Len()-b.functional))
-		return addErr
-	}); err != nil {
-		_ = out.Close()
-		return nil, err
+	// default_table_join_fn: t1's rows outermost, no operand swap.
+	for _, x := range af {
+		for _, y := range bf {
+			match := true
+			for i := range left {
+				if x[left[i]] != y[right[i]] {
+					match = false
+					break
+				}
+			}
+			if !match {
+				continue
+			}
+			if _, err = out.Add(sparseFunctionalJoinFact(x, y, a.signature.Len()-a.functional, b.signature.Len()-b.functional)); err != nil {
+				_ = out.Close()
+				return nil, err
+			}
+		}
 	}
 	return out, nil
 }

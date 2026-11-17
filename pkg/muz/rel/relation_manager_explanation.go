@@ -183,6 +183,11 @@ func (m *RelationManager) predicateUsesExplanationColumns(predicate ast.ASTHandl
 	if err := m.open(); err != nil {
 		return false, err
 	}
+	if m.GetRelationPlugin(ExplanationRelationPluginName(false)) != nil || m.GetRelationPlugin(ExplanationRelationPluginName(true)) != nil {
+		// mk_explanations registered the explanation plugin: the explained
+		// predicates' relations are its relations.
+		return false, nil
+	}
 	kind, err := m.manager.GetKind(predicate)
 	if err != nil {
 		return false, err

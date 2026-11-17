@@ -1,0 +1,5 @@
+== scenario 3
+result 1
+(= (:var 0) (|<null>:
+query!0() :- 
+ q(true).| (negproof fact)))

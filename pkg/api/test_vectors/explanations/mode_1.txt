@@ -1,0 +1,13 @@
+result 1
+(and (= (:var 2)
+        (|<null>:
+query!0(#1,#0) :- 
+ path(#0,#1).|
+          (e_union (e_union (base fact) (step fact (base fact)))
+                   (step fact (step fact (base fact))))))
+     (or (and (= (:var 0) 1) (= (:var 1) 0))
+         (and (= (:var 0) 2) (= (:var 1) 1))
+         (and (= (:var 0) 3) (= (:var 1) 2))
+         (and (= (:var 0) 2) (= (:var 1) 0))
+         (and (= (:var 0) 3) (= (:var 1) 1))
+         (and (= (:var 0) 3) (= (:var 1) 0))))

@@ -1,0 +1,16 @@
+result 1
+(or (and (= (:var 0) 1)
+         (= (:var 1) (|<null>:
+query!0(#0) :- 
+ path(0,#0).| (base fact))))
+    (and (= (:var 0) 3)
+         (= (:var 1)
+            (|<null>:
+query!0(#0) :- 
+ path(0,#0).|
+              (step fact (step fact (base fact))))))
+    (and (= (:var 0) 2)
+         (= (:var 1)
+            (|<null>:
+query!0(#0) :- 
+ path(0,#0).| (step fact (base fact))))))

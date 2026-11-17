@@ -1,0 +1,8 @@
+== scenario 17
+mode relation-checked-explicit
+result 1
+(= (:var 0)
+   (|<null>:
+query!0() :- 
+ R(true).|
+     (forward (e_union fact (backward (forward fact))))))

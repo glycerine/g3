@@ -265,6 +265,15 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		// only the original program belongs in the search rule index.
 		return clone.queryTabExpression(query)
 	}
+	if clone.backend == "datalog" {
+		// rel_context::query's scoped_query: get_predicates() is restored
+		// when the query ends.
+		saved, cause := e.rules.ContextPredicates()
+		if cause != nil {
+			return lbool.Undef, cause
+		}
+		defer func() { resultErr = errors.Join(resultErr, e.rules.RestrictContextPredicates(saved)) }()
+	}
 	declaration, headRef, err := clone.makeQueryHead(query)
 	if err != nil {
 		return lbool.Undef, err
@@ -351,20 +360,12 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		}
 		hoisted = ast.ASTRef{}
 	}
-	relationExplanationSelected := false
 	if clone.backend == "datalog" {
-		relationExplanationSelected, err = clone.relationLevelNumericExplanationSelected()
-		if err != nil {
-			return lbool.Undef, err
-		}
-		if !relationExplanationSelected {
-			_, err = clone.ensureKarrDatalog()
-		}
-		if err != nil {
+		if _, err = clone.ensureKarrDatalog(); err != nil {
 			return lbool.Undef, err
 		}
 	}
-	if clone.backend == "datalog" && !relationExplanationSelected {
+	if clone.backend == "datalog" {
 		routed, cause := clone.arithRelationsRoute()
 		if cause != nil {
 			return lbool.Undef, cause
@@ -385,14 +386,22 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 			}
 		}
 	}
-	clone.datalogExplanationQuery, err = clone.datalogExplanationsEnabled()
-	if err != nil {
-		return lbool.Undef, err
-	}
-	if !clone.datalogExplanationQuery {
-		if err = clone.applyQueryMagicSets(declaration); err != nil {
-			return lbool.Undef, err
+	if clone.backend == "datalog" {
+		// rel_context::query: with generate_explanations,
+		// transform_rules(mk_explanations) and query_pred =
+		// get_pred(query_pred).
+		explanations, cause := clone.datalogExplanationsEnabled()
+		if cause != nil {
+			return lbool.Undef, cause
 		}
+		if explanations {
+			if declaration, err = clone.applyQueryExplanations(declaration); err != nil {
+				return lbool.Undef, err
+			}
+		}
+	}
+	if err = clone.applyQueryMagicSets(declaration); err != nil {
+		return lbool.Undef, err
 	}
 	// The source PDR context already exists when covers are supplied before
 	// the first query. Move that owner after query preparation succeeds.

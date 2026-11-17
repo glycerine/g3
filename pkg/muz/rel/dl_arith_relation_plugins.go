@@ -56,10 +56,34 @@ func arithRelationSignature(m *ast.ASTManager, sorts []ast.ASTHandle) (bool, err
 	return true, nil
 }
 
+// relationOnlySort is a sort relation_sort_to_table rejects whose columns
+// only relation plugins hold: Int/Real, or the datalog rule sort of the
+// explanation relations.
+func relationOnlySort(m *ast.ASTManager, sort ast.ASTHandle) (bool, error) {
+	if ok, err := arithRelationSort(m, sort); err != nil || ok {
+		return ok, err
+	}
+	kind, err := m.GetKind(sort)
+	if err != nil || kind != ast.ASTSort {
+		return false, err
+	}
+	return m.IsDatalogRuleSort(sort)
+}
+
+// IsRuleSort is dl_decl_util::is_rule_sort.
+func IsRuleSort(m *ast.ASTManager, sort ast.ASTHandle) (bool, error) {
+	kind, err := m.GetKind(sort)
+	if err != nil || kind != ast.ASTSort {
+		return false, err
+	}
+	return m.IsDatalogRuleSort(sort)
+}
+
 // relationSortDomain is the compiler's register-signature domain of a
-// relation sort: the table domain, or relationOnlyDomain for Int/Real.
+// relation sort: the table domain, or relationOnlyDomain for Int/Real and
+// the rule sort.
 func (m *RelationManager) relationSortDomain(sort ast.ASTHandle) (uint64, error) {
-	if ok, err := arithRelationSort(m.manager, sort); err != nil {
+	if ok, err := relationOnlySort(m.manager, sort); err != nil {
 		return 0, err
 	} else if ok {
 		return relationOnlyDomain, nil
@@ -91,7 +115,7 @@ func (m *RelationManager) RelationPredicateSignature(declaration ast.ASTHandle) 
 // a table element, or for an Int/Real column an index into the manager's
 // interned numerals (the C++ keeps the expr* itself).
 func (m *RelationManager) EncodeRelationElement(sort, value ast.ASTHandle) (Element, error) {
-	if ok, err := arithRelationSort(m.manager, sort); err != nil {
+	if ok, err := relationOnlySort(m.manager, sort); err != nil {
 		return 0, err
 	} else if !ok {
 		return m.EncodeValue(sort, value)
@@ -115,7 +139,7 @@ func (m *RelationManager) EncodeRelationElement(sort, value ast.ASTHandle) (Elem
 // DecodeRelationElement inverts EncodeRelationElement; the caller owns the
 // returned reference.
 func (m *RelationManager) DecodeRelationElement(sort ast.ASTHandle, value Element) (ast.ASTRef, error) {
-	if ok, err := arithRelationSort(m.manager, sort); err != nil {
+	if ok, err := relationOnlySort(m.manager, sort); err != nil {
 		return ast.ASTRef{}, err
 	} else if !ok {
 		return m.DecodeValue(sort, value)

@@ -1,0 +1,8 @@
+== scenario 16
+mode relation-checked-sparse
+result 1
+(= (:var 0)
+   (|<null>:
+query!0() :- 
+ R(true).|
+     (forward (e_union fact (backward (forward fact))))))

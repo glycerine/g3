@@ -1,0 +1,5 @@
+== scenario 8
+result 1
+(= (:var 0) (|<null>:
+query!0() :- 
+ q().| (consumer fact)))

@@ -1,0 +1,6 @@
+== scenario 14
+mode checked
+result 1
+(and (= (:var 0) (|<null>:
+query!0() :- 
+ R(true).| (forward fact))))

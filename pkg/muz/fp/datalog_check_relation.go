@@ -366,6 +366,12 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 		if state == nil || state.table == nil {
 			continue
 		}
+		if _, isRelation := rel.AsRelation(state.table); isRelation {
+			// The checked tables are table plugins' (check_table, the
+			// check_relation of a table plugin): another relation plugin's
+			// relation (an explanation relation) keeps its plugin.
+			continue
+		}
 		if tableCheck {
 			// A source-requested relation kind bypasses the favourite relation
 			// plugin, including check_relation(check_table(...)).

@@ -1,0 +1,5 @@
+== scenario 23
+result 1
+(= (:var 0) (|<null>:
+query!0() :- 
+ qd(#b101).| (joinproject fact fact fact)))

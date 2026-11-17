@@ -1,0 +1,4 @@
+== scenario 22
+mode empty
+result -1
+false

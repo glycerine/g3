@@ -46,7 +46,20 @@ func (m *RelationManager) RegisterRelationPlugin(plugin RelationPlugin) error {
 	if plugin.Name() == m.defaultRelation {
 		m.favouriteRelation = plugin
 	}
+	if fprp, ok := plugin.(*FiniteProductRelationPlugin); ok {
+		if m.finiteProductPlugins == nil {
+			m.finiteProductPlugins = make(map[RelationPlugin]*FiniteProductRelationPlugin)
+		}
+		m.finiteProductPlugins[fprp.inner] = fprp
+	}
 	return nil
+}
+
+// TryGetFiniteProductRelationPlugin is
+// try_get_finite_product_relation_plugin(inner).
+func (m *RelationManager) TryGetFiniteProductRelationPlugin(inner RelationPlugin) (*FiniteProductRelationPlugin, bool) {
+	p, ok := m.finiteProductPlugins[inner]
+	return p, ok
 }
 
 // SetDefaultRelation records context::default_relation() for
@@ -316,7 +329,24 @@ func (m *RelationManager) MkRelationJoinFn(t1, t2 RelationBase, cols1, cols2 []i
 	if res == nil && (len(t1.RelationSignature()) == 0 || len(t2.RelationSignature()) == 0) {
 		res = m.emptySignatureRelationJoinFn()
 	}
-	// finite_product_relation fallback: not ported yet.
+	if res == nil {
+		if _, fromTable := p1.(*TableRelationPlugin); fromTable {
+			if fprp, ok := m.TryGetFiniteProductRelationPlugin(p2); ok {
+				if res, err = fprp.MkJoinFn(t1, t2, cols1, cols2); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+	if res == nil {
+		if _, fromTable := p2.(*TableRelationPlugin); fromTable {
+			if fprp, ok := m.TryGetFiniteProductRelationPlugin(p1); ok {
+				if res, err = fprp.MkJoinFn(t1, t2, cols1, cols2); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
 	if res == nil && allowProduct {
 		return m.productPlugin().MkJoinFn(t1, t2, cols1, cols2)
 	}

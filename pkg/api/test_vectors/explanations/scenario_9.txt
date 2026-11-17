@@ -1,0 +1,7 @@
+== scenario 9
+result 1
+(= (:var 0)
+   (|<null>:
+query!0() :- 
+ goal(true).|
+     (goalrule (e_union (base fact) (recursive fact (base fact))))))

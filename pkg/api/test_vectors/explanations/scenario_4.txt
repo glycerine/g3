@@ -1,0 +1,5 @@
+== scenario 4
+result 1
+(and (= (:var 0) (|<null>:
+query!0() :- 
+ pred(true).| (step fact))))

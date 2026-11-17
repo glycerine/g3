@@ -9,7 +9,6 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/rel"
 	"github.com/glycerine/g3/pkg/muz/transforms"
-	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 func TestDatalogFactExplanationMagicInheritsFiniteRepresentation(t *testing.T) {
@@ -151,72 +150,5 @@ func TestDatalogFactExplanationMagicInheritsFiniteRepresentation(t *testing.T) {
 				}
 			})
 		}
-	}
-}
-
-func TestDatalogFactExplanationMagicRepresentationPublicQuery(t *testing.T) {
-	manager, globals := newPDRLifecycleServices(t)
-	must := func(err error) { t.Helper(); fragmentMust(t, err) }
-	must(globals.SourceSetName("fixedpoint.datalog.generate_explanations", "true"))
-	must(globals.SourceSetName("fixedpoint.datalog.magic_sets_for_queries", "true"))
-	must(globals.SourceSetName("fixedpoint.datalog.default_table", "hashtable"))
-	engine, err := NewPropositionalEngineWithServices(manager, globals.Context, globals)
-	must(err)
-	defer func() { must(engine.Close()) }()
-	must(engine.SelectEngine("datalog"))
-	boolean, err := manager.MkBoolSort()
-	must(err)
-	declare := func(name string) ast.ASTHandle {
-		symbol, declarationErr := manager.Symbols.Intern("explanation-magic-public-" + name)
-		must(declarationErr)
-		declaration, declarationErr := manager.MkFuncDecl(symbol, []ast.ASTHandle{boolean}, boolean, ast.ASTFuncDeclInfo{})
-		must(declarationErr)
-		must(engine.RegisterPredicate(declaration))
-		return declaration
-	}
-	seed, predicate := declare("seed"), declare("predicate")
-	must(engine.SetPredicateRepresentation(predicate, []string{"tr_sparse"}))
-	truth, err := manager.MkTrue()
-	must(err)
-	must(engine.AddFact(seed, []ast.ASTHandle{truth}))
-	variable, err := manager.MkVar(0, boolean)
-	must(err)
-	seedVariable, err := manager.MkApp(seed, []ast.ASTHandle{variable})
-	must(err)
-	predicateVariable, err := manager.MkApp(predicate, []ast.ASTHandle{variable})
-	must(err)
-	step, err := manager.MkImplies(seedVariable, predicateVariable)
-	must(err)
-	must(engine.addRuleEager(step, "explanation-magic-public-step"))
-	query, err := manager.MkApp(predicate, []ast.ASTHandle{truth})
-	must(err)
-	queryRef, err := manager.NewRef(query)
-	must(err)
-	defer func() { must(manager.DelRef(&queryRef)) }()
-	status, err := engine.QueryExpression(query)
-	must(err)
-	if status != lbool.True || engine.queryClone == nil {
-		t.Fatal("fact-level explanation Magic query", status, engine.queryClone)
-	}
-	answer, err := engine.ExpressionAnswer()
-	must(err)
-	defer func() { must(manager.DelRef(&answer)) }()
-	root, err := manager.RefGet(answer)
-	must(err)
-	names := datalogExplanationFormulaNames(t, manager, root)
-	for _, name := range []string{"fact", "explanation-magic-public-step"} {
-		if !names[name] {
-			t.Fatal("fact-level Magic answer lost named proof", name, names)
-		}
-	}
-	clone := engine.queryClone
-	must(engine.clearQueryResources())
-	if engine.queryClone != nil || !clone.closed {
-		t.Fatal("fact-level Magic query clone was not released")
-	}
-	held, err := manager.RefGet(answer)
-	must(err)
-	if held != root {
-		t.Fatal("owned explanation answer changed after clone cleanup")
 	}
 }

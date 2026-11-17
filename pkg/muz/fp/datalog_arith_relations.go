@@ -60,15 +60,7 @@ func (e *PropositionalEngine) arithRelationsRoute() (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		// With datalog.generate_explanations the explanation evaluators
-		// take the facts and queries.
-		if requested, err := e.datalogExplanationsRequested(); err != nil || requested {
-			return false, err
-		}
 		return e.selectCompiledRelationFavourite()
-	}
-	if enabled, err := e.datalogExplanationsEnabled(); err != nil || enabled {
-		return false, err
 	}
 	if _, enabled, err := e.datalogDefaultTableCheck(); err != nil || enabled {
 		return false, err
@@ -181,14 +173,19 @@ func (e *PropositionalEngine) arithRelationsRoute() (bool, error) {
 	return true, nil
 }
 
-// relationColumnSorts reports that every column is a table column or an
+// relationColumnSorts reports that every column is a table column, a rule
+// sort column or an
 // Int/Real column: get_relation's mk_empty_relation gives a predicate of
 // such a signature a table_relation, an arithmetic plugin relation, or
 // the empty product relation (a mixed signature).
 func (e *PropositionalEngine) relationColumnSorts(sorts []ast.ASTHandle) bool {
 	for _, sort := range sorts {
 		if _, table := e.relations.SortDomain(sort); !table && !rel.CanHandleIntervalSorts(e.manager, []ast.ASTHandle{sort}) {
-			return false
+			// The rule sort of mk_explanations' explained predicates is
+			// the explanation relations'.
+			if ruleSort, err := rel.IsRuleSort(e.manager, sort); err != nil || !ruleSort {
+				return false
+			}
 		}
 	}
 	return true

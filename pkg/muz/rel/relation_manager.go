@@ -59,7 +59,10 @@ type RelationManager struct {
 	// one of them; defaultRelation is context::default_relation().
 	relationPlugins   []RelationPlugin
 	favouriteRelation RelationPlugin
-	defaultRelation   string
+	// finiteProductPlugins is m_finite_product_relation_plugins: the
+	// finite_product_relation plugin of each inner plugin.
+	finiteProductPlugins map[RelationPlugin]*FiniteProductRelationPlugin
+	defaultRelation      string
 	// requestedRelation is get_requested_predicate_kind for relation
 	// plugins.
 	requestedRelation map[ast.ASTHandle]RelationPlugin
@@ -71,6 +74,9 @@ type RelationManager struct {
 	arithElements []ast.ASTRef
 	arithIndex    map[ast.ASTHandle]Element
 	fnRoots       []ast.ASTRef
+	// fnClosers release functor state other than fnRoots' fixed terms
+	// (the functors are destroyed with the manager).
+	fnClosers []func() error
 	// Relation kinds (family ids): nextRelationKind is
 	// m_next_relation_fid, kindPlugins m_kind2plugin; the table_relation
 	// plugins hold the first kinds. requestedKinds is m_pred_kinds.
@@ -275,6 +281,10 @@ func (m *RelationManager) Close() (result error) {
 		result = errors.Join(result, m.manager.DelRef(&m.fnRoots[i]))
 	}
 	m.fnRoots = nil
+	for i := len(m.fnClosers) - 1; i >= 0; i-- {
+		result = errors.Join(result, m.fnClosers[i]())
+	}
+	m.fnClosers = nil
 	result = errors.Join(result, closeRelationBases(m.fnOwners))
 	m.fnOwners = nil
 	if len(m.relations) != 0 || len(m.finite) != 0 || len(m.explanations) != 0 || len(m.relationLevel) != 0 {

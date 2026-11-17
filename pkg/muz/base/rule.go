@@ -60,6 +60,11 @@ type RuleManager struct {
 	normalizer     *HornNormalizer
 	predicates     map[ast.ASTHandle]ast.ASTRef
 	predicateOrder []ast.ASTHandle // insertion order, released forward
+	// contextPreds is context::m_preds (a func_decl_set): its table layout,
+	// which fixes the order transformations that iterate
+	// get_predicates() see. Registration inserts; a query's scoped_query
+	// restores it on exit (RestrictContextPredicates).
+	contextPreds *ast.ObjMap
 	// hornBody and hornHead are rule_manager::m_body and m_head: the last
 	// mk_horn_rule's final body apps (negation stripped) and head, kept
 	// until the next rule or destruction.
@@ -90,7 +95,7 @@ func NewRuleManager(manager *ast.ASTManager) (*RuleManager, error) {
 		}
 		return nil, errors.Join(err, normalizer.Close())
 	}
-	return &RuleManager{manager: manager, normalizer: normalizer, labels: labels, predicates: make(map[ast.ASTHandle]ast.ASTRef)}, nil
+	return &RuleManager{manager: manager, normalizer: normalizer, labels: labels, predicates: make(map[ast.ASTHandle]ast.ASTRef), contextPreds: ast.NewObjMap(manager)}, nil
 }
 
 func (m *RuleManager) open() error {
@@ -111,6 +116,14 @@ func (m *RuleManager) RegisterPredicate(declaration ast.ASTHandle) error {
 	}
 	if kind != ast.ASTFuncDecl {
 		return fmt.Errorf("muz/base: predicate is not a function declaration")
+	}
+	// context::register_predicate: m_preds.insert unless is_predicate.
+	if found, err := m.contextPreds.Contains(declaration); err != nil {
+		return err
+	} else if !found {
+		if err = m.contextPreds.Insert(declaration, [2]ast.ASTHandle{}); err != nil {
+			return err
+		}
 	}
 	if _, found := m.predicates[declaration]; found {
 		return nil
@@ -848,4 +861,32 @@ func (m *RuleManager) removeLabels(formula, proof ast.ASTRef) error {
 		m.labelsInterrupted = true
 	}
 	return err
+}
+
+// ContextPredicates is context::get_predicates() in its table order.
+func (m *RuleManager) ContextPredicates() ([]ast.ASTHandle, error) {
+	if err := m.open(); err != nil {
+		return nil, err
+	}
+	entries := m.contextPreds.Entries()
+	res := make([]ast.ASTHandle, 0, len(entries))
+	for _, entry := range entries {
+		res = append(res, entry.Key)
+	}
+	return res, nil
+}
+
+// RestrictContextPredicates is context::restrict_predicates(preds): reset
+// m_preds and insert preds in their (saved set's) order.
+func (m *RuleManager) RestrictContextPredicates(preds []ast.ASTHandle) error {
+	if err := m.open(); err != nil {
+		return err
+	}
+	m.contextPreds.Reset()
+	for _, d := range preds {
+		if err := m.contextPreds.Insert(d, [2]ast.ASTHandle{}); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -1,0 +1,4 @@
+== scenario 1
+error 12: trying to perform unsupported filter_by_negation on relations of kinds product_relation and tr_hashtable
+result 0
+reason ok

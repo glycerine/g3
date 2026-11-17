@@ -1,0 +1,5 @@
+== scenario 10
+result 1
+(= (:var 0) (|<null>:
+query!0() :- 
+ p().| fact))

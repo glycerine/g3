@@ -1,0 +1,6 @@
+== scenario 19
+mode checked-default-reverse
+result 1
+(and (= (:var 0) (|<null>:
+query!0() :- 
+ R(true).| (forward fact))))

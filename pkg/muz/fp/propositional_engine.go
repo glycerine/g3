@@ -2703,6 +2703,15 @@ func (e *PropositionalEngine) buildRelationAnswer(declarations []ast.ASTHandle) 
 }
 
 func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandle) (status lbool.LBool, resultErr error) {
+	if !e.expressionClone {
+		// rel_context::query(num_rels, rels)'s scoped_query restores
+		// get_predicates() when the query ends.
+		saved, err := e.rules.ContextPredicates()
+		if err != nil {
+			return lbool.Undef, err
+		}
+		defer func() { resultErr = errors.Join(resultErr, e.rules.RestrictContextPredicates(saved)) }()
+	}
 	if err := e.releaseBitBlastAnswers(); err != nil {
 		return lbool.Undef, err
 	}
@@ -2715,16 +2724,6 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	}
 	if err := e.applyDatalogDefaultFiniteTable(); err != nil {
 		return lbool.Undef, err
-	}
-	if selected, err := e.relationLevelDocExplanationSelected(); err != nil {
-		return lbool.Undef, err
-	} else if selected {
-		return e.queryDatalogExplanation(declarations)
-	}
-	if selected, err := e.relationLevelNumericExplanationSelected(); err != nil {
-		return lbool.Undef, err
-	} else if selected {
-		return e.queryDatalogExplanation(declarations)
 	}
 	// rel_context: Int/Real predicates get the registered arithmetic
 	// relation plugins' relations and run the compiled rules.
@@ -2750,11 +2749,6 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 		} else if selected, err := e.ensureUDocDatalog(); err != nil {
 			return lbool.Undef, err
 		} else if selected {
-			if enabled, err := e.datalogExplanationsEnabled(); err != nil {
-				return lbool.Undef, err
-			} else if enabled {
-				return e.queryDatalogExplanation(declarations)
-			}
 			return e.queryUDocDatalog(declarations)
 		}
 		if compiledFavourite {
@@ -2855,9 +2849,6 @@ func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHand
 		if !valid {
 			return lbool.Undef, ErrUnstratifiedNegation
 		}
-	}
-	if e.datalogExplanationQuery {
-		return e.queryDatalogExplanation(declarations)
 	}
 	// Clear old query marks before transformations can publish saturated
 	// auxiliary relations for this query.
