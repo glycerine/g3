@@ -459,12 +459,12 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		}
 		result, err = clone.queryDDNF()
 	} else {
+		// rel_context::query(expr*) clones the queried relation
+		// (m_last_result_relation) before its emptiness test
+		// (queryDatalogPredicates).
+		clone.datalogExpressionQuery = clone.backend == "datalog"
 		result, err = clone.QueryPredicate(declaration)
-		if err == nil && result != lbool.Undef && clone.backend == "datalog" {
-			// rel_context::query(expr*): m_last_result_relation =
-			// get_relation(query_pred).clone().
-			err = clone.cloneDatalogLastResult(declaration)
-		}
+		clone.datalogExpressionQuery = false
 	}
 	if err == nil && clone.backend == "datalog" {
 		e.datalogContext = clone
@@ -611,6 +611,6 @@ func (e *PropositionalEngine) cloneDatalogLastResult(declaration ast.ASTHandle) 
 		// deallocated.
 		e.datalogRetiredResults = append(e.datalogRetiredResults, e.datalogLastResult)
 	}
-	e.datalogLastResult = clone
+	e.datalogLastResult, e.datalogLastResultDecl = clone, declaration
 	return nil
 }

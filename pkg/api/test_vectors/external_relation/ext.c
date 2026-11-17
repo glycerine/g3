@@ -106,7 +106,7 @@ int main(int argc, char** argv) {
   Z3_set_error_handler(c, 0);
   Z3_params p = Z3_mk_params(c); Z3_params_inc_ref(c, p);
   Z3_params_set_symbol(c, p, Z3_mk_string_symbol(c, "engine"), Z3_mk_string_symbol(c, "datalog"));
-  if (mode == 3 || mode == 6 || mode == 7) Z3_params_set_symbol(c, p, Z3_mk_string_symbol(c, "datalog.default_relation"), Z3_mk_string_symbol(c, "external_relation"));
+  if (mode == 3 || mode == 6 || mode == 7 || mode == 8) Z3_params_set_symbol(c, p, Z3_mk_string_symbol(c, "datalog.default_relation"), Z3_mk_string_symbol(c, "external_relation"));
   Z3_fixedpoint_set_params(c, fp, p);
   Z3_fixedpoint_init(c, fp, 0);
   Z3_fixedpoint_set_reduce_assign_callback(c, fp, assign_cb);
@@ -126,6 +126,34 @@ int main(int argc, char** argv) {
     Z3_ast q2 = Z3_mk_exists(c, 0, 0, 0, 1, &B, &xs, and2(app1(Pd, x), app1(O, x)));
     Z3_ast qs[3] = {q1, q2, app1(Pd, Z3_mk_true(c))};
     for (int i = 0; i < 3; i++) {
+      Z3_lbool r = Z3_fixedpoint_query(c, fp, qs[i]);
+      printf("result %d err %d\n", r, Z3_get_error_code(c));
+      if (Z3_get_error_code(c) == Z3_OK && r != Z3_L_UNDEF) printf("answer %s\n", Z3_ast_to_string(c, Z3_fixedpoint_get_answer(c, fp)));
+    }
+    return 0;
+  }
+  if (mode == 8) {
+    // datalog.default_relation=external_relation on a reused context: each
+    // expression query adds a query head predicate (mk_query) after the
+    // first query's evaluation.
+    Z3_sort vv[2] = {V, V};
+    Z3_func_decl E = decl("e", 2, vv), P = decl("p", 1, &V), R = decl("r", 1, &V);
+    unsigned f01[2] = {0, 1}, f12[2] = {1, 2};
+    Z3_fixedpoint_add_fact(c, fp, E, 2, f01);
+    Z3_fixedpoint_add_fact(c, fp, E, 2, f12);
+    printf("facts err %d\n", Z3_get_error_code(c));
+    Z3_ast x = Z3_mk_bound(c, 1, V), y = Z3_mk_bound(c, 0, V);
+    rule(app2(E, x, y), app1(P, y), 2, vv, "succ");
+    query(P);
+    Z3_ast xb = Z3_mk_bound(c, 0, V); Z3_symbol xs = Z3_mk_string_symbol(c, "x");
+    Z3_ast qs[5] = {Z3_mk_exists(c, 0, 0, 0, 1, &V, &xs, app1(P, xb)), app1(P, Z3_mk_numeral(c, "2", V)), Z3_mk_exists(c, 0, 0, 0, 1, &V, &xs, app1(R, xb)), app2(E, Z3_mk_numeral(c, "0", V), Z3_mk_numeral(c, "1", V)), app1(P, Z3_mk_numeral(c, "0", V))};
+    for (int i = 0; i < 5; i++) {
+      if (i == 2) {
+        unsigned f23[2] = {2, 3};
+        Z3_fixedpoint_add_fact(c, fp, E, 2, f23);
+        printf("fact err %d\n", Z3_get_error_code(c));
+        rule(app1(P, xb), app1(R, xb), 1, &V, "copy");
+      }
       Z3_lbool r = Z3_fixedpoint_query(c, fp, qs[i]);
       printf("result %d err %d\n", r, Z3_get_error_code(c));
       if (Z3_get_error_code(c) == Z3_OK && r != Z3_L_UNDEF) printf("answer %s\n", Z3_ast_to_string(c, Z3_fixedpoint_get_answer(c, fp)));

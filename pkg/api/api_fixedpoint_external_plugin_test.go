@@ -2,6 +2,8 @@ package api
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -188,7 +190,7 @@ func runExternalPluginMode(t *testing.T, mode int) string {
 		return h
 	}
 	astTestMust(t, c.SetFixedpointEngine("datalog"))
-	if mode == 3 {
+	if mode == 3 || mode >= 6 {
 		astTestMust(t, c.SetFixedpointSymbol("fixedpoint.datalog.default_relation", "external_relation"))
 	}
 	astTestMust(t, c.SetFixedpointExternalRelationCallbacks(l.callbacks()))
@@ -250,7 +252,60 @@ func runExternalPluginMode(t *testing.T, mode int) string {
 	bv := pin(c.BitVectorSort(2))
 	integer := pin(c.IntegerSort())
 	app := func(d ast.ASTHandle, args ...ast.ASTHandle) ast.ASTHandle { return pin(m.MkApp(d, args)) }
+	// expressionQueries is the program's Z3_fixedpoint_query loop.
+	expressionQueries := func(queries ...ast.ASTHandle) {
+		for _, q := range queries {
+			status, err := c.command.QueryFixedpointExpression(q)
+			code := 0
+			if err != nil {
+				status, code = lbool.Undef, 12
+			}
+			fmt.Fprintf(&l.out, "result %d err %d\n", int(status), code)
+			if err == nil && status != lbool.Undef {
+				answer, aerr := c.command.FixedpointExpressionAnswer()
+				astTestMust(t, aerr)
+				h, aerr := m.RefGet(answer)
+				astTestMust(t, aerr)
+				fmt.Fprintf(&l.out, "answer %s\n", l.str(h))
+				astTestMust(t, m.DelRef(&answer))
+			}
+		}
+	}
 	switch mode {
+	case 8:
+		e := pin(c.DeclareRelation("e", []ast.ASTHandle{bv, bv}))
+		p := pin(c.DeclareRelation("p", []ast.ASTHandle{bv}))
+		r := pin(c.DeclareRelation("r", []ast.ASTHandle{bv}))
+		fact(e, 0, 1)
+		fact(e, 1, 2)
+		fmt.Fprintf(&l.out, "facts err %d\n", errCode(factErr))
+		x, y := pin(c.BoundVariable(1, bv)), pin(c.BoundVariable(0, bv))
+		rule(app(e, x, y), app(p, y), []ast.ASTHandle{bv, bv}, "succ")
+		query(p)
+		xb := pin(c.BoundVariable(0, bv))
+		zero, one := pin(c.Numeral("0", bv)), pin(c.Numeral("1", bv))
+		expressionQueries(pin(c.Exists([]ast.ASTHandle{bv}, []string{"x"}, app(p, xb))), app(p, pin(c.Numeral("2", bv))))
+		factErr = nil
+		fact(e, 2, 3)
+		fmt.Fprintf(&l.out, "fact err %d\n", errCode(factErr))
+		rule(app(p, xb), app(r, xb), []ast.ASTHandle{bv}, "copy")
+		expressionQueries(pin(c.Exists([]ast.ASTHandle{bv}, []string{"x"}, app(r, xb))), app(e, zero, one), app(p, zero))
+	case 6, 7:
+		p := pin(c.DeclareRelation("p", []ast.ASTHandle{boolean}))
+		other := pin(c.DeclareRelation("other", []ast.ASTHandle{boolean}))
+		kp, ko := "tr_hashtable", "tr_sparse"
+		if mode == 7 {
+			kp, ko = ko, kp
+		}
+		astTestMust(t, c.SetFixedpointPredicateRepresentation(p, kp))
+		astTestMust(t, c.SetFixedpointPredicateRepresentation(other, ko))
+		fact(other, 1)
+		fact(p, 1)
+		fmt.Fprintf(&l.out, "facts err %d\n", errCode(factErr))
+		x := pin(c.BoundVariable(0, boolean))
+		q1 := pin(c.Exists([]ast.ASTHandle{boolean}, []string{"x"}, app(p, x)))
+		q2 := pin(c.Exists([]ast.ASTHandle{boolean}, []string{"x"}, pin(c.And(app(p, x), app(other, x)))))
+		expressionQueries(q1, q2, app(p, pin(m.MkTrue())))
 	case 5:
 		e := pin(c.DeclareRelation("e", []ast.ASTHandle{bv, bv}))
 		q := pin(c.DeclareRelation("q", []ast.ASTHandle{bv}))
@@ -317,6 +372,20 @@ func runExternalPluginMode(t *testing.T, mode int) string {
 		query(d)
 	}
 	return l.out.String()
+}
+
+// TestAPIFixedpointExternalRelationReusedContext is the reference program's
+// mode 8: external_relation is the favourite relation plugin and three
+// expression queries run on one context. Each query's head predicate is
+// registered after the previous evaluation; as in z3, its relation is made
+// (with the external "empty" callback) only when the query's evaluation
+// needs it.
+func TestAPIFixedpointExternalRelationReusedContext(t *testing.T) {
+	want, err := os.ReadFile(filepath.Join("test_vectors", "external_relation", "mode_8.txt"))
+	astTestMust(t, err)
+	if got := runExternalPluginMode(t, 8); got != string(want) {
+		t.Errorf("mode 8:\n%s\nwant\n%s", got, want)
+	}
 }
 
 // TestAPIFixedpointExternalRelationPlugin: AUDIT.md FUZZ-F5 (relation

@@ -101,6 +101,12 @@ type PropositionalEngine struct {
 	// datalogLastResult is rel_context::m_last_result_relation, the clone of
 	// the expression query's relation (rel_context::query(expr*)).
 	datalogLastResult rel.RelationBase
+	// datalogExpressionQuery is set while rel_context::query(expr*) runs on
+	// this (expression clone) engine: the queried relation's clone is made
+	// before its emptiness test, and the answer is the clone's formula.
+	// datalogLastResultDecl is the predicate datalogLastResult cloned.
+	datalogExpressionQuery bool
+	datalogLastResultDecl  ast.ASTHandle
 	// datalogRetiredResults are the earlier queries' m_last_result_relation:
 	// rel_context::query(expr*) assigns the new clone without deallocating
 	// the previous one, which stays allocated until the context dies.
@@ -2963,9 +2969,21 @@ func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHand
 	// rel_context::query: some_non_empty is !rel.empty() of a queried
 	// relation; an imprecise non-empty answer is l_undef (APPROX).
 	someNonEmpty, approx := false, false
+	if !e.datalogExpressionQuery {
+		// A relation query's answer is its relations' own formula.
+		e.datalogLastResultDecl = ast.ASTHandle{}
+	}
 	for _, declaration := range declarations {
 		table := e.predicates[declaration].table
 		if relation, ok := rel.AsRelation(table); ok {
+			if e.datalogExpressionQuery {
+				// rel_context::query(expr*): m_last_result_relation =
+				// get_relation(query_pred).clone(), then its empty().
+				if err := e.cloneDatalogLastResult(declaration); err != nil {
+					return lbool.Undef, err
+				}
+				relation = e.datalogLastResult
+			}
 			empty, x := relation.Empty()
 			if x != nil {
 				return lbool.Undef, x

@@ -12,6 +12,10 @@ import (
 
 func (e *PropositionalEngine) finiteRelationAnswer(state *predicateState) (answer ast.ASTRef, result error) {
 	if relation, ok := rel.AsRelation(state.table); ok {
+		if e.datalogLastResult != nil && e.predicates[e.datalogLastResultDecl] == state {
+			// rel_context::query(expr*)'s m_answer is the clone's formula.
+			relation = e.datalogLastResult
+		}
 		return e.relationAnswer(state, relation)
 	}
 	attempt := &storedFactFormulaAttempt{manager: e.manager}

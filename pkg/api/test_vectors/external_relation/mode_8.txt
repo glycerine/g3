@@ -1,0 +1,173 @@
+assign empty <Table> | -> T!0
+assign store | T!0 #b00 #b01 -> T!0
+assign store | T!0 #b01 #b10 -> T!0
+facts err 0
+rule succ err 0
+assign empty <Table> | -> T!1
+reduce is_empty | T!1 => true
+reduce is_empty | T!0 => false
+reduce is_empty | T!0 => false
+reduce is_empty | T!1 => true
+reduce is_empty | T!0 => false
+reduce is_empty | T!1 => true
+reduce is_empty | T!1 => true
+reduce is_empty | T!0 => false
+assign clone | T!0 -> T!2
+reduce project 0 | T!2 => X0
+assign empty <Table> | -> T!3
+assign union | T!3 X0 -> T!3
+reduce is_empty | T!3 => false
+result 1 err 0
+answer T!3
+reduce is_empty | T!3 => false
+assign empty <Table> | -> T!5
+reduce is_empty | T!5 => true
+reduce is_empty | T!2 => false
+reduce is_empty | T!2 => false
+reduce is_empty | T!3 => false
+reduce is_empty | T!5 => true
+reduce is_empty | T!2 => false
+reduce is_empty | T!3 => false
+reduce is_empty | T!5 => true
+reduce is_empty | T!3 => false
+assign clone | T!3 -> T!6
+reduce is_empty | T!2 => false
+assign clone | T!2 -> T!7
+reduce is_empty | T!5 => true
+reduce project 0 | T!7 => X1
+assign union | T!6 X1 -> T!6
+assign empty <Table> | -> T!8
+assign union | T!8 T!6 -> T!8
+assign clone | T!8 -> T!9
+reduce is_empty | T!9 => false
+result 1 err 0
+answer T!9
+reduce is_empty | T!6 => false
+assign empty <Table> | -> T!11
+reduce is_empty | T!11 => true
+reduce is_empty | T!7 => false
+reduce is_empty | T!11 => true
+reduce is_empty | T!7 => false
+reduce is_empty | T!6 => false
+reduce is_empty | T!11 => true
+reduce is_empty | T!7 => false
+reduce is_empty | T!6 => false
+reduce is_empty | T!6 => false
+assign clone | T!6 -> T!13
+reduce is_empty | T!7 => false
+assign clone | T!7 -> T!14
+assign empty <Table> | -> T!15
+reduce is_empty | T!15 => true
+reduce is_empty | T!11 => true
+reduce project 0 | T!14 => X2
+assign union | T!13 X2 -> T!13
+assign clone | T!13 -> T!16
+assign filter [(= (:var 0) #b10)] | T!16 -> T!16
+reduce project 0 | T!16 => X3
+reduce is_empty | X3 => false
+assign empty <Table> | -> T!17
+assign union | T!17 X3 -> T!17
+assign empty <Table> | -> T!18
+assign union | T!18 T!17 -> T!18
+assign clone | T!18 -> T!19
+reduce is_empty | T!19 => false
+result 1 err 0
+answer T!19
+assign store | T!14 #b10 #b11 -> T!14
+fact err 0
+rule copy err 0
+reduce is_empty | T!13 => false
+assign empty <Table> | -> T!21
+reduce is_empty | T!21 => true
+assign empty <Table> | -> T!22
+reduce is_empty | T!22 => true
+reduce is_empty | T!14 => false
+reduce is_empty | T!22 => true
+reduce is_empty | T!14 => false
+reduce is_empty | T!13 => false
+reduce is_empty | T!21 => true
+reduce is_empty | T!22 => true
+reduce is_empty | T!14 => false
+reduce is_empty | T!13 => false
+reduce is_empty | T!21 => true
+reduce is_empty | T!13 => false
+assign clone | T!13 -> T!23
+reduce is_empty | T!14 => false
+assign clone | T!14 -> T!24
+reduce is_empty | T!22 => true
+reduce project 0 | T!24 => X4
+assign union | T!23 X4 -> T!23
+assign empty <Table> | -> T!25
+assign union | T!25 T!23 -> T!25
+assign clone | T!25 -> T!26
+reduce is_empty | T!26 => false
+result 1 err 0
+answer T!26
+reduce is_empty | T!23 => false
+assign empty <Table> | -> T!28
+reduce is_empty | T!28 => true
+reduce is_empty | T!21 => true
+reduce is_empty | T!24 => false
+reduce is_empty | T!28 => true
+reduce is_empty | T!24 => false
+reduce is_empty | T!23 => false
+reduce is_empty | T!21 => true
+reduce is_empty | T!28 => true
+reduce is_empty | T!24 => false
+reduce is_empty | T!23 => false
+reduce is_empty | T!21 => true
+assign empty <Table> | -> T!30
+reduce is_empty | T!30 => true
+reduce is_empty | T!24 => false
+assign clone | T!24 -> T!31
+reduce is_empty | T!28 => true
+assign clone | T!31 -> T!32
+assign filter [(= (:var 0) #b00)] | T!32 -> T!32
+reduce project 0 | T!32 => X5
+reduce is_empty | X5 => false
+assign clone | X5 -> T!33
+assign filter [(= (:var 0) #b01)] | T!33 -> T!33
+reduce project 0 | T!33 => X6
+reduce is_empty | X6 => false
+assign empty <Table> | -> T!34
+assign union | T!34 X6 -> T!34
+assign empty <Table> | -> T!35
+assign union | T!35 T!34 -> T!35
+assign clone | T!35 -> T!36
+reduce is_empty | T!36 => false
+result 1 err 0
+answer T!36
+reduce is_empty | T!23 => false
+reduce is_empty | T!21 => true
+assign empty <Table> | -> T!38
+reduce is_empty | T!38 => true
+reduce is_empty | T!31 => false
+reduce is_empty | T!38 => true
+reduce is_empty | T!31 => false
+reduce is_empty | T!23 => false
+reduce is_empty | T!21 => true
+reduce is_empty | T!38 => true
+reduce is_empty | T!31 => false
+reduce is_empty | T!23 => false
+reduce is_empty | T!21 => true
+reduce is_empty | T!23 => false
+assign clone | T!23 -> T!40
+reduce is_empty | T!31 => false
+assign clone | T!31 -> T!41
+assign empty <Table> | -> T!42
+reduce is_empty | T!42 => true
+reduce is_empty | T!38 => true
+reduce project 0 | T!41 => X7
+assign union | T!40 X7 -> T!40
+assign clone | T!40 -> T!43
+assign filter [(= (:var 0) #b00)] | T!43 -> T!43
+reduce project 0 | T!43 => X8
+reduce is_empty | X8 => false
+assign empty <Table> | -> T!44
+assign union | T!44 X8 -> T!44
+assign empty <Table> | -> T!45
+assign union | T!45 T!44 -> T!45
+assign clone | T!45 -> T!46
+reduce is_empty | T!46 => false
+result 1 err 0
+answer T!46
