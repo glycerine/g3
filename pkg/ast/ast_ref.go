@@ -84,6 +84,16 @@ func (m *ASTManager) newRef(h ASTHandle) (ASTRef, error) {
 	return ref, nil
 }
 func (m *ASTManager) RefGet(ref ASTRef) (ASTHandle, error) {
+	// A lock-free manager reads a valid reference without the lock, as
+	// the read accessors do; anything else takes the locked path.
+	if !astValidateHandles && m.lockFree() {
+		if r, e := m.reference(ref); e == nil {
+			return m.external(r.node), nil
+		}
+	}
+	return m.refGetChecked(ref)
+}
+func (m *ASTManager) refGetChecked(ref ASTRef) (ASTHandle, error) {
 	if e := m.lock(); e != nil {
 		return ASTHandle{}, e
 	}
@@ -157,6 +167,31 @@ func (m *ASTManager) AssignRef(dst, src ASTRef) error {
 	return m.assignRef(dst, r.node)
 }
 func (m *ASTManager) SetRef(dst ASTRef, h ASTHandle) error {
+	// A lock-free manager assigns a validated live node to a validated
+	// owning reference without the lock when the old node survives (no
+	// deletion runs): assignRef's incNode/decNode on live nodes. Every
+	// other case takes the locked path.
+	if !astValidateHandles && h.slot != 0 && m.lockFree() {
+		if ref, e := m.reference(dst); e == nil {
+			if node, e := m.internal(h); e == nil {
+				old := ref.node
+				n := m.nodeAt(node.slot)
+				if (old.slot == 0 || ref.owned && (old == node || m.nodeAt(old.slot).rc > 1)) &&
+					!(ASTSourceDebug && n.rc == math.MaxUint32) {
+					n.rc++
+					if old.slot != 0 {
+						m.nodeAt(old.slot).rc--
+					}
+					ref.node = node
+					ref.owned = true
+					return nil
+				}
+			}
+		}
+	}
+	return m.setRefChecked(dst, h)
+}
+func (m *ASTManager) setRefChecked(dst ASTRef, h ASTHandle) error {
 	if e := m.lock(); e != nil {
 		return e
 	}

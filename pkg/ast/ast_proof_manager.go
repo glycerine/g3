@@ -12,6 +12,12 @@ func (m *ASTManager) ProofMode() (ASTProofMode, error) {
 	if !astValidateHandles && m != nil && m.lockFree() {
 		return m.proofMode, nil
 	}
+	return m.proofModeChecked()
+}
+
+// proofModeChecked is ProofMode's locked read, kept out of line so the
+// lock-free read carries no defer.
+func (m *ASTManager) proofModeChecked() (ASTProofMode, error) {
 	if e := m.lock(); e != nil {
 		return 0, e
 	}

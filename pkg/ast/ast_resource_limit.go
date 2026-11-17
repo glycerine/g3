@@ -10,6 +10,12 @@ func (m *ASTManager) Canceled() (bool, error) {
 		// Unchecked like z3's limit check (see ast_validate_handles_off.go).
 		return !m.Limit.Inc(), nil
 	}
+	return m.canceledChecked()
+}
+
+// canceledChecked is Canceled's locked path, kept out of line so the
+// unchecked path carries no defer.
+func (m *ASTManager) canceledChecked() (bool, error) {
 	if err := m.lock(); err != nil {
 		return false, err
 	}
