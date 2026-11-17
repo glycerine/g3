@@ -327,10 +327,12 @@ func (p *FilterRulesPlugin) rewrite(rule *base.Rule, result *base.RuleSet) (chan
 	tails := make([]ast.ASTHandle, 0, total)
 	negated := make([]bool, 0, total)
 	// Pin the replacement tails until the rewritten rule owns them, so a
-	// failure on a later tail does not orphan an earlier one.
+	// failure on a later tail does not orphan an earlier one. They stand
+	// for process's app_ref_vector new_tail, whose destructor releases its
+	// elements front to back.
 	var pins []ast.ASTRef
 	defer func() {
-		for i := len(pins) - 1; i >= 0; i-- {
+		for i := range pins {
 			resultErr = errors.Join(resultErr, p.manager.DelRef(&pins[i]))
 		}
 	}()
