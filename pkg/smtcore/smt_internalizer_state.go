@@ -138,6 +138,8 @@ type SMTInternalizerState struct {
 	// clauseSortScratch and clauseKeptScratch are reused work buffers of
 	// addClauseKindWithJustificationAndDeleteHandler.
 	clauseSortScratch, clauseKeptScratch []SMTLiteral
+	// clauseRemovedScratch backs mk_clause's simp_lits (removed false literals).
+	clauseRemovedScratch []SMTLiteral
 	// registeredJustification is a wrapper already in ownedJustifications
 	// (mk_justification), which mk_clause must not register again.
 	registeredJustification SMTJustification
@@ -239,9 +241,7 @@ type SMTInternalizerState struct {
 	retiringEnodeRoot   ast.ASTHandle
 	retiringBoolean     bool
 	retiringBooleanRoot ast.ASTHandle
-	cachedGeneration    map[ast.ASTHandle]uint32
-	// cacheGenerationVisited is m_cache_generation_visited.
-	cacheGenerationVisited map[ast.ASTHandle]struct{}
+	cachedGeneration    smtCacheGenerationTable
 	// Go scratch storage reused across pops (no source counterpart).
 	cacheGenerationTodo []ast.ASTHandle
 	preservedScratch    []smtPreservedLearnedClause
@@ -341,7 +341,7 @@ func newSMTInternalizerState(manager *ast.ASTManager, context *SMTCheckerContext
 		manager: manager, context: context, congruence: table, quantifiers: quantifiers,
 		boolVar: smtBoolVarTable{context.exprs}, boolExpr: make([]ast.ASTHandle, 1), booleanData: make([]SMTBoolVarData, 1), booleanCreation: make([]uint64, 1),
 		activity: make([]float64, 1), assignment: []lbool.LBool{lbool.True, lbool.False}, watches: make([]SMTWatchList, 2),
-		cachedGeneration: make(map[ast.ASTHandle]uint32), theories: make(map[ast.FamilyID]SMTTheoryInternalizer),
+		cachedGeneration: smtCacheGenerationTable{t: context.exprs}, theories: make(map[ast.FamilyID]SMTTheoryInternalizer),
 		equalityAtomsByTerm:   make(map[ast.ASTHandle][]int32),
 		conflictLiteral:       SMTNullLiteral,
 		activityIncrement:     1,
@@ -600,7 +600,7 @@ func (s *SMTInternalizerState) SetCachedGeneration(expression ast.ASTHandle, gen
 	if _, err := s.manager.GetKind(expression); err != nil {
 		return err
 	}
-	s.cachedGeneration[expression] = generation
+	s.cachedGeneration.set(expression, generation)
 	return nil
 }
 
@@ -829,7 +829,7 @@ func (s *SMTInternalizerState) MkEnode(expression ast.ASTHandle, suppressArgumen
 		return nil, ast.ErrASTDomain
 	}
 	generation := s.generation
-	if cached, found := s.cachedGeneration[expression]; found {
+	if cached, found := s.cachedGeneration.get(expression); found {
 		generation = cached
 	}
 	if err := s.manager.IncRef(expression); err != nil {

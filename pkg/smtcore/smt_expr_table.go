@@ -14,14 +14,19 @@ const (
 	smtExprHasAssignment
 	smtExprHasRelevant
 	smtExprRelevant
+	smtExprHasCachedGeneration
+	smtExprCacheGenerationVisited
 )
 
 type smtExprRecord struct {
 	enode      *SMTEnode
 	generation uint32
 	boolVar    int32
-	assignment lbool.LBool
-	flags      uint8
+	// cachedGeneration is m_cached_generation's value when
+	// smtExprHasCachedGeneration is set.
+	cachedGeneration uint32
+	assignment       lbool.LBool
+	flags            uint8
 }
 
 // smtExprTable is owned by one SMTCheckerContext and borrows nothing. A record
@@ -189,5 +194,56 @@ func (r smtRelevantTable) set(h ast.ASTHandle, value bool) {
 func (r smtRelevantTable) del(h ast.ASTHandle) {
 	if record := r.t.read(h); record != nil {
 		record.flags &^= smtExprHasRelevant | smtExprRelevant
+	}
+}
+
+// smtCacheGenerationTable is context::m_cached_generation (obj_map<expr,
+// unsigned>) and m_cache_generation_visited (obj_hashtable<expr>) as two
+// flags and a field of the expression records. touched lists the handles
+// with either flag set, so reset clears exactly those records.
+type smtCacheGenerationTable struct {
+	t       *smtExprTable
+	touched []ast.ASTHandle
+}
+
+func (c *smtCacheGenerationTable) get(h ast.ASTHandle) (uint32, bool) {
+	if record := c.t.read(h); record != nil && record.flags&smtExprHasCachedGeneration != 0 {
+		return record.cachedGeneration, true
+	}
+	return 0, false
+}
+func (c *smtCacheGenerationTable) record(h ast.ASTHandle) *smtExprRecord {
+	record := c.t.write(h)
+	if record.flags&(smtExprHasCachedGeneration|smtExprCacheGenerationVisited) == 0 {
+		c.touched = append(c.touched, h)
+	}
+	return record
+}
+func (c *smtCacheGenerationTable) set(h ast.ASTHandle, generation uint32) {
+	record := c.record(h)
+	record.cachedGeneration = generation
+	record.flags |= smtExprHasCachedGeneration
+}
+
+// visit marks h visited and reports whether it already was.
+func (c *smtCacheGenerationTable) visit(h ast.ASTHandle) bool {
+	if record := c.t.read(h); record != nil && record.flags&smtExprCacheGenerationVisited != 0 {
+		return true
+	}
+	c.record(h).flags |= smtExprCacheGenerationVisited
+	return false
+}
+func (c *smtCacheGenerationTable) reset() {
+	for _, h := range c.touched {
+		if record := c.t.read(h); record != nil {
+			record.flags &^= smtExprHasCachedGeneration | smtExprCacheGenerationVisited
+			record.cachedGeneration = 0
+		}
+	}
+	clear(c.touched)
+	if cap(c.touched) > smtCacheGenerationKeep {
+		c.touched = nil
+	} else {
+		c.touched = c.touched[:0]
 	}
 }

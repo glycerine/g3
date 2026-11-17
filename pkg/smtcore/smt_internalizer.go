@@ -155,7 +155,7 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 	// kept is collected in a scratch buffer and copied out at its final
 	// length once the loop has not found the clause satisfied.
 	kept := s.clauseKeptScratch[:0]
-	removedFalse := make([]SMTLiteral, 0)
+	removedFalse := s.clauseRemovedScratch[:0]
 	for _, literal := range literals {
 		if literal == SMTTrueLiteral {
 			return nil
@@ -214,6 +214,9 @@ func (s *SMTInternalizerState) addClauseKindWithJustificationAndDeleteHandler(li
 		kept = append(kept, literal)
 	}
 	s.clauseKeptScratch = kept[:0]
+	// NewSMTUnitResolutionJustification copies removedFalse; nothing below
+	// adds a clause before that copy.
+	s.clauseRemovedScratch = removedFalse[:0]
 	kept = append([]SMTLiteral(nil), kept...)
 	// mk_clause: j = unit_resolution_justification(j, simp_lits) whenever
 	// false literals were removed; the clause's proof is then built lazily
@@ -797,7 +800,7 @@ func (s *SMTInternalizerState) internalizeQuantifier(expression ast.ASTHandle, g
 	}
 	data.SetQuantifier()
 	generation := s.generation
-	if cached, found := s.cachedGeneration[expression]; found {
+	if cached, found := s.cachedGeneration.get(expression); found {
 		generation = cached
 	}
 	if err = s.quantifiers.Add(expression, generation); err != nil {

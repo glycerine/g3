@@ -27,18 +27,14 @@ func (s *SMTInternalizerState) cacheGenerationLiterals(literals []SMTLiteral, ne
 
 // cacheGenerationExpr is cache_generation(expr * n, new_scope_lvl).
 func (s *SMTInternalizerState) cacheGenerationExpr(root ast.ASTHandle, newLevel uint32) error {
-	if s.cacheGenerationVisited == nil {
-		s.cacheGenerationVisited = make(map[ast.ASTHandle]struct{})
-	}
 	todo := append(s.cacheGenerationTodo[:0], root)
 	defer func() { s.cacheGenerationTodo = todo[:0] }()
 	for len(todo) != 0 {
 		n := todo[len(todo)-1]
 		todo = todo[:len(todo)-1]
-		if _, seen := s.cacheGenerationVisited[n]; seen {
+		if s.cachedGeneration.visit(n) {
 			continue
 		}
-		s.cacheGenerationVisited[n] = struct{}{}
 		kind, err := s.manager.GetKind(n)
 		if err != nil {
 			return err
@@ -50,7 +46,7 @@ func (s *SMTInternalizerState) cacheGenerationExpr(root ast.ASTHandle, newLevel 
 					// node and its children will not be recreated
 					continue
 				}
-				s.cachedGeneration[n] = node.Generation()
+				s.cachedGeneration.set(n, node.Generation())
 			}
 			count, err := s.manager.GetNumArgs(n)
 			if err != nil {
@@ -77,7 +73,7 @@ func (s *SMTInternalizerState) cacheGenerationExpr(root ast.ASTHandle, newLevel 
 			if err != nil {
 				return err
 			}
-			s.cachedGeneration[n] = generation
+			s.cachedGeneration.set(n, generation)
 			body, err := s.manager.GetQuantifierBody(n)
 			if err != nil {
 				return err
@@ -115,16 +111,7 @@ func (s *SMTInternalizerState) cacheGenerationForPop(learned []smtPreservedLearn
 // Like the source obj_map/obj_hashtable reset, it keeps the table storage;
 // a table that grew large is dropped so later clears stay cheap.
 func (s *SMTInternalizerState) resetCacheGeneration() {
-	if n := len(s.cacheGenerationVisited); n > smtCacheGenerationKeep {
-		s.cacheGenerationVisited = nil
-	} else if n != 0 {
-		clear(s.cacheGenerationVisited)
-	}
-	if n := len(s.cachedGeneration); n > smtCacheGenerationKeep {
-		s.cachedGeneration = make(map[ast.ASTHandle]uint32)
-	} else if n != 0 {
-		clear(s.cachedGeneration)
-	}
+	s.cachedGeneration.reset()
 }
 
 // smtCacheGenerationKeep bounds the cache-generation tables whose storage
