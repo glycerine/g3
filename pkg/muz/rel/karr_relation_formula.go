@@ -8,7 +8,6 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
-	"github.com/glycerine/g3/pkg/smtcore"
 )
 
 // ToFormula is karr_relation::to_formula: false when empty, otherwise the
@@ -169,20 +168,4 @@ func karrRowFormula(manager *ast.ASTManager, family ast.FamilyID, row []big.Rat,
 		return result, err
 	}
 	return manager.NewRef(formula)
-}
-
-func VerifyKarrRelationExpected(manager *ast.ASTManager, sorts []ast.ASTHandle, config smtcore.SMTSolverConfig, expected ast.ASTHandle, actual *KarrRelation) (resultErr error) {
-	if manager == nil || expected.IsNull() || actual == nil {
-		return ErrRelationVerification
-	}
-	formula, err := actual.ToFormula(manager, sorts)
-	if err != nil {
-		return err
-	}
-	defer func() { resultErr = errors.Join(resultErr, manager.DelRef(&formula)) }()
-	actualFormula, err := manager.RefGet(formula)
-	if err != nil {
-		return err
-	}
-	return verifyRelationFormulaPair(manager, sorts, config, expected, actualFormula, false)
 }

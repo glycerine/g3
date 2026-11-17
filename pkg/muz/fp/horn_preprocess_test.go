@@ -8,7 +8,6 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
-	"github.com/glycerine/g3/pkg/muz/rel"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -44,13 +43,12 @@ func TestHornPreprocessResultOwnsRulesAndClearsMappings(t *testing.T) {
 		bitBlastedPredicates:   make(map[ast.ASTHandle]ast.ASTHandle),
 		scaledPredicates:       make(map[ast.ASTHandle]ast.ASTHandle),
 		magicPredicates:        make(map[ast.ASTHandle]ast.ASTHandle),
-		karrInvariants:         make(map[ast.ASTHandle]rel.KarrMatrix),
 	}
 	quantifierResultMust(t, result.Close())
 	quantifierResultMust(t, result.Close())
 	if !result.closed || result.rules != nil || result.slicedPredicates != nil || result.slicedColumns != nil ||
 		result.quantifiedPredicates != nil || result.instantiatedPredicates != nil || result.bitBlastedPredicates != nil ||
-		result.scaledPredicates != nil || result.magicPredicates != nil || result.karrInvariants != nil {
+		result.scaledPredicates != nil || result.magicPredicates != nil {
 		t.Fatal("Horn preprocessing result retained closed state")
 	}
 	if _, err = set.Len(); err == nil {

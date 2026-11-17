@@ -315,9 +315,6 @@ func (e *PropositionalEngine) expandSpacerModel(source *model.Model) (_ *model.M
 		if len(e.spacerScaled) != 0 {
 			conversions = append(conversions, hornModelConversion{kind: hornConvertScale, predicates: e.spacerScaled})
 		}
-		if len(e.spacerKarr) != 0 {
-			conversions = append(conversions, hornModelConversion{kind: hornConvertKarr, karr: e.spacerKarr})
-		}
 		if len(e.spacerBitBlasted) != 0 {
 			conversions = append(conversions, hornModelConversion{kind: hornConvertBitBlast, predicates: e.spacerBitBlasted})
 		}
@@ -447,10 +444,6 @@ func (e *PropositionalEngine) expandHornModel(source *model.Model, conversions [
 				if err := e.expandSpacerQuantifiedFunction(core, original, derived); err != nil {
 					return nil, err
 				}
-			}
-		case hornConvertKarr:
-			if err := e.applyHornKarrInvariants(core, conversion.karr, conversion.order); err != nil {
-				return nil, err
 			}
 		case hornConvertCone:
 			if err := e.applyHornConeModelStep(core, conversion.cone); err != nil {

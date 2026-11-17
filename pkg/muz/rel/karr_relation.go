@@ -51,8 +51,6 @@ func cloneKarrMatrix(source KarrMatrix) KarrMatrix {
 	return result
 }
 
-func CloneKarrMatrix(source KarrMatrix) KarrMatrix { return cloneKarrMatrix(source) }
-
 func (m *KarrMatrix) append(row []big.Rat, constant *big.Rat, equal bool) {
 	m.A = append(m.A, cloneRationals(row))
 	var value big.Rat
@@ -71,33 +69,18 @@ type KarrRelation struct {
 	basis             KarrMatrix
 	basisValid        bool
 	checkpoint        func() bool
-	formulaChecker    *KarrRelationFormulaChecker
 }
 
-func NewKarrEmpty(dimension uint32, checkpoint func() bool, formulaChecker ...*KarrRelationFormulaChecker) *KarrRelation {
-	r := &KarrRelation{dimension: dimension, empty: true, inequalitiesValid: true, checkpoint: checkpoint}
-	if len(formulaChecker) > 0 {
-		r.formulaChecker = formulaChecker[0]
-	}
-	return r
+func NewKarrEmpty(dimension uint32, checkpoint func() bool) *KarrRelation {
+	return &KarrRelation{dimension: dimension, empty: true, inequalitiesValid: true, checkpoint: checkpoint}
 }
 
-func NewKarrFull(dimension uint32, checkpoint func() bool, formulaChecker ...*KarrRelationFormulaChecker) *KarrRelation {
-	r := &KarrRelation{dimension: dimension, inequalitiesValid: true, checkpoint: checkpoint}
-	if len(formulaChecker) > 0 {
-		r.formulaChecker = formulaChecker[0]
-	}
-	return r
+func NewKarrFull(dimension uint32, checkpoint func() bool) *KarrRelation {
+	return &KarrRelation{dimension: dimension, inequalitiesValid: true, checkpoint: checkpoint}
 }
 
 func (r *KarrRelation) Dimension() uint32 { return r.dimension }
 func (r *KarrRelation) Empty() bool       { return r == nil || r.empty }
-
-func (r *KarrRelation) SetFormulaChecker(checker *KarrRelationFormulaChecker) {
-	if r != nil {
-		r.formulaChecker = checker
-	}
-}
 
 func (r *KarrRelation) Clone() *KarrRelation {
 	if r == nil {
@@ -111,7 +94,6 @@ func (r *KarrRelation) Clone() *KarrRelation {
 		basis:             cloneKarrMatrix(r.basis),
 		basisValid:        r.basisValid,
 		checkpoint:        r.checkpoint,
-		formulaChecker:    r.formulaChecker,
 	}
 }
 
@@ -318,17 +300,9 @@ func KarrJoin(left, right *KarrRelation, leftColumns, rightColumns []uint32) (*K
 	if err := validateKarrColumns(right.dimension, rightColumns); err != nil {
 		return nil, err
 	}
-	result := NewKarrFull(left.dimension+right.dimension, left.checkpoint, left.formulaChecker)
-	if result.formulaChecker == nil {
-		result.formulaChecker = right.formulaChecker
-	}
+	result := NewKarrFull(left.dimension+right.dimension, left.checkpoint)
 	if left.empty || right.empty {
 		result.empty = true
-		if result.formulaChecker != nil {
-			if err := result.formulaChecker.verifyJoin(left, right, leftColumns, rightColumns, result); err != nil {
-				return nil, err
-			}
-		}
 		return result, nil
 	}
 	leftMatrix, err := left.Inequalities()
@@ -355,11 +329,6 @@ func KarrJoin(left, right *KarrRelation, leftColumns, rightColumns []uint32) (*K
 		row[left.dimension+rightColumns[i]].SetInt64(-1)
 		result.inequalities.append(row, nil, true)
 	}
-	if result.formulaChecker != nil {
-		if err := result.formulaChecker.verifyJoin(left, right, leftColumns, rightColumns, result); err != nil {
-			return nil, err
-		}
-	}
 	return result, nil
 }
 
@@ -377,14 +346,9 @@ func (r *KarrRelation) Project(removed []uint32) (*KarrRelation, error) {
 			return nil, ErrKarrColumn
 		}
 	}
-	result := NewKarrFull(r.dimension-uint32(len(removed)), r.checkpoint, r.formulaChecker)
+	result := NewKarrFull(r.dimension-uint32(len(removed)), r.checkpoint)
 	if r.empty {
 		result.empty = true
-		if r.formulaChecker != nil {
-			if err := r.formulaChecker.verifyProject(r, removed, result); err != nil {
-				return nil, err
-			}
-		}
 		return result, nil
 	}
 	matrix, err := r.Basis()
@@ -405,11 +369,6 @@ func (r *KarrRelation) Project(removed []uint32) (*KarrRelation, error) {
 	}
 	result.basisValid = true
 	result.inequalitiesValid = false
-	if r.formulaChecker != nil {
-		if err := r.formulaChecker.verifyProject(r, removed, result); err != nil {
-			return nil, err
-		}
-	}
 	return result, nil
 }
 
@@ -437,11 +396,6 @@ func (r *KarrRelation) Rename(cycle []uint32) (*KarrRelation, error) {
 	if result.basisValid {
 		rename(&result.basis)
 	}
-	if r.formulaChecker != nil {
-		if err := r.formulaChecker.verifyRename(r, cycle, result); err != nil {
-			return nil, err
-		}
-	}
 	return result, nil
 }
 
@@ -462,20 +416,7 @@ func (r *KarrRelation) Union(source *KarrRelation) (bool, error) {
 	if r == nil || source == nil || r.dimension != source.dimension {
 		return false, ErrKarrDimension
 	}
-	var before *KarrRelation
-	checker := r.formulaChecker
-	if checker == nil {
-		checker = source.formulaChecker
-	}
-	if checker != nil {
-		before = r.Clone()
-	}
 	if source.empty {
-		if checker != nil {
-			if err := checker.verifyUnion(before, source, r); err != nil {
-				return false, err
-			}
-		}
 		return false, nil
 	}
 	sourceBasis, err := source.Basis()
@@ -487,14 +428,6 @@ func (r *KarrRelation) Union(source *KarrRelation) (bool, error) {
 		r.basis = sourceBasis
 		r.basisValid = true
 		r.inequalitiesValid = false
-		if r.formulaChecker == nil {
-			r.formulaChecker = checker
-		}
-		if checker != nil {
-			if err := checker.verifyUnion(before, source, r); err != nil {
-				return false, err
-			}
-		}
 		return true, nil
 	}
 	if err = r.ensureBasis(); err != nil {
@@ -514,14 +447,6 @@ func (r *KarrRelation) Union(source *KarrRelation) (bool, error) {
 	if changed {
 		r.inequalitiesValid = false
 	}
-	if r.formulaChecker == nil {
-		r.formulaChecker = checker
-	}
-	if checker != nil {
-		if err := checker.verifyUnion(before, source, r); err != nil {
-			return false, err
-		}
-	}
 	return changed, nil
 }
 
@@ -531,10 +456,6 @@ func (r *KarrRelation) FilterIdentical(columns []uint32) error {
 	}
 	if err := validateKarrColumns(r.dimension, columns); err != nil {
 		return err
-	}
-	var before *KarrRelation
-	if r.formulaChecker != nil {
-		before = r.Clone()
 	}
 	if err := r.ensureInequalities(); err != nil {
 		return err
@@ -546,18 +467,6 @@ func (r *KarrRelation) FilterIdentical(columns []uint32) error {
 		r.inequalities.append(row, nil, true)
 	}
 	r.basisValid = false
-	if r.formulaChecker != nil {
-		condition, err := r.formulaChecker.identicalCondition(r.dimension, columns)
-		if err != nil {
-			return err
-		}
-		defer r.formulaChecker.manager.DelRef(&condition)
-		conditionHandle, err := r.formulaChecker.manager.RefGet(condition)
-		if err != nil {
-			return err
-		}
-		return r.formulaChecker.verifyFilter(before, conditionHandle, r)
-	}
 	return nil
 }
 
@@ -570,10 +479,6 @@ func (r *KarrRelation) FilterEqual(column uint32, integerValue bool) error {
 	if !integerValue {
 		return nil
 	}
-	var before *KarrRelation
-	if r.formulaChecker != nil {
-		before = r.Clone()
-	}
 	if err := r.ensureInequalities(); err != nil {
 		return err
 	}
@@ -581,22 +486,6 @@ func (r *KarrRelation) FilterEqual(column uint32, integerValue bool) error {
 	row[column].SetInt64(1)
 	r.inequalities.append(row, big.NewRat(-1, 1), true)
 	r.basisValid = false
-	if r.formulaChecker != nil {
-		one, err := r.formulaChecker.manager.ArithmeticIntegerNumeralText("1")
-		if err != nil {
-			return err
-		}
-		condition, err := r.formulaChecker.equalityCondition(r.dimension, column, one)
-		if err != nil {
-			return err
-		}
-		defer r.formulaChecker.manager.DelRef(&condition)
-		conditionHandle, err := r.formulaChecker.manager.RefGet(condition)
-		if err != nil {
-			return err
-		}
-		return r.formulaChecker.verifyFilter(before, conditionHandle, r)
-	}
 	return nil
 }
 
@@ -604,27 +493,11 @@ func (r *KarrRelation) AddConstraint(row []big.Rat, constant *big.Rat, equal boo
 	if r == nil || uint32(len(row)) != r.dimension {
 		return ErrKarrDimension
 	}
-	var before *KarrRelation
-	if r.formulaChecker != nil {
-		before = r.Clone()
-	}
 	if err := r.ensureInequalities(); err != nil {
 		return err
 	}
 	r.empty = false
 	r.inequalities.append(row, constant, equal)
 	r.basisValid = false
-	if r.formulaChecker != nil {
-		condition, err := r.formulaChecker.linearCondition(r.dimension, row, constant, equal)
-		if err != nil {
-			return err
-		}
-		defer r.formulaChecker.manager.DelRef(&condition)
-		conditionHandle, err := r.formulaChecker.manager.RefGet(condition)
-		if err != nil {
-			return err
-		}
-		return r.formulaChecker.verifyFilter(before, conditionHandle, r)
-	}
 	return nil
 }

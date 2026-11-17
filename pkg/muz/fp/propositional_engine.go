@@ -187,7 +187,6 @@ type PropositionalEngine struct {
 	pdrBitBlasted     map[ast.ASTHandle]ast.ASTHandle
 	pdrScaled         map[ast.ASTHandle]ast.ASTHandle
 	pdrMagic          map[ast.ASTHandle]ast.ASTHandle
-	pdrKarr           map[ast.ASTHandle]rel.KarrMatrix
 	pdrConversions    []hornModelConversion
 	pdrProofConverter *transforms.SliceProofConverter
 	pdrStatistics     muzpdr.StatisticsSnapshot
@@ -267,7 +266,6 @@ type PropositionalEngine struct {
 	spacerBitBlasted        map[ast.ASTHandle]ast.ASTHandle
 	spacerScaled            map[ast.ASTHandle]ast.ASTHandle
 	spacerMagic             map[ast.ASTHandle]ast.ASTHandle
-	spacerKarr              map[ast.ASTHandle]rel.KarrMatrix
 	spacerConversions       []hornModelConversion
 	lastStatus              string
 	forceProofTrace         bool
@@ -3612,7 +3610,6 @@ func (e *PropositionalEngine) Close() (result error) {
 		e.spacerBitBlasted = nil
 		e.spacerScaled = nil
 		e.spacerMagic = nil
-		e.spacerKarr = nil
 	}
 	// ~dl_interface: dealloc(m_context), then m_old_rules; the rules of m_spacer_rules
 	// rules are shared with the context's m_transformed_rule_set.

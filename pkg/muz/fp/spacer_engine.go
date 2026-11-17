@@ -8,7 +8,6 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
-	"github.com/glycerine/g3/pkg/muz/rel"
 	"github.com/glycerine/g3/pkg/muz/transforms"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -218,7 +217,6 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	var magicTransformer *transforms.MagicSymbolicPlugin
 	var magicPredicates map[ast.ASTHandle]ast.ASTHandle
 	var karrTransformer *transforms.KarrInvariantsPlugin
-	var karrInvariants map[ast.ASTHandle]rel.KarrMatrix
 	var quantifierAbstraction *transforms.QuantifierAbstractionPlugin
 	var quantifiedPredicates map[ast.ASTHandle]ast.ASTHandle
 	var arrayInstantiation *transforms.ArrayInstantiationPlugin
@@ -510,9 +508,6 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 			e.predicates[declaration] = state
 		}
 	}
-	if err == nil && karrTransformer != nil {
-		karrInvariants = karrTransformer.ModelInvariants()
-	}
 	err = errors.Join(err, transformer.Close())
 	if err != nil {
 		return nil, fmt.Errorf("muz/fp: Spacer rule preprocessing: %w", err)
@@ -586,9 +581,6 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 	if len(scaledPredicates) != 0 {
 		modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertScale, predicates: scaledPredicates, order: scaler.FreshPredicateOrder()})
 	}
-	if len(karrInvariants) != 0 {
-		modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertKarr, karr: karrInvariants, order: karrTransformer.ModelInvariantOrder()})
-	}
 	appendInlineRules := func(index int) {
 		if index < len(inlineModelRules) && len(inlineModelRules[index]) != 0 {
 			modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertInline, inline: inlineModelRules[index]})
@@ -630,7 +622,6 @@ func (e *PropositionalEngine) preprocessHornRulesWithStages(query ast.ASTHandle,
 		bitBlastedPredicates:   bitBlastedPredicates,
 		scaledPredicates:       scaledPredicates,
 		magicPredicates:        magicPredicates,
-		karrInvariants:         karrInvariants,
 		modelConversions:       modelConversions,
 		sliceProof:             sliceProof,
 	}, nil
@@ -753,7 +744,6 @@ func (e *PropositionalEngine) querySpacerAtLevel(declaration ast.ASTHandle, from
 	e.spacerBitBlasted = preprocessed.bitBlastedPredicates
 	e.spacerScaled = preprocessed.scaledPredicates
 	e.spacerMagic = preprocessed.magicPredicates
-	e.spacerKarr = preprocessed.karrInvariants
 	e.spacerConversions = preprocessed.takeModelConversions()
 	queryDeclaration, deriveErr := prepared.DerivedPredicate(queryDeclaration)
 	if deriveErr != nil {

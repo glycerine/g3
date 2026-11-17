@@ -9,7 +9,6 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
-	"github.com/glycerine/g3/pkg/muz/rel"
 	"github.com/glycerine/g3/pkg/muz/transforms"
 )
 
@@ -27,7 +26,6 @@ type hornPreprocessResult struct {
 	bitBlastedPredicates   map[ast.ASTHandle]ast.ASTHandle
 	scaledPredicates       map[ast.ASTHandle]ast.ASTHandle
 	magicPredicates        map[ast.ASTHandle]ast.ASTHandle
-	karrInvariants         map[ast.ASTHandle]rel.KarrMatrix
 	modelConversions       []hornModelConversion
 	sliceProof             *transforms.SliceProofConverter
 
@@ -70,7 +68,6 @@ func (r *hornPreprocessResult) Close() error {
 	r.bitBlastedPredicates = nil
 	r.scaledPredicates = nil
 	r.magicPredicates = nil
-	r.karrInvariants = nil
 	r.modelConversions = nil
 	r.sliceProof = nil
 	r.closed = true
@@ -93,7 +90,6 @@ const (
 	hornConvertQuantifier
 	hornConvertBitBlast
 	hornConvertScale
-	hornConvertKarr
 	hornConvertCone
 	hornConvertInline
 )
@@ -140,8 +136,7 @@ type hornModelConversion struct {
 	kind       hornModelConversionKind
 	predicates map[ast.ASTHandle]ast.ASTHandle
 	columns    map[ast.ASTHandle][]bool
-	karr       map[ast.ASTHandle]rel.KarrMatrix
-	// order lists the predicates (or karr) keys in the source model
+	// order lists the predicates keys in the source model
 	// converter's iteration order; nil means AST id order.
 	order  []ast.ASTHandle
 	cone   transforms.ConeModelStep

@@ -172,7 +172,6 @@ func (e *PropositionalEngine) clearPDRPreprocessing() error {
 	e.pdrBitBlasted = nil
 	e.pdrScaled = nil
 	e.pdrMagic = nil
-	e.pdrKarr = nil
 	e.pdrConversions = nil
 	return nil
 }
@@ -185,7 +184,6 @@ func (e *PropositionalEngine) installPDRPreprocessing(result *hornPreprocessResu
 	e.pdrBitBlasted = result.bitBlastedPredicates
 	e.pdrScaled = result.scaledPredicates
 	e.pdrMagic = result.magicPredicates
-	e.pdrKarr = result.karrInvariants
 	e.pdrConversions = result.takeModelConversions()
 }
 
@@ -221,7 +219,6 @@ func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool
 		e.spacerBitBlasted = nil
 		e.spacerScaled = nil
 		e.spacerMagic = nil
-		e.spacerKarr = nil
 	}
 	if err := closeHornModelConversions(e.spacerConversions); err != nil {
 		return lbool.Undef, errors.Join(resultErr, err)
