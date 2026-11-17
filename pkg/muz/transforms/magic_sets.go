@@ -43,7 +43,10 @@ type MagicSetsPlugin struct {
 	extensional map[ast.ASTHandle]bool
 	todo        []magicTask
 	fresh       []ast.ASTHandle
-	closed      bool
+	// pinned is m_pinned: the adorned and magic literals (adorn_literal,
+	// create_magic_literal) live until the plugin is reset or destroyed.
+	pinned []ast.ASTRef
+	closed bool
 }
 
 func NewMagicSetsPlugin(manager *ast.ASTManager, rules *base.RuleManager, goal ast.ASTHandle, enabled bool, priority uint32) *MagicSetsPlugin {
@@ -183,7 +186,20 @@ func (p *MagicSetsPlugin) adornLiteral(literal ast.ASTHandle, bound map[uint32]b
 			return ast.ASTHandle{}, err
 		}
 	}
-	return p.manager.MkApp(decl, args)
+	return p.pinApp(p.manager.MkApp(decl, args))
+}
+
+// pinApp is m_pinned.push_back(res).
+func (p *MagicSetsPlugin) pinApp(h ast.ASTHandle, err error) (ast.ASTHandle, error) {
+	if err != nil {
+		return h, err
+	}
+	ref, err := p.manager.NewRef(h)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	p.pinned = append(p.pinned, ref)
+	return h, nil
 }
 func (p *MagicSetsPlugin) magicLiteral(adorned ast.ASTHandle) (ast.ASTHandle, error) {
 	decl, err := p.manager.GetDecl(adorned)
@@ -217,7 +233,7 @@ func (p *MagicSetsPlugin) magicLiteral(adorned ast.ASTHandle) (ast.ASTHandle, er
 		}
 		p.magic[decl] = magicDecl
 	}
-	return p.manager.MkApp(magicDecl, args)
+	return p.pinApp(p.manager.MkApp(magicDecl, args))
 }
 func (p *MagicSetsPlugin) addRule(result *base.RuleSet, head ast.ASTHandle, tails []ast.ASTHandle, neg []bool, name usymbol.Symbol, parent *base.Rule) error {
 	r, err := p.rules.NewRuleWithSymbol(head, tails, neg, name)
@@ -358,24 +374,10 @@ func (p *MagicSetsPlugin) popBound(indices *[]int, rule *base.Rule, bound map[ui
 	return result, nil
 }
 func (p *MagicSetsPlugin) transformRule(task magicTask, rule *base.Rule, result *base.RuleSet) (resultErr error) {
-	// The adorned and magic literals of the new rules are unowned apps
-	// (ptr_vector<app> new_tail): rule_manager::mk's norm_vars releases
-	// the tails it renames, so a literal one new rule replaced could die
-	// before the next rule reuses it (a use after free in the C++; release
-	// build, no UB: g3 keeps them for the rule's transformation).
-	var pinned []ast.ASTRef
-	defer func() {
-		for i := len(pinned) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, p.manager.DelRef(&pinned[i]))
-		}
-	}()
-	pin := func(h ast.ASTHandle) error {
-		ref, err := p.manager.NewRef(h)
-		if err == nil {
-			pinned = append(pinned, ref)
-		}
-		return err
-	}
+	// The adorned and magic literals are in m_pinned (adornLiteral,
+	// magicLiteral); new_head is m.mk_app(new_head_pred, head args),
+	// unowned until the final rule takes it (no rule built before can
+	// release it: none holds it).
 	head, err := rule.Head()
 	if err != nil {
 		return err
@@ -449,39 +451,34 @@ func (p *MagicSetsPlugin) transformRule(task magicTask, rule *base.Rule, result 
 			if e != nil {
 				return e
 			}
-			if e = pin(lit); e != nil {
-				return e
-			}
 		}
 		tails, neg = append(tails, lit), append(neg, negative)
 		if e = collectLiteralVars(p.manager, lit, bound); e != nil {
 			return e
 		}
 	}
-	newHead, err := p.adornLiteral(head, func() map[uint32]bool {
-		b := make(map[uint32]bool)
-		for i, x := range task.adornment {
-			if x {
-				arg, _ := p.manager.GetArg(head, uint32(i))
-				if k, _ := p.manager.GetKind(arg); k == ast.ASTVar {
-					v, _ := p.manager.GetVarIndex(arg)
-					b[v] = true
-				}
-			}
-		}
-		return b
-	}())
+	// VERIFY(m_adorned_preds.find(adornment_desc(head->get_decl(),
+	// head_adornment), new_head_pred)); new_head = m.mk_app(...).
+	headDecl, err := p.manager.GetDecl(head)
 	if err != nil {
 		return err
 	}
-	if err = pin(newHead); err != nil {
+	newHeadDecl := p.adorned[magicDescription{predicate: headDecl, pattern: adornmentKey(task.adornment)}]
+	if newHeadDecl.IsNull() {
+		return fmt.Errorf("muz/transforms: missing adorned head predicate")
+	}
+	headArgs := make([]ast.ASTHandle, len(task.adornment))
+	for i := range headArgs {
+		if headArgs[i], err = p.manager.GetArg(head, uint32(i)); err != nil {
+			return err
+		}
+	}
+	newHead, err := p.manager.MkApp(newHeadDecl, headArgs)
+	if err != nil {
 		return err
 	}
 	headMagic, err := p.magicLiteral(newHead)
 	if err != nil {
-		return err
-	}
-	if err = pin(headMagic); err != nil {
 		return err
 	}
 	prefixTails := append([]ast.ASTHandle{headMagic}, tails...)
@@ -701,6 +698,12 @@ func (p *MagicSetsPlugin) Close() error {
 		return nil
 	}
 	p.closed = true
+	// ~ast_ref_vector: dec_ref from the first element.
+	var err error
+	for i := range p.pinned {
+		err = errors.Join(err, p.manager.DelRef(&p.pinned[i]))
+	}
+	p.pinned = nil
 	p.adorned = nil
 	p.patterns = nil
 	p.magic = nil
@@ -709,7 +712,7 @@ func (p *MagicSetsPlugin) Close() error {
 	p.todo = nil
 	p.fresh = nil
 	p.factProbe = nil
-	return nil
+	return err
 }
 
 // SourceTypeName is typeid(datalog::mk_magic_sets).name() for the IF_VERBOSE
