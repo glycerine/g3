@@ -367,15 +367,16 @@ func bottomUpCone(source *base.RuleSet, captureModel bool, facts coneFacts) (_ *
 			return nil, nil, makeErr
 		}
 		declarationOrder := make([]ast.ASTHandle, 0, len(reachable.KnownDeclarations())+len(unreachableTailOrder))
-		seen := make(map[ast.ASTHandle]bool)
 		appendUnreachable := func(declaration ast.ASTHandle) {
-			if !reachable.IsReachable(declaration) && !seen[declaration] {
-				seen[declaration] = true
+			if !reachable.IsReachable(declaration) {
 				declarationOrder = append(declarationOrder, declaration)
 			}
 		}
 		// bottom_up walks the dataflow engine's m_facts obj_map and then the
-		// unreachable func_decl_set, both in hash-table order.
+		// unreachable func_decl_set, both in hash-table order, and inserts
+		// each into the extension_model_converter: a predicate in both is
+		// inserted twice (the converter registers it twice, the second time
+		// in the position of the first).
 		known, orderErr := funcDeclTableOrder(astManager, reachable.KnownDeclarations())
 		if orderErr != nil {
 			return nil, nil, orderErr

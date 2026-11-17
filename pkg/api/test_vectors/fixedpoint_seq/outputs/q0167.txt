@@ -1,0 +1,38 @@
+> sort S int
+> param engine pdr
+> setparams
+> vars x S y S z S
+> rel r0 S S
+> rel r1 S S
+> rel r2 S S
+> rel r3 S
+> rule f572 (r2 0:S 1:S)
+> rule n0 (=> (and (r3 y) (r3 0:S)) (r2 x z))
+> rule n1 (=> (and (r0 x z) (r3 y)) (r1 z x))
+> rule n2 (=> (and (r3 5:S) (r2 z x)) (r3 x))
+> query (and (r3 z) (r3 x))
+result -1
+(and (forall ((A Int) (B Int)) (= (r2 A B) (and (= A 0) (= B 1))))
+     (forall ((A Int)) (= (r3 A) false))
+     (forall ((A Int) (B Int)) (= (r1 A B) true)))
+> query (and (r1 4:S x) (r1 y 1:S))
+result -1
+(and (forall ((A Int) (B Int)) (= (r2 A B) (and (= A 0) (= B 1))))
+     (forall ((A Int)) (= (r3 A) false))
+     (forall ((A Int) (B Int)) (= (r1 A B) false)))
+> rule n0 (=> (and (r2 z z) (r3 y)) (r1 2:S 2:S))
+> query (r0 5:S 4:S)
+result -1
+(and (forall ((A Int) (B Int)) (= (r0 A B) false))
+     (forall ((A Int)) (= (r3 A) true))
+     (forall ((A Int) (B Int)) (= (r2 A B) true))
+     (forall ((A Int) (B Int)) (= (r1 A B) true)))
+> rule f791 (r0 2:S 4:S)
+> rule f92 (r0 4:S 4:S)
+> rule f124 (r2 5:S 3:S)
+> rule f169 (r3 0:S)
+> rule f647 (r1 0:S 4:S)
+> rule f993 (r0 4:S 0:S)
+> query (r2 x y)
+result 1
+(r2 0 1)
