@@ -30,7 +30,11 @@ type RuleSet struct {
 	groupCount   int
 	dependencies map[ast.ASTHandle][]ast.ASTHandle
 	// sourceDeps is m_deps, the rule_dependencies close populated.
-	sourceDeps          *sourceDependencies
+	sourceDeps *sourceDependencies
+	// depsTable is m_deps' m_data table: reopen and reset clear it
+	// (core_hashtable::reset) without giving its capacity back, so the
+	// next close populates a table of that capacity.
+	depsTable           *ast.ObjMap
 	strata              map[ast.ASTHandle]uint32
 	strats              [][]ast.ASTHandle
 	stratCapacities     []int
@@ -126,12 +130,10 @@ func (s *RuleSet) Add(rule *Rule) error {
 	if s.headTable == nil {
 		s.headTable = ast.NewObjMap(s.manager.manager)
 	}
-	if found, err := s.headTable.Contains(declaration); err != nil {
+	// m_head2rules.insert_if_not_there2(d, 0): a call for a present key can
+	// still expand the table.
+	if _, err := s.headTable.InsertIfNotThere(declaration); err != nil {
 		return err
-	} else if !found {
-		if err = s.headTable.Insert(declaration, [2]ast.ASTHandle{}); err != nil {
-			return err
-		}
 	}
 	s.byHead[declaration] = append(s.byHead[declaration], owned)
 	return nil
@@ -417,6 +419,10 @@ func (s *RuleSet) Finalize() (bool, error) {
 		return false, fmt.Errorf("muz/base: rule set is already finalized")
 	}
 	deps := newSourceDependencies(s.manager.manager)
+	if s.depsTable == nil {
+		s.depsTable = deps.keys
+	}
+	deps.keys = s.depsTable
 	if s.headTable != nil {
 		for _, entry := range s.headTable.Entries() {
 			for _, rule := range s.byHead[entry.Key] {
@@ -455,6 +461,8 @@ func (s *RuleSet) Finalize() (bool, error) {
 				return false, err
 			}
 			if strata[head] == strata[tail] {
+				// m_deps.reset()
+				s.depsTable.Reset()
 				return false, nil
 			}
 		}
@@ -483,12 +491,20 @@ func (s *RuleSet) Reopen() error {
 		return err
 	}
 	s.dependencies = nil
-	s.sourceDeps = nil
+	s.dropSourceDeps()
 	s.strata = nil
 	s.strats = nil
 	s.stratCapacities = nil
 	s.finalized = false
 	return nil
+}
+
+// dropSourceDeps is m_deps.reset(): m_data keeps its capacity.
+func (s *RuleSet) dropSourceDeps() {
+	if s.depsTable != nil {
+		s.depsTable.Reset()
+	}
+	s.sourceDeps = nil
 }
 
 func (s *RuleSet) IsFinalized() (bool, error) {
@@ -623,10 +639,13 @@ func (s *RuleSet) resetContentsUnchecked() error {
 	s.rules = nil
 	s.byHead = make(map[ast.ASTHandle][]*Rule)
 	s.headOrder = nil
-	s.headTable = nil
+	// reset_dealloc_values(m_head2rules): the table keeps its capacity.
+	if s.headTable != nil {
+		s.headTable.Reset()
+	}
 	s.resetGroups()
 	s.dependencies = nil
-	s.sourceDeps = nil
+	s.dropSourceDeps()
 	s.strata = nil
 	s.strats = nil
 	s.stratCapacities = nil
