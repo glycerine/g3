@@ -10,7 +10,11 @@ import "github.com/glycerine/g3/pkg/ast"
 type smtRelevancyTable struct {
 	origin  uint64
 	entries []smtRelevancyTableEntry
-	other   map[ast.ASTHandle][]smtRelevancyHandler
+	// nonEmpty has bit s set while entries[s] may hold a non-empty list,
+	// so get answers most absent expressions from this compact bitmap
+	// without loading the entry.
+	nonEmpty []uint64
+	other    map[ast.ASTHandle][]smtRelevancyHandler
 }
 
 type smtRelevancyTableEntry struct {
@@ -32,7 +36,11 @@ func (t *smtRelevancyTable) get(h ast.ASTHandle) []smtRelevancyHandler {
 	if !t.dense(h) {
 		return t.other[h]
 	}
-	if s := h.Slot(); uint64(s) < uint64(len(t.entries)) && t.entries[s].key == h {
+	s := h.Slot()
+	if w := s >> 6; uint64(w) >= uint64(len(t.nonEmpty)) || t.nonEmpty[w]&(1<<(s&63)) == 0 {
+		return nil
+	}
+	if uint64(s) < uint64(len(t.entries)) && t.entries[s].key == h {
 		return t.entries[s].hs
 	}
 	return nil
@@ -55,6 +63,9 @@ func (t *smtRelevancyTable) push(h ast.ASTHandle, handler smtRelevancyHandler) {
 		grown := make([]smtRelevancyTableEntry, n)
 		copy(grown, t.entries)
 		t.entries = grown
+		bits := make([]uint64, (n+63)>>6)
+		copy(bits, t.nonEmpty)
+		t.nonEmpty = bits
 	}
 	e := &t.entries[s]
 	if e.key != h {
@@ -63,6 +74,7 @@ func (t *smtRelevancyTable) push(h ast.ASTHandle, handler smtRelevancyHandler) {
 		e.hs = e.hs[:0]
 	}
 	e.hs = append(e.hs, handler)
+	t.nonEmpty[s>>6] |= 1 << (s & 63)
 }
 
 // pop drops the newest handler of h's list.
@@ -76,6 +88,9 @@ func (t *smtRelevancyTable) pop(h ast.ASTHandle) {
 	if s := h.Slot(); uint64(s) < uint64(len(t.entries)) && t.entries[s].key == h {
 		hs = t.entries[s].hs
 		t.entries[s].hs = hs[:len(hs)-1]
+		if len(hs) == 1 {
+			t.nonEmpty[s>>6] &^= 1 << (s & 63)
+		}
 		return
 	}
 	_ = hs[:len(hs)-1] // an absent list panics, as slicing the map's nil list does
