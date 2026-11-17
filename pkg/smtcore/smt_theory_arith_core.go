@@ -1557,25 +1557,32 @@ func (t *SMTTheoryArith) mkBoundAxioms(a1 *smtArithmeticAtom) error {
 	kind1 := a1.atomKind
 	end := len(occs)
 	loInf, loSup, hiInf, hiSup := end, end, end, end
+	// cmp is acmp with its inline-threshold case expanded in the loop.
+	cmp := func(x, y *smtArithmeticAtom) int {
+		if x.smallK && y.smallK {
+			return smtAtomSmallCmp(x, y)
+		}
+		return t.acmp(x, y)
+	}
 	for i, a2 := range occs {
 		kind2 := a2.atomKind
-		c21 := t.acmp(a2, a1)
+		c21 := cmp(a2, a1)
 		if c21 == 0 && kind1 == kind2 {
 			continue
 		}
 		if kind2 == smtArithmeticLowerAtom {
 			if c21 < 0 {
-				if loInf == end || t.acmp(a2, occs[loInf]) > 0 {
+				if loInf == end || cmp(a2, occs[loInf]) > 0 {
 					loInf = i
 				}
-			} else if loSup == end || t.acmp(a2, occs[loSup]) < 0 {
+			} else if loSup == end || cmp(a2, occs[loSup]) < 0 {
 				loSup = i
 			}
 		} else if c21 < 0 {
-			if hiInf == end || t.acmp(a2, occs[hiInf]) > 0 {
+			if hiInf == end || cmp(a2, occs[hiInf]) > 0 {
 				hiInf = i
 			}
-		} else if hiSup == end || t.acmp(a2, occs[hiSup]) < 0 {
+		} else if hiSup == end || cmp(a2, occs[hiSup]) < 0 {
 			hiSup = i
 		}
 	}
@@ -1676,22 +1683,29 @@ func (t *SMTTheoryArith) boundAxiomOffsetEq(a1, a2 *smtArithmeticAtom, k1, k2 *s
 // acmp is a1.threshold.cmp(a2.threshold), with vcmp's error handling.
 func (t *SMTTheoryArith) acmp(a1, a2 *smtArithmeticAtom) int {
 	if a1.smallK && a2.smallK {
-		switch {
-		case a1.kRational != a2.kRational:
-			if a1.kRational < a2.kRational {
-				return -1
-			}
-			return 1
-		case a1.kEp < a2.kEp:
-			return -1
-		case a1.kEp > a2.kEp:
-			return 1
-		}
-		return 0
+		return smtAtomSmallCmp(a1, a2)
 	}
 	c, err := a1.threshold.cmp(t.q, &a2.threshold)
 	t.keep(err)
 	return c
+}
+
+// smtAtomSmallCmp is acmp for two atoms whose thresholds are inline
+// (smallK): rational part first, then the infinitesimal.
+func smtAtomSmallCmp(a1, a2 *smtArithmeticAtom) int {
+	if a1.kRational != a2.kRational {
+		if a1.kRational < a2.kRational {
+			return -1
+		}
+		return 1
+	}
+	if a1.kEp != a2.kEp {
+		if a1.kEp < a2.kEp {
+			return -1
+		}
+		return 1
+	}
+	return 0
 }
 
 // compareAtomsLess is theory_arith::compare_atoms (theory_arith.h): it
