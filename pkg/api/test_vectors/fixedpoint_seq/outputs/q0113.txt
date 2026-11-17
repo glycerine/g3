@@ -1,0 +1,46 @@
+> sort S bool
+> param engine datalog
+> param xform.magic true
+> param datalog.generate_explanations true
+> param xform.coi false
+> param print_answer true
+> setparams
+> vars x S y S z S
+> rel r0 S S
+> rel r1 S
+> rel r2 S S
+> rule f240 (r0 false true)
+> rule f833 (r0 true true)
+> rule f385 (r0 true true)
+> rule f930 (r0 true true)
+> rule f107 (r1 true)
+> rule n0 (=> (and (r0 y z) (r1 y) (r2 x z)) (r2 z x))
+> rule n1 (=> (and (r2 false true) (r1 z)) (r2 y z))
+> rule n2 (=> (and (r2 false z) (r1 false) (r1 y)) (r1 z))
+> rule n3 (=> (and (r2 z x) (r1 y) (r1 x)) (r2 false z))
+> rule n4 (=> (r0 false x) (r2 y x))
+> query (r1 z)
+result 1
+(and (= (:var 0) true) (= (:var 1) (|<null>:
+query!0(#0) :- 
+ r1(#0).| f107)))
+> param xform.coalesce_rules true
+> setparams
+> query (r1 y)
+result 1
+(and (= (:var 0) true) (= (:var 1) (|<null>:
+query!17(#0) :- 
+ r1(#0).| f107)))
+> push
+> rule n0 (=> (r1 z) (r1 y))
+> rule f545 (r2 false false)
+> rule f863 (r0 false true)
+> qrel r1
+result 1
+(or (= (:var 0) true) (= (:var 0) false))
+> pop
+error: pop operation is only supported by duality engine
+> qrel r0
+result 1
+(or (and (= (:var 0) false) (= (:var 1) true))
+    (and (= (:var 0) true) (= (:var 1) true)))

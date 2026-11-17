@@ -1,0 +1,31 @@
+sort S fin 3
+param engine datalog
+param print_answer true
+param xform.inline_linear false
+param datalog.generate_explanations true
+setparams
+vars x S y S z S
+rel r0 S S
+rel r1 S S
+rel r2 S S
+rel r3 S S
+rel r4 S S
+rel r5 S S
+repr r3 tr_sparse
+fact r0 1 2
+fact r0 2 1
+fact r0 1 0
+fact r0 2 2
+fact r0 0 2
+rule n0 (=> (r5 x x) (r5 y y))
+rule n1 (=> (and (r0 x 2:S) (not (r0 1:S x))) (r3 z y))
+rule n2 (=> (and (r0 z x) (r5 z x)) (r3 2:S y))
+rule n3 (=> (and (r0 y z) (r5 z x) (not (r3 y 0:S))) (r1 y y))
+qrel r3
+fact r2 1 1
+fact r0 0 1
+query (r0 y z)
+param datalog.all_or_nothing_deltas true
+setparams
+query (and (r0 y z) (r1 x z))
+qrel r2
