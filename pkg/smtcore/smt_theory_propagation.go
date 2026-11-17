@@ -290,7 +290,9 @@ func (s *SMTInternalizerState) notifyRelevant(expression ast.ASTHandle) error {
 	if s.quantifierManager != nil {
 		s.quantifierManager.NotifyRelevant(s.context.enodes.get(expression))
 	}
-	notified := make(map[SMTTheoryID]struct{})
+	// relevant_eh's propagated_th: a theory is told once. A theory already
+	// seen earlier in the variable list is skipped too.
+	propagated := SMTNullTheoryID
 	family, err := s.manager.GetFamilyID(expression)
 	if err != nil {
 		return err
@@ -300,12 +302,22 @@ func (s *SMTInternalizerState) notifyRelevant(expression ast.ASTHandle) error {
 			if err = plugin.Relevant(expression); err != nil {
 				return fmt.Errorf("theory %d relevant expression %d: %w", family, expression.Slot(), err)
 			}
-			notified[family] = struct{}{}
+			propagated = family
 		}
 	}
 	if node := s.context.enodes.get(expression); node != nil {
 		for item := &node.theoryVariables; item != nil && item.theory != SMTNullTheoryID; item = item.next {
-			if _, found := notified[item.theory]; found {
+			if item.theory == propagated {
+				continue
+			}
+			seen := false
+			for earlier := &node.theoryVariables; earlier != item; earlier = earlier.next {
+				if earlier.theory == item.theory {
+					seen = true
+					break
+				}
+			}
+			if seen {
 				continue
 			}
 			plugin := s.theories[item.theory]
@@ -315,7 +327,6 @@ func (s *SMTInternalizerState) notifyRelevant(expression ast.ASTHandle) error {
 			if err = plugin.Relevant(expression); err != nil {
 				return fmt.Errorf("attached theory %d relevant expression %d: %w", item.theory, expression.Slot(), err)
 			}
-			notified[item.theory] = struct{}{}
 		}
 	}
 	return nil
