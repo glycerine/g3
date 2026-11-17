@@ -137,7 +137,10 @@ void tbv_manager::set(tbv& dst, unsigned index, tbit value) {
 void tbv_manager::set(tbv& dst, uint64_t val, unsigned hi, unsigned lo) {
     SASSERT(lo <= hi && hi < num_tbits());
     for (unsigned i = 0; i < hi - lo + 1; ++i) {
-        set(dst, lo + i, (val & (1ULL << i))?BIT_1:BIT_0);
+        // FORK FIX #113 (g3 audit, see FORK_BUGFIXES.md): a column wider
+        // than 64 bits shifted 1ULL by 64 or more (undefined); val has no
+        // bits there.
+        set(dst, lo + i, (i < 64 && (val & (1ULL << i)))?BIT_1:BIT_0);
     }
 }
 void tbv_manager::set(tbv& dst, rational const& r, unsigned hi, unsigned lo) {
