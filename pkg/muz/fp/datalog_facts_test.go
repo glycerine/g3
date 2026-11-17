@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
-	"github.com/glycerine/g3/pkg/muz/rel"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -77,17 +76,14 @@ func TestDatalogDirectFactsPersistAcrossExpressionAndDirectQueries(t *testing.T)
 	queryRef, err := m.NewRef(query)
 	must(err)
 	defer func() { must(m.DelRef(&queryRef)) }()
-	prior := e.predicates[f.declarations["p"]].table
 	status, err := e.QueryExpression(query)
 	must(err)
 	if status != lbool.True {
-		t.Fatal("expression clone lost table inputs", status)
+		t.Fatal("expression query lost table inputs", status)
 	}
-	if _, err := prior.Len(); !errors.Is(err, rel.ErrTable) {
-		t.Fatal("replaced persistent table remained live", err)
-	}
-	if e.queryClone.predicates[f.declarations["p"]].table == e.predicates[f.declarations["p"]].table {
-		t.Fatal("clone and parent share table ownership")
+	// The query ran on the context's own relations.
+	if e.queryClone != nil || !e.expressionQuerySelf {
+		t.Fatal("expression query did not run on the context")
 	}
 	rows, err = e.predicates[f.declarations["q"]].table.Len()
 	must(err)

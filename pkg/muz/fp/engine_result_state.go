@@ -163,7 +163,7 @@ func (e *PropositionalEngine) LastResult() (lbool.LBool, error) {
 	if err != nil {
 		return lbool.Undef, err
 	}
-	if e.queryClone != nil {
+	if e.queryClone != nil || e.expressionQuerySelf {
 		if _, _, err = e.expressionQueryState(); err != nil {
 			return lbool.Undef, err
 		}

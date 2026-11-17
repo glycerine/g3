@@ -118,11 +118,15 @@ type PropositionalEngine struct {
 	// rel_context::query(expr*) assigns the new clone without deallocating
 	// the previous one, which stays allocated until the context dies.
 	datalogRetiredResults []rel.RelationBase
-	// datalogContext is the datalog::context of the expression queries: the
-	// query clone of the first datalog expression query, kept and reused by
-	// the later ones (its relation manager, plugins, caches and compiled
-	// code persist across queries, as the source context's do).
-	datalogContext *PropositionalEngine
+	// datalogLastResultTable is m_last_result_relation of a table
+	// predicate (a table_relation's table); datalogRetiredTables are the
+	// earlier ones, which the source never deallocates.
+	datalogLastResultTable rel.FiniteTable
+	datalogRetiredTables   []rel.FiniteTable
+	// expressionQuerySelf: the latest expression query ran on the context
+	// itself (rel_context::query(expr*) on the context's m_rel), which
+	// holds its answer, its relations and its compiled code.
+	expressionQuerySelf bool
 	// datalogQueryPreds is scoped_query's m_preds on the datalog context:
 	// the predicates before the expression query's mk_query.
 	datalogQueryPreds map[ast.ASTHandle]bool
@@ -2580,6 +2584,13 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 		}
 		return e.queryTabPredicate(declaration)
 	}
+	return e.queryDatalogPredicate(declaration)
+}
+
+// queryDatalogPredicate is rel_context::query of one predicate: the
+// relation query's, or (datalogExpressionQuery) the query predicate of
+// rel_context::query(expr*).
+func (e *PropositionalEngine) queryDatalogPredicate(declaration ast.ASTHandle) (lbool.LBool, error) {
 	e.relationApprox = false
 	status, err := e.queryDatalogPredicates([]ast.ASTHandle{declaration})
 	// rel_context::query: an imprecise non-empty relation's formula is
@@ -3007,6 +3018,12 @@ func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHand
 			approx = approx || !relation.IsPrecise()
 			continue
 		}
+		if e.datalogExpressionQuery {
+			// m_last_result_relation = get_relation(query_pred).clone().
+			if err := e.cloneDatalogLastResult(declaration); err != nil {
+				return lbool.Undef, err
+			}
+		}
 		count, x := table.Len()
 		if x != nil {
 			return lbool.Undef, x
@@ -3165,7 +3182,7 @@ func (e *PropositionalEngine) computeAnswer(declaration ast.ASTHandle) (answer a
 	if err = e.requireResultSnapshot(kind); err != nil {
 		return answer, err
 	}
-	if kind == EngineDatalog && e.relAnswer != (ast.ASTRef{}) && e.relAnswerDecl == declaration && !declaration.IsNull() && (e.lastResult == lbool.True || e.expressionClone) {
+	if kind == EngineDatalog && e.relAnswer != (ast.ASTRef{}) && e.relAnswerDecl == declaration && !declaration.IsNull() && (e.lastResult == lbool.True || e.expressionClone || e.expressionQuerySelf) {
 		// rel_context::get_answer: the m_answer the query built (the
 		// relation's to_formula is not evaluated again).
 		return e.manager.CopyRef(e.relAnswer)
@@ -3569,12 +3586,6 @@ func (e *PropositionalEngine) Close() (result error) {
 	if err := e.clearQueryResources(); err != nil {
 		return err
 	}
-	if e.datalogContext != nil {
-		if err := e.datalogContext.Close(); err != nil {
-			return err
-		}
-		e.datalogContext = nil
-	}
 	if err := e.closeDuality(); err != nil {
 		return errors.Join(result, err)
 	}
@@ -3604,11 +3615,24 @@ func (e *PropositionalEngine) Close() (result error) {
 		e.datalogRetiredResults = e.datalogRetiredResults[1:]
 	}
 	e.datalogRetiredResults = nil
+	for len(e.datalogRetiredTables) != 0 {
+		if err := rel.ReleaseLeakedTable(e.datalogRetiredTables[0]); err != nil {
+			return errors.Join(result, err)
+		}
+		e.datalogRetiredTables = e.datalogRetiredTables[1:]
+	}
+	e.datalogRetiredTables = nil
 	if e.datalogLastResult != nil {
 		if err := e.relations.ReleaseRelation(e.datalogLastResult); err != nil {
 			return errors.Join(result, err)
 		}
 		e.datalogLastResult = nil
+	}
+	if e.datalogLastResultTable != nil {
+		if err := e.datalogLastResultTable.Close(); err != nil {
+			return errors.Join(result, err)
+		}
+		e.datalogLastResultTable = nil
 	}
 	if err := e.releaseDatalogCode(); err != nil {
 		return errors.Join(result, err)

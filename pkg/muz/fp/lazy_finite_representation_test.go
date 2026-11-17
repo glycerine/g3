@@ -54,12 +54,9 @@ func TestDatalogLazySparseMigrationAndExpressionContextLifetime(t *testing.T) {
 		if status != lbool.True {
 			t.Fatal(status)
 		}
-		clone := e.queryClone
-		if clone.lazyFinite == nil || clone.lazyFinite == e.lazyFinite || !clone.lazyFinite.Owns(clone.predicates[d].table) || e.lazyFinite.Owns(clone.predicates[d].table) {
-			t.Fatal("expression clone shares lazy engine ownership")
-		}
-		if !e.lazyFinite.Owns(e.predicates[d].table) {
-			t.Fatal("query publication imported clone engine owner")
+		// The query runs on the context's relations and lazy factory.
+		if e.queryClone != nil || !e.lazyFinite.Owns(e.predicates[d].table) {
+			t.Fatal("expression query left the context's lazy owner")
 		}
 		must(e.clearQueryResources())
 		found, err := e.predicates[d].table.Contains(rel.Fact{1})
@@ -67,15 +64,5 @@ func TestDatalogLazySparseMigrationAndExpressionContextLifetime(t *testing.T) {
 		if !found {
 			t.Fatal("closing query clone destroyed published row")
 		}
-	}
-	// A separately owned clone must also survive parent destruction.
-	clone, err := e.newQueryClone()
-	must(err)
-	defer func() { must(clone.Close()) }()
-	must(e.Close())
-	found, err := clone.predicates[d].table.Contains(rel.Fact{1})
-	must(err)
-	if !found {
-		t.Fatal("parent destruction destroyed independent clone row")
 	}
 }

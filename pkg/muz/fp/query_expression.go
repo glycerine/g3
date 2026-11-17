@@ -39,7 +39,12 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	// previous query's model converters (its query clone's conversions)
 	// before the queued rules are flushed.
 	e.contextModelConverter = true
-	for _, clone := range []*PropositionalEngine{e.queryClone, e.datalogContext} {
+	converted := []*PropositionalEngine{e.queryClone}
+	if e.backend == "datalog" {
+		// The datalog expression queries' conversions are the context's.
+		converted = append(converted, e)
+	}
+	for _, clone := range converted {
 		if clone == nil {
 			continue
 		}
@@ -172,15 +177,26 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		return lbool.Undef, err
 	}
 	e.queried = true
-	clone, err := e.expressionQueryContext()
-	if clone != nil {
-		clone.expressionClone = true
-		if clone.backend == EngineCLP.String() {
-			clone.clpContext = e
+	// rel_context is the context's m_rel: a datalog expression query runs
+	// on the context itself, its relation manager, compiled code and rule
+	// set, which persist across the queries.
+	self := e.backend == "datalog"
+	var clone *PropositionalEngine
+	if self {
+		clone = e
+		e.expressionClone = true
+		defer func() { e.expressionClone = false }()
+	} else {
+		clone, err = e.newQueryClone()
+		if clone != nil {
+			clone.expressionClone = true
+			if clone.backend == EngineCLP.String() {
+				clone.clpContext = e
+			}
 		}
-	}
-	if err != nil {
-		return lbool.Undef, err
+		if err != nil {
+			return lbool.Undef, err
+		}
 	}
 	// Install or discard the expression-query clone before recording status so
 	// bounded Spacer state is read from the owner that performed the search.
@@ -188,6 +204,12 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	var prequeryPDR *pdr.Context
 	var prequerySpacer *spacer.Context
 	defer func() {
+		if self {
+			// ~scoped_query (endDatalogScopedQuery) has restored the
+			// context, whatever the outcome.
+			e.expressionQuerySelf = resultErr == nil
+			return
+		}
 		if e.backend == EngineTab.String() && e.tabSession == nil && clone.tabSession != nil {
 			e.tabSession = clone.tabSession
 			e.tabSessionBorrowed = false
@@ -269,13 +291,6 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 				e.queryCloneRevision = e.revision
 				return
 			}
-			if clone.backend == "datalog" {
-				// ~scoped_query runs while the exception unwinds; the
-				// context itself is not deallocated: the discarded clone's
-				// relations go silently.
-				resultErr = errors.Join(resultErr, clone.restrictDatalogQueryPredicates())
-				clone.relations.MarkUnallocated()
-			}
 			resultErr = errors.Join(resultErr, e.discardQueryClone(clone))
 		}
 	}()
@@ -284,22 +299,14 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		// only the original program belongs in the search rule index.
 		return clone.queryTabExpression(query)
 	}
-	if clone.backend == "datalog" {
-		// rel_context::query's scoped_query: get_predicates() is restored
-		// when the query ends.
-		// scoped_query: m_preds(ctx.get_predicates()), a copy.
-		saved, cause := e.rules.ContextPredicatesCopy()
+	if self {
+		// rel_context::query's scoped_query, ended when the query returns
+		// or throws.
+		scoped, cause := e.beginDatalogScopedQuery()
 		if cause != nil {
 			return lbool.Undef, cause
 		}
-		defer func() { resultErr = errors.Join(resultErr, e.rules.RestrictContextPredicates(saved)) }()
-	}
-	if clone.backend == "datalog" {
-		// scoped_query: m_preds(ctx.get_predicates()) before mk_query.
-		clone.datalogQueryPreds = make(map[ast.ASTHandle]bool, len(clone.predicates))
-		for d := range clone.predicates {
-			clone.datalogQueryPreds[d] = true
-		}
+		defer func() { resultErr = errors.Join(resultErr, e.endDatalogScopedQuery(scoped)) }()
 	}
 	declaration, headRef, err := clone.makeQueryHead(query)
 	if err != nil {
@@ -480,19 +487,16 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		// rel_context::query(expr*) clones the queried relation
 		// (m_last_result_relation) before its emptiness test
 		// (queryDatalogPredicates).
-		clone.datalogExpressionQuery = clone.backend == "datalog"
-		result, err = clone.QueryPredicate(declaration)
-		clone.datalogExpressionQuery = false
-	}
-	if err == nil && clone.backend == "datalog" {
-		e.datalogContext = clone
-		if e.datalogQueryObserver != nil {
-			e.datalogQueryObserver(clone, declaration)
+		if self {
+			e.datalogExpressionQuery = true
+			result, err = e.queryDatalogPredicate(declaration)
+			e.datalogExpressionQuery = false
+		} else {
+			result, err = clone.QueryPredicate(declaration)
 		}
-		err = clone.restrictDatalogQueryPredicates()
 	}
-	if err == nil && e.backend == "datalog" {
-		err = e.publishDatalogQueryRelations(clone)
+	if err == nil && self && e.datalogQueryObserver != nil {
+		e.datalogQueryObserver(e, declaration)
 	}
 	if err == nil {
 		e.queryClonePredicate = declaration
@@ -518,10 +522,15 @@ func (e *PropositionalEngine) clearQueryResources() error {
 	if err := e.clearDatalogTransformCleanup(); err != nil {
 		return err
 	}
-	if err := closeHornModelConversions(e.datalogConversions); err != nil {
-		return err
+	// The datalog context's m_mc lives until the next context::query
+	// (m_mc = mk_skip_model_converter()) or the context's destruction; a
+	// relation query (rel_query) concatenates onto it.
+	if e.backend != "datalog" || e.closing {
+		if err := closeHornModelConversions(e.datalogConversions); err != nil {
+			return err
+		}
+		e.datalogConversions = nil
 	}
-	e.datalogConversions = nil
 	if err := e.clearArithmeticTableFactCleanup(); err != nil {
 		return err
 	}
@@ -530,22 +539,12 @@ func (e *PropositionalEngine) clearQueryResources() error {
 	}
 	e.queryRelations = nil
 	e.queryRelationsSet = false
+	if e.expressionQuerySelf {
+		e.expressionQuerySelf = false
+		e.queryClonePredicate = ast.ASTHandle{}
+	}
 	if e.queryClone == nil {
 		return nil
-	}
-	if e.queryClone == e.datalogContext && !e.closing {
-		// The datalog context outlives its queries: the previous query's
-		// scoped_query restores it, and the next query reuses it.
-		if err := e.queryClone.retireDatalogQuery(); err != nil {
-			return err
-		}
-		e.queryClone = nil
-		e.queryCloneRevision = 0
-		e.queryClonePredicate = ast.ASTHandle{}
-		return nil
-	}
-	if e.queryClone == e.datalogContext {
-		e.datalogContext = nil
 	}
 	// Destruction can close the solver before a later reference release fails.
 	// Save its complete source counters once, while keeping the active clone
@@ -580,10 +579,14 @@ func (e *PropositionalEngine) expressionQueryState() (*PropositionalEngine, Engi
 		return nil, EngineDatalog, err
 	}
 	kind, err := parseEngineKind(e.backend)
-	if err != nil || !e.queryReady || e.queryRevision != e.revision || e.queryEngine != kind || e.queryClone == nil {
+	target := e.queryClone
+	if target == nil && e.expressionQuerySelf {
+		target = e
+	}
+	if err != nil || !e.queryReady || e.queryRevision != e.revision || e.queryEngine != kind || target == nil {
 		return nil, kind, ErrPropositionalEngine
 	}
-	return e.queryClone, kind, nil
+	return target, kind, nil
 }
 
 func (e *PropositionalEngine) ExpressionAnswer() (ast.ASTRef, error) {
@@ -613,26 +616,42 @@ func (e *PropositionalEngine) ExpressionGroundSatAnswer() (ast.ASTRef, error) {
 }
 
 // cloneDatalogLastResult is m_last_result_relation =
-// get_relation(query_pred).clone(); a table predicate's clone touches no
-// AST and is not kept.
+// get_relation(query_pred).clone(). A table predicate's clone is the table
+// relation's: its table is cloned (no AST), and recycled with
+// ~rel_context.
 func (e *PropositionalEngine) cloneDatalogLastResult(declaration ast.ASTHandle) error {
 	state := e.predicates[declaration]
-	if state == nil {
+	if state == nil || state.table == nil {
 		return nil
 	}
 	relation, ok := rel.AsRelation(state.table)
 	if !ok {
+		table, err := state.table.CloneFinite()
+		if err != nil {
+			return err
+		}
+		e.retireDatalogLastResult()
+		e.datalogLastResultTable = table
 		return nil
 	}
 	clone, err := relation.CloneRelation()
 	if err != nil {
 		return err
 	}
-	if e.datalogLastResult != nil {
-		// m_last_result_relation = ...clone(): the previous relation is not
-		// deallocated.
-		e.datalogRetiredResults = append(e.datalogRetiredResults, e.datalogLastResult)
-	}
+	e.retireDatalogLastResult()
 	e.datalogLastResult, e.datalogLastResultDecl = clone, declaration
 	return nil
+}
+
+// retireDatalogLastResult: m_last_result_relation = ...clone() does not
+// deallocate the previous relation.
+func (e *PropositionalEngine) retireDatalogLastResult() {
+	if e.datalogLastResult != nil {
+		e.datalogRetiredResults = append(e.datalogRetiredResults, e.datalogLastResult)
+		e.datalogLastResult, e.datalogLastResultDecl = nil, ast.ASTHandle{}
+	}
+	if e.datalogLastResultTable != nil {
+		e.datalogRetiredTables = append(e.datalogRetiredTables, e.datalogLastResultTable)
+		e.datalogLastResultTable = nil
+	}
 }

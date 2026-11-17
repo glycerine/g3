@@ -120,10 +120,10 @@ func TestDatalogBitBlastComposesInliningModelsAndExpressionQueries(t *testing.T)
 		status, err = e.QueryExpression(expression)
 		must(err)
 		must(m.DelRef(&query))
-		if status != lbool.FromBool(value == 1) || e.queryClone == nil {
+		if status != lbool.FromBool(value == 1) || !e.expressionQuerySelf {
 			t.Fatal("original-domain expression query", value, status)
 		}
-		for d := range e.queryClone.predicates {
+		for d := range e.predicates {
 			if !originals[d] && d != e.queryClonePredicate {
 				t.Fatal("bit-blasted predicate escaped the expression scope", d)
 			}

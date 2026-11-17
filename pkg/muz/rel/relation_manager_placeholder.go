@@ -161,6 +161,12 @@ func releasePlaceholderTable(table FiniteTable) error {
 	return releaseUnallocated(table)
 }
 
+// ReleaseLeakedTable frees a table the source never deallocates (an
+// earlier query's m_last_result_relation): no recycle, no verbose line.
+func ReleaseLeakedTable(table FiniteTable) error {
+	return releaseUnallocated(table)
+}
+
 // releaseUnallocated frees a table or relation the source never allocated:
 // its sparse tables are dropped without sparse_table_plugin::recycle (no
 // verbose line, no pooled table).

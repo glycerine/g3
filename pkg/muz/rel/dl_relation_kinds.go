@@ -221,6 +221,15 @@ func (m *RelationManager) InheritPredicateKind(newPredicate, origin ast.ASTHandl
 	if p := m.requestedRelation[origin]; p != nil {
 		return m.SetRequestedRelationKind(newPredicate, p)
 	}
+	// set_predicate_representation's table_relation kind.
+	if kind := m.requestedTable[origin]; kind != "" {
+		if err := m.SetRequestedTableKind(newPredicate, kind); err != nil {
+			return err
+		}
+	}
+	if name := m.requestedTableRelation[origin]; name != "" {
+		return m.SetRequestedTableRelation(newPredicate, name)
+	}
 	return nil
 }
 

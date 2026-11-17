@@ -585,6 +585,8 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 	resultEngine, resultDeclaration := engine, declaration
 	if engine.queryClone != nil {
 		resultEngine, resultDeclaration = engine.queryClone, engine.queryClonePredicate
+	} else if engine.expressionQuerySelf {
+		resultDeclaration = engine.queryClonePredicate
 	}
 	if err = goal.IncDepth(); err != nil {
 		return err

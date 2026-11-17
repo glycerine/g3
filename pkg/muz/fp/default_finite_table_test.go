@@ -111,8 +111,8 @@ func TestDatalogDefaultFiniteTableSelectionAndLifetime(t *testing.T) {
 			}
 			check()
 			if tc.lazy {
-				if e.queryClone.lazyFinite == e.lazyFinite || !e.queryClone.lazyFinite.Owns(e.queryClone.predicates[d].table) {
-					t.Fatal("default clone does not own an independent lazy factory")
+				if !e.lazyFinite.Owns(e.predicates[d].table) {
+					t.Fatal("the context's lazy factory does not own its relation")
 				}
 				signature, err := e.predicates[d].table.Signature()
 				must(err)
@@ -131,8 +131,8 @@ func TestDatalogDefaultFiniteTableSelectionAndLifetime(t *testing.T) {
 					t.Fatal(status)
 				}
 			}
-			if e.queryClone.predicates[d].explicitFiniteRepresentation != (tc.explicit != "") {
-				t.Fatal("clone lost explicit representation marker")
+			if e.predicates[d].explicitFiniteRepresentation != (tc.explicit != "") {
+				t.Fatal("context lost explicit representation marker")
 			}
 			if tc.lazy {
 				must(e.SelectEngine("spacer"))

@@ -116,8 +116,8 @@ func TestQueryMagicSetsInheritsRequestedFiniteRepresentations(t *testing.T) {
 			if len(engine.predicateOrder) != originalCount {
 				t.Fatal("query-local MagicSets changed persistent predicates")
 			}
-			if engine.queryClone == nil {
-				t.Fatal("successful expression query did not preserve its clone")
+			if !engine.expressionQuerySelf {
+				t.Fatal("successful expression query did not keep its state")
 			}
 			if fresh == 0 || concrete == 0 {
 				t.Fatal("missing query-local inherited predicates", fresh, concrete)
