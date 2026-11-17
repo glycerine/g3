@@ -82,9 +82,6 @@ func (m *RelationManager) MaterializeFiniteRelation(predicate ast.ASTHandle) err
 		return err
 	}
 	adoptPooledTables(table)
-	if check, ok := table.(*CheckRelation); ok {
-		return check.completeCreation()
-	}
 	return completeRelationCreation(table)
 }
 
@@ -108,6 +105,9 @@ func completeRelationCreation(table FiniteTable) error {
 		}
 	case *sieveRelation:
 		return completeRelationCreation(r.inner)
+	case *finiteProductRelation:
+		// finite_product_relation's constructor makes its table.
+		return completeRelationCreation(r.table)
 	case *tableRelationView:
 		return completeRelationCreation(r.table)
 	}

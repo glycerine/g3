@@ -144,7 +144,17 @@ func (c *finiteCompiler) emit(instruction Instruction, rule *base.Rule) error {
 	return c.append(block, instruction, rule)
 }
 
+// ensureLoaded is compiler::ensure_predicate_loaded: m_pred_regs'
+// insert_if_not_there2 runs for every call, so a loaded predicate's call
+// can still expand the table (core_hashtable checks the load first).
 func (c *finiteCompiler) ensureLoaded(predicate ast.ASTHandle) error {
+	if c.predicateLayout == nil {
+		c.predicateLayout = ast.NewObjMap(c.manager)
+	}
+	entry, err := c.predicateLayout.InsertIfNotThere(predicate)
+	if err != nil {
+		return err
+	}
 	if _, found := c.predicateRegs[predicate]; found {
 		return nil
 	}
@@ -162,12 +172,8 @@ func (c *finiteCompiler) ensureLoaded(predicate ast.ASTHandle) error {
 		return err
 	}
 	c.predicateRegs[predicate] = register
-	if c.predicateLayout == nil {
-		c.predicateLayout = ast.NewObjMap(c.manager)
-	}
-	if err = c.predicateLayout.InsertNum(predicate, uint64(register)); err != nil {
-		return err
-	}
+	// e->get_data().m_value = reg (no insertion since the entry's).
+	entry.Num = uint64(register)
 	return nil
 }
 

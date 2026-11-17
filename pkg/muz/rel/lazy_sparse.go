@@ -15,12 +15,16 @@ type LazySparseStatistics struct {
 }
 
 type lazySparseNode struct {
-	kind        LazyTableKind
-	references  uint32
-	signature   Signature
-	functional  int
-	evaluated   *SparseTable
-	nullary     *HashTable
+	kind       LazyTableKind
+	references uint32
+	signature  Signature
+	functional int
+	evaluated  *SparseTable
+	nullary    *HashTable
+	// favourite is the source's m_table of a nullary project: the
+	// manager's mk_empty_table of the empty signature (its rows are also
+	// in nullary).
+	favourite   FiniteTable
 	left        *lazySparseNode
 	right       *lazySparseNode
 	columns1    []int
@@ -39,6 +43,8 @@ type LazySparseEngine struct {
 	// sparse is lazy_table_plugin::m_plugin, the relation manager's
 	// sparse_table_plugin (nil outside a manager).
 	sparse *SparseTablePlugin
+	// manager is the plugin's relation manager (nil outside one).
+	manager *RelationManager
 }
 
 type LazySparseTable struct {
@@ -137,6 +143,12 @@ func releaseLazySparseNodeAs(node *lazySparseNode, silent bool) error {
 			return err
 		}
 		node.nullary = nil
+	}
+	if node.favourite != nil {
+		if err := closeTable(node.favourite); err != nil {
+			return err
+		}
+		node.favourite = nil
 	}
 	node.references = 0
 	return nil

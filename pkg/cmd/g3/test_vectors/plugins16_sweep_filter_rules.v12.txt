@@ -1,0 +1,1388 @@
+(query)
+(transform N7datalog13mk_coi_filterE...21 rules 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...18 rules 0s)
+(transform N7datalog25mk_separate_negated_tailsE...no-op 0s)
+(transform N7datalog15mk_filter_rulesE...22 rules 0s)
+(transform N7datalog15mk_simple_joinsE...23 rules 0s)
+(transform N7datalog21mk_unbound_compressorE...no-op 0s)
+load e into 0
+load a into 1
+load a_and_1!split!4 into 2
+load a!filter!0 into 3
+load a!filter!1 into 4
+load a!filter!2 into 5
+load a!filter!3 into 6
+load q into 7
+mk_unary_singleton into 8 sort:(_ BitVec 2) val:3
+add_fact verified
+mk_unary_singleton into 9 sort:(_ BitVec 2) val:2
+add_fact verified
+join 8() and 9() into 10
+join verified
+union 10 into 0
+union verified
+mk_unary_singleton into 11 sort:(_ BitVec 2) val:1
+add_fact verified
+join 11() and 9() into 12
+join verified
+union 12 into 0
+union verified
+mk_unary_singleton into 13 sort:(_ BitVec 2) val:0
+add_fact verified
+join 8() and 13() into 14
+join verified
+union 14 into 0
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+join 8() and 13() into 15
+join verified
+union 15 into 0
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+join 13() and 9() into 16
+join verified
+union 16 into 0
+union verified
+join 11() and 11() into 17
+join verified
+union 17 into 0
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+join 11() and 9() into 18
+join verified
+union 18 into 0
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+join 9() and 8() into 19
+join verified
+union 19 into 0
+union verified
+join 8() and 11() into 20
+join verified
+union 20 into 0
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+join 13() and 11() into 21
+join verified
+union 21 into 0
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+join 8() and 13() into 22
+join verified
+union 22 into 0
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+join 11() and 9() into 23
+join verified
+union 23 into 0
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+mark_saturated e
+join_project 0:2-8(0) and 0:2-8(1) into 24 removing columns (0,3)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!0 #b01)
+(define k!1 #b00)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(define k!8 #b01)
+(define k!9 #b01)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!8 #b01)
+(define k!9 #b01)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 15 :decisions 18 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+(define x1!5 #b00)
+(define k!0 #b11)
+(define k!1 #b01)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!12 #b10)
+(define k!11 #b10)
+(smt.searching)
+(define k!12 #b10)
+(define k!11 #b10)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 57 :decisions 52 :conflicts 12 :restart 100 :restart-outer 100 :agility 0.00378059)
+(smt.simplifying-clause-set :num-deleted-clauses 9)
+(define k!0 #b00)
+(define k!1 #b10)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!15 #b11)
+(define k!14 #b11)
+(smt.searching)
+(define k!15 #b11)
+(define k!14 #b11)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 116 :decisions 75 :conflicts 22 :restart 100 :restart-outer 100 :agility 0.00545121)
+(smt.simplifying-clause-set :num-deleted-clauses 9)
+join_project verified
+rename 24 into 24 with cycle (0,1)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(smt.simplifying-clause-set :num-deleted-clauses 2)
+permutation verified
+union 24 into 2
+union verified
+mark_saturated a_and_1!split!4
+union 2 into 1
+union verified
+clone 1 into 25
+while(25,26,27,28)
+    select_equal_and_project 1 into 33 col: 1 val: 1
+    union 33 into 4 with delta 31
+    dealloc 33
+    select_equal_and_project 1 into 34 col: 1 val: 3
+    union 34 into 5 with delta 30
+    dealloc 34
+    select_equal_and_project 1 into 35 col: 1 val: 3
+    union 35 into 3 with delta 32
+    dealloc 35
+    join_project 2:2-12(0) and 1:2-12(1) into 36 removing columns (0,3)
+    rename 36 into 36 with cycle (0,1)
+    union 36 into 1 with delta 29
+    dealloc 36
+    union 2 into 1 with delta 29
+    join 3() and 8() into 37
+    rename 37 into 37 with cycle (0,1)
+    union 37 into 1 with delta 29
+    dealloc 37
+    join 4() and 11() into 38
+    rename 38 into 38 with cycle (0,1)
+    union 38 into 1 with delta 29
+    dealloc 38
+    join 5() and 8() into 39
+    rename 39 into 39 with cycle (0,1)
+    union 39 into 1 with delta 29
+    dealloc 39
+    move 29 into 25
+    move 30 into 26
+    move 31 into 27
+    move 32 into 28
+looping ... 0
+select_equal_and_project 1 into 33 col: 1 val: 1
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+filter_equal verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!0 #b11)
+(define x0!16 #b01)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!18 #b01)
+(smt.searching)
+(define k!18 #b01)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 4 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+(smt.simplifying-clause-set :num-deleted-clauses 1)
+project verified
+union 33 into 4 with delta 31
+union verified
+verify delta (or (= (:var 0) #b10) (= (:var 0) #b00) (= (:var 0) #b11) (= (:var 0) #b01))
+union_delta low verified
+union delta0 verified
+union no overflow verified
+select_equal_and_project 1 into 34 col: 1 val: 3
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+filter_equal verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(define k!0 #b00)
+(define x0!19 #b11)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!21 #b11)
+(smt.searching)
+(define k!21 #b11)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 5 :conflicts 1 :restart 100 :restart-outer 100 :agility 0.0001)
+project verified
+union 34 into 5 with delta 30
+union verified
+verify delta (or (= (:var 0) #b00) (= (:var 0) #b01) (= (:var 0) #b11))
+union_delta low verified
+union delta0 verified
+union no overflow verified
+select_equal_and_project 1 into 35 col: 1 val: 3
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+filter_equal verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(define k!0 #b00)
+(define x0!22 #b11)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!24 #b11)
+(smt.searching)
+(define k!24 #b11)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 5 :conflicts 1 :restart 100 :restart-outer 100 :agility 0.0001)
+project verified
+union 35 into 3 with delta 32
+union verified
+verify delta (or (= (:var 0) #b00) (= (:var 0) #b01) (= (:var 0) #b11))
+union_delta low verified
+union delta0 verified
+union no overflow verified
+join_project 2:2-12(0) and 1:2-12(1) into 36 removing columns (0,3)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!0 #b10)
+(define k!1 #b10)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(define k!28 #b10)
+(define k!29 #b10)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!28 #b10)
+(define k!29 #b10)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 20 :decisions 17 :conflicts 1 :restart 100 :restart-outer 100 :agility 0)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(define k!0 #b11)
+(define k!1 #b10)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(define k!31 #b00)
+(define k!32 #b00)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!31 #b00)
+(define k!32 #b00)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(define k!31 #b01)
+(define k!32 #b01)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 60 :decisions 45 :conflicts 12 :restart 100 :restart-outer 100 :agility 0.00377703)
+(smt.simplifying-clause-set :num-deleted-clauses 27)
+join_project verified
+rename 36 into 36 with cycle (0,1)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(smt.simplifying-clause-set :num-deleted-clauses 10)
+permutation verified
+union 36 into 1 with delta 29
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+verify delta (or (and (= (:var 0) #b00) (= (:var 1) #b00))
+    (and (= (:var 0) #b01) (= (:var 1) #b00))
+    (and (= (:var 0) #b11) (= (:var 1) #b00))
+    (and (= (:var 0) #b10) (= (:var 1) #b11)))
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union_delta low verified
+union delta0 verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union no overflow verified
+union 2 into 1 with delta 29
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+verify delta (or (and (= (:var 0) #b00) (= (:var 1) #b00))
+    (and (= (:var 0) #b01) (= (:var 1) #b00))
+    (and (= (:var 0) #b11) (= (:var 1) #b00))
+    (and (= (:var 0) #b10) (= (:var 1) #b11)))
+union_delta low verified
+union delta0 verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union no overflow verified
+join 3() and 8() into 37
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+join verified
+rename 37 into 37 with cycle (0,1)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 3)
+permutation verified
+union 37 into 1 with delta 29
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+verify delta (or (and (= (:var 0) #b00) (= (:var 1) #b00))
+    (and (= (:var 0) #b01) (= (:var 1) #b00))
+    (and (= (:var 0) #b11) (= (:var 1) #b00))
+    (and (= (:var 0) #b10) (= (:var 1) #b11)))
+union_delta low verified
+union delta0 verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union no overflow verified
+join 4() and 11() into 38
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+join verified
+rename 38 into 38 with cycle (0,1)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 3)
+permutation verified
+union 38 into 1 with delta 29
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+verify delta (or (and (= (:var 0) #b00) (= (:var 1) #b00))
+    (and (= (:var 0) #b01) (= (:var 1) #b00))
+    (and (= (:var 0) #b11) (= (:var 1) #b00))
+    (and (= (:var 0) #b10) (= (:var 1) #b11)))
+union_delta low verified
+union delta0 verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union no overflow verified
+join 5() and 8() into 39
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+join verified
+rename 39 into 39 with cycle (0,1)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 3)
+permutation verified
+union 39 into 1 with delta 29
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+verify delta (or (and (= (:var 0) #b00) (= (:var 1) #b00))
+    (and (= (:var 0) #b01) (= (:var 1) #b00))
+    (and (= (:var 0) #b11) (= (:var 1) #b00))
+    (and (= (:var 0) #b10) (= (:var 1) #b11)))
+union_delta low verified
+union delta0 verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union no overflow verified
+move 29 into 25
+move 30 into 26
+move 31 into 27
+move 32 into 28
+looping ... 1
+select_equal_and_project 1 into 33 col: 1 val: 1
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+filter_equal verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!0 #b10)
+(define x0!33 #b01)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!35 #b01)
+(smt.searching)
+(define k!35 #b01)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 4 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+(smt.simplifying-clause-set :num-deleted-clauses 1)
+project verified
+union 33 into 4 with delta 31
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+select_equal_and_project 1 into 34 col: 1 val: 3
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+filter_equal verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!0 #b00)
+(define x0!36 #b11)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!38 #b11)
+(smt.searching)
+(define k!38 #b11)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 4 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+(smt.simplifying-clause-set :num-deleted-clauses 1)
+project verified
+union 34 into 5 with delta 30
+union verified
+verify delta (= (:var 0) #b10)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union_delta low verified
+union delta0 verified
+union no overflow verified
+select_equal_and_project 1 into 35 col: 1 val: 3
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+filter_equal verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!0 #b00)
+(define x0!39 #b11)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!41 #b11)
+(smt.searching)
+(define k!41 #b11)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 4 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+(smt.simplifying-clause-set :num-deleted-clauses 1)
+project verified
+union 35 into 3 with delta 32
+union verified
+verify delta (= (:var 0) #b10)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union_delta low verified
+union delta0 verified
+union no overflow verified
+join_project 2:2-12(0) and 1:2-16(1) into 36 removing columns (0,3)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!0 #b11)
+(define k!1 #b01)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(define k!45 #b00)
+(define k!46 #b00)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!45 #b00)
+(define k!46 #b00)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 30 :decisions 19 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+(define k!0 #b00)
+(define k!1 #b01)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!48 #b10)
+(define k!49 #b10)
+(smt.searching)
+(define k!48 #b10)
+(define k!49 #b10)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 48 :decisions 37 :conflicts 2 :restart 100 :restart-outer 100 :agility 0.00378179)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+join_project verified
+rename 36 into 36 with cycle (0,1)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(smt.simplifying-clause-set :num-deleted-clauses 10)
+permutation verified
+union 36 into 1 with delta 29
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+union 2 into 1 with delta 29
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+join 3() and 8() into 37
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+join verified
+rename 37 into 37 with cycle (0,1)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 3)
+permutation verified
+union 37 into 1 with delta 29
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+join 4() and 11() into 38
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+join verified
+rename 38 into 38 with cycle (0,1)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 3)
+permutation verified
+union 38 into 1 with delta 29
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+join 5() and 8() into 39
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+join verified
+rename 39 into 39 with cycle (0,1)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 3)
+permutation verified
+union 39 into 1 with delta 29
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+move 30 into 26
+move 32 into 28
+looping ... 2
+select_equal_and_project 1 into 33 col: 1 val: 1
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+filter_equal verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!0 #b10)
+(define x0!50 #b01)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!52 #b01)
+(smt.searching)
+(define k!52 #b01)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 4 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+(smt.simplifying-clause-set :num-deleted-clauses 1)
+project verified
+union 33 into 4 with delta 31
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+select_equal_and_project 1 into 34 col: 1 val: 3
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+filter_equal verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!0 #b00)
+(define x0!53 #b11)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!55 #b11)
+(smt.searching)
+(define k!55 #b11)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 4 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+(smt.simplifying-clause-set :num-deleted-clauses 1)
+project verified
+union 34 into 5 with delta 30
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+select_equal_and_project 1 into 35 col: 1 val: 3
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+filter_equal verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!0 #b00)
+(define x0!56 #b11)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!58 #b11)
+(smt.searching)
+(define k!58 #b11)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 4 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+(smt.simplifying-clause-set :num-deleted-clauses 1)
+project verified
+union 35 into 3 with delta 32
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+join_project 2:2-12(0) and 1:2-16(1) into 36 removing columns (0,3)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!0 #b11)
+(define k!1 #b01)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(define k!62 #b00)
+(define k!63 #b00)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!62 #b00)
+(define k!63 #b00)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 30 :decisions 19 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+(define k!0 #b00)
+(define k!1 #b01)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!65 #b10)
+(define k!66 #b10)
+(smt.searching)
+(define k!65 #b10)
+(define k!66 #b10)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 48 :decisions 37 :conflicts 2 :restart 100 :restart-outer 100 :agility 0.00378179)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+join_project verified
+rename 36 into 36 with cycle (0,1)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(smt.simplifying-clause-set :num-deleted-clauses 10)
+permutation verified
+union 36 into 1 with delta 29
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+union 2 into 1 with delta 29
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+join 3() and 8() into 37
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+join verified
+rename 37 into 37 with cycle (0,1)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 3)
+permutation verified
+union 37 into 1 with delta 29
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+join 4() and 11() into 38
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+join verified
+rename 38 into 38 with cycle (0,1)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 3)
+permutation verified
+union 38 into 1 with delta 29
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+join 5() and 8() into 39
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+join verified
+rename 39 into 39 with cycle (0,1)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 3)
+permutation verified
+union 39 into 1 with delta 29
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+mark_saturated a
+mark_saturated a!filter!2
+mark_saturated a!filter!1
+mark_saturated a!filter!0
+select_equal_and_project 1 into 40 col: 0 val: 1
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+filter_equal verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define x0!67 #b01)
+(define k!0 #b00)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!69 #b01)
+(smt.searching)
+(define k!69 #b01)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 4 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+(smt.simplifying-clause-set :num-deleted-clauses 1)
+project verified
+project 40 into 40 deleting columns (0)
+mk_empty
+add_fact
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!71 #b00)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!71 #b00)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 0 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+project verified
+union 40 into 6
+union verified
+mark_saturated a!filter!3
+union 6 into 7
+union verified
+mark_saturated q
+store 0 into e
+store 7 into q
+store 1 into a
+store 2 into a_and_1!split!4
+store 4 into a!filter!1
+store 5 into a!filter!2
+store 6 into a!filter!3
+store 3 into a!filter!0
+bytes 17179869180
+bytes	rows	annotation
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	

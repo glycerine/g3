@@ -139,8 +139,10 @@ func TestFiniteCompilerFusesJoinProjection(t *testing.T) {
 					case signature.Len() == 0 && want.predicate == head && backing == "lazy-sparse":
 						// The empty head loads as a null register (instr_io),
 						// so instr_union creates the target with the source's
-						// plugin: a lazy table over the nullary hash fallback.
-						_, matches = table.(*LazySparseTable)
+						// plugin: table_relation_plugin::mk_empty, which gives
+						// a signature the lazy plugin cannot handle the
+						// appropriate plugin's table (FORK FIX #107).
+						_, matches = table.(*HashTable)
 					case signature.Len() == 0 && want.predicate == head && backing == "checked":
 						_, matches = table.(*FiniteCheckedPair)
 					case signature.Len() == 0, backing == "hash":

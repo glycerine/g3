@@ -1,0 +1,856 @@
+(query)
+mk_empty
+mk_empty
+mk_empty
+mk_empty
+mk_empty
+mk_empty
+(transform N7datalog13mk_coi_filterE...21 rules 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...18 rules 0s)
+(transform N7datalog12mk_bit_blastE...18 rules 0s)
+(transform N7datalog25mk_separate_negated_tailsE...no-op 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog24mk_similarity_compressorE...mk_empty
+add_fact
+add_fact verified
+add_fact
+add_fact verified
+add_fact
+add_fact verified
+add_fact
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+add_fact verified
+add_fact
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 3)
+add_fact verified
+add_fact
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+add_fact verified
+add_fact
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+add_fact verified
+add_fact
+add_fact verified
+add_fact
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+add_fact verified
+add_fact
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+add_fact verified
+add_fact
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+add_fact verified
+add_fact
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+add_fact verified
+7 rules 0s)
+(transform N7datalog15mk_filter_rulesE...11 rules 0s)
+(transform N7datalog15mk_simple_joinsE...12 rules 0s)
+(transform N7datalog21mk_unbound_compressorE...no-op 0s)
+load a!bv!1 into 0
+mk_empty
+load a!bv!1_and_1!split!7 into 1
+mk_empty
+load a!bv!1!filter!3 into 2
+mk_empty
+load a!bv!1!filter!4 into 3
+mk_empty
+load a!bv!1!filter!5 into 4
+mk_empty
+load a!bv!1!filter!6 into 5
+mk_empty
+load q into 6
+load e!bv!0 into 7
+mk_empty
+load e!bv!0!sc_8!2 into 8
+mk_empty
+clone
+union 8 into 7
+mk_empty
+operator()
+union verified
+mark_saturated e!bv!0
+join_project 7:8-4294967295(0,1,2,3) and 7:8-4294967295(4,5,6,7) into 9 removing columns (0,1,2,3,12,13,14,15)
+project...0s
+recycle...Recycle: 361
+0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!0 true)
+(define k!1 false)
+(define k!2 false)
+(define k!3 true)
+(define k!4 false)
+(define k!5 false)
+(define k!6 true)
+(define k!7 false)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!30 false)
+(define k!25 false)
+(define k!28 true)
+(define k!27 true)
+(define k!24 true)
+(define k!29 false)
+(define k!26 false)
+(define k!31 true)
+(smt.searching)
+(define k!30 false)
+(define k!25 false)
+(define k!28 true)
+(define k!27 true)
+(define k!24 true)
+(define k!29 false)
+(define k!26 false)
+(define k!31 true)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 11 :decisions 4 :conflicts 1 :restart 100 :restart-outer 100 :agility 0)
+(define k!0 true)
+(define k!1 false)
+(define k!2 false)
+(define k!3 false)
+(define k!4 false)
+(define k!5 true)
+(define k!6 false)
+(define k!7 false)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!43 true)
+(define k!46 false)
+(define k!41 false)
+(define k!44 false)
+(define k!45 false)
+(define k!47 true)
+(define k!40 false)
+(define k!42 false)
+(smt.searching)
+(define k!43 true)
+(define k!46 false)
+(define k!41 false)
+(define k!44 false)
+(define k!45 false)
+(define k!47 true)
+(define k!40 false)
+(define k!42 false)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 67 :decisions 31 :conflicts 17 :restart 100 :restart-outer 100 :agility 0.00029977)
+(define k!0 true)
+(define k!1 true)
+(define k!2 false)
+(define k!3 true)
+(define k!4 false)
+(define k!5 false)
+(define k!6 false)
+(define k!7 true)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!59 true)
+(define k!58 true)
+(define k!61 false)
+(define k!56 true)
+(define k!60 true)
+(define k!62 true)
+(define k!63 true)
+(define k!57 false)
+(smt.searching)
+(define k!59 true)
+(define k!58 true)
+(define k!61 false)
+(define k!56 true)
+(define k!60 true)
+(define k!62 true)
+(define k!63 true)
+(define k!57 false)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 176 :decisions 55 :conflicts 35 :restart 100 :restart-outer 100 :agility 0.000797737)
+(smt.simplifying-clause-set :num-deleted-clauses 51)
+join_project verified
+rename 9 into 9 with cycle (0,4)
+operator()
+rename...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 12)
+permutation verified
+recycle...Recycle: 347
+0s
+rename 9 into 9 with cycle (1,5)
+operator()
+rename...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 13)
+permutation verified
+recycle...Recycle: 347
+0s
+rename 9 into 9 with cycle (2,6)
+operator()
+rename...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 12)
+permutation verified
+recycle...Recycle: 347
+0s
+rename 9 into 9 with cycle (3,7)
+operator()
+rename...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 12)
+permutation verified
+recycle...Recycle: 347
+0s
+union 9 into 1
+mk_empty
+operator()
+union verified
+recycle...Recycle: 347
+0s
+mark_saturated a!bv!1_and_1!split!7
+union 1 into 0
+mk_empty
+operator()
+union verified
+clone 0 into 12
+mk_empty
+clone
+mk_unary_singleton into 22 sort:Bool val:0
+mk_empty
+add_fact
+add_fact verified
+mk_unary_singleton into 24 sort:Bool val:1
+mk_empty
+add_fact
+add_fact verified
+while(10,11,12,13)
+    select_equal_and_project 12 into 18 col: 4 val: 0
+    select_equal_and_project 18 into 18 col: 4 val: 1
+    select_equal_and_project 18 into 18 col: 4 val: 0
+    select_equal_and_project 18 into 18 col: 4 val: 1
+    union 18 into 3 with delta 14
+    dealloc 18
+    select_equal_and_project 12 into 19 col: 4 val: 1
+    select_equal_and_project 19 into 19 col: 4 val: 1
+    select_equal_and_project 19 into 19 col: 4 val: 1
+    select_equal_and_project 19 into 19 col: 4 val: 0
+    union 19 into 4 with delta 17
+    dealloc 19
+    select_equal_and_project 12 into 20 col: 4 val: 0
+    select_equal_and_project 20 into 20 col: 4 val: 0
+    select_equal_and_project 20 into 20 col: 4 val: 0
+    select_equal_and_project 20 into 20 col: 4 val: 1
+    union 20 into 2 with delta 15
+    dealloc 20
+    join_project 12:8-4294967295(4,5,6,7) and 1:8-4294967295(0,1,2,3) into 21 removing columns (4,5,6,7,8,9,10,11)
+    union 21 into 0 with delta 16
+    dealloc 21
+    join 11() and 22() into 23
+    join 23() and 22() into 23
+    join 23() and 22() into 23
+    join 23() and 24() into 23
+    rename 23 into 23 with cycle (0,4)
+    rename 23 into 23 with cycle (1,5)
+    rename 23 into 23 with cycle (2,6)
+    rename 23 into 23 with cycle (3,7)
+    union 23 into 0 with delta 16
+    dealloc 23
+    join 10() and 22() into 25
+    join 25() and 24() into 25
+    join 25() and 22() into 25
+    join 25() and 24() into 25
+    rename 25 into 25 with cycle (0,4)
+    rename 25 into 25 with cycle (1,5)
+    rename 25 into 25 with cycle (2,6)
+    rename 25 into 25 with cycle (3,7)
+    union 25 into 0 with delta 16
+    dealloc 25
+    join 13() and 24() into 26
+    join 26() and 24() into 26
+    join 26() and 24() into 26
+    join 26() and 22() into 26
+    rename 26 into 26 with cycle (0,4)
+    rename 26 into 26 with cycle (1,5)
+    rename 26 into 26 with cycle (2,6)
+    rename 26 into 26 with cycle (3,7)
+    union 26 into 0 with delta 16
+    dealloc 26
+    move 14 into 10
+    move 15 into 11
+    move 16 into 12
+    move 17 into 13
+looping ... 0
+select_equal_and_project 12 into 18 col: 4 val: 0
+mk_empty
+clone
+(smt.propagate-values)
+filter_equal verified
+project verified
+select_equal_and_project 12 into 19 col: 4 val: 1
+mk_empty
+clone
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+filter_equal verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(define k!0 false)
+(define k!1 false)
+(define k!2 false)
+(define k!3 true)
+(define k!4 true)
+(define k!5 false)
+(define k!6 true)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!66 true)
+(smt.searching)
+(define k!66 true)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 9 :decisions 18 :conflicts 12 :restart 100 :restart-outer 100 :agility 0.0001)
+project verified
+select_equal_and_project 19 into 19 col: 4 val: 1
+mk_empty
+clone
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+filter_equal verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!0 false)
+(define k!1 false)
+(define k!2 false)
+(define k!3 true)
+(define x0!67 true)
+(define k!4 false)
+(define k!5 true)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!69 true)
+(smt.searching)
+(define k!69 true)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 2 :decisions 1 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+(smt.simplifying-clause-set :num-deleted-clauses 2)
+project verified
+select_equal_and_project 19 into 19 col: 4 val: 1
+mk_empty
+clone
+filter_equal verified
+project verified
+select_equal_and_project 12 into 20 col: 4 val: 0
+mk_empty
+clone
+(smt.propagate-values)
+filter_equal verified
+project verified
+join_project 12:8-4294967295(4,5,6,7) and 1:8-4294967295(0,1,2,3) into 21 removing columns (4,5,6,7,8,9,10,11)
+project...0s
+recycle...Recycle: 361
+0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(define x4!73 true)
+(define x0!77 true)
+(define x5!72 false)
+(define x1!76 false)
+(define x6!71 false)
+(define x2!75 false)
+(define x7!70 true)
+(define x3!74 true)
+(define k!0 false)
+(define k!1 false)
+(define k!2 true)
+(define k!3 false)
+(define k!4 true)
+(define k!5 false)
+(define k!6 false)
+(define k!7 true)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!89 true)
+(define k!92 false)
+(define k!91 false)
+(define k!90 true)
+(define k!86 true)
+(define k!87 false)
+(define k!88 false)
+(define k!93 true)
+(smt.searching)
+(define k!89 true)
+(define k!92 false)
+(define k!91 false)
+(define k!90 true)
+(define k!86 true)
+(define k!87 false)
+(define k!88 false)
+(define k!93 true)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 18 :decisions 6 :conflicts 2 :restart 100 :restart-outer 100 :agility 0)
+(smt.simplifying-clause-set :num-deleted-clauses 16)
+join_project verified
+union 21 into 0 with delta 16
+mk_empty
+operator()
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+recycle...Recycle: 347
+0s
+join 11() and 22() into 23
+join 23() and 22() into 23
+join 23() and 22() into 23
+join 23() and 24() into 23
+join 10() and 22() into 25
+join 25() and 24() into 25
+join 25() and 22() into 25
+join 25() and 24() into 25
+join 13() and 24() into 26
+join 26() and 24() into 26
+join 26() and 24() into 26
+join 26() and 22() into 26
+mark_saturated a!bv!1!filter!4
+mark_saturated a!bv!1!filter!3
+mark_saturated a!bv!1
+mark_saturated a!bv!1!filter!5
+select_equal_and_project 0 into 27 col: 0 val: 0
+mk_empty
+clone
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+filter_equal verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define x0!94 false)
+(define k!0 true)
+(define k!1 false)
+(define k!2 false)
+(define k!3 true)
+(define k!4 false)
+(define k!5 true)
+(define k!6 true)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!96 false)
+(smt.searching)
+(define k!96 false)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 1 :decisions 1 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+project verified
+select_equal_and_project 27 into 27 col: 0 val: 1
+mk_empty
+clone
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 2)
+filter_equal verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!0 false)
+(define k!1 false)
+(define k!2 true)
+(define k!3 false)
+(define k!4 true)
+(define k!5 true)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!99 true)
+(smt.searching)
+(define k!99 true)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 2 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+(smt.simplifying-clause-set :num-deleted-clauses 1)
+project verified
+select_equal_and_project 27 into 27 col: 0 val: 0
+mk_empty
+clone
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+filter_equal verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(define k!0 false)
+(define k!1 true)
+(define k!2 false)
+(define k!3 true)
+(define k!4 false)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!102 false)
+(smt.searching)
+(define k!102 false)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 2 :decisions 10 :conflicts 6 :restart 100 :restart-outer 100 :agility 9.999e-05)
+project verified
+select_equal_and_project 27 into 27 col: 0 val: 1
+mk_empty
+clone
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+filter_equal verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define x0!103 true)
+(define k!0 true)
+(define k!1 false)
+(define k!2 false)
+(define k!3 true)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!105 true)
+(smt.searching)
+(define k!105 true)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 2 :decisions 1 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+(smt.simplifying-clause-set :num-deleted-clauses 2)
+project verified
+project 27 into 27 deleting columns (0,1,2,3)
+mk_empty
+add_fact
+mk_empty
+add_fact
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!110 true)
+(define k!111 false)
+(define k!112 false)
+(define k!113 true)
+(smt.searching)
+(define k!110 true)
+(define k!111 false)
+(define k!112 false)
+(define k!113 true)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 0 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+project verified
+union 27 into 5
+mk_empty
+operator()
+union verified
+mark_saturated a!bv!1!filter!6
+union 5 into 6
+mk_empty
+operator()
+union verified
+mark_saturated q
+store 7 into e!bv!0
+store 6 into q
+store 3 into a!bv!1!filter!4
+mk_empty
+store 5 into a!bv!1!filter!6
+store 8 into e!bv!0!sc_8!2
+store 4 into a!bv!1!filter!5
+mk_empty
+store 2 into a!bv!1!filter!3
+mk_empty
+store 1 into a!bv!1_and_1!split!7
+store 0 into a!bv!1
+bytes 8589934590
+bytes	rows	annotation
+4294967295	4294967295	
+4294967295	4294967295	

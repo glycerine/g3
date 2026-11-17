@@ -217,6 +217,46 @@ func finiteTableJoin(first, second FiniteTable, left, right []int) (FiniteTable,
 	return result, nil
 }
 
+// finiteTableProjectIn is relation_manager::mk_project_fn(t) of m: the
+// sparse, hashtable and bitvector plugins have no projection onto zero
+// columns, so null_signature_table_project_fn makes mk_empty_table of the
+// empty signature and adds the empty fact when t is not empty.
+func finiteTableProjectIn(m *RelationManager, source FiniteTable, removed []int) (FiniteTable, error) {
+	if m != nil {
+		switch source.(type) {
+		case *HashTable, *SparseTable, *BitvectorTable:
+			signature, err := source.Signature()
+			if err != nil {
+				return nil, err
+			}
+			if len(removed) == signature.Len() && len(removed) != 0 {
+				return m.nullSignatureProject(source)
+			}
+		}
+	}
+	return finiteTableProject(source, removed)
+}
+
+// nullSignatureProject is null_signature_table_project_fn::operator().
+func (m *RelationManager) nullSignatureProject(source FiniteTable) (FiniteTable, error) {
+	empty, err := NewSignature(nil)
+	if err != nil {
+		return nil, err
+	}
+	result, err := m.newFavouriteFiniteTable(empty)
+	if err != nil {
+		return nil, err
+	}
+	n, err := source.Len()
+	if err == nil && n != 0 {
+		_, err = result.Add(Fact{})
+	}
+	if err != nil {
+		return nil, errors.Join(err, result.Close())
+	}
+	return result, nil
+}
+
 func finiteTableProject(source FiniteTable, removed []int) (FiniteTable, error) {
 	if r, ok := AsRelation(source); ok {
 		return relationProject(r, removed)
@@ -274,6 +314,12 @@ func finiteTableProject(source FiniteTable, removed []int) (FiniteTable, error) 
 }
 
 func finiteTableJoinProject(first, second FiniteTable, left, right, removed []int) (FiniteTable, error) {
+	return finiteTableJoinProjectIn(nil, first, second, left, right, removed)
+}
+
+// finiteTableJoinProjectIn is relation_manager::mk_join_project_fn of m:
+// default_table_join_project_fn projects the join with m's mk_project_fn.
+func finiteTableJoinProjectIn(m *RelationManager, first, second FiniteTable, left, right, removed []int) (FiniteTable, error) {
 	if r, ok, err := relationOperands(first, second); ok || err != nil {
 		if err != nil {
 			// default_relation_join_project_fn over the empty-signature
@@ -292,7 +338,10 @@ func finiteTableJoinProject(first, second FiniteTable, left, right, removed []in
 	}
 	switch a := first.(type) {
 	case *HashTable:
-		if b, ok := second.(*HashTable); ok {
+		// hashtable_table_plugin has no join_project: the join's
+		// projection onto zero columns is the manager's
+		// null_signature_table_project_fn.
+		if b, ok := second.(*HashTable); ok && (m == nil || len(removed) != a.signature.Len()+b.signature.Len()) {
 			return a.JoinProject(b, left, right, removed)
 		}
 	case *SparseTable:
@@ -324,7 +373,7 @@ func finiteTableJoinProject(first, second FiniteTable, left, right, removed []in
 	}
 	result, handled, projectErr := finiteTableSparseJoinProjectReduce(first, second, joined, left, right, removed)
 	if !handled {
-		result, projectErr = finiteTableProject(joined, removed)
+		result, projectErr = finiteTableProjectIn(m, joined, removed)
 	}
 	closeErr := joined.Close()
 	if projectErr != nil || closeErr != nil {

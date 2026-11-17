@@ -139,7 +139,9 @@ func (f *FiniteCheckedFactory) table(kind string, signature Signature, functiona
 		if functional != 0 {
 			return nil, ErrCheckTable
 		}
-		return NewBitvectorTable(signature)
+		// The manager's bitvector_table_plugin: a result it cannot
+		// handle goes to the manager's sparse_table_plugin.
+		return newBitvectorTableIn(f.manager.sparsePlugin(), signature)
 	case "lazy_sparse", "tr_lazy_sparse":
 		if f.lazy == nil {
 			return nil, ErrCheckTable
@@ -160,7 +162,7 @@ func (f *FiniteCheckedFactory) New(signature Signature) (*FiniteCheckedPair, err
 // NewFunctional is check_table_plugin::mk_empty(s) of a signature with
 // functional columns.
 func (f *FiniteCheckedFactory) NewFunctional(signature Signature, functional int) (*FiniteCheckedPair, error) {
-	if f.manager != nil && f.manager.reservingPlaceholder {
+	if f.manager != nil && (f.manager.reservingPlaceholder || f.manager.deferRelationCreation) {
 		pair, err := f.newPair(signature, functional)
 		if err != nil {
 			return nil, err
@@ -268,7 +270,7 @@ func newFiniteTableLike(template FiniteTable, signature Signature) (FiniteTable,
 		return lazySparseInstructionResult(concrete, signature, 0)
 	case *BitvectorTable:
 		if BitvectorCanHandleSignature(signature, 0) {
-			return NewBitvectorTable(signature)
+			return concrete.emptyLike(signature)
 		}
 		// get_appropriate_plugin: sparse for every nonnullary signature.
 		return concrete.sparse.MkEmpty(signature, 0)
@@ -633,11 +635,16 @@ func (p *FiniteCheckedPair) JoinProject(other *FiniteCheckedPair, left, right, r
 	if err := p.open(); err != nil || other == nil || other.open() != nil {
 		return nil, ErrCheckTable
 	}
-	primary, err := finiteTableJoinProject(p.primary, other.primary, left, right, removed)
+	// join_project_fn: the manager's mk_join_project_fn of each side.
+	var m *RelationManager
+	if p.plugin != nil {
+		m = p.plugin.manager
+	}
+	primary, err := finiteTableJoinProjectIn(m, p.primary, other.primary, left, right, removed)
 	if err != nil {
 		return nil, err
 	}
-	checker, err := finiteTableJoinProject(p.checker, other.checker, left, right, removed)
+	checker, err := finiteTableJoinProjectIn(m, p.checker, other.checker, left, right, removed)
 	if err != nil {
 		return nil, errors.Join(err, primary.Close())
 	}
@@ -648,11 +655,16 @@ func (p *FiniteCheckedPair) Project(removed []int) (*FiniteCheckedPair, error) {
 	if err := p.open(); err != nil {
 		return nil, err
 	}
-	checker, err := finiteTableProject(p.checker, removed)
+	// project_fn: the manager's mk_project_fn of each side.
+	var m *RelationManager
+	if p.plugin != nil {
+		m = p.plugin.manager
+	}
+	checker, err := finiteTableProjectIn(m, p.checker, removed)
 	if err != nil {
 		return nil, err
 	}
-	primary, err := finiteTableProject(p.primary, removed)
+	primary, err := finiteTableProjectIn(m, p.primary, removed)
 	if err != nil {
 		return nil, errors.Join(err, checker.Close())
 	}

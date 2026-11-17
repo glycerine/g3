@@ -272,12 +272,32 @@ func (e *LazySparseEngine) evalFiniteNode(node *lazySparseNode) (FiniteTable, er
 			}
 			length := 0
 			err = lazyVerbose("join_project", func() error {
+				if e.manager != nil {
+					// default_table_join_project_fn: the join, then
+					// null_signature_table_project_fn (the manager's
+					// mk_empty_table), then aux->deallocate().
+					aux, x := left.Join(right, join.columns1, join.columns2)
+					if x != nil {
+						return x
+					}
+					favourite, x := e.manager.nullSignatureProject(aux)
+					if x == nil {
+						node.favourite = favourite
+						length, x = favourite.Len()
+					}
+					return errors.Join(x, aux.Close())
+				}
 				joined, x := left.JoinProject(right, join.columns1, join.columns2, node.columns1)
 				if x != nil {
 					return x
 				}
 				length, x = joined.Len()
-				return errors.Join(x, joined.Close())
+				// sparse_table_plugin has no join_project onto zero
+				// columns: default_table_join_project_fn's projection is
+				// null_signature_table_project_fn, whose mk_empty_table
+				// is no sparse table (lazy and sparse cannot handle the
+				// empty signature): its release has no recycle line.
+				return errors.Join(x, releaseUnallocated(joined))
 			})
 			if err != nil {
 				return nil, err
@@ -302,6 +322,13 @@ func (e *LazySparseEngine) evalFiniteNode(node *lazySparseNode) (FiniteTable, er
 					return x
 				}
 				x = aux.FilterEqual(node.left.value, node.left.column)
+				if x == nil && e.manager != nil {
+					// The projection is null_signature_table_project_fn.
+					var favourite FiniteTable
+					if favourite, x = e.manager.nullSignatureProject(aux); x == nil {
+						node.favourite = favourite
+					}
+				}
 				if x == nil {
 					length, x = aux.Len()
 				}

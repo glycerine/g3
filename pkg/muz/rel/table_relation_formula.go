@@ -127,3 +127,90 @@ func releaseTableFormulaRefs(manager *ast.ASTManager, refs []ast.ASTRef) (result
 	}
 	return result
 }
+
+// tableToFormulaInto is table_base::to_formula(sig, fml) writing into the
+// caller's fml: each row's brw.mk_and assigns fml (the first one releases
+// fml's earlier value), conjs.reset() releases the previous row's
+// equations, and brw.mk_or assigns the disjunction; conjs and then disjs
+// die last, each front to back.
+func tableToFormulaInto(relations *RelationManager, sorts []ast.ASTHandle, facts []Fact, fml ast.ASTRef) (resultErr error) {
+	manager := relations.manager
+	var disjs, conjs []ast.ASTRef
+	release := func(refs []ast.ASTRef) (result error) {
+		for i := range refs {
+			result = errors.Join(result, manager.DelRef(&refs[i]))
+		}
+		return result
+	}
+	defer func() {
+		resultErr = errors.Join(resultErr, release(conjs), release(disjs))
+	}()
+	for _, fact := range facts {
+		if len(sorts) != len(fact) {
+			return ErrTable
+		}
+		err := release(conjs)
+		conjs = conjs[:0]
+		if err != nil {
+			return err
+		}
+		handles := make([]ast.ASTHandle, 0, len(fact))
+		for i, value := range fact {
+			// m.mk_eq(m.mk_var(i, sig[i]), util.mk_numeral(fact[i], sig[i])):
+			// the fork's g++ evaluates the numeral first.
+			numeralRef, err := relations.DecodeValue(sorts[i], value)
+			if err != nil {
+				return err
+			}
+			numeral, err := manager.RefGet(numeralRef)
+			var variable, equation ast.ASTHandle
+			if err == nil {
+				variable, err = manager.MkVar(uint32(i), sorts[i])
+			}
+			if err == nil {
+				equation, err = manager.MkEq(variable, numeral)
+			}
+			var equationRef ast.ASTRef
+			if err == nil {
+				equationRef, err = manager.NewRef(equation)
+			}
+			err = errors.Join(err, manager.DelRef(&numeralRef))
+			if err != nil {
+				return errors.Join(err, manager.DelRef(&equationRef))
+			}
+			conjs = append(conjs, equationRef)
+			handles = append(handles, equation)
+		}
+		if err = rewriter.SimplifyBooleanGateDefault(manager, ast.ASTOpAnd, handles, fml); err != nil {
+			return err
+		}
+		row, err := manager.RefGet(fml)
+		if err != nil {
+			return err
+		}
+		rowRef, err := manager.NewRef(row)
+		if err != nil {
+			return err
+		}
+		disjs = append(disjs, rowRef)
+	}
+	handles := make([]ast.ASTHandle, len(disjs))
+	for i := range disjs {
+		h, err := manager.RefGet(disjs[i])
+		if err != nil {
+			return err
+		}
+		handles[i] = h
+	}
+	return rewriter.SimplifyBooleanGateDefault(manager, ast.ASTOpOr, handles, fml)
+}
+
+// toFormulaInto is table_relation::to_formula(fml): the table's
+// to_formula into fml.
+func (v *tableRelationView) toFormulaInto(fml ast.ASTRef) error {
+	facts, err := v.table.Facts()
+	if err != nil {
+		return err
+	}
+	return tableToFormulaInto(v.plugin.manager, v.sorts, facts, fml)
+}

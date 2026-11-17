@@ -59,6 +59,9 @@ func (m *RelationManager) SetLazySparseFiniteFactory(factory *LazySparseFiniteFa
 	if factory != nil && factory.engine.sparse == nil {
 		factory.engine.sparse = m.sparse
 	}
+	if factory != nil && factory.engine.manager == nil {
+		factory.engine.manager = m
+	}
 	m.lazyFinite = factory
 	return nil
 }

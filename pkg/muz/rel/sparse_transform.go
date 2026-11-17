@@ -10,6 +10,12 @@ func (t *SparseTable) Project(removed []int) (_ *SparseTable, resultErr error) {
 	if e := t.open(); e != nil {
 		return nil, e
 	}
+	if t.functional == 0 && len(removed) == t.signature.Len() {
+		// sparse_table_plugin::mk_project_fn has no projection onto zero
+		// columns: relation_manager's null_signature_table_project_fn has
+		// no verbose line (finiteTableProjectIn makes its table).
+		return t.projectDefault(removed)
+	}
 	// project_fn::operator()'s verbose_action _va("project").
 	action, e := base.StartVerboseAction("project", base.VerboseActionDefaultLevel)
 	if e != nil {
@@ -19,6 +25,12 @@ func (t *SparseTable) Project(removed []int) (_ *SparseTable, resultErr error) {
 	if t.functional != 0 {
 		return t.ProjectFunctional(removed)
 	}
+	return t.projectDefault(removed)
+}
+
+// projectDefault fills the plugin's empty table of the projected signature
+// with the projected rows in table order.
+func (t *SparseTable) projectDefault(removed []int) (*SparseTable, error) {
 	sig, e := projectedSignature(t.signature, removed)
 	if e != nil {
 		return nil, e

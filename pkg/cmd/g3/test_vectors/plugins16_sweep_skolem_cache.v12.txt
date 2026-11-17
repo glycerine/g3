@@ -1,0 +1,2903 @@
+(query)
+mk_empty
+mk_empty
+mk_empty
+(transform N7datalog13mk_coi_filterE...34 rules 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...no-op 0s)
+(transform N7datalog25mk_separate_negated_tailsE...no-op 0s)
+(transform N7datalog24mk_similarity_compressorE...mk_empty
+add_fact
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+add_fact
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+add_fact
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+add_fact
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+add_fact
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+add_fact
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+add_fact
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+add_fact
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+add_fact
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+add_fact
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+add_fact
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+add_fact
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+add_fact
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+add_fact
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+add_fact
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+add_fact
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+add_fact
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+add_fact
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+add_fact
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+add_fact
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+add_fact
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+add_fact
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+9 rules 0s)
+(transform N7datalog15mk_filter_rulesE...11 rules 0s)
+(transform N7datalog15mk_simple_joinsE...no-op 0s)
+(transform N7datalog21mk_unbound_compressorE...no-op 0s)
+load t into 0
+load b into 1
+load t!filter!1 into 2
+mk_empty
+load e into 3
+mk_empty
+load t!filter!2 into 4
+load q into 5
+load e!sc_2!0 into 6
+mk_empty
+recycle...Recycle: 200
+0s
+recycle...Recycle: 200
+0s
+clone
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+union 6 into 3
+mk_empty
+operator()
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+union verified
+mark_saturated e
+mk_unary_singleton into 7 sort:(_ BitVec 3) val:5
+mk_empty
+add_fact
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+union 7 into 1
+mk_empty
+operator()
+union...add_fact...0s
+0s
+union...add_fact...0s
+0s
+contains_fact...0s
+contains_fact...0s
+union verified
+mk_unary_singleton into 8 sort:(_ BitVec 3) val:1
+mk_empty
+add_fact
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+union 8 into 1
+operator()
+union...add_fact...0s
+0s
+union...add_fact...0s
+0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+mk_unary_singleton into 9 sort:(_ BitVec 3) val:4
+mk_empty
+add_fact
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+union 9 into 1
+operator()
+union...add_fact...0s
+0s
+union...add_fact...0s
+0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+union 8 into 1
+operator()
+union...add_fact...0s
+0s
+union...add_fact...0s
+0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+mark_saturated b
+union 3 into 0
+mk_empty
+operator()
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+union verified
+clone 0 into 11
+mk_empty
+recycle...Recycle: 200
+0s
+recycle...Recycle: 200
+0s
+clone
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+mk_unary_singleton into 17 sort:(_ BitVec 3) val:7
+mk_empty
+add_fact
+contains_fact...0s
+contains_fact...0s
+add_fact verified
+while(10,11)
+    select_equal_and_project 11 into 14 col: 0 val: 7
+    union 14 into 2 with delta 12
+    dealloc 14
+    join_project 1:1-3(0) and 11:2-22(1) into 15 removing columns (0)
+    rename 15 into 15 with cycle (0,1)
+    union 15 into 0 with delta 13
+    dealloc 15
+    join_project 3:2-22(0) and 10(0) into 16 removing columns (0,2)
+    join 16() and 17() into 16
+    rename 16 into 16 with cycle (0,1)
+    union 16 into 0 with delta 13
+    dealloc 16
+    move 12 into 10
+    move 13 into 11
+looping ... 0
+select_equal_and_project 11 into 14 col: 0 val: 7
+mk_empty
+recycle...Recycle: 200
+0s
+recycle...Recycle: 200
+0s
+clone
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 27)
+filter_equal verified
+project...0s
+project...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(define x0!3 #b111)
+(define k!0 #b010)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!5 #b111)
+(smt.searching)
+(define k!5 #b111)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 5 :conflicts 1 :restart 100 :restart-outer 100 :agility 0)
+project verified
+recycle...Recycle: 617
+0s
+recycle...Recycle: 617
+0s
+union 14 into 2 with delta 12
+mk_empty
+mk_empty
+operator()
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+union verified
+verify delta (or (= (:var 0) #b010) (= (:var 0) #b011) (= (:var 0) #b100))
+union_delta low verified
+union delta0 verified
+union no overflow verified
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+join_project 1:1-3(0) and 11:2-22(1) into 15 removing columns (0)
+join_project...get_key_indexer...0s
+0s
+join_project...get_key_indexer...0s
+0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 10)
+(define k!1 #b100)
+(define k!0 #b011)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!8 #b100)
+(smt.searching)
+(define k!8 #b100)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 19 :decisions 48 :conflicts 9 :restart 100 :restart-outer 100 :agility 0.000498832)
+(define k!1 #b101)
+(define k!0 #b100)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!10 #b101)
+(smt.searching)
+(define k!10 #b101)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 23 :decisions 72 :conflicts 11 :restart 100 :restart-outer 100 :agility 0.00179226)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(smt.simplifying-clause-set :num-deleted-clauses 11)
+join_project verified
+rename 15 into 15 with cycle (0,1)
+operator()
+rename...0s
+rename...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 7)
+permutation verified
+recycle...Recycle: 617
+0s
+recycle...Recycle: 617
+0s
+union 15 into 0 with delta 13
+mk_empty
+operator()
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+verify delta (or (and (= (:var 0) #b101) (= (:var 1) #b110))
+    (and (= (:var 0) #b101) (= (:var 1) #b100))
+    (and (= (:var 0) #b001) (= (:var 1) #b010))
+    (and (= (:var 0) #b100) (= (:var 1) #b111)))
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union_delta low verified
+union delta0 verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union no overflow verified
+recycle...Recycle: 338
+0s
+recycle...Recycle: 338
+0s
+join_project 3:2-22(0) and 10(0) into 16 removing columns (0,2)
+join 16() and 17() into 16
+move 12 into 10
+move 13 into 11
+recycle...Recycle: 617
+0s
+recycle...Recycle: 617
+0s
+looping ... 1
+select_equal_and_project 11 into 14 col: 0 val: 7
+mk_empty
+recycle...Recycle: 617
+0s
+recycle...Recycle: 617
+0s
+clone
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+(smt.propagate-values)
+filter_equal verified
+project...0s
+project...0s
+project verified
+recycle...Recycle: 361
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+join_project 1:1-3(0) and 11:2-4(1) into 15 removing columns (0)
+join_project...get_key_indexer...0s
+0s
+join_project...get_key_indexer...0s
+0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!1 #b100)
+(define k!0 #b101)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!13 #b100)
+(smt.searching)
+(define k!13 #b100)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 3 :decisions 21 :conflicts 4 :restart 100 :restart-outer 100 :agility 9.999e-05)
+(smt.simplifying-clause-set :num-deleted-clauses 2)
+(smt.simplifying-clause-set :num-deleted-clauses 3)
+join_project verified
+rename 15 into 15 with cycle (0,1)
+operator()
+rename...0s
+rename...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+permutation verified
+recycle...Recycle: 361
+0s
+recycle...Recycle: 361
+0s
+union 15 into 0 with delta 13
+mk_empty
+operator()
+union...add_fact...0s
+0s
+union...add_fact...0s
+0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+recycle...Recycle: 361
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 338
+0s
+recycle...Recycle: 338
+0s
+join_project 3:2-22(0) and 10:1-3(0) into 16 removing columns (0,2)
+join_project...get_key_indexer...0s
+0s
+join_project...get_key_indexer...0s
+0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!0 #b101)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(smt.simplifying-clause-set :num-deleted-clauses 1)
+(smt.simplifying-clause-set :num-deleted-clauses 2)
+(define k!17 #b100)
+(define k!18 #b100)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!17 #b100)
+(define k!18 #b100)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 6 :decisions 25 :conflicts 1 :restart 100 :restart-outer 100 :agility 0)
+(smt.simplifying-clause-set :num-deleted-clauses 2)
+(define k!0 #b100)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(smt.simplifying-clause-set :num-deleted-clauses 4)
+(define k!20 #b011)
+(define k!21 #b011)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!20 #b011)
+(define k!21 #b011)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 12 :decisions 46 :conflicts 3 :restart 100 :restart-outer 100 :agility 0.00139738)
+(define k!0 #b010)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(define k!23 #b010)
+(define k!24 #b010)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!23 #b010)
+(define k!24 #b010)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(smt.simplifying-clause-set :num-deleted-clauses 5)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 14 :decisions 64 :conflicts 3 :restart 100 :restart-outer 100 :agility 0.00228876)
+(smt.simplifying-clause-set :num-deleted-clauses 16)
+join_project verified
+join 16() and 17() into 16
+operator()
+join_project...0s
+join_project...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+join verified
+recycle...Recycle: 338
+0s
+recycle...Recycle: 338
+0s
+rename 16 into 16 with cycle (0,1)
+operator()
+rename...0s
+rename...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 3)
+permutation verified
+recycle...Recycle: 338
+0s
+recycle...Recycle: 338
+0s
+union 16 into 0 with delta 13
+mk_empty
+operator()
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+verify delta (or (and (= (:var 0) #b111) (= (:var 1) #b111))
+    (and (= (:var 0) #b111) (= (:var 1) #b001))
+    (and (= (:var 0) #b111) (= (:var 1) #b000))
+    (and (= (:var 0) #b111) (= (:var 1) #b110))
+    (and (= (:var 0) #b111) (= (:var 1) #b101)))
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union_delta low verified
+union delta0 verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union no overflow verified
+recycle...Recycle: 361
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+move 13 into 11
+recycle...Recycle: 361
+0s
+recycle...Recycle: 361
+0s
+looping ... 2
+select_equal_and_project 11 into 14 col: 0 val: 7
+mk_empty
+recycle...Recycle: 361
+0s
+recycle...Recycle: 361
+0s
+clone
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+filter_equal verified
+project...0s
+project...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(define x0!25 #b111)
+(define k!0 #b111)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!27 #b111)
+(smt.searching)
+(define k!27 #b111)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 6 :conflicts 1 :restart 100 :restart-outer 100 :agility 0)
+project verified
+recycle...Recycle: 338
+0s
+recycle...Recycle: 338
+0s
+union 14 into 2 with delta 12
+mk_empty
+operator()
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+verify delta (or (= (:var 0) #b111)
+    (= (:var 0) #b001)
+    (= (:var 0) #b000)
+    (= (:var 0) #b110)
+    (= (:var 0) #b101))
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union_delta low verified
+union delta0 verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union no overflow verified
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+join_project 1:1-3(0) and 11:2-5(1) into 15 removing columns (0)
+join_project...get_key_indexer...0s
+0s
+join_project...get_key_indexer...0s
+0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define x0!28 #b010)
+(define k!1 #b101)
+(define k!0 #b111)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!30 #b101)
+(smt.searching)
+(define k!30 #b101)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 11 :decisions 26 :conflicts 7 :restart 100 :restart-outer 100 :agility 9.97703e-05)
+(smt.simplifying-clause-set :num-deleted-clauses 4)
+join_project verified
+rename 15 into 15 with cycle (0,1)
+operator()
+rename...0s
+rename...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 2)
+permutation verified
+recycle...Recycle: 338
+0s
+recycle...Recycle: 338
+0s
+union 15 into 0 with delta 13
+mk_empty
+operator()
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+verify delta (and (= (:var 0) #b001) (= (:var 1) #b111))
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union_delta low verified
+union delta0 verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union no overflow verified
+recycle...Recycle: 361
+0s
+recycle...Recycle: 361
+0s
+join_project 3:2-22(0) and 10(0) into 16 removing columns (0,2)
+join 16() and 17() into 16
+move 12 into 10
+move 13 into 11
+recycle...Recycle: 338
+0s
+recycle...Recycle: 338
+0s
+looping ... 3
+select_equal_and_project 11 into 14 col: 0 val: 7
+mk_empty
+recycle...Recycle: 338
+0s
+recycle...Recycle: 338
+0s
+clone
+contains_fact...0s
+contains_fact...0s
+remove_fact...0s
+remove_fact...0s
+(smt.propagate-values)
+filter_equal verified
+project...0s
+project...0s
+project verified
+recycle...Recycle: 338
+0s
+recycle...Recycle: 338
+0s
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+join_project 1:1-3(0) and 11:2-1(1) into 15 removing columns (0)
+join_project...get_key_indexer...0s
+0s
+join_project...get_key_indexer...0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+join_project verified
+recycle...Recycle: 338
+0s
+recycle...Recycle: 338
+0s
+join_project 3:2-22(0) and 10:1-5(0) into 16 removing columns (0,2)
+join_project...get_key_indexer...0s
+0s
+join_project...get_key_indexer...0s
+0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!0 #b100)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(smt.simplifying-clause-set :num-deleted-clauses 2)
+(define k!35 #b111)
+(define k!36 #b111)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!35 #b111)
+(define k!36 #b111)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 5 :decisions 26 :conflicts 1 :restart 100 :restart-outer 100 :agility 0)
+(smt.simplifying-clause-set :num-deleted-clauses 3)
+(smt.simplifying-clause-set :num-deleted-clauses 9)
+(define k!0 #b111)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(define k!38 #b000)
+(define k!39 #b000)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!38 #b000)
+(define k!39 #b000)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(define k!38 #b101)
+(define k!39 #b101)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 45 :decisions 88 :conflicts 19 :restart 100 :restart-outer 100 :agility 0.0022922)
+(define k!0 #b101)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!41 #b110)
+(define k!42 #b110)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(define k!41 #b110)
+(define k!42 #b110)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 4)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 46 :decisions 110 :conflicts 19 :restart 100 :restart-outer 100 :agility 0.00297974)
+join_project verified
+join 16() and 17() into 16
+operator()
+join_project...0s
+join_project...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+join verified
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+rename 16 into 16 with cycle (0,1)
+operator()
+rename...0s
+rename...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+permutation verified
+recycle...Recycle: 338
+0s
+recycle...Recycle: 338
+0s
+union 16 into 0 with delta 13
+mk_empty
+operator()
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+recycle...Recycle: 338
+0s
+recycle...Recycle: 338
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 361
+0s
+recycle...Recycle: 338
+0s
+recycle...Recycle: 338
+0s
+recycle...Recycle: 338
+0s
+recycle...Recycle: 338
+0s
+mark_saturated t!filter!1
+mark_saturated t
+select_equal_and_project 0 into 18 col: 0 val: 7
+mk_empty
+recycle...Recycle: 338
+0s
+recycle...Recycle: 338
+0s
+clone
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+filter_equal verified
+project...0s
+project...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define x0!43 #b111)
+(define k!0 #b100)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!45 #b111)
+(smt.searching)
+(define k!45 #b111)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 8 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+project verified
+recycle...Recycle: 1129
+0s
+recycle...Recycle: 1129
+0s
+select_equal_and_project 18 into 18 col: 0 val: 6
+mk_empty
+recycle...Recycle: 210
+0s
+recycle...Recycle: 210
+0s
+clone
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+contains_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+contains_fact...0s
+contains_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+filter_equal verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!47 #b110)
+(smt.searching)
+(define k!47 #b110)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 0 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+project verified
+recycle...Recycle: 338
+0s
+recycle...Recycle: 338
+0s
+recycle...Recycle: 338
+0s
+recycle...Recycle: 338
+0s
+union 18 into 4
+union verified
+mark_saturated t!filter!2
+union 4 into 5
+union verified
+mark_saturated q
+store 1 into b
+recycle...Recycle: 200
+0s
+recycle...Recycle: 200
+0s
+store 3 into e
+recycle...Recycle: 200
+0s
+recycle...Recycle: 200
+0s
+store 5 into q
+store 6 into e!sc_2!0
+recycle...Recycle: 617
+0s
+recycle...Recycle: 617
+0s
+store 2 into t!filter!1
+recycle...Recycle: 200
+0s
+recycle...Recycle: 200
+0s
+store 4 into t!filter!2
+store 0 into t
+recycle...Recycle: 200
+0s
+recycle...Recycle: 200
+0s
+bytes 17179869180
+bytes	rows	annotation
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+recycle...Recycle: 338
+0s
+recycle...Recycle: 338
+0s
+recycle...Recycle: 617
+0s
+recycle...Recycle: 617
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 1129
+0s
+recycle...Recycle: 1129
+0s
+recycle...Recycle: 617
+0s
+recycle...Recycle: 617
+0s

@@ -196,7 +196,7 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 		} else if ok {
 			value, x = i.fns.join2(r[0], r[1], i.left, i.right, nil, false)
 		} else if i.kind == "join_project" {
-			value, x = finiteTableJoinProject(first, second, i.left, i.right, i.removed)
+			value, x = finiteTableJoinProjectIn(context.relations, first, second, i.left, i.right, i.removed)
 		} else {
 			value, x = finiteTableJoin(first, second, i.left, i.right)
 		}
@@ -258,7 +258,8 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 		context.stats.Union++
 		target := second
 		if target == nil {
-			target, err = emptyFiniteLike(first)
+			// r_src.get_plugin().mk_empty(r_src)
+			target, err = relationEmptyLike(context.relations, first)
 			if err != nil {
 				return false, err
 			}
@@ -316,7 +317,7 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 				return r.RelationPlugin().Manager().MkRelationRenameFn(r, i.left)
 			})
 		} else if i.kind == "project" {
-			value, err = finiteTableProject(first, i.removed)
+			value, err = finiteTableProjectIn(context.relations, first, i.removed)
 		} else {
 			value, err = finiteTableRename(first, i.left)
 		}
@@ -535,4 +536,14 @@ func (i *tableInstruction) Close() error {
 	}
 	i.closed = true
 	return errors.Join(i.fns.close(), i.accounting.Close())
+}
+
+// relationEmptyLike is table_relation_plugin::mk_empty(orig) of m: a
+// signature the lazy table plugin cannot handle (the empty one) gets the
+// appropriate plugin's table (FORK FIX #107), not a lazy table.
+func relationEmptyLike(m *RelationManager, table FiniteTable) (FiniteTable, error) {
+	if lazy, ok := table.(*LazySparseTable); ok && m != nil && lazy.root.signature.Len() == 0 {
+		return m.newFavouriteFiniteTable(lazy.root.signature)
+	}
+	return emptyFiniteLike(table)
 }

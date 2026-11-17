@@ -1,0 +1,426 @@
+(query)
+(transform N7datalog13mk_coi_filterE...35 rules 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...33 rules 0s)
+(transform N7datalog12mk_bit_blastE...33 rules 0s)
+(transform N7datalog25mk_separate_negated_tailsE...no-op 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_filter_rulesE...no-op 0s)
+(transform N7datalog15mk_simple_joinsE...35 rules 0s)
+load e!bv!0 into 0
+load n!bv!1 into 1
+load c!bv!2 into 2
+load c!bv!2_and_3!split!3 into 3
+load c!bv!2!split!4 into 4
+load q into 5
+mk_unary_singleton into 6 sort:Bool val:0
+mk_unary_singleton into 7 sort:Bool val:1
+join 6() and 7() into 8
+join 8() and 6() into 8
+join 8() and 6() into 8
+join 8() and 7() into 8
+join 8() and 7() into 8
+join 8() and 6() into 8
+join 8() and 7() into 8
+union 8 into 0
+join 7() and 7() into 9
+join 9() and 7() into 9
+join 9() and 6() into 9
+join 9() and 6() into 9
+join 9() and 7() into 9
+join 9() and 6() into 9
+join 9() and 6() into 9
+union 9 into 0
+join 6() and 7() into 10
+join 10() and 6() into 10
+join 10() and 7() into 10
+join 10() and 6() into 10
+join 10() and 6() into 10
+join 10() and 7() into 10
+join 10() and 6() into 10
+union 10 into 0
+join 7() and 7() into 11
+join 11() and 7() into 11
+join 11() and 6() into 11
+join 11() and 7() into 11
+join 11() and 7() into 11
+join 11() and 6() into 11
+join 11() and 7() into 11
+union 11 into 0
+join 7() and 7() into 12
+join 12() and 7() into 12
+join 12() and 6() into 12
+join 12() and 6() into 12
+join 12() and 6() into 12
+join 12() and 6() into 12
+join 12() and 7() into 12
+union 12 into 0
+join 7() and 7() into 13
+join 13() and 7() into 13
+join 13() and 6() into 13
+join 13() and 6() into 13
+join 13() and 6() into 13
+join 13() and 7() into 13
+join 13() and 7() into 13
+union 13 into 0
+join 7() and 6() into 14
+join 14() and 6() into 14
+join 14() and 6() into 14
+join 14() and 6() into 14
+join 14() and 6() into 14
+join 14() and 6() into 14
+join 14() and 6() into 14
+union 14 into 0
+join 6() and 6() into 15
+join 15() and 6() into 15
+join 15() and 7() into 15
+join 15() and 6() into 15
+join 15() and 6() into 15
+join 15() and 6() into 15
+join 15() and 7() into 15
+union 15 into 0
+join 7() and 7() into 16
+join 16() and 7() into 16
+join 16() and 7() into 16
+join 16() and 7() into 16
+join 16() and 7() into 16
+join 16() and 6() into 16
+join 16() and 6() into 16
+union 16 into 0
+join 7() and 7() into 17
+join 17() and 7() into 17
+join 17() and 7() into 17
+join 17() and 7() into 17
+join 17() and 6() into 17
+join 17() and 7() into 17
+join 17() and 7() into 17
+union 17 into 0
+join 6() and 6() into 18
+join 18() and 6() into 18
+join 18() and 7() into 18
+join 18() and 7() into 18
+join 18() and 7() into 18
+join 18() and 6() into 18
+join 18() and 6() into 18
+union 18 into 0
+join 7() and 6() into 19
+join 19() and 6() into 19
+join 19() and 6() into 19
+join 19() and 7() into 19
+join 19() and 7() into 19
+join 19() and 6() into 19
+join 19() and 7() into 19
+union 19 into 0
+join 7() and 7() into 20
+join 20() and 7() into 20
+join 20() and 7() into 20
+join 20() and 7() into 20
+join 20() and 7() into 20
+join 20() and 6() into 20
+join 20() and 7() into 20
+union 20 into 0
+join 6() and 6() into 21
+join 21() and 6() into 21
+join 21() and 7() into 21
+join 21() and 6() into 21
+join 21() and 7() into 21
+join 21() and 7() into 21
+join 21() and 6() into 21
+union 21 into 0
+join 7() and 6() into 22
+join 22() and 7() into 22
+join 22() and 7() into 22
+join 22() and 6() into 22
+join 22() and 6() into 22
+join 22() and 7() into 22
+join 22() and 7() into 22
+union 22 into 0
+join 7() and 6() into 23
+join 23() and 7() into 23
+join 23() and 6() into 23
+join 23() and 7() into 23
+join 23() and 7() into 23
+join 23() and 6() into 23
+join 23() and 7() into 23
+union 23 into 0
+join 6() and 7() into 24
+join 24() and 6() into 24
+join 24() and 6() into 24
+join 24() and 6() into 24
+join 24() and 7() into 24
+join 24() and 7() into 24
+join 24() and 7() into 24
+union 24 into 0
+join 7() and 6() into 25
+join 25() and 6() into 25
+join 25() and 7() into 25
+join 25() and 7() into 25
+join 25() and 7() into 25
+join 25() and 7() into 25
+join 25() and 7() into 25
+union 25 into 0
+join 7() and 7() into 26
+join 26() and 6() into 26
+join 26() and 7() into 26
+join 26() and 6() into 26
+join 26() and 7() into 26
+join 26() and 7() into 26
+join 26() and 6() into 26
+union 26 into 0
+join 6() and 7() into 27
+join 27() and 6() into 27
+join 27() and 7() into 27
+join 27() and 6() into 27
+join 27() and 6() into 27
+join 27() and 7() into 27
+join 27() and 7() into 27
+union 27 into 0
+join 7() and 7() into 28
+join 28() and 6() into 28
+join 28() and 7() into 28
+join 28() and 7() into 28
+join 28() and 6() into 28
+join 28() and 7() into 28
+join 28() and 6() into 28
+union 28 into 0
+join 6() and 7() into 29
+join 29() and 7() into 29
+join 29() and 7() into 29
+join 29() and 7() into 29
+join 29() and 7() into 29
+join 29() and 6() into 29
+join 29() and 7() into 29
+union 29 into 0
+join 6() and 6() into 30
+join 30() and 6() into 30
+join 30() and 7() into 30
+join 30() and 6() into 30
+join 30() and 6() into 30
+join 30() and 7() into 30
+join 30() and 6() into 30
+union 30 into 0
+join 7() and 7() into 31
+join 31() and 7() into 31
+join 31() and 6() into 31
+join 31() and 7() into 31
+join 31() and 6() into 31
+join 31() and 7() into 31
+join 31() and 6() into 31
+union 31 into 0
+mark_saturated e!bv!0
+join_project 0:8-4294967295(4,5,6,7) and 0:8-4294967295(0,1,2,3) into 32 removing columns (4,5,6,7,8,9,10,11)
+project...0s
+recycle...Recycle: 1181
+0s
+new type returned
+union 32 into 3
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+recycle...Recycle: 1129
+0s
+mark_saturated c!bv!2_and_3!split!3
+join_project 3:8-27(0,1,2,3) and 0:8-4294967295(4,5,6,7) into 33 removing columns (0,1,2,3,12,13,14,15)
+project...0s
+recycle...Recycle: 1181
+0s
+union 33 into 4
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+recycle...Recycle: 1129
+0s
+mark_saturated c!bv!2!split!4
+join_project 3:8-27(4,5,6,7) and 0:8-4294967295(0,1,2,3) into 36 removing columns (4,5,6,7,8,9,10,11)
+project...0s
+recycle...Recycle: 1181
+0s
+union 36 into 2
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+recycle...Recycle: 1129
+0s
+clone 2 into 34
+while(34)
+    join_project 34:8-22(4,5,6,7) and 4:8-22(4,5,6,7) into 37 removing columns (4,5,6,7,12,13,14,15)
+    union 37 into 2 with delta 35
+    dealloc 37
+    move 35 into 34
+looping ... 0
+join_project 34:8-22(4,5,6,7) and 4:8-22(4,5,6,7) into 37 removing columns (4,5,6,7,12,13,14,15)
+join_project...get_key_indexer...0s
+0s
+union 37 into 2 with delta 35
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+recycle...Recycle: 617
+0s
+move 35 into 34
+recycle...Recycle: 1129
+0s
+looping ... 1
+join_project 34:8-10(4,5,6,7) and 4:8-22(4,5,6,7) into 37 removing columns (4,5,6,7,12,13,14,15)
+join_project...get_key_indexer...0s
+0s
+union 37 into 2 with delta 35
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+recycle...Recycle: 617
+0s
+recycle...Recycle: 617
+0s
+recycle...Recycle: 338
+0s
+mark_saturated c!bv!2
+join 6() and 6() into 38
+join 38() and 6() into 38
+join 38() and 6() into 38
+union 38 into 1
+join 6() and 6() into 39
+join 39() and 7() into 39
+join 39() and 6() into 39
+union 39 into 1
+join 6() and 6() into 40
+join 40() and 7() into 40
+join 40() and 6() into 40
+union 40 into 1
+join 6() and 6() into 41
+join 41() and 7() into 41
+join 41() and 7() into 41
+union 41 into 1
+join 6() and 6() into 42
+join 42() and 7() into 42
+join 42() and 6() into 42
+union 42 into 1
+join 7() and 7() into 43
+join 43() and 7() into 43
+join 43() and 7() into 43
+union 43 into 1
+mark_saturated n!bv!1
+join_project 2:8-32(4,5,6,7) and 1:4-4294967295(0,1,2,3) into 44 removing columns (0,1,2,3,4,5,6,7,8,9,10,11)
+recycle...Recycle: 210
+0s
+new type returned
+union 44 into 5
+mark_saturated q
+store 3 into c!bv!2_and_3!split!3
+store 5 into q
+store 1 into n!bv!1
+store 4 into c!bv!2!split!4
+store 2 into c!bv!2
+store 0 into e!bv!0
+bytes 8589934590
+bytes	rows	annotation
+4294967295	4294967295	
+4294967295	4294967295	
+recycle...Recycle: 1129
+0s
+recycle...Recycle: 1129
+0s
+recycle...Recycle: 617
+0s

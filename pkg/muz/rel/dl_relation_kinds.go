@@ -627,6 +627,11 @@ func (p *TableRelationPlugin) MkJoinFn(r1, r2 RelationBase, cols1, cols2 []int) 
 		if err != nil {
 			return nil, err
 		}
+		// tr_join_project_fn: a table of another plugin than the first
+		// relation's ("new type returned").
+		if err = newTableTypeVerbose(x.table, t); err != nil {
+			return nil, errors.Join(err, t.Close())
+		}
 		return p.manager.tableView(t, sorts, false), nil
 	}, nil
 }
@@ -645,9 +650,14 @@ func (p *TableRelationPlugin) MkJoinProjectFn(r1, r2 RelationBase, cols1, cols2,
 		if x == nil || y == nil {
 			return nil, ErrInstruction
 		}
-		t, err := finiteTableJoinProject(x.table, y.table, cols1, cols2, removed)
+		t, err := finiteTableJoinProjectIn(p.manager, x.table, y.table, cols1, cols2, removed)
 		if err != nil {
 			return nil, err
+		}
+		// tr_join_project_fn: a table of another plugin than the first
+		// relation's ("new type returned").
+		if err = newTableTypeVerbose(x.table, t); err != nil {
+			return nil, errors.Join(err, t.Close())
 		}
 		return p.manager.tableView(t, sorts, false), nil
 	}, nil
@@ -663,7 +673,7 @@ func (p *TableRelationPlugin) MkProjectFn(r RelationBase, removed []int) (Relati
 		if !ok {
 			return nil, ErrInstruction
 		}
-		t, err := finiteTableProject(x.table, removed)
+		t, err := finiteTableProjectIn(p.manager, x.table, removed)
 		if err != nil {
 			return nil, err
 		}

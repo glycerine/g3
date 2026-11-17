@@ -1,0 +1,238 @@
+(query)
+(transform N7datalog13mk_coi_filterE...8 rules 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...no-op 0s)
+(transform N7datalog25mk_separate_negated_tailsE...no-op 0s)
+(transform N7datalog15mk_filter_rulesE...9 rules 0s)
+(transform N7datalog15mk_simple_joinsE...10 rules 0s)
+load e into 0
+load b into 1
+load t into 2
+load t!split!1 into 3
+load t!filter!0 into 4
+load r into 5
+load q into 6
+mk_unary_singleton into 7 sort:(_ BitVec 2) val:1
+add_fact verified
+union 7 into 1
+union...add_fact...0s
+0s
+union verified
+mark_saturated b
+mk_unary_singleton into 8 sort:(_ BitVec 2) val:0
+add_fact verified
+join 8() and 8() into 9
+join_project...0s
+join verified
+union 9 into 0
+union...add_fact...0s
+0s
+union verified
+recycle...Recycle: 204
+0s
+mk_unary_singleton into 10 sort:(_ BitVec 2) val:2
+add_fact verified
+mk_unary_singleton into 11 sort:(_ BitVec 2) val:3
+add_fact verified
+join 10() and 11() into 12
+join_project...0s
+join verified
+union 12 into 0
+union...add_fact...0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+recycle...Recycle: 204
+0s
+join 8() and 10() into 13
+join_project...0s
+join verified
+union 13 into 0
+union...add_fact...0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+recycle...Recycle: 204
+0s
+mark_saturated e
+join_project 0:2-3(1) and 1:1-1(0) into 14 removing columns (1)
+join_project...get_key_indexer...0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+join_project verified
+recycle...Recycle: 204
+0s
+mark_saturated t!split!1
+union 0 into 2
+union...add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+union verified
+clone 2 into 15
+recycle...Recycle: 200
+0s
+while(15)
+    join_project 3(1) and 15:2-3(1) into 17 removing columns (1,3)
+    rename 17 into 17 with cycle (0,1)
+    union 17 into 2 with delta 16
+    dealloc 17
+    move 16 into 15
+looping ... 0
+join_project 3(1) and 15:2-3(1) into 17 removing columns (1,3)
+recycle...Recycle: 204
+0s
+mark_saturated t
+clone 2 into 18
+recycle...Recycle: 204
+0s
+filter_identical 18 (0,1)
+remove_fact...0s
+remove_fact...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 1)
+filter verified
+project 18 into 18 deleting columns (0)
+project...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(define k!0 #b00)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!5 #b00)
+(smt.searching)
+(define k!5 #b00)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 4 :conflicts 1 :restart 100 :restart-outer 100 :agility 0)
+project verified
+recycle...Recycle: 204
+0s
+union 18 into 4
+union...add_fact...0s
+0s
+union verified
+recycle...Recycle: 204
+0s
+mark_saturated t!filter!0
+union 4 into 5
+union...add_fact...0s
+0s
+union verified
+mark_saturated r
+project 5 into 19 deleting columns (0)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!7 #b00)
+(smt.searching)
+(define k!7 #b00)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 0 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+project verified
+union 19 into 6
+union verified
+mark_saturated q
+store 3 into t!split!1
+recycle...Recycle: 200
+0s
+store 0 into e
+recycle...Recycle: 200
+0s
+store 4 into t!filter!0
+recycle...Recycle: 200
+0s
+store 5 into r
+recycle...Recycle: 200
+0s
+store 6 into q
+store 1 into b
+recycle...Recycle: 200
+0s
+store 2 into t
+recycle...Recycle: 200
+0s
+bytes 17179869180
+bytes	rows	annotation
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 204
+0s

@@ -1,0 +1,191 @@
+(query)
+(transform N7datalog13mk_coi_filterE...34 rules 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...33 rules 0s)
+(transform N7datalog25mk_separate_negated_tailsE...no-op 0s)
+(transform N7datalog24mk_similarity_compressorE...8 rules 0s)
+(transform N7datalog15mk_filter_rulesE...9 rules 0s)
+(transform N7datalog15mk_simple_joinsE...no-op 0s)
+load t into 0
+load e into 1
+load n!filter!1 into 2
+load n into 3
+load q into 4
+load e!sc_2!0 into 5
+clone...0s
+union 5 into 1
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+mark_saturated e
+mk_unary_singleton into 6 sort:(_ BitVec 2) val:0
+union 6 into 3
+union...union...add_fact...0s
+0s
+0s
+mk_unary_singleton into 7 sort:(_ BitVec 2) val:1
+union 7 into 3
+union...union...add_fact...0s
+0s
+0s
+mk_unary_singleton into 8 sort:(_ BitVec 2) val:2
+union 8 into 3
+union...union...add_fact...0s
+0s
+0s
+union 7 into 3
+union...union...add_fact...0s
+0s
+0s
+mark_saturated n
+union 1 into 0
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+clone 0 into 9
+clone...0s
+while(9)
+    join_project 1:2-1(0) and 9:2-1(1) into 11 removing columns (0,3)
+    rename 11 into 11 with cycle (0,1)
+    union 11 into 0 with delta 10
+    dealloc 11
+    move 10 into 9
+looping ... 0
+join_project 1:2-1(0) and 9:2-1(1) into 11 removing columns (0,3)
+join_project...join_project...get_key_indexer...0s
+0s
+0s
+rename 11 into 11 with cycle (0,1)
+union 11 into 0 with delta 10
+rename...rename...0s
+0s
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+recycle...Recycle: 603
+0s
+recycle...Recycle: 603
+0s
+move 10 into 9
+recycle...Recycle: 603
+0s
+looping ... 1
+join_project 1:2-1(0) and 9:2-1(1) into 11 removing columns (0,3)
+join_project...join_project...get_key_indexer...0s
+0s
+0s
+rename 11 into 11 with cycle (0,1)
+union 11 into 0 with delta 10
+rename...rename...0s
+0s
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+recycle...Recycle: 603
+0s
+recycle...Recycle: 347
+0s
+recycle...Recycle: 347
+0s
+recycle...Recycle: 204
+0s
+mark_saturated t
+select_equal_and_project 3 into 12 col: 0 val: 2
+clone...0s
+filter_equal...remove_fact...0s
+remove_fact...0s
+0s
+select_equal_project...recycle...Recycle: 204
+0s
+0s
+union 12 into 2
+recycle...Recycle: 204
+0s
+mark_saturated n!filter!1
+join 2() and 8() into 13
+join 13() and 8() into 13
+filter_by_negation on 13(0,1) with 0(0,1) as the negated table
+contains_fact...0s
+mark_saturated q
+store 5 into e!sc_2!0
+recycle...Recycle: 603
+0s
+store 1 into e
+recycle...Recycle: 200
+0s
+store 4 into q
+store 2 into n!filter!1
+store 3 into n
+recycle...Recycle: 200
+0s
+store 0 into t
+recycle...Recycle: 200
+0s
+bytes 3
+bytes	rows	annotation
+recycle...Recycle: 603
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 603
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 603
+0s

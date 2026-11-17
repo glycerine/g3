@@ -297,6 +297,10 @@ func (r *CheckRelation) setFml(f ast.ASTHandle) error {
 
 // refreshFml is r.rb().to_formula(r.m_fml).
 func (r *CheckRelation) refreshFml() error {
+	// A table relation's to_formula writes into m_fml itself.
+	if v, ok := r.relation.(*tableRelationView); ok {
+		return v.toFormulaInto(r.fml)
+	}
 	f, err := r.relation.ToFormula()
 	if err != nil {
 		return err
@@ -418,8 +422,9 @@ func (r *CheckRelation) addFact(s *astScope, values []ast.ASTHandle, add func() 
 	s.end(t)
 	// check_equiv("add_fact", ground(m_fml), ground(fml1)).
 	t = s.child()
-	g1 := p.ground(t, r, t.get(r.fml), t.local())
+	// The fork's g++ evaluates check_equiv's arguments right to left.
 	g2 := p.ground(t, r, t.get(fml1), t.local())
+	g1 := p.ground(t, r, t.get(r.fml), t.local())
 	if t.err == nil {
 		t.fail(p.checkEquiv("add_fact", g1, g2))
 	}
@@ -520,8 +525,9 @@ func (r *CheckRelation) Contains(f Fact) (_ bool, resultErr error) {
 	}
 	if result {
 		t = s.child()
-		g1 := p.ground(t, r, t.get(fml1), t.local())
+		// The fork's g++ evaluates check_equiv's arguments right to left.
 		g2 := p.ground(t, r, t.get(fml2), t.local())
+		g1 := p.ground(t, r, t.get(fml1), t.local())
 		if t.err == nil {
 			t.fail(p.checkEquiv("contains fact", g1, g2))
 		}
@@ -577,8 +583,9 @@ func (r *CheckRelation) clone() (_ *CheckRelation, resultErr error) {
 	}
 	if a != b {
 		s := &astScope{m: p.m}
-		g1 := p.ground(s, r, a, s.local())
+		// The fork's g++ evaluates check_equiv's arguments right to left.
 		g2 := p.ground(s, r, b, s.local())
+		g1 := p.ground(s, r, a, s.local())
 		if s.err == nil {
 			s.fail(p.checkEquiv("clone", g1, g2))
 		}
@@ -652,12 +659,16 @@ func (p *CheckRelationPlugin) mkEmptyPlaceholder(sorts []ast.ASTHandle) (Relatio
 	return result, nil
 }
 
-// completeCreation runs a placeholder's deferred mk_empty check.
+// completeCreation runs a placeholder's deferred mk_empty: m_base's
+// mk_empty (a check table's verbose line), then the check.
 func (r *CheckRelation) completeCreation() error {
 	if !r.pendingEmpty {
 		return nil
 	}
 	r.pendingEmpty = false
+	if err := completeRelationCreation(r.relation); err != nil {
+		return err
+	}
 	return r.plugin.checkConstant(r, false, "mk_empty")
 }
 
@@ -1529,8 +1540,9 @@ func (p *CheckRelationPlugin) MkFilterEqualFn(t RelationBase, value ast.ASTHandl
 		}
 		s.at(fml).set(m.MkAnd(s.get(fml), eq))
 		x := s.child()
-		g1 := p.ground(x, t, x.get(fml), x.local())
+		// The fork's g++ evaluates check_equiv's arguments right to left.
 		g2 := p.ground(x, t, x.get(t.fml), x.local())
+		g1 := p.ground(x, t, x.get(fml), x.local())
 		if x.err == nil {
 			x.fail(p.checkEquiv("filter_equal", g1, g2))
 		}

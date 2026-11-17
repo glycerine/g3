@@ -1,0 +1,979 @@
+(query)
+(transform N7datalog13mk_coi_filterE...19 rules 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...18 rules 0s)
+(transform N7datalog12mk_bit_blastE...18 rules 0s)
+(transform N7datalog25mk_separate_negated_tailsE...no-op 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_filter_rulesE...19 rules 0s)
+(transform N7datalog15mk_simple_joinsE...20 rules 0s)
+load e!bv!0 into 0
+load b!bv!1 into 1
+load t!bv!2 into 2
+load t!bv!2!split!4 into 3
+load t!bv!2!filter!3 into 4
+load q into 5
+mk_unary_singleton into 6 sort:Bool val:0
+add_fact verified
+mk_unary_singleton into 7 sort:Bool val:1
+add_fact verified
+join 6() and 7() into 8
+join...join_project...0s
+0s
+join verified
+join 8() and 7() into 8
+join...join_project...0s
+0s
+join verified
+join 8() and 6() into 8
+join...join_project...0s
+0s
+join verified
+join 8() and 7() into 8
+join...join_project...0s
+0s
+join verified
+join 8() and 6() into 8
+join...join_project...0s
+0s
+join verified
+join 8() and 7() into 8
+join...join_project...0s
+0s
+join verified
+join 8() and 6() into 8
+join...join_project...0s
+0s
+join verified
+union 8 into 0
+union...union...add_fact...0s
+0s
+0s
+union verified
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+join 7() and 7() into 9
+join...join_project...0s
+0s
+join verified
+join 9() and 7() into 9
+join...join_project...0s
+0s
+join verified
+join 9() and 7() into 9
+join...join_project...0s
+0s
+join verified
+join 9() and 6() into 9
+join...join_project...0s
+0s
+join verified
+join 9() and 6() into 9
+join...join_project...0s
+0s
+join verified
+join 9() and 6() into 9
+join...join_project...0s
+0s
+join verified
+join 9() and 6() into 9
+join...join_project...0s
+0s
+join verified
+union 9 into 0
+union...union...add_fact...0s
+0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+join 6() and 6() into 10
+join...join_project...0s
+0s
+join verified
+join 10() and 7() into 10
+join...join_project...0s
+0s
+join verified
+join 10() and 6() into 10
+join...join_project...0s
+0s
+join verified
+join 10() and 6() into 10
+join...join_project...0s
+0s
+join verified
+join 10() and 6() into 10
+join...join_project...0s
+0s
+join verified
+join 10() and 7() into 10
+join...join_project...0s
+0s
+join verified
+join 10() and 7() into 10
+join...join_project...0s
+0s
+join verified
+union 10 into 0
+union...union...add_fact...0s
+0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+join 6() and 6() into 11
+join...join_project...0s
+0s
+join verified
+join 11() and 7() into 11
+join...join_project...0s
+0s
+join verified
+join 11() and 6() into 11
+join...join_project...0s
+0s
+join verified
+join 11() and 7() into 11
+join...join_project...0s
+0s
+join verified
+join 11() and 7() into 11
+join...join_project...0s
+0s
+join verified
+join 11() and 7() into 11
+join...join_project...0s
+0s
+join verified
+join 11() and 7() into 11
+join...join_project...0s
+0s
+join verified
+union 11 into 0
+union...union...add_fact...0s
+0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+join 7() and 6() into 12
+join...join_project...0s
+0s
+join verified
+join 12() and 7() into 12
+join...join_project...0s
+0s
+join verified
+join 12() and 6() into 12
+join...join_project...0s
+0s
+join verified
+join 12() and 7() into 12
+join...join_project...0s
+0s
+join verified
+join 12() and 6() into 12
+join...join_project...0s
+0s
+join verified
+join 12() and 6() into 12
+join...join_project...0s
+0s
+join verified
+join 12() and 6() into 12
+join...join_project...0s
+0s
+join verified
+union 12 into 0
+union...union...add_fact...0s
+0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 2)
+union verified
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+join 7() and 7() into 13
+join...join_project...0s
+0s
+join verified
+join 13() and 6() into 13
+join...join_project...0s
+0s
+join verified
+join 13() and 6() into 13
+join...join_project...0s
+0s
+join verified
+join 13() and 6() into 13
+join...join_project...0s
+0s
+join verified
+join 13() and 7() into 13
+join...join_project...0s
+0s
+join verified
+join 13() and 7() into 13
+join...join_project...0s
+0s
+join verified
+join 13() and 7() into 13
+join...join_project...0s
+0s
+join verified
+union 13 into 0
+union...union...add_fact...0s
+0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 3)
+union verified
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+join 7() and 6() into 14
+join...join_project...0s
+0s
+join verified
+join 14() and 6() into 14
+join...join_project...0s
+0s
+join verified
+join 14() and 7() into 14
+join...join_project...0s
+0s
+join verified
+join 14() and 6() into 14
+join...join_project...0s
+0s
+join verified
+join 14() and 7() into 14
+join...join_project...0s
+0s
+join verified
+join 14() and 6() into 14
+join...join_project...0s
+0s
+join verified
+join 14() and 6() into 14
+join...join_project...0s
+0s
+join verified
+union 14 into 0
+union...union...add_fact...0s
+0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+join 7() and 7() into 15
+join...join_project...0s
+0s
+join verified
+join 15() and 7() into 15
+join...join_project...0s
+0s
+join verified
+join 15() and 7() into 15
+join...join_project...0s
+0s
+join verified
+join 15() and 6() into 15
+join...join_project...0s
+0s
+join verified
+join 15() and 7() into 15
+join...join_project...0s
+0s
+join verified
+join 15() and 7() into 15
+join...join_project...0s
+0s
+join verified
+join 15() and 7() into 15
+join...join_project...0s
+0s
+join verified
+union 15 into 0
+union...union...add_fact...0s
+0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 5)
+union verified
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+join 6() and 7() into 16
+join...join_project...0s
+0s
+join verified
+join 16() and 6() into 16
+join...join_project...0s
+0s
+join verified
+join 16() and 6() into 16
+join...join_project...0s
+0s
+join verified
+join 16() and 6() into 16
+join...join_project...0s
+0s
+join verified
+join 16() and 7() into 16
+join...join_project...0s
+0s
+join verified
+join 16() and 6() into 16
+join...join_project...0s
+0s
+join verified
+join 16() and 6() into 16
+join...join_project...0s
+0s
+join verified
+union 16 into 0
+union...union...add_fact...0s
+0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+join 7() and 6() into 17
+join...join_project...0s
+0s
+join verified
+join 17() and 6() into 17
+join...join_project...0s
+0s
+join verified
+join 17() and 7() into 17
+join...join_project...0s
+0s
+join verified
+join 17() and 7() into 17
+join...join_project...0s
+0s
+join verified
+join 17() and 6() into 17
+join...join_project...0s
+0s
+join verified
+join 17() and 6() into 17
+join...join_project...0s
+0s
+join verified
+join 17() and 7() into 17
+join...join_project...0s
+0s
+join verified
+union 17 into 0
+union...union...add_fact...0s
+0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+join 7() and 7() into 18
+join...join_project...0s
+0s
+join verified
+join 18() and 7() into 18
+join...join_project...0s
+0s
+join verified
+join 18() and 6() into 18
+join...join_project...0s
+0s
+join verified
+join 18() and 7() into 18
+join...join_project...0s
+0s
+join verified
+join 18() and 7() into 18
+join...join_project...0s
+0s
+join verified
+join 18() and 6() into 18
+join...join_project...0s
+0s
+join verified
+join 18() and 6() into 18
+join...join_project...0s
+0s
+join verified
+union 18 into 0
+union...union...add_fact...0s
+0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+join 6() and 7() into 19
+join...join_project...0s
+0s
+join verified
+join 19() and 7() into 19
+join...join_project...0s
+0s
+join verified
+join 19() and 7() into 19
+join...join_project...0s
+0s
+join verified
+join 19() and 7() into 19
+join...join_project...0s
+0s
+join verified
+join 19() and 7() into 19
+join...join_project...0s
+0s
+join verified
+join 19() and 6() into 19
+join...join_project...0s
+0s
+join verified
+join 19() and 6() into 19
+join...join_project...0s
+0s
+join verified
+union 19 into 0
+union...union...add_fact...0s
+0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+mark_saturated e!bv!0
+join 6() and 6() into 20
+join...join_project...0s
+0s
+join verified
+join 20() and 7() into 20
+join...join_project...0s
+0s
+join verified
+join 20() and 6() into 20
+join...join_project...0s
+0s
+join verified
+union 20 into 1
+union...union...add_fact...0s
+0s
+0s
+union verified
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+join 7() and 6() into 21
+join...join_project...0s
+0s
+join verified
+join 21() and 7() into 21
+join...join_project...0s
+0s
+join verified
+join 21() and 7() into 21
+join...join_project...0s
+0s
+join verified
+union 21 into 1
+union...union...add_fact...0s
+0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+join 6() and 6() into 22
+join...join_project...0s
+0s
+join verified
+join 22() and 6() into 22
+join...join_project...0s
+0s
+join verified
+join 22() and 7() into 22
+join...join_project...0s
+0s
+join verified
+union 22 into 1
+union...union...add_fact...0s
+0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+mark_saturated b!bv!1
+join_project 0:8-1(4,5,6,7) and 1:4-1(0,1,2,3) into 23 removing columns (4,5,6,7)
+join_project...join_project...get_key_indexer...0s
+0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+join_project verified
+recycle...Recycle: 204
+0s
+mark_saturated t!bv!2!split!4
+union 0 into 2
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+union verified
+clone 2 into 24
+recycle...Recycle: 200
+0s
+clone...0s
+while(24)
+    union 0 into 2 with delta 25
+    join_project 3(4,5,6,7) and 2:8-1(4,5,6,7) into 26 removing columns (4,5,6,7,12,13,14,15)
+    rename 26 into 26 with cycle (0,4)
+    rename 26 into 26 with cycle (1,5)
+    rename 26 into 26 with cycle (2,6)
+    rename 26 into 26 with cycle (3,7)
+    union 26 into 2 with delta 25
+    dealloc 26
+    move 25 into 24
+looping ... 0
+union 0 into 2 with delta 25
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+union verified
+verify delta false
+union_delta low verified
+union delta0 verified
+union no overflow verified
+recycle...Recycle: 200
+0s
+join_project 3(4,5,6,7) and 2:8-1(4,5,6,7) into 26 removing columns (4,5,6,7,12,13,14,15)
+recycle...Recycle: 347
+0s
+mark_saturated t!bv!2
+clone 2 into 27
+recycle...Recycle: 347
+0s
+clone...0s
+filter_identical 27 (0,4)
+filter_identical...remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+filter verified
+filter_identical 27 (1,5)
+filter_identical...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 3)
+filter verified
+filter_identical 27 (2,6)
+filter_identical...remove_fact...0s
+remove_fact...0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 7)
+filter verified
+filter_identical 27 (3,7)
+filter_identical...remove_fact...0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+filter verified
+project 27 into 27 deleting columns (0,1,2,3,4,5,6,7)
+project...0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!17 false)
+(define k!18 true)
+(define k!19 false)
+(define k!20 false)
+(define k!21 false)
+(define k!22 true)
+(define k!23 false)
+(define k!24 false)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 4)
+(define k!17 false)
+(define k!18 true)
+(define k!19 false)
+(define k!20 false)
+(define k!21 false)
+(define k!22 true)
+(define k!23 false)
+(define k!24 false)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 0 :decisions 0 :conflicts 0 :restart 100 :restart-outer 100 :agility 0)
+project verified
+union 27 into 4
+union verified
+recycle...Recycle: 347
+0s
+mark_saturated t!bv!2!filter!3
+union 4 into 5
+union verified
+mark_saturated q
+store 3 into t!bv!2!split!4
+recycle...Recycle: 200
+0s
+store 5 into q
+store 2 into t!bv!2
+recycle...Recycle: 200
+0s
+store 4 into t!bv!2!filter!3
+store 1 into b!bv!1
+recycle...Recycle: 200
+0s
+store 0 into e!bv!0
+recycle...Recycle: 200
+0s
+bytes 8589934590
+bytes	rows	annotation
+4294967295	1	
+4294967295	1	
+recycle...Recycle: 347
+0s
+recycle...Recycle: 347
+0s
+recycle...Recycle: 347
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 200
+0s

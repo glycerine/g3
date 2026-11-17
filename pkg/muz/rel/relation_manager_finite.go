@@ -44,7 +44,8 @@ func (m *RelationManager) GetFiniteRelation(predicate ast.ASTHandle) (FiniteTabl
 		if err = m.StoreFiniteRelation(predicate, relation); err != nil {
 			return nil, errors.Join(err, relation.Close())
 		}
-		return relation, nil
+		// get_relation's mk_empty_relation runs whole.
+		return relation, completeRelationCreation(relation)
 	}
 	_, signature, err := m.PredicateSignature(predicate)
 	if err != nil {

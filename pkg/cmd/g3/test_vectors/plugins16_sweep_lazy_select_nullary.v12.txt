@@ -1,0 +1,365 @@
+(query)
+mk_empty
+(transform N7datalog13mk_coi_filterE...19 rules 0s)
+(transform N7datalog25mk_interp_tail_simplifierE...no-op 0s)
+(transform N7datalog15mk_rule_inlinerE...18 rules 0s)
+(transform N7datalog25mk_separate_negated_tailsE...no-op 0s)
+(transform N7datalog24mk_similarity_compressorE...add_fact verified
+add_fact verified
+add_fact verified
+add_fact verified
+add_fact verified
+add_fact verified
+add_fact verified
+add_fact verified
+add_fact verified
+add_fact verified
+add_fact verified
+add_fact verified
+7 rules 0s)
+(transform N7datalog15mk_filter_rulesE...8 rules 0s)
+(transform N7datalog15mk_simple_joinsE...no-op 0s)
+(transform N7datalog21mk_unbound_compressorE...no-op 0s)
+load t into 0
+load e into 1
+load n!filter!1 into 2
+mk_empty
+load n into 3
+load q into 4
+load e!sc_2!0 into 5
+recycle...Recycle: 200
+0s
+clone...0s
+union 5 into 1
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+union verified
+mark_saturated e
+mk_unary_singleton into 6 sort:(_ BitVec 4) val:13
+add_fact verified
+union 6 into 3
+union...union...add_fact...0s
+0s
+0s
+union verified
+mk_unary_singleton into 7 sort:(_ BitVec 4) val:14
+add_fact verified
+union 7 into 3
+union...union...add_fact...0s
+0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+mk_unary_singleton into 8 sort:(_ BitVec 4) val:1
+add_fact verified
+union 8 into 3
+union...union...add_fact...0s
+0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+union verified
+mark_saturated n
+union 1 into 0
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+union verified
+clone 0 into 9
+recycle...Recycle: 200
+0s
+clone...0s
+while(9)
+    join_project 1:2-1(0) and 9:2-1(1) into 11 removing columns (0,3)
+    rename 11 into 11 with cycle (0,1)
+    union 11 into 0 with delta 10
+    dealloc 11
+    move 10 into 9
+looping ... 0
+join_project 1:2-1(0) and 9:2-1(1) into 11 removing columns (0,3)
+join_project...join_project...get_key_indexer...0s
+0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define x1!2 #x1)
+(define x0!3 #x3)
+(define k!0 #xa)
+(define k!1 #x8)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!6 #xe)
+(define k!5 #xe)
+(smt.searching)
+(define k!6 #xe)
+(define k!5 #xe)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 72 :decisions 227 :conflicts 16 :restart 100 :restart-outer 100 :agility 0.00256841)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(define k!0 #x6)
+(define k!1 #x5)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!9 #xf)
+(define k!8 #xf)
+(smt.searching)
+(define k!9 #xf)
+(define k!8 #xf)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 88 :decisions 290 :conflicts 17 :restart 100 :restart-outer 100 :agility 0.00313322)
+(define k!0 #x3)
+(define k!1 #xd)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!11 #xb)
+(define k!12 #xb)
+(smt.searching)
+(define k!11 #xb)
+(define k!12 #xb)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 109 :decisions 348 :conflicts 20 :restart 100 :restart-outer 100 :agility 0.00359425)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(define k!0 #x3)
+(define k!1 #x5)
+(smt.mbqi)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(define k!14 #x2)
+(define k!15 #x2)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(define k!14 #x2)
+(define k!15 #x2)
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 1)
+(smt.mbqi :failed null)
+(smt.restarting :propagations 123 :decisions 390 :conflicts 20 :restart 100 :restart-outer 100 :agility 0.00385971)
+(smt.simplifying-clause-set :num-deleted-clauses 28)
+join_project verified
+rename 11 into 11 with cycle (0,1)
+rename...rename...0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 4)
+permutation verified
+union 11 into 0 with delta 10
+union...union...add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+add_fact...0s
+0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union verified
+verify delta (or (and (= (:var 0) #xd) (= (:var 1) #x3))
+    (and (= (:var 0) #x8) (= (:var 1) #xa))
+    (and (= (:var 0) #x5) (= (:var 1) #x6))
+    (and (= (:var 0) #x5) (= (:var 1) #x3)))
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union_delta low verified
+union delta0 verified
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+union no overflow verified
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+move 10 into 9
+recycle...Recycle: 347
+0s
+looping ... 1
+join_project 1:2-1(0) and 9:2-1(1) into 11 removing columns (0,3)
+join_project...join_project...get_key_indexer...0s
+0s
+0s
+(smt.propagate-values)
+(smt.nnf-cnf)
+(smt.reduce-asserted)
+(smt.refine-injectivity)
+(smt.pattern-inference)
+(smt.maximizing-bv-sharing)
+(smt.reduce-asserted)
+(smt.simplifier-done)
+(smt.searching)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(smt.simplifying-clause-set :num-deleted-clauses 0)
+(smt.simplifying-clause-set :num-deleted-clauses 42)
+join_project verified
+recycle...Recycle: 347
+0s
+recycle...Recycle: 204
+0s
+mark_saturated t
+select_equal_and_project 3 into 12 col: 0 val: 12
+recycle...Recycle: 200
+0s
+clone...0s
+filter_equal...remove_fact...0s
+remove_fact...0s
+remove_fact...0s
+0s
+(smt.propagate-values)
+filter_equal verified
+select_equal_project...mk_empty
+recycle...Recycle: 204
+0s
+0s
+project verified
+recycle...Recycle: 204
+0s
+mark_saturated n!filter!1
+mk_unary_singleton into 13 sort:(_ BitVec 4) val:12
+add_fact verified
+join 2() and 13() into 14
+join 14() and 13() into 14
+filter_by_negation on 14(0,1) with 0(0,1) as the negated table
+mark_saturated q
+store 5 into e!sc_2!0
+recycle...Recycle: 347
+0s
+store 1 into e
+recycle...Recycle: 200
+0s
+store 4 into q
+mk_empty
+store 2 into n!filter!1
+mk_empty
+store 3 into n
+recycle...Recycle: 200
+0s
+store 0 into t
+recycle...Recycle: 200
+0s
+bytes 17179869180
+bytes	rows	annotation
+4294967295	1	
+4294967295	1	
+4294967295	1	
+4294967295	1	
+recycle...Recycle: 347
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 347
+0s
+recycle...Recycle: 200
+0s
+recycle...Recycle: 204
+0s
+recycle...Recycle: 603
+0s
