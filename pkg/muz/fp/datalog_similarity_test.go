@@ -1,7 +1,9 @@
 package fp
 
 import (
+	"errors"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/rel"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
@@ -27,6 +29,30 @@ func similarityTestGoal(t *testing.T, engine *PropositionalEngine, m *ast.ASTMan
 	fragmentMust(t, e)
 	fragmentMust(t, engine.addRuleEager(implication, "goal"))
 	return goal
+}
+
+// applyDatalogSimilarity runs the similarity compressor alone on the
+// engine's rules (the query pipeline registers it with the other
+// transformations), for inspecting its result.
+func (e *PropositionalEngine) applyDatalogSimilarity(outputs []ast.ASTHandle) (resultErr error) {
+	plugin, err := e.datalogSimilarityPlugin(outputs)
+	if err != nil || plugin == nil {
+		return err
+	}
+	transformer := base.NewRuleTransformer()
+	if err = transformer.Register(plugin); err != nil {
+		return errors.Join(err, plugin.Close(), transformer.Close())
+	}
+	defer func() { resultErr = errors.Join(resultErr, transformer.Close()) }()
+	modified, err := transformer.Apply(e.set)
+	if err != nil || !modified {
+		return err
+	}
+	if err = e.installDatalogSimilarityPredicates(plugin); err != nil {
+		return err
+	}
+	e.revision++
+	return nil
 }
 
 // Inspect transformation internals while their source query scope is alive;

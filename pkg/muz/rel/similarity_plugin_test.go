@@ -47,7 +47,7 @@ func TestFiniteSimilarityCompressorTransformerAndExecution(t *testing.T) {
 	if !valid {
 		t.Fatal("source stratification")
 	}
-	plugin, e := NewFiniteSimilarityCompressor(ctx, relations, 2)
+	plugin, e := NewFiniteSimilarityCompressorForRulesWithRequestedKinds(rm, relations, 2, nil, nil)
 	astTestMust(t, e)
 	transformer := base.NewRuleTransformer()
 	astTestMust(t, transformer.Register(plugin))

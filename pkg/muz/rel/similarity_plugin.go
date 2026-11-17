@@ -14,7 +14,6 @@ import (
 // manager. Unsupported fact domains return an error rather than being skipped.
 type FiniteSimilarityCompressor struct {
 	self      *FiniteSimilarityCompressor
-	context   *base.DatalogContext
 	rules     *base.RuleManager
 	relations *RelationManager
 	fresh     []ast.ASTHandle
@@ -23,35 +22,6 @@ type FiniteSimilarityCompressor struct {
 	protected map[ast.ASTHandle]bool
 	threshold uint32
 	closed    bool
-}
-
-func NewFiniteSimilarityCompressor(context *base.DatalogContext, relations *RelationManager, threshold uint32) (*FiniteSimilarityCompressor, error) {
-	if context == nil || relations == nil {
-		return nil, ast.ErrASTDomain
-	}
-	m, e := context.Manager()
-	if e != nil {
-		return nil, e
-	}
-	if e = relations.open(); e != nil {
-		return nil, e
-	}
-	if relations.manager != m {
-		return nil, ast.ErrASTDomain
-	}
-	rm, e := context.RuleManager()
-	if e != nil {
-		return nil, e
-	}
-	p := &FiniteSimilarityCompressor{context: context, rules: rm, relations: relations, threshold: threshold}
-	p.self = p
-	return p, nil
-}
-
-// NewFiniteSimilarityCompressorForRules binds the finite relational engine's
-// concrete rule manager directly; the relation manager owns generated facts.
-func NewFiniteSimilarityCompressorForRules(rules *base.RuleManager, relations *RelationManager, threshold uint32, outputs []ast.ASTHandle) (*FiniteSimilarityCompressor, error) {
-	return NewFiniteSimilarityCompressorForRulesWithRequestedKinds(rules, relations, threshold, outputs, nil)
 }
 
 // NewFiniteSimilarityCompressorForRulesWithRequestedKinds inherits the actual
@@ -97,11 +67,6 @@ func (p *FiniteSimilarityCompressor) FreshPredicateOrigin(predicate ast.ASTHandl
 func (p *FiniteSimilarityCompressor) open() error {
 	if p == nil || p.self != p || p.closed {
 		return ast.ErrASTHandle
-	}
-	if p.context != nil {
-		if _, e := p.context.Manager(); e != nil {
-			return e
-		}
 	}
 	return p.relations.open()
 }
@@ -182,7 +147,7 @@ func (p *FiniteSimilarityCompressor) Transform(source *base.RuleSet) (result *ba
 					return result, e
 				}
 			}
-			aux, merged, e := similarityMergeFiniteCoreWithTemplate(p.context, rm, p.relations, class, template)
+			aux, merged, e := similarityMergeFiniteCoreWithTemplate(rm, p.relations, class, template)
 			if e != nil {
 				return result, e
 			}

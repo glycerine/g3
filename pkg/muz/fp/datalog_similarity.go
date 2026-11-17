@@ -5,7 +5,6 @@ package fp
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/ast"
-	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/rel"
 )
 
@@ -61,26 +60,5 @@ func (e *PropositionalEngine) installDatalogSimilarityPredicates(plugin *rel.Fin
 		}
 		e.auxiliary[decl] = true
 	}
-	return nil
-}
-
-func (e *PropositionalEngine) applyDatalogSimilarity(outputs []ast.ASTHandle) (resultErr error) {
-	plugin, err := e.datalogSimilarityPlugin(outputs)
-	if err != nil || plugin == nil {
-		return err
-	}
-	transformer := base.NewRuleTransformer()
-	if err = transformer.Register(plugin); err != nil {
-		return errors.Join(err, plugin.Close(), transformer.Close())
-	}
-	defer func() { resultErr = errors.Join(resultErr, transformer.Close()) }()
-	modified, err := transformer.Apply(e.set)
-	if err != nil || !modified {
-		return err
-	}
-	if err = e.installDatalogSimilarityPredicates(plugin); err != nil {
-		return err
-	}
-	e.revision++
 	return nil
 }

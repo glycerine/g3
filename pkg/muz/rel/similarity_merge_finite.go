@@ -9,25 +9,11 @@ import (
 	"github.com/glycerine/g3/pkg/muz/base"
 )
 
-// similarityMergeFinite publishes auxiliary facts to the existing finite
-// relation manager and returns the caller-owned representative rule. Domains
-// not supported by that manager return an error before predicate creation.
-func similarityMergeFinite(context *base.DatalogContext, relations *RelationManager, class similarityClass) (ast.ASTHandle, *base.Rule, error) {
-	if context == nil {
-		return ast.ASTHandle{}, nil, ast.ErrASTDomain
-	}
-	rm, e := context.RuleManager()
-	if e != nil {
-		return ast.ASTHandle{}, nil, e
-	}
-	return similarityMergeFiniteCore(context, rm, relations, class)
-}
-
-func similarityMergeFiniteCore(context *base.DatalogContext, rm *base.RuleManager, relations *RelationManager, class similarityClass) (result ast.ASTHandle, rule *base.Rule, err error) {
-	return similarityMergeFiniteCoreWithTemplate(context, rm, relations, class, nil)
-}
-
-func similarityMergeFiniteCoreWithTemplate(context *base.DatalogContext, rm *base.RuleManager, relations *RelationManager, class similarityClass, template FiniteTable) (result ast.ASTHandle, rule *base.Rule, err error) {
+// similarityMergeFiniteCoreWithTemplate publishes the auxiliary facts to
+// the existing finite relation manager and returns the caller-owned
+// representative rule. Domains not supported by that manager return an
+// error before predicate creation.
+func similarityMergeFiniteCoreWithTemplate(rm *base.RuleManager, relations *RelationManager, class similarityClass, template FiniteTable) (result ast.ASTHandle, rule *base.Rule, err error) {
 	if rm == nil || relations == nil || !class.merge || len(class.rules) < 2 || len(class.constants) == 0 {
 		return ast.ASTHandle{}, nil, ast.ErrASTDomain
 	}
@@ -35,15 +21,6 @@ func similarityMergeFiniteCoreWithTemplate(context *base.DatalogContext, rm *bas
 		return ast.ASTHandle{}, nil, e
 	}
 	m := relations.manager
-	if context != nil {
-		owner, e := context.Manager()
-		if e != nil {
-			return ast.ASTHandle{}, nil, e
-		}
-		if owner != m {
-			return ast.ASTHandle{}, nil, ast.ErrASTDomain
-		}
-	}
 	ruleManager, e := class.rules[0].ASTManager()
 	if e != nil {
 		return ast.ASTHandle{}, nil, e
@@ -77,27 +54,23 @@ func similarityMergeFiniteCoreWithTemplate(context *base.DatalogContext, rm *bas
 		return ast.ASTHandle{}, nil, e
 	}
 	var aux ast.ASTHandle
-	if context != nil {
-		aux, e = context.FreshHeadPredicate(prefix, suffix, domains)
-	} else {
-		var boolean ast.ASTHandle
-		boolean, e = m.MkBoolSort()
+	var boolean ast.ASTHandle
+	boolean, e = m.MkBoolSort()
+	if e == nil {
+		aux, e = m.MkFreshFuncDecl(prefix, suffix, domains, boolean)
+	}
+	if e == nil {
+		var ref ast.ASTRef
+		ref, e = m.NewRef(aux)
 		if e == nil {
-			aux, e = m.MkFreshFuncDecl(prefix, suffix, domains, boolean)
-		}
-		if e == nil {
-			var ref ast.ASTRef
-			ref, e = m.NewRef(aux)
-			if e == nil {
-				defer func() {
-					err = errors.Join(err, m.DelRef(&ref))
-					if err != nil && rule != nil {
-						err = errors.Join(err, rule.Close())
-						rule = nil
-					}
-				}()
-				e = rm.RegisterPredicate(aux)
-			}
+			defer func() {
+				err = errors.Join(err, m.DelRef(&ref))
+				if err != nil && rule != nil {
+					err = errors.Join(err, rule.Close())
+					rule = nil
+				}
+			}()
+			e = rm.RegisterPredicate(aux)
 		}
 	}
 	if e != nil {

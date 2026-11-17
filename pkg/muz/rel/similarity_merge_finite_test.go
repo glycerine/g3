@@ -49,10 +49,10 @@ func TestSimilarityMergeFinitePublishesFactsAndRule(t *testing.T) {
 	if len(groups) != 1 || !groups[0].merge {
 		t.Fatal("eligible group", groups)
 	}
-	aux, rewritten, e := similarityMergeFinite(ctx, relations, groups[0])
+	aux, rewritten, e := similarityMergeFiniteCoreWithTemplate(rm, relations, groups[0], nil)
 	astTestMust(t, e)
 	defer func() { astTestMust(t, rewritten.Close()) }()
-	registered, e := ctx.IsPredicate(aux)
+	registered, e := rm.IsRegisteredPredicate(aux)
 	astTestMust(t, e)
 	if !registered {
 		t.Fatal("auxiliary predicate not registered")
@@ -178,7 +178,7 @@ func TestSimilarityMergeFiniteRejectsInfiniteDomainBeforeRegistration(t *testing
 	astTestMust(t, e)
 	before, e := ctx.Predicates()
 	astTestMust(t, e)
-	_, rewritten, e := similarityMergeFinite(ctx, relations, groups[0])
+	_, rewritten, e := similarityMergeFiniteCoreWithTemplate(rm, relations, groups[0], nil)
 	if e == nil || rewritten != nil {
 		t.Fatal("infinite domain accepted", e)
 	}
