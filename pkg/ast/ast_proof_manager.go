@@ -7,6 +7,11 @@ import (
 )
 
 func (m *ASTManager) ProofMode() (ASTProofMode, error) {
+	// A lock-free manager needs no lock for this read (as the read
+	// accessors); g3checked/g3debug builds take the checked path.
+	if !astValidateHandles && m != nil && m.lockFree() {
+		return m.proofMode, nil
+	}
 	if e := m.lock(); e != nil {
 		return 0, e
 	}
