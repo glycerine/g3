@@ -198,35 +198,50 @@ func (p *RuleInlinerPlugin) captureDeletedModelRule(rule *base.Rule, unreachable
 	if err != nil {
 		return err
 	}
+	// del_rule: expr_ref_vector body holds m.mk_false() of an unreachable
+	// rule or the tails (negated ones as mk_not); mc->insert(head, sz, body)
+	// then makes bool_rewriter(m).mk_and(sz, body, b) of them.
+	var bodyRefs []ast.ASTRef
+	defer func() {
+		// ~expr_ref_vector releases its elements first to last.
+		for i := range bodyRefs {
+			resultErr = errors.Join(resultErr, p.manager.DelRef(&bodyRefs[i]))
+		}
+	}()
+	var conjuncts []ast.ASTHandle
 	if unreachable {
-		count = 0
-	}
-	conjuncts := make([]ast.ASTHandle, 0, count)
-	for index := 0; index < count; index++ {
-		tail, negative, getErr := rule.Tail(index)
+		falsity, getErr := p.manager.MkFalse()
 		if getErr != nil {
 			return getErr
 		}
-		if negative {
-			tail, getErr = p.manager.MkNot(tail)
+		conjuncts = append(conjuncts, falsity)
+	} else {
+		conjuncts = make([]ast.ASTHandle, 0, count)
+		for index := 0; index < count; index++ {
+			tail, negative, getErr := rule.Tail(index)
 			if getErr != nil {
 				return getErr
 			}
+			if negative {
+				tail, getErr = p.manager.MkNot(tail)
+				if getErr != nil {
+					return getErr
+				}
+				ref, refErr := p.manager.NewRef(tail)
+				if refErr != nil {
+					return refErr
+				}
+				bodyRefs = append(bodyRefs, ref)
+			}
+			conjuncts = append(conjuncts, tail)
 		}
-		conjuncts = append(conjuncts, tail)
 	}
-	var body ast.ASTHandle
-	if unreachable {
-		body, err = p.manager.MkFalse()
-	} else {
-		body, err = p.manager.MkAndArray(conjuncts)
-	}
+	bodyRef, err := p.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return err
 	}
-	bodyRef, err := p.manager.NewRef(body)
-	if err != nil {
-		return err
+	if err = rewriter.DefaultAnd(p.manager, conjuncts, bodyRef); err != nil {
+		return errors.Join(err, p.manager.DelRef(&bodyRef))
 	}
 	p.modelRules = append(p.modelRules, InlineModelRule{Head: headRef, Body: bodyRef, manager: p.manager})
 	keepHead = true
