@@ -31,6 +31,7 @@ func (t *smtMAMTrail) popScope(n int) {
 	limit := t.scopes[level]
 	for i := len(t.undo) - 1; i >= limit; i-- {
 		t.undo[i]()
+		t.undo[i] = nil // the popped closure's captures become collectable
 	}
 	t.undo = t.undo[:limit]
 	t.scopes = t.scopes[:level]
@@ -41,6 +42,7 @@ func (t *smtMAMTrail) reset() {
 	t.popScope(len(t.scopes))
 	for i := len(t.undo) - 1; i >= 0; i-- {
 		t.undo[i]()
+		t.undo[i] = nil
 	}
 	t.undo = t.undo[:0]
 }
@@ -188,7 +190,10 @@ type smtMAMCodeTree struct {
 
 func (t *smtMAMCodeTree) addCandidate(n *SMTEnode) { t.candidates = append(t.candidates, n) }
 func (t *smtMAMCodeTree) hasCandidates() bool      { return len(t.candidates) != 0 }
-func (t *smtMAMCodeTree) resetCandidates()         { t.candidates = t.candidates[:0] }
+func (t *smtMAMCodeTree) resetCandidates() {
+	clear(t.candidates) // the backing array keeps no enodes alive
+	t.candidates = t.candidates[:0]
+}
 
 // smtMAMCodeTreeManager is code_tree_manager.
 type smtMAMCodeTreeManager struct {
