@@ -12,8 +12,6 @@ import (
 )
 
 type filterRuleCacheEntry struct {
-	predicate   ast.ASTHandle
-	arguments   []ast.ASTHandle
 	declaration ast.ASTHandle
 	origin      ast.ASTHandle
 	pin         ast.ASTRef
@@ -161,18 +159,6 @@ func (p *FilterRulesPlugin) nonLocalVariables(rule *base.Rule, selected ast.ASTH
 	return result, nil
 }
 
-func sameFilterArguments(left, right []ast.ASTHandle) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	for index := range left {
-		if left[index] != right[index] {
-			return false
-		}
-	}
-	return true
-}
-
 func (p *FilterRulesPlugin) makeFilter(application ast.ASTHandle, nonLocal map[uint32]bool, result *base.RuleSet, parent *base.Rule) (_ ast.ASTHandle, resultErr error) {
 	count, err := p.manager.GetNumArgs(application)
 	if err != nil {
@@ -294,7 +280,6 @@ func (p *FilterRulesPlugin) makeFilter(application ast.ASTHandle, nonLocal map[u
 	}
 	p.layout.InsertPairIfNotThere(normalized, uint64(len(p.cache)), hash)
 	p.cache = append(p.cache, filterRuleCacheEntry{
-		predicate: normalized, arguments: append([]ast.ASTHandle(nil), filterArguments...),
 		declaration: filterDeclaration, origin: originalDeclaration, pin: normalizedPin,
 	})
 	keepNormalizedPin = true
