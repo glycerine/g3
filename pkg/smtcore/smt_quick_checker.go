@@ -393,8 +393,8 @@ func (q *SMTQuickChecker) checkCore(expression ast.ASTHandle, value bool) (bool,
 	if sort != boolean {
 		return false, ast.ErrASTDomain
 	}
-	if _, internalized := q.context.assignments.lookup(expression); internalized && q.context.isRelevant(expression) {
-		assignment := q.context.assignments.get(expression)
+	if q.context.bInternalized(expression) && q.context.isRelevant(expression) {
+		assignment := q.context.getAssignment(expression)
 		return assignment != lbool.Undef && value == (assignment == lbool.True), nil
 	}
 	kind, err := q.context.manager.GetKind(expression)
@@ -524,8 +524,10 @@ func (q *SMTQuickChecker) checkCore(expression ast.ASTHandle, value bool) (bool,
 	if err != nil {
 		return false, err
 	}
-	if assignment, internalized := q.context.assignments.lookup(canonical); internalized && q.context.isRelevant(canonical) && assignment != lbool.Undef {
-		return value == (assignment == lbool.True), nil
+	if q.context.litInternalized(canonical) && q.context.isRelevant(canonical) {
+		if assignment := q.context.getAssignment(canonical); assignment != lbool.Undef {
+			return value == (assignment == lbool.True), nil
+		}
 	}
 	op, err := q.context.manager.GetDeclKind(canonical)
 	if err == nil {

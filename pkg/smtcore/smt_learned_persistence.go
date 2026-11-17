@@ -45,7 +45,6 @@ type smtLearnedAssignment struct {
 
 const (
 	smtLearnedAssignmentDone uint8 = iota
-	smtLearnedAssignmentContext
 	smtLearnedAssignmentMetadata
 	smtLearnedAssignmentGoal
 	smtLearnedAssignmentEvent
@@ -56,13 +55,6 @@ func (s *SMTInternalizerState) finishLearnedAssignment(p *smtLearnedAssignment) 
 		return nil
 	}
 	literal := p.literal
-	expression := s.boolExpr[literal.Var()]
-	if p.stage == smtLearnedAssignmentContext {
-		if err := s.context.SetAssignment(expression, lbool.FromBool(!literal.Sign())); err != nil {
-			return err
-		}
-		p.stage = smtLearnedAssignmentMetadata
-	}
 	if p.stage == smtLearnedAssignmentMetadata {
 		data := &s.booleanData[literal.Var()]
 		data.SetJustification(p.justification)
@@ -98,7 +90,7 @@ func (s *SMTInternalizerState) learnedAssignmentRemainder(literal SMTLiteral, be
 	if before != lbool.Undef || s.assignment[literal.Index()] != lbool.True {
 		return smtLearnedAssignment{}
 	}
-	stage := smtLearnedAssignmentContext
+	stage := smtLearnedAssignmentMetadata
 	if len(s.assignedLiterals) > assigned {
 		stage = smtLearnedAssignmentGoal
 	}

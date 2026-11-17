@@ -146,11 +146,29 @@ func (b smtBoolVarTable) del(h ast.ASTHandle) {
 }
 func (b smtBoolVarTable) count() int { return b.t.boolVarCount }
 
-type smtAssignmentTable struct{ t *smtExprTable }
+// smtAssignmentTable answers context::b_internalized and get_assignment_core
+// for an expression. When the context has an internalizer (s), it reads the
+// expression's Boolean variable and that variable's value in m_assignment,
+// so lookup reports found exactly when the expression is internalized as a
+// Boolean (b_internalized), whether or not it was ever assigned. The
+// internalizer does not copy its values here. A value set through
+// SMTCheckerContext.SetAssignment (a standalone view, s nil, or a fixture
+// that drives the context directly) is kept in the record and read first.
+type smtAssignmentTable struct {
+	t *smtExprTable
+	s *SMTInternalizerState
+}
 
 func (a smtAssignmentTable) lookup(h ast.ASTHandle) (lbool.LBool, bool) {
-	if record := a.t.read(h); record != nil && record.flags&smtExprHasAssignment != 0 {
+	record := a.t.read(h)
+	if record == nil {
+		return 0, false
+	}
+	if record.flags&smtExprHasAssignment != 0 {
 		return record.assignment, true
+	}
+	if a.s != nil && record.flags&smtExprHasBoolVar != 0 {
+		return a.s.assignment[record.boolVar<<1], true
 	}
 	return 0, false
 }

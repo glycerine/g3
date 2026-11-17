@@ -355,6 +355,8 @@ func newSMTInternalizerState(manager *ast.ASTManager, context *SMTCheckerContext
 		newCore2thEq:          true,
 	}
 	state.booleanData[0].Initialize(0)
+	// The checker context reads Boolean values from m_assignment itself.
+	context.assignments.s = state
 	// context::init creates the true variable through mk_bool_var, which
 	// counts it in m_num_mk_bool_var.
 	state.statistics.NumMkBoolVar = 1
@@ -795,7 +797,7 @@ func (s *SMTInternalizerState) setAssignmentCore(variable int32, value lbool.LBo
 			return err
 		}
 	}
-	return s.context.SetAssignment(s.boolExpr[variable], value)
+	return nil
 }
 
 func (s *SMTInternalizerState) Assignment(literal SMTLiteral) (lbool.LBool, error) {
@@ -1138,9 +1140,6 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 			if err := s.theoryAwareBranching.unassigned(entry.variable); err != nil {
 				return err
 			}
-		}
-		if err := s.context.SetAssignment(s.boolExpr[entry.variable], entry.value); err != nil {
-			return fmt.Errorf("restore Boolean assignment: %w", err)
 		}
 		s.assignmentTrail = s.assignmentTrail[:len(s.assignmentTrail)-1]
 	}

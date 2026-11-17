@@ -186,11 +186,9 @@ func TestSMTRelevancyRestoredLearnedAssignmentIsDeferred(t *testing.T) {
 	astTestMust(t, err)
 	before, assigned := s.assignment[literal.Index()], len(s.assignedLiterals)
 	justification := NewSMTBooleanAxiom()
-	var cause error
-	f.refuse(t, func() { cause = s.AssignLiteral(literal, justification) })
-	if !errors.Is(cause, ast.ErrASTPending) {
-		t.Fatal("missing context-publication refusal", cause)
-	}
+	// The scalar assignment is published; the learned-assignment
+	// remainder finishes the metadata and the assigned-literal queue.
+	astTestMust(t, s.setAssignmentCore(literal.Var(), lbool.True))
 	pending := s.learnedAssignmentRemainder(literal, before, assigned, justification)
 	astTestMust(t, s.finishLearnedAssignment(&pending))
 	astTestMust(t, s.finishLearnedAssignment(&pending))

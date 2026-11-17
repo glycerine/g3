@@ -128,3 +128,48 @@ func TestSMTCheckerEqualityDisequalityBindingsAndCongruence(t *testing.T) {
 		t.Fatal("Boolean congruent enode assignment", got, err)
 	}
 }
+
+// Source checker::check_core tests b_internalized(n): an internalized,
+// relevant Boolean that was never assigned is not satisfied, even when its
+// structure would evaluate to true; the value comes from m_assignment.
+func TestSMTCheckerInternalizedUnassignedBooleanIsNotTrue(t *testing.T) {
+	m := astTestManager(t)
+	boolean, err := m.MkBoolSort()
+	astTestMust(t, err)
+	p, err := m.MkConst(astTestSymbol(t, m, "checker-int-p"), boolean)
+	astTestMust(t, err)
+	q, err := m.MkConst(astTestSymbol(t, m, "checker-int-q"), boolean)
+	astTestMust(t, err)
+	disjunction, err := m.MkOr(p, q)
+	astTestMust(t, err)
+	context, err := NewSMTCheckerContext(m)
+	astTestMust(t, err)
+	state, err := NewSMTInternalizerState(m, context, nil)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, state.Close()) })
+	astTestMust(t, state.Internalize(disjunction, false))
+	for _, expression := range []ast.ASTHandle{disjunction, p, q} {
+		astTestMust(t, context.SetRelevant(expression, true))
+	}
+	pLiteral, err := state.Literal(p)
+	astTestMust(t, err)
+	orLiteral, err := state.Literal(disjunction)
+	astTestMust(t, err)
+	astTestMust(t, state.SetAssignment(pLiteral.Var(), lbool.True))
+	checker, err := NewSMTChecker(context)
+	astTestMust(t, err)
+	if got, err := checker.IsSatisfiable(p, nil); err != nil || !got {
+		t.Fatal("assigned atom read from m_assignment", got, err)
+	}
+	if got, err := checker.IsSatisfiable(disjunction, nil); err != nil || got {
+		t.Fatal("unassigned internalized disjunction was checked structurally", got, err)
+	}
+	astTestMust(t, state.SetAssignment(orLiteral.Var(), lbool.True))
+	if got, err := checker.IsSatisfiable(disjunction, nil); err != nil || !got {
+		t.Fatal("assigned disjunction", got, err)
+	}
+	astTestMust(t, state.SetAssignment(orLiteral.Var(), lbool.Undef))
+	if got, err := checker.IsSatisfiable(disjunction, nil); err != nil || got {
+		t.Fatal("unassigned again", got, err)
+	}
+}

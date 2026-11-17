@@ -45,7 +45,7 @@ func NewSMTCheckerContext(manager *ast.ASTManager) (*SMTCheckerContext, error) {
 	exprs := newSMTExprTable()
 	return &SMTCheckerContext{
 		manager: manager, exprs: exprs, relevant: smtRelevantTable{exprs},
-		assignments: smtAssignmentTable{exprs}, enodes: smtEnodeTable{exprs},
+		assignments: smtAssignmentTable{t: exprs}, enodes: smtEnodeTable{exprs},
 		byDeclaration: make(map[ast.ASTHandle][]*SMTEnode),
 	}, nil
 }
@@ -80,6 +80,38 @@ func (c *SMTCheckerContext) SetAssignment(expression ast.ASTHandle, value lbool.
 	}
 	c.assignments.set(expression, value)
 	return nil
+}
+
+// bInternalized is context::b_internalized(n).
+func (c *SMTCheckerContext) bInternalized(n ast.ASTHandle) bool {
+	_, found := c.assignments.lookup(n)
+	return found
+}
+
+// litInternalized is context::lit_internalized(n).
+func (c *SMTCheckerContext) litInternalized(n ast.ASTHandle) bool {
+	m := c.manager
+	if m.IsFalse(n) {
+		return true
+	}
+	if ok, arg, err := m.IsNot(n); err == nil && ok && c.bInternalized(arg) {
+		return true
+	}
+	return c.bInternalized(n)
+}
+
+// getAssignment is context::get_assignment(expr*): false is l_false and a
+// not reads its argument. get_assignment_core asserts that the expression
+// is internalized; one that is not reads as l_undef here.
+func (c *SMTCheckerContext) getAssignment(n ast.ASTHandle) lbool.LBool {
+	m := c.manager
+	if m.IsFalse(n) {
+		return lbool.False
+	}
+	if ok, arg, err := m.IsNot(n); err == nil && ok {
+		return c.assignments.get(arg).Negated()
+	}
+	return c.assignments.get(n)
 }
 
 func (c *SMTCheckerContext) RegisterEnode(node *SMTEnode, relevant bool) error {
@@ -359,7 +391,8 @@ func (c *SMTChecker) checkCore(expression ast.ASTHandle, value bool) (bool, erro
 	if sort != boolean {
 		return false, ast.ErrASTDomain
 	}
-	if assignment, found := c.context.assignments.lookup(expression); found && c.context.isRelevant(expression) {
+	if c.context.bInternalized(expression) && c.context.isRelevant(expression) {
+		assignment := c.context.getAssignment(expression)
 		return assignment != lbool.Undef && value == (assignment == lbool.True), nil
 	}
 	kind, err := manager.GetKind(expression)
@@ -419,8 +452,8 @@ func (c *SMTChecker) checkCore(expression ast.ASTHandle, value bool) (bool, erro
 			if len(arguments) != 3 {
 				return false, ast.ErrASTDomain
 			}
-			if assignment, found := c.context.assignments.lookup(arguments[0]); found && c.context.isRelevant(arguments[0]) {
-				switch assignment {
+			if c.context.litInternalized(arguments[0]) && c.context.isRelevant(arguments[0]) {
+				switch c.context.getAssignment(arguments[0]) {
 				case lbool.False:
 					return c.check(arguments[2], value)
 				case lbool.Undef:
@@ -456,8 +489,8 @@ func (c *SMTChecker) checkCore(expression ast.ASTHandle, value bool) (bool, erro
 	if err != nil || node == nil || !node.boolean || !c.context.isRelevant(node.owner) {
 		return false, err
 	}
-	assignment, found := c.context.assignments.lookup(node.owner)
-	return found && assignment != lbool.Undef && value == (assignment == lbool.True), nil
+	assignment := c.context.getAssignment(node.owner)
+	return assignment != lbool.Undef && value == (assignment == lbool.True), nil
 }
 
 func (c *SMTChecker) check(expression ast.ASTHandle, value bool) (bool, error) {

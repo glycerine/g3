@@ -149,35 +149,3 @@ func TestSMTLearnedClauseRestoreFailureResumesWithoutDuplicates(t *testing.T) {
 		}
 	}
 }
-
-func TestSMTLearnedAssignmentResumesPublishedScalarBeforeContext(t *testing.T) {
-	if !ast.ASTValidateHandles {
-		t.Skip("read accessors do not refuse re-entrant calls in normal builds (ast_validate_handles_off.go)")
-	}
-	f := newSMTNativeCleanupFixture(t)
-	state, m := f.state, f.manager
-	expression := smtRelevancyBool(t, m, "learned-assignment-continuation")
-	astTestMust(t, state.Internalize(expression, true))
-	literal, err := state.Literal(expression)
-	astTestMust(t, err)
-	before, assigned := state.assignment[literal.Index()], len(state.assignedLiterals)
-	justification := NewSMTBooleanAxiom()
-	var cause error
-	f.refuse(t, func() { cause = state.AssignLiteral(literal, justification) })
-	if !errors.Is(cause, ast.ErrASTPending) || state.assignment[literal.Index()] != lbool.True || len(state.assignedLiterals) != assigned {
-		t.Fatal("test did not reach partial scalar publication", cause, len(state.assignedLiterals))
-	}
-	pending := state.learnedAssignmentRemainder(literal, before, assigned, justification)
-	if pending.stage != smtLearnedAssignmentContext {
-		t.Fatal("missing context continuation", pending.stage)
-	}
-	f.refuse(t, func() { cause = state.finishLearnedAssignment(&pending) })
-	if !errors.Is(cause, ast.ErrASTPending) || pending.stage != smtLearnedAssignmentContext {
-		t.Fatal("refusal consumed unfinished assignment", cause, pending.stage)
-	}
-	astTestMust(t, state.finishLearnedAssignment(&pending))
-	astTestMust(t, state.finishLearnedAssignment(&pending))
-	if pending.stage != smtLearnedAssignmentDone || len(state.assignedLiterals) != assigned+1 || state.context.assignments.get(expression) != lbool.True || state.booleanData[literal.Var()].Justification() != justification {
-		t.Fatal("assignment continuation lost metadata or duplicated publication", pending.stage, len(state.assignedLiterals))
-	}
-}
