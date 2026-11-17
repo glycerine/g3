@@ -32,7 +32,7 @@ func TestSMTSearchEqualityArithmeticConventions(t *testing.T) {
 			case "difference":
 				theory, err = NewSMTRealDiffTheory(family)
 			case "dense":
-				theory, err = NewSMTDenseDiffTheory(family)
+				theory, err = NewSMTDenseDiffTheory(family, smtDenseMI)
 			case "utvpi":
 				theory, err = NewSMTUTVPITheory(family)
 			}

@@ -27,7 +27,7 @@ func newSMTDenseEqualityFixture(t *testing.T, integer bool, config SMTArithState
 	family, err := m.RegisterArithmeticPlugin()
 	astTestMust(t, err)
 	_, _, state := smtInternalizerFixture(t, m, nil)
-	theory, err := NewSMTDenseDiffTheory(family)
+	theory, err := NewSMTDenseDiffTheory(family, smtDenseMI)
 	astTestMust(t, err)
 	astTestMust(t, theory.ConfigureArithmetic(config))
 	astTestMust(t, state.RegisterTheory(theory))
@@ -115,9 +115,9 @@ func TestSMTDenseDifferenceForcesDifferenceEqualityWithNumeral(t *testing.T) {
 			if len(f.theory.atoms) != 2 || len(f.state.testClauses()) != 3 || f.theory.adapter.NumAxioms() != 1 {
 				t.Fatal("forced difference equality axioms", len(f.theory.atoms), len(f.state.testClauses()), f.theory.adapter.NumAxioms())
 			}
-			first, second := &f.theory.atoms[0], &f.theory.atoms[1]
-			if first.offset.rational.Cmp(big.NewRat(2, 1)) != 0 || second.offset.rational.Cmp(big.NewRat(-2, 1)) != 0 {
-				t.Fatal("forced difference equality bounds", first.offset.rational.RatString(), second.offset.rational.RatString())
+			first, second := f.theory.ext.atomText(0, 0), f.theory.ext.atomText(1, 0)
+			if first != "2" || second != "-2" {
+				t.Fatal("forced difference equality bounds", first, second)
 			}
 		})
 	}

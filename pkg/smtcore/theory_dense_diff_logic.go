@@ -12,22 +12,24 @@ import (
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
+// smtDenseAtom is atom; its m_offset is the Ext's atom numeral of the
+// same index.
 type smtDenseAtom struct {
 	variable       int32
 	source, target int
-	offset         smtInfRational
-	num            smtDenseNum // offset
 }
 type smtDenseScope struct {
 	atoms       int
 	unsupported bool
 }
 
-// SMTDenseDiffTheory is the concrete arbitrary-precision dense arithmetic
-// specialization. Syntax helpers borrow its base; no sparse graph is created.
+// SMTDenseDiffTheory is theory_dense_diff_logic<Ext>; ext holds the
+// numerals of the instantiation (theory_dense_si, _smi, _i or _mi). Syntax
+// helpers borrow its base; no sparse graph is created.
 type SMTDenseDiffTheory struct {
 	*SMTTheoryBase
 	syntax      SMTIntegerDiffTheory
@@ -39,12 +41,17 @@ type SMTDenseDiffTheory struct {
 	integer     []bool
 	scopes      []smtDenseScope
 	unsupported bool
-	values      []smtInfRational
-	delta       big.Rat
-	statistics  smtDenseDiffStatistics
+	ext         smtDenseExt
+	extKind     smtDenseExtKind
+	// modelVars is the size of the Ext's m_assignment, set by init_model().
+	modelVars  int
+	epsilon    numeral.Rational // m_epsilon
+	statistics smtDenseDiffStatistics
 }
 
-func NewSMTDenseDiffTheory(family ast.FamilyID) (*SMTDenseDiffTheory, error) {
+// NewSMTDenseDiffTheory is the constructor of theory_dense_diff_logic<Ext>
+// for the instantiation kind.
+func NewSMTDenseDiffTheory(family ast.FamilyID, kind smtDenseExtKind) (*SMTDenseDiffTheory, error) {
 	base, err := NewSMTTheoryBase(family)
 	if err != nil {
 		return nil, err
@@ -53,12 +60,29 @@ func NewSMTDenseDiffTheory(family ast.FamilyID) (*SMTDenseDiffTheory, error) {
 	if err != nil {
 		return nil, err
 	}
-	t := &SMTDenseDiffTheory{SMTTheoryBase: base, matrix: newSMTDenseDiffMatrix(), adapter: adapter, byBool: make(map[int32]int)}
+	t := &SMTDenseDiffTheory{SMTTheoryBase: base, adapter: adapter, byBool: make(map[int32]int), extKind: kind, epsilon: smtQZero()}
 	t.syntax.SMTTheoryBase, t.syntax.equalityAdapter = base, adapter
 	// theory_dense_diff_logic uses arith_eq_adapter::mk_axioms itself.
 	adapter.source = true
-	t.matrix.owner = t
 	return t, nil
+}
+
+// q is the AST manager's mpq manager; the matrix and its Ext are created
+// with it on first use (the state is bound after construction).
+func (t *SMTDenseDiffTheory) q() *numeral.RationalManager {
+	if t.syntax.q == nil && t.state != nil {
+		t.syntax.bindQ(t.state)
+	}
+	return t.syntax.q
+}
+
+func (t *SMTDenseDiffTheory) denseMatrix() *smtDenseDiffMatrix {
+	if t.matrix == nil {
+		t.ext = newSMTDenseExt(t.extKind, t.q())
+		t.matrix = newSMTDenseDiffMatrix(t.ext)
+		t.matrix.owner = t
+	}
+	return t.matrix
 }
 
 func (t *SMTDenseDiffTheory) ConfigureArithmetic(config SMTArithState) error {
@@ -79,7 +103,7 @@ func (t *SMTDenseDiffTheory) createVariable(node *SMTEnode) (SMTTheoryVar, error
 	if err != nil {
 		return SMTNullTheoryVar, err
 	}
-	if int(v) != t.matrix.addVariable() {
+	if int(v) != t.denseMatrix().addVariable() {
 		return SMTNullTheoryVar, ast.ErrASTDomain
 	}
 	sort, err := t.state.manager.GetSort(node.owner)
@@ -99,11 +123,15 @@ func (t *SMTDenseDiffTheory) term(expression ast.ASTHandle) (SMTTheoryVar, error
 	if node := t.state.context.enodes.get(expression); node != nil && t.IsAttachedToVariable(node) {
 		return node.TheoryVar(t.FamilyID()), nil
 	}
-	value, numeral, err := t.syntax.numeralBig(expression)
+	q := t.q()
+	value, offset := smtQZero(), smtQZero()
+	defer smtQDel(q, &value)
+	defer smtQDel(q, &offset)
+	numeral, err := t.syntax.numeral(expression, &value)
 	if err != nil {
 		return SMTNullTheoryVar, err
 	}
-	base, offset, shifted, err := t.syntax.offsetBig(expression)
+	base, shifted, err := t.syntax.offset(expression, &offset)
 	if err != nil {
 		return SMTNullTheoryVar, err
 	}
@@ -115,7 +143,7 @@ func (t *SMTDenseDiffTheory) term(expression ast.ASTHandle) (SMTTheoryVar, error
 				if err != nil {
 					return SMTNullTheoryVar, err
 				}
-				if _, numeral, err := t.syntax.numeralBig(argument); err != nil {
+				if numeral, err := t.syntax.isNumeral(argument); err != nil {
 					return SMTNullTheoryVar, err
 				} else if numeral {
 					if _, err := t.term(argument); err != nil {
@@ -151,8 +179,8 @@ func (t *SMTDenseDiffTheory) term(expression ast.ASTHandle) (SMTTheoryVar, error
 	if err != nil {
 		return SMTNullTheoryVar, err
 	}
-	if numeral && value.Sign() != 0 {
-		zero, err := m.ArithmeticNumeralRat(new(big.Rat), t.integer[v])
+	if numeral && !value.IsZero() {
+		zero, err := t.denseZeroFor(expression)
 		if err != nil {
 			return SMTNullTheoryVar, err
 		}
@@ -160,15 +188,27 @@ func (t *SMTDenseDiffTheory) term(expression ast.ASTHandle) (SMTTheoryVar, error
 		if err != nil {
 			return SMTNullTheoryVar, err
 		}
-		offset, shifted = value, true
-	}
-	if shifted {
-		weight := newSMTInfRational(offset, nil)
-		if err = t.addEdge(int(source), int(v), &weight, SMTNullLiteral); err != nil {
+		if err = q.Copy(&offset, &value); err != nil {
 			return SMTNullTheoryVar, err
 		}
-		weight.Neg(&weight)
-		if err = t.addEdge(int(v), int(source), &weight, SMTNullLiteral); err != nil {
+		shifted = true
+	}
+	if shifted {
+		// numeral k(_k); add_edge(s, v, k, null_literal); k.neg();
+		// add_edge(v, s, k, null_literal).
+		if err = t.ext.setK(&offset); err != nil {
+			return SMTNullTheoryVar, err
+		}
+		if err = t.addEdge(int(source), int(v), SMTNullLiteral); err != nil {
+			return SMTNullTheoryVar, err
+		}
+		if err = t.ext.setK(&offset); err != nil {
+			return SMTNullTheoryVar, err
+		}
+		if err = t.ext.negK(); err != nil {
+			return SMTNullTheoryVar, err
+		}
+		if err = t.addEdge(int(v), int(source), SMTNullLiteral); err != nil {
 			return SMTNullTheoryVar, err
 		}
 	}
@@ -270,7 +310,7 @@ func (t *SMTDenseDiffTheory) traceDeleteAtom(a *smtDenseAtom, clear func()) {
 func (t *SMTDenseDiffTheory) ddlModelText() string {
 	text := "ddl model\n"
 	for v, node := range t.variables {
-		text += "#" + t.ddlPP(node.owner) + " = " + smtDenseInfText(&t.values[v]) + "\n"
+		text += "#" + t.ddlPP(node.owner) + " = " + t.ext.assignmentText(v) + "\n"
 	}
 	return text
 }
@@ -301,7 +341,10 @@ func (t *SMTDenseDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (
 	if err != nil {
 		return false, err
 	}
-	bound, numeral, err := t.syntax.numeralBig(rhs)
+	q := t.q()
+	bound := smtQZero()
+	defer smtQDel(q, &bound)
+	numeral, err := t.syntax.numeral(rhs, &bound)
 	if err != nil {
 		return false, err
 	}
@@ -331,11 +374,11 @@ func (t *SMTDenseDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (
 			return false, err
 		} else if ok {
 			// (* -1 s): t = mk_zero_for(s)
-			value, numeral, err := t.syntax.numeralBig(arg1)
+			minusOne, err := t.syntax.numeralIs(arg1, -1)
 			if err != nil {
 				return false, err
 			}
-			if numeral && value.Cmp(big.NewRat(-1, 1)) == 0 {
+			if minusOne {
 				zero, err := t.denseZeroFor(arg2)
 				if err != nil {
 					return false, err
@@ -375,10 +418,15 @@ func (t *SMTDenseDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (
 		t.traceDDL("ddl", "internalize_atom", 178, func() string { return "failed to internalize:\n" + t.ddlPP(expression) + "\n" })
 		return false, t.foundNonDiffLogicExpr(expression)
 	}
-	weight := newSMTInfRational(bound, nil)
+	// numeral offset(_k); offset.neg() for >=.
+	if err = t.ext.setK(&bound); err != nil {
+		return false, err
+	}
 	if op == smtArithOpGE {
 		s, u = u, s
-		weight.Neg(&weight)
+		if err = t.ext.negK(); err != nil {
+			return false, err
+		}
 	}
 	v, err := t.state.MkBoolVar(expression)
 	if err != nil {
@@ -387,7 +435,10 @@ func (t *SMTDenseDiffTheory) InternalizeAtom(expression ast.ASTHandle, _ bool) (
 	if err = t.state.SetVariableTheory(v, t.FamilyID()); err != nil {
 		return false, err
 	}
-	a := smtDenseAtom{v, int(s), int(u), weight, smtDenseNumOf(&weight)}
+	a := smtDenseAtom{v, int(s), int(u)}
+	if err = t.ext.pushAtom(); err != nil {
+		return false, err
+	}
 	index := len(t.atoms)
 	t.byBool[v] = index
 	t.atoms = append(t.atoms, a)
@@ -416,21 +467,23 @@ func (t *SMTDenseDiffTheory) Assign(variable int32, truth bool) error {
 	t.traceDDL("assign_profile", "assign_eh", 268, func() string {
 		sourceID, _ := t.variables[a.source].OwnerID()
 		targetID, _ := t.variables[a.target].OwnerID()
-		return fmt.Sprintf("#%d #%d %s\n", sourceID, targetID, smtDenseInfText(&a.offset))
+		return fmt.Sprintf("#%d #%d %s\n", sourceID, targetID, t.ext.atomText(i, 0))
 	})
 	source, target := a.source, a.target
-	var offset smtInfRational
-	offset.Set(&a.offset)
+	if err = t.ext.setKAtom(i); err != nil {
+		return err
+	}
 	if !truth {
+		// k.neg(); k -= get_epsilon(s)
 		source, target = target, source
-		offset.Neg(&offset)
-		if t.integer[a.source] {
-			offset.rational.Sub(&offset.rational, big.NewRat(1, 1))
-		} else {
-			offset.infinitesimal.Sub(&offset.infinitesimal, big.NewRat(1, 1))
+		if err = t.ext.negK(); err != nil {
+			return err
+		}
+		if err = t.ext.subKEpsilon(!t.integer[a.source]); err != nil {
+			return err
 		}
 	}
-	if err = t.addEdge(source, target, &offset, NewSMTLiteral(variable, !truth)); err != nil {
+	if err = t.addEdge(source, target, NewSMTLiteral(variable, !truth)); err != nil {
 		return err
 	}
 	t.traceDDL("ddl_detail", "assign_eh", 277, func() string {
@@ -441,8 +494,9 @@ func (t *SMTDenseDiffTheory) Assign(variable int32, truth bool) error {
 	return nil
 }
 
-func (t *SMTDenseDiffTheory) addEdge(source, target int, offset *smtInfRational, literal SMTLiteral) error {
-	ok, reason, err := t.matrix.addEdge(source, target, offset, literal)
+// addEdge is add_edge(source, target, k, literal) with the Ext's k.
+func (t *SMTDenseDiffTheory) addEdge(source, target int, literal SMTLiteral) error {
+	ok, reason, err := t.matrix.addEdge(source, target, literal)
 	if err != nil {
 		return err
 	}
@@ -467,12 +521,10 @@ func (t *SMTDenseDiffTheory) propagateCell(source, target int) error {
 	if !t.matrix.valid(source) || !t.matrix.valid(target) {
 		return nil
 	}
-	cell := &t.matrix.rows[source][target]
 	occurrences := t.matrix.occs[source][target]
-	if cell.edge < 0 || len(occurrences) == 0 {
+	if t.matrix.rows[source][target] < 0 || len(occurrences) == 0 {
 		return nil
 	}
-	distance := cell.distance
 	for _, index := range occurrences {
 		a := &t.atoms[index]
 		literal := NewSMTLiteral(a.variable, false)
@@ -483,9 +535,11 @@ func (t *SMTDenseDiffTheory) propagateCell(source, target int) error {
 		if assignment != lbool.Undef {
 			continue
 		}
-		implied := smtDenseNumCmp(distance, a.num) <= 0
+		implied, err := t.ext.implies(source, target, index, a.source == source)
+		if err != nil {
+			return err
+		}
 		if a.source != source {
-			implied = smtDenseNumCmp(smtDenseNumNeg(distance), a.num) > 0
 			literal = literal.Negated()
 		}
 		if !implied {
@@ -499,8 +553,8 @@ func (t *SMTDenseDiffTheory) propagateCell(source, target int) error {
 		t.traceDDL("ddl", "propagate_using_cell", line, func() string {
 			sourceID, _ := t.variables[source].OwnerID()
 			targetID, _ := t.variables[target].OwnerID()
-			return "asserting atom to true: " + t.displayAtomText(a) +
-				fmt.Sprintf("distance(#%d, #%d): %s\n", sourceID, targetID, smtDenseNumText(distance))
+			return "asserting atom to true: " + t.displayAtomText(index) +
+				fmt.Sprintf("distance(#%d, #%d): %s\n", sourceID, targetID, t.ext.distText(source, target, 0))
 		})
 		reason, err := t.matrix.antecedents(source, target)
 		if err != nil {
@@ -531,7 +585,7 @@ func (t *SMTDenseDiffTheory) PushScope() error {
 	if err := t.adapter.PushScope(); err != nil {
 		return err
 	}
-	t.matrix.push()
+	t.denseMatrix().push()
 	t.scopes = append(t.scopes, smtDenseScope{len(t.atoms), t.unsupported})
 	return nil
 }
@@ -550,9 +604,12 @@ func (t *SMTDenseDiffTheory) PopScopes(count uint32) error {
 			*list = (*list)[:len(*list)-1]
 		}
 	}
+	if err := t.ext.popAtoms(s.atoms); err != nil {
+		return err
+	}
 	t.atoms, t.unsupported = t.atoms[:s.atoms], s.unsupported
 	t.scopes = t.scopes[:level]
-	if err := t.matrix.pop(count); err != nil {
+	if err := t.denseMatrix().pop(count); err != nil {
 		return err
 	}
 	t.integer = t.integer[:len(t.matrix.rows)]
@@ -563,16 +620,18 @@ func (t *SMTDenseDiffTheory) PopScopes(count uint32) error {
 }
 
 // smtDenseVarValueKey is var_value_hash/var_value_eq: two variables share a
-// table entry when their assignments and their is_int flags are equal.
+// table entry when their assignments and their is_int flags are equal (the
+// key is the assignment's canonical text).
 type smtDenseVarValueKey struct {
-	integer             bool
-	main, infinitesimal string
+	integer bool
+	value   string
 }
 
 // FinalCheck is theory_dense_diff_logic<Ext>::final_check_eh.
 func (t *SMTDenseDiffTheory) FinalCheck() (SMTFinalCheckStatus, error) {
-	t.values = t.matrix.assignment() // init_model()
-	t.traceDDL("ddl_model", "init_model", 733, t.ddlModelText)
+	if err := t.initModel(); err != nil {
+		return SMTFinalCheckGiveUp, err
+	}
 	assumed, err := t.assumeEqs()
 	if err != nil {
 		return SMTFinalCheckGiveUp, err
@@ -586,6 +645,17 @@ func (t *SMTDenseDiffTheory) FinalCheck() (SMTFinalCheckStatus, error) {
 		return SMTFinalCheckGiveUp, nil
 	}
 	return SMTFinalCheckDone, nil
+}
+
+// initModel is init_model().
+func (t *SMTDenseDiffTheory) initModel() error {
+	g := t.denseMatrix()
+	if err := t.ext.initModel(g); err != nil {
+		return err
+	}
+	t.modelVars = len(g.rows)
+	t.traceDDL("ddl_model", "init_model", 733, t.ddlModelText)
+	return nil
 }
 
 // assumeEqs is theory::assume_eqs(m_var_value_table): every relevant and
@@ -606,7 +676,7 @@ func (t *SMTDenseDiffTheory) assumeEqs() (bool, error) {
 		if !shared {
 			continue
 		}
-		key := smtDenseVarValueKey{t.integer[v], t.values[v].rational.RatString(), t.values[v].infinitesimal.RatString()}
+		key := smtDenseVarValueKey{t.integer[v], t.ext.assignmentText(v)}
 		other, found := table[key] // insert_if_not_there(v)
 		if !found {
 			table[key] = v
@@ -623,11 +693,13 @@ func (t *SMTDenseDiffTheory) assumeEqs() (bool, error) {
 	return result, nil
 }
 
+// InitializeModel is init_model(model_generator&): the arith_factory,
+// fix_zero() and compute_epsilon().
 func (t *SMTDenseDiffTheory) InitializeModel(generator *SMTModelGenerator) error {
 	if generator == nil || generator.manager != t.state.manager || generator.model == nil {
 		return ast.ErrASTDomain
 	}
-	if len(t.values) != t.NumVariables() {
+	if t.modelVars != t.NumVariables() {
 		return ast.ErrASTDomain
 	}
 	factory, err := protomodel.NewArithmeticFactory(t.state.manager)
@@ -637,65 +709,150 @@ func (t *SMTDenseDiffTheory) InitializeModel(generator *SMTModelGenerator) error
 	if err = generator.RegisterFactory(factory); err != nil {
 		return err
 	}
+	if err = t.fixZero(); err != nil {
+		return err
+	}
+	return t.computeEpsilon()
+}
+
+// fixZero is fix_zero().
+func (t *SMTDenseDiffTheory) fixZero() error {
+	m := t.state.manager
 	for v, node := range t.variables {
-		if value, numeral, err := t.syntax.numeralBig(node.owner); err != nil {
+		zero, err := t.syntax.numeralIs(node.owner, 0)
+		if err != nil {
 			return err
-		} else if numeral && value.Sign() == 0 {
-			var shift smtInfRational
-			shift.Set(&t.values[v])
-			sort, err := t.state.manager.GetSort(node.owner)
+		}
+		if !zero || t.ext.assignmentIsZero(v) {
+			continue
+		}
+		sort, err := m.GetSort(node.owner)
+		if err != nil {
+			return err
+		}
+		same := make([]bool, len(t.variables))
+		for v2, n2 := range t.variables {
+			otherSort, err := m.GetSort(n2.owner)
 			if err != nil {
 				return err
 			}
-			for other, n := range t.variables {
-				otherSort, err := t.state.manager.GetSort(n.owner)
-				if err != nil {
-					return err
-				}
-				if otherSort == sort {
-					t.values[other].Sub(&t.values[other], &shift)
-				}
-			}
+			same[v2] = otherSort == sort
+		}
+		if err = t.ext.fixZero(v, same); err != nil {
+			return err
 		}
 	}
 	t.traceDDL("ddl_model", "fix_zero", 815, t.ddlModelText)
-	// compute_epsilon
-	t.delta.SetInt64(1)
-	for _, e := range t.matrix.edges[1:] {
-		x, y := &t.values[e.target], &t.values[e.source]
+	return nil
+}
+
+// computeEpsilon is compute_epsilon(): for every asserted edge
+// x - y <= (n_c, k_c), epsilon <= (n_y + n_c - n_x) / (k_x - k_y - k_c) when
+// n_x < n_y + n_c and k_x > k_y + k_c.
+func (t *SMTDenseDiffTheory) computeEpsilon() (err error) {
+	q := t.q()
+	if err = q.SetInt32(&t.epsilon, 1); err != nil {
+		return err
+	}
+	nx, kx, ny, ky, nc, kc := smtQZero(), smtQZero(), smtQZero(), smtQZero(), smtQZero(), smtQZero()
+	limit, infinitesimal, candidate, denominator := smtQZero(), smtQZero(), smtQZero(), smtQZero()
+	locals := []*numeral.Rational{&nx, &kx, &ny, &ky, &nc, &kc, &limit, &infinitesimal, &candidate, &denominator}
+	defer func() {
+		for _, r := range locals {
+			if e := smtQDel(q, r); err == nil {
+				err = e
+			}
+		}
+	}()
+	for id := 1; id < len(t.denseMatrix().edges); id++ {
+		e := &t.matrix.edges[id]
+		if err = t.ext.assignmentParts(e.target, &nx, &kx); err != nil {
+			return err
+		}
+		if err = t.ext.assignmentParts(e.source, &ny, &ky); err != nil {
+			return err
+		}
+		if err = t.ext.edgeParts(id, &nc, &kc); err != nil {
+			return err
+		}
 		t.traceDDL("epsilon", "compute_epsilon", 786, func() string {
 			return fmt.Sprintf("(n_x,k_x): %s, %s, (n_y,k_y): %s, %s, (n_c,k_c): %s, %s\n",
-				x.rational.RatString(), x.infinitesimal.RatString(), y.rational.RatString(), y.infinitesimal.RatString(),
-				e.offset.rational.RatString(), e.offset.infinitesimal.RatString())
+				smtQText(q, &nx), smtQText(q, &kx), smtQText(q, &ny), smtQText(q, &ky), smtQText(q, &nc), smtQText(q, &kc))
 		})
-		var limit, infinitesimal big.Rat
-		limit.Add(&y.rational, &e.offset.rational)
-		infinitesimal.Add(&y.infinitesimal, &e.offset.infinitesimal)
-		if x.rational.Cmp(&limit) < 0 && x.infinitesimal.Cmp(&infinitesimal) > 0 {
-			var numerator, denominator, candidate big.Rat
-			numerator.Sub(&limit, &x.rational)
-			denominator.Sub(&x.infinitesimal, &infinitesimal)
-			candidate.Quo(&numerator, &denominator)
-			if candidate.Cmp(&t.delta) < 0 {
-				t.traceDDL("epsilon", "compute_epsilon", 790, func() string { return "new epsilon: " + candidate.RatString() + "\n" })
-				t.delta.Set(&candidate)
+		if err = q.Add(&ny, &nc, &limit); err != nil {
+			return err
+		}
+		if err = q.Add(&ky, &kc, &infinitesimal); err != nil {
+			return err
+		}
+		c1, err := q.Compare(&nx, &limit)
+		if err != nil {
+			return err
+		}
+		if c1 >= 0 {
+			continue
+		}
+		c2, err := q.Compare(&kx, &infinitesimal)
+		if err != nil {
+			return err
+		}
+		if c2 <= 0 {
+			continue
+		}
+		// (n_y + n_c - n_x) / (k_x - k_y - k_c)
+		if err = q.Sub(&limit, &nx, &candidate); err != nil {
+			return err
+		}
+		if err = q.Sub(&kx, &ky, &denominator); err != nil {
+			return err
+		}
+		if err = q.Sub(&denominator, &kc, &denominator); err != nil {
+			return err
+		}
+		if err = q.Div(&candidate, &denominator, &candidate); err != nil {
+			return err
+		}
+		c, err := q.Compare(&candidate, &t.epsilon)
+		if err != nil {
+			return err
+		}
+		if c < 0 {
+			t.traceDDL("epsilon", "compute_epsilon", 790, func() string { return "new epsilon: " + smtQText(q, &candidate) + "\n" })
+			if err = q.Copy(&t.epsilon, &candidate); err != nil {
+				return err
 			}
 		}
 	}
 	return nil
 }
+
+// ModelValue is mk_value: num = n + m_epsilon * k of the assignment.
 func (t *SMTDenseDiffTheory) ModelValue(node *SMTEnode, generator *SMTModelGenerator) (SMTModelValueProcedure, error) {
 	if node == nil || generator == nil || generator.manager != t.state.manager {
 		return nil, ast.ErrASTDomain
 	}
 	v := node.TheoryVar(t.FamilyID())
-	if v == SMTNullTheoryVar || int(v) >= len(t.values) {
+	if v == SMTNullTheoryVar || int(v) >= t.modelVars {
 		return nil, ast.ErrASTDomain
 	}
-	var epsilon, value big.Rat
-	epsilon.Mul(&t.delta, &t.values[v].infinitesimal)
-	value.Add(&t.values[v].rational, &epsilon)
-	expression, err := t.state.manager.ArithmeticNumeralRat(&value, t.integer[v])
+	q := t.q()
+	n, k := smtQZero(), smtQZero()
+	defer smtQDel(q, &n)
+	defer smtQDel(q, &k)
+	if err := t.ext.assignmentParts(int(v), &n, &k); err != nil {
+		return nil, err
+	}
+	if err := q.Mul(&t.epsilon, &k, &k); err != nil {
+		return nil, err
+	}
+	if err := q.Add(&n, &k, &n); err != nil {
+		return nil, err
+	}
+	value, err := smtQBig(q, &n)
+	if err != nil {
+		return nil, err
+	}
+	expression, err := t.state.manager.ArithmeticNumeralRat(value, t.integer[v])
 	if err != nil {
 		return nil, err
 	}
@@ -731,8 +888,8 @@ func (t *SMTDenseDiffTheory) denseTimesMinusOne(expression ast.ASTHandle) (ast.A
 	if err != nil || !ok {
 		return ast.ASTHandle{}, false, err
 	}
-	value, numeral, err := t.syntax.numeralBig(coefficient)
-	if err != nil || !numeral || value.Cmp(big.NewRat(-1, 1)) != 0 {
+	minusOne, err := t.syntax.numeralIs(coefficient, -1)
+	if err != nil || !minusOne {
 		return ast.ASTHandle{}, false, err
 	}
 	return r, true, nil

@@ -7,16 +7,23 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func TestSMTDenseTheoryPropagationConflictAndScope(t *testing.T) {
-	for _, integer := range []bool{false, true} {
-		t.Run(fmt.Sprint(integer), func(t *testing.T) {
+	for _, c := range []struct {
+		integer bool
+		kind    smtDenseExtKind
+	}{{false, smtDenseMI}, {false, smtDenseSMI}, {true, smtDenseSI}, {true, smtDenseI}, {true, smtDenseMI}} {
+		integer := c.integer
+		// theory_dense_smi takes integer numerals only (no rational bound).
+		rationalBound := !integer && c.kind == smtDenseMI
+		t.Run(fmt.Sprint(integer, c.kind), func(t *testing.T) {
 			m, cfg := smtModelGeneratorFixture(t)
 			family, err := m.RegisterArithmeticPlugin()
 			astTestMust(t, err)
 			_, _, state := smtInternalizerFixture(t, m, nil)
-			theory, err := NewSMTDenseDiffTheory(family)
+			theory, err := NewSMTDenseDiffTheory(family, c.kind)
 			astTestMust(t, err)
 			astTestMust(t, theory.ConfigureArithmetic(SMTArithState{Reflect: true}))
 			astTestMust(t, state.RegisterTheory(theory))
@@ -76,7 +83,7 @@ func TestSMTDenseTheoryPropagationConflictAndScope(t *testing.T) {
 			}
 			astTestMust(t, state.AssignLiteral(strongLiteral.Negated(), NewSMTBooleanAxiom()))
 			astTestMust(t, state.PropagateTheoryAssignments())
-			if !integer {
+			if rationalBound {
 				fixture := smtRealDiffFixture{manager: m, family: family, sort: sort, x: x, y: y}
 				upper := fixture.bound(t, smtArithOpLE, x, y, 1, 3)
 				astTestMust(t, state.Internalize(upper, true))
@@ -112,14 +119,14 @@ func TestSMTDenseTheoryPropagationConflictAndScope(t *testing.T) {
 				t.Fatal("dense model did not publish numeral values", xText, yText)
 			}
 			gap := new(big.Rat).Sub(xRat, yRat)
-			if gap.Sign() <= 0 || !integer && gap.Cmp(big.NewRat(1, 3)) > 0 {
+			if gap.Sign() <= 0 || rationalBound && gap.Cmp(big.NewRat(1, 3)) > 0 {
 				t.Fatal("published dense model violates strict complement or rational upper bound", xText, yText)
 			}
 			xv := state.context.enodes.get(x).TheoryVar(family)
 			yv := state.context.enodes.get(y).TheoryVar(family)
-			var difference smtInfRational
-			difference.Sub(&theory.values[xv], &theory.values[yv])
-			if difference.Sign() <= 0 {
+			xPoint := smtDenseTestParts(t, theory.q(), func(n, k *numeral.Rational) error { return theory.ext.assignmentParts(int(xv), n, k) })
+			yPoint := smtDenseTestParts(t, theory.q(), func(n, k *numeral.Rational) error { return theory.ext.assignmentParts(int(yv), n, k) })
+			if xPoint.cmp(&yPoint) <= 0 {
 				t.Fatal("complement did not yield x > y")
 			}
 		})

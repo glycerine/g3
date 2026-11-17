@@ -21,7 +21,7 @@ func TestSMTDenseTheoryConflictDump(t *testing.T) {
 			family, err := m.RegisterArithmeticPlugin()
 			astTestMust(t, err)
 			_, _, state := smtInternalizerFixture(t, m, nil)
-			theory, err := NewSMTDenseDiffTheory(family)
+			theory, err := NewSMTDenseDiffTheory(family, smtDenseMI)
 			astTestMust(t, err)
 			astTestMust(t, theory.ConfigureArithmetic(SMTArithState{DumpLemmas: true}))
 			astTestMust(t, state.RegisterTheory(theory))
@@ -36,15 +36,15 @@ func TestSMTDenseTheoryConflictDump(t *testing.T) {
 				literals = append(literals, literal)
 			}
 
-			theory.matrix.addVariable()
-			theory.matrix.addVariable()
-			zero := newSMTInfRational(new(big.Rat), nil)
-			astTestMust(t, theory.addEdge(0, 1, &zero, literals[0]))
+			theory.denseMatrix().addVariable()
+			theory.denseMatrix().addVariable()
+			astTestMust(t, theory.ext.setK(testQR(new(big.Rat))))
+			astTestMust(t, theory.addEdge(0, 1, literals[0]))
 			if refused {
 				astTestMust(t, os.Mkdir("lemma_0.smt2", 0700))
 			}
-			minusOne := newSMTInfRational(big.NewRat(-1, 1), nil)
-			astTestMust(t, theory.addEdge(1, 0, &minusOne, literals[1]))
+			astTestMust(t, theory.ext.setK(testQR(big.NewRat(-1, 1))))
+			astTestMust(t, theory.addEdge(1, 0, literals[1]))
 			if !state.Inconsistent() || smtLemmaID != 1 {
 				t.Fatal("dense conflict did not publish and dump", state.Inconsistent(), smtLemmaID)
 			}

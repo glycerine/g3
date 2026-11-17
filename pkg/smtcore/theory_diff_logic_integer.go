@@ -156,11 +156,12 @@ func (t *SMTIntegerDiffTheory) isNumeral(expression ast.ASTHandle) (bool, error)
 	return ok, err
 }
 
-// numeralIs is m_util.is_numeral(expression, r) && r == v for v = 1 or -1.
+// numeralIs is m_util.is_numeral(expression, r) && r == v for v = 0, 1 or
+// -1 (is_zero, is_one, is_minus_one).
 func (t *SMTIntegerDiffTheory) numeralIs(expression ast.ASTHandle, v int) (bool, error) {
 	r := smtQZero()
 	ok, err := t.numeral(expression, &r)
-	ok = ok && (v == 1 && r.IsOne() || v == -1 && r.IsMinusOne())
+	ok = ok && (v == 0 && r.IsZero() || v == 1 && r.IsOne() || v == -1 && r.IsMinusOne())
 	if e := smtQDel(t.q, &r); err == nil {
 		err = e
 	}

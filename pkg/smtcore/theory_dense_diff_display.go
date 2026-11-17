@@ -5,24 +5,9 @@ package smtcore
 import (
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
-
-func smtDenseInfText(value *smtInfRational) string {
-	main := value.rational.RatString()
-	if value.infinitesimal.Sign() == 0 {
-		return main
-	}
-	epsilon := value.infinitesimal.RatString()
-	if value.infinitesimal.Sign() < 0 {
-		var absolute big.Rat
-		absolute.Neg(&value.infinitesimal)
-		return "(" + main + " -e*" + absolute.RatString() + ")"
-	}
-	return "(" + main + " +e*" + epsilon + ")"
-}
 
 // Display retains theory_dense_diff_logic::display and display_atom.
 func (t *SMTDenseDiffTheory) Display(out io.Writer) error {
@@ -38,9 +23,13 @@ func (t *SMTDenseDiffTheory) Display(out io.Writer) error {
 	if err := t.DisplayVariableEnodes(out); err != nil {
 		return err
 	}
-	for source, row := range t.matrix.rows {
-		for target, cell := range row {
-			if cell.edge <= 0 {
+	var rows [][]int
+	if t.matrix != nil {
+		rows = t.matrix.rows
+	}
+	for source, row := range rows {
+		for target, edge := range row {
+			if edge <= 0 {
 				continue
 			}
 			sourceID, err := t.variables[source].OwnerID()
@@ -51,7 +40,7 @@ func (t *SMTDenseDiffTheory) Display(out io.Writer) error {
 			if err != nil {
 				return err
 			}
-			if err = smtWriteTheoryText(out, fmt.Sprintf("#%-5d -- %-10s : id%-5d --> #%d\n", sourceID, smtDenseNumText(cell.distance), cell.edge, targetID)); err != nil {
+			if err = smtWriteTheoryText(out, fmt.Sprintf("#%-5d -- %s : id%-5d --> #%d\n", sourceID, t.ext.distText(source, target, 10), edge, targetID)); err != nil {
 				return err
 			}
 		}
@@ -60,7 +49,7 @@ func (t *SMTDenseDiffTheory) Display(out io.Writer) error {
 		return err
 	}
 	for index := range t.atoms {
-		text, err := t.displayAtom(&t.atoms[index])
+		text, err := t.displayAtom(index)
 		if err != nil {
 			return err
 		}
@@ -72,7 +61,8 @@ func (t *SMTDenseDiffTheory) Display(out io.Writer) error {
 }
 
 // displayAtom is theory_dense_diff_logic::display_atom.
-func (t *SMTDenseDiffTheory) displayAtom(atom *smtDenseAtom) (string, error) {
+func (t *SMTDenseDiffTheory) displayAtom(index int) (string, error) {
+	atom := &t.atoms[index]
 	targetID, err := t.variables[atom.target].OwnerID()
 	if err != nil {
 		return "", err
@@ -85,11 +75,11 @@ func (t *SMTDenseDiffTheory) displayAtom(atom *smtDenseAtom) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("#%-5d - #%-5d <= %-10s        assignment: %s\n", targetID, sourceID, smtDenseInfText(&atom.offset), assignment), nil
+	return fmt.Sprintf("#%-5d - #%-5d <= %s        assignment: %s\n", targetID, sourceID, t.ext.atomText(index, 10), assignment), nil
 }
 
 // displayAtomText is display_atom for a trace operand.
-func (t *SMTDenseDiffTheory) displayAtomText(atom *smtDenseAtom) string {
-	text, _ := t.displayAtom(atom)
+func (t *SMTDenseDiffTheory) displayAtomText(index int) string {
+	text, _ := t.displayAtom(index)
 	return text
 }

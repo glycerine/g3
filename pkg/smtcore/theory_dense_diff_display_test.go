@@ -25,13 +25,15 @@ func TestSMTDenseDifferenceDisplayInfinitesimalText(t *testing.T) {
 		{big.NewRat(3, 2), big.NewRat(2, 3), "(3/2 +e*2/3)"},
 		{big.NewRat(-4, 5), big.NewRat(-7, 6), "(-4/5 -e*7/6)"},
 	}
+	q := testQ()
 	for _, test := range tests {
-		value := smtInfRational{}
-		value.rational.Set(test.rational)
-		value.infinitesimal.Set(test.infinitesimal)
-		if got := smtDenseInfText(&value); got != test.want {
-			t.Fatalf("smtDenseInfText(%s,%s) = %q, want %q", test.rational, test.infinitesimal, got, test.want)
+		value := newSMTInfRational()
+		astTestMust(t, smtQFromBig(q, &value.first, test.rational))
+		astTestMust(t, smtQFromBig(q, &value.second, test.infinitesimal))
+		if got := smtInfRationalText(q, &value); got != test.want {
+			t.Fatalf("inf_rational::to_string(%s,%s) = %q, want %q", test.rational, test.infinitesimal, got, test.want)
 		}
+		astTestMust(t, value.del(q))
 	}
 }
 
@@ -40,7 +42,7 @@ func TestSMTDenseDifferenceDisplayThroughContext(t *testing.T) {
 	family, err := m.RegisterArithmeticPlugin()
 	astTestMust(t, err)
 	_, _, state := smtInternalizerFixture(t, m, nil)
-	theory, err := NewSMTDenseDiffTheory(family)
+	theory, err := NewSMTDenseDiffTheory(family, smtDenseMI)
 	astTestMust(t, err)
 	astTestMust(t, theory.ConfigureArithmetic(SMTArithState{Reflect: true}))
 	astTestMust(t, state.RegisterTheory(theory))

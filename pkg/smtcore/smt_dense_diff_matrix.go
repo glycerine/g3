@@ -2,75 +2,137 @@ package smtcore
 
 // Source: src/smt/theory_dense_diff_logic_def.h mk_var, add_edge,
 // update_cells, get_antecedents, restore_cells and init_model.
+//
+// theory_dense_diff_logic<Ext> is instantiated four times (theory_dense.h):
+// si_ext (s_integer), smi_ext (inf_s_integer), i_ext (rational) and mi_ext
+// (inf_rational). The matrix keeps the numeral-independent parts (cell edge
+// ids, edge endpoints and justifications, the cell trail, scopes and atom
+// occurrences); an smtDenseExt keeps every numeral of one instantiation in
+// its own concrete type: the cell distances, edge and atom offsets, the
+// trailed distances, the model assignment and the k register of the
+// operation in progress.
 
-import "fmt"
+import (
+	"fmt"
 
-// Dense closure stores a source edge explaining each improved distance.
-// Zero is the self-edge sentinel; negative one means disconnected.
-type smtDenseDiffCell struct {
-	edge     int
-	distance smtDenseNum
+	"github.com/glycerine/g3/pkg/util/numeral"
+)
+
+// smtDenseExtKind names the four instantiations.
+type smtDenseExtKind uint8
+
+const (
+	smtDenseMI  smtDenseExtKind = iota // theory_dense_mi: inf_rational
+	smtDenseI                          // theory_dense_i: rational
+	smtDenseSMI                        // theory_dense_smi: inf_s_integer
+	smtDenseSI                         // theory_dense_si: s_integer
+)
+
+// smtDenseExt is the numeral half of one instantiation. k is the numeral
+// local of internalize_term_core, internalize_atom and assign_eh, passed to
+// add_edge as its offset.
+type smtDenseExt interface {
+	// addVariable is mk_var's matrix growth: a cell() for v in every row, a
+	// new row of v+1 cells, and m_matrix[v][v].m_distance.reset().
+	addVariable(v int)
+	// shrink is restore_cells(trail) (newest first, reading g.trail's
+	// cells), m_edges.shrink(edges) and del_vars(variables).
+	shrink(g *smtDenseDiffMatrix, variables, edges, trail int) error
+	setK(r *numeral.Rational) error // numeral k(_k)
+	setKAtom(atom int) error        // k = a->get_offset()
+	negK() error                    // k.neg()
+	subKEpsilon(real bool) error    // k -= get_epsilon(s)
+	kText() string
+	pushAtom() error // the new atom's m_offset = k
+	popAtoms(atoms int) error
+	atomText(atom int, width int) string
+	// kConflicts is add_edge's -c_inv.m_distance > offset, c_inv = m[target][source].
+	kConflicts(target, source int) (bool, error)
+	// kImproves is add_edge's offset < c.m_distance, c = m[source][target].
+	kImproves(source, target int) (bool, error)
+	pushEdge() error // m_edges.push_back(edge(source, target, k, l))
+	updateCells(g *smtDenseDiffMatrix) error
+	distText(source, target int, width int) string
+	// implies is propagate_using_cell's test for atom over cell
+	// (source, target): c.m_distance <= a->get_offset() when the atom has the
+	// cell's direction, -c.m_distance > a->get_offset() otherwise.
+	implies(source, target, atom int, forward bool) (bool, error)
+	// initModel is init_model(): m_assignment[i] = -min(0, distances of row i).
+	initModel(g *smtDenseDiffMatrix) error
+	assignmentText(v int) string
+	assignmentIsZero(v int) bool
+	// fixZero is fix_zero's numeral val = m_assignment[v] and
+	// m_assignment[v2] -= val for every v2 with same[v2].
+	fixZero(v int, same []bool) error
+	// parts are get_rational().to_rational() and
+	// get_infinitesimal().to_rational().
+	assignmentParts(v int, n, k *numeral.Rational) error
+	edgeParts(edge int, n, k *numeral.Rational) error
+	// setAssignment is maximize's numeral a(q); m_assignment[i] = a.
+	setAssignment(v int, r *numeral.Rational) error
+	close() error
 }
 
-// smtDenseDiffCellValue is the part of a cell that cell_trail restores.
-type smtDenseDiffCellValue struct {
-	edge     int
-	distance smtDenseNum
+func newSMTDenseExt(kind smtDenseExtKind, q *numeral.RationalManager) smtDenseExt {
+	switch kind {
+	case smtDenseI:
+		return &smtDenseExtI{q: q, k: smtQZero()}
+	case smtDenseSMI:
+		return &smtDenseExtSMI{q: q}
+	case smtDenseSI:
+		return &smtDenseExtSI{q: q}
+	}
+	return &smtDenseExtMI{q: q, k: newSMTInfRational()}
 }
 
+// smtDenseDiffEdge is edge without its offset (kept by the Ext).
 type smtDenseDiffEdge struct {
 	source, target int
-	offset         smtInfRational
-	num            smtDenseNum // offset
 	literal        SMTLiteral
 }
 
+// smtDenseDiffTrail is cell_trail without m_old_distance (kept by the Ext).
 type smtDenseDiffTrail struct {
 	source, target int
-	old            smtDenseDiffCellValue
+	edge           int
 }
 
 type smtDenseDiffScope struct{ variables, edges, trail int }
 
-// smtDenseDiffForward is an update_cells candidate: a target x whose
-// distance from the new edge's source improves.
-type smtDenseDiffForward struct {
-	target   int
-	distance smtDenseNum
-}
-
 type smtDenseDiffMatrix struct {
-	owner  *SMTDenseDiffTheory
-	rows   [][]smtDenseDiffCell
+	owner *SMTDenseDiffTheory
+	ext   smtDenseExt
+	// rows[source][target] is cell::m_edge_id: zero is the self edge,
+	// negative one means disconnected.
+	rows   [][]int
 	edges  []smtDenseDiffEdge
 	trail  []smtDenseDiffTrail
 	scopes []smtDenseDiffScope
 	// occs[source][target] is cell::m_occs, the atoms over (source, target)
 	// or (target, source); kept beside rows so the closure loops stay compact.
 	occs [][][]int
-	// targets is update_cells' scratch candidate list, reused across calls.
-	targets []smtDenseDiffForward
 }
 
-func newSMTDenseDiffMatrix() *smtDenseDiffMatrix {
-	return &smtDenseDiffMatrix{edges: []smtDenseDiffEdge{{source: -1, target: -1, literal: SMTNullLiteral}}}
+func newSMTDenseDiffMatrix(ext smtDenseExt) *smtDenseDiffMatrix {
+	return &smtDenseDiffMatrix{ext: ext, edges: []smtDenseDiffEdge{{source: -1, target: -1, literal: SMTNullLiteral}}}
 }
 
 func (g *smtDenseDiffMatrix) addVariable() int {
 	v := len(g.rows)
 	for i := range g.rows {
-		g.rows[i] = append(g.rows[i], smtDenseDiffCell{edge: -1})
+		g.rows[i] = append(g.rows[i], -1)
 	}
-	row := make([]smtDenseDiffCell, v+1)
+	row := make([]int, v+1)
 	for i := range row {
-		row[i].edge = -1
+		row[i] = -1
 	}
-	row[v].edge = 0
+	row[v] = 0
 	g.rows = append(g.rows, row)
 	for i := range g.occs {
 		g.occs[i] = append(g.occs[i], nil)
 	}
 	g.occs = append(g.occs, make([][]int, v+1))
+	g.ext.addVariable(v)
 	return v
 }
 
@@ -78,12 +140,8 @@ func (g *smtDenseDiffMatrix) valid(v int) bool {
 	return g != nil && v >= 0 && v < len(g.rows)
 }
 
-func (g *smtDenseDiffMatrix) distance(source, target int) (smtInfRational, bool) {
-	var value smtInfRational
-	if !g.valid(source) || !g.valid(target) || g.rows[source][target].edge < 0 {
-		return value, false
-	}
-	return g.rows[source][target].distance.inf(), true
+func (g *smtDenseDiffMatrix) connected(source, target int) bool {
+	return g.valid(source) && g.valid(target) && g.rows[source][target] >= 0
 }
 
 // traceOwner emits a ddl TRACE record of the owning dense theory.
@@ -103,7 +161,7 @@ func (g *smtDenseDiffMatrix) antecedents(source, target int) ([]SMTLiteral, erro
 	g.traceOwner("get_antecedents", 442, func(id func(int) uint32) string {
 		return fmt.Sprintf("get_antecedents, source: #%d, target: #%d\n", id(source), id(target))
 	})
-	if !g.valid(source) || !g.valid(target) || g.rows[source][target].edge < 0 {
+	if !g.connected(source, target) {
 		return nil, errSMTDiffGraphDomain
 	}
 	type pair struct{ source, target int }
@@ -116,7 +174,7 @@ func (g *smtDenseDiffMatrix) antecedents(source, target int) ([]SMTLiteral, erro
 		i := len(todo) - 1
 		p := todo[i]
 		todo = todo[:i]
-		id := g.rows[p.source][p.target].edge
+		id := g.rows[p.source][p.target]
 		if id <= 0 || id >= len(g.edges) {
 			return nil, errSMTDiffGraphDomain
 		}
@@ -134,113 +192,73 @@ func (g *smtDenseDiffMatrix) antecedents(source, target int) ([]SMTLiteral, erro
 	return result, nil
 }
 
-// A rejected edge reports the source's reverse-path antecedents followed by
+// addEdge is add_edge(source, target, k, literal) with the Ext's k. A
+// rejected edge reports the source's reverse-path antecedents followed by
 // the new literal, without changing the matrix or edge list.
-func (g *smtDenseDiffMatrix) addEdge(source, target int, offset *smtInfRational, literal SMTLiteral) (bool, []SMTLiteral, error) {
-	if !g.valid(source) || !g.valid(target) || offset == nil {
+func (g *smtDenseDiffMatrix) addEdge(source, target int, literal SMTLiteral) (bool, []SMTLiteral, error) {
+	if !g.valid(source) || !g.valid(target) {
 		return false, nil, errSMTDiffGraphDomain
 	}
 	g.traceOwner("add_edge", 589, func(id func(int) uint32) string {
-		return fmt.Sprintf("trying adding edge: #%d -- %s --> #%d\n", id(source), smtDenseInfText(offset), id(target))
+		return fmt.Sprintf("trying adding edge: #%d -- %s --> #%d\n", id(source), g.ext.kText(), id(target))
 	})
-	num := smtDenseNumOf(offset)
-	inverse := &g.rows[target][source]
-	if inverse.edge >= 0 && smtDenseNumCmp(smtDenseNumNeg(inverse.distance), num) > 0 {
-		g.traceOwner("add_edge", 593, func(id func(int) uint32) string {
-			return fmt.Sprintf("conflict detected: #%d #%d offset: %s, c_inv.m_edge_id: %d, c_inv.m_distance: %s\n",
-				id(source), id(target), smtDenseInfText(offset), inverse.edge, smtDenseNumText(inverse.distance))
-		})
-		antecedents, err := g.antecedents(target, source)
+	inverse := g.rows[target][source]
+	if inverse >= 0 {
+		conflict, err := g.ext.kConflicts(target, source)
 		if err != nil {
 			return false, nil, err
 		}
-		if literal != SMTNullLiteral {
-			antecedents = append(antecedents, literal)
+		if conflict {
+			g.traceOwner("add_edge", 593, func(id func(int) uint32) string {
+				return fmt.Sprintf("conflict detected: #%d #%d offset: %s, c_inv.m_edge_id: %d, c_inv.m_distance: %s\n",
+					id(source), id(target), g.ext.kText(), inverse, g.ext.distText(target, source, 0))
+			})
+			antecedents, err := g.antecedents(target, source)
+			if err != nil {
+				return false, nil, err
+			}
+			if literal != SMTNullLiteral {
+				antecedents = append(antecedents, literal)
+			}
+			return false, antecedents, nil
 		}
-		return false, antecedents, nil
 	}
-	cell := &g.rows[source][target]
-	if cell.edge < 0 || smtDenseNumCmp(num, cell.distance) < 0 {
+	improves := g.rows[source][target] < 0
+	if !improves {
+		var err error
+		if improves, err = g.ext.kImproves(source, target); err != nil {
+			return false, nil, err
+		}
+	}
+	if improves {
 		g.traceOwner("add_edge", 613, func(id func(int) uint32) string {
-			return fmt.Sprintf("adding edge: #%d -- %s --> #%d\n", id(source), smtDenseInfText(offset), id(target))
+			return fmt.Sprintf("adding edge: #%d -- %s --> #%d\n", id(source), g.ext.kText(), id(target))
 		})
-		e := smtDenseDiffEdge{source: source, target: target, num: num, literal: literal}
-		e.offset.Set(offset)
-		g.edges = append(g.edges, e)
-		if err := g.updateCells(); err != nil {
+		g.edges = append(g.edges, smtDenseDiffEdge{source: source, target: target, literal: literal})
+		if err := g.ext.pushEdge(); err != nil {
+			return false, nil, err
+		}
+		if err := g.ext.updateCells(g); err != nil {
 			return false, nil, err
 		}
 	}
 	return true, nil, nil
 }
 
-func (g *smtDenseDiffMatrix) updateCells() error {
-	id := len(g.edges) - 1
-	e := &g.edges[id]
-	s, t := e.source, e.target
-	traced := g.owner != nil && smtTraceEnabled("ddl")
-	targets := g.targets[:0]
-	for x := range g.rows {
-		c := &g.rows[t][x]
-		if c.edge >= 0 && x != s {
-			value := smtDenseNumAdd(e.num, c.distance)
-			old := &g.rows[s][x]
-			if traced {
-				g.traceOwner("update_cells", 495, func(id func(int) uint32) string {
-					return fmt.Sprintf("s: #%d x: #%d new_dist: %s\nalready has edge: %d  old dist: %s\n",
-						id(s), id(x), smtDenseNumText(value), old.edge, smtDenseNumText(old.distance))
-				})
-			}
-			if old.edge < 0 || smtDenseNumCmp(value, old.distance) < 0 {
-				targets = append(targets, smtDenseDiffForward{x, value})
-			}
-		}
+// traceUpdate is update_cells' TRACE("ddl") for candidate x.
+func (g *smtDenseDiffMatrix) traceUpdate(s, x int, newDist string, oldEdge int, oldDist func() string) {
+	g.traceOwner("update_cells", 495, func(id func(int) uint32) string {
+		return fmt.Sprintf("s: #%d x: #%d new_dist: %s\nalready has edge: %d  old dist: %s\n",
+			id(s), id(x), newDist, oldEdge, oldDist())
+	})
+}
+
+// propagate runs propagate_using_cell(y, x) when the cell has atoms.
+func (g *smtDenseDiffMatrix) propagate(y, x int) error {
+	if g.owner == nil || len(g.occs[y][x]) == 0 {
+		return nil
 	}
-	g.targets = targets
-	for y := range g.rows {
-		if y == t {
-			continue
-		}
-		c := &g.rows[y][s]
-		if c.edge < 0 {
-			continue
-		}
-		for i := range targets {
-			x := targets[i].target
-			if x == y {
-				continue
-			}
-			cell := &g.rows[y][x]
-			var value smtDenseNum
-			if a, b := &c.distance, &targets[i].distance; a.x == nil && b.x == nil {
-				// smtDenseNumAdd's int64 path, written out for the inner loop.
-				r, e := a.r+b.r, a.e+b.e
-				if ((a.r >= 0) == (b.r >= 0) && (r >= 0) != (a.r >= 0)) || ((a.e >= 0) == (b.e >= 0) && (e >= 0) != (a.e >= 0)) {
-					value = smtDenseNumAdd(*a, *b)
-				} else {
-					value = smtDenseNum{r: r, e: e}
-				}
-			} else {
-				value = smtDenseNumAdd(*a, *b)
-			}
-			if cell.edge >= 0 && value.x == nil && cell.distance.x == nil {
-				if value.r > cell.distance.r || (value.r == cell.distance.r && value.e >= cell.distance.e) {
-					continue
-				}
-			} else if cell.edge >= 0 && smtDenseNumCmp(value, cell.distance) >= 0 {
-				continue
-			}
-			g.trail = append(g.trail, smtDenseDiffTrail{y, x, smtDenseDiffCellValue{cell.edge, cell.distance}})
-			cell.edge = id
-			cell.distance = value
-			if g.owner != nil {
-				if err := g.owner.propagateCell(y, x); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
+	return g.owner.propagateCell(y, x)
 }
 
 func (g *smtDenseDiffMatrix) push() {
@@ -256,17 +274,19 @@ func (g *smtDenseDiffMatrix) pop(count uint32) error {
 	}
 	level := len(g.scopes) - int(count)
 	scope := g.scopes[level]
+	// restore_cells: the Ext restores the distances first, newest first.
+	if err := g.ext.shrink(g, scope.variables, scope.edges, scope.trail); err != nil {
+		return err
+	}
 	for i := len(g.trail) - 1; i >= scope.trail; i-- {
 		t := &g.trail[i]
-		cell := &g.rows[t.source][t.target]
-		cell.edge, cell.distance = t.old.edge, t.old.distance
+		g.rows[t.source][t.target] = t.edge
 	}
 	clear(g.trail[scope.trail:])
 	g.trail = g.trail[:scope.trail]
 	clear(g.edges[scope.edges:])
 	g.edges = g.edges[:scope.edges]
 	for i := range g.rows {
-		clear(g.rows[i][scope.variables:])
 		g.rows[i] = g.rows[i][:scope.variables]
 		clear(g.occs[i][scope.variables:])
 		g.occs[i] = g.occs[i][:scope.variables]
@@ -277,19 +297,4 @@ func (g *smtDenseDiffMatrix) pop(count uint32) error {
 	g.occs = g.occs[:scope.variables]
 	g.scopes = g.scopes[:level]
 	return nil
-}
-
-func (g *smtDenseDiffMatrix) assignment() []smtInfRational {
-	values := make([]smtInfRational, len(g.rows))
-	for i := range g.rows {
-		var minimum smtDenseNum
-		for j := range g.rows[i] {
-			c := &g.rows[i][j]
-			if i != j && c.edge >= 0 && smtDenseNumCmp(c.distance, minimum) < 0 {
-				minimum = c.distance
-			}
-		}
-		values[i] = smtDenseNumNeg(minimum).inf()
-	}
-	return values
 }

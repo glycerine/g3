@@ -148,7 +148,7 @@ func TestSMTSolverOptimizerDispatchesAllConcreteFamilies(t *testing.T) {
 		{"lra", func(f ast.FamilyID) (SMTTheoryInternalizer, error) { return NewSMTLRATheory(f) }},
 		{"rdl", func(f ast.FamilyID) (SMTTheoryInternalizer, error) { return NewSMTRealDiffTheory(f) }},
 		{"mixed-difference", func(f ast.FamilyID) (SMTTheoryInternalizer, error) { return NewSMTMixedDiffTheory(f) }},
-		{"dense", func(f ast.FamilyID) (SMTTheoryInternalizer, error) { return NewSMTDenseDiffTheory(f) }},
+		{"dense", func(f ast.FamilyID) (SMTTheoryInternalizer, error) { return NewSMTDenseDiffTheory(f, smtDenseMI) }},
 	}
 	for _, test := range constructors {
 		t.Run(test.name, func(t *testing.T) {

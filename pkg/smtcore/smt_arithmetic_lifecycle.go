@@ -41,8 +41,8 @@ func (k *SMTKernel) copyArithmeticPlugin(source *SMTKernel) error {
 		} else {
 			theory, err = NewSMTRealDiffTheory(family)
 		}
-	case *SMTDenseDiffTheory:
-		theory, err = NewSMTDenseDiffTheory(family)
+	case *SMTDenseDiffTheory: // theory_dense_diff_logic<Ext>::mk_fresh
+		theory, err = NewSMTDenseDiffTheory(family, previous.extKind)
 	case *SMTUTVPITheory:
 		theory, err = NewSMTUTVPITheory(family)
 		owner = nil // Source UTVPI owns constructor defaults.

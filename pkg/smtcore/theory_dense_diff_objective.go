@@ -3,12 +3,14 @@ package smtcore
 // Source: src/smt/theory_dense_diff_logic_def.h:841-1130 optimization.
 
 import (
+	"errors"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // Source explicitly shares objective syntax with sparse difference logic.
@@ -28,7 +30,32 @@ func (t *SMTDenseDiffTheory) Close() error {
 			t.traceDeleteAtom(&t.atoms[i], func() {})
 		}
 	}
-	return t.syntax.closeDiffOptimization()
+	err := t.syntax.closeDiffOptimization()
+	if t.ext != nil {
+		err = errors.Join(err, t.ext.close())
+	}
+	if t.syntax.q != nil {
+		err = errors.Join(err, smtQDel(t.syntax.q, &t.epsilon))
+	}
+	return err
+}
+
+// smtDenseBigParts returns the to_rational() parts of a dense numeral as
+// math/big values for the simplex package (a boundary conversion).
+func (t *SMTDenseDiffTheory) bigParts(parts func(n, k *numeral.Rational) error) (*big.Rat, *big.Rat, error) {
+	q := t.q()
+	n, k := smtQZero(), smtQZero()
+	defer smtQDel(q, &n)
+	defer smtQDel(q, &k)
+	if err := parts(&n, &k); err != nil {
+		return nil, nil, err
+	}
+	main, err := smtQBig(q, &n)
+	if err != nil {
+		return nil, nil, err
+	}
+	epsilon, err := smtQBig(q, &k)
+	return main, epsilon, err
 }
 func (t *SMTDenseDiffTheory) ObjectiveValue(v SMTTheoryVar) (SMTArithmeticObjectiveValue, error) {
 	objective, err := t.syntax.diffObjective(v)
@@ -46,12 +73,15 @@ func (t *SMTDenseDiffTheory) ObjectiveValue(v SMTTheoryVar) (SMTArithmeticObject
 			return SMTArithmeticObjectiveValue{}, err
 		}
 		// This source revision indexes the assignment by objective index v.
-		if v < 0 || int(v) >= len(t.values) {
+		if v < 0 || int(v) >= t.modelVars {
 			return SMTArithmeticObjectiveValue{}, ast.ErrASTDomain
 		}
-		point := &t.values[v]
-		value.Main.Add(&value.Main, new(big.Rat).Mul(coefficient, &point.rational))
-		value.Epsilon.Add(&value.Epsilon, new(big.Rat).Mul(coefficient, &point.infinitesimal))
+		main, epsilon, err := t.bigParts(func(n, k *numeral.Rational) error { return t.ext.assignmentParts(int(v), n, k) })
+		if err != nil {
+			return SMTArithmeticObjectiveValue{}, err
+		}
+		value.Main.Add(&value.Main, new(big.Rat).Mul(coefficient, main))
+		value.Epsilon.Add(&value.Epsilon, new(big.Rat).Mul(coefficient, epsilon))
 	}
 	return SMTArithmeticObjectiveValue{Finite: value}, nil
 }
@@ -71,22 +101,25 @@ func (t *SMTDenseDiffTheory) MaximizeObjective(v SMTTheoryVar) (SMTArithmeticObj
 	if err != nil {
 		return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
 	}
-	nodes, edges := t.NumVariables(), len(t.matrix.edges)
-	if len(t.values) != nodes {
+	nodes, edges := t.NumVariables(), len(t.denseMatrix().edges)
+	if t.modelVars != nodes {
 		return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, ast.ErrASTDomain
 	}
 	solver := simplex.NewSolver(&state.manager.Limit)
 	solver.EnsureVariable(uint32(nodes + edges + len(t.syntax.optimization.objectives)))
-	for i := range t.values {
-		point := &t.values[i]
-		solver.SetValue(uint32(i), simplex.NewInfinitesimal(&point.rational, &point.infinitesimal))
-	}
-	for _, node := range t.variables {
-		value, numeral, err := t.syntax.numeralBig(node.owner)
+	for i := 0; i < nodes; i++ {
+		main, epsilon, err := t.bigParts(func(n, k *numeral.Rational) error { return t.ext.assignmentParts(i, n, k) })
 		if err != nil {
 			return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
 		}
-		if numeral && value.Sign() == 0 {
+		solver.SetValue(uint32(i), simplex.NewInfinitesimal(main, epsilon))
+	}
+	for _, node := range t.variables {
+		zero, err := t.syntax.numeralIs(node.owner, 0)
+		if err != nil {
+			return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
+		}
+		if zero {
 			// Source sets bounds on v (objective index), not the zero node index.
 			zero := simplex.Infinitesimal{}
 			if err = solver.SetLower(uint32(v), zero); err != nil {
@@ -107,7 +140,11 @@ func (t *SMTDenseDiffTheory) MaximizeObjective(v SMTTheoryVar) (SMTArithmeticObj
 		if _, err = solver.AddIntegerRow(base, []uint32{uint32(edge.target), uint32(edge.source), base}, []big.Int{*big.NewInt(1), *big.NewInt(-1), *big.NewInt(-1)}); err != nil {
 			return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
 		}
-		if err = solver.SetUpper(base, simplex.NewInfinitesimal(&edge.offset.rational, &edge.offset.infinitesimal)); err != nil {
+		main, epsilon, err := t.bigParts(func(n, k *numeral.Rational) error { return t.ext.edgeParts(i, n, k) })
+		if err != nil {
+			return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
+		}
+		if err = solver.SetUpper(base, simplex.NewInfinitesimal(main, epsilon)); err != nil {
 			return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
 		}
 	}
@@ -175,8 +212,18 @@ func (t *SMTDenseDiffTheory) MaximizeObjective(v SMTTheoryVar) (SMTArithmeticObj
 		point := solver.Value(uint32(i))
 		// Preserve the source's explicit TBD: dense maximization publishes the
 		// rational part only, unlike the sparse backend's finite-delta assignment.
-		t.values[i].rational.Set(&point.Main)
-		t.values[i].infinitesimal.SetInt64(0)
+		// numeral a(q); m_assignment[i] = a.
+		r := smtQZero()
+		err := smtQFromBig(t.q(), &r, &point.Main)
+		if err == nil {
+			err = t.ext.setAssignment(i, &r)
+		}
+		if e := smtQDel(t.q(), &r); err == nil {
+			err = e
+		}
+		if err != nil {
+			return SMTArithmeticObjectiveValue{}, ast.ASTHandle{}, false, err
+		}
 	}
 	blocker, err := t.syntax.diffObjectiveInequality(v, value, true)
 	constant, e := smtQBig(t.syntax.q, &objective.constant)

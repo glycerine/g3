@@ -19,7 +19,7 @@ func TestOptimizationObjectiveGEDifferenceEpsilonFallback(t *testing.T) {
 			case "mixed-difference":
 				theory, err = NewSMTMixedDiffTheory(family)
 			case "dense":
-				theory, err = NewSMTDenseDiffTheory(family)
+				theory, err = NewSMTDenseDiffTheory(family, smtDenseMI)
 			}
 			astTestMust(t, err)
 			astTestMust(t, s.kernel.RegisterTheory(theory))

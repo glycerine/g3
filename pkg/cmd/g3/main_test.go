@@ -336,6 +336,7 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	"idl_dense_big_constants.smt2": "sat\n(((- x y) 4000000001)\n ((- y z) 0)\n ((- x z) 4000000001))\nsat\n",
 	// xform.karr: mk_karr_invariants' inner datalog context rejects the
 	// loop-counter rules (fork fix #A frees the transformer's rule set; see
 	// ast_event_digests.txt).

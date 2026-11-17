@@ -30,8 +30,10 @@ func (k *SMTKernel) setupBasicArithmetic() (result error) {
 		arithmetic.Eq2Ineq = true
 		theory, err = NewSMTMixedDiffTheory(family)
 	case 3:
+		// AS_DENSE_DIFF_LOGIC: fixnum and int_only need m_arith_fixnum and
+		// m_arith_int_only, which stay false, so theory_dense_mi.
 		arithmetic.Eq2Ineq = true
-		theory, err = NewSMTDenseDiffTheory(family)
+		theory, err = NewSMTDenseDiffTheory(family, smtDenseMI)
 	case 4:
 		arithmetic.Eq2Ineq = true
 		theory, err = NewSMTUTVPITheory(family)

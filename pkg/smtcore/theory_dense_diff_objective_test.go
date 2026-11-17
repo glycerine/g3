@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type denseObjectiveFixture struct {
@@ -22,7 +23,7 @@ func newDenseObjectiveFixture(t *testing.T, integer bool) *denseObjectiveFixture
 	family, err := m.RegisterArithmeticPlugin()
 	astTestMust(t, err)
 	_, _, s := smtInternalizerFixture(t, m, nil)
-	d, err := NewSMTDenseDiffTheory(family)
+	d, err := NewSMTDenseDiffTheory(family, smtDenseMI)
 	astTestMust(t, err)
 	astTestMust(t, d.ConfigureArithmetic(SMTArithState{Reflect: true}))
 	astTestMust(t, s.RegisterTheory(d))
@@ -97,8 +98,8 @@ func TestSMTDenseObjectiveWeightedScopesAndNullCore(t *testing.T) {
 			zero, err := f.d.term(f.number("0"))
 			astTestMust(t, err)
 			xv := f.s.context.enodes.get(x).TheoryVar(f.family)
-			offset := newSMTInfRational(big.NewRat(-1, 1), nil)
-			astTestMust(t, f.d.addEdge(int(zero), int(xv), &offset, SMTNullLiteral))
+			astTestMust(t, f.d.ext.setK(testQR(big.NewRat(-1, 1))))
+			astTestMust(t, f.d.addEdge(int(zero), int(xv), SMTNullLiteral))
 			f.prepare()
 			value, _ = f.maximize(v)
 			checkArithmeticObjective(t, value, "14", "0")
@@ -125,7 +126,8 @@ func TestSMTDenseObjectiveStrictSourceRationalProjection(t *testing.T) {
 		t.Fatal("strict dense supremum blocker", op)
 	}
 	xv := f.s.context.enodes.get(x).TheoryVar(f.family)
-	if f.d.values[xv].rational.Cmp(big.NewRat(5, 1)) != 0 || f.d.values[xv].infinitesimal.Sign() != 0 {
+	point := smtDenseTestParts(t, f.d.q(), func(n, k *numeral.Rational) error { return f.d.ext.assignmentParts(int(xv), n, k) })
+	if point.main.Cmp(big.NewRat(5, 1)) != 0 || point.epsilon.Sign() != 0 {
 		t.Fatal("source rational-only assignment projection changed")
 	}
 	ge, err := f.d.MakeObjectiveLowerBound(nil, v, value.Finite)
@@ -177,8 +179,11 @@ func TestSMTDenseObjectiveSourceIndexAndCompilerDomains(t *testing.T) {
 	checkArithmeticObjective(t, first, "7", "0")
 	second, _ := f.maximize(w)
 	checkArithmeticObjective(t, second, "0", "0") // Native anchor uses objective index1.
-	f.d.values[0] = newSMTInfRational(big.NewRat(2, 1), big.NewRat(-3, 1))
-	f.d.values[1] = newSMTInfRational(big.NewRat(11, 1), big.NewRat(4, 1))
+	assignment := f.d.ext.(*smtDenseExtMI).assignment
+	astTestMust(t, smtQFromBig(f.d.q(), &assignment[0].first, big.NewRat(2, 1)))
+	astTestMust(t, smtQFromBig(f.d.q(), &assignment[0].second, big.NewRat(-3, 1)))
+	astTestMust(t, smtQFromBig(f.d.q(), &assignment[1].first, big.NewRat(11, 1)))
+	astTestMust(t, smtQFromBig(f.d.q(), &assignment[1].second, big.NewRat(4, 1)))
 	current, err := f.d.ObjectiveValue(v)
 	astTestMust(t, err)
 	checkArithmeticObjective(t, current, "2", "-3")

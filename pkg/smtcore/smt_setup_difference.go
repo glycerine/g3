@@ -74,7 +74,11 @@ func (k *SMTKernel) setupIntegerDifferencePolicy(useStaticFeatures bool) (result
 		}
 		if !proofs && !arithmetic.AutoConfigSimplex && dense {
 			smt.PhaseSelection = 3 // PS_CACHING_CONSERVATIVE
-			if err := k.installDenseSetup(arithmetic); err != nil {
+			kind, err := smtDenseIntegerKind(features)
+			if err != nil {
+				return err
+			}
+			if err := k.installDenseSetup(arithmetic, kind); err != nil {
 				return err
 			}
 		} else if !proofs && !k.copiedArithmeticPlugin {
@@ -92,15 +96,25 @@ func (k *SMTKernel) setupIntegerDifferencePolicy(useStaticFeatures bool) (result
 	return k.applyArithmeticSetup(smt, arithmetic, preprocess)
 }
 
+// smtDenseIntegerKind is setup_QF_IDL / setup_QF_UFIDL's choice:
+// theory_dense_si when st.arith_k_sum_is_small(), else theory_dense_i.
+func smtDenseIntegerKind(features *ast.StaticFeatures) (smtDenseExtKind, error) {
+	small, err := features.ArithKSumIsSmall()
+	if err != nil || !small {
+		return smtDenseI, err
+	}
+	return smtDenseSI, nil
+}
+
 // The source creates this plugin at the first setup boundary. Replace only
 // the unused constructor-time arithmetic specialization, before any theory term
 // or logical scope can refer to it, preserving the registry order.
-func (k *SMTKernel) installDenseSetup(config SMTArithState) error {
+func (k *SMTKernel) installDenseSetup(config SMTArithState, kind smtDenseExtKind) error {
 	family, err := k.manager.ArithmeticFamilyID()
 	if err != nil {
 		return err
 	}
-	theory, err := NewSMTDenseDiffTheory(family)
+	theory, err := NewSMTDenseDiffTheory(family, kind)
 	if err != nil {
 		return err
 	}
@@ -209,7 +223,19 @@ func (k *SMTKernel) setupRealDifferencePolicy(useStaticFeatures bool) (result er
 			return err
 		}
 		if !proofs && !arithmetic.AutoConfigSimplex && dense {
-			if err := k.installDenseSetup(arithmetic); err != nil {
+			// theory_dense_smi when !st.m_has_rational && !m_params.m_model &&
+			// st.arith_k_sum_is_small(), else theory_dense_mi.
+			kind := smtDenseMI
+			if !features.HasRational && !smt.Model {
+				small, err := features.ArithKSumIsSmall()
+				if err != nil {
+					return err
+				}
+				if small {
+					kind = smtDenseSMI
+				}
+			}
+			if err := k.installDenseSetup(arithmetic, kind); err != nil {
 				return err
 			}
 		} else if !proofs && !arithmetic.AutoConfigSimplex && features.NumUninterpretedConstants <= 4*features.NumBoolConstants && features.NumITETerms == 0 {
@@ -282,7 +308,11 @@ func (k *SMTKernel) setupUFIntegerDifferencePolicy(useStaticFeatures bool) (resu
 			smt.LemmaGcHalf = true
 			smt.RestartStrategy = 0 // RS_GEOMETRIC
 			if !proofs {
-				if err := k.installDenseSetup(arithmetic); err != nil {
+				kind, err := smtDenseIntegerKind(features)
+				if err != nil {
+					return err
+				}
+				if err := k.installDenseSetup(arithmetic, kind); err != nil {
 					return err
 				}
 			}
