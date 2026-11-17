@@ -19,16 +19,7 @@ func (table *SparseTable) RemoveFacts(facts []Fact) (int, error) {
 			return removed, err
 		}
 		var changed bool
-		if table.functional != 0 {
-			// Preserve source validation of the complete public row before
-			// deleting by its unique nonfunctional prefix.
-			if _, err = table.layout.pack(table.signature, fact); err == nil {
-				firstFunctional := table.signature.Len() - table.functional
-				changed, err = table.RemoveFunctionalKey(fact[:firstFunctional])
-			}
-		} else {
-			changed, err = table.Remove(fact)
-		}
+		changed, err = table.Remove(fact)
 		if err = errors.Join(err, action.End()); err != nil {
 			return removed, err
 		}

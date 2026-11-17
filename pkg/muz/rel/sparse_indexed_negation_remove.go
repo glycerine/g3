@@ -1,20 +1,20 @@
 package rel
 
+// removeSparseIndexedNegationFacts is negation_filter_fn's removal: the
+// marked rows' offsets, largest first, go to remove_offset, then
+// reset_indexes. targetFacts are the target's rows in storage order.
 func removeSparseIndexedNegationFacts(target *SparseTable, targetFacts []Fact, marked map[string]bool) (int, error) {
+	if err := target.open(); err != nil {
+		return 0, err
+	}
 	removed := 0
-	// C++ removes descending physical offsets so swap-removal cannot invalidate a
-	// pending offset. Reverse source order has the same property here.
 	for i := len(targetFacts) - 1; i >= 0; i-- {
 		if !marked[factKey(targetFacts[i])] {
 			continue
 		}
-		changed, err := target.Remove(targetFacts[i])
-		if err != nil {
-			return removed, err
-		}
-		if changed {
-			removed++
-		}
+		target.data.removeOffset(storeOffset(i) * storeOffset(target.factSize))
+		removed++
 	}
+	target.resetIndexes()
 	return removed, nil
 }

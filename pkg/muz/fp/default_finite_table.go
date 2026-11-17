@@ -105,7 +105,7 @@ func (e *PropositionalEngine) applyDatalogDefaultFiniteTable() (resultErr error)
 func (e *PropositionalEngine) configureDatalogFiniteDefault(name string) error {
 	if name == "lazy_sparse" {
 		if e.lazyFinite == nil {
-			e.lazyFinite = rel.NewLazySparseFiniteFactory()
+			e.lazyFinite = e.relations.NewLazySparseFiniteFactory()
 		}
 		if err := e.relations.SetLazySparseFiniteFactory(e.lazyFinite); err != nil {
 			return err

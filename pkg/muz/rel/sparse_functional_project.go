@@ -29,7 +29,7 @@ func (table *SparseTable) ProjectWithReduce(removed []int, reducer SparseFunctio
 			functional--
 		}
 	}
-	result, err := NewSparseTable(signature, functional)
+	result, err := table.plugin.MkEmpty(signature, functional)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (table *SparseTable) ProjectFunctional(removed []int) (*SparseTable, error)
 	if err != nil {
 		return nil, err
 	}
-	result, err := NewSparseTable(signature, functional)
+	result, err := table.plugin.MkEmpty(signature, functional)
 	if err != nil {
 		return nil, err
 	}

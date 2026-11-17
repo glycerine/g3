@@ -1,6 +1,13 @@
 package rel
 
 func (plan *SparseIndexedNegationPlan) collectWithNegativeOuter(target *SparseTable, negativeFacts []Fact, marked map[string]bool, stats *SparseIndexedNegationStats) error {
+	// collect_intersection_offsets: t2's get_key_indexer; the lookup runs
+	// for the first t1 row and whenever its key changes.
+	keyIndexer, err := target.getKeyIndexer(plan.targetColumns)
+	if err != nil {
+		return err
+	}
+	tracker := newSparseKeyTracker(len(plan.targetColumns))
 	indexPlan, err := NewSparseKeyLookupPlan(target, plan.targetColumns)
 	if err != nil {
 		return err
@@ -12,7 +19,11 @@ func (plan *SparseIndexedNegationPlan) collectWithNegativeOuter(target *SparseTa
 	stats.IndexGroups = indexStats.Groups
 	for _, negativeFact := range negativeFacts {
 		stats.Probes++
-		matches, err := index.Lookup(sparseIndexedJoinKey(negativeFact, plan.negativeColumns))
+		key := sparseIndexedJoinKey(negativeFact, plan.negativeColumns)
+		if tracker.update(key) {
+			keyIndexer.lookup(key)
+		}
+		matches, err := index.Lookup(key)
 		if err != nil {
 			return err
 		}

@@ -734,7 +734,7 @@ func TestFiniteSparseProductSizeEstimatesUseOuterTable(t *testing.T) {
 	if rows, e := product.SizeEstimateRows(); e != nil || rows != 2 {
 		t.Fatalf("outer row estimate = %d, want 2 (%v)", rows, e)
 	}
-	wantBytes := uint32(len(product.table.data.entries)) * product.table.layout.EntryBytes()
+	wantBytes := product.table.sizeEstimateBytes()
 	if bytes, e := product.SizeEstimateBytes(); e != nil || bytes != wantBytes {
 		t.Fatalf("outer byte estimate = %d, want %d (%v)", bytes, wantBytes, e)
 	}

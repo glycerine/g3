@@ -25,7 +25,7 @@ func (e *PropositionalEngine) selectFiniteRepresentation(declaration ast.ASTHand
 			return nil
 		}
 		if e.lazyFinite == nil {
-			e.lazyFinite = rel.NewLazySparseFiniteFactory()
+			e.lazyFinite = e.relations.NewLazySparseFiniteFactory()
 		}
 		replacement, err := e.lazyFinite.Migrate(state.table)
 		if err != nil {
@@ -56,9 +56,9 @@ func (e *PropositionalEngine) selectFiniteRepresentation(declaration ast.ASTHand
 	var replacement rel.FiniteTable
 	switch {
 	case kind == "tr_sparse":
-		replacement, err = rel.NewSparseTable(signature, 0)
+		replacement, err = e.relations.MkEmptySparseTable(signature, 0)
 	case kind == "tr_bitvector" && rel.BitvectorCanHandleSignature(signature, 0):
-		replacement, err = rel.NewBitvectorTable(signature)
+		replacement, err = e.relations.MkEmptyBitvectorTable(signature)
 	case kind == "tr_bitvector":
 		// mk_empty_relation(s, kind): the bitvector plugin rejects the
 		// signature, so the manager's appropriate plugin is used.

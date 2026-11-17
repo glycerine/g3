@@ -35,7 +35,7 @@ func (m *RelationManager) fprAppropriateTable(signature Signature, functional in
 	if m != nil && m.checkedFinite == nil && !m.defaultTableChecked && m.defaultFinite == "lazy_sparse" && m.lazyFinite != nil && m.lazyFinite.open() == nil && signature.Len() != 0 {
 		return m.lazyFinite.engine.New(signature, functional)
 	}
-	return NewSparseTable(signature, functional)
+	return m.sparsePlugin().MkEmpty(signature, functional)
 }
 
 // fprTableLike is t.get_plugin().mk_empty(sig): a lazy table's plugin
@@ -47,7 +47,7 @@ func fprTableLike(t FiniteTable, signature Signature, functional int) (FiniteTab
 		}
 		return lazy.engine.New(signature, functional)
 	}
-	return NewSparseTable(signature, functional)
+	return sparseTablePluginOf(t).MkEmpty(signature, functional)
 }
 
 // fprTableHandles is t.get_plugin().can_handle_signature(sig) for a

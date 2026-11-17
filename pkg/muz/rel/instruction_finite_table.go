@@ -44,7 +44,7 @@ func emptyFiniteLike(table FiniteTable) (FiniteTable, error) {
 		return nil, err
 	}
 	if sparse, ok := table.(*SparseTable); ok && signature.Len() != 0 {
-		return NewSparseTable(signature, sparse.functional)
+		return sparse.plugin.MkEmpty(signature, sparse.functional)
 	}
 	if lazy, ok := table.(*LazySparseTable); ok {
 		return lazySparseInstructionResult(lazy, signature, lazy.root.functional)
@@ -68,36 +68,40 @@ func newFiniteJoinResult(signature Signature, functional int, first, second Fini
 	// Source default_table_join_fn asks each actual plugin whether it can
 	// handle the result. Lazy Sparse inherits Sparse's nonnullary capability;
 	// its same-kind direct join above this fallback can still return Lazy.
-	if _, bv := first.(*BitvectorTable); bv && BitvectorCanHandleSignature(signature, functional) {
-		return NewBitvectorTable(signature)
+	if bv, ok := first.(*BitvectorTable); ok && BitvectorCanHandleSignature(signature, functional) {
+		return bv.emptyLike(signature)
 	}
 	if lazy, ok := first.(*LazySparseTable); ok && signature.Len() != 0 {
 		return lazySparseInstructionResult(lazy, signature, functional)
 	}
-	if _, sparse := first.(*SparseTable); sparse && signature.Len() != 0 {
-		return NewSparseTable(signature, functional)
+	if sparse, ok := first.(*SparseTable); ok && signature.Len() != 0 {
+		return sparse.plugin.MkEmpty(signature, functional)
 	}
 	if functional == 0 {
 		if _, hash := first.(*HashTable); hash {
 			return NewHashTable(signature), nil
 		}
 	}
-	if _, sparse := second.(*SparseTable); sparse && signature.Len() != 0 {
-		return NewSparseTable(signature, functional)
+	if sparse, ok := second.(*SparseTable); ok && signature.Len() != 0 {
+		return sparse.plugin.MkEmpty(signature, functional)
 	}
 	if lazy, ok := second.(*LazySparseTable); ok && signature.Len() != 0 {
 		return lazySparseInstructionResult(lazy, signature, functional)
 	}
-	if _, bv := second.(*BitvectorTable); bv && BitvectorCanHandleSignature(signature, functional) {
-		return NewBitvectorTable(signature)
+	if bv, ok := second.(*BitvectorTable); ok && BitvectorCanHandleSignature(signature, functional) {
+		return bv.emptyLike(signature)
 	}
 	// Neither bitvector operand handles the result: get_appropriate_plugin
 	// passes over the bitvector favourite to the first registered plugin
 	// that can, sparse for every nonnullary signature.
-	_, firstBV := first.(*BitvectorTable)
-	_, secondBV := second.(*BitvectorTable)
-	if (firstBV || secondBV) && signature.Len() != 0 {
-		return NewSparseTable(signature, functional)
+	_, isFirstBV := first.(*BitvectorTable)
+	_, isSecondBV := second.(*BitvectorTable)
+	if (isFirstBV || isSecondBV) && signature.Len() != 0 {
+		plugin := sparseTablePluginOf(first)
+		if plugin == nil {
+			plugin = sparseTablePluginOf(second)
+		}
+		return plugin.MkEmpty(signature, functional)
 	}
 	return NewHashTable(signature), nil
 }

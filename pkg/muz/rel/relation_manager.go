@@ -22,6 +22,9 @@ type RelationManager struct {
 	// reset and restrict walk it in table order.
 	layout        *ast.ObjMap
 	defaultFinite string
+	// sparse is the sparse_table_plugin, with its pool of deallocated
+	// tables.
+	sparse *SparseTablePlugin
 	// favouriteTable is the table plugin of a table_relation favourite
 	// relation plugin other than the default table's (datalog.default_relation
 	// tr_<table>), "" when there is none.
@@ -101,7 +104,7 @@ func NewRelationManager(manager *ast.ASTManager) (*RelationManager, error) {
 		}
 		return nil, err
 	}
-	return &RelationManager{manager: manager, relations: make(map[ast.ASTHandle]*HashTable), finite: make(map[ast.ASTHandle]FiniteTable), saturated: make(map[ast.ASTHandle]bool), layout: ast.NewObjMap(manager), defaultFinite: "hashtable", varSubst: varSubst}, nil
+	return &RelationManager{manager: manager, relations: make(map[ast.ASTHandle]*HashTable), finite: make(map[ast.ASTHandle]FiniteTable), saturated: make(map[ast.ASTHandle]bool), layout: ast.NewObjMap(manager), defaultFinite: "hashtable", sparse: newSparseTablePlugin(), varSubst: varSubst}, nil
 }
 
 func (m *RelationManager) open() error {
@@ -286,6 +289,7 @@ func (m *RelationManager) Close() (result error) {
 	m.saturated = nil
 	m.lazyFinite = nil
 	m.checkedFinite = nil
+	m.sparse.reset()
 	return result
 }
 

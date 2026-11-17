@@ -11,7 +11,7 @@ func (e *PropositionalEngine) cloneFiniteForContext(source rel.FiniteTable) (rel
 	}
 	if _, lazy := source.(*rel.LazySparseTable); lazy {
 		if e.lazyFinite == nil {
-			e.lazyFinite = rel.NewLazySparseFiniteFactory()
+			e.lazyFinite = e.relations.NewLazySparseFiniteFactory()
 		}
 		return e.lazyFinite.Migrate(source)
 	}

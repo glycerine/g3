@@ -32,17 +32,10 @@ func (plan *SparseNegatedJoinPlan) Apply(target, first, second *SparseTable) (_ 
 	stats.TargetRows, stats.FirstRows, stats.SecondRows = len(targetFacts), len(firstFacts), len(secondFacts)
 	remove := make([]Fact, 0)
 	if sparseNegatedJoinIndexable(plan) {
-		// collect_to_remove: s1 and s2 get_key_indexer.
-		if err = sparseGetKeyIndexerVerbose(); err == nil {
-			err = sparseGetKeyIndexerVerbose()
-		}
-		if err != nil {
-			return stats, err
-		}
 		if err = plan.collectIndexedRemovals(targetFacts, first, second, &remove, &stats); err != nil {
 			return stats, err
 		}
-		stats.Removed, err = target.RemoveFacts(remove)
+		stats.Removed, err = sparseNegatedJoinRemove(target, targetFacts, remove)
 		return stats, err
 	}
 	for _, targetFact := range targetFacts {
@@ -67,6 +60,19 @@ func (plan *SparseNegatedJoinPlan) Apply(target, first, second *SparseTable) (_ 
 			remove = append(remove, targetFact)
 		}
 	}
-	stats.Removed, err = target.RemoveFacts(remove)
+	stats.Removed, err = sparseNegatedJoinRemove(target, targetFacts, remove)
 	return stats, err
+}
+
+// sparseNegatedJoinRemove is negated_join_fn's removal: remove_offset of
+// each collected row, then reset_indexes. The source removes the offsets
+// in ascending order, which moves the last row into a removed place before
+// a later offset is removed (it can then drop the wrong row); g3 removes
+// the largest offsets first, as negation_filter_fn does.
+func sparseNegatedJoinRemove(target *SparseTable, targetFacts, remove []Fact) (int, error) {
+	marked := make(map[string]bool, len(remove))
+	for _, f := range remove {
+		marked[factKey(f)] = true
+	}
+	return removeSparseIndexedNegationFacts(target, targetFacts, marked)
 }

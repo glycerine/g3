@@ -114,7 +114,7 @@ func (t *LazySparseTable) Reset() error {
 		t.root = next
 		return nil
 	}
-	table, err := NewSparseTable(t.root.signature, t.root.functional)
+	table, err := t.engine.sparse.MkEmpty(t.root.signature, t.root.functional)
 	if err != nil {
 		return err
 	}

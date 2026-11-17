@@ -1,10 +1,10 @@
 package rel
 
-func (plan *SparseIndexedSelectPlan) newResult() (*SparseTable, error) {
+func (plan *SparseIndexedSelectPlan) newResult(table *SparseTable) (*SparseTable, error) {
 	if plan == nil {
 		return nil, ErrTable
 	}
-	return NewSparseTable(plan.resultSignature, plan.resultFunctional)
+	return table.plugin.MkEmpty(plan.resultSignature, plan.resultFunctional)
 }
 
 func (plan *SparseIndexedSelectPlan) ResultSignature() (Signature, int, error) {

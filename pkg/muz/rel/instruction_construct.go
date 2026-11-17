@@ -257,23 +257,33 @@ func (i *constructInstruction) Perform(context *ExecutionContext) (bool, error) 
 		if err != nil {
 			return false, err
 		}
-		if err := warnLargeTotalTable(i.signature, i.predicateName, i.hasPredicate); err != nil {
-			return false, errors.Join(err, table.Close())
-		}
-		if err := fillTotalTable(table, i.signature); err != nil {
-			return false, errors.Join(err, table.Close())
-		}
 		// table_plugin::mk_full builds the full table as the complement of an
 		// empty aux = mk_empty(s) and then calls aux->deallocate(); for the
-		// sparse plugin that is sparse_table_plugin::recycle.
+		// sparse plugin that is sparse_table_plugin::recycle. aux is made
+		// before the complement's table: the two empty tables trade their
+		// pooled storage.
+		var aux *SparseTable
 		if sparse, ok := table.(*SparseTable); ok {
-			aux, err := NewSparseTable(sparse.signature, sparse.functional)
-			if err == nil {
-				err = aux.Close()
-			}
+			aux, err = sparse.plugin.MkEmpty(sparse.signature, sparse.functional)
 			if err != nil {
 				return false, errors.Join(err, table.Close())
 			}
+			sparse.swapStorage(aux)
+		}
+		closeAux := func() error {
+			if aux == nil {
+				return nil
+			}
+			return aux.Close()
+		}
+		if err := warnLargeTotalTable(i.signature, i.predicateName, i.hasPredicate); err != nil {
+			return false, errors.Join(err, closeAux(), table.Close())
+		}
+		if err := fillTotalTable(table, i.signature); err != nil {
+			return false, errors.Join(err, closeAux(), table.Close())
+		}
+		if err := closeAux(); err != nil {
+			return false, errors.Join(err, table.Close())
 		}
 		if err := context.SetFiniteRegister(i.target, table); err != nil {
 			return false, i.disposeUninstalledFinite(table, err)

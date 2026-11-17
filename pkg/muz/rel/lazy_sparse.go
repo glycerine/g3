@@ -36,6 +36,9 @@ type LazySparseEngine struct {
 	closed     bool
 	handles    []*LazySparseTable
 	conditions []*lazySparseConditionOwner
+	// sparse is lazy_table_plugin::m_plugin, the relation manager's
+	// sparse_table_plugin (nil outside a manager).
+	sparse *SparseTablePlugin
 }
 
 type LazySparseTable struct {
@@ -77,7 +80,7 @@ func (e *LazySparseEngine) New(signature Signature, functional int) (*LazySparse
 	if err := e.open(); err != nil || signature.Len() == 0 {
 		return nil, ErrLazySparse
 	}
-	table, err := NewSparseTable(signature, functional)
+	table, err := e.sparse.MkEmpty(signature, functional)
 	if err != nil {
 		return nil, err
 	}

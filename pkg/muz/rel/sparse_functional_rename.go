@@ -30,7 +30,7 @@ func (table *SparseTable) RenameFunctional(cycle []int) (*SparseTable, error) {
 	if err != nil {
 		return nil, err
 	}
-	result, err := NewSparseTable(signature, table.functional)
+	result, err := table.plugin.MkEmpty(signature, table.functional)
 	if err != nil {
 		return nil, err
 	}

@@ -23,7 +23,7 @@ func (left *SparseTable) JoinProjectFunctionalPreserving(right *SparseTable, lef
 	if err != nil {
 		return nil, err
 	}
-	result, err := NewSparseTable(signature, functional)
+	result, err := left.plugin.MkEmpty(signature, functional)
 	if err != nil {
 		return nil, err
 	}

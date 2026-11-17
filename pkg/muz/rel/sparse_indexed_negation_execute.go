@@ -22,9 +22,6 @@ func (plan *SparseIndexedNegationPlan) Execute(target, negative *SparseTable) (S
 		return stats, target.Reset()
 	}
 	marked := make(map[string]bool)
-	if err = sparseGetKeyIndexerVerbose(); err != nil {
-		return stats, err
-	}
 	stats.UsedNegativeOuter = len(targetFacts)/4 > len(negativeFacts)
 	if stats.UsedNegativeOuter {
 		err = plan.collectWithNegativeOuter(target, negativeFacts, marked, &stats)

@@ -11,7 +11,7 @@ func (table *SparseTable) ComplementFunctional(functionalSuffix Fact) (*SparseTa
 	if first > 1 {
 		return nil, ErrTable
 	}
-	result, err := NewSparseTable(table.signature, table.functional)
+	result, err := table.plugin.MkEmpty(table.signature, table.functional)
 	if err != nil {
 		return nil, err
 	}

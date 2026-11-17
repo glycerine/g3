@@ -73,7 +73,7 @@ func (a *SparseTable) Join(b *SparseTable, left, right []int) (*SparseTable, err
 	if err != nil {
 		return nil, err
 	}
-	out, err := NewSparseTable(sig, functional)
+	out, err := a.plugin.MkEmpty(sig, functional)
 	if err != nil {
 		return nil, err
 	}

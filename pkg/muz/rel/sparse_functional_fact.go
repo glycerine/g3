@@ -4,20 +4,26 @@ func (table *SparseTable) ContainsExact(fact Fact) (bool, error) {
 	return table.Contains(fact)
 }
 
+// FetchFact is sparse_table::fetch_fact without its verbose_action: the
+// functional columns of the stored row with fact's key are copied into fact.
 func (table *SparseTable) FetchFact(fact Fact) (bool, error) {
 	if err := table.open(); err != nil {
 		return false, err
 	}
-	packed, err := table.layout.pack(table.signature, fact)
-	if err != nil {
+	if err := table.layout.checkFact(table.signature, fact); err != nil {
 		return false, err
 	}
-	index, found := table.data.find(packed)
+	if table.functional == 0 {
+		return table.Contains(fact)
+	}
+	table.writeIntoReserve(fact)
+	ofs, found := table.data.findReserveContent()
 	if !found {
 		return false, nil
 	}
-	stored := table.layout.unpack(table.data.entries[index])
-	copy(fact[table.signature.Len()-table.functional:], stored[table.signature.Len()-table.functional:])
+	for i := table.firstFunctional(); i < table.signature.Len(); i++ {
+		fact[i] = table.getCell(ofs, i)
+	}
 	return true, nil
 }
 
@@ -28,6 +34,8 @@ func (table *SparseTable) SuggestFact(fact Fact) (bool, error) {
 	return table.Add(fact)
 }
 
+// EnsureFact is sparse_table::ensure_fact without its verbose_action: the
+// functional columns of an existing row are overwritten in place.
 func (table *SparseTable) EnsureFact(fact Fact) error {
 	if err := table.open(); err != nil {
 		return err
@@ -36,16 +44,17 @@ func (table *SparseTable) EnsureFact(fact Fact) error {
 		_, err := table.Add(fact)
 		return err
 	}
-	packed, err := table.layout.pack(table.signature, fact)
-	if err != nil {
+	if err := table.layout.checkFact(table.signature, fact); err != nil {
 		return err
 	}
-	if index, found := table.data.find(packed); found {
-		// Functional updates preserve the source row's physical position and
-		// leave indexes over the unchanged non-functional key valid.
-		copy(table.data.entries[index], packed)
-		return nil
+	table.writeIntoReserve(fact)
+	ofs, found := table.data.findReserveContent()
+	if !found {
+		_, err := table.Add(fact)
+		return err
 	}
-	table.data.insert(packed)
+	for i := table.firstFunctional(); i < table.signature.Len(); i++ {
+		table.setCell(ofs, i, fact[i])
+	}
 	return nil
 }

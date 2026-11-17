@@ -23,7 +23,7 @@ func (t *SparseTable) Project(removed []int) (_ *SparseTable, resultErr error) {
 	if e != nil {
 		return nil, e
 	}
-	out, e := NewSparseTable(sig, 0)
+	out, e := t.plugin.MkEmpty(sig, 0)
 	if e != nil {
 		return nil, e
 	}
@@ -78,7 +78,7 @@ func (t *SparseTable) Rename(cycle []int) (_ *SparseTable, resultErr error) {
 	if e != nil {
 		return nil, e
 	}
-	out, e := NewSparseTable(sig, 0)
+	out, e := t.plugin.MkEmpty(sig, 0)
 	if e != nil {
 		return nil, e
 	}

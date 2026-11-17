@@ -26,7 +26,7 @@ func (left *SparseTable) JoinFunctional(right *SparseTable, leftColumns, rightCo
 	if err != nil {
 		return nil, err
 	}
-	result, err := NewSparseTable(signature, functional)
+	result, err := left.plugin.MkEmpty(signature, functional)
 	if err != nil {
 		return nil, err
 	}

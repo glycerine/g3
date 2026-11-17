@@ -14,7 +14,7 @@ func (plan *SparseIndexedJoinPlan) Execute(left, right *SparseTable) (*SparseTab
 		return nil, stats, err
 	}
 	stats.LeftRows, stats.RightRows = len(leftFacts), len(rightFacts)
-	result, err := NewSparseTable(plan.resultSignature, plan.resultFunctional)
+	result, err := left.plugin.MkEmpty(plan.resultSignature, plan.resultFunctional)
 	if err != nil {
 		return nil, stats, err
 	}

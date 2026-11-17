@@ -15,7 +15,7 @@ func (table *SparseTable) SelectEqualProjectFunctional(value Element, column int
 	if err != nil {
 		return nil, err
 	}
-	result, err := NewSparseTable(signature, functional)
+	result, err := table.plugin.MkEmpty(signature, functional)
 	if err != nil {
 		return nil, err
 	}

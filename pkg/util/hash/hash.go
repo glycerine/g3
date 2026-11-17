@@ -78,6 +78,17 @@ func String(s string, init uint32) uint32 {
 		func(i uint32) uint32 { return uint32(int32(int8(s[i]))) })
 }
 
+// Bytes is string_hash over a byte buffer (string_hash(ptr, len, init)),
+// with the same little-endian word loads and signed-char tails as String.
+func Bytes(b []byte, init uint32) uint32 {
+	if uint64(len(b)) > uint64(^uint32(0)) {
+		panic("hash string length exceeds source uint32 range")
+	}
+	return hashBytes(uint32(len(b)), init,
+		func(i uint32) uint32 { return binary.LittleEndian.Uint32(b[i : i+4]) },
+		func(i uint32) uint32 { return uint32(int32(int8(b[i]))) })
+}
+
 // WordBytes hashes the first n little-endian bytes of pointer-free word storage,
 // preserving string_hash signed-char behavior without a byte-buffer allocation.
 // n must not exceed four times the number of words.

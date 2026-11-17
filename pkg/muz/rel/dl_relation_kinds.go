@@ -366,9 +366,9 @@ func (p *TableRelationPlugin) CanHandleSignature(sorts []ast.ASTHandle) (bool, e
 func (p *TableRelationPlugin) newTable(signature Signature) (FiniteTable, error) {
 	switch p.table {
 	case "sparse":
-		return NewSparseTable(signature, 0)
+		return p.manager.sparse.MkEmpty(signature, 0)
 	case "bitvector":
-		return NewBitvectorTable(signature)
+		return newBitvectorTableIn(p.manager.sparse, signature)
 	case "lazy_sparse":
 		return p.manager.lazyFinite.New(signature)
 	}

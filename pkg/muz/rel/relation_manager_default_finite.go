@@ -24,6 +24,9 @@ func (m *RelationManager) SetLazySparseFiniteFactory(factory *LazySparseFiniteFa
 			return err
 		}
 	}
+	if factory != nil && factory.engine.sparse == nil {
+		factory.engine.sparse = m.sparse
+	}
 	m.lazyFinite = factory
 	return nil
 }
@@ -120,11 +123,11 @@ func (m *RelationManager) newRequestedFiniteTable(predicate ast.ASTHandle, signa
 			return NewHashTable(signature), nil
 		case "tr_sparse":
 			if signature.Len() != 0 {
-				return NewSparseTable(signature, 0)
+				return m.sparse.MkEmpty(signature, 0)
 			}
 		case "tr_bitvector":
 			if BitvectorCanHandleSignature(signature, 0) {
-				return NewBitvectorTable(signature)
+				return newBitvectorTableIn(m.sparse, signature)
 			}
 		case "tr_lazy_sparse":
 			if m.lazyFinite != nil && m.lazyFinite.CanHandleSignature(signature) {
@@ -154,17 +157,17 @@ func (m *RelationManager) NewDefaultFiniteTable(signature Signature) (FiniteTabl
 	switch m.defaultFinite {
 	case "sparse":
 		if signature.Len() != 0 {
-			return NewSparseTable(signature, 0)
+			return m.sparse.MkEmpty(signature, 0)
 		}
 	case "bitvector":
 		if BitvectorCanHandleSignature(signature, 0) {
-			return NewBitvectorTable(signature)
+			return newBitvectorTableIn(m.sparse, signature)
 		}
 		// try_get_appropriate_plugin: the first registered plugin that
 		// handles the signature, sparse for every nonnullary signature (the
 		// bitvector plugin handles the nullary one).
 		if signature.Len() != 0 {
-			return NewSparseTable(signature, 0)
+			return m.sparse.MkEmpty(signature, 0)
 		}
 	case "lazy_sparse":
 		if m.lazyFinite == nil {

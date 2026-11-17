@@ -329,7 +329,7 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 			}
 		}
 		if (primary == "lazy_sparse" || checker == "lazy_sparse") && e.lazyFinite == nil {
-			e.lazyFinite = rel.NewLazySparseFiniteFactory()
+			e.lazyFinite = e.relations.NewLazySparseFiniteFactory()
 			if err = e.relations.SetLazySparseFiniteFactory(e.lazyFinite); err != nil {
 				return nil, err
 			}
@@ -351,7 +351,7 @@ func (e *PropositionalEngine) beginDatalogCheckRelation() (_ *datalogCheckRelati
 			return nil, err
 		}
 		if (primary == "lazy_sparse" || name == "lazy_sparse") && e.lazyFinite == nil {
-			e.lazyFinite = rel.NewLazySparseFiniteFactory()
+			e.lazyFinite = e.relations.NewLazySparseFiniteFactory()
 			if err = e.relations.SetLazySparseFiniteFactory(e.lazyFinite); err != nil {
 				return nil, err
 			}

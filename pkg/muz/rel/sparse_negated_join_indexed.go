@@ -36,6 +36,18 @@ func (plan *SparseNegatedJoinPlan) collectIndexedRemovals(targetFacts []Fact, fi
 		}
 	}
 	secondColumns = append(secondColumns, plan.secondJoinColumns...)
+	// collect_to_remove: s1's and s2's get_key_indexer. Their lookups run
+	// when update_key changes a key, which starts as zeros.
+	firstIndexer, err := first.getKeyIndexer(firstColumns)
+	if err != nil {
+		return err
+	}
+	secondIndexer, err := second.getKeyIndexer(secondColumns)
+	if err != nil {
+		return err
+	}
+	firstTracker := &sparseKeyTracker{key: make(Fact, len(firstColumns))}
+	secondTracker := &sparseKeyTracker{key: make(Fact, len(secondColumns))}
 	firstPlan, err := NewSparseKeyLookupPlan(first, firstColumns)
 	if err != nil {
 		return err
@@ -58,6 +70,9 @@ func (plan *SparseNegatedJoinPlan) collectIndexedRemovals(targetFacts []Fact, fi
 		for i, column := range firstTargetColumns {
 			firstKey[i] = target[column]
 		}
+		if firstTracker.update(firstKey) {
+			firstIndexer.lookup(firstKey)
+		}
 		firstGroupIndex, found := firstIndex.byKey[factKey(firstKey)]
 		if !found {
 			continue
@@ -71,6 +86,9 @@ func (plan *SparseNegatedJoinPlan) collectIndexedRemovals(targetFacts []Fact, fi
 			}
 			for i, column := range plan.firstJoinColumns {
 				secondKey[len(secondTargetColumns)+i] = firstFact[column]
+			}
+			if secondTracker.update(secondKey) {
+				secondIndexer.lookup(secondKey)
 			}
 			if secondGroupIndex, found := secondIndex.byKey[factKey(secondKey)]; found {
 				stats.SecondProbes += len(secondIndex.groups[secondGroupIndex-1].Rows)

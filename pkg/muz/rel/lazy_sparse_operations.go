@@ -179,7 +179,7 @@ func (e *LazySparseEngine) evalSparseJoinWithNullary(node *lazySparseNode) (*Spa
 	}
 	if length == 0 {
 		e.stats.Joins++
-		return NewSparseTable(node.signature, node.functional)
+		return e.sparse.MkEmpty(node.signature, node.functional)
 	}
 	source, err := e.eval(other)
 	if err != nil {

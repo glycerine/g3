@@ -69,6 +69,20 @@ type BitvectorTable struct {
 	// source answers empty() by iterating to the first set bit.
 	count  int
 	closed bool
+	// sparse is the relation manager's sparse_table_plugin, which
+	// get_appropriate_plugin falls back to for signatures the bitvector
+	// plugin rejects (nil outside a manager).
+	sparse *SparseTablePlugin
+}
+
+// newBitvectorTableIn is NewBitvectorTable in the manager of plugin.
+func newBitvectorTableIn(plugin *SparseTablePlugin, signature Signature) (*BitvectorTable, error) {
+	t, err := NewBitvectorTable(signature)
+	if err != nil {
+		return nil, err
+	}
+	t.sparse = plugin
+	return t, nil
 }
 
 // NewBitvectorTable is bitvector_table_plugin::mk_empty and the
@@ -265,7 +279,7 @@ func (t *BitvectorTable) Clone() (*BitvectorTable, error) {
 	if err := t.open(); err != nil {
 		return nil, err
 	}
-	result, err := NewBitvectorTable(t.signature)
+	result, err := newBitvectorTableIn(t.sparse, t.signature)
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +309,7 @@ func (t *BitvectorTable) Reset() error {
 // emptyLike is get_plugin().mk_empty(sig) for a signature the plugin handles
 // (projections and renamings of a bitvector table always fit).
 func (t *BitvectorTable) emptyLike(signature Signature) (*BitvectorTable, error) {
-	return NewBitvectorTable(signature)
+	return newBitvectorTableIn(t.sparse, signature)
 }
 
 // FilterEqual is the default table filter_equal: remove the rows whose

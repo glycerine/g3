@@ -1,9 +1,6 @@
 package rel
 
 func (plan *SparseIndexedJoinPlan) executeIndexed(left, right *SparseTable, leftFacts, rightFacts []Fact, result *SparseTable, stats *SparseIndexedJoinStats) error {
-	if err := sparseGetKeyIndexerVerbose(); err != nil {
-		return err
-	}
 	stats.IndexedLeft = len(leftFacts) > len(rightFacts)
 	indexedTable, indexedColumns := right, plan.rightColumns
 	probeFacts, probeColumns := leftFacts, plan.leftColumns
@@ -11,6 +8,13 @@ func (plan *SparseIndexedJoinPlan) executeIndexed(left, right *SparseTable, left
 		indexedTable, indexedColumns = left, plan.leftColumns
 		probeFacts, probeColumns = rightFacts, plan.rightColumns
 	}
+	// self_agnostic_join_project: the indexed table's get_key_indexer; the
+	// lookup runs for the first probe row and whenever its key changes.
+	keyIndexer, err := indexedTable.getKeyIndexer(indexedColumns)
+	if err != nil {
+		return err
+	}
+	tracker := newSparseKeyTracker(len(indexedColumns))
 	indexPlan, err := NewSparseKeyLookupPlan(indexedTable, indexedColumns)
 	if err != nil {
 		return err
@@ -22,7 +26,11 @@ func (plan *SparseIndexedJoinPlan) executeIndexed(left, right *SparseTable, left
 	stats.IndexGroups = indexStats.Groups
 	for _, probe := range probeFacts {
 		stats.Probes++
-		matches, err := index.Lookup(sparseIndexedJoinKey(probe, probeColumns))
+		key := sparseIndexedJoinKey(probe, probeColumns)
+		if tracker.update(key) {
+			keyIndexer.lookup(key)
+		}
+		matches, err := index.Lookup(key)
 		if err != nil {
 			return err
 		}

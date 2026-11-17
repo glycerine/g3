@@ -64,13 +64,16 @@ func TestSparseTableSizeEstimateBytes(t *testing.T) {
 	must(t, err)
 	table, err := NewSparseTable(signature, 0)
 	must(t, err)
-	if bytes, err := table.SizeEstimateBytes(); err != nil || bytes != 0 {
+	// m_data capacity 8 (the 8 spare bytes), 8 indexer slots of 16 bytes
+	// and 8 key index slots of 8 bytes.
+	if bytes, err := table.SizeEstimateBytes(); err != nil || bytes != 200 {
 		t.Fatalf("empty byte estimate = %d, %v", bytes, err)
 	}
+	// The 1-byte row's reserve grows m_data to 9 bytes: capacity 12.
 	if _, err := table.Add(Fact{2, 4}); err != nil {
 		t.Fatal(err)
 	}
-	if bytes, err := table.SizeEstimateBytes(); err != nil || bytes != table.layout.EntryBytes() {
+	if bytes, err := table.SizeEstimateBytes(); err != nil || bytes != 204 {
 		t.Fatalf("populated byte estimate = %d, %v", bytes, err)
 	}
 }
