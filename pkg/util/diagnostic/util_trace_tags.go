@@ -337,6 +337,13 @@ func writeTraceHeader(w io.Writer, tag, function, file string, line int) error {
 // constructed unbound stream opens .z3-trace on its first
 // emitted record. The process stream opens it during package initialization.
 func (t *TraceTags) Emit(tag, function, file string, line int, body string) error {
+	if !traceCompiled { // erased build: inlined to nothing at the call site
+		return nil
+	}
+	return t.emitTraced(tag, function, file, line, body)
+}
+
+func (t *TraceTags) emitTraced(tag, function, file string, line int, body string) error {
 	if !t.ShouldTrace(tag) {
 		return nil
 	}
@@ -356,6 +363,13 @@ func (t *TraceTags) Emit(tag, function, file string, line int, body string) erro
 // EmitShort implements STRACE: no header or footer, but each reached body is
 // flushed. The body is evaluated only after the compile and tag gates.
 func (t *TraceTags) EmitShort(tag string, body func(io.Writer) error) error {
+	if !traceCompiled { // erased build: inlined to nothing at the call site
+		return nil
+	}
+	return t.emitShortTraced(tag, body)
+}
+
+func (t *TraceTags) emitShortTraced(tag string, body func(io.Writer) error) error {
 	if !t.ShouldTrace(tag) {
 		return nil
 	}
@@ -382,6 +396,13 @@ func (t *TraceTags) EmitShort(tag string, body func(io.Writer) error) error {
 // Neither the condition nor the body is evaluated when an earlier gate fails.
 // The header is written before the body, just as the source macro expands.
 func (t *TraceTags) EmitConditional(tag, function, file string, line int, condition func() bool, body func(io.Writer) error) error {
+	if !traceCompiled { // erased build: inlined to nothing at the call site
+		return nil
+	}
+	return t.emitConditionalTraced(tag, function, file, line, condition, body)
+}
+
+func (t *TraceTags) emitConditionalTraced(tag, function, file string, line int, condition func() bool, body func(io.Writer) error) error {
 	if !t.ShouldTrace(tag) || condition == nil || !condition() {
 		return nil
 	}
