@@ -54,7 +54,7 @@ func apiASTEventCases() []apiASTEventCase {
 		cases = append(cases, apiASTEventCase{program: "explanations/expl.c", args: []string{strconv.Itoa(mode)},
 			run: func(t *testing.T) { runExplanationsMode(t, mode) }})
 	}
-	for s := 1; s <= 24; s++ {
+	for s := 1; s <= 28; s++ {
 		cases = append(cases, apiASTEventCase{program: "explanations/scen.c", args: []string{strconv.Itoa(s)},
 			run: func(t *testing.T) { runExplanationScenario(t, s) }})
 	}
