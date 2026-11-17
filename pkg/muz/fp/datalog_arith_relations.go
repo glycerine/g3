@@ -252,9 +252,18 @@ func (e *PropositionalEngine) addRoutedTableFact(declaration ast.ASTHandle, valu
 	if _, ok := rel.AsRelation(state.table); !ok {
 		return false, nil
 	}
+	// reset_saturated_marks and get_relation(pred) come before the
+	// relation_fact's numerals, which ~expr_ref_vector releases first to
+	// last.
+	if err := e.relations.ResetSaturatedMarks(); err != nil {
+		return true, err
+	}
+	if err := e.relations.MaterializeFiniteRelation(declaration); err != nil {
+		return true, err
+	}
 	refs := make([]ast.ASTRef, 0, len(values))
 	defer func() {
-		for i := len(refs) - 1; i >= 0; i-- {
+		for i := range refs {
 			resultErr = errors.Join(resultErr, e.manager.DelRef(&refs[i]))
 		}
 	}()
@@ -272,6 +281,41 @@ func (e *PropositionalEngine) addRoutedTableFact(declaration ast.ASTHandle, valu
 		handles[i] = h
 	}
 	return e.addRoutedFact(declaration, handles)
+}
+
+// addRelationTableFact is rel_context::add_fact(pred, table_fact) for a
+// relation that is not a table_relation: relation_fact rfact holds
+// m_context.get_decl_util().mk_numeral(fact[i], domain(i)) for every
+// column, add_fact(pred, rfact), and rfact's numerals are released first
+// to last (~expr_ref_vector). get_relation(pred) comes first.
+func (e *PropositionalEngine) addRelationTableFact(declaration ast.ASTHandle, values []uint32) (resultErr error) {
+	state := e.predicates[declaration]
+	if err := e.relations.ResetSaturatedMarks(); err != nil {
+		return err
+	}
+	if err := e.relations.MaterializeFiniteRelation(declaration); err != nil {
+		return err
+	}
+	refs := make([]ast.ASTRef, 0, len(values))
+	defer func() {
+		for i := range refs {
+			resultErr = errors.Join(resultErr, e.manager.DelRef(&refs[i]))
+		}
+	}()
+	handles := make([]ast.ASTHandle, len(values))
+	for i, value := range values {
+		h, err := e.manager.MkDatalogNumeral(uint64(value), state.sorts[i])
+		if err != nil {
+			return err
+		}
+		ref, err := e.manager.NewRef(h)
+		if err != nil {
+			return err
+		}
+		refs = append(refs, ref)
+		handles[i] = h
+	}
+	return e.addRelationFactAST(declaration, handles)
 }
 
 // replaceWithRequestedRelation replaces a predicate's table or relation

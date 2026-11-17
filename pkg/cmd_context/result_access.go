@@ -65,7 +65,7 @@ func (c *Context) Consequences(assumptions, variables []ast.ASTHandle) (status l
 	if err := c.valid(); err != nil {
 		return lbool.Undef, nil, err
 	}
-	if _, err := c.Manager(); err != nil {
+	if err := c.ensureSolver(); err != nil {
 		return lbool.Undef, nil, err
 	}
 	c.checked = false
@@ -103,7 +103,7 @@ func (c *Context) ImpliedEqualities(terms []ast.ASTHandle) (lbool.LBool, []uint3
 	if err := c.valid(); err != nil {
 		return lbool.Undef, nil, err
 	}
-	if _, err := c.Manager(); err != nil {
+	if err := c.ensureSolver(); err != nil {
 		return lbool.Undef, nil, err
 	}
 	c.checked = false

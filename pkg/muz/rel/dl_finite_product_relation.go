@@ -2592,84 +2592,126 @@ func (r *finiteProductRelation) ToFormula() (result ast.ASTRef, resultErr error)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	var held []ast.ASTRef
-	defer func() { resultErr = errors.Join(resultErr, releaseRefs(m, held)) }()
-	hold := func(h ast.ASTHandle, err error) (ast.ASTHandle, error) {
-		if err != nil {
-			return h, err
-		}
-		ref, err := m.NewRef(h)
-		if err != nil {
-			return h, err
-		}
-		held = append(held, ref)
-		return h, nil
-	}
-	shifter, err := rewriter.NewVarShifter(m)
+	// The source's locals: expr_ref_vector disjs, conjs; expr_ref tmp;
+	// shift_vars sh. They are destroyed in reverse declaration order (sh,
+	// tmp, conjs, disjs), each vector first to last.
+	var disjs, conjs []ast.ASTRef
+	tmp, err := m.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
+	shifter, err := rewriter.NewVarShifter(m)
+	if err != nil {
+		return ast.ASTRef{}, errors.Join(err, m.DelRef(&tmp))
+	}
+	release := func(refs []ast.ASTRef) (out error) {
+		for i := range refs {
+			out = errors.Join(out, m.DelRef(&refs[i]))
+		}
+		return out
+	}
+	defer func() {
+		resultErr = errors.Join(resultErr, shifter.Close(), m.DelRef(&tmp), release(conjs), release(disjs))
+	}()
 	factSz := len(r.tableSig)
-	disjs := make([]ast.ASTHandle, 0, len(facts))
 	for _, fact := range facts {
+		// conjs.reset()
+		if err = release(conjs); err != nil {
+			return ast.ASTRef{}, err
+		}
+		conjs = conjs[:0]
 		inner, err := r.getInnerRel(int(fact[factSz-1]))
 		if err != nil {
 			return ast.ASTRef{}, err
 		}
-		tmp, err := inner.ToFormula()
+		// m_others[rel_idx]->to_formula(tmp)
+		f, err := inner.ToFormula()
 		if err != nil {
 			return ast.ASTRef{}, err
 		}
-		held = append(held, tmp)
-		conjs := make([]ast.ASTHandle, 0, factSz)
+		fh, err := m.RefGet(f)
+		if err == nil {
+			err = m.SetRef(tmp, fh)
+		}
+		if err = errors.Join(err, m.DelRef(&f)); err != nil {
+			return ast.ASTRef{}, err
+		}
 		for i := 0; i+1 < factSz; i++ {
-			v, err := hold(m.MkVar(uint32(i), r.sorts[i]))
+			// conjs.push_back(m.mk_eq(m.mk_var(i, sig[i]),
+			// util.mk_numeral(fact[i], sig[i]))): the variable and the
+			// numeral are held by the equality only.
+			v, err := m.MkVar(uint32(i), r.sorts[i])
+			if err != nil {
+				return ast.ASTRef{}, err
+			}
+			vRef, err := m.NewRef(v)
 			if err != nil {
 				return ast.ASTRef{}, err
 			}
 			numRef, err := r.plugin.manager.DecodeValue(r.sorts[i], fact[i])
 			if err != nil {
-				return ast.ASTRef{}, err
+				return ast.ASTRef{}, errors.Join(err, m.DelRef(&vRef))
 			}
-			held = append(held, numRef)
 			num, err := m.RefGet(numRef)
+			var eq ast.ASTHandle
+			if err == nil {
+				eq, err = m.MkEq(v, num)
+			}
+			var eqRef ast.ASTRef
+			if err == nil {
+				eqRef, err = m.NewRef(eq)
+			}
+			err = errors.Join(err, m.DelRef(&numRef), m.DelRef(&vRef))
 			if err != nil {
 				return ast.ASTRef{}, err
 			}
-			eq, err := hold(m.MkEq(v, num))
-			if err != nil {
+			conjs = append(conjs, eqRef)
+		}
+		// sh(tmp, fact_sz-1, tmp)
+		th, err := m.RefGet(tmp)
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		if err = shifter.ShiftBy(th, uint32(factSz-1), tmp); err != nil {
+			return ast.ASTRef{}, err
+		}
+		// conjs.push_back(tmp)
+		th, err = m.RefGet(tmp)
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		tRef, err := m.NewRef(th)
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		conjs = append(conjs, tRef)
+		args := make([]ast.ASTHandle, len(conjs))
+		for i := range conjs {
+			if args[i], err = m.RefGet(conjs[i]); err != nil {
 				return ast.ASTRef{}, err
 			}
-			conjs = append(conjs, eq)
 		}
-		tmpH, err := m.RefGet(tmp)
+		and, err := m.MkAndArgs(args)
 		if err != nil {
 			return ast.ASTRef{}, err
 		}
-		shifted, err := m.NewRef(ast.ASTHandle{})
+		andRef, err := m.NewRef(and)
 		if err != nil {
 			return ast.ASTRef{}, err
 		}
-		held = append(held, shifted)
-		if err = shifter.ShiftBy(tmpH, uint32(factSz-1), shifted); err != nil {
+		disjs = append(disjs, andRef)
+	}
+	disjH := make([]ast.ASTHandle, len(disjs))
+	for i := range disjs {
+		if disjH[i], err = m.RefGet(disjs[i]); err != nil {
 			return ast.ASTRef{}, err
 		}
-		sh, err := m.RefGet(shifted)
-		if err != nil {
-			return ast.ASTRef{}, err
-		}
-		conjs = append(conjs, sh)
-		and, err := hold(m.MkAndArgs(conjs))
-		if err != nil {
-			return ast.ASTRef{}, err
-		}
-		disjs = append(disjs, and)
 	}
 	result, err = m.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	if err = rewriter.SimplifyBooleanGateDefault(m, ast.ASTOpOr, disjs, result); err != nil {
+	if err = rewriter.SimplifyBooleanGateDefault(m, ast.ASTOpOr, disjH, result); err != nil {
 		return ast.ASTRef{}, errors.Join(err, m.DelRef(&result))
 	}
 	return result, nil

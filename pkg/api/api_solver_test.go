@@ -18,6 +18,9 @@ type smtAPIFixture struct {
 	t *testing.T
 	c *SMTContext
 	m *ast.ASTManager
+	// trail: api::context::m_ast_trail of the C API reference programs
+	// (see newAPIProgramFixture); nil for the other tests.
+	trail *[]ast.ASTRef
 }
 
 func TestSMTContextExecuteSMT2SharesSessionWithGoAPI(t *testing.T) {
@@ -69,6 +72,10 @@ func (f *smtAPIFixture) pin(h ast.ASTHandle, err error) ast.ASTHandle {
 	astTestMust(f.t, err)
 	ref, err := f.m.NewRef(h)
 	astTestMust(f.t, err)
+	if f.trail != nil {
+		*f.trail = append(*f.trail, ref)
+		return h
+	}
 	f.t.Cleanup(func() { astTestMust(f.t, f.m.DelRef(&ref)) })
 	return h
 }

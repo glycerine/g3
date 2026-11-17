@@ -50,6 +50,9 @@ func NewSMTContext() (*SMTContext, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Z3_mk_context makes no solver; the context's solver is initialized
+	// at its first use (init_solver).
+	command.UseAPISolverInitialization()
 	return &SMTContext{smtContextState: &smtContextState{command: command}}, nil
 }
 

@@ -294,6 +294,9 @@ type Context struct {
 	familyTemplate                   *ast.ASTManager // see NewAuxiliaryContextFor
 	// datalogFrontendManager: see UseDatalogFrontendManager.
 	datalogFrontendManager bool
+	// apiSolver: see UseAPISolverInitialization; solverPending: the
+	// manager exists and the solver is not made yet.
+	apiSolver, solverPending bool
 	// interpolatingSMTSolver is set_interpolating_solver_factory(
 	// mk_smt_solver_factory()), installed by the SMT-LIB front end.
 	interpolatingSMTSolver bool
@@ -936,7 +939,9 @@ func (c *Context) Manager() (manager *ast.ASTManager, result error) {
 		c.recordBuiltinPSortDecls()
 	}
 	// read_datalog has no cmd_context, so no solver is created for it.
-	if !c.datalogFrontendManager {
+	if c.apiSolver {
+		c.solverPending = true
+	} else if !c.datalogFrontendManager {
 		if err = c.mkSolver(m); err != nil {
 			return nil, err
 		}
@@ -995,6 +1000,36 @@ func (c *Context) UseDatalogFrontendManager() bool {
 	}
 	c.datalogFrontendManager = true
 	return true
+}
+
+// UseAPISolverInitialization makes the context's solver the C API's
+// (api::context has no cmd_context): Z3_mk_solver's init_solver runs when
+// the solver is first used (assert, push, pop, check), not when the manager
+// is made, so no solver ASTs are created for programs that use none (a
+// fixedpoint). It must run before the manager exists; afterwards it
+// reports false.
+func (c *Context) UseAPISolverInitialization() bool {
+	if c.manager != nil {
+		return false
+	}
+	c.apiSolver = true
+	return true
+}
+
+// ensureSolver is init_solver for a context of UseAPISolverInitialization.
+func (c *Context) ensureSolver() error {
+	if _, err := c.Manager(); err != nil {
+		return err
+	}
+	if !c.solverPending {
+		return nil
+	}
+	c.solverPending = false
+	if err := c.mkSolver(c.manager); err != nil {
+		c.initializationError = err
+		return err
+	}
+	return nil
 }
 
 // mkSolver mirrors the shell factory step independently of manager creation.
@@ -1275,6 +1310,9 @@ func (c *Context) AssertWithText(formula ast.ASTHandle, name, displayText string
 	if err != nil {
 		return err
 	}
+	if err = c.ensureSolver(); err != nil {
+		return err
+	}
 	if err = c.logicChecker.CheckExpression(formula); err != nil {
 		return err
 	}
@@ -1327,7 +1365,7 @@ func (c *Context) Push(count uint32) error {
 	if err := c.clearCheckSatResult(); err != nil {
 		return err
 	}
-	if _, err := c.Manager(); err != nil {
+	if err := c.ensureSolver(); err != nil {
 		return err
 	}
 	state, err := c.parameters.State()
@@ -1365,6 +1403,9 @@ func (c *Context) Pop(count uint32) error {
 	}
 	if count == 0 {
 		return c.invalidateOptimizationState()
+	}
+	if err := c.ensureSolver(); err != nil {
+		return err
 	}
 	if err := c.solver.Pop(count); err != nil {
 		return err
@@ -1504,7 +1545,7 @@ func (c *Context) CheckSat(assumptions []ast.ASTHandle) (status lbool.LBool, err
 			return lbool.Undef, verr
 		}
 	}
-	if _, err := c.Manager(); err != nil {
+	if err := c.ensureSolver(); err != nil {
 		return lbool.Undef, err
 	}
 	watch, err := stopwatch.NewScopedWatch(&c.watch, true)

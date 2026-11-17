@@ -840,6 +840,12 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 		}
 		if compiledFavourite {
 			// The favourite relation plugin's relations hold the facts.
+			// rel_context::add_fact(pred, table_fact): a relation that is
+			// not a table_relation (udoc) gets a relation_fact of
+			// dl_decl_util numerals.
+			if _, ok := state.table.(*rel.UDocPluginRelation); ok {
+				return e.addRelationTableFact(declaration, values)
+			}
 		} else if _, err := e.ensureBoundDatalog(); err != nil {
 			return err
 		}
@@ -2810,6 +2816,16 @@ func (e *PropositionalEngine) queryFiniteDatalogRound(declarations []ast.ASTHand
 		e.set = originalRules
 		resultErr = errors.Join(resultErr, queryScope.dispose())
 	}()
+	if e.expressionClone && round.final {
+		// rel_context::query(expr*) saturates the context's own rules (its
+		// scoped_query holds the rules from before mk_query): transform_rules'
+		// replace_rules releases the query's rules that the transformations
+		// drop (mk_explanations' copy rule). The clone keeps no second
+		// reference to them; a round a restart may follow keeps them.
+		if err = originalRules.Reset(); err != nil {
+			return lbool.Undef, err
+		}
+	}
 	finalized, err := e.set.IsFinalized()
 	if err != nil {
 		return lbool.Undef, err

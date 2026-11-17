@@ -21,8 +21,40 @@ import (
 // for negation and interpreted tails. Its output is the program's: the
 // result of each query and the answer (or the reason unknown), errors as
 // the error handler prints them.
+// newAPIProgramFixture is the C API reference programs' context:
+// Z3_mk_context (no logic, no solver until one is used). The ASTs the
+// program obtains stay in its trail (api::context::save_ast_trail of a
+// context without user reference counts) until the context is deleted,
+// released first to last.
+func newAPIProgramFixture(t *testing.T) *smtAPIFixture {
+	t.Helper()
+	c, err := NewSMTContext()
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, c.Close()) })
+	m, err := c.Manager()
+	astTestMust(t, err)
+	trail := new([]ast.ASTRef)
+	t.Cleanup(func() {
+		for i := range *trail {
+			astTestMust(t, m.DelRef(&(*trail)[i]))
+		}
+	})
+	return &smtAPIFixture{t: t, c: c, m: m, trail: trail}
+}
+
+// programDecl is the reference programs' Z3_mk_func_decl of a relation
+// (a Bool range), kept in the trail.
+func (f *smtAPIFixture) programDecl(name string, domain []ast.ASTHandle) ast.ASTHandle {
+	f.t.Helper()
+	b, err := f.m.MkBoolSort()
+	astTestMust(f.t, err)
+	sym, err := f.m.Symbols.Intern(name)
+	astTestMust(f.t, err)
+	return f.pin(f.m.MkFuncDecl(sym, domain, b, ast.ASTFuncDeclInfo{}))
+}
+
 func runExplanationsMode(t *testing.T, mode int) string {
-	sf := newSMTAPIFixture(t, "HORN", nil)
+	sf := newAPIProgramFixture(t)
 	fixedpoint, err := sf.c.NewFixedpoint()
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, fixedpoint.Close()) })
@@ -66,15 +98,13 @@ func runExplanationsMode(t *testing.T, mode int) string {
 	astTestMust(t, params.Close())
 	s := f.pin(f.c.FiniteDomainSort("S", 4))
 	ss := []ast.ASTHandle{s, s}
-	decl := func(name string, domain []ast.ASTHandle) ast.ASTHandle {
-		d, err := f.fp.DeclareRelation(name, domain)
-		astTestMust(t, err)
-		return d
+	e := f.programDecl("e", ss)
+	path := f.programDecl("path", ss)
+	node := f.programDecl("node", ss[:1])
+	bad := f.programDecl("bad", ss[:1])
+	for _, d := range []ast.ASTHandle{e, path, node, bad} {
+		astTestMust(t, f.fp.RegisterRelation(d))
 	}
-	e := decl("e", ss)
-	path := decl("path", ss)
-	node := decl("node", ss[:1])
-	bad := decl("bad", ss[:1])
 	astTestMust(t, f.fp.AddTableFact(e, []uint32{0, 1}))
 	astTestMust(t, f.fp.AddTableFact(e, []uint32{1, 2}))
 	if mode != 4 {
@@ -153,7 +183,7 @@ func TestAPIFixedpointExplanations(t *testing.T) {
 // configurations (relation level, check_relation, checked default tables,
 // explicit representations, magic sets, negation, doc relations).
 func runExplanationScenario(t *testing.T, s int) string {
-	sf := newSMTAPIFixture(t, "HORN", nil)
+	sf := newAPIProgramFixture(t)
 	fixedpoint, err := sf.c.NewFixedpoint()
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, fixedpoint.Close()) })
@@ -167,8 +197,8 @@ func runExplanationScenario(t *testing.T, s int) string {
 	defer func() { astTestMust(t, params.Close()) }()
 	b := f.pin(f.c.BoolSort())
 	decl := func(name string, domain ...ast.ASTHandle) ast.ASTHandle {
-		d, err := f.fp.DeclareRelation(name, domain)
-		astTestMust(t, err)
+		d := f.programDecl(name, domain)
+		astTestMust(t, f.fp.RegisterRelation(d))
 		return d
 	}
 	repr := func(d ast.ASTHandle, k string) { astTestMust(t, f.fp.SetPredicateRepresentation(d, k)) }
@@ -374,7 +404,12 @@ func explanationQueryOutput(t *testing.T, f *apiFixedpointFixture, out *strings.
 	astTestMust(t, err)
 	text, err := f.c.ASTString(h, APIASTPrintSMTFull)
 	astTestMust(t, err)
-	astTestMust(t, f.m.DelRef(&answer))
+	if f.trail != nil {
+		// Z3_fixedpoint_get_answer's result stays in the context's trail.
+		*f.trail = append(*f.trail, answer)
+	} else {
+		astTestMust(t, f.m.DelRef(&answer))
+	}
 	fmt.Fprintf(out, "%s\n", text)
 }
 

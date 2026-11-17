@@ -117,19 +117,29 @@ func (r *ExternalRelation) completeCreation() (resultErr error) {
 	if r.relation, err = m.NewRef(expression); err != nil {
 		return err
 	}
-	empty, err := m.MkDatalogEmpty(relationSort)
+	// func_decl_ref empty_decl(m.mk_func_decl(fid, OP_RA_EMPTY, 1,
+	// &param, 0, nullptr)).
+	fid, err := m.RegisterDatalogPlugin()
 	if err != nil {
 		return err
 	}
-	emptyRef, err := m.NewRef(empty)
+	param, err := m.NewParameterAST(relationSort)
+	if err != nil {
+		return err
+	}
+	declaration, err := m.MkFamilyFuncDecl(fid, ast.DatalogOpEmpty, []ast.ASTParameter{param}, nil, ast.ASTHandle{})
+	err = errors.Join(err, m.DelParameter(&param))
+	if err != nil {
+		return err
+	}
+	if declaration == (ast.ASTHandle{}) {
+		return ast.ErrASTDomain
+	}
+	emptyRef, err := m.NewRef(declaration)
 	if err != nil {
 		return err
 	}
 	owner.temps = append(owner.temps, emptyRef)
-	declaration, err := m.GetDecl(empty)
-	if err != nil {
-		return err
-	}
 	return plugin.reduceAssign(declaration, nil, []ast.ASTHandle{expression})
 }
 
@@ -181,29 +191,29 @@ func (r *ExternalRelation) accessor(cache *ast.ASTRef, op int32, args []ast.ASTH
 	if *cache != (ast.ASTRef{}) {
 		return r.ast.RefGet(*cache)
 	}
-	var app ast.ASTHandle
-	var err error
 	switch op {
-	case ast.DatalogOpStore:
-		app, err = r.ast.MkDatalogStore(args[0], args[1:]...)
-	case ast.DatalogOpSelect:
-		app, err = r.ast.MkDatalogSelect(args[0], args[1:]...)
-	case ast.DatalogOpIsEmpty:
-		app, err = r.ast.MkDatalogIsEmpty(args[0])
+	case ast.DatalogOpStore, ast.DatalogOpSelect, ast.DatalogOpIsEmpty:
 	default:
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
+	// fn = m.mk_func_decl(fid, k, 0, nullptr, args.size(), args.c_ptr()):
+	// the decl of the arguments' sorts, without an application.
+	fid, err := r.ast.RegisterDatalogPlugin()
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	appRef, err := r.ast.NewRef(app)
+	domain := make([]ast.ASTHandle, len(args))
+	for i, a := range args {
+		if domain[i], err = r.ast.GetSort(a); err != nil {
+			return ast.ASTHandle{}, err
+		}
+	}
+	declaration, err := r.ast.MkFamilyFuncDecl(fid, op, nil, domain, ast.ASTHandle{})
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, r.ast.DelRef(&appRef)) }()
-	declaration, err := r.ast.GetDecl(app)
-	if err != nil {
-		return ast.ASTHandle{}, err
+	if declaration == (ast.ASTHandle{}) {
+		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
 	*cache, err = r.ast.NewRef(declaration)
 	if err != nil {

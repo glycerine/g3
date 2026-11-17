@@ -341,11 +341,8 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 			return lbool.Undef, err
 		}
 	}
-	if clone.backend == "datalog" {
-		if err = clone.addRuleNow(rule, ""); err != nil {
-			return lbool.Undef, err
-		}
-	} else {
+	{
+		// rule_manager::mk_query: mk_rule(rule_expr, pr, rules).
 		if err = clone.mkQueryRule(rule); err != nil {
 			return lbool.Undef, err
 		}

@@ -19,8 +19,10 @@ import (
 )
 
 type datalogRestartRound struct {
-	timeout     uint32
-	restarting  bool
+	timeout    uint32
+	restarting bool
+	// final: no restart can follow this round.
+	final       bool
 	interrupted bool
 	statistics  statistics.Statistics
 	// totals is the engine's m_ectx counter set, which also persists
@@ -116,6 +118,7 @@ func (e *PropositionalEngine) queryFiniteDatalogWithRestarts(declarations []ast.
 	for {
 		timeoutAfterThisRound := timeLimit && (restart == 0 || remaining <= restart)
 		round.timeout = 0
+		round.final = restart == 0 || timeoutAfterThisRound
 		if timeLimit || restart != 0 {
 			switch {
 			case timeLimit && restart != 0:

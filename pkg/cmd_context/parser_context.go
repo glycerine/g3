@@ -38,6 +38,12 @@ func (c *Context) NewParserContext() (result *Context, resultErr error) {
 	}
 	// Assertions retain the ordinary cmd_context publication path even when
 	// check commands are ignored, so the temporary view needs its own solver.
+	// Under a C API context (Z3_mk_fixedpoint, the parsers) it is made at
+	// its first use: those objects have no solver of their own in z3.
+	if c.apiSolver {
+		result.apiSolver, result.solverPending = true, true
+		return result, nil
+	}
 	if err = result.mkSolver(manager); err != nil {
 		return result, err
 	}
