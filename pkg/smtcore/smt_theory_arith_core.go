@@ -9,7 +9,6 @@ package smtcore
 import (
 	"errors"
 	"math"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	protomodel "github.com/glycerine/g3/pkg/smtcore/proto_model"
@@ -170,14 +169,6 @@ func (t *SMTTheoryArith) mkNumeralInt(x *smtArithExprs, v int64, isInt bool) (as
 	}
 	h, err := t.mkNumeralQ(x, &r, isInt)
 	return h, errors.Join(err, smtQDel(t.q, &r))
-}
-
-// mkNumeral is m_util.mk_numeral(r, is_int).
-func (t *SMTTheoryArith) mkNumeral(x *smtArithExprs, r *big.Rat, isInt bool) (ast.ASTHandle, error) {
-	if isInt {
-		return x.hold(t.state.manager.ArithmeticIntegerNumeralText(r.RatString()))
-	}
-	return x.hold(t.state.manager.ArithmeticRealNumeralText(r.RatString()))
 }
 
 // ---- core.h:30-100 ----

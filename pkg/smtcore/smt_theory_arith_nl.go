@@ -2000,22 +2000,6 @@ func (t *SMTTheoryArith) isInconsistentEq(eq *grobner.Equation, deps *smtArithGb
 	return t.isInconsistentInterval(zero, eq.Monomials(), dep)
 }
 
-// smtRatIsPerfectSquare is rational::is_perfect_square.
-func smtRatIsPerfectSquare(q *big.Rat) (*big.Rat, bool) {
-	if q.Sign() < 0 {
-		return nil, false
-	}
-	n := new(big.Int).Sqrt(q.Num())
-	if new(big.Int).Mul(n, n).Cmp(q.Num()) != 0 {
-		return nil, false
-	}
-	d := new(big.Int).Sqrt(q.Denom())
-	if new(big.Int).Mul(d, d).Cmp(q.Denom()) != 0 {
-		return nil, false
-	}
-	return new(big.Rat).SetFrac(n, d), true
-}
-
 // isPerfectSquareMonomial is is_perfect_square(m, r): c*M is a square and
 // r is set to the root of c.
 func (t *SMTTheoryArith) isPerfectSquareMonomial(m *grobner.Monomial, r *numeral.Rational) bool {

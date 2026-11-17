@@ -5,7 +5,7 @@ package spacer_test
 
 import (
 	"errors"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -273,7 +273,7 @@ func TestUnsatCoreFarkasPluginCombinesDisjointPremisesWithoutSplitting(t *testin
 		util, err := smtcore.NewSMTFarkasUtil(manager, globals.Context, globals)
 		spacerMust(t, err)
 		for _, literal := range literals {
-			spacerMust(t, util.AddBigRat(big.NewRat(1, 1), literal))
+			spacerMust(t, util.Add(farkasTestQ(1, 1), literal))
 		}
 		out, err := manager.NewRef(ast.ASTHandle{})
 		spacerMust(t, err)
@@ -324,4 +324,10 @@ func TestUnsatCoreFarkasPluginCombinesDisjointPremisesWithoutSplitting(t *testin
 	}
 	spacerMust(t, manager.DelRef(&rootRef))
 	spacerMust(t, command.Close())
+}
+
+// farkasTestQ is rational(n)/rational(d) for small n, d in lowest terms
+// with d > 0: an inline rational that owns no cell.
+func farkasTestQ(n, d int32) *numeral.Rational {
+	return &numeral.Rational{Num: numeral.NewInt(n), Den: numeral.NewInt(d)}
 }

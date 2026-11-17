@@ -4,7 +4,6 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -263,25 +262,6 @@ func (f *SMTFarkasUtil) fixSign(positive bool, constraint ast.ASTHandle) (ast.AS
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
 	return f.app(result, left, right)
-}
-
-// AddBigRat is Add for a coefficient held as a big.Rat (the muz learners'
-// boundary until they hold rationals).
-func (f *SMTFarkasUtil) AddBigRat(coefficient *big.Rat, constraint ast.ASTHandle) (err error) {
-	if err := f.open(); err != nil || coefficient == nil {
-		if err != nil {
-			return err
-		}
-		return ast.ErrASTDomain
-	}
-	c := smtQZero()
-	if err = f.q.SetBigRat(&c, coefficient); err == nil {
-		err = f.Add(&c, constraint)
-	}
-	if e := smtQDel(f.q, &c); e != nil {
-		return errors.Join(err, e)
-	}
-	return err
 }
 
 // Add is add(coef, c); the utility keeps a copy of coefficient.

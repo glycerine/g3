@@ -47,7 +47,7 @@ func TestSMTFarkasSignConsequenceSourceOracle(t *testing.T) {
 						bound, err = m.MkNot(bound)
 						astTestMust(t, err)
 					}
-					err = u.AddBigRat(big.NewRat(1, 1), bound)
+					err = u.Add(farkasTestQ(1, 1), bound)
 					if neg && rel.name == "eq" {
 						if err != ast.ErrASTDomain {
 							t.Fatalf("negated equality: got %v, want domain error", err)

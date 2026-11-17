@@ -5,7 +5,6 @@ package pdr
 
 import (
 	"errors"
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -68,7 +67,7 @@ func TestFarkasLearnerClosePreservesPremisesDuringNativeRefusal(t *testing.T) {
 	must(err)
 	bound, err := manager.MkArithmeticLE(x, zero)
 	must(err)
-	must(learner.utility.AddBigRat(big.NewRat(1, 1), bound))
+	must(learner.utility.Add(farkasTestQ(1, 1), bound))
 	retainedUtility = learner.utility
 
 	value, err := numbers.NewValue()
@@ -101,4 +100,10 @@ func TestFarkasLearnerClosePreservesPremisesDuringNativeRefusal(t *testing.T) {
 	if budget.Used() != 0 {
 		t.Fatal("Farkas cleanup fixture leaked bytes", budget.Used())
 	}
+}
+
+// farkasTestQ is rational(n)/rational(d) for small n, d in lowest terms
+// with d > 0: an inline rational that owns no cell.
+func farkasTestQ(n, d int32) *numeral.Rational {
+	return &numeral.Rational{Num: numeral.NewInt(n), Den: numeral.NewInt(d)}
 }

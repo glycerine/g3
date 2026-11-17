@@ -1,7 +1,6 @@
 package smtcore
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -27,7 +26,7 @@ func TestSMTFarkasDistinguishesEqualityAndInequality(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			astTestMust(t, utility.Reset())
-			astTestMust(t, utility.AddBigRat(big.NewRat(1, 1), tc.input))
+			astTestMust(t, utility.Add(farkasTestQ(1, 1), tc.input))
 			out, err := m.NewRef(ast.ASTHandle{})
 			astTestMust(t, err)
 			defer m.DelRef(&out)
