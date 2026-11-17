@@ -463,63 +463,6 @@ func (s *smtLRANumeric) maximize(v SMTTheoryVar) (result SMTArithmeticObjectiveV
 	return SMTArithmeticObjectiveValue{Finite: simplex.NewInfinitesimal(r, e)}, nil
 }
 
-// Source init_variable_values/get_value: GetModel supplies column values using
-// the actual strict-bound delta. Term values are reconstructed in LAR order.
-// Returned values own their math/big storage and survive the next solver call.
-func (s *smtLRANumeric) modelValues(vars []SMTTheoryVar) (result map[SMTTheoryVar]*big.Rat, err error) {
-	numerals, err := s.modelColumnValues()
-	if err != nil {
-		return nil, err
-	}
-	columns := make(map[uint32]*big.Rat, len(numerals))
-	for j, value := range numerals {
-		b, e := smtQBig(s.manager, value)
-		if e2 := s.manager.Del(value); e == nil {
-			e = e2
-		}
-		if e != nil {
-			return nil, e
-		}
-		columns[j] = b
-	}
-	defer func() {
-		if err != nil {
-			s.stopped = true
-		}
-	}()
-	result = make(map[SMTTheoryVar]*big.Rat)
-	for _, v := range vars {
-		value := new(big.Rat)
-		result[v] = value
-		index, ok := s.index(v)
-		if !ok {
-			continue
-		}
-		if !s.solver.IsTerm(index) {
-			if c := columns[index]; c != nil {
-				value.Set(c)
-			}
-			continue
-		}
-		term := s.solver.Terms[index-lp.LARTermStartIndex]
-		c, e := s.rational(&term.Value)
-		if e != nil {
-			return nil, e
-		}
-		value.Set(c)
-		for j, coefficient := range term.Coefficients().All() {
-			c, e = s.rational(coefficient)
-			if e != nil {
-				return nil, e
-			}
-			if column := columns[j]; column != nil {
-				value.Add(value, new(big.Rat).Mul(c, column))
-			}
-		}
-	}
-	return result, nil
-}
-
 // modelColumnValues returns copies (owned by the caller) of the model's
 // column values.
 func (s *smtLRANumeric) modelColumnValues() (columns map[uint32]*numeral.Rational, err error) {

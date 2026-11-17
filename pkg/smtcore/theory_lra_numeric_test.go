@@ -179,13 +179,27 @@ func TestSMTLRANumericStrictOptimizationModelsAndScopeRecovery(t *testing.T) {
 			if current.Cmp(&maximum.Finite) != 0 {
 				t.Fatal("LAR assignment and objective diverged", current.String(), maximum.Finite.String())
 			}
-			old, err := s.modelValues([]SMTTheoryVar{5, 9, 12, 999})
+			columns, err := s.modelColumnValues()
 			astTestMust(t, err)
-			want := new(big.Rat).Add(big.NewRat(3, 1), new(big.Rat).Sub(new(big.Rat).Mul(big.NewRat(2, 1), old[5]), old[9]))
-			if old[5].Sign() < 0 || old[5].Cmp(big.NewRat(3, 1)) >= 0 || old[9].Sign() != 0 || old[12].Cmp(want) != 0 || old[999].Sign() != 0 {
-				t.Fatal("strict finite witness", old)
+			t.Cleanup(func() {
+				for _, c := range columns {
+					astTestMust(t, smtQDel(s.manager, c))
+				}
+			})
+			column := func(v SMTTheoryVar) *numeral.Rational {
+				index, ok := s.index(v)
+				if !ok || columns[index] == nil {
+					t.Fatal("no model column", v)
+				}
+				return columns[index]
 			}
-			oldValue := new(big.Rat).Set(old[12])
+			x5, err := smtQBig(s.manager, column(5))
+			astTestMust(t, err)
+			x9, err := smtQBig(s.manager, column(9))
+			astTestMust(t, err)
+			if x5.Sign() < 0 || x5.Cmp(big.NewRat(3, 1)) >= 0 || x9.Sign() != 0 {
+				t.Fatal("strict finite witness", x5, x9)
+			}
 			astTestMust(t, s.push())
 			lraBound(t, s, 5, 105, 2, 1, true, true)
 			_, err = s.testAddTerm(44, []smtLRACoefficient{lraCoefficient(31, 1, 1)}, big.NewRat(1, 1))
@@ -194,8 +208,8 @@ func TestSMTLRANumericStrictOptimizationModelsAndScopeRecovery(t *testing.T) {
 			maximum, err = s.maximize(12)
 			astTestMust(t, err)
 			checkInfiniteArithmetic(t, maximum.Finite, 0, 7, 0)
-			if old[12].Cmp(oldValue) != 0 {
-				t.Fatal("previous model borrowed mutable solver state")
+			if again, err := smtQBig(s.manager, column(5)); err != nil || again.Cmp(x5) != 0 {
+				t.Fatal("previous model borrowed mutable solver state", err)
 			}
 			astTestMust(t, s.pop(1))
 			for _, v := range []SMTTheoryVar{31, 44} {
