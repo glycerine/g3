@@ -318,7 +318,15 @@ func (s *Solver) boundedSearch() (lbool.LBool, error) {
 				}
 				return lbool.True, nil
 			}
-			return s.finalExtensionCheck()
+			// final_check's l_undef (CR_CONTINUE) continues the loop
+			// (AUDIT.md sat_04-F3).
+			r, e := s.finalExtensionCheck()
+			if e != nil {
+				return lbool.Undef, e
+			}
+			if r != lbool.Undef {
+				return r, nil
+			}
 		}
 	}
 }
