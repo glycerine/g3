@@ -160,7 +160,12 @@ func (c *Context) writeReplaySortDeclarations(out io.Writer, begin, end replayBo
 			return e
 		}
 		if !constructor.definition {
-			if _, e = fmt.Fprintf(out, "(declare-sort %s %d)\n", spelling, constructor.arity); e != nil {
+			if constructor.arity == 0 {
+				_, e = fmt.Fprintf(out, "(declare-sort %s)\n", spelling)
+			} else {
+				_, e = fmt.Fprintf(out, "(declare-sort %s %d)\n", spelling, constructor.arity)
+			}
+			if e != nil {
 				return e
 			}
 			continue

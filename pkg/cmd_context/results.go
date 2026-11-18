@@ -664,10 +664,10 @@ func (c *Context) WriteProof(out io.Writer) error {
 			return c.manager.Symbols.String(name)
 		}
 		config := ast.LegacySMTBenchmarkConfig{Logic: logic,
+			// cmd_is_declared: is_sort_decl(name), m_psort_decls.contains.
 			IsDeclaredSort: func(h ast.ASTHandle) (bool, error) {
 				name, e := declaredName(h)
-				_, found := c.sorts[name]
-				return found, e
+				return e == nil && c.SortDeclared(name), e
 			},
 			IsDeclaredFunc: func(h ast.ASTHandle) (bool, error) { name, e := declaredName(h); return len(c.functions[name]) != 0, e },
 		}

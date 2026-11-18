@@ -19,6 +19,9 @@ type sortConstructorDeclaration struct {
 	body       ast.ASTHandle
 	definition bool
 	refs       []ast.ASTRef
+	// instance is a 0-ary declare-sort's cached instantiation
+	// (psort_decl::m_inst_cache), made on first use; refs holds its ref.
+	instance ast.ASTHandle
 }
 
 func (c *Context) sortNameAvailable(name string) bool {
@@ -27,8 +30,10 @@ func (c *Context) sortNameAvailable(name string) bool {
 	return sortFound || constructorFound || c.BuiltinSortAvailable(name)
 }
 
-// DeclareSortConstructor installs an uninterpreted sort constructor. Arity
-// zero retains the existing concrete DeclareSort behavior.
+// DeclareSortConstructor installs an uninterpreted sort constructor,
+// mk_psort_user_decl(arity, id, nullptr). As psort_user_decl::instantiate
+// does, the sort itself is made (and cached) at its first use, and never if
+// it is unused, arity zero included (AUDIT.md cmd_context_02-F14).
 func (c *Context) DeclareSortConstructor(name string, arity uint32) (ast.ASTHandle, error) {
 	m, err := c.Manager()
 	if err != nil {
@@ -40,20 +45,6 @@ func (c *Context) DeclareSortConstructor(name string, arity uint32) (ast.ASTHand
 	symbol, err := m.Symbols.Intern(name)
 	if err != nil {
 		return ast.ASTHandle{}, err
-	}
-	if arity == 0 {
-		sort, e := m.MkUninterpretedSort(symbol, nil)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		ref, e := m.NewRef(sort)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		c.sorts[name] = sort
-		c.sortTrail = append(c.sortTrail, declaration{name, sort, ref})
-		c.recordPSortDecl(name, true)
-		return sort, nil
 	}
 	declaration := sortConstructorDeclaration{name: name, arity: arity, symbol: symbol}
 	c.sortConstructors[name] = declaration
@@ -137,6 +128,10 @@ func (c *Context) instantiateSortConstructor(declaration sortConstructorDeclarat
 		}
 		return result, c.instantiateSortDefinitionInfos(declaration.name, declaration.formals, arguments)
 	}
+	if declaration.arity == 0 && !declaration.instance.IsNull() {
+		// psort_decl::find: the cached instance; no second save_info.
+		return declaration.instance, nil
+	}
 	parameters := make([]ast.ASTParameter, 0, len(arguments))
 	created := make([]ast.ASTParameter, 0, len(arguments))
 	defer func() {
@@ -155,6 +150,16 @@ func (c *Context) instantiateSortConstructor(declaration sortConstructorDeclarat
 	result, err = c.manager.MkUninterpretedSort(declaration.symbol, parameters)
 	if err != nil {
 		return ast.ASTHandle{}, err
+	}
+	if declaration.arity == 0 {
+		// cache(m, s, r): the instance cache holds a reference.
+		ref, e := c.manager.NewRef(result)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		declaration.instance = result
+		declaration.refs = append(declaration.refs, ref)
+		c.sortConstructors[declaration.name] = declaration
 	}
 	// psort_user_decl::instantiate: save_info(r, this, n, s).
 	return result, c.saveSortInfo(result, declaration.name, arguments)

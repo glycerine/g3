@@ -1150,8 +1150,12 @@ func (c *Context) mkSolver(m *ast.ASTManager) error {
 	return nil
 }
 
+// DeclareSort declares a 0-ary user sort and returns its instance.
 func (c *Context) DeclareSort(name string) (ast.ASTHandle, error) {
-	return c.DeclareSortConstructor(name, 0)
+	if _, err := c.DeclareSortConstructor(name, 0); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return c.LookupSort(name)
 }
 
 // UnknownSortError is find_psort_decl failing; the parser adds its context.
@@ -1174,6 +1178,12 @@ func (c *Context) SortDeclared(name string) bool {
 // LookupSort is find_psort_decl(name)->instantiate(pm()) for a sort name:
 // the instantiation also saves the sort's printing info.
 func (c *Context) LookupSort(name string) (ast.ASTHandle, error) {
+	if declaration, found := c.sortConstructors[name]; found && declaration.arity == 0 && !declaration.definition {
+		if _, err := c.Manager(); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		return c.instantiateSortConstructor(declaration, nil)
+	}
 	r, err := c.lookupSort(name)
 	if err != nil {
 		return r, err
