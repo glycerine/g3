@@ -80,3 +80,28 @@ func TestInterpolationCheckerTreeConversion(t *testing.T) {
 		t.Fatal(ok, diagnostics.String())
 	}
 }
+
+// AUDIT.md interp_01-F17: Z3_check_interpolant's iz3checker has empty
+// scopes::parents, so the closure re-check asserts every constraint j <= i
+// even for a tree; constraint 0 is not below node 1 in the tree.
+func TestCheckInterpolantsParentsAPIUsesLinearClosure(t *testing.T) {
+	m, manager, p, q, r := interpolationCheckerFixture(t)
+	s, err := newInterpolationScriptSolver(m, lbool.False)
+	interpMust(t, err)
+	s.script = []lbool.LBool{lbool.False, lbool.True, lbool.False, lbool.False}
+	defer func() { interpMust(t, s.Close()) }()
+	var diagnostics bytes.Buffer
+	_, err = CheckInterpolants(manager, s, &diagnostics, []ast.ASTHandle{p, q, r}, []int{2, 2, ScopeTop}, []ast.ASTHandle{p, q}, nil)
+	interpMust(t, err)
+	count := 0
+	for _, h := range s.assertions {
+		if h == p {
+			count++
+		}
+	}
+	// constraint 0 at i=0 and in the closure for i=1 (the check stops at
+	// the first incorrect interpolant).
+	if count != 2 || !strings.Contains(diagnostics.String(), "interpolant 1 is incorrect") {
+		t.Fatal(count, diagnostics.String())
+	}
+}

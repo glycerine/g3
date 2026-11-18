@@ -49,14 +49,26 @@ func interpolationSupport(manager *Manager, treeMode bool, term ast.ASTHandle, r
 	return nil
 }
 
+// CheckInterpolants is iz3check with a parents vector (Z3_check_interpolant):
+// its iz3checker has an empty scopes::parents, so the second diagnostic's
+// in_range(j, range_downward(i)) is the linear j <= i even for a tree
+// (AUDIT.md interp_01-F17).
 func CheckInterpolants(manager *Manager, s solver.Solver, diagnostics io.Writer, constraints []ast.ASTHandle, parents []int, interpolants []ast.ASTHandle, theory []ast.ASTHandle) (bool, error) {
+	return checkInterpolants(manager, s, diagnostics, constraints, parents, interpolants, theory, false)
+}
+
+func checkInterpolants(manager *Manager, s solver.Solver, diagnostics io.Writer, constraints []ast.ASTHandle, parents []int, interpolants []ast.ASTHandle, theory []ast.ASTHandle, treeScopes bool) (bool, error) {
 	if manager == nil || s == nil || diagnostics == nil {
 		return false, ast.ErrASTHandle
 	}
 	if len(constraints) == 0 || len(interpolants)+1 < len(constraints) {
 		return false, ast.ErrASTDomain
 	}
-	base, err := NewBase(manager, constraints, parents, theory)
+	var scopeParents []int
+	if treeScopes {
+		scopeParents = parents
+	}
+	base, err := NewBase(manager, constraints, scopeParents, theory)
 	if err != nil {
 		return false, err
 	}
@@ -228,5 +240,7 @@ func CheckTreeInterpolants(manager *Manager, s solver.Solver, diagnostics io.Wri
 	if err != nil || closeErr != nil {
 		return false, errors.Join(err, closeErr)
 	}
-	return CheckInterpolants(manager, s, diagnostics, converted, parents, interpolants, theory)
+	// to_parents_vec_representation sets the checker's own parents, so the
+	// tree command path keeps tree scopes.
+	return checkInterpolants(manager, s, diagnostics, converted, parents, interpolants, theory, true)
 }
