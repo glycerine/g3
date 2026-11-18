@@ -82,8 +82,11 @@ func replayDatatypeInspection(r *Z3Replayer, id uint32) error {
 	if id == 213 || id == 215 || id == 220 {
 		return nil
 	}
-	if id == 219 {
-		return r.storeAST(owner, result)
+	// 212, 214, 216, 217, 218 and 219 call mk_c(c)->save_ast_trail
+	// (get_datatype_sort_constructor_core, the recognizer, accessor and
+	// tuple field getters, update_field); Z3_get_relation_column does not.
+	if id == 221 {
+		return r.storeBorrowedAST(owner, result)
 	}
-	return r.storeBorrowedAST(owner, result)
+	return r.storeAST(owner, result)
 }

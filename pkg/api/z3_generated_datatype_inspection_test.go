@@ -48,8 +48,10 @@ func TestGeneratedDatatypeInspectionReplayBorrowedResults(t *testing.T) {
 		if e != nil {
 			return e
 		}
-		if len(owner.results.astTrail) != trail {
-			t.Fatal("datatype inspection changed AST trail")
+		// AUDIT.md api_03-F7: 212, 214, 216, 217 and 218 each call
+		// save_ast_trail; outside rc mode that pushes onto m_ast_trail.
+		if len(owner.results.astTrail) != trail+5 {
+			t.Fatal("datatype inspection AST trail", trail, len(owner.results.astTrail))
 		}
 		for pos := uint32(1); pos <= 8; pos += 2 {
 			a, e := r.astObject(owner, pos)
