@@ -242,8 +242,8 @@ func (c *SMTCheckerContext) releaseDiseqTmp() error {
 // exceeds one.
 type SMTChecker struct {
 	context    *SMTCheckerContext
-	truthCache [2]map[ast.ASTHandle]bool
-	enodeCache map[ast.ASTHandle]*SMTEnode
+	truthCache [2]map[uint64]bool
+	enodeCache map[uint64]*SMTEnode
 	bindings   []*SMTEnode
 	// argBuffer backs get_enode_eq_to_core's ptr_buffer<enode>: each
 	// nested call appends above its caller's slice and truncates back.
@@ -260,12 +260,35 @@ func NewSMTChecker(context *SMTCheckerContext) (*SMTChecker, error) {
 // clear is the end of is_sat/is_unsat: the caches are reset and the
 // flet-scoped bindings restored.
 func (c *SMTChecker) clear() {
-	clear(c.truthCache[0])
-	clear(c.truthCache[1])
-	clear(c.enodeCache)
+	// Like core_hashtable::reset, a table that grew large is not kept at
+	// that capacity for the (usually small) queries that follow: clearing
+	// a map costs its capacity, so a large one is dropped instead.
+	for i := range c.truthCache {
+		if len(c.truthCache[i]) > smtCheckerKeepCache {
+			c.truthCache[i] = nil
+		} else {
+			clear(c.truthCache[i])
+		}
+	}
+	if len(c.enodeCache) > smtCheckerKeepCache {
+		c.enodeCache = nil
+	} else {
+		clear(c.enodeCache)
+	}
 	c.bindings = nil
 	clear(c.argBuffer)
 	c.argBuffer = c.argBuffer[:0]
+}
+
+// smtCheckerKeepCache is the largest cache clear keeps for reuse.
+const smtCheckerKeepCache = 256
+
+// smtHandleKey is a map key for a node of one manager (slot and
+// generation), the role of the source's AST pointer keys: the checker
+// caches and the congruence table's per-declaration map only hold
+// expressions of the context's manager.
+func smtHandleKey(h ast.ASTHandle) uint64 {
+	return uint64(h.Slot())<<32 | uint64(h.Generation())
 }
 
 // shared is n->get_ref_count() > 1, the source's cache condition.
@@ -394,16 +417,16 @@ func (c *SMTChecker) enodeEqualTo(expression ast.ASTHandle) (*SMTEnode, error) {
 	}
 	shared := c.shared(expression)
 	if shared {
-		if node, found := c.enodeCache[expression]; found {
+		if node, found := c.enodeCache[smtHandleKey(expression)]; found {
 			return node, nil
 		}
 	}
 	node, err := c.enodeEqualToCore(expression, n)
 	if err == nil && shared {
 		if c.enodeCache == nil {
-			c.enodeCache = make(map[ast.ASTHandle]*SMTEnode)
+			c.enodeCache = make(map[uint64]*SMTEnode)
 		}
-		c.enodeCache[expression] = node
+		c.enodeCache[smtHandleKey(expression)] = node
 	}
 	return node, err
 }
@@ -551,16 +574,16 @@ func (c *SMTChecker) check(expression ast.ASTHandle, value bool) (bool, error) {
 	}
 	shared := c.shared(expression)
 	if shared {
-		if result, found := (*cache)[expression]; found {
+		if result, found := (*cache)[smtHandleKey(expression)]; found {
 			return result, nil
 		}
 	}
 	result, err := c.checkCore(expression, value)
 	if err == nil && shared {
 		if *cache == nil {
-			*cache = make(map[ast.ASTHandle]bool)
+			*cache = make(map[uint64]bool)
 		}
-		(*cache)[expression] = result
+		(*cache)[smtHandleKey(expression)] = result
 	}
 	return result, err
 }

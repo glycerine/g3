@@ -127,8 +127,8 @@ type SMTCongruenceInsertResult struct {
 type SMTCongruenceTable struct {
 	self         *SMTCongruenceTable
 	manager      *ast.ASTManager
-	tables       map[ast.ASTHandle]*smtCongruenceBucket
-	buckets      []*smtCongruenceBucket // by enode functionDeclID, to skip the map
+	tables       map[uint64]*smtCongruenceBucket // m_func_decl2table, keyed by smtHandleKey(decl)
+	buckets      []*smtCongruenceBucket          // by enode functionDeclID, to skip the map
 	declarations []ast.ASTHandle
 	// declarationOrder is m_func_decl2id (obj_map<func_decl, unsigned>),
 	// whose table order reset() releases the declarations in;
@@ -143,7 +143,7 @@ func NewSMTCongruenceTable(manager *ast.ASTManager) (*SMTCongruenceTable, error)
 	if manager == nil {
 		return nil, ast.ErrASTDomain
 	}
-	table := &SMTCongruenceTable{manager: manager, tables: make(map[ast.ASTHandle]*smtCongruenceBucket)}
+	table := &SMTCongruenceTable{manager: manager, tables: make(map[uint64]*smtCongruenceBucket)}
 	table.self = table
 	return table, nil
 }
@@ -171,7 +171,7 @@ func (t *SMTCongruenceTable) bucketFor(node *SMTEnode) *smtCongruenceBucket {
 			return bucket
 		}
 	}
-	bucket := t.tables[node.declaration]
+	bucket := t.tables[smtHandleKey(node.declaration)]
 	if bucket != nil {
 		node.functionDeclID = bucket.id
 	}
@@ -203,7 +203,7 @@ func (t *SMTCongruenceTable) ensureTable(node *SMTEnode) (*smtCongruenceBucket, 
 		flatAssociative: flags.FlatAssociative,
 	}
 	t.buckets = append(t.buckets, bucket)
-	t.tables[node.declaration] = bucket
+	t.tables[smtHandleKey(node.declaration)] = bucket
 	return bucket, nil
 }
 
@@ -296,7 +296,7 @@ func (t *SMTCongruenceTable) Reset() error {
 		t.declarationOrder.Reset()
 	}
 	t.declarations, t.buckets = nil, nil
-	t.tables = make(map[ast.ASTHandle]*smtCongruenceBucket)
+	t.tables = make(map[uint64]*smtCongruenceBucket)
 	return nil
 }
 
@@ -348,7 +348,7 @@ func (t *SMTCongruenceTable) FindApp(decl ast.ASTHandle, args []*SMTEnode, commu
 	if len(args) == 0 {
 		return nil, nil
 	}
-	bucket := t.tables[decl]
+	bucket := t.tables[smtHandleKey(decl)]
 	if bucket == nil {
 		return nil, nil
 	}
