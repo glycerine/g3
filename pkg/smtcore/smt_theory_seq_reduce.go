@@ -4,10 +4,9 @@ package smtcore
 // get_length(e, len, lits).
 
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (t *SMTTheorySeq) isBinaryEq(ls, rs []ast.ASTHandle) (x ast.ASTHandle, xs, ys []ast.ASTHandle, y ast.ASTHandle, ok bool) {
@@ -67,51 +66,54 @@ func (t *SMTTheorySeq) reduceLengthEq(ls, rs []ast.ASTHandle, deps *seqDep) bool
 		return true
 	}
 
-	getLen := func(e ast.ASTHandle, out **big.Rat) bool {
+	// rational len1, len2, len
+	q := t.q()
+	len1, len2, ln := t.newRat(), t.newRat(), t.newRat()
+	defer t.delRat(ln)
+	defer t.delRat(len2)
+	defer t.delRat(len1)
+	getLen := func(e ast.ASTHandle, out *numeral.Rational) bool {
 		v, ok := t.getLengthValue(e)
 		if ok {
-			*out = v
+			t.chk(q.Copy(out, v))
+			t.delRat(v)
 		}
 		return ok
 	}
-	var len1, len2, ln *big.Rat
-	if len(ls) > 1 && getLen(ls[0], &len1) && getLen(rs[0], &len2) && len1.Cmp(len2) >= 0 {
-		len2 = new(big.Rat).Set(len2)
+	cmp := t.ratCmp
+	if len(ls) > 1 && getLen(ls[0], len1) && getLen(rs[0], len2) && cmp(len1, len2) >= 0 {
 		j := 1
-		for ; j < len(rs) && len1.Cmp(len2) > 0 && getLen(rs[j], &ln); j++ {
-			len2.Add(len2, ln)
+		for ; j < len(rs) && cmp(len1, len2) > 0 && getLen(rs[j], ln); j++ {
+			t.ratAdd(len2, ln, len2)
 		}
-		if len1.Cmp(len2) == 0 && 0 < j && j < len(rs) && t.reduceLengthSplit(1, j, true, ls, rs, deps) {
+		if cmp(len1, len2) == 0 && 0 < j && j < len(rs) && t.reduceLengthSplit(1, j, true, ls, rs, deps) {
 			return true
 		}
 	}
-	if len(rs) > 1 && getLen(rs[0], &len1) && getLen(ls[0], &len2) && len1.Cmp(len2) > 0 {
-		len2 = new(big.Rat).Set(len2)
+	if len(rs) > 1 && getLen(rs[0], len1) && getLen(ls[0], len2) && cmp(len1, len2) > 0 {
 		j := 1
-		for ; j < len(ls) && len1.Cmp(len2) > 0 && getLen(ls[j], &ln); j++ {
-			len2.Add(len2, ln)
+		for ; j < len(ls) && cmp(len1, len2) > 0 && getLen(ls[j], ln); j++ {
+			t.ratAdd(len2, ln, len2)
 		}
-		if len1.Cmp(len2) == 0 && 0 < j && j < len(ls) && t.reduceLengthSplit(j, 1, true, ls, rs, deps) {
+		if cmp(len1, len2) == 0 && 0 < j && j < len(ls) && t.reduceLengthSplit(j, 1, true, ls, rs, deps) {
 			return true
 		}
 	}
-	if len(ls) > 1 && getLen(ls[len(ls)-1], &len1) && getLen(rs[len(rs)-1], &len2) && len1.Cmp(len2) >= 0 {
-		len2 = new(big.Rat).Set(len2)
+	if len(ls) > 1 && getLen(ls[len(ls)-1], len1) && getLen(rs[len(rs)-1], len2) && cmp(len1, len2) >= 0 {
 		j := len(rs) - 1
-		for ; j > 0 && len1.Cmp(len2) > 0 && getLen(rs[j-1], &ln); j-- {
-			len2.Add(len2, ln)
+		for ; j > 0 && cmp(len1, len2) > 0 && getLen(rs[j-1], ln); j-- {
+			t.ratAdd(len2, ln, len2)
 		}
-		if len1.Cmp(len2) == 0 && 0 < j && j < len(rs) && t.reduceLengthSplit(len(ls)-1, len(rs)-j, false, ls, rs, deps) {
+		if cmp(len1, len2) == 0 && 0 < j && j < len(rs) && t.reduceLengthSplit(len(ls)-1, len(rs)-j, false, ls, rs, deps) {
 			return true
 		}
 	}
-	if len(rs) > 1 && getLen(rs[len(rs)-1], &len1) && getLen(ls[len(ls)-1], &len2) && len1.Cmp(len2) > 0 {
-		len2 = new(big.Rat).Set(len2)
+	if len(rs) > 1 && getLen(rs[len(rs)-1], len1) && getLen(ls[len(ls)-1], len2) && cmp(len1, len2) > 0 {
 		j := len(ls) - 1
-		for ; j > 0 && len1.Cmp(len2) > 0 && getLen(ls[j-1], &ln); j-- {
-			len2.Add(len2, ln)
+		for ; j > 0 && cmp(len1, len2) > 0 && getLen(ls[j-1], ln); j-- {
+			t.ratAdd(len2, ln, len2)
 		}
-		if len1.Cmp(len2) == 0 && 0 < j && j < len(ls) && t.reduceLengthSplit(len(ls)-j, len(rs)-1, false, ls, rs, deps) {
+		if cmp(len1, len2) == 0 && 0 < j && j < len(ls) && t.reduceLengthSplit(len(ls)-j, len(rs)-1, false, ls, rs, deps) {
 			return true
 		}
 	}
@@ -203,7 +205,9 @@ func (t *SMTTheorySeq) solveBinaryEq(ls, rs []ast.ASTHandle, dep *seqDep) bool {
 func (t *SMTTheorySeq) getLengthLits(x *seqRefs, e ast.ASTHandle, lits *[]SMTLiteral) (ast.ASTHandle, bool) {
 	isZero := func(i ast.ASTHandle) bool {
 		r, ok := t.isNumeral(i)
-		return ok && r.Sign() == 0
+		zero := ok && r.IsZero()
+		t.delRat(r)
+		return zero
 	}
 	allTrue := func(ls []SMTLiteral) bool {
 		for _, l := range ls {

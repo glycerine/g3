@@ -460,7 +460,9 @@ func (t *SMTTheorySeq) propagateMaxLength(l, r ast.ASTHandle, deps *seqDep) bool
 	}
 	s, idx, ok := t.isTailIdx(l)
 	if ok && t.hasLength(s) && t.isEmpty(r) {
-		if _, has := t.upperBound(s); !has {
+		hi, has := t.upperBound(s)
+		t.delRat(hi)
+		if !has {
 			bound := t.mkInt(idx + 1) // arguments right to left
 			t.propagateLit(deps, nil, t.mkLiteral(t.mkLe(t.mkLength(s), bound)))
 			return true

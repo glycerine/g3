@@ -5,12 +5,12 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -307,8 +307,9 @@ func (t *SMTTheorySeq) mkInt(n int64) ast.ASTHandle {
 	return t.must(t.m.ArithmeticIntegerNumeralText(strconv.FormatInt(n, 10)))
 }
 
-func (t *SMTTheorySeq) mkIntRat(r *big.Rat) ast.ASTHandle {
-	return t.must(t.m.ArithmeticIntegerNumeralText(r.RatString()))
+// mkIntRat is m_autil.mk_numeral(r, true).
+func (t *SMTTheorySeq) mkIntRat(r *numeral.Rational) ast.ASTHandle {
+	return t.must(t.m.ArithmeticNumeralFromRational(r, true))
 }
 
 func (t *SMTTheorySeq) mkLe(a, b ast.ASTHandle) ast.ASTHandle {
@@ -330,17 +331,109 @@ func (t *SMTTheorySeq) mkMul(a, b ast.ASTHandle) ast.ASTHandle {
 	return t.must(t.m.MkArithmeticMul(a, b))
 }
 
-// isNumeral is m_autil.is_numeral(e, r).
-func (t *SMTTheorySeq) isNumeral(e ast.ASTHandle) (*big.Rat, bool) {
-	r, _, matched, err := t.m.ArithmeticNumeralBigRat(e)
-	if matched && err == ast.ErrASTDomain {
+// isNumeral is m_autil.is_numeral(e, r): r is a fresh rational of the AST
+// manager's rational manager, owned by the caller (free it with delRat), or
+// nil when e is not a numeral.
+func (t *SMTTheorySeq) isNumeral(e ast.ASTHandle) (*numeral.Rational, bool) {
+	r := t.newRat()
+	_, matched, err := t.m.ArithmeticNumeralRational(e, r)
+	if !matched || err == ast.ErrASTDomain {
+		t.delRat(r)
+		if matched {
+			return nil, false
+		}
+		t.chk(err)
 		return nil, false
 	}
 	t.chk(err)
-	if !matched {
-		return nil, false
-	}
 	return r, true
+}
+
+// isNumeralInt64 is is_numeral(e, r) followed by r.get_int64(); the rational
+// dies here.
+func (t *SMTTheorySeq) isNumeralInt64(e ast.ASTHandle) (int64, bool) {
+	r, ok := t.isNumeral(e)
+	if !ok {
+		return 0, false
+	}
+	defer t.delRat(r)
+	return t.ratInt64(r), true
+}
+
+// ---- rational locals (the source's rational values) ----
+
+// q is the AST manager's rational manager.
+func (t *SMTTheorySeq) q() *numeral.RationalManager { return t.m.NumeralService().Manager }
+
+// newRat is a fresh rational(0); free it with delRat.
+func (t *SMTTheorySeq) newRat() *numeral.Rational {
+	r := smtQZero()
+	return &r
+}
+
+// newRatInt is a fresh rational(v).
+func (t *SMTTheorySeq) newRatInt(v int64) *numeral.Rational {
+	r := t.newRat()
+	t.chk(t.q().SetInt64(r, v))
+	return r
+}
+
+// newRatCopy is a fresh copy of r.
+func (t *SMTTheorySeq) newRatCopy(r *numeral.Rational) *numeral.Rational {
+	out := t.newRat()
+	t.chk(t.q().Copy(out, r))
+	return out
+}
+
+func (t *SMTTheorySeq) delRat(r *numeral.Rational) {
+	if r != nil {
+		t.chk(smtQDel(t.q(), r))
+	}
+}
+
+func (t *SMTTheorySeq) ratCmp(a, b *numeral.Rational) int {
+	c, err := t.q().Compare(a, b)
+	t.chk(err)
+	return c
+}
+
+// ratCmpInt compares r with rational(v).
+func (t *SMTTheorySeq) ratCmpInt(r *numeral.Rational, v int64) int {
+	b := t.newRatInt(v)
+	defer t.delRat(b)
+	return t.ratCmp(r, b)
+}
+
+func (t *SMTTheorySeq) ratAdd(a, b, out *numeral.Rational) { t.chk(t.q().Add(a, b, out)) }
+func (t *SMTTheorySeq) ratSub(a, b, out *numeral.Rational) { t.chk(t.q().Sub(a, b, out)) }
+func (t *SMTTheorySeq) ratMul(a, b, out *numeral.Rational) { t.chk(t.q().Mul(a, b, out)) }
+
+// ratAddInt sets r += rational(v).
+func (t *SMTTheorySeq) ratAddInt(r *numeral.Rational, v int64) {
+	b := t.newRatInt(v)
+	defer t.delRat(b)
+	t.ratAdd(r, b, r)
+}
+
+// ratInt64 is get_int64 (the source's rational::get_int64).
+func (t *SMTTheorySeq) ratInt64(r *numeral.Rational) int64 {
+	v, err := t.q().Int64(r)
+	t.chk(err)
+	return v
+}
+
+// ratIsUnsigned is r.is_unsigned(): a nonnegative integer below 2^32.
+func (t *SMTTheorySeq) ratIsUnsigned(r *numeral.Rational) bool {
+	ok, err := t.q().IsUnsigned(r)
+	t.chk(err)
+	return ok
+}
+
+// ratText is r.to_string().
+func (t *SMTTheorySeq) ratText(r *numeral.Rational) string {
+	s, err := t.q().String(r)
+	t.chk(err)
+	return s
 }
 
 // ---- context ----
@@ -474,4 +567,11 @@ func (t *SMTTheorySeq) rewriteWith(x *seqRefs, e ast.ASTHandle, r *rewriter.Theo
 		}
 	}
 	return result
+}
+
+// delRats frees a vector<rational>.
+func (t *SMTTheorySeq) delRats(rs []*numeral.Rational) {
+	for _, r := range rs {
+		t.delRat(r)
+	}
 }

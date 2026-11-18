@@ -5,7 +5,6 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -1050,6 +1049,3 @@ func (r *seqRewriterOwner) close() (result error) {
 	}
 	return result
 }
-
-// keep big referenced for rational_set keys
-var _ = big.NewRat

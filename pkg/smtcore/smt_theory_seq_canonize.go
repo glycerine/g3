@@ -169,14 +169,15 @@ func (t *SMTTheorySeq) expand1(x *seqRefs, e0 ast.ASTHandle, eqs **seqDep) ast.A
 		}
 	} else if e1, ok := t.unaryArg(e, strOpItos); ok {
 		if val, ok := t.getNumValue(e1); ok {
+			defer t.delRat(val)
 			num := t.ref(x, t.mkIntRat(val), nil)
 			if !t.eInternalized(num) {
 				t.chk(t.state.Internalize(num, false))
 			}
 			n1 := t.enodeOf(num)
 			n2 := t.enodeOf(e1)
-			res := t.ref(x, t.mkString(val.RatString()), nil)
-			if val.Sign() < 0 {
+			res := t.ref(x, t.mkString(t.ratText(val)), nil)
+			if val.IsNeg() {
 				result = t.ref(x, e, nil)
 			} else if n1.Root() == n2.Root() {
 				// TBD remove this: using roots is unsound for propagation.

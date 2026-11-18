@@ -6,7 +6,6 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -376,13 +375,20 @@ func (p *seqValueProc) MakeValue(_ *SMTModelGenerator, values []ast.ASTHandle) (
 		for _, src := range p.source {
 			switch src {
 			case seqUnitSource:
-				val, _, ok, err := th.m.BitVectorNumeralBigInt(values[j])
-				th.chk(err)
-				if !ok {
-					th.chk(ast.ErrASTDomain)
+				// rational val; unsigned sz; bv.is_numeral(values[j], val, sz)
+				val := th.newRat()
+				_, ok, err := th.m.BitVectorNumeralRational(values[j], val)
+				if err == nil && !ok {
+					err = ast.ErrASTDomain
 				}
+				var code uint64
+				if err == nil {
+					code, err = th.q().Uint64(val)
+				}
+				th.delRat(val)
+				th.chk(err)
 				j++
-				sbuffer.WriteByte(byte(val.Uint64()))
+				sbuffer.WriteByte(byte(code))
 			case seqStringSource:
 				var deps *seqDep
 				tmp := th.canonize(x, p.strings[k], &deps)
@@ -396,10 +402,9 @@ func (p *seqValueProc) MakeValue(_ *SMTModelGenerator, values []ast.ASTHandle) (
 					th.chk(ast.ErrASTDomain)
 				}
 				j++
-				if val.Sign() < 0 {
-					sbuffer.WriteString("-")
-				}
-				sbuffer.WriteString(new(big.Int).Abs(val.Num()).String())
+				// val.to_string() (an integer)
+				sbuffer.WriteString(th.ratText(val))
+				th.delRat(val)
 			}
 		}
 		res = th.ref(x, th.mkString(sbuffer.String()), nil)

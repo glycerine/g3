@@ -5,9 +5,8 @@ package smtcore
 // 2827-2846 (mk_var, can_propagate).
 
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
@@ -111,8 +110,10 @@ func (t *SMTTheorySeq) addStoiAxiom(e ast.ASTHandle) {
 	t.addAxiom(ge0, t.mkLiteral(inRe).Negated())
 }
 
-func (t *SMTTheorySeq) insertRationalTrail(set map[string]struct{}, val *big.Rat) {
-	key := val.RatString()
+// insertRationalTrail is insert_map on a rational_set, keyed by the
+// rational's text.
+func (t *SMTTheorySeq) insertRationalTrail(set map[string]struct{}, val *numeral.Rational) {
+	key := t.ratText(val)
 	t.pushTrail(func(*SMTTheorySeq) error { // insert_map
 		delete(set, key)
 		return nil
@@ -121,16 +122,18 @@ func (t *SMTTheorySeq) insertRationalTrail(set map[string]struct{}, val *big.Rat
 
 func (t *SMTTheorySeq) addStoiValAxiom(e ast.ASTHandle) bool {
 	n, _ := t.unaryArg(e, strOpStoi)
+	// rational val
 	val, ok := t.getNumValue(e)
 	if !ok {
 		return false
 	}
+	defer func() { t.delRat(val) }()
 	x := t.loc()
 	defer x.drop()
-	if _, has := t.stoiAxioms[val.RatString()]; !has {
-		t.stoiAxioms[val.RatString()] = struct{}{}
-		if val.Cmp(big.NewRat(-1, 1)) != 0 {
-			e1 := t.ref(x, t.mkString(val.RatString()), nil)
+	if _, has := t.stoiAxioms[t.ratText(val)]; !has {
+		t.stoiAxioms[t.ratText(val)] = struct{}{}
+		if !val.IsMinusOne() {
+			e1 := t.ref(x, t.mkString(t.ratText(val)), nil)
 			n1 := t.ref(x, t.mkIntRat(val), nil)
 			eq1 := t.mkEq(e, n1, false)
 			eq2 := t.mkEq(n, e1, false)
@@ -145,11 +148,13 @@ func (t *SMTTheorySeq) addStoiValAxiom(e ast.ASTHandle) bool {
 	}
 	// val is reused for the bound and the length, as in the source.
 	if hi, ok := t.upperBound(n); ok {
-		val = hi
+		t.chk(t.q().Copy(val, hi))
+		t.delRat(hi)
 		if ln, ok := t.getLengthValue(n); ok {
-			val = ln
-			if _, has := t.stoiAxioms[val.RatString()]; val.Sign() > 0 && !has {
-				sz := val.Num().Int64()
+			t.chk(t.q().Copy(val, ln))
+			t.delRat(ln)
+			if _, has := t.stoiAxioms[t.ratText(val)]; val.IsPos() && !has {
+				sz := t.ratInt64(val)
 				len1 := t.ref(x, t.mkLength(n), nil)
 				len2 := t.ref(x, t.mkInt(sz), nil)
 				lit := t.mkEq(len1, len2, false)
@@ -161,11 +166,14 @@ func (t *SMTTheorySeq) addStoiValAxiom(e ast.ASTHandle) bool {
 					lits = append(lits, t.isDigit(ithChar).Negated())
 					t.chk(nums.pushBack(t.digit2int(x, ithChar)))
 				}
-				c := big.NewRat(1, 1)
+				// rational c(1)
+				c, ten := t.newRatInt(1), t.newRatInt(10)
+				defer t.delRat(ten)
+				defer t.delRat(c)
 				for i := sz - 1; i >= 0; i-- {
 					coeff := t.ref(x, t.mkIntRat(c), nil)
 					t.chk(nums.set(int(i), t.mkMul(coeff, nums.get(int(i)))))
-					c.Mul(c, big.NewRat(10, 1))
+					t.ratMul(c, ten, c)
 				}
 				num := t.ref(x, t.mkAddN(nums.handles()), nil)
 				num = t.ctxRewrite(x, num)
@@ -176,7 +184,7 @@ func (t *SMTTheorySeq) addStoiValAxiom(e ast.ASTHandle) bool {
 					t.markLitRelevant(l)
 				}
 				t.chk(t.state.addTheoryAxiom(SMTTheoryID(t.FamilyID()), lits))
-				t.stoiAxioms[val.RatString()] = struct{}{}
+				t.stoiAxioms[t.ratText(val)] = struct{}{}
 				t.insertRationalTrail(t.stoiAxioms, val)
 				t.pushReplay(seqReplayAxiom, e)
 				return true
@@ -268,12 +276,16 @@ func (t *SMTTheorySeq) addItosAxiom(e ast.ASTHandle) {
 func (t *SMTTheorySeq) addItosValAxiom(e ast.ASTHandle) bool {
 	n, _ := t.unaryArg(e, strOpItos)
 	change := false
-	if val, ok := t.getNumValue(n); ok && val.Sign() >= 0 {
-		if _, has := t.itosAxioms[val.RatString()]; !has {
-			t.itosAxioms[val.RatString()] = struct{}{}
+	if val, ok := t.getNumValue(n); ok {
+		defer t.delRat(val)
+		if val.IsNeg() {
+			return change
+		}
+		if _, has := t.itosAxioms[t.ratText(val)]; !has {
+			t.itosAxioms[t.ratText(val)] = struct{}{}
 			x := t.loc()
 			defer x.drop()
-			e1 := t.ref(x, t.mkString(val.RatString()), nil)
+			e1 := t.ref(x, t.mkString(t.ratText(val)), nil)
 			n1 := t.ref(x, t.mkIntRat(val), nil)
 			// itos(n) = "25" <=> n = 25
 			eq1 := t.mkEq(n1, n, false)

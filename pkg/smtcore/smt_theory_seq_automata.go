@@ -120,9 +120,9 @@ func (t *SMTTheorySeq) isAccRej(name usymbol.Symbol, e ast.ASTHandle) (seqAccRej
 	if !t.isSkolem(name, e) {
 		return seqAccRej{}, false
 	}
-	r, _ := t.isNumeral(t.arg(e, 3))
+	r, _ := t.isNumeralInt64(t.arg(e, 3))
 	re := t.arg(e, 2)
-	return seqAccRej{s: t.arg(e, 0), idx: t.arg(e, 1), re: re, i: uint32(r.Num().Uint64()), aut: t.getAutomaton(re)}, true
+	return seqAccRej{s: t.arg(e, 0), idx: t.arg(e, 1), re: re, i: uint32(r), aut: t.getAutomaton(re)}, true
 }
 
 func (t *SMTTheorySeq) isAccept(e ast.ASTHandle) bool { return t.isSkolem(t.accept, e) }
@@ -275,10 +275,10 @@ func (t *SMTTheorySeq) addStep2accept(step ast.ASTHandle, change *bool) bool {
 		return true
 	case lbool.True:
 		*change = true
-		r, _ := t.isNumeral(idx)
+		r, _ := t.isNumeralInt64(idx)
 		x := t.loc()
 		defer x.drop()
-		idx1 := t.ref(x, t.mkInt(r.Num().Int64()+1), nil)
+		idx1 := t.ref(x, t.mkInt(r+1), nil)
 		acc2 := t.mkAccept(s, idx1, re, j)
 		lits := []SMTLiteral{acc1, t.exprLiteral(step), acc2.Negated()}
 		switch t.assignment(acc2) {
@@ -299,10 +299,10 @@ func (t *SMTTheorySeq) addReject2reject(rej ast.ASTHandle, change *bool) bool {
 	if ar.aut == nil || t.isStrOp(ar.idx, seqOpLength) {
 		return false
 	}
-	r, _ := t.isNumeral(ar.idx)
+	r, _ := t.isNumeralInt64(ar.idx)
 	x := t.loc()
 	defer x.drop()
-	idx1 := t.ref(x, t.mkInt(r.Num().Int64()+1), nil)
+	idx1 := t.ref(x, t.mkInt(r+1), nil)
 	g, err := ar.aut.Graph()
 	t.chk(err)
 	mvs := g.ExpandedMovesFrom(ar.i, true)

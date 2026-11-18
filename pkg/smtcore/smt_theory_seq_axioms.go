@@ -6,9 +6,9 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -54,7 +54,8 @@ func (t *SMTTheorySeq) addIndexofAxiom(i ast.ASTHandle) {
 	r, isNum := ast.ASTHandle{}, false
 	if !offset.IsNull() {
 		v, ok := t.isNumeral(offset)
-		isNum = ok && v.Sign() == 0
+		isNum = ok && v.IsZero()
+		t.delRat(v)
 		_ = r
 	}
 	if offset.IsNull() || isNum {
@@ -172,20 +173,27 @@ func (t *SMTTheorySeq) addItosLengthAxiom(ln ast.ASTHandle) {
 	x, _ := t.unaryArg(ln, seqOpLength)
 	n, _ := t.unaryArg(x, strOpItos)
 	numChar1, numChar2 := int64(1), int64(1)
-	ten := big.NewRat(10, 1)
+	// rational len1, len2, ten(10)
+	ten := t.newRatInt(10)
+	defer t.delRat(ten)
 	if len1, ok := t.getNumValue(n); ok {
-		if len1.Sign() < 0 {
+		defer t.delRat(len1)
+		if len1.IsNeg() {
 			return
 		}
 		// 0 <= x < 10, 10 <= x < 100, 100 <= x < 1000
-		upper := big.NewRat(10, 1)
-		for len1.Cmp(upper) > 0 {
+		upper := t.newRatInt(10)
+		defer t.delRat(upper)
+		for t.ratCmp(len1, upper) > 0 {
 			numChar1++
-			upper.Mul(upper, ten)
+			t.ratMul(upper, ten, upper)
 		}
 	}
-	if len2, ok := t.getNumValue(ln); ok && len2.Sign() >= 0 && len2.Num().BitLen() <= 32 {
-		numChar2 = len2.Num().Int64()
+	if len2, ok := t.getNumValue(ln); ok {
+		if !len2.IsNeg() && t.ratIsUnsigned(len2) {
+			numChar2 = t.ratInt64(len2)
+		}
+		t.delRat(len2)
 	}
 	numChar := max(numChar1, numChar2)
 
@@ -200,14 +208,21 @@ func (t *SMTTheorySeq) addItosLengthAxiom(ln ast.ASTHandle) {
 		t.addAxiom(lenLe.Negated(), nGe10.Negated())
 		return
 	}
-	hi := big.NewRat(1, 1)
+	// rational hi(1)
+	hi := t.newRatInt(1)
+	defer t.delRat(hi)
 	for i := int64(2); i < numChar; i++ {
-		hi.Mul(hi, ten)
+		t.ratMul(hi, ten, hi)
 	}
 	// n >= hi*10  <=>  len >= num_chars
 	// n < 100*hi  <=>  len <= num_chars
-	nGe10hi := t.mkLiteral(t.mkGe(n, t.mkIntRat(new(big.Rat).Mul(ten, hi))))
-	nGe100hi := t.mkLiteral(t.mkGe(n, t.mkIntRat(new(big.Rat).Mul(new(big.Rat).Mul(ten, ten), hi))))
+	product := t.newRat()
+	defer t.delRat(product)
+	t.ratMul(ten, hi, product)
+	nGe10hi := t.mkLiteral(t.mkGe(n, t.mkIntRat(product)))
+	t.ratMul(ten, ten, product)
+	t.ratMul(product, hi, product)
+	nGe100hi := t.mkLiteral(t.mkGe(n, t.mkIntRat(product)))
 	t.addAxiom(nGe10hi.Negated(), lenGe)
 	t.addAxiom(nGe100hi.Negated(), lenLe.Negated())
 }
@@ -242,8 +257,9 @@ func (t *SMTTheorySeq) arith(e ast.ASTHandle) *SMTTheoryArith {
 }
 
 // getArithValue is get_arith_value(ctx, afid, e, v) followed by the
-// caller's is_numeral(v, val); v is the caller's expr_ref.
-func (t *SMTTheorySeq) getArithValue(e ast.ASTHandle, v *seqExprRef) (*big.Rat, bool) {
+// caller's is_numeral(v, val); v is the caller's expr_ref. The value is a
+// fresh rational the caller frees (delRat).
+func (t *SMTTheorySeq) getArithValue(e ast.ASTHandle, v *seqExprRef) (*numeral.Rational, bool) {
 	a := t.arith(e)
 	if a == nil {
 		return nil, false
@@ -257,7 +273,8 @@ func (t *SMTTheorySeq) getArithValue(e ast.ASTHandle, v *seqExprRef) (*big.Rat, 
 	return t.isNumeral(value)
 }
 
-func (t *SMTTheorySeq) getNumValue(e ast.ASTHandle) (*big.Rat, bool) {
+// getNumValue is get_num_value(e, val); the caller frees the value.
+func (t *SMTTheorySeq) getNumValue(e ast.ASTHandle) (*numeral.Rational, bool) {
 	_val := t.exprRef(ast.ASTHandle{})
 	defer func() { t.chk(_val.release()) }()
 	if !t.eInternalized(e) {
@@ -266,8 +283,11 @@ func (t *SMTTheorySeq) getNumValue(e ast.ASTHandle) (*big.Rat, bool) {
 	n := t.enodeOf(e)
 	next := n
 	for {
-		if val, ok := t.getArithValue(next.Owner(), &_val); ok && val.IsInt() {
-			return val, true
+		if val, ok := t.getArithValue(next.Owner(), &_val); ok {
+			if val.IsInt() {
+				return val, true
+			}
+			t.delRat(val)
 		}
 		next = next.Next()
 		if next == n {
@@ -276,7 +296,8 @@ func (t *SMTTheorySeq) getNumValue(e ast.ASTHandle) (*big.Rat, bool) {
 	}
 }
 
-func (t *SMTTheorySeq) lowerBound(_e ast.ASTHandle) (*big.Rat, bool) {
+// lowerBound is lower_bound(e, lo); the caller frees the value.
+func (t *SMTTheorySeq) lowerBound(_e ast.ASTHandle) (*numeral.Rational, bool) {
 	x := t.loc()
 	defer x.drop()
 	e := t.ref(x, t.mkLength(_e), nil)
@@ -293,10 +314,15 @@ func (t *SMTTheorySeq) lowerBound(_e ast.ASTHandle) (*big.Rat, bool) {
 	}
 	t.chk(_lo.set(lo))
 	v, ok := t.isNumeral(lo)
-	return v, ok && v.IsInt()
+	if ok && !v.IsInt() {
+		t.delRat(v)
+		return nil, false
+	}
+	return v, ok
 }
 
-func (t *SMTTheorySeq) upperBound(_e ast.ASTHandle) (*big.Rat, bool) {
+// upperBound is upper_bound(e, hi); the caller frees the value.
+func (t *SMTTheorySeq) upperBound(_e ast.ASTHandle) (*numeral.Rational, bool) {
 	x := t.loc()
 	defer x.drop()
 	e := t.ref(x, t.mkLength(_e), nil)
@@ -313,12 +339,22 @@ func (t *SMTTheorySeq) upperBound(_e ast.ASTHandle) (*big.Rat, bool) {
 	}
 	t.chk(_hi.set(hi))
 	v, ok := t.isNumeral(hi)
-	return v, ok && v.IsInt()
+	if ok && !v.IsInt() {
+		t.delRat(v)
+		return nil, false
+	}
+	return v, ok
 }
 
-// getLengthValue is get_length(e, val).
-func (t *SMTTheorySeq) getLengthValue(e ast.ASTHandle) (*big.Rat, bool) {
-	val := new(big.Rat)
+// getLengthValue is get_length(e, val); the caller frees the value (also
+// when the length is not known, val's partial sum is not returned).
+func (t *SMTTheorySeq) getLengthValue(e ast.ASTHandle) (_ *numeral.Rational, known bool) {
+	val := t.newRat()
+	defer func() {
+		if !known {
+			t.delRat(val)
+		}
+	}()
 	// expr_ref len(m), len_val(m): len_val is destroyed first.
 	ln, lenVal := t.exprRef(ast.ASTHandle{}), t.exprRef(ast.ASTHandle{})
 	defer func() {
@@ -332,11 +368,11 @@ func (t *SMTTheorySeq) getLengthValue(e ast.ASTHandle) (*big.Rat, bool) {
 		if e1, e2, ok := t.isConcat2(c); ok {
 			todo = append(todo, e1, e2)
 		} else if t.isUnit(c) {
-			val.Add(val, big.NewRat(1, 1))
+			t.ratAddInt(val, 1)
 		} else if t.isEmpty(c) {
 			continue
 		} else if s, ok := t.isString(c); ok {
-			val.Add(val, big.NewRat(int64(len(s)), 1))
+			t.ratAddInt(val, int64(len(s)))
 		} else if !t.hasLength(c) {
 			return nil, false
 		} else {
@@ -348,10 +384,14 @@ func (t *SMTTheorySeq) getLengthValue(e ast.ASTHandle) (*big.Rat, bool) {
 			if !ok {
 				return nil, false
 			}
-			val.Add(val, val1)
+			t.ratAdd(val, val1, val)
+			t.delRat(val1)
 		}
 	}
-	return val, val.IsInt()
+	if !val.IsInt() {
+		return nil, false
+	}
+	return val, true
 }
 
 func (t *SMTTheorySeq) addExtractAxiom(e ast.ASTHandle) {
@@ -426,7 +466,9 @@ func (t *SMTTheorySeq) lengthMinusOneEq(s, l ast.ASTHandle) bool {
 
 func (t *SMTTheorySeq) isDropLast(s, i, l ast.ASTHandle) bool {
 	i1, ok := t.isNumeral(i)
-	if !ok || i1.Sign() != 0 {
+	zero := ok && i1.IsZero()
+	t.delRat(i1)
+	if !zero {
 		return false
 	}
 	return t.lengthMinusOneEq(s, l)
@@ -435,7 +477,9 @@ func (t *SMTTheorySeq) isDropLast(s, i, l ast.ASTHandle) bool {
 // isTailSIL is is_tail(s, i, l).
 func (t *SMTTheorySeq) isTailSIL(s, i, l ast.ASTHandle) bool {
 	i1, ok := t.isNumeral(i)
-	if !ok || i1.Cmp(big.NewRat(1, 1)) != 0 {
+	one := ok && i1.IsOne()
+	t.delRat(i1)
+	if !one {
 		return false
 	}
 	return t.lengthMinusOneEq(s, l)
@@ -443,7 +487,9 @@ func (t *SMTTheorySeq) isTailSIL(s, i, l ast.ASTHandle) bool {
 
 func (t *SMTTheorySeq) isExtractPrefix0(i ast.ASTHandle) bool {
 	i1, ok := t.isNumeral(i)
-	return ok && i1.Sign() == 0
+	zero := ok && i1.IsZero()
+	t.delRat(i1)
+	return zero
 }
 
 func (t *SMTTheorySeq) isExtractSuffix(s, i, l ast.ASTHandle) bool {
@@ -524,8 +570,10 @@ func (t *SMTTheorySeq) propagateStep(lit SMTLiteral, step ast.ASTHandle) {
 	s, idx, _, _, _, acc, _ := t.isStep6(step)
 	t.propagateLit(nil, []SMTLiteral{lit}, t.mkSimplifiedLiteral(acc))
 	lo, okLo := t.lowerBound(s)
+	defer t.delRat(lo)
 	_idx, okIdx := t.isNumeral(idx)
-	if okLo && lo.Sign() >= 0 && lo.Num().BitLen() <= 32 && okIdx && lo.Cmp(_idx) >= 0 {
+	defer t.delRat(_idx)
+	if okLo && !lo.IsNeg() && t.ratIsUnsigned(lo) && okIdx && t.ratCmp(lo, _idx) >= 0 {
 		// skip
 	} else {
 		t.propagateLit(nil, []SMTLiteral{lit}, t.mkLiteral(t.mkLe(t.mkLength(s), idx)).Negated())
@@ -535,8 +583,7 @@ func (t *SMTTheorySeq) propagateStep(lit SMTLiteral, step ast.ASTHandle) {
 
 // ensureNth: lit => s = (nth s 0) ++ (nth s 1) ++ ... ++ (nth s idx) ++ (tail s idx)
 func (t *SMTTheorySeq) ensureNth(lit SMTLiteral, s, idx ast.ASTHandle) {
-	r, _ := t.isNumeral(idx)
-	_idx := r.Num().Int64()
+	_idx, _ := t.isNumeralInt64(idx)
 	x := t.loc()
 	defer x.drop()
 	elems := newSeqExprVector(t.m)

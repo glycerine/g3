@@ -4,9 +4,9 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // Concrete lexical roots keep native operands and conversion terms alive across
@@ -86,8 +86,24 @@ func (c *smtBVExpressionCall) close() (result error) {
 	}
 	return result
 }
-func (c *smtBVExpressionCall) number(n *big.Int) (ast.ASTHandle, error) {
-	return c.hold(c.theory.state.manager.ArithmeticIntegerNumeralText(n.String()))
+
+// number is m_autil.mk_numeral(n, true) for a rational of the AST manager's
+// rational manager.
+func (c *smtBVExpressionCall) number(n *numeral.Rational) (ast.ASTHandle, error) {
+	return c.hold(c.theory.state.manager.ArithmeticNumeralFromRational(n, true))
+}
+
+// numberPower is mk_numeral(power(numeral(2), k), true): the power is a
+// rational temporary.
+func (c *smtBVExpressionCall) numberPower(k uint32) (ast.ASTHandle, error) {
+	q := c.theory.state.manager.NumeralService().Manager
+	two, p := smtQInt(2), smtQZero()
+	err := q.Power(&two, k, &p)
+	var h ast.ASTHandle
+	if err == nil {
+		h, err = c.number(&p)
+	}
+	return h, smtErrJoin(err, smtQDel(q, &p))
 }
 func (c *smtBVExpressionCall) app(op int32, args ...ast.ASTHandle) (ast.ASTHandle, error) {
 	family, err := c.theory.state.manager.ArithmeticFamilyID()
@@ -181,14 +197,17 @@ func (t *SMTBitVectorTheory) assertBVToIntAxiom(expression ast.ASTHandle) (resul
 	if uint64(len(bits)) != uint64(width) {
 		return ast.ErrASTDomain
 	}
-	zero, err := c.number(big.NewInt(0))
+	// numeral num(1); zero is mk_numeral(numeral(0), int_sort).
+	q := s.manager.NumeralService().Manager
+	weight, two := smtQInt(1), smtQInt(2)
+	defer func() { result = smtErrJoin(result, smtQDel(q, &weight)) }()
+	zero, err := c.number(smtQIntPtr(0))
 	if err != nil {
 		return err
 	}
 	args := make([]ast.ASTHandle, 0, len(bits))
-	weight := big.NewInt(1)
 	for _, bit := range bits {
-		number, err := c.number(weight)
+		number, err := c.number(&weight)
 		if err != nil {
 			return err
 		}
@@ -197,7 +216,10 @@ func (t *SMTBitVectorTheory) assertBVToIntAxiom(expression ast.ASTHandle) (resul
 			return err
 		}
 		args = append(args, term)
-		weight.Lsh(weight, 1)
+		// num *= numeral(2)
+		if err = q.Mul(&weight, &two, &weight); err != nil {
+			return err
+		}
 	}
 	var sum ast.ASTHandle
 	if len(args) == 1 {
@@ -268,7 +290,7 @@ func (t *SMTBitVectorTheory) assertIntToBVAxiom(expression ast.ASTHandle) (resul
 	if err != nil {
 		return err
 	}
-	modulus, err := c.number(new(big.Int).Lsh(big.NewInt(1), uint(width)))
+	modulus, err := c.numberPower(width)
 	if err != nil {
 		return err
 	}
@@ -294,7 +316,7 @@ func (t *SMTBitVectorTheory) assertIntToBVAxiom(expression ast.ASTHandle) (resul
 		return ast.ErrASTDomain
 	}
 	for index, bit := range bits {
-		divisor, err := c.number(new(big.Int).Lsh(big.NewInt(1), uint(index)))
+		divisor, err := c.numberPower(uint32(index))
 		if err != nil {
 			return err
 		}
@@ -303,7 +325,7 @@ func (t *SMTBitVectorTheory) assertIntToBVAxiom(expression ast.ASTHandle) (resul
 		if err != nil {
 			return err
 		}
-		two, err := c.number(big.NewInt(2))
+		two, err := c.number(smtQIntPtr(2))
 		if err != nil {
 			return err
 		}
@@ -311,7 +333,7 @@ func (t *SMTBitVectorTheory) assertIntToBVAxiom(expression ast.ASTHandle) (resul
 		if err != nil {
 			return err
 		}
-		one, err := c.number(big.NewInt(1))
+		one, err := c.number(smtQIntPtr(1))
 		if err != nil {
 			return err
 		}

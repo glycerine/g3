@@ -5,10 +5,10 @@ package smtcore
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (t *SMTTheorySeq) reduceLengthEqAll() bool {
@@ -50,21 +50,29 @@ func (t *SMTTheorySeq) branchBinaryVariable(e *seqEq) bool {
 	if t.branchVariableEq(e) {
 		return true
 	}
+	// rational lenX, lenY
 	lenX, ok := t.getLengthValue(x)
 	if !ok {
 		t.enforceLengthNode(t.ensureEnode(x))
 		return true
 	}
+	defer t.delRat(lenX)
 	lenY, ok := t.getLengthValue(y)
 	if !ok {
 		t.enforceLengthNode(t.ensureEnode(y))
 		return true
 	}
+	defer t.delRat(lenY)
 	x0 := t.loc()
 	defer x0.drop()
-	sumX := new(big.Rat).Add(lenX, big.NewRat(int64(len(xs)), 1))
-	sumY := new(big.Rat).Add(lenY, big.NewRat(int64(len(ys)), 1))
-	if sumX.Cmp(sumY) != 0 {
+	// lenX + rational(xs.size()) != lenY + rational(ys.size())
+	sumX, sumY := t.newRatCopy(lenX), t.newRatCopy(lenY)
+	t.ratAddInt(sumX, int64(len(xs)))
+	t.ratAddInt(sumY, int64(len(ys)))
+	differ := t.ratCmp(sumX, sumY) != 0
+	t.delRat(sumY)
+	t.delRat(sumX)
+	if differ {
 		// |x| - |y| = |ys| - |xs|
 		lenY := t.mkLength(y) // arguments right to left
 		a := t.ref(x0, t.mkSub(t.mkLength(x), lenY), nil)
@@ -74,7 +82,7 @@ func (t *SMTTheorySeq) branchBinaryVariable(e *seqEq) bool {
 		t.propagateLit(e.dep, nil, t.mkEq(a, b, false))
 		return true
 	}
-	if lenX.Cmp(big.NewRat(int64(len(ys)), 1)) <= 0 {
+	if t.ratCmpInt(lenX, int64(len(ys))) <= 0 {
 		t.branchUnitVariableDep(e.dep, x, ys)
 		return true
 	}
@@ -132,15 +140,16 @@ func (t *SMTTheorySeq) branchUnitVariableDep(dep *seqDep, X ast.ASTHandle, units
 		t.enforceLengthNode(t.ensureEnode(X))
 		return
 	}
+	defer t.delRat(lenX)
 	x := t.loc()
 	defer x.drop()
-	if lenX.Cmp(big.NewRat(int64(len(units)), 1)) > 0 {
+	if t.ratCmpInt(lenX, int64(len(units))) > 0 {
 		size := t.mkInt(int64(len(units))) // arguments right to left
 		le := t.ref(x, t.mkLe(t.mkLength(X), size), nil)
 		t.propagateLit(dep, nil, t.mkLiteral(le))
 		return
 	}
-	lX := lenX.Num().Int64()
+	lX := t.ratInt64(lenX)
 	if lX == 0 {
 		t.setEmpty(X)
 		return
@@ -166,24 +175,34 @@ func (t *SMTTheorySeq) branchVariableMb() bool {
 		if e.ls.empty() || e.rs.empty() || (!t.isVar(e.ls.get(0)) && !t.isVar(e.rs.get(0))) {
 			continue
 		}
+		// vector<rational> len1, len2 and rational l1, l2: the source keeps
+		// them per equation; they die before the next one.
 		len1, ok1 := t.enforceLengths(e.ls.handles())
 		if !ok1 {
+			t.delRats(len1)
 			change = true
 			continue
 		}
 		len2, ok2 := t.enforceLengths(e.rs.handles())
 		if !ok2 {
+			t.delRats(len1)
+			t.delRats(len2)
 			change = true
 			continue
 		}
-		l1, l2 := new(big.Rat), new(big.Rat)
+		l1, l2 := t.newRat(), t.newRat()
 		for _, v := range len1 {
-			l1.Add(l1, v)
+			t.ratAdd(l1, v, l1)
 		}
 		for _, v := range len2 {
-			l2.Add(l2, v)
+			t.ratAdd(l2, v, l2)
 		}
-		if l1.Cmp(l2) != 0 {
+		differ := t.ratCmp(l1, l2) != 0
+		t.delRat(l2)
+		t.delRat(l1)
+		if differ {
+			t.delRats(len1)
+			t.delRats(len2)
 			x := t.loc()
 			l := t.ref(x, t.mkConcatN(e.ls.handles()), nil)
 			r := t.ref(x, t.mkConcatN(e.rs.handles()), nil)
@@ -194,7 +213,10 @@ func (t *SMTTheorySeq) branchVariableMb() bool {
 			change = true
 			continue
 		}
-		if t.splitLengths(e.dep, e.ls.handles(), e.rs.handles(), len1, len2) {
+		split := t.splitLengths(e.dep, e.ls.handles(), e.rs.handles(), len1, len2)
+		t.delRats(len1)
+		t.delRats(len2)
+		if split {
 			change = true
 			break
 		}
@@ -218,14 +240,14 @@ func (t *SMTTheorySeq) isComplex(e *seqEq) bool {
 }
 
 // splitLengths decomposes ls = rs into Xa = bYc. See theory_seq.cpp:531.
-func (t *SMTTheorySeq) splitLengths(dep *seqDep, ls, rs []ast.ASTHandle, ll, rl []*big.Rat) bool {
+func (t *SMTTheorySeq) splitLengths(dep *seqDep, ls, rs []ast.ASTHandle, ll, rl []*numeral.Rational) bool {
 	if len(ls) == 0 || len(rs) == 0 {
 		return false
 	}
-	if t.isVar(ls[0]) && ll[0].Sign() == 0 {
+	if t.isVar(ls[0]) && ll[0].IsZero() {
 		return t.setEmpty(ls[0])
 	}
-	if t.isVar(rs[0]) && rl[0].Sign() == 0 {
+	if t.isVar(rs[0]) && rl[0].IsZero() {
 		return t.setEmpty(rs[0])
 	}
 	if t.isVar(rs[0]) && !t.isVar(ls[0]) {
@@ -240,11 +262,14 @@ func (t *SMTTheorySeq) splitLengths(dep *seqDep, ls, rs []ast.ASTHandle, ll, rl 
 	lenX := ll[0]
 	bs := newSeqExprVector(t.m)
 	defer func() { t.chk(bs.reset()) }()
-	lenB, lenY := new(big.Rat), new(big.Rat)
-	for i := 0; lenX.Cmp(lenB) > 0 && i < len(rs); i++ {
+	// rational lenB(0), lenY(0)
+	lenB, lenY := t.newRat(), t.newRat()
+	defer t.delRat(lenY)
+	defer t.delRat(lenB)
+	for i := 0; t.ratCmp(lenX, lenB) > 0 && i < len(rs); i++ {
 		t.chk(bs.pushBack(rs[i]))
-		lenY = rl[i]
-		lenB.Add(lenB, lenY)
+		t.chk(t.q().Copy(lenY, rl[i]))
+		t.ratAdd(lenB, lenY, lenB)
 	}
 	Y := t.ref(x, bs.back(), nil)
 	t.chk(bs.shrink(bs.size() - 1))
@@ -254,7 +279,7 @@ func (t *SMTTheorySeq) splitLengths(dep *seqDep, ls, rs []ast.ASTHandle, ll, rl 
 	if X == Y {
 		return false
 	}
-	if lenY.Sign() == 0 {
+	if lenY.IsZero() {
 		return t.setEmpty(Y)
 	}
 	b := t.ref(x, t.mkConcatSorted(bs.handles(), t.sortOf(X)), nil)
@@ -298,17 +323,18 @@ func (t *SMTTheorySeq) setEmpty(x ast.ASTHandle) bool {
 	return true
 }
 
-// enforceLengths is enforce_length(es, len).
-func (t *SMTTheorySeq) enforceLengths(es []ast.ASTHandle) ([]*big.Rat, bool) {
+// enforceLengths is enforce_length(es, len): the caller frees the
+// vector's rationals (delRats).
+func (t *SMTTheorySeq) enforceLengths(es []ast.ASTHandle) ([]*numeral.Rational, bool) {
 	allHaveLength := true
-	var lens []*big.Rat
+	var lens []*numeral.Rational
 	for _, e := range es {
 		if t.isUnit(e) {
-			lens = append(lens, big.NewRat(1, 1))
+			lens = append(lens, t.newRatInt(1))
 		} else if t.isEmpty(e) {
-			lens = append(lens, new(big.Rat))
+			lens = append(lens, t.newRat())
 		} else if s, ok := t.isString(e); ok {
-			lens = append(lens, big.NewRat(int64(len(s)), 1))
+			lens = append(lens, t.newRatInt(int64(len(s))))
 		} else if val, ok := t.getLengthValue(e); ok {
 			lens = append(lens, val)
 		} else {
@@ -482,7 +508,11 @@ func (t *SMTTheorySeq) propagateLengthCoherence(e ast.ASTHandle) bool {
 		return false
 	}
 	lo, ok := t.lowerBound(e)
-	if !ok || lo.Sign() <= 0 || lo.Cmp(big.NewRat(2048, 1)) >= 0 {
+	if !ok {
+		return false
+	}
+	defer t.delRat(lo)
+	if lo.Sign() <= 0 || t.ratCmpInt(lo, 2048) >= 0 {
 		return false
 	}
 	x := t.loc()
@@ -493,7 +523,7 @@ func (t *SMTTheorySeq) propagateLengthCoherence(e ast.ASTHandle) bool {
 	seqR := t.exprRef(e)
 	elems := newSeqExprVector(t.m)
 	defer func() { t.chk(errors.Join(elems.reset(), seqR.release())) }()
-	_lo := lo.Num().Int64()
+	_lo := t.ratInt64(lo)
 	for j := int64(0); j < _lo; j++ {
 		t.mkDecomposeRef(seqR.h, &head, &tailR)
 		t.chk(elems.pushBack(head.h))
@@ -509,14 +539,18 @@ func (t *SMTTheorySeq) propagateLengthCoherence(e ast.ASTHandle) bool {
 	low := t.mkLiteral(t.mkGe(t.mkLength(e), loNum))
 	t.addAxiom(low.Negated(), t.mkSeqEq(e, tail))
 	if hi, ok := t.upperBound(e); ok {
+		defer t.delRat(hi)
 		// len(e) <= hi => len(tail) <= hi - lo
 		hiNum := t.mkIntRat(hi) // arguments right to left
 		high1 := t.ref(x, t.mkLe(t.mkLength(e), hiNum), nil)
-		if hi.Cmp(lo) == 0 {
+		if t.ratCmp(hi, lo) == 0 {
 			eqEmp := t.mkSeqEq(seq, emp) // arguments right to left
 			t.addAxiom(t.mkLiteral(high1).Negated(), eqEmp)
 		} else {
-			diff := t.mkIntRat(new(big.Rat).Sub(hi, lo)) // arguments right to left
+			difference := t.newRat()
+			t.ratSub(hi, lo, difference)
+			diff := t.mkIntRat(difference) // arguments right to left
+			t.delRat(difference)
 			high2 := t.ref(x, t.mkLe(t.mkLength(seq), diff), nil)
 			lit2 := t.mkLiteral(high2)
 			t.addAxiom(t.mkLiteral(high1).Negated(), lit2)
@@ -588,12 +622,18 @@ func (t *SMTTheorySeq) fixedLength(e ast.ASTHandle) bool {
 	if !t.isVar(e) {
 		return false
 	}
+	// rational lo, hi
 	lo, ok := t.lowerBound(e)
 	if !ok {
 		return false
 	}
+	defer t.delRat(lo)
 	hi, ok := t.upperBound(e)
-	if !ok || lo.Cmp(hi) != 0 || !lo.IsInt() || lo.Sign() < 0 || lo.Num().BitLen() > 32 {
+	if !ok {
+		return false
+	}
+	defer t.delRat(hi)
+	if t.ratCmp(lo, hi) != 0 || !lo.IsInt() || lo.IsNeg() || !t.ratIsUnsigned(lo) {
 		return false
 	}
 	if t.isSkolem(t.tail, e) || t.isSkolem(t.seqFirst, e) ||
@@ -608,10 +648,10 @@ func (t *SMTTheorySeq) fixedLength(e ast.ASTHandle) bool {
 	// expr_ref seq(e, m), head(m), tail(m);
 	seqR, head, tail := t.exprRef(e), t.exprRef(ast.ASTHandle{}), t.exprRef(ast.ASTHandle{})
 	defer func() { t.chk(errors.Join(tail.release(), head.release(), seqR.release())) }()
-	if lo.Sign() == 0 {
+	if lo.IsZero() {
 		t.chk(seqR.set(t.mkEmpty(t.sortOf(e))))
 	} else {
-		_lo := lo.Num().Int64()
+		_lo := t.ratInt64(lo)
 		elems := newSeqExprVector(t.m)
 		for j := int64(0); j < _lo; j++ {
 			t.mkDecomposeRef(seqR.h, &head, &tail)
@@ -665,11 +705,11 @@ func (t *SMTTheorySeq) isTailIdx(e ast.ASTHandle) (ast.ASTHandle, int64, bool) {
 	if !t.isSkolem(t.tail, e) {
 		return ast.ASTHandle{}, 0, false
 	}
-	r, ok := t.isNumeral(t.arg(e, 1))
+	r, ok := t.isNumeralInt64(t.arg(e, 1))
 	if !ok {
 		return ast.ASTHandle{}, 0, false
 	}
-	return t.arg(e, 0), r.Num().Int64(), true
+	return t.arg(e, 0), r, true
 }
 
 func (t *SMTTheorySeq) isEqSk(e ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, bool) {
@@ -741,8 +781,8 @@ func (t *SMTTheorySeq) mkDecomposeRef(e ast.ASTHandle, head, tail *seqExprRef) {
 		t.chk(tail.set(e2))
 	} else if t.isSkolem(t.tail, e) {
 		s := t.arg(e, 0)
-		r, _ := t.isNumeral(t.arg(e, 1))
-		idx := t.mkInt(r.Num().Int64() + 1)
+		r, _ := t.isNumeralInt64(t.arg(e, 1))
+		idx := t.mkInt(r + 1)
 		t.chk(head.set(t.mkUnit(t.mkNth(s, idx))))
 		t.chk(tail.set(t.mkSkolem(t.tail, s, idx, ast.ASTHandle{}, ast.ASTHandle{})))
 	} else {
@@ -766,8 +806,8 @@ func (t *SMTTheorySeq) mkDecompose(x *seqRefs, e ast.ASTHandle) (head, tail ast.
 		tail = t.ref(x, e2, nil)
 	} else if t.isSkolem(t.tail, e) {
 		s := t.arg(e, 0)
-		r, _ := t.isNumeral(t.arg(e, 1))
-		idx := t.mkInt(r.Num().Int64() + 1)
+		r, _ := t.isNumeralInt64(t.arg(e, 1))
+		idx := t.mkInt(r + 1)
 		head = t.ref(x, t.mkUnit(t.mkNth(s, idx)), nil)
 		tail = t.ref(x, t.mkSkolem(t.tail, s, idx, ast.ASTHandle{}, ast.ASTHandle{}), nil)
 	} else {
