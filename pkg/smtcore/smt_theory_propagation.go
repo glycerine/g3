@@ -148,7 +148,7 @@ func (s *SMTInternalizerState) propagateAssignedAtom(literal SMTLiteral) error {
 	if err != nil {
 		return fmt.Errorf("assigned literal %d Boolean metadata: %w", variable, err)
 	}
-	if !data.IsAtom() || s.atomNotified[variable] {
+	if !data.IsAtom() || s.atomIsNotified(variable) {
 		return nil
 	}
 	s.tracePropagateAtom(literal, data)
@@ -201,8 +201,8 @@ func (s *SMTInternalizerState) propagateAssignedAtom(literal SMTLiteral) error {
 			}
 		}
 	}
-	if s.atomNotified == nil {
-		s.atomNotified = make(map[int32]bool)
+	for int(variable) >= len(s.atomNotified) {
+		s.atomNotified = append(s.atomNotified, false)
 	}
 	s.atomNotified[variable] = true
 	s.atomNotifiedTrail = append(s.atomNotifiedTrail, variable)
@@ -486,4 +486,10 @@ func (s *SMTInternalizerState) PropagateCore() (bool, error) {
 			return true, nil
 		}
 	}
+}
+
+// atomIsNotified reports whether the atom of variable was notified in an
+// open scope (atomNotified, trailed by atomNotifiedTrail).
+func (s *SMTInternalizerState) atomIsNotified(variable int32) bool {
+	return variable >= 0 && int(variable) < len(s.atomNotified) && s.atomNotified[variable]
 }

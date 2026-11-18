@@ -269,7 +269,7 @@ type SMTInternalizerState struct {
 	enodeFlagTrail    []int32
 	mergeTFTrail      []*SMTEnode // set_merge_tf_trail
 	trueFirstTrail    []int32
-	atomNotified      map[int32]bool
+	atomNotified      []bool // by bool var; see atomIsNotified
 	atomNotifiedTrail []int32
 	relevancyLevel    uint32
 	newCore2thEq      bool
@@ -1186,7 +1186,7 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope, relevancyPops u
 	}
 	for len(s.atomNotifiedTrail) > scope.atomNotifiedLimit {
 		i := len(s.atomNotifiedTrail) - 1
-		delete(s.atomNotified, s.atomNotifiedTrail[i])
+		s.atomNotified[s.atomNotifiedTrail[i]] = false
 		s.atomNotifiedTrail = s.atomNotifiedTrail[:i]
 	}
 	if scope.enodeFlagLimit < 0 || scope.enodeFlagLimit > len(s.enodeFlagTrail) {

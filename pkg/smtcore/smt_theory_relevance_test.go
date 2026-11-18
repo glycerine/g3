@@ -47,7 +47,7 @@ func TestSMTTheoryAssignmentsWaitForRelevanceAndRestoreOnPop(t *testing.T) {
 			t.Fatal("theory assignment polarity", got)
 		}
 		astTestMust(t, state.PopScopes(1))
-		if relevance.IsRelevant(atom) || state.atomNotified[literal.Var()] {
+		if relevance.IsRelevant(atom) || state.atomIsNotified(literal.Var()) {
 			t.Fatal("scoped relevance notification survived pop")
 		}
 	}
