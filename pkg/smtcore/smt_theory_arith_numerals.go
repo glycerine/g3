@@ -18,7 +18,6 @@ package smtcore
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/ast"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/numeral"
@@ -33,17 +32,6 @@ func smtQInt(v int32) numeral.Rational {
 // smtQSetInt sets r = v.
 func smtQSetInt(q *numeral.RationalManager, r *numeral.Rational, v int64) error {
 	return q.SetInt64(r, v)
-}
-
-// smtQFromBig sets r to a math/big value (a boundary conversion).
-func smtQFromBig(q *numeral.RationalManager, r *numeral.Rational, x *big.Rat) error {
-	return q.SetBigRat(r, x)
-}
-
-// smtQBig returns r as a new math/big value (a boundary conversion).
-func smtQBig(q *numeral.RationalManager, r *numeral.Rational) (*big.Rat, error) {
-	out := new(big.Rat)
-	return out, q.BigRatOf(r, out)
 }
 
 // smtQNew returns a fresh copy of r (rational's copy constructor).

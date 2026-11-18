@@ -109,3 +109,14 @@ func TestSMTArithmeticValueOperations(t *testing.T) {
 		}
 	}
 }
+
+// smtQFromBig sets r to a math/big value (a test conversion).
+func smtQFromBig(q *numeral.RationalManager, r *numeral.Rational, x *big.Rat) error {
+	return q.SetBigRat(r, x)
+}
+
+// smtQBig returns r as a new math/big value (a test conversion).
+func smtQBig(q *numeral.RationalManager, r *numeral.Rational) (*big.Rat, error) {
+	out := new(big.Rat)
+	return out, q.BigRatOf(r, out)
+}
