@@ -2,7 +2,7 @@ package opt_test
 
 import (
 	"errors"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -13,7 +13,7 @@ import (
 func TestObjectivePipelineClosedLifecycle(t *testing.T) {
 	f := newObjectivePipelineFixture(t)
 	p := pipelineBoolean(t, f, "pipeline-close-p")
-	pipeline, err := opt.NewObjectivePipeline(f.manager, f.params, "QF_UF", f.config, nil, []opt.DecomposedObjective{{SourceKind: opt.FormulaMaxSAT, SoftTerms: []ast.ASTHandle{p}, Weights: []big.Rat{*big.NewRat(1, 1)}, Converted: true}})
+	pipeline, err := opt.NewObjectivePipeline(f.manager, f.params, "QF_UF", f.config, nil, []opt.DecomposedObjective{{SourceKind: opt.FormulaMaxSAT, SoftTerms: []ast.ASTHandle{p}, Weights: []numeral.Rational{testRat(1, 1)}, Converted: true}})
 	if err != nil {
 		t.Fatal(err)
 	}

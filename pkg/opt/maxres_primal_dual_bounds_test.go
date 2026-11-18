@@ -3,25 +3,24 @@ package opt
 // Source: src/opt/maxres.cpp primal-dual weighted lower-bound clamp.
 
 import (
-	"math/big"
 	"testing"
 )
 
 func TestPrimalDualClampsOvershootingLowerBoundOnlyAfterCandidate(t *testing.T) {
-	engine := &maxResEngine{strategy: maxResPrimalDual, lower: *big.NewRat(9, 2), upper: *big.NewRat(3, 1)}
+	engine := &maxResEngine{solver: &ArithmeticSolver{manager: newWeightedSoftFixture(t).manager}, strategy: maxResPrimalDual, lower: testRat(9, 2), upper: testRat(3, 1)}
 	engine.clampPrimalDualLower()
-	if engine.lower.Cmp(big.NewRat(9, 2)) != 0 {
+	if !ratIs(&engine.lower, 9, 2) {
 		t.Fatal("clamped without candidate", &engine.lower)
 	}
 	engine.bestSet = true
 	engine.clampPrimalDualLower()
-	if engine.lower.Cmp(big.NewRat(3, 1)) != 0 {
+	if !ratIs(&engine.lower, 3, 1) {
 		t.Fatal("primal-dual clamp", &engine.lower)
 	}
 	engine.strategy = maxResPrimal
-	engine.lower.SetInt64(5)
+	engine.lower = testRat(5, 1)
 	engine.clampPrimalDualLower()
-	if engine.lower.Cmp(big.NewRat(5, 1)) != 0 {
+	if !ratIs(&engine.lower, 5, 1) {
 		t.Fatal("primal strategy clamp", &engine.lower)
 	}
 }

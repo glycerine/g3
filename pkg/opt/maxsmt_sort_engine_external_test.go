@@ -4,7 +4,6 @@ package opt_test
 
 import (
 	"errors"
-	"math/big"
 	"testing"
 
 	_ "github.com/glycerine/g3/pkg/engine"
@@ -157,7 +156,7 @@ func TestArithmeticSolverUsesSortMaxForWeightedMutex(t *testing.T) {
 	if err = solver.Assert(mutex); err != nil {
 		t.Fatal(err)
 	}
-	if err = solver.AddSoftObjective([]ast.ASTHandle{p, q, r}, []*big.Rat{big.NewRat(5, 1), big.NewRat(3, 1), big.NewRat(2, 1)}); err != nil {
+	if err = solver.AddSoftObjective([]ast.ASTHandle{p, q, r}, []unumeral.Rational{testRat(5, 1), testRat(3, 1), testRat(2, 1)}); err != nil {
 		t.Fatal(err)
 	}
 	result, err := solver.Check()
@@ -169,7 +168,7 @@ func TestArithmeticSolverUsesSortMaxForWeightedMutex(t *testing.T) {
 		t.Fatal("sortmax status", result.Status, result.Optimal)
 	}
 	value := result.Values[0]
-	if !value.Soft || value.SoftCost.Cmp(big.NewRat(3, 1)) != 0 || value.SoftSatisfied.Cmp(big.NewRat(7, 1)) != 0 {
+	if !value.Soft || !ratIs(&value.SoftCost, 3, 1) || !ratIs(&value.SoftSatisfied, 7, 1) {
 		t.Fatal("weighted mutex optimum", &value.SoftCost, &value.SoftSatisfied)
 	}
 	if len(result.MaxSMT) != 1 || result.MaxSMT[0].Engine != "sortmax" || result.MaxSMT[0].Inputs == 0 || result.MaxSMT[0].Auxiliaries == 0 || result.MaxSMT[0].NetworkClauses == 0 || !result.ModelFiltered {
@@ -248,7 +247,7 @@ func TestSortMaxRejectsFractionalWeight(t *testing.T) {
 	if err = solver.Assert(mutex); err != nil {
 		t.Fatal(err)
 	}
-	if err = solver.AddSoftObjective([]ast.ASTHandle{p, q}, []*big.Rat{big.NewRat(3, 2), big.NewRat(2, 1)}); err != nil {
+	if err = solver.AddSoftObjective([]ast.ASTHandle{p, q}, []unumeral.Rational{testRat(3, 2), testRat(2, 1)}); err != nil {
 		t.Fatal(err)
 	}
 	result, err := solver.Check()

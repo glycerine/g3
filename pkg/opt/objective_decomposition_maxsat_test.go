@@ -1,7 +1,7 @@
 package opt
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -11,8 +11,8 @@ func TestObjectiveDecompositionRetainsMaxSATAndCopiesValues(t *testing.T) {
 	f := newObjectiveFormulaFixture(t)
 	source := DecodedFormulaObjective{
 		Kind: FormulaMaxSAT, SoftTerms: []ast.ASTHandle{f.p, f.q},
-		Weights: []big.Rat{*big.NewRat(2, 1), *big.NewRat(3, 2)},
-		Offset:  *big.NewRat(-1, 3), Negate: true, ID: "pref",
+		Weights: []numeral.Rational{testRat(2, 1), testRat(3, 2)},
+		Offset:  testRat(-1, 3), Negate: true, ID: "pref",
 	}
 	decomposer, err := NewObjectiveDecomposer(f.manager, nil)
 	if err != nil {
@@ -22,9 +22,8 @@ func TestObjectiveDecompositionRetainsMaxSATAndCopiesValues(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	source.Weights[0].SetInt64(99)
-	source.Offset.SetInt64(88)
-	if len(decomposed) != 1 || stats.RetainedMaxSAT != 1 || !decomposed[0].Converted || decomposed[0].ID != "pref" || !decomposed[0].Negate || decomposed[0].Offset.RatString() != "-1/3" || decomposed[0].Weights[0].RatString() != "2" || decomposed[0].Weights[1].RatString() != "3/2" {
+	source.Weights[0], source.Offset = testRat(99, 1), testRat(88, 1)
+	if len(decomposed) != 1 || stats.RetainedMaxSAT != 1 || !decomposed[0].Converted || decomposed[0].ID != "pref" || !decomposed[0].Negate || ratString(&decomposed[0].Offset) != "-1/3" || ratString(&decomposed[0].Weights[0]) != "2" || ratString(&decomposed[0].Weights[1]) != "3/2" {
 		t.Fatal(decomposed, stats)
 	}
 	if err = decomposer.Close(); err != nil {

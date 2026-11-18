@@ -50,6 +50,7 @@ func (f *optimizationSimplifiedFormulas) Close() (result error) {
 		f.model = nil
 	}
 	if result == nil {
+		result = f.decoded.ReleaseRationals(f.manager.NumeralService().Manager)
 		f.decoded = opt.DecodedFormulaSet{}
 		f.closed = true
 	}

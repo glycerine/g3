@@ -3,7 +3,7 @@ package opt_test
 // Source: src/opt/maxres.cpp add_upper_bound_block and termination proof.
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -94,7 +94,7 @@ func TestMaxResUpperBoundBlockProvesImprovedCandidateOptimal(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err = solver.AddSoftObjective([]ast.ASTHandle{p, q, r}, []*big.Rat{big.NewRat(5, 2), big.NewRat(3, 2), big.NewRat(3, 2)}); err != nil {
+	if err = solver.AddSoftObjective([]ast.ASTHandle{p, q, r}, []numeral.Rational{testRat(5, 2), testRat(3, 2), testRat(3, 2)}); err != nil {
 		t.Fatal(err)
 	}
 	result, err := solver.Check()
@@ -106,7 +106,7 @@ func TestMaxResUpperBoundBlockProvesImprovedCandidateOptimal(t *testing.T) {
 		t.Fatal("upper-bound status", result.Status, result.Optimal)
 	}
 	value := result.Values[0]
-	if value.SoftSatisfied.Cmp(big.NewRat(3, 1)) != 0 || value.SoftCost.Cmp(big.NewRat(5, 2)) != 0 {
+	if !ratIs(&value.SoftSatisfied, 3, 1) || !ratIs(&value.SoftCost, 5, 2) {
 		t.Fatal("upper-bound optimum", &value.SoftSatisfied, &value.SoftCost)
 	}
 	if len(result.MaxSMT) != 1 || result.MaxSMT[0].Engine != "maxres" || result.MaxSMT[0].UpperBoundBlocks == 0 {

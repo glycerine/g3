@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/glycerine/g3/pkg/math/simplex"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"io"
 	"math/big"
 
@@ -69,26 +70,16 @@ func (c *Context) releaseRetiredOptimizationBoxModels() error {
 // continuation: the display bounds of the execution that produced it.
 func (c *Context) optimizationBoxUndefValues() []opt.ObjectiveValue {
 	if len(c.optimizationBoxDisplay) == len(c.objectives) {
-		return cloneOptimizationBoxValues(c.optimizationBoxDisplay)
+		return c.cloneOptimizationBoxValues(c.optimizationBoxDisplay)
 	}
-	return make([]opt.ObjectiveValue, len(c.objectives))
+	return opt.NewObjectiveValues(c.optQ(), len(c.objectives))
 }
 
-func cloneOptimizationBoxValues(source []opt.ObjectiveValue) []opt.ObjectiveValue {
-	result := make([]opt.ObjectiveValue, len(source))
-	for i := range source {
-		result[i] = source[i]
-		result[i].Arithmetic.Finite = source[i].Arithmetic.Finite.Clone()
-		result[i].ArithmeticModel.Finite = source[i].ArithmeticModel.Finite.Clone()
-		result[i].SoftCost.Set(&source[i].SoftCost)
-		result[i].SoftSatisfied.Set(&source[i].SoftSatisfied)
-		result[i].SoftLower.Set(&source[i].SoftLower)
-		result[i].SoftUpper.Set(&source[i].SoftUpper)
-		result[i].SourceLower.Set(&source[i].SourceLower)
-		result[i].SourceUpper.Set(&source[i].SourceUpper)
-		result[i].SoftAssignment = append([]bool(nil), source[i].SoftAssignment...)
-		result[i].DisplayLower = source[i].DisplayLower.Clone()
-		result[i].DisplayUpper = source[i].DisplayUpper.Clone()
+func (c *Context) cloneOptimizationBoxValues(source []opt.ObjectiveValue) []opt.ObjectiveValue {
+	result, err := opt.CloneObjectiveValues(c.optQ(), source)
+	if err != nil {
+		// Only allocation can fail here; the values then read as zero.
+		return opt.NewObjectiveValues(c.optQ(), len(source))
 	}
 	return result
 }
@@ -300,7 +291,11 @@ func (c *Context) addBitVectorObjective(optimizer *opt.ArithmeticSolver, objecti
 		terms[i] = term
 		weights[i] = new(big.Rat).SetInt(new(big.Int).Lsh(big.NewInt(1), uint(i)))
 	}
-	return optimizer.AddSoftObjective(terms, weights)
+	rats, err := c.optRats(weights)
+	if err != nil {
+		return err
+	}
+	return c.optDelRats(rats, optimizer.AddSoftObjective(terms, rats))
 }
 
 func (c *Context) optimizationPriority() (priority string, resultErr error) {
@@ -485,7 +480,15 @@ func (c *Context) addOptimizerObjective(optimizer *opt.ArithmeticSolver, index i
 			terms[i] = objective.softTerms[i].expression
 			weights[i] = &objective.softTerms[i].weight
 		}
-		if err := optimizer.AddSoftObjectiveWithOffset(terms, weights, &objective.softOffset); err != nil {
+		rats, err := c.optRats(weights)
+		if err != nil {
+			return err
+		}
+		offset, err := c.optRat(&objective.softOffset)
+		if err == nil {
+			err = optimizer.AddSoftObjectiveWithOffset(terms, rats, &offset)
+		}
+		if err = c.optDelRats(append(rats, offset), err); err != nil {
 			return err
 		}
 		// z3 4.7.1 bug, deliberately not reproduced: from_fmls declares
@@ -497,7 +500,11 @@ func (c *Context) addOptimizerObjective(optimizer *opt.ArithmeticSolver, index i
 		// in upstream z3 (fixed there). See TODO.md "z3 4.7.1 bugs fixed in
 		// g3" and test_vectors/z3_bug_opt_stale_objective_term.smt2.
 		if objective.verifyConverted && !objective.expression.IsNull() {
-			return optimizer.SetObjectiveVerification(index, objective.expression, &objective.verifyOffset, objective.verifyNegate)
+			offset, err := c.optRat(&objective.verifyOffset)
+			if err == nil {
+				err = optimizer.SetObjectiveVerification(index, objective.expression, &offset, objective.verifyNegate)
+			}
+			return c.optDelRats([]numeral.Rational{offset}, err)
 		}
 		return nil
 	}
@@ -613,7 +620,7 @@ func (c *Context) runOptimize(assumptions []ast.ASTHandle, execute func(*opt.Ari
 	if initial != lbool.True {
 		// internalize() ran before the check, so display_assignment reads
 		// the bounds optsmt::add / maxsmt::add left (AUDIT.md FUZZ_A-F1).
-		values := make([]opt.ObjectiveValue, len(c.objectives))
+		values := opt.NewObjectiveValues(c.optQ(), len(c.objectives))
 		c.initialDisplayBounds(values)
 		// is_sat != l_false: s.get_model(m_model) kept the undecided
 		// check's model.
@@ -625,7 +632,7 @@ func (c *Context) runOptimize(assumptions []ast.ASTHandle, execute func(*opt.Ari
 				}
 			}
 		}
-		return &opt.ArithmeticResult{Status: initial, ReasonUnknown: reason, Values: values, Model: md}, nil
+		return &opt.ArithmeticResult{Q: c.optQ(), Status: initial, ReasonUnknown: reason, Values: values, Model: md}, nil
 	}
 	// optimize(): m_optsmt.setup(*m_opt_solver) after the sat initial check.
 	if err = optimizer.SetupOptsmt(); err != nil {
@@ -647,7 +654,7 @@ func (c *Context) runOptimize(assumptions []ast.ASTHandle, execute func(*opt.Ari
 	}
 	optimized, err = execute(optimizer)
 	if err != nil {
-		values := make([]opt.ObjectiveValue, len(c.objectives))
+		values := opt.NewObjectiveValues(c.optQ(), len(c.objectives))
 		optimizer.DisplayBounds(values)
 		c.optimizationFailureDisplay, c.optimizationFailureNormalized = values, true
 	}
@@ -709,16 +716,16 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 			}
 			c.optimizationBoxActive = false
 			c.optimizationBoxReasonUnknown = ""
-			return &opt.ArithmeticResult{Status: lbool.False, Values: make([]opt.ObjectiveValue, len(c.objectives)), Optimal: true}, nil
+			return &opt.ArithmeticResult{Q: c.optQ(), Status: lbool.False, Values: opt.NewObjectiveValues(c.optQ(), len(c.objectives)), Optimal: true}, nil
 		}
 		if c.optimizationBoxNext >= len(c.optimizationBoxModels) {
 			c.optimizationBoxActive = false
 			c.optimizationBoxReasonUnknown = ""
-			return &opt.ArithmeticResult{Status: lbool.False, Values: make([]opt.ObjectiveValue, len(c.objectives)), Optimal: true}, nil
+			return &opt.ArithmeticResult{Q: c.optQ(), Status: lbool.False, Values: opt.NewObjectiveValues(c.optQ(), len(c.objectives)), Optimal: true}, nil
 		}
 		selected := c.optimizationBoxNext
 		c.optimizationBoxNext++
-		optimized = &opt.ArithmeticResult{Status: lbool.True, Values: cloneOptimizationBoxValues(c.optimizationBoxValues), Labels: append([]usymbol.Symbol(nil), c.optimizationBoxLabels...), Optimal: true}
+		optimized = &opt.ArithmeticResult{Q: c.optQ(), Status: lbool.True, Values: c.cloneOptimizationBoxValues(c.optimizationBoxValues), Labels: append([]usymbol.Symbol(nil), c.optimizationBoxLabels...), Optimal: true}
 		if selected < len(c.optimizationBoxModels) && c.optimizationBoxModels[selected] != nil {
 			if err := c.optimizationBoxModels[selected].IncRef(); err != nil {
 				return nil, err
@@ -729,7 +736,7 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 	}
 	if c.optimizationBoxNext >= len(c.objectives) {
 		c.optimizationBoxActive = false
-		return &opt.ArithmeticResult{Status: lbool.False, Values: make([]opt.ObjectiveValue, len(c.objectives)), Optimal: true}, nil
+		return &opt.ArithmeticResult{Q: c.optQ(), Status: lbool.False, Values: opt.NewObjectiveValues(c.optQ(), len(c.objectives)), Optimal: true}, nil
 	}
 	selected := c.optimizationBoxNext
 	c.optimizationBoxNext++
@@ -756,7 +763,7 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 			// the next optimize() calls return l_undef, displaying the
 			// bounds reached.
 			c.optimizationBoxReasonUnknown = ""
-			c.optimizationBoxDisplay = cloneOptimizationBoxValues(c.optimizationFailureDisplay)
+			c.optimizationBoxDisplay = c.cloneOptimizationBoxValues(c.optimizationFailureDisplay)
 		}
 		return nil, err
 	}
@@ -765,14 +772,14 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 			c.optimizationBoxReasonUnknown = combined.ReasonUnknown
 			// display_assignment keeps reading the same optsmt/maxsmt
 			// bounds through the later l_undef execute_box calls.
-			c.optimizationBoxDisplay = cloneOptimizationBoxValues(combined.Values)
+			c.optimizationBoxDisplay = c.cloneOptimizationBoxValues(combined.Values)
 		}
 		return combined, nil
 	}
 	c.optimizationBoxLabels = append(c.optimizationBoxLabels[:0], combined.Labels...)
 	c.optimizationBoxModels = combined.ObjectiveModels
 	combined.ObjectiveModels = nil
-	c.optimizationBoxValues = cloneOptimizationBoxValues(combined.Values)
+	c.optimizationBoxValues = c.cloneOptimizationBoxValues(combined.Values)
 	if selected >= len(c.optimizationBoxModels) {
 		return nil, errors.Join(ast.ErrASTHandle, c.clearOptimizationBoxModels(), combined.Close())
 	}
@@ -817,7 +824,7 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 		// import_scoped_state leaves fresh maxsmts (m_lower = m_upper = 0)
 		// and an empty m_optsmt (inf_eps()): an exception before
 		// internalize() displays every objective as 0.
-		c.optimizationFailureDisplay = make([]opt.ObjectiveValue, len(c.objectives))
+		c.optimizationFailureDisplay = opt.NewObjectiveValues(c.optQ(), len(c.objectives))
 		for i := range c.optimizationFailureDisplay {
 			c.optimizationFailureDisplay[i].DisplayValid = true
 		}
@@ -944,17 +951,17 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 		for i := range c.objectives {
 			c.objectives[i].softInterval = false
 			if c.objectives[i].soft {
-				c.objectives[i].softValue.Set(&optimized.Values[i].SoftCost)
+				c.optSetBig(&c.objectives[i].softValue, &optimized.Values[i].SoftCost, &resultErr)
 				if optimized.Values[i].SoftInterval {
 					c.objectives[i].softInterval = true
-					c.objectives[i].softUpper.Set(&optimized.Values[i].SoftUpper)
+					c.optSetBig(&c.objectives[i].softUpper, &optimized.Values[i].SoftUpper, &resultErr)
 				}
 			} else if c.objectives[i].bitVector {
-				c.objectives[i].softValue.Set(&optimized.Values[i].SoftCost)
+				c.optSetBig(&c.objectives[i].softValue, &optimized.Values[i].SoftCost, &resultErr)
 				if optimized.Values[i].SoftInterval {
 					// An unexecuted maxsmt's m_upper (AUDIT.md FUZZ_A-F3).
 					c.objectives[i].softInterval = true
-					c.objectives[i].softUpper.Set(&optimized.Values[i].SoftUpper)
+					c.optSetBig(&c.objectives[i].softUpper, &optimized.Values[i].SoftUpper, &resultErr)
 				}
 				if c.objectives[i].maximize {
 					maximum := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(c.objectives[i].bitWidth)), big.NewInt(1))

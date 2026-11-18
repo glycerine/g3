@@ -3,7 +3,7 @@ package opt_test
 // Source: src/opt/maxres.cpp primal-dual correction-set pivot integration.
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -50,7 +50,7 @@ func TestMaxResPrimalDualCorrectionPivotFindsRationalOptimum(t *testing.T) {
 	if err = solver.Assert(notAll); err != nil {
 		t.Fatal(err)
 	}
-	if err = solver.AddSoftObjective([]ast.ASTHandle{p, q, r}, []*big.Rat{big.NewRat(5, 2), big.NewRat(3, 2), big.NewRat(1, 2)}); err != nil {
+	if err = solver.AddSoftObjective([]ast.ASTHandle{p, q, r}, []numeral.Rational{testRat(5, 2), testRat(3, 2), testRat(1, 2)}); err != nil {
 		t.Fatal(err)
 	}
 	result, err := solver.Check()
@@ -62,7 +62,7 @@ func TestMaxResPrimalDualCorrectionPivotFindsRationalOptimum(t *testing.T) {
 		t.Fatal("primal-dual status", result.Status, result.Optimal)
 	}
 	value := result.Values[0]
-	if value.SoftSatisfied.Cmp(big.NewRat(4, 1)) != 0 || value.SoftCost.Cmp(big.NewRat(1, 2)) != 0 {
+	if !ratIs(&value.SoftSatisfied, 4, 1) || !ratIs(&value.SoftCost, 1, 2) {
 		t.Fatal("primal-dual optimum", &value.SoftSatisfied, &value.SoftCost)
 	}
 }

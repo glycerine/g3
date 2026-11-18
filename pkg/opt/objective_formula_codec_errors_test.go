@@ -2,7 +2,7 @@ package opt
 
 import (
 	"errors"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -24,7 +24,7 @@ func TestObjectiveFormulaCodecRejectsMalformedObjectives(t *testing.T) {
 		{},
 		{Kind: FormulaMaximize},
 		{Kind: FormulaMaxSAT, SoftTerms: []ast.ASTHandle{f.p}},
-		{Kind: FormulaMaxSAT, SoftTerms: []ast.ASTHandle{f.p}, Weights: []*big.Rat{nil}},
+		{Kind: FormulaMaxSAT, SoftTerms: []ast.ASTHandle{f.p}, Weights: []numeral.Rational{testRat(1, 1), testRat(2, 1)}},
 	} {
 		if _, err := codec.EncodeObjective(objective); err == nil {
 			t.Fatal("accepted malformed objective", objective)

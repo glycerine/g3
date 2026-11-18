@@ -17,6 +17,7 @@ func (c *Context) PreparePurifiedOptimizationPipeline(zeroOne []ast.ASTHandle) (
 	if err != nil {
 		return nil, err
 	}
+	defer func() { resultErr = errors.Join(resultErr, decoded.ReleaseRationals(c.optQ())) }()
 	decomposer, err := opt.NewObjectiveDecomposer(c.manager, zeroOne)
 	if err != nil {
 		return nil, err
@@ -26,5 +27,5 @@ func (c *Context) PreparePurifiedOptimizationPipeline(zeroOne []ast.ASTHandle) (
 		return nil, errors.Join(err, decomposer.Close())
 	}
 	pipeline, err = opt.NewPurifiedObjectivePipeline(c.manager, &c.params, c.logic, c.config, decoded.Hard, decomposed)
-	return pipeline, errors.Join(err, decomposer.Close())
+	return pipeline, errors.Join(err, opt.ReleaseDecomposed(c.optQ(), decomposed), decomposer.Close())
 }

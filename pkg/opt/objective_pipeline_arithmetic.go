@@ -2,6 +2,7 @@ package opt
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -42,7 +43,7 @@ func (p *ObjectivePipeline) arithmeticSolver() (solver *ArithmeticSolver, result
 		if e != nil {
 			return nil, e
 		}
-		if e = solver.AddSoftObjective(terms, pipelineWeightPointers(objective.weights)); e != nil {
+		if e = solver.AddSoftObjective(terms, objective.weights); e != nil {
 			return nil, e
 		}
 	}
@@ -60,14 +61,21 @@ func (p *ObjectivePipeline) checkArithmetic() (result *ObjectivePipelineResult, 
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, backend.Close()) }()
-	result = &ObjectivePipelineResult{Status: backend.Status, Optimal: backend.Optimal, Model: backend.Model, Values: make([]ObjectivePipelineValue, len(backend.Values))}
+	q := p.manager.NumeralService().Manager
+	result = &ObjectivePipelineResult{Status: backend.Status, Optimal: backend.Optimal, Model: backend.Model, Values: make([]ObjectivePipelineValue, len(backend.Values)), Q: q}
+	for i := range result.Values {
+		result.Values[i].Exact = numeral.NewRational()
+	}
 	backend.Model = nil
 	result.Statistics = ObjectivePipelineStatistics{Arithmetic: true, MaxSMT: append([]MaxSMTStatistics(nil), backend.MaxSMT...), Objectives: uint32(len(p.objectives)), Hard: uint32(len(p.hard))}
 	for i := range backend.Values {
 		source, value := &p.objectives[i], &backend.Values[i]
 		target := ObjectivePipelineValue{SourceKind: source.sourceKind, Soft: value.Soft, Arithmetic: value.Arithmetic, ModelValue: value.ArithmeticModel, ModelValid: value.ArithmeticModelValid, Interval: value.ArithmeticInterval, OpenBounds: value.ArithmeticOpenBounds}
+		target.Exact = numeral.NewRational()
 		if value.Soft {
-			target.Exact = source.restore(&value.SoftCost)
+			if target.Exact, err = source.restore(q, &value.SoftCost); err != nil {
+				return nil, errors.Join(err, q.Del(&target.Exact), result.Close())
+			}
 		}
 		result.Values[i] = target
 	}

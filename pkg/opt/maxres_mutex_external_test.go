@@ -3,7 +3,7 @@ package opt_test
 // Source: src/opt/maxsmt.cpp find_mutexes/process_mutex retained by MaxRes.
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -45,7 +45,7 @@ func TestMaxResPreprocessesRationalMutexWeights(t *testing.T) {
 	if err = solver.Assert(mutex); err != nil {
 		t.Fatal(err)
 	}
-	if err = solver.AddSoftObjective([]ast.ASTHandle{p, q}, []*big.Rat{big.NewRat(5, 2), big.NewRat(3, 2)}); err != nil {
+	if err = solver.AddSoftObjective([]ast.ASTHandle{p, q}, []numeral.Rational{testRat(5, 2), testRat(3, 2)}); err != nil {
 		t.Fatal(err)
 	}
 	result, err := solver.Check()
@@ -53,7 +53,7 @@ func TestMaxResPreprocessesRationalMutexWeights(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer result.Close()
-	if result.Status != lbool.True || !result.Optimal || result.Values[0].SoftSatisfied.Cmp(big.NewRat(5, 2)) != 0 || result.Values[0].SoftCost.Cmp(big.NewRat(3, 2)) != 0 {
+	if result.Status != lbool.True || !result.Optimal || !ratIs(&result.Values[0].SoftSatisfied, 5, 2) || !ratIs(&result.Values[0].SoftCost, 3, 2) {
 		t.Fatal("rational mutex optimum", result.Status, result.Values)
 	}
 	if len(result.MaxSMT) != 1 || result.MaxSMT[0].Engine != "maxres" || result.MaxSMT[0].Mutexes == 0 || result.MaxSMT[0].MutexTerms == 0 {

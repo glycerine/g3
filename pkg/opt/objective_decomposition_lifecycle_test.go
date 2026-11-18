@@ -2,7 +2,7 @@ package opt
 
 import (
 	"errors"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -33,16 +33,25 @@ func TestObjectiveDecomposerLifecycleAndInvalidKinds(t *testing.T) {
 }
 
 func TestDecomposedObjectiveRestoreValueGuardsAndOrder(t *testing.T) {
-	if _, err := (*DecomposedObjective)(nil).RestoreValue(big.NewRat(1, 1)); !errors.Is(err, ErrInvalidOptimizationValue) {
+	q := newObjectiveFormulaFixture(t).manager.NumeralService().Manager
+	out := testRat(0, 1)
+	if err := (*DecomposedObjective)(nil).RestoreValue(q, testRatPtr(1, 1), &out); !errors.Is(err, ErrInvalidOptimizationValue) {
 		t.Fatal(err)
 	}
-	objective := DecomposedObjective{Offset: *big.NewRat(7, 3), Negate: true}
-	if _, err := objective.RestoreValue(nil); !errors.Is(err, ErrInvalidOptimizationValue) {
+	objective := DecomposedObjective{Offset: testRat(7, 3), Negate: true}
+	if err := objective.RestoreValue(q, nil, &out); !errors.Is(err, ErrInvalidOptimizationValue) {
 		t.Fatal(err)
 	}
-	penalty := big.NewRat(5, 2)
-	value, err := objective.RestoreValue(penalty)
-	if err != nil || value.RatString() != "-1/6" || penalty.RatString() != "5/2" {
-		t.Fatal(value, penalty, err)
+	penalty := testRat(5, 2)
+	err := objective.RestoreValue(q, &penalty, &out)
+	if err != nil || ratString(&out) != "-1/6" || ratString(&penalty) != "5/2" {
+		t.Fatal(ratString(&out), ratString(&penalty), err)
 	}
+}
+
+func restoreValueT(t *testing.T, o *DecomposedObjective, penalty *numeral.Rational) (numeral.Rational, error) {
+	t.Helper()
+	q := newObjectiveFormulaFixture(t).manager.NumeralService().Manager
+	out := testRat(0, 1)
+	return out, o.RestoreValue(q, penalty, &out)
 }

@@ -25,16 +25,16 @@ func TestInterruptedNormalizedObjectiveBoundsRestoreSourceOrder(t *testing.T) {
 				}
 				contextMust(t, err)
 				contextMust(t, c.AddObjective(term, maximize))
-				result := &opt.ArithmeticResult{Status: lbool.Undef, Values: make([]opt.ObjectiveValue, 1)}
+				result := &opt.ArithmeticResult{Q: c.optQ(), Status: lbool.Undef, Values: opt.NewObjectiveValues(c.optQ(), 1)}
 				result.Values[0].SoftBoundsValid = true
-				result.Values[0].SoftLower.SetInt64(2)
-				result.Values[0].SoftUpper.SetInt64(5)
+				contextMust(t, c.optQ().SetInt64(&result.Values[0].SoftLower, 2))
+				contextMust(t, c.optQ().SetInt64(&result.Values[0].SoftUpper, 5))
 				decomposed := []opt.DecomposedObjective{{Converted: true, Negate: maximize}}
-				decomposed[0].Offset.SetInt64(10)
-				contextMust(t, restoreNormalizedObjectiveBounds(result, c.objectives, decomposed))
+				contextMust(t, c.optQ().SetInt64(&decomposed[0].Offset, 10))
+				contextMust(t, c.restoreNormalizedObjectiveBounds(result, c.objectives, decomposed))
 				c.publishOptimizationBounds(result)
-				result.Values[0].SourceLower.SetInt64(100)
-				result.Values[0].SourceUpper.SetInt64(200)
+				contextMust(t, c.optQ().SetInt64(&result.Values[0].SourceLower, 100))
+				contextMust(t, c.optQ().SetInt64(&result.Values[0].SourceUpper, 200))
 				var out bytes.Buffer
 				contextMust(t, c.WriteOptimizationFrontendValues(&out))
 				want := "  [12:15]\n"

@@ -4,7 +4,6 @@ package opt
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
@@ -14,36 +13,6 @@ import (
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-// TODO(bigB): opt still holds its weights and bounds as math/big values;
-// these bridges convert them at theory_wmaxsat's rational boundary until
-// opt holds rationals of the AST manager's rational manager.
-func wmaxWithRational(m *ast.ASTManager, x *big.Rat, f func(*numeral.Rational) error) error {
-	q := m.NumeralService().Manager
-	r := numeral.NewRational()
-	err := q.SetBigRat(&r, x)
-	if err == nil {
-		err = f(&r)
-	}
-	if e := q.Del(&r); e != nil && err == nil {
-		err = e
-	}
-	return err
-}
-
-func wmaxCost(m *ast.ASTManager, theory *smtcore.SMTWeightedMaxTheory) (*big.Rat, error) {
-	q := m.NumeralService().Manager
-	r := numeral.NewRational()
-	out := new(big.Rat)
-	err := theory.Cost(&r)
-	if err == nil {
-		err = q.BigRatOf(&r, out)
-	}
-	if e := q.Del(&r); e != nil && err == nil {
-		err = e
-	}
-	return out, err
-}
-
 type wmaxEngine struct {
 	solver       *ArithmeticSolver
 	objective    *arithmeticObjective
@@ -51,7 +20,7 @@ type wmaxEngine struct {
 	owner        maxSMTASTOwner
 	prepared     arithmeticObjective
 	theory       *smtcore.SMTWeightedMaxTheory
-	lower, upper big.Rat
+	lower, upper numeral.Rational
 	checks       uint32
 	mutexes      uint32
 	mutexTerms   uint32
@@ -66,15 +35,20 @@ func newWMaxEngine(s *ArithmeticSolver, objective *arithmeticObjective, index in
 	}
 	prepared := &maxResEngine{
 		solver: s, objective: objective, index: index,
-		weights: make(map[ast.ASTHandle]*big.Rat), proxies: make(map[ast.ASTHandle]ast.ASTHandle),
+		weights: make(map[ast.ASTHandle]*numeral.Rational), proxies: make(map[ast.ASTHandle]ast.ASTHandle),
+		lower: numeral.NewRational(), upper: numeral.NewRational(),
 	}
 	prepared.baseTrail.manager = s.manager
-	prepared.lower.Set(&objective.softOffset)
+	o := newRatOps(s.manager)
+	o.set(&prepared.lower, &objective.softOffset)
 	terms, status, err := prepared.preprocessMutexes(objective)
-	if err != nil {
-		return nil, errors.Join(err, prepared.baseTrail.close())
+	if err = o.joined(err); err != nil {
+		return nil, errors.Join(err, prepared.baseTrail.close(), prepared.releaseWeights())
 	}
-	e := &wmaxEngine{solver: s, objective: objective, index: index, owner: prepared.baseTrail}
+	defer func() {
+		resultErr = errors.Join(resultErr, releaseWeightedTerms(prepared.q(), terms), prepared.releaseWeights())
+	}()
+	e := &wmaxEngine{solver: s, objective: objective, index: index, owner: prepared.baseTrail, lower: numeral.NewRational(), upper: numeral.NewRational()}
 	if status != lbool.True {
 		e.mutexStatus, e.mutexStopped = status, true
 		// wmax::operator() returns find_mutexes' status before it builds
@@ -84,11 +58,12 @@ func newWMaxEngine(s *ArithmeticSolver, objective *arithmeticObjective, index in
 		return e, nil
 	}
 	prepared.baseTrail = maxSMTASTOwner{}
-	e.lower.Set(&prepared.lower)
+	o.set(&e.lower, &prepared.lower)
 	e.mutexes, e.mutexTerms = prepared.stats.Mutexes, prepared.stats.MutexTerms
 	e.owner.manager = s.manager
 	e.prepared.soft = true
-	e.prepared.softOffset.SetInt64(0)
+	e.prepared.softOffset = o.zero()
+	e.prepared.softOwned = true
 	for _, term := range terms {
 		ref, cause := s.manager.NewRef(term.expression)
 		if cause != nil {
@@ -96,8 +71,10 @@ func newWMaxEngine(s *ArithmeticSolver, objective *arithmeticObjective, index in
 		}
 		e.owner.refs = append(e.owner.refs, ref)
 		e.prepared.softTerms = append(e.prepared.softTerms, ref)
-		weight := new(big.Rat).Set(&term.weight)
-		e.prepared.softWeights = append(e.prepared.softWeights, weight)
+		e.prepared.softWeights = append(e.prepared.softWeights, o.clone(&term.weight))
+	}
+	if !o.ok() {
+		return nil, errors.Join(o.err, e.close())
 	}
 	e.theory, err = s.backend.EnsureWeightedMaxTheory(s.filter)
 	if err != nil {
@@ -108,11 +85,7 @@ func newWMaxEngine(s *ArithmeticSolver, objective *arithmeticObjective, index in
 		if cause != nil {
 			return nil, errors.Join(cause, e.close())
 		}
-		var slack, assertion ast.ASTHandle
-		cause = wmaxWithRational(s.manager, e.prepared.softWeights[i], func(w *numeral.Rational) (err error) {
-			slack, assertion, err = e.theory.AddWeighted(formula, w)
-			return err
-		})
+		slack, assertion, cause := e.theory.AddWeighted(formula, &e.prepared.softWeights[i])
 		if cause == nil {
 			slack, cause = e.owner.hold(slack, nil)
 		}
@@ -134,8 +107,11 @@ func (e *wmaxEngine) close() error {
 		return nil
 	}
 	e.closed = true
-	e.prepared.softTerms, e.prepared.softWeights = nil, nil
-	err := e.owner.close()
+	e.prepared.softTerms = nil
+	o := newRatOps(e.solver.manager)
+	o.del(&e.upper)
+	o.del(&e.lower)
+	err := errors.Join(e.prepared.releaseSoftRationals(e.solver.manager), o.err, e.owner.close())
 	if e.theory != nil {
 		err = errors.Join(err, e.theory.ResetLocal())
 		e.theory = nil
@@ -143,7 +119,10 @@ func (e *wmaxEngine) close() error {
 	return err
 }
 
-func (e *wmaxEngine) scorePrepared(mdModel *model.ModelCore) (satisfied, penalty big.Rat, resultErr error) {
+// scorePrepared returns caller-owned satisfied and penalty sums.
+func (e *wmaxEngine) scorePrepared(mdModel *model.ModelCore) (satisfied, penalty numeral.Rational, resultErr error) {
+	o := newRatOps(e.solver.manager)
+	satisfied, penalty = o.zero(), o.zero()
 	expressions := make([]ast.ASTHandle, len(e.prepared.softTerms))
 	for i := range e.prepared.softTerms {
 		value, err := e.solver.manager.RefGet(e.prepared.softTerms[i])
@@ -158,12 +137,12 @@ func (e *wmaxEngine) scorePrepared(mdModel *model.ModelCore) (satisfied, penalty
 	}
 	for i, yes := range assignment {
 		if yes {
-			satisfied.Add(&satisfied, e.prepared.softWeights[i])
+			o.add(&satisfied, &satisfied, &e.prepared.softWeights[i])
 		} else {
-			penalty.Add(&penalty, e.prepared.softWeights[i])
+			o.add(&penalty, &penalty, &e.prepared.softWeights[i])
 		}
 	}
-	return satisfied, penalty, nil
+	return satisfied, penalty, o.err
 }
 
 func (e *wmaxEngine) publishAssignment(result *ArithmeticResult) error {
@@ -179,21 +158,28 @@ func (e *wmaxEngine) publishAssignment(result *ArithmeticResult) error {
 	if err != nil {
 		return err
 	}
-	var cost, satisfied big.Rat
-	cost.Set(&e.objective.softOffset)
+	o := newRatOps(e.solver.manager)
+	cost, satisfied := o.clone(&e.objective.softOffset), o.zero()
+	defer o.del(&satisfied)
+	defer o.del(&cost)
 	for i, yes := range assignment {
 		if yes {
-			satisfied.Add(&satisfied, e.objective.softWeights[i])
+			o.add(&satisfied, &satisfied, &e.objective.softWeights[i])
 		} else {
-			cost.Add(&cost, e.objective.softWeights[i])
+			o.add(&cost, &cost, &e.objective.softWeights[i])
 		}
 	}
-	setSoftObjectiveValue(result, e.index, cost, satisfied, assignment)
+	if !o.ok() {
+		return o.err
+	}
+	if err = setSoftObjectiveValue(result, e.index, &cost, &satisfied, assignment); err != nil {
+		return err
+	}
 	value := &result.Values[e.index]
-	value.SoftLower.Set(&e.lower)
-	value.SoftUpper.Set(&e.upper)
+	o.set(&value.SoftLower, &e.lower)
+	o.set(&value.SoftUpper, &e.upper)
 	value.SoftBoundsValid = true
-	return nil
+	return o.err
 }
 
 func (e *wmaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, optimal bool, resultErr error) {
@@ -203,14 +189,23 @@ func (e *wmaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, opt
 	if e == nil || e.solver == nil || e.theory == nil || result == nil || result.Model == nil {
 		return lbool.Undef, false, errMaxResState
 	}
-	_, penalty, err := e.scorePrepared(result.Model)
+	o := newRatOps(e.solver.manager)
+	defer func() { resultErr = o.joined(resultErr) }()
+	satisfied, penalty, err := e.scorePrepared(result.Model)
+	o.del(&satisfied)
 	if err != nil {
+		o.del(&penalty)
 		return lbool.Undef, false, err
 	}
-	e.upper.Add(&e.lower, &penalty)
-	if err = wmaxWithRational(e.solver.manager, &penalty, e.theory.InitMinCost); err != nil {
+	o.add(&e.upper, &e.lower, &penalty)
+	err = e.theory.InitMinCost(&penalty)
+	o.del(&penalty)
+	if err != nil || !o.ok() {
 		return lbool.Undef, false, err
 	}
+	// rational limit (m_upper - m_lower)
+	limit := o.zero()
+	defer o.del(&limit)
 	// trace_bounds("wmax") (AUDIT.md FUZZ-F5; g3trace builds only).
 	if diagnostic.VerboseProgress {
 		if err = e.solver.traceBounds("wmax", e.index, &e.lower, &e.upper); err != nil {
@@ -225,7 +220,7 @@ func (e *wmaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, opt
 		if cause != nil {
 			return lbool.Undef, false, cause
 		}
-		if canceled || e.lower.Cmp(&e.upper) >= 0 {
+		if canceled || o.cmp(&e.lower, &e.upper) >= 0 || !o.ok() {
 			break
 		}
 		status, err = e.solver.solver().CheckSat(nil)
@@ -247,11 +242,11 @@ func (e *wmaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, opt
 			return lbool.Undef, false, cause
 		}
 		if isOptimal {
-			cost, cause := wmaxCost(e.solver.manager, e.theory)
-			if cause != nil {
+			// m_upper = m_lower + wth().get_cost()
+			if cause = e.theory.Cost(&limit); cause != nil {
 				return lbool.Undef, false, cause
 			}
-			e.upper.Add(&e.lower, cost)
+			o.add(&e.upper, &e.lower, &limit)
 			if cause = e.solver.replaceModel(result); cause != nil {
 				return lbool.Undef, false, cause
 			}
@@ -266,9 +261,11 @@ func (e *wmaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, opt
 		if cause != nil {
 			return lbool.Undef, false, cause
 		}
-		var limit big.Rat
-		limit.Sub(&e.upper, &e.lower)
-		if err = wmaxWithRational(e.solver.manager, &limit, e.theory.InitMinCost); err != nil {
+		o.sub(&limit, &e.upper, &e.lower)
+		if !o.ok() {
+			return lbool.Undef, false, nil
+		}
+		if err = e.theory.InitMinCost(&limit); err != nil {
 			return lbool.Undef, false, err
 		}
 		if diagnostic.VerboseProgress {
@@ -282,17 +279,20 @@ func (e *wmaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, opt
 	if err != nil {
 		return lbool.Undef, false, err
 	}
-	if !canceled && status == lbool.Undef && e.lower.Cmp(&e.upper) == 0 {
+	if !canceled && status == lbool.Undef && o.cmp(&e.lower, &e.upper) == 0 {
 		status = lbool.True
 	}
 	if status == lbool.False {
-		e.lower.Set(&e.upper)
+		o.set(&e.lower, &e.upper)
 		status = lbool.True
+	}
+	if !o.ok() {
+		return lbool.Undef, false, nil
 	}
 	if err = e.publishAssignment(result); err != nil {
 		return lbool.Undef, false, err
 	}
-	return status, status == lbool.True && e.lower.Cmp(&e.upper) == 0, nil
+	return status, status == lbool.True && o.cmp(&e.lower, &e.upper) == 0, nil
 }
 
 func (e *wmaxEngine) statistics() MaxSMTStatistics {

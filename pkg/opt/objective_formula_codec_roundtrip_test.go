@@ -1,7 +1,6 @@
 package opt
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -90,7 +89,7 @@ func TestObjectiveFormulaCodecRoundTripRetainsOrderAndMetadata(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	weight := big.NewRat(7, 2)
+	weight := testRat(7, 2)
 	maximum, err := codec.EncodeObjective(FormulaObjective{Kind: FormulaMaximize, Term: f.p})
 	if err != nil {
 		t.Fatal(err)
@@ -99,11 +98,11 @@ func TestObjectiveFormulaCodecRoundTripRetainsOrderAndMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	soft, err := codec.EncodeObjective(FormulaObjective{Kind: FormulaMaxSAT, SoftTerms: []ast.ASTHandle{f.p}, Weights: []*big.Rat{weight}, ID: "pref"})
+	soft, err := codec.EncodeObjective(FormulaObjective{Kind: FormulaMaxSAT, SoftTerms: []ast.ASTHandle{f.p}, Weights: []unumeral.Rational{weight}, ID: "pref"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	weight.SetInt64(99)
+	weight = testRat(99, 1)
 	decoded, err := codec.Decode([]ast.ASTHandle{f.q, maximum, minimum, soft})
 	if err != nil {
 		t.Fatal(err)
@@ -118,7 +117,7 @@ func TestObjectiveFormulaCodecRoundTripRetainsOrderAndMetadata(t *testing.T) {
 		t.Fatal(decoded.Objectives[1])
 	}
 	got := decoded.Objectives[2]
-	if got.Kind != FormulaMaxSAT || got.ID != "pref" || len(got.SoftTerms) != 1 || got.SoftTerms[0] != f.p || got.Weights[0].RatString() != "7/2" {
+	if got.Kind != FormulaMaxSAT || got.ID != "pref" || len(got.SoftTerms) != 1 || got.SoftTerms[0] != f.p || ratString(&got.Weights[0]) != "7/2" {
 		t.Fatal(got)
 	}
 }

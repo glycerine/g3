@@ -1,13 +1,13 @@
 package solver
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type musScriptSolver struct {
@@ -150,15 +150,20 @@ func TestMUSWeightedBestModel(t *testing.T) {
 	solverMust(t, err)
 	defer func() { solverMust(t, u.Close()) }()
 	solverMust(t, u.AddSoftAll([]ast.ASTHandle{a, b}))
-	solverMust(t, u.SetSoft([]ast.ASTHandle{a, b}, []*big.Rat{big.NewRat(3, 1), big.NewRat(5, 1)}))
+	q := u.q()
+	weights := []numeral.Rational{numeral.NewRational(), numeral.NewRational()}
+	solverMust(t, q.SetInt64(&weights[0], 3))
+	solverMust(t, q.SetInt64(&weights[1], 5))
+	solverMust(t, u.SetSoft([]ast.ASTHandle{a, b}, weights))
 	status, _, err := u.GetMUS()
 	solverMust(t, err)
 	if status != lbool.True || evaluations != 4 {
 		t.Fatal(status, evaluations)
 	}
-	best, weight, err := u.BestModel()
+	weight := numeral.NewRational()
+	best, err := u.BestModel(&weight)
 	solverMust(t, err)
-	if best != md.Core() || weight.Cmp(big.NewRat(3, 1)) != 0 {
+	if text, _ := q.String(&weight); best != md.Core() || text != "3" {
 		t.Fatal("best weighted model", best, weight)
 	}
 	solverMust(t, best.DecRef())

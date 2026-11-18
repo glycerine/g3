@@ -3,7 +3,7 @@ package opt_test
 // Source: src/opt/sortmax.cpp retained weighted engine packet.
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -41,7 +41,7 @@ func TestSortMaxPacketOptimizesWeightedMutex(t *testing.T) {
 	if err = solver.Assert(mutex); err != nil {
 		t.Fatal(err)
 	}
-	if err = solver.AddSoftObjective([]ast.ASTHandle{p, q, r}, []*big.Rat{big.NewRat(5, 1), big.NewRat(3, 1), big.NewRat(2, 1)}); err != nil {
+	if err = solver.AddSoftObjective([]ast.ASTHandle{p, q, r}, []numeral.Rational{testRat(5, 1), testRat(3, 1), testRat(2, 1)}); err != nil {
 		t.Fatal(err)
 	}
 	result, err := solver.Check()
@@ -49,7 +49,7 @@ func TestSortMaxPacketOptimizesWeightedMutex(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer result.Close()
-	if result.Status != lbool.True || !result.Optimal || result.Values[0].SoftCost.Cmp(big.NewRat(3, 1)) != 0 || len(result.MaxSMT) != 1 || result.MaxSMT[0].Engine != "sortmax" || result.MaxSMT[0].Mutexes == 0 {
+	if result.Status != lbool.True || !result.Optimal || !ratIs(&result.Values[0].SoftCost, 3, 1) || len(result.MaxSMT) != 1 || result.MaxSMT[0].Engine != "sortmax" || result.MaxSMT[0].Mutexes == 0 {
 		t.Fatal("SortMax packet result", result.Status, result.Optimal, result.Values[0], result.MaxSMT)
 	}
 }

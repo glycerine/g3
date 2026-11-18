@@ -2,7 +2,7 @@ package opt_test
 
 import (
 	"errors"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -76,7 +76,7 @@ func TestArithmeticSolverQuantifierCandidateRemainsUnknown(t *testing.T) {
 	if err = solver.Assert(p); err != nil {
 		t.Fatal(err)
 	}
-	if err = solver.AddSoftObjective([]ast.ASTHandle{p}, []*big.Rat{big.NewRat(1, 1)}); err != nil {
+	if err = solver.AddSoftObjective([]ast.ASTHandle{p}, []numeral.Rational{testRat(1, 1)}); err != nil {
 		t.Fatal(err)
 	}
 	result, err := solver.Check()

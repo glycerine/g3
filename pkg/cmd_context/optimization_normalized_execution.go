@@ -5,7 +5,7 @@ package cmd_context
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/tactic"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/simplex"
@@ -87,6 +87,9 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	var formulaSet *opt.ObjectiveFormulaSet
 	var simplified *optimizationSimplifiedFormulas
 	var source opt.DecodedFormulaSet
+	// source owns its objectives' rationals (simplify's decoded ones and
+	// the originals) until the run ends.
+	defer func() { resultErr = errors.Join(resultErr, source.ReleaseRationals(c.optQ())) }()
 	inconsistent := false
 	if useSimplifier {
 		formulaSet, err = c.EncodeOptimizationFormulas()
@@ -118,6 +121,8 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 			// the context keeps them until the next import_scoped_state.
 			c.optimizationTerms, simplified.held = simplified.held, nil
 			source = simplified.decoded
+			// source now owns the decoded objectives' rationals.
+			simplified.decoded.Objectives = nil
 			// from_fmls updates the objectives it finds; one whose
 			// function application was simplified away keeps its terms.
 			byIndex := make([]opt.DecodedFormulaObjective, len(original))
@@ -130,7 +135,7 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 			}
 			for i := range byIndex {
 				if !found[i] {
-					byIndex[i] = originalDecodedObjective(&original[i])
+					byIndex[i] = c.originalDecodedObjective(&original[i])
 					byIndex[i].HardPosition = len(source.Hard)
 				}
 			}
@@ -140,7 +145,7 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	if !useSimplifier {
 		source.Objectives = make([]opt.DecodedFormulaObjective, len(original))
 		for i := range original {
-			source.Objectives[i] = originalDecodedObjective(&original[i])
+			source.Objectives[i] = c.originalDecodedObjective(&original[i])
 		}
 	}
 	decomposer, err := opt.NewObjectiveDecomposer(c.manager, nil)
@@ -201,6 +206,7 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	if err != nil {
 		return nil, err
 	}
+	defer func() { resultErr = errors.Join(resultErr, opt.ReleaseDecomposed(c.optQ(), decomposed)) }()
 	var purified *opt.PurifiedObjectiveSet
 	if simplified != nil {
 		if err = purifier.AdvanceHard(-1); err != nil {
@@ -238,6 +244,7 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 		}
 	}
 	normalized := append([]optimizationObjective(nil), original...)
+	var bridgeErr error
 	for i, d := range decomposed {
 		if i < len(source.Objectives) {
 			objective := source.Objectives[i]
@@ -245,9 +252,9 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 				normalized[i].softTerms = make([]optimizationSoftTerm, len(objective.SoftTerms))
 				for j, term := range objective.SoftTerms {
 					normalized[i].softTerms[j].expression = term
-					normalized[i].softTerms[j].weight.Set(&objective.Weights[j])
+					c.optSetBig(&normalized[i].softTerms[j].weight, &objective.Weights[j], &bridgeErr)
 				}
-				normalized[i].softOffset.Set(&objective.Offset)
+				c.optSetBig(&normalized[i].softOffset, &objective.Offset, &bridgeErr)
 			} else {
 				normalized[i].expression = objective.Term
 				normalized[i].maximize = objective.Kind == opt.FormulaMaximize
@@ -255,12 +262,12 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 		}
 		if !original[i].soft && d.Converted {
 			normalized[i].verifyConverted, normalized[i].verifyNegate = true, d.Negate
-			normalized[i].verifyOffset.Set(&d.Offset)
+			c.optSetBig(&normalized[i].verifyOffset, &d.Offset, &bridgeErr)
 			normalized[i].soft, normalized[i].bitVector = true, false
 			normalized[i].softTerms = make([]optimizationSoftTerm, len(d.SoftTerms))
 			for j, term := range d.SoftTerms {
 				normalized[i].softTerms[j].expression = term
-				normalized[i].softTerms[j].weight.Set(&d.Weights[j])
+				c.optSetBig(&normalized[i].softTerms[j].weight, &d.Weights[j], &bridgeErr)
 			}
 		}
 		if purified == nil || i >= len(purified.Objectives) {
@@ -281,6 +288,9 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 		} else if !p.Term.IsNull() {
 			normalized[i].expression = p.Term
 		}
+	}
+	if bridgeErr != nil {
+		return nil, bridgeErr
 	}
 	c.objectives = normalized
 	if simplified != nil {
@@ -313,7 +323,7 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 		// An exception from here on comes after normalize() and
 		// internalize(): display_assignment reads the bounds optsmt::add
 		// and maxsmt::add left, through the normalized m_adjust_value.
-		values := make([]opt.ObjectiveValue, len(c.objectives))
+		values := opt.NewObjectiveValues(c.optQ(), len(c.objectives))
 		c.initialDisplayBounds(values)
 		c.optimizationFailureDisplay = values
 	}
@@ -329,7 +339,7 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 			// A later execute_pareto reports values through this
 			// normalization; keep its value transforms (also when the
 			// engine threw: m_pareto and m_objectives survive it).
-			c.optimizationParetoPurification.decomposed = paretoValueTransforms(decomposed)
+			c.optimizationParetoPurification.decomposed = c.paretoValueTransforms(decomposed)
 		}
 	} else if priority == "box" && len(c.objectives) > 1 {
 		optimized, err = c.checkOptimizeBox(assumptions, continuation)
@@ -345,7 +355,7 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 		if c.optimizationFailureNormalized && c.optimizationFailureDisplay != nil && len(c.optimizationFailureDisplay) == len(original) {
 			// Converted objectives display m_adjust_value of their maxsmt
 			// bounds.
-			if e := restoreNormalizedObjectiveBounds(&opt.ArithmeticResult{Values: c.optimizationFailureDisplay}, original, decomposed); e != nil {
+			if e := c.restoreNormalizedObjectiveBounds(&opt.ArithmeticResult{Q: c.optQ(), Values: c.optimizationFailureDisplay}, original, decomposed); e != nil {
 				err = errors.Join(err, e)
 			}
 			c.optimizationFailureNormalized = false
@@ -360,11 +370,14 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 
 // paretoValueTransforms keeps only the value-restoring fields of a
 // decomposition (its term handles die with the decomposer).
-func paretoValueTransforms(decomposed []opt.DecomposedObjective) []opt.DecomposedObjective {
+// The result owns its offsets (opt.ReleaseDecomposed).
+func (c *Context) paretoValueTransforms(decomposed []opt.DecomposedObjective) []opt.DecomposedObjective {
+	q := c.optQ()
 	out := make([]opt.DecomposedObjective, len(decomposed))
 	for i := range decomposed {
 		out[i].SourceKind = decomposed[i].SourceKind
-		out[i].Offset.Set(&decomposed[i].Offset)
+		out[i].Offset = numeral.NewRational()
+		_ = q.Copy(&out[i].Offset, &decomposed[i].Offset)
 		out[i].Negate = decomposed[i].Negate
 		out[i].Converted = decomposed[i].Converted
 	}
@@ -375,7 +388,7 @@ func paretoValueTransforms(decomposed []opt.DecomposedObjective) []opt.Decompose
 // objective conversion.
 func (c *Context) restoreNormalizedValues(optimized *opt.ArithmeticResult, original []optimizationObjective, decomposed []opt.DecomposedObjective, priority string, boxContinuation bool) error {
 	if optimized.Status != lbool.True {
-		if err := restoreNormalizedObjectiveBounds(optimized, original, decomposed); err != nil {
+		if err := c.restoreNormalizedObjectiveBounds(optimized, original, decomposed); err != nil {
 			return err
 		}
 	}
@@ -389,11 +402,11 @@ func (c *Context) restoreNormalizedValues(optimized *opt.ArithmeticResult, origi
 				// unbounded objective), so display_assignment shows
 				// m_adjust_value of its m_lower and m_upper as an interval
 				// (AUDIT.md FUZZ_A-F3).
-				lower, e := d.RestoreValue(&optimized.Values[i].SoftLower)
+				lower, e := c.optRestoreBig(&d, &optimized.Values[i].SoftLower)
 				if e != nil {
 					return e
 				}
-				upper, e := d.RestoreValue(&optimized.Values[i].SoftUpper)
+				upper, e := c.optRestoreBig(&d, &optimized.Values[i].SoftUpper)
 				if e != nil {
 					return e
 				}
@@ -403,29 +416,31 @@ func (c *Context) restoreNormalizedValues(optimized *opt.ArithmeticResult, origi
 				if !original[i].maximize {
 					shown, model = lower, upper
 				}
-				optimized.Values[i] = opt.ObjectiveValue{
-					Arithmetic:           smtcore.SMTArithmeticObjectiveValue{Finite: simplex.RationalInfinitesimal(shown)},
-					ArithmeticModel:      smtcore.SMTArithmeticObjectiveValue{Finite: simplex.RationalInfinitesimal(model)},
-					ArithmeticModelValid: true,
-					ArithmeticInterval:   true,
+				if e = c.optReplaceValue(&optimized.Values[i]); e != nil {
+					return e
 				}
+				optimized.Values[i].Arithmetic = smtcore.SMTArithmeticObjectiveValue{Finite: simplex.RationalInfinitesimal(shown)}
+				optimized.Values[i].ArithmeticModel = smtcore.SMTArithmeticObjectiveValue{Finite: simplex.RationalInfinitesimal(model)}
+				optimized.Values[i].ArithmeticModelValid = true
+				optimized.Values[i].ArithmeticInterval = true
 				continue
 			}
-			value, e := d.RestoreValue(&optimized.Values[i].SoftCost)
+			value, e := c.optRestoreBig(&d, &optimized.Values[i].SoftCost)
 			if e != nil {
 				return e
 			}
 			finite := simplex.RationalInfinitesimal(value)
-			optimized.Values[i] = opt.ObjectiveValue{
-				Arithmetic:           smtcore.SMTArithmeticObjectiveValue{Finite: finite},
-				ArithmeticModel:      smtcore.SMTArithmeticObjectiveValue{Finite: finite.Clone()},
-				ArithmeticModelValid: true,
+			if e = c.optReplaceValue(&optimized.Values[i]); e != nil {
+				return e
 			}
+			optimized.Values[i].Arithmetic = smtcore.SMTArithmeticObjectiveValue{Finite: finite}
+			optimized.Values[i].ArithmeticModel = smtcore.SMTArithmeticObjectiveValue{Finite: finite.Clone()}
+			optimized.Values[i].ArithmeticModelValid = true
 		}
 		// execute_box's later calls report the values the first call
 		// computed, in source terms.
 		if priority == "box" && !boxContinuation && c.optimizationBoxModels != nil {
-			c.optimizationBoxValues = cloneOptimizationBoxValues(optimized.Values)
+			c.optimizationBoxValues = c.cloneOptimizationBoxValues(optimized.Values)
 		}
 	}
 	return nil
@@ -433,7 +448,7 @@ func (c *Context) restoreNormalizedValues(optimized *opt.ArithmeticResult, origi
 
 // MaxSMT penalties have the opposite order when normalization negates the
 // objective. Restore both endpoints before exposing an interrupted result.
-func restoreNormalizedObjectiveBounds(result *opt.ArithmeticResult, original []optimizationObjective, decomposed []opt.DecomposedObjective) error {
+func (c *Context) restoreNormalizedObjectiveBounds(result *opt.ArithmeticResult, original []optimizationObjective, decomposed []opt.DecomposedObjective) error {
 	for i := range original {
 		if original[i].soft || i >= len(decomposed) || i >= len(result.Values) || !decomposed[i].Converted {
 			continue
@@ -446,11 +461,11 @@ func restoreNormalizedObjectiveBounds(result *opt.ArithmeticResult, original []o
 			// get_lower_as_num/get_upper_as_num of a converted objective
 			// are m_adjust_value of the maxsmt bounds, unswapped
 			// (AUDIT.md FUZZ_A-F5).
-			displayLower, err := decomposed[i].RestoreValue(&value.SoftLower)
+			displayLower, err := c.optRestoreBig(&decomposed[i], &value.SoftLower)
 			if err != nil {
 				return err
 			}
-			displayUpper, err := decomposed[i].RestoreValue(&value.SoftUpper)
+			displayUpper, err := c.optRestoreBig(&decomposed[i], &value.SoftUpper)
 			if err != nil {
 				return err
 			}
@@ -461,16 +476,15 @@ func restoreNormalizedObjectiveBounds(result *opt.ArithmeticResult, original []o
 		if decomposed[i].Negate {
 			lowerPenalty, upperPenalty = upperPenalty, lowerPenalty
 		}
-		lower, err := decomposed[i].RestoreValue(lowerPenalty)
-		if err != nil {
+		q := c.optQ()
+		// lowerPenalty/upperPenalty alias the value's own soft bounds, which
+		// the restored source bounds do not overwrite.
+		if err := decomposed[i].RestoreValue(q, lowerPenalty, &value.SourceLower); err != nil {
 			return err
 		}
-		upper, err := decomposed[i].RestoreValue(upperPenalty)
-		if err != nil {
+		if err := decomposed[i].RestoreValue(q, upperPenalty, &value.SourceUpper); err != nil {
 			return err
 		}
-		value.SourceLower.Set(lower)
-		value.SourceUpper.Set(upper)
 		value.SourceBoundsValid = true
 	}
 	return nil
@@ -478,17 +492,19 @@ func restoreNormalizedObjectiveBounds(result *opt.ArithmeticResult, original []o
 
 // originalDecodedObjective is an objective as m_objectives holds it before
 // from_fmls.
-func originalDecodedObjective(objective *optimizationObjective) opt.DecodedFormulaObjective {
+// The result owns its rationals (DecodedFormulaObjective.ReleaseRationals).
+func (c *Context) originalDecodedObjective(objective *optimizationObjective) opt.DecodedFormulaObjective {
 	kind := opt.FormulaMinimize
 	if objective.maximize {
 		kind = opt.FormulaMaximize
 	}
-	result := opt.DecodedFormulaObjective{Kind: kind, Term: objective.expression, OriginalTerm: objective.expression}
+	result := opt.DecodedFormulaObjective{Kind: kind, Term: objective.expression, OriginalTerm: objective.expression, Offset: numeral.NewRational()}
 	if objective.soft {
 		result.Kind = opt.FormulaMaxSAT
 		for _, term := range objective.softTerms {
 			result.SoftTerms = append(result.SoftTerms, term.expression)
-			result.Weights = append(result.Weights, *new(big.Rat).Set(&term.weight))
+			weight, _ := c.optRat(&term.weight)
+			result.Weights = append(result.Weights, weight)
 		}
 	}
 	return result

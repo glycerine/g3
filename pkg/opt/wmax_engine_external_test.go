@@ -3,7 +3,7 @@ package opt_test
 // Source: src/opt/wmax.cpp weighted-theory MaxSMT search.
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -41,7 +41,7 @@ func TestWMaxEngineOptimizesWeightedMutexAndPublishesBounds(t *testing.T) {
 	if err = solver.Assert(mutex); err != nil {
 		t.Fatal(err)
 	}
-	if err = solver.AddSoftObjective([]ast.ASTHandle{p, q, r}, []*big.Rat{big.NewRat(5, 1), big.NewRat(3, 1), big.NewRat(2, 1)}); err != nil {
+	if err = solver.AddSoftObjective([]ast.ASTHandle{p, q, r}, []numeral.Rational{testRat(5, 1), testRat(3, 1), testRat(2, 1)}); err != nil {
 		t.Fatal(err)
 	}
 	result, err := solver.Check()
@@ -52,10 +52,10 @@ func TestWMaxEngineOptimizesWeightedMutexAndPublishesBounds(t *testing.T) {
 	if result.Status != lbool.True || !result.Optimal {
 		t.Fatalf("WMax status/optimal: %v %t", result.Status, result.Optimal)
 	}
-	if len(result.Values) != 1 || result.Values[0].SoftCost.Cmp(big.NewRat(3, 1)) != 0 || result.Values[0].SoftSatisfied.Cmp(big.NewRat(7, 1)) != 0 {
+	if len(result.Values) != 1 || !ratIs(&result.Values[0].SoftCost, 3, 1) || !ratIs(&result.Values[0].SoftSatisfied, 7, 1) {
 		t.Fatalf("WMax objective values: %+v", result.Values)
 	}
-	if !result.Values[0].SoftBoundsValid || result.Values[0].SoftLower.Cmp(big.NewRat(3, 1)) != 0 || result.Values[0].SoftUpper.Cmp(big.NewRat(3, 1)) != 0 {
+	if !result.Values[0].SoftBoundsValid || !ratIs(&result.Values[0].SoftLower, 3, 1) || !ratIs(&result.Values[0].SoftUpper, 3, 1) {
 		t.Fatalf("WMax objective bounds: %+v", result.Values[0])
 	}
 	if len(result.MaxSMT) != 1 || result.MaxSMT[0].Engine != "wmax" || result.MaxSMT[0].Checks == 0 || result.MaxSMT[0].Mutexes == 0 {

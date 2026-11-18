@@ -3,7 +3,7 @@ package opt_test
 // Source: src/opt/maxres.cpp fresh auxiliary filtering and model publication.
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -36,7 +36,7 @@ func TestMaxResFiltersFreshProxiesFromRepeatedPublishedModels(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer solver.Close()
-	if err = solver.AddSoftObjective([]ast.ASTHandle{complex}, []*big.Rat{big.NewRat(1, 2)}); err != nil {
+	if err = solver.AddSoftObjective([]ast.ASTHandle{complex}, []numeral.Rational{testRat(1, 2)}); err != nil {
 		t.Fatal(err)
 	}
 	for iteration := 0; iteration < 2; iteration++ {

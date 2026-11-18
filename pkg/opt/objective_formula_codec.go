@@ -2,7 +2,7 @@ package opt
 
 import (
 	"errors"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
@@ -11,7 +11,7 @@ import (
 type objectiveFormulaMetadata struct {
 	kind         FormulaObjectiveKind
 	originalTerm ast.ASTHandle
-	weights      []big.Rat
+	weights      []numeral.Rational
 	id           string
 	index        int // position in m_objectives (encoding order)
 	// softOriginal is m_objectives[index].m_terms, which is_maxsat's
@@ -118,6 +118,10 @@ func (c *ObjectiveFormulaCodec) Close() (result error) {
 		result = errors.Join(result, c.manager.DelRef(&c.derived[i]))
 	}
 	if result == nil {
+		q := c.manager.NumeralService().Manager
+		for _, metadata := range c.metadata {
+			result = errors.Join(result, releaseRationals(q, metadata.weights))
+		}
 		c.declarations = nil
 		c.derived = nil
 		c.metadata = nil

@@ -2,11 +2,11 @@ package opt
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"strconv"
 
 	"fmt"
 	utext "github.com/glycerine/g3/pkg/util/text"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -40,66 +40,77 @@ func (d *ObjectiveDecomposer) decompositionID(source DecodedFormulaObjective, in
 	return text + ":" + strconv.Itoa(index), nil
 }
 
-func cloneRationals(source []big.Rat) []big.Rat {
-	result := make([]big.Rat, len(source))
-	for i := range source {
-		result[i].Set(&source[i])
-	}
-	return result
-}
-
+// The result owns its rationals.
 func (d *ObjectiveDecomposer) retainedMaxSAT(source DecodedFormulaObjective) (DecomposedObjective, error) {
+	q := d.manager.NumeralService().Manager
+	weights, err := cloneRationals(q, source.Weights)
+	if err != nil {
+		return DecomposedObjective{}, err
+	}
+	offset, err := cloneRational(q, &source.Offset)
 	result := DecomposedObjective{
 		SourceKind: source.Kind, OriginalTerm: source.OriginalTerm,
 		SoftTerms: make([]ast.ASTHandle, len(source.SoftTerms)),
-		Weights:   cloneRationals(source.Weights), Offset: *new(big.Rat).Set(&source.Offset),
+		Weights:   weights, Offset: offset,
 		Negate: source.Negate, ID: source.ID, Converted: true,
+	}
+	if err != nil {
+		return DecomposedObjective{}, errors.Join(err, result.ReleaseRationals(q))
 	}
 	for i, term := range source.SoftTerms {
 		retained, err := d.hold(term)
 		if err != nil {
-			return DecomposedObjective{}, err
+			return DecomposedObjective{}, errors.Join(err, result.ReleaseRationals(q))
 		}
 		result.SoftTerms[i] = retained
 	}
 	return result, nil
 }
 
-func (d *ObjectiveDecomposer) convertPBSum(source DecodedFormulaObjective, index int, sum pbSum) (DecomposedObjective, error) {
-	result := DecomposedObjective{SourceKind: source.Kind, OriginalTerm: source.OriginalTerm, Converted: true}
-	result.Offset.Set(&sum.offset)
+// convertPBSum borrows sum; the result owns its rationals.
+func (d *ObjectiveDecomposer) convertPBSum(source DecodedFormulaObjective, index int, sum pbSum) (_ DecomposedObjective, err error) {
+	o := newRatOps(d.manager)
+	result := DecomposedObjective{SourceKind: source.Kind, OriginalTerm: source.OriginalTerm, Converted: true, Offset: o.clone(&sum.offset)}
 	result.SoftTerms = make([]ast.ASTHandle, len(sum.terms))
-	result.Weights = make([]big.Rat, len(sum.weights))
+	result.Weights = make([]numeral.Rational, len(sum.weights))
+	for i := range result.Weights {
+		result.Weights[i] = numeral.NewRational()
+	}
+	defer func() {
+		if err = o.joined(err); err != nil {
+			err = errors.Join(err, result.ReleaseRationals(o.q))
+		}
+	}()
 	for i := range sum.terms {
-		weight := new(big.Rat).Set(&sum.weights[i])
+		weight := &result.Weights[i]
+		o.set(weight, &sum.weights[i])
 		term := sum.terms[i]
 		if source.Kind == FormulaMinimize {
-			if weight.Sign() < 0 {
-				result.Offset.Add(&result.Offset, weight)
-				weight.Neg(weight)
+			if o.sign(weight) < 0 {
+				o.add(&result.Offset, &result.Offset, weight)
+				o.neg(weight)
 			} else {
-				var err error
 				term, err = d.negated(term)
 				if err != nil {
 					return DecomposedObjective{}, err
 				}
 			}
 		} else {
-			if weight.Sign() < 0 {
-				weight.Neg(weight)
-				var err error
+			if o.sign(weight) < 0 {
+				o.neg(weight)
 				term, err = d.negated(term)
 				if err != nil {
 					return DecomposedObjective{}, err
 				}
 			}
-			result.Offset.Add(&result.Offset, weight)
+			o.add(&result.Offset, &result.Offset, weight)
 			result.Negate = true
 		}
 		result.SoftTerms[i] = term
-		result.Weights[i].Set(weight)
 	}
-	var err error
+	if !o.ok() {
+		return DecomposedObjective{}, nil
+	}
 	if result.ID, err = d.decompositionID(source, index); err != nil {
 		return DecomposedObjective{}, err
 	}

@@ -14,7 +14,7 @@ import (
 // user-approved libstdc++ port (maxres_std_sort.go, AUDIT.md opt_01-F3).
 func (e *maxResEngine) sortedAssumptions(asms []ast.ASTHandle) []ast.ASTHandle {
 	out := append([]ast.ASTHandle(nil), asms...)
-	sorting.LibstdcxxSort(ratWeightDesc{v: out, w: e.weights})
+	sorting.LibstdcxxSort(ratWeightDesc{v: out, w: e.weights, cmp: e.cmp})
 	return out
 }
 
@@ -22,7 +22,7 @@ func (e *maxResEngine) nextIndex(asms []ast.ASTHandle, index int) int {
 	if index < len(asms) {
 		w := e.weights[asms[index]]
 		index++
-		for index < len(asms) && w.Cmp(e.weights[asms[index]]) == 0 {
+		for index < len(asms) && e.cmp(w, e.weights[asms[index]]) == 0 {
 			index++
 		}
 	}

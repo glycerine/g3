@@ -20,7 +20,7 @@ func (s *ArithmeticSolver) ExecuteBox() (result *ArithmeticResult, resultErr err
 	if s == nil || s.backend == nil || len(s.objectives) == 0 {
 		return nil, errMaxResState
 	}
-	result = &ArithmeticResult{Status: lbool.True, Optimal: true, Values: make([]ObjectiveValue, len(s.objectives)), ObjectiveModels: make([]*model.ModelCore, len(s.objectives))}
+	result = &ArithmeticResult{Status: lbool.True, Optimal: true, Values: NewObjectiveValues(s.rationalManager(), len(s.objectives)), Q: s.rationalManager(), ObjectiveModels: make([]*model.ModelCore, len(s.objectives))}
 	if s.initial != nil {
 		result.Model, result.Labels = s.initial.Model, s.initial.Labels
 		s.initial.Model, s.initial.Labels = nil, nil
@@ -62,7 +62,13 @@ func (s *ArithmeticSolver) ExecuteBox() (result *ArithmeticResult, resultErr err
 			return result, combined.Close()
 		}
 		for k, i := range arith {
+			// The value moves: result releases its zero rationals and takes
+			// combined's, which combined.Close then no longer sees.
+			if err = result.Values[i].ReleaseRationals(result.Q); err != nil {
+				return nil, err
+			}
 			result.Values[i] = combined.Values[k]
+			combined.Values[k].initRationals()
 			if k < len(combined.ObjectiveModels) {
 				result.ObjectiveModels[i] = combined.ObjectiveModels[k]
 				combined.ObjectiveModels[k] = nil
@@ -89,7 +95,9 @@ func (s *ArithmeticSolver) ExecuteBox() (result *ArithmeticResult, resultErr err
 			result.Status, result.Optimal = status, false
 			return result, nil
 		}
-		finalizeSoftBounds(result, i)
+		if err = finalizeSoftBounds(result, i); err != nil {
+			return nil, err
+		}
 		// m_box_models.push_back(m_model.get())
 		if result.Model != nil {
 			snapshot := &ArithmeticResult{Model: result.Model}

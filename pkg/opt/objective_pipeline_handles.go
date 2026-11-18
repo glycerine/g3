@@ -1,7 +1,7 @@
 package opt
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -18,22 +18,18 @@ func (p *ObjectivePipeline) refHandles(refs []ast.ASTRef) ([]ast.ASTHandle, erro
 	return result, nil
 }
 
-func pipelineWeightPointers(weights []big.Rat) []*big.Rat {
-	result := make([]*big.Rat, len(weights))
-	for i := range weights {
-		result[i] = new(big.Rat).Set(&weights[i])
-	}
-	return result
-}
-
-func (o *pipelineObjective) restore(value *big.Rat) big.Rat {
-	var result big.Rat
+// restore is m_adjust_value(value) into a caller-owned rational.
+func (o *pipelineObjective) restore(q *numeral.RationalManager, value *numeral.Rational) (numeral.Rational, error) {
+	result := numeral.NewRational()
+	var err error
 	if value != nil {
-		result.Set(value)
+		err = q.Copy(&result, value)
 	}
-	if o.negate {
-		result.Neg(&result)
+	if err == nil && o.negate {
+		err = q.Neg(&result)
 	}
-	result.Add(&result, &o.offset)
-	return result
+	if err == nil {
+		err = q.Add(&result, &o.offset, &result)
+	}
+	return result, err
 }

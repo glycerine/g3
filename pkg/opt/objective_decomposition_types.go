@@ -3,7 +3,7 @@ package opt
 // Source: src/opt/opt_context.cpp is_maxsat/from_fmls.
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -16,8 +16,8 @@ type DecomposedObjective struct {
 	Term         ast.ASTHandle
 	OriginalTerm ast.ASTHandle
 	SoftTerms    []ast.ASTHandle
-	Weights      []big.Rat
-	Offset       big.Rat
+	Weights      []numeral.Rational
+	Offset       numeral.Rational
 	Negate       bool
 	ID           string
 	Converted    bool

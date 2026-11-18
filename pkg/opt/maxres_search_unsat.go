@@ -10,7 +10,9 @@ func (e *maxResEngine) processSearchUNSAT(result *ArithmeticResult) (lbool.LBool
 		return lbool.Undef, err
 	}
 	if status == lbool.False {
-		e.lower.Set(&e.upper)
+		if err := e.q().Copy(&e.lower, &e.upper); err != nil {
+			return lbool.Undef, err
+		}
 		return lbool.False, nil
 	}
 	if status != lbool.True {

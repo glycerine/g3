@@ -3,7 +3,7 @@ package opt
 // Source: src/opt/opt_context.cpp to_fmls/from_fmls objective markers.
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -20,7 +20,7 @@ type FormulaObjective struct {
 	Kind      FormulaObjectiveKind
 	Term      ast.ASTHandle
 	SoftTerms []ast.ASTHandle
-	Weights   []*big.Rat
+	Weights   []numeral.Rational
 	ID        string
 }
 
@@ -29,8 +29,8 @@ type DecodedFormulaObjective struct {
 	Term         ast.ASTHandle
 	OriginalTerm ast.ASTHandle
 	SoftTerms    []ast.ASTHandle
-	Weights      []big.Rat
-	Offset       big.Rat
+	Weights      []numeral.Rational
+	Offset       numeral.Rational
 	Negate       bool
 	ID           string
 	// Index is the objective's position; from_fmls updates only the

@@ -1,7 +1,9 @@
 package opt
 
 import (
+	"errors"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // SetEach installs a hook run after each objective's conversion, before the
@@ -17,11 +19,19 @@ func (d *ObjectiveDecomposer) SetUnconverted(v bool) { d.unconverted = v }
 
 // Decompose applies opt_context::is_maxsat conversion in source objective
 // order. Non-convertible arithmetic objectives remain explicit.
-func (d *ObjectiveDecomposer) Decompose(source DecodedFormulaSet) ([]DecomposedObjective, ObjectiveDecompositionStats, error) {
+// Decompose borrows source; the caller owns the result's rationals
+// (ReleaseDecomposed).
+func (d *ObjectiveDecomposer) Decompose(source DecodedFormulaSet) (_ []DecomposedObjective, _ ObjectiveDecompositionStats, resultErr error) {
 	if err := d.open(); err != nil {
 		return nil, ObjectiveDecompositionStats{}, err
 	}
 	result := make([]DecomposedObjective, 0, len(source.Objectives))
+	q := d.manager.NumeralService().Manager
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, ReleaseDecomposed(q, result))
+		}
+	}()
 	stats := ObjectiveDecompositionStats{Objectives: len(source.Objectives)}
 	for index, objective := range source.Objectives {
 		if index > 0 && d.each != nil {
@@ -42,7 +52,7 @@ func (d *ObjectiveDecomposer) Decompose(source DecodedFormulaSet) ([]DecomposedO
 			return nil, ObjectiveDecompositionStats{}, ast.ErrASTDomain
 		}
 		if d.unconverted {
-			result = append(result, DecomposedObjective{SourceKind: objective.Kind, Term: objective.Term, OriginalTerm: objective.OriginalTerm, ID: objective.ID})
+			result = append(result, DecomposedObjective{SourceKind: objective.Kind, Term: objective.Term, OriginalTerm: objective.OriginalTerm, ID: objective.ID, Offset: numeral.NewRational()})
 			stats.Unconverted++
 			continue
 		}
@@ -52,7 +62,7 @@ func (d *ObjectiveDecomposer) Decompose(source DecodedFormulaSet) ([]DecomposedO
 		}
 		if yes {
 			converted, e := d.convertPBSum(objective, index, sum)
-			if e != nil {
+			if e = errors.Join(e, sum.release(q)); e != nil {
 				return nil, ObjectiveDecompositionStats{}, e
 			}
 			result = append(result, converted)
@@ -68,7 +78,7 @@ func (d *ObjectiveDecomposer) Decompose(source DecodedFormulaSet) ([]DecomposedO
 			stats.ConvertedBVTerms++
 			continue
 		}
-		result = append(result, DecomposedObjective{SourceKind: objective.Kind, Term: objective.Term, OriginalTerm: objective.OriginalTerm, ID: objective.ID})
+		result = append(result, DecomposedObjective{SourceKind: objective.Kind, Term: objective.Term, OriginalTerm: objective.OriginalTerm, ID: objective.ID, Offset: numeral.NewRational()})
 		stats.Unconverted++
 	}
 	if n := len(result); n > 0 && d.each != nil {

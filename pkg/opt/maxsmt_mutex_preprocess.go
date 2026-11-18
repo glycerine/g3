@@ -4,7 +4,6 @@ package opt
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -25,7 +24,6 @@ func (e *sortMaxEngine) preprocessMutexes() (status lbool.LBool, resultErr error
 	if err != nil {
 		return lbool.Undef, err
 	}
-	decomposition.scale = e.scale
 	for _, mutex := range mutexes {
 		if err = decomposition.transform(mutex); err != nil {
 			return lbool.Undef, err
@@ -33,8 +31,15 @@ func (e *sortMaxEngine) preprocessMutexes() (status lbool.LBool, resultErr error
 		e.stats.Mutexes++
 		e.stats.MutexTerms += uint32(len(mutex))
 	}
-	e.terms = decomposition.terms()
-	e.scaledOffset = decomposition.lowerOffset()
+	terms, err := decomposition.terms()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	q := e.solver.rationalManager()
+	if err = errors.Join(releaseMaxSMTTerms(q, e.terms), q.Copy(&e.mutexOffset, &decomposition.offset)); err != nil {
+		return lbool.Undef, errors.Join(err, releaseMaxSMTTerms(q, terms))
+	}
+	e.terms = terms
 	decomposition.transferOwner(&e.owner)
 	return lbool.True, nil
 }
@@ -43,21 +48,31 @@ func (e *sortMaxEngine) preprocessMutexes() (status lbool.LBool, resultErr error
 // weight must be unsigned. It then fixes the integer weights, m_lower and
 // the network inputs.
 func (e *sortMaxEngine) unscaleTerms() error {
+	q := e.solver.rationalManager()
 	total := 0
 	for i := range e.terms {
-		weight, unsigned := maxSMTUnscaleUnsigned(&e.terms[i].weight, e.scale)
+		weight, unsigned, err := maxSMTUnsigned(q, &e.terms[i].weight)
+		if err != nil {
+			return err
+		}
 		if !unsigned {
 			return z3exception.NewDefaultException("sortmax can only handle unsigned weights. Use a different heuristic.")
 		}
-		e.terms[i].weight.SetUint64(uint64(weight))
+		e.terms[i].units = weight
 		total += int(weight)
 	}
-	var offset, remainder big.Int
-	offset.QuoRem(e.scaledOffset, e.scale, &remainder)
-	if remainder.Sign() != 0 || !offset.IsInt64() {
+	integer, err := q.IsInt64(&e.mutexOffset)
+	if err != nil {
+		return err
+	}
+	if !integer {
 		return errors.New("opt: SortMax mutex offset overflow")
 	}
-	e.offset = int(offset.Int64())
+	offset, err := q.Int64(&e.mutexOffset)
+	if err != nil {
+		return err
+	}
+	e.offset = int(offset)
 	e.inputs = maxSMTExpandTerms(e.terms, total)
 	return nil
 }

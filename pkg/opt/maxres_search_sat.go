@@ -26,8 +26,9 @@ func (e *maxResEngine) processSearchSAT(result *ArithmeticResult, full bool) (bo
 		// primal_dual_solver closes the remaining bound gap when the current
 		// model has no correction set.
 		e.foundFeasibleOptimum = result.Model != nil
-		e.lower.Set(&e.upper)
+		if err := e.q().Copy(&e.lower, &e.upper); err != nil {
+			return false, err
+		}
 	}
-	result.Values[e.index].SoftCost.Set(&e.lower)
-	return true, nil
+	return true, result.Q.Copy(&result.Values[e.index].SoftCost, &e.lower)
 }

@@ -1,7 +1,6 @@
 package opt
 
 import (
-	"math/big"
 	"testing"
 )
 
@@ -11,15 +10,15 @@ func TestWeightedSoftSetNormalizesNegativeWeightAndOffset(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = set.Add(f.p, big.NewRat(-7, 2)); err != nil {
+	if err = set.Add(f.p, testRatPtr(-7, 2)); err != nil {
 		t.Fatal(err)
 	}
 	terms, weights, offset, err := set.Release()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(terms) != 1 || weights[0].RatString() != "7/2" || offset.RatString() != "-7/2" {
-		t.Fatalf("weights %v offset %s", weights, offset.RatString())
+	if len(terms) != 1 || ratString(&weights[0]) != "7/2" || ratString(&offset) != "-7/2" {
+		t.Fatalf("weights %v offset %s", weights, ratString(&offset))
 	}
 	h, err := f.manager.RefGet(terms[0])
 	if err != nil {
@@ -37,7 +36,7 @@ func TestWeightedSoftSetNormalizesNegativeWeightAndOffset(t *testing.T) {
 func TestWeightedSoftSetIgnoresZeroWeight(t *testing.T) {
 	f := newWeightedSoftFixture(t)
 	set, _ := newWeightedSoftSet(f.manager)
-	if err := set.Add(f.p, new(big.Rat)); err != nil {
+	if err := set.Add(f.p, testRatPtr(0, 1)); err != nil {
 		t.Fatal(err)
 	}
 	if set.Len() != 0 {

@@ -17,7 +17,7 @@ func TestMaxResCoreBatchLimitsApplyPerRound(t *testing.T) {
 		{maxSMTConfig{maxNumCores: 9, maxCoreSize: 3}, 1, 2, false},
 		{maxSMTConfig{maxNumCores: 9, maxCoreSize: 3}, 1, 3, true},
 	} {
-		engine := &maxResEngine{config: row.config}
+		engine := &maxResEngine{lower: testRat(0, 1), upper: testRat(0, 1), solver: &ArithmeticSolver{manager: newWeightedSoftFixture(t).manager}, config: row.config}
 		if got := engine.coreBatchLimitReached(row.count, row.size); got != row.want {
 			t.Fatal("core batch limit", row, got)
 		}
@@ -25,7 +25,7 @@ func TestMaxResCoreBatchLimitsApplyPerRound(t *testing.T) {
 }
 
 func TestMaxResZeroCoreSizeStopsAfterFirstCore(t *testing.T) {
-	engine := &maxResEngine{config: maxSMTConfig{maxNumCores: 8, maxCoreSize: 0}}
+	engine := &maxResEngine{lower: testRat(0, 1), upper: testRat(0, 1), solver: &ArithmeticSolver{manager: newWeightedSoftFixture(t).manager}, config: maxSMTConfig{maxNumCores: 8, maxCoreSize: 0}}
 	for _, size := range []int{0, 1, 7} {
 		if !engine.coreBatchLimitReached(1, size) {
 			t.Fatalf("zero max core size accepted extracted core of size %d", size)

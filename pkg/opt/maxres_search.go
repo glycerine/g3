@@ -23,9 +23,12 @@ func (e *maxResEngine) optimize(result *ArithmeticResult) (status lbool.LBool, o
 		}
 		if e.bestSet && e.index >= 0 && e.index < len(result.Values) {
 			value := &result.Values[e.index]
-			value.SoftLower.Set(&e.lower)
-			value.SoftUpper.Set(&e.upper)
+			e.noteRat(result.Q.Copy(&value.SoftLower, &e.lower))
+			e.noteRat(result.Q.Copy(&value.SoftUpper, &e.upper))
 			value.SoftBoundsValid = true
+		}
+		if err == nil && e.ratErr != nil {
+			status, optimal, err = lbool.Undef, false, e.ratErr
 		}
 	}()
 	// maxsmt_solver_base::init reads its model captured before MaxRes mutex

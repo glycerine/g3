@@ -3,37 +3,71 @@ package opt
 // Source: src/opt/maxsmt.cpp maxsmt_solver_base::process_mutex.
 
 import (
-	"math/big"
+	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (d *maxSMTMutexDecomposition) transform(mutex []ast.ASTHandle) error {
+func (d *maxSMTMutexDecomposition) transform(mutex []ast.ASTHandle) (err error) {
+	q := d.q
 	active := make([]ast.ASTHandle, 0, len(mutex))
 	for _, expression := range mutex {
-		if weight := d.weights[expression]; weight != nil && weight.Sign() > 0 {
+		weight := d.weights[expression]
+		if weight == nil {
+			continue
+		}
+		sign, e := d.sign(weight)
+		if e != nil {
+			return e
+		}
+		if sign > 0 {
 			active = append(active, expression)
 		}
 	}
 	if len(active) <= 1 {
 		return nil
 	}
-	maxSMTSortMutex(active, d.weights)
-	values := make([]big.Int, len(active))
+	if err = maxSMTSortMutex(q, active, d.weights); err != nil {
+		return err
+	}
+	values := make([]numeral.Rational, len(active))
+	for i := range values {
+		values[i] = numeral.NewRational()
+	}
+	previous, delta, step := numeral.NewRational(), numeral.NewRational(), numeral.NewRational()
+	defer func() {
+		err = errors.Join(err, q.Del(&step), q.Del(&delta), q.Del(&previous))
+		for i := range values {
+			err = errors.Join(err, q.Del(&values[i]))
+		}
+	}()
 	for i, expression := range active {
-		values[i].Set(d.weights[expression])
+		weight := d.weights[expression]
+		if err = q.Copy(&values[i], weight); err != nil {
+			return err
+		}
 		delete(d.weights, expression)
+		if err = q.Del(weight); err != nil {
+			return err
+		}
 		if err := d.soft.Erase(expression); err != nil {
 			return err
 		}
 	}
-	var previous big.Int
 	for i := len(active) - 1; i >= 0; i-- {
-		var delta big.Int
-		delta.Sub(&values[i], &previous)
-		previous.Set(&values[i])
-		if delta.Sign() == 0 {
+		if err = q.Sub(&values[i], &previous, &delta); err == nil {
+			err = q.Copy(&previous, &values[i])
+		}
+		if err != nil {
+			return err
+		}
+		sign, e := d.sign(&delta)
+		if e != nil {
+			return e
+		}
+		if sign == 0 {
 			continue
 		}
 		prefix, err := d.owner.hold(d.owner.manager.MkOrArgs(active[:i+1]))
@@ -41,20 +75,34 @@ func (d *maxSMTMutexDecomposition) transform(mutex []ast.ASTHandle) error {
 			return err
 		}
 		if old := d.weights[prefix]; old != nil {
-			old.Add(old, &delta)
+			if err = q.Add(old, &delta, old); err != nil {
+				return err
+			}
 		} else {
-			d.weights[prefix] = new(big.Int).Set(&delta)
+			weight := numeral.NewRational()
+			if err = q.Copy(&weight, &delta); err != nil {
+				return err
+			}
+			d.weights[prefix] = &weight
 			if err = d.soft.Insert(prefix, [2]ast.ASTHandle{}); err != nil {
 				return err
 			}
 		}
-		d.offset.Add(&d.offset, new(big.Int).Mul(&delta, big.NewInt(int64(i))))
+		if err = q.SetInt64(&step, int64(i)); err == nil {
+			err = q.Mul(&delta, &step, &step)
+		}
+		if err == nil {
+			err = q.Add(&d.offset, &step, &d.offset)
+		}
+		if err != nil {
+			return err
+		}
 		if diagnostic.VerboseProgress {
-			weight := new(big.Rat).SetInt(&delta)
-			if d.scale != nil {
-				weight.Quo(weight, new(big.Rat).SetInt(d.scale))
+			text, e := q.String(&delta)
+			if e != nil {
+				return e
 			}
-			if err = mutexVerbose(i+1, weight); err != nil {
+			if err = mutexVerboseText(i+1, text); err != nil {
 				return err
 			}
 		}

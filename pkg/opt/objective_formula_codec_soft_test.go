@@ -1,7 +1,7 @@
 package opt
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -26,7 +26,7 @@ func TestObjectiveFormulaCodecNormalizesSoftConstantsAndNegativeWeights(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	weights := []*big.Rat{big.NewRat(2, 1), big.NewRat(-3, 1), big.NewRat(4, 1), big.NewRat(5, 1), big.NewRat(0, 1)}
+	weights := []numeral.Rational{testRat(2, 1), testRat(-3, 1), testRat(4, 1), testRat(5, 1), testRat(0, 1)}
 	marker, err := codec.EncodeObjective(FormulaObjective{Kind: FormulaMaxSAT, SoftTerms: []ast.ASTHandle{f.p, f.q, truth, falsehood, f.p}, Weights: weights, ID: "soft"})
 	if err != nil {
 		t.Fatal(err)
@@ -36,7 +36,7 @@ func TestObjectiveFormulaCodecNormalizesSoftConstantsAndNegativeWeights(t *testi
 		t.Fatal(decoded, err)
 	}
 	soft := decoded.Objectives[0]
-	if soft.Offset.RatString() != "2" || len(soft.SoftTerms) != 2 || len(soft.Weights) != 2 || soft.Weights[0].RatString() != "2" || soft.Weights[1].RatString() != "3" {
+	if ratString(&soft.Offset) != "2" || len(soft.SoftTerms) != 2 || len(soft.Weights) != 2 || ratString(&soft.Weights[0]) != "2" || ratString(&soft.Weights[1]) != "3" {
 		t.Fatal(soft)
 	}
 	notQ, err := f.manager.MkNot(f.q)

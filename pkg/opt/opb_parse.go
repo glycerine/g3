@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strconv"
 )
 
 func ParseOPB(input io.Reader) (OPBDocument, error) {
@@ -63,10 +64,11 @@ func parseOPBLiteral(s *opbScanner) (OPBLiteral, error) {
 	if err != nil {
 		return OPBLiteral{}, err
 	}
-	if !id.IsInt64() || id.Int64() < math.MinInt32 || id.Int64() > math.MaxInt32 {
+	value, convErr := strconv.ParseInt(id, 10, 32)
+	if convErr != nil || value < math.MinInt32 || value > math.MaxInt32 {
 		return OPBLiteral{}, fmt.Errorf("opb:%d: variable identifier overflows int32", s.line)
 	}
-	return OPBLiteral{Variable: int32(id.Int64()), Negative: negative}, nil
+	return OPBLiteral{Variable: int32(value), Negative: negative}, nil
 }
 
 func parseOPBTerm(s *opbScanner) (OPBTerm, error) {
@@ -79,7 +81,7 @@ func parseOPBTerm(s *opbScanner) (OPBTerm, error) {
 		return OPBTerm{}, err
 	}
 	term := OPBTerm{Literals: []OPBLiteral{literal}}
-	term.Coefficient.Set(&coefficient)
+	term.Coefficient = coefficient
 	for {
 		if err = s.skipWhitespace(); err != nil {
 			if err == io.EOF {
@@ -139,7 +141,7 @@ func parseOPBConstraint(s *opbScanner) (OPBConstraint, error) {
 					return OPBConstraint{}, err
 				}
 				result.Relation = relation.kind
-				result.Bound.Set(&bound)
+				result.Bound = bound
 				return result, nil
 			}
 		}

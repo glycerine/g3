@@ -4,7 +4,7 @@ package opt
 
 import (
 	"errors"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // assertUpperBound is add_upper_bound_block. z3 4.7.1 bug kept out of g3:
@@ -14,7 +14,7 @@ import (
 // upstream; AUDIT.md opt_01-F4;
 // test_vectors/z3_bug_maxres_upper_bound_block.smt2). g3 asserts a correct
 // "cost < upper" blocker.
-func (e *maxResEngine) assertUpperBound(satisfied *big.Rat) error {
+func (e *maxResEngine) assertUpperBound(satisfied *numeral.Rational) error {
 	if !e.upperBoundEligible() {
 		return nil
 	}

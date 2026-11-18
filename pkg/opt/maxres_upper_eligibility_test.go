@@ -9,7 +9,7 @@ import (
 )
 
 func TestMaxResUpperBoundUsesOnlySourceParameterGate(t *testing.T) {
-	engine := maxResEngine{config: maxSMTConfig{addUpperBoundBlock: true}, objective: &arithmeticObjective{softTerms: make([]ast.ASTRef, 1)}}
+	engine := maxResEngine{lower: testRat(0, 1), upper: testRat(0, 1), solver: &ArithmeticSolver{manager: newWeightedSoftFixture(t).manager}, config: maxSMTConfig{addUpperBoundBlock: true}, objective: &arithmeticObjective{softTerms: make([]ast.ASTRef, 1)}}
 	if !engine.upperBoundEligible() {
 		t.Fatal("source upper block was refused before search progress")
 	}

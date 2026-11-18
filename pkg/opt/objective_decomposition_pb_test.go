@@ -1,7 +1,6 @@
 package opt
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -35,7 +34,7 @@ func decompositionIntegerVariable(t *testing.T, f *objectiveFormulaFixture, name
 
 func decompositionInteger(t *testing.T, f *objectiveFormulaFixture, value int64) ast.ASTHandle {
 	t.Helper()
-	result, err := f.manager.ArithmeticNumeralRat(big.NewRat(value, 1), true)
+	result, err := f.manager.ArithmeticNumeralFromRational(testRatPtr(value, 1), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,14 +60,14 @@ func TestObjectiveDecompositionConvertsPseudoBooleanSum(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(decomposed) != 1 || !decomposed[0].Converted || !decomposed[0].Negate || decomposed[0].Offset.RatString() != "5" || len(decomposed[0].SoftTerms) != 1 || decomposed[0].Weights[0].RatString() != "2" {
+	if len(decomposed) != 1 || !decomposed[0].Converted || !decomposed[0].Negate || ratString(&decomposed[0].Offset) != "5" || len(decomposed[0].SoftTerms) != 1 || ratString(&decomposed[0].Weights[0]) != "2" {
 		t.Fatal(decomposed)
 	}
 	if stats.Objectives != 1 || stats.ConvertedPBSums != 1 || stats.GeneratedTerms == 0 {
 		t.Fatal(stats)
 	}
-	value, err := decomposed[0].RestoreValue(big.NewRat(2, 1))
-	if err != nil || value.RatString() != "3" {
+	value, err := restoreValueT(t, &decomposed[0], testRatPtr(2, 1))
+	if err != nil || ratString(&value) != "3" {
 		t.Fatal(value, err)
 	}
 	if err = decomposer.Close(); err != nil {
@@ -140,25 +139,28 @@ func TestObjectiveDecompositionWrappedCoefficientConditionalValues(t *testing.T)
 				t.Fatal("unexpected soft term", h)
 				return false
 			}
-			penalty := new(big.Rat)
+			q := m.NumeralService().Manager
+			penalty := testRat(0, 1)
 			for i, h := range objective.SoftTerms {
 				if objective.Weights[i].Sign() <= 0 {
 					t.Fatal("nonpositive soft weight")
 				}
 				if !eval(h) {
-					penalty.Add(penalty, &objective.Weights[i])
+					if err := q.Add(&penalty, &objective.Weights[i], &penalty); err != nil {
+						t.Fatal(err)
+					}
 				}
 			}
-			value, err := objective.RestoreValue(penalty)
-			if err != nil {
+			value := testRat(0, 1)
+			if err := objective.RestoreValue(q, &penalty, &value); err != nil {
 				t.Fatal(err)
 			}
-			want := big.NewRat(-2, 1)
+			want := testRat(-2, 1)
 			if pv {
-				want = big.NewRat(3, 2)
+				want = testRat(3, 2)
 			}
-			if value.Cmp(want) != 0 {
-				t.Fatalf("kind=%v p=%v value=%s want=%s", kind, pv, value, want)
+			if !ratEq(&value, &want) {
+				t.Fatalf("kind=%v p=%v value=%s want=%s", kind, pv, ratString(&value), ratString(&want))
 			}
 		}
 		if err = d.Close(); err != nil {

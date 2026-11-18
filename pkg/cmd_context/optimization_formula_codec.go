@@ -29,12 +29,28 @@ func (c *Context) EncodeOptimizationFormulas() (*opt.ObjectiveFormulaSet, error)
 			objectives[i] = opt.FormulaObjective{Kind: kind, Term: source.expression}
 			continue
 		}
-		objective := opt.FormulaObjective{Kind: opt.FormulaMaxSAT, ID: source.id, SoftTerms: make([]ast.ASTHandle, len(source.softTerms)), Weights: make([]*big.Rat, len(source.softTerms))}
+		objective := opt.FormulaObjective{Kind: opt.FormulaMaxSAT, ID: source.id, SoftTerms: make([]ast.ASTHandle, len(source.softTerms))}
+		weights := make([]*big.Rat, len(source.softTerms))
 		for j := range source.softTerms {
 			objective.SoftTerms[j] = source.softTerms[j].expression
-			objective.Weights[j] = new(big.Rat).Set(&source.softTerms[j].weight)
+			weights[j] = &source.softTerms[j].weight
 		}
+		rats, err := c.optRats(weights)
+		if err != nil {
+			return nil, c.optDelObjectiveWeights(objectives, err)
+		}
+		objective.Weights = rats
 		objectives[i] = objective
 	}
-	return opt.NewObjectiveFormulaSet(manager, hard, objectives)
+	set, err := opt.NewObjectiveFormulaSet(manager, hard, objectives)
+	return set, c.optDelObjectiveWeights(objectives, err)
+}
+
+// optDelObjectiveWeights releases the formula objectives' weights (the
+// codec keeps its own copies).
+func (c *Context) optDelObjectiveWeights(objectives []opt.FormulaObjective, err error) error {
+	for i := range objectives {
+		err = c.optDelRats(objectives[i].Weights, err)
+	}
+	return err
 }

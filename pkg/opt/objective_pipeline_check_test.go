@@ -1,7 +1,7 @@
 package opt_test
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -16,7 +16,7 @@ func TestObjectivePipelineChecksSoftThroughArithmeticSolver(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	objective := opt.DecomposedObjective{SourceKind: opt.FormulaMaxSAT, SoftTerms: []ast.ASTHandle{p}, Weights: []big.Rat{*big.NewRat(2, 1)}, Offset: *big.NewRat(5, 1), Negate: true, Converted: true}
+	objective := opt.DecomposedObjective{SourceKind: opt.FormulaMaxSAT, SoftTerms: []ast.ASTHandle{p}, Weights: []numeral.Rational{testRat(2, 1)}, Offset: testRat(5, 1), Negate: true, Converted: true}
 	pipeline, err := opt.NewObjectivePipeline(f.manager, f.params, "QF_UF", f.config, []ast.ASTHandle{notP}, []opt.DecomposedObjective{objective})
 	if err != nil {
 		t.Fatal(err)
@@ -35,7 +35,7 @@ func TestObjectivePipelineChecksSoftThroughArithmeticSolver(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	if result.Status != lbool.True || !result.Optimal || result.Model == nil || len(result.Values) != 1 || !result.Values[0].Soft || result.Values[0].Exact.RatString() != "3" {
+	if result.Status != lbool.True || !result.Optimal || result.Model == nil || len(result.Values) != 1 || !result.Values[0].Soft || ratString(&result.Values[0].Exact) != "3" {
 		t.Fatal(result.Status, result.Optimal, result.Model, result.Values)
 	}
 	if !result.Statistics.Arithmetic || result.Statistics.Objectives != 1 || result.Statistics.Hard != 1 {

@@ -15,7 +15,7 @@ func TestParseOPBOptionalConstraintSemicolonsAndObjectiveEOF(t *testing.T) {
 			t.Fatalf("ParseOPB(%q): %v", input, err)
 		}
 		if len(document.Constraints) != 2 || len(document.Objectives) != 1 ||
-			len(document.Objectives[0].Terms) != 1 || document.Objectives[0].Terms[0].Coefficient.String() != "2" {
+			len(document.Objectives[0].Terms) != 1 || document.Objectives[0].Terms[0].Coefficient != "2" {
 			t.Fatalf("ParseOPB(%q): %#v", input, document)
 		}
 	}
@@ -35,13 +35,13 @@ min: + 2 x1 -3 ~x2 x3;
 		t.Fatalf("document = %#v", document)
 	}
 	terms := document.Objectives[0].Terms
-	if len(terms) != 2 || terms[0].Coefficient.String() != "2" || terms[1].Coefficient.String() != "-3" {
+	if len(terms) != 2 || terms[0].Coefficient != "2" || terms[1].Coefficient != "-3" {
 		t.Fatalf("objective terms = %#v", terms)
 	}
 	if len(terms[1].Literals) != 2 || terms[1].Literals[0] != (OPBLiteral{Variable: 2, Negative: true}) || terms[1].Literals[1] != (OPBLiteral{Variable: 3}) {
 		t.Fatalf("product = %#v", terms[1].Literals)
 	}
-	if document.Constraints[0].Relation != OPBGreaterEqual || document.Constraints[0].Bound.String() != "1" || document.Constraints[1].Relation != OPBLessEqual {
+	if document.Constraints[0].Relation != OPBGreaterEqual || document.Constraints[0].Bound != "1" || document.Constraints[1].Relation != OPBLessEqual {
 		t.Fatal("relations", document.Constraints)
 	}
 }

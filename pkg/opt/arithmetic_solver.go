@@ -6,7 +6,6 @@ package opt
 import (
 	"errors"
 	"fmt"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -17,6 +16,7 @@ import (
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -31,13 +31,13 @@ type ObjectiveValue struct {
 	ArithmeticModelValid bool
 	ArithmeticInterval   bool
 	ArithmeticOpenBounds bool
-	SoftCost             big.Rat
-	SoftSatisfied        big.Rat
-	SoftLower            big.Rat
-	SoftUpper            big.Rat
+	SoftCost             numeral.Rational
+	SoftSatisfied        numeral.Rational
+	SoftLower            numeral.Rational
+	SoftUpper            numeral.Rational
 	SoftBoundsValid      bool
-	SourceLower          big.Rat
-	SourceUpper          big.Rat
+	SourceLower          numeral.Rational
+	SourceUpper          numeral.Rational
 	SourceBoundsValid    bool
 	SoftAssignment       []bool
 	Soft                 bool
@@ -69,6 +69,40 @@ type ArithmeticResult struct {
 	InitialLabels  []usymbol.Symbol
 	labelsCaptured bool
 	ModelFiltered  bool
+	// Q is the rational manager owning the Values' soft rationals; Close
+	// releases them (they die with the result, as opt::context's values).
+	Q *numeral.RationalManager
+}
+
+// NewObjectiveValues returns n values whose rationals are valid zeros of q.
+func NewObjectiveValues(q *numeral.RationalManager, n int) []ObjectiveValue {
+	values := make([]ObjectiveValue, n)
+	for i := range values {
+		values[i].initRationals()
+	}
+	return values
+}
+
+func (v *ObjectiveValue) initRationals() {
+	for _, r := range v.rationals() {
+		*r = numeral.NewRational()
+	}
+}
+
+func (v *ObjectiveValue) rationals() []*numeral.Rational {
+	return []*numeral.Rational{&v.SoftCost, &v.SoftSatisfied, &v.SoftLower, &v.SoftUpper, &v.SourceLower, &v.SourceUpper}
+}
+
+// ReleaseRationals releases the value's soft rationals through q and
+// leaves them valid zeros.
+func (v *ObjectiveValue) ReleaseRationals(q *numeral.RationalManager) (err error) {
+	for _, r := range v.rationals() {
+		if q != nil {
+			err = errors.Join(err, q.Del(r))
+		}
+		*r = numeral.NewRational()
+	}
+	return err
 }
 
 func (r *ArithmeticResult) Close() error {
@@ -76,6 +110,9 @@ func (r *ArithmeticResult) Close() error {
 		return nil
 	}
 	var err error
+	for i := range r.Values {
+		err = errors.Join(err, r.Values[i].ReleaseRationals(r.Q))
+	}
 	if r.Model != nil {
 		err = errors.Join(err, r.Model.DecRef())
 		if err == nil {
@@ -141,7 +178,7 @@ type ArithmeticSolver struct {
 	rawModels bool
 	// maxsmtLower and maxsmtUpper are each maxsmt's m_lower and m_upper,
 	// which update_bound sets from a model's soft cost.
-	maxsmtLower, maxsmtUpper []big.Rat
+	maxsmtLower, maxsmtUpper []numeral.Rational
 	// optsmtModels is optsmt::m_models, owned by opt::context: optsmt::reset
 	// never clears it, so its entries outlive the run that set them.
 	optsmtModels *OptsmtModels
@@ -245,8 +282,11 @@ type arithmeticObjective struct {
 	backendIndex uint32
 	soft         bool
 	softTerms    []ast.ASTRef
-	softWeights  []*big.Rat
-	softOffset   big.Rat
+	softWeights  []numeral.Rational
+	softOffset   numeral.Rational
+	// softOwned marks softWeights/softOffset as owned (released with the
+	// objective); a zero objective holds no rationals.
+	softOwned bool
 }
 
 func NewArithmeticSolver(m *ast.ASTManager, params *uparams.ParamsRef, logic string, config smtcore.SMTSolverConfig) (*ArithmeticSolver, error) {
@@ -478,13 +518,14 @@ func (s *ArithmeticSolver) rewriteObjective(t ast.ASTHandle) (ast.ASTHandle, ast
 // AddSoftObjective registers one source MaxSMT group. Negative weights are
 // normalized by complementing the term and retaining the constant offset,
 // exactly as opt_context::is_maxsat does before invoking MaxSMT.
-func (s *ArithmeticSolver) AddSoftObjective(terms []ast.ASTHandle, weights []*big.Rat) (resultErr error) {
+// The weights are borrowed rationals of the AST manager's rational manager.
+func (s *ArithmeticSolver) AddSoftObjective(terms []ast.ASTHandle, weights []numeral.Rational) (resultErr error) {
 	return s.AddSoftObjectiveWithOffset(terms, weights, nil)
 }
 
 // AddSoftObjectiveWithOffset registers a source MaxSMT group after formula
 // simplification has folded weighted Boolean constants into an exact offset.
-func (s *ArithmeticSolver) AddSoftObjectiveWithOffset(terms []ast.ASTHandle, weights []*big.Rat, sourceOffset *big.Rat) (resultErr error) {
+func (s *ArithmeticSolver) AddSoftObjectiveWithOffset(terms []ast.ASTHandle, weights []numeral.Rational, sourceOffset *numeral.Rational) (resultErr error) {
 	if s == nil || s.backend == nil || len(terms) != len(weights) {
 		return ast.ErrASTHandle
 	}
@@ -494,7 +535,7 @@ func (s *ArithmeticSolver) AddSoftObjectiveWithOffset(terms []ast.ASTHandle, wei
 	}
 	defer func() { resultErr = errors.Join(resultErr, set.Close()) }()
 	for i, term := range terms {
-		if err = set.Add(term, weights[i]); err != nil {
+		if err = set.Add(term, &weights[i]); err != nil {
 			return err
 		}
 	}
@@ -503,9 +544,18 @@ func (s *ArithmeticSolver) AddSoftObjectiveWithOffset(terms []ast.ASTHandle, wei
 		return err
 	}
 	if sourceOffset != nil {
-		offset.Add(&offset, sourceOffset)
+		o := newRatOps(s.manager)
+		o.add(&offset, &offset, sourceOffset)
+		if !o.ok() {
+			o.delAll(normalizedWeights)
+			o.del(&offset)
+			for i := range refs {
+				err = errors.Join(err, s.manager.DelRef(&refs[i]))
+			}
+			return o.joined(err)
+		}
 	}
-	objective := arithmeticObjective{soft: true, softTerms: refs, softWeights: normalizedWeights, softOffset: offset}
+	objective := arithmeticObjective{soft: true, softTerms: refs, softWeights: normalizedWeights, softOffset: offset, softOwned: true}
 	s.objectives = append(s.objectives, objective)
 	return nil
 }
@@ -601,16 +651,27 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 	if err = s.replaceModel(result); err != nil {
 		return lbool.Undef, false, err
 	}
-	delta := big.NewInt(1)
+	// rational delta_per_step(1)
+	ro := newRatOps(s.manager)
+	delta, one, two := ro.int64(1), ro.int64(1), ro.int64(2)
+	defer func() {
+		ro.del(&two)
+		ro.del(&one)
+		ro.del(&delta)
+		resultErr = ro.joined(resultErr)
+	}()
+	if !ro.ok() {
+		return lbool.Undef, false, nil
+	}
 	var steps, stepIncs uint32
 	for {
 		if status != lbool.True {
-			if status == lbool.False && delta.Cmp(big.NewInt(1)) > 0 {
+			if status == lbool.False && ro.cmp(&delta, &one) > 0 {
 				if err = s.backend.Pop(1); err != nil {
 					return lbool.Undef, false, err
 				}
 				jumpScopes--
-				delta.SetInt64(1)
+				ro.setInt64(&delta, 1)
 				steps, stepIncs = 0, 0
 				if canceled, e := s.manager.Canceled(); e != nil || canceled {
 					if e != nil {
@@ -641,10 +702,10 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 		// delta_per_step is 1 and the theory's blocker (false) is asserted;
 		// the next check_sat is unsat and the loop ends.
 		if value.Unbounded {
-			delta.SetInt64(1)
+			ro.setInt64(&delta, 1)
 		} else if s.objectives[index].integer {
 			if steps > stepIncs {
-				delta.Lsh(delta, 1)
+				ro.mul(&delta, &delta, &two)
 				stepIncs++
 				steps = 0
 			} else {
@@ -652,11 +713,14 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 			}
 		}
 		boundValue := value.Finite.Clone()
-		boundValue.Main.Add(&boundValue.Main, new(big.Rat).SetInt(delta))
+		boundValue.Main.Add(&boundValue.Main, ro.bigOf(&delta))
+		if !ro.ok() {
+			return lbool.Undef, false, nil
+		}
 		// optsmt::geometric_opt asserts the update_lower blocker; only a
 		// larger step pushes first and then builds mk_ge at the base level.
 		var bound ast.ASTHandle
-		if delta.Cmp(big.NewInt(1)) > 0 && value.Finite.Infinity.Sign() == 0 {
+		if ro.cmp(&delta, &one) > 0 && value.Finite.Infinity.Sign() == 0 {
 			err = s.backend.Push()
 			if err == nil {
 				jumpScopes++
@@ -706,7 +770,7 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 	return status, status == lbool.False, nil
 }
 
-func (s *ArithmeticSolver) softBound(objective *arithmeticObjective, bound *big.Rat, strict bool) (result ast.ASTHandle, resultErr error) {
+func (s *ArithmeticSolver) softBound(objective *arithmeticObjective, bound *numeral.Rational, strict bool) (result ast.ASTHandle, resultErr error) {
 	service := s.manager.NumeralService()
 	if service == nil || bound == nil {
 		return result, ast.ErrASTHandle
@@ -730,7 +794,7 @@ func (s *ArithmeticSolver) softBound(objective *arithmeticObjective, bound *big.
 			return result, err
 		}
 		coefficients[i] = value
-		if err = service.SetString(&coefficients[i], objective.softWeights[i].RatString()); err != nil {
+		if err = service.Manager.Copy(&coefficients[i].Raw, &objective.softWeights[i]); err != nil {
 			return result, err
 		}
 		arguments[i], err = s.manager.RefGet(objective.softTerms[i])
@@ -743,7 +807,7 @@ func (s *ArithmeticSolver) softBound(objective *arithmeticObjective, bound *big.
 	if err != nil {
 		return result, err
 	}
-	if err = service.SetString(&threshold, bound.RatString()); err != nil {
+	if err = service.Manager.Copy(&threshold.Raw, bound); err != nil {
 		return result, err
 	}
 	if !strict {
@@ -848,7 +912,9 @@ func (s *ArithmeticSolver) optimizeSoft(index int, result *ArithmeticResult) (st
 			}
 		}
 		if optimal {
-			finalizeSoftBounds(result, index)
+			if e := finalizeSoftBounds(result, index); e != nil {
+				return lbool.Undef, false, e
+			}
 		}
 		if err != nil {
 			err = fmt.Errorf("run MaxSMT engine: %w", err)
@@ -857,12 +923,20 @@ func (s *ArithmeticSolver) optimizeSoft(index int, result *ArithmeticResult) (st
 	}
 	for {
 		cost, satisfied, assignment, e := s.evaluateSoftDetailed(objective, result.Model)
-		if e != nil {
-			return lbool.Undef, false, e
+		if e == nil {
+			e = setSoftObjectiveValue(result, index, &cost, &satisfied, assignment)
 		}
-		setSoftObjectiveValue(result, index, cost, satisfied, assignment)
+		o := newRatOps(s.manager)
+		o.del(&cost)
+		if e = o.joined(e); e != nil {
+			o.del(&satisfied)
+			return lbool.Undef, false, o.joined(e)
+		}
 		if len(objective.softTerms) == 0 {
-			finalizeSoftBounds(result, index)
+			o.del(&satisfied)
+			if e = o.joined(finalizeSoftBounds(result, index)); e != nil {
+				return lbool.Undef, false, e
+			}
 			// maxsmt::operator() runs maxres for an empty soft set:
 			// mus_solver traces after init_local, then found_optimum()
 			// and trace() as lower == upper (AUDIT.md FUZZ-F5).
@@ -881,7 +955,8 @@ func (s *ArithmeticSolver) optimizeSoft(index int, result *ArithmeticResult) (st
 			return lbool.False, true, nil
 		}
 		blocker, e := s.softBound(objective, &satisfied, true)
-		if e != nil {
+		o.del(&satisfied)
+		if e = o.joined(e); e != nil {
 			return lbool.Undef, false, e
 		}
 		blockerRef, e := s.manager.NewRef(blocker)
@@ -907,7 +982,9 @@ func (s *ArithmeticSolver) optimizeSoft(index int, result *ArithmeticResult) (st
 			}
 			continue
 		case lbool.False:
-			finalizeSoftBounds(result, index)
+			if e = finalizeSoftBounds(result, index); e != nil {
+				return lbool.Undef, false, e
+			}
 			return status, true, nil
 		default:
 			return status, false, nil
@@ -981,7 +1058,9 @@ func (s *ArithmeticSolver) optimizeBoxEngineObjective(index int, result *Arithme
 			result.Model = nil
 		}
 		result.Labels = append(result.Labels[:0], combined.Labels...)
-		result.Values[index] = cloneObjectiveValue(combined.Values[boxIndex])
+		if err = assignObjectiveValue(s.rationalManager(), &result.Values[index], &combined.Values[boxIndex]); err != nil {
+			return lbool.Undef, false, err
+		}
 		return lbool.True, true, nil
 	}
 	if err = modelSnapshot.IncRef(); err != nil {
@@ -994,7 +1073,9 @@ func (s *ArithmeticSolver) optimizeBoxEngineObjective(index int, result *Arithme
 	}
 	result.Model = modelSnapshot
 	result.Labels = append(result.Labels[:0], combined.Labels...)
-	result.Values[index] = cloneObjectiveValue(combined.Values[boxIndex])
+	if err = assignObjectiveValue(s.rationalManager(), &result.Values[index], &combined.Values[boxIndex]); err != nil {
+		return lbool.Undef, false, err
+	}
 	return lbool.True, true, nil
 }
 
@@ -1033,20 +1114,19 @@ func (s *ArithmeticSolver) captureArithmeticModelCore(index int, value *Objectiv
 	if err != nil {
 		return err
 	}
-	text, _, matched, err := s.manager.ArithmeticNumeralText(h)
+	o := newRatOps(s.manager)
+	rational := o.zero()
+	defer o.del(&rational)
+	_, matched, err := s.manager.ArithmeticNumeralRational(h, &rational)
 	if err != nil {
 		return err
 	}
 	if !matched {
 		return ast.ErrASTDomain
 	}
-	rational, matched := new(big.Rat).SetString(text)
-	if !matched {
-		return ast.ErrASTDomain
-	}
-	value.ArithmeticModel = smtcore.SMTArithmeticObjectiveValue{Finite: simplex.RationalInfinitesimal(rational)}
-	value.ArithmeticModelValid = true
-	return nil
+	value.ArithmeticModel = smtcore.SMTArithmeticObjectiveValue{Finite: o.infinitesimalOf(&rational)}
+	value.ArithmeticModelValid = o.ok()
+	return o.err
 }
 
 func (s *ArithmeticSolver) commitArithmeticObjective(index int, value ObjectiveValue) error {
@@ -1101,11 +1181,14 @@ func (s *ArithmeticSolver) commitSoftObjective(index int, value ObjectiveValue) 
 	}
 	// maxsmt_solver_base::commit_assignment: k sums the weights whose
 	// get_assignment(i) holds.
-	k, err := softAssignmentWeight(objective, value.SoftAssignment)
+	k, err := s.softAssignmentWeight(objective, value.SoftAssignment)
 	if err != nil {
 		return err
 	}
-	bound, err := s.softBound(objective, k, false)
+	bound, err := s.softBound(objective, &k, false)
+	o := newRatOps(s.manager)
+	o.del(&k)
+	err = o.joined(err)
 	if err != nil {
 		return err
 	}
@@ -1124,10 +1207,15 @@ func (s *ArithmeticSolver) retainRemainingModelValues(start int, result *Arithme
 	for i := start; i < len(s.objectives); i++ {
 		if s.objectives[i].soft {
 			cost, satisfied, assignment, err := s.evaluateSoftDetailed(&s.objectives[i], result.Model)
-			if err != nil {
+			if err == nil {
+				err = setSoftObjectiveValue(result, i, &cost, &satisfied, assignment)
+			}
+			o := newRatOps(s.manager)
+			o.del(&cost)
+			o.del(&satisfied)
+			if err = o.joined(err); err != nil {
 				return err
 			}
-			setSoftObjectiveValue(result, i, cost, satisfied, assignment)
 			continue
 		}
 		if err := s.captureArithmeticModel(i, &result.Values[i], result.Model); err != nil {
@@ -1203,7 +1291,7 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 	if s == nil || s.backend == nil {
 		return nil, ast.ErrASTHandle
 	}
-	result = &ArithmeticResult{Status: lbool.Undef, Values: make([]ObjectiveValue, len(s.objectives))}
+	result = &ArithmeticResult{Status: lbool.Undef, Values: NewObjectiveValues(s.rationalManager(), len(s.objectives)), Q: s.rationalManager()}
 	// m_model from the initial check is the base model execute starts
 	// from (maxsmt reads it through the context).
 	if s.initial != nil {
@@ -1265,7 +1353,9 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 			return result, nil
 		}
 		if s.objectives[i].soft {
-			finalizeSoftBounds(result, i)
+			if err := finalizeSoftBounds(result, i); err != nil {
+				return result, err
+			}
 		}
 		// The fork never evaluates the objective right after it runs: the
 		// model value is read off update_lower's m_model->eval, which
@@ -1465,32 +1555,38 @@ func (s *ArithmeticSolver) updateBoundCapturing(md *model.ModelCore, isLower boo
 	for i := range s.objectives {
 		objective := &s.objectives[i]
 		if objective.soft {
-			var r big.Rat
+			o := newRatOps(s.manager)
+			r := o.zero()
 			for j, ref := range objective.softTerms {
 				term, err := s.manager.RefGet(ref)
-				if err != nil {
-					return err
+				if err == nil {
+					err = s.evalInto(md, term, &val)
 				}
-				if err = s.evalInto(md, term, &val); err != nil {
-					return err
+				var h ast.ASTHandle
+				if err == nil {
+					h, err = s.manager.RefGet(val)
 				}
-				h, err := s.manager.RefGet(val)
 				if err != nil {
-					return err
+					o.del(&r)
+					return o.joined(err)
 				}
 				if !s.manager.IsTrue(h) && j < len(objective.softWeights) {
-					r.Add(&r, objective.softWeights[j])
+					o.add(&r, &r, &objective.softWeights[j])
 				}
 			}
 			for len(s.maxsmtLower) < len(s.objectives) {
-				s.maxsmtLower = append(s.maxsmtLower, big.Rat{})
-				s.maxsmtUpper = append(s.maxsmtUpper, big.Rat{})
+				s.maxsmtLower = append(s.maxsmtLower, numeral.NewRational())
+				s.maxsmtUpper = append(s.maxsmtUpper, numeral.NewRational())
 			}
 			// is_lower: ms.update_upper(r); otherwise ms.update_lower(r).
 			if isLower {
-				s.maxsmtUpper[i].Set(&r)
+				o.set(&s.maxsmtUpper[i], &r)
 			} else {
-				s.maxsmtLower[i].Set(&r)
+				o.set(&s.maxsmtLower[i], &r)
+			}
+			o.del(&r)
+			if !o.ok() {
+				return o.err
 			}
 			continue
 		}
@@ -1508,25 +1604,28 @@ func (s *ArithmeticSolver) updateBoundCapturing(md *model.ModelCore, isLower boo
 		if err != nil {
 			return err
 		}
-		text, _, matched, err := s.manager.ArithmeticNumeralText(h)
-		if err != nil {
-			return err
-		}
-		if !matched {
+		o := newRatOps(s.manager)
+		value := o.zero()
+		_, matched, err := s.manager.ArithmeticNumeralRational(h, &value)
+		if err != nil || !matched {
+			o.del(&value)
+			if err = o.joined(err); err != nil {
+				return err
+			}
 			continue
 		}
-		value, ok := new(big.Rat).SetString(text)
-		if !ok {
-			return ast.ErrASTDomain
-		}
 		if i == capture && captured != nil {
-			captured.ArithmeticModel = smtcore.SMTArithmeticObjectiveValue{Finite: simplex.RationalInfinitesimal(new(big.Rat).Set(value))}
+			captured.ArithmeticModel = smtcore.SMTArithmeticObjectiveValue{Finite: o.infinitesimalOf(&value)}
 			captured.ArithmeticModelValid = true
 		}
 		if !objective.maximize {
-			value.Neg(value)
+			o.neg(&value)
 		}
-		bound := simplex.RationalInfinitesimal(value)
+		bound := o.infinitesimalOf(&value)
+		o.del(&value)
+		if !o.ok() {
+			return o.err
+		}
 		if !isLower {
 			s.setOptUpper(i, bound)
 			continue
@@ -1567,9 +1666,10 @@ func (s *ArithmeticSolver) fillDisplayBounds(result *ArithmeticResult) {
 			if !value.SoftBoundsValid {
 				s.unexecutedSoftBounds(i, value)
 			}
-			value.DisplayLower = simplex.RationalInfinitesimal(&value.SoftLower)
-			value.DisplayUpper = simplex.RationalInfinitesimal(&value.SoftUpper)
-			value.DisplayValid = true
+			o := newRatOps(s.manager)
+			value.DisplayLower = o.infinitesimalOf(&value.SoftLower)
+			value.DisplayUpper = o.infinitesimalOf(&value.SoftUpper)
+			value.DisplayValid = o.ok()
 			continue
 		}
 		if s.objectives[i].term == (ast.ASTRef{}) {
@@ -1613,26 +1713,32 @@ func (s *ArithmeticSolver) ArithmeticDisplayBounds(i int) (lower, upper simplex.
 	if s == nil || i < 0 || i >= len(s.objectives) || s.objectives[i].soft || s.objectives[i].term == (ast.ASTRef{}) {
 		return lower, upper, false
 	}
-	var value ObjectiveValue
-	values := make([]ObjectiveValue, i+1)
-	s.fillDisplayBounds(&ArithmeticResult{Values: values})
-	value = values[i]
-	return value.DisplayLower, value.DisplayUpper, value.DisplayValid
+	q := s.rationalManager()
+	values := NewObjectiveValues(q, i+1)
+	result := &ArithmeticResult{Values: values, Q: q}
+	s.fillDisplayBounds(result)
+	value := &values[i]
+	lower, upper, ok = value.DisplayLower, value.DisplayUpper, value.DisplayValid
+	if err := result.Close(); err != nil {
+		ok = false
+	}
+	return lower, upper, ok
 }
 
 // unexecutedSoftBounds is get_lower_as_num/get_upper_as_num of a maxsmt
 // that never ran (m_msolver is null): m_adjust_value(m_lower) and
 // m_adjust_value(m_upper), the offset being the objective's soft offset.
 func (s *ArithmeticSolver) unexecutedSoftBounds(i int, value *ObjectiveValue) {
-	value.SoftLower.Set(&s.objectives[i].softOffset)
-	value.SoftUpper.Set(&s.objectives[i].softOffset)
+	o := newRatOps(s.manager)
+	o.set(&value.SoftLower, &s.objectives[i].softOffset)
+	o.set(&value.SoftUpper, &s.objectives[i].softOffset)
 	if i < len(s.maxsmtLower) {
-		value.SoftLower.Add(&value.SoftLower, &s.maxsmtLower[i])
-		value.SoftUpper.Add(&value.SoftUpper, &s.maxsmtUpper[i])
+		o.add(&value.SoftLower, &value.SoftLower, &s.maxsmtLower[i])
+		o.add(&value.SoftUpper, &value.SoftUpper, &s.maxsmtUpper[i])
 	}
-	value.SoftCost.Set(&value.SoftLower)
-	value.SoftBoundsValid = true
-	value.SoftInterval = value.SoftLower.Cmp(&value.SoftUpper) != 0
+	o.set(&value.SoftCost, &value.SoftLower)
+	value.SoftBoundsValid = o.ok()
+	value.SoftInterval = o.cmp(&value.SoftLower, &value.SoftUpper) != 0
 }
 
 // ResetMaxSMTs is opt::context::reset_maxsmts: the maxsmt objects, with
@@ -1669,6 +1775,9 @@ func (s *ArithmeticSolver) ReleaseObjectives() error {
 			}
 		}
 		objective.softTerms = nil
+		if err := objective.releaseSoftRationals(s.manager); err != nil {
+			return err
+		}
 		for _, ref := range []*ast.ASTRef{&objective.term, &objective.rewritten} {
 			if *ref == (ast.ASTRef{}) {
 				continue
@@ -1739,9 +1848,16 @@ func (s *ArithmeticSolver) Close() error {
 			}
 			objective.softTerms = objective.softTerms[:i]
 		}
+		if err := objective.releaseSoftRationals(s.manager); err != nil {
+			return err
+		}
 		s.objectives = s.objectives[:last]
 	}
-	err := s.closeVerifications()
+	o := newRatOps(s.manager)
+	o.delAll(s.maxsmtUpper)
+	o.delAll(s.maxsmtLower)
+	s.maxsmtLower, s.maxsmtUpper = nil, nil
+	err := o.joined(s.closeVerifications())
 	if s.filter != nil && s.filterShared {
 		s.filter = nil
 	}
@@ -1801,7 +1917,7 @@ func (s *ArithmeticSolver) optUpperOf(i int) simplex.Infinitesimal {
 	if i < len(s.optUpperSet) && s.optUpperSet[i] {
 		return s.optUpper[i]
 	}
-	return simplex.NewInfiniteInfinitesimal(big.NewRat(1, 1), nil, nil)
+	return infiniteInfinitesimal(1)
 }
 
 func (s *ArithmeticSolver) setOptUpper(i int, v simplex.Infinitesimal) {
@@ -1817,7 +1933,7 @@ func (s *ArithmeticSolver) setOptUpper(i int, v simplex.Infinitesimal) {
 func (s *ArithmeticSolver) finishGeometricLex(index int) {
 	s.setOptUpper(index, s.optLowerOf(index))
 	for i := index + 1; i < len(s.objectives); i++ {
-		s.setOptLower(i, simplex.NewInfiniteInfinitesimal(big.NewRat(-1, 1), nil, nil))
+		s.setOptLower(i, infiniteInfinitesimal(-1))
 	}
 }
 
@@ -1826,7 +1942,7 @@ func (s *ArithmeticSolver) optLowerOf(i int) simplex.Infinitesimal {
 	if i < len(s.optLowerSet) && s.optLowerSet[i] {
 		return s.optLower[i]
 	}
-	return simplex.NewInfiniteInfinitesimal(big.NewRat(-1, 1), nil, nil)
+	return infiniteInfinitesimal(-1)
 }
 
 func (s *ArithmeticSolver) setOptLower(i int, v simplex.Infinitesimal) {
@@ -1840,7 +1956,7 @@ func (s *ArithmeticSolver) setOptLower(i int, v simplex.Infinitesimal) {
 // savedValue is saved_objective_value as an inf_eps.
 func savedValue(value smtcore.SMTArithmeticObjectiveValue) simplex.Infinitesimal {
 	if value.Unbounded && value.Finite.Infinity.Sign() == 0 {
-		return simplex.NewInfiniteInfinitesimal(big.NewRat(1, 1), nil, nil)
+		return infiniteInfinitesimal(1)
 	}
 	return value.Finite.Clone()
 }
@@ -1879,4 +1995,24 @@ func (s *ArithmeticSolver) updateLowerLex(idx int, v simplex.Infinitesimal) (res
 		s.setOptLower(i, savedValue(value))
 	}
 	return nil
+}
+
+// releaseSoftRationals is the objective's m_weights and m_adjust_value
+// offset dying with it.
+func (o *arithmeticObjective) releaseSoftRationals(m *ast.ASTManager) error {
+	if !o.softOwned {
+		return nil
+	}
+	r := newRatOps(m)
+	r.delAll(o.softWeights)
+	r.del(&o.softOffset)
+	o.softWeights, o.softOwned = nil, false
+	return r.err
+}
+
+func (s *ArithmeticSolver) rationalManager() *numeral.RationalManager {
+	if s == nil || s.manager == nil || s.manager.NumeralService() == nil {
+		return nil
+	}
+	return s.manager.NumeralService().Manager
 }

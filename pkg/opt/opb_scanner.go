@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"math/big"
 )
 
 type opbScanner struct {
@@ -62,8 +61,10 @@ func (s *opbScanner) consume(text string) (bool, error) {
 	return true, nil
 }
 
-func (s *opbScanner) integer() (big.Int, error) {
-	var result big.Int
+// integer is parse_coeff_r's scan: the coefficient's digit text, which
+// rational(num.c_ptr()) parses where the numeral is made.
+func (s *opbScanner) integer() (string, error) {
+	var result string
 	if err := s.skipWhitespace(); err != nil {
 		return result, fmt.Errorf("opb:%d: expected integer: %w", s.line, err)
 	}
@@ -89,10 +90,7 @@ func (s *opbScanner) integer() (big.Int, error) {
 	if sign == '-' {
 		digits = append([]byte{'-'}, digits...)
 	}
-	if _, ok := result.SetString(string(digits), 10); !ok {
-		return result, fmt.Errorf("opb:%d: invalid integer", s.line)
-	}
-	return result, nil
+	return string(digits), nil
 }
 
 func (s *opbScanner) skipComment() error {

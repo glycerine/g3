@@ -42,11 +42,11 @@ func TestObjectiveDecompositionConvertsBitVectorObjectives(t *testing.T) {
 		t.Fatal(decomposed, stats)
 	}
 	for i := range decomposed {
-		if !decomposed[i].Converted || len(decomposed[i].SoftTerms) != 3 || len(decomposed[i].Weights) != 3 || decomposed[i].Weights[0].RatString() != "1" || decomposed[i].Weights[1].RatString() != "2" || decomposed[i].Weights[2].RatString() != "4" {
+		if !decomposed[i].Converted || len(decomposed[i].SoftTerms) != 3 || len(decomposed[i].Weights) != 3 || ratString(&decomposed[i].Weights[0]) != "1" || ratString(&decomposed[i].Weights[1]) != "2" || ratString(&decomposed[i].Weights[2]) != "4" {
 			t.Fatal(decomposed[i])
 		}
 	}
-	if !decomposed[0].Negate || decomposed[0].Offset.RatString() != "7" || decomposed[1].Negate || decomposed[1].Offset.Sign() != 0 {
+	if !decomposed[0].Negate || ratString(&decomposed[0].Offset) != "7" || decomposed[1].Negate || decomposed[1].Offset.Sign() != 0 {
 		t.Fatal(decomposed)
 	}
 	if err = decomposer.Close(); err != nil {

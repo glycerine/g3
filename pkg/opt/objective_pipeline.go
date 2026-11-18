@@ -2,7 +2,7 @@ package opt
 
 import (
 	"errors"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
@@ -24,8 +24,8 @@ type pipelineObjective struct {
 	sourceKind FormulaObjectiveKind
 	term       ast.ASTRef
 	soft       []ast.ASTRef
-	weights    []big.Rat
-	offset     big.Rat
+	weights    []numeral.Rational
+	offset     numeral.Rational
 	negate     bool
 	id         string
 	converted  bool
@@ -56,6 +56,9 @@ func (p *ObjectivePipeline) Close() (result error) {
 		if o.term != (ast.ASTRef{}) {
 			result = errors.Join(result, p.manager.DelRef(&o.term))
 		}
+		q := p.manager.NumeralService().Manager
+		result = errors.Join(result, releaseRationals(q, o.weights), q.Del(&o.offset))
+		o.weights, o.offset = nil, numeral.NewRational()
 	}
 	for i := len(p.hard) - 1; i >= 0; i-- {
 		result = errors.Join(result, p.manager.DelRef(&p.hard[i]))

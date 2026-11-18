@@ -3,7 +3,7 @@ package opt_test
 // Source: src/opt/maxsmt.cpp default maxsat_engine dispatch.
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -23,7 +23,7 @@ func TestMaxSMTDefaultEngineIsMaxResForIntegralWeights(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer solver.Close()
-	if err = solver.AddSoftObjective([]ast.ASTHandle{p}, []*big.Rat{big.NewRat(1, 1)}); err != nil {
+	if err = solver.AddSoftObjective([]ast.ASTHandle{p}, []numeral.Rational{testRat(1, 1)}); err != nil {
 		t.Fatal(err)
 	}
 	result, err := solver.Check()

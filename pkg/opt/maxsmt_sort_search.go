@@ -3,7 +3,7 @@ package opt
 // Source: src/opt/sortmax.cpp operator() monotone-output search.
 
 import (
-	"math/big"
+	"errors"
 
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -16,11 +16,19 @@ func (e *sortMaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, 
 	}
 	// sortmax::operator(): offset = m_lower; m_upper = offset; before the
 	// expansion that throws for a weight that is not unsigned.
-	offset := new(big.Rat).SetFrac(e.scaledOffset, e.scale)
-	offset.Add(offset, &e.objective.softOffset)
+	o := newRatOps(e.solver.manager)
+	// rational offset = m_lower; m_upper = offset
+	offset := o.zero()
+	o.add(&offset, &e.mutexOffset, &e.objective.softOffset)
+	defer func() {
+		o.del(&offset)
+		resultErr = o.joined(resultErr)
+	}()
+	if !o.ok() {
+		return lbool.Undef, false, nil
+	}
 	if err = e.unscaleTerms(); err != nil {
-		e.setBounds(result, offset, offset)
-		return lbool.Undef, false, err
+		return lbool.Undef, false, errors.Join(err, e.setBounds(result, &offset, &offset))
 	}
 	encoder := newSortMaxEncoder(e)
 	e.outputs, err = encoder.network(e.inputs)
@@ -35,9 +43,22 @@ func (e *sortMaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, 
 	if err != nil {
 		return lbool.Undef, false, err
 	}
-	lower := new(big.Rat).Add(&e.objective.softOffset, new(big.Rat).SetInt64(int64(e.offset)))
-	upper := new(big.Rat).Add(lower, new(big.Rat).SetInt64(int64(len(e.inputs)-first)))
-	e.setBounds(result, lower, upper)
+	lowerValue, upperValue, step := o.zero(), o.zero(), o.int64(int64(e.offset))
+	lower, upper := &lowerValue, &upperValue
+	defer func() {
+		o.del(&step)
+		o.del(&upperValue)
+		o.del(&lowerValue)
+	}()
+	o.add(lower, &e.objective.softOffset, &step)
+	o.setInt64(&step, int64(len(e.inputs)-first))
+	o.add(upper, lower, &step)
+	if !o.ok() {
+		return lbool.Undef, false, nil
+	}
+	if err = e.setBounds(result, lower, upper); err != nil {
+		return lbool.Undef, false, err
+	}
 	for i := 0; i < first; i++ {
 		if err = e.solver.solver().Assert(e.outputs[i]); err != nil {
 			return lbool.Undef, false, err
@@ -70,9 +91,11 @@ func (e *sortMaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, 
 			return status, false, nil
 		}
 		if status == lbool.False {
-			lower.Set(upper)
-			e.setBounds(result, lower, upper)
-			return lbool.True, true, nil
+			o.set(lower, upper)
+			if !o.ok() {
+				return lbool.Undef, false, nil
+			}
+			return lbool.True, true, e.setBounds(result, lower, upper)
 		}
 		if err = e.solver.replaceModel(result); err != nil {
 			return lbool.Undef, false, err
@@ -95,9 +118,14 @@ func (e *sortMaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, 
 			}
 			first++
 		}
-		upper = new(big.Rat).Add(lower, new(big.Rat).SetInt64(int64(len(e.outputs)-first)))
-		e.setBounds(result, lower, upper)
+		o.setInt64(&step, int64(len(e.outputs)-first))
+		o.add(upper, lower, &step)
+		if !o.ok() {
+			return lbool.Undef, false, nil
+		}
+		if err = e.setBounds(result, lower, upper); err != nil {
+			return lbool.Undef, false, err
+		}
 	}
-	e.setBounds(result, lower, lower)
-	return lbool.True, true, nil
+	return lbool.True, true, e.setBounds(result, lower, lower)
 }

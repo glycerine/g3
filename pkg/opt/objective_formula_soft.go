@@ -1,31 +1,42 @@
 package opt
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
-func (c *ObjectiveFormulaCodec) normalizeSoft(args []ast.ASTHandle, metadata objectiveFormulaMetadata) (terms []ast.ASTHandle, weights []big.Rat, offset big.Rat, err error) {
+// normalizeSoft returns caller-owned weights and offset.
+func (c *ObjectiveFormulaCodec) normalizeSoft(args []ast.ASTHandle, metadata objectiveFormulaMetadata) (terms []ast.ASTHandle, weights []numeral.Rational, offset numeral.Rational, err error) {
+	o := newRatOps(c.manager)
+	offset = o.zero()
 	if len(args) != len(metadata.weights) {
 		return nil, nil, offset, ast.ErrASTDomain
 	}
+	weight := o.zero()
+	defer func() {
+		o.del(&weight)
+		if err = o.joined(err); err != nil {
+			o.delAll(weights)
+			weights = nil
+		}
+	}()
 	for i, argument := range args {
-		weight := metadata.weights[i]
-		if weight.Sign() < 0 {
-			weight.Neg(&weight)
-			offset.Sub(&offset, &weight)
+		o.set(&weight, &metadata.weights[i])
+		if o.sign(&weight) < 0 {
+			o.neg(&weight)
+			o.sub(&offset, &offset, &weight)
 			// is_maxsat: arg = mk_not(m, arg) (ast_util: strips a leading
 			// not and folds the Boolean constants).
 			argument, err = c.manager.MkNotSimplified(argument)
 			if err != nil {
-				return nil, nil, offset, err
+				return nil, weights, offset, err
 			}
 			if !c.manager.IsTrue(argument) && !c.manager.IsFalse(argument) {
 				ref, refErr := c.manager.NewRef(argument)
 				if refErr != nil {
-					return nil, nil, offset, refErr
+					return nil, weights, offset, refErr
 				}
 				c.derived = append(c.derived, ref)
 			}
@@ -35,27 +46,27 @@ func (c *ObjectiveFormulaCodec) normalizeSoft(args []ast.ASTHandle, metadata obj
 		// FUZZ-F5; g3trace builds only).
 		if c.manager.IsTrue(argument) {
 			if err = c.softFoldVerbose(metadata, i, &weight, "true"); err != nil {
-				return nil, nil, offset, err
+				return nil, weights, offset, err
 			}
 			continue
 		}
-		if weight.Sign() == 0 {
+		if o.sign(&weight) == 0 {
 			continue
 		}
 		if c.manager.IsFalse(argument) {
 			if err = c.softFoldVerbose(metadata, i, &weight, "false"); err != nil {
-				return nil, nil, offset, err
+				return nil, weights, offset, err
 			}
-			offset.Add(&offset, &weight)
+			o.add(&offset, &offset, &weight)
 			continue
 		}
 		terms = append(terms, argument)
-		weights = append(weights, weight)
+		weights = append(weights, o.clone(&weight))
 	}
 	return terms, weights, offset, nil
 }
 
-func (c *ObjectiveFormulaCodec) softFoldVerbose(metadata objectiveFormulaMetadata, i int, weight *big.Rat, value string) error {
+func (c *ObjectiveFormulaCodec) softFoldVerbose(metadata objectiveFormulaMetadata, i int, weight *numeral.Rational, value string) error {
 	if !diagnostic.VerboseProgress || i >= len(metadata.softOriginal) {
 		return nil
 	}
@@ -66,5 +77,10 @@ func (c *ObjectiveFormulaCodec) softFoldVerbose(metadata objectiveFormulaMetadat
 	if err != nil {
 		return err
 	}
-	return optProgress(1, ratText(weight)+": "+text+" |-> "+value+"\n")
+	o := newRatOps(c.manager)
+	weightText := o.text(weight)
+	if !o.ok() {
+		return o.err
+	}
+	return optProgress(1, weightText+": "+text+" |-> "+value+"\n")
 }

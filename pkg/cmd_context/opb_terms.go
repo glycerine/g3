@@ -1,7 +1,8 @@
 package cmd_context
 
 import (
-	"math/big"
+	"errors"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/opt"
@@ -30,8 +31,7 @@ func (c *Context) makeOPBTerm(term *opt.OPBTerm, declarations map[int32]ast.ASTH
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	coefficient := new(big.Rat).SetInt(&term.Coefficient)
-	value, err := manager.ArithmeticNumeralRat(coefficient, true)
+	value, err := opbNumeral(manager, term.Coefficient)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -64,4 +64,16 @@ func (c *Context) makeOPBSum(terms []opt.OPBTerm, minimizeSyntax bool, declarati
 		}
 	}
 	return result, nil
+}
+
+// opbNumeral is arith.mk_numeral(rational(num.c_ptr()), true) for OPB's
+// coefficient digit text.
+func opbNumeral(manager *ast.ASTManager, text string) (_ ast.ASTHandle, err error) {
+	q := manager.NumeralService().Manager
+	r := numeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&r)) }()
+	if err = q.SetString(&r, text); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return manager.ArithmeticNumeralFromRational(&r, true)
 }

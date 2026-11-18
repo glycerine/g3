@@ -27,9 +27,9 @@ func TestOPBDocumentCopyOwnsIntegersAndSlices(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := d.Copy()
-	c.Objectives[0].Terms[0].Coefficient.SetInt64(99)
+	c.Objectives[0].Terms[0].Coefficient = "99"
 	c.Constraints[0].Terms[0].Literals[0].Variable = 8
-	if d.Objectives[0].Terms[0].Coefficient.String() != "7" || d.Constraints[0].Terms[0].Literals[0].Variable != 1 {
+	if d.Objectives[0].Terms[0].Coefficient != "7" || d.Constraints[0].Terms[0].Literals[0].Variable != 1 {
 		t.Fatal("copy aliases source")
 	}
 }

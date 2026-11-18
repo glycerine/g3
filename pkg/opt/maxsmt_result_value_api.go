@@ -4,9 +4,11 @@ package opt
 
 import "github.com/glycerine/g3/pkg/ast"
 
+// SoftValue returns a copy whose rationals the caller releases
+// (ObjectiveValue.ReleaseRationals).
 func (s *ArithmeticSolver) SoftValue(result *ArithmeticResult, objective int) (ObjectiveValue, error) {
 	if s == nil || result == nil || objective < 0 || objective >= len(s.objectives) || objective >= len(result.Values) || !s.objectives[objective].soft || !result.Values[objective].Soft {
 		return ObjectiveValue{}, ast.ErrASTHandle
 	}
-	return cloneObjectiveValue(result.Values[objective]), nil
+	return cloneObjectiveValue(s.rationalManager(), &result.Values[objective])
 }

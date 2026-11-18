@@ -3,7 +3,7 @@ package opt_test
 // Source: src/opt/maxsmt.cpp commit_assignment across lexicographic objectives.
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -43,10 +43,10 @@ func TestMaxSMTLexCommitPreservesSoftAssignmentsAndBounds(t *testing.T) {
 	if err = solver.Assert(mutex); err != nil {
 		t.Fatal(err)
 	}
-	if err = solver.AddSoftObjective([]ast.ASTHandle{p}, []*big.Rat{big.NewRat(1, 2)}); err != nil {
+	if err = solver.AddSoftObjective([]ast.ASTHandle{p}, []numeral.Rational{testRat(1, 2)}); err != nil {
 		t.Fatal(err)
 	}
-	if err = solver.AddSoftObjective([]ast.ASTHandle{q}, []*big.Rat{big.NewRat(1, 2)}); err != nil {
+	if err = solver.AddSoftObjective([]ast.ASTHandle{q}, []numeral.Rational{testRat(1, 2)}); err != nil {
 		t.Fatal(err)
 	}
 	result, err := solver.Check()
@@ -65,7 +65,7 @@ func TestMaxSMTLexCommitPreservesSoftAssignmentsAndBounds(t *testing.T) {
 	if len(first) != 1 || !first[0] || len(second) != 1 || second[0] {
 		t.Fatal("lex soft assignments", first, second)
 	}
-	if result.Values[0].SoftLower.Cmp(&result.Values[0].SoftUpper) != 0 || result.Values[1].SoftLower.Cmp(&result.Values[1].SoftUpper) != 0 {
+	if !ratEq(&result.Values[0].SoftLower, &result.Values[0].SoftUpper) || !ratEq(&result.Values[1].SoftLower, &result.Values[1].SoftUpper) {
 		t.Fatal("optimal soft bounds", result.Values)
 	}
 	first[0] = false

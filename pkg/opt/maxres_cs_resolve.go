@@ -4,7 +4,7 @@ package opt
 
 import (
 	"errors"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -17,7 +17,7 @@ import (
 //
 // fml, asum, cls, d are the source's locals; fml ends as the set's closing
 // hard disjunction.
-func (e *maxResEngine) correctionResolve(correction []ast.ASTHandle, weight *big.Rat) (resultErr error) {
+func (e *maxResEngine) correctionResolve(correction []ast.ASTHandle, weight *numeral.Rational) (resultErr error) {
 	if len(correction) == 0 {
 		return errMaxResState
 	}

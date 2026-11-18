@@ -4,7 +4,7 @@ package opt
 
 import (
 	"errors"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
@@ -118,8 +118,8 @@ func (l *maxResLocal) release() error {
 //
 // fml, asum, cls, d and dd are the source's locals; only m_defs, m_trail
 // and m_asms keep terms past the call.
-func (e *maxResEngine) maxResolve(core []ast.ASTHandle, weight *big.Rat) (resultErr error) {
-	if len(core) == 0 || weight == nil || weight.Sign() <= 0 {
+func (e *maxResEngine) maxResolve(core []ast.ASTHandle, weight *numeral.Rational) (resultErr error) {
+	if len(core) == 0 || weight == nil || e.sign(weight) <= 0 {
 		return errMaxResState
 	}
 	m := e.solver.manager

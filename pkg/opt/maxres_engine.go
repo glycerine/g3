@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/glycerine/g3/pkg/util/lbool"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
@@ -26,13 +26,17 @@ type maxResEngine struct {
 	defOwner  maxSMTASTOwner
 	baseTrail maxSMTASTOwner
 	// lastCore is m_B: the last core or correction set max_resolve copied.
-	lastCore          []ast.ASTHandle
-	active            []ast.ASTHandle
-	weights           map[ast.ASTHandle]*big.Rat
-	proxies           map[ast.ASTHandle]ast.ASTHandle
-	mus               *solver.MUS
-	lower             big.Rat
-	upper             big.Rat
+	lastCore []ast.ASTHandle
+	active   []ast.ASTHandle
+	// weights is m_asm2weight: each entry a rational owned by the map.
+	weights map[ast.ASTHandle]*numeral.Rational
+	proxies map[ast.ASTHandle]ast.ASTHandle
+	mus     *solver.MUS
+	lower   numeral.Rational
+	upper   numeral.Rational
+	// ratErr is the first rational failure of a helper that cannot return
+	// one (z3's rational operators throw); optimize returns it.
+	ratErr            error
 	bestSet           bool
 	correctionModel   *model.ModelCore
 	correctionSize    int
@@ -50,8 +54,10 @@ type maxResEngine struct {
 }
 
 func newMaxResEngine(s *ArithmeticSolver, objective *arithmeticObjective, index int, config maxSMTConfig) (result *maxResEngine, resultErr error) {
-	e := &maxResEngine{solver: s, objective: objective, index: index, config: config, strategy: maxResStrategyFromConfig(config), weights: make(map[ast.ASTHandle]*big.Rat), proxies: make(map[ast.ASTHandle]ast.ASTHandle)}
-	e.lower.Set(&objective.softOffset)
+	e := &maxResEngine{solver: s, objective: objective, index: index, config: config, strategy: maxResStrategyFromConfig(config), weights: make(map[ast.ASTHandle]*numeral.Rational), proxies: make(map[ast.ASTHandle]ast.ASTHandle), lower: numeral.NewRational(), upper: numeral.NewRational()}
+	if err := e.q().Copy(&e.lower, &objective.softOffset); err != nil {
+		return nil, err
+	}
 	e.trail.manager, e.defOwner.manager, e.baseTrail.manager = s.manager, s.manager, s.manager
 	mus, err := solver.NewMUS(s.backend, solver.MUSConfig{})
 	if err != nil {
@@ -72,6 +78,7 @@ func newMaxResEngine(s *ArithmeticSolver, objective *arithmeticObjective, index 
 		e.mutexStatus, e.mutexStopped = status, true
 		return e, nil
 	}
+	defer func() { resultErr = errors.Join(resultErr, releaseWeightedTerms(e.q(), terms)) }()
 	for i := range terms {
 		if err = e.addSoft(terms[i].expression, &terms[i].weight); err != nil {
 			return nil, fmt.Errorf("maxres mutex term %d: %w", i, err)
@@ -112,6 +119,7 @@ func (e *maxResEngine) close() error {
 	}
 	asms := pin(e.active)
 	core := pin(e.lastCore)
+	result = errors.Join(result, e.releaseWeights())
 	e.active, e.lastCore, e.currentCorrection, e.weights, e.proxies = nil, nil, nil, nil, nil
 	if e.correctionModel != nil {
 		result = errors.Join(result, e.correctionModel.DecRef())
@@ -140,4 +148,38 @@ func (e *maxResEngine) clearCorrectionModel() error {
 		e.correctionSize = 0
 	}
 	return err
+}
+
+func (e *maxResEngine) q() *numeral.RationalManager { return e.solver.rationalManager() }
+
+// noteRat records a rational failure for optimize to return.
+func (e *maxResEngine) noteRat(err error) {
+	if err != nil && e.ratErr == nil {
+		e.ratErr = err
+	}
+}
+
+// cmp compares two rationals of the engine's manager.
+func (e *maxResEngine) cmp(a, b *numeral.Rational) int {
+	c, err := e.q().Compare(a, b)
+	e.noteRat(err)
+	return c
+}
+
+// releaseWeights is ~maxres's m_asm2weight, m_lower and m_upper.
+func (e *maxResEngine) releaseWeights() (err error) {
+	q := e.q()
+	for k, w := range e.weights {
+		err = errors.Join(err, q.Del(w))
+		delete(e.weights, k)
+	}
+	err = errors.Join(err, q.Del(&e.lower), q.Del(&e.upper))
+	e.lower, e.upper = numeral.NewRational(), numeral.NewRational()
+	return err
+}
+
+func (e *maxResEngine) sign(a *numeral.Rational) int {
+	s, err := e.q().Sign(a)
+	e.noteRat(err)
+	return int(s)
 }

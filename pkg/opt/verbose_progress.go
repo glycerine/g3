@@ -8,6 +8,7 @@ package opt
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"math/big"
 	"strconv"
 	"strings"
@@ -36,45 +37,60 @@ func optProgressEnabled(level uint32) (bool, error) {
 }
 
 // ratText is `out << rational`: an integer, or numerator/denominator.
-func ratText(r *big.Rat) string { return r.RatString() }
+func (s *ArithmeticSolver) ratText(r *numeral.Rational) string {
+	o := newRatOps(s.manager)
+	return o.text(r)
+}
 
 // adjustSoftBound is maxsmt_solver_base::m_adjust_value for objective
-// index. The engines' bounds already include the objective's soft offset;
-// an objective converted from minimize/maximize also negates and offsets
-// (from_fmls' set_negate/set_offset, kept as its verification).
-func (s *ArithmeticSolver) adjustSoftBound(index int, x *big.Rat) *big.Rat {
-	r := new(big.Rat).Set(x)
+// index into out. The engines' bounds already include the objective's soft
+// offset; an objective converted from minimize/maximize also negates and
+// offsets (from_fmls' set_negate/set_offset, kept as its verification).
+func (s *ArithmeticSolver) adjustSoftBound(o *ratOps, index int, x, out *numeral.Rational) {
+	o.set(out, x)
 	if index >= 0 && index < len(s.verifications) && s.verifications[index] != nil {
 		v := s.verifications[index]
 		if v.negate {
-			r.Neg(r)
+			o.neg(out)
 		}
-		r.Add(r, &v.offset)
+		o.add(out, out, &v.offset)
 	}
-	return r
 }
 
 // traceBounds is maxsmt_solver_base::trace_bounds(solver):
 // IF_VERBOSE(1, l = adjust(m_lower); u = adjust(m_upper); if (l > u)
 // swap; "(opt.<solver> [l:u])").
-func (s *ArithmeticSolver) traceBounds(solver string, index int, lower, upper *big.Rat) error {
+func (s *ArithmeticSolver) traceBounds(solver string, index int, lower, upper *numeral.Rational) error {
 	if enabled, err := optProgressEnabled(1); err != nil || !enabled {
 		return err
 	}
-	l, u := s.adjustSoftBound(index, lower), s.adjustSoftBound(index, upper)
-	if l.Cmp(u) > 0 {
-		l, u = u, l
+	o := newRatOps(s.manager)
+	l, u := o.zero(), o.zero()
+	defer o.del(&u)
+	defer o.del(&l)
+	s.adjustSoftBound(&o, index, lower, &l)
+	s.adjustSoftBound(&o, index, upper, &u)
+	lt, ut := o.text(&l), o.text(&u)
+	if o.cmp(&l, &u) > 0 {
+		lt, ut = ut, lt
 	}
-	return optProgress(1, "(opt."+solver+" ["+ratText(l)+":"+ratText(u)+"])\n")
+	if !o.ok() {
+		return o.err
+	}
+	return optProgress(1, "(opt."+solver+" ["+lt+":"+ut+"])\n")
 }
 
 // mutexVerbose is find_mutexes/process_mutex's
 // IF_VERBOSE(1, "(opt.maxsat mutex size: " << i + 1 << " weight: " << weight << ")").
-func mutexVerbose(size int, weight *big.Rat) error {
+func (s *ArithmeticSolver) mutexVerbose(size int, weight *numeral.Rational) error {
 	if !diagnostic.VerboseProgress {
 		return nil
 	}
-	return optProgress(1, "(opt.maxsat mutex size: "+strconv.Itoa(size)+" weight: "+ratText(weight)+")\n")
+	return mutexVerboseText(size, s.ratText(weight))
+}
+
+func mutexVerboseText(size int, weight string) error {
+	return optProgress(1, "(opt.maxsat mutex size: "+strconv.Itoa(size)+" weight: "+weight+")\n")
 }
 
 // mkPPString is mk_pp(e, m) through the SMT2 printer.
@@ -158,7 +174,7 @@ func (s *ArithmeticSolver) maxsmtEndVerbose(index int, status lbool.LBool, resul
 			if isNot != assigned {
 				truth = " |-> true "
 			}
-			out.WriteString(ratText(objective.softWeights[i]) + ": " + text + truth + "\n")
+			out.WriteString(s.ratText(&objective.softWeights[i]) + ": " + text + truth + "\n")
 		}
 	}
 	return optProgress(1, out.String())
@@ -228,7 +244,7 @@ func (e *maxResEngine) coreDisplayVerbose(core []ast.ASTHandle) error {
 		}
 		weight := "0"
 		if w := e.weights[expression]; w != nil {
-			weight = ratText(w)
+			weight = e.solver.ratText(w)
 		}
 		out.WriteString(text + " : " + weight + " ")
 	}

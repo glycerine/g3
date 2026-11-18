@@ -4,7 +4,7 @@ package opt
 // src/opt/maxsmt.cpp:177-195 (process_mutex, maxsmt_compare_soft).
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -23,21 +23,11 @@ import (
 
 // ratWeightDesc is compare_asm / maxsmt_compare_soft over rational weights.
 type ratWeightDesc struct {
-	v []ast.ASTHandle
-	w map[ast.ASTHandle]*big.Rat
+	v   []ast.ASTHandle
+	w   map[ast.ASTHandle]*numeral.Rational
+	cmp func(a, b *numeral.Rational) int
 }
 
 func (s ratWeightDesc) Len() int           { return len(s.v) }
 func (s ratWeightDesc) Swap(i, j int)      { s.v[i], s.v[j] = s.v[j], s.v[i] }
-func (s ratWeightDesc) Less(i, j int) bool { return s.w[s.v[i]].Cmp(s.w[s.v[j]]) > 0 }
-
-// intWeightDesc is maxsmt_compare_soft over the integer weights of the
-// maxsmt mutex decomposition.
-type intWeightDesc struct {
-	v []ast.ASTHandle
-	w map[ast.ASTHandle]*big.Int
-}
-
-func (s intWeightDesc) Len() int           { return len(s.v) }
-func (s intWeightDesc) Swap(i, j int)      { s.v[i], s.v[j] = s.v[j], s.v[i] }
-func (s intWeightDesc) Less(i, j int) bool { return s.w[s.v[i]].Cmp(s.w[s.v[j]]) > 0 }
+func (s ratWeightDesc) Less(i, j int) bool { return s.cmp(s.w[s.v[i]], s.w[s.v[j]]) > 0 }

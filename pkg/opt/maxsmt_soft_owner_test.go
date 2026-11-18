@@ -1,17 +1,16 @@
 package opt
 
 import (
-	"math/big"
 	"testing"
 )
 
 func TestWeightedSoftSetCloseOwnsUnreleasedReferences(t *testing.T) {
 	f := newWeightedSoftFixture(t)
 	set, _ := newWeightedSoftSet(f.manager)
-	if err := set.Add(f.p, big.NewRat(1, 1)); err != nil {
+	if err := set.Add(f.p, testRatPtr(1, 1)); err != nil {
 		t.Fatal(err)
 	}
-	if err := set.Add(f.q, big.NewRat(2, 1)); err != nil {
+	if err := set.Add(f.q, testRatPtr(2, 1)); err != nil {
 		t.Fatal(err)
 	}
 	if err := set.Close(); err != nil {
@@ -28,7 +27,7 @@ func TestWeightedSoftSetCloseOwnsUnreleasedReferences(t *testing.T) {
 func TestWeightedSoftSetReleaseTransfersReferences(t *testing.T) {
 	f := newWeightedSoftFixture(t)
 	set, _ := newWeightedSoftSet(f.manager)
-	if err := set.Add(f.p, big.NewRat(1, 1)); err != nil {
+	if err := set.Add(f.p, testRatPtr(1, 1)); err != nil {
 		t.Fatal(err)
 	}
 	terms, _, _, err := set.Release()

@@ -1,7 +1,6 @@
 package opt
 
 import (
-	"math/big"
 	"testing"
 )
 
@@ -17,7 +16,7 @@ func TestWeightedSoftSetRejectsInvalidOwnersAndWeights(t *testing.T) {
 	if err := set.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if err := set.Add(f.p, big.NewRat(1, 1)); err == nil {
+	if err := set.Add(f.p, testRatPtr(1, 1)); err == nil {
 		t.Fatal("closed set accepted term")
 	}
 	if _, _, _, err := set.Release(); err == nil {

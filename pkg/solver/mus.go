@@ -3,7 +3,7 @@ package solver
 // Source: src/solver/mus.cpp; src/solver/mus.h.
 
 import (
-	"math/big"
+	"errors"
 	"reflect"
 	"strconv"
 
@@ -12,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type MUSModelTruth func(*model.ModelCore, ast.ASTHandle) (bool, error)
@@ -32,11 +33,13 @@ type MUS struct {
 	bestModel             *model.ModelCore
 	bestModelOwned        bool
 	soft                  []ast.ASTRef
-	weights               []*big.Rat
-	weight                big.Rat
-	checks                uint32
-	ownerBytes            uint64
-	closed                bool
+	// weights and weight are m_weights (vector<rational>) and m_weight,
+	// rationals of the AST manager's rational manager.
+	weights    []numeral.Rational
+	weight     numeral.Rational
+	checks     uint32
+	ownerBytes uint64
+	closed     bool
 }
 
 func NewMUS(s Solver, config MUSConfig) (*MUS, error) {
@@ -51,7 +54,7 @@ func NewMUS(s Solver, config MUSConfig) (*MUS, error) {
 	if err = m.Budget().Reserve(amount); err != nil {
 		return nil, err
 	}
-	u := &MUS{solver: s, manager: m, config: config, literalIndex: make(map[ast.ASTHandle]uint32), ownerBytes: amount}
+	u := &MUS{solver: s, manager: m, config: config, literalIndex: make(map[ast.ASTHandle]uint32), ownerBytes: amount, weight: numeral.NewRational()}
 	u.self = u
 	return u, nil
 }
@@ -151,7 +154,7 @@ func (u *MUS) clearBestModel() error {
 	return nil
 }
 
-func (u *MUS) updateModel() error {
+func (u *MUS) updateModel() (err error) {
 	if len(u.soft) == 0 {
 		return nil
 	}
@@ -171,7 +174,10 @@ func (u *MUS) updateModel() error {
 			_ = md.DecRef()
 		}
 	}()
-	var weight big.Rat
+	q := u.q()
+	// rational w(0)
+	weight := numeral.NewRational()
+	defer func() { err = errors.Join(err, q.Del(&weight)) }()
 	for i := range u.soft {
 		h, e := u.manager.RefGet(u.soft[i])
 		if e != nil {
@@ -182,15 +188,27 @@ func (u *MUS) updateModel() error {
 			return e
 		}
 		if !truth {
-			weight.Add(&weight, u.weights[i])
+			if e = q.Add(&weight, &u.weights[i], &weight); e != nil {
+				return e
+			}
 		}
 	}
-	if u.bestModel == nil || weight.Cmp(&u.weight) < 0 {
+	less := u.bestModel == nil
+	if !less {
+		c, e := q.Compare(&weight, &u.weight)
+		if e != nil {
+			return e
+		}
+		less = c < 0
+	}
+	if less {
 		if err = u.clearBestModel(); err != nil {
 			return err
 		}
 		u.bestModel, u.bestModelOwned, keep = md, true, true
-		u.weight.Set(&weight)
+		if err = q.Copy(&u.weight, &weight); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -290,7 +308,8 @@ func (u *MUS) Reset() error {
 	return nil
 }
 
-func (u *MUS) SetSoft(soft []ast.ASTHandle, weights []*big.Rat) error {
+// SetSoft borrows weights; the MUS keeps copies.
+func (u *MUS) SetSoft(soft []ast.ASTHandle, weights []numeral.Rational) error {
 	if err := u.open(); err != nil {
 		return err
 	}
@@ -300,32 +319,44 @@ func (u *MUS) SetSoft(soft []ast.ASTHandle, weights []*big.Rat) error {
 	if err := u.clearBestModel(); err != nil {
 		return err
 	}
-	u.weight.SetInt64(0)
+	q := u.q()
+	if err := q.SetInt64(&u.weight, 0); err != nil {
+		return err
+	}
 	for i, h := range soft {
-		if weights[i] == nil {
-			return ast.ErrASTHandle
-		}
 		if err := u.pin(&u.soft, h); err != nil {
 			return err
 		}
-		copyWeight := new(big.Rat).Set(weights[i])
+		copyWeight := numeral.NewRational()
+		if err := q.Copy(&copyWeight, &weights[i]); err != nil {
+			return err
+		}
 		u.weights = append(u.weights, copyWeight)
-		u.weight.Add(&u.weight, copyWeight)
+		if err := q.Add(&u.weight, &copyWeight, &u.weight); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func (u *MUS) BestModel() (*model.ModelCore, *big.Rat, error) {
+// BestModel returns the best model (a new reference) and copies m_weight
+// into the caller-owned weight.
+func (u *MUS) BestModel(weight *numeral.Rational) (*model.ModelCore, error) {
 	if err := u.open(); err != nil {
-		return nil, nil, err
+		return nil, err
+	}
+	if err := u.q().Copy(weight, &u.weight); err != nil {
+		return nil, err
 	}
 	if u.bestModel != nil {
 		if err := u.bestModel.IncRef(); err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	}
-	return u.bestModel, new(big.Rat).Set(&u.weight), nil
+	return u.bestModel, nil
 }
+
+func (u *MUS) q() *numeral.RationalManager { return u.manager.NumeralService().Manager }
 
 func (u *MUS) Close() error {
 	if u == nil || u.self != u {
@@ -344,6 +375,15 @@ func (u *MUS) Close() error {
 		return err
 	}
 	if err := closeASTRefs(u.manager, &u.literals); err != nil {
+		return err
+	}
+	q := u.q()
+	for i := len(u.weights) - 1; i >= 0; i-- {
+		if err := q.Del(&u.weights[i]); err != nil {
+			return err
+		}
+	}
+	if err := q.Del(&u.weight); err != nil {
 		return err
 	}
 	u.weights = nil

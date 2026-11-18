@@ -4,36 +4,48 @@ package opt
 // src/opt/maxsmt.cpp maxsmt::add duplicate accumulation.
 
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (s *weightedSoftSet) Add(term ast.ASTHandle, weight *big.Rat) error {
+// Add borrows weight; the set keeps its own copy.
+func (s *weightedSoftSet) Add(term ast.ASTHandle, weight *numeral.Rational) error {
 	if s == nil || s.closed || s.manager == nil || weight == nil {
 		return ast.ErrASTHandle
 	}
-	if weight.Sign() == 0 {
-		return nil
+	o := newRatOps(s.manager)
+	if o.sign(weight) == 0 {
+		return o.err
 	}
 	normalized := term
-	positive := new(big.Rat).Set(weight)
-	if positive.Sign() < 0 {
-		s.offset.Add(&s.offset, positive)
-		positive.Neg(positive)
+	positive := o.clone(weight)
+	if o.sign(&positive) < 0 {
+		o.add(&s.offset, &s.offset, &positive)
+		o.neg(&positive)
+		if !o.ok() {
+			o.del(&positive)
+			return o.err
+		}
 		var err error
 		normalized, err = s.manager.MkNot(term)
 		if err != nil {
-			return err
+			o.del(&positive)
+			return o.joined(err)
 		}
 	}
 	if index, found := s.index[normalized]; found {
-		s.weights[index].Add(s.weights[index], positive)
-		return nil
+		o.add(&s.weights[index], &s.weights[index], &positive)
+		o.del(&positive)
+		return o.err
+	}
+	if !o.ok() {
+		o.del(&positive)
+		return o.err
 	}
 	ref, err := s.manager.NewRef(normalized)
 	if err != nil {
-		return err
+		o.del(&positive)
+		return o.joined(err)
 	}
 	s.index[normalized] = len(s.terms)
 	s.terms = append(s.terms, ref)

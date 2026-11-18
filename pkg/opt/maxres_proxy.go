@@ -4,7 +4,7 @@ package opt
 
 import (
 	"errors"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -45,10 +45,9 @@ func (e *maxResEngine) freshProxy(formula ast.ASTHandle, equivalent bool, prefix
 	return proxy, nil
 }
 
-func (e *maxResEngine) addSoft(expression ast.ASTHandle, weight *big.Rat) (resultErr error) {
+func (e *maxResEngine) addSoft(expression ast.ASTHandle, weight *numeral.Rational) (resultErr error) {
 	if old := e.weights[expression]; old != nil {
-		old.Add(old, weight)
-		return nil
+		return e.q().Add(old, weight, old)
 	}
 	literal, err := maxResLiteral(e.solver.manager, expression)
 	if err != nil {

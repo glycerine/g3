@@ -2,7 +2,6 @@ package cmd_context
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/opt"
@@ -54,7 +53,7 @@ func (c *Context) LoadOPB(document opt.OPBDocument) (OPBLoadSummary, error) {
 		if e != nil {
 			return OPBLoadSummary{}, fmt.Errorf("opb: constraint %d: %w", index+1, e)
 		}
-		right, e := manager.ArithmeticNumeralRat(new(big.Rat).SetInt(&constraint.Bound), true)
+		right, e := opbNumeral(manager, constraint.Bound)
 		if e != nil {
 			return OPBLoadSummary{}, e
 		}

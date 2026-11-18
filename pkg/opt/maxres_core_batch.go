@@ -55,7 +55,9 @@ func (e *maxResEngine) collectCoreBatch(first []ast.ASTHandle, result *Arithmeti
 			if err = optProgress(100, "(opt.maxres core is empty)\n"); err != nil {
 				return nil, lbool.Undef, err
 			}
-			e.lower.Set(&e.upper)
+			if err := e.q().Copy(&e.lower, &e.upper); err != nil {
+				return nil, lbool.Undef, err
+			}
 			return nil, lbool.True, nil
 		}
 		cores = append(cores, core)

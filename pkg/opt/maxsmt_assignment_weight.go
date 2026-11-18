@@ -4,20 +4,24 @@ package opt
 
 import (
 	"errors"
-	"math/big"
+
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 var errMaxSMTAssignment = errors.New("opt: invalid MaxSMT assignment")
 
-func softAssignmentWeight(objective *arithmeticObjective, assignment []bool) (*big.Rat, error) {
+// softAssignmentWeight is commit_assignment's rational k: the sum of the
+// weights whose assignment holds. The caller owns the result.
+func (s *ArithmeticSolver) softAssignmentWeight(objective *arithmeticObjective, assignment []bool) (numeral.Rational, error) {
 	if objective == nil || len(assignment) != len(objective.softWeights) {
-		return nil, errMaxSMTAssignment
+		return numeral.NewRational(), errMaxSMTAssignment
 	}
-	weight := new(big.Rat)
+	o := newRatOps(s.manager)
+	weight := o.zero()
 	for i, truth := range assignment {
 		if truth {
-			weight.Add(weight, objective.softWeights[i])
+			o.add(&weight, &weight, &objective.softWeights[i])
 		}
 	}
-	return weight, nil
+	return weight, o.err
 }

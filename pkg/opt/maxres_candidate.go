@@ -2,33 +2,33 @@ package opt
 
 // Source: src/opt/maxres.cpp update_assignment upper-bound/model retention.
 
-import "errors"
-import "fmt"
-import "math/big"
+import (
+	"errors"
+	"fmt"
 
-import "github.com/glycerine/g3/pkg/ast"
-import "github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/util/numeral"
+)
 
 func (e *maxResEngine) updateMUSModel(result *ArithmeticResult) error {
 	if e == nil || e.mus == nil {
 		return errMaxResState
 	}
 	var candidate *model.ModelCore
-	var weight big.Rat
+	// rational w; the mus's best model weight (0 for the sat core)
+	weight := numeral.NewRational()
+	defer func() { e.noteRat(e.q().Del(&weight)) }()
 	var err error
 	if e.config.satCoreEnabled {
 		candidate, err = e.solver.solver().AcquireModel()
 	} else {
-		var value *big.Rat
-		candidate, value, err = e.mus.BestModel()
-		if value != nil {
-			weight.Set(value)
-		}
+		candidate, err = e.mus.BestModel(&weight)
 	}
 	if err != nil || candidate == nil {
 		return err
 	}
-	if weight.Cmp(&e.upper) < 0 {
+	if e.cmp(&weight, &e.upper) < 0 {
 		return e.updateCandidateModel(result, candidate)
 	}
 	return candidate.DecRef()
@@ -54,6 +54,7 @@ func (e *maxResEngine) updateCandidateModel(result *ArithmeticResult, md *model.
 	// maxsmt_solver_base::init evaluates the initial model without
 	// completion; update_assignment's is_true completes it.
 	cost, satisfied, assignment, err := e.solver.evaluateSoftAssignment(e.objective, md, !e.initialCandidate)
+	defer func() { e.noteRat(errors.Join(e.q().Del(&cost), e.q().Del(&satisfied))) }()
 	if err != nil {
 		return errors.Join(fmt.Errorf("maxres candidate objective: %w", err), md.DecRef())
 	}
@@ -85,7 +86,7 @@ func (e *maxResEngine) updateCandidateModel(result *ArithmeticResult, md *model.
 		e.correctionModel = md
 		e.correctionSize = correctionSize
 	}
-	if e.bestSet && cost.Cmp(&e.upper) > 0 {
+	if e.bestSet && e.cmp(&cost, &e.upper) > 0 {
 		return md.DecRef()
 	}
 	// update_assignment: if (!m_c.verify_model(m_index, mdl, upper)) return;
@@ -106,8 +107,12 @@ func (e *maxResEngine) updateCandidateModel(result *ArithmeticResult, md *model.
 	if err = e.solver.captureResultLabels(result); err != nil {
 		return err
 	}
-	setSoftObjectiveValue(result, e.index, cost, satisfied, assignment)
-	e.upper.Set(&cost)
+	if err = setSoftObjectiveValue(result, e.index, &cost, &satisfied, assignment); err != nil {
+		return err
+	}
+	if err = e.q().Copy(&e.upper, &cost); err != nil {
+		return err
+	}
 	e.bestSet = true
 	e.stats.Improvements++
 	// update_assignment: m_upper = upper; trace(); add_upper_bound_block()

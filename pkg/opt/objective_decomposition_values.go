@@ -2,20 +2,24 @@ package opt
 
 import (
 	"errors"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 var ErrInvalidOptimizationValue = errors.New("g3: invalid optimization value")
 
 // RestoreValue maps a MaxSAT penalty back to the source objective value.
-func (o *DecomposedObjective) RestoreValue(penalty *big.Rat) (*big.Rat, error) {
-	if o == nil || penalty == nil {
-		return nil, ErrInvalidOptimizationValue
+// out may alias penalty.
+func (o *DecomposedObjective) RestoreValue(q *numeral.RationalManager, penalty, out *numeral.Rational) error {
+	if o == nil || penalty == nil || out == nil {
+		return ErrInvalidOptimizationValue
 	}
-	result := new(big.Rat).Set(penalty)
+	if err := q.Copy(out, penalty); err != nil {
+		return err
+	}
 	if o.Negate {
-		result.Neg(result)
+		if err := q.Neg(out); err != nil {
+			return err
+		}
 	}
-	result.Add(result, &o.Offset)
-	return result, nil
+	return q.Add(out, &o.Offset, out)
 }

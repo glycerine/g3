@@ -5,6 +5,7 @@ package opt
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic/arith"
@@ -22,12 +23,22 @@ func (d *ObjectiveDecomposer) pseudoBooleanSum(root ast.ASTHandle) (result pbSum
 		return result, ok, err
 	}
 	defer func() { err = errors.Join(err, sum.Close()) }()
-	result.offset.Set(&sum.Constant)
-	result.weights = cloneRationals(sum.Coefficients)
+	// TODO bigC: arith.ExtractPBSum's coefficients are big.Rat.
+	o := newRatOps(d.manager)
+	result.offset = o.zero()
+	o.fromBig(&result.offset, &sum.Constant)
+	result.weights = make([]numeral.Rational, len(sum.Coefficients))
+	for i := range sum.Coefficients {
+		result.weights[i] = o.zero()
+		o.fromBig(&result.weights[i], &sum.Coefficients[i])
+	}
+	if !o.ok() {
+		return pbSum{}, false, errors.Join(o.err, result.release(o.q))
+	}
 	for _, term := range sum.Args {
 		h, e := d.retain(term)
 		if e != nil {
-			return pbSum{}, false, e
+			return pbSum{}, false, errors.Join(e, result.release(o.q))
 		}
 		result.terms = append(result.terms, h)
 	}

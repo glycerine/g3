@@ -2,7 +2,7 @@ package opt_test
 
 import (
 	"errors"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -12,13 +12,13 @@ import (
 func TestObjectivePipelineBuildInspectAndCopy(t *testing.T) {
 	f := newObjectivePipelineFixture(t)
 	p := pipelineBoolean(t, f, "pipeline-build-p")
-	weight := *big.NewRat(3, 2)
-	objectives := []opt.DecomposedObjective{{SourceKind: opt.FormulaMaxSAT, SoftTerms: []ast.ASTHandle{p}, Weights: []big.Rat{weight}, ID: "pref", Converted: true}}
+	weight := testRat(3, 2)
+	objectives := []opt.DecomposedObjective{{SourceKind: opt.FormulaMaxSAT, SoftTerms: []ast.ASTHandle{p}, Weights: []numeral.Rational{weight}, ID: "pref", Converted: true}}
 	pipeline, err := opt.NewObjectivePipeline(f.manager, f.params, "QF_UF", f.config, nil, objectives)
 	if err != nil {
 		t.Fatal(err)
 	}
-	objectives[0].Weights[0].SetInt64(99)
+	objectives[0].Weights[0] = testRat(99, 1)
 	if pipeline.ObjectiveCount() != 1 || pipeline.HardCount() != 0 {
 		t.Fatal(pipeline.ObjectiveCount(), pipeline.HardCount())
 	}

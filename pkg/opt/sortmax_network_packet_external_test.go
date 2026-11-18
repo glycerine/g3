@@ -4,7 +4,7 @@ package opt_test
 
 import (
 	"errors"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -29,7 +29,7 @@ func TestSortMaxPacketUsesDirectCardinalityNetworkAndFiltersWires(t *testing.T) 
 		t.Fatal(err)
 	}
 	defer solver.Close()
-	if err = solver.AddSoftObjective(variables, []*big.Rat{big.NewRat(1, 1), big.NewRat(1, 1), big.NewRat(1, 1)}); err != nil {
+	if err = solver.AddSoftObjective(variables, []numeral.Rational{testRat(1, 1), testRat(1, 1), testRat(1, 1)}); err != nil {
 		t.Fatal(err)
 	}
 	result, err := solver.Check()
@@ -38,8 +38,8 @@ func TestSortMaxPacketUsesDirectCardinalityNetworkAndFiltersWires(t *testing.T) 
 	}
 	defer result.Close()
 	statistics := result.MaxSMT[0]
-	if result.Values[0].SoftCost.Cmp(big.NewRat(0, 1)) != 0 || result.Values[0].SoftSatisfied.Cmp(big.NewRat(3, 1)) != 0 {
-		t.Fatal("SortMax network objective bounds", result.Values[0].SoftCost.RatString(), result.Values[0].SoftSatisfied.RatString())
+	if !ratIs(&result.Values[0].SoftCost, 0, 1) || !ratIs(&result.Values[0].SoftSatisfied, 3, 1) {
+		t.Fatal("SortMax network objective bounds", ratString(&result.Values[0].SoftCost), ratString(&result.Values[0].SoftSatisfied))
 	}
 	if statistics.Inputs != 3 || statistics.Auxiliaries != 3 || statistics.NetworkClauses != 7 || !result.ModelFiltered {
 		t.Fatal("SortMax network", statistics, result.ModelFiltered)

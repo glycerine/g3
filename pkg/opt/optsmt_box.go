@@ -27,7 +27,7 @@ func (s *ArithmeticSolver) CheckBox() (result *ArithmeticResult, resultErr error
 			return nil, ast.ErrASTDomain
 		}
 	}
-	result = &ArithmeticResult{Status: lbool.Undef, Values: make([]ObjectiveValue, len(s.objectives))}
+	result = &ArithmeticResult{Status: lbool.Undef, Values: NewObjectiveValues(s.rationalManager(), len(s.objectives)), Q: s.rationalManager()}
 	defer func() {
 		if resultErr == nil && result != nil && result.Status == lbool.True {
 			var unknown bool

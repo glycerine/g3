@@ -23,7 +23,9 @@ func (e *maxResEngine) optimizePrimalDual(result *ArithmeticResult) (lbool.LBool
 			if err = e.updateResult(result); err != nil {
 				return lbool.Undef, false, err
 			}
-			e.lower.Set(&e.upper)
+			if err := e.q().Copy(&e.lower, &e.upper); err != nil {
+				return lbool.Undef, false, err
+			}
 			return lbool.False, true, nil
 		}
 		rawCore, err := e.solver.solver().UnsatCore()
@@ -38,7 +40,9 @@ func (e *maxResEngine) optimizePrimalDual(result *ArithmeticResult) (lbool.LBool
 			return lbool.Undef, false, nil
 		}
 		if roundStatus == lbool.False {
-			e.lower.Set(&e.upper)
+			if err := e.q().Copy(&e.lower, &e.upper); err != nil {
+				return lbool.Undef, false, err
+			}
 			return lbool.False, true, nil
 		}
 		e.clampPrimalDualLower()

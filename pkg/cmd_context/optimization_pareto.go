@@ -424,7 +424,7 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 		}
 		// update_lower() runs before execute_pareto: an exception from the
 		// pareto engine leaves the bounds it set and m_model.
-		values := make([]opt.ObjectiveValue, len(c.objectives))
+		values := opt.NewObjectiveValues(c.optQ(), len(c.objectives))
 		if err = c.paretoUpdatedDisplayBounds(values); err != nil {
 			return nil, err
 		}
@@ -441,7 +441,7 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 	}
 	if status != lbool.True {
 		c.finishParetoSearch()
-		values := make([]opt.ObjectiveValue, len(c.objectives))
+		values := opt.NewObjectiveValues(c.optQ(), len(c.objectives))
 		if initialFailed {
 			// display_assignment reads the bounds internalize() left
 			// (AUDIT.md FUZZ_A-F1).
@@ -452,7 +452,7 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 				if e != nil {
 					return nil, e
 				}
-				return &opt.ArithmeticResult{Status: status, ReasonUnknown: unknownReason, Values: values, Model: md}, nil
+				return &opt.ArithmeticResult{Q: c.optQ(), Status: status, ReasonUnknown: unknownReason, Values: values, Model: md}, nil
 			}
 		} else if fresh && status == lbool.Undef {
 			if err = c.paretoUpdatedDisplayBounds(values); err != nil {
@@ -463,9 +463,9 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 			if e != nil {
 				return nil, e
 			}
-			return &opt.ArithmeticResult{Status: status, ReasonUnknown: unknownReason, Values: values, Model: md}, nil
+			return &opt.ArithmeticResult{Q: c.optQ(), Status: status, ReasonUnknown: unknownReason, Values: values, Model: md}, nil
 		}
-		return &opt.ArithmeticResult{Status: status, ReasonUnknown: unknownReason, Values: values, Optimal: status == lbool.False}, nil
+		return &opt.ArithmeticResult{Q: c.optQ(), Status: status, ReasonUnknown: unknownReason, Values: values, Optimal: status == lbool.False}, nil
 	}
 	canceled, cancelErr := c.manager.Canceled()
 	if cancelErr != nil {
@@ -473,7 +473,7 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 	}
 	if canceled {
 		c.finishParetoSearch()
-		values := make([]opt.ObjectiveValue, len(c.objectives))
+		values := opt.NewObjectiveValues(c.optQ(), len(c.objectives))
 		var md *model.ModelCore
 		if fresh {
 			if err = c.paretoUpdatedDisplayBounds(values); err != nil {
@@ -484,7 +484,7 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 				return nil, err
 			}
 		}
-		return &opt.ArithmeticResult{Status: lbool.Undef, Values: values, Model: md}, nil
+		return &opt.ArithmeticResult{Q: c.optQ(), Status: lbool.Undef, Values: values, Model: md}, nil
 	}
 	var best *model.ModelCore
 	defer func() {
@@ -576,13 +576,13 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 		}
 		best = fixed
 		c.finishParetoSearch()
-		values := make([]opt.ObjectiveValue, len(c.objectives))
+		values := opt.NewObjectiveValues(c.optQ(), len(c.objectives))
 		if fresh && status == lbool.Undef {
 			if err = c.paretoUpdatedDisplayBounds(values); err != nil {
 				return nil, err
 			}
 		}
-		result = &opt.ArithmeticResult{Status: status, ReasonUnknown: unknownReason, Values: values, Model: best, Labels: labels}
+		result = &opt.ArithmeticResult{Q: c.optQ(), Status: status, ReasonUnknown: unknownReason, Values: values, Model: best, Labels: labels}
 		best = nil
 		return result, nil
 	}
@@ -615,19 +615,25 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 		return nil, errors.Join(err, fixed.DecRef())
 	}
 	best = fixed
-	result = &opt.ArithmeticResult{Status: lbool.True, Values: make([]opt.ObjectiveValue, len(c.objectives)), Model: best, Labels: labels, Optimal: true}
+	result = &opt.ArithmeticResult{Q: c.optQ(), Status: lbool.True, Values: opt.NewObjectiveValues(c.optQ(), len(c.objectives)), Model: best, Labels: labels, Optimal: true}
 	best = nil
+	q := c.optQ()
 	for i := range values {
 		if c.objectives[i].soft {
-			result.Values[i].SoftCost.Set(&values[i].softCost)
+			if err = q.SetBigRat(&result.Values[i].SoftCost, &values[i].softCost); err != nil {
+				return nil, errors.Join(err, result.Close())
+			}
 			result.Values[i].Soft = true
 			continue
 		}
 		if c.objectives[i].bitVector {
-			result.Values[i].SoftCost.Set(&values[i].measure)
+			cost := new(big.Rat).Set(&values[i].measure)
 			if c.objectives[i].maximize {
 				maximum := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(c.objectives[i].bitWidth)), big.NewInt(1))
-				result.Values[i].SoftCost.Sub(new(big.Rat).SetInt(maximum), &values[i].measure)
+				cost.Sub(new(big.Rat).SetInt(maximum), &values[i].measure)
+			}
+			if err = q.SetBigRat(&result.Values[i].SoftCost, cost); err != nil {
+				return nil, errors.Join(err, result.Close())
 			}
 			continue
 		}
@@ -636,11 +642,9 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 			continue
 		}
 		finite := simplex.RationalInfinitesimal(&values[i].measure)
-		result.Values[i] = opt.ObjectiveValue{
-			Arithmetic:           smtcore.SMTArithmeticObjectiveValue{Finite: finite},
-			ArithmeticModel:      smtcore.SMTArithmeticObjectiveValue{Finite: finite.Clone()},
-			ArithmeticModelValid: true,
-		}
+		result.Values[i].Arithmetic = smtcore.SMTArithmeticObjectiveValue{Finite: finite}
+		result.Values[i].ArithmeticModel = smtcore.SMTArithmeticObjectiveValue{Finite: finite.Clone()}
+		result.Values[i].ArithmeticModelValid = true
 	}
 	return result, nil
 }

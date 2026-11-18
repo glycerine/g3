@@ -11,7 +11,7 @@ func (e *maxResEngine) validCorrection(correction []ast.ASTHandle) bool {
 	seen := make(map[ast.ASTHandle]struct{}, len(correction))
 	for _, expression := range correction {
 		weight := e.weights[expression]
-		if weight == nil || weight.Sign() <= 0 {
+		if weight == nil || e.sign(weight) <= 0 {
 			return false
 		}
 		if _, duplicate := seen[expression]; duplicate {

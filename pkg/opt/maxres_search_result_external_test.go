@@ -1,7 +1,7 @@
 package opt_test
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -24,7 +24,7 @@ func TestMaxResSearchPublishesEngineResult(t *testing.T) {
 	if err = solver.SetSATCoreEnabled(true); err != nil {
 		t.Fatal(err)
 	}
-	if err = solver.AddSoftObjective([]ast.ASTHandle{p, notP}, []*big.Rat{big.NewRat(2, 1), big.NewRat(1, 1)}); err != nil {
+	if err = solver.AddSoftObjective([]ast.ASTHandle{p, notP}, []numeral.Rational{testRat(2, 1), testRat(1, 1)}); err != nil {
 		t.Fatal(err)
 	}
 	result, err := solver.Check()
@@ -32,7 +32,7 @@ func TestMaxResSearchPublishesEngineResult(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer result.Close()
-	if len(result.MaxSMT) != 1 || result.MaxSMT[0].Engine != "maxres" || result.Values[0].SoftCost.Cmp(big.NewRat(1, 1)) != 0 || result.MaxSMT[0].CoreMinimizationChecks != 0 {
+	if len(result.MaxSMT) != 1 || result.MaxSMT[0].Engine != "maxres" || !ratIs(&result.Values[0].SoftCost, 1, 1) || result.MaxSMT[0].CoreMinimizationChecks != 0 {
 		t.Fatalf("result: %+v %+v", result.MaxSMT, result.Values[0])
 	}
 }

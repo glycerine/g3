@@ -1,7 +1,8 @@
 package opt
 
 import (
-	"math/big"
+	"errors"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -57,12 +58,28 @@ func (p *ObjectivePurifier) AdvanceHard(n int) error {
 
 // PurifyObjective is from_fmls's per-objective step: mk_atomic on the soft
 // terms, purify on an arithmetic term. Definitions join the hard formulas.
-func (p *ObjectivePurifier) PurifyObjective(source DecomposedObjective) (DecomposedObjective, error) {
+// The purifier owns the purified objective's rationals (copies of
+// source's); the returned objective and Result borrow them until Close.
+func (p *ObjectivePurifier) PurifyObjective(source DecomposedObjective) (_ DecomposedObjective, resultErr error) {
 	if err := p.open(); err != nil {
 		return DecomposedObjective{}, err
 	}
 	p.objectiveRefs = append(p.objectiveRefs, purifiedObjectiveRefs{})
-	target := DecomposedObjective{SourceKind: source.SourceKind, Offset: *new(big.Rat).Set(&source.Offset), Negate: source.Negate, ID: source.ID, Converted: source.Converted, Weights: cloneRationals(source.Weights)}
+	q := p.manager.NumeralService().Manager
+	target := DecomposedObjective{SourceKind: source.SourceKind, Offset: numeral.NewRational(), Negate: source.Negate, ID: source.ID, Converted: source.Converted}
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, target.ReleaseRationals(q))
+		}
+	}()
+	if err := q.Copy(&target.Offset, &source.Offset); err != nil {
+		return DecomposedObjective{}, err
+	}
+	weights, err := cloneRationals(q, source.Weights)
+	if err != nil {
+		return DecomposedObjective{}, err
+	}
+	target.Weights = weights
 	if !source.OriginalTerm.IsNull() {
 		if _, err := p.holdTerm(source.OriginalTerm); err != nil {
 			return DecomposedObjective{}, err

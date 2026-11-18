@@ -3,7 +3,7 @@ package opt_test
 // Source: src/opt/maxres.cpp end-to-end exact rational-weight engine.
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -51,7 +51,7 @@ func TestArithmeticSolverUsesMaxResForRationalWeights(t *testing.T) {
 			}
 		}
 	}
-	weights := []*big.Rat{big.NewRat(5, 2), big.NewRat(3, 2), big.NewRat(1, 2)}
+	weights := []numeral.Rational{testRat(5, 2), testRat(3, 2), testRat(1, 2)}
 	if err = solver.AddSoftObjective(variables, weights); err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestArithmeticSolverUsesMaxResForRationalWeights(t *testing.T) {
 		t.Fatal("MaxRes status", result.Status, result.Optimal)
 	}
 	value := result.Values[0]
-	if value.SoftCost.Cmp(big.NewRat(2, 1)) != 0 || value.SoftSatisfied.Cmp(big.NewRat(5, 2)) != 0 {
+	if !ratIs(&value.SoftCost, 2, 1) || !ratIs(&value.SoftSatisfied, 5, 2) {
 		t.Fatal("rational MaxRes optimum", &value.SoftCost, &value.SoftSatisfied)
 	}
 }
@@ -116,7 +116,7 @@ func TestMaxResEnableSLSIsInert(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		if err = solver.AddSoftObjective([]ast.ASTHandle{p, q, r}, []*big.Rat{big.NewRat(5, 1), big.NewRat(3, 1), big.NewRat(1, 1)}); err != nil {
+		if err = solver.AddSoftObjective([]ast.ASTHandle{p, q, r}, []numeral.Rational{testRat(5, 1), testRat(3, 1), testRat(1, 1)}); err != nil {
 			t.Fatal(err)
 		}
 		result, err := solver.Check()

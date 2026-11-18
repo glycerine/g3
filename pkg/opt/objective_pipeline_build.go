@@ -2,7 +2,6 @@ package opt
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/smtcore"
@@ -29,7 +28,19 @@ func NewObjectivePipeline(manager *ast.ASTManager, params *uparams.ParamsRef, lo
 	}
 	for i := range objectives {
 		source := &objectives[i]
-		target := pipelineObjective{sourceKind: source.SourceKind, weights: cloneRationals(source.Weights), offset: *new(big.Rat).Set(&source.Offset), negate: source.Negate, id: source.ID, converted: source.Converted}
+		q := manager.NumeralService().Manager
+		weights, err := cloneRationals(q, source.Weights)
+		if err != nil {
+			return nil, err
+		}
+		offset, err := cloneRational(q, &source.Offset)
+		target := pipelineObjective{sourceKind: source.SourceKind, weights: weights, offset: offset, negate: source.Negate, id: source.ID, converted: source.Converted}
+		// The pipeline owns target's rationals from here; Close releases them.
+		pipeline.objectives = append(pipeline.objectives, target)
+		pipelineIndex := len(pipeline.objectives) - 1
+		if err != nil {
+			return nil, err
+		}
 		if len(source.SoftTerms) != len(source.Weights) {
 			return nil, ast.ErrASTDomain
 		}
@@ -39,7 +50,7 @@ func NewObjectivePipeline(manager *ast.ASTManager, params *uparams.ParamsRef, lo
 				if err != nil {
 					return nil, err
 				}
-				target.soft = append(target.soft, ref)
+				pipeline.objectives[pipelineIndex].soft = append(pipeline.objectives[pipelineIndex].soft, ref)
 			}
 		} else {
 			if source.Term.IsNull() {
@@ -49,9 +60,8 @@ func NewObjectivePipeline(manager *ast.ASTManager, params *uparams.ParamsRef, lo
 			if err != nil {
 				return nil, err
 			}
-			target.term = ref
+			pipeline.objectives[pipelineIndex].term = ref
 		}
-		pipeline.objectives = append(pipeline.objectives, target)
 	}
 	return pipeline, nil
 }

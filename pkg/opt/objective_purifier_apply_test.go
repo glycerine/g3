@@ -1,7 +1,7 @@
 package opt
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -122,7 +122,7 @@ func TestObjectivePurifierSoftDefinition(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	set, err := purifier.Purify(nil, []DecomposedObjective{{SourceKind: FormulaMaxSAT, SoftTerms: []ast.ASTHandle{condition}, Weights: []big.Rat{*big.NewRat(3, 1)}, ID: "pref"}})
+	set, err := purifier.Purify(nil, []DecomposedObjective{{SourceKind: FormulaMaxSAT, SoftTerms: []ast.ASTHandle{condition}, Weights: []numeral.Rational{testRat(3, 1)}, ID: "pref"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +143,7 @@ func TestObjectivePurifierLeavesPropositionalSoftTermsAtomic(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = purifier.Close() }()
-	set, err := purifier.Purify(nil, []DecomposedObjective{{SourceKind: FormulaMaxSAT, SoftTerms: []ast.ASTHandle{conjunction}, Weights: []big.Rat{*big.NewRat(1, 1)}}})
+	set, err := purifier.Purify(nil, []DecomposedObjective{{SourceKind: FormulaMaxSAT, SoftTerms: []ast.ASTHandle{conjunction}, Weights: []numeral.Rational{testRat(1, 1)}}})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -3,13 +3,13 @@ package opt
 // Source: src/opt/maxres.cpp new_assumption/add_soft.
 
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (e *maxResEngine) addAssumption(expression ast.ASTHandle, weight *big.Rat) error {
-	if weight == nil || weight.Sign() <= 0 {
+// addAssumption borrows weight; m_asm2weight keeps its own copy.
+func (e *maxResEngine) addAssumption(expression ast.ASTHandle, weight *numeral.Rational) error {
+	if weight == nil || e.sign(weight) <= 0 {
 		return errMaxResState
 	}
 	// new_assumption: IF_VERBOSE(13, "new assumption " << mk_pp(e, m) <<
@@ -21,7 +21,7 @@ func (e *maxResEngine) addAssumption(expression ast.ASTHandle, weight *big.Rat) 
 		if err != nil {
 			return err
 		}
-		if err = optProgress(13, "new assumption "+text+" "+ratText(weight)+"\n"); err != nil {
+		if err = optProgress(13, "new assumption "+text+" "+e.solver.ratText(weight)+"\n"); err != nil {
 			return err
 		}
 	}
@@ -30,13 +30,24 @@ func (e *maxResEngine) addAssumption(expression ast.ASTHandle, weight *big.Rat) 
 	if _, err := e.trail.hold(expression, nil); err != nil {
 		return err
 	}
-	e.weights[expression] = new(big.Rat).Set(weight)
+	q := e.q()
+	stored := e.weights[expression]
+	if stored == nil {
+		fresh := numeral.NewRational()
+		stored = &fresh
+	}
+	if err := q.Copy(stored, weight); err != nil {
+		return err
+	}
+	e.weights[expression] = stored
 	e.active = append(e.active, expression)
 	e.stats.Assumptions++
 	return nil
 }
 
-func (e *maxResEngine) removeAssumption(expression ast.ASTHandle) (*big.Rat, error) {
+// removeAssumption drops expression from m_asms and m_asm2weight; the
+// caller owns the returned weight.
+func (e *maxResEngine) removeAssumption(expression ast.ASTHandle) (*numeral.Rational, error) {
 	weight := e.weights[expression]
 	if weight == nil {
 		return nil, errMaxResState

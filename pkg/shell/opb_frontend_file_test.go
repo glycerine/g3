@@ -30,9 +30,9 @@ func TestOPBFrontendFileStatisticsAndDocumentCopy(t *testing.T) {
 	if err != nil || len(document.Constraints) != 1 {
 		t.Fatal(document, err)
 	}
-	document.Constraints[0].Bound.SetInt64(9)
+	document.Constraints[0].Bound = "9"
 	again, _ := f.Document()
-	if again.Constraints[0].Bound.String() != "1" {
+	if again.Constraints[0].Bound != "1" {
 		t.Fatal("document accessor aliases frontend")
 	}
 }

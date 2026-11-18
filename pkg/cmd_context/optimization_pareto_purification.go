@@ -4,7 +4,7 @@ package cmd_context
 
 import (
 	"errors"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
@@ -49,13 +49,14 @@ func (c *Context) prepareParetoPurification() (resultErr error) {
 		if objective.maximize {
 			kind = opt.FormulaMaximize
 		}
-		objectives[i] = opt.DecomposedObjective{SourceKind: kind, Term: objective.expression, OriginalTerm: objective.expression}
+		objectives[i] = opt.DecomposedObjective{SourceKind: kind, Term: objective.expression, OriginalTerm: objective.expression, Offset: numeral.NewRational()}
 		if objective.soft {
 			objectives[i].SourceKind = opt.FormulaMaxSAT
 			objectives[i].Term = ast.ASTHandle{}
 			for _, term := range objective.softTerms {
 				objectives[i].SoftTerms = append(objectives[i].SoftTerms, term.expression)
-				objectives[i].Weights = append(objectives[i].Weights, *new(big.Rat).Set(&term.weight))
+				weight, _ := c.optRat(&term.weight)
+				objectives[i].Weights = append(objectives[i].Weights, weight)
 			}
 		}
 	}
@@ -71,7 +72,7 @@ func (c *Context) prepareParetoPurification() (resultErr error) {
 		}
 	}
 	set, err := purifier.Purify(hard, objectives)
-	if err != nil {
+	if err = errors.Join(err, opt.ReleaseDecomposed(c.optQ(), objectives)); err != nil {
 		return err
 	}
 	state.hard = set.Hard
@@ -84,10 +85,10 @@ func (c *Context) prepareParetoPurification() (resultErr error) {
 		state.objectives[i].softTerms = make([]optimizationSoftTerm, len(objective.SoftTerms))
 		for j, term := range objective.SoftTerms {
 			state.objectives[i].softTerms[j].expression = term
-			state.objectives[i].softTerms[j].weight.Set(&objective.Weights[j])
+			c.optSetBig(&state.objectives[i].softTerms[j].weight, &objective.Weights[j], &err)
 		}
 	}
-	return nil
+	return err
 }
 
 // Keep the raw solver model for comparisons; only the published copy is fixed.

@@ -5,25 +5,26 @@ package opt
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // objectiveVerification is opt::context::objective's m_term and
 // m_adjust_value for a MaxSMT objective converted from maximize/minimize.
 type objectiveVerification struct {
 	term   ast.ASTRef
-	offset big.Rat
+	offset numeral.Rational // owned
 	negate bool
 }
 
 // SetObjectiveVerification records m_term and m_adjust_value for objective
 // index (from_fmls: obj.m_term = orig_term, set_offset, set_negate). Without
 // it verify_model accepts every model, as for a null m_term.
-func (s *ArithmeticSolver) SetObjectiveVerification(index int, term ast.ASTHandle, offset *big.Rat, negate bool) error {
+// offset is borrowed; the verification keeps a copy.
+func (s *ArithmeticSolver) SetObjectiveVerification(index int, term ast.ASTHandle, offset *numeral.Rational, negate bool) error {
 	if s == nil || index < 0 || index >= len(s.objectives) || term.IsNull() || offset == nil {
 		return ast.ErrASTHandle
 	}
@@ -34,22 +35,25 @@ func (s *ArithmeticSolver) SetObjectiveVerification(index int, term ast.ASTHandl
 	for len(s.verifications) <= index {
 		s.verifications = append(s.verifications, nil)
 	}
+	o := newRatOps(s.manager)
 	if old := s.verifications[index]; old != nil {
-		if err = s.manager.DelRef(&old.term); err != nil {
+		o.del(&old.offset)
+		if err = o.joined(s.manager.DelRef(&old.term)); err != nil {
 			return errors.Join(err, s.manager.DelRef(&ref))
 		}
 	}
-	v := &objectiveVerification{term: ref, negate: negate}
-	v.offset.Set(offset)
+	v := &objectiveVerification{term: ref, negate: negate, offset: o.clone(offset)}
 	s.verifications[index] = v
-	return nil
+	return o.err
 }
 
 func (s *ArithmeticSolver) closeVerifications() error {
 	var err error
 	for _, v := range s.verifications {
 		if v != nil {
-			err = errors.Join(err, s.manager.DelRef(&v.term))
+			o := newRatOps(s.manager)
+			o.del(&v.offset)
+			err = errors.Join(err, s.manager.DelRef(&v.term), o.err)
 		}
 	}
 	s.verifications = nil
@@ -59,7 +63,7 @@ func (s *ArithmeticSolver) closeVerifications() error {
 // verifyModel is context::verify_model(index, md, v): a copy of md is fixed
 // with the model converter and the filter, then m_term must evaluate (without
 // model completion) to the numeral m_adjust_value(v).
-func (s *ArithmeticSolver) verifyModel(index int, md *model.ModelCore, v *big.Rat) (ok bool, resultErr error) {
+func (s *ArithmeticSolver) verifyModel(index int, md *model.ModelCore, v *numeral.Rational) (ok bool, resultErr error) {
 	if index < 0 || index >= len(s.verifications) || s.verifications[index] == nil {
 		return true, nil
 	}
@@ -69,11 +73,16 @@ func (s *ArithmeticSolver) verifyModel(index int, md *model.ModelCore, v *big.Ra
 	if err != nil {
 		return false, err
 	}
-	adjusted := new(big.Rat).Set(v)
-	if verification.negate {
-		adjusted.Neg(adjusted)
+	o := newRatOps(m)
+	adjusted := o.zero()
+	defer func() {
+		o.del(&adjusted)
+		resultErr = o.joined(resultErr)
+	}()
+	s.adjustSoftBound(&o, index, v, &adjusted)
+	if !o.ok() {
+		return false, nil
 	}
-	adjusted.Add(adjusted, &verification.offset)
 	// model_ref mdl = md->copy();
 	copied, err := copyModelCore(m, md)
 	if err != nil {
@@ -120,31 +129,24 @@ func (s *ArithmeticSolver) verifyModel(index int, md *model.ModelCore, v *big.Ra
 	if err != nil {
 		return false, err
 	}
-	r, matched, err := numeralRat(m, val)
+	r := o.zero()
+	defer o.del(&r)
+	matched, err := numeralRational(m, val, &r)
 	if err != nil || !matched {
 		return false, err
 	}
-	return r.Cmp(adjusted) == 0, nil
+	return o.cmp(&r, &adjusted) == 0, nil
 }
 
-// numeralRat is is_numeral for arithmetic or bit-vector values.
-func numeralRat(m *ast.ASTManager, h ast.ASTHandle) (*big.Rat, bool, error) {
-	text, _, matched, err := m.ArithmeticNumeralText(h)
-	if err != nil {
-		return nil, false, err
+// numeralRational is is_numeral for arithmetic or bit-vector values,
+// copying the value into out.
+func numeralRational(m *ast.ASTManager, h ast.ASTHandle, out *numeral.Rational) (bool, error) {
+	_, matched, err := m.ArithmeticNumeralRational(h, out)
+	if err != nil || matched {
+		return matched, err
 	}
-	if matched {
-		q, ok := new(big.Rat).SetString(text)
-		if !ok {
-			return nil, false, ast.ErrASTDomain
-		}
-		return q, true, nil
-	}
-	value, _, matched, err := m.BitVectorNumeralBigInt(h)
-	if err != nil || !matched {
-		return nil, false, err
-	}
-	return new(big.Rat).SetInt(value), true, nil
+	_, matched, err = m.BitVectorNumeralRational(h, out)
+	return matched, err
 }
 
 // copyModelCore is model::copy for a model core: constants, functions and,

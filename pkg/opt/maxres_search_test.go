@@ -4,7 +4,7 @@ package opt
 
 import (
 	"fmt"
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -39,14 +39,14 @@ func TestMaxResSearchFindsRationalWeightedOptimumWithoutRegistration(t *testing.
 			}
 		}
 	}
-	if err = solver.AddSoftObjective(variables, []*big.Rat{big.NewRat(5, 2), big.NewRat(3, 2), big.NewRat(1, 2)}); err != nil {
+	if err = solver.AddSoftObjective(variables, []numeral.Rational{testRat(5, 2), testRat(3, 2), testRat(1, 2)}); err != nil {
 		t.Fatal(err)
 	}
 	status, err := solver.backend.CheckSat(nil)
 	if err != nil || status != lbool.True {
 		t.Fatal("initial MaxRes model", status, err)
 	}
-	result := &ArithmeticResult{Values: make([]ObjectiveValue, 1)}
+	result := &ArithmeticResult{Values: NewObjectiveValues(manager.NumeralService().Manager, 1), Q: manager.NumeralService().Manager}
 	defer result.Close()
 	if err = solver.replaceModel(result); err != nil {
 		t.Fatal(err)
@@ -61,10 +61,10 @@ func TestMaxResSearchFindsRationalWeightedOptimumWithoutRegistration(t *testing.
 		t.Fatal("MaxRes search", status, optimal, err)
 	}
 	value := result.Values[0]
-	if value.SoftCost.Cmp(big.NewRat(2, 1)) != 0 || value.SoftSatisfied.Cmp(big.NewRat(5, 2)) != 0 {
+	if !ratIs(&value.SoftCost, 2, 1) || !ratIs(&value.SoftSatisfied, 5, 2) {
 		t.Fatal("MaxRes optimum", &value.SoftCost, &value.SoftSatisfied)
 	}
-	if !value.SoftBoundsValid || value.SoftLower.Cmp(big.NewRat(2, 1)) != 0 || value.SoftUpper.Cmp(big.NewRat(2, 1)) != 0 {
+	if !value.SoftBoundsValid || !ratIs(&value.SoftLower, 2, 1) || !ratIs(&value.SoftUpper, 2, 1) {
 		t.Fatal("MaxRes optimal bounds", value.SoftBoundsValid, &value.SoftLower, &value.SoftUpper)
 	}
 }
@@ -93,13 +93,13 @@ func TestMaxResInterruptedSearchPublishesCandidateBounds(t *testing.T) {
 	if err = solver.Assert(notAll); err != nil {
 		t.Fatal(err)
 	}
-	if err = solver.AddSoftObjective(variables, []*big.Rat{big.NewRat(5, 2), big.NewRat(3, 2), big.NewRat(1, 2)}); err != nil {
+	if err = solver.AddSoftObjective(variables, []numeral.Rational{testRat(5, 2), testRat(3, 2), testRat(1, 2)}); err != nil {
 		t.Fatal(err)
 	}
 	if status, err := solver.backend.CheckSat(nil); err != nil || status != lbool.True {
 		t.Fatal("initial model", status, err)
 	}
-	result := &ArithmeticResult{Values: make([]ObjectiveValue, 1)}
+	result := &ArithmeticResult{Values: NewObjectiveValues(manager.NumeralService().Manager, 1), Q: manager.NumeralService().Manager}
 	defer result.Close()
 	if err = solver.replaceModel(result); err != nil {
 		t.Fatal(err)
@@ -116,7 +116,7 @@ func TestMaxResInterruptedSearchPublishesCandidateBounds(t *testing.T) {
 		t.Fatal("interrupted search", status, optimal, err)
 	}
 	value := &result.Values[0]
-	if !value.SoftBoundsValid || value.SoftLower.Sign() != 0 || value.SoftUpper.Cmp(&value.SoftCost) != 0 || value.SoftUpper.Sign() <= 0 {
+	if !value.SoftBoundsValid || value.SoftLower.Sign() != 0 || !ratEq(&value.SoftUpper, &value.SoftCost) || value.SoftUpper.Sign() <= 0 {
 		t.Fatal("interrupted bounds", value.SoftBoundsValid, &value.SoftLower, &value.SoftUpper, &value.SoftCost)
 	}
 }
@@ -125,10 +125,10 @@ func TestMaxResCoreMinimizationMatchesSourceForMoreThanThirtyTwoLiterals(t *test
 	manager, fixture := maxSMTTestFixture(t)
 	const count = 33
 	terms := make([]ast.ASTHandle, count)
-	weights := make([]*big.Rat, count)
+	weights := make([]numeral.Rational, count)
 	for index := range terms {
 		terms[index] = maxResTestBool(t, manager, fmt.Sprintf("maxres-large-mus-%d", index))
-		weights[index] = big.NewRat(1, 1)
+		weights[index] = testRat(1, 1)
 	}
 	all, err := manager.MkAndArray(terms)
 	if err != nil {

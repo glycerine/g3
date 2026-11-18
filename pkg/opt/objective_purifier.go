@@ -106,6 +106,9 @@ func (p *ObjectivePurifier) Close() (result error) {
 	}
 	release(p.hardRefs)
 	if result == nil {
+		result = ReleaseDecomposed(p.manager.NumeralService().Manager, p.set.Objectives)
+	}
+	if result == nil {
 		p.refs, p.objectiveRefs, p.hardRefs = nil, nil, nil
 		p.closed = true
 	}

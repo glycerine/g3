@@ -3,14 +3,14 @@ package opt
 // Source: src/opt/maxsmt.h get_assignment.
 
 import (
-	"math/big"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
 
 func TestSoftAssignmentValidatesObjectiveAndReturnsDefensiveCopy(t *testing.T) {
-	solver := &ArithmeticSolver{objectives: []arithmeticObjective{{soft: true, softTerms: make([]ast.ASTRef, 2), softWeights: []*big.Rat{big.NewRat(1, 1), big.NewRat(2, 1)}}}}
+	solver := &ArithmeticSolver{objectives: []arithmeticObjective{{soft: true, softTerms: make([]ast.ASTRef, 2), softWeights: []numeral.Rational{testRat(1, 1), testRat(2, 1)}}}}
 	result := &ArithmeticResult{Values: []ObjectiveValue{{Soft: true, SoftAssignment: []bool{true, false}}}}
 	assignment, err := solver.SoftAssignment(result, 0)
 	if err != nil || len(assignment) != 2 || !assignment[0] || assignment[1] {

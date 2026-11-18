@@ -3,19 +3,18 @@ package opt
 // Source: src/opt/maxsmt.cpp maxsmt::add and maxsmt_solver_base ownership.
 
 import (
-	"math/big"
-
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-// weightedSoftSet owns normalized, unique soft formulas until Release transfers
-// their references into ArithmeticSolver's objective.
+// weightedSoftSet owns normalized, unique soft formulas and their rational
+// weights until Release transfers them into ArithmeticSolver's objective.
 type weightedSoftSet struct {
 	manager *ast.ASTManager
 	terms   []ast.ASTRef
-	weights []*big.Rat
+	weights []numeral.Rational
 	index   map[ast.ASTHandle]int
-	offset  big.Rat
+	offset  numeral.Rational
 	closed  bool
 }
 
@@ -23,7 +22,7 @@ func newWeightedSoftSet(manager *ast.ASTManager) (*weightedSoftSet, error) {
 	if manager == nil {
 		return nil, ast.ErrASTHandle
 	}
-	return &weightedSoftSet{manager: manager, index: make(map[ast.ASTHandle]int)}, nil
+	return &weightedSoftSet{manager: manager, index: make(map[ast.ASTHandle]int), offset: numeral.NewRational()}, nil
 }
 
 func (s *weightedSoftSet) Len() int {
