@@ -130,7 +130,9 @@ func (c *SMTContext) DeclarationName(d ast.ASTHandle) (string, error) {
 	if e != nil {
 		return "", e
 	}
-	return m.Symbols.Display(name)
+	// Z3_get_symbol_string(Z3_get_decl_name(d)): a number for a numerical
+	// symbol, "" for null.
+	return c.SymbolString(name)
 }
 func (c *SMTContext) SortName(s ast.ASTHandle) (string, error) { return c.DeclarationName(s) }
 func (c *SMTContext) SortOf(a ast.ASTHandle) (ast.ASTHandle, error) {

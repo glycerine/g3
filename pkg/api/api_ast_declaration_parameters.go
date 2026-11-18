@@ -120,7 +120,7 @@ func (c *SMTContext) DeclarationSymbolParameter(declaration ast.ASTHandle, index
 	if err != nil {
 		return "", err
 	}
-	return m.Symbols.Display(symbol)
+	return c.SymbolString(symbol)
 }
 
 func (c *SMTContext) DeclarationRationalParameter(declaration ast.ASTHandle, index uint32) (result string, resultErr error) {
