@@ -229,3 +229,39 @@ func TestStringRegexAutomatonRejectsNonStringRegex(t *testing.T) {
 		t.Fatal("constructor failure leaked its acquired input root")
 	}
 }
+
+// re2automaton::operator() compresses the automaton it returns, for
+// theory_str's complement as for theory_seq.
+func TestStringRegexAutomatonCompressedLikeRe2Automaton(t *testing.T) {
+	m := astTestManager(t)
+	_, err := m.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	_, err = m.RegisterBitVectorPlugin()
+	astTestMust(t, err)
+	a, err := m.MkString("a")
+	astTestMust(t, err)
+	b, err := m.MkString("b")
+	astTestMust(t, err)
+	ra, err := m.MkSequenceToRegex(a)
+	astTestMust(t, err)
+	rb, err := m.MkSequenceToRegex(b)
+	astTestMust(t, err)
+	star, err := m.MkRegexStar(ra)
+	astTestMust(t, err)
+	regex, err := m.MkRegexConcat(star, rb)
+	astTestMust(t, err)
+	astTestPin(t, m, regex)
+	str, err := NewStringRegexAutomaton(m, regex, &sequenceAutomatonByteSolver{m})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, str.Close()) }()
+	seq, err := NewSeqAutomaton(m, regex, &sequenceAutomatonByteSolver{m})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, seq.Close()) }()
+	g1, err := str.Graph()
+	astTestMust(t, err)
+	g2, err := seq.Graph()
+	astTestMust(t, err)
+	if g1.NumStates() != g2.NumStates() || len(g1.Moves()) != len(g2.Moves()) || len(g1.FinalStates()) != len(g2.FinalStates()) {
+		t.Fatal("string regex automaton not compressed", g1.NumStates(), g2.NumStates(), len(g1.Moves()), len(g2.Moves()))
+	}
+}

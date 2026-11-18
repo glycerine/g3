@@ -79,6 +79,9 @@ func NewStringRegexAutomaton(m *ast.ASTManager, regex ast.ASTHandle, solver Sequ
 	if err := a.materialize(built); err != nil {
 		return nil, errors.Join(err, built.release())
 	}
+	// re2automaton::operator() compresses before returning (theory_str's
+	// callers may compress once more, as the C++ does).
+	a.graph.Compress()
 	if err := a.own(built); err != nil {
 		return nil, err
 	}
