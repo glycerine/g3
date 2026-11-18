@@ -47,7 +47,7 @@ func TestMPFPowerWrapperMemoryTraceMissHitAndSourceDeletion(t *testing.T) {
 		wrapper *arbitraryFloatPowerWrapper
 		line    int
 	}{{a, 268}, {c, 282}} {
-		alloc := "alloc " + fmt.Sprintf("%p", entry.wrapper) + " src/util/mpf.h:" + strconv.Itoa(entry.line) + " mpz " + strconv.FormatUint(entry.wrapper.header, 10) + "\n"
+		alloc := "alloc " + fmt.Sprintf("%p", entry.wrapper) + " src/util/mpf.h:" + strconv.Itoa(entry.line) + " mpz 16\n"
 		if strings.Count(out.String(), alloc) != 1 {
 			t.Fatal("source wrapper allocation", alloc, out.String())
 		}
@@ -98,4 +98,27 @@ func TestMPFPowerWrapperMemoryTraceFailedPayloadAndFinalizeGuard(t *testing.T) {
 	if b.Used() != 0 {
 		t.Fatal("failed wrapper retained storage", b.Used())
 	}
+}
+
+// AUDIT.md util_numeral_03-F2: ~powers2 disposes each u_map in table order:
+// keys 5 then 2 sit in slots 5 and 2, so 2 is freed first.
+func TestMPFPowerWrapperMemoryTraceUMapDisposeOrder(t *testing.T) {
+	m, r, _ := mpfPowerMemoryTraceOwner(t, nil)
+	var out bytes.Buffer
+	tags := diagnostic.NewTraceTagsWithWriter(&out)
+	tags.Enable("memory")
+	serviceMust(t, m.BindTrace(tags))
+	five, err := m.powerTwoWrapper(5, false)
+	serviceMust(t, err)
+	two, err := m.powerTwoWrapper(2, false)
+	serviceMust(t, err)
+	serviceMust(t, m.SourceFinalize())
+	text := out.String()
+	i := strings.Index(text, "dealloc "+fmt.Sprintf("%p", two))
+	j := strings.Index(text, "dealloc "+fmt.Sprintf("%p", five))
+	if i < 0 || j < 0 || i > j {
+		t.Fatal("u_map dispose order", text)
+	}
+	serviceMust(t, m.Close())
+	serviceMust(t, r.Close())
 }

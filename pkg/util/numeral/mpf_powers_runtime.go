@@ -246,27 +246,87 @@ func (w *arbitraryFloatPowerWrapper) destroy(own bool) error {
 	w.tracePowerWrapperDeallocated()
 	return nil
 }
+// destroyPowerWrappers is ~powers2: dispose(m_p), dispose(m_pn),
+// dispose(m_pm1), dispose(m_pm1n), each u_map walked in its table order
+// (AUDIT.md util_numeral_03-F2). The owning path then releases any wrapper
+// a failed insertion left outside the maps.
 func (m *ArbitraryFloatManager) destroyPowerWrappers(own bool) error {
-	if own {
-		for w := m.PowerWrappers; w != nil; w = w.Next {
-			if e := w.destroy(true); e != nil {
-				return e
-			}
-		}
-		return nil
-	}
+	done := make(map[*arbitraryFloatPowerWrapper]bool)
 	for i := range m.powers {
-		for _, id := range m.powers[i].All() {
-			w := m.powerWrapperByID(id)
+		var keys, ids []uint32
+		for key, id := range m.powers[i].All() {
+			keys = append(keys, key)
+			ids = append(ids, id)
+		}
+		for _, k := range uMapTableOrder(keys) {
+			w := m.powerWrapperByID(ids[k])
 			if w == nil {
 				return umemory.ErrRuntimeOwner
 			}
-			if e := w.destroy(false); e != nil {
+			if e := w.destroy(own); e != nil {
+				return e
+			}
+			done[w] = true
+		}
+	}
+	if own {
+		for w := m.PowerWrappers; w != nil; w = w.Next {
+			if done[w] {
+				continue
+			}
+			if e := w.destroy(true); e != nil {
 				return e
 			}
 		}
 	}
 	return nil
+}
+
+// uMapTableOrder is the iteration order of a u_map (core_hashtable with
+// u_hash, the identity) built by inserting keys in the given order with no
+// removals: the initial capacity 8, doubling before an insert when
+// (size+deleted)*4 > capacity*3, linear probing from key & (capacity-1)
+// with wraparound, and expand_table moving entries in old table order. It
+// returns indexes into keys.
+func uMapTableOrder(keys []uint32) []int {
+	capacity := uint32(8)
+	table := make([]int, capacity)
+	for i := range table {
+		table[i] = -1
+	}
+	place := func(table []int, capacity uint32, index int) {
+		mask := capacity - 1
+		for slot := keys[index] & mask; ; slot = (slot + 1) & mask {
+			if table[slot] < 0 {
+				table[slot] = index
+				return
+			}
+		}
+	}
+	size := uint32(0)
+	for i := range keys {
+		if size<<2 > capacity*3 {
+			grown := make([]int, capacity<<1)
+			for j := range grown {
+				grown[j] = -1
+			}
+			for _, index := range table {
+				if index >= 0 {
+					place(grown, capacity<<1, index)
+				}
+			}
+			table, capacity = grown, capacity<<1
+		}
+		place(table, capacity, i)
+		size++
+	}
+	out := make([]int, 0, len(keys))
+	for _, index := range table {
+		if index >= 0 {
+			out = append(out, index)
+		}
+	}
+	return out
 }
 func (m *ArbitraryFloatManager) releasePowerWrapperHistory() {
 	for w := m.PowerWrappers; w != nil; w = w.Next {

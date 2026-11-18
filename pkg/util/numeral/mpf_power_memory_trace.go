@@ -10,6 +10,8 @@ import (
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
+// tracePowerWrapperAllocated prints alloc(mpz)'s size, sizeof(mpz) = 16 on
+// LP64; w.header is the Go budget charge only (AUDIT.md util_numeral_03-F2).
 func (w *arbitraryFloatPowerWrapper) tracePowerWrapperAllocated(minusOne bool) {
 	tags := w.manager.floatTraceTags()
 	if !diagnostic.DebugBuild || !tags.ShouldTrace("memory") {
@@ -23,7 +25,7 @@ func (w *arbitraryFloatPowerWrapper) tracePowerWrapperAllocated(minusOne bool) {
 		func() bool { return true }, func(out io.Writer) error {
 			for _, part := range [...]string{
 				"alloc ", fmt.Sprintf("%p", w), " src/util/mpf.h:", strconv.Itoa(line),
-				" mpz ", strconv.FormatUint(w.header, 10), "\n",
+				" mpz 16\n",
 			} {
 				_, _ = io.WriteString(out, part)
 			}
