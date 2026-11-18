@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 func TestSMTContextDisplayAssignmentLiteralOrderAndPop(t *testing.T) {
@@ -101,14 +103,14 @@ func TestSMTContextDisplayMapsAndEquivalenceClassesUseSourceOrder(t *testing.T) 
 	astTestMust(t, err)
 	out.Reset()
 	astTestMust(t, s.DisplayExpressionBoolVarMap(&out))
-	want = fmt.Sprintf("expression -> bool_var:\n(#%d -> p!%d) (#%d -> p!%d) \n", bid, bv, aid, av)
+	want = fmt.Sprintf("expression -> bool_var:\n(#1 -> p!0) (#%d -> p!%d) (#%d -> p!%d) \n", bid, bv, aid, av)
 	if out.String() != want {
 		t.Fatal(out.String(), want)
 	}
 	astTestMust(t, s.PopScopes(1))
 	out.Reset()
 	astTestMust(t, s.DisplayExpressionBoolVarMap(&out))
-	want = fmt.Sprintf("expression -> bool_var:\n(#%d -> p!%d) \n", bid, bv)
+	want = fmt.Sprintf("expression -> bool_var:\n(#1 -> p!0) (#%d -> p!%d) \n", bid, bv)
 	if out.String() != want {
 		t.Fatal(out.String(), want)
 	}
@@ -121,8 +123,9 @@ func TestSMTContextDisplayPrefixesBorrowingAndGuards(t *testing.T) {
 	for _, display := range methods {
 		var out bytes.Buffer
 		astTestMust(t, display(&out))
-		// A fresh context already maps context::init's true and false enodes.
-		if out.Len() != 0 && out.String() != "expression -> enode:\n(#1 -> e!0) (#2 -> e!1) \n" {
+		// A fresh context already maps context::init's true and false enodes,
+		// and true is bool_var 0.
+		if out.Len() != 0 && out.String() != "expression -> enode:\n(#1 -> e!0) (#2 -> e!1) \n" && out.String() != "expression -> bool_var:\n(#1 -> p!0) \n" {
 			t.Fatal("empty section emitted a header", out.String())
 		}
 		if err := display(nil); !errors.Is(err, ast.ErrASTHandle) {
@@ -168,5 +171,37 @@ func TestSMTContextDisplayPrefixesBorrowingAndGuards(t *testing.T) {
 		if err := display(io.Discard); !errors.Is(err, ast.ErrASTHandle) {
 			t.Fatal("nil owner", err)
 		}
+	}
+}
+
+// AUDIT.md smtcore_02-F12: context::display prints m_base_lvl (user scopes)
+// and the retained m_search_lvl, not the current scope level.
+func TestSMTContextDisplayBaseAndSearchLevels(t *testing.T) {
+	m := astTestManager(t)
+	k := smtTestKernel(t, m)
+	a := smtRelevancyBool(t, m, "display-level-a")
+	astTestMust(t, k.Push())
+	header := func() string {
+		t.Helper()
+		var out bytes.Buffer
+		astTestMust(t, k.internalizer.DisplayContext(&out))
+		lines := strings.SplitN(out.String(), "\n", 5)
+		return strings.Join(lines[:4], "\n")
+	}
+	for i := 0; i < 3; i++ {
+		astTestMust(t, k.internalizer.PushScope())
+	}
+	if got := header(); got != "Logical context:\nscope-lvl: 4\nbase-lvl:  1\nsearch-lvl:  1" {
+		t.Fatal("decision scopes changed the base level", got)
+	}
+	astTestMust(t, k.internalizer.PopScopes(3))
+	result, err := k.CheckAssumptions([]ast.ASTHandle{a})
+	astTestMust(t, err)
+	if result != lbool.True {
+		t.Fatal(result)
+	}
+	// A satisfied check keeps the assumption scope as the search level.
+	if got := header(); !strings.HasSuffix(got, "base-lvl:  1\nsearch-lvl:  2") {
+		t.Fatal("search level not retained after an assumption check", got)
 	}
 }

@@ -305,7 +305,11 @@ type SMTInternalizerState struct {
 	searchBaseLevel          uint32
 	// baseLevel is context::m_base_lvl: the number of user scopes. Search
 	// scopes above it stay until popToBaseLevel, as in pop_to_base_lvl.
-	baseLevel             uint32
+	baseLevel uint32
+	// searchLevel is context::m_search_lvl: set by init_assumptions, reset
+	// to the base level by mk_unsat_core, advanced by a user push and
+	// lowered by a pop below the base level. Only display reads it.
+	searchLevel           uint32
 	searchUserBaseLevel   uint32
 	searchAgility         float64
 	searchAgilityFactor   float64
@@ -1631,6 +1635,7 @@ func (s *SMTInternalizerState) PopScopes(count uint32) error {
 		s.scopeLevel = uint32(pop.level)
 		if s.scopeLevel < s.baseLevel {
 			s.baseLevel = s.scopeLevel
+			s.searchLevel = s.scopeLevel
 		}
 		pop.stage++
 	}
@@ -1722,6 +1727,7 @@ func (s *SMTInternalizerState) Close() error {
 	s.scopes = nil
 	s.scopeLevel = 0
 	s.baseLevel = 0
+	s.searchLevel = 0
 	s.reinitBuckets = nil
 	if s.afterFlush != nil {
 		if err := s.afterFlush(); err != nil {

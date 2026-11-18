@@ -26,8 +26,9 @@ func TestSMTContextDisplayDefinitionsShareVisitedAcrossActualOwners(t *testing.T
 	astTestMust(t, err)
 	bid, err := m.GetASTID(b)
 	astTestMust(t, err)
-	// context::init's true and false enodes are displayed after a's Boolean definition.
-	want := fmt.Sprintf("#%d := dump-def-a\n#1 := true\n#2 := false\n#%d := dump-def-b\nasserted formulas:\n#%d #%d #%d \n", aid, bid, aid, aid, bid)
+	// m_bool_var2expr starts with true (bool_var 0); context::init's false
+	// enode is displayed after a's Boolean definition.
+	want := fmt.Sprintf("#1 := true\n#%d := dump-def-a\n#2 := false\n#%d := dump-def-b\nasserted formulas:\n#%d #%d #%d \n", aid, bid, aid, aid, bid)
 	var out bytes.Buffer
 	for i := 0; i < 2; i++ {
 		out.Reset()
@@ -153,7 +154,7 @@ func TestSMTContextDisplayDefinitionsAllocationRefusalRetainsInputs(t *testing.T
 	astTestMust(t, s.DisplayDefinitions(&out))
 	id, err := m.GetASTID(a)
 	astTestMust(t, err)
-	if want := fmt.Sprintf("#%d := dump-refusal-a\n#1 := true\n#2 := false\n", id); out.String() != want {
+	if want := fmt.Sprintf("#1 := true\n#%d := dump-refusal-a\n#2 := false\n", id); out.String() != want {
 		t.Fatal("retained input failed on retry", out.String(), want)
 	}
 }

@@ -111,10 +111,17 @@ func (s *SMTInternalizerState) DisplayExpressionBoolVarMap(out io.Writer) error 
 	if out == nil {
 		return ast.ErrASTHandle
 	}
-	if len(s.booleanStack) == 0 {
-		return nil
+	// m_b_internalized_stack starts with true, bool_var 0, which the Go
+	// boolean stack keeps implicit, so the section is never empty.
+	trueExpr, err := s.manager.MkTrue()
+	if err != nil {
+		return err
 	}
-	if err := smtWriteTheoryText(out, "expression -> bool_var:\n"); err != nil {
+	trueID, err := s.manager.GetASTID(trueExpr)
+	if err != nil {
+		return err
+	}
+	if err := smtWriteTheoryText(out, fmt.Sprintf("expression -> bool_var:\n(#%d -> p!0) ", trueID)); err != nil {
 		return err
 	}
 	for _, expression := range s.booleanStack {

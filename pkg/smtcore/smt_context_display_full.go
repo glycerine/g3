@@ -16,10 +16,9 @@ func smtDisplayBool(value bool) int {
 	return 0
 }
 
-// DisplayContext composes the native logical-context dump in source order.
-// The search base is the native base level; assumptions advance the native
-// search level to the retained search base while ordinary decisions advance
-// only scopeLevel.
+// DisplayContext composes the native logical-context dump in source order:
+// scope-lvl is m_scope_lvl, base-lvl m_base_lvl (user scopes) and
+// search-lvl the retained m_search_lvl.
 func (s *SMTInternalizerState) DisplayContext(out io.Writer) error {
 	if err := s.open(); err != nil {
 		return err
@@ -28,11 +27,7 @@ func (s *SMTInternalizerState) DisplayContext(out io.Writer) error {
 		return ast.ErrASTHandle
 	}
 	out = smtContextDisplayWriter{out}
-	baseLevel, searchLevel := s.scopeLevel, s.scopeLevel
-	if s.searching {
-		baseLevel = s.searchUserBaseLevel
-		searchLevel = s.searchBaseLevel
-	}
+	baseLevel, searchLevel := s.baseLevel, s.searchLevel
 	assertedInconsistent := false
 	if s.assertedInconsistent != nil {
 		assertedInconsistent = *s.assertedInconsistent

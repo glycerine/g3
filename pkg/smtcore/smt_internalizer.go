@@ -1648,8 +1648,9 @@ func (s *SMTInternalizerState) InternalizeInstance(instance *SMTQIInstance) erro
 // those lemmas stay ordinary clauses.
 func (s *SMTInternalizerState) binaryClauseBaseLevel() uint32 { return s.baseLevel }
 
-// pushBaseScope is the m_base_lvl++ of context::push, after its push_scope.
-func (s *SMTInternalizerState) pushBaseScope() { s.baseLevel++ }
+// pushBaseScope is the m_base_lvl++ and m_search_lvl++ of context::push,
+// after its push_scope.
+func (s *SMTInternalizerState) pushBaseScope() { s.baseLevel++; s.searchLevel++ }
 
 // popToBaseLevel is context::pop_to_base_lvl.
 func (s *SMTInternalizerState) popToBaseLevel() error {

@@ -130,6 +130,7 @@ func (k *SMTKernel) checkConfiguredAssumptions(assumptions []ast.ASTHandle) (res
 		// pop_to_base_lvl.
 		if result == lbool.False || resultErr != nil {
 			resultErr = errors.Join(resultErr, k.internalizer.popToBaseLevel())
+			k.internalizer.searchLevel = k.internalizer.baseLevel
 		}
 		k.assumptions = nil
 		// Native tracking_assumptions tests the assumption search scope,

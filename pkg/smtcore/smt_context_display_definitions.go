@@ -13,8 +13,8 @@ import (
 )
 
 // DisplayDefinitions shares one low-level visited set across Boolean variables,
-// enodes and assertion roots, in source order. The reserved immediate true
-// variable in Go has no boolExpr entry and needs no expression definition.
+// enodes and assertion roots, in source order. The reserved true variable 0
+// has no boolExpr entry in Go; m_bool_var2expr[0] is true, defined first.
 func (s *SMTInternalizerState) DisplayDefinitions(out io.Writer) (result error) {
 	if err := s.open(); err != nil {
 		return err
@@ -22,7 +22,11 @@ func (s *SMTInternalizerState) DisplayDefinitions(out io.Writer) (result error) 
 	if out == nil {
 		return ast.ErrASTHandle
 	}
-	var roots []ast.ASTHandle
+	trueExpr, err := s.manager.MkTrue()
+	if err != nil {
+		return err
+	}
+	roots := []ast.ASTHandle{trueExpr}
 	for _, expression := range s.boolExpr {
 		if !expression.IsNull() {
 			roots = append(roots, expression)
