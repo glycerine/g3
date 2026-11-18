@@ -154,13 +154,10 @@ func (p *BVRewriter) rewriteUnsignedDivision(lhs, rhs ast.ASTHandle, out ast.AST
 		if e != nil {
 			return st, e
 		}
-		// C++ nested arguments have unspecified evaluation order. Go builds the
-		// condition, zero interpretation and internal operation in this order.
-		zero, e := n.Unsigned(0, width)
-		if e != nil {
-			return st, e
-		}
-		cond, e := m.MkEq(rhs, zero)
+		// The reference GCC build evaluates mk_ite's arguments right to left:
+		// the internal operation, the zero interpretation, then the zero numeral
+		// and the equality.
+		no, e := internal()
 		if e != nil {
 			return st, e
 		}
@@ -168,7 +165,11 @@ func (p *BVRewriter) rewriteUnsignedDivision(lhs, rhs ast.ASTHandle, out ast.AST
 		if e != nil {
 			return st, e
 		}
-		no, e := internal()
+		zero, e := n.Unsigned(0, width)
+		if e != nil {
+			return st, e
+		}
+		cond, e := m.MkEq(rhs, zero)
 		if e != nil {
 			return st, e
 		}

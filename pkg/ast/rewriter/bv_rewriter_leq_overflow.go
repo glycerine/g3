@@ -372,19 +372,21 @@ func (p *BVRewriter) leOverflowBody(v *bvLEOverflowInvocation, a, b ast.ASTHandl
 			return failed, RewriteFailed, ast.ErrASTDomain
 		}
 	}
-	lower, e := n.Constant(2, width)
-	if e != nil {
-		return failed, RewriteFailed, e
-	}
-	left, e := m.MkBitVectorULE(lower, common)
-	if e != nil {
-		return failed, RewriteFailed, e
-	}
+	// GCC evaluates the arguments of mk_and(ule(lower, common),
+	// ule(common, upper)) right to left: the upper bound is built first.
 	upper, e := n.Constant(3, width)
 	if e != nil {
 		return failed, RewriteFailed, e
 	}
 	right, e := m.MkBitVectorULE(common, upper)
+	if e != nil {
+		return failed, RewriteFailed, e
+	}
+	lower, e := n.Constant(2, width)
+	if e != nil {
+		return failed, RewriteFailed, e
+	}
+	left, e := m.MkBitVectorULE(lower, common)
 	if e != nil {
 		return failed, RewriteFailed, e
 	}

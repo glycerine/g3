@@ -52,12 +52,12 @@ func (p *BVRewriter) rewriteSignedDivision(lhs, rhs ast.ASTHandle, out ast.ASTRe
 				st = Rewrite1
 			} else {
 				// Preserve raw (ite (bvslt lhs zero) one allones) even for numeral lhs.
-				// C++ nested argument evaluation order is unspecified; Go uses this order.
-				zero, e := n.Unsigned(0, width)
-				if e != nil {
+				// The reference GCC build evaluates mk_ite's arguments right to
+				// left: all-ones, one, then the zero numeral and the bvslt.
+				if e = n.AllOnes(width); e != nil {
 					return st, e
 				}
-				cond, e := m.MkFamilyApp(p.bvFamily, 27, nil, []ast.ASTHandle{lhs, zero})
+				all, e := n.Constant(6, width)
 				if e != nil {
 					return st, e
 				}
@@ -65,10 +65,11 @@ func (p *BVRewriter) rewriteSignedDivision(lhs, rhs ast.ASTHandle, out ast.ASTRe
 				if e != nil {
 					return st, e
 				}
-				if e = n.AllOnes(width); e != nil {
+				zero, e := n.Unsigned(0, width)
+				if e != nil {
 					return st, e
 				}
-				all, e := n.Constant(6, width)
+				cond, e := m.MkFamilyApp(p.bvFamily, 27, nil, []ast.ASTHandle{lhs, zero})
 				if e != nil {
 					return st, e
 				}
@@ -129,11 +130,7 @@ func (p *BVRewriter) rewriteSignedDivision(lhs, rhs ast.ASTHandle, out ast.ASTRe
 		if e != nil {
 			return st, e
 		}
-		zero, e := n.Unsigned(0, width)
-		if e != nil {
-			return st, e
-		}
-		cond, e := m.MkEq(rhs, zero)
+		no, e := internal()
 		if e != nil {
 			return st, e
 		}
@@ -141,7 +138,11 @@ func (p *BVRewriter) rewriteSignedDivision(lhs, rhs ast.ASTHandle, out ast.ASTRe
 		if e != nil {
 			return st, e
 		}
-		no, e := internal()
+		zero, e := n.Unsigned(0, width)
+		if e != nil {
+			return st, e
+		}
+		cond, e := m.MkEq(rhs, zero)
 		if e != nil {
 			return st, e
 		}

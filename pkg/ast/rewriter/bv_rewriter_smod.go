@@ -107,11 +107,7 @@ func (p *BVRewriter) rewriteSignedModulo(lhs, rhs ast.ASTHandle, out ast.ASTRef,
 				if e != nil {
 					return st, e
 				}
-				zero, e := n.Zero(width)
-				if e != nil {
-					return st, e
-				}
-				cond, e := m.MkEq(rhs, zero)
+				no, e := m.MkFamilyApp(p.bvFamily, 21, nil, []ast.ASTHandle{lhs, rhs})
 				if e != nil {
 					return st, e
 				}
@@ -119,7 +115,11 @@ func (p *BVRewriter) rewriteSignedModulo(lhs, rhs ast.ASTHandle, out ast.ASTRef,
 				if e != nil {
 					return st, e
 				}
-				no, e := m.MkFamilyApp(p.bvFamily, 21, nil, []ast.ASTHandle{lhs, rhs})
+				zero, e := n.Zero(width)
+				if e != nil {
+					return st, e
+				}
+				cond, e := m.MkEq(rhs, zero)
 				if e != nil {
 					return st, e
 				}

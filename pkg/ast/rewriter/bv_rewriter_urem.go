@@ -130,11 +130,11 @@ func (p *BVRewriter) rewriteUnsignedRemainder(lhs, rhs ast.ASTHandle, out ast.AS
 				result = lhs
 				st = RewriteDone
 			} else {
-				cond, e := m.MkEq(rhs, lhs)
+				yes, e := special(lhs)
 				if e != nil {
 					return st, e
 				}
-				yes, e := special(lhs)
+				cond, e := m.MkEq(rhs, lhs)
 				if e != nil {
 					return st, e
 				}
@@ -170,15 +170,15 @@ func (p *BVRewriter) rewriteUnsignedRemainder(lhs, rhs ast.ASTHandle, out ast.AS
 					if e = n.End(5, 4, 3); e != nil {
 						return st, e
 					}
+					yes, e := special(minus)
+					if e != nil {
+						return st, e
+					}
 					zero, e := n.Unsigned(0, width)
 					if e != nil {
 						return st, e
 					}
 					cond, e := m.MkEq(x, zero)
-					if e != nil {
-						return st, e
-					}
-					yes, e := special(minus)
 					if e != nil {
 						return st, e
 					}
@@ -199,12 +199,10 @@ func (p *BVRewriter) rewriteUnsignedRemainder(lhs, rhs ast.ASTHandle, out ast.AS
 				if e != nil {
 					return st, e
 				}
-				// Go evaluates these nested C++ arguments as condition, yes, then no.
-				zero, e := n.Unsigned(0, width)
-				if e != nil {
-					return st, e
-				}
-				cond, e := m.MkEq(rhs, zero)
+				// The reference GCC build evaluates mk_ite's arguments right to left:
+				// the internal operation, the zero interpretation, then the zero numeral
+				// and the equality.
+				no, e := internal()
 				if e != nil {
 					return st, e
 				}
@@ -212,7 +210,11 @@ func (p *BVRewriter) rewriteUnsignedRemainder(lhs, rhs ast.ASTHandle, out ast.AS
 				if e != nil {
 					return st, e
 				}
-				no, e := internal()
+				zero, e := n.Unsigned(0, width)
+				if e != nil {
+					return st, e
+				}
+				cond, e := m.MkEq(rhs, zero)
 				if e != nil {
 					return st, e
 				}

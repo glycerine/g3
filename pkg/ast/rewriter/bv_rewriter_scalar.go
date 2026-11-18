@@ -118,8 +118,9 @@ func (p *BVRewriter) RewriteCompare(lhs, rhs ast.ASTHandle, out ast.ASTRef) (st 
 			}
 			st = RewriteDone
 		} else {
-			// C++ nested argument order is unspecified; Go builds equality, one, zero.
-			eq, e := m.MkEq(lhs, rhs)
+			// The reference GCC build evaluates mk_ite's arguments right to left:
+			// #b0, #b1, then the equality.
+			zero, e := p.scalarBit(0)
 			if e != nil {
 				return st, e
 			}
@@ -127,7 +128,7 @@ func (p *BVRewriter) RewriteCompare(lhs, rhs ast.ASTHandle, out ast.ASTRef) (st 
 			if e != nil {
 				return st, e
 			}
-			zero, e := p.scalarBit(0)
+			eq, e := m.MkEq(lhs, rhs)
 			if e != nil {
 				return st, e
 			}

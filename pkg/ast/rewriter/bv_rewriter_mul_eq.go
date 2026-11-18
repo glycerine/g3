@@ -271,15 +271,17 @@ func (p *BVPolynomialRewriter) rewriteMultiplicationEqualityBody(lhs, rhs ast.AS
 				if e = n.Product(6, 0); e != nil {
 					return st, e
 				}
-				left, e := n.Constant(7, width)
-				if e != nil {
-					return st, e
-				}
+				// GCC evaluates mk_eq's arguments right to left: the c2_inv
+				// numeral and the product come before the c2_inv*c numeral.
 				coefficient, e := n.Constant(6, width)
 				if e != nil {
 					return st, e
 				}
 				right, e := productApp(coefficient, rhs)
+				if e != nil {
+					return st, e
+				}
+				left, e := n.Constant(7, width)
 				if e != nil {
 					return st, e
 				}

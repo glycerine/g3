@@ -512,11 +512,13 @@ func (c *enum2BVConfiguration) ReduceQuantifier(q, body ast.ASTHandle, patterns,
 				return false, err
 			}
 			if !enum2BVPowerOfTwo(nc) || nc == 1 {
-				variable, err := m.MkVar(count-i-1, c.sorts[i])
+				// GCC evaluates mk_ule's arguments right to left: the numeral
+				// is created before the variable.
+				upper, err := m.BitVectorNumeralUnsigned(nc-1, enum2BVWidth(nc))
 				if err != nil {
 					return false, err
 				}
-				upper, err := m.BitVectorNumeralUnsigned(nc-1, enum2BVWidth(nc))
+				variable, err := m.MkVar(count-i-1, c.sorts[i])
 				if err != nil {
 					return false, err
 				}

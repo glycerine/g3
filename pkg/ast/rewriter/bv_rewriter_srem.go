@@ -109,13 +109,10 @@ func (p *BVRewriter) rewriteSignedRemainder(lhs, rhs ast.ASTHandle, out ast.ASTR
 		if e != nil {
 			return st, e
 		}
-		// C++ nested arguments have unspecified evaluation order. This Go adapter
-		// constructs condition, then zero interpretation, then internal operation.
-		zero, e := n.Zero(width)
-		if e != nil {
-			return st, e
-		}
-		cond, e := m.MkEq(rhs, zero)
+		// The reference GCC build evaluates mk_ite's arguments right to left:
+		// the internal operation, the zero interpretation, then the zero numeral
+		// and the equality.
+		no, e := internal()
 		if e != nil {
 			return st, e
 		}
@@ -123,7 +120,11 @@ func (p *BVRewriter) rewriteSignedRemainder(lhs, rhs ast.ASTHandle, out ast.ASTR
 		if e != nil {
 			return st, e
 		}
-		no, e := internal()
+		zero, e := n.Zero(width)
+		if e != nil {
+			return st, e
+		}
+		cond, e := m.MkEq(rhs, zero)
 		if e != nil {
 			return st, e
 		}
