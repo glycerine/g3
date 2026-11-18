@@ -633,6 +633,7 @@ var scriptResults = map[string]string{
 	"z3_bug_dom_simplify_oscillation.smt2":              "unsat\nunsat\n(goals\n(goal\n  (not p3)\n  (not (and p1 true false))\n  (not true)\n  :precision precise :depth 1)\n)\n",
 	"z3_bug_elim_term_ite_stale_cache.smt2":             "sat\nunsat\n",
 	"z3_bug_macro_finder_disabled_stale_macro.smt2":     "sat\nunsat\n",
+	"pb_preprocess_proofs.smt2":                         "(error \"tactic failed: pb-preprocess does not support proofs\")\nunknown\n",
 	"z3_bug_pb_preprocess_ge_index.smt2":                "unsat\nunsat\n(goals\n(goal\n  false\n  :precision precise :depth 1)\n)\n",
 	"z3_bug_pb_preprocess_resolve_min_index.smt2":       "unsat\nunsat\n",
 	"z3_bug_pb_preprocess_resolve_no_complement.smt2":   "unsat\nunsat\n",

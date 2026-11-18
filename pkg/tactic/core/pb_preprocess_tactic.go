@@ -92,8 +92,12 @@ func (t *PBPreprocessTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (er
 	if err = out.Prepare(t.manager); err != nil {
 		return
 	}
-	if err = tactic.FailIfProofGeneration("pb-preprocess", g); err != nil {
-		return
+	// pb_preprocess_tactic::operator() throws its own message rather than
+	// calling fail_if_proof_generation.
+	if enabled, e := g.ProofsEnabled(); e != nil {
+		return e
+	} else if enabled {
+		return tactic.NewTacticException("pb-preprocess does not support proofs")
 	}
 	// pb_preprocess_tactic::operator() creates no tactic_report.
 	converter, e := tactic.NewPBPreprocModelConverter(t.manager)

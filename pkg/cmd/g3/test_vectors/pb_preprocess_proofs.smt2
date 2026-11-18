@@ -1,0 +1,6 @@
+(set-option :produce-proofs true)
+(declare-const a Bool)
+(declare-const b Bool)
+(assert ((_ at-most 1) a b))
+(apply pb-preprocess)
+(check-sat-using pb-preprocess)
