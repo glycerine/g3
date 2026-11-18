@@ -6,7 +6,6 @@ package rewriter
 
 import (
 	"errors"
-	"math/big"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -16,7 +15,57 @@ import (
 
 type pbTerm struct {
 	literal ast.ASTHandle
-	coeff   *big.Rat
+	coeff   *unumeral.Rational // held by the rewrite's pbNumbers
+}
+
+// pbNumbers holds the rationals (numeral = rational, of the AST manager's
+// NumeralService().Manager) of one mk_app_core: its coefficient vector, k
+// and temporaries. Operations keep the first error.
+type pbNumbers struct {
+	q      *unumeral.RationalManager
+	values []*unumeral.Rational
+	err    error
+}
+
+func newPBNumbers(m *ast.ASTManager) *pbNumbers {
+	return &pbNumbers{q: m.NumeralService().Manager}
+}
+
+func (n *pbNumbers) fresh() *unumeral.Rational {
+	v := new(unumeral.Rational)
+	*v = unumeral.NewRational()
+	n.values = append(n.values, v)
+	return v
+}
+
+func (n *pbNumbers) fail(err error) {
+	if n.err == nil && err != nil {
+		n.err = err
+	}
+}
+
+func (n *pbNumbers) release() error {
+	err := n.err
+	for _, v := range n.values {
+		err = errors.Join(err, n.q.Del(v))
+	}
+	n.values = nil
+	return err
+}
+
+func (n *pbNumbers) set(dst, src *unumeral.Rational) { n.fail(n.q.Copy(dst, src)) }
+func (n *pbNumbers) setInt(dst *unumeral.Rational, v int64) {
+	n.fail(n.q.SetInt64(dst, v))
+}
+func (n *pbNumbers) add(dst, a, b *unumeral.Rational) { n.fail(n.q.Add(a, b, dst)) }
+func (n *pbNumbers) sub(dst, a, b *unumeral.Rational) { n.fail(n.q.Sub(a, b, dst)) }
+func (n *pbNumbers) mul(dst, a, b *unumeral.Rational) { n.fail(n.q.Mul(a, b, dst)) }
+func (n *pbNumbers) div(dst, a, b *unumeral.Rational) { n.fail(n.q.Div(a, b, dst)) }
+func (n *pbNumbers) neg(dst *unumeral.Rational)       { n.fail(n.q.Neg(dst)) }
+func (n *pbNumbers) cmp(a, b *unumeral.Rational) int {
+	c, err := n.q.Compare(a, b)
+	n.fail(err)
+	return c
 }
 
 type pbTruth int8
@@ -60,34 +109,28 @@ func (r *PseudoBooleanRewriter) open() error {
 	return nil
 }
 
-func (r *PseudoBooleanRewriter) rational(value *unumeral.OwnedRational) (*big.Rat, error) {
-	text, err := r.manager.NumeralService().String(value)
-	if err != nil {
-		return nil, err
-	}
-	q, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return nil, ast.ErrASTDomain
-	}
-	return q, nil
+// rational copies value into a rational held by n.
+func (r *PseudoBooleanRewriter) rational(n *pbNumbers, value *unumeral.OwnedRational) (*unumeral.Rational, error) {
+	out := n.fresh()
+	return out, n.q.Copy(out, &value.Raw)
 }
 
-func (r *PseudoBooleanRewriter) bound(decl ast.ASTHandle) (_ *big.Rat, result error) {
+func (r *PseudoBooleanRewriter) bound(n *pbNumbers, decl ast.ASTHandle) (_ *unumeral.Rational, result error) {
 	value, err := r.manager.PseudoBooleanBound(decl)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { result = errors.Join(result, r.manager.NumeralService().Del(&value)) }()
-	return r.rational(&value)
+	return r.rational(n, &value)
 }
 
-func (r *PseudoBooleanRewriter) coefficient(decl ast.ASTHandle, index uint32) (_ *big.Rat, result error) {
+func (r *PseudoBooleanRewriter) coefficient(n *pbNumbers, decl ast.ASTHandle, index uint32) (_ *unumeral.Rational, result error) {
 	value, err := r.manager.PseudoBooleanCoefficient(decl, index)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { result = errors.Join(result, r.manager.NumeralService().Del(&value)) }()
-	return r.rational(&value)
+	return r.rational(n, &value)
 }
 
 func (r *PseudoBooleanRewriter) negated(h ast.ASTHandle) (ast.ASTHandle, bool, error) {
@@ -140,19 +183,19 @@ func (r *PseudoBooleanRewriter) releaseNegations() error {
 	return err
 }
 
-func (r *PseudoBooleanRewriter) unique(args []pbTerm, k *big.Rat) ([]pbTerm, error) {
+func (r *PseudoBooleanRewriter) unique(n *pbNumbers, args []pbTerm, k *unumeral.Rational) ([]pbTerm, error) {
 	for i := range args {
 		if literal, negated, err := r.negated(args[i].literal); err != nil {
 			return nil, err
 		} else if negated {
 			args[i].literal = literal
-			k.Sub(k, args[i].coeff)
-			args[i].coeff.Neg(args[i].coeff)
+			n.sub(k, k, args[i].coeff)
+			n.neg(args[i].coeff)
 		}
 	}
 	for i := 0; i < len(args); i++ {
 		if r.manager.IsTrue(args[i].literal) {
-			k.Sub(k, args[i].coeff)
+			n.sub(k, k, args[i].coeff)
 			args[i] = args[len(args)-1]
 			args = args[:len(args)-1]
 			i--
@@ -176,7 +219,7 @@ func (r *PseudoBooleanRewriter) unique(args []pbTerm, k *big.Rat) ([]pbTerm, err
 		for _, arg := range args[1:] {
 			last := &out[len(out)-1]
 			if last.literal == arg.literal {
-				last.coeff.Add(last.coeff, arg.coeff)
+				n.add(last.coeff, last.coeff, arg.coeff)
 			} else {
 				out = append(out, arg)
 			}
@@ -185,202 +228,196 @@ func (r *PseudoBooleanRewriter) unique(args []pbTerm, k *big.Rat) ([]pbTerm, err
 	}
 	out := args[:0]
 	for _, arg := range args {
-		if arg.coeff.Sign() != 0 {
+		if !arg.coeff.IsZero() {
 			out = append(out, arg)
 		}
 	}
-	return out, nil
+	return out, n.err
 }
 
-func pbRatLCM(a, b *big.Int) *big.Int {
-	if a.Sign() == 0 || b.Sign() == 0 {
-		return new(big.Int)
-	}
-	g := new(big.Int).GCD(nil, nil, a, b)
-	return new(big.Int).Abs(new(big.Int).Mul(new(big.Int).Quo(new(big.Int).Set(a), g), b))
-}
-
-func pbRatFloor(q *big.Rat) *big.Int {
-	n, rem := new(big.Int), new(big.Int)
-	n.QuoRem(q.Num(), q.Denom(), rem)
-	if q.Sign() < 0 && rem.Sign() != 0 {
-		n.Sub(n, big.NewInt(1))
-	}
-	return n
-}
-
-func pbRatCeil(q *big.Rat) *big.Int {
-	n, rem := new(big.Int), new(big.Int)
-	n.QuoRem(q.Num(), q.Denom(), rem)
-	if q.Sign() > 0 && rem.Sign() != 0 {
-		n.Add(n, big.NewInt(1))
-	}
-	return n
-}
-
-func (r *PseudoBooleanRewriter) normalize(args []pbTerm, k *big.Rat, equality bool) ([]pbTerm, pbTruth, error) {
-	sum := new(big.Rat)
+func (r *PseudoBooleanRewriter) normalize(n *pbNumbers, args []pbTerm, k *unumeral.Rational, equality bool) ([]pbTerm, pbTruth, error) {
+	q := n.q
+	sum, c := n.fresh(), n.fresh()
 	for i := range args {
-		c := new(big.Rat).Set(args[i].coeff)
-		if c.Sign() < 0 {
-			args[i].coeff.Neg(c)
+		n.set(c, args[i].coeff)
+		if c.IsNeg() {
+			n.set(args[i].coeff, c)
+			n.neg(args[i].coeff)
 			literal, err := r.negate(args[i].literal)
 			if err != nil {
 				return nil, pbUndef, err
 			}
 			args[i].literal = literal
-			k.Sub(k, c)
+			n.sub(k, k, c)
 		}
-		sum.Add(sum, args[i].coeff)
+		n.add(sum, sum, args[i].coeff)
 	}
-	if !equality && k.Sign() <= 0 {
+	if n.err != nil {
+		return nil, pbUndef, n.err
+	}
+	if !equality && !k.IsPos() {
 		return args[:0], pbTrue, nil
 	}
-	if equality && k.Sign() == 0 && len(args) == 0 {
+	if equality && k.IsZero() && len(args) == 0 {
 		return args, pbTrue, nil
 	}
-	if sum.Cmp(k) < 0 {
-		return args[:0], pbFalse, nil
+	if n.cmp(sum, k) < 0 {
+		return args[:0], pbFalse, n.err
 	}
-	if equality && k.Cmp(sum) == 0 {
+	if equality && n.cmp(k, sum) == 0 {
 		for i := range args {
-			args[i].coeff.SetInt64(1)
+			n.setInt(args[i].coeff, 1)
 		}
-		k.SetInt64(int64(len(args)))
-		return args, pbUndef, nil
+		n.setInt(k, int64(len(args)))
+		return args, pbUndef, n.err
 	}
-	lcm := new(big.Int).Set(k.Denom())
+	// d = lcm of the denominators of k and the coefficients
+	lcm, den := n.fresh(), n.fresh()
+	n.fail(q.DenominatorRational(k, lcm))
 	for _, arg := range args {
-		lcm = pbRatLCM(lcm, arg.coeff.Denom())
+		n.fail(q.DenominatorRational(arg.coeff, den))
+		n.fail(q.LCM(lcm, den, lcm))
 	}
-	if lcm.Cmp(big.NewInt(1)) != 0 {
-		factor := new(big.Rat).SetInt(lcm)
-		k.Mul(k, factor)
+	if n.err != nil {
+		return nil, pbUndef, n.err
+	}
+	if !lcm.IsOne() {
+		n.mul(k, k, lcm)
 		for i := range args {
-			args[i].coeff.Mul(args[i].coeff, factor)
+			n.mul(args[i].coeff, args[i].coeff, lcm)
 		}
 	}
 	if equality {
-		return args, pbUndef, nil
+		return args, pbUndef, n.err
 	}
-	sum.SetInt64(0)
+	n.setInt(sum, 0)
 	for i := range args {
-		if args[i].coeff.Cmp(k) > 0 {
-			args[i].coeff.Set(k)
+		if n.cmp(args[i].coeff, k) > 0 {
+			n.set(args[i].coeff, k)
 		}
-		sum.Add(sum, args[i].coeff)
+		n.add(sum, sum, args[i].coeff)
 	}
 	if len(args) == 0 {
-		return args, pbFalse, nil
+		return args, pbFalse, n.err
 	}
-	if sum.Cmp(k) == 0 {
+	if n.cmp(sum, k) == 0 {
 		for i := range args {
-			args[i].coeff.SetInt64(1)
+			n.setInt(args[i].coeff, 1)
 		}
-		k.SetInt64(int64(len(args)))
+		n.setInt(k, int64(len(args)))
 	}
-	g := new(big.Int)
+	g := n.fresh()
 	for _, arg := range args {
-		if arg.coeff.Cmp(k) == 0 {
+		if n.cmp(arg.coeff, k) == 0 {
 			continue
 		}
-		c := arg.coeff.Num()
-		if g.Sign() == 0 {
-			g.Set(c)
-		} else if g.Cmp(big.NewInt(1)) != 0 {
-			g.GCD(nil, nil, g, c)
+		if g.IsZero() {
+			n.set(g, arg.coeff)
+		} else if !g.IsOne() {
+			n.fail(q.GCD(g, arg.coeff, g))
 		}
 	}
-	if g.Sign() == 0 {
+	if n.err != nil {
+		return nil, pbUndef, n.err
+	}
+	if g.IsZero() {
 		for i := range args {
-			args[i].coeff.SetInt64(1)
+			n.setInt(args[i].coeff, 1)
 		}
-		k.SetInt64(1)
-	} else if g.Cmp(big.NewInt(1)) > 0 {
-		kInt := new(big.Int).Set(k.Num())
-		kNew := new(big.Int).Quo(kInt, g)
-		if new(big.Int).Rem(kInt, g).Sign() != 0 {
-			kNew.Add(kNew, big.NewInt(1))
+		n.setInt(k, 1)
+	} else if !g.IsOne() && g.IsPos() {
+		// k_new = div(k, g), rounded up when g does not divide k
+		kNew, rem := n.fresh(), n.fresh()
+		n.fail(q.IDiv(k, g, kNew))
+		n.fail(q.Rem(k, g, rem))
+		if !rem.IsZero() {
+			n.fail(q.Inc(kNew))
 		}
 		for i := range args {
-			c := new(big.Int).Set(args[i].coeff.Num())
-			if args[i].coeff.Cmp(k) == 0 {
-				c.Set(kNew)
+			if n.cmp(args[i].coeff, k) == 0 {
+				n.set(args[i].coeff, kNew)
 			} else {
-				c.Quo(c, g)
+				n.fail(q.IDiv(args[i].coeff, g, args[i].coeff))
 			}
-			args[i].coeff.SetInt(c)
 		}
-		k.SetInt(kNew)
+		n.set(k, kNew)
 	}
-	if k.Cmp(big.NewRat(1, 1)) != 0 {
-		min, max := new(big.Rat).Set(args[0].coeff), new(big.Rat).Set(args[0].coeff)
+	if !k.IsOne() {
+		min, max := n.fresh(), n.fresh()
+		n.set(min, args[0].coeff)
+		n.set(max, args[0].coeff)
 		for _, arg := range args[1:] {
-			if arg.coeff.Cmp(min) < 0 {
-				min.Set(arg.coeff)
+			if n.cmp(arg.coeff, min) < 0 {
+				n.set(min, arg.coeff)
 			}
-			if arg.coeff.Cmp(max) > 0 {
-				max.Set(arg.coeff)
+			if n.cmp(arg.coeff, max) > 0 {
+				n.set(max, arg.coeff)
 			}
 		}
-		n0 := new(big.Rat).Quo(new(big.Rat).Set(k), max)
-		n1 := pbRatFloor(n0)
-		n2 := pbRatCeil(new(big.Rat).Quo(new(big.Rat).Set(k), min))
-		n2.Sub(n2, big.NewInt(1))
-		if n1.Cmp(n2) == 0 && !n0.IsInt() {
+		n0, n1, n2 := n.fresh(), n.fresh(), n.fresh()
+		n.div(n0, k, max)
+		n.fail(q.Floor(n0, n1))
+		n.div(n2, k, min)
+		n.fail(q.Ceil(n2, n2))
+		n.fail(q.Dec(n2))
+		if n.cmp(n1, n2) == 0 && !n0.IsInt() {
 			for i := range args {
-				args[i].coeff.SetInt64(1)
+				n.setInt(args[i].coeff, 1)
 			}
-			k.SetInt(new(big.Int).Add(n1, big.NewInt(1)))
+			n.set(k, n1)
+			n.fail(q.Inc(k))
 		}
 	}
-	return args, pbUndef, nil
+	return args, pbUndef, n.err
 }
 
-func (r *PseudoBooleanRewriter) prune(args []pbTerm, k *big.Rat, equality bool) ([]pbTerm, error) {
+func (r *PseudoBooleanRewriter) prune(n *pbNumbers, args []pbTerm, k *unumeral.Rational, equality bool) ([]pbTerm, error) {
 	if equality {
 		return args, nil
 	}
-	nlt := new(big.Rat)
+	nlt := n.fresh()
 	occurrences := 0
-	for i := 0; nlt.Cmp(k) < 0 && i < len(args); i++ {
-		if args[i].coeff.Cmp(k) < 0 {
-			nlt.Add(nlt, args[i].coeff)
+	for i := 0; n.cmp(nlt, k) < 0 && i < len(args); i++ {
+		if n.cmp(args[i].coeff, k) < 0 {
+			n.add(nlt, nlt, args[i].coeff)
 			occurrences++
 		}
 	}
-	if occurrences > 0 && nlt.Cmp(k) < 0 {
+	if n.err != nil {
+		return nil, n.err
+	}
+	if occurrences > 0 && n.cmp(nlt, k) < 0 {
 		for i := 0; i < len(args); i++ {
-			if args[i].coeff.Cmp(k) < 0 {
+			if n.cmp(args[i].coeff, k) < 0 {
 				args[i] = args[len(args)-1]
 				args = args[:len(args)-1]
 				i--
 			}
 		}
 		var err error
-		args, err = r.unique(args, k)
+		args, err = r.unique(n, args, k)
 		if err != nil {
 			return nil, err
 		}
-		args, _, err = r.normalize(args, k, false)
+		args, _, err = r.normalize(n, args, k, false)
 		return args, err
 	}
-	return args, nil
+	return args, n.err
 }
 
-func (r *PseudoBooleanRewriter) ownedRational(q *big.Rat) (unumeral.OwnedRational, error) {
+func (r *PseudoBooleanRewriter) ownedRational(q *unumeral.Rational) (unumeral.OwnedRational, error) {
 	s := r.manager.NumeralService()
 	v, err := s.NewValue()
 	if err != nil {
 		return v, err
 	}
-	if err = s.SetString(&v, q.RatString()); err != nil {
+	if err = s.Manager.Copy(&v.Raw, q); err != nil {
 		return v, errors.Join(err, s.Del(&v))
 	}
 	return v, nil
 }
 
-func (r *PseudoBooleanRewriter) build(args []pbTerm, k *big.Rat, equality bool) (result ast.ASTHandle, err error) {
+func (r *PseudoBooleanRewriter) build(args []pbTerm, k *unumeral.Rational, equality bool) (result ast.ASTHandle, err error) {
 	handles := make([]ast.ASTHandle, len(args))
 	coefficients := make([]unumeral.OwnedRational, len(args))
 	for i := range args {
@@ -418,10 +455,12 @@ func (r *PseudoBooleanRewriter) RewriteApp(decl ast.ASTHandle, arguments ast.App
 	return status, err
 }
 
-func (r *PseudoBooleanRewriter) rewriteApp(decl ast.ASTHandle, arguments ast.AppArguments, out ast.ASTRef) (RewriteStatus, error) {
+func (r *PseudoBooleanRewriter) rewriteApp(decl ast.ASTHandle, arguments ast.AppArguments, out ast.ASTRef) (_ RewriteStatus, resultErr error) {
 	if err := r.open(); err != nil {
 		return RewriteFailed, err
 	}
+	n := newPBNumbers(r.manager)
+	defer func() { resultErr = errors.Join(resultErr, n.release()) }()
 	aux, err := r.manager.IsPseudoBooleanAux(decl)
 	if err != nil {
 		return RewriteFailed, err
@@ -437,7 +476,7 @@ func (r *PseudoBooleanRewriter) rewriteApp(decl ast.ASTHandle, arguments ast.App
 	if err != nil || kind < ast.ASTPBOpAtMost || kind > ast.ASTPBOpEQ {
 		return RewriteFailed, err
 	}
-	k, err := r.bound(decl)
+	k, err := r.bound(n, decl)
 	if err != nil {
 		return RewriteFailed, err
 	}
@@ -447,28 +486,28 @@ func (r *PseudoBooleanRewriter) rewriteApp(decl ast.ASTHandle, arguments ast.App
 		if err != nil {
 			return RewriteFailed, err
 		}
-		args[i].coeff, err = r.coefficient(decl, uint32(i))
+		args[i].coeff, err = r.coefficient(n, decl, uint32(i))
 		if err != nil {
 			return RewriteFailed, err
 		}
 	}
 	if kind == ast.ASTPBOpAtMost || kind == ast.ASTPBOpLE {
 		for i := range args {
-			args[i].coeff.Neg(args[i].coeff)
+			n.neg(args[i].coeff)
 		}
-		k.Neg(k)
+		n.neg(k)
 	}
 	equality := kind == ast.ASTPBOpEQ
-	args, err = r.unique(args, k)
+	args, err = r.unique(n, args, k)
 	if err != nil {
 		return RewriteFailed, err
 	}
 	var truth pbTruth
-	args, truth, err = r.normalize(args, k, equality)
+	args, truth, err = r.normalize(n, args, k, equality)
 	if err != nil {
 		return RewriteFailed, err
 	}
-	args, err = r.prune(args, k, equality)
+	args, err = r.prune(n, args, k, equality)
 	if err != nil {
 		return RewriteFailed, err
 	}
@@ -481,21 +520,21 @@ func (r *PseudoBooleanRewriter) rewriteApp(decl ast.ASTHandle, arguments ast.App
 	default:
 		allUnit := true
 		for _, arg := range args {
-			allUnit = allUnit && arg.coeff.Cmp(big.NewRat(1, 1)) == 0
+			allUnit = allUnit && arg.coeff.IsOne()
 		}
 		if equality && len(args) == 0 {
-			if k.Sign() == 0 {
+			if k.IsZero() {
 				value, err = r.manager.MkTrue()
 			} else {
 				value, err = r.manager.MkFalse()
 			}
-		} else if !equality && allUnit && k.Cmp(big.NewRat(1, 1)) == 0 {
+		} else if !equality && allUnit && k.IsOne() {
 			handles := make([]ast.ASTHandle, len(args))
 			for i := range args {
 				handles[i] = args[i].literal
 			}
 			value, err = r.manager.MkOrArray(handles)
-		} else if !equality && allUnit && k.Cmp(new(big.Rat).SetInt64(int64(len(args)))) == 0 {
+		} else if v, small := k.SmallInt32(); !equality && allUnit && small && int64(v) == int64(len(args)) {
 			handles := make([]ast.ASTHandle, len(args))
 			for i := range args {
 				handles[i] = args[i].literal

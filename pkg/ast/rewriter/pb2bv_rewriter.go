@@ -5,12 +5,12 @@ package rewriter
 
 import (
 	"errors"
-	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	umemory "github.com/glycerine/g3/pkg/util/memory"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
@@ -130,15 +130,16 @@ func (r *PB2BVRewriter) open() error {
 	return err
 }
 
-func pb2BVUnsigned(q *big.Rat) (uint32, bool) {
-	if q == nil || q.Sign() < 0 || !q.IsInt() || !q.Num().IsUint64() {
+// pb2BVUnsigned is k.is_unsigned() / k.get_unsigned().
+func pb2BVUnsigned(n *pbNumbers, k *unumeral.Rational) (uint32, bool) {
+	ok, err := n.q.IsUnsigned(k)
+	n.fail(err)
+	if !ok || err != nil {
 		return 0, false
 	}
-	v := q.Num().Uint64()
-	if v > uint64(^uint32(0)) {
-		return 0, false
-	}
-	return uint32(v), true
+	v, err := n.q.Unsigned(k)
+	n.fail(err)
+	return v, err == nil
 }
 
 type pb2BVComparison uint8
@@ -149,8 +150,8 @@ const (
 	pb2BVGE
 )
 
-func (r *PB2BVRewriter) bitVectorNumeral(q *big.Rat, width uint32) (result ast.ASTHandle, err error) {
-	if q == nil || !q.IsInt() || q.Sign() < 0 || width == 0 {
+func (r *PB2BVRewriter) bitVectorNumeral(q *unumeral.Rational, width uint32) (result ast.ASTHandle, err error) {
+	if q == nil || !q.IsInt() || q.IsNeg() || width == 0 {
 		return result, ast.ErrASTDomain
 	}
 	sort, err := r.manager.BitVectorSort(width)
@@ -163,7 +164,7 @@ func (r *PB2BVRewriter) bitVectorNumeral(q *big.Rat, width uint32) (result ast.A
 		return result, err
 	}
 	defer func() { err = errors.Join(err, service.Del(&value)) }()
-	if err = service.SetString(&value, q.Num().String()); err != nil {
+	if err = service.Manager.Copy(&value.Raw, q); err != nil {
 		return result, err
 	}
 	return r.manager.BitVectorNumeralForSort(&value, sort)
@@ -263,8 +264,8 @@ func (r *PB2BVRewriter) weightedPair(mode pb2BVComparison, formulas *[]ast.ASTHa
 	return low, nil
 }
 
-func (r *PB2BVRewriter) weighted(mode pb2BVComparison, args []ast.ASTHandle, coefficients []*big.Rat, boundValue *big.Rat) (ast.ASTHandle, error) {
-	if boundValue.Sign() == 0 {
+func (r *PB2BVRewriter) weighted(n *pbNumbers, mode pb2BVComparison, args []ast.ASTHandle, coefficients []*unumeral.Rational, boundValue *unumeral.Rational) (ast.ASTHandle, error) {
+	if boundValue.IsZero() {
 		if mode == pb2BVGE {
 			return r.manager.MkTrue()
 		}
@@ -274,17 +275,21 @@ func (r *PB2BVRewriter) weighted(mode pb2BVComparison, args []ast.ASTHandle, coe
 		}
 		return r.negate(disjunction)
 	}
-	if boundValue.Sign() < 0 {
+	if boundValue.IsNeg() {
 		return r.manager.MkBoolVal(mode == pb2BVGE)
 	}
-	if err := pb2BVSourceAssert(110, "k.is_pos()", func() bool { return boundValue.Sign() > 0 }); err != nil {
+	if err := pb2BVSourceAssert(110, "k.is_pos()", func() bool { return boundValue.IsPos() }); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if !boundValue.IsInt() || boundValue.Num().BitLen() > int(^uint32(0)) {
+	if !boundValue.IsInt() {
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
-	width := uint32(boundValue.Num().BitLen())
-	zero, err := r.bitVectorNumeral(big.NewRat(0, 1), width)
+	// unsigned nb = k.get_num_bits();
+	width, err := n.q.Bitsize(boundValue)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	zero, err := r.bitVectorNumeral(&unumeral.Rational{Num: unumeral.NewInt(0), Den: unumeral.NewInt(1)}, width)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -294,13 +299,13 @@ func (r *PB2BVRewriter) weighted(mode pb2BVComparison, args []ast.ASTHandle, coe
 	}
 	var expressions, formulas []ast.ASTHandle
 	for i, coefficient := range coefficients {
-		if err := pb2BVSourceAssert(117, "!m_coeffs[i].is_neg()", func() bool { return coefficient.Sign() >= 0 }); err != nil {
+		if err := pb2BVSourceAssert(117, "!m_coeffs[i].is_neg()", func() bool { return !coefficient.IsNeg() }); err != nil {
 			return ast.ASTHandle{}, err
 		}
-		if coefficient.Sign() < 0 || !coefficient.IsInt() {
+		if coefficient.IsNeg() || !coefficient.IsInt() {
 			return ast.ASTHandle{}, ast.ErrASTDomain
 		}
-		if coefficient.Cmp(boundValue) > 0 {
+		if n.cmp(coefficient, boundValue) > 0 {
 			term := args[i]
 			if mode != pb2BVGE {
 				term, err = r.negate(term)
@@ -367,16 +372,16 @@ func (r *PB2BVRewriter) weighted(mode pb2BVComparison, args []ast.ASTHandle, coe
 	}
 }
 
-func (r *PB2BVRewriter) weightedPB(kind int32, decl ast.ASTHandle, arguments ast.AppArguments, bound *big.Rat) (ast.ASTHandle, error) {
-	return r.weightedPBCore(kind, decl, arguments, bound, nil)
+func (r *PB2BVRewriter) weightedPB(n *pbNumbers, kind int32, decl ast.ASTHandle, arguments ast.AppArguments, bound *unumeral.Rational) (ast.ASTHandle, error) {
+	return r.weightedPBCore(n, kind, decl, arguments, bound, nil)
 }
 
 // weightedPBInto is mk_bv with its result held by out before the dualized
 // expr_ref_vector nargs is destroyed (front to back), as the source's
 // returned expr_ref holds the result.
-func (r *PB2BVRewriter) weightedPBInto(kind int32, decl ast.ASTHandle, arguments ast.AppArguments, bound *big.Rat, out ast.ASTRef) (result error) {
+func (r *PB2BVRewriter) weightedPBInto(n *pbNumbers, kind int32, decl ast.ASTHandle, arguments ast.AppArguments, bound *unumeral.Rational, out ast.ASTRef) (result error) {
 	var held []ast.ASTHandle
-	h, err := r.weightedPBCore(kind, decl, arguments, bound, &held)
+	h, err := r.weightedPBCore(n, kind, decl, arguments, bound, &held)
 	if err == nil {
 		err = r.manager.SetRef(out, h)
 	}
@@ -386,22 +391,22 @@ func (r *PB2BVRewriter) weightedPBInto(kind int32, decl ast.ASTHandle, arguments
 	return err
 }
 
-func (r *PB2BVRewriter) weightedPBCore(kind int32, decl ast.ASTHandle, arguments ast.AppArguments, bound *big.Rat, held *[]ast.ASTHandle) (ast.ASTHandle, error) {
+func (r *PB2BVRewriter) weightedPBCore(n *pbNumbers, kind int32, decl ast.ASTHandle, arguments ast.AppArguments, bound *unumeral.Rational, held *[]ast.ASTHandle) (ast.ASTHandle, error) {
 	r.compileBV++
 	args := make([]ast.ASTHandle, arguments.Count())
-	coefficients := make([]*big.Rat, arguments.Count())
+	coefficients := make([]*unumeral.Rational, arguments.Count())
 	for i := range args {
 		var err error
 		args[i], err = arguments.At(uint32(i))
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		coefficients[i], err = r.pseudo.coefficient(decl, uint32(i))
+		coefficients[i], err = r.pseudo.coefficient(n, decl, uint32(i))
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
 	}
-	if err := pb2BVSourceAssert(168, "!k.is_neg()", func() bool { return bound.Sign() >= 0 }); err != nil {
+	if err := pb2BVSourceAssert(168, "!k.is_neg()", func() bool { return !bound.IsNeg() }); err != nil {
 		return ast.ASTHandle{}, err
 	}
 	mode := pb2BVLE
@@ -409,9 +414,11 @@ func (r *PB2BVRewriter) weightedPBCore(kind int32, decl ast.ASTHandle, arguments
 		mode = pb2BVEQ
 	} else if kind == ast.ASTPBOpAtLeast || kind == ast.ASTPBOpGE {
 		// Source dualizes >= into <= over negated literals.
-		dual := new(big.Rat).Neg(bound)
+		dual := n.fresh()
+		n.set(dual, bound)
+		n.neg(dual)
 		for i := range args {
-			dual.Add(dual, coefficients[i])
+			n.add(dual, dual, coefficients[i])
 			var err error
 			args[i], err = r.negate(args[i])
 			if err != nil {
@@ -425,33 +432,51 @@ func (r *PB2BVRewriter) weightedPBCore(kind int32, decl ast.ASTHandle, arguments
 				*held = append(*held, args[i])
 			}
 		}
+		if n.err != nil {
+			return ast.ASTHandle{}, n.err
+		}
 		bound = dual
-		if err := pb2BVSourceAssert(175, "!k.is_neg()", func() bool { return bound.Sign() >= 0 }); err != nil {
+		if err := pb2BVSourceAssert(175, "!k.is_neg()", func() bool { return !bound.IsNeg() }); err != nil {
 			return ast.ASTHandle{}, err
 		}
 	}
-	return r.weighted(mode, args, coefficients, bound)
+	return r.weighted(n, mode, args, coefficients, bound)
 }
 
+// pb2BVArithmeticForm's rationals are held by n.
 type pb2BVArithmeticForm struct {
+	n            *pbNumbers
 	args         []ast.ASTHandle
-	coefficients []*big.Rat
-	bound        big.Rat
+	coefficients []*unumeral.Rational
+	bound        *unumeral.Rational
 }
 
-func (r *PB2BVRewriter) arithmeticNumeral(h ast.ASTHandle) (*big.Rat, bool, error) {
-	text, _, matched, err := r.manager.ArithmeticNumeralText(h)
+func (r *PB2BVRewriter) arithmeticNumeral(n *pbNumbers, h ast.ASTHandle) (*unumeral.Rational, bool, error) {
+	out := n.fresh()
+	_, matched, err := r.manager.ArithmeticNumeralRational(h, out)
 	if err != nil || !matched {
 		return nil, matched, err
 	}
-	q, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return nil, true, ast.ErrASTDomain
-	}
-	return q, true, nil
+	return out, true, nil
 }
 
-func (r *PB2BVRewriter) collectArithmeticPB(form *pb2BVArithmeticForm, expression ast.ASTHandle, multiplier *big.Rat) (bool, error) {
+// pbProduct is a fresh rational a*b held by n.
+func pbProduct(n *pbNumbers, a, b *unumeral.Rational) *unumeral.Rational {
+	out := n.fresh()
+	n.mul(out, a, b)
+	return out
+}
+
+// pbNegation is a fresh rational -a held by n.
+func pbNegation(n *pbNumbers, a *unumeral.Rational) *unumeral.Rational {
+	out := n.fresh()
+	n.set(out, a)
+	n.neg(out)
+	return out
+}
+
+func (r *PB2BVRewriter) collectArithmeticPB(form *pb2BVArithmeticForm, expression ast.ASTHandle, multiplier *unumeral.Rational) (bool, error) {
+	n := form.n
 	kind, err := r.manager.GetKind(expression)
 	if err != nil || kind != ast.ASTApp {
 		return false, err
@@ -494,7 +519,7 @@ func (r *PB2BVRewriter) collectArithmeticPB(form *pb2BVArithmeticForm, expressio
 			if e != nil || !matched {
 				return matched, e
 			}
-			negative := new(big.Rat).Neg(multiplier)
+			negative := pbNegation(n, multiplier)
 			for i := uint32(1); i < count; i++ {
 				// The source repeatedly reads argument 1 for n-ary subtraction.
 				arg, e := r.manager.GetArg(expression, 1)
@@ -515,13 +540,16 @@ func (r *PB2BVRewriter) collectArithmeticPB(form *pb2BVArithmeticForm, expressio
 			if e != nil {
 				return false, e
 			}
-			return r.collectArithmeticPB(form, arg, new(big.Rat).Neg(multiplier))
+			return r.collectArithmeticPB(form, arg, pbNegation(n, multiplier))
 		case arithOpNum:
-			value, matched, e := r.arithmeticNumeral(expression)
+			value, matched, e := r.arithmeticNumeral(n, expression)
 			if e != nil || !matched {
 				return matched, e
 			}
-			form.bound.Sub(&form.bound, new(big.Rat).Mul(multiplier, value))
+			n.sub(form.bound, form.bound, pbProduct(n, multiplier, value))
+			if n.err != nil {
+				return false, n.err
+			}
 			// return m_k.is_int(): z3 4.7.1 returned true and built a wrong
 			// circuit from a fractional bound (fork fix, upstream 10768bd00;
 			// AUDIT.md ast_rewriter_04-F3).
@@ -538,15 +566,15 @@ func (r *PB2BVRewriter) collectArithmeticPB(form *pb2BVArithmeticForm, expressio
 			if e != nil {
 				return false, e
 			}
-			if value, matched, e := r.arithmeticNumeral(left); e != nil {
+			if value, matched, e := r.arithmeticNumeral(n, left); e != nil {
 				return false, e
 			} else if matched {
-				return r.collectArithmeticPB(form, right, new(big.Rat).Mul(value, multiplier))
+				return r.collectArithmeticPB(form, right, pbProduct(n, value, multiplier))
 			}
-			if value, matched, e := r.arithmeticNumeral(right); e != nil {
+			if value, matched, e := r.arithmeticNumeral(n, right); e != nil {
 				return false, e
 			} else if matched {
-				return r.collectArithmeticPB(form, left, new(big.Rat).Mul(value, multiplier))
+				return r.collectArithmeticPB(form, left, pbProduct(n, value, multiplier))
 			}
 			return false, nil
 		default:
@@ -568,48 +596,57 @@ func (r *PB2BVRewriter) collectArithmeticPB(form *pb2BVArithmeticForm, expressio
 	if err != nil {
 		return false, err
 	}
-	highValue, highMatched, err := r.arithmeticNumeral(high)
+	highValue, highMatched, err := r.arithmeticNumeral(n, high)
 	if err != nil || !highMatched {
 		return false, err
 	}
-	lowValue, lowMatched, err := r.arithmeticNumeral(low)
+	lowValue, lowMatched, err := r.arithmeticNumeral(n, low)
 	if err != nil || !lowMatched {
 		return false, err
 	}
-	highValue.Mul(highValue, multiplier)
-	lowValue.Mul(lowValue, multiplier)
-	if highValue.Cmp(lowValue) < 0 {
+	n.mul(highValue, highValue, multiplier)
+	n.mul(lowValue, lowValue, multiplier)
+	difference := n.fresh()
+	if n.cmp(highValue, lowValue) < 0 {
 		condition, err = r.negate(condition)
 		if err != nil {
 			return false, err
 		}
 		form.args = append(form.args, condition)
-		form.coefficients = append(form.coefficients, new(big.Rat).Sub(lowValue, highValue))
-		form.bound.Sub(&form.bound, highValue)
+		n.sub(difference, lowValue, highValue)
+		form.coefficients = append(form.coefficients, difference)
+		n.sub(form.bound, form.bound, highValue)
 	} else {
 		form.args = append(form.args, condition)
-		form.coefficients = append(form.coefficients, new(big.Rat).Sub(highValue, lowValue))
-		form.bound.Sub(&form.bound, lowValue)
+		n.sub(difference, highValue, lowValue)
+		form.coefficients = append(form.coefficients, difference)
+		n.sub(form.bound, form.bound, lowValue)
+	}
+	if n.err != nil {
+		return false, n.err
 	}
 	// return m_k.is_int() && (r1-r2).is_int() (fork fix, upstream
 	// f7a7b9e1f; AUDIT.md ast_rewriter_04-F3).
-	return form.bound.IsInt() && new(big.Rat).Sub(highValue, lowValue).IsInt(), nil
+	return form.bound.IsInt() && difference.IsInt(), nil
 }
 
-func (r *PB2BVRewriter) arithmeticPB(left, right ast.ASTHandle) (*pb2BVArithmeticForm, bool, error) {
-	form := &pb2BVArithmeticForm{}
-	matched, err := r.collectArithmeticPB(form, left, big.NewRat(1, 1))
+func (r *PB2BVRewriter) arithmeticPB(n *pbNumbers, left, right ast.ASTHandle) (*pb2BVArithmeticForm, bool, error) {
+	form := &pb2BVArithmeticForm{n: n, bound: n.fresh()}
+	one, minusOne := n.fresh(), n.fresh()
+	n.setInt(one, 1)
+	n.setInt(minusOne, -1)
+	matched, err := r.collectArithmeticPB(form, left, one)
 	if err != nil || !matched {
 		return nil, false, err
 	}
-	matched, err = r.collectArithmeticPB(form, right, big.NewRat(-1, 1))
+	matched, err = r.collectArithmeticPB(form, right, minusOne)
 	if err != nil || !matched {
 		return nil, false, err
 	}
 	return form, true, nil
 }
 
-func (r *PB2BVRewriter) rewriteArithmeticComparison(kind int32, args ast.AppArguments, out ast.ASTRef) (RewriteStatus, error) {
+func (r *PB2BVRewriter) rewriteArithmeticComparison(n *pbNumbers, kind int32, args ast.AppArguments, out ast.ASTRef) (RewriteStatus, error) {
 	if args.Count() != 2 {
 		return RewriteFailed, nil
 	}
@@ -625,14 +662,16 @@ func (r *PB2BVRewriter) rewriteArithmeticComparison(kind int32, args ast.AppArgu
 	if kind == arithOpGE || kind == arithOpGT {
 		left, right = right, left
 	}
-	form, matched, err := r.arithmeticPB(left, right)
+	form, matched, err := r.arithmeticPB(n, left, right)
 	if err != nil || !matched {
 		return RewriteFailed, err
 	}
 	if kind == arithOpLT || kind == arithOpGT {
-		form.bound.Add(&form.bound, big.NewRat(1, 1))
+		if err = n.q.Inc(form.bound); err != nil {
+			return RewriteFailed, err
+		}
 	}
-	result, err := r.weighted(mode, form.args, form.coefficients, &form.bound)
+	result, err := r.weighted(n, mode, form.args, form.coefficients, form.bound)
 	if err != nil {
 		return RewriteFailed, err
 	}
@@ -640,7 +679,7 @@ func (r *PB2BVRewriter) rewriteArithmeticComparison(kind int32, args ast.AppArgu
 	return RewriteDone, r.manager.SetRef(out, result)
 }
 
-func (r *PB2BVRewriter) rewriteArithmeticEquality(args ast.AppArguments, out ast.ASTRef) (RewriteStatus, error) {
+func (r *PB2BVRewriter) rewriteArithmeticEquality(n *pbNumbers, args ast.AppArguments, out ast.ASTRef) (RewriteStatus, error) {
 	if args.Count() != 2 {
 		return RewriteFailed, nil
 	}
@@ -652,11 +691,11 @@ func (r *PB2BVRewriter) rewriteArithmeticEquality(args ast.AppArguments, out ast
 	if err != nil {
 		return RewriteFailed, err
 	}
-	form, matched, err := r.arithmeticPB(left, right)
+	form, matched, err := r.arithmeticPB(n, left, right)
 	if err != nil || !matched {
 		return RewriteFailed, err
 	}
-	result, err := r.weighted(pb2BVEQ, form.args, form.coefficients, &form.bound)
+	result, err := r.weighted(n, pb2BVEQ, form.args, form.coefficients, form.bound)
 	if err != nil {
 		return RewriteFailed, err
 	}
@@ -723,7 +762,9 @@ func (r *PB2BVRewriter) cardinality(full bool, kind int32, k uint32, args ast.Ap
 	return result, err
 }
 
-func (r *PB2BVRewriter) rewriteApp(decl ast.ASTHandle, args ast.AppArguments, out ast.ASTRef) (RewriteStatus, error) {
+func (r *PB2BVRewriter) rewriteApp(decl ast.ASTHandle, args ast.AppArguments, out ast.ASTRef) (_ RewriteStatus, resultErr error) {
+	n := newPBNumbers(r.manager)
+	defer func() { resultErr = errors.Join(resultErr, n.release()) }()
 	family, err := r.manager.GetFamilyID(decl)
 	if err != nil {
 		return RewriteFailed, err
@@ -735,23 +776,26 @@ func (r *PB2BVRewriter) rewriteApp(decl ast.ASTHandle, args ast.AppArguments, ou
 	if family == r.arithFamily {
 		switch kind {
 		case arithOpLE, arithOpLT, arithOpGE, arithOpGT:
-			return r.rewriteArithmeticComparison(kind, args, out)
+			return r.rewriteArithmeticComparison(n, kind, args, out)
 		default:
 			return RewriteFailed, nil
 		}
 	}
 	if family == r.manager.BasicFamilyID() && kind == ast.ASTOpEq {
-		return r.rewriteArithmeticEquality(args, out)
+		return r.rewriteArithmeticEquality(n, args, out)
 	}
 	if family != r.pseudo.family || kind < ast.ASTPBOpAtMost || kind > ast.ASTPBOpEQ {
 		return RewriteFailed, nil
 	}
-	bound, err := r.pseudo.bound(decl)
+	bound, err := r.pseudo.bound(n, decl)
 	if err != nil {
 		return RewriteFailed, err
 	}
-	k, unsigned := pb2BVUnsigned(bound)
-	if (kind == ast.ASTPBOpAtLeast || kind == ast.ASTPBOpGE) && bound.Cmp(big.NewRat(1, 1)) == 0 {
+	k, unsigned := pb2BVUnsigned(n, bound)
+	if n.err != nil {
+		return RewriteFailed, n.err
+	}
+	if (kind == ast.ASTPBOpAtLeast || kind == ast.ASTPBOpGE) && bound.IsOne() {
 		handles := make([]ast.ASTHandle, args.Count())
 		for i := range handles {
 			handles[i], err = args.At(uint32(i))
@@ -774,7 +818,7 @@ func (r *PB2BVRewriter) rewriteApp(decl ast.ASTHandle, args ast.AppArguments, ou
 		}
 	}
 	if !unsigned || !unit {
-		if err := r.weightedPBInto(kind, decl, args, bound, out); err != nil {
+		if err := r.weightedPBInto(n, kind, decl, args, bound, out); err != nil {
 			return RewriteFailed, err
 		}
 		r.numTranslated++

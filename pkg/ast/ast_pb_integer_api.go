@@ -4,7 +4,7 @@ package ast
 // boundary. The underlying PB utility accepts rationals, but all five public
 // constructors supply uint32 or int32 values.
 
-import "math/big"
+import unumeral "github.com/glycerine/g3/pkg/util/numeral"
 
 func (m *ASTManager) pseudoBooleanIntegerRelation(kind int32, coefficients []int32, args []ASTHandle, bound int32) (ASTHandle, error) {
 	if err := m.lock(); err != nil {
@@ -14,11 +14,13 @@ func (m *ASTManager) pseudoBooleanIntegerRelation(kind int32, coefficients []int
 	if len(coefficients) != len(args) {
 		return ASTHandle{}, ErrASTDomain
 	}
-	values := make([]*big.Int, len(coefficients))
+	// Small integral rationals: no numeral storage to release.
+	values := make([]unumeral.Rational, len(coefficients))
 	for index, coefficient := range coefficients {
-		values[index] = big.NewInt(int64(coefficient))
+		values[index] = unumeral.Rational{Num: unumeral.NewInt(coefficient), Den: unumeral.NewInt(1)}
 	}
-	return m.pseudoBooleanBuild(kind, values, big.NewInt(int64(bound)), args)
+	k := unumeral.Rational{Num: unumeral.NewInt(bound), Den: unumeral.NewInt(1)}
+	return m.pseudoBooleanBuild(kind, values, &k, args)
 }
 
 // MkPseudoBooleanLEIntegers constructs the API's integer-coefficient <= form.

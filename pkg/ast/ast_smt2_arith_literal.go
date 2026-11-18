@@ -4,7 +4,6 @@ package ast
 
 import (
 	"errors"
-	"math/big"
 	"strconv"
 	"strings"
 
@@ -34,7 +33,15 @@ func (m *ASTManager) SMT2PPArithLiteral(h ASTHandle, decimal bool, precision uin
 }
 
 func (m *ASTManager) smt2PPArithLiteral(h ASTHandle, decimal bool, precision uint32) (format ASTHandle, matched bool, result error) {
-	value, integer, matched, err := m.ArithmeticNumeralText(h)
+	// rational val; bool is_int;
+	service := m.NumeralService()
+	if service == nil {
+		return ASTHandle{}, false, ErrASTHandle
+	}
+	q := service.Manager
+	val := unumeral.NewRational()
+	defer func() { result = errors.Join(result, q.Del(&val)) }()
+	integer, matched, err := m.ArithmeticNumeralRational(h, &val)
 	if err != nil {
 		return ASTHandle{}, false, err
 	}
@@ -79,49 +86,53 @@ func (m *ASTManager) smt2PPArithLiteral(h ASTHandle, decimal bool, precision uin
 		}
 		return format, true, e
 	}
-	var rational big.Rat
-	if _, ok := rational.SetString(value); !ok {
-		return ASTHandle{}, true, ErrASTDomain
-	}
-	negative := rational.Sign() < 0
+	negative := val.IsNeg()
 	if negative {
-		rational.Neg(&rational)
-	}
-	if integer {
-		if !rational.IsInt() {
-			return ASTHandle{}, true, ErrASTDomain
-		}
-		format, err = m.FormatString(rational.Num().String())
-	} else if rational.IsInt() {
-		format, err = m.FormatString(rational.Num().String() + ".0")
-	} else if decimal {
-		service := m.NumeralService()
-		if service == nil {
-			return ASTHandle{}, true, ErrASTHandle
-		}
-		var owned unumeral.OwnedRational
-		owned, err = service.NewValue()
-		if err != nil {
+		if err = q.Neg(&val); err != nil {
 			return ASTHandle{}, true, err
 		}
-		defer func() { result = errors.Join(result, service.Del(&owned)) }()
-		if err = service.SetString(&owned, rational.RatString()); err == nil {
-			var text string
-			text, err = service.DecimalString(&owned, precision, false)
-			if err == nil {
-				format, err = m.FormatString(text)
-			}
+	}
+	// mk_float: val.to_string() + ".0"
+	float := func(r *unumeral.Rational) (ASTHandle, error) {
+		text, e := q.String(r)
+		if e != nil {
+			return ASTHandle{}, e
+		}
+		return m.FormatString(text + ".0")
+	}
+	if integer {
+		if !val.IsInt() {
+			return ASTHandle{}, true, ErrASTDomain
+		}
+		var text string
+		if text, err = q.String(&val); err == nil {
+			format, err = m.FormatString(text)
+		}
+	} else if val.IsInt() {
+		format, err = float(&val)
+	} else if decimal {
+		var text string
+		text, err = q.DecimalString(&val, precision, false)
+		if err == nil {
+			format, err = m.FormatString(text)
 		}
 	} else {
-		numerator, e := m.FormatString(rational.Num().String() + ".0")
-		if e != nil {
-			return ASTHandle{}, true, e
+		part := unumeral.NewRational()
+		var numerator, denominator ASTHandle
+		err = q.NumeratorRational(&val, &part)
+		if err == nil {
+			numerator, err = float(&part)
 		}
-		denominator, e := m.FormatString(rational.Denom().String() + ".0")
-		if e != nil {
-			return ASTHandle{}, true, e
+		if err == nil {
+			err = q.DenominatorRational(&val, &part)
 		}
-		format, err = m.FormatSeq1("/", []ASTHandle{numerator, denominator})
+		if err == nil {
+			denominator, err = float(&part)
+		}
+		err = errors.Join(err, q.Del(&part))
+		if err == nil {
+			format, err = m.FormatSeq1("/", []ASTHandle{numerator, denominator})
+		}
 	}
 	if err != nil {
 		return ASTHandle{}, true, err

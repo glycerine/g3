@@ -5,13 +5,13 @@ package rewriter
 import (
 	"errors"
 	"io"
-	"math/big"
 	"os"
 	"path/filepath"
 	"strconv"
 	"sync/atomic"
 
 	"github.com/glycerine/g3/pkg/ast"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 const (
@@ -24,13 +24,13 @@ const (
 
 var pbRewriteLemma atomic.Uint64
 
-func (r *PseudoBooleanRewriter) arithmeticNumeral(q *big.Rat, integer bool) (result ast.ASTHandle, err error) {
-	v, err := r.ownedRational(q)
-	if err != nil {
-		return result, err
-	}
-	defer func() { err = errors.Join(err, r.manager.NumeralService().Del(&v)) }()
-	return r.manager.ArithmeticNumeral(&v, integer)
+func (r *PseudoBooleanRewriter) arithmeticNumeral(q *unumeral.Rational, integer bool) (result ast.ASTHandle, err error) {
+	return r.manager.ArithmeticNumeralFromRational(q, integer)
+}
+
+// pbSmall is the small integer v as a rational without numeral storage.
+func pbSmall(v int32) *unumeral.Rational {
+	return &unumeral.Rational{Num: unumeral.NewInt(v), Den: unumeral.NewInt(1)}
 }
 
 func (r *PseudoBooleanRewriter) arithmeticApp(kind int32, args ...ast.ASTHandle) (ast.ASTHandle, error) {
@@ -44,10 +44,12 @@ func (r *PseudoBooleanRewriter) arithmeticApp(kind int32, args ...ast.ASTHandle)
 // TranslatePBToLIA implements the diagnostic translator used by the source
 // pb_validate trace. Variables maps positive Boolean literals to 0/1 integer
 // expressions.
-func (r *PseudoBooleanRewriter) TranslatePBToLIA(variables map[ast.ASTHandle]ast.ASTHandle, formula ast.ASTHandle) (ast.ASTHandle, error) {
+func (r *PseudoBooleanRewriter) TranslatePBToLIA(variables map[ast.ASTHandle]ast.ASTHandle, formula ast.ASTHandle) (_ ast.ASTHandle, resultErr error) {
 	if err := r.open(); err != nil {
 		return ast.ASTHandle{}, err
 	}
+	numbers := newPBNumbers(r.manager)
+	defer func() { resultErr = errors.Join(resultErr, numbers.release()) }()
 	family, err := r.manager.GetFamilyID(formula)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -83,7 +85,7 @@ func (r *PseudoBooleanRewriter) TranslatePBToLIA(variables map[ast.ASTHandle]ast
 		}
 		if negated {
 			if one.IsNull() {
-				one, e = r.arithmeticNumeral(big.NewRat(1, 1), true)
+				one, e = r.arithmeticNumeral(pbSmall(1), true)
 				if e != nil {
 					return ast.ASTHandle{}, e
 				}
@@ -98,7 +100,7 @@ func (r *PseudoBooleanRewriter) TranslatePBToLIA(variables map[ast.ASTHandle]ast
 	cardinality := kind == ast.ASTPBOpAtMost || kind == ast.ASTPBOpAtLeast
 	if !cardinality {
 		for i := range terms {
-			coefficient, e := r.coefficient(formula, uint32(i))
+			coefficient, e := r.coefficient(numbers, formula, uint32(i))
 			if e != nil {
 				return ast.ASTHandle{}, e
 			}
@@ -114,14 +116,14 @@ func (r *PseudoBooleanRewriter) TranslatePBToLIA(variables map[ast.ASTHandle]ast
 	}
 	var sum ast.ASTHandle
 	if len(terms) == 0 {
-		sum, err = r.arithmeticNumeral(new(big.Rat), true)
+		sum, err = r.arithmeticNumeral(pbSmall(0), true)
 	} else {
 		sum, err = r.arithmeticApp(pbArithAdd, terms...)
 	}
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	bound, err := r.bound(formula)
+	bound, err := r.bound(numbers, formula)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -156,11 +158,11 @@ func (r *PseudoBooleanRewriter) MakeValidationFormula(original, rewritten ast.AS
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	zero, err := r.arithmeticNumeral(new(big.Rat), true)
+	zero, err := r.arithmeticNumeral(pbSmall(0), true)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	one, err := r.arithmeticNumeral(big.NewRat(1, 1), true)
+	one, err := r.arithmeticNumeral(pbSmall(1), true)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}

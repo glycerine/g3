@@ -4,64 +4,28 @@ package ast
 
 import (
 	"errors"
-	"math"
-	"math/big"
 
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (m *ASTManager) pseudoBooleanRat(value *unumeral.OwnedRational) (*big.Rat, error) {
-	text, e := m.numerals.String(value)
-	if e != nil {
-		return nil, e
-	}
-	r, ok := new(big.Rat).SetString(text)
-	if !ok {
-		return nil, ErrASTDomain
-	}
-	return r, nil
-}
-
-func pbLCM(a, b *big.Int) *big.Int {
-	if a.Sign() == 0 || b.Sign() == 0 {
-		return new(big.Int)
-	}
-	g := new(big.Int).GCD(nil, nil, a, b)
-	r := new(big.Int).Quo(new(big.Int).Set(a), g)
-	r.Mul(r, b)
-	return r.Abs(r)
-}
-
-func pbFloor(r *big.Rat) *big.Int {
-	q, rem := new(big.Int), new(big.Int)
-	q.QuoRem(r.Num(), r.Denom(), rem)
-	if r.Sign() < 0 && rem.Sign() != 0 {
-		q.Sub(q, big.NewInt(1))
-	}
-	return q
-}
-
-func pbCeil(r *big.Rat) *big.Int {
-	q, rem := new(big.Int), new(big.Int)
-	q.QuoRem(r.Num(), r.Denom(), rem)
-	if r.Sign() > 0 && rem.Sign() != 0 {
-		q.Add(q, big.NewInt(1))
-	}
-	return q
-}
-
-func (m *ASTManager) pseudoBooleanIntegerParameter(value *big.Int) (ASTParameter, error) {
-	if value.IsInt64() {
-		n := value.Int64()
-		if n >= math.MinInt32 && n <= math.MaxInt32 {
-			return m.newParameterInt(int32(n))
+// pseudoBooleanIntegerParameter is parameter(rational) for an integral
+// rational of m.numerals.Manager; int32 values use an int parameter.
+func (m *ASTManager) pseudoBooleanIntegerParameter(value *unumeral.Rational) (ASTParameter, error) {
+	q := m.numerals.Manager
+	if small, e := q.IsInt32(value); e != nil {
+		return ASTParameter{}, e
+	} else if small {
+		n, e := q.Int32(value)
+		if e != nil {
+			return ASTParameter{}, e
 		}
+		return m.newParameterInt(n)
 	}
 	r, e := m.numerals.NewValue()
 	if e != nil {
 		return ASTParameter{}, e
 	}
-	if e = m.numerals.SetString(&r, value.String()); e != nil {
+	if e = q.Copy(&r.Raw, value); e != nil {
 		_ = m.numerals.Del(&r)
 		return ASTParameter{}, e
 	}
@@ -69,7 +33,7 @@ func (m *ASTManager) pseudoBooleanIntegerParameter(value *big.Int) (ASTParameter
 	return p, errors.Join(e, m.numerals.Del(&r))
 }
 
-func (m *ASTManager) pseudoBooleanBuild(kind int32, coefficients []*big.Int, bound *big.Int, args []ASTHandle) (result ASTHandle, err error) {
+func (m *ASTManager) pseudoBooleanBuild(kind int32, coefficients []unumeral.Rational, bound *unumeral.Rational, args []ASTHandle) (result ASTHandle, err error) {
 	p := m.auxiliaryPlugin(astPseudoBooleanPlugin)
 	if p == nil || len(coefficients) != len(args) {
 		return result, ErrASTDomain
@@ -85,8 +49,8 @@ func (m *ASTManager) pseudoBooleanBuild(kind int32, coefficients []*big.Int, bou
 		return result, e
 	}
 	parameters = append(parameters, parameter)
-	for _, coefficient := range coefficients {
-		parameter, e = m.pseudoBooleanIntegerParameter(coefficient)
+	for i := range coefficients {
+		parameter, e = m.pseudoBooleanIntegerParameter(&coefficients[i])
 		if e != nil {
 			return result, e
 		}
@@ -96,37 +60,70 @@ func (m *ASTManager) pseudoBooleanBuild(kind int32, coefficients []*big.Int, bou
 	return m.external(r), e
 }
 
-func (m *ASTManager) pseudoBooleanNormalize(coefficients []unumeral.OwnedRational, bound *unumeral.OwnedRational) ([]*big.Int, *big.Rat, error) {
-	if bound == nil {
-		return nil, nil, ErrASTHandle
-	}
-	values := make([]*big.Rat, len(coefficients))
-	lcm := big.NewInt(1)
+// pbRelease destroys normalize's m_coeffs and m_k.
+func (m *ASTManager) pbRelease(coefficients []unumeral.Rational, k *unumeral.Rational) (err error) {
+	q := m.numerals.Manager
 	for i := range coefficients {
-		value, e := m.pseudoBooleanRat(&coefficients[i])
-		if e != nil {
-			return nil, nil, e
-		}
-		values[i] = value
-		lcm = pbLCM(lcm, value.Denom())
+		err = errors.Join(err, q.Del(&coefficients[i]))
 	}
-	k, e := m.pseudoBooleanRat(bound)
-	if e != nil {
-		return nil, nil, e
-	}
-	result := make([]*big.Int, len(values))
-	for i, value := range values {
-		scaled := new(big.Rat).Mul(value, new(big.Rat).SetInt(lcm))
-		if !scaled.IsInt() {
-			return nil, nil, ErrASTDomain
-		}
-		result[i] = new(big.Int).Set(scaled.Num())
-	}
-	k.Mul(k, new(big.Rat).SetInt(lcm))
-	return result, k, nil
+	return errors.Join(err, q.Del(k))
 }
 
-func (m *ASTManager) pseudoBooleanRelation(kind int32, coefficients []unumeral.OwnedRational, args []ASTHandle, bound *unumeral.OwnedRational) (ASTHandle, error) {
+// pseudoBooleanNormalize is pb_util::normalize: m_coeffs and m_k scaled by
+// the lcm of the coefficients' denominators. The caller owns the results
+// (pbRelease).
+func (m *ASTManager) pseudoBooleanNormalize(coefficients []unumeral.OwnedRational, bound *unumeral.OwnedRational) (_ []unumeral.Rational, k unumeral.Rational, err error) {
+	if bound == nil {
+		return nil, k, ErrASTHandle
+	}
+	q := m.numerals.Manager
+	values := make([]unumeral.Rational, len(coefficients))
+	for i := range values {
+		values[i] = unumeral.NewRational()
+	}
+	k = unumeral.NewRational()
+	d, den := unumeral.NewRational(), unumeral.NewRational()
+	defer func() {
+		err = errors.Join(err, q.Del(&d), q.Del(&den))
+		if err != nil {
+			err = errors.Join(err, m.pbRelease(values, &k))
+		}
+	}()
+	allOnes := true
+	for i := 0; i < len(coefficients) && allOnes; i++ {
+		allOnes = coefficients[i].Raw.IsInt()
+	}
+	for i := range coefficients {
+		if err = q.Copy(&values[i], &coefficients[i].Raw); err != nil {
+			return nil, k, err
+		}
+	}
+	if err = q.Copy(&k, &bound.Raw); err != nil {
+		return nil, k, err
+	}
+	if allOnes {
+		return values, k, nil
+	}
+	if err = q.SetInt32(&d, 1); err != nil {
+		return nil, k, err
+	}
+	for i := range values {
+		if err = errors.Join(q.DenominatorRational(&values[i], &den), q.LCM(&d, &den, &d)); err != nil {
+			return nil, k, err
+		}
+	}
+	for i := range values {
+		if err = q.Mul(&d, &values[i], &values[i]); err != nil {
+			return nil, k, err
+		}
+	}
+	if err = q.Mul(&d, &k, &k); err != nil {
+		return nil, k, err
+	}
+	return values, k, nil
+}
+
+func (m *ASTManager) pseudoBooleanRelation(kind int32, coefficients []unumeral.OwnedRational, args []ASTHandle, bound *unumeral.OwnedRational) (_ ASTHandle, err error) {
 	if e := m.lock(); e != nil {
 		return ASTHandle{}, e
 	}
@@ -138,22 +135,25 @@ func (m *ASTManager) pseudoBooleanRelation(kind int32, coefficients []unumeral.O
 	if e != nil {
 		return ASTHandle{}, e
 	}
-	var integer *big.Int
+	defer func() { err = errors.Join(err, m.pbRelease(values, &k)) }()
+	q := m.numerals.Manager
 	switch kind {
 	case ASTPBOpLE:
-		integer = pbFloor(k)
+		e = q.Floor(&k, &k)
 	case ASTPBOpGE:
-		integer = pbCeil(k)
+		e = q.Ceil(&k, &k)
 	case ASTPBOpEQ:
 		if !k.IsInt() {
 			r, e := m.mkApp(m.basic.declarations[ASTOpFalse], nil)
 			return m.external(r), e
 		}
-		integer = new(big.Int).Set(k.Num())
 	default:
 		return ASTHandle{}, ErrASTDomain
 	}
-	return m.pseudoBooleanBuild(kind, values, integer, args)
+	if e != nil {
+		return ASTHandle{}, e
+	}
+	return m.pseudoBooleanBuild(kind, values, &k, args)
 }
 
 func (m *ASTManager) MkPseudoBooleanLE(coefficients []unumeral.OwnedRational, args []ASTHandle, bound *unumeral.OwnedRational) (ASTHandle, error) {
@@ -205,16 +205,22 @@ func (m *ASTManager) MkPseudoBooleanLT(coefficients []unumeral.OwnedRational, ar
 	if e != nil {
 		return result, e
 	}
-	transformed := new(big.Int).Neg(pbFloor(k))
-	transformed.Add(transformed, big.NewInt(1))
+	defer func() { err = errors.Join(err, m.pbRelease(values, &k)) }()
+	// m_k = floor(m_k); m_k.neg(); m_k += 1; m_k += m_coeffs[i]
+	q := m.numerals.Manager
+	if e = errors.Join(q.Floor(&k, &k), q.Neg(&k), q.Inc(&k)); e != nil {
+		return result, e
+	}
 	negated := make([]ASTHandle, len(args))
 	for i, arg := range args {
-		transformed.Add(transformed, values[i])
+		if e = q.Add(&k, &values[i], &k); e != nil {
+			return result, e
+		}
 		n, e := m.mkFamilyApp(0, ASTOpNot, nil, []ASTHandle{arg})
 		if e != nil {
 			return result, e
 		}
 		negated[i] = m.external(n)
 	}
-	return m.pseudoBooleanBuild(ASTPBOpGE, values, transformed, negated)
+	return m.pseudoBooleanBuild(ASTPBOpGE, values, &k, negated)
 }

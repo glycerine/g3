@@ -2,7 +2,7 @@ package rewriter
 
 import (
 	"errors"
-	"math/big"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"os"
 	"strings"
 	"testing"
@@ -23,7 +23,7 @@ func TestPB2BVDualBoundSourceAssertion(t *testing.T) {
 	decl, err := m.GetDecl(h)
 	astTestMust(t, err)
 	_, report := enum2BVDebugActions(t, "T")
-	got, err := r.weightedPB(ast.ASTPBOpGE, decl, ast.SliceArguments([]ast.ASTHandle{a, b}), big.NewRat(6, 1))
+	got, err := r.weightedPB(pbTestNumbers(t, m), ast.ASTPBOpGE, decl, ast.SliceArguments([]ast.ASTHandle{a, b}), pbSmall(6))
 	if diagnostic.DebugBuild {
 		var ex z3exception.DefaultException
 		if !errors.As(err, &ex) || ex.Message() != "assertion violation" {
@@ -46,7 +46,7 @@ func TestPB2BVNegativeCoefficientSourceAssertion(t *testing.T) {
 	m, r := pb2BVFixture(t)
 	a := goalTestAtom(t, m, "negative-weight-a")
 	debug, report := enum2BVDebugActions(t, "T")
-	_, err := r.weighted(pb2BVLE, []ast.ASTHandle{a}, []*big.Rat{big.NewRat(-1, 1)}, big.NewRat(2, 1))
+	_, err := r.weighted(pbTestNumbers(t, m), pb2BVLE, []ast.ASTHandle{a}, []*unumeral.Rational{pbSmall(-1)}, pbSmall(2))
 	if diagnostic.DebugBuild {
 		var ex z3exception.DefaultException
 		if !errors.As(err, &ex) || ex.Message() != "assertion violation" {
@@ -61,8 +61,15 @@ func TestPB2BVNegativeCoefficientSourceAssertion(t *testing.T) {
 		t.Fatal("negative coefficient guard", err)
 	}
 	astTestMust(t, debug.EnableAssertions(false))
-	_, err = r.weighted(pb2BVLE, []ast.ASTHandle{a}, []*big.Rat{big.NewRat(-1, 1)}, big.NewRat(2, 1))
+	_, err = r.weighted(pbTestNumbers(t, m), pb2BVLE, []ast.ASTHandle{a}, []*unumeral.Rational{pbSmall(-1)}, pbSmall(2))
 	if !errors.Is(err, ast.ErrASTDomain) {
 		t.Fatal("disabled assertions removed Go coefficient guard", err)
 	}
+}
+
+// pbTestNumbers is a rewrite's rational pool, released at cleanup.
+func pbTestNumbers(t *testing.T, m *ast.ASTManager) *pbNumbers {
+	n := newPBNumbers(m)
+	t.Cleanup(func() { astTestMust(t, n.release()) })
+	return n
 }
